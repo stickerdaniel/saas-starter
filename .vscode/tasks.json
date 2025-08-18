@@ -1,0 +1,71 @@
+// .vscode/tasks.json
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "bun run dev -- --open",
+			"type": "shell",
+			"command": "bun",
+			"args": ["run", "dev", "--", "--open"],
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"problemMatcher": [],
+			"detail": "Run the development server",
+			"presentation": {
+				"clear": true
+			}
+		},
+		{
+			"label": "quality-check.sh",
+			"type": "shell",
+			"command": "./quality-check.sh",
+			"group": {
+				"kind": "test",
+				"isDefault": true
+			},
+			"problemMatcher": ["$eslint-compact", "$tsc"],
+			"detail": "Run full quality checks (same as CI)",
+			"presentation": {
+				"clear": true
+			}
+		},
+		{
+			"label": "quality-check.sh --staged",
+			"type": "shell",
+			"command": "./quality-check.sh",
+			"args": ["--staged"],
+			"group": "test",
+			"problemMatcher": ["$eslint-compact", "$tsc"],
+			"detail": "Run pre-commit checks on staged files only",
+			"presentation": {
+				"clear": true
+			}
+			// },
+			// {
+			// 	"label": "bun run i18n:pull",
+			// 	"detail": "Pull translations from Tolgee and format JSON files",
+			// 	"type": "shell",
+			// 	"command": "bun",
+			// 	"args": ["run", "i18n:pull"],
+			// 	"group": "none",
+			// 	"presentation": {
+			// 		"clear": true
+			// 	},
+			// 	"problemMatcher": []
+			// },
+			// {
+			// 	"label": "bun run i18n:push",
+			// 	"detail": "Push translations to Tolgee and format JSON files",
+			// 	"type": "shell",
+			// 	"command": "bun",
+			// 	"args": ["run", "i18n:push"],
+			// 	"group": "none",
+			// 	"presentation": {
+			// 		"clear": true
+			// 	},
+			// 	"problemMatcher": []
+		}
+	]
+}

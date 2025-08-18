@@ -1,0 +1,17 @@
+{
+	"permissions": {
+		"allow": [
+			"WebFetch(domain:labs.convex.dev)",
+			"Bash(node:*)",
+			"WebFetch(domain:github.com)",
+			"WebSearch",
+			"WebSearch",
+			"WebFetch(domain:vercel.com)",
+			"WebFetch(domain:developers.cloudflare.com)",
+			"Bash(bunx eslint:*)"
+		],
+		"deny": [],
+		"ask": ["Bash(rm:*)"],
+		"defaultMode": "plan"
+	}
+}

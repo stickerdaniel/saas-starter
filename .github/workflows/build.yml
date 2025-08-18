@@ -1,0 +1,33 @@
+name: Build
+
+on: [push, pull_request]
+
+env:
+  PUBLIC_CONVEX_URL: ${{ secrets.PUBLIC_CONVEX_URL }}
+
+jobs:
+  build_and_test:
+    name: Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Setup Go (for misspell)
+        uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Install Playwright Chromium
+        run: bunx playwright install chromium --with-deps
+
+      - name: Run quality checks
+        run: ./quality-check.sh

@@ -1,0 +1,4 @@
+{
+	"npm.packageManager": "bun",
+	"editor.formatOnSave": true
+}
