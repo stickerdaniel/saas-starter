@@ -49,10 +49,10 @@
 </script>
 
 {#if viewer.data}
-	<div class="px-4 lg:px-6">
+	<div class="h-full px-4 lg:px-6">
 		<div class="flex flex-1 flex-wrap gap-4 md:gap-6">
 			<ProductPageTitle
-				title="Chat"
+				title="Community Chat"
 				description="Open this app in multiple browser windows to see the real-time database in action"
 			/>
 			<div class="flex-1 rounded-lg border">
@@ -78,7 +78,7 @@
 						</Button>
 					</div>
 				</div>
-				<Chat.List>
+				<Chat.List class="!h-[calc(100dvh-var(--header-height)-12rem)]">
 					{#if messages.data}
 						{#each messages.data as message}
 							<Chat.Bubble variant={message.userId === viewer.data._id ? 'sent' : 'received'}>
