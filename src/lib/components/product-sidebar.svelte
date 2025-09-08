@@ -19,7 +19,7 @@
 
 	const navItems = [
 		{
-			title: 'Chat',
+			title: 'Community Chat',
 			url: '/product',
 			icon: MessageCircleIcon,
 			isActive: true

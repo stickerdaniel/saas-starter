@@ -4,7 +4,7 @@
 	import ChatIntro from '$lib/demo/Chat/ChatIntro.svelte';
 	import { useQuery } from 'convex-svelte';
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
-	import ChatSidebar from '$lib/components/chat-sidebar.svelte';
+	import ProductSidebar from '$lib/components/product-sidebar.svelte';
 	import SiteHeader from '$lib/components/site-header.svelte';
 
 	let { data } = $props();
@@ -16,7 +16,7 @@
 	<Sidebar.Provider
 		style="--sidebar-width: calc(var(--spacing) * 72); --header-height: calc(var(--spacing) * 12);"
 	>
-		<ChatSidebar
+		<ProductSidebar
 			variant="inset"
 			user={{
 				name: viewer.data.name ?? 'User',
