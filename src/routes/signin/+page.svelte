@@ -1,8 +1,9 @@
 <script>
 	import { useAuth } from '$lib/sveltekit';
 	import { goto } from '$app/navigation';
-
 	import { env } from '$env/dynamic/public';
+	import { Button } from '$lib/components/ui/button/index.js';
+	import { Input } from '$lib/components/ui/input/index.js';
 
 	const { signIn } = useAuth();
 </script>
@@ -10,12 +11,12 @@
 <div class="flex min-h-screen w-full">
 	<main class="mx-auto my-auto flex flex-col">
 		<h2 class="mb-4 text-2xl font-semibold tracking-tight">Sign in or create an account</h2>
-		<button class="btn preset-filled" onclick={() => signIn('github', { redirectTo: '/product' })}
-			>Sign In with GitHub</button
-		>
-		<button class="btn preset-filled" onclick={() => signIn('google', { redirectTo: '/product' })}
-			>Sign In with Google</button
-		>
+		<Button onclick={() => signIn('github', { redirectTo: '/product' })} class="w-full">
+			Sign In with GitHub
+		</Button>
+		<Button onclick={() => signIn('google', { redirectTo: '/product' })} class="w-full">
+			Sign In with Google
+		</Button>
 		{#if env.PUBLIC_E2E_TEST}
 			<form
 				class="mt-8 flex flex-col gap-2"
@@ -32,14 +33,8 @@
 				}}
 			>
 				Test only: Sign in with a secret
-				<input
-					aria-label="Secret"
-					type="text"
-					name="secret"
-					placeholder="secret value"
-					class="input"
-				/>
-				<button class="btn preset-filled" type="submit"> Sign in with secret </button>
+				<Input aria-label="Secret" type="text" name="secret" placeholder="secret value" />
+				<Button type="submit">Sign in with secret</Button>
 			</form>
 		{/if}
 

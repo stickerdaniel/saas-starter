@@ -14,8 +14,13 @@ export const list = query({
 		// Reverse the list so that it's in a chronological order.
 		return Promise.all(
 			messages.reverse().map(async (message) => {
-				const { name, email, phone } = (await ctx.db.get(message.userId))!;
-				return { ...message, author: name ?? email ?? phone ?? 'Anonymous' };
+				const user = await ctx.db.get(message.userId);
+				const { name, email, phone, image } = user!;
+				return {
+					...message,
+					author: name ?? email ?? phone ?? 'Anonymous',
+					authorImage: image
+				};
 			})
 		);
 	}

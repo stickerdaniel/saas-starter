@@ -7,10 +7,18 @@
 	import * as Avatar from '$lib/components/ui/avatar/index.js';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
+	import { useAuth } from '$lib/sveltekit';
+	import { goto } from '$app/navigation';
 
-	let { user }: { user: { name: string; email: string; avatar: string } } = $props();
+	let { user }: { user: { name: string; email: string; image?: string } } = $props();
 
 	const sidebar = Sidebar.useSidebar();
+	const { signOut } = useAuth();
+
+	async function handleSignOut() {
+		await signOut();
+		goto('/');
+	}
 </script>
 
 <Sidebar.Menu>
@@ -24,8 +32,14 @@
 						class="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
 					>
 						<Avatar.Root class="size-8 rounded-lg grayscale">
-							<Avatar.Image src={user.avatar} alt={user.name} />
-							<Avatar.Fallback class="rounded-lg">CN</Avatar.Fallback>
+							<Avatar.Image src={user.image} alt={user.name} />
+							<Avatar.Fallback class="rounded-lg">
+								{user.name
+									.split(' ')
+									.map((n) => n[0])
+									.join('')
+									.toUpperCase()}
+							</Avatar.Fallback>
 						</Avatar.Root>
 						<div class="grid flex-1 text-left text-sm leading-tight">
 							<span class="truncate font-medium">{user.name}</span>
@@ -46,8 +60,14 @@
 				<DropdownMenu.Label class="p-0 font-normal">
 					<div class="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
 						<Avatar.Root class="size-8 rounded-lg">
-							<Avatar.Image src={user.avatar} alt={user.name} />
-							<Avatar.Fallback class="rounded-lg">CN</Avatar.Fallback>
+							<Avatar.Image src={user.image} alt={user.name} />
+							<Avatar.Fallback class="rounded-lg">
+								{user.name
+									.split(' ')
+									.map((n) => n[0])
+									.join('')
+									.toUpperCase()}
+							</Avatar.Fallback>
 						</Avatar.Root>
 						<div class="grid flex-1 text-left text-sm leading-tight">
 							<span class="truncate font-medium">{user.name}</span>
@@ -73,7 +93,7 @@
 					</DropdownMenu.Item>
 				</DropdownMenu.Group>
 				<DropdownMenu.Separator />
-				<DropdownMenu.Item>
+				<DropdownMenu.Item onclick={handleSignOut}>
 					<LogoutIcon />
 					Log out
 				</DropdownMenu.Item>
