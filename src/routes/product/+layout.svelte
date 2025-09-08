@@ -1,9 +1,10 @@
 <script lang="ts">
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
-	import ProductSidebar from '$lib/components/product-sidebar.svelte';
-	import ProductHeader from '$lib/components/product-header.svelte';
+	import ProductSidebar from '$lib/components/product/product-sidebar.svelte';
+	import ProductHeader from '$lib/components/product/product-header.svelte';
 	import type { LayoutData } from './$types';
 	import type { Snippet } from 'svelte';
+	import { ScrollArea } from '$lib/components/ui/scroll-area';
 
 	interface Props {
 		children?: Snippet;
@@ -16,6 +17,7 @@
 {#if data.viewer}
 	<Sidebar.Provider
 		style="--sidebar-width: calc(var(--spacing) * 72); --header-height: calc(var(--spacing) * 12);"
+		class="h-svh overflow-hidden"
 	>
 		<ProductSidebar
 			variant="inset"
@@ -27,9 +29,15 @@
 		/>
 		<Sidebar.Inset>
 			<ProductHeader />
-			<div class="flex flex-1 flex-col overflow-hidden">
-				{@render children?.()}
-			</div>
+			<ScrollArea class="overflow-hidden">
+				<div class="flex flex-1 flex-col">
+					<div class="@container/main flex flex-1 flex-col gap-2">
+						<div class="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
+							{@render children?.()}
+						</div>
+					</div>
+				</div>
+			</ScrollArea>
 		</Sidebar.Inset>
 	</Sidebar.Provider>
 {/if}

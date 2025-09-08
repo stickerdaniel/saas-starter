@@ -3,7 +3,7 @@
 	import BookIcon from '@tabler/icons-svelte/icons/book';
 	import HomeIcon from '@tabler/icons-svelte/icons/home';
 	import InnerShadowTopIcon from '@tabler/icons-svelte/icons/inner-shadow-top';
-	import NavUser from './nav-user.svelte';
+	import NavUser from '../nav-user.svelte';
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import type { ComponentProps } from 'svelte';
 
