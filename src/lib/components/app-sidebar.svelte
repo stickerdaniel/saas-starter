@@ -1,167 +1,171 @@
-<script lang="ts">
-	import CameraIcon from '@tabler/icons-svelte/icons/camera';
-	import ChartBarIcon from '@tabler/icons-svelte/icons/chart-bar';
-	import DashboardIcon from '@tabler/icons-svelte/icons/dashboard';
-	import DatabaseIcon from '@tabler/icons-svelte/icons/database';
-	import FileAiIcon from '@tabler/icons-svelte/icons/file-ai';
-	import FileDescriptionIcon from '@tabler/icons-svelte/icons/file-description';
-	import FileWordIcon from '@tabler/icons-svelte/icons/file-word';
-	import FolderIcon from '@tabler/icons-svelte/icons/folder';
-	import HelpIcon from '@tabler/icons-svelte/icons/help';
-	import InnerShadowTopIcon from '@tabler/icons-svelte/icons/inner-shadow-top';
-	import ListDetailsIcon from '@tabler/icons-svelte/icons/list-details';
-	import ReportIcon from '@tabler/icons-svelte/icons/report';
-	import SearchIcon from '@tabler/icons-svelte/icons/search';
-	import SettingsIcon from '@tabler/icons-svelte/icons/settings';
-	import UsersIcon from '@tabler/icons-svelte/icons/users';
-	import NavDocuments from './nav-documents.svelte';
-	import NavMain from './nav-main.svelte';
-	import NavSecondary from './nav-secondary.svelte';
-	import NavUser from './nav-user.svelte';
-	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
-	import type { ComponentProps } from 'svelte';
+<script lang="ts" module>
+	import AudioWaveformIcon from '@lucide/svelte/icons/audio-waveform';
+	import BookOpenIcon from '@lucide/svelte/icons/book-open';
+	import BotIcon from '@lucide/svelte/icons/bot';
+	import ChartPieIcon from '@lucide/svelte/icons/chart-pie';
+	import CommandIcon from '@lucide/svelte/icons/command';
+	import FrameIcon from '@lucide/svelte/icons/frame';
+	import GalleryVerticalEndIcon from '@lucide/svelte/icons/gallery-vertical-end';
+	import MapIcon from '@lucide/svelte/icons/map';
+	import Settings2Icon from '@lucide/svelte/icons/settings-2';
+	import SquareTerminalIcon from '@lucide/svelte/icons/square-terminal';
 
+	// This is sample data.
 	const data = {
 		user: {
 			name: 'shadcn',
 			email: 'm@example.com',
 			avatar: '/avatars/shadcn.jpg'
 		},
+		teams: [
+			{
+				name: 'Acme Inc',
+				logo: GalleryVerticalEndIcon,
+				plan: 'Enterprise'
+			},
+			{
+				name: 'Acme Corp.',
+				logo: AudioWaveformIcon,
+				plan: 'Startup'
+			},
+			{
+				name: 'Evil Corp.',
+				logo: CommandIcon,
+				plan: 'Free'
+			}
+		],
 		navMain: [
 			{
-				title: 'Dashboard',
+				title: 'Playground',
 				url: '#',
-				icon: DashboardIcon
-			},
-			{
-				title: 'Lifecycle',
-				url: '#',
-				icon: ListDetailsIcon
-			},
-			{
-				title: 'Analytics',
-				url: '#',
-				icon: ChartBarIcon
-			},
-			{
-				title: 'Projects',
-				url: '#',
-				icon: FolderIcon
-			},
-			{
-				title: 'Team',
-				url: '#',
-				icon: UsersIcon
-			}
-		],
-		navClouds: [
-			{
-				title: 'Capture',
-				icon: CameraIcon,
+				icon: SquareTerminalIcon,
 				isActive: true,
-				url: '#',
 				items: [
 					{
-						title: 'Active Proposals',
+						title: 'History',
 						url: '#'
 					},
 					{
-						title: 'Archived',
+						title: 'Starred',
+						url: '#'
+					},
+					{
+						title: 'Settings',
 						url: '#'
 					}
 				]
 			},
 			{
-				title: 'Proposal',
-				icon: FileDescriptionIcon,
+				title: 'Models',
 				url: '#',
+				icon: BotIcon,
 				items: [
 					{
-						title: 'Active Proposals',
+						title: 'Genesis',
 						url: '#'
 					},
 					{
-						title: 'Archived',
+						title: 'Explorer',
+						url: '#'
+					},
+					{
+						title: 'Quantum',
 						url: '#'
 					}
 				]
 			},
 			{
-				title: 'Prompts',
-				icon: FileAiIcon,
+				title: 'Documentation',
 				url: '#',
+				icon: BookOpenIcon,
 				items: [
 					{
-						title: 'Active Proposals',
+						title: 'Introduction',
 						url: '#'
 					},
 					{
-						title: 'Archived',
+						title: 'Get Started',
+						url: '#'
+					},
+					{
+						title: 'Tutorials',
+						url: '#'
+					},
+					{
+						title: 'Changelog',
 						url: '#'
 					}
 				]
-			}
-		],
-		navSecondary: [
+			},
 			{
 				title: 'Settings',
 				url: '#',
-				icon: SettingsIcon
-			},
-			{
-				title: 'Get Help',
-				url: '#',
-				icon: HelpIcon
-			},
-			{
-				title: 'Search',
-				url: '#',
-				icon: SearchIcon
+				icon: Settings2Icon,
+				items: [
+					{
+						title: 'General',
+						url: '#'
+					},
+					{
+						title: 'Team',
+						url: '#'
+					},
+					{
+						title: 'Billing',
+						url: '#'
+					},
+					{
+						title: 'Limits',
+						url: '#'
+					}
+				]
 			}
 		],
-		documents: [
+		projects: [
 			{
-				name: 'Data Library',
+				name: 'Design Engineering',
 				url: '#',
-				icon: DatabaseIcon
+				icon: FrameIcon
 			},
 			{
-				name: 'Reports',
+				name: 'Sales & Marketing',
 				url: '#',
-				icon: ReportIcon
+				icon: ChartPieIcon
 			},
 			{
-				name: 'Word Assistant',
+				name: 'Travel',
 				url: '#',
-				icon: FileWordIcon
+				icon: MapIcon
 			}
 		]
 	};
-
-	let { ...restProps }: ComponentProps<typeof Sidebar.Root> = $props();
 </script>
 
-<Sidebar.Root collapsible="offcanvas" {...restProps}>
+<script lang="ts">
+	import NavMain from './nav-main.svelte';
+	import NavProjects from './nav-projects.svelte';
+	import NavUser from './nav-user.svelte';
+	import TeamSwitcher from './team-switcher.svelte';
+	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
+	import type { ComponentProps } from 'svelte';
+
+	let {
+		ref = $bindable(null),
+		collapsible = 'icon',
+		...restProps
+	}: ComponentProps<typeof Sidebar.Root> = $props();
+</script>
+
+<Sidebar.Root {collapsible} {...restProps}>
 	<Sidebar.Header>
-		<Sidebar.Menu>
-			<Sidebar.MenuItem>
-				<Sidebar.MenuButton class="data-[slot=sidebar-menu-button]:!p-1.5">
-					{#snippet child({ props })}
-						<a href="##" {...props}>
-							<InnerShadowTopIcon class="!size-5" />
-							<span class="text-base font-semibold">Acme Inc.</span>
-						</a>
-					{/snippet}
-				</Sidebar.MenuButton>
-			</Sidebar.MenuItem>
-		</Sidebar.Menu>
+		<TeamSwitcher teams={data.teams} />
 	</Sidebar.Header>
 	<Sidebar.Content>
 		<NavMain items={data.navMain} />
-		<NavDocuments items={data.documents} />
-		<NavSecondary items={data.navSecondary} class="mt-auto" />
+		<NavProjects projects={data.projects} />
 	</Sidebar.Content>
 	<Sidebar.Footer>
 		<NavUser user={data.user} />
 	</Sidebar.Footer>
+	<Sidebar.Rail />
 </Sidebar.Root>

@@ -62,7 +62,7 @@
 	}
 </script>
 
-<div class="w-full border border-border">
+<div class="border">
 	<div class="flex place-items-center justify-between border-b bg-background p-2">
 		<div class="flex place-items-center gap-2">
 			<div class="flex size-8 items-center justify-center">

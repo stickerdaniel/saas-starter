@@ -1,15 +1,6 @@
+import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
-import { api } from '$lib/convex/_generated/api.js';
-import { createConvexAuthHandlers } from '$lib/sveltekit/server';
 
-export const load = (async (event) => {
-	const { createConvexHttpClient } = await createConvexAuthHandlers();
-	const client = await createConvexHttpClient(event);
-
-	const viewer = await client.query(api.users.viewer, {});
-	const messages = await client.query(api.messages.list, {});
-	return {
-		viewer,
-		messages
-	};
+export const load = (async () => {
+	redirect(302, '/product/dashboard');
 }) satisfies PageServerLoad;

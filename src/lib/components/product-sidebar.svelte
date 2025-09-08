@@ -17,24 +17,35 @@
 
 	let { user, ...restProps }: Props = $props();
 
-	const navItems = [
+	import { page } from '$app/stores';
+	import ChartBarIcon from '@tabler/icons-svelte/icons/chart-bar';
+
+	const navItems = $derived([
+		{
+			title: 'Dashboard',
+			url: '/product/dashboard',
+			icon: ChartBarIcon,
+			isActive: $page.url.pathname === '/product/dashboard'
+		},
 		{
 			title: 'Community Chat',
-			url: '/product',
+			url: '/product/community-chat',
 			icon: MessageCircleIcon,
-			isActive: true
+			isActive: $page.url.pathname === '/product/community-chat'
 		},
 		{
 			title: 'Docs',
 			url: 'https://docs.convex.dev',
-			icon: BookIcon
+			icon: BookIcon,
+			isActive: false
 		},
 		{
 			title: 'Home',
 			url: '/',
-			icon: HomeIcon
+			icon: HomeIcon,
+			isActive: false
 		}
-	];
+	]);
 </script>
 
 <Sidebar.Root collapsible="offcanvas" {...restProps}>
@@ -79,7 +90,7 @@
 	</Sidebar.Content>
 	{#if user}
 		<Sidebar.Footer>
-			<NavUser {user} />
+			<NavUser user={{ name: user.name, email: user.email, avatar: user.image || '' }} />
 		</Sidebar.Footer>
 	{/if}
 </Sidebar.Root>

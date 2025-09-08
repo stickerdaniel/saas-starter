@@ -1,6 +1,10 @@
+<!--
+	Installed from @ieedan/shadcn-svelte-extras
+-->
+
 <script lang="ts">
 	import { Avatar as AvatarPrimitive } from 'bits-ui';
-	import { cn } from '$lib/utils.js';
+	import { cn } from '$lib/utils/utils.js';
 
 	let {
 		ref = $bindable(null),
