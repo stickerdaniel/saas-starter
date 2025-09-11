@@ -9,7 +9,8 @@
 			"WebFetch(domain:vercel.com)",
 			"WebFetch(domain:developers.cloudflare.com)",
 			"Bash(bunx eslint:*)",
-			"WebFetch(domain:svelte.dev)"
+			"WebFetch(domain:svelte.dev)",
+			"Bash(bun pm ls:*)"
 		],
 		"deny": [],
 		"ask": ["Bash(rm:*)"],
