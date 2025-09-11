@@ -21,7 +21,8 @@
 		"cookie": "^1.0.2",
 		"is-network-error": "^1.1.0",
 		"jwt-decode": "^4.0.0",
-		"path-to-regexp": "^8.2.0"
+		"path-to-regexp": "^8.2.0",
+		"vercel": "^47.1.4"
 	},
 	"devDependencies": {
 		"@convex-dev/auth": "^0.0.86",
