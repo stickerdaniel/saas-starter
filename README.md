@@ -151,17 +151,54 @@ bun run test:unit
 
 ### Deploy to Vercel
 
-1. Connect your GitHub repository to Vercel
-2. Set environment variables in Vercel dashboard
-3. Deploy!
+#### Setup
 
-### Deploy Convex
+1. **Get your Convex deployment URL and deploy key:**
+   - Your Convex URL: Check `.env.local` for `PUBLIC_CONVEX_URL` (e.g., `https://intent-snake-818.convex.cloud`)
+   - Generate deploy key: Go to [Convex Dashboard](https://dashboard.convex.dev) → Settings → Deploy Keys → Generate Production Deploy Key
+
+2. **Set environment variables in Vercel:**
+
+   Using Vercel CLI:
+
+   ```bash
+   # Set your Convex URL
+   echo "https://your-deployment.convex.cloud" | vercel env add PUBLIC_CONVEX_URL production
+
+   # Set your deploy key (format: prod:deployment-name|key)
+   echo "prod:your-deployment|your-key" | vercel env add CONVEX_DEPLOY_KEY production
+   ```
+
+   Or via Vercel Dashboard:
+   - Go to your project → Settings → Environment Variables
+   - Add `PUBLIC_CONVEX_URL`: Your Convex URL
+   - Add `CONVEX_DEPLOY_KEY`: Your production deploy key
+   - Select "Production" environment only
+
+3. **Deploy:**
+   ```bash
+   vercel --prod
+   ```
+
+#### Development Workflow
+
+With `CONVEX_DEPLOY_KEY` set, your workflow is simple:
 
 ```bash
-# Deploy to production
-bunx convex deploy
+bunx convex dev         # Updates dev deployment locally
+# Make changes
+git push                # Automatically deploys BOTH frontend + Convex functions to production
+```
 
-# Set production environment variables
+#### What Each Environment Variable Does
+
+- **PUBLIC_CONVEX_URL**: Enables frontend to connect to your Convex backend (required)
+- **CONVEX_DEPLOY_KEY**: Enables automatic Convex function deployment with each Vercel build (required for full functionality)
+
+### Set Production OAuth Credentials
+
+```bash
+# Set production environment variables for OAuth
 bunx convex env set AUTH_GOOGLE_ID your_google_client_id --prod
 bunx convex env set AUTH_GOOGLE_SECRET your_google_client_secret --prod
 ```
