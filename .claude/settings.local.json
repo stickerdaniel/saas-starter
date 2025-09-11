@@ -15,7 +15,8 @@
 			"Bash(vercel env ls:*)",
 			"WebFetch(domain:docs.convex.dev)",
 			"Bash(gh run list:*)",
-			"Bash(gh run view:*)"
+			"Bash(gh run view:*)",
+			"Bash(bun run:*)"
 		],
 		"deny": [],
 		"ask": ["Bash(rm:*)"],
