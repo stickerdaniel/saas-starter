@@ -3,8 +3,8 @@ name: Build
 on: [push, pull_request]
 
 env:
-  # Use TEST_CONVEX_URL for tests if available, otherwise fallback to production URL
-  PUBLIC_CONVEX_URL: ${{ secrets.TEST_CONVEX_URL || secrets.PUBLIC_CONVEX_URL }}
+  # Use TEST_CONVEX_URL for CI tests - keeps production clean
+  PUBLIC_CONVEX_URL: ${{ secrets.TEST_CONVEX_URL }}
   AUTH_E2E_TEST_SECRET: ${{ secrets.AUTH_E2E_TEST_SECRET }}
   PUBLIC_E2E_TEST: true
 
