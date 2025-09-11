@@ -124,22 +124,49 @@ See [Convex Documentation](src/lib/convex/README.md) for schema and functions.
 
 ### E2E Testing
 
-```bash
-# Setup test environment
-bunx convex env set AUTH_E2E_TEST_SECRET test-secret
+#### Setup
 
-# Add to .env.test
-PUBLIC_E2E_TEST=true
+1. **Configure test environment variables:**
 
-# Initialize test data
-bunx convex run tests:init
+   ```bash
+   # Copy the example file
+   cp .env.test.example .env.test
 
-# Install Playwright
-bunx playwright install
+   # Edit .env.test and ensure it contains:
+   # AUTH_E2E_TEST_SECRET=test-secret
+   # PUBLIC_E2E_TEST=true
+   ```
 
-# Run tests
-bun run test:e2e
-```
+2. **Configure Convex backend:**
+
+   ```bash
+   # Set the test secret in your Convex deployment
+   bunx convex env set AUTH_E2E_TEST_SECRET test-secret
+
+   # Initialize test data
+   bunx convex run tests:init
+   ```
+
+3. **For GitHub Actions (CI/CD):**
+   - Go to your repository Settings → Secrets and variables → Actions
+   - Add a new repository secret: `AUTH_E2E_TEST_SECRET` with value `test-secret`
+   - This is already configured in `.github/workflows/build.yml`
+
+4. **Install Playwright and run tests:**
+
+   ```bash
+   # Install Playwright
+   bunx playwright install
+
+   # Run tests
+   bun run test:e2e
+   ```
+
+**Important:** The `AUTH_E2E_TEST_SECRET` must be configured in three places:
+
+- Local `.env.test` file (for local development)
+- Convex backend (for test authentication)
+- GitHub Secrets (for CI/CD)
 
 ### Unit Testing
 
