@@ -214,7 +214,6 @@ bunx convex env set AUTH_GOOGLE_SECRET your_google_client_secret --prod
 ### Styling
 
 - Modify `src/app.css` for global styles
-- Use [Skeleton UI components](https://skeleton.dev/) for consistent design
 - Customize Tailwind configuration in `tailwind.config.js`
 
 ### Database Schema
