@@ -7,5 +7,5 @@ test('signout works', async ({ page }) => {
 	await page.waitForURL('/product/**');
 
 	await page.locator('#user-menu-trigger').click();
-	await page.getByRole('button').getByText('Sign out').click();
+	await page.getByRole('button').getByText('Log out').click();
 });

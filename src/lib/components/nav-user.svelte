@@ -3,6 +3,7 @@
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import { useSidebar } from '$lib/components/ui/sidebar/index.js';
+	import { useAuth } from '$lib/svelte/index.svelte.js';
 	import BadgeCheckIcon from '@lucide/svelte/icons/badge-check';
 	import BellIcon from '@lucide/svelte/icons/bell';
 	import ChevronsUpDownIcon from '@lucide/svelte/icons/chevrons-up-down';
@@ -12,12 +13,13 @@
 
 	let { user }: { user: { name: string; email: string; avatar: string } } = $props();
 	const sidebar = useSidebar();
+	const { signOut } = useAuth();
 </script>
 
 <Sidebar.Menu>
 	<Sidebar.MenuItem>
 		<DropdownMenu.Root>
-			<DropdownMenu.Trigger>
+			<DropdownMenu.Trigger id="user-menu-trigger">
 				{#snippet child({ props })}
 					<Sidebar.MenuButton
 						size="lg"
@@ -77,7 +79,7 @@
 					</DropdownMenu.Item>
 				</DropdownMenu.Group>
 				<DropdownMenu.Separator />
-				<DropdownMenu.Item>
+				<DropdownMenu.Item onclick={() => signOut()}>
 					<LogOutIcon />
 					Log out
 				</DropdownMenu.Item>
