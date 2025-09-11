@@ -149,7 +149,11 @@ See [Convex Documentation](src/lib/convex/README.md) for schema and functions.
 
 3. **For GitHub Actions (CI/CD):**
    - Go to your repository Settings → Secrets and variables → Actions
-   - Add a new repository secret: `AUTH_E2E_TEST_SECRET` with value `test-secret`
+   - Add the following repository secrets:
+     - `AUTH_E2E_TEST_SECRET`: Set to `test-secret`
+     - `TEST_CONVEX_URL`: Your development Convex URL (for running tests)
+     - `PUBLIC_CONVEX_URL`: Your production Convex URL (for deployment)
+   - Tests run against the development environment to keep production clean
    - This is already configured in `.github/workflows/build.yml`
 
 4. **Install Playwright and run tests:**
@@ -165,8 +169,10 @@ See [Convex Documentation](src/lib/convex/README.md) for schema and functions.
 **Important:** The `AUTH_E2E_TEST_SECRET` must be configured in three places:
 
 - Local `.env.test` file (for local development)
-- Convex backend (for test authentication)
+- Convex development backend (for test authentication) - NOT in production
 - GitHub Secrets (for CI/CD)
+
+**Note:** CI/CD tests run against the development Convex deployment to keep production data clean. The `TEST_CONVEX_URL` secret points to your development environment while `PUBLIC_CONVEX_URL` is used for production deployments.
 
 ### Unit Testing
 
