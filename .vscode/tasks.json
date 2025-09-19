@@ -18,6 +18,17 @@
 			}
 		},
 		{
+			"label": "bunx convex dev",
+			"type": "shell",
+			"command": "bunx",
+			"args": ["convex", "dev"],
+			"problemMatcher": [],
+			"detail": "Run the Convex development server",
+			"presentation": {
+				"clear": true
+			}
+		},
+		{
 			"label": "quality-check.sh",
 			"type": "shell",
 			"command": "./quality-check.sh",
