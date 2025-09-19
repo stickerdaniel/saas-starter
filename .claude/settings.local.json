@@ -16,7 +16,8 @@
 			"WebFetch(domain:docs.convex.dev)",
 			"Bash(gh run list:*)",
 			"Bash(gh run view:*)",
-			"Bash(bun run:*)"
+			"Bash(bun run:*)",
+			"Bash(git log:*)"
 		],
 		"deny": [],
 		"ask": ["Bash(rm:*)"],
