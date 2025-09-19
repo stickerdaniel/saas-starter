@@ -10,7 +10,7 @@ import {
 } from '../svelte/client.svelte.js';
 import type { AuthClient } from '../svelte/clientType.js';
 import { ConvexClient, type ConvexClientOptions } from 'convex/browser';
-import type { ConvexAuthServerState } from '../svelte/index.svelte';
+import type { ConvexAuthServerState } from './index.js';
 import { logVerbose } from './server/utils.js';
 
 /**

@@ -9,8 +9,9 @@ import { ConvexClient, type ConvexClientOptions } from 'convex/browser';
 // Types
 import type { SignInAction, SignOutAction } from '@convex-dev/auth/server';
 import type { AuthClient } from './clientType.js';
-import type { ConvexAuthServerState, TokenStorage } from './index.svelte.js';
+import type { TokenStorage } from './index.svelte.js';
 import type { Value } from 'convex/values';
+import type { ConvexAuthServerState } from '$lib/sveltekit/index.js';
 
 // Retry after this much time, based on the retry number.
 const RETRY_BACKOFF = [500, 2000]; // In ms
@@ -46,11 +47,18 @@ export function createAuthClient({
 	options?: ConvexClientOptions;
 }) {
 	// Initialize state with reactive variables
+	const initialToken = getServerState ? getServerState()._state.token : null;
+	const initialRefreshToken = getServerState ? getServerState()._state.refreshToken : null;
 	const state = $state({
-		token: getServerState?.()._state.token ?? null,
-		refreshToken: getServerState?.()._state.refreshToken ?? null,
-		isLoading: getServerState?.()._state.token === null,
-		isRefreshingToken: false
+		token: initialToken,
+		refreshToken: initialRefreshToken,
+		// In Svelte (no getServerState), start loading until storage/URL handling completes
+		isLoading: getServerState ? initialToken === null : true,
+		isRefreshingToken: false,
+		// Backend acknowledgment: null means we have a token but are waiting for Convex to use it
+		// false means unauthenticated or cleared
+		// true means Convex has at least requested/used our token via fetchAccessToken
+		backendAck: initialToken !== null ? null : (false as boolean | null)
 	});
 	const isAuthenticated = $derived(state.token !== null);
 
@@ -81,6 +89,7 @@ export function createAuthClient({
 		if (args.tokens === null) {
 			state.token = null;
 			state.refreshToken = null;
+			state.backendAck = false;
 			if (args.shouldStore) {
 				await storageRemove(REFRESH_TOKEN_STORAGE_KEY);
 				await storageRemove(JWT_STORAGE_KEY);
@@ -88,6 +97,11 @@ export function createAuthClient({
 			newToken = null;
 		} else {
 			const { token: value } = args.tokens;
+			// If this is a non-storing update with the same token, ignore to avoid flipping backendAck
+			if (!args.shouldStore && state.token === value) {
+				state.isLoading = false;
+				return;
+			}
 			if (args.shouldStore) {
 				const { refreshToken } = args.tokens;
 				state.token = value;
@@ -99,6 +113,15 @@ export function createAuthClient({
 				if (getServerState && !state.isRefreshingToken) {
 					await storageSet(SERVER_STATE_FETCH_TIME_STORAGE_KEY, `${getServerState()._timeFetched}`);
 				}
+			} else {
+				// Updating only the access token from storage or cross-tab
+				state.token = value;
+				// For tokens coming from storage, we haven't confirmed Convex has used it
+				state.backendAck = null;
+			}
+			// For tokens issued & stored within this tab, treat as acknowledged immediately
+			if (args.shouldStore) {
+				state.backendAck = true;
 			}
 			newToken = value;
 		}
@@ -113,20 +136,20 @@ export function createAuthClient({
 	// Load tokens from storage on initialization
 	$effect(() => {
 		const loadTokens = async () => {
-			if (getServerState?.()._state) {
+			const serverState = getServerState?.();
+			if (serverState?._state) {
 				// Check if the server state is newer than what we have in localStorage
 				const storedTimeFetched = await storageGet(SERVER_STATE_FETCH_TIME_STORAGE_KEY);
-				const serverIsNewer =
-					!storedTimeFetched || getServerState()._timeFetched > +storedTimeFetched;
+				const serverIsNewer = !storedTimeFetched || serverState._timeFetched > +storedTimeFetched;
 
 				if (serverIsNewer) {
 					// Server state is newer, use it
-					const { token, refreshToken } = getServerState()._state;
+					const { token, refreshToken } = serverState._state;
 
 					// Save the server fetch time
 					await storageSet(
 						SERVER_STATE_FETCH_TIME_STORAGE_KEY,
-						getServerState()._timeFetched.toString()
+						serverState._timeFetched.toString()
 					);
 
 					logVerbose(
@@ -212,6 +235,8 @@ export function createAuthClient({
 							shouldStore: true,
 							tokens: response.tokens
 						});
+						// Server has issued tokens as part of verification; consider acknowledged
+						state.backendAck = true;
 						logVerbose('signed in with code from URL using tokens object');
 					} else {
 						// No valid tokens in the response
@@ -247,6 +272,11 @@ export function createAuthClient({
 			if (event.key === storageKey(JWT_STORAGE_KEY, storageNamespace)) {
 				const value = event.newValue;
 				logVerbose(`synced access token, is null: ${value === null}`);
+
+				// If the token value is unchanged, ignore to avoid resetting backendAck
+				if (value === state.token) {
+					return;
+				}
 
 				// Update our state without writing back to storage
 				void setToken({
@@ -334,6 +364,8 @@ export function createAuthClient({
 		// Return the existing token if we have one and aren't forcing a refresh
 		if (state.token !== null && !forceRefreshToken) {
 			logVerbose(`returning existing token, is null: ${state.token === null}`);
+			// Convex requested our token; consider this an acknowledgment path
+			state.backendAck = true;
 			return state.token;
 		}
 
@@ -362,6 +394,7 @@ export function createAuthClient({
 					if (state.token !== null) {
 						await setToken({ shouldStore: true, tokens: null });
 					}
+					state.backendAck = false;
 					return null;
 				}
 
@@ -371,11 +404,14 @@ export function createAuthClient({
 				if (response.tokens) {
 					logVerbose(`retrieved tokens, is null: ${response.tokens.token === null}`);
 					await setToken({ shouldStore: true, tokens: response.tokens });
+					// Token successfully obtained from backend; treat as acknowledged
+					state.backendAck = true;
 					return response.tokens.token;
 				} else {
 					logVerbose('no tokens in refresh token response, clearing stored tokens');
 					// Clear tokens if refresh failed but didn't throw
 					await setToken({ shouldStore: true, tokens: null });
+					state.backendAck = false;
 					return null;
 				}
 			} catch (e) {
@@ -383,6 +419,7 @@ export function createAuthClient({
 
 				// Clear tokens on failure
 				await setToken({ shouldStore: true, tokens: null });
+				state.backendAck = false;
 				return null;
 			} finally {
 				state.isRefreshingToken = false;
@@ -424,6 +461,10 @@ export function createAuthClient({
 				// For direct sign-in flows or token refresh
 				logVerbose(`signed in and got tokens, is null: ${result.tokens === null}`);
 				await setToken({ shouldStore: true, tokens: result.tokens });
+				// Tokens were directly returned by the server; acknowledge immediately
+				if (result.tokens) {
+					state.backendAck = true;
+				}
 
 				// Return success based on whether we got valid tokens
 				return { signingIn: result.tokens !== null };
@@ -461,10 +502,12 @@ export function createAuthClient({
 	// Expose the auth API
 	const authApi = {
 		get isLoading() {
-			return state.isLoading;
+			// Stay loading while storage/URL flows run OR while waiting for backend acknowledgment
+			return state.isLoading || (state.token !== null && state.backendAck === null);
 		},
 		get isAuthenticated() {
-			return isAuthenticated;
+			// Only authenticated once Convex has acknowledged the token
+			return state.token !== null && state.backendAck === true;
 		},
 		get token() {
 			return state.token;

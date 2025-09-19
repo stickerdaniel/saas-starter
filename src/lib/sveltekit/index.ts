@@ -7,8 +7,7 @@
 import {
 	useAuth,
 	type TokenStorage,
-	type ConvexAuthActionsContext,
-	type ConvexAuthServerState
+	type ConvexAuthActionsContext
 } from '../svelte/index.svelte.js';
 
 import { ConvexClient, type ConvexClientOptions } from 'convex/browser';
@@ -79,8 +78,16 @@ export function setupConvexAuth({
 	});
 }
 
+/**
+ * Type definition for the server state
+ */
+export type ConvexAuthServerState = {
+	_state: { token: string | null; refreshToken: string | null };
+	_timeFetched: number;
+};
+
 // Re-export core functionality
 export { createSvelteKitAuthClient, useAuth };
 
 // Re-export types
-export type { TokenStorage, ConvexAuthActionsContext, ConvexAuthServerState };
+export type { TokenStorage, ConvexAuthActionsContext };

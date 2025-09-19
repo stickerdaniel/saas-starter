@@ -53,14 +53,6 @@ export interface TokenStorage {
 }
 
 /**
- * Type definition for the server state
- */
-export type ConvexAuthServerState = {
-	_state: { token: string | null; refreshToken: string | null };
-	_timeFetched: number;
-};
-
-/**
  * Initialize Convex Auth for Svelte.
  *
  * This function sets up authentication for your Svelte application.
@@ -165,7 +157,19 @@ export function setupConvexAuth({
 		options
 	});
 
+	// Register auth provider initially
 	client.setAuth(auth.fetchAccessToken);
+
+	// Re-register auth provider whenever the token changes.
+	// This nudges the Convex client to re-fetch the token and reauthenticate
+	// after a sign-in that happens post-initialization (e.g. after a refresh
+	// when starting unauthenticated), ensuring queries retry with credentials.
+	$effect(() => {
+		// Accessing `auth.token` makes this effect reactive.
+		// We don't need the value itself, just the change signal.
+		void auth.token;
+		client.setAuth(auth.fetchAccessToken);
+	});
 
 	// Set auth context
 	setConvexAuthContext(auth);

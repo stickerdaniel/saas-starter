@@ -17,7 +17,7 @@ import { ConvexHttpClient } from 'convex/browser';
 import type { ConvexClientOptions } from 'convex/browser';
 import type { ConvexAuthHooksOptions } from './index.js';
 import type { IsAuthenticatedQuery } from '@convex-dev/auth/server';
-import type { ConvexAuthServerState } from '../../svelte/index.svelte';
+import type { ConvexAuthServerState } from '../index.js';
 
 /**
  * Create server-side handlers for SvelteKit
