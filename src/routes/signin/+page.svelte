@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { useAuth } from '$lib/sveltekit';
+	import { useAuth } from '@mmailaender/convex-auth-svelte/sveltekit';
 	import { goto } from '$app/navigation';
 	import { env } from '$env/dynamic/public';
 	import { Button } from '$lib/components/ui/button/index.js';

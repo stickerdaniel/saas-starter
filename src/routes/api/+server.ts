@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { createConvexAuthHandlers } from '$lib/sveltekit/server';
+import { createConvexAuthHandlers } from '@mmailaender/convex-auth-svelte/sveltekit/server';
 
 const { isAuthenticated: isAuthenticatedPromise } = createConvexAuthHandlers();
 

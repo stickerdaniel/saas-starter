@@ -1,4 +1,4 @@
-import { createConvexAuthHandlers } from '$lib/sveltekit/server';
+import { createConvexAuthHandlers } from '@mmailaender/convex-auth-svelte/sveltekit/server';
 import type { LayoutServerLoad } from './$types';
 import { PUBLIC_CONVEX_URL } from '$env/static/public';
 

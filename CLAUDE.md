@@ -34,19 +34,25 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - **Frontend**: SvelteKit, Svelte 5 (runes syntax), Tailwind CSS v4, Skeleton UI
 - **Backend**: Convex (real-time database + serverless functions)
-- **Authentication**: Convex Auth with OAuth (Google) and email/password
+- **Authentication**: Convex Auth with OAuth (Google) and email/password via @mmailaender/convex-auth-svelte
 - **Testing**: Playwright (E2E), Vitest (unit)
 - **Package Manager**: Bun
 
 ### Project Structure
 
 - `src/lib/convex/` - Convex backend functions, schema, and auth config
-- `src/lib/sveltekit/` - SvelteKit auth utilities and server-side helpers
-- `src/lib/svelte/` - Svelte auth components and client utilities
 - `src/lib/components/` - UI components (shadcn-style components)
 - `src/routes/` - SvelteKit routes
 - `src/hooks.server.ts` - Server hooks for auth middleware
 - `convex.json` - Points Convex functions to `src/lib/convex/`
+
+### Authentication Library
+
+This project uses [@mmailaender/convex-auth-svelte](https://www.npmjs.com/package/@mmailaender/convex-auth-svelte) for authentication wrapper functionality. The library provides:
+
+- Client-side auth hooks and utilities
+- Server-side auth handlers and route protection
+- Seamless integration with Convex Auth
 
 ### Authentication Flow
 

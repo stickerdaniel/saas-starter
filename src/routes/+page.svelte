@@ -1,5 +1,5 @@
 <script>
-	import { useAuth } from '$lib/sveltekit';
+	import { useAuth } from '@mmailaender/convex-auth-svelte/sveltekit';
 	import { Button } from '$lib/components/ui/button/index.js';
 
 	const { signOut } = useAuth();

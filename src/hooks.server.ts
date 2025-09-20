@@ -1,5 +1,8 @@
 import { sequence } from '@sveltejs/kit/hooks';
-import { createConvexAuthHooks, createRouteMatcher } from '$lib/sveltekit/server';
+import {
+	createConvexAuthHooks,
+	createRouteMatcher
+} from '@mmailaender/convex-auth-svelte/sveltekit/server';
 import { PUBLIC_CONVEX_URL } from '$env/static/public';
 import { redirect, type Handle } from '@sveltejs/kit';
 

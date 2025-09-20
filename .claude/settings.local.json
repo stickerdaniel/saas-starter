@@ -17,7 +17,8 @@
 			"Bash(gh run list:*)",
 			"Bash(gh run view:*)",
 			"Bash(bun run:*)",
-			"Bash(git log:*)"
+			"Bash(git log:*)",
+			"WebFetch(domain:raw.githubusercontent.com)"
 		],
 		"deny": [],
 		"ask": ["Bash(rm:*)"],
