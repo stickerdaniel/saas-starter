@@ -18,10 +18,12 @@
 		"test:unit": "vitest --run --reporter=verbose --passWithNoTests"
 	},
 	"dependencies": {
+		"@oslojs/crypto": "^1.0.1",
 		"cookie": "^1.0.2",
 		"is-network-error": "^1.1.0",
 		"jwt-decode": "^4.0.0",
 		"path-to-regexp": "^8.2.0",
+		"resend": "^6.1.0",
 		"vercel": "^47.1.4"
 	},
 	"devDependencies": {
