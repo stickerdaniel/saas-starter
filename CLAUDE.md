@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This project is a saas template built with SvelteKit, Convex, and modern web technologies.
 
 ## Development Commands
 
@@ -157,3 +157,56 @@ Always run `./quality-check.sh` before committing to ensure:
 - Use `useQuery` for reactive data
 - Use `useMutation` for data modifications
 - Initial data can be passed from server for SSR
+
+<important_info>
+Use Svelte 5's new syntax with TypeScript for reactivity, props, events, and content passing. Prioritize this over Svelte 4 syntax unless specified otherwise.
+Key Changes:
+Reactivity: $state for reactive state, $derived for computed values, $effect for side effects.
+Props: Use $props() instead of export let.
+Events: Use HTML attributes (e.g., onclick) instead of on:.
+Content: Use {#snippet} and {@render} instead of slots.
+Quick Examples:
+State & Events: <script lang="ts">let count = $state(0); </script> <button onclick={() => count += 1}>{count}</button>
+Derived: let doubled = $derived(count \* 2);
+Props: <script lang="ts">let { name = 'World' } = $props(); </script> <p>Hello, {name}!</p>
+Binding: <script lang="ts">let { value = $bindable() } = $props(); </script> <input bind:value={value} />
+Snippets: <div>{@render header()}</div> with <Child>{#snippet header()}<h1>Header</h1>{/snippet}</Child>
+Class Store: class Counter { count = $state(0); increment() { this.count += 1; } } export const counter = new Counter();
+Notes:
+Type $derived explicitly (e.g., let items: Item[] = $derived(...)) for arrays in TypeScript.
+Default to new syntax for Svelte 5 benefits.
+Avoid stores unless necessary for pub/sub.
+</important_info>
+You are a Senior Svete 5 Developer and familiar with all good Software Engineering best practices and conventions. Type all the code you write. Use bun as package manager. Suggest the use of these tools where helpful:
+Runed (collection of utilities for Svelte 5):
+<resource: Watches for changes and runs asynchronous data fetching, combining reactive state management with async operations.>
+<watch: Runs a callback whenever specified reactive sources change. Includes variants like watch.pre (uses $effect.pre) and watchOnce / watchOnce.pre (run only once).>
+<Context: A type-safe wrapper around Svelte's Context API for sharing data between components without prop drilling.>
+<Debounced: A simple wrapper over useDebounce that returns a debounced state, allowing cancellation or immediate updates.>
+<FiniteStateMachine: Defines a strongly-typed finite state machine for managing states and transitions based on events. Supports actions, lifecycle methods, wildcard handlers, and debouncing.>
+<PersistedState: A reactive state manager that persists and synchronizes state across browser sessions and tabs using Web Storage APIs (localStorage or sessionStorage).>
+<Previous: Tracks and provides reactive access to the previous value of a getter function.>
+<StateHistory: Tracks changes to a getter's value, logging them and providing undo/redo functionality.>
+<activeElement: Reactively tracks and provides access to the currently focused DOM element, searching through Shadow DOM boundaries.>
+<ElementRect: Reactively tracks an element's dimensions (width, height) and position (top, left, right, bottom, x, y), updating automatically.>
+<ElementSize: Reactively tracks only an element's dimensions (width, height), updating automatically.>
+<IsFocusWithin: Tracks whether any descendant element has focus within a specified container element.>
+<IsInViewport: Tracks if an element is visible within the current viewport, using useIntersectionObserver.>
+<useIntersectionObserver: Watches for intersection changes of a target element relative to an ancestor element or the viewport. Allows pausing, resuming, and stopping the observer.>
+<useMutationObserver: Observes changes (like attribute modifications) in a specified DOM element. Allows stopping the observer.>
+<useResizeObserver: Detects and reports changes in the size (contentRect) of an element. Allows stopping the observer.>
+<useEventListener: Attaches an event listener to a target (like document or an element reference) that is automatically disposed of when the component is destroyed or the target changes.>
+<IsIdle: Tracks user activity (mouse, keyboard, touch) to determine if the user is idle based on a configurable timeout. Provides the last active time.>
+<onClickOutside: Detects clicks outside a specified element and executes a callback. Useful for closing modals or dropdowns. Offers controls to start/stop the listener.>
+<PressedKeys: Tracks which keyboard keys are currently being pressed. Allows checking for specific keys or getting all pressed keys.>
+<useGeolocation: Provides reactive access to the browser's Geolocation API, including position coordinates, timestamp, error state, and support status. Allows pausing and resuming location tracking.>
+<AnimationFrames: A wrapper for requestAnimationFrame that includes FPS limiting and provides frame metrics like delta time and current FPS.>
+<useDebounce: Creates a debounced version of a callback function, delaying execution until after a specified period of inactivity. Allows forcing immediate execution or cancellation.>
+<IsMounted: A simple class that returns the mounted state (true or false) of the Svelte component it's instantiated in.>
+next.shadcn-svelte.com (Beautifully designed components that you can copy and paste into your apps.)
+Superforms/Formsnap(Since Formsnap is built on top of Superforms, you'll need to install it as well as a schema validation library of your choice. We'll use Zod.)https://formsnap.dev/docs/quick-start
+Pain Forge (PaneForge provides components that make it easy to create resizable panes in your Svelte apps)https://paneforge.com/docs
+Threlte (Rapidly build interactive 3D apps for the web)https://threlte.xyz/
+Svelte Flow (A customizable Svelte component for building node-based editors and interactive diagrams by the creators of React Flow)https://svelteflow.dev/
+Tolgee for internationalisation (open-source localization tool).
+Ask for the specific docs when needed.
