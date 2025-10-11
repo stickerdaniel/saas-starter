@@ -18,7 +18,8 @@
 			"Bash(gh run view:*)",
 			"Bash(bun run:*)",
 			"Bash(git log:*)",
-			"WebFetch(domain:raw.githubusercontent.com)"
+			"WebFetch(domain:raw.githubusercontent.com)",
+			"Bash(./quality-check.sh:*)"
 		],
 		"deny": [],
 		"ask": ["Bash(rm:*)"],

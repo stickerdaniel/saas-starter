@@ -33,8 +33,6 @@
 		"@internationalized/date": "^3.10.0",
 		"@lucide/svelte": "^0.544.0",
 		"@playwright/test": "^1.56.0",
-		"@skeletonlabs/skeleton": "^3.2.2",
-		"@skeletonlabs/skeleton-svelte": "^1.5.3",
 		"@sveltejs/adapter-auto": "^6.1.1",
 		"@sveltejs/kit": "^2.46.4",
 		"@sveltejs/package": "^2.5.4",
