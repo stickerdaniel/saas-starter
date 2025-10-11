@@ -7,7 +7,7 @@ import { PUBLIC_CONVEX_URL } from '$env/static/public';
 import { redirect, type Handle } from '@sveltejs/kit';
 
 const isSignInPage = createRouteMatcher('/signin');
-const isProtectedRoute = createRouteMatcher(['/product/(.*)', '/product']);
+const isProtectedRoute = createRouteMatcher(['/product/*path', '/product']);
 
 const { handleAuth, isAuthenticated: isAuthenticatedPromise } = createConvexAuthHooks({
 	convexUrl: PUBLIC_CONVEX_URL,
