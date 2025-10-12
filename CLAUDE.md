@@ -12,7 +12,6 @@ This project is a saas template built with SvelteKit, Convex, and modern web tec
 
 ### Quality Checks & Testing
 
-- `./quality-check.sh` - Run all quality checks (format, lint, typecheck, spell check, tests, build)
 - `./quality-check.sh --staged` - Check only staged files (used in git pre-commit hook)
 - `bun run test` - Run all tests (E2E + unit)
 - `bun run test:e2e` - Run Playwright E2E tests
