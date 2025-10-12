@@ -19,7 +19,8 @@
 			"Bash(bun run:*)",
 			"Bash(git log:*)",
 			"WebFetch(domain:raw.githubusercontent.com)",
-			"Bash(./quality-check.sh:*)"
+			"Bash(./quality-check.sh:*)",
+			"WebFetch(domain:vitest.dev)"
 		],
 		"deny": [],
 		"ask": ["Bash(rm:*)"],
