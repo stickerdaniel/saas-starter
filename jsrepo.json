@@ -1,9 +1,9 @@
 {
 	"$schema": "https://unpkg.com/jsrepo@2.4.5/schemas/project-config.json",
-	"repos": ["@ieedan/shadcn-svelte-extras"],
+	"repos": ["@ieedan/shadcn-svelte-extras", "@sv/cnblocks"],
 	"includeTests": false,
 	"includeDocs": false,
-	"watermark": true,
+	"watermark": false,
 	"formatter": "prettier",
 	"configFiles": {
 		"Shadcn Svelte Extras Cursor Rules": "./.cursor/rules/shadcn-svelte-extras.mdc"
