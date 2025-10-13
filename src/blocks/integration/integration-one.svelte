@@ -1,7 +1,7 @@
 <script lang="ts">
 	// Scroll below for the component code
 	import IntegrationCard from './card/integration-card.svelte';
-	import { Svelte, Convex, Tolgee, PostHog, SVBlocks } from '../logos/logos';
+	import { Svelte, Convex, Tolgee, PostHog, SVBlocks, Autumn } from '../logos/logos';
 	import Shadcn from '../logos/Shadcn.svelte';
 	import Stripe from '../logos/Stripe.svelte';
 	import { Plus } from '@lucide/svelte';
@@ -15,7 +15,7 @@
 					Real 2025 Developer Experience
 				</h2>
 				<p class="mt-6 text-muted-foreground">
-					Super fast solutions that are actually fun and fast to build with
+					Super fast solutions that are actually fun to build with
 				</p>
 			</div>
 			<div class="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -67,7 +67,10 @@
 					description="Amet praesentium deserunt ex commodi tempore fuga voluptatem. Sit, sapiente. Amet praesentium deserunt ex commodi tempore fuga voluptatem. Sit, sapiente."
 					link="https://stripe.com"
 				>
-					<Stripe />
+					<div class="flex items-center gap-2">
+						<Autumn class="size-10" />
+						<Stripe class="size-10" />
+					</div>
 				</IntegrationCard>
 			</div>
 		</div>

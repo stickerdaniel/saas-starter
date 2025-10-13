@@ -19,13 +19,12 @@
 </script>
 
 <Card class="p-6">
-	<div class="relative">
+	<div class="relative flex h-full flex-col">
 		<div class="*:size-10">{@render children?.()}</div>
-		<div class="space-y-2 py-6">
+		<div class="grow space-y-2 py-6">
 			<h3 class="text-base font-medium">{title}</h3>
-			<p class="text-muted-foreground line-clamp-3 text-sm">{description}</p>
+			<p class="line-clamp-3 text-sm text-muted-foreground">{description}</p>
 		</div>
-
 		<div class="flex gap-3 border-t border-dashed pt-6">
 			<Button
 				variant="secondary"

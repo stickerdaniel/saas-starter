@@ -7,7 +7,7 @@ import { PUBLIC_CONVEX_URL } from '$env/static/public';
 import { redirect, type Handle } from '@sveltejs/kit';
 
 const isSignInPage = createRouteMatcher('/signin');
-const isProtectedRoute = createRouteMatcher('/product');
+const isProtectedRoute = createRouteMatcher('/app');
 
 const { handleAuth, isAuthenticated: isAuthenticatedPromise } = createConvexAuthHooks({
 	convexUrl: PUBLIC_CONVEX_URL,
@@ -18,7 +18,7 @@ const authFirstPattern: Handle = async ({ event, resolve }) => {
 	const isAuthenticated = await isAuthenticatedPromise(event);
 
 	if (isSignInPage(event.url.pathname) && isAuthenticated) {
-		redirect(307, '/product');
+		redirect(307, '/app');
 	}
 	if (isProtectedRoute(event.url.pathname) && !isAuthenticated) {
 		redirect(

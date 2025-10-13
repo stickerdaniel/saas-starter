@@ -36,12 +36,12 @@
 				email,
 				password,
 				flow, // 'signIn' or 'signUp'
-				redirectTo: '/product'
+				redirectTo: '/app'
 			});
 
 			if (result.signingIn) {
 				// User is signed in
-				goto('/product');
+				goto('/app');
 			} else if (flow === 'signUp') {
 				// Email verification required for sign-up
 				verificationStep = { email };
@@ -70,11 +70,11 @@
 				email: verificationStep?.email,
 				code,
 				flow: 'email-verification',
-				redirectTo: '/product'
+				redirectTo: '/app'
 			});
 
 			if (result.signingIn) {
-				goto('/product');
+				goto('/app');
 			}
 		} catch (err) {
 			error = 'Invalid or expired verification code. Please try again.';
@@ -222,7 +222,7 @@
 
 					<div class="space-y-2">
 						<Button
-							onclick={() => signIn('github', { redirectTo: '/product' })}
+							onclick={() => signIn('github', { redirectTo: '/app' })}
 							variant="outline"
 							class="w-full"
 						>
@@ -234,7 +234,7 @@
 							GitHub
 						</Button>
 						<Button
-							onclick={() => signIn('google', { redirectTo: '/product' })}
+							onclick={() => signIn('google', { redirectTo: '/app' })}
 							variant="outline"
 							class="w-full"
 						>
@@ -269,7 +269,7 @@
 							const formData = new FormData(event.currentTarget as HTMLFormElement);
 							signIn('secret', formData)
 								.then(() => {
-									goto('/product');
+									goto('/app');
 								})
 								.catch(() => {
 									window.alert('Invalid secret');

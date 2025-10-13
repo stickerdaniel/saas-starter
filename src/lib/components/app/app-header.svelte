@@ -13,11 +13,11 @@
 
 		const items = [];
 
-		// Always show "Product" as the root breadcrumb for product routes
-		if (segments[0] === 'product') {
+		// Always show "App" as the root breadcrumb for app routes
+		if (segments[0] === 'app') {
 			items.push({
-				label: 'Product',
-				href: '/product',
+				label: 'App',
+				href: '/app',
 				isLast: segments.length === 1
 			});
 
