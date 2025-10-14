@@ -64,7 +64,7 @@
 
 				<IntegrationCard
 					title="Stripe + Autumn"
-					description="Ship billing features without building billing infrastructure. Stripe processes payments, Autumn handles the rest—feature gates, usage tracking, and subscription logic via simple SDK calls."
+					description="Stripe for payment processing. Autumn handles billing, feature gates, and usage tracking—no webhook complexity."
 					link="https://stripe.com"
 				>
 					<div class="flex items-center gap-2">
