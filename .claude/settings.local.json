@@ -20,7 +20,8 @@
 			"Bash(git log:*)",
 			"WebFetch(domain:raw.githubusercontent.com)",
 			"Bash(./quality-check.sh:*)",
-			"WebFetch(domain:vitest.dev)"
+			"WebFetch(domain:vitest.dev)",
+			"mcp__context7__resolve-library-id"
 		],
 		"deny": [],
 		"ask": ["Bash(rm:*)"],

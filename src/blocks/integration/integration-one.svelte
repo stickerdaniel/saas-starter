@@ -63,8 +63,8 @@
 				</IntegrationCard>
 
 				<IntegrationCard
-					title="Payment Provider"
-					description="Amet praesentium deserunt ex commodi tempore fuga voluptatem. Sit, sapiente. Amet praesentium deserunt ex commodi tempore fuga voluptatem. Sit, sapiente."
+					title="Stripe + Autumn"
+					description="Ship billing features without building billing infrastructure. Stripe processes payments, Autumn handles the rest—feature gates, usage tracking, and subscription logic via simple SDK calls."
 					link="https://stripe.com"
 				>
 					<div class="flex items-center gap-2">
