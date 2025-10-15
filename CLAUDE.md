@@ -86,15 +86,94 @@ Instructions for LLMs: <s>Always use Svelte 5 runes and Svelte 5 syntax. Runes d
 - Queries and mutations in respective `.ts` files
 - Real-time subscriptions handled automatically
 
+### Email System
+
+This project uses the **@convex-dev/resend** component for production-ready email delivery.
+
+#### Features
+
+- **Automatic Queuing & Batching** - Efficiently handles bulk email sending
+- **Durable Execution** - Guarantees delivery even if servers restart
+- **Built-in Idempotency** - Prevents duplicate email sends
+- **Rate Limit Compliance** - Automatic handling of API rate limits
+- **Event Tracking** - Webhooks for delivery, bounces, complaints, opens, clicks
+- **Test Mode** - Safe development with delivery restrictions
+
+#### Email System Architecture
+
+```
+src/lib/convex/emails/
+├── resend.ts              # Resend client configuration
+├── events.ts              # Webhook event handlers
+├── send.ts                # Email sending mutations (simple inline text)
+├── queries.ts             # Email status queries
+└── mutations.ts           # Email management (cancel, status)
+```
+
+#### Sending Emails
+
+Emails are sent via internal mutations using the Resend component:
+
+```typescript
+import { internal } from './_generated/api';
+
+// Send verification email
+await ctx.runMutation(internal.emails.send.sendVerificationEmail, {
+	email: 'user@example.com',
+	code: '12345678',
+	expiryMinutes: 20
+});
+```
+
+#### Email Event Tracking
+
+Email events are automatically stored in the `emailEvents` table:
+
+- `email.delivered` - Successfully delivered
+- `email.bounced` - Hard or soft bounce
+- `email.complained` - Marked as spam
+- `email.opened` - Email opened (requires tracking)
+- `email.clicked` - Link clicked (requires tracking)
+
+Query email events using:
+
+```typescript
+const events = await ctx.runQuery(api.emails.queries.getEmailEvents, {
+	emailId: 'email-id'
+});
+```
+
+#### Webhook Setup
+
+Configure webhook in Resend dashboard to point to:
+
+```
+https://your-deployment.convex.site/resend-webhook
+```
+
+The webhook endpoint is configured in `src/lib/convex/http.ts`.
+
+#### Future: Email Template System
+
+Planned integration with `svelte-email` for visual email templates that automatically inherit styles from the app's design system. See `docs/email-template-system.md` for architecture details.
+
 ## Environment Configuration
 
 ### Required Environment Variables
 
-- `PUBLIC_CONVEX_URL` - Convex deployment URL
-- `CONVEX_DEPLOYMENT` - Deployment name
+**Set in Convex (via `bunx convex env set KEY value`):**
+
+- `RESEND_API_KEY` - Resend API key for email sending (required)
+- `AUTH_EMAIL` - Sender email address (e.g., `noreply@yourdomain.com`) (required)
+- `RESEND_WEBHOOK_SECRET` - Resend webhook signing secret (optional, for webhook verification)
 - `AUTH_GOOGLE_ID` - Google OAuth client ID (optional)
 - `AUTH_GOOGLE_SECRET` - Google OAuth secret (optional)
-- `AUTH_E2E_TEST_SECRET` - Secret for E2E test authentication
+- `AUTH_E2E_TEST_SECRET` - Secret for E2E test authentication (required for testing)
+
+**Set in local environment (`.env.local`):**
+
+- `PUBLIC_CONVEX_URL` - Convex deployment URL
+- `CONVEX_DEPLOYMENT` - Deployment name
 
 ### Test Environment
 

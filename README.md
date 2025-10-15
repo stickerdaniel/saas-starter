@@ -5,6 +5,7 @@ A full-stack SaaS starter template built with SvelteKit, Convex, and modern web 
 ## Features
 
 - 🔐 **Authentication** - Complete auth system with OAuth (Google) and email/password
+- 📧 **Email System** - Production-ready email delivery with Resend (queuing, durability, tracking)
 - 💬 **Real-time Chat** - Demo chat application with live messaging
 - 🎨 **Modern UI** - Tailwind CSS + Skeleton UI components
 - ⚡ **Fast Backend** - Convex for real-time data and serverless functions
@@ -62,7 +63,53 @@ bunx convex env set AUTH_GOOGLE_ID your_google_client_id
 bunx convex env set AUTH_GOOGLE_SECRET your_google_client_secret
 ```
 
-### 5. Run Development Server
+### 5. Email Configuration (Required for Auth)
+
+This project uses [Resend](https://resend.com/) for production-ready email delivery.
+
+#### Setup Resend
+
+1. **Create a Resend account** at [resend.com](https://resend.com/)
+2. **Get your API key** from the Resend dashboard
+3. **Verify your domain** (or use `onboarding@resend.dev` for testing)
+
+#### Configure Environment Variables
+
+```bash
+# Set your Resend API key
+bunx convex env set RESEND_API_KEY re_xxxxxxxxxxxx
+
+# Set your sender email address
+bunx convex env set AUTH_EMAIL "noreply@yourdomain.com"
+```
+
+**For testing:** You can use `onboarding@resend.dev` as your sender while in development.
+
+#### Email Features
+
+- ✅ **Automatic Queuing** - Reliably handles email delivery
+- ✅ **Durable Execution** - Survives server restarts
+- ✅ **Idempotency** - Prevents duplicate sends
+- ✅ **Event Tracking** - Track deliveries, bounces, spam complaints
+- ✅ **Test Mode** - Safe development with delivery restrictions
+
+#### Webhook Setup (Optional)
+
+For email event tracking (delivery confirmations, bounces, etc.):
+
+1. Go to your Resend dashboard → Webhooks
+2. Add a new webhook endpoint:
+   ```
+   https://your-deployment-name.convex.site/resend-webhook
+   ```
+3. Select events to track (delivered, bounced, complained, etc.)
+4. Copy the webhook signing secret
+5. Set the secret in Convex:
+   ```bash
+   bunx convex env set RESEND_WEBHOOK_SECRET whsec_xxxxxxxxxxxx
+   ```
+
+### 6. Run Development Server
 
 ```bash
 bun run dev
@@ -228,12 +275,17 @@ git push                # Automatically deploys BOTH frontend + Convex functions
 - **PUBLIC_CONVEX_URL**: Enables frontend to connect to your Convex backend (required)
 - **CONVEX_DEPLOY_KEY**: Enables automatic Convex function deployment with each Vercel build (required for full functionality)
 
-### Set Production OAuth Credentials
+### Set Production Environment Variables
 
 ```bash
-# Set production environment variables for OAuth
+# Set production OAuth credentials
 bunx convex env set AUTH_GOOGLE_ID your_google_client_id --prod
 bunx convex env set AUTH_GOOGLE_SECRET your_google_client_secret --prod
+
+# Set production email configuration
+bunx convex env set RESEND_API_KEY your_resend_api_key --prod
+bunx convex env set AUTH_EMAIL "noreply@yourdomain.com" --prod
+bunx convex env set RESEND_WEBHOOK_SECRET your_webhook_secret --prod
 ```
 
 ## Customization

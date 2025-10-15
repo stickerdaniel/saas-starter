@@ -19,6 +19,7 @@
 	},
 	"dependencies": {
 		"@auth/core": "^0.40.0",
+		"@convex-dev/resend": "^0.1.13",
 		"@mmailaender/convex-auth-svelte": "^0.1.2",
 		"@oslojs/crypto": "^1.0.1",
 		"resend": "^6.1.2",
