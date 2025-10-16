@@ -3,7 +3,12 @@
 	import { cn } from '$lib/utils';
 	import Menu from '@lucide/svelte/icons/menu';
 	import X from '@lucide/svelte/icons/x';
+	import LogOut from '@lucide/svelte/icons/log-out';
 	import { scrollY } from 'svelte/reactivity/window';
+	import { useAuth } from '@mmailaender/convex-auth-svelte/sveltekit';
+
+	const { signOut } = useAuth();
+	let isAuthenticated = $derived(useAuth().isAuthenticated);
 
 	let menuItems = [
 		{ name: 'Features', href: '#a' },
@@ -22,7 +27,7 @@
 </script>
 
 <header>
-	<nav class="fixed z-20 w-full px-2">
+	<nav class="fixed z-[100] w-full px-2">
 		<div
 			class={[
 				'mx-auto max-w-7xl rounded-3xl px-6 transition-all duration-300 lg:px-12',
@@ -122,18 +127,26 @@
 						</ul>
 					</div>
 					<div class="flex w-full flex-col space-y-3 sm:flex-row sm:gap-3 sm:space-y-0 md:w-fit">
-						<Button
-							variant="outline"
-							size="sm"
-							class={cn(isScrolled && 'lg:hidden')}
-							href="/signin"
-						>
-							Login
-						</Button>
-						<Button href="/signin" size="sm" class={cn(isScrolled && 'lg:hidden')}>Sign Up</Button>
-						<Button size="sm" href="/signin" class={cn(isScrolled ? 'lg:inline-flex' : 'hidden')}>
-							Get Started
-						</Button>
+						{#if isAuthenticated}
+							<Button size="sm" href="/app">Dashboard</Button>
+							<Button variant="outline" size="icon" class="size-8" onclick={() => signOut()}>
+								<LogOut class="size-4" />
+							</Button>
+						{:else}
+							<Button
+								variant="outline"
+								size="sm"
+								class={cn(isScrolled && 'lg:hidden')}
+								href="/signin"
+							>
+								Login
+							</Button>
+							<Button href="/signin" size="sm" class={cn(isScrolled && 'lg:hidden')}>Sign Up</Button
+							>
+							<Button size="sm" href="/signin" class={cn(isScrolled ? 'lg:inline-flex' : 'hidden')}>
+								Get Started
+							</Button>
+						{/if}
 					</div>
 				</div>
 			</div>
