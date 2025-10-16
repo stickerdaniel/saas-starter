@@ -25,7 +25,8 @@
 			"Bash(vercel inspect:*)",
 			"Bash(vercel project ls:*)",
 			"Bash(cat:*)",
-			"Bash(vercel project:*)"
+			"Bash(vercel project:*)",
+			"Bash(npm view:*)"
 		],
 		"deny": [],
 		"ask": ["Bash(rm:*)"],

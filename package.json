@@ -79,6 +79,7 @@
 		"zod": "^3.25.76"
 	},
 	"overrides": {
-		"esbuild": "0.25.9"
+		"esbuild": "0.25.9",
+		"svelte-toolbelt": "^0.10.5"
 	}
 }
