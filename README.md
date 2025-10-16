@@ -239,23 +239,95 @@ bun run test:unit
 
 2. **Set environment variables in Vercel:**
 
-   Using Vercel CLI:
+   <details>
+   <summary><strong>Free Tier Setup</strong> (using development Convex for previews)</summary>
+
+   Without Convex Pro, preview deployments should use your **development** Convex deployment while production uses your **production** deployment.
+
+   **Using Vercel CLI:**
 
    ```bash
-   # Set your Convex URL
-   echo "https://your-deployment.convex.cloud" | vercel env add PUBLIC_CONVEX_URL production
+   # Production environment (uses production Convex)
+   echo "https://your-prod-deployment.convex.cloud" | vercel env add PUBLIC_CONVEX_URL production
+   echo "prod:your-prod-deployment|your-prod-key" | vercel env add CONVEX_DEPLOY_KEY production
 
-   # Set your deploy key (format: prod:deployment-name|key)
-   echo "prod:your-deployment|your-key" | vercel env add CONVEX_DEPLOY_KEY production
+   # Preview environment (uses development Convex)
+   echo "https://your-dev-deployment.convex.cloud" | vercel env add PUBLIC_CONVEX_URL preview
+   echo "dev:your-dev-deployment|your-dev-key" | vercel env add CONVEX_DEPLOY_KEY preview
    ```
 
-   Or via Vercel Dashboard:
+   **Or via Vercel Dashboard:**
    - Go to your project → Settings → Environment Variables
-   - Add `PUBLIC_CONVEX_URL`: Your Convex URL
-   - Add `CONVEX_DEPLOY_KEY`: Your production deploy key
-   - Select "Production" environment only
 
-3. **Deploy:**
+   For **Production**:
+   - Add `PUBLIC_CONVEX_URL`: Your production Convex URL
+     - Environment: **Production only**
+   - Add `CONVEX_DEPLOY_KEY`: Your production deploy key (`prod:...`)
+     - Environment: **Production only**
+
+   For **Preview** (PR deployments):
+   - Add `PUBLIC_CONVEX_URL`: Your development Convex URL
+     - Environment: **Preview only**
+   - Add `CONVEX_DEPLOY_KEY`: Your development deploy key (`dev:...`)
+     - Environment: **Preview only**
+
+   **Why this setup?**
+   - Free tier doesn't support separate preview Convex deployments
+   - Preview/PR deployments use your development database (safe for testing)
+   - Production deployments use your production database (real data)
+
+   </details>
+
+   <details>
+   <summary><strong>Convex Pro Setup</strong> (dedicated preview deployments)</summary>
+
+   With Convex Pro, you can create separate preview deployments for each PR.
+
+   **Using Vercel CLI:**
+
+   ```bash
+   # Set production Convex for both environments
+   echo "https://your-deployment.convex.cloud" | vercel env add PUBLIC_CONVEX_URL production preview
+   echo "prod:your-deployment|your-key" | vercel env add CONVEX_DEPLOY_KEY production preview
+   ```
+
+   **Or via Vercel Dashboard:**
+   - Go to your project → Settings → Environment Variables
+   - Add `PUBLIC_CONVEX_URL`: Your production Convex URL
+     - Select **both "Production" and "Preview"** environments
+   - Add `CONVEX_DEPLOY_KEY`: Your production deploy key
+     - Select **both "Production" and "Preview"** environments
+
+   See [Convex Preview Deployments](https://docs.convex.dev/production/hosting/preview-deployments) for more details.
+
+   </details>
+
+3. **Configure Build Command:**
+
+   <details>
+   <summary><strong>⚠️ Important: Override the build command</strong> (click to expand)</summary>
+
+   Vercel needs to deploy your Convex functions before building SvelteKit to generate the required `_generated` files.
+
+   **Via Vercel Dashboard (Recommended):**
+   1. Go to your project → Settings → General
+   2. Scroll to "Framework Settings" → "Build & Development Settings"
+   3. Find "Build Command" under **Project Settings** section
+   4. Enable the "Override" toggle
+   5. Enter: `bunx convex deploy --cmd 'bun run build'`
+   6. Click "Save"
+
+   **Why this is needed:**
+   - The `_generated` directory is gitignored (as it should be)
+   - `bunx convex deploy` deploys your Convex functions and generates these files
+   - Then it runs `bun run build` to build your SvelteKit app
+   - Without this, your build will fail with `ENOENT: no such file or directory` errors
+
+   **Note:** Use the **Project Settings** section (not Production Overrides) so both production and preview deployments work correctly.
+
+   </details>
+
+4. **Deploy:**
    ```bash
    vercel --prod
    ```

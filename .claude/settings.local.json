@@ -21,7 +21,11 @@
 			"WebFetch(domain:raw.githubusercontent.com)",
 			"Bash(./quality-check.sh:*)",
 			"WebFetch(domain:vitest.dev)",
-			"mcp__context7__resolve-library-id"
+			"mcp__context7__resolve-library-id",
+			"Bash(vercel inspect:*)",
+			"Bash(vercel project ls:*)",
+			"Bash(cat:*)",
+			"Bash(vercel project:*)"
 		],
 		"deny": [],
 		"ask": ["Bash(rm:*)"],

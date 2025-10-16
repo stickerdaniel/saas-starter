@@ -9,9 +9,6 @@ node_modules
 /build
 /dist
 
-# Convex
-src/lib/convex/_generated
-
 # OS
 .DS_Store
 Thumbs.db
