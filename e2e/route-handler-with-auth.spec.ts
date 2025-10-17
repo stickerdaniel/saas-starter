@@ -22,11 +22,11 @@ async function signIn(page: Page) {
 	await page.goto('/signin');
 	await page.getByLabel('Secret').fill(process.env.AUTH_E2E_TEST_SECRET!);
 	await page.getByRole('button').getByText('Sign in with secret').click();
-	await page.waitForURL('/product/**');
+	await page.waitForURL('/app/**');
 }
 
 async function signOut(page: Page) {
-	await page.goto('/product');
+	await page.goto('/app');
 	await page.locator('#user-menu-trigger').click();
 	await page.getByText('Log out').click();
 }
