@@ -7,8 +7,7 @@
 	import { scrollY } from 'svelte/reactivity/window';
 	import { useAuth } from '@mmailaender/convex-auth-svelte/sveltekit';
 
-	const { signOut } = useAuth();
-	let isAuthenticated = $derived(useAuth().isAuthenticated);
+	const auth = useAuth();
 
 	let menuItems = [
 		{ name: 'Features', href: '#a' },
@@ -127,9 +126,9 @@
 						</ul>
 					</div>
 					<div class="flex w-full flex-col space-y-3 sm:flex-row sm:gap-3 sm:space-y-0 md:w-fit">
-						{#if isAuthenticated}
+						{#if auth.isAuthenticated}
 							<Button size="sm" href="/app">Dashboard</Button>
-							<Button variant="outline" size="icon" class="size-8" onclick={() => signOut()}>
+							<Button variant="outline" size="icon" class="size-8" onclick={() => auth.signOut()}>
 								<LogOut class="size-4" />
 							</Button>
 						{:else}
