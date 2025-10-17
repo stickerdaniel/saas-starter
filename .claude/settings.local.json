@@ -28,7 +28,8 @@
 			"Bash(vercel project:*)",
 			"Bash(npm view:*)",
 			"mcp__svelte__list-sections",
-			"mcp__svelte__get-documentation"
+			"mcp__svelte__get-documentation",
+			"Bash(ls:*)"
 		],
 		"deny": [],
 		"ask": ["Bash(rm:*)"],
