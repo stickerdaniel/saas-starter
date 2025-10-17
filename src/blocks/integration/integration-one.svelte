@@ -30,7 +30,7 @@
 				<IntegrationCard
 					title="Convex"
 					description="The open source Firebase alternative. Built on PostgreSQL - world's most advanced relational database."
-					link="https://Convex.com"
+					link="https://convex.dev"
 				>
 					<Convex />
 				</IntegrationCard>

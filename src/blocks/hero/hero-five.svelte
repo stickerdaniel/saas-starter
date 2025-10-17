@@ -28,11 +28,10 @@
 						<Button
 							size="lg"
 							variant="ghost"
+							href="#link"
 							class="h-12 rounded-full px-5 text-base hover:bg-zinc-950/5 dark:hover:bg-white/5"
 						>
-							<a href="#link">
-								<span class="text-nowrap">Request a demo</span>
-							</a>
+							<span class="text-nowrap">Request a demo</span>
 						</Button>
 					</div>
 				</div>
