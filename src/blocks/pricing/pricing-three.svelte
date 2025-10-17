@@ -9,19 +9,17 @@
 	} from '$lib/components/ui/card';
 	import Check from '@lucide/svelte/icons/check';
 	let pricingList = {
-		free: ['Basic Analytics Dashboard', '5GB Cloud Storage', 'Email and Chat Support'],
-		startup: ['Everything in Pro Plan', '5GB Cloud Storage', 'Email and Chat Support'],
+		free: ['Full source code access', 'All features included', 'MIT License', 'Community support'],
+		startup: [
+			'Test one-time payment flow',
+			'Use test card: 4242 4242 4242 4242',
+			'No real charges'
+		],
 		pro: [
-			'Everything in Free Plan',
-			'5GB Cloud Storage',
-			'Email and Chat Support',
-			'Access to Community Forum',
-			'Single User Access',
-			'Access to Basic Templates',
-			'Mobile App Access',
-			'1 Custom Report Per Month',
-			'Monthly Product Updates',
-			'Standard Security Features'
+			'Test subscription flow',
+			'Try cancellation flow',
+			'Use test card: 4242 4242 4242 4242',
+			'No real charges'
 		]
 	};
 </script>
@@ -30,20 +28,21 @@
 	<div class="mx-auto max-w-6xl px-6">
 		<div class="mx-auto max-w-2xl space-y-6 text-center">
 			<h1 class="text-center text-4xl font-semibold lg:text-5xl">Pricing that Scales with You</h1>
-			<p>
-				Gemini is evolving to be more than just the models. It supports an entire to the APIs and
-				platforms helping developers and businesses innovate.
+			<p class="text-balance">
+				This SaaS starter template is completely free and open source.<br />Test the integrated
+				payment system powered by Autumn - an open-source billing platform that handles
+				subscriptions, usage limits, and Stripe webhooks automatically.
 			</p>
 		</div>
 
 		<div class="mt-8 grid gap-6 md:mt-20 md:grid-cols-3">
 			<Card>
 				<CardHeader>
-					<CardTitle class="font-medium">Free</CardTitle>
+					<CardTitle class="font-medium">Starter</CardTitle>
 
 					<span class="my-3 block text-2xl font-semibold">$0 / mo</span>
 
-					<CardDescription class="text-sm">Per editor</CardDescription>
+					<CardDescription class="text-sm">Forever free</CardDescription>
 					<Button variant="outline" class="mt-4 w-full">
 						<a href="">Get Started</a>
 					</Button>
@@ -70,14 +69,14 @@
 				>
 
 				<CardHeader>
-					<CardTitle class="font-medium">Pro</CardTitle>
+					<CardTitle class="font-medium">Subscription</CardTitle>
 
 					<span class="my-3 block text-2xl font-semibold">$19 / mo</span>
 
-					<CardDescription class="text-sm">Per editor</CardDescription>
+					<CardDescription class="text-sm">Test mode - No real charge</CardDescription>
 
 					<Button class="mt-4 w-full">
-						<a href="">Get Started</a>
+						<a href="">Test Subscription - $19/mo</a>
 					</Button>
 				</CardHeader>
 
@@ -97,14 +96,14 @@
 
 			<Card class="flex flex-col">
 				<CardHeader>
-					<CardTitle class="font-medium">Startup</CardTitle>
+					<CardTitle class="font-medium">One-time Payment</CardTitle>
 
-					<span class="my-3 block text-2xl font-semibold">$29 / mo</span>
+					<span class="my-3 block text-2xl font-semibold">$49</span>
 
-					<CardDescription class="text-sm">Per editor</CardDescription>
+					<CardDescription class="text-sm">Test mode - No real charge</CardDescription>
 
 					<Button variant="outline" class="mt-4 w-full">
-						<a href="">Get Started</a>
+						<a href="">Test Payment - $49</a>
 					</Button>
 				</CardHeader>
 
