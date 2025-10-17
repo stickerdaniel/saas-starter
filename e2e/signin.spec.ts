@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 test('signin fails correctly', async ({ page }) => {
 	await page.goto('/');
 
-	await page.getByRole('link').getByText('Get Started').first().click();
+	await page.getByRole('link', { name: 'Sign Up' }).click();
 
 	await page.waitForURL('/signin');
 

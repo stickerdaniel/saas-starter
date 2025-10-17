@@ -23,15 +23,15 @@
 	const navItems = $derived([
 		{
 			title: 'Dashboard',
-			url: '/product/dashboard',
+			url: '/app/dashboard',
 			icon: ChartBarIcon,
-			isActive: $page.url.pathname === '/product/dashboard'
+			isActive: $page.url.pathname === '/app/dashboard'
 		},
 		{
 			title: 'Community Chat',
-			url: '/product/community-chat',
+			url: '/app/community-chat',
 			icon: MessageCircleIcon,
-			isActive: $page.url.pathname === '/product/community-chat'
+			isActive: $page.url.pathname === '/app/community-chat'
 		},
 		{
 			title: 'Docs',
