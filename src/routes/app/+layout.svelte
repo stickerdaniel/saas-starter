@@ -1,7 +1,7 @@
 <script lang="ts">
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
-	import ProductSidebar from '$lib/components/product/product-sidebar.svelte';
-	import ProductHeader from '$lib/components/product/product-header.svelte';
+	import AppSidebar from '$lib/components/app/app-sidebar.svelte';
+	import AppHeader from '$lib/components/app/app-header.svelte';
 	import type { LayoutData } from './$types';
 	import type { Snippet } from 'svelte';
 	import { ScrollArea } from '$lib/components/ui/scroll-area';
@@ -19,7 +19,7 @@
 		style="--sidebar-width: calc(var(--spacing) * 72); --header-height: calc(var(--spacing) * 12);"
 		class="h-svh overflow-hidden"
 	>
-		<ProductSidebar
+		<AppSidebar
 			variant="inset"
 			user={{
 				name: data.viewer.name ?? 'User',
@@ -28,7 +28,7 @@
 			}}
 		/>
 		<Sidebar.Inset>
-			<ProductHeader />
+			<AppHeader />
 			<ScrollArea class="overflow-hidden">
 				<div class="flex flex-1 flex-col">
 					<div class="@container/main flex flex-1 flex-col gap-2">

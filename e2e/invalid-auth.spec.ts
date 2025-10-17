@@ -29,6 +29,6 @@ test('invalid auth cookie redirects to signin page', async ({ page, context }) =
 	]);
 
 	// An attempt to go to a protected route should redirect to sign-in.
-	await page.goto('/product');
+	await page.goto('/app');
 	await page.waitForURL(/.*\/signin(\?.*)?$/); // Match any URL ending with /signin, optionally followed by query parameters
 });

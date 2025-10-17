@@ -1,11 +1,32 @@
 import Resend from '@auth/core/providers/resend';
-import { Resend as ResendAPI } from 'resend';
 import type { RandomReader } from '@oslojs/crypto/random';
 import { generateRandomString } from '@oslojs/crypto/random';
+import { internal } from '../_generated/api';
 
+/**
+ * Resend OTP provider for Convex Auth
+ *
+ * This provider integrates with the @convex-dev/resend component
+ * for reliable, production-ready email delivery with:
+ * - Automatic queuing and batching
+ * - Durable execution (survives server restarts)
+ * - Built-in idempotency (prevents duplicates)
+ * - Rate limit compliance
+ * - Email event tracking via webhooks
+ *
+ * Configuration:
+ * - RESEND_API_KEY: Set via `bunx convex env set RESEND_API_KEY your_key`
+ * - AUTH_EMAIL: Set via `bunx convex env set AUTH_EMAIL noreply@yourdomain.com`
+ */
 export const ResendOTP = Resend({
 	id: 'resend-otp',
-	apiKey: process.env.AUTH_RESEND_KEY,
+	// Note: apiKey is still required by the auth provider interface
+	// but our actual sending is done through the Convex component
+	apiKey: process.env.RESEND_API_KEY || process.env.AUTH_RESEND_KEY || 'dummy-key',
+
+	/**
+	 * Generate a cryptographically secure 8-digit OTP code
+	 */
 	async generateVerificationToken() {
 		const random: RandomReader = {
 			read(bytes) {
@@ -17,21 +38,29 @@ export const ResendOTP = Resend({
 		const length = 8;
 		return generateRandomString(random, alphabet, length);
 	},
-	async sendVerificationRequest({ identifier: email, provider, token }) {
-		const resend = new ResendAPI(provider.apiKey);
-		const { error } = await resend.emails.send({
-			from: process.env.AUTH_EMAIL || 'noreply@example.com',
-			to: [email],
-			subject: `Verify your email`,
-			text: `Your verification code is: ${token}
 
-This code will expire in 20 minutes.
-
-If you didn't request this code, please ignore this email.`
+	/**
+	 * Send verification email using the Convex Resend component
+	 *
+	 * Instead of calling the Resend API directly, we use an internal mutation
+	 * that leverages the @convex-dev/resend component for better reliability.
+	 *
+	 * Note: The ctx parameter is passed as the second argument by Convex Auth,
+	 * even though it's not in the Auth.js type definition.
+	 */
+	// @ts-expect-error - Convex Auth passes ctx as second parameter (not in Auth.js types)
+	async sendVerificationRequest(
+		{
+			identifier: email,
+			provider: _provider,
+			token
+		}: { identifier: string; provider: any; token: string },
+		ctx: any
+	) {
+		await ctx.runMutation(internal.emails.send.sendVerificationEmail, {
+			email,
+			code: token,
+			expiryMinutes: 20
 		});
-
-		if (error) {
-			throw new Error('Could not send verification email');
-		}
 	}
 });

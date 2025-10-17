@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { api } from '$lib/convex/_generated/api';
-	import ProductPageTitle from '$lib/components/product/product-page-title.svelte';
+	import AppPageTitle from '$lib/components/app/app-page-title.svelte';
 	import { useQuery, useConvexClient } from 'convex-svelte';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
@@ -51,7 +51,7 @@
 {#if viewer.data}
 	<div class="h-full px-4 lg:px-6">
 		<div class="flex flex-1 flex-wrap gap-4 md:gap-6">
-			<ProductPageTitle
+			<AppPageTitle
 				title="Community Chat"
 				description="Open this app in multiple browser windows to see the real-time database in action"
 			/>
