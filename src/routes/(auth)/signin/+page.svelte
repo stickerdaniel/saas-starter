@@ -13,13 +13,18 @@
 		CardHeader,
 		CardTitle
 	} from '$lib/components/ui/card/index.js';
+	import { useSearchParams } from 'runed/kit';
+	import { authParamsSchema } from '$lib/schemas/auth-params.js';
 
 	const { signIn } = useAuth();
+	const params = useSearchParams(authParamsSchema, {
+		debounce: 300,
+		pushHistory: false
+	});
 
 	let isLoading = false;
 	let error = '';
 	let verificationStep: { email: string } | null = null;
-	let activeTab = 'signin';
 
 	async function handleEmailAuth(event: Event, flow: 'signIn' | 'signUp') {
 		event.preventDefault();
@@ -135,7 +140,7 @@
 					</form>
 				{:else}
 					<!-- Sign In / Sign Up Forms -->
-					<Tabs bind:value={activeTab} class="w-full">
+					<Tabs bind:value={params.tab} class="w-full">
 						<TabsList class="grid w-full grid-cols-2">
 							<TabsTrigger value="signin">Sign In</TabsTrigger>
 							<TabsTrigger value="signup">Sign Up</TabsTrigger>
