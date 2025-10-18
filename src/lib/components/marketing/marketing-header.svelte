@@ -12,7 +12,7 @@
 	let menuItems = [
 		{ name: 'Features', href: '#a' },
 		{ name: 'Solution', href: '#a' },
-		{ name: 'Pricing', href: '#a' },
+		{ name: 'Pricing', href: '/pricing' },
 		{ name: 'About', href: '#a' }
 	];
 
