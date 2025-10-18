@@ -136,13 +136,18 @@
 								variant="outline"
 								size="sm"
 								class={cn(isScrolled && 'lg:hidden')}
-								href="/signin"
+								href="/signin?tab=signin"
 							>
 								Login
 							</Button>
-							<Button href="/signin" size="sm" class={cn(isScrolled && 'lg:hidden')}>Sign Up</Button
+							<Button href="/signin?tab=signup" size="sm" class={cn(isScrolled && 'lg:hidden')}
+								>Sign Up</Button
 							>
-							<Button size="sm" href="/signin" class={cn(isScrolled ? 'lg:inline-flex' : 'hidden')}>
+							<Button
+								size="sm"
+								href="/signin?tab=signup"
+								class={cn(isScrolled ? 'lg:inline-flex' : 'hidden')}
+							>
 								Get Started
 							</Button>
 						{/if}

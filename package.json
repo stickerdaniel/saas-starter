@@ -23,6 +23,7 @@
 		"@mmailaender/convex-auth-svelte": "^0.1.2",
 		"@oslojs/crypto": "^1.0.1",
 		"resend": "^6.1.2",
+		"runed": "^0.35.1",
 		"vercel": "^47.1.4"
 	},
 	"devDependencies": {
