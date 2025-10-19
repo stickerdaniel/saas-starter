@@ -1,15 +1,21 @@
 {
-	"hero.title": "Modèle SaaS Starter",
-	"hero.tagline": "Concentrez-vous sur votre produit et expédiez plus rapidement.",
-	"hero.description": "Construisez votre marque en quelques minutes, pas en semaines. Un autre modèle SaaS, mais cette fois avec la pile technologique parfaite.",
-	"hero.cta": "Commencer maintenant",
-	"hero.cta_demo": "Demander une démo",
-	"hero.companies_text": "Propulsant les meilleures équipes",
-	"nav.features": "Fonctionnalités",
-	"nav.solution": "Solution",
-	"nav.pricing": "Tarifs",
-	"nav.about": "À propos",
-	"auth.login": "Connexion",
-	"auth.signup": "S'inscrire",
-	"auth.logout": "Déconnexion"
+	"auth": {
+		"login": "Connexion",
+		"logout": "Déconnexion",
+		"signup": "S'inscrire"
+	},
+	"hero": {
+		"companies_text": "Propulsant les meilleures équipes",
+		"cta": "Commencer maintenant",
+		"cta_demo": "Demander une démo",
+		"description": "Construisez votre marque en quelques minutes, pas en semaines. Un autre modèle SaaS, cette fois avec la pile technologique parfaite.",
+		"tagline": "Focus sur ton produit. Lancement plus rapide.",
+		"title": "Modèle SaaS Starter"
+	},
+	"nav": {
+		"about": "À propos",
+		"features": "Fonctionnalités",
+		"pricing": "Tarifs",
+		"solution": "Solution"
+	}
 }

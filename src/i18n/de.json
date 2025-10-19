@@ -1,15 +1,21 @@
 {
-	"hero.title": "SaaS-Starter-Vorlage",
-	"hero.tagline": "Konzentrieren Sie sich auf Ihr Produkt und versenden Sie schneller.",
-	"hero.description": "Erstellen Sie Ihre Marke in Minuten, nicht in Wochen. Eine weitere SaaS-Vorlage, aber diesmal mit dem perfekten Tech-Stack.",
-	"hero.cta": "Jetzt starten",
-	"hero.cta_demo": "Demo anfordern",
-	"hero.companies_text": "Vertrauen der besten Teams",
-	"nav.features": "Funktionen",
-	"nav.solution": "Lösung",
-	"nav.pricing": "Preise",
-	"nav.about": "Über uns",
-	"auth.login": "Anmelden",
-	"auth.signup": "Registrieren",
-	"auth.logout": "Abmelden"
+	"auth": {
+		"login": "Anmelden",
+		"logout": "Abmelden",
+		"signup": "Registrieren"
+	},
+	"hero": {
+		"companies_text": "Vertrauen der besten Teams",
+		"cta": "Jetzt starten",
+		"cta_demo": "Demo anfordern",
+		"description": "Erstellen Sie Ihre Marke in Minuten, nicht in Wochen. Eine weitere SaaS-Vorlage, diesmal mit dem perfekten Tech-Stack.",
+		"tagline": "Fokus aufs Produkt. Schneller live gehen.",
+		"title": "SaaS-Starter-Vorlage"
+	},
+	"nav": {
+		"about": "Über uns",
+		"features": "Funktionen",
+		"pricing": "Preise",
+		"solution": "Lösung"
+	}
 }

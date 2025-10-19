@@ -6,6 +6,6 @@
     "filesTemplate": "./src/i18n/{languageTag}.json"
   },
   "pull": {
-    "path": "./src/i18n/{languageTag}.json"
+    "path": "./src/i18n"
   }
 }
