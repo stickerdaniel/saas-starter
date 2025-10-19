@@ -2,6 +2,31 @@
 
 @import 'tw-animate-css';
 
+/* Outfit Font - Self-hosted */
+@font-face {
+	font-family: 'Outfit';
+	font-style: normal;
+	font-weight: 400;
+	font-display: swap;
+	src: url('/fonts/outfit-v15-latin-regular.woff2') format('woff2');
+}
+
+@font-face {
+	font-family: 'Outfit';
+	font-style: normal;
+	font-weight: 500;
+	font-display: swap;
+	src: url('/fonts/outfit-v15-latin-500.woff2') format('woff2');
+}
+
+@font-face {
+	font-family: 'Outfit';
+	font-style: normal;
+	font-weight: 600;
+	font-display: swap;
+	src: url('/fonts/outfit-v15-latin-600.woff2') format('woff2');
+}
+
 @custom-variant dark (&:is(.dark *));
 
 :root {
