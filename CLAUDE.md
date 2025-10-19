@@ -29,11 +29,11 @@ This project is a saas template built with SvelteKit, Convex, and modern web tec
 
 ### Tolgee CLI
 
-- `bunx @tolgee/cli pull` - Download translations from Tolgee Cloud
-- `bunx @tolgee/cli push` - Upload local translations to Tolgee Cloud
-- `bunx @tolgee/cli push --tag-new-keys draft` - Push and tag new keys as draft
-- `bunx @tolgee/cli tag --filter-extracted --tag production` - Tag active keys as production
-- `bunx @tolgee/cli tag --filter-not-extracted --filter-tag production --tag deprecated --untag production` - Find and mark deprecated keys
+- `bunx tolgee pull` - Download translations from Tolgee Cloud
+- `bunx tolgee push` - Upload local translations to Tolgee Cloud
+- `bunx tolgee push --tag-new-keys draft` - Push and tag new keys as draft
+- `bunx tolgee tag --filter-extracted --tag production` - Tag active keys as production
+- `bunx tolgee tag --filter-not-extracted --filter-tag production --tag deprecated --untag production` - Find and mark deprecated keys
 
 ## Architecture Overview
 
@@ -81,7 +81,7 @@ This project uses **Tolgee** for cloud-hosted translation management with SEO-fr
 
 - Translations loaded via `staticData` (from `src/i18n/` files)
 - DevTools enabled for in-context editing (requires `VITE_TOLGEE_API_KEY`)
-- Hot-reload translations with `bunx @tolgee/cli pull`
+- Hot-reload translations with `bunx tolgee pull`
 
 **Production Mode:**
 
@@ -150,7 +150,7 @@ bun add -g @tolgee/cli
 1. **Pull translations before deployment:**
 
    ```bash
-   bunx @tolgee/cli pull
+   bunx tolgee pull
    ```
 
    Downloads latest translations from Tolgee Cloud to local files.
@@ -158,7 +158,7 @@ bun add -g @tolgee/cli
 2. **Push local translations to platform:**
 
    ```bash
-   bunx @tolgee/cli push --tag-new-keys draft
+   bunx tolgee push --tag-new-keys draft
    ```
 
    Uploads local translation files and tags new keys for review.
@@ -167,10 +167,10 @@ bun add -g @tolgee/cli
 
    ```bash
    # Tag all keys currently in code as production
-   bunx @tolgee/cli tag --filter-extracted --tag production
+   bunx tolgee tag --filter-extracted --tag production
 
    # Find keys no longer in code and mark as deprecated
-   bunx @tolgee/cli tag --filter-not-extracted --filter-tag production --tag deprecated --untag production
+   bunx tolgee tag --filter-not-extracted --filter-tag production --tag deprecated --untag production
    ```
 
 **Tagging Strategy:**
@@ -190,16 +190,16 @@ Use tags to organize translation keys throughout their lifecycle:
 
    ```bash
    # Tag current keys as production
-   bunx @tolgee/cli tag --filter-extracted --tag production --tag v1.5.0
+   bunx tolgee tag --filter-extracted --tag production --tag v1.5.0
 
    # Pull latest translations for build
-   bunx @tolgee/cli pull
+   bunx tolgee pull
    ```
 
 3. **After Release:**
    ```bash
    # Find and tag deprecated keys
-   bunx @tolgee/cli tag --filter-not-extracted --filter-tag production --tag deprecated --untag production
+   bunx tolgee tag --filter-not-extracted --filter-tag production --tag deprecated --untag production
    ```
 4. **Cleanup:** Review deprecated keys in Tolgee Cloud, then delete
 
@@ -237,7 +237,7 @@ After deployments, identify unused translation keys:
 
 ```bash
 # Find keys tagged "production" but not in current code
-bunx @tolgee/cli tag --filter-not-extracted --filter-tag production --tag deprecated --untag production
+bunx tolgee tag --filter-not-extracted --filter-tag production --tag deprecated --untag production
 ```
 
 Review deprecated keys in Tolgee Cloud, then delete them manually to avoid accidental data loss.

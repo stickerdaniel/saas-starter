@@ -16,9 +16,9 @@
 		"test:e2e": "playwright test",
 		"test": "bun run test:e2e && bun run test:unit",
 		"test:unit": "vitest --run --reporter=verbose --passWithNoTests",
-		"i18n:pull": "bunx @tolgee/cli pull",
-		"i18n:push": "bunx @tolgee/cli push",
-		"i18n:cleanup": "bunx @tolgee/cli tag --filter-not-extracted --filter-tag production --tag deprecated --untag production"
+		"i18n:pull": "bunx tolgee pull",
+		"i18n:push": "bunx tolgee push",
+		"i18n:cleanup": "bunx tolgee tag --filter-not-extracted --filter-tag production --tag deprecated --untag production"
 	},
 	"dependencies": {
 		"@auth/core": "^0.40.0",
@@ -50,7 +50,6 @@
 		"@tanstack/table-core": "^8.21.3",
 		"@testing-library/jest-dom": "^6.9.1",
 		"@testing-library/svelte": "^5.2.8",
-		"@tolgee/cli": "^2.14.0",
 		"@types/d3-scale": "^4.0.9",
 		"@types/d3-shape": "^3.1.7",
 		"@types/node": "^22.18.10",
