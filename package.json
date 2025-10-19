@@ -86,6 +86,7 @@
 	},
 	"overrides": {
 		"esbuild": "0.25.9",
-		"svelte-toolbelt": "^0.10.5"
+		"svelte-toolbelt": "^0.10.5",
+		"path-to-regexp": "8.3.0"
 	}
 }
