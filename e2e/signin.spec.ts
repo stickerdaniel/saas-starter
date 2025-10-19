@@ -5,7 +5,7 @@ test('signin fails correctly', async ({ page }) => {
 
 	await page.getByRole('link', { name: 'Sign Up' }).click();
 
-	await page.waitForURL('/signin');
+	await page.waitForURL('/en/signin*');
 
 	await page
 		.getByLabel('Secret')

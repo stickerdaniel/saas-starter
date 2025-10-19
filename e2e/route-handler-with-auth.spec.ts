@@ -22,7 +22,7 @@ async function signIn(page: Page) {
 	await page.goto('/signin');
 	await page.getByLabel('Secret').fill(process.env.AUTH_E2E_TEST_SECRET!);
 	await page.getByRole('button').getByText('Sign in with secret').click();
-	await page.waitForURL('/app/**');
+	await page.waitForURL('/en/app/**');
 }
 
 async function signOut(page: Page) {
