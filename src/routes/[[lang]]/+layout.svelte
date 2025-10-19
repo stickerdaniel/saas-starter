@@ -60,12 +60,5 @@
 </script>
 
 <TolgeeProvider {tolgee}>
-	<div slot="fallback" class="flex min-h-screen items-center justify-center">
-		<div class="text-center">
-			<div class="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto"></div>
-			<p class="mt-4 text-sm text-gray-600">Loading translations...</p>
-		</div>
-	</div>
-
 	{@render children()}
 </TolgeeProvider>
