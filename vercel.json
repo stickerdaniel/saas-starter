@@ -1,0 +1,7 @@
+{
+	"buildCommand": "bash scripts/vercel-deploy.sh",
+	"framework": "sveltekit",
+	"env": {
+		"TOLGEE_API_KEY": "@tolgee_api_key"
+	}
+}

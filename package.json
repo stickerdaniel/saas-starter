@@ -15,7 +15,10 @@
 		"lint": "eslint .",
 		"test:e2e": "playwright test",
 		"test": "bun run test:e2e && bun run test:unit",
-		"test:unit": "vitest --run --reporter=verbose --passWithNoTests"
+		"test:unit": "vitest --run --reporter=verbose --passWithNoTests",
+		"i18n:pull": "bunx @tolgee/cli pull",
+		"i18n:push": "bunx @tolgee/cli push",
+		"i18n:cleanup": "bunx @tolgee/cli tag --filter-not-extracted --filter-tag production --tag deprecated --untag production"
 	},
 	"dependencies": {
 		"@auth/core": "^0.40.0",

@@ -27,6 +27,14 @@ This project is a saas template built with SvelteKit, Convex, and modern web tec
 - `bunx convex env set KEY value` - Set Convex environment variables
 - `bunx convex env set KEY value --prod` - Set production environment variables
 
+### Tolgee CLI
+
+- `bunx @tolgee/cli pull` - Download translations from Tolgee Cloud
+- `bunx @tolgee/cli push` - Upload local translations to Tolgee Cloud
+- `bunx @tolgee/cli push --tag-new-keys draft` - Push and tag new keys as draft
+- `bunx @tolgee/cli tag --filter-extracted --tag production` - Tag active keys as production
+- `bunx @tolgee/cli tag --filter-not-extracted --filter-tag production --tag deprecated --untag production` - Find and mark deprecated keys
+
 ## Architecture Overview
 
 ### Tech Stack
@@ -65,6 +73,30 @@ This project uses **Tolgee** for cloud-hosted translation management with SEO-fr
 - **Cloud-hosted**: Translations managed via Tolgee Cloud (https://app.tolgee.io)
 - **In-context editing**: Edit translations directly in the browser during development
 - **Auto language detection**: Detects user's preferred language from Accept-Language header
+- **Production-ready**: Uses staticData (bundled translations) - no API keys exposed, faster page loads
+
+#### Production Architecture
+
+**Development Mode:**
+
+- Translations loaded via `staticData` (from `src/i18n/` files)
+- DevTools enabled for in-context editing (requires `VITE_TOLGEE_API_KEY`)
+- Hot-reload translations with `bunx @tolgee/cli pull`
+
+**Production Mode:**
+
+- Translations bundled at build-time via `staticData`
+- DevTools automatically removed (tree-shaken)
+- No API keys in production bundle (secure)
+- No runtime API calls (faster performance)
+- CI/CD automatically pulls latest translations before build
+
+**Why staticData over runtime API loading?**
+
+- ✅ Security: No API keys exposed to clients
+- ✅ Performance: Translations bundled with app (no API calls)
+- ✅ Reliability: No dependency on Tolgee servers at runtime
+- ✅ Official Tolgee best practice for production
 
 #### Quick Setup
 
@@ -104,6 +136,111 @@ This project uses **Tolgee** for cloud-hosted translation management with SEO-fr
 
 <SEOHead title="About Us" description="Learn more" />
 ```
+
+#### Tolgee CLI Workflow
+
+**Installation:**
+
+```bash
+bun add -g @tolgee/cli
+```
+
+**Common Commands:**
+
+1. **Pull translations before deployment:**
+
+   ```bash
+   bunx @tolgee/cli pull
+   ```
+
+   Downloads latest translations from Tolgee Cloud to local files.
+
+2. **Push local translations to platform:**
+
+   ```bash
+   bunx @tolgee/cli push --tag-new-keys draft
+   ```
+
+   Uploads local translation files and tags new keys for review.
+
+3. **Tag management for lifecycle tracking:**
+
+   ```bash
+   # Tag all keys currently in code as production
+   bunx @tolgee/cli tag --filter-extracted --tag production
+
+   # Find keys no longer in code and mark as deprecated
+   bunx @tolgee/cli tag --filter-not-extracted --filter-tag production --tag deprecated --untag production
+   ```
+
+**Tagging Strategy:**
+
+Use tags to organize translation keys throughout their lifecycle:
+
+- `draft` - New keys awaiting review
+- `production` - Keys actively used in production code
+- `deprecated` - Keys no longer in code (safe to delete after review)
+- `feature-*` - Keys for specific features (e.g., `feature-auth`, `feature-checkout`)
+- `v*.*.*` - Keys added in specific versions (e.g., `v1.5.0`)
+
+**Recommended Workflow:**
+
+1. **Development:** Add translations using in-context editor or `<T>` component
+2. **Before Release:**
+
+   ```bash
+   # Tag current keys as production
+   bunx @tolgee/cli tag --filter-extracted --tag production --tag v1.5.0
+
+   # Pull latest translations for build
+   bunx @tolgee/cli pull
+   ```
+
+3. **After Release:**
+   ```bash
+   # Find and tag deprecated keys
+   bunx @tolgee/cli tag --filter-not-extracted --filter-tag production --tag deprecated --untag production
+   ```
+4. **Cleanup:** Review deprecated keys in Tolgee Cloud, then delete
+
+**CLI Tag Filtering Options:**
+
+- `--filter-tag <tag>` - Include only keys with tag (supports `*` wildcard)
+- `--filter-not-tag <tag>` - Exclude keys with tag
+- `--filter-extracted` - Include keys found in code
+- `--filter-not-extracted` - Include keys NOT found in code
+- `--tag <tag>` - Add tag to filtered keys
+- `--untag <tag>` - Remove tag from filtered keys (supports `*` wildcard)
+
+**Configuration:**
+
+Tolgee CLI is configured via `.tolgeerc` in the project root. The project uses a **Project API Key** (starts with `tgpak_`), which automatically includes the project ID - no manual configuration needed.
+
+The CLI uses the `TOLGEE_API_KEY` environment variable for authentication in CI/CD (see `.env.local.example`). Locally, the key is stored in `.tolgeerc` (which is gitignored).
+
+**CI/CD Integration:**
+
+Tolgee CLI is integrated into the CI/CD pipeline to automatically:
+
+1. Tag all translation keys found in code as "production"
+2. Pull latest translations from Tolgee Cloud before build
+
+**Implementation locations:**
+
+- **GitHub Actions**: See [.github/workflows/build.yml](.github/workflows/build.yml:33-36) for the "Sync Tolgee translations" step
+- **Vercel**: See [vercel.json](vercel.json) for the build command configuration
+- **Environment variables**: Add `TOLGEE_API_KEY` to GitHub Secrets and Vercel Environment Variables
+
+**Finding deprecated keys:**
+
+After deployments, identify unused translation keys:
+
+```bash
+# Find keys tagged "production" but not in current code
+bunx @tolgee/cli tag --filter-not-extracted --filter-tag production --tag deprecated --untag production
+```
+
+Review deprecated keys in Tolgee Cloud, then delete them manually to avoid accidental data loss.
 
 For complete documentation, see `docs/i18n-setup.md`.
 
@@ -221,27 +358,88 @@ Planned integration with `svelte-email` for visual email templates that automati
 
 ## Environment Configuration
 
-### Required Environment Variables
+This project uses multiple environment variable configurations organized by purpose and platform. Each `.example` file corresponds to where variables should be set.
 
-**Set in Convex (via `bunx convex env set KEY value`):**
+### Configuration Files Overview
 
-- `RESEND_API_KEY` - Resend API key for email sending (required)
-- `AUTH_EMAIL` - Sender email address (e.g., `noreply@yourdomain.com`) (required)
-- `RESEND_WEBHOOK_SECRET` - Resend webhook signing secret (optional, for webhook verification)
+| File                                               | Purpose                     | Platform                     | When Used                     |
+| -------------------------------------------------- | --------------------------- | ---------------------------- | ----------------------------- |
+| [.env.local.example](.env.local.example)           | Local development           | Your machine                 | Running `bun run dev`         |
+| [.env.ci.example](.env.ci.example)                 | CI testing & quality checks | GitHub Actions Secrets       | Every push/PR                 |
+| [.env.deployment.example](.env.deployment.example) | Automatic deployments       | Vercel Environment Variables | Preview/PR/Production deploys |
+| [.env.convex.example](.env.convex.example)         | Backend configuration       | Convex Dashboard             | Backend runtime               |
+| [.env.test.example](.env.test.example)             | E2E testing                 | Local + GitHub Actions       | Running tests                 |
+
+### Quick Setup Guide
+
+**1. Local Development** (`.env.local`)
+
+```bash
+# Copy example and fill in values
+cp .env.local.example .env.local
+# Required: CONVEX_DEPLOYMENT, PUBLIC_CONVEX_URL, VITE_TOLGEE_API_KEY, TOLGEE_API_KEY
+```
+
+**2. GitHub Actions** (Repository Secrets)
+
+```bash
+# Add to: Repository Settings → Secrets → Actions
+# Required: TEST_CONVEX_URL, AUTH_E2E_TEST_SECRET, TOLGEE_API_KEY
+# See .env.ci.example for details
+```
+
+**3. Vercel** (Environment Variables)
+
+```bash
+# Add to: Vercel Dashboard → Project Settings → Environment Variables
+# Required: PUBLIC_CONVEX_URL, CONVEX_DEPLOY_KEY, TOLGEE_API_KEY
+# See .env.deployment.example for details
+```
+
+**4. Convex Backend** (via CLI)
+
+```bash
+# Required: RESEND_API_KEY, AUTH_EMAIL
+# Optional: AUTH_GOOGLE_ID, AUTH_GOOGLE_SECRET, RESEND_WEBHOOK_SECRET
+# For testing: AUTH_E2E_TEST_SECRET
+bunx convex env set KEY value
+# See .env.convex.example for complete list
+```
+
+### Environment Variable Summary
+
+**Convex Backend** (set via `bunx convex env set`):
+
+- `RESEND_API_KEY` - Email sending (required)
+- `AUTH_EMAIL` - Sender email address (required)
+- `RESEND_WEBHOOK_SECRET` - Webhook verification (optional)
 - `AUTH_GOOGLE_ID` - Google OAuth client ID (optional)
 - `AUTH_GOOGLE_SECRET` - Google OAuth secret (optional)
-- `AUTH_E2E_TEST_SECRET` - Secret for E2E test authentication (required for testing)
+- `AUTH_E2E_TEST_SECRET` - E2E test authentication (required for CI/CD)
 
-**Set in local environment (`.env.local`):**
+**Vercel Deployments** (Vercel Dashboard):
 
-- `PUBLIC_CONVEX_URL` - Convex deployment URL
-- `CONVEX_DEPLOYMENT` - Deployment name
+- `PUBLIC_CONVEX_URL` - Production Convex URL (runtime)
+- `CONVEX_DEPLOY_KEY` - Deploy Convex functions (build-time)
+- `TOLGEE_API_KEY` - Pull translations (build-time)
 
-### Test Environment
+**GitHub Actions** (Repository Secrets):
 
-- E2E tests require `.env.test` file
-- Tests run against development Convex deployment (not production)
-- CI uses `TEST_CONVEX_URL` for test environment
+- `TEST_CONVEX_URL` - Test Convex deployment
+- `AUTH_E2E_TEST_SECRET` - E2E test auth
+- `TOLGEE_API_KEY` - Tag production keys
+
+**Local Development** (`.env.local`):
+
+- `CONVEX_DEPLOYMENT` - Dev deployment name
+- `PUBLIC_CONVEX_URL` - Dev Convex URL
+- `VITE_TOLGEE_API_KEY` - DevTools in-context editing
+- `TOLGEE_API_KEY` - CLI for pulling translations
+
+**E2E Testing** (`.env.test`):
+
+- `AUTH_E2E_TEST_SECRET` - Test authentication
+- `PUBLIC_E2E_TEST` - Enable test mode
 
 ## Testing Guidelines
 
