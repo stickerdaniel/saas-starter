@@ -30,11 +30,17 @@
 			"mcp__svelte__list-sections",
 			"mcp__svelte__get-documentation",
 			"Bash(ls:*)",
-			"mcp__context7__get-library-docs"
+			"mcp__context7__get-library-docs",
+			"WebFetch(domain:docs.tolgee.io)",
+			"mcp__jsrepo__search-registries",
+			"mcp__jsrepo__list-components",
+			"mcp__jsrepo__get-component-code",
+			"WebFetch(domain:tolgee.io)"
 		],
 		"deny": [],
 		"ask": ["Bash(rm:*)"],
 		"defaultMode": "plan"
 	},
-	"enabledMcpjsonServers": ["svelte"]
+	"enableAllProjectMcpServers": true,
+	"enabledMcpjsonServers": ["svelte", "jsrepo"]
 }

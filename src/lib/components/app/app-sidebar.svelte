@@ -6,6 +6,7 @@
 	import NavUser from '../nav-user.svelte';
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import type { ComponentProps } from 'svelte';
+	import { localizedHref } from '$lib/utils/i18n';
 
 	interface Props extends ComponentProps<typeof Sidebar.Root> {
 		user?: {
@@ -17,31 +18,31 @@
 
 	let { user, ...restProps }: Props = $props();
 
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import ChartBarIcon from '@tabler/icons-svelte/icons/chart-bar';
 
 	const navItems = $derived([
 		{
 			title: 'Dashboard',
-			url: '/app/dashboard',
+			url: localizedHref('/app/dashboard'),
 			icon: ChartBarIcon,
-			isActive: $page.url.pathname === '/app/dashboard'
+			isActive: page.url.pathname === `/${page.params.lang}/app/dashboard`
 		},
 		{
 			title: 'Community Chat',
-			url: '/app/community-chat',
+			url: localizedHref('/app/community-chat'),
 			icon: MessageCircleIcon,
-			isActive: $page.url.pathname === '/app/community-chat'
+			isActive: page.url.pathname === `/${page.params.lang}/app/community-chat`
 		},
 		{
 			title: 'Docs',
-			url: 'https://docs.convex.dev',
+			url: localizedHref('https://docs.convex.dev'),
 			icon: BookIcon,
 			isActive: false
 		},
 		{
 			title: 'Home',
-			url: '/',
+			url: localizedHref('/'),
 			icon: HomeIcon,
 			isActive: false
 		}
@@ -54,7 +55,7 @@
 			<Sidebar.MenuItem>
 				<Sidebar.MenuButton class="data-[slot=sidebar-menu-button]:!p-1.5">
 					{#snippet child({ props })}
-						<a href="/" {...props}>
+						<a href={localizedHref('/')} {...props}>
 							<InnerShadowTopIcon class="!size-5" />
 							<span class="text-base font-semibold">SaaS Starter</span>
 						</a>

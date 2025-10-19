@@ -34,6 +34,7 @@ This project is a saas template built with SvelteKit, Convex, and modern web tec
 - **Frontend**: SvelteKit, Svelte 5 (runes syntax), Tailwind CSS v4, Skeleton UI
 - **Backend**: Convex (real-time database + serverless functions)
 - **Authentication**: Convex Auth with OAuth (Google) and email/password via @mmailaender/convex-auth-svelte
+- **Internationalization**: Tolgee (cloud-hosted translation management with URL-based localization)
 - **Testing**: Playwright (E2E), Vitest (unit)
 - **Package Manager**: Bun
 
@@ -41,9 +42,70 @@ This project is a saas template built with SvelteKit, Convex, and modern web tec
 
 - `src/lib/convex/` - Convex backend functions, schema, and auth config
 - `src/lib/components/` - UI components (shadcn-style components)
-- `src/routes/` - SvelteKit routes
-- `src/hooks.server.ts` - Server hooks for auth middleware
+- `src/lib/i18n/` - Internationalization configuration
+- `src/routes/[[lang]]/` - SvelteKit routes with language parameter
+- `src/hooks.server.ts` - Server hooks for auth and language middleware
 - `convex.json` - Points Convex functions to `src/lib/convex/`
+
+### Internationalization (i18n)
+
+This project uses **Tolgee** for cloud-hosted translation management with SEO-friendly URL-based localization.
+
+#### Supported Languages
+
+- English (`en`) - Default
+- German (`de`)
+- Spanish (`es`)
+- French (`fr`)
+
+#### Key Features
+
+- **URL-based routing**: All routes are prefixed with language code (e.g., `/en/about`, `/de/uber-uns`)
+- **SEO optimized**: Automatic hreflang tags, canonical URLs, and Open Graph locale tags
+- **Cloud-hosted**: Translations managed via Tolgee Cloud (https://app.tolgee.io)
+- **In-context editing**: Edit translations directly in the browser during development
+- **Auto language detection**: Detects user's preferred language from Accept-Language header
+
+#### Quick Setup
+
+1. Create a Tolgee account at https://app.tolgee.io
+2. Add `VITE_TOLGEE_API_KEY` to `.env.local`
+3. Add translations in Tolgee Cloud or use in-context editor
+
+#### Usage
+
+**Using translations in components:**
+
+```svelte
+<script lang="ts">
+	import { T } from '@tolgee/svelte';
+</script>
+
+<T keyName="welcome_message" />
+<T keyName="greeting" params={{ name: 'John' }} />
+```
+
+**Language switcher:**
+
+```svelte
+<script lang="ts">
+	import LanguageSwitcher from '$lib/components/LanguageSwitcher.svelte';
+</script>
+
+<LanguageSwitcher />
+```
+
+**SEO meta tags:**
+
+```svelte
+<script lang="ts">
+	import SEOHead from '$lib/components/SEOHead.svelte';
+</script>
+
+<SEOHead title="About Us" description="Learn more" />
+```
+
+For complete documentation, see `docs/i18n-setup.md`.
 
 ### Authentication Library
 

@@ -4,6 +4,7 @@
 	import { navigating } from '$app/stores';
 	import { expoOut } from 'svelte/easing';
 	import { slide } from 'svelte/transition';
+	import SEOHead from '$lib/components/SEOHead.svelte';
 
 	let { children, data } = $props();
 
@@ -12,6 +13,8 @@
 		options: { verbose: true }
 	});
 </script>
+
+<SEOHead />
 
 {#if $navigating}
 	<!--
