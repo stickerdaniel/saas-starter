@@ -53,30 +53,42 @@
 			"presentation": {
 				"clear": true
 			}
-			// },
-			// {
-			// 	"label": "bun run i18n:pull",
-			// 	"detail": "Pull translations from Tolgee and format JSON files",
-			// 	"type": "shell",
-			// 	"command": "bun",
-			// 	"args": ["run", "i18n:pull"],
-			// 	"group": "none",
-			// 	"presentation": {
-			// 		"clear": true
-			// 	},
-			// 	"problemMatcher": []
-			// },
-			// {
-			// 	"label": "bun run i18n:push",
-			// 	"detail": "Push translations to Tolgee and format JSON files",
-			// 	"type": "shell",
-			// 	"command": "bun",
-			// 	"args": ["run", "i18n:push"],
-			// 	"group": "none",
-			// 	"presentation": {
-			// 		"clear": true
-			// 	},
-			// 	"problemMatcher": []
+		},
+		{
+			"label": "bun run i18n:pull",
+			"type": "shell",
+			"command": "bun",
+			"args": ["run", "i18n:pull"],
+			"group": "none",
+			"problemMatcher": [],
+			"detail": "Pull latest translations from Tolgee Cloud",
+			"presentation": {
+				"clear": true
+			}
+		},
+		{
+			"label": "bun run i18n:push",
+			"type": "shell",
+			"command": "bun",
+			"args": ["run", "i18n:push"],
+			"group": "none",
+			"problemMatcher": [],
+			"detail": "Push local translation files to Tolgee Cloud",
+			"presentation": {
+				"clear": true
+			}
+		},
+		{
+			"label": "bun run i18n:cleanup",
+			"type": "shell",
+			"command": "bun",
+			"args": ["run", "i18n:cleanup"],
+			"group": "none",
+			"problemMatcher": [],
+			"detail": "Find deprecated keys and tag them (review in Tolgee Cloud UI after)",
+			"presentation": {
+				"clear": true
+			}
 		}
 	]
 }

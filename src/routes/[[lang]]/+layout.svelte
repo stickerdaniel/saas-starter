@@ -16,13 +16,23 @@
 		.use(FormatSimple())
 		.init({
 			language: data.lang,
-			apiUrl: import.meta.env.VITE_TOLGEE_API_URL,
-			apiKey: import.meta.env.VITE_TOLGEE_API_KEY,
 
-			// Fetch translations from Tolgee cloud
+			// Production: Use static translations bundled at build-time (pulled via CLI)
+			// Development: DevTools can still use API key if VITE_TOLGEE_API_KEY is set
+			staticData: {
+				en: () => import('../../i18n/en.json'),
+				de: () => import('../../i18n/de.json'),
+				es: () => import('../../i18n/es.json'),
+				fr: () => import('../../i18n/fr.json')
+			},
+
 			availableLanguages: ['en', 'de', 'es', 'fr'],
 			defaultLanguage: 'en',
-			fallbackLanguage: 'en'
+			fallbackLanguage: 'en',
+
+			// DevTools configuration (auto-removed in production builds)
+			apiUrl: import.meta.env.VITE_TOLGEE_API_URL,
+			apiKey: import.meta.env.VITE_TOLGEE_API_KEY
 		});
 
 	// Sync Tolgee language with URL parameter when user navigates (back/forward buttons)
