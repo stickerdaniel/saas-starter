@@ -74,16 +74,16 @@ echo "2. Spell checking"
 echo "======================================================"
 if command -v misspell > /dev/null 2>&1; then
     if [ "$STAGED_ONLY" = true ]; then
-        # Check only staged files
-        STAGED_CHECKABLE_FILES=$(echo "$ALL_FILES" | grep -E '\.(js|ts|svelte|md)$' || true)
+        # Check only staged files (exclude non-English translations)
+        STAGED_CHECKABLE_FILES=$(echo "$ALL_FILES" | grep -E '\.(js|ts|svelte|md)$' | grep -v -E 'src/i18n/(de|es|fr)\.json' || true)
         if [ -n "$STAGED_CHECKABLE_FILES" ]; then
             echo "$STAGED_CHECKABLE_FILES" | xargs misspell -error
         else
             echo "No staged files to spell check"
         fi
     else
-        # Check all files
-        misspell -error ./src README.md
+        # Check all files (exclude non-English translations)
+        misspell -error $(find ./src -type f -not -path "*/i18n/de.json" -not -path "*/i18n/es.json" -not -path "*/i18n/fr.json") README.md
     fi
 else
     echo "Installing misspell..."
@@ -91,14 +91,14 @@ else
         go install github.com/client9/misspell/cmd/misspell@latest
         export PATH=$PATH:$(go env GOPATH)/bin
         if [ "$STAGED_ONLY" = true ]; then
-            STAGED_CHECKABLE_FILES=$(echo "$ALL_FILES" | grep -E '\.(js|ts|svelte|md)$' || true)
+            STAGED_CHECKABLE_FILES=$(echo "$ALL_FILES" | grep -E '\.(js|ts|svelte|md)$' | grep -v -E 'src/i18n/(de|es|fr)\.json' || true)
             if [ -n "$STAGED_CHECKABLE_FILES" ]; then
                 echo "$STAGED_CHECKABLE_FILES" | xargs misspell -error
             else
                 echo "No staged files to spell check"
             fi
         else
-            misspell -error ./src README.md
+            misspell -error $(find ./src -type f -not -path "*/i18n/de.json" -not -path "*/i18n/es.json" -not -path "*/i18n/fr.json") README.md
         fi
     else
         echo "WARNING: misspell not installed (go required for installation)"

@@ -1,0 +1,11 @@
+{
+  "apiUrl": "https://app.tolgee.io",
+  "format": "JSON_TOLGEE",
+  "patterns": ["src/**/*.{ts,svelte}"],
+  "push": {
+    "filesTemplate": "./src/i18n/{languageTag}.json"
+  },
+  "pull": {
+    "path": "./src/i18n"
+  }
+}

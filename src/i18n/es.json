@@ -1,0 +1,21 @@
+{
+	"auth": {
+		"login": "Iniciar sesión",
+		"logout": "Cerrar sesión",
+		"signup": "Registrarse"
+	},
+	"hero": {
+		"companies_text": "Impulsando a los mejores equipos",
+		"cta": "Comenzar ahora",
+		"cta_demo": "Solicitar una demo",
+		"description": "Construye tu marca en minutos, no en semanas. Otra plantilla SaaS, pero esta vez con el stack tecnológico perfecto.",
+		"tagline": "Foco en tu producto. Lanzamiento más rápido.",
+		"title": "Plantilla SaaS Starter"
+	},
+	"nav": {
+		"about": "Acerca de",
+		"features": "Características",
+		"pricing": "Precios",
+		"solution": "Solución"
+	}
+}

@@ -1,4 +1,5 @@
 <script>
+	import { T } from '@tolgee/svelte';
 	import Marquee from '../magic/Marquee.svelte';
 	import ProgressiveBlur from '../magic/ProgressiveBlur.svelte';
 	import Button from '$lib/components/ui/button/button.svelte';
@@ -10,19 +11,18 @@
 		<div class="py-24 md:pb-32 lg:pt-48 lg:pb-36">
 			<div class="relative mx-auto flex max-w-7xl flex-col px-6 lg:block lg:px-12">
 				<div class="mx-auto max-w-lg text-center lg:ml-0 lg:max-w-full lg:text-left">
-					<h1 class="mt-8 max-w-3xl text-5xl text-balance md:text-6xl lg:mt-16 xl:text-7xl">
-						Focus on your product and ship faster
+					<h1 class="mt-8 max-w-4xl text-5xl text-balance md:text-6xl lg:mt-16 xl:text-7xl">
+						<T keyName="hero.tagline" />
 					</h1>
 					<p class="mt-8 max-w-3xl text-lg text-balance">
-						Build your brand in minutes, not weeks.<br />Another saas-template, but this time with
-						the perfect tech stack
+						<T keyName="hero.description" />
 					</p>
 
 					<div
 						class="mt-12 flex flex-col items-center justify-center gap-2 sm:flex-row lg:justify-start"
 					>
 						<Button size="lg" href="#" class="h-12 rounded-full pr-3 pl-5 text-base">
-							<span class="text-nowrap">Start Building</span>
+							<span class="text-nowrap"><T keyName="hero.cta" /></span>
 							<ChevronRight class="ml-1" />
 						</Button>
 						<Button
@@ -31,7 +31,7 @@
 							href="#link"
 							class="h-12 rounded-full px-5 text-base hover:bg-zinc-950/5 dark:hover:bg-white/5"
 						>
-							<span class="text-nowrap">Request a demo</span>
+							<span class="text-nowrap"><T keyName="hero.cta_demo" /></span>
 						</Button>
 					</div>
 				</div>
@@ -52,7 +52,7 @@
 		<div class="group relative m-auto max-w-7xl px-6">
 			<div class="flex flex-col items-center md:flex-row">
 				<div class="md:max-w-44 md:border-r md:pr-6">
-					<p class="text-end text-sm">Powering the best teams</p>
+					<p class="text-end text-sm"><T keyName="hero.companies_text" /></p>
 				</div>
 				<!-- Checkout Logo Cloud Three  -->
 				<!-- I have provided progressive blur snippet code & Marquee code -->

@@ -12,7 +12,7 @@ import Trigger from './dropdown-menu-trigger.svelte';
 import SubContent from './dropdown-menu-sub-content.svelte';
 import SubTrigger from './dropdown-menu-sub-trigger.svelte';
 import GroupHeading from './dropdown-menu-group-heading.svelte';
-const Sub = DropdownMenuPrimitive.Sub;
+const Sub: typeof DropdownMenuPrimitive.Sub = DropdownMenuPrimitive.Sub;
 const Root: typeof DropdownMenuPrimitive.Root = DropdownMenuPrimitive.Root;
 
 export {
