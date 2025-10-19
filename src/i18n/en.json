@@ -1,15 +1,21 @@
 {
-	"hero.title": "SaaS Starter Template",
-	"hero.tagline": "Focus on your product and ship faster.",
-	"hero.description": "Build your brand in minutes, not weeks. Another saas-template, but this time with the perfect tech stack.",
-	"hero.cta": "Start Building",
-	"hero.cta_demo": "Request a demo",
-	"hero.companies_text": "Powering the best teams",
-	"nav.features": "Features",
-	"nav.solution": "Solution",
-	"nav.pricing": "Pricing",
-	"nav.about": "About",
-	"auth.login": "Login",
-	"auth.signup": "Sign Up",
-	"auth.logout": "Logout"
+	"auth": {
+		"login": "Login",
+		"logout": "Logout",
+		"signup": "Sign Up"
+	},
+	"hero": {
+		"companies_text": "Powering the best teams",
+		"cta": "Start Building",
+		"cta_demo": "Request a demo",
+		"description": "Build your brand in minutes, not weeks. Another saas-template, this time with the perfect tech stack.",
+		"tagline": "Focus on your product and ship faster.",
+		"title": "SaaS Starter Template"
+	},
+	"nav": {
+		"about": "About",
+		"features": "Features",
+		"pricing": "Pricing",
+		"solution": "Solution"
+	}
 }

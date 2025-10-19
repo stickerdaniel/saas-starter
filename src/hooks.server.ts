@@ -8,8 +8,8 @@ import { redirect, type Handle } from '@sveltejs/kit';
 import { isSupportedLanguage, DEFAULT_LANGUAGE } from '$lib/i18n/languages';
 
 const isSignInPage = createRouteMatcher('/:lang/signin');
-const isProtectedRoute = createRouteMatcher('/:lang/app/:path*');
-const isApiRoute = createRouteMatcher('/api/:path*');
+const isProtectedRoute = createRouteMatcher('/:lang/app/*path');
+const isApiRoute = createRouteMatcher('/api/*path');
 
 const { handleAuth, isAuthenticated: isAuthenticatedPromise } = createConvexAuthHooks({
 	convexUrl: PUBLIC_CONVEX_URL,
