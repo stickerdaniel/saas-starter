@@ -9,7 +9,6 @@ import { isSupportedLanguage, DEFAULT_LANGUAGE } from '$lib/i18n/languages';
 
 const isSignInPage = createRouteMatcher('/:lang/signin');
 const isProtectedRoute = createRouteMatcher('/:lang/app/*path');
-const isApiRoute = createRouteMatcher('/api/*path');
 
 const { handleAuth, isAuthenticated: isAuthenticatedPromise } = createConvexAuthHooks({
 	convexUrl: PUBLIC_CONVEX_URL,
@@ -22,8 +21,8 @@ const { handleAuth, isAuthenticated: isAuthenticatedPromise } = createConvexAuth
 const handleLanguage: Handle = async ({ event, resolve }) => {
 	const pathname = event.url.pathname;
 
-	// Skip API routes
-	if (isApiRoute(pathname)) {
+	// Skip API routes (check if path starts with /api)
+	if (pathname.startsWith('/api')) {
 		return resolve(event);
 	}
 

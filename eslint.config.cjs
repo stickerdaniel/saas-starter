@@ -21,6 +21,7 @@ module.exports = [
 			'**/dist/**',
 			'**/.svelte-kit/**',
 			'**/build/**',
+			'**/.vercel/**', // Ignore Vercel build output
 			'**/node_modules/**',
 			'test-nextjs/backendHarness.js',
 			'**/e2e/**', // Ignore e2e tests (not in tsconfig)

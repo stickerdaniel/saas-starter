@@ -43,9 +43,7 @@
 					<span class="my-3 block text-2xl font-semibold">$0 / mo</span>
 
 					<CardDescription class="text-sm">Forever free</CardDescription>
-					<Button variant="outline" class="mt-4 w-full">
-						<a href="">Get Started</a>
-					</Button>
+					<Button variant="outline" class="mt-4 w-full">Get Started</Button>
 				</CardHeader>
 
 				<CardContent class="space-y-4">
@@ -75,9 +73,7 @@
 
 					<CardDescription class="text-sm">Test mode - No real charge</CardDescription>
 
-					<Button class="mt-4 w-full">
-						<a href="">Test Subscription - $19/mo</a>
-					</Button>
+					<Button class="mt-4 w-full">Test Subscription - $19/mo</Button>
 				</CardHeader>
 
 				<CardContent class="space-y-4">
@@ -102,9 +98,7 @@
 
 					<CardDescription class="text-sm">Test mode - No real charge</CardDescription>
 
-					<Button variant="outline" class="mt-4 w-full">
-						<a href="">Test Payment - $49</a>
-					</Button>
+					<Button variant="outline" class="mt-4 w-full">Test Payment - $49</Button>
 				</CardHeader>
 
 				<CardContent class="space-y-4">
