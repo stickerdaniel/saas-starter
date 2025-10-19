@@ -1,6 +1,8 @@
 <script>
 	import Button from '$lib/components/ui/button/button.svelte';
+	import LanguageSwitcher from '$lib/components/LanguageSwitcher.svelte';
 	import { cn } from '$lib/utils';
+	import { localizedHref } from '$lib/utils/i18n';
 	import Menu from '@lucide/svelte/icons/menu';
 	import X from '@lucide/svelte/icons/x';
 	import LogOut from '@lucide/svelte/icons/log-out';
@@ -9,12 +11,13 @@
 
 	const auth = useAuth();
 
-	let menuItems = [
-		{ name: 'Features', href: '#a' },
-		{ name: 'Solution', href: '#a' },
-		{ name: 'Pricing', href: '/pricing' },
-		{ name: 'About', href: '#a' }
-	];
+	// Menu items automatically use language from context
+	let menuItems = $derived([
+		{ name: 'Features', href: localizedHref('#a') },
+		{ name: 'Solution', href: localizedHref('#a') },
+		{ name: 'Pricing', href: localizedHref('/pricing') },
+		{ name: 'About', href: localizedHref('#a') }
+	]);
 
 	let menuState = $state(false);
 	let isScrolled = $derived.by(() => {
@@ -40,7 +43,7 @@
 				]}
 			>
 				<div class="flex w-full items-center justify-between gap-12 lg:w-auto">
-					<a href="/" aria-label="home" class="flex items-center space-x-2">
+					<a href={localizedHref('/')} aria-label="home" class="flex items-center space-x-2">
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
 							width="22"
@@ -126,8 +129,9 @@
 						</ul>
 					</div>
 					<div class="flex w-full flex-col space-y-3 sm:flex-row sm:gap-3 sm:space-y-0 md:w-fit">
+						<LanguageSwitcher variant="ghost" />
 						{#if auth.isAuthenticated}
-							<Button size="sm" href="/app">Dashboard</Button>
+							<Button size="sm" href={localizedHref('/app')}>Dashboard</Button>
 							<Button variant="outline" size="icon" class="size-8" onclick={() => auth.signOut()}>
 								<LogOut class="size-4" />
 							</Button>
@@ -136,16 +140,18 @@
 								variant="outline"
 								size="sm"
 								class={cn(isScrolled && 'lg:hidden')}
-								href="/signin?tab=signin"
+								href={localizedHref('/signin?tab=signin')}
 							>
 								Login
 							</Button>
-							<Button href="/signin?tab=signup" size="sm" class={cn(isScrolled && 'lg:hidden')}
-								>Sign Up</Button
+							<Button
+								href={localizedHref('/signin?tab=signup')}
+								size="sm"
+								class={cn(isScrolled && 'lg:hidden')}>Sign Up</Button
 							>
 							<Button
 								size="sm"
-								href="/signin?tab=signup"
+								href={localizedHref('/signin?tab=signup')}
 								class={cn(isScrolled ? 'lg:inline-flex' : 'hidden')}
 							>
 								Get Started

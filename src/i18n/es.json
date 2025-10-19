@@ -1,0 +1,15 @@
+{
+	"hero.title": "Plantilla SaaS Starter",
+	"hero.tagline": "Céntrate en tu producto y envía más rápido.",
+	"hero.description": "Construye tu marca en minutos, no en semanas. Otra plantilla SaaS, pero esta vez con el stack tecnológico perfecto.",
+	"hero.cta": "Comenzar ahora",
+	"hero.cta_demo": "Solicitar una demo",
+	"hero.companies_text": "Impulsando a los mejores equipos",
+	"nav.features": "Características",
+	"nav.solution": "Solución",
+	"nav.pricing": "Precios",
+	"nav.about": "Acerca de",
+	"auth.login": "Iniciar sesión",
+	"auth.signup": "Registrarse",
+	"auth.logout": "Cerrar sesión"
+}
