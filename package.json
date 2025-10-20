@@ -16,9 +16,9 @@
 		"test:e2e": "playwright test",
 		"test": "bun run test:e2e && bun run test:unit",
 		"test:unit": "vitest --run --reporter=verbose --passWithNoTests",
-		"i18n:pull": "bunx tolgee pull",
-		"i18n:push": "bunx tolgee push",
-		"i18n:cleanup": "bunx tolgee tag --filter-not-extracted --filter-tag production --tag deprecated --untag production"
+		"i18n:pull": "bunx dotenv -f .env.local run -- bunx tolgee pull",
+		"i18n:push": "bunx dotenv -f .env.local run -- bunx tolgee push",
+		"i18n:cleanup": "bunx dotenv -f .env.local run -- bunx tolgee tag --filter-not-extracted --filter-tag production --tag deprecated --untag production"
 	},
 	"dependencies": {
 		"@auth/core": "^0.40.0",

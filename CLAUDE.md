@@ -150,15 +150,18 @@ bun add -g @tolgee/cli
 1. **Pull translations before deployment:**
 
    ```bash
-   bunx tolgee pull
+   bun run i18n:pull
    ```
 
    Downloads latest translations from Tolgee Cloud to local files.
 
+   **Note:** The i18n scripts in package.json use `dotenv` to load the TOLGEE_API_KEY from `.env.local`.
+   This ensures the commands work in VSCode tasks and other environments where environment variables aren't automatically loaded.
+
 2. **Push local translations to platform:**
 
    ```bash
-   bunx tolgee push --tag-new-keys draft
+   bun run i18n:push -- --tag-new-keys draft
    ```
 
    Uploads local translation files and tags new keys for review.
@@ -166,11 +169,11 @@ bun add -g @tolgee/cli
 3. **Tag management for lifecycle tracking:**
 
    ```bash
-   # Tag all keys currently in code as production
-   bunx tolgee tag --filter-extracted --tag production
+   # Tag all keys currently in code as production (requires adding this to package.json scripts)
+   bunx dotenv -f .env.local run -- bunx tolgee tag --filter-extracted --tag production
 
    # Find keys no longer in code and mark as deprecated
-   bunx tolgee tag --filter-not-extracted --filter-tag production --tag deprecated --untag production
+   bun run i18n:cleanup
    ```
 
 **Tagging Strategy:**
@@ -189,17 +192,17 @@ Use tags to organize translation keys throughout their lifecycle:
 2. **Before Release:**
 
    ```bash
-   # Tag current keys as production
-   bunx tolgee tag --filter-extracted --tag production --tag v1.5.0
+   # Tag current keys as production (add version tag if needed)
+   bunx dotenv -f .env.local run -- bunx tolgee tag --filter-extracted --tag production --tag v1.5.0
 
    # Pull latest translations for build
-   bunx tolgee pull
+   bun run i18n:pull
    ```
 
 3. **After Release:**
    ```bash
    # Find and tag deprecated keys
-   bunx tolgee tag --filter-not-extracted --filter-tag production --tag deprecated --untag production
+   bun run i18n:cleanup
    ```
 4. **Cleanup:** Review deprecated keys in Tolgee Cloud, then delete
 
@@ -237,7 +240,7 @@ After deployments, identify unused translation keys:
 
 ```bash
 # Find keys tagged "production" but not in current code
-bunx tolgee tag --filter-not-extracted --filter-tag production --tag deprecated --untag production
+bun run i18n:cleanup
 ```
 
 Review deprecated keys in Tolgee Cloud, then delete them manually to avoid accidental data loss.
