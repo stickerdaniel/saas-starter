@@ -35,7 +35,9 @@
 			"mcp__jsrepo__search-registries",
 			"mcp__jsrepo__list-components",
 			"mcp__jsrepo__get-component-code",
-			"WebFetch(domain:tolgee.io)"
+			"WebFetch(domain:tolgee.io)",
+			"mcp__lighthouse__run_audit",
+			"mcp__lighthouse__get_seo_analysis"
 		],
 		"deny": [],
 		"ask": ["Bash(rm:*)"],
