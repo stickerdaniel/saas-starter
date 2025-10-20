@@ -12,6 +12,12 @@
 		"tagline": "Focus sur ton produit. Lancement plus rapide.",
 		"title": "Modèle SaaS Starter"
 	},
+	"meta": {
+		"home": {
+			"description": "Le modèle SaaS ultime avec SvelteKit, Convex et les technologies web modernes. Construisez votre marque en minutes, pas en semaines. Concentrez-vous sur votre produit et lancez plus rapidement.",
+			"title": "SaaS Starter - Construisez et lancez votre produit plus rapidement"
+		}
+	},
 	"nav": {
 		"about": "À propos",
 		"features": "Fonctionnalités",

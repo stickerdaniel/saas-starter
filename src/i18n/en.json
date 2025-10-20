@@ -12,6 +12,12 @@
 		"tagline": "Focus on your product and ship faster.",
 		"title": "SaaS Starter Template"
 	},
+	"meta": {
+		"home": {
+			"description": "The ultimate SaaS starter template with SvelteKit, Convex, and modern web technologies. Build your brand in minutes, not weeks. Focus on your product and ship faster.",
+			"title": "SaaS Starter - Build & Ship Your Product Faster"
+		}
+	},
 	"nav": {
 		"about": "About",
 		"features": "Features",

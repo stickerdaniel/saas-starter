@@ -12,6 +12,12 @@
 		"tagline": "Foco en tu producto. Lanzamiento más rápido.",
 		"title": "Plantilla SaaS Starter"
 	},
+	"meta": {
+		"home": {
+			"description": "La plantilla SaaS definitiva con SvelteKit, Convex y tecnologías web modernas. Construye tu marca en minutos, no en semanas. Enfócate en tu producto y lanza más rápido.",
+			"title": "SaaS Starter - Construye y lanza tu producto más rápido"
+		}
+	},
 	"nav": {
 		"about": "Acerca de",
 		"features": "Características",
