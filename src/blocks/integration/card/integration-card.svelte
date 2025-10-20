@@ -33,7 +33,7 @@
 				href={link}
 				target="_blank"
 			>
-				Learn More
+				Visit {title}
 				<ChevronRight class="ml-0 !size-3.5 opacity-50" />
 			</Button>
 		</div>
