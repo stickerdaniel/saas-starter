@@ -28,5 +28,5 @@ vite.config.ts.timestamp-*
 /playwright/.cache/
 test-results
 
-# Bun Cache
+# Bun cache
 Library/
