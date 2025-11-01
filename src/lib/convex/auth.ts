@@ -22,5 +22,24 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
 				throw new Error('Invalid secret');
 			}
 		})
-	]
+	],
+	callbacks: {
+		async redirect({ redirectTo }) {
+			console.log('[AUTH CALLBACK] Redirect called with:', redirectTo);
+
+			// Get the site URL from environment
+			const siteUrl = process.env.SITE_URL ?? '/';
+
+			// Validate redirectTo for security (prevent open redirects)
+			// Only allow relative URLs (starting with /) to prevent phishing attacks
+			if (redirectTo && typeof redirectTo === 'string' && redirectTo.startsWith('/')) {
+				const absoluteUrl = `${siteUrl}${redirectTo}`;
+				console.log('[AUTH CALLBACK] Returning absolute URL:', absoluteUrl);
+				return absoluteUrl;
+			}
+
+			console.log('[AUTH CALLBACK] Returning fallback:', siteUrl);
+			return siteUrl;
+		}
+	}
 });
