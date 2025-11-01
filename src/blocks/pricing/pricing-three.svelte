@@ -71,14 +71,6 @@
 		}
 	}
 
-	async function handleBillingPortal() {
-		const result = await portalOperation.execute({});
-
-		if (result?.url) {
-			window.location.href = result.url;
-		}
-	}
-
 	// Auto-trigger checkout after signin if checkout param is present
 	$effect(() => {
 		console.log('[PRICING DEBUG] Effect running:', {
@@ -126,7 +118,7 @@
 						<Button
 							variant="outline"
 							class="mt-4 w-full"
-							onclick={handleBillingPortal}
+							onclick={() => portalOperation.execute({})}
 							disabled={portalOperation.isLoading}
 						>
 							{portalOperation.isLoading ? 'Loading...' : 'Manage Subscription'}
@@ -170,7 +162,7 @@
 						<Button
 							variant="outline"
 							class="mt-4 w-full"
-							onclick={handleBillingPortal}
+							onclick={() => portalOperation.execute({})}
 							disabled={portalOperation.isLoading}
 						>
 							{portalOperation.isLoading ? 'Loading...' : 'Manage Subscription'}
