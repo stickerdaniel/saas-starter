@@ -26,6 +26,7 @@ module.exports = [
 			'test-nextjs/backendHarness.js',
 			'**/e2e/**', // Ignore e2e tests (not in tsconfig)
 			'playwright.config.ts', // Ignore playwright config (not in tsconfig)
+			'autumn.config.ts', // Ignore Autumn config (not in tsconfig)
 			'**/*.svelte', // Temporarily ignore Svelte files until proper setup
 			'**/src/lib/convex/_generated/**' // Ignore generated files
 		]
