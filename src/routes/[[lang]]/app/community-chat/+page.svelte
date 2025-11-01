@@ -29,9 +29,12 @@
 	let newMessageText = $state('');
 	let sendError = $state<string | null>(null);
 
+	// Check if user has Pro subscription
+	const isPro = $derived(autumn.customer?.products?.some((p) => p.id === 'pro') ?? false);
+
 	// Get feature data directly from customer for usage tracking
 	const messagesFeature = $derived(autumn.customer?.features?.messages);
-	const hasMessagesAvailable = $derived((messagesFeature?.balance ?? 0) > 0);
+	const hasMessagesAvailable = $derived(isPro || (messagesFeature?.balance ?? 0) > 0);
 	const remainingMessages = $derived(messagesFeature?.balance ?? 0);
 	// Handle included_usage which can be number, "inf", or undefined
 	const totalMessages = $derived(
@@ -42,9 +45,6 @@
 				: 0
 	);
 	const usedMessages = $derived(totalMessages - remainingMessages);
-
-	// Check if user has Pro subscription
-	const isPro = $derived(autumn.customer?.products?.some((p) => p.id === 'pro') ?? false);
 
 	async function handleSubmit(event: Event) {
 		event.preventDefault();
