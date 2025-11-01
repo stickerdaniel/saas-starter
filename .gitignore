@@ -32,3 +32,5 @@ test-results
 Library/
 
 react-reference
+
+*.local*

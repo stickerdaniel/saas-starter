@@ -55,6 +55,8 @@
 					title="Shadcn Svelte + SVBlocks"
 					description="A set of beautifully-designed, accessible components built with Tailwind CSS v4 and Bits UI."
 					link="https://next.shadcn-svelte.com/"
+					secondaryLink="https://sv-blocks.vercel.app/"
+					secondaryTitle="SVBlocks"
 				>
 					<div class="flex items-center gap-2">
 						<Shadcn class="size-10" />
@@ -63,9 +65,11 @@
 				</IntegrationCard>
 
 				<IntegrationCard
-					title="Stripe + Autumn"
-					description="Stripe for payment processing. Autumn handles billing, feature gates, and usage tracking—no webhook complexity."
-					link="https://stripe.com"
+					title="Autumn + Stripe"
+					description="Autumn handles billing, feature gates, and usage tracking—no webhook complexity. Stripe for payment processing."
+					link="https://useautumn.com/"
+					secondaryLink="https://stripe.com"
+					secondaryTitle="Stripe"
 				>
 					<div class="flex items-center gap-2">
 						<Autumn class="size-10" />

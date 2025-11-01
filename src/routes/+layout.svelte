@@ -8,6 +8,7 @@
 	import { expoOut } from 'svelte/easing';
 	import { slide } from 'svelte/transition';
 	import SEOHead from '$lib/components/SEOHead.svelte';
+	import { ModeWatcher } from 'mode-watcher';
 
 	let { children, data } = $props();
 
@@ -24,6 +25,7 @@
 	});
 </script>
 
+<ModeWatcher />
 <SEOHead />
 
 {#if $navigating}

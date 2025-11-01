@@ -4,6 +4,7 @@
 	import { Separator } from '$lib/components/ui/separator/index.js';
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import LanguageSwitcher from '$lib/components/LanguageSwitcher.svelte';
+	import LightSwitch from '$lib/components/ui/light-switch/light-switch.svelte';
 	import { localizedHref } from '$lib/utils/i18n';
 
 	// Create breadcrumb items based on current route
@@ -67,7 +68,8 @@
 				{/each}
 			</Breadcrumb.List>
 		</Breadcrumb.Root>
-		<div class="ml-auto">
+		<div class="ml-auto flex items-center gap-2">
+			<LightSwitch variant="ghost" />
 			<LanguageSwitcher variant="ghost" />
 		</div>
 	</div>
