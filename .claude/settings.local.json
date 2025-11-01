@@ -53,6 +53,7 @@
 			"Bash(npm --version:*)",
 			"Bash(bun outdated:*)",
 			"Bash(bun update:*)"
+			"Bash(bunx convex env get:*)"
 		],
 		"deny": [],
 		"ask": ["Bash(rm:*)"],
