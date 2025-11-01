@@ -25,8 +25,11 @@
 		"@convex-dev/resend": "^0.1.13",
 		"@mmailaender/convex-auth-svelte": "^0.1.2",
 		"@oslojs/crypto": "^1.0.1",
+		"@stickerdaniel/convex-autumn-svelte": "^0.1.2",
 		"@tolgee/cli": "^2.14.0",
 		"@tolgee/svelte": "^6.2.7",
+		"atmn": "^0.0.28",
+		"autumn-js": "^0.1.43",
 		"resend": "^6.1.2",
 		"runed": "^0.35.1",
 		"vercel": "^47.1.4"
