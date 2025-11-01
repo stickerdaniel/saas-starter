@@ -1,6 +1,7 @@
 <script>
 	import Button from '$lib/components/ui/button/button.svelte';
 	import LanguageSwitcher from '$lib/components/LanguageSwitcher.svelte';
+	import LightSwitch from '$lib/components/ui/light-switch/light-switch.svelte';
 	import { cn } from '$lib/utils';
 	import { localizedHref } from '$lib/utils/i18n';
 	import Menu from '@lucide/svelte/icons/menu';
@@ -129,6 +130,7 @@
 						</ul>
 					</div>
 					<div class="flex w-full flex-col space-y-3 sm:flex-row sm:gap-3 sm:space-y-0 md:w-fit">
+						<LightSwitch variant="ghost" />
 						<LanguageSwitcher variant="ghost" />
 						{#if auth.isAuthenticated}
 							<Button size="sm" href={localizedHref('/app')}>Dashboard</Button>
