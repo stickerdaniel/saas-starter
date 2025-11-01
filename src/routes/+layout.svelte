@@ -1,7 +1,10 @@
 <script lang="ts">
 	import { setupConvexAuth } from '@mmailaender/convex-auth-svelte/sveltekit';
+	import { setupAutumn } from '@stickerdaniel/convex-autumn-svelte/sveltekit';
+	import { api } from '$lib/convex/_generated/api';
 	import '../app.css';
 	import { navigating } from '$app/stores';
+	import { invalidate } from '$app/navigation';
 	import { expoOut } from 'svelte/easing';
 	import { slide } from 'svelte/transition';
 	import SEOHead from '$lib/components/SEOHead.svelte';
@@ -11,6 +14,13 @@
 	setupConvexAuth({
 		getServerState: () => data.authState,
 		options: { verbose: true }
+	});
+
+	// Setup Autumn with SSR support and auto-invalidation
+	setupAutumn({
+		convexApi: (api as any).autumn,
+		getServerState: () => data.autumnState,
+		invalidate
 	});
 </script>
 
