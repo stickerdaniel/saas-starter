@@ -63,20 +63,30 @@ const handleLanguage: Handle = async ({ event, resolve }) => {
 const authFirstPattern: Handle = async ({ event, resolve }) => {
 	const isAuthenticated = await isAuthenticatedPromise(event);
 	const pathname = event.url.pathname;
+	const redirectToParam = event.url.searchParams.get('redirectTo');
 
 	// Extract language from path (e.g., /en/signin -> en)
 	const langMatch = pathname.match(/^\/([a-z]{2})\//);
 	const lang = langMatch ? langMatch[1] : DEFAULT_LANGUAGE;
 
+	console.log('[HOOKS DEBUG]', {
+		pathname,
+		isAuthenticated,
+		isSignInPage: isSignInPage(pathname),
+		isProtectedRoute: isProtectedRoute(pathname),
+		redirectToParam,
+		fullUrl: event.url.href
+	});
+
 	if (isSignInPage(pathname) && isAuthenticated) {
-		const redirectTo = event.url.searchParams.get('redirectTo');
-		redirect(307, redirectTo || `/${lang}/app`);
+		const destination = redirectToParam || `/${lang}/app`;
+		console.log('[HOOKS DEBUG] Redirecting authenticated user from signin to:', destination);
+		redirect(307, destination);
 	}
 	if (isProtectedRoute(pathname) && !isAuthenticated) {
-		redirect(
-			307,
-			`/${lang}/signin?redirectTo=${encodeURIComponent(event.url.pathname + event.url.search)}`
-		);
+		const destination = `/${lang}/signin?redirectTo=${encodeURIComponent(event.url.pathname + event.url.search)}`;
+		console.log('[HOOKS DEBUG] Redirecting unauthenticated user to signin:', destination);
+		redirect(307, destination);
 	}
 
 	return resolve(event);
