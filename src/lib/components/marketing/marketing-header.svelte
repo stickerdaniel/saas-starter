@@ -1,7 +1,7 @@
 <script>
-	import Button from '$lib/components/ui/button/button.svelte';
-	import LanguageSwitcher from '$lib/components/LanguageSwitcher.svelte';
 	import LightSwitch from '$lib/components/ui/light-switch/light-switch.svelte';
+	import LanguageSwitcher from '$lib/components/LanguageSwitcher.svelte';
+	import Button from '$lib/components/ui/button/button.svelte';
 	import { cn } from '$lib/utils';
 	import { localizedHref } from '$lib/utils/i18n';
 	import Menu from '@lucide/svelte/icons/menu';
@@ -12,7 +12,7 @@
 
 	const auth = useAuth();
 
-	// Menu items automatically use language from context
+	// $derived menu items (href must update on lang switch)
 	let menuItems = $derived([
 		{ name: 'Features', href: localizedHref('#a') },
 		{ name: 'Solution', href: localizedHref('#a') },
@@ -21,28 +21,13 @@
 	]);
 
 	let menuState = $state(false);
-	let isScrolled = $derived.by(() => {
-		if (scrollY.current !== undefined && scrollY.current > 50) {
-			return true;
-		}
-		return false;
-	});
+	let isScrolled = $derived((scrollY.current ?? 0) > 50);
 </script>
 
 <header>
 	<nav class="fixed z-[100] w-full px-2">
-		<div
-			class={[
-				'mx-auto max-w-7xl rounded-3xl px-6 transition-all duration-300 lg:px-12',
-				isScrolled && 'bg-background/50 backdrop-blur-2xl'
-			]}
-		>
-			<div
-				class={[
-					'relative flex flex-wrap items-center justify-between gap-6 py-3 lg:gap-0 lg:py-4',
-					isScrolled && 'lg:py-4'
-				]}
-			>
+		<div class="mx-auto max-w-7xl rounded-3xl bg-background/50 px-6 backdrop-blur-2xl lg:px-12">
+			<div class="relative flex flex-wrap items-center justify-between gap-6 py-3 lg:gap-0 lg:py-4">
 				<div class="flex w-full items-center justify-between gap-12 lg:w-auto">
 					<a href={localizedHref('/')} aria-label="home" class="flex items-center space-x-2">
 						<svg
@@ -84,20 +69,20 @@
 						class="relative z-20 -m-2.5 -mr-4 block cursor-pointer p-2.5 lg:hidden"
 					>
 						<Menu
-							class={['m-auto size-6 duration-200', menuState && 'scale-0 rotate-180 opacity-0']}
+							class={cn('m-auto size-6 duration-200', menuState && 'scale-0 rotate-180 opacity-0')}
 						/>
 						<X
-							class={[
+							class={cn(
 								'absolute inset-0 m-auto size-6 scale-0 -rotate-180 opacity-0 duration-200',
 								menuState && 'scale-100 rotate-0 opacity-100'
-							]}
+							)}
 						/>
 					</button>
 				</div>
 
 				<div class="absolute inset-0 m-auto hidden size-fit lg:block">
 					<ul class="flex gap-8 text-sm">
-						{#each menuItems as item, index}
+						{#each menuItems as item}
 							<li>
 								<a
 									href={item.href}
@@ -109,15 +94,16 @@
 						{/each}
 					</ul>
 				</div>
+
 				<div
-					class={[
+					class={cn(
 						'mb-6 w-full  flex-wrap items-center justify-end space-y-8 rounded-3xl border bg-background p-6 shadow-2xl shadow-zinc-300/20 md:flex-nowrap lg:m-0 lg:flex lg:w-fit lg:gap-6 lg:space-y-0 lg:border-transparent lg:bg-transparent lg:p-0 lg:shadow-none dark:shadow-none dark:lg:bg-transparent',
 						menuState ? 'block lg:flex' : 'hidden lg:flex'
-					]}
+					)}
 				>
 					<div class="lg:hidden">
 						<ul class="space-y-6 text-base">
-							{#each menuItems as item, index}
+							{#each menuItems as item}
 								<li>
 									<a
 										href={item.href}
@@ -147,14 +133,16 @@
 								Login
 							</Button>
 							<Button
-								href={localizedHref('/signin?tab=signup')}
 								size="sm"
-								class={cn(isScrolled && 'lg:hidden')}>Sign Up</Button
+								class={cn(isScrolled && 'lg:hidden')}
+								href={localizedHref('/signin?tab=signup')}
 							>
+								Sign Up
+							</Button>
 							<Button
 								size="sm"
-								href={localizedHref('/signin?tab=signup')}
 								class={cn(isScrolled ? 'lg:inline-flex' : 'hidden')}
+								href={localizedHref('/signin?tab=signup')}
 							>
 								Get Started
 							</Button>
