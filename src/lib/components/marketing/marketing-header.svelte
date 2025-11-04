@@ -9,15 +9,15 @@
 	import LogOut from '@lucide/svelte/icons/log-out';
 	import { scrollY } from 'svelte/reactivity/window';
 	import { useAuth } from '@mmailaender/convex-auth-svelte/sveltekit';
+	import { T } from '@tolgee/svelte';
 
 	const auth = useAuth();
 
 	// $derived menu items (href must update on lang switch)
 	let menuItems = $derived([
-		{ name: 'Features', href: localizedHref('#a') },
-		{ name: 'Solution', href: localizedHref('#a') },
-		{ name: 'Pricing', href: localizedHref('/pricing') },
-		{ name: 'About', href: localizedHref('#a') }
+		{ translationKey: 'nav.home', href: localizedHref('/') },
+		{ translationKey: 'nav.pricing', href: localizedHref('/pricing') },
+		{ translationKey: 'nav.about', href: localizedHref('#a') }
 	]);
 
 	let menuState = $state(false);
@@ -88,7 +88,7 @@
 									href={item.href}
 									class="block text-muted-foreground duration-150 hover:text-accent-foreground"
 								>
-									<span>{item.name}</span>
+									<span><T keyName={item.translationKey} /></span>
 								</a>
 							</li>
 						{/each}
@@ -109,7 +109,7 @@
 										href={item.href}
 										class="block text-muted-foreground duration-150 hover:text-accent-foreground"
 									>
-										<span>{item.name}</span>
+										<span><T keyName={item.translationKey} /></span>
 									</a>
 								</li>
 							{/each}

@@ -21,7 +21,8 @@
 	"nav": {
 		"about": "Über uns",
 		"features": "Funktionen",
-		"pricing": "Preise",
+		"home": "Start",
+		"pricing": "Pläne",
 		"solution": "Lösung"
 	}
 }
