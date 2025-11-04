@@ -17,7 +17,7 @@
 	let menuItems = $derived([
 		{ translationKey: 'nav.home', href: localizedHref('/') },
 		{ translationKey: 'nav.pricing', href: localizedHref('/pricing') },
-		{ translationKey: 'nav.about', href: localizedHref('#a') }
+		{ translationKey: 'nav.about', href: localizedHref('/about') }
 	]);
 
 	let menuState = $state(false);
@@ -26,7 +26,7 @@
 
 <header>
 	<nav class="fixed z-[100] w-full px-2">
-		<div class="mx-auto max-w-7xl rounded-3xl bg-background/50 px-6 backdrop-blur-2xl lg:px-12">
+		<div class="mx-auto max-w-6xl rounded-3xl bg-background/50 px-6 backdrop-blur-2xl lg:px-12">
 			<div class="relative flex flex-wrap items-center justify-between gap-6 py-3 lg:gap-0 lg:py-4">
 				<div class="flex w-full items-center justify-between gap-12 lg:w-auto">
 					<a href={localizedHref('/')} aria-label="home" class="flex items-center space-x-2">

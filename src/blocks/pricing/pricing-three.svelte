@@ -41,6 +41,14 @@
 			'Full source code access',
 			'All features included',
 			'Priority support'
+		],
+		enterprise: [
+			'Custom message limits',
+			'Dedicated account manager',
+			'SLA guarantees',
+			'Advanced security features',
+			'Custom integrations',
+			'White-label options'
 		]
 	};
 
@@ -89,7 +97,7 @@
 </script>
 
 <section class="py-16 md:py-32">
-	<div class="mx-auto max-w-6xl px-6">
+	<div class="mx-auto max-w-6xl px-6 lg:px-12">
 		<div class="mx-auto max-w-2xl space-y-6 text-center">
 			<h1 class="text-center text-4xl font-semibold lg:text-5xl">Pricing that Scales with You</h1>
 			<p class="text-balance">
@@ -99,7 +107,7 @@
 			</p>
 		</div>
 
-		<div class="mt-8 grid gap-6 md:mt-20 md:grid-cols-2">
+		<div class="mt-8 grid gap-6 md:mt-20 md:grid-cols-2 lg:grid-cols-3">
 			<Card>
 				<CardHeader>
 					<CardTitle class="font-medium">
@@ -183,6 +191,35 @@
 
 					<ul class="list-outside space-y-3 text-sm">
 						{#each pricingList.pro as item}
+							<li class="flex items-center gap-2">
+								<Check class="size-3" />
+								{item}
+							</li>
+						{/each}
+					</ul>
+				</CardContent>
+			</Card>
+
+			<Card>
+				<CardHeader>
+					<CardTitle class="font-medium">Enterprise</CardTitle>
+
+					<span class="my-3 block text-2xl font-semibold">Custom</span>
+
+					<CardDescription class="text-sm"
+						>For organizations with specific requirements</CardDescription
+					>
+
+					<Button variant="outline" class="mt-4 w-full" href="mailto:sales@example.com">
+						Contact Sales
+					</Button>
+				</CardHeader>
+
+				<CardContent class="space-y-4">
+					<hr class="border-dashed" />
+
+					<ul class="list-outside space-y-3 text-sm">
+						{#each pricingList.enterprise as item}
 							<li class="flex items-center gap-2">
 								<Check class="size-3" />
 								{item}

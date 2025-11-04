@@ -13,6 +13,10 @@
 		"title": "SaaS Starter Template"
 	},
 	"meta": {
+		"about": {
+			"description": "Meet the talented team behind our product",
+			"title": "About Us - Meet Our Team"
+		},
 		"home": {
 			"description": "The ultimate SaaS starter template with SvelteKit, Convex, and modern web technologies. Build your brand in minutes, not weeks. Focus on your product and ship faster.",
 			"title": "Build & Ship Your Product Faster"
