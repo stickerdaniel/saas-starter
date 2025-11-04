@@ -25,7 +25,7 @@
 </script>
 
 <header>
-	<nav class="fixed z-[100] w-full px-2">
+	<nav class="fixed z-40 w-full px-2">
 		<div class="mx-auto max-w-6xl rounded-3xl bg-background/50 px-6 backdrop-blur-2xl lg:px-12">
 			<div class="relative flex flex-wrap items-center justify-between gap-6 py-3 lg:gap-0 lg:py-4">
 				<div class="flex w-full items-center justify-between gap-12 lg:w-auto">
@@ -119,7 +119,9 @@
 						<LightSwitch variant="ghost" />
 						<LanguageSwitcher variant="ghost" />
 						{#if auth.isAuthenticated}
-							<Button size="sm" href={localizedHref('/app')}>Dashboard</Button>
+							<Button size="sm" href={localizedHref('/app')}>
+								<T keyName="nav.dashboard" />
+							</Button>
 							<Button variant="outline" size="icon" class="size-8" onclick={() => auth.signOut()}>
 								<LogOut class="size-4" />
 							</Button>
@@ -130,21 +132,21 @@
 								class={cn(isScrolled && 'lg:hidden')}
 								href={localizedHref('/signin?tab=signin')}
 							>
-								Login
+								<T keyName="auth.login" />
 							</Button>
 							<Button
 								size="sm"
 								class={cn(isScrolled && 'lg:hidden')}
 								href={localizedHref('/signin?tab=signup')}
 							>
-								Sign Up
+								<T keyName="auth.signup" />
 							</Button>
 							<Button
 								size="sm"
 								class={cn(isScrolled ? 'lg:inline-flex' : 'hidden')}
 								href={localizedHref('/signin?tab=signup')}
 							>
-								Get Started
+								<T keyName="nav.get_started" />
 							</Button>
 						{/if}
 					</div>

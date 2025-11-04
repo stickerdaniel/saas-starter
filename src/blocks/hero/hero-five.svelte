@@ -135,12 +135,12 @@
 					<div class="absolute inset-y-0 left-0 w-20 bg-linear-to-r from-background"></div>
 					<div class="absolute inset-y-0 right-0 w-20 bg-linear-to-l from-background"></div>
 					<ProgressiveBlur
-						class="pointer-events-none absolute top-0 left-0 z-50 h-full w-20"
+						class="pointer-events-none absolute top-0 left-0 z-10 h-full w-20"
 						direction="left"
 						blurIntensity={1}
 					/>
 					<ProgressiveBlur
-						class="pointer-events-none absolute top-0 right-0 z-50 h-full w-20"
+						class="pointer-events-none absolute top-0 right-0 z-10 h-full w-20"
 						direction="right"
 						blurIntensity={1}
 					/>

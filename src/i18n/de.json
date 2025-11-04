@@ -2,7 +2,44 @@
 	"auth": {
 		"login": "Anmelden",
 		"logout": "Abmelden",
-		"signup": "Registrieren"
+		"signup": "Registrieren",
+		"signin": {
+			"title": "Willkommen",
+			"description": "Melden Sie sich bei Ihrem Konto an oder erstellen Sie ein neues",
+			"tab_signin": "Anmelden",
+			"tab_signup": "Registrieren",
+			"email_label": "E-Mail",
+			"email_placeholder": "du@beispiel.de",
+			"password_label": "Passwort",
+			"password_placeholder": "••••••••",
+			"button_signin": "Anmelden",
+			"button_signup": "Registrieren",
+			"button_signin_loading": "Wird angemeldet...",
+			"button_signup_loading": "Konto wird erstellt...",
+			"or_continue_with": "Oder fortfahren mit",
+			"oauth_github": "GitHub",
+			"oauth_google": "Google",
+			"cancel": "Abbrechen",
+			"test_secret_label": "Nur Test: Mit Geheimnis anmelden",
+			"test_secret_placeholder": "Geheimnis-Wert",
+			"test_secret_button": "Mit Geheimnis anmelden"
+		},
+		"verification": {
+			"title": "E-Mail-Verifizierung",
+			"description": "Bitte überprüfen Sie Ihre E-Mail für einen Verifizierungscode",
+			"sent_to": "Wir haben einen 8-stelligen Verifizierungscode an",
+			"code_label": "Verifizierungscode",
+			"code_placeholder": "12345678",
+			"button_verify": "E-Mail verifizieren",
+			"button_verify_loading": "Wird verifiziert...",
+			"button_cancel": "Abbrechen"
+		},
+		"errors": {
+			"invalid_credentials": "Ungültige E-Mail oder Passwort",
+			"signup_failed": "Konto konnte nicht erstellt werden. E-Mail wird möglicherweise bereits verwendet.",
+			"verification_invalid": "Ungültiger oder abgelaufener Verifizierungscode. Bitte versuchen Sie es erneut.",
+			"invalid_secret": "Ungültiges Geheimnis"
+		}
 	},
 	"hero": {
 		"companies_text": "Vertrauen der besten Teams",
@@ -27,6 +64,172 @@
 		"features": "Funktionen",
 		"home": "Start",
 		"pricing": "Pläne",
-		"solution": "Lösung"
+		"solution": "Lösung",
+		"dashboard": "Dashboard",
+		"get_started": "Jetzt starten"
+	},
+	"app": {
+		"name": "SaaS Starter",
+		"sidebar": {
+			"dashboard": "Dashboard",
+			"community_chat": "Community-Chat",
+			"docs": "Dokumentation",
+			"home": "Start"
+		},
+		"user_menu": {
+			"upgrade_pro": "Auf Pro upgraden",
+			"account": "Konto",
+			"billing": "Abrechnung",
+			"notifications": "Benachrichtigungen",
+			"logout": "Abmelden"
+		}
+	},
+	"pricing": {
+		"title": "Preise, die mit Ihnen wachsen",
+		"description": "Diese SaaS-Starter-Vorlage ist vollständig kostenlos und Open Source.",
+		"description_autumn": "Testen Sie das integrierte Zahlungssystem powered by Autumn - eine Open-Source-Abrechnungsplattform, die Abonnements, Nutzungslimits und Stripe-Webhooks automatisch verwaltet.",
+		"popular_badge": "Beliebt",
+		"current_plan": "Aktueller Plan",
+		"current_plan_badge": "(Aktueller Plan)",
+		"features": {
+			"free": {
+				"0": "10 Nachrichten pro Monat",
+				"1": "Vollständiger Quellcode-Zugriff",
+				"2": "Alle Funktionen enthalten",
+				"3": "MIT-Lizenz",
+				"4": ""
+			},
+			"pro": {
+				"0": "Unbegrenzte Nachrichten",
+				"1": "Vollständiger Quellcode-Zugriff",
+				"2": "Alle Funktionen enthalten",
+				"3": "Priority-Support",
+				"4": ""
+			},
+			"enterprise": {
+				"0": "Individuelle Nachrichtenlimits",
+				"1": "Dedizierter Account Manager",
+				"2": "SLA-Garantien",
+				"3": "Erweiterte Sicherheitsfunktionen",
+				"4": "Benutzerdefinierte Integrationen"
+			}
+		},
+		"tiers": {
+			"free": {
+				"name": "Kostenlos",
+				"price": "0€ / Monat",
+				"description": "Perfekt für den Einstieg",
+				"button": "Aktueller Plan",
+				"button_manage": "Abonnement verwalten"
+			},
+			"pro": {
+				"name": "Pro",
+				"price": "10€ / Monat",
+				"description": "Unbegrenzte Nachrichten und Priority-Support",
+				"button": "Auf Pro upgraden",
+				"button_manage": "Abonnement verwalten",
+				"button_loading": "Wird verarbeitet..."
+			},
+			"enterprise": {
+				"name": "Enterprise",
+				"price": "Individuell",
+				"description": "Für Organisationen mit speziellen Anforderungen",
+				"button": "Vertrieb kontaktieren"
+			}
+		},
+		"buttons": {
+			"loading": "Lädt...",
+			"manage_subscription": "Abonnement verwalten"
+		}
+	},
+	"team": {
+		"section_label": "Team",
+		"title": "Unser Traumteam",
+		"description": "Während des Arbeitsprozesses führen wir regelmäßige Anpassungen mit dem Kunden durch, denn er ist die einzige Person, die spüren kann, ob ein neuer Anzug passt oder nicht.",
+		"linktree": "Linktree",
+		"roles": {
+			"founder_ceo": "Gründer - CEO",
+			"cofounder_cto": "Mitgründer - CTO",
+			"sales_manager": "Vertriebsleiter",
+			"ux_engineer": "UX Engineer",
+			"interaction_designer": "Interaction Designer",
+			"visual_designer": "Visual Designer"
+		}
+	},
+	"integrations": {
+		"title": "Echte 2025 Developer Experience",
+		"description": "Superschnelle Lösungen, die tatsächlich Spaß beim Entwickeln machen",
+		"cards": {
+			"svelte": {
+				"title": "Svelte 5",
+				"description": "Das beliebteste Frontend-Framework. Eine einfache, leistungsstarke und zukunftssichere Art, Ihre Web-App zu erstellen.",
+				"button": "Zu Svelte 5"
+			},
+			"convex": {
+				"title": "Convex",
+				"description": "Die Open-Source-Alternative zu Firebase. Basierend auf PostgreSQL - der weltweit fortschrittlichsten relationalen Datenbank.",
+				"button": "Zu Convex"
+			},
+			"tolgee": {
+				"title": "Tolgee",
+				"description": "Internationalisierung richtig gemacht. In-Context-Editing und ML-gestützte Übersetzung für einen nahtlosen Lokalisierungs-Workflow.",
+				"button": "Zu Tolgee"
+			},
+			"posthog": {
+				"title": "PostHog",
+				"description": "PostHog ist eine Open-Source-Produktanalyseplattform zur Verfolgung von Nutzerverhalten und Messung von Conversions.",
+				"button": "Zu PostHog"
+			},
+			"shadcn_svblocks": {
+				"title": "Shadcn Svelte + SVBlocks",
+				"description": "Eine Sammlung wunderschön gestalteter, barrierefreier Komponenten, gebaut mit Tailwind CSS v4 und Bits UI.",
+				"secondary_title": "SVBlocks",
+				"button": "Zu Shadcn Svelte",
+				"secondary_button": "Zu SVBlocks"
+			},
+			"autumn_stripe": {
+				"title": "Autumn + Stripe",
+				"description": "Autumn übernimmt Abrechnung, Feature-Gates und Nutzungsverfolgung - ohne Webhook-Komplexität. Stripe für die Zahlungsabwicklung.",
+				"secondary_title": "Stripe",
+				"button": "Zu Autumn",
+				"secondary_button": "Zu Stripe"
+			}
+		}
+	},
+	"chat": {
+		"title": "Community Chat",
+		"description": "Öffnen Sie diese App in mehreren Browser-Fenstern, um die Echtzeit-Datenbank in Aktion zu sehen",
+		"header": {
+			"title": "Chat",
+			"subtitle": "Echtzeit-Chat",
+			"pro_unlimited": "(Pro - Unbegrenzt)",
+			"messages_left": "({remaining}/{total} Nachricht übrig)",
+			"messages_left_plural": "({remaining}/{total} Nachrichten übrig)"
+		},
+		"alerts": {
+			"limit_reached": {
+				"title": "Nachrichtenlimit erreicht",
+				"description": "Sie haben alle {total} kostenlosen Nachrichten für diesen Monat verbraucht."
+			},
+			"low_messages": {
+				"title": "Wenig Nachrichten übrig",
+				"description": "Sie haben noch {remaining} von {total} Nachricht für diesen Monat.",
+				"description_plural": "Sie haben noch {remaining} von {total} Nachrichten für diesen Monat."
+			}
+		},
+		"input": {
+			"placeholder": "Nachricht eingeben...",
+			"placeholder_disabled": "Nachrichtenlimit erreicht",
+			"send_tooltip": "Nachricht senden",
+			"upgrade_tooltip": "Auf Pro upgraden für unbegrenzte Nachrichten"
+		},
+		"buttons": {
+			"upgrade": "Auf Pro upgraden",
+			"processing": "Wird verarbeitet..."
+		},
+		"messages": {
+			"sent_success": "Nachricht gesendet!",
+			"send_failed": "Nachricht konnte nicht gesendet werden"
+		}
 	}
 }

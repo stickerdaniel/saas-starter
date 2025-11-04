@@ -14,6 +14,9 @@
 	import InnerShadowTopIcon from '@tabler/icons-svelte/icons/inner-shadow-top';
 	import { toast } from 'svelte-sonner';
 	import { goto } from '$app/navigation';
+	import { T, getTranslate } from '@tolgee/svelte';
+
+	const { t } = getTranslate();
 
 	let { data } = $props();
 
@@ -56,17 +59,17 @@
 			const result = await client.action(api.messages.send, { body: newMessageText });
 
 			if (!result.success) {
-				sendError = result.error ?? 'Failed to send message';
+				sendError = result.error ?? $t('chat.messages.send_failed');
 				toast.error(sendError);
 				return;
 			}
 
 			newMessageText = '';
 			await autumn.refetch();
-			toast.success('Message sent!');
+			toast.success($t('chat.messages.sent_success'));
 		} catch (error) {
 			console.error('Failed to send message:', error);
-			sendError = 'Failed to send message';
+			sendError = $t('chat.messages.send_failed');
 			toast.error(sendError);
 		}
 	}
@@ -102,43 +105,52 @@
 {#if viewer.data}
 	<div class="h-full px-4 lg:px-6">
 		<div class="flex flex-1 flex-wrap gap-4 md:gap-6">
-			<AppPageTitle
-				title="Community Chat"
-				description="Open this app in multiple browser windows to see the real-time database in action"
-			/>
+			<AppPageTitle title={$t('chat.title')} description={$t('chat.description')} />
 
 			<!-- Quota warning banner -->
 			{#if !isPro && !hasMessagesAvailable}
 				<Alert.Root variant="destructive" class="w-full">
-					<Alert.Title>Message Limit Reached</Alert.Title>
+					<Alert.Title><T keyName="chat.alerts.limit_reached.title" /></Alert.Title>
 					<Alert.Description class="flex items-center justify-between">
-						<span>You've used all {totalMessages} of your free messages this month.</span>
+						<span>
+							<T
+								keyName="chat.alerts.limit_reached.description"
+								params={{ total: totalMessages }}
+							/>
+						</span>
 						<Button
 							size="sm"
 							variant="outline"
 							onclick={handleUpgrade}
 							disabled={upgradeOperation.isLoading}
 						>
-							{upgradeOperation.isLoading ? 'Processing...' : 'Upgrade to Pro'}
+							{upgradeOperation.isLoading
+								? $t('chat.buttons.processing')
+								: $t('chat.buttons.upgrade')}
 						</Button>
 					</Alert.Description>
 				</Alert.Root>
 			{:else if !isPro && remainingMessages <= 3}
 				<Alert.Root class="w-full">
-					<Alert.Title>Low on Messages</Alert.Title>
+					<Alert.Title><T keyName="chat.alerts.low_messages.title" /></Alert.Title>
 					<Alert.Description class="flex items-center justify-between">
-						<span
-							>You have {remainingMessages} of {totalMessages} message{remainingMessages !== 1
-								? 's'
-								: ''} remaining this month.</span
-						>
+						<span>
+							<T
+								keyName={remainingMessages !== 1
+									? 'chat.alerts.low_messages.description_plural'
+									: 'chat.alerts.low_messages.description'}
+								params={{ remaining: remainingMessages, total: totalMessages }}
+							/>
+						</span>
 						<Button
 							size="sm"
 							variant="outline"
 							onclick={handleUpgrade}
 							disabled={upgradeOperation.isLoading}
 						>
-							{upgradeOperation.isLoading ? 'Processing...' : 'Upgrade to Pro'}
+							{upgradeOperation.isLoading
+								? $t('chat.buttons.processing')
+								: $t('chat.buttons.upgrade')}
 						</Button>
 					</Alert.Description>
 				</Alert.Root>
@@ -152,19 +164,25 @@
 						</div>
 						<div class="flex flex-col">
 							<span class="text-sm font-medium">
-								Chat
+								<T keyName="chat.header.title" />
 								{#if isPro}
-									<span class="ml-2 text-xs font-normal text-muted-foreground"
-										>(Pro - Unlimited)</span
-									>
+									<span class="ml-2 text-xs font-normal text-muted-foreground">
+										<T keyName="chat.header.pro_unlimited" />
+									</span>
 								{:else}
 									<span class="ml-2 text-xs font-normal text-muted-foreground">
-										({remainingMessages}/{totalMessages} message{remainingMessages !== 1 ? 's' : ''}
-										left)
+										<T
+											keyName={remainingMessages !== 1
+												? 'chat.header.messages_left_plural'
+												: 'chat.header.messages_left'}
+											params={{ remaining: remainingMessages, total: totalMessages }}
+										/>
 									</span>
 								{/if}
 							</span>
-							<span class="text-xs text-nowrap">Real-time chat</span>
+							<span class="text-xs text-nowrap">
+								<T keyName="chat.header.subtitle" />
+							</span>
 						</div>
 					</div>
 					<div class="flex place-items-center">
@@ -208,7 +226,9 @@
 					<Input
 						bind:value={newMessageText}
 						class="rounded-full"
-						placeholder={hasMessagesAvailable ? 'Type a message...' : 'Message limit reached'}
+						placeholder={hasMessagesAvailable
+							? $t('chat.input.placeholder')
+							: $t('chat.input.placeholder_disabled')}
 						disabled={!hasMessagesAvailable}
 					/>
 					<Button
@@ -217,7 +237,9 @@
 						size="icon"
 						class="shrink-0 rounded-full"
 						disabled={newMessageText === '' || !hasMessagesAvailable}
-						title={!hasMessagesAvailable ? 'Upgrade to Pro for unlimited messages' : 'Send message'}
+						title={!hasMessagesAvailable
+							? $t('chat.input.upgrade_tooltip')
+							: $t('chat.input.send_tooltip')}
 					>
 						<SendIcon />
 					</Button>

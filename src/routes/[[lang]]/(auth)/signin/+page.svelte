@@ -16,6 +16,7 @@
 	import { authParamsSchema } from '$lib/schemas/auth-params.js';
 	import { localizedHref } from '$lib/utils/i18n';
 	import { goto } from '$app/navigation';
+	import { T } from '@tolgee/svelte';
 
 	const { signIn } = useAuth();
 	const params = useSearchParams(authParamsSchema, {
@@ -70,10 +71,7 @@
 				verificationStep = { email };
 			}
 		} catch (err) {
-			error =
-				flow === 'signIn'
-					? 'Invalid email or password'
-					: 'Failed to create account. Email may already be in use.';
+			error = flow === 'signIn' ? 'auth.errors.invalid_credentials' : 'auth.errors.signup_failed';
 			console.error('Auth error:', err);
 		} finally {
 			isLoading = false;
@@ -108,7 +106,7 @@
 				await goto(destination);
 			}
 		} catch (err) {
-			error = 'Invalid or expired verification code. Please try again.';
+			error = 'auth.errors.verification_invalid';
 			console.error('Verification error:', err);
 		} finally {
 			isLoading = false;
@@ -125,11 +123,19 @@
 	<main class="mx-auto my-auto flex flex-col">
 		<Card class="w-[400px]">
 			<CardHeader>
-				<CardTitle>{verificationStep ? 'Email Verification' : 'Welcome'}</CardTitle>
+				<CardTitle>
+					{#if verificationStep}
+						<T keyName="auth.verification.title" />
+					{:else}
+						<T keyName="auth.signin.title" />
+					{/if}
+				</CardTitle>
 				<CardDescription>
-					{verificationStep
-						? 'Please check your email for a verification code'
-						: 'Sign in to your account or create a new one'}
+					{#if verificationStep}
+						<T keyName="auth.verification.description" />
+					{:else}
+						<T keyName="auth.signin.description" />
+					{/if}
 				</CardDescription>
 			</CardHeader>
 			<CardContent>
@@ -137,12 +143,11 @@
 					<!-- Email Verification Step -->
 					<form onsubmit={handleVerification} class="space-y-4">
 						<p class="text-sm text-muted-foreground">
-							We've sent an 8-digit verification code to <span class="font-medium"
-								>{verificationStep.email}</span
-							>
+							<T keyName="auth.verification.sent_to" />
+							<span class="font-medium">{verificationStep.email}</span>
 						</p>
 						<div class="space-y-2">
-							<Label for="verification-code">Verification Code</Label>
+							<Label for="verification-code"><T keyName="auth.verification.code_label" /></Label>
 							<Input
 								id="verification-code"
 								type="text"
@@ -150,32 +155,36 @@
 								placeholder="12345678"
 								required
 								disabled={isLoading}
-								class="text-center text-2xl tracking-widest font-mono"
+								class="text-center font-mono text-2xl tracking-widest"
 								autocomplete="one-time-code"
 							/>
 						</div>
 						{#if error}
-							<p class="text-sm text-red-500">{error}</p>
+							<p class="text-sm text-red-500"><T keyName={error} /></p>
 						{/if}
 						<Button type="submit" class="w-full" disabled={isLoading}>
-							{isLoading ? 'Verifying...' : 'Verify Email'}
+							{#if isLoading}
+								<T keyName="auth.verification.button_verify_loading" />
+							{:else}
+								<T keyName="auth.verification.button_verify" />
+							{/if}
 						</Button>
 						<Button type="button" variant="ghost" class="w-full" onclick={cancelVerification}>
-							Cancel
+							<T keyName="auth.verification.button_cancel" />
 						</Button>
 					</form>
 				{:else}
 					<!-- Sign In / Sign Up Forms -->
 					<Tabs bind:value={params.tab} class="w-full">
 						<TabsList class="grid w-full grid-cols-2">
-							<TabsTrigger value="signin">Sign In</TabsTrigger>
-							<TabsTrigger value="signup">Sign Up</TabsTrigger>
+							<TabsTrigger value="signin"><T keyName="auth.signin.tab_signin" /></TabsTrigger>
+							<TabsTrigger value="signup"><T keyName="auth.signin.tab_signup" /></TabsTrigger>
 						</TabsList>
 
 						<TabsContent value="signin">
 							<form onsubmit={(e) => handleEmailAuth(e, 'signIn')} class="space-y-4">
 								<div class="space-y-2">
-									<Label for="signin-email">Email</Label>
+									<Label for="signin-email"><T keyName="auth.signin.email_label" /></Label>
 									<Input
 										id="signin-email"
 										type="email"
@@ -186,7 +195,7 @@
 									/>
 								</div>
 								<div class="space-y-2">
-									<Label for="signin-password">Password</Label>
+									<Label for="signin-password"><T keyName="auth.signin.password_label" /></Label>
 									<Input
 										id="signin-password"
 										type="password"
@@ -197,10 +206,14 @@
 									/>
 								</div>
 								{#if error}
-									<p class="text-sm text-red-500">{error}</p>
+									<p class="text-sm text-red-500"><T keyName={error} /></p>
 								{/if}
 								<Button type="submit" class="w-full" disabled={isLoading}>
-									{isLoading ? 'Signing in...' : 'Sign In'}
+									{#if isLoading}
+										<T keyName="auth.signin.button_signin_loading" />
+									{:else}
+										<T keyName="auth.signin.button_signin" />
+									{/if}
 								</Button>
 							</form>
 						</TabsContent>
@@ -208,7 +221,7 @@
 						<TabsContent value="signup">
 							<form onsubmit={(e) => handleEmailAuth(e, 'signUp')} class="space-y-4">
 								<div class="space-y-2">
-									<Label for="signup-email">Email</Label>
+									<Label for="signup-email"><T keyName="auth.signin.email_label" /></Label>
 									<Input
 										id="signup-email"
 										type="email"
@@ -219,7 +232,7 @@
 									/>
 								</div>
 								<div class="space-y-2">
-									<Label for="signup-password">Password</Label>
+									<Label for="signup-password"><T keyName="auth.signin.password_label" /></Label>
 									<Input
 										id="signup-password"
 										type="password"
@@ -231,10 +244,14 @@
 									/>
 								</div>
 								{#if error}
-									<p class="text-sm text-red-500">{error}</p>
+									<p class="text-sm text-red-500"><T keyName={error} /></p>
 								{/if}
 								<Button type="submit" class="w-full" disabled={isLoading}>
-									{isLoading ? 'Creating account...' : 'Sign Up'}
+									{#if isLoading}
+										<T keyName="auth.signin.button_signup_loading" />
+									{:else}
+										<T keyName="auth.signin.button_signup" />
+									{/if}
 								</Button>
 							</form>
 						</TabsContent>
@@ -247,7 +264,9 @@
 							<span class="w-full border-t"></span>
 						</div>
 						<div class="relative flex justify-center text-xs uppercase">
-							<span class="bg-background px-2 text-muted-foreground">Or continue with</span>
+							<span class="bg-card px-2 text-muted-foreground">
+								<T keyName="auth.signin.or_continue_with" />
+							</span>
 						</div>
 					</div>
 
@@ -265,7 +284,7 @@
 									d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"
 								/>
 							</svg>
-							GitHub
+							<T keyName="auth.signin.oauth_github" />
 						</Button>
 						<Button
 							onclick={() => {
@@ -293,7 +312,7 @@
 									d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
 								/>
 							</svg>
-							Google
+							<T keyName="auth.signin.oauth_google" />
 						</Button>
 					</div>
 				{/if}
@@ -312,16 +331,20 @@
 							});
 						}}
 					>
-						<p class="text-sm text-muted-foreground">Test only: Sign in with a secret</p>
+						<p class="text-sm text-muted-foreground">
+							<T keyName="auth.signin.test_secret_label" />
+						</p>
 						<Input aria-label="Secret" type="text" name="secret" placeholder="secret value" />
-						<Button type="submit" variant="secondary">Sign in with secret</Button>
+						<Button type="submit" variant="secondary">
+							<T keyName="auth.signin.test_secret_button" />
+						</Button>
 					</form>
 				{/if}
 
 				<div class="mt-6 text-center">
-					<a class="text-sm text-muted-foreground hover:underline" href={localizedHref('/')}
-						>Cancel</a
-					>
+					<a class="text-sm text-muted-foreground hover:underline" href={localizedHref('/')}>
+						<T keyName="auth.signin.cancel" />
+					</a>
 				</div>
 			</CardContent>
 		</Card>
