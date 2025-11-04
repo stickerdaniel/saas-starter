@@ -9,10 +9,14 @@
 		"cta": "Jetzt starten",
 		"cta_demo": "Demo anfordern",
 		"description": "Erstellen Sie Ihre Marke in Minuten, nicht in Wochen. Eine SaaS-Vorlage mit dem perfekten Tech-Stack.",
-		"tagline": "Fokus: Produkt Schneller live",
+		"tagline": "Mit Fokus auf das Produkt Schneller zum Ziel",
 		"title": "SaaS-Starter-Vorlage"
 	},
 	"meta": {
+		"about": {
+			"description": "Lernen Sie das talentierte Team hinter unserem Produkt kennen",
+			"title": "Über uns - Lernen Sie unser Team kennen"
+		},
 		"home": {
 			"description": "Die ultimative SaaS-Starter-Vorlage mit SvelteKit, Convex und modernen Web-Technologien. Erstellen Sie Ihre Marke in Minuten, nicht in Wochen. Fokussieren Sie sich auf Ihr Produkt und veröffentlichen Sie schneller.",
 			"title": "Schneller entwickeln und veröffentlichen"

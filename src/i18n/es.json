@@ -13,6 +13,10 @@
 		"title": "Plantilla SaaS Starter"
 	},
 	"meta": {
+		"about": {
+			"description": "Conoce al talentoso equipo detrás de nuestro producto",
+			"title": "Acerca de nosotros - Conoce a nuestro equipo"
+		},
 		"home": {
 			"description": "La plantilla SaaS definitiva con SvelteKit, Convex y tecnologías web modernas. Construye tu marca en minutos, no en semanas. Enfócate en tu producto y lanza más rápido.",
 			"title": "Construye y lanza tu producto más rápido"

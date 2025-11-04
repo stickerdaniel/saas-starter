@@ -9,7 +9,7 @@
 
 <section>
 	<div class="py-24">
-		<div class="mx-auto flex max-w-7xl flex-col px-6 lg:block lg:px-12">
+		<div class="mx-auto flex max-w-6xl flex-col px-6 lg:block lg:px-12">
 			<div class="text-left">
 				<h2 class="text-3xl font-semibold text-balance md:text-4xl">
 					Real 2025 Developer Experience

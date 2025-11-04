@@ -13,6 +13,10 @@
 		"title": "Modèle SaaS Starter"
 	},
 	"meta": {
+		"about": {
+			"description": "Rencontrez l'équipe talentueuse derrière notre produit",
+			"title": "À propos de nous - Rencontrez notre équipe"
+		},
 		"home": {
 			"description": "Le modèle SaaS ultime avec SvelteKit, Convex et les technologies web modernes. Construisez votre marque en minutes, pas en semaines. Concentrez-vous sur votre produit et lancez plus rapidement.",
 			"title": "Construisez et lancez votre produit plus rapidement"

@@ -9,7 +9,7 @@
 <main class="overflow-x-hidden">
 	<section>
 		<div class="py-24 md:pb-32 lg:pt-48 lg:pb-36">
-			<div class="relative mx-auto flex max-w-7xl flex-col px-6 lg:block lg:px-12">
+			<div class="relative mx-auto flex max-w-6xl flex-col px-6 lg:block lg:px-12">
 				<div class="mx-auto max-w-lg text-center lg:ml-0 lg:max-w-full lg:text-left">
 					<h1 class="mt-8 max-w-4xl text-5xl text-balance md:text-6xl lg:mt-16 xl:text-7xl">
 						<T keyName="hero.tagline" />
@@ -49,7 +49,7 @@
 		</div>
 	</section>
 	<section class="bg-background pb-2">
-		<div class="group relative m-auto max-w-7xl px-6">
+		<div class="group relative m-auto max-w-6xl px-6">
 			<div class="flex flex-col items-center md:flex-row">
 				<div class="md:max-w-44 md:border-r md:pr-6">
 					<p class="text-end text-sm"><T keyName="hero.companies_text" /></p>
