@@ -10,6 +10,7 @@
 	import CreditCardIcon from '@lucide/svelte/icons/credit-card';
 	import LogOutIcon from '@lucide/svelte/icons/log-out';
 	import SparklesIcon from '@lucide/svelte/icons/sparkles';
+	import { T } from '@tolgee/svelte';
 
 	let { user }: { user: { name: string; email: string; avatar: string } } = $props();
 	const sidebar = useSidebar();
@@ -60,28 +61,28 @@
 				<DropdownMenu.Group>
 					<DropdownMenu.Item>
 						<SparklesIcon />
-						Upgrade to Pro
+						<T keyName="app.user_menu.upgrade_pro" />
 					</DropdownMenu.Item>
 				</DropdownMenu.Group>
 				<DropdownMenu.Separator />
 				<DropdownMenu.Group>
 					<DropdownMenu.Item>
 						<BadgeCheckIcon />
-						Account
+						<T keyName="app.user_menu.account" />
 					</DropdownMenu.Item>
 					<DropdownMenu.Item>
 						<CreditCardIcon />
-						Billing
+						<T keyName="app.user_menu.billing" />
 					</DropdownMenu.Item>
 					<DropdownMenu.Item>
 						<BellIcon />
-						Notifications
+						<T keyName="app.user_menu.notifications" />
 					</DropdownMenu.Item>
 				</DropdownMenu.Group>
 				<DropdownMenu.Separator />
 				<DropdownMenu.Item onclick={() => signOut()}>
 					<LogOutIcon />
-					Log out
+					<T keyName="app.user_menu.logout" />
 				</DropdownMenu.Item>
 			</DropdownMenu.Content>
 		</DropdownMenu.Root>

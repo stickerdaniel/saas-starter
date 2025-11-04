@@ -7,6 +7,7 @@
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import type { ComponentProps } from 'svelte';
 	import { localizedHref } from '$lib/utils/i18n';
+	import { T } from '@tolgee/svelte';
 
 	interface Props extends ComponentProps<typeof Sidebar.Root> {
 		user?: {
@@ -23,25 +24,25 @@
 
 	const navItems = $derived([
 		{
-			title: 'Dashboard',
+			translationKey: 'app.sidebar.dashboard',
 			url: localizedHref('/app/dashboard'),
 			icon: ChartBarIcon,
 			isActive: page.url.pathname === `/${page.params.lang}/app/dashboard`
 		},
 		{
-			title: 'Community Chat',
+			translationKey: 'app.sidebar.community_chat',
 			url: localizedHref('/app/community-chat'),
 			icon: MessageCircleIcon,
 			isActive: page.url.pathname === `/${page.params.lang}/app/community-chat`
 		},
 		{
-			title: 'Docs',
+			translationKey: 'app.sidebar.docs',
 			url: localizedHref('https://docs.convex.dev'),
 			icon: BookIcon,
 			isActive: false
 		},
 		{
-			title: 'Home',
+			translationKey: 'app.sidebar.home',
 			url: localizedHref('/'),
 			icon: HomeIcon,
 			isActive: false
@@ -57,7 +58,7 @@
 					{#snippet child({ props })}
 						<a href={localizedHref('/')} {...props}>
 							<InnerShadowTopIcon class="!size-5" />
-							<span class="text-base font-semibold">SaaS Starter</span>
+							<span class="text-base font-semibold"><T keyName="app.name" /></span>
 						</a>
 					{/snippet}
 				</Sidebar.MenuButton>
@@ -71,7 +72,6 @@
 					{#each navItems as item}
 						<Sidebar.MenuItem>
 							<Sidebar.MenuButton
-								tooltipContent={item.title}
 								class={item.isActive ? 'bg-sidebar-accent text-sidebar-accent-foreground' : ''}
 							>
 								{#snippet child({ props })}
@@ -79,7 +79,7 @@
 										{#if item.icon}
 											<item.icon />
 										{/if}
-										<span>{item.title}</span>
+										<span><T keyName={item.translationKey} /></span>
 									</a>
 								{/snippet}
 							</Sidebar.MenuButton>

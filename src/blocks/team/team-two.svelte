@@ -1,38 +1,40 @@
-<script>
+<script lang="ts">
+	import { T } from '@tolgee/svelte';
+
 	const members = [
 		{
 			name: 'Liam Brown',
-			role: 'Founder - CEO',
+			roleKey: 'team.roles.founder_ceo',
 			avatar: 'https://alt.tailus.io/images/team/member-one.webp',
 			link: '#'
 		},
 		{
 			name: 'Elijah Jones',
-			role: 'Co-Founder - CTO',
+			roleKey: 'team.roles.cofounder_cto',
 			avatar: 'https://alt.tailus.io/images/team/member-two.webp',
 			link: '#'
 		},
 		{
 			name: 'Isabella Garcia',
-			role: 'Sales Manager',
+			roleKey: 'team.roles.sales_manager',
 			avatar: 'https://alt.tailus.io/images/team/member-three.webp',
 			link: '#'
 		},
 		{
 			name: 'Henry Lee',
-			role: 'UX Engeneer',
+			roleKey: 'team.roles.ux_engineer',
 			avatar: 'https://alt.tailus.io/images/team/member-four.webp',
 			link: '#'
 		},
 		{
 			name: 'Ava Williams',
-			role: 'Interaction Designer',
+			roleKey: 'team.roles.interaction_designer',
 			avatar: 'https://alt.tailus.io/images/team/member-five.webp',
 			link: '#'
 		},
 		{
 			name: 'Olivia Miller',
-			role: 'Visual Designer',
+			roleKey: 'team.roles.visual_designer',
 			avatar: 'https://alt.tailus.io/images/team/member-six.webp',
 			link: '#'
 		}
@@ -42,17 +44,18 @@
 <section class="bg-gray-50 py-16 md:py-32 dark:bg-transparent">
 	<div class="mx-auto max-w-6xl px-6 lg:px-12">
 		<div class="border-t">
-			<span class="text-caption -mt-3.5 -ml-6 block w-max bg-gray-50 px-6 dark:bg-gray-950"
-				>Team</span
-			>
+			<span class="text-caption -mt-3.5 -ml-6 block w-max bg-gray-50 px-6 dark:bg-gray-950">
+				<T keyName="team.section_label" />
+			</span>
 			<div class="mt-12 gap-4 sm:grid sm:grid-cols-2 md:mt-24">
 				<div class="sm:w-2/5">
-					<h2 class="text-3xl font-bold sm:text-4xl">Our dream team</h2>
+					<h2 class="text-3xl font-bold sm:text-4xl">
+						<T keyName="team.title" />
+					</h2>
 				</div>
 				<div class="mt-6 sm:mt-0">
 					<p>
-						During the working process, we perform regular fitting with the client because he is the
-						only person who can feel whether a new suit fits or not.
+						<T keyName="team.description" />
 					</p>
 				</div>
 			</div>
@@ -79,14 +82,14 @@
 								<div class="mt-1 flex items-center justify-between">
 									<span
 										class="inline-block translate-y-6 text-sm text-muted-foreground opacity-0 transition duration-300 group-hover:translate-y-0 group-hover:opacity-100"
-										>{member.role}</span
 									>
+										<T keyName={member.roleKey} />
+									</span>
 									<a
 										href={member.link}
 										class="group-hover:text-primary-600 dark:group-hover:text-primary-400 inline-block translate-y-8 text-sm tracking-wide opacity-0 transition-all duration-500 group-hover:translate-y-0 group-hover:opacity-100 hover:underline"
 									>
-										{' '}
-										Linktree
+										<T keyName="team.linktree" />
 									</a>
 								</div>
 							</div>

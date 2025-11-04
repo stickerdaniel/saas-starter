@@ -13,7 +13,7 @@
 	import { localizedHref } from '$lib/utils/i18n';
 	import { useSearchParams } from 'runed/kit';
 	import { pricingParamsSchema } from '$lib/schemas/pricing-params';
-	import { toast } from 'svelte-sonner';
+	import { T, getTranslate } from '@tolgee/svelte';
 
 	const { customer, checkout, openBillingPortal } = useCustomer();
 	const upgradeOperation = useAutumnOperation(checkout);
@@ -29,28 +29,22 @@
 	const isPro = $derived(customer?.products?.some((p) => p.id === 'pro') ?? false);
 	const isFree = $derived(!isPro);
 
-	let pricingList = {
-		free: [
-			'10 messages per month',
-			'Full source code access',
-			'All features included',
-			'MIT License'
-		],
-		pro: [
-			'Unlimited messages',
-			'Full source code access',
-			'All features included',
-			'Priority support'
-		],
-		enterprise: [
-			'Custom message limits',
-			'Dedicated account manager',
-			'SLA guarantees',
-			'Advanced security features',
-			'Custom integrations',
-			'White-label options'
-		]
-	};
+	// Get translation function
+	const { t } = getTranslate();
+
+	// Helper function to get non-empty feature keys for a tier
+	function getFeatureKeys(tierPath: string): string[] {
+		const keys = ['0', '1', '2', '3', '4'];
+		return keys.filter((key) => {
+			const value = $t(`${tierPath}.${key}`, { orEmpty: true });
+			return value && value.trim().length > 0;
+		});
+	}
+
+	// Get non-empty feature keys for each tier (reactively updates on language change)
+	const freeFeatureKeys = $derived(getFeatureKeys('pricing.features.free'));
+	const proFeatureKeys = $derived(getFeatureKeys('pricing.features.pro'));
+	const enterpriseFeatureKeys = $derived(getFeatureKeys('pricing.features.enterprise'));
 
 	async function handleCheckout(productId: string) {
 		console.log('[PRICING DEBUG] handleCheckout called:', { productId, isAuthenticated });
@@ -99,11 +93,11 @@
 <section class="py-16 md:py-32">
 	<div class="mx-auto max-w-6xl px-6 lg:px-12">
 		<div class="mx-auto max-w-2xl space-y-6 text-center">
-			<h1 class="text-center text-4xl font-semibold lg:text-5xl">Pricing that Scales with You</h1>
+			<h1 class="text-center text-4xl font-semibold lg:text-5xl">
+				<T keyName="pricing.title" />
+			</h1>
 			<p class="text-balance">
-				This SaaS starter template is completely free and open source.<br />Test the integrated
-				payment system powered by Autumn - an open-source billing platform that handles
-				subscriptions, usage limits, and Stripe webhooks automatically.
+				<T keyName="pricing.description" /><br /><T keyName="pricing.description_autumn" />
 			</p>
 		</div>
 
@@ -111,17 +105,25 @@
 			<Card>
 				<CardHeader>
 					<CardTitle class="font-medium">
-						Free
+						<T keyName="pricing.tiers.free.name" />
 						{#if isFree}
-							<span class="ml-2 text-xs font-normal text-muted-foreground">(Current Plan)</span>
+							<span class="ml-2 text-xs font-normal text-muted-foreground">
+								<T keyName="pricing.current_plan_badge" />
+							</span>
 						{/if}
 					</CardTitle>
 
-					<span class="my-3 block text-2xl font-semibold">$0 / month</span>
+					<span class="my-3 block text-2xl font-semibold">
+						<T keyName="pricing.tiers.free.price" />
+					</span>
 
-					<CardDescription class="text-sm">Perfect for getting started</CardDescription>
+					<CardDescription class="text-sm">
+						<T keyName="pricing.tiers.free.description" />
+					</CardDescription>
 					{#if isFree}
-						<Button variant="outline" class="mt-4 w-full" disabled>Current Plan</Button>
+						<Button variant="outline" class="mt-4 w-full" disabled>
+							<T keyName="pricing.tiers.free.button" />
+						</Button>
 					{:else}
 						<Button
 							variant="outline"
@@ -129,7 +131,11 @@
 							onclick={() => portalOperation.execute({})}
 							disabled={portalOperation.isLoading}
 						>
-							{portalOperation.isLoading ? 'Loading...' : 'Manage Subscription'}
+							{#if portalOperation.isLoading}
+								<T keyName="pricing.buttons.loading" />
+							{:else}
+								<T keyName="pricing.tiers.free.button_manage" />
+							{/if}
 						</Button>
 					{/if}
 				</CardHeader>
@@ -138,10 +144,10 @@
 					<hr class="border-dashed" />
 
 					<ul class="list-outside space-y-3 text-sm">
-						{#each pricingList.free as item}
+						{#each freeFeatureKeys as key}
 							<li class="flex items-center gap-2">
 								<Check class="size-3" />
-								{item}
+								<T keyName="pricing.features.free.{key}" />
 							</li>
 						{/each}
 					</ul>
@@ -151,20 +157,27 @@
 			<Card class="relative">
 				<span
 					class="absolute inset-x-0 -top-3 mx-auto flex h-6 w-fit items-center rounded-full bg-linear-to-br/increasing from-purple-400 to-amber-300 px-3 py-1 text-xs font-medium text-amber-950 ring-1 ring-white/20 ring-offset-1 ring-offset-gray-950/5 ring-inset"
-					>Popular</span
 				>
+					<T keyName="pricing.popular_badge" />
+				</span>
 
 				<CardHeader>
 					<CardTitle class="font-medium">
-						Pro
+						<T keyName="pricing.tiers.pro.name" />
 						{#if isPro}
-							<span class="ml-2 text-xs font-normal text-muted-foreground">(Current Plan)</span>
+							<span class="ml-2 text-xs font-normal text-muted-foreground">
+								<T keyName="pricing.current_plan_badge" />
+							</span>
 						{/if}
 					</CardTitle>
 
-					<span class="my-3 block text-2xl font-semibold">$10 / month</span>
+					<span class="my-3 block text-2xl font-semibold">
+						<T keyName="pricing.tiers.pro.price" />
+					</span>
 
-					<CardDescription class="text-sm">Unlimited messages and priority support</CardDescription>
+					<CardDescription class="text-sm">
+						<T keyName="pricing.tiers.pro.description" />
+					</CardDescription>
 
 					{#if isPro}
 						<Button
@@ -173,7 +186,11 @@
 							onclick={() => portalOperation.execute({})}
 							disabled={portalOperation.isLoading}
 						>
-							{portalOperation.isLoading ? 'Loading...' : 'Manage Subscription'}
+							{#if portalOperation.isLoading}
+								<T keyName="pricing.buttons.loading" />
+							{:else}
+								<T keyName="pricing.tiers.pro.button_manage" />
+							{/if}
 						</Button>
 					{:else}
 						<Button
@@ -181,7 +198,11 @@
 							onclick={() => handleCheckout('pro')}
 							disabled={upgradeOperation.isLoading}
 						>
-							{upgradeOperation.isLoading ? 'Processing...' : 'Upgrade to Pro'}
+							{#if upgradeOperation.isLoading}
+								<T keyName="pricing.tiers.pro.button_loading" />
+							{:else}
+								<T keyName="pricing.tiers.pro.button" />
+							{/if}
 						</Button>
 					{/if}
 				</CardHeader>
@@ -190,10 +211,10 @@
 					<hr class="border-dashed" />
 
 					<ul class="list-outside space-y-3 text-sm">
-						{#each pricingList.pro as item}
+						{#each proFeatureKeys as key}
 							<li class="flex items-center gap-2">
 								<Check class="size-3" />
-								{item}
+								<T keyName="pricing.features.pro.{key}" />
 							</li>
 						{/each}
 					</ul>
@@ -202,16 +223,20 @@
 
 			<Card>
 				<CardHeader>
-					<CardTitle class="font-medium">Enterprise</CardTitle>
+					<CardTitle class="font-medium">
+						<T keyName="pricing.tiers.enterprise.name" />
+					</CardTitle>
 
-					<span class="my-3 block text-2xl font-semibold">Custom</span>
+					<span class="my-3 block text-2xl font-semibold">
+						<T keyName="pricing.tiers.enterprise.price" />
+					</span>
 
-					<CardDescription class="text-sm"
-						>For organizations with specific requirements</CardDescription
-					>
+					<CardDescription class="text-sm">
+						<T keyName="pricing.tiers.enterprise.description" />
+					</CardDescription>
 
 					<Button variant="outline" class="mt-4 w-full" href="mailto:sales@example.com">
-						Contact Sales
+						<T keyName="pricing.tiers.enterprise.button" />
 					</Button>
 				</CardHeader>
 
@@ -219,10 +244,10 @@
 					<hr class="border-dashed" />
 
 					<ul class="list-outside space-y-3 text-sm">
-						{#each pricingList.enterprise as item}
+						{#each enterpriseFeatureKeys as key}
 							<li class="flex items-center gap-2">
 								<Check class="size-3" />
-								{item}
+								<T keyName="pricing.features.enterprise.{key}" />
 							</li>
 						{/each}
 					</ul>

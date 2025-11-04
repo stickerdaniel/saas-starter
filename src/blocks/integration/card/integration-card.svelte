@@ -10,6 +10,8 @@
 		link?: string;
 		secondaryLink?: string;
 		secondaryTitle?: string;
+		buttonText: string;
+		secondaryButtonText?: string;
 		children?: Snippet;
 	};
 	let {
@@ -18,11 +20,10 @@
 		description,
 		link = 'https://github.com/SikandarJODD/cnblocks',
 		secondaryLink,
-		secondaryTitle
+		secondaryTitle,
+		buttonText,
+		secondaryButtonText
 	}: IntegrationCardProps = $props();
-
-	// Extract first part of title for primary button (before " + ")
-	const primaryTitle = title.split(' + ')[0];
 </script>
 
 <Card class="p-6">
@@ -40,10 +41,10 @@
 				href={link}
 				target="_blank"
 			>
-				Visit {secondaryLink ? primaryTitle : title}
+				{buttonText}
 				<ChevronRight class="ml-0 !size-3.5 opacity-50" />
 			</Button>
-			{#if secondaryLink && secondaryTitle}
+			{#if secondaryLink && secondaryButtonText}
 				<Button
 					variant="secondary"
 					size="sm"
@@ -51,7 +52,7 @@
 					href={secondaryLink}
 					target="_blank"
 				>
-					Visit {secondaryTitle}
+					{secondaryButtonText}
 					<ChevronRight class="ml-0 !size-3.5 opacity-50" />
 				</Button>
 			{/if}
