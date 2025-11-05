@@ -25,6 +25,7 @@
 		"@convex-dev/resend": "^0.1.13",
 		"@mmailaender/convex-auth-svelte": "^0.1.2",
 		"@oslojs/crypto": "^1.0.1",
+		"@rive-app/canvas": "^2.32.0",
 		"@stickerdaniel/convex-autumn-svelte": "^0.1.2",
 		"@tolgee/cli": "^2.14.0",
 		"@tolgee/svelte": "^6.2.7",
