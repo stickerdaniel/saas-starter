@@ -93,23 +93,19 @@
 			{#if isDark}
 				<!-- Spotlight 1 (soft) -->
 				<div
-					id="spotlight"
-					class="absolute top-1/2 left-1/2 -z-5 h-[150px] w-[150px] bg-white blur-3xl transition-transform duration-1000 ease-out lg:h-[200px] lg:w-[200px]"
-					style="transform: translate(-50%, -50%) scale({isLoaded ? 1 : 0.5});"
-				></div>
-
-				<!-- Spotlight 2 (harder for brighter center) -->
-				<div
-					id="spotlight"
-					class="absolute top-1/2 left-1/2 -z-4 h-[150px] w-[150px] rounded-[10%] bg-white blur-2xl transition-transform duration-1000 ease-out lg:h-[200px] lg:w-[200px]"
-					style="transform: translate(-50%, -50%) scale({isLoaded ? 1 : 0.5});"
+					class="lg:h-450px] pointer-events-none absolute top-1/2 left-1/2 -z-5 h-[360px] w-[360px] blur-xl transition-transform duration-1000 ease-out lg:w-[450px] {isLoaded
+						? 'animate-[breathe_5s_ease-in-out_infinite_1s]'
+						: ''}"
+					style="background: radial-gradient(circle at center, rgba(255, 255, 255, 1) 20%, rgba(255, 255, 255, 0.1) 50%, rgba(255, 255, 255, 0) 80%); will-change: opacity, transform; opacity: {isLoaded
+						? 1
+						: 0}; transform: translate(-50%, -50%) scale({isLoaded ? 1 : 0.7});"
 				></div>
 			{/if}
 
 			<!-- Rive Canvas -->
 			<canvas
 				bind:this={canvas}
-				class="pointer-events-all absolute -z-3 h-full w-full"
+				class="pointer-events-none absolute -z-3 h-full w-full"
 				style="mix-blend-mode: multiply;"
 			></canvas>
 
@@ -131,3 +127,17 @@
 		</div>
 	</FollowingPointer>
 </div>
+
+<style>
+	:global {
+		@keyframes breathe {
+			0%,
+			100% {
+				transform: translate(-50%, -50%) scale(1);
+			}
+			50% {
+				transform: translate(-50%, -50%) scale(0.95);
+			}
+		}
+	}
+</style>
