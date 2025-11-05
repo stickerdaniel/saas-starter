@@ -32,6 +32,7 @@
 		"atmn": "^0.0.28",
 		"autumn-js": "^0.1.43",
 		"mode-watcher": "^1.1.0",
+		"motion-sv": "^0.1.2",
 		"resend": "^6.1.2",
 		"runed": "^0.35.1",
 		"vercel": "^47.1.4"
