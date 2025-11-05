@@ -3,7 +3,6 @@
 	import { Svelte, Convex, Tolgee, PostHog, SVBlocks, Autumn } from '../logos/logos';
 	import Shadcn from '../logos/Shadcn.svelte';
 	import Stripe from '../logos/Stripe.svelte';
-	import { Plus } from '@lucide/svelte';
 	import { T, getTranslate } from '@tolgee/svelte';
 
 	const { t } = getTranslate();

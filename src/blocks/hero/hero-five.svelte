@@ -7,15 +7,13 @@
 	import RiveBackground from '$lib/components/RiveBackground.svelte';
 </script>
 
-<main>
+<main class="overflow-hidden">
 	<section class="relative">
-		<div class="flex items-center justify-center">
-			<RiveBackground
-				src="/animations/spring-demo.riv"
-				stateMachine="Motion"
-				className="lg:left-[45%] xl:left-[52%] -bottom-2/5 lg:-bottom-1/6 w-[600px] h-[600px] lg:w-[700px] lg:h-[700px]"
-			/>
-		</div>
+		<RiveBackground
+			src="/animations/spring-demo.riv"
+			stateMachine="Motion"
+			className="absolute lg:left-[45%] xl:left-[52%] -bottom-2/5 lg:-bottom-1/6 w-[600px] h-[600px] lg:w-[700px] lg:h-[700px]"
+		/>
 
 		<div class="py-24 md:pb-32 lg:pt-48 lg:pb-36">
 			<div class="relative mx-auto flex max-w-6xl flex-col px-6 lg:block lg:px-12">
@@ -57,7 +55,7 @@
       </div> -->
 		</div>
 	</section>
-	<section class="bg-background pb-2">
+	<section class="pb-2">
 		<div class="group relative m-auto max-w-6xl px-6">
 			<div class="flex flex-col items-center md:flex-row">
 				<div class="md:max-w-44 md:border-r md:pr-6">
