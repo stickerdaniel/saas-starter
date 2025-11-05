@@ -1,45 +1,97 @@
 {
+	"app": {
+		"name": "SaaS Starter",
+		"sidebar": {
+			"community_chat": "Chat communautaire",
+			"dashboard": "Tableau de bord",
+			"docs": "Documentation",
+			"home": "Accueil"
+		},
+		"user_menu": {
+			"account": "Compte",
+			"billing": "Facturation",
+			"logout": "Se déconnecter",
+			"notifications": "Notifications",
+			"upgrade_pro": "Passer à Pro"
+		}
+	},
 	"auth": {
-		"login": "Connexion",
-		"logout": "Déconnexion",
-		"signup": "S'inscrire",
-		"signin": {
-			"title": "Bienvenue",
-			"description": "Connectez-vous à votre compte ou créez-en un nouveau",
-			"tab_signin": "Connexion",
-			"tab_signup": "S'inscrire",
-			"email_label": "E-mail",
-			"email_placeholder": "vous@exemple.fr",
-			"password_label": "Mot de passe",
-			"password_placeholder": "••••••••",
-			"button_signin": "Se connecter",
-			"button_signup": "S'inscrire",
-			"button_signin_loading": "Connexion en cours...",
-			"button_signup_loading": "Création du compte...",
-			"or_continue_with": "Ou continuer avec",
-			"oauth_github": "GitHub",
-			"oauth_google": "Google",
-			"cancel": "Annuler",
-			"test_secret_label": "Test uniquement : Se connecter avec un secret",
-			"test_secret_placeholder": "valeur secrète",
-			"test_secret_button": "Se connecter avec un secret"
-		},
-		"verification": {
-			"title": "Vérification de l'e-mail",
-			"description": "Veuillez vérifier votre e-mail pour un code de vérification",
-			"sent_to": "Nous avons envoyé un code de vérification à 8 chiffres à",
-			"code_label": "Code de vérification",
-			"code_placeholder": "12345678",
-			"button_verify": "Vérifier l'e-mail",
-			"button_verify_loading": "Vérification en cours...",
-			"button_cancel": "Annuler"
-		},
 		"errors": {
 			"invalid_credentials": "E-mail ou mot de passe invalide",
+			"invalid_secret": "Secret invalide",
 			"signup_failed": "Impossible de créer le compte. L'e-mail est peut-être déjà utilisé.",
-			"verification_invalid": "Code de vérification invalide ou expiré. Veuillez réessayer.",
-			"invalid_secret": "Secret invalide"
+			"verification_invalid": "Code de vérification invalide ou expiré. Veuillez réessayer."
+		},
+		"login": "Connexion",
+		"logout": "Déconnexion",
+		"signin": {
+			"button_signin": "Se connecter",
+			"button_signin_loading": "Connexion en cours...",
+			"button_signup": "S'inscrire",
+			"button_signup_loading": "Création du compte...",
+			"cancel": "Annuler",
+			"description": "Connectez-vous à votre compte ou créez-en un nouveau",
+			"email_label": "E-mail",
+			"email_placeholder": "vous@exemple.fr",
+			"oauth_github": "GitHub",
+			"oauth_google": "Google",
+			"or_continue_with": "Ou continuer avec",
+			"password_label": "Mot de passe",
+			"password_placeholder": "••••••••",
+			"tab_signin": "Connexion",
+			"tab_signup": "S'inscrire",
+			"test_secret_button": "Se connecter avec un secret",
+			"test_secret_label": "Test uniquement : Se connecter avec un secret",
+			"test_secret_placeholder": "valeur secrète",
+			"title": "Bienvenue"
+		},
+		"signup": "S'inscrire",
+		"verification": {
+			"button_cancel": "Annuler",
+			"button_verify": "Vérifier l'e-mail",
+			"button_verify_loading": "Vérification en cours...",
+			"code_label": "Code de vérification",
+			"code_placeholder": "12345678",
+			"description": "Veuillez vérifier votre e-mail pour un code de vérification",
+			"sent_to": "Nous avons envoyé un code de vérification à 8 chiffres à",
+			"title": "Vérification de l'e-mail"
 		}
+	},
+	"chat": {
+		"alerts": {
+			"limit_reached": {
+				"description": "Vous avez utilisé tous vos {total} messages gratuits de ce mois.",
+				"title": "Limite de Messages Atteinte"
+			},
+			"low_messages": {
+				"description": "Il vous reste {remaining} message sur {total} pour ce mois.",
+				"description_plural": "Il vous reste {remaining} messages sur {total} pour ce mois.",
+				"title": "Peu de Messages"
+			}
+		},
+		"buttons": {
+			"processing": "Traitement...",
+			"upgrade": "Passer à Pro"
+		},
+		"description": "Ouvrez cette application dans plusieurs fenêtres de navigateur pour voir la base de données en temps réel en action",
+		"header": {
+			"messages_left": "({remaining}/{total} message restant)",
+			"messages_left_plural": "({remaining}/{total} messages restants)",
+			"pro_unlimited": "(Pro - Illimité)",
+			"subtitle": "Chat en temps réel",
+			"title": "Chat"
+		},
+		"input": {
+			"placeholder": "Tapez un message...",
+			"placeholder_disabled": "Limite de messages atteinte",
+			"send_tooltip": "Envoyer le message",
+			"upgrade_tooltip": "Passez à Pro pour des messages illimités"
+		},
+		"messages": {
+			"send_failed": "Échec de l'envoi du message",
+			"sent_success": "Message envoyé !"
+		},
+		"title": "Chat Communautaire"
 	},
 	"hero": {
 		"companies_text": "Propulsant les meilleures équipes",
@@ -48,6 +100,46 @@
 		"description": "Construisez votre marque en quelques minutes, pas en semaines. Un autre modèle SaaS, cette fois avec la pile technologique parfaite.",
 		"tagline": "Focus sur ton produit. Lancement plus rapide.",
 		"title": "Modèle SaaS Starter"
+	},
+	"integrations": {
+		"cards": {
+			"autumn_stripe": {
+				"button": "Visiter Autumn",
+				"description": "Autumn gère la facturation, les limites de fonctionnalités et le suivi d'utilisation—sans complexité de webhooks. Stripe pour le traitement des paiements.",
+				"secondary_button": "Visiter Stripe",
+				"secondary_title": "Stripe",
+				"title": "Autumn + Stripe"
+			},
+			"convex": {
+				"button": "Visiter Convex",
+				"description": "L'alternative open source à Firebase. Basé sur PostgreSQL - la base de données relationnelle la plus avancée au monde.",
+				"title": "Convex"
+			},
+			"posthog": {
+				"button": "Visiter PostHog",
+				"description": "PostHog est une plateforme d'analyse produit open source pour suivre le comportement des utilisateurs et mesurer les conversions.",
+				"title": "PostHog"
+			},
+			"shadcn_svblocks": {
+				"button": "Visiter Shadcn Svelte",
+				"description": "Un ensemble de composants magnifiquement conçus et accessibles construits avec Tailwind CSS v4 et Bits UI.",
+				"secondary_button": "SVBlocks",
+				"secondary_title": "SVBlocks",
+				"title": "Shadcn Svelte + SVBlocks"
+			},
+			"svelte": {
+				"button": "Visiter Svelte 5",
+				"description": "Le framework frontend le plus aimé. Une façon simple, performante et pérenne de construire votre application web.",
+				"title": "Svelte 5"
+			},
+			"tolgee": {
+				"button": "Visiter Tolgee",
+				"description": "L'internationalisation bien faite. Édition en contexte et traduction assistée par ML pour un flux de localisation fluide.",
+				"title": "Tolgee"
+			}
+		},
+		"description": "Des solutions ultra-rapides avec lesquelles il est vraiment amusant de construire",
+		"title": "Véritable Expérience Développeur 2025"
 	},
 	"meta": {
 		"about": {
@@ -61,175 +153,95 @@
 	},
 	"nav": {
 		"about": "À propos",
+		"dashboard": "Tableau de bord",
 		"features": "Fonctionnalités",
+		"get_started": "Commencer",
 		"home": "Accueil",
 		"pricing": "Tarifs",
-		"solution": "Solution",
-		"dashboard": "Tableau de bord",
-		"get_started": "Commencer"
-	},
-	"app": {
-		"name": "SaaS Starter",
-		"sidebar": {
-			"dashboard": "Tableau de bord",
-			"community_chat": "Chat communautaire",
-			"docs": "Documentation",
-			"home": "Accueil"
-		},
-		"user_menu": {
-			"upgrade_pro": "Passer à Pro",
-			"account": "Compte",
-			"billing": "Facturation",
-			"notifications": "Notifications",
-			"logout": "Se déconnecter"
-		}
+		"solution": "Solution"
 	},
 	"pricing": {
-		"title": "Tarification qui Évolue Avec Vous",
-		"description": "Ce modèle SaaS starter est complètement gratuit et open source.",
-		"description_autumn": "Testez le système de paiement intégré powered by Autumn - une plateforme de facturation open source qui gère automatiquement les abonnements, les limites d'utilisation et les webhooks Stripe.",
-		"popular_badge": "Populaire",
+		"buttons": {
+			"loading": "Chargement...",
+			"manage_subscription": "Gérer l'Abonnement"
+		},
 		"current_plan": "Plan Actuel",
 		"current_plan_badge": "(Plan Actuel)",
+		"description": "Ce modèle SaaS starter est complètement gratuit et open source.",
+		"description_autumn": "Testez le système de paiement intégré powered by Autumn - une plateforme de facturation open source qui gère automatiquement les abonnements, les limites d'utilisation et les webhooks Stripe.",
 		"features": {
-			"free": {
-				"0": "10 messages par mois",
-				"1": "Accès complet au code source",
-				"2": "Toutes les fonctionnalités incluses",
-				"3": "Licence MIT",
-				"4": ""
-			},
-			"pro": {
-				"0": "Messages illimités",
-				"1": "Accès complet au code source",
-				"2": "Toutes les fonctionnalités incluses",
-				"3": "Support prioritaire",
-				"4": ""
-			},
 			"enterprise": {
 				"0": "Limites de messages personnalisées",
 				"1": "Gestionnaire de compte dédié",
 				"2": "Garanties SLA",
 				"3": "Fonctionnalités de sécurité avancées",
 				"4": "Intégrations personnalisées"
-			}
-		},
-		"tiers": {
+			},
+			"enterprise[0]": "Limites de messages personnalisées",
+			"enterprise[1]": "Gestionnaire de compte dédié",
+			"enterprise[2]": "Garanties SLA",
+			"enterprise[3]": "Fonctionnalités de sécurité avancées",
+			"enterprise[4]": "Intégrations personnalisées",
+			"enterprise[5]": "Options de marque blanche",
 			"free": {
-				"name": "Gratuit",
-				"price": "0€ / mois",
-				"description": "Parfait pour commencer",
+				"0": "10 messages par mois",
+				"1": "Accès complet au code source",
+				"2": "Toutes les fonctionnalités incluses",
+				"3": "Licence MIT"
+			},
+			"free[0]": "10 messages par mois",
+			"free[1]": "Accès complet au code source",
+			"free[2]": "Toutes les fonctionnalités incluses",
+			"free[3]": "Licence MIT",
+			"pro": {
+				"0": "Messages illimités",
+				"1": "Accès complet au code source",
+				"2": "Toutes les fonctionnalités incluses",
+				"3": "Support prioritaire"
+			},
+			"pro[0]": "Messages illimités",
+			"pro[1]": "Accès complet au code source",
+			"pro[2]": "Toutes les fonctionnalités incluses",
+			"pro[3]": "Support prioritaire"
+		},
+		"popular_badge": "Populaire",
+		"tiers": {
+			"enterprise": {
+				"button": "Contacter les Ventes",
+				"description": "Pour les organisations avec des besoins spécifiques",
+				"name": "Enterprise",
+				"price": "Personnalisé"
+			},
+			"free": {
 				"button": "Plan Actuel",
-				"button_manage": "Gérer l'Abonnement"
+				"button_manage": "Gérer l'Abonnement",
+				"description": "Parfait pour commencer",
+				"name": "Gratuit",
+				"price": "0€ / mois"
 			},
 			"pro": {
-				"name": "Pro",
-				"price": "10€ / mois",
-				"description": "Messages illimités et support prioritaire",
 				"button": "Passer à Pro",
+				"button_loading": "Traitement...",
 				"button_manage": "Gérer l'Abonnement",
-				"button_loading": "Traitement..."
-			},
-			"enterprise": {
-				"name": "Enterprise",
-				"price": "Personnalisé",
-				"description": "Pour les organisations avec des besoins spécifiques",
-				"button": "Contacter les Ventes"
+				"description": "Messages illimités et support prioritaire",
+				"name": "Pro",
+				"price": "10€ / mois"
 			}
 		},
-		"buttons": {
-			"loading": "Chargement...",
-			"manage_subscription": "Gérer l'Abonnement"
-		}
+		"title": "Tarification qui Évolue Avec Vous"
 	},
 	"team": {
-		"section_label": "Équipe",
-		"title": "Notre équipe de rêve",
 		"description": "Pendant le processus de travail, nous effectuons des ajustements réguliers avec le client car il est la seule personne qui peut sentir si un nouveau costume lui va bien ou non.",
 		"linktree": "Linktree",
 		"roles": {
-			"founder_ceo": "Fondateur - PDG",
 			"cofounder_cto": "Co-fondateur - CTO",
+			"founder_ceo": "Fondateur - PDG",
+			"interaction_designer": "Designer d'Interaction",
 			"sales_manager": "Responsable des Ventes",
 			"ux_engineer": "Ingénieur UX",
-			"interaction_designer": "Designer d'Interaction",
 			"visual_designer": "Designer Visuel"
-		}
-	},
-	"integrations": {
-		"title": "Véritable Expérience Développeur 2025",
-		"description": "Des solutions ultra-rapides avec lesquelles il est vraiment amusant de construire",
-		"cards": {
-			"svelte": {
-				"title": "Svelte 5",
-				"description": "Le framework frontend le plus aimé. Une façon simple, performante et pérenne de construire votre application web.",
-				"button": "Visiter Svelte 5"
-			},
-			"convex": {
-				"title": "Convex",
-				"description": "L'alternative open source à Firebase. Basé sur PostgreSQL - la base de données relationnelle la plus avancée au monde.",
-				"button": "Visiter Convex"
-			},
-			"tolgee": {
-				"title": "Tolgee",
-				"description": "L'internationalisation bien faite. Édition en contexte et traduction assistée par ML pour un flux de localisation fluide.",
-				"button": "Visiter Tolgee"
-			},
-			"posthog": {
-				"title": "PostHog",
-				"description": "PostHog est une plateforme d'analyse produit open source pour suivre le comportement des utilisateurs et mesurer les conversions.",
-				"button": "Visiter PostHog"
-			},
-			"shadcn_svblocks": {
-				"title": "Shadcn Svelte + SVBlocks",
-				"description": "Un ensemble de composants magnifiquement conçus et accessibles construits avec Tailwind CSS v4 et Bits UI.",
-				"secondary_title": "SVBlocks",
-				"button": "Visiter Shadcn Svelte",
-				"secondary_button": "Visiter SVBlocks"
-			},
-			"autumn_stripe": {
-				"title": "Autumn + Stripe",
-				"description": "Autumn gère la facturation, les limites de fonctionnalités et le suivi d'utilisation—sans complexité de webhooks. Stripe pour le traitement des paiements.",
-				"secondary_title": "Stripe",
-				"button": "Visiter Autumn",
-				"secondary_button": "Visiter Stripe"
-			}
-		}
-	},
-	"chat": {
-		"title": "Chat Communautaire",
-		"description": "Ouvrez cette application dans plusieurs fenêtres de navigateur pour voir la base de données en temps réel en action",
-		"header": {
-			"title": "Chat",
-			"subtitle": "Chat en temps réel",
-			"pro_unlimited": "(Pro - Illimité)",
-			"messages_left": "({remaining}/{total} message restant)",
-			"messages_left_plural": "({remaining}/{total} messages restants)"
 		},
-		"alerts": {
-			"limit_reached": {
-				"title": "Limite de Messages Atteinte",
-				"description": "Vous avez utilisé tous vos {total} messages gratuits de ce mois."
-			},
-			"low_messages": {
-				"title": "Peu de Messages",
-				"description": "Il vous reste {remaining} message sur {total} pour ce mois.",
-				"description_plural": "Il vous reste {remaining} messages sur {total} pour ce mois."
-			}
-		},
-		"input": {
-			"placeholder": "Tapez un message...",
-			"placeholder_disabled": "Limite de messages atteinte",
-			"send_tooltip": "Envoyer le message",
-			"upgrade_tooltip": "Passez à Pro pour des messages illimités"
-		},
-		"buttons": {
-			"upgrade": "Passer à Pro",
-			"processing": "Traitement..."
-		},
-		"messages": {
-			"sent_success": "Message envoyé !",
-			"send_failed": "Échec de l'envoi du message"
-		}
+		"section_label": "Équipe",
+		"title": "Notre équipe de rêve"
 	}
 }
