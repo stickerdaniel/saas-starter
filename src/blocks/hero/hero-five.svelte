@@ -59,7 +59,7 @@
       </div> -->
 		</div>
 	</section>
-	<section class="pb-2">
+	<section>
 		<div class="group relative m-auto max-w-6xl px-6">
 			<div class="flex flex-col items-center md:flex-row">
 				<div class="md:max-w-44 md:border-r md:pr-6">
