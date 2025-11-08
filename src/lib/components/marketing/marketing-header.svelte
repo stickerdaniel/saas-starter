@@ -102,7 +102,7 @@
 					)}
 				>
 					<div class="lg:hidden">
-						<ul class="space-y-6 text-base">
+						<ul class="space-y-6 text-base text-right">
 							{#each menuItems as item}
 								<li>
 									<a
@@ -115,35 +115,42 @@
 							{/each}
 						</ul>
 					</div>
-					<div class="flex w-full flex-col space-y-3 sm:flex-row sm:gap-3 sm:space-y-0 md:w-fit">
+					<div
+						class="flex w-full flex-col items-end space-y-3 sm:flex-row sm:items-center sm:gap-3 sm:space-y-0 md:w-fit"
+					>
 						<LightSwitch variant="ghost" />
 						<LanguageSwitcher variant="ghost" />
 						{#if auth.isAuthenticated}
-							<Button size="sm" href={localizedHref('/app')}>
+							<Button size="sm" href={localizedHref('/app')} class="w-full sm:w-auto">
 								<T keyName="nav.dashboard" />
 							</Button>
-							<Button variant="outline" size="icon" class="size-8" onclick={() => auth.signOut()}>
+							<Button
+								variant="outline"
+								size="icon"
+								class="size-8 sm:w-auto"
+								onclick={() => auth.signOut()}
+							>
 								<LogOut class="size-4" />
 							</Button>
 						{:else}
 							<Button
 								variant="outline"
 								size="sm"
-								class={cn(isScrolled && 'lg:hidden')}
+								class={cn('w-full sm:w-auto', isScrolled && 'hidden')}
 								href={localizedHref('/signin?tab=signin')}
 							>
 								<T keyName="auth.login" />
 							</Button>
 							<Button
 								size="sm"
-								class={cn(isScrolled && 'lg:hidden')}
+								class={cn('w-full sm:w-auto', isScrolled && 'hidden')}
 								href={localizedHref('/signin?tab=signup')}
 							>
 								<T keyName="auth.signup" />
 							</Button>
 							<Button
 								size="sm"
-								class={cn(isScrolled ? 'lg:inline-flex' : 'hidden')}
+								class={cn('w-full sm:w-auto', !isScrolled && 'hidden')}
 								href={localizedHref('/signin?tab=signup')}
 							>
 								<T keyName="nav.get_started" />
