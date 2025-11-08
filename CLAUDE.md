@@ -551,3 +551,13 @@ Threlte (Rapidly build interactive 3D apps for the web)https://threlte.xyz/
 Svelte Flow (A customizable Svelte component for building node-based editors and interactive diagrams by the creators of React Flow)https://svelteflow.dev/
 Tolgee for internationalisation (open-source localization tool).
 Ask for the specific docs when needed.
+
+### Vercel
+
+- `vercel` - Deploy to Vercel
+- `vercel --prod` - Deploy to production
+- `vercel env ls` - List environment variables
+- `printf "value" | vercel env add KEY environment` - Add environment variable (avoids trailing newlines by using printf instead of heredoc)
+- `vercel env rm KEY environment` - Remove environment variable
+- `vercel logs` - View deployment logs
+- `vercel domains` - Manage custom domains
