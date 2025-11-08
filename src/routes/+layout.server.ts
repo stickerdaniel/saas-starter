@@ -20,13 +20,21 @@ export const load: LayoutServerLoad = async (event) => {
 	// Enables targeted invalidation via invalidate('autumn:customer') to refetch only customer data
 	event.depends('autumn:customer');
 
+	const authState = await getAuthState(event);
+	const isAuthenticated = authState._state.token !== null;
+
 	const customer = await getCustomer(event);
 
+	// Only fetch viewer if authenticated (optimization for anonymous traffic)
+	const client = await createConvexHttpClient(event);
+	const viewer = isAuthenticated ? await client.query(api.users.viewer, {}) : null;
+
 	return {
-		authState: await getAuthState(event),
+		authState,
 		autumnState: {
 			customer,
 			_timeFetched: Date.now()
-		}
+		},
+		viewer
 	};
 };
