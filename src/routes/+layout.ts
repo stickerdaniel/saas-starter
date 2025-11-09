@@ -27,7 +27,7 @@ async function initializePostHog(fetch: typeof window.fetch) {
 	// Try to reach PostHog directly (Twillot's approach with GET instead of HEAD)
 	// GET requests are blocked by ad blockers, HEAD requests are often allowed through
 	try {
-		await fetch(PUBLIC_POSTHOG_HOST, {
+		await fetch(`${PUBLIC_POSTHOG_HOST}/static/array.js`, {
 			method: 'GET',
 			mode: 'no-cors'
 		});
@@ -38,7 +38,7 @@ async function initializePostHog(fetch: typeof window.fetch) {
 		apiHost = proxyHost || PUBLIC_POSTHOG_HOST;
 	}
 
-	// Always initialize PostHog
+	// Initialize PostHog
 	posthog.init(PUBLIC_POSTHOG_API_KEY, {
 		api_host: apiHost,
 		ui_host: 'https://eu.posthog.com',
