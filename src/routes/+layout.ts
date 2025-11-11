@@ -1,7 +1,6 @@
 // src/routes/+layout.ts
 import posthog from 'posthog-js';
 import { browser } from '$app/environment';
-import { PUBLIC_POSTHOG_API_KEY, PUBLIC_POSTHOG_HOST } from '$env/static/public';
 import { env } from '$env/dynamic/public';
 import type { LayoutLoad } from './$types';
 
@@ -14,6 +13,10 @@ import type { LayoutLoad } from './$types';
  * This reduces Cloudflare Worker costs while maintaining full analytics coverage.
  */
 async function initializePostHog(fetch: typeof window.fetch) {
+	// Use dynamic env to make PostHog optional at build time (for CI/CD)
+	const PUBLIC_POSTHOG_API_KEY = env.PUBLIC_POSTHOG_API_KEY;
+	const PUBLIC_POSTHOG_HOST = env.PUBLIC_POSTHOG_HOST;
+
 	if (!PUBLIC_POSTHOG_API_KEY) {
 		console.warn('PostHog API key not configured');
 		return;
@@ -24,8 +27,7 @@ async function initializePostHog(fetch: typeof window.fetch) {
 	// Get optional proxy host from dynamic env (won't throw if undefined)
 	const proxyHost = env.PUBLIC_POSTHOG_PROXY_HOST;
 
-	// Try to reach PostHog directly (Twillot's approach with GET instead of HEAD)
-	// GET requests are blocked by ad blockers, HEAD requests are often allowed through
+	// Try to reach PostHog directly
 	try {
 		await fetch(`${PUBLIC_POSTHOG_HOST}/static/array.js`, {
 			method: 'GET',
@@ -33,7 +35,7 @@ async function initializePostHog(fetch: typeof window.fetch) {
 		});
 		// Direct access works
 		apiHost = PUBLIC_POSTHOG_HOST;
-	} catch (error) {
+	} catch {
 		// Direct access blocked, use proxy if available
 		apiHost = proxyHost || PUBLIC_POSTHOG_HOST;
 	}
