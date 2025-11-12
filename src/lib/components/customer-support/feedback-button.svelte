@@ -3,7 +3,7 @@
 	import { MessageSquare, ChevronDown } from '@lucide/svelte';
 	import FeedbackWidget from './feedback-widget.svelte';
 
-	let isOpen = $state(false);
+	export let isOpen: boolean = false;
 
 	function toggleOpen() {
 		isOpen = !isOpen;
