@@ -35,7 +35,7 @@
 		"motion-sv": "^0.1.2",
 		"posthog-js": "^1.290.0",
 		"resend": "^6.1.2",
-		"runed": "^0.35.1",
+		"runed": "^0.36.0",
 		"vercel": "^47.1.4"
 	},
 	"devDependencies": {
@@ -63,7 +63,7 @@
 		"@types/node": "^22.18.10",
 		"@typescript-eslint/eslint-plugin": "^8.46.0",
 		"@typescript-eslint/parser": "^8.46.0",
-		"bits-ui": "^2.11.0",
+		"bits-ui": "^2.14.1",
 		"clsx": "^2.1.1",
 		"convex": "^1.27.5",
 		"convex-svelte": "^0.0.11",
