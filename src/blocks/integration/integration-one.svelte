@@ -9,7 +9,7 @@
 </script>
 
 <section>
-	<div class="py-24">
+	<div class="py-30">
 		<div class="mx-auto flex max-w-6xl flex-col px-6 lg:block lg:px-12">
 			<div class="text-center lg:text-left">
 				<h2 class="text-3xl font-semibold text-balance md:text-4xl">
