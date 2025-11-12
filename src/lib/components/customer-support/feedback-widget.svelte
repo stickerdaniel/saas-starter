@@ -23,7 +23,7 @@
 </script>
 
 <div
-	class="right-0 bottom-0 flex h-full w-full origin-bottom-right animate-in flex-col items-center justify-end bg-input p-4 shadow-[0_5px_30px_rgba(0,0,0,0.16)] duration-200 ease-out fade-in-0 zoom-in-95 slide-in-from-bottom-4 sm:static sm:h-[700px] sm:w-[410px] sm:rounded-2xl"
+	class="right-0 bottom-0 flex h-full w-full origin-bottom-right animate-in flex-col items-center justify-end bg-secondary p-4 shadow-[0_0px_30px_rgba(0,0,0,0.19)] duration-200 ease-out fade-in-0 zoom-in-95 slide-in-from-bottom-4 sm:static sm:h-[700px] sm:w-[410px] sm:rounded-3xl"
 >
 	<div class="flex w-full flex-col space-y-4">
 		<div class="flex flex-wrap gap-2">
