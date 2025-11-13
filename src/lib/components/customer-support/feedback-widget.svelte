@@ -1,19 +1,25 @@
 <script lang="ts">
 	import {
 		PromptInput,
+		PromptInputAction,
 		PromptInputActions,
 		PromptInputTextarea
 	} from '$lib/components/prompt-kit/prompt-input';
 	import { PromptSuggestion } from '$lib/components/prompt-kit/prompt-suggestion';
 	import { Button } from '$lib/components/ui/button';
-	import { ArrowUp } from '@lucide/svelte';
+	import { ArrowUp, Camera, Video } from '@lucide/svelte';
 
 	let inputValue = $state('');
+	let isLoading = $state(false);
 
 	function handleSend() {
 		if (inputValue.trim()) {
+			isLoading = true;
 			console.log('Sending:', inputValue);
-			inputValue = '';
+			setTimeout(() => {
+				inputValue = '';
+				isLoading = false;
+			}, 1500);
 		}
 	}
 
@@ -43,23 +49,53 @@
 		</div>
 
 		<PromptInput
-			class="border border-input bg-background shadow-xs"
+			class="rounded-3xl border border-input bg-background p-0 pt-1 shadow-xs"
 			value={inputValue}
+			{isLoading}
 			onValueChange={handleValueChange}
 			onSubmit={handleSend}
 		>
-			<PromptInputTextarea placeholder="Type a message or click a suggestion..." />
-			<PromptInputActions class="justify-end">
-				<Button
-					size="sm"
-					class="size-9 cursor-pointer rounded-full"
-					onclick={handleSend}
-					disabled={!inputValue.trim()}
-					aria-label="Send"
-				>
-					<ArrowUp class="h-4 w-4" />
-				</Button>
-			</PromptInputActions>
+			<div class="flex flex-col">
+				<PromptInputTextarea
+					placeholder="Type a message or click a suggestion..."
+					class="min-h-[44px] pt-3 pl-4 text-base leading-[1.3]"
+				/>
+
+				<PromptInputActions class="mt-5 flex w-full items-center justify-between gap-2 px-3 pb-3">
+					<div class="flex items-center gap-2">
+						<PromptInputAction>
+							{#snippet tooltip()}
+								<p>Mark the bug</p>
+							{/snippet}
+							<Button variant="outline" size="icon" class="size-9 rounded-full">
+								<Camera class="h-[18px] w-[18px]" />
+							</Button>
+						</PromptInputAction>
+						<PromptInputAction>
+							{#snippet tooltip()}
+								<p>Record screen</p>
+							{/snippet}
+							<Button variant="outline" size="icon" class="size-9 rounded-full">
+								<Video class="h-[18px] w-[18px]" />
+							</Button>
+						</PromptInputAction>
+					</div>
+
+					<Button
+						size="icon"
+						disabled={!inputValue.trim() || isLoading}
+						onclick={handleSend}
+						class="size-9 rounded-full"
+						aria-label="Send"
+					>
+						{#if !isLoading}
+							<ArrowUp class="h-[18px] w-[18px]" />
+						{:else}
+							<span class="size-3 rounded-xs bg-white"></span>
+						{/if}
+					</Button>
+				</PromptInputActions>
+			</div>
 		</PromptInput>
 	</div>
 </div>
