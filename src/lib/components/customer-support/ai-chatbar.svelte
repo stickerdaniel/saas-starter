@@ -1,10 +1,5 @@
 <script lang="ts">
-	import {
-		PromptInput,
-		PromptInputAction,
-		PromptInputActions,
-		PromptInputTextarea
-	} from '$lib/components/prompt-kit/prompt-input';
+	import { PromptInput, PromptInputTextarea } from '$lib/components/prompt-kit/prompt-input';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { ArrowUp, Square } from '@lucide/svelte';
 
@@ -13,28 +8,26 @@
 	let isFocused = $state(false);
 	const { isFeedbackOpen = false } = $props<{ isFeedbackOpen?: boolean }>();
 
-	let animateIn = $state(false);
-	let prevFeedbackOpen: boolean | null = $state(null);
-
-	function triggerFadeIn() {
-		// restart animation by toggling the class
-		animateIn = false;
-		queueMicrotask(() => {
-			animateIn = true;
-			setTimeout(() => {
-				animateIn = false;
-			}, 500);
-		});
-	}
+	let mounted = $state(false);
+	let delayedFeedbackOpen = $state(false);
 
 	$effect(() => {
-		// on mount and when feedback closes
-		if (prevFeedbackOpen === null) {
-			triggerFadeIn();
-		} else if (prevFeedbackOpen === true && isFeedbackOpen === false) {
-			triggerFadeIn();
+		mounted = true;
+	});
+
+	$effect(() => {
+		if (isFeedbackOpen) {
+			delayedFeedbackOpen = true;
+			return;
 		}
-		prevFeedbackOpen = isFeedbackOpen;
+
+		const timer = setTimeout(() => {
+			delayedFeedbackOpen = false;
+		}, 300);
+
+		return () => {
+			clearTimeout(timer);
+		};
 	});
 
 	function handleSubmit() {
@@ -60,11 +53,10 @@
 
 <!-- Glow container with group hover/focus behavior -->
 <div
-	class="group ai-chatbar fixed bottom-5 left-1/2 z-[100] w-full -translate-x-1/2 md:mb-0 {isFeedbackOpen
+	class="group ai-chatbar fixed bottom-5 left-1/2 z-[100] w-full -translate-x-1/2 md:mb-0 {!mounted ||
+	delayedFeedbackOpen
 		? 'fade-out'
-		: animateIn
-			? 'fade-in'
-			: ''}"
+		: ''}"
 >
 	<div
 		class="relative mx-auto transition-all duration-300 ease-in-out {isFocused
@@ -166,13 +158,19 @@
 		background-color: rgba(80, 80, 80, 0.68);
 		backdrop-filter: blur(24px);
 	}
-	/* Fade-out animation, applied when feedback widget is open */
-	:global(.ai-chatbar.fade-out) {
-		animation: fadeOutDownContainer 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+	/* Base transition for smooth state changes */
+	:global(.ai-chatbar) {
+		transition:
+			opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+			transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 	}
-	/* Fade-in animation, applied on mount and when feedback closes */
-	:global(.ai-chatbar.fade-in) {
-		animation: fadeUpInContainer 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+	/* Hidden state, applied when feedback widget is open or before mount */
+	:global(.ai-chatbar.fade-out) {
+		opacity: 0;
+		transform: translateY(20px);
+		transition:
+			opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+			transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 	}
 	@keyframes border-spin {
 		0% {
@@ -180,26 +178,6 @@
 		}
 		100% {
 			transform: translate(-50%, -50%) rotate(-360deg);
-		}
-	}
-	@keyframes fadeUpInContainer {
-		0% {
-			opacity: 0;
-			transform: translateY(20px);
-		}
-		100% {
-			opacity: 1;
-			transform: translateY(0);
-		}
-	}
-	@keyframes fadeOutDownContainer {
-		0% {
-			opacity: 1;
-			transform: translateY(0);
-		}
-		100% {
-			opacity: 0;
-			transform: translateY(20px);
 		}
 	}
 </style>
