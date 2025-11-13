@@ -9,6 +9,12 @@
 	import { Button } from '$lib/components/ui/button';
 	import { ArrowUp, Camera, Video } from '@lucide/svelte';
 
+	let {
+		isScreenshotMode = $bindable(false)
+	}: {
+		isScreenshotMode?: boolean;
+	} = $props();
+
 	let inputValue = $state('');
 	let isLoading = $state(false);
 
@@ -16,6 +22,7 @@
 		if (inputValue.trim()) {
 			isLoading = true;
 			console.log('Sending:', inputValue);
+
 			setTimeout(() => {
 				inputValue = '';
 				isLoading = false;
@@ -25,6 +32,10 @@
 
 	function handleValueChange(value: string) {
 		inputValue = value;
+	}
+
+	function handleCameraClick() {
+		isScreenshotMode = true;
 	}
 </script>
 
@@ -67,7 +78,12 @@
 							{#snippet tooltip()}
 								<p>Mark the bug</p>
 							{/snippet}
-							<Button variant="outline" size="icon" class="size-9 rounded-full">
+							<Button
+								variant="outline"
+								size="icon"
+								class="size-9 rounded-full"
+								onclick={handleCameraClick}
+							>
 								<Camera class="h-[18px] w-[18px]" />
 							</Button>
 						</PromptInputAction>

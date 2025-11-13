@@ -11,6 +11,10 @@
 		"convex": {
 			"command": "bunx",
 			"args": ["-y", "convex@latest", "mcp", "start"]
+		},
+		"konva-documentation": {
+			"command": "bunx",
+			"args": ["crawl-chat-mcp", "--id=67d221efb4b9de65095a2579", "--name=konva_documentation"]
 		}
 	}
 }
