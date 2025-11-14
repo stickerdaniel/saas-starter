@@ -7,9 +7,11 @@
 	import ScreenshotCanvas from './ScreenshotCanvas.svelte';
 
 	let {
-		onCancel
+		onCancel,
+		onScreenshotSaved
 	}: {
 		onCancel?: () => void;
+		onScreenshotSaved?: (blob: Blob, filename: string) => void;
 	} = $props();
 
 	// Initialize editor context immediately (no screenshot capture needed)
@@ -93,15 +95,23 @@
 			// Export final composite canvas
 			const dataUrl = canvas.toDataURL('image/png', 1.0);
 
-			// Download the final composite screenshot
-			const downloadLink = document.createElement('a');
-			downloadLink.href = dataUrl;
-			downloadLink.download = `screenshot-${timestamp}.png`;
-			document.body.appendChild(downloadLink);
-			downloadLink.click();
-			document.body.removeChild(downloadLink);
+			// Convert dataURL to Blob
+			const response = await fetch(dataUrl);
+			const blob = await response.blob();
+			const filename = `screenshot-${timestamp}.png`;
 
-			// Close the editor after successful download
+			// Pass screenshot to parent via callback
+			onScreenshotSaved?.(blob, filename);
+
+			// Keep download code for debugging purposes (commented out)
+			// const downloadLink = document.createElement('a');
+			// downloadLink.href = dataUrl;
+			// downloadLink.download = filename;
+			// document.body.appendChild(downloadLink);
+			// downloadLink.click();
+			// document.body.removeChild(downloadLink);
+
+			// Close the editor after successful save
 			onCancel?.();
 		} catch (error) {
 			console.error('Failed to capture screenshot:', error);

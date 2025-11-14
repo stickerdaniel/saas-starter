@@ -7,12 +7,16 @@
 	} from '$lib/components/prompt-kit/prompt-input';
 	import { PromptSuggestion } from '$lib/components/prompt-kit/prompt-suggestion';
 	import { Button } from '$lib/components/ui/button';
-	import { ArrowUp, Camera, Video } from '@lucide/svelte';
+	import { ArrowUp, Camera, Video, Image as ImageIcon, X } from '@lucide/svelte';
 
 	let {
-		isScreenshotMode = $bindable(false)
+		isScreenshotMode = $bindable(false),
+		screenshots = [],
+		onClearScreenshot
 	}: {
 		isScreenshotMode?: boolean;
+		screenshots?: Array<{ blob: Blob; filename: string }>;
+		onClearScreenshot?: (index: number) => void;
 	} = $props();
 
 	let inputValue = $state('');
@@ -67,6 +71,29 @@
 			onSubmit={handleSend}
 		>
 			<div class="flex flex-col">
+				{#if screenshots && screenshots.length > 0}
+					<div class="grid grid-cols-2 gap-2 pb-2 px-3 pt-2">
+						{#each screenshots as screenshot, index}
+							<div
+								class="bg-secondary flex items-center justify-between gap-2 rounded-lg px-3 py-2"
+							>
+								<div class="flex items-center gap-2">
+									<ImageIcon class="size-4" />
+									<span class="max-w-[80px] truncate text-sm">{screenshot.filename}</span>
+								</div>
+								<button
+									onclick={() => onClearScreenshot?.(index)}
+									class="hover:bg-secondary/50 rounded-full p-1"
+									type="button"
+									aria-label="Remove screenshot"
+								>
+									<X class="size-4" />
+								</button>
+							</div>
+						{/each}
+					</div>
+				{/if}
+
 				<PromptInputTextarea
 					placeholder="Type a message or click a suggestion..."
 					class="min-h-[44px] pt-3 pl-4 text-base leading-[1.3]"
