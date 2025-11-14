@@ -1,41 +1,47 @@
 <script lang="ts">
 	import { T } from '@tolgee/svelte';
+	import memberOne from './avatars/member-one.webp';
+	import memberTwo from './avatars/member-two.webp';
+	import memberThree from './avatars/member-three.webp';
+	import memberFour from './avatars/member-four.webp';
+	import memberFive from './avatars/member-five.webp';
+	import memberSix from './avatars/member-six.webp';
 
 	const members = [
 		{
 			name: 'Liam Brown',
 			roleKey: 'team.roles.founder_ceo',
-			avatar: 'https://alt.tailus.io/images/team/member-one.webp',
+			avatar: memberOne,
 			link: '#'
 		},
 		{
 			name: 'Elijah Jones',
 			roleKey: 'team.roles.cofounder_cto',
-			avatar: 'https://alt.tailus.io/images/team/member-two.webp',
+			avatar: memberTwo,
 			link: '#'
 		},
 		{
 			name: 'Isabella Garcia',
 			roleKey: 'team.roles.sales_manager',
-			avatar: 'https://alt.tailus.io/images/team/member-three.webp',
+			avatar: memberThree,
 			link: '#'
 		},
 		{
 			name: 'Henry Lee',
 			roleKey: 'team.roles.ux_engineer',
-			avatar: 'https://alt.tailus.io/images/team/member-four.webp',
+			avatar: memberFour,
 			link: '#'
 		},
 		{
 			name: 'Ava Williams',
 			roleKey: 'team.roles.interaction_designer',
-			avatar: 'https://alt.tailus.io/images/team/member-five.webp',
+			avatar: memberFive,
 			link: '#'
 		},
 		{
 			name: 'Olivia Miller',
 			roleKey: 'team.roles.visual_designer',
-			avatar: 'https://alt.tailus.io/images/team/member-six.webp',
+			avatar: memberSix,
 			link: '#'
 		}
 	];
