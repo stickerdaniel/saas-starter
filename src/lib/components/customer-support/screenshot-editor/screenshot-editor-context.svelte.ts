@@ -5,6 +5,8 @@
 
 import { getContext, setContext } from 'svelte';
 import { StateHistory } from 'runed';
+import { preCache } from '@zumer/snapdom';
+import { getPreCacheConfig } from '$lib/utils/snapdom-config';
 import type { Shape, DrawingTool, LineShape, RectShape, CircleShape, ArrowShape } from './types';
 import {
 	DEFAULT_STROKE_COLOR,
@@ -59,6 +61,7 @@ export class ScreenshotEditorState {
 
 	// ===== Loading State =====
 	isSaving = $state(false);
+	hasPreCached = $state(false);
 
 	// ===== Undo/Redo using Runed StateHistory =====
 	history: StateHistory<Shape[]>;
@@ -133,6 +136,14 @@ export class ScreenshotEditorState {
 	startDrawing(x: number, y: number) {
 		this.isDrawing = true;
 		this.drawStartPos = { x, y };
+
+		// Preload resources on first drawing action (fire-and-forget, runs in background)
+		if (!this.hasPreCached) {
+			this.hasPreCached = true;
+			void preCache(document.body, getPreCacheConfig()).catch((error) => {
+				console.warn('Failed to preload screenshot resources:', error);
+			});
+		}
 	}
 
 	stopDrawing() {

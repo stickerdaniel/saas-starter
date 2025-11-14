@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { lockscroll } from '@svelte-put/lockscroll';
 	import { snapdom } from '@zumer/snapdom';
+	import { getSnapDOMConfig } from '$lib/utils/snapdom-config';
 	import { setScreenshotEditor } from './screenshot-editor-context.svelte';
 	import ScreenshotToolbar from './ScreenshotToolbar.svelte';
 	import ScreenshotCanvas from './ScreenshotCanvas.svelte';
@@ -24,37 +25,27 @@
 		try {
 			editorContext.isSaving = true;
 
-			console.log('Starting screenshot capture...');
-			console.log('Scroll position:', { x: window.scrollX, y: window.scrollY });
-			console.log('Viewport size:', { width: window.innerWidth, height: window.innerHeight });
-
-			// Get device pixel ratio (accounts for Retina/HiDPI displays)
 			const dpr = window.devicePixelRatio || 1;
-			console.log('Device pixel ratio:', dpr);
+			const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
 
-			// Step 1: Hide editor overlay so it's not captured by SnapDOM
-			const editorOverlay = document.querySelector('[data-screenshot-editor]');
-			if (editorOverlay instanceof HTMLElement) {
-				editorOverlay.style.display = 'none';
-			}
+			// Capture full page without editor overlay
+			const result = await snapdom(document.body, {
+				...getSnapDOMConfig(),
+				exclude: ['[data-screenshot-editor]'],
+				excludeMode: 'remove'
+			});
 
-			// Step 2: Capture page without Konva overlay
-			const result = await snapdom(document.body);
-			console.log('SnapDOM capture complete (page only)');
-
-			// Step 3: Convert to PNG image
+			// Convert to PNG image
 			const fullPageImage = await result.toPng();
-			console.log('Full page image created');
 
-			// Step 4: Load the full page image
+			// Load the full page image
 			const img = new Image();
 			img.src = fullPageImage.src;
 			await new Promise((resolve) => {
 				img.onload = resolve;
 			});
-			console.log('Image loaded:', img.width, 'x', img.height);
 
-			// Step 5: Create viewport-sized canvas (scaled for DPR)
+			// Create viewport-sized canvas (scaled for DPR)
 			const canvas = document.createElement('canvas');
 			canvas.width = window.innerWidth * dpr;
 			canvas.height = window.innerHeight * dpr;
@@ -64,7 +55,7 @@
 				throw new Error('Failed to get canvas context');
 			}
 
-			// Step 6: Crop page to viewport at current scroll position (scale all coordinates by DPR)
+			// Crop page to viewport at current scroll position (scale all coordinates by DPR)
 			ctx.drawImage(
 				img,
 				window.scrollX * dpr, // Source x (scroll position scaled)
@@ -76,9 +67,8 @@
 				window.innerWidth * dpr, // Destination width (maintain high-res)
 				window.innerHeight * dpr // Destination height (maintain high-res)
 			);
-			console.log('Page viewport cropped to:', canvas.width, 'x', canvas.height, `(DPR: ${dpr})`);
 
-			// Step 7: Export Konva annotations separately
+			// Export Konva annotations
 			if (!editorContext.stageRef) {
 				throw new Error('Konva stage reference not found');
 			}
@@ -86,9 +76,8 @@
 			const konvaCanvas = editorContext.stageRef.toCanvas({
 				pixelRatio: dpr // Match page DPR for consistent quality
 			});
-			console.log('Konva canvas exported:', konvaCanvas.width, 'x', konvaCanvas.height);
 
-			// Step 8: Composite Konva on top of page canvas
+			// Composite Konva on top of page canvas
 			ctx.drawImage(
 				konvaCanvas,
 				0, // Source x (Konva is viewport-sized)
@@ -100,24 +89,17 @@
 				canvas.width, // Destination width (stretch to match page canvas)
 				canvas.height // Destination height
 			);
-			console.log('Konva annotations composited on top');
 
-			// Step 9: Export final composite canvas
+			// Export final composite canvas
 			const dataUrl = canvas.toDataURL('image/png', 1.0);
-			console.log('Final composite data URL length:', dataUrl.length);
 
-			// Step 10: Download the final composite screenshot
-			const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-			const filename = `screenshot-${timestamp}.png`;
-
+			// Download the final composite screenshot
 			const downloadLink = document.createElement('a');
 			downloadLink.href = dataUrl;
-			downloadLink.download = filename;
+			downloadLink.download = `screenshot-${timestamp}.png`;
 			document.body.appendChild(downloadLink);
 			downloadLink.click();
 			document.body.removeChild(downloadLink);
-
-			console.log('Download triggered:', filename);
 
 			// Close the editor after successful download
 			onCancel?.();
