@@ -4,6 +4,8 @@ import { authTables } from '@convex-dev/auth/server';
 
 export default defineSchema({
 	...authTables,
+
+	// Demo messages table (used in dashboard for billing demo)
 	messages: defineTable({
 		userId: v.id('users'),
 		body: v.string()
@@ -19,4 +21,10 @@ export default defineSchema({
 		.index('by_email_id', ['emailId'])
 		.index('by_event_type', ['eventType'])
 		.index('by_timestamp', ['timestamp'])
+
+	// Note: The agent component automatically creates the following tables:
+	// - agent:threads - Conversation threads for customer support
+	// - agent:messages - Messages within threads (separate from demo messages table)
+	// - agent:streamingDeltas - Real-time streaming chunks
+	// - agent:embeddings - Vector embeddings for semantic search
 });

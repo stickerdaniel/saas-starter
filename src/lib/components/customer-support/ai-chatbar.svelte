@@ -1,12 +1,20 @@
 <script lang="ts">
+	import { useConvexClient } from 'convex-svelte';
+	import { api } from '$lib/convex/_generated/api';
 	import { PromptInput, PromptInputTextarea } from '$lib/components/prompt-kit/prompt-input';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { ArrowUp, Square } from '@lucide/svelte';
+	import { supportThreadContext } from './support-thread-context.svelte';
 
 	let input = $state('');
-	let isLoading = $state(false);
 	let isFocused = $state(false);
 	const { isFeedbackOpen = false } = $props<{ isFeedbackOpen?: boolean }>();
+
+	// Get thread context
+	const threadContext = supportThreadContext.get();
+
+	// Get Convex client for mutations
+	const client = useConvexClient();
 
 	let mounted = $state(false);
 	let delayedFeedbackOpen = $state(false);
@@ -30,12 +38,38 @@
 		};
 	});
 
-	function handleSubmit() {
-		isLoading = true;
-		// simulate request
-		setTimeout(() => {
-			isLoading = false;
-		}, 2000);
+	async function handleSubmit() {
+		if (!input.trim() || !threadContext.threadId) return;
+
+		const prompt = input.trim();
+		threadContext.setSending(true);
+
+		// Add optimistic message
+		const optimisticMessage = threadContext.addOptimisticMessage(prompt);
+
+		// Clear input immediately
+		input = '';
+
+		try {
+			await client.mutation(api.support.messages.sendMessage, {
+				threadId: threadContext.threadId,
+				prompt
+			});
+
+			// Request widget to open after successful send
+			threadContext.requestWidgetOpen();
+
+			// Remove optimistic message once real message arrives
+			setTimeout(() => {
+				threadContext.removeOptimisticMessage(optimisticMessage._id);
+			}, 100);
+		} catch (error) {
+			console.error('Failed to send message:', error);
+			threadContext.setError('Failed to send message. Please try again.');
+			threadContext.removeOptimisticMessage(optimisticMessage._id);
+		} finally {
+			threadContext.setSending(false);
+		}
 	}
 
 	function handleValueChange(value: string) {
@@ -72,7 +106,7 @@
 		<PromptInput
 			value={input}
 			onValueChange={handleValueChange}
-			{isLoading}
+			isLoading={threadContext.isSending}
 			onSubmit={handleSubmit}
 			class="relative z-[1] mb-1 flex w-full flex-row items-center border-0 bg-transparent !p-1 shadow-none"
 		>
@@ -88,8 +122,9 @@
 				size="icon"
 				class="h-8 w-8 rounded-full text-muted-foreground"
 				onclick={handleSubmit}
+				disabled={!input.trim() || threadContext.isSending}
 			>
-				{#if isLoading}
+				{#if threadContext.isSending}
 					<Square class="size-5 fill-current" />
 				{:else}
 					<ArrowUp class="size-5" />
