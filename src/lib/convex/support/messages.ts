@@ -59,8 +59,8 @@ export const generateResponse = internalAction({
 			{
 				// Save streaming deltas to database for real-time updates
 				saveStreamDeltas: {
-					chunking: 'word', // Stream word by word for smooth UX
-					throttleMs: 50 // Throttle updates to avoid overwhelming the database
+					chunking: 'word', // Word-level chunking for smooth reveal effect
+					throttleMs: 30 // ~33fps update rate for smooth animation
 				}
 			}
 		);
