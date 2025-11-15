@@ -5,7 +5,7 @@
 <svg
 	height="1em"
 	style="flex: none; line-height: 1;"
-	viewBox="0 0 0 0 50 30"
+	viewBox="0 0 50 30"
 	xmlns="http://www.w3.org/2000/svg"
 	width="1em"
 	{...rest}

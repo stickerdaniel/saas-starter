@@ -5,6 +5,14 @@
 	import Button from '$lib/components/ui/button/button.svelte';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import RiveBackground from '$lib/components/RiveBackground.svelte';
+	import nvidiaLogo from './logos/nvidia.svg';
+	import columnLogo from './logos/column.svg';
+	import githubLogo from './logos/github.svg';
+	import nikeLogo from './logos/nike.svg';
+	import lemonsqueezyLogo from './logos/lemonsqueezy.svg';
+	import laravelLogo from './logos/laravel.svg';
+	import lillyLogo from './logos/lilly.svg';
+	import openaiLogo from './logos/openai.svg';
 </script>
 
 <main class="overflow-hidden">
@@ -72,7 +80,7 @@
 						<div class="flex">
 							<img
 								class="mx-auto h-5 w-fit dark:invert"
-								src="https://html.tailus.io/blocks/customers/nvidia.svg"
+								src={nvidiaLogo}
 								alt="Nvidia Logo"
 								height="20"
 								width="auto"
@@ -81,7 +89,7 @@
 						<div class="flex">
 							<img
 								class="mx-auto h-4 w-fit dark:invert"
-								src="https://html.tailus.io/blocks/customers/column.svg"
+								src={columnLogo}
 								alt="Column Logo"
 								height="16"
 								width="auto"
@@ -90,7 +98,7 @@
 						<div class="flex">
 							<img
 								class="mx-auto h-4 w-fit dark:invert"
-								src="https://html.tailus.io/blocks/customers/github.svg"
+								src={githubLogo}
 								alt="GitHub Logo"
 								height="16"
 								width="auto"
@@ -99,7 +107,7 @@
 						<div class="flex">
 							<img
 								class="mx-auto h-5 w-fit dark:invert"
-								src="https://html.tailus.io/blocks/customers/nike.svg"
+								src={nikeLogo}
 								alt="Nike Logo"
 								height="20"
 								width="auto"
@@ -108,7 +116,7 @@
 						<div class="flex">
 							<img
 								class="mx-auto h-5 w-fit dark:invert"
-								src="https://html.tailus.io/blocks/customers/lemonsqueezy.svg"
+								src={lemonsqueezyLogo}
 								alt="Lemon Squeezy Logo"
 								height="20"
 								width="auto"
@@ -117,7 +125,7 @@
 						<div class="flex">
 							<img
 								class="mx-auto h-4 w-fit dark:invert"
-								src="https://html.tailus.io/blocks/customers/laravel.svg"
+								src={laravelLogo}
 								alt="Laravel Logo"
 								height="16"
 								width="auto"
@@ -126,7 +134,7 @@
 						<div class="flex">
 							<img
 								class="mx-auto h-7 w-fit dark:invert"
-								src="https://html.tailus.io/blocks/customers/lilly.svg"
+								src={lillyLogo}
 								alt="Lilly Logo"
 								height="28"
 								width="auto"
@@ -135,7 +143,7 @@
 						<div class="flex">
 							<img
 								class="mx-auto h-6 w-fit dark:invert"
-								src="https://html.tailus.io/blocks/customers/openai.svg"
+								src={openaiLogo}
 								alt="OpenAI Logo"
 								height="24"
 								width="auto"
