@@ -9,6 +9,7 @@
 	let isFeedbackOpen = $state(false);
 	let isScreenshotMode = $state(false);
 	let screenshots = $state<Array<{ blob: Blob; filename: string }>>([]);
+	let attachedFiles = $state<Array<{ file: File; preview?: string }>>([]);
 
 	// Hide AI chatbar when screenshot mode is active or feedback is open
 	let shouldShowAIChatbar = $derived(!isScreenshotMode && !isFeedbackOpen);
@@ -63,6 +64,37 @@
 	function handleClearScreenshot(index: number) {
 		screenshots = screenshots.filter((_, i) => i !== index);
 	}
+
+	function handleFilesAdded(files: File[]) {
+		const newFiles = files.map((file) => {
+			// Generate preview for images
+			let preview: string | undefined;
+			if (file.type.startsWith('image/')) {
+				preview = URL.createObjectURL(file);
+			}
+			return { file, preview };
+		});
+		attachedFiles = [...attachedFiles, ...newFiles];
+	}
+
+	function handleRemoveFile(index: number) {
+		// Revoke preview URL if it exists
+		if (attachedFiles[index]?.preview) {
+			URL.revokeObjectURL(attachedFiles[index].preview!);
+		}
+		attachedFiles = attachedFiles.filter((_, i) => i !== index);
+	}
+
+	// Cleanup preview URLs on unmount
+	$effect(() => {
+		return () => {
+			attachedFiles.forEach((item) => {
+				if (item.preview) {
+					URL.revokeObjectURL(item.preview);
+				}
+			});
+		};
+	});
 </script>
 
 <AIChatbar isFeedbackOpen={!shouldShowAIChatbar} />
@@ -71,6 +103,9 @@
 	bind:isScreenshotMode
 	{screenshots}
 	onClearScreenshot={handleClearScreenshot}
+	{attachedFiles}
+	onFilesAdded={handleFilesAdded}
+	onRemoveFile={handleRemoveFile}
 />
 
 {#if isScreenshotMode}

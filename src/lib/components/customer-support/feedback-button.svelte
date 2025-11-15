@@ -8,12 +8,18 @@
 		isOpen = $bindable(false),
 		isScreenshotMode = $bindable(false),
 		screenshots = [],
-		onClearScreenshot
+		onClearScreenshot,
+		attachedFiles = [],
+		onFilesAdded,
+		onRemoveFile
 	}: {
 		isOpen?: boolean;
 		isScreenshotMode?: boolean;
 		screenshots?: Array<{ blob: Blob; filename: string }>;
 		onClearScreenshot?: (index: number) => void;
+		attachedFiles?: Array<{ file: File; preview?: string }>;
+		onFilesAdded?: (files: File[]) => void;
+		onRemoveFile?: (index: number) => void;
 	} = $props();
 
 	function toggleOpen() {
@@ -34,7 +40,14 @@
 {#if !isScreenshotMode}
 	<div class="fixed right-5 bottom-5 z-200 flex flex-col items-end justify-end gap-3">
 		{#if isOpen}
-			<FeedbackWidget bind:isScreenshotMode {screenshots} {onClearScreenshot} />
+			<FeedbackWidget
+				bind:isScreenshotMode
+				{screenshots}
+				{onClearScreenshot}
+				{attachedFiles}
+				{onFilesAdded}
+				{onRemoveFile}
+			/>
 		{/if}
 		<Button
 			variant="default"

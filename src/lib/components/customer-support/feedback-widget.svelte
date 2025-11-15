@@ -18,8 +18,9 @@
 	import { Loader } from '$lib/components/prompt-kit/loader';
 	import { Button } from '$lib/components/ui/button';
 	import { Avatar, AvatarImage } from '$lib/components/ui/avatar';
-	import { ArrowUp, Camera, Video, Image as ImageIcon, X } from '@lucide/svelte';
+	import { ArrowUp, Camera, Video, Image as ImageIcon, X, Paperclip } from '@lucide/svelte';
 	import { supportThreadContext } from './support-thread-context.svelte';
+	import { FileUpload, FileUploadTrigger } from '$lib/components/prompt-kit/file-upload';
 	import ProgressiveBlur from '$blocks/magic/ProgressiveBlur.svelte';
 	import memberFour from '$blocks/team/avatars/member-four.webp';
 	import memberTwo from '$blocks/team/avatars/member-two.webp';
@@ -27,11 +28,17 @@
 	let {
 		isScreenshotMode = $bindable(false),
 		screenshots = [],
-		onClearScreenshot
+		onClearScreenshot,
+		attachedFiles = [],
+		onFilesAdded,
+		onRemoveFile
 	}: {
 		isScreenshotMode?: boolean;
 		screenshots?: Array<{ blob: Blob; filename: string }>;
 		onClearScreenshot?: (index: number) => void;
+		attachedFiles?: Array<{ file: File; preview?: string }>;
+		onFilesAdded?: (files: File[]) => void;
+		onRemoveFile?: (index: number) => void;
 	} = $props();
 
 	// Get thread context
@@ -225,26 +232,50 @@
 			</div>
 		{/if}
 		<div class="flex flex-col p-2">
-			{#if screenshots && screenshots.length > 0}
+			{#if attachedFiles.length > 0 || (screenshots && screenshots.length > 0)}
 				<div class="grid grid-cols-2 gap-2 px-1 pt-1 pb-1">
-					{#each screenshots as screenshot, index}
+					{#each attachedFiles as { file, preview }, index}
 						<div
 							class="flex items-center justify-between gap-2 rounded-lg bg-secondary/50 px-3 py-2"
 						>
-							<div class="flex items-center gap-2">
-								<ImageIcon class="size-4" />
-								<span class="max-w-[80px] truncate text-sm">{screenshot.filename}</span>
+							<div class="flex items-center gap-2 overflow-hidden">
+								{#if preview}
+									<img src={preview} alt={file.name} class="size-8 rounded object-cover" />
+								{:else}
+									<Paperclip class="size-4 shrink-0" />
+								{/if}
+								<span class="max-w-[80px] truncate text-sm">{file.name}</span>
 							</div>
 							<button
-								onclick={() => onClearScreenshot?.(index)}
-								class="rounded-full p-1 hover:bg-secondary/50"
+								onclick={() => onRemoveFile?.(index)}
+								class="shrink-0 rounded-full p-1 hover:bg-secondary/50"
 								type="button"
-								aria-label="Remove screenshot"
+								aria-label="Remove file"
 							>
 								<X class="size-4" />
 							</button>
 						</div>
 					{/each}
+					{#if screenshots}
+						{#each screenshots as screenshot, index}
+							<div
+								class="flex items-center justify-between gap-2 rounded-lg bg-secondary/50 px-3 py-2"
+							>
+								<div class="flex items-center gap-2">
+									<ImageIcon class="size-4" />
+									<span class="max-w-[80px] truncate text-sm">{screenshot.filename}</span>
+								</div>
+								<button
+									onclick={() => onClearScreenshot?.(index)}
+									class="rounded-full p-1 hover:bg-secondary/50"
+									type="button"
+									aria-label="Remove screenshot"
+								>
+									<X class="size-4" />
+								</button>
+							</div>
+						{/each}
+					{/if}
 				</div>
 			{/if}
 
@@ -268,14 +299,26 @@
 							<Camera class="h-[18px] w-[18px]" />
 						</Button>
 					</PromptInputAction>
-					<PromptInputAction>
+					<FileUpload onFilesAdded={(files) => onFilesAdded?.(files)} multiple={true}>
+						<PromptInputAction>
+							{#snippet tooltip()}
+								<p>Attach files</p>
+							{/snippet}
+							<FileUploadTrigger asChild={true}>
+								<Button variant="outline" size="icon" class="size-9 rounded-full">
+									<Paperclip class="h-[18px] w-[18px]" />
+								</Button>
+							</FileUploadTrigger>
+						</PromptInputAction>
+					</FileUpload>
+					<!-- <PromptInputAction>
 						{#snippet tooltip()}
 							<p>Record screen</p>
 						{/snippet}
 						<Button variant="outline" size="icon" class="size-9 rounded-full">
 							<Video class="h-[18px] w-[18px]" />
 						</Button>
-					</PromptInputAction>
+					</PromptInputAction> -->
 				</div>
 
 				<Button
