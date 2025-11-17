@@ -5,23 +5,29 @@ import type { PaginationResult } from 'convex/server';
  * Message interface matching Convex Agent message structure
  */
 export interface SupportMessage {
-	_id: string;
+	id: string; // Changed from _id to match UIMessage from listUIMessages
 	_creationTime: number;
-	threadId: string;
+	threadId?: string;
 	message?: {
 		role: 'user' | 'assistant' | 'system' | 'tool';
 		content: any; // Can be string or complex array structure
 		providerOptions?: Record<string, any>;
 	};
 	text?: string; // Convenience field with full text content
-	status: 'pending' | 'success' | 'failed';
+	reasoning?: string; // Reasoning content (for models like DeepSeek R1)
+	status: 'pending' | 'success' | 'failed' | 'streaming';
 	order: number;
-	tool: boolean;
+	tool?: boolean;
 	agentName?: string;
 	embeddingId?: string;
 	model?: string;
 	usage?: Record<string, any>;
 	metadata?: Record<string, any>;
+	// Additional UIMessage fields
+	key?: string;
+	role: 'user' | 'assistant' | 'system' | 'tool'; // Required (normalized)
+	parts?: any[];
+	stepOrder?: number;
 }
 
 /**
@@ -64,9 +70,38 @@ export class SupportThreadContext {
 
 	/**
 	 * Update messages from query result
+	 * Merges with existing messages, deduplicating by ID
+	 * Prefers real messages over optimistic ones
 	 */
 	updateMessages(result: PaginationResult<SupportMessage>) {
-		this.messages = result.page;
+		const newMessages = result.page;
+
+		// Create a map of existing messages by ID
+		const existingMap = new Map(this.messages.map((m) => [m.id, m]));
+
+		// Create a map of new messages by ID (these override existing)
+		const newMap = new Map(newMessages.map((m) => [m.id, m]));
+
+		// Merge: new messages override existing, keep existing if not in new
+		// Remove optimistic messages if real version exists
+		const merged = new Map<string, SupportMessage>();
+
+		// Add all new messages first (they're authoritative)
+		for (const [id, msg] of newMap) {
+			merged.set(id, msg);
+		}
+
+		// Add existing messages that aren't in new results
+		for (const [id, msg] of existingMap) {
+			if (!merged.has(id)) {
+				// Keep existing message if not optimistic or if no real version exists
+				if (!msg.metadata?.optimistic) {
+					merged.set(id, msg);
+				}
+			}
+		}
+
+		this.messages = Array.from(merged.values());
 		this.hasMore = result.isDone === false;
 		this.continueCursor = result.continueCursor;
 	}
@@ -76,9 +111,10 @@ export class SupportThreadContext {
 	 */
 	addOptimisticMessage(content: string): SupportMessage {
 		const optimisticMessage: SupportMessage = {
-			_id: `temp_${Date.now()}`,
+			id: `temp_${Date.now()}`,
 			_creationTime: Date.now(),
 			threadId: this.threadId!,
+			role: 'user', // Top-level role (normalized)
 			message: {
 				role: 'user',
 				content
@@ -98,7 +134,7 @@ export class SupportThreadContext {
 	 * Remove optimistic message
 	 */
 	removeOptimisticMessage(messageId: string) {
-		this.messages = this.messages.filter((m) => m._id !== messageId);
+		this.messages = this.messages.filter((m) => m.id !== messageId);
 	}
 
 	/**

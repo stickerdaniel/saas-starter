@@ -1,10 +1,6 @@
-<!--
-	Installed from @ieedan/shadcn-svelte-extras
--->
-
 <script lang="ts">
 	import { Avatar as AvatarPrimitive } from 'bits-ui';
-	import { cn } from '$lib/utils/utils.js';
+	import { cn } from '$lib/utils.js';
 
 	let {
 		ref = $bindable(null),
@@ -16,6 +12,6 @@
 <AvatarPrimitive.Image
 	bind:ref
 	data-slot="avatar-image"
-	class={cn('aspect-square size-full', className)}
+	class={cn('aspect-square size-full object-cover', className)}
 	{...restProps}
 />
