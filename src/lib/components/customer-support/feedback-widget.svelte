@@ -13,18 +13,34 @@
 		ChatContainerContent,
 		ChatContainerScrollAnchor
 	} from '$lib/components/prompt-kit/chat-container';
-	import { Message, MessageContent } from '$lib/components/prompt-kit/message';
 	import { ScrollButton } from '$lib/components/prompt-kit/scroll-button';
-	import { Loader } from '$lib/components/prompt-kit/loader';
+	import { Message, MessageContent } from '$lib/components/prompt-kit/message';
 	import { Button } from '$lib/components/ui/button';
 	import { Avatar, AvatarImage } from '$lib/components/ui/avatar';
-	import { ArrowUp, Camera, Video, Image as ImageIcon, X, Paperclip } from '@lucide/svelte';
+	import { ArrowUp, Camera, Image as ImageIcon, X, Paperclip, Bot } from '@lucide/svelte';
 	import { supportThreadContext } from './support-thread-context.svelte';
 	import { FileUpload, FileUploadTrigger } from '$lib/components/prompt-kit/file-upload';
 	import ProgressiveBlur from '$blocks/magic/ProgressiveBlur.svelte';
+	import { Response } from '$lib/components/ai-elements/response';
 	import memberFour from '$blocks/team/avatars/member-four.webp';
 	import memberTwo from '$blocks/team/avatars/member-two.webp';
 	import memberFive from '$blocks/team/avatars/member-five.webp';
+	// Import framework-agnostic delta processing utilities
+	import { deriveUIMessagesFromTextStreamParts, extractReasoning } from './delta-utils.js';
+	import type { StreamDelta } from '@convex-dev/agent/validators';
+	import type { UIMessage } from '@convex-dev/agent';
+	import {
+		Reasoning,
+		ReasoningTrigger,
+		ReasoningContent
+	} from '$lib/components/ai-elements/reasoning';
+	import type { PaginationResult } from 'convex/server';
+	import type { SupportMessage } from './support-thread-context.svelte';
+
+	// Type for the query response with streams
+	type MessagesQueryResponse = PaginationResult<SupportMessage> & {
+		streams: any; // StreamResult from @convex-dev/agent
+	};
 	let {
 		isScreenshotMode = $bindable(false),
 		screenshots = [],
@@ -49,30 +65,267 @@
 
 	let inputValue = $state('');
 
-	// Query messages
+	/**
+	 * Extract text from user message content (handles string, array, object, undefined)
+	 */
+	function extractUserMessageText(msg: any): string {
+		// First try msg.text (UIMessage field)
+		if (msg.text && typeof msg.text === 'string') {
+			return msg.text;
+		}
+
+		// Then try msg.message.content
+		if (msg.message?.content !== undefined && msg.message?.content !== null) {
+			const content = msg.message.content;
+
+			// String content (most common)
+			if (typeof content === 'string') {
+				return content;
+			}
+
+			// Array content (multimodal messages)
+			if (Array.isArray(content)) {
+				return content
+					.map((part) => {
+						if (typeof part === 'string') return part;
+						if (part && typeof part === 'object' && 'text' in part) return part.text;
+						return '';
+					})
+					.filter(Boolean)
+					.join(' ');
+			}
+
+			// Object content with text field
+			if (typeof content === 'object' && 'text' in content) {
+				return content.text;
+			}
+		}
+
+		// Debug: Could not extract text - check message structure if needed
+
+		return '';
+	}
+
+	// Query messages with streamArgs for streaming support
 	const messagesQuery = $derived(
 		threadContext.threadId
 			? useQuery(api.support.messages.listMessages, {
 					threadId: threadContext.threadId,
-					paginationOpts: { numItems: 50, cursor: null }
+					paginationOpts: { numItems: 50, cursor: null },
+					streamArgs: { kind: 'list' as const, startOrder: 0 }
 				})
 			: undefined
 	);
 
-	// Update context when messages change
-	$effect(() => {
-		if (messagesQuery?.data) {
-			threadContext.updateMessages(messagesQuery.data);
-		}
+	// Note: Debug logging removed from $effect to prevent infinite reactive loops
+
+	// Extract active stream IDs for delta query
+	const activeStreamIds = $derived.by(() => {
+		const messagesData = messagesQuery?.data as MessagesQueryResponse | undefined;
+		return messagesData?.streams?.kind === 'list'
+			? messagesData.streams.messages
+					.filter(
+						(m: any) =>
+							m.status === 'streaming' || m.status === 'finished' || m.status === 'aborted'
+					)
+					.map((m: any) => m.streamId)
+			: [];
 	});
 
-	// Get sorted messages (oldest to newest)
-	const sortedMessages = $derived(
-		[...threadContext.messages].sort((a, b) => a._creationTime - b._creationTime)
+	// Note: Active stream IDs logging removed to prevent infinite reactive loops
+
+	// Second query: Get text deltas for active streams
+	const deltasQuery = $derived(
+		threadContext.threadId && activeStreamIds.length > 0
+			? useQuery(api.support.messages.listMessages, {
+					threadId: threadContext.threadId,
+					paginationOpts: { numItems: 0, cursor: null },
+					streamArgs: {
+						kind: 'deltas' as const,
+						cursors: activeStreamIds.map((streamId: string) => ({
+							streamId,
+							cursor: 0
+						}))
+					}
+				})
+			: undefined
 	);
 
+	// Merge query messages with optimistic messages from context
+	// This avoids the reactive loop that would occur if we used $effect to update context
+	const allMessages = $derived.by(() => {
+		const messagesData = messagesQuery?.data as MessagesQueryResponse | undefined;
+		const queryMessages = messagesData?.page || [];
+		const optimisticMessages = threadContext.messages.filter((m) => m.metadata?.optimistic);
+
+		// Normalize message to ensure top-level role exists
+		const normalizeMessage = (msg: any) => ({
+			...msg,
+			role: msg.role || msg.message?.role || 'assistant'
+		});
+
+		// Merge: query messages are authoritative, optimistic messages fill gaps
+		const messageMap = new Map<string, any>();
+
+		// Add query messages first (normalized)
+		for (const msg of queryMessages) {
+			messageMap.set(msg.id, normalizeMessage(msg));
+		}
+
+		// Add optimistic messages that don't have real versions yet (normalized)
+		for (const msg of optimisticMessages) {
+			if (!messageMap.has(msg.id)) {
+				messageMap.set(msg.id, normalizeMessage(msg));
+			}
+		}
+
+		return Array.from(messageMap.values()).sort((a, b) => a._creationTime - b._creationTime);
+	});
+
+	// Process streaming deltas using framework-agnostic utilities
+	const messagesWithStreaming = $derived.by(() => {
+		// Get stream metadata and deltas
+		// Type assertion: Convex returns { ...paginated, streams } from listMessages
+		const messagesData = messagesQuery?.data as MessagesQueryResponse | undefined;
+		const deltasData = deltasQuery?.data as MessagesQueryResponse | undefined;
+
+		const streamMessages =
+			messagesData?.streams?.kind === 'list' ? messagesData.streams.messages || [] : [];
+
+		const allDeltas =
+			deltasData?.streams?.kind === 'deltas'
+				? ((deltasData.streams.deltas || []) as StreamDelta[])
+				: [];
+
+		if (streamMessages.length === 0 || allDeltas.length === 0) {
+			// No streaming, just return regular messages with proper text extraction
+			return allMessages.map((msg) => {
+				const isUser = msg.role === 'user';
+				let displayText = '';
+				if (isUser) {
+					// For user messages, use robust extraction
+					displayText = extractUserMessageText(msg);
+				} else {
+					// For assistant messages, use msg.text
+					displayText = msg.text || '';
+				}
+
+				// Extract reasoning from parts array if available
+				const reasoning = msg.parts ? extractReasoning(msg.parts) : msg.reasoning || '';
+
+				return {
+					...msg,
+					displayText,
+					displayReasoning: reasoning,
+					isStreaming: false
+				};
+			});
+		}
+
+		// Note: Delta logging removed to prevent infinite reactive loops
+
+		// Use framework-agnostic utility to derive UIMessages from deltas
+		const [streamingUIMessages] = deriveUIMessagesFromTextStreamParts(
+			threadContext.threadId!,
+			streamMessages,
+			[],
+			allDeltas
+		);
+
+		// Note: UIMessage logging removed to prevent infinite reactive loops
+
+		// Build maps of order -> streaming text, reasoning, and status
+		const streamingTextMap = new Map<number, string>();
+		const streamingReasoningMap = new Map<number, string>();
+		const streamingStatusMap = new Map<number, string>();
+
+		// Map stream messages by order to get status
+		streamMessages.forEach((streamMsg: any) => {
+			streamingStatusMap.set(streamMsg.order, streamMsg.status);
+		});
+
+		streamingUIMessages.forEach((uiMsg: UIMessage) => {
+			streamingTextMap.set(uiMsg.order, uiMsg.text || '');
+			const reasoning = extractReasoning(uiMsg.parts || []);
+			console.log('[DEBUG] UIMessage reasoning extraction:', {
+				order: uiMsg.order,
+				partsCount: uiMsg.parts?.length || 0,
+				parts: uiMsg.parts,
+				extractedReasoning: reasoning,
+				reasoningLength: reasoning?.length || 0
+			});
+			if (reasoning) {
+				streamingReasoningMap.set(uiMsg.order, reasoning);
+			}
+		});
+
+		// Merge streaming text and reasoning with full messages
+		return allMessages.map((msg) => {
+			const streamText = streamingTextMap.get(msg.order);
+			const streamReasoning = streamingReasoningMap.get(msg.order);
+			const streamStatus = streamingStatusMap.get(msg.order);
+			const isStreaming = streamStatus === 'streaming';
+
+			// Extract text properly for both user and assistant messages
+			const isUser = msg.role === 'user';
+			let displayText = '';
+			if (isUser) {
+				// For user messages, use robust extraction
+				displayText = extractUserMessageText(msg);
+			} else {
+				// For assistant messages, use streaming text or fallback to msg.text
+				displayText = streamText || msg.text || '';
+			}
+
+			// Extract reasoning from streaming or persisted parts
+			const persistedReasoning = msg.parts ? extractReasoning(msg.parts) : msg.reasoning || '';
+			const displayReasoning = streamReasoning || persistedReasoning;
+
+			console.log('[DEBUG] Final message data:', {
+				order: msg.order,
+				role: msg.role,
+				msgText: msg.text?.substring(0, 100) || '(empty)',
+				streamText: streamText?.substring(0, 100) || '(empty)',
+				displayText: displayText?.substring(0, 100) || '(empty)',
+				streamReasoning: streamReasoning?.substring(0, 100) || '(empty)',
+				persistedReasoning: persistedReasoning?.substring(0, 100) || '(empty)',
+				displayReasoning: displayReasoning?.substring(0, 100) || '(empty)',
+				hasParts: !!msg.parts,
+				partsLength: msg.parts?.length || 0
+			});
+
+			return {
+				...msg,
+				displayText,
+				displayReasoning,
+				isStreaming
+			};
+		});
+	});
+
+	/**
+	 * Convert Blob or File to base64 string for upload
+	 */
+	async function blobToBase64(blob: Blob): Promise<string> {
+		return new Promise((resolve, reject) => {
+			const reader = new FileReader();
+			reader.onloadend = () => {
+				const base64 = reader.result as string;
+				// Remove the data URL prefix (e.g., "data:image/png;base64,")
+				const base64Data = base64.split(',')[1];
+				resolve(base64Data);
+			};
+			reader.onerror = reject;
+			reader.readAsDataURL(blob);
+		});
+	}
+
 	async function handleSend() {
-		if (!inputValue.trim() || !threadContext.threadId) return;
+		// Prevent duplicate submissions
+		if (!inputValue.trim() || !threadContext.threadId || threadContext.isSending) {
+			console.log('[handleSend] Blocked - isSending:', threadContext.isSending);
+			return;
+		}
 
 		const prompt = inputValue.trim();
 		threadContext.setSending(true);
@@ -80,23 +333,80 @@
 		// Add optimistic message
 		const optimisticMessage = threadContext.addOptimisticMessage(prompt);
 
+		console.log('[handleSend] Sending message', {
+			threadId: threadContext.threadId,
+			promptLength: prompt.length,
+			optimisticId: optimisticMessage.id,
+			attachmentCount: (attachedFiles?.length || 0) + (screenshots?.length || 0)
+		});
+
 		// Clear input immediately for better UX
 		inputValue = '';
 
 		try {
-			await client.mutation(api.support.messages.sendMessage, {
+			// Upload all attachments first
+			const fileIds: string[] = [];
+
+			// Upload screenshots
+			if (screenshots && screenshots.length > 0) {
+				for (const screenshot of screenshots) {
+					const base64Data = await blobToBase64(screenshot.blob);
+					const uploadResult = await client.action(api.support.files.uploadFile, {
+						blob: base64Data,
+						filename: screenshot.filename,
+						mimeType: screenshot.blob.type
+					});
+					fileIds.push(uploadResult.fileId);
+				}
+			}
+
+			// Upload attached files
+			if (attachedFiles && attachedFiles.length > 0) {
+				for (const { file } of attachedFiles) {
+					const base64Data = await blobToBase64(file);
+					const uploadResult = await client.action(api.support.files.uploadFile, {
+						blob: base64Data,
+						filename: file.name,
+						mimeType: file.type
+					});
+					fileIds.push(uploadResult.fileId);
+				}
+			}
+
+			// Send message with attachments
+			const result = await client.mutation(api.support.messages.sendMessage, {
 				threadId: threadContext.threadId,
-				prompt
+				prompt,
+				fileIds: fileIds.length > 0 ? fileIds : undefined
 			});
 
-			// Remove optimistic message once real message arrives
-			setTimeout(() => {
-				threadContext.removeOptimisticMessage(optimisticMessage._id);
-			}, 100);
+			console.log('[handleSend] Message sent successfully', {
+				messageId: result.messageId,
+				optimisticId: optimisticMessage.id,
+				fileCount: fileIds.length
+			});
+
+			// Remove optimistic message immediately - the real message from the query will replace it
+			threadContext.removeOptimisticMessage(optimisticMessage.id);
+
+			// Clear attachments after successful send
+			if (onClearScreenshot && screenshots) {
+				// Clear all screenshots
+				for (let i = screenshots.length - 1; i >= 0; i--) {
+					onClearScreenshot(i);
+				}
+			}
+
+			if (onRemoveFile && attachedFiles) {
+				// Clear all files
+				for (let i = attachedFiles.length - 1; i >= 0; i--) {
+					onRemoveFile(i);
+				}
+			}
 		} catch (error) {
-			console.error('Failed to send message:', error);
+			console.error('[handleSend] Failed to send message:', error);
 			threadContext.setError('Failed to send message. Please try again.');
-			threadContext.removeOptimisticMessage(optimisticMessage._id);
+			threadContext.removeOptimisticMessage(optimisticMessage.id);
 		} finally {
 			threadContext.setSending(false);
 		}
@@ -119,7 +429,7 @@
 	<div class="relative min-h-0 w-full flex-1">
 		<ChatContainerRoot class="relative h-full">
 			<ChatContainerContent class="!h-full">
-				{#if threadContext.messages.length === 0}
+				{#if messagesWithStreaming.length === 0}
 					<!-- Empty state -->
 					<div class="flex !h-full flex-col justify-start">
 						<div class="m-10 flex flex-col items-start">
@@ -145,40 +455,57 @@
 					</div>
 				{:else}
 					<!-- Messages list -->
-					<div class="px-4 py-16">
-						{#each sortedMessages as message (message._id)}
-							{@const isUser = message.message?.role === 'user'}
-							<Message
-								class="flex w-full flex-col gap-2 px-4 {isUser ? 'items-end' : 'items-start'}"
-							>
+					<div class="space-y-4 py-16 pr-5 pl-9">
+						{#each messagesWithStreaming as message (message.id)}
+							{@const isUser = message.role === 'user'}
+							<Message class="flex  w-full flex-col gap-2 {isUser ? 'items-end' : 'items-start'}">
 								{#if isUser}
 									<MessageContent
-										class="max-w-[85%] bg-primary text-primary-foreground sm:max-w-[75%]"
+										class="max-w-[85%] rounded-3xl bg-primary/15 px-5 py-2.5 text-foreground sm:max-w-[75%]"
 									>
-										{message.text}
+										{message.displayText}
 									</MessageContent>
 								{:else}
-									<MessageContent
-										markdown={true}
-										class="prose w-full flex-1 rounded-lg bg-transparent p-2 text-foreground"
-									>
-										{#if message.status === 'pending'}
-											{message.text || ''}<Loader variant="typing" size="lg" class="inline-flex" />
-										{:else}
-											{message.text}
+									<MessageContent class="prose w-full flex-1 rounded-lg bg-transparent p-0 pr-4 ">
+										{#if message.displayReasoning || (message.status === 'pending' && !message.displayText)}
+											{@const shouldUseShimmer = message.displayReasoning && !message.displayText}
+											<Reasoning isStreaming={shouldUseShimmer} defaultOpen={false}>
+												{#if message.status === 'pending' && !message.displayReasoning}
+													<!-- State 1: Connecting - custom trigger with static text -->
+													<ReasoningTrigger>
+														<Bot class="size-4" />
+														<p>Connecting...</p>
+													</ReasoningTrigger>
+												{:else}
+													<!-- State 2: Thinking (text-shimmer) + State 3: "Thought for X seconds" -->
+													<!-- Default trigger handles shimmer when isStreaming=true, static text when false -->
+													<ReasoningTrigger />
+												{/if}
+												{#if message.displayReasoning}
+													<ReasoningContent class="opacity-50" content={message.displayReasoning} />
+												{/if}
+											</Reasoning>
+										{/if}
+										{#if message.displayText}
+											<Response content={message.displayText} animation={{ enabled: true }} />
 										{/if}
 									</MessageContent>
 								{/if}
 							</Message>
 						{/each}
 
-						<!-- Show typing indicator when AI is processing -->
-						{#if threadContext.isSending && !threadContext.isStreaming}
-							<div class="flex justify-start">
-								<div class="rounded-2xl bg-muted px-4 py-3">
-									<Loader variant="typing" size="lg" />
-								</div>
-							</div>
+						<!-- Show initial loading state when waiting for assistant response -->
+						{#if threadContext.isSending && messagesWithStreaming.length > 0 && messagesWithStreaming[messagesWithStreaming.length - 1].role === 'user'}
+							<Message class="flex w-full flex-col gap-2 items-start">
+								<MessageContent class="prose w-full flex-1 rounded-lg bg-transparent p-0 pr-4">
+									<Reasoning isStreaming={false} defaultOpen={false}>
+										<ReasoningTrigger>
+											<Bot class="size-4" />
+											<p>Connecting...</p>
+										</ReasoningTrigger>
+									</Reasoning>
+								</MessageContent>
+							</Message>
 						{/if}
 					</div>
 				{/if}
@@ -187,7 +514,7 @@
 				<ChatContainerScrollAnchor />
 
 				<!-- Overlay area pinned to bottom of scroll container -->
-				<div class="pointer-events-none relative sticky bottom-0 z-10 w-full">
+				<div class="pointer-events-none relative sticky bottom-0 z-10 min-h-16 w-full">
 					<!-- Progressive blur as background overlay -->
 					<ProgressiveBlur
 						class="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-20 w-full"
@@ -195,7 +522,7 @@
 						blurIntensity={1}
 					/>
 					<!-- Scroll button over the blur -->
-					<ScrollButton class="pointer-events-auto absolute right-8 bottom-6 z-20" />
+					<ScrollButton class="pointer-events-auto absolute right-9 bottom-6 z-20" />
 				</div>
 			</ChatContainerContent>
 		</ChatContainerRoot>
@@ -210,7 +537,7 @@
 		onSubmit={handleSend}
 	>
 		<!-- Suggestion chips - shown when chat is empty -->
-		{#if threadContext.messages.length === 0 && !inputValue.trim()}
+		{#if messagesWithStreaming.length === 0 && !inputValue.trim()}
 			<div class="absolute top-0 z-20 translate-y-[-100%] pb-2">
 				<div class="flex flex-wrap gap-2">
 					<PromptSuggestion onclick={() => (inputValue = 'I would love to see')}>

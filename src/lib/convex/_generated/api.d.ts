@@ -20,6 +20,7 @@ import type * as helpers from "../helpers.js";
 import type * as http from "../http.js";
 import type * as messages from "../messages.js";
 import type * as support_agent from "../support/agent.js";
+import type * as support_files from "../support/files.js";
 import type * as support_messages from "../support/messages.js";
 import type * as support_threads from "../support/threads.js";
 import type * as tests from "../tests.js";
@@ -52,6 +53,7 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   messages: typeof messages;
   "support/agent": typeof support_agent;
+  "support/files": typeof support_files;
   "support/messages": typeof support_messages;
   "support/threads": typeof support_threads;
   tests: typeof tests;

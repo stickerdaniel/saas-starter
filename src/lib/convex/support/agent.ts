@@ -14,8 +14,8 @@ import { openrouter } from '@openrouter/ai-sdk-provider';
 export const supportAgent = new Agent(components.agent, {
 	name: 'SaaS Starter Support',
 
-	// Language model configuration - using GLM 4.5 Air (free)
-	languageModel: openrouter('z-ai/glm-4.5-air:free'),
+	// Language model configuration - using Kimi K2 Thinking
+	languageModel: openrouter('moonshotai/kimi-k2-thinking'),
 
 	// System instructions defining agent behavior
 	instructions: `You are a helpful customer support agent for SaaS Starter, a modern SaaS application template built with SvelteKit, Convex, and Tailwind CSS. Your answers are brief and in WhatsApp style.

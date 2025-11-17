@@ -39,7 +39,11 @@
 	});
 
 	async function handleSubmit() {
-		if (!input.trim() || !threadContext.threadId) return;
+		// Prevent duplicate submissions
+		if (!input.trim() || !threadContext.threadId || threadContext.isSending) {
+			console.log('[handleSubmit] Blocked - isSending:', threadContext.isSending);
+			return;
+		}
 
 		const prompt = input.trim();
 		threadContext.setSending(true);
@@ -47,13 +51,24 @@
 		// Add optimistic message
 		const optimisticMessage = threadContext.addOptimisticMessage(prompt);
 
+		console.log('[handleSubmit] Sending message from chatbar', {
+			threadId: threadContext.threadId,
+			promptLength: prompt.length,
+			optimisticId: optimisticMessage.id
+		});
+
 		// Clear input immediately
 		input = '';
 
 		try {
-			await client.mutation(api.support.messages.sendMessage, {
+			const result = await client.mutation(api.support.messages.sendMessage, {
 				threadId: threadContext.threadId,
 				prompt
+			});
+
+			console.log('[handleSubmit] Message sent successfully', {
+				messageId: result.messageId,
+				optimisticId: optimisticMessage.id
 			});
 
 			// Request widget to open after successful send
@@ -61,12 +76,12 @@
 
 			// Remove optimistic message once real message arrives
 			setTimeout(() => {
-				threadContext.removeOptimisticMessage(optimisticMessage._id);
+				threadContext.removeOptimisticMessage(optimisticMessage.id);
 			}, 100);
 		} catch (error) {
-			console.error('Failed to send message:', error);
+			console.error('[handleSubmit] Failed to send message:', error);
 			threadContext.setError('Failed to send message. Please try again.');
-			threadContext.removeOptimisticMessage(optimisticMessage._id);
+			threadContext.removeOptimisticMessage(optimisticMessage.id);
 		} finally {
 			threadContext.setSending(false);
 		}
