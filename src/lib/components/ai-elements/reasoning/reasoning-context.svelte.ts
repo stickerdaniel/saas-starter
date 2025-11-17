@@ -6,17 +6,20 @@ export class ReasoningContext {
 	#isStreaming = $state(false);
 	#isOpen = $state(true);
 	#duration = $state(0);
+	#hasContent = $state(false);
 
 	constructor(
 		options: {
 			isStreaming?: boolean;
 			isOpen?: boolean;
 			duration?: number;
+			hasContent?: boolean;
 		} = {}
 	) {
 		this.#isStreaming = options.isStreaming ?? false;
 		this.#isOpen = options.isOpen ?? true;
 		this.#duration = options.duration ?? 0;
+		this.#hasContent = options.hasContent ?? false;
 	}
 
 	get isStreaming() {
@@ -41,6 +44,14 @@ export class ReasoningContext {
 
 	set duration(value: number) {
 		this.#duration = value;
+	}
+
+	get hasContent() {
+		return this.#hasContent;
+	}
+
+	set hasContent(value: boolean) {
+		this.#hasContent = value;
 	}
 
 	setIsOpen(open: boolean) {
