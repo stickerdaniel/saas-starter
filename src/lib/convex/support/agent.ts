@@ -14,8 +14,16 @@ import { openrouter } from '@openrouter/ai-sdk-provider';
 export const supportAgent = new Agent(components.agent, {
 	name: 'SaaS Starter Support',
 
-	// Language model configuration - using Kimi K2 Thinking
-	languageModel: openrouter('moonshotai/kimi-k2-thinking'),
+	// Language model configuration
+	// Using Grok 3 Mini with visible reasoning traces
+	// Note: grok-4 reasoning is encrypted and not visible in UI
+	// grok-3-mini is the only xAI model that exposes readable reasoning_content
+	languageModel: openrouter('z-ai/glm-4.5v', {
+		reasoning: {
+			enabled: true,
+			effort: 'medium'
+		}
+	}),
 
 	// System instructions defining agent behavior
 	instructions: `You are a helpful customer support agent for SaaS Starter, a modern SaaS application template built with SvelteKit, Convex, and Tailwind CSS. Your answers are brief and in WhatsApp style.

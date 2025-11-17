@@ -182,6 +182,9 @@
 		return Array.from(messageMap.values()).sort((a, b) => a._creationTime - b._creationTime);
 	});
 
+	// Track open state for each message's reasoning accordion
+	let reasoningOpenState = $state<Map<string, boolean>>(new Map());
+
 	// Process streaming deltas using framework-agnostic utilities
 	const messagesWithStreaming = $derived.by(() => {
 		// Get stream metadata and deltas
@@ -300,6 +303,23 @@
 				displayReasoning,
 				isStreaming
 			};
+		});
+	});
+
+	// Auto-manage reasoning accordion state: open when reasoning arrives, close when response starts
+	$effect(() => {
+		messagesWithStreaming.forEach((message) => {
+			const hasReasoning = !!message.displayReasoning;
+			const hasResponse = !!message.displayText;
+
+			// Auto-open when reasoning arrives without response
+			if (hasReasoning && !hasResponse) {
+				reasoningOpenState.set(message.id, true);
+			}
+			// Auto-close when response starts
+			else if (hasResponse && reasoningOpenState.get(message.id)) {
+				reasoningOpenState.set(message.id, false);
+			}
 		});
 	});
 
@@ -466,21 +486,19 @@
 										{message.displayText}
 									</MessageContent>
 								{:else}
-									<MessageContent class="prose w-full flex-1 rounded-lg bg-transparent p-0 pr-4 ">
+									<MessageContent class="prose w-full flex-1 p-0 pr-4 ">
 										{#if message.displayReasoning || (message.status === 'pending' && !message.displayText)}
+											{@const isReasoningOpen = reasoningOpenState.get(message.id) ?? false}
 											{@const shouldUseShimmer = message.displayReasoning && !message.displayText}
-											<Reasoning isStreaming={shouldUseShimmer} defaultOpen={false}>
-												{#if message.status === 'pending' && !message.displayReasoning}
-													<!-- State 1: Connecting - custom trigger with static text -->
-													<ReasoningTrigger>
-														<Bot class="size-4" />
-														<p>Connecting...</p>
-													</ReasoningTrigger>
-												{:else}
-													<!-- State 2: Thinking (text-shimmer) + State 3: "Thought for X seconds" -->
-													<!-- Default trigger handles shimmer when isStreaming=true, static text when false -->
-													<ReasoningTrigger />
-												{/if}
+											{@const hasReasoningContent = !!message.displayReasoning}
+											<Reasoning
+												open={isReasoningOpen}
+												onOpenChange={(open) => reasoningOpenState.set(message.id, open)}
+											>
+												<ReasoningTrigger
+													isStreaming={shouldUseShimmer}
+													hasContent={hasReasoningContent}
+												/>
 												{#if message.displayReasoning}
 													<ReasoningContent class="opacity-50" content={message.displayReasoning} />
 												{/if}
@@ -496,13 +514,10 @@
 
 						<!-- Show initial loading state when waiting for assistant response -->
 						{#if threadContext.isSending && messagesWithStreaming.length > 0 && messagesWithStreaming[messagesWithStreaming.length - 1].role === 'user'}
-							<Message class="flex w-full flex-col gap-2 items-start">
+							<Message class="flex w-full flex-col items-start gap-2">
 								<MessageContent class="prose w-full flex-1 rounded-lg bg-transparent p-0 pr-4">
-									<Reasoning isStreaming={false} defaultOpen={false}>
-										<ReasoningTrigger>
-											<Bot class="size-4" />
-											<p>Connecting...</p>
-										</ReasoningTrigger>
+									<Reasoning defaultOpen={false}>
+										<ReasoningTrigger isStreaming={false} hasContent={false} />
 									</Reasoning>
 								</MessageContent>
 							</Message>
