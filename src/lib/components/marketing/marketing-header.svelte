@@ -124,12 +124,7 @@
 							<Button size="sm" href={localizedHref('/app')} class="w-full sm:w-auto">
 								<T keyName="nav.dashboard" />
 							</Button>
-							<Button
-								variant="outline"
-								size="icon"
-								class="size-8 sm:w-auto"
-								onclick={() => auth.signOut()}
-							>
+							<Button variant="outline" size="icon" class="size-8" onclick={() => auth.signOut()}>
 								<LogOut class="size-4" />
 							</Button>
 						{:else}
