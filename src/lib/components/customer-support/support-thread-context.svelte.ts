@@ -1,5 +1,7 @@
 import { Context } from 'runed';
 import type { PaginationResult } from 'convex/server';
+import type { ConvexClient } from 'convex/browser';
+import { api } from '$lib/convex/_generated/api';
 
 /**
  * Message interface matching Convex Agent message structure
@@ -177,6 +179,87 @@ export class SupportThreadContext {
 	 */
 	clearWidgetOpenRequest() {
 		this.shouldOpenWidget = false;
+	}
+
+	/**
+	 * Send a message with optional file attachments
+	 *
+	 * This method handles the complete message sending flow:
+	 * - Validation
+	 * - Optimistic updates
+	 * - Backend mutation
+	 * - Error handling
+	 * - Widget opening (optional)
+	 *
+	 * @param client - Convex client instance
+	 * @param prompt - Message text content
+	 * @param options - Optional configuration
+	 * @returns Promise with message ID
+	 */
+	async sendMessage(
+		client: ConvexClient,
+		prompt: string,
+		options?: {
+			fileIds?: string[];
+			openWidgetAfter?: boolean;
+		}
+	): Promise<{ messageId: string }> {
+		// Validate input
+		if (!prompt.trim() || !this.threadId || this.isSending) {
+			console.log('[sendMessage] Blocked - validation failed', {
+				hasPrompt: !!prompt.trim(),
+				hasThreadId: !!this.threadId,
+				isSending: this.isSending
+			});
+			throw new Error('Cannot send message: validation failed');
+		}
+
+		const trimmedPrompt = prompt.trim();
+		this.setSending(true);
+
+		// Add optimistic message
+		const optimisticMessage = this.addOptimisticMessage(trimmedPrompt);
+
+		console.log('[sendMessage] Sending message', {
+			threadId: this.threadId,
+			promptLength: trimmedPrompt.length,
+			optimisticId: optimisticMessage.id,
+			fileCount: options?.fileIds?.length || 0
+		});
+
+		try {
+			// Send message with optional attachments
+			const result = await client.mutation(api.support.messages.sendMessage, {
+				threadId: this.threadId,
+				prompt: trimmedPrompt,
+				fileIds: options?.fileIds
+			});
+
+			console.log('[sendMessage] Message sent successfully', {
+				messageId: result.messageId,
+				optimisticId: optimisticMessage.id,
+				fileCount: options?.fileIds?.length || 0
+			});
+
+			// Request widget to open if requested
+			if (options?.openWidgetAfter) {
+				this.requestWidgetOpen();
+			}
+
+			// Remove optimistic message - real message from query will replace it
+			setTimeout(() => {
+				this.removeOptimisticMessage(optimisticMessage.id);
+			}, 100);
+
+			return result;
+		} catch (error) {
+			console.error('[sendMessage] Failed to send message:', error);
+			this.setError('Failed to send message. Please try again.');
+			this.removeOptimisticMessage(optimisticMessage.id);
+			throw error;
+		} finally {
+			this.setSending(false);
+		}
 	}
 
 	/**
