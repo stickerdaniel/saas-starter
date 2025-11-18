@@ -341,24 +341,9 @@
 	}
 
 	async function handleSend() {
-		// Prevent duplicate submissions
-		if (!inputValue.trim() || !threadContext.threadId || threadContext.isSending) {
-			console.log('[handleSend] Blocked - isSending:', threadContext.isSending);
-			return;
-		}
+		if (!inputValue.trim()) return;
 
 		const prompt = inputValue.trim();
-		threadContext.setSending(true);
-
-		// Add optimistic message
-		const optimisticMessage = threadContext.addOptimisticMessage(prompt);
-
-		console.log('[handleSend] Sending message', {
-			threadId: threadContext.threadId,
-			promptLength: prompt.length,
-			optimisticId: optimisticMessage.id,
-			attachmentCount: (attachedFiles?.length || 0) + (screenshots?.length || 0)
-		});
 
 		// Clear input immediately for better UX
 		inputValue = '';
@@ -393,42 +378,26 @@
 				}
 			}
 
-			// Send message with attachments
-			const result = await client.mutation(api.support.messages.sendMessage, {
-				threadId: threadContext.threadId,
-				prompt,
+			// Send message with attachments using centralized logic
+			await threadContext.sendMessage(client, prompt, {
 				fileIds: fileIds.length > 0 ? fileIds : undefined
 			});
 
-			console.log('[handleSend] Message sent successfully', {
-				messageId: result.messageId,
-				optimisticId: optimisticMessage.id,
-				fileCount: fileIds.length
-			});
-
-			// Remove optimistic message immediately - the real message from the query will replace it
-			threadContext.removeOptimisticMessage(optimisticMessage.id);
-
 			// Clear attachments after successful send
 			if (onClearScreenshot && screenshots) {
-				// Clear all screenshots
 				for (let i = screenshots.length - 1; i >= 0; i--) {
 					onClearScreenshot(i);
 				}
 			}
 
 			if (onRemoveFile && attachedFiles) {
-				// Clear all files
 				for (let i = attachedFiles.length - 1; i >= 0; i--) {
 					onRemoveFile(i);
 				}
 			}
 		} catch (error) {
-			console.error('[handleSend] Failed to send message:', error);
-			threadContext.setError('Failed to send message. Please try again.');
-			threadContext.removeOptimisticMessage(optimisticMessage.id);
-		} finally {
-			threadContext.setSending(false);
+			// Error already handled in sendMessage
+			console.error('[handleSend] Error:', error);
 		}
 	}
 
