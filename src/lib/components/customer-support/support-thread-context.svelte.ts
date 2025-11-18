@@ -246,11 +246,6 @@ export class SupportThreadContext {
 				this.requestWidgetOpen();
 			}
 
-			// Remove optimistic message - real message from query will replace it
-			setTimeout(() => {
-				this.removeOptimisticMessage(optimisticMessage.id);
-			}, 100);
-
 			return result;
 		} catch (error) {
 			console.error('[sendMessage] Failed to send message:', error);
