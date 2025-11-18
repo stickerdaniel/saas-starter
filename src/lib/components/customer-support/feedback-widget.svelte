@@ -117,8 +117,6 @@
 			: undefined
 	);
 
-	// Note: Debug logging removed from $effect to prevent infinite reactive loops
-
 	// Extract active stream IDs for delta query
 	const activeStreamIds = $derived.by(() => {
 		const messagesData = messagesQuery?.data as MessagesQueryResponse | undefined;
@@ -131,8 +129,6 @@
 					.map((m: any) => m.streamId)
 			: [];
 	});
-
-	// Note: Active stream IDs logging removed to prevent infinite reactive loops
 
 	// Second query: Get text deltas for active streams
 	const deltasQuery = $derived(
@@ -158,6 +154,21 @@
 		const queryMessages = messagesData?.page || [];
 		const optimisticMessages = threadContext.messages.filter((m) => m.metadata?.optimistic);
 
+		console.log('[allMessages] Deduplication debug:', {
+			queryMessageCount: queryMessages.length,
+			queryMessageIds: queryMessages.map((m) => ({
+				id: m.id,
+				role: m.role,
+				text: m.text?.substring(0, 30)
+			})),
+			optimisticMessageCount: optimisticMessages.length,
+			optimisticMessageIds: optimisticMessages.map((m) => ({
+				id: m.id,
+				role: m.role,
+				text: m.text?.substring(0, 30)
+			}))
+		});
+
 		// Normalize message to ensure top-level role exists
 		const normalizeMessage = (msg: any) => ({
 			...msg,
@@ -169,21 +180,56 @@
 
 		// Add query messages first (normalized)
 		for (const msg of queryMessages) {
+			console.log('[allMessages] Adding query message:', { id: msg.id, role: msg.role });
 			messageMap.set(msg.id, normalizeMessage(msg));
 		}
 
 		// Add optimistic messages that don't have real versions yet (normalized)
+		// Match by text content, not by ID or position
 		for (const msg of optimisticMessages) {
+			// Check if there's a real message with matching text and role
+			const hasRealMatch = queryMessages.some((qm) => qm.role === msg.role && qm.text === msg.text);
+
+			if (hasRealMatch) {
+				console.log('[allMessages] Skipping optimistic message (real match found by text):', {
+					id: msg.id,
+					role: msg.role,
+					text: msg.text?.substring(0, 30),
+					reason: 'Real message with same text exists'
+				});
+				continue;
+			}
+
+			// No real match yet, keep the optimistic message
+			const hasMatchById = messageMap.has(msg.id);
+			console.log('[allMessages] Checking optimistic message:', {
+				id: msg.id,
+				role: msg.role,
+				hasMatchInQueryById: hasMatchById,
+				hasRealMatchByText: hasRealMatch,
+				willAdd: !hasMatchById
+			});
 			if (!messageMap.has(msg.id)) {
 				messageMap.set(msg.id, normalizeMessage(msg));
 			}
 		}
 
-		return Array.from(messageMap.values()).sort((a, b) => a._creationTime - b._creationTime);
+		const result = Array.from(messageMap.values()).sort(
+			(a, b) => a._creationTime - b._creationTime
+		);
+		console.log('[allMessages] Final merged messages:', {
+			totalCount: result.length,
+			messages: result.map((m) => ({ id: m.id, role: m.role, text: m.text?.substring(0, 30) }))
+		});
+
+		return result;
 	});
 
 	// Track open state for each message's reasoning accordion
 	let reasoningOpenState = $state<Map<string, boolean>>(new Map());
+
+	// Cache to preserve reasoning content during query transitions (prevents "Connecting..." flash)
+	let reasoningCache = $state<Map<number, string>>(new Map());
 
 	// Process streaming deltas using framework-agnostic utilities
 	const messagesWithStreaming = $derived.by(() => {
@@ -200,8 +246,8 @@
 				? ((deltasData.streams.deltas || []) as StreamDelta[])
 				: [];
 
-		if (streamMessages.length === 0 || allDeltas.length === 0) {
-			// No streaming, just return regular messages with proper text extraction
+		if (streamMessages.length === 0) {
+			// No streams at all, just return regular messages with proper text extraction
 			return allMessages.map((msg) => {
 				const isUser = msg.role === 'user';
 				let displayText = '';
@@ -220,12 +266,15 @@
 					...msg,
 					displayText,
 					displayReasoning: reasoning,
-					isStreaming: false
+					isStreaming: false,
+					hasReasoningStream: false
 				};
 			});
 		}
 
-		// Note: Delta logging removed to prevent infinite reactive loops
+		// We have streams - process them even if deltas are still loading
+		// If allDeltas is empty (query reloading), streamingUIMessages will be empty,
+		// but streamingStatusMap will still have entries to preserve hasReasoningStream
 
 		// Use framework-agnostic utility to derive UIMessages from deltas
 		const [streamingUIMessages] = deriveUIMessagesFromTextStreamParts(
@@ -234,8 +283,6 @@
 			[],
 			allDeltas
 		);
-
-		// Note: UIMessage logging removed to prevent infinite reactive loops
 
 		// Build maps of order -> streaming text, reasoning, and status
 		const streamingTextMap = new Map<number, string>();
@@ -259,6 +306,8 @@
 			});
 			if (reasoning) {
 				streamingReasoningMap.set(uiMsg.order, reasoning);
+				// Update cache with latest streaming reasoning
+				reasoningCache.set(uiMsg.order, reasoning);
 			}
 		});
 
@@ -268,6 +317,7 @@
 			const streamReasoning = streamingReasoningMap.get(msg.order);
 			const streamStatus = streamingStatusMap.get(msg.order);
 			const isStreaming = streamStatus === 'streaming';
+			const hasReasoningStream = streamStatus !== undefined; // Stream exists (any status)
 
 			// Extract text properly for both user and assistant messages
 			const isUser = msg.role === 'user';
@@ -282,7 +332,22 @@
 
 			// Extract reasoning from streaming or persisted parts
 			const persistedReasoning = msg.parts ? extractReasoning(msg.parts) : msg.reasoning || '';
-			const displayReasoning = streamReasoning || persistedReasoning;
+			const cachedReasoning = reasoningCache.get(msg.order) || '';
+
+			// Three-tier fallback: streaming → cached → persisted
+			// This prevents "Connecting..." flash during query reloads
+			const currentReasoning = streamReasoning || persistedReasoning;
+			const displayReasoning = currentReasoning || cachedReasoning;
+
+			// Update cache if we have new content
+			if (currentReasoning) {
+				reasoningCache.set(msg.order, currentReasoning);
+			}
+
+			// Clear cache once persisted reasoning exists (no longer needed)
+			if (persistedReasoning && cachedReasoning && !streamReasoning) {
+				reasoningCache.delete(msg.order);
+			}
 
 			console.log('[DEBUG] Final message data:', {
 				order: msg.order,
@@ -291,17 +356,20 @@
 				streamText: streamText?.substring(0, 100) || '(empty)',
 				displayText: displayText?.substring(0, 100) || '(empty)',
 				streamReasoning: streamReasoning?.substring(0, 100) || '(empty)',
+				cachedReasoning: cachedReasoning?.substring(0, 100) || '(empty)',
 				persistedReasoning: persistedReasoning?.substring(0, 100) || '(empty)',
 				displayReasoning: displayReasoning?.substring(0, 100) || '(empty)',
 				hasParts: !!msg.parts,
-				partsLength: msg.parts?.length || 0
+				partsLength: msg.parts?.length || 0,
+				hasReasoningStream
 			});
 
 			return {
 				...msg,
 				displayText,
 				displayReasoning,
-				isStreaming
+				isStreaming,
+				hasReasoningStream
 			};
 		});
 	});
@@ -456,7 +524,7 @@
 									</MessageContent>
 								{:else}
 									<MessageContent class="prose w-full flex-1 p-0 pr-4 ">
-										{#if message.displayReasoning || (message.status === 'pending' && !message.displayText)}
+										{#if message.displayReasoning || message.hasReasoningStream || (message.status === 'pending' && !message.displayText)}
 											{@const isReasoningOpen = reasoningOpenState.get(message.id) ?? false}
 											{@const shouldUseShimmer = message.displayReasoning && !message.displayText}
 											{@const hasReasoningContent = !!message.displayReasoning}
