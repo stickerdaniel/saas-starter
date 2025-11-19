@@ -230,6 +230,10 @@
 
 	// Cache to preserve reasoning content during query transitions (prevents "Connecting..." flash)
 	let reasoningCache = $state<Map<number, string>>(new Map());
+	// Sticky awaiting state to bridge the gap until the first stream metadata arrives
+	let isAwaitingStream = $state(false);
+	// Cache last-known stream status to survive brief query reloads
+	let streamStatusCache = $state<Map<number, 'streaming' | 'finished' | 'aborted'>>(new Map());
 
 	// Process streaming deltas using framework-agnostic utilities
 	const messagesWithStreaming = $derived.by(() => {
@@ -247,7 +251,7 @@
 				: [];
 
 		if (streamMessages.length === 0) {
-			// No streams at all, just return regular messages with proper text extraction
+			// No streams visible (likely a brief query reload) — preserve streaming state via cache
 			return allMessages.map((msg) => {
 				const isUser = msg.role === 'user';
 				let displayText = '';
@@ -259,15 +263,17 @@
 					displayText = msg.text || '';
 				}
 
-				// Extract reasoning from parts array if available
+				// Extract reasoning from parts array if available (leave as-is; focus is on placeholder)
 				const reasoning = msg.parts ? extractReasoning(msg.parts) : msg.reasoning || '';
+				const cachedStatus = streamStatusCache.get(msg.order);
 
 				return {
 					...msg,
 					displayText,
 					displayReasoning: reasoning,
-					isStreaming: false,
-					hasReasoningStream: false
+					// Use cached status to avoid placeholder flicker
+					isStreaming: cachedStatus === 'streaming',
+					hasReasoningStream: streamStatusCache.has(msg.order)
 				};
 			});
 		}
@@ -292,6 +298,8 @@
 		// Map stream messages by order to get status
 		streamMessages.forEach((streamMsg: any) => {
 			streamingStatusMap.set(streamMsg.order, streamMsg.status);
+			// Persist status in cache for stability across reloads
+			streamStatusCache.set(streamMsg.order, streamMsg.status);
 		});
 
 		streamingUIMessages.forEach((uiMsg: UIMessage) => {
@@ -374,6 +382,34 @@
 		});
 	});
 
+	// Derived helper: is the last message authored by the user?
+	const lastMessageIsUser = $derived.by(() => {
+		const len = allMessages.length;
+		return len > 0 ? allMessages[len - 1].role === 'user' : false;
+	});
+
+	// Have we seen any active stream metadata yet?
+	const hasActiveStreams = $derived.by(() => {
+		const messagesData = messagesQuery?.data as MessagesQueryResponse | undefined;
+		if (messagesData?.streams?.kind !== 'list') return false;
+		const arr = messagesData.streams?.messages || [];
+		return arr.length > 0;
+	});
+
+	// Clear sticky awaiting once evidence of streaming or assistant output appears
+	$effect(() => {
+		if (hasActiveStreams) {
+			isAwaitingStream = false;
+			return;
+		}
+		const last = messagesWithStreaming.length
+			? messagesWithStreaming[messagesWithStreaming.length - 1]
+			: undefined;
+		if (last && last.role === 'assistant' && (last.displayText || last.displayReasoning)) {
+			isAwaitingStream = false;
+		}
+	});
+
 	// Auto-manage reasoning accordion state: open when reasoning arrives, close when response starts
 	$effect(() => {
 		messagesWithStreaming.forEach((message) => {
@@ -447,6 +483,7 @@
 			}
 
 			// Send message with attachments using centralized logic
+			isAwaitingStream = true;
 			await threadContext.sendMessage(client, prompt, {
 				fileIds: fileIds.length > 0 ? fileIds : undefined
 			});
@@ -466,6 +503,7 @@
 		} catch (error) {
 			// Error already handled in sendMessage
 			console.error('[handleSend] Error:', error);
+			isAwaitingStream = false;
 		}
 	}
 
@@ -550,7 +588,7 @@
 						{/each}
 
 						<!-- Show initial loading state when waiting for assistant response -->
-						{#if threadContext.isSending && messagesWithStreaming.length > 0 && messagesWithStreaming[messagesWithStreaming.length - 1].role === 'user'}
+						{#if (threadContext.isSending || isAwaitingStream) && lastMessageIsUser}
 							<Message class="flex w-full flex-col items-start gap-2">
 								<MessageContent class="prose w-full flex-1 rounded-lg bg-transparent p-0 pr-4">
 									<Reasoning defaultOpen={false}>
