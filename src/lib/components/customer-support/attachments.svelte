@@ -1,13 +1,7 @@
 <script lang="ts">
-	import {
-		X,
-		File as FileIcon,
-		Image as ImageIcon,
-		Loader2,
-		CheckCircle2,
-		XCircle
-	} from '@lucide/svelte';
+	import { X, File as FileIcon, Image as ImageIcon, LoaderCircle, CircleX } from '@lucide/svelte';
 	import Progress from '$lib/components/ui/progress/progress.svelte';
+	import * as Dialog from '$lib/components/ui/dialog';
 
 	/**
 	 * Upload state for tracking file upload progress
@@ -41,6 +35,9 @@
 		readonly?: boolean;
 		class?: string;
 	} = $props();
+
+	let isDialogOpen = $state(false);
+	let selectedAttachment = $state<Attachment | null>(null);
 
 	/**
 	 * Get filename from attachment
@@ -82,7 +79,8 @@
 
 	function handleOpen(attachment: Attachment) {
 		if (attachment.type === 'image' || attachment.type === 'remote-file') {
-			window.open(attachment.url, '_blank');
+			selectedAttachment = attachment;
+			isDialogOpen = true;
 		}
 	}
 
@@ -96,6 +94,39 @@
 		return undefined;
 	}
 </script>
+
+<Dialog.Root bind:open={isDialogOpen}>
+	<Dialog.Content>
+		<Dialog.Header>
+			<Dialog.Title
+				>{selectedAttachment ? getFilename(selectedAttachment) : 'Attachment'}</Dialog.Title
+			>
+		</Dialog.Header>
+		{#if selectedAttachment}
+			{#if selectedAttachment.type === 'image'}
+				<img
+					src={selectedAttachment.url}
+					alt={selectedAttachment.filename}
+					class="max-w-full rounded-md object-contain"
+				/>
+			{:else if selectedAttachment.type === 'remote-file'}
+				{#if selectedAttachment.contentType?.startsWith('image/')}
+					<img
+						src={selectedAttachment.url}
+						alt={selectedAttachment.filename}
+						class="max-h-[70vh] rounded-md object-contain"
+					/>
+				{:else}
+					<iframe
+						src={selectedAttachment.url}
+						title={selectedAttachment.filename}
+						class="h-[70vh] w-full rounded-md"
+					></iframe>
+				{/if}
+			{/if}
+		{/if}
+	</Dialog.Content>
+</Dialog.Root>
 
 {#if attachments.length > 0}
 	<div
@@ -127,16 +158,11 @@
 						class="relative flex size-8 shrink-0 items-center justify-center overflow-hidden rounded bg-red-500 text-[#fafafa]"
 					>
 						{#if uploadState?.status === 'uploading'}
-							<Loader2 class="size-4 shrink-0 animate-spin" />
+							<LoaderCircle class="size-4 shrink-0 animate-spin" />
 						{:else if uploadState?.status === 'error'}
-							<XCircle class="size-4 shrink-0 text-red-500" />
+							<CircleX class="size-4 shrink-0 text-red-500" />
 						{:else if preview}
 							<img src={preview} alt={filename} class="size-8 rounded object-cover" />
-							{#if uploadState?.status === 'success'}
-								<div class="absolute -top-1 -right-1">
-									<CheckCircle2 class="size-3 text-green-500" />
-								</div>
-							{/if}
 						{:else if isScreenshot(attachment)}
 							<ImageIcon class="size-4 shrink-0" />
 						{:else}
