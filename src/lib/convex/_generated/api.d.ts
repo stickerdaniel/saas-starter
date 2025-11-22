@@ -11,11 +11,13 @@
 import type * as auth_ResendOTP from "../auth/ResendOTP.js";
 import type * as auth from "../auth.js";
 import type * as autumn from "../autumn.js";
+import type * as crons from "../crons.js";
 import type * as emails_events from "../emails/events.js";
 import type * as emails_mutations from "../emails/mutations.js";
 import type * as emails_queries from "../emails/queries.js";
 import type * as emails_resend from "../emails/resend.js";
 import type * as emails_send from "../emails/send.js";
+import type * as files_vacuum from "../files/vacuum.js";
 import type * as helpers from "../helpers.js";
 import type * as http from "../http.js";
 import type * as messages from "../messages.js";
@@ -44,11 +46,13 @@ declare const fullApi: ApiFromModules<{
   "auth/ResendOTP": typeof auth_ResendOTP;
   auth: typeof auth;
   autumn: typeof autumn;
+  crons: typeof crons;
   "emails/events": typeof emails_events;
   "emails/mutations": typeof emails_mutations;
   "emails/queries": typeof emails_queries;
   "emails/resend": typeof emails_resend;
   "emails/send": typeof emails_send;
+  "files/vacuum": typeof files_vacuum;
   helpers: typeof helpers;
   http: typeof http;
   messages: typeof messages;
