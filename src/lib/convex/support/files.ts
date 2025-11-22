@@ -1,19 +1,33 @@
-import { action } from '../_generated/server';
+import { action, mutation } from '../_generated/server';
 import { v } from 'convex/values';
 import { storeFile } from '@convex-dev/agent';
 import { components } from '../_generated/api';
 
 /**
- * Upload a file or image to Convex storage for use in agent messages
+ * Generate a URL for uploading files directly to Convex storage
  *
- * This action stores the file in Convex storage and returns metadata
- * that can be used to construct multimodal messages for the AI agent.
- *
- * @returns fileId, storageId, and url for the stored file
+ * This mutation generates a temporary URL that clients can use to upload
+ * files directly to Convex storage with progress tracking support.
  */
-export const uploadFile = action({
+export const generateUploadUrl = mutation({
+	args: {},
+	handler: async (ctx) => {
+		return await ctx.storage.generateUploadUrl();
+	}
+});
+
+/**
+ * Register uploaded file with agent component
+ *
+ * Call this after successfully uploading to the URL from generateUploadUrl.
+ * This action fetches the uploaded file from storage and registers it with
+ * the agent component for use in multimodal messages.
+ *
+ * @returns fileId, storageId, url, filename, and isImage flag
+ */
+export const saveUploadedFile = action({
 	args: {
-		blob: v.string(), // Base64-encoded blob data
+		storageId: v.id('_storage'),
 		filename: v.optional(v.string()),
 		mimeType: v.string()
 	},
@@ -25,22 +39,21 @@ export const uploadFile = action({
 		storageId: string;
 		url: string;
 		filename: string | undefined;
-		mimeType: string;
 		isImage: boolean;
 	}> => {
-		// Convert base64 string back to ArrayBuffer
-		const binaryString = atob(args.blob);
-		const bytes = new Uint8Array(binaryString.length);
-		for (let i = 0; i < binaryString.length; i++) {
-			bytes[i] = binaryString.charCodeAt(i);
+		// Get storage URL
+		const url = await ctx.storage.getUrl(args.storageId);
+
+		if (!url) {
+			throw new Error('Failed to get storage URL');
 		}
-		const arrayBuffer = bytes.buffer;
 
-		// Create a Blob from the ArrayBuffer
-		const blob = new Blob([arrayBuffer], { type: args.mimeType });
+		// Fetch blob from storage
+		const response = await fetch(url);
+		const blob = await response.blob();
 
-		// Store the file using the agent component
-		const { file, imagePart } = await storeFile(ctx, components.agent, blob, {
+		// Register with agent component
+		const { file } = await storeFile(ctx, components.agent, blob, {
 			filename: args.filename
 		});
 
@@ -49,8 +62,7 @@ export const uploadFile = action({
 			storageId: file.storageId,
 			url: file.url,
 			filename: file.filename,
-			mimeType: args.mimeType,
-			isImage: !!imagePart
+			isImage: args.mimeType.startsWith('image/')
 		};
 	}
 });

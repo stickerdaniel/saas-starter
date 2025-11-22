@@ -3,6 +3,7 @@
 	import { MessageSquare, ChevronDown } from '@lucide/svelte';
 	import FeedbackWidget from './feedback-widget.svelte';
 	import { on } from 'svelte/events';
+	import type { UploadState } from './attachments.svelte';
 
 	let {
 		isOpen = $bindable(false),
@@ -15,9 +16,9 @@
 	}: {
 		isOpen?: boolean;
 		isScreenshotMode?: boolean;
-		screenshots?: Array<{ blob: Blob; filename: string }>;
+		screenshots?: Array<{ blob: Blob; filename: string; uploadState: UploadState }>;
 		onClearScreenshot?: (index: number) => void;
-		attachedFiles?: Array<{ file: File; preview?: string }>;
+		attachedFiles?: Array<{ file: File; preview?: string; uploadState: UploadState }>;
 		onFilesAdded?: (files: File[]) => void;
 		onRemoveFile?: (index: number) => void;
 	} = $props();
