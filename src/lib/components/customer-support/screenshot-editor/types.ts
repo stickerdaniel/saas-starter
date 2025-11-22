@@ -82,28 +82,23 @@ export type ColorPreset = {
  * Default color palette
  */
 export const DEFAULT_COLORS: ColorPreset[] = [
-	{ name: 'Red', value: '#ef4444' },
-	{ name: 'Yellow', value: '#eab308' },
-	{ name: 'Green', value: '#22c55e' },
-	{ name: 'Blue', value: '#3b82f6' },
-	{ name: 'Purple', value: '#a855f7' },
-	{ name: 'Black', value: '#000000' }
+	{ name: 'Red', value: 'oklch(63.7% 0.237 25.331)' },
+	{ name: 'Yellow', value: 'oklch(85.2% 0.199 91.936)' },
+	{ name: 'Green', value: 'oklch(72.3% 0.219 149.579)' },
+	{ name: 'Blue', value: 'oklch(58.5% 0.233 277.117)' },
+	{ name: 'Purple', value: 'oklch(51.8% 0.253 323.949)' },
+	{ name: 'Black', value: 'oklch(13% 0.028 261.692)' }
 ];
-
-/**
- * Available stroke widths
- */
-export const STROKE_WIDTHS = [2, 3, 4, 6, 8, 12, 16];
 
 /**
  * Default stroke width
  */
-export const DEFAULT_STROKE_WIDTH = 8;
+export const DEFAULT_STROKE_WIDTH = 10;
 
 /**
  * Default stroke color
  */
-export const DEFAULT_STROKE_COLOR = '#ef4444';
+export const DEFAULT_STROKE_COLOR = 'oklch(63.7% 0.237 25.331)';
 
 /**
  * Default fill (transparent)

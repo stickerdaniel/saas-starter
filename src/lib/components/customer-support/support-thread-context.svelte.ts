@@ -2,6 +2,7 @@ import { Context } from 'runed';
 import type { PaginationResult } from 'convex/server';
 import type { ConvexClient } from 'convex/browser';
 import { api } from '$lib/convex/_generated/api';
+import type { Attachment } from './attachments.svelte';
 
 /**
  * Message interface matching Convex Agent message structure
@@ -30,6 +31,8 @@ export interface SupportMessage {
 	role: 'user' | 'assistant' | 'system' | 'tool'; // Required (normalized)
 	parts?: any[];
 	stepOrder?: number;
+	// Optimistic attachments
+	localAttachments?: Attachment[];
 }
 
 /**
@@ -111,7 +114,7 @@ export class SupportThreadContext {
 	/**
 	 * Add an optimistic user message
 	 */
-	addOptimisticMessage(content: string): SupportMessage {
+	addOptimisticMessage(content: string, attachments: Attachment[] = []): SupportMessage {
 		const optimisticMessage: SupportMessage = {
 			id: `temp_${Date.now()}`,
 			_creationTime: Date.now(),
@@ -125,7 +128,8 @@ export class SupportThreadContext {
 			status: 'success',
 			order: this.messages.length,
 			tool: false,
-			metadata: { optimistic: true }
+			metadata: { optimistic: true },
+			localAttachments: attachments
 		};
 
 		this.messages = [...this.messages, optimisticMessage];
@@ -202,6 +206,7 @@ export class SupportThreadContext {
 		options?: {
 			fileIds?: string[];
 			openWidgetAfter?: boolean;
+			attachments?: Attachment[];
 		}
 	): Promise<{ messageId: string }> {
 		// Validate input
@@ -218,7 +223,7 @@ export class SupportThreadContext {
 		this.setSending(true);
 
 		// Add optimistic message
-		const optimisticMessage = this.addOptimisticMessage(trimmedPrompt);
+		const optimisticMessage = this.addOptimisticMessage(trimmedPrompt, options?.attachments);
 
 		console.log('[sendMessage] Sending message', {
 			threadId: this.threadId,

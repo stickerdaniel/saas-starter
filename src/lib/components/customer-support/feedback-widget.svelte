@@ -17,7 +17,7 @@
 	import { Message, MessageContent } from '$lib/components/prompt-kit/message';
 	import { Button } from '$lib/components/ui/button';
 	import { Avatar, AvatarImage } from '$lib/components/ui/avatar';
-	import { ArrowUp, Camera, Image as ImageIcon, X, Paperclip, Bot } from '@lucide/svelte';
+	import { ArrowUp, Camera, Paperclip } from '@lucide/svelte';
 	import { supportThreadContext } from './support-thread-context.svelte';
 	import { FileUpload, FileUploadTrigger } from '$lib/components/prompt-kit/file-upload';
 	import ProgressiveBlur from '$blocks/magic/ProgressiveBlur.svelte';
@@ -36,6 +36,7 @@
 	} from '$lib/components/ai-elements/reasoning';
 	import type { PaginationResult } from 'convex/server';
 	import type { SupportMessage } from './support-thread-context.svelte';
+	import Attachments, { type Attachment } from './attachments.svelte';
 
 	// Type for the query response with streams
 	type MessagesQueryResponse = PaginationResult<SupportMessage> & {
@@ -46,7 +47,7 @@
 		screenshots = [],
 		onClearScreenshot,
 		attachedFiles = [],
-		onFilesAdded,
+		onFilesAdded: onFilesAddedProp,
 		onRemoveFile
 	}: {
 		isScreenshotMode?: boolean;
@@ -485,7 +486,8 @@
 			// Send message with attachments using centralized logic
 			isAwaitingStream = true;
 			await threadContext.sendMessage(client, prompt, {
-				fileIds: fileIds.length > 0 ? fileIds : undefined
+				fileIds: fileIds.length > 0 ? fileIds : undefined,
+				attachments: allAttachments // Pass local attachments for optimistic UI
 			});
 
 			// Clear attachments after successful send
@@ -513,6 +515,118 @@
 
 	function handleCameraClick() {
 		isScreenshotMode = true;
+	}
+
+	/**
+	 * Convert attachedFiles and screenshots to unified attachment format
+	 */
+	const allAttachments = $derived.by((): Attachment[] => {
+		const result: Attachment[] = [];
+
+		// Add regular files
+		attachedFiles.forEach(({ file, preview }) => {
+			result.push({ type: 'file', file, preview });
+		});
+
+		// Add screenshots
+		if (screenshots) {
+			screenshots.forEach(({ blob, filename }) => {
+				result.push({ type: 'screenshot', blob, filename });
+			});
+		}
+
+		return result;
+	});
+
+	/**
+	 * Handle attachment removal - map index back to correct array and handler
+	 */
+	function handleRemoveAttachment(index: number) {
+		const fileCount = attachedFiles.length;
+
+		if (index < fileCount) {
+			// Remove from attachedFiles
+			onRemoveFile?.(index);
+		} else {
+			// Remove from screenshots
+			onClearScreenshot?.(index - fileCount);
+		}
+	}
+
+	function handleFilesAdded(files: File[]) {
+		// Filter out duplicate files by checking name and size
+		const existingKeys = new Set(attachedFiles.map((f) => `${f.file.name}-${f.file.size}`));
+
+		const newFiles = files.filter((file) => {
+			const key = `${file.name}-${file.size}`;
+			if (existingKeys.has(key)) {
+				return false;
+			}
+			existingKeys.add(key);
+			return true;
+		});
+
+		if (newFiles.length > 0) {
+			onFilesAddedProp?.(newFiles);
+		}
+	}
+
+	/**
+	 * Extract attachments from message content
+	 */
+	function extractAttachments(msg: SupportMessage): Attachment[] {
+		// 1. Optimistic attachments
+		if (msg.localAttachments && msg.localAttachments.length > 0) {
+			return msg.localAttachments;
+		}
+
+		const attachments: Attachment[] = [];
+
+		// 2. Real message content
+		// Use parts if available (resolved by backend), otherwise fallback to content
+		const content = msg.parts || msg.message?.content;
+
+		if (Array.isArray(content)) {
+			for (const part of content) {
+				if (part.type === 'image') {
+					// part.image can be string (url) or bytes
+					if (typeof part.image === 'string') {
+						attachments.push({
+							type: 'image',
+							url: part.image,
+							filename: 'Image'
+						});
+					}
+				} else if (part.type === 'file') {
+					// part.url (from parts) or part.data (from content)
+					const url = part.url || (typeof part.data === 'string' ? part.data : null);
+
+					if (url) {
+						// Check if it is an image disguised as a file (e.g. from parts)
+						const isImage =
+							part.mediaType?.startsWith('image/') || part.mimeType?.startsWith('image/');
+
+						if (isImage) {
+							attachments.push({
+								type: 'image',
+								url: url,
+								filename: part.filename || 'Image'
+							});
+						} else {
+							// Remote file
+							attachments.push({
+								type: 'remote-file',
+								url: url,
+								filename: part.filename || 'File',
+								contentType: part.mediaType || part.mimeType
+							});
+						}
+					}
+				}
+			}
+		}
+
+		return attachments;
 	}
 </script>
 
@@ -553,50 +667,58 @@
 					<div class="space-y-4 py-16 pr-5 pl-9">
 						{#each messagesWithStreaming as message (message.id)}
 							{@const isUser = message.role === 'user'}
-							<Message class="flex  w-full flex-col gap-2 {isUser ? 'items-end' : 'items-start'}">
-								{#if isUser}
-									<MessageContent
-										class="max-w-[85%] rounded-3xl bg-primary/15 px-5 py-2.5 text-foreground sm:max-w-[75%]"
-									>
-										{message.displayText}
-									</MessageContent>
-								{:else}
-									<MessageContent class="prose w-full flex-1 p-0 pr-4 ">
-										{#if message.displayReasoning || message.hasReasoningStream || (message.status === 'pending' && !message.displayText)}
-											{@const isReasoningOpen = reasoningOpenState.get(message.id) ?? false}
-											{@const shouldUseShimmer = message.displayReasoning && !message.displayText}
-											{@const hasReasoningContent = !!message.displayReasoning}
-											<Reasoning
-												open={isReasoningOpen}
-												onOpenChange={(open) => reasoningOpenState.set(message.id, open)}
-											>
-												<ReasoningTrigger
-													isStreaming={shouldUseShimmer}
-													hasContent={hasReasoningContent}
-												/>
-												{#if message.displayReasoning}
-													<ReasoningContent class="opacity-50" content={message.displayReasoning} />
-												{/if}
-											</Reasoning>
-										{/if}
-										{#if message.displayText}
-											<Response content={message.displayText} animation={{ enabled: true }} />
-										{/if}
-									</MessageContent>
+							{@const messageAttachments = extractAttachments(message)}
+							<div class="flex w-full flex-col gap-1 {isUser ? 'items-end' : 'items-start'}">
+								{#if messageAttachments.length > 0}
+									<div class="max-w-[85%] sm:max-w-[75%]">
+										<Attachments
+											attachments={messageAttachments}
+											readonly={true}
+											columns={2}
+											class="px-0"
+										/>
+									</div>
 								{/if}
-							</Message>
+								<Message class="flex w-full flex-col gap-2 {isUser ? 'items-end' : 'items-start'}">
+									{#if isUser}
+										<MessageContent
+											class="max-w-[85%] bg-primary/15 px-5 py-2.5 text-foreground sm:max-w-[75%] {messageAttachments.length >
+											0
+												? 'rounded-3xl rounded-tr-lg'
+												: 'rounded-3xl'}"
+										>
+											{message.displayText}
+										</MessageContent>
+									{:else}
+										<MessageContent class="prose w-full flex-1 p-0 pr-4 ">
+											{#if message.displayReasoning || message.hasReasoningStream || (message.status === 'pending' && !message.displayText)}
+												{@const isReasoningOpen = reasoningOpenState.get(message.id) ?? false}
+												{@const shouldUseShimmer = message.displayReasoning && !message.displayText}
+												{@const hasReasoningContent = !!message.displayReasoning}
+												<Reasoning
+													open={isReasoningOpen}
+													onOpenChange={(open) => reasoningOpenState.set(message.id, open)}
+												>
+													<ReasoningTrigger
+														isStreaming={shouldUseShimmer}
+														hasContent={hasReasoningContent}
+													/>
+													{#if message.displayReasoning}
+														<ReasoningContent
+															class="opacity-50"
+															content={message.displayReasoning}
+														/>
+													{/if}
+												</Reasoning>
+											{/if}
+											{#if message.displayText}
+												<Response content={message.displayText} animation={{ enabled: true }} />
+											{/if}
+										</MessageContent>
+									{/if}
+								</Message>
+							</div>
 						{/each}
-
-						<!-- Show initial loading state when waiting for assistant response -->
-						{#if (threadContext.isSending || isAwaitingStream) && lastMessageIsUser}
-							<Message class="flex w-full flex-col items-start gap-2">
-								<MessageContent class="prose w-full flex-1 rounded-lg bg-transparent p-0 pr-4">
-									<Reasoning defaultOpen={false}>
-										<ReasoningTrigger isStreaming={false} hasContent={false} />
-									</Reasoning>
-								</MessageContent>
-							</Message>
-						{/if}
 					</div>
 				{/if}
 
@@ -649,52 +771,12 @@
 			</div>
 		{/if}
 		<div class="flex flex-col p-2">
-			{#if attachedFiles.length > 0 || (screenshots && screenshots.length > 0)}
-				<div class="grid grid-cols-2 gap-2 px-1 pt-1 pb-1">
-					{#each attachedFiles as { file, preview }, index}
-						<div
-							class="flex items-center justify-between gap-2 rounded-lg bg-secondary/50 px-3 py-2"
-						>
-							<div class="flex items-center gap-2 overflow-hidden">
-								{#if preview}
-									<img src={preview} alt={file.name} class="size-8 rounded object-cover" />
-								{:else}
-									<Paperclip class="size-4 shrink-0" />
-								{/if}
-								<span class="max-w-[80px] truncate text-sm">{file.name}</span>
-							</div>
-							<button
-								onclick={() => onRemoveFile?.(index)}
-								class="shrink-0 rounded-full p-1 hover:bg-secondary/50"
-								type="button"
-								aria-label="Remove file"
-							>
-								<X class="size-4" />
-							</button>
-						</div>
-					{/each}
-					{#if screenshots}
-						{#each screenshots as screenshot, index}
-							<div
-								class="flex items-center justify-between gap-2 rounded-lg bg-secondary/50 px-3 py-2"
-							>
-								<div class="flex items-center gap-2">
-									<ImageIcon class="size-4" />
-									<span class="max-w-[80px] truncate text-sm">{screenshot.filename}</span>
-								</div>
-								<button
-									onclick={() => onClearScreenshot?.(index)}
-									class="rounded-full p-1 hover:bg-secondary/50"
-									type="button"
-									aria-label="Remove screenshot"
-								>
-									<X class="size-4" />
-								</button>
-							</div>
-						{/each}
-					{/if}
-				</div>
-			{/if}
+			<Attachments
+				class="mx-2 mt-2"
+				attachments={allAttachments}
+				onRemove={handleRemoveAttachment}
+				columns={2}
+			/>
 
 			<PromptInputTextarea
 				placeholder="Type a message or click a suggestion..."
@@ -716,7 +798,7 @@
 							<Camera class="h-[18px] w-[18px]" />
 						</Button>
 					</PromptInputAction>
-					<FileUpload onFilesAdded={(files) => onFilesAdded?.(files)} multiple={true}>
+					<FileUpload onFilesAdded={handleFilesAdded} multiple={true}>
 						<PromptInputAction>
 							{#snippet tooltip()}
 								<p>Attach files</p>
