@@ -36,7 +36,7 @@
 	} from '$lib/components/ai-elements/reasoning';
 	import type { PaginationResult } from 'convex/server';
 	import type { SupportMessage } from './support-thread-context.svelte';
-	import Attachments, { type Attachment } from './attachments.svelte';
+	import Attachments, { type Attachment, type UploadState } from './attachments.svelte';
 
 	// Type for the query response with streams
 	type MessagesQueryResponse = PaginationResult<SupportMessage> & {
@@ -51,9 +51,9 @@
 		onRemoveFile
 	}: {
 		isScreenshotMode?: boolean;
-		screenshots?: Array<{ blob: Blob; filename: string }>;
+		screenshots?: Array<{ blob: Blob; filename: string; uploadState: UploadState }>;
 		onClearScreenshot?: (index: number) => void;
-		attachedFiles?: Array<{ file: File; preview?: string }>;
+		attachedFiles?: Array<{ file: File; preview?: string; uploadState: UploadState }>;
 		onFilesAdded?: (files: File[]) => void;
 		onRemoveFile?: (index: number) => void;
 	} = $props();
@@ -428,25 +428,25 @@
 		});
 	});
 
-	/**
-	 * Convert Blob or File to base64 string for upload
-	 */
-	async function blobToBase64(blob: Blob): Promise<string> {
-		return new Promise((resolve, reject) => {
-			const reader = new FileReader();
-			reader.onloadend = () => {
-				const base64 = reader.result as string;
-				// Remove the data URL prefix (e.g., "data:image/png;base64,")
-				const base64Data = base64.split(',')[1];
-				resolve(base64Data);
-			};
-			reader.onerror = reject;
-			reader.readAsDataURL(blob);
-		});
-	}
+	// Check if any uploads are pending or failed
+	const hasUploadingFiles = $derived.by(() => {
+		const fileUploading = attachedFiles.some((f) => f.uploadState?.status === 'uploading');
+		const screenshotUploading =
+			screenshots?.some((s) => s.uploadState?.status === 'uploading') || false;
+		return fileUploading || screenshotUploading;
+	});
+
+	const hasFailedUploads = $derived.by(() => {
+		const fileFailed = attachedFiles.some((f) => f.uploadState?.status === 'error');
+		const screenshotFailed = screenshots?.some((s) => s.uploadState?.status === 'error') || false;
+		return fileFailed || screenshotFailed;
+	});
+
+	// Disable send button if uploads pending or failed
+	const canSend = $derived(!hasUploadingFiles && !hasFailedUploads && !!inputValue.trim());
 
 	async function handleSend() {
-		if (!inputValue.trim()) return;
+		if (!canSend) return;
 
 		const prompt = inputValue.trim();
 
@@ -454,36 +454,24 @@
 		inputValue = '';
 
 		try {
-			// Upload all attachments first
+			// Collect all successfully uploaded fileIds
 			const fileIds: string[] = [];
 
-			// Upload screenshots
-			if (screenshots && screenshots.length > 0) {
-				for (const screenshot of screenshots) {
-					const base64Data = await blobToBase64(screenshot.blob);
-					const uploadResult = await client.action(api.support.files.uploadFile, {
-						blob: base64Data,
-						filename: screenshot.filename,
-						mimeType: screenshot.blob.type
-					});
-					fileIds.push(uploadResult.fileId);
+			// Collect screenshot fileIds
+			for (const screenshot of screenshots || []) {
+				if (screenshot.uploadState.status === 'success' && screenshot.uploadState.fileId) {
+					fileIds.push(screenshot.uploadState.fileId);
 				}
 			}
 
-			// Upload attached files
-			if (attachedFiles && attachedFiles.length > 0) {
-				for (const { file } of attachedFiles) {
-					const base64Data = await blobToBase64(file);
-					const uploadResult = await client.action(api.support.files.uploadFile, {
-						blob: base64Data,
-						filename: file.name,
-						mimeType: file.type
-					});
-					fileIds.push(uploadResult.fileId);
+			// Collect attached file fileIds
+			for (const { uploadState } of attachedFiles) {
+				if (uploadState.status === 'success' && uploadState.fileId) {
+					fileIds.push(uploadState.fileId);
 				}
 			}
 
-			// Send message with attachments using centralized logic
+			// Send message immediately (no upload delay!)
 			isAwaitingStream = true;
 			await threadContext.sendMessage(client, prompt, {
 				fileIds: fileIds.length > 0 ? fileIds : undefined,
@@ -503,8 +491,8 @@
 				}
 			}
 		} catch (error) {
-			// Error already handled in sendMessage
 			console.error('[handleSend] Error:', error);
+			threadContext.setError('Failed to send message');
 			isAwaitingStream = false;
 		}
 	}
@@ -524,14 +512,14 @@
 		const result: Attachment[] = [];
 
 		// Add regular files
-		attachedFiles.forEach(({ file, preview }) => {
-			result.push({ type: 'file', file, preview });
+		attachedFiles.forEach(({ file, preview, uploadState }) => {
+			result.push({ type: 'file', file, preview, uploadState });
 		});
 
 		// Add screenshots
 		if (screenshots) {
-			screenshots.forEach(({ blob, filename }) => {
-				result.push({ type: 'screenshot', blob, filename });
+			screenshots.forEach(({ blob, filename, uploadState }) => {
+				result.push({ type: 'screenshot', blob, filename, uploadState });
 			});
 		}
 
@@ -822,7 +810,7 @@
 
 				<Button
 					size="icon"
-					disabled={!inputValue.trim() || threadContext.isSending}
+					disabled={!canSend || threadContext.isSending}
 					onclick={handleSend}
 					class="size-9 rounded-full"
 					aria-label="Send"
