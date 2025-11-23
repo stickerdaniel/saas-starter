@@ -41,14 +41,11 @@ export const sendMessage = mutation({
 
 			// Add file/image parts
 			for (const fileId of args.fileIds) {
-				const { filePart, imagePart } = await getFile(ctx, components.agent, fileId);
+				const { filePart } = await getFile(ctx, components.agent, fileId);
 
-				// Use imagePart for images (better model support), filePart for other files
-				if (imagePart) {
-					content.push(imagePart);
-				} else {
-					content.push(filePart);
-				}
+				// Use filePart for all files - preserves filename for both images and PDFs
+				// The mediaType field (e.g. "image/jpeg", "application/pdf") allows LLMs to identify content type
+				content.push(filePart);
 			}
 
 			// Save multimodal message
