@@ -7,5 +7,11 @@ export default defineConfig({
 	test: {
 		exclude: ['e2e/**', 'node_modules/**', 'dist/**', '.{idea,git,cache,output,temp}/**'],
 		passWithNoTests: true
+	},
+	optimizeDeps: {
+		include: ['svelte-konva', 'konva']
+	},
+	ssr: {
+		noExternal: ['svelte-konva']
 	}
 });

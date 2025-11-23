@@ -3,27 +3,16 @@
 	"version": "2.0.0",
 	"tasks": [
 		{
-			"label": "bun run dev -- --open",
+			"label": "bun run dev",
 			"type": "shell",
 			"command": "bun",
-			"args": ["run", "dev", "--", "--open"],
+			"args": ["run", "dev"],
 			"group": {
 				"kind": "build",
 				"isDefault": true
 			},
 			"problemMatcher": [],
-			"detail": "Run the development server",
-			"presentation": {
-				"clear": true
-			}
-		},
-		{
-			"label": "bunx convex dev",
-			"type": "shell",
-			"command": "bunx",
-			"args": ["convex", "dev"],
-			"problemMatcher": [],
-			"detail": "Run the Convex development server",
+			"detail": "Run the frontend and backend development servers",
 			"presentation": {
 				"clear": true
 			}

@@ -1,0 +1,297 @@
+import { Context } from 'runed';
+import type { PaginationResult } from 'convex/server';
+import type { ConvexClient } from 'convex/browser';
+import { api } from '$lib/convex/_generated/api';
+import type { Attachment } from './attachments.svelte';
+
+/**
+ * Message interface matching Convex Agent message structure
+ */
+export interface SupportMessage {
+	id: string; // Changed from _id to match UIMessage from listUIMessages
+	_creationTime: number;
+	threadId?: string;
+	message?: {
+		role: 'user' | 'assistant' | 'system' | 'tool';
+		content: any; // Can be string or complex array structure
+		providerOptions?: Record<string, any>;
+	};
+	text?: string; // Convenience field with full text content
+	reasoning?: string; // Reasoning content (for models like DeepSeek R1)
+	status: 'pending' | 'success' | 'failed' | 'streaming';
+	order: number;
+	tool?: boolean;
+	agentName?: string;
+	embeddingId?: string;
+	model?: string;
+	usage?: Record<string, any>;
+	metadata?: Record<string, any>;
+	// Additional UIMessage fields
+	key?: string;
+	role: 'user' | 'assistant' | 'system' | 'tool'; // Required (normalized)
+	parts?: any[];
+	stepOrder?: number;
+	// Optimistic attachments
+	localAttachments?: Attachment[];
+}
+
+/**
+ * Thread context state
+ */
+export class SupportThreadContext {
+	threadId = $state<string | null>(null);
+	messages = $state<SupportMessage[]>([]);
+	isLoading = $state(false);
+	isSending = $state(false);
+	error = $state<string | null>(null);
+	shouldOpenWidget = $state(false);
+
+	// Pagination state
+	hasMore = $state(false);
+	continueCursor = $state<string | null>(null);
+
+	// Derived state
+	get hasThread() {
+		return this.threadId !== null;
+	}
+
+	get streamingMessages() {
+		return this.messages.filter((m) => m.status === 'pending');
+	}
+
+	get isStreaming() {
+		return this.streamingMessages.length > 0;
+	}
+
+	/**
+	 * Initialize or load a thread
+	 */
+	setThread(threadId: string | null) {
+		this.threadId = threadId;
+		this.messages = [];
+		this.hasMore = false;
+		this.continueCursor = null;
+	}
+
+	/**
+	 * Update messages from query result
+	 * Merges with existing messages, deduplicating by ID
+	 * Prefers real messages over optimistic ones
+	 */
+	updateMessages(result: PaginationResult<SupportMessage>) {
+		const newMessages = result.page;
+
+		// Create a map of existing messages by ID
+		const existingMap = new Map(this.messages.map((m) => [m.id, m]));
+
+		// Create a map of new messages by ID (these override existing)
+		const newMap = new Map(newMessages.map((m) => [m.id, m]));
+
+		// Merge: new messages override existing, keep existing if not in new
+		// Remove optimistic messages if real version exists
+		const merged = new Map<string, SupportMessage>();
+
+		// Add all new messages first (they're authoritative)
+		for (const [id, msg] of newMap) {
+			merged.set(id, msg);
+		}
+
+		// Add existing messages that aren't in new results
+		for (const [id, msg] of existingMap) {
+			if (!merged.has(id)) {
+				// Keep existing message if not optimistic or if no real version exists
+				if (!msg.metadata?.optimistic) {
+					merged.set(id, msg);
+				}
+			}
+		}
+
+		this.messages = Array.from(merged.values());
+		this.hasMore = result.isDone === false;
+		this.continueCursor = result.continueCursor;
+	}
+
+	/**
+	 * Add an optimistic user message
+	 */
+	addOptimisticMessage(content: string, attachments: Attachment[] = []): SupportMessage {
+		const optimisticMessage: SupportMessage = {
+			id: `temp_${Date.now()}`,
+			_creationTime: Date.now(),
+			threadId: this.threadId!,
+			role: 'user', // Top-level role (normalized)
+			message: {
+				role: 'user',
+				content
+			},
+			text: content, // Add convenience text field
+			status: 'success',
+			order: this.messages.length,
+			tool: false,
+			metadata: { optimistic: true },
+			localAttachments: attachments
+		};
+
+		this.messages = [...this.messages, optimisticMessage];
+		return optimisticMessage;
+	}
+
+	/**
+	 * Remove optimistic message
+	 */
+	removeOptimisticMessage(messageId: string) {
+		this.messages = this.messages.filter((m) => m.id !== messageId);
+	}
+
+	/**
+	 * Set loading state
+	 */
+	setLoading(loading: boolean) {
+		this.isLoading = loading;
+	}
+
+	/**
+	 * Set sending state
+	 */
+	setSending(sending: boolean) {
+		this.isSending = sending;
+	}
+
+	/**
+	 * Set error state
+	 */
+	setError(error: string | null) {
+		this.error = error;
+	}
+
+	/**
+	 * Clear error
+	 */
+	clearError() {
+		this.error = null;
+	}
+
+	/**
+	 * Request widget to open (used when message sent from chatbar)
+	 */
+	requestWidgetOpen() {
+		this.shouldOpenWidget = true;
+	}
+
+	/**
+	 * Clear widget open request
+	 */
+	clearWidgetOpenRequest() {
+		this.shouldOpenWidget = false;
+	}
+
+	/**
+	 * Send a message with optional file attachments
+	 *
+	 * This method handles the complete message sending flow:
+	 * - Validation
+	 * - Optimistic updates
+	 * - Backend mutation
+	 * - Error handling
+	 * - Widget opening (optional)
+	 *
+	 * @param client - Convex client instance
+	 * @param prompt - Message text content
+	 * @param options - Optional configuration
+	 * @returns Promise with message ID
+	 */
+	async sendMessage(
+		client: ConvexClient,
+		prompt: string,
+		options?: {
+			fileIds?: string[];
+			openWidgetAfter?: boolean;
+			attachments?: Attachment[];
+		}
+	): Promise<{ messageId: string }> {
+		// Validate input
+		if (!prompt.trim() || !this.threadId || this.isSending) {
+			console.log('[sendMessage] Blocked - validation failed', {
+				hasPrompt: !!prompt.trim(),
+				hasThreadId: !!this.threadId,
+				isSending: this.isSending
+			});
+			throw new Error('Cannot send message: validation failed');
+		}
+
+		const trimmedPrompt = prompt.trim();
+		this.setSending(true);
+
+		// Add optimistic message
+		const optimisticMessage = this.addOptimisticMessage(trimmedPrompt, options?.attachments);
+
+		console.log('[sendMessage] Sending message', {
+			threadId: this.threadId,
+			promptLength: trimmedPrompt.length,
+			optimisticId: optimisticMessage.id,
+			fileCount: options?.fileIds?.length || 0
+		});
+
+		try {
+			// Send message with optional attachments
+			const result = await client.mutation(api.support.messages.sendMessage, {
+				threadId: this.threadId,
+				prompt: trimmedPrompt,
+				fileIds: options?.fileIds
+			});
+
+			console.log('[sendMessage] Message sent successfully', {
+				messageId: result.messageId,
+				optimisticId: optimisticMessage.id,
+				fileCount: options?.fileIds?.length || 0
+			});
+
+			// Request widget to open if requested
+			if (options?.openWidgetAfter) {
+				this.requestWidgetOpen();
+			}
+
+			return result;
+		} catch (error) {
+			console.error('[sendMessage] Failed to send message:', error);
+			this.setError('Failed to send message. Please try again.');
+			this.removeOptimisticMessage(optimisticMessage.id);
+			throw error;
+		} finally {
+			this.setSending(false);
+		}
+	}
+
+	/**
+	 * Reset the context
+	 */
+	reset() {
+		this.threadId = null;
+		this.messages = [];
+		this.isLoading = false;
+		this.isSending = false;
+		this.error = null;
+		this.shouldOpenWidget = false;
+		this.hasMore = false;
+		this.continueCursor = null;
+	}
+}
+
+/**
+ * Support thread context
+ *
+ * Use this context to share thread state across customer support components.
+ *
+ * @example
+ * ```svelte
+ * <script lang="ts">
+ *   import { supportThreadContext } from './support-thread-context.svelte';
+ *
+ *   const thread = supportThreadContext.get();
+ *
+ *   // Access thread state
+ *   const { threadId, messages, isStreaming } = $derived(thread);
+ * </script>
+ * ```
+ */
+export const supportThreadContext = new Context<SupportThreadContext>('support-thread');
