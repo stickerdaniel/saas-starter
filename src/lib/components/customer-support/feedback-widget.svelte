@@ -576,21 +576,12 @@
 
 		if (Array.isArray(content)) {
 			for (const part of content) {
-				if (part.type === 'image') {
-					// part.image can be string (url) or bytes
-					if (typeof part.image === 'string') {
-						attachments.push({
-							type: 'image',
-							url: part.image,
-							filename: 'Image'
-						});
-					}
-				} else if (part.type === 'file') {
+				if (part.type === 'file') {
 					// part.url (from parts) or part.data (from content)
 					const url = part.url || (typeof part.data === 'string' ? part.data : null);
 
 					if (url) {
-						// Check if it is an image disguised as a file (e.g. from parts)
+						// Check if it is an image (via mediaType)
 						const isImage =
 							part.mediaType?.startsWith('image/') || part.mimeType?.startsWith('image/');
 
