@@ -17,7 +17,7 @@
 	import { Message, MessageContent } from '$lib/components/prompt-kit/message';
 	import { Button } from '$lib/components/ui/button';
 	import { Avatar, AvatarImage } from '$lib/components/ui/avatar';
-	import { ArrowUp, Camera, Paperclip } from '@lucide/svelte';
+	import { ArrowUp, Camera, ChevronDown, Paperclip, X } from '@lucide/svelte';
 	import { supportThreadContext } from './support-thread-context.svelte';
 	import { FileUpload, FileUploadTrigger } from '$lib/components/prompt-kit/file-upload';
 	import ProgressiveBlur from '$blocks/magic/ProgressiveBlur.svelte';
@@ -38,6 +38,8 @@
 	import type { SupportMessage } from './support-thread-context.svelte';
 	import Attachments, { type Attachment, type UploadState } from './attachments.svelte';
 
+	import { lockscroll } from '@svelte-put/lockscroll';
+
 	// Type for the query response with streams
 	type MessagesQueryResponse = PaginationResult<SupportMessage> & {
 		streams: any; // StreamResult from @convex-dev/agent
@@ -48,7 +50,8 @@
 		onClearScreenshot,
 		attachedFiles = [],
 		onFilesAdded: onFilesAddedProp,
-		onRemoveFile
+		onRemoveFile,
+		isFeedbackOpen = $bindable(false)
 	}: {
 		isScreenshotMode?: boolean;
 		screenshots?: Array<{ blob: Blob; filename: string; uploadState: UploadState }>;
@@ -56,7 +59,10 @@
 		attachedFiles?: Array<{ file: File; preview?: string; uploadState: UploadState }>;
 		onFilesAdded?: (files: File[]) => void;
 		onRemoveFile?: (index: number) => void;
+		isFeedbackOpen?: boolean;
 	} = $props();
+
+	import { IsMobile } from '$lib/hooks/is-mobile.svelte.js';
 
 	// Get thread context
 	const threadContext = supportThreadContext.get();
@@ -607,14 +613,29 @@
 
 		return attachments;
 	}
+
+	const isMobile = new IsMobile();
 </script>
+
+<svelte:body use:lockscroll={isMobile.current} />
 
 <!-- Feedback widget container -->
 <div
-	class="right-0 bottom-0 flex h-full w-full origin-bottom-right animate-in flex-col overflow-hidden bg-secondary shadow-[0_0px_30px_rgba(0,0,0,0.19)] duration-200 ease-out fade-in-0 zoom-in-95 slide-in-from-bottom-4 sm:h-[700px] sm:w-[410px] sm:rounded-3xl"
+	class="fixed right-0 bottom-0 z-1 flex h-full w-full origin-bottom animate-in flex-col overflow-hidden bg-secondary shadow-[0_0px_30px_rgba(0,0,0,0.19)] duration-200 ease-out fade-in-0 zoom-in-95 slide-in-from-bottom-4 md:static md:h-[700px] md:w-[410px] md:origin-bottom-right md:rounded-3xl"
 >
 	<!-- Messages container -->
 	<div class="relative min-h-0 w-full flex-1">
+		<!-- Mobile Close Button -->
+		{#if isMobile.current}
+			<Button
+				variant="default"
+				size="icon"
+				class="absolute right-0 z-1 m-4 h-12 w-12 rounded-full transition-colors transition-transform duration-300 ease-in-out hover:scale-110 hover:bg-primary"
+				onclick={() => (isFeedbackOpen = false)}
+			>
+				<X class="size-6" />
+			</Button>
+		{/if}
 		<ChatContainerRoot class="relative h-full">
 			<ChatContainerContent class="!h-full">
 				{#if messagesWithStreaming.length === 0}
@@ -643,13 +664,13 @@
 					</div>
 				{:else}
 					<!-- Messages list -->
-					<div class="space-y-4 py-16 pr-5 pl-9">
+					<div class="space-y-4 py-20 pr-4 pl-9">
 						{#each messagesWithStreaming as message (message.id)}
 							{@const isUser = message.role === 'user'}
 							{@const messageAttachments = extractAttachments(message)}
 							<div class="flex w-full flex-col gap-1 {isUser ? 'items-end' : 'items-start'}">
 								{#if messageAttachments.length > 0}
-									<div class="max-w-[85%] sm:max-w-[75%]">
+									<div class="max-w-[85%] md:max-w-[75%]">
 										<Attachments
 											attachments={messageAttachments}
 											readonly={true}
@@ -661,7 +682,7 @@
 								<Message class="flex w-full flex-col gap-2 {isUser ? 'items-end' : 'items-start'}">
 									{#if isUser}
 										<MessageContent
-											class="max-w-[85%] bg-primary/15 px-5 py-2.5 text-foreground sm:max-w-[75%] {messageAttachments.length >
+											class="max-w-[85%] bg-primary/15 px-5 py-2.5 text-foreground md:max-w-[75%] {messageAttachments.length >
 											0
 												? 'rounded-3xl rounded-tr-lg'
 												: 'rounded-3xl'}"

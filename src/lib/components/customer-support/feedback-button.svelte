@@ -6,7 +6,7 @@
 	import type { UploadState } from './attachments.svelte';
 
 	let {
-		isOpen = $bindable(false),
+		isFeedbackOpen = $bindable(false),
 		isScreenshotMode = $bindable(false),
 		screenshots = [],
 		onClearScreenshot,
@@ -14,7 +14,7 @@
 		onFilesAdded,
 		onRemoveFile
 	}: {
-		isOpen?: boolean;
+		isFeedbackOpen?: boolean;
 		isScreenshotMode?: boolean;
 		screenshots?: Array<{ blob: Blob; filename: string; uploadState: UploadState }>;
 		onClearScreenshot?: (index: number) => void;
@@ -24,15 +24,15 @@
 	} = $props();
 
 	function toggleOpen() {
-		isOpen = !isOpen;
+		isFeedbackOpen = !isFeedbackOpen;
 	}
 
 	$effect(() => {
-		if (!isOpen) return;
+		if (!isFeedbackOpen) return;
 
 		return on(window, 'keydown', (event) => {
 			if (event.key === 'Escape') {
-				isOpen = false;
+				isFeedbackOpen = false;
 			}
 		});
 	});
@@ -40,8 +40,9 @@
 
 {#if !isScreenshotMode}
 	<div class="fixed right-5 bottom-5 z-200 flex flex-col items-end justify-end gap-3">
-		{#if isOpen}
+		{#if isFeedbackOpen}
 			<FeedbackWidget
+				bind:isFeedbackOpen
 				bind:isScreenshotMode
 				{screenshots}
 				{onClearScreenshot}
@@ -58,13 +59,13 @@
 		>
 			<div class="relative size-6">
 				<ChevronDown
-					class="absolute inset-0 size-6 transition-all duration-200 ease-out {isOpen
+					class="absolute inset-0 size-6 transition-all duration-200 ease-out {isFeedbackOpen
 						? 'scale-100 opacity-100'
 						: 'scale-0 opacity-0'}"
 				/>
 				<div class="-scale-x-100">
 					<MessageSquare
-						class="absolute inset-0 size-6 fill-current transition-all duration-200 ease-in-out {isOpen
+						class="absolute inset-0 size-6 fill-current transition-all duration-200 ease-in-out {isFeedbackOpen
 							? 'scale-0 opacity-0'
 							: 'scale-100 opacity-100'}"
 					/>

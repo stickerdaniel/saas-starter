@@ -174,7 +174,7 @@
 
 <AIChatbar isFeedbackOpen={!shouldShowAIChatbar} />
 <FeedbackButton
-	bind:isOpen={isFeedbackOpen}
+	bind:isFeedbackOpen
 	bind:isScreenshotMode
 	{screenshots}
 	onClearScreenshot={handleClearScreenshot}

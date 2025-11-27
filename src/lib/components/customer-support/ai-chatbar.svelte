@@ -71,7 +71,7 @@
 
 <!-- Glow container with group hover/focus behavior -->
 <div
-	class="group ai-chatbar fixed bottom-5 left-1/2 z-[100] w-full -translate-x-1/2 md:mb-0 {!mounted ||
+	class="group ai-chatbar fixed bottom-5 left-1/2 z-[100] w-full -translate-x-1/2 px-20 md:mb-0 {!mounted ||
 	delayedFeedbackOpen
 		? 'fade-out'
 		: ''}"
@@ -79,7 +79,7 @@
 	<div
 		class="relative mx-auto transition-all duration-300 ease-in-out {isFocused
 			? 'max-w-[430px]'
-			: 'max-w-[280px]'}"
+			: 'max-w-[200px] md:max-w-[280px]'}"
 	>
 		<!-- Gradient glow layers (behind) -->
 		<div class="ai-gradient-wrapper-glow pointer-events-none"></div>
