@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Message, MessageContent } from '$lib/components/prompt-kit/message';
 	import { Response } from '$lib/components/ai-elements/response';
-	import Attachments from '$lib/components/customer-support/attachments.svelte';
+	import ChatAttachments from './ChatAttachments.svelte';
 	import ChatReasoning from './ChatReasoning.svelte';
 	import { getChatUIContext } from './ChatContext.svelte.js';
 	import type { DisplayMessage, Attachment } from '../core/types.js';
@@ -42,7 +42,7 @@
 <div class="flex w-full flex-col gap-1 {isUser ? 'items-end' : 'items-start'}">
 	{#if attachments.length > 0}
 		<div class="max-w-[85%] md:max-w-[75%]">
-			<Attachments {attachments} readonly={true} columns={2} class="px-0" />
+			<ChatAttachments {attachments} readonly={true} columns={2} class="px-0" />
 		</div>
 	{/if}
 	<Message class="flex w-full flex-col gap-2 {isUser ? 'items-end' : 'items-start'}">

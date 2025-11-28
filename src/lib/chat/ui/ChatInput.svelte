@@ -10,26 +10,20 @@
 	import { FileUpload, FileUploadTrigger } from '$lib/components/prompt-kit/file-upload';
 	import { Button } from '$lib/components/ui/button';
 	import { ArrowUp, Camera, Paperclip } from '@lucide/svelte';
-	import Attachments from '$lib/components/customer-support/attachments.svelte';
+	import ChatAttachments from './ChatAttachments.svelte';
 	import { getChatUIContext } from './ChatContext.svelte.js';
-	import type { Attachment } from '../core/types.js';
 
 	let {
-		attachments = [],
 		suggestions = [],
 		placeholder = 'Type a message...',
 		showCameraButton = false,
 		showFileButton = true,
 		onScreenshot,
-		onFilesAdded,
-		onRemoveAttachment,
 		onSend,
 		actionsLeft,
 		actionsRight,
 		class: className = ''
 	}: {
-		/** Current attachments */
-		attachments?: Attachment[];
 		/** Suggestion chips to show when empty */
 		suggestions?: Array<{ text: string; label: string }>;
 		/** Input placeholder text */
@@ -40,10 +34,6 @@
 		showFileButton?: boolean;
 		/** Callback when screenshot button clicked */
 		onScreenshot?: () => void;
-		/** Callback when files are added */
-		onFilesAdded?: (files: File[]) => void;
-		/** Callback when attachment is removed */
-		onRemoveAttachment?: (index: number) => void;
 		/** Callback when message is sent - receives the prompt text */
 		onSend?: (prompt: string) => Promise<void> | void;
 		/** Custom left actions slot */
@@ -56,23 +46,8 @@
 
 	const ctx = getChatUIContext();
 
-	// Check if any uploads are pending or failed
-	const hasUploadingFiles = $derived.by(() => {
-		return attachments.some(
-			(a) => (a.type === 'file' || a.type === 'screenshot') && a.uploadState?.status === 'uploading'
-		);
-	});
-
-	const hasFailedUploads = $derived.by(() => {
-		return attachments.some(
-			(a) => (a.type === 'file' || a.type === 'screenshot') && a.uploadState?.status === 'error'
-		);
-	});
-
-	// Disable send button if uploads pending or failed
-	const canSend = $derived(
-		!hasUploadingFiles && !hasFailedUploads && !!ctx.inputValue.trim() && !ctx.core.isSending
-	);
+	// Use context for send validation
+	const canSend = $derived(ctx.canSend && !ctx.core.isSending);
 
 	async function handleSend() {
 		if (!canSend) return;
@@ -89,12 +64,18 @@
 		onScreenshot?.();
 	}
 
-	function handleFilesAdded(files: File[]) {
-		onFilesAdded?.(files);
+	async function handleFilesAdded(files: File[]) {
+		// Upload files through context (with duplicate detection)
+		for (const file of files) {
+			if (!ctx.hasFile(file.name, file.size)) {
+				// Fire and forget - context manages progress
+				ctx.uploadFile(file);
+			}
+		}
 	}
 
 	function handleRemoveAttachment(index: number) {
-		onRemoveAttachment?.(index);
+		ctx.removeAttachment(index);
 	}
 
 	function handleSuggestionClick(text: string) {
@@ -123,8 +104,13 @@
 	{/if}
 
 	<div class="flex flex-col p-2">
-		{#if attachments.length > 0}
-			<Attachments class="mx-2 mt-2" {attachments} onRemove={handleRemoveAttachment} columns={2} />
+		{#if ctx.attachments.length > 0}
+			<ChatAttachments
+				class="mx-2 mt-2"
+				attachments={ctx.attachments}
+				onRemove={handleRemoveAttachment}
+				columns={2}
+			/>
 		{/if}
 
 		<PromptInputTextarea {placeholder} class="min-h-[44px] pt-3 pl-4 text-base leading-[1.3]" />

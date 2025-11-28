@@ -2,7 +2,7 @@ import { Context } from 'runed';
 import type { PaginationResult } from 'convex/server';
 import type { ConvexClient } from 'convex/browser';
 import { api } from '$lib/convex/_generated/api';
-import type { Attachment } from './attachments.svelte';
+import type { Attachment } from '$lib/chat';
 import { StreamCacheManager } from '$lib/chat/core/StreamProcessor.js';
 
 /**

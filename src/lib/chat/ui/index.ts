@@ -6,6 +6,8 @@
  */
 
 // Context
+export type { UploadConfig } from './ChatContext.svelte.js';
+
 export {
 	ChatUIContext,
 	setChatUIContext,

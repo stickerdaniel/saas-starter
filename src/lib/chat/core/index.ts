@@ -25,19 +25,13 @@ export type {
 
 export { DEFAULT_CHAT_CONFIG } from './types.js';
 
-// Stream processing
+// Stream processing (public API)
 export {
-	blankUIMessage,
-	statusFromStreamStatus,
-	getParts,
 	extractReasoning,
 	extractUserMessageText,
 	normalizeMessage,
-	updateFromTextStreamParts,
 	deriveUIMessagesFromTextStreamParts,
-	StreamCacheManager,
-	processMessagesWithStreaming,
-	processMessagesWithoutStreaming
+	StreamCacheManager
 } from './StreamProcessor.js';
 
 // File upload

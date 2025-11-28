@@ -9,6 +9,15 @@ import { getContext, setContext } from 'svelte';
 import type { ConvexClient } from 'convex/browser';
 import type { ChatCore } from '../core/ChatCore.svelte.js';
 import type { DisplayMessage, Attachment } from '../core/types.js';
+import { uploadFileWithProgress } from '../core/FileUploader.js';
+
+/**
+ * Configuration for file uploads
+ */
+export interface UploadConfig {
+	generateUploadUrl: Parameters<ConvexClient['mutation']>[0];
+	saveUploadedFile: Parameters<ConvexClient['action']>[0];
+}
 
 /**
  * Chat UI Context class
@@ -22,6 +31,9 @@ export class ChatUIContext {
 	/** Convex client for queries/mutations */
 	readonly client: ConvexClient;
 
+	/** Upload configuration (optional - required for uploadFile method) */
+	readonly uploadConfig?: UploadConfig;
+
 	/** UI state: which reasoning accordions are open */
 	reasoningOpenState = $state<Map<string, boolean>>(new Map());
 
@@ -31,12 +43,17 @@ export class ChatUIContext {
 	/** Current input value */
 	inputValue = $state('');
 
-	/** Attachments for current message */
+	/** Attachments for current message - keyed by unique ID for progress updates */
 	attachments = $state<Attachment[]>([]);
 
-	constructor(core: ChatCore, client: ConvexClient) {
+	/** Internal map for tracking attachment keys (for progress updates) */
+	private attachmentKeys = new Map<number, string>();
+	private nextAttachmentIndex = 0;
+
+	constructor(core: ChatCore, client: ConvexClient, uploadConfig?: UploadConfig) {
 		this.core = core;
 		this.client = client;
+		this.uploadConfig = uploadConfig;
 	}
 
 	/**
@@ -101,6 +118,154 @@ export class ChatUIContext {
 	 */
 	clearAttachments(): void {
 		this.attachments = [];
+		this.attachmentKeys.clear();
+		this.nextAttachmentIndex = 0;
+	}
+
+	/**
+	 * Check if a file with the same name and size already exists
+	 */
+	hasFile(name: string, size: number): boolean {
+		return this.attachments.some(
+			(a) => (a.type === 'file' || a.type === 'screenshot') && a.name === name && a.size === size
+		);
+	}
+
+	/**
+	 * Upload a file and add it as an attachment
+	 * Progress is tracked automatically
+	 */
+	async uploadFile(file: File | Blob, filename?: string): Promise<void> {
+		if (!this.uploadConfig) {
+			throw new Error('Upload config not provided to ChatUIContext');
+		}
+
+		const name = filename ?? (file instanceof File ? file.name : 'file');
+		const attachmentIndex = this.nextAttachmentIndex++;
+		const key = crypto.randomUUID();
+		this.attachmentKeys.set(attachmentIndex, key);
+
+		// Add optimistic attachment with uploading state
+		const newAttachment: Attachment = {
+			type: 'file',
+			name,
+			size: file.size,
+			mimeType: file.type,
+			preview: file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined,
+			uploadState: { status: 'uploading', progress: 0 }
+		};
+
+		this.attachments = [...this.attachments, newAttachment];
+		const currentIndex = this.attachments.length - 1;
+
+		try {
+			const result = await uploadFileWithProgress(
+				this.client,
+				file,
+				name,
+				(progress) => {
+					// Update progress for this specific attachment
+					this.attachments = this.attachments.map((a, i) =>
+						i === currentIndex && (a.type === 'file' || a.type === 'screenshot') && a.uploadState
+							? { ...a, uploadState: { ...a.uploadState, progress } }
+							: a
+					);
+				},
+				this.uploadConfig
+			);
+
+			// Mark as success
+			this.attachments = this.attachments.map((a, i) =>
+				i === currentIndex
+					? {
+							...a,
+							url: result.url,
+							uploadState: { status: 'success' as const, progress: 100, fileId: result.fileId }
+						}
+					: a
+			);
+		} catch (error) {
+			// Mark as error
+			this.attachments = this.attachments.map((a, i) =>
+				i === currentIndex
+					? {
+							...a,
+							uploadState: {
+								status: 'error' as const,
+								progress: 0,
+								error: error instanceof Error ? error.message : 'Upload failed'
+							}
+						}
+					: a
+			);
+		}
+	}
+
+	/**
+	 * Upload a screenshot blob
+	 */
+	async uploadScreenshot(blob: Blob, filename: string): Promise<void> {
+		if (!this.uploadConfig) {
+			throw new Error('Upload config not provided to ChatUIContext');
+		}
+
+		const attachmentIndex = this.nextAttachmentIndex++;
+		const key = crypto.randomUUID();
+		this.attachmentKeys.set(attachmentIndex, key);
+
+		// Add optimistic attachment with uploading state
+		const newAttachment: Attachment = {
+			type: 'screenshot',
+			name: filename,
+			size: blob.size,
+			mimeType: blob.type,
+			preview: URL.createObjectURL(blob),
+			uploadState: { status: 'uploading', progress: 0 }
+		};
+
+		this.attachments = [...this.attachments, newAttachment];
+		const currentIndex = this.attachments.length - 1;
+
+		try {
+			const result = await uploadFileWithProgress(
+				this.client,
+				blob,
+				filename,
+				(progress) => {
+					this.attachments = this.attachments.map((a, i) =>
+						i === currentIndex && (a.type === 'file' || a.type === 'screenshot') && a.uploadState
+							? { ...a, uploadState: { ...a.uploadState, progress } }
+							: a
+					);
+				},
+				this.uploadConfig
+			);
+
+			// Mark as success
+			this.attachments = this.attachments.map((a, i) =>
+				i === currentIndex
+					? {
+							...a,
+							url: result.url,
+							uploadState: { status: 'success' as const, progress: 100, fileId: result.fileId }
+						}
+					: a
+			);
+		} catch (error) {
+			// Mark as error
+			this.attachments = this.attachments.map((a, i) =>
+				i === currentIndex
+					? {
+							...a,
+							uploadState: {
+								status: 'error' as const,
+								progress: 0,
+								error: error instanceof Error ? error.message : 'Upload failed'
+							}
+						}
+					: a
+			);
+		}
 	}
 
 	/**
