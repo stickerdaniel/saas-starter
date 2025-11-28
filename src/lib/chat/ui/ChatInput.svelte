@@ -44,8 +44,8 @@
 		onFilesAdded?: (files: File[]) => void;
 		/** Callback when attachment is removed */
 		onRemoveAttachment?: (index: number) => void;
-		/** Callback when message is sent */
-		onSend?: () => void;
+		/** Callback when message is sent - receives the prompt text */
+		onSend?: (prompt: string) => Promise<void> | void;
 		/** Custom left actions slot */
 		actionsLeft?: Snippet;
 		/** Custom right actions slot */
@@ -76,7 +76,9 @@
 
 	async function handleSend() {
 		if (!canSend) return;
-		onSend?.();
+		const prompt = ctx.inputValue.trim();
+		ctx.clearInput();
+		await onSend?.(prompt);
 	}
 
 	function handleValueChange(value: string) {
