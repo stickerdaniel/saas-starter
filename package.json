@@ -30,7 +30,7 @@
 		"@openrouter/ai-sdk-provider": "^1.2.3",
 		"@oslojs/crypto": "^1.0.1",
 		"@rive-app/canvas": "^2.32.0",
-		"@stickerdaniel/convex-autumn-svelte": "^0.1.2",
+		"@stickerdaniel/convex-autumn-svelte": "^0.1.3",
 		"@svelte-put/lockscroll": "^2.0.1",
 		"@tolgee/cli": "^2.14.0",
 		"@tolgee/svelte": "^6.2.7",
