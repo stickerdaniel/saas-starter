@@ -23,7 +23,13 @@ export type {
 	ChatConfig
 } from './types.js';
 
-export { DEFAULT_CHAT_CONFIG } from './types.js';
+export {
+	DEFAULT_CHAT_CONFIG,
+	ALLOWED_FILE_TYPES,
+	ALLOWED_FILE_EXTENSIONS,
+	MAX_FILE_SIZE,
+	MAX_FILE_SIZE_LABEL
+} from './types.js';
 
 // Stream processing (public API)
 export {

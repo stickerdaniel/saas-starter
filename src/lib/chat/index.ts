@@ -63,6 +63,10 @@ export type {
 
 export {
 	DEFAULT_CHAT_CONFIG,
+	ALLOWED_FILE_TYPES,
+	ALLOWED_FILE_EXTENSIONS,
+	MAX_FILE_SIZE,
+	MAX_FILE_SIZE_LABEL,
 	extractReasoning,
 	extractUserMessageText,
 	normalizeMessage,

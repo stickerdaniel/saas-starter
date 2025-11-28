@@ -165,3 +165,17 @@ export const DEFAULT_CHAT_CONFIG: Required<ChatConfig> = {
 	pageSize: 50,
 	streamThrottleMs: 100
 };
+
+/**
+ * File upload constraints
+ */
+export const ALLOWED_FILE_TYPES = [
+	'image/png',
+	'image/jpeg',
+	'image/webp',
+	'image/gif',
+	'application/pdf'
+];
+export const ALLOWED_FILE_EXTENSIONS = '.png,.jpg,.jpeg,.webp,.gif,.pdf';
+export const MAX_FILE_SIZE = 3 * 1024 * 1024; // 3MB
+export const MAX_FILE_SIZE_LABEL = '3MB';

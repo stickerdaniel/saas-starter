@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import { toast } from 'svelte-sonner';
 	import {
 		PromptInput,
 		PromptInputAction,
@@ -12,6 +13,7 @@
 	import { ArrowUp, Camera, Paperclip } from '@lucide/svelte';
 	import ChatAttachments from './ChatAttachments.svelte';
 	import { getChatUIContext } from './ChatContext.svelte.js';
+	import { ALLOWED_FILE_EXTENSIONS, MAX_FILE_SIZE, MAX_FILE_SIZE_LABEL } from '../core/types.js';
 
 	let {
 		suggestions = [],
@@ -65,8 +67,15 @@
 	}
 
 	async function handleFilesAdded(files: File[]) {
-		// Upload files through context (with duplicate detection)
+		// Upload files through context (with duplicate detection and size validation)
 		for (const file of files) {
+			// Check file size
+			if (file.size > MAX_FILE_SIZE) {
+				toast.error(`File too large: "${file.name}"`, {
+					description: `Maximum size is ${MAX_FILE_SIZE_LABEL}`
+				});
+				continue;
+			}
 			if (!ctx.hasFile(file.name, file.size)) {
 				// Fire and forget - context manages progress
 				ctx.uploadFile(file);
@@ -136,7 +145,11 @@
 						</PromptInputAction>
 					{/if}
 					{#if showFileButton}
-						<FileUpload onFilesAdded={handleFilesAdded} multiple={true}>
+						<FileUpload
+							onFilesAdded={handleFilesAdded}
+							multiple={true}
+							accept={ALLOWED_FILE_EXTENSIONS}
+						>
 							<PromptInputAction>
 								{#snippet tooltip()}
 									<p>Attach files</p>
