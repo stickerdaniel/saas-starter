@@ -3,24 +3,16 @@
 	import { MessageSquare, ChevronDown } from '@lucide/svelte';
 	import FeedbackWidget from './feedback-widget.svelte';
 	import { on } from 'svelte/events';
-	import type { UploadState } from './attachments.svelte';
+	import type { ChatUIContext } from '$lib/chat';
 
 	let {
 		isFeedbackOpen = $bindable(false),
 		isScreenshotMode = $bindable(false),
-		screenshots = [],
-		onClearScreenshot,
-		attachedFiles = [],
-		onFilesAdded,
-		onRemoveFile
+		chatUIContext
 	}: {
 		isFeedbackOpen?: boolean;
 		isScreenshotMode?: boolean;
-		screenshots?: Array<{ blob: Blob; filename: string; uploadState: UploadState }>;
-		onClearScreenshot?: (index: number) => void;
-		attachedFiles?: Array<{ file: File; preview?: string; uploadState: UploadState }>;
-		onFilesAdded?: (files: File[]) => void;
-		onRemoveFile?: (index: number) => void;
+		chatUIContext: ChatUIContext;
 	} = $props();
 
 	function toggleOpen() {
@@ -41,15 +33,7 @@
 {#if !isScreenshotMode}
 	<div class="fixed right-5 bottom-5 z-200 flex flex-col items-end justify-end gap-3">
 		{#if isFeedbackOpen}
-			<FeedbackWidget
-				bind:isFeedbackOpen
-				bind:isScreenshotMode
-				{screenshots}
-				{onClearScreenshot}
-				{attachedFiles}
-				{onFilesAdded}
-				{onRemoveFile}
-			/>
+			<FeedbackWidget bind:isFeedbackOpen bind:isScreenshotMode {chatUIContext} />
 		{/if}
 		<Button
 			variant="default"

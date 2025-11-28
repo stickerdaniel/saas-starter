@@ -21,8 +21,26 @@ export type UploadState = {
  * Unified attachment type supporting both files and screenshots
  */
 export type Attachment =
-	| { type: 'file'; file: File; preview?: string; uploadState?: UploadState }
-	| { type: 'screenshot'; blob: Blob; filename: string; uploadState?: UploadState }
+	| {
+			type: 'file';
+			name: string;
+			size: number;
+			mimeType: string;
+			file?: File;
+			preview?: string;
+			url?: string;
+			uploadState?: UploadState;
+	  }
+	| {
+			type: 'screenshot';
+			name: string;
+			size: number;
+			mimeType: string;
+			blob?: Blob;
+			preview?: string;
+			url?: string;
+			uploadState?: UploadState;
+	  }
 	| { type: 'image'; url: string; filename?: string }
 	| { type: 'remote-file'; url: string; filename: string; contentType?: string };
 

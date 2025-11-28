@@ -2,25 +2,7 @@
 	import { X, File as FileIcon, Image as ImageIcon, LoaderCircle, CircleX } from '@lucide/svelte';
 	import Progress from '$lib/components/ui/progress/progress.svelte';
 	import * as Dialog from '$lib/components/ui/dialog';
-
-	/**
-	 * Upload state for tracking file upload progress
-	 */
-	export type UploadState = {
-		status: 'uploading' | 'success' | 'error';
-		progress: number; // 0-100
-		fileId?: string; // Convex fileId after success
-		error?: string; // Error message if failed
-	};
-
-	/**
-	 * Unified attachment type supporting both files and screenshots
-	 */
-	export type Attachment =
-		| { type: 'file'; file: File; preview?: string; uploadState?: UploadState }
-		| { type: 'screenshot'; blob: Blob; filename: string; uploadState?: UploadState }
-		| { type: 'image'; url: string; filename?: string }
-		| { type: 'remote-file'; url: string; filename: string; contentType?: string };
+	import type { Attachment, UploadState } from '../core/types.js';
 
 	let {
 		attachments = [],
@@ -43,8 +25,8 @@
 	 * Get filename from attachment
 	 */
 	function getFilename(attachment: Attachment): string {
-		if (attachment.type === 'file') return attachment.file.name;
-		if (attachment.type === 'screenshot') return attachment.filename;
+		if (attachment.type === 'file') return attachment.name;
+		if (attachment.type === 'screenshot') return attachment.name;
 		if (attachment.type === 'image') return attachment.filename || 'Image';
 		if (attachment.type === 'remote-file') return attachment.filename;
 		return 'Attachment';
@@ -54,7 +36,8 @@
 	 * Check if attachment has a preview image
 	 */
 	function hasPreview(attachment: Attachment): string | undefined {
-		if (attachment.type === 'file') return attachment.preview;
+		if (attachment.type === 'file') return attachment.preview || attachment.url;
+		if (attachment.type === 'screenshot') return attachment.preview || attachment.url;
 		if (attachment.type === 'image') return attachment.url;
 		return undefined;
 	}
@@ -70,8 +53,8 @@
 	 * Get unique key for attachment
 	 */
 	function getKey(attachment: Attachment): string {
-		if (attachment.type === 'file') return `file-${attachment.file.name}-${attachment.file.size}`;
-		if (attachment.type === 'screenshot') return `screenshot-${attachment.filename}`;
+		if (attachment.type === 'file') return `file-${attachment.name}-${attachment.size}`;
+		if (attachment.type === 'screenshot') return `screenshot-${attachment.name}-${attachment.size}`;
 		if (attachment.type === 'image') return `image-${attachment.url}`;
 		if (attachment.type === 'remote-file') return `remote-${attachment.url}`;
 		return `attachment-${Math.random()}`;

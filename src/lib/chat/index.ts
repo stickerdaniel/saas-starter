@@ -63,17 +63,11 @@ export type {
 
 export {
 	DEFAULT_CHAT_CONFIG,
-	blankUIMessage,
-	statusFromStreamStatus,
-	getParts,
 	extractReasoning,
 	extractUserMessageText,
 	normalizeMessage,
-	updateFromTextStreamParts,
 	deriveUIMessagesFromTextStreamParts,
 	StreamCacheManager,
-	processMessagesWithStreaming,
-	processMessagesWithoutStreaming,
 	uploadFileWithProgress,
 	createUploadState,
 	createSuccessState,
@@ -85,6 +79,8 @@ export {
 } from './core/index.js';
 
 // UI exports
+export type { UploadConfig } from './ui/index.js';
+
 export {
 	ChatUIContext,
 	setChatUIContext,
@@ -98,3 +94,4 @@ export { default as ChatMessages } from './ui/ChatMessages.svelte';
 export { default as ChatMessageComponent } from './ui/ChatMessage.svelte';
 export { default as ChatReasoning } from './ui/ChatReasoning.svelte';
 export { default as ChatInput } from './ui/ChatInput.svelte';
+export { default as ChatAttachments } from './ui/ChatAttachments.svelte';

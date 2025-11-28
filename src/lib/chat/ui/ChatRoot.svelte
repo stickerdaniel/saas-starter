@@ -12,7 +12,7 @@
 		extractUserMessageText,
 		normalizeMessage
 	} from '../core/StreamProcessor.js';
-	import { ChatUIContext, setChatUIContext } from './ChatContext.svelte.js';
+	import { ChatUIContext, setChatUIContext, type UploadConfig } from './ChatContext.svelte.js';
 
 	// Type for the query response with streams
 	type MessagesQueryResponse = PaginationResult<ChatMessage> & {
@@ -45,6 +45,8 @@
 		threadId,
 		api,
 		externalCore,
+		externalUIContext,
+		uploadConfig,
 		pageSize = 50,
 		children
 	}: {
@@ -56,6 +58,10 @@
 		};
 		/** External core adapter (optional - if provided, uses external state) */
 		externalCore?: ExternalCoreAdapter;
+		/** External UI context (optional - if provided, uses existing context) */
+		externalUIContext?: ChatUIContext;
+		/** Upload configuration for file attachments */
+		uploadConfig?: UploadConfig;
 		/** Number of messages per page */
 		pageSize?: number;
 		/** Child components */
@@ -76,8 +82,8 @@
 	// Use either external or internal core
 	const core = (externalCore as unknown as ChatCore) ?? internalCore!;
 
-	// Create and set UI context
-	const uiContext = new ChatUIContext(core, client);
+	// Create and set UI context (use external if provided)
+	const uiContext = externalUIContext ?? new ChatUIContext(core, client, uploadConfig);
 	setChatUIContext(uiContext);
 
 	// Update core threadId when prop changes (only for internal core)
