@@ -3,6 +3,7 @@ import type { PaginationResult } from 'convex/server';
 import type { ConvexClient } from 'convex/browser';
 import { api } from '$lib/convex/_generated/api';
 import type { Attachment } from './attachments.svelte';
+import { StreamCacheManager } from '$lib/chat/core/StreamProcessor.js';
 
 /**
  * Message interface matching Convex Agent message structure
@@ -50,6 +51,10 @@ export class SupportThreadContext {
 	hasMore = $state(false);
 	continueCursor = $state<string | null>(null);
 
+	// Stream state (for ChatRoot compatibility)
+	isAwaitingStream = $state(false);
+	readonly streamCache = new StreamCacheManager();
+
 	// Derived state
 	get hasThread() {
 		return this.threadId !== null;
@@ -61,6 +66,17 @@ export class SupportThreadContext {
 
 	get isStreaming() {
 		return this.streamingMessages.length > 0;
+	}
+
+	get optimisticMessages() {
+		return this.messages.filter((m) => m.metadata?.optimistic);
+	}
+
+	/**
+	 * Set awaiting stream state
+	 */
+	setAwaitingStream(awaiting: boolean) {
+		this.isAwaitingStream = awaiting;
 	}
 
 	/**

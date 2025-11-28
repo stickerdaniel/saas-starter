@@ -1,0 +1,149 @@
+/**
+ * Chat core types
+ *
+ * This module contains all shared TypeScript types for the chat library.
+ * Types are extracted from the customer-support implementation to be reusable.
+ */
+
+import type { ProviderMetadata } from 'ai';
+
+/**
+ * Upload state for tracking file upload progress
+ */
+export type UploadState = {
+	status: 'uploading' | 'success' | 'error';
+	progress: number; // 0-100
+	fileId?: string; // Convex fileId after success
+	error?: string; // Error message if failed
+};
+
+/**
+ * Unified attachment type supporting both files and screenshots
+ */
+export type Attachment =
+	| { type: 'file'; file: File; preview?: string; uploadState?: UploadState }
+	| { type: 'screenshot'; blob: Blob; filename: string; uploadState?: UploadState }
+	| { type: 'image'; url: string; filename?: string }
+	| { type: 'remote-file'; url: string; filename: string; contentType?: string };
+
+/**
+ * Message status
+ */
+export type MessageStatus = 'pending' | 'success' | 'failed' | 'streaming';
+
+/**
+ * Message role
+ */
+export type MessageRole = 'user' | 'assistant' | 'system' | 'tool';
+
+/**
+ * Chat message interface matching Convex Agent message structure
+ */
+export interface ChatMessage {
+	id: string;
+	_creationTime: number;
+	threadId?: string;
+	message?: {
+		role: MessageRole;
+		content: unknown; // Can be string or complex array structure
+		providerOptions?: Record<string, unknown>;
+	};
+	text?: string; // Convenience field with full text content
+	reasoning?: string; // Reasoning content (for models like DeepSeek R1)
+	status: MessageStatus;
+	order: number;
+	tool?: boolean;
+	agentName?: string;
+	embeddingId?: string;
+	model?: string;
+	usage?: Record<string, unknown>;
+	metadata?: Record<string, unknown>;
+	// Additional UIMessage fields
+	key?: string;
+	role: MessageRole; // Required (normalized)
+	parts?: MessagePart[];
+	stepOrder?: number;
+	// Optimistic attachments
+	localAttachments?: Attachment[];
+}
+
+/**
+ * Message with display fields (after stream processing)
+ */
+export interface DisplayMessage extends ChatMessage {
+	displayText: string;
+	displayReasoning: string;
+	isStreaming: boolean;
+	hasReasoningStream: boolean;
+}
+
+/**
+ * Text UI part
+ */
+export type TextUIPart = {
+	type: 'text';
+	text: string;
+	providerMetadata?: ProviderMetadata;
+};
+
+/**
+ * Reasoning UI part
+ */
+export type ReasoningUIPart = {
+	type: 'reasoning';
+	reasoning: string;
+	providerMetadata?: ProviderMetadata;
+};
+
+/**
+ * Extended message part types
+ */
+export type MessagePart = TextUIPart | ReasoningUIPart | { type: string; [key: string]: unknown };
+
+/**
+ * Pagination state
+ */
+export interface PaginationState {
+	hasMore: boolean;
+	continueCursor: string | null;
+	isLoadingMore: boolean;
+}
+
+/**
+ * Stream status
+ */
+export type StreamStatus = 'streaming' | 'finished' | 'aborted';
+
+/**
+ * Options for sending a message
+ */
+export interface SendMessageOptions {
+	fileIds?: string[];
+	openWidgetAfter?: boolean;
+	attachments?: Attachment[];
+}
+
+/**
+ * Result from sending a message
+ */
+export interface SendMessageResult {
+	messageId: string;
+}
+
+/**
+ * Chat configuration
+ */
+export interface ChatConfig {
+	/** Number of messages to fetch per page */
+	pageSize?: number;
+	/** Stream delta throttle in ms */
+	streamThrottleMs?: number;
+}
+
+/**
+ * Default chat configuration
+ */
+export const DEFAULT_CHAT_CONFIG: Required<ChatConfig> = {
+	pageSize: 50,
+	streamThrottleMs: 100
+};
