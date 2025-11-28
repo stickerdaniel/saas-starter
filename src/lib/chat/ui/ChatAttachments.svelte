@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { X, File as FileIcon, Image as ImageIcon, LoaderCircle, CircleX } from '@lucide/svelte';
+	import { X, File as FileIcon, Image as ImageIcon, LoaderCircle } from '@lucide/svelte';
 	import Progress from '$lib/components/ui/progress/progress.svelte';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import type { Attachment, UploadState } from '../core/types.js';
@@ -142,8 +142,6 @@
 					>
 						{#if uploadState?.status === 'uploading'}
 							<LoaderCircle class="size-4 shrink-0 animate-spin" />
-						{:else if uploadState?.status === 'error'}
-							<CircleX class="size-4 shrink-0 text-red-500" />
 						{:else if preview}
 							<img src={preview} alt={filename} class="size-8 rounded object-cover" />
 						{:else if isScreenshot(attachment)}
@@ -154,11 +152,6 @@
 					</div>
 					<div class="flex flex-1 flex-col gap-1 overflow-hidden">
 						<span class="truncate text-sm" title={filename}>{filename}</span>
-						{#if uploadState?.status === 'error'}
-							<span class="truncate text-xs text-red-500" title={uploadState.error}>
-								{uploadState.error}
-							</span>
-						{/if}
 					</div>
 				</div>
 				{#if !readonly}

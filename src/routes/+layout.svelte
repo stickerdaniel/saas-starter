@@ -10,6 +10,7 @@
 	import SEOHead from '$lib/components/SEOHead.svelte';
 	import PostHogIdentify from '$lib/components/analytics/PostHogIdentify.svelte';
 	import { ModeWatcher } from 'mode-watcher';
+	import { Toaster } from '$lib/components/ui/sonner';
 
 	let { children, data } = $props();
 
@@ -29,6 +30,7 @@
 <ModeWatcher />
 <SEOHead />
 <PostHogIdentify />
+<Toaster />
 
 {#if $navigating}
 	<!--
