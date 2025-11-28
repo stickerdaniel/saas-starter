@@ -6,6 +6,7 @@
  */
 
 import { getContext, setContext } from 'svelte';
+import { toast } from 'svelte-sonner';
 import type { ConvexClient } from 'convex/browser';
 import type { ChatCore } from '../core/ChatCore.svelte.js';
 import type { DisplayMessage, Attachment } from '../core/types.js';
@@ -185,19 +186,11 @@ export class ChatUIContext {
 					: a
 			);
 		} catch (error) {
-			// Mark as error
-			this.attachments = this.attachments.map((a, i) =>
-				i === currentIndex
-					? {
-							...a,
-							uploadState: {
-								status: 'error' as const,
-								progress: 0,
-								error: error instanceof Error ? error.message : 'Upload failed'
-							}
-						}
-					: a
-			);
+			// Remove failed attachment and show toast
+			this.attachments = this.attachments.filter((_, i) => i !== currentIndex);
+			toast.error(`Failed to upload "${name}"`, {
+				description: error instanceof Error ? error.message : 'Upload failed'
+			});
 		}
 	}
 
@@ -252,19 +245,11 @@ export class ChatUIContext {
 					: a
 			);
 		} catch (error) {
-			// Mark as error
-			this.attachments = this.attachments.map((a, i) =>
-				i === currentIndex
-					? {
-							...a,
-							uploadState: {
-								status: 'error' as const,
-								progress: 0,
-								error: error instanceof Error ? error.message : 'Upload failed'
-							}
-						}
-					: a
-			);
+			// Remove failed attachment and show toast
+			this.attachments = this.attachments.filter((_, i) => i !== currentIndex);
+			toast.error(`Failed to upload "${filename}"`, {
+				description: error instanceof Error ? error.message : 'Upload failed'
+			});
 		}
 	}
 
@@ -299,19 +284,10 @@ export class ChatUIContext {
 	}
 
 	/**
-	 * Check if any upload has failed
-	 */
-	get hasFailedUploads(): boolean {
-		return this.attachments.some(
-			(a) => (a.type === 'file' || a.type === 'screenshot') && a.uploadState?.status === 'error'
-		);
-	}
-
-	/**
 	 * Check if message can be sent
 	 */
 	get canSend(): boolean {
-		return !this.hasUploadingFiles && !this.hasFailedUploads && !!this.inputValue.trim();
+		return !this.hasUploadingFiles && !!this.inputValue.trim();
 	}
 
 	/**
