@@ -4,6 +4,17 @@ import { storeFile } from '@convex-dev/agent';
 import { components } from '../_generated/api';
 
 /**
+ * Allowed file types for upload
+ */
+const ALLOWED_MIME_TYPES = [
+	'image/png',
+	'image/jpeg',
+	'image/webp',
+	'image/gif',
+	'application/pdf'
+];
+
+/**
  * Generate a URL for uploading files directly to Convex storage
  *
  * This mutation generates a temporary URL that clients can use to upload
@@ -41,6 +52,11 @@ export const saveUploadedFile = action({
 		filename: string | undefined;
 		isImage: boolean;
 	}> => {
+		// Validate file type
+		if (!ALLOWED_MIME_TYPES.includes(args.mimeType)) {
+			throw new Error('File type not allowed. Supported: PNG, JPEG, WebP, GIF, PDF');
+		}
+
 		// Get storage URL
 		const url = await ctx.storage.getUrl(args.storageId);
 
