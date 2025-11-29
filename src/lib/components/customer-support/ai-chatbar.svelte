@@ -47,6 +47,9 @@
 		input = '';
 
 		try {
+			// Always start a new thread from chatbar
+			threadContext.startNewThread();
+
 			await threadContext.sendMessage(client, prompt, {
 				openWidgetAfter: true
 			});
