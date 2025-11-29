@@ -5,12 +5,13 @@
  * Uses Svelte's native context API with a class-based approach for type safety.
  */
 
-import { getContext, setContext } from 'svelte';
+import { getContext, setContext, untrack } from 'svelte';
 import { toast } from 'svelte-sonner';
 import type { ConvexClient } from 'convex/browser';
 import type { ChatCore } from '../core/ChatCore.svelte.js';
 import type { DisplayMessage, Attachment } from '../core/types.js';
 import { uploadFileWithProgress } from '../core/FileUploader.js';
+import { FadeOnLoad } from '$lib/utils/fade-on-load.svelte.js';
 
 /**
  * Configuration for file uploads
@@ -41,6 +42,9 @@ export class ChatUIContext {
 	/** Processed messages with display fields (set by ChatMessages) */
 	displayMessages = $state<DisplayMessage[]>([]);
 
+	/** Fade animation state for messages */
+	readonly messagesFade = new FadeOnLoad<DisplayMessage[]>();
+
 	/** Current input value */
 	inputValue = $state('');
 
@@ -50,6 +54,12 @@ export class ChatUIContext {
 	/** Internal map for tracking attachment keys (for progress updates) */
 	private attachmentKeys = new Map<number, string>();
 	private nextAttachmentIndex = 0;
+
+	/** Tracks if we've ever displayed messages in this session */
+	private _hasEverDisplayedMessages = false;
+
+	/** Last known thread ID for detecting navigation */
+	private _lastThreadId: string | null | undefined = undefined;
 
 	constructor(core: ChatCore, client: ConvexClient, uploadConfig?: UploadConfig) {
 		this.core = core;
@@ -83,7 +93,35 @@ export class ChatUIContext {
 	 * Update display messages
 	 */
 	setDisplayMessages(messages: DisplayMessage[]): void {
+		// Detect thread navigation (reset when changing between existing threads)
+		const currentThreadId = untrack(() => this.core.threadId);
+
+		// Reset only on actual navigation between threads
+		// NOT on null → threadId (thread creation) or during brief empty states
+		if (
+			this._lastThreadId !== undefined &&
+			currentThreadId !== this._lastThreadId &&
+			this._lastThreadId !== null // Don't reset when creating new thread
+		) {
+			this.messagesFade.reset();
+			this._hasEverDisplayedMessages = false;
+		}
+		this._lastThreadId = currentThreadId;
+
 		this.displayMessages = messages;
+
+		// Only trigger animation on truly first display of messages
+		if (messages.length > 0 && !this._hasEverDisplayedMessages) {
+			this._hasEverDisplayedMessages = true;
+
+			// Only animate if first messages are real (not optimistic)
+			if (!this.messagesFade.hasLoadedOnce) {
+				const hasRealMessages = messages.some((m) => !m.metadata?.optimistic);
+				if (hasRealMessages) {
+					this.messagesFade.markLoaded();
+				}
+			}
+		}
 	}
 
 	/**

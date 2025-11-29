@@ -133,6 +133,26 @@
 			: undefined
 	);
 
+	// Build optimistic ID → real message ID mapping for stable render keys
+	// This prevents DOM element destruction when optimistic messages are replaced by real ones
+	const optimisticKeyMap = $derived.by(() => {
+		const messagesData = messagesQuery?.data as MessagesQueryResponse | undefined;
+		const queryMessages = messagesData?.page || [];
+		const optimisticMessages = core.optimisticMessages;
+
+		const map = new Map<string, string>();
+		for (const msg of queryMessages) {
+			const match = optimisticMessages.find(
+				(opt) => opt.role === msg.role && opt.text === msg.text
+			);
+			if (match) {
+				// Real message should use optimistic ID as render key
+				map.set(msg.id, match.id);
+			}
+		}
+		return map;
+	});
+
 	// Merge query messages with optimistic messages from core
 	const allMessages = $derived.by(() => {
 		const messagesData = messagesQuery?.data as MessagesQueryResponse | undefined;
@@ -195,6 +215,7 @@
 
 				return {
 					...msg,
+					_renderKey: optimisticKeyMap.get(msg.id),
 					displayText,
 					displayReasoning: reasoning,
 					isStreaming: cachedStatus === 'streaming',
@@ -265,6 +286,7 @@
 
 			return {
 				...msg,
+				_renderKey: optimisticKeyMap.get(msg.id),
 				displayText,
 				displayReasoning,
 				isStreaming,

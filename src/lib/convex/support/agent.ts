@@ -12,10 +12,9 @@ import { openrouter } from '@openrouter/ai-sdk-provider';
  * - Maintain conversation context across messages
  */
 export const supportAgent = new Agent(components.agent, {
-	name: 'SaaS Starter Support',
+	name: 'Kai',
 
 	// Language model configuration
-	// Using Grok 3 Mini with visible reasoning traces
 	// Note: grok-4 reasoning is encrypted and not visible in UI
 	// grok-3-mini is the only xAI model that exposes readable reasoning_content
 	languageModel: openrouter('z-ai/glm-4.5v', {

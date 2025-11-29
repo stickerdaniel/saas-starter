@@ -93,6 +93,8 @@ export interface DisplayMessage extends ChatMessage {
 	displayReasoning: string;
 	isStreaming: boolean;
 	hasReasoningStream: boolean;
+	/** Stable key for {#each} - preserves DOM during optimistic→real transition */
+	_renderKey?: string;
 }
 
 /**
