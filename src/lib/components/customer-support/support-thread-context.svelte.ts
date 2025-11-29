@@ -223,9 +223,14 @@ export class SupportThreadContext {
 
 	/**
 	 * Request widget to open (used when message sent from chatbar)
+	 * Also switches to chat view if there's an active thread
 	 */
 	requestWidgetOpen() {
 		this.shouldOpenWidget = true;
+		// If we have an active thread, switch to chat view
+		if (this.threadId) {
+			this.currentView = 'chat';
+		}
 	}
 
 	/**

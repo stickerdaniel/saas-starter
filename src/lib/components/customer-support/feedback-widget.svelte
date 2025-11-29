@@ -104,7 +104,7 @@
 
 	<!-- Chat sheet - slides in from right like iOS/Android navigation -->
 	<div
-		class="ease absolute inset-0 flex flex-col bg-secondary transition-all duration-350 {threadContext.currentView !==
+		class="ease absolute inset-0 flex flex-col bg-secondary transition-all duration-300 {threadContext.currentView !==
 		'overview'
 			? 'translate-x-0 opacity-100'
 			: 'pointer-events-none translate-x-full opacity-0'}"
