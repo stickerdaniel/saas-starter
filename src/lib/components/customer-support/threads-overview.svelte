@@ -117,7 +117,7 @@
 						<AvatarHeading
 							icon={Bot}
 							title={thread.lastMessage || thread.summary || 'New conversation'}
-							subtitle={`${thread.lastAgentName || 'Kai'}\u00A0\u00A0·\u00A0\u00A0${formatRelativeTime(thread.lastMessageAt)}`}
+							subtitle={`${thread.lastMessageRole === 'user' ? 'You' : thread.lastAgentName || 'Kai'}\u00A0\u00A0·\u00A0\u00A0${formatRelativeTime(thread.lastMessageAt)}`}
 							bold={false}
 						/>
 

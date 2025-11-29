@@ -21,6 +21,7 @@ export interface ThreadSummary {
 	summary?: string;
 	status: 'active' | 'archived';
 	lastAgentName?: string;
+	lastMessageRole?: 'user' | 'assistant' | 'tool' | 'system';
 	lastMessage?: string;
 	lastMessageAt?: number;
 }

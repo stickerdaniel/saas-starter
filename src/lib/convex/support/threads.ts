@@ -48,6 +48,9 @@ export const listThreads = query({
 				summary: v.optional(v.string()),
 				status: v.union(v.literal('active'), v.literal('archived')),
 				lastAgentName: v.optional(v.string()),
+				lastMessageRole: v.optional(
+					v.union(v.literal('user'), v.literal('assistant'), v.literal('tool'), v.literal('system'))
+				),
 				lastMessage: v.optional(v.string()),
 				lastMessageAt: v.optional(v.number())
 			})
@@ -66,10 +69,12 @@ export const listThreads = query({
 		// For each thread, get the last message
 		const threadsWithLastMessage = await Promise.all(
 			threads.page.map(async (thread) => {
-				// Get the most recent message in this thread
+				// Get the most recent completed message in this thread (exclude pending/streaming)
 				const messages = await ctx.runQuery(components.agent.messages.listMessagesByThreadId, {
 					threadId: thread._id,
 					order: 'desc',
+					statuses: ['success'],
+					excludeToolMessages: true,
 					paginationOpts: { numItems: 1, cursor: null }
 				});
 
@@ -83,6 +88,7 @@ export const listThreads = query({
 					summary: thread.summary,
 					status: thread.status,
 					lastAgentName: lastMessage?.agentName,
+					lastMessageRole: lastMessage?.message?.role,
 					lastMessage: lastMessage?.text,
 					lastMessageAt: lastMessage?._creationTime ?? thread._creationTime
 				};
