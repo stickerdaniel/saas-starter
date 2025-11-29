@@ -292,6 +292,16 @@ export class ChatUIContext {
 	}
 
 	/**
+	 * Reset state for navigation transitions (e.g., when returning to overview)
+	 * This ensures clean state when the chat view slides out
+	 */
+	resetForNavigation(): void {
+		this.messagesFade.reset();
+		this._hasEverDisplayedMessages = false;
+		this.displayMessages = [];
+	}
+
+	/**
 	 * Get the last message
 	 */
 	get lastMessage(): DisplayMessage | undefined {

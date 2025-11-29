@@ -93,12 +93,14 @@
 
 		<!-- Overlay area pinned to bottom of scroll container -->
 		<div class="pointer-events-none relative sticky bottom-0 z-10 min-h-16 w-full">
-			<!-- Progressive blur as background overlay -->
-			<ProgressiveBlur
-				class="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-20 w-full"
-				direction="bottom"
-				blurIntensity={1}
-			/>
+			<!-- Progressive blur as background overlay - only shown when there are messages -->
+			{#if ctx.displayMessages.length > 0}
+				<ProgressiveBlur
+					class="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-20 w-full"
+					direction="bottom"
+					blurIntensity={1}
+				/>
+			{/if}
 			<!-- Scroll button over the blur -->
 			<ScrollButton class="pointer-events-auto absolute right-9 bottom-6 z-20" />
 		</div>

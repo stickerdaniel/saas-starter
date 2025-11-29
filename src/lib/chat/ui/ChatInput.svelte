@@ -100,17 +100,20 @@
 	onSubmit={handleSend}
 >
 	<!-- Suggestion chips - shown when chat is empty (after loading check for existing threads) -->
-	{#if (ctx.core.threadId === null || ctx.messagesFade.hasLoadedOnce) && ctx.displayMessages.length === 0 && !ctx.inputValue.trim() && suggestions.length > 0}
-		<div class="absolute top-0 z-20 translate-y-[-100%] pb-2 animate-in fade-in-0 duration-200">
-			<div class="flex flex-wrap gap-2">
-				{#each suggestions as suggestion}
-					<PromptSuggestion onclick={() => handleSuggestionClick(suggestion.text)}>
-						{suggestion.label}
-					</PromptSuggestion>
-				{/each}
+	<!-- {#key} forces re-render on threadId change, triggering animation on navigation -->
+	{#key ctx.core.threadId}
+		{#if (ctx.core.threadId === null || ctx.messagesFade.hasLoadedOnce) && ctx.displayMessages.length === 0 && !ctx.inputValue.trim() && suggestions.length > 0}
+			<div class="absolute top-0 z-20 translate-y-[-100%] pb-2 animate-in fade-in-0 duration-200">
+				<div class="flex flex-wrap gap-2">
+					{#each suggestions as suggestion}
+						<PromptSuggestion onclick={() => handleSuggestionClick(suggestion.text)}>
+							{suggestion.label}
+						</PromptSuggestion>
+					{/each}
+				</div>
 			</div>
-		</div>
-	{/if}
+		{/if}
+	{/key}
 
 	<div class="flex flex-col p-2">
 		{#if ctx.attachments.length > 0}
