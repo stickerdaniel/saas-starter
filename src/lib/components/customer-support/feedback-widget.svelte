@@ -97,13 +97,18 @@
 
 <!-- Feedback widget container -->
 <div
-	class="fixed right-0 bottom-0 z-1 flex h-full w-full origin-bottom animate-in flex-col overflow-hidden bg-secondary shadow-[0_0px_30px_rgba(0,0,0,0.19)] duration-200 ease-out fade-in-0 zoom-in-95 slide-in-from-bottom-4 md:static md:h-[700px] md:w-[410px] md:origin-bottom-right md:rounded-3xl"
+	class="fixed right-0 bottom-0 z-1 flex h-full w-full origin-bottom animate-in flex-col overflow-hidden bg-secondary shadow-[0_0px_30px_rgba(0,0,0,0.19)] duration-200 ease-out fade-in-0 zoom-in-95 slide-in-from-bottom-4 md:relative md:h-[700px] md:w-[410px] md:origin-bottom-right md:rounded-3xl"
 >
-	{#if threadContext.currentView === 'overview'}
-		<!-- Thread Overview View -->
-		<ThreadsOverview onClose={() => (isFeedbackOpen = false)} />
-	{:else}
-		<!-- Chat / Compose View -->
+	<!-- Thread Overview - always mounted to keep useQuery subscribed -->
+	<ThreadsOverview onClose={() => (isFeedbackOpen = false)} />
+
+	<!-- Chat sheet - slides in from right like iOS/Android navigation -->
+	<div
+		class="ease absolute inset-0 flex flex-col bg-secondary transition-all duration-350 {threadContext.currentView !==
+		'overview'
+			? 'translate-x-0 opacity-100'
+			: 'pointer-events-none translate-x-full opacity-0'}"
+	>
 		<ChatRoot
 			threadId={threadContext.threadId}
 			api={chatApi}
@@ -149,5 +154,5 @@
 				}}
 			/>
 		</ChatRoot>
-	{/if}
+	</div>
 </div>

@@ -355,16 +355,12 @@ export class SupportThreadContext {
 
 	/**
 	 * Go back to the overview
+	 * Note: We only change the view, not the thread state.
+	 * This keeps messages visible during the slide-out animation.
+	 * State is cleared when entering a new thread/compose via setThread().
 	 */
 	goBack() {
 		this.currentView = 'overview';
-		// Clear current thread state
-		this.threadId = null;
-		this.threadAgentName = undefined;
-		this.messages = [];
-		this.hasMore = false;
-		this.continueCursor = null;
-		this.error = null;
 	}
 
 	/**
