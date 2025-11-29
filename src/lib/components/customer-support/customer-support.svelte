@@ -1,11 +1,14 @@
 <script lang="ts">
 	import { useConvexClient } from 'convex-svelte';
 	import { api } from '$lib/convex/_generated/api';
+	import { useAuth } from '@mmailaender/convex-auth-svelte/sveltekit';
+	import { page } from '$app/state';
 	import AIChatbar from '$lib/components/customer-support/ai-chatbar.svelte';
 	import FeedbackButton from '$lib/components/customer-support/feedback-button.svelte';
 	import ScreenshotEditor from '$lib/components/customer-support/screenshot-editor/ScreenshotEditor.svelte';
 	import { SupportThreadContext, supportThreadContext } from './support-thread-context.svelte';
 	import { ChatUIContext, type UploadConfig } from '$lib/chat';
+	import { browser } from '$app/environment';
 
 	let isFeedbackOpen = $state(false);
 	let isScreenshotMode = $state(false);
@@ -20,6 +23,9 @@
 	// Get Convex client for mutations
 	const client = useConvexClient();
 
+	// Get auth state for user identification
+	const auth = useAuth();
+
 	// Upload API configuration
 	const uploadConfig: UploadConfig = {
 		generateUploadUrl: api.support.files.generateUploadUrl,
@@ -30,9 +36,36 @@
 	// Cast threadContext to ChatCore since it implements the required interface
 	const chatUIContext = new ChatUIContext(threadContext as any, client, uploadConfig);
 
-	// Initialize thread when component mounts
+	/**
+	 * Get or create an anonymous user ID stored in localStorage
+	 */
+	function getAnonymousId(): string {
+		if (!browser) return '';
+
+		let id = localStorage.getItem('supportUserId');
+		if (!id) {
+			id = `anon_${crypto.randomUUID()}`;
+			localStorage.setItem('supportUserId', id);
+		}
+		return id;
+	}
+
+	/**
+	 * Get the current user ID (authenticated or anonymous)
+	 */
+	function getUserId(): string {
+		// Use authenticated user ID if available, otherwise fall back to anonymous ID
+		const viewer = page.data.viewer;
+		return (auth.isAuthenticated && viewer?._id) || getAnonymousId();
+	}
+
+	// Initialize user ID when component mounts
+	// Threads are now loaded reactively via useQuery in threads-overview.svelte
 	$effect(() => {
-		initializeThread();
+		if (browser) {
+			const userId = getUserId();
+			threadContext.setUserId(userId);
+		}
 	});
 
 	// Watch for widget open requests from chatbar
@@ -42,25 +75,6 @@
 			threadContext.clearWidgetOpenRequest();
 		}
 	});
-
-	async function initializeThread() {
-		// Check if we have a stored thread ID in sessionStorage
-		const storedThreadId = sessionStorage.getItem('supportThreadId');
-
-		if (storedThreadId) {
-			threadContext.setThread(storedThreadId);
-		} else {
-			// Create a new thread
-			try {
-				const threadId = await client.mutation(api.support.threads.createThread, {});
-				threadContext.setThread(threadId);
-				sessionStorage.setItem('supportThreadId', threadId);
-			} catch (error) {
-				console.error('Failed to create support thread:', error);
-				threadContext.setError('Failed to initialize chat. Please refresh the page.');
-			}
-		}
-	}
 
 	function handleScreenshotCancel() {
 		isScreenshotMode = false;

@@ -78,15 +78,11 @@
 			<!-- Empty state -->
 			{#if emptyState}
 				{@render emptyState()}
-			{:else}
-				<div class="flex !h-full flex-col items-center justify-center">
-					<p class="text-muted-foreground">No messages yet</p>
-				</div>
 			{/if}
 		{:else}
-			<!-- Messages list -->
-			<div class="space-y-4 py-20 pr-4 pl-9">
-				{#each ctx.displayMessages as message (message.id)}
+			<!-- Messages list with fade-in animation on first load -->
+			<div class="space-y-4 py-20 pr-4 pl-9 {ctx.messagesFade.animationClass}">
+				{#each ctx.displayMessages as message (message._renderKey ?? message.id)}
 					<ChatMessage {message} attachments={getAttachments(message)} />
 				{/each}
 			</div>

@@ -6,6 +6,26 @@ import type { Attachment } from '$lib/chat';
 import { StreamCacheManager } from '$lib/chat/core/StreamProcessor.js';
 
 /**
+ * View types for the support widget navigation
+ */
+export type SupportView = 'overview' | 'chat' | 'compose';
+
+/**
+ * Thread summary for the overview list
+ */
+export interface ThreadSummary {
+	_id: string;
+	_creationTime: number;
+	userId?: string;
+	title?: string;
+	summary?: string;
+	status: 'active' | 'archived';
+	lastAgentName?: string;
+	lastMessage?: string;
+	lastMessageAt?: number;
+}
+
+/**
  * Message interface matching Convex Agent message structure
  */
 export interface SupportMessage {
@@ -40,7 +60,15 @@ export interface SupportMessage {
  * Thread context state
  */
 export class SupportThreadContext {
+	// User identification
+	userId = $state<string | null>(null);
+
+	// Navigation state
+	currentView = $state<SupportView>('overview');
+
+	// Current thread state
 	threadId = $state<string | null>(null);
+	threadAgentName = $state<string | undefined>(undefined);
 	messages = $state<SupportMessage[]>([]);
 	isLoading = $state(false);
 	isSending = $state(false);
@@ -68,6 +96,10 @@ export class SupportThreadContext {
 		return this.streamingMessages.length > 0;
 	}
 
+	get currentAgentName(): string | undefined {
+		return this.threadAgentName;
+	}
+
 	get optimisticMessages() {
 		return this.messages.filter((m) => m.metadata?.optimistic);
 	}
@@ -82,8 +114,9 @@ export class SupportThreadContext {
 	/**
 	 * Initialize or load a thread
 	 */
-	setThread(threadId: string | null) {
+	setThread(threadId: string | null, agentName?: string) {
 		this.threadId = threadId;
+		this.threadAgentName = agentName;
 		this.messages = [];
 		this.hasMore = false;
 		this.continueCursor = null;
@@ -205,6 +238,7 @@ export class SupportThreadContext {
 	 * Send a message with optional file attachments
 	 *
 	 * This method handles the complete message sending flow:
+	 * - Lazy thread creation (if threadId is null)
 	 * - Validation
 	 * - Optimistic updates
 	 * - Backend mutation
@@ -226,10 +260,9 @@ export class SupportThreadContext {
 		}
 	): Promise<{ messageId: string }> {
 		// Validate input
-		if (!prompt.trim() || !this.threadId || this.isSending) {
+		if (!prompt.trim() || this.isSending) {
 			console.log('[sendMessage] Blocked - validation failed', {
 				hasPrompt: !!prompt.trim(),
-				hasThreadId: !!this.threadId,
 				isSending: this.isSending
 			});
 			throw new Error('Cannot send message: validation failed');
@@ -241,17 +274,31 @@ export class SupportThreadContext {
 		// Add optimistic message
 		const optimisticMessage = this.addOptimisticMessage(trimmedPrompt, options?.attachments);
 
-		console.log('[sendMessage] Sending message', {
-			threadId: this.threadId,
-			promptLength: trimmedPrompt.length,
-			optimisticId: optimisticMessage.id,
-			fileCount: options?.fileIds?.length || 0
-		});
-
 		try {
+			// Create thread if needed (lazy thread creation)
+			let threadId = this.threadId;
+			if (!threadId) {
+				console.log('[sendMessage] Creating new thread for user:', this.userId);
+				threadId = await client.mutation(api.support.threads.createThread, {
+					userId: this.userId || undefined
+				});
+				// Just set threadId directly - don't call setThread() which clears messages
+				// This preserves the optimistic message for seamless transition
+				this.threadId = threadId;
+				// Switch from compose to chat view
+				this.currentView = 'chat';
+			}
+
+			console.log('[sendMessage] Sending message', {
+				threadId,
+				promptLength: trimmedPrompt.length,
+				optimisticId: optimisticMessage.id,
+				fileCount: options?.fileIds?.length || 0
+			});
+
 			// Send message with optional attachments
 			const result = await client.mutation(api.support.messages.sendMessage, {
-				threadId: this.threadId,
+				threadId,
 				prompt: trimmedPrompt,
 				fileIds: options?.fileIds
 			});
@@ -278,11 +325,59 @@ export class SupportThreadContext {
 		}
 	}
 
+	// ========================================
+	// Navigation Methods
+	// ========================================
+
+	/**
+	 * Set the user ID for thread management
+	 */
+	setUserId(userId: string | null) {
+		this.userId = userId;
+	}
+
+	/**
+	 * Select a thread and navigate to chat view
+	 */
+	selectThread(threadId: string, agentName?: string) {
+		this.setThread(threadId, agentName);
+		this.currentView = 'chat';
+	}
+
+	/**
+	 * Start a new thread (navigate to compose view)
+	 * Thread is created lazily on first message
+	 */
+	startNewThread() {
+		this.setThread(null);
+		this.currentView = 'compose';
+	}
+
+	/**
+	 * Go back to the overview
+	 */
+	goBack() {
+		this.currentView = 'overview';
+		// Clear current thread state
+		this.threadId = null;
+		this.threadAgentName = undefined;
+		this.messages = [];
+		this.hasMore = false;
+		this.continueCursor = null;
+		this.error = null;
+	}
+
 	/**
 	 * Reset the context
 	 */
 	reset() {
+		// Navigation state
+		this.currentView = 'overview';
+		this.userId = null;
+
+		// Current thread state
 		this.threadId = null;
+		this.threadAgentName = undefined;
 		this.messages = [];
 		this.isLoading = false;
 		this.isSending = false;
