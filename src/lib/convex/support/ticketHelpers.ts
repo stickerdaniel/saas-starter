@@ -196,7 +196,7 @@ export const storeTicket = internalMutation({
 		userEmail: v.string(),
 		userName: v.optional(v.string()),
 		userId: v.optional(v.string()),
-		fileIds: v.array(v.string()),
+		fileIds: v.array(v.object({ filename: v.string(), url: v.string() })),
 		emailId: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
@@ -237,7 +237,7 @@ export const storeTicketWithPendingStatus = internalMutation({
 		userEmail: v.string(),
 		userName: v.optional(v.string()),
 		userId: v.optional(v.string()),
-		fileIds: v.array(v.string()),
+		fileIds: v.array(v.object({ filename: v.string(), url: v.string() })),
 		toolCallId: v.string(),
 		promptMessageId: v.string()
 	},

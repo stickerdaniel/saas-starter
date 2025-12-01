@@ -35,7 +35,7 @@ export default defineSchema({
 		userEmail: v.string(),
 		userName: v.optional(v.string()),
 		userId: v.optional(v.string()), // Auth subject (not document ID)
-		fileIds: v.optional(v.array(v.string())), // URLs to attached files
+		fileIds: v.optional(v.array(v.object({ filename: v.string(), url: v.string() }))), // Attached files with names
 		status: v.union(
 			v.literal('submitted'),
 			v.literal('in_progress'),
