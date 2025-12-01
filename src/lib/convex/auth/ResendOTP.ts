@@ -22,7 +22,15 @@ export const ResendOTP = Resend({
 	id: 'resend-otp',
 	// Note: apiKey is still required by the auth provider interface
 	// but our actual sending is done through the Convex component
-	apiKey: process.env.RESEND_API_KEY || process.env.AUTH_RESEND_KEY || 'dummy-key',
+	apiKey: (() => {
+		if (!process.env.RESEND_API_KEY) {
+			throw new Error(
+				'RESEND_API_KEY environment variable is required. ' +
+					'Set it via: bunx convex env set RESEND_API_KEY your_key'
+			);
+		}
+		return process.env.RESEND_API_KEY;
+	})(),
 
 	/**
 	 * Generate a cryptographically secure 8-digit OTP code
