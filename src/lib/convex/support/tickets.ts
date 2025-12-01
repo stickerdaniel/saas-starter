@@ -13,9 +13,9 @@ import { resend as resendComponent } from '../emails/resend';
 const MAX_ATTACHMENT_SIZE = 30 * 1024 * 1024;
 
 /**
- * Timeout for email delivery confirmation (30 seconds)
+ * Timeout for email delivery confirmation (60 seconds)
  */
-const EMAIL_DELIVERY_TIMEOUT_MS = 30 * 1000;
+const EMAIL_DELIVERY_TIMEOUT_MS = 60 * 1000;
 
 /**
  * Ticket type labels for display
@@ -87,7 +87,19 @@ Thank you for contacting us.`;
 }
 
 /**
- * Build plain text email content for admin notification
+ * Escape HTML special characters
+ */
+function escapeHtml(text: string): string {
+	return text
+		.replace(/&/g, '&amp;')
+		.replace(/</g, '&lt;')
+		.replace(/>/g, '&gt;')
+		.replace(/"/g, '&quot;');
+}
+
+/**
+ * Build HTML email content for admin notification
+ * Uses minimal HTML - plain text style with clickable attachment links
  */
 function buildAdminNotificationEmail(params: {
 	ticketId: string;
@@ -99,7 +111,7 @@ function buildAdminNotificationEmail(params: {
 	fileLinks: Array<{ filename: string; url: string }>;
 	threadId: string;
 	transcript: TranscriptMessage[];
-}): { subject: string; text: string } {
+}): { subject: string; html: string } {
 	const {
 		ticketId,
 		ticketType,
@@ -114,26 +126,32 @@ function buildAdminNotificationEmail(params: {
 	const userDisplay = userName ? `${userName} (${userEmail})` : userEmail;
 	const subject = `[${ticketType}] ${title}`;
 
-	let text = `[${ticketType}] ${title}
+	let html = `<pre style="font-family: monospace; white-space: pre-wrap;">[${escapeHtml(ticketType)}] ${escapeHtml(title)}
 
-Ticket ID: ${ticketId}
-From: ${userDisplay}
-Thread ID: ${threadId}
+Ticket ID: ${escapeHtml(ticketId)}
+From: ${escapeHtml(userDisplay)}
+Thread ID: ${escapeHtml(threadId)}
 
 Description:
-${description}`;
+${escapeHtml(description)}`;
 
 	// Add all attachments overview before transcript
 	if (fileLinks.length > 0) {
-		text += `\n\nAll Attachments:`;
+		html += `
+
+All Attachments:`;
 		for (const file of fileLinks) {
-			text += `\n- ${file.filename}: ${file.url}`;
+			html += `
+- <a href="${escapeHtml(file.url)}">${escapeHtml(file.filename)}</a>`;
 		}
 	}
 
 	// Add chat transcript
 	if (transcript.length > 0) {
-		text += `\n\n========== Chat Transcript ==========\n`;
+		html += `
+
+========== Chat Transcript ==========
+`;
 		for (const msg of transcript) {
 			const date = new Date(msg.timestamp);
 			const timeStr = date.toLocaleString('de-DE', {
@@ -142,25 +160,32 @@ ${description}`;
 			});
 			const roleLabel = getRoleLabel(msg.role);
 
-			text += `\n[${timeStr}] ${roleLabel}:`;
+			html += `
+[${escapeHtml(timeStr)}] ${escapeHtml(roleLabel)}:`;
 			if (msg.content) {
-				text += `\n${msg.content}`;
+				html += `
+${escapeHtml(msg.content)}`;
 			}
 
 			if (msg.attachments?.length) {
-				text += `\nAttachments:`;
+				html += `
+Attachments:`;
 				for (const att of msg.attachments) {
-					text += `\n  - ${att.filename}: ${att.url}`;
+					html += `
+  - <a href="${escapeHtml(att.url)}">${escapeHtml(att.filename)}</a>`;
 				}
 			}
-			text += `\n`;
+			html += `
+`;
 		}
-		text += `======================================`;
+		html += `======================================`;
 	}
 
-	text += `\n\nThis ticket was submitted via the AI customer support assistant.`;
+	html += `
 
-	return { subject, text };
+This ticket was submitted via the AI customer support assistant.</pre>`;
+
+	return { subject, html };
 }
 
 /**
@@ -236,7 +261,7 @@ export const submitTicket = internalAction({
 			userEmail: userEmail,
 			userName: userName,
 			userId: args.userId,
-			fileIds: fileLinks.map((f) => f.url),
+			fileIds: fileLinks,
 			toolCallId: args.toolCallId,
 			promptMessageId: args.promptMessageId
 		});
@@ -315,7 +340,7 @@ export const submitTicket = internalAction({
 			userEmailId
 		});
 
-		// 6. Schedule timeout check (30 seconds)
+		// 6. Schedule timeout check
 		// Note: checkEmailDeliveryTimeout is in ticketHelpers.ts because this file uses 'use node'
 		await ctx.scheduler.runAfter(
 			EMAIL_DELIVERY_TIMEOUT_MS,
@@ -361,19 +386,15 @@ export const sendAdminNotificationEmail = internalAction({
 
 		const ticketType = TICKET_TYPE_LABELS[ticket.ticketType] || ticket.ticketType;
 
-		// Get file links from fileIds
-		const fileLinks: Array<{ filename: string; url: string }> =
-			ticket.fileIds?.map((url: string) => ({
-				filename: url.split('/').pop() || 'attachment',
-				url
-			})) || [];
+		// Get file links from fileIds (already contains { filename, url } objects)
+		const fileLinks = ticket.fileIds || [];
 
 		// Get chat transcript for the thread
 		const transcript = await ctx.runQuery(internal.support.ticketHelpers.getThreadTranscript, {
 			threadId: ticket.threadId
 		});
 
-		const { subject, text } = buildAdminNotificationEmail({
+		const { subject, html } = buildAdminNotificationEmail({
 			ticketId: args.ticketId.toString(),
 			ticketType,
 			title: ticket.title,
@@ -426,7 +447,7 @@ export const sendAdminNotificationEmail = internalAction({
 						to: [supportEmail],
 						replyTo: ticket.userEmail,
 						subject,
-						text,
+						html,
 						attachments: attachments.length > 0 ? attachments : undefined,
 						headers: {
 							'X-Idempotency-Key': idempotencyKey
