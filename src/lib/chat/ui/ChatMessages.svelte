@@ -83,7 +83,11 @@
 			<!-- Messages list with fade-in animation on first load -->
 			<div class="space-y-4 py-20 pr-4 pl-9 {ctx.messagesFade.animationClass}">
 				{#each ctx.displayMessages as message (message._renderKey ?? message.id)}
-					<ChatMessage {message} attachments={getAttachments(message)} />
+					<ChatMessage
+						{message}
+						attachments={getAttachments(message)}
+						threadId={ctx.core.threadId ?? undefined}
+					/>
 				{/each}
 			</div>
 		{/if}

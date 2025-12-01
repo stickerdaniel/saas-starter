@@ -106,6 +106,21 @@ export class SupportThreadContext {
 	}
 
 	/**
+	 * Check if any message has pending tool calls awaiting user response
+	 */
+	get hasPendingToolCalls(): boolean {
+		return this.messages.some((msg) =>
+			msg.parts?.some(
+				(p) =>
+					typeof p.type === 'string' &&
+					p.type.startsWith('tool-') &&
+					p.state === 'input-available' &&
+					!p.output
+			)
+		);
+	}
+
+	/**
 	 * Set awaiting stream state
 	 */
 	setAwaitingStream(awaiting: boolean) {
@@ -166,7 +181,7 @@ export class SupportThreadContext {
 	 */
 	addOptimisticMessage(content: string, attachments: Attachment[] = []): SupportMessage {
 		const optimisticMessage: SupportMessage = {
-			id: `temp_${Date.now()}`,
+			id: `temp_${crypto.randomUUID()}`,
 			_creationTime: Date.now(),
 			threadId: this.threadId!,
 			role: 'user', // Top-level role (normalized)

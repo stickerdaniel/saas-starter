@@ -141,13 +141,16 @@
 		const optimisticMessages = core.optimisticMessages;
 
 		const map = new Map<string, string>();
+		const matchedOptimisticIds = new Set<string>();
+
 		for (const msg of queryMessages) {
 			const match = optimisticMessages.find(
-				(opt) => opt.role === msg.role && opt.text === msg.text
+				(opt) => !matchedOptimisticIds.has(opt.id) && opt.role === msg.role && opt.text === msg.text
 			);
 			if (match) {
 				// Real message should use optimistic ID as render key
 				map.set(msg.id, match.id);
+				matchedOptimisticIds.add(match.id);
 			}
 		}
 		return map;

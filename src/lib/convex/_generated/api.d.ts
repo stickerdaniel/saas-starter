@@ -8,8 +8,8 @@
  * @module
  */
 
-import type * as auth_ResendOTP from "../auth/ResendOTP.js";
 import type * as auth from "../auth.js";
+import type * as auth_ResendOTP from "../auth/ResendOTP.js";
 import type * as autumn from "../autumn.js";
 import type * as crons from "../crons.js";
 import type * as emails_events from "../emails/events.js";
@@ -25,6 +25,9 @@ import type * as support_agent from "../support/agent.js";
 import type * as support_files from "../support/files.js";
 import type * as support_messages from "../support/messages.js";
 import type * as support_threads from "../support/threads.js";
+import type * as support_ticketHelpers from "../support/ticketHelpers.js";
+import type * as support_tickets from "../support/tickets.js";
+import type * as support_tools from "../support/tools.js";
 import type * as tests from "../tests.js";
 import type * as users from "../users.js";
 
@@ -34,17 +37,9 @@ import type {
   FunctionReference,
 } from "convex/server";
 
-/**
- * A utility for referencing Convex functions in your app's API.
- *
- * Usage:
- * ```js
- * const myFunctionReference = api.myModule.myFunction;
- * ```
- */
 declare const fullApi: ApiFromModules<{
-  "auth/ResendOTP": typeof auth_ResendOTP;
   auth: typeof auth;
+  "auth/ResendOTP": typeof auth_ResendOTP;
   autumn: typeof autumn;
   crons: typeof crons;
   "emails/events": typeof emails_events;
@@ -60,17 +55,36 @@ declare const fullApi: ApiFromModules<{
   "support/files": typeof support_files;
   "support/messages": typeof support_messages;
   "support/threads": typeof support_threads;
+  "support/ticketHelpers": typeof support_ticketHelpers;
+  "support/tickets": typeof support_tickets;
+  "support/tools": typeof support_tools;
   tests: typeof tests;
   users: typeof users;
 }>;
-declare const fullApiWithMounts: typeof fullApi;
 
+/**
+ * A utility for referencing Convex functions in your app's public API.
+ *
+ * Usage:
+ * ```js
+ * const myFunctionReference = api.myModule.myFunction;
+ * ```
+ */
 export declare const api: FilterApi<
-  typeof fullApiWithMounts,
+  typeof fullApi,
   FunctionReference<any, "public">
 >;
+
+/**
+ * A utility for referencing Convex functions in your app's internal API.
+ *
+ * Usage:
+ * ```js
+ * const myFunctionReference = internal.myModule.myFunction;
+ * ```
+ */
 export declare const internal: FilterApi<
-  typeof fullApiWithMounts,
+  typeof fullApi,
   FunctionReference<any, "internal">
 >;
 
@@ -972,12 +986,6 @@ export declare const components: {
         },
         null
       >;
-      getMessageSearchFields: FunctionReference<
-        "query",
-        "internal",
-        { messageId: string },
-        { embedding?: Array<number>; embeddingModel?: string; text?: string }
-      >;
       getMessagesByIds: FunctionReference<
         "query",
         "internal",
@@ -1244,6 +1252,12 @@ export declare const components: {
             | { message: string; type: "other" }
           >;
         }>
+      >;
+      getMessageSearchFields: FunctionReference<
+        "query",
+        "internal",
+        { messageId: string },
+        { embedding?: Array<number>; embeddingModel?: string; text?: string }
       >;
       listMessagesByThreadId: FunctionReference<
         "query",

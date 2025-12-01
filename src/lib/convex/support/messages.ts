@@ -1,4 +1,4 @@
-import { internalAction, mutation, query } from '../_generated/server';
+import { internalAction, internalMutation, mutation, query } from '../_generated/server';
 import { v } from 'convex/values';
 import { internal } from '../_generated/api';
 import { supportAgent } from './agent';
@@ -94,7 +94,8 @@ export const generateResponse = internalAction({
 		userId: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
-		// Stream the AI response
+		// Stream the AI response with tool execution support
+		// maxSteps is configured at the agent level (agent.ts) for multi-step tool execution
 		const result = await supportAgent.streamText(
 			ctx,
 			{ threadId: args.threadId, userId: args.userId },
@@ -104,14 +105,14 @@ export const generateResponse = internalAction({
 			{
 				// Save streaming deltas to database for real-time updates
 				saveStreamDeltas: {
-					chunking: 'line', // word/line chunking
-					throttleMs: 100 // 0.1 second update rate
+					chunking: 'line',
+					throttleMs: 100
 				}
 			}
 		);
 
-		// Let the stream process asynchronously for progressive updates
-		void result.consumeStream();
+		// Consume the stream to process all tool calls and responses
+		await result.consumeStream();
 	}
 });
 
@@ -121,6 +122,9 @@ export const generateResponse = internalAction({
  * Returns paginated messages with streaming deltas included.
  * This query is reactive and will automatically update when new messages or
  * streaming deltas arrive.
+ *
+ * Note: We fetch messages using listMessagesByThreadId and enrich with UIMessage
+ * format because listUIMessages doesn't include custom metadata fields.
  */
 export const listMessages = query({
 	args: {
@@ -128,12 +132,41 @@ export const listMessages = query({
 		paginationOpts: paginationOptsValidator,
 		streamArgs: vStreamArgs
 	},
-	handler: async (ctx, args) => {
+	handler: async (ctx, args): Promise<unknown> => {
 		// Get paginated UIMessages (includes id field and text for display)
 		const paginated = await listUIMessages(ctx, components.agent, {
 			threadId: args.threadId,
 			paginationOpts: args.paginationOpts
 		});
+
+		// Get raw messages to access metadata (listUIMessages doesn't include it)
+		// Skip when numItems is 0 (delta-only queries don't need metadata)
+		let rawMessages: { page: Array<{ _id: string; metadata?: Record<string, unknown> }> } = {
+			page: []
+		};
+		if (args.paginationOpts.numItems > 0) {
+			rawMessages = await ctx.runQuery(components.agent.messages.listMessagesByThreadId, {
+				threadId: args.threadId,
+				paginationOpts: args.paginationOpts,
+				order: 'asc'
+			});
+		}
+
+		// Create a map of message id -> metadata
+		// Note: metadata field exists but isn't in the TypeScript types
+		const metadataMap = new Map<string, Record<string, unknown>>();
+		for (const msg of rawMessages.page) {
+			const metadata = (msg as unknown as { metadata?: Record<string, unknown> }).metadata;
+			if (metadata) {
+				metadataMap.set(msg._id, metadata);
+			}
+		}
+
+		// Enrich UIMessages with metadata
+		const enrichedPage = paginated.page.map((msg) => ({
+			...msg,
+			metadata: metadataMap.get(msg.id)
+		}));
 
 		// Get streaming deltas for in-progress messages
 		const streams = await syncStreams(ctx, components.agent, {
@@ -142,7 +175,7 @@ export const listMessages = query({
 			includeStatuses: ['streaming', 'finished', 'aborted']
 		});
 
-		return { ...paginated, streams };
+		return { ...paginated, page: enrichedPage, streams };
 	}
 });
 
@@ -159,6 +192,29 @@ export const deleteMessage = mutation({
 	handler: async (ctx, args) => {
 		await supportAgent.deleteMessage(ctx, {
 			messageId: args.messageId
+		});
+	}
+});
+
+/**
+ * Internal mutation to save an assistant message
+ *
+ * Used to send follow-up messages after async operations complete,
+ * such as after a support ticket is successfully submitted.
+ */
+export const saveAssistantMessage = internalMutation({
+	args: {
+		threadId: v.string(),
+		text: v.string()
+	},
+	handler: async (ctx, args) => {
+		return await supportAgent.saveMessage(ctx, {
+			threadId: args.threadId,
+			message: {
+				role: 'assistant',
+				content: args.text
+			},
+			skipEmbeddings: true
 		});
 	}
 });

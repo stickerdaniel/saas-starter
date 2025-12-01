@@ -131,6 +131,7 @@
 	bind:this={stageComponent}
 	{width}
 	{height}
+	divWrapperProps={{ class: '[&_canvas]:cursor-crosshair' }}
 	onpointerdown={handleMouseDown}
 	onpointermove={handleMouseMove}
 	onpointerup={handleMouseUp}
@@ -233,9 +234,3 @@
 		{/if}
 	</Layer>
 </Stage>
-
-<style>
-	:global(canvas) {
-		cursor: crosshair;
-	}
-</style>

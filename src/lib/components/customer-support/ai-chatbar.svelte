@@ -85,10 +85,10 @@
 			: 'max-w-[280px]'}"
 	>
 		<!-- Gradient glow layers (behind) -->
-		<div class="ai-gradient-wrapper-glow pointer-events-none"></div>
-		<div class="ai-gradient-wrapper pointer-events-none"></div>
+		<div class="ai-gradient-wrapper-glow pointer-events-none rounded-3xl"></div>
+		<div class="ai-gradient-wrapper pointer-events-none rounded-3xl"></div>
 		<!-- Pill background layer -->
-		<div class="ai-pill-bg pointer-events-none"></div>
+		<div class="ai-pill-bg pointer-events-none rounded-3xl"></div>
 
 		<PromptInput
 			value={input}
@@ -98,7 +98,7 @@
 			class="relative z-[1] mb-1 flex w-full flex-row items-center border-0 bg-transparent !p-1 shadow-none"
 		>
 			<PromptInputTextarea
-				class="!h-auto !min-h-auto rounded-full bg-transparent !py-0 "
+				class="!h-auto !min-h-auto rounded-3xl bg-transparent !py-0 "
 				placeholder="Ask me anything..."
 				onfocus={handleFocus}
 				onblur={handleBlur}
@@ -109,7 +109,7 @@
 				size="icon"
 				class="h-8 w-8 rounded-full text-muted-foreground"
 				onclick={handleSubmit}
-				disabled={!input.trim() || threadContext.isSending}
+				disabled={!input.trim() || threadContext.isSending || threadContext.hasPendingToolCalls}
 			>
 				{#if threadContext.isSending}
 					<Square class="size-5 fill-current" />
@@ -126,7 +126,6 @@
 	:global(.ai-gradient-wrapper-glow) {
 		position: absolute;
 		inset: -2px;
-		border-radius: 50px;
 		overflow: hidden;
 		transition: inset 0.2s ease-in-out;
 	}
@@ -172,7 +171,6 @@
 		position: absolute;
 		inset: 0;
 		z-index: 0;
-		border-radius: 42px;
 		background: #ffffff;
 		box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
 	}
