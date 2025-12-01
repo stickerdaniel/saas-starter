@@ -30,7 +30,7 @@
 <div class={cn('flex items-center gap-0.5', containerSizes[size], className)}>
 	{#each Array(5) as _, i}
 		<div
-			class={cn('bg-primary animate-[wave_1s_ease-in-out_infinite] rounded-full', barWidths[size])}
+			class={cn('animate-[wave_1s_ease-in-out_infinite] rounded-full bg-primary', barWidths[size])}
 			style:animation-delay="{i * 100}ms"
 			style:height={heights[size][i]}
 		></div>

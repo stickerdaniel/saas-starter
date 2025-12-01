@@ -8,7 +8,6 @@ import {
 } from '../_generated/server';
 import { components, internal } from '../_generated/api';
 import { supportAgent } from './agent';
-import type { Id } from '../_generated/dataModel';
 
 /**
  * Get user email from authentication

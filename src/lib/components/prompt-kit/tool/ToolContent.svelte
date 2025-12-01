@@ -14,8 +14,8 @@
 
 <CollapsibleContent
 	class={cn(
-		'border-border border-t',
-		'data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down overflow-hidden',
+		'border-t border-border',
+		'overflow-hidden data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down',
 		className
 	)}
 >

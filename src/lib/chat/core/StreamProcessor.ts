@@ -514,7 +514,7 @@ export function processMessagesWithStreaming(
 		const streamText = streamingTextMap.get(msg.order);
 		const streamReasoning = streamingReasoningMap.get(msg.order);
 		const streamStatus = streamingStatusMap.get(msg.order);
-		const cachedStatus = cacheManager.getCachedStatus(msg.order);
+		const _cachedStatus = cacheManager.getCachedStatus(msg.order);
 
 		// Determine streaming state
 		const isStreaming = streamStatus === 'streaming';

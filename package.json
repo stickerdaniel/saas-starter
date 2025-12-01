@@ -9,7 +9,7 @@
 		"dev": "bun run dev:frontend & bun run dev:backend",
 		"build": "vite build",
 		"preview": "vite preview",
-		"prepare": "svelte-kit sync && husky",
+		"prepare": "husky",
 		"package": "svelte-kit sync && svelte-package",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",

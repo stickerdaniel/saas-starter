@@ -28,7 +28,7 @@
 </script>
 
 <div class={cn('flex items-center space-x-1', containerSizes[size], className)}>
-	<span class={cn('text-primary font-mono', textSizes[size])}>&gt;</span>
-	<div class={cn('bg-primary animate-[blink_1s_step-end_infinite]', cursorSizes[size])}></div>
+	<span class={cn('font-mono text-primary', textSizes[size])}>&gt;</span>
+	<div class={cn('animate-[blink_1s_step-end_infinite] bg-primary', cursorSizes[size])}></div>
 	<span class="sr-only">Loading</span>
 </div>

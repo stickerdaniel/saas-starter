@@ -67,12 +67,12 @@
 				{/if}
 				{#if isAssistant}
 					<MessageContent
-						class="prose text-primary w-full max-w-[85%] flex-1 overflow-x-auto rounded-lg bg-transparent p-0 py-0 sm:max-w-[75%]"
+						class="prose w-full max-w-[85%] flex-1 overflow-x-auto rounded-lg bg-transparent p-0 py-0 text-primary sm:max-w-[75%]"
 						markdown={true}
 						content={message.content}
 					></MessageContent>
 				{:else}
-					<MessageContent class="bg-secondary text-primary max-w-[85%] sm:max-w-[75%]">
+					<MessageContent class="max-w-[85%] bg-secondary text-primary sm:max-w-[75%]">
 						{message.content}
 					</MessageContent>
 				{/if}

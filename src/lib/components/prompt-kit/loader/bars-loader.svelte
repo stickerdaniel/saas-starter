@@ -25,7 +25,7 @@
 	{#each Array(3) as _, i}
 		<!-- svelte-ignore element_invalid_self_closing_tag -->
 		<div
-			class={cn('bg-primary h-full animate-[wave-bars_1.2s_ease-in-out_infinite]', barWidths[size])}
+			class={cn('h-full animate-[wave-bars_1.2s_ease-in-out_infinite] bg-primary', barWidths[size])}
 			style:animation-delay="{i * 0.2}s"
 		/>
 	{/each}

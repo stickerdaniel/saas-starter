@@ -119,20 +119,20 @@
 	>
 		{#if highlightedContent?.hasMatch}
 			{#if highlightedContent.before}
-				<span class="text-muted-foreground whitespace-pre-wrap">
+				<span class="whitespace-pre-wrap text-muted-foreground">
 					{highlightedContent.before}
 				</span>
 			{/if}
-			<span class="text-primary font-medium whitespace-pre-wrap">
+			<span class="font-medium whitespace-pre-wrap text-primary">
 				{highlightedContent.highlighted}
 			</span>
 			{#if highlightedContent.after}
-				<span class="text-muted-foreground whitespace-pre-wrap">
+				<span class="whitespace-pre-wrap text-muted-foreground">
 					{highlightedContent.after}
 				</span>
 			{/if}
 		{:else}
-			<span class="text-muted-foreground whitespace-pre-wrap">
+			<span class="whitespace-pre-wrap text-muted-foreground">
 				{highlightedContent?.text || content}
 			</span>
 		{/if}

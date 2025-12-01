@@ -102,7 +102,7 @@
 					)}
 				>
 					<div class="lg:hidden">
-						<ul class="space-y-6 text-base text-right">
+						<ul class="space-y-6 text-right text-base">
 							{#each menuItems as item}
 								<li>
 									<a

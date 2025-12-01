@@ -13,6 +13,6 @@
 	} & HTMLAttributes<HTMLDivElement> = $props();
 </script>
 
-<div class={cn('text-muted-foreground flex items-center gap-2', className)} {...restProps}>
+<div class={cn('flex items-center gap-2 text-muted-foreground', className)} {...restProps}>
 	{@render children()}
 </div>

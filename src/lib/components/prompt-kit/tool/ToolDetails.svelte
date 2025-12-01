@@ -25,11 +25,11 @@
 	const { input, output, state, toolCallId, errorText } = $derived(toolPart);
 </script>
 
-<div class={cn('bg-background space-y-3 p-3', className)} {...restProps}>
+<div class={cn('space-y-3 bg-background p-3', className)} {...restProps}>
 	{#if input && Object.keys(input).length > 0}
 		<div>
-			<h4 class="text-muted-foreground mb-2 text-sm font-medium">Input</h4>
-			<div class="bg-background rounded border p-2 font-mono text-sm">
+			<h4 class="mb-2 text-sm font-medium text-muted-foreground">Input</h4>
+			<div class="rounded border bg-background p-2 font-mono text-sm">
 				{#each Object.entries(input) as [key, value]}
 					<div class="mb-1">
 						<span class="text-muted-foreground">{key}:</span>
@@ -42,8 +42,8 @@
 
 	{#if output}
 		<div>
-			<h4 class="text-muted-foreground mb-2 text-sm font-medium">Output</h4>
-			<div class="bg-background max-h-60 overflow-auto rounded border p-2 font-mono text-sm">
+			<h4 class="mb-2 text-sm font-medium text-muted-foreground">Output</h4>
+			<div class="max-h-60 overflow-auto rounded border bg-background p-2 font-mono text-sm">
 				<pre class="whitespace-pre-wrap">{formatValue(output)}</pre>
 			</div>
 		</div>
@@ -53,7 +53,7 @@
 		<div>
 			<h4 class="mb-2 text-sm font-medium text-red-500">Error</h4>
 			<div
-				class="bg-background rounded border border-red-200 p-2 text-sm dark:border-red-950 dark:bg-red-900/20"
+				class="rounded border border-red-200 bg-background p-2 text-sm dark:border-red-950 dark:bg-red-900/20"
 			>
 				{errorText}
 			</div>
@@ -61,11 +61,11 @@
 	{/if}
 
 	{#if state === 'input-streaming'}
-		<div class="text-muted-foreground text-sm">Processing tool call...</div>
+		<div class="text-sm text-muted-foreground">Processing tool call...</div>
 	{/if}
 
 	{#if toolCallId}
-		<div class="text-muted-foreground border-t border-blue-200 pt-2 text-xs">
+		<div class="border-t border-blue-200 pt-2 text-xs text-muted-foreground">
 			<span class="font-mono">Call ID: {toolCallId}</span>
 		</div>
 	{/if}

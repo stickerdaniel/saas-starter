@@ -54,7 +54,7 @@
 	>
 		<Button
 			class={cn(
-				'bg-background/80 border-border/50 hover:bg-background/90 rounded-full shadow-lg backdrop-blur-sm hover:shadow-xl',
+				'rounded-full border-border/50 bg-background/80 shadow-lg backdrop-blur-sm hover:bg-background/90 hover:shadow-xl',
 				className
 			)}
 			onclick={handleScrollToBottom}
