@@ -1,14 +1,18 @@
 import { defineApp } from 'convex/server';
 import resend from '@convex-dev/resend/convex.config';
 import autumn from '@useautumn/convex/convex.config';
+import agent from '@convex-dev/agent/convex.config';
 
 const app: ReturnType<typeof defineApp> = defineApp();
 app.use(resend);
 app.use(autumn);
+app.use(agent);
 /**
- * Convex application configured with Autumn billing integration.
+ * Convex application configured with Autumn billing, Resend email, and AI Agent.
  *
- * This configuration registers the Autumn billing plugin with the Convex backend,
- * enabling subscription and usage tracking functionality.
+ * This configuration registers plugins with the Convex backend:
+ * - Autumn: Subscription and usage tracking functionality
+ * - Resend: Transactional email delivery
+ * - Agent: AI-powered conversation and thread management
  */
 export default app;

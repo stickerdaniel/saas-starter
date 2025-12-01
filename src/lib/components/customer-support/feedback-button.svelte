@@ -1,0 +1,60 @@
+<script lang="ts">
+	import { Button } from '$lib/components/ui/button/index.js';
+	import { MessageSquare, ChevronDown } from '@lucide/svelte';
+	import FeedbackWidget from './feedback-widget.svelte';
+	import { on } from 'svelte/events';
+	import type { ChatUIContext } from '$lib/chat';
+
+	let {
+		isFeedbackOpen = $bindable(false),
+		isScreenshotMode = $bindable(false),
+		chatUIContext
+	}: {
+		isFeedbackOpen?: boolean;
+		isScreenshotMode?: boolean;
+		chatUIContext: ChatUIContext;
+	} = $props();
+
+	function toggleOpen() {
+		isFeedbackOpen = !isFeedbackOpen;
+	}
+
+	$effect(() => {
+		if (!isFeedbackOpen) return;
+
+		return on(window, 'keydown', (event) => {
+			if (event.key === 'Escape') {
+				isFeedbackOpen = false;
+			}
+		});
+	});
+</script>
+
+{#if !isScreenshotMode}
+	<div class="fixed right-5 bottom-5 z-200 flex flex-col items-end justify-end gap-3">
+		{#if isFeedbackOpen}
+			<FeedbackWidget bind:isFeedbackOpen bind:isScreenshotMode {chatUIContext} />
+		{/if}
+		<Button
+			variant="default"
+			size="icon"
+			class="h-12 w-12 rounded-full transition-colors transition-transform duration-300 ease-in-out hover:scale-110 hover:bg-primary active:scale-110"
+			onclick={toggleOpen}
+		>
+			<div class="relative size-6">
+				<ChevronDown
+					class="absolute inset-0 size-6 transition-all duration-200 ease-out {isFeedbackOpen
+						? 'blur-0 scale-100 opacity-100'
+						: 'scale-0 opacity-0 blur-sm'}"
+				/>
+				<div class="-scale-x-100">
+					<MessageSquare
+						class="absolute inset-0 size-6 fill-current transition-all duration-200 ease-in-out {isFeedbackOpen
+							? 'scale-0 opacity-0 blur-xs'
+							: 'blur-0 scale-100 opacity-100'}"
+					/>
+				</div>
+			</div>
+		</Button>
+	</div>
+{/if}
