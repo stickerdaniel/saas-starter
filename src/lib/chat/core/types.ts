@@ -98,6 +98,25 @@ export interface DisplayMessage extends ChatMessage {
 }
 
 /**
+ * Tool UI part from agent messages
+ *
+ * When an agent calls a tool, the UIMessage contains tool parts with
+ * type "tool-{toolName}" format (e.g., "tool-requestUserEmail").
+ *
+ * Note: This matches the ToolUIPart from the AI SDK, where:
+ * - type is "tool-{toolName}" (not "tool-call")
+ * - arguments are in "input" (not "args")
+ */
+export interface ToolCallPart {
+	type: string; // "tool-{toolName}" format
+	toolCallId: string;
+	input?: Record<string, unknown>; // Tool arguments
+	state?: 'input-streaming' | 'input-available' | 'output-available' | 'output-error';
+	output?: unknown;
+	[key: string]: unknown;
+}
+
+/**
  * Text UI part
  */
 export type TextUIPart = {

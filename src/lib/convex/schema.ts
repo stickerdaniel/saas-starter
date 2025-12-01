@@ -20,7 +20,50 @@ export default defineSchema({
 	})
 		.index('by_email_id', ['emailId'])
 		.index('by_event_type', ['eventType'])
-		.index('by_timestamp', ['timestamp'])
+		.index('by_timestamp', ['timestamp']),
+
+	// Support tickets - submitted via AI agent
+	supportTickets: defineTable({
+		threadId: v.string(), // Reference to agent thread
+		ticketType: v.union(
+			v.literal('bug_report'),
+			v.literal('feature_request'),
+			v.literal('general_inquiry')
+		),
+		title: v.string(),
+		description: v.string(),
+		userEmail: v.string(),
+		userName: v.optional(v.string()),
+		userId: v.optional(v.string()), // Auth subject (not document ID)
+		fileIds: v.optional(v.array(v.string())), // URLs to attached files
+		status: v.union(
+			v.literal('submitted'),
+			v.literal('in_progress'),
+			v.literal('resolved'),
+			v.literal('closed')
+		),
+		emailId: v.optional(v.string()), // Resend email ID for tracking (legacy, admin email)
+		userEmailId: v.optional(v.string()), // Resend email ID for user confirmation
+		adminEmailId: v.optional(v.string()), // Resend email ID for admin notification
+		emailDeliveryStatus: v.optional(
+			v.union(
+				v.literal('pending'), // Waiting for delivery confirmation
+				v.literal('delivered'), // Both emails delivered successfully
+				v.literal('failed') // At least one email failed
+			)
+		),
+		emailError: v.optional(v.string()), // Error message if delivery failed
+		// Fields for deferred tool-result (saved when webhook arrives)
+		toolCallId: v.optional(v.string()), // Tool call ID for saving result later
+		promptMessageId: v.optional(v.string()), // Prompt message ID for agent continuation
+		submittedAt: v.number()
+	})
+		.index('by_thread', ['threadId'])
+		.index('by_user', ['userId'])
+		.index('by_status', ['status'])
+		.index('by_submitted', ['submittedAt'])
+		.index('by_user_email_id', ['userEmailId'])
+		.index('by_admin_email_id', ['adminEmailId'])
 
 	// Note: The agent component automatically creates the following tables:
 	// - agent:threads - Conversation threads for customer support

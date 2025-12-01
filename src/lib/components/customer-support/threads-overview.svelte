@@ -5,18 +5,11 @@
 	import { Avatar, AvatarImage } from '$lib/components/ui/avatar';
 	import { Bot, ChevronRight, Send } from '@lucide/svelte';
 	import { supportThreadContext } from './support-thread-context.svelte';
-	import NavigationButton from './navigation-button.svelte';
 	import AvatarHeading from './avatar-heading.svelte';
 	import { FadeOnLoad } from '$lib/utils/fade-on-load.svelte.js';
 	import memberFour from '$blocks/team/avatars/member-four.webp';
 	import memberTwo from '$blocks/team/avatars/member-two.webp';
 	import memberFive from '$blocks/team/avatars/member-five.webp';
-
-	let {
-		onClose
-	}: {
-		onClose: () => void;
-	} = $props();
 
 	const ctx = supportThreadContext.get();
 
@@ -70,16 +63,6 @@
 </script>
 
 <div class="flex h-full flex-col">
-	<!-- Header -->
-	<header
-		class="flex shrink-0 items-center justify-between border-b border-border/50 bg-secondary p-4"
-	>
-		<div class="flex h-10 flex-1 items-center justify-center">
-			<h2 class="text-xl font-semibold">Messages</h2>
-		</div>
-		<NavigationButton type="close" onclick={onClose} class="absolute right-4" />
-	</header>
-
 	<!-- Thread List -->
 	<div class="min-h-0 flex-1 overflow-y-auto">
 		{#if !isLoading && threads.length === 0}
@@ -111,7 +94,7 @@
 			<div class={threadsFade.animationClass}>
 				{#each threads as thread (thread._id)}
 					<button
-						class="flex w-full items-center gap-3 border-b border-border/30 p-4 px-7 text-left transition-colors hover:bg-muted-foreground/10"
+						class="flex w-full items-center gap-3 border-b border-border/30 p-4 px-5 text-left transition-colors hover:bg-muted-foreground/10"
 						onclick={() => ctx.selectThread(thread._id, thread.lastAgentName)}
 					>
 						<AvatarHeading

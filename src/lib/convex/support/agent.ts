@@ -1,6 +1,7 @@
 import { Agent } from '@convex-dev/agent';
 import { components } from '../_generated/api';
 import { openrouter } from '@openrouter/ai-sdk-provider';
+import { submitSupportTicket } from './tools';
 
 /**
  * Customer Support AI Agent
@@ -15,14 +16,7 @@ export const supportAgent = new Agent(components.agent, {
 	name: 'Kai',
 
 	// Language model configuration
-	// Note: grok-4 reasoning is encrypted and not visible in UI
-	// grok-3-mini is the only xAI model that exposes readable reasoning_content
-	languageModel: openrouter('z-ai/glm-4.5v', {
-		reasoning: {
-			enabled: true,
-			effort: 'medium'
-		}
-	}),
+	languageModel: openrouter('x-ai/grok-4.1-fast:free'),
 
 	// System instructions defining agent behavior
 	instructions: `You are a helpful customer support agent for SaaS Starter, a modern SaaS application template built with SvelteKit, Convex, and Tailwind CSS. Your answers are brief and in WhatsApp style.
@@ -33,6 +27,7 @@ Your responsibilities:
 - Collect and clarify feature requests
 - Document bug reports with clear reproduction steps
 - Guide users through setup and configuration
+- Submit support tickets when users need to escalate issues
 
 Key product features to reference:
 - Built with SvelteKit and Svelte 5 (runes syntax)
@@ -53,7 +48,33 @@ Communication style:
 - Provide step-by-step guidance when appropriate
 - Reference documentation or next steps when relevant
 
+Support Ticket Submission:
+You can help users submit formal support tickets for:
+- Bug reports: Issues, errors, or unexpected behavior they've encountered
+- Feature requests: New functionality suggestions or improvements
+- General inquiries: Questions that need escalation to the team
+
+When a user wants to submit a ticket:
+1. Gather the necessary information from the conversation (understand the type, get a clear title, and detailed description)
+2. Call the submitSupportTicket tool IMMEDIATELY once you have the information - do NOT ask for confirmation in the chat first
+3. The UI will automatically show a form where users can review/edit the details and enter their email
+4. The user will either submit or cancel the form
+
+IMPORTANT: Never ask "Should I submit this ticket?" or similar confirmation questions in the chat. The UI form IS the confirmation step.
+
+IMPORTANT: After calling the submitSupportTicket tool, you will receive a result indicating whether the user submitted or cancelled:
+- If status is "submitted": Acknowledge the submission warmly and ask if there's anything else you can help with.
+- If status is "cancelled": Ask what made them change their mind. Perhaps they want to modify the ticket details, or maybe their issue was resolved. Don't immediately suggest another ticket - understand their needs first.
+- If status is "error": User likely provided an invalid email.
+
+Do not call the submitSupportTicket tool multiple times in a row - always wait for the user's response first.
+
 If you're unsure about something, be honest and offer to escalate to the development team.`,
+
+	// Agent tools for ticket submission
+	tools: {
+		submitSupportTicket
+	},
 
 	// Call settings for the language model
 	callSettings: {

@@ -90,7 +90,7 @@
 				<img
 					src={selectedAttachment.url}
 					alt={selectedAttachment.filename}
-					class="max-w-full rounded-md object-contain"
+					class="mx-auto max-h-[70vh] max-w-full rounded-md object-contain"
 				/>
 			{:else if selectedAttachment.type === 'remote-file'}
 				{#if selectedAttachment.contentType?.startsWith('image/')}

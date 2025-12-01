@@ -255,7 +255,7 @@ export function updateFromTextStreamParts(
 							providerMetadata: part.providerMetadata
 						} satisfies ReasoningUIPart;
 						reasoningPartsById.set(part.id, newPart);
-						 
+
 						message.parts.push(newPart as any);
 					}
 				}
@@ -267,6 +267,92 @@ export function updateFromTextStreamParts(
 						reasoningPart.providerMetadata,
 						part.providerMetadata
 					);
+				}
+				break;
+			}
+			case 'tool-input-start': {
+				// Tool input is starting to stream
+				const inputStart = part as {
+					type: 'tool-input-start';
+					id: string;
+					toolName: string;
+				};
+				const toolPartType = `tool-${inputStart.toolName}`;
+
+				// Create streaming tool part with temporary ID (will be updated with toolCallId later)
+				const newToolPart = {
+					type: toolPartType,
+					toolName: inputStart.toolName,
+					streamId: inputStart.id, // Track by stream id until we get toolCallId
+					input: {},
+					state: 'input-streaming'
+				};
+				message.parts.push(newToolPart as any);
+				break;
+			}
+			case 'tool-input-delta': {
+				// Incremental input delta - we can't easily parse partial JSON
+				// so we just wait for the complete tool-call event
+				break;
+			}
+			case 'tool-input-end': {
+				// Tool input finished streaming, but we wait for tool-call for complete data
+				break;
+			}
+			case 'tool-call': {
+				// Complete tool call with all args
+				const toolCall = part as {
+					type: 'tool-call';
+					toolCallId: string;
+					toolName: string;
+					input: Record<string, unknown>;
+				};
+				const toolPartType = `tool-${toolCall.toolName}`;
+
+				// Find by streamId (which equals toolCallId) OR by existing toolCallId
+				const existingToolPart = message.parts.find(
+					(p) =>
+						p.type === toolPartType &&
+						((p as any).streamId === toolCall.toolCallId ||
+							(p as any).toolCallId === toolCall.toolCallId)
+				);
+
+				if (existingToolPart) {
+					// Update existing streaming part with complete data
+					(existingToolPart as any).toolCallId = toolCall.toolCallId;
+					(existingToolPart as any).input = toolCall.input;
+					(existingToolPart as any).state = 'input-available';
+					delete (existingToolPart as any).streamId;
+				} else {
+					// Create new complete tool call part
+					const newToolPart = {
+						type: toolPartType,
+						toolCallId: toolCall.toolCallId,
+						toolName: toolCall.toolName,
+						input: toolCall.input,
+						state: 'input-available'
+					};
+					message.parts.push(newToolPart as any);
+				}
+				break;
+			}
+			case 'tool-result': {
+				// Handle tool result - find matching tool call and add output
+				const resultPart = part as unknown as {
+					type: 'tool-result';
+					toolCallId: string;
+					toolName: string;
+					output: unknown;
+				};
+				const toolPartType = `tool-${resultPart.toolName}`;
+
+				const matchingToolPart = message.parts.find(
+					(p) => p.type === toolPartType && (p as any).toolCallId === resultPart.toolCallId
+				);
+
+				if (matchingToolPart) {
+					(matchingToolPart as any).output = resultPart.output;
+					(matchingToolPart as any).state = 'output-available';
 				}
 				break;
 			}

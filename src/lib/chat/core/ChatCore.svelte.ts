@@ -151,7 +151,7 @@ export class ChatCore {
 	 */
 	addOptimisticMessage(content: string, attachments: Attachment[] = []): ChatMessage {
 		const optimisticMessage: ChatMessage = {
-			id: `temp_${Date.now()}`,
+			id: `temp_${crypto.randomUUID()}`,
 			_creationTime: Date.now(),
 			threadId: this.threadId!,
 			role: 'user',
