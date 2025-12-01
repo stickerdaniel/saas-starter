@@ -38,20 +38,20 @@
 		<Button
 			variant="default"
 			size="icon"
-			class="h-12 w-12 rounded-full transition-colors transition-transform duration-300 ease-in-out hover:scale-110 hover:bg-primary"
+			class="h-12 w-12 rounded-full transition-colors transition-transform duration-300 ease-in-out hover:scale-110 hover:bg-primary active:scale-110"
 			onclick={toggleOpen}
 		>
 			<div class="relative size-6">
 				<ChevronDown
 					class="absolute inset-0 size-6 transition-all duration-200 ease-out {isFeedbackOpen
-						? 'scale-100 opacity-100'
-						: 'scale-0 opacity-0'}"
+						? 'blur-0 scale-100 opacity-100'
+						: 'scale-0 opacity-0 blur-sm'}"
 				/>
 				<div class="-scale-x-100">
 					<MessageSquare
 						class="absolute inset-0 size-6 fill-current transition-all duration-200 ease-in-out {isFeedbackOpen
-							? 'scale-0 opacity-0'
-							: 'scale-100 opacity-100'}"
+							? 'scale-0 opacity-0 blur-xs'
+							: 'blur-0 scale-100 opacity-100'}"
 					/>
 				</div>
 			</div>

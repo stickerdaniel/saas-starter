@@ -94,7 +94,7 @@
 			<div class={threadsFade.animationClass}>
 				{#each threads as thread (thread._id)}
 					<button
-						class="flex w-full items-center gap-3 border-b border-border/30 p-4 px-5 text-left transition-colors hover:bg-muted-foreground/10"
+						class="flex w-full items-center gap-3 border-b border-border/30 p-4 px-5 text-left transition-colors duration-0 ease-in-out hover:bg-muted-foreground/5"
 						onclick={() => ctx.selectThread(thread._id, thread.lastAgentName)}
 					>
 						<AvatarHeading
@@ -114,7 +114,11 @@
 
 	<!-- New Message Button -->
 	<div class="shrink-0 border-t border-border/50 bg-secondary p-4">
-		<Button class=" w-full rounded-full" onclick={() => ctx.startNewThread()} size="lg">
+		<Button
+			class=" w-full rounded-full active:scale-99"
+			onclick={() => ctx.startNewThread()}
+			size="lg"
+		>
 			<Send />
 			Start a new conversation
 		</Button>

@@ -171,7 +171,7 @@
 					transition={{ type: 'spring', duration: 0.5, bounce: 0.3 }}
 				>
 					<div use:motion class="col-start-1 row-start-1 flex h-10 items-center">
-						<h2 class="text-xl font-semibold leading-none">Messages</h2>
+						<h2 class="text-xl leading-none font-semibold">Messages</h2>
 					</div>
 				</Motion>
 			</AnimatePresence>
