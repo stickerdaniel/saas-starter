@@ -10,7 +10,8 @@ dotenv.config({ path: '.env.test' });
 export default defineConfig({
 	webServer: {
 		command: 'bun run build && bun run preview',
-		port: 4173
+		port: 4173,
+		timeout: 180000 // 3 minutes for CI build
 	},
 	testDir: 'e2e'
 });

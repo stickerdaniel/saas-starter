@@ -40,7 +40,7 @@
 		<div class="space-y-1">
 			<h3 class="text-sm font-medium">{title}</h3>
 			{#if description}
-				<p class="text-muted-foreground text-sm">{description}</p>
+				<p class="text-sm text-muted-foreground">{description}</p>
 			{/if}
 		</div>
 	{/if}

@@ -196,7 +196,7 @@
 	type="file"
 />
 <form
-	class={cn('bg-background w-full divide-y overflow-hidden rounded-xl border shadow-sm', className)}
+	class={cn('w-full divide-y overflow-hidden rounded-xl border bg-background shadow-sm', className)}
 	onsubmit={handleSubmit}
 	{...props}
 >

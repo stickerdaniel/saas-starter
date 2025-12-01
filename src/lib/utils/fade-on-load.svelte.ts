@@ -22,7 +22,7 @@
  * </div>
  * ```
  */
-export class FadeOnLoad<T = unknown> {
+export class FadeOnLoad<_T = unknown> {
 	private _isLoading = $state(false);
 	private _hasLoadedOnce = $state(false);
 	private _animationClasses: string;

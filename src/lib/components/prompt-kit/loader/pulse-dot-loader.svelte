@@ -17,7 +17,7 @@
 
 <div
 	class={cn(
-		'bg-primary animate-[pulse-dot_1.2s_ease-in-out_infinite] rounded-full',
+		'animate-[pulse-dot_1.2s_ease-in-out_infinite] rounded-full bg-primary',
 		sizeClasses[size],
 		className
 	)}

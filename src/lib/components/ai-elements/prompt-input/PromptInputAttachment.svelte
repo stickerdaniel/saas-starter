@@ -36,7 +36,7 @@
 		/>
 	{:else}
 		<div
-			class="text-muted-foreground flex size-full max-w-full cursor-pointer items-center justify-start gap-2 overflow-hidden px-2"
+			class="flex size-full max-w-full cursor-pointer items-center justify-start gap-2 overflow-hidden px-2 text-muted-foreground"
 		>
 			<PaperclipIcon class="size-4 shrink-0" />
 			<Tooltip.Root delayDuration={400}>
@@ -46,7 +46,7 @@
 					</h4>
 				</Tooltip.Trigger>
 				<Tooltip.Content>
-					<div class="text-muted-foreground text-xs">
+					<div class="text-xs text-muted-foreground">
 						<h4
 							class="max-w-[240px] overflow-hidden text-left text-sm font-semibold break-words whitespace-normal"
 						>

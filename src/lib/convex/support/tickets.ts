@@ -1,7 +1,7 @@
 'use node';
 
 import { v } from 'convex/values';
-import { internalAction, internalMutation } from '../_generated/server';
+import { internalAction } from '../_generated/server';
 import { internal } from '../_generated/api';
 import { Resend } from 'resend';
 import { resend as resendComponent } from '../emails/resend';

@@ -59,7 +59,7 @@
 			{...props}
 			variant="ghost"
 			class={cn(
-				'bg-background h-auto w-full justify-between rounded-b-none px-3 py-2 font-normal',
+				'h-auto w-full justify-between rounded-b-none bg-background px-3 py-2 font-normal',
 				className
 			)}
 		>

@@ -28,8 +28,8 @@
 {#if shouldRender}
 	<div
 		class={cn(
-			'bg-background/80 fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm',
-			'animate-in fade-in-0 slide-in-from-bottom-10 zoom-in-90 duration-150',
+			'fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm',
+			'animate-in duration-150 fade-in-0 slide-in-from-bottom-10 zoom-in-90',
 			className
 		)}
 		{...restProps}

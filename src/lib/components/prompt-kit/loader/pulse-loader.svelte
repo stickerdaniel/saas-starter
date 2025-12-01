@@ -17,7 +17,7 @@
 
 <div class={cn('relative', sizeClasses[size], className)}>
 	<div
-		class="border-primary absolute inset-0 animate-[thin-pulse_1.5s_ease-in-out_infinite] rounded-full border-2"
+		class="absolute inset-0 animate-[thin-pulse_1.5s_ease-in-out_infinite] rounded-full border-2 border-primary"
 	></div>
 	<span class="sr-only">Loading</span>
 </div>

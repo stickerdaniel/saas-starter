@@ -24,7 +24,7 @@
 <div class={cn('flex items-center space-x-1', containerSizes[size], className)}>
 	{#each Array(3) as _, i}
 		<div
-			class={cn('bg-primary animate-[typing_1s_infinite] rounded-full', dotSizes[size])}
+			class={cn('animate-[typing_1s_infinite] rounded-full bg-primary', dotSizes[size])}
 			style:animation-delay="{i * 250}ms"
 		></div>
 	{/each}
