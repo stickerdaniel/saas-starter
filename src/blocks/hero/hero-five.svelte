@@ -20,10 +20,10 @@
 		<RiveBackground
 			src="/animations/spring-demo.riv"
 			stateMachine="Motion"
-			className="absolute lg:left-[45%] xl:left-[52%] -bottom-2/5 lg:-bottom-1/6 w-[600px] h-[600px] lg:w-[700px] lg:h-[700px]"
+			className="absolute lg:left-[45%] xl:left-[52%] -bottom-1/5 lg:-bottom-1/6 w-[550px] h-[550px] lg:w-[700px] lg:h-[700px]"
 		/>
 
-		<div class="pointer-events-none w-full py-24 md:pb-32 lg:pt-48 lg:pb-36">
+		<div class="pointer-events-none w-full pt-24 pb-56 lg:pt-48 lg:pb-36">
 			<div class="relative mx-auto flex max-w-6xl flex-col px-6 lg:block lg:px-12">
 				<div class="mx-auto max-w-lg text-center lg:ml-0 lg:max-w-full lg:text-left">
 					<h1 class="mt-8 max-w-4xl text-5xl text-balance md:text-6xl lg:mt-16 xl:text-7xl">
@@ -32,7 +32,6 @@
 					<p class="mt-8 max-w-3xl text-lg text-balance">
 						<T keyName="hero.description" />
 					</p>
-
 					<div
 						class="mt-12 flex flex-col items-center justify-center gap-2 sm:flex-row lg:justify-start"
 					>

@@ -26,7 +26,9 @@
 
 <header>
 	<nav class="fixed z-40 w-full px-2">
-		<div class="mx-auto max-w-6xl rounded-3xl bg-background/50 px-6 backdrop-blur-2xl lg:px-12">
+		<div
+			class="mx-auto max-w-6xl rounded-3xl bg-background/50 px-6 shadow-2xl/10 backdrop-blur-2xl lg:px-12 lg:shadow-none"
+		>
 			<div class="relative flex flex-wrap items-center justify-between gap-6 py-3 lg:gap-0 lg:py-4">
 				<div class="flex w-full items-center justify-between gap-12 lg:w-auto">
 					<a href={localizedHref('/')} aria-label="home" class="flex items-center space-x-2">
@@ -63,21 +65,29 @@
 						</svg>
 					</a>
 
-					<button
-						onclick={() => (menuState = !menuState)}
-						aria-label={menuState == true ? 'Close Menu' : 'Open Menu'}
-						class="relative z-20 -m-2.5 -mr-4 block cursor-pointer p-2.5 lg:hidden"
-					>
-						<Menu
-							class={cn('m-auto size-6 duration-200', menuState && 'scale-0 rotate-180 opacity-0')}
-						/>
-						<X
-							class={cn(
-								'absolute inset-0 m-auto size-6 scale-0 -rotate-180 opacity-0 duration-200',
-								menuState && 'scale-100 rotate-0 opacity-100'
-							)}
-						/>
-					</button>
+					<!-- Mobile controls group -->
+					<div class="flex items-center gap-1 lg:hidden">
+						<LightSwitch variant="ghost" />
+						<LanguageSwitcher variant="ghost" />
+						<button
+							onclick={() => (menuState = !menuState)}
+							aria-label={menuState == true ? 'Close Menu' : 'Open Menu'}
+							class="relative z-20 -m-2.5 -mr-4 block cursor-pointer p-2.5 pl-4"
+						>
+							<Menu
+								class={cn(
+									'm-auto size-6 duration-200',
+									menuState && 'scale-0 rotate-180 opacity-0'
+								)}
+							/>
+							<X
+								class={cn(
+									'absolute inset-0 m-auto size-6 scale-0 -rotate-180 opacity-0 duration-200',
+									menuState && 'scale-100 rotate-0 opacity-100'
+								)}
+							/>
+						</button>
+					</div>
 				</div>
 
 				<div class="absolute inset-0 m-auto hidden size-fit lg:block">
@@ -97,7 +107,7 @@
 
 				<div
 					class={cn(
-						'mb-6 w-full  flex-wrap items-center justify-end space-y-8 rounded-3xl border bg-background p-6 shadow-2xl shadow-zinc-300/20 md:flex-nowrap lg:m-0 lg:flex lg:w-fit lg:gap-6 lg:space-y-0 lg:border-transparent lg:bg-transparent lg:p-0 lg:shadow-none dark:shadow-none dark:lg:bg-transparent',
+						'mb-3 w-full  flex-wrap items-center justify-end space-y-8 rounded-3xl border bg-background p-6 shadow-2xl shadow-zinc-300/20 lg:m-0 lg:flex lg:w-fit lg:flex-nowrap lg:gap-6 lg:space-y-0 lg:border-transparent lg:bg-transparent lg:p-0 lg:shadow-none dark:shadow-none dark:lg:bg-transparent',
 						menuState ? 'block lg:flex' : 'hidden lg:flex'
 					)}
 				>
@@ -116,12 +126,15 @@
 						</ul>
 					</div>
 					<div
-						class="flex w-full flex-col items-end space-y-3 sm:flex-row sm:items-center sm:gap-3 sm:space-y-0 md:w-fit"
+						class="flex w-full flex-col items-end gap-3 lg:w-fit lg:flex-row lg:items-center lg:space-y-0"
 					>
-						<LightSwitch variant="ghost" />
-						<LanguageSwitcher variant="ghost" />
+						<!-- Desktop only - mobile controls are in header bar -->
+						<div class="hidden lg:flex lg:items-center lg:gap-3">
+							<LightSwitch variant="ghost" />
+							<LanguageSwitcher variant="ghost" />
+						</div>
 						{#if auth.isAuthenticated}
-							<Button size="sm" href={localizedHref('/app')} class="w-full sm:w-auto">
+							<Button size="sm" href={localizedHref('/app')} class="w-full lg:w-auto">
 								<T keyName="nav.dashboard" />
 							</Button>
 							<Button variant="outline" size="icon" class="size-8" onclick={() => auth.signOut()}>
@@ -131,21 +144,21 @@
 							<Button
 								variant="outline"
 								size="sm"
-								class={cn('w-full sm:w-auto', isScrolled && 'hidden')}
+								class={cn('w-full lg:w-auto', isScrolled && 'hidden')}
 								href={localizedHref('/signin?tab=signin')}
 							>
 								<T keyName="auth.login" />
 							</Button>
 							<Button
 								size="sm"
-								class={cn('w-full sm:w-auto', isScrolled && 'hidden')}
+								class={cn('w-full lg:w-auto', isScrolled && 'hidden')}
 								href={localizedHref('/signin?tab=signup')}
 							>
 								<T keyName="auth.signup" />
 							</Button>
 							<Button
 								size="sm"
-								class={cn('w-full sm:w-auto', !isScrolled && 'hidden')}
+								class={cn('w-full lg:w-auto', !isScrolled && 'hidden')}
 								href={localizedHref('/signin?tab=signup')}
 							>
 								<T keyName="nav.get_started" />

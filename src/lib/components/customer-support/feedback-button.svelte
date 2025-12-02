@@ -38,8 +38,8 @@
 		<Button
 			variant="default"
 			size="icon"
-			class="h-12 w-12 rounded-full transition-colors transition-transform duration-300 ease-in-out hover:scale-110 hover:bg-primary active:scale-110"
 			onclick={toggleOpen}
+			class="h-12 w-12 rounded-full transition-colors transition-transform duration-200 ease-in-out hover:scale-110 hover:bg-primary active:scale-105"
 		>
 			<div class="relative size-6">
 				<ChevronDown
