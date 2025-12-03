@@ -1,6 +1,16 @@
 <script lang="ts">
 	import IntegrationCard from './card/integration-card.svelte';
-	import { Svelte, Convex, Tolgee, PostHog, SVBlocks, Autumn } from '../logos/logos';
+	import {
+		Svelte,
+		Convex,
+		Tolgee,
+		PostHog,
+		SVBlocks,
+		Autumn,
+		OpenRouter,
+		Resend,
+		Sentry
+	} from '../logos/logos';
 	import Shadcn from '../logos/Shadcn.svelte';
 	import Stripe from '../logos/Stripe.svelte';
 	import { T, getTranslate } from '@tolgee/svelte';
@@ -84,6 +94,33 @@
 						<Autumn class="size-10" />
 						<Stripe class="size-10" />
 					</div>
+				</IntegrationCard>
+
+				<IntegrationCard
+					title={$t('integrations.cards.openrouter.title')}
+					description={$t('integrations.cards.openrouter.description')}
+					link="https://openrouter.ai"
+					buttonText={$t('integrations.cards.openrouter.button')}
+				>
+					<OpenRouter />
+				</IntegrationCard>
+
+				<IntegrationCard
+					title={$t('integrations.cards.resend.title')}
+					description={$t('integrations.cards.resend.description')}
+					link="https://resend.com"
+					buttonText={$t('integrations.cards.resend.button')}
+				>
+					<Resend />
+				</IntegrationCard>
+
+				<IntegrationCard
+					title={$t('integrations.cards.sentry.title')}
+					description={$t('integrations.cards.sentry.description')}
+					link="https://sentry.io"
+					buttonText={$t('integrations.cards.sentry.button')}
+				>
+					<Sentry />
 				</IntegrationCard>
 			</div>
 		</div>
