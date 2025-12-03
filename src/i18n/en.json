@@ -129,13 +129,28 @@
 			},
 			"svelte": {
 				"button": "Visit Svelte 5",
-				"description": "The most loved frontend framework. A simple, performant, and future-proof way to build your web app.",
+				"description": "The most lovved frontend framework. A simple, performant, and future-proof way to build your web app.",
 				"title": "Svelte 5"
 			},
 			"tolgee": {
 				"button": "Visit Tolgee",
 				"description": "Internationalization done right. In-context editing and ML-powered translation for a seamless localization workflow.",
 				"title": "Tolgee"
+			},
+			"openrouter": {
+				"button": "Visit OpenRouter",
+				"description": "A unified API for 200+ AI models. Route requests to the best model for your use case with automatic fallbacks.",
+				"title": "OpenRouter"
+			},
+			"resend": {
+				"button": "Visit Resend",
+				"description": "The email API for developers. Build and send transactional emails with a modern, reliable API built for scale.",
+				"title": "Resend"
+			},
+			"sentry": {
+				"button": "Visit Sentry",
+				"description": "Application monitoring and error tracking. Identify issues before your users do with real-time alerts and detailed stack traces.",
+				"title": "Sentry"
 			}
 		},
 		"description": "Super fast solutions that are actually fun to build with",

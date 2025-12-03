@@ -136,6 +136,21 @@
 				"button": "Visitar Tolgee",
 				"description": "Internacionalización bien hecha. Edición en contexto y traducción potenciada por ML para un flujo de localización sin problemas.",
 				"title": "Tolgee"
+			},
+			"openrouter": {
+				"button": "Visitar OpenRouter",
+				"description": "Una API unificada para más de 200 modelos de IA. Enruta solicitudes al mejor modelo para tu caso de uso con fallbacks automáticos.",
+				"title": "OpenRouter"
+			},
+			"resend": {
+				"button": "Visitar Resend",
+				"description": "La API de email para desarrolladores. Construye y envía emails transaccionales con una API moderna y confiable diseñada para escalar.",
+				"title": "Resend"
+			},
+			"sentry": {
+				"button": "Visitar Sentry",
+				"description": "Monitoreo de aplicaciones y seguimiento de errores. Identifica problemas antes que tus usuarios con alertas en tiempo real y stack traces detallados.",
+				"title": "Sentry"
 			}
 		},
 		"description": "Soluciones súper rápidas con las que realmente es divertido construir",

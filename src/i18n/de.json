@@ -136,6 +136,21 @@
 				"button": "Zu Tolgee",
 				"description": "Internationalisierung richtig gemacht. In-Context-Editing und ML-gestützte Übersetzung für einen nahtlosen Lokalisierungs-Workflow.",
 				"title": "Tolgee"
+			},
+			"openrouter": {
+				"button": "Zu OpenRouter",
+				"description": "Eine einheitliche API für über 200 KI-Modelle. Leite Anfragen an das beste Modell für deinen Anwendungsfall mit automatischen Fallbacks.",
+				"title": "OpenRouter"
+			},
+			"resend": {
+				"button": "Zu Resend",
+				"description": "Die E-Mail-API für Entwickler. Erstelle und versende transaktionale E-Mails mit einer modernen, zuverlässigen API für Skalierung.",
+				"title": "Resend"
+			},
+			"sentry": {
+				"button": "Zu Sentry",
+				"description": "Anwendungsüberwachung und Fehlerverfolgung. Erkenne Probleme bevor deine Nutzer es tun mit Echtzeit-Alerts und detaillierten Stack-Traces.",
+				"title": "Sentry"
 			}
 		},
 		"description": "Superschnelle Lösungen, die tatsächlich Spaß beim Entwickeln machen",
