@@ -80,7 +80,7 @@
 			{...props}
 			variant="ghost"
 			class={cn(
-				'h-auto w-full justify-between rounded-b-none bg-background px-3 py-2 font-normal',
+				'h-auto w-full justify-between rounded-b-none bg-background px-3 py-2 font-normal [&[data-state=open]>svg]:rotate-180',
 				className
 			)}
 		>
@@ -91,7 +91,7 @@
 				</span>
 				<ToolBadge state={toolPart.state} errorText={toolPart.errorText} />
 			</div>
-			<ChevronDown class="h-4 w-4" />
+			<ChevronDown class="h-4 w-4 transition-transform duration-200" />
 		</Button>
 	{/snippet}
 </CollapsibleTrigger>
