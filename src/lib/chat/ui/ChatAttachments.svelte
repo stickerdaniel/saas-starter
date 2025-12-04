@@ -138,7 +138,7 @@
 			>
 				<div class="flex flex-1 items-center gap-2 overflow-hidden">
 					<div
-						class="relative flex size-8 shrink-0 items-center justify-center overflow-hidden rounded bg-red-500 text-[#fafafa]"
+						class="relative flex size-8 shrink-0 items-center justify-center overflow-hidden rounded bg-primary/15 text-muted-foreground"
 					>
 						{#if uploadState?.status === 'uploading'}
 							<LoaderCircle class="size-4 shrink-0 animate-spin" />
