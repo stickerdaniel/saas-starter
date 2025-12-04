@@ -5,6 +5,7 @@ import { internalAction } from '../_generated/server';
 import { internal } from '../_generated/api';
 import { Resend } from 'resend';
 import { resend as resendComponent } from '../emails/resend';
+import { supportAgent } from './agent';
 
 /**
  * Maximum total attachment size for email (30MB)
@@ -34,7 +35,7 @@ function getRoleLabel(role: string): string {
 		case 'user':
 			return 'User';
 		case 'assistant':
-			return 'AI';
+			return supportAgent.options.name ?? 'AI';
 		case 'tool':
 			return 'Tool';
 		case 'system':
