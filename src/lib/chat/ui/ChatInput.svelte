@@ -55,7 +55,9 @@
 		if (!canSend) return;
 		const prompt = ctx.inputValue.trim();
 		ctx.clearInput();
-		await onSend?.(prompt);
+		const sendPromise = onSend?.(prompt);
+		ctx.clearAttachments();
+		await sendPromise;
 	}
 
 	function handleValueChange(value: string) {
