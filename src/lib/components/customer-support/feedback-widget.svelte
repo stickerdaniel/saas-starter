@@ -239,9 +239,6 @@
 								fileIds: fileIds.length > 0 ? fileIds : undefined,
 								attachments: chatUIContext.attachments
 							});
-
-							// Clear attachments after successful send
-							chatUIContext.clearAttachments();
 						} catch (error) {
 							console.error('[handleSend] Error:', error);
 							threadContext.setError('Failed to send message');
