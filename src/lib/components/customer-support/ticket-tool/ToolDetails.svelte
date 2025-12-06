@@ -38,10 +38,16 @@
 	let isSubmitting = $state(false);
 	let error = $state('');
 
-	// Initialize email from query when it loads
+	// Track if we've already initialized email (only prefill once)
+	let hasInitializedEmail = $state(false);
+
+	// Initialize email from query when it first loads (only once)
 	$effect(() => {
-		if (prefillEmail && !email) {
-			email = prefillEmail;
+		if (!hasInitializedEmail && emailQuery?.data !== undefined) {
+			if (prefillEmail) {
+				email = prefillEmail;
+			}
+			hasInitializedEmail = true;
 		}
 	});
 
