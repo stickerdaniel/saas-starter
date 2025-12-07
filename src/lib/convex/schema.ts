@@ -1,15 +1,15 @@
 import { defineSchema, defineTable } from 'convex/server';
 import { v } from 'convex/values';
-import { authTables } from '@convex-dev/auth/server';
 
 export default defineSchema({
-	...authTables,
+	// Note: Better Auth component manages its own tables (users, sessions, accounts, verifications)
 
 	// Demo messages table (used in dashboard for billing demo)
+	// Note: Better Auth uses 'user' table (singular), managed by the component
 	messages: defineTable({
-		userId: v.id('users'),
+		userId: v.string(), // Better Auth user ID (string, not document ID)
 		body: v.string()
-	}),
+	}).index('by_user', ['userId']),
 
 	// Email event tracking - stores webhook events from Resend
 	emailEvents: defineTable({

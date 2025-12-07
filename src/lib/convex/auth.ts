@@ -1,45 +1,81 @@
-import { ConvexCredentials } from '@convex-dev/auth/providers/ConvexCredentials';
-import { Password } from '@convex-dev/auth/providers/Password';
-import GitHub from '@auth/core/providers/github';
-import Google from '@auth/core/providers/google';
-import { convexAuth } from '@convex-dev/auth/server';
-import { internal } from './_generated/api';
-import { ResendOTP } from './auth/ResendOTP';
+import { createClient, type GenericCtx } from '@convex-dev/better-auth';
+import { requireRunMutationCtx } from '@convex-dev/better-auth/utils';
+import { convex } from '@convex-dev/better-auth/plugins';
+import { components, internal } from './_generated/api';
+import { type DataModel } from './_generated/dataModel';
+import { query } from './_generated/server';
+import { betterAuth } from 'better-auth';
+import { passkey } from 'better-auth/plugins/passkey';
 
-export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
-	providers: [
-		Password({ verify: ResendOTP }),
-		GitHub,
-		Google,
-		ConvexCredentials({
-			id: 'secret',
-			authorize: async (params, ctx) => {
-				const secret = params.secret;
-				if (process.env.AUTH_E2E_TEST_SECRET && secret === process.env.AUTH_E2E_TEST_SECRET) {
-					const user = await ctx.runQuery(internal.tests.getTestUser);
-					return { userId: user!._id };
-				}
-				throw new Error('Invalid secret');
+const siteUrl = process.env.SITE_URL!;
+
+// The component client has methods needed for integrating Convex with Better Auth,
+// as well as helper methods for general use.
+export const authComponent = createClient<DataModel>(components.betterAuth);
+
+export const createAuth = (
+	ctx: GenericCtx<DataModel>,
+	{ optionsOnly } = { optionsOnly: false }
+) => {
+	return betterAuth({
+		// disable logging when createAuth is called just to generate options.
+		// this is not required, but there's a lot of noise in logs without it.
+		logger: {
+			disabled: optionsOnly
+		},
+		baseURL: siteUrl,
+		database: authComponent.adapter(ctx),
+		emailAndPassword: {
+			enabled: true,
+			requireEmailVerification: true,
+			// Custom email sending via Convex Resend component
+			sendVerificationEmail: async ({
+				user,
+				token
+			}: {
+				user: { email: string };
+				token: string;
+			}) => {
+				const mutationCtx = requireRunMutationCtx(ctx);
+				await mutationCtx.runMutation(internal.emails.send.sendVerificationEmail, {
+					email: user.email,
+					code: token,
+					expiryMinutes: 20
+				});
 			}
-		})
-	],
-	callbacks: {
-		async redirect({ redirectTo }) {
-			console.log('[AUTH CALLBACK] Redirect called with:', redirectTo);
-
-			// Get the site URL from environment
-			const siteUrl = process.env.SITE_URL ?? '/';
-
-			// Validate redirectTo for security (prevent open redirects)
-			// Only allow relative URLs (starting with /) to prevent phishing attacks
-			if (redirectTo && typeof redirectTo === 'string' && redirectTo.startsWith('/')) {
-				const absoluteUrl = `${siteUrl}${redirectTo}`;
-				console.log('[AUTH CALLBACK] Returning absolute URL:', absoluteUrl);
-				return absoluteUrl;
+		},
+		socialProviders: {
+			google: {
+				enabled: true,
+				clientId: process.env.AUTH_GOOGLE_ID as string,
+				clientSecret: process.env.AUTH_GOOGLE_SECRET as string
+			},
+			github: {
+				enabled: true,
+				clientId: process.env.AUTH_GITHUB_ID as string,
+				clientSecret: process.env.AUTH_GITHUB_SECRET as string
 			}
+		},
+		plugins: [
+			// The Convex plugin is required for Convex compatibility
+			convex(),
+			passkey()
+		]
+	});
+};
 
-			console.log('[AUTH CALLBACK] Returning fallback:', siteUrl);
-			return siteUrl;
-		}
+// Get current authenticated user
+export const getCurrentUser = query({
+	args: {},
+	handler: async (ctx) => {
+		return authComponent.getAuthUser(ctx);
+	}
+});
+
+// Alias for backward compatibility with existing code
+export const viewer = query({
+	args: {},
+	handler: async (ctx) => {
+		return authComponent.getAuthUser(ctx);
 	}
 });

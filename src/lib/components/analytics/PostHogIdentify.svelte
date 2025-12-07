@@ -1,9 +1,10 @@
 <script lang="ts">
-	import { useAuth } from '@mmailaender/convex-auth-svelte/sveltekit';
+	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
 	import { page } from '$app/state';
 	import posthog from 'posthog-js';
 
-	const { isAuthenticated } = useAuth();
+	const auth = useAuth();
+	const isAuthenticated = $derived(auth.isAuthenticated);
 
 	$effect(() => {
 		// Effect tracks: isAuthenticated, page.data.viewer
