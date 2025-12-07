@@ -18,11 +18,23 @@
 	import { localizedHref } from '$lib/utils/i18n';
 	import { goto } from '$app/navigation';
 	import { T } from '@tolgee/svelte';
+	import { getContext } from 'svelte';
 
 	const auth = useAuth();
 	const params = useSearchParams(authParamsSchema, {
 		debounce: 300,
 		pushHistory: false
+	});
+
+	// Get email context from auth layout (persists across auth pages)
+	const authEmailCtx = getContext<{ get: () => string; set: (v: string) => void }>('auth:email');
+	let email = $state(authEmailCtx?.get() ?? '');
+
+	// Sync email changes back to context
+	$effect(() => {
+		if (authEmailCtx && email) {
+			authEmailCtx.set(email);
+		}
 	});
 
 	let isLoading = $state(false);
@@ -201,6 +213,7 @@
 										placeholder="you@example.com"
 										required
 										disabled={isLoading}
+										bind:value={email}
 									/>
 								</div>
 								<div class="space-y-2">
@@ -238,6 +251,7 @@
 										placeholder="you@example.com"
 										required
 										disabled={isLoading}
+										bind:value={email}
 									/>
 								</div>
 								<div class="space-y-2">
