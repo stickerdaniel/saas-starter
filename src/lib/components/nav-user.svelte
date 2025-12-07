@@ -3,7 +3,7 @@
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import { useSidebar } from '$lib/components/ui/sidebar/index.js';
-	import { useAuth } from '@mmailaender/convex-auth-svelte/svelte';
+	import { authClient } from '$lib/auth-client';
 	import BadgeCheckIcon from '@lucide/svelte/icons/badge-check';
 	import BellIcon from '@lucide/svelte/icons/bell';
 	import ChevronsUpDownIcon from '@lucide/svelte/icons/chevrons-up-down';
@@ -14,7 +14,13 @@
 
 	let { user }: { user: { name: string; email: string; avatar: string } } = $props();
 	const sidebar = useSidebar();
-	const { signOut } = useAuth();
+
+	async function signOut() {
+		const result = await authClient.signOut();
+		if (result.error) {
+			console.error('Sign out error:', result.error);
+		}
+	}
 </script>
 
 <Sidebar.Menu>

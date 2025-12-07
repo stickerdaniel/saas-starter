@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
 	import LightSwitch from '$lib/components/ui/light-switch/light-switch.svelte';
 	import LanguageSwitcher from '$lib/components/LanguageSwitcher.svelte';
 	import Button from '$lib/components/ui/button/button.svelte';
@@ -8,7 +8,8 @@
 	import X from '@lucide/svelte/icons/x';
 	import LogOut from '@lucide/svelte/icons/log-out';
 	import { scrollY } from 'svelte/reactivity/window';
-	import { useAuth } from '@mmailaender/convex-auth-svelte/sveltekit';
+	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
+	import { authClient } from '$lib/auth-client';
 	import { T } from '@tolgee/svelte';
 
 	const auth = useAuth();
@@ -137,7 +138,12 @@
 							<Button size="sm" href={localizedHref('/app')} class="w-full lg:w-auto">
 								<T keyName="nav.dashboard" />
 							</Button>
-							<Button variant="outline" size="icon" class="size-8" onclick={() => auth.signOut()}>
+							<Button
+								variant="outline"
+								size="icon"
+								class="size-8"
+								onclick={() => authClient.signOut()}
+							>
 								<LogOut class="size-4" />
 							</Button>
 						{:else}

@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { setupConvexAuth } from '@mmailaender/convex-auth-svelte/sveltekit';
+	import { createSvelteAuthClient } from '@mmailaender/convex-better-auth-svelte/svelte';
+	import { authClient } from '$lib/auth-client';
 	import { setupAutumn } from '@stickerdaniel/convex-autumn-svelte/sveltekit';
 	import { api } from '$lib/convex/_generated/api';
 	import '../app.css';
@@ -14,9 +15,10 @@
 
 	let { children, data } = $props();
 
-	setupConvexAuth({
-		getServerState: () => data.authState,
-		options: { verbose: true }
+	// Initialize Better Auth client
+	createSvelteAuthClient({
+		authClient,
+		getServerState: () => data.authState
 	});
 
 	// Setup Autumn with SSR support and auto-invalidation

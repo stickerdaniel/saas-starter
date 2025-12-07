@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { useAuth } from '@mmailaender/convex-auth-svelte/sveltekit';
+	import { authClient } from '$lib/auth-client';
+	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
 	import { env } from '$env/dynamic/public';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
@@ -18,7 +19,7 @@
 	import { goto } from '$app/navigation';
 	import { T } from '@tolgee/svelte';
 
-	const { signIn } = useAuth();
+	const auth = useAuth();
 	const params = useSearchParams(authParamsSchema, {
 		debounce: 300,
 		pushHistory: false
@@ -44,31 +45,45 @@
 
 		const formData = new FormData(event.currentTarget as HTMLFormElement);
 		const email = formData.get('email') as string;
-		const password = formData.get('password');
+		const password = formData.get('password') as string;
 
 		try {
-			console.log('[SIGNIN DEBUG] Password auth starting:', {
+			console.log('[SIGNIN DEBUG] Email auth starting:', {
 				flow,
 				redirectTo: params.redirectTo
 			});
 
-			// Critical: Use 'password' as provider and include flow parameter
-			const result = await signIn('password', {
-				email,
-				password,
-				flow, // 'signIn' or 'signUp'
-				redirectTo: params.redirectTo
-			});
-
-			console.log('[SIGNIN DEBUG] Password auth result:', result);
-
-			if (result.signingIn) {
-				const destination = params.redirectTo || localizedHref('/app');
-				console.log('[SIGNIN DEBUG] Navigating to:', destination);
-				await goto(destination);
-			} else if (flow === 'signUp') {
-				// Email verification required for sign-up
-				verificationStep = { email };
+			if (flow === 'signIn') {
+				const result = await authClient.signIn.email(
+					{ email, password },
+					{
+						onSuccess: () => {
+							const destination = params.redirectTo || localizedHref('/app');
+							console.log('[SIGNIN DEBUG] Sign in success, navigating to:', destination);
+							goto(destination);
+						},
+						onError: (ctx) => {
+							error = ctx.error.message || 'auth.errors.invalid_credentials';
+							console.error('[SIGNIN DEBUG] Sign in error:', ctx.error);
+						}
+					}
+				);
+				console.log('[SIGNIN DEBUG] Sign in result:', result);
+			} else {
+				const result = await authClient.signUp.email(
+					{ email, password, name: email.split('@')[0] },
+					{
+						onSuccess: () => {
+							console.log('[SIGNIN DEBUG] Sign up success, showing verification');
+							verificationStep = { email };
+						},
+						onError: (ctx) => {
+							error = ctx.error.message || 'auth.errors.signup_failed';
+							console.error('[SIGNIN DEBUG] Sign up error:', ctx.error);
+						}
+					}
+				);
+				console.log('[SIGNIN DEBUG] Sign up result:', result);
 			}
 		} catch (err) {
 			error = flow === 'signIn' ? 'auth.errors.invalid_credentials' : 'auth.errors.signup_failed';
@@ -78,44 +93,52 @@
 		}
 	}
 
+	// Note: Email verification is handled via link in the email
+	// This function is kept for potential future OTP-based verification
 	async function handleVerification(event: Event) {
 		event.preventDefault();
-		isLoading = true;
-		error = '';
-
-		const formData = new FormData(event.currentTarget as HTMLFormElement);
-		const code = formData.get('code') as string;
-
-		try {
-			console.log('[SIGNIN DEBUG] Email verification starting:', {
-				redirectTo: params.redirectTo
-			});
-
-			const result = await signIn('password', {
-				email: verificationStep?.email,
-				code,
-				flow: 'email-verification',
-				redirectTo: params.redirectTo
-			});
-
-			console.log('[SIGNIN DEBUG] Email verification result:', result);
-
-			if (result.signingIn) {
-				const destination = params.redirectTo || localizedHref('/app');
-				console.log('[SIGNIN DEBUG] Navigating to:', destination);
-				await goto(destination);
-			}
-		} catch (err) {
-			error = 'auth.errors.verification_invalid';
-			console.error('Verification error:', err);
-		} finally {
-			isLoading = false;
-		}
+		// Better Auth uses link-based verification
+		// The user should check their email and click the verification link
+		// This UI shows a message instead of OTP input
 	}
 
 	function cancelVerification() {
 		verificationStep = null;
 		error = '';
+	}
+
+	async function handleOAuth(provider: 'google' | 'github') {
+		console.log('[SIGNIN DEBUG] OAuth starting:', { provider, redirectTo: params.redirectTo });
+		await authClient.signIn.social({
+			provider,
+			callbackURL: params.redirectTo || localizedHref('/app')
+		});
+	}
+
+	async function handlePasskeyLogin() {
+		isLoading = true;
+		error = '';
+		try {
+			const result = await authClient.signIn.passkey({
+				fetchOptions: {
+					onSuccess: () => {
+						const destination = params.redirectTo || localizedHref('/app');
+						console.log('[SIGNIN DEBUG] Passkey auth success, navigating to:', destination);
+						goto(destination);
+					},
+					onError: (ctx: { error: { message?: string } }) => {
+						error = ctx.error.message || 'Passkey authentication failed';
+						console.error('[SIGNIN DEBUG] Passkey error:', ctx.error);
+					}
+				}
+			});
+			console.log('[SIGNIN DEBUG] Passkey result:', result);
+		} catch (err) {
+			error = 'Passkey authentication failed';
+			console.error('Passkey error:', err);
+		} finally {
+			isLoading = false;
+		}
 	}
 </script>
 
@@ -140,39 +163,25 @@
 			</CardHeader>
 			<CardContent>
 				{#if verificationStep}
-					<!-- Email Verification Step -->
-					<form onsubmit={handleVerification} class="space-y-4">
+					<!-- Email Verification Step - Link-based verification -->
+					<div class="space-y-4">
 						<p class="text-sm text-muted-foreground">
 							<T keyName="auth.verification.sent_to" />
 							<span class="font-medium">{verificationStep.email}</span>
 						</p>
-						<div class="space-y-2">
-							<Label for="verification-code"><T keyName="auth.verification.code_label" /></Label>
-							<Input
-								id="verification-code"
-								type="text"
-								name="code"
-								placeholder="12345678"
-								required
-								disabled={isLoading}
-								class="text-center font-mono text-2xl tracking-widest"
-								autocomplete="one-time-code"
+						<p class="text-sm text-muted-foreground">
+							<T
+								keyName="auth.verification.check_email"
+								defaultValue="Please check your email and click the verification link to complete your registration."
 							/>
-						</div>
+						</p>
 						{#if error}
-							<p class="text-sm text-red-500"><T keyName={error} /></p>
+							<p class="text-sm text-red-500">{error}</p>
 						{/if}
-						<Button type="submit" class="w-full" disabled={isLoading}>
-							{#if isLoading}
-								<T keyName="auth.verification.button_verify_loading" />
-							{:else}
-								<T keyName="auth.verification.button_verify" />
-							{/if}
-						</Button>
 						<Button type="button" variant="ghost" class="w-full" onclick={cancelVerification}>
 							<T keyName="auth.verification.button_cancel" />
 						</Button>
-					</form>
+					</div>
 				{:else}
 					<!-- Sign In / Sign Up Forms -->
 					<Tabs bind:value={params.tab} class="w-full">
@@ -206,7 +215,7 @@
 									/>
 								</div>
 								{#if error}
-									<p class="text-sm text-red-500"><T keyName={error} /></p>
+									<p class="text-sm text-red-500">{error}</p>
 								{/if}
 								<Button type="submit" class="w-full" disabled={isLoading}>
 									{#if isLoading}
@@ -244,7 +253,7 @@
 									/>
 								</div>
 								{#if error}
-									<p class="text-sm text-red-500"><T keyName={error} /></p>
+									<p class="text-sm text-red-500">{error}</p>
 								{/if}
 								<Button type="submit" class="w-full" disabled={isLoading}>
 									{#if isLoading}
@@ -271,14 +280,22 @@
 					</div>
 
 					<div class="space-y-2">
+						<!-- Passkey Login -->
 						<Button
-							onclick={() => {
-								console.log('[SIGNIN DEBUG] OAuth starting (GitHub):', params.redirectTo);
-								signIn('github', { redirectTo: params.redirectTo });
-							}}
+							onclick={handlePasskeyLogin}
 							variant="outline"
 							class="w-full"
+							disabled={isLoading}
 						>
+							<svg class="mr-2 h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+								<path
+									d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"
+								/>
+							</svg>
+							Sign in with Passkey
+						</Button>
+
+						<Button onclick={() => handleOAuth('github')} variant="outline" class="w-full">
 							<svg class="mr-2 h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
 								<path
 									d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"
@@ -286,14 +303,7 @@
 							</svg>
 							<T keyName="auth.signin.oauth_github" />
 						</Button>
-						<Button
-							onclick={() => {
-								console.log('[SIGNIN DEBUG] OAuth starting (Google):', params.redirectTo);
-								signIn('google', { redirectTo: params.redirectTo });
-							}}
-							variant="outline"
-							class="w-full"
-						>
+						<Button onclick={() => handleOAuth('google')} variant="outline" class="w-full">
 							<svg class="mr-2 h-4 w-4" viewBox="0 0 24 24">
 								<path
 									fill="#4285F4"
@@ -322,13 +332,8 @@
 						class="mt-8 flex flex-col gap-2"
 						onsubmit={(event) => {
 							event.preventDefault();
-							const formData = new FormData(event.currentTarget as HTMLFormElement);
-							if (params.redirectTo) {
-								formData.append('redirectTo', params.redirectTo);
-							}
-							signIn('secret', formData).catch(() => {
-								window.alert('Invalid secret');
-							});
+							// TODO: Implement E2E test authentication for Better Auth
+							window.alert('E2E test auth not yet implemented for Better Auth');
 						}}
 					>
 						<p class="text-sm text-muted-foreground">

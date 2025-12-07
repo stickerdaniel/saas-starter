@@ -1,6 +1,6 @@
 import { Autumn } from '@useautumn/convex';
 import { components } from './_generated/api';
-import { getAuthUserId } from '@convex-dev/auth/server';
+import { authComponent } from './auth';
 import type { Auth } from 'convex/server';
 
 const secretKey = process.env.AUTUMN_SECRET_KEY;
@@ -15,19 +15,16 @@ if (!secretKey.startsWith('am_sk_')) {
 
 export const autumn = new Autumn(components.autumn, {
 	secretKey: process.env.AUTUMN_SECRET_KEY ?? '',
-	identify: async (ctx: { auth: Auth }) => {
-		// Get the Convex database user ID (clean ID without special characters)
-		const userId = await getAuthUserId(ctx);
-		if (!userId) return null;
-
-		// Get user identity for name and email
-		const identity = await ctx.auth.getUserIdentity();
+	identify: async (ctx: Parameters<typeof authComponent.getAuthUser>[0]) => {
+		// Get the authenticated user from Better Auth
+		const user = await authComponent.getAuthUser(ctx);
+		if (!user) return null;
 
 		return {
-			customerId: userId,
+			customerId: user._id,
 			customerData: {
-				name: identity?.name,
-				email: identity?.email
+				name: user.name,
+				email: user.email
 			}
 		};
 	}

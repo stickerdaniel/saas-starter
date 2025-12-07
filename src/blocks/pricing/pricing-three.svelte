@@ -9,7 +9,7 @@
 	} from '$lib/components/ui/card';
 	import Check from '@lucide/svelte/icons/check';
 	import { useCustomer, useAutumnOperation } from '@stickerdaniel/convex-autumn-svelte/sveltekit';
-	import { useAuth } from '@mmailaender/convex-auth-svelte/sveltekit';
+	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
 	import { localizedHref } from '$lib/utils/i18n';
 	import { useSearchParams } from 'runed/kit';
 	import { pricingParamsSchema } from '$lib/schemas/pricing-params';
