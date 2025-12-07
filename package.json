@@ -23,11 +23,9 @@
 		"i18n:cleanup": "bunx dotenv -f .env.local run -- bunx tolgee tag --filter-not-extracted --filter-tag production --tag deprecated --untag production"
 	},
 	"dependencies": {
-		"@auth/core": "^0.40.0",
 		"@convex-dev/agent": "^0.3.0",
 		"@convex-dev/better-auth": "^0.9.11",
 		"@convex-dev/resend": "^0.1.13",
-		"@mmailaender/convex-auth-svelte": "^0.1.2",
 		"@mmailaender/convex-better-auth-svelte": "^0.4.0",
 		"@openrouter/ai-sdk-provider": "^1.2.3",
 		"@oslojs/crypto": "^1.0.1",
@@ -55,7 +53,6 @@
 		"vercel": "^47.1.4"
 	},
 	"devDependencies": {
-		"@convex-dev/auth": "^0.0.86",
 		"@dnd-kit-svelte/core": "^0.0.8",
 		"@dnd-kit-svelte/modifiers": "^0.0.8",
 		"@dnd-kit-svelte/sortable": "^0.0.8",
