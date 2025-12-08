@@ -222,7 +222,17 @@
 		},
 		"password": {
 			"title": "Change Password",
-			"description": "Update your password to keep your account secure."
+			"description": "Update your password to keep your account secure.",
+			"error_title": "Error",
+			"current_password_label": "Current Password",
+			"new_password_label": "New Password",
+			"password_helper": "Must be at least 8 characters long.",
+			"confirm_password_label": "Confirm New Password",
+			"revoke_sessions_label": "Sign out of all other devices",
+			"security_notice_title": "Security Notice",
+			"security_notice_description": "Changing your password will require you to sign in again on all devices unless you uncheck the option above.",
+			"updating": "Updating...",
+			"update_button": "Update Password"
 		},
 		"email": {
 			"title": "Email Address",

@@ -222,7 +222,17 @@
 		},
 		"password": {
 			"title": "Changer le mot de passe",
-			"description": "Mettez à jour votre mot de passe pour sécuriser votre compte."
+			"description": "Mettez à jour votre mot de passe pour sécuriser votre compte.",
+			"error_title": "Erreur",
+			"current_password_label": "Mot de passe actuel",
+			"new_password_label": "Nouveau mot de passe",
+			"password_helper": "Doit contenir au moins 8 caractères.",
+			"confirm_password_label": "Confirmer le nouveau mot de passe",
+			"revoke_sessions_label": "Se déconnecter de tous les autres appareils",
+			"security_notice_title": "Avis de sécurité",
+			"security_notice_description": "Changer votre mot de passe vous obligera à vous reconnecter sur tous les appareils, sauf si vous décochez l'option ci-dessus.",
+			"updating": "Mise à jour...",
+			"update_button": "Mettre à jour le mot de passe"
 		},
 		"email": {
 			"title": "Adresse e-mail",

@@ -222,7 +222,17 @@
 		},
 		"password": {
 			"title": "Passwort ändern",
-			"description": "Aktualisieren Sie Ihr Passwort, um Ihr Konto sicher zu halten."
+			"description": "Aktualisieren Sie Ihr Passwort, um Ihr Konto sicher zu halten.",
+			"error_title": "Fehler",
+			"current_password_label": "Aktuelles Passwort",
+			"new_password_label": "Neues Passwort",
+			"password_helper": "Muss mindestens 8 Zeichen lang sein.",
+			"confirm_password_label": "Neues Passwort bestätigen",
+			"revoke_sessions_label": "Von allen anderen Geräten abmelden",
+			"security_notice_title": "Sicherheitshinweis",
+			"security_notice_description": "Das Ändern Ihres Passworts erfordert eine erneute Anmeldung auf allen Geräten, es sei denn, Sie deaktivieren die obige Option.",
+			"updating": "Aktualisieren...",
+			"update_button": "Passwort aktualisieren"
 		},
 		"email": {
 			"title": "E-Mail-Adresse",
