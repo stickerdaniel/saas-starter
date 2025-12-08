@@ -158,10 +158,10 @@
 				"description": "Internationalization done right. In-context editing and ML-powered translation for a seamless localization workflow.",
 				"title": "Tolgee"
 			},
-			"openrouter": {
-				"button": "Visit OpenRouter",
-				"description": "A unified API for 200+ AI models. Route requests to the best model for your use case with automatic fallbacks.",
-				"title": "OpenRouter"
+			"better_auth": {
+				"button": "Visit Better Auth",
+				"description": "The most comprehensive authentication library for TypeScript. Sessions, OAuth, passkeys, and multi-tenancy out of the box.",
+				"title": "Better Auth"
 			},
 			"resend": {
 				"button": "Visit Resend",
