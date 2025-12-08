@@ -218,7 +218,7 @@
 						</p>
 					</div>
 
-					<div class="flex items-center justify-center">
+					<div class="flex h-10 items-center justify-center">
 						<div
 							class="flex items-center gap-2 text-xs font-semibold tracking-[0.2em] text-muted-foreground uppercase"
 						>
