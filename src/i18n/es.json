@@ -158,10 +158,10 @@
 				"description": "Internacionalización bien hecha. Edición en contexto y traducción potenciada por ML para un flujo de localización sin problemas.",
 				"title": "Tolgee"
 			},
-			"openrouter": {
-				"button": "Visitar OpenRouter",
-				"description": "Una API unificada para más de 200 modelos de IA. Enruta solicitudes al mejor modelo para tu caso de uso con fallbacks automáticos.",
-				"title": "OpenRouter"
+			"better_auth": {
+				"button": "Visitar Better Auth",
+				"description": "La biblioteca de autenticación más completa para TypeScript. Sesiones, OAuth, passkeys y multi-tenencia listos para usar.",
+				"title": "Better Auth"
 			},
 			"resend": {
 				"button": "Visitar Resend",

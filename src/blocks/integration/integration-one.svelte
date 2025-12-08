@@ -7,7 +7,7 @@
 		PostHog,
 		SVBlocks,
 		Autumn,
-		OpenRouter,
+		BetterAuth,
 		Resend,
 		Sentry
 	} from '../logos/logos';
@@ -97,12 +97,12 @@
 				</IntegrationCard>
 
 				<IntegrationCard
-					title={$t('integrations.cards.openrouter.title')}
-					description={$t('integrations.cards.openrouter.description')}
-					link="https://openrouter.ai"
-					buttonText={$t('integrations.cards.openrouter.button')}
+					title={$t('integrations.cards.better_auth.title')}
+					description={$t('integrations.cards.better_auth.description')}
+					link="https://www.better-auth.com/"
+					buttonText={$t('integrations.cards.better_auth.button')}
 				>
-					<OpenRouter />
+					<BetterAuth />
 				</IntegrationCard>
 
 				<IntegrationCard
