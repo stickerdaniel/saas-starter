@@ -11,12 +11,7 @@
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
 	import ShieldCheckIcon from '@lucide/svelte/icons/shield-check';
-
-	interface Passkey {
-		id: string;
-		name?: string | null;
-		createdAt: Date;
-	}
+	import type { Passkey } from 'better-auth/plugins/passkey';
 
 	let passkeys = $state<Passkey[]>([]);
 	let isLoading = $state(false);
@@ -36,7 +31,7 @@
 			if (err) {
 				error = err.message || 'Failed to load passkeys';
 			} else {
-				passkeys = (data || []) as Passkey[];
+				passkeys = data ?? [];
 			}
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to load passkeys';
