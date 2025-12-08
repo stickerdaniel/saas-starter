@@ -15,7 +15,8 @@ export const createAuth = (
 	ctx: GenericCtx<DataModel>,
 	{ optionsOnly } = { optionsOnly: false }
 ) => {
-	const siteUrl = process.env.SITE_URL;
+	// SITE_URL is a Convex env var - only required when actually running auth (not options-only)
+	const siteUrl = process.env.SITE_URL ?? (optionsOnly ? 'http://placeholder' : undefined);
 	if (!siteUrl) {
 		throw new Error(
 			'SITE_URL environment variable is required. Set it with: bunx convex env set SITE_URL https://yoursite.com'
