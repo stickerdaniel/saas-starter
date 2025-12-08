@@ -505,6 +505,7 @@ bunx convex env set KEY value
 
 **Convex Backend** (set via `bunx convex env set`):
 
+- `BETTER_AUTH_SECRET` - Session signing secret (required)
 - `RESEND_API_KEY` - Email sending (required)
 - `AUTH_EMAIL` - Sender email address (required)
 - `RESEND_WEBHOOK_SECRET` - Webhook verification (optional)

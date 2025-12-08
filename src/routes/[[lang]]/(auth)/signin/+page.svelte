@@ -18,7 +18,7 @@
 	import { localizedHref } from '$lib/utils/i18n';
 	import { T } from '@tolgee/svelte';
 	import { getContext } from 'svelte';
-	import KeyIcon from '@lucide/svelte/icons/key';
+	import KeyIcon from '@lucide/svelte/icons/key-round';
 
 	const auth = useAuth();
 	const params = useSearchParams(authParamsSchema, {
@@ -40,11 +40,10 @@
 	let isLoading = $state(false);
 	let error = $state('');
 	let verificationStep = $state<{ email: string } | null>(null);
-	let pendingRedirect = $state(false);
 
-	// Watch for auth state change and redirect when authenticated
+	// Redirect when authenticated on signin page
 	$effect(() => {
-		if (auth.isAuthenticated && pendingRedirect) {
+		if (auth.isAuthenticated) {
 			const destination = params.redirectTo || localizedHref('/app');
 			window.location.href = destination;
 		}
@@ -64,9 +63,6 @@
 				await authClient.signIn.email(
 					{ email, password },
 					{
-						onSuccess: () => {
-							pendingRedirect = true;
-						},
 						onError: (ctx) => {
 							error = ctx.error.message || 'auth.errors.invalid_credentials';
 						}
@@ -119,13 +115,11 @@
 
 		try {
 			const result = await authClient.signIn.passkey();
-
 			if (result.error) {
 				error = result.error.message || 'Passkey authentication failed';
-			} else {
-				pendingRedirect = true;
 			}
-		} catch {
+			// Redirect handled by auth.isAuthenticated effect
+		} catch (err) {
 			error = 'Passkey authentication failed';
 		} finally {
 			isLoading = false;

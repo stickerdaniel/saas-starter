@@ -7,7 +7,7 @@
 	import * as Alert from '$lib/components/ui/alert/index.js';
 	import { toast } from 'svelte-sonner';
 	import { T } from '@tolgee/svelte';
-	import KeyIcon from '@lucide/svelte/icons/key';
+	import KeyIcon from '@lucide/svelte/icons/key-round';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
 	import ShieldCheckIcon from '@lucide/svelte/icons/shield-check';
