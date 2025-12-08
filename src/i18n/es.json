@@ -222,7 +222,17 @@
 		},
 		"password": {
 			"title": "Cambiar contraseña",
-			"description": "Actualiza tu contraseña para mantener tu cuenta segura."
+			"description": "Actualiza tu contraseña para mantener tu cuenta segura.",
+			"error_title": "Error",
+			"current_password_label": "Contraseña actual",
+			"new_password_label": "Nueva contraseña",
+			"password_helper": "Debe tener al menos 8 caracteres.",
+			"confirm_password_label": "Confirmar nueva contraseña",
+			"revoke_sessions_label": "Cerrar sesión en todos los demás dispositivos",
+			"security_notice_title": "Aviso de seguridad",
+			"security_notice_description": "Cambiar tu contraseña requerirá que inicies sesión nuevamente en todos los dispositivos a menos que desmarques la opción anterior.",
+			"updating": "Actualizando...",
+			"update_button": "Actualizar contraseña"
 		},
 		"email": {
 			"title": "Dirección de correo electrónico",
