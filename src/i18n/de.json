@@ -22,8 +22,26 @@
 			"signup_failed": "Konto konnte nicht erstellt werden. E-Mail wird möglicherweise bereits verwendet.",
 			"verification_invalid": "Ungültiger oder abgelaufener Verifizierungscode. Bitte versuchen Sie es erneut."
 		},
+		"forgot_password": {
+			"back_to_signin": "Zurück zur Anmeldung",
+			"button_loading": "Wird gesendet...",
+			"button_submit": "Link senden",
+			"description": "Wir senden Ihnen einen Link zum Zurücksetzen",
+			"title": "Passwort vergessen"
+		},
 		"login": "Anmelden",
 		"logout": "Abmelden",
+		"reset_password": {
+			"back_to_signin": "Zurück zur Anmeldung",
+			"button_loading": "Wird zurückgesetzt...",
+			"button_submit": "Passwort zurücksetzen",
+			"confirm_password_label": "Neues Passwort bestätigen",
+			"description": "Geben Sie Ihr neues Passwort ein",
+			"new_password_label": "Neues Passwort",
+			"sign_in_link": "Anmelden",
+			"success": "Ihr Passwort wurde zurückgesetzt.",
+			"title": "Passwort zurücksetzen"
+		},
 		"signin": {
 			"button_signin": "Anmelden",
 			"button_signin_loading": "Wird angemeldet...",
@@ -33,6 +51,7 @@
 			"description": "Melden Sie sich bei Ihrem Konto an oder erstellen Sie ein neues",
 			"email_label": "E-Mail",
 			"email_placeholder": "du@beispiel.de",
+			"forgot_password": "Passwort vergessen?",
 			"oauth_github": "GitHub",
 			"oauth_google": "Google",
 			"or_continue_with": "Oder fortfahren mit",
