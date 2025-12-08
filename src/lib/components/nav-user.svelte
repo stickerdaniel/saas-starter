@@ -4,6 +4,7 @@
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import { useSidebar } from '$lib/components/ui/sidebar/index.js';
 	import { authClient } from '$lib/auth-client';
+	import { goto } from '$app/navigation';
 	import BellIcon from '@lucide/svelte/icons/bell';
 	import ChevronsUpDownIcon from '@lucide/svelte/icons/chevrons-up-down';
 	import CreditCardIcon from '@lucide/svelte/icons/credit-card';
@@ -20,6 +21,8 @@
 		const result = await authClient.signOut();
 		if (result.error) {
 			console.error('Sign out error:', result.error);
+		} else {
+			await goto(localizedHref('/'));
 		}
 	}
 </script>
