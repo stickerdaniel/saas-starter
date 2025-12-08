@@ -70,23 +70,12 @@ const authFirstPattern: Handle = async ({ event, resolve }) => {
 	const langMatch = pathname.match(/^\/([a-z]{2})\//);
 	const lang = langMatch ? langMatch[1] : DEFAULT_LANGUAGE;
 
-	console.log('[HOOKS DEBUG]', {
-		pathname,
-		isAuthenticated,
-		isSignInPage: isSignInPage(pathname),
-		isProtectedRoute: isProtectedRoute(pathname),
-		redirectToParam,
-		fullUrl: event.url.href
-	});
-
 	if (isSignInPage(pathname) && isAuthenticated) {
 		const destination = redirectToParam || `/${lang}/app`;
-		console.log('[HOOKS DEBUG] Redirecting authenticated user from signin to:', destination);
 		redirect(307, destination);
 	}
 	if (isProtectedRoute(pathname) && !isAuthenticated) {
 		const destination = `/${lang}/signin?redirectTo=${encodeURIComponent(event.url.pathname + event.url.search)}`;
-		console.log('[HOOKS DEBUG] Redirecting unauthenticated user to signin:', destination);
 		redirect(307, destination);
 	}
 

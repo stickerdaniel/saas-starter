@@ -42,20 +42,10 @@
 	let verificationStep = $state<{ email: string } | null>(null);
 	let pendingRedirect = $state(false);
 
-	// Debug: Log URL params when they change
-	$effect(() => {
-		console.log('[SIGNIN DEBUG] URL params:', {
-			tab: params.tab,
-			redirectTo: params.redirectTo,
-			fullUrl: typeof window !== 'undefined' ? window.location.href : 'SSR'
-		});
-	});
-
 	// Watch for auth state change and redirect when authenticated
 	$effect(() => {
 		if (auth.isAuthenticated && pendingRedirect) {
 			const destination = params.redirectTo || localizedHref('/app');
-			console.log('[SIGNIN DEBUG] Auth state updated, redirecting to:', destination);
 			window.location.href = destination;
 		}
 	});
@@ -70,45 +60,33 @@
 		const password = formData.get('password') as string;
 
 		try {
-			console.log('[SIGNIN DEBUG] Email auth starting:', {
-				flow,
-				redirectTo: params.redirectTo
-			});
-
 			if (flow === 'signIn') {
-				const result = await authClient.signIn.email(
+				await authClient.signIn.email(
 					{ email, password },
 					{
 						onSuccess: () => {
-							console.log('[SIGNIN DEBUG] Sign in success, waiting for auth state');
 							pendingRedirect = true;
 						},
 						onError: (ctx) => {
 							error = ctx.error.message || 'auth.errors.invalid_credentials';
-							console.error('[SIGNIN DEBUG] Sign in error:', ctx.error);
 						}
 					}
 				);
-				console.log('[SIGNIN DEBUG] Sign in result:', result);
 			} else {
-				const result = await authClient.signUp.email(
+				await authClient.signUp.email(
 					{ email, password, name: email.split('@')[0] },
 					{
 						onSuccess: () => {
-							console.log('[SIGNIN DEBUG] Sign up success, showing verification');
 							verificationStep = { email };
 						},
 						onError: (ctx) => {
 							error = ctx.error.message || 'auth.errors.signup_failed';
-							console.error('[SIGNIN DEBUG] Sign up error:', ctx.error);
 						}
 					}
 				);
-				console.log('[SIGNIN DEBUG] Sign up result:', result);
 			}
 		} catch (err) {
 			error = flow === 'signIn' ? 'auth.errors.invalid_credentials' : 'auth.errors.signup_failed';
-			console.error('Auth error:', err);
 		} finally {
 			isLoading = false;
 		}
@@ -129,7 +107,6 @@
 	}
 
 	async function handleOAuth(provider: 'google' | 'github') {
-		console.log('[SIGNIN DEBUG] OAuth starting:', { provider, redirectTo: params.redirectTo });
 		await authClient.signIn.social({
 			provider,
 			callbackURL: params.redirectTo || localizedHref('/app')
@@ -142,18 +119,14 @@
 
 		try {
 			const result = await authClient.signIn.passkey();
-			console.log('[SIGNIN DEBUG] Passkey result:', result);
 
 			if (result.error) {
 				error = result.error.message || 'Passkey authentication failed';
-				console.error('[SIGNIN DEBUG] Passkey error:', result.error);
 			} else {
-				console.log('[SIGNIN DEBUG] Passkey auth success, waiting for auth state');
 				pendingRedirect = true;
 			}
-		} catch (err) {
+		} catch {
 			error = 'Passkey authentication failed';
-			console.error('Passkey error:', err);
 		} finally {
 			isLoading = false;
 		}
