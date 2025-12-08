@@ -16,7 +16,6 @@
 	import { useSearchParams } from 'runed/kit';
 	import { authParamsSchema } from '$lib/schemas/auth-params.js';
 	import { localizedHref } from '$lib/utils/i18n';
-	import { goto } from '$app/navigation';
 	import { T } from '@tolgee/svelte';
 	import { getContext } from 'svelte';
 	import KeyIcon from '@lucide/svelte/icons/key';
@@ -41,6 +40,7 @@
 	let isLoading = $state(false);
 	let error = $state('');
 	let verificationStep = $state<{ email: string } | null>(null);
+	let pendingRedirect = $state(false);
 
 	// Debug: Log URL params when they change
 	$effect(() => {
@@ -49,6 +49,15 @@
 			redirectTo: params.redirectTo,
 			fullUrl: typeof window !== 'undefined' ? window.location.href : 'SSR'
 		});
+	});
+
+	// Watch for auth state change and redirect when authenticated
+	$effect(() => {
+		if (auth.isAuthenticated && pendingRedirect) {
+			const destination = params.redirectTo || localizedHref('/app');
+			console.log('[SIGNIN DEBUG] Auth state updated, redirecting to:', destination);
+			window.location.href = destination;
+		}
 	});
 
 	async function handleEmailAuth(event: Event, flow: 'signIn' | 'signUp') {
@@ -71,9 +80,8 @@
 					{ email, password },
 					{
 						onSuccess: () => {
-							const destination = params.redirectTo || localizedHref('/app');
-							console.log('[SIGNIN DEBUG] Sign in success, navigating to:', destination);
-							goto(destination);
+							console.log('[SIGNIN DEBUG] Sign in success, waiting for auth state');
+							pendingRedirect = true;
 						},
 						onError: (ctx) => {
 							error = ctx.error.message || 'auth.errors.invalid_credentials';
@@ -131,21 +139,18 @@
 	async function handlePasskeyLogin() {
 		isLoading = true;
 		error = '';
+
 		try {
-			const result = await authClient.signIn.passkey({
-				fetchOptions: {
-					onSuccess: () => {
-						const destination = params.redirectTo || localizedHref('/app');
-						console.log('[SIGNIN DEBUG] Passkey auth success, navigating to:', destination);
-						goto(destination);
-					},
-					onError: (ctx: { error: { message?: string } }) => {
-						error = ctx.error.message || 'Passkey authentication failed';
-						console.error('[SIGNIN DEBUG] Passkey error:', ctx.error);
-					}
-				}
-			});
+			const result = await authClient.signIn.passkey();
 			console.log('[SIGNIN DEBUG] Passkey result:', result);
+
+			if (result.error) {
+				error = result.error.message || 'Passkey authentication failed';
+				console.error('[SIGNIN DEBUG] Passkey error:', result.error);
+			} else {
+				console.log('[SIGNIN DEBUG] Passkey auth success, waiting for auth state');
+				pendingRedirect = true;
+			}
 		} catch (err) {
 			error = 'Passkey authentication failed';
 			console.error('Passkey error:', err);
