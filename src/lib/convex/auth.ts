@@ -7,7 +7,12 @@ import { query } from './_generated/server';
 import { betterAuth } from 'better-auth';
 import { passkey } from 'better-auth/plugins/passkey';
 
-const siteUrl = process.env.SITE_URL!;
+const siteUrl = process.env.SITE_URL;
+if (!siteUrl) {
+	throw new Error(
+		'SITE_URL environment variable is required. Set it with: bunx convex env set SITE_URL https://yoursite.com'
+	);
+}
 
 // The component client has methods needed for integrating Convex with Better Auth,
 // as well as helper methods for general use.
