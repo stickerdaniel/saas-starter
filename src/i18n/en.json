@@ -55,6 +55,7 @@
 			"oauth_github": "GitHub",
 			"oauth_google": "Google",
 			"or_continue_with": "Or continue with",
+			"passkey_button": "Sign in with Passkey",
 			"password_label": "Password",
 			"password_placeholder": "••••••••",
 			"tab_signin": "Sign In",
@@ -251,7 +252,19 @@
 		},
 		"security": {
 			"title": "Security",
-			"description": "Manage your passkeys and security settings."
+			"description": "Manage your passkeys and security settings.",
+			"passkey_info_title": "What are Passkeys?",
+			"passkey_info_description": "Passkeys are a secure, passwordless way to sign in. They use biometrics or device PIN and are stored securely on your devices.",
+			"add_passkey_title": "Add a Passkey",
+			"passkey_name_label": "Passkey name",
+			"add_passkey_helper": "Give your passkey a name to identify which device it's registered on.",
+			"adding": "Adding...",
+			"add_button": "Add Passkey",
+			"your_passkeys_title": "Your Passkeys",
+			"loading": "Loading passkeys...",
+			"no_passkeys": "You haven't registered any passkeys yet.",
+			"created_at": "Created ",
+			"error_title": "Error"
 		}
 	},
 	"pricing": {

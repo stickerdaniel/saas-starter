@@ -55,6 +55,7 @@
 			"oauth_github": "GitHub",
 			"oauth_google": "Google",
 			"or_continue_with": "Ou continuer avec",
+			"passkey_button": "Se connecter avec Passkey",
 			"password_label": "Mot de passe",
 			"password_placeholder": "••••••••",
 			"tab_signin": "Connexion",
@@ -251,7 +252,19 @@
 		},
 		"security": {
 			"title": "Sécurité",
-			"description": "Gérez vos passkeys et paramètres de sécurité."
+			"description": "Gérez vos passkeys et paramètres de sécurité.",
+			"passkey_info_title": "Que sont les Passkeys ?",
+			"passkey_info_description": "Les passkeys sont un moyen sécurisé de se connecter sans mot de passe. Ils utilisent la biométrie ou le code PIN de l'appareil et sont stockés en toute sécurité sur vos appareils.",
+			"add_passkey_title": "Ajouter un Passkey",
+			"passkey_name_label": "Nom du passkey",
+			"add_passkey_helper": "Donnez un nom à votre passkey pour identifier sur quel appareil il est enregistré.",
+			"adding": "Ajout en cours...",
+			"add_button": "Ajouter un Passkey",
+			"your_passkeys_title": "Vos Passkeys",
+			"loading": "Chargement des passkeys...",
+			"no_passkeys": "Vous n'avez pas encore enregistré de passkey.",
+			"created_at": "Créé le ",
+			"error_title": "Erreur"
 		}
 	},
 	"pricing": {
