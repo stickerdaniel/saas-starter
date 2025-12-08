@@ -7,6 +7,8 @@
 	import { toast } from 'svelte-sonner';
 	import { T } from '@tolgee/svelte';
 	import UploadIcon from '@lucide/svelte/icons/upload';
+	import { useConvexClient } from 'convex-svelte';
+	import { api } from '$lib/convex/_generated/api.js';
 
 	interface Props {
 		user: {
@@ -17,6 +19,8 @@
 	}
 
 	let { user }: Props = $props();
+
+	const convexClient = useConvexClient();
 
 	let name = $state(user?.name || '');
 	let image = $state(user?.image || '');
@@ -58,15 +62,31 @@
 
 		isLoading = true;
 		try {
-			// TODO: Implement Convex storage upload in Step 7
-			// For now, show a placeholder message
-			toast.info('File upload will be available after Step 7 implementation');
+			// Step 1: Generate upload URL
+			const uploadUrl = await convexClient.mutation(api.storage.generateUploadUrl, {});
+
+			// Step 2: Upload file to Convex storage
+			const result = await fetch(uploadUrl, {
+				method: 'POST',
+				headers: { 'Content-Type': selectedFile.type },
+				body: selectedFile
+			});
+
+			const { storageId } = await result.json();
+
+			// Step 3: Get the proper URL from Convex
+			const imageUrl = await convexClient.mutation(api.storage.getImageUrl, { storageId });
+
+			// Step 4: Update the image state
+			image = imageUrl || '';
 			selectedFile = null;
 
 			// Reset file input
 			if (fileInput) {
 				fileInput.value = '';
 			}
+
+			toast.success('Image uploaded successfully');
 		} catch (error) {
 			const message = error instanceof Error ? error.message : 'Failed to upload image';
 			toast.error(message);
