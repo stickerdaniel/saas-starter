@@ -49,6 +49,30 @@
 				</IntegrationCard>
 
 				<IntegrationCard
+					title={$t('integrations.cards.better_auth.title')}
+					description={$t('integrations.cards.better_auth.description')}
+					link="https://www.better-auth.com/"
+					buttonText={$t('integrations.cards.better_auth.button')}
+				>
+					<BetterAuth />
+				</IntegrationCard>
+
+				<IntegrationCard
+					title={$t('integrations.cards.autumn_stripe.title')}
+					description={$t('integrations.cards.autumn_stripe.description')}
+					link="https://useautumn.com/"
+					secondaryLink="https://stripe.com"
+					secondaryTitle={$t('integrations.cards.autumn_stripe.secondary_title')}
+					buttonText={$t('integrations.cards.autumn_stripe.button')}
+					secondaryButtonText={$t('integrations.cards.autumn_stripe.secondary_button')}
+				>
+					<div class="flex items-center gap-2">
+						<Autumn class="size-10" />
+						<Stripe class="size-10" />
+					</div>
+				</IntegrationCard>
+
+				<IntegrationCard
 					title={$t('integrations.cards.tolgee.title')}
 					description={$t('integrations.cards.tolgee.description')}
 					link="https://tolgee.io"
@@ -79,30 +103,6 @@
 						<Shadcn class="size-10" />
 						<SVBlocks class="size-10" />
 					</div>
-				</IntegrationCard>
-
-				<IntegrationCard
-					title={$t('integrations.cards.autumn_stripe.title')}
-					description={$t('integrations.cards.autumn_stripe.description')}
-					link="https://useautumn.com/"
-					secondaryLink="https://stripe.com"
-					secondaryTitle={$t('integrations.cards.autumn_stripe.secondary_title')}
-					buttonText={$t('integrations.cards.autumn_stripe.button')}
-					secondaryButtonText={$t('integrations.cards.autumn_stripe.secondary_button')}
-				>
-					<div class="flex items-center gap-2">
-						<Autumn class="size-10" />
-						<Stripe class="size-10" />
-					</div>
-				</IntegrationCard>
-
-				<IntegrationCard
-					title={$t('integrations.cards.better_auth.title')}
-					description={$t('integrations.cards.better_auth.description')}
-					link="https://www.better-auth.com/"
-					buttonText={$t('integrations.cards.better_auth.button')}
-				>
-					<BetterAuth />
 				</IntegrationCard>
 
 				<IntegrationCard
