@@ -22,8 +22,26 @@
 			"signup_failed": "Failed to create account. Email may already be in use.",
 			"verification_invalid": "Invalid or expired verification code. Please try again."
 		},
+		"forgot_password": {
+			"back_to_signin": "Back to sign in",
+			"button_loading": "Sending...",
+			"button_submit": "Send reset link",
+			"description": "We will email you a reset link",
+			"title": "Forgot password"
+		},
 		"login": "Login",
 		"logout": "Logout",
+		"reset_password": {
+			"back_to_signin": "Back to sign in",
+			"button_loading": "Resetting...",
+			"button_submit": "Reset password",
+			"confirm_password_label": "Confirm new password",
+			"description": "Enter your new password",
+			"new_password_label": "New password",
+			"sign_in_link": "Sign in",
+			"success": "Your password has been reset.",
+			"title": "Reset password"
+		},
 		"signin": {
 			"button_signin": "Sign In",
 			"button_signin_loading": "Signing in...",
@@ -33,6 +51,7 @@
 			"description": "Sign in to your account or create a new one",
 			"email_label": "Email",
 			"email_placeholder": "you@example.com",
+			"forgot_password": "Forgot password?",
 			"oauth_github": "GitHub",
 			"oauth_google": "Google",
 			"or_continue_with": "Or continue with",

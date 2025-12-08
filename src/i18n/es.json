@@ -22,8 +22,26 @@
 			"signup_failed": "No se pudo crear la cuenta. Es posible que el correo electrónico ya esté en uso.",
 			"verification_invalid": "Código de verificación inválido o caducado. Por favor, inténtalo de nuevo."
 		},
+		"forgot_password": {
+			"back_to_signin": "Volver a iniciar sesión",
+			"button_loading": "Enviando...",
+			"button_submit": "Enviar enlace",
+			"description": "Te enviaremos un enlace para restablecer",
+			"title": "¿Olvidaste tu contraseña?"
+		},
 		"login": "Iniciar sesión",
 		"logout": "Cerrar sesión",
+		"reset_password": {
+			"back_to_signin": "Volver a iniciar sesión",
+			"button_loading": "Restableciendo...",
+			"button_submit": "Restablecer contraseña",
+			"confirm_password_label": "Confirmar nueva contraseña",
+			"description": "Ingresa tu nueva contraseña",
+			"new_password_label": "Nueva contraseña",
+			"sign_in_link": "Iniciar sesión",
+			"success": "Tu contraseña ha sido restablecida.",
+			"title": "Restablecer contraseña"
+		},
 		"signin": {
 			"button_signin": "Iniciar sesión",
 			"button_signin_loading": "Iniciando sesión...",
@@ -33,6 +51,7 @@
 			"description": "Inicia sesión en tu cuenta o crea una nueva",
 			"email_label": "Correo electrónico",
 			"email_placeholder": "tu@ejemplo.com",
+			"forgot_password": "¿Olvidaste tu contraseña?",
 			"oauth_github": "GitHub",
 			"oauth_google": "Google",
 			"or_continue_with": "O continuar con",

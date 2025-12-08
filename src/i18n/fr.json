@@ -22,8 +22,26 @@
 			"signup_failed": "Impossible de créer le compte. L'e-mail est peut-être déjà utilisé.",
 			"verification_invalid": "Code de vérification invalide ou expiré. Veuillez réessayer."
 		},
+		"forgot_password": {
+			"back_to_signin": "Retour à la connexion",
+			"button_loading": "Envoi en cours...",
+			"button_submit": "Envoyer le lien",
+			"description": "Nous vous enverrons un lien de réinitialisation",
+			"title": "Mot de passe oublié"
+		},
 		"login": "Connexion",
 		"logout": "Déconnexion",
+		"reset_password": {
+			"back_to_signin": "Retour à la connexion",
+			"button_loading": "Réinitialisation...",
+			"button_submit": "Réinitialiser le mot de passe",
+			"confirm_password_label": "Confirmer le nouveau mot de passe",
+			"description": "Entrez votre nouveau mot de passe",
+			"new_password_label": "Nouveau mot de passe",
+			"sign_in_link": "Se connecter",
+			"success": "Votre mot de passe a été réinitialisé.",
+			"title": "Réinitialiser le mot de passe"
+		},
 		"signin": {
 			"button_signin": "Se connecter",
 			"button_signin_loading": "Connexion en cours...",
@@ -33,6 +51,7 @@
 			"description": "Connectez-vous à votre compte ou créez-en un nouveau",
 			"email_label": "E-mail",
 			"email_placeholder": "vous@exemple.fr",
+			"forgot_password": "Mot de passe oublié ?",
 			"oauth_github": "GitHub",
 			"oauth_google": "Google",
 			"or_continue_with": "Ou continuer avec",
