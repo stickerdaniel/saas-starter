@@ -4,13 +4,14 @@
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import { useSidebar } from '$lib/components/ui/sidebar/index.js';
 	import { authClient } from '$lib/auth-client';
-	import BadgeCheckIcon from '@lucide/svelte/icons/badge-check';
 	import BellIcon from '@lucide/svelte/icons/bell';
 	import ChevronsUpDownIcon from '@lucide/svelte/icons/chevrons-up-down';
 	import CreditCardIcon from '@lucide/svelte/icons/credit-card';
 	import LogOutIcon from '@lucide/svelte/icons/log-out';
 	import SparklesIcon from '@lucide/svelte/icons/sparkles';
+	import SettingsIcon from '@lucide/svelte/icons/settings';
 	import { T } from '@tolgee/svelte';
+	import { localizedHref } from '$lib/utils/i18n';
 
 	let { user }: { user: { name: string; email: string; avatar: string } } = $props();
 	const sidebar = useSidebar();
@@ -72,10 +73,12 @@
 				</DropdownMenu.Group>
 				<DropdownMenu.Separator />
 				<DropdownMenu.Group>
-					<DropdownMenu.Item>
-						<BadgeCheckIcon />
-						<T keyName="app.user_menu.account" />
-					</DropdownMenu.Item>
+					<a href={localizedHref('/app/settings')}>
+						<DropdownMenu.Item>
+							<SettingsIcon />
+							<T keyName="app.user_menu.settings" />
+						</DropdownMenu.Item>
+					</a>
 					<DropdownMenu.Item>
 						<CreditCardIcon />
 						<T keyName="app.user_menu.billing" />
