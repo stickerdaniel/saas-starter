@@ -205,7 +205,20 @@
 		},
 		"account": {
 			"title": "Información de la cuenta",
-			"description": "Actualiza la información de tu cuenta aquí."
+			"description": "Actualiza la información de tu cuenta aquí.",
+			"name_label": "Nombre",
+			"name_helper": "Este es tu nombre público.",
+			"profile_picture": "Foto de perfil",
+			"profile_picture_helper": "Sube una imagen o pega un enlace. Recomendamos una imagen cuadrada de menos de 2MB.",
+			"no_image": "Sin imagen",
+			"remove_button": "Eliminar",
+			"upload_file": "Subir archivo",
+			"file_helper": "PNG, JPG o GIF hasta 2MB.",
+			"or": "o",
+			"link_from_url": "Enlace desde URL",
+			"url_helper": "Pega un enlace de imagen en lugar de subir.",
+			"saving": "Guardando...",
+			"save_button": "Guardar cambios"
 		},
 		"password": {
 			"title": "Cambiar contraseña",
