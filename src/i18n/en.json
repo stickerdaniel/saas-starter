@@ -194,6 +194,32 @@
 		"pricing": "Pricing",
 		"solution": "Solution"
 	},
+	"settings": {
+		"title": "Settings",
+		"description": "Manage your account settings and preferences.",
+		"tabs": {
+			"account": "Account",
+			"password": "Password",
+			"email": "Email",
+			"security": "Security"
+		},
+		"account": {
+			"title": "Account Information",
+			"description": "Update your account information here."
+		},
+		"password": {
+			"title": "Change Password",
+			"description": "Update your password to keep your account secure."
+		},
+		"email": {
+			"title": "Email Address",
+			"description": "Update your email address for account notifications and login."
+		},
+		"security": {
+			"title": "Security",
+			"description": "Manage your passkeys and security settings."
+		}
+	},
 	"pricing": {
 		"buttons": {
 			"loading": "Loading...",
