@@ -236,7 +236,18 @@
 		},
 		"email": {
 			"title": "E-Mail-Adresse",
-			"description": "Aktualisieren Sie Ihre E-Mail-Adresse für Kontobenachrichtigungen und Anmeldung."
+			"description": "Aktualisieren Sie Ihre E-Mail-Adresse für Kontobenachrichtigungen und Anmeldung.",
+			"current_email_label": "Aktuelle E-Mail",
+			"verified_badge": "Verifiziert",
+			"unverified_badge": "Nicht verifiziert",
+			"error_title": "Fehler",
+			"new_email_label": "Neue E-Mail-Adresse",
+			"verification_required_title": "Verifizierung erforderlich",
+			"verification_required_description": "Eine Bestätigungs-E-Mail wird an Ihre aktuelle E-Mail-Adresse gesendet. Sie müssen die Änderung genehmigen, bevor Ihre neue E-Mail aktiv wird.",
+			"not_verified_title": "E-Mail nicht verifiziert",
+			"not_verified_description": "Ihre aktuelle E-Mail ist nicht verifiziert. Die neue E-Mail wird sofort ohne Verifizierung aktualisiert.",
+			"updating": "Aktualisieren...",
+			"update_button": "E-Mail aktualisieren"
 		},
 		"security": {
 			"title": "Sicherheit",

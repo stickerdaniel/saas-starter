@@ -236,7 +236,18 @@
 		},
 		"email": {
 			"title": "Adresse e-mail",
-			"description": "Mettez à jour votre adresse e-mail pour les notifications et la connexion."
+			"description": "Mettez à jour votre adresse e-mail pour les notifications et la connexion.",
+			"current_email_label": "E-mail actuel",
+			"verified_badge": "Vérifié",
+			"unverified_badge": "Non vérifié",
+			"error_title": "Erreur",
+			"new_email_label": "Nouvelle adresse e-mail",
+			"verification_required_title": "Vérification requise",
+			"verification_required_description": "Un e-mail de vérification sera envoyé à votre adresse actuelle. Vous devez approuver le changement avant que votre nouvel e-mail soit actif.",
+			"not_verified_title": "E-mail non vérifié",
+			"not_verified_description": "Votre e-mail actuel n'est pas vérifié. Le nouvel e-mail sera mis à jour immédiatement sans vérification.",
+			"updating": "Mise à jour...",
+			"update_button": "Mettre à jour l'e-mail"
 		},
 		"security": {
 			"title": "Sécurité",
