@@ -42,6 +42,21 @@ export const createAuth = (
 					code: token,
 					expiryMinutes: 20
 				});
+			},
+			// Password reset email
+			sendResetPassword: async ({
+				user,
+				url
+			}: {
+				user: { email: string; name?: string };
+				url: string;
+			}) => {
+				const mutationCtx = requireRunMutationCtx(ctx);
+				await mutationCtx.runMutation(internal.emails.send.sendResetPasswordEmail, {
+					email: user.email,
+					resetUrl: url,
+					userName: user.name
+				});
 			}
 		},
 		socialProviders: {
