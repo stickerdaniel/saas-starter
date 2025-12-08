@@ -19,6 +19,7 @@
 	import { goto } from '$app/navigation';
 	import { T } from '@tolgee/svelte';
 	import { getContext } from 'svelte';
+	import KeyIcon from '@lucide/svelte/icons/key';
 
 	const auth = useAuth();
 	const params = useSearchParams(authParamsSchema, {
@@ -302,20 +303,18 @@
 					</div>
 
 					<div class="space-y-2">
-						<!-- Passkey Login -->
-						<Button
-							onclick={handlePasskeyLogin}
-							variant="outline"
-							class="w-full"
-							disabled={isLoading}
-						>
-							<svg class="mr-2 h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
-								<path
-									d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"
-								/>
-							</svg>
-							Sign in with Passkey
-						</Button>
+						<!-- Passkey Login - Only show on signin tab -->
+						{#if params.tab === 'signin'}
+							<Button
+								onclick={handlePasskeyLogin}
+								variant="outline"
+								class="w-full"
+								disabled={isLoading}
+							>
+								<KeyIcon class="mr-2 h-4 w-4" />
+								<T keyName="auth.signin.passkey_button" defaultValue="Sign in with Passkey" />
+							</Button>
+						{/if}
 
 						<Button onclick={() => handleOAuth('github')} variant="outline" class="w-full">
 							<svg class="mr-2 h-4 w-4" viewBox="0 0 24 24" fill="currentColor">

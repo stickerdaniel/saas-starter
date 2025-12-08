@@ -55,6 +55,7 @@
 			"oauth_github": "GitHub",
 			"oauth_google": "Google",
 			"or_continue_with": "O continuar con",
+			"passkey_button": "Iniciar sesión con Passkey",
 			"password_label": "Contraseña",
 			"password_placeholder": "••••••••",
 			"tab_signin": "Iniciar sesión",
@@ -251,7 +252,19 @@
 		},
 		"security": {
 			"title": "Seguridad",
-			"description": "Administra tus passkeys y configuración de seguridad."
+			"description": "Administra tus passkeys y configuración de seguridad.",
+			"passkey_info_title": "¿Qué son los Passkeys?",
+			"passkey_info_description": "Los passkeys son una forma segura de iniciar sesión sin contraseña. Utilizan biometría o PIN del dispositivo y se almacenan de forma segura en tus dispositivos.",
+			"add_passkey_title": "Añadir un Passkey",
+			"passkey_name_label": "Nombre del passkey",
+			"add_passkey_helper": "Dale un nombre a tu passkey para identificar en qué dispositivo está registrado.",
+			"adding": "Añadiendo...",
+			"add_button": "Añadir Passkey",
+			"your_passkeys_title": "Tus Passkeys",
+			"loading": "Cargando passkeys...",
+			"no_passkeys": "Aún no has registrado ningún passkey.",
+			"created_at": "Creado ",
+			"error_title": "Error"
 		}
 	},
 	"pricing": {

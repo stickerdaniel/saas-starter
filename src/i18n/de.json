@@ -55,6 +55,7 @@
 			"oauth_github": "GitHub",
 			"oauth_google": "Google",
 			"or_continue_with": "Oder fortfahren mit",
+			"passkey_button": "Mit Passkey anmelden",
 			"password_label": "Passwort",
 			"password_placeholder": "••••••••",
 			"tab_signin": "Anmelden",
@@ -251,7 +252,19 @@
 		},
 		"security": {
 			"title": "Sicherheit",
-			"description": "Verwalten Sie Ihre Passkeys und Sicherheitseinstellungen."
+			"description": "Verwalten Sie Ihre Passkeys und Sicherheitseinstellungen.",
+			"passkey_info_title": "Was sind Passkeys?",
+			"passkey_info_description": "Passkeys sind eine sichere, passwortlose Anmeldemethode. Sie verwenden Biometrie oder Geräte-PIN und werden sicher auf Ihren Geräten gespeichert.",
+			"add_passkey_title": "Passkey hinzufügen",
+			"passkey_name_label": "Passkey-Name",
+			"add_passkey_helper": "Geben Sie Ihrem Passkey einen Namen, um zu identifizieren, auf welchem Gerät er registriert ist.",
+			"adding": "Wird hinzugefügt...",
+			"add_button": "Passkey hinzufügen",
+			"your_passkeys_title": "Ihre Passkeys",
+			"loading": "Passkeys werden geladen...",
+			"no_passkeys": "Sie haben noch keine Passkeys registriert.",
+			"created_at": "Erstellt am ",
+			"error_title": "Fehler"
 		}
 	},
 	"pricing": {
