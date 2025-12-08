@@ -194,6 +194,32 @@
 		"pricing": "Tarifs",
 		"solution": "Solution"
 	},
+	"settings": {
+		"title": "Paramètres",
+		"description": "Gérez les paramètres et préférences de votre compte.",
+		"tabs": {
+			"account": "Compte",
+			"password": "Mot de passe",
+			"email": "E-mail",
+			"security": "Sécurité"
+		},
+		"account": {
+			"title": "Informations du compte",
+			"description": "Mettez à jour les informations de votre compte ici."
+		},
+		"password": {
+			"title": "Changer le mot de passe",
+			"description": "Mettez à jour votre mot de passe pour sécuriser votre compte."
+		},
+		"email": {
+			"title": "Adresse e-mail",
+			"description": "Mettez à jour votre adresse e-mail pour les notifications et la connexion."
+		},
+		"security": {
+			"title": "Sécurité",
+			"description": "Gérez vos passkeys et paramètres de sécurité."
+		}
+	},
 	"pricing": {
 		"buttons": {
 			"loading": "Chargement...",

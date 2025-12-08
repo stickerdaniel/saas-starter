@@ -194,6 +194,32 @@
 		"pricing": "Pläne",
 		"solution": "Lösung"
 	},
+	"settings": {
+		"title": "Einstellungen",
+		"description": "Verwalten Sie Ihre Kontoeinstellungen und Präferenzen.",
+		"tabs": {
+			"account": "Konto",
+			"password": "Passwort",
+			"email": "E-Mail",
+			"security": "Sicherheit"
+		},
+		"account": {
+			"title": "Kontoinformationen",
+			"description": "Aktualisieren Sie hier Ihre Kontoinformationen."
+		},
+		"password": {
+			"title": "Passwort ändern",
+			"description": "Aktualisieren Sie Ihr Passwort, um Ihr Konto sicher zu halten."
+		},
+		"email": {
+			"title": "E-Mail-Adresse",
+			"description": "Aktualisieren Sie Ihre E-Mail-Adresse für Kontobenachrichtigungen und Anmeldung."
+		},
+		"security": {
+			"title": "Sicherheit",
+			"description": "Verwalten Sie Ihre Passkeys und Sicherheitseinstellungen."
+		}
+	},
 	"pricing": {
 		"buttons": {
 			"loading": "Lädt...",
