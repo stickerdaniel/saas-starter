@@ -217,7 +217,15 @@
 									/>
 								</div>
 								<div class="space-y-2">
-									<Label for="signin-password"><T keyName="auth.signin.password_label" /></Label>
+									<div class="flex items-center justify-between">
+										<Label for="signin-password"><T keyName="auth.signin.password_label" /></Label>
+										<a
+											href={localizedHref('/forgot-password')}
+											class="text-sm text-muted-foreground hover:underline"
+										>
+											<T keyName="auth.signin.forgot_password" defaultValue="Forgot password?" />
+										</a>
+									</div>
 									<Input
 										id="signin-password"
 										type="password"
