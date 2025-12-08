@@ -205,7 +205,20 @@
 		},
 		"account": {
 			"title": "Kontoinformationen",
-			"description": "Aktualisieren Sie hier Ihre Kontoinformationen."
+			"description": "Aktualisieren Sie hier Ihre Kontoinformationen.",
+			"name_label": "Name",
+			"name_helper": "Dies ist Ihr öffentlich angezeigter Name.",
+			"profile_picture": "Profilbild",
+			"profile_picture_helper": "Laden Sie ein Bild hoch oder fügen Sie einen Link ein. Wir empfehlen ein quadratisches Bild unter 2MB.",
+			"no_image": "Kein Bild",
+			"remove_button": "Entfernen",
+			"upload_file": "Datei hochladen",
+			"file_helper": "PNG, JPG oder GIF bis zu 2MB.",
+			"or": "oder",
+			"link_from_url": "Link von URL",
+			"url_helper": "Fügen Sie einen Bildlink ein, anstatt hochzuladen.",
+			"saving": "Speichern...",
+			"save_button": "Änderungen speichern"
 		},
 		"password": {
 			"title": "Passwort ändern",

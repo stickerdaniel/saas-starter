@@ -205,7 +205,20 @@
 		},
 		"account": {
 			"title": "Account Information",
-			"description": "Update your account information here."
+			"description": "Update your account information here.",
+			"name_label": "Name",
+			"name_helper": "This is your public display name.",
+			"profile_picture": "Profile picture",
+			"profile_picture_helper": "Upload an image or paste a link. We recommend a square image under 2MB.",
+			"no_image": "No image",
+			"remove_button": "Remove",
+			"upload_file": "Upload a file",
+			"file_helper": "PNG, JPG, or GIF up to 2MB.",
+			"or": "or",
+			"link_from_url": "Link from URL",
+			"url_helper": "Paste an image link instead of uploading.",
+			"saving": "Saving...",
+			"save_button": "Save Changes"
 		},
 		"password": {
 			"title": "Change Password",
