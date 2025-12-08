@@ -236,7 +236,18 @@
 		},
 		"email": {
 			"title": "Dirección de correo electrónico",
-			"description": "Actualiza tu dirección de correo para notificaciones e inicio de sesión."
+			"description": "Actualiza tu dirección de correo para notificaciones e inicio de sesión.",
+			"current_email_label": "Correo actual",
+			"verified_badge": "Verificado",
+			"unverified_badge": "No verificado",
+			"error_title": "Error",
+			"new_email_label": "Nueva dirección de correo",
+			"verification_required_title": "Verificación requerida",
+			"verification_required_description": "Se enviará un correo de verificación a tu dirección actual. Debes aprobar el cambio antes de que tu nuevo correo esté activo.",
+			"not_verified_title": "Correo no verificado",
+			"not_verified_description": "Tu correo actual no está verificado. El nuevo correo se actualizará inmediatamente sin verificación.",
+			"updating": "Actualizando...",
+			"update_button": "Actualizar correo"
 		},
 		"security": {
 			"title": "Seguridad",

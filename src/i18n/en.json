@@ -236,7 +236,18 @@
 		},
 		"email": {
 			"title": "Email Address",
-			"description": "Update your email address for account notifications and login."
+			"description": "Update your email address for account notifications and login.",
+			"current_email_label": "Current Email",
+			"verified_badge": "Verified",
+			"unverified_badge": "Unverified",
+			"error_title": "Error",
+			"new_email_label": "New Email Address",
+			"verification_required_title": "Verification Required",
+			"verification_required_description": "A verification email will be sent to your current email address. You must approve the change before your new email becomes active.",
+			"not_verified_title": "Email Not Verified",
+			"not_verified_description": "Your current email is not verified. The new email will be updated immediately without verification.",
+			"updating": "Updating...",
+			"update_button": "Update Email"
 		},
 		"security": {
 			"title": "Security",
