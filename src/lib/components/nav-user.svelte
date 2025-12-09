@@ -92,7 +92,7 @@
 					</DropdownMenu.Item>
 				</DropdownMenu.Group>
 				<DropdownMenu.Separator />
-				<DropdownMenu.Item onclick={() => signOut()}>
+				<DropdownMenu.Item onclick={() => signOut()} data-testid="logout-button">
 					<LogOutIcon />
 					<T keyName="app.user_menu.logout" />
 				</DropdownMenu.Item>

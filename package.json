@@ -20,7 +20,8 @@
 		"test:unit": "vitest --run --reporter=verbose --passWithNoTests",
 		"i18n:pull": "bunx dotenv -f .env.local run -- bunx tolgee pull",
 		"i18n:push": "bunx dotenv -f .env.local run -- bunx tolgee push",
-		"i18n:cleanup": "bunx dotenv -f .env.local run -- bunx tolgee tag --filter-not-extracted --filter-tag production --tag deprecated --untag production"
+		"i18n:cleanup": "bunx dotenv -f .env.local run -- bunx tolgee tag --filter-not-extracted --filter-tag production --tag deprecated --untag production",
+		"setup:test-user": "bunx tsx scripts/setup-test-user.ts"
 	},
 	"dependencies": {
 		"@convex-dev/agent": "^0.3.0",

@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { authClient } from '$lib/auth-client';
 	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
-	import { env } from '$env/dynamic/public';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { Label } from '$lib/components/ui/label/index.js';
@@ -181,6 +180,7 @@
 									<Label for="signin-email"><T keyName="auth.signin.email_label" /></Label>
 									<Input
 										id="signin-email"
+										data-testid="email-input"
 										type="email"
 										name="email"
 										placeholder="you@example.com"
@@ -201,6 +201,7 @@
 									</div>
 									<Input
 										id="signin-password"
+										data-testid="password-input"
 										type="password"
 										name="password"
 										placeholder="••••••••"
@@ -209,9 +210,14 @@
 									/>
 								</div>
 								{#if error}
-									<p class="text-sm text-red-500">{error}</p>
+									<p class="text-sm text-red-500" data-testid="auth-error">{error}</p>
 								{/if}
-								<Button type="submit" class="w-full" disabled={isLoading}>
+								<Button
+									type="submit"
+									class="w-full"
+									disabled={isLoading}
+									data-testid="signin-button"
+								>
 									{#if isLoading}
 										<T keyName="auth.signin.button_signin_loading" />
 									{:else}
@@ -248,9 +254,14 @@
 									/>
 								</div>
 								{#if error}
-									<p class="text-sm text-red-500">{error}</p>
+									<p class="text-sm text-red-500" data-testid="auth-error">{error}</p>
 								{/if}
-								<Button type="submit" class="w-full" disabled={isLoading}>
+								<Button
+									type="submit"
+									class="w-full"
+									disabled={isLoading}
+									data-testid="signup-button"
+								>
 									{#if isLoading}
 										<T keyName="auth.signin.button_signup_loading" />
 									{:else}
@@ -318,25 +329,6 @@
 							<T keyName="auth.signin.oauth_google" />
 						</Button>
 					</div>
-				{/if}
-
-				{#if env.PUBLIC_E2E_TEST}
-					<form
-						class="mt-8 flex flex-col gap-2"
-						onsubmit={(event) => {
-							event.preventDefault();
-							// TODO: Implement E2E test authentication for Better Auth
-							window.alert('E2E test auth not yet implemented for Better Auth');
-						}}
-					>
-						<p class="text-sm text-muted-foreground">
-							<T keyName="auth.signin.test_secret_label" />
-						</p>
-						<Input aria-label="Secret" type="text" name="secret" placeholder="secret value" />
-						<Button type="submit" variant="secondary">
-							<T keyName="auth.signin.test_secret_button" />
-						</Button>
-					</form>
 				{/if}
 
 				<div class="mt-6 text-center">
