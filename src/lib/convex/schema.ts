@@ -34,7 +34,7 @@ export default defineSchema({
 		description: v.string(),
 		userEmail: v.string(),
 		userName: v.optional(v.string()),
-		userId: v.optional(v.string()), // Auth subject (not document ID)
+		userId: v.optional(v.string()), // Better Auth user ID (string, not document ID)
 		fileIds: v.optional(v.array(v.object({ filename: v.string(), url: v.string() }))), // Attached files with names
 		status: v.union(
 			v.literal('submitted'),
