@@ -18,8 +18,18 @@
 	},
 	"auth": {
 		"errors": {
+			"confirm_password_required": "Please confirm your password",
+			"current_password_required": "Current password is required",
 			"invalid_credentials": "Invalid email or password",
+			"invalid_email": "Please enter a valid email",
 			"invalid_secret": "Invalid secret",
+			"name_required": "Name is required",
+			"password_lowercase": "Password must contain at least one lowercase letter",
+			"password_min_length": "Password must be at least {minLength} characters",
+			"password_number": "Password must contain at least one number",
+			"password_required": "Password is required",
+			"password_uppercase": "Password must contain at least one uppercase letter",
+			"passwords_do_not_match": "Passwords do not match",
 			"signup_failed": "Failed to create account. Email may already be in use.",
 			"verification_invalid": "Invalid or expired verification code. Please try again."
 		},
@@ -228,7 +238,7 @@
 			"error_title": "Error",
 			"current_password_label": "Current Password",
 			"new_password_label": "New Password",
-			"password_helper": "Must be at least 8 characters long.",
+			"password_helper": "Must be at least 10 characters long.",
 			"confirm_password_label": "Confirm New Password",
 			"revoke_sessions_label": "Sign out of all other devices",
 			"security_notice_title": "Security Notice",

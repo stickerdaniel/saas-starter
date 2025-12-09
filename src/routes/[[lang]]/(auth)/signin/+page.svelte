@@ -3,7 +3,7 @@
 	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
-	import { Label } from '$lib/components/ui/label/index.js';
+	import * as Form from '$lib/components/ui/form/index.js';
 	import { Tabs, TabsContent, TabsList, TabsTrigger } from '$lib/components/ui/tabs/index.js';
 	import {
 		Card,
@@ -13,11 +13,18 @@
 		CardTitle
 	} from '$lib/components/ui/card/index.js';
 	import { useSearchParams } from 'runed/kit';
-	import { authParamsSchema } from '$lib/schemas/auth-params.js';
+	import {
+		authParamsSchema,
+		signInSchema,
+		signUpSchema,
+		PASSWORD_MIN_LENGTH
+	} from '$lib/schemas/auth.js';
 	import { localizedHref } from '$lib/utils/i18n';
 	import { T } from '@tolgee/svelte';
 	import { getContext } from 'svelte';
 	import KeyIcon from '@lucide/svelte/icons/key-round';
+	import { defaults, superForm } from 'sveltekit-superforms';
+	import { zod4 } from 'sveltekit-superforms/adapters';
 
 	const auth = useAuth();
 	const params = useSearchParams(authParamsSchema, {
@@ -27,18 +34,94 @@
 
 	// Get email context from auth layout (persists across auth pages)
 	const authEmailCtx = getContext<{ get: () => string; set: (v: string) => void }>('auth:email');
-	let email = $state(authEmailCtx?.get() ?? '');
 
-	// Sync email changes back to context
-	$effect(() => {
-		if (authEmailCtx && email) {
-			authEmailCtx.set(email);
+	let isLoading = $state(false);
+	let formError = $state('');
+	let verificationStep = $state<{ email: string } | null>(null);
+
+	// Sign In Form
+	const signInForm = superForm(defaults({ email: '', password: '' }, zod4(signInSchema)), {
+		validators: zod4(signInSchema),
+		SPA: true,
+		onUpdate: async ({ form: f }) => {
+			if (!f.valid) return;
+			isLoading = true;
+			formError = '';
+
+			try {
+				await authClient.signIn.email(
+					{ email: f.data.email, password: f.data.password },
+					{
+						onError: (ctx) => {
+							formError = ctx.error.message || 'auth.errors.invalid_credentials';
+						}
+					}
+				);
+			} catch {
+				formError = 'auth.errors.invalid_credentials';
+			} finally {
+				isLoading = false;
+			}
 		}
 	});
 
-	let isLoading = $state(false);
-	let error = $state('');
-	let verificationStep = $state<{ email: string } | null>(null);
+	// Sign Up Form
+	const signUpForm = superForm(
+		defaults({ name: '', email: '', password: '' }, zod4(signUpSchema)),
+		{
+			validators: zod4(signUpSchema),
+			SPA: true,
+			onUpdate: async ({ form: f }) => {
+				if (!f.valid) return;
+				isLoading = true;
+				formError = '';
+
+				try {
+					await authClient.signUp.email(
+						{ email: f.data.email, password: f.data.password, name: f.data.name },
+						{
+							onSuccess: () => {
+								verificationStep = { email: f.data.email };
+							},
+							onError: (ctx) => {
+								formError = ctx.error.message || 'auth.errors.signup_failed';
+							}
+						}
+					);
+				} catch {
+					formError = 'auth.errors.signup_failed';
+				} finally {
+					isLoading = false;
+				}
+			}
+		}
+	);
+
+	const { form: signInData, enhance: signInEnhance } = signInForm;
+	const { form: signUpData, enhance: signUpEnhance } = signUpForm;
+
+	// Initialize email from context
+	$effect(() => {
+		const savedEmail = authEmailCtx?.get();
+		if (savedEmail) {
+			$signInData.email = savedEmail;
+			$signUpData.email = savedEmail;
+		}
+	});
+
+	// Sync email changes to context and between forms
+	$effect(() => {
+		const email = params.tab === 'signin' ? $signInData.email : $signUpData.email;
+		if (email && authEmailCtx) {
+			authEmailCtx.set(email);
+		}
+		// Sync between forms
+		if (params.tab === 'signin' && $signInData.email !== $signUpData.email) {
+			$signUpData.email = $signInData.email;
+		} else if (params.tab === 'signup' && $signUpData.email !== $signInData.email) {
+			$signInData.email = $signUpData.email;
+		}
+	});
 
 	// Redirect when authenticated on signin page
 	$effect(() => {
@@ -48,57 +131,9 @@
 		}
 	});
 
-	async function handleEmailAuth(event: Event, flow: 'signIn' | 'signUp') {
-		event.preventDefault();
-		isLoading = true;
-		error = '';
-
-		const formData = new FormData(event.currentTarget as HTMLFormElement);
-		const email = formData.get('email') as string;
-		const password = formData.get('password') as string;
-
-		try {
-			if (flow === 'signIn') {
-				await authClient.signIn.email(
-					{ email, password },
-					{
-						onError: (ctx) => {
-							error = ctx.error.message || 'auth.errors.invalid_credentials';
-						}
-					}
-				);
-			} else {
-				await authClient.signUp.email(
-					{ email, password, name: email.split('@')[0] },
-					{
-						onSuccess: () => {
-							verificationStep = { email };
-						},
-						onError: (ctx) => {
-							error = ctx.error.message || 'auth.errors.signup_failed';
-						}
-					}
-				);
-			}
-		} catch (err) {
-			error = flow === 'signIn' ? 'auth.errors.invalid_credentials' : 'auth.errors.signup_failed';
-		} finally {
-			isLoading = false;
-		}
-	}
-
-	// Note: Email verification is handled via link in the email
-	// This function is kept for potential future OTP-based verification
-	async function handleVerification(event: Event) {
-		event.preventDefault();
-		// Better Auth uses link-based verification
-		// The user should check their email and click the verification link
-		// This UI shows a message instead of OTP input
-	}
-
 	function cancelVerification() {
 		verificationStep = null;
-		error = '';
+		formError = '';
 	}
 
 	async function handleOAuth(provider: 'google' | 'github') {
@@ -110,16 +145,15 @@
 
 	async function handlePasskeyLogin() {
 		isLoading = true;
-		error = '';
+		formError = '';
 
 		try {
 			const result = await authClient.signIn.passkey();
 			if (result.error) {
-				error = result.error.message || 'Passkey authentication failed';
+				formError = result.error.message || 'Passkey authentication failed';
 			}
-			// Redirect handled by auth.isAuthenticated effect
-		} catch (err) {
-			error = 'Passkey authentication failed';
+		} catch {
+			formError = 'Passkey authentication failed';
 		} finally {
 			isLoading = false;
 		}
@@ -159,8 +193,8 @@
 								defaultValue="Please check your email and click the verification link to complete your registration."
 							/>
 						</p>
-						{#if error}
-							<p class="text-sm text-red-500">{error}</p>
+						{#if formError}
+							<p class="text-sm text-red-500">{formError}</p>
 						{/if}
 						<Button type="button" variant="ghost" class="w-full" onclick={cancelVerification}>
 							<T keyName="auth.verification.button_cancel" />
@@ -175,99 +209,169 @@
 						</TabsList>
 
 						<TabsContent value="signin">
-							<form onsubmit={(e) => handleEmailAuth(e, 'signIn')} class="space-y-4">
-								<div class="space-y-2">
-									<Label for="signin-email"><T keyName="auth.signin.email_label" /></Label>
-									<Input
-										id="signin-email"
-										data-testid="email-input"
-										type="email"
-										name="email"
-										placeholder="you@example.com"
-										required
-										disabled={isLoading}
-										bind:value={email}
-									/>
-								</div>
-								<div class="space-y-2">
-									<div class="flex items-center justify-between">
-										<Label for="signin-password"><T keyName="auth.signin.password_label" /></Label>
-										<a
-											href={localizedHref('/forgot-password')}
-											class="text-sm text-muted-foreground hover:underline"
-										>
-											<T keyName="auth.signin.forgot_password" defaultValue="Forgot password?" />
-										</a>
-									</div>
-									<Input
-										id="signin-password"
-										data-testid="password-input"
-										type="password"
-										name="password"
-										placeholder="••••••••"
-										required
-										disabled={isLoading}
-									/>
-								</div>
-								{#if error}
-									<p class="text-sm text-red-500" data-testid="auth-error">{error}</p>
+							<form method="POST" use:signInEnhance class="space-y-4">
+								<Form.Field form={signInForm} name="email">
+									<Form.Control>
+										{#snippet children({ props })}
+											<Form.Label><T keyName="auth.signin.email_label" /></Form.Label>
+											<Input
+												{...props}
+												data-testid="email-input"
+												type="email"
+												placeholder="you@example.com"
+												disabled={isLoading}
+												bind:value={$signInData.email}
+											/>
+										{/snippet}
+									</Form.Control>
+									<Form.FieldErrors>
+										{#snippet children({ errors })}
+											{#each errors as error}
+												<span class="block text-sm text-destructive">
+													<T keyName={error} params={{ minLength: PASSWORD_MIN_LENGTH }} />
+												</span>
+											{/each}
+										{/snippet}
+									</Form.FieldErrors>
+								</Form.Field>
+
+								<Form.Field form={signInForm} name="password">
+									<Form.Control>
+										{#snippet children({ props })}
+											<div class="flex items-center justify-between">
+												<Form.Label><T keyName="auth.signin.password_label" /></Form.Label>
+												<a
+													href={localizedHref('/forgot-password')}
+													class="text-sm text-muted-foreground hover:underline"
+												>
+													<T
+														keyName="auth.signin.forgot_password"
+														defaultValue="Forgot password?"
+													/>
+												</a>
+											</div>
+											<Input
+												{...props}
+												data-testid="password-input"
+												type="password"
+												placeholder="••••••••"
+												disabled={isLoading}
+												bind:value={$signInData.password}
+											/>
+										{/snippet}
+									</Form.Control>
+									<Form.FieldErrors>
+										{#snippet children({ errors })}
+											{#each errors as error}
+												<span class="block text-sm text-destructive">
+													<T keyName={error} params={{ minLength: PASSWORD_MIN_LENGTH }} />
+												</span>
+											{/each}
+										{/snippet}
+									</Form.FieldErrors>
+								</Form.Field>
+
+								{#if formError}
+									<p class="text-sm text-red-500" data-testid="auth-error">{formError}</p>
 								{/if}
-								<Button
-									type="submit"
-									class="w-full"
-									disabled={isLoading}
-									data-testid="signin-button"
-								>
+
+								<Form.Button class="w-full" disabled={isLoading} data-testid="signin-button">
 									{#if isLoading}
 										<T keyName="auth.signin.button_signin_loading" />
 									{:else}
 										<T keyName="auth.signin.button_signin" />
 									{/if}
-								</Button>
+								</Form.Button>
 							</form>
 						</TabsContent>
 
 						<TabsContent value="signup">
-							<form onsubmit={(e) => handleEmailAuth(e, 'signUp')} class="space-y-4">
-								<div class="space-y-2">
-									<Label for="signup-email"><T keyName="auth.signin.email_label" /></Label>
-									<Input
-										id="signup-email"
-										type="email"
-										name="email"
-										placeholder="you@example.com"
-										required
-										disabled={isLoading}
-										bind:value={email}
-									/>
-								</div>
-								<div class="space-y-2">
-									<Label for="signup-password"><T keyName="auth.signin.password_label" /></Label>
-									<Input
-										id="signup-password"
-										type="password"
-										name="password"
-										placeholder="••••••••"
-										required
-										minlength={8}
-										disabled={isLoading}
-									/>
-								</div>
-								{#if error}
-									<p class="text-sm text-red-500" data-testid="auth-error">{error}</p>
+							<form method="POST" use:signUpEnhance class="space-y-4">
+								<Form.Field form={signUpForm} name="name">
+									<Form.Control>
+										{#snippet children({ props })}
+											<Form.Label
+												><T keyName="auth.signin.name_label" defaultValue="Name" /></Form.Label
+											>
+											<Input
+												{...props}
+												type="text"
+												placeholder="Your name"
+												disabled={isLoading}
+												bind:value={$signUpData.name}
+											/>
+										{/snippet}
+									</Form.Control>
+									<Form.FieldErrors>
+										{#snippet children({ errors })}
+											{#each errors as error}
+												<span class="block text-sm text-destructive">
+													<T keyName={error} params={{ minLength: PASSWORD_MIN_LENGTH }} />
+												</span>
+											{/each}
+										{/snippet}
+									</Form.FieldErrors>
+								</Form.Field>
+
+								<Form.Field form={signUpForm} name="email">
+									<Form.Control>
+										{#snippet children({ props })}
+											<Form.Label><T keyName="auth.signin.email_label" /></Form.Label>
+											<Input
+												{...props}
+												type="email"
+												placeholder="you@example.com"
+												disabled={isLoading}
+												bind:value={$signUpData.email}
+											/>
+										{/snippet}
+									</Form.Control>
+									<Form.FieldErrors>
+										{#snippet children({ errors })}
+											{#each errors as error}
+												<span class="block text-sm text-destructive">
+													<T keyName={error} params={{ minLength: PASSWORD_MIN_LENGTH }} />
+												</span>
+											{/each}
+										{/snippet}
+									</Form.FieldErrors>
+								</Form.Field>
+
+								<Form.Field form={signUpForm} name="password">
+									<Form.Control>
+										{#snippet children({ props })}
+											<Form.Label><T keyName="auth.signin.password_label" /></Form.Label>
+											<Input
+												{...props}
+												type="password"
+												placeholder="••••••••"
+												disabled={isLoading}
+												bind:value={$signUpData.password}
+											/>
+										{/snippet}
+									</Form.Control>
+									<Form.FieldErrors>
+										{#snippet children({ errors })}
+											{#each errors as error}
+												<span class="block text-sm text-destructive">
+													<T keyName={error} params={{ minLength: PASSWORD_MIN_LENGTH }} />
+												</span>
+											{/each}
+										{/snippet}
+									</Form.FieldErrors>
+								</Form.Field>
+
+								{#if formError}
+									<p class="text-sm text-red-500" data-testid="auth-error">{formError}</p>
 								{/if}
-								<Button
-									type="submit"
-									class="w-full"
-									disabled={isLoading}
-									data-testid="signup-button"
-								>
+
+								<Form.Button class="w-full" disabled={isLoading} data-testid="signup-button">
 									{#if isLoading}
 										<T keyName="auth.signin.button_signup_loading" />
 									{:else}
 										<T keyName="auth.signin.button_signup" />
 									{/if}
-								</Button>
+								</Form.Button>
 							</form>
 						</TabsContent>
 					</Tabs>

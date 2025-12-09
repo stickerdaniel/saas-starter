@@ -1,50 +1,66 @@
 <script lang="ts">
 	import * as Card from '$lib/components/ui/card/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
-	import { Label } from '$lib/components/ui/label/index.js';
-	import { Button } from '$lib/components/ui/button/index.js';
+	import * as Form from '$lib/components/ui/form/index.js';
 	import { authClient } from '$lib/auth-client.js';
 	import { getContext } from 'svelte';
 	import { localizedHref } from '$lib/utils/i18n';
 	import { T } from '@tolgee/svelte';
+	import { defaults, superForm } from 'sveltekit-superforms';
+	import { zod4 } from 'sveltekit-superforms/adapters';
+	import { forgotPasswordSchema, PASSWORD_MIN_LENGTH } from '$lib/schemas/auth.js';
 
 	// Get email from auth layout context (persisted from signin page)
 	const authEmailCtx = getContext<{ get: () => string; set: (v: string) => void }>('auth:email');
-	let email = $state(authEmailCtx?.get() ?? '');
+
 	let isLoading = $state(false);
 	let message = $state<string | null>(null);
-	let error = $state<string | null>(null);
+	let formError = $state<string | null>(null);
 
-	// Sync email changes back to context
-	$effect(() => {
-		if (authEmailCtx && email) {
-			authEmailCtx.set(email);
+	const form = superForm(defaults({ email: '' }, zod4(forgotPasswordSchema)), {
+		validators: zod4(forgotPasswordSchema),
+		SPA: true,
+		onUpdate: async ({ form: f }) => {
+			if (!f.valid) return;
+			isLoading = true;
+			message = null;
+			formError = null;
+
+			try {
+				const { error: err } = await authClient.forgetPassword({
+					email: f.data.email,
+					redirectTo: localizedHref('/reset-password')
+				});
+
+				if (err) {
+					formError = err.message ?? 'Failed to send reset link';
+				} else {
+					message = 'Check your email for a reset link.';
+				}
+			} catch {
+				formError = 'Failed to request password reset';
+			} finally {
+				isLoading = false;
+			}
 		}
 	});
 
-	async function handleSubmit(e: Event) {
-		e.preventDefault();
-		isLoading = true;
-		message = null;
-		error = null;
+	const { form: formData, enhance } = form;
 
-		try {
-			const { error: err } = await authClient.forgetPassword({
-				email,
-				redirectTo: localizedHref('/reset-password')
-			});
-
-			if (err) {
-				error = err.message ?? 'Failed to send reset link';
-			} else {
-				message = 'Check your email for a reset link.';
-			}
-		} catch {
-			error = 'Failed to request password reset';
-		} finally {
-			isLoading = false;
+	// Initialize email from context
+	$effect(() => {
+		const savedEmail = authEmailCtx?.get();
+		if (savedEmail && !$formData.email) {
+			$formData.email = savedEmail;
 		}
-	}
+	});
+
+	// Sync email changes back to context
+	$effect(() => {
+		if (authEmailCtx && $formData.email) {
+			authEmailCtx.set($formData.email);
+		}
+	});
 </script>
 
 <div class="flex min-h-screen w-full items-center justify-center px-4">
@@ -61,35 +77,49 @@
 			</Card.Description>
 		</Card.Header>
 		<Card.Content>
-			<form onsubmit={handleSubmit} class="grid gap-4">
-				{#if error}
-					<div class="rounded-md bg-destructive/10 p-3 text-sm text-destructive">{error}</div>
+			<form method="POST" use:enhance class="grid gap-4">
+				{#if formError}
+					<div class="rounded-md bg-destructive/10 p-3 text-sm text-destructive">{formError}</div>
 				{/if}
 				{#if message}
 					<div class="rounded-md bg-green-500/10 p-3 text-sm text-green-600 dark:text-green-400">
 						{message}
 					</div>
 				{/if}
-				<div class="grid gap-2">
-					<Label for="email">
-						<T keyName="auth.signin.email_label" defaultValue="Email" />
-					</Label>
-					<Input
-						id="email"
-						type="email"
-						bind:value={email}
-						required
-						placeholder="you@example.com"
-						disabled={isLoading}
-					/>
-				</div>
-				<Button type="submit" class="w-full" disabled={isLoading}>
+
+				<Form.Field {form} name="email">
+					<Form.Control>
+						{#snippet children({ props })}
+							<Form.Label>
+								<T keyName="auth.signin.email_label" defaultValue="Email" />
+							</Form.Label>
+							<Input
+								{...props}
+								type="email"
+								placeholder="you@example.com"
+								disabled={isLoading}
+								bind:value={$formData.email}
+							/>
+						{/snippet}
+					</Form.Control>
+					<Form.FieldErrors>
+						{#snippet children({ errors })}
+							{#each errors as error}
+								<span class="block text-sm text-destructive">
+									<T keyName={error} params={{ minLength: PASSWORD_MIN_LENGTH }} />
+								</span>
+							{/each}
+						{/snippet}
+					</Form.FieldErrors>
+				</Form.Field>
+
+				<Form.Button class="w-full" disabled={isLoading}>
 					{#if isLoading}
 						<T keyName="auth.forgot_password.button_loading" defaultValue="Sending..." />
 					{:else}
 						<T keyName="auth.forgot_password.button_submit" defaultValue="Send reset link" />
 					{/if}
-				</Button>
+				</Form.Button>
 			</form>
 			<div class="mt-4 text-center">
 				<a class="text-sm text-muted-foreground hover:underline" href={localizedHref('/signin')}>

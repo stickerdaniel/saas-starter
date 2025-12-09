@@ -18,8 +18,18 @@
 	},
 	"auth": {
 		"errors": {
+			"confirm_password_required": "Por favor confirma tu contraseña",
+			"current_password_required": "La contraseña actual es obligatoria",
 			"invalid_credentials": "Correo electrónico o contraseña inválidos",
+			"invalid_email": "Por favor ingresa un correo electrónico válido",
 			"invalid_secret": "Secreto inválido",
+			"name_required": "El nombre es obligatorio",
+			"password_lowercase": "La contraseña debe contener al menos una letra minúscula",
+			"password_min_length": "La contraseña debe tener al menos {minLength} caracteres",
+			"password_number": "La contraseña debe contener al menos un número",
+			"password_required": "La contraseña es obligatoria",
+			"password_uppercase": "La contraseña debe contener al menos una letra mayúscula",
+			"passwords_do_not_match": "Las contraseñas no coinciden",
 			"signup_failed": "No se pudo crear la cuenta. Es posible que el correo electrónico ya esté en uso.",
 			"verification_invalid": "Código de verificación inválido o caducado. Por favor, inténtalo de nuevo."
 		},
