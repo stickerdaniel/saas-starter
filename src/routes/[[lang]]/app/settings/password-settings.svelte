@@ -1,63 +1,74 @@
 <script lang="ts">
 	import { authClient } from '$lib/auth-client.js';
-	import { Button } from '$lib/components/ui/button/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
-	import { Label } from '$lib/components/ui/label/index.js';
+	import * as Form from '$lib/components/ui/form/index.js';
 	import * as Card from '$lib/components/ui/card/index.js';
 	import * as Alert from '$lib/components/ui/alert/index.js';
 	import { Checkbox } from '$lib/components/ui/checkbox/index.js';
 	import { toast } from 'svelte-sonner';
 	import { T } from '@tolgee/svelte';
 	import InfoIcon from '@lucide/svelte/icons/info';
+	import { defaults, superForm } from 'sveltekit-superforms';
+	import { zod4 } from 'sveltekit-superforms/adapters';
+	import {
+		changePasswordSchema,
+		validatePasswordMatch,
+		PASSWORD_MIN_LENGTH
+	} from '$lib/schemas/auth.js';
 
-	let currentPassword = $state('');
-	let newPassword = $state('');
-	let confirmPassword = $state('');
-	let revokeOtherSessions = $state(true);
 	let isLoading = $state(false);
-	let error = $state('');
+	let formError = $state('');
 
-	async function handleChangePassword(e: Event) {
-		e.preventDefault();
-		error = '';
+	const form = superForm(
+		defaults(
+			{ currentPassword: '', newPassword: '', confirmPassword: '', revokeOtherSessions: true },
+			zod4(changePasswordSchema)
+		),
+		{
+			validators: zod4(changePasswordSchema),
+			SPA: true,
+			onUpdate: async ({ form: f }) => {
+				if (!f.valid) return;
 
-		// Validation
-		if (newPassword !== confirmPassword) {
-			error = 'New passwords do not match';
-			return;
-		}
+				// Check password confirmation
+				const matchError = validatePasswordMatch(f.data.newPassword, f.data.confirmPassword);
+				if (matchError) {
+					formError = matchError;
+					toast.error(matchError);
+					return;
+				}
 
-		if (newPassword.length < 8) {
-			error = 'Password must be at least 8 characters long';
-			return;
-		}
+				isLoading = true;
+				formError = '';
 
-		isLoading = true;
+				try {
+					const { error: authError } = await authClient.changePassword({
+						currentPassword: f.data.currentPassword,
+						newPassword: f.data.newPassword,
+						revokeOtherSessions: f.data.revokeOtherSessions
+					});
 
-		try {
-			const { error: authError } = await authClient.changePassword({
-				currentPassword,
-				newPassword,
-				revokeOtherSessions
-			});
-
-			if (authError) {
-				error = authError.message || 'Failed to change password';
-				toast.error(error);
-			} else {
-				toast.success('Password changed successfully');
-				// Clear form
-				currentPassword = '';
-				newPassword = '';
-				confirmPassword = '';
+					if (authError) {
+						formError = authError.message || 'Failed to change password';
+						toast.error(formError);
+					} else {
+						toast.success('Password changed successfully');
+						// Clear form
+						$formData.currentPassword = '';
+						$formData.newPassword = '';
+						$formData.confirmPassword = '';
+					}
+				} catch (err) {
+					formError = err instanceof Error ? err.message : 'An unexpected error occurred';
+					toast.error(formError);
+				} finally {
+					isLoading = false;
+				}
 			}
-		} catch (err) {
-			error = err instanceof Error ? err.message : 'An unexpected error occurred';
-			toast.error(error);
-		} finally {
-			isLoading = false;
 		}
-	}
+	);
+
+	const { form: formData, enhance } = form;
 </script>
 
 <Card.Root>
@@ -66,69 +77,105 @@
 		<Card.Description><T keyName="settings.password.description" /></Card.Description>
 	</Card.Header>
 	<Card.Content>
-		<form onsubmit={handleChangePassword} class="space-y-4">
-			{#if error}
+		<form method="POST" use:enhance class="space-y-4">
+			{#if formError}
 				<Alert.Root variant="destructive">
 					<InfoIcon class="h-4 w-4" />
 					<Alert.Title><T keyName="settings.password.error_title" /></Alert.Title>
-					<Alert.Description>{error}</Alert.Description>
+					<Alert.Description>{formError}</Alert.Description>
 				</Alert.Root>
 			{/if}
 
-			<div class="space-y-2">
-				<Label for="current-password">
-					<T keyName="settings.password.current_password_label" />
-				</Label>
-				<Input
-					id="current-password"
-					type="password"
-					bind:value={currentPassword}
-					placeholder="Enter current password"
-					required
-					autocomplete="current-password"
-				/>
-			</div>
+			<Form.Field {form} name="currentPassword">
+				<Form.Control>
+					{#snippet children({ props })}
+						<Form.Label>
+							<T keyName="settings.password.current_password_label" />
+						</Form.Label>
+						<Input
+							{...props}
+							type="password"
+							placeholder="Enter current password"
+							autocomplete="current-password"
+							bind:value={$formData.currentPassword}
+						/>
+					{/snippet}
+				</Form.Control>
+				<Form.FieldErrors>
+					{#snippet children({ errors })}
+						{#each errors as error}
+							<span class="block text-sm text-destructive">
+								<T keyName={error} params={{ minLength: PASSWORD_MIN_LENGTH }} />
+							</span>
+						{/each}
+					{/snippet}
+				</Form.FieldErrors>
+			</Form.Field>
 
-			<div class="space-y-2">
-				<Label for="new-password">
-					<T keyName="settings.password.new_password_label" />
-				</Label>
-				<Input
-					id="new-password"
-					type="password"
-					bind:value={newPassword}
-					placeholder="Enter new password"
-					required
-					autocomplete="new-password"
-				/>
-				<p class="text-sm text-muted-foreground">
-					<T keyName="settings.password.password_helper" />
-				</p>
-			</div>
+			<Form.Field {form} name="newPassword">
+				<Form.Control>
+					{#snippet children({ props })}
+						<Form.Label>
+							<T keyName="settings.password.new_password_label" />
+						</Form.Label>
+						<Input
+							{...props}
+							type="password"
+							placeholder="Enter new password"
+							autocomplete="new-password"
+							bind:value={$formData.newPassword}
+						/>
+					{/snippet}
+				</Form.Control>
+				<Form.FieldErrors>
+					{#snippet children({ errors })}
+						{#each errors as error}
+							<span class="block text-sm text-destructive">
+								<T keyName={error} params={{ minLength: PASSWORD_MIN_LENGTH }} />
+							</span>
+						{/each}
+					{/snippet}
+				</Form.FieldErrors>
+			</Form.Field>
 
-			<div class="space-y-2">
-				<Label for="confirm-password">
-					<T keyName="settings.password.confirm_password_label" />
-				</Label>
-				<Input
-					id="confirm-password"
-					type="password"
-					bind:value={confirmPassword}
-					placeholder="Confirm new password"
-					required
-					autocomplete="new-password"
-				/>
-			</div>
+			<Form.Field {form} name="confirmPassword">
+				<Form.Control>
+					{#snippet children({ props })}
+						<Form.Label>
+							<T keyName="settings.password.confirm_password_label" />
+						</Form.Label>
+						<Input
+							{...props}
+							type="password"
+							placeholder="Confirm new password"
+							autocomplete="new-password"
+							bind:value={$formData.confirmPassword}
+						/>
+					{/snippet}
+				</Form.Control>
+				<Form.FieldErrors>
+					{#snippet children({ errors })}
+						{#each errors as error}
+							<span class="block text-sm text-destructive">
+								<T keyName={error} params={{ minLength: PASSWORD_MIN_LENGTH }} />
+							</span>
+						{/each}
+					{/snippet}
+				</Form.FieldErrors>
+			</Form.Field>
 
-			<div class="flex items-center space-x-2">
-				<Checkbox id="revoke-sessions" bind:checked={revokeOtherSessions} />
-				<Label
-					for="revoke-sessions"
-					class="text-sm leading-none font-normal peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-				>
-					<T keyName="settings.password.revoke_sessions_label" />
-				</Label>
-			</div>
+			<Form.Field {form} name="revokeOtherSessions">
+				<Form.Control>
+					{#snippet children({ props })}
+						<div class="flex items-center space-x-2">
+							<Checkbox {...props} bind:checked={$formData.revokeOtherSessions} />
+							<Form.Label class="text-sm font-normal leading-none">
+								<T keyName="settings.password.revoke_sessions_label" />
+							</Form.Label>
+						</div>
+					{/snippet}
+				</Form.Control>
+			</Form.Field>
 
 			<Alert.Root>
 				<InfoIcon class="h-4 w-4" />
@@ -138,13 +185,13 @@
 				</Alert.Description>
 			</Alert.Root>
 
-			<Button type="submit" disabled={isLoading}>
+			<Form.Button disabled={isLoading}>
 				{#if isLoading}
 					<T keyName="settings.password.updating" />
 				{:else}
 					<T keyName="settings.password.update_button" />
 				{/if}
-			</Button>
+			</Form.Button>
 		</form>
 	</Card.Content>
 </Card.Root>

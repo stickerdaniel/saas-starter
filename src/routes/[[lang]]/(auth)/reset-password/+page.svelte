@@ -1,17 +1,21 @@
 <script lang="ts">
 	import * as Card from '$lib/components/ui/card/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
-	import { Label } from '$lib/components/ui/label/index.js';
-	import { Button } from '$lib/components/ui/button/index.js';
+	import * as Form from '$lib/components/ui/form/index.js';
 	import { authClient } from '$lib/auth-client.js';
 	import { localizedHref } from '$lib/utils/i18n';
 	import { T } from '@tolgee/svelte';
+	import { defaults, superForm } from 'sveltekit-superforms';
+	import { zod4 } from 'sveltekit-superforms/adapters';
+	import {
+		resetPasswordSchema,
+		validatePasswordMatch,
+		PASSWORD_MIN_LENGTH
+	} from '$lib/schemas/auth.js';
 
-	let password = $state('');
-	let confirmPassword = $state('');
 	let isLoading = $state(false);
 	let message = $state<string | null>(null);
-	let error = $state<string | null>(null);
+	let formError = $state<string | null>(null);
 
 	function getTokenFromUrl() {
 		try {
@@ -22,44 +26,52 @@
 		}
 	}
 
-	async function handleSubmit(e: Event) {
-		e.preventDefault();
-		error = null;
-		message = null;
+	const form = superForm(
+		defaults({ password: '', confirmPassword: '' }, zod4(resetPasswordSchema)),
+		{
+			validators: zod4(resetPasswordSchema),
+			SPA: true,
+			onUpdate: async ({ form: f }) => {
+				if (!f.valid) return;
 
-		if (password.length < 8) {
-			error = 'Password must be at least 8 characters';
-			return;
-		}
-		if (password !== confirmPassword) {
-			error = 'Passwords do not match';
-			return;
-		}
+				// Check password confirmation
+				const matchError = validatePasswordMatch(f.data.password, f.data.confirmPassword);
+				if (matchError) {
+					formError = matchError;
+					return;
+				}
 
-		const token = getTokenFromUrl();
-		if (!token) {
-			error = 'Missing or invalid reset token';
-			return;
-		}
+				const token = getTokenFromUrl();
+				if (!token) {
+					formError = 'Missing or invalid reset token';
+					return;
+				}
 
-		isLoading = true;
-		try {
-			const { error: err } = await authClient.resetPassword({
-				newPassword: password,
-				token
-			});
+				isLoading = true;
+				formError = null;
+				message = null;
 
-			if (err) {
-				error = err.message ?? 'Failed to reset password';
-			} else {
-				message = 'Your password has been reset successfully.';
+				try {
+					const { error: err } = await authClient.resetPassword({
+						newPassword: f.data.password,
+						token
+					});
+
+					if (err) {
+						formError = err.message ?? 'Failed to reset password';
+					} else {
+						message = 'Your password has been reset successfully.';
+					}
+				} catch {
+					formError = 'Failed to reset password';
+				} finally {
+					isLoading = false;
+				}
 			}
-		} catch {
-			error = 'Failed to reset password';
-		} finally {
-			isLoading = false;
 		}
-	}
+	);
+
+	const { form: formData, enhance } = form;
 </script>
 
 <div class="flex min-h-screen w-full items-center justify-center px-4">
@@ -73,9 +85,9 @@
 			</Card.Description>
 		</Card.Header>
 		<Card.Content>
-			<form onsubmit={handleSubmit} class="grid gap-4">
-				{#if error}
-					<div class="rounded-md bg-destructive/10 p-3 text-sm text-destructive">{error}</div>
+			<form method="POST" use:enhance class="grid gap-4">
+				{#if formError}
+					<div class="rounded-md bg-destructive/10 p-3 text-sm text-destructive">{formError}</div>
 				{/if}
 				{#if message}
 					<div class="rounded-md bg-green-500/10 p-3 text-sm text-green-600 dark:text-green-400">
@@ -85,44 +97,69 @@
 						</a>
 					</div>
 				{/if}
-				<div class="grid gap-2">
-					<Label for="password">
-						<T keyName="auth.reset_password.new_password_label" defaultValue="New password" />
-					</Label>
-					<Input
-						id="password"
-						type="password"
-						bind:value={password}
-						required
-						minlength={8}
-						placeholder="••••••••"
-						disabled={isLoading || !!message}
-					/>
-				</div>
-				<div class="grid gap-2">
-					<Label for="confirm">
-						<T
-							keyName="auth.reset_password.confirm_password_label"
-							defaultValue="Confirm new password"
-						/>
-					</Label>
-					<Input
-						id="confirm"
-						type="password"
-						bind:value={confirmPassword}
-						required
-						minlength={8}
-						placeholder="••••••••"
-						disabled={isLoading || !!message}
-					/>
-				</div>
-				<Button type="submit" class="w-full" disabled={isLoading || !!message}>
+
+				<Form.Field {form} name="password">
+					<Form.Control>
+						{#snippet children({ props })}
+							<Form.Label>
+								<T keyName="auth.reset_password.new_password_label" defaultValue="New password" />
+							</Form.Label>
+							<Input
+								{...props}
+								type="password"
+								placeholder="••••••••"
+								disabled={isLoading || !!message}
+								bind:value={$formData.password}
+							/>
+						{/snippet}
+					</Form.Control>
+					<Form.FieldErrors>
+						{#snippet children({ errors })}
+							{#each errors as error}
+								<span class="block text-sm text-destructive">
+									<T keyName={error} params={{ minLength: PASSWORD_MIN_LENGTH }} />
+								</span>
+							{/each}
+						{/snippet}
+					</Form.FieldErrors>
+				</Form.Field>
+
+				<Form.Field {form} name="confirmPassword">
+					<Form.Control>
+						{#snippet children({ props })}
+							<Form.Label>
+								<T
+									keyName="auth.reset_password.confirm_password_label"
+									defaultValue="Confirm new password"
+								/>
+							</Form.Label>
+							<Input
+								{...props}
+								type="password"
+								placeholder="••••••••"
+								disabled={isLoading || !!message}
+								bind:value={$formData.confirmPassword}
+							/>
+						{/snippet}
+					</Form.Control>
+					<Form.FieldErrors>
+						{#snippet children({ errors })}
+							{#each errors as error}
+								<span class="block text-sm text-destructive">
+									<T keyName={error} params={{ minLength: PASSWORD_MIN_LENGTH }} />
+								</span>
+							{/each}
+						{/snippet}
+					</Form.FieldErrors>
+				</Form.Field>
+
+				<Form.Button class="w-full" disabled={isLoading || !!message}>
 					{#if isLoading}
 						<T keyName="auth.reset_password.button_loading" defaultValue="Resetting..." />
 					{:else}
 						<T keyName="auth.reset_password.button_submit" defaultValue="Reset password" />
 					{/if}
-				</Button>
+				</Form.Button>
 			</form>
 			<div class="mt-4 text-center">
 				<a class="text-sm text-muted-foreground hover:underline" href={localizedHref('/signin')}>

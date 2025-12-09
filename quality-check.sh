@@ -139,7 +139,7 @@ echo "======================================================"
 if [ "$STAGED_ONLY" = true ] && [ -z "$JS_TS_SVELTE_FILES" ] && [ -z "$SVELTE_FILES" ]; then
     echo "No TypeScript/Svelte files to check"
 else
-    bunx svelte-check --tsconfig ./tsconfig.json
+    NODE_OPTIONS="--max-old-space-size=8192" bunx svelte-check --tsconfig ./tsconfig.json
 fi
 echo ""
 echo ""
