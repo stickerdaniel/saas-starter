@@ -150,10 +150,10 @@
 		try {
 			const result = await authClient.signIn.passkey();
 			if (result.error) {
-				formError = result.error.message || 'Passkey authentication failed';
+				formError = result.error.message || 'auth.errors.passkey_failed';
 			}
 		} catch {
-			formError = 'Passkey authentication failed';
+			formError = 'auth.errors.passkey_failed';
 		} finally {
 			isLoading = false;
 		}
