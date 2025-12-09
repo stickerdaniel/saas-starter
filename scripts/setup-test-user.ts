@@ -87,13 +87,22 @@ async function setupTestUser() {
 }
 
 async function verifyEmail(email: string) {
+	const secret = process.env.AUTH_E2E_TEST_SECRET;
+	if (!secret) {
+		console.error('Error: AUTH_E2E_TEST_SECRET must be set in .env.test');
+		process.exit(1);
+	}
+
 	console.log('Marking email as verified...');
 	try {
 		// Directly mark the user's email as verified via Convex mutation
-		const result = execSync(`bunx convex run tests:verifyTestUserEmail '{"email": "${email}"}'`, {
-			stdio: 'pipe',
-			encoding: 'utf-8'
-		});
+		const result = execSync(
+			`bunx convex run tests:verifyTestUserEmail '{"email": "${email}", "secret": "${secret}"}'`,
+			{
+				stdio: 'pipe',
+				encoding: 'utf-8'
+			}
+		);
 
 		const parsed = JSON.parse(result.trim());
 		if (parsed.success) {

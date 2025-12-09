@@ -67,12 +67,12 @@ export const createAuth = (
 		},
 		socialProviders: {
 			google: {
-				enabled: true,
+				enabled: !!(process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET),
 				clientId: process.env.AUTH_GOOGLE_ID as string,
 				clientSecret: process.env.AUTH_GOOGLE_SECRET as string
 			},
 			github: {
-				enabled: true,
+				enabled: !!(process.env.AUTH_GITHUB_ID && process.env.AUTH_GITHUB_SECRET),
 				clientId: process.env.AUTH_GITHUB_ID as string,
 				clientSecret: process.env.AUTH_GITHUB_SECRET as string
 			}
