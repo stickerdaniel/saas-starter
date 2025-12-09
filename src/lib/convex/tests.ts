@@ -15,11 +15,16 @@ export const getTestUser = internalQuery({
 });
 
 // Mark test user email as verified
-// Note: This is a public mutation for CLI access during E2E test setup
+// Note: This mutation requires AUTH_E2E_TEST_SECRET for security
 // Only use for test accounts - it bypasses the normal email verification flow
 export const verifyTestUserEmail = mutation({
-	args: { email: v.string() },
-	handler: async (ctx, { email }) => {
+	args: { email: v.string(), secret: v.string() },
+	handler: async (ctx, { email, secret }) => {
+		// Verify test secret to prevent unauthorized access
+		const expectedSecret = process.env.AUTH_E2E_TEST_SECRET;
+		if (!expectedSecret || secret !== expectedSecret) {
+			throw new Error('Unauthorized: Invalid test secret');
+		}
 		// Find user by email using Better Auth adapter
 		const user = await ctx.runQuery(components.betterAuth.adapter.findOne, {
 			model: 'user',
