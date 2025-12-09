@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { useAuth } from '@mmailaender/convex-auth-svelte/sveltekit';
-	import { env } from '$env/dynamic/public';
+	import { authClient } from '$lib/auth-client';
+	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
-	import { Label } from '$lib/components/ui/label/index.js';
+	import * as Form from '$lib/components/ui/form/index.js';
 	import { Tabs, TabsContent, TabsList, TabsTrigger } from '$lib/components/ui/tabs/index.js';
 	import {
 		Card,
@@ -13,109 +13,150 @@
 		CardTitle
 	} from '$lib/components/ui/card/index.js';
 	import { useSearchParams } from 'runed/kit';
-	import { authParamsSchema } from '$lib/schemas/auth-params.js';
+	import {
+		authParamsSchema,
+		signInSchema,
+		signUpSchema,
+		PASSWORD_MIN_LENGTH
+	} from '$lib/schemas/auth.js';
 	import { localizedHref } from '$lib/utils/i18n';
-	import { goto } from '$app/navigation';
 	import { T } from '@tolgee/svelte';
+	import { getContext } from 'svelte';
+	import KeyIcon from '@lucide/svelte/icons/key-round';
+	import { defaults, superForm } from 'sveltekit-superforms';
+	import { zod4 } from 'sveltekit-superforms/adapters';
 
-	const { signIn } = useAuth();
+	const auth = useAuth();
 	const params = useSearchParams(authParamsSchema, {
 		debounce: 300,
 		pushHistory: false
 	});
 
+	// Get email context from auth layout (persists across auth pages)
+	const authEmailCtx = getContext<{ get: () => string; set: (v: string) => void }>('auth:email');
+
 	let isLoading = $state(false);
-	let error = $state('');
+	let formError = $state('');
 	let verificationStep = $state<{ email: string } | null>(null);
 
-	// Debug: Log URL params when they change
-	$effect(() => {
-		console.log('[SIGNIN DEBUG] URL params:', {
-			tab: params.tab,
-			redirectTo: params.redirectTo,
-			fullUrl: typeof window !== 'undefined' ? window.location.href : 'SSR'
-		});
+	// Sign In Form
+	const signInForm = superForm(defaults({ email: '', password: '' }, zod4(signInSchema)), {
+		validators: zod4(signInSchema),
+		SPA: true,
+		onUpdate: async ({ form: f }) => {
+			if (!f.valid) return;
+			isLoading = true;
+			formError = '';
+
+			try {
+				await authClient.signIn.email(
+					{ email: f.data.email, password: f.data.password },
+					{
+						onError: (ctx) => {
+							formError = ctx.error.message || 'auth.errors.invalid_credentials';
+						}
+					}
+				);
+			} catch {
+				formError = 'auth.errors.invalid_credentials';
+			} finally {
+				isLoading = false;
+			}
+		}
 	});
 
-	async function handleEmailAuth(event: Event, flow: 'signIn' | 'signUp') {
-		event.preventDefault();
-		isLoading = true;
-		error = '';
+	// Sign Up Form
+	const signUpForm = superForm(
+		defaults({ name: '', email: '', password: '' }, zod4(signUpSchema)),
+		{
+			validators: zod4(signUpSchema),
+			SPA: true,
+			onUpdate: async ({ form: f }) => {
+				if (!f.valid) return;
+				isLoading = true;
+				formError = '';
 
-		const formData = new FormData(event.currentTarget as HTMLFormElement);
-		const email = formData.get('email') as string;
-		const password = formData.get('password');
-
-		try {
-			console.log('[SIGNIN DEBUG] Password auth starting:', {
-				flow,
-				redirectTo: params.redirectTo
-			});
-
-			// Critical: Use 'password' as provider and include flow parameter
-			const result = await signIn('password', {
-				email,
-				password,
-				flow, // 'signIn' or 'signUp'
-				redirectTo: params.redirectTo
-			});
-
-			console.log('[SIGNIN DEBUG] Password auth result:', result);
-
-			if (result.signingIn) {
-				const destination = params.redirectTo || localizedHref('/app');
-				console.log('[SIGNIN DEBUG] Navigating to:', destination);
-				await goto(destination);
-			} else if (flow === 'signUp') {
-				// Email verification required for sign-up
-				verificationStep = { email };
+				try {
+					await authClient.signUp.email(
+						{ email: f.data.email, password: f.data.password, name: f.data.name },
+						{
+							onSuccess: () => {
+								verificationStep = { email: f.data.email };
+							},
+							onError: (ctx) => {
+								formError = ctx.error.message || 'auth.errors.signup_failed';
+							}
+						}
+					);
+				} catch {
+					formError = 'auth.errors.signup_failed';
+				} finally {
+					isLoading = false;
+				}
 			}
-		} catch (err) {
-			error = flow === 'signIn' ? 'auth.errors.invalid_credentials' : 'auth.errors.signup_failed';
-			console.error('Auth error:', err);
-		} finally {
-			isLoading = false;
 		}
-	}
+	);
 
-	async function handleVerification(event: Event) {
-		event.preventDefault();
-		isLoading = true;
-		error = '';
+	const { form: signInData, enhance: signInEnhance } = signInForm;
+	const { form: signUpData, enhance: signUpEnhance } = signUpForm;
 
-		const formData = new FormData(event.currentTarget as HTMLFormElement);
-		const code = formData.get('code') as string;
-
-		try {
-			console.log('[SIGNIN DEBUG] Email verification starting:', {
-				redirectTo: params.redirectTo
-			});
-
-			const result = await signIn('password', {
-				email: verificationStep?.email,
-				code,
-				flow: 'email-verification',
-				redirectTo: params.redirectTo
-			});
-
-			console.log('[SIGNIN DEBUG] Email verification result:', result);
-
-			if (result.signingIn) {
-				const destination = params.redirectTo || localizedHref('/app');
-				console.log('[SIGNIN DEBUG] Navigating to:', destination);
-				await goto(destination);
-			}
-		} catch (err) {
-			error = 'auth.errors.verification_invalid';
-			console.error('Verification error:', err);
-		} finally {
-			isLoading = false;
+	// Initialize email from context
+	$effect(() => {
+		const savedEmail = authEmailCtx?.get();
+		if (savedEmail) {
+			$signInData.email = savedEmail;
+			$signUpData.email = savedEmail;
 		}
-	}
+	});
+
+	// Sync email changes to context and between forms
+	$effect(() => {
+		const email = params.tab === 'signin' ? $signInData.email : $signUpData.email;
+		if (email && authEmailCtx) {
+			authEmailCtx.set(email);
+		}
+		// Sync between forms
+		if (params.tab === 'signin' && $signInData.email !== $signUpData.email) {
+			$signUpData.email = $signInData.email;
+		} else if (params.tab === 'signup' && $signUpData.email !== $signInData.email) {
+			$signInData.email = $signUpData.email;
+		}
+	});
+
+	// Redirect when authenticated on signin page
+	$effect(() => {
+		if (auth.isAuthenticated) {
+			const destination = params.redirectTo || localizedHref('/app');
+			window.location.href = destination;
+		}
+	});
 
 	function cancelVerification() {
 		verificationStep = null;
-		error = '';
+		formError = '';
+	}
+
+	async function handleOAuth(provider: 'google' | 'github') {
+		await authClient.signIn.social({
+			provider,
+			callbackURL: params.redirectTo || localizedHref('/app')
+		});
+	}
+
+	async function handlePasskeyLogin() {
+		isLoading = true;
+		formError = '';
+
+		try {
+			const result = await authClient.signIn.passkey();
+			if (result.error) {
+				formError = result.error.message || 'auth.errors.passkey_failed';
+			}
+		} catch {
+			formError = 'auth.errors.passkey_failed';
+		} finally {
+			isLoading = false;
+		}
 	}
 </script>
 
@@ -140,39 +181,25 @@
 			</CardHeader>
 			<CardContent>
 				{#if verificationStep}
-					<!-- Email Verification Step -->
-					<form onsubmit={handleVerification} class="space-y-4">
+					<!-- Email Verification Step - Link-based verification -->
+					<div class="space-y-4">
 						<p class="text-sm text-muted-foreground">
 							<T keyName="auth.verification.sent_to" />
 							<span class="font-medium">{verificationStep.email}</span>
 						</p>
-						<div class="space-y-2">
-							<Label for="verification-code"><T keyName="auth.verification.code_label" /></Label>
-							<Input
-								id="verification-code"
-								type="text"
-								name="code"
-								placeholder="12345678"
-								required
-								disabled={isLoading}
-								class="text-center font-mono text-2xl tracking-widest"
-								autocomplete="one-time-code"
+						<p class="text-sm text-muted-foreground">
+							<T
+								keyName="auth.verification.check_email"
+								defaultValue="Please check your email and click the verification link to complete your registration."
 							/>
-						</div>
-						{#if error}
-							<p class="text-sm text-red-500"><T keyName={error} /></p>
+						</p>
+						{#if formError}
+							<p class="text-sm text-red-500">{formError}</p>
 						{/if}
-						<Button type="submit" class="w-full" disabled={isLoading}>
-							{#if isLoading}
-								<T keyName="auth.verification.button_verify_loading" />
-							{:else}
-								<T keyName="auth.verification.button_verify" />
-							{/if}
-						</Button>
 						<Button type="button" variant="ghost" class="w-full" onclick={cancelVerification}>
 							<T keyName="auth.verification.button_cancel" />
 						</Button>
-					</form>
+					</div>
 				{:else}
 					<!-- Sign In / Sign Up Forms -->
 					<Tabs bind:value={params.tab} class="w-full">
@@ -182,77 +209,169 @@
 						</TabsList>
 
 						<TabsContent value="signin">
-							<form onsubmit={(e) => handleEmailAuth(e, 'signIn')} class="space-y-4">
-								<div class="space-y-2">
-									<Label for="signin-email"><T keyName="auth.signin.email_label" /></Label>
-									<Input
-										id="signin-email"
-										type="email"
-										name="email"
-										placeholder="you@example.com"
-										required
-										disabled={isLoading}
-									/>
-								</div>
-								<div class="space-y-2">
-									<Label for="signin-password"><T keyName="auth.signin.password_label" /></Label>
-									<Input
-										id="signin-password"
-										type="password"
-										name="password"
-										placeholder="••••••••"
-										required
-										disabled={isLoading}
-									/>
-								</div>
-								{#if error}
-									<p class="text-sm text-red-500"><T keyName={error} /></p>
+							<form method="POST" use:signInEnhance class="space-y-4">
+								<Form.Field form={signInForm} name="email">
+									<Form.Control>
+										{#snippet children({ props })}
+											<Form.Label><T keyName="auth.signin.email_label" /></Form.Label>
+											<Input
+												{...props}
+												data-testid="email-input"
+												type="email"
+												placeholder="you@example.com"
+												disabled={isLoading}
+												bind:value={$signInData.email}
+											/>
+										{/snippet}
+									</Form.Control>
+									<Form.FieldErrors>
+										{#snippet children({ errors })}
+											{#each errors as error}
+												<span class="block text-sm text-destructive">
+													<T keyName={error} params={{ minLength: PASSWORD_MIN_LENGTH }} />
+												</span>
+											{/each}
+										{/snippet}
+									</Form.FieldErrors>
+								</Form.Field>
+
+								<Form.Field form={signInForm} name="password">
+									<Form.Control>
+										{#snippet children({ props })}
+											<div class="flex items-center justify-between">
+												<Form.Label><T keyName="auth.signin.password_label" /></Form.Label>
+												<a
+													href={localizedHref('/forgot-password')}
+													class="text-sm text-muted-foreground hover:underline"
+												>
+													<T
+														keyName="auth.signin.forgot_password"
+														defaultValue="Forgot password?"
+													/>
+												</a>
+											</div>
+											<Input
+												{...props}
+												data-testid="password-input"
+												type="password"
+												placeholder="••••••••"
+												disabled={isLoading}
+												bind:value={$signInData.password}
+											/>
+										{/snippet}
+									</Form.Control>
+									<Form.FieldErrors>
+										{#snippet children({ errors })}
+											{#each errors as error}
+												<span class="block text-sm text-destructive">
+													<T keyName={error} params={{ minLength: PASSWORD_MIN_LENGTH }} />
+												</span>
+											{/each}
+										{/snippet}
+									</Form.FieldErrors>
+								</Form.Field>
+
+								{#if formError}
+									<p class="text-sm text-red-500" data-testid="auth-error">{formError}</p>
 								{/if}
-								<Button type="submit" class="w-full" disabled={isLoading}>
+
+								<Form.Button class="w-full" disabled={isLoading} data-testid="signin-button">
 									{#if isLoading}
 										<T keyName="auth.signin.button_signin_loading" />
 									{:else}
 										<T keyName="auth.signin.button_signin" />
 									{/if}
-								</Button>
+								</Form.Button>
 							</form>
 						</TabsContent>
 
 						<TabsContent value="signup">
-							<form onsubmit={(e) => handleEmailAuth(e, 'signUp')} class="space-y-4">
-								<div class="space-y-2">
-									<Label for="signup-email"><T keyName="auth.signin.email_label" /></Label>
-									<Input
-										id="signup-email"
-										type="email"
-										name="email"
-										placeholder="you@example.com"
-										required
-										disabled={isLoading}
-									/>
-								</div>
-								<div class="space-y-2">
-									<Label for="signup-password"><T keyName="auth.signin.password_label" /></Label>
-									<Input
-										id="signup-password"
-										type="password"
-										name="password"
-										placeholder="••••••••"
-										required
-										minlength={8}
-										disabled={isLoading}
-									/>
-								</div>
-								{#if error}
-									<p class="text-sm text-red-500"><T keyName={error} /></p>
+							<form method="POST" use:signUpEnhance class="space-y-4">
+								<Form.Field form={signUpForm} name="name">
+									<Form.Control>
+										{#snippet children({ props })}
+											<Form.Label
+												><T keyName="auth.signin.name_label" defaultValue="Name" /></Form.Label
+											>
+											<Input
+												{...props}
+												type="text"
+												placeholder="Your name"
+												disabled={isLoading}
+												bind:value={$signUpData.name}
+											/>
+										{/snippet}
+									</Form.Control>
+									<Form.FieldErrors>
+										{#snippet children({ errors })}
+											{#each errors as error}
+												<span class="block text-sm text-destructive">
+													<T keyName={error} params={{ minLength: PASSWORD_MIN_LENGTH }} />
+												</span>
+											{/each}
+										{/snippet}
+									</Form.FieldErrors>
+								</Form.Field>
+
+								<Form.Field form={signUpForm} name="email">
+									<Form.Control>
+										{#snippet children({ props })}
+											<Form.Label><T keyName="auth.signin.email_label" /></Form.Label>
+											<Input
+												{...props}
+												type="email"
+												placeholder="you@example.com"
+												disabled={isLoading}
+												bind:value={$signUpData.email}
+											/>
+										{/snippet}
+									</Form.Control>
+									<Form.FieldErrors>
+										{#snippet children({ errors })}
+											{#each errors as error}
+												<span class="block text-sm text-destructive">
+													<T keyName={error} params={{ minLength: PASSWORD_MIN_LENGTH }} />
+												</span>
+											{/each}
+										{/snippet}
+									</Form.FieldErrors>
+								</Form.Field>
+
+								<Form.Field form={signUpForm} name="password">
+									<Form.Control>
+										{#snippet children({ props })}
+											<Form.Label><T keyName="auth.signin.password_label" /></Form.Label>
+											<Input
+												{...props}
+												type="password"
+												placeholder="••••••••"
+												disabled={isLoading}
+												bind:value={$signUpData.password}
+											/>
+										{/snippet}
+									</Form.Control>
+									<Form.FieldErrors>
+										{#snippet children({ errors })}
+											{#each errors as error}
+												<span class="block text-sm text-destructive">
+													<T keyName={error} params={{ minLength: PASSWORD_MIN_LENGTH }} />
+												</span>
+											{/each}
+										{/snippet}
+									</Form.FieldErrors>
+								</Form.Field>
+
+								{#if formError}
+									<p class="text-sm text-red-500" data-testid="auth-error">{formError}</p>
 								{/if}
-								<Button type="submit" class="w-full" disabled={isLoading}>
+
+								<Form.Button class="w-full" disabled={isLoading} data-testid="signup-button">
 									{#if isLoading}
 										<T keyName="auth.signin.button_signup_loading" />
 									{:else}
 										<T keyName="auth.signin.button_signup" />
 									{/if}
-								</Button>
+								</Form.Button>
 							</form>
 						</TabsContent>
 					</Tabs>
@@ -271,14 +390,20 @@
 					</div>
 
 					<div class="space-y-2">
-						<Button
-							onclick={() => {
-								console.log('[SIGNIN DEBUG] OAuth starting (GitHub):', params.redirectTo);
-								signIn('github', { redirectTo: params.redirectTo });
-							}}
-							variant="outline"
-							class="w-full"
-						>
+						<!-- Passkey Login - Only show on signin tab -->
+						{#if params.tab === 'signin'}
+							<Button
+								onclick={handlePasskeyLogin}
+								variant="outline"
+								class="w-full"
+								disabled={isLoading}
+							>
+								<KeyIcon class="mr-2 h-4 w-4" />
+								<T keyName="auth.signin.passkey_button" defaultValue="Sign in with Passkey" />
+							</Button>
+						{/if}
+
+						<Button onclick={() => handleOAuth('github')} variant="outline" class="w-full">
 							<svg class="mr-2 h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
 								<path
 									d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"
@@ -286,14 +411,7 @@
 							</svg>
 							<T keyName="auth.signin.oauth_github" />
 						</Button>
-						<Button
-							onclick={() => {
-								console.log('[SIGNIN DEBUG] OAuth starting (Google):', params.redirectTo);
-								signIn('google', { redirectTo: params.redirectTo });
-							}}
-							variant="outline"
-							class="w-full"
-						>
+						<Button onclick={() => handleOAuth('google')} variant="outline" class="w-full">
 							<svg class="mr-2 h-4 w-4" viewBox="0 0 24 24">
 								<path
 									fill="#4285F4"
@@ -315,30 +433,6 @@
 							<T keyName="auth.signin.oauth_google" />
 						</Button>
 					</div>
-				{/if}
-
-				{#if env.PUBLIC_E2E_TEST}
-					<form
-						class="mt-8 flex flex-col gap-2"
-						onsubmit={(event) => {
-							event.preventDefault();
-							const formData = new FormData(event.currentTarget as HTMLFormElement);
-							if (params.redirectTo) {
-								formData.append('redirectTo', params.redirectTo);
-							}
-							signIn('secret', formData).catch(() => {
-								window.alert('Invalid secret');
-							});
-						}}
-					>
-						<p class="text-sm text-muted-foreground">
-							<T keyName="auth.signin.test_secret_label" />
-						</p>
-						<Input aria-label="Secret" type="text" name="secret" placeholder="secret value" />
-						<Button type="submit" variant="secondary">
-							<T keyName="auth.signin.test_secret_button" />
-						</Button>
-					</form>
 				{/if}
 
 				<div class="mt-6 text-center">

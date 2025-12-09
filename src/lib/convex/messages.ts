@@ -1,8 +1,8 @@
-import { getAuthUserId } from '@convex-dev/auth/server';
 import { query, action, internalMutation } from './_generated/server';
 import { v } from 'convex/values';
 import { autumn } from './autumn';
 import { internal } from './_generated/api';
+import { authComponent } from './auth';
 
 export const list = query({
 	args: {},
@@ -10,15 +10,15 @@ export const list = query({
 		v.object({
 			_id: v.id('messages'),
 			_creationTime: v.number(),
-			userId: v.id('users'),
+			userId: v.string(),
 			body: v.string(),
 			author: v.string(),
 			authorImage: v.optional(v.string())
 		})
 	),
 	handler: async (ctx) => {
-		const userId = await getAuthUserId(ctx);
-		if (userId === null) {
+		const user = await authComponent.getAuthUser(ctx);
+		if (!user) {
 			throw new Error('Not signed in');
 		}
 		// Grab the most recent messages.
@@ -26,12 +26,10 @@ export const list = query({
 		// Reverse the list so that it's in a chronological order.
 		return Promise.all(
 			messages.reverse().map(async (message) => {
-				const user = await ctx.db.get(message.userId);
-				const { name, email, phone, image } = user!;
 				return {
 					...message,
-					author: name ?? email ?? phone ?? 'Anonymous',
-					authorImage: image
+					author: user.name ?? user.email ?? 'Anonymous',
+					authorImage: user.image ?? undefined
 				};
 			})
 		);
@@ -45,7 +43,7 @@ export const list = query({
 export const insertMessage = internalMutation({
 	args: {
 		body: v.string(),
-		userId: v.id('users')
+		userId: v.string()
 	},
 	returns: v.id('messages'),
 	handler: async (ctx, { body, userId }) => {
@@ -65,10 +63,11 @@ export const send = action({
 		remainingMessages: v.optional(v.number())
 	}),
 	handler: async (ctx, { body }) => {
-		const userId = await getAuthUserId(ctx);
-		if (userId === null) {
+		const user = await authComponent.getAuthUser(ctx);
+		if (!user) {
 			throw new Error('Not signed in');
 		}
+		const userId = user._id;
 
 		// Check if user has available messages
 		const checkResult = await autumn.check(ctx, { featureId: 'messages' });

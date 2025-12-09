@@ -1,6 +1,8 @@
-import { authTables } from '@convex-dev/auth/server';
 import { internalMutation } from './_generated/server';
 import { v } from 'convex/values';
+
+// Better Auth tables managed by the component
+const betterAuthTables = ['user', 'session', 'account', 'verification'];
 
 // Deletes all auth-related data.
 // Just for demoing purposes, feel free to delete.
@@ -10,9 +12,13 @@ export const reset = internalMutation({
 		if (args.forReal !== "I know what I'm doing") {
 			throw new Error("You must know what you're doing to reset the database.");
 		}
-		for (const table of Object.keys(authTables)) {
-			for (const { _id } of await ctx.db.query(table as any).collect()) {
-				await ctx.db.delete(_id);
+		for (const table of betterAuthTables) {
+			try {
+				for (const { _id } of await ctx.db.query(table as any).collect()) {
+					await ctx.db.delete(_id);
+				}
+			} catch {
+				// Table might not exist yet
 			}
 		}
 	}

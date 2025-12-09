@@ -24,7 +24,7 @@
 			user={{
 				name: data.viewer.name ?? 'User',
 				email: data.viewer.email ?? '',
-				image: data.viewer.image
+				image: data.viewer.image ?? undefined
 			}}
 		/>
 		<Sidebar.Inset>

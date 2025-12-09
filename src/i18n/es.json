@@ -12,18 +12,48 @@
 			"billing": "Facturación",
 			"logout": "Cerrar sesión",
 			"notifications": "Notificaciones",
+			"settings": "Configuración",
 			"upgrade_pro": "Actualizar a Pro"
 		}
 	},
 	"auth": {
 		"errors": {
+			"confirm_password_required": "Por favor confirma tu contraseña",
+			"current_password_required": "La contraseña actual es obligatoria",
 			"invalid_credentials": "Correo electrónico o contraseña inválidos",
+			"invalid_email": "Por favor ingresa un correo electrónico válido",
 			"invalid_secret": "Secreto inválido",
+			"name_required": "El nombre es obligatorio",
+			"password_lowercase": "La contraseña debe contener al menos una letra minúscula",
+			"password_min_length": "La contraseña debe tener al menos {minLength} caracteres",
+			"password_number": "La contraseña debe contener al menos un número",
+			"password_required": "La contraseña es obligatoria",
+			"password_uppercase": "La contraseña debe contener al menos una letra mayúscula",
+			"passwords_do_not_match": "Las contraseñas no coinciden",
 			"signup_failed": "No se pudo crear la cuenta. Es posible que el correo electrónico ya esté en uso.",
-			"verification_invalid": "Código de verificación inválido o caducado. Por favor, inténtalo de nuevo."
+			"verification_invalid": "Código de verificación inválido o caducado. Por favor, inténtalo de nuevo.",
+			"passkey_failed": "La autenticación con passkey falló"
+		},
+		"forgot_password": {
+			"back_to_signin": "Volver a iniciar sesión",
+			"button_loading": "Enviando...",
+			"button_submit": "Enviar enlace",
+			"description": "Te enviaremos un enlace para restablecer",
+			"title": "¿Olvidaste tu contraseña?"
 		},
 		"login": "Iniciar sesión",
 		"logout": "Cerrar sesión",
+		"reset_password": {
+			"back_to_signin": "Volver a iniciar sesión",
+			"button_loading": "Restableciendo...",
+			"button_submit": "Restablecer contraseña",
+			"confirm_password_label": "Confirmar nueva contraseña",
+			"description": "Ingresa tu nueva contraseña",
+			"new_password_label": "Nueva contraseña",
+			"sign_in_link": "Iniciar sesión",
+			"success": "Tu contraseña ha sido restablecida.",
+			"title": "Restablecer contraseña"
+		},
 		"signin": {
 			"button_signin": "Iniciar sesión",
 			"button_signin_loading": "Iniciando sesión...",
@@ -33,9 +63,11 @@
 			"description": "Inicia sesión en tu cuenta o crea una nueva",
 			"email_label": "Correo electrónico",
 			"email_placeholder": "tu@ejemplo.com",
+			"forgot_password": "¿Olvidaste tu contraseña?",
 			"oauth_github": "GitHub",
 			"oauth_google": "Google",
 			"or_continue_with": "O continuar con",
+			"passkey_button": "Iniciar sesión con Passkey",
 			"password_label": "Contraseña",
 			"password_placeholder": "••••••••",
 			"tab_signin": "Iniciar sesión",
@@ -137,10 +169,10 @@
 				"description": "Internacionalización bien hecha. Edición en contexto y traducción potenciada por ML para un flujo de localización sin problemas.",
 				"title": "Tolgee"
 			},
-			"openrouter": {
-				"button": "Visitar OpenRouter",
-				"description": "Una API unificada para más de 200 modelos de IA. Enruta solicitudes al mejor modelo para tu caso de uso con fallbacks automáticos.",
-				"title": "OpenRouter"
+			"better_auth": {
+				"button": "Visitar Better Auth",
+				"description": "La biblioteca de autenticación más completa para TypeScript. Sesiones, OAuth, passkeys y multi-tenencia listos para usar.",
+				"title": "Better Auth"
 			},
 			"resend": {
 				"button": "Visitar Resend",
@@ -174,6 +206,78 @@
 		"home": "Inicio",
 		"pricing": "Precios",
 		"solution": "Solución"
+	},
+	"settings": {
+		"title": "Configuración",
+		"description": "Administra la configuración de tu cuenta y preferencias.",
+		"tabs": {
+			"account": "Cuenta",
+			"password": "Contraseña",
+			"email": "Correo electrónico",
+			"security": "Seguridad"
+		},
+		"account": {
+			"title": "Información de la cuenta",
+			"description": "Actualiza la información de tu cuenta aquí.",
+			"name_label": "Nombre",
+			"name_helper": "Este es tu nombre público.",
+			"profile_picture": "Foto de perfil",
+			"profile_picture_helper": "Sube una imagen o pega un enlace. Recomendamos una imagen cuadrada de menos de 2MB.",
+			"no_image": "Sin imagen",
+			"remove_button": "Eliminar",
+			"upload_file": "Subir archivo",
+			"file_helper": "PNG, JPG o GIF hasta 2MB.",
+			"or": "o",
+			"link_from_url": "Enlace desde URL",
+			"url_helper": "Pega un enlace de imagen en lugar de subir.",
+			"saving": "Guardando...",
+			"save_button": "Guardar cambios"
+		},
+		"password": {
+			"title": "Cambiar contraseña",
+			"description": "Actualiza tu contraseña para mantener tu cuenta segura.",
+			"error_title": "Error",
+			"current_password_label": "Contraseña actual",
+			"new_password_label": "Nueva contraseña",
+			"password_helper": "Debe tener al menos 8 caracteres.",
+			"confirm_password_label": "Confirmar nueva contraseña",
+			"revoke_sessions_label": "Cerrar sesión en todos los demás dispositivos",
+			"security_notice_title": "Aviso de seguridad",
+			"security_notice_description": "Cambiar tu contraseña requerirá que inicies sesión nuevamente en todos los dispositivos a menos que desmarques la opción anterior.",
+			"updating": "Actualizando...",
+			"update_button": "Actualizar contraseña"
+		},
+		"email": {
+			"title": "Dirección de correo electrónico",
+			"description": "Actualiza tu dirección de correo para notificaciones e inicio de sesión.",
+			"current_email_label": "Correo actual",
+			"verified_badge": "Verificado",
+			"unverified_badge": "No verificado",
+			"error_title": "Error",
+			"new_email_label": "Nueva dirección de correo",
+			"verification_required_title": "Verificación requerida",
+			"verification_required_description": "Se enviará un correo de verificación a tu dirección actual. Debes aprobar el cambio antes de que tu nuevo correo esté activo.",
+			"not_verified_title": "Correo no verificado",
+			"not_verified_description": "Tu correo actual no está verificado. El nuevo correo se actualizará inmediatamente sin verificación.",
+			"updating": "Actualizando...",
+			"update_button": "Actualizar correo"
+		},
+		"security": {
+			"title": "Seguridad",
+			"description": "Administra tus passkeys y configuración de seguridad.",
+			"passkey_info_title": "¿Qué son los Passkeys?",
+			"passkey_info_description": "Los passkeys son una forma segura de iniciar sesión sin contraseña. Utilizan biometría o PIN del dispositivo y se almacenan de forma segura en tus dispositivos.",
+			"add_passkey_title": "Añadir un Passkey",
+			"passkey_name_label": "Nombre del passkey",
+			"add_passkey_helper": "Dale un nombre a tu passkey para identificar en qué dispositivo está registrado.",
+			"adding": "Añadiendo...",
+			"add_button": "Añadir Passkey",
+			"your_passkeys_title": "Tus Passkeys",
+			"loading": "Cargando passkeys...",
+			"no_passkeys": "Aún no has registrado ningún passkey.",
+			"created_at": "Creado ",
+			"error_title": "Error"
+		}
 	},
 	"pricing": {
 		"buttons": {

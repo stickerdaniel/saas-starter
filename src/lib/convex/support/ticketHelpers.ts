@@ -8,6 +8,7 @@ import {
 } from '../_generated/server';
 import { components, internal } from '../_generated/api';
 import { supportAgent } from './agent';
+import { authComponent } from '../auth';
 
 /**
  * Get user email from authentication
@@ -19,10 +20,7 @@ export const getUserEmail = internalQuery({
 	},
 	handler: async (ctx, args): Promise<{ email?: string; userName?: string }> => {
 		if (args.userId) {
-			const user = await ctx.db
-				.query('users')
-				.filter((q) => q.eq(q.field('_id'), args.userId))
-				.first();
+			const user = await authComponent.getAnyUserById(ctx, args.userId);
 			if (user?.email) {
 				return { email: user.email, userName: user.name };
 			}

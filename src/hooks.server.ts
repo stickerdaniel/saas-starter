@@ -1,19 +1,20 @@
 import { sequence } from '@sveltejs/kit/hooks';
-import {
-	createConvexAuthHooks,
-	createRouteMatcher
-} from '@mmailaender/convex-auth-svelte/sveltekit/server';
-import { PUBLIC_CONVEX_URL } from '$env/static/public';
 import { redirect, type Handle } from '@sveltejs/kit';
+import { createAuth } from '$lib/convex/auth';
+import { getToken } from '@mmailaender/convex-better-auth-svelte/sveltekit';
 import { isSupportedLanguage, DEFAULT_LANGUAGE } from '$lib/i18n/languages';
 
-const isSignInPage = createRouteMatcher('/:lang/signin');
-const isProtectedRoute = createRouteMatcher('/:lang/app/*path');
+// Route matchers
+const isSignInPage = (pathname: string) => /^\/[a-z]{2}\/signin$/.test(pathname);
+const isProtectedRoute = (pathname: string) => /^\/[a-z]{2}\/app(\/|$)/.test(pathname);
 
-const { handleAuth, isAuthenticated: isAuthenticatedPromise } = createConvexAuthHooks({
-	convexUrl: PUBLIC_CONVEX_URL,
-	verbose: true
-});
+/**
+ * Extract authentication token from cookies
+ */
+const handleAuth: Handle = async ({ event, resolve }) => {
+	event.locals.token = await getToken(createAuth, event.cookies);
+	return resolve(event);
+};
 
 /**
  * Handle language detection and redirect to localized URLs
@@ -61,7 +62,7 @@ const handleLanguage: Handle = async ({ event, resolve }) => {
  * Handle auth redirects with language-aware paths
  */
 const authFirstPattern: Handle = async ({ event, resolve }) => {
-	const isAuthenticated = await isAuthenticatedPromise(event);
+	const isAuthenticated = !!event.locals.token;
 	const pathname = event.url.pathname;
 	const redirectToParam = event.url.searchParams.get('redirectTo');
 
@@ -69,23 +70,12 @@ const authFirstPattern: Handle = async ({ event, resolve }) => {
 	const langMatch = pathname.match(/^\/([a-z]{2})\//);
 	const lang = langMatch ? langMatch[1] : DEFAULT_LANGUAGE;
 
-	console.log('[HOOKS DEBUG]', {
-		pathname,
-		isAuthenticated,
-		isSignInPage: isSignInPage(pathname),
-		isProtectedRoute: isProtectedRoute(pathname),
-		redirectToParam,
-		fullUrl: event.url.href
-	});
-
 	if (isSignInPage(pathname) && isAuthenticated) {
 		const destination = redirectToParam || `/${lang}/app`;
-		console.log('[HOOKS DEBUG] Redirecting authenticated user from signin to:', destination);
 		redirect(307, destination);
 	}
 	if (isProtectedRoute(pathname) && !isAuthenticated) {
 		const destination = `/${lang}/signin?redirectTo=${encodeURIComponent(event.url.pathname + event.url.search)}`;
-		console.log('[HOOKS DEBUG] Redirecting unauthenticated user to signin:', destination);
 		redirect(307, destination);
 	}
 

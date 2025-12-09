@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { useConvexClient } from 'convex-svelte';
 	import { api } from '$lib/convex/_generated/api';
-	import { useAuth } from '@mmailaender/convex-auth-svelte/sveltekit';
+	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
 	import { page } from '$app/state';
 	import AIChatbar from '$lib/components/customer-support/ai-chatbar.svelte';
 	import FeedbackButton from '$lib/components/customer-support/feedback-button.svelte';

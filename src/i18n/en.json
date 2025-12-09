@@ -12,18 +12,48 @@
 			"billing": "Billing",
 			"logout": "Log out",
 			"notifications": "Notifications",
+			"settings": "Settings",
 			"upgrade_pro": "Upgrade to Pro"
 		}
 	},
 	"auth": {
 		"errors": {
+			"confirm_password_required": "Please confirm your password",
+			"current_password_required": "Current password is required",
 			"invalid_credentials": "Invalid email or password",
+			"invalid_email": "Please enter a valid email",
 			"invalid_secret": "Invalid secret",
+			"name_required": "Name is required",
+			"password_lowercase": "Password must contain at least one lowercase letter",
+			"password_min_length": "Password must be at least {minLength} characters",
+			"password_number": "Password must contain at least one number",
+			"password_required": "Password is required",
+			"password_uppercase": "Password must contain at least one uppercase letter",
+			"passwords_do_not_match": "Passwords do not match",
 			"signup_failed": "Failed to create account. Email may already be in use.",
-			"verification_invalid": "Invalid or expired verification code. Please try again."
+			"verification_invalid": "Invalid or expired verification code. Please try again.",
+			"passkey_failed": "Passkey authentication failed"
+		},
+		"forgot_password": {
+			"back_to_signin": "Back to sign in",
+			"button_loading": "Sending...",
+			"button_submit": "Send reset link",
+			"description": "We will email you a reset link",
+			"title": "Forgot password"
 		},
 		"login": "Login",
 		"logout": "Logout",
+		"reset_password": {
+			"back_to_signin": "Back to sign in",
+			"button_loading": "Resetting...",
+			"button_submit": "Reset password",
+			"confirm_password_label": "Confirm new password",
+			"description": "Enter your new password",
+			"new_password_label": "New password",
+			"sign_in_link": "Sign in",
+			"success": "Your password has been reset.",
+			"title": "Reset password"
+		},
 		"signin": {
 			"button_signin": "Sign In",
 			"button_signin_loading": "Signing in...",
@@ -33,9 +63,11 @@
 			"description": "Sign in to your account or create a new one",
 			"email_label": "Email",
 			"email_placeholder": "you@example.com",
+			"forgot_password": "Forgot password?",
 			"oauth_github": "GitHub",
 			"oauth_google": "Google",
 			"or_continue_with": "Or continue with",
+			"passkey_button": "Sign in with Passkey",
 			"password_label": "Password",
 			"password_placeholder": "••••••••",
 			"tab_signin": "Sign In",
@@ -137,10 +169,10 @@
 				"description": "Internationalization done right. In-context editing and ML-powered translation for a seamless localization workflow.",
 				"title": "Tolgee"
 			},
-			"openrouter": {
-				"button": "Visit OpenRouter",
-				"description": "A unified API for 200+ AI models. Route requests to the best model for your use case with automatic fallbacks.",
-				"title": "OpenRouter"
+			"better_auth": {
+				"button": "Visit Better Auth",
+				"description": "The most comprehensive authentication library for TypeScript. Sessions, OAuth, passkeys, and multi-tenancy out of the box.",
+				"title": "Better Auth"
 			},
 			"resend": {
 				"button": "Visit Resend",
@@ -174,6 +206,78 @@
 		"home": "Home",
 		"pricing": "Pricing",
 		"solution": "Solution"
+	},
+	"settings": {
+		"title": "Settings",
+		"description": "Manage your account settings and preferences.",
+		"tabs": {
+			"account": "Account",
+			"password": "Password",
+			"email": "Email",
+			"security": "Security"
+		},
+		"account": {
+			"title": "Account Information",
+			"description": "Update your account information here.",
+			"name_label": "Name",
+			"name_helper": "This is your public display name.",
+			"profile_picture": "Profile picture",
+			"profile_picture_helper": "Upload an image or paste a link. We recommend a square image under 2MB.",
+			"no_image": "No image",
+			"remove_button": "Remove",
+			"upload_file": "Upload a file",
+			"file_helper": "PNG, JPG, or GIF up to 2MB.",
+			"or": "or",
+			"link_from_url": "Link from URL",
+			"url_helper": "Paste an image link instead of uploading.",
+			"saving": "Saving...",
+			"save_button": "Save Changes"
+		},
+		"password": {
+			"title": "Change Password",
+			"description": "Update your password to keep your account secure.",
+			"error_title": "Error",
+			"current_password_label": "Current Password",
+			"new_password_label": "New Password",
+			"password_helper": "Must be at least 10 characters long.",
+			"confirm_password_label": "Confirm New Password",
+			"revoke_sessions_label": "Sign out of all other devices",
+			"security_notice_title": "Security Notice",
+			"security_notice_description": "Changing your password will require you to sign in again on all devices unless you uncheck the option above.",
+			"updating": "Updating...",
+			"update_button": "Update Password"
+		},
+		"email": {
+			"title": "Email Address",
+			"description": "Update your email address for account notifications and login.",
+			"current_email_label": "Current Email",
+			"verified_badge": "Verified",
+			"unverified_badge": "Unverified",
+			"error_title": "Error",
+			"new_email_label": "New Email Address",
+			"verification_required_title": "Verification Required",
+			"verification_required_description": "A verification email will be sent to your current email address. You must approve the change before your new email becomes active.",
+			"not_verified_title": "Email Not Verified",
+			"not_verified_description": "Your current email is not verified. The new email will be updated immediately without verification.",
+			"updating": "Updating...",
+			"update_button": "Update Email"
+		},
+		"security": {
+			"title": "Security",
+			"description": "Manage your passkeys and security settings.",
+			"passkey_info_title": "What are Passkeys?",
+			"passkey_info_description": "Passkeys are a secure, passwordless way to sign in. They use biometrics or device PIN and are stored securely on your devices.",
+			"add_passkey_title": "Add a Passkey",
+			"passkey_name_label": "Passkey name",
+			"add_passkey_helper": "Give your passkey a name to identify which device it's registered on.",
+			"adding": "Adding...",
+			"add_button": "Add Passkey",
+			"your_passkeys_title": "Your Passkeys",
+			"loading": "Loading passkeys...",
+			"no_passkeys": "You haven't registered any passkeys yet.",
+			"created_at": "Created ",
+			"error_title": "Error"
+		}
 	},
 	"pricing": {
 		"buttons": {

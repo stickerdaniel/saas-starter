@@ -1,32 +1,54 @@
-import { createAccount } from '@convex-dev/auth/server';
-import { internal } from './_generated/api';
-import { internalAction, internalQuery } from './_generated/server';
-
-const TEST_USER_EMAIL = 'secret@secret.com';
+import { components } from './_generated/api';
+import { mutation, internalQuery } from './_generated/server';
+import { v } from 'convex/values';
 
 export const getTestUser = internalQuery({
-	args: {},
-	handler: async (ctx) => {
-		return await ctx.db
-			.query('users')
-			.withIndex('email', (q) => q.eq('email', TEST_USER_EMAIL))
-			.unique();
+	args: { email: v.string() },
+	handler: async (ctx, { email }) => {
+		// Use Better Auth adapter to find user by email
+		const user = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+			model: 'user',
+			where: [{ field: 'email', value: email }]
+		});
+		return user;
 	}
 });
 
-export const init = internalAction({
-	args: {},
-	handler: async (ctx) => {
-		const existingUser = await ctx.runQuery(internal.tests.getTestUser);
-		if (existingUser !== null) {
-			console.info('Test user already exists, skipping creation');
-			return;
+// Mark test user email as verified
+// Note: This mutation requires AUTH_E2E_TEST_SECRET for security
+// Only use for test accounts - it bypasses the normal email verification flow
+export const verifyTestUserEmail = mutation({
+	args: { email: v.string(), secret: v.string() },
+	handler: async (ctx, { email, secret }) => {
+		// Verify test secret to prevent unauthorized access
+		const expectedSecret = process.env.AUTH_E2E_TEST_SECRET;
+		if (!expectedSecret || secret !== expectedSecret) {
+			throw new Error('Unauthorized: Invalid test secret');
 		}
-		await createAccount(ctx, {
-			provider: 'secret',
-			account: { id: TEST_USER_EMAIL },
-			profile: { email: TEST_USER_EMAIL }
+		// Find user by email using Better Auth adapter
+		const user = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+			model: 'user',
+			where: [{ field: 'email', value: email }]
 		});
-		console.info('Test user created');
+
+		if (!user) {
+			return { success: false, error: 'User not found' };
+		}
+
+		// Check if already verified (adapter uses emailVerified boolean, stored as emailVerificationTime)
+		if (user.emailVerified) {
+			return { success: true, alreadyVerified: true };
+		}
+
+		// Mark email as verified using Better Auth adapter's updateOne method
+		await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+			input: {
+				model: 'user',
+				where: [{ field: 'email', value: email }],
+				update: { emailVerified: true }
+			}
+		});
+
+		return { success: true };
 	}
 });
