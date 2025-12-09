@@ -27,6 +27,7 @@ vite.config.ts.timestamp-*
 /blob-report/
 /playwright/.cache/
 test-results
+e2e/.auth/
 
 # Bun cache
 Library/

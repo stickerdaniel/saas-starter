@@ -12,18 +12,48 @@
 			"billing": "Abrechnung",
 			"logout": "Abmelden",
 			"notifications": "Benachrichtigungen",
+			"settings": "Einstellungen",
 			"upgrade_pro": "Auf Pro upgraden"
 		}
 	},
 	"auth": {
 		"errors": {
+			"confirm_password_required": "Bitte bestätigen Sie Ihr Passwort",
+			"current_password_required": "Aktuelles Passwort ist erforderlich",
 			"invalid_credentials": "Ungültige E-Mail oder Passwort",
+			"invalid_email": "Bitte geben Sie eine gültige E-Mail-Adresse ein",
 			"invalid_secret": "Ungültiges Geheimnis",
+			"name_required": "Name ist erforderlich",
+			"password_lowercase": "Passwort muss mindestens einen Kleinbuchstaben enthalten",
+			"password_min_length": "Passwort muss mindestens {minLength} Zeichen lang sein",
+			"password_number": "Passwort muss mindestens eine Zahl enthalten",
+			"password_required": "Passwort ist erforderlich",
+			"password_uppercase": "Passwort muss mindestens einen Großbuchstaben enthalten",
+			"passwords_do_not_match": "Passwörter stimmen nicht überein",
 			"signup_failed": "Konto konnte nicht erstellt werden. E-Mail wird möglicherweise bereits verwendet.",
-			"verification_invalid": "Ungültiger oder abgelaufener Verifizierungscode. Bitte versuchen Sie es erneut."
+			"verification_invalid": "Ungültiger oder abgelaufener Verifizierungscode. Bitte versuchen Sie es erneut.",
+			"passkey_failed": "Passkey-Authentifizierung fehlgeschlagen"
+		},
+		"forgot_password": {
+			"back_to_signin": "Zurück zur Anmeldung",
+			"button_loading": "Wird gesendet...",
+			"button_submit": "Link senden",
+			"description": "Wir senden Ihnen einen Link zum Zurücksetzen",
+			"title": "Passwort vergessen"
 		},
 		"login": "Anmelden",
 		"logout": "Abmelden",
+		"reset_password": {
+			"back_to_signin": "Zurück zur Anmeldung",
+			"button_loading": "Wird zurückgesetzt...",
+			"button_submit": "Passwort zurücksetzen",
+			"confirm_password_label": "Neues Passwort bestätigen",
+			"description": "Geben Sie Ihr neues Passwort ein",
+			"new_password_label": "Neues Passwort",
+			"sign_in_link": "Anmelden",
+			"success": "Ihr Passwort wurde zurückgesetzt.",
+			"title": "Passwort zurücksetzen"
+		},
 		"signin": {
 			"button_signin": "Anmelden",
 			"button_signin_loading": "Wird angemeldet...",
@@ -33,9 +63,11 @@
 			"description": "Melden Sie sich bei Ihrem Konto an oder erstellen Sie ein neues",
 			"email_label": "E-Mail",
 			"email_placeholder": "du@beispiel.de",
+			"forgot_password": "Passwort vergessen?",
 			"oauth_github": "GitHub",
 			"oauth_google": "Google",
 			"or_continue_with": "Oder fortfahren mit",
+			"passkey_button": "Mit Passkey anmelden",
 			"password_label": "Passwort",
 			"password_placeholder": "••••••••",
 			"tab_signin": "Anmelden",
@@ -137,10 +169,10 @@
 				"description": "Internationalisierung richtig gemacht. In-Context-Editing und ML-gestützte Übersetzung für einen nahtlosen Lokalisierungs-Workflow.",
 				"title": "Tolgee"
 			},
-			"openrouter": {
-				"button": "Zu OpenRouter",
-				"description": "Eine einheitliche API für über 200 KI-Modelle. Leite Anfragen an das beste Modell für deinen Anwendungsfall mit automatischen Fallbacks.",
-				"title": "OpenRouter"
+			"better_auth": {
+				"button": "Zu Better Auth",
+				"description": "Die umfassendste Authentifizierungsbibliothek für TypeScript. Sessions, OAuth, Passkeys und Multi-Tenancy sofort einsatzbereit.",
+				"title": "Better Auth"
 			},
 			"resend": {
 				"button": "Zu Resend",
@@ -174,6 +206,78 @@
 		"home": "Start",
 		"pricing": "Pläne",
 		"solution": "Lösung"
+	},
+	"settings": {
+		"title": "Einstellungen",
+		"description": "Verwalten Sie Ihre Kontoeinstellungen und Präferenzen.",
+		"tabs": {
+			"account": "Konto",
+			"password": "Passwort",
+			"email": "E-Mail",
+			"security": "Sicherheit"
+		},
+		"account": {
+			"title": "Kontoinformationen",
+			"description": "Aktualisieren Sie hier Ihre Kontoinformationen.",
+			"name_label": "Name",
+			"name_helper": "Dies ist Ihr öffentlich angezeigter Name.",
+			"profile_picture": "Profilbild",
+			"profile_picture_helper": "Laden Sie ein Bild hoch oder fügen Sie einen Link ein. Wir empfehlen ein quadratisches Bild unter 2MB.",
+			"no_image": "Kein Bild",
+			"remove_button": "Entfernen",
+			"upload_file": "Datei hochladen",
+			"file_helper": "PNG, JPG oder GIF bis zu 2MB.",
+			"or": "oder",
+			"link_from_url": "Link von URL",
+			"url_helper": "Fügen Sie einen Bildlink ein, anstatt hochzuladen.",
+			"saving": "Speichern...",
+			"save_button": "Änderungen speichern"
+		},
+		"password": {
+			"title": "Passwort ändern",
+			"description": "Aktualisieren Sie Ihr Passwort, um Ihr Konto sicher zu halten.",
+			"error_title": "Fehler",
+			"current_password_label": "Aktuelles Passwort",
+			"new_password_label": "Neues Passwort",
+			"password_helper": "Muss mindestens 8 Zeichen lang sein.",
+			"confirm_password_label": "Neues Passwort bestätigen",
+			"revoke_sessions_label": "Von allen anderen Geräten abmelden",
+			"security_notice_title": "Sicherheitshinweis",
+			"security_notice_description": "Das Ändern Ihres Passworts erfordert eine erneute Anmeldung auf allen Geräten, es sei denn, Sie deaktivieren die obige Option.",
+			"updating": "Aktualisieren...",
+			"update_button": "Passwort aktualisieren"
+		},
+		"email": {
+			"title": "E-Mail-Adresse",
+			"description": "Aktualisieren Sie Ihre E-Mail-Adresse für Kontobenachrichtigungen und Anmeldung.",
+			"current_email_label": "Aktuelle E-Mail",
+			"verified_badge": "Verifiziert",
+			"unverified_badge": "Nicht verifiziert",
+			"error_title": "Fehler",
+			"new_email_label": "Neue E-Mail-Adresse",
+			"verification_required_title": "Verifizierung erforderlich",
+			"verification_required_description": "Eine Bestätigungs-E-Mail wird an Ihre aktuelle E-Mail-Adresse gesendet. Sie müssen die Änderung genehmigen, bevor Ihre neue E-Mail aktiv wird.",
+			"not_verified_title": "E-Mail nicht verifiziert",
+			"not_verified_description": "Ihre aktuelle E-Mail ist nicht verifiziert. Die neue E-Mail wird sofort ohne Verifizierung aktualisiert.",
+			"updating": "Aktualisieren...",
+			"update_button": "E-Mail aktualisieren"
+		},
+		"security": {
+			"title": "Sicherheit",
+			"description": "Verwalten Sie Ihre Passkeys und Sicherheitseinstellungen.",
+			"passkey_info_title": "Was sind Passkeys?",
+			"passkey_info_description": "Passkeys sind eine sichere, passwortlose Anmeldemethode. Sie verwenden Biometrie oder Geräte-PIN und werden sicher auf Ihren Geräten gespeichert.",
+			"add_passkey_title": "Passkey hinzufügen",
+			"passkey_name_label": "Passkey-Name",
+			"add_passkey_helper": "Geben Sie Ihrem Passkey einen Namen, um zu identifizieren, auf welchem Gerät er registriert ist.",
+			"adding": "Wird hinzugefügt...",
+			"add_button": "Passkey hinzufügen",
+			"your_passkeys_title": "Ihre Passkeys",
+			"loading": "Passkeys werden geladen...",
+			"no_passkeys": "Sie haben noch keine Passkeys registriert.",
+			"created_at": "Erstellt am ",
+			"error_title": "Fehler"
+		}
 	},
 	"pricing": {
 		"buttons": {

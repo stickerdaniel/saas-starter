@@ -29,3 +29,31 @@ If you didn't request this code, please ignore this email.`
 		});
 	}
 });
+
+/**
+ * Send password reset email with reset link
+ */
+export const sendResetPasswordEmail = internalMutation({
+	args: {
+		email: v.string(),
+		resetUrl: v.string(),
+		userName: v.optional(v.string())
+	},
+	handler: async (ctx, args) => {
+		const { email, resetUrl, userName } = args;
+		const greeting = userName ? `Hello ${userName}` : 'Hello';
+
+		await resend.sendEmail(ctx, {
+			from: process.env.AUTH_EMAIL || 'noreply@example.com',
+			to: email,
+			subject: 'Reset your password',
+			text: `${greeting},
+
+We received a request to reset your password. Click the link below to set a new password:
+
+${resetUrl}
+
+If you didn't request this, you can safely ignore this email.`
+		});
+	}
+});

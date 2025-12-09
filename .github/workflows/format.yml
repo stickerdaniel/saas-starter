@@ -3,9 +3,10 @@ name: Quality Checks
 on: [push, pull_request]
 
 env:
-  PUBLIC_CONVEX_URL: ${{ secrets.PUBLIC_CONVEX_URL }}
-  AUTH_E2E_TEST_SECRET: ${{ secrets.AUTH_E2E_TEST_SECRET }}
-  PUBLIC_E2E_TEST: true
+  PUBLIC_CONVEX_URL: ${{ secrets.TEST_CONVEX_URL }}
+  PUBLIC_CONVEX_SITE_URL: ${{ secrets.TEST_CONVEX_SITE_URL }}
+  TEST_USER_EMAIL: ${{ secrets.TEST_USER_EMAIL }}
+  TEST_USER_PASSWORD: ${{ secrets.TEST_USER_PASSWORD }}
 
 jobs:
   quality_checks:

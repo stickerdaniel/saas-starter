@@ -20,13 +20,14 @@
 		"test:unit": "vitest --run --reporter=verbose --passWithNoTests",
 		"i18n:pull": "bunx dotenv -f .env.local run -- bunx tolgee pull",
 		"i18n:push": "bunx dotenv -f .env.local run -- bunx tolgee push",
-		"i18n:cleanup": "bunx dotenv -f .env.local run -- bunx tolgee tag --filter-not-extracted --filter-tag production --tag deprecated --untag production"
+		"i18n:cleanup": "bunx dotenv -f .env.local run -- bunx tolgee tag --filter-not-extracted --filter-tag production --tag deprecated --untag production",
+		"setup:test-user": "bunx tsx scripts/setup-test-user.ts"
 	},
 	"dependencies": {
-		"@auth/core": "^0.40.0",
 		"@convex-dev/agent": "^0.3.0",
+		"@convex-dev/better-auth": "^0.9.11",
 		"@convex-dev/resend": "^0.1.13",
-		"@mmailaender/convex-auth-svelte": "^0.1.2",
+		"@mmailaender/convex-better-auth-svelte": "^0.4.0",
 		"@openrouter/ai-sdk-provider": "^1.2.3",
 		"@oslojs/crypto": "^1.0.1",
 		"@rive-app/canvas": "^2.32.0",
@@ -38,6 +39,7 @@
 		"ai": "^5.0.93",
 		"atmn": "^0.0.28",
 		"autumn-js": "^0.1.43",
+		"better-auth": "1.3.34",
 		"isomorphic-dompurify": "^2.32.0",
 		"konva": "^10.0.8",
 		"marked": "^17.0.0",
@@ -52,7 +54,6 @@
 		"vercel": "^47.1.4"
 	},
 	"devDependencies": {
-		"@convex-dev/auth": "^0.0.86",
 		"@dnd-kit-svelte/core": "^0.0.8",
 		"@dnd-kit-svelte/modifiers": "^0.0.8",
 		"@dnd-kit-svelte/sortable": "^0.0.8",
@@ -78,13 +79,14 @@
 		"@typescript-eslint/parser": "^8.46.0",
 		"bits-ui": "^2.14.1",
 		"clsx": "^2.1.1",
-		"convex": "^1.29.3",
+		"convex": "^1.30.0",
 		"convex-svelte": "^0.0.11",
 		"d3-scale": "^4.0.2",
 		"d3-shape": "^3.2.0",
 		"dotenv": "^16.6.1",
 		"eslint": "^9.37.0",
 		"eslint-plugin-svelte": "^3.12.4",
+		"formsnap": "^2.0.1",
 		"husky": "^9.1.7",
 		"jose": "^6.1.0",
 		"layerchart": "2.0.0-next.27",
@@ -94,6 +96,7 @@
 		"svelte": "^5.39.11",
 		"svelte-check": "^4.3.3",
 		"svelte-sonner": "^1.0.5",
+		"sveltekit-superforms": "^2.26.1",
 		"tailwind-merge": "^3.3.1",
 		"tailwind-variants": "^3.1.1",
 		"tailwindcss": "^4.1.14",
@@ -102,7 +105,7 @@
 		"vaul-svelte": "^1.0.0-next.7",
 		"vite": "^6.3.6",
 		"vitest": "^3.2.4",
-		"zod": "^3.25.76"
+		"zod": "^4.1.13"
 	},
 	"overrides": {
 		"esbuild": "0.25.9",

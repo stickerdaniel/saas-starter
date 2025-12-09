@@ -7,5 +7,6 @@ export { default as Stripe } from './Stripe.svelte';
 export { default as SVBlocks } from './SVBlocks.svelte';
 export { default as Autumn } from './Autumn.svelte';
 export { default as OpenRouter } from './OpenRouter.svelte';
+export { default as BetterAuth } from './BetterAuth.svelte';
 export { default as Resend } from './Resend.svelte';
 export { default as Sentry } from './Sentry.svelte';
