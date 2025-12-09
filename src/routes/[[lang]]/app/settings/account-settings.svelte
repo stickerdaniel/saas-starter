@@ -9,6 +9,7 @@
 	import UploadIcon from '@lucide/svelte/icons/upload';
 	import { useConvexClient } from 'convex-svelte';
 	import { api } from '$lib/convex/_generated/api.js';
+	import { PROFILE_IMAGE_MAX_SIZE, PROFILE_IMAGE_MAX_SIZE_LABEL } from '$lib/convex/constants.js';
 
 	interface Props {
 		user: {
@@ -47,9 +48,9 @@
 				return;
 			}
 
-			// Validate file size (max 2MB)
-			if (file.size > 2 * 1024 * 1024) {
-				toast.error('Image must be less than 2MB');
+			// Validate file size
+			if (file.size > PROFILE_IMAGE_MAX_SIZE) {
+				toast.error(`Image must be less than ${PROFILE_IMAGE_MAX_SIZE_LABEL}`);
 				return;
 			}
 

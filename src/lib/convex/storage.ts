@@ -1,8 +1,6 @@
 import { mutation } from './_generated/server';
 import { v } from 'convex/values';
-
-const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-const MAX_IMAGE_SIZE = 2 * 1024 * 1024; // 2MB
+import { PROFILE_IMAGE_ALLOWED_TYPES, PROFILE_IMAGE_MAX_SIZE } from './constants';
 
 // Generate an upload URL for file uploads (authenticated)
 export const generateUploadUrl = mutation({
@@ -31,15 +29,17 @@ export const saveProfileImage = mutation({
 		}
 
 		// Validate MIME type
-		if (!metadata.contentType || !ALLOWED_IMAGE_TYPES.includes(metadata.contentType)) {
+		if (!metadata.contentType || !PROFILE_IMAGE_ALLOWED_TYPES.includes(metadata.contentType)) {
 			await ctx.storage.delete(args.storageId);
-			throw new Error(`Invalid file type. Allowed types: ${ALLOWED_IMAGE_TYPES.join(', ')}`);
+			throw new Error(
+				`Invalid file type. Allowed types: ${PROFILE_IMAGE_ALLOWED_TYPES.join(', ')}`
+			);
 		}
 
 		// Validate file size
-		if (metadata.size > MAX_IMAGE_SIZE) {
+		if (metadata.size > PROFILE_IMAGE_MAX_SIZE) {
 			await ctx.storage.delete(args.storageId);
-			throw new Error(`File too large. Maximum size: ${MAX_IMAGE_SIZE / 1024 / 1024}MB`);
+			throw new Error(`File too large. Maximum size: ${PROFILE_IMAGE_MAX_SIZE / 1024 / 1024}MB`);
 		}
 
 		return await ctx.storage.getUrl(args.storageId);
