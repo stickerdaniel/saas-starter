@@ -1,6 +1,8 @@
 import { Context } from 'runed';
 import type { PaginationResult } from 'convex/server';
 import type { ConvexClient } from 'convex/browser';
+import type { UIMessagePart, UIDataTypes, UITools } from 'ai';
+import { isToolOrDynamicToolUIPart } from 'ai';
 import { api } from '$lib/convex/_generated/api';
 import type { Attachment } from '$lib/chat';
 import { StreamCacheManager } from '$lib/chat/core/StreamProcessor.js';
@@ -51,7 +53,7 @@ export interface SupportMessage {
 	// Additional UIMessage fields
 	key?: string;
 	role: 'user' | 'assistant' | 'system' | 'tool'; // Required (normalized)
-	parts?: any[];
+	parts?: UIMessagePart<UIDataTypes, UITools>[];
 	stepOrder?: number;
 	// Optimistic attachments
 	localAttachments?: Attachment[];
@@ -111,11 +113,7 @@ export class SupportThreadContext {
 	get hasPendingToolCalls(): boolean {
 		return this.messages.some((msg) =>
 			msg.parts?.some(
-				(p) =>
-					typeof p.type === 'string' &&
-					p.type.startsWith('tool-') &&
-					p.state === 'input-available' &&
-					!p.output
+				(p) => isToolOrDynamicToolUIPart(p) && p.state === 'input-available' && !p.output
 			)
 		);
 	}

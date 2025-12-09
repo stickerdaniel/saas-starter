@@ -1,6 +1,8 @@
 'use node';
 
 import { v } from 'convex/values';
+import type { FunctionReference } from 'convex/server';
+import type { Id } from '../_generated/dataModel';
 import { internalAction } from '../_generated/server';
 import { internal } from '../_generated/api';
 import { Resend } from 'resend';
@@ -17,6 +19,48 @@ const MAX_ATTACHMENT_SIZE = 30 * 1024 * 1024;
  * Timeout for email delivery confirmation (60 seconds)
  */
 const EMAIL_DELIVERY_TIMEOUT_MS = 60 * 1000;
+
+/**
+ * Type definitions for internal helper functions
+ * Convex's FilterApi doesn't expose nested folder paths, so we define types explicitly
+ */
+type TicketHelpersFunctions = {
+	getUserEmail: FunctionReference<
+		'query',
+		'internal',
+		{ threadId: string; userId?: string },
+		{ email?: string; userName?: string }
+	>;
+	getThreadFiles: FunctionReference<
+		'query',
+		'internal',
+		{ threadId: string },
+		Array<{ filename: string; url: string; size: number }>
+	>;
+	storeTicketWithPendingStatus: FunctionReference<
+		'mutation',
+		'internal',
+		{
+			threadId: string;
+			ticketType: 'bug_report' | 'feature_request' | 'general_inquiry';
+			title: string;
+			description: string;
+			userEmail: string;
+			userName?: string;
+			userId?: string;
+			fileIds: Array<{ filename: string; url: string }>;
+			toolCallId: string;
+			promptMessageId: string;
+		},
+		Id<'supportTickets'>
+	>;
+	updateTicketUserEmailId: FunctionReference<
+		'mutation',
+		'internal',
+		{ ticketId: Id<'supportTickets'>; userEmailId: string },
+		null
+	>;
+};
 
 /**
  * Ticket type labels for display
@@ -218,14 +262,17 @@ export const submitTicket = internalAction({
 		// Email from form (for unauthenticated users)
 		email: v.string()
 	},
-	handler: async (ctx, args) => {
-		// 1. Get user name from auth if available
-		const helpersApi = (internal.support as any).ticketHelpers as {
-			getUserEmail: any;
-			getThreadFiles: any;
-			storeTicketWithPendingStatus: any;
-			updateTicketUserEmailId: any;
-		};
+	handler: async (
+		ctx,
+		args
+	): Promise<{
+		status: 'error' | 'processing';
+		message: string;
+		ticketId?: string;
+	}> => {
+		// Type definitions for internal helper functions (Convex doesn't expose nested paths on internal API)
+		const helpersApi = (internal.support as { ticketHelpers: TicketHelpersFunctions })
+			.ticketHelpers;
 
 		// Use email from args (submitted by user in form)
 		const userEmail = args.email;
