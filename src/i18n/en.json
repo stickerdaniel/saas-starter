@@ -31,7 +31,8 @@
 			"password_uppercase": "Password must contain at least one uppercase letter",
 			"passwords_do_not_match": "Passwords do not match",
 			"signup_failed": "Failed to create account. Email may already be in use.",
-			"verification_invalid": "Invalid or expired verification code. Please try again."
+			"verification_invalid": "Invalid or expired verification code. Please try again.",
+			"passkey_failed": "Passkey authentication failed"
 		},
 		"forgot_password": {
 			"back_to_signin": "Back to sign in",

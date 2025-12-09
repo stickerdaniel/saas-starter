@@ -31,7 +31,8 @@
 			"password_uppercase": "Le mot de passe doit contenir au moins une lettre majuscule",
 			"passwords_do_not_match": "Les mots de passe ne correspondent pas",
 			"signup_failed": "Impossible de créer le compte. L'e-mail est peut-être déjà utilisé.",
-			"verification_invalid": "Code de vérification invalide ou expiré. Veuillez réessayer."
+			"verification_invalid": "Code de vérification invalide ou expiré. Veuillez réessayer.",
+			"passkey_failed": "L'authentification par passkey a échoué"
 		},
 		"forgot_password": {
 			"back_to_signin": "Retour à la connexion",

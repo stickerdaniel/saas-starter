@@ -31,7 +31,8 @@
 			"password_uppercase": "La contraseña debe contener al menos una letra mayúscula",
 			"passwords_do_not_match": "Las contraseñas no coinciden",
 			"signup_failed": "No se pudo crear la cuenta. Es posible que el correo electrónico ya esté en uso.",
-			"verification_invalid": "Código de verificación inválido o caducado. Por favor, inténtalo de nuevo."
+			"verification_invalid": "Código de verificación inválido o caducado. Por favor, inténtalo de nuevo.",
+			"passkey_failed": "La autenticación con passkey falló"
 		},
 		"forgot_password": {
 			"back_to_signin": "Volver a iniciar sesión",

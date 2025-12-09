@@ -31,7 +31,8 @@
 			"password_uppercase": "Passwort muss mindestens einen Großbuchstaben enthalten",
 			"passwords_do_not_match": "Passwörter stimmen nicht überein",
 			"signup_failed": "Konto konnte nicht erstellt werden. E-Mail wird möglicherweise bereits verwendet.",
-			"verification_invalid": "Ungültiger oder abgelaufener Verifizierungscode. Bitte versuchen Sie es erneut."
+			"verification_invalid": "Ungültiger oder abgelaufener Verifizierungscode. Bitte versuchen Sie es erneut.",
+			"passkey_failed": "Passkey-Authentifizierung fehlgeschlagen"
 		},
 		"forgot_password": {
 			"back_to_signin": "Zurück zur Anmeldung",
