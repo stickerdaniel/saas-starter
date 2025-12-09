@@ -1,32 +1,24 @@
-import { test, expect, Page } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 
-test('route handler returns 403 when not authenticated', async ({ page }) => {
-	const response = await page.goto('/api/');
+test.describe('authenticated API access', () => {
+	// Uses pre-authenticated session state from setup
 
-	expect(response).not.toBeNull();
-	expect(response?.status()).toBe(403);
+	test('route handler returns 200 when authenticated', async ({ page }) => {
+		const response = await page.goto('/api/');
+
+		expect(response).not.toBeNull();
+		expect(response?.status()).toBe(200);
+	});
 });
 
-test('route handler returns 200 when authenticated', async ({ page }) => {
-	await signIn(page);
+test.describe('unauthenticated API access', () => {
+	// Clear auth state for these tests
+	test.use({ storageState: { cookies: [], origins: [] } });
 
-	const response = await page.goto('/api/');
+	test('route handler returns 403 when not authenticated', async ({ page }) => {
+		const response = await page.goto('/api/');
 
-	expect(response).not.toBeNull();
-	expect(response?.status()).toBe(200);
-
-	await signOut(page);
+		expect(response).not.toBeNull();
+		expect(response?.status()).toBe(403);
+	});
 });
-
-async function signIn(page: Page) {
-	await page.goto('/signin');
-	await page.getByLabel('Secret').fill(process.env.AUTH_E2E_TEST_SECRET!);
-	await page.getByRole('button').getByText('Sign in with secret').click();
-	await page.waitForURL('/en/app/**');
-}
-
-async function signOut(page: Page) {
-	await page.goto('/app');
-	await page.locator('#user-menu-trigger').click();
-	await page.getByText('Log out').click();
-}

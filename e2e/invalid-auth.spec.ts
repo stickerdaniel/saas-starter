@@ -19,12 +19,12 @@ test('invalid auth cookie redirects to signin page', async ({ page, context }) =
 
 	// Set cookies for the fake JWT and a junk refresh token too.
 	await context.addCookies([
-		{ name: '__convexAuthJWT', value: jwt, path: '/', domain: '127.0.0.1' },
+		{ name: '__convexAuthJWT', value: jwt, path: '/', domain: 'localhost' },
 		{
 			name: '__convexAuthRefreshToken',
 			value: 'foobar',
 			path: '/',
-			domain: '127.0.0.1'
+			domain: 'localhost'
 		}
 	]);
 

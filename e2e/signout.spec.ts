@@ -1,11 +1,18 @@
-import { test } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 
+// Uses pre-authenticated session state from setup
 test('signout works', async ({ page }) => {
-	await page.goto('/signin');
-	await page.getByLabel('Secret').fill(process.env.AUTH_E2E_TEST_SECRET!);
-	await page.getByRole('button').getByText('Sign in with secret').click();
-	await page.waitForURL('/en/app/**');
+	// Already authenticated via session state - go directly to app
+	await page.goto('/app');
 
+	// Verify we're authenticated by being on the app page
+	await expect(page).toHaveURL(/\/app/);
+
+	// Click user menu and sign out
 	await page.locator('#user-menu-trigger').click();
-	await page.getByText('Log out').click();
+	await page.locator('[data-testid="logout-button"]').click();
+
+	// Should redirect away from app after logout (to home or signin page)
+	// With i18n, this could be /en, /en/signin, etc.
+	await page.waitForURL(/.*\/[a-z]{2}(\/signin)?(\?.*)?$/, { timeout: 10000 });
 });
