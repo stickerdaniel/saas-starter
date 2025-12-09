@@ -165,8 +165,9 @@
 								alt="Profile preview"
 								class="h-16 w-16 rounded-full border-2 border-border object-cover"
 								onerror={(e) => {
-									const target = e.target as HTMLImageElement;
-									target.style.display = 'none';
+									if (e.target instanceof HTMLImageElement) {
+										e.target.style.display = 'none';
+									}
 								}}
 							/>
 						{:else}

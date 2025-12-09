@@ -22,12 +22,17 @@ const SITE_URL = process.env.PUBLIC_SITE_URL || 'http://localhost:5173';
 async function setupTestUser() {
 	const email = process.env.TEST_USER_EMAIL;
 	const password = process.env.TEST_USER_PASSWORD;
+	const secret = process.env.AUTH_E2E_TEST_SECRET;
 	const name = process.env.TEST_USER_NAME || 'E2E Test User';
 
-	if (!email || !password) {
-		console.error('Error: TEST_USER_EMAIL and TEST_USER_PASSWORD must be set.');
+	// Validate all required environment variables upfront
+	if (!email || !password || !secret) {
+		console.error('Error: Required env vars missing from .env.test:');
+		if (!email) console.error('  - TEST_USER_EMAIL');
+		if (!password) console.error('  - TEST_USER_PASSWORD');
+		if (!secret) console.error('  - AUTH_E2E_TEST_SECRET');
 		console.error('');
-		console.error('1. Update .env.test with your test credentials');
+		console.error('1. Update .env.test with the missing credentials');
 		console.error('2. Run this script again');
 		process.exit(1);
 	}
@@ -54,7 +59,7 @@ async function setupTestUser() {
 
 		if (signUpResponse.ok) {
 			console.log('Test user created successfully!');
-			await verifyEmail(email);
+			await verifyEmail(email, secret);
 			await verifyCredentials(email, password);
 			return;
 		}
@@ -69,7 +74,7 @@ async function setupTestUser() {
 			errorData.code === 'USER_ALREADY_EXISTS'
 		) {
 			console.log('Test user already exists. Verifying credentials...');
-			await verifyEmail(email);
+			await verifyEmail(email, secret);
 			await verifyCredentials(email, password);
 			return;
 		}
@@ -86,13 +91,7 @@ async function setupTestUser() {
 	}
 }
 
-async function verifyEmail(email: string) {
-	const secret = process.env.AUTH_E2E_TEST_SECRET;
-	if (!secret) {
-		console.error('Error: AUTH_E2E_TEST_SECRET must be set in .env.test');
-		process.exit(1);
-	}
-
+async function verifyEmail(email: string, secret: string) {
 	console.log('Marking email as verified...');
 	try {
 		// Directly mark the user's email as verified via Convex mutation
@@ -117,7 +116,10 @@ async function verifyEmail(email: string) {
 	} catch (error) {
 		const errorMessage = error instanceof Error ? error.message : String(error);
 		console.error('Email verification failed:', errorMessage);
-		// Don't throw - try to continue anyway
+		console.error('');
+		console.error('Make sure AUTH_E2E_TEST_SECRET is set in Convex:');
+		console.error('   bunx convex env set AUTH_E2E_TEST_SECRET <your-secret>');
+		process.exit(1);
 	}
 }
 
