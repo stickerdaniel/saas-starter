@@ -74,8 +74,8 @@
 
 			const { storageId } = await result.json();
 
-			// Step 3: Get the proper URL from Convex
-			const imageUrl = await convexClient.mutation(api.storage.getImageUrl, { storageId });
+			// Step 3: Validate and save the image, get the URL
+			const imageUrl = await convexClient.mutation(api.storage.saveProfileImage, { storageId });
 
 			// Step 4: Update the image state
 			image = imageUrl || '';
