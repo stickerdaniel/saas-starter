@@ -4,6 +4,7 @@
 	import * as Form from '$lib/components/ui/form/index.js';
 	import * as Card from '$lib/components/ui/card/index.js';
 	import * as Alert from '$lib/components/ui/alert/index.js';
+	import * as Item from '$lib/components/ui/item/index.js';
 	import { Checkbox } from '$lib/components/ui/checkbox/index.js';
 	import { toast } from 'svelte-sonner';
 	import { T } from '@tolgee/svelte';
@@ -177,13 +178,17 @@
 				</Form.Control>
 			</Form.Field>
 
-			<Alert.Root>
-				<InfoIcon class="h-4 w-4" />
-				<Alert.Title><T keyName="settings.password.security_notice_title" /></Alert.Title>
-				<Alert.Description>
-					<T keyName="settings.password.security_notice_description" />
-				</Alert.Description>
-			</Alert.Root>
+			<Item.Root variant="muted">
+				<Item.Media variant="icon">
+					<InfoIcon />
+				</Item.Media>
+				<Item.Content>
+					<Item.Title><T keyName="settings.password.security_notice_title" /></Item.Title>
+					<Item.Description>
+						<T keyName="settings.password.security_notice_description" />
+					</Item.Description>
+				</Item.Content>
+			</Item.Root>
 
 			<Form.Button disabled={isLoading}>
 				{#if isLoading}

@@ -5,7 +5,8 @@
 	import { Label } from '$lib/components/ui/label/index.js';
 	import * as Card from '$lib/components/ui/card/index.js';
 	import * as Alert from '$lib/components/ui/alert/index.js';
-	import { Badge } from '$lib/components/ui/badge/index.js';
+	import * as InputGroup from '$lib/components/ui/input-group/index.js';
+	import * as Item from '$lib/components/ui/item/index.js';
 	import { toast } from 'svelte-sonner';
 	import { T } from '@tolgee/svelte';
 	import InfoIcon from '@lucide/svelte/icons/info';
@@ -78,19 +79,23 @@
 			<!-- Current Email Display -->
 			<div class="space-y-2">
 				<Label><T keyName="settings.email.current_email_label" /></Label>
-				<div class="flex items-center gap-2">
-					<Input value={currentEmail} disabled class="bg-muted" />
-					{#if isEmailVerified}
-						<Badge variant="secondary" class="flex items-center gap-1">
-							<CircleCheckIcon class="h-3 w-3" />
-							<T keyName="settings.email.verified_badge" />
-						</Badge>
-					{:else}
-						<Badge variant="outline">
-							<T keyName="settings.email.unverified_badge" />
-						</Badge>
-					{/if}
-				</div>
+				<InputGroup.Root data-disabled>
+					<InputGroup.Input value={currentEmail} disabled />
+					<InputGroup.Addon align="inline-end">
+						{#if isEmailVerified}
+							<div class="flex items-center gap-1 text-green-600">
+								<CircleCheckIcon class="h-3 w-3" />
+								<InputGroup.Text>
+									<T keyName="settings.email.verified_badge" />
+								</InputGroup.Text>
+							</div>
+						{:else}
+							<InputGroup.Text class="text-muted-foreground">
+								<T keyName="settings.email.unverified_badge" />
+							</InputGroup.Text>
+						{/if}
+					</InputGroup.Addon>
+				</InputGroup.Root>
 			</div>
 
 			<form onsubmit={handleChangeEmail} class="space-y-4">
@@ -117,21 +122,29 @@
 				</div>
 
 				{#if isEmailVerified}
-					<Alert.Root>
-						<InfoIcon class="h-4 w-4" />
-						<Alert.Title><T keyName="settings.email.verification_required_title" /></Alert.Title>
-						<Alert.Description>
-							<T keyName="settings.email.verification_required_description" />
-						</Alert.Description>
-					</Alert.Root>
+					<Item.Root variant="muted">
+						<Item.Media variant="icon">
+							<InfoIcon />
+						</Item.Media>
+						<Item.Content>
+							<Item.Title><T keyName="settings.email.verification_required_title" /></Item.Title>
+							<Item.Description>
+								<T keyName="settings.email.verification_required_description" />
+							</Item.Description>
+						</Item.Content>
+					</Item.Root>
 				{:else}
-					<Alert.Root>
-						<InfoIcon class="h-4 w-4" />
-						<Alert.Title><T keyName="settings.email.not_verified_title" /></Alert.Title>
-						<Alert.Description>
-							<T keyName="settings.email.not_verified_description" />
-						</Alert.Description>
-					</Alert.Root>
+					<Item.Root variant="muted">
+						<Item.Media variant="icon">
+							<InfoIcon />
+						</Item.Media>
+						<Item.Content>
+							<Item.Title><T keyName="settings.email.not_verified_title" /></Item.Title>
+							<Item.Description>
+								<T keyName="settings.email.not_verified_description" />
+							</Item.Description>
+						</Item.Content>
+					</Item.Root>
 				{/if}
 
 				<Button type="submit" disabled={isLoading}>
