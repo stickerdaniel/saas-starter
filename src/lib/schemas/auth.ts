@@ -44,6 +44,10 @@ export const changePasswordSchema = z.object({
 	revokeOtherSessions: z.boolean().default(true)
 });
 
+export const changeEmailSchema = z.object({
+	newEmail: z.string().email('auth.errors.invalid_email')
+});
+
 // Helper to validate password confirmation (use in form handlers)
 export function validatePasswordMatch(password: string, confirmPassword: string): string | null {
 	if (password !== confirmPassword) {
@@ -59,3 +63,4 @@ export type SignUpSchema = typeof signUpSchema;
 export type ForgotPasswordSchema = typeof forgotPasswordSchema;
 export type ResetPasswordSchema = typeof resetPasswordSchema;
 export type ChangePasswordSchema = typeof changePasswordSchema;
+export type ChangeEmailSchema = typeof changeEmailSchema;
