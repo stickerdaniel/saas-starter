@@ -11,14 +11,21 @@ import { passkey } from 'better-auth/plugins/passkey';
 // as well as helper methods for general use.
 export const authComponent = createClient<DataModel>(components.betterAuth);
 
+const LOCAL_SITE_URL = 'http://localhost:5173';
+
 export const createAuth = (ctx: GenericCtx<DataModel>) => {
-	const siteUrl = process.env.SITE_URL;
-	if (!siteUrl) {
-		throw new Error(
-			'SITE_URL environment variable is required.\n' +
-				'- Convex: bunx convex env set SITE_URL https://yoursite.com\n' +
-				'- Vercel: vercel env add SITE_URL production'
-		);
+	const siteUrl = process.env.SITE_URL ?? process.env.PUBLIC_SITE_URL ?? LOCAL_SITE_URL;
+
+	if (!process.env.SITE_URL) {
+		if (process.env.NODE_ENV === 'production') {
+			throw new Error(
+				'SITE_URL environment variable is required.\n' +
+					'- Convex: bunx convex env set SITE_URL https://yoursite.com\n' +
+					'- Vercel: vercel env add SITE_URL production'
+			);
+		}
+
+		console.warn(`SITE_URL not set; falling back to ${siteUrl}`);
 	}
 
 	return betterAuth({
