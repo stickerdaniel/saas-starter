@@ -1,17 +1,20 @@
 <script lang="ts">
 	import { authClient } from '$lib/auth-client.js';
-	import { Button } from '$lib/components/ui/button/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
-	import { Label } from '$lib/components/ui/label/index.js';
+	import * as Form from '$lib/components/ui/form/index.js';
 	import * as Card from '$lib/components/ui/card/index.js';
 	import * as Alert from '$lib/components/ui/alert/index.js';
 	import * as InputGroup from '$lib/components/ui/input-group/index.js';
 	import * as Item from '$lib/components/ui/item/index.js';
+	import { Label } from '$lib/components/ui/label/index.js';
 	import { toast } from 'svelte-sonner';
 	import { T } from '@tolgee/svelte';
 	import InfoIcon from '@lucide/svelte/icons/info';
 	import CircleCheckIcon from '@lucide/svelte/icons/circle-check';
 	import { localizedHref } from '$lib/utils/i18n';
+	import { defaults, superForm } from 'sveltekit-superforms';
+	import { zod4 } from 'sveltekit-superforms/adapters';
+	import { changeEmailSchema } from '$lib/schemas/auth.js';
 
 	interface Props {
 		user: {
@@ -22,51 +25,51 @@
 
 	let { user }: Props = $props();
 
-	let newEmail = $state('');
 	let isLoading = $state(false);
-	let error = $state('');
+	let formError = $state('');
 
 	let currentEmail = $derived(user?.email || '');
 	let isEmailVerified = $derived(user?.emailVerified || false);
 
-	async function handleChangeEmail(e: Event) {
-		e.preventDefault();
-		error = '';
+	const form = superForm(defaults({ newEmail: '' }, zod4(changeEmailSchema)), {
+		validators: zod4(changeEmailSchema),
+		SPA: true,
+		onUpdate: async ({ form: f }) => {
+			if (!f.valid) return;
 
-		// Validation
-		if (!newEmail || !newEmail.includes('@')) {
-			error = 'Please enter a valid email address';
-			return;
+			if (f.data.newEmail === currentEmail) {
+				formError = 'settings.email.errors.same_email';
+				toast.error('New email must be different from current email');
+				return;
+			}
+
+			isLoading = true;
+			formError = '';
+
+			try {
+				await authClient.changeEmail({
+					newEmail: f.data.newEmail,
+					callbackURL: localizedHref('/app/settings?email-changed=true')
+				});
+
+				toast.success(
+					isEmailVerified
+						? 'Verification email sent to your current address. Please check your inbox to approve the change.'
+						: 'Email updated successfully'
+				);
+
+				// Clear form
+				$formData.newEmail = '';
+			} catch (err) {
+				formError = err instanceof Error ? err.message : 'Failed to change email';
+				toast.error(formError);
+			} finally {
+				isLoading = false;
+			}
 		}
+	});
 
-		if (newEmail === currentEmail) {
-			error = 'New email must be different from current email';
-			return;
-		}
-
-		isLoading = true;
-
-		try {
-			await authClient.changeEmail({
-				newEmail,
-				callbackURL: localizedHref('/app/settings?email-changed=true')
-			});
-
-			toast.success(
-				isEmailVerified
-					? 'Verification email sent to your current address. Please check your inbox to approve the change.'
-					: 'Email updated successfully'
-			);
-
-			// Clear form
-			newEmail = '';
-		} catch (err) {
-			error = err instanceof Error ? err.message : 'Failed to change email';
-			toast.error(error);
-		} finally {
-			isLoading = false;
-		}
-	}
+	const { form: formData, enhance } = form;
 </script>
 
 <Card.Root>
@@ -98,28 +101,46 @@
 				</InputGroup.Root>
 			</div>
 
-			<form onsubmit={handleChangeEmail} class="space-y-4">
-				{#if error}
+			<form method="POST" use:enhance class="space-y-4">
+				{#if formError}
 					<Alert.Root variant="destructive">
 						<InfoIcon class="h-4 w-4" />
 						<Alert.Title><T keyName="settings.email.error_title" /></Alert.Title>
-						<Alert.Description>{error}</Alert.Description>
+						<Alert.Description>
+							{#if formError.startsWith('settings.')}
+								<T keyName={formError} />
+							{:else}
+								{formError}
+							{/if}
+						</Alert.Description>
 					</Alert.Root>
 				{/if}
 
-				<div class="space-y-2">
-					<Label for="new-email">
-						<T keyName="settings.email.new_email_label" />
-					</Label>
-					<Input
-						id="new-email"
-						type="email"
-						bind:value={newEmail}
-						placeholder="Enter new email address"
-						required
-						autocomplete="email"
-					/>
-				</div>
+				<Form.Field {form} name="newEmail">
+					<Form.Control>
+						{#snippet children({ props })}
+							<Form.Label>
+								<T keyName="settings.email.new_email_label" />
+							</Form.Label>
+							<Input
+								{...props}
+								type="email"
+								placeholder="Enter new email address"
+								autocomplete="email"
+								bind:value={$formData.newEmail}
+							/>
+						{/snippet}
+					</Form.Control>
+					<Form.FieldErrors>
+						{#snippet children({ errors })}
+							{#each errors as error}
+								<span class="block text-sm text-destructive">
+									<T keyName={error} />
+								</span>
+							{/each}
+						{/snippet}
+					</Form.FieldErrors>
+				</Form.Field>
 
 				{#if isEmailVerified}
 					<Item.Root variant="muted">
@@ -147,13 +168,13 @@
 					</Item.Root>
 				{/if}
 
-				<Button type="submit" disabled={isLoading}>
+				<Form.Button disabled={isLoading}>
 					{#if isLoading}
 						<T keyName="settings.email.updating" />
 					{:else}
 						<T keyName="settings.email.update_button" />
 					{/if}
-				</Button>
+				</Form.Button>
 			</form>
 		</div>
 	</Card.Content>
