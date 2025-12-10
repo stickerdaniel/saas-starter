@@ -5,6 +5,7 @@
 	import { Label } from '$lib/components/ui/label/index.js';
 	import * as Card from '$lib/components/ui/card/index.js';
 	import * as Alert from '$lib/components/ui/alert/index.js';
+	import * as Item from '$lib/components/ui/item/index.js';
 	import { toast } from 'svelte-sonner';
 	import { T } from '@tolgee/svelte';
 	import KeyIcon from '@lucide/svelte/icons/key-round';
@@ -97,13 +98,17 @@
 	</Card.Header>
 	<Card.Content class="space-y-6">
 		<!-- Passkey Info -->
-		<Alert.Root>
-			<ShieldCheckIcon class="h-4 w-4" />
-			<Alert.Title><T keyName="settings.security.passkey_info_title" /></Alert.Title>
-			<Alert.Description>
-				<T keyName="settings.security.passkey_info_description" />
-			</Alert.Description>
-		</Alert.Root>
+		<Item.Root variant="muted">
+			<Item.Media variant="icon">
+				<ShieldCheckIcon />
+			</Item.Media>
+			<Item.Content>
+				<Item.Title><T keyName="settings.security.passkey_info_title" /></Item.Title>
+				<Item.Description>
+					<T keyName="settings.security.passkey_info_description" />
+				</Item.Description>
+			</Item.Content>
+		</Item.Root>
 
 		<!-- Add New Passkey -->
 		<div class="space-y-4">
@@ -126,7 +131,7 @@
 					{#if isAdding}
 						<T keyName="settings.security.adding" />
 					{:else}
-						<PlusIcon class="mr-2 h-4 w-4" />
+						<PlusIcon />
 						<T keyName="settings.security.add_button" />
 					{/if}
 				</Button>
@@ -151,34 +156,35 @@
 					<T keyName="settings.security.no_passkeys" />
 				</p>
 			{:else}
-				<div class="space-y-2">
-					{#each passkeys as passkey (passkey.id)}
-						<div
-							class="flex items-center justify-between rounded-lg border bg-card p-3 text-card-foreground"
-						>
-							<div class="flex items-center gap-3">
-								<KeyIcon class="h-5 w-5 text-muted-foreground" />
-								<div>
-									<p class="text-sm font-medium">
-										{passkey.name || 'Unnamed Passkey'}
-									</p>
-									<p class="text-xs text-muted-foreground">
-										<T keyName="settings.security.created_at" />
-										{formatDate(passkey.createdAt)}
-									</p>
-								</div>
-							</div>
-							<Button
-								variant="ghost"
-								size="sm"
-								onclick={() => handleDeletePasskey(passkey.id)}
-								class="text-destructive hover:text-destructive"
-							>
-								<Trash2Icon class="h-4 w-4" />
-							</Button>
-						</div>
+				<Item.Group>
+					{#each passkeys as passkey, index (passkey.id)}
+						<Item.Root variant="outline">
+							<Item.Media variant="icon">
+								<KeyIcon />
+							</Item.Media>
+							<Item.Content>
+								<Item.Title>{passkey.name || 'Unnamed Passkey'}</Item.Title>
+								<Item.Description>
+									<T keyName="settings.security.created_at" />
+									{formatDate(passkey.createdAt)}
+								</Item.Description>
+							</Item.Content>
+							<Item.Actions>
+								<Button
+									variant="ghost"
+									size="icon"
+									onclick={() => handleDeletePasskey(passkey.id)}
+									class="text-destructive hover:text-destructive"
+								>
+									<Trash2Icon class="h-4 w-4" />
+								</Button>
+							</Item.Actions>
+						</Item.Root>
+						{#if index !== passkeys.length - 1}
+							<Item.Separator />
+						{/if}
 					{/each}
-				</div>
+				</Item.Group>
 			{/if}
 		</div>
 
