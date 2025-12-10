@@ -1,8 +1,14 @@
 import { sequence } from '@sveltejs/kit/hooks';
 import { redirect, type Handle } from '@sveltejs/kit';
+import { env } from '$env/dynamic/private';
 import { createAuth } from '$lib/convex/auth';
 import { getToken } from '@mmailaender/convex-better-auth-svelte/sveltekit';
 import { isSupportedLanguage, DEFAULT_LANGUAGE } from '$lib/i18n/languages';
+
+// Inject SITE_URL into process.env for createAuth (used by getToken via getStaticAuth)
+if (env.SITE_URL) {
+	process.env.SITE_URL = env.SITE_URL;
+}
 
 // Route matchers
 const isSignInPage = (pathname: string) => /^\/[a-z]{2}\/signin$/.test(pathname);
