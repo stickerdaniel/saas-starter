@@ -2,298 +2,252 @@
 
 ## Overview
 
-This document outlines the architecture for creating email templates that automatically inherit styles from our shadcn-svelte components while remaining email-client compatible. The system uses Svelte for templating, extracts design tokens from our existing components, and compiles everything to email-safe HTML.
+This document outlines the architecture for creating email templates that automatically inherit styles from shadcn-svelte's design system. The system uses `better-svelte-email` for rendering and extracts theme colors from `app.css` at build time.
 
 ## Core Principles
 
-1. **Single Source of Truth**: All design tokens come from shadcn-svelte components
-2. **No Manual Style Updates**: When shadcn styles change, emails automatically update
-3. **Email Client Compatibility**: Output is table-based HTML with inline styles
-4. **Type Safety**: Full TypeScript support for email props and templates
-5. **No React Dependencies**: Pure Svelte solution
+1. **Single Source of Truth**: All design tokens come from `app.css`
+2. **No Manual Style Updates**: When `app.css` changes, emails automatically update on rebuild
+3. **Email Client Compatibility**: OKLch colors and CSS variables resolved to inline styles
+4. **Reusable**: Components published to shadcn-svelte registry for community use
 
-## Technology Stack
+## Architecture
 
-### Dependencies
-
-- **svelte-email**: Provides email-safe component primitives (Html, Body, Container, etc.)
-- **svelte-email-tailwind**: Converts Tailwind classes to inline styles at build time
-- **juice**: CSS inlining library for email compatibility
-- **resend**: Email delivery service
-- **oslo**: Cryptographically secure token generation
-
-### How It Works
-
-```mermaid
-graph TD
-    A[shadcn-svelte components] -->|Extract variants| B[Email Components]
-    C[app.css] -->|Extract theme| B
-    B --> D[Svelte Email Templates]
-    D -->|Compile at build time| E[HTML with inline styles]
-    E -->|Send via| F[Resend API]
+```
+app.css (source of truth)
+    ↓ (Vite ?raw import at build time)
+createShadcnRenderer() (parses CSS, configures Renderer)
+    ↓
+Email components use bg-primary, text-foreground, etc.
+    ↓
+Renderer inlines actual color values into HTML
 ```
 
-## Implementation Strategy
+## Implementation Plan
 
-### 1. Extracting Styles from shadcn-svelte
+### Add helper to better-svelte-email
 
-We'll reuse the Tailwind variant functions from existing shadcn components:
+Create a PR adding `createShadcnRenderer()` helper to the library.
+
+**Implementation:**
 
 ```typescript
-// Original shadcn button
-export const buttonVariants = tv({
-	base: 'inline-flex items-center justify-center...',
-	variants: {
-		variant: {
-			default: 'bg-primary text-primary-foreground...',
-			secondary: 'bg-secondary text-secondary-foreground...'
-		}
+// better-svelte-email/src/lib/shadcn/index.ts
+import appCss from '../../../../../src/app.css?raw';
+import Renderer from '../render/index.js';
+
+function parseCssVariables(css: string): Record<string, string> {
+	const variables: Record<string, string> = {};
+	const rootMatch = css.match(/:root\s*\{([^}]+)\}/s);
+	if (!rootMatch) return variables;
+
+	const varRegex = /--([\w-]+):\s*([^;]+);/g;
+	let match;
+	while ((match = varRegex.exec(rootMatch[1])) !== null) {
+		variables[match[1]] = match[2].trim();
 	}
-});
-```
+	return variables;
+}
 
-### 2. Creating Email-Safe Wrappers
-
-Email components will import these variants but render email-compatible HTML:
-
-```svelte
-<!-- src/lib/emails/components/EmailButton.svelte -->
-<script lang="ts">
-	import { buttonVariants } from '$lib/components/ui/button/button.svelte';
-	import { Button } from 'svelte-email';
-
-	export let href: string;
-	export let variant: 'default' | 'secondary' = 'default';
-
-	// Get Tailwind classes from shadcn component
-	$: classes = buttonVariants({ variant });
-</script>
-
-<Button {href} class={classes}>
-	<slot />
-</Button>
-```
-
-### 3. Theme Extraction
-
-Extract CSS variables from `app.css` at build time:
-
-```typescript
-// src/lib/emails/theme-extractor.ts
-export function extractTheme() {
-	// Parse app.css
-	// Convert CSS variables to values
-	// Convert oklch to hex for email compatibility
-	return {
-		primary: '#0A0A0B',
-		background: '#FFFFFF',
-		foreground: '#0A0A0B'
-		// ... all design tokens
-	};
+export function createShadcnRenderer() {
+	const themeColors = parseCssVariables(appCss);
+	return new Renderer({
+		theme: {
+			extend: {
+				colors: themeColors
+			}
+		}
+	});
 }
 ```
 
-### 4. Email Template Structure
+### Phase 2: Publish Email Components to Registry
+
+Publish shadcn-styled email components to jsrepo/shadcn-svelte registry.
+
+**Components to publish:**
+
+| Component      | Description                            | Variants                                 |
+| -------------- | -------------------------------------- | ---------------------------------------- |
+| `email-button` | CTA button matching shadcn Button      | default, destructive, secondary, outline |
+| `email-card`   | Content container matching shadcn Card | -                                        |
+| `email-badge`  | Status indicator matching shadcn Badge | default, secondary, destructive, outline |
+| `email-footer` | Standard email footer                  | -                                        |
+
+**Installation (user perspective):**
+
+```bash
+# Install from registry
+npx shadcn-svelte add email-button
+npx shadcn-svelte add email-card
+```
+
+**Component structure:**
 
 ```svelte
-<!-- src/lib/emails/templates/VerificationEmail.svelte -->
+<!-- email-button.svelte -->
 <script lang="ts">
-	import { Html, Head, Body, Container } from 'svelte-email';
-	import EmailButton from '../components/EmailButton.svelte';
-	import EmailCard from '../components/EmailCard.svelte';
+	import { Button } from 'better-svelte-email/components';
 
-	export let code: string;
-	export let expiryMinutes: number = 20;
+	interface Props {
+		href: string;
+		variant?: 'default' | 'destructive' | 'secondary' | 'outline';
+		size?: 'default' | 'sm' | 'lg';
+		children: import('svelte').Snippet;
+	}
+
+	let { href, variant = 'default', size = 'default', children }: Props = $props();
+
+	const variantClasses = {
+		default: 'bg-primary text-primary-foreground',
+		destructive: 'bg-destructive text-white',
+		secondary: 'bg-secondary text-secondary-foreground',
+		outline: 'border border-border bg-background text-foreground'
+	};
+
+	const sizeClasses = {
+		default: 'px-4 py-2',
+		sm: 'px-3 py-1.5 text-xs',
+		lg: 'px-6 py-3'
+	};
+</script>
+
+<Button
+	{href}
+	class="inline-block rounded-md text-sm font-medium no-underline {variantClasses[
+		variant
+	]} {sizeClasses[size]}"
+>
+	{@render children()}
+</Button>
+```
+
+### Phase 3: Documentation & Examples
+
+1. **README for better-svelte-email PR** - Document `createShadcnRenderer()` usage
+2. **Registry component docs** - Installation and usage for each component
+3. **Example templates** - VerificationEmail, PasswordResetEmail, WelcomeEmail
+
+## Usage (After Implementation)
+
+### 1. Install dependencies
+
+```bash
+bun add better-svelte-email
+npx shadcn-svelte add email-button email-card email-badge
+```
+
+### 2. Create renderer
+
+```typescript
+// src/lib/emails/renderer.ts
+import { createShadcnRenderer } from 'better-svelte-email/shadcn';
+
+export const renderer = createShadcnRenderer();
+```
+
+### 3. Create email template
+
+```svelte
+<!-- src/lib/emails/VerificationEmail.svelte -->
+<script lang="ts">
+	import {
+		Html,
+		Head,
+		Body,
+		Container,
+		Section,
+		Text,
+		Preview
+	} from 'better-svelte-email/components';
+	import EmailButton from '$lib/components/ui/email-button.svelte';
+	import EmailCard from '$lib/components/ui/email-card.svelte';
+
+	interface Props {
+		code: string;
+		expiryMinutes?: number;
+	}
+
+	let { code, expiryMinutes = 20 }: Props = $props();
 </script>
 
 <Html>
 	<Head />
-	<Body>
-		<Container>
+	<Preview preview="Your verification code is {code}" />
+	<Body class="bg-background font-sans">
+		<Container class="mx-auto max-w-[600px] py-10">
 			<EmailCard>
-				<h1>Verify Your Email</h1>
-				<div class="text-3xl font-bold">{code}</div>
-				<p>This code expires in {expiryMinutes} minutes</p>
-				<EmailButton href="https://app.com/verify" variant="default">Verify Email</EmailButton>
+				<Text class="text-2xl font-semibold text-foreground">Verify Your Email</Text>
+				<Section class="my-6 rounded-lg bg-muted p-4 text-center">
+					<Text class="text-3xl font-bold tracking-widest text-foreground">{code}</Text>
+				</Section>
+				<Text class="text-sm text-muted-foreground">
+					This code expires in {expiryMinutes} minutes.
+				</Text>
 			</EmailCard>
 		</Container>
 	</Body>
 </Html>
 ```
 
-### 5. Compilation Pipeline
-
-The `svelte-email-tailwind` Vite plugin will:
-
-1. Process Svelte email templates
-2. Extract all Tailwind classes
-3. Convert them to inline styles
-4. Output email-ready HTML
-
-## Component Compatibility Matrix
-
-| Component     | Email Compatible | Modifications Needed                   |
-| ------------- | ---------------- | -------------------------------------- |
-| **Card**      | ✅ Yes           | Remove refs, use table structure       |
-| **Badge**     | ✅ Yes           | Static variant only                    |
-| **Button**    | ⚠️ Partial       | Remove JS handlers, loading state      |
-| **Separator** | ✅ Yes           | Convert to `<hr>`                      |
-| **Alert**     | ⚠️ Partial       | Remove icon components                 |
-| **Input**     | ❌ No            | Forms don't work in many email clients |
-| **Dialog**    | ❌ No            | Requires JavaScript                    |
-| **Select**    | ❌ No            | Interactive elements not supported     |
-
-## Email-Safe Components to Create
-
-### Priority 1 (Essential)
-
-- `EmailButton` - CTA buttons with shadcn styles
-- `EmailCard` - Content containers
-- `EmailBadge` - Status indicators
-- `EmailSeparator` - Visual dividers
-
-### Priority 2 (Enhancement)
-
-- `EmailAlert` - Notification boxes
-- `EmailTable` - Data display
-- `EmailHeading` - Typography components
-
-## File Structure
-
-```
-src/lib/emails/
-├── components/           # Email-safe component wrappers
-│   ├── EmailButton.svelte
-│   ├── EmailCard.svelte
-│   └── EmailBadge.svelte
-├── templates/           # Full email templates
-│   ├── VerificationEmail.svelte
-│   ├── WelcomeEmail.svelte
-│   └── PasswordResetEmail.svelte
-├── compiler.ts          # Email compilation logic
-├── theme-extractor.ts   # CSS variable extraction
-└── types.ts            # TypeScript definitions
-```
-
-## Usage Example
+### 4. Render and send
 
 ```typescript
-// src/lib/convex/auth/ResendOTP.ts
-import { render } from 'svelte-email';
-import VerificationEmail from '$lib/emails/templates/VerificationEmail.svelte';
+import { renderer } from '$lib/emails/renderer';
+import VerificationEmail from '$lib/emails/VerificationEmail.svelte';
 
-export async function sendVerificationEmail(email: string, code: string) {
-	// Render Svelte template to HTML
-	const html = render({
-		template: VerificationEmail,
-		props: {
-			code,
-			expiryMinutes: 20
-		}
-	});
+const html = await renderer.render(VerificationEmail, {
+	props: { code: '123456', expiryMinutes: 20 }
+});
 
-	// Send via Resend
-	await resend.emails.send({
-		from: 'noreply@app.com',
-		to: email,
-		subject: 'Verify your email',
-		html
-	});
-}
+await resend.emails.send({
+	from: 'noreply@example.com',
+	to: email,
+	subject: 'Verify your email',
+	html
+});
 ```
 
 ## Benefits
 
-1. **Automatic Style Synchronization**
-   - Changes to shadcn components automatically reflect in emails
-   - No need to manually update email styles
+1. **Single source of truth** - `app.css` defines all colors for both app and emails
+2. **Build-time extraction** - No runtime file system access, serverless compatible
+3. **Community reusable** - Components available via shadcn-svelte registry
+4. **Consistent styling** - Email buttons look exactly like app buttons
+5. **Easy updates** - Change `app.css`, rebuild, emails update
 
-2. **Maintainability**
-   - Single source of truth for design system
-   - Email components reuse existing variant logic
+## File Structure (This Project)
 
-3. **Developer Experience**
-   - Write emails using familiar Svelte syntax
-   - Full TypeScript support
-   - Hot reload during development
+```
+src/lib/emails/
+├── components/           # Local copies (from registry)
+│   ├── email-button.svelte
+│   ├── email-card.svelte
+│   └── email-badge.svelte
+├── VerificationEmail.svelte
+├── PasswordResetEmail.svelte
+├── WelcomeEmail.svelte
+└── renderer.ts           # createShadcnRenderer() instance
 
-4. **Email Client Compatibility**
-   - Outputs table-based layouts
-   - All styles are inlined
-   - Fallback colors for older clients
+src/routes/[[lang]]/admin/email/
+└── [...email]/           # Email preview UI
+    ├── +page.svelte
+    └── +page.server.ts
+```
 
-5. **Performance**
-   - Templates compiled at build time
-   - No runtime overhead
-   - Cached compilation results
+## Timeline
 
-## Migration Path
+| Phase | Task                                       | Status  |
+| ----- | ------------------------------------------ | ------- |
+| 1     | Create GitHub issue on better-svelte-email | Pending |
+| 1     | Implement and submit PR                    | Pending |
+| 2     | Prepare components for registry            | Pending |
+| 2     | Publish to jsrepo/shadcn-svelte registry   | Pending |
+| 3     | Write documentation                        | Pending |
+| 3     | Create example templates                   | Pending |
 
-### Phase 1: Core Setup
+## Links
 
-1. Install `svelte-email` and `svelte-email-tailwind`
-2. Create email-safe component wrappers
-3. Set up theme extraction
-
-### Phase 2: Essential Templates
-
-1. Verification email
-2. Password reset email
-3. Welcome email
-
-### Phase 3: Enhancement
-
-1. Add more email components as needed
-2. Create notification templates
-3. Build transactional emails
-
-## Testing Strategy
-
-### Local Development
-
-- Use svelte-email preview server
-- Test with different email clients via Litmus/Email on Acid
-- Verify inline styles are applied correctly
-
-### Automated Testing
-
-- Snapshot testing for compiled HTML
-- Visual regression testing
-- Accessibility checks
-
-## Considerations
-
-### Limitations
-
-- Not all shadcn components can be used in emails
-- JavaScript interactions are not possible
-- Some CSS properties aren't supported in email clients
-
-### Best Practices
-
-- Keep email templates simple
-- Always provide plain text fallbacks
-- Test across multiple email clients
-- Use table layouts for compatibility
-- Limit width to 600px for mobile
-
-## Future Enhancements
-
-1. **Build-time Optimization**
-   - Cache compiled templates
-   - Pre-compile common emails
-   - Optimize inline CSS
-
-2. **Advanced Features**
-   - Dark mode support (where supported by email clients)
-   - Responsive layouts using media queries
-   - AMP email support
-
-3. **Developer Tools**
-   - Email preview in different clients
-   - Automated email testing
-   - Performance monitoring
-
-## Conclusion
-
-This architecture provides a robust, maintainable system for creating emails that automatically stay in sync with our application's design system. By reusing shadcn-svelte's variant logic and Tailwind classes, we ensure consistency without duplication while maintaining full email client compatibility.
+- [better-svelte-email](https://github.com/Konixy/better-svelte-email)
+- [shadcn-svelte](https://next.shadcn-svelte.com/)
+- [jsrepo](https://jsrepo.dev/)
