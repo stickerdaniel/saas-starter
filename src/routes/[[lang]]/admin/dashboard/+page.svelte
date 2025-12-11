@@ -91,7 +91,7 @@
 						<span class="font-medium">Resend</span>
 						<ExternalLinkIcon class="size-3" />
 					</div>
-					<span class="text-muted-foreground text-xs"
+					<span class="text-xs text-muted-foreground"
 						><T keyName="admin.dashboard.email_service" /></span
 					>
 				</div>
@@ -108,7 +108,7 @@
 						<span class="font-medium">Convex</span>
 						<ExternalLinkIcon class="size-3" />
 					</div>
-					<span class="text-muted-foreground text-xs"
+					<span class="text-xs text-muted-foreground"
 						><T keyName="admin.dashboard.database_backend" /></span
 					>
 				</div>
@@ -125,7 +125,7 @@
 						<span class="font-medium">Vercel</span>
 						<ExternalLinkIcon class="size-3" />
 					</div>
-					<span class="text-muted-foreground text-xs"
+					<span class="text-xs text-muted-foreground"
 						><T keyName="admin.dashboard.hosting_deployment" /></span
 					>
 				</div>

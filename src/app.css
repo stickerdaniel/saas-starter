@@ -1,6 +1,6 @@
 @import 'tailwindcss';
 /* Add Streamdown styles to your Tailwind build */
-@source "../node_modules/svelte-streamdown/**/*";
+@source '../node_modules/svelte-streamdown/**/*';
 
 @import 'tw-animate-css';
 
