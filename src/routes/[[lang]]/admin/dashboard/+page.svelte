@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Button } from '$lib/components/ui/button/index.js';
+	import * as Item from '$lib/components/ui/item/index.js';
 	import MetricCard from '$lib/components/ui/metric-card.svelte';
 	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
 	import UsersIcon from '@lucide/svelte/icons/users';
@@ -80,56 +80,63 @@
 	<div class="flex flex-col gap-4 px-4 lg:px-6">
 		<h2 class="text-lg font-semibold"><T keyName="admin.dashboard.external_services" /></h2>
 		<div class="grid grid-cols-1 gap-4 md:grid-cols-3">
-			<Button
-				variant="outline"
-				class="h-auto justify-start gap-3 p-4"
-				href="https://resend.com/overview"
-				target="_blank"
-			>
-				<div class="flex flex-col items-start gap-1">
-					<div class="flex items-center gap-2">
-						<span class="font-medium">Resend</span>
-						<ExternalLinkIcon class="size-3" />
-					</div>
-					<span class="text-xs text-muted-foreground"
-						><T keyName="admin.dashboard.email_service" /></span
+			<Item.Root variant="outline">
+				{#snippet child({ props })}
+					<a
+						href="https://resend.com/overview"
+						target="_blank"
+						rel="noopener noreferrer"
+						{...props}
 					>
-				</div>
-			</Button>
+						<Item.Content>
+							<Item.Title>Resend</Item.Title>
+							<Item.Description><T keyName="admin.dashboard.email_service" /></Item.Description>
+						</Item.Content>
+						<Item.Actions>
+							<ExternalLinkIcon class="size-4" />
+						</Item.Actions>
+					</a>
+				{/snippet}
+			</Item.Root>
 
-			<Button
-				variant="outline"
-				class="h-auto justify-start gap-3 p-4"
-				href="https://dashboard.convex.dev"
-				target="_blank"
-			>
-				<div class="flex flex-col items-start gap-1">
-					<div class="flex items-center gap-2">
-						<span class="font-medium">Convex</span>
-						<ExternalLinkIcon class="size-3" />
-					</div>
-					<span class="text-xs text-muted-foreground"
-						><T keyName="admin.dashboard.database_backend" /></span
+			<Item.Root variant="outline">
+				{#snippet child({ props })}
+					<a
+						href="https://dashboard.convex.dev"
+						target="_blank"
+						rel="noopener noreferrer"
+						{...props}
 					>
-				</div>
-			</Button>
+						<Item.Content>
+							<Item.Title>Convex</Item.Title>
+							<Item.Description><T keyName="admin.dashboard.database_backend" /></Item.Description>
+						</Item.Content>
+						<Item.Actions>
+							<ExternalLinkIcon class="size-4" />
+						</Item.Actions>
+					</a>
+				{/snippet}
+			</Item.Root>
 
-			<Button
-				variant="outline"
-				class="h-auto justify-start gap-3 p-4"
-				href="https://vercel.com/dashboard"
-				target="_blank"
-			>
-				<div class="flex flex-col items-start gap-1">
-					<div class="flex items-center gap-2">
-						<span class="font-medium">Vercel</span>
-						<ExternalLinkIcon class="size-3" />
-					</div>
-					<span class="text-xs text-muted-foreground"
-						><T keyName="admin.dashboard.hosting_deployment" /></span
+			<Item.Root variant="outline">
+				{#snippet child({ props })}
+					<a
+						href="https://vercel.com/dashboard"
+						target="_blank"
+						rel="noopener noreferrer"
+						{...props}
 					>
-				</div>
-			</Button>
+						<Item.Content>
+							<Item.Title>Vercel</Item.Title>
+							<Item.Description><T keyName="admin.dashboard.hosting_deployment" /></Item.Description
+							>
+						</Item.Content>
+						<Item.Actions>
+							<ExternalLinkIcon class="size-4" />
+						</Item.Actions>
+					</a>
+				{/snippet}
+			</Item.Root>
 		</div>
 	</div>
 </div>
