@@ -44,6 +44,7 @@
 		"konva": "^10.0.8",
 		"marked": "^17.0.0",
 		"mode-watcher": "^1.1.0",
+		"motion-start": "^0.1.18",
 		"motion-sv": "^0.1.2",
 		"posthog-js": "^1.290.0",
 		"resend": "^6.5.2",
