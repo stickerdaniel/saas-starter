@@ -1,14 +1,22 @@
 import { sequence } from '@sveltejs/kit/hooks';
-import { redirect, type Handle } from '@sveltejs/kit';
-import { env } from '$env/dynamic/private';
-import { createAuth } from '$lib/convex/auth';
-import { getToken } from '@mmailaender/convex-better-auth-svelte/sveltekit';
+import { redirect, type Handle, type Cookies } from '@sveltejs/kit';
+import { getSessionCookie } from 'better-auth/cookies';
 import { isSupportedLanguage, DEFAULT_LANGUAGE } from '$lib/i18n/languages';
 
-// Inject SITE_URL into process.env for createAuth (used by getToken via getStaticAuth)
-if (env.SITE_URL) {
-	process.env.SITE_URL = env.SITE_URL;
-}
+/**
+ * Check if user is authenticated (lightweight - just checks session cookie presence)
+ */
+const isAuthenticated = (request: Request) => !!getSessionCookie(request);
+
+/**
+ * Get JWT token directly from cookies (no createAuth needed)
+ * Cookie name depends on whether we're on HTTPS or HTTP
+ */
+const getJwtToken = (cookies: Cookies, request: Request) => {
+	const isSecure = new URL(request.url).protocol === 'https:';
+	const cookieName = isSecure ? '__Secure-better-auth.convex_jwt' : 'better-auth.convex_jwt';
+	return cookies.get(cookieName);
+};
 
 // Route matchers
 const isSignInPage = (pathname: string) => /^\/[a-z]{2}\/signin$/.test(pathname);
@@ -19,7 +27,7 @@ const isAdminRoute = (pathname: string) => /^\/[a-z]{2}\/admin(\/|$)/.test(pathn
  * Extract authentication token from cookies
  */
 const handleAuth: Handle = async ({ event, resolve }) => {
-	event.locals.token = await getToken(createAuth, event.cookies);
+	event.locals.token = getJwtToken(event.cookies, event.request);
 	return resolve(event);
 };
 
@@ -69,7 +77,7 @@ const handleLanguage: Handle = async ({ event, resolve }) => {
  * Handle auth redirects with language-aware paths
  */
 const authFirstPattern: Handle = async ({ event, resolve }) => {
-	const isAuthenticated = !!event.locals.token;
+	const authenticated = isAuthenticated(event.request);
 	const pathname = event.url.pathname;
 	const redirectToParam = event.url.searchParams.get('redirectTo');
 
@@ -77,17 +85,17 @@ const authFirstPattern: Handle = async ({ event, resolve }) => {
 	const langMatch = pathname.match(/^\/([a-z]{2})\//);
 	const lang = langMatch ? langMatch[1] : DEFAULT_LANGUAGE;
 
-	if (isSignInPage(pathname) && isAuthenticated) {
+	if (isSignInPage(pathname) && authenticated) {
 		const destination = redirectToParam || `/${lang}/app`;
 		redirect(307, destination);
 	}
-	if (isProtectedRoute(pathname) && !isAuthenticated) {
+	if (isProtectedRoute(pathname) && !authenticated) {
 		const destination = `/${lang}/signin?redirectTo=${encodeURIComponent(event.url.pathname + event.url.search)}`;
 		redirect(307, destination);
 	}
 
 	// Admin routes require authentication (role check happens in layout.server.ts)
-	if (isAdminRoute(pathname) && !isAuthenticated) {
+	if (isAdminRoute(pathname) && !authenticated) {
 		const destination = `/${lang}/signin?redirectTo=${encodeURIComponent(event.url.pathname + event.url.search)}`;
 		redirect(307, destination);
 	}
