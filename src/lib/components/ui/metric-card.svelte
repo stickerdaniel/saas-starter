@@ -5,7 +5,12 @@
 	import * as Card from '$lib/components/ui/card/index.js';
 	import { cn } from '$lib/utils.js';
 	import type { Component } from 'svelte';
-	import { fly } from 'svelte/transition';
+	import { Motion } from 'svelte-motion';
+
+	const blurFadeVariants = {
+		hidden: { opacity: 0, y: 6, filter: 'blur(6px)' },
+		visible: { opacity: 1, y: 0, filter: 'blur(0px)' }
+	};
 
 	interface Props {
 		label: string;
@@ -58,9 +63,17 @@
 				<span class="invisible">{value}</span>
 				<!-- Animated value positioned on top -->
 				{#if !loading}
-					<span in:fly={{ y: 20, duration: 300 }} class="absolute inset-0">
-						{value}
-					</span>
+					<Motion
+						variants={blurFadeVariants}
+						initial="hidden"
+						animate="visible"
+						transition={{ duration: 0.4, delay: 0.04, ease: 'easeOut' }}
+						let:motion
+					>
+						<span use:motion class="absolute inset-0">
+							{value}
+						</span>
+					</Motion>
 				{/if}
 			</span>
 		</Card.Title>
