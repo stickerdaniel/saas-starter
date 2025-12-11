@@ -6,30 +6,35 @@ import { type DataModel } from './_generated/dataModel';
 import { query } from './_generated/server';
 import { betterAuth } from 'better-auth';
 import { passkey } from 'better-auth/plugins/passkey';
+import { admin } from 'better-auth/plugins/admin';
+import authSchema from './betterAuth/schema';
 
 // The component client has methods needed for integrating Convex with Better Auth,
 // as well as helper methods for general use.
-export const authComponent = createClient<DataModel>(components.betterAuth);
+// Using local schema to include admin plugin fields (role, banned, etc.)
+export const authComponent = createClient<DataModel, typeof authSchema>(components.betterAuth, {
+	local: {
+		schema: authSchema
+	}
+});
 
 const LOCAL_SITE_URL = 'http://localhost:5173';
 
-export const createAuth = (ctx: GenericCtx<DataModel>) => {
+export const createAuth = (
+	ctx: GenericCtx<DataModel>,
+	{ optionsOnly } = { optionsOnly: false }
+) => {
 	const siteUrl = process.env.SITE_URL ?? process.env.PUBLIC_SITE_URL ?? LOCAL_SITE_URL;
-
-	if (!process.env.SITE_URL) {
-		if (process.env.NODE_ENV === 'production') {
-			throw new Error(
-				'SITE_URL environment variable is required.\n' +
-					'- Convex: bunx convex env set SITE_URL https://yoursite.com\n' +
-					'- Vercel: vercel env add SITE_URL production'
-			);
-		}
-
-		console.warn(`SITE_URL not set; falling back to ${siteUrl}`);
-	}
+	const secret = process.env.BETTER_AUTH_SECRET;
 
 	return betterAuth({
+		// Disable logging when called just to generate options (e.g., by createApi)
+		// This prevents "default secret" warnings flooding the logs
+		logger: {
+			disabled: optionsOnly
+		},
 		baseURL: siteUrl,
+		secret,
 		database: authComponent.adapter(ctx),
 		emailAndPassword: {
 			enabled: true,
@@ -80,7 +85,11 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
 		plugins: [
 			// The Convex plugin is required for Convex compatibility
 			convex(),
-			passkey()
+			passkey(),
+			admin({
+				defaultRole: 'user',
+				adminRoles: ['admin']
+			})
 		]
 	});
 };

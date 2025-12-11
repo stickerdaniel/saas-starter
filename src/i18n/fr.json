@@ -1,11 +1,70 @@
 {
+	"admin": {
+		"sidebar": {
+			"dashboard": "Tableau de bord",
+			"users": "Utilisateurs",
+			"back_to_app": "Retour à l'App"
+		},
+		"dashboard": {
+			"title": "Tableau de bord Admin",
+			"external_services": "Services Externes",
+			"email_service": "Service d'envoi d'e-mails",
+			"database_backend": "Base de données & backend",
+			"hosting_deployment": "Hébergement & déploiement"
+		},
+		"metrics": {
+			"total_users": "Utilisateurs Totaux",
+			"total_users_desc": "Tous les comptes enregistrés",
+			"registered_users": "Base d'utilisateurs",
+			"admins": "Admins",
+			"admins_desc": "Utilisateurs avec privilèges admin",
+			"admin_users": "Gestion de la plateforme",
+			"active_sessions": "Sessions Actives",
+			"active_sessions_desc": "Utilisateurs connectés",
+			"currently_active": "Activité en temps réel",
+			"recent_signups": "Inscriptions Récentes",
+			"recent_signups_desc": "Croissance des utilisateurs",
+			"last_7_days": "7 derniers jours",
+			"banned_users": "Utilisateurs Bannis",
+			"banned_users_desc": "Accès restreint",
+			"users_banned": "Comptes à vérifier"
+		},
+		"users": {
+			"title": "Gestion des Utilisateurs",
+			"total": "utilisateurs",
+			"name": "Nom",
+			"email": "E-mail",
+			"role": "Rôle",
+			"status": "Statut",
+			"created": "Créé",
+			"loading": "Chargement des utilisateurs...",
+			"banned": "Banni",
+			"verified": "Vérifié",
+			"unverified": "Non vérifié"
+		},
+		"actions": {
+			"impersonate": "Usurper",
+			"ban": "Bannir l'Utilisateur",
+			"unban": "Débannir l'Utilisateur",
+			"revoke_sessions": "Révoquer les Sessions"
+		},
+		"dialog": {
+			"ban_title": "Bannir l'Utilisateur",
+			"ban_description": "Êtes-vous sûr de vouloir bannir {email} ? L'accès à l'app sera bloqué.",
+			"unban_title": "Débannir l'Utilisateur",
+			"unban_description": "Êtes-vous sûr de vouloir débannir {email} ? L'accès à l'app sera rétabli.",
+			"revoke_title": "Révoquer les Sessions",
+			"revoke_description": "Êtes-vous sûr de vouloir révoquer toutes les sessions de {email} ? La déconnexion sera effectuée partout."
+		}
+	},
 	"app": {
 		"name": "SaaS Starter",
 		"sidebar": {
 			"community_chat": "Chat communautaire",
 			"dashboard": "Tableau de bord",
 			"docs": "Documentation",
-			"home": "Accueil"
+			"home": "Accueil",
+			"admin_panel": "Panneau Admin"
 		},
 		"user_menu": {
 			"account": "Compte",
@@ -13,7 +72,9 @@
 			"logout": "Se déconnecter",
 			"notifications": "Notifications",
 			"settings": "Paramètres",
-			"upgrade_pro": "Passer à Pro"
+			"upgrade_pro": "Passer à Pro",
+			"stop_impersonating": "Arrêter l'usurpation",
+			"impersonating_banner": "Vous usurpez l'identité de cet utilisateur"
 		}
 	},
 	"auth": {
@@ -348,6 +409,10 @@
 			}
 		},
 		"title": "Tarification qui Évolue Avec Vous"
+	},
+	"common": {
+		"cancel": "Annuler",
+		"confirm": "Confirmer"
 	},
 	"team": {
 		"description": "Pendant le processus de travail, nous effectuons des ajustements réguliers avec le client car il est la seule personne qui peut sentir si un nouveau costume lui va bien ou non.",

@@ -1,0 +1,198 @@
+import { mutation, internalMutation, type MutationCtx } from '../_generated/server';
+import { components } from '../_generated/api';
+import { authComponent } from '../auth';
+import { v } from 'convex/values';
+
+// Better Auth user type (managed by the component with admin plugin fields)
+interface BetterAuthUser {
+	_id: string;
+	name?: string;
+	email: string;
+	emailVerified?: boolean;
+	image?: string;
+	role?: string | null;
+	banned?: boolean | null;
+	banReason?: string | null;
+	banExpires?: number | null;
+	createdAt?: number;
+	updatedAt?: number;
+}
+
+/**
+ * Helper to verify admin access
+ */
+async function requireAdmin(ctx: MutationCtx) {
+	const user = (await authComponent.getAuthUser(ctx)) as BetterAuthUser | null;
+	if (!user || user.role !== 'admin') {
+		throw new Error('Unauthorized: Admin access required');
+	}
+	return user;
+}
+
+/**
+ * Helper to fetch all users from the BetterAuth component
+ */
+async function fetchAllUsers(ctx: MutationCtx): Promise<BetterAuthUser[]> {
+	const result = await ctx.runQuery(components.betterAuth.adapter.findMany, {
+		model: 'user',
+		paginationOpts: { cursor: null, numItems: 1000 }
+	});
+	return result.page as BetterAuthUser[];
+}
+
+/**
+ * Helper to find a user by email from the BetterAuth component
+ */
+async function findUserByEmail(ctx: MutationCtx, email: string): Promise<BetterAuthUser | null> {
+	const user = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+		model: 'user',
+		where: [{ field: 'email', operator: 'eq', value: email }]
+	});
+	return user as BetterAuthUser | null;
+}
+
+/**
+ * Helper to find a user by ID from the BetterAuth component
+ */
+async function findUserById(ctx: MutationCtx, userId: string): Promise<BetterAuthUser | null> {
+	const user = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+		model: 'user',
+		where: [{ field: '_id', operator: 'eq', value: userId }]
+	});
+	return user as BetterAuthUser | null;
+}
+
+/**
+ * Log an admin action for audit trail
+ * This is called from the client after BetterAuth admin actions
+ */
+export const logAdminAction = mutation({
+	args: {
+		action: v.union(
+			v.literal('impersonate'),
+			v.literal('stop_impersonation'),
+			v.literal('ban_user'),
+			v.literal('unban_user'),
+			v.literal('revoke_sessions'),
+			v.literal('set_role')
+		),
+		targetUserId: v.string(),
+		metadata: v.optional(v.any())
+	},
+	handler: async (ctx, args) => {
+		const admin = await requireAdmin(ctx);
+
+		await ctx.db.insert('adminAuditLogs', {
+			adminUserId: admin._id,
+			action: args.action,
+			targetUserId: args.targetUserId,
+			metadata: args.metadata,
+			timestamp: Date.now()
+		});
+	}
+});
+
+/**
+ * Internal mutation for logging admin actions (for server-side use)
+ */
+export const logAdminActionInternal = internalMutation({
+	args: {
+		adminUserId: v.string(),
+		action: v.union(
+			v.literal('impersonate'),
+			v.literal('stop_impersonation'),
+			v.literal('ban_user'),
+			v.literal('unban_user'),
+			v.literal('revoke_sessions'),
+			v.literal('set_role')
+		),
+		targetUserId: v.string(),
+		metadata: v.optional(v.any())
+	},
+	handler: async (ctx, args) => {
+		await ctx.db.insert('adminAuditLogs', {
+			adminUserId: args.adminUserId,
+			action: args.action,
+			targetUserId: args.targetUserId,
+			metadata: args.metadata,
+			timestamp: Date.now()
+		});
+	}
+});
+
+/**
+ * Set user role (for initial admin setup or role changes)
+ * Uses the local BetterAuth schema which includes admin plugin fields
+ */
+export const setUserRole = mutation({
+	args: {
+		userId: v.string(),
+		role: v.string()
+	},
+	handler: async (ctx, args) => {
+		const admin = await requireAdmin(ctx);
+
+		const user = await findUserById(ctx, args.userId);
+
+		if (!user) {
+			throw new Error('User not found');
+		}
+
+		// Update user role using the component adapter (now includes role field in schema)
+		await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+			input: {
+				model: 'user',
+				where: [{ field: '_id', operator: 'eq', value: args.userId }],
+				update: { role: args.role }
+			}
+		});
+
+		// Log the action
+		await ctx.db.insert('adminAuditLogs', {
+			adminUserId: admin._id,
+			action: 'set_role',
+			targetUserId: args.userId,
+			metadata: { newRole: args.role, previousRole: user.role ?? 'user' },
+			timestamp: Date.now()
+		});
+
+		return { success: true };
+	}
+});
+
+/**
+ * Seed first admin user (one-time setup)
+ * This should be called once to set up the first admin
+ */
+export const seedFirstAdmin = internalMutation({
+	args: {
+		email: v.string()
+	},
+	handler: async (ctx, args) => {
+		const user = await findUserByEmail(ctx, args.email);
+
+		if (!user) {
+			throw new Error(`User with email ${args.email} not found`);
+		}
+
+		// Check if there are already admins
+		const allUsers = await fetchAllUsers(ctx);
+		const existingAdmins = allUsers.filter((u) => u.role === 'admin');
+		if (existingAdmins.length > 0) {
+			console.log('Admin already exists, skipping seed');
+			return { success: false, message: 'Admin already exists' };
+		}
+
+		// Set user as admin using the component adapter (now includes role field in schema)
+		await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+			input: {
+				model: 'user',
+				where: [{ field: '_id', operator: 'eq', value: user._id }],
+				update: { role: 'admin' }
+			}
+		});
+
+		console.log(`User ${args.email} has been set as admin`);
+		return { success: true };
+	}
+});

@@ -13,6 +13,7 @@ if (env.SITE_URL) {
 // Route matchers
 const isSignInPage = (pathname: string) => /^\/[a-z]{2}\/signin$/.test(pathname);
 const isProtectedRoute = (pathname: string) => /^\/[a-z]{2}\/app(\/|$)/.test(pathname);
+const isAdminRoute = (pathname: string) => /^\/[a-z]{2}\/admin(\/|$)/.test(pathname);
 
 /**
  * Extract authentication token from cookies
@@ -81,6 +82,12 @@ const authFirstPattern: Handle = async ({ event, resolve }) => {
 		redirect(307, destination);
 	}
 	if (isProtectedRoute(pathname) && !isAuthenticated) {
+		const destination = `/${lang}/signin?redirectTo=${encodeURIComponent(event.url.pathname + event.url.search)}`;
+		redirect(307, destination);
+	}
+
+	// Admin routes require authentication (role check happens in layout.server.ts)
+	if (isAdminRoute(pathname) && !isAuthenticated) {
 		const destination = `/${lang}/signin?redirectTo=${encodeURIComponent(event.url.pathname + event.url.search)}`;
 		redirect(307, destination);
 	}

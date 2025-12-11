@@ -1,7 +1,7 @@
 <script lang="ts">
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
-	import AppSidebar from '$lib/components/app/app-sidebar.svelte';
-	import AppHeader from '$lib/components/app/app-header.svelte';
+	import AdminSidebar from '$lib/components/admin/admin-sidebar.svelte';
+	import AdminHeader from '$lib/components/admin/admin-header.svelte';
 	import type { LayoutData } from './$types';
 	import type { Snippet } from 'svelte';
 	import { ScrollArea } from '$lib/components/ui/scroll-area';
@@ -22,17 +22,17 @@
 		style="--sidebar-width: calc(var(--spacing) * 72); --header-height: calc(var(--spacing) * 12);"
 		class="h-svh overflow-hidden"
 	>
-		<AppSidebar
+		<AdminSidebar
 			variant="inset"
 			user={{
-				name: viewer.name ?? 'User',
+				name: viewer.name ?? 'Admin',
 				email: viewer.email ?? '',
 				image: viewer.image ?? undefined,
-				role: viewer.role ?? 'user'
+				role: viewer.role ?? 'admin'
 			}}
 		/>
 		<Sidebar.Inset>
-			<AppHeader />
+			<AdminHeader />
 			<ScrollArea class="overflow-hidden">
 				<div class="flex flex-1 flex-col">
 					<div class="@container/main flex flex-1 flex-col gap-2">

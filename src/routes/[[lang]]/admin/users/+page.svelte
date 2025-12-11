@@ -1,0 +1,318 @@
+<script lang="ts">
+	import * as Table from '$lib/components/ui/table/index.js';
+	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
+	import * as Dialog from '$lib/components/ui/dialog/index.js';
+	import { Button } from '$lib/components/ui/button/index.js';
+	import { Input } from '$lib/components/ui/input/index.js';
+	import { Badge } from '$lib/components/ui/badge/index.js';
+	import DotsVerticalIcon from '@tabler/icons-svelte/icons/dots-vertical';
+	import UserIcon from '@tabler/icons-svelte/icons/user';
+	import UserOffIcon from '@tabler/icons-svelte/icons/user-off';
+	import UserCheckIcon from '@tabler/icons-svelte/icons/user-check';
+	import LogoutIcon from '@tabler/icons-svelte/icons/logout';
+	import SearchIcon from '@tabler/icons-svelte/icons/search';
+	import { T } from '@tolgee/svelte';
+	import { useQuery, useConvexClient } from 'convex-svelte';
+	import { api } from '$lib/convex/_generated/api.js';
+	import { authClient } from '$lib/auth-client.js';
+	import { goto } from '$app/navigation';
+	import { localizedHref } from '$lib/utils/i18n';
+	import { toast } from 'svelte-sonner';
+	import type { PageData } from './$types';
+
+	let { data }: { data: PageData } = $props();
+
+	const client = useConvexClient();
+
+	let searchQuery = $state('');
+	let selectedUser = $state<any>(null);
+	let actionType = $state<'ban' | 'unban' | 'revoke' | null>(null);
+	let banReason = $state('');
+	let dialogOpen = $state(false);
+
+	// Fetch users with search - use a getter function to make search reactive
+	const users = useQuery(api.admin.queries.listUsers, () => ({ search: searchQuery || undefined }));
+
+	async function logAdminAction(
+		action:
+			| 'impersonate'
+			| 'stop_impersonation'
+			| 'ban_user'
+			| 'unban_user'
+			| 'revoke_sessions'
+			| 'set_role',
+		targetUserId: string,
+		metadata?: any
+	) {
+		await client.mutation(api.admin.mutations.logAdminAction, { action, targetUserId, metadata });
+	}
+
+	// Impersonate user
+	async function impersonateUser(userId: string) {
+		try {
+			const result = await authClient.admin.impersonateUser({ userId });
+			if (result.error) {
+				toast.error('Failed to impersonate user');
+				return;
+			}
+
+			// Log the action
+			await logAdminAction('impersonate', userId);
+
+			toast.success('Now impersonating user');
+			goto(localizedHref('/app'));
+		} catch (error) {
+			toast.error('Failed to impersonate user');
+		}
+	}
+
+	// Ban user
+	async function banUser() {
+		if (!selectedUser) return;
+
+		try {
+			const result = await authClient.admin.banUser({
+				userId: selectedUser.id,
+				banReason: banReason || 'Violated terms of service'
+			});
+
+			if (result.error) {
+				toast.error('Failed to ban user');
+				return;
+			}
+
+			// Log the action
+			await logAdminAction('ban_user', selectedUser.id, { reason: banReason });
+
+			toast.success('User has been banned');
+			closeDialog();
+		} catch (error) {
+			toast.error('Failed to ban user');
+		}
+	}
+
+	// Unban user
+	async function unbanUser() {
+		if (!selectedUser) return;
+
+		try {
+			const result = await authClient.admin.unbanUser({
+				userId: selectedUser.id
+			});
+
+			if (result.error) {
+				toast.error('Failed to unban user');
+				return;
+			}
+
+			// Log the action
+			await logAdminAction('unban_user', selectedUser.id);
+
+			toast.success('User has been unbanned');
+			closeDialog();
+		} catch (error) {
+			toast.error('Failed to unban user');
+		}
+	}
+
+	// Revoke sessions
+	async function revokeSessions() {
+		if (!selectedUser) return;
+
+		try {
+			const result = await authClient.admin.revokeUserSessions({
+				userId: selectedUser.id
+			});
+
+			if (result.error) {
+				toast.error('Failed to revoke sessions');
+				return;
+			}
+
+			// Log the action
+			await logAdminAction('revoke_sessions', selectedUser.id);
+
+			toast.success('All sessions have been revoked');
+			closeDialog();
+		} catch (error) {
+			toast.error('Failed to revoke sessions');
+		}
+	}
+
+	function openDialog(user: any, type: 'ban' | 'unban' | 'revoke') {
+		selectedUser = user;
+		actionType = type;
+		banReason = '';
+		dialogOpen = true;
+	}
+
+	function closeDialog() {
+		dialogOpen = false;
+		selectedUser = null;
+		actionType = null;
+		banReason = '';
+	}
+
+	function formatDate(timestamp: number | undefined) {
+		if (!timestamp) return '-';
+		return new Date(timestamp).toLocaleDateString();
+	}
+</script>
+
+<div class="flex flex-col gap-6 px-4 lg:px-6">
+	<div class="flex items-center justify-between">
+		<h1 class="text-2xl font-bold"><T keyName="admin.users.title" /></h1>
+		<div class="text-muted-foreground text-sm">
+			{users.data?.totalCount ?? 0}
+			<T keyName="admin.users.total" />
+		</div>
+	</div>
+
+	<!-- Search -->
+	<div class="relative max-w-sm">
+		<SearchIcon class="text-muted-foreground absolute left-3 top-1/2 size-4 -translate-y-1/2" />
+		<Input type="search" placeholder="Search users..." class="pl-10" bind:value={searchQuery} />
+	</div>
+
+	<!-- Users Table -->
+	<div class="rounded-md border">
+		<Table.Root>
+			<Table.Header>
+				<Table.Row>
+					<Table.Head><T keyName="admin.users.name" /></Table.Head>
+					<Table.Head><T keyName="admin.users.email" /></Table.Head>
+					<Table.Head><T keyName="admin.users.role" /></Table.Head>
+					<Table.Head><T keyName="admin.users.status" /></Table.Head>
+					<Table.Head><T keyName="admin.users.created" /></Table.Head>
+					<Table.Head class="w-[70px]"></Table.Head>
+				</Table.Row>
+			</Table.Header>
+			<Table.Body>
+				{#if users.data?.users}
+					{#each users.data.users as user}
+						<Table.Row>
+							<Table.Cell class="font-medium">
+								<div class="flex items-center gap-2">
+									{#if user.image}
+										<img src={user.image} alt={user.name} class="size-8 rounded-full" />
+									{:else}
+										<div class="bg-muted flex size-8 items-center justify-center rounded-full">
+											<UserIcon class="size-4" />
+										</div>
+									{/if}
+									{user.name || 'Unnamed'}
+								</div>
+							</Table.Cell>
+							<Table.Cell>{user.email}</Table.Cell>
+							<Table.Cell>
+								<Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
+									{user.role}
+								</Badge>
+							</Table.Cell>
+							<Table.Cell>
+								{#if user.banned}
+									<Badge variant="destructive">
+										<T keyName="admin.users.banned" />
+									</Badge>
+								{:else if user.emailVerified}
+									<Badge variant="outline" class="text-green-600 border-green-600">
+										<T keyName="admin.users.verified" />
+									</Badge>
+								{:else}
+									<Badge variant="outline">
+										<T keyName="admin.users.unverified" />
+									</Badge>
+								{/if}
+							</Table.Cell>
+							<Table.Cell>{formatDate(user.createdAt)}</Table.Cell>
+							<Table.Cell>
+								<DropdownMenu.Root>
+									<DropdownMenu.Trigger>
+										{#snippet child({ props })}
+											<Button variant="ghost" size="icon" {...props}>
+												<DotsVerticalIcon class="size-4" />
+											</Button>
+										{/snippet}
+									</DropdownMenu.Trigger>
+									<DropdownMenu.Content align="end">
+										<DropdownMenu.Item onclick={() => impersonateUser(user.id)}>
+											<UserCheckIcon class="mr-2 size-4" />
+											<T keyName="admin.actions.impersonate" />
+										</DropdownMenu.Item>
+										<DropdownMenu.Separator />
+										{#if user.banned}
+											<DropdownMenu.Item onclick={() => openDialog(user, 'unban')}>
+												<UserCheckIcon class="mr-2 size-4" />
+												<T keyName="admin.actions.unban" />
+											</DropdownMenu.Item>
+										{:else}
+											<DropdownMenu.Item
+												onclick={() => openDialog(user, 'ban')}
+												class="text-destructive"
+											>
+												<UserOffIcon class="mr-2 size-4" />
+												<T keyName="admin.actions.ban" />
+											</DropdownMenu.Item>
+										{/if}
+										<DropdownMenu.Item onclick={() => openDialog(user, 'revoke')}>
+											<LogoutIcon class="mr-2 size-4" />
+											<T keyName="admin.actions.revoke_sessions" />
+										</DropdownMenu.Item>
+									</DropdownMenu.Content>
+								</DropdownMenu.Root>
+							</Table.Cell>
+						</Table.Row>
+					{/each}
+				{:else}
+					<Table.Row>
+						<Table.Cell colspan={6} class="text-muted-foreground text-center py-8">
+							<T keyName="admin.users.loading" />
+						</Table.Cell>
+					</Table.Row>
+				{/if}
+			</Table.Body>
+		</Table.Root>
+	</div>
+</div>
+
+<!-- Action Confirmation Dialog -->
+<Dialog.Root bind:open={dialogOpen}>
+	<Dialog.Content>
+		<Dialog.Header>
+			<Dialog.Title>
+				{#if actionType === 'ban'}
+					<T keyName="admin.dialog.ban_title" />
+				{:else if actionType === 'unban'}
+					<T keyName="admin.dialog.unban_title" />
+				{:else if actionType === 'revoke'}
+					<T keyName="admin.dialog.revoke_title" />
+				{/if}
+			</Dialog.Title>
+			<Dialog.Description>
+				{#if actionType === 'ban'}
+					<T keyName="admin.dialog.ban_description" params={{ email: selectedUser?.email }} />
+					<div class="mt-4">
+						<Input placeholder="Ban reason (optional)" bind:value={banReason} />
+					</div>
+				{:else if actionType === 'unban'}
+					<T keyName="admin.dialog.unban_description" params={{ email: selectedUser?.email }} />
+				{:else if actionType === 'revoke'}
+					<T keyName="admin.dialog.revoke_description" params={{ email: selectedUser?.email }} />
+				{/if}
+			</Dialog.Description>
+		</Dialog.Header>
+		<Dialog.Footer>
+			<Button variant="outline" onclick={closeDialog}><T keyName="common.cancel" /></Button>
+			<Button
+				onclick={() => {
+					if (actionType === 'ban') banUser();
+					else if (actionType === 'unban') unbanUser();
+					else if (actionType === 'revoke') revokeSessions();
+				}}
+				variant={actionType === 'ban' ? 'destructive' : 'default'}
+			>
+				<T keyName="common.confirm" />
+			</Button>
+		</Dialog.Footer>
+	</Dialog.Content>
+</Dialog.Root>

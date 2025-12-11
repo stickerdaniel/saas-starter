@@ -11,10 +11,17 @@
 	import LogOutIcon from '@lucide/svelte/icons/log-out';
 	import SparklesIcon from '@lucide/svelte/icons/sparkles';
 	import SettingsIcon from '@lucide/svelte/icons/settings';
+	import UserXIcon from '@lucide/svelte/icons/user-x';
 	import { T } from '@tolgee/svelte';
 	import { localizedHref } from '$lib/utils/i18n';
+	import { toast } from 'svelte-sonner';
 
-	let { user }: { user: { name: string; email: string; avatar: string } } = $props();
+	interface Props {
+		user: { name: string; email: string; avatar: string };
+		isImpersonating?: boolean;
+	}
+
+	let { user, isImpersonating = false }: Props = $props();
 	const sidebar = useSidebar();
 
 	async function signOut() {
@@ -25,8 +32,29 @@
 			await goto(localizedHref('/'));
 		}
 	}
+
+	async function stopImpersonating() {
+		try {
+			const result = await authClient.admin.stopImpersonating();
+			if (result.error) {
+				toast.error('Failed to stop impersonation');
+				return;
+			}
+			toast.success('Stopped impersonating');
+			goto(localizedHref('/admin/users'));
+		} catch (error) {
+			toast.error('Failed to stop impersonation');
+		}
+	}
 </script>
 
+{#if isImpersonating}
+	<div
+		class="bg-warning/10 text-warning border-warning/20 mb-2 rounded-md border px-3 py-2 text-xs font-medium"
+	>
+		<T keyName="app.user_menu.impersonating_banner" />
+	</div>
+{/if}
 <Sidebar.Menu>
 	<Sidebar.MenuItem>
 		<DropdownMenu.Root>
@@ -34,7 +62,9 @@
 				{#snippet child({ props })}
 					<Sidebar.MenuButton
 						size="lg"
-						class="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+						class="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground {isImpersonating
+							? 'ring-warning ring-2'
+							: ''}"
 						{...props}
 					>
 						<Avatar.Root class="size-8 rounded-lg">
@@ -91,6 +121,13 @@
 						<T keyName="app.user_menu.notifications" />
 					</DropdownMenu.Item>
 				</DropdownMenu.Group>
+				{#if isImpersonating}
+					<DropdownMenu.Separator />
+					<DropdownMenu.Item onclick={() => stopImpersonating()} class="text-warning">
+						<UserXIcon />
+						<T keyName="app.user_menu.stop_impersonating" />
+					</DropdownMenu.Item>
+				{/if}
 				<DropdownMenu.Separator />
 				<DropdownMenu.Item onclick={() => signOut()} data-testid="logout-button">
 					<LogOutIcon />

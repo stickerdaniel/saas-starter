@@ -1,11 +1,70 @@
 {
+	"admin": {
+		"sidebar": {
+			"dashboard": "Dashboard",
+			"users": "Benutzer",
+			"back_to_app": "Zurück zur App"
+		},
+		"dashboard": {
+			"title": "Admin Dashboard",
+			"external_services": "Externe Dienste",
+			"email_service": "E-Mail-Zustelldienst",
+			"database_backend": "Datenbank & Backend",
+			"hosting_deployment": "Hosting & Deployment"
+		},
+		"metrics": {
+			"total_users": "Benutzer gesamt",
+			"total_users_desc": "Alle registrierten Konten",
+			"registered_users": "Plattform-Nutzerbasis",
+			"admins": "Admins",
+			"admins_desc": "Benutzer mit Admin-Rechten",
+			"admin_users": "Plattformverwaltung",
+			"active_sessions": "Aktive Sitzungen",
+			"active_sessions_desc": "Derzeit online",
+			"currently_active": "Echtzeit-Aktivität",
+			"recent_signups": "Neuanmeldungen",
+			"recent_signups_desc": "Neue Benutzer",
+			"last_7_days": "Letzte 7 Tage",
+			"banned_users": "Gesperrte Benutzer",
+			"banned_users_desc": "Zugriff eingeschränkt",
+			"users_banned": "Konten zur Überprüfung"
+		},
+		"users": {
+			"title": "Benutzerverwaltung",
+			"total": "Benutzer",
+			"name": "Name",
+			"email": "E-Mail",
+			"role": "Rolle",
+			"status": "Status",
+			"created": "Erstellt",
+			"loading": "Benutzer werden geladen...",
+			"banned": "Gesperrt",
+			"verified": "Verifiziert",
+			"unverified": "Nicht verifiziert"
+		},
+		"actions": {
+			"impersonate": "Identität annehmen",
+			"ban": "Benutzer sperren",
+			"unban": "Sperre aufheben",
+			"revoke_sessions": "Sitzungen widerrufen"
+		},
+		"dialog": {
+			"ban_title": "Benutzer sperren",
+			"ban_description": "Möchten Sie {email} wirklich sperren? Der Zugriff auf die App wird blockiert.",
+			"unban_title": "Sperre aufheben",
+			"unban_description": "Möchten Sie die Sperre für {email} wirklich aufheben? Der Zugriff wird wiederhergestellt.",
+			"revoke_title": "Sitzungen widerrufen",
+			"revoke_description": "Möchten Sie wirklich alle Sitzungen für {email} widerrufen? Die Person wird überall abgemeldet."
+		}
+	},
 	"app": {
 		"name": "SaaS Starter",
 		"sidebar": {
 			"community_chat": "Community-Chat",
 			"dashboard": "Dashboard",
 			"docs": "Dokumentation",
-			"home": "Start"
+			"home": "Start",
+			"admin_panel": "Admin-Bereich"
 		},
 		"user_menu": {
 			"account": "Konto",
@@ -13,7 +72,9 @@
 			"logout": "Abmelden",
 			"notifications": "Benachrichtigungen",
 			"settings": "Einstellungen",
-			"upgrade_pro": "Auf Pro upgraden"
+			"upgrade_pro": "Auf Pro upgraden",
+			"stop_impersonating": "Identitätswechsel beenden",
+			"impersonating_banner": "Sie agieren als dieser Benutzer"
 		}
 	},
 	"auth": {
@@ -348,6 +409,10 @@
 			}
 		},
 		"title": "Preise, die mit Ihnen wachsen"
+	},
+	"common": {
+		"cancel": "Abbrechen",
+		"confirm": "Bestätigen"
 	},
 	"team": {
 		"description": "Während des Arbeitsprozesses führen wir regelmäßige Anpassungen mit dem Kunden durch, denn er ist die einzige Person, die spüren kann, ob ein neuer Anzug passt oder nicht.",
