@@ -6,8 +6,6 @@ env:
   # Use TEST_CONVEX_URL for CI tests - keeps production clean
   PUBLIC_CONVEX_URL: ${{ secrets.TEST_CONVEX_URL }}
   PUBLIC_CONVEX_SITE_URL: ${{ secrets.TEST_CONVEX_SITE_URL }}
-  # Site URL for cookie name generation (must match Convex test deployment)
-  SITE_URL: http://localhost:5173
   # E2E Test User Credentials
   TEST_USER_EMAIL: ${{ secrets.TEST_USER_EMAIL }}
   TEST_USER_PASSWORD: ${{ secrets.TEST_USER_PASSWORD }}

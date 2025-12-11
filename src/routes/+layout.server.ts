@@ -1,18 +1,16 @@
 import type { LayoutServerLoad } from './$types';
 import { api } from '$lib/convex/_generated/api';
-import { createAuth } from '$lib/convex/auth';
-import {
-	getAuthState,
-	createConvexHttpClient
-} from '@mmailaender/convex-better-auth-svelte/sveltekit';
+import { getSessionCookie } from 'better-auth/cookies';
+import { createConvexHttpClient } from '@mmailaender/convex-better-auth-svelte/sveltekit';
 import { createAutumnHandlers } from '@stickerdaniel/convex-autumn-svelte/sveltekit/server';
 
 export const load: LayoutServerLoad = async (event) => {
 	// Enables targeted invalidation via invalidate('autumn:customer') to refetch only customer data
 	event.depends('autumn:customer');
 
-	const authState = await getAuthState(createAuth, event.cookies);
-	const isAuthenticated = authState.isAuthenticated;
+	// Lightweight auth check - no createAuth instantiation needed
+	const isAuthenticated = !!getSessionCookie(event.request);
+	const authState = { isAuthenticated };
 
 	const client = createConvexHttpClient({ token: event.locals.token });
 
