@@ -162,7 +162,7 @@
 <div class="flex flex-col gap-6 px-4 lg:px-6">
 	<div class="flex items-center justify-between">
 		<h1 class="text-2xl font-bold"><T keyName="admin.users.title" /></h1>
-		<div class="text-muted-foreground text-sm">
+		<div class="text-sm text-muted-foreground">
 			{users.data?.totalCount ?? 0}
 			<T keyName="admin.users.total" />
 		</div>
@@ -170,7 +170,7 @@
 
 	<!-- Search -->
 	<div class="relative max-w-sm">
-		<SearchIcon class="text-muted-foreground absolute left-3 top-1/2 size-4 -translate-y-1/2" />
+		<SearchIcon class="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
 		<Input type="search" placeholder="Search users..." class="pl-10" bind:value={searchQuery} />
 	</div>
 
@@ -196,7 +196,7 @@
 									{#if user.image}
 										<img src={user.image} alt={user.name} class="size-8 rounded-full" />
 									{:else}
-										<div class="bg-muted flex size-8 items-center justify-center rounded-full">
+										<div class="flex size-8 items-center justify-center rounded-full bg-muted">
 											<UserIcon class="size-4" />
 										</div>
 									{/if}
@@ -215,7 +215,7 @@
 										<T keyName="admin.users.banned" />
 									</Badge>
 								{:else if user.emailVerified}
-									<Badge variant="outline" class="text-green-600 border-green-600">
+									<Badge variant="outline" class="border-green-600 text-green-600">
 										<T keyName="admin.users.verified" />
 									</Badge>
 								{:else}
@@ -265,7 +265,7 @@
 					{/each}
 				{:else}
 					<Table.Row>
-						<Table.Cell colspan={6} class="text-muted-foreground text-center py-8">
+						<Table.Cell colspan={6} class="py-8 text-center text-muted-foreground">
 							<T keyName="admin.users.loading" />
 						</Table.Cell>
 					</Table.Row>

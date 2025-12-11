@@ -92,7 +92,7 @@
 		"layerchart": "2.0.0-next.27",
 		"prettier": "^3.6.2",
 		"prettier-plugin-svelte": "^3.4.0",
-		"prettier-plugin-tailwindcss": "^0.6.14",
+		"prettier-plugin-tailwindcss": "^0.7.2",
 		"svelte": "^5.39.11",
 		"svelte-check": "^4.3.3",
 		"svelte-sonner": "^1.0.5",

@@ -170,7 +170,7 @@
 					{#snippet children({ props })}
 						<div class="flex items-center space-x-2">
 							<Checkbox {...props} bind:checked={$formData.revokeOtherSessions} />
-							<Form.Label class="text-sm font-normal leading-none">
+							<Form.Label class="text-sm leading-none font-normal">
 								<T keyName="settings.password.revoke_sessions_label" />
 							</Form.Label>
 						</div>
