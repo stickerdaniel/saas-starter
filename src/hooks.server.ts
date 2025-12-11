@@ -1,12 +1,6 @@
 import { sequence } from '@sveltejs/kit/hooks';
 import { redirect, type Handle, type Cookies } from '@sveltejs/kit';
-import { getSessionCookie } from 'better-auth/cookies';
 import { isSupportedLanguage, DEFAULT_LANGUAGE } from '$lib/i18n/languages';
-
-/**
- * Check if user is authenticated (lightweight - just checks session cookie presence)
- */
-const isAuthenticated = (request: Request) => !!getSessionCookie(request);
 
 /**
  * Get JWT token directly from cookies (no createAuth needed)
@@ -77,7 +71,7 @@ const handleLanguage: Handle = async ({ event, resolve }) => {
  * Handle auth redirects with language-aware paths
  */
 const authFirstPattern: Handle = async ({ event, resolve }) => {
-	const authenticated = isAuthenticated(event.request);
+	const authenticated = !!event.locals.token;
 	const pathname = event.url.pathname;
 	const redirectToParam = event.url.searchParams.get('redirectTo');
 
