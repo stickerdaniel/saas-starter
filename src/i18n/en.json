@@ -1,11 +1,70 @@
 {
+	"admin": {
+		"title": "Admin Panel",
+		"sidebar": {
+			"dashboard": "Dashboard",
+			"users": "Users",
+			"back_to_app": "Back to App"
+		},
+		"dashboard": {
+			"external_services": "External Services",
+			"email_service": "Email delivery service",
+			"database_backend": "Database & backend",
+			"hosting_deployment": "Hosting & deployment"
+		},
+		"metrics": {
+			"total_users": "Total Users",
+			"total_users_desc": "All registered accounts",
+			"registered_users": "Platform user base",
+			"admins": "Admins",
+			"admins_desc": "Users with admin privileges",
+			"admin_users": "Managing the platform",
+			"active_sessions": "Active Sessions",
+			"active_sessions_desc": "Users currently online",
+			"currently_active": "Real-time activity",
+			"recent_signups": "Recent Signups",
+			"recent_signups_desc": "New user growth",
+			"last_7_days": "Last 7 days",
+			"banned_users": "Banned Users",
+			"banned_users_desc": "Access restricted",
+			"users_banned": "Accounts need review"
+		},
+		"users": {
+			"title": "User Management",
+			"total": "users",
+			"name": "Name",
+			"email": "Email",
+			"role": "Role",
+			"status": "Status",
+			"created": "Created",
+			"loading": "Loading users...",
+			"banned": "Banned",
+			"verified": "Verified",
+			"unverified": "Unverified"
+		},
+		"actions": {
+			"impersonate": "Impersonate",
+			"ban": "Ban User",
+			"unban": "Unban User",
+			"revoke_sessions": "Revoke Sessions"
+		},
+		"dialog": {
+			"ban_title": "Ban User",
+			"ban_description": "Are you sure you want to ban {email}? They will be unable to access the app.",
+			"unban_title": "Unban User",
+			"unban_description": "Are you sure you want to unban {email}? They will regain access to the app.",
+			"revoke_title": "Revoke Sessions",
+			"revoke_description": "Are you sure you want to revoke all sessions for {email}? They will be logged out everywhere."
+		}
+	},
 	"app": {
 		"name": "SaaS Starter",
 		"sidebar": {
 			"community_chat": "Community Chat",
 			"dashboard": "Dashboard",
 			"docs": "Docs",
-			"home": "Home"
+			"home": "Home",
+			"admin_panel": "Admin Panel"
 		},
 		"user_menu": {
 			"account": "Account",
@@ -13,8 +72,14 @@
 			"logout": "Log out",
 			"notifications": "Notifications",
 			"settings": "Settings",
-			"upgrade_pro": "Upgrade to Pro"
+			"upgrade_pro": "Upgrade to Pro",
+			"stop_impersonating": "Stop Impersonating",
+			"impersonating_banner": "You are impersonating this user"
 		}
+	},
+	"common": {
+		"cancel": "Cancel",
+		"confirm": "Confirm"
 	},
 	"auth": {
 		"errors": {

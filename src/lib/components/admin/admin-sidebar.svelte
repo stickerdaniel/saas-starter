@@ -1,14 +1,14 @@
 <script lang="ts">
-	import MessageCircleIcon from '@tabler/icons-svelte/icons/message-circle';
-	import BookIcon from '@tabler/icons-svelte/icons/book';
-	import HomeIcon from '@tabler/icons-svelte/icons/home';
-	import InnerShadowTopIcon from '@tabler/icons-svelte/icons/inner-shadow-top';
+	import UsersIcon from '@tabler/icons-svelte/icons/users';
+	import LayoutDashboardIcon from '@tabler/icons-svelte/icons/layout-dashboard';
+	import ArrowLeftIcon from '@tabler/icons-svelte/icons/arrow-left';
 	import ServerCogIcon from '@tabler/icons-svelte/icons/server-cog';
 	import NavUser from '../nav-user.svelte';
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import type { ComponentProps } from 'svelte';
 	import { localizedHref } from '$lib/utils/i18n';
 	import { T } from '@tolgee/svelte';
+	import { page } from '$app/state';
 
 	interface Props extends ComponentProps<typeof Sidebar.Root> {
 		user?: {
@@ -21,33 +21,18 @@
 
 	let { user, ...restProps }: Props = $props();
 
-	import { page } from '$app/state';
-	import ChartBarIcon from '@tabler/icons-svelte/icons/chart-bar';
-
 	const navItems = $derived([
 		{
-			translationKey: 'app.sidebar.dashboard',
-			url: localizedHref('/app/dashboard'),
-			icon: ChartBarIcon,
-			isActive: page.url.pathname === `/${page.params.lang}/app/dashboard`
+			translationKey: 'admin.sidebar.dashboard',
+			url: localizedHref('/admin/dashboard'),
+			icon: LayoutDashboardIcon,
+			isActive: page.url.pathname.startsWith(`/${page.params.lang}/admin/dashboard`)
 		},
 		{
-			translationKey: 'app.sidebar.community_chat',
-			url: localizedHref('/app/community-chat'),
-			icon: MessageCircleIcon,
-			isActive: page.url.pathname === `/${page.params.lang}/app/community-chat`
-		},
-		{
-			translationKey: 'app.sidebar.docs',
-			url: localizedHref('https://docs.convex.dev'),
-			icon: BookIcon,
-			isActive: false
-		},
-		{
-			translationKey: 'app.sidebar.home',
-			url: localizedHref('/'),
-			icon: HomeIcon,
-			isActive: false
+			translationKey: 'admin.sidebar.users',
+			url: localizedHref('/admin/users'),
+			icon: UsersIcon,
+			isActive: page.url.pathname.startsWith(`/${page.params.lang}/admin/users`)
 		}
 	]);
 </script>
@@ -58,9 +43,9 @@
 			<Sidebar.MenuItem>
 				<Sidebar.MenuButton class="data-[slot=sidebar-menu-button]:!p-1.5">
 					{#snippet child({ props })}
-						<a href={localizedHref('/')} {...props}>
-							<InnerShadowTopIcon class="!size-5" />
-							<span class="text-base font-semibold"><T keyName="app.name" /></span>
+						<a href={localizedHref('/admin')} {...props}>
+							<ServerCogIcon class="!size-5" />
+							<span class="text-base font-semibold"><T keyName="admin.title" /></span>
 						</a>
 					{/snippet}
 				</Sidebar.MenuButton>
@@ -91,23 +76,21 @@
 			</Sidebar.GroupContent>
 		</Sidebar.Group>
 	</Sidebar.Content>
-	{#if user}
-		<Sidebar.Footer>
-			{#if user.role === 'admin'}
-				<Sidebar.Menu>
-					<Sidebar.MenuItem>
-						<Sidebar.MenuButton>
-							{#snippet child({ props })}
-								<a href={localizedHref('/admin')} {...props}>
-									<ServerCogIcon />
-									<span><T keyName="app.sidebar.admin_panel" /></span>
-								</a>
-							{/snippet}
-						</Sidebar.MenuButton>
-					</Sidebar.MenuItem>
-				</Sidebar.Menu>
-			{/if}
+	<Sidebar.Footer>
+		<Sidebar.Menu>
+			<Sidebar.MenuItem>
+				<Sidebar.MenuButton>
+					{#snippet child({ props })}
+						<a href={localizedHref('/app')} {...props}>
+							<ArrowLeftIcon />
+							<span><T keyName="admin.sidebar.back_to_app" /></span>
+						</a>
+					{/snippet}
+				</Sidebar.MenuButton>
+			</Sidebar.MenuItem>
+		</Sidebar.Menu>
+		{#if user}
 			<NavUser user={{ name: user.name, email: user.email, avatar: user.image || '' }} />
-		</Sidebar.Footer>
-	{/if}
+		{/if}
+	</Sidebar.Footer>
 </Sidebar.Root>

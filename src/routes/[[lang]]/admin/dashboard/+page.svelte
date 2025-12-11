@@ -1,0 +1,135 @@
+<script lang="ts">
+	import { Button } from '$lib/components/ui/button/index.js';
+	import MetricCard from '$lib/components/ui/metric-card.svelte';
+	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
+	import UsersIcon from '@lucide/svelte/icons/users';
+	import ShieldCheckIcon from '@lucide/svelte/icons/shield-check';
+	import UserXIcon from '@lucide/svelte/icons/user-x';
+	import ActivityIcon from '@lucide/svelte/icons/activity';
+	import UserPlusIcon from '@lucide/svelte/icons/user-plus';
+	import { T, getTranslate } from '@tolgee/svelte';
+	import { useQuery } from 'convex-svelte';
+	import { api } from '$lib/convex/_generated/api.js';
+
+	const { t } = getTranslate();
+
+	// Fetch dashboard metrics
+	const metrics = useQuery(api.admin.queries.getDashboardMetrics, {});
+
+	// Derive loading state
+	let isLoading = $derived(!metrics.data);
+</script>
+
+<div class="flex flex-col gap-6">
+	<!-- Metrics Cards -->
+	<div
+		class="grid grid-cols-1 gap-4 px-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card *:data-[slot=card]:shadow-xs lg:px-6 @xl/main:grid-cols-2 @5xl/main:grid-cols-4 dark:*:data-[slot=card]:bg-card"
+	>
+		<MetricCard
+			label={$t('admin.metrics.total_users')}
+			value={metrics.data?.totalUsers ?? 0}
+			description={$t('admin.metrics.total_users_desc')}
+			subtitle={$t('admin.metrics.registered_users')}
+			icon={UsersIcon}
+			loading={isLoading}
+		/>
+
+		<MetricCard
+			label={$t('admin.metrics.admins')}
+			value={metrics.data?.adminCount ?? 0}
+			description={$t('admin.metrics.admins_desc')}
+			subtitle={$t('admin.metrics.admin_users')}
+			icon={ShieldCheckIcon}
+			loading={isLoading}
+		/>
+
+		<MetricCard
+			label={$t('admin.metrics.active_sessions')}
+			value={metrics.data?.activeSessions ?? 0}
+			description={$t('admin.metrics.active_sessions_desc')}
+			subtitle={$t('admin.metrics.currently_active')}
+			icon={ActivityIcon}
+			loading={isLoading}
+		/>
+
+		<MetricCard
+			label={$t('admin.metrics.recent_signups')}
+			value={metrics.data?.recentSignups ?? 0}
+			description={$t('admin.metrics.recent_signups_desc')}
+			subtitle={$t('admin.metrics.last_7_days')}
+			icon={UserPlusIcon}
+			loading={isLoading}
+		/>
+	</div>
+
+	<!-- Banned Users Info -->
+	{#if metrics.data?.bannedCount && metrics.data.bannedCount > 0}
+		<div class="px-4 lg:px-6">
+			<MetricCard
+				label={$t('admin.metrics.banned_users')}
+				value={metrics.data.bannedCount}
+				description={$t('admin.metrics.banned_users_desc')}
+				subtitle={$t('admin.metrics.users_banned')}
+				variant="destructive"
+				icon={UserXIcon}
+			/>
+		</div>
+	{/if}
+
+	<!-- External Service Links -->
+	<div class="flex flex-col gap-4 px-4 lg:px-6">
+		<h2 class="text-lg font-semibold"><T keyName="admin.dashboard.external_services" /></h2>
+		<div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+			<Button
+				variant="outline"
+				class="h-auto justify-start gap-3 p-4"
+				href="https://resend.com/overview"
+				target="_blank"
+			>
+				<div class="flex flex-col items-start gap-1">
+					<div class="flex items-center gap-2">
+						<span class="font-medium">Resend</span>
+						<ExternalLinkIcon class="size-3" />
+					</div>
+					<span class="text-muted-foreground text-xs"
+						><T keyName="admin.dashboard.email_service" /></span
+					>
+				</div>
+			</Button>
+
+			<Button
+				variant="outline"
+				class="h-auto justify-start gap-3 p-4"
+				href="https://dashboard.convex.dev"
+				target="_blank"
+			>
+				<div class="flex flex-col items-start gap-1">
+					<div class="flex items-center gap-2">
+						<span class="font-medium">Convex</span>
+						<ExternalLinkIcon class="size-3" />
+					</div>
+					<span class="text-muted-foreground text-xs"
+						><T keyName="admin.dashboard.database_backend" /></span
+					>
+				</div>
+			</Button>
+
+			<Button
+				variant="outline"
+				class="h-auto justify-start gap-3 p-4"
+				href="https://vercel.com/dashboard"
+				target="_blank"
+			>
+				<div class="flex flex-col items-start gap-1">
+					<div class="flex items-center gap-2">
+						<span class="font-medium">Vercel</span>
+						<ExternalLinkIcon class="size-3" />
+					</div>
+					<span class="text-muted-foreground text-xs"
+						><T keyName="admin.dashboard.hosting_deployment" /></span
+					>
+				</div>
+			</Button>
+		</div>
+	</div>
+</div>

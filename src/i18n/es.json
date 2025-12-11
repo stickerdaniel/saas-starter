@@ -1,11 +1,70 @@
 {
+	"admin": {
+		"sidebar": {
+			"dashboard": "Panel",
+			"users": "Usuarios",
+			"back_to_app": "Volver a la App"
+		},
+		"dashboard": {
+			"title": "Panel de Administración",
+			"external_services": "Servicios Externos",
+			"email_service": "Servicio de entrega de correo",
+			"database_backend": "Base de datos y backend",
+			"hosting_deployment": "Hosting y despliegue"
+		},
+		"metrics": {
+			"total_users": "Usuarios Totales",
+			"total_users_desc": "Todas las cuentas registradas",
+			"registered_users": "Base de usuarios",
+			"admins": "Admins",
+			"admins_desc": "Usuarios con privilegios de admin",
+			"admin_users": "Gestionando la plataforma",
+			"active_sessions": "Sesiones Activas",
+			"active_sessions_desc": "Usuarios conectados",
+			"currently_active": "Actividad en tiempo real",
+			"recent_signups": "Registros Recientes",
+			"recent_signups_desc": "Crecimiento de usuarios",
+			"last_7_days": "Últimos 7 días",
+			"banned_users": "Usuarios Bloqueados",
+			"banned_users_desc": "Acceso restringido",
+			"users_banned": "Cuentas pendientes de revisión"
+		},
+		"users": {
+			"title": "Gestión de Usuarios",
+			"total": "usuarios",
+			"name": "Nombre",
+			"email": "Correo",
+			"role": "Rol",
+			"status": "Estado",
+			"created": "Creado",
+			"loading": "Cargando usuarios...",
+			"banned": "Bloqueado",
+			"verified": "Verificado",
+			"unverified": "No verificado"
+		},
+		"actions": {
+			"impersonate": "Suplantar",
+			"ban": "Bloquear Usuario",
+			"unban": "Desbloquear Usuario",
+			"revoke_sessions": "Revocar Sesiones"
+		},
+		"dialog": {
+			"ban_title": "Bloquear Usuario",
+			"ban_description": "¿Estás seguro de que quieres bloquear a {email}? No podrá acceder a la app.",
+			"unban_title": "Desbloquear Usuario",
+			"unban_description": "¿Estás seguro de que quieres desbloquear a {email}? Recuperará el acceso a la app.",
+			"revoke_title": "Revocar Sesiones",
+			"revoke_description": "¿Estás seguro de que quieres revocar todas las sesiones de {email}? Se cerrará sesión en todos los dispositivos."
+		}
+	},
 	"app": {
 		"name": "SaaS Starter",
 		"sidebar": {
 			"community_chat": "Chat comunitario",
 			"dashboard": "Panel",
 			"docs": "Documentación",
-			"home": "Inicio"
+			"home": "Inicio",
+			"admin_panel": "Panel de Admin"
 		},
 		"user_menu": {
 			"account": "Cuenta",
@@ -13,7 +72,9 @@
 			"logout": "Cerrar sesión",
 			"notifications": "Notificaciones",
 			"settings": "Configuración",
-			"upgrade_pro": "Actualizar a Pro"
+			"upgrade_pro": "Actualizar a Pro",
+			"stop_impersonating": "Dejar de suplantar",
+			"impersonating_banner": "Estás suplantando a este usuario"
 		}
 	},
 	"auth": {
@@ -348,6 +409,10 @@
 			}
 		},
 		"title": "Precios que Escalan Contigo"
+	},
+	"common": {
+		"cancel": "Cancelar",
+		"confirm": "Confirmar"
 	},
 	"team": {
 		"description": "Durante el proceso de trabajo, realizamos ajustes regulares con el cliente porque él es la única persona que puede sentir si un traje nuevo le queda bien o no.",
