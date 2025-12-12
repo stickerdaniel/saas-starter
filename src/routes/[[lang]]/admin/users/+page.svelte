@@ -17,7 +17,10 @@
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { Label } from '$lib/components/ui/label/index.js';
+	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
+	import { Checkbox } from '$lib/components/ui/checkbox/index.js';
 	import SearchIcon from '@tabler/icons-svelte/icons/search';
+	import DotsVerticalIcon from '@tabler/icons-svelte/icons/dots-vertical';
 	import LayoutColumnsIcon from '@tabler/icons-svelte/icons/layout-columns';
 	import ChevronDownIcon from '@tabler/icons-svelte/icons/chevron-down';
 	import ChevronsLeftIcon from '@tabler/icons-svelte/icons/chevrons-left';
@@ -29,7 +32,7 @@
 	import { api } from '$lib/convex/_generated/api.js';
 	import { authClient } from '$lib/auth-client.js';
 	import { toast } from 'svelte-sonner';
-	import { setContext } from 'svelte';
+	import { setContext, getContext } from 'svelte';
 	import type { PageData } from './$types';
 	import { type UserRole, type AdminUserData } from '$lib/convex/admin/types';
 	import { createSvelteTable, FlexRender } from '$lib/components/ui/data-table/index.js';
@@ -67,6 +70,53 @@
 	// Provide context for action component
 	setContext('currentUserId', data.viewer?._id);
 	setContext('onUserAction', handleUserAction);
+
+	// Get user count context from admin layout
+	const userCountContext = getContext<{ get: () => number | null; set: (n: number) => void }>(
+		'adminUserCount'
+	);
+
+	// Calculate skeleton rows: min(knownCount, pageSize) or pageSize if unknown
+	const skeletonCount = $derived.by(() => {
+		const known = userCountContext?.get();
+		const pageSize = pagination.pageSize;
+		if (known !== null && known !== undefined && known < pageSize) {
+			return known;
+		}
+		return pageSize;
+	});
+
+	// Optimistic page count: use known user count when data is loading
+	const optimisticPageCount = $derived.by(() => {
+		// If we have real data, use the table's page count
+		if (users.data !== undefined) {
+			return table.getPageCount();
+		}
+		// Otherwise calculate from known user count
+		const known = userCountContext?.get();
+		if (known !== null && known !== undefined) {
+			return Math.ceil(known / pagination.pageSize);
+		}
+		// Fallback to 1 if nothing is known
+		return 1;
+	});
+
+	// Optimistic page row count for selection display (current page only)
+	const optimisticPageRows = $derived.by(() => {
+		// If we have real data, use the table's current page row count
+		if (users.data !== undefined) {
+			return table.getRowModel().rows.length;
+		}
+		// Otherwise use skeleton count (which is already min(known, pageSize))
+		return skeletonCount;
+	});
+
+	// Update user count context when users data loads
+	$effect(() => {
+		if (users.data?.totalCount !== undefined) {
+			userCountContext?.set(users.data.totalCount);
+		}
+	});
 
 	// Create the table
 	const table = createSvelteTable({
@@ -321,9 +371,11 @@
 	<!-- Header -->
 	<div class="flex items-center justify-between">
 		<h1 class="text-2xl font-bold"><T keyName="admin.users.title" /></h1>
-		<div class="text-sm text-muted-foreground">
-			{users.data?.totalCount ?? 0}
-			<T keyName="admin.users.total" />
+		<div class="flex items-center gap-4">
+			<div class="text-sm text-muted-foreground">
+				{users.data?.totalCount ?? 0}
+				<T keyName="admin.users.total" />
+			</div>
 		</div>
 	</div>
 
@@ -372,12 +424,15 @@
 
 	<!-- Data Table -->
 	<div class="rounded-md border">
-		<Table.Root>
+		<Table.Root class="table-fixed">
 			<Table.Header>
 				{#each table.getHeaderGroups() as headerGroup (headerGroup.id)}
 					<Table.Row>
 						{#each headerGroup.headers as header (header.id)}
-							<Table.Head class="[&:has([role=checkbox])]:ps-3">
+							<Table.Head
+								class="[&:has([role=checkbox])]:ps-3"
+								style="width: {header.getSize()}px; min-width: {header.column.columnDef.minSize}px;"
+							>
 								{#if !header.isPlaceholder}
 									<FlexRender
 										content={header.column.columnDef.header}
@@ -390,25 +445,68 @@
 				{/each}
 			</Table.Header>
 			<Table.Body>
-				{#each table.getRowModel().rows as row (row.id)}
-					<Table.Row data-state={row.getIsSelected() && 'selected'}>
-						{#each row.getVisibleCells() as cell (cell.id)}
+				{#if users.data === undefined}
+					<!-- Skeleton loading rows matching real row structure -->
+					{#each Array(skeletonCount) as _, i (i)}
+						<Table.Row>
+							<!-- Checkbox: real disabled component -->
 							<Table.Cell class="[&:has([role=checkbox])]:ps-3">
-								<FlexRender content={cell.column.columnDef.cell} context={cell.getContext()} />
+								<div class="flex items-center justify-center">
+									<Checkbox disabled aria-label="Select row" />
+								</div>
 							</Table.Cell>
-						{/each}
-					</Table.Row>
-				{:else}
+							<!-- Name: avatar (size-8 circle) + text -->
+							<Table.Cell>
+								<div class="flex items-center gap-2">
+									<Skeleton class="size-8 rounded-full" />
+									<span class="font-medium">
+										<Skeleton class="h-4 w-20" />
+									</span>
+								</div>
+							</Table.Cell>
+							<!-- Email: plain text -->
+							<Table.Cell>
+								<Skeleton class="h-4 w-48" />
+							</Table.Cell>
+							<!-- Role: badge with py-1 text-xs = h-5 -->
+							<Table.Cell>
+								<Skeleton class="h-5 w-12 rounded-md" />
+							</Table.Cell>
+							<!-- Status: badge (longest is "Unverified" ~65px) -->
+							<Table.Cell>
+								<Skeleton class="h-5 w-[65px] rounded-md" />
+							</Table.Cell>
+							<!-- Created: date string -->
+							<Table.Cell>
+								<Skeleton class="h-4 w-20" />
+							</Table.Cell>
+							<!-- Actions: real disabled button -->
+							<Table.Cell>
+								<Button variant="ghost" size="icon" disabled>
+									<DotsVerticalIcon class="size-4" />
+									<span class="sr-only">Open menu</span>
+								</Button>
+							</Table.Cell>
+						</Table.Row>
+					{/each}
+				{:else if table.getRowModel().rows.length === 0}
+					<!-- No results -->
 					<Table.Row>
 						<Table.Cell colspan={columns.length} class="h-24 text-center text-muted-foreground">
-							{#if users.data === undefined}
-								<T keyName="admin.users.loading" />
-							{:else}
-								No results.
-							{/if}
+							No results.
 						</Table.Cell>
 					</Table.Row>
-				{/each}
+				{:else}
+					{#each table.getRowModel().rows as row (row.id)}
+						<Table.Row data-state={row.getIsSelected() && 'selected'}>
+							{#each row.getVisibleCells() as cell (cell.id)}
+								<Table.Cell class="[&:has([role=checkbox])]:ps-3">
+									<FlexRender content={cell.column.columnDef.cell} context={cell.getContext()} />
+								</Table.Cell>
+							{/each}
+						</Table.Row>
+					{/each}
+				{/if}
 			</Table.Body>
 		</Table.Root>
 	</div>
@@ -417,7 +515,7 @@
 	<div class="flex items-center justify-between px-2">
 		<div class="hidden flex-1 text-sm text-muted-foreground lg:flex">
 			{table.getFilteredSelectedRowModel().rows.length} of
-			{table.getFilteredRowModel().rows.length} row(s) selected.
+			{optimisticPageRows} row(s) selected.
 		</div>
 		<div class="flex w-full items-center gap-8 lg:w-fit">
 			<!-- Rows per page -->
@@ -444,7 +542,7 @@
 			<!-- Page indicator -->
 			<div class="flex w-fit items-center justify-center text-sm font-medium">
 				Page {table.getState().pagination.pageIndex + 1} of
-				{table.getPageCount()}
+				{optimisticPageCount}
 			</div>
 
 			<!-- Pagination controls -->
