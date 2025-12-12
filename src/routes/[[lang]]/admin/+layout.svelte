@@ -4,6 +4,7 @@
 	import AdminHeader from '$lib/components/admin/admin-header.svelte';
 	import type { LayoutData } from './$types';
 	import type { Snippet } from 'svelte';
+	import { setContext } from 'svelte';
 	import { ScrollArea } from '$lib/components/ui/scroll-area';
 
 	interface Props {
@@ -15,6 +16,17 @@
 
 	// Cast viewer to include role field from BetterAuth admin plugin
 	const viewer = $derived(data.viewer as typeof data.viewer & { role?: string });
+
+	// Create reactive state for known user count (shared across admin pages)
+	let knownUserCount = $state<number | null>(null);
+
+	// Provide context with getter and setter for user count
+	setContext('adminUserCount', {
+		get: () => knownUserCount,
+		set: (count: number) => {
+			knownUserCount = count;
+		}
+	});
 </script>
 
 {#if viewer}

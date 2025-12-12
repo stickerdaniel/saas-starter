@@ -19,6 +19,9 @@ function getStatusSortValue(user: AdminUserData): number {
 export const columns: ColumnDef<AdminUserData>[] = [
 	{
 		id: 'select',
+		size: 40,
+		minSize: 40,
+		maxSize: 40,
 		header: ({ table }) =>
 			renderComponent(DataTableCheckbox, {
 				checked: table.getIsAllPageRowsSelected(),
@@ -38,6 +41,8 @@ export const columns: ColumnDef<AdminUserData>[] = [
 	{
 		accessorKey: 'name',
 		accessorFn: (row) => row.name ?? '',
+		size: 180,
+		minSize: 180,
 		header: ({ column }) =>
 			renderComponent(DataTableColumnHeader, {
 				column,
@@ -67,6 +72,8 @@ export const columns: ColumnDef<AdminUserData>[] = [
 	},
 	{
 		accessorKey: 'email',
+		size: 250,
+		minSize: 200,
 		header: ({ column }) =>
 			renderComponent(DataTableColumnHeader, {
 				column,
@@ -90,6 +97,8 @@ export const columns: ColumnDef<AdminUserData>[] = [
 	},
 	{
 		accessorKey: 'role',
+		size: 80,
+		minSize: 80,
 		header: ({ column }) =>
 			renderComponent(DataTableColumnHeader, {
 				column,
@@ -118,6 +127,8 @@ export const columns: ColumnDef<AdminUserData>[] = [
 	{
 		id: 'status',
 		accessorFn: (row) => getStatusSortValue(row),
+		size: 100,
+		minSize: 100,
 		header: ({ column }) =>
 			renderComponent(DataTableColumnHeader, {
 				column,
@@ -161,6 +172,8 @@ export const columns: ColumnDef<AdminUserData>[] = [
 	},
 	{
 		accessorKey: 'createdAt',
+		size: 110,
+		minSize: 110,
 		header: ({ column }) =>
 			renderComponent(DataTableColumnHeader, {
 				column,
@@ -179,8 +192,17 @@ export const columns: ColumnDef<AdminUserData>[] = [
 	},
 	{
 		id: 'actions',
+		size: 50,
+		minSize: 50,
+		maxSize: 50,
 		enableHiding: false,
 		enableSorting: false,
+		header: () => {
+			const headerSnippet = createRawSnippet(() => ({
+				render: () => `<span class="sr-only">Actions</span>`
+			}));
+			return renderSnippet(headerSnippet, {});
+		},
 		cell: ({ row }) => renderComponent(DataTableActions, { user: row.original })
 	}
 ];
