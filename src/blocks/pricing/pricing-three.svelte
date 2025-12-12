@@ -14,6 +14,8 @@
 	import { useSearchParams } from 'runed/kit';
 	import { pricingParamsSchema } from '$lib/schemas/pricing-params';
 	import { T, getTranslate } from '@tolgee/svelte';
+	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
 
 	const { customer, checkout, openBillingPortal } = useCustomer();
 	const upgradeOperation = useAutumnOperation(checkout);
@@ -52,11 +54,11 @@
 		// Check authentication first
 		if (!isAuthenticated) {
 			const redirectUrl = localizedHref('/signin');
-			const currentUrl = window.location.pathname;
+			const currentUrl = page.url.pathname;
 			// Include checkout param in redirectTo so it's preserved after signin
 			const redirectWithCheckout = `${currentUrl}?checkout=${productId}`;
 			console.log('[PRICING DEBUG] Redirecting to signin:', redirectWithCheckout);
-			window.location.href = `${redirectUrl}?redirectTo=${encodeURIComponent(redirectWithCheckout)}`;
+			goto(`${redirectUrl}?redirectTo=${encodeURIComponent(redirectWithCheckout)}`);
 			return;
 		}
 
@@ -64,7 +66,7 @@
 		// Proceed with checkout for authenticated users
 		const result = await upgradeOperation.execute({
 			productId,
-			successUrl: window.location.origin + '/app/community-chat?upgraded=true'
+			successUrl: page.url.origin + '/app/community-chat?upgraded=true'
 		});
 
 		console.log('[PRICING DEBUG] Upgrade result:', result);

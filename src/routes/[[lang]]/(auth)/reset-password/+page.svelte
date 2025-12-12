@@ -12,19 +12,14 @@
 		validatePasswordMatch,
 		PASSWORD_MIN_LENGTH
 	} from '$lib/schemas/auth.js';
+	import { page } from '$app/state';
 
 	let isLoading = $state(false);
 	let message = $state<string | null>(null);
 	let formError = $state<string | null>(null);
 
-	function getTokenFromUrl() {
-		try {
-			const url = new URL(window.location.href);
-			return url.searchParams.get('token');
-		} catch {
-			return null;
-		}
-	}
+	// Get token directly from SvelteKit's page state
+	const token = $derived(page.url.searchParams.get('token'));
 
 	const form = superForm(
 		defaults({ password: '', confirmPassword: '' }, zod4(resetPasswordSchema)),
@@ -41,7 +36,6 @@
 					return;
 				}
 
-				const token = getTokenFromUrl();
 				if (!token) {
 					formError = 'Missing or invalid reset token';
 					return;
