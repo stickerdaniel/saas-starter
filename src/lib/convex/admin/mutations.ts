@@ -2,21 +2,8 @@ import { mutation, internalMutation, type MutationCtx } from '../_generated/serv
 import { components } from '../_generated/api';
 import { authComponent } from '../auth';
 import { v } from 'convex/values';
-
-// Better Auth user type (managed by the component with admin plugin fields)
-interface BetterAuthUser {
-	_id: string;
-	name?: string;
-	email: string;
-	emailVerified?: boolean;
-	image?: string;
-	role?: string | null;
-	banned?: boolean | null;
-	banReason?: string | null;
-	banExpires?: number | null;
-	createdAt?: number;
-	updatedAt?: number;
-}
+import type { BetterAuthUser } from './types';
+import { roleValidator, adminActionValidator, auditMetadataValidator } from './types';
 
 /**
  * Helper to verify admin access
@@ -68,16 +55,9 @@ async function findUserById(ctx: MutationCtx, userId: string): Promise<BetterAut
  */
 export const logAdminAction = mutation({
 	args: {
-		action: v.union(
-			v.literal('impersonate'),
-			v.literal('stop_impersonation'),
-			v.literal('ban_user'),
-			v.literal('unban_user'),
-			v.literal('revoke_sessions'),
-			v.literal('set_role')
-		),
+		action: adminActionValidator,
 		targetUserId: v.string(),
-		metadata: v.optional(v.any())
+		metadata: auditMetadataValidator
 	},
 	handler: async (ctx, args) => {
 		const admin = await requireAdmin(ctx);
@@ -98,16 +78,9 @@ export const logAdminAction = mutation({
 export const logAdminActionInternal = internalMutation({
 	args: {
 		adminUserId: v.string(),
-		action: v.union(
-			v.literal('impersonate'),
-			v.literal('stop_impersonation'),
-			v.literal('ban_user'),
-			v.literal('unban_user'),
-			v.literal('revoke_sessions'),
-			v.literal('set_role')
-		),
+		action: adminActionValidator,
 		targetUserId: v.string(),
-		metadata: v.optional(v.any())
+		metadata: auditMetadataValidator
 	},
 	handler: async (ctx, args) => {
 		await ctx.db.insert('adminAuditLogs', {
@@ -127,10 +100,15 @@ export const logAdminActionInternal = internalMutation({
 export const setUserRole = mutation({
 	args: {
 		userId: v.string(),
-		role: v.string()
+		role: roleValidator
 	},
 	handler: async (ctx, args) => {
 		const admin = await requireAdmin(ctx);
+
+		// Prevent admin from changing their own role
+		if (admin._id === args.userId) {
+			throw new Error('Cannot change your own role');
+		}
 
 		const user = await findUserById(ctx, args.userId);
 

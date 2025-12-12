@@ -19,9 +19,9 @@
 			"admins": "Admins",
 			"admins_desc": "Users with admin privileges",
 			"admin_users": "Managing the platform",
-			"active_sessions": "Active Sessions",
-			"active_sessions_desc": "Users currently online",
-			"currently_active": "Real-time activity",
+			"active_sessions": "Active (24h)",
+			"active_sessions_desc": "Active in the last 24 hours",
+			"currently_active": "Daily activity",
 			"recent_signups": "Recent Signups",
 			"recent_signups_desc": "New user growth",
 			"last_7_days": "Last 7 days",
@@ -46,7 +46,8 @@
 			"impersonate": "Impersonate",
 			"ban": "Ban User",
 			"unban": "Unban User",
-			"revoke_sessions": "Revoke Sessions"
+			"revoke_sessions": "Revoke Sessions",
+			"set_role": "Set Role"
 		},
 		"dialog": {
 			"ban_title": "Ban User",
@@ -54,7 +55,9 @@
 			"unban_title": "Unban User",
 			"unban_description": "Are you sure you want to unban {email}? They will regain access to the app.",
 			"revoke_title": "Revoke Sessions",
-			"revoke_description": "Are you sure you want to revoke all sessions for {email}? They will be logged out everywhere."
+			"revoke_description": "Are you sure you want to revoke all sessions for {email}? They will be logged out everywhere.",
+			"set_role_title": "Change User Role",
+			"set_role_description": "Are you sure you want to change the role of {email} to {role}?"
 		}
 	},
 	"app": {

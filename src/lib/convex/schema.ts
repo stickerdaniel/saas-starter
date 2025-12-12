@@ -77,7 +77,14 @@ export default defineSchema({
 			v.literal('set_role')
 		),
 		targetUserId: v.string(), // User affected by the action
-		metadata: v.optional(v.any()), // Additional context (ban reason, etc.)
+		// Typed metadata per action type (not v.any() for type safety)
+		metadata: v.optional(
+			v.union(
+				v.object({ reason: v.string() }), // ban_user, unban_user
+				v.object({ newRole: v.string(), previousRole: v.string() }), // set_role
+				v.object({}) // impersonate, stop_impersonation, revoke_sessions
+			)
+		),
 		timestamp: v.number()
 	})
 		.index('by_admin', ['adminUserId'])

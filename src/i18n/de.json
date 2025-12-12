@@ -19,9 +19,9 @@
 			"admins": "Admins",
 			"admins_desc": "Benutzer mit Admin-Rechten",
 			"admin_users": "Plattformverwaltung",
-			"active_sessions": "Aktive Sitzungen",
-			"active_sessions_desc": "Derzeit online",
-			"currently_active": "Echtzeit-Aktivität",
+			"active_sessions": "Aktiv (24h)",
+			"active_sessions_desc": "In den letzten 24 Stunden aktiv",
+			"currently_active": "Tägliche Aktivität",
 			"recent_signups": "Neuanmeldungen",
 			"recent_signups_desc": "Neue Benutzer",
 			"last_7_days": "Letzte 7 Tage",
@@ -46,7 +46,8 @@
 			"impersonate": "Identität annehmen",
 			"ban": "Benutzer sperren",
 			"unban": "Sperre aufheben",
-			"revoke_sessions": "Sitzungen widerrufen"
+			"revoke_sessions": "Sitzungen widerrufen",
+			"set_role": "Rolle ändern"
 		},
 		"dialog": {
 			"ban_title": "Benutzer sperren",
@@ -54,7 +55,9 @@
 			"unban_title": "Sperre aufheben",
 			"unban_description": "Möchten Sie die Sperre für {email} wirklich aufheben? Der Zugriff wird wiederhergestellt.",
 			"revoke_title": "Sitzungen widerrufen",
-			"revoke_description": "Möchten Sie wirklich alle Sitzungen für {email} widerrufen? Die Person wird überall abgemeldet."
+			"revoke_description": "Möchten Sie wirklich alle Sitzungen für {email} widerrufen? Die Person wird überall abgemeldet.",
+			"set_role_title": "Benutzerrolle ändern",
+			"set_role_description": "Möchten Sie die Rolle von {email} wirklich auf {role} ändern?"
 		}
 	},
 	"app": {

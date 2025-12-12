@@ -19,9 +19,9 @@
 			"admins": "Admins",
 			"admins_desc": "Usuarios con privilegios de admin",
 			"admin_users": "Gestionando la plataforma",
-			"active_sessions": "Sesiones Activas",
-			"active_sessions_desc": "Usuarios conectados",
-			"currently_active": "Actividad en tiempo real",
+			"active_sessions": "Activos (24h)",
+			"active_sessions_desc": "Activos en las últimas 24 horas",
+			"currently_active": "Actividad diaria",
 			"recent_signups": "Registros Recientes",
 			"recent_signups_desc": "Crecimiento de usuarios",
 			"last_7_days": "Últimos 7 días",
@@ -46,7 +46,8 @@
 			"impersonate": "Suplantar",
 			"ban": "Bloquear Usuario",
 			"unban": "Desbloquear Usuario",
-			"revoke_sessions": "Revocar Sesiones"
+			"revoke_sessions": "Revocar Sesiones",
+			"set_role": "Cambiar Rol"
 		},
 		"dialog": {
 			"ban_title": "Bloquear Usuario",
@@ -54,7 +55,9 @@
 			"unban_title": "Desbloquear Usuario",
 			"unban_description": "¿Estás seguro de que quieres desbloquear a {email}? Recuperará el acceso a la app.",
 			"revoke_title": "Revocar Sesiones",
-			"revoke_description": "¿Estás seguro de que quieres revocar todas las sesiones de {email}? Se cerrará sesión en todos los dispositivos."
+			"revoke_description": "¿Estás seguro de que quieres revocar todas las sesiones de {email}? Se cerrará sesión en todos los dispositivos.",
+			"set_role_title": "Cambiar Rol de Usuario",
+			"set_role_description": "¿Estás seguro de que quieres cambiar el rol de {email} a {role}?"
 		}
 	},
 	"app": {

@@ -2,29 +2,7 @@ import { query, type QueryCtx } from '../_generated/server';
 import { components } from '../_generated/api';
 import { authComponent } from '../auth';
 import { v } from 'convex/values';
-
-// Better Auth user type (managed by the component, not in our schema)
-interface BetterAuthUser {
-	_id: string;
-	name?: string;
-	email: string;
-	emailVerified?: boolean;
-	image?: string;
-	role?: string;
-	banned?: boolean;
-	banReason?: string;
-	banExpires?: number;
-	createdAt?: number;
-	updatedAt?: number;
-}
-
-// Better Auth session type
-interface BetterAuthSession {
-	_id: string;
-	userId: string;
-	expiresAt: number;
-	impersonatedBy?: string;
-}
+import type { BetterAuthUser, BetterAuthSession } from './types';
 
 /**
  * Helper to verify admin access
@@ -202,9 +180,11 @@ export const getDashboardMetrics = query({
 		const users = await fetchAllUsers(ctx);
 		const sessions = await fetchAllSessions(ctx);
 
-		// Count active sessions (not expired)
+		// Count unique users active in the last 24 hours
 		const now = Date.now();
-		const activeSessions = sessions.filter((s) => s.expiresAt > now);
+		const oneDayAgo = now - 24 * 60 * 60 * 1000;
+		const activeIn24h = sessions.filter((s) => s.updatedAt && s.updatedAt > oneDayAgo);
+		const uniqueActiveUsers = new Set(activeIn24h.map((s) => s.userId));
 
 		// Count users by role
 		const adminCount = users.filter((u) => u.role === 'admin').length;
@@ -218,7 +198,7 @@ export const getDashboardMetrics = query({
 			totalUsers: users.length,
 			adminCount,
 			bannedCount,
-			activeSessions: activeSessions.length,
+			activeIn24h: uniqueActiveUsers.size,
 			recentSignups
 		};
 	}

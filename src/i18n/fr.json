@@ -19,9 +19,9 @@
 			"admins": "Admins",
 			"admins_desc": "Utilisateurs avec privilèges admin",
 			"admin_users": "Gestion de la plateforme",
-			"active_sessions": "Sessions Actives",
-			"active_sessions_desc": "Utilisateurs connectés",
-			"currently_active": "Activité en temps réel",
+			"active_sessions": "Actifs (24h)",
+			"active_sessions_desc": "Actifs au cours des 24 dernières heures",
+			"currently_active": "Activité quotidienne",
 			"recent_signups": "Inscriptions Récentes",
 			"recent_signups_desc": "Croissance des utilisateurs",
 			"last_7_days": "7 derniers jours",
@@ -46,7 +46,8 @@
 			"impersonate": "Usurper",
 			"ban": "Bannir l'Utilisateur",
 			"unban": "Débannir l'Utilisateur",
-			"revoke_sessions": "Révoquer les Sessions"
+			"revoke_sessions": "Révoquer les Sessions",
+			"set_role": "Changer le Rôle"
 		},
 		"dialog": {
 			"ban_title": "Bannir l'Utilisateur",
@@ -54,7 +55,9 @@
 			"unban_title": "Débannir l'Utilisateur",
 			"unban_description": "Êtes-vous sûr de vouloir débannir {email} ? L'accès à l'app sera rétabli.",
 			"revoke_title": "Révoquer les Sessions",
-			"revoke_description": "Êtes-vous sûr de vouloir révoquer toutes les sessions de {email} ? La déconnexion sera effectuée partout."
+			"revoke_description": "Êtes-vous sûr de vouloir révoquer toutes les sessions de {email} ? La déconnexion sera effectuée partout.",
+			"set_role_title": "Changer le Rôle de l'Utilisateur",
+			"set_role_description": "Êtes-vous sûr de vouloir changer le rôle de {email} en {role} ?"
 		}
 	},
 	"app": {

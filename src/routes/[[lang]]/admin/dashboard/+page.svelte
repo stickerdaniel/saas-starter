@@ -4,7 +4,6 @@
 	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
 	import UsersIcon from '@lucide/svelte/icons/users';
 	import ShieldCheckIcon from '@lucide/svelte/icons/shield-check';
-	import UserXIcon from '@lucide/svelte/icons/user-x';
 	import ActivityIcon from '@lucide/svelte/icons/activity';
 	import UserPlusIcon from '@lucide/svelte/icons/user-plus';
 	import { T, getTranslate } from '@tolgee/svelte';
@@ -35,17 +34,8 @@
 		/>
 
 		<MetricCard
-			label={$t('admin.metrics.admins')}
-			value={metrics.data?.adminCount ?? 0}
-			description={$t('admin.metrics.admins_desc')}
-			subtitle={$t('admin.metrics.admin_users')}
-			icon={ShieldCheckIcon}
-			loading={isLoading}
-		/>
-
-		<MetricCard
 			label={$t('admin.metrics.active_sessions')}
-			value={metrics.data?.activeSessions ?? 0}
+			value={metrics.data?.activeIn24h ?? 0}
 			description={$t('admin.metrics.active_sessions_desc')}
 			subtitle={$t('admin.metrics.currently_active')}
 			icon={ActivityIcon}
@@ -60,21 +50,16 @@
 			icon={UserPlusIcon}
 			loading={isLoading}
 		/>
-	</div>
 
-	<!-- Banned Users Info -->
-	{#if metrics.data?.bannedCount && metrics.data.bannedCount > 0}
-		<div class="px-4 lg:px-6">
-			<MetricCard
-				label={$t('admin.metrics.banned_users')}
-				value={metrics.data.bannedCount}
-				description={$t('admin.metrics.banned_users_desc')}
-				subtitle={$t('admin.metrics.users_banned')}
-				variant="destructive"
-				icon={UserXIcon}
-			/>
-		</div>
-	{/if}
+		<MetricCard
+			label={$t('admin.metrics.admins')}
+			value={metrics.data?.adminCount ?? 0}
+			description={$t('admin.metrics.admins_desc')}
+			subtitle={$t('admin.metrics.admin_users')}
+			icon={ShieldCheckIcon}
+			loading={isLoading}
+		/>
+	</div>
 
 	<!-- External Service Links -->
 	<div class="flex flex-col gap-4 px-4 lg:px-6">
