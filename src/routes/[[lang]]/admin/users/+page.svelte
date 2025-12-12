@@ -11,6 +11,8 @@
 	import UserCheckIcon from '@tabler/icons-svelte/icons/user-check';
 	import LogoutIcon from '@tabler/icons-svelte/icons/logout';
 	import SearchIcon from '@tabler/icons-svelte/icons/search';
+	import ShieldIcon from '@tabler/icons-svelte/icons/shield';
+	import CheckIcon from '@tabler/icons-svelte/icons/check';
 	import { T } from '@tolgee/svelte';
 	import { useQuery, useConvexClient } from 'convex-svelte';
 	import { api } from '$lib/convex/_generated/api.js';
@@ -19,16 +21,21 @@
 	import { localizedHref } from '$lib/utils/i18n';
 	import { toast } from 'svelte-sonner';
 	import type { PageData } from './$types';
+	import { USER_ROLES, type UserRole, type AdminUserData } from '$lib/convex/admin/types';
 
 	let { data }: { data: PageData } = $props();
 
 	const client = useConvexClient();
 
 	let searchQuery = $state('');
-	let selectedUser = $state<any>(null);
+	let selectedUser = $state<AdminUserData | null>(null);
 	let actionType = $state<'ban' | 'unban' | 'revoke' | null>(null);
 	let banReason = $state('');
 	let dialogOpen = $state(false);
+
+	// Role management state
+	let roleDialogOpen = $state(false);
+	let selectedRole = $state<UserRole>('user');
 
 	// Fetch users with search - use a getter function to make search reactive
 	const users = useQuery(api.admin.queries.listUsers, () => ({ search: searchQuery || undefined }));
@@ -42,7 +49,10 @@
 			| 'revoke_sessions'
 			| 'set_role',
 		targetUserId: string,
-		metadata?: any
+		metadata?:
+			| { reason: string }
+			| { newRole: UserRole; previousRole: UserRole }
+			| Record<string, never>
 	) {
 		await client.mutation(api.admin.mutations.logAdminAction, { action, targetUserId, metadata });
 	}
@@ -52,17 +62,21 @@
 		try {
 			const result = await authClient.admin.impersonateUser({ userId });
 			if (result.error) {
-				toast.error('Failed to impersonate user');
+				const message = result.error.message || 'Unknown error';
+				toast.error(`Failed to impersonate user: ${message}`);
+				console.error('Impersonation error:', result.error);
 				return;
 			}
 
 			// Log the action
-			await logAdminAction('impersonate', userId);
+			await logAdminAction('impersonate', userId, {});
 
 			toast.success('Now impersonating user');
 			goto(localizedHref('/app'));
 		} catch (error) {
-			toast.error('Failed to impersonate user');
+			const message = error instanceof Error ? error.message : 'Unknown error';
+			toast.error(`Failed to impersonate user: ${message}`);
+			console.error('Impersonation error:', error);
 		}
 	}
 
@@ -77,17 +91,23 @@
 			});
 
 			if (result.error) {
-				toast.error('Failed to ban user');
+				const message = result.error.message || 'Unknown error';
+				toast.error(`Failed to ban user: ${message}`);
+				console.error('Ban error:', result.error);
 				return;
 			}
 
 			// Log the action
-			await logAdminAction('ban_user', selectedUser.id, { reason: banReason });
+			await logAdminAction('ban_user', selectedUser.id, {
+				reason: banReason || 'Violated terms of service'
+			});
 
 			toast.success('User has been banned');
 			closeDialog();
 		} catch (error) {
-			toast.error('Failed to ban user');
+			const message = error instanceof Error ? error.message : 'Unknown error';
+			toast.error(`Failed to ban user: ${message}`);
+			console.error('Ban error:', error);
 		}
 	}
 
@@ -101,17 +121,21 @@
 			});
 
 			if (result.error) {
-				toast.error('Failed to unban user');
+				const message = result.error.message || 'Unknown error';
+				toast.error(`Failed to unban user: ${message}`);
+				console.error('Unban error:', result.error);
 				return;
 			}
 
 			// Log the action
-			await logAdminAction('unban_user', selectedUser.id);
+			await logAdminAction('unban_user', selectedUser.id, {});
 
 			toast.success('User has been unbanned');
 			closeDialog();
 		} catch (error) {
-			toast.error('Failed to unban user');
+			const message = error instanceof Error ? error.message : 'Unknown error';
+			toast.error(`Failed to unban user: ${message}`);
+			console.error('Unban error:', error);
 		}
 	}
 
@@ -125,21 +149,44 @@
 			});
 
 			if (result.error) {
-				toast.error('Failed to revoke sessions');
+				const message = result.error.message || 'Unknown error';
+				toast.error(`Failed to revoke sessions: ${message}`);
+				console.error('Revoke sessions error:', result.error);
 				return;
 			}
 
 			// Log the action
-			await logAdminAction('revoke_sessions', selectedUser.id);
+			await logAdminAction('revoke_sessions', selectedUser.id, {});
 
 			toast.success('All sessions have been revoked');
 			closeDialog();
 		} catch (error) {
-			toast.error('Failed to revoke sessions');
+			const message = error instanceof Error ? error.message : 'Unknown error';
+			toast.error(`Failed to revoke sessions: ${message}`);
+			console.error('Revoke sessions error:', error);
 		}
 	}
 
-	function openDialog(user: any, type: 'ban' | 'unban' | 'revoke') {
+	// Set user role
+	async function setUserRole() {
+		if (!selectedUser) return;
+
+		try {
+			await client.mutation(api.admin.mutations.setUserRole, {
+				userId: selectedUser.id,
+				role: selectedRole
+			});
+
+			toast.success(`User role updated to ${selectedRole}`);
+			closeRoleDialog();
+		} catch (error) {
+			const message = error instanceof Error ? error.message : 'Unknown error';
+			toast.error(`Failed to set role: ${message}`);
+			console.error('Set role error:', error);
+		}
+	}
+
+	function openDialog(user: AdminUserData, type: 'ban' | 'unban' | 'revoke') {
 		selectedUser = user;
 		actionType = type;
 		banReason = '';
@@ -153,9 +200,26 @@
 		banReason = '';
 	}
 
+	function openRoleDialog(user: AdminUserData, role: UserRole) {
+		selectedUser = user;
+		selectedRole = role;
+		roleDialogOpen = true;
+	}
+
+	function closeRoleDialog() {
+		roleDialogOpen = false;
+		selectedUser = null;
+		selectedRole = 'user';
+	}
+
 	function formatDate(timestamp: number | undefined) {
 		if (!timestamp) return '-';
 		return new Date(timestamp).toLocaleDateString();
+	}
+
+	// Check if the user is the current admin (to prevent self-modification in UI)
+	function isCurrentUser(userId: string): boolean {
+		return data.viewer?._id === userId;
 	}
 </script>
 
@@ -239,6 +303,29 @@
 											<UserCheckIcon class="mr-2 size-4" />
 											<T keyName="admin.actions.impersonate" />
 										</DropdownMenu.Item>
+										<!-- Role management submenu - generated from USER_ROLES enum (hidden for current user) -->
+										{#if !isCurrentUser(user.id)}
+											<DropdownMenu.Separator />
+											<DropdownMenu.Sub>
+												<DropdownMenu.SubTrigger>
+													<ShieldIcon class="mr-2 size-4" />
+													<T keyName="admin.actions.set_role" />
+												</DropdownMenu.SubTrigger>
+												<DropdownMenu.SubContent>
+													{#each USER_ROLES as role}
+														<DropdownMenu.Item
+															onclick={() => openRoleDialog(user, role)}
+															disabled={user.role === role}
+														>
+															{role}
+															{#if user.role === role}
+																<CheckIcon class="ml-2 size-4" />
+															{/if}
+														</DropdownMenu.Item>
+													{/each}
+												</DropdownMenu.SubContent>
+											</DropdownMenu.Sub>
+										{/if}
 										<DropdownMenu.Separator />
 										{#if user.banned}
 											<DropdownMenu.Item onclick={() => openDialog(user, 'unban')}>
@@ -311,6 +398,29 @@
 				}}
 				variant={actionType === 'ban' ? 'destructive' : 'default'}
 			>
+				<T keyName="common.confirm" />
+			</Button>
+		</Dialog.Footer>
+	</Dialog.Content>
+</Dialog.Root>
+
+<!-- Role Change Confirmation Dialog -->
+<Dialog.Root bind:open={roleDialogOpen}>
+	<Dialog.Content>
+		<Dialog.Header>
+			<Dialog.Title>
+				<T keyName="admin.dialog.set_role_title" />
+			</Dialog.Title>
+			<Dialog.Description>
+				<T
+					keyName="admin.dialog.set_role_description"
+					params={{ email: selectedUser?.email, role: selectedRole }}
+				/>
+			</Dialog.Description>
+		</Dialog.Header>
+		<Dialog.Footer>
+			<Button variant="outline" onclick={closeRoleDialog}><T keyName="common.cancel" /></Button>
+			<Button onclick={setUserRole}>
 				<T keyName="common.confirm" />
 			</Button>
 		</Dialog.Footer>
