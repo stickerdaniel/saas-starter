@@ -1,44 +1,158 @@
 <script lang="ts">
+	import {
+		type ColumnFiltersState,
+		type PaginationState,
+		type RowSelectionState,
+		type SortingState,
+		type VisibilityState,
+		getCoreRowModel,
+		getFilteredRowModel,
+		getPaginationRowModel,
+		getSortedRowModel
+	} from '@tanstack/table-core';
 	import * as Table from '$lib/components/ui/table/index.js';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
 	import * as Dialog from '$lib/components/ui/dialog/index.js';
+	import * as Select from '$lib/components/ui/select/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
-	import { Badge } from '$lib/components/ui/badge/index.js';
-	import DotsVerticalIcon from '@tabler/icons-svelte/icons/dots-vertical';
-	import UserIcon from '@tabler/icons-svelte/icons/user';
-	import UserOffIcon from '@tabler/icons-svelte/icons/user-off';
-	import UserCheckIcon from '@tabler/icons-svelte/icons/user-check';
-	import LogoutIcon from '@tabler/icons-svelte/icons/logout';
+	import { Label } from '$lib/components/ui/label/index.js';
 	import SearchIcon from '@tabler/icons-svelte/icons/search';
-	import ShieldIcon from '@tabler/icons-svelte/icons/shield';
-	import CheckIcon from '@tabler/icons-svelte/icons/check';
+	import LayoutColumnsIcon from '@tabler/icons-svelte/icons/layout-columns';
+	import ChevronDownIcon from '@tabler/icons-svelte/icons/chevron-down';
+	import ChevronsLeftIcon from '@tabler/icons-svelte/icons/chevrons-left';
+	import ChevronLeftIcon from '@tabler/icons-svelte/icons/chevron-left';
+	import ChevronRightIcon from '@tabler/icons-svelte/icons/chevron-right';
+	import ChevronsRightIcon from '@tabler/icons-svelte/icons/chevrons-right';
 	import { T } from '@tolgee/svelte';
 	import { useQuery, useConvexClient } from 'convex-svelte';
 	import { api } from '$lib/convex/_generated/api.js';
 	import { authClient } from '$lib/auth-client.js';
-	import { goto } from '$app/navigation';
-	import { localizedHref } from '$lib/utils/i18n';
 	import { toast } from 'svelte-sonner';
+	import { setContext } from 'svelte';
 	import type { PageData } from './$types';
-	import { USER_ROLES, type UserRole, type AdminUserData } from '$lib/convex/admin/types';
+	import { type UserRole, type AdminUserData } from '$lib/convex/admin/types';
+	import { createSvelteTable, FlexRender } from '$lib/components/ui/data-table/index.js';
+	import { columns } from './columns.js';
+	import DataTableFilters from './data-table-filters.svelte';
+	import type { ActionEvent } from './data-table-actions.svelte';
 
 	let { data }: { data: PageData } = $props();
 
 	const client = useConvexClient();
 
+	// Search state (server-side filtering via Convex)
 	let searchQuery = $state('');
+
+	// TanStack Table state
+	let pagination = $state<PaginationState>({ pageIndex: 0, pageSize: 10 });
+	let sorting = $state<SortingState>([]);
+	let columnFilters = $state<ColumnFiltersState>([]);
+	let rowSelection = $state<RowSelectionState>({});
+	let columnVisibility = $state<VisibilityState>({});
+
+	// Dialog state
 	let selectedUser = $state<AdminUserData | null>(null);
 	let actionType = $state<'ban' | 'unban' | 'revoke' | null>(null);
 	let banReason = $state('');
 	let dialogOpen = $state(false);
-
-	// Role management state
 	let roleDialogOpen = $state(false);
 	let selectedRole = $state<UserRole>('user');
 
 	// Fetch users with search - use a getter function to make search reactive
-	const users = useQuery(api.admin.queries.listUsers, () => ({ search: searchQuery || undefined }));
+	const users = useQuery(api.admin.queries.listUsers, () => ({
+		search: searchQuery || undefined
+	}));
+
+	// Provide context for action component
+	setContext('currentUserId', data.viewer?._id);
+	setContext('onUserAction', handleUserAction);
+
+	// Create the table
+	const table = createSvelteTable({
+		get data() {
+			return users.data?.users ?? [];
+		},
+		columns,
+		state: {
+			get pagination() {
+				return pagination;
+			},
+			get sorting() {
+				return sorting;
+			},
+			get columnVisibility() {
+				return columnVisibility;
+			},
+			get rowSelection() {
+				return rowSelection;
+			},
+			get columnFilters() {
+				return columnFilters;
+			}
+		},
+		getRowId: (row) => row.id,
+		getCoreRowModel: getCoreRowModel(),
+		getPaginationRowModel: getPaginationRowModel(),
+		getSortedRowModel: getSortedRowModel(),
+		getFilteredRowModel: getFilteredRowModel(),
+		onPaginationChange: (updater) => {
+			if (typeof updater === 'function') {
+				pagination = updater(pagination);
+			} else {
+				pagination = updater;
+			}
+		},
+		onSortingChange: (updater) => {
+			if (typeof updater === 'function') {
+				sorting = updater(sorting);
+			} else {
+				sorting = updater;
+			}
+		},
+		onColumnFiltersChange: (updater) => {
+			if (typeof updater === 'function') {
+				columnFilters = updater(columnFilters);
+			} else {
+				columnFilters = updater;
+			}
+		},
+		onColumnVisibilityChange: (updater) => {
+			if (typeof updater === 'function') {
+				columnVisibility = updater(columnVisibility);
+			} else {
+				columnVisibility = updater;
+			}
+		},
+		onRowSelectionChange: (updater) => {
+			if (typeof updater === 'function') {
+				rowSelection = updater(rowSelection);
+			} else {
+				rowSelection = updater;
+			}
+		}
+	});
+
+	// Action handlers
+	function handleUserAction(event: ActionEvent) {
+		switch (event.type) {
+			case 'impersonate':
+				impersonateUser(event.userId);
+				break;
+			case 'openRoleDialog':
+				openRoleDialog(event.user, event.role);
+				break;
+			case 'openBanDialog':
+				openDialog(event.user, 'ban');
+				break;
+			case 'openUnbanDialog':
+				openDialog(event.user, 'unban');
+				break;
+			case 'openRevokeDialog':
+				openDialog(event.user, 'revoke');
+				break;
+		}
+	}
 
 	async function logAdminAction(
 		action:
@@ -57,7 +171,6 @@
 		await client.mutation(api.admin.mutations.logAdminAction, { action, targetUserId, metadata });
 	}
 
-	// Impersonate user
 	async function impersonateUser(userId: string) {
 		try {
 			const result = await authClient.admin.impersonateUser({ userId });
@@ -68,11 +181,11 @@
 				return;
 			}
 
-			// Log the action
 			await logAdminAction('impersonate', userId, {});
-
 			toast.success('Now impersonating user');
-			goto(localizedHref('/app'));
+
+			// Navigate to root - avoids any caching issues
+			window.location.href = '/';
 		} catch (error) {
 			const message = error instanceof Error ? error.message : 'Unknown error';
 			toast.error(`Failed to impersonate user: ${message}`);
@@ -80,7 +193,6 @@
 		}
 	}
 
-	// Ban user
 	async function banUser() {
 		if (!selectedUser) return;
 
@@ -97,7 +209,6 @@
 				return;
 			}
 
-			// Log the action
 			await logAdminAction('ban_user', selectedUser.id, {
 				reason: banReason || 'Violated terms of service'
 			});
@@ -111,7 +222,6 @@
 		}
 	}
 
-	// Unban user
 	async function unbanUser() {
 		if (!selectedUser) return;
 
@@ -127,9 +237,7 @@
 				return;
 			}
 
-			// Log the action
 			await logAdminAction('unban_user', selectedUser.id, {});
-
 			toast.success('User has been unbanned');
 			closeDialog();
 		} catch (error) {
@@ -139,7 +247,6 @@
 		}
 	}
 
-	// Revoke sessions
 	async function revokeSessions() {
 		if (!selectedUser) return;
 
@@ -155,9 +262,7 @@
 				return;
 			}
 
-			// Log the action
 			await logAdminAction('revoke_sessions', selectedUser.id, {});
-
 			toast.success('All sessions have been revoked');
 			closeDialog();
 		} catch (error) {
@@ -167,7 +272,6 @@
 		}
 	}
 
-	// Set user role
 	async function setUserRole() {
 		if (!selectedUser) return;
 
@@ -211,19 +315,10 @@
 		selectedUser = null;
 		selectedRole = 'user';
 	}
-
-	function formatDate(timestamp: number | undefined) {
-		if (!timestamp) return '-';
-		return new Date(timestamp).toLocaleDateString();
-	}
-
-	// Check if the user is the current admin (to prevent self-modification in UI)
-	function isCurrentUser(userId: string): boolean {
-		return data.viewer?._id === userId;
-	}
 </script>
 
 <div class="flex flex-col gap-6 px-4 lg:px-6">
+	<!-- Header -->
 	<div class="flex items-center justify-between">
 		<h1 class="text-2xl font-bold"><T keyName="admin.users.title" /></h1>
 		<div class="text-sm text-muted-foreground">
@@ -232,133 +327,169 @@
 		</div>
 	</div>
 
-	<!-- Search -->
-	<div class="relative max-w-sm">
-		<SearchIcon class="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-		<Input type="search" placeholder="Search users..." class="pl-10" bind:value={searchQuery} />
+	<!-- Controls: Search, Filters, Column Visibility -->
+	<div class="flex flex-wrap items-center justify-between gap-4">
+		<div class="flex flex-wrap items-center gap-4">
+			<!-- Search -->
+			<div class="relative w-full max-w-sm sm:w-auto">
+				<SearchIcon class="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+				<Input
+					type="search"
+					placeholder="Search users..."
+					class="w-full pl-10 sm:w-64"
+					bind:value={searchQuery}
+				/>
+			</div>
+
+			<!-- Filters -->
+			<DataTableFilters {table} />
+		</div>
+
+		<!-- Column Visibility -->
+		<DropdownMenu.Root>
+			<DropdownMenu.Trigger>
+				{#snippet child({ props })}
+					<Button {...props} variant="outline" size="sm">
+						<LayoutColumnsIcon class="mr-2 size-4" />
+						Columns
+						<ChevronDownIcon class="ml-2 size-4" />
+					</Button>
+				{/snippet}
+			</DropdownMenu.Trigger>
+			<DropdownMenu.Content align="end">
+				{#each table.getAllColumns().filter((col) => col.getCanHide()) as column (column.id)}
+					<DropdownMenu.CheckboxItem
+						class="capitalize"
+						checked={column.getIsVisible()}
+						onCheckedChange={(value) => column.toggleVisibility(!!value)}
+					>
+						{column.id}
+					</DropdownMenu.CheckboxItem>
+				{/each}
+			</DropdownMenu.Content>
+		</DropdownMenu.Root>
 	</div>
 
-	<!-- Users Table -->
+	<!-- Data Table -->
 	<div class="rounded-md border">
 		<Table.Root>
 			<Table.Header>
-				<Table.Row>
-					<Table.Head><T keyName="admin.users.name" /></Table.Head>
-					<Table.Head><T keyName="admin.users.email" /></Table.Head>
-					<Table.Head><T keyName="admin.users.role" /></Table.Head>
-					<Table.Head><T keyName="admin.users.status" /></Table.Head>
-					<Table.Head><T keyName="admin.users.created" /></Table.Head>
-					<Table.Head class="w-[70px]"></Table.Head>
-				</Table.Row>
+				{#each table.getHeaderGroups() as headerGroup (headerGroup.id)}
+					<Table.Row>
+						{#each headerGroup.headers as header (header.id)}
+							<Table.Head class="[&:has([role=checkbox])]:ps-3">
+								{#if !header.isPlaceholder}
+									<FlexRender
+										content={header.column.columnDef.header}
+										context={header.getContext()}
+									/>
+								{/if}
+							</Table.Head>
+						{/each}
+					</Table.Row>
+				{/each}
 			</Table.Header>
 			<Table.Body>
-				{#if users.data?.users}
-					{#each users.data.users as user}
-						<Table.Row>
-							<Table.Cell class="font-medium">
-								<div class="flex items-center gap-2">
-									{#if user.image}
-										<img src={user.image} alt={user.name} class="size-8 rounded-full" />
-									{:else}
-										<div class="flex size-8 items-center justify-center rounded-full bg-muted">
-											<UserIcon class="size-4" />
-										</div>
-									{/if}
-									{user.name || 'Unnamed'}
-								</div>
+				{#each table.getRowModel().rows as row (row.id)}
+					<Table.Row data-state={row.getIsSelected() && 'selected'}>
+						{#each row.getVisibleCells() as cell (cell.id)}
+							<Table.Cell class="[&:has([role=checkbox])]:ps-3">
+								<FlexRender content={cell.column.columnDef.cell} context={cell.getContext()} />
 							</Table.Cell>
-							<Table.Cell>{user.email}</Table.Cell>
-							<Table.Cell>
-								<Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
-									{user.role}
-								</Badge>
-							</Table.Cell>
-							<Table.Cell>
-								{#if user.banned}
-									<Badge variant="destructive">
-										<T keyName="admin.users.banned" />
-									</Badge>
-								{:else if user.emailVerified}
-									<Badge variant="outline" class="border-green-600 text-green-600">
-										<T keyName="admin.users.verified" />
-									</Badge>
-								{:else}
-									<Badge variant="outline">
-										<T keyName="admin.users.unverified" />
-									</Badge>
-								{/if}
-							</Table.Cell>
-							<Table.Cell>{formatDate(user.createdAt)}</Table.Cell>
-							<Table.Cell>
-								<DropdownMenu.Root>
-									<DropdownMenu.Trigger>
-										{#snippet child({ props })}
-											<Button variant="ghost" size="icon" {...props}>
-												<DotsVerticalIcon class="size-4" />
-											</Button>
-										{/snippet}
-									</DropdownMenu.Trigger>
-									<DropdownMenu.Content align="end">
-										<DropdownMenu.Item onclick={() => impersonateUser(user.id)}>
-											<UserCheckIcon class="mr-2 size-4" />
-											<T keyName="admin.actions.impersonate" />
-										</DropdownMenu.Item>
-										<!-- Role management submenu - generated from USER_ROLES enum (hidden for current user) -->
-										{#if !isCurrentUser(user.id)}
-											<DropdownMenu.Separator />
-											<DropdownMenu.Sub>
-												<DropdownMenu.SubTrigger>
-													<ShieldIcon class="mr-2 size-4" />
-													<T keyName="admin.actions.set_role" />
-												</DropdownMenu.SubTrigger>
-												<DropdownMenu.SubContent>
-													{#each USER_ROLES as role}
-														<DropdownMenu.Item
-															onclick={() => openRoleDialog(user, role)}
-															disabled={user.role === role}
-														>
-															{role}
-															{#if user.role === role}
-																<CheckIcon class="ml-2 size-4" />
-															{/if}
-														</DropdownMenu.Item>
-													{/each}
-												</DropdownMenu.SubContent>
-											</DropdownMenu.Sub>
-										{/if}
-										<DropdownMenu.Separator />
-										{#if user.banned}
-											<DropdownMenu.Item onclick={() => openDialog(user, 'unban')}>
-												<UserCheckIcon class="mr-2 size-4" />
-												<T keyName="admin.actions.unban" />
-											</DropdownMenu.Item>
-										{:else}
-											<DropdownMenu.Item
-												onclick={() => openDialog(user, 'ban')}
-												class="text-destructive"
-											>
-												<UserOffIcon class="mr-2 size-4" />
-												<T keyName="admin.actions.ban" />
-											</DropdownMenu.Item>
-										{/if}
-										<DropdownMenu.Item onclick={() => openDialog(user, 'revoke')}>
-											<LogoutIcon class="mr-2 size-4" />
-											<T keyName="admin.actions.revoke_sessions" />
-										</DropdownMenu.Item>
-									</DropdownMenu.Content>
-								</DropdownMenu.Root>
-							</Table.Cell>
-						</Table.Row>
-					{/each}
+						{/each}
+					</Table.Row>
 				{:else}
 					<Table.Row>
-						<Table.Cell colspan={6} class="py-8 text-center text-muted-foreground">
-							<T keyName="admin.users.loading" />
+						<Table.Cell colspan={columns.length} class="h-24 text-center text-muted-foreground">
+							{#if users.data === undefined}
+								<T keyName="admin.users.loading" />
+							{:else}
+								No results.
+							{/if}
 						</Table.Cell>
 					</Table.Row>
-				{/if}
+				{/each}
 			</Table.Body>
 		</Table.Root>
+	</div>
+
+	<!-- Footer: Selection Count & Pagination -->
+	<div class="flex items-center justify-between px-2">
+		<div class="hidden flex-1 text-sm text-muted-foreground lg:flex">
+			{table.getFilteredSelectedRowModel().rows.length} of
+			{table.getFilteredRowModel().rows.length} row(s) selected.
+		</div>
+		<div class="flex w-full items-center gap-8 lg:w-fit">
+			<!-- Rows per page -->
+			<div class="hidden items-center gap-2 lg:flex">
+				<Label for="rows-per-page" class="text-sm font-medium">Rows per page</Label>
+				<Select.Root
+					type="single"
+					value={`${table.getState().pagination.pageSize}`}
+					onValueChange={(v) => table.setPageSize(Number(v))}
+				>
+					<Select.Trigger size="sm" class="w-20" id="rows-per-page">
+						{table.getState().pagination.pageSize}
+					</Select.Trigger>
+					<Select.Content side="top">
+						{#each [10, 20, 30, 40, 50] as pageSize (pageSize)}
+							<Select.Item value={pageSize.toString()}>
+								{pageSize}
+							</Select.Item>
+						{/each}
+					</Select.Content>
+				</Select.Root>
+			</div>
+
+			<!-- Page indicator -->
+			<div class="flex w-fit items-center justify-center text-sm font-medium">
+				Page {table.getState().pagination.pageIndex + 1} of
+				{table.getPageCount()}
+			</div>
+
+			<!-- Pagination controls -->
+			<div class="ml-auto flex items-center gap-2 lg:ml-0">
+				<Button
+					variant="outline"
+					class="hidden h-8 w-8 p-0 lg:flex"
+					onclick={() => table.setPageIndex(0)}
+					disabled={!table.getCanPreviousPage()}
+				>
+					<span class="sr-only">Go to first page</span>
+					<ChevronsLeftIcon />
+				</Button>
+				<Button
+					variant="outline"
+					class="size-8"
+					size="icon"
+					onclick={() => table.previousPage()}
+					disabled={!table.getCanPreviousPage()}
+				>
+					<span class="sr-only">Go to previous page</span>
+					<ChevronLeftIcon />
+				</Button>
+				<Button
+					variant="outline"
+					class="size-8"
+					size="icon"
+					onclick={() => table.nextPage()}
+					disabled={!table.getCanNextPage()}
+				>
+					<span class="sr-only">Go to next page</span>
+					<ChevronRightIcon />
+				</Button>
+				<Button
+					variant="outline"
+					class="hidden size-8 lg:flex"
+					size="icon"
+					onclick={() => table.setPageIndex(table.getPageCount() - 1)}
+					disabled={!table.getCanNextPage()}
+				>
+					<span class="sr-only">Go to last page</span>
+					<ChevronsRightIcon />
+				</Button>
+			</div>
+		</div>
 	</div>
 </div>
 
