@@ -400,7 +400,7 @@
 				"price": "Custom"
 			},
 			"free": {
-				"button": "Current Plan",
+				"button": "Free Forever",
 				"button_manage": "Manage Subscription",
 				"description": "Perfect for getting started",
 				"name": "Free",

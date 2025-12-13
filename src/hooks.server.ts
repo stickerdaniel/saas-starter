@@ -12,6 +12,19 @@ const getJwtToken = (cookies: Cookies, request: Request) => {
 	return cookies.get(cookieName);
 };
 
+/**
+ * Decode JWT payload without verification (cookie is already trusted)
+ * Used for quick role checks in hooks without waiting for Convex queries
+ */
+const decodeJwtPayload = (token: string): { role?: string } | null => {
+	try {
+		const payload = token.split('.')[1];
+		return JSON.parse(atob(payload));
+	} catch {
+		return null;
+	}
+};
+
 // Route matchers
 const isSignInPage = (pathname: string) => /^\/[a-z]{2}\/signin$/.test(pathname);
 const isProtectedRoute = (pathname: string) => /^\/[a-z]{2}\/app(\/|$)/.test(pathname);
@@ -88,10 +101,17 @@ const authFirstPattern: Handle = async ({ event, resolve }) => {
 		redirect(307, destination);
 	}
 
-	// Admin routes require authentication (role check happens in layout.server.ts)
-	if (isAdminRoute(pathname) && !authenticated) {
-		const destination = `/${lang}/signin?redirectTo=${encodeURIComponent(event.url.pathname + event.url.search)}`;
-		redirect(307, destination);
+	// Admin routes require authentication AND admin role
+	if (isAdminRoute(pathname)) {
+		if (!authenticated) {
+			const destination = `/${lang}/signin?redirectTo=${encodeURIComponent(event.url.pathname + event.url.search)}`;
+			redirect(307, destination);
+		}
+		// Check admin role from JWT payload (fast, no Convex query needed)
+		const payload = decodeJwtPayload(event.locals.token!);
+		if (payload?.role !== 'admin') {
+			redirect(307, `/${lang}/app`);
+		}
 	}
 
 	return resolve(event);

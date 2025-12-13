@@ -122,24 +122,9 @@
 					<CardDescription class="text-sm">
 						<T keyName="pricing.tiers.free.description" />
 					</CardDescription>
-					{#if isFree}
-						<Button variant="outline" class="mt-4 w-full" disabled>
-							<T keyName="pricing.tiers.free.button" />
-						</Button>
-					{:else}
-						<Button
-							variant="outline"
-							class="mt-4 w-full"
-							onclick={() => portalOperation.execute({})}
-							disabled={portalOperation.isLoading}
-						>
-							{#if portalOperation.isLoading}
-								<T keyName="pricing.buttons.loading" />
-							{:else}
-								<T keyName="pricing.tiers.free.button_manage" />
-							{/if}
-						</Button>
-					{/if}
+					<Button variant="outline" class="mt-4 w-full" disabled>
+						<T keyName="pricing.tiers.free.button" />
+					</Button>
 				</CardHeader>
 
 				<CardContent class="space-y-4">

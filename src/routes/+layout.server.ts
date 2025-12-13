@@ -13,15 +13,16 @@ export const load: LayoutServerLoad = async (event) => {
 
 	const client = createConvexHttpClient({ token: event.locals.token });
 
-	// Autumn handlers - update to use new client factory
+	// Autumn handlers for billing/subscription data
 	const { getCustomer } = createAutumnHandlers({
 		convexApi: (api as any).autumn,
 		createClient: () => client
 	});
 
-	// Only fetch customer and viewer data if authenticated (optimization for anonymous traffic)
-	const customer = isAuthenticated ? await getCustomer(event) : null;
-	const viewer = isAuthenticated ? await client.query(api.auth.getCurrentUser, {}) : null;
+	// Fetch customer and viewer in PARALLEL for faster initial load
+	const [customer, viewer] = isAuthenticated
+		? await Promise.all([getCustomer(event), client.query(api.auth.getCurrentUser, {})])
+		: [null, null];
 
 	return {
 		authState,
