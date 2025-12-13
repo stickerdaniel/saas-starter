@@ -112,7 +112,7 @@
 			</div>
 		</div>
 
-		<div class="mt-8 grid gap-6 md:mt-20 md:grid-cols-2 lg:grid-cols-3">
+		<div class="mt-12 grid gap-6 md:mt-24 md:grid-cols-2 lg:grid-cols-3">
 			<Card>
 				<CardHeader>
 					<CardTitle class="font-medium">
