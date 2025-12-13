@@ -5,13 +5,14 @@
 	import ArrowsVerticalIcon from '@tabler/icons-svelte/icons/arrows-sort';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import type { AdminUserData } from '$lib/convex/admin/types';
+	import { T } from '@tolgee/svelte';
 
 	type Props = {
 		column: Column<AdminUserData, unknown>;
-		title: string;
+		titleKey: string;
 	};
 
-	let { column, title }: Props = $props();
+	let { column, titleKey }: Props = $props();
 
 	const canSort = $derived(column.getCanSort());
 	const sorted = $derived(column.getIsSorted());
@@ -24,7 +25,7 @@
 		class="-ml-3 h-8 data-[state=open]:bg-accent"
 		onclick={column.getToggleSortingHandler()}
 	>
-		<span>{title}</span>
+		<span><T keyName={titleKey} /></span>
 		{#if sorted === 'desc'}
 			<ArrowDownIcon class="ml-2 size-4" />
 		{:else if sorted === 'asc'}
@@ -34,5 +35,5 @@
 		{/if}
 	</Button>
 {:else}
-	<div>{title}</div>
+	<div><T keyName={titleKey} /></div>
 {/if}

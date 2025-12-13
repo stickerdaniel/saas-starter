@@ -62,7 +62,7 @@
 		{#snippet child({ props })}
 			<Button variant="ghost" size="icon" {...props}>
 				<DotsVerticalIcon class="size-4" />
-				<span class="sr-only">Open menu</span>
+				<span class="sr-only"><T keyName="admin.users.menu_open" /></span>
 			</Button>
 		{/snippet}
 	</DropdownMenu.Trigger>

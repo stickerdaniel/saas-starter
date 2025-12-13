@@ -27,7 +27,9 @@
 	import ChevronLeftIcon from '@tabler/icons-svelte/icons/chevron-left';
 	import ChevronRightIcon from '@tabler/icons-svelte/icons/chevron-right';
 	import ChevronsRightIcon from '@tabler/icons-svelte/icons/chevrons-right';
-	import { T } from '@tolgee/svelte';
+	import { T, getTranslate } from '@tolgee/svelte';
+
+	const { t } = getTranslate();
 	import { useQuery, useConvexClient } from 'convex-svelte';
 	import { api } from '$lib/convex/_generated/api.js';
 	import { authClient } from '$lib/auth-client.js';
@@ -61,6 +63,7 @@
 	let dialogOpen = $state(false);
 	let roleDialogOpen = $state(false);
 	let selectedRole = $state<UserRole>('user');
+	let impersonationDialogOpen = $state(false);
 
 	// Fetch users with search - use a getter function to make search reactive
 	const users = useQuery(api.admin.queries.listUsers, () => ({
@@ -232,10 +235,7 @@
 			}
 
 			await logAdminAction('impersonate', userId, {});
-			toast.success('Now impersonating user');
-
-			// Navigate to root - avoids any caching issues
-			window.location.href = '/';
+			impersonationDialogOpen = true;
 		} catch (error) {
 			const message = error instanceof Error ? error.message : 'Unknown error';
 			toast.error(`Failed to impersonate user: ${message}`);
@@ -371,12 +371,6 @@
 	<!-- Header -->
 	<div class="flex items-center justify-between">
 		<h1 class="text-2xl font-bold"><T keyName="admin.users.title" /></h1>
-		<div class="flex items-center gap-4">
-			<div class="text-sm text-muted-foreground">
-				{users.data?.totalCount ?? 0}
-				<T keyName="admin.users.total" />
-			</div>
-		</div>
 	</div>
 
 	<!-- Controls: Search, Filters, Column Visibility -->
@@ -387,7 +381,7 @@
 				<SearchIcon class="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
 				<Input
 					type="search"
-					placeholder="Search users..."
+					placeholder={$t('admin.users.search_placeholder')}
 					class="w-full pl-10 sm:w-64"
 					bind:value={searchQuery}
 				/>
@@ -453,7 +447,7 @@
 							<!-- Checkbox: real disabled component -->
 							<Table.Cell class="[&:has([role=checkbox])]:ps-3">
 								<div class="flex items-center justify-center">
-									<Checkbox disabled aria-label="Select row" />
+									<Checkbox disabled aria-label={$t('admin.users.select_row')} />
 								</div>
 							</Table.Cell>
 							<!-- Name: avatar (size-8 circle) + text -->
@@ -485,7 +479,7 @@
 							<Table.Cell>
 								<Button variant="ghost" size="icon" disabled>
 									<DotsVerticalIcon class="size-4" />
-									<span class="sr-only">Open menu</span>
+									<span class="sr-only"><T keyName="admin.users.menu_open" /></span>
 								</Button>
 							</Table.Cell>
 						</Table.Row>
@@ -494,7 +488,7 @@
 					<!-- No results -->
 					<Table.Row>
 						<Table.Cell colspan={columns.length} class="h-24 text-center text-muted-foreground">
-							No results.
+							<T keyName="admin.users.no_results" />
 						</Table.Cell>
 					</Table.Row>
 				{:else}
@@ -515,13 +509,20 @@
 	<!-- Footer: Selection Count & Pagination -->
 	<div class="flex items-center justify-between px-2">
 		<div class="hidden flex-1 text-sm text-muted-foreground lg:flex">
-			{table.getFilteredSelectedRowModel().rows.length} of
-			{optimisticPageRows} row(s) selected.
+			<T
+				keyName="admin.users.selected"
+				params={{
+					selected: table.getFilteredSelectedRowModel().rows.length,
+					total: users.data?.totalCount ?? 0
+				}}
+			/>
 		</div>
 		<div class="flex w-full items-center gap-8 lg:w-fit">
 			<!-- Rows per page -->
 			<div class="hidden items-center gap-2 lg:flex">
-				<Label for="rows-per-page" class="text-sm font-medium">Rows per page</Label>
+				<Label for="rows-per-page" class="text-sm font-medium"
+					><T keyName="admin.users.rows_per_page" /></Label
+				>
 				<Select.Root
 					type="single"
 					value={`${table.getState().pagination.pageSize}`}
@@ -542,8 +543,13 @@
 
 			<!-- Page indicator -->
 			<div class="flex w-fit items-center justify-center text-sm font-medium">
-				Page {table.getState().pagination.pageIndex + 1} of
-				{optimisticPageCount}
+				<T
+					keyName="admin.users.page_indicator"
+					params={{
+						current: table.getState().pagination.pageIndex + 1,
+						total: optimisticPageCount
+					}}
+				/>
 			</div>
 
 			<!-- Pagination controls -->
@@ -554,7 +560,7 @@
 					onclick={() => table.setPageIndex(0)}
 					disabled={!table.getCanPreviousPage()}
 				>
-					<span class="sr-only">Go to first page</span>
+					<span class="sr-only"><T keyName="admin.users.pagination.first" /></span>
 					<ChevronsLeftIcon />
 				</Button>
 				<Button
@@ -564,7 +570,7 @@
 					onclick={() => table.previousPage()}
 					disabled={!table.getCanPreviousPage()}
 				>
-					<span class="sr-only">Go to previous page</span>
+					<span class="sr-only"><T keyName="admin.users.pagination.previous" /></span>
 					<ChevronLeftIcon />
 				</Button>
 				<Button
@@ -574,7 +580,7 @@
 					onclick={() => table.nextPage()}
 					disabled={!table.getCanNextPage()}
 				>
-					<span class="sr-only">Go to next page</span>
+					<span class="sr-only"><T keyName="admin.users.pagination.next" /></span>
 					<ChevronRightIcon />
 				</Button>
 				<Button
@@ -584,7 +590,7 @@
 					onclick={() => table.setPageIndex(table.getPageCount() - 1)}
 					disabled={!table.getCanNextPage()}
 				>
-					<span class="sr-only">Go to last page</span>
+					<span class="sr-only"><T keyName="admin.users.pagination.last" /></span>
 					<ChevronsRightIcon />
 				</Button>
 			</div>
@@ -609,7 +615,7 @@
 				{#if actionType === 'ban'}
 					<T keyName="admin.dialog.ban_description" params={{ email: selectedUser?.email }} />
 					<div class="mt-4">
-						<Input placeholder="Ban reason (optional)" bind:value={banReason} />
+						<Input placeholder={$t('admin.dialog.ban_reason_placeholder')} bind:value={banReason} />
 					</div>
 				{:else if actionType === 'unban'}
 					<T keyName="admin.dialog.unban_description" params={{ email: selectedUser?.email }} />
@@ -653,6 +659,23 @@
 			<Button onclick={setUserRole}>
 				<T keyName="common.confirm" />
 			</Button>
+		</Dialog.Footer>
+	</Dialog.Content>
+</Dialog.Root>
+
+<!-- Impersonation Active Dialog -->
+<Dialog.Root bind:open={impersonationDialogOpen}>
+	<Dialog.Content>
+		<Dialog.Header>
+			<Dialog.Title>
+				<T keyName="admin.dialog.impersonation_active_title" />
+			</Dialog.Title>
+			<Dialog.Description>
+				<T keyName="admin.dialog.impersonation_active_description" />
+			</Dialog.Description>
+		</Dialog.Header>
+		<Dialog.Footer>
+			<Button onclick={() => (impersonationDialogOpen = false)}>OK</Button>
 		</Dialog.Footer>
 	</Dialog.Content>
 </Dialog.Root>

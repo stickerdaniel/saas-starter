@@ -40,7 +40,30 @@
 			"loading": "Chargement des utilisateurs...",
 			"banned": "Banni",
 			"verified": "Vérifié",
-			"unverified": "Non vérifié"
+			"unverified": "Non vérifié",
+			"search_placeholder": "Rechercher des utilisateurs...",
+			"no_results": "Aucun résultat.",
+			"selected": "{selected} sur {total} utilisateurs sélectionnés",
+			"rows_per_page": "Lignes par page",
+			"page_indicator": "Page {current} sur {total}",
+			"unnamed": "Sans nom",
+			"actions_column": "Actions",
+			"menu_open": "Ouvrir le menu",
+			"select_all": "Tout sélectionner",
+			"select_row": "Sélectionner la ligne",
+			"pagination": {
+				"first": "Aller à la première page",
+				"previous": "Aller à la page précédente",
+				"next": "Aller à la page suivante",
+				"last": "Aller à la dernière page"
+			},
+			"filter": {
+				"all_roles": "Tous les rôles",
+				"role_admin": "Admin",
+				"role_user": "Utilisateur",
+				"all_status": "Tous les statuts",
+				"clear": "Effacer"
+			}
 		},
 		"actions": {
 			"impersonate": "Usurper",
@@ -52,12 +75,15 @@
 		"dialog": {
 			"ban_title": "Bannir l'Utilisateur",
 			"ban_description": "Êtes-vous sûr de vouloir bannir {email} ? L'accès à l'app sera bloqué.",
+			"ban_reason_placeholder": "Motif du bannissement (optionnel)",
 			"unban_title": "Débannir l'Utilisateur",
 			"unban_description": "Êtes-vous sûr de vouloir débannir {email} ? L'accès à l'app sera rétabli.",
 			"revoke_title": "Révoquer les Sessions",
 			"revoke_description": "Êtes-vous sûr de vouloir révoquer toutes les sessions de {email} ? La déconnexion sera effectuée partout.",
 			"set_role_title": "Changer le Rôle de l'Utilisateur",
-			"set_role_description": "Êtes-vous sûr de vouloir changer le rôle de {email} en {role} ?"
+			"set_role_description": "Êtes-vous sûr de vouloir changer le rôle de {email} en {role} ?",
+			"impersonation_active_title": "Usurpation active",
+			"impersonation_active_description": "Veuillez recharger la page pour vous connecter en tant qu'utilisateur usurpé."
 		}
 	},
 	"app": {

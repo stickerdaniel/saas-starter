@@ -40,7 +40,30 @@
 			"loading": "Benutzer werden geladen...",
 			"banned": "Gesperrt",
 			"verified": "Verifiziert",
-			"unverified": "Nicht verifiziert"
+			"unverified": "Nicht verifiziert",
+			"search_placeholder": "Benutzer suchen...",
+			"no_results": "Keine Ergebnisse.",
+			"selected": "{selected} von {total} Benutzer ausgewählt",
+			"rows_per_page": "Zeilen pro Seite",
+			"page_indicator": "Seite {current} von {total}",
+			"unnamed": "Unbenannt",
+			"actions_column": "Aktionen",
+			"menu_open": "Menü öffnen",
+			"select_all": "Alle auswählen",
+			"select_row": "Zeile auswählen",
+			"pagination": {
+				"first": "Zur ersten Seite",
+				"previous": "Zur vorherigen Seite",
+				"next": "Zur nächsten Seite",
+				"last": "Zur letzten Seite"
+			},
+			"filter": {
+				"all_roles": "Alle Rollen",
+				"role_admin": "Admin",
+				"role_user": "Benutzer",
+				"all_status": "Alle Status",
+				"clear": "Zurücksetzen"
+			}
 		},
 		"actions": {
 			"impersonate": "Identität annehmen",
@@ -52,12 +75,15 @@
 		"dialog": {
 			"ban_title": "Benutzer sperren",
 			"ban_description": "Möchten Sie {email} wirklich sperren? Der Zugriff auf die App wird blockiert.",
+			"ban_reason_placeholder": "Sperrgrund (optional)",
 			"unban_title": "Sperre aufheben",
 			"unban_description": "Möchten Sie die Sperre für {email} wirklich aufheben? Der Zugriff wird wiederhergestellt.",
 			"revoke_title": "Sitzungen widerrufen",
 			"revoke_description": "Möchten Sie wirklich alle Sitzungen für {email} widerrufen? Die Person wird überall abgemeldet.",
 			"set_role_title": "Benutzerrolle ändern",
-			"set_role_description": "Möchten Sie die Rolle von {email} wirklich auf {role} ändern?"
+			"set_role_description": "Möchten Sie die Rolle von {email} wirklich auf {role} ändern?",
+			"impersonation_active_title": "Identitätswechsel aktiv",
+			"impersonation_active_description": "Bitte laden Sie die Seite neu, um als der andere Benutzer angemeldet zu werden."
 		}
 	},
 	"app": {
