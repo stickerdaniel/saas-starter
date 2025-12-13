@@ -38,52 +38,105 @@ async function fetchAllSessions(ctx: QueryCtx): Promise<BetterAuthSession[]> {
 }
 
 /**
- * Get total user count for admin dashboard metrics
- */
-export const getUserCount = query({
-	args: {},
-	handler: async (ctx) => {
-		await requireAdmin(ctx);
-		const users = await fetchAllUsers(ctx);
-		return users.length;
-	}
-});
-
-/**
- * List users with pagination for admin user management
+ * List users with real cursor pagination for admin user management
  */
 export const listUsers = query({
 	args: {
-		limit: v.optional(v.number()),
 		cursor: v.optional(v.string()),
-		search: v.optional(v.string())
+		numItems: v.number(),
+		search: v.optional(v.string()),
+		roleFilter: v.optional(v.string()),
+		statusFilter: v.optional(
+			v.union(v.literal('verified'), v.literal('unverified'), v.literal('banned'))
+		),
+		sortBy: v.optional(
+			v.object({
+				field: v.union(v.literal('createdAt'), v.literal('email'), v.literal('name')),
+				direction: v.union(v.literal('asc'), v.literal('desc'))
+			})
+		)
 	},
 	handler: async (ctx, args) => {
 		await requireAdmin(ctx);
 
-		const limit = args.limit ?? 50;
-		const users = await fetchAllUsers(ctx);
+		// Build where conditions for filtering
+		const whereConditions: Array<{
+			connector?: 'AND' | 'OR';
+			field: string;
+			operator?:
+				| 'lt'
+				| 'lte'
+				| 'gt'
+				| 'gte'
+				| 'eq'
+				| 'in'
+				| 'not_in'
+				| 'ne'
+				| 'contains'
+				| 'starts_with'
+				| 'ends_with';
+			value: string | number | boolean | string[] | number[] | null;
+		}> = [];
 
-		// Sort by creation time descending
-		const sortedUsers = users.sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
+		// Role filter
+		if (args.roleFilter && args.roleFilter !== 'all') {
+			whereConditions.push({
+				field: 'role',
+				operator: 'eq',
+				value: args.roleFilter
+			});
+		}
 
-		// Filter by search term if provided
-		let filteredUsers = sortedUsers;
+		// Status filter
+		if (args.statusFilter === 'banned') {
+			whereConditions.push({
+				field: 'banned',
+				operator: 'eq',
+				value: true,
+				connector: whereConditions.length > 0 ? 'AND' : undefined
+			});
+		} else if (args.statusFilter === 'verified') {
+			whereConditions.push({
+				field: 'emailVerified',
+				operator: 'eq',
+				value: true,
+				connector: whereConditions.length > 0 ? 'AND' : undefined
+			});
+		} else if (args.statusFilter === 'unverified') {
+			whereConditions.push({
+				field: 'emailVerified',
+				operator: 'eq',
+				value: false,
+				connector: whereConditions.length > 0 ? 'AND' : undefined
+			});
+		}
+
+		// Fetch with real cursor pagination
+		const result = await ctx.runQuery(components.betterAuth.adapter.findMany, {
+			model: 'user',
+			paginationOpts: {
+				cursor: args.cursor ?? null,
+				numItems: args.numItems
+			},
+			sortBy: args.sortBy ?? { field: 'createdAt', direction: 'desc' },
+			where: whereConditions.length > 0 ? whereConditions : undefined
+		});
+
+		let users = result.page as BetterAuthUser[];
+
+		// Client-side search filtering (for multi-field search: email OR name)
+		// Note: This is done client-side because the BetterAuth adapter doesn't easily support OR across fields
 		if (args.search) {
 			const searchLower = args.search.toLowerCase();
-			filteredUsers = sortedUsers.filter(
+			users = users.filter(
 				(user) =>
 					user.email?.toLowerCase().includes(searchLower) ||
 					user.name?.toLowerCase().includes(searchLower)
 			);
 		}
 
-		// Simple pagination using offset (cursor is the index)
-		const startIndex = args.cursor ? parseInt(args.cursor) : 0;
-		const paginatedUsers = filteredUsers.slice(startIndex, startIndex + limit);
-
 		return {
-			users: paginatedUsers.map((user) => ({
+			users: users.map((user) => ({
 				id: user._id,
 				name: user.name,
 				email: user.email,
@@ -96,10 +149,98 @@ export const listUsers = query({
 				createdAt: user.createdAt,
 				updatedAt: user.updatedAt
 			})),
-			nextCursor:
-				startIndex + limit < filteredUsers.length ? String(startIndex + limit) : undefined,
-			totalCount: filteredUsers.length
+			continueCursor: result.continueCursor as string | null,
+			isDone: result.isDone as boolean
 		};
+	}
+});
+
+/**
+ * Get total user count with filters for pagination
+ */
+export const getUserCount = query({
+	args: {
+		search: v.optional(v.string()),
+		roleFilter: v.optional(v.string()),
+		statusFilter: v.optional(
+			v.union(v.literal('verified'), v.literal('unverified'), v.literal('banned'))
+		)
+	},
+	handler: async (ctx, args) => {
+		await requireAdmin(ctx);
+
+		// Build where conditions for filtering
+		const whereConditions: Array<{
+			connector?: 'AND' | 'OR';
+			field: string;
+			operator?:
+				| 'lt'
+				| 'lte'
+				| 'gt'
+				| 'gte'
+				| 'eq'
+				| 'in'
+				| 'not_in'
+				| 'ne'
+				| 'contains'
+				| 'starts_with'
+				| 'ends_with';
+			value: string | number | boolean | string[] | number[] | null;
+		}> = [];
+
+		// Role filter
+		if (args.roleFilter && args.roleFilter !== 'all') {
+			whereConditions.push({
+				field: 'role',
+				operator: 'eq',
+				value: args.roleFilter
+			});
+		}
+
+		// Status filter
+		if (args.statusFilter === 'banned') {
+			whereConditions.push({
+				field: 'banned',
+				operator: 'eq',
+				value: true,
+				connector: whereConditions.length > 0 ? 'AND' : undefined
+			});
+		} else if (args.statusFilter === 'verified') {
+			whereConditions.push({
+				field: 'emailVerified',
+				operator: 'eq',
+				value: true,
+				connector: whereConditions.length > 0 ? 'AND' : undefined
+			});
+		} else if (args.statusFilter === 'unverified') {
+			whereConditions.push({
+				field: 'emailVerified',
+				operator: 'eq',
+				value: false,
+				connector: whereConditions.length > 0 ? 'AND' : undefined
+			});
+		}
+
+		// Fetch all matching users (for count)
+		const result = await ctx.runQuery(components.betterAuth.adapter.findMany, {
+			model: 'user',
+			paginationOpts: { cursor: null, numItems: 10000 },
+			where: whereConditions.length > 0 ? whereConditions : undefined
+		});
+
+		let users = result.page as BetterAuthUser[];
+
+		// Client-side search filtering
+		if (args.search) {
+			const searchLower = args.search.toLowerCase();
+			users = users.filter(
+				(user) =>
+					user.email?.toLowerCase().includes(searchLower) ||
+					user.name?.toLowerCase().includes(searchLower)
+			);
+		}
+
+		return users.length;
 	}
 });
 

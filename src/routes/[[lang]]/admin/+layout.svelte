@@ -30,6 +30,9 @@
 			knownUserCount = count;
 		}
 	});
+
+	// Provide current user ID for child components (e.g., preventing self-modification in admin actions)
+	setContext('currentUserId', viewer?._id);
 </script>
 
 <AuthenticatedLayout

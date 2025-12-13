@@ -1,17 +1,11 @@
 <script lang="ts">
 	import {
-		type ColumnFiltersState,
-		type PaginationState,
 		type RowSelectionState,
 		type SortingState,
 		type VisibilityState,
-		getCoreRowModel,
-		getFilteredRowModel,
-		getPaginationRowModel,
-		getSortedRowModel
+		getCoreRowModel
 	} from '@tanstack/table-core';
 	import * as Table from '$lib/components/ui/table/index.js';
-	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
 	import * as Dialog from '$lib/components/ui/dialog/index.js';
 	import * as Select from '$lib/components/ui/select/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
@@ -21,8 +15,6 @@
 	import { Checkbox } from '$lib/components/ui/checkbox/index.js';
 	import SearchIcon from '@tabler/icons-svelte/icons/search';
 	import DotsVerticalIcon from '@tabler/icons-svelte/icons/dots-vertical';
-	import LayoutColumnsIcon from '@tabler/icons-svelte/icons/layout-columns';
-	import ChevronDownIcon from '@tabler/icons-svelte/icons/chevron-down';
 	import ChevronsLeftIcon from '@tabler/icons-svelte/icons/chevrons-left';
 	import ChevronLeftIcon from '@tabler/icons-svelte/icons/chevron-left';
 	import ChevronRightIcon from '@tabler/icons-svelte/icons/chevron-right';
@@ -41,18 +33,35 @@
 	import { columns } from './columns.js';
 	import DataTableFilters from './data-table-filters.svelte';
 	import type { ActionEvent } from './data-table-actions.svelte';
+	import { Debounced } from 'runed';
 
 	let { data }: { data: PageData } = $props();
 
 	const client = useConvexClient();
 
-	// Search state (server-side filtering via Convex)
+	// Search state with debouncing
 	let searchQuery = $state('');
+	const debouncedSearch = new Debounced(() => searchQuery, 300);
 
-	// TanStack Table state
-	let pagination = $state<PaginationState>({ pageIndex: 0, pageSize: 10 });
+	// Server-side pagination state
+	let pageSize = $state(10);
+	let pageIndex = $state(0);
+	let cursors = $state<Map<number, string | null>>(new Map([[0, null]]));
+
+	// Local page cache for instant navigation
+	type PageData = {
+		users: AdminUserData[];
+		continueCursor: string | null;
+		isDone: boolean;
+	};
+	let pageCache = $state<Map<number, PageData>>(new Map());
+
+	// Server-side filter state
+	let roleFilter = $state<string | undefined>(undefined);
+	let statusFilter = $state<'verified' | 'unverified' | 'banned' | undefined>(undefined);
+
+	// TanStack Table state (only client-side concerns remain)
 	let sorting = $state<SortingState>([]);
-	let columnFilters = $state<ColumnFiltersState>([]);
 	let rowSelection = $state<RowSelectionState>({});
 	let columnVisibility = $state<VisibilityState>({});
 
@@ -65,13 +74,129 @@
 	let selectedRole = $state<UserRole>('user');
 	let impersonationDialogOpen = $state(false);
 
-	// Fetch users with search - use a getter function to make search reactive
-	const users = useQuery(api.admin.queries.listUsers, () => ({
-		search: searchQuery || undefined
+	// Get current cursor for this page
+	const currentCursor = $derived(cursors.get(pageIndex) ?? null);
+
+	// Convert TanStack sorting state to backend sortBy format
+	const sortBy = $derived.by(() => {
+		if (sorting.length === 0) return undefined;
+		const sort = sorting[0];
+		// Map column IDs to backend field names
+		const fieldMap: Record<string, 'createdAt' | 'email' | 'name'> = {
+			createdAt: 'createdAt',
+			email: 'email',
+			name: 'name'
+		};
+		const field = fieldMap[sort.id];
+		if (!field) return undefined;
+		return {
+			field,
+			direction: sort.desc ? ('desc' as const) : ('asc' as const)
+		};
+	});
+
+	// Query for current page with real cursor pagination
+	const usersQuery = useQuery(api.admin.queries.listUsers, () => ({
+		cursor: currentCursor ?? undefined,
+		numItems: pageSize,
+		search: debouncedSearch.current || undefined,
+		roleFilter: roleFilter,
+		statusFilter: statusFilter,
+		sortBy: sortBy
 	}));
 
-	// Provide context for action component
-	setContext('currentUserId', data.viewer?._id);
+	// Query for total count (for page count calculation)
+	const countQuery = useQuery(api.admin.queries.getUserCount, () => ({
+		search: debouncedSearch.current || undefined,
+		roleFilter: roleFilter,
+		statusFilter: statusFilter
+	}));
+
+	// Prefetch state - stores the next page data for instant navigation
+	let prefetchedNextPage = $state<{
+		cursor: string;
+		data: typeof usersQuery.data;
+	} | null>(null);
+
+	// Track the next page cursor from current query
+	const nextPageCursor = $derived(usersQuery.data?.continueCursor);
+
+	// Prefetch query - runs when we have a next cursor
+	// We use a separate query that updates based on the next cursor
+	const prefetchArgs = $derived.by(() => {
+		if (!nextPageCursor) return null;
+		return {
+			cursor: nextPageCursor,
+			numItems: pageSize,
+			search: debouncedSearch.current || undefined,
+			roleFilter: roleFilter,
+			statusFilter: statusFilter,
+			sortBy: sortBy
+		};
+	});
+
+	// Prefetch query - when no next cursor, use minimal args (numItems: 1)
+	// This creates minimal overhead when we don't need to prefetch
+	const prefetchQuery = useQuery(
+		api.admin.queries.listUsers,
+		() => prefetchArgs ?? { numItems: 1 } // Minimal fetch when no prefetch needed
+	);
+
+	// Store prefetched data when it arrives
+	$effect(() => {
+		if (prefetchArgs && prefetchQuery.data && nextPageCursor) {
+			prefetchedNextPage = {
+				cursor: nextPageCursor,
+				data: prefetchQuery.data
+			};
+		}
+	});
+
+	// Clear prefetch when filters/search/sorting change
+	$effect(() => {
+		// This effect runs when any of these change
+		void debouncedSearch.current;
+		void roleFilter;
+		void statusFilter;
+		void sortBy;
+		prefetchedNextPage = null;
+	});
+
+	// Cache pages when fetched from server
+	$effect(() => {
+		if (usersQuery.data) {
+			pageCache.set(pageIndex, {
+				users: usersQuery.data.users,
+				continueCursor: usersQuery.data.continueCursor,
+				isDone: usersQuery.data.isDone
+			});
+			pageCache = pageCache; // Trigger reactivity
+		}
+	});
+
+	// Also cache prefetched pages
+	$effect(() => {
+		if (prefetchedNextPage?.data && nextPageCursor) {
+			const nextIndex = pageIndex + 1;
+			if (!pageCache.has(nextIndex)) {
+				pageCache.set(nextIndex, {
+					users: prefetchedNextPage.data.users,
+					continueCursor: prefetchedNextPage.data.continueCursor,
+					isDone: prefetchedNextPage.data.isDone
+				});
+				pageCache = pageCache;
+			}
+		}
+	});
+
+	// Get current page data - from cache (instant) or query (loading)
+	const currentPageData = $derived.by(() => {
+		const cached = pageCache.get(pageIndex);
+		if (cached) return cached;
+		return usersQuery.data;
+	});
+
+	// Provide context for action component (currentUserId is set by admin layout)
 	setContext('onUserAction', handleUserAction);
 
 	// Get user count context from admin layout
@@ -79,57 +204,136 @@
 		'adminUserCount'
 	);
 
-	// Calculate skeleton rows: min(knownCount, pageSize) or pageSize if unknown
+	// Calculate skeleton rows: min(knownCount - offset, pageSize) or pageSize if unknown
 	const skeletonCount = $derived.by(() => {
 		const known = userCountContext?.get();
-		const pageSize = pagination.pageSize;
-		if (known !== null && known !== undefined && known < pageSize) {
-			return known;
+		if (known !== null && known !== undefined) {
+			const remaining = known - pageIndex * pageSize;
+			return Math.min(Math.max(remaining, 0), pageSize);
 		}
 		return pageSize;
 	});
 
-	// Optimistic page count: use known user count when data is loading
-	const optimisticPageCount = $derived.by(() => {
-		// If we have real data, use the table's page count
-		if (users.data !== undefined) {
-			return table.getPageCount();
+	// Page count from server
+	const pageCount = $derived.by(() => {
+		if (countQuery.data !== undefined) {
+			return Math.ceil(countQuery.data / pageSize);
 		}
-		// Otherwise calculate from known user count
+		// Fallback to context-based count
 		const known = userCountContext?.get();
 		if (known !== null && known !== undefined) {
-			return Math.ceil(known / pagination.pageSize);
+			return Math.ceil(known / pageSize);
 		}
-		// Fallback to 1 if nothing is known
 		return 1;
 	});
 
-	// Optimistic page row count for selection display (current page only)
-	const optimisticPageRows = $derived.by(() => {
-		// If we have real data, use the table's current page row count
-		if (users.data !== undefined) {
-			return table.getRowModel().rows.length;
-		}
-		// Otherwise use skeleton count (which is already min(known, pageSize))
-		return skeletonCount;
-	});
-
-	// Update user count context when users data loads
+	// Update user count context when count data loads
 	$effect(() => {
-		if (users.data?.totalCount !== undefined) {
-			userCountContext?.set(users.data.totalCount);
+		if (countQuery.data !== undefined) {
+			userCountContext?.set(countQuery.data);
 		}
 	});
 
-	// Create the table
+	// Store next cursor when we get it
+	$effect(() => {
+		if (usersQuery.data?.continueCursor) {
+			cursors.set(pageIndex + 1, usersQuery.data.continueCursor);
+			cursors = cursors; // Trigger reactivity
+		}
+	});
+
+	// Reset pagination when filters/search/sorting change
+	let previousSearch = '';
+	let previousRoleFilter: string | undefined = undefined;
+	let previousStatusFilter: 'verified' | 'unverified' | 'banned' | undefined = undefined;
+	let previousSortBy: typeof sortBy = undefined;
+
+	$effect(() => {
+		const currentSearch = debouncedSearch.current;
+		const currentSortBy = sortBy;
+		if (
+			currentSearch !== previousSearch ||
+			roleFilter !== previousRoleFilter ||
+			statusFilter !== previousStatusFilter ||
+			JSON.stringify(currentSortBy) !== JSON.stringify(previousSortBy)
+		) {
+			previousSearch = currentSearch;
+			previousRoleFilter = roleFilter;
+			previousStatusFilter = statusFilter;
+			previousSortBy = currentSortBy;
+
+			// Reset to page 0 and clear caches
+			pageIndex = 0;
+			cursors = new Map([[0, null]]);
+			pageCache = new Map();
+		}
+	});
+
+	// Navigation helpers
+	const canPreviousPage = $derived(pageIndex > 0);
+	const canNextPage = $derived.by(() => {
+		const data = currentPageData;
+		// Must have data loaded
+		if (!data) return false;
+		// Must not be done (no more pages)
+		if (data.isDone) return false;
+		// Must have a next cursor
+		if (!data.continueCursor) return false;
+		// Must not be at or past page count
+		if (pageCount > 0 && pageIndex >= pageCount - 1) return false;
+		return true;
+	});
+
+	function goToFirstPage() {
+		pageIndex = 0;
+	}
+
+	function goToPreviousPage() {
+		if (canPreviousPage) {
+			pageIndex = pageIndex - 1;
+		}
+	}
+
+	function goToNextPage() {
+		if (canNextPage && usersQuery.data?.continueCursor) {
+			// Store the cursor for the next page before navigating
+			cursors.set(pageIndex + 1, usersQuery.data.continueCursor);
+			cursors = cursors;
+			pageIndex = pageIndex + 1;
+		}
+	}
+
+	function goToLastPage() {
+		// With cursor pagination, we can't easily jump to last page
+		// We'd need to know all cursors. For now, disabled.
+	}
+
+	function handlePageSizeChange(newSize: number) {
+		pageSize = newSize;
+		pageIndex = 0;
+		cursors = new Map([[0, null]]);
+		pageCache = new Map();
+		prefetchedNextPage = null; // Clear prefetch cache too
+	}
+
+	// Filter change handler (called from DataTableFilters)
+	function handleFilterChange(filters: {
+		role: string | undefined;
+		status: 'verified' | 'unverified' | 'banned' | undefined;
+	}) {
+		roleFilter = filters.role;
+		statusFilter = filters.status;
+	}
+
+	// Create the table (manual pagination mode)
 	const table = createSvelteTable({
 		get data() {
-			return users.data?.users ?? [];
+			return currentPageData?.users ?? [];
 		},
 		columns,
 		state: {
 			get pagination() {
-				return pagination;
+				return { pageIndex, pageSize };
 			},
 			get sorting() {
 				return sorting;
@@ -139,35 +343,21 @@
 			},
 			get rowSelection() {
 				return rowSelection;
-			},
-			get columnFilters() {
-				return columnFilters;
 			}
+		},
+		manualPagination: true,
+		manualFiltering: true,
+		manualSorting: true,
+		get pageCount() {
+			return pageCount;
 		},
 		getRowId: (row) => row.id,
 		getCoreRowModel: getCoreRowModel(),
-		getPaginationRowModel: getPaginationRowModel(),
-		getSortedRowModel: getSortedRowModel(),
-		getFilteredRowModel: getFilteredRowModel(),
-		onPaginationChange: (updater) => {
-			if (typeof updater === 'function') {
-				pagination = updater(pagination);
-			} else {
-				pagination = updater;
-			}
-		},
 		onSortingChange: (updater) => {
 			if (typeof updater === 'function') {
 				sorting = updater(sorting);
 			} else {
 				sorting = updater;
-			}
-		},
-		onColumnFiltersChange: (updater) => {
-			if (typeof updater === 'function') {
-				columnFilters = updater(columnFilters);
-			} else {
-				columnFilters = updater;
 			}
 		},
 		onColumnVisibilityChange: (updater) => {
@@ -388,7 +578,7 @@
 			</div>
 
 			<!-- Filters -->
-			<DataTableFilters {table} />
+			<DataTableFilters {roleFilter} {statusFilter} onFilterChange={handleFilterChange} />
 		</div>
 
 		<!-- Column Visibility (commented out for now, may be useful later)
@@ -440,7 +630,7 @@
 				{/each}
 			</Table.Header>
 			<Table.Body>
-				{#if users.data === undefined}
+				{#if currentPageData === undefined}
 					<!-- Skeleton loading rows matching real row structure -->
 					{#each Array(skeletonCount) as _, i (i)}
 						<Table.Row>
@@ -512,8 +702,8 @@
 			<T
 				keyName="admin.users.selected"
 				params={{
-					selected: table.getFilteredSelectedRowModel().rows.length,
-					total: users.data?.totalCount ?? 0
+					selected: Object.keys(rowSelection).length,
+					total: countQuery.data ?? 0
 				}}
 			/>
 		</div>
@@ -525,16 +715,16 @@
 				>
 				<Select.Root
 					type="single"
-					value={`${table.getState().pagination.pageSize}`}
-					onValueChange={(v) => table.setPageSize(Number(v))}
+					value={`${pageSize}`}
+					onValueChange={(v) => handlePageSizeChange(Number(v))}
 				>
 					<Select.Trigger size="sm" class="w-20" id="rows-per-page">
-						{table.getState().pagination.pageSize}
+						{pageSize}
 					</Select.Trigger>
 					<Select.Content side="top">
-						{#each [10, 20, 30, 40, 50] as pageSize (pageSize)}
-							<Select.Item value={pageSize.toString()}>
-								{pageSize}
+						{#each [1, 10, 20, 30, 40, 50] as size (size)}
+							<Select.Item value={size.toString()}>
+								{size}
 							</Select.Item>
 						{/each}
 					</Select.Content>
@@ -546,8 +736,8 @@
 				<T
 					keyName="admin.users.page_indicator"
 					params={{
-						current: table.getState().pagination.pageIndex + 1,
-						total: optimisticPageCount
+						current: pageIndex + 1,
+						total: pageCount
 					}}
 				/>
 			</div>
@@ -557,8 +747,8 @@
 				<Button
 					variant="outline"
 					class="hidden h-8 w-8 p-0 lg:flex"
-					onclick={() => table.setPageIndex(0)}
-					disabled={!table.getCanPreviousPage()}
+					onclick={goToFirstPage}
+					disabled={!canPreviousPage}
 				>
 					<span class="sr-only"><T keyName="admin.users.pagination.first" /></span>
 					<ChevronsLeftIcon />
@@ -567,8 +757,8 @@
 					variant="outline"
 					class="size-8"
 					size="icon"
-					onclick={() => table.previousPage()}
-					disabled={!table.getCanPreviousPage()}
+					onclick={goToPreviousPage}
+					disabled={!canPreviousPage}
 				>
 					<span class="sr-only"><T keyName="admin.users.pagination.previous" /></span>
 					<ChevronLeftIcon />
@@ -577,8 +767,8 @@
 					variant="outline"
 					class="size-8"
 					size="icon"
-					onclick={() => table.nextPage()}
-					disabled={!table.getCanNextPage()}
+					onclick={goToNextPage}
+					disabled={!canNextPage}
 				>
 					<span class="sr-only"><T keyName="admin.users.pagination.next" /></span>
 					<ChevronRightIcon />
@@ -587,8 +777,8 @@
 					variant="outline"
 					class="hidden size-8 lg:flex"
 					size="icon"
-					onclick={() => table.setPageIndex(table.getPageCount() - 1)}
-					disabled={!table.getCanNextPage()}
+					onclick={goToLastPage}
+					disabled={true}
 				>
 					<span class="sr-only"><T keyName="admin.users.pagination.last" /></span>
 					<ChevronsRightIcon />
