@@ -1,11 +1,104 @@
 {
+	"admin": {
+		"title": "Panel de Admin",
+		"navigation": {
+			"home": "Inicio",
+			"app": "App"
+		},
+		"sidebar": {
+			"dashboard": "Panel",
+			"users": "Usuarios",
+			"back_to_app": "Volver a la App"
+		},
+		"dashboard": {
+			"title": "Panel de Administración",
+			"external_services": "Servicios Externos",
+			"email_service": "Servicio de entrega de correo",
+			"database_backend": "Base de datos y backend",
+			"hosting_deployment": "Hosting y despliegue"
+		},
+		"metrics": {
+			"total_users": "Usuarios Totales",
+			"total_users_desc": "Todas las cuentas registradas",
+			"registered_users": "Base de usuarios",
+			"admins": "Admins",
+			"admins_desc": "Usuarios con privilegios de admin",
+			"admin_users": "Gestionando la plataforma",
+			"active_sessions": "Activos (24h)",
+			"active_sessions_desc": "Activos en las últimas 24 horas",
+			"currently_active": "Actividad diaria",
+			"recent_signups": "Registros Recientes",
+			"recent_signups_desc": "Crecimiento de usuarios",
+			"last_7_days": "Últimos 7 días",
+			"banned_users": "Usuarios Bloqueados",
+			"banned_users_desc": "Acceso restringido",
+			"users_banned": "Cuentas pendientes de revisión"
+		},
+		"users": {
+			"title": "Gestión de Usuarios",
+			"total": "usuarios",
+			"name": "Nombre",
+			"email": "Correo",
+			"role": "Rol",
+			"status": "Estado",
+			"created": "Creado",
+			"loading": "Cargando usuarios...",
+			"banned": "Bloqueado",
+			"verified": "Verificado",
+			"unverified": "No verificado",
+			"search_placeholder": "Buscar usuarios...",
+			"no_results": "Sin resultados.",
+			"selected": "{selected} de {total} usuarios seleccionados",
+			"rows_per_page": "Filas por página",
+			"page_indicator": "Página {current} de {total}",
+			"unnamed": "Sin nombre",
+			"actions_column": "Acciones",
+			"menu_open": "Abrir menú",
+			"select_all": "Seleccionar todo",
+			"select_row": "Seleccionar fila",
+			"pagination": {
+				"first": "Ir a la primera página",
+				"previous": "Ir a la página anterior",
+				"next": "Ir a la siguiente página",
+				"last": "Ir a la última página"
+			},
+			"filter": {
+				"all_roles": "Todos los roles",
+				"role_admin": "Admin",
+				"role_user": "Usuario",
+				"all_status": "Todos los estados",
+				"clear": "Limpiar"
+			}
+		},
+		"actions": {
+			"impersonate": "Suplantar",
+			"ban": "Bloquear Usuario",
+			"unban": "Desbloquear Usuario",
+			"revoke_sessions": "Revocar Sesiones",
+			"set_role": "Cambiar Rol"
+		},
+		"dialog": {
+			"ban_title": "Bloquear Usuario",
+			"ban_description": "¿Estás seguro de que quieres bloquear a {email}? No podrá acceder a la app.",
+			"ban_reason_placeholder": "Motivo del bloqueo (opcional)",
+			"unban_title": "Desbloquear Usuario",
+			"unban_description": "¿Estás seguro de que quieres desbloquear a {email}? Recuperará el acceso a la app.",
+			"revoke_title": "Revocar Sesiones",
+			"revoke_description": "¿Estás seguro de que quieres revocar todas las sesiones de {email}? Se cerrará sesión en todos los dispositivos.",
+			"set_role_title": "Cambiar Rol de Usuario",
+			"set_role_description": "¿Estás seguro de que quieres cambiar el rol de {email} a {role}?",
+			"impersonation_active_title": "Suplantación activa",
+			"impersonation_active_description": "Por favor, recarga la página para iniciar sesión como el usuario suplantado."
+		}
+	},
 	"app": {
 		"name": "SaaS Starter",
 		"sidebar": {
 			"community_chat": "Chat comunitario",
 			"dashboard": "Panel",
 			"docs": "Documentación",
-			"home": "Inicio"
+			"home": "Inicio",
+			"admin_panel": "Panel de Admin"
 		},
 		"user_menu": {
 			"account": "Cuenta",
@@ -13,7 +106,9 @@
 			"logout": "Cerrar sesión",
 			"notifications": "Notificaciones",
 			"settings": "Configuración",
-			"upgrade_pro": "Actualizar a Pro"
+			"upgrade_pro": "Actualizar a Pro",
+			"stop_impersonating": "Dejar de suplantar",
+			"impersonating_banner": "Estás suplantando a este usuario"
 		}
 	},
 	"auth": {
@@ -332,7 +427,7 @@
 				"price": "Personalizado"
 			},
 			"free": {
-				"button": "Plan Actual",
+				"button": "Gratis para siempre",
 				"button_manage": "Gestionar Suscripción",
 				"description": "Perfecto para comenzar",
 				"name": "Gratis",
@@ -348,6 +443,10 @@
 			}
 		},
 		"title": "Precios que Escalan Contigo"
+	},
+	"common": {
+		"cancel": "Cancelar",
+		"confirm": "Confirmar"
 	},
 	"team": {
 		"description": "Durante el proceso de trabajo, realizamos ajustes regulares con el cliente porque él es la única persona que puede sentir si un traje nuevo le queda bien o no.",

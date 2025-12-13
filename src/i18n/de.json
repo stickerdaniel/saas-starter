@@ -1,11 +1,104 @@
 {
+	"admin": {
+		"title": "Admin-Bereich",
+		"navigation": {
+			"home": "Startseite",
+			"app": "App"
+		},
+		"sidebar": {
+			"dashboard": "Dashboard",
+			"users": "Benutzer",
+			"back_to_app": "Zurück zur App"
+		},
+		"dashboard": {
+			"title": "Admin Dashboard",
+			"external_services": "Externe Dienste",
+			"email_service": "E-Mail-Zustelldienst",
+			"database_backend": "Datenbank & Backend",
+			"hosting_deployment": "Hosting & Deployment"
+		},
+		"metrics": {
+			"total_users": "Benutzer gesamt",
+			"total_users_desc": "Alle registrierten Konten",
+			"registered_users": "Plattform-Nutzerbasis",
+			"admins": "Admins",
+			"admins_desc": "Benutzer mit Admin-Rechten",
+			"admin_users": "Plattformverwaltung",
+			"active_sessions": "Aktiv (24h)",
+			"active_sessions_desc": "In den letzten 24 Stunden aktiv",
+			"currently_active": "Tägliche Aktivität",
+			"recent_signups": "Neuanmeldungen",
+			"recent_signups_desc": "Neue Benutzer",
+			"last_7_days": "Letzte 7 Tage",
+			"banned_users": "Gesperrte Benutzer",
+			"banned_users_desc": "Zugriff eingeschränkt",
+			"users_banned": "Konten zur Überprüfung"
+		},
+		"users": {
+			"title": "Benutzerverwaltung",
+			"total": "Benutzer",
+			"name": "Name",
+			"email": "E-Mail",
+			"role": "Rolle",
+			"status": "Status",
+			"created": "Erstellt",
+			"loading": "Benutzer werden geladen...",
+			"banned": "Gesperrt",
+			"verified": "Verifiziert",
+			"unverified": "Nicht verifiziert",
+			"search_placeholder": "Benutzer suchen...",
+			"no_results": "Keine Ergebnisse.",
+			"selected": "{selected} von {total} Benutzer ausgewählt",
+			"rows_per_page": "Zeilen pro Seite",
+			"page_indicator": "Seite {current} von {total}",
+			"unnamed": "Unbenannt",
+			"actions_column": "Aktionen",
+			"menu_open": "Menü öffnen",
+			"select_all": "Alle auswählen",
+			"select_row": "Zeile auswählen",
+			"pagination": {
+				"first": "Zur ersten Seite",
+				"previous": "Zur vorherigen Seite",
+				"next": "Zur nächsten Seite",
+				"last": "Zur letzten Seite"
+			},
+			"filter": {
+				"all_roles": "Alle Rollen",
+				"role_admin": "Admin",
+				"role_user": "Benutzer",
+				"all_status": "Alle Status",
+				"clear": "Zurücksetzen"
+			}
+		},
+		"actions": {
+			"impersonate": "Identität annehmen",
+			"ban": "Benutzer sperren",
+			"unban": "Sperre aufheben",
+			"revoke_sessions": "Sitzungen widerrufen",
+			"set_role": "Rolle ändern"
+		},
+		"dialog": {
+			"ban_title": "Benutzer sperren",
+			"ban_description": "Möchten Sie {email} wirklich sperren? Der Zugriff auf die App wird blockiert.",
+			"ban_reason_placeholder": "Sperrgrund (optional)",
+			"unban_title": "Sperre aufheben",
+			"unban_description": "Möchten Sie die Sperre für {email} wirklich aufheben? Der Zugriff wird wiederhergestellt.",
+			"revoke_title": "Sitzungen widerrufen",
+			"revoke_description": "Möchten Sie wirklich alle Sitzungen für {email} widerrufen? Die Person wird überall abgemeldet.",
+			"set_role_title": "Benutzerrolle ändern",
+			"set_role_description": "Möchten Sie die Rolle von {email} wirklich auf {role} ändern?",
+			"impersonation_active_title": "Identitätswechsel aktiv",
+			"impersonation_active_description": "Bitte laden Sie die Seite neu, um als der andere Benutzer angemeldet zu werden."
+		}
+	},
 	"app": {
 		"name": "SaaS Starter",
 		"sidebar": {
 			"community_chat": "Community-Chat",
 			"dashboard": "Dashboard",
 			"docs": "Dokumentation",
-			"home": "Start"
+			"home": "Start",
+			"admin_panel": "Admin-Bereich"
 		},
 		"user_menu": {
 			"account": "Konto",
@@ -13,7 +106,9 @@
 			"logout": "Abmelden",
 			"notifications": "Benachrichtigungen",
 			"settings": "Einstellungen",
-			"upgrade_pro": "Auf Pro upgraden"
+			"upgrade_pro": "Auf Pro upgraden",
+			"stop_impersonating": "Identitätswechsel beenden",
+			"impersonating_banner": "Sie agieren als dieser Benutzer"
 		}
 	},
 	"auth": {
@@ -332,7 +427,7 @@
 				"price": "Individuell"
 			},
 			"free": {
-				"button": "Aktueller Plan",
+				"button": "Für immer kostenlos",
 				"button_manage": "Abonnement verwalten",
 				"description": "Perfekt für den Einstieg",
 				"name": "Kostenlos",
@@ -348,6 +443,10 @@
 			}
 		},
 		"title": "Preise, die mit Ihnen wachsen"
+	},
+	"common": {
+		"cancel": "Abbrechen",
+		"confirm": "Bestätigen"
 	},
 	"team": {
 		"description": "Während des Arbeitsprozesses führen wir regelmäßige Anpassungen mit dem Kunden durch, denn er ist die einzige Person, die spüren kann, ob ein neuer Anzug passt oder nicht.",
