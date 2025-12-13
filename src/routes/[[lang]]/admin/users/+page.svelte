@@ -56,6 +56,9 @@
 	};
 	let pageCache = $state<Map<number, PageData>>(new Map());
 
+	// Track what cursor the current usersQuery.data was fetched with
+	let queryCursorUsed = $state<string | null | undefined>(undefined);
+
 	// Server-side filter state
 	let roleFilter = $state<string | undefined>(undefined);
 	let statusFilter = $state<'verified' | 'unverified' | 'banned' | undefined>(undefined);
@@ -104,6 +107,13 @@
 		statusFilter: statusFilter,
 		sortBy: sortBy
 	}));
+
+	// Track the cursor that was used to fetch current query data
+	$effect(() => {
+		if (usersQuery.data && !usersQuery.isLoading) {
+			queryCursorUsed = currentCursor;
+		}
+	});
 
 	// Query for total count (for page count calculation)
 	const countQuery = useQuery(api.admin.queries.getUserCount, () => ({
@@ -164,27 +174,34 @@
 
 	// Cache pages when fetched from server
 	$effect(() => {
-		if (usersQuery.data) {
-			pageCache.set(pageIndex, {
-				users: usersQuery.data.users,
-				continueCursor: usersQuery.data.continueCursor,
-				isDone: usersQuery.data.isDone
-			});
-			pageCache = pageCache; // Trigger reactivity
+		if (usersQuery.data && !usersQuery.isLoading) {
+			// Only cache if data was fetched with the cursor expected for this page
+			const expectedCursor = cursors.get(pageIndex) ?? null;
+			if (queryCursorUsed === expectedCursor) {
+				pageCache.set(pageIndex, {
+					users: usersQuery.data.users,
+					continueCursor: usersQuery.data.continueCursor,
+					isDone: usersQuery.data.isDone
+				});
+				pageCache = pageCache; // Trigger reactivity
+			}
 		}
 	});
 
 	// Also cache prefetched pages
 	$effect(() => {
-		if (prefetchedNextPage?.data && nextPageCursor) {
-			const nextIndex = pageIndex + 1;
-			if (!pageCache.has(nextIndex)) {
-				pageCache.set(nextIndex, {
-					users: prefetchedNextPage.data.users,
-					continueCursor: prefetchedNextPage.data.continueCursor,
-					isDone: prefetchedNextPage.data.isDone
-				});
-				pageCache = pageCache;
+		if (prefetchedNextPage?.data && prefetchedNextPage.cursor) {
+			// Find which page this prefetch belongs to by matching cursor
+			for (const [index, cursor] of cursors.entries()) {
+				if (cursor === prefetchedNextPage.cursor && !pageCache.has(index)) {
+					pageCache.set(index, {
+						users: prefetchedNextPage.data.users,
+						continueCursor: prefetchedNextPage.data.continueCursor,
+						isDone: prefetchedNextPage.data.isDone
+					});
+					pageCache = pageCache;
+					break;
+				}
 			}
 		}
 	});
