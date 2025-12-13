@@ -1,114 +1,116 @@
 {
 	"admin": {
-		"title": "Panneau Admin",
-		"navigation": {
-			"home": "Accueil",
-			"app": "App"
-		},
-		"sidebar": {
-			"dashboard": "Tableau de bord",
-			"users": "Utilisateurs",
-			"back_to_app": "Retour à l'App"
+		"actions": {
+			"ban": "Bannir l'Utilisateur",
+			"impersonate": "Usurper",
+			"revoke_sessions": "Révoquer les Sessions",
+			"set_role": "Changer le Rôle",
+			"unban": "Débannir l'Utilisateur"
 		},
 		"dashboard": {
-			"title": "Tableau de bord Admin",
-			"external_services": "Services Externes",
-			"email_service": "Service d'envoi d'e-mails",
 			"database_backend": "Base de données & backend",
-			"hosting_deployment": "Hébergement & déploiement"
+			"email_service": "Service d'envoi d'e-mails",
+			"external_services": "Services Externes",
+			"hosting_deployment": "Hébergement & déploiement",
+			"title": "Tableau de bord Admin"
+		},
+		"dialog": {
+			"ban_description": "Êtes-vous sûr de vouloir bannir {email} ? L'accès à l'app sera bloqué.",
+			"ban_reason_placeholder": "Motif du bannissement (optionnel)",
+			"ban_title": "Bannir l'Utilisateur",
+			"impersonation_active_description": "Veuillez recharger la page pour vous connecter en tant qu'utilisateur usurpé.",
+			"impersonation_active_title": "Usurpation active",
+			"reload_page": "Recharger la page",
+			"revoke_description": "Êtes-vous sûr de vouloir révoquer toutes les sessions de {email} ? La déconnexion sera effectuée partout.",
+			"revoke_title": "Révoquer les Sessions",
+			"set_role_description": "Êtes-vous sûr de vouloir changer le rôle de {email} en {role} ?",
+			"set_role_title": "Changer le Rôle de l'Utilisateur",
+			"unban_description": "Êtes-vous sûr de vouloir débannir {email} ? L'accès à l'app sera rétabli.",
+			"unban_title": "Débannir l'Utilisateur"
 		},
 		"metrics": {
-			"total_users": "Utilisateurs Totaux",
-			"total_users_desc": "Tous les comptes enregistrés",
-			"registered_users": "Base d'utilisateurs",
+			"active_sessions": "Actifs (24h)",
+			"active_sessions_desc": "Actifs au cours des 24 dernières heures",
 			"admins": "Admins",
 			"admins_desc": "Utilisateurs avec privilèges admin",
 			"admin_users": "Gestion de la plateforme",
-			"active_sessions": "Actifs (24h)",
-			"active_sessions_desc": "Actifs au cours des 24 dernières heures",
-			"currently_active": "Activité quotidienne",
-			"recent_signups": "Inscriptions Récentes",
-			"recent_signups_desc": "Croissance des utilisateurs",
-			"last_7_days": "7 derniers jours",
 			"banned_users": "Utilisateurs Bannis",
 			"banned_users_desc": "Accès restreint",
+			"currently_active": "Activité quotidienne",
+			"last_7_days": "7 derniers jours",
+			"recent_signups": "Inscriptions Récentes",
+			"recent_signups_desc": "Croissance des utilisateurs",
+			"registered_users": "Base d'utilisateurs",
+			"total_users": "Utilisateurs Totaux",
+			"total_users_desc": "Tous les comptes enregistrés",
 			"users_banned": "Comptes à vérifier"
 		},
+		"navigation": {
+			"app": "App",
+			"home": "Accueil",
+			"website": "Site Web"
+		},
+		"sidebar": {
+			"back_to_app": "Retour à l'App",
+			"dashboard": "Tableau de bord",
+			"users": "Utilisateurs"
+		},
+		"title": "Panneau Admin",
 		"users": {
-			"title": "Gestion des Utilisateurs",
-			"total": "utilisateurs",
-			"name": "Nom",
-			"email": "E-mail",
-			"role": "Rôle",
-			"status": "Statut",
-			"created": "Créé",
-			"loading": "Chargement des utilisateurs...",
-			"banned": "Banni",
-			"verified": "Vérifié",
-			"unverified": "Non vérifié",
-			"search_placeholder": "Rechercher des utilisateurs...",
-			"no_results": "Aucun résultat.",
-			"selected": "{selected} sur {total} utilisateurs sélectionnés",
-			"rows_per_page": "Lignes par page",
-			"page_indicator": "Page {current} sur {total}",
-			"unnamed": "Sans nom",
 			"actions_column": "Actions",
-			"menu_open": "Ouvrir le menu",
-			"select_all": "Tout sélectionner",
-			"select_row": "Sélectionner la ligne",
-			"pagination": {
-				"first": "Aller à la première page",
-				"previous": "Aller à la page précédente",
-				"next": "Aller à la page suivante",
-				"last": "Aller à la dernière page"
-			},
+			"banned": "Banni",
+			"created": "Créé",
+			"email": "E-mail",
 			"filter": {
 				"all_roles": "Tous les rôles",
-				"role_admin": "Admin",
-				"role_user": "Utilisateur",
 				"all_status": "Tous les statuts",
-				"clear": "Effacer"
-			}
-		},
-		"actions": {
-			"impersonate": "Usurper",
-			"ban": "Bannir l'Utilisateur",
-			"unban": "Débannir l'Utilisateur",
-			"revoke_sessions": "Révoquer les Sessions",
-			"set_role": "Changer le Rôle"
-		},
-		"dialog": {
-			"ban_title": "Bannir l'Utilisateur",
-			"ban_description": "Êtes-vous sûr de vouloir bannir {email} ? L'accès à l'app sera bloqué.",
-			"ban_reason_placeholder": "Motif du bannissement (optionnel)",
-			"unban_title": "Débannir l'Utilisateur",
-			"unban_description": "Êtes-vous sûr de vouloir débannir {email} ? L'accès à l'app sera rétabli.",
-			"revoke_title": "Révoquer les Sessions",
-			"revoke_description": "Êtes-vous sûr de vouloir révoquer toutes les sessions de {email} ? La déconnexion sera effectuée partout.",
-			"set_role_title": "Changer le Rôle de l'Utilisateur",
-			"set_role_description": "Êtes-vous sûr de vouloir changer le rôle de {email} en {role} ?",
-			"impersonation_active_title": "Usurpation active",
-			"impersonation_active_description": "Veuillez recharger la page pour vous connecter en tant qu'utilisateur usurpé."
+				"clear": "Effacer",
+				"role_admin": "Admin",
+				"role_user": "Utilisateur"
+			},
+			"loading": "Chargement des utilisateurs...",
+			"menu_open": "Ouvrir le menu",
+			"name": "Nom",
+			"no_results": "Aucun résultat.",
+			"page_indicator": "Page {current} sur {total}",
+			"pagination": {
+				"first": "Aller à la première page",
+				"last": "Aller à la dernière page",
+				"next": "Aller à la page suivante",
+				"previous": "Aller à la page précédente"
+			},
+			"role": "Rôle",
+			"rows_per_page": "Lignes par page",
+			"search_placeholder": "Rechercher des utilisateurs...",
+			"select_all": "Tout sélectionner",
+			"selected": "{selected} sur {total} utilisateurs sélectionnés",
+			"select_row": "Sélectionner la ligne",
+			"status": "Statut",
+			"title": "Gestion des Utilisateurs",
+			"total": "utilisateurs",
+			"unnamed": "Sans nom",
+			"unverified": "Non vérifié",
+			"verified": "Vérifié"
 		}
 	},
 	"app": {
 		"name": "SaaS Starter",
 		"sidebar": {
+			"admin_panel": "Panneau Admin",
 			"community_chat": "Chat communautaire",
 			"dashboard": "Tableau de bord",
 			"docs": "Documentation",
-			"home": "Accueil",
-			"admin_panel": "Panneau Admin"
+			"home": "Accueil"
 		},
 		"user_menu": {
 			"account": "Compte",
 			"billing": "Facturation",
+			"impersonating_banner": "Vous usurpez l'identité de cet utilisateur",
 			"logout": "Se déconnecter",
 			"notifications": "Notifications",
 			"settings": "Paramètres",
-			"upgrade_pro": "Passer à Pro",
 			"stop_impersonating": "Arrêter l'usurpation",
-			"impersonating_banner": "Vous usurpez l'identité de cet utilisateur"
+			"upgrade_pro": "Passer à Pro"
 		}
 	},
 	"auth": {
@@ -119,15 +121,15 @@
 			"invalid_email": "Veuillez entrer une adresse e-mail valide",
 			"invalid_secret": "Secret invalide",
 			"name_required": "Le nom est requis",
+			"passkey_failed": "L'authentification par passkey a échoué",
 			"password_lowercase": "Le mot de passe doit contenir au moins une lettre minuscule",
 			"password_min_length": "Le mot de passe doit contenir au moins {minLength} caractères",
 			"password_number": "Le mot de passe doit contenir au moins un chiffre",
 			"password_required": "Le mot de passe est requis",
-			"password_uppercase": "Le mot de passe doit contenir au moins une lettre majuscule",
 			"passwords_do_not_match": "Les mots de passe ne correspondent pas",
+			"password_uppercase": "Le mot de passe doit contenir au moins une lettre majuscule",
 			"signup_failed": "Impossible de créer le compte. L'e-mail est peut-être déjà utilisé.",
-			"verification_invalid": "Code de vérification invalide ou expiré. Veuillez réessayer.",
-			"passkey_failed": "L'authentification par passkey a échoué"
+			"verification_invalid": "Code de vérification invalide ou expiré. Veuillez réessayer."
 		},
 		"forgot_password": {
 			"back_to_signin": "Retour à la connexion",
@@ -220,6 +222,10 @@
 		},
 		"title": "Chat Communautaire"
 	},
+	"common": {
+		"cancel": "Annuler",
+		"confirm": "Confirmer"
+	},
 	"hero": {
 		"companies_text": "Propulsant les meilleures équipes",
 		"cta": "Commencer maintenant",
@@ -237,6 +243,11 @@
 				"secondary_title": "Stripe",
 				"title": "Autumn + Stripe"
 			},
+			"better_auth": {
+				"button": "Visiter Better Auth",
+				"description": "La bibliothèque d'authentification la plus complète pour TypeScript. Sessions, OAuth, passkeys et multi-tenancy prêts à l'emploi.",
+				"title": "Better Auth"
+			},
 			"convex": {
 				"button": "Visiter Convex",
 				"description": "L'alternative open source à Firebase. Basé sur PostgreSQL - la base de données relationnelle la plus avancée au monde.",
@@ -246,6 +257,16 @@
 				"button": "Visiter PostHog",
 				"description": "PostHog est une plateforme d'analyse produit open source pour suivre le comportement des utilisateurs et mesurer les conversions.",
 				"title": "PostHog"
+			},
+			"resend": {
+				"button": "Visiter Resend",
+				"description": "L'API email pour les développeurs. Créez et envoyez des emails transactionnels avec une API moderne et fiable conçue pour l'échelle.",
+				"title": "Resend"
+			},
+			"sentry": {
+				"button": "Visiter Sentry",
+				"description": "Surveillance d'applications et suivi des erreurs. Identifiez les problèmes avant vos utilisateurs avec des alertes en temps réel et des stack traces détaillées.",
+				"title": "Sentry"
 			},
 			"shadcn_svblocks": {
 				"button": "Visiter Shadcn Svelte",
@@ -263,21 +284,6 @@
 				"button": "Visiter Tolgee",
 				"description": "L'internationalisation bien faite. Édition en contexte et traduction assistée par ML pour un flux de localisation fluide.",
 				"title": "Tolgee"
-			},
-			"better_auth": {
-				"button": "Visiter Better Auth",
-				"description": "La bibliothèque d'authentification la plus complète pour TypeScript. Sessions, OAuth, passkeys et multi-tenancy prêts à l'emploi.",
-				"title": "Better Auth"
-			},
-			"resend": {
-				"button": "Visiter Resend",
-				"description": "L'API email pour les développeurs. Créez et envoyez des emails transactionnels avec une API moderne et fiable conçue pour l'échelle.",
-				"title": "Resend"
-			},
-			"sentry": {
-				"button": "Visiter Sentry",
-				"description": "Surveillance d'applications et suivi des erreurs. Identifiez les problèmes avant vos utilisateurs avec des alertes en temps réel et des stack traces détaillées.",
-				"title": "Sentry"
 			}
 		},
 		"description": "Des solutions ultra-rapides avec lesquelles il est vraiment amusant de construire",
@@ -302,78 +308,6 @@
 		"pricing": "Tarifs",
 		"solution": "Solution"
 	},
-	"settings": {
-		"title": "Paramètres",
-		"description": "Gérez les paramètres et préférences de votre compte.",
-		"tabs": {
-			"account": "Compte",
-			"password": "Mot de passe",
-			"email": "E-mail",
-			"security": "Sécurité"
-		},
-		"account": {
-			"title": "Informations du compte",
-			"description": "Mettez à jour les informations de votre compte ici.",
-			"name_label": "Nom",
-			"name_helper": "C'est votre nom d'affichage public.",
-			"profile_picture": "Photo de profil",
-			"profile_picture_helper": "Téléchargez une image ou collez un lien. Nous recommandons une image carrée de moins de 2 Mo.",
-			"no_image": "Pas d'image",
-			"remove_button": "Supprimer",
-			"upload_file": "Télécharger un fichier",
-			"file_helper": "PNG, JPG ou GIF jusqu'à 2 Mo.",
-			"or": "ou",
-			"link_from_url": "Lien depuis URL",
-			"url_helper": "Collez un lien d'image au lieu de télécharger.",
-			"saving": "Enregistrement...",
-			"save_button": "Enregistrer"
-		},
-		"password": {
-			"title": "Changer le mot de passe",
-			"description": "Mettez à jour votre mot de passe pour sécuriser votre compte.",
-			"error_title": "Erreur",
-			"current_password_label": "Mot de passe actuel",
-			"new_password_label": "Nouveau mot de passe",
-			"password_helper": "Doit contenir au moins 8 caractères.",
-			"confirm_password_label": "Confirmer le nouveau mot de passe",
-			"revoke_sessions_label": "Se déconnecter de tous les autres appareils",
-			"security_notice_title": "Avis de sécurité",
-			"security_notice_description": "Changer votre mot de passe vous obligera à vous reconnecter sur tous les appareils, sauf si vous décochez l'option ci-dessus.",
-			"updating": "Mise à jour...",
-			"update_button": "Mettre à jour le mot de passe"
-		},
-		"email": {
-			"title": "Adresse e-mail",
-			"description": "Mettez à jour votre adresse e-mail pour les notifications et la connexion.",
-			"current_email_label": "E-mail actuel",
-			"verified_badge": "Vérifié",
-			"unverified_badge": "Non vérifié",
-			"error_title": "Erreur",
-			"new_email_label": "Nouvelle adresse e-mail",
-			"verification_required_title": "Vérification requise",
-			"verification_required_description": "Un e-mail de vérification sera envoyé à votre adresse actuelle. Vous devez approuver le changement avant que votre nouvel e-mail soit actif.",
-			"not_verified_title": "E-mail non vérifié",
-			"not_verified_description": "Votre e-mail actuel n'est pas vérifié. Le nouvel e-mail sera mis à jour immédiatement sans vérification.",
-			"updating": "Mise à jour...",
-			"update_button": "Mettre à jour l'e-mail"
-		},
-		"security": {
-			"title": "Sécurité",
-			"description": "Gérez vos passkeys et paramètres de sécurité.",
-			"passkey_info_title": "Que sont les Passkeys ?",
-			"passkey_info_description": "Les passkeys sont un moyen sécurisé de se connecter sans mot de passe. Ils utilisent la biométrie ou le code PIN de l'appareil et sont stockés en toute sécurité sur vos appareils.",
-			"add_passkey_title": "Ajouter un Passkey",
-			"passkey_name_label": "Nom du passkey",
-			"add_passkey_helper": "Donnez un nom à votre passkey pour identifier sur quel appareil il est enregistré.",
-			"adding": "Ajout en cours...",
-			"add_button": "Ajouter un Passkey",
-			"your_passkeys_title": "Vos Passkeys",
-			"loading": "Chargement des passkeys...",
-			"no_passkeys": "Vous n'avez pas encore enregistré de passkey.",
-			"created_at": "Créé le ",
-			"error_title": "Erreur"
-		}
-	},
 	"pricing": {
 		"buttons": {
 			"loading": "Chargement...",
@@ -381,15 +315,14 @@
 		},
 		"current_plan": "Plan Actuel",
 		"current_plan_badge": "(Plan Actuel)",
-		"description": "Ce modèle SaaS starter est complètement gratuit et open source.",
+		"description": "Ce modèle SaaS starter est complètement gratuit et open source. Testez le flux de paiement en utilisant le numéro de carte de test 4242 4242 4242 4242 avec n'importe quelle date d'expiration future.",
 		"description_autumn": "Testez le système de paiement intégré powered by Autumn - une plateforme de facturation open source qui gère automatiquement les abonnements, les limites d'utilisation et les webhooks Stripe.",
 		"features": {
 			"enterprise": {
 				"0": "Limites de messages personnalisées",
 				"1": "Gestionnaire de compte dédié",
 				"2": "Garanties SLA",
-				"3": "Fonctionnalités de sécurité avancées",
-				"4": "Intégrations personnalisées"
+				"3": "Fonctionnalités de sécurité avancées"
 			},
 			"enterprise[0]": "Limites de messages personnalisées",
 			"enterprise[1]": "Gestionnaire de compte dédié",
@@ -419,6 +352,7 @@
 			"pro[3]": "Support prioritaire"
 		},
 		"popular_badge": "Populaire",
+		"section_label": "Tarifs",
 		"tiers": {
 			"enterprise": {
 				"button": "Contacter les Ventes",
@@ -444,9 +378,77 @@
 		},
 		"title": "Tarification qui Évolue Avec Vous"
 	},
-	"common": {
-		"cancel": "Annuler",
-		"confirm": "Confirmer"
+	"settings": {
+		"account": {
+			"description": "Mettez à jour les informations de votre compte ici.",
+			"file_helper": "PNG, JPG ou GIF jusqu'à 2 Mo.",
+			"link_from_url": "Lien depuis URL",
+			"name_helper": "C'est votre nom d'affichage public.",
+			"name_label": "Nom",
+			"no_image": "Pas d'image",
+			"or": "ou",
+			"profile_picture": "Photo de profil",
+			"profile_picture_helper": "Téléchargez une image ou collez un lien. Nous recommandons une image carrée de moins de 2 Mo.",
+			"remove_button": "Supprimer",
+			"save_button": "Enregistrer",
+			"saving": "Enregistrement...",
+			"title": "Informations du compte",
+			"upload_file": "Télécharger un fichier",
+			"url_helper": "Collez un lien d'image au lieu de télécharger."
+		},
+		"description": "Gérez les paramètres et préférences de votre compte.",
+		"email": {
+			"current_email_label": "E-mail actuel",
+			"description": "Mettez à jour votre adresse e-mail pour les notifications et la connexion.",
+			"error_title": "Erreur",
+			"new_email_label": "Nouvelle adresse e-mail",
+			"not_verified_description": "Votre e-mail actuel n'est pas vérifié. Le nouvel e-mail sera mis à jour immédiatement sans vérification.",
+			"not_verified_title": "E-mail non vérifié",
+			"title": "Adresse e-mail",
+			"unverified_badge": "Non vérifié",
+			"update_button": "Mettre à jour l'e-mail",
+			"updating": "Mise à jour...",
+			"verification_required_description": "Un e-mail de vérification sera envoyé à votre adresse actuelle. Vous devez approuver le changement avant que votre nouvel e-mail soit actif.",
+			"verification_required_title": "Vérification requise",
+			"verified_badge": "Vérifié"
+		},
+		"password": {
+			"confirm_password_label": "Confirmer le nouveau mot de passe",
+			"current_password_label": "Mot de passe actuel",
+			"description": "Mettez à jour votre mot de passe pour sécuriser votre compte.",
+			"error_title": "Erreur",
+			"new_password_label": "Nouveau mot de passe",
+			"password_helper": "Doit contenir au moins 8 caractères.",
+			"revoke_sessions_label": "Se déconnecter de tous les autres appareils",
+			"security_notice_description": "Changer votre mot de passe vous obligera à vous reconnecter sur tous les appareils, sauf si vous décochez l'option ci-dessus.",
+			"security_notice_title": "Avis de sécurité",
+			"title": "Changer le mot de passe",
+			"update_button": "Mettre à jour le mot de passe",
+			"updating": "Mise à jour..."
+		},
+		"security": {
+			"add_button": "Ajouter un Passkey",
+			"adding": "Ajout en cours...",
+			"add_passkey_helper": "Donnez un nom à votre passkey pour identifier sur quel appareil il est enregistré.",
+			"add_passkey_title": "Ajouter un Passkey",
+			"created_at": "Créé le ",
+			"description": "Gérez vos passkeys et paramètres de sécurité.",
+			"error_title": "Erreur",
+			"loading": "Chargement des passkeys...",
+			"no_passkeys": "Vous n'avez pas encore enregistré de passkey.",
+			"passkey_info_description": "Les passkeys sont un moyen sécurisé de se connecter sans mot de passe. Ils utilisent la biométrie ou le code PIN de l'appareil et sont stockés en toute sécurité sur vos appareils.",
+			"passkey_info_title": "Que sont les Passkeys ?",
+			"passkey_name_label": "Nom du passkey",
+			"title": "Sécurité",
+			"your_passkeys_title": "Vos Passkeys"
+		},
+		"tabs": {
+			"account": "Compte",
+			"email": "E-mail",
+			"password": "Mot de passe",
+			"security": "Sécurité"
+		},
+		"title": "Paramètres"
 	},
 	"team": {
 		"description": "Pendant le processus de travail, nous effectuons des ajustements réguliers avec le client car il est la seule personne qui peut sentir si un nouveau costume lui va bien ou non.",

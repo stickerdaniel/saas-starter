@@ -1,118 +1,117 @@
 {
 	"admin": {
-		"title": "Admin Panel",
-		"navigation": {
-			"home": "Home",
-			"app": "App"
-		},
-		"sidebar": {
-			"dashboard": "Dashboard",
-			"users": "Users",
-			"back_to_app": "Back to App"
+		"actions": {
+			"ban": "Ban User",
+			"impersonate": "Impersonate",
+			"revoke_sessions": "Revoke Sessions",
+			"set_role": "Set Role",
+			"unban": "Unban User"
 		},
 		"dashboard": {
-			"external_services": "External Services",
-			"email_service": "Email delivery service",
 			"database_backend": "Database & backend",
-			"hosting_deployment": "Hosting & deployment"
+			"email_service": "Email delivery service",
+			"external_services": "External Services",
+			"hosting_deployment": "Hosting & deployment",
+			"title": "Admin Dashboard"
+		},
+		"dialog": {
+			"ban_description": "Are you sure you want to ban {email}? They will be unable to access the app.",
+			"ban_reason_placeholder": "Ban reason (optional)",
+			"ban_title": "Ban User",
+			"impersonation_active_description": "Please reload the page to be logged in as the impersonated user.",
+			"impersonation_active_title": "Impersonation Active",
+			"reload_page": "Reload Page",
+			"revoke_description": "Are you sure you want to revoke all sessions for {email}? They will be logged out everywhere.",
+			"revoke_title": "Revoke Sessions",
+			"set_role_description": "Are you sure you want to change the role of {email} to {role}?",
+			"set_role_title": "Change User Role",
+			"unban_description": "Are you sure you want to unban {email}? They will regain access to the app.",
+			"unban_title": "Unban User"
 		},
 		"metrics": {
-			"total_users": "Total Users",
-			"total_users_desc": "All registered accounts",
-			"registered_users": "Platform user base",
+			"active_sessions": "Active (24h)",
+			"active_sessions_desc": "Active in the last 24 hours",
 			"admins": "Admins",
 			"admins_desc": "Users with admin privileges",
 			"admin_users": "Managing the platform",
-			"active_sessions": "Active (24h)",
-			"active_sessions_desc": "Active in the last 24 hours",
-			"currently_active": "Daily activity",
-			"recent_signups": "Recent Signups",
-			"recent_signups_desc": "New user growth",
-			"last_7_days": "Last 7 days",
 			"banned_users": "Banned Users",
 			"banned_users_desc": "Access restricted",
+			"currently_active": "Daily activity",
+			"last_7_days": "Last 7 days",
+			"recent_signups": "Recent Signups",
+			"recent_signups_desc": "New user growth",
+			"registered_users": "Platform user base",
+			"total_users": "Total Users",
+			"total_users_desc": "All registered accounts",
 			"users_banned": "Accounts need review"
 		},
+		"navigation": {
+			"app": "App",
+			"home": "Home",
+			"website": "Website"
+		},
+		"sidebar": {
+			"back_to_app": "Back to App",
+			"dashboard": "Dashboard",
+			"users": "Users"
+		},
+		"title": "Admin Panel",
 		"users": {
-			"title": "User Management",
-			"total": "users",
-			"name": "Name",
-			"email": "Email",
-			"role": "Role",
-			"status": "Status",
-			"created": "Created",
-			"loading": "Loading users...",
-			"banned": "Banned",
-			"verified": "Verified",
-			"unverified": "Unverified",
-			"search_placeholder": "Search users...",
-			"no_results": "No results.",
-			"selected": "{selected} of {total} users selected",
-			"rows_per_page": "Rows per page",
-			"page_indicator": "Page {current} of {total}",
-			"unnamed": "Unnamed",
 			"actions_column": "Actions",
-			"menu_open": "Open menu",
-			"select_all": "Select all",
-			"select_row": "Select row",
-			"pagination": {
-				"first": "Go to first page",
-				"previous": "Go to previous page",
-				"next": "Go to next page",
-				"last": "Go to last page"
-			},
+			"banned": "Banned",
+			"created": "Created",
+			"email": "Email",
 			"filter": {
 				"all_roles": "All Roles",
-				"role_admin": "Admin",
-				"role_user": "User",
 				"all_status": "All Status",
-				"clear": "Clear"
-			}
-		},
-		"actions": {
-			"impersonate": "Impersonate",
-			"ban": "Ban User",
-			"unban": "Unban User",
-			"revoke_sessions": "Revoke Sessions",
-			"set_role": "Set Role"
-		},
-		"dialog": {
-			"ban_title": "Ban User",
-			"ban_description": "Are you sure you want to ban {email}? They will be unable to access the app.",
-			"ban_reason_placeholder": "Ban reason (optional)",
-			"unban_title": "Unban User",
-			"unban_description": "Are you sure you want to unban {email}? They will regain access to the app.",
-			"revoke_title": "Revoke Sessions",
-			"revoke_description": "Are you sure you want to revoke all sessions for {email}? They will be logged out everywhere.",
-			"set_role_title": "Change User Role",
-			"set_role_description": "Are you sure you want to change the role of {email} to {role}?",
-			"impersonation_active_title": "Impersonation Active",
-			"impersonation_active_description": "Please reload the page to be logged in as the impersonated user."
+				"clear": "Clear",
+				"role_admin": "Admin",
+				"role_user": "User"
+			},
+			"loading": "Loading users...",
+			"menu_open": "Open menu",
+			"name": "Name",
+			"no_results": "No results.",
+			"page_indicator": "Page {current} of {total}",
+			"pagination": {
+				"first": "Go to first page",
+				"last": "Go to last page",
+				"next": "Go to next page",
+				"previous": "Go to previous page"
+			},
+			"role": "Role",
+			"rows_per_page": "Rows per page",
+			"search_placeholder": "Search users...",
+			"select_all": "Select all",
+			"selected": "{selected} of {total} users selected",
+			"select_row": "Select row",
+			"status": "Status",
+			"title": "User Management",
+			"total": "users",
+			"unnamed": "Unnamed",
+			"unverified": "Unverified",
+			"verified": "Verified"
 		}
 	},
 	"app": {
 		"name": "SaaS Starter",
 		"sidebar": {
+			"admin_panel": "Admin Panel",
 			"community_chat": "Community Chat",
 			"dashboard": "Dashboard",
 			"docs": "Docs",
-			"home": "Home",
-			"admin_panel": "Admin Panel"
+			"home": "Home"
 		},
 		"user_menu": {
 			"account": "Account",
 			"billing": "Billing",
+			"impersonating_banner": "You are impersonating this user",
 			"logout": "Log out",
 			"notifications": "Notifications",
 			"settings": "Settings",
-			"upgrade_pro": "Upgrade to Pro",
 			"stop_impersonating": "Stop Impersonating",
-			"impersonating_banner": "You are impersonating this user"
+			"upgrade_pro": "Upgrade to Pro"
 		}
-	},
-	"common": {
-		"cancel": "Cancel",
-		"confirm": "Confirm"
 	},
 	"auth": {
 		"errors": {
@@ -122,15 +121,15 @@
 			"invalid_email": "Please enter a valid email",
 			"invalid_secret": "Invalid secret",
 			"name_required": "Name is required",
+			"passkey_failed": "Passkey authentication failed",
 			"password_lowercase": "Password must contain at least one lowercase letter",
 			"password_min_length": "Password must be at least {minLength} characters",
 			"password_number": "Password must contain at least one number",
 			"password_required": "Password is required",
-			"password_uppercase": "Password must contain at least one uppercase letter",
 			"passwords_do_not_match": "Passwords do not match",
+			"password_uppercase": "Password must contain at least one uppercase letter",
 			"signup_failed": "Failed to create account. Email may already be in use.",
-			"verification_invalid": "Invalid or expired verification code. Please try again.",
-			"passkey_failed": "Passkey authentication failed"
+			"verification_invalid": "Invalid or expired verification code. Please try again."
 		},
 		"forgot_password": {
 			"back_to_signin": "Back to sign in",
@@ -223,6 +222,10 @@
 		},
 		"title": "Community Chat"
 	},
+	"common": {
+		"cancel": "Cancel",
+		"confirm": "Confirm"
+	},
 	"hero": {
 		"companies_text": "Powering the best teams",
 		"cta": "Start Building",
@@ -240,6 +243,11 @@
 				"secondary_title": "Stripe",
 				"title": "Autumn + Stripe"
 			},
+			"better_auth": {
+				"button": "Visit Better Auth",
+				"description": "The most comprehensive authentication library for TypeScript. Sessions, OAuth, passkeys, and multi-tenancy out of the box.",
+				"title": "Better Auth"
+			},
 			"convex": {
 				"button": "Visit Convex",
 				"description": "The open source Firebase alternative. Built on PostgreSQL - world's most advanced relational database.",
@@ -249,6 +257,16 @@
 				"button": "Visit PostHog",
 				"description": "PostHog is an open-source product analytics platform to track user behavior and measure conversions.",
 				"title": "PostHog"
+			},
+			"resend": {
+				"button": "Visit Resend",
+				"description": "The email API for developers. Build and send transactional emails with a modern, reliable API built for scale.",
+				"title": "Resend"
+			},
+			"sentry": {
+				"button": "Visit Sentry",
+				"description": "Application monitoring and error tracking. Identify issues before your users do with real-time alerts and detailed stack traces.",
+				"title": "Sentry"
 			},
 			"shadcn_svblocks": {
 				"button": "Visit Shadcn Svelte",
@@ -266,21 +284,6 @@
 				"button": "Visit Tolgee",
 				"description": "Internationalization done right. In-context editing and ML-powered translation for a seamless localization workflow.",
 				"title": "Tolgee"
-			},
-			"better_auth": {
-				"button": "Visit Better Auth",
-				"description": "The most comprehensive authentication library for TypeScript. Sessions, OAuth, passkeys, and multi-tenancy out of the box.",
-				"title": "Better Auth"
-			},
-			"resend": {
-				"button": "Visit Resend",
-				"description": "The email API for developers. Build and send transactional emails with a modern, reliable API built for scale.",
-				"title": "Resend"
-			},
-			"sentry": {
-				"button": "Visit Sentry",
-				"description": "Application monitoring and error tracking. Identify issues before your users do with real-time alerts and detailed stack traces.",
-				"title": "Sentry"
 			}
 		},
 		"description": "Super fast solutions that are actually fun to build with",
@@ -305,78 +308,6 @@
 		"pricing": "Pricing",
 		"solution": "Solution"
 	},
-	"settings": {
-		"title": "Settings",
-		"description": "Manage your account settings and preferences.",
-		"tabs": {
-			"account": "Account",
-			"password": "Password",
-			"email": "Email",
-			"security": "Security"
-		},
-		"account": {
-			"title": "Account Information",
-			"description": "Update your account information here.",
-			"name_label": "Name",
-			"name_helper": "This is your public display name.",
-			"profile_picture": "Profile picture",
-			"profile_picture_helper": "Upload an image or paste a link. We recommend a square image under 2MB.",
-			"no_image": "No image",
-			"remove_button": "Remove",
-			"upload_file": "Upload a file",
-			"file_helper": "PNG, JPG, or GIF up to 2MB.",
-			"or": "or",
-			"link_from_url": "Link from URL",
-			"url_helper": "Paste an image link instead of uploading.",
-			"saving": "Saving...",
-			"save_button": "Save Changes"
-		},
-		"password": {
-			"title": "Change Password",
-			"description": "Update your password to keep your account secure.",
-			"error_title": "Error",
-			"current_password_label": "Current Password",
-			"new_password_label": "New Password",
-			"password_helper": "Must be at least 10 characters long.",
-			"confirm_password_label": "Confirm New Password",
-			"revoke_sessions_label": "Sign out of all other devices",
-			"security_notice_title": "Security Notice",
-			"security_notice_description": "Changing your password will require you to sign in again on all devices unless you uncheck the option above.",
-			"updating": "Updating...",
-			"update_button": "Update Password"
-		},
-		"email": {
-			"title": "Email Address",
-			"description": "Update your email address for account notifications and login.",
-			"current_email_label": "Current Email",
-			"verified_badge": "Verified",
-			"unverified_badge": "Unverified",
-			"error_title": "Error",
-			"new_email_label": "New Email Address",
-			"verification_required_title": "Verification Required",
-			"verification_required_description": "A verification email will be sent to your current email address. You must approve the change before your new email becomes active.",
-			"not_verified_title": "Email Not Verified",
-			"not_verified_description": "Your current email is not verified. The new email will be updated immediately without verification.",
-			"updating": "Updating...",
-			"update_button": "Update Email"
-		},
-		"security": {
-			"title": "Security",
-			"description": "Manage your passkeys and security settings.",
-			"passkey_info_title": "What are Passkeys?",
-			"passkey_info_description": "Passkeys are a secure, passwordless way to sign in. They use biometrics or device PIN and are stored securely on your devices.",
-			"add_passkey_title": "Add a Passkey",
-			"passkey_name_label": "Passkey name",
-			"add_passkey_helper": "Give your passkey a name to identify which device it's registered on.",
-			"adding": "Adding...",
-			"add_button": "Add Passkey",
-			"your_passkeys_title": "Your Passkeys",
-			"loading": "Loading passkeys...",
-			"no_passkeys": "You haven't registered any passkeys yet.",
-			"created_at": "Created ",
-			"error_title": "Error"
-		}
-	},
 	"pricing": {
 		"buttons": {
 			"loading": "Loading...",
@@ -384,15 +315,14 @@
 		},
 		"current_plan": "Current Plan",
 		"current_plan_badge": "(Current Plan)",
-		"description": "This SaaS starter template is completely free and open source.",
+		"description": "This SaaS starter template is completely free and open source. Try the payment flow using the test card number 4242 4242 4242 4242 with any future expiry date.",
 		"description_autumn": "Test the integrated payment system powered by Autumn - an open-source billing platform that handles subscriptions, usage limits, and Stripe webhooks automatically.",
 		"features": {
 			"enterprise": {
 				"0": "Custom message limits",
 				"1": "Dedicated account manager",
 				"2": "SLA guarantees",
-				"3": "Advanced security features",
-				"4": "Custom integrations"
+				"3": "Advanced security features"
 			},
 			"enterprise[0]": "Custom message limits",
 			"enterprise[1]": "Dedicated account manager",
@@ -422,6 +352,7 @@
 			"pro[3]": "Priority support"
 		},
 		"popular_badge": "Popular",
+		"section_label": "Pricing",
 		"tiers": {
 			"enterprise": {
 				"button": "Contact Sales",
@@ -446,6 +377,78 @@
 			}
 		},
 		"title": "Pricing that Scales with You"
+	},
+	"settings": {
+		"account": {
+			"description": "Update your account information here.",
+			"file_helper": "PNG, JPG, or GIF up to 2MB.",
+			"link_from_url": "Link from URL",
+			"name_helper": "This is your public display name.",
+			"name_label": "Name",
+			"no_image": "No image",
+			"or": "or",
+			"profile_picture": "Profile picture",
+			"profile_picture_helper": "Upload an image or paste a link. We recommend a square image under 2MB.",
+			"remove_button": "Remove",
+			"save_button": "Save Changes",
+			"saving": "Saving...",
+			"title": "Account Information",
+			"upload_file": "Upload a file",
+			"url_helper": "Paste an image link instead of uploading."
+		},
+		"description": "Manage your account settings and preferences.",
+		"email": {
+			"current_email_label": "Current Email",
+			"description": "Update your email address for account notifications and login.",
+			"error_title": "Error",
+			"new_email_label": "New Email Address",
+			"not_verified_description": "Your current email is not verified. The new email will be updated immediately without verification.",
+			"not_verified_title": "Email Not Verified",
+			"title": "Email Address",
+			"unverified_badge": "Unverified",
+			"update_button": "Update Email",
+			"updating": "Updating...",
+			"verification_required_description": "A verification email will be sent to your current email address. You must approve the change before your new email becomes active.",
+			"verification_required_title": "Verification Required",
+			"verified_badge": "Verified"
+		},
+		"password": {
+			"confirm_password_label": "Confirm New Password",
+			"current_password_label": "Current Password",
+			"description": "Update your password to keep your account secure.",
+			"error_title": "Error",
+			"new_password_label": "New Password",
+			"password_helper": "Must be at least 10 characters long.",
+			"revoke_sessions_label": "Sign out of all other devices",
+			"security_notice_description": "Changing your password will require you to sign in again on all devices unless you uncheck the option above.",
+			"security_notice_title": "Security Notice",
+			"title": "Change Password",
+			"update_button": "Update Password",
+			"updating": "Updating..."
+		},
+		"security": {
+			"add_button": "Add Passkey",
+			"adding": "Adding...",
+			"add_passkey_helper": "Give your passkey a name to identify which device it's registered on.",
+			"add_passkey_title": "Add a Passkey",
+			"created_at": "Created ",
+			"description": "Manage your passkeys and security settings.",
+			"error_title": "Error",
+			"loading": "Loading passkeys...",
+			"no_passkeys": "You haven't registered any passkeys yet.",
+			"passkey_info_description": "Passkeys are a secure, passwordless way to sign in. They use biometrics or device PIN and are stored securely on your devices.",
+			"passkey_info_title": "What are Passkeys?",
+			"passkey_name_label": "Passkey name",
+			"title": "Security",
+			"your_passkeys_title": "Your Passkeys"
+		},
+		"tabs": {
+			"account": "Account",
+			"email": "Email",
+			"password": "Password",
+			"security": "Security"
+		},
+		"title": "Settings"
 	},
 	"team": {
 		"description": "During the working process, we perform regular fitting with the client because he is the only person who can feel whether a new suit fits or not.",
