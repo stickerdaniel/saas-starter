@@ -7,6 +7,13 @@
 	import LightSwitch from '$lib/components/ui/light-switch/light-switch.svelte';
 	import { localizedHref } from '$lib/utils/i18n';
 
+	interface Props {
+		routePrefix: string;
+		rootLabel: string;
+	}
+
+	let { routePrefix, rootLabel }: Props = $props();
+
 	// Create breadcrumb items based on current route
 	const breadcrumbs = $derived.by(() => {
 		const pathname = page.url.pathname;
@@ -14,19 +21,19 @@
 
 		if (segments.length === 0) return [];
 
-		const items = [];
+		const items: { label: string; href: string; isLast: boolean }[] = [];
 
-		// Always show "App" as the root breadcrumb for app routes
-		if (segments[0] === 'app' || (segments[0].length === 2 && segments[1] === 'app')) {
+		// Check if current route matches the prefix
+		if (segments[0] === routePrefix || (segments[0].length === 2 && segments[1] === routePrefix)) {
 			items.push({
-				label: 'App',
-				href: localizedHref('/app'),
+				label: rootLabel,
+				href: localizedHref(`/${routePrefix}`),
 				isLast: segments.length === 1 || (segments[0].length === 2 && segments.length === 2)
 			});
 
 			// Add subsequent segments (skip language segment if present)
-			const appSegmentIndex = segments[0] === 'app' ? 0 : 1;
-			if (segments.length > appSegmentIndex + 1) {
+			const prefixSegmentIndex = segments[0] === routePrefix ? 0 : 1;
+			if (segments.length > prefixSegmentIndex + 1) {
 				const lastSegment = segments[segments.length - 1];
 				// Format the segment name (e.g., "community-chat" -> "Community Chat")
 				const formattedLabel = lastSegment

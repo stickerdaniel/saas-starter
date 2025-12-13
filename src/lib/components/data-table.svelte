@@ -444,6 +444,7 @@
 	</Tabs.Content>
 </Tabs.Root>
 
+<!-- prettier-ignore -->
 {#snippet DataTableLimit({ row }: { row: Row<Schema> })}
 	<form
 		onsubmit={(e) => {
@@ -464,6 +465,7 @@
 	</form>
 {/snippet}
 
+<!-- prettier-ignore -->
 {#snippet DataTableTarget({ row }: { row: Row<Schema> })}
 	<form
 		onsubmit={(e) => {
@@ -484,6 +486,7 @@
 	</form>
 {/snippet}
 
+<!-- prettier-ignore -->
 {#snippet DataTableType({ row }: { row: Row<Schema> })}
 	<div class="w-32">
 		<Badge variant="outline" class="px-1.5 text-muted-foreground">
@@ -492,6 +495,7 @@
 	</div>
 {/snippet}
 
+<!-- prettier-ignore -->
 {#snippet DataTableStatus({ row }: { row: Row<Schema> })}
 	<Badge variant="outline" class="px-1.5 text-muted-foreground">
 		{#if row.original.status === 'Done'}
@@ -523,6 +527,7 @@
 	</DropdownMenu.Root>
 {/snippet}
 
+<!-- prettier-ignore -->
 {#snippet DraggableRow({ row }: { row: Row<Schema> })}
 	{@const { transform, transition, node, isDragging } = useSortable({
 		id: () => row.original.id

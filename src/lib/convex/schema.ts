@@ -63,7 +63,33 @@ export default defineSchema({
 		.index('by_status', ['status'])
 		.index('by_submitted', ['submittedAt'])
 		.index('by_user_email_id', ['userEmailId'])
-		.index('by_admin_email_id', ['adminEmailId'])
+		.index('by_admin_email_id', ['adminEmailId']),
+
+	// Admin audit logs - tracks admin actions for accountability
+	adminAuditLogs: defineTable({
+		adminUserId: v.string(), // Admin who performed the action
+		action: v.union(
+			v.literal('impersonate'),
+			v.literal('stop_impersonation'),
+			v.literal('ban_user'),
+			v.literal('unban_user'),
+			v.literal('revoke_sessions'),
+			v.literal('set_role')
+		),
+		targetUserId: v.string(), // User affected by the action
+		// Typed metadata per action type (not v.any() for type safety)
+		metadata: v.optional(
+			v.union(
+				v.object({ reason: v.string() }), // ban_user, unban_user
+				v.object({ newRole: v.string(), previousRole: v.string() }), // set_role
+				v.object({}) // impersonate, stop_impersonation, revoke_sessions
+			)
+		),
+		timestamp: v.number()
+	})
+		.index('by_admin', ['adminUserId'])
+		.index('by_target', ['targetUserId'])
+		.index('by_timestamp', ['timestamp'])
 
 	// Note: The agent component automatically creates the following tables:
 	// - agent:threads - Conversation threads for customer support

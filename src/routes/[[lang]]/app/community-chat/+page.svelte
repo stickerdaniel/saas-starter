@@ -14,6 +14,7 @@
 	import InnerShadowTopIcon from '@tabler/icons-svelte/icons/inner-shadow-top';
 	import { toast } from 'svelte-sonner';
 	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
 	import { T, getTranslate } from '@tolgee/svelte';
 
 	const { t } = getTranslate();
@@ -77,7 +78,7 @@
 	async function handleUpgrade() {
 		const result = await upgradeOperation.execute({
 			productId: 'pro',
-			successUrl: window.location.href + '?upgraded=true'
+			successUrl: page.url.href + '?upgraded=true'
 		});
 
 		if (result?.url) {

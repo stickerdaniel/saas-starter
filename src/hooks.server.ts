@@ -1,24 +1,40 @@
 import { sequence } from '@sveltejs/kit/hooks';
-import { redirect, type Handle } from '@sveltejs/kit';
-import { env } from '$env/dynamic/private';
-import { createAuth } from '$lib/convex/auth';
-import { getToken } from '@mmailaender/convex-better-auth-svelte/sveltekit';
+import { redirect, type Handle, type Cookies } from '@sveltejs/kit';
 import { isSupportedLanguage, DEFAULT_LANGUAGE } from '$lib/i18n/languages';
 
-// Inject SITE_URL into process.env for createAuth (used by getToken via getStaticAuth)
-if (env.SITE_URL) {
-	process.env.SITE_URL = env.SITE_URL;
-}
+/**
+ * Get JWT token directly from cookies (no createAuth needed)
+ * Cookie name depends on whether we're on HTTPS or HTTP
+ */
+const getJwtToken = (cookies: Cookies, request: Request) => {
+	const isSecure = new URL(request.url).protocol === 'https:';
+	const cookieName = isSecure ? '__Secure-better-auth.convex_jwt' : 'better-auth.convex_jwt';
+	return cookies.get(cookieName);
+};
+
+/**
+ * Decode JWT payload without verification (cookie is already trusted)
+ * Used for quick role checks in hooks without waiting for Convex queries
+ */
+const decodeJwtPayload = (token: string): { role?: string } | null => {
+	try {
+		const payload = token.split('.')[1];
+		return JSON.parse(atob(payload));
+	} catch {
+		return null;
+	}
+};
 
 // Route matchers
 const isSignInPage = (pathname: string) => /^\/[a-z]{2}\/signin$/.test(pathname);
 const isProtectedRoute = (pathname: string) => /^\/[a-z]{2}\/app(\/|$)/.test(pathname);
+const isAdminRoute = (pathname: string) => /^\/[a-z]{2}\/admin(\/|$)/.test(pathname);
 
 /**
  * Extract authentication token from cookies
  */
 const handleAuth: Handle = async ({ event, resolve }) => {
-	event.locals.token = await getToken(createAuth, event.cookies);
+	event.locals.token = getJwtToken(event.cookies, event.request);
 	return resolve(event);
 };
 
@@ -68,7 +84,7 @@ const handleLanguage: Handle = async ({ event, resolve }) => {
  * Handle auth redirects with language-aware paths
  */
 const authFirstPattern: Handle = async ({ event, resolve }) => {
-	const isAuthenticated = !!event.locals.token;
+	const authenticated = !!event.locals.token;
 	const pathname = event.url.pathname;
 	const redirectToParam = event.url.searchParams.get('redirectTo');
 
@@ -76,13 +92,26 @@ const authFirstPattern: Handle = async ({ event, resolve }) => {
 	const langMatch = pathname.match(/^\/([a-z]{2})\//);
 	const lang = langMatch ? langMatch[1] : DEFAULT_LANGUAGE;
 
-	if (isSignInPage(pathname) && isAuthenticated) {
+	if (isSignInPage(pathname) && authenticated) {
 		const destination = redirectToParam || `/${lang}/app`;
 		redirect(307, destination);
 	}
-	if (isProtectedRoute(pathname) && !isAuthenticated) {
+	if (isProtectedRoute(pathname) && !authenticated) {
 		const destination = `/${lang}/signin?redirectTo=${encodeURIComponent(event.url.pathname + event.url.search)}`;
 		redirect(307, destination);
+	}
+
+	// Admin routes require authentication AND admin role
+	if (isAdminRoute(pathname)) {
+		if (!authenticated) {
+			const destination = `/${lang}/signin?redirectTo=${encodeURIComponent(event.url.pathname + event.url.search)}`;
+			redirect(307, destination);
+		}
+		// Check admin role from JWT payload (fast, no Convex query needed)
+		const payload = decodeJwtPayload(event.locals.token!);
+		if (payload?.role !== 'admin') {
+			redirect(307, `/${lang}/app`);
+		}
 	}
 
 	return resolve(event);
