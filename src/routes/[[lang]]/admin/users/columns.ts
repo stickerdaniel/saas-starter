@@ -27,13 +27,13 @@ export const columns: ColumnDef<AdminUserData>[] = [
 				checked: table.getIsAllPageRowsSelected(),
 				indeterminate: table.getIsSomePageRowsSelected() && !table.getIsAllPageRowsSelected(),
 				onCheckedChange: (value) => table.toggleAllPageRowsSelected(!!value),
-				'aria-label': 'Select all'
+				'aria-label-key': 'admin.users.select_all'
 			}),
 		cell: ({ row }) =>
 			renderComponent(DataTableCheckbox, {
 				checked: row.getIsSelected(),
 				onCheckedChange: (value) => row.toggleSelected(!!value),
-				'aria-label': 'Select row'
+				'aria-label-key': 'admin.users.select_row'
 			}),
 		enableSorting: false,
 		enableHiding: false
@@ -46,7 +46,7 @@ export const columns: ColumnDef<AdminUserData>[] = [
 		header: ({ column }) =>
 			renderComponent(DataTableColumnHeader, {
 				column,
-				title: 'Name'
+				titleKey: 'admin.users.name'
 			}),
 		cell: ({ row }) => {
 			const nameSnippet = createRawSnippet<[{ name?: string; image?: string | null }]>(
@@ -77,7 +77,7 @@ export const columns: ColumnDef<AdminUserData>[] = [
 		header: ({ column }) =>
 			renderComponent(DataTableColumnHeader, {
 				column,
-				title: 'Email'
+				titleKey: 'admin.users.email'
 			}),
 		cell: ({ row }) => {
 			const emailSnippet = createRawSnippet<[{ email: string }]>((getData) => {
@@ -102,7 +102,7 @@ export const columns: ColumnDef<AdminUserData>[] = [
 		header: ({ column }) =>
 			renderComponent(DataTableColumnHeader, {
 				column,
-				title: 'Role'
+				titleKey: 'admin.users.role'
 			}),
 		cell: ({ row }) => {
 			const roleSnippet = createRawSnippet<[{ role: string }]>((getData) => {
@@ -132,7 +132,7 @@ export const columns: ColumnDef<AdminUserData>[] = [
 		header: ({ column }) =>
 			renderComponent(DataTableColumnHeader, {
 				column,
-				title: 'Status'
+				titleKey: 'admin.users.status'
 			}),
 		cell: ({ row }) => {
 			const statusSnippet = createRawSnippet<[{ banned: boolean; emailVerified?: boolean }]>(
@@ -177,7 +177,7 @@ export const columns: ColumnDef<AdminUserData>[] = [
 		header: ({ column }) =>
 			renderComponent(DataTableColumnHeader, {
 				column,
-				title: 'Created'
+				titleKey: 'admin.users.created'
 			}),
 		cell: ({ row }) => {
 			const dateSnippet = createRawSnippet<[{ createdAt?: number }]>((getData) => {

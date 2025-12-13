@@ -40,7 +40,30 @@
 			"loading": "Cargando usuarios...",
 			"banned": "Bloqueado",
 			"verified": "Verificado",
-			"unverified": "No verificado"
+			"unverified": "No verificado",
+			"search_placeholder": "Buscar usuarios...",
+			"no_results": "Sin resultados.",
+			"selected": "{selected} de {total} usuarios seleccionados",
+			"rows_per_page": "Filas por página",
+			"page_indicator": "Página {current} de {total}",
+			"unnamed": "Sin nombre",
+			"actions_column": "Acciones",
+			"menu_open": "Abrir menú",
+			"select_all": "Seleccionar todo",
+			"select_row": "Seleccionar fila",
+			"pagination": {
+				"first": "Ir a la primera página",
+				"previous": "Ir a la página anterior",
+				"next": "Ir a la siguiente página",
+				"last": "Ir a la última página"
+			},
+			"filter": {
+				"all_roles": "Todos los roles",
+				"role_admin": "Admin",
+				"role_user": "Usuario",
+				"all_status": "Todos los estados",
+				"clear": "Limpiar"
+			}
 		},
 		"actions": {
 			"impersonate": "Suplantar",
@@ -52,12 +75,15 @@
 		"dialog": {
 			"ban_title": "Bloquear Usuario",
 			"ban_description": "¿Estás seguro de que quieres bloquear a {email}? No podrá acceder a la app.",
+			"ban_reason_placeholder": "Motivo del bloqueo (opcional)",
 			"unban_title": "Desbloquear Usuario",
 			"unban_description": "¿Estás seguro de que quieres desbloquear a {email}? Recuperará el acceso a la app.",
 			"revoke_title": "Revocar Sesiones",
 			"revoke_description": "¿Estás seguro de que quieres revocar todas las sesiones de {email}? Se cerrará sesión en todos los dispositivos.",
 			"set_role_title": "Cambiar Rol de Usuario",
-			"set_role_description": "¿Estás seguro de que quieres cambiar el rol de {email} a {role}?"
+			"set_role_description": "¿Estás seguro de que quieres cambiar el rol de {email} a {role}?",
+			"impersonation_active_title": "Suplantación activa",
+			"impersonation_active_description": "Por favor, recarga la página para iniciar sesión como el usuario suplantado."
 		}
 	},
 	"app": {

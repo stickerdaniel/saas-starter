@@ -40,7 +40,30 @@
 			"loading": "Loading users...",
 			"banned": "Banned",
 			"verified": "Verified",
-			"unverified": "Unverified"
+			"unverified": "Unverified",
+			"search_placeholder": "Search users...",
+			"no_results": "No results.",
+			"selected": "{selected} of {total} users selected",
+			"rows_per_page": "Rows per page",
+			"page_indicator": "Page {current} of {total}",
+			"unnamed": "Unnamed",
+			"actions_column": "Actions",
+			"menu_open": "Open menu",
+			"select_all": "Select all",
+			"select_row": "Select row",
+			"pagination": {
+				"first": "Go to first page",
+				"previous": "Go to previous page",
+				"next": "Go to next page",
+				"last": "Go to last page"
+			},
+			"filter": {
+				"all_roles": "All Roles",
+				"role_admin": "Admin",
+				"role_user": "User",
+				"all_status": "All Status",
+				"clear": "Clear"
+			}
 		},
 		"actions": {
 			"impersonate": "Impersonate",
@@ -52,12 +75,15 @@
 		"dialog": {
 			"ban_title": "Ban User",
 			"ban_description": "Are you sure you want to ban {email}? They will be unable to access the app.",
+			"ban_reason_placeholder": "Ban reason (optional)",
 			"unban_title": "Unban User",
 			"unban_description": "Are you sure you want to unban {email}? They will regain access to the app.",
 			"revoke_title": "Revoke Sessions",
 			"revoke_description": "Are you sure you want to revoke all sessions for {email}? They will be logged out everywhere.",
 			"set_role_title": "Change User Role",
-			"set_role_description": "Are you sure you want to change the role of {email} to {role}?"
+			"set_role_description": "Are you sure you want to change the role of {email} to {role}?",
+			"impersonation_active_title": "Impersonation Active",
+			"impersonation_active_description": "Please reload the page to be logged in as the impersonated user."
 		}
 	},
 	"app": {
