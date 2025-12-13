@@ -397,7 +397,7 @@
 			<DataTableFilters {table} />
 		</div>
 
-		<!-- Column Visibility -->
+		<!-- Column Visibility (commented out for now, may be useful later)
 		<DropdownMenu.Root>
 			<DropdownMenu.Trigger>
 				{#snippet child({ props })}
@@ -420,6 +420,7 @@
 				{/each}
 			</DropdownMenu.Content>
 		</DropdownMenu.Root>
+		-->
 	</div>
 
 	<!-- Data Table -->

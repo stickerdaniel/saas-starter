@@ -396,7 +396,7 @@
 				"price": "Individuell"
 			},
 			"free": {
-				"button": "Aktueller Plan",
+				"button": "Für immer kostenlos",
 				"button_manage": "Abonnement verwalten",
 				"description": "Perfekt für den Einstieg",
 				"name": "Kostenlos",

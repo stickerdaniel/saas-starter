@@ -396,7 +396,7 @@
 				"price": "Personalizado"
 			},
 			"free": {
-				"button": "Plan Actual",
+				"button": "Gratis para siempre",
 				"button_manage": "Gestionar Suscripción",
 				"description": "Perfecto para comenzar",
 				"name": "Gratis",
