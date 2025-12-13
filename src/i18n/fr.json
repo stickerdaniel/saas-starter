@@ -1,5 +1,10 @@
 {
 	"admin": {
+		"title": "Panneau Admin",
+		"navigation": {
+			"home": "Accueil",
+			"app": "App"
+		},
 		"sidebar": {
 			"dashboard": "Tableau de bord",
 			"users": "Utilisateurs",
