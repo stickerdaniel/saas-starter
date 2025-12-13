@@ -1,6 +1,7 @@
 <script lang="ts">
 	import NavUser from '../nav-user.svelte';
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
+	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import type { ComponentProps } from 'svelte';
 	import { T } from '@tolgee/svelte';
 	import type { SidebarConfig, User } from './types';
@@ -17,16 +18,44 @@
 	<Sidebar.Header>
 		<Sidebar.Menu>
 			<Sidebar.MenuItem>
-				<Sidebar.MenuButton class="data-[slot=sidebar-menu-button]:!p-1.5">
-					{#snippet child({ props })}
-						<a href={config.header.href} {...props}>
-							<config.header.icon class="!size-5" />
-							<span class="text-base font-semibold">
-								<T keyName={config.header.titleKey} />
-							</span>
-						</a>
-					{/snippet}
-				</Sidebar.MenuButton>
+				{#if config.header.dropdownItems && config.header.dropdownItems.length > 0}
+					<DropdownMenu.Root>
+						<DropdownMenu.Trigger>
+							{#snippet child({ props })}
+								<Sidebar.MenuButton
+									class="data-[slot=sidebar-menu-button]:!p-1.5 data-[state=open]:bg-sidebar-accent"
+									{...props}
+								>
+									<config.header.icon class="!size-5" />
+									<span class="text-base font-semibold">
+										<T keyName={config.header.titleKey} />
+									</span>
+								</Sidebar.MenuButton>
+							{/snippet}
+						</DropdownMenu.Trigger>
+						<DropdownMenu.Content align="start" class="w-56">
+							{#each config.header.dropdownItems as item}
+								<a href={item.url}>
+									<DropdownMenu.Item>
+										<item.icon class="size-4" />
+										<span><T keyName={item.translationKey} /></span>
+									</DropdownMenu.Item>
+								</a>
+							{/each}
+						</DropdownMenu.Content>
+					</DropdownMenu.Root>
+				{:else}
+					<Sidebar.MenuButton class="data-[slot=sidebar-menu-button]:!p-1.5">
+						{#snippet child({ props })}
+							<a href={config.header.href} {...props}>
+								<config.header.icon class="!size-5" />
+								<span class="text-base font-semibold">
+									<T keyName={config.header.titleKey} />
+								</span>
+							</a>
+						{/snippet}
+					</Sidebar.MenuButton>
+				{/if}
 			</Sidebar.MenuItem>
 		</Sidebar.Menu>
 	</Sidebar.Header>

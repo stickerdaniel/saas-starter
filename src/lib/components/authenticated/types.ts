@@ -11,10 +11,17 @@ export interface NavItem {
 	isActive?: boolean;
 }
 
+export interface HeaderDropdownItem {
+	translationKey: string;
+	url: string;
+	icon: LucideIcon;
+}
+
 export interface HeaderConfig {
 	icon: LucideIcon;
 	titleKey: string;
 	href: string;
+	dropdownItems?: HeaderDropdownItem[];
 }
 
 export interface FooterLink {

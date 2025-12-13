@@ -1,6 +1,10 @@
 {
 	"admin": {
 		"title": "Admin Panel",
+		"navigation": {
+			"home": "Home",
+			"app": "App"
+		},
 		"sidebar": {
 			"dashboard": "Dashboard",
 			"users": "Users",
