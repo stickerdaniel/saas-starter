@@ -94,13 +94,22 @@
 
 <section class="py-16 md:py-32">
 	<div class="mx-auto max-w-6xl px-6 lg:px-12">
-		<div class="mx-auto max-w-2xl space-y-6 text-center">
-			<h1 class="text-center text-4xl font-semibold lg:text-5xl">
-				<T keyName="pricing.title" />
-			</h1>
-			<p class="text-balance">
-				<T keyName="pricing.description" /><br /><T keyName="pricing.description_autumn" />
-			</p>
+		<div class="border-t">
+			<span class="text-caption -mt-3.5 -ml-6 block w-max bg-background px-6">
+				<T keyName="pricing.section_label" />
+			</span>
+			<div class="mt-12 gap-4 sm:grid sm:grid-cols-2 md:mt-24">
+				<div class="sm:w-3/5">
+					<h1 class="text-3xl font-bold sm:text-4xl">
+						<T keyName="pricing.title" />
+					</h1>
+				</div>
+				<div class="mt-6 sm:mt-0">
+					<p>
+						<T keyName="pricing.description" />
+					</p>
+				</div>
+			</div>
 		</div>
 
 		<div class="mt-8 grid gap-6 md:mt-20 md:grid-cols-2 lg:grid-cols-3">

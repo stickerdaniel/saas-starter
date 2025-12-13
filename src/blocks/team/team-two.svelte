@@ -47,10 +47,10 @@
 	];
 </script>
 
-<section class="bg-gray-50 py-16 md:py-32 dark:bg-transparent">
+<section class="py-16 md:py-32">
 	<div class="mx-auto max-w-6xl px-6 lg:px-12">
 		<div class="border-t">
-			<span class="text-caption -mt-3.5 -ml-6 block w-max bg-gray-50 px-6 dark:bg-gray-950">
+			<span class="text-caption -mt-3.5 -ml-6 block w-max bg-background px-6">
 				<T keyName="team.section_label" />
 			</span>
 			<div class="mt-12 gap-4 sm:grid sm:grid-cols-2 md:mt-24">
