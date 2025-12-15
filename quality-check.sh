@@ -8,6 +8,9 @@
 # error on first error
 set -e
 
+# Ensure node_modules binaries are in PATH (for direct execution outside npm/husky)
+export PATH="node_modules/.bin:$PATH"
+
 # Parse arguments
 STAGED_ONLY=false
 RUN_TESTS=true
