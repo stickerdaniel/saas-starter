@@ -65,7 +65,7 @@ echo ""
 # SvelteKit sync
 echo "1. SvelteKit sync"
 echo "======================================================"
-bunx svelte-kit sync
+svelte-kit sync
 echo ""
 echo ""
 
@@ -111,7 +111,7 @@ echo ""
 echo "3. Code formatting"
 echo "======================================================"
 if [ "$STAGED_ONLY" = true ] && [ -n "$FORMATTABLE_FILES" ]; then
-    echo "$FORMATTABLE_FILES" | xargs bunx prettier --write --plugin prettier-plugin-svelte
+    echo "$FORMATTABLE_FILES" | xargs prettier --write --plugin prettier-plugin-svelte
 elif [ "$STAGED_ONLY" = false ]; then
     bun run format
 else
@@ -124,9 +124,9 @@ echo ""
 echo "4. ESLint"
 echo "======================================================"
 if [ "$STAGED_ONLY" = true ] && [ -n "$JS_TS_SVELTE_FILES" ]; then
-    echo "$JS_TS_SVELTE_FILES" | xargs bunx eslint --fix
+    echo "$JS_TS_SVELTE_FILES" | xargs eslint --fix
 elif [ "$STAGED_ONLY" = false ]; then
-    bunx eslint . --fix
+    eslint . --fix
 else
     echo "No JS/TS/Svelte files to lint"
 fi
@@ -139,7 +139,7 @@ echo "======================================================"
 if [ "$STAGED_ONLY" = true ] && [ -z "$JS_TS_SVELTE_FILES" ] && [ -z "$SVELTE_FILES" ]; then
     echo "No TypeScript/Svelte files to check"
 else
-    NODE_OPTIONS="--max-old-space-size=8192" bunx svelte-check --tsconfig ./tsconfig.json
+    NODE_OPTIONS="--max-old-space-size=8192" svelte-check --tsconfig ./tsconfig.json
 fi
 echo ""
 echo ""
