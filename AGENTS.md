@@ -1,4 +1,4 @@
-# CLAUDE.md
+# CLAUDE/AGENTS.md
 
 This project is a saas template built with SvelteKit, Convex, and modern web technologies.
 

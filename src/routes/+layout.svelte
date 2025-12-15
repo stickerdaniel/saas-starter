@@ -3,7 +3,7 @@
 	import { authClient } from '$lib/auth-client';
 	import { setupAutumn } from '@stickerdaniel/convex-autumn-svelte/sveltekit';
 	import { api } from '$lib/convex/_generated/api';
-	import '../app.css';
+	import './layout.css';
 	import { navigating } from '$app/stores';
 	import { invalidate } from '$app/navigation';
 	import { expoOut } from 'svelte/easing';
