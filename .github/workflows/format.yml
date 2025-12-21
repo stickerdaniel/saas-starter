@@ -3,6 +3,8 @@ name: Quality Checks
 on: [push, pull_request]
 
 env:
+  # Increase Node.js heap size (ubicloud-standard-2 has 8GB RAM, default heap ~2GB)
+  NODE_OPTIONS: --max-old-space-size=4096
   PUBLIC_CONVEX_URL: ${{ secrets.TEST_CONVEX_URL }}
   PUBLIC_CONVEX_SITE_URL: ${{ secrets.TEST_CONVEX_SITE_URL }}
   TEST_USER_EMAIL: ${{ secrets.TEST_USER_EMAIL }}
