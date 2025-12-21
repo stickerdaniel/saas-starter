@@ -1,0 +1,22 @@
+diff --git a/dist/index.mjs b/dist/index.mjs
+index af5371772f5e4b696b29a2cb3d0c883ffa4c07e6..4abb93b73566375d07baaac2a21275637af86ffc 100644
+--- a/dist/index.mjs
++++ b/dist/index.mjs
+@@ -305,7 +305,7 @@ const verifyPasskeyRegistration = (options) => createAuthEndpoint("/passkey/veri
+ 			model: "passkey",
+ 			data: newPasskey
+ 		});
+-		await ctx.context.internalAdapter.deleteVerificationValue(challengeId);
++		await ctx.context.internalAdapter.deleteVerificationValue(data.id);
+ 		return ctx.json(newPasskeyRes, { status: 200 });
+ 	} catch (e) {
+ 		ctx.context.logger.error("Failed to verify registration", e);
+@@ -383,7 +383,7 @@ const verifyPasskeyAuthentication = (options) => createAuthEndpoint("/passkey/ve
+ 			session: s,
+ 			user
+ 		});
+-		await ctx.context.internalAdapter.deleteVerificationValue(challengeId);
++		await ctx.context.internalAdapter.deleteVerificationValue(data.id);
+ 		return ctx.json({ session: s }, { status: 200 });
+ 	} catch (e) {
+ 		ctx.context.logger.error("Failed to verify authentication", e);
