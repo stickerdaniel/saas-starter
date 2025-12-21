@@ -24,7 +24,7 @@ jobs:
           bun-version: latest
 
       - name: Setup Go (for misspell)
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
 
       - name: Install dependencies
         run: bun install
