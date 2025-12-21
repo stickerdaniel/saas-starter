@@ -6,6 +6,7 @@ import { type DataModel } from './_generated/dataModel';
 import { query } from './_generated/server';
 import { passkey } from '@better-auth/passkey';
 import { admin } from 'better-auth/plugins/admin';
+import { betterAuth, type BetterAuthOptions } from 'better-auth';
 import authSchema from './betterAuth/schema';
 import authConfig from './auth.config';
 
@@ -20,7 +21,8 @@ export const authComponent = createClient<DataModel, typeof authSchema>(componen
 
 const LOCAL_SITE_URL = 'http://localhost:5173';
 
-export const createAuth = (ctx: GenericCtx<DataModel>) => {
+// Creates Better Auth options object (used by adapter and betterAuth CLI)
+export const createAuthOptions = (ctx: GenericCtx<DataModel>): BetterAuthOptions => {
 	const siteUrl = process.env.SITE_URL ?? process.env.PUBLIC_SITE_URL ?? LOCAL_SITE_URL;
 	const secret = process.env.BETTER_AUTH_SECRET;
 
@@ -31,21 +33,6 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
 		emailAndPassword: {
 			enabled: true,
 			requireEmailVerification: true,
-			// Custom email sending via Convex Resend component
-			sendVerificationEmail: async ({
-				user,
-				token
-			}: {
-				user: { email: string };
-				token: string;
-			}) => {
-				const mutationCtx = requireRunMutationCtx(ctx);
-				await mutationCtx.runMutation(internal.emails.send.sendVerificationEmail, {
-					email: user.email,
-					code: token,
-					expiryMinutes: 20
-				});
-			},
 			// Password reset email
 			sendResetPassword: async ({
 				user,
@@ -61,6 +48,25 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
 					userName: user.name
 				});
 			}
+		},
+		emailVerification: {
+			// Email verification (moved from emailAndPassword in Better Auth 1.4.x)
+			sendVerificationEmail: async ({
+				user,
+				token
+			}: {
+				user: { email: string };
+				token: string;
+			}) => {
+				const mutationCtx = requireRunMutationCtx(ctx);
+				await mutationCtx.runMutation(internal.emails.send.sendVerificationEmail, {
+					email: user.email,
+					code: token,
+					expiryMinutes: 20
+				});
+			},
+			sendOnSignUp: true,
+			autoSignInAfterVerification: false
 		},
 		socialProviders: {
 			google: {
@@ -87,6 +93,11 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
 			})
 		]
 	};
+};
+
+// Creates Better Auth instance (used in http.ts for routes)
+export const createAuth = (ctx: GenericCtx<DataModel>) => {
+	return betterAuth(createAuthOptions(ctx));
 };
 
 // Get current authenticated user
