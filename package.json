@@ -85,7 +85,7 @@
 		"convex-svelte": "^0.0.12",
 		"d3-scale": "^4.0.2",
 		"d3-shape": "^3.2.0",
-		"dotenv": "^16.6.1",
+		"dotenv": "^17.0.0",
 		"eslint": "^9.37.0",
 		"eslint-plugin-svelte": "^3.12.4",
 		"formsnap": "^2.0.1",
