@@ -24,6 +24,7 @@
 		"setup:test-user": "bunx tsx scripts/setup-test-user.ts"
 	},
 	"dependencies": {
+		"@better-auth/passkey": "^1.4.7",
 		"@convex-dev/agent": "^0.3.0",
 		"@convex-dev/better-auth": "^0.10.0",
 		"@convex-dev/resend": "^0.2.0",

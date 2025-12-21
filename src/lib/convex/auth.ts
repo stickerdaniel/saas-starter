@@ -4,10 +4,10 @@ import { convex } from '@convex-dev/better-auth/plugins';
 import { components, internal } from './_generated/api';
 import { type DataModel } from './_generated/dataModel';
 import { query } from './_generated/server';
-import { betterAuth } from 'better-auth';
-import { passkey } from 'better-auth/plugins/passkey';
+import { passkey } from '@better-auth/passkey';
 import { admin } from 'better-auth/plugins/admin';
 import authSchema from './betterAuth/schema';
+import authConfig from './auth.config';
 
 // The component client has methods needed for integrating Convex with Better Auth,
 // as well as helper methods for general use.
@@ -20,19 +20,11 @@ export const authComponent = createClient<DataModel, typeof authSchema>(componen
 
 const LOCAL_SITE_URL = 'http://localhost:5173';
 
-export const createAuth = (
-	ctx: GenericCtx<DataModel>,
-	{ optionsOnly } = { optionsOnly: false }
-) => {
+export const createAuth = (ctx: GenericCtx<DataModel>) => {
 	const siteUrl = process.env.SITE_URL ?? process.env.PUBLIC_SITE_URL ?? LOCAL_SITE_URL;
 	const secret = process.env.BETTER_AUTH_SECRET;
 
-	return betterAuth({
-		// Disable logging when called just to generate options (e.g., by createApi)
-		// This prevents "default secret" warnings flooding the logs
-		logger: {
-			disabled: optionsOnly
-		},
+	return {
 		baseURL: siteUrl,
 		secret,
 		database: authComponent.adapter(ctx),
@@ -84,14 +76,17 @@ export const createAuth = (
 		},
 		plugins: [
 			// The Convex plugin is required for Convex compatibility
-			convex(),
+			convex({
+				authConfig,
+				jwksRotateOnTokenGenerationError: true
+			}),
 			passkey(),
 			admin({
 				defaultRole: 'user',
 				adminRoles: ['admin']
 			})
 		]
-	});
+	};
 };
 
 // Get current authenticated user

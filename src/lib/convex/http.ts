@@ -2,11 +2,12 @@ import { httpRouter } from 'convex/server';
 import { httpAction } from './_generated/server';
 import { authComponent, createAuth } from './auth';
 import { resend } from './emails/resend';
+import { betterAuth } from 'better-auth';
 
 const http = httpRouter();
 
 // Better Auth routes
-authComponent.registerRoutes(http, createAuth);
+authComponent.registerRoutes(http, (ctx) => betterAuth(createAuth(ctx)));
 
 // Resend webhook endpoint
 // Configure this URL in your Resend dashboard: https://your-deployment.convex.site/resend-webhook
