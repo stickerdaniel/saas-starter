@@ -10,6 +10,10 @@ on:
   pull_request_review:
     types: [submitted]
 
+env:
+  # Increase Node.js heap size (ubicloud-standard-2 has 8GB RAM, default heap ~2GB)
+  NODE_OPTIONS: --max-old-space-size=4096
+
 jobs:
   claude:
     if: |
