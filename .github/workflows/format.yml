@@ -11,7 +11,7 @@ env:
 jobs:
   quality_checks:
     name: All Quality Checks
-    runs-on: ubuntu-latest
+    runs-on: ubicloud-standard-2
 
     steps:
       - uses: actions/checkout@v4
