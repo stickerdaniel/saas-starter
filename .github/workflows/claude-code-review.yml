@@ -10,6 +10,10 @@ on:
     #   - "src/**/*.js"
     #   - "src/**/*.jsx"
 
+env:
+  # Increase Node.js heap size (ubicloud-standard-2 has 8GB RAM, default heap ~2GB)
+  NODE_OPTIONS: --max-old-space-size=4096
+
 jobs:
   claude-review:
     # Skip bot PRs (renovate[bot], dependabot[bot], etc.)
