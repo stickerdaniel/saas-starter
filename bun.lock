@@ -17,7 +17,7 @@
         "@svelte-put/lockscroll": "^2.0.1",
         "@tolgee/cli": "^2.14.0",
         "@tolgee/svelte": "^6.2.7",
-        "@zumer/snapdom": "^1.9.14",
+        "@zumer/snapdom": "^2.0.0",
         "ai": "^5.0.93",
         "atmn": "^0.0.30",
         "autumn-js": "^0.1.43",
@@ -767,7 +767,7 @@
 
     "@vitest/utils": ["@vitest/utils@4.0.16", "", { "dependencies": { "@vitest/pretty-format": "4.0.16", "tinyrainbow": "^3.0.3" } }, "sha512-h8z9yYhV3e1LEfaQ3zdypIrnAg/9hguReGZoS7Gl0aBG5xgA410zBqECqmaF/+RkTggRsfnzc1XaAHA6bmUufA=="],
 
-    "@zumer/snapdom": ["@zumer/snapdom@1.9.14", "", {}, "sha512-kQARFS/jf+fsIFv9qxfNp8YMeun5tTyhFDk3iv47Lywk5YRldhINWicEZI15fP3FDUCeo8ok+BP0CtnDRFMFRg=="],
+    "@zumer/snapdom": ["@zumer/snapdom@2.0.1", "", {}, "sha512-78/qbYl2FTv4H6qaXcNfAujfIOSzdvs83NW63VbyC9QA3sqNPfPvhn4xYMO6Gy11hXwJUEhd0z65yKiNzDwy9w=="],
 
     "abbrev": ["abbrev@3.0.1", "", {}, "sha512-AO2ac6pjRB3SJmGJo+v5/aK6Omggp6fsLrs6wN9bd35ulu4cCwaAU9+7ZhXjeqHVkaHThLuzH0nZr0YpCDhygg=="],
 
