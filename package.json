@@ -113,5 +113,8 @@
 		"esbuild": "0.27.2",
 		"svelte-toolbelt": "^0.10.5",
 		"path-to-regexp": "8.3.0"
+	},
+	"patchedDependencies": {
+		"@better-auth/passkey@1.4.7": "patches/@better-auth%2Fpasskey@1.4.7.patch"
 	}
 }
