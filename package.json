@@ -58,7 +58,7 @@
 		"@dnd-kit-svelte/core": "^0.0.8",
 		"@dnd-kit-svelte/modifiers": "^0.0.8",
 		"@dnd-kit-svelte/sortable": "^0.0.8",
-		"@dnd-kit-svelte/utilities": "^0.0.8",
+		"@dnd-kit-svelte/utilities": "^0.0.11",
 		"@internationalized/date": "^3.10.0",
 		"@lucide/svelte": "^0.544.0",
 		"@playwright/test": "^1.56.0",

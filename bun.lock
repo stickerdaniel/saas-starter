@@ -1,5 +1,6 @@
 {
   "lockfileVersion": 1,
+  "configVersion": 0,
   "workspaces": {
     "": {
       "name": "saas-starter",
@@ -38,7 +39,7 @@
         "@dnd-kit-svelte/core": "^0.0.8",
         "@dnd-kit-svelte/modifiers": "^0.0.8",
         "@dnd-kit-svelte/sortable": "^0.0.8",
-        "@dnd-kit-svelte/utilities": "^0.0.8",
+        "@dnd-kit-svelte/utilities": "^0.0.11",
         "@internationalized/date": "^3.10.0",
         "@lucide/svelte": "^0.544.0",
         "@playwright/test": "^1.56.0",
@@ -180,7 +181,7 @@
 
     "@dnd-kit-svelte/sortable": ["@dnd-kit-svelte/sortable@0.0.8", "", { "dependencies": { "@dnd-kit-svelte/core": "latest", "@dnd-kit-svelte/utilities": "latest", "runed": "^0.23.0", "svelte-toolbelt": "^0.7.0" }, "peerDependencies": { "svelte": "^5.0.0" } }, "sha512-4lHgd7ttFqQqfuxeg2GofqnM2nHrAqtFsxqXf/Vr7/s4rEusPO8cZkQ6n2KTr08lvHGpQM2l8aLBUDyQtWtCVQ=="],
 
-    "@dnd-kit-svelte/utilities": ["@dnd-kit-svelte/utilities@0.0.8", "", { "dependencies": { "svelte-toolbelt": "^0.7.0" }, "peerDependencies": { "svelte": "^5.0.0" } }, "sha512-fiBPmbHS94cuigysqyRA7T8WpNP94uEw2DsYX9En81mOkAN9UH9RU2DlJ63luZwn4BG9k+DjYT0jt2AEaRuYIg=="],
+    "@dnd-kit-svelte/utilities": ["@dnd-kit-svelte/utilities@0.0.11", "", { "dependencies": { "svelte-toolbelt": "^0.7.0" }, "peerDependencies": { "svelte": "^5.0.0" } }, "sha512-Y9Z016gLdieHiAVoteSBa1tvrgug1/Rl5wdKw/2g1Fd4G0q9HWIyPe2evKrv8H5ePfcNegA1jN7fneDVmHd3pQ=="],
 
     "@edge-runtime/format": ["@edge-runtime/format@2.2.1", "", {}, "sha512-JQTRVuiusQLNNLe2W9tnzBlV/GvSVcozLl4XZHk5swnRZ/v6jp8TqR8P7sqmJsQqblDZ3EztcWmLDbhRje/+8g=="],
 
@@ -1964,21 +1965,13 @@
 
     "@cspotcode/source-map-support/@jridgewell/trace-mapping": ["@jridgewell/trace-mapping@0.3.9", "", { "dependencies": { "@jridgewell/resolve-uri": "^3.0.3", "@jridgewell/sourcemap-codec": "^1.4.10" } }, "sha512-3Belt6tdc8bPgAtbcmdtNJlirVoTmEb5e2gC94PnkwEW9jI6CAHUeoG85tjWP5WquqfavoMtMwiG4P926ZKKuQ=="],
 
-    "@dnd-kit-svelte/accessibility/@dnd-kit-svelte/utilities": ["@dnd-kit-svelte/utilities@0.0.11", "", { "dependencies": { "svelte-toolbelt": "^0.7.0" }, "peerDependencies": { "svelte": "^5.0.0" } }, "sha512-Y9Z016gLdieHiAVoteSBa1tvrgug1/Rl5wdKw/2g1Fd4G0q9HWIyPe2evKrv8H5ePfcNegA1jN7fneDVmHd3pQ=="],
-
     "@dnd-kit-svelte/accessibility/runed": ["runed@0.23.4", "", { "dependencies": { "esm-env": "^1.0.0" }, "peerDependencies": { "svelte": "^5.7.0" } }, "sha512-9q8oUiBYeXIDLWNK5DfCWlkL0EW3oGbk845VdKlPeia28l751VpfesaB/+7pI6rnbx1I6rqoZ2fZxptOJLxILA=="],
-
-    "@dnd-kit-svelte/core/@dnd-kit-svelte/utilities": ["@dnd-kit-svelte/utilities@0.0.11", "", { "dependencies": { "svelte-toolbelt": "^0.7.0" }, "peerDependencies": { "svelte": "^5.0.0" } }, "sha512-Y9Z016gLdieHiAVoteSBa1tvrgug1/Rl5wdKw/2g1Fd4G0q9HWIyPe2evKrv8H5ePfcNegA1jN7fneDVmHd3pQ=="],
 
     "@dnd-kit-svelte/core/runed": ["runed@0.23.4", "", { "dependencies": { "esm-env": "^1.0.0" }, "peerDependencies": { "svelte": "^5.7.0" } }, "sha512-9q8oUiBYeXIDLWNK5DfCWlkL0EW3oGbk845VdKlPeia28l751VpfesaB/+7pI6rnbx1I6rqoZ2fZxptOJLxILA=="],
 
     "@dnd-kit-svelte/modifiers/@dnd-kit-svelte/core": ["@dnd-kit-svelte/core@0.0.11", "", { "dependencies": { "@dnd-kit-svelte/accessibility": "latest", "@dnd-kit-svelte/utilities": "latest", "runed": "^0.23.0", "svelte-toolbelt": "^0.7.0" }, "peerDependencies": { "svelte": "^5.0.0" } }, "sha512-bVqutZhSOk3nQsjwJ0SveUrPeBgUO/wajfon1AiKA8mxfQhaUG97CfoQLs7tLW3YxSkHkLPhYRw9WQat7OMB7g=="],
 
-    "@dnd-kit-svelte/modifiers/@dnd-kit-svelte/utilities": ["@dnd-kit-svelte/utilities@0.0.11", "", { "dependencies": { "svelte-toolbelt": "^0.7.0" }, "peerDependencies": { "svelte": "^5.0.0" } }, "sha512-Y9Z016gLdieHiAVoteSBa1tvrgug1/Rl5wdKw/2g1Fd4G0q9HWIyPe2evKrv8H5ePfcNegA1jN7fneDVmHd3pQ=="],
-
     "@dnd-kit-svelte/sortable/@dnd-kit-svelte/core": ["@dnd-kit-svelte/core@0.0.11", "", { "dependencies": { "@dnd-kit-svelte/accessibility": "latest", "@dnd-kit-svelte/utilities": "latest", "runed": "^0.23.0", "svelte-toolbelt": "^0.7.0" }, "peerDependencies": { "svelte": "^5.0.0" } }, "sha512-bVqutZhSOk3nQsjwJ0SveUrPeBgUO/wajfon1AiKA8mxfQhaUG97CfoQLs7tLW3YxSkHkLPhYRw9WQat7OMB7g=="],
-
-    "@dnd-kit-svelte/sortable/@dnd-kit-svelte/utilities": ["@dnd-kit-svelte/utilities@0.0.11", "", { "dependencies": { "svelte-toolbelt": "^0.7.0" }, "peerDependencies": { "svelte": "^5.0.0" } }, "sha512-Y9Z016gLdieHiAVoteSBa1tvrgug1/Rl5wdKw/2g1Fd4G0q9HWIyPe2evKrv8H5ePfcNegA1jN7fneDVmHd3pQ=="],
 
     "@dnd-kit-svelte/sortable/runed": ["runed@0.23.4", "", { "dependencies": { "esm-env": "^1.0.0" }, "peerDependencies": { "svelte": "^5.7.0" } }, "sha512-9q8oUiBYeXIDLWNK5DfCWlkL0EW3oGbk845VdKlPeia28l751VpfesaB/+7pI6rnbx1I6rqoZ2fZxptOJLxILA=="],
 
