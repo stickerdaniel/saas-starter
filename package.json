@@ -55,7 +55,7 @@
 		"vercel": "^47.1.4"
 	},
 	"devDependencies": {
-		"@dnd-kit-svelte/core": "^0.0.8",
+		"@dnd-kit-svelte/core": "^0.0.11",
 		"@dnd-kit-svelte/modifiers": "^0.0.8",
 		"@dnd-kit-svelte/sortable": "^0.0.8",
 		"@dnd-kit-svelte/utilities": "^0.0.8",

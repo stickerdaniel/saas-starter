@@ -1,5 +1,6 @@
 {
   "lockfileVersion": 1,
+  "configVersion": 0,
   "workspaces": {
     "": {
       "name": "saas-starter",
@@ -35,7 +36,7 @@
         "vercel": "^47.1.4",
       },
       "devDependencies": {
-        "@dnd-kit-svelte/core": "^0.0.8",
+        "@dnd-kit-svelte/core": "^0.0.11",
         "@dnd-kit-svelte/modifiers": "^0.0.8",
         "@dnd-kit-svelte/sortable": "^0.0.8",
         "@dnd-kit-svelte/utilities": "^0.0.8",
@@ -174,7 +175,7 @@
 
     "@dnd-kit-svelte/accessibility": ["@dnd-kit-svelte/accessibility@0.0.11", "", { "dependencies": { "@dnd-kit-svelte/utilities": "latest", "esm-env": "^1.2.2", "runed": "^0.23.0" }, "peerDependencies": { "svelte": "^5.0.0" } }, "sha512-YkMjzabpnwELyeOSC2COV6EIGWZM8m4kgi/wIMwG0g/ZO3WWuzkMiLRLhYZqRkrEdpoz5tZnVclw+x/kcUjQHw=="],
 
-    "@dnd-kit-svelte/core": ["@dnd-kit-svelte/core@0.0.8", "", { "dependencies": { "@dnd-kit-svelte/accessibility": "latest", "@dnd-kit-svelte/utilities": "latest", "runed": "^0.23.0", "svelte-toolbelt": "^0.7.0" }, "peerDependencies": { "svelte": "^5.0.0" } }, "sha512-c77kG70L2DX+af9NW7EbbByKXcHF4y+8sqbZjj81N6QnAtdqrfZdQug/39qSMC3hxLkiS1UowVhSQRJgpdFWGA=="],
+    "@dnd-kit-svelte/core": ["@dnd-kit-svelte/core@0.0.11", "", { "dependencies": { "@dnd-kit-svelte/accessibility": "latest", "@dnd-kit-svelte/utilities": "latest", "runed": "^0.23.0", "svelte-toolbelt": "^0.7.0" }, "peerDependencies": { "svelte": "^5.0.0" } }, "sha512-bVqutZhSOk3nQsjwJ0SveUrPeBgUO/wajfon1AiKA8mxfQhaUG97CfoQLs7tLW3YxSkHkLPhYRw9WQat7OMB7g=="],
 
     "@dnd-kit-svelte/modifiers": ["@dnd-kit-svelte/modifiers@0.0.8", "", { "dependencies": { "@dnd-kit-svelte/core": "latest", "@dnd-kit-svelte/utilities": "latest" }, "peerDependencies": { "svelte": "^5.0.0" } }, "sha512-EZyRNNm5yVl/ws86oLt1pJGNiB1QX1/xlHusL6yqtMylk9y486cp5C/BPdpvEtd6arK8XpuhNXV1dJAyYVsNrQ=="],
 
@@ -1972,11 +1973,7 @@
 
     "@dnd-kit-svelte/core/runed": ["runed@0.23.4", "", { "dependencies": { "esm-env": "^1.0.0" }, "peerDependencies": { "svelte": "^5.7.0" } }, "sha512-9q8oUiBYeXIDLWNK5DfCWlkL0EW3oGbk845VdKlPeia28l751VpfesaB/+7pI6rnbx1I6rqoZ2fZxptOJLxILA=="],
 
-    "@dnd-kit-svelte/modifiers/@dnd-kit-svelte/core": ["@dnd-kit-svelte/core@0.0.11", "", { "dependencies": { "@dnd-kit-svelte/accessibility": "latest", "@dnd-kit-svelte/utilities": "latest", "runed": "^0.23.0", "svelte-toolbelt": "^0.7.0" }, "peerDependencies": { "svelte": "^5.0.0" } }, "sha512-bVqutZhSOk3nQsjwJ0SveUrPeBgUO/wajfon1AiKA8mxfQhaUG97CfoQLs7tLW3YxSkHkLPhYRw9WQat7OMB7g=="],
-
     "@dnd-kit-svelte/modifiers/@dnd-kit-svelte/utilities": ["@dnd-kit-svelte/utilities@0.0.11", "", { "dependencies": { "svelte-toolbelt": "^0.7.0" }, "peerDependencies": { "svelte": "^5.0.0" } }, "sha512-Y9Z016gLdieHiAVoteSBa1tvrgug1/Rl5wdKw/2g1Fd4G0q9HWIyPe2evKrv8H5ePfcNegA1jN7fneDVmHd3pQ=="],
-
-    "@dnd-kit-svelte/sortable/@dnd-kit-svelte/core": ["@dnd-kit-svelte/core@0.0.11", "", { "dependencies": { "@dnd-kit-svelte/accessibility": "latest", "@dnd-kit-svelte/utilities": "latest", "runed": "^0.23.0", "svelte-toolbelt": "^0.7.0" }, "peerDependencies": { "svelte": "^5.0.0" } }, "sha512-bVqutZhSOk3nQsjwJ0SveUrPeBgUO/wajfon1AiKA8mxfQhaUG97CfoQLs7tLW3YxSkHkLPhYRw9WQat7OMB7g=="],
 
     "@dnd-kit-svelte/sortable/@dnd-kit-svelte/utilities": ["@dnd-kit-svelte/utilities@0.0.11", "", { "dependencies": { "svelte-toolbelt": "^0.7.0" }, "peerDependencies": { "svelte": "^5.0.0" } }, "sha512-Y9Z016gLdieHiAVoteSBa1tvrgug1/Rl5wdKw/2g1Fd4G0q9HWIyPe2evKrv8H5ePfcNegA1jN7fneDVmHd3pQ=="],
 
@@ -2155,8 +2152,6 @@
     "yauzl-promise/yauzl": ["yauzl@2.10.0", "", { "dependencies": { "buffer-crc32": "~0.2.3", "fd-slicer": "~1.1.0" } }, "sha512-p4a9I6X6nu6IhoGmBqAcbJy1mlC4j27vEPZX9F4L4/vZT3Lyq1VkFHw/V/PUcB9Buo+DG3iHkT0x3Qya58zc3g=="],
 
     "yup/type-fest": ["type-fest@2.19.0", "", {}, "sha512-RAH822pAdBgcNMAfWnCBU3CFZcfZ/i1eZjwFU/dsLKumyuuP3niueg2UAukXYF0E2AAoc82ZSSf9J0WQBinzHA=="],
-
-    "@dnd-kit-svelte/modifiers/@dnd-kit-svelte/core/runed": ["runed@0.23.4", "", { "dependencies": { "esm-env": "^1.0.0" }, "peerDependencies": { "svelte": "^5.7.0" } }, "sha512-9q8oUiBYeXIDLWNK5DfCWlkL0EW3oGbk845VdKlPeia28l751VpfesaB/+7pI6rnbx1I6rqoZ2fZxptOJLxILA=="],
 
     "@isaacs/cliui/string-width/emoji-regex": ["emoji-regex@9.2.2", "", {}, "sha512-L18DaJsXSUk2+42pv8mLs5jJT2hqFkFE4j21wOmgbUqsZ2hL72NsUU785g9RXgo3s0ZNgVl42TiHp3ZtOv/Vyg=="],
 
