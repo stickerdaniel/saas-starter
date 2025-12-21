@@ -4,10 +4,11 @@ import { convex } from '@convex-dev/better-auth/plugins';
 import { components, internal } from './_generated/api';
 import { type DataModel } from './_generated/dataModel';
 import { query } from './_generated/server';
-import { betterAuth } from 'better-auth';
-import { passkey } from 'better-auth/plugins/passkey';
+import { passkey } from '@better-auth/passkey';
 import { admin } from 'better-auth/plugins/admin';
+import { betterAuth, type BetterAuthOptions } from 'better-auth';
 import authSchema from './betterAuth/schema';
+import authConfig from './auth.config';
 
 // The component client has methods needed for integrating Convex with Better Auth,
 // as well as helper methods for general use.
@@ -20,40 +21,18 @@ export const authComponent = createClient<DataModel, typeof authSchema>(componen
 
 const LOCAL_SITE_URL = 'http://localhost:5173';
 
-export const createAuth = (
-	ctx: GenericCtx<DataModel>,
-	{ optionsOnly } = { optionsOnly: false }
-) => {
+// Creates Better Auth options object (used by adapter and betterAuth CLI)
+export const createAuthOptions = (ctx: GenericCtx<DataModel>): BetterAuthOptions => {
 	const siteUrl = process.env.SITE_URL ?? process.env.PUBLIC_SITE_URL ?? LOCAL_SITE_URL;
 	const secret = process.env.BETTER_AUTH_SECRET;
 
-	return betterAuth({
-		// Disable logging when called just to generate options (e.g., by createApi)
-		// This prevents "default secret" warnings flooding the logs
-		logger: {
-			disabled: optionsOnly
-		},
+	return {
 		baseURL: siteUrl,
 		secret,
 		database: authComponent.adapter(ctx),
 		emailAndPassword: {
 			enabled: true,
 			requireEmailVerification: true,
-			// Custom email sending via Convex Resend component
-			sendVerificationEmail: async ({
-				user,
-				token
-			}: {
-				user: { email: string };
-				token: string;
-			}) => {
-				const mutationCtx = requireRunMutationCtx(ctx);
-				await mutationCtx.runMutation(internal.emails.send.sendVerificationEmail, {
-					email: user.email,
-					code: token,
-					expiryMinutes: 20
-				});
-			},
 			// Password reset email
 			sendResetPassword: async ({
 				user,
@@ -70,6 +49,25 @@ export const createAuth = (
 				});
 			}
 		},
+		emailVerification: {
+			// Email verification (moved from emailAndPassword in Better Auth 1.4.x)
+			sendVerificationEmail: async ({
+				user,
+				token
+			}: {
+				user: { email: string };
+				token: string;
+			}) => {
+				const mutationCtx = requireRunMutationCtx(ctx);
+				await mutationCtx.runMutation(internal.emails.send.sendVerificationEmail, {
+					email: user.email,
+					code: token,
+					expiryMinutes: 20
+				});
+			},
+			sendOnSignUp: true,
+			autoSignInAfterVerification: false
+		},
 		socialProviders: {
 			google: {
 				enabled: !!(process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET),
@@ -84,14 +82,22 @@ export const createAuth = (
 		},
 		plugins: [
 			// The Convex plugin is required for Convex compatibility
-			convex(),
+			convex({
+				authConfig,
+				jwksRotateOnTokenGenerationError: true
+			}),
 			passkey(),
 			admin({
 				defaultRole: 'user',
 				adminRoles: ['admin']
 			})
 		]
-	});
+	};
+};
+
+// Creates Better Auth instance (used in http.ts for routes)
+export const createAuth = (ctx: GenericCtx<DataModel>) => {
+	return betterAuth(createAuthOptions(ctx));
 };
 
 // Get current authenticated user
