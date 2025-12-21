@@ -12,7 +12,7 @@
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
 	import ShieldCheckIcon from '@lucide/svelte/icons/shield-check';
-	import type { Passkey } from 'better-auth/plugins/passkey';
+	import type { Passkey } from '@better-auth/passkey';
 
 	let passkeys = $state<Passkey[]>([]);
 	let isLoading = $state(false);

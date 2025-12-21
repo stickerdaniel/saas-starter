@@ -27,7 +27,7 @@
 			formError = null;
 
 			try {
-				const { error: err } = await authClient.forgetPassword({
+				const { error: err } = await authClient.requestPasswordReset({
 					email: f.data.email,
 					redirectTo: localizedHref('/reset-password')
 				});
