@@ -28,9 +28,7 @@ jobs:
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Authenticate with Graphite
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gt auth --token ${{ secrets.GITHUB_TOKEN }}
+        run: gt auth --token ${{ secrets.GRAPHITE_TOKEN }}
 
       - name: Track branch in Graphite
         run: gt track --parent main --force
