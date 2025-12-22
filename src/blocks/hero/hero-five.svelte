@@ -16,6 +16,15 @@
 </script>
 
 <main class="overflow-hidden">
+	<section class="pt-16 md:pt-32">
+		<div class="mx-auto max-w-6xl px-6 lg:px-12">
+			<div class="border-t">
+				<span class="text-caption -mt-3.5 -ml-6 block w-max bg-background px-6">
+					<T keyName="hero.section_label" />
+				</span>
+			</div>
+		</div>
+	</section>
 	<section class="relative flex items-center justify-center">
 		<RiveBackground
 			src="/animations/spring-demo.riv"
@@ -23,7 +32,7 @@
 			className="absolute lg:left-[45%] xl:left-[52%] -bottom-1/5 lg:-bottom-1/6 w-[550px] h-[550px] lg:w-[700px] lg:h-[700px]"
 		/>
 
-		<div class="pointer-events-none w-full pt-24 pb-56 lg:pt-48 lg:pb-36">
+		<div class="pointer-events-none w-full pt-14 pb-56 lg:pt-28 lg:pb-36">
 			<div class="relative mx-auto flex max-w-6xl flex-col px-6 lg:block lg:px-12">
 				<div class="mx-auto max-w-lg text-center lg:ml-0 lg:max-w-full lg:text-left">
 					<h1 class="mt-8 max-w-4xl text-5xl text-balance md:text-6xl lg:mt-16 xl:text-7xl">
