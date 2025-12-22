@@ -10,8 +10,8 @@ jobs:
     if: endsWith(github.actor, '[bot]') || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
-      contents: read
-      pull-requests: read
+      contents: write
+      pull-requests: write
 
     steps:
       - name: Checkout PR branch
