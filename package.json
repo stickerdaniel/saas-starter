@@ -50,7 +50,6 @@
 		"resend": "^6.5.2",
 		"runed": "^0.37.0",
 		"svelte-konva": "^1.0.1",
-		"svelte-motion": "^0.12.2",
 		"svelte-streamdown": "^3.0.0",
 		"vercel": "^50.0.0"
 	},
