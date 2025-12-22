@@ -109,10 +109,6 @@
 		"vitest": "^4.0.0",
 		"zod": "^4.1.13"
 	},
-	"overrides": {
-		"svelte-toolbelt": "^0.10.5",
-		"path-to-regexp": "8.3.0"
-	},
 	"patchedDependencies": {
 		"@better-auth/passkey@1.4.7": "patches/@better-auth%2Fpasskey@1.4.7.patch"
 	}
