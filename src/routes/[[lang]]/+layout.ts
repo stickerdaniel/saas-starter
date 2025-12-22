@@ -2,12 +2,14 @@ import { error } from '@sveltejs/kit';
 import type { LayoutLoad } from './$types';
 import { isSupportedLanguage, DEFAULT_LANGUAGE } from '$lib/i18n/languages';
 
-export const load: LayoutLoad = async ({ params }) => {
+export const load: LayoutLoad = async ({ params, parent }) => {
+	const parentData = await parent();
 	const lang = params.lang;
 
 	// If no language parameter, use default
 	if (!lang) {
 		return {
+			...parentData,
 			lang: DEFAULT_LANGUAGE
 		};
 	}
@@ -20,6 +22,7 @@ export const load: LayoutLoad = async ({ params }) => {
 	}
 
 	return {
+		...parentData,
 		lang
 	};
 };
