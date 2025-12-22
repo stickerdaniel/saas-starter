@@ -8,6 +8,7 @@
 	import X from '@lucide/svelte/icons/x';
 	import LogOut from '@lucide/svelte/icons/log-out';
 	import Command from '@lucide/svelte/icons/command';
+	import Github from '@lucide/svelte/icons/github';
 	import { scrollY } from 'svelte/reactivity/window';
 	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
 	import { authClient } from '$lib/auth-client';
@@ -40,6 +41,17 @@
 
 					<!-- Mobile controls group -->
 					<div class="flex items-center gap-1 lg:hidden">
+						<Button
+							variant="ghost"
+							size="icon"
+							href="https://github.com/stickerdaniel/saas-starter"
+							target="_blank"
+							rel="noopener noreferrer"
+							aria-label="GitHub repository"
+							class="size-8"
+						>
+							<Github class="size-4" />
+						</Button>
 						<LightSwitch variant="ghost" />
 						<LanguageSwitcher variant="ghost" />
 						<button
@@ -103,6 +115,17 @@
 					>
 						<!-- Desktop only - mobile controls are in header bar -->
 						<div class="hidden lg:flex lg:items-center lg:gap-3">
+							<Button
+								variant="ghost"
+								size="icon"
+								href="https://github.com/stickerdaniel/saas-starter"
+								target="_blank"
+								rel="noopener noreferrer"
+								aria-label="GitHub repository"
+								class="size-8"
+							>
+								<Github class="size-4" />
+							</Button>
 							<LightSwitch variant="ghost" />
 							<LanguageSwitcher variant="ghost" />
 						</div>
