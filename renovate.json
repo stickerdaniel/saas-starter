@@ -1,4 +1,9 @@
 {
 	"$schema": "https://docs.renovatebot.com/renovate-schema.json",
-	"extends": ["config:recommended", "group:allNonMajor"]
+	"extends": ["config:best-practices", "group:allNonMajor"],
+	"vulnerabilityAlerts": {
+		"enabled": true,
+		"labels": ["security"],
+		"schedule": ["at any time"]
+	}
 }
