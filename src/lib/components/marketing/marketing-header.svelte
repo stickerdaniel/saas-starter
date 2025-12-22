@@ -28,7 +28,7 @@
 </script>
 
 <header>
-	<nav class="fixed z-40 w-full px-2">
+	<nav class="fixed z-40 w-full">
 		<div
 			class="mx-auto max-w-6xl rounded-3xl bg-background/50 px-6 shadow-2xl/10 backdrop-blur-2xl lg:px-12 lg:shadow-none"
 		>

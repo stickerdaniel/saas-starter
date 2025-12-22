@@ -10,4 +10,6 @@
 </script>
 
 <MarketingHeader />
-{@render children?.()}
+<div class="pt-16 sm:pt-20">
+	{@render children?.()}
+</div>
