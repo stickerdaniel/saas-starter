@@ -119,36 +119,44 @@
 		<!-- Left: Animated icon swap (based on view state only) -->
 		<div class="relative flex size-10 items-center justify-center">
 			<!-- Messages icon (visible in overview) -->
-			<AnimatePresence show={threadContext.currentView === 'overview'}>
-				<motion.div
-					initial={hasMounted ? { opacity: 0, x: 20, scale: 0.5 } : { opacity: 1, x: 0, scale: 1 }}
-					animate={{ opacity: 1, x: 0, scale: 1 }}
-					exit={{ opacity: 0, x: -20, scale: 0.5 }}
-					transition={{ type: 'spring', duration: 0.2, bounce: 0 }}
-					class="absolute inset-0 flex items-center justify-center"
-				>
-					<MessagesSquare class="size-5 text-muted-foreground" />
-				</motion.div>
+			<AnimatePresence>
+				{#if threadContext.currentView === 'overview'}
+					<motion.div
+						initial={hasMounted
+							? { opacity: 0, x: 20, scale: 0.5 }
+							: { opacity: 1, x: 0, scale: 1 }}
+						animate={{ opacity: 1, x: 0, scale: 1 }}
+						exit={{ opacity: 0, x: -20, scale: 0.5 }}
+						transition={{ type: 'spring', duration: 0.2, bounce: 0 }}
+						class="absolute inset-0 flex items-center justify-center"
+					>
+						<MessagesSquare class="size-5 text-muted-foreground" />
+					</motion.div>
+				{/if}
 			</AnimatePresence>
 
 			<!-- Back icon (visible in chat) -->
-			<AnimatePresence show={threadContext.currentView !== 'overview'}>
-				<motion.div
-					initial={hasMounted ? { opacity: 0, x: 20, scale: 0.5 } : { opacity: 1, x: 0, scale: 1 }}
-					animate={{ opacity: 1, x: 0, scale: 1 }}
-					exit={{ opacity: 0, x: -20, scale: 0.5 }}
-					transition={{ type: 'spring', duration: 0.2, bounce: 0 }}
-					class="absolute inset-0 flex items-center justify-center"
-				>
-					<Button
-						variant="ghost"
-						size="icon"
-						class="h-10 w-10 rounded-full hover:!bg-muted-foreground/10"
-						onclick={() => threadContext.goBack()}
+			<AnimatePresence>
+				{#if threadContext.currentView !== 'overview'}
+					<motion.div
+						initial={hasMounted
+							? { opacity: 0, x: 20, scale: 0.5 }
+							: { opacity: 1, x: 0, scale: 1 }}
+						animate={{ opacity: 1, x: 0, scale: 1 }}
+						exit={{ opacity: 0, x: -20, scale: 0.5 }}
+						transition={{ type: 'spring', duration: 0.2, bounce: 0 }}
+						class="absolute inset-0 flex items-center justify-center"
 					>
-						<ChevronLeft class="size-5" />
-					</Button>
-				</motion.div>
+						<Button
+							variant="ghost"
+							size="icon"
+							class="h-10 w-10 rounded-full hover:!bg-muted-foreground/10"
+							onclick={() => threadContext.goBack()}
+						>
+							<ChevronLeft class="size-5" />
+						</Button>
+					</motion.div>
+				{/if}
 			</AnimatePresence>
 		</div>
 
@@ -158,29 +166,33 @@
 			style="mask-image: linear-gradient(to bottom, transparent 0%, black 4px, black calc(100% - 4px), transparent 100%);"
 		>
 			<!-- Overview title -->
-			<AnimatePresence show={threadContext.currentView === 'overview'}>
-				<motion.div
-					initial={hasMounted ? { y: -40, opacity: 0.8 } : { y: 0, opacity: 1 }}
-					animate={{ y: 0, opacity: 1 }}
-					exit={{ y: 40, opacity: 0.8 }}
-					transition={{ type: 'spring', duration: 0.5, bounce: 0.3 }}
-					class="col-start-1 row-start-1 flex h-10 items-center"
-				>
-					<h2 class="text-xl leading-none font-semibold">Messages</h2>
-				</motion.div>
+			<AnimatePresence>
+				{#if threadContext.currentView === 'overview'}
+					<motion.div
+						initial={hasMounted ? { y: -40, opacity: 0.8 } : { y: 0, opacity: 1 }}
+						animate={{ y: 0, opacity: 1 }}
+						exit={{ y: 40, opacity: 0.8 }}
+						transition={{ type: 'spring', duration: 0.5, bounce: 0.3 }}
+						class="col-start-1 row-start-1 flex h-10 items-center"
+					>
+						<h2 class="text-xl leading-none font-semibold">Messages</h2>
+					</motion.div>
+				{/if}
 			</AnimatePresence>
 
 			<!-- Chat title -->
-			<AnimatePresence show={threadContext.currentView !== 'overview'}>
-				<motion.div
-					initial={hasMounted ? { y: -40, opacity: 0.8 } : { y: 0, opacity: 1 }}
-					animate={{ y: 0, opacity: 1 }}
-					exit={{ y: 40, opacity: 0.8 }}
-					transition={{ type: 'spring', duration: 0.5, bounce: 0.3 }}
-					class="col-start-1 row-start-1 flex h-10 items-center"
-				>
-					<AvatarHeading icon={Bot} title={agentName} subtitle="Our bot will reply instantly" />
-				</motion.div>
+			<AnimatePresence>
+				{#if threadContext.currentView !== 'overview'}
+					<motion.div
+						initial={hasMounted ? { y: -40, opacity: 0.8 } : { y: 0, opacity: 1 }}
+						animate={{ y: 0, opacity: 1 }}
+						exit={{ y: 40, opacity: 0.8 }}
+						transition={{ type: 'spring', duration: 0.5, bounce: 0.3 }}
+						class="col-start-1 row-start-1 flex h-10 items-center"
+					>
+						<AvatarHeading icon={Bot} title={agentName} subtitle="Our bot will reply instantly" />
+					</motion.div>
+				{/if}
 			</AnimatePresence>
 		</div>
 
