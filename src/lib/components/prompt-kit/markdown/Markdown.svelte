@@ -19,7 +19,6 @@
 		{content}
 		class="[&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
 		shikiTheme={mode.current === 'dark' ? 'github-dark-default' : 'github-light-default'}
-		shikiPreloadThemes={['github-dark-default', 'github-light-default']}
 		baseTheme="shadcn"
 	/>
 </div>

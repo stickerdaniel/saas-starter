@@ -3,7 +3,7 @@
 		{
 			id: 'drag',
 			header: () => null,
-			cell: ({ row }) => renderSnippet(DragHandle, { id: row.original.id })
+			cell: ({ row }) => DragHandle({ id: row.original.id })
 		},
 		{
 			id: 'select',
@@ -32,12 +32,12 @@
 		{
 			accessorKey: 'type',
 			header: 'Section Type',
-			cell: ({ row }) => renderSnippet(DataTableType, { row })
+			cell: ({ row }) => DataTableType({ row })
 		},
 		{
 			accessorKey: 'status',
 			header: 'Status',
-			cell: ({ row }) => renderSnippet(DataTableStatus, { row })
+			cell: ({ row }) => DataTableStatus({ row })
 		},
 		{
 			accessorKey: 'target',
@@ -47,7 +47,7 @@
 						render: () => '<div class="w-full text-center">Target</div>'
 					}))
 				),
-			cell: ({ row }) => renderSnippet(DataTableTarget, { row })
+			cell: ({ row }) => DataTableTarget({ row })
 		},
 		{
 			accessorKey: 'limit',
@@ -57,7 +57,7 @@
 						render: () => '<div class="w-full text-center">Limit</div>'
 					}))
 				),
-			cell: ({ row }) => renderSnippet(DataTableLimit, { row })
+			cell: ({ row }) => DataTableLimit({ row })
 		},
 		{
 			accessorKey: 'reviewer',
@@ -66,7 +66,7 @@
 		},
 		{
 			id: 'actions',
-			cell: () => renderSnippet(DataTableActions)
+			cell: () => DataTableActions()
 		}
 	];
 </script>
