@@ -92,7 +92,7 @@
 	});
 </script>
 
-<section class="py-16 md:py-32">
+<section class="py-16 md:py-24">
 	<div class="mx-auto max-w-6xl px-6 lg:px-12">
 		<div class="border-t">
 			<span class="text-caption -mt-3.5 -ml-6 block w-max bg-background px-6">
