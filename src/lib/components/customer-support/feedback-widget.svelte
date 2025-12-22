@@ -16,7 +16,7 @@
 	import { Bot, ChevronLeft, MessagesSquare } from '@lucide/svelte';
 
 	// Animation imports
-	import { Motion, AnimatePresence } from 'svelte-motion';
+	import { motion, AnimatePresence } from 'motion-sv';
 	import { Button } from '$lib/components/ui/button';
 
 	let {
@@ -120,39 +120,35 @@
 		<div class="relative flex size-10 items-center justify-center">
 			<!-- Messages icon (visible in overview) -->
 			<AnimatePresence show={threadContext.currentView === 'overview'}>
-				<Motion
-					let:motion
+				<motion.div
 					initial={hasMounted ? { opacity: 0, x: 20, scale: 0.5 } : { opacity: 1, x: 0, scale: 1 }}
 					animate={{ opacity: 1, x: 0, scale: 1 }}
 					exit={{ opacity: 0, x: -20, scale: 0.5 }}
 					transition={{ type: 'spring', duration: 0.2, bounce: 0 }}
+					class="absolute inset-0 flex items-center justify-center"
 				>
-					<div use:motion class="absolute inset-0 flex items-center justify-center">
-						<MessagesSquare class="size-5 text-muted-foreground" />
-					</div>
-				</Motion>
+					<MessagesSquare class="size-5 text-muted-foreground" />
+				</motion.div>
 			</AnimatePresence>
 
 			<!-- Back icon (visible in chat) -->
 			<AnimatePresence show={threadContext.currentView !== 'overview'}>
-				<Motion
-					let:motion
+				<motion.div
 					initial={hasMounted ? { opacity: 0, x: 20, scale: 0.5 } : { opacity: 1, x: 0, scale: 1 }}
 					animate={{ opacity: 1, x: 0, scale: 1 }}
 					exit={{ opacity: 0, x: -20, scale: 0.5 }}
 					transition={{ type: 'spring', duration: 0.2, bounce: 0 }}
+					class="absolute inset-0 flex items-center justify-center"
 				>
-					<div use:motion class="absolute inset-0 flex items-center justify-center">
-						<Button
-							variant="ghost"
-							size="icon"
-							class="h-10 w-10 rounded-full hover:!bg-muted-foreground/10"
-							onclick={() => threadContext.goBack()}
-						>
-							<ChevronLeft class="size-5" />
-						</Button>
-					</div>
-				</Motion>
+					<Button
+						variant="ghost"
+						size="icon"
+						class="h-10 w-10 rounded-full hover:!bg-muted-foreground/10"
+						onclick={() => threadContext.goBack()}
+					>
+						<ChevronLeft class="size-5" />
+					</Button>
+				</motion.div>
 			</AnimatePresence>
 		</div>
 
@@ -163,32 +159,28 @@
 		>
 			<!-- Overview title -->
 			<AnimatePresence show={threadContext.currentView === 'overview'}>
-				<Motion
-					let:motion
+				<motion.div
 					initial={hasMounted ? { y: -40, opacity: 0.8 } : { y: 0, opacity: 1 }}
 					animate={{ y: 0, opacity: 1 }}
 					exit={{ y: 40, opacity: 0.8 }}
 					transition={{ type: 'spring', duration: 0.5, bounce: 0.3 }}
+					class="col-start-1 row-start-1 flex h-10 items-center"
 				>
-					<div use:motion class="col-start-1 row-start-1 flex h-10 items-center">
-						<h2 class="text-xl leading-none font-semibold">Messages</h2>
-					</div>
-				</Motion>
+					<h2 class="text-xl leading-none font-semibold">Messages</h2>
+				</motion.div>
 			</AnimatePresence>
 
 			<!-- Chat title -->
 			<AnimatePresence show={threadContext.currentView !== 'overview'}>
-				<Motion
-					let:motion
+				<motion.div
 					initial={hasMounted ? { y: -40, opacity: 0.8 } : { y: 0, opacity: 1 }}
 					animate={{ y: 0, opacity: 1 }}
 					exit={{ y: 40, opacity: 0.8 }}
 					transition={{ type: 'spring', duration: 0.5, bounce: 0.3 }}
+					class="col-start-1 row-start-1 flex h-10 items-center"
 				>
-					<div use:motion class="col-start-1 row-start-1 flex h-10 items-center">
-						<AvatarHeading icon={Bot} title={agentName} subtitle="Our bot will reply instantly" />
-					</div>
-				</Motion>
+					<AvatarHeading icon={Bot} title={agentName} subtitle="Our bot will reply instantly" />
+				</motion.div>
 			</AnimatePresence>
 		</div>
 

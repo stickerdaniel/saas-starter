@@ -10,12 +10,7 @@
 	import memberFour from '$blocks/team/avatars/member-four.webp';
 	import memberTwo from '$blocks/team/avatars/member-two.webp';
 	import memberFive from '$blocks/team/avatars/member-five.webp';
-	import { Motion } from 'svelte-motion';
-
-	const blurFadeVariants = {
-		hidden: { opacity: 0, y: 6, filter: 'blur(6px)' },
-		visible: { opacity: 1, y: 0, filter: 'blur(0px)' }
-	};
+	import { motion } from 'motion-sv';
 
 	const ctx = supportThreadContext.get();
 
@@ -89,26 +84,24 @@
 					</div>
 
 					<!-- Greeting -->
-					<Motion
-						variants={blurFadeVariants}
-						initial="hidden"
-						animate="visible"
+					<motion.h2
+						initial={{ opacity: 0, y: 6, filter: 'blur(6px)' }}
+						animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
 						transition={{ duration: 0.4, delay: 0.25, ease: 'easeOut' }}
-						let:motion
+						class="mb-4 text-5xl font-semibold text-muted-foreground"
 					>
-						<h2 use:motion class="mb-4 text-5xl font-semibold text-muted-foreground">Hi 👋</h2>
-					</Motion>
+						Hi 👋
+					</motion.h2>
 
 					<!-- Main heading -->
-					<Motion
-						variants={blurFadeVariants}
-						initial="hidden"
-						animate="visible"
+					<motion.h3
+						initial={{ opacity: 0, y: 6, filter: 'blur(6px)' }}
+						animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
 						transition={{ duration: 0.4, delay: 0.5, ease: 'easeOut' }}
-						let:motion
+						class="text-3xl font-bold"
 					>
-						<h3 use:motion class="text-3xl font-bold">How can we help you today?</h3>
-					</Motion>
+						How can we help you today?
+					</motion.h3>
 				</div>
 			</div>
 		{:else}
