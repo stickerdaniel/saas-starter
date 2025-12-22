@@ -1,4 +1,4 @@
-name: Track Bot PRs in Graphite
+name: Sync PRs to Graphite
 
 on:
   pull_request:
@@ -6,8 +6,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  track-in-graphite:
-    if: endsWith(github.actor, '[bot]') || github.event_name == 'workflow_dispatch'
+  sync-pr-to-graphite:
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -40,5 +39,5 @@ jobs:
       - name: Track branch in Graphite
         run: gt track --parent main --force
 
-      - name: Submit PR to Graphite
+      - name: Sync PR to Graphite
         run: gt submit --no-edit
