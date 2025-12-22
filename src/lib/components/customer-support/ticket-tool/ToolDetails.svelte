@@ -129,12 +129,12 @@
 			Your ticket has been submitted. We'll get back to you soon.
 		</p>
 	{:else if toolState === 'output-error'}
-		<!-- Cancelled/Error state -->
+		<!-- Canceled/Error state -->
 		<div class="text-sm text-muted-foreground">
 			{#if errorText}
 				{errorText}
 			{:else}
-				Ticket submission was cancelled.
+				Ticket submission was canceled.
 			{/if}
 		</div>
 	{:else}

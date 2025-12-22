@@ -18,13 +18,13 @@ export const cancelEmail = mutation({
 	handler: async (ctx, args) => {
 		try {
 			await resend.cancelEmail(ctx, args.emailId);
-			console.log(`Email ${args.emailId} cancelled successfully`);
-			return { success: true, message: 'Email cancelled' };
+			console.log(`Email ${args.emailId} canceled successfully`);
+			return { success: true, message: 'Email canceled' };
 		} catch (error) {
 			console.error(`Failed to cancel email ${args.emailId}:`, error);
 			return {
 				success: false,
-				message: 'Email could not be cancelled (may have already been sent)'
+				message: 'Email could not be canceled (may have already been sent)'
 			};
 		}
 	}

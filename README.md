@@ -201,7 +201,7 @@ See [Convex Documentation](src/lib/convex/README.md) for schema and functions.
      - `TEST_CONVEX_URL`: Your development Convex URL (for running tests)
      - `PUBLIC_CONVEX_URL`: Your production Convex URL (for deployment)
    - Tests run against the development environment to keep production clean
-   - This is already configured in `.github/workflows/build.yml`
+   - This is already configured in `.github/workflows/quality-checks.yml`
 
 4. **Install Playwright and run tests:**
 
