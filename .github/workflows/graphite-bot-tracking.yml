@@ -1,0 +1,36 @@
+name: Track Bot PRs in Graphite
+
+on:
+  pull_request:
+    types: [opened]
+
+jobs:
+  track-in-graphite:
+    if: endsWith(github.actor, '[bot]')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0 # Fetch full history for Graphite
+
+      - name: Install Graphite CLI
+        run: npm install -g @withgraphite/graphite-cli
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Authenticate with Graphite
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gt auth --token ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Track branch in Graphite
+        run: gt track --parent main --force
