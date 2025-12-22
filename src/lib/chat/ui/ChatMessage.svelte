@@ -113,10 +113,10 @@
 		if (output?.status === 'submitted') {
 			// Tool result received - email delivered successfully
 			state = 'output-available';
-		} else if (output?.status === 'cancelled') {
-			// Tool result received - user cancelled
+		} else if (output?.status === 'canceled') {
+			// Tool result received - user canceled
 			state = 'output-error';
-			// Don't set errorText - UI uses absence of errorText to show cancelled styling
+			// Don't set errorText - UI uses absence of errorText to show canceled styling
 		} else if (output?.status === 'error') {
 			// Tool result received - backend error
 			state = 'output-error';
@@ -182,7 +182,7 @@
 			threadId,
 			toolCallId: toolCallPart.toolCallId,
 			promptMessageId,
-			action: 'cancelled'
+			action: 'canceled'
 		});
 	}
 
