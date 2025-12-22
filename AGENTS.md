@@ -230,7 +230,7 @@ Tolgee CLI is integrated into the CI/CD pipeline to automatically:
 
 **Implementation locations:**
 
-- **GitHub Actions**: See [.github/workflows/build.yml](.github/workflows/build.yml:33-36) for the "Sync Tolgee translations" step
+- **GitHub Actions**: See [.github/workflows/quality-checks.yml](.github/workflows/quality-checks.yml) for CI configuration
 - **Vercel**: See [vercel.json](vercel.json) for the build command configuration
 - **Environment variables**: Add `TOLGEE_API_KEY` to GitHub Secrets and Vercel Environment Variables
 

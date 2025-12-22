@@ -445,7 +445,7 @@ export const submitTicketToolResult = mutation({
 		threadId: v.string(),
 		toolCallId: v.string(),
 		promptMessageId: v.string(),
-		action: v.union(v.literal('submitted'), v.literal('cancelled')),
+		action: v.union(v.literal('submitted'), v.literal('canceled')),
 		// For submitted action (required when action=submitted):
 		ticketType: v.optional(
 			v.union(v.literal('bug_report'), v.literal('feature_request'), v.literal('general_inquiry'))
@@ -496,8 +496,8 @@ export const submitTicketToolResult = mutation({
  * - Does NOT continue agent generation yet (waits for webhook)
  * - Tool-result will be saved by handleEmailEvent or checkEmailDeliveryTimeout
  *
- * For 'cancelled' action:
- * - Saves tool-result immediately with cancelled status
+ * For 'canceled' action:
+ * - Saves tool-result immediately with canceled status
  * - Continues agent generation
  */
 export const processTicketToolResult = internalAction({
@@ -505,7 +505,7 @@ export const processTicketToolResult = internalAction({
 		threadId: v.string(),
 		toolCallId: v.string(),
 		promptMessageId: v.string(),
-		action: v.union(v.literal('submitted'), v.literal('cancelled')),
+		action: v.union(v.literal('submitted'), v.literal('canceled')),
 		ticketType: v.optional(
 			v.union(v.literal('bug_report'), v.literal('feature_request'), v.literal('general_inquiry'))
 		),
@@ -543,7 +543,7 @@ export const processTicketToolResult = internalAction({
 			return;
 		}
 
-		// For cancelled action: save tool-result and continue agent immediately
+		// For canceled action: save tool-result and continue agent immediately
 		const { messageId } = await supportAgent.saveMessage(ctx, {
 			threadId: args.threadId,
 			message: {
@@ -554,8 +554,8 @@ export const processTicketToolResult = internalAction({
 						output: {
 							type: 'text',
 							value: JSON.stringify({
-								status: 'cancelled',
-								message: 'You cancelled the form submission.'
+								status: 'canceled',
+								message: 'You canceled the form submission.'
 							})
 						},
 						toolCallId: args.toolCallId,
@@ -564,7 +564,7 @@ export const processTicketToolResult = internalAction({
 				]
 			}
 		});
-		console.log('[HITL] Tool-result (cancelled) saved:', messageId);
+		console.log('[HITL] Tool-result (canceled) saved:', messageId);
 
 		// Check if all tool calls have been answered before continuing
 		const { pending, total } = await ctx.runQuery(

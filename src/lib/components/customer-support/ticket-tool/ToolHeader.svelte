@@ -63,7 +63,7 @@
 			case 'output-available':
 				return 'Ticket Submitted';
 			case 'output-error':
-				return toolPart.errorText ? 'Ticket Failed' : 'Ticket Cancelled';
+				return toolPart.errorText ? 'Ticket Failed' : 'Ticket Canceled';
 			default:
 				return 'Support Ticket';
 		}

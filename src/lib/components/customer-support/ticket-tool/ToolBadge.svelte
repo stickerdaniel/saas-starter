@@ -74,7 +74,7 @@
 				className
 			)}
 		>
-			Cancelled
+			Canceled
 		</span>
 	{/if}
 {:else}
