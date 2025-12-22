@@ -15,12 +15,6 @@
 	}
 
 	let { children, sidebarConfig, user, routePrefix, rootLabel }: Props = $props();
-
-	// DEBUG: Log when user prop changes
-	$effect(() => {
-		console.log('[AuthenticatedLayout] user changed:', user);
-		console.log('[AuthenticatedLayout] rendering:', !!user);
-	});
 </script>
 
 {#if user}
