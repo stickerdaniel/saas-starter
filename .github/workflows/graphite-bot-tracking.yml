@@ -39,3 +39,6 @@ jobs:
 
       - name: Track branch in Graphite
         run: gt track --parent main --force
+
+      - name: Submit PR to Graphite
+        run: gt submit --no-edit
