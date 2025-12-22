@@ -1,7 +1,6 @@
 import { Autumn } from '@useautumn/convex';
 import { components } from './_generated/api';
 import { authComponent } from './auth';
-import type { Auth } from 'convex/server';
 
 const secretKey = process.env.AUTUMN_SECRET_KEY;
 if (!secretKey) {
