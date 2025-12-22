@@ -3,6 +3,7 @@ name: Track Bot PRs in Graphite
 on:
   pull_request:
     types: [opened]
+  workflow_dispatch:
 
 jobs:
   track-in-graphite:
