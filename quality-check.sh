@@ -72,8 +72,37 @@ svelte-kit sync
 echo ""
 echo ""
 
+# Spell check
+echo "2. Spell checking"
+echo "======================================================"
+if command -v misspell > /dev/null 2>&1; then
+    if [ "$STAGED_ONLY" = true ]; then
+        # Check only staged files (exclude non-English translations and generated)
+        STAGED_CHECKABLE_FILES=$(echo "$ALL_FILES" | grep -E '\.(js|ts|svelte|md)$' | grep -v -E 'src/i18n/(de|es|fr)\.json|convex/_generated' || true)
+        if [ -n "$STAGED_CHECKABLE_FILES" ]; then
+            echo "$STAGED_CHECKABLE_FILES" | xargs misspell -error
+        else
+            echo "No staged files to spell check"
+        fi
+    else
+        # Check all files (exclude non-English translations and generated)
+        misspell -error \
+          $(find ./src -type f \
+            -not -path "*/i18n/de.json" \
+            -not -path "*/i18n/es.json" \
+            -not -path "*/i18n/fr.json" \
+            -not -path "*/convex/_generated/*") \
+          README.md
+    fi
+else
+    echo "WARNING: misspell not installed (skipping spell check)"
+    echo "Install with: go install github.com/client9/misspell/cmd/misspell@latest"
+fi
+echo ""
+echo ""
+
 # Format files
-echo "2. Code formatting"
+echo "3. Code formatting"
 echo "======================================================"
 if [ "$STAGED_ONLY" = true ] && [ -n "$FORMATTABLE_FILES" ]; then
     echo "$FORMATTABLE_FILES" | xargs prettier --write --plugin prettier-plugin-svelte
@@ -86,7 +115,7 @@ echo ""
 echo ""
 
 # Linting
-echo "3. ESLint"
+echo "4. ESLint"
 echo "======================================================"
 if [ "$STAGED_ONLY" = true ] && [ -n "$JS_TS_SVELTE_FILES" ]; then
     echo "$JS_TS_SVELTE_FILES" | xargs eslint --fix
@@ -99,7 +128,7 @@ echo ""
 echo ""
 
 # Type checking
-echo "4. Type checking"
+echo "5. Type checking"
 echo "======================================================"
 if [ "$STAGED_ONLY" = true ] && [ -z "$JS_TS_SVELTE_FILES" ] && [ -z "$SVELTE_FILES" ]; then
     echo "No TypeScript/Svelte files to check"
@@ -111,7 +140,7 @@ echo ""
 
 # Tests (only in full mode)
 if [ "$RUN_TESTS" = true ]; then
-    echo "5. Tests"
+    echo "6. Tests"
     echo "======================================================"
     bun run test
     echo ""
@@ -120,7 +149,7 @@ fi
 
 # Build check (only in full mode)
 if [ "$RUN_BUILD" = true ]; then
-    echo "6. Production build"
+    echo "7. Production build"
     echo "======================================================"
     bun run build
     echo ""
