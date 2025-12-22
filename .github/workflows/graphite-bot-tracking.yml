@@ -31,6 +31,9 @@ jobs:
       - name: Authenticate with Graphite
         run: gt auth --token ${{ secrets.GRAPHITE_TOKEN }}
 
+      - name: Create local main branch
+        run: git branch main origin/main
+
       - name: Initialize Graphite
         run: gt init --trunk main
 
