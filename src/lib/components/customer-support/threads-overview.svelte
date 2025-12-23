@@ -68,19 +68,46 @@
 	<div class="min-h-0 flex-1 overflow-y-auto">
 		{#if !isLoading && threads.length === 0}
 			<!-- Empty state with greeting (only shown after query completes) -->
-			<div class="flex h-full flex-col justify-start {threadsFade.animationClass}">
+			<div class="flex h-full flex-col justify-start">
 				<div class="m-10 flex flex-col items-start">
 					<!-- Avatar stack -->
 					<div class="mb-6 flex -space-x-3">
-						<Avatar class="size-12 outline outline-4 outline-secondary">
-							<AvatarImage src={memberFour} alt="Team member" class="object-cover" />
-						</Avatar>
-						<Avatar class="size-12 outline outline-4 outline-secondary">
-							<AvatarImage src={memberTwo} alt="Team member" class="object-cover" />
-						</Avatar>
-						<Avatar class="size-12 outline outline-4 outline-secondary">
-							<AvatarImage src={memberFive} alt="Team member" class="object-cover" />
-						</Avatar>
+						<motion.div
+							initial={{ opacity: 0, y: 20 }}
+							animate={{ opacity: 1, y: 0 }}
+							transition={{
+								opacity: { duration: 0.2, delay: 0.1 },
+								y: { type: 'spring', stiffness: 260, damping: 12, mass: 0.8, delay: 0.1 }
+							}}
+						>
+							<Avatar class="size-12 outline outline-4 outline-secondary">
+								<AvatarImage src={memberFour} alt="Team member" class="object-cover" />
+							</Avatar>
+						</motion.div>
+						<motion.div
+							initial={{ opacity: 0, y: 20 }}
+							animate={{ opacity: 1, y: 0 }}
+							transition={{
+								opacity: { duration: 0.2, delay: 0.15 },
+								y: { type: 'spring', stiffness: 260, damping: 12, mass: 0.8, delay: 0.15 }
+							}}
+						>
+							<Avatar class="size-12 outline outline-4 outline-secondary">
+								<AvatarImage src={memberTwo} alt="Team member" class="object-cover" />
+							</Avatar>
+						</motion.div>
+						<motion.div
+							initial={{ opacity: 0, y: 20 }}
+							animate={{ opacity: 1, y: 0 }}
+							transition={{
+								opacity: { duration: 0.2, delay: 0.2 },
+								y: { type: 'spring', stiffness: 260, damping: 12, mass: 0.8, delay: 0.2 }
+							}}
+						>
+							<Avatar class="size-12 outline outline-4 outline-secondary">
+								<AvatarImage src={memberFive} alt="Team member" class="object-cover" />
+							</Avatar>
+						</motion.div>
 					</div>
 
 					<!-- Greeting -->

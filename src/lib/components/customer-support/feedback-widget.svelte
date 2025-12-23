@@ -17,7 +17,7 @@
 
 	// Animation imports
 	import { fly } from 'svelte/transition';
-	import { cubicOut } from 'svelte/easing';
+	import { cubicOut, backOut } from 'svelte/easing';
 	import { Button } from '$lib/components/ui/button';
 
 	let {
@@ -116,7 +116,7 @@
 			<!-- Messages icon (visible in overview) -->
 			{#if threadContext.currentView === 'overview'}
 				<div
-					in:fly={{ x: 20, duration: 200, easing: cubicOut }}
+					in:fly={{ x: 20, duration: 200, easing: backOut }}
 					out:fly={{ x: -20, duration: 200, easing: cubicOut }}
 					class="absolute inset-0 flex items-center justify-center"
 				>
@@ -127,7 +127,7 @@
 			<!-- Back icon (visible in chat) -->
 			{#if threadContext.currentView !== 'overview'}
 				<div
-					in:fly={{ x: 20, duration: 200, easing: cubicOut }}
+					in:fly={{ x: 20, duration: 200, easing: backOut }}
 					out:fly={{ x: -20, duration: 200, easing: cubicOut }}
 					class="absolute inset-0 flex items-center justify-center"
 				>
@@ -151,7 +151,7 @@
 			<!-- Overview title -->
 			{#if threadContext.currentView === 'overview'}
 				<div
-					in:fly={{ y: -40, duration: 300, easing: cubicOut }}
+					in:fly={{ y: -40, duration: 300, easing: backOut }}
 					out:fly={{ y: 40, duration: 300, easing: cubicOut }}
 					class="col-start-1 row-start-1 flex h-10 items-center"
 				>
@@ -162,7 +162,7 @@
 			<!-- Chat title -->
 			{#if threadContext.currentView !== 'overview'}
 				<div
-					in:fly={{ y: -40, duration: 300, easing: cubicOut }}
+					in:fly={{ y: -40, duration: 300, easing: backOut }}
 					out:fly={{ y: 40, duration: 300, easing: cubicOut }}
 					class="col-start-1 row-start-1 flex h-10 items-center"
 				>
