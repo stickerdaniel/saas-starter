@@ -176,3 +176,38 @@ export const deleteThread = mutation({
 		return null;
 	}
 });
+
+/**
+ * Get admin user avatars for display in support widget
+ *
+ * Returns public profile information (name and avatar) for admin users.
+ * This is a public query since it only exposes non-sensitive profile data.
+ */
+export const getAdminAvatars = query({
+	args: {},
+	returns: v.array(
+		v.object({
+			name: v.optional(v.string()),
+			image: v.union(v.string(), v.null())
+		})
+	),
+	handler: async (ctx) => {
+		// Fetch all users with admin role
+		const result = await ctx.runQuery(components.betterAuth.adapter.findMany, {
+			model: 'user',
+			paginationOpts: { cursor: null, numItems: 100 },
+			where: [{ field: 'role', operator: 'eq', value: 'admin' }]
+		});
+
+		const admins = result.page as Array<{
+			name?: string;
+			image?: string | null;
+		}>;
+
+		// Return only name and image (public profile data)
+		return admins.map((admin) => ({
+			name: admin.name,
+			image: admin.image ?? null
+		}));
+	}
+});
