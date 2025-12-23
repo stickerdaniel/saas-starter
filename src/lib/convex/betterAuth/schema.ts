@@ -27,7 +27,8 @@ export const tables = {
 	})
 		.index('email_name', ['email', 'name'])
 		.index('name', ['name'])
-		.index('userId', ['userId']),
+		.index('userId', ['userId'])
+		.index('role', ['role']),
 	session: defineTable({
 		expiresAt: v.number(),
 		token: v.string(),
