@@ -6,7 +6,6 @@
 	import * as Card from '$lib/components/ui/card/index.js';
 	import { toast } from 'svelte-sonner';
 	import { T } from '@tolgee/svelte';
-	import UploadIcon from '@lucide/svelte/icons/upload';
 	import { useConvexClient } from 'convex-svelte';
 	import { api } from '$lib/convex/_generated/api.js';
 	import { PROFILE_IMAGE_MAX_SIZE, PROFILE_IMAGE_MAX_SIZE_LABEL } from '$lib/convex/constants.js';
@@ -25,8 +24,8 @@
 
 	let name = $state(user?.name || '');
 	let image = $state(user?.image || '');
-	let isLoading = $state(false);
-	let selectedFile = $state<File | null>(null);
+	let isUploading = $state(false);
+	let isSaving = $state(false);
 	let fileInput = $state<HTMLInputElement>();
 
 	// Update reactive values when user changes
@@ -37,85 +36,62 @@
 		}
 	});
 
-	function handleFileSelect(e: Event) {
+	async function handleFileSelect(e: Event) {
 		const target = e.target as HTMLInputElement;
 		const file = target.files?.[0];
 
-		if (file) {
-			// Validate file type
-			if (!file.type.startsWith('image/')) {
-				toast.error('Please select an image file');
-				return;
-			}
+		if (!file) return;
 
-			// Validate file size
-			if (file.size > PROFILE_IMAGE_MAX_SIZE) {
-				toast.error(`Image must be less than ${PROFILE_IMAGE_MAX_SIZE_LABEL}`);
-				return;
-			}
-
-			selectedFile = file;
+		// Validate file type
+		if (!file.type.startsWith('image/')) {
+			toast.error('Please select an image file');
+			target.value = '';
+			return;
 		}
-	}
 
-	async function handleUploadImage() {
-		if (!selectedFile) return;
+		// Validate file size
+		if (file.size > PROFILE_IMAGE_MAX_SIZE) {
+			toast.error(`Image must be less than ${PROFILE_IMAGE_MAX_SIZE_LABEL}`);
+			target.value = '';
+			return;
+		}
 
-		isLoading = true;
+		// Auto-upload to Convex storage
+		isUploading = true;
 		try {
-			// Step 1: Generate upload URL
 			const uploadUrl = await convexClient.mutation(api.storage.generateUploadUrl, {});
 
-			// Step 2: Upload file to Convex storage
 			const result = await fetch(uploadUrl, {
 				method: 'POST',
-				headers: { 'Content-Type': selectedFile.type },
-				body: selectedFile
+				headers: { 'Content-Type': file.type },
+				body: file
 			});
 
 			const { storageId } = await result.json();
 
-			// Step 3: Validate and save the image, get the URL
 			const imageUrl = await convexClient.mutation(api.storage.saveProfileImage, { storageId });
 
-			// Step 4: Update the image state
+			// Update preview (don't save to DB yet)
 			image = imageUrl || '';
-			selectedFile = null;
 
-			// Reset file input
-			if (fileInput) {
-				fileInput.value = '';
-			}
-
-			toast.success('Image uploaded successfully');
+			toast.success('Image ready to save');
 		} catch (error) {
 			const message = error instanceof Error ? error.message : 'Failed to upload image';
 			toast.error(message);
+			target.value = '';
 		} finally {
-			isLoading = false;
+			isUploading = false;
 		}
 	}
 
-	async function handleRemoveImage() {
-		isLoading = true;
-		try {
-			await authClient.updateUser({
-				name,
-				image: null
-			});
-			image = '';
-			toast.success('Profile picture removed');
-		} catch (error) {
-			const message = error instanceof Error ? error.message : 'Failed to remove image';
-			toast.error(message);
-		} finally {
-			isLoading = false;
-		}
+	function handleRemoveImage() {
+		image = '';
+		toast.success('Image removed - click Save to confirm');
 	}
 
 	async function handleUpdateProfile(e: Event) {
 		e.preventDefault();
-		isLoading = true;
+		isSaving = true;
 
 		try {
 			await authClient.updateUser({
@@ -128,7 +104,7 @@
 			const message = error instanceof Error ? error.message : 'Failed to update profile';
 			toast.error(message);
 		} finally {
-			isLoading = false;
+			isSaving = false;
 		}
 	}
 </script>
@@ -183,7 +159,7 @@
 								variant="outline"
 								size="sm"
 								onclick={handleRemoveImage}
-								disabled={isLoading}
+								disabled={isSaving}
 							>
 								<T keyName="settings.account.remove_button" />
 							</Button>
@@ -191,30 +167,21 @@
 					</div>
 				</div>
 
-				<div class="grid gap-6 md:grid-cols-[1fr_auto_1fr] md:items-start">
+				<div class="grid gap-6 md:grid-cols-[1fr_auto_1fr] md:items-center">
 					<div class="space-y-2">
-						<Label class="sr-only" for="file-upload">
+						<Label for="file-upload">
 							<T keyName="settings.account.upload_file" />
 						</Label>
-						<div class="flex gap-2">
-							<input
-								bind:this={fileInput}
-								id="file-upload"
-								type="file"
-								accept="image/*"
-								onchange={handleFileSelect}
-								aria-describedby="file-helper"
-								class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
-							/>
-							<Button
-								type="button"
-								variant="secondary"
-								onclick={handleUploadImage}
-								disabled={!selectedFile || isLoading}
-							>
-								<UploadIcon class="h-4 w-4" />
-							</Button>
-						</div>
+						<input
+							bind:this={fileInput}
+							id="file-upload"
+							type="file"
+							accept="image/*"
+							onchange={handleFileSelect}
+							disabled={isUploading}
+							aria-describedby="file-helper"
+							class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+						/>
 						<p id="file-helper" class="text-sm text-muted-foreground">
 							<T keyName="settings.account.file_helper" />
 						</p>
@@ -231,7 +198,7 @@
 					</div>
 
 					<div class="space-y-2">
-						<Label class="sr-only" for="image">
+						<Label for="image">
 							<T keyName="settings.account.link_from_url" />
 						</Label>
 						<Input
@@ -248,8 +215,8 @@
 				</div>
 			</div>
 
-			<Button type="submit" disabled={isLoading}>
-				{#if isLoading}
+			<Button type="submit" disabled={isSaving}>
+				{#if isSaving}
 					<T keyName="settings.account.saving" />
 				{:else}
 					<T keyName="settings.account.save_button" />
