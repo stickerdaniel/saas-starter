@@ -1,13 +1,14 @@
 import { mutation } from './_generated/server';
 import { v } from 'convex/values';
 import { PROFILE_IMAGE_ALLOWED_TYPES, PROFILE_IMAGE_MAX_SIZE } from './constants';
+import { authComponent } from './auth';
 
 // Generate an upload URL for file uploads (authenticated)
 export const generateUploadUrl = mutation({
 	args: {},
 	handler: async (ctx) => {
-		const identity = await ctx.auth.getUserIdentity();
-		if (!identity) {
+		const user = await authComponent.getAuthUser(ctx);
+		if (!user) {
 			throw new Error('Unauthorized');
 		}
 		return await ctx.storage.generateUploadUrl();
@@ -18,8 +19,8 @@ export const generateUploadUrl = mutation({
 export const saveProfileImage = mutation({
 	args: { storageId: v.id('_storage') },
 	handler: async (ctx, args) => {
-		const identity = await ctx.auth.getUserIdentity();
-		if (!identity) {
+		const user = await authComponent.getAuthUser(ctx);
+		if (!user) {
 			throw new Error('Unauthorized');
 		}
 

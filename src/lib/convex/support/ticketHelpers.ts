@@ -337,9 +337,9 @@ export const getEmailForThread = query({
 	args: { threadId: v.string() },
 	handler: async (ctx, args): Promise<string | null> => {
 		// Check authenticated user first
-		const identity = await ctx.auth.getUserIdentity();
-		if (identity?.email) {
-			return identity.email;
+		const user = await authComponent.getAuthUser(ctx);
+		if (user?.email) {
+			return user.email;
 		}
 
 		// Check previous tickets in this thread
@@ -456,8 +456,8 @@ export const submitTicketToolResult = mutation({
 		includeAttachments: v.optional(v.boolean())
 	},
 	handler: async (ctx, args) => {
-		const identity = await ctx.auth.getUserIdentity();
-		const userId = identity?.subject;
+		const user = await authComponent.getAuthUser(ctx);
+		const userId = user?._id;
 
 		if (args.action === 'submitted') {
 			// Validate required fields
