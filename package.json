@@ -44,7 +44,7 @@
 		"ai": "^5.0.93",
 		"atmn": "^0.0.30",
 		"autumn-js": "^0.1.43",
-		"better-auth": "1.4.7",
+		"better-auth": "1.4.8",
 		"isomorphic-dompurify": "^2.32.0",
 		"konva": "^10.0.8",
 		"marked": "^17.0.0",
