@@ -231,7 +231,6 @@
 		"cta": "Jetzt starten",
 		"cta_demo": "Demo anfordern",
 		"description": "Erwecke dein SaaS zum Leben in Minuten, nicht in Monaten. Open-Source Template mit einem Tech-Stack, der dich schnell shippen lässt.",
-		"section_label": "Start",
 		"tagline": "Mit Produktfokus schneller zum Ziel",
 		"title": "SaaS-Starter-Vorlage"
 	},
@@ -353,7 +352,6 @@
 			"pro[3]": "Priority-Support"
 		},
 		"popular_badge": "Beliebt",
-		"section_label": "Preise",
 		"tiers": {
 			"enterprise": {
 				"button": "Vertrieb kontaktieren",
@@ -462,7 +460,6 @@
 			"ux_engineer": "UX Engineer",
 			"visual_designer": "Visual Designer"
 		},
-		"section_label": "Team",
 		"title": "Unser Traumteam"
 	}
 }
