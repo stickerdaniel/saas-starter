@@ -18,9 +18,10 @@
 			}
 		},
 		{
-			"label": "quality-check.sh",
+			"label": "bun run quality-check",
 			"type": "shell",
-			"command": "./quality-check.sh",
+			"command": "bun",
+			"args": ["run", "quality-check"],
 			"group": {
 				"kind": "test",
 				"isDefault": true
@@ -32,10 +33,10 @@
 			}
 		},
 		{
-			"label": "quality-check.sh --staged",
+			"label": "bun run quality-check:staged",
 			"type": "shell",
-			"command": "./quality-check.sh",
-			"args": ["--staged"],
+			"command": "bun",
+			"args": ["run", "quality-check:staged"],
 			"group": "test",
 			"problemMatcher": ["$eslint-compact", "$tsc"],
 			"detail": "Run pre-commit checks on staged files only",
@@ -78,6 +79,37 @@
 			"presentation": {
 				"clear": true
 			}
+		},
+		{
+			"label": "bun run worktree --open-editor",
+			"type": "shell",
+			"command": "bun",
+			"args": ["run", "worktree", "${input:branchName}", "--open-editor", "${input:editorChoice}"],
+			"group": "none",
+			"problemMatcher": [],
+			"detail": "Create a new git worktree with Graphite tracking and environment setup",
+			"presentation": {
+				"echo": true,
+				"reveal": "always",
+				"focus": true,
+				"panel": "shared",
+				"clear": true
+			}
+		}
+	],
+	"inputs": [
+		{
+			"id": "branchName",
+			"type": "promptString",
+			"description": "Branch name for new worktree (e.g., feature-auth)",
+			"default": "feature/"
+		},
+		{
+			"id": "editorChoice",
+			"type": "pickString",
+			"description": "Open worktree in which editor?",
+			"options": ["cursor", "code"],
+			"default": "cursor"
 		}
 	]
 }
