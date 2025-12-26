@@ -249,7 +249,7 @@
 									y: { type: 'spring', stiffness: 260, damping: 12, mass: 0.8, delay: 0.1 }
 								}}
 							>
-								<Avatar class="size-12 outline outline-4 outline-secondary bg-primary">
+								<Avatar class="size-12 bg-primary outline outline-4 outline-secondary">
 									<AvatarFallback class="bg-primary text-primary-foreground">
 										<Bot class="size-8" />
 									</AvatarFallback>
