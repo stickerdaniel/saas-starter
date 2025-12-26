@@ -231,7 +231,6 @@
 		"cta": "Start Building",
 		"cta_demo": "Request a demo",
 		"description": "Bring your SaaS to life in minutes, not months. Open-source template loaded with the tech that gets you shipping.",
-		"section_label": "Home",
 		"tagline": "Focus on your product and ship faster.",
 		"title": "SaaS Starter Template"
 	},
@@ -353,7 +352,6 @@
 			"pro[3]": "Priority support"
 		},
 		"popular_badge": "Popular",
-		"section_label": "Pricing",
 		"tiers": {
 			"enterprise": {
 				"button": "Contact Sales",
@@ -462,7 +460,6 @@
 			"ux_engineer": "UX Engineer",
 			"visual_designer": "Visual Designer"
 		},
-		"section_label": "Team",
 		"title": "Our dream team"
 	}
 }
