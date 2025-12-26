@@ -81,7 +81,7 @@ This project uses **Tolgee** for cloud-hosted translation management with SEO-fr
 
 - Translations loaded via `staticData` (from `src/i18n/` files)
 - DevTools enabled for in-context editing (requires `VITE_TOLGEE_API_KEY`)
-- Hot-reload translations with `bunx tolgee pull`
+- Hot-reload translations with `bun run i18n:pull`
 
 **Production Mode:**
 
@@ -637,13 +637,21 @@ Runed (collection of utilities for Svelte 5):
 <AnimationFrames: A wrapper for requestAnimationFrame that includes FPS limiting and provides frame metrics like delta time and current FPS.>
 <useDebounce: Creates a debounced version of a callback function, delaying execution until after a specified period of inactivity. Allows forcing immediate execution or cancellation.>
 <IsMounted: A simple class that returns the mounted state (true or false) of the Svelte component it's instantiated in.>
-next.shadcn-svelte.com (Beautifully designed components that you can copy and paste into your apps.)
+shadcn-svelte.com (Beautifully designed components that you can copy and paste into your apps.)
 Superforms/Formsnap(Since Formsnap is built on top of Superforms, you'll need to install it as well as a schema validation library of your choice. We'll use Zod.)https://formsnap.dev/docs/quick-start
 Pain Forge (PaneForge provides components that make it easy to create resizable panes in your Svelte apps)https://paneforge.com/docs
 Threlte (Rapidly build interactive 3D apps for the web)https://threlte.xyz/
 Svelte Flow (A customizable Svelte component for building node-based editors and interactive diagrams by the creators of React Flow)https://svelteflow.dev/
-Tolgee for internationalisation (open-source localization tool).
 Ask for the specific docs when needed.
+For Animations, use Sveltes built in animations or https://github.com/hanielu/motion-svelte
+bun install motion-sv
+Then import the motion component:
+
+<script lang="ts">
+	import { motion } from "motion-sv";
+</script>
+
+<motion.div animate={{ x: 100 }}>Hello</motion.div>
 
 ### Vercel
 
