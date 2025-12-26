@@ -1,6 +1,10 @@
 name: Quality Checks
 
-on: [push, pull_request]
+on:
+  push:
+    branches: [main] # Only run on pushes to main branch
+  pull_request:
+    types: [opened, synchronize, reopened] # Run on PR creation and subsequent pushes
 
 jobs:
   quality_checks:

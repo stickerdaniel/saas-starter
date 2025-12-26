@@ -1,1 +1,1 @@
-./quality-check.sh --staged
+bun run quality-check:staged

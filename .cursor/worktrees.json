@@ -1,0 +1,3 @@
+{
+	"commands": ["bun run worktree:setup"]
+}
