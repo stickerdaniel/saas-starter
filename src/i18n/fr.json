@@ -231,7 +231,6 @@
 		"cta": "Commencer maintenant",
 		"cta_demo": "Demander une démo",
 		"description": "Donne vie à ton SaaS en quelques minutes, pas en mois. Template open-source bourré de tech qui te fait shipper direct.",
-		"section_label": "Accueil",
 		"tagline": "Focus sur ton produit. Lancement plus rapide.",
 		"title": "Modèle SaaS Starter"
 	},
@@ -353,7 +352,6 @@
 			"pro[3]": "Support prioritaire"
 		},
 		"popular_badge": "Populaire",
-		"section_label": "Tarifs",
 		"tiers": {
 			"enterprise": {
 				"button": "Contacter les Ventes",
@@ -462,7 +460,6 @@
 			"ux_engineer": "Ingénieur UX",
 			"visual_designer": "Designer Visuel"
 		},
-		"section_label": "Équipe",
 		"title": "Notre équipe de rêve"
 	}
 }

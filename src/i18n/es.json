@@ -231,7 +231,6 @@
 		"cta": "Comenzar ahora",
 		"cta_demo": "Solicitar una demo",
 		"description": "Dale vida a tu SaaS en minutos, no en meses. Plantilla open-source cargada con la tecnología que te hace lanzar rápido.",
-		"section_label": "Inicio",
 		"tagline": "Foco en tu producto. Lanzamiento más rápido.",
 		"title": "Plantilla SaaS Starter"
 	},
@@ -353,7 +352,6 @@
 			"pro[3]": "Soporte prioritario"
 		},
 		"popular_badge": "Popular",
-		"section_label": "Precios",
 		"tiers": {
 			"enterprise": {
 				"button": "Contactar Ventas",
@@ -462,7 +460,6 @@
 			"ux_engineer": "Ingeniero UX",
 			"visual_designer": "Diseñador Visual"
 		},
-		"section_label": "Equipo",
 		"title": "Nuestro equipo soñado"
 	}
 }
