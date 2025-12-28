@@ -9,18 +9,37 @@ import { paginationOptsValidator } from 'convex/server';
  *
  * Creates a conversation thread for customer support.
  * Each user can have multiple threads for different support topics.
+ *
+ * IMPORTANT: Agent threads don't support custom metadata, so we create
+ * a separate supportThreads record to store admin-specific data.
  */
 export const createThread = mutation({
 	args: {
 		userId: v.optional(v.string()),
-		title: v.optional(v.string())
+		title: v.optional(v.string()),
+		pageUrl: v.optional(v.string()) // URL of the page where user started the chat
 	},
 	returns: v.string(),
 	handler: async (ctx, args) => {
+		// Create agent thread (NO metadata field - it's ignored!)
 		const { threadId } = await supportAgent.createThread(ctx, {
 			userId: args.userId,
 			title: args.title || 'Customer Support',
 			summary: 'New support conversation'
+		});
+
+		// Create supportThread record with admin metadata
+		await ctx.db.insert('supportThreads', {
+			threadId,
+			userId: args.userId,
+			status: 'open',
+			assignedTo: undefined,
+			priority: undefined,
+			dueDate: undefined,
+			pageUrl: args.pageUrl || undefined,
+			unreadByAdmin: true,
+			createdAt: Date.now(),
+			updatedAt: Date.now()
 		});
 
 		return threadId;

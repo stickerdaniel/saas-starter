@@ -53,7 +53,42 @@
 		"sidebar": {
 			"back_to_app": "Back to App",
 			"dashboard": "Dashboard",
+			"support": "Support",
 			"users": "Users"
+		},
+		"support": {
+			"all_statuses": "All statuses",
+			"details": {
+				"assignee": "Assignee",
+				"close_panel": "Close details panel",
+				"notes": "Internal Notes",
+				"open_panel": "Open details panel",
+				"page_url": "Page URL",
+				"priority": "Priority",
+				"status": "Status",
+				"title": "Details",
+				"user_notes": "User Notes"
+			},
+			"filter": {
+				"all": "All",
+				"my_inbox": "My Inbox",
+				"unassigned": "Unassigned"
+			},
+			"no_chats": "No chats found",
+			"no_open_chats": "No open chats",
+			"no_done_chats": "No completed chats",
+			"priority": {
+				"high": "High",
+				"low": "Low",
+				"medium": "Medium"
+			},
+			"select_chat": "Select a chat to view conversation",
+			"select_chat_for_details": "Select a chat to view details",
+			"status": {
+				"done": "Done",
+				"open": "Open"
+			},
+			"title": "Support Chats"
 		},
 		"title": "Admin Panel",
 		"users": {
@@ -231,6 +266,7 @@
 		"cta": "Start Building",
 		"cta_demo": "Request a demo",
 		"description": "Bring your SaaS to life in minutes, not months. Open-source template loaded with the tech that gets you shipping.",
+		"section_label": "Home",
 		"tagline": "Focus on your product and ship faster.",
 		"title": "SaaS Starter Template"
 	},
@@ -352,6 +388,7 @@
 			"pro[3]": "Priority support"
 		},
 		"popular_badge": "Popular",
+		"section_label": "Pricing",
 		"tiers": {
 			"enterprise": {
 				"button": "Contact Sales",
@@ -460,6 +497,7 @@
 			"ux_engineer": "UX Engineer",
 			"visual_designer": "Visual Designer"
 		},
+		"section_label": "Team",
 		"title": "Our dream team"
 	}
 }

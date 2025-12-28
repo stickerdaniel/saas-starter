@@ -89,7 +89,39 @@ export default defineSchema({
 	})
 		.index('by_admin', ['adminUserId'])
 		.index('by_target', ['targetUserId'])
-		.index('by_timestamp', ['timestamp'])
+		.index('by_timestamp', ['timestamp']),
+
+	// Admin notes for users - internal notes not visible to users
+	// Supports both authenticated users (Better Auth IDs) and anonymous users (anon_*)
+	adminNotes: defineTable({
+		userId: v.string(), // Reference to user (Better Auth ID or anon_*)
+		adminUserId: v.string(), // Admin who created the note
+		content: v.string(), // Note content
+		createdAt: v.number() // Timestamp when note was created
+	})
+		.index('by_user', ['userId'])
+		.index('by_admin', ['adminUserId'])
+		.index('by_created', ['createdAt']),
+
+	// Support thread metadata - extends agent threads with admin features
+	// (agent threads don't support custom metadata, so we store admin-specific data separately)
+	supportThreads: defineTable({
+		threadId: v.string(), // Reference to agent:threads
+		userId: v.optional(v.string()), // Denormalized for quick lookups
+		status: v.union(v.literal('open'), v.literal('done')),
+		assignedTo: v.optional(v.string()), // Admin user ID
+		priority: v.optional(v.union(v.literal('low'), v.literal('medium'), v.literal('high'))),
+		dueDate: v.optional(v.number()),
+		pageUrl: v.optional(v.string()), // URL where user started chat
+		unreadByAdmin: v.boolean(),
+		createdAt: v.number(),
+		updatedAt: v.number()
+	})
+		.index('by_thread', ['threadId'])
+		.index('by_user', ['userId'])
+		.index('by_status', ['status'])
+		.index('by_assigned', ['assignedTo'])
+		.index('by_created', ['createdAt'])
 
 	// Note: The agent component automatically creates the following tables:
 	// - agent:threads - Conversation threads for customer support

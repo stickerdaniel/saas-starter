@@ -91,6 +91,40 @@
 			"unnamed": "Sans nom",
 			"unverified": "Non vérifié",
 			"verified": "Vérifié"
+		},
+		"support": {
+			"all_statuses": "Tous les statuts",
+			"details": {
+				"assignee": "Assigné à",
+				"close_panel": "Fermer le panneau des détails",
+				"notes": "Notes Internes",
+				"open_panel": "Ouvrir le panneau des détails",
+				"page_url": "URL de la page",
+				"priority": "Priorité",
+				"status": "Statut",
+				"title": "Détails",
+				"user_notes": "Notes Utilisateur"
+			},
+			"filter": {
+				"all": "Tous",
+				"my_inbox": "Ma boîte de réception",
+				"unassigned": "Non assigné"
+			},
+			"no_chats": "Aucun chat trouvé",
+			"no_open_chats": "Aucun chat ouvert",
+			"no_done_chats": "Aucun chat terminé",
+			"priority": {
+				"high": "Haute",
+				"low": "Basse",
+				"medium": "Moyenne"
+			},
+			"select_chat": "Sélectionnez un chat pour voir la conversation",
+			"select_chat_for_details": "Sélectionnez un chat pour voir les détails",
+			"status": {
+				"done": "Terminé",
+				"open": "Ouvert"
+			},
+			"title": "Chats de Support"
 		}
 	},
 	"app": {
@@ -231,6 +265,7 @@
 		"cta": "Commencer maintenant",
 		"cta_demo": "Demander une démo",
 		"description": "Donne vie à ton SaaS en quelques minutes, pas en mois. Template open-source bourré de tech qui te fait shipper direct.",
+		"section_label": "Accueil",
 		"tagline": "Focus sur ton produit. Lancement plus rapide.",
 		"title": "Modèle SaaS Starter"
 	},
@@ -352,6 +387,7 @@
 			"pro[3]": "Support prioritaire"
 		},
 		"popular_badge": "Populaire",
+		"section_label": "Tarifs",
 		"tiers": {
 			"enterprise": {
 				"button": "Contacter les Ventes",
@@ -460,6 +496,7 @@
 			"ux_engineer": "Ingénieur UX",
 			"visual_designer": "Designer Visuel"
 		},
+		"section_label": "Équipe",
 		"title": "Notre équipe de rêve"
 	}
 }

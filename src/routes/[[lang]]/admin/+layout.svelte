@@ -20,6 +20,9 @@
 		getAdminSidebarConfig({ pathname: page.url.pathname, lang: page.params.lang })
 	);
 
+	// Full control mode for pages that manage their own scroll/padding (e.g., support with PaneForge)
+	const fullControl = $derived(page.url.pathname.includes('/admin/support'));
+
 	// Create reactive state for known user count (shared across admin pages)
 	let knownUserCount = $state<number | null>(null);
 
@@ -37,6 +40,7 @@
 
 <AuthenticatedLayout
 	{sidebarConfig}
+	{fullControl}
 	user={viewer
 		? {
 				name: viewer.name ?? 'Admin',

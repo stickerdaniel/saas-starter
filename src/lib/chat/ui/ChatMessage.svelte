@@ -307,8 +307,10 @@
 				{/if}
 			{/each}
 		{:else}
-			<!-- Regular assistant message without tool calls -->
-			<MessageContent class="prose w-full flex-1 p-0 pr-5">
+			<!-- Regular assistant message without tool calls [ bg-primary/15 px-5 py-2.5 max-w-[85%] md:max-w-[75%]]-->
+			<MessageContent
+				class="prose  w-full  flex-1 rounded-3xl bg-transparent p-0 pr-5 text-foreground"
+			>
 				{#if showReasoning}
 					<ChatReasoning
 						open={isReasoningOpen}

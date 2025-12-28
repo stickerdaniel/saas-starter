@@ -1,0 +1,3 @@
+[submodule "docs/references/paneforge"]
+	path = docs/references/paneforge
+	url = https://github.com/svecosystem/paneforge

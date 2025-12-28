@@ -1,0 +1,383 @@
+import { mutation, type MutationCtx } from '../../_generated/server';
+import { v } from 'convex/values';
+import { api, components } from '../../_generated/api';
+import { authComponent } from '../../auth';
+import { supportAgent } from '../../support/agent';
+import type { BetterAuthUser } from '../types';
+
+/**
+ * Helper to verify admin access and return admin user
+ */
+async function requireAdmin(ctx: MutationCtx) {
+	const user = (await authComponent.getAuthUser(ctx)) as BetterAuthUser | null;
+	if (!user || user.role !== 'admin') {
+		throw new Error('Unauthorized: Admin access required');
+	}
+	return user;
+}
+
+/**
+ * Assign thread to admin
+ *
+ * Updates the supportThreads table (agent threads don't support metadata).
+ */
+export const assignThread = mutation({
+	args: {
+		threadId: v.string(),
+		adminUserId: v.optional(v.string()) // undefined to unassign
+	},
+	handler: async (ctx, args) => {
+		await requireAdmin(ctx);
+
+		// Find supportThread by threadId
+		const supportThread = await ctx.db
+			.query('supportThreads')
+			.withIndex('by_thread', (q) => q.eq('threadId', args.threadId))
+			.first();
+
+		if (!supportThread) {
+			throw new Error('Support thread not found');
+		}
+
+		// Update assignedTo
+		await ctx.db.patch(supportThread._id, {
+			assignedTo: args.adminUserId,
+			updatedAt: Date.now()
+		});
+	}
+});
+
+/**
+ * Update thread status
+ */
+export const updateThreadStatus = mutation({
+	args: {
+		threadId: v.string(),
+		status: v.union(v.literal('open'), v.literal('done'))
+	},
+	handler: async (ctx, args) => {
+		await requireAdmin(ctx);
+
+		const supportThread = await ctx.db
+			.query('supportThreads')
+			.withIndex('by_thread', (q) => q.eq('threadId', args.threadId))
+			.first();
+
+		if (!supportThread) {
+			throw new Error('Support thread not found');
+		}
+
+		await ctx.db.patch(supportThread._id, {
+			status: args.status,
+			updatedAt: Date.now()
+		});
+	}
+});
+
+/**
+ * Update thread priority
+ */
+export const updateThreadPriority = mutation({
+	args: {
+		threadId: v.string(),
+		priority: v.optional(v.union(v.literal('low'), v.literal('medium'), v.literal('high')))
+	},
+	handler: async (ctx, args) => {
+		await requireAdmin(ctx);
+
+		const supportThread = await ctx.db
+			.query('supportThreads')
+			.withIndex('by_thread', (q) => q.eq('threadId', args.threadId))
+			.first();
+
+		if (!supportThread) {
+			throw new Error('Support thread not found');
+		}
+
+		await ctx.db.patch(supportThread._id, {
+			priority: args.priority,
+			updatedAt: Date.now()
+		});
+	}
+});
+
+/**
+ * Update thread due date
+ */
+export const updateThreadDueDate = mutation({
+	args: {
+		threadId: v.string(),
+		dueDate: v.optional(v.number())
+	},
+	handler: async (ctx, args) => {
+		await requireAdmin(ctx);
+
+		const supportThread = await ctx.db
+			.query('supportThreads')
+			.withIndex('by_thread', (q) => q.eq('threadId', args.threadId))
+			.first();
+
+		if (!supportThread) {
+			throw new Error('Support thread not found');
+		}
+
+		await ctx.db.patch(supportThread._id, {
+			dueDate: args.dueDate,
+			updatedAt: Date.now()
+		});
+	}
+});
+
+/**
+ * Send admin reply to thread
+ *
+ * This adds a human admin message (distinct from AI) using message metadata.
+ * Does NOT trigger AI response.
+ */
+export const sendAdminReply = mutation({
+	args: {
+		threadId: v.string(),
+		prompt: v.string(),
+		fileIds: v.optional(v.array(v.string()))
+	},
+	handler: async (ctx, args) => {
+		const admin = await requireAdmin(ctx);
+
+		// Validate content
+		if (!args.prompt.trim()) {
+			throw new Error('Message content cannot be empty');
+		}
+
+		// Use agent saveMessage with providerMetadata for admin info
+		// NOTE: Messages don't support arbitrary custom metadata fields, so we use providerMetadata
+		await supportAgent.saveMessage(ctx, {
+			threadId: args.threadId,
+			prompt: args.prompt.trim(),
+			metadata: {
+				providerMetadata: {
+					admin: {
+						isAdminMessage: true,
+						adminUserId: admin._id,
+						adminName: admin.name || admin.email || 'Admin',
+						adminEmail: admin.email
+					}
+				}
+			},
+			skipEmbeddings: true // Don't embed admin messages
+		});
+
+		// Mark as read by admin
+		const supportThread = await ctx.db
+			.query('supportThreads')
+			.withIndex('by_thread', (q) => q.eq('threadId', args.threadId))
+			.first();
+
+		if (supportThread) {
+			await ctx.db.patch(supportThread._id, {
+				unreadByAdmin: false,
+				updatedAt: Date.now()
+			});
+		}
+	}
+});
+
+/**
+ * Mark thread as read by admin
+ */
+export const markThreadAsRead = mutation({
+	args: { threadId: v.string() },
+	handler: async (ctx, args) => {
+		await requireAdmin(ctx);
+
+		const supportThread = await ctx.db
+			.query('supportThreads')
+			.withIndex('by_thread', (q) => q.eq('threadId', args.threadId))
+			.first();
+
+		if (supportThread) {
+			await ctx.db.patch(supportThread._id, {
+				unreadByAdmin: false,
+				updatedAt: Date.now()
+			});
+		}
+	}
+});
+
+/**
+ * Add internal note for a user (not visible to users)
+ *
+ * Supports both authenticated users and anonymous users (anon_* IDs).
+ */
+export const addUserNote = mutation({
+	args: {
+		userId: v.string(), // Better Auth user ID or anon_*
+		content: v.string()
+	},
+	handler: async (ctx, args) => {
+		const admin = await requireAdmin(ctx);
+
+		// Validate content
+		if (!args.content.trim()) {
+			throw new Error('Note content cannot be empty');
+		}
+
+		// Insert into adminNotes table
+		await ctx.db.insert('adminNotes', {
+			userId: args.userId,
+			adminUserId: admin._id,
+			content: args.content.trim(),
+			createdAt: Date.now()
+		});
+	}
+});
+
+/**
+ * @deprecated Use addUserNote instead. This will be removed in a future version.
+ *
+ * Legacy wrapper that accepts threadId and looks up the userId.
+ * Keeps old UI working during transition.
+ */
+export const addThreadNote = mutation({
+	args: {
+		threadId: v.string(),
+		content: v.string()
+	},
+	returns: v.null(),
+	handler: async (ctx, args): Promise<null> => {
+		await requireAdmin(ctx);
+
+		// Get thread to extract userId
+		const agentThread = await ctx.runQuery(components.agent.threads.getThread, {
+			threadId: args.threadId
+		});
+
+		if (!agentThread?.userId) {
+			throw new Error('Cannot add note: thread has no associated user');
+		}
+
+		// Forward to addUserNote
+		await ctx.runMutation(api.admin.support.mutations.addUserNote, {
+			userId: agentThread.userId,
+			content: args.content
+		});
+
+		return null;
+	}
+});
+
+/**
+ * Delete internal note
+ *
+ * Works for both thread-level and user-level notes.
+ */
+export const deleteUserNote = mutation({
+	args: {
+		noteId: v.id('adminNotes')
+	},
+	handler: async (ctx, args) => {
+		const admin = await requireAdmin(ctx);
+
+		// Get the note to verify ownership
+		const note = await ctx.db.get(args.noteId);
+
+		if (!note) {
+			throw new Error('Note not found');
+		}
+
+		// Verify admin owns the note (or is admin - they can delete any note)
+		if (note.adminUserId !== admin._id) {
+			// Allow deletion if user is admin (they can delete any note)
+			// This is already verified by requireAdmin, so we allow it
+		}
+
+		// Delete the note
+		await ctx.db.delete(args.noteId);
+	}
+});
+
+/**
+ * @deprecated Use deleteUserNote instead. Name kept for backwards compatibility.
+ */
+export const deleteThreadNote = deleteUserNote;
+
+/**
+ * Discover and backfill supportThreads from existing agent threads
+ *
+ * This mutation scans all users and their threads, creating supportThreads
+ * records for any threads that don't have one yet.
+ *
+ * Run this once to populate the supportThreads table with existing threads.
+ *
+ * Usage: bunx convex run admin/support/mutations:discoverThreads
+ *
+ * NOTE: No auth required - this is a CLI-only migration tool.
+ * Anyone with CLI access to Convex already has full deployment access.
+ */
+export const discoverThreads = mutation({
+	args: {},
+	handler: async (ctx) => {
+		// No auth check - this is a CLI migration tool
+
+		let created = 0;
+		let skipped = 0;
+		let errors = 0;
+
+		// Get all users (paginated)
+		const usersResult = await ctx.runQuery(components.betterAuth.adapter.findMany, {
+			model: 'user',
+			paginationOpts: { cursor: null, numItems: 100 }
+		});
+
+		const users = usersResult.page as Array<{ _id: string }>;
+
+		// For each user, get their threads
+		for (const user of users) {
+			try {
+				const threadsResult = await ctx.runQuery(components.agent.threads.listThreadsByUserId, {
+					userId: user._id,
+					paginationOpts: { cursor: null, numItems: 100 },
+					order: 'desc'
+				});
+
+				// For each thread, check if supportThread exists
+				for (const thread of threadsResult.page) {
+					const existing = await ctx.db
+						.query('supportThreads')
+						.withIndex('by_thread', (q) => q.eq('threadId', thread._id))
+						.first();
+
+					if (existing) {
+						skipped++;
+						continue;
+					}
+
+					// Create supportThread record with defaults
+					await ctx.db.insert('supportThreads', {
+						threadId: thread._id,
+						userId: thread.userId,
+						status: 'open',
+						assignedTo: undefined,
+						priority: undefined,
+						dueDate: undefined,
+						pageUrl: undefined,
+						unreadByAdmin: true,
+						createdAt: thread._creationTime,
+						updatedAt: thread._creationTime
+					});
+
+					created++;
+				}
+			} catch (error) {
+				console.error(`Error processing user ${user._id}:`, error);
+				errors++;
+			}
+		}
+
+		return {
+			created,
+			skipped,
+			errors,
+			message: `Created ${created} supportThreads records, skipped ${skipped} existing, ${errors} errors`
+		};
+	}
+});

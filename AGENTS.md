@@ -170,7 +170,7 @@ bun add -g @tolgee/cli
 
    ```bash
    # Tag all keys currently in code as production (requires adding this to package.json scripts)
-   bunx dotenv -f .env.local run -- bunx tolgee tag --filter-extracted --tag production
+   bunx dotenv -e .env.local -- bunx tolgee tag --filter-extracted --tag production
 
    # Find keys no longer in code and mark as deprecated
    bun run i18n:cleanup
@@ -193,7 +193,7 @@ Use tags to organize translation keys throughout their lifecycle:
 
    ```bash
    # Tag current keys as production (add version tag if needed)
-   bunx dotenv -f .env.local run -- bunx tolgee tag --filter-extracted --tag production --tag v1.5.0
+   bunx dotenv -e .env.local -- bunx tolgee tag --filter-extracted --tag production --tag v1.5.0
 
    # Pull latest translations for build
    bun run i18n:pull

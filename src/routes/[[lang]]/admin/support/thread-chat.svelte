@@ -1,0 +1,119 @@
+<script lang="ts">
+	import { useConvexClient, useQuery } from 'convex-svelte';
+	import { api } from '$lib/convex/_generated/api';
+	import ChatRoot from '$lib/chat/ui/ChatRoot.svelte';
+	import ChatMessages from '$lib/chat/ui/ChatMessages.svelte';
+	import ChatInput from '$lib/chat/ui/ChatInput.svelte';
+	import { Button } from '$lib/components/ui/button';
+	import PanelRightIcon from '@lucide/svelte/icons/panel-right';
+	import PanelBottomOpen from '@lucide/svelte/icons/panel-bottom-open';
+	import { useMedia } from '$lib/hooks/use-media.svelte';
+	import { SlidingHeader } from '$lib/components/ui/sliding-header';
+	import { T } from '@tolgee/svelte';
+
+	let {
+		threadId,
+		detailsOpen,
+		onToggleOverlay,
+		onBackClick
+	}: {
+		threadId: string;
+		detailsOpen?: boolean;
+		onToggleOverlay?: () => void;
+		onBackClick?: () => void;
+	} = $props();
+
+	const media = useMedia();
+
+	const client = useConvexClient();
+
+	// Query thread details to show header info
+	const threadQuery = useQuery(api.admin.support.queries.getThreadForAdmin, () => ({
+		threadId
+	}));
+
+	const thread = $derived(threadQuery.data);
+
+	// Mark as read when opened
+	$effect(() => {
+		if (threadId) {
+			client.mutation(api.admin.support.mutations.markThreadAsRead, {
+				threadId
+			});
+		}
+	});
+</script>
+
+<div class="flex h-full flex-col">
+	<!-- Mobile: Animated header with back button (<1024px) -->
+	{#if !media.lg && onBackClick}
+		<SlidingHeader
+			isBackView={true}
+			backTitle={thread?.user?.name || thread?.user?.email || 'Anonymous User'}
+			backSubtitle={thread?.title && thread.title !== 'Customer Support'
+				? thread.title
+				: 'Support Thread'}
+			defaultTitle="Support Threads"
+			{onBackClick}
+			showClose={false}
+		>
+			{#snippet actions()}
+				{#if onToggleOverlay}
+					<Button variant="ghost" size="icon" onclick={onToggleOverlay} class="h-9 w-9">
+						{#if media.sm}
+							<PanelRightIcon class="h-5 w-5" />
+						{:else}
+							<PanelBottomOpen class="h-5 w-5" />
+						{/if}
+						<span class="sr-only">
+							{detailsOpen ? 'Close details panel' : 'Open details panel'}
+						</span>
+					</Button>
+				{/if}
+			{/snippet}
+		</SlidingHeader>
+	{/if}
+
+	<!-- Desktop: Standard header (≥1024px) -->
+	{#if media.lg}
+		<div class="flex-shrink-0 border-b p-4">
+			<div class="flex items-center justify-between gap-4">
+				<div class="min-w-0 flex-1 space-y-1">
+					<h2 class="truncate font-semibold">
+						{thread?.user?.name || thread?.user?.email || 'Anonymous User'}
+					</h2>
+					{#if thread?.title && thread.title !== 'Customer Support'}
+						<p class="truncate text-sm text-muted-foreground">{thread.title}</p>
+					{/if}
+				</div>
+
+				<!-- Toggle button for Sheet overlay (lg && !xl) -->
+				{#if !media.xl && onToggleOverlay}
+					<Button variant="ghost" size="icon" onclick={onToggleOverlay} class="flex-shrink-0">
+						<PanelRightIcon class="size-4" />
+						<span class="sr-only">
+							{detailsOpen ? 'Close details panel' : 'Open details panel'}
+						</span>
+					</Button>
+				{/if}
+			</div>
+		</div>
+	{/if}
+
+	<!-- Chat Messages -->
+	<ChatRoot
+		{threadId}
+		api={{
+			listMessages: api.support.messages.listMessages,
+			sendMessage: api.admin.support.mutations.sendAdminReply
+		}}
+	>
+		<div class="flex-1 overflow-hidden">
+			<ChatMessages />
+		</div>
+
+		<div class="flex-shrink-0 border-t p-4">
+			<ChatInput placeholder="Reply to customer..." />
+		</div>
+	</ChatRoot>
+</div>
