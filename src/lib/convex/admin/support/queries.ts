@@ -1,6 +1,6 @@
 import { query } from '../../_generated/server';
 import { v } from 'convex/values';
-import { api, components } from '../../_generated/api';
+import { components } from '../../_generated/api';
 import { paginationOptsValidator } from 'convex/server';
 
 /**
@@ -426,71 +426,6 @@ export const getUserNotes = query({
 			isDone: notes.isDone,
 			continueCursor: notes.continueCursor
 		};
-	}
-});
-
-/**
- * @deprecated Use getUserNotes instead. This will be removed in a future version.
- *
- * Legacy wrapper that accepts threadId and looks up the userId.
- * Keeps old UI working during transition.
- */
-export const getThreadNotes = query({
-	args: {
-		threadId: v.string(),
-		paginationOpts: v.optional(paginationOptsValidator)
-	},
-	returns: v.object({
-		page: v.array(
-			v.object({
-				_id: v.string(),
-				_creationTime: v.number(),
-				userId: v.string(),
-				adminUserId: v.string(),
-				content: v.string(),
-				createdAt: v.number(),
-				adminName: v.optional(v.string()),
-				adminEmail: v.optional(v.string())
-			})
-		),
-		isDone: v.boolean(),
-		continueCursor: v.string()
-	}),
-	handler: async (
-		ctx,
-		args
-	): Promise<{
-		page: Array<{
-			_id: string;
-			_creationTime: number;
-			userId: string;
-			adminUserId: string;
-			content: string;
-			createdAt: number;
-			adminName?: string;
-			adminEmail?: string;
-		}>;
-		isDone: boolean;
-		continueCursor: string;
-	}> => {
-		// Get thread to extract userId
-		const agentThread = await ctx.runQuery(components.agent.threads.getThread, {
-			threadId: args.threadId
-		});
-
-		if (!agentThread?.userId) {
-			return {
-				page: [],
-				isDone: true,
-				continueCursor: ''
-			};
-		}
-
-		// Forward to getUserNotes
-		return ctx.runQuery(api.admin.support.queries.getUserNotes, {
-			userId: agentThread.userId,
-			paginationOpts: args.paginationOpts
-		});
 	}
 });
 
