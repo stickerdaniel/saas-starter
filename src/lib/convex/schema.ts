@@ -48,9 +48,9 @@ export default defineSchema({
 		.index('by_target', ['targetUserId'])
 		.index('by_timestamp', ['timestamp']),
 
-	// Admin notes for users - internal notes not visible to users
+	// Internal notes for users - visible only to admins, not to users
 	// Supports both authenticated users (Better Auth IDs) and anonymous users (anon_*)
-	adminNotes: defineTable({
+	internalUserNotes: defineTable({
 		userId: v.string(), // Reference to user (Better Auth ID or anon_*)
 		adminUserId: v.string(), // Admin who created the note
 		content: v.string(), // Note content
@@ -79,6 +79,8 @@ export default defineSchema({
 		.index('by_status', ['status'])
 		.index('by_assigned', ['assignedTo'])
 		.index('by_created', ['createdAt'])
+		.index('by_unread', ['unreadByAdmin'])
+		.index('by_unread_and_assigned', ['unreadByAdmin', 'assignedTo'])
 
 	// Note: The agent component automatically creates the following tables:
 	// - agent:threads - Conversation threads for customer support

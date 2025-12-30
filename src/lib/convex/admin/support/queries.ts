@@ -3,6 +3,15 @@ import { components } from '../../_generated/api';
 import { paginationOptsValidator } from 'convex/server';
 import { adminQuery } from '../../functions';
 
+// Type guard for user records from Better Auth adapter
+function isUserRecord(
+	obj: unknown
+): obj is { _id: string; name?: string; email?: string; image?: string | null } {
+	return (
+		typeof obj === 'object' && obj !== null && typeof (obj as { _id?: unknown })._id === 'string'
+	);
+}
+
 /**
  * List threads with admin filters
  *
@@ -197,7 +206,7 @@ export const listThreadsForAdmin = adminQuery({
 			});
 
 			// Filter to only the users we need and build map
-			for (const user of usersResult.page as UserInfo[]) {
+			for (const user of usersResult.page.filter(isUserRecord)) {
 				if (userIds.includes(user._id)) {
 					userMap.set(user._id, user);
 				}
@@ -219,7 +228,7 @@ export const listThreadsForAdmin = adminQuery({
 			`[listThreadsForAdmin] Valid threads: ${validThreads.length}/${threadsWithDetails.length} (filtered out ${threadsWithDetails.length - validThreads.length})`
 		);
 
-		// 4. Apply search filter (client-side for now)
+		// 4. Apply search filter (in-memory on paginated results - searches across enriched fields from multiple tables)
 		let filteredThreads = threadsWithUserInfo;
 		if (args.search) {
 			const searchLower = args.search.toLowerCase();
@@ -377,12 +386,12 @@ export const getThreadForAdmin = adminQuery({
 });
 
 /**
- * Get admin notes for a user
+ * Get internal notes for a user
  *
  * Supports both authenticated users and anonymous users (anon_* IDs).
  * Notes are user-level, so they appear across all threads for that user.
  */
-export const getUserNotes = adminQuery({
+export const getInternalUserNotes = adminQuery({
 	args: {
 		userId: v.string(), // Better Auth user ID or anon_* for anonymous
 		paginationOpts: v.optional(paginationOptsValidator)
@@ -405,7 +414,7 @@ export const getUserNotes = adminQuery({
 	}),
 	handler: async (ctx, args) => {
 		const notes = await ctx.db
-			.query('adminNotes')
+			.query('internalUserNotes')
 			.withIndex('by_user', (q) => q.eq('userId', args.userId))
 			.order('desc')
 			.paginate(args.paginationOpts ?? { numItems: 50, cursor: null });
@@ -425,7 +434,7 @@ export const getUserNotes = adminQuery({
 			});
 
 			// Build lookup map for admins we need
-			for (const admin of adminsResult.page as AdminInfo[]) {
+			for (const admin of adminsResult.page.filter(isUserRecord)) {
 				if (adminIds.includes(admin._id)) {
 					adminMap.set(admin._id, admin);
 				}
@@ -460,19 +469,30 @@ export const getUnreadThreadCount = adminQuery({
 	},
 	returns: v.number(),
 	handler: async (ctx, args) => {
-		// Query supportThreads for unread
-		const query = ctx.db.query('supportThreads');
-
 		if (args.adminUserId) {
-			// Count only threads assigned to this admin or unassigned
-			const allThreads = await query.collect();
-			return allThreads.filter(
-				(t) => t.unreadByAdmin && (!t.assignedTo || t.assignedTo === args.adminUserId)
-			).length;
+			// Count threads assigned to this admin OR unassigned using compound index
+			const [assignedToAdmin, unassigned] = await Promise.all([
+				ctx.db
+					.query('supportThreads')
+					.withIndex('by_unread_and_assigned', (q) =>
+						q.eq('unreadByAdmin', true).eq('assignedTo', args.adminUserId)
+					)
+					.collect(),
+				ctx.db
+					.query('supportThreads')
+					.withIndex('by_unread_and_assigned', (q) =>
+						q.eq('unreadByAdmin', true).eq('assignedTo', undefined)
+					)
+					.collect()
+			]);
+			return assignedToAdmin.length + unassigned.length;
 		} else {
-			// Count all unread
-			const allThreads = await query.collect();
-			return allThreads.filter((t) => t.unreadByAdmin).length;
+			// Count all unread using simple index
+			const unreadThreads = await ctx.db
+				.query('supportThreads')
+				.withIndex('by_unread', (q) => q.eq('unreadByAdmin', true))
+				.collect();
+			return unreadThreads.length;
 		}
 	}
 });
@@ -498,12 +518,8 @@ export const listAdmins = adminQuery({
 			where: [{ field: 'role', operator: 'eq', value: 'admin' }]
 		});
 
-		const admins = result.page as Array<{
-			_id: string;
-			name?: string;
-			email?: string;
-			image?: string | null;
-		}>;
+		type UserRecord = { _id: string; name?: string; email?: string; image?: string | null };
+		const admins: UserRecord[] = result.page.filter(isUserRecord);
 
 		// Return admin info
 		return admins.map((admin) => ({

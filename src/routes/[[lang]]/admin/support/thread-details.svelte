@@ -9,6 +9,7 @@
 	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
 	import { toast } from 'svelte-sonner';
 	import { T } from '@tolgee/svelte';
+	import { motion } from 'motion-sv';
 	import { formatDistanceToNow } from 'date-fns';
 
 	let {
@@ -33,7 +34,7 @@
 	const adminsQuery = useQuery(api.admin.support.queries.listAdmins);
 
 	// Query internal notes (user-level)
-	const notesQuery = useQuery(api.admin.support.queries.getUserNotes, () => {
+	const notesQuery = useQuery(api.admin.support.queries.getInternalUserNotes, () => {
 		if (!userId) return 'skip';
 		return {
 			userId,
@@ -86,7 +87,7 @@
 
 		isAddingNote = true;
 		try {
-			await client.mutation(api.admin.support.mutations.addUserNote, {
+			await client.mutation(api.admin.support.mutations.addInternalUserNote, {
 				userId,
 				content: newNoteContent.trim()
 			});
@@ -208,7 +209,12 @@
 
 					<!-- Notes List -->
 					{#if notesQuery.data?.page && notesQuery.data.page.length > 0}
-						<div class="mt-4 space-y-2">
+						<motion.div
+							initial={{ opacity: 0, y: 6, filter: 'blur(6px)' }}
+							animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+							transition={{ duration: 0.4, ease: 'easeOut' }}
+							class="mt-4 space-y-2"
+						>
 							{#each notesQuery.data.page as note (note._id)}
 								<div class="rounded-md bg-muted p-3">
 									<div class="mb-1 flex items-center justify-between">
@@ -220,7 +226,7 @@
 									<p class="text-sm">{note.content}</p>
 								</div>
 							{/each}
-						</div>
+						</motion.div>
 					{/if}
 				</div>
 			{:else}

@@ -6,7 +6,6 @@
 	import { Debounced } from 'runed';
 	import { useMedia } from '$lib/hooks/use-media.svelte';
 	import { T } from '@tolgee/svelte';
-	import { toast } from 'svelte-sonner';
 	import * as Sheet from '$lib/components/ui/sheet';
 	import * as Drawer from '$lib/components/ui/drawer';
 	import { SlidingPanel } from '$lib/components/ui/sliding-panel';
@@ -50,30 +49,6 @@
 		search: debouncedSearch.current || undefined,
 		paginationOpts: { numItems: 50, cursor: null }
 	}));
-
-	// Track previous thread count for notifications
-	let previousThreadCount = $state(0);
-
-	// Show toast notifications for new messages
-	$effect(() => {
-		const currentCount = threadsQuery.data?.page.length || 0;
-
-		// Check for new unread threads
-		const unreadThreads =
-			threadsQuery.data?.page.filter((t) => t.supportMetadata?.unreadByAdmin) || [];
-
-		if (unreadThreads.length > 0 && currentCount > previousThreadCount) {
-			const latestThread = unreadThreads[0];
-			toast.info(`New message from ${latestThread.userName || 'Anonymous'}`, {
-				action: {
-					label: 'View',
-					onClick: () => selectThread(latestThread._id)
-				}
-			});
-		}
-
-		previousThreadCount = currentCount;
-	});
 
 	// Select thread handler
 	function selectThread(id: string) {

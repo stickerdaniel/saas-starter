@@ -1,6 +1,6 @@
 import { mutation } from '../../_generated/server';
 import { v } from 'convex/values';
-import { api, components } from '../../_generated/api';
+import { components } from '../../_generated/api';
 import { supportAgent } from '../../support/agent';
 import { adminMutation } from '../../functions';
 
@@ -184,7 +184,7 @@ export const markThreadAsRead = adminMutation({
  *
  * Supports both authenticated users and anonymous users (anon_* IDs).
  */
-export const addUserNote = adminMutation({
+export const addInternalUserNote = adminMutation({
 	args: {
 		userId: v.string(), // Better Auth user ID or anon_*
 		content: v.string()
@@ -195,8 +195,7 @@ export const addUserNote = adminMutation({
 			throw new Error('Note content cannot be empty');
 		}
 
-		// Insert into adminNotes table
-		await ctx.db.insert('adminNotes', {
+		await ctx.db.insert('internalUserNotes', {
 			userId: args.userId,
 			adminUserId: ctx.user._id,
 			content: args.content.trim(),
@@ -206,69 +205,22 @@ export const addUserNote = adminMutation({
 });
 
 /**
- * @deprecated Use addUserNote instead. This will be removed in a future version.
- *
- * Legacy wrapper that accepts threadId and looks up the userId.
- * Keeps old UI working during transition.
+ * Delete internal user note
  */
-export const addThreadNote = adminMutation({
+export const deleteInternalUserNote = adminMutation({
 	args: {
-		threadId: v.string(),
-		content: v.string()
-	},
-	returns: v.null(),
-	handler: async (ctx, args): Promise<null> => {
-		// Get thread to extract userId
-		const agentThread = await ctx.runQuery(components.agent.threads.getThread, {
-			threadId: args.threadId
-		});
-
-		if (!agentThread?.userId) {
-			throw new Error('Cannot add note: thread has no associated user');
-		}
-
-		// Forward to addUserNote
-		await ctx.runMutation(api.admin.support.mutations.addUserNote, {
-			userId: agentThread.userId,
-			content: args.content
-		});
-
-		return null;
-	}
-});
-
-/**
- * Delete internal note
- *
- * Works for both thread-level and user-level notes.
- */
-export const deleteUserNote = adminMutation({
-	args: {
-		noteId: v.id('adminNotes')
+		noteId: v.id('internalUserNotes')
 	},
 	handler: async (ctx, args) => {
-		// Get the note to verify ownership
 		const note = await ctx.db.get(args.noteId);
 
 		if (!note) {
 			throw new Error('Note not found');
 		}
 
-		// Verify admin owns the note (or is admin - they can delete any note)
-		if (note.adminUserId !== ctx.user._id) {
-			// Allow deletion if user is admin (they can delete any note)
-			// This is already verified by adminMutation, so we allow it
-		}
-
-		// Delete the note
 		await ctx.db.delete(args.noteId);
 	}
 });
-
-/**
- * @deprecated Use deleteUserNote instead. Name kept for backwards compatibility.
- */
-export const deleteThreadNote = deleteUserNote;
 
 /**
  * Discover and backfill supportThreads from existing agent threads
