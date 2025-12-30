@@ -104,7 +104,7 @@ export const listThreadsForAdmin = query({
 
 		console.log(`[listThreadsForAdmin] Found ${supportThreads.page.length} supportThreads records`);
 
-		// 2. For each supportThread, get agent thread + last message + user info
+		// 2. For each supportThread, get agent thread + last message (batch user lookup below)
 		console.log(
 			`[listThreadsForAdmin] Starting enrichment for ${supportThreads.page.length} threads`
 		);
@@ -144,43 +144,6 @@ export const listThreadsForAdmin = query({
 
 					const lastMessage = messages.page[0];
 
-					// Get user info if userId exists and is valid Convex ID
-					let userName, userEmail;
-					if (agentThread.userId) {
-						// Check if userId is a valid Convex ID (anonymous users have format: anon_*)
-						const isAnonymous = agentThread.userId.startsWith('anon_');
-
-						if (isAnonymous) {
-							// Anonymous user - don't query user table
-							console.log(`[listThreadsForAdmin] Anonymous user: ${agentThread.userId}`);
-							userName = undefined;
-							userEmail = undefined;
-						} else {
-							// Registered user - lookup in user table
-							console.log(
-								`[listThreadsForAdmin] Fetching user info for userId ${agentThread.userId}`
-							);
-							try {
-								const user = await ctx.runQuery(components.betterAuth.adapter.findOne, {
-									model: 'user',
-									where: [{ field: '_id', operator: 'eq', value: agentThread.userId }]
-								});
-								userName = user?.name;
-								userEmail = user?.email;
-								console.log(
-									`[listThreadsForAdmin] User info: ${userName || 'no name'} (${userEmail || 'no email'})`
-								);
-							} catch (error) {
-								console.error(
-									`[listThreadsForAdmin] Failed to fetch user ${agentThread.userId}:`,
-									error
-								);
-								userName = undefined;
-								userEmail = undefined;
-							}
-						}
-					}
-
 					console.log(
 						`[listThreadsForAdmin] ✓ Successfully enriched thread ${supportThread.threadId}`
 					);
@@ -194,9 +157,7 @@ export const listThreadsForAdmin = query({
 						status: agentThread.status,
 						supportMetadata: supportThread,
 						lastMessage: lastMessage?.text,
-						lastMessageAt: lastMessage?._creationTime ?? agentThread._creationTime,
-						userName,
-						userEmail
+						lastMessageAt: lastMessage?._creationTime ?? agentThread._creationTime
 					};
 				} catch (error) {
 					console.error(
@@ -211,15 +172,58 @@ export const listThreadsForAdmin = query({
 		// Filter out null entries (deleted threads)
 		const validThreads = threadsWithDetails.filter((t): t is NonNullable<typeof t> => t !== null);
 
+		// 3. Batch fetch user info (optimization: single query instead of N queries)
+		// Collect unique userIds (excluding anonymous users with anon_* prefix)
+		const userIds = [
+			...new Set(
+				validThreads
+					.map((t) => t.userId)
+					.filter((id): id is string => !!id && !id.startsWith('anon_'))
+			)
+		];
+
+		console.log(`[listThreadsForAdmin] Batch fetching ${userIds.length} unique users`);
+
+		// Build user lookup map
+		type UserInfo = { _id: string; name?: string; email?: string };
+		const userMap = new Map<string, UserInfo>();
+
+		if (userIds.length > 0) {
+			// Fetch all users and filter to the ones we need
+			const usersResult = await ctx.runQuery(components.betterAuth.adapter.findMany, {
+				model: 'user',
+				paginationOpts: { cursor: null, numItems: 1000 },
+				where: [] // Fetch all users (findMany doesn't support 'in' operator)
+			});
+
+			// Filter to only the users we need and build map
+			for (const user of usersResult.page as UserInfo[]) {
+				if (userIds.includes(user._id)) {
+					userMap.set(user._id, user);
+				}
+			}
+			console.log(`[listThreadsForAdmin] Found ${userMap.size}/${userIds.length} users`);
+		}
+
+		// Enrich threads with user info from the map
+		const threadsWithUserInfo = validThreads.map((thread) => {
+			const user = thread.userId ? userMap.get(thread.userId) : undefined;
+			return {
+				...thread,
+				userName: user?.name,
+				userEmail: user?.email
+			};
+		});
+
 		console.log(
 			`[listThreadsForAdmin] Valid threads: ${validThreads.length}/${threadsWithDetails.length} (filtered out ${threadsWithDetails.length - validThreads.length})`
 		);
 
-		// 3. Apply search filter (client-side for now)
-		let filteredThreads = validThreads;
+		// 4. Apply search filter (client-side for now)
+		let filteredThreads = threadsWithUserInfo;
 		if (args.search) {
 			const searchLower = args.search.toLowerCase();
-			filteredThreads = validThreads.filter(
+			filteredThreads = threadsWithUserInfo.filter(
 				(t) =>
 					t.title?.toLowerCase().includes(searchLower) ||
 					t.summary?.toLowerCase().includes(searchLower) ||
@@ -406,20 +410,37 @@ export const getUserNotes = query({
 			.order('desc')
 			.paginate(args.paginationOpts ?? { numItems: 50, cursor: null });
 
-		const notesWithAdminInfo = await Promise.all(
-			notes.page.map(async (note) => {
-				const admin = await ctx.runQuery(components.betterAuth.adapter.findOne, {
-					model: 'user',
-					where: [{ field: '_id', operator: 'eq', value: note.adminUserId }]
-				});
+		// Batch fetch admin info (optimization: single query instead of N queries)
+		const adminIds = [...new Set(notes.page.map((note) => note.adminUserId))];
 
-				return {
-					...note,
-					adminName: admin?.name,
-					adminEmail: admin?.email
-				};
-			})
-		);
+		type AdminInfo = { _id: string; name?: string; email?: string };
+		const adminMap = new Map<string, AdminInfo>();
+
+		if (adminIds.length > 0) {
+			// Fetch all admin users with a single query
+			const adminsResult = await ctx.runQuery(components.betterAuth.adapter.findMany, {
+				model: 'user',
+				paginationOpts: { cursor: null, numItems: 100 },
+				where: [{ field: 'role', operator: 'eq', value: 'admin' }]
+			});
+
+			// Build lookup map for admins we need
+			for (const admin of adminsResult.page as AdminInfo[]) {
+				if (adminIds.includes(admin._id)) {
+					adminMap.set(admin._id, admin);
+				}
+			}
+		}
+
+		// Enrich notes with admin info from the map
+		const notesWithAdminInfo = notes.page.map((note) => {
+			const admin = adminMap.get(note.adminUserId);
+			return {
+				...note,
+				adminName: admin?.name,
+				adminEmail: admin?.email
+			};
+		});
 
 		return {
 			page: notesWithAdminInfo,
