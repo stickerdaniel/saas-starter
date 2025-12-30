@@ -1,34 +1,20 @@
-import { mutation, type MutationCtx } from '../../_generated/server';
+import { mutation } from '../../_generated/server';
 import { v } from 'convex/values';
 import { api, components } from '../../_generated/api';
-import { authComponent } from '../../auth';
 import { supportAgent } from '../../support/agent';
-import type { BetterAuthUser } from '../types';
-
-/**
- * Helper to verify admin access and return admin user
- */
-async function requireAdmin(ctx: MutationCtx) {
-	const user = (await authComponent.getAuthUser(ctx)) as BetterAuthUser | null;
-	if (!user || user.role !== 'admin') {
-		throw new Error('Unauthorized: Admin access required');
-	}
-	return user;
-}
+import { adminMutation } from '../../functions';
 
 /**
  * Assign thread to admin
  *
  * Updates the supportThreads table (agent threads don't support metadata).
  */
-export const assignThread = mutation({
+export const assignThread = adminMutation({
 	args: {
 		threadId: v.string(),
 		adminUserId: v.optional(v.string()) // undefined to unassign
 	},
 	handler: async (ctx, args) => {
-		await requireAdmin(ctx);
-
 		// Find supportThread by threadId
 		const supportThread = await ctx.db
 			.query('supportThreads')
@@ -50,14 +36,12 @@ export const assignThread = mutation({
 /**
  * Update thread status
  */
-export const updateThreadStatus = mutation({
+export const updateThreadStatus = adminMutation({
 	args: {
 		threadId: v.string(),
 		status: v.union(v.literal('open'), v.literal('done'))
 	},
 	handler: async (ctx, args) => {
-		await requireAdmin(ctx);
-
 		const supportThread = await ctx.db
 			.query('supportThreads')
 			.withIndex('by_thread', (q) => q.eq('threadId', args.threadId))
@@ -77,14 +61,12 @@ export const updateThreadStatus = mutation({
 /**
  * Update thread priority
  */
-export const updateThreadPriority = mutation({
+export const updateThreadPriority = adminMutation({
 	args: {
 		threadId: v.string(),
 		priority: v.optional(v.union(v.literal('low'), v.literal('medium'), v.literal('high')))
 	},
 	handler: async (ctx, args) => {
-		await requireAdmin(ctx);
-
 		const supportThread = await ctx.db
 			.query('supportThreads')
 			.withIndex('by_thread', (q) => q.eq('threadId', args.threadId))
@@ -104,14 +86,12 @@ export const updateThreadPriority = mutation({
 /**
  * Update thread due date
  */
-export const updateThreadDueDate = mutation({
+export const updateThreadDueDate = adminMutation({
 	args: {
 		threadId: v.string(),
 		dueDate: v.optional(v.number())
 	},
 	handler: async (ctx, args) => {
-		await requireAdmin(ctx);
-
 		const supportThread = await ctx.db
 			.query('supportThreads')
 			.withIndex('by_thread', (q) => q.eq('threadId', args.threadId))
@@ -134,15 +114,13 @@ export const updateThreadDueDate = mutation({
  * This adds a human admin message (distinct from AI) using message metadata.
  * Does NOT trigger AI response.
  */
-export const sendAdminReply = mutation({
+export const sendAdminReply = adminMutation({
 	args: {
 		threadId: v.string(),
 		prompt: v.string(),
 		fileIds: v.optional(v.array(v.string()))
 	},
 	handler: async (ctx, args) => {
-		const admin = await requireAdmin(ctx);
-
 		// Validate content
 		if (!args.prompt.trim()) {
 			throw new Error('Message content cannot be empty');
@@ -157,9 +135,9 @@ export const sendAdminReply = mutation({
 				providerMetadata: {
 					admin: {
 						isAdminMessage: true,
-						adminUserId: admin._id,
-						adminName: admin.name || admin.email || 'Admin',
-						adminEmail: admin.email
+						adminUserId: ctx.user._id,
+						adminName: ctx.user.name || ctx.user.email || 'Admin',
+						adminEmail: ctx.user.email
 					}
 				}
 			},
@@ -184,11 +162,9 @@ export const sendAdminReply = mutation({
 /**
  * Mark thread as read by admin
  */
-export const markThreadAsRead = mutation({
+export const markThreadAsRead = adminMutation({
 	args: { threadId: v.string() },
 	handler: async (ctx, args) => {
-		await requireAdmin(ctx);
-
 		const supportThread = await ctx.db
 			.query('supportThreads')
 			.withIndex('by_thread', (q) => q.eq('threadId', args.threadId))
@@ -208,14 +184,12 @@ export const markThreadAsRead = mutation({
  *
  * Supports both authenticated users and anonymous users (anon_* IDs).
  */
-export const addUserNote = mutation({
+export const addUserNote = adminMutation({
 	args: {
 		userId: v.string(), // Better Auth user ID or anon_*
 		content: v.string()
 	},
 	handler: async (ctx, args) => {
-		const admin = await requireAdmin(ctx);
-
 		// Validate content
 		if (!args.content.trim()) {
 			throw new Error('Note content cannot be empty');
@@ -224,7 +198,7 @@ export const addUserNote = mutation({
 		// Insert into adminNotes table
 		await ctx.db.insert('adminNotes', {
 			userId: args.userId,
-			adminUserId: admin._id,
+			adminUserId: ctx.user._id,
 			content: args.content.trim(),
 			createdAt: Date.now()
 		});
@@ -237,15 +211,13 @@ export const addUserNote = mutation({
  * Legacy wrapper that accepts threadId and looks up the userId.
  * Keeps old UI working during transition.
  */
-export const addThreadNote = mutation({
+export const addThreadNote = adminMutation({
 	args: {
 		threadId: v.string(),
 		content: v.string()
 	},
 	returns: v.null(),
 	handler: async (ctx, args): Promise<null> => {
-		await requireAdmin(ctx);
-
 		// Get thread to extract userId
 		const agentThread = await ctx.runQuery(components.agent.threads.getThread, {
 			threadId: args.threadId
@@ -270,13 +242,11 @@ export const addThreadNote = mutation({
  *
  * Works for both thread-level and user-level notes.
  */
-export const deleteUserNote = mutation({
+export const deleteUserNote = adminMutation({
 	args: {
 		noteId: v.id('adminNotes')
 	},
 	handler: async (ctx, args) => {
-		const admin = await requireAdmin(ctx);
-
 		// Get the note to verify ownership
 		const note = await ctx.db.get(args.noteId);
 
@@ -285,9 +255,9 @@ export const deleteUserNote = mutation({
 		}
 
 		// Verify admin owns the note (or is admin - they can delete any note)
-		if (note.adminUserId !== admin._id) {
+		if (note.adminUserId !== ctx.user._id) {
 			// Allow deletion if user is admin (they can delete any note)
-			// This is already verified by requireAdmin, so we allow it
+			// This is already verified by adminMutation, so we allow it
 		}
 
 		// Delete the note

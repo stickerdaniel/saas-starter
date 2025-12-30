@@ -1,19 +1,8 @@
-import { query, type QueryCtx } from '../_generated/server';
+import { type QueryCtx } from '../_generated/server';
 import { components } from '../_generated/api';
-import { authComponent } from '../auth';
 import { v } from 'convex/values';
 import type { BetterAuthUser, BetterAuthSession } from './types';
-
-/**
- * Helper to verify admin access
- */
-async function requireAdmin(ctx: QueryCtx) {
-	const user = (await authComponent.getAuthUser(ctx)) as BetterAuthUser | null;
-	if (!user || user.role !== 'admin') {
-		throw new Error('Unauthorized: Admin access required');
-	}
-	return user;
-}
+import { adminQuery } from '../functions';
 
 /**
  * Helper to fetch all users from the BetterAuth component
@@ -40,7 +29,7 @@ async function fetchAllSessions(ctx: QueryCtx): Promise<BetterAuthSession[]> {
 /**
  * List users with real cursor pagination for admin user management
  */
-export const listUsers = query({
+export const listUsers = adminQuery({
 	args: {
 		cursor: v.optional(v.string()),
 		numItems: v.number(),
@@ -57,8 +46,6 @@ export const listUsers = query({
 		)
 	},
 	handler: async (ctx, args) => {
-		await requireAdmin(ctx);
-
 		// Build where conditions for filtering
 		const whereConditions: Array<{
 			connector?: 'AND' | 'OR';
@@ -158,7 +145,7 @@ export const listUsers = query({
 /**
  * Get total user count with filters for pagination
  */
-export const getUserCount = query({
+export const getUserCount = adminQuery({
 	args: {
 		search: v.optional(v.string()),
 		roleFilter: v.optional(v.string()),
@@ -167,8 +154,6 @@ export const getUserCount = query({
 		)
 	},
 	handler: async (ctx, args) => {
-		await requireAdmin(ctx);
-
 		// Build where conditions for filtering
 		const whereConditions: Array<{
 			connector?: 'AND' | 'OR';
@@ -247,15 +232,13 @@ export const getUserCount = query({
 /**
  * Get admin audit logs
  */
-export const getAuditLogs = query({
+export const getAuditLogs = adminQuery({
 	args: {
 		limit: v.optional(v.number()),
 		adminUserId: v.optional(v.string()),
 		targetUserId: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
-		await requireAdmin(ctx);
-
 		const limit = args.limit ?? 100;
 
 		const logsQuery = ctx.db.query('adminAuditLogs').withIndex('by_timestamp').order('desc');
@@ -278,13 +261,11 @@ export const getAuditLogs = query({
 /**
  * Get a single user by ID for admin view
  */
-export const getUserById = query({
+export const getUserById = adminQuery({
 	args: {
 		userId: v.string()
 	},
 	handler: async (ctx, args) => {
-		await requireAdmin(ctx);
-
 		const user = (await ctx.runQuery(components.betterAuth.adapter.findOne, {
 			model: 'user',
 			where: [{ field: '_id', operator: 'eq', value: args.userId }]
@@ -313,11 +294,9 @@ export const getUserById = query({
 /**
  * Get dashboard metrics for admin
  */
-export const getDashboardMetrics = query({
+export const getDashboardMetrics = adminQuery({
 	args: {},
 	handler: async (ctx) => {
-		await requireAdmin(ctx);
-
 		const users = await fetchAllUsers(ctx);
 		const sessions = await fetchAllSessions(ctx);
 

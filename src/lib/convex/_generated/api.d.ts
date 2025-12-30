@@ -23,6 +23,7 @@ import type * as emails_queries from '../emails/queries.js';
 import type * as emails_resend from '../emails/resend.js';
 import type * as emails_send from '../emails/send.js';
 import type * as files_vacuum from '../files/vacuum.js';
+import type * as functions from '../functions.js';
 import type * as helpers from '../helpers.js';
 import type * as http from '../http.js';
 import type * as messages from '../messages.js';
@@ -52,6 +53,7 @@ declare const fullApi: ApiFromModules<{
 	'emails/resend': typeof emails_resend;
 	'emails/send': typeof emails_send;
 	'files/vacuum': typeof files_vacuum;
+	functions: typeof functions;
 	helpers: typeof helpers;
 	http: typeof http;
 	messages: typeof messages;

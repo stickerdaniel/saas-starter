@@ -1,7 +1,7 @@
-import { query } from '../../_generated/server';
 import { v } from 'convex/values';
 import { components } from '../../_generated/api';
 import { paginationOptsValidator } from 'convex/server';
+import { adminQuery } from '../../functions';
 
 /**
  * List threads with admin filters
@@ -17,7 +17,7 @@ import { paginationOptsValidator } from 'convex/server';
  *
  * Returns threads sorted by lastMessageAt (most recent first)
  */
-export const listThreadsForAdmin = query({
+export const listThreadsForAdmin = adminQuery({
 	args: {
 		filter: v.union(
 			v.literal('all'),
@@ -247,7 +247,7 @@ export const listThreadsForAdmin = query({
  * Get thread details for admin view
  * Includes assignment, status, priority, and user info
  */
-export const getThreadForAdmin = query({
+export const getThreadForAdmin = adminQuery({
 	args: { threadId: v.string() },
 	returns: v.object({
 		_id: v.string(),
@@ -382,7 +382,7 @@ export const getThreadForAdmin = query({
  * Supports both authenticated users and anonymous users (anon_* IDs).
  * Notes are user-level, so they appear across all threads for that user.
  */
-export const getUserNotes = query({
+export const getUserNotes = adminQuery({
 	args: {
 		userId: v.string(), // Better Auth user ID or anon_* for anonymous
 		paginationOpts: v.optional(paginationOptsValidator)
@@ -454,7 +454,7 @@ export const getUserNotes = query({
  * Get unread thread count for admin
  * For notification badges
  */
-export const getUnreadThreadCount = query({
+export const getUnreadThreadCount = adminQuery({
 	args: {
 		adminUserId: v.optional(v.string())
 	},
@@ -480,7 +480,7 @@ export const getUnreadThreadCount = query({
 /**
  * List all admin users for assignment dropdown
  */
-export const listAdmins = query({
+export const listAdmins = adminQuery({
 	args: {},
 	returns: v.array(
 		v.object({
@@ -519,7 +519,7 @@ export const listAdmins = query({
  * Debug helper to inspect supportThreads table
  * Usage: bunx convex run admin/support/queries:debugSupportThreads
  */
-export const debugSupportThreads = query({
+export const debugSupportThreads = adminQuery({
 	args: {},
 	returns: v.object({
 		count: v.number(),
