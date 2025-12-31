@@ -1,6 +1,7 @@
 <script lang="ts">
 	import {
-		setChatContainerContext,
+		ChatContainerContext,
+		chatContainerContext,
 		type ResizeMode,
 		type InitialMode
 	} from './chat-container-context.svelte';
@@ -21,7 +22,7 @@
 		[key: string]: any;
 	} = $props();
 
-	const context = setChatContainerContext(resize, initial);
+	const context = chatContainerContext.set(new ChatContainerContext(resize, initial));
 
 	let containerElement: HTMLElement;
 

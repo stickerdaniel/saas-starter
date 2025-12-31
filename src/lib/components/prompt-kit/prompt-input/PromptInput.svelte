@@ -3,7 +3,7 @@
 	import { Tooltip as TooltipPrimitive } from 'bits-ui';
 	import {
 		PromptInputClass,
-		setPromptInputContext,
+		promptInputContext,
 		type PromptInputSchema
 	} from './prompt-input-context.svelte.js';
 
@@ -20,16 +20,16 @@
 		children: import('svelte').Snippet;
 	} = $props();
 
-	const contextInstance = new PromptInputClass({
-		isLoading,
-		value,
-		onValueChange,
-		maxHeight,
-		onSubmit,
-		disabled: isLoading
-	});
-
-	setPromptInputContext(contextInstance);
+	const contextInstance = promptInputContext.set(
+		new PromptInputClass({
+			isLoading,
+			value,
+			onValueChange,
+			maxHeight,
+			onSubmit,
+			disabled: isLoading
+		})
+	);
 
 	// Sync props with context
 	$effect(() => {

@@ -2,7 +2,7 @@
 	import { Tooltip as TooltipPrimitive } from 'bits-ui';
 	import TooltipContent from '$lib/components/ui/tooltip/tooltip-content.svelte';
 	import TooltipTrigger from '$lib/components/ui/tooltip/tooltip-trigger.svelte';
-	import { getPromptInputContext } from './prompt-input-context.svelte.js';
+	import { promptInputContext } from './prompt-input-context.svelte.js';
 
 	let {
 		tooltip,
@@ -17,7 +17,7 @@
 		side?: 'top' | 'bottom' | 'left' | 'right';
 	} & Partial<TooltipPrimitive.RootProps> = $props();
 
-	const context = getPromptInputContext();
+	const context = promptInputContext.get();
 
 	function handleClick(event: MouseEvent) {
 		event.stopPropagation();

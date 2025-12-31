@@ -2,7 +2,7 @@
 	import * as Avatar from '$lib/components/ui/avatar/index.js';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
-	import { useSidebar } from '$lib/components/ui/sidebar/index.js';
+	import { sidebarContext } from '$lib/components/ui/sidebar/index.js';
 	import { authClient } from '$lib/auth-client';
 	import { goto } from '$app/navigation';
 	import BellIcon from '@lucide/svelte/icons/bell';
@@ -22,7 +22,7 @@
 	}
 
 	let { user, isImpersonating = false }: Props = $props();
-	const sidebar = useSidebar();
+	const sidebar = sidebarContext.get();
 
 	async function signOut() {
 		const result = await authClient.signOut();

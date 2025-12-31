@@ -14,7 +14,7 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button/index.js';
 	import ChevronDown from '@lucide/svelte/icons/chevron-down';
-	import { getChatContainerContext } from '../chat-container/chat-container-context.svelte.js';
+	import { chatContainerContext } from '../chat-container/chat-container-context.svelte.js';
 	import { browser } from '$app/environment';
 
 	let {
@@ -26,12 +26,7 @@
 	}: ScrollButtonProps = $props();
 
 	// Lazy context retrieval to avoid SSR issues
-	let scrollContext: ReturnType<typeof getChatContainerContext> | null = null;
-
-	// Only get context in browser
-	if (browser) {
-		scrollContext = getChatContainerContext();
-	}
+	const scrollContext = browser ? chatContainerContext.getOr(null) : null;
 
 	const isAtBottom = $derived(scrollContext?.isAtBottom ?? true);
 

@@ -18,13 +18,13 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button';
 	import { ArrowDown } from '@lucide/svelte';
-	import { getStickToBottomContext } from './stick-to-bottom-context.svelte.js';
+	import { stickToBottomContext } from './stick-to-bottom-context.svelte.js';
 	import { fade, fly, scale } from 'svelte/transition';
 	import { backOut } from 'svelte/easing';
 
 	let { class: className, onclick, ...restProps }: ConversationScrollButtonProps = $props();
 
-	const context = getStickToBottomContext();
+	const context = stickToBottomContext.get();
 
 	const handleScrollToBottom = (event: MouseEvent) => {
 		context.scrollToBottom();

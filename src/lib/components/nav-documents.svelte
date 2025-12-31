@@ -10,7 +10,7 @@
 
 	let { items }: { items: { name: string; url: string; icon: Icon }[] } = $props();
 
-	const sidebar = Sidebar.useSidebar();
+	const sidebar = Sidebar.sidebarContext.get();
 </script>
 
 <Sidebar.Group class="group-data-[collapsible=icon]:hidden">

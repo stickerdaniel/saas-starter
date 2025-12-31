@@ -1,10 +1,7 @@
-import { watch } from 'runed';
-import { setContext, getContext } from 'svelte';
+import { watch, Context } from 'runed';
 import { browser } from '$app/environment';
 
-const SCROLL_CONTEXT_KEY = Symbol('scroll-context');
-
-class ScrollContext {
+export class ScrollContext {
 	#element: HTMLElement | null = $state(null);
 	#isAtBottom = $state(true);
 
@@ -68,18 +65,4 @@ class ScrollContext {
 	}
 }
 
-export function setScrollContext() {
-	const context = new ScrollContext();
-	setContext(SCROLL_CONTEXT_KEY, context);
-	return context;
-}
-
-export function getScrollContext(): ScrollContext {
-	const context = getContext<ScrollContext>(SCROLL_CONTEXT_KEY);
-	if (!context) {
-		throw new Error(
-			'ScrollContext not found. Make sure to call setScrollContext() in a parent component.'
-		);
-	}
-	return context;
-}
+export const scrollContext = new Context<ScrollContext>('scroll');

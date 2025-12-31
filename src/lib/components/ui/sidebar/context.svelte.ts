@@ -1,5 +1,5 @@
 import { IsMobile } from '$lib/hooks/is-mobile.svelte.js';
-import { getContext, setContext } from 'svelte';
+import { Context } from 'runed';
 import { SIDEBAR_KEYBOARD_SHORTCUT } from './constants.js';
 
 type Getter<T> = () => T;
@@ -20,7 +20,7 @@ export type SidebarStateProps = {
 	setOpen: (open: boolean) => void;
 };
 
-class SidebarState {
+export class SidebarState {
 	readonly props: SidebarStateProps;
 	open = $derived.by(() => this.props.open());
 	openMobile = $state(false);
@@ -57,23 +57,4 @@ class SidebarState {
 	};
 }
 
-const SYMBOL_KEY = 'scn-sidebar';
-
-/**
- * Instantiates a new `SidebarState` instance and sets it in the context.
- *
- * @param props The constructor props for the `SidebarState` class.
- * @returns  The `SidebarState` instance.
- */
-export function setSidebar(props: SidebarStateProps): SidebarState {
-	return setContext(Symbol.for(SYMBOL_KEY), new SidebarState(props));
-}
-
-/**
- * Retrieves the `SidebarState` instance from the context. This is a class instance,
- * so you cannot destructure it.
- * @returns The `SidebarState` instance.
- */
-export function useSidebar(): SidebarState {
-	return getContext(Symbol.for(SYMBOL_KEY));
-}
+export const sidebarContext = new Context<SidebarState>('sidebar');

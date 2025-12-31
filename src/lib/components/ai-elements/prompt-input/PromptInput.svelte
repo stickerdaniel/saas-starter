@@ -4,7 +4,7 @@
 	import { onMount } from 'svelte';
 	import {
 		AttachmentsContext,
-		setAttachmentsContext,
+		attachmentsContext,
 		type PromptInputMessage,
 		type FileUIPart
 	} from './attachments-context.svelte.js';
@@ -40,7 +40,9 @@
 
 	let anchorRef = $state<HTMLSpanElement | null>(null);
 	let formRef = $state<HTMLFormElement | null>(null);
-	let attachmentsContext = new AttachmentsContext(accept, multiple, maxFiles, maxFileSize, onError);
+	const attachments = attachmentsContext.set(
+		new AttachmentsContext(accept, multiple, maxFiles, maxFileSize, onError)
+	);
 
 	// Find nearest form to scope drag & drop
 	onMount(() => {
@@ -67,7 +69,7 @@
 					e.preventDefault();
 				}
 				if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
-					attachmentsContext.add(e.dataTransfer.files);
+					attachments.add(e.dataTransfer.files);
 				}
 			};
 
@@ -98,7 +100,7 @@
 					e.preventDefault();
 				}
 				if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
-					attachmentsContext.add(e.dataTransfer.files);
+					attachments.add(e.dataTransfer.files);
 				}
 			};
 
@@ -115,12 +117,12 @@
 	// Note: File input cannot be programmatically set for security reasons
 	// The syncHiddenInput prop is no longer functional
 	watch(
-		() => attachmentsContext.files,
+		() => attachments.files,
 		() => {
-			if (syncHiddenInput && attachmentsContext.fileInputRef) {
+			if (syncHiddenInput && attachments.fileInputRef) {
 				// Clear the input when items are cleared
-				if (attachmentsContext.files.length === 0) {
-					attachmentsContext.fileInputRef.value = '';
+				if (attachments.files.length === 0) {
+					attachments.fileInputRef.value = '';
 				}
 			}
 		}
@@ -129,7 +131,7 @@
 	let handleChange = (event: Event) => {
 		let target = event.currentTarget as HTMLInputElement;
 		if (target.files) {
-			attachmentsContext.add(target.files);
+			attachments.add(target.files);
 		}
 	};
 
@@ -153,7 +155,7 @@
 		let text = (formData.get('message') as string) || '';
 
 		// Convert blob URLs to data URLs asynchronously
-		let filesPromises = attachmentsContext.files.map(async ({ id, ...item }) => {
+		let filesPromises = attachments.files.map(async ({ id, ...item }) => {
 			if (item.url && item.url.startsWith('blob:')) {
 				return {
 					...item,
@@ -174,7 +176,7 @@
 
 			// Only clear if submission was successful
 			if (clearOnSubmit) {
-				attachmentsContext.clear();
+				attachments.clear();
 				form.reset();
 			}
 		} catch (error) {
@@ -182,8 +184,6 @@
 			console.error('Submit failed:', error);
 		}
 	};
-
-	setAttachmentsContext(attachmentsContext);
 </script>
 
 <span aria-hidden="true" class="hidden" bind:this={anchorRef}></span>
@@ -192,7 +192,7 @@
 	class="hidden"
 	{multiple}
 	onchange={handleChange}
-	bind:this={attachmentsContext.fileInputRef}
+	bind:this={attachments.fileInputRef}
 	type="file"
 />
 <form

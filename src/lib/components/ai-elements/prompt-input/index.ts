@@ -44,13 +44,10 @@ export { default as MicIcon } from './MicIcon.svelte';
 // Context and types
 export {
 	AttachmentsContext,
-	getAttachmentsContext,
-	setAttachmentsContext,
+	attachmentsContext,
 	PromptInputController,
 	TextInputController,
-	getPromptInputProvider,
-	getPromptInputController,
-	setPromptInputProvider,
+	promptInputProviderContext,
 	type FileUIPart,
 	type FileWithId,
 	type PromptInputMessage,

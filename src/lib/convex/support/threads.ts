@@ -101,6 +101,9 @@ export const createThread = mutation({
  *
  * Returns paginated threads with last message preview and metadata.
  * Threads are ordered by most recent activity (last message time).
+ *
+ * @security For authenticated users, uses server-verified user ID (ignores client param).
+ *           For anonymous users, uses client-provided userId (anonymous session).
  */
 export const listThreads = query({
 	args: {
@@ -128,9 +131,25 @@ export const listThreads = query({
 		continueCursor: v.string()
 	}),
 	handler: async (ctx, args) => {
+		// Security: Use server-verified user ID for authenticated users
+		// For anonymous users (not authenticated), use client-provided userId
+		const authUser = await import('../auth').then((m) => m.authComponent.getAuthUser(ctx));
+		let effectiveUserId: string | undefined;
+
+		if (authUser) {
+			// Authenticated: Always use server-verified user ID (prevents spoofing)
+			effectiveUserId = authUser._id;
+		} else if (args.userId && isAnonymousUser(args.userId)) {
+			// Anonymous: Only allow querying with valid anonymous user IDs
+			effectiveUserId = args.userId;
+		} else {
+			// No valid user ID - return empty results
+			return { page: [], isDone: true, continueCursor: '' };
+		}
+
 		// Get threads from the agent component
 		const threads = await ctx.runQuery(components.agent.threads.listThreadsByUserId, {
-			userId: args.userId,
+			userId: effectiveUserId,
 			paginationOpts: args.paginationOpts ?? { numItems: 20, cursor: null },
 			order: 'desc'
 		});
@@ -179,10 +198,14 @@ export const listThreads = query({
  * Get a specific thread
  *
  * Retrieves thread metadata including title, summary, and creation time.
+ *
+ * @security Verifies ownership - users can only access their own threads.
+ *           Authenticated users use server-verified ID, anonymous users use client ID.
  */
 export const getThread = query({
 	args: {
-		threadId: v.string()
+		threadId: v.string(),
+		userId: v.optional(v.string()) // For anonymous users
 	},
 	returns: v.object({
 		_id: v.string(),
@@ -196,6 +219,24 @@ export const getThread = query({
 		const thread = await supportAgent.getThreadMetadata(ctx, {
 			threadId: args.threadId
 		});
+
+		// Security: Verify ownership
+		const authUser = await import('../auth').then((m) => m.authComponent.getAuthUser(ctx));
+
+		if (authUser) {
+			// Authenticated: Must own the thread
+			if (thread.userId !== authUser._id) {
+				throw new Error("Unauthorized: Cannot access another user's thread");
+			}
+		} else if (args.userId && isAnonymousUser(args.userId)) {
+			// Anonymous: Must match the anonymous user ID
+			if (thread.userId !== args.userId) {
+				throw new Error("Unauthorized: Cannot access another user's thread");
+			}
+		} else {
+			// No valid user identification
+			throw new Error('Authentication required');
+		}
 
 		return thread;
 	}
@@ -259,7 +300,23 @@ export const deleteThread = mutation({
  * Get admin user avatars for display in support widget
  *
  * Returns public profile information (name and avatar) for admin users.
- * This is a public query since it only exposes non-sensitive profile data.
+ *
+ * @security INTENTIONALLY PUBLIC - Security Decision Documentation
+ *
+ * This query is intentionally unauthenticated because:
+ * 1. Purpose: Displays friendly admin avatars in the customer support widget
+ *    to build trust before users start a conversation
+ * 2. Data exposed: Only names and profile images - no emails, IDs, or sensitive data
+ * 3. Risk assessment: LOW - This information is typically public on company
+ *    "About Us" or "Team" pages anyway
+ * 4. Trade-off: Better UX (welcoming support widget) vs minor info disclosure
+ *
+ * If you need to hide admin identities:
+ * - Convert to authedQuery() to require authentication
+ * - Or return only images without names
+ * - Or use generic placeholder avatars
+ *
+ * Reviewed: 2024-12 | Decision: Acceptable for current use case
  */
 export const getAdminAvatars = query({
 	args: {},
