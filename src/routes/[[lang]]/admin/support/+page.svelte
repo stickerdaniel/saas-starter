@@ -2,6 +2,7 @@
 	import { untrack } from 'svelte';
 	import { z } from 'zod';
 	import { useSearchParams } from 'runed/kit';
+	import { Debounced } from 'runed';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import { useQuery, useConvexClient } from 'convex-svelte';
@@ -32,6 +33,9 @@
 		pushHistory: true,
 		noScroll: true
 	});
+
+	// Debounce search to avoid API call on every keystroke
+	const debouncedSearch = new Debounced(() => filters.search, 300);
 
 	// Thread selection managed separately via $page.url (doesn't trigger filter reactivity)
 	const threadId = $derived($page.url.searchParams.get('thread') ?? '');
@@ -74,7 +78,7 @@
 			const result = await convexClient.query(api.admin.support.queries.listThreadsForAdmin, {
 				filter,
 				status: filters.status,
-				search: filters.search || undefined,
+				search: debouncedSearch.current || undefined,
 				paginationOpts: { numItems: 25, cursor: null }
 			});
 
@@ -100,7 +104,7 @@
 			const result = await convexClient.query(api.admin.support.queries.listThreadsForAdmin, {
 				filter,
 				status: filters.status,
-				search: filters.search || undefined,
+				search: debouncedSearch.current || undefined,
 				paginationOpts: { numItems: 25, cursor: continueCursor }
 			});
 
@@ -118,9 +122,10 @@
 
 	// Reload when filters ACTUALLY change (not just when useSearchParams re-emits)
 	// useSearchParams re-emits on ANY URL change, so we must compare values
+	// Note: debouncedSearch.current is used so API calls wait for debounce
 	$effect(() => {
-		// Create a key from current filter values
-		const currentFilterKey = `${filters.mode}|${filters.status}|${filters.search}`;
+		// Create a key from current filter values (using debounced search)
+		const currentFilterKey = `${filters.mode}|${filters.status}|${debouncedSearch.current}`;
 		const currentRefresh = adminSupportRefresh.refreshTrigger;
 
 		// Compare to what we've already loaded
