@@ -13,6 +13,7 @@
 	import { formatDistanceToNow } from 'date-fns';
 	import { T } from '@tolgee/svelte';
 	import { InfiniteLoader, LoaderState } from 'svelte-infinite';
+	import { adminSupportRefresh } from '$lib/hooks/admin-support-threads.svelte';
 
 	interface Thread {
 		_id: string;
@@ -94,12 +95,15 @@
 		}
 	}
 
-	/**
-	 * Reset the loader state (called by parent when filters/search change)
-	 */
-	export function resetLoader() {
-		loaderState.reset();
-	}
+	// Reset loader when global trigger changes (skip initial mount)
+	let hasInitializedResetWatch = false;
+	$effect(() => {
+		void adminSupportRefresh.loaderResetTrigger;
+		if (hasInitializedResetWatch) {
+			loaderState.reset();
+		}
+		hasInitializedResetWatch = true;
+	});
 </script>
 
 <div class="flex h-full flex-col">

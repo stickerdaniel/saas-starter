@@ -11,12 +11,11 @@
 	import { useMedia } from '$lib/hooks/use-media.svelte';
 	import { SlidingHeader } from '$lib/components/ui/sliding-header';
 	import { T } from '@tolgee/svelte';
+	import { adminSupportUI } from '$lib/hooks/admin-support-ui.svelte';
 
 	let {
 		threadId,
 		initialThread,
-		detailsOpen,
-		onToggleOverlay,
 		onBackClick
 	}: {
 		threadId: string;
@@ -25,8 +24,6 @@
 			userEmail?: string;
 			lastMessageAt?: number;
 		};
-		detailsOpen?: boolean;
-		onToggleOverlay?: () => void;
 		onBackClick?: () => void;
 	} = $props();
 
@@ -75,18 +72,16 @@
 			showClose={false}
 		>
 			{#snippet actions()}
-				{#if onToggleOverlay}
-					<Button variant="ghost" size="icon" onclick={onToggleOverlay} class="h-9 w-9">
-						{#if media.sm}
-							<PanelRightIcon class="h-5 w-5" />
-						{:else}
-							<PanelBottomOpen class="h-5 w-5" />
-						{/if}
-						<span class="sr-only">
-							{detailsOpen ? 'Close details panel' : 'Open details panel'}
-						</span>
-					</Button>
-				{/if}
+				<Button variant="ghost" size="icon" onclick={() => adminSupportUI.toggle()} class="h-9 w-9">
+					{#if media.sm}
+						<PanelRightIcon class="h-5 w-5" />
+					{:else}
+						<PanelBottomOpen class="h-5 w-5" />
+					{/if}
+					<span class="sr-only">
+						{adminSupportUI.detailsOpen ? 'Close details panel' : 'Open details panel'}
+					</span>
+				</Button>
 			{/snippet}
 		</SlidingHeader>
 	{/if}
@@ -105,11 +100,16 @@
 				</div>
 
 				<!-- Toggle button for Sheet overlay (lg && !xl) -->
-				{#if !media.xl && onToggleOverlay}
-					<Button variant="ghost" size="icon" onclick={onToggleOverlay} class="flex-shrink-0">
+				{#if !media.xl}
+					<Button
+						variant="ghost"
+						size="icon"
+						onclick={() => adminSupportUI.toggle()}
+						class="flex-shrink-0"
+					>
 						<PanelRightIcon class="size-4" />
 						<span class="sr-only">
-							{detailsOpen ? 'Close details panel' : 'Open details panel'}
+							{adminSupportUI.detailsOpen ? 'Close details panel' : 'Open details panel'}
 						</span>
 					</Button>
 				{/if}

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { z } from 'zod';
 	import { useSearchParams } from 'runed/kit';
 	import { Previous } from 'runed';
@@ -15,6 +16,7 @@
 	import ThreadChat from './thread-chat.svelte';
 	import ThreadDetails from './thread-details.svelte';
 	import { adminSupportRefresh } from '$lib/hooks/admin-support-threads.svelte';
+	import { adminSupportUI } from '$lib/hooks/admin-support-ui.svelte';
 
 	// URL state schema
 	const supportSearchSchema = z.object({
@@ -34,12 +36,10 @@
 	const prevMode = new Previous(() => params.mode);
 	const prevStatus = new Previous(() => params.status);
 	const prevSearch = new Previous(() => params.search);
+	const prevRefreshTrigger = new Previous(() => adminSupportRefresh.refreshTrigger);
 
 	// Responsive breakpoints
 	const media = useMedia();
-
-	// Sheet/Drawer overlay state (<1280px)
-	let detailsOpen = $state(false);
 
 	// Get current admin user ID
 	const viewer = useQuery(api.users.viewer);
@@ -68,18 +68,6 @@
 	const selectedThread = $derived(allThreads.find((t) => t._id === params.thread));
 
 	const convexClient = useConvexClient();
-
-	// References to ThreadList components (for calling resetLoader)
-	let threadListXL: ThreadList | undefined;
-	let threadListLG: ThreadList | undefined;
-	let threadListMobile: ThreadList | undefined;
-
-	// Reset all loader states when filters/search change
-	function resetAllLoaders() {
-		threadListXL?.resetLoader();
-		threadListLG?.resetLoader();
-		threadListMobile?.resetLoader();
-	}
 
 	// Load initial page
 	async function loadInitialThreads() {
@@ -128,14 +116,16 @@
 		const modeChanged = params.mode !== prevMode.current;
 		const statusChanged = params.status !== prevStatus.current;
 		const searchChanged = params.search !== prevSearch.current;
+		const refreshTriggered = adminSupportRefresh.refreshTrigger !== prevRefreshTrigger.current;
 
-		// Track refresh trigger as dependency
-		void adminSupportRefresh.refreshTrigger;
-
-		// Only reload if filter-related params changed (not thread)
-		if (modeChanged || statusChanged || searchChanged) {
-			resetAllLoaders();
-			loadInitialThreads();
+		// Reload if filter-related params changed or refresh was triggered
+		if (modeChanged || statusChanged || searchChanged || refreshTriggered) {
+			// Use untrack to prevent side effects from creating reactive dependencies
+			// that would cause infinite effect loops
+			untrack(() => {
+				adminSupportRefresh.resetLoaders();
+				loadInitialThreads();
+			});
 		}
 	});
 
@@ -148,15 +138,10 @@
 		params.thread = '';
 	}
 
-	// Toggle Sheet/Drawer overlay (<1280px)
-	function toggleDetailsOverlay() {
-		detailsOpen = !detailsOpen;
-	}
-
 	// Reset overlay state when thread changes
 	$effect(() => {
 		if (!params.thread) {
-			detailsOpen = false;
+			adminSupportUI.close();
 		}
 	});
 </script>
@@ -167,7 +152,6 @@
 		<PaneGroup direction="horizontal" autoSaveId="support-3pane" class="h-full">
 			<Pane defaultSize={25} minSize={20} maxSize={40}>
 				<ThreadList
-					bind:this={threadListXL}
 					filterMode={params.mode}
 					statusFilter={params.status}
 					searchQuery={params.search}
@@ -189,12 +173,7 @@
 
 			<Pane defaultSize={50} minSize={30}>
 				{#if params.thread}
-					<ThreadChat
-						threadId={params.thread}
-						initialThread={selectedThread}
-						{detailsOpen}
-						onToggleOverlay={toggleDetailsOverlay}
-					/>
+					<ThreadChat threadId={params.thread} initialThread={selectedThread} />
 				{:else}
 					<div
 						class="flex h-full items-center justify-center text-center text-balance text-muted-foreground"
@@ -226,7 +205,6 @@
 		<PaneGroup direction="horizontal" autoSaveId="support-2pane" class="h-full">
 			<Pane defaultSize={30} minSize={20} maxSize={50}>
 				<ThreadList
-					bind:this={threadListLG}
 					filterMode={params.mode}
 					statusFilter={params.status}
 					searchQuery={params.search}
@@ -248,12 +226,7 @@
 
 			<Pane defaultSize={70} minSize={50}>
 				{#if params.thread}
-					<ThreadChat
-						threadId={params.thread}
-						initialThread={selectedThread}
-						{detailsOpen}
-						onToggleOverlay={toggleDetailsOverlay}
-					/>
+					<ThreadChat threadId={params.thread} initialThread={selectedThread} />
 				{:else}
 					<div
 						class="flex h-full items-center justify-center text-center text-balance text-muted-foreground"
@@ -269,7 +242,6 @@
 		<div class="relative h-full overflow-hidden">
 			<!-- Thread List (always visible, covered by sliding panel) -->
 			<ThreadList
-				bind:this={threadListMobile}
 				filterMode={params.mode}
 				statusFilter={params.status}
 				searchQuery={params.search}
@@ -290,8 +262,6 @@
 					<ThreadChat
 						threadId={params.thread}
 						initialThread={selectedThread}
-						{detailsOpen}
-						onToggleOverlay={toggleDetailsOverlay}
 						onBackClick={clearThread}
 					/>
 				{/if}
@@ -301,7 +271,7 @@
 
 	<!-- Tablet/Desktop LG (≥640px, <1280px): Sheet overlay from right -->
 	{#if params.thread && media.sm && !media.xl}
-		<Sheet.Root bind:open={detailsOpen}>
+		<Sheet.Root bind:open={adminSupportUI.detailsOpen}>
 			<Sheet.Content side="right" class="w-80 p-0">
 				<ThreadDetails threadId={params.thread} />
 			</Sheet.Content>
@@ -310,7 +280,7 @@
 
 	<!-- Mobile (<640px): Bottom drawer -->
 	{#if params.thread && !media.sm}
-		<Drawer.Root bind:open={detailsOpen} direction="bottom">
+		<Drawer.Root bind:open={adminSupportUI.detailsOpen} direction="bottom">
 			<Drawer.Content class="h-[85svh] p-0">
 				<ThreadDetails threadId={params.thread} />
 			</Drawer.Content>

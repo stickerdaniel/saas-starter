@@ -27,7 +27,8 @@
 	import { api } from '$lib/convex/_generated/api.js';
 	import { authClient } from '$lib/auth-client.js';
 	import { toast } from 'svelte-sonner';
-	import { setContext, getContext } from 'svelte';
+	import { setContext } from 'svelte';
+	import { adminCache } from '$lib/hooks/admin-cache.svelte';
 	import type { PageData } from './$types';
 	import { type UserRole, type AdminUserData } from '$lib/convex/admin/types';
 	import { createSvelteTable, FlexRender } from '$lib/components/ui/data-table/index.js';
@@ -217,16 +218,10 @@
 	// Provide context for action component (currentUserId is set by admin layout)
 	setContext('onUserAction', handleUserAction);
 
-	// Get user count context from admin layout
-	const userCountContext = getContext<{ get: () => number | null; set: (n: number) => void }>(
-		'adminUserCount'
-	);
-
 	// Calculate skeleton rows: min(knownCount - offset, pageSize) or pageSize if unknown
 	const skeletonCount = $derived.by(() => {
-		const known = userCountContext?.get();
-		if (known !== null && known !== undefined) {
-			const remaining = known - pageIndex * pageSize;
+		if (adminCache.userCount !== null) {
+			const remaining = adminCache.userCount - pageIndex * pageSize;
 			return Math.min(Math.max(remaining, 0), pageSize);
 		}
 		return pageSize;
@@ -237,18 +232,17 @@
 		if (countQuery.data !== undefined) {
 			return Math.ceil(countQuery.data / pageSize);
 		}
-		// Fallback to context-based count
-		const known = userCountContext?.get();
-		if (known !== null && known !== undefined) {
-			return Math.ceil(known / pageSize);
+		// Fallback to cached count
+		if (adminCache.userCount !== null) {
+			return Math.ceil(adminCache.userCount / pageSize);
 		}
 		return 1;
 	});
 
-	// Update user count context when count data loads
+	// Update user count cache when count data loads
 	$effect(() => {
 		if (countQuery.data !== undefined) {
-			userCountContext?.set(countQuery.data);
+			adminCache.userCount = countQuery.data;
 		}
 	});
 
