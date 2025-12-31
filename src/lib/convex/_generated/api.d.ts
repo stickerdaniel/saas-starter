@@ -10,6 +10,7 @@
 
 import type * as admin_mutations from '../admin/mutations.js';
 import type * as admin_queries from '../admin/queries.js';
+import type * as admin_support_constants from '../admin/support/constants.js';
 import type * as admin_support_mutations from '../admin/support/mutations.js';
 import type * as admin_support_queries from '../admin/support/queries.js';
 import type * as admin_types from '../admin/types.js';
@@ -27,6 +28,7 @@ import type * as functions from '../functions.js';
 import type * as helpers from '../helpers.js';
 import type * as http from '../http.js';
 import type * as messages from '../messages.js';
+import type * as migrations_backfillSearchFields from '../migrations/backfillSearchFields.js';
 import type * as storage from '../storage.js';
 import type * as support_agent from '../support/agent.js';
 import type * as support_files from '../support/files.js';
@@ -40,6 +42,7 @@ import type { ApiFromModules, FilterApi, FunctionReference } from 'convex/server
 declare const fullApi: ApiFromModules<{
 	'admin/mutations': typeof admin_mutations;
 	'admin/queries': typeof admin_queries;
+	'admin/support/constants': typeof admin_support_constants;
 	'admin/support/mutations': typeof admin_support_mutations;
 	'admin/support/queries': typeof admin_support_queries;
 	'admin/types': typeof admin_types;
@@ -57,6 +60,7 @@ declare const fullApi: ApiFromModules<{
 	helpers: typeof helpers;
 	http: typeof http;
 	messages: typeof messages;
+	'migrations/backfillSearchFields': typeof migrations_backfillSearchFields;
 	storage: typeof storage;
 	'support/agent': typeof support_agent;
 	'support/files': typeof support_files;

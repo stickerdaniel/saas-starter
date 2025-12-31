@@ -2,22 +2,13 @@ import { v } from 'convex/values';
 import { components } from '../../_generated/api';
 import { paginationOptsValidator } from 'convex/server';
 import { adminQuery } from '../../functions';
-
-// Type guard for user records from Better Auth adapter
-function isUserRecord(
-	obj: unknown
-): obj is { _id: string; name?: string; email?: string; image?: string | null } {
-	return (
-		typeof obj === 'object' && obj !== null && typeof (obj as { _id?: unknown })._id === 'string'
-	);
-}
+import { SUPPORT_THREADS_PAGE_SIZE, ADMIN_USERS_BATCH_SIZE } from './constants';
+import { parseBetterAuthUsers, betterAuthUserSchema } from '../types';
 
 /**
  * List threads with admin filters
  *
  * ARCHITECTURE: Queries supportThreads table with admin metadata.
- * Run `bunx convex run admin.support.migrations.discoverThreads` to populate
- * supportThreads from existing agent threads.
  *
  * Supports filtering by:
  * - assignedTo (specific admin or null for unassigned)
@@ -54,11 +45,17 @@ export const listThreadsForAdmin = adminQuery({
 					status: v.union(v.literal('open'), v.literal('done')),
 					assignedTo: v.optional(v.string()),
 					priority: v.optional(v.union(v.literal('low'), v.literal('medium'), v.literal('high'))),
-					dueDate: v.optional(v.number()),
 					pageUrl: v.optional(v.string()),
 					unreadByAdmin: v.boolean(),
 					createdAt: v.number(),
-					updatedAt: v.number()
+					updatedAt: v.number(),
+					// Denormalized search fields
+					searchText: v.optional(v.string()),
+					title: v.optional(v.string()),
+					summary: v.optional(v.string()),
+					lastMessage: v.optional(v.string()),
+					userName: v.optional(v.string()),
+					userEmail: v.optional(v.string())
 				}),
 				lastMessage: v.optional(v.string()),
 				lastMessageAt: v.optional(v.number()),
@@ -70,103 +67,147 @@ export const listThreadsForAdmin = adminQuery({
 		continueCursor: v.string()
 	}),
 	handler: async (ctx, args) => {
-		// NEW APPROACH: Auto-discover threads if supportThreads is empty
-		// This handles the case where supportThreads table hasn't been populated yet
+		const paginationOpts = args.paginationOpts ?? {
+			numItems: SUPPORT_THREADS_PAGE_SIZE,
+			cursor: null
+		};
 
-		console.log(
-			`[listThreadsForAdmin] Query params - filter: ${JSON.stringify(args.filter)}, status: ${args.status}, search: ${args.search}`
-		);
-
-		// 1. Query supportThreads table with filters
 		let supportThreads;
+		const isSearchActive = !!args.search?.trim();
 
-		if (args.status !== undefined) {
-			// Use status index
-			const status = args.status; // Store in const for TypeScript
-			supportThreads = await ctx.db
-				.query('supportThreads')
-				.withIndex('by_status', (q) => q.eq('status', status))
-				.order('desc')
-				.paginate(args.paginationOpts ?? { numItems: 50, cursor: null });
-		} else if (args.filter === 'unassigned') {
-			// Use assignment index for unassigned
-			supportThreads = await ctx.db
-				.query('supportThreads')
-				.withIndex('by_assigned', (q) => q.eq('assignedTo', undefined))
-				.order('desc')
-				.paginate(args.paginationOpts ?? { numItems: 50, cursor: null });
-		} else if (typeof args.filter === 'object' && 'assignedTo' in args.filter) {
-			// Use assignment index for specific admin
-			const adminId = (args.filter as { assignedTo: string }).assignedTo;
-			supportThreads = await ctx.db
-				.query('supportThreads')
-				.withIndex('by_assigned', (q) => q.eq('assignedTo', adminId))
-				.order('desc')
-				.paginate(args.paginationOpts ?? { numItems: 50, cursor: null });
+		// Extract typed values for type-safe comparisons
+		const statusFilter = args.status; // 'open' | 'done' | undefined
+		const filterType = args.filter; // 'all' | 'unassigned' | { assignedTo: string }
+		const assignedToFilter =
+			typeof filterType === 'object' && 'assignedTo' in filterType
+				? filterType.assignedTo
+				: undefined;
+		const isUnassigned = filterType === 'unassigned';
+
+		// =========================================================================
+		// QUERY PATH: Search vs Non-Search
+		// =========================================================================
+		if (isSearchActive) {
+			// SEARCH PATH: Use full-text search index with filter fields
+			const searchQuery = args.search!.trim();
+
+			// Build search query with optional filters
+			// Note: Convex search index filters are applied BEFORE pagination (efficient!)
+			if (statusFilter && isUnassigned) {
+				// Status + unassigned
+				supportThreads = await ctx.db
+					.query('supportThreads')
+					.withSearchIndex('search_all', (q) =>
+						q
+							.search('searchText', searchQuery)
+							.eq('status', statusFilter)
+							.eq('assignedTo', undefined)
+					)
+					.paginate(paginationOpts);
+			} else if (statusFilter && assignedToFilter) {
+				// Status + specific admin
+				supportThreads = await ctx.db
+					.query('supportThreads')
+					.withSearchIndex('search_all', (q) =>
+						q
+							.search('searchText', searchQuery)
+							.eq('status', statusFilter)
+							.eq('assignedTo', assignedToFilter)
+					)
+					.paginate(paginationOpts);
+			} else if (statusFilter) {
+				// Status only
+				supportThreads = await ctx.db
+					.query('supportThreads')
+					.withSearchIndex('search_all', (q) =>
+						q.search('searchText', searchQuery).eq('status', statusFilter)
+					)
+					.paginate(paginationOpts);
+			} else if (isUnassigned) {
+				// Unassigned only
+				supportThreads = await ctx.db
+					.query('supportThreads')
+					.withSearchIndex('search_all', (q) =>
+						q.search('searchText', searchQuery).eq('assignedTo', undefined)
+					)
+					.paginate(paginationOpts);
+			} else if (assignedToFilter) {
+				// Specific admin only
+				supportThreads = await ctx.db
+					.query('supportThreads')
+					.withSearchIndex('search_all', (q) =>
+						q.search('searchText', searchQuery).eq('assignedTo', assignedToFilter)
+					)
+					.paginate(paginationOpts);
+			} else {
+				// Search only (no filters)
+				supportThreads = await ctx.db
+					.query('supportThreads')
+					.withSearchIndex('search_all', (q) => q.search('searchText', searchQuery))
+					.paginate(paginationOpts);
+			}
 		} else {
-			// No index - get all
-			supportThreads = await ctx.db
-				.query('supportThreads')
-				.order('desc')
-				.paginate(args.paginationOpts ?? { numItems: 50, cursor: null });
+			// NON-SEARCH PATH: Use regular indexes for efficient filtering
+			if (statusFilter) {
+				// Use status index
+				supportThreads = await ctx.db
+					.query('supportThreads')
+					.withIndex('by_status', (q) => q.eq('status', statusFilter))
+					.order('desc')
+					.paginate(paginationOpts);
+			} else if (isUnassigned) {
+				// Use assignment index for unassigned
+				supportThreads = await ctx.db
+					.query('supportThreads')
+					.withIndex('by_assigned', (q) => q.eq('assignedTo', undefined))
+					.order('desc')
+					.paginate(paginationOpts);
+			} else if (assignedToFilter) {
+				// Use assignment index for specific admin
+				supportThreads = await ctx.db
+					.query('supportThreads')
+					.withIndex('by_assigned', (q) => q.eq('assignedTo', assignedToFilter))
+					.order('desc')
+					.paginate(paginationOpts);
+			} else {
+				// No filters - get all
+				supportThreads = await ctx.db
+					.query('supportThreads')
+					.order('desc')
+					.paginate(paginationOpts);
+			}
 		}
 
-		console.log(`[listThreadsForAdmin] Found ${supportThreads.page.length} supportThreads records`);
-
-		// 2. For each supportThread, get agent thread + last message (batch user lookup below)
-		console.log(
-			`[listThreadsForAdmin] Starting enrichment for ${supportThreads.page.length} threads`
-		);
+		// =========================================================================
+		// ENRICHMENT: Get agent thread status (denormalized fields already available)
+		// =========================================================================
 		const threadsWithDetails = await Promise.all(
 			supportThreads.page.map(async (supportThread) => {
 				try {
-					// Get agent thread
-					console.log(`[listThreadsForAdmin] Looking up agent thread: ${supportThread.threadId}`);
+					// Get agent thread (for status field - required by return type)
 					const agentThread = await ctx.runQuery(components.agent.threads.getThread, {
 						threadId: supportThread.threadId
 					});
 
 					if (!agentThread) {
 						// Thread was deleted but supportThread still exists - skip it
-						console.log(
-							`[listThreadsForAdmin] ⚠️ Agent thread NOT FOUND for threadId: ${supportThread.threadId}`
-						);
 						return null;
 					}
 
-					console.log(
-						`[listThreadsForAdmin] ✓ Agent thread found: ${agentThread._id}, title: ${agentThread.title || 'untitled'}`
-					);
-
-					// Get last message
-					console.log(
-						`[listThreadsForAdmin] Fetching messages for thread ${supportThread.threadId}`
-					);
-					const messages = await ctx.runQuery(components.agent.messages.listMessagesByThreadId, {
-						threadId: supportThread.threadId,
-						order: 'desc',
-						statuses: ['success'],
-						excludeToolMessages: true,
-						paginationOpts: { numItems: 1, cursor: null }
-					});
-					console.log(`[listThreadsForAdmin] Found ${messages.page.length} messages`);
-
-					const lastMessage = messages.page[0];
-
-					console.log(
-						`[listThreadsForAdmin] ✓ Successfully enriched thread ${supportThread.threadId}`
-					);
-
+					// Use denormalized fields from supportThread when available
+					// Fall back to agent thread data for non-backfilled records
 					return {
 						_id: agentThread._id,
 						_creationTime: agentThread._creationTime,
 						userId: agentThread.userId,
-						title: agentThread.title,
-						summary: agentThread.summary,
+						title: supportThread.title ?? agentThread.title,
+						summary: supportThread.summary ?? agentThread.summary,
 						status: agentThread.status,
 						supportMetadata: supportThread,
-						lastMessage: lastMessage?.text,
-						lastMessageAt: lastMessage?._creationTime ?? agentThread._creationTime
+						lastMessage: supportThread.lastMessage,
+						lastMessageAt: supportThread.updatedAt ?? agentThread._creationTime,
+						userName: supportThread.userName,
+						userEmail: supportThread.userEmail
 					};
 				} catch (error) {
 					console.error(
@@ -181,71 +222,11 @@ export const listThreadsForAdmin = adminQuery({
 		// Filter out null entries (deleted threads)
 		const validThreads = threadsWithDetails.filter((t): t is NonNullable<typeof t> => t !== null);
 
-		// 3. Batch fetch user info (optimization: single query instead of N queries)
-		// Collect unique userIds (excluding anonymous users with anon_* prefix)
-		const userIds = [
-			...new Set(
-				validThreads
-					.map((t) => t.userId)
-					.filter((id): id is string => !!id && !id.startsWith('anon_'))
-			)
-		];
-
-		console.log(`[listThreadsForAdmin] Batch fetching ${userIds.length} unique users`);
-
-		// Build user lookup map
-		type UserInfo = { _id: string; name?: string; email?: string };
-		const userMap = new Map<string, UserInfo>();
-
-		if (userIds.length > 0) {
-			// Fetch all users and filter to the ones we need
-			const usersResult = await ctx.runQuery(components.betterAuth.adapter.findMany, {
-				model: 'user',
-				paginationOpts: { cursor: null, numItems: 1000 },
-				where: [] // Fetch all users (findMany doesn't support 'in' operator)
-			});
-
-			// Filter to only the users we need and build map
-			for (const user of usersResult.page.filter(isUserRecord)) {
-				if (userIds.includes(user._id)) {
-					userMap.set(user._id, user);
-				}
-			}
-			console.log(`[listThreadsForAdmin] Found ${userMap.size}/${userIds.length} users`);
-		}
-
-		// Enrich threads with user info from the map
-		const threadsWithUserInfo = validThreads.map((thread) => {
-			const user = thread.userId ? userMap.get(thread.userId) : undefined;
-			return {
-				...thread,
-				userName: user?.name,
-				userEmail: user?.email
-			};
-		});
-
-		console.log(
-			`[listThreadsForAdmin] Valid threads: ${validThreads.length}/${threadsWithDetails.length} (filtered out ${threadsWithDetails.length - validThreads.length})`
-		);
-
-		// 4. Apply search filter (in-memory on paginated results - searches across enriched fields from multiple tables)
-		let filteredThreads = threadsWithUserInfo;
-		if (args.search) {
-			const searchLower = args.search.toLowerCase();
-			filteredThreads = threadsWithUserInfo.filter(
-				(t) =>
-					t.title?.toLowerCase().includes(searchLower) ||
-					t.summary?.toLowerCase().includes(searchLower) ||
-					t.lastMessage?.toLowerCase().includes(searchLower) ||
-					t.userName?.toLowerCase().includes(searchLower) ||
-					t.userEmail?.toLowerCase().includes(searchLower)
-			);
-		}
-
-		console.log(`[listThreadsForAdmin] Returning ${filteredThreads.length} threads to client`);
+		// No more in-memory search filtering needed! 🎉
+		// Search is now handled at the database level with proper pagination.
 
 		return {
-			page: filteredThreads,
+			page: validThreads,
 			isDone: supportThreads.isDone,
 			continueCursor: supportThreads.continueCursor
 		};
@@ -273,11 +254,17 @@ export const getThreadForAdmin = adminQuery({
 			status: v.union(v.literal('open'), v.literal('done')),
 			assignedTo: v.optional(v.string()),
 			priority: v.optional(v.union(v.literal('low'), v.literal('medium'), v.literal('high'))),
-			dueDate: v.optional(v.number()),
 			pageUrl: v.optional(v.string()),
 			unreadByAdmin: v.boolean(),
 			createdAt: v.number(),
-			updatedAt: v.number()
+			updatedAt: v.number(),
+			// Denormalized search fields
+			searchText: v.optional(v.string()),
+			title: v.optional(v.string()),
+			summary: v.optional(v.string()),
+			lastMessage: v.optional(v.string()),
+			userName: v.optional(v.string()),
+			userEmail: v.optional(v.string())
 		}),
 		assignedAdmin: v.optional(
 			v.object({
@@ -323,7 +310,6 @@ export const getThreadForAdmin = adminQuery({
 			status: 'open' as const,
 			assignedTo: undefined,
 			priority: undefined,
-			dueDate: undefined,
 			pageUrl: undefined,
 			unreadByAdmin: true,
 			createdAt: agentThread._creationTime,
@@ -417,7 +403,7 @@ export const getInternalUserNotes = adminQuery({
 			.query('internalUserNotes')
 			.withIndex('by_user', (q) => q.eq('userId', args.userId))
 			.order('desc')
-			.paginate(args.paginationOpts ?? { numItems: 50, cursor: null });
+			.paginate(args.paginationOpts ?? { numItems: SUPPORT_THREADS_PAGE_SIZE, cursor: null });
 
 		// Batch fetch admin info (optimization: single query instead of N queries)
 		const adminIds = [...new Set(notes.page.map((note) => note.adminUserId))];
@@ -429,14 +415,15 @@ export const getInternalUserNotes = adminQuery({
 			// Fetch all admin users with a single query
 			const adminsResult = await ctx.runQuery(components.betterAuth.adapter.findMany, {
 				model: 'user',
-				paginationOpts: { cursor: null, numItems: 100 },
+				paginationOpts: { cursor: null, numItems: ADMIN_USERS_BATCH_SIZE },
 				where: [{ field: 'role', operator: 'eq', value: 'admin' }]
 			});
 
-			// Build lookup map for admins we need
-			for (const admin of adminsResult.page.filter(isUserRecord)) {
-				if (adminIds.includes(admin._id)) {
-					adminMap.set(admin._id, admin);
+			// Build lookup map for admins we need using Zod validation
+			for (const admin of adminsResult.page) {
+				const parsed = betterAuthUserSchema.safeParse(admin);
+				if (parsed.success && adminIds.includes(parsed.data._id)) {
+					adminMap.set(parsed.data._id, parsed.data);
 				}
 			}
 		}
@@ -514,12 +501,12 @@ export const listAdmins = adminQuery({
 		// Fetch all users with admin role
 		const result = await ctx.runQuery(components.betterAuth.adapter.findMany, {
 			model: 'user',
-			paginationOpts: { cursor: null, numItems: 100 },
+			paginationOpts: { cursor: null, numItems: ADMIN_USERS_BATCH_SIZE },
 			where: [{ field: 'role', operator: 'eq', value: 'admin' }]
 		});
 
-		type UserRecord = { _id: string; name?: string; email?: string; image?: string | null };
-		const admins: UserRecord[] = result.page.filter(isUserRecord);
+		// Parse and filter valid admin records using Zod validation
+		const admins = parseBetterAuthUsers(result.page);
 
 		// Return admin info
 		return admins.map((admin) => ({

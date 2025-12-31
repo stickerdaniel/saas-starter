@@ -1,4 +1,5 @@
 import { v } from 'convex/values';
+import { z } from 'zod';
 
 /**
  * Role enum - single source of truth for user roles.
@@ -88,6 +89,79 @@ export interface BetterAuthSession {
 	createdAt?: number;
 	updatedAt?: number;
 	impersonatedBy?: string;
+}
+
+/**
+ * Zod schema for Better Auth user records.
+ * Provides runtime validation when fetching from the Better Auth adapter.
+ */
+export const betterAuthUserSchema = z.object({
+	_id: z.string(),
+	name: z.string().optional(),
+	email: z.string(),
+	emailVerified: z.boolean().optional(),
+	image: z.string().nullable().optional(),
+	role: z.enum(['user', 'admin']).nullable().optional(),
+	banned: z.boolean().nullable().optional(),
+	banReason: z.string().nullable().optional(),
+	banExpires: z.number().nullable().optional(),
+	createdAt: z.number().optional(),
+	updatedAt: z.number().optional()
+});
+
+/**
+ * Zod schema for Better Auth session records.
+ */
+export const betterAuthSessionSchema = z.object({
+	_id: z.string(),
+	userId: z.string(),
+	expiresAt: z.number(),
+	createdAt: z.number().optional(),
+	updatedAt: z.number().optional(),
+	impersonatedBy: z.string().optional()
+});
+
+/**
+ * Safely parse an array of Better Auth user records.
+ * Filters out invalid records and logs warnings.
+ */
+export function parseBetterAuthUsers(data: unknown[]): BetterAuthUser[] {
+	const users: BetterAuthUser[] = [];
+	for (const item of data) {
+		const result = betterAuthUserSchema.safeParse(item);
+		if (result.success) {
+			users.push(result.data);
+		} else {
+			console.warn('[parseBetterAuthUsers] Invalid user record:', result.error.message);
+		}
+	}
+	return users;
+}
+
+/**
+ * Safely parse an array of Better Auth session records.
+ * Filters out invalid records and logs warnings.
+ */
+export function parseBetterAuthSessions(data: unknown[]): BetterAuthSession[] {
+	const sessions: BetterAuthSession[] = [];
+	for (const item of data) {
+		const result = betterAuthSessionSchema.safeParse(item);
+		if (result.success) {
+			sessions.push(result.data);
+		} else {
+			console.warn('[parseBetterAuthSessions] Invalid session record:', result.error.message);
+		}
+	}
+	return sessions;
+}
+
+/**
+ * Type guard using Zod for single user validation.
+ * Returns the parsed user or null if invalid.
+ */
+export function parseUserRecord(obj: unknown): BetterAuthUser | null {
+	const result = betterAuthUserSchema.safeParse(obj);
+	return result.success ? result.data : null;
 }
 
 /**

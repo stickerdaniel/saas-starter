@@ -1,6 +1,5 @@
-import { mutation } from '../../_generated/server';
 import { v } from 'convex/values';
-import { components } from '../../_generated/api';
+import { internal } from '../../_generated/api';
 import { supportAgent } from '../../support/agent';
 import { adminMutation } from '../../functions';
 
@@ -84,31 +83,6 @@ export const updateThreadPriority = adminMutation({
 });
 
 /**
- * Update thread due date
- */
-export const updateThreadDueDate = adminMutation({
-	args: {
-		threadId: v.string(),
-		dueDate: v.optional(v.number())
-	},
-	handler: async (ctx, args) => {
-		const supportThread = await ctx.db
-			.query('supportThreads')
-			.withIndex('by_thread', (q) => q.eq('threadId', args.threadId))
-			.first();
-
-		if (!supportThread) {
-			throw new Error('Support thread not found');
-		}
-
-		await ctx.db.patch(supportThread._id, {
-			dueDate: args.dueDate,
-			updatedAt: Date.now()
-		});
-	}
-});
-
-/**
  * Send admin reply to thread
  *
  * This adds a human admin message (distinct from AI) using message metadata.
@@ -156,6 +130,11 @@ export const sendAdminReply = adminMutation({
 				updatedAt: Date.now()
 			});
 		}
+
+		// Sync denormalized search fields
+		await ctx.runMutation(internal.support.threads.syncLastMessage, {
+			threadId: args.threadId
+		});
 	}
 });
 
@@ -219,87 +198,5 @@ export const deleteInternalUserNote = adminMutation({
 		}
 
 		await ctx.db.delete(args.noteId);
-	}
-});
-
-/**
- * Discover and backfill supportThreads from existing agent threads
- *
- * This mutation scans all users and their threads, creating supportThreads
- * records for any threads that don't have one yet.
- *
- * Run this once to populate the supportThreads table with existing threads.
- *
- * Usage: bunx convex run admin/support/mutations:discoverThreads
- *
- * NOTE: No auth required - this is a CLI-only migration tool.
- * Anyone with CLI access to Convex already has full deployment access.
- */
-export const discoverThreads = mutation({
-	args: {},
-	handler: async (ctx) => {
-		// No auth check - this is a CLI migration tool
-
-		let created = 0;
-		let skipped = 0;
-		let errors = 0;
-
-		// Get all users (paginated)
-		const usersResult = await ctx.runQuery(components.betterAuth.adapter.findMany, {
-			model: 'user',
-			paginationOpts: { cursor: null, numItems: 100 }
-		});
-
-		const users = usersResult.page as Array<{ _id: string }>;
-
-		// For each user, get their threads
-		for (const user of users) {
-			try {
-				const threadsResult = await ctx.runQuery(components.agent.threads.listThreadsByUserId, {
-					userId: user._id,
-					paginationOpts: { cursor: null, numItems: 100 },
-					order: 'desc'
-				});
-
-				// For each thread, check if supportThread exists
-				for (const thread of threadsResult.page) {
-					const existing = await ctx.db
-						.query('supportThreads')
-						.withIndex('by_thread', (q) => q.eq('threadId', thread._id))
-						.first();
-
-					if (existing) {
-						skipped++;
-						continue;
-					}
-
-					// Create supportThread record with defaults
-					await ctx.db.insert('supportThreads', {
-						threadId: thread._id,
-						userId: thread.userId,
-						status: 'open',
-						assignedTo: undefined,
-						priority: undefined,
-						dueDate: undefined,
-						pageUrl: undefined,
-						unreadByAdmin: true,
-						createdAt: thread._creationTime,
-						updatedAt: thread._creationTime
-					});
-
-					created++;
-				}
-			} catch (error) {
-				console.error(`Error processing user ${user._id}:`, error);
-				errors++;
-			}
-		}
-
-		return {
-			created,
-			skipped,
-			errors,
-			message: `Created ${created} supportThreads records, skipped ${skipped} existing, ${errors} errors`
-		};
 	}
 });

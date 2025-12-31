@@ -1,8 +1,9 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
-	import { useQuery } from 'convex-svelte';
+	import { useQuery, useConvexClient } from 'convex-svelte';
 	import { api } from '$lib/convex/_generated/api';
+	import type { FunctionReturnType } from 'convex/server';
 	import { Debounced } from 'runed';
 	import { useMedia } from '$lib/hooks/use-media.svelte';
 	import { T } from '@tolgee/svelte';
@@ -13,6 +14,7 @@
 	import ThreadList from './thread-list.svelte';
 	import ThreadChat from './thread-chat.svelte';
 	import ThreadDetails from './thread-details.svelte';
+	import { adminSupportRefresh } from '$lib/hooks/admin-support-threads.svelte';
 
 	// URL state management
 	const threadId = $derived($page.url.searchParams.get('thread'));
@@ -42,13 +44,82 @@
 		return 'all';
 	});
 
-	// Query threads
-	const threadsQuery = useQuery(api.admin.support.queries.listThreadsForAdmin, () => ({
-		filter,
-		status: statusFilter,
-		search: debouncedSearch.current || undefined,
-		paginationOpts: { numItems: 50, cursor: null }
-	}));
+	// Infinite scroll state
+	type ThreadItem = FunctionReturnType<
+		typeof api.admin.support.queries.listThreadsForAdmin
+	>['page'][number];
+
+	let allThreads = $state<ThreadItem[]>([]);
+	let continueCursor = $state<string | null>(null);
+	let isDone = $state(false);
+	let isLoading = $state(false);
+
+	const convexClient = useConvexClient();
+
+	// References to ThreadList components (for calling resetLoader)
+	let threadListXL: ThreadList | undefined;
+	let threadListLG: ThreadList | undefined;
+	let threadListMobile: ThreadList | undefined;
+
+	// Reset all loader states when filters/search change
+	function resetAllLoaders() {
+		threadListXL?.resetLoader();
+		threadListLG?.resetLoader();
+		threadListMobile?.resetLoader();
+	}
+
+	// Load initial page
+	async function loadInitialThreads() {
+		isLoading = true;
+		try {
+			const result = await convexClient.query(api.admin.support.queries.listThreadsForAdmin, {
+				filter,
+				status: statusFilter,
+				search: debouncedSearch.current || undefined,
+				paginationOpts: { numItems: 25, cursor: null }
+			});
+
+			allThreads = result.page;
+			continueCursor = result.continueCursor;
+			isDone = result.isDone;
+		} catch (error) {
+			console.error('Failed to load threads:', error);
+			allThreads = [];
+			continueCursor = null;
+			isDone = true;
+		} finally {
+			isLoading = false;
+		}
+	}
+
+	// Load more pages (called by InfiniteLoader)
+	async function loadMoreThreads(): Promise<void> {
+		if (isDone || !continueCursor) return;
+
+		const result = await convexClient.query(api.admin.support.queries.listThreadsForAdmin, {
+			filter,
+			status: statusFilter,
+			search: debouncedSearch.current || undefined,
+			paginationOpts: { numItems: 25, cursor: continueCursor }
+		});
+
+		allThreads = [...allThreads, ...result.page];
+		continueCursor = result.continueCursor;
+		isDone = result.isDone;
+	}
+
+	// Reset and reload when filters change or refresh triggered
+	$effect(() => {
+		// Dependencies: filter, statusFilter, debouncedSearch.current, refreshTrigger
+		void filter;
+		void statusFilter;
+		void debouncedSearch.current;
+		void adminSupportRefresh.refreshTrigger;
+
+		// Reset InfiniteLoader state for fresh pagination
+		resetAllLoaders();
+		loadInitialThreads();
+	});
 
 	// Select thread handler
 	function selectThread(id: string) {
@@ -78,19 +149,25 @@
 		<PaneGroup direction="horizontal" autoSaveId="support-3pane" class="h-full">
 			<Pane defaultSize={25} minSize={20} maxSize={40}>
 				<ThreadList
+					bind:this={threadListXL}
 					{filterMode}
 					{statusFilter}
 					{searchQuery}
-					threads={threadsQuery.data?.page}
+					threads={allThreads}
 					selectedThreadId={threadId}
+					{isLoading}
+					{isDone}
 					onFilterChange={(mode) => (filterMode = mode)}
 					onStatusChange={(status) => (statusFilter = status)}
 					onSearchChange={(query) => (searchQuery = query)}
 					onThreadSelect={selectThread}
+					onLoadMore={loadMoreThreads}
 				/>
 			</Pane>
 
-			<PaneResizer class="w-1.5 bg-border transition-colors hover:bg-primary/50" />
+			<PaneResizer
+				class="relative z-20 -mx-2.5 w-5 bg-black/0 after:pointer-events-none after:absolute after:inset-y-0 after:left-1/2 after:w-px after:-translate-x-1/2 after:bg-background after:z-0 before:pointer-events-none before:absolute before:inset-y-0 before:left-1/2 before:w-px before:-translate-x-1/2 before:bg-border before:z-10 hover:before:w-0.5 hover:after:w-0.5 data-[resize-handle-active]:before:w-0.5 data-[resize-handle-active]:after:w-0.5"
+			/>
 
 			<Pane defaultSize={50} minSize={30}>
 				{#if threadId}
@@ -104,7 +181,9 @@
 				{/if}
 			</Pane>
 
-			<PaneResizer class="w-1.5 bg-border transition-colors hover:bg-primary/50" />
+			<PaneResizer
+				class="relative z-20 -mx-2.5 w-5 bg-black/0 after:pointer-events-none after:absolute after:inset-y-0 after:left-1/2 after:w-px after:-translate-x-1/2 after:bg-background after:z-0 before:pointer-events-none before:absolute before:inset-y-0 before:left-1/2 before:w-px before:-translate-x-1/2 before:bg-border before:z-10 hover:before:w-0.5 hover:after:w-0.5 data-[resize-handle-active]:before:w-0.5 data-[resize-handle-active]:after:w-0.5"
+			/>
 
 			<Pane defaultSize={25} minSize={15} maxSize={40}>
 				{#if threadId}
@@ -124,19 +203,25 @@
 		<PaneGroup direction="horizontal" autoSaveId="support-2pane" class="h-full">
 			<Pane defaultSize={30} minSize={20} maxSize={50}>
 				<ThreadList
+					bind:this={threadListLG}
 					{filterMode}
 					{statusFilter}
 					{searchQuery}
-					threads={threadsQuery.data?.page}
+					threads={allThreads}
 					selectedThreadId={threadId}
+					{isLoading}
+					{isDone}
 					onFilterChange={(mode) => (filterMode = mode)}
 					onStatusChange={(status) => (statusFilter = status)}
 					onSearchChange={(query) => (searchQuery = query)}
 					onThreadSelect={selectThread}
+					onLoadMore={loadMoreThreads}
 				/>
 			</Pane>
 
-			<PaneResizer class="w-1.5 bg-border transition-colors hover:bg-primary/50" />
+			<PaneResizer
+				class="relative z-20 -mx-2.5 w-5 bg-black/0 after:pointer-events-none after:absolute after:inset-y-0 after:left-1/2 after:w-px after:-translate-x-1/2 after:bg-background after:z-0 before:pointer-events-none before:absolute before:inset-y-0 before:left-1/2 before:w-px before:-translate-x-1/2 before:bg-border before:z-10 hover:before:w-0.5 hover:after:w-0.5 data-[resize-handle-active]:before:w-0.5 data-[resize-handle-active]:after:w-0.5"
+			/>
 
 			<Pane defaultSize={70} minSize={50}>
 				{#if threadId}
@@ -156,15 +241,19 @@
 		<div class="relative h-full overflow-hidden">
 			<!-- Thread List (always visible, covered by sliding panel) -->
 			<ThreadList
+				bind:this={threadListMobile}
 				{filterMode}
 				{statusFilter}
 				{searchQuery}
-				threads={threadsQuery.data?.page}
+				threads={allThreads}
 				selectedThreadId={threadId}
+				{isLoading}
+				{isDone}
 				onFilterChange={(mode) => (filterMode = mode)}
 				onStatusChange={(status) => (statusFilter = status)}
 				onSearchChange={(query) => (searchQuery = query)}
 				onThreadSelect={selectThread}
+				onLoadMore={loadMoreThreads}
 			/>
 
 			<!-- Chat (slides over thread list from right) -->
@@ -193,7 +282,7 @@
 	<!-- Mobile (<640px): Bottom drawer -->
 	{#if threadId && !media.sm}
 		<Drawer.Root bind:open={detailsOpen} direction="bottom">
-			<Drawer.Content class="max-h-[90vh] p-0">
+			<Drawer.Content class="h-[85svh] p-0">
 				<ThreadDetails {threadId} />
 			</Drawer.Content>
 		</Drawer.Root>

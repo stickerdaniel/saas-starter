@@ -2,6 +2,7 @@ import { type QueryCtx } from '../_generated/server';
 import { components } from '../_generated/api';
 import { v } from 'convex/values';
 import type { BetterAuthUser, BetterAuthSession } from './types';
+import { parseBetterAuthUsers, parseBetterAuthSessions, parseUserRecord } from './types';
 import { adminQuery } from '../functions';
 
 /**
@@ -12,7 +13,7 @@ async function fetchAllUsers(ctx: QueryCtx): Promise<BetterAuthUser[]> {
 		model: 'user',
 		paginationOpts: { cursor: null, numItems: 1000 }
 	});
-	return result.page as BetterAuthUser[];
+	return parseBetterAuthUsers(result.page);
 }
 
 /**
@@ -23,7 +24,7 @@ async function fetchAllSessions(ctx: QueryCtx): Promise<BetterAuthSession[]> {
 		model: 'session',
 		paginationOpts: { cursor: null, numItems: 1000 }
 	});
-	return result.page as BetterAuthSession[];
+	return parseBetterAuthSessions(result.page);
 }
 
 /**
@@ -109,7 +110,7 @@ export const listUsers = adminQuery({
 			where: whereConditions.length > 0 ? whereConditions : undefined
 		});
 
-		let users = result.page as BetterAuthUser[];
+		let users = parseBetterAuthUsers(result.page);
 
 		// Client-side search filtering (for multi-field search: email OR name)
 		// Note: This is done client-side because the BetterAuth adapter doesn't easily support OR across fields
@@ -136,8 +137,8 @@ export const listUsers = adminQuery({
 				createdAt: user.createdAt,
 				updatedAt: user.updatedAt
 			})),
-			continueCursor: result.continueCursor as string | null,
-			isDone: result.isDone as boolean
+			continueCursor: result.continueCursor,
+			isDone: result.isDone
 		};
 	}
 });
@@ -213,7 +214,7 @@ export const getUserCount = adminQuery({
 			where: whereConditions.length > 0 ? whereConditions : undefined
 		});
 
-		let users = result.page as BetterAuthUser[];
+		let users = parseBetterAuthUsers(result.page);
 
 		// Client-side search filtering
 		if (args.search) {
@@ -266,11 +267,12 @@ export const getUserById = adminQuery({
 		userId: v.string()
 	},
 	handler: async (ctx, args) => {
-		const user = (await ctx.runQuery(components.betterAuth.adapter.findOne, {
+		const result = await ctx.runQuery(components.betterAuth.adapter.findOne, {
 			model: 'user',
 			where: [{ field: '_id', operator: 'eq', value: args.userId }]
-		})) as BetterAuthUser | null;
+		});
 
+		const user = parseUserRecord(result);
 		if (!user) {
 			return null;
 		}

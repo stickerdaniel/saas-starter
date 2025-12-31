@@ -72,7 +72,15 @@ export default defineSchema({
 		pageUrl: v.optional(v.string()), // URL where user started chat
 		unreadByAdmin: v.boolean(),
 		createdAt: v.number(),
-		updatedAt: v.number()
+		updatedAt: v.number(),
+
+		// Denormalized search fields (for server-side full-text search)
+		searchText: v.optional(v.string()), // Combined: title | summary | lastMessage | userName | userEmail
+		title: v.optional(v.string()), // From agent:threads
+		summary: v.optional(v.string()), // From agent:threads
+		lastMessage: v.optional(v.string()), // From agent:messages (truncated to 500 chars)
+		userName: v.optional(v.string()), // From user table
+		userEmail: v.optional(v.string()) // From user table
 	})
 		.index('by_thread', ['threadId'])
 		.index('by_user', ['userId'])
@@ -81,6 +89,10 @@ export default defineSchema({
 		.index('by_created', ['createdAt'])
 		.index('by_unread', ['unreadByAdmin'])
 		.index('by_unread_and_assigned', ['unreadByAdmin', 'assignedTo'])
+		.searchIndex('search_all', {
+			searchField: 'searchText',
+			filterFields: ['status', 'assignedTo', 'unreadByAdmin']
+		})
 
 	// Note: The agent component automatically creates the following tables:
 	// - agent:threads - Conversation threads for customer support

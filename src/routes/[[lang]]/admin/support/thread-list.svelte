@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { fade } from 'svelte/transition';
 	import { Input } from '$lib/components/ui/input';
 	import * as Tabs from '$lib/components/ui/tabs';
 	import { Button } from '$lib/components/ui/button';
@@ -8,8 +9,10 @@
 	import SearchIcon from '@lucide/svelte/icons/search';
 	import InboxIcon from '@lucide/svelte/icons/inbox';
 	import ArchiveIcon from '@lucide/svelte/icons/archive';
+	import Loader2Icon from '@lucide/svelte/icons/loader-2';
 	import { formatDistanceToNow } from 'date-fns';
 	import { T } from '@tolgee/svelte';
+	import { InfiniteLoader, LoaderState } from 'svelte-infinite';
 
 	interface Thread {
 		_id: string;
@@ -26,7 +29,6 @@
 			status: 'open' | 'done';
 			assignedTo?: string;
 			priority?: 'low' | 'medium' | 'high';
-			dueDate?: number;
 			pageUrl?: string;
 			unreadByAdmin: boolean;
 			createdAt: number;
@@ -44,31 +46,33 @@
 		searchQuery,
 		threads = [],
 		selectedThreadId,
+		isLoading = false,
+		isDone = false,
 		onFilterChange,
 		onStatusChange,
 		onSearchChange,
-		onThreadSelect
+		onThreadSelect,
+		onLoadMore
 	}: {
 		filterMode: 'all' | 'unassigned' | 'my-inbox';
-		statusFilter?: 'open' | 'done'; // Only new statuses for filter
+		statusFilter?: 'open' | 'done';
 		searchQuery: string;
 		threads?: Thread[];
 		selectedThreadId: string | null;
+		isLoading?: boolean;
+		isDone?: boolean;
 		onFilterChange: (mode: 'all' | 'unassigned' | 'my-inbox') => void;
 		onStatusChange: (status?: 'open' | 'done') => void;
 		onSearchChange: (query: string) => void;
 		onThreadSelect: (id: string) => void;
+		onLoadMore: () => Promise<void>;
 	} = $props();
 
-	const isLoading = $derived(threads === undefined);
+	// Create loader state instance for svelte-infinite
+	const loaderState = new LoaderState();
 
-	// Local state for toggle (true = showing open, false = showing done)
-	let showingOpen = $state(statusFilter === 'open' || statusFilter === undefined);
-
-	// Sync with external statusFilter changes
-	$effect(() => {
-		showingOpen = statusFilter === 'open' || statusFilter === undefined;
-	});
+	// Derived state for toggle (true = showing open, false = showing done)
+	let showingOpen = $derived(statusFilter === 'open' || statusFilter === undefined);
 
 	// Apply default "open" filter on mount
 	$effect(() => {
@@ -78,8 +82,30 @@
 	});
 
 	function toggleFilter() {
-		showingOpen = !showingOpen;
-		onStatusChange(showingOpen ? 'open' : 'done');
+		onStatusChange(showingOpen ? 'done' : 'open');
+	}
+
+	// Trigger load function for InfiniteLoader
+	async function triggerLoad() {
+		try {
+			await onLoadMore();
+			// Parent updates isDone state, so we check it after loading
+			if (isDone) {
+				loaderState.complete();
+			} else {
+				loaderState.loaded();
+			}
+		} catch (error) {
+			console.error('[ThreadList] Failed to load more:', error);
+			loaderState.error();
+		}
+	}
+
+	/**
+	 * Reset the loader state (called by parent when filters/search change)
+	 */
+	export function resetLoader() {
+		loaderState.reset();
 	}
 </script>
 
@@ -100,7 +126,14 @@
 			</div>
 
 			<!-- Status Filter (Animated Toggle) -->
-			<Button onclick={toggleFilter} variant="outline" size="icon">
+			<Button
+				onclick={toggleFilter}
+				variant="outline"
+				size="icon"
+				aria-label={showingOpen
+					? 'Showing open threads, click to show completed'
+					: 'Showing completed threads, click to show open'}
+			>
 				<InboxIcon
 					class="size-4 transition-all duration-200 ease-in-out {showingOpen
 						? 'blur-0 scale-100 opacity-100'
@@ -111,7 +144,6 @@
 						? 'scale-0 opacity-0 blur-sm'
 						: 'blur-0 scale-100 opacity-100'}"
 				/>
-				<span class="sr-only">Toggle status filter</span>
 			</Button>
 		</div>
 
@@ -131,80 +163,120 @@
 	</div>
 
 	<!-- Thread List -->
-	<div class="flex-1 overflow-y-auto">
+	<div class="relative flex-1">
 		{#if isLoading}
 			<!-- Loading skeletons -->
-			{#each Array(5) as _, i (i)}
-				<div class="border-b p-4">
-					<div class="flex items-start gap-3">
-						<Skeleton class="size-10 rounded-full" />
-						<div class="flex-1 space-y-2">
-							<Skeleton class="h-4 w-32" />
-							<Skeleton class="h-3 w-full" />
-							<div class="flex gap-2">
-								<Skeleton class="h-5 w-12 rounded-md" />
-								<Skeleton class="h-5 w-12 rounded-md" />
+			<div class="absolute inset-0 overflow-y-auto" out:fade={{ duration: 150 }}>
+				{#each Array(6) as _, i (i)}
+					<div class="border-b p-4">
+						<div class="flex items-start gap-3">
+							<!-- Avatar -->
+							<Skeleton class="size-10 rounded-full" />
+
+							<div class="min-w-0 flex-1">
+								<!-- Name & Time -->
+								<div class="mb-1 flex items-center justify-between gap-2">
+									<Skeleton class="h-6 w-28" />
+									<Skeleton class="h-4 w-16" />
+								</div>
+
+								<!-- Last Message Preview -->
+								<Skeleton class="h-5 w-full" />
+
+								<!-- Badges -->
+								<div class="mt-2 flex flex-wrap items-center gap-1.5">
+									<Skeleton class="h-[22px] w-12 rounded-full" />
+								</div>
 							</div>
 						</div>
 					</div>
-				</div>
-			{/each}
+				{/each}
+			</div>
 		{:else if threads && threads.length > 0}
-			{#each threads as thread (thread._id)}
-				<button
-					class="w-full border-b p-4 text-left {thread._id === selectedThreadId
-						? 'bg-muted/70'
-						: 'hover:bg-muted/30'}"
-					onclick={() => onThreadSelect(thread._id)}
+			<div class="absolute inset-0 overflow-y-auto" in:fade={{ duration: 150 }}>
+				<InfiniteLoader
+					{loaderState}
+					{triggerLoad}
+					intersectionOptions={{ rootMargin: '0px 0px 200px 0px' }}
 				>
-					<div class="flex items-start gap-3">
-						<!-- Avatar -->
-						<Avatar class="size-10">
-							<AvatarFallback>
-								{thread.userName?.[0]?.toUpperCase() || 'U'}
-							</AvatarFallback>
-						</Avatar>
+					{#each threads as thread (thread._id)}
+						<button
+							class="w-full border-b p-4 text-left {thread._id === selectedThreadId
+								? 'bg-muted/70'
+								: 'hover:bg-muted/30'}"
+							onclick={() => onThreadSelect(thread._id)}
+						>
+							<div class="flex items-start gap-3">
+								<!-- Avatar -->
+								<Avatar class="size-10">
+									<AvatarFallback>
+										{thread.userName?.[0]?.toUpperCase() || 'U'}
+									</AvatarFallback>
+								</Avatar>
 
-						<div class="min-w-0 flex-1">
-							<!-- Name & Time -->
-							<div class="mb-1 flex items-center justify-between gap-2">
-								<span class="truncate font-medium">
-									{thread.userName || thread.userEmail || 'Anonymous'}
-								</span>
-								<span class="text-xs text-muted-foreground">
-									{formatDistanceToNow(new Date(thread.lastMessageAt || thread._creationTime), {
-										addSuffix: true
-									})}
-								</span>
+								<div class="min-w-0 flex-1">
+									<!-- Name & Time -->
+									<div class="mb-1 flex items-center justify-between gap-2">
+										<span class="truncate font-medium">
+											{thread.userName || thread.userEmail || 'Anonymous'}
+										</span>
+										<span class="whitespace-nowrap text-xs text-muted-foreground">
+											{formatDistanceToNow(new Date(thread.lastMessageAt || thread._creationTime), {
+												addSuffix: true
+											})}
+										</span>
+									</div>
+
+									<!-- Last Message Preview -->
+									<p class="truncate text-sm text-muted-foreground">
+										{thread.lastMessage || 'No messages'}
+									</p>
+
+									<!-- Badges -->
+									<div class="mt-2 flex flex-wrap items-center gap-1.5">
+										{#if thread.supportMetadata.unreadByAdmin}
+											<Badge variant="default" class="text-xs">New</Badge>
+										{/if}
+										{#if thread.supportMetadata.priority}
+											<Badge variant="outline" class="text-xs capitalize"
+												>{thread.supportMetadata.priority}</Badge
+											>
+										{/if}
+										{#if thread.supportMetadata.status}
+											<Badge variant="secondary" class="text-xs capitalize"
+												>{thread.supportMetadata.status}</Badge
+											>
+										{/if}
+									</div>
+								</div>
 							</div>
+						</button>
+					{/each}
 
-							<!-- Last Message Preview -->
-							<p class="truncate text-sm text-muted-foreground">
-								{thread.lastMessage || 'No messages'}
-							</p>
-
-							<!-- Badges -->
-							<div class="mt-2 flex flex-wrap items-center gap-1.5">
-								{#if thread.supportMetadata.unreadByAdmin}
-									<Badge variant="default" class="text-xs">New</Badge>
-								{/if}
-								{#if thread.supportMetadata.priority}
-									<Badge variant="outline" class="text-xs capitalize"
-										>{thread.supportMetadata.priority}</Badge
-									>
-								{/if}
-								{#if thread.supportMetadata.status}
-									<Badge variant="secondary" class="text-xs capitalize"
-										>{thread.supportMetadata.status}</Badge
-									>
-								{/if}
-							</div>
+					{#snippet loading()}
+						<div class="flex items-center justify-center border-b p-4">
+							<Loader2Icon class="size-5 animate-spin text-muted-foreground" />
+							<span class="ml-2 text-sm text-muted-foreground">Loading more...</span>
 						</div>
-					</div>
-				</button>
-			{/each}
+					{/snippet}
+
+					{#snippet error(attemptLoad)}
+						<div class="flex flex-col items-center justify-center gap-2 p-4">
+							<span class="text-sm text-muted-foreground">Failed to load more</span>
+							<Button variant="outline" size="sm" onclick={attemptLoad}>Retry</Button>
+						</div>
+					{/snippet}
+
+					{#snippet noData()}
+						<!-- Empty - end of list reached -->
+					{/snippet}
+				</InfiniteLoader>
+			</div>
 		{:else}
-			<div class="flex h-full items-center justify-center p-8 text-center text-muted-foreground">
+			<div
+				in:fade={{ duration: 150 }}
+				class="absolute inset-0 flex items-center justify-center p-8 text-center text-muted-foreground"
+			>
 				<T keyName={showingOpen ? 'admin.support.no_open_chats' : 'admin.support.no_done_chats'} />
 			</div>
 		{/if}
