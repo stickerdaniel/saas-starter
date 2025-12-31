@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { useConvexClient, useQuery } from 'convex-svelte';
 	import { api } from '$lib/convex/_generated/api';
+	import { formatDistanceToNow } from 'date-fns';
 	import ChatRoot from '$lib/chat/ui/ChatRoot.svelte';
 	import ChatMessages from '$lib/chat/ui/ChatMessages.svelte';
 	import ChatInput from '$lib/chat/ui/ChatInput.svelte';
@@ -13,26 +14,42 @@
 
 	let {
 		threadId,
+		initialThread,
 		detailsOpen,
 		onToggleOverlay,
 		onBackClick
 	}: {
 		threadId: string;
+		initialThread?: {
+			userName?: string;
+			userEmail?: string;
+			lastMessageAt?: number;
+		};
 		detailsOpen?: boolean;
 		onToggleOverlay?: () => void;
 		onBackClick?: () => void;
 	} = $props();
 
 	const media = useMedia();
-
 	const client = useConvexClient();
 
 	// Query thread details to show header info
 	const threadQuery = useQuery(api.admin.support.queries.getThreadForAdmin, () => ({
 		threadId
 	}));
-
 	const thread = $derived(threadQuery.data);
+
+	// Derived display values: prefer initialThread (instant), fallback to query data
+	const displayName = $derived(
+		initialThread?.userName ||
+			initialThread?.userEmail ||
+			thread?.user?.name ||
+			thread?.user?.email ||
+			'Anonymous User'
+	);
+	const lastMessageAt = $derived(
+		initialThread?.lastMessageAt || thread?.supportMetadata?.updatedAt
+	);
 
 	// Mark as read when opened
 	$effect(() => {
@@ -49,10 +66,10 @@
 	{#if !media.lg && onBackClick}
 		<SlidingHeader
 			isBackView={true}
-			backTitle={thread?.user?.name || thread?.user?.email || 'Anonymous User'}
-			backSubtitle={thread?.title && thread.title !== 'Customer Support'
-				? thread.title
-				: 'Support Thread'}
+			backTitle={displayName}
+			backSubtitle={lastMessageAt
+				? formatDistanceToNow(new Date(lastMessageAt), { addSuffix: true })
+				: '\u00A0'}
 			defaultTitle="Support Threads"
 			{onBackClick}
 			showClose={false}
@@ -80,7 +97,7 @@
 			<div class="flex items-center justify-between gap-4">
 				<div class="min-w-0 flex-1 space-y-1">
 					<h2 class="truncate font-semibold">
-						{thread?.user?.name || thread?.user?.email || 'Anonymous User'}
+						{displayName}
 					</h2>
 					{#if thread?.title && thread.title !== 'Customer Support'}
 						<p class="truncate text-sm text-muted-foreground">{thread.title}</p>

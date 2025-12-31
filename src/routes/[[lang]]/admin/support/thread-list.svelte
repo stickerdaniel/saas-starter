@@ -55,14 +55,14 @@
 		onLoadMore
 	}: {
 		filterMode: 'all' | 'unassigned' | 'my-inbox';
-		statusFilter?: 'open' | 'done';
+		statusFilter: 'open' | 'done';
 		searchQuery: string;
 		threads?: Thread[];
-		selectedThreadId: string | null;
+		selectedThreadId: string | null | undefined;
 		isLoading?: boolean;
 		isDone?: boolean;
 		onFilterChange: (mode: 'all' | 'unassigned' | 'my-inbox') => void;
-		onStatusChange: (status?: 'open' | 'done') => void;
+		onStatusChange: (status: 'open' | 'done') => void;
 		onSearchChange: (query: string) => void;
 		onThreadSelect: (id: string) => void;
 		onLoadMore: () => Promise<void>;
@@ -72,14 +72,7 @@
 	const loaderState = new LoaderState();
 
 	// Derived state for toggle (true = showing open, false = showing done)
-	let showingOpen = $derived(statusFilter === 'open' || statusFilter === undefined);
-
-	// Apply default "open" filter on mount
-	$effect(() => {
-		if (statusFilter === undefined) {
-			onStatusChange('open');
-		}
-	});
+	let showingOpen = $derived(statusFilter === 'open');
 
 	function toggleFilter() {
 		onStatusChange(showingOpen ? 'done' : 'open');

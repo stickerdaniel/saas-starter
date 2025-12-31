@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { page } from '$app/stores';
-	import { goto } from '$app/navigation';
+	import { z } from 'zod';
+	import { useSearchParams } from 'runed/kit';
+	import { Previous } from 'runed';
 	import { useQuery, useConvexClient } from 'convex-svelte';
 	import { api } from '$lib/convex/_generated/api';
 	import type { FunctionReturnType } from 'convex/server';
-	import { Debounced } from 'runed';
 	import { useMedia } from '$lib/hooks/use-media.svelte';
 	import { T } from '@tolgee/svelte';
 	import * as Sheet from '$lib/components/ui/sheet';
@@ -16,14 +16,24 @@
 	import ThreadDetails from './thread-details.svelte';
 	import { adminSupportRefresh } from '$lib/hooks/admin-support-threads.svelte';
 
-	// URL state management
-	const threadId = $derived($page.url.searchParams.get('thread'));
+	// URL state schema
+	const supportSearchSchema = z.object({
+		thread: z.string().default(''),
+		mode: z.enum(['all', 'unassigned', 'my-inbox']).default('all'),
+		status: z.enum(['open', 'done']).default('open'),
+		search: z.string().default('')
+	});
 
-	// Filter state
-	let filterMode = $state<'all' | 'unassigned' | 'my-inbox'>('all');
-	let statusFilter = $state<'open' | 'done' | undefined>();
-	let searchQuery = $state('');
-	const debouncedSearch = new Debounced(() => searchQuery, 300);
+	// URL state management
+	const params = useSearchParams(supportSearchSchema, {
+		pushHistory: true,
+		noScroll: true
+	});
+
+	// Track previous filter values to avoid reloading when only thread changes
+	const prevMode = new Previous(() => params.mode);
+	const prevStatus = new Previous(() => params.status);
+	const prevSearch = new Previous(() => params.search);
 
 	// Responsive breakpoints
 	const media = useMedia();
@@ -37,8 +47,8 @@
 
 	// Build filter for query
 	const filter = $derived.by((): 'all' | 'unassigned' | { assignedTo: string } => {
-		if (filterMode === 'unassigned') return 'unassigned';
-		if (filterMode === 'my-inbox' && adminUserId) {
+		if (params.mode === 'unassigned') return 'unassigned';
+		if (params.mode === 'my-inbox' && adminUserId) {
 			return { assignedTo: adminUserId };
 		}
 		return 'all';
@@ -53,6 +63,9 @@
 	let continueCursor = $state<string | null>(null);
 	let isDone = $state(false);
 	let isLoading = $state(false);
+
+	// Selected thread from already-loaded list (for instant header display)
+	const selectedThread = $derived(allThreads.find((t) => t._id === params.thread));
 
 	const convexClient = useConvexClient();
 
@@ -74,8 +87,8 @@
 		try {
 			const result = await convexClient.query(api.admin.support.queries.listThreadsForAdmin, {
 				filter,
-				status: statusFilter,
-				search: debouncedSearch.current || undefined,
+				status: params.status,
+				search: params.search || undefined,
 				paginationOpts: { numItems: 25, cursor: null }
 			});
 
@@ -98,8 +111,8 @@
 
 		const result = await convexClient.query(api.admin.support.queries.listThreadsForAdmin, {
 			filter,
-			status: statusFilter,
-			search: debouncedSearch.current || undefined,
+			status: params.status,
+			search: params.search || undefined,
 			paginationOpts: { numItems: 25, cursor: continueCursor }
 		});
 
@@ -109,25 +122,30 @@
 	}
 
 	// Reset and reload when filters change or refresh triggered
+	// Note: useSearchParams invalidates ALL params when ANY param changes,
+	// so we use Previous to detect actual filter changes vs thread changes
 	$effect(() => {
-		// Dependencies: filter, statusFilter, debouncedSearch.current, refreshTrigger
-		void filter;
-		void statusFilter;
-		void debouncedSearch.current;
+		const modeChanged = params.mode !== prevMode.current;
+		const statusChanged = params.status !== prevStatus.current;
+		const searchChanged = params.search !== prevSearch.current;
+
+		// Track refresh trigger as dependency
 		void adminSupportRefresh.refreshTrigger;
 
-		// Reset InfiniteLoader state for fresh pagination
-		resetAllLoaders();
-		loadInitialThreads();
+		// Only reload if filter-related params changed (not thread)
+		if (modeChanged || statusChanged || searchChanged) {
+			resetAllLoaders();
+			loadInitialThreads();
+		}
 	});
 
 	// Select thread handler
 	function selectThread(id: string) {
-		goto(`?thread=${id}`, { replaceState: false, keepFocus: true });
+		params.thread = id;
 	}
 
 	function clearThread() {
-		goto($page.url.pathname, { replaceState: false, keepFocus: true });
+		params.thread = '';
 	}
 
 	// Toggle Sheet/Drawer overlay (<1280px)
@@ -137,7 +155,7 @@
 
 	// Reset overlay state when thread changes
 	$effect(() => {
-		if (!threadId) {
+		if (!params.thread) {
 			detailsOpen = false;
 		}
 	});
@@ -150,16 +168,16 @@
 			<Pane defaultSize={25} minSize={20} maxSize={40}>
 				<ThreadList
 					bind:this={threadListXL}
-					{filterMode}
-					{statusFilter}
-					{searchQuery}
+					filterMode={params.mode}
+					statusFilter={params.status}
+					searchQuery={params.search}
 					threads={allThreads}
-					selectedThreadId={threadId}
+					selectedThreadId={params.thread}
 					{isLoading}
 					{isDone}
-					onFilterChange={(mode) => (filterMode = mode)}
-					onStatusChange={(status) => (statusFilter = status)}
-					onSearchChange={(query) => (searchQuery = query)}
+					onFilterChange={(mode) => (params.mode = mode)}
+					onStatusChange={(status) => (params.status = status)}
+					onSearchChange={(query) => (params.search = query)}
 					onThreadSelect={selectThread}
 					onLoadMore={loadMoreThreads}
 				/>
@@ -170,8 +188,13 @@
 			/>
 
 			<Pane defaultSize={50} minSize={30}>
-				{#if threadId}
-					<ThreadChat {threadId} {detailsOpen} onToggleOverlay={toggleDetailsOverlay} />
+				{#if params.thread}
+					<ThreadChat
+						threadId={params.thread}
+						initialThread={selectedThread}
+						{detailsOpen}
+						onToggleOverlay={toggleDetailsOverlay}
+					/>
 				{:else}
 					<div
 						class="flex h-full items-center justify-center text-center text-balance text-muted-foreground"
@@ -186,8 +209,8 @@
 			/>
 
 			<Pane defaultSize={25} minSize={15} maxSize={40}>
-				{#if threadId}
-					<ThreadDetails {threadId} />
+				{#if params.thread}
+					<ThreadDetails threadId={params.thread} />
 				{:else}
 					<div
 						class="flex h-full items-center justify-center text-center text-balance text-muted-foreground"
@@ -204,16 +227,16 @@
 			<Pane defaultSize={30} minSize={20} maxSize={50}>
 				<ThreadList
 					bind:this={threadListLG}
-					{filterMode}
-					{statusFilter}
-					{searchQuery}
+					filterMode={params.mode}
+					statusFilter={params.status}
+					searchQuery={params.search}
 					threads={allThreads}
-					selectedThreadId={threadId}
+					selectedThreadId={params.thread}
 					{isLoading}
 					{isDone}
-					onFilterChange={(mode) => (filterMode = mode)}
-					onStatusChange={(status) => (statusFilter = status)}
-					onSearchChange={(query) => (searchQuery = query)}
+					onFilterChange={(mode) => (params.mode = mode)}
+					onStatusChange={(status) => (params.status = status)}
+					onSearchChange={(query) => (params.search = query)}
 					onThreadSelect={selectThread}
 					onLoadMore={loadMoreThreads}
 				/>
@@ -224,8 +247,13 @@
 			/>
 
 			<Pane defaultSize={70} minSize={50}>
-				{#if threadId}
-					<ThreadChat {threadId} {detailsOpen} onToggleOverlay={toggleDetailsOverlay} />
+				{#if params.thread}
+					<ThreadChat
+						threadId={params.thread}
+						initialThread={selectedThread}
+						{detailsOpen}
+						onToggleOverlay={toggleDetailsOverlay}
+					/>
 				{:else}
 					<div
 						class="flex h-full items-center justify-center text-center text-balance text-muted-foreground"
@@ -242,25 +270,26 @@
 			<!-- Thread List (always visible, covered by sliding panel) -->
 			<ThreadList
 				bind:this={threadListMobile}
-				{filterMode}
-				{statusFilter}
-				{searchQuery}
+				filterMode={params.mode}
+				statusFilter={params.status}
+				searchQuery={params.search}
 				threads={allThreads}
-				selectedThreadId={threadId}
+				selectedThreadId={params.thread}
 				{isLoading}
 				{isDone}
-				onFilterChange={(mode) => (filterMode = mode)}
-				onStatusChange={(status) => (statusFilter = status)}
-				onSearchChange={(query) => (searchQuery = query)}
+				onFilterChange={(mode) => (params.mode = mode)}
+				onStatusChange={(status) => (params.status = status)}
+				onSearchChange={(query) => (params.search = query)}
 				onThreadSelect={selectThread}
 				onLoadMore={loadMoreThreads}
 			/>
 
 			<!-- Chat (slides over thread list from right) -->
-			<SlidingPanel open={!!threadId} class="bg-background">
-				{#if threadId}
+			<SlidingPanel open={!!params.thread} class="bg-background">
+				{#if params.thread}
 					<ThreadChat
-						{threadId}
+						threadId={params.thread}
+						initialThread={selectedThread}
 						{detailsOpen}
 						onToggleOverlay={toggleDetailsOverlay}
 						onBackClick={clearThread}
@@ -271,19 +300,19 @@
 	{/if}
 
 	<!-- Tablet/Desktop LG (≥640px, <1280px): Sheet overlay from right -->
-	{#if threadId && media.sm && !media.xl}
+	{#if params.thread && media.sm && !media.xl}
 		<Sheet.Root bind:open={detailsOpen}>
 			<Sheet.Content side="right" class="w-80 p-0">
-				<ThreadDetails {threadId} />
+				<ThreadDetails threadId={params.thread} />
 			</Sheet.Content>
 		</Sheet.Root>
 	{/if}
 
 	<!-- Mobile (<640px): Bottom drawer -->
-	{#if threadId && !media.sm}
+	{#if params.thread && !media.sm}
 		<Drawer.Root bind:open={detailsOpen} direction="bottom">
 			<Drawer.Content class="h-[85svh] p-0">
-				<ThreadDetails {threadId} />
+				<ThreadDetails threadId={params.thread} />
 			</Drawer.Content>
 		</Drawer.Root>
 	{/if}
