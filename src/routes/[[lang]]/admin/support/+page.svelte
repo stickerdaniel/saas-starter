@@ -2,7 +2,8 @@
 	import { untrack } from 'svelte';
 	import { z } from 'zod';
 	import { useSearchParams } from 'runed/kit';
-	import { Previous } from 'runed';
+	import { page } from '$app/stores';
+	import { goto } from '$app/navigation';
 	import { useQuery, useConvexClient } from 'convex-svelte';
 	import { api } from '$lib/convex/_generated/api';
 	import type { FunctionReturnType } from 'convex/server';
@@ -17,26 +18,23 @@
 	import ThreadDetails from './thread-details.svelte';
 	import { adminSupportRefresh } from '$lib/hooks/admin-support-threads.svelte';
 	import { adminSupportUI } from '$lib/hooks/admin-support-ui.svelte';
+	import { toast } from 'svelte-sonner';
 
-	// URL state schema
-	const supportSearchSchema = z.object({
-		thread: z.string().default(''),
+	// Filter state schema (thread managed separately to avoid reload on selection)
+	const filterSchema = z.object({
 		mode: z.enum(['all', 'unassigned', 'my-inbox']).default('all'),
 		status: z.enum(['open', 'done']).default('open'),
 		search: z.string().default('')
 	});
 
-	// URL state management
-	const params = useSearchParams(supportSearchSchema, {
+	// Filter state management via useSearchParams
+	const filters = useSearchParams(filterSchema, {
 		pushHistory: true,
 		noScroll: true
 	});
 
-	// Track previous filter values to avoid reloading when only thread changes
-	const prevMode = new Previous(() => params.mode);
-	const prevStatus = new Previous(() => params.status);
-	const prevSearch = new Previous(() => params.search);
-	const prevRefreshTrigger = new Previous(() => adminSupportRefresh.refreshTrigger);
+	// Thread selection managed separately via $page.url (doesn't trigger filter reactivity)
+	const threadId = $derived($page.url.searchParams.get('thread') ?? '');
 
 	// Responsive breakpoints
 	const media = useMedia();
@@ -47,8 +45,8 @@
 
 	// Build filter for query
 	const filter = $derived.by((): 'all' | 'unassigned' | { assignedTo: string } => {
-		if (params.mode === 'unassigned') return 'unassigned';
-		if (params.mode === 'my-inbox' && adminUserId) {
+		if (filters.mode === 'unassigned') return 'unassigned';
+		if (filters.mode === 'my-inbox' && adminUserId) {
 			return { assignedTo: adminUserId };
 		}
 		return 'all';
@@ -65,7 +63,7 @@
 	let isLoading = $state(false);
 
 	// Selected thread from already-loaded list (for instant header display)
-	const selectedThread = $derived(allThreads.find((t) => t._id === params.thread));
+	const selectedThread = $derived(allThreads.find((t) => t._id === threadId));
 
 	const convexClient = useConvexClient();
 
@@ -75,8 +73,8 @@
 		try {
 			const result = await convexClient.query(api.admin.support.queries.listThreadsForAdmin, {
 				filter,
-				status: params.status,
-				search: params.search || undefined,
+				status: filters.status,
+				search: filters.search || undefined,
 				paginationOpts: { numItems: 25, cursor: null }
 			});
 
@@ -85,6 +83,7 @@
 			isDone = result.isDone;
 		} catch (error) {
 			console.error('Failed to load threads:', error);
+			toast.error('Failed to load support threads');
 			allThreads = [];
 			continueCursor = null;
 			isDone = true;
@@ -97,50 +96,63 @@
 	async function loadMoreThreads(): Promise<void> {
 		if (isDone || !continueCursor) return;
 
-		const result = await convexClient.query(api.admin.support.queries.listThreadsForAdmin, {
-			filter,
-			status: params.status,
-			search: params.search || undefined,
-			paginationOpts: { numItems: 25, cursor: continueCursor }
-		});
+		try {
+			const result = await convexClient.query(api.admin.support.queries.listThreadsForAdmin, {
+				filter,
+				status: filters.status,
+				search: filters.search || undefined,
+				paginationOpts: { numItems: 25, cursor: continueCursor }
+			});
 
-		allThreads = [...allThreads, ...result.page];
-		continueCursor = result.continueCursor;
-		isDone = result.isDone;
+			allThreads = [...allThreads, ...result.page];
+			continueCursor = result.continueCursor;
+			isDone = result.isDone;
+		} catch (error) {
+			console.error('Failed to load more threads:', error);
+			toast.error('Failed to load more threads');
+		}
 	}
 
-	// Reset and reload when filters change or refresh triggered
-	// Note: useSearchParams invalidates ALL params when ANY param changes,
-	// so we use Previous to detect actual filter changes vs thread changes
-	$effect(() => {
-		const modeChanged = params.mode !== prevMode.current;
-		const statusChanged = params.status !== prevStatus.current;
-		const searchChanged = params.search !== prevSearch.current;
-		const refreshTriggered = adminSupportRefresh.refreshTrigger !== prevRefreshTrigger.current;
+	// Track what filter state we've already loaded
+	let loadedState = $state({ filterKey: '', refreshTrigger: 0 });
 
-		// Reload if filter-related params changed or refresh was triggered
-		if (modeChanged || statusChanged || searchChanged || refreshTriggered) {
-			// Use untrack to prevent side effects from creating reactive dependencies
-			// that would cause infinite effect loops
+	// Reload when filters ACTUALLY change (not just when useSearchParams re-emits)
+	// useSearchParams re-emits on ANY URL change, so we must compare values
+	$effect(() => {
+		// Create a key from current filter values
+		const currentFilterKey = `${filters.mode}|${filters.status}|${filters.search}`;
+		const currentRefresh = adminSupportRefresh.refreshTrigger;
+
+		// Compare to what we've already loaded
+		const shouldReload =
+			currentFilterKey !== loadedState.filterKey || currentRefresh !== loadedState.refreshTrigger;
+
+		if (shouldReload) {
 			untrack(() => {
+				// Update state BEFORE loading
+				loadedState = { filterKey: currentFilterKey, refreshTrigger: currentRefresh };
 				adminSupportRefresh.resetLoaders();
 				loadInitialThreads();
 			});
 		}
 	});
 
-	// Select thread handler
+	// Select thread handler (uses goto to avoid triggering filter reactivity)
 	function selectThread(id: string) {
-		params.thread = id;
+		const url = new URL($page.url);
+		url.searchParams.set('thread', id);
+		goto(url.toString(), { noScroll: true, replaceState: false });
 	}
 
 	function clearThread() {
-		params.thread = '';
+		const url = new URL($page.url);
+		url.searchParams.delete('thread');
+		goto(url.toString(), { noScroll: true, replaceState: false });
 	}
 
 	// Reset overlay state when thread changes
 	$effect(() => {
-		if (!params.thread) {
+		if (!threadId) {
 			adminSupportUI.close();
 		}
 	});
@@ -152,16 +164,16 @@
 		<PaneGroup direction="horizontal" autoSaveId="support-3pane" class="h-full">
 			<Pane defaultSize={25} minSize={20} maxSize={40}>
 				<ThreadList
-					filterMode={params.mode}
-					statusFilter={params.status}
-					searchQuery={params.search}
+					filterMode={filters.mode}
+					statusFilter={filters.status}
+					searchQuery={filters.search}
 					threads={allThreads}
-					selectedThreadId={params.thread}
+					selectedThreadId={threadId}
 					{isLoading}
 					{isDone}
-					onFilterChange={(mode) => (params.mode = mode)}
-					onStatusChange={(status) => (params.status = status)}
-					onSearchChange={(query) => (params.search = query)}
+					onFilterChange={(mode) => (filters.mode = mode)}
+					onStatusChange={(status) => (filters.status = status)}
+					onSearchChange={(query) => (filters.search = query)}
 					onThreadSelect={selectThread}
 					onLoadMore={loadMoreThreads}
 				/>
@@ -172,8 +184,8 @@
 			/>
 
 			<Pane defaultSize={50} minSize={30}>
-				{#if params.thread}
-					<ThreadChat threadId={params.thread} initialThread={selectedThread} />
+				{#if threadId}
+					<ThreadChat {threadId} initialThread={selectedThread} />
 				{:else}
 					<div
 						class="flex h-full items-center justify-center text-center text-balance text-muted-foreground"
@@ -188,8 +200,8 @@
 			/>
 
 			<Pane defaultSize={25} minSize={15} maxSize={40}>
-				{#if params.thread}
-					<ThreadDetails threadId={params.thread} />
+				{#if threadId}
+					<ThreadDetails {threadId} />
 				{:else}
 					<div
 						class="flex h-full items-center justify-center text-center text-balance text-muted-foreground"
@@ -205,16 +217,16 @@
 		<PaneGroup direction="horizontal" autoSaveId="support-2pane" class="h-full">
 			<Pane defaultSize={30} minSize={20} maxSize={50}>
 				<ThreadList
-					filterMode={params.mode}
-					statusFilter={params.status}
-					searchQuery={params.search}
+					filterMode={filters.mode}
+					statusFilter={filters.status}
+					searchQuery={filters.search}
 					threads={allThreads}
-					selectedThreadId={params.thread}
+					selectedThreadId={threadId}
 					{isLoading}
 					{isDone}
-					onFilterChange={(mode) => (params.mode = mode)}
-					onStatusChange={(status) => (params.status = status)}
-					onSearchChange={(query) => (params.search = query)}
+					onFilterChange={(mode) => (filters.mode = mode)}
+					onStatusChange={(status) => (filters.status = status)}
+					onSearchChange={(query) => (filters.search = query)}
 					onThreadSelect={selectThread}
 					onLoadMore={loadMoreThreads}
 				/>
@@ -225,8 +237,8 @@
 			/>
 
 			<Pane defaultSize={70} minSize={50}>
-				{#if params.thread}
-					<ThreadChat threadId={params.thread} initialThread={selectedThread} />
+				{#if threadId}
+					<ThreadChat {threadId} initialThread={selectedThread} />
 				{:else}
 					<div
 						class="flex h-full items-center justify-center text-center text-balance text-muted-foreground"
@@ -242,47 +254,43 @@
 		<div class="relative h-full overflow-hidden">
 			<!-- Thread List (always visible, covered by sliding panel) -->
 			<ThreadList
-				filterMode={params.mode}
-				statusFilter={params.status}
-				searchQuery={params.search}
+				filterMode={filters.mode}
+				statusFilter={filters.status}
+				searchQuery={filters.search}
 				threads={allThreads}
-				selectedThreadId={params.thread}
+				selectedThreadId={threadId}
 				{isLoading}
 				{isDone}
-				onFilterChange={(mode) => (params.mode = mode)}
-				onStatusChange={(status) => (params.status = status)}
-				onSearchChange={(query) => (params.search = query)}
+				onFilterChange={(mode) => (filters.mode = mode)}
+				onStatusChange={(status) => (filters.status = status)}
+				onSearchChange={(query) => (filters.search = query)}
 				onThreadSelect={selectThread}
 				onLoadMore={loadMoreThreads}
 			/>
 
 			<!-- Chat (slides over thread list from right) -->
-			<SlidingPanel open={!!params.thread} class="bg-background">
-				{#if params.thread}
-					<ThreadChat
-						threadId={params.thread}
-						initialThread={selectedThread}
-						onBackClick={clearThread}
-					/>
+			<SlidingPanel open={!!threadId} class="bg-background">
+				{#if threadId}
+					<ThreadChat {threadId} initialThread={selectedThread} onBackClick={clearThread} />
 				{/if}
 			</SlidingPanel>
 		</div>
 	{/if}
 
 	<!-- Tablet/Desktop LG (≥640px, <1280px): Sheet overlay from right -->
-	{#if params.thread && media.sm && !media.xl}
+	{#if threadId && media.sm && !media.xl}
 		<Sheet.Root bind:open={adminSupportUI.detailsOpen}>
 			<Sheet.Content side="right" class="w-80 p-0">
-				<ThreadDetails threadId={params.thread} />
+				<ThreadDetails {threadId} />
 			</Sheet.Content>
 		</Sheet.Root>
 	{/if}
 
 	<!-- Mobile (<640px): Bottom drawer -->
-	{#if params.thread && !media.sm}
+	{#if threadId && !media.sm}
 		<Drawer.Root bind:open={adminSupportUI.detailsOpen} direction="bottom">
 			<Drawer.Content class="h-[85svh] p-0">
-				<ThreadDetails threadId={params.thread} />
+				<ThreadDetails {threadId} />
 			</Drawer.Content>
 		</Drawer.Root>
 	{/if}

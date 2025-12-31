@@ -49,9 +49,10 @@ export default defineSchema({
 		.index('by_timestamp', ['timestamp']),
 
 	// Internal notes for users - visible only to admins, not to users
-	// Supports both authenticated users (Better Auth IDs) and anonymous users (anon_*)
+	// Supports both authenticated users (Better Auth IDs) and anonymous users
+	// See: src/lib/convex/utils/anonymousUser.ts for ANONYMOUS_USER_PREFIX constant
 	internalUserNotes: defineTable({
-		userId: v.string(), // Reference to user (Better Auth ID or anon_*)
+		userId: v.string(), // Reference to user (Better Auth ID or anonymous ID)
 		adminUserId: v.string(), // Admin who created the note
 		content: v.string(), // Note content
 		createdAt: v.number() // Timestamp when note was created
@@ -86,6 +87,7 @@ export default defineSchema({
 		.index('by_user', ['userId'])
 		.index('by_status', ['status'])
 		.index('by_assigned', ['assignedTo'])
+		.index('by_status_and_assigned', ['status', 'assignedTo'])
 		.index('by_created', ['createdAt'])
 		.index('by_unread', ['unreadByAdmin'])
 		.index('by_unread_and_assigned', ['unreadByAdmin', 'assignedTo'])

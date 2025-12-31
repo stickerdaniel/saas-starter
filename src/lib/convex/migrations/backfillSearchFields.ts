@@ -1,5 +1,6 @@
 import { internalMutation } from '../_generated/server';
 import { components } from '../_generated/api';
+import { isAnonymousUser } from '../utils/anonymousUser';
 
 /**
  * Backfill search fields for existing supportThreads records.
@@ -53,7 +54,7 @@ export default internalMutation({
 				let userName: string | undefined;
 				let userEmail: string | undefined;
 
-				if (agentThread.userId && !agentThread.userId.startsWith('anon_')) {
+				if (agentThread.userId && !isAnonymousUser(agentThread.userId)) {
 					try {
 						const user = await ctx.runQuery(components.betterAuth.adapter.findOne, {
 							model: 'user',

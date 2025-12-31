@@ -3,6 +3,7 @@ import { v } from 'convex/values';
 import { supportAgent } from './agent';
 import { components, internal } from '../_generated/api';
 import { paginationOptsValidator } from 'convex/server';
+import { isAnonymousUser } from '../utils/anonymousUser';
 
 /**
  * Helper to build searchText from denormalized fields.
@@ -51,7 +52,7 @@ export const createThread = mutation({
 		let userName: string | undefined;
 		let userEmail: string | undefined;
 
-		if (args.userId && !args.userId.startsWith('anon_')) {
+		if (args.userId && !isAnonymousUser(args.userId)) {
 			try {
 				const user = await ctx.runQuery(components.betterAuth.adapter.findOne, {
 					model: 'user',

@@ -4,6 +4,7 @@ import { paginationOptsValidator } from 'convex/server';
 import { adminQuery } from '../../functions';
 import { SUPPORT_THREADS_PAGE_SIZE, ADMIN_USERS_BATCH_SIZE } from './constants';
 import { parseBetterAuthUsers, betterAuthUserSchema } from '../types';
+import { isAnonymousUser } from '../../utils/anonymousUser';
 
 /**
  * List threads with admin filters
@@ -88,89 +89,55 @@ export const listThreadsForAdmin = adminQuery({
 		// QUERY PATH: Search vs Non-Search
 		// =========================================================================
 		if (isSearchActive) {
-			// SEARCH PATH: Use full-text search index with filter fields
+			// SEARCH PATH: Use chainable search filter builder
 			const searchQuery = args.search!.trim();
 
-			// Build search query with optional filters
-			// Note: Convex search index filters are applied BEFORE pagination (efficient!)
-			if (statusFilter && isUnassigned) {
-				// Status + unassigned
+			supportThreads = await ctx.db
+				.query('supportThreads')
+				.withSearchIndex('search_all', (q) => {
+					let filter = q.search('searchText', searchQuery);
+					if (statusFilter) filter = filter.eq('status', statusFilter);
+					if (isUnassigned) filter = filter.eq('assignedTo', undefined);
+					else if (assignedToFilter) filter = filter.eq('assignedTo', assignedToFilter);
+					return filter;
+				})
+				.paginate(paginationOpts);
+		} else {
+			// NON-SEARCH PATH: Support combined status + assignment filtering
+			if (statusFilter && (isUnassigned || assignedToFilter)) {
+				// Combined: status + assignment (use compound index)
 				supportThreads = await ctx.db
 					.query('supportThreads')
-					.withSearchIndex('search_all', (q) =>
+					.withIndex('by_status_and_assigned', (q) =>
 						q
-							.search('searchText', searchQuery)
 							.eq('status', statusFilter)
-							.eq('assignedTo', undefined)
+							.eq('assignedTo', isUnassigned ? undefined : assignedToFilter)
 					)
-					.paginate(paginationOpts);
-			} else if (statusFilter && assignedToFilter) {
-				// Status + specific admin
-				supportThreads = await ctx.db
-					.query('supportThreads')
-					.withSearchIndex('search_all', (q) =>
-						q
-							.search('searchText', searchQuery)
-							.eq('status', statusFilter)
-							.eq('assignedTo', assignedToFilter)
-					)
+					.order('desc')
 					.paginate(paginationOpts);
 			} else if (statusFilter) {
 				// Status only
-				supportThreads = await ctx.db
-					.query('supportThreads')
-					.withSearchIndex('search_all', (q) =>
-						q.search('searchText', searchQuery).eq('status', statusFilter)
-					)
-					.paginate(paginationOpts);
-			} else if (isUnassigned) {
-				// Unassigned only
-				supportThreads = await ctx.db
-					.query('supportThreads')
-					.withSearchIndex('search_all', (q) =>
-						q.search('searchText', searchQuery).eq('assignedTo', undefined)
-					)
-					.paginate(paginationOpts);
-			} else if (assignedToFilter) {
-				// Specific admin only
-				supportThreads = await ctx.db
-					.query('supportThreads')
-					.withSearchIndex('search_all', (q) =>
-						q.search('searchText', searchQuery).eq('assignedTo', assignedToFilter)
-					)
-					.paginate(paginationOpts);
-			} else {
-				// Search only (no filters)
-				supportThreads = await ctx.db
-					.query('supportThreads')
-					.withSearchIndex('search_all', (q) => q.search('searchText', searchQuery))
-					.paginate(paginationOpts);
-			}
-		} else {
-			// NON-SEARCH PATH: Use regular indexes for efficient filtering
-			if (statusFilter) {
-				// Use status index
 				supportThreads = await ctx.db
 					.query('supportThreads')
 					.withIndex('by_status', (q) => q.eq('status', statusFilter))
 					.order('desc')
 					.paginate(paginationOpts);
 			} else if (isUnassigned) {
-				// Use assignment index for unassigned
+				// Unassigned only (no status filter)
 				supportThreads = await ctx.db
 					.query('supportThreads')
 					.withIndex('by_assigned', (q) => q.eq('assignedTo', undefined))
 					.order('desc')
 					.paginate(paginationOpts);
 			} else if (assignedToFilter) {
-				// Use assignment index for specific admin
+				// Specific admin only (no status filter)
 				supportThreads = await ctx.db
 					.query('supportThreads')
 					.withIndex('by_assigned', (q) => q.eq('assignedTo', assignedToFilter))
 					.order('desc')
 					.paginate(paginationOpts);
 			} else {
-				// No filters - get all
+				// No filters
 				supportThreads = await ctx.db
 					.query('supportThreads')
 					.order('desc')
@@ -336,10 +303,7 @@ export const getThreadForAdmin = adminQuery({
 		// 5. Get user details (handle anonymous users)
 		let user;
 		if (agentThread.userId) {
-			// Check if userId is a valid Convex ID (anonymous users have format: anon_*)
-			const isAnonymous = agentThread.userId.startsWith('anon_');
-
-			if (!isAnonymous) {
+			if (!isAnonymousUser(agentThread.userId)) {
 				// Registered user - lookup in user table
 				try {
 					const userData = await ctx.runQuery(components.betterAuth.adapter.findOne, {

@@ -36,6 +36,7 @@ import type * as support_messages from '../support/messages.js';
 import type * as support_threads from '../support/threads.js';
 import type * as tests from '../tests.js';
 import type * as users from '../users.js';
+import type * as utils_anonymousUser from '../utils/anonymousUser.js';
 
 import type { ApiFromModules, FilterApi, FunctionReference } from 'convex/server';
 
@@ -68,6 +69,7 @@ declare const fullApi: ApiFromModules<{
 	'support/threads': typeof support_threads;
 	tests: typeof tests;
 	users: typeof users;
+	'utils/anonymousUser': typeof utils_anonymousUser;
 }>;
 
 /**
