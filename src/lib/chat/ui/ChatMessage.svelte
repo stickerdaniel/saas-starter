@@ -1,8 +1,9 @@
 <script lang="ts">
-	import { Message, MessageContent } from '$lib/components/prompt-kit/message';
+	import { Message } from '$lib/components/prompt-kit/message';
 	import { Response } from '$lib/components/ai-elements/response';
 	import ChatAttachments from './ChatAttachments.svelte';
 	import ChatReasoning from './ChatReasoning.svelte';
+	import MessageBubble from './MessageBubble.svelte';
 	import { getChatUIContext } from './ChatContext.svelte.js';
 	import { type DisplayMessage, type Attachment } from '../core/types.js';
 
@@ -19,6 +20,7 @@
 	const ctx = getChatUIContext();
 
 	const isUser = $derived(message.role === 'user');
+	const align = $derived(ctx.getAlignment(message.role));
 	const isReasoningOpen = $derived(ctx.isReasoningOpen(message.id));
 
 	// For assistant messages, determine if we should show reasoning section
@@ -39,27 +41,19 @@
 	}
 </script>
 
-<div class="flex w-full flex-col gap-1 {isUser ? 'items-end' : 'items-start'}">
+<div class="flex w-full flex-col gap-1 {align === 'right' ? 'items-end' : 'items-start'}">
 	{#if attachments.length > 0}
 		<div class="max-w-[85%] md:max-w-[75%]">
-			<ChatAttachments {attachments} readonly={true} columns={2} class="px-0" />
+			<ChatAttachments {attachments} readonly={true} columns={2} {align} class="px-0" />
 		</div>
 	{/if}
-	<Message class="flex w-full flex-col gap-2 {isUser ? 'items-end' : 'items-start'}">
+	<Message class="flex w-full flex-col gap-2 {align === 'right' ? 'items-end' : 'items-start'}">
 		{#if isUser}
-			<MessageContent
-				class="max-w-[85%] bg-primary/15 px-5 py-2.5 text-foreground md:max-w-[75%] {attachments.length >
-				0
-					? 'rounded-3xl rounded-tr-lg'
-					: 'rounded-3xl'}"
-			>
+			<MessageBubble {align} variant="filled" hasTopAttachment={attachments.length > 0}>
 				{message.displayText}
-			</MessageContent>
+			</MessageBubble>
 		{:else}
-			<!-- Regular assistant message -->
-			<MessageContent
-				class="prose w-full flex-1 rounded-3xl bg-transparent p-0 pr-5 text-foreground"
-			>
+			<MessageBubble {align} variant="ghost">
 				{#if showReasoning}
 					<ChatReasoning
 						open={isReasoningOpen}
@@ -72,7 +66,7 @@
 				{#if message.displayText}
 					<Response content={message.displayText} animation={{ enabled: true }} />
 				{/if}
-			</MessageContent>
+			</MessageBubble>
 		{/if}
 	</Message>
 </div>

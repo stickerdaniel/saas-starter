@@ -12,7 +12,12 @@
 		extractUserMessageText,
 		normalizeMessage
 	} from '../core/StreamProcessor.js';
-	import { ChatUIContext, setChatUIContext, type UploadConfig } from './ChatContext.svelte.js';
+	import {
+		ChatUIContext,
+		setChatUIContext,
+		type UploadConfig,
+		type ChatAlignment
+	} from './ChatContext.svelte.js';
 
 	// Type for the query response with streams
 	type MessagesQueryResponse = PaginationResult<ChatMessage> & {
@@ -47,6 +52,7 @@
 		externalCore,
 		externalUIContext,
 		uploadConfig,
+		userAlignment = 'right',
 		pageSize = 50,
 		children
 	}: {
@@ -62,6 +68,8 @@
 		externalUIContext?: ChatUIContext;
 		/** Upload configuration for file attachments */
 		uploadConfig?: UploadConfig;
+		/** User message alignment - 'right' (default) or 'left' for admin view */
+		userAlignment?: ChatAlignment;
 		/** Number of messages per page */
 		pageSize?: number;
 		/** Child components */
@@ -83,7 +91,8 @@
 	const core = (externalCore as unknown as ChatCore) ?? internalCore!;
 
 	// Create and set UI context (use external if provided)
-	const uiContext = externalUIContext ?? new ChatUIContext(core, client, uploadConfig);
+	const uiContext =
+		externalUIContext ?? new ChatUIContext(core, client, uploadConfig, userAlignment);
 	setChatUIContext(uiContext);
 
 	// Update core threadId when prop changes (only for internal core)

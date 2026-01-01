@@ -120,6 +120,7 @@
 	<!-- Chat Messages -->
 	<ChatRoot
 		{threadId}
+		userAlignment="left"
 		api={{
 			listMessages: api.support.messages.listMessages,
 			sendMessage: api.admin.support.mutations.sendAdminReply
