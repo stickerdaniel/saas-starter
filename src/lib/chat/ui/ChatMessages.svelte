@@ -26,6 +26,26 @@
 
 	const ctx = getChatUIContext();
 
+	/**
+	 * Get the "sender type" for a message to determine grouping
+	 * Returns: 'user' | 'admin' | 'ai'
+	 */
+	function getSenderType(message: DisplayMessage): 'user' | 'admin' | 'ai' {
+		if (message.role === 'user') return 'user';
+		if (message.metadata?.provider === 'human') return 'admin';
+		return 'ai';
+	}
+
+	/**
+	 * Check if a message is the first in its group (different sender than previous)
+	 */
+	function isFirstInGroup(index: number, messages: DisplayMessage[]): boolean {
+		if (index === 0) return true;
+		const currentSender = getSenderType(messages[index]);
+		const previousSender = getSenderType(messages[index - 1]);
+		return currentSender !== previousSender;
+	}
+
 	// Default attachment extraction if not provided
 	function defaultExtractAttachments(msg: DisplayMessage): Attachment[] {
 		// 1. Optimistic attachments
@@ -81,9 +101,13 @@
 			{/if}
 		{:else}
 			<!-- Messages list with fade-in animation on first load -->
-			<div class="space-y-12 py-20 pr-4 pl-9 {ctx.messagesFade.animationClass}">
-				{#each ctx.displayMessages as message (message._renderKey ?? message.id)}
-					<ChatMessage {message} attachments={getAttachments(message)} />
+			<div class="py-20 pr-4 pl-9 {ctx.messagesFade.animationClass}">
+				{#each ctx.displayMessages as message, index (message._renderKey ?? message.id)}
+					<ChatMessage
+						{message}
+						attachments={getAttachments(message)}
+						isFirstInGroup={isFirstInGroup(index, ctx.displayMessages)}
+					/>
 				{/each}
 			</div>
 		{/if}

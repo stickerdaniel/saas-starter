@@ -223,15 +223,14 @@
 				}
 
 				const reasoning = msg.parts ? extractReasoning(msg.parts) : msg.reasoning || '';
-				const cachedStatus = core.streamCache.getCachedStatus(msg.order);
 
 				return {
 					...msg,
 					_renderKey: optimisticKeyMap.get(msg.id),
 					displayText,
 					displayReasoning: reasoning,
-					isStreaming: cachedStatus === 'streaming',
-					hasReasoningStream: core.streamCache.hasStatusCache(msg.order)
+					isStreaming: false,
+					hasReasoningStream: !!reasoning
 				};
 			});
 		}
@@ -264,13 +263,21 @@
 			}
 		});
 
+		// Build a set of (order, stepOrder) tuples that are actually being streamed
+		// This ensures we only apply streaming data to the specific message being streamed
+		const streamingKeys = new Set(streamMessages.map((s) => `${s.order}-${s.stepOrder}`));
+
 		// Merge streaming data with messages
 		return allMessages.map((msg) => {
-			const streamText = streamingTextMap.get(msg.order);
-			const streamReasoning = streamingReasoningMap.get(msg.order);
-			const streamStatus = streamingStatusMap.get(msg.order);
+			// Only apply streaming data if this specific message is being streamed
+			// This prevents finished streams from overwriting other messages with the same order
+			const msgKey = `${msg.order}-${(msg as { stepOrder?: number }).stepOrder ?? 0}`;
+			const isBeingStreamed = streamingKeys.has(msgKey);
+			const streamText = isBeingStreamed ? streamingTextMap.get(msg.order) : undefined;
+			const streamReasoning = isBeingStreamed ? streamingReasoningMap.get(msg.order) : undefined;
+			const streamStatus = isBeingStreamed ? streamingStatusMap.get(msg.order) : undefined;
 			const isStreaming = streamStatus === 'streaming';
-			const hasReasoningStream = streamStatus !== undefined;
+			const hasReasoningStream = isBeingStreamed && streamStatus !== undefined;
 
 			const isUser = msg.role === 'user';
 			let displayText = '';
@@ -281,18 +288,21 @@
 			}
 
 			// Three-tier fallback for reasoning
+			// Only use cached reasoning for messages that were actually streamed
 			const persistedReasoning = msg.parts ? extractReasoning(msg.parts) : msg.reasoning || '';
-			const cachedReasoning = core.streamCache.getCachedReasoning(msg.order) || '';
+			const cachedReasoning = isBeingStreamed
+				? core.streamCache.getCachedReasoning(msg.order) || ''
+				: '';
 			const currentReasoning = streamReasoning || persistedReasoning;
 			const displayReasoning = currentReasoning || cachedReasoning;
 
-			// Update cache
-			if (currentReasoning) {
+			// Update cache only for streamed messages
+			if (isBeingStreamed && currentReasoning) {
 				core.streamCache.updateReasoningCache(msg.order, currentReasoning);
 			}
 
-			// Clear cache once persisted reasoning exists
-			if (persistedReasoning && cachedReasoning && !streamReasoning) {
+			// Clear cache once persisted reasoning exists (only for streamed messages)
+			if (isBeingStreamed && persistedReasoning && cachedReasoning && !streamReasoning) {
 				core.streamCache.clearReasoningCache(msg.order);
 			}
 

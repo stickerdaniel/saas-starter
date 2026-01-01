@@ -15,7 +15,6 @@
 	import { T } from '@tolgee/svelte';
 	import { motion } from 'motion-sv';
 	import { formatDistanceToNow } from 'date-fns';
-	import { adminSupportRefresh } from '$lib/hooks/admin-support-threads.svelte';
 
 	let {
 		threadId
@@ -57,7 +56,6 @@
 				adminUserId: adminUserId === '' ? undefined : adminUserId
 			});
 			toast.success('Assignment updated');
-			adminSupportRefresh.refresh();
 		} catch (error) {
 			toast.error(
 				`Failed to update assignment: ${error instanceof Error ? error.message : 'Unknown error'}`
@@ -72,7 +70,6 @@
 				status
 			});
 			toast.success('Status updated');
-			adminSupportRefresh.refresh();
 		} catch (error) {
 			toast.error(
 				`Failed to update status: ${error instanceof Error ? error.message : 'Unknown error'}`
@@ -87,7 +84,6 @@
 				priority: priority === '' ? undefined : (priority as 'low' | 'medium' | 'high' | undefined)
 			});
 			toast.success('Priority updated');
-			adminSupportRefresh.refresh();
 		} catch (error) {
 			toast.error(
 				`Failed to update priority: ${error instanceof Error ? error.message : 'Unknown error'}`

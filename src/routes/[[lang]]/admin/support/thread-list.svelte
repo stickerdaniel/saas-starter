@@ -13,7 +13,6 @@
 	import { formatDistanceToNow } from 'date-fns';
 	import { T } from '@tolgee/svelte';
 	import { InfiniteLoader, LoaderState } from 'svelte-infinite';
-	import { adminSupportRefresh } from '$lib/hooks/admin-support-threads.svelte';
 
 	interface Thread {
 		_id: string;
@@ -66,7 +65,7 @@
 		onStatusChange: (status: 'open' | 'done') => void;
 		onSearchChange: (query: string) => void;
 		onThreadSelect: (id: string) => void;
-		onLoadMore: () => Promise<void>;
+		onLoadMore: (numItems: number) => boolean;
 	} = $props();
 
 	// Create loader state instance for svelte-infinite
@@ -81,28 +80,22 @@
 
 	// Trigger load function for InfiniteLoader
 	async function triggerLoad() {
-		try {
-			await onLoadMore();
-			// Parent updates isDone state, so we check it after loading
-			if (isDone) {
-				loaderState.complete();
-			} else {
-				loaderState.loaded();
-			}
-		} catch (error) {
-			console.error('[ThreadList] Failed to load more:', error);
-			loaderState.error();
+		const canLoadMore = onLoadMore(25);
+		if (!canLoadMore) {
+			loaderState.complete();
+		} else {
+			loaderState.loaded();
 		}
 	}
 
-	// Reset loader when global trigger changes (skip initial mount)
-	let hasInitializedResetWatch = false;
+	// Reset loader when isDone changes to false (new query started)
+	let prevIsDone = $state(isDone);
 	$effect(() => {
-		void adminSupportRefresh.loaderResetTrigger;
-		if (hasInitializedResetWatch) {
+		if (prevIsDone && !isDone) {
+			// Query was reset (filters changed), reset loader state
 			loaderState.reset();
 		}
-		hasInitializedResetWatch = true;
+		prevIsDone = isDone;
 	});
 </script>
 
@@ -163,7 +156,7 @@
 	<div class="relative flex-1">
 		{#if isLoading}
 			<!-- Loading skeletons -->
-			<div class="absolute inset-0 overflow-y-auto" out:fade={{ duration: 150 }}>
+			<div class="absolute inset-0 overflow-y-auto scrollbar-thin" out:fade={{ duration: 150 }}>
 				{#each Array(6) as _, i (i)}
 					<div class="border-b p-4">
 						<div class="flex items-start gap-3">
@@ -190,7 +183,7 @@
 				{/each}
 			</div>
 		{:else if threads && threads.length > 0}
-			<div class="absolute inset-0 overflow-y-auto" in:fade={{ duration: 150 }}>
+			<div class="absolute inset-0 overflow-y-auto scrollbar-thin" in:fade={{ duration: 150 }}>
 				<InfiniteLoader
 					{loaderState}
 					{triggerLoad}

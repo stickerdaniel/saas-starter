@@ -75,12 +75,29 @@ export const sendMessage = mutation({
 			threadId: args.threadId
 		});
 
-		// Schedule async action to generate AI response with streaming
-		await ctx.scheduler.runAfter(0, internal.support.messages.generateResponse, {
-			threadId: args.threadId,
-			promptMessageId: messageId,
-			userId: args.userId
-		});
+		// Check if thread is assigned to a human admin (HITL mode)
+		// When assigned, skip AI response - human admin handles the conversation
+		const supportThread = await ctx.db
+			.query('supportThreads')
+			.withIndex('by_thread', (q) => q.eq('threadId', args.threadId))
+			.first();
+
+		if (!supportThread?.assignedTo) {
+			// AI mode: Schedule async action to generate AI response with streaming
+			await ctx.scheduler.runAfter(0, internal.support.messages.generateResponse, {
+				threadId: args.threadId,
+				promptMessageId: messageId,
+				userId: args.userId
+			});
+		}
+
+		// Mark thread as unread for admin when user sends message
+		if (supportThread) {
+			await ctx.db.patch(supportThread._id, {
+				unreadByAdmin: true,
+				updatedAt: Date.now()
+			});
+		}
 
 		return { messageId };
 	}
@@ -163,12 +180,20 @@ export const listMessages = query({
 		}
 
 		// Create a map of message id -> metadata
-		// Note: metadata field exists but isn't in the TypeScript types
+		// Note: metadata fields (provider, providerMetadata) are stored as top-level fields
 		const metadataMap = new Map<string, Record<string, unknown>>();
 		for (const msg of rawMessages.page) {
-			const metadata = (msg as unknown as { metadata?: Record<string, unknown> }).metadata;
-			if (metadata) {
-				metadataMap.set(msg._id, metadata);
+			const rawMsg = msg as unknown as {
+				_id: string;
+				provider?: string;
+				providerMetadata?: Record<string, unknown>;
+			};
+			// Only create metadata object if provider fields exist
+			if (rawMsg.provider || rawMsg.providerMetadata) {
+				metadataMap.set(rawMsg._id, {
+					provider: rawMsg.provider,
+					providerMetadata: rawMsg.providerMetadata
+				});
 			}
 		}
 

@@ -1,6 +1,6 @@
 import { v } from 'convex/values';
-import { internal } from '../../_generated/api';
-import { supportAgent } from '../../support/agent';
+import { internal, components } from '../../_generated/api';
+import { saveMessage } from '@convex-dev/agent';
 import { adminMutation } from '../../functions';
 
 /**
@@ -86,7 +86,7 @@ export const updateThreadPriority = adminMutation({
  * Send admin reply to thread
  *
  * This adds a human admin message (distinct from AI) using message metadata.
- * Does NOT trigger AI response.
+ * Does NOT trigger AI response. Auto-assigns thread to admin on first reply.
  */
 export const sendAdminReply = adminMutation({
 	args: {
@@ -100,36 +100,48 @@ export const sendAdminReply = adminMutation({
 			throw new Error('Message content cannot be empty');
 		}
 
-		// Use agent saveMessage with providerMetadata for admin info
-		// NOTE: Messages don't support arbitrary custom metadata fields, so we use providerMetadata
-		await supportAgent.saveMessage(ctx, {
-			threadId: args.threadId,
-			prompt: args.prompt.trim(),
-			metadata: {
-				providerMetadata: {
-					admin: {
-						isAdminMessage: true,
-						adminUserId: ctx.user._id,
-						adminName: ctx.user.name || ctx.user.email || 'Admin',
-						adminEmail: ctx.user.email
-					}
-				}
-			},
-			skipEmbeddings: true // Don't embed admin messages
-		});
-
-		// Mark as read by admin
+		// Get support thread for auto-assign and read status
 		const supportThread = await ctx.db
 			.query('supportThreads')
 			.withIndex('by_thread', (q) => q.eq('threadId', args.threadId))
 			.first();
 
-		if (supportThread) {
-			await ctx.db.patch(supportThread._id, {
-				unreadByAdmin: false,
-				updatedAt: Date.now()
-			});
+		if (!supportThread) {
+			throw new Error('Support thread not found');
 		}
+
+		// Save admin message with role: "assistant" and human provider metadata
+		// Using standalone saveMessage to set custom agentName (Agent.saveMessage uses agent's name)
+		const adminName = ctx.user.name || ctx.user.email || 'Admin';
+		const result = await saveMessage(ctx, components.agent, {
+			threadId: args.threadId,
+			agentName: adminName,
+			message: {
+				role: 'assistant',
+				content: args.prompt.trim()
+			},
+			metadata: {
+				provider: 'human',
+				providerMetadata: {
+					admin: {
+						isAdminMessage: true,
+						adminUserId: ctx.user._id,
+						adminName,
+						adminEmail: ctx.user.email
+					}
+				}
+			}
+		});
+
+		// Auto-assign to current admin if not already assigned (enables HITL mode)
+		// When assigned, user messages won't trigger AI responses
+		const shouldAutoAssign = !supportThread.assignedTo;
+
+		await ctx.db.patch(supportThread._id, {
+			unreadByAdmin: false,
+			updatedAt: Date.now(),
+			...(shouldAutoAssign && { assignedTo: ctx.user._id })
+		});
 
 		// Sync denormalized search fields
 		await ctx.runMutation(internal.support.threads.syncLastMessage, {

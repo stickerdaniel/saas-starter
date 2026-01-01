@@ -9,17 +9,25 @@
 
 	let {
 		message,
-		attachments = []
+		attachments = [],
+		isFirstInGroup = true
 	}: {
 		/** The message to display */
 		message: DisplayMessage;
 		/** Extracted attachments for this message */
 		attachments?: Attachment[];
+		/** Whether this is the first message in a group (different sender than previous) */
+		isFirstInGroup?: boolean;
 	} = $props();
 
 	const ctx = getChatUIContext();
 
 	const isUser = $derived(message.role === 'user');
+	const isAdminMessage = $derived(
+		message.metadata?.provider === 'human' ||
+			(message.metadata?.providerMetadata as { admin?: { isAdminMessage?: boolean } })?.admin
+				?.isAdminMessage === true
+	);
 	const align = $derived(ctx.getAlignment(message.role));
 	const isReasoningOpen = $derived(ctx.isReasoningOpen(message.id));
 
@@ -41,7 +49,11 @@
 	}
 </script>
 
-<div class="flex w-full flex-col gap-1 {align === 'right' ? 'items-end' : 'items-start'}">
+<div
+	class="flex w-full flex-col gap-1 {align === 'right'
+		? 'items-end'
+		: 'items-start'} {isFirstInGroup ? 'mt-8' : 'mt-1'}"
+>
 	{#if attachments.length > 0}
 		<div class="max-w-[85%] md:max-w-[75%]">
 			<ChatAttachments {attachments} readonly={true} columns={2} {align} class="px-0" />
@@ -52,7 +64,13 @@
 			<MessageBubble {align} variant="filled" hasTopAttachment={attachments.length > 0}>
 				{message.displayText}
 			</MessageBubble>
+		{:else if isAdminMessage}
+			<!-- Admin messages: filled bubble style like user messages -->
+			<MessageBubble {align} variant="filled">
+				{message.displayText}
+			</MessageBubble>
 		{:else}
+			<!-- AI messages: ghost/prose style with reasoning -->
 			<MessageBubble {align} variant="ghost">
 				{#if showReasoning}
 					<ChatReasoning

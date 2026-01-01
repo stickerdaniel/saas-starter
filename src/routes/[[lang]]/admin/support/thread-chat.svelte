@@ -130,6 +130,21 @@
 			<ChatMessages />
 		</div>
 
-		<ChatInput class="mx-4 -translate-y-4 p-0" placeholder="Reply to customer..." />
+		<ChatInput
+			class="mx-4 -translate-y-4 p-0"
+			placeholder="Reply to customer..."
+			showFileButton={false}
+			onSend={async (prompt) => {
+				if (!prompt) return;
+				try {
+					await client.mutation(api.admin.support.mutations.sendAdminReply, {
+						threadId,
+						prompt
+					});
+				} catch (error) {
+					console.error('[Admin sendAdminReply] Error:', error);
+				}
+			}}
+		/>
 	</ChatRoot>
 </div>
