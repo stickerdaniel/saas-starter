@@ -1,4 +1,4 @@
-import { getContext, setContext } from 'svelte';
+import { Context } from 'runed';
 
 export type PromptInputSchema = {
 	isLoading?: boolean;
@@ -33,18 +33,4 @@ export class PromptInputClass {
 	}
 }
 
-const PROMPT_INPUT_KEY = Symbol('prompt-input');
-
-export function setPromptInputContext(contextInstance: PromptInputClass) {
-	setContext(PROMPT_INPUT_KEY, contextInstance);
-}
-
-export function getPromptInputContext(): PromptInputClass {
-	const context = getContext<PromptInputClass>(PROMPT_INPUT_KEY);
-
-	if (!context) {
-		throw new Error('PromptInput components must be used within PromptInput');
-	}
-
-	return context;
-}
+export const promptInputContext = new Context<PromptInputClass>('prompt-input');

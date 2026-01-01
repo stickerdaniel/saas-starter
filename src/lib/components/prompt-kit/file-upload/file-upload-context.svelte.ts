@@ -1,3 +1,5 @@
+import { Context } from 'runed';
+
 export class FileUploadContext {
 	isDragging = $state(false);
 	inputRef = $state<HTMLInputElement | null>(null);
@@ -9,3 +11,5 @@ export class FileUploadContext {
 		this.disabled = disabled;
 	}
 }
+
+export const fileUploadContext = new Context<FileUploadContext>('file-upload');

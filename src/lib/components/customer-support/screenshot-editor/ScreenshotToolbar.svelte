@@ -2,11 +2,11 @@
 	import { Button } from '$lib/components/ui/button';
 	import * as Popover from '$lib/components/ui/popover';
 	import { Square, Pencil, Undo2, Redo2, X, Circle, ArrowRight } from '@lucide/svelte';
-	import { useScreenshotEditor } from './screenshot-editor-context.svelte';
+	import { screenshotEditorContext } from './screenshot-editor-context.svelte';
 	import { cn } from '$lib/utils';
 	import { DEFAULT_COLORS } from './types';
 
-	const editor = useScreenshotEditor();
+	const editor = screenshotEditorContext.get();
 
 	function handleToolClick(tool: typeof editor.currentTool) {
 		editor.setTool(tool);

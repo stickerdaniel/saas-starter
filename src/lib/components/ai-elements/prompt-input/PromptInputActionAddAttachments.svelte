@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { getAttachmentsContext } from './attachments-context.svelte.js';
+	import { attachmentsContext } from './attachments-context.svelte.js';
 	import PromptInputActionMenuItem from './PromptInputActionMenuItem.svelte';
 	import ImageIcon from './ImageIcon.svelte';
 
@@ -10,7 +10,7 @@
 
 	let { label = 'Add photos or files', class: className, ...props }: Props = $props();
 
-	let attachments = getAttachmentsContext();
+	const attachments = attachmentsContext.get();
 
 	let handleSelect = (e: Event) => {
 		e.preventDefault();

@@ -91,6 +91,40 @@
 			"unnamed": "Sin nombre",
 			"unverified": "No verificado",
 			"verified": "Verificado"
+		},
+		"support": {
+			"all_statuses": "Todos los estados",
+			"details": {
+				"assignee": "Asignado a",
+				"close_panel": "Cerrar panel de detalles",
+				"notes": "Notas Internas",
+				"open_panel": "Abrir panel de detalles",
+				"page_url": "URL de la página",
+				"priority": "Prioridad",
+				"status": "Estado",
+				"title": "Detalles",
+				"user_notes": "Notas del Usuario"
+			},
+			"filter": {
+				"all": "Todos",
+				"my_inbox": "Mi bandeja de entrada",
+				"unassigned": "Sin asignar"
+			},
+			"no_chats": "No se encontraron chats",
+			"no_open_chats": "No hay chats abiertos",
+			"no_done_chats": "No hay chats completados",
+			"priority": {
+				"high": "Alta",
+				"low": "Baja",
+				"medium": "Media"
+			},
+			"select_chat": "Seleccione un chat para ver la conversación",
+			"select_chat_for_details": "Seleccione un chat para ver detalles",
+			"status": {
+				"done": "Hecho",
+				"open": "Abierto"
+			},
+			"title": "Chats de Soporte"
 		}
 	},
 	"app": {
@@ -231,6 +265,7 @@
 		"cta": "Comenzar ahora",
 		"cta_demo": "Solicitar una demo",
 		"description": "Dale vida a tu SaaS en minutos, no en meses. Plantilla open-source cargada con la tecnología que te hace lanzar rápido.",
+		"section_label": "Inicio",
 		"tagline": "Foco en tu producto. Lanzamiento más rápido.",
 		"title": "Plantilla SaaS Starter"
 	},
@@ -352,6 +387,7 @@
 			"pro[3]": "Soporte prioritario"
 		},
 		"popular_badge": "Popular",
+		"section_label": "Precios",
 		"tiers": {
 			"enterprise": {
 				"button": "Contactar Ventas",
@@ -460,6 +496,7 @@
 			"ux_engineer": "Ingeniero UX",
 			"visual_designer": "Diseñador Visual"
 		},
+		"section_label": "Equipo",
 		"title": "Nuestro equipo soñado"
 	}
 }

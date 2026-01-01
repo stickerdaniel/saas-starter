@@ -1,4 +1,4 @@
-import { setContext, getContext } from 'svelte';
+import { Context } from 'runed';
 
 export interface FileUIPart {
 	type: 'file';
@@ -142,34 +142,7 @@ export class PromptInputController {
 	}
 }
 
-const ATTACHMENTS_CONTEXT_KEY = Symbol('attachments');
-const PROVIDER_CONTEXT_KEY = Symbol('prompt-input-provider');
-
-export function setAttachmentsContext(context: AttachmentsContext) {
-	setContext(ATTACHMENTS_CONTEXT_KEY, context);
-}
-
-export function getAttachmentsContext(): AttachmentsContext {
-	const context = getContext<AttachmentsContext>(ATTACHMENTS_CONTEXT_KEY);
-	if (!context) {
-		throw new Error('usePromptInputAttachments must be used within a PromptInput');
-	}
-	return context;
-}
-
-// Provider context (optional, for external state management)
-export function setPromptInputProvider(controller: PromptInputController) {
-	setContext(PROVIDER_CONTEXT_KEY, controller);
-}
-
-export function getPromptInputProvider(): PromptInputController | null {
-	return getContext<PromptInputController>(PROVIDER_CONTEXT_KEY) || null;
-}
-
-export function getPromptInputController(): PromptInputController {
-	const context = getContext<PromptInputController>(PROVIDER_CONTEXT_KEY);
-	if (!context) {
-		throw new Error('getPromptInputController must be used within a PromptInputProvider');
-	}
-	return context;
-}
+export const attachmentsContext = new Context<AttachmentsContext>('attachments');
+export const promptInputProviderContext = new Context<PromptInputController>(
+	'prompt-input-provider'
+);

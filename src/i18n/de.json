@@ -91,6 +91,40 @@
 			"unnamed": "Unbenannt",
 			"unverified": "Nicht verifiziert",
 			"verified": "Verifiziert"
+		},
+		"support": {
+			"all_statuses": "Alle Status",
+			"details": {
+				"assignee": "Zugewiesen an",
+				"close_panel": "Details-Panel schließen",
+				"notes": "Interne Notizen",
+				"open_panel": "Details-Panel öffnen",
+				"page_url": "Seiten-URL",
+				"priority": "Priorität",
+				"status": "Status",
+				"title": "Details",
+				"user_notes": "Benutzernotizen"
+			},
+			"filter": {
+				"all": "Alle",
+				"my_inbox": "Mein Posteingang",
+				"unassigned": "Nicht zugewiesen"
+			},
+			"no_chats": "Keine Chats gefunden",
+			"no_open_chats": "Keine offenen Chats",
+			"no_done_chats": "Keine abgeschlossenen Chats",
+			"priority": {
+				"high": "Hoch",
+				"low": "Niedrig",
+				"medium": "Mittel"
+			},
+			"select_chat": "Wählen Sie einen Chat, um die Unterhaltung anzuzeigen",
+			"select_chat_for_details": "Wählen Sie einen Chat, um Details anzuzeigen",
+			"status": {
+				"done": "Erledigt",
+				"open": "Offen"
+			},
+			"title": "Support-Chats"
 		}
 	},
 	"app": {
@@ -231,6 +265,7 @@
 		"cta": "Jetzt starten",
 		"cta_demo": "Demo anfordern",
 		"description": "Erwecke dein SaaS zum Leben in Minuten, nicht in Monaten. Open-Source Template mit einem Tech-Stack, der dich schnell shippen lässt.",
+		"section_label": "Start",
 		"tagline": "Mit Produktfokus schneller zum Ziel",
 		"title": "SaaS-Starter-Vorlage"
 	},
@@ -352,6 +387,7 @@
 			"pro[3]": "Priority-Support"
 		},
 		"popular_badge": "Beliebt",
+		"section_label": "Preise",
 		"tiers": {
 			"enterprise": {
 				"button": "Vertrieb kontaktieren",
@@ -460,6 +496,7 @@
 			"ux_engineer": "UX Engineer",
 			"visual_designer": "Visual Designer"
 		},
+		"section_label": "Team",
 		"title": "Unser Traumteam"
 	}
 }

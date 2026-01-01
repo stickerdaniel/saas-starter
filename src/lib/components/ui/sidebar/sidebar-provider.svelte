@@ -8,7 +8,7 @@
 		SIDEBAR_WIDTH,
 		SIDEBAR_WIDTH_ICON
 	} from './constants.js';
-	import { setSidebar } from './context.svelte.js';
+	import { SidebarState, sidebarContext } from './context.svelte.js';
 
 	let {
 		ref = $bindable(null),
@@ -23,16 +23,18 @@
 		onOpenChange?: (open: boolean) => void;
 	} = $props();
 
-	const sidebar = setSidebar({
-		open: () => open,
-		setOpen: (value: boolean) => {
-			open = value;
-			onOpenChange(value);
+	const sidebar = sidebarContext.set(
+		new SidebarState({
+			open: () => open,
+			setOpen: (value: boolean) => {
+				open = value;
+				onOpenChange(value);
 
-			// This sets the cookie to keep the sidebar state.
-			document.cookie = `${SIDEBAR_COOKIE_NAME}=${open}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`;
-		}
-	});
+				// This sets the cookie to keep the sidebar state.
+				document.cookie = `${SIDEBAR_COOKIE_NAME}=${open}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`;
+			}
+		})
+	);
 </script>
 
 <svelte:window onkeydown={sidebar.handleShortcutKeydown} />

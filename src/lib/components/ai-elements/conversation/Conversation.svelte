@@ -11,7 +11,7 @@
 </script>
 
 <script lang="ts">
-	import { setStickToBottomContext } from './stick-to-bottom-context.svelte.js';
+	import { StickToBottomContext, stickToBottomContext } from './stick-to-bottom-context.svelte.js';
 
 	let {
 		class: className,
@@ -22,7 +22,7 @@
 		...restProps
 	}: ConversationProps = $props();
 
-	let context = setStickToBottomContext();
+	let context = stickToBottomContext.set(new StickToBottomContext());
 </script>
 
 <div

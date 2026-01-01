@@ -1,6 +1,5 @@
 <script lang="ts">
-	import { getContext } from 'svelte';
-	import type { FileUploadContext } from './file-upload-context.svelte';
+	import { fileUploadContext } from './file-upload-context.svelte';
 	import type { Snippet } from 'svelte';
 	import { cn } from '$lib/utils';
 
@@ -14,7 +13,7 @@
 
 	let { asChild = false, class: className, children, onclick, ...restProps }: Props = $props();
 
-	const context = getContext<FileUploadContext>('file-upload');
+	const context = fileUploadContext.get();
 
 	function handleClick(e: MouseEvent) {
 		e.stopPropagation();

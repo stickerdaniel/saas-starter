@@ -21,8 +21,8 @@
 	} from '$lib/schemas/auth.js';
 	import { localizedHref } from '$lib/utils/i18n';
 	import { T } from '@tolgee/svelte';
-	import { getContext } from 'svelte';
 	import KeyIcon from '@lucide/svelte/icons/key-round';
+	import { authFlow } from '$lib/hooks/auth-flow.svelte';
 	import { defaults, superForm } from 'sveltekit-superforms';
 	import { zod4 } from 'sveltekit-superforms/adapters';
 
@@ -31,9 +31,6 @@
 		debounce: 300,
 		pushHistory: false
 	});
-
-	// Get email context from auth layout (persists across auth pages)
-	const authEmailCtx = getContext<{ get: () => string; set: (v: string) => void }>('auth:email');
 
 	let isLoading = $state(false);
 	let formError = $state('');
@@ -100,20 +97,19 @@
 	const { form: signInData, enhance: signInEnhance } = signInForm;
 	const { form: signUpData, enhance: signUpEnhance } = signUpForm;
 
-	// Initialize email from context
+	// Initialize email from global state
 	$effect(() => {
-		const savedEmail = authEmailCtx?.get();
-		if (savedEmail) {
-			$signInData.email = savedEmail;
-			$signUpData.email = savedEmail;
+		if (authFlow.email) {
+			$signInData.email = authFlow.email;
+			$signUpData.email = authFlow.email;
 		}
 	});
 
-	// Sync email changes to context and between forms
+	// Sync email changes to global state and between forms
 	$effect(() => {
 		const email = params.tab === 'signin' ? $signInData.email : $signUpData.email;
-		if (email && authEmailCtx) {
-			authEmailCtx.set(email);
+		if (email) {
+			authFlow.email = email;
 		}
 		// Sync between forms
 		if (params.tab === 'signin' && $signInData.email !== $signUpData.email) {
