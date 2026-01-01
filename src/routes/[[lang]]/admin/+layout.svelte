@@ -20,16 +20,8 @@
 		getAdminSidebarConfig({ pathname: page.url.pathname, lang: page.params.lang })
 	);
 
-	// Create reactive state for known user count (shared across admin pages)
-	let knownUserCount = $state<number | null>(null);
-
-	// Provide context with getter and setter for user count
-	setContext('adminUserCount', {
-		get: () => knownUserCount,
-		set: (count: number) => {
-			knownUserCount = count;
-		}
-	});
+	// Full control mode for pages that manage their own scroll/padding (e.g., support with PaneForge)
+	const fullControl = $derived(page.url.pathname.includes('/admin/support'));
 
 	// Provide current user ID for child components (e.g., preventing self-modification in admin actions)
 	setContext('currentUserId', viewer?._id);
@@ -37,6 +29,7 @@
 
 <AuthenticatedLayout
 	{sidebarConfig}
+	{fullControl}
 	user={viewer
 		? {
 				name: viewer.name ?? 'Admin',

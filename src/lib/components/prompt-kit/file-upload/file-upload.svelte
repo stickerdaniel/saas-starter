@@ -1,7 +1,6 @@
 <script lang="ts">
-	import { setContext } from 'svelte';
 	import type { Snippet } from 'svelte';
-	import { FileUploadContext } from './file-upload-context.svelte';
+	import { FileUploadContext, fileUploadContext } from './file-upload-context.svelte';
 
 	type Props = {
 		onFilesAdded: (files: File[]) => void;
@@ -13,8 +12,7 @@
 
 	let { onFilesAdded, children, multiple = true, accept, disabled = false }: Props = $props();
 
-	const ctx = new FileUploadContext(multiple, disabled);
-	setContext('file-upload', ctx);
+	const ctx = fileUploadContext.set(new FileUploadContext(multiple, disabled));
 
 	let dragCounter = 0;
 

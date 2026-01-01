@@ -1,13 +1,15 @@
-import { query } from '../_generated/server';
 import { v } from 'convex/values';
+import { adminQuery } from '../functions';
 
 /**
  * Get email events for a specific email ID
  *
  * Returns all events (delivered, bounced, etc.) for a given email.
  * Useful for tracking email delivery status and debugging issues.
+ *
+ * @security Requires admin role - email events contain sensitive delivery data
  */
-export const getEmailEvents = query({
+export const getEmailEvents = adminQuery({
 	args: {
 		emailId: v.string()
 	},
@@ -26,8 +28,10 @@ export const getEmailEvents = query({
  *
  * Returns the most recent email events across all emails.
  * Useful for monitoring email system health.
+ *
+ * @security Requires admin role - email events contain sensitive delivery data
  */
-export const getRecentEmailEvents = query({
+export const getRecentEmailEvents = adminQuery({
 	args: {
 		limit: v.optional(v.number())
 	},
@@ -49,8 +53,10 @@ export const getRecentEmailEvents = query({
  *
  * Returns email events filtered by type (delivered, bounced, complained, etc.)
  * Useful for analyzing specific email outcomes.
+ *
+ * @security Requires admin role - email events contain sensitive delivery data
  */
-export const getEmailEventsByType = query({
+export const getEmailEventsByType = adminQuery({
 	args: {
 		eventType: v.string(),
 		limit: v.optional(v.number())
@@ -73,8 +79,10 @@ export const getEmailEventsByType = query({
  *
  * Returns aggregated statistics about email events.
  * Useful for dashboards and monitoring.
+ *
+ * @security Requires admin role - email statistics are sensitive operational data
  */
-export const getEmailStats = query({
+export const getEmailStats = adminQuery({
 	args: {},
 	handler: async (ctx) => {
 		const allEvents = await ctx.db.query('emailEvents').collect();

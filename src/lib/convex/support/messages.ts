@@ -70,6 +70,11 @@ export const sendMessage = mutation({
 			messageId = result.messageId;
 		}
 
+		// Sync denormalized search fields with user's message
+		await ctx.runMutation(internal.support.threads.syncLastMessage, {
+			threadId: args.threadId
+		});
+
 		// Schedule async action to generate AI response with streaming
 		await ctx.scheduler.runAfter(0, internal.support.messages.generateResponse, {
 			threadId: args.threadId,
@@ -113,6 +118,11 @@ export const generateResponse = internalAction({
 
 		// Consume the stream to process all tool calls and responses
 		await result.consumeStream();
+
+		// Sync denormalized search fields with AI response
+		await ctx.runMutation(internal.support.threads.syncLastMessage, {
+			threadId: args.threadId
+		});
 	}
 });
 

@@ -2,7 +2,7 @@
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { cn } from '$lib/utils.js';
 	import PanelLeftIcon from '@lucide/svelte/icons/panel-left';
-	import { useSidebar } from './context.svelte.js';
+	import { sidebarContext } from './context.svelte.js';
 
 	let {
 		ref = $bindable(null),
@@ -16,7 +16,7 @@
 		[key: string]: any;
 	} = $props();
 
-	const sidebar = useSidebar();
+	const sidebar = sidebarContext.get();
 </script>
 
 <Button

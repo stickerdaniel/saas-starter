@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { cn } from '$lib/utils';
 	import { Textarea } from '$lib/components/ui/textarea/index.js';
-	import { getAttachmentsContext } from './attachments-context.svelte.js';
+	import { attachmentsContext } from './attachments-context.svelte.js';
 
 	interface Props {
 		class?: string;
@@ -18,7 +18,7 @@
 		...props
 	}: Props = $props();
 
-	let attachments = getAttachmentsContext();
+	const attachments = attachmentsContext.get();
 
 	let handleKeyDown = (e: KeyboardEvent) => {
 		if (e.key === 'Enter') {

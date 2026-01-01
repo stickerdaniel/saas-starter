@@ -1,12 +1,9 @@
-import { watch } from 'runed';
-import { setContext, getContext } from 'svelte';
-
-const CHAT_CONTAINER_CONTEXT_KEY = Symbol('chat-container-context');
+import { watch, Context } from 'runed';
 
 type ResizeMode = 'smooth' | 'instant';
 type InitialMode = 'smooth' | 'instant';
 
-class ChatContainerContext {
+export class ChatContainerContext {
 	#element: HTMLElement | null = $state(null);
 	#isAtBottom = $state(true);
 	#resizeObserver: ResizeObserver | null = null;
@@ -177,22 +174,6 @@ class ChatContainerContext {
 	}
 }
 
-export function setChatContainerContext(
-	resizeMode: ResizeMode = 'smooth',
-	initialMode: InitialMode = 'instant'
-): ChatContainerContext {
-	const context = new ChatContainerContext(resizeMode, initialMode);
-	setContext(CHAT_CONTAINER_CONTEXT_KEY, context);
-	return context;
-}
+export const chatContainerContext = new Context<ChatContainerContext>('chat-container');
 
-export function getChatContainerContext(): ChatContainerContext {
-	const context = getContext<ChatContainerContext>(CHAT_CONTAINER_CONTEXT_KEY);
-	if (!context) {
-		throw new Error('ChatContainerContext must be used within a ChatContainerRoot component');
-	}
-	return context;
-}
-
-export { ChatContainerContext };
 export type { ResizeMode, InitialMode };

@@ -3,8 +3,7 @@
  * State management for the screenshot annotation editor using Svelte 5 runes and Runed
  */
 
-import { getContext, setContext } from 'svelte';
-import { StateHistory } from 'runed';
+import { StateHistory, Context } from 'runed';
 import { preCache } from '@zumer/snapdom';
 import { getPreCacheConfig } from '$lib/utils/snapdom-config';
 import type { Shape, DrawingTool, LineShape, RectShape, CircleShape, ArrowShape } from './types';
@@ -290,19 +289,5 @@ export class ScreenshotEditorState {
 	};
 }
 
-// ===== Context Functions =====
-const SYMBOL_KEY = 'screenshot-editor';
-
-export function setScreenshotEditor(props: ScreenshotEditorProps): ScreenshotEditorState {
-	return setContext(Symbol.for(SYMBOL_KEY), new ScreenshotEditorState(props));
-}
-
-export function useScreenshotEditor(): ScreenshotEditorState {
-	const context = getContext<ScreenshotEditorState>(Symbol.for(SYMBOL_KEY));
-
-	if (!context) {
-		throw new Error('Screenshot editor components must be used within ScreenshotEditor');
-	}
-
-	return context;
-}
+// ===== Context =====
+export const screenshotEditorContext = new Context<ScreenshotEditorState>('screenshot-editor');

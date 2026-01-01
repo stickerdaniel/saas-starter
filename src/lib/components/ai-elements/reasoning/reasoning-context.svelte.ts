@@ -1,6 +1,4 @@
-import { getContext, setContext } from 'svelte';
-
-const REASONING_CONTEXT_KEY = Symbol('reasoning-context');
+import { Context } from 'runed';
 
 export class ReasoningContext {
 	#isStreaming = $state(false);
@@ -59,14 +57,4 @@ export class ReasoningContext {
 	}
 }
 
-export function setReasoningContext(context: ReasoningContext) {
-	setContext(REASONING_CONTEXT_KEY, context);
-}
-
-export function getReasoningContext(): ReasoningContext {
-	const context = getContext<ReasoningContext | undefined>(REASONING_CONTEXT_KEY);
-	if (!context) {
-		throw new Error('Reasoning components must be used within Reasoning');
-	}
-	return context;
-}
+export const reasoningContext = new Context<ReasoningContext>('reasoning');

@@ -3,13 +3,13 @@
 	import { browser } from '$app/environment';
 	import type { LayoutData } from './$types';
 	import { watch } from 'runed';
-	import { setLanguageContext } from '$lib/i18n/context';
+	import { languageContext } from '$lib/i18n/context';
 
 	let { data, children }: { data: LayoutData; children: any } = $props();
 
 	// Set language context with a function to maintain reactivity
 	// This ensures useLanguage() always returns the current value of data.lang
-	setLanguageContext(() => data.lang);
+	languageContext.set(() => data.lang);
 
 	const tolgee = Tolgee()
 		.use(DevTools())

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { cn } from '$lib/utils';
 	import Textarea from '$lib/components/ui/textarea/textarea.svelte';
-	import { getPromptInputContext } from './prompt-input-context.svelte.js';
+	import { promptInputContext } from './prompt-input-context.svelte.js';
 	import type { HTMLTextareaAttributes } from 'svelte/elements';
 	import { watch } from 'runed';
 
@@ -14,7 +14,7 @@
 		disableAutosize?: boolean;
 	} = $props();
 
-	const context = getPromptInputContext();
+	const context = promptInputContext.get();
 
 	// Auto-resize functionality using watch from runed
 	watch([() => context.value, () => context.maxHeight, () => disableAutosize], () => {
