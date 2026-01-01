@@ -314,8 +314,11 @@
 			<!-- Thread list with fade-in animation on first load -->
 			<div class={threadsFade.animationClass}>
 				{#each threads as thread (thread._id)}
+					{@const isSelected = thread._id === ctx.threadId}
 					<button
-						class="flex w-full items-center gap-3 border-b border-border/30 p-4 px-5 text-left transition-colors duration-0 ease-in-out hover:bg-muted-foreground/5"
+						class="flex w-full items-center gap-3 border-b border-border/30 p-4 px-5 text-left transition-none {isSelected
+							? 'bg-muted-foreground/[0.02]'
+							: 'hover:bg-muted-foreground/[0.03]'}"
 						onclick={() => ctx.selectThread(thread._id, thread.lastAgentName)}
 					>
 						<AvatarHeading

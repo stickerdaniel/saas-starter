@@ -299,7 +299,8 @@ export class SupportThreadContext {
 			if (!threadId) {
 				console.log('[sendMessage] Creating new thread for user:', this.userId);
 				threadId = await client.mutation(api.support.threads.createThread, {
-					userId: this.userId || undefined
+					userId: this.userId || undefined,
+					pageUrl: typeof window !== 'undefined' ? window.location.href : undefined
 				});
 				// Just set threadId directly - don't call setThread() which clears messages
 				// This preserves the optimistic message for seamless transition

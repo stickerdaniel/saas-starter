@@ -2,7 +2,7 @@
 	import { cn } from '$lib/utils';
 	import { Button } from '$lib/components/ui/button';
 	import * as Tooltip from '$lib/components/ui/tooltip/index.js';
-	import { getAttachmentsContext, type FileWithId } from './attachments-context.svelte.js';
+	import { attachmentsContext, type FileWithId } from './attachments-context.svelte.js';
 	import PaperclipIcon from './PaperclipIcon.svelte';
 	import XIcon from './XIcon.svelte';
 
@@ -13,7 +13,7 @@
 
 	let { data, class: className, ...props }: Props = $props();
 
-	let attachments = getAttachmentsContext();
+	const attachments = attachmentsContext.get();
 
 	let mediaType = $derived(data.mediaType?.startsWith('image/') && data.url ? 'image' : 'file');
 </script>

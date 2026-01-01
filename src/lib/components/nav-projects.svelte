@@ -1,6 +1,6 @@
 <script lang="ts">
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
-	import { useSidebar } from '$lib/components/ui/sidebar/context.svelte.js';
+	import { sidebarContext } from '$lib/components/ui/sidebar/context.svelte.js';
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import EllipsisIcon from '@lucide/svelte/icons/ellipsis';
 	import FolderIcon from '@lucide/svelte/icons/folder';
@@ -19,7 +19,7 @@
 		}[];
 	} = $props();
 
-	const sidebar = useSidebar();
+	const sidebar = sidebarContext.get();
 </script>
 
 <Sidebar.Group class="group-data-[collapsible=icon]:hidden">

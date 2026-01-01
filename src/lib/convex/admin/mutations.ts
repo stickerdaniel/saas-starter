@@ -1,20 +1,9 @@
-import { mutation, internalMutation, type MutationCtx } from '../_generated/server';
+import { internalMutation, type MutationCtx } from '../_generated/server';
 import { components } from '../_generated/api';
-import { authComponent } from '../auth';
 import { v } from 'convex/values';
 import type { BetterAuthUser } from './types';
 import { roleValidator, adminActionValidator, auditMetadataValidator } from './types';
-
-/**
- * Helper to verify admin access
- */
-async function requireAdmin(ctx: MutationCtx) {
-	const user = (await authComponent.getAuthUser(ctx)) as BetterAuthUser | null;
-	if (!user || user.role !== 'admin') {
-		throw new Error('Unauthorized: Admin access required');
-	}
-	return user;
-}
+import { adminMutation } from '../functions';
 
 /**
  * Helper to fetch all users from the BetterAuth component
@@ -53,17 +42,15 @@ async function findUserById(ctx: MutationCtx, userId: string): Promise<BetterAut
  * Log an admin action for audit trail
  * This is called from the client after BetterAuth admin actions
  */
-export const logAdminAction = mutation({
+export const logAdminAction = adminMutation({
 	args: {
 		action: adminActionValidator,
 		targetUserId: v.string(),
 		metadata: auditMetadataValidator
 	},
 	handler: async (ctx, args) => {
-		const admin = await requireAdmin(ctx);
-
 		await ctx.db.insert('adminAuditLogs', {
-			adminUserId: admin._id,
+			adminUserId: ctx.user._id,
 			action: args.action,
 			targetUserId: args.targetUserId,
 			metadata: args.metadata,
@@ -97,16 +84,14 @@ export const logAdminActionInternal = internalMutation({
  * Set user role (for initial admin setup or role changes)
  * Uses the local BetterAuth schema which includes admin plugin fields
  */
-export const setUserRole = mutation({
+export const setUserRole = adminMutation({
 	args: {
 		userId: v.string(),
 		role: roleValidator
 	},
 	handler: async (ctx, args) => {
-		const admin = await requireAdmin(ctx);
-
 		// Prevent admin from changing their own role
-		if (admin._id === args.userId) {
+		if (ctx.user._id === args.userId) {
 			throw new Error('Cannot change your own role');
 		}
 
@@ -127,7 +112,7 @@ export const setUserRole = mutation({
 
 		// Log the action
 		await ctx.db.insert('adminAuditLogs', {
-			adminUserId: admin._id,
+			adminUserId: ctx.user._id,
 			action: 'set_role',
 			targetUserId: args.userId,
 			metadata: { newRole: args.role, previousRole: user.role ?? 'user' },

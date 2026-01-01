@@ -1,0 +1,9 @@
+[submodule "docs/references/paneforge"]
+	path = docs/references/paneforge
+	url = https://github.com/svecosystem/paneforge
+[submodule "docs/references/convex-agent"]
+	path = docs/references/convex-agent
+	url = https://github.com/get-convex/agent
+[submodule "docs/references/svelte-infinite"]
+	path = docs/references/svelte-infinite
+	url = https://github.com/ndom91/svelte-infinite

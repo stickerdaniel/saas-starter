@@ -1,9 +1,6 @@
-import { watch } from 'runed';
-import { setContext, getContext } from 'svelte';
+import { watch, Context } from 'runed';
 
-const STICK_TO_BOTTOM_CONTEXT_KEY = Symbol('stick-to-bottom-context');
-
-class StickToBottomContext {
+export class StickToBottomContext {
 	#element: HTMLElement | null = $state(null);
 	#isAtBottom = $state(true);
 	#resizeObserver: ResizeObserver | null = null;
@@ -189,18 +186,4 @@ class StickToBottomContext {
 	}
 }
 
-export function setStickToBottomContext(): StickToBottomContext {
-	const context = new StickToBottomContext();
-	setContext(STICK_TO_BOTTOM_CONTEXT_KEY, context);
-	return context;
-}
-
-export function getStickToBottomContext(): StickToBottomContext {
-	const context = getContext<StickToBottomContext>(STICK_TO_BOTTOM_CONTEXT_KEY);
-	if (!context) {
-		throw new Error('StickToBottomContext must be used within a Conversation component');
-	}
-	return context;
-}
-
-export { StickToBottomContext };
+export const stickToBottomContext = new Context<StickToBottomContext>('stick-to-bottom');

@@ -12,9 +12,17 @@
 		user?: User;
 		routePrefix: string;
 		rootLabel: string;
+		fullControl?: boolean;
 	}
 
-	let { children, sidebarConfig, user, routePrefix, rootLabel }: Props = $props();
+	let {
+		children,
+		sidebarConfig,
+		user,
+		routePrefix,
+		rootLabel,
+		fullControl = false
+	}: Props = $props();
 
 	// DEBUG: Log when user prop changes
 	$effect(() => {
@@ -29,17 +37,26 @@
 		class="h-svh overflow-hidden"
 	>
 		<AuthenticatedSidebar variant="inset" config={sidebarConfig} {user} />
-		<Sidebar.Inset>
+		<Sidebar.Inset class={fullControl ? 'flex flex-col overflow-hidden' : ''}>
 			<AuthenticatedHeader {routePrefix} {rootLabel} />
-			<ScrollArea class="overflow-hidden">
-				<div class="flex flex-1 flex-col">
-					<div class="@container/main flex flex-1 flex-col gap-2">
-						<div class="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
-							{@render children?.()}
+
+			{#if fullControl}
+				<!-- Full control: page manages scroll, no padding -->
+				<div class="@container/main min-h-0 flex-1">
+					{@render children?.()}
+				</div>
+			{:else}
+				<!-- Default: layout manages scroll with padding -->
+				<ScrollArea class="overflow-hidden">
+					<div class="flex flex-1 flex-col">
+						<div class="@container/main flex flex-1 flex-col gap-2">
+							<div class="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
+								{@render children?.()}
+							</div>
 						</div>
 					</div>
-				</div>
-			</ScrollArea>
+				</ScrollArea>
+			{/if}
 		</Sidebar.Inset>
 	</Sidebar.Provider>
 {/if}

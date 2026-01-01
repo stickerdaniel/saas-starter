@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { cn } from '$lib/utils';
 	import { watch } from 'runed';
-	import { getAttachmentsContext, type FileWithId } from './attachments-context.svelte.js';
+	import { attachmentsContext, type FileWithId } from './attachments-context.svelte.js';
 
 	interface Props {
 		class?: string;
@@ -10,7 +10,7 @@
 
 	let { class: className, children, ...props }: Props = $props();
 
-	let attachments = getAttachmentsContext();
+	const attachments = attachmentsContext.get();
 	let height = $state(0);
 	let contentRef = $state<HTMLDivElement | null>(null);
 

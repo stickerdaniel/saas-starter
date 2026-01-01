@@ -9,6 +9,7 @@
 	import { SupportThreadContext, supportThreadContext } from './support-thread-context.svelte';
 	import { ChatUIContext, type UploadConfig } from '$lib/chat';
 	import { browser } from '$app/environment';
+	import { generateAnonymousUserId } from '$lib/convex/utils/anonymousUser';
 
 	let isFeedbackOpen = $state(false);
 	let isScreenshotMode = $state(false);
@@ -44,7 +45,7 @@
 
 		let id = localStorage.getItem('supportUserId');
 		if (!id) {
-			id = `anon_${crypto.randomUUID()}`;
+			id = generateAnonymousUserId();
 			localStorage.setItem('supportUserId', id);
 		}
 		return id;

@@ -9,7 +9,7 @@
 </script>
 
 <script lang="ts">
-	import { getStickToBottomContext } from './stick-to-bottom-context.svelte.js';
+	import { stickToBottomContext } from './stick-to-bottom-context.svelte.js';
 	import { watch } from 'runed';
 
 	let {
@@ -19,7 +19,7 @@
 		...restProps
 	}: ConversationContentProps = $props();
 
-	const context = getStickToBottomContext();
+	const context = stickToBottomContext.get();
 	let element: HTMLDivElement;
 
 	watch(

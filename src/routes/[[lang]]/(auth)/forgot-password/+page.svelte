@@ -3,15 +3,12 @@
 	import { Input } from '$lib/components/ui/input/index.js';
 	import * as Form from '$lib/components/ui/form/index.js';
 	import { authClient } from '$lib/auth-client.js';
-	import { getContext } from 'svelte';
 	import { localizedHref } from '$lib/utils/i18n';
 	import { T } from '@tolgee/svelte';
 	import { defaults, superForm } from 'sveltekit-superforms';
 	import { zod4 } from 'sveltekit-superforms/adapters';
 	import { forgotPasswordSchema, PASSWORD_MIN_LENGTH } from '$lib/schemas/auth.js';
-
-	// Get email from auth layout context (persisted from signin page)
-	const authEmailCtx = getContext<{ get: () => string; set: (v: string) => void }>('auth:email');
+	import { authFlow } from '$lib/hooks/auth-flow.svelte';
 
 	let isLoading = $state(false);
 	let message = $state<string | null>(null);
@@ -47,18 +44,17 @@
 
 	const { form: formData, enhance } = form;
 
-	// Initialize email from context
+	// Initialize email from global state
 	$effect(() => {
-		const savedEmail = authEmailCtx?.get();
-		if (savedEmail && !$formData.email) {
-			$formData.email = savedEmail;
+		if (authFlow.email && !$formData.email) {
+			$formData.email = authFlow.email;
 		}
 	});
 
-	// Sync email changes back to context
+	// Sync email changes back to global state
 	$effect(() => {
-		if (authEmailCtx && $formData.email) {
-			authEmailCtx.set($formData.email);
+		if ($formData.email) {
+			authFlow.email = $formData.email;
 		}
 	});
 </script>

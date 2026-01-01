@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { Stage, Layer, Line, Rect, Circle, Ellipse, Arrow, Group } from 'svelte-konva';
-	import { useScreenshotEditor } from './screenshot-editor-context.svelte';
+	import { screenshotEditorContext } from './screenshot-editor-context.svelte';
 	import type { LineShape, RectShape, CircleShape, ArrowShape } from './types';
 
-	const editor = useScreenshotEditor();
+	const editor = screenshotEditorContext.get();
 
 	// Get viewport dimensions
 	const width = typeof window !== 'undefined' ? window.innerWidth : 1920;

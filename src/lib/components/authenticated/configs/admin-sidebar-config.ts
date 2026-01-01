@@ -1,6 +1,7 @@
 import { localizedHref } from '$lib/utils/i18n';
 import LayoutDashboardIcon from '@lucide/svelte/icons/layout-dashboard';
 import UsersIcon from '@lucide/svelte/icons/users';
+import MessagesSquareIcon from '@lucide/svelte/icons/messages-square';
 import ServerCogIcon from '@lucide/svelte/icons/server-cog';
 import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
 import HomeIcon from '@lucide/svelte/icons/home';
@@ -45,6 +46,12 @@ export function getAdminSidebarConfig(pageState: PageState): SidebarConfig {
 				url: localizedHref('/admin/users'),
 				icon: UsersIcon,
 				isActive: pathname.startsWith(`/${lang}/admin/users`)
+			},
+			{
+				translationKey: 'admin.sidebar.support',
+				url: localizedHref('/admin/support'),
+				icon: MessagesSquareIcon,
+				isActive: pathname.startsWith(`/${lang}/admin/support`)
 			}
 		],
 		footerLinks: [

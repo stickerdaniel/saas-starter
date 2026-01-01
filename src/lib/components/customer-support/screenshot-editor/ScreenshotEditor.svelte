@@ -2,7 +2,10 @@
 	import { lockscroll } from '@svelte-put/lockscroll';
 	import { snapdom } from '@zumer/snapdom';
 	import { getSnapDOMConfig } from '$lib/utils/snapdom-config';
-	import { setScreenshotEditor } from './screenshot-editor-context.svelte';
+	import {
+		ScreenshotEditorState,
+		screenshotEditorContext
+	} from './screenshot-editor-context.svelte';
 	import ScreenshotToolbar from './ScreenshotToolbar.svelte';
 	import ScreenshotCanvas from './ScreenshotCanvas.svelte';
 
@@ -15,12 +18,14 @@
 	} = $props();
 
 	// Initialize editor context immediately (no screenshot capture needed)
-	const editorContext = setScreenshotEditor({
-		onSave: handleSave,
-		onCancel,
-		width: window.innerWidth,
-		height: window.innerHeight
-	});
+	const editorContext = screenshotEditorContext.set(
+		new ScreenshotEditorState({
+			onSave: handleSave,
+			onCancel,
+			width: window.innerWidth,
+			height: window.innerHeight
+		})
+	);
 
 	// Capture screenshot and download directly
 	async function handleSave() {
