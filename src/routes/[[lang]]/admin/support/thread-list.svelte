@@ -183,7 +183,10 @@
 				{/each}
 			</div>
 		{:else if threads && threads.length > 0}
-			<div class=" scrollbar-thin absolute inset-0 overflow-y-auto" in:fade={{ duration: 150 }}>
+			<div
+				class="scrollbar-thin absolute inset-0 overflow-x-hidden overflow-y-auto"
+				in:fade={{ duration: 150 }}
+			>
 				<InfiniteLoader
 					{loaderState}
 					{triggerLoad}
