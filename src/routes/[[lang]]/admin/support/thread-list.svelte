@@ -156,7 +156,7 @@
 	<div class="relative flex-1">
 		{#if isLoading}
 			<!-- Loading skeletons -->
-			<div class="absolute inset-0 overflow-y-auto scrollbar-thin" out:fade={{ duration: 150 }}>
+			<div class=" scrollbar-thin absolute inset-0 overflow-y-auto" out:fade={{ duration: 150 }}>
 				{#each Array(6) as _, i (i)}
 					<div class="border-b p-4">
 						<div class="flex items-start gap-3">
@@ -183,7 +183,7 @@
 				{/each}
 			</div>
 		{:else if threads && threads.length > 0}
-			<div class="absolute inset-0 overflow-y-auto scrollbar-thin" in:fade={{ duration: 150 }}>
+			<div class=" scrollbar-thin absolute inset-0 overflow-y-auto" in:fade={{ duration: 150 }}>
 				<InfiniteLoader
 					{loaderState}
 					{triggerLoad}
@@ -210,7 +210,7 @@
 										<span class="truncate font-medium">
 											{thread.userName || thread.userEmail || 'Anonymous'}
 										</span>
-										<span class="whitespace-nowrap text-xs text-muted-foreground">
+										<span class="text-xs whitespace-nowrap text-muted-foreground">
 											{formatDistanceToNow(new Date(thread.lastMessageAt || thread._creationTime), {
 												addSuffix: true
 											})}
