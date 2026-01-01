@@ -130,8 +130,6 @@
 			<ChatMessages />
 		</div>
 
-		<div class="flex-shrink-0 border-t p-4">
-			<ChatInput placeholder="Reply to customer..." />
-		</div>
+		<ChatInput class="mx-4 -translate-y-4 p-0" placeholder="Reply to customer..." />
 	</ChatRoot>
 </div>
