@@ -11,10 +11,11 @@ import type { SidebarConfig } from '../types';
 interface PageState {
 	pathname: string;
 	lang?: string;
+	supportBadge?: number;
 }
 
 export function getAdminSidebarConfig(pageState: PageState): SidebarConfig {
-	const { pathname, lang } = pageState;
+	const { pathname, lang, supportBadge } = pageState;
 
 	return {
 		header: {
@@ -51,7 +52,8 @@ export function getAdminSidebarConfig(pageState: PageState): SidebarConfig {
 				translationKey: 'admin.sidebar.support',
 				url: localizedHref('/admin/support'),
 				icon: MessagesSquareIcon,
-				isActive: pathname.startsWith(`/${lang}/admin/support`)
+				isActive: pathname.startsWith(`/${lang}/admin/support`),
+				badge: supportBadge
 			}
 		],
 		footerLinks: [

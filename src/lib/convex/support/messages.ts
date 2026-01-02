@@ -91,10 +91,11 @@ export const sendMessage = mutation({
 			});
 		}
 
-		// Mark thread as unread for admin when user sends message
+		// Reopen thread and mark as awaiting response when user sends message
 		if (supportThread) {
 			await ctx.db.patch(supportThread._id, {
-				unreadByAdmin: true,
+				status: 'open',
+				awaitingAdminResponse: true,
 				updatedAt: Date.now()
 			});
 		}

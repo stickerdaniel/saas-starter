@@ -119,7 +119,7 @@
 			</Pane>
 
 			<PaneResizer
-				class="relative z-20 -mx-2.5 w-5 bg-black/0 after:pointer-events-none after:absolute after:inset-y-0 after:left-1/2 after:w-px after:-translate-x-1/2 after:bg-background after:z-0 before:pointer-events-none before:absolute before:inset-y-0 before:left-1/2 before:w-px before:-translate-x-1/2 before:bg-border before:z-10 hover:before:w-0.5 hover:after:w-0.5 data-[resize-handle-active]:before:w-0.5 data-[resize-handle-active]:after:w-0.5"
+				class="relative z-20 -mx-2.5 w-5 bg-black/0 before:pointer-events-none before:absolute before:inset-y-0 before:left-1/2 before:z-10 before:w-px before:-translate-x-1/2 before:bg-border after:pointer-events-none after:absolute after:inset-y-0 after:left-1/2 after:z-0 after:w-px after:-translate-x-1/2 after:bg-background hover:before:w-0.5 hover:after:w-0.5 data-[resize-handle-active]:before:w-0.5 data-[resize-handle-active]:after:w-0.5"
 			/>
 
 			<Pane defaultSize={50} minSize={30}>
@@ -135,7 +135,7 @@
 			</Pane>
 
 			<PaneResizer
-				class="relative z-20 -mx-2.5 w-5 bg-black/0 after:pointer-events-none after:absolute after:inset-y-0 after:left-1/2 after:w-px after:-translate-x-1/2 after:bg-background after:z-0 before:pointer-events-none before:absolute before:inset-y-0 before:left-1/2 before:w-px before:-translate-x-1/2 before:bg-border before:z-10 hover:before:w-0.5 hover:after:w-0.5 data-[resize-handle-active]:before:w-0.5 data-[resize-handle-active]:after:w-0.5"
+				class="relative z-20 -mx-2.5 w-5 bg-black/0 before:pointer-events-none before:absolute before:inset-y-0 before:left-1/2 before:z-10 before:w-px before:-translate-x-1/2 before:bg-border after:pointer-events-none after:absolute after:inset-y-0 after:left-1/2 after:z-0 after:w-px after:-translate-x-1/2 after:bg-background hover:before:w-0.5 hover:after:w-0.5 data-[resize-handle-active]:before:w-0.5 data-[resize-handle-active]:after:w-0.5"
 			/>
 
 			<Pane defaultSize={25} minSize={15} maxSize={40}>
@@ -172,7 +172,7 @@
 			</Pane>
 
 			<PaneResizer
-				class="relative z-20 -mx-2.5 w-5 bg-black/0 after:pointer-events-none after:absolute after:inset-y-0 after:left-1/2 after:w-px after:-translate-x-1/2 after:bg-background after:z-0 before:pointer-events-none before:absolute before:inset-y-0 before:left-1/2 before:w-px before:-translate-x-1/2 before:bg-border before:z-10 hover:before:w-0.5 hover:after:w-0.5 data-[resize-handle-active]:before:w-0.5 data-[resize-handle-active]:after:w-0.5"
+				class="relative z-20 -mx-2.5 w-5 bg-black/0 before:pointer-events-none before:absolute before:inset-y-0 before:left-1/2 before:z-10 before:w-px before:-translate-x-1/2 before:bg-border after:pointer-events-none after:absolute after:inset-y-0 after:left-1/2 after:z-0 after:w-px after:-translate-x-1/2 after:bg-background hover:before:w-0.5 hover:after:w-0.5 data-[resize-handle-active]:before:w-0.5 data-[resize-handle-active]:after:w-0.5"
 			/>
 
 			<Pane defaultSize={70} minSize={50}>

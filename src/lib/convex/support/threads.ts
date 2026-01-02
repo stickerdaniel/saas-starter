@@ -82,10 +82,10 @@ export const createThread = mutation({
 			userId: args.userId,
 			status: 'open',
 			isHandedOff: false, // AI responds by default, user can request handoff
+			awaitingAdminResponse: true, // User is waiting for first response
 			assignedTo: undefined,
 			priority: undefined,
 			pageUrl: args.pageUrl || undefined,
-			unreadByAdmin: true,
 			createdAt: Date.now(),
 			updatedAt: Date.now(),
 			// Auto-enable notifications for authenticated users
@@ -410,10 +410,10 @@ export const updateThreadHandoff = mutation({
 			skipEmbeddings: true
 		});
 
-		// Mark as handed off and notify admins
+		// Mark as handed off - user is waiting for admin response
 		await ctx.db.patch(supportThread._id, {
 			isHandedOff: true,
-			unreadByAdmin: true,
+			awaitingAdminResponse: true,
 			updatedAt: Date.now()
 		});
 

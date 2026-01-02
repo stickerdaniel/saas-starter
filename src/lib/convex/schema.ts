@@ -68,11 +68,11 @@ export default defineSchema({
 		userId: v.optional(v.string()), // Denormalized for quick lookups
 		status: v.union(v.literal('open'), v.literal('done')),
 		isHandedOff: v.optional(v.boolean()), // true = human-only mode, undefined/false = AI responds
+		awaitingAdminResponse: v.optional(v.boolean()), // true = user waiting for reply, false = admin has responded
 		assignedTo: v.optional(v.string()), // Admin user ID (for tracking, not AI control)
 		priority: v.optional(v.union(v.literal('low'), v.literal('medium'), v.literal('high'))),
 		dueDate: v.optional(v.number()),
 		pageUrl: v.optional(v.string()), // URL where user started chat
-		unreadByAdmin: v.boolean(),
 		createdAt: v.number(),
 		updatedAt: v.number(),
 
@@ -94,11 +94,11 @@ export default defineSchema({
 		.index('by_assigned', ['assignedTo'])
 		.index('by_status_and_assigned', ['status', 'assignedTo'])
 		.index('by_created', ['createdAt'])
-		.index('by_unread', ['unreadByAdmin'])
-		.index('by_unread_and_assigned', ['unreadByAdmin', 'assignedTo'])
+		.index('by_handed_off_and_status', ['isHandedOff', 'status'])
+		.index('by_needs_response', ['isHandedOff', 'status', 'awaitingAdminResponse'])
 		.searchIndex('search_all', {
 			searchField: 'searchText',
-			filterFields: ['status', 'assignedTo', 'unreadByAdmin']
+			filterFields: ['status', 'assignedTo', 'isHandedOff', 'awaitingAdminResponse']
 		})
 
 	// Note: The agent component automatically creates the following tables:

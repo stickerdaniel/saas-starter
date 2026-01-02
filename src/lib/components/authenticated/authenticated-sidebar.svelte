@@ -78,6 +78,9 @@
 									</a>
 								{/snippet}
 							</Sidebar.MenuButton>
+							{#if item.badge && item.badge > 0}
+								<Sidebar.MenuBadge>{item.badge}</Sidebar.MenuBadge>
+							{/if}
 						</Sidebar.MenuItem>
 					{/each}
 				</Sidebar.Menu>

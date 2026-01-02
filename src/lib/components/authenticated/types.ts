@@ -9,6 +9,7 @@ export interface NavItem {
 	url: string;
 	icon?: LucideIcon;
 	isActive?: boolean;
+	badge?: number;
 }
 
 export interface HeaderDropdownItem {

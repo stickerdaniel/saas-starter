@@ -28,9 +28,10 @@
 			userId?: string;
 			status: 'open' | 'done';
 			assignedTo?: string;
+			isHandedOff?: boolean;
+			awaitingAdminResponse?: boolean;
 			priority?: 'low' | 'medium' | 'high';
 			pageUrl?: string;
-			unreadByAdmin: boolean;
 			createdAt: number;
 			updatedAt: number;
 		};
@@ -232,7 +233,7 @@
 
 									<!-- Badges -->
 									<div class="mt-2 flex flex-wrap items-center gap-1.5">
-										{#if thread.supportMetadata.unreadByAdmin}
+										{#if thread.supportMetadata.awaitingAdminResponse}
 											<Badge variant="default" class="text-xs">New</Badge>
 										{/if}
 										{#if thread.supportMetadata.priority}
