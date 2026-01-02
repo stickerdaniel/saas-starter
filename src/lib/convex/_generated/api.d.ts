@@ -28,7 +28,6 @@ import type * as functions from '../functions.js';
 import type * as helpers from '../helpers.js';
 import type * as http from '../http.js';
 import type * as messages from '../messages.js';
-import type * as migrations_backfillSearchFields from '../migrations/backfillSearchFields.js';
 import type * as storage from '../storage.js';
 import type * as support_agent from '../support/agent.js';
 import type * as support_files from '../support/files.js';
@@ -61,7 +60,6 @@ declare const fullApi: ApiFromModules<{
 	helpers: typeof helpers;
 	http: typeof http;
 	messages: typeof messages;
-	'migrations/backfillSearchFields': typeof migrations_backfillSearchFields;
 	storage: typeof storage;
 	'support/agent': typeof support_agent;
 	'support/files': typeof support_files;
