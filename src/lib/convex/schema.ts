@@ -67,7 +67,8 @@ export default defineSchema({
 		threadId: v.string(), // Reference to agent:threads
 		userId: v.optional(v.string()), // Denormalized for quick lookups
 		status: v.union(v.literal('open'), v.literal('done')),
-		assignedTo: v.optional(v.string()), // Admin user ID
+		isHandedOff: v.optional(v.boolean()), // true = human-only mode, undefined/false = AI responds
+		assignedTo: v.optional(v.string()), // Admin user ID (for tracking, not AI control)
 		priority: v.optional(v.union(v.literal('low'), v.literal('medium'), v.literal('high'))),
 		dueDate: v.optional(v.number()),
 		pageUrl: v.optional(v.string()), // URL where user started chat

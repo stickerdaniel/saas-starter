@@ -72,6 +72,8 @@ export class SupportThreadContext {
 	// Current thread state
 	threadId = $state<string | null>(null);
 	threadAgentName = $state<string | undefined>(undefined);
+	isHandedOff = $state(false); // Whether thread is handed off to human support
+	assignedAdmin = $state<{ name?: string; image: string | null } | undefined>(undefined);
 	messages = $state<SupportMessage[]>([]);
 	isLoading = $state(false);
 	isSending = $state(false);
@@ -128,12 +130,50 @@ export class SupportThreadContext {
 	/**
 	 * Initialize or load a thread
 	 */
-	setThread(threadId: string | null, agentName?: string) {
+	setThread(
+		threadId: string | null,
+		agentName?: string,
+		isHandedOff?: boolean,
+		assignedAdmin?: { name?: string; image: string | null }
+	) {
 		this.threadId = threadId;
 		this.threadAgentName = agentName;
+		this.isHandedOff = isHandedOff ?? false;
+		this.assignedAdmin = assignedAdmin;
 		this.messages = [];
 		this.hasMore = false;
 		this.continueCursor = null;
+	}
+
+	/**
+	 * Set the handoff status (called when thread data is loaded)
+	 */
+	setHandedOff(isHandedOff: boolean) {
+		this.isHandedOff = isHandedOff;
+	}
+
+	/**
+	 * Request handoff to human support
+	 * This is a permanent action - AI will never respond in this thread again
+	 */
+	async requestHandoff(client: ConvexClient): Promise<boolean> {
+		if (!this.threadId) {
+			console.error('[requestHandoff] No thread ID');
+			return false;
+		}
+
+		try {
+			await client.mutation(api.support.threads.requestHandoff, {
+				threadId: this.threadId,
+				userId: this.userId || undefined
+			});
+			this.isHandedOff = true;
+			return true;
+		} catch (error) {
+			console.error('[requestHandoff] Failed:', error);
+			this.setError('Failed to request human support. Please try again.');
+			return false;
+		}
 	}
 
 	/**
@@ -359,8 +399,13 @@ export class SupportThreadContext {
 	/**
 	 * Select a thread and navigate to chat view
 	 */
-	selectThread(threadId: string, agentName?: string) {
-		this.setThread(threadId, agentName);
+	selectThread(
+		threadId: string,
+		agentName?: string,
+		isHandedOff?: boolean,
+		assignedAdmin?: { name?: string; image: string | null }
+	) {
+		this.setThread(threadId, agentName, isHandedOff, assignedAdmin);
 		this.currentView = 'chat';
 	}
 
@@ -394,6 +439,8 @@ export class SupportThreadContext {
 		// Current thread state
 		this.threadId = null;
 		this.threadAgentName = undefined;
+		this.isHandedOff = false;
+		this.assignedAdmin = undefined;
 		this.messages = [];
 		this.isLoading = false;
 		this.isSending = false;

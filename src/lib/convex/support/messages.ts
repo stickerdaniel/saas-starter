@@ -75,14 +75,14 @@ export const sendMessage = mutation({
 			threadId: args.threadId
 		});
 
-		// Check if thread is assigned to a human admin (HITL mode)
-		// When assigned, skip AI response - human admin handles the conversation
+		// Check if thread is handed off to human support
+		// When handed off, skip AI response - only humans respond
 		const supportThread = await ctx.db
 			.query('supportThreads')
 			.withIndex('by_thread', (q) => q.eq('threadId', args.threadId))
 			.first();
 
-		if (!supportThread?.assignedTo) {
+		if (!supportThread?.isHandedOff) {
 			// AI mode: Schedule async action to generate AI response with streaming
 			await ctx.scheduler.runAfter(0, internal.support.messages.generateResponse, {
 				threadId: args.threadId,

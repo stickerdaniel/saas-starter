@@ -3,7 +3,7 @@
 	import { api } from '$lib/convex/_generated/api';
 	import { Button } from '$lib/components/ui/button';
 	import { Avatar, AvatarImage, AvatarFallback } from '$lib/components/ui/avatar';
-	import { Bot, ChevronRight, Send } from '@lucide/svelte';
+	import { Bot, ChevronRight, Send, UserRound } from '@lucide/svelte';
 	import { supportThreadContext } from './support-thread-context.svelte';
 	import AvatarHeading from './avatar-heading.svelte';
 	import { FadeOnLoad } from '$lib/utils/fade-on-load.svelte.js';
@@ -315,17 +315,32 @@
 			<div class={threadsFade.animationClass}>
 				{#each threads as thread (thread._id)}
 					{@const isSelected = thread._id === ctx.threadId}
+					{@const showAdminAvatar = thread.isHandedOff && thread.assignedAdmin}
 					<button
 						class="flex w-full items-center gap-3 border-b border-border/30 p-4 px-5 text-left transition-none {isSelected
 							? 'bg-muted-foreground/[0.02]'
 							: 'hover:bg-muted-foreground/[0.03]'}"
-						onclick={() => ctx.selectThread(thread._id, thread.lastAgentName)}
+						onclick={() =>
+							ctx.selectThread(
+								thread._id,
+								thread.lastAgentName,
+								thread.isHandedOff,
+								thread.assignedAdmin
+							)}
 					>
 						<AvatarHeading
-							icon={Bot}
+							icon={thread.isHandedOff
+								? thread.assignedAdmin?.image || thread.assignedAdmin?.name
+									? undefined
+									: UserRound
+								: Bot}
+							image={showAdminAvatar ? thread.assignedAdmin?.image : undefined}
 							title={thread.lastMessage || thread.summary || 'New conversation'}
-							subtitle={`${thread.lastMessageRole === 'user' ? 'You' : thread.lastAgentName || 'Kai'}\u00A0\u00A0·\u00A0\u00A0${formatRelativeTime(thread.lastMessageAt)}`}
+							subtitle={`${thread.lastMessageRole === 'user' ? 'You' : showAdminAvatar ? thread.assignedAdmin?.name || 'Support' : thread.lastAgentName || 'Kai'}\u00A0\u00A0·\u00A0\u00A0${formatRelativeTime(thread.lastMessageAt)}`}
 							bold={false}
+							fallbackText={thread.isHandedOff && thread.assignedAdmin?.name
+								? thread.assignedAdmin.name
+								: undefined}
 						/>
 
 						<!-- Chevron -->

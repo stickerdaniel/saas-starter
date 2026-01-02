@@ -20,8 +20,11 @@
 		placeholder = 'Type a message...',
 		showCameraButton = false,
 		showFileButton = true,
+		showHandoffButton = false,
+		isHandedOff = false,
 		onScreenshot,
 		onSend,
+		onRequestHandoff,
 		actionsLeft,
 		actionsRight,
 		class: className = ''
@@ -34,10 +37,16 @@
 		showCameraButton?: boolean;
 		/** Whether to show file upload button */
 		showFileButton?: boolean;
+		/** Whether to show the handoff to human button */
+		showHandoffButton?: boolean;
+		/** Whether thread is already handed off to humans */
+		isHandedOff?: boolean;
 		/** Callback when screenshot button clicked */
 		onScreenshot?: () => void;
 		/** Callback when message is sent - receives the prompt text */
 		onSend?: (prompt: string) => Promise<void> | void;
+		/** Callback when user requests handoff to human support */
+		onRequestHandoff?: () => void;
 		/** Custom left actions slot */
 		actionsLeft?: Snippet;
 		/** Custom right actions slot */
@@ -112,6 +121,19 @@
 							{suggestion.label}
 						</PromptSuggestion>
 					{/each}
+				</div>
+			</div>
+		{/if}
+	{/key}
+
+	<!-- Handoff to human button - shown after first AI response, when not already handed off -->
+	{#key `${ctx.core.threadId}-${isHandedOff}`}
+		{#if showHandoffButton && ctx.core.threadId !== null && ctx.displayMessages.length > 1 && !isHandedOff && !ctx.inputValue.trim()}
+			<div
+				class="absolute top-0 z-20 translate-y-[-100%] animate-in pb-2 pl-5 duration-200 fade-in-0"
+			>
+				<div class="flex flex-wrap gap-2">
+					<PromptSuggestion onclick={() => onRequestHandoff?.()}>Talk to a human</PromptSuggestion>
 				</div>
 			</div>
 		{/if}
