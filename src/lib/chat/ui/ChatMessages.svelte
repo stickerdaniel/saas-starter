@@ -101,7 +101,7 @@
 			{/if}
 		{:else}
 			<!-- Messages list with fade-in animation on first load -->
-			<div class="py-20 pr-4 pl-9 {ctx.messagesFade.animationClass}">
+			<div class="px-9 py-20 {ctx.messagesFade.animationClass}">
 				{#each ctx.displayMessages as message, index (message._renderKey ?? message.id)}
 					<ChatMessage
 						{message}

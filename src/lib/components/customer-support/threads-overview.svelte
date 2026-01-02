@@ -3,7 +3,7 @@
 	import { api } from '$lib/convex/_generated/api';
 	import { Button } from '$lib/components/ui/button';
 	import { Avatar, AvatarImage, AvatarFallback } from '$lib/components/ui/avatar';
-	import { Bot, ChevronRight, Send, UserRound } from '@lucide/svelte';
+	import { Bot, ChevronRight, Send, UsersRound } from '@lucide/svelte';
 	import { supportThreadContext } from './support-thread-context.svelte';
 	import AvatarHeading from './avatar-heading.svelte';
 	import { FadeOnLoad } from '$lib/utils/fade-on-load.svelte.js';
@@ -332,7 +332,7 @@
 							icon={thread.isHandedOff
 								? thread.assignedAdmin?.image || thread.assignedAdmin?.name
 									? undefined
-									: UserRound
+									: UsersRound
 								: Bot}
 							image={showAdminAvatar ? thread.assignedAdmin?.image : undefined}
 							title={thread.lastMessage || thread.summary || 'New conversation'}

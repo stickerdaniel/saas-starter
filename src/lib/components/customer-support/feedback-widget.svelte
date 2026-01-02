@@ -11,7 +11,7 @@
 
 	// Import thread navigation components
 	import ThreadsOverview from './threads-overview.svelte';
-	import { Bot, MessagesSquare, UserRound } from '@lucide/svelte';
+	import { Bot, MessagesSquare, UsersRound } from '@lucide/svelte';
 	import { SlidingPanel } from '$lib/components/ui/sliding-panel';
 	import { SlidingHeader } from '$lib/components/ui/sliding-header';
 
@@ -151,7 +151,7 @@
 			? 'Your request is with our team'
 			: 'Our bot will reply instantly'}
 		titleIcon={threadContext.isHandedOff && !assignedAdmin?.image
-			? UserRound
+			? UsersRound
 			: threadContext.isHandedOff
 				? undefined
 				: Bot}
