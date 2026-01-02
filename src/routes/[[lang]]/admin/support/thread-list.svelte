@@ -197,7 +197,7 @@
 							class="w-full border-b p-4 text-left {thread._id === selectedThreadId
 								? 'bg-muted/70'
 								: 'hover:bg-muted/30'}"
-							onclick={() => onThreadSelect(thread._id)}
+							onclick={() => thread._id !== selectedThreadId && onThreadSelect(thread._id)}
 						>
 							<div class="flex items-start gap-3">
 								<!-- Avatar -->
