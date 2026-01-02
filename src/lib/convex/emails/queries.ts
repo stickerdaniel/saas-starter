@@ -1,5 +1,8 @@
 import { v } from 'convex/values';
 import { adminQuery } from '../functions';
+import { query } from '../_generated/server';
+import { vEmailId } from '@convex-dev/resend';
+import { resend } from './resend';
 
 /**
  * Get email events for a specific email ID
@@ -9,7 +12,7 @@ import { adminQuery } from '../functions';
  *
  * @security Requires admin role - email events contain sensitive delivery data
  */
-export const getEmailEvents = adminQuery({
+export const listEmailEvents = adminQuery({
 	args: {
 		emailId: v.string()
 	},
@@ -31,7 +34,7 @@ export const getEmailEvents = adminQuery({
  *
  * @security Requires admin role - email events contain sensitive delivery data
  */
-export const getRecentEmailEvents = adminQuery({
+export const listRecentEmailEvents = adminQuery({
 	args: {
 		limit: v.optional(v.number())
 	},
@@ -56,7 +59,7 @@ export const getRecentEmailEvents = adminQuery({
  *
  * @security Requires admin role - email events contain sensitive delivery data
  */
-export const getEmailEventsByType = adminQuery({
+export const listEmailEventsByType = adminQuery({
 	args: {
 		eventType: v.string(),
 		limit: v.optional(v.number())
@@ -117,5 +120,26 @@ export const getEmailStats = adminQuery({
 		}
 
 		return stats;
+	}
+});
+
+/**
+ * Get email status
+ *
+ * Check the current status of a sent email.
+ * Returns status information from the Resend component.
+ */
+export const getEmailStatus = query({
+	args: {
+		emailId: vEmailId
+	},
+	handler: async (ctx, args) => {
+		try {
+			const status = await resend.status(ctx, args.emailId);
+			return { success: true, status } as const;
+		} catch (error) {
+			console.error(`Failed to get status for email ${args.emailId}:`, error);
+			return { success: false, error: 'Failed to fetch email status' } as const;
+		}
 	}
 });

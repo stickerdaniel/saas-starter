@@ -348,7 +348,7 @@ export const getThread = query({
  * Once handed off, AI will never respond in this thread again.
  * This action is permanent and cannot be reversed.
  */
-export const requestHandoff = mutation({
+export const updateThreadHandoff = mutation({
 	args: {
 		threadId: v.string(),
 		userId: v.optional(v.string()) // For anonymous users
@@ -418,7 +418,7 @@ export const requestHandoff = mutation({
 		});
 
 		// Sync last message for search
-		await ctx.runMutation(internal.support.threads.syncLastMessage, {
+		await ctx.runMutation(internal.support.threads.updateLastMessage, {
 			threadId: args.threadId
 		});
 
@@ -450,7 +450,7 @@ export const updateThread = mutation({
 		});
 
 		// Sync denormalized search fields
-		await ctx.runMutation(internal.support.threads.syncThreadMetadata, {
+		await ctx.runMutation(internal.support.threads.updateThreadMetadata, {
 			threadId: args.threadId,
 			title: args.title,
 			summary: args.summary
@@ -560,7 +560,7 @@ export function shouldSendNotification(
  *
  * @security Verifies thread ownership before allowing email to be set.
  */
-export const setNotificationEmail = mutation({
+export const updateNotificationEmail = mutation({
 	args: {
 		threadId: v.string(),
 		email: v.string(),
@@ -624,7 +624,7 @@ export const setNotificationEmail = mutation({
  * Sync thread metadata (title/summary) to denormalized search fields.
  * Called when thread metadata is updated.
  */
-export const syncThreadMetadata = internalMutation({
+export const updateThreadMetadata = internalMutation({
 	args: {
 		threadId: v.string(),
 		title: v.optional(v.string()),
@@ -667,7 +667,7 @@ export const syncThreadMetadata = internalMutation({
  * Sync last message to denormalized search fields.
  * Called after a message is sent (user or admin).
  */
-export const syncLastMessage = internalMutation({
+export const updateLastMessage = internalMutation({
 	args: {
 		threadId: v.string()
 	},

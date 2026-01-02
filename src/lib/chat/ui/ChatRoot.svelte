@@ -9,9 +9,13 @@
 	import {
 		deriveUIMessagesFromTextStreamParts,
 		extractReasoning,
-		extractUserMessageText,
 		normalizeMessage
 	} from '../core/StreamProcessor.js';
+	import {
+		transformToDisplayMessage,
+		transformToDisplayMessageSimple,
+		type TransformContext
+	} from '../core/DisplayMessageProcessor.js';
 	import {
 		ChatUIContext,
 		setChatUIContext,
@@ -206,36 +210,17 @@
 		const streamMessages =
 			messagesData?.streams?.kind === 'list' ? messagesData.streams.messages || [] : [];
 
+		// Fast path: no active streams
+		if (streamMessages.length === 0) {
+			return allMessages.map((msg) => transformToDisplayMessageSimple(msg, optimisticKeyMap));
+		}
+
+		// Process streams with delta processing
 		const allDeltas =
 			deltasData?.streams?.kind === 'deltas'
 				? ((deltasData.streams.deltas || []) as StreamDelta[])
 				: [];
 
-		if (streamMessages.length === 0) {
-			// No streams visible - use cached state for stability
-			return allMessages.map((msg) => {
-				const isUser = msg.role === 'user';
-				let displayText = '';
-				if (isUser) {
-					displayText = extractUserMessageText(msg);
-				} else {
-					displayText = msg.text || '';
-				}
-
-				const reasoning = msg.parts ? extractReasoning(msg.parts) : msg.reasoning || '';
-
-				return {
-					...msg,
-					_renderKey: optimisticKeyMap.get(msg.id),
-					displayText,
-					displayReasoning: reasoning,
-					isStreaming: false,
-					hasReasoningStream: !!reasoning
-				};
-			});
-		}
-
-		// Process streams with delta processing
 		const [streamingUIMessages] = deriveUIMessagesFromTextStreamParts(
 			threadId!,
 			streamMessages,
@@ -243,78 +228,39 @@
 			allDeltas
 		);
 
-		// Build maps of order -> streaming text, reasoning, and status
-		const streamingTextMap = new Map<number, string>();
-		const streamingReasoningMap = new Map<number, string>();
-		const streamingStatusMap = new Map<number, string>();
+		// Build streaming data maps
+		const streamTextMap = new Map<number, string>();
+		const streamReasoningMap = new Map<number, string>();
+		const streamStatusMap = new Map<number, string>();
 
-		// Map stream messages by order to get status
 		streamMessages.forEach((streamMsg) => {
-			streamingStatusMap.set(streamMsg.order, streamMsg.status);
+			streamStatusMap.set(streamMsg.order, streamMsg.status);
 			core.streamCache.updateStatusCache(streamMsg.order, streamMsg.status);
 		});
 
 		streamingUIMessages.forEach((uiMsg: UIMessage) => {
-			streamingTextMap.set(uiMsg.order, uiMsg.text || '');
+			streamTextMap.set(uiMsg.order, uiMsg.text || '');
 			const reasoning = extractReasoning(uiMsg.parts || []);
 			if (reasoning) {
-				streamingReasoningMap.set(uiMsg.order, reasoning);
+				streamReasoningMap.set(uiMsg.order, reasoning);
 				core.streamCache.updateReasoningCache(uiMsg.order, reasoning);
 			}
 		});
 
-		// Build a set of (order, stepOrder) tuples that are actually being streamed
-		// This ensures we only apply streaming data to the specific message being streamed
+		// Build streaming keys set for message identification
 		const streamingKeys = new Set(streamMessages.map((s) => `${s.order}-${s.stepOrder}`));
 
-		// Merge streaming data with messages
-		return allMessages.map((msg) => {
-			// Only apply streaming data if this specific message is being streamed
-			// This prevents finished streams from overwriting other messages with the same order
-			const msgKey = `${msg.order}-${(msg as { stepOrder?: number }).stepOrder ?? 0}`;
-			const isBeingStreamed = streamingKeys.has(msgKey);
-			const streamText = isBeingStreamed ? streamingTextMap.get(msg.order) : undefined;
-			const streamReasoning = isBeingStreamed ? streamingReasoningMap.get(msg.order) : undefined;
-			const streamStatus = isBeingStreamed ? streamingStatusMap.get(msg.order) : undefined;
-			const isStreaming = streamStatus === 'streaming';
-			const hasReasoningStream = isBeingStreamed && streamStatus !== undefined;
+		// Transform context for message processing
+		const context: TransformContext = {
+			streamingKeys,
+			streamTextMap,
+			streamReasoningMap,
+			streamStatusMap,
+			optimisticKeyMap,
+			streamCache: core.streamCache
+		};
 
-			const isUser = msg.role === 'user';
-			let displayText = '';
-			if (isUser) {
-				displayText = extractUserMessageText(msg);
-			} else {
-				displayText = streamText || msg.text || '';
-			}
-
-			// Three-tier fallback for reasoning
-			// Only use cached reasoning for messages that were actually streamed
-			const persistedReasoning = msg.parts ? extractReasoning(msg.parts) : msg.reasoning || '';
-			const cachedReasoning = isBeingStreamed
-				? core.streamCache.getCachedReasoning(msg.order) || ''
-				: '';
-			const currentReasoning = streamReasoning || persistedReasoning;
-			const displayReasoning = currentReasoning || cachedReasoning;
-
-			// Update cache only for streamed messages
-			if (isBeingStreamed && currentReasoning) {
-				core.streamCache.updateReasoningCache(msg.order, currentReasoning);
-			}
-
-			// Clear cache once persisted reasoning exists (only for streamed messages)
-			if (isBeingStreamed && persistedReasoning && cachedReasoning && !streamReasoning) {
-				core.streamCache.clearReasoningCache(msg.order);
-			}
-
-			return {
-				...msg,
-				_renderKey: optimisticKeyMap.get(msg.id),
-				displayText,
-				displayReasoning,
-				isStreaming,
-				hasReasoningStream
-			};
-		});
+		return allMessages.map((msg) => transformToDisplayMessage(msg, context));
 	});
 
 	// Update UI context with display messages

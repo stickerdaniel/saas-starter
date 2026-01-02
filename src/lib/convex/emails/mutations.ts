@@ -29,24 +29,3 @@ export const cancelEmail = mutation({
 		}
 	}
 });
-
-/**
- * Get email status
- *
- * Check the current status of a sent email.
- * Returns status information from the Resend component.
- */
-export const getEmailStatus = mutation({
-	args: {
-		emailId: vEmailId
-	},
-	handler: async (ctx, args) => {
-		try {
-			const status = await resend.status(ctx, args.emailId);
-			return { success: true, status } as const;
-		} catch (error) {
-			console.error(`Failed to get status for email ${args.emailId}:`, error);
-			return { success: false, error: 'Failed to fetch email status' } as const;
-		}
-	}
-});

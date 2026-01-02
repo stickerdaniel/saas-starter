@@ -71,7 +71,7 @@ export const sendMessage = mutation({
 		}
 
 		// Sync denormalized search fields with user's message
-		await ctx.runMutation(internal.support.threads.syncLastMessage, {
+		await ctx.runMutation(internal.support.threads.updateLastMessage, {
 			threadId: args.threadId
 		});
 
@@ -84,7 +84,7 @@ export const sendMessage = mutation({
 
 		if (!supportThread?.isHandedOff) {
 			// AI mode: Schedule async action to generate AI response with streaming
-			await ctx.scheduler.runAfter(0, internal.support.messages.generateResponse, {
+			await ctx.scheduler.runAfter(0, internal.support.messages.createAIResponse, {
 				threadId: args.threadId,
 				promptMessageId: messageId,
 				userId: args.userId
@@ -109,7 +109,7 @@ export const sendMessage = mutation({
  * This runs asynchronously and streams the AI response back to the database,
  * which automatically syncs to all connected clients via Convex's reactivity.
  */
-export const generateResponse = internalAction({
+export const createAIResponse = internalAction({
 	args: {
 		threadId: v.string(),
 		promptMessageId: v.string(),
@@ -137,7 +137,7 @@ export const generateResponse = internalAction({
 		await result.consumeStream();
 
 		// Sync denormalized search fields with AI response
-		await ctx.runMutation(internal.support.threads.syncLastMessage, {
+		await ctx.runMutation(internal.support.threads.updateLastMessage, {
 			threadId: args.threadId
 		});
 	}
@@ -237,7 +237,7 @@ export const deleteMessage = mutation({
  * Used to send follow-up messages after async operations complete,
  * such as after a support ticket is successfully submitted.
  */
-export const saveAssistantMessage = internalMutation({
+export const createAssistantMessage = internalMutation({
 	args: {
 		threadId: v.string(),
 		text: v.string()

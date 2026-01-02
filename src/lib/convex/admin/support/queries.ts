@@ -381,7 +381,7 @@ export const getThreadForAdmin = adminQuery({
  * Supports both authenticated users and anonymous users (anon_* IDs).
  * Notes are user-level, so they appear across all threads for that user.
  */
-export const getInternalUserNotes = adminQuery({
+export const listInternalUserNotes = adminQuery({
 	args: {
 		userId: v.string(), // Better Auth user ID or anon_* for anonymous
 		paginationOpts: v.optional(paginationOptsValidator)

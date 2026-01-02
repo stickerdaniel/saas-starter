@@ -37,7 +37,7 @@
 	const adminsQuery = useQuery(api.admin.support.queries.listAdmins);
 
 	// Query internal notes (user-level)
-	const notesQuery = useQuery(api.admin.support.queries.getInternalUserNotes, () => {
+	const notesQuery = useQuery(api.admin.support.queries.listInternalUserNotes, () => {
 		if (!userId) return 'skip';
 		return {
 			userId,
@@ -51,7 +51,7 @@
 
 	async function updateAssignment(adminUserId: string | undefined) {
 		try {
-			await client.mutation(api.admin.support.mutations.assignThread, {
+			await client.mutation(api.admin.support.mutations.updateThreadAssignment, {
 				threadId,
 				adminUserId: adminUserId === '' ? undefined : adminUserId
 			});

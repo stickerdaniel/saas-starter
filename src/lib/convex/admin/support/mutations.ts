@@ -9,8 +9,13 @@ import type { AssistantContent, TextPart, FilePart } from 'ai';
  * Assign thread to admin
  *
  * Updates the supportThreads table (agent threads don't support metadata).
+ *
+ * @param args.threadId - The ID of the thread to assign
+ * @param args.adminUserId - The admin user ID to assign to, or undefined to unassign
+ * @returns void
+ * @throws {Error} When support thread is not found
  */
-export const assignThread = adminMutation({
+export const updateThreadAssignment = adminMutation({
 	args: {
 		threadId: v.string(),
 		adminUserId: v.optional(v.string()) // undefined to unassign
@@ -36,6 +41,13 @@ export const assignThread = adminMutation({
 
 /**
  * Update thread status
+ *
+ * Changes the support thread status (open/done) for tracking resolution.
+ *
+ * @param args.threadId - The ID of the thread to update
+ * @param args.status - The new status ('open' or 'done')
+ * @returns void
+ * @throws {Error} When support thread is not found
  */
 export const updateThreadStatus = adminMutation({
 	args: {
@@ -61,6 +73,13 @@ export const updateThreadStatus = adminMutation({
 
 /**
  * Update thread priority
+ *
+ * Sets or clears the priority level for a support thread.
+ *
+ * @param args.threadId - The ID of the thread to update
+ * @param args.priority - The priority level ('low', 'medium', 'high') or undefined to clear
+ * @returns void
+ * @throws {Error} When support thread is not found
  */
 export const updateThreadPriority = adminMutation({
 	args: {
@@ -89,6 +108,14 @@ export const updateThreadPriority = adminMutation({
  *
  * This adds a human admin message (distinct from AI) using message metadata.
  * Does NOT trigger AI response. Auto-assigns thread to admin on first reply.
+ * Sends email notification to user if enabled and cooldown has passed.
+ *
+ * @param args.threadId - The ID of the thread to reply to
+ * @param args.prompt - The text content of the reply
+ * @param args.fileIds - Optional array of file IDs to attach to the message
+ * @returns void
+ * @throws {Error} When message content is empty (no text and no files)
+ * @throws {Error} When support thread is not found
  */
 export const sendAdminReply = adminMutation({
 	args: {
@@ -191,7 +218,7 @@ export const sendAdminReply = adminMutation({
 		}
 
 		// Sync denormalized search fields
-		await ctx.runMutation(internal.support.threads.syncLastMessage, {
+		await ctx.runMutation(internal.support.threads.updateLastMessage, {
 			threadId: args.threadId
 		});
 	}
@@ -201,6 +228,12 @@ export const sendAdminReply = adminMutation({
  * Add internal note for a user (not visible to users)
  *
  * Supports both authenticated users and anonymous users (anon_* IDs).
+ * Notes are user-level, so they appear across all threads for that user.
+ *
+ * @param args.userId - Better Auth user ID or anon_* for anonymous users
+ * @param args.content - The note content text
+ * @returns void
+ * @throws {Error} When note content is empty
  */
 export const addInternalUserNote = adminMutation({
 	args: {
@@ -224,6 +257,12 @@ export const addInternalUserNote = adminMutation({
 
 /**
  * Delete internal user note
+ *
+ * Permanently removes an internal note from the database.
+ *
+ * @param args.noteId - The ID of the note to delete
+ * @returns void
+ * @throws {Error} When note is not found
  */
 export const deleteInternalUserNote = adminMutation({
 	args: {

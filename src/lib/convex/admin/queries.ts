@@ -29,6 +29,17 @@ async function fetchAllSessions(ctx: QueryCtx): Promise<BetterAuthSession[]> {
 
 /**
  * List users with real cursor pagination for admin user management
+ *
+ * Fetches paginated users with filtering by role, status, and search.
+ * Search is performed client-side to support OR across email/name fields.
+ *
+ * @param args.cursor - Pagination cursor for fetching next page
+ * @param args.numItems - Number of items to fetch per page
+ * @param args.search - Optional search term to filter by email or name
+ * @param args.roleFilter - Optional role filter ('admin', 'user', or 'all')
+ * @param args.statusFilter - Optional status filter ('verified', 'unverified', 'banned')
+ * @param args.sortBy - Optional sort configuration with field and direction
+ * @returns Paginated list of users with cursor info
  */
 export const listUsers = adminQuery({
 	args: {
@@ -145,6 +156,14 @@ export const listUsers = adminQuery({
 
 /**
  * Get total user count with filters for pagination
+ *
+ * Counts users matching the given filters. Used for pagination UI
+ * to display total count alongside paginated results.
+ *
+ * @param args.search - Optional search term to filter by email or name
+ * @param args.roleFilter - Optional role filter ('admin', 'user', or 'all')
+ * @param args.statusFilter - Optional status filter ('verified', 'unverified', 'banned')
+ * @returns Total count of matching users
  */
 export const getUserCount = adminQuery({
 	args: {
@@ -232,8 +251,16 @@ export const getUserCount = adminQuery({
 
 /**
  * Get admin audit logs
+ *
+ * Retrieves audit trail of admin actions with optional filtering
+ * by admin user or target user.
+ *
+ * @param args.limit - Maximum number of logs to return (default: 100)
+ * @param args.adminUserId - Optional filter by admin who performed the action
+ * @param args.targetUserId - Optional filter by user who was affected
+ * @returns Array of audit log entries sorted by timestamp (newest first)
  */
-export const getAuditLogs = adminQuery({
+export const listAuditLogs = adminQuery({
 	args: {
 		limit: v.optional(v.number()),
 		adminUserId: v.optional(v.string()),
@@ -261,6 +288,12 @@ export const getAuditLogs = adminQuery({
 
 /**
  * Get a single user by ID for admin view
+ *
+ * Fetches detailed user information including role, ban status,
+ * and account metadata for admin user management.
+ *
+ * @param args.userId - The ID of the user to fetch
+ * @returns User object with full details, or null if not found
  */
 export const getUserById = adminQuery({
 	args: {
@@ -295,6 +328,16 @@ export const getUserById = adminQuery({
 
 /**
  * Get dashboard metrics for admin
+ *
+ * Computes aggregate statistics for the admin dashboard including
+ * user counts, active users, and recent signups.
+ *
+ * @returns Dashboard metrics object with:
+ *   - totalUsers: Total number of registered users
+ *   - adminCount: Number of users with admin role
+ *   - bannedCount: Number of banned users
+ *   - activeIn24h: Unique users active in last 24 hours
+ *   - recentSignups: Users registered in last 7 days
  */
 export const getDashboardMetrics = adminQuery({
 	args: {},

@@ -169,7 +169,7 @@ export class SupportThreadContext {
 		}
 
 		try {
-			await client.mutation(api.support.threads.requestHandoff, {
+			await client.mutation(api.support.threads.updateThreadHandoff, {
 				threadId: this.threadId,
 				userId: this.userId || undefined
 			});
@@ -193,7 +193,7 @@ export class SupportThreadContext {
 		}
 
 		try {
-			await client.mutation(api.support.threads.setNotificationEmail, {
+			await client.mutation(api.support.threads.updateNotificationEmail, {
 				threadId: this.threadId,
 				email,
 				userId: this.userId || undefined
