@@ -9,9 +9,14 @@ import { getContext, setContext, untrack } from 'svelte';
 import { toast } from 'svelte-sonner';
 import type { ConvexClient } from 'convex/browser';
 import type { ChatCore } from '../core/ChatCore.svelte.js';
-import type { DisplayMessage, Attachment } from '../core/types.js';
+import type { DisplayMessage, Attachment, MessageRole } from '../core/types.js';
 import { uploadFileWithProgress } from '../core/FileUploader.js';
 import { FadeOnLoad } from '$lib/utils/fade-on-load.svelte.js';
+
+/**
+ * Message alignment - controls which side messages appear on
+ */
+export type ChatAlignment = 'left' | 'right';
 
 /**
  * Configuration for file uploads
@@ -35,6 +40,9 @@ export class ChatUIContext {
 
 	/** Upload configuration (optional - required for uploadFile method) */
 	readonly uploadConfig?: UploadConfig;
+
+	/** User message alignment (assistant gets opposite) */
+	readonly userAlignment: ChatAlignment;
 
 	/** UI state: which reasoning accordions are open */
 	reasoningOpenState = $state<Map<string, boolean>>(new Map());
@@ -61,10 +69,25 @@ export class ChatUIContext {
 	/** Last known thread ID for detecting navigation */
 	private _lastThreadId: string | null | undefined = undefined;
 
-	constructor(core: ChatCore, client: ConvexClient, uploadConfig?: UploadConfig) {
+	constructor(
+		core: ChatCore,
+		client: ConvexClient,
+		uploadConfig?: UploadConfig,
+		userAlignment: ChatAlignment = 'right'
+	) {
 		this.core = core;
 		this.client = client;
 		this.uploadConfig = uploadConfig;
+		this.userAlignment = userAlignment;
+	}
+
+	/**
+	 * Get alignment for a given role
+	 * User messages use userAlignment, all other roles get the opposite
+	 */
+	getAlignment(role: MessageRole): ChatAlignment {
+		if (role === 'user') return this.userAlignment;
+		return this.userAlignment === 'right' ? 'left' : 'right';
 	}
 
 	/**

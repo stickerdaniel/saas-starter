@@ -88,7 +88,7 @@
 		"bits-ui": "^2.14.4",
 		"clsx": "^2.1.1",
 		"convex": "^1.30.0",
-		"convex-svelte": "^0.0.12",
+		"convex-svelte": "./convex-svelte-0.0.12.tgz",
 		"d3-scale": "^4.0.2",
 		"d3-shape": "^3.2.0",
 		"dotenv": "^17.0.0",

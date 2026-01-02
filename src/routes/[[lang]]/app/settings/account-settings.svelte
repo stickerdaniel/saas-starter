@@ -69,7 +69,7 @@
 
 			const { storageId } = await result.json();
 
-			const imageUrl = await convexClient.mutation(api.storage.saveProfileImage, { storageId });
+			const imageUrl = await convexClient.mutation(api.storage.updateProfileImage, { storageId });
 
 			// Update preview (don't save to DB yet)
 			image = imageUrl || '';

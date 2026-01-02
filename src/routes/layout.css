@@ -269,6 +269,24 @@
 	}
 }
 
+@layer components {
+	.scrollbar-thin {
+		&::-webkit-scrollbar {
+			width: 3px;
+			height: 3px;
+		}
+		&::-webkit-scrollbar-thumb {
+			background: color-mix(in oklch, var(--primary) 15%, transparent);
+		}
+		&::-webkit-scrollbar-track {
+			background: transparent;
+		}
+		&::-webkit-scrollbar-button {
+			display: none;
+		}
+	}
+}
+
 @layer base {
 	* {
 		@apply border-border outline-ring/50;

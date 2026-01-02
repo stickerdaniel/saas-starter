@@ -7,3 +7,7 @@
 [submodule "docs/references/svelte-infinite"]
 	path = docs/references/svelte-infinite
 	url = https://github.com/ndom91/svelte-infinite
+[submodule "docs/references/convex-svelte"]
+	path = docs/references/convex-svelte
+	url = https://github.com/mmailaender/convex-svelte.git
+	branch = feat/pagination
