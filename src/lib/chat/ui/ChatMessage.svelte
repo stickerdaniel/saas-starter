@@ -82,7 +82,7 @@
 			</MessageBubble>
 		{:else if isAdminMessage}
 			<!-- Admin messages: filled bubble style like user messages -->
-			<MessageBubble {align} variant="filled">
+			<MessageBubble {align} variant="filled" hasTopAttachment={attachments.length > 0}>
 				{message.displayText}
 			</MessageBubble>
 		{:else}

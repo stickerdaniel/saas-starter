@@ -72,6 +72,16 @@
 		return last?.status === 'success' || last?.status === 'failed';
 	});
 
+	// Sticky state: once true, stays true for the session
+	let hasShownHandoffButton = $state(false);
+
+	// Update sticky state when conditions are first met
+	$effect(() => {
+		if (lastAssistantComplete && !hasShownHandoffButton) {
+			hasShownHandoffButton = true;
+		}
+	});
+
 	async function handleSend() {
 		if (!canSend) return;
 		const prompt = ctx.inputValue.trim();
@@ -248,7 +258,7 @@
 							class="transition-opacity duration-200 {ctx.core.threadId !== null &&
 							ctx.displayMessages.length > 1 &&
 							!isHandedOff &&
-							lastAssistantComplete
+							hasShownHandoffButton
 								? 'opacity-100'
 								: 'pointer-events-none opacity-0'}"
 						>

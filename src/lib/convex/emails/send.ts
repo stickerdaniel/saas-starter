@@ -62,17 +62,28 @@ If you didn't request this, you can safely ignore this email.`
  * Send notification email when admin replies to a support thread
  *
  * Called when an admin responds to a user's support request.
- * Includes a preview of the admin's message and a link to view the conversation.
+ * Includes a preview of the admin's message and a deep link to view the conversation.
  */
 export const sendAdminReplyNotification = internalMutation({
 	args: {
 		email: v.string(),
 		adminName: v.string(),
-		messagePreview: v.string()
+		messagePreview: v.string(),
+		threadId: v.string(),
+		pageUrl: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
-		const { email, adminName, messagePreview } = args;
+		const { email, adminName, messagePreview, threadId, pageUrl } = args;
 		const appUrl = process.env.APP_URL || 'http://localhost:5173';
+
+		// Build deep link that opens the support widget to this thread
+		// Strip any existing support/thread params to avoid duplicates
+		const url = new URL(pageUrl || appUrl);
+		url.searchParams.delete('support');
+		url.searchParams.delete('thread');
+		url.searchParams.set('support', 'open');
+		url.searchParams.set('thread', threadId);
+		const deepLink = url.toString();
 
 		await resend.sendEmail(ctx, {
 			from: process.env.AUTH_EMAIL || 'noreply@example.com',
@@ -82,8 +93,8 @@ export const sendAdminReplyNotification = internalMutation({
 
 "${messagePreview}"
 
-Click here to view the conversation and respond:
-${appUrl}
+Click here to view and respond:
+${deepLink}
 
 ---
 You're receiving this email because you requested notifications for this support thread.`

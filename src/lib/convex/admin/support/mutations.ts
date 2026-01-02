@@ -184,7 +184,9 @@ export const sendAdminReply = adminMutation({
 			await ctx.scheduler.runAfter(0, internal.emails.send.sendAdminReplyNotification, {
 				email: supportThread.notificationEmail,
 				adminName,
-				messagePreview: args.prompt.trim().slice(0, 200)
+				messagePreview: args.prompt.trim().slice(0, 200),
+				threadId: supportThread.threadId,
+				pageUrl: supportThread.pageUrl
 			});
 		}
 

@@ -184,7 +184,7 @@
 						<Label>Notification Email</Label>
 						<a
 							href="mailto:{thread.supportMetadata
-								.notificationEmail}?subject=Re: Your support request&body=Hi,%0A%0AThank you for reaching out to our support team.%0A%0A"
+								.notificationEmail}?subject=Re: Your support request&body=Hi,%0A%0AThank you for reaching out!%0A%0A"
 							target="_blank"
 							rel="noopener noreferrer"
 							class="flex items-center gap-2 text-sm text-primary hover:underline"

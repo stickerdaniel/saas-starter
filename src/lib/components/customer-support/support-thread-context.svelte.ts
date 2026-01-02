@@ -369,13 +369,16 @@ export class SupportThreadContext {
 			let threadId = this.threadId;
 			if (!threadId) {
 				console.log('[sendMessage] Creating new thread for user:', this.userId);
-				threadId = await client.mutation(api.support.threads.createThread, {
+				const result = await client.mutation(api.support.threads.createThread, {
 					userId: this.userId || undefined,
 					pageUrl: typeof window !== 'undefined' ? window.location.href : undefined
 				});
+				threadId = result.threadId;
 				// Just set threadId directly - don't call setThread() which clears messages
 				// This preserves the optimistic message for seamless transition
 				this.threadId = threadId;
+				// Set notification email from the created thread (auto-assigned for authenticated users)
+				this.notificationEmail = result.notificationEmail ?? null;
 				// Switch from compose to chat view
 				this.currentView = 'chat';
 				// Notify URL state of new thread

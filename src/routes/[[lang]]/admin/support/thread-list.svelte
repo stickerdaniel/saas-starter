@@ -176,8 +176,8 @@
 
 								<!-- Badges -->
 								<div class="mt-2 flex flex-wrap items-center gap-1.5">
-									<Skeleton class="h-[22px] w-12" />
-									<Skeleton class="h-[22px] w-14" />
+									<Skeleton class="h-[22px] w-10" />
+									<Skeleton class="h-[22px] w-10" />
 								</div>
 							</div>
 						</div>

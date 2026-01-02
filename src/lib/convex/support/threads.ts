@@ -40,7 +40,10 @@ export const createThread = mutation({
 		title: v.optional(v.string()),
 		pageUrl: v.optional(v.string()) // URL of the page where user started the chat
 	},
-	returns: v.string(),
+	returns: v.object({
+		threadId: v.string(),
+		notificationEmail: v.optional(v.string())
+	}),
 	handler: async (ctx, args) => {
 		// Create agent thread (NO metadata field - it's ignored!)
 		const { threadId } = await supportAgent.createThread(ctx, {
@@ -96,7 +99,7 @@ export const createThread = mutation({
 			userEmail
 		});
 
-		return threadId;
+		return { threadId, notificationEmail: userEmail };
 	}
 });
 
