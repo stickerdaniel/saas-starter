@@ -198,11 +198,11 @@ export const sendAdminReply = adminMutation({
 		);
 
 		// Update thread: read status, assignment, and notification timestamp
+		// Convex OCC ensures concurrent mutations retry with fresh data, preventing duplicate emails
 		await ctx.db.patch(supportThread._id, {
 			unreadByAdmin: false,
 			updatedAt: Date.now(),
 			...(shouldAutoAssign && { assignedTo: ctx.user._id }),
-			// Update timestamp FIRST to prevent race conditions with concurrent replies
 			...(shouldNotify && { notificationSentAt: Date.now() })
 		});
 
