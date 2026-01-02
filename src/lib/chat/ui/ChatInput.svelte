@@ -126,19 +126,6 @@
 		{/if}
 	{/key}
 
-	<!-- Handoff to human button - shown after first AI response, when not already handed off -->
-	{#key `${ctx.core.threadId}-${isHandedOff}`}
-		{#if showHandoffButton && ctx.core.threadId !== null && ctx.displayMessages.length > 1 && !isHandedOff && !ctx.inputValue.trim()}
-			<div
-				class="absolute top-0 z-20 translate-y-[-100%] animate-in pb-2 pl-5 duration-200 fade-in-0"
-			>
-				<div class="flex flex-wrap gap-2">
-					<PromptSuggestion onclick={() => onRequestHandoff?.()}>Talk to a human</PromptSuggestion>
-				</div>
-			</div>
-		{/if}
-	{/key}
-
 	<div class="flex flex-col p-2">
 		{#if ctx.attachments.length > 0}
 			<ChatAttachments
@@ -195,19 +182,25 @@
 			{#if actionsRight}
 				{@render actionsRight()}
 			{:else}
-				<Button
-					size="icon"
-					disabled={!canSend}
-					onclick={handleSend}
-					class="size-9 rounded-full"
-					aria-label="Send"
-				>
-					{#if !ctx.core.isSending}
-						<ArrowUp class="h-[18px] w-[18px]" />
-					{:else}
-						<span class="size-3 rounded-xs bg-white"></span>
+				<div class="flex items-center gap-2">
+					{#if showHandoffButton && ctx.core.threadId !== null && ctx.displayMessages.length > 1 && !isHandedOff}
+						<PromptSuggestion onclick={() => onRequestHandoff?.()}>Talk to a human</PromptSuggestion
+						>
 					{/if}
-				</Button>
+					<Button
+						size="icon"
+						disabled={!canSend}
+						onclick={handleSend}
+						class="size-9 rounded-full"
+						aria-label="Send"
+					>
+						{#if !ctx.core.isSending}
+							<ArrowUp class="h-[18px] w-[18px]" />
+						{:else}
+							<span class="size-3 rounded-xs bg-white"></span>
+						{/if}
+					</Button>
+				</div>
 			{/if}
 		</PromptInputActions>
 	</div>
