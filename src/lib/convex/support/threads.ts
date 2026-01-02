@@ -4,6 +4,7 @@ import { supportAgent } from './agent';
 import { components, internal } from '../_generated/api';
 import { paginationOptsValidator } from 'convex/server';
 import { isAnonymousUser } from '../utils/anonymousUser';
+import { authComponent } from '../auth';
 
 /**
  * Helper to build searchText from denormalized fields.
@@ -39,7 +40,10 @@ export const createThread = mutation({
 		title: v.optional(v.string()),
 		pageUrl: v.optional(v.string()) // URL of the page where user started the chat
 	},
-	returns: v.string(),
+	returns: v.object({
+		threadId: v.string(),
+		notificationEmail: v.optional(v.string())
+	}),
 	handler: async (ctx, args) => {
 		// Create agent thread (NO metadata field - it's ignored!)
 		const { threadId } = await supportAgent.createThread(ctx, {
@@ -77,12 +81,15 @@ export const createThread = mutation({
 			threadId,
 			userId: args.userId,
 			status: 'open',
+			isHandedOff: false, // AI responds by default, user can request handoff
 			assignedTo: undefined,
 			priority: undefined,
 			pageUrl: args.pageUrl || undefined,
 			unreadByAdmin: true,
 			createdAt: Date.now(),
 			updatedAt: Date.now(),
+			// Auto-enable notifications for authenticated users
+			notificationEmail: userEmail,
 			// Denormalized search fields
 			searchText,
 			title,
@@ -92,7 +99,7 @@ export const createThread = mutation({
 			userEmail
 		});
 
-		return threadId;
+		return { threadId, notificationEmail: userEmail };
 	}
 });
 
@@ -124,7 +131,15 @@ export const listThreads = query({
 					v.union(v.literal('user'), v.literal('assistant'), v.literal('tool'), v.literal('system'))
 				),
 				lastMessage: v.optional(v.string()),
-				lastMessageAt: v.optional(v.number())
+				lastMessageAt: v.optional(v.number()),
+				isHandedOff: v.boolean(),
+				notificationEmail: v.optional(v.string()),
+				assignedAdmin: v.optional(
+					v.object({
+						name: v.optional(v.string()),
+						image: v.union(v.string(), v.null())
+					})
+				)
 			})
 		),
 		isDone: v.boolean(),
@@ -133,7 +148,7 @@ export const listThreads = query({
 	handler: async (ctx, args) => {
 		// Security: Use server-verified user ID for authenticated users
 		// For anonymous users (not authenticated), use client-provided userId
-		const authUser = await import('../auth').then((m) => m.authComponent.getAuthUser(ctx));
+		const authUser = await authComponent.getAuthUser(ctx);
 		let effectiveUserId: string | undefined;
 
 		if (authUser) {
@@ -154,7 +169,47 @@ export const listThreads = query({
 			order: 'desc'
 		});
 
-		// For each thread, get the last message
+		// Get supportThreads for all threads (for handoff status, assigned admin, and notification email)
+		const supportThreadsMap = new Map<
+			string,
+			{ isHandedOff?: boolean; assignedTo?: string; notificationEmail?: string }
+		>();
+		for (const thread of threads.page) {
+			const supportThread = await ctx.db
+				.query('supportThreads')
+				.withIndex('by_thread', (q) => q.eq('threadId', thread._id))
+				.first();
+			if (supportThread) {
+				supportThreadsMap.set(thread._id, {
+					isHandedOff: supportThread.isHandedOff,
+					assignedTo: supportThread.assignedTo,
+					notificationEmail: supportThread.notificationEmail
+				});
+			}
+		}
+
+		// Collect unique admin IDs and fetch their info
+		const adminIds = new Set<string>();
+		for (const st of supportThreadsMap.values()) {
+			if (st.assignedTo) adminIds.add(st.assignedTo);
+		}
+
+		const adminMap = new Map<string, { name?: string; image: string | null }>();
+		for (const adminId of adminIds) {
+			try {
+				const admin = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+					model: 'user',
+					where: [{ field: '_id', operator: 'eq', value: adminId }]
+				});
+				if (admin) {
+					adminMap.set(adminId, { name: admin.name, image: admin.image ?? null });
+				}
+			} catch (error) {
+				console.log(`[listThreads] Failed to fetch admin ${adminId}:`, error);
+			}
+		}
+
+		// For each thread, get the last message and combine with support data
 		const threadsWithLastMessage = await Promise.all(
 			threads.page.map(async (thread) => {
 				// Get the most recent completed message in this thread (exclude pending/streaming)
@@ -167,6 +222,10 @@ export const listThreads = query({
 				});
 
 				const lastMessage = messages.page[0];
+				const supportThread = supportThreadsMap.get(thread._id);
+				const assignedAdmin = supportThread?.assignedTo
+					? adminMap.get(supportThread.assignedTo)
+					: undefined;
 
 				return {
 					_id: thread._id,
@@ -178,7 +237,10 @@ export const listThreads = query({
 					lastAgentName: lastMessage?.agentName,
 					lastMessageRole: lastMessage?.message?.role,
 					lastMessage: lastMessage?.text,
-					lastMessageAt: lastMessage?._creationTime ?? thread._creationTime
+					lastMessageAt: lastMessage?._creationTime ?? thread._creationTime,
+					isHandedOff: supportThread?.isHandedOff ?? false,
+					notificationEmail: supportThread?.notificationEmail,
+					assignedAdmin
 				};
 			})
 		);
@@ -198,6 +260,7 @@ export const listThreads = query({
  * Get a specific thread
  *
  * Retrieves thread metadata including title, summary, and creation time.
+ * Also returns isHandedOff status for the frontend to show/hide handoff button.
  *
  * @security Verifies ownership - users can only access their own threads.
  *           Authenticated users use server-verified ID, anonymous users use client ID.
@@ -213,7 +276,14 @@ export const getThread = query({
 		userId: v.optional(v.string()),
 		title: v.optional(v.string()),
 		summary: v.optional(v.string()),
-		status: v.union(v.literal('active'), v.literal('archived'))
+		status: v.union(v.literal('active'), v.literal('archived')),
+		isHandedOff: v.boolean(),
+		assignedAdmin: v.optional(
+			v.object({
+				name: v.optional(v.string()),
+				image: v.union(v.string(), v.null())
+			})
+		)
 	}),
 	handler: async (ctx, args) => {
 		const thread = await supportAgent.getThreadMetadata(ctx, {
@@ -221,7 +291,7 @@ export const getThread = query({
 		});
 
 		// Security: Verify ownership
-		const authUser = await import('../auth').then((m) => m.authComponent.getAuthUser(ctx));
+		const authUser = await authComponent.getAuthUser(ctx);
 
 		if (authUser) {
 			// Authenticated: Must own the thread
@@ -238,7 +308,121 @@ export const getThread = query({
 			throw new Error('Authentication required');
 		}
 
-		return thread;
+		// Get supportThread to check handoff status and assigned admin
+		const supportThread = await ctx.db
+			.query('supportThreads')
+			.withIndex('by_thread', (q) => q.eq('threadId', args.threadId))
+			.first();
+
+		// Fetch assigned admin info if thread is assigned
+		let assignedAdmin: { name?: string; image: string | null } | undefined;
+		if (supportThread?.assignedTo) {
+			try {
+				const admin = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+					model: 'user',
+					where: [{ field: '_id', operator: 'eq', value: supportThread.assignedTo }]
+				});
+				if (admin) {
+					assignedAdmin = {
+						name: admin.name,
+						image: admin.image ?? null
+					};
+				}
+			} catch (error) {
+				console.log(`[getThread] Failed to fetch admin ${supportThread.assignedTo}:`, error);
+			}
+		}
+
+		return {
+			...thread,
+			isHandedOff: supportThread?.isHandedOff ?? false,
+			assignedAdmin
+		};
+	}
+});
+
+/**
+ * Request handoff to human support
+ *
+ * User-initiated action to transfer the conversation to human support.
+ * Once handed off, AI will never respond in this thread again.
+ * This action is permanent and cannot be reversed.
+ */
+export const updateThreadHandoff = mutation({
+	args: {
+		threadId: v.string(),
+		userId: v.optional(v.string()) // For anonymous users
+	},
+	returns: v.boolean(),
+	handler: async (ctx, args) => {
+		// Verify thread exists and user owns it
+		const thread = await supportAgent.getThreadMetadata(ctx, {
+			threadId: args.threadId
+		});
+
+		// Security: Verify ownership
+		const authUser = await authComponent.getAuthUser(ctx);
+
+		if (authUser) {
+			if (thread.userId !== authUser._id) {
+				throw new Error("Unauthorized: Cannot access another user's thread");
+			}
+		} else if (args.userId && isAnonymousUser(args.userId)) {
+			if (thread.userId !== args.userId) {
+				throw new Error("Unauthorized: Cannot access another user's thread");
+			}
+		} else {
+			throw new Error('Authentication required');
+		}
+
+		// Get supportThread record
+		const supportThread = await ctx.db
+			.query('supportThreads')
+			.withIndex('by_thread', (q) => q.eq('threadId', args.threadId))
+			.first();
+
+		if (!supportThread) {
+			throw new Error('Support thread not found');
+		}
+
+		// Already handed off - no action needed
+		if (supportThread.isHandedOff) {
+			return true;
+		}
+
+		// Save user message: "Talk to support"
+		await supportAgent.saveMessage(ctx, {
+			threadId: args.threadId,
+			message: {
+				role: 'user',
+				content: 'Talk to support'
+			},
+			skipEmbeddings: true
+		});
+
+		// Save assistant response: "Sure! I will connect you now."
+		await supportAgent.saveMessage(ctx, {
+			threadId: args.threadId,
+			message: {
+				role: 'assistant',
+				content: 'Sure! I will connect you now.'
+			},
+			skipEmbeddings: true
+		});
+
+		// Mark as handed off and notify admins
+		await ctx.db.patch(supportThread._id, {
+			isHandedOff: true,
+			unreadByAdmin: true,
+			updatedAt: Date.now()
+		});
+
+		// Sync last message for search
+		await ctx.runMutation(internal.support.threads.updateLastMessage, {
+			threadId: args.threadId
+		});
+
+		return true;
 	}
 });
 
@@ -266,7 +450,7 @@ export const updateThread = mutation({
 		});
 
 		// Sync denormalized search fields
-		await ctx.runMutation(internal.support.threads.syncThreadMetadata, {
+		await ctx.runMutation(internal.support.threads.updateThreadMetadata, {
 			threadId: args.threadId,
 			title: args.title,
 			summary: args.summary
@@ -348,6 +532,91 @@ export const getAdminAvatars = query({
 });
 
 // ============================================================================
+// Email Notification Helpers
+// ============================================================================
+
+const NOTIFICATION_COOLDOWN_MS = 30 * 60 * 1000; // 30 minutes
+
+/**
+ * Check if a notification should be sent based on cooldown period.
+ * Returns true if:
+ * - notificationEmail is set AND
+ * - Either no notification has been sent yet OR 30+ minutes have passed
+ */
+export function shouldSendNotification(
+	notificationEmail: string | undefined,
+	notificationSentAt: number | undefined
+): boolean {
+	if (!notificationEmail) return false;
+	if (!notificationSentAt) return true; // First notification
+	return Date.now() - notificationSentAt >= NOTIFICATION_COOLDOWN_MS;
+}
+
+/**
+ * Set notification email for a support thread
+ *
+ * Allows users to opt-in to email notifications when an admin responds.
+ * Email is normalized (lowercase, trimmed) before saving.
+ *
+ * @security Verifies thread ownership before allowing email to be set.
+ */
+export const updateNotificationEmail = mutation({
+	args: {
+		threadId: v.string(),
+		email: v.string(),
+		userId: v.optional(v.string()) // For anonymous users
+	},
+	returns: v.boolean(),
+	handler: async (ctx, args) => {
+		// Validate email format
+		const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+		const normalizedEmail = args.email.trim().toLowerCase();
+
+		if (!emailRegex.test(normalizedEmail)) {
+			throw new Error('Invalid email format');
+		}
+
+		// Verify thread exists and user owns it
+		const thread = await supportAgent.getThreadMetadata(ctx, {
+			threadId: args.threadId
+		});
+
+		// Security: Verify ownership
+		const authUser = await authComponent.getAuthUser(ctx);
+
+		if (authUser) {
+			if (thread.userId !== authUser._id) {
+				throw new Error("Unauthorized: Cannot access another user's thread");
+			}
+		} else if (args.userId && isAnonymousUser(args.userId)) {
+			if (thread.userId !== args.userId) {
+				throw new Error("Unauthorized: Cannot access another user's thread");
+			}
+		} else {
+			throw new Error('Authentication required');
+		}
+
+		// Get supportThread record
+		const supportThread = await ctx.db
+			.query('supportThreads')
+			.withIndex('by_thread', (q) => q.eq('threadId', args.threadId))
+			.first();
+
+		if (!supportThread) {
+			throw new Error('Support thread not found');
+		}
+
+		// Update notification email
+		await ctx.db.patch(supportThread._id, {
+			notificationEmail: normalizedEmail,
+			updatedAt: Date.now()
+		});
+
+		return true;
+	}
+});
+
+// ============================================================================
 // Internal Sync Mutations (for keeping denormalized search fields in sync)
 // ============================================================================
 
@@ -355,7 +624,7 @@ export const getAdminAvatars = query({
  * Sync thread metadata (title/summary) to denormalized search fields.
  * Called when thread metadata is updated.
  */
-export const syncThreadMetadata = internalMutation({
+export const updateThreadMetadata = internalMutation({
 	args: {
 		threadId: v.string(),
 		title: v.optional(v.string()),
@@ -398,7 +667,7 @@ export const syncThreadMetadata = internalMutation({
  * Sync last message to denormalized search fields.
  * Called after a message is sent (user or admin).
  */
-export const syncLastMessage = internalMutation({
+export const updateLastMessage = internalMutation({
 	args: {
 		threadId: v.string()
 	},

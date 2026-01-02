@@ -34,7 +34,12 @@ export const generateUploadUrl = mutation({
  * This action fetches the uploaded file from storage and registers it with
  * the agent component for use in multimodal messages.
  *
- * @returns fileId, storageId, url, filename, and isImage flag
+ * @param args.storageId - The Convex storage ID of the uploaded file
+ * @param args.filename - Optional original filename for display
+ * @param args.mimeType - The MIME type of the uploaded file
+ * @returns Object containing fileId, storageId, url, filename, and isImage flag
+ * @throws {Error} When file type is not allowed (only PNG, JPEG, WebP, GIF, PDF supported)
+ * @throws {Error} When storage URL cannot be retrieved
  */
 export const saveUploadedFile = action({
 	args: {

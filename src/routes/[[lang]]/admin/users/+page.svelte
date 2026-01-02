@@ -423,7 +423,7 @@
 			| { newRole: UserRole; previousRole: UserRole }
 			| Record<string, never>
 	) {
-		await client.mutation(api.admin.mutations.logAdminAction, { action, targetUserId, metadata });
+		await client.mutation(api.admin.mutations.createAuditLog, { action, targetUserId, metadata });
 	}
 
 	async function impersonateUser(userId: string) {

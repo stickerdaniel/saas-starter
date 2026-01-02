@@ -14,17 +14,52 @@
 	let {
 		emptyState,
 		extractAttachments,
+		showEmailPrompt = false,
+		currentEmail = '',
+		defaultEmail = '',
+		onSubmitEmail,
 		class: className = ''
 	}: {
 		/** Custom empty state content */
 		emptyState?: Snippet;
 		/** Function to extract attachments from a message */
 		extractAttachments?: (message: DisplayMessage) => Attachment[];
+		/** Whether to show email prompt in handoff message */
+		showEmailPrompt?: boolean;
+		/** Currently saved notification email */
+		currentEmail?: string;
+		/** Default email (from logged-in user) */
+		defaultEmail?: string;
+		/** Callback when email is submitted */
+		onSubmitEmail?: (email: string) => Promise<void>;
 		/** Additional CSS classes */
 		class?: string;
 	} = $props();
 
+	// Handoff message text to detect
+	const HANDOFF_MESSAGE = 'Sure! I will connect you now.';
+
 	const ctx = getChatUIContext();
+
+	/**
+	 * Get the "sender type" for a message to determine grouping
+	 * Returns: 'user' | 'admin' | 'ai'
+	 */
+	function getSenderType(message: DisplayMessage): 'user' | 'admin' | 'ai' {
+		if (message.role === 'user') return 'user';
+		if (message.metadata?.provider === 'human') return 'admin';
+		return 'ai';
+	}
+
+	/**
+	 * Check if a message is the first in its group (different sender than previous)
+	 */
+	function isFirstInGroup(index: number, messages: DisplayMessage[]): boolean {
+		if (index === 0) return true;
+		const currentSender = getSenderType(messages[index]);
+		const previousSender = getSenderType(messages[index - 1]);
+		return currentSender !== previousSender;
+	}
 
 	// Default attachment extraction if not provided
 	function defaultExtractAttachments(msg: DisplayMessage): Attachment[] {
@@ -81,9 +116,18 @@
 			{/if}
 		{:else}
 			<!-- Messages list with fade-in animation on first load -->
-			<div class="space-y-4 py-20 pr-4 pl-9 {ctx.messagesFade.animationClass}">
-				{#each ctx.displayMessages as message (message._renderKey ?? message.id)}
-					<ChatMessage {message} attachments={getAttachments(message)} />
+			<div class="px-9 py-20 {ctx.messagesFade.animationClass}">
+				{#each ctx.displayMessages as message, index (message._renderKey ?? message.id)}
+					<ChatMessage
+						{message}
+						attachments={getAttachments(message)}
+						isFirstInGroup={isFirstInGroup(index, ctx.displayMessages)}
+						isHandoffMessage={message.displayText === HANDOFF_MESSAGE}
+						{showEmailPrompt}
+						{currentEmail}
+						{defaultEmail}
+						{onSubmitEmail}
+					/>
 				{/each}
 			</div>
 		{/if}

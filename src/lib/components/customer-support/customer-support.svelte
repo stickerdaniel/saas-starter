@@ -10,8 +10,14 @@
 	import { ChatUIContext, type UploadConfig } from '$lib/chat';
 	import { browser } from '$app/environment';
 	import { generateAnonymousUserId } from '$lib/convex/utils/anonymousUser';
+	import { useSupportUrlState } from './use-support-url-state.svelte';
 
-	let isFeedbackOpen = $state(false);
+	// URL state for shareable links
+	const urlState = useSupportUrlState();
+
+	// Widget open state derived from URL
+	const isFeedbackOpen = $derived(urlState.support === 'open');
+
 	let isScreenshotMode = $state(false);
 
 	// Hide AI chatbar when screenshot mode is active or feedback is open
@@ -20,6 +26,30 @@
 	// Initialize thread context
 	const threadContext = new SupportThreadContext();
 	supportThreadContext.set(threadContext);
+
+	// URL state sync handlers
+	function setWidgetOpen(open: boolean) {
+		urlState.support = open ? 'open' : '';
+		if (!open) {
+			urlState.thread = ''; // Clear thread when closing widget
+		}
+	}
+
+	function setThreadInUrl(threadId: string | null) {
+		urlState.thread = threadId ?? '';
+	}
+
+	// Connect thread context to URL state
+	threadContext.setOnThreadChange(setThreadInUrl);
+
+	// Sync thread from URL on mount/change
+	$effect(() => {
+		const threadFromUrl = urlState.thread;
+		if (threadFromUrl && threadFromUrl !== threadContext.threadId) {
+			// Open widget and load thread from URL
+			threadContext.selectThreadFromUrl(threadFromUrl);
+		}
+	});
 
 	// Get Convex client for mutations
 	const client = useConvexClient();
@@ -72,7 +102,7 @@
 	// Watch for widget open requests from chatbar
 	$effect(() => {
 		if (threadContext.shouldOpenWidget) {
-			isFeedbackOpen = true;
+			setWidgetOpen(true);
 			threadContext.clearWidgetOpenRequest();
 		}
 	});
@@ -88,7 +118,7 @@
 </script>
 
 <AIChatbar isFeedbackOpen={!shouldShowAIChatbar} />
-<FeedbackButton bind:isFeedbackOpen bind:isScreenshotMode {chatUIContext} />
+<FeedbackButton {isFeedbackOpen} onToggle={setWidgetOpen} bind:isScreenshotMode {chatUIContext} />
 
 {#if isScreenshotMode}
 	<ScreenshotEditor onCancel={handleScreenshotCancel} onScreenshotSaved={handleScreenshotSaved} />

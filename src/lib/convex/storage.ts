@@ -3,7 +3,15 @@ import { v } from 'convex/values';
 import { PROFILE_IMAGE_ALLOWED_TYPES, PROFILE_IMAGE_MAX_SIZE } from './constants';
 import { authComponent } from './auth';
 
-// Generate an upload URL for file uploads (authenticated)
+/**
+ * Generate an upload URL for file uploads
+ *
+ * Creates a temporary URL for uploading files directly to Convex storage.
+ * Requires authentication.
+ *
+ * @returns Temporary upload URL string
+ * @throws {Error} When user is not authenticated
+ */
 export const generateUploadUrl = mutation({
 	args: {},
 	handler: async (ctx) => {
@@ -15,8 +23,20 @@ export const generateUploadUrl = mutation({
 	}
 });
 
-// Save and validate a profile image upload
-export const saveProfileImage = mutation({
+/**
+ * Save and validate a profile image upload
+ *
+ * Validates that the uploaded file meets profile image requirements
+ * (allowed MIME types and size limits). Deletes invalid files from storage.
+ *
+ * @param args.storageId - The storage ID of the uploaded file
+ * @returns Public URL of the validated image
+ * @throws {Error} When user is not authenticated
+ * @throws {Error} When file is not found in storage
+ * @throws {Error} When file type is not allowed (invalid MIME type)
+ * @throws {Error} When file exceeds maximum size limit
+ */
+export const updateProfileImage = mutation({
 	args: { storageId: v.id('_storage') },
 	handler: async (ctx, args) => {
 		const user = await authComponent.getAuthUser(ctx);
