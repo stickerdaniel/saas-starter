@@ -13,7 +13,13 @@
 	import { ArrowUp, Camera, Paperclip } from '@lucide/svelte';
 	import ChatAttachments from './ChatAttachments.svelte';
 	import { getChatUIContext } from './ChatContext.svelte.js';
-	import { ALLOWED_FILE_EXTENSIONS, MAX_FILE_SIZE, MAX_FILE_SIZE_LABEL } from '../core/types.js';
+	import {
+		ALLOWED_FILE_EXTENSIONS,
+		ALLOWED_FILE_TYPES,
+		MAX_ATTACHMENTS,
+		MAX_FILE_SIZE,
+		MAX_FILE_SIZE_LABEL
+	} from '../core/types.js';
 
 	let {
 		suggestions = [],
@@ -60,6 +66,12 @@
 	// Use context for send validation
 	const canSend = $derived(ctx.canSend && !ctx.core.isSending);
 
+	// Check if last assistant message is complete (for handoff button visibility)
+	const lastAssistantComplete = $derived.by(() => {
+		const last = ctx.displayMessages.findLast((m) => m.role === 'assistant');
+		return last?.status === 'success' || last?.status === 'failed';
+	});
+
 	async function handleSend() {
 		if (!canSend) return;
 		const prompt = ctx.inputValue.trim();
@@ -80,6 +92,11 @@
 	async function handleFilesAdded(files: File[]) {
 		// Upload files through context (with duplicate detection and size validation)
 		for (const file of files) {
+			// Check attachment limit
+			if (ctx.attachments.length >= MAX_ATTACHMENTS) {
+				toast.error(`Maximum ${MAX_ATTACHMENTS} attachments allowed`);
+				break;
+			}
 			// Check file size
 			if (file.size > MAX_FILE_SIZE) {
 				toast.error(`File too large: "${file.name}"`, {
@@ -100,6 +117,45 @@
 
 	function handleSuggestionClick(text: string) {
 		ctx.setInputValue(text);
+	}
+
+	function handlePaste(event: ClipboardEvent) {
+		const items = event.clipboardData?.items;
+		if (!items) return;
+
+		for (const item of items) {
+			// Only process allowed file types
+			if (!ALLOWED_FILE_TYPES.includes(item.type)) {
+				continue;
+			}
+
+			// Check attachment limit
+			if (ctx.attachments.length >= MAX_ATTACHMENTS) {
+				toast.error(`Maximum ${MAX_ATTACHMENTS} attachments allowed`);
+				break;
+			}
+
+			const file = item.getAsFile();
+			if (!file) continue;
+
+			// Validate file size
+			if (file.size > MAX_FILE_SIZE) {
+				toast.error('Pasted file too large', {
+					description: `Maximum size is ${MAX_FILE_SIZE_LABEL}`
+				});
+				continue;
+			}
+
+			// Use original filename if available, otherwise generate one
+			const filename =
+				file.name ||
+				`pasted-${file.type.startsWith('image/') ? 'image' : 'file'}-${Date.now()}.${file.type.split('/')[1] || 'bin'}`;
+
+			// Check for duplicates (unlikely for pasted files, but consistent with file upload)
+			if (!ctx.hasFile(filename, file.size)) {
+				ctx.uploadFile(file, filename);
+			}
+		}
 	}
 </script>
 
@@ -136,7 +192,11 @@
 			/>
 		{/if}
 
-		<PromptInputTextarea {placeholder} class="min-h-[44px] pt-3 pl-4 text-base leading-[1.3]" />
+		<PromptInputTextarea
+			{placeholder}
+			class="min-h-[44px] pt-3 pl-4 text-base leading-[1.3]"
+			onpaste={handlePaste}
+		/>
 
 		<PromptInputActions class="mt-5 flex w-full items-center justify-between gap-2 px-3 pb-3">
 			<div class="flex items-center gap-2">
@@ -183,9 +243,19 @@
 				{@render actionsRight()}
 			{:else}
 				<div class="flex items-center gap-2">
-					{#if showHandoffButton && ctx.core.threadId !== null && ctx.displayMessages.length > 1 && !isHandedOff}
-						<PromptSuggestion onclick={() => onRequestHandoff?.()}>Talk to a human</PromptSuggestion
+					{#if showHandoffButton}
+						<div
+							class="transition-opacity duration-200 {ctx.core.threadId !== null &&
+							ctx.displayMessages.length > 1 &&
+							!isHandedOff &&
+							lastAssistantComplete
+								? 'opacity-100'
+								: 'pointer-events-none opacity-0'}"
 						>
+							<PromptSuggestion onclick={() => onRequestHandoff?.()}
+								>Talk to a human</PromptSuggestion
+							>
+						</div>
 					{/if}
 					<Button
 						size="icon"

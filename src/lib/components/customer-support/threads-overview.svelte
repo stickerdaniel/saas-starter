@@ -325,7 +325,8 @@
 								thread._id,
 								thread.lastAgentName,
 								thread.isHandedOff,
-								thread.assignedAdmin
+								thread.assignedAdmin,
+								thread.notificationEmail
 							)}
 					>
 						<AvatarHeading

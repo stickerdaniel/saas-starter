@@ -48,6 +48,8 @@ export const listThreadsForAdmin = adminQuery({
 					isHandedOff: v.optional(v.boolean()),
 					priority: v.optional(v.union(v.literal('low'), v.literal('medium'), v.literal('high'))),
 					pageUrl: v.optional(v.string()),
+					notificationEmail: v.optional(v.string()),
+					notificationSentAt: v.optional(v.number()),
 					unreadByAdmin: v.boolean(),
 					createdAt: v.number(),
 					updatedAt: v.number(),
@@ -62,7 +64,8 @@ export const listThreadsForAdmin = adminQuery({
 				lastMessage: v.optional(v.string()),
 				lastMessageAt: v.optional(v.number()),
 				userName: v.optional(v.string()),
-				userEmail: v.optional(v.string())
+				userEmail: v.optional(v.string()),
+				userImage: v.optional(v.string())
 			})
 		),
 		isDone: v.boolean(),
@@ -190,11 +193,42 @@ export const listThreadsForAdmin = adminQuery({
 		// Filter out null entries (deleted threads)
 		const validThreads = threadsWithDetails.filter((t): t is NonNullable<typeof t> => t !== null);
 
-		// No more in-memory search filtering needed! 🎉
-		// Search is now handled at the database level with proper pagination.
+		// =========================================================================
+		// ENRICHMENT: Batch fetch user images from Better Auth
+		// =========================================================================
+		const userIds = [
+			...new Set(
+				validThreads.map((t) => t.userId).filter((id): id is string => !!id && !isAnonymousUser(id))
+			)
+		];
+
+		const userImageMap = new Map<string, string>();
+
+		if (userIds.length > 0) {
+			// Batch fetch users to get their images
+			const usersResult = await ctx.runQuery(components.betterAuth.adapter.findMany, {
+				model: 'user',
+				paginationOpts: { cursor: null, numItems: userIds.length },
+				where: []
+			});
+
+			// Build lookup map for user images
+			for (const user of usersResult.page) {
+				const parsed = betterAuthUserSchema.safeParse(user);
+				if (parsed.success && userIds.includes(parsed.data._id) && parsed.data.image) {
+					userImageMap.set(parsed.data._id, parsed.data.image);
+				}
+			}
+		}
+
+		// Add userImage to each thread
+		const threadsWithImages = validThreads.map((thread) => ({
+			...thread,
+			userImage: thread.userId ? userImageMap.get(thread.userId) : undefined
+		}));
 
 		return {
-			page: validThreads,
+			page: threadsWithImages,
 			isDone: supportThreads.isDone,
 			continueCursor: supportThreads.continueCursor
 		};
@@ -224,6 +258,8 @@ export const getThreadForAdmin = adminQuery({
 			isHandedOff: v.optional(v.boolean()),
 			priority: v.optional(v.union(v.literal('low'), v.literal('medium'), v.literal('high'))),
 			pageUrl: v.optional(v.string()),
+			notificationEmail: v.optional(v.string()),
+			notificationSentAt: v.optional(v.number()),
 			unreadByAdmin: v.boolean(),
 			createdAt: v.number(),
 			updatedAt: v.number(),
@@ -280,6 +316,8 @@ export const getThreadForAdmin = adminQuery({
 			assignedTo: undefined,
 			priority: undefined,
 			pageUrl: undefined,
+			notificationEmail: undefined,
+			notificationSentAt: undefined,
 			unreadByAdmin: true,
 			createdAt: agentThread._creationTime,
 			updatedAt: agentThread._creationTime

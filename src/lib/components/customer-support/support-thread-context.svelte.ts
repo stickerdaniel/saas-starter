@@ -69,11 +69,15 @@ export class SupportThreadContext {
 	// Navigation state
 	currentView = $state<SupportView>('overview');
 
+	// URL sync callback (called when thread changes for URL state updates)
+	private onThreadChange?: (threadId: string | null) => void;
+
 	// Current thread state
 	threadId = $state<string | null>(null);
 	threadAgentName = $state<string | undefined>(undefined);
 	isHandedOff = $state(false); // Whether thread is handed off to human support
 	assignedAdmin = $state<{ name?: string; image: string | null } | undefined>(undefined);
+	notificationEmail = $state<string | null>(null); // Email for admin reply notifications
 	messages = $state<SupportMessage[]>([]);
 	isLoading = $state(false);
 	isSending = $state(false);
@@ -134,12 +138,14 @@ export class SupportThreadContext {
 		threadId: string | null,
 		agentName?: string,
 		isHandedOff?: boolean,
-		assignedAdmin?: { name?: string; image: string | null }
+		assignedAdmin?: { name?: string; image: string | null },
+		notificationEmail?: string | null
 	) {
 		this.threadId = threadId;
 		this.threadAgentName = agentName;
 		this.isHandedOff = isHandedOff ?? false;
 		this.assignedAdmin = assignedAdmin;
+		this.notificationEmail = notificationEmail ?? null;
 		this.messages = [];
 		this.hasMore = false;
 		this.continueCursor = null;
@@ -172,6 +178,31 @@ export class SupportThreadContext {
 		} catch (error) {
 			console.error('[requestHandoff] Failed:', error);
 			this.setError('Failed to request human support. Please try again.');
+			return false;
+		}
+	}
+
+	/**
+	 * Set notification email for this thread
+	 * User will be notified when an admin responds (with 30-min cooldown)
+	 */
+	async setNotificationEmail(client: ConvexClient, email: string): Promise<boolean> {
+		if (!this.threadId) {
+			console.error('[setNotificationEmail] No thread ID');
+			return false;
+		}
+
+		try {
+			await client.mutation(api.support.threads.setNotificationEmail, {
+				threadId: this.threadId,
+				email,
+				userId: this.userId || undefined
+			});
+			this.notificationEmail = email.trim().toLowerCase();
+			return true;
+		} catch (error) {
+			console.error('[setNotificationEmail] Failed:', error);
+			this.setError('Failed to save email. Please try again.');
 			return false;
 		}
 	}
@@ -347,6 +378,8 @@ export class SupportThreadContext {
 				this.threadId = threadId;
 				// Switch from compose to chat view
 				this.currentView = 'chat';
+				// Notify URL state of new thread
+				this.onThreadChange?.(threadId);
 			}
 
 			console.log('[sendMessage] Sending message', {
@@ -397,16 +430,38 @@ export class SupportThreadContext {
 	}
 
 	/**
+	 * Set callback for thread changes (used for URL state sync)
+	 */
+	setOnThreadChange(callback: ((threadId: string | null) => void) | undefined) {
+		this.onThreadChange = callback;
+	}
+
+	/**
 	 * Select a thread and navigate to chat view
 	 */
 	selectThread(
 		threadId: string,
 		agentName?: string,
 		isHandedOff?: boolean,
-		assignedAdmin?: { name?: string; image: string | null }
+		assignedAdmin?: { name?: string; image: string | null },
+		notificationEmail?: string | null
 	) {
-		this.setThread(threadId, agentName, isHandedOff, assignedAdmin);
+		this.setThread(threadId, agentName, isHandedOff, assignedAdmin, notificationEmail);
 		this.currentView = 'chat';
+		this.onThreadChange?.(threadId);
+	}
+
+	/**
+	 * Select a thread from URL (loads thread details from backend)
+	 * Used when opening widget from a shared link with ?thread=xxx
+	 */
+	selectThreadFromUrl(threadId: string) {
+		// Set thread ID and switch to chat view
+		// Full thread details (agentName, isHandedOff, etc.) will be loaded
+		// reactively by the chat component's query
+		this.threadId = threadId;
+		this.currentView = 'chat';
+		// Don't call onThreadChange here - this is triggered BY the URL
 	}
 
 	/**
@@ -416,6 +471,7 @@ export class SupportThreadContext {
 	startNewThread() {
 		this.setThread(null);
 		this.currentView = 'compose';
+		this.onThreadChange?.(null);
 	}
 
 	/**
@@ -426,6 +482,7 @@ export class SupportThreadContext {
 	 */
 	goBack() {
 		this.currentView = 'overview';
+		this.onThreadChange?.(null);
 	}
 
 	/**
@@ -441,6 +498,7 @@ export class SupportThreadContext {
 		this.threadAgentName = undefined;
 		this.isHandedOff = false;
 		this.assignedAdmin = undefined;
+		this.notificationEmail = null;
 		this.messages = [];
 		this.isLoading = false;
 		this.isSending = false;

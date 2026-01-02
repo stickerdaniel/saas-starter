@@ -57,3 +57,36 @@ If you didn't request this, you can safely ignore this email.`
 		});
 	}
 });
+
+/**
+ * Send notification email when admin replies to a support thread
+ *
+ * Called when an admin responds to a user's support request.
+ * Includes a preview of the admin's message and a link to view the conversation.
+ */
+export const sendAdminReplyNotification = internalMutation({
+	args: {
+		email: v.string(),
+		adminName: v.string(),
+		messagePreview: v.string()
+	},
+	handler: async (ctx, args) => {
+		const { email, adminName, messagePreview } = args;
+		const appUrl = process.env.APP_URL || 'http://localhost:5173';
+
+		await resend.sendEmail(ctx, {
+			from: process.env.AUTH_EMAIL || 'noreply@example.com',
+			to: email,
+			subject: 'New reply to your support request',
+			text: `${adminName} has replied to your support request:
+
+"${messagePreview}"
+
+Click here to view the conversation and respond:
+${appUrl}
+
+---
+You're receiving this email because you requested notifications for this support thread.`
+		});
+	}
+});

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { useConvexClient, useQuery } from 'convex-svelte';
+	import { page } from '$app/state';
 	import { api } from '$lib/convex/_generated/api';
 	import { supportThreadContext } from './support-thread-context.svelte';
 	import { lockscroll } from '@svelte-put/lockscroll';
@@ -18,11 +19,11 @@
 	let {
 		isScreenshotMode = $bindable(false),
 		chatUIContext,
-		isFeedbackOpen = $bindable(false)
+		onClose
 	}: {
 		isScreenshotMode?: boolean;
 		chatUIContext: ChatUIContext;
-		isFeedbackOpen?: boolean;
+		onClose?: () => void;
 	} = $props();
 
 	// Get thread context
@@ -68,6 +69,14 @@
 		if (success) {
 			// Optionally show a toast or feedback
 			console.log('[handleRequestHandoff] Successfully handed off to human support');
+		}
+	}
+
+	// Handle email notification submission
+	async function handleSubmitEmail(email: string) {
+		const success = await threadContext.setNotificationEmail(client, email);
+		if (!success) {
+			throw new Error('Failed to save email');
 		}
 	}
 
@@ -157,7 +166,7 @@
 				: Bot}
 		titleImage={threadContext.isHandedOff ? assignedAdmin?.image : undefined}
 		onBackClick={() => threadContext.goBack()}
-		onCloseClick={() => (isFeedbackOpen = false)}
+		onCloseClick={onClose}
 	/>
 
 	<!-- Content area - relative container for both views -->
@@ -175,7 +184,13 @@
 			>
 				<!-- Messages container -->
 				<div class="relative min-h-0 w-full flex-1">
-					<ChatMessages {extractAttachments} />
+					<ChatMessages
+						{extractAttachments}
+						showEmailPrompt={threadContext.isHandedOff}
+						currentEmail={threadContext.notificationEmail ?? ''}
+						defaultEmail={page.data.viewer?.email ?? ''}
+						onSubmitEmail={handleSubmitEmail}
+					/>
 				</div>
 
 				<!-- Input area -->

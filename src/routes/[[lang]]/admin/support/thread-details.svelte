@@ -178,6 +178,23 @@
 					</Select.Root>
 				</div>
 
+				<!-- Notification Email -->
+				{#if thread.supportMetadata?.notificationEmail}
+					<div class="space-y-1">
+						<Label>Notification Email</Label>
+						<a
+							href="mailto:{thread.supportMetadata
+								.notificationEmail}?subject=Re: Your support request&body=Hi,%0A%0AThank you for reaching out to our support team.%0A%0A"
+							target="_blank"
+							rel="noopener noreferrer"
+							class="flex items-center gap-2 text-sm text-primary hover:underline"
+						>
+							<span class="truncate">{thread.supportMetadata.notificationEmail}</span>
+							<ExternalLinkIcon class="size-3 flex-shrink-0" />
+						</a>
+					</div>
+				{/if}
+
 				<!-- Page URL -->
 				{#if thread.supportMetadata?.pageUrl}
 					<div class="space-y-1">

@@ -4,7 +4,7 @@
 	import * as Tabs from '$lib/components/ui/tabs';
 	import { Button } from '$lib/components/ui/button';
 	import { Badge } from '$lib/components/ui/badge';
-	import { Avatar, AvatarFallback } from '$lib/components/ui/avatar';
+	import { Avatar, AvatarFallback, AvatarImage } from '$lib/components/ui/avatar';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import SearchIcon from '@lucide/svelte/icons/search';
 	import InboxIcon from '@lucide/svelte/icons/inbox';
@@ -38,6 +38,7 @@
 		lastMessageAt?: number;
 		userName?: string;
 		userEmail?: string;
+		userImage?: string;
 	}
 
 	let {
@@ -161,7 +162,7 @@
 					<div class="border-b p-4">
 						<div class="flex items-start gap-3">
 							<!-- Avatar -->
-							<Skeleton class="size-10 rounded-full" />
+							<Skeleton class="size-8 rounded-full" />
 
 							<div class="min-w-0 flex-1">
 								<!-- Name & Time -->
@@ -175,7 +176,8 @@
 
 								<!-- Badges -->
 								<div class="mt-2 flex flex-wrap items-center gap-1.5">
-									<Skeleton class="h-[22px] w-12 rounded-full" />
+									<Skeleton class="h-[22px] w-12" />
+									<Skeleton class="h-[22px] w-14" />
 								</div>
 							</div>
 						</div>
@@ -201,7 +203,10 @@
 						>
 							<div class="flex items-start gap-3">
 								<!-- Avatar -->
-								<Avatar class="size-10">
+								<Avatar class="size-8">
+									{#if thread.userImage}
+										<AvatarImage src={thread.userImage} alt={thread.userName || 'User'} />
+									{/if}
 									<AvatarFallback>
 										{thread.userName?.[0]?.toUpperCase() || 'U'}
 									</AvatarFallback>
@@ -231,9 +236,16 @@
 											<Badge variant="default" class="text-xs">New</Badge>
 										{/if}
 										{#if thread.supportMetadata.priority}
-											<Badge variant="outline" class="text-xs capitalize"
-												>{thread.supportMetadata.priority}</Badge
+											<Badge
+												variant="outline"
+												class="text-xs capitalize {thread.supportMetadata.priority === 'low'
+													? 'border-green-500 bg-green-500/10 text-green-700 dark:text-green-400'
+													: thread.supportMetadata.priority === 'medium'
+														? 'border-yellow-500 bg-yellow-500/10 text-yellow-700 dark:text-yellow-400'
+														: 'border-red-500 bg-red-500/10 text-red-700 dark:text-red-400'}"
 											>
+												{thread.supportMetadata.priority}
+											</Badge>
 										{/if}
 										{#if thread.supportMetadata.status}
 											<Badge variant="secondary" class="text-xs capitalize"

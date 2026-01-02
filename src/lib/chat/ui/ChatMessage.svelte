@@ -4,13 +4,19 @@
 	import ChatAttachments from './ChatAttachments.svelte';
 	import ChatReasoning from './ChatReasoning.svelte';
 	import MessageBubble from './MessageBubble.svelte';
+	import InlineEmailPrompt from './InlineEmailPrompt.svelte';
 	import { getChatUIContext } from './ChatContext.svelte.js';
 	import { type DisplayMessage, type Attachment } from '../core/types.js';
 
 	let {
 		message,
 		attachments = [],
-		isFirstInGroup = true
+		isFirstInGroup = true,
+		isHandoffMessage = false,
+		showEmailPrompt = false,
+		currentEmail = '',
+		defaultEmail = '',
+		onSubmitEmail
 	}: {
 		/** The message to display */
 		message: DisplayMessage;
@@ -18,6 +24,16 @@
 		attachments?: Attachment[];
 		/** Whether this is the first message in a group (different sender than previous) */
 		isFirstInGroup?: boolean;
+		/** Whether this is the handoff confirmation message */
+		isHandoffMessage?: boolean;
+		/** Whether to show email prompt (handed off) */
+		showEmailPrompt?: boolean;
+		/** Currently saved notification email */
+		currentEmail?: string;
+		/** Default email (from logged-in user) */
+		defaultEmail?: string;
+		/** Callback when email is submitted */
+		onSubmitEmail?: (email: string) => Promise<void>;
 	} = $props();
 
 	const ctx = getChatUIContext();
@@ -83,6 +99,9 @@
 				{/if}
 				{#if message.displayText}
 					<Response content={message.displayText} animation={{ enabled: true }} />
+				{/if}
+				{#if isHandoffMessage && showEmailPrompt && onSubmitEmail}
+					<InlineEmailPrompt {currentEmail} {defaultEmail} {onSubmitEmail} />
 				{/if}
 			</MessageBubble>
 		{/if}

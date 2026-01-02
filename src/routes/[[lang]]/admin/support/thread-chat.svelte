@@ -5,7 +5,10 @@
 	import ChatRoot from '$lib/chat/ui/ChatRoot.svelte';
 	import ChatMessages from '$lib/chat/ui/ChatMessages.svelte';
 	import ChatInput from '$lib/chat/ui/ChatInput.svelte';
+	import { ChatUIContext, type UploadConfig } from '$lib/chat/ui/ChatContext.svelte';
+	import { ChatCore } from '$lib/chat/core/ChatCore.svelte';
 	import { Button } from '$lib/components/ui/button';
+	import { Avatar, AvatarFallback, AvatarImage } from '$lib/components/ui/avatar';
 	import PanelRightIcon from '@lucide/svelte/icons/panel-right';
 	import PanelBottomOpen from '@lucide/svelte/icons/panel-bottom-open';
 	import { useMedia } from '$lib/hooks/use-media.svelte';
@@ -22,6 +25,7 @@
 		initialThread?: {
 			userName?: string;
 			userEmail?: string;
+			userImage?: string;
 			lastMessageAt?: number;
 		};
 		onBackClick?: () => void;
@@ -29,6 +33,23 @@
 
 	const media = useMedia();
 	const client = useConvexClient();
+
+	// Upload configuration for file attachments
+	const uploadConfig: UploadConfig = {
+		generateUploadUrl: api.support.files.generateUploadUrl,
+		saveUploadedFile: api.support.files.saveUploadedFile
+	};
+
+	// Create ChatCore for this thread (needed for ChatUIContext)
+	const chatCore = new ChatCore({
+		threadId,
+		api: {
+			sendMessage: api.admin.support.mutations.sendAdminReply
+		}
+	});
+
+	// Create ChatUIContext with upload support (userAlignment 'left' for admin view)
+	const chatUIContext = new ChatUIContext(chatCore, client, uploadConfig, 'left');
 
 	// Query thread details to show header info
 	const threadQuery = useQuery(api.admin.support.queries.getThreadForAdmin, () => ({
@@ -44,18 +65,11 @@
 			thread?.user?.email ||
 			'Anonymous User'
 	);
+	const userEmail = $derived(initialThread?.userEmail || thread?.user?.email);
+	const userImage = $derived(initialThread?.userImage || thread?.user?.image);
 	const lastMessageAt = $derived(
 		initialThread?.lastMessageAt || thread?.supportMetadata?.updatedAt
 	);
-
-	// Mark as read when opened
-	$effect(() => {
-		if (threadId) {
-			client.mutation(api.admin.support.mutations.markThreadAsRead, {
-				threadId
-			});
-		}
-	});
 </script>
 
 <div class="flex h-full flex-col">
@@ -64,9 +78,8 @@
 		<SlidingHeader
 			isBackView={true}
 			backTitle={displayName}
-			backSubtitle={lastMessageAt
-				? formatDistanceToNow(new Date(lastMessageAt), { addSuffix: true })
-				: '\u00A0'}
+			backSubtitle={userEmail || '\u00A0'}
+			titleImage={userImage}
 			defaultTitle="Support Threads"
 			{onBackClick}
 			showClose={false}
@@ -90,13 +103,23 @@
 	{#if media.lg}
 		<div class="flex-shrink-0 border-b p-4">
 			<div class="flex items-center justify-between gap-4">
-				<div class="min-w-0 flex-1 space-y-1">
-					<h2 class="truncate font-semibold">
-						{displayName}
-					</h2>
-					{#if thread?.title && thread.title !== 'Customer Support'}
-						<p class="truncate text-sm text-muted-foreground">{thread.title}</p>
-					{/if}
+				<div class="flex min-w-0 flex-1 items-center gap-3">
+					<Avatar class="size-8 shrink-0">
+						{#if userImage}
+							<AvatarImage src={userImage} alt={displayName} />
+						{/if}
+						<AvatarFallback>
+							{displayName[0]?.toUpperCase() || 'U'}
+						</AvatarFallback>
+					</Avatar>
+					<div class="min-w-0 flex-1">
+						<h2 class="truncate font-semibold">
+							{displayName}
+						</h2>
+						{#if userEmail}
+							<p class="truncate text-sm text-muted-foreground">{userEmail}</p>
+						{/if}
+					</div>
 				</div>
 
 				<!-- Toggle button for Sheet overlay (lg && !xl) -->
@@ -121,6 +144,7 @@
 	<ChatRoot
 		{threadId}
 		userAlignment="left"
+		externalUIContext={chatUIContext}
 		api={{
 			listMessages: api.support.messages.listMessages,
 			sendMessage: api.admin.support.mutations.sendAdminReply
@@ -133,14 +157,22 @@
 		<ChatInput
 			class="mx-4 -translate-y-4 p-0"
 			placeholder="Reply to customer..."
-			showFileButton={false}
+			showFileButton={true}
 			onSend={async (prompt) => {
 				if (!prompt) return;
+
+				// Get uploaded file IDs from context
+				const fileIds = chatUIContext.uploadedFileIds;
+
 				try {
 					await client.mutation(api.admin.support.mutations.sendAdminReply, {
 						threadId,
-						prompt
+						prompt,
+						fileIds: fileIds.length > 0 ? fileIds : undefined
 					});
+
+					// Clear attachments after successful send
+					chatUIContext.clearAttachments();
 				} catch (error) {
 					console.error('[Admin sendAdminReply] Error:', error);
 				}

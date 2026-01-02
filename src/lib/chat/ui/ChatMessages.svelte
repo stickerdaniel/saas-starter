@@ -14,15 +14,30 @@
 	let {
 		emptyState,
 		extractAttachments,
+		showEmailPrompt = false,
+		currentEmail = '',
+		defaultEmail = '',
+		onSubmitEmail,
 		class: className = ''
 	}: {
 		/** Custom empty state content */
 		emptyState?: Snippet;
 		/** Function to extract attachments from a message */
 		extractAttachments?: (message: DisplayMessage) => Attachment[];
+		/** Whether to show email prompt in handoff message */
+		showEmailPrompt?: boolean;
+		/** Currently saved notification email */
+		currentEmail?: string;
+		/** Default email (from logged-in user) */
+		defaultEmail?: string;
+		/** Callback when email is submitted */
+		onSubmitEmail?: (email: string) => Promise<void>;
 		/** Additional CSS classes */
 		class?: string;
 	} = $props();
+
+	// Handoff message text to detect
+	const HANDOFF_MESSAGE = 'Sure! I will connect you now.';
 
 	const ctx = getChatUIContext();
 
@@ -107,6 +122,11 @@
 						{message}
 						attachments={getAttachments(message)}
 						isFirstInGroup={isFirstInGroup(index, ctx.displayMessages)}
+						isHandoffMessage={message.displayText === HANDOFF_MESSAGE}
+						{showEmailPrompt}
+						{currentEmail}
+						{defaultEmail}
+						{onSubmitEmail}
 					/>
 				{/each}
 			</div>

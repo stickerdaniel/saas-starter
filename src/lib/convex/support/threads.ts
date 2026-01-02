@@ -85,6 +85,8 @@ export const createThread = mutation({
 			unreadByAdmin: true,
 			createdAt: Date.now(),
 			updatedAt: Date.now(),
+			// Auto-enable notifications for authenticated users
+			notificationEmail: userEmail,
 			// Denormalized search fields
 			searchText,
 			title,
@@ -128,6 +130,7 @@ export const listThreads = query({
 				lastMessage: v.optional(v.string()),
 				lastMessageAt: v.optional(v.number()),
 				isHandedOff: v.boolean(),
+				notificationEmail: v.optional(v.string()),
 				assignedAdmin: v.optional(
 					v.object({
 						name: v.optional(v.string()),
@@ -163,8 +166,11 @@ export const listThreads = query({
 			order: 'desc'
 		});
 
-		// Get supportThreads for all threads (for handoff status and assigned admin)
-		const supportThreadsMap = new Map<string, { isHandedOff?: boolean; assignedTo?: string }>();
+		// Get supportThreads for all threads (for handoff status, assigned admin, and notification email)
+		const supportThreadsMap = new Map<
+			string,
+			{ isHandedOff?: boolean; assignedTo?: string; notificationEmail?: string }
+		>();
 		for (const thread of threads.page) {
 			const supportThread = await ctx.db
 				.query('supportThreads')
@@ -173,7 +179,8 @@ export const listThreads = query({
 			if (supportThread) {
 				supportThreadsMap.set(thread._id, {
 					isHandedOff: supportThread.isHandedOff,
-					assignedTo: supportThread.assignedTo
+					assignedTo: supportThread.assignedTo,
+					notificationEmail: supportThread.notificationEmail
 				});
 			}
 		}
@@ -229,6 +236,7 @@ export const listThreads = query({
 					lastMessage: lastMessage?.text,
 					lastMessageAt: lastMessage?._creationTime ?? thread._creationTime,
 					isHandedOff: supportThread?.isHandedOff ?? false,
+					notificationEmail: supportThread?.notificationEmail,
 					assignedAdmin
 				};
 			})
@@ -517,6 +525,91 @@ export const getAdminAvatars = query({
 			name: admin.name,
 			image: admin.image ?? null
 		}));
+	}
+});
+
+// ============================================================================
+// Email Notification Helpers
+// ============================================================================
+
+const NOTIFICATION_COOLDOWN_MS = 30 * 60 * 1000; // 30 minutes
+
+/**
+ * Check if a notification should be sent based on cooldown period.
+ * Returns true if:
+ * - notificationEmail is set AND
+ * - Either no notification has been sent yet OR 30+ minutes have passed
+ */
+export function shouldSendNotification(
+	notificationEmail: string | undefined,
+	notificationSentAt: number | undefined
+): boolean {
+	if (!notificationEmail) return false;
+	if (!notificationSentAt) return true; // First notification
+	return Date.now() - notificationSentAt >= NOTIFICATION_COOLDOWN_MS;
+}
+
+/**
+ * Set notification email for a support thread
+ *
+ * Allows users to opt-in to email notifications when an admin responds.
+ * Email is normalized (lowercase, trimmed) before saving.
+ *
+ * @security Verifies thread ownership before allowing email to be set.
+ */
+export const setNotificationEmail = mutation({
+	args: {
+		threadId: v.string(),
+		email: v.string(),
+		userId: v.optional(v.string()) // For anonymous users
+	},
+	returns: v.boolean(),
+	handler: async (ctx, args) => {
+		// Validate email format
+		const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+		const normalizedEmail = args.email.trim().toLowerCase();
+
+		if (!emailRegex.test(normalizedEmail)) {
+			throw new Error('Invalid email format');
+		}
+
+		// Verify thread exists and user owns it
+		const thread = await supportAgent.getThreadMetadata(ctx, {
+			threadId: args.threadId
+		});
+
+		// Security: Verify ownership
+		const authUser = await authComponent.getAuthUser(ctx);
+
+		if (authUser) {
+			if (thread.userId !== authUser._id) {
+				throw new Error("Unauthorized: Cannot access another user's thread");
+			}
+		} else if (args.userId && isAnonymousUser(args.userId)) {
+			if (thread.userId !== args.userId) {
+				throw new Error("Unauthorized: Cannot access another user's thread");
+			}
+		} else {
+			throw new Error('Authentication required');
+		}
+
+		// Get supportThread record
+		const supportThread = await ctx.db
+			.query('supportThreads')
+			.withIndex('by_thread', (q) => q.eq('threadId', args.threadId))
+			.first();
+
+		if (!supportThread) {
+			throw new Error('Support thread not found');
+		}
+
+		// Update notification email
+		await ctx.db.patch(supportThread._id, {
+			notificationEmail: normalizedEmail,
+			updatedAt: Date.now()
+		});
+
+		return true;
 	}
 });
 
