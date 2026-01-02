@@ -38,7 +38,7 @@
 
 <div
 	bind:this={containerElement}
-	class={cn('flex flex-col overflow-y-auto', className)}
+	class={cn(' scrollbar-thin flex flex-col overflow-y-auto', className)}
 	role="log"
 	{...restProps}
 >

@@ -3,20 +3,28 @@
 	import Progress from '$lib/components/ui/progress/progress.svelte';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import type { Attachment, UploadState } from '../core/types.js';
+	import type { ChatAlignment } from './ChatContext.svelte.js';
 
 	let {
 		attachments = [],
 		onRemove,
 		columns = 2,
 		readonly = false,
+		align = 'right',
 		class: className = ''
 	}: {
 		attachments?: Attachment[];
 		onRemove?: (index: number) => void;
 		columns?: number;
 		readonly?: boolean;
+		/** Alignment - controls flex direction for readonly attachments */
+		align?: ChatAlignment;
 		class?: string;
 	} = $props();
+
+	// Flex direction and wrap based on alignment and readonly state
+	const flexDirection = $derived(readonly ? (align === 'right' ? 'row-reverse' : 'row') : 'row');
+	const flexWrap = $derived(readonly ? (align === 'right' ? 'wrap-reverse' : 'wrap') : 'wrap');
 
 	let isDialogOpen = $state(false);
 	let selectedAttachment = $state<Attachment | null>(null);
@@ -114,15 +122,14 @@
 {#if attachments.length > 0}
 	<div
 		class="flex flex-wrap gap-2 {className}"
-		style="flex-direction: {readonly ? 'row-reverse' : 'row'}; flex-wrap: {readonly
-			? 'wrap-reverse'
-			: 'wrap'}; justify-content: flex-start; align-content: flex-end;"
+		style="flex-direction: {flexDirection}; flex-wrap: {flexWrap}; justify-content: flex-start; align-content: flex-end;"
 	>
-		{#each readonly ? [...attachments].reverse() : attachments as attachment, index (getKey(attachment))}
+		{#each readonly && align === 'right' ? [...attachments].reverse() : attachments as attachment, index (getKey(attachment))}
 			{@const preview = hasPreview(attachment)}
 			{@const filename = getFilename(attachment)}
 			{@const isClickable = attachment.type === 'image' || attachment.type === 'remote-file'}
-			{@const originalIndex = readonly ? attachments.length - 1 - index : index}
+			{@const originalIndex =
+				readonly && align === 'right' ? attachments.length - 1 - index : index}
 			{@const uploadState = getUploadState(attachment)}
 
 			<!-- svelte-ignore a11y_click_events_have_key_events -->

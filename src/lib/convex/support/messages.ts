@@ -71,16 +71,33 @@ export const sendMessage = mutation({
 		}
 
 		// Sync denormalized search fields with user's message
-		await ctx.runMutation(internal.support.threads.syncLastMessage, {
+		await ctx.runMutation(internal.support.threads.updateLastMessage, {
 			threadId: args.threadId
 		});
 
-		// Schedule async action to generate AI response with streaming
-		await ctx.scheduler.runAfter(0, internal.support.messages.generateResponse, {
-			threadId: args.threadId,
-			promptMessageId: messageId,
-			userId: args.userId
-		});
+		// Check if thread is handed off to human support
+		// When handed off, skip AI response - only humans respond
+		const supportThread = await ctx.db
+			.query('supportThreads')
+			.withIndex('by_thread', (q) => q.eq('threadId', args.threadId))
+			.first();
+
+		if (!supportThread?.isHandedOff) {
+			// AI mode: Schedule async action to generate AI response with streaming
+			await ctx.scheduler.runAfter(0, internal.support.messages.createAIResponse, {
+				threadId: args.threadId,
+				promptMessageId: messageId,
+				userId: args.userId
+			});
+		}
+
+		// Mark thread as unread for admin when user sends message
+		if (supportThread) {
+			await ctx.db.patch(supportThread._id, {
+				unreadByAdmin: true,
+				updatedAt: Date.now()
+			});
+		}
 
 		return { messageId };
 	}
@@ -92,7 +109,7 @@ export const sendMessage = mutation({
  * This runs asynchronously and streams the AI response back to the database,
  * which automatically syncs to all connected clients via Convex's reactivity.
  */
-export const generateResponse = internalAction({
+export const createAIResponse = internalAction({
 	args: {
 		threadId: v.string(),
 		promptMessageId: v.string(),
@@ -120,7 +137,7 @@ export const generateResponse = internalAction({
 		await result.consumeStream();
 
 		// Sync denormalized search fields with AI response
-		await ctx.runMutation(internal.support.threads.syncLastMessage, {
+		await ctx.runMutation(internal.support.threads.updateLastMessage, {
 			threadId: args.threadId
 		});
 	}
@@ -163,12 +180,20 @@ export const listMessages = query({
 		}
 
 		// Create a map of message id -> metadata
-		// Note: metadata field exists but isn't in the TypeScript types
+		// Note: metadata fields (provider, providerMetadata) are stored as top-level fields
 		const metadataMap = new Map<string, Record<string, unknown>>();
 		for (const msg of rawMessages.page) {
-			const metadata = (msg as unknown as { metadata?: Record<string, unknown> }).metadata;
-			if (metadata) {
-				metadataMap.set(msg._id, metadata);
+			const rawMsg = msg as unknown as {
+				_id: string;
+				provider?: string;
+				providerMetadata?: Record<string, unknown>;
+			};
+			// Only create metadata object if provider fields exist
+			if (rawMsg.provider || rawMsg.providerMetadata) {
+				metadataMap.set(rawMsg._id, {
+					provider: rawMsg.provider,
+					providerMetadata: rawMsg.providerMetadata
+				});
 			}
 		}
 
@@ -212,7 +237,7 @@ export const deleteMessage = mutation({
  * Used to send follow-up messages after async operations complete,
  * such as after a support ticket is successfully submitted.
  */
-export const saveAssistantMessage = internalMutation({
+export const createAssistantMessage = internalMutation({
 	args: {
 		threadId: v.string(),
 		text: v.string()

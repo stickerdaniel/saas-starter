@@ -4,7 +4,7 @@
 	import * as Tabs from '$lib/components/ui/tabs';
 	import { Button } from '$lib/components/ui/button';
 	import { Badge } from '$lib/components/ui/badge';
-	import { Avatar, AvatarFallback } from '$lib/components/ui/avatar';
+	import { Avatar, AvatarFallback, AvatarImage } from '$lib/components/ui/avatar';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import SearchIcon from '@lucide/svelte/icons/search';
 	import InboxIcon from '@lucide/svelte/icons/inbox';
@@ -13,7 +13,6 @@
 	import { formatDistanceToNow } from 'date-fns';
 	import { T } from '@tolgee/svelte';
 	import { InfiniteLoader, LoaderState } from 'svelte-infinite';
-	import { adminSupportRefresh } from '$lib/hooks/admin-support-threads.svelte';
 
 	interface Thread {
 		_id: string;
@@ -39,6 +38,7 @@
 		lastMessageAt?: number;
 		userName?: string;
 		userEmail?: string;
+		userImage?: string;
 	}
 
 	let {
@@ -66,7 +66,7 @@
 		onStatusChange: (status: 'open' | 'done') => void;
 		onSearchChange: (query: string) => void;
 		onThreadSelect: (id: string) => void;
-		onLoadMore: () => Promise<void>;
+		onLoadMore: (numItems: number) => boolean;
 	} = $props();
 
 	// Create loader state instance for svelte-infinite
@@ -81,28 +81,22 @@
 
 	// Trigger load function for InfiniteLoader
 	async function triggerLoad() {
-		try {
-			await onLoadMore();
-			// Parent updates isDone state, so we check it after loading
-			if (isDone) {
-				loaderState.complete();
-			} else {
-				loaderState.loaded();
-			}
-		} catch (error) {
-			console.error('[ThreadList] Failed to load more:', error);
-			loaderState.error();
+		const canLoadMore = onLoadMore(25);
+		if (!canLoadMore) {
+			loaderState.complete();
+		} else {
+			loaderState.loaded();
 		}
 	}
 
-	// Reset loader when global trigger changes (skip initial mount)
-	let hasInitializedResetWatch = false;
+	// Reset loader when isDone changes to false (new query started)
+	let prevIsDone = $state(isDone);
 	$effect(() => {
-		void adminSupportRefresh.loaderResetTrigger;
-		if (hasInitializedResetWatch) {
+		if (prevIsDone && !isDone) {
+			// Query was reset (filters changed), reset loader state
 			loaderState.reset();
 		}
-		hasInitializedResetWatch = true;
+		prevIsDone = isDone;
 	});
 </script>
 
@@ -163,12 +157,12 @@
 	<div class="relative flex-1">
 		{#if isLoading}
 			<!-- Loading skeletons -->
-			<div class="absolute inset-0 overflow-y-auto" out:fade={{ duration: 150 }}>
+			<div class=" scrollbar-thin absolute inset-0 overflow-y-auto" out:fade={{ duration: 150 }}>
 				{#each Array(6) as _, i (i)}
 					<div class="border-b p-4">
 						<div class="flex items-start gap-3">
 							<!-- Avatar -->
-							<Skeleton class="size-10 rounded-full" />
+							<Skeleton class="size-8 rounded-full" />
 
 							<div class="min-w-0 flex-1">
 								<!-- Name & Time -->
@@ -182,7 +176,8 @@
 
 								<!-- Badges -->
 								<div class="mt-2 flex flex-wrap items-center gap-1.5">
-									<Skeleton class="h-[22px] w-12 rounded-full" />
+									<Skeleton class="h-[22px] w-10" />
+									<Skeleton class="h-[22px] w-10" />
 								</div>
 							</div>
 						</div>
@@ -190,7 +185,10 @@
 				{/each}
 			</div>
 		{:else if threads && threads.length > 0}
-			<div class="absolute inset-0 overflow-y-auto" in:fade={{ duration: 150 }}>
+			<div
+				class="scrollbar-thin absolute inset-0 overflow-x-hidden overflow-y-auto"
+				in:fade={{ duration: 150 }}
+			>
 				<InfiniteLoader
 					{loaderState}
 					{triggerLoad}
@@ -201,11 +199,14 @@
 							class="w-full border-b p-4 text-left {thread._id === selectedThreadId
 								? 'bg-muted/70'
 								: 'hover:bg-muted/30'}"
-							onclick={() => onThreadSelect(thread._id)}
+							onclick={() => thread._id !== selectedThreadId && onThreadSelect(thread._id)}
 						>
 							<div class="flex items-start gap-3">
 								<!-- Avatar -->
-								<Avatar class="size-10">
+								<Avatar class="size-8">
+									{#if thread.userImage}
+										<AvatarImage src={thread.userImage} alt={thread.userName || 'User'} />
+									{/if}
 									<AvatarFallback>
 										{thread.userName?.[0]?.toUpperCase() || 'U'}
 									</AvatarFallback>
@@ -217,7 +218,7 @@
 										<span class="truncate font-medium">
 											{thread.userName || thread.userEmail || 'Anonymous'}
 										</span>
-										<span class="whitespace-nowrap text-xs text-muted-foreground">
+										<span class="text-xs whitespace-nowrap text-muted-foreground">
 											{formatDistanceToNow(new Date(thread.lastMessageAt || thread._creationTime), {
 												addSuffix: true
 											})}
@@ -235,9 +236,16 @@
 											<Badge variant="default" class="text-xs">New</Badge>
 										{/if}
 										{#if thread.supportMetadata.priority}
-											<Badge variant="outline" class="text-xs capitalize"
-												>{thread.supportMetadata.priority}</Badge
+											<Badge
+												variant="outline"
+												class="text-xs capitalize {thread.supportMetadata.priority === 'low'
+													? 'border-green-500 bg-green-500/10 text-green-700 dark:text-green-400'
+													: thread.supportMetadata.priority === 'medium'
+														? 'border-yellow-500 bg-yellow-500/10 text-yellow-700 dark:text-yellow-400'
+														: 'border-red-500 bg-red-500/10 text-red-700 dark:text-red-400'}"
 											>
+												{thread.supportMetadata.priority}
+											</Badge>
 										{/if}
 										{#if thread.supportMetadata.status}
 											<Badge variant="secondary" class="text-xs capitalize"

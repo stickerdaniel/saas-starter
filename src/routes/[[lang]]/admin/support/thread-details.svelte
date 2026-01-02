@@ -15,7 +15,6 @@
 	import { T } from '@tolgee/svelte';
 	import { motion } from 'motion-sv';
 	import { formatDistanceToNow } from 'date-fns';
-	import { adminSupportRefresh } from '$lib/hooks/admin-support-threads.svelte';
 
 	let {
 		threadId
@@ -38,7 +37,7 @@
 	const adminsQuery = useQuery(api.admin.support.queries.listAdmins);
 
 	// Query internal notes (user-level)
-	const notesQuery = useQuery(api.admin.support.queries.getInternalUserNotes, () => {
+	const notesQuery = useQuery(api.admin.support.queries.listInternalUserNotes, () => {
 		if (!userId) return 'skip';
 		return {
 			userId,
@@ -52,12 +51,11 @@
 
 	async function updateAssignment(adminUserId: string | undefined) {
 		try {
-			await client.mutation(api.admin.support.mutations.assignThread, {
+			await client.mutation(api.admin.support.mutations.updateThreadAssignment, {
 				threadId,
 				adminUserId: adminUserId === '' ? undefined : adminUserId
 			});
 			toast.success('Assignment updated');
-			adminSupportRefresh.refresh();
 		} catch (error) {
 			toast.error(
 				`Failed to update assignment: ${error instanceof Error ? error.message : 'Unknown error'}`
@@ -72,7 +70,6 @@
 				status
 			});
 			toast.success('Status updated');
-			adminSupportRefresh.refresh();
 		} catch (error) {
 			toast.error(
 				`Failed to update status: ${error instanceof Error ? error.message : 'Unknown error'}`
@@ -87,7 +84,6 @@
 				priority: priority === '' ? undefined : (priority as 'low' | 'medium' | 'high' | undefined)
 			});
 			toast.success('Priority updated');
-			adminSupportRefresh.refresh();
 		} catch (error) {
 			toast.error(
 				`Failed to update priority: ${error instanceof Error ? error.message : 'Unknown error'}`
@@ -181,6 +177,23 @@
 						</Select.Content>
 					</Select.Root>
 				</div>
+
+				<!-- Notification Email -->
+				{#if thread.supportMetadata?.notificationEmail}
+					<div class="space-y-1">
+						<Label>Notification Email</Label>
+						<a
+							href="mailto:{thread.supportMetadata
+								.notificationEmail}?subject=Re: Your support request&body=Hi,%0A%0AThank you for reaching out!%0A%0A"
+							target="_blank"
+							rel="noopener noreferrer"
+							class="flex items-center gap-2 text-sm text-primary hover:underline"
+						>
+							<span class="truncate">{thread.supportMetadata.notificationEmail}</span>
+							<ExternalLinkIcon class="size-3 flex-shrink-0" />
+						</a>
+					</div>
+				{/if}
 
 				<!-- Page URL -->
 				{#if thread.supportMetadata?.pageUrl}

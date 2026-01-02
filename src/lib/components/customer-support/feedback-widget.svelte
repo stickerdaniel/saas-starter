@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { useConvexClient, useQuery } from 'convex-svelte';
+	import { page } from '$app/state';
 	import { api } from '$lib/convex/_generated/api';
 	import { supportThreadContext } from './support-thread-context.svelte';
 	import { lockscroll } from '@svelte-put/lockscroll';
@@ -11,18 +12,18 @@
 
 	// Import thread navigation components
 	import ThreadsOverview from './threads-overview.svelte';
-	import { Bot, MessagesSquare } from '@lucide/svelte';
+	import { Bot, MessagesSquare, UsersRound } from '@lucide/svelte';
 	import { SlidingPanel } from '$lib/components/ui/sliding-panel';
 	import { SlidingHeader } from '$lib/components/ui/sliding-header';
 
 	let {
 		isScreenshotMode = $bindable(false),
 		chatUIContext,
-		isFeedbackOpen = $bindable(false)
+		onClose
 	}: {
 		isScreenshotMode?: boolean;
 		chatUIContext: ChatUIContext;
-		isFeedbackOpen?: boolean;
+		onClose?: () => void;
 	} = $props();
 
 	// Get thread context
@@ -36,6 +37,48 @@
 
 	// Get Convex client
 	const client = useConvexClient();
+
+	// Query thread status (for handoff state)
+	const threadQuery = useQuery(api.support.threads.getThread, () =>
+		threadContext.threadId
+			? { threadId: threadContext.threadId, userId: threadContext.userId || undefined }
+			: 'skip'
+	);
+
+	// Derive assigned admin - use context value as primary, query as fallback/sync
+	const assignedAdmin = $derived(threadContext.assignedAdmin ?? threadQuery.data?.assignedAdmin);
+
+	// Sync handoff status and assigned admin to context when thread data loads
+	// Only sync from query if not already set locally (prevents race conditions)
+	$effect(() => {
+		if (threadQuery.data) {
+			// Sync handoff status if not already handed off locally
+			if (!threadContext.isHandedOff && threadQuery.data.isHandedOff) {
+				threadContext.setHandedOff(threadQuery.data.isHandedOff);
+			}
+			// Sync assignedAdmin if query has newer data (e.g., admin assigned mid-chat)
+			if (threadQuery.data.assignedAdmin && !threadContext.assignedAdmin) {
+				threadContext.assignedAdmin = threadQuery.data.assignedAdmin;
+			}
+		}
+	});
+
+	// Handle handoff request
+	async function handleRequestHandoff() {
+		const success = await threadContext.requestHandoff(client);
+		if (success) {
+			// Optionally show a toast or feedback
+			console.log('[handleRequestHandoff] Successfully handed off to human support');
+		}
+	}
+
+	// Handle email notification submission
+	async function handleSubmitEmail(email: string) {
+		const success = await threadContext.setNotificationEmail(client, email);
+		if (!success) {
+			throw new Error('Failed to save email');
+		}
+	}
 
 	const isMobile = new IsMobile();
 
@@ -112,11 +155,18 @@
 		isBackView={threadContext.currentView !== 'overview'}
 		defaultIcon={MessagesSquare}
 		defaultTitle="Messages"
-		backTitle={agentName}
-		backSubtitle="Our bot will reply instantly"
-		titleIcon={Bot}
+		backTitle={threadContext.isHandedOff ? assignedAdmin?.name || 'Support Team' : agentName}
+		backSubtitle={threadContext.isHandedOff
+			? 'Your request is with our team'
+			: 'Our bot will reply instantly'}
+		titleIcon={threadContext.isHandedOff && !assignedAdmin?.image
+			? UsersRound
+			: threadContext.isHandedOff
+				? undefined
+				: Bot}
+		titleImage={threadContext.isHandedOff ? assignedAdmin?.image : undefined}
 		onBackClick={() => threadContext.goBack()}
-		onCloseClick={() => (isFeedbackOpen = false)}
+		onCloseClick={onClose}
 	/>
 
 	<!-- Content area - relative container for both views -->
@@ -134,7 +184,13 @@
 			>
 				<!-- Messages container -->
 				<div class="relative min-h-0 w-full flex-1">
-					<ChatMessages {extractAttachments} />
+					<ChatMessages
+						{extractAttachments}
+						showEmailPrompt={threadContext.isHandedOff}
+						currentEmail={threadContext.notificationEmail ?? ''}
+						defaultEmail={page.data.viewer?.email ?? ''}
+						onSubmitEmail={handleSubmitEmail}
+					/>
 				</div>
 
 				<!-- Input area -->
@@ -144,7 +200,10 @@
 					placeholder="Type a message or click a suggestion..."
 					showCameraButton={true}
 					showFileButton={true}
+					showHandoffButton={true}
+					isHandedOff={threadContext.isHandedOff}
 					onScreenshot={handleScreenshot}
+					onRequestHandoff={handleRequestHandoff}
 					onSend={async (prompt) => {
 						if (!prompt) return;
 

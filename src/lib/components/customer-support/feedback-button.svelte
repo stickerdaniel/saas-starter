@@ -6,17 +6,23 @@
 	import type { ChatUIContext } from '$lib/chat';
 
 	let {
-		isFeedbackOpen = $bindable(false),
+		isFeedbackOpen = false,
 		isScreenshotMode = $bindable(false),
-		chatUIContext
+		chatUIContext,
+		onToggle
 	}: {
 		isFeedbackOpen?: boolean;
 		isScreenshotMode?: boolean;
 		chatUIContext: ChatUIContext;
+		onToggle?: (open: boolean) => void;
 	} = $props();
 
 	function toggleOpen() {
-		isFeedbackOpen = !isFeedbackOpen;
+		onToggle?.(!isFeedbackOpen);
+	}
+
+	function closeWidget() {
+		onToggle?.(false);
 	}
 
 	$effect(() => {
@@ -24,7 +30,7 @@
 
 		return on(window, 'keydown', (event) => {
 			if (event.key === 'Escape') {
-				isFeedbackOpen = false;
+				closeWidget();
 			}
 		});
 	});
@@ -33,7 +39,7 @@
 {#if !isScreenshotMode}
 	<div class="fixed right-5 bottom-5 z-200 flex flex-col items-end justify-end gap-3">
 		{#if isFeedbackOpen}
-			<FeedbackWidget bind:isFeedbackOpen bind:isScreenshotMode {chatUIContext} />
+			<FeedbackWidget onClose={closeWidget} bind:isScreenshotMode {chatUIContext} />
 		{/if}
 		<Button
 			variant="default"

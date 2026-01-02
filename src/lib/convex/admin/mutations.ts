@@ -40,9 +40,16 @@ async function findUserById(ctx: MutationCtx, userId: string): Promise<BetterAut
 
 /**
  * Log an admin action for audit trail
- * This is called from the client after BetterAuth admin actions
+ *
+ * Records admin actions in the audit log for compliance and tracking.
+ * This is called from the client after BetterAuth admin actions.
+ *
+ * @param args.action - The type of action performed (e.g., 'ban_user', 'set_role')
+ * @param args.targetUserId - The ID of the user affected by the action
+ * @param args.metadata - Additional context about the action (previous/new values)
+ * @returns void
  */
-export const logAdminAction = adminMutation({
+export const createAuditLog = adminMutation({
 	args: {
 		action: adminActionValidator,
 		targetUserId: v.string(),
@@ -62,7 +69,7 @@ export const logAdminAction = adminMutation({
 /**
  * Internal mutation for logging admin actions (for server-side use)
  */
-export const logAdminActionInternal = internalMutation({
+export const createAuditLogInternal = internalMutation({
 	args: {
 		adminUserId: v.string(),
 		action: adminActionValidator,
@@ -82,7 +89,15 @@ export const logAdminActionInternal = internalMutation({
 
 /**
  * Set user role (for initial admin setup or role changes)
- * Uses the local BetterAuth schema which includes admin plugin fields
+ *
+ * Updates a user's role and logs the action to the audit trail.
+ * Uses the local BetterAuth schema which includes admin plugin fields.
+ *
+ * @param args.userId - The ID of the user whose role to change
+ * @param args.role - The new role to assign ('admin' or 'user')
+ * @returns Object with success: true on completion
+ * @throws {Error} When attempting to change own role
+ * @throws {Error} When user is not found
  */
 export const setUserRole = adminMutation({
 	args: {

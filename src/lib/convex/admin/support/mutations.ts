@@ -1,14 +1,21 @@
 import { v } from 'convex/values';
-import { internal } from '../../_generated/api';
-import { supportAgent } from '../../support/agent';
+import { internal, components } from '../../_generated/api';
+import { saveMessage, getFile } from '@convex-dev/agent';
 import { adminMutation } from '../../functions';
+import { shouldSendNotification } from '../../support/threads';
+import type { AssistantContent, TextPart, FilePart } from 'ai';
 
 /**
  * Assign thread to admin
  *
  * Updates the supportThreads table (agent threads don't support metadata).
+ *
+ * @param args.threadId - The ID of the thread to assign
+ * @param args.adminUserId - The admin user ID to assign to, or undefined to unassign
+ * @returns void
+ * @throws {Error} When support thread is not found
  */
-export const assignThread = adminMutation({
+export const updateThreadAssignment = adminMutation({
 	args: {
 		threadId: v.string(),
 		adminUserId: v.optional(v.string()) // undefined to unassign
@@ -34,6 +41,13 @@ export const assignThread = adminMutation({
 
 /**
  * Update thread status
+ *
+ * Changes the support thread status (open/done) for tracking resolution.
+ *
+ * @param args.threadId - The ID of the thread to update
+ * @param args.status - The new status ('open' or 'done')
+ * @returns void
+ * @throws {Error} When support thread is not found
  */
 export const updateThreadStatus = adminMutation({
 	args: {
@@ -59,6 +73,13 @@ export const updateThreadStatus = adminMutation({
 
 /**
  * Update thread priority
+ *
+ * Sets or clears the priority level for a support thread.
+ *
+ * @param args.threadId - The ID of the thread to update
+ * @param args.priority - The priority level ('low', 'medium', 'high') or undefined to clear
+ * @returns void
+ * @throws {Error} When support thread is not found
  */
 export const updateThreadPriority = adminMutation({
 	args: {
@@ -86,7 +107,15 @@ export const updateThreadPriority = adminMutation({
  * Send admin reply to thread
  *
  * This adds a human admin message (distinct from AI) using message metadata.
- * Does NOT trigger AI response.
+ * Does NOT trigger AI response. Auto-assigns thread to admin on first reply.
+ * Sends email notification to user if enabled and cooldown has passed.
+ *
+ * @param args.threadId - The ID of the thread to reply to
+ * @param args.prompt - The text content of the reply
+ * @param args.fileIds - Optional array of file IDs to attach to the message
+ * @returns void
+ * @throws {Error} When message content is empty (no text and no files)
+ * @throws {Error} When support thread is not found
  */
 export const sendAdminReply = adminMutation({
 	args: {
@@ -96,65 +125,102 @@ export const sendAdminReply = adminMutation({
 	},
 	handler: async (ctx, args) => {
 		// Validate content
-		if (!args.prompt.trim()) {
+		if (!args.prompt.trim() && (!args.fileIds || args.fileIds.length === 0)) {
 			throw new Error('Message content cannot be empty');
 		}
 
-		// Use agent saveMessage with providerMetadata for admin info
-		// NOTE: Messages don't support arbitrary custom metadata fields, so we use providerMetadata
-		await supportAgent.saveMessage(ctx, {
+		// Get support thread for auto-assign and read status
+		const supportThread = await ctx.db
+			.query('supportThreads')
+			.withIndex('by_thread', (q) => q.eq('threadId', args.threadId))
+			.first();
+
+		if (!supportThread) {
+			throw new Error('Support thread not found');
+		}
+
+		// Save admin message with role: "assistant" and human provider metadata
+		// Using standalone saveMessage to set custom agentName (Agent.saveMessage uses agent's name)
+		const adminName = ctx.user.name || ctx.user.email || 'Admin';
+
+		// Build message content (multimodal if files attached)
+		let messageContent: string | AssistantContent = args.prompt.trim();
+
+		if (args.fileIds && args.fileIds.length > 0) {
+			// Build multimodal message content (assistant role accepts text + file parts)
+			const content: (TextPart | FilePart)[] = [];
+
+			// Add text part if present
+			if (args.prompt.trim()) {
+				content.push({
+					type: 'text',
+					text: args.prompt.trim()
+				});
+			}
+
+			// Add file parts
+			for (const fileId of args.fileIds) {
+				const { filePart } = await getFile(ctx, components.agent, fileId);
+				content.push(filePart);
+			}
+
+			messageContent = content;
+		}
+
+		const result = await saveMessage(ctx, components.agent, {
 			threadId: args.threadId,
-			prompt: args.prompt.trim(),
+			agentName: adminName,
+			message: {
+				role: 'assistant',
+				content: messageContent
+			},
 			metadata: {
+				provider: 'human',
 				providerMetadata: {
 					admin: {
 						isAdminMessage: true,
 						adminUserId: ctx.user._id,
-						adminName: ctx.user.name || ctx.user.email || 'Admin',
+						adminName,
 						adminEmail: ctx.user.email
 					}
 				}
-			},
-			skipEmbeddings: true // Don't embed admin messages
+			}
 		});
 
-		// Mark as read by admin
-		const supportThread = await ctx.db
-			.query('supportThreads')
-			.withIndex('by_thread', (q) => q.eq('threadId', args.threadId))
-			.first();
+		// Auto-assign to current admin if not already assigned (enables HITL mode)
+		// When assigned, user messages won't trigger AI responses
+		const shouldAutoAssign = !supportThread.assignedTo;
 
-		if (supportThread) {
-			await ctx.db.patch(supportThread._id, {
-				unreadByAdmin: false,
-				updatedAt: Date.now()
+		// Check if we should send email notification (30-minute cooldown)
+		const shouldNotify = shouldSendNotification(
+			supportThread.notificationEmail,
+			supportThread.notificationSentAt
+		);
+
+		// Update thread: read status, assignment, and notification timestamp
+		// Convex OCC ensures concurrent mutations retry with fresh data, preventing duplicate emails
+		await ctx.db.patch(supportThread._id, {
+			unreadByAdmin: false,
+			updatedAt: Date.now(),
+			...(shouldAutoAssign && { assignedTo: ctx.user._id }),
+			...(shouldNotify && { notificationSentAt: Date.now() })
+		});
+
+		// Schedule notification email (async - doesn't block response)
+		if (shouldNotify && supportThread.notificationEmail) {
+			await ctx.scheduler.runAfter(0, internal.emails.send.sendAdminReplyNotification, {
+				email: supportThread.notificationEmail,
+				adminName,
+				messagePreview: args.prompt.trim().slice(0, 200),
+				threadId: supportThread.threadId,
+				pageUrl: supportThread.pageUrl
 			});
 		}
 
 		// Sync denormalized search fields
-		await ctx.runMutation(internal.support.threads.syncLastMessage, {
+		await ctx.runMutation(internal.support.threads.updateLastMessage, {
 			threadId: args.threadId
 		});
-	}
-});
-
-/**
- * Mark thread as read by admin
- */
-export const markThreadAsRead = adminMutation({
-	args: { threadId: v.string() },
-	handler: async (ctx, args) => {
-		const supportThread = await ctx.db
-			.query('supportThreads')
-			.withIndex('by_thread', (q) => q.eq('threadId', args.threadId))
-			.first();
-
-		if (supportThread) {
-			await ctx.db.patch(supportThread._id, {
-				unreadByAdmin: false,
-				updatedAt: Date.now()
-			});
-		}
 	}
 });
 
@@ -162,6 +228,12 @@ export const markThreadAsRead = adminMutation({
  * Add internal note for a user (not visible to users)
  *
  * Supports both authenticated users and anonymous users (anon_* IDs).
+ * Notes are user-level, so they appear across all threads for that user.
+ *
+ * @param args.userId - Better Auth user ID or anon_* for anonymous users
+ * @param args.content - The note content text
+ * @returns void
+ * @throws {Error} When note content is empty
  */
 export const addInternalUserNote = adminMutation({
 	args: {
@@ -185,6 +257,12 @@ export const addInternalUserNote = adminMutation({
 
 /**
  * Delete internal user note
+ *
+ * Permanently removes an internal note from the database.
+ *
+ * @param args.noteId - The ID of the note to delete
+ * @returns void
+ * @throws {Error} When note is not found
  */
 export const deleteInternalUserNote = adminMutation({
 	args: {

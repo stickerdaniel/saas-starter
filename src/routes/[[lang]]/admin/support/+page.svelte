@@ -1,13 +1,11 @@
 <script lang="ts">
-	import { untrack } from 'svelte';
 	import { z } from 'zod';
 	import { useSearchParams } from 'runed/kit';
 	import { Debounced } from 'runed';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
-	import { useQuery, useConvexClient } from 'convex-svelte';
+	import { useQuery, usePaginatedQuery } from 'convex-svelte';
 	import { api } from '$lib/convex/_generated/api';
-	import type { FunctionReturnType } from 'convex/server';
 	import { useMedia } from '$lib/hooks/use-media.svelte';
 	import { T } from '@tolgee/svelte';
 	import * as Sheet from '$lib/components/ui/sheet';
@@ -17,9 +15,7 @@
 	import ThreadList from './thread-list.svelte';
 	import ThreadChat from './thread-chat.svelte';
 	import ThreadDetails from './thread-details.svelte';
-	import { adminSupportRefresh } from '$lib/hooks/admin-support-threads.svelte';
 	import { adminSupportUI } from '$lib/hooks/admin-support-ui.svelte';
-	import { toast } from 'svelte-sonner';
 
 	// Filter state schema (thread managed separately to avoid reload on selection)
 	const filterSchema = z.object({
@@ -56,91 +52,29 @@
 		return 'all';
 	});
 
-	// Infinite scroll state
-	type ThreadItem = FunctionReturnType<
-		typeof api.admin.support.queries.listThreadsForAdmin
-	>['page'][number];
+	// Reactive paginated query for threads - automatically updates when filters change
+	const threadsQuery = usePaginatedQuery(
+		api.admin.support.queries.listThreadsForAdmin,
+		() => ({
+			filter,
+			status: filters.status,
+			search: debouncedSearch.current || undefined
+		}),
+		{ initialNumItems: 25, keepPreviousData: true }
+	);
 
-	let allThreads = $state<ThreadItem[]>([]);
-	let continueCursor = $state<string | null>(null);
-	let isDone = $state(false);
-	let isLoading = $state(false);
+	// Derived state for template compatibility
+	const allThreads = $derived(threadsQuery.results);
+	const isLoading = $derived(threadsQuery.isLoading);
+	const isDone = $derived(threadsQuery.status === 'Exhausted');
 
 	// Selected thread from already-loaded list (for instant header display)
 	const selectedThread = $derived(allThreads.find((t) => t._id === threadId));
 
-	const convexClient = useConvexClient();
-
-	// Load initial page
-	async function loadInitialThreads() {
-		isLoading = true;
-		try {
-			const result = await convexClient.query(api.admin.support.queries.listThreadsForAdmin, {
-				filter,
-				status: filters.status,
-				search: debouncedSearch.current || undefined,
-				paginationOpts: { numItems: 25, cursor: null }
-			});
-
-			allThreads = result.page;
-			continueCursor = result.continueCursor;
-			isDone = result.isDone;
-		} catch (error) {
-			console.error('Failed to load threads:', error);
-			toast.error('Failed to load support threads');
-			allThreads = [];
-			continueCursor = null;
-			isDone = true;
-		} finally {
-			isLoading = false;
-		}
+	// Load more handler for infinite scroll
+	function loadMoreThreads(numItems: number): boolean {
+		return threadsQuery.loadMore(numItems);
 	}
-
-	// Load more pages (called by InfiniteLoader)
-	async function loadMoreThreads(): Promise<void> {
-		if (isDone || !continueCursor) return;
-
-		try {
-			const result = await convexClient.query(api.admin.support.queries.listThreadsForAdmin, {
-				filter,
-				status: filters.status,
-				search: debouncedSearch.current || undefined,
-				paginationOpts: { numItems: 25, cursor: continueCursor }
-			});
-
-			allThreads = [...allThreads, ...result.page];
-			continueCursor = result.continueCursor;
-			isDone = result.isDone;
-		} catch (error) {
-			console.error('Failed to load more threads:', error);
-			toast.error('Failed to load more threads');
-		}
-	}
-
-	// Track what filter state we've already loaded
-	let loadedState = $state({ filterKey: '', refreshTrigger: 0 });
-
-	// Reload when filters ACTUALLY change (not just when useSearchParams re-emits)
-	// useSearchParams re-emits on ANY URL change, so we must compare values
-	// Note: debouncedSearch.current is used so API calls wait for debounce
-	$effect(() => {
-		// Create a key from current filter values (using debounced search)
-		const currentFilterKey = `${filters.mode}|${filters.status}|${debouncedSearch.current}`;
-		const currentRefresh = adminSupportRefresh.refreshTrigger;
-
-		// Compare to what we've already loaded
-		const shouldReload =
-			currentFilterKey !== loadedState.filterKey || currentRefresh !== loadedState.refreshTrigger;
-
-		if (shouldReload) {
-			untrack(() => {
-				// Update state BEFORE loading
-				loadedState = { filterKey: currentFilterKey, refreshTrigger: currentRefresh };
-				adminSupportRefresh.resetLoaders();
-				loadInitialThreads();
-			});
-		}
-	});
 
 	// Select thread handler (uses goto to avoid triggering filter reactivity)
 	function selectThread(id: string) {
