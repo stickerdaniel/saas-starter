@@ -46,11 +46,11 @@ export const listThreadsForAdmin = adminQuery({
 					status: v.union(v.literal('open'), v.literal('done')),
 					assignedTo: v.optional(v.string()),
 					isHandedOff: v.optional(v.boolean()),
+					awaitingAdminResponse: v.optional(v.boolean()),
 					priority: v.optional(v.union(v.literal('low'), v.literal('medium'), v.literal('high'))),
 					pageUrl: v.optional(v.string()),
 					notificationEmail: v.optional(v.string()),
 					notificationSentAt: v.optional(v.number()),
-					unreadByAdmin: v.boolean(),
 					createdAt: v.number(),
 					updatedAt: v.number(),
 					// Denormalized search fields
@@ -99,7 +99,8 @@ export const listThreadsForAdmin = adminQuery({
 			supportThreads = await ctx.db
 				.query('supportThreads')
 				.withSearchIndex('search_all', (q) => {
-					let filter = q.search('searchText', searchQuery);
+					// Only show threads that have been handed off to human support
+					let filter = q.search('searchText', searchQuery).eq('isHandedOff', true);
 					if (statusFilter) filter = filter.eq('status', statusFilter);
 					if (isUnassigned) filter = filter.eq('assignedTo', undefined);
 					else if (assignedToFilter) filter = filter.eq('assignedTo', assignedToFilter);
@@ -107,9 +108,10 @@ export const listThreadsForAdmin = adminQuery({
 				})
 				.paginate(paginationOpts);
 		} else {
-			// NON-SEARCH PATH: Support combined status + assignment filtering
+			// NON-SEARCH PATH: Only show threads that have been handed off to human support
+			// All paths filter by isHandedOff === true
 			if (statusFilter && (isUnassigned || assignedToFilter)) {
-				// Combined: status + assignment (use compound index)
+				// Combined: status + assignment (use compound index + filter for isHandedOff)
 				supportThreads = await ctx.db
 					.query('supportThreads')
 					.withIndex('by_status_and_assigned', (q) =>
@@ -117,13 +119,16 @@ export const listThreadsForAdmin = adminQuery({
 							.eq('status', statusFilter)
 							.eq('assignedTo', isUnassigned ? undefined : assignedToFilter)
 					)
+					.filter((q) => q.eq(q.field('isHandedOff'), true))
 					.order('desc')
 					.paginate(paginationOpts);
 			} else if (statusFilter) {
-				// Status only
+				// Status only - use new compound index
 				supportThreads = await ctx.db
 					.query('supportThreads')
-					.withIndex('by_status', (q) => q.eq('status', statusFilter))
+					.withIndex('by_handed_off_and_status', (q) =>
+						q.eq('isHandedOff', true).eq('status', statusFilter)
+					)
 					.order('desc')
 					.paginate(paginationOpts);
 			} else if (isUnassigned) {
@@ -131,6 +136,7 @@ export const listThreadsForAdmin = adminQuery({
 				supportThreads = await ctx.db
 					.query('supportThreads')
 					.withIndex('by_assigned', (q) => q.eq('assignedTo', undefined))
+					.filter((q) => q.eq(q.field('isHandedOff'), true))
 					.order('desc')
 					.paginate(paginationOpts);
 			} else if (assignedToFilter) {
@@ -138,12 +144,14 @@ export const listThreadsForAdmin = adminQuery({
 				supportThreads = await ctx.db
 					.query('supportThreads')
 					.withIndex('by_assigned', (q) => q.eq('assignedTo', assignedToFilter))
+					.filter((q) => q.eq(q.field('isHandedOff'), true))
 					.order('desc')
 					.paginate(paginationOpts);
 			} else {
-				// No filters
+				// No filters - use new index for isHandedOff only
 				supportThreads = await ctx.db
 					.query('supportThreads')
+					.withIndex('by_handed_off_and_status', (q) => q.eq('isHandedOff', true))
 					.order('desc')
 					.paginate(paginationOpts);
 			}
@@ -256,11 +264,11 @@ export const getThreadForAdmin = adminQuery({
 			status: v.union(v.literal('open'), v.literal('done')),
 			assignedTo: v.optional(v.string()),
 			isHandedOff: v.optional(v.boolean()),
+			awaitingAdminResponse: v.optional(v.boolean()),
 			priority: v.optional(v.union(v.literal('low'), v.literal('medium'), v.literal('high'))),
 			pageUrl: v.optional(v.string()),
 			notificationEmail: v.optional(v.string()),
 			notificationSentAt: v.optional(v.number()),
-			unreadByAdmin: v.boolean(),
 			createdAt: v.number(),
 			updatedAt: v.number(),
 			// Denormalized search fields
@@ -318,7 +326,7 @@ export const getThreadForAdmin = adminQuery({
 			pageUrl: undefined,
 			notificationEmail: undefined,
 			notificationSentAt: undefined,
-			unreadByAdmin: true,
+			awaitingAdminResponse: true,
 			createdAt: agentThread._creationTime,
 			updatedAt: agentThread._creationTime
 		};
@@ -451,40 +459,21 @@ export const listInternalUserNotes = adminQuery({
 });
 
 /**
- * Get unread thread count for admin
- * For notification badges
+ * Get count of threads awaiting admin response
+ * For notification badges - counts handed-off threads where user is waiting for a reply
  */
-export const getUnreadThreadCount = adminQuery({
-	args: {
-		adminUserId: v.optional(v.string())
-	},
+export const getAwaitingResponseCount = adminQuery({
+	args: {},
 	returns: v.number(),
-	handler: async (ctx, args) => {
-		if (args.adminUserId) {
-			// Count threads assigned to this admin OR unassigned using compound index
-			const [assignedToAdmin, unassigned] = await Promise.all([
-				ctx.db
-					.query('supportThreads')
-					.withIndex('by_unread_and_assigned', (q) =>
-						q.eq('unreadByAdmin', true).eq('assignedTo', args.adminUserId)
-					)
-					.collect(),
-				ctx.db
-					.query('supportThreads')
-					.withIndex('by_unread_and_assigned', (q) =>
-						q.eq('unreadByAdmin', true).eq('assignedTo', undefined)
-					)
-					.collect()
-			]);
-			return assignedToAdmin.length + unassigned.length;
-		} else {
-			// Count all unread using simple index
-			const unreadThreads = await ctx.db
-				.query('supportThreads')
-				.withIndex('by_unread', (q) => q.eq('unreadByAdmin', true))
-				.collect();
-			return unreadThreads.length;
-		}
+	handler: async (ctx) => {
+		// Count all handed-off threads awaiting admin response
+		const awaitingThreads = await ctx.db
+			.query('supportThreads')
+			.withIndex('by_needs_response', (q) =>
+				q.eq('isHandedOff', true).eq('status', 'open').eq('awaitingAdminResponse', true)
+			)
+			.collect();
+		return awaitingThreads.length;
 	}
 });
 

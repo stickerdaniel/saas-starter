@@ -116,7 +116,7 @@
 	<!-- Details Form -->
 	<div class="flex-1 overflow-y-auto p-4">
 		{#if thread}
-			<div class="space-y-4" in:fade={{ duration: 150 }}>
+			<div class="flex flex-col gap-6" in:fade={{ duration: 150 }}>
 				<!-- Assignee -->
 				<div class="space-y-1">
 					<Label><T keyName="admin.support.details.assignee" /></Label>
