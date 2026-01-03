@@ -28,7 +28,7 @@
 		"worktree:setup": "scripts/create-worktree.sh --setup-only"
 	},
 	"dependencies": {
-		"@better-auth/passkey": "^1.4.7",
+		"@better-auth/passkey": "^1.4.10",
 		"@convex-dev/agent": "^0.3.0",
 		"@convex-dev/better-auth": "^0.10.0",
 		"@convex-dev/resend": "^0.2.0",
@@ -45,6 +45,7 @@
 		"atmn": "^0.0.30",
 		"autumn-js": "^0.1.43",
 		"better-auth": "1.4.8",
+		"better-svelte-email": "./better-svelte-email-1.2.1.tgz",
 		"convex-helpers": "^0.1.108",
 		"date-fns": "^4.1.0",
 		"isomorphic-dompurify": "^2.32.0",
@@ -117,8 +118,5 @@
 		"vite": "^7",
 		"vitest": "^4.0.0",
 		"zod": "^4.1.13"
-	},
-	"patchedDependencies": {
-		"@better-auth/passkey@1.4.7": "patches/@better-auth%2Fpasskey@1.4.7.patch"
 	}
 }
