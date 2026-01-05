@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { Section, Row, Column, Img, Text } from 'better-svelte-email/components';
 	import { cn } from '$lib/utils.js';
-	import { emailBaseUrl } from '$lib/emails/config.js';
 
 	let {
 		appName = 'SaaS Starter',
@@ -16,7 +15,7 @@
 	<Row>
 		<Column align="left" class="px-6">
 			<Img
-				src="{emailBaseUrl}/logo.png"
+				src="__BASEURL__/logo.png"
 				width="28"
 				height="28"
 				alt="SaaS Starter Logo"
