@@ -14,4 +14,4 @@
 [submodule "docs/references/better-svelte-email"]
 	path = docs/references/better-svelte-email
 	url = https://github.com/stickerdaniel/better-svelte-email.git
-	branch = issue-46-global-selectors
+	branch = main
