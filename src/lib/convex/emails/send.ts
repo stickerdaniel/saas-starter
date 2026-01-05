@@ -3,7 +3,7 @@ import { v } from 'convex/values';
 import { resend } from './resend';
 
 /**
- * Send verification email with OTP code
+ * Send verification email with verification link
  *
  * Simple email sending using inline text (matching Resend component docs).
  * For more complex templates, we'll integrate svelte-email in the future.
@@ -11,21 +11,23 @@ import { resend } from './resend';
 export const sendVerificationEmail = internalMutation({
 	args: {
 		email: v.string(),
-		code: v.string(),
+		verificationUrl: v.string(),
 		expiryMinutes: v.optional(v.number())
 	},
 	handler: async (ctx, args) => {
-		const { email, code, expiryMinutes = 20 } = args;
+		const { email, verificationUrl, expiryMinutes = 20 } = args;
 
 		await resend.sendEmail(ctx, {
 			from: process.env.AUTH_EMAIL || 'noreply@example.com',
 			to: email,
 			subject: 'Verify your email',
-			text: `Your verification code is: ${code}
+			text: `Click the link below to verify your email address:
 
-This code will expire in ${expiryMinutes} minutes or if you request a new verification code.
+${verificationUrl}
 
-If you didn't request this code, please ignore this email.`
+This link will expire in ${expiryMinutes} minutes.
+
+If you didn't request this, please ignore this email.`
 		});
 	}
 });
