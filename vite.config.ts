@@ -17,9 +17,19 @@ export default defineConfig({
 			brotliSize: true
 		}) as PluginOption
 	] as any,
+	resolve: {
+		conditions: ['browser']
+	},
 	test: {
-		exclude: ['e2e/**', 'node_modules/**', 'dist/**', '.{idea,git,cache,output,temp}/**'],
-		passWithNoTests: true
+		exclude: [
+			'e2e/**',
+			'node_modules/**',
+			'dist/**',
+			'.{idea,git,cache,output,temp}/**',
+			'docs/**'
+		],
+		passWithNoTests: true,
+		environment: 'jsdom'
 	},
 	optimizeDeps: {
 		include: ['svelte-konva', 'konva']
