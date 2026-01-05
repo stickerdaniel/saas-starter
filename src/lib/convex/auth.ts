@@ -51,17 +51,11 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>): BetterAuthOptions
 		},
 		emailVerification: {
 			// Email verification (moved from emailAndPassword in Better Auth 1.4.x)
-			sendVerificationEmail: async ({
-				user,
-				token
-			}: {
-				user: { email: string };
-				token: string;
-			}) => {
+			sendVerificationEmail: async ({ user, url }: { user: { email: string }; url: string }) => {
 				const mutationCtx = requireRunMutationCtx(ctx);
 				await mutationCtx.runMutation(internal.emails.send.sendVerificationEmail, {
 					email: user.email,
-					code: token,
+					verificationUrl: url,
 					expiryMinutes: 20
 				});
 			},
