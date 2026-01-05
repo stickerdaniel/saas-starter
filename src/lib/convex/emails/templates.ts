@@ -10,7 +10,7 @@ import type {
 	PasswordResetEmailData,
 	AdminReplyNotificationEmailData,
 	RenderedEmail
-} from '$lib/emails/templates/types';
+} from '../../emails/templates/types';
 import {
 	VERIFICATION_HTML,
 	VERIFICATION_TEXT,
