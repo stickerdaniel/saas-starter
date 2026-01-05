@@ -21,19 +21,19 @@ describe('Generated Email Templates', () => {
 			expect(content).toContain('export const VERIFICATION_TEXT');
 		});
 
-		it('includes Eta placeholders for code', () => {
+		it('includes placeholders for code', () => {
 			const content = readFileSync(join(generatedDir, 'verification.ts'), 'utf-8');
-			expect(content).toContain('<%= it.code %>');
+			expect(content).toContain('{{code}}');
 		});
 
-		it('includes Eta placeholders for expiryMinutes', () => {
+		it('includes placeholders for expiryMinutes', () => {
 			const content = readFileSync(join(generatedDir, 'verification.ts'), 'utf-8');
-			expect(content).toContain('<%= it.expiryMinutes %>');
+			expect(content).toContain('{{expiryMinutes}}');
 		});
 
-		it('includes Eta placeholders for baseUrl', () => {
+		it('includes placeholders for baseUrl', () => {
 			const content = readFileSync(join(generatedDir, 'verification.ts'), 'utf-8');
-			expect(content).toContain('<%= it.baseUrl %>');
+			expect(content).toContain('{{baseUrl}}');
 		});
 
 		it('matches snapshot structure', () => {
@@ -58,19 +58,19 @@ describe('Generated Email Templates', () => {
 			expect(content).toContain('export const PASSWORDRESET_TEXT');
 		});
 
-		it('includes Eta placeholders for resetUrl', () => {
+		it('includes placeholders for resetUrl', () => {
 			const content = readFileSync(join(generatedDir, 'passwordReset.ts'), 'utf-8');
-			expect(content).toContain('<%= it.resetUrl %>');
+			expect(content).toContain('{{resetUrl}}');
 		});
 
-		it('includes Eta placeholders for userName', () => {
+		it('includes placeholders for userName', () => {
 			const content = readFileSync(join(generatedDir, 'passwordReset.ts'), 'utf-8');
-			expect(content).toContain('<%= it.userName %>');
+			expect(content).toContain('{{userName}}');
 		});
 
-		it('includes Eta placeholders for baseUrl', () => {
+		it('includes placeholders for baseUrl', () => {
 			const content = readFileSync(join(generatedDir, 'passwordReset.ts'), 'utf-8');
-			expect(content).toContain('<%= it.baseUrl %>');
+			expect(content).toContain('{{baseUrl}}');
 		});
 
 		it('matches snapshot structure', () => {
@@ -95,24 +95,24 @@ describe('Generated Email Templates', () => {
 			expect(content).toContain('export const ADMINREPLYNOTIFICATION_TEXT');
 		});
 
-		it('includes Eta placeholders for adminName', () => {
+		it('includes placeholders for adminName', () => {
 			const content = readFileSync(join(generatedDir, 'adminReplyNotification.ts'), 'utf-8');
-			expect(content).toContain('<%= it.adminName %>');
+			expect(content).toContain('{{adminName}}');
 		});
 
-		it('includes Eta placeholders for messagePreview', () => {
+		it('includes placeholders for messagePreview', () => {
 			const content = readFileSync(join(generatedDir, 'adminReplyNotification.ts'), 'utf-8');
-			expect(content).toContain('<%= it.messagePreview %>');
+			expect(content).toContain('{{messagePreview}}');
 		});
 
-		it('includes Eta placeholders for deepLink', () => {
+		it('includes placeholders for deepLink', () => {
 			const content = readFileSync(join(generatedDir, 'adminReplyNotification.ts'), 'utf-8');
-			expect(content).toContain('<%= it.deepLink %>');
+			expect(content).toContain('{{deepLink}}');
 		});
 
-		it('includes Eta placeholders for baseUrl', () => {
+		it('includes placeholders for baseUrl', () => {
 			const content = readFileSync(join(generatedDir, 'adminReplyNotification.ts'), 'utf-8');
-			expect(content).toContain('<%= it.baseUrl %>');
+			expect(content).toContain('{{baseUrl}}');
 		});
 
 		it('matches snapshot structure', () => {

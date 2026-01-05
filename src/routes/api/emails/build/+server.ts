@@ -36,13 +36,11 @@ const TEMPLATE_CONFIGS: Record<string, Record<string, string | number>> = {
 };
 
 /**
- * Convert __ETA_xxx__ markers to actual Eta syntax <%= it.xxx %>
- * Also converts __BASEURL__ to <%= it.baseUrl %>
+ * Convert __ETA_xxx__ markers to {{xxx}} template syntax
+ * Also converts __BASEURL__ to {{baseUrl}}
  */
-function convertMarkersToEta(html: string): string {
-	return html
-		.replace(/__ETA_(\w+)__/g, '<%= it.$1 %>')
-		.replace(/__BASEURL__/g, '<%= it.baseUrl %>');
+function convertMarkersToTemplate(html: string): string {
+	return html.replace(/__ETA_(\w+)__/g, '{{$1}}').replace(/__BASEURL__/g, '{{baseUrl}}');
 }
 
 export const GET: RequestHandler = async () => {
@@ -76,9 +74,9 @@ export const POST: RequestHandler = async ({ request }) => {
 				const rawHtml = await renderer.render(component, { props });
 				const rawText = toPlainText(rawHtml);
 
-				// Convert markers to Eta syntax
-				const html = convertMarkersToEta(rawHtml);
-				const text = convertMarkersToEta(rawText);
+				// Convert markers to template syntax
+				const html = convertMarkersToTemplate(rawHtml);
+				const text = convertMarkersToTemplate(rawText);
 
 				results.push({
 					name,
