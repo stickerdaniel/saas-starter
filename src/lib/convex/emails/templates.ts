@@ -1,11 +1,10 @@
 /**
  * Email Template Rendering Utilities
  *
- * Uses Eta templating to render pre-built email templates with dynamic data.
+ * Renders pre-built email templates with dynamic data using simple {{var}} interpolation.
  * Templates are generated at build-time from Svelte components.
  */
 
-import { Eta } from 'eta';
 import type {
 	VerificationEmailData,
 	PasswordResetEmailData,
@@ -21,7 +20,16 @@ import {
 	ADMINREPLYNOTIFICATION_TEXT
 } from './generated/index.js';
 
-const eta = new Eta();
+/**
+ * Simple template renderer that replaces {{varName}} patterns with values.
+ * Compatible with Convex runtime (no Node.js dependencies).
+ */
+function renderTemplate(template: string, data: Record<string, string | number>): string {
+	return template.replace(/\{\{(\w+)\}\}/g, (_, key) => {
+		const value = data[key];
+		return value !== undefined ? String(value) : '';
+	});
+}
 
 /**
  * Escape HTML special characters for safe rendering in HTML context
@@ -67,8 +75,8 @@ export function renderVerificationEmail(
 	const textData = { code, expiryMinutes, baseUrl };
 
 	return {
-		html: eta.renderString(VERIFICATION_HTML, data),
-		text: eta.renderString(VERIFICATION_TEXT, textData)
+		html: renderTemplate(VERIFICATION_HTML, data),
+		text: renderTemplate(VERIFICATION_TEXT, textData)
 	};
 }
 
@@ -96,8 +104,8 @@ export function renderPasswordResetEmail(
 	};
 
 	return {
-		html: eta.renderString(PASSWORDRESET_HTML, data),
-		text: eta.renderString(PASSWORDRESET_TEXT, textData)
+		html: renderTemplate(PASSWORDRESET_HTML, data),
+		text: renderTemplate(PASSWORDRESET_TEXT, textData)
 	};
 }
 
@@ -124,7 +132,7 @@ export function renderAdminReplyNotificationEmail(
 	const textData = { adminName, messagePreview, deepLink, baseUrl };
 
 	return {
-		html: eta.renderString(ADMINREPLYNOTIFICATION_HTML, data),
-		text: eta.renderString(ADMINREPLYNOTIFICATION_TEXT, textData)
+		html: renderTemplate(ADMINREPLYNOTIFICATION_HTML, data),
+		text: renderTemplate(ADMINREPLYNOTIFICATION_TEXT, textData)
 	};
 }
