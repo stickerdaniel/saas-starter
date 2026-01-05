@@ -17,7 +17,7 @@
 <div
 	bind:this={ref}
 	data-slot="item-title"
-	class={cn('text-sm leading-snug font-medium pb-1', className)}
+	class={cn('pb-1 text-sm leading-snug font-medium', className)}
 	{...restProps}
 >
 	{@render children?.()}

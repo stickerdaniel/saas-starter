@@ -19,31 +19,10 @@
 </script>
 
 <Html>
-	<Head>
-		<style>
-			body,
-			table,
-			td,
-			p,
-			a,
-			li,
-			blockquote {
-				-webkit-text-size-adjust: 100%;
-				-ms-text-size-adjust: 100%;
-			}
-			table,
-			td {
-				mso-table-lspace: 0pt;
-				mso-table-rspace: 0pt;
-			}
-			img {
-				-ms-interpolation-mode: bicubic;
-			}
-		</style>
-	</Head>
+	<Head />
 	<Preview preview="Shadcn Demo Email" />
-	<Body class="m-0 bg-background p-0 font-sans">
-		<Container class="mx-auto max-w-[600px] py-10">
+	<Body class="mx-auto my-auto bg-white px-2 font-sans">
+		<Container class="mx-auto my-10 max-w-md p-5">
 			<Card.Root>
 				<Card.Header>
 					<Card.Title>CardTitle</Card.Title>
@@ -65,7 +44,7 @@
 
 					<Item.Root class="mb-4">
 						<Item.Header>
-							<Item.Media variant="icon">✓</Item.Media>
+							<Item.Media variant="icon" align="top">✓</Item.Media>
 							<Item.Content>
 								<Item.Title>ItemTitle</Item.Title>
 								<Item.Description>ItemDescription</Item.Description>

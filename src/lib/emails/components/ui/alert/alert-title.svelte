@@ -17,7 +17,7 @@
 <div
 	bind:this={ref}
 	data-slot="alert-title"
-	class={cn('mb-1 font-medium leading-tight tracking-tight', className)}
+	class={cn('mb-1 leading-tight font-medium tracking-tight', className)}
 	{...restProps}
 >
 	{@render children?.()}

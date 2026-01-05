@@ -15,7 +15,7 @@
 	} = $props();
 </script>
 
-<Column class="align-top">
+<Column>
 	<div bind:this={ref} data-slot="item-content" class={cn(className)} {...restProps}>
 		{@render children?.()}
 	</div>

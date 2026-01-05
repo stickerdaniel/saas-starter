@@ -18,31 +18,10 @@
 </script>
 
 <Html>
-	<Head>
-		<style>
-			body,
-			table,
-			td,
-			p,
-			a,
-			li,
-			blockquote {
-				-webkit-text-size-adjust: 100%;
-				-ms-text-size-adjust: 100%;
-			}
-			table,
-			td {
-				mso-table-lspace: 0pt;
-				mso-table-rspace: 0pt;
-			}
-			img {
-				-ms-interpolation-mode: bicubic;
-			}
-		</style>
-	</Head>
+	<Head />
 	<Preview preview="Shadcn Reference Email (Real Components)" />
-	<Body class="m-0 p-0 bg-background font-sans">
-		<Container class="max-w-[600px] mx-auto py-10">
+	<Body class="mx-auto my-auto bg-white px-2 font-sans">
+		<Container class="mx-auto my-10 max-w-md p-5">
 			<Card.Root>
 				<Card.Header>
 					<Card.Title>CardTitle</Card.Title>

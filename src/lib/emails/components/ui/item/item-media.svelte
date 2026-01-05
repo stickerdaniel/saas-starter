@@ -2,7 +2,7 @@
 	import { tv, type VariantProps } from 'tailwind-variants';
 
 	export const itemMediaVariants = tv({
-		base: '',
+		base: 'flex items-center justify-center',
 		variants: {
 			variant: {
 				default: 'bg-transparent',
@@ -28,16 +28,18 @@
 		ref = $bindable(null),
 		class: className,
 		variant = 'default',
+		align = 'middle',
 		children,
 		...restProps
 	}: HTMLAttributes<HTMLDivElement> & {
 		ref?: HTMLElement | null;
 		variant?: ItemMediaVariant;
+		align?: 'top' | 'middle';
 		children?: Snippet;
 	} = $props();
 </script>
 
-<Column class="w-10 pr-2 align-top">
+<Column class={cn('w-10 pr-2', align === 'top' ? 'align-top' : 'align-middle')}>
 	<div
 		bind:this={ref}
 		data-slot="item-media"

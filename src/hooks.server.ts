@@ -1,5 +1,6 @@
 import { sequence } from '@sveltejs/kit/hooks';
 import { redirect, type Handle, type Cookies } from '@sveltejs/kit';
+import { dev } from '$app/environment';
 import { isSupportedLanguage, DEFAULT_LANGUAGE } from '$lib/i18n/languages';
 
 /**
@@ -29,6 +30,17 @@ const decodeJwtPayload = (token: string): { role?: string } | null => {
 const isSignInPage = (pathname: string) => /^\/[a-z]{2}\/signin$/.test(pathname);
 const isProtectedRoute = (pathname: string) => /^\/[a-z]{2}\/app(\/|$)/.test(pathname);
 const isAdminRoute = (pathname: string) => /^\/[a-z]{2}\/admin(\/|$)/.test(pathname);
+const isEmailsRoute = (pathname: string) => /^\/[a-z]{2}\/emails(\/|$)/.test(pathname);
+
+/**
+ * Block access to dev-only routes in production
+ */
+const handleDevOnlyRoutes: Handle = async ({ event, resolve }) => {
+	if (!dev && isEmailsRoute(event.url.pathname)) {
+		return new Response('Not found', { status: 404 });
+	}
+	return resolve(event);
+};
 
 /**
  * Extract authentication token from cookies
@@ -117,4 +129,4 @@ const authFirstPattern: Handle = async ({ event, resolve }) => {
 	return resolve(event);
 };
 
-export const handle = sequence(handleAuth, handleLanguage, authFirstPattern);
+export const handle = sequence(handleDevOnlyRoutes, handleAuth, handleLanguage, authFirstPattern);
