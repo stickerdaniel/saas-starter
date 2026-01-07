@@ -7,3 +7,6 @@ bun.lockb
 
 # Git submodules
 docs/references/
+
+# Generated files
+src/lib/convex/_generated/
