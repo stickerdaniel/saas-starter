@@ -148,7 +148,7 @@ export const listThreads = query({
 	handler: async (ctx, args) => {
 		// Security: Use server-verified user ID for authenticated users
 		// For anonymous users (not authenticated), use client-provided userId
-		const authUser = await authComponent.getAuthUser(ctx);
+		const authUser = await authComponent.safeGetAuthUser(ctx);
 		let effectiveUserId: string | undefined;
 
 		if (authUser) {
@@ -292,7 +292,7 @@ export const getThread = query({
 		});
 
 		// Security: Verify ownership
-		const authUser = await authComponent.getAuthUser(ctx);
+		const authUser = await authComponent.safeGetAuthUser(ctx);
 
 		if (authUser) {
 			// Authenticated: Must own the thread
@@ -363,7 +363,7 @@ export const updateThreadHandoff = mutation({
 		});
 
 		// Security: Verify ownership
-		const authUser = await authComponent.getAuthUser(ctx);
+		const authUser = await authComponent.safeGetAuthUser(ctx);
 
 		if (authUser) {
 			if (thread.userId !== authUser._id) {
@@ -585,7 +585,7 @@ export const updateNotificationEmail = mutation({
 		});
 
 		// Security: Verify ownership
-		const authUser = await authComponent.getAuthUser(ctx);
+		const authUser = await authComponent.safeGetAuthUser(ctx);
 
 		if (authUser) {
 			if (thread.userId !== authUser._id) {
