@@ -4,6 +4,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import CircleCheckIcon from '@lucide/svelte/icons/circle-check';
 	import BellOffIcon from '@lucide/svelte/icons/bell-off';
+	import { emailSchema } from '$lib/schemas/auth';
 
 	let {
 		currentEmail = '',
@@ -34,8 +35,7 @@
 		}
 	});
 
-	const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-	const isValidEmail = $derived(emailRegex.test(email.trim()));
+	const isValidEmail = $derived(emailSchema.safeParse(email.trim()).success);
 
 	// Check if email has changed from the saved value
 	const hasChanges = $derived(email.trim() !== (currentEmail || ''));

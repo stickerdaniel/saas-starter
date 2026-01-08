@@ -14,30 +14,9 @@ import type { RequestHandler } from './$types';
 import { renderer } from '$lib/emails/renderer';
 import { getEmailComponent } from 'better-svelte-email/preview';
 import { toPlainText } from 'better-svelte-email/render';
+import { EMAIL_TEMPLATES, getTemplatesForRendering } from '$lib/emails/templates/registry';
 
 const TEMPLATES_PATH = '/src/lib/emails/templates';
-
-// Template configurations with placeholder markers
-// We use __ETA_xxx__ markers to avoid HTML escaping, then replace them after rendering
-const TEMPLATE_CONFIGS: Record<string, Record<string, string | number>> = {
-	VerificationEmail: {
-		verificationUrl: '__ETA_verificationUrl__',
-		expiryMinutes: '__ETA_expiryMinutes__'
-	},
-	VerificationCodeEmail: {
-		code: '__ETA_code__',
-		expiryMinutes: '__ETA_expiryMinutes__'
-	},
-	PasswordResetEmail: {
-		resetUrl: '__ETA_resetUrl__',
-		userName: '__ETA_userName__'
-	},
-	AdminReplyNotificationEmail: {
-		adminName: '__ETA_adminName__',
-		messagePreview: '__ETA_messagePreview__',
-		deepLink: '__ETA_deepLink__'
-	}
-};
 
 /**
  * Convert __ETA_xxx__ markers to {{xxx}} template syntax
@@ -50,10 +29,7 @@ function convertMarkersToTemplate(html: string): string {
 export const GET: RequestHandler = async () => {
 	// Return the list of available templates and their placeholder configs
 	return json({
-		templates: Object.entries(TEMPLATE_CONFIGS).map(([name, props]) => ({
-			name,
-			props
-		}))
+		templates: getTemplatesForRendering()
 	});
 };
 
@@ -65,7 +41,7 @@ export const POST: RequestHandler = async ({ request }) => {
 		const templatesToRender =
 			requestedTemplates && Array.isArray(requestedTemplates)
 				? requestedTemplates
-				: Object.entries(TEMPLATE_CONFIGS).map(([name, props]) => ({ name, props }));
+				: getTemplatesForRendering();
 
 		const results = [];
 
