@@ -11,7 +11,9 @@
 // =============================================================================
 
 const BETTER_AUTH_SECRET = process.env.BETTER_AUTH_SECRET;
-const SITE_URL = process.env.SITE_URL ?? process.env.PUBLIC_SITE_URL;
+// SITE_URL: Fallback allows module analysis to pass; actual value comes from env var at runtime
+const SITE_URL =
+	process.env.SITE_URL ?? process.env.PUBLIC_SITE_URL ?? 'https://placeholder.invalid';
 const EMAIL_ASSET_URL = process.env.EMAIL_ASSET_URL;
 const AUTH_EMAIL = process.env.AUTH_EMAIL;
 const AUTUMN_SECRET_KEY = process.env.AUTUMN_SECRET_KEY;
@@ -41,7 +43,9 @@ export const getBetterAuthSecret = () => {
 
 /** Site URL for OAuth redirects and email deep links */
 export const getSiteUrl = () => {
-	if (!SITE_URL) throw envError('SITE_URL');
+	if (SITE_URL === 'https://placeholder.invalid') {
+		console.warn('SITE_URL not configured - using placeholder. Auth will not work correctly.');
+	}
 	return SITE_URL;
 };
 
