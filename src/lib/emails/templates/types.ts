@@ -1,10 +1,12 @@
 import type { ComponentProps } from 'svelte';
 import type VerificationEmail from './VerificationEmail.svelte';
+import type VerificationCodeEmail from './VerificationCodeEmail.svelte';
 import type PasswordResetEmail from './PasswordResetEmail.svelte';
 import type AdminReplyNotificationEmail from './AdminReplyNotificationEmail.svelte';
 
 // Extract component prop types
 export type VerificationEmailProps = ComponentProps<typeof VerificationEmail>;
+export type VerificationCodeEmailProps = ComponentProps<typeof VerificationCodeEmail>;
 export type PasswordResetEmailProps = ComponentProps<typeof PasswordResetEmail>;
 export type AdminReplyNotificationEmailProps = ComponentProps<typeof AdminReplyNotificationEmail>;
 
@@ -19,11 +21,21 @@ type RequiredProps<T> = {
  */
 
 /**
- * Data required to render a verification email
+ * Data required to render a verification email (magic link)
+ * @property verificationUrl - URL to verify email
+ * @property expiryMinutes - Minutes until the link expires
+ */
+export type VerificationEmailData = {
+	verificationUrl: string;
+	expiryMinutes: number;
+};
+
+/**
+ * Data required to render a verification code email (OTP)
  * @property code - 8-digit verification code
  * @property expiryMinutes - Minutes until the code expires
  */
-export type VerificationEmailData = {
+export type VerificationCodeEmailData = {
 	code: string;
 	expiryMinutes: number;
 };
