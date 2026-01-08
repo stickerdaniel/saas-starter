@@ -2,7 +2,6 @@
 	import type { HTMLAttributes } from 'svelte/elements';
 	import { Link } from 'better-svelte-email/components';
 	import { Separator } from '$lib/emails/components/ui/index.js';
-	import { emailBaseUrl } from '$lib/emails/config.js';
 
 	const currentYear = new Date().getFullYear();
 
@@ -22,7 +21,7 @@
 	<div class="space-y-1 text-left">
 		<p class="text-xs text-muted-foreground">
 			Copyright © {currentYear}
-			<Link href="{emailBaseUrl}/" class="text-muted-foreground underline">{companyName}</Link> All rights
+			<Link href="__BASEURL__/" class="text-muted-foreground underline">{companyName}</Link> All rights
 			reserved.
 		</p>
 		<p class="text-xs text-muted-foreground">{address}</p>
