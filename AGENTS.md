@@ -31,8 +31,8 @@ This project is a saas template built with SvelteKit, Convex, Typescript and mod
 
 These commands use `dotenv` to load the local TOLGEE_API_KEY from `.env.local`:
 
-- `bun run i18n:pull` - Download latest translations from Tolgee Cloud. Run this ALWAYS before making any changes to the `src/i18n/*.json` translation files.
-- `bun run i18n:push` - Upload local translations. Run with `-- --tag-new-keys draft` to tag new keys as e.g. 'draft'
+- `bun run i18n:pull` - Download latest translations from Tolgee Cloud. Run this ALWAYS before making any changes to the `src/i18n/*` json translation files.
+- `bun run i18n:push` - Upload local translations. ALWAYS run this after making any changes to the `src/i18n/*` json translation files. Otherwise, your changes wont be pushed to the cloud! Run with `-- --tag-new-keys draft` to tag new keys as e.g. 'draft'
 
   Use tags to organize translation keys:
   - `draft` - New keys awaiting review
