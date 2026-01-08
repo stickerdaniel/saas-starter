@@ -1,35 +1,13 @@
 /**
- * Centralized Environment Variable Validation
+ * Centralized Environment Variable Access
  *
- * This module validates all required environment variables at Convex runtime.
- * Missing required variables will cause clear error messages with instructions.
- *
- * Note: Validation only runs in Convex runtime (not during bundling on Vercel).
- * We detect Convex runtime by checking for CONVEX_CLOUD_URL or CONVEX_SITE_URL
- * which are only available when code runs on Convex servers.
+ * This module provides typed access to environment variables.
+ * Validation is performed at deploy time via the pre-deploy script
+ * (scripts/vercel-deploy.sh) which checks Convex env vars via CLI.
  */
 
-const isProduction = process.env.NODE_ENV === 'production';
-const isConvexRuntime = !!(process.env.CONVEX_CLOUD_URL || process.env.CONVEX_SITE_URL);
-
-// #region agent log - Hypothesis A,B,C: Debug env detection during bundling vs runtime
-console.error('[ENV_DEBUG] NODE_ENV:', process.env.NODE_ENV);
-console.error('[ENV_DEBUG] CONVEX_CLOUD_URL:', process.env.CONVEX_CLOUD_URL ? 'SET' : 'NOT_SET');
-console.error('[ENV_DEBUG] CONVEX_SITE_URL:', process.env.CONVEX_SITE_URL ? 'SET' : 'NOT_SET');
-console.error('[ENV_DEBUG] isProduction:', isProduction);
-console.error('[ENV_DEBUG] isConvexRuntime:', isConvexRuntime);
-console.error(
-	'[ENV_DEBUG] OPENROUTER_API_KEY:',
-	process.env.OPENROUTER_API_KEY ? 'SET' : 'NOT_SET'
-);
-console.error(
-	'[ENV_DEBUG] RESEND_WEBHOOK_SECRET:',
-	process.env.RESEND_WEBHOOK_SECRET ? 'SET' : 'NOT_SET'
-);
-// #endregion
-
 // =============================================================================
-// REQUIRED VARIABLES - App will not function without these
+// REQUIRED VARIABLES - Validated at deploy time via CLI
 // =============================================================================
 
 const BETTER_AUTH_SECRET = process.env.BETTER_AUTH_SECRET;
@@ -40,126 +18,6 @@ const AUTUMN_SECRET_KEY = process.env.AUTUMN_SECRET_KEY;
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 const RESEND_WEBHOOK_SECRET = process.env.RESEND_WEBHOOK_SECRET;
-
-// Only validate in Convex runtime (not during Vercel build bundling)
-if (isProduction && isConvexRuntime) {
-	const errors: string[] = [];
-
-	if (!BETTER_AUTH_SECRET) {
-		errors.push(`
-BETTER_AUTH_SECRET is required for authentication.
-
-Set via CLI:
-  bunx convex env set BETTER_AUTH_SECRET "$(openssl rand -base64 32)" --prod
-
-Or set in Convex Dashboard:
-  https://dashboard.convex.dev → Your Project → Settings → Environment Variables
-`);
-	}
-
-	if (!SITE_URL) {
-		errors.push(`
-SITE_URL is required for OAuth redirects and authentication callbacks.
-
-Set via CLI:
-  bunx convex env set SITE_URL https://your-domain.com --prod
-
-Or set in Convex Dashboard:
-  https://dashboard.convex.dev → Your Project → Settings → Environment Variables
-`);
-	}
-
-	if (!EMAIL_ASSET_URL) {
-		errors.push(`
-EMAIL_ASSET_URL is required for email images and assets.
-This should always be your production URL so images load in email clients.
-
-Set via CLI:
-  bunx convex env set EMAIL_ASSET_URL https://your-domain.com --prod
-
-Or set in Convex Dashboard:
-  https://dashboard.convex.dev → Your Project → Settings → Environment Variables
-`);
-	}
-
-	if (!AUTH_EMAIL) {
-		errors.push(`
-AUTH_EMAIL is required as the sender address for authentication emails.
-
-Set via CLI:
-  bunx convex env set AUTH_EMAIL noreply@your-domain.com --prod
-
-Or set in Convex Dashboard:
-  https://dashboard.convex.dev → Your Project → Settings → Environment Variables
-
-Note: This email must be verified in your Resend dashboard.
-`);
-	}
-
-	if (!AUTUMN_SECRET_KEY) {
-		errors.push(`
-AUTUMN_SECRET_KEY is required for billing and subscriptions.
-
-Set via CLI:
-  bunx convex env set AUTUMN_SECRET_KEY am_sk_... --prod
-
-Or set in Convex Dashboard:
-  https://dashboard.convex.dev → Your Project → Settings → Environment Variables
-
-Get your secret key from: https://useautumn.com/dashboard
-`);
-	}
-
-	if (!RESEND_API_KEY) {
-		errors.push(`
-RESEND_API_KEY is required for sending emails (verification, password reset, notifications).
-
-Set via CLI:
-  bunx convex env set RESEND_API_KEY re_... --prod
-
-Or set in Convex Dashboard:
-  https://dashboard.convex.dev → Your Project → Settings → Environment Variables
-
-Get your API key from: https://resend.com/api-keys
-`);
-	}
-
-	if (!OPENROUTER_API_KEY) {
-		errors.push(`
-OPENROUTER_API_KEY is required for the AI-powered customer support chat.
-
-Set via CLI:
-  bunx convex env set OPENROUTER_API_KEY sk-or-v1-... --prod
-
-Or set in Convex Dashboard:
-  https://dashboard.convex.dev → Your Project → Settings → Environment Variables
-
-Get your API key from: https://openrouter.ai/keys
-`);
-	}
-
-	if (!RESEND_WEBHOOK_SECRET) {
-		errors.push(`
-RESEND_WEBHOOK_SECRET is required to verify email webhook signatures.
-
-Set via CLI:
-  bunx convex env set RESEND_WEBHOOK_SECRET whsec_... --prod
-
-Or set in Convex Dashboard:
-  https://dashboard.convex.dev → Your Project → Settings → Environment Variables
-
-Get your webhook secret from: https://resend.com/webhooks
-`);
-	}
-
-	if (errors.length > 0) {
-		throw new Error(
-			`\n${'='.repeat(60)}\nMISSING REQUIRED ENVIRONMENT VARIABLES\n${'='.repeat(60)}\n` +
-				errors.join('\n') +
-				`\n${'='.repeat(60)}\n`
-		);
-	}
-}
 
 // =============================================================================
 // EXPORTS - Use these getters throughout the codebase
