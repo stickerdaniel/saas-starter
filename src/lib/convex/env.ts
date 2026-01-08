@@ -1,12 +1,16 @@
 /**
  * Centralized Environment Variable Validation
  *
- * This module validates all required environment variables at module load time.
- * In production, missing required variables will cause deployment to fail immediately
- * with clear instructions on how to fix.
+ * This module validates all required environment variables at Convex runtime.
+ * Missing required variables will cause clear error messages with instructions.
+ *
+ * Note: Validation only runs in Convex runtime (not during bundling on Vercel).
+ * We detect Convex runtime by checking for CONVEX_CLOUD_URL or CONVEX_SITE_URL
+ * which are only available when code runs on Convex servers.
  */
 
 const isProduction = process.env.NODE_ENV === 'production';
+const isConvexRuntime = !!(process.env.CONVEX_CLOUD_URL || process.env.CONVEX_SITE_URL);
 
 // =============================================================================
 // REQUIRED VARIABLES - App will not function without these
@@ -21,7 +25,8 @@ const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 const RESEND_WEBHOOK_SECRET = process.env.RESEND_WEBHOOK_SECRET;
 
-if (isProduction) {
+// Only validate in Convex runtime (not during Vercel build bundling)
+if (isProduction && isConvexRuntime) {
 	const errors: string[] = [];
 
 	if (!BETTER_AUTH_SECRET) {
