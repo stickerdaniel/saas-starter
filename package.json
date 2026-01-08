@@ -7,7 +7,6 @@
 		"dev:frontend": "vite dev --open",
 		"dev:backend": "convex dev",
 		"dev": "bun run dev:frontend & bun run dev:backend",
-		"postinstall": "bun run build:emails",
 		"prebuild": "bun run build:emails",
 		"build": "vite build",
 		"build:emails": "tsx scripts/build-emails.ts",
