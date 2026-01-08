@@ -1,3 +1,44 @@
 # Reference Libraries
 
-This folder contains git submodules of external libraries for AI coding agents to reference. They provide source code context for agents working on this codebase. Always launch a separate subagent to analyze the source code of these libraries when the user asks about them.
+> [!NOTE]
+> ALWAYS use subagents when crawling the reference repositories to prevent bloat in the main thread!
+
+This directory contains git submodules of libraries used in this project. These are cloned here to provide AI coding agents with direct access to source code, ensuring accurate API usage and better code suggestions.
+
+## Purpose
+
+AI agents can read the actual source code of these libraries to:
+
+- Understand the correct API signatures and types
+- See implementation details for complex integrations
+- Reference examples and patterns from the library
+- Avoid hallucinating incorrect API usage
+
+## Adding a New Reference Library
+
+```bash
+git submodule add <repository-url> docs/reference/<library-name>
+```
+
+## Updating Submodules
+
+```bash
+# Update all submodules to latest
+git submodule update --remote --merge
+```
+
+## Cloning This Repository
+
+When cloning this repository, initialize submodules:
+
+```bash
+git clone <repo-url>
+cd <repo-name>
+git submodule update --init --recursive
+```
+
+Or clone with submodules in one command:
+
+```bash
+git clone --recursive
+```
