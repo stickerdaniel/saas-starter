@@ -5,7 +5,7 @@ import { join } from 'node:path';
 describe('Generated Email Templates', () => {
 	const generatedDir = join(process.cwd(), 'src/lib/convex/emails/generated');
 
-	describe('VerificationEmail', () => {
+	describe('VerificationEmail (Magic Link)', () => {
 		it('generates verification template files', () => {
 			const filePath = join(generatedDir, 'verification.ts');
 			expect(existsSync(filePath)).toBe(true);
@@ -21,9 +21,9 @@ describe('Generated Email Templates', () => {
 			expect(content).toContain('export const VERIFICATION_TEXT');
 		});
 
-		it('includes placeholders for code', () => {
+		it('includes placeholders for verificationUrl', () => {
 			const content = readFileSync(join(generatedDir, 'verification.ts'), 'utf-8');
-			expect(content).toContain('{{code}}');
+			expect(content).toContain('{{verificationUrl}}');
 		});
 
 		it('includes placeholders for expiryMinutes', () => {
