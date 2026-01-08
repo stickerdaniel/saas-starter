@@ -6,7 +6,7 @@ import {
 	renderPasswordResetEmail,
 	renderAdminReplyNotificationEmail
 } from './templates';
-import { getAuthEmail, getAppUrl } from '../env';
+import { getAuthEmail, getSiteUrl } from '../env';
 
 /**
  * Send verification email with verification link
@@ -84,11 +84,11 @@ export const sendAdminReplyNotification = internalMutation({
 	},
 	handler: async (ctx, args) => {
 		const { email, adminName, messagePreview, threadId, pageUrl } = args;
-		const appUrl = getAppUrl();
+		const siteUrl = getSiteUrl();
 
 		// Build deep link that opens the support widget to this thread
 		// Strip any existing support/thread params to avoid duplicates
-		const url = new URL(pageUrl || appUrl);
+		const url = new URL(pageUrl || siteUrl);
 		url.searchParams.delete('support');
 		url.searchParams.delete('thread');
 		url.searchParams.set('support', 'open');
