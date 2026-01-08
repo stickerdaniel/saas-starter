@@ -1,8 +1,8 @@
 /**
  * Build script for email templates
  *
- * This script starts a temporary Vite dev server, renders email templates
- * via the API endpoint, and generates TypeScript files for Convex.
+ * This script uses Vite's programmatic API to render email templates
+ * and generates TypeScript files for Convex.
  *
  * Run with: bun run build:emails
  */
@@ -10,14 +10,16 @@
 import { writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { spawn, type ChildProcess } from 'node:child_process';
-import { EMAIL_TEMPLATES, getOutputFileName } from '../src/lib/emails/templates/registry';
+import { createServer, type ViteDevServer } from 'vite';
+import {
+	EMAIL_TEMPLATES,
+	getOutputFileName,
+	getTemplatesForRendering
+} from '../src/lib/emails/templates/registry';
 
 const __scriptDir = dirname(fileURLToPath(import.meta.url));
 const GENERATED_DIR = join(__scriptDir, '../src/lib/convex/emails/_generated');
-const DEV_SERVER_PORT = 5199; // Use non-standard port to avoid conflicts
-const DEV_SERVER_URL = `http://localhost:${DEV_SERVER_PORT}`;
-const BUILD_ENDPOINT = `${DEV_SERVER_URL}/api/emails/build`;
+const TEMPLATES_PATH = '/src/lib/emails/templates';
 
 /**
  * Escapes backticks and ${} in strings for use in template literals
@@ -43,69 +45,25 @@ export const ${name.toUpperCase()}_TEXT = \`${escapedText}\`;
 }
 
 /**
- * Wait for the dev server to be ready
+ * Convert __ETA_xxx__ markers to {{xxx}} template syntax
+ * Also converts __BASEURL__ to {{baseUrl}}
  */
-async function waitForServer(url: string, maxAttempts = 30): Promise<void> {
-	for (let i = 0; i < maxAttempts; i++) {
-		try {
-			const response = await fetch(url, { method: 'HEAD' });
-			if (response.ok || response.status === 404) {
-				return; // Server is ready
-			}
-		} catch {
-			// Server not ready yet
-		}
-		await new Promise((resolve) => setTimeout(resolve, 1000));
-	}
-	throw new Error(`Server did not become ready at ${url} after ${maxAttempts} attempts`);
+function convertMarkersToTemplate(html: string): string {
+	return html.replace(/__ETA_(\w+)__/g, '{{$1}}').replace(/__BASEURL__/g, '{{baseUrl}}');
 }
 
 /**
- * Start the Vite dev server
+ * Create Vite server in middleware mode (no HTTP server)
  */
-function startDevServer(): ChildProcess {
-	const child = spawn('bunx', ['vite', 'dev', '--port', DEV_SERVER_PORT.toString()], {
-		stdio: ['ignore', 'pipe', 'pipe'],
-		cwd: process.cwd(),
-		detached: false
-	});
-
-	child.stdout?.on('data', (data) => {
-		const output = data.toString();
-		if (output.includes('Local:')) {
-			// Server started
+async function createViteServer(): Promise<ViteDevServer> {
+	return createServer({
+		server: { middlewareMode: true },
+		appType: 'custom',
+		logLevel: 'warn',
+		ssr: {
+			// Bundle better-svelte-email to handle CJS/ESM interop
+			noExternal: ['better-svelte-email', 'prettier']
 		}
-	});
-
-	child.stderr?.on('data', (data) => {
-		// Only log actual errors, not warnings
-		const output = data.toString();
-		if (output.includes('error') || output.includes('Error')) {
-			console.error('Dev server error:', output);
-		}
-	});
-
-	return child;
-}
-
-/**
- * Stop the dev server gracefully, with a timeout fallback
- */
-async function stopDevServer(devServer: ChildProcess, timeout = 5000): Promise<void> {
-	return new Promise((resolve) => {
-		const timeoutId = setTimeout(() => {
-			// Force kill if graceful shutdown takes too long
-			devServer.kill('SIGKILL');
-			resolve();
-		}, timeout);
-
-		devServer.on('close', () => {
-			clearTimeout(timeoutId);
-			resolve();
-		});
-
-		// Send graceful shutdown signal
-		devServer.kill('SIGTERM');
 	});
 }
 
@@ -131,58 +89,60 @@ async function buildEmails() {
 		console.log(`Created directory: ${GENERATED_DIR}`);
 	}
 
-	// Start temporary dev server
-	console.log('  Starting temporary dev server...');
-	const devServer = startDevServer();
+	// Create Vite server in middleware mode (no HTTP server needed)
+	console.log('  Initializing Vite...');
+	const vite = await createViteServer();
 
 	try {
-		// Wait for server to be ready
-		await waitForServer(DEV_SERVER_URL);
-		console.log('  Dev server ready.\n');
-
-		// Call the API endpoint to render all templates
-		const response = await fetch(BUILD_ENDPOINT, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({})
-		});
-
-		if (!response.ok) {
-			throw new Error(`API request failed: ${response.status} ${response.statusText}`);
-		}
-
-		const { templates } = (await response.json()) as {
-			templates: Array<{
-				name: string;
-				html?: string;
-				text?: string;
-				error?: string;
-				success: boolean;
-			}>;
+		// Load dependencies via ssrLoadModule
+		const { renderer } = (await vite.ssrLoadModule('/src/lib/emails/renderer.ts')) as {
+			renderer: { render: (component: unknown, options: { props: unknown }) => Promise<string> };
+		};
+		const { getEmailComponent } = (await vite.ssrLoadModule('better-svelte-email/preview')) as {
+			getEmailComponent: (path: string, name: string) => Promise<unknown>;
+		};
+		const { toPlainText } = (await vite.ssrLoadModule('better-svelte-email/render')) as {
+			toPlainText: (html: string) => string;
 		};
 
+		console.log('  Vite ready.\n');
+
+		const templatesToRender = getTemplatesForRendering();
 		const results: { name: string; success: boolean; error?: string }[] = [];
 
-		for (const template of templates) {
-			const fileName = getOutputFileName(template.name);
+		for (const { name, props } of templatesToRender) {
+			try {
+				console.log(`  Rendering ${name}...`);
 
-			if (template.success && template.html && template.text) {
-				console.log(`  Rendering ${template.name}...`);
+				// Get the template component
+				const component = await getEmailComponent(TEMPLATES_PATH, name);
+
+				// Render with marker props
+				const rawHtml = await renderer.render(component, { props });
+				const rawText = toPlainText(rawHtml);
+
+				// Convert markers to template syntax
+				const html = convertMarkersToTemplate(rawHtml);
+				const text = convertMarkersToTemplate(rawText);
+
+				// Get output filename
+				const fileName = getOutputFileName(name);
 
 				// Generate TypeScript file content
-				const fileContent = generateTemplateFile(fileName, template.html, template.text);
+				const fileContent = generateTemplateFile(fileName, html, text);
 
 				// Write to file
 				const filePath = join(GENERATED_DIR, `${fileName}.ts`);
 				writeFileSync(filePath, fileContent, 'utf-8');
 
 				console.log(
-					`    -> Generated ${fileName}.ts (${template.html.length} chars HTML, ${template.text.length} chars text)`
+					`    -> Generated ${fileName}.ts (${html.length} chars HTML, ${text.length} chars text)`
 				);
-				results.push({ name: template.name, success: true });
-			} else {
-				console.error(`    -> Error rendering ${template.name}: ${template.error}`);
-				results.push({ name: template.name, success: false, error: template.error });
+				results.push({ name, success: true });
+			} catch (err) {
+				const errorMessage = err instanceof Error ? err.message : String(err);
+				console.error(`    -> Error rendering ${name}: ${errorMessage}`);
+				results.push({ name, success: false, error: errorMessage });
 			}
 		}
 
@@ -213,9 +173,8 @@ ${exportStatements}
 
 		console.log('\nEmail templates built successfully!');
 	} finally {
-		// Always stop the dev server
-		console.log('\n  Stopping dev server...');
-		await stopDevServer(devServer);
+		// Always close Vite
+		await vite.close();
 	}
 }
 
