@@ -96,6 +96,19 @@ function startDevServer(): ChildProcess {
 }
 
 async function buildEmails() {
+	// Check if PUBLIC_CONVEX_URL is available (required for dev server to start)
+	if (!process.env.PUBLIC_CONVEX_URL) {
+		console.log('⏭️  Skipping email template build - PUBLIC_CONVEX_URL not set');
+		console.log('');
+		console.log('   This is expected during initial install or CI.');
+		console.log('   Email templates will be built during the actual build step.');
+		console.log('');
+		console.log('   To build manually after setting up .env.local:');
+		console.log('   bun run build:emails');
+		console.log('');
+		return;
+	}
+
 	console.log('Building email templates...\n');
 
 	// Ensure generated directory exists
