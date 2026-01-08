@@ -51,15 +51,19 @@ function escapeHtml(str: string): string {
 	);
 }
 
+// Validate required environment variables at module load time
+const APP_URL = process.env.APP_URL;
+if (!APP_URL && process.env.NODE_ENV === 'production') {
+	throw new Error(
+		'APP_URL environment variable is required in production. Set it with: bunx convex env set APP_URL https://your-app.com --prod'
+	);
+}
+
 /**
- * Get base URL from environment at runtime
+ * Get base URL from environment
  */
 function getBaseUrl(): string {
-	const url = process.env.APP_URL;
-	if (!url && process.env.NODE_ENV === 'production') {
-		throw new Error('APP_URL environment variable is required in production');
-	}
-	return url || 'https://example.com';
+	return APP_URL || 'https://example.com';
 }
 
 /**
