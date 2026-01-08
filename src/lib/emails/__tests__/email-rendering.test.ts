@@ -1,4 +1,11 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+
+// Mock the env module before importing templates
+vi.mock('$lib/convex/env', () => ({
+	getAppUrl: () => 'https://test.example.com',
+	getAuthEmail: () => 'test@example.com'
+}));
+
 import {
 	renderVerificationEmail,
 	renderVerificationCodeEmail,
@@ -7,20 +14,6 @@ import {
 } from '$lib/convex/emails/templates';
 
 describe('Email Template Rendering', () => {
-	const originalEnv = process.env.APP_URL;
-
-	beforeEach(() => {
-		process.env.APP_URL = 'https://test.example.com';
-	});
-
-	afterEach(() => {
-		if (originalEnv !== undefined) {
-			process.env.APP_URL = originalEnv;
-		} else {
-			delete process.env.APP_URL;
-		}
-	});
-
 	describe('HTML escaping', () => {
 		it('escapes < and > in userName', () => {
 			const result = renderPasswordResetEmail(

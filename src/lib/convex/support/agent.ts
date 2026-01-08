@@ -1,6 +1,8 @@
 import { Agent } from '@convex-dev/agent';
 import { components } from '../_generated/api';
 import { openrouter } from '@openrouter/ai-sdk-provider';
+// Import env to ensure OPENROUTER_API_KEY is validated at module load time
+import '../env';
 
 /**
  * Customer Support AI Agent
