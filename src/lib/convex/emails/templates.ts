@@ -55,7 +55,11 @@ function escapeHtml(str: string): string {
  * Get base URL from environment at runtime
  */
 function getBaseUrl(): string {
-	return process.env.APP_URL || 'https://example.com';
+	const url = process.env.APP_URL;
+	if (!url && process.env.NODE_ENV === 'production') {
+		throw new Error('APP_URL environment variable is required in production');
+	}
+	return url || 'https://example.com';
 }
 
 /**
@@ -85,6 +89,10 @@ export function renderVerificationEmail(
 
 /**
  * Render verification code email with OTP code
+ *
+ * NOTE: Not currently in use. Kept for future OTP-based verification.
+ * Add a corresponding mutation in send.ts when needed.
+ *
  * @param code - 8-digit verification code
  * @param expiryMinutes - Minutes until code expires
  * @returns Rendered HTML and plain text email
