@@ -21,7 +21,7 @@ import {
 	PASSWORDRESET_TEXT,
 	ADMINREPLYNOTIFICATION_HTML,
 	ADMINREPLYNOTIFICATION_TEXT
-} from './generated/index.js';
+} from './_generated/index.js';
 
 /**
  * Simple template renderer that replaces {{varName}} patterns with values.
