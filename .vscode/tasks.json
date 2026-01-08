@@ -81,6 +81,18 @@
 			}
 		},
 		{
+			"label": "bun run build:emails",
+			"type": "shell",
+			"command": "bun",
+			"args": ["run", "build:emails"],
+			"group": "none",
+			"problemMatcher": [],
+			"detail": "Build email templates from Svelte components",
+			"presentation": {
+				"clear": true
+			}
+		},
+		{
 			"label": "bun run worktree --open-editor",
 			"type": "shell",
 			"command": "bun",
