@@ -11,7 +11,36 @@
 	path = docs/references/convex-svelte
 	url = https://github.com/mmailaender/convex-svelte.git
 	branch = feat/pagination
+[submodule "docs/references/runed"]
+	path = docs/references/runed
+	url = https://github.com/svecosystem/runed
 [submodule "docs/references/better-svelte-email"]
 	path = docs/references/better-svelte-email
-	url = https://github.com/stickerdaniel/better-svelte-email.git
-	branch = issue-46-global-selectors
+	url = https://github.com/Konixy/better-svelte-email
+[submodule "docs/references/better-auth"]
+	path = docs/references/better-auth
+	url = https://github.com/get-convex/better-auth
+[submodule "docs/references/motion-svelte"]
+	path = docs/references/motion-svelte
+	url = https://github.com/hanielu/motion-svelte
+[submodule "docs/references/shadcn-svelte"]
+	path = docs/references/shadcn-svelte
+	url = https://github.com/huntabyte/shadcn-svelte
+[submodule "docs/references/shadcn-svelte-extras"]
+	path = docs/references/shadcn-svelte-extras
+	url = https://github.com/ieedan/shadcn-svelte-extras
+[submodule "docs/references/threlte"]
+	path = docs/references/threlte
+	url = https://github.com/threlte/threlte
+[submodule "docs/references/xyflow"]
+	path = docs/references/xyflow
+	url = https://github.com/xyflow/xyflow
+[submodule "docs/references/cnblocks"]
+	path = docs/references/cnblocks
+	url = https://github.com/SikandarJODD/cnblocks
+[submodule "docs/references/sv-animate"]
+	path = docs/references/sv-animate
+	url = https://github.com/SikandarJODD/sv-animate
+[submodule "docs/references/ai-elements"]
+	path = docs/references/ai-elements
+	url = https://github.com/SikandarJODD/ai-elements
