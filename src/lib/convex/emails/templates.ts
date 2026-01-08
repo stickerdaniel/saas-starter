@@ -22,6 +22,7 @@ import {
 	ADMINREPLYNOTIFICATION_HTML,
 	ADMINREPLYNOTIFICATION_TEXT
 } from './_generated/index.js';
+import { getAppUrl } from '../env';
 
 /**
  * Simple template renderer that replaces {{varName}} patterns with values.
@@ -51,19 +52,11 @@ function escapeHtml(str: string): string {
 	);
 }
 
-// Validate required environment variables at module load time
-const APP_URL = process.env.APP_URL;
-if (!APP_URL && process.env.NODE_ENV === 'production') {
-	throw new Error(
-		'APP_URL environment variable is required in production. Set it with: bunx convex env set APP_URL https://your-app.com --prod'
-	);
-}
-
 /**
- * Get base URL from environment
+ * Get base URL from environment (validation handled by env.ts)
  */
 function getBaseUrl(): string {
-	return APP_URL || 'https://example.com';
+	return getAppUrl();
 }
 
 /**

@@ -9,6 +9,7 @@ import { admin } from 'better-auth/plugins/admin';
 import { betterAuth, type BetterAuthOptions } from 'better-auth';
 import authSchema from './betterAuth/schema';
 import authConfig from './auth.config';
+import { getBetterAuthSecret, getSiteUrl, googleOAuth, githubOAuth } from './env';
 
 // The component client has methods needed for integrating Convex with Better Auth,
 // as well as helper methods for general use.
@@ -19,16 +20,11 @@ export const authComponent = createClient<DataModel, typeof authSchema>(componen
 	}
 });
 
-const LOCAL_SITE_URL = 'http://localhost:5173';
-
 // Creates Better Auth options object (used by adapter and betterAuth CLI)
 export const createAuthOptions = (ctx: GenericCtx<DataModel>): BetterAuthOptions => {
-	const siteUrl = process.env.SITE_URL ?? process.env.PUBLIC_SITE_URL ?? LOCAL_SITE_URL;
-	const secret = process.env.BETTER_AUTH_SECRET;
-
 	return {
-		baseURL: siteUrl,
-		secret,
+		baseURL: getSiteUrl(),
+		secret: getBetterAuthSecret(),
 		database: authComponent.adapter(ctx),
 		emailAndPassword: {
 			enabled: true,
@@ -64,14 +60,14 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>): BetterAuthOptions
 		},
 		socialProviders: {
 			google: {
-				enabled: !!(process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET),
-				clientId: process.env.AUTH_GOOGLE_ID as string,
-				clientSecret: process.env.AUTH_GOOGLE_SECRET as string
+				enabled: googleOAuth.enabled,
+				clientId: googleOAuth.clientId as string,
+				clientSecret: googleOAuth.clientSecret as string
 			},
 			github: {
-				enabled: !!(process.env.AUTH_GITHUB_ID && process.env.AUTH_GITHUB_SECRET),
-				clientId: process.env.AUTH_GITHUB_ID as string,
-				clientSecret: process.env.AUTH_GITHUB_SECRET as string
+				enabled: githubOAuth.enabled,
+				clientId: githubOAuth.clientId as string,
+				clientSecret: githubOAuth.clientSecret as string
 			}
 		},
 		plugins: [

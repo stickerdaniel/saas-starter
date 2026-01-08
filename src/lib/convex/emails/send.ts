@@ -6,6 +6,7 @@ import {
 	renderPasswordResetEmail,
 	renderAdminReplyNotificationEmail
 } from './templates';
+import { getAuthEmail, getAppUrl } from '../env';
 
 /**
  * Send verification email with verification link
@@ -23,7 +24,7 @@ export const sendVerificationEmail = internalMutation({
 		const { html, text } = renderVerificationEmail(verificationUrl, expiryMinutes);
 
 		await resend.sendEmail(ctx, {
-			from: process.env.AUTH_EMAIL || 'noreply@example.com',
+			from: getAuthEmail(),
 			to: email,
 			subject: 'Verify your email',
 			html,
@@ -53,7 +54,7 @@ export const sendResetPasswordEmail = internalMutation({
 		const { html, text } = renderPasswordResetEmail(resetUrl, userName);
 
 		await resend.sendEmail(ctx, {
-			from: process.env.AUTH_EMAIL || 'noreply@example.com',
+			from: getAuthEmail(),
 			to: email,
 			subject: 'Reset your password',
 			html,
@@ -83,7 +84,7 @@ export const sendAdminReplyNotification = internalMutation({
 	},
 	handler: async (ctx, args) => {
 		const { email, adminName, messagePreview, threadId, pageUrl } = args;
-		const appUrl = process.env.APP_URL || 'http://localhost:5173';
+		const appUrl = getAppUrl();
 
 		// Build deep link that opens the support widget to this thread
 		// Strip any existing support/thread params to avoid duplicates
@@ -97,7 +98,7 @@ export const sendAdminReplyNotification = internalMutation({
 		const { html, text } = renderAdminReplyNotificationEmail(adminName, messagePreview, deepLink);
 
 		await resend.sendEmail(ctx, {
-			from: process.env.AUTH_EMAIL || 'noreply@example.com',
+			from: getAuthEmail(),
 			to: email,
 			subject: 'New reply to your support request',
 			html,
