@@ -23,7 +23,7 @@
 		<div class="mx-auto flex max-w-6xl flex-col px-6 lg:block lg:px-12">
 			<div class="text-center lg:text-left">
 				<h2 class="text-3xl font-semibold text-balance md:text-4xl">
-					<T keyName="integrations.title" />
+					<T keyName="integrations.title" params={{ year: new Date().getFullYear() }} />
 				</h2>
 				<p class="mt-6 text-muted-foreground">
 					<T keyName="integrations.description" />

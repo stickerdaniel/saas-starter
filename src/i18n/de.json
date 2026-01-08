@@ -53,7 +53,43 @@
 		"sidebar": {
 			"back_to_app": "Zurück zur App",
 			"dashboard": "Dashboard",
+			"support": "Support",
 			"users": "Benutzer"
+		},
+		"support": {
+			"all_statuses": "Alle Status",
+			"details": {
+				"assignee": "Zugewiesen an",
+				"close_panel": "Details-Panel schließen",
+				"notes": "Interne Notizen",
+				"open_panel": "Details-Panel öffnen",
+				"page_url": "Seiten-URL",
+				"priority": "Priorität",
+				"status": "Status",
+				"title": "Details",
+				"user_notes": "Benutzernotizen",
+				"user_notes_description": "Notizen werden auf Benutzerebene gespeichert und erscheinen in allen Support-Threads des Benutzers"
+			},
+			"filter": {
+				"all": "Alle",
+				"my_inbox": "Mein Posteingang",
+				"unassigned": "Nicht zugewiesen"
+			},
+			"no_chats": "Keine Chats gefunden",
+			"no_done_chats": "Keine abgeschlossenen Chats",
+			"no_open_chats": "Keine offenen Chats",
+			"priority": {
+				"high": "Hoch",
+				"low": "Niedrig",
+				"medium": "Mittel"
+			},
+			"select_chat": "Wählen Sie einen Chat, um die Unterhaltung anzuzeigen",
+			"select_chat_for_details": "Wählen Sie einen Chat, um Details anzuzeigen",
+			"status": {
+				"done": "Erledigt",
+				"open": "Offen"
+			},
+			"title": "Support-Chats"
 		},
 		"title": "Admin-Bereich",
 		"users": {
@@ -91,40 +127,6 @@
 			"unnamed": "Unbenannt",
 			"unverified": "Nicht verifiziert",
 			"verified": "Verifiziert"
-		},
-		"support": {
-			"all_statuses": "Alle Status",
-			"details": {
-				"assignee": "Zugewiesen an",
-				"close_panel": "Details-Panel schließen",
-				"notes": "Interne Notizen",
-				"open_panel": "Details-Panel öffnen",
-				"page_url": "Seiten-URL",
-				"priority": "Priorität",
-				"status": "Status",
-				"title": "Details",
-				"user_notes": "Benutzernotizen"
-			},
-			"filter": {
-				"all": "Alle",
-				"my_inbox": "Mein Posteingang",
-				"unassigned": "Nicht zugewiesen"
-			},
-			"no_chats": "Keine Chats gefunden",
-			"no_open_chats": "Keine offenen Chats",
-			"no_done_chats": "Keine abgeschlossenen Chats",
-			"priority": {
-				"high": "Hoch",
-				"low": "Niedrig",
-				"medium": "Mittel"
-			},
-			"select_chat": "Wählen Sie einen Chat, um die Unterhaltung anzuzeigen",
-			"select_chat_for_details": "Wählen Sie einen Chat, um Details anzuzeigen",
-			"status": {
-				"done": "Erledigt",
-				"open": "Offen"
-			},
-			"title": "Support-Chats"
 		}
 	},
 	"app": {
@@ -322,7 +324,7 @@
 			}
 		},
 		"description": "Superschnelle Lösungen, die tatsächlich Spaß beim Entwickeln machen",
-		"title": "Echte 2025 Developer Experience"
+		"title": "Echte {year} Developer Experience"
 	},
 	"meta": {
 		"about": {
