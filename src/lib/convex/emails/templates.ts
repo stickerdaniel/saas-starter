@@ -7,6 +7,7 @@
 
 import type {
 	VerificationEmailData,
+	VerificationCodeEmailData,
 	PasswordResetEmailData,
 	AdminReplyNotificationEmailData,
 	RenderedEmail
@@ -14,6 +15,8 @@ import type {
 import {
 	VERIFICATION_HTML,
 	VERIFICATION_TEXT,
+	VERIFICATIONCODE_HTML,
+	VERIFICATIONCODE_TEXT,
 	PASSWORDRESET_HTML,
 	PASSWORDRESET_TEXT,
 	ADMINREPLYNOTIFICATION_HTML,
@@ -56,14 +59,39 @@ function getBaseUrl(): string {
 }
 
 /**
- * Render verification email with OTP code
+ * Render verification email with magic link
+ * @param verificationUrl - URL to verify email
+ * @param expiryMinutes - Minutes until link expires
+ * @returns Rendered HTML and plain text email
+ */
+export function renderVerificationEmail(
+	verificationUrl: VerificationEmailData['verificationUrl'],
+	expiryMinutes: VerificationEmailData['expiryMinutes']
+): RenderedEmail {
+	const baseUrl = getBaseUrl();
+
+	const data = {
+		verificationUrl: escapeHtml(verificationUrl),
+		expiryMinutes: expiryMinutes,
+		baseUrl: escapeHtml(baseUrl)
+	};
+	const textData = { verificationUrl, expiryMinutes, baseUrl };
+
+	return {
+		html: renderTemplate(VERIFICATION_HTML, data),
+		text: renderTemplate(VERIFICATION_TEXT, textData)
+	};
+}
+
+/**
+ * Render verification code email with OTP code
  * @param code - 8-digit verification code
  * @param expiryMinutes - Minutes until code expires
  * @returns Rendered HTML and plain text email
  */
-export function renderVerificationEmail(
-	code: VerificationEmailData['code'],
-	expiryMinutes: VerificationEmailData['expiryMinutes']
+export function renderVerificationCodeEmail(
+	code: VerificationCodeEmailData['code'],
+	expiryMinutes: VerificationCodeEmailData['expiryMinutes']
 ): RenderedEmail {
 	const baseUrl = getBaseUrl();
 
@@ -75,8 +103,8 @@ export function renderVerificationEmail(
 	const textData = { code, expiryMinutes, baseUrl };
 
 	return {
-		html: renderTemplate(VERIFICATION_HTML, data),
-		text: renderTemplate(VERIFICATION_TEXT, textData)
+		html: renderTemplate(VERIFICATIONCODE_HTML, data),
+		text: renderTemplate(VERIFICATIONCODE_TEXT, textData)
 	};
 }
 

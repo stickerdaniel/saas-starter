@@ -21,6 +21,10 @@ const TEMPLATES_PATH = '/src/lib/emails/templates';
 // We use __ETA_xxx__ markers to avoid HTML escaping, then replace them after rendering
 const TEMPLATE_CONFIGS: Record<string, Record<string, string | number>> = {
 	VerificationEmail: {
+		verificationUrl: '__ETA_verificationUrl__',
+		expiryMinutes: '__ETA_expiryMinutes__'
+	},
+	VerificationCodeEmail: {
 		code: '__ETA_code__',
 		expiryMinutes: '__ETA_expiryMinutes__'
 	},

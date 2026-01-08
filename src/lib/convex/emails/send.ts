@@ -10,7 +10,7 @@ import {
 /**
  * Send verification email with verification link
  *
- * Uses pre-rendered HTML templates with Eta placeholders for dynamic content.
+ * Uses pre-rendered HTML templates with template placeholders for dynamic content.
  */
 export const sendVerificationEmail = internalMutation({
 	args: {
@@ -20,18 +20,14 @@ export const sendVerificationEmail = internalMutation({
 	},
 	handler: async (ctx, args) => {
 		const { email, verificationUrl, expiryMinutes = 20 } = args;
+		const { html, text } = renderVerificationEmail(verificationUrl, expiryMinutes);
 
 		await resend.sendEmail(ctx, {
 			from: process.env.AUTH_EMAIL || 'noreply@example.com',
 			to: email,
 			subject: 'Verify your email',
-			text: `Click the link below to verify your email address:
-
-${verificationUrl}
-
-This link will expire in ${expiryMinutes} minutes.
-
-If you didn't request this, please ignore this email.`,
+			html,
+			text,
 			// Analytics tracking via custom headers
 			headers: [
 				{ name: 'X-Email-Category', value: 'authentication' },
