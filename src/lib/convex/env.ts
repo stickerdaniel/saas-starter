@@ -3,11 +3,11 @@
  *
  * This module provides typed access to environment variables.
  * Validation is performed at deploy time via the pre-deploy script
- * (scripts/vercel-deploy.sh) which checks Convex env vars via CLI.
+ * (scripts/vercel-deploy.sh) and at runtime via throwing getters.
  */
 
 // =============================================================================
-// REQUIRED VARIABLES - Validated at deploy time via CLI
+// REQUIRED VARIABLES - Validated at deploy time and runtime
 // =============================================================================
 
 const BETTER_AUTH_SECRET = process.env.BETTER_AUTH_SECRET;
@@ -20,32 +20,66 @@ const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 const RESEND_WEBHOOK_SECRET = process.env.RESEND_WEBHOOK_SECRET;
 
 // =============================================================================
-// EXPORTS - Use these getters throughout the codebase
+// EXPORTS - Throwing getters for required variables
 // =============================================================================
 
+function envError(name: string): Error {
+	return new Error(
+		`${name} not configured. Set via:\n` +
+			`  Dev:     bunx convex env set ${name} <value>\n` +
+			`  Prod:    bunx convex env set ${name} <value> --prod\n` +
+			`  Preview: Set default in Convex Dashboard → Settings → Environment Variables\n` +
+			`           (takes effect on next preview deployment)`
+	);
+}
+
 /** Authentication secret for signing sessions */
-export const getBetterAuthSecret = () => BETTER_AUTH_SECRET;
+export const getBetterAuthSecret = () => {
+	if (!BETTER_AUTH_SECRET) throw envError('BETTER_AUTH_SECRET');
+	return BETTER_AUTH_SECRET;
+};
 
-/** Site URL for OAuth redirects and email deep links (with dev fallback) */
-export const getSiteUrl = () => SITE_URL || 'http://localhost:5173';
+/** Site URL for OAuth redirects and email deep links */
+export const getSiteUrl = () => {
+	if (!SITE_URL) throw envError('SITE_URL');
+	return SITE_URL;
+};
 
-/** Email asset URL for images - always production URL (with dev fallback) */
-export const getEmailAssetUrl = () => EMAIL_ASSET_URL || 'http://localhost:5173';
+/** Email asset URL for images */
+export const getEmailAssetUrl = () => {
+	if (!EMAIL_ASSET_URL) throw envError('EMAIL_ASSET_URL');
+	return EMAIL_ASSET_URL;
+};
 
-/** Email sender address (with dev fallback) */
-export const getAuthEmail = () => AUTH_EMAIL || 'noreply@example.com';
+/** Email sender address */
+export const getAuthEmail = () => {
+	if (!AUTH_EMAIL) throw envError('AUTH_EMAIL');
+	return AUTH_EMAIL;
+};
 
 /** Autumn billing secret key */
-export const getAutumnSecretKey = () => AUTUMN_SECRET_KEY;
+export const getAutumnSecretKey = () => {
+	if (!AUTUMN_SECRET_KEY) throw envError('AUTUMN_SECRET_KEY');
+	return AUTUMN_SECRET_KEY;
+};
 
 /** Resend API key for email delivery */
-export const getResendApiKey = () => RESEND_API_KEY;
+export const getResendApiKey = () => {
+	if (!RESEND_API_KEY) throw envError('RESEND_API_KEY');
+	return RESEND_API_KEY;
+};
 
 /** OpenRouter API key for AI support chat */
-export const getOpenRouterApiKey = () => OPENROUTER_API_KEY;
+export const getOpenRouterApiKey = () => {
+	if (!OPENROUTER_API_KEY) throw envError('OPENROUTER_API_KEY');
+	return OPENROUTER_API_KEY;
+};
 
 /** Resend webhook secret for signature verification */
-export const getResendWebhookSecret = () => RESEND_WEBHOOK_SECRET;
+export const getResendWebhookSecret = () => {
+	if (!RESEND_WEBHOOK_SECRET) throw envError('RESEND_WEBHOOK_SECRET');
+	return RESEND_WEBHOOK_SECRET;
+};
 
 // =============================================================================
 // OPTIONAL VARIABLES - Features gracefully disable if not set
