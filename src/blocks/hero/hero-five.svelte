@@ -23,7 +23,7 @@
 			className="absolute lg:left-[45%] xl:left-[52%] -bottom-1/5 lg:-bottom-1/6 w-[550px] h-[550px] lg:w-[700px] lg:h-[700px]"
 		/>
 
-		<div class="pointer-events-none w-full pt-14 pb-56 lg:pt-48 lg:pb-36">
+		<div class="pointer-events-none w-full pt-20 pb-56 lg:pt-40 lg:pb-36">
 			<div class="relative mx-auto flex max-w-6xl flex-col px-6 lg:block lg:px-12">
 				<div class="mx-auto max-w-lg text-center lg:ml-0 lg:max-w-full lg:text-left">
 					<h1 class="mt-8 max-w-4xl text-5xl text-balance md:text-6xl lg:mt-16 xl:text-7xl">
@@ -38,7 +38,7 @@
 						<Button
 							size="lg"
 							href="#"
-							class=" pointer-events-auto h-12 rounded-full pr-3 pl-5 text-base"
+							class=" pointer-events-auto h-12 rounded-full pr-3 pl-5 text-sm"
 						>
 							<span class="text-nowrap"><T keyName="hero.cta" /></span>
 							<ChevronRight class="ml-1" />
