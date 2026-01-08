@@ -67,7 +67,8 @@
 				"priority": "Priority",
 				"status": "Status",
 				"title": "Details",
-				"user_notes": "User Notes"
+				"user_notes": "User Notes",
+				"user_notes_description": "Notes are saved at the user level and appear across all their support threads"
 			},
 			"filter": {
 				"all": "All",
@@ -75,8 +76,8 @@
 				"unassigned": "Unassigned"
 			},
 			"no_chats": "No chats found",
-			"no_open_chats": "No open chats",
 			"no_done_chats": "No completed chats",
+			"no_open_chats": "No open chats",
 			"priority": {
 				"high": "High",
 				"low": "Low",
@@ -86,7 +87,9 @@
 			"select_chat_for_details": "Select a chat to view details",
 			"status": {
 				"done": "Done",
-				"open": "Open"
+				"in_progress": "In Progress",
+				"open": "Open",
+				"resolved": "Resolved"
 			},
 			"title": "Support Chats"
 		},
@@ -323,7 +326,7 @@
 			}
 		},
 		"description": "Super fast solutions that are actually fun to build with",
-		"title": "Real 2025 Developer Experience"
+		"title": "Real {year} Developer Experience"
 	},
 	"meta": {
 		"about": {
