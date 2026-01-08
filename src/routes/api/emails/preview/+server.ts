@@ -8,7 +8,7 @@ const TEMPLATES_PATH = '/src/lib/emails/templates';
 
 const MOCK_DATA = {
 	VerificationEmail: {
-		code: '12345678',
+		verificationUrl: 'https://example.com/verify?token=abc123',
 		expiryMinutes: 20
 	},
 	PasswordResetEmail: {

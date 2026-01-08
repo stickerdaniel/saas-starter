@@ -40,7 +40,7 @@ export const sendVerificationEmail = internalMutation({
 /**
  * Send password reset email with reset link
  *
- * Uses pre-rendered HTML templates with Eta placeholders for dynamic content.
+ * Uses pre-rendered HTML templates with template placeholders for dynamic content.
  */
 export const sendResetPasswordEmail = internalMutation({
 	args: {
@@ -71,7 +71,7 @@ export const sendResetPasswordEmail = internalMutation({
  * Send notification email when admin replies to a support thread
  *
  * Called when an admin responds to a user's support request.
- * Uses pre-rendered HTML templates with Eta placeholders for dynamic content.
+ * Uses pre-rendered HTML templates with template placeholders for dynamic content.
  */
 export const sendAdminReplyNotification = internalMutation({
 	args: {
