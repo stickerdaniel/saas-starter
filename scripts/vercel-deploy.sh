@@ -61,6 +61,17 @@ if [ "$VERCEL_ENV" = "production" ]; then
   echo "✅ All required environment variables are set"
 else
   echo "⏭️  Skipping env var check for $VERCEL_ENV deployment"
+
+  # For preview deployments, set SITE_URL in Convex env before deploy
+  # (Required for auth module to load - can't wait until --cmd runs)
+  if [ -n "$VERCEL_URL" ] && [ -n "$VERCEL_GIT_COMMIT_REF" ]; then
+    PREVIEW_SITE_URL="https://$VERCEL_URL"
+    echo "📍 Setting SITE_URL for preview ($VERCEL_GIT_COMMIT_REF): $PREVIEW_SITE_URL"
+    # Use --preview-name to target the preview deployment by branch name
+    convex env set SITE_URL "$PREVIEW_SITE_URL" --preview-name "$VERCEL_GIT_COMMIT_REF" 2>/dev/null || {
+      echo "   (Preview doesn't exist yet - set SITE_URL default in Convex Dashboard → Project Settings)"
+    }
+  fi
 fi
 
 echo "🚀 Deploying Convex and building SvelteKit..."
