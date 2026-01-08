@@ -1,5 +1,6 @@
 import { mutation, query, internalMutation } from '../_generated/server';
 import { v } from 'convex/values';
+import { z } from 'zod';
 import { supportAgent } from './agent';
 import { components, internal } from '../_generated/api';
 import { paginationOptsValidator } from 'convex/server';
@@ -575,7 +576,7 @@ export const updateNotificationEmail = mutation({
 		const normalizedEmail = args.email.trim().toLowerCase();
 
 		// Validate email format only if non-empty (empty = unsubscribe)
-		if (normalizedEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+		if (normalizedEmail && !z.string().email().safeParse(normalizedEmail).success) {
 			throw new Error('Invalid email format');
 		}
 

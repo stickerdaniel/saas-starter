@@ -10,7 +10,7 @@
 		"postinstall": "bun run build:emails",
 		"prebuild": "bun run build:emails",
 		"build": "vite build",
-		"build:emails": "tsx scripts/build-emails.ts",
+		"build:emails": "dotenv -e .env.local -- tsx scripts/build-emails.ts",
 		"preview": "vite preview",
 		"prepare": "husky",
 		"package": "svelte-kit sync && svelte-package",

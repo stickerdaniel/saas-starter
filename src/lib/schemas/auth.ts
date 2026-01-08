@@ -1,5 +1,8 @@
 import { z } from 'zod';
 
+// Email validation schema (reusable across the app)
+export const emailSchema = z.string().email();
+
 // Password validation constants
 export const PASSWORD_MIN_LENGTH = 10;
 
