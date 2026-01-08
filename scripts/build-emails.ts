@@ -13,7 +13,7 @@ import { fileURLToPath } from 'node:url';
 import { spawn, type ChildProcess } from 'node:child_process';
 
 const __scriptDir = dirname(fileURLToPath(import.meta.url));
-const GENERATED_DIR = join(__scriptDir, '../src/lib/convex/emails/generated');
+const GENERATED_DIR = join(__scriptDir, '../src/lib/convex/emails/_generated');
 const DEV_SERVER_PORT = 5199; // Use non-standard port to avoid conflicts
 const DEV_SERVER_URL = `http://localhost:${DEV_SERVER_PORT}`;
 const BUILD_ENDPOINT = `${DEV_SERVER_URL}/api/emails/build`;
