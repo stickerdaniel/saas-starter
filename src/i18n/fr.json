@@ -53,7 +53,8 @@
 		"sidebar": {
 			"back_to_app": "Retour à l'App",
 			"dashboard": "Tableau de bord",
-			"users": "Utilisateurs"
+			"users": "Utilisateurs",
+			"support": "Support"
 		},
 		"support": {
 			"all_statuses": "Tous les statuts",
