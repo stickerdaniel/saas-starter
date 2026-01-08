@@ -22,7 +22,7 @@ import {
 	ADMINREPLYNOTIFICATION_HTML,
 	ADMINREPLYNOTIFICATION_TEXT
 } from './_generated/index.js';
-import { getAppUrl } from '../env';
+import { getEmailAssetUrl } from '../env';
 
 /**
  * Simple template renderer that replaces {{varName}} patterns with values.
@@ -53,10 +53,11 @@ function escapeHtml(str: string): string {
 }
 
 /**
- * Get base URL from environment (validation handled by env.ts)
+ * Get base URL for email assets (images, footer links)
+ * Always uses production URL so images load in email clients
  */
 function getBaseUrl(): string {
-	return getAppUrl();
+	return getEmailAssetUrl();
 }
 
 /**

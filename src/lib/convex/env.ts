@@ -14,7 +14,7 @@ const isProduction = process.env.NODE_ENV === 'production';
 
 const BETTER_AUTH_SECRET = process.env.BETTER_AUTH_SECRET;
 const SITE_URL = process.env.SITE_URL ?? process.env.PUBLIC_SITE_URL;
-const APP_URL = process.env.APP_URL;
+const EMAIL_ASSET_URL = process.env.EMAIL_ASSET_URL;
 const AUTH_EMAIL = process.env.AUTH_EMAIL;
 const AUTUMN_SECRET_KEY = process.env.AUTUMN_SECRET_KEY;
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
@@ -48,12 +48,13 @@ Or set in Convex Dashboard:
 `);
 	}
 
-	if (!APP_URL) {
+	if (!EMAIL_ASSET_URL) {
 		errors.push(`
-APP_URL is required for email links and deep links.
+EMAIL_ASSET_URL is required for email images and assets.
+This should always be your production URL so images load in email clients.
 
 Set via CLI:
-  bunx convex env set APP_URL https://your-domain.com --prod
+  bunx convex env set EMAIL_ASSET_URL https://your-domain.com --prod
 
 Or set in Convex Dashboard:
   https://dashboard.convex.dev → Your Project → Settings → Environment Variables
@@ -146,11 +147,11 @@ Get your webhook secret from: https://resend.com/webhooks
 /** Authentication secret for signing sessions */
 export const getBetterAuthSecret = () => BETTER_AUTH_SECRET;
 
-/** Site URL for OAuth redirects (with dev fallback) */
+/** Site URL for OAuth redirects and email deep links (with dev fallback) */
 export const getSiteUrl = () => SITE_URL || 'http://localhost:5173';
 
-/** App URL for email links (with dev fallback) */
-export const getAppUrl = () => APP_URL || 'http://localhost:5173';
+/** Email asset URL for images - always production URL (with dev fallback) */
+export const getEmailAssetUrl = () => EMAIL_ASSET_URL || 'http://localhost:5173';
 
 /** Email sender address (with dev fallback) */
 export const getAuthEmail = () => AUTH_EMAIL || 'noreply@example.com';

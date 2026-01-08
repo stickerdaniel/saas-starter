@@ -1,5 +1,4 @@
 import { json } from '@sveltejs/kit';
-import { env } from '$env/dynamic/public';
 import { getEmailComponent } from 'better-svelte-email/preview';
 import { renderer } from '$lib/emails/renderer';
 import type { RequestHandler } from './$types';
@@ -33,7 +32,7 @@ export const GET: RequestHandler = async ({ url }) => {
 		const props = MOCK_DATA[templateName as keyof typeof MOCK_DATA] || {};
 
 		// Render with current base URL (for preview)
-		const baseUrl = env.PUBLIC_PROD_URL || url.origin;
+		const baseUrl = url.origin;
 		const html = await renderer.render(component, {
 			props: { ...props }
 		});
