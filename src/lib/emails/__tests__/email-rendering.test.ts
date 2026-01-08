@@ -2,7 +2,8 @@ import { describe, it, expect, vi } from 'vitest';
 
 // Mock the env module before importing templates
 vi.mock('$lib/convex/env', () => ({
-	getAppUrl: () => 'https://test.example.com',
+	getEmailAssetUrl: () => 'https://test.example.com',
+	getSiteUrl: () => 'https://test.example.com',
 	getAuthEmail: () => 'test@example.com'
 }));
 
