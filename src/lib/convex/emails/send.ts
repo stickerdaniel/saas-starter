@@ -1,12 +1,16 @@
 import { internalMutation } from '../_generated/server';
 import { v } from 'convex/values';
 import { resend } from './resend';
+import {
+	renderVerificationEmail,
+	renderPasswordResetEmail,
+	renderAdminReplyNotificationEmail
+} from './templates';
 
 /**
  * Send verification email with verification link
  *
- * Simple email sending using inline text (matching Resend component docs).
- * For more complex templates, we'll integrate svelte-email in the future.
+ * Uses pre-rendered HTML templates with template placeholders for dynamic content.
  */
 export const sendVerificationEmail = internalMutation({
 	args: {
@@ -16,24 +20,27 @@ export const sendVerificationEmail = internalMutation({
 	},
 	handler: async (ctx, args) => {
 		const { email, verificationUrl, expiryMinutes = 20 } = args;
+		const { html, text } = renderVerificationEmail(verificationUrl, expiryMinutes);
 
 		await resend.sendEmail(ctx, {
 			from: process.env.AUTH_EMAIL || 'noreply@example.com',
 			to: email,
 			subject: 'Verify your email',
-			text: `Click the link below to verify your email address:
-
-${verificationUrl}
-
-This link will expire in ${expiryMinutes} minutes.
-
-If you didn't request this, please ignore this email.`
+			html,
+			text,
+			// Analytics tracking via custom headers
+			headers: [
+				{ name: 'X-Email-Category', value: 'authentication' },
+				{ name: 'X-Email-Template', value: 'verification' }
+			]
 		});
 	}
 });
 
 /**
  * Send password reset email with reset link
+ *
+ * Uses pre-rendered HTML templates with template placeholders for dynamic content.
  */
 export const sendResetPasswordEmail = internalMutation({
 	args: {
@@ -43,19 +50,19 @@ export const sendResetPasswordEmail = internalMutation({
 	},
 	handler: async (ctx, args) => {
 		const { email, resetUrl, userName } = args;
-		const greeting = userName ? `Hello ${userName}` : 'Hello';
+		const { html, text } = renderPasswordResetEmail(resetUrl, userName);
 
 		await resend.sendEmail(ctx, {
 			from: process.env.AUTH_EMAIL || 'noreply@example.com',
 			to: email,
 			subject: 'Reset your password',
-			text: `${greeting},
-
-We received a request to reset your password. Click the link below to set a new password:
-
-${resetUrl}
-
-If you didn't request this, you can safely ignore this email.`
+			html,
+			text,
+			// Analytics tracking via custom headers
+			headers: [
+				{ name: 'X-Email-Category', value: 'authentication' },
+				{ name: 'X-Email-Template', value: 'password-reset' }
+			]
 		});
 	}
 });
@@ -64,7 +71,7 @@ If you didn't request this, you can safely ignore this email.`
  * Send notification email when admin replies to a support thread
  *
  * Called when an admin responds to a user's support request.
- * Includes a preview of the admin's message and a deep link to view the conversation.
+ * Uses pre-rendered HTML templates with template placeholders for dynamic content.
  */
 export const sendAdminReplyNotification = internalMutation({
 	args: {
@@ -87,19 +94,20 @@ export const sendAdminReplyNotification = internalMutation({
 		url.searchParams.set('thread', threadId);
 		const deepLink = url.toString();
 
+		const { html, text } = renderAdminReplyNotificationEmail(adminName, messagePreview, deepLink);
+
 		await resend.sendEmail(ctx, {
 			from: process.env.AUTH_EMAIL || 'noreply@example.com',
 			to: email,
 			subject: 'New reply to your support request',
-			text: `${adminName} has replied to your support request:
-
-"${messagePreview}"
-
-Click here to view and respond:
-${deepLink}
-
----
-You're receiving this email because you requested notifications for this support thread.`
+			html,
+			text,
+			// Analytics tracking via custom headers
+			headers: [
+				{ name: 'X-Email-Category', value: 'support' },
+				{ name: 'X-Email-Template', value: 'admin-reply' },
+				{ name: 'X-Thread-ID', value: threadId }
+			]
 		});
 	}
 });

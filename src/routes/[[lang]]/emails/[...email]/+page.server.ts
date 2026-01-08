@@ -25,6 +25,7 @@ export const load: PageServerLoad = async () => {
 };
 
 // Use the library's createEmail helper with our custom renderer
+// sendEmail is only available when RESEND_API_KEY is configured
 export const actions = {
 	...createEmail({ renderer }),
 	...(env.RESEND_API_KEY
