@@ -57,4 +57,19 @@ fi
 echo "✅ All required environment variables are set"
 
 echo "🚀 Deploying Convex and building SvelteKit..."
-convex deploy --cmd 'bun run build'
+# Use --cmd-url-env-var-name to set PUBLIC_CONVEX_URL for SvelteKit
+# Derive PUBLIC_CONVEX_SITE_URL from PUBLIC_CONVEX_URL (.convex.cloud -> .convex.site)
+# Derive SITE_URL from VERCEL_URL for preview deployments (OAuth callbacks)
+convex deploy --cmd-url-env-var-name PUBLIC_CONVEX_URL --cmd 'bash -c "
+  if [ -n \"\$PUBLIC_CONVEX_URL\" ]; then
+    export PUBLIC_CONVEX_SITE_URL=\"\${PUBLIC_CONVEX_URL/.convex.cloud/.convex.site}\"
+    echo \"📍 PUBLIC_CONVEX_URL: \$PUBLIC_CONVEX_URL\"
+    echo \"📍 PUBLIC_CONVEX_SITE_URL: \$PUBLIC_CONVEX_SITE_URL\"
+  fi
+  # For preview deployments, derive SITE_URL from VERCEL_URL if not already set
+  if [ -z \"\$SITE_URL\" ] && [ -n \"\$VERCEL_URL\" ]; then
+    export SITE_URL=\"https://\$VERCEL_URL\"
+    echo \"📍 SITE_URL (from VERCEL_URL): \$SITE_URL\"
+  fi
+  bun run build
+"'
