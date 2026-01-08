@@ -122,7 +122,7 @@
 						{message}
 						attachments={getAttachments(message)}
 						isFirstInGroup={isFirstInGroup(index, ctx.displayMessages)}
-						isHandoffMessage={message.displayText === HANDOFF_MESSAGE}
+						isHandoffMessage={message.displayText?.startsWith(HANDOFF_MESSAGE)}
 						{showEmailPrompt}
 						{currentEmail}
 						{defaultEmail}

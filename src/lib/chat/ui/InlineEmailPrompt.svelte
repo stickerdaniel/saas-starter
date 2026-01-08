@@ -1,7 +1,9 @@
 <script lang="ts">
 	import { toast } from 'svelte-sonner';
-	import { Input } from '$lib/components/ui/input';
+	import * as InputGroup from '$lib/components/ui/input-group';
 	import { Button } from '$lib/components/ui/button';
+	import CircleCheckIcon from '@lucide/svelte/icons/circle-check';
+	import BellOffIcon from '@lucide/svelte/icons/bell-off';
 
 	let {
 		currentEmail = '',
@@ -19,12 +21,16 @@
 	let email = $state(currentEmail || defaultEmail || '');
 	let isSubmitting = $state(false);
 
-	// Sync email when currentEmail prop changes (e.g., switching threads or after save)
+	// Track the previous currentEmail to detect external changes (e.g., switching threads)
+	let prevCurrentEmail = $state(currentEmail);
+
+	// Sync email only when currentEmail prop actually changes externally
 	$effect(() => {
-		if (currentEmail) {
-			email = currentEmail;
-		} else if (defaultEmail && !email) {
-			email = defaultEmail;
+		if (currentEmail !== prevCurrentEmail) {
+			// External change (e.g., switching threads) - sync to new value
+			// Use empty string if currentEmail is empty (don't fall back to defaultEmail after unsubscribe)
+			email = currentEmail || '';
+			prevCurrentEmail = currentEmail;
 		}
 	});
 
@@ -34,8 +40,14 @@
 	// Check if email has changed from the saved value
 	const hasChanges = $derived(email.trim() !== (currentEmail || ''));
 
+	// Is user currently subscribed (saved email exists and matches current input)
+	const isSubscribed = $derived(!!currentEmail && currentEmail === email.trim());
+
+	// Can subscribe: valid email AND email has changed from saved value
+	const canSubscribe = $derived(isValidEmail && hasChanges);
+
 	async function handleSubmit() {
-		if (!isValidEmail || isSubmitting) return;
+		if (!canSubscribe || isSubmitting) return;
 
 		isSubmitting = true;
 		try {
@@ -47,21 +59,46 @@
 			isSubmitting = false;
 		}
 	}
+
+	async function handleUnsubscribe() {
+		if (isSubmitting) return;
+
+		isSubmitting = true;
+		try {
+			email = '';
+			await onSubmitEmail('');
+			toast.success('Unsubscribed from email notifications.');
+		} catch (error) {
+			toast.error('Failed to unsubscribe. Please try again.');
+		} finally {
+			isSubmitting = false;
+		}
+	}
 </script>
 
 <div class="mt-3 flex w-full max-w-sm items-center gap-2">
-	<Input
-		type="email"
-		placeholder="Email"
-		bind:value={email}
-		onkeydown={(e) => e.key === 'Enter' && handleSubmit()}
-	/>
-	<Button
-		type="submit"
-		variant="outline"
-		disabled={!isValidEmail || isSubmitting || !hasChanges}
-		onclick={handleSubmit}
-	>
-		Subscribe
-	</Button>
+	<InputGroup.Root>
+		<InputGroup.Input
+			type="email"
+			placeholder="Email"
+			bind:value={email}
+			disabled={!!currentEmail}
+			onkeydown={(e) => e.key === 'Enter' && canSubscribe && handleSubmit()}
+		/>
+		{#if currentEmail}
+			<InputGroup.Addon align="inline-end">
+				<CircleCheckIcon class="h-4 w-4 text-green-600" />
+			</InputGroup.Addon>
+		{/if}
+	</InputGroup.Root>
+
+	{#if currentEmail}
+		<Button variant="outline" size="icon" onclick={handleUnsubscribe} disabled={isSubmitting}>
+			<BellOffIcon class="h-4 w-4" />
+		</Button>
+	{:else}
+		<Button variant="outline" onclick={handleSubmit} disabled={!canSubscribe || isSubmitting}>
+			Subscribe
+		</Button>
+	{/if}
 </div>
