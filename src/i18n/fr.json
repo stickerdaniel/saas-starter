@@ -55,6 +55,41 @@
 			"dashboard": "Tableau de bord",
 			"users": "Utilisateurs"
 		},
+		"support": {
+			"all_statuses": "Tous les statuts",
+			"details": {
+				"assignee": "Assigné à",
+				"close_panel": "Fermer le panneau des détails",
+				"notes": "Notes Internes",
+				"open_panel": "Ouvrir le panneau des détails",
+				"page_url": "URL de la page",
+				"priority": "Priorité",
+				"status": "Statut",
+				"title": "Détails",
+				"user_notes": "Notes Utilisateur",
+				"user_notes_description": "Les notes sont enregistrées au niveau de l utilisateur et apparaissent dans tous leurs fils de support"
+			},
+			"filter": {
+				"all": "Tous",
+				"my_inbox": "Ma boîte de réception",
+				"unassigned": "Non assigné"
+			},
+			"no_chats": "Aucun chat trouvé",
+			"no_done_chats": "Aucun chat terminé",
+			"no_open_chats": "Aucun chat ouvert",
+			"priority": {
+				"high": "Haute",
+				"low": "Basse",
+				"medium": "Moyenne"
+			},
+			"select_chat": "Sélectionnez un chat pour voir la conversation",
+			"select_chat_for_details": "Sélectionnez un chat pour voir les détails",
+			"status": {
+				"done": "Terminé",
+				"open": "Ouvert"
+			},
+			"title": "Chats de Support"
+		},
 		"title": "Panneau Admin",
 		"users": {
 			"actions_column": "Actions",
@@ -91,40 +126,6 @@
 			"unnamed": "Sans nom",
 			"unverified": "Non vérifié",
 			"verified": "Vérifié"
-		},
-		"support": {
-			"all_statuses": "Tous les statuts",
-			"details": {
-				"assignee": "Assigné à",
-				"close_panel": "Fermer le panneau des détails",
-				"notes": "Notes Internes",
-				"open_panel": "Ouvrir le panneau des détails",
-				"page_url": "URL de la page",
-				"priority": "Priorité",
-				"status": "Statut",
-				"title": "Détails",
-				"user_notes": "Notes Utilisateur"
-			},
-			"filter": {
-				"all": "Tous",
-				"my_inbox": "Ma boîte de réception",
-				"unassigned": "Non assigné"
-			},
-			"no_chats": "Aucun chat trouvé",
-			"no_open_chats": "Aucun chat ouvert",
-			"no_done_chats": "Aucun chat terminé",
-			"priority": {
-				"high": "Haute",
-				"low": "Basse",
-				"medium": "Moyenne"
-			},
-			"select_chat": "Sélectionnez un chat pour voir la conversation",
-			"select_chat_for_details": "Sélectionnez un chat pour voir les détails",
-			"status": {
-				"done": "Terminé",
-				"open": "Ouvert"
-			},
-			"title": "Chats de Support"
 		}
 	},
 	"app": {
@@ -322,7 +323,7 @@
 			}
 		},
 		"description": "Des solutions ultra-rapides avec lesquelles il est vraiment amusant de construire",
-		"title": "Véritable Expérience Développeur 2025"
+		"title": "Véritable Expérience Développeur {year}"
 	},
 	"meta": {
 		"about": {
