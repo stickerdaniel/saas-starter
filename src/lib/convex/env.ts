@@ -12,6 +12,22 @@
 const isProduction = process.env.NODE_ENV === 'production';
 const isConvexRuntime = !!(process.env.CONVEX_CLOUD_URL || process.env.CONVEX_SITE_URL);
 
+// #region agent log - Hypothesis A,B,C: Debug env detection during bundling vs runtime
+console.error('[ENV_DEBUG] NODE_ENV:', process.env.NODE_ENV);
+console.error('[ENV_DEBUG] CONVEX_CLOUD_URL:', process.env.CONVEX_CLOUD_URL ? 'SET' : 'NOT_SET');
+console.error('[ENV_DEBUG] CONVEX_SITE_URL:', process.env.CONVEX_SITE_URL ? 'SET' : 'NOT_SET');
+console.error('[ENV_DEBUG] isProduction:', isProduction);
+console.error('[ENV_DEBUG] isConvexRuntime:', isConvexRuntime);
+console.error(
+	'[ENV_DEBUG] OPENROUTER_API_KEY:',
+	process.env.OPENROUTER_API_KEY ? 'SET' : 'NOT_SET'
+);
+console.error(
+	'[ENV_DEBUG] RESEND_WEBHOOK_SECRET:',
+	process.env.RESEND_WEBHOOK_SECRET ? 'SET' : 'NOT_SET'
+);
+// #endregion
+
 // =============================================================================
 // REQUIRED VARIABLES - App will not function without these
 // =============================================================================
