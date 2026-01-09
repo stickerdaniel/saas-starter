@@ -3,7 +3,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 
 describe('Generated Email Templates', () => {
-	const generatedDir = join(process.cwd(), 'src/lib/convex/emails/generated');
+	const generatedDir = join(process.cwd(), 'src/lib/convex/emails/_generated');
 
 	describe('VerificationEmail (Magic Link)', () => {
 		it('generates verification template files', () => {
