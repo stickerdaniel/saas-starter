@@ -213,6 +213,7 @@
 		"signup": "Registrieren",
 		"verification": {
 			"button_cancel": "Abbrechen",
+			"check_email": "Bitte überprüfen Sie Ihre E-Mail und klicken Sie auf den Verifizierungslink, um Ihre Registrierung abzuschließen.",
 			"description": "Wir haben Ihnen einen Verifizierungslink gesendet",
 			"sent_to": "Wir haben eine Verifizierungs-E-Mail an",
 			"title": "E-Mail-Verifizierung"
