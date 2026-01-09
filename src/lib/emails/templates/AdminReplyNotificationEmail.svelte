@@ -16,8 +16,8 @@
 
 <Html>
 	<Head />
-	<Preview preview="{adminName} has replied to your support request" />
 	<Body class="mx-auto my-auto bg-white px-2 font-sans">
+		<Preview preview="{adminName} has replied to your support request" />
 		<Container class="mx-auto my-10 max-w-md p-5">
 			<Card.Root>
 				<EmailHeader />

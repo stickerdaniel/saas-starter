@@ -17,8 +17,8 @@
 
 <Html>
 	<Head />
-	<Preview preview="Reset your password" />
 	<Body class="mx-auto my-auto bg-white px-2 font-sans">
+		<Preview preview="Reset your password" />
 		<Container class="mx-auto my-10 max-w-md p-5">
 			<Card.Root>
 				<EmailHeader />
