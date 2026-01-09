@@ -42,7 +42,7 @@ if (missingVars.length > 0) {
 }
 
 // =============================================================================
-// TYPE-SAFE GETTERS - Guaranteed to return values after validation
+// TYPE-SAFE GETTERS - On successful module initialization, guaranteed to return values after validation
 // =============================================================================
 
 /** Authentication secret for signing sessions */
