@@ -184,10 +184,7 @@
 							<span class="font-medium">{verificationStep.email}</span>
 						</p>
 						<p class="text-sm text-muted-foreground">
-							<T
-								keyName="auth.verification.check_email"
-								defaultValue="Please check your email and click the verification link to complete your registration."
-							/>
+							<T keyName="auth.verification.check_email" />
 						</p>
 						{#if formError}
 							<p class="text-sm text-red-500">{formError}</p>
