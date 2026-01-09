@@ -29,7 +29,7 @@
 	<nav class="fixed z-40 w-full pt-4">
 		<div class="mx-auto max-w-6xl px-6 lg:px-12">
 			<div
-				class="-mx-2 flex w-[calc(100%+1rem)] items-center justify-between rounded-2xl border border-black/[0.06] px-6 py-4 backdrop-blur-[5px] transition-[height,transform] duration-300 [background:linear-gradient(137deg,rgba(252,252,255,0.9)_4.87%,rgba(240,240,248,0.95)_75.88%)] [box-shadow:inset_0_1px_1px_0_rgba(255,255,255,0.5)] dark:border-white/[0.06] dark:[background:linear-gradient(137deg,rgba(17,18,20,0.75)_4.87%,rgba(12,13,15,0.9)_75.88%)] dark:[box-shadow:inset_0_1px_1px_0_rgba(255,255,255,0.15)] lg:-mx-8 lg:w-[calc(100%+4rem)] lg:px-8"
+				class="-mx-2 flex w-[calc(100%+1rem)] items-center justify-between rounded-2xl border border-black/[0.06] px-6 py-4 [box-shadow:inset_0_1px_1px_0_rgba(255,255,255,0.5)] backdrop-blur-[5px] transition-[height,transform] duration-300 [background:linear-gradient(137deg,rgba(252,252,255,0.9)_4.87%,rgba(240,240,248,0.95)_75.88%)] lg:-mx-8 lg:w-[calc(100%+4rem)] lg:px-8 dark:border-white/[0.06] dark:[box-shadow:inset_0_1px_1px_0_rgba(255,255,255,0.15)] dark:[background:linear-gradient(137deg,rgba(17,18,20,0.75)_4.87%,rgba(12,13,15,0.9)_75.88%)]"
 			>
 				<!-- Logo -->
 				<a href={localizedHref('/')} aria-label="home" class="flex items-center space-x-2">
