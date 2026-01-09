@@ -23,7 +23,7 @@ const REQUIRED_ENV_VARS = {
 
 // Validate all required env vars at module load time
 const missingVars = Object.entries(REQUIRED_ENV_VARS)
-	.filter(([, value]) => !value)
+	.filter(([, value]) => value === undefined || value === null)
 	.map(([name]) => name);
 
 if (missingVars.length > 0) {
