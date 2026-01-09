@@ -119,9 +119,9 @@
 		}
 	});
 
-	// Redirect when authenticated on signin page
+	// Redirect when authenticated on signin page (but not during verification step)
 	$effect(() => {
-		if (auth.isAuthenticated) {
+		if (auth.isAuthenticated && !verificationStep) {
 			const destination = params.redirectTo || localizedHref('/app');
 			window.location.href = destination;
 		}
