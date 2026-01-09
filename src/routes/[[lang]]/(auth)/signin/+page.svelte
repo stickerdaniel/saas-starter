@@ -429,13 +429,13 @@
 							<T keyName="auth.signin.oauth_google" />
 						</Button>
 					</div>
-				{/if}
 
-				<div class="mt-6 text-center">
-					<a class="text-sm text-muted-foreground hover:underline" href={localizedHref('/')}>
-						<T keyName="auth.signin.cancel" />
-					</a>
-				</div>
+					<div class="mt-6 text-center">
+						<a class="text-sm text-muted-foreground hover:underline" href={localizedHref('/')}>
+							<T keyName="auth.signin.cancel" />
+						</a>
+					</div>
+				{/if}
 			</CardContent>
 		</Card>
 	</main>
