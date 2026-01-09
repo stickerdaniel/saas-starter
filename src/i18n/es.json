@@ -213,6 +213,7 @@
 		"signup": "Registrarse",
 		"verification": {
 			"button_cancel": "Cancelar",
+			"check_email": "Por favor revisa tu correo electrónico y haz clic en el enlace de verificación para completar tu registro.",
 			"description": "Te hemos enviado un enlace de verificación",
 			"sent_to": "Hemos enviado un correo de verificación a",
 			"title": "Verificación de correo electrónico"
