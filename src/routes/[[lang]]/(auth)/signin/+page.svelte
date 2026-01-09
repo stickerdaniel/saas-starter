@@ -119,9 +119,9 @@
 		}
 	});
 
-	// Redirect when authenticated on signin page
+	// Redirect when authenticated on signin page (but not during verification step)
 	$effect(() => {
-		if (auth.isAuthenticated) {
+		if (auth.isAuthenticated && !verificationStep) {
 			const destination = params.redirectTo || localizedHref('/app');
 			window.location.href = destination;
 		}
@@ -184,10 +184,7 @@
 							<span class="font-medium">{verificationStep.email}</span>
 						</p>
 						<p class="text-sm text-muted-foreground">
-							<T
-								keyName="auth.verification.check_email"
-								defaultValue="Please check your email and click the verification link to complete your registration."
-							/>
+							<T keyName="auth.verification.check_email" />
 						</p>
 						{#if formError}
 							<p class="text-sm text-red-500">{formError}</p>
@@ -429,13 +426,13 @@
 							<T keyName="auth.signin.oauth_google" />
 						</Button>
 					</div>
-				{/if}
 
-				<div class="mt-6 text-center">
-					<a class="text-sm text-muted-foreground hover:underline" href={localizedHref('/')}>
-						<T keyName="auth.signin.cancel" />
-					</a>
-				</div>
+					<div class="mt-6 text-center">
+						<a class="text-sm text-muted-foreground hover:underline" href={localizedHref('/')}>
+							<T keyName="auth.signin.cancel" />
+						</a>
+					</div>
+				{/if}
 			</CardContent>
 		</Card>
 	</main>
