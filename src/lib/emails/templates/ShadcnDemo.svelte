@@ -20,8 +20,8 @@
 
 <Html>
 	<Head />
-	<Preview preview="Shadcn Demo Email" />
 	<Body class="mx-auto my-auto bg-white px-2 font-sans">
+		<Preview preview="Shadcn Demo Email" />
 		<Container class="mx-auto my-10 max-w-md p-5">
 			<Card.Root>
 				<Card.Header>
