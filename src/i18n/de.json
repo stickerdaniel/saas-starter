@@ -213,12 +213,9 @@
 		"signup": "Registrieren",
 		"verification": {
 			"button_cancel": "Abbrechen",
-			"button_verify": "E-Mail verifizieren",
-			"button_verify_loading": "Wird verifiziert...",
-			"code_label": "Verifizierungscode",
-			"code_placeholder": "12345678",
-			"description": "Bitte überprüfen Sie Ihre E-Mail für einen Verifizierungscode",
-			"sent_to": "Wir haben einen 8-stelligen Verifizierungscode an",
+			"check_email": "Bitte überprüfen Sie Ihre E-Mail und klicken Sie auf den Verifizierungslink, um Ihre Registrierung abzuschließen.",
+			"description": "Wir haben Ihnen einen Verifizierungslink gesendet",
+			"sent_to": "Wir haben eine Verifizierungs-E-Mail an",
 			"title": "E-Mail-Verifizierung"
 		}
 	},

@@ -53,8 +53,8 @@
 		"sidebar": {
 			"back_to_app": "Retour à l'App",
 			"dashboard": "Tableau de bord",
-			"users": "Utilisateurs",
-			"support": "Support"
+			"support": "Support",
+			"users": "Utilisateurs"
 		},
 		"support": {
 			"all_statuses": "Tous les statuts",
@@ -213,12 +213,9 @@
 		"signup": "S'inscrire",
 		"verification": {
 			"button_cancel": "Annuler",
-			"button_verify": "Vérifier l'e-mail",
-			"button_verify_loading": "Vérification en cours...",
-			"code_label": "Code de vérification",
-			"code_placeholder": "12345678",
-			"description": "Veuillez vérifier votre e-mail pour un code de vérification",
-			"sent_to": "Nous avons envoyé un code de vérification à 8 chiffres à",
+			"check_email": "Veuillez vérifier votre e-mail et cliquer sur le lien de vérification pour finaliser votre inscription.",
+			"description": "Nous vous avons envoyé un lien de vérification",
+			"sent_to": "Nous avons envoyé un e-mail de vérification à",
 			"title": "Vérification de l'e-mail"
 		}
 	},
