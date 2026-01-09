@@ -9,4 +9,4 @@ bun.lockb
 docs/references/
 
 # Generated files
-src/lib/convex/_generated/
+**/_generated/

@@ -21,7 +21,8 @@ import {
 	PASSWORDRESET_TEXT,
 	ADMINREPLYNOTIFICATION_HTML,
 	ADMINREPLYNOTIFICATION_TEXT
-} from './generated/index.js';
+} from './_generated/index.js';
+import { getEmailAssetUrl } from '../env';
 
 /**
  * Simple template renderer that replaces {{varName}} patterns with values.
@@ -52,14 +53,11 @@ function escapeHtml(str: string): string {
 }
 
 /**
- * Get base URL from environment at runtime
+ * Get base URL for email assets (images, footer links)
+ * Always uses production URL so images load in email clients
  */
 function getBaseUrl(): string {
-	const url = process.env.APP_URL;
-	if (!url && process.env.NODE_ENV === 'production') {
-		throw new Error('APP_URL environment variable is required in production');
-	}
-	return url || 'https://example.com';
+	return getEmailAssetUrl();
 }
 
 /**

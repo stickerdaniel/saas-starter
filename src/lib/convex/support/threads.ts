@@ -1,5 +1,6 @@
 import { mutation, query, internalMutation } from '../_generated/server';
 import { v } from 'convex/values';
+import { z } from 'zod';
 import { supportAgent } from './agent';
 import { components, internal } from '../_generated/api';
 import { paginationOptsValidator } from 'convex/server';
@@ -148,7 +149,7 @@ export const listThreads = query({
 	handler: async (ctx, args) => {
 		// Security: Use server-verified user ID for authenticated users
 		// For anonymous users (not authenticated), use client-provided userId
-		const authUser = await authComponent.getAuthUser(ctx);
+		const authUser = await authComponent.safeGetAuthUser(ctx);
 		let effectiveUserId: string | undefined;
 
 		if (authUser) {
@@ -278,6 +279,7 @@ export const getThread = query({
 		summary: v.optional(v.string()),
 		status: v.union(v.literal('active'), v.literal('archived')),
 		isHandedOff: v.boolean(),
+		notificationEmail: v.optional(v.string()),
 		assignedAdmin: v.optional(
 			v.object({
 				name: v.optional(v.string()),
@@ -291,7 +293,7 @@ export const getThread = query({
 		});
 
 		// Security: Verify ownership
-		const authUser = await authComponent.getAuthUser(ctx);
+		const authUser = await authComponent.safeGetAuthUser(ctx);
 
 		if (authUser) {
 			// Authenticated: Must own the thread
@@ -336,6 +338,7 @@ export const getThread = query({
 		return {
 			...thread,
 			isHandedOff: supportThread?.isHandedOff ?? false,
+			notificationEmail: supportThread?.notificationEmail,
 			assignedAdmin
 		};
 	}
@@ -361,7 +364,7 @@ export const updateThreadHandoff = mutation({
 		});
 
 		// Security: Verify ownership
-		const authUser = await authComponent.getAuthUser(ctx);
+		const authUser = await authComponent.safeGetAuthUser(ctx);
 
 		if (authUser) {
 			if (thread.userId !== authUser._id) {
@@ -400,12 +403,13 @@ export const updateThreadHandoff = mutation({
 			skipEmbeddings: true
 		});
 
-		// Save assistant response: "Sure! I will connect you now."
+		// Save assistant response with email prompt
 		await supportAgent.saveMessage(ctx, {
 			threadId: args.threadId,
 			message: {
 				role: 'assistant',
-				content: 'Sure! I will connect you now.'
+				content:
+					"Sure! I will connect you now. Please enter your email below and we'll notify you when our support team has responded. In the meantime, feel free to add any additional details that might help us assist you better."
 			},
 			skipEmbeddings: true
 		});
@@ -568,11 +572,11 @@ export const updateNotificationEmail = mutation({
 	},
 	returns: v.boolean(),
 	handler: async (ctx, args) => {
-		// Validate email format
-		const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+		// Normalize email (empty string = unsubscribe)
 		const normalizedEmail = args.email.trim().toLowerCase();
 
-		if (!emailRegex.test(normalizedEmail)) {
+		// Validate email format only if non-empty (empty = unsubscribe)
+		if (normalizedEmail && !z.string().email().safeParse(normalizedEmail).success) {
 			throw new Error('Invalid email format');
 		}
 
@@ -582,7 +586,7 @@ export const updateNotificationEmail = mutation({
 		});
 
 		// Security: Verify ownership
-		const authUser = await authComponent.getAuthUser(ctx);
+		const authUser = await authComponent.safeGetAuthUser(ctx);
 
 		if (authUser) {
 			if (thread.userId !== authUser._id) {
@@ -606,9 +610,9 @@ export const updateNotificationEmail = mutation({
 			throw new Error('Support thread not found');
 		}
 
-		// Update notification email
+		// Update notification email (undefined to unsubscribe)
 		await ctx.db.patch(supportThread._id, {
-			notificationEmail: normalizedEmail,
+			notificationEmail: normalizedEmail || undefined,
 			updatedAt: Date.now()
 		});
 

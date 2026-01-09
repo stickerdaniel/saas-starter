@@ -48,7 +48,7 @@
 	// Derive assigned admin - use context value as primary, query as fallback/sync
 	const assignedAdmin = $derived(threadContext.assignedAdmin ?? threadQuery.data?.assignedAdmin);
 
-	// Sync handoff status and assigned admin to context when thread data loads
+	// Sync handoff status, assigned admin, and notification email to context when thread data loads
 	// Only sync from query if not already set locally (prevents race conditions)
 	$effect(() => {
 		if (threadQuery.data) {
@@ -59,6 +59,10 @@
 			// Sync assignedAdmin if query has newer data (e.g., admin assigned mid-chat)
 			if (threadQuery.data.assignedAdmin && !threadContext.assignedAdmin) {
 				threadContext.assignedAdmin = threadQuery.data.assignedAdmin;
+			}
+			// Sync notificationEmail if query has data and context doesn't
+			if (threadQuery.data.notificationEmail && !threadContext.notificationEmail) {
+				threadContext.notificationEmail = threadQuery.data.notificationEmail;
 			}
 		}
 	});
