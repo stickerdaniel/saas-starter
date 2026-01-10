@@ -163,9 +163,33 @@ function main(): void {
 	const buildEnv: Record<string, string | undefined> = { ...process.env };
 
 	if (CONVEX_DEPLOY_KEY) {
-		const keyPart = CONVEX_DEPLOY_KEY.split('|')[0];
-		const parts = keyPart.split(':');
-		const deploymentName = parts[parts.length - 1];
+		const parts = CONVEX_DEPLOY_KEY.split('|');
+
+		if (parts.length < 2) {
+			console.error(
+				`${colors.red}Invalid CONVEX_DEPLOY_KEY format. Expected: prod:name|token or preview:team:project:name|token${colors.reset}`
+			);
+			process.exit(1);
+		}
+
+		const keyPart = parts[0];
+		const keyParts = keyPart.split(':');
+
+		if (keyParts.length < 2) {
+			console.error(
+				`${colors.red}Invalid CONVEX_DEPLOY_KEY format. Expected: prod:name|token or preview:team:project:name|token${colors.reset}`
+			);
+			process.exit(1);
+		}
+
+		if (keyParts[0] === 'preview' && keyParts.length !== 4) {
+			console.error(
+				`${colors.red}Invalid preview CONVEX_DEPLOY_KEY format. Expected: preview:team:project:name|token${colors.reset}`
+			);
+			process.exit(1);
+		}
+
+		const deploymentName = keyParts[keyParts.length - 1];
 
 		buildEnv.PUBLIC_CONVEX_URL = `https://${deploymentName}.convex.cloud`;
 		buildEnv.PUBLIC_CONVEX_SITE_URL = `https://${deploymentName}.convex.site`;
