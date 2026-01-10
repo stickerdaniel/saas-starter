@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 /**
  * Build-time validation: Ensures all required Convex environment variables are set.
- * Called by vercel-deploy.sh before deploying.
+ * Called by vercel-deploy.ts before deploying.
  *
  * Usage: bun scripts/validate-convex-env.ts [--prod]
  */

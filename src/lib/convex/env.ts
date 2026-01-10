@@ -1,7 +1,7 @@
 /**
  * Centralized Environment Variable Access
  *
- * Build-time validation: vercel-deploy.sh checks all required vars before deploy
+ * Build-time validation: vercel-deploy.ts checks all required vars before deploy
  * Runtime validation: Getters throw if var is missing (safety net for local dev)
  *
  * Auth vars (BETTER_AUTH_SECRET, SITE_URL) have placeholders to allow Convex
@@ -9,7 +9,7 @@
  */
 
 // =============================================================================
-// REQUIRED VARIABLES - Single source of truth (used by vercel-deploy.sh)
+// REQUIRED VARIABLES - Single source of truth (used by vercel-deploy.ts)
 // =============================================================================
 
 export const REQUIRED_VAR_NAMES = [
