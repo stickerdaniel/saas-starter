@@ -1,4 +1,4 @@
 {
-	"buildCommand": "bash scripts/vercel-deploy.sh",
+	"buildCommand": "bun scripts/vercel-deploy.ts",
 	"framework": "sveltekit"
 }

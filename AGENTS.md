@@ -12,7 +12,7 @@ This project is a saas template built with SvelteKit, Convex, Typescript and mod
 
 ### Quality Checks & Testing
 
-- `./quality-check.sh --staged` - Check only staged files (used in git pre-commit hook)
+- `bun scripts/quality-check.ts --staged` - Check only staged files (used in git pre-commit hook)
 - `bun run test` - Run all tests (E2E + unit)
 - `bun run test:e2e` - Run Playwright E2E tests
 - `bun run test:unit` - Run Vitest unit tests
@@ -41,7 +41,7 @@ These commands use `dotenv` to load the local TOLGEE_API_KEY from `.env.local`:
 
 - `bun run i18n:cleanup` - Find every key that used to be in production but is now missing from the code; mark it as deprecated and stop calling it a production key.
 
-  Tags automatically set by the `scripts/vercel-deploy.sh` script:
+  Tags automatically set by the `scripts/vercel-deploy.ts` script:
 
 - `preview` - Automatically set for preview deployment keys
 - `production` - Automatically set for production deployment keys
@@ -163,7 +163,7 @@ Libraries used in this project are cloned as a submodule in the `docs/references
 
 ### Quality Checks
 
-ALWAYS run `./quality-check.sh` after a full feature implementation.
+ALWAYS run `bun scripts/quality-check.ts` after a full feature implementation.
 
 ### Real-time Features
 
