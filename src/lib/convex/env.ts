@@ -36,64 +36,20 @@ const AUTH_PLACEHOLDERS: Record<string, string> = {
 };
 
 // =============================================================================
-// RUNTIME VALIDATION - Throw all missing vars at once for better DX
-// =============================================================================
-
-let validationPerformed = false;
-
-/**
- * Validates all required environment variables and throws a single error
- * listing all missing vars. Called automatically on first getter access.
- */
-function validateAllRequiredVars(): void {
-	if (validationPerformed) return;
-	validationPerformed = true;
-
-	const missingVars: string[] = [];
-
-	for (const name of REQUIRED_VAR_NAMES) {
-		const value = process.env[name];
-		const hasPlaceholder = name in AUTH_PLACEHOLDERS;
-
-		// Skip vars with placeholders (they're allowed to be missing during analysis)
-		if (!value && !hasPlaceholder) {
-			missingVars.push(name);
-		}
-	}
-
-	if (missingVars.length > 0) {
-		const varList = missingVars.map((name) => `  - ${name}`).join('\n');
-		const setCommands = missingVars
-			.map((name) => `  bunx convex env set ${name} <value>`)
-			.join('\n');
-
-		throw new Error(
-			`Missing required environment variables:\n${varList}\n\n` +
-				`Set them via CLI:\n${setCommands}\n\n` +
-				`Or set in Convex Dashboard:\n` +
-				`  https://dashboard.convex.dev → Your Project → Settings → Environment Variables`
-		);
-	}
-}
-
-// =============================================================================
-// RUNTIME GETTERS - Validate all vars on first access, then return values
+// RUNTIME GETTERS - Throw if var missing (safety net for local dev)
+// Note: Build-time validation (validate-convex-env.ts) throws all missing at once
 // =============================================================================
 
 /**
- * Helper to get env var. Validates all required vars on first access,
- * then returns the requested value (or placeholder during module analysis).
+ * Helper to get env var or throw with helpful message.
+ * Vars with placeholders return the placeholder during Convex module analysis.
  */
 function getRequiredEnv(name: string, placeholder?: string): string {
-	// First access triggers validation of ALL required vars
-	validateAllRequiredVars();
-
 	const value = process.env[name];
 
 	// Use placeholder during Convex module analysis (when var not yet set)
 	if (!value && placeholder) return placeholder;
 
-	// This should never happen after validation, but safety net for edge cases
 	if (!value) {
 		throw new Error(
 			`Missing required environment variable: ${name}\n` +
