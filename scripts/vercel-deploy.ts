@@ -157,9 +157,9 @@ function main(): void {
 	}
 
 	// Extract deployment URL from CONVEX_DEPLOY_KEY and build environment for SvelteKit
-	// Format: prod:name|token or preview:team:project:name|token
+	// Format: prod:name|token or preview:identifier:name|token
 	// Production: prod:keen-labrador-829|... -> keen-labrador-829
-	// Preview: preview:team:project:name|... -> name
+	// Preview: preview:team-project:name|... -> name
 	const buildEnv: Record<string, string | undefined> = { ...process.env };
 
 	if (CONVEX_DEPLOY_KEY) {
@@ -167,7 +167,7 @@ function main(): void {
 
 		if (parts.length < 2) {
 			console.error(
-				`${colors.red}Invalid CONVEX_DEPLOY_KEY format. Expected: prod:name|token or preview:team:project:name|token${colors.reset}`
+				`${colors.red}Invalid CONVEX_DEPLOY_KEY format. Expected: prod:name|token or preview:identifier:name|token${colors.reset}`
 			);
 			process.exit(1);
 		}
@@ -177,14 +177,14 @@ function main(): void {
 
 		if (keyParts.length < 2) {
 			console.error(
-				`${colors.red}Invalid CONVEX_DEPLOY_KEY format. Expected: prod:name|token or preview:team:project:name|token${colors.reset}`
+				`${colors.red}Invalid CONVEX_DEPLOY_KEY format. Expected: prod:name|token or preview:identifier:name|token${colors.reset}`
 			);
 			process.exit(1);
 		}
 
-		if (keyParts[0] === 'preview' && keyParts.length !== 4) {
+		if (keyParts[0] === 'preview' && keyParts.length < 3) {
 			console.error(
-				`${colors.red}Invalid preview CONVEX_DEPLOY_KEY format. Expected: preview:team:project:name|token${colors.reset}`
+				`${colors.red}Invalid preview CONVEX_DEPLOY_KEY format. Expected: preview:identifier:name|token${colors.reset}`
 			);
 			process.exit(1);
 		}
