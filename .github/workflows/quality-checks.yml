@@ -39,4 +39,4 @@ jobs:
         run: bunx playwright install chromium --with-deps
 
       - name: Run all quality checks
-        run: ./quality-check.sh
+        run: bun scripts/quality-check.ts
