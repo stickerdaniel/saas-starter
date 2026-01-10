@@ -196,7 +196,13 @@ function main(): void {
 	// 3. Code formatting
 	printHeader(3, 'Code formatting');
 	if (stagedOnly && formattableFiles.length > 0) {
-		runCommand('prettier', ['--write', '--plugin', 'prettier-plugin-svelte', ...formattableFiles]);
+		runCommand('bun', [
+			'prettier',
+			'--write',
+			'--plugin',
+			'prettier-plugin-svelte',
+			...formattableFiles
+		]);
 	} else if (!stagedOnly) {
 		runCommand('bun', ['run', 'format']);
 	} else {
@@ -207,9 +213,9 @@ function main(): void {
 	// 4. ESLint
 	printHeader(4, 'ESLint');
 	if (stagedOnly && jsTsSvelteFiles.length > 0) {
-		runCommand('eslint', ['--fix', ...jsTsSvelteFiles]);
+		runCommand('bun', ['eslint', '--fix', ...jsTsSvelteFiles]);
 	} else if (!stagedOnly) {
-		runCommand('eslint', ['.', '--fix']);
+		runCommand('bun', ['eslint', '.', '--fix']);
 	} else {
 		console.log('No JS/TS/Svelte files to lint');
 	}
@@ -220,7 +226,7 @@ function main(): void {
 	if (stagedOnly && jsTsSvelteFiles.length === 0 && svelteFiles.length === 0) {
 		console.log('No TypeScript/Svelte files to check');
 	} else {
-		runCommand('svelte-check', ['--tsconfig', './tsconfig.json'], {
+		runCommand('bun', ['svelte-check', '--tsconfig', './tsconfig.json'], {
 			env: { ...process.env, NODE_OPTIONS: '--max-old-space-size=8192' }
 		});
 	}
