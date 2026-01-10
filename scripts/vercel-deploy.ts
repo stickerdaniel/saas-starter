@@ -95,7 +95,8 @@ function main(): void {
 	}
 
 	// =============================================================================
-	// Pre-deploy: Validate required Convex environment variables
+	// Pre-deploy: Validate required Convex environment variables (production only)
+	// Preview validation happens AFTER convex deploy (the instance doesn't exist yet)
 	// =============================================================================
 	if (VERCEL_ENV === 'production') {
 		console.log('Checking required Convex environment variables (production)...');
@@ -103,14 +104,28 @@ function main(): void {
 			console.error(`${colors.red}Environment variable validation failed${colors.reset}`);
 			process.exit(1);
 		}
-	} else if (VERCEL_ENV === 'preview') {
-		// For preview deployments, set SITE_URL in Convex env before validation
-		// (Required for auth module to load - derived from VERCEL_URL)
-		if (VERCEL_URL && VERCEL_GIT_COMMIT_REF) {
-			const previewSiteUrl = `https://${VERCEL_URL}`;
-			console.log(`Setting SITE_URL for preview (${VERCEL_GIT_COMMIT_REF}): ${previewSiteUrl}`);
+	} else if (VERCEL_ENV !== 'preview') {
+		console.log(
+			`${colors.yellow}Unknown environment: ${VERCEL_ENV}, skipping env var check${colors.reset}`
+		);
+	}
 
-			// Use --preview-name to target the preview deployment by branch name
+	// Deploy Convex functions
+	console.log('Deploying Convex functions...');
+	if (!runCommand('bunx', ['convex', 'deploy'])) {
+		console.error(`${colors.red}Convex deployment failed${colors.reset}`);
+		process.exit(1);
+	}
+
+	// =============================================================================
+	// Post-deploy: Validate preview environment variables (now instance exists)
+	// =============================================================================
+	if (VERCEL_ENV === 'preview' && VERCEL_GIT_COMMIT_REF) {
+		// Set SITE_URL now that the preview instance exists
+		if (VERCEL_URL) {
+			const previewSiteUrl = `https://${VERCEL_URL}`;
+			console.log(`Setting SITE_URL for preview: ${previewSiteUrl}`);
+
 			const result = runCommandCapture('bunx', [
 				'convex',
 				'env',
@@ -122,31 +137,23 @@ function main(): void {
 			]);
 
 			if (!result.success) {
-				console.error(`${colors.red}Failed to set SITE_URL for preview deployment${colors.reset}`);
-				console.error(
-					'Ensure preview deployment exists or set SITE_URL default in Convex Dashboard'
-				);
+				console.error(`${colors.red}Failed to set SITE_URL for preview${colors.reset}`);
 				process.exit(1);
 			}
 		}
 
 		// Validate preview environment variables
 		console.log('Checking required Convex environment variables (preview)...');
-		if (!runCommand('bun', ['scripts/validate-convex-env.ts'])) {
+		if (
+			!runCommand('bun', [
+				'scripts/validate-convex-env.ts',
+				'--preview-name',
+				VERCEL_GIT_COMMIT_REF
+			])
+		) {
 			console.error(`${colors.red}Environment variable validation failed${colors.reset}`);
 			process.exit(1);
 		}
-	} else {
-		console.log(
-			`${colors.yellow}Unknown environment: ${VERCEL_ENV}, skipping env var check${colors.reset}`
-		);
-	}
-
-	// Deploy Convex functions
-	console.log('Deploying Convex functions...');
-	if (!runCommand('bunx', ['convex', 'deploy'])) {
-		console.error(`${colors.red}Convex deployment failed${colors.reset}`);
-		process.exit(1);
 	}
 
 	// Extract deployment URL from CONVEX_DEPLOY_KEY and build environment for SvelteKit

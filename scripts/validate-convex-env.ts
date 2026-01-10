@@ -3,7 +3,10 @@
  * Build-time validation: Ensures all required Convex environment variables are set.
  * Called by vercel-deploy.ts before deploying.
  *
- * Usage: bun scripts/validate-convex-env.ts [--prod]
+ * Usage:
+ *   bun scripts/validate-convex-env.ts                           # development deployment
+ *   bun scripts/validate-convex-env.ts --prod                    # production deployment
+ *   bun scripts/validate-convex-env.ts --preview-name <branch>   # preview deployment
  */
 
 import { execSync } from 'child_process';
@@ -12,7 +15,12 @@ import { REQUIRED_VAR_NAMES } from '../src/lib/convex/env';
 // Single source of truth is defined in src/lib/convex/env.ts
 
 const isProd = process.argv.includes('--prod');
-const cmd = `bunx convex env list${isProd ? ' --prod' : ''}`;
+const previewNameIndex = process.argv.indexOf('--preview-name');
+const previewName = previewNameIndex !== -1 ? process.argv[previewNameIndex + 1] : null;
+
+// Build the deployment flag for commands
+const deploymentFlag = isProd ? ' --prod' : previewName ? ` --preview-name ${previewName}` : '';
+const cmd = `bunx convex env list${deploymentFlag}`;
 
 let output: string;
 try {
@@ -44,7 +52,7 @@ if (missingVars.length > 0) {
 	}
 	console.error('');
 	console.error('Set them via CLI:');
-	console.error(`  bunx convex env set VARIABLE_NAME value${isProd ? ' --prod' : ''}`);
+	console.error(`  bunx convex env set VARIABLE_NAME value${deploymentFlag}`);
 	console.error('');
 	console.error('Or set in Convex Dashboard:');
 	console.error('  https://dashboard.convex.dev → Your Project → Settings → Environment Variables');
