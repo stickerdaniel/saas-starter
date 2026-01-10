@@ -105,3 +105,12 @@ export const viewer = query({
 		return authComponent.getAuthUser(ctx);
 	}
 });
+
+/** Returns which OAuth providers are configured and available */
+export const getAvailableOAuthProviders = query({
+	args: {},
+	handler: async () => ({
+		google: googleOAuth.enabled,
+		github: githubOAuth.enabled
+	})
+});

@@ -1,91 +1,89 @@
 /**
  * Centralized Environment Variable Access
  *
- * This module provides typed access to environment variables.
- * Validation is performed at deploy time via the pre-deploy script
- * (scripts/vercel-deploy.sh) and at runtime via throwing getters.
+ * Build-time validation: vercel-deploy.ts checks all required vars before deploy
+ * Runtime validation: Getters throw if vars are missing (safety net for local dev)
+ *
+ * Auth vars (BETTER_AUTH_SECRET, SITE_URL) have placeholders to allow Convex
+ * module analysis to pass during bundling. Placeholders are only used when:
+ * - Convex bundles and analyzes the module before deploy-time validation
+ * - Environment variables are not yet available during static analysis
  */
 
 // =============================================================================
-// REQUIRED VARIABLES - Validated at deploy time and runtime
+// REQUIRED VARIABLES - Single source of truth (used by vercel-deploy.ts)
 // =============================================================================
 
-// Fallbacks allow Convex module analysis to pass; actual values come from env vars at runtime
-const BETTER_AUTH_SECRET = process.env.BETTER_AUTH_SECRET ?? 'placeholder-secret-for-analysis';
-const SITE_URL =
-	process.env.SITE_URL ?? process.env.PUBLIC_SITE_URL ?? 'https://placeholder.invalid';
-const EMAIL_ASSET_URL = process.env.EMAIL_ASSET_URL;
-const AUTH_EMAIL = process.env.AUTH_EMAIL;
-const AUTUMN_SECRET_KEY = process.env.AUTUMN_SECRET_KEY;
-const RESEND_API_KEY = process.env.RESEND_API_KEY;
-const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-const RESEND_WEBHOOK_SECRET = process.env.RESEND_WEBHOOK_SECRET;
+export const REQUIRED_VAR_NAMES = [
+	'BETTER_AUTH_SECRET',
+	'SITE_URL',
+	'EMAIL_ASSET_URL',
+	'AUTH_EMAIL',
+	'AUTUMN_SECRET_KEY',
+	'RESEND_API_KEY',
+	'OPENROUTER_API_KEY',
+	'RESEND_WEBHOOK_SECRET'
+] as const;
 
 // =============================================================================
-// EXPORTS - Throwing getters for required variables
+// PLACEHOLDERS - Allow Convex module analysis to pass during bundling
+// Auth module is loaded at analysis time, so these vars need fallbacks
 // =============================================================================
 
-function envError(name: string): Error {
-	return new Error(
-		`${name} not configured. Set via:\n` +
-			`  Dev:     bunx convex env set ${name} <value>\n` +
-			`  Prod:    bunx convex env set ${name} <value> --prod\n` +
-			`  Preview: Set default in Convex Dashboard → Settings → Environment Variables\n` +
-			`           (takes effect on next preview deployment)`
-	);
+const AUTH_PLACEHOLDERS: Record<string, string> = {
+	BETTER_AUTH_SECRET: 'placeholder-secret-for-analysis',
+	SITE_URL: 'https://placeholder.invalid'
+};
+
+// =============================================================================
+// RUNTIME GETTERS - Throw if var missing (safety net for local dev)
+// Note: Build-time validation (validate-convex-env.ts) throws all missing at once
+// =============================================================================
+
+/**
+ * Helper to get env var or throw with helpful message.
+ * Vars with placeholders return the placeholder during Convex module analysis.
+ */
+function getRequiredEnv(name: string, placeholder?: string): string {
+	const value = process.env[name];
+
+	// Use placeholder during Convex module analysis (when var not yet set)
+	if (!value && placeholder) return placeholder;
+
+	if (!value) {
+		throw new Error(
+			`Missing required environment variable: ${name}\n` +
+				`Set via: bunx convex env set ${name} <value>`
+		);
+	}
+
+	return value;
 }
 
 /** Authentication secret for signing sessions */
-export const getBetterAuthSecret = () => {
-	if (BETTER_AUTH_SECRET === 'placeholder-secret-for-analysis') {
-		console.warn('BETTER_AUTH_SECRET not configured - using placeholder. Auth will not work.');
-	}
-	return BETTER_AUTH_SECRET;
-};
+export const getBetterAuthSecret = (): string =>
+	getRequiredEnv('BETTER_AUTH_SECRET', AUTH_PLACEHOLDERS.BETTER_AUTH_SECRET);
 
 /** Site URL for OAuth redirects and email deep links */
-export const getSiteUrl = () => {
-	if (SITE_URL === 'https://placeholder.invalid') {
-		console.warn('SITE_URL not configured - using placeholder. Auth will not work correctly.');
-	}
-	return SITE_URL;
-};
+export const getSiteUrl = (): string => getRequiredEnv('SITE_URL', AUTH_PLACEHOLDERS.SITE_URL);
 
 /** Email asset URL for images */
-export const getEmailAssetUrl = () => {
-	if (!EMAIL_ASSET_URL) throw envError('EMAIL_ASSET_URL');
-	return EMAIL_ASSET_URL;
-};
+export const getEmailAssetUrl = (): string => getRequiredEnv('EMAIL_ASSET_URL');
 
 /** Email sender address */
-export const getAuthEmail = () => {
-	if (!AUTH_EMAIL) throw envError('AUTH_EMAIL');
-	return AUTH_EMAIL;
-};
+export const getAuthEmail = (): string => getRequiredEnv('AUTH_EMAIL');
 
 /** Autumn billing secret key */
-export const getAutumnSecretKey = () => {
-	if (!AUTUMN_SECRET_KEY) throw envError('AUTUMN_SECRET_KEY');
-	return AUTUMN_SECRET_KEY;
-};
+export const getAutumnSecretKey = (): string => getRequiredEnv('AUTUMN_SECRET_KEY');
 
 /** Resend API key for email delivery */
-export const getResendApiKey = () => {
-	if (!RESEND_API_KEY) throw envError('RESEND_API_KEY');
-	return RESEND_API_KEY;
-};
+export const getResendApiKey = (): string => getRequiredEnv('RESEND_API_KEY');
 
 /** OpenRouter API key for AI support chat */
-export const getOpenRouterApiKey = () => {
-	if (!OPENROUTER_API_KEY) throw envError('OPENROUTER_API_KEY');
-	return OPENROUTER_API_KEY;
-};
+export const getOpenRouterApiKey = (): string => getRequiredEnv('OPENROUTER_API_KEY');
 
 /** Resend webhook secret for signature verification */
-export const getResendWebhookSecret = () => {
-	if (!RESEND_WEBHOOK_SECRET) throw envError('RESEND_WEBHOOK_SECRET');
-	return RESEND_WEBHOOK_SECRET;
-};
+export const getResendWebhookSecret = (): string => getRequiredEnv('RESEND_WEBHOOK_SECRET');
 
 // =============================================================================
 // OPTIONAL VARIABLES - Features gracefully disable if not set
