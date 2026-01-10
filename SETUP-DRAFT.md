@@ -3,7 +3,7 @@
 
 #### Automated Deployment (CI/CD)
 
-The build process (via `scripts/vercel-deploy.sh`) automatically executes these steps:
+The build process (via `scripts/vercel-deploy.ts`) automatically executes these steps:
 
 **Production Build:**
 

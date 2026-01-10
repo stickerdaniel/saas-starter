@@ -27,8 +27,8 @@
 		"i18n:push": "dotenv -e .env.local -- tolgee push",
 		"i18n:cleanup": "dotenv -e .env.local -- tolgee tag --filter-not-extracted --filter-tag production --tag deprecated --untag production",
 		"setup:test-user": "tsx scripts/setup-test-user.ts",
-		"worktree": "scripts/create-worktree.sh",
-		"worktree:setup": "scripts/create-worktree.sh --setup-only"
+		"worktree": "bun scripts/create-worktree.ts",
+		"worktree:setup": "bun scripts/create-worktree.ts --setup-only"
 	},
 	"dependencies": {
 		"@better-auth/passkey": "^1.4.10",

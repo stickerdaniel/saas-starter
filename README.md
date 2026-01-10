@@ -36,9 +36,6 @@ bun install
 ```bash
 # Initialize Convex project
 bunx convex dev
-
-# Set up authentication
-bun run setupAuth.mjs
 ```
 
 ### 3. Environment Variables
