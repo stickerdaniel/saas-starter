@@ -35,10 +35,14 @@
 	});
 	const oauthProviders = useQuery(api.auth.getAvailableOAuthProviders, {});
 
-	// Check if any OAuth provider or passkey (signin only) is available
-	const hasAlternativeAuth = $derived(
-		params.tab === 'signin' || oauthProviders.data?.google || oauthProviders.data?.github
+	// Passkeys are only available on signin tab
+	const hasPasskeyAuth = $derived(params.tab === 'signin');
+	// OAuth providers are available on both tabs
+	const hasOAuthAuth = $derived(
+		Boolean(oauthProviders.data?.google || oauthProviders.data?.github)
 	);
+	// Show alternative auth section if any alternative is available
+	const hasAlternativeAuth = $derived(hasPasskeyAuth || hasOAuthAuth);
 
 	let isLoading = $state(false);
 	let formError = $state('');
