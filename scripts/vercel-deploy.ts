@@ -27,10 +27,15 @@ const colors = {
 /**
  * Run a command with inherited stdio
  */
-function runCommand(command: string, args: string[]): boolean {
+function runCommand(
+	command: string,
+	args: string[],
+	env?: Record<string, string | undefined>
+): boolean {
 	const result = spawnSync(command, args, {
 		stdio: 'inherit',
-		encoding: 'utf-8'
+		encoding: 'utf-8',
+		env: env ?? process.env
 	});
 	return result.status === 0;
 }
@@ -125,31 +130,33 @@ function main(): void {
 		process.exit(1);
 	}
 
-	// Extract deployment URL from CONVEX_DEPLOY_KEY
+	// Extract deployment URL from CONVEX_DEPLOY_KEY and build environment for SvelteKit
 	// Format: prod:name|token or preview:team:project:name|token
 	// Production: prod:keen-labrador-829|... -> keen-labrador-829
 	// Preview: preview:team:project:name|... -> name
+	const buildEnv: Record<string, string | undefined> = { ...process.env };
+
 	if (CONVEX_DEPLOY_KEY) {
 		const keyPart = CONVEX_DEPLOY_KEY.split('|')[0];
 		const parts = keyPart.split(':');
 		const deploymentName = parts[parts.length - 1];
 
-		process.env.PUBLIC_CONVEX_URL = `https://${deploymentName}.convex.cloud`;
-		process.env.PUBLIC_CONVEX_SITE_URL = `https://${deploymentName}.convex.site`;
+		buildEnv.PUBLIC_CONVEX_URL = `https://${deploymentName}.convex.cloud`;
+		buildEnv.PUBLIC_CONVEX_SITE_URL = `https://${deploymentName}.convex.site`;
 
-		console.log(`PUBLIC_CONVEX_URL: ${process.env.PUBLIC_CONVEX_URL}`);
-		console.log(`PUBLIC_CONVEX_SITE_URL: ${process.env.PUBLIC_CONVEX_SITE_URL}`);
+		console.log(`PUBLIC_CONVEX_URL: ${buildEnv.PUBLIC_CONVEX_URL}`);
+		console.log(`PUBLIC_CONVEX_SITE_URL: ${buildEnv.PUBLIC_CONVEX_SITE_URL}`);
 	}
 
 	// For preview deployments, derive SITE_URL from VERCEL_URL if not already set
-	if (!process.env.SITE_URL && VERCEL_URL) {
-		process.env.SITE_URL = `https://${VERCEL_URL}`;
-		console.log(`SITE_URL (from VERCEL_URL): ${process.env.SITE_URL}`);
+	if (!buildEnv.SITE_URL && VERCEL_URL) {
+		buildEnv.SITE_URL = `https://${VERCEL_URL}`;
+		console.log(`SITE_URL (from VERCEL_URL): ${buildEnv.SITE_URL}`);
 	}
 
-	// Build SvelteKit
+	// Build SvelteKit with the computed environment variables
 	console.log('Building SvelteKit...');
-	if (!runCommand('bun', ['run', 'build'])) {
+	if (!runCommand('bun', ['run', 'build'], buildEnv)) {
 		console.error(`${colors.red}SvelteKit build failed${colors.reset}`);
 		process.exit(1);
 	}
