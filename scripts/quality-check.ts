@@ -44,19 +44,12 @@ const runBuild = !stagedOnly && !values['no-build'];
 
 /**
  * Run a command and exit if it fails
- * Note: shell: false by default to avoid issues with special chars in file paths
  */
-function runCommand(
-	command: string,
-	args: string[],
-	options?: SpawnSyncOptions & { useShell?: boolean }
-): void {
-	const { useShell = false, ...spawnOptions } = options ?? {};
+function runCommand(command: string, args: string[], options?: SpawnSyncOptions): void {
 	const result = spawnSync(command, args, {
 		stdio: 'inherit',
-		shell: useShell,
 		encoding: 'utf-8',
-		...spawnOptions
+		...options
 	});
 
 	if (result.status !== 0) {
@@ -150,39 +143,18 @@ function main(): void {
 				console.log('No staged files to spell check');
 			}
 		} else {
-			// Check all files using find (exclude non-English translations and generated)
-			const result = spawnSync(
-				'find',
-				[
-					'./src',
-					'-type',
-					'f',
-					'-not',
-					'-path',
-					'*/i18n/de.json',
-					'-not',
-					'-path',
-					'*/i18n/es.json',
-					'-not',
-					'-path',
-					'*/i18n/fr.json',
-					'-not',
-					'-path',
-					'*/convex/_generated/*'
-				],
-				{ encoding: 'utf-8' }
+			// Check all files using Bun.Glob (cross-platform, excludes non-English translations and generated)
+			const glob = new Bun.Glob('src/**/*.{js,ts,svelte,md}');
+			const files = [...glob.scanSync({ absolute: false })].filter(
+				(f) => !CONFIG.misspell.ignore.some((ignore) => f.includes(ignore))
 			);
+			files.push('README.md');
 
-			if (result.status === 0) {
-				const files = result.stdout.trim().split('\n').filter(Boolean);
-				files.push('README.md');
-
-				// Batch files to avoid command line length limits
-				const chunkSize = 100;
-				for (let i = 0; i < files.length; i += chunkSize) {
-					const chunk = files.slice(i, i + chunkSize);
-					runCommand('misspell', ['-error', ...chunk]);
-				}
+			// Batch files to avoid command line length limits
+			const chunkSize = 100;
+			for (let i = 0; i < files.length; i += chunkSize) {
+				const chunk = files.slice(i, i + chunkSize);
+				runCommand('misspell', ['-error', ...chunk]);
 			}
 		}
 	} else {

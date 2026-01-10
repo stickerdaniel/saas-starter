@@ -3,7 +3,7 @@
  *
  * Handles:
  * - Tolgee translation tagging and pulling
- * - Convex environment variable validation (production only)
+ * - Convex environment variable validation (production and preview)
  * - Convex deployment
  * - SvelteKit build
  */
@@ -64,42 +64,48 @@ function main(): void {
 	// Tag translations based on environment
 	if (VERCEL_ENV === 'production') {
 		console.log('Tagging production keys...');
-		runCommand('tolgee', [
-			'tag',
-			'--filter-extracted',
-			'--tag',
-			'production',
-			'--untag',
-			'preview'
-		]);
+		if (
+			!runCommand('tolgee', [
+				'tag',
+				'--filter-extracted',
+				'--tag',
+				'production',
+				'--untag',
+				'preview'
+			])
+		) {
+			console.error(`${colors.red}Tolgee tagging failed${colors.reset}`);
+			process.exit(1);
+		}
 	} else if (VERCEL_ENV === 'preview') {
 		console.log('Tagging preview keys...');
-		runCommand('tolgee', ['tag', '--filter-extracted', '--tag', 'preview']);
+		if (!runCommand('tolgee', ['tag', '--filter-extracted', '--tag', 'preview'])) {
+			console.error(`${colors.red}Tolgee tagging failed${colors.reset}`);
+			process.exit(1);
+		}
 	} else {
 		console.log(`${colors.yellow}Unknown environment, skipping tagging${colors.reset}`);
 	}
 
 	// Pull latest translations
 	console.log('Pulling latest translations...');
-	runCommand('tolgee', ['pull']);
+	if (!runCommand('tolgee', ['pull'])) {
+		console.error(`${colors.red}Tolgee pull failed${colors.reset}`);
+		process.exit(1);
+	}
 
 	// =============================================================================
-	// Pre-deploy: Validate required Convex environment variables (production only)
+	// Pre-deploy: Validate required Convex environment variables
 	// =============================================================================
-	// Skip for preview deployments - they have their own Convex instance with
-	// separately managed env vars, and the preview deployment doesn't exist yet
-	// when this check runs (it's created by `convex deploy`)
 	if (VERCEL_ENV === 'production') {
-		console.log('Checking required Convex environment variables...');
+		console.log('Checking required Convex environment variables (production)...');
 		if (!runCommand('bun', ['scripts/validate-convex-env.ts', '--prod'])) {
 			console.error(`${colors.red}Environment variable validation failed${colors.reset}`);
 			process.exit(1);
 		}
-	} else {
-		console.log(`Skipping env var check for ${VERCEL_ENV} deployment`);
-
-		// For preview deployments, set SITE_URL in Convex env before deploy
-		// (Required for auth module to load - can't wait until --cmd runs)
+	} else if (VERCEL_ENV === 'preview') {
+		// For preview deployments, set SITE_URL in Convex env before validation
+		// (Required for auth module to load - derived from VERCEL_URL)
 		if (VERCEL_URL && VERCEL_GIT_COMMIT_REF) {
 			const previewSiteUrl = `https://${VERCEL_URL}`;
 			console.log(`Setting SITE_URL for preview (${VERCEL_GIT_COMMIT_REF}): ${previewSiteUrl}`);
@@ -116,11 +122,24 @@ function main(): void {
 			]);
 
 			if (!result.success) {
-				console.log(
-					"   (Preview doesn't exist yet - set SITE_URL default in Convex Dashboard -> Project Settings)"
+				console.error(`${colors.red}Failed to set SITE_URL for preview deployment${colors.reset}`);
+				console.error(
+					'Ensure preview deployment exists or set SITE_URL default in Convex Dashboard'
 				);
+				process.exit(1);
 			}
 		}
+
+		// Validate preview environment variables
+		console.log('Checking required Convex environment variables (preview)...');
+		if (!runCommand('bun', ['scripts/validate-convex-env.ts'])) {
+			console.error(`${colors.red}Environment variable validation failed${colors.reset}`);
+			process.exit(1);
+		}
+	} else {
+		console.log(
+			`${colors.yellow}Unknown environment: ${VERCEL_ENV}, skipping env var check${colors.reset}`
+		);
 	}
 
 	// Deploy Convex functions
@@ -148,10 +167,11 @@ function main(): void {
 		console.log(`PUBLIC_CONVEX_SITE_URL: ${buildEnv.PUBLIC_CONVEX_SITE_URL}`);
 	}
 
-	// For preview deployments, derive SITE_URL from VERCEL_URL if not already set
-	if (!buildEnv.SITE_URL && VERCEL_URL) {
+	// For preview deployments, derive SITE_URL from VERCEL_URL for SvelteKit build
+	// (Convex env var is set earlier in the validation step)
+	if (VERCEL_ENV === 'preview' && VERCEL_URL) {
 		buildEnv.SITE_URL = `https://${VERCEL_URL}`;
-		console.log(`SITE_URL (from VERCEL_URL): ${buildEnv.SITE_URL}`);
+		console.log(`SITE_URL (for SvelteKit build): ${buildEnv.SITE_URL}`);
 	}
 
 	// Build SvelteKit with the computed environment variables
