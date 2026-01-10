@@ -127,7 +127,7 @@ function main(): void {
 
 	// 1. SvelteKit sync
 	printHeader(1, 'SvelteKit sync');
-	runCommand('svelte-kit', ['sync']);
+	runCommand('bun', ['svelte-kit', 'sync']);
 	console.log('\n');
 
 	// 2. Spell checking
