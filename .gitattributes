@@ -1,0 +1,7 @@
+# Normalize line endings
+* text=auto eol=lf
+
+# Collapse generated files in GitHub PR diffs
+**/convex/_generated/** linguist-generated
+**/betterAuth/_generated/** linguist-generated
+bun.lock linguist-generated
