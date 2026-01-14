@@ -86,8 +86,15 @@
 				formError = '';
 
 				try {
+					// After email verification, user will be auto-logged in and redirected to /app
+					const callbackURL = params.redirectTo || localizedHref('/app');
 					await authClient.signUp.email(
-						{ email: f.data.email, password: f.data.password, name: f.data.name },
+						{
+							email: f.data.email,
+							password: f.data.password,
+							name: f.data.name,
+							callbackURL
+						},
 						{
 							onSuccess: () => {
 								verificationStep = { email: f.data.email };
@@ -202,7 +209,7 @@
 							<p class="text-sm text-red-500">{formError}</p>
 						{/if}
 						<Button type="button" variant="ghost" class="w-full" onclick={cancelVerification}>
-							<T keyName="auth.verification.button_cancel" />
+							<T keyName="auth.verification.button_back" />
 						</Button>
 					</div>
 				{:else}
