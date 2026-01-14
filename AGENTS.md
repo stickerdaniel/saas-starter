@@ -246,3 +246,8 @@ A customizable Svelte component for building node-based editors and interactive 
 - `vercel env rm KEY environment` - Remove environment variable
 - `vercel logs` - View deployment logs
 - `vercel domains` - Manage custom domains
+
+## Plan Mode
+
+- Make the plan extremely concise. Sacrifice grammar for the sake of concision.
+- At the end of each plan, give me a list of unresolved questions to answer, if any.
