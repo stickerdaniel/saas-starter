@@ -214,8 +214,12 @@
 		},
 		"signup": "Sign Up",
 		"verification": {
-			"button_cancel": "Cancel",
+			"button_back": "Back to login",
+			"button_verify": "Verify Email",
+			"button_verify_loading": "Verifying...",
 			"check_email": "Please check your email and click the verification link to complete your registration.",
+			"code_label": "Verification Code",
+			"code_placeholder": "12345678",
 			"description": "We've sent you a verification link",
 			"sent_to": "We've sent a verification email to",
 			"title": "Email Verification"
