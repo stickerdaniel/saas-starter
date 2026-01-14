@@ -212,8 +212,12 @@
 		},
 		"signup": "S'inscrire",
 		"verification": {
-			"button_cancel": "Annuler",
+			"button_back": "Retour à la connexion",
+			"button_verify": "Vérifier l'e-mail",
+			"button_verify_loading": "Vérification en cours...",
 			"check_email": "Veuillez vérifier votre e-mail et cliquer sur le lien de vérification pour finaliser votre inscription.",
+			"code_label": "Code de vérification",
+			"code_placeholder": "12345678",
 			"description": "Nous vous avons envoyé un lien de vérification",
 			"sent_to": "Nous avons envoyé un e-mail de vérification à",
 			"title": "Vérification de l'e-mail"
