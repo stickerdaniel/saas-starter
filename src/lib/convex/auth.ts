@@ -56,7 +56,7 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>): BetterAuthOptions
 				});
 			},
 			sendOnSignUp: true,
-			autoSignInAfterVerification: false
+			autoSignInAfterVerification: true
 		},
 		socialProviders: {
 			google: {
