@@ -27,6 +27,23 @@ This project is a saas template built with SvelteKit, Convex, Typescript and mod
 - `bunx convex env set KEY value` - Set Convex environment variables
 - `bunx convex env set KEY value --prod` - Set production environment variables
 
+### Convex Platform Guarantees
+
+When reviewing Convex backend code, be aware of these platform guarantees:
+
+**Scheduler Guarantees:**
+
+- Scheduling from mutations is atomic - if `ctx.scheduler.runAfter()` is called within a mutation, it's part of the transaction. Either the whole mutation succeeds (including the schedule), or it all rolls back. There is NO "silent scheduler failure" in mutations.
+- Scheduled mutations are guaranteed exactly-once execution. Convex automatically retries internal errors.
+- Actions are different - scheduling from actions is NOT atomic.
+
+**Components with Built-in Durability:**
+
+- `@convex-dev/resend`: Built-in idempotency keys, retry logic (5 attempts default), durable execution. Duplicate `sendEmail` calls return the same EmailId, not duplicate sends.
+- `@convex-dev/workpool`: Configurable retry with backoff/jitter, `onComplete` callbacks, parallelism control.
+
+Note: Other components (`@convex-dev/better-auth`, `@convex-dev/rate-limiter`, `@convex-dev/agent`) do NOT have automatic retry for external API calls - standard error handling applies.
+
 ### Tolgee CLI
 
 These commands use `dotenv` to load the local TOLGEE_API_KEY from `.env.local`:
@@ -146,11 +163,11 @@ Props: Use $props() instead of export let.
 Events: Use HTML attributes (e.g., onclick) instead of on:.
 Content: Use {#snippet} and {@render} instead of slots.
 Quick Examples:
-State & Events: <script lang="ts">let count = $state(0); </script> <button onclick={() => count += 1}>{count}</button>
+State & Events: `<script lang="ts">let count = $state(0); </script> <button onclick={() => count += 1}>{count}</button>`
 Derived: let doubled = $derived(count \* 2);
-Props: <script lang="ts">let { name = 'World' } = $props(); </script> <p>Hello, {name}!</p>
-Binding: <script lang="ts">let { value = $bindable() } = $props(); </script> <input bind:value={value} />
-Snippets: <div>{@render header()}</div> with <Child>{#snippet header()}<h1>Header</h1>{/snippet}</Child>
+Props: <script lang="ts">let { name = 'World' } = $props(); </script> `<p>Hello, {name}!</p>`
+Binding: `<script lang="ts">let { value = $bindable() } = $props(); </script> <input bind:value={value} />`
+Snippets: `<div>{@render header()}</div> with <Child>{#snippet header()}<h1>Header</h1>{/snippet}</Child>`
 Class Store: class Counter { count = $state(0); increment() { this.count += 1; } } export const counter = new Counter();
 Notes:
 Type $derived explicitly (e.g., let items: Item[] = $derived(...)) for arrays in TypeScript.
