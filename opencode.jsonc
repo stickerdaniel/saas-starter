@@ -46,6 +46,11 @@
     },
     "provider": {
         "google": {
+            "options": {
+                "websearch_cited": {
+                    "model": "gemini-3-flash-preview"
+                }
+            },
             "models": {
                 "antigravity-gemini-3-pro": {
                     "name": "Gemini 3 Pro (Antigravity)",
