@@ -1,6 +1,7 @@
 ---
 name: convex-backend-architect
-model: opus
+# https://models.dev/
+model: anthropic/claude-opus-4-5
 color: '#f59e0b'
 description: |
   Use this agent when you need to design, implement, or modify Convex backend functionality including database schemas, queries, mutations, actions, file storage, authentication, real-time features, or API design. This agent should be consulted for:
