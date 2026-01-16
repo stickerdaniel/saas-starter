@@ -93,11 +93,29 @@ export const sendMessage = mutation({
 
 		// Reopen thread and mark as awaiting response when user sends message
 		if (supportThread) {
+			// Check if this is a reopened ticket (was closed, now being reopened)
+			const wasClosedBeforeThisMessage = supportThread.status === 'done';
+
 			await ctx.db.patch(supportThread._id, {
 				status: 'open',
 				awaitingAdminResponse: true,
 				updatedAt: Date.now()
 			});
+
+			// Schedule admin notification for handed-off tickets
+			// We only notify for handed-off tickets since AI-handled tickets don't need admin attention
+			// Note: scheduleAdminNotification handles both create and update cases internally
+			if (supportThread.isHandedOff) {
+				await ctx.scheduler.runAfter(
+					0,
+					internal.admin.support.notifications.scheduleAdminNotification,
+					{
+						threadId: args.threadId,
+						messageIds: [messageId],
+						isReopen: wasClosedBeforeThisMessage
+					}
+				);
+			}
 		}
 
 		return { messageId };

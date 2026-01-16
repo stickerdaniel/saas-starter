@@ -36,6 +36,15 @@ export const updateThreadAssignment = adminMutation({
 			assignedTo: args.adminUserId,
 			updatedAt: Date.now()
 		});
+
+		// Cancel pending admin notification when ticket is assigned
+		if (args.adminUserId) {
+			await ctx.scheduler.runAfter(
+				0,
+				internal.admin.support.notifications.cancelPendingNotification,
+				{ threadId: args.threadId }
+			);
+		}
 	}
 });
 
@@ -68,6 +77,15 @@ export const updateThreadStatus = adminMutation({
 			status: args.status,
 			updatedAt: Date.now()
 		});
+
+		// Cancel pending admin notification when ticket is closed
+		if (args.status === 'done') {
+			await ctx.scheduler.runAfter(
+				0,
+				internal.admin.support.notifications.cancelPendingNotification,
+				{ threadId: args.threadId }
+			);
+		}
 	}
 });
 
@@ -216,6 +234,13 @@ export const sendAdminReply = adminMutation({
 				pageUrl: supportThread.pageUrl
 			});
 		}
+
+		// Cancel pending admin notification since admin has responded
+		await ctx.scheduler.runAfter(
+			0,
+			internal.admin.support.notifications.cancelPendingNotification,
+			{ threadId: args.threadId }
+		);
 
 		// Sync denormalized search fields
 		await ctx.runMutation(internal.support.threads.updateLastMessage, {

@@ -3,12 +3,16 @@ import type VerificationEmail from './VerificationEmail.svelte';
 import type VerificationCodeEmail from './VerificationCodeEmail.svelte';
 import type PasswordResetEmail from './PasswordResetEmail.svelte';
 import type AdminReplyNotificationEmail from './AdminReplyNotificationEmail.svelte';
+import type NewTicketAdminNotificationEmail from './NewTicketAdminNotificationEmail.svelte';
 
 // Extract component prop types
 export type VerificationEmailProps = ComponentProps<typeof VerificationEmail>;
 export type VerificationCodeEmailProps = ComponentProps<typeof VerificationCodeEmail>;
 export type PasswordResetEmailProps = ComponentProps<typeof PasswordResetEmail>;
 export type AdminReplyNotificationEmailProps = ComponentProps<typeof AdminReplyNotificationEmail>;
+export type NewTicketAdminNotificationEmailProps = ComponentProps<
+	typeof NewTicketAdminNotificationEmail
+>;
 
 // Helper to make all props required (removes optional defaults)
 type RequiredProps<T> = {
@@ -60,6 +64,37 @@ export type AdminReplyNotificationEmailData = {
 	adminName: string;
 	messagePreview: string;
 	deepLink: string;
+};
+
+/**
+ * Message data for new ticket admin notification
+ *
+ * @property text - Message text (truncated to 500 chars max)
+ * @property timestamp - Formatted timestamp string for display (e.g., "Jan 15, 10:30 AM")
+ */
+export type NotificationMessage = {
+	text: string;
+	timestamp: string;
+};
+
+/**
+ * Data required to render a new ticket admin notification email
+ *
+ * Sent to admins when:
+ * - User clicks "Talk to human" (handoff from AI)
+ * - User sends message to a handed-off ticket
+ * - User reopens a closed ticket
+ *
+ * @property isReopen - Whether this is a reopened ticket (true) or new/handoff ticket (false)
+ * @property userName - User's name or "Anonymous" for anonymous users
+ * @property messages - Array of messages to include in the notification
+ * @property adminDashboardLink - Link to the admin dashboard for this thread
+ */
+export type NewTicketAdminNotificationEmailData = {
+	isReopen: boolean;
+	userName: string;
+	messages: NotificationMessage[];
+	adminDashboardLink: string;
 };
 
 /**

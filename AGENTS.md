@@ -29,17 +29,18 @@ This project is a saas template built with SvelteKit, Convex, Typescript and mod
 
 ### Convex Platform Guarantees
 
-When reviewing Convex backend code, be aware of these platform guarantees:
+When reviewing Convex backend code, be aware of these platform guarantees.
+See [official docs](https://docs.convex.dev/scheduling/scheduled-functions) for details.
 
 **Scheduler Guarantees:**
 
-- Scheduling from mutations is atomic - if `ctx.scheduler.runAfter()` is called within a mutation, it's part of the transaction. Either the whole mutation succeeds (including the schedule), or it all rolls back. There is NO "silent scheduler failure" in mutations.
-- Scheduled mutations are guaranteed exactly-once execution. Convex automatically retries internal errors.
-- Actions are different - scheduling from actions is NOT atomic.
+- Scheduling from mutations is atomic - if `ctx.scheduler.runAfter()` is called within a mutation, it's part of the transaction. Either the whole mutation succeeds (including the schedule), or it all rolls back.
+- Scheduled mutations are guaranteed exactly-once execution. Convex automatically retries internal errors, and only fails on developer errors.
+- Actions are different - scheduling from actions is NOT atomic, and actions execute at-most-once (no automatic retry due to potential side effects).
 
 **Components with Built-in Durability:**
 
-- `@convex-dev/resend`: Built-in idempotency keys, retry logic (5 attempts default), durable execution. Duplicate `sendEmail` calls return the same EmailId, not duplicate sends.
+- `@convex-dev/resend`: Idempotency keys guarantee exactly-once email delivery, durable execution via workpools. See [component docs](https://www.convex.dev/components/resend).
 - `@convex-dev/workpool`: Configurable retry with backoff/jitter, `onComplete` callbacks, parallelism control.
 
 Note: Other components (`@convex-dev/better-auth`, `@convex-dev/rate-limiter`, `@convex-dev/agent`) do NOT have automatic retry for external API calls - standard error handling applies.

@@ -10,8 +10,11 @@
 
 import type * as admin_mutations from "../admin/mutations.js";
 import type * as admin_queries from "../admin/queries.js";
+import type * as admin_settings_mutations from "../admin/settings/mutations.js";
+import type * as admin_settings_queries from "../admin/settings/queries.js";
 import type * as admin_support_constants from "../admin/support/constants.js";
 import type * as admin_support_mutations from "../admin/support/mutations.js";
+import type * as admin_support_notifications from "../admin/support/notifications.js";
 import type * as admin_support_queries from "../admin/support/queries.js";
 import type * as admin_types from "../admin/types.js";
 import type * as auth from "../auth.js";
@@ -20,6 +23,7 @@ import type * as constants from "../constants.js";
 import type * as crons from "../crons.js";
 import type * as emails__generated_adminReplyNotification from "../emails/_generated/adminReplyNotification.js";
 import type * as emails__generated_index from "../emails/_generated/index.js";
+import type * as emails__generated_newTicketAdminNotification from "../emails/_generated/newTicketAdminNotification.js";
 import type * as emails__generated_passwordReset from "../emails/_generated/passwordReset.js";
 import type * as emails__generated_verification from "../emails/_generated/verification.js";
 import type * as emails__generated_verificationCode from "../emails/_generated/verificationCode.js";
@@ -53,8 +57,11 @@ import type {
 declare const fullApi: ApiFromModules<{
   "admin/mutations": typeof admin_mutations;
   "admin/queries": typeof admin_queries;
+  "admin/settings/mutations": typeof admin_settings_mutations;
+  "admin/settings/queries": typeof admin_settings_queries;
   "admin/support/constants": typeof admin_support_constants;
   "admin/support/mutations": typeof admin_support_mutations;
+  "admin/support/notifications": typeof admin_support_notifications;
   "admin/support/queries": typeof admin_support_queries;
   "admin/types": typeof admin_types;
   auth: typeof auth;
@@ -63,6 +70,7 @@ declare const fullApi: ApiFromModules<{
   crons: typeof crons;
   "emails/_generated/adminReplyNotification": typeof emails__generated_adminReplyNotification;
   "emails/_generated/index": typeof emails__generated_index;
+  "emails/_generated/newTicketAdminNotification": typeof emails__generated_newTicketAdminNotification;
   "emails/_generated/passwordReset": typeof emails__generated_passwordReset;
   "emails/_generated/verification": typeof emails__generated_verification;
   "emails/_generated/verificationCode": typeof emails__generated_verificationCode;

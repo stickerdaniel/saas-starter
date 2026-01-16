@@ -50,9 +50,25 @@
 			"home": "Accueil",
 			"website": "Site Web"
 		},
+		"settings": {
+			"default_support_email": "Email de Support par Défaut",
+			"default_support_email_help": "Laisser vide pour envoyer les notifications à tous les administrateurs.",
+			"default_support_email_placeholder": "support@example.com",
+			"description": "Configurez les paramètres du panneau d'administration et les notifications.",
+			"save": "Enregistrer les Paramètres",
+			"saved": "Paramètres enregistrés",
+			"saving": "Enregistrement...",
+			"support_notifications": "Notifications de Support",
+			"support_notifications_desc": "Configurez les notifications par email pour les tickets de support nouveaux et rouverts non assignés.",
+			"tabs": {
+				"notifications": "Notifications"
+			},
+			"title": "Paramètres Admin"
+		},
 		"sidebar": {
 			"back_to_app": "Retour à l'App",
 			"dashboard": "Tableau de bord",
+			"settings": "Paramètres",
 			"support": "Support",
 			"users": "Utilisateurs"
 		},
@@ -213,6 +229,7 @@
 		"signup": "S'inscrire",
 		"verification": {
 			"button_back": "Retour à la connexion",
+			"button_cancel": "Annuler",
 			"button_verify": "Vérifier l'e-mail",
 			"button_verify_loading": "Vérification en cours...",
 			"check_email": "Veuillez vérifier votre e-mail et cliquer sur le lien de vérification pour finaliser votre inscription.",

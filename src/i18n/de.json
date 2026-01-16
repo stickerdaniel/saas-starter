@@ -50,9 +50,25 @@
 			"home": "Startseite",
 			"website": "Webseite"
 		},
+		"settings": {
+			"default_support_email": "Standard-Support-E-Mail",
+			"default_support_email_help": "Leer lassen, um Benachrichtigungen an alle Admin-Benutzer zu senden.",
+			"default_support_email_placeholder": "support@example.com",
+			"description": "Admin-Panel-Einstellungen und Benachrichtigungen konfigurieren.",
+			"save": "Einstellungen speichern",
+			"saved": "Einstellungen gespeichert",
+			"saving": "Speichern...",
+			"support_notifications": "Support-Benachrichtigungen",
+			"support_notifications_desc": "E-Mail-Benachrichtigungen für neue und nicht zugewiesene wiedereröffnete Support-Tickets konfigurieren.",
+			"tabs": {
+				"notifications": "Benachrichtigungen"
+			},
+			"title": "Admin-Einstellungen"
+		},
 		"sidebar": {
 			"back_to_app": "Zurück zur App",
 			"dashboard": "Dashboard",
+			"settings": "Einstellungen",
 			"support": "Support",
 			"users": "Benutzer"
 		},
@@ -213,6 +229,7 @@
 		"signup": "Registrieren",
 		"verification": {
 			"button_back": "Zurück zur Anmeldung",
+			"button_cancel": "Abbrechen",
 			"button_verify": "E-Mail verifizieren",
 			"button_verify_loading": "Wird verifiziert...",
 			"check_email": "Bitte überprüfen Sie Ihre E-Mail und klicken Sie auf den Verifizierungslink, um Ihre Registrierung abzuschließen.",

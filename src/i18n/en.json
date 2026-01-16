@@ -50,9 +50,25 @@
 			"home": "Home",
 			"website": "Website"
 		},
+		"settings": {
+			"default_support_email": "Default Support Email",
+			"default_support_email_help": "Leave empty to send notifications to all admin users.",
+			"default_support_email_placeholder": "support@example.com",
+			"description": "Configure admin panel settings and notifications.",
+			"save": "Save Settings",
+			"saved": "Settings saved",
+			"saving": "Saving...",
+			"support_notifications": "Support Notifications",
+			"support_notifications_desc": "Configure email notifications for new and unassigned reopened support tickets.",
+			"tabs": {
+				"notifications": "Notifications"
+			},
+			"title": "Admin Settings"
+		},
 		"sidebar": {
 			"back_to_app": "Back to App",
 			"dashboard": "Dashboard",
+			"settings": "Settings",
 			"support": "Support",
 			"users": "Users"
 		},
@@ -215,6 +231,7 @@
 		"signup": "Sign Up",
 		"verification": {
 			"button_back": "Back to login",
+			"button_cancel": "Cancel",
 			"button_verify": "Verify Email",
 			"button_verify_loading": "Verifying...",
 			"check_email": "Please check your email and click the verification link to complete your registration.",
