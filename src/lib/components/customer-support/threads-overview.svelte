@@ -11,6 +11,7 @@
 	import memberTwo from '$blocks/team/avatars/member-two.webp';
 	import memberFive from '$blocks/team/avatars/member-five.webp';
 	import { motion } from 'motion-sv';
+	import { SvelteSet } from 'svelte/reactivity';
 
 	const ctx = supportThreadContext.get();
 
@@ -31,113 +32,6 @@
 	const adminAvatarsQuery = useQuery(api.support.threads.getAdminAvatars, {});
 	const adminUsers = $derived(adminAvatarsQuery.data ?? []);
 	const isAdminDataLoaded = $derived(!adminAvatarsQuery.isLoading);
-
-	// Track image elements for load detection
-	let avatarImageRefs: (HTMLImageElement | null)[] = $state([null, null, null]);
-
-	// Track image loading state
-	let loadedImagesCount = $state(0);
-	const expectedImageCount = $derived(adminUsers.length >= 3 ? 3 : 2);
-	const allImagesLoaded = $derived(loadedImagesCount >= expectedImageCount && isAdminDataLoaded);
-
-	// Reset loaded count only when expected count changes (admin list changed)
-	let prevExpectedCount = $state(0);
-	$effect(() => {
-		if (expectedImageCount !== prevExpectedCount) {
-			loadedImagesCount = 0;
-			// Re-initialize with proper length to avoid undefined refs
-			avatarImageRefs = Array(Math.max(expectedImageCount, 3)).fill(null);
-			prevExpectedCount = expectedImageCount;
-		}
-	});
-
-	// Helper to wait for image to be fully decoded
-	async function waitForImageDecode(img: HTMLImageElement | null): Promise<boolean> {
-		if (!img) return false;
-
-		console.log('[Avatar Loading] Checking image:', img.src);
-
-		// Check if already complete
-		if (img.complete && img.naturalWidth > 0) {
-			console.log('[Avatar Loading] Image already complete, decoding...');
-			try {
-				await img.decode();
-				console.log('[Avatar Loading] Image decoded successfully');
-				return true;
-			} catch {
-				console.warn('[Avatar Loading] Decode failed, but image is complete');
-				return true;
-			}
-		}
-
-		// Wait for load event
-		console.log('[Avatar Loading] Waiting for image to load...');
-		return new Promise((resolve) => {
-			const handleLoad = async () => {
-				console.log('[Avatar Loading] Image loaded, decoding...');
-				try {
-					await img.decode();
-					console.log('[Avatar Loading] Image decoded successfully');
-				} catch {
-					console.warn('[Avatar Loading] Decode failed after load');
-				}
-				resolve(true);
-			};
-
-			const handleError = () => {
-				console.error('[Avatar Loading] Image failed to load');
-				resolve(false);
-			};
-
-			img.addEventListener('load', handleLoad, { once: true });
-			img.addEventListener('error', handleError, { once: true });
-		});
-	}
-
-	async function handleImageLoad(index: number) {
-		const img = avatarImageRefs[index];
-		if (!img) return;
-
-		// Wait for image to be fully decoded before counting
-		const loaded = await waitForImageDecode(img);
-		if (loaded) {
-			loadedImagesCount += 1;
-		}
-	}
-
-	// Check for already-loaded (cached) images when component mounts or images change
-	$effect(() => {
-		if (!isAdminDataLoaded) return;
-
-		// Check each image and wait for decode
-		avatarImageRefs.forEach(async (img, i) => {
-			if (!img) return;
-
-			// Only process if not already counted
-			if (img.complete && img.naturalWidth > 0) {
-				const loaded = await waitForImageDecode(img);
-				if (loaded && i < expectedImageCount) {
-					// Trigger load handler which increments count
-					handleImageLoad(i);
-				}
-			}
-		});
-	});
-
-	// Fallback: Force animations if images take too long to load
-	const ANIMATION_TIMEOUT = 3000; // ms - Increased for slow connections
-	$effect(() => {
-		if (allImagesLoaded) return;
-
-		const timer = setTimeout(() => {
-			if (!allImagesLoaded && isAdminDataLoaded) {
-				console.warn('[Avatar Loading] Timeout reached, forcing animations');
-				loadedImagesCount = expectedImageCount;
-			}
-		}, ANIMATION_TIMEOUT);
-
-		return () => clearTimeout(timer);
-	});
 
 	// Placeholder avatars with grayscale filter when not enough admins
 	const placeholderAvatars = [memberFour, memberTwo, memberFive];
@@ -192,6 +86,74 @@
 
 			return result;
 		}
+	});
+
+	// Track which specific image URLs have been preloaded (reactive Set)
+	let preloadedUrls = new SvelteSet<string>();
+
+	// Get the image URLs we need to load (only after admin data is ready)
+	// This ensures we wait for the actual admin images, not placeholders shown before data loads
+	const imageUrlsToLoad = $derived.by(() => {
+		if (!isAdminDataLoaded) return [];
+		return displayAvatars.map((a) => a.src);
+	});
+
+	// All images are ready when every required URL is preloaded
+	const allImagesLoaded = $derived(
+		imageUrlsToLoad.length > 0 && imageUrlsToLoad.every((url) => preloadedUrls.has(url))
+	);
+
+	// Preload images when URLs change (with proper cleanup)
+	$effect(() => {
+		const urls = imageUrlsToLoad; // sync read = tracked dependency
+		if (urls.length === 0) return;
+
+		const controller = new AbortController();
+
+		urls.forEach((url) => {
+			if (preloadedUrls.has(url)) return; // already loaded
+
+			const img = new Image();
+
+			controller.signal.addEventListener(
+				'abort',
+				() => {
+					img.src = ''; // cancel loading
+				},
+				{ once: true }
+			);
+
+			img.onload = async () => {
+				if (controller.signal.aborted) return;
+				try {
+					await img.decode(); // ensure fully decoded for rendering
+				} catch {
+					/* ignore decode errors */
+				}
+				preloadedUrls.add(url); // SvelteSet is reactive
+			};
+
+			img.onerror = () => {
+				if (controller.signal.aborted) return;
+				preloadedUrls.add(url); // mark as "loaded" to not block animation
+			};
+
+			img.src = url;
+		});
+
+		return () => controller.abort();
+	});
+
+	// Fallback: Force animations if images take too long to load
+	const ANIMATION_TIMEOUT = 3000;
+	$effect(() => {
+		if (allImagesLoaded || !isAdminDataLoaded) return;
+
+		const timer = setTimeout(() => {
+			imageUrlsToLoad.forEach((url) => preloadedUrls.add(url));
+		}, ANIMATION_TIMEOUT);
+
+		return () => clearTimeout(timer);
 	});
 
 	// Fade animation state - triggers only on first successful load
@@ -278,11 +240,9 @@
 							>
 								<Avatar class="size-12 outline outline-4 outline-secondary">
 									<AvatarImage
-										bind:ref={avatarImageRefs[i]}
 										src={avatar.src}
 										alt={avatar.alt}
 										class={avatar.isPlaceholder ? 'object-cover grayscale' : 'object-cover'}
-										onload={() => handleImageLoad(i)}
 									/>
 								</Avatar>
 							</motion.div>
