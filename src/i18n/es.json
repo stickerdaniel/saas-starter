@@ -50,9 +50,25 @@
 			"home": "Inicio",
 			"website": "Sitio Web"
 		},
+		"settings": {
+			"default_support_email": "Email de Soporte Predeterminado",
+			"default_support_email_help": "Dejar vacío para enviar notificaciones a todos los administradores.",
+			"default_support_email_placeholder": "soporte@example.com",
+			"description": "Configura los ajustes del panel de administración y las notificaciones.",
+			"save": "Guardar Configuración",
+			"saved": "Configuración guardada",
+			"saving": "Guardando...",
+			"support_notifications": "Notificaciones de Soporte",
+			"support_notifications_desc": "Configura las notificaciones por email para tickets de soporte nuevos y reabiertos no asignados.",
+			"tabs": {
+				"notifications": "Notificaciones"
+			},
+			"title": "Configuración de Admin"
+		},
 		"sidebar": {
 			"back_to_app": "Volver a la App",
 			"dashboard": "Panel",
+			"settings": "Configuración",
 			"support": "Soporte",
 			"users": "Usuarios"
 		},
@@ -213,6 +229,7 @@
 		"signup": "Registrarse",
 		"verification": {
 			"button_back": "Volver al inicio de sesión",
+			"button_cancel": "Cancelar",
 			"button_verify": "Verificar correo",
 			"button_verify_loading": "Verificando...",
 			"check_email": "Por favor revisa tu correo electrónico y haz clic en el enlace de verificación para completar tu registro.",
