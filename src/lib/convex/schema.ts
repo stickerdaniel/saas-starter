@@ -99,7 +99,28 @@ export default defineSchema({
 		.searchIndex('search_all', {
 			searchField: 'searchText',
 			filterFields: ['status', 'assignedTo', 'isHandedOff', 'awaitingAdminResponse']
-		})
+		}),
+
+	// Admin settings - key-value store for app configuration
+	adminSettings: defineTable({
+		key: v.string(), // Setting key (e.g., 'defaultSupportEmail')
+		value: v.string(), // Setting value
+		updatedAt: v.number(),
+		updatedBy: v.optional(v.string()) // Admin who last updated
+	}).index('by_key', ['key']),
+
+	// Pending admin notifications - for debounced delivery
+	// Triggered when user clicks "Talk to human", sends message to handed-off ticket,
+	// or reopens a closed ticket. Uses 2-minute debounce to accumulate multiple messages.
+	// Timer resets if user sends more messages within the delay window.
+	pendingAdminNotifications: defineTable({
+		threadId: v.string(), // Support thread ID
+		isReopen: v.boolean(), // true = reopened ticket, false = new/handoff ticket
+		scheduledFor: v.number(), // Timestamp when notification should send
+		messageIds: v.array(v.string()), // Accumulated message IDs to include
+		scheduledFnId: v.optional(v.id('_scheduled_functions')), // For cancellation
+		createdAt: v.number()
+	}).index('by_thread', ['threadId'])
 
 	// Note: The agent component automatically creates the following tables:
 	// - agent:threads - Conversation threads for customer support

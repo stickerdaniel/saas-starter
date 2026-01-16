@@ -4,9 +4,11 @@ import { resend } from './resend';
 import {
 	renderVerificationEmail,
 	renderPasswordResetEmail,
-	renderAdminReplyNotificationEmail
+	renderAdminReplyNotificationEmail,
+	renderNewTicketAdminNotificationEmail
 } from './templates';
 import { getAuthEmail, getSiteUrl } from '../env';
+import type { NotificationMessage } from '../../emails/templates/types';
 
 /**
  * Send verification email with verification link
@@ -107,6 +109,61 @@ export const sendAdminReplyNotification = internalMutation({
 			headers: [
 				{ name: 'X-Email-Category', value: 'support' },
 				{ name: 'X-Email-Template', value: 'admin-reply' },
+				{ name: 'X-Thread-ID', value: threadId }
+			]
+		});
+	}
+});
+
+/**
+ * Send notification email to admin when a new ticket is created or reopened
+ *
+ * Called after the debounce period expires when a user creates a new ticket
+ * or sends a message to a previously closed ticket.
+ *
+ * Uses pre-rendered HTML templates with template placeholders for dynamic content.
+ */
+export const sendNewTicketAdminNotification = internalMutation({
+	args: {
+		email: v.string(),
+		isReopen: v.boolean(),
+		userName: v.string(),
+		messages: v.array(
+			v.object({
+				text: v.string(),
+				timestamp: v.string()
+			})
+		),
+		threadId: v.string()
+	},
+	handler: async (ctx, args) => {
+		const { email, isReopen, userName, messages, threadId } = args;
+		const siteUrl = getSiteUrl();
+
+		// Build admin dashboard link for this thread
+		const adminDashboardLink = `${siteUrl}/admin/support?thread=${threadId}`;
+
+		const { html, text } = renderNewTicketAdminNotificationEmail({
+			isReopen,
+			userName,
+			messages: messages as NotificationMessage[],
+			adminDashboardLink
+		});
+
+		const subject = isReopen
+			? `Support ticket reopened by ${userName}`
+			: `New support ticket from ${userName}`;
+
+		await resend.sendEmail(ctx, {
+			from: getAuthEmail(),
+			to: email,
+			subject,
+			html,
+			text,
+			// Analytics tracking via custom headers
+			headers: [
+				{ name: 'X-Email-Category', value: 'support-admin' },
+				{ name: 'X-Email-Template', value: isReopen ? 'ticket-reopened' : 'new-ticket' },
 				{ name: 'X-Thread-ID', value: threadId }
 			]
 		});
