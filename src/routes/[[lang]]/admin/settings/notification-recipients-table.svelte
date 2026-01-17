@@ -177,7 +177,7 @@
 				{/each}
 			</Table.Header>
 			<Table.Body>
-				{#if isLoading}
+				{#if isLoading && skeletonCount > 0}
 					<!-- Skeleton loading rows matching real row structure exactly -->
 					{#each Array(skeletonCount) as _, i (i)}
 						<Table.Row data-testid="recipients-loading">
@@ -223,8 +223,8 @@
 							</Table.Cell>
 						</Table.Row>
 					{/each}
-				{:else if table.getRowModel().rows.length === 0}
-					<!-- No results -->
+				{:else if table.getRowModel().rows.length === 0 || (isLoading && skeletonCount === 0)}
+					<!-- No results (shown immediately when cache=0, or after load completes with 0 items) -->
 					<Table.Row data-testid="recipients-empty">
 						<Table.Cell
 							colspan={columns.length}
