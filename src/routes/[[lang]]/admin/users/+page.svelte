@@ -642,7 +642,7 @@
 				{/each}
 			</Table.Header>
 			<Table.Body>
-				{#if currentPageData === undefined}
+				{#if currentPageData === undefined && skeletonCount > 0}
 					<!-- Skeleton loading rows matching real row structure -->
 					{#each Array(skeletonCount) as _, i (i)}
 						<Table.Row>
@@ -686,8 +686,8 @@
 							</Table.Cell>
 						</Table.Row>
 					{/each}
-				{:else if table.getRowModel().rows.length === 0}
-					<!-- No results -->
+				{:else if table.getRowModel().rows.length === 0 || (currentPageData === undefined && skeletonCount === 0)}
+					<!-- No results (shown immediately when cache=0, or after load completes with 0 items) -->
 					<Table.Row>
 						<Table.Cell
 							colspan={columns.length}
