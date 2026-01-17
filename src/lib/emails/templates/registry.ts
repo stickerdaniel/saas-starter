@@ -53,6 +53,26 @@ export const EMAIL_TEMPLATES: Record<string, TemplateConfig> = {
 			messagePreview: '__ETA_messagePreview__',
 			deepLink: '__ETA_deepLink__'
 		}
+	},
+	NewTicketAdminNotificationEmail: {
+		outputName: 'newTicketAdminNotification',
+		props: {
+			titleText: '__ETA_titleText__',
+			descriptionText: '__ETA_descriptionText__',
+			previewText: '__ETA_previewText__',
+			messagesHtml: '__ETA_messagesHtml__',
+			adminDashboardLink: '__ETA_adminDashboardLink__'
+		}
+	},
+	NewUserSignupNotificationEmail: {
+		outputName: 'newUserSignupNotification',
+		props: {
+			userName: '__ETA_userName__',
+			userEmail: '__ETA_userEmail__',
+			signupMethod: '__ETA_signupMethod__',
+			signupTime: '__ETA_signupTime__',
+			adminDashboardLink: '__ETA_adminDashboardLink__'
+		}
 	}
 };
 

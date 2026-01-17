@@ -114,6 +114,36 @@ bun run dev
 
 Visit `http://localhost:5173` to see your app!
 
+### 7. Set Up First Admin (Required for Admin Panel)
+
+The admin panel requires at least one admin user. To promote your first admin:
+
+1. **Sign up** with the email you want to be admin
+2. **Run the seed command:**
+
+   ```bash
+   bunx convex run admin/mutations:seedFirstAdmin '{"email":"your-email@example.com"}'
+   ```
+
+This is a one-time setup. The command will:
+
+- Verify the user exists
+- Check that no admins exist yet (prevents accidental re-runs)
+- Promote the user to admin role
+- Enable notification preferences for admin alerts
+
+**Note:** After the first admin is set up, additional admins can be promoted via the Admin Panel → Users page.
+
+### 8. Sync Existing Admins (Migration)
+
+If you had admin users before the notification preferences feature was added, run this one-time migration to sync them:
+
+```bash
+bunx convex run admin/notificationPreferences/mutations:syncAllAdminPreferences
+```
+
+This ensures all existing admins appear in the Admin Settings → Notification Recipients page. Safe to run multiple times.
+
 ## Available Scripts
 
 - `bun run dev` - Start development server
@@ -356,6 +386,19 @@ bunx convex env set RESEND_API_KEY your_resend_api_key --prod
 bunx convex env set AUTH_EMAIL "noreply@yourdomain.com" --prod
 bunx convex env set RESEND_WEBHOOK_SECRET your_webhook_secret --prod
 ```
+
+### Set Up Production Admin
+
+After deploying to production, set up your first admin:
+
+1. **Sign up** on your production site with your admin email
+2. **Run the seed command** against production:
+
+   ```bash
+   bunx convex run admin/mutations:seedFirstAdmin '{"email":"admin@yourdomain.com"}' --prod
+   ```
+
+This enables access to the Admin Panel at `/admin`.
 
 ## Customization
 

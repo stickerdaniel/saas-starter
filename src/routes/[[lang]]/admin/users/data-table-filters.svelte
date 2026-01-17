@@ -1,7 +1,6 @@
 <script lang="ts">
 	import * as Select from '$lib/components/ui/select/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
-	import FilterIcon from '@tabler/icons-svelte/icons/filter';
 	import XIcon from '@tabler/icons-svelte/icons/x';
 	import { T, getTranslate } from '@tolgee/svelte';
 
@@ -61,8 +60,6 @@
 </script>
 
 <div class="flex items-center gap-2">
-	<FilterIcon class="size-4 text-muted-foreground" />
-
 	<!-- Role Filter -->
 	<Select.Root type="single" value={roleValue} onValueChange={handleRoleChange}>
 		<Select.Trigger class="h-8 w-[130px]">

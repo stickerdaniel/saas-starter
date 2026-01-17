@@ -50,9 +50,66 @@
 			"home": "Accueil",
 			"website": "Site Web"
 		},
+		"settings": {
+			"add_email": "Ajouter un Email",
+			"add_email_dialog_desc": "Ajouter une adresse email pour recevoir les notifications admin",
+			"add_email_dialog_title": "Ajouter un Email Personnalisé",
+			"add_email_placeholder": "email@example.com",
+			"column_email": "Email",
+			"column_name": "Nom",
+			"column_new_signups": "Nouvelles Inscriptions",
+			"column_new_tickets": "Nouveaux Tickets",
+			"column_type": "Type",
+			"column_user_replies": "Réponses Utilisateur",
+			"default_support_email": "Email de Support par Défaut",
+			"default_support_email_help": "Laisser vide pour envoyer les notifications à tous les administrateurs.",
+			"default_support_email_placeholder": "support@example.com",
+			"delete_email": "Supprimer",
+			"delete_email_confirm": "Supprimer {email} des destinataires de notifications ?",
+			"delete_email_description": "Supprimer {email} des destinataires de notifications ?",
+			"delete_email_title": "Supprimer l'Email",
+			"description": "Configurez les paramètres du panneau d'administration et les notifications.",
+			"email_added": "Email ajouté",
+			"email_add_failed": "Impossible d'ajouter l'email",
+			"email_exists": "Cet email existe déjà",
+			"email_removed": "Email supprimé",
+			"field_new_signups": "Notifications de nouvelles inscriptions",
+			"field_new_tickets": "Notifications de nouveaux tickets",
+			"field_user_replies": "Notifications de réponses utilisateur",
+			"filter": {
+				"admin_only": "Admins Uniquement",
+				"all_types": "Tous les Types",
+				"clear": "Effacer",
+				"custom_only": "Personnalisés Uniquement"
+			},
+			"invalid_email": "Adresse email invalide",
+			"no_recipients": "Aucun destinataire de notifications configuré",
+			"notification_recipients": "Destinataires des Notifications",
+			"notification_recipients_desc": "Configurez qui reçoit les notifications admin. Les utilisateurs admin sont automatiquement inclus.",
+			"preference_disabled": "{field} désactivées",
+			"preference_disabling": "Désactivation de {field}...",
+			"preference_enabled": "{field} activées",
+			"preference_enabling": "Activation de {field}...",
+			"preference_update_failed": "Échec de la mise à jour de la préférence",
+			"recipient_count": "{count, plural, one {# destinataire} other {# destinataires}}",
+			"save": "Enregistrer les Paramètres",
+			"saved": "Paramètres enregistrés",
+			"saving": "Enregistrement...",
+			"selected": "{selected} sur {total} sélectionnés",
+			"support_notifications": "Notifications de Support",
+			"support_notifications_desc": "Configurez les notifications par email pour les tickets de support nouveaux et rouverts non assignés.",
+			"tabs": {
+				"notifications": "Notifications",
+				"recipients": "Destinataires"
+			},
+			"title": "Paramètres Admin",
+			"type_admin": "Admin",
+			"type_custom": "Personnalisé"
+		},
 		"sidebar": {
 			"back_to_app": "Retour à l'App",
 			"dashboard": "Tableau de bord",
+			"settings": "Paramètres",
 			"support": "Support",
 			"users": "Utilisateurs"
 		},
@@ -213,6 +270,7 @@
 		"signup": "S'inscrire",
 		"verification": {
 			"button_back": "Retour à la connexion",
+			"button_cancel": "Annuler",
 			"button_verify": "Vérifier l'e-mail",
 			"button_verify_loading": "Vérification en cours...",
 			"check_email": "Veuillez vérifier votre e-mail et cliquer sur le lien de vérification pour finaliser votre inscription.",
@@ -260,6 +318,7 @@
 		"title": "Chat Communautaire"
 	},
 	"common": {
+		"adding": "Ajout en cours...",
 		"cancel": "Annuler",
 		"confirm": "Confirmer"
 	},

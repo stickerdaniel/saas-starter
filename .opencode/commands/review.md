@@ -97,27 +97,27 @@ Run a comprehensive pull request review using multiple specialized agents, each 
 **Full review (default):**
 
 ```
-/pr-review-toolkit:review-pr
+/review
 ```
 
 **Specific aspects:**
 
 ```
-/pr-review-toolkit:review-pr tests errors
+/review tests errors
 # Reviews only test coverage and error handling
 
-/pr-review-toolkit:review-pr comments
+/review comments
 # Reviews only code comments
 
-/pr-review-toolkit:review-pr simplify
+/review simplify
 # Simplifies code after passing review
 ```
 
-**Parallel review:**
+**Perpendicular review:**
 
 ```
-/pr-review-toolkit:review-pr all parallel
-# Launches all agents in parallel
+/review all perpendicular
+# Launches all agents after each other
 ```
 
 ## Agent Descriptions:
@@ -148,7 +148,7 @@ Run a comprehensive pull request review using multiple specialized agents, each 
 
 **code-reviewer**:
 
-- Checks CLAUDE.md compliance
+- Checks AGENTS.md compliance
 - Detects bugs and issues
 - Reviews general code quality
 
@@ -173,19 +173,21 @@ Run a comprehensive pull request review using multiple specialized agents, each 
 
 ```
 1. Write code
-2. Run: /pr-review-toolkit:review-pr code errors
-3. Fix any critical issues
-4. Commit
+2. Run: /review code errors
+3. After review agents have finished, launch a general subagent for every critical / important issue found that should verify if this is indeed an issue and if it should be fixed. Instruct those general agents to use the tools available. For example, if it's a Svelte specific issue, it should use the Svelte MCP. If it's a Convex related issue, use the Convex mcp.
+4. Create a plan that addresses the issues and how to fix them.
+5. User confirms the plan and fix the issues.
 ```
 
 **Before creating PR:**
 
 ```
 1. Stage all changes
-2. Run: /pr-review-toolkit:review-pr all
-3. Address all critical and important issues
-4. Run specific reviews again to verify
-5. Create PR
+2. Run: /review all
+3. After review agents have finished, launch a general subagent for every critical / important issue found that should verify if this is indeed an issue and if it should be fixed. Instruct those general agents to use the tools available. For example, if it's a Svelte specific issue, it should use the Svelte MCP. If it's a Convex related issue, use the Convex mcp.
+4. Create a plan that addresses the issues and how to fix them.
+5. Run specific reviews again to verify
+6. Create PR
 ```
 
 **After PR feedback:**
@@ -197,10 +199,9 @@ Run a comprehensive pull request review using multiple specialized agents, each 
 4. Push updates
 ```
 
-## Notes:
+## Notes
 
 - Agents run autonomously and return detailed reports
 - Each agent focuses on its specialty for deep analysis
 - Results are actionable with specific file:line references
 - Agents use appropriate models for their complexity
-- All agents available in `/agents` list

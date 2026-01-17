@@ -99,7 +99,48 @@ export default defineSchema({
 		.searchIndex('search_all', {
 			searchField: 'searchText',
 			filterFields: ['status', 'assignedTo', 'isHandedOff', 'awaitingAdminResponse']
-		})
+		}),
+
+	// Admin settings - key-value store for app configuration
+	adminSettings: defineTable({
+		key: v.string(), // Setting key (e.g., 'defaultSupportEmail')
+		value: v.string(), // Setting value
+		updatedAt: v.number(),
+		updatedBy: v.optional(v.string()) // Admin who last updated
+	}).index('by_key', ['key']),
+
+	// Pending admin notifications - for debounced delivery
+	// Triggered when user clicks "Talk to human", sends message to handed-off ticket,
+	// or reopens a closed ticket. Uses 2-minute debounce to accumulate multiple messages.
+	// Timer resets if user sends more messages within the delay window.
+	pendingAdminNotifications: defineTable({
+		threadId: v.string(), // Support thread ID
+		isReopen: v.boolean(), // true = reopened ticket, false = new/handoff ticket
+		notificationType: v.union(v.literal('newTickets'), v.literal('userReplies')), // Which preference toggle to use
+		scheduledFor: v.number(), // Timestamp when notification should send
+		messageIds: v.array(v.string()), // Accumulated message IDs to include
+		scheduledFnId: v.optional(v.id('_scheduled_functions')), // For cancellation
+		createdAt: v.number()
+	}).index('by_thread', ['threadId']),
+
+	// Admin notification preferences - per-recipient toggles for notification types
+	// Admin users are auto-synced via auth triggers; custom emails can be added manually.
+	// When admin is demoted, isAdminUser is set to false but record is kept dormant.
+	adminNotificationPreferences: defineTable({
+		email: v.string(), // Email address to send notifications to
+		userId: v.optional(v.string()), // Better Auth user ID (undefined for custom emails)
+		isAdminUser: v.boolean(), // true = currently has admin role, false = demoted or custom email
+
+		// Notification type toggles
+		notifyNewSupportTickets: v.boolean(), // New support tickets (handoff from AI)
+		notifyUserReplies: v.boolean(), // User replied, admin didn't respond within 2 min
+		notifyNewSignups: v.boolean(), // New user registrations
+
+		createdAt: v.number(),
+		updatedAt: v.number()
+	})
+		.index('by_email', ['email'])
+		.index('by_user', ['userId'])
 
 	// Note: The agent component automatically creates the following tables:
 	// - agent:threads - Conversation threads for customer support

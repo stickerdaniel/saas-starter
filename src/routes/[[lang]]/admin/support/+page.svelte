@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { z } from 'zod';
 	import { useSearchParams } from 'runed/kit';
 	import { Debounced } from 'runed';
@@ -16,6 +17,7 @@
 	import ThreadChat from './thread-chat.svelte';
 	import ThreadDetails from './thread-details.svelte';
 	import { adminSupportUI } from '$lib/hooks/admin-support-ui.svelte';
+	import { adminCache } from '$lib/hooks/admin-cache.svelte';
 
 	// Filter state schema (thread managed separately to avoid reload on selection)
 	const filterSchema = z.object({
@@ -71,6 +73,32 @@
 	// Selected thread from already-loaded list (for instant header display)
 	const selectedThread = $derived(allThreads.find((t) => t._id === threadId));
 
+	// Cache key for current filter combination (status:mode)
+	const cacheKey = $derived(`${filters.status}:${filters.mode}`);
+
+	// Get cached thread count for current filter (only when no search active)
+	const cachedThreadCount = $derived(
+		!debouncedSearch.current ? adminCache.supportThreadCounts.current[cacheKey] : undefined
+	);
+
+	// Update cache when query finishes loading (not during loading), only without search
+	// Use untrack to read cache without creating dependency, and only update if value changed
+	$effect(() => {
+		if (!debouncedSearch.current && !isLoading) {
+			const key = cacheKey;
+			const count = allThreads.length; // Can be 0 for empty results
+			const currentCache = untrack(() => adminCache.supportThreadCounts.current);
+
+			// Only update if the value actually changed - prevents infinite loop
+			if (currentCache[key] !== count) {
+				adminCache.supportThreadCounts.current = {
+					...currentCache,
+					[key]: count
+				};
+			}
+		}
+	});
+
 	// Load more handler for infinite scroll
 	function loadMoreThreads(numItems: number): boolean {
 		return threadsQuery.loadMore(numItems);
@@ -110,6 +138,7 @@
 					selectedThreadId={threadId}
 					{isLoading}
 					{isDone}
+					cachedCount={cachedThreadCount}
 					onFilterChange={(mode) => (filters.mode = mode)}
 					onStatusChange={(status) => (filters.status = status)}
 					onSearchChange={(query) => (filters.search = query)}
@@ -163,6 +192,7 @@
 					selectedThreadId={threadId}
 					{isLoading}
 					{isDone}
+					cachedCount={cachedThreadCount}
 					onFilterChange={(mode) => (filters.mode = mode)}
 					onStatusChange={(status) => (filters.status = status)}
 					onSearchChange={(query) => (filters.search = query)}
@@ -200,6 +230,7 @@
 				selectedThreadId={threadId}
 				{isLoading}
 				{isDone}
+				cachedCount={cachedThreadCount}
 				onFilterChange={(mode) => (filters.mode = mode)}
 				onStatusChange={(status) => (filters.status = status)}
 				onSearchChange={(query) => (filters.search = query)}
