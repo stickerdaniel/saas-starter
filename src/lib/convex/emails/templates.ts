@@ -10,6 +10,8 @@ import type {
 	VerificationCodeEmailData,
 	PasswordResetEmailData,
 	AdminReplyNotificationEmailData,
+	NewTicketAdminNotificationEmailData,
+	NewUserSignupNotificationEmailData,
 	RenderedEmail
 } from '../../emails/templates/types';
 import {
@@ -20,7 +22,11 @@ import {
 	PASSWORDRESET_HTML,
 	PASSWORDRESET_TEXT,
 	ADMINREPLYNOTIFICATION_HTML,
-	ADMINREPLYNOTIFICATION_TEXT
+	ADMINREPLYNOTIFICATION_TEXT,
+	NEWTICKETADMINNOTIFICATION_HTML,
+	NEWTICKETADMINNOTIFICATION_TEXT,
+	NEWUSERSIGNUPNOTIFICATION_HTML,
+	NEWUSERSIGNUPNOTIFICATION_TEXT
 } from './_generated/index.js';
 import { getEmailAssetUrl } from '../env';
 
@@ -168,5 +174,107 @@ export function renderAdminReplyNotificationEmail(
 	return {
 		html: renderTemplate(ADMINREPLYNOTIFICATION_HTML, data),
 		text: renderTemplate(ADMINREPLYNOTIFICATION_TEXT, textData)
+	};
+}
+
+/**
+ * Render new ticket admin notification email
+ *
+ * Sent to admins when:
+ * - User clicks "Talk to human" (handoff from AI)
+ * - User sends message to a handed-off ticket
+ * - User reopens a closed ticket
+ *
+ * @param data - Email data including isReopen, user info, messages, and admin dashboard link
+ * @returns Rendered HTML and plain text email
+ */
+export function renderNewTicketAdminNotificationEmail(
+	data: NewTicketAdminNotificationEmailData
+): RenderedEmail {
+	const baseUrl = getBaseUrl();
+
+	// Compute text values based on isReopen flag
+	const titleText = data.isReopen ? 'Support ticket reopened' : 'New support ticket';
+	const descriptionText = data.isReopen
+		? `${data.userName} has sent a new message to a previously closed ticket`
+		: `${data.userName} has started a new support conversation`;
+	const previewText = data.isReopen
+		? `${data.userName} has reopened a support ticket`
+		: `New support ticket from ${data.userName}`;
+
+	// Build HTML for messages (only show timestamp for first message)
+	const messagesHtml = data.messages
+		.map(
+			(m, index) => `
+		<div style="background-color: #f4f4f5; border-radius: 6px; padding: 12px; margin-bottom: 8px;">
+			${index === 0 ? `<span style="display: block; font-size: 12px; color: #71717a; margin-bottom: 4px;">${escapeHtml(m.timestamp)}</span>` : ''}
+			<span style="font-size: 14px; color: #18181b;">${escapeHtml(m.text)}</span>
+		</div>
+	`
+		)
+		.join('');
+
+	const templateData = {
+		titleText: escapeHtml(titleText),
+		descriptionText: escapeHtml(descriptionText),
+		previewText: escapeHtml(previewText),
+		messagesHtml: messagesHtml || '<p style="color: #71717a;">No messages</p>',
+		adminDashboardLink: escapeHtml(data.adminDashboardLink),
+		baseUrl: escapeHtml(baseUrl)
+	};
+
+	// For plain text version (only show timestamp for first message)
+	const messagesText = data.messages
+		.map((m, index) => (index === 0 ? `[${m.timestamp}] ${m.text}` : m.text))
+		.join('\n\n');
+	const textData = {
+		titleText,
+		descriptionText,
+		previewText,
+		messagesHtml: messagesText || 'No messages',
+		adminDashboardLink: data.adminDashboardLink,
+		baseUrl
+	};
+
+	return {
+		html: renderTemplate(NEWTICKETADMINNOTIFICATION_HTML, templateData),
+		text: renderTemplate(NEWTICKETADMINNOTIFICATION_TEXT, textData)
+	};
+}
+
+/**
+ * Render new user signup notification email
+ *
+ * Sent to admins when a new user registers on the platform.
+ *
+ * @param data - Email data including user info and admin dashboard link
+ * @returns Rendered HTML and plain text email
+ */
+export function renderNewUserSignupNotificationEmail(
+	data: NewUserSignupNotificationEmailData
+): RenderedEmail {
+	const baseUrl = getBaseUrl();
+
+	const templateData = {
+		userName: escapeHtml(data.userName || 'New User'),
+		userEmail: escapeHtml(data.userEmail),
+		signupMethod: escapeHtml(data.signupMethod),
+		signupTime: escapeHtml(data.signupTime),
+		adminDashboardLink: escapeHtml(data.adminDashboardLink),
+		baseUrl: escapeHtml(baseUrl)
+	};
+
+	const textData = {
+		userName: data.userName || 'New User',
+		userEmail: data.userEmail,
+		signupMethod: data.signupMethod,
+		signupTime: data.signupTime,
+		adminDashboardLink: data.adminDashboardLink,
+		baseUrl
+	};
+
+	return {
+		html: renderTemplate(NEWUSERSIGNUPNOTIFICATION_HTML, templateData),
+		text: renderTemplate(NEWUSERSIGNUPNOTIFICATION_TEXT, textData)
 	};
 }

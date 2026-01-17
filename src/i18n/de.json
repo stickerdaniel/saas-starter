@@ -50,9 +50,66 @@
 			"home": "Startseite",
 			"website": "Webseite"
 		},
+		"settings": {
+			"add_email": "E-Mail hinzufügen",
+			"add_email_dialog_desc": "E-Mail-Adresse für Admin-Benachrichtigungen hinzufügen",
+			"add_email_dialog_title": "Benutzerdefinierte E-Mail hinzufügen",
+			"add_email_placeholder": "email@example.com",
+			"column_email": "E-Mail",
+			"column_name": "Name",
+			"column_new_signups": "Neue Anmeldungen",
+			"column_new_tickets": "Neue Tickets",
+			"column_type": "Typ",
+			"column_user_replies": "Benutzerantworten",
+			"default_support_email": "Standard-Support-E-Mail",
+			"default_support_email_help": "Leer lassen, um Benachrichtigungen an alle Admin-Benutzer zu senden.",
+			"default_support_email_placeholder": "support@example.com",
+			"delete_email": "Entfernen",
+			"delete_email_confirm": "{email} aus den Benachrichtigungsempfängern entfernen?",
+			"delete_email_description": "{email} aus den Benachrichtigungsempfängern entfernen?",
+			"delete_email_title": "E-Mail entfernen",
+			"description": "Admin-Panel-Einstellungen und Benachrichtigungen konfigurieren.",
+			"email_added": "E-Mail hinzugefügt",
+			"email_add_failed": "E-Mail konnte nicht hinzugefügt werden",
+			"email_exists": "Diese E-Mail existiert bereits",
+			"email_removed": "E-Mail entfernt",
+			"field_new_signups": "Benachrichtigungen für neue Anmeldungen",
+			"field_new_tickets": "Benachrichtigungen für neue Tickets",
+			"field_user_replies": "Benachrichtigungen für Benutzerantworten",
+			"filter": {
+				"admin_only": "Nur Admins",
+				"all_types": "Alle Typen",
+				"clear": "Löschen",
+				"custom_only": "Nur Benutzerdefiniert"
+			},
+			"invalid_email": "Ungültige E-Mail-Adresse",
+			"no_recipients": "Keine Benachrichtigungsempfänger konfiguriert",
+			"notification_recipients": "Benachrichtigungsempfänger",
+			"notification_recipients_desc": "Konfigurieren Sie, wer Admin-Benachrichtigungen erhält. Admin-Benutzer werden automatisch einbezogen.",
+			"preference_disabled": "{field} deaktiviert",
+			"preference_disabling": "{field} wird deaktiviert...",
+			"preference_enabled": "{field} aktiviert",
+			"preference_enabling": "{field} wird aktiviert...",
+			"preference_update_failed": "Einstellung konnte nicht aktualisiert werden",
+			"recipient_count": "{count, plural, other {# Empfänger} }",
+			"save": "Einstellungen speichern",
+			"saved": "Einstellungen gespeichert",
+			"saving": "Speichern...",
+			"selected": "{selected} von {total} ausgewählt",
+			"support_notifications": "Support-Benachrichtigungen",
+			"support_notifications_desc": "E-Mail-Benachrichtigungen für neue und nicht zugewiesene wiedereröffnete Support-Tickets konfigurieren.",
+			"tabs": {
+				"notifications": "Benachrichtigungen",
+				"recipients": "Empfänger"
+			},
+			"title": "Admin-Einstellungen",
+			"type_admin": "Admin",
+			"type_custom": "Benutzerdefiniert"
+		},
 		"sidebar": {
 			"back_to_app": "Zurück zur App",
 			"dashboard": "Dashboard",
+			"settings": "Einstellungen",
 			"support": "Support",
 			"users": "Benutzer"
 		},
@@ -213,6 +270,7 @@
 		"signup": "Registrieren",
 		"verification": {
 			"button_back": "Zurück zur Anmeldung",
+			"button_cancel": "Abbrechen",
 			"button_verify": "E-Mail verifizieren",
 			"button_verify_loading": "Wird verifiziert...",
 			"check_email": "Bitte überprüfen Sie Ihre E-Mail und klicken Sie auf den Verifizierungslink, um Ihre Registrierung abzuschließen.",
@@ -260,6 +318,7 @@
 		"title": "Community Chat"
 	},
 	"common": {
+		"adding": "Wird hinzugefügt...",
 		"cancel": "Abbrechen",
 		"confirm": "Bestätigen"
 	},
