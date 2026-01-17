@@ -7,8 +7,8 @@
 	import Menu from '@lucide/svelte/icons/menu';
 	import X from '@lucide/svelte/icons/x';
 	import LogOut from '@lucide/svelte/icons/log-out';
-	import Command from '@lucide/svelte/icons/command';
 	import Github from '@lucide/svelte/icons/github';
+	import Logo from '$lib/components/icons/logo.svelte';
 	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
 	import { authClient } from '$lib/auth-client';
 	import { T } from '@tolgee/svelte';
@@ -33,7 +33,7 @@
 			>
 				<!-- Logo -->
 				<a href={localizedHref('/')} aria-label="home" class="flex items-center space-x-2">
-					<Command class="size-5" />
+					<Logo class="size-5" />
 					<span class="font-semibold">SaaS Starter</span>
 				</a>
 
