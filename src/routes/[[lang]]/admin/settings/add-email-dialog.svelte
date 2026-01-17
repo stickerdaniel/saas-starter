@@ -42,6 +42,12 @@
 			{...addEmailForm.preflight(emailSchema).enhance(async ({ submit, form: formEl }) => {
 				try {
 					await submit();
+					// Check if server returned validation errors (e.g., duplicate email)
+					const issues = addEmailForm.fields.email.issues() ?? [];
+					if (issues.length > 0) {
+						// Don't close dialog - let error be displayed
+						return;
+					}
 					formEl.reset();
 					toast.success($t('admin.settings.email_added'));
 					open = false;
