@@ -426,6 +426,26 @@ export const updateThreadHandoff = mutation({
 			threadId: args.threadId
 		});
 
+		// Get recent user messages and schedule admin notification immediately
+		// This starts the 2-minute debounce as soon as "Talk to human" is pressed
+		const recentMessageIds = await ctx.runQuery(
+			internal.admin.support.notifications.getRecentUserMessages,
+			{ threadId: args.threadId }
+		);
+
+		if (recentMessageIds.length > 0) {
+			await ctx.scheduler.runAfter(
+				0,
+				internal.admin.support.notifications.scheduleAdminNotification,
+				{
+					threadId: args.threadId,
+					messageIds: recentMessageIds,
+					isReopen: false,
+					notificationType: 'newTickets' // Handoff from AI to human
+				}
+			);
+		}
+
 		return true;
 	}
 });

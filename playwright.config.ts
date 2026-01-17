@@ -28,12 +28,17 @@ export default defineConfig({
 
 	/* Configure projects */
 	projects: [
-		// Setup project - authenticates and saves state
+		// Setup project - authenticates regular user and saves state
 		{
 			name: 'setup',
-			testMatch: /.*\.setup\.ts/
+			testMatch: /signin\.setup\.ts/
 		},
-		// Tests that need authentication (most tests)
+		// Admin setup - promotes test user to admin and saves admin auth state
+		{
+			name: 'admin-setup',
+			testMatch: /admin\.setup\.ts/
+		},
+		// Tests that need regular user authentication
 		{
 			name: 'chromium',
 			use: {
@@ -42,8 +47,19 @@ export default defineConfig({
 				storageState: 'e2e/.auth/user.json'
 			},
 			dependencies: ['setup'],
-			// Don't run invalid-auth tests - those need unauthenticated state
-			testIgnore: /invalid-auth\.spec\.ts/
+			// Don't run invalid-auth or admin tests
+			testIgnore: [/invalid-auth\.spec\.ts/, /admin-.*\.spec\.ts/]
+		},
+		// Admin tests - require admin role
+		{
+			name: 'chromium-admin',
+			use: {
+				...devices['Desktop Chrome'],
+				// Use stored admin auth state
+				storageState: 'e2e/.auth/admin.json'
+			},
+			dependencies: ['admin-setup'],
+			testMatch: /admin-.*\.spec\.ts/
 		},
 		// Tests that specifically test unauthenticated behavior
 		{

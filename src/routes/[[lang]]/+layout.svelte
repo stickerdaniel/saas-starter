@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { Tolgee, DevTools, FormatSimple, TolgeeProvider } from '@tolgee/svelte';
+	import { Tolgee, DevTools, TolgeeProvider } from '@tolgee/svelte';
+	import { FormatIcu } from '@tolgee/format-icu';
 	import { browser } from '$app/environment';
 	import type { LayoutData } from './$types';
 	import { watch } from 'runed';
@@ -13,7 +14,7 @@
 
 	const tolgee = Tolgee()
 		.use(DevTools())
-		.use(FormatSimple())
+		.use(FormatIcu())
 		.init({
 			language: data.lang,
 
