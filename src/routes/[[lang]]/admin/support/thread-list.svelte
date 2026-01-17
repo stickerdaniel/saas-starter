@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { fade } from 'svelte/transition';
 	import { Input } from '$lib/components/ui/input';
 	import * as Tabs from '$lib/components/ui/tabs';
 	import { Button } from '$lib/components/ui/button';
@@ -50,6 +49,7 @@
 		selectedThreadId,
 		isLoading = false,
 		isDone = false,
+		cachedCount,
 		onFilterChange,
 		onStatusChange,
 		onSearchChange,
@@ -63,12 +63,16 @@
 		selectedThreadId: string | null | undefined;
 		isLoading?: boolean;
 		isDone?: boolean;
+		cachedCount?: number;
 		onFilterChange: (mode: 'all' | 'unassigned' | 'my-inbox') => void;
 		onStatusChange: (status: 'open' | 'done') => void;
 		onSearchChange: (query: string) => void;
 		onThreadSelect: (id: string) => void;
 		onLoadMore: (numItems: number) => boolean;
 	} = $props();
+
+	// Skeleton count: use cached count or default to 6
+	const skeletonCount = $derived(cachedCount ?? 6);
 
 	// Create loader state instance for svelte-infinite
 	const loaderState = new LoaderState();
@@ -158,8 +162,8 @@
 	<div class="relative flex-1">
 		{#if isLoading}
 			<!-- Loading skeletons -->
-			<div class=" scrollbar-thin absolute inset-0 overflow-y-auto" out:fade={{ duration: 150 }}>
-				{#each Array(6) as _, i (i)}
+			<div class="scrollbar-thin absolute inset-0 overflow-y-auto">
+				{#each Array(skeletonCount) as _, i (i)}
 					<div class="border-b p-4">
 						<div class="flex items-start gap-3">
 							<!-- Avatar -->
@@ -186,10 +190,7 @@
 				{/each}
 			</div>
 		{:else if threads && threads.length > 0}
-			<div
-				class="scrollbar-thin absolute inset-0 overflow-x-hidden overflow-y-auto"
-				in:fade={{ duration: 150 }}
-			>
+			<div class="scrollbar-thin absolute inset-0 overflow-x-hidden overflow-y-auto">
 				<InfiniteLoader
 					{loaderState}
 					{triggerLoad}
@@ -280,7 +281,6 @@
 			</div>
 		{:else}
 			<div
-				in:fade={{ duration: 150 }}
 				class="absolute inset-0 flex items-center justify-center p-8 text-center text-muted-foreground"
 			>
 				<T keyName={showingOpen ? 'admin.support.no_open_chats' : 'admin.support.no_done_chats'} />

@@ -2,22 +2,6 @@ import { v } from 'convex/values';
 import { adminQuery } from '../../functions';
 
 /**
- * Admin Settings Keys
- *
- * Use these constants to ensure type-safe setting keys throughout the codebase.
- */
-export const ADMIN_SETTING_KEYS = {
-	DEFAULT_SUPPORT_EMAIL: 'defaultSupportEmail'
-} as const;
-
-/**
- * Type-safe admin setting key union
- *
- * Use this type to ensure only valid setting keys are passed to functions.
- */
-export type AdminSettingKey = (typeof ADMIN_SETTING_KEYS)[keyof typeof ADMIN_SETTING_KEYS];
-
-/**
  * Get a single admin setting by key
  *
  * @param args.key - The setting key to retrieve
@@ -65,25 +49,5 @@ export const getAllSettings = adminQuery({
 			updatedAt: s.updatedAt,
 			updatedBy: s.updatedBy
 		}));
-	}
-});
-
-/**
- * Get the default support notification email
- *
- * Convenience wrapper for the common use case of getting the default email.
- *
- * @returns The default email or null if not configured
- */
-export const getDefaultSupportEmail = adminQuery({
-	args: {},
-	returns: v.union(v.string(), v.null()),
-	handler: async (ctx) => {
-		const setting = await ctx.db
-			.query('adminSettings')
-			.withIndex('by_key', (q) => q.eq('key', ADMIN_SETTING_KEYS.DEFAULT_SUPPORT_EMAIL))
-			.first();
-
-		return setting?.value ?? null;
 	}
 });

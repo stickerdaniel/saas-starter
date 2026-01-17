@@ -40,7 +40,7 @@ See [official docs](https://docs.convex.dev/scheduling/scheduled-functions) for 
 
 **Components with Built-in Durability:**
 
-- `@convex-dev/resend`: Idempotency keys guarantee exactly-once email delivery, durable execution via workpools. See [component docs](https://www.convex.dev/components/resend).
+- `@convex-dev/resend`: Idempotency keys guarantee exactly-once email delivery, durable execution via workpools (default: 5 retries, 30s initial backoff). Catching errors from `resend.sendEmail()` is valid - they indicate permanent failures (invalid config), not transient network issues. See [component docs](https://www.convex.dev/components/resend).
 - `@convex-dev/workpool`: Configurable retry with backoff/jitter, `onComplete` callbacks, parallelism control.
 
 Note: Other components (`@convex-dev/better-auth`, `@convex-dev/rate-limiter`, `@convex-dev/agent`) do NOT have automatic retry for external API calls - standard error handling applies.
@@ -269,4 +269,4 @@ A customizable Svelte component for building node-based editors and interactive 
 ## Plan Mode
 
 - Make the plan extremely concise. Sacrifice grammar for the sake of concision.
-- At the end of each plan, give me a list of unresolved questions to answer, if any.
+- At the end of each plan, give me a list of unresolved questions to answer, if any, using the question tool.

@@ -63,6 +63,16 @@ export const EMAIL_TEMPLATES: Record<string, TemplateConfig> = {
 			messagesHtml: '__ETA_messagesHtml__',
 			adminDashboardLink: '__ETA_adminDashboardLink__'
 		}
+	},
+	NewUserSignupNotificationEmail: {
+		outputName: 'newUserSignupNotification',
+		props: {
+			userName: '__ETA_userName__',
+			userEmail: '__ETA_userEmail__',
+			signupMethod: '__ETA_signupMethod__',
+			signupTime: '__ETA_signupTime__',
+			adminDashboardLink: '__ETA_adminDashboardLink__'
+		}
 	}
 };
 

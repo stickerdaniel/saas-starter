@@ -11,6 +11,7 @@ import type {
 	PasswordResetEmailData,
 	AdminReplyNotificationEmailData,
 	NewTicketAdminNotificationEmailData,
+	NewUserSignupNotificationEmailData,
 	RenderedEmail
 } from '../../emails/templates/types';
 import {
@@ -23,7 +24,9 @@ import {
 	ADMINREPLYNOTIFICATION_HTML,
 	ADMINREPLYNOTIFICATION_TEXT,
 	NEWTICKETADMINNOTIFICATION_HTML,
-	NEWTICKETADMINNOTIFICATION_TEXT
+	NEWTICKETADMINNOTIFICATION_TEXT,
+	NEWUSERSIGNUPNOTIFICATION_HTML,
+	NEWUSERSIGNUPNOTIFICATION_TEXT
 } from './_generated/index.js';
 import { getEmailAssetUrl } from '../env';
 
@@ -236,5 +239,42 @@ export function renderNewTicketAdminNotificationEmail(
 	return {
 		html: renderTemplate(NEWTICKETADMINNOTIFICATION_HTML, templateData),
 		text: renderTemplate(NEWTICKETADMINNOTIFICATION_TEXT, textData)
+	};
+}
+
+/**
+ * Render new user signup notification email
+ *
+ * Sent to admins when a new user registers on the platform.
+ *
+ * @param data - Email data including user info and admin dashboard link
+ * @returns Rendered HTML and plain text email
+ */
+export function renderNewUserSignupNotificationEmail(
+	data: NewUserSignupNotificationEmailData
+): RenderedEmail {
+	const baseUrl = getBaseUrl();
+
+	const templateData = {
+		userName: escapeHtml(data.userName || 'New User'),
+		userEmail: escapeHtml(data.userEmail),
+		signupMethod: escapeHtml(data.signupMethod),
+		signupTime: escapeHtml(data.signupTime),
+		adminDashboardLink: escapeHtml(data.adminDashboardLink),
+		baseUrl: escapeHtml(baseUrl)
+	};
+
+	const textData = {
+		userName: data.userName || 'New User',
+		userEmail: data.userEmail,
+		signupMethod: data.signupMethod,
+		signupTime: data.signupTime,
+		adminDashboardLink: data.adminDashboardLink,
+		baseUrl
+	};
+
+	return {
+		html: renderTemplate(NEWUSERSIGNUPNOTIFICATION_HTML, templateData),
+		text: renderTemplate(NEWUSERSIGNUPNOTIFICATION_TEXT, textData)
 	};
 }
