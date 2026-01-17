@@ -1,7 +1,5 @@
 import { v } from 'convex/values';
-import { z } from 'zod';
 import { adminMutation } from '../../functions';
-import { ADMIN_SETTING_KEYS } from './queries';
 
 /**
  * Update an admin setting
@@ -69,63 +67,5 @@ export const deleteSetting = adminMutation({
 		}
 
 		return false;
-	}
-});
-
-/**
- * Update the default support notification email
- *
- * Convenience wrapper for setting the default email.
- * Pass empty string to clear/disable the default email notification.
- * Validates email format server-side for defense-in-depth.
- *
- * @param args.email - The email address or empty string to clear
- */
-export const updateDefaultSupportEmail = adminMutation({
-	args: {
-		email: v.string()
-	},
-	returns: v.null(),
-	handler: async (ctx, args) => {
-		const key = ADMIN_SETTING_KEYS.DEFAULT_SUPPORT_EMAIL;
-		const normalizedEmail = args.email.trim().toLowerCase();
-
-		// Validate email format (allow empty string to clear)
-		if (normalizedEmail !== '') {
-			const emailSchema = z.string().email();
-			const result = emailSchema.safeParse(normalizedEmail);
-			if (!result.success) {
-				throw new Error('Invalid email format');
-			}
-		}
-
-		const existing = await ctx.db
-			.query('adminSettings')
-			.withIndex('by_key', (q) => q.eq('key', key))
-			.first();
-
-		if (normalizedEmail === '') {
-			// Clear the setting by deleting it
-			if (existing) {
-				await ctx.db.delete(existing._id);
-			}
-		} else if (existing) {
-			// Update existing
-			await ctx.db.patch(existing._id, {
-				value: normalizedEmail,
-				updatedAt: Date.now(),
-				updatedBy: ctx.user._id
-			});
-		} else {
-			// Create new
-			await ctx.db.insert('adminSettings', {
-				key,
-				value: normalizedEmail,
-				updatedAt: Date.now(),
-				updatedBy: ctx.user._id
-			});
-		}
-
-		return null;
 	}
 });

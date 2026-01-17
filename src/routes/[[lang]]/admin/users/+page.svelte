@@ -220,8 +220,8 @@
 
 	// Calculate skeleton rows: min(knownCount - offset, pageSize) or pageSize if unknown
 	const skeletonCount = $derived.by(() => {
-		if (adminCache.userCount !== null) {
-			const remaining = adminCache.userCount - pageIndex * pageSize;
+		if (adminCache.userCount.current !== null) {
+			const remaining = adminCache.userCount.current - pageIndex * pageSize;
 			return Math.min(Math.max(remaining, 0), pageSize);
 		}
 		return pageSize;
@@ -233,8 +233,8 @@
 			return Math.ceil(countQuery.data / pageSize);
 		}
 		// Fallback to cached count
-		if (adminCache.userCount !== null) {
-			return Math.ceil(adminCache.userCount / pageSize);
+		if (adminCache.userCount.current !== null) {
+			return Math.ceil(adminCache.userCount.current / pageSize);
 		}
 		return 1;
 	});
@@ -242,7 +242,7 @@
 	// Update user count cache when count data loads
 	$effect(() => {
 		if (countQuery.data !== undefined) {
-			adminCache.userCount = countQuery.data;
+			adminCache.userCount.current = countQuery.data;
 		}
 	});
 
@@ -569,7 +569,7 @@
 	}
 </script>
 
-<div class="flex flex-col gap-6 px-4 lg:px-6">
+<div class="flex flex-col gap-6 px-4 lg:px-6 xl:px-8 2xl:px-16">
 	<!-- Header -->
 	<div class="flex items-center justify-between">
 		<h1 class="text-2xl font-bold"><T keyName="admin.users.title" /></h1>
@@ -620,11 +620,11 @@
 	</div>
 
 	<!-- Data Table -->
-	<div class="rounded-md border">
+	<div class="overflow-hidden rounded-md border">
 		<Table.Root class="table-fixed">
-			<Table.Header>
+			<Table.Header class="sticky top-0 z-10 bg-muted">
 				{#each table.getHeaderGroups() as headerGroup (headerGroup.id)}
-					<Table.Row>
+					<Table.Row class="hover:[&>th]:bg-muted">
 						{#each headerGroup.headers as header (header.id)}
 							<Table.Head
 								class="[&:has([role=checkbox])]:ps-3"
@@ -689,7 +689,10 @@
 				{:else if table.getRowModel().rows.length === 0}
 					<!-- No results -->
 					<Table.Row>
-						<Table.Cell colspan={columns.length} class="h-24 text-center text-muted-foreground">
+						<Table.Cell
+							colspan={columns.length}
+							class="h-24 text-center text-muted-foreground hover:!bg-transparent"
+						>
 							<T keyName="admin.users.no_results" />
 						</Table.Cell>
 					</Table.Row>
@@ -715,7 +718,7 @@
 				keyName="admin.users.selected"
 				params={{
 					selected: Object.keys(rowSelection).length,
-					total: countQuery.data ?? 0
+					total: countQuery.data ?? adminCache.userCount.current ?? 0
 				}}
 			/>
 		</div>

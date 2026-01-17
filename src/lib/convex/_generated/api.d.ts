@@ -9,6 +9,9 @@
  */
 
 import type * as admin_mutations from "../admin/mutations.js";
+import type * as admin_notificationPreferences_index from "../admin/notificationPreferences/index.js";
+import type * as admin_notificationPreferences_mutations from "../admin/notificationPreferences/mutations.js";
+import type * as admin_notificationPreferences_queries from "../admin/notificationPreferences/queries.js";
 import type * as admin_queries from "../admin/queries.js";
 import type * as admin_settings_mutations from "../admin/settings/mutations.js";
 import type * as admin_settings_queries from "../admin/settings/queries.js";
@@ -24,6 +27,7 @@ import type * as crons from "../crons.js";
 import type * as emails__generated_adminReplyNotification from "../emails/_generated/adminReplyNotification.js";
 import type * as emails__generated_index from "../emails/_generated/index.js";
 import type * as emails__generated_newTicketAdminNotification from "../emails/_generated/newTicketAdminNotification.js";
+import type * as emails__generated_newUserSignupNotification from "../emails/_generated/newUserSignupNotification.js";
 import type * as emails__generated_passwordReset from "../emails/_generated/passwordReset.js";
 import type * as emails__generated_verification from "../emails/_generated/verification.js";
 import type * as emails__generated_verificationCode from "../emails/_generated/verificationCode.js";
@@ -56,6 +60,9 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   "admin/mutations": typeof admin_mutations;
+  "admin/notificationPreferences/index": typeof admin_notificationPreferences_index;
+  "admin/notificationPreferences/mutations": typeof admin_notificationPreferences_mutations;
+  "admin/notificationPreferences/queries": typeof admin_notificationPreferences_queries;
   "admin/queries": typeof admin_queries;
   "admin/settings/mutations": typeof admin_settings_mutations;
   "admin/settings/queries": typeof admin_settings_queries;
@@ -71,6 +78,7 @@ declare const fullApi: ApiFromModules<{
   "emails/_generated/adminReplyNotification": typeof emails__generated_adminReplyNotification;
   "emails/_generated/index": typeof emails__generated_index;
   "emails/_generated/newTicketAdminNotification": typeof emails__generated_newTicketAdminNotification;
+  "emails/_generated/newUserSignupNotification": typeof emails__generated_newUserSignupNotification;
   "emails/_generated/passwordReset": typeof emails__generated_passwordReset;
   "emails/_generated/verification": typeof emails__generated_verification;
   "emails/_generated/verificationCode": typeof emails__generated_verificationCode;

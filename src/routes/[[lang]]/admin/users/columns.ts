@@ -5,6 +5,8 @@ import DataTableCheckbox from '$lib/components/data-table-checkbox.svelte';
 import DataTableColumnHeader from './data-table-column-header.svelte';
 import DataTableActions from './data-table-actions.svelte';
 import type { AdminUserData } from '$lib/convex/admin/types';
+import StatusBadge from './status-badge.svelte';
+import RoleBadge from './role-badge.svelte';
 
 /**
  * Derive a sortable status value from user data.
@@ -26,13 +28,13 @@ export const columns: ColumnDef<AdminUserData>[] = [
 			renderComponent(DataTableCheckbox, {
 				checked: table.getIsAllPageRowsSelected(),
 				indeterminate: table.getIsSomePageRowsSelected() && !table.getIsAllPageRowsSelected(),
-				onCheckedChange: (value) => table.toggleAllPageRowsSelected(!!value),
+				onCheckedChange: (value: boolean) => table.toggleAllPageRowsSelected(!!value),
 				'aria-label-key': 'admin.users.select_all'
 			}),
 		cell: ({ row }) =>
 			renderComponent(DataTableCheckbox, {
 				checked: row.getIsSelected(),
-				onCheckedChange: (value) => row.toggleSelected(!!value),
+				onCheckedChange: (value: boolean) => row.toggleSelected(!!value),
 				'aria-label-key': 'admin.users.select_row'
 			}),
 		enableSorting: false,
@@ -104,22 +106,11 @@ export const columns: ColumnDef<AdminUserData>[] = [
 				column,
 				titleKey: 'admin.users.role'
 			}),
-		cell: ({ row }) => {
-			const roleSnippet = createRawSnippet<[{ role: string }]>((getData) => {
-				const { role } = getData();
-				const variant = role === 'admin' ? 'default' : 'secondary';
-				return {
-					render: () =>
-						`<span class="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset ${
-							variant === 'default'
-								? 'bg-primary text-primary-foreground ring-primary/20'
-								: 'bg-secondary text-secondary-foreground ring-secondary/20'
-						}">${role}</span>`
-				};
-			});
-			return renderSnippet(roleSnippet, { role: row.original.role });
-		},
-		filterFn: (row, _columnId, filterValue) => {
+		cell: ({ row }) =>
+			renderComponent(RoleBadge, {
+				role: row.original.role
+			}),
+		filterFn: (row, _columnId, filterValue: string) => {
 			if (!filterValue || filterValue === 'all') return true;
 			return row.original.role === filterValue;
 		}
@@ -134,34 +125,12 @@ export const columns: ColumnDef<AdminUserData>[] = [
 				column,
 				titleKey: 'admin.users.status'
 			}),
-		cell: ({ row }) => {
-			const statusSnippet = createRawSnippet<[{ banned: boolean; emailVerified?: boolean }]>(
-				(getData) => {
-					const { banned, emailVerified } = getData();
-					if (banned) {
-						return {
-							render: () =>
-								`<span class="inline-flex items-center rounded-md bg-destructive px-2 py-1 text-xs font-medium text-destructive-foreground ring-1 ring-inset ring-destructive/20">Banned</span>`
-						};
-					}
-					if (emailVerified) {
-						return {
-							render: () =>
-								`<span class="inline-flex items-center rounded-md border border-green-600 px-2 py-1 text-xs font-medium text-green-600 ring-1 ring-inset ring-green-600/20">Verified</span>`
-						};
-					}
-					return {
-						render: () =>
-							`<span class="inline-flex items-center rounded-md border px-2 py-1 text-xs font-medium text-muted-foreground ring-1 ring-inset ring-border">Unverified</span>`
-					};
-				}
-			);
-			return renderSnippet(statusSnippet, {
+		cell: ({ row }) =>
+			renderComponent(StatusBadge, {
 				banned: row.original.banned,
 				emailVerified: row.original.emailVerified
-			});
-		},
-		filterFn: (row, _columnId, filterValue) => {
+			}),
+		filterFn: (row, _columnId, filterValue: string) => {
 			if (!filterValue || filterValue === 'all') return true;
 			const user = row.original;
 			if (filterValue === 'banned') return user.banned;

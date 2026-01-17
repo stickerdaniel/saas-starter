@@ -11,6 +11,9 @@ const config = {
 		adapter: adapter(),
 		alias: {
 			$blocks: 'src/blocks'
+		},
+		experimental: {
+			remoteFunctions: true
 		}
 	}
 };

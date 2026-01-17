@@ -4,6 +4,7 @@ import type VerificationCodeEmail from './VerificationCodeEmail.svelte';
 import type PasswordResetEmail from './PasswordResetEmail.svelte';
 import type AdminReplyNotificationEmail from './AdminReplyNotificationEmail.svelte';
 import type NewTicketAdminNotificationEmail from './NewTicketAdminNotificationEmail.svelte';
+import type NewUserSignupNotificationEmail from './NewUserSignupNotificationEmail.svelte';
 
 // Extract component prop types
 export type VerificationEmailProps = ComponentProps<typeof VerificationEmail>;
@@ -12,6 +13,9 @@ export type PasswordResetEmailProps = ComponentProps<typeof PasswordResetEmail>;
 export type AdminReplyNotificationEmailProps = ComponentProps<typeof AdminReplyNotificationEmail>;
 export type NewTicketAdminNotificationEmailProps = ComponentProps<
 	typeof NewTicketAdminNotificationEmail
+>;
+export type NewUserSignupNotificationEmailProps = ComponentProps<
+	typeof NewUserSignupNotificationEmail
 >;
 
 // Helper to make all props required (removes optional defaults)
@@ -94,6 +98,25 @@ export type NewTicketAdminNotificationEmailData = {
 	isReopen: boolean;
 	userName: string;
 	messages: NotificationMessage[];
+	adminDashboardLink: string;
+};
+
+/**
+ * Data required to render a new user signup notification email
+ *
+ * Sent to admins when a new user registers on the platform.
+ *
+ * @property userName - User's display name or "New User" if not provided
+ * @property userEmail - User's email address
+ * @property signupMethod - How the user signed up ('Email', 'Google', 'GitHub')
+ * @property signupTime - Formatted timestamp of when the user signed up
+ * @property adminDashboardLink - Link to the admin users page filtered by this user
+ */
+export type NewUserSignupNotificationEmailData = {
+	userName: string;
+	userEmail: string;
+	signupMethod: 'Email' | 'Google' | 'GitHub';
+	signupTime: string;
 	adminDashboardLink: string;
 };
 
