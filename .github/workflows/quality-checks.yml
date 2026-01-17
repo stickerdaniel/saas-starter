@@ -16,6 +16,7 @@ jobs:
       PUBLIC_CONVEX_SITE_URL: ${{ secrets.TEST_CONVEX_SITE_URL }}
       TEST_USER_EMAIL: ${{ secrets.TEST_USER_EMAIL }}
       TEST_USER_PASSWORD: ${{ secrets.TEST_USER_PASSWORD }}
+      AUTH_E2E_TEST_SECRET: ${{ secrets.AUTH_E2E_TEST_SECRET }}
 
     steps:
       - name: Checkout code
