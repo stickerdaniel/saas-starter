@@ -3,8 +3,8 @@ import LayoutDashboardIcon from '@lucide/svelte/icons/layout-dashboard';
 import MessageCircleIcon from '@lucide/svelte/icons/message-circle';
 import BookOpenIcon from '@lucide/svelte/icons/book-open';
 import HomeIcon from '@lucide/svelte/icons/home';
-import CommandIcon from '@lucide/svelte/icons/command';
 import ServerCogIcon from '@lucide/svelte/icons/server-cog';
+import Logo from '$lib/components/icons/logo.svelte';
 import type { SidebarConfig } from '../types';
 
 interface PageState {
@@ -17,7 +17,7 @@ export function getAppSidebarConfig(pageState: PageState, userRole?: string): Si
 
 	return {
 		header: {
-			icon: CommandIcon,
+			icon: Logo,
 			titleKey: 'app.name',
 			href: localizedHref('/')
 		},
