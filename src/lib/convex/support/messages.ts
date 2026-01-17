@@ -112,7 +112,9 @@ export const sendMessage = mutation({
 					{
 						threadId: args.threadId,
 						messageIds: [messageId],
-						isReopen: wasClosedBeforeThisMessage
+						isReopen: wasClosedBeforeThisMessage,
+						// Reopened tickets use 'newTickets' preference; follow-up messages use 'userReplies'
+						notificationType: wasClosedBeforeThisMessage ? 'newTickets' : 'userReplies'
 					}
 				);
 			}

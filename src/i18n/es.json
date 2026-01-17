@@ -51,19 +51,60 @@
 			"website": "Sitio Web"
 		},
 		"settings": {
+			"add_email": "Agregar Email",
+			"add_email_dialog_desc": "Agregar una dirección de email para recibir notificaciones de administrador",
+			"add_email_dialog_title": "Agregar Email Personalizado",
+			"add_email_placeholder": "email@example.com",
+			"column_email": "Email",
+			"column_name": "Nombre",
+			"column_new_signups": "Nuevos Registros",
+			"column_new_tickets": "Nuevos Tickets",
+			"column_type": "Tipo",
+			"column_user_replies": "Respuestas de Usuario",
 			"default_support_email": "Email de Soporte Predeterminado",
 			"default_support_email_help": "Dejar vacío para enviar notificaciones a todos los administradores.",
 			"default_support_email_placeholder": "soporte@example.com",
+			"delete_email": "Eliminar",
+			"delete_email_confirm": "¿Eliminar {email} de los destinatarios de notificaciones?",
+			"delete_email_description": "¿Eliminar {email} de los destinatarios de notificaciones?",
+			"delete_email_title": "Eliminar Email",
 			"description": "Configura los ajustes del panel de administración y las notificaciones.",
+			"email_added": "Email agregado",
+			"email_add_failed": "No se pudo agregar el email",
+			"email_exists": "Este email ya existe",
+			"email_removed": "Email eliminado",
+			"field_new_signups": "Notificaciones de nuevos registros",
+			"field_new_tickets": "Notificaciones de nuevos tickets",
+			"field_user_replies": "Notificaciones de respuestas de usuario",
+			"filter": {
+				"admin_only": "Solo Admins",
+				"all_types": "Todos los Tipos",
+				"clear": "Limpiar",
+				"custom_only": "Solo Personalizados"
+			},
+			"invalid_email": "Dirección de email inválida",
+			"no_recipients": "No hay destinatarios de notificaciones configurados",
+			"notification_recipients": "Destinatarios de Notificaciones",
+			"notification_recipients_desc": "Configura quién recibe notificaciones de administrador. Los usuarios administradores se incluyen automáticamente.",
+			"preference_disabled": "{field} desactivadas",
+			"preference_disabling": "Desactivando {field}...",
+			"preference_enabled": "{field} activadas",
+			"preference_enabling": "Activando {field}...",
+			"preference_update_failed": "Error al actualizar preferencia",
+			"recipient_count": "{count, plural, one {# destinatario} other {# destinatarios}}",
 			"save": "Guardar Configuración",
 			"saved": "Configuración guardada",
 			"saving": "Guardando...",
+			"selected": "{selected} de {total} seleccionados",
 			"support_notifications": "Notificaciones de Soporte",
 			"support_notifications_desc": "Configura las notificaciones por email para tickets de soporte nuevos y reabiertos no asignados.",
 			"tabs": {
-				"notifications": "Notificaciones"
+				"notifications": "Notificaciones",
+				"recipients": "Destinatarios"
 			},
-			"title": "Configuración de Admin"
+			"title": "Configuración de Admin",
+			"type_admin": "Admin",
+			"type_custom": "Personalizado"
 		},
 		"sidebar": {
 			"back_to_app": "Volver a la App",
@@ -277,6 +318,7 @@
 		"title": "Chat Comunitario"
 	},
 	"common": {
+		"adding": "Agregando...",
 		"cancel": "Cancelar",
 		"confirm": "Confirmar"
 	},

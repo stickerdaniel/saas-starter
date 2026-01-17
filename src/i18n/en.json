@@ -51,19 +51,60 @@
 			"website": "Website"
 		},
 		"settings": {
+			"add_email": "Add Email",
+			"add_email_dialog_desc": "Add an email address to receive admin notifications",
+			"add_email_dialog_title": "Add Custom Email",
+			"add_email_placeholder": "email@example.com",
+			"column_email": "Email",
+			"column_name": "Name",
+			"column_new_signups": "New Signups",
+			"column_new_tickets": "New Tickets",
+			"column_type": "Type",
+			"column_user_replies": "User Replies",
 			"default_support_email": "Default Support Email",
 			"default_support_email_help": "Leave empty to send notifications to all admin users.",
 			"default_support_email_placeholder": "support@example.com",
+			"delete_email": "Remove",
+			"delete_email_confirm": "Remove {email} from notification recipients?",
+			"delete_email_description": "Remove {email} from notification recipients?",
+			"delete_email_title": "Remove Email",
 			"description": "Configure admin panel settings and notifications.",
+			"email_added": "Email added",
+			"email_add_failed": "Failed to add email",
+			"email_exists": "This email already exists",
+			"email_removed": "Email removed",
+			"field_new_signups": "New signup notifications",
+			"field_new_tickets": "New ticket notifications",
+			"field_user_replies": "User reply notifications",
+			"filter": {
+				"admin_only": "Admin Only",
+				"all_types": "All Types",
+				"clear": "Clear",
+				"custom_only": "Custom Only"
+			},
+			"invalid_email": "Invalid email address",
+			"no_recipients": "No notification recipients configured",
+			"notification_recipients": "Notification Recipients",
+			"notification_recipients_desc": "Configure who receives admin notifications. Admin users are automatically included.",
+			"preference_disabled": "{field} disabled",
+			"preference_disabling": "Disabling {field}...",
+			"preference_enabled": "{field} enabled",
+			"preference_enabling": "Enabling {field}...",
+			"preference_update_failed": "Failed to update preference",
+			"recipient_count": "{count, plural, one {# recipient} other {# recipients}}",
 			"save": "Save Settings",
 			"saved": "Settings saved",
 			"saving": "Saving...",
+			"selected": "{selected} of {total} selected",
 			"support_notifications": "Support Notifications",
 			"support_notifications_desc": "Configure email notifications for new and unassigned reopened support tickets.",
 			"tabs": {
-				"notifications": "Notifications"
+				"notifications": "Notifications",
+				"recipients": "Recipients"
 			},
-			"title": "Admin Settings"
+			"title": "Admin Settings",
+			"type_admin": "Admin",
+			"type_custom": "Custom"
 		},
 		"sidebar": {
 			"back_to_app": "Back to App",
@@ -279,6 +320,7 @@
 		"title": "Community Chat"
 	},
 	"common": {
+		"adding": "Adding...",
 		"cancel": "Cancel",
 		"confirm": "Confirm"
 	},

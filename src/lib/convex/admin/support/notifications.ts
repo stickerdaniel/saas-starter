@@ -13,15 +13,13 @@
  * 2. scheduleAdminNotification creates/updates pending notification with 2-min delay
  * 3. If user sends more messages, timer resets and messages accumulate
  * 4. After 2 minutes of no new messages, sendPendingAdminNotification fires
- * 5. Email sent to assigned admin, default email, or all admins
+ * 5. Email sent to recipients based on adminNotificationPreferences table
  */
 
 import { v } from 'convex/values';
 import type { Id } from '../../_generated/dataModel';
 import { internalMutation, internalAction, internalQuery } from '../../_generated/server';
 import { internal, components } from '../../_generated/api';
-import { ADMIN_SETTING_KEYS } from '../settings/queries';
-import { parseBetterAuthUsers } from '../types';
 
 /** Delay before sending notification (2 minutes) */
 const NOTIFICATION_DELAY_MS = 2 * 60 * 1000;
@@ -30,9 +28,9 @@ const NOTIFICATION_DELAY_MS = 2 * 60 * 1000;
  * Schedule or update an admin notification for a support thread
  *
  * Called when:
- * - User clicks "Talk to human" (with previous messages)
- * - User sends messages to a handed-off thread
- * - User reopens a closed ticket
+ * - User clicks "Talk to human" (with previous messages) → notificationType: 'newTickets'
+ * - User sends messages to a handed-off thread → notificationType: 'userReplies'
+ * - User reopens a closed ticket → notificationType: 'newTickets'
  *
  * If a pending notification exists, it cancels the old scheduled job,
  * adds the new messages, and reschedules with a fresh 2-minute delay.
@@ -40,12 +38,14 @@ const NOTIFICATION_DELAY_MS = 2 * 60 * 1000;
  * @param args.threadId - The support thread ID
  * @param args.messageIds - Array of message IDs to include in the notification
  * @param args.isReopen - Whether this is a reopened ticket (true) or new ticket (false)
+ * @param args.notificationType - Which preference toggle to check ('newTickets' or 'userReplies')
  */
 export const scheduleAdminNotification = internalMutation({
 	args: {
 		threadId: v.string(),
 		messageIds: v.array(v.string()),
-		isReopen: v.boolean()
+		isReopen: v.boolean(),
+		notificationType: v.union(v.literal('newTickets'), v.literal('userReplies'))
 	},
 	returns: v.null(),
 	handler: async (ctx, args) => {
@@ -90,13 +90,17 @@ export const scheduleAdminNotification = internalMutation({
 				messageIds: updatedMessageIds,
 				scheduledFor,
 				scheduledFnId: newScheduledFnId,
-				isReopen: existing.isReopen || args.isReopen
+				isReopen: existing.isReopen || args.isReopen,
+				// Preserve 'newTickets' if either call was for new ticket (primary event)
+				notificationType:
+					existing.notificationType === 'newTickets' ? 'newTickets' : args.notificationType
 			});
 		} else {
 			// Create new pending notification
 			const notificationId = await ctx.db.insert('pendingAdminNotifications', {
 				threadId: args.threadId,
 				isReopen: args.isReopen,
+				notificationType: args.notificationType,
 				scheduledFor,
 				messageIds: args.messageIds,
 				createdAt: now
@@ -127,10 +131,9 @@ export const scheduleAdminNotification = internalMutation({
  * Called by the scheduler after the debounce period expires.
  * Fetches all accumulated messages and sends email to the appropriate recipients.
  *
- * Recipients (in order of priority):
- * 1. Assigned admin's email (if ticket is assigned)
- * 2. Default support email from admin settings (if configured)
- * 3. All admin users' emails (fallback)
+ * Recipient selection (via adminNotificationPreferences table):
+ * - If ticket is assigned AND assignee has the notification type enabled → only assignee
+ * - Otherwise → all recipients with the notification type enabled (admins + custom emails)
  *
  * Race condition protection: Before deleting the pending notification, we verify
  * that scheduledFnId hasn't changed. If it has, a new notification was scheduled
@@ -143,24 +146,23 @@ export const sendPendingAdminNotification = internalAction({
 		notificationId: v.id('pendingAdminNotifications')
 	},
 	handler: async (ctx, args) => {
-		// Get the pending notification
-		const notification = await ctx.runQuery(
-			internal.admin.support.notifications.getPendingNotification,
+		// Claim ownership atomically before doing any work
+		// This follows the "claim-then-act" pattern - the idiomatic Convex approach
+		// The mutation checks that scheduledFnId is set (not already claimed) and clears it
+		const notification = await ctx.runMutation(
+			internal.admin.support.notifications.claimNotificationForSending,
 			{
 				notificationId: args.notificationId
 			}
 		);
 
 		if (!notification) {
-			// Already sent or cancelled
+			// Already claimed by another instance, rescheduled, or deleted
 			console.log(
-				`[sendPendingAdminNotification] Notification ${args.notificationId} not found, skipping`
+				`[sendPendingAdminNotification] Notification ${args.notificationId} not claimable (already claimed or rescheduled), skipping`
 			);
 			return;
 		}
-
-		// Store the scheduledFnId we're running as - used to detect race conditions
-		const myScheduledFnId = notification.scheduledFnId;
 
 		// Get support thread data
 		const supportThread = await ctx.runQuery(
@@ -181,11 +183,14 @@ export const sendPendingAdminNotification = internalAction({
 			return;
 		}
 
-		// Determine target emails
+		// Determine target emails based on stored notification type
+		// - 'newTickets' for handoffs and reopened tickets
+		// - 'userReplies' for follow-up messages to handed-off tickets
 		const targetEmails = await ctx.runQuery(
 			internal.admin.support.notifications.getNotificationTargetEmails,
 			{
-				assignedTo: supportThread.assignedTo
+				assignedTo: supportThread.assignedTo,
+				notificationType: notification.notificationType
 			}
 		);
 
@@ -224,39 +229,82 @@ export const sendPendingAdminNotification = internalAction({
 			}
 		}
 
-		// If all sends failed, don't delete the notification - let it retry
+		// If all sends failed, reschedule for retry
 		if (sentCount === 0) {
 			console.error(
-				`[sendPendingAdminNotification] All ${targetEmails.length} email sends failed for thread ${notification.threadId}`
+				`[sendPendingAdminNotification] All ${targetEmails.length} email sends failed for thread ${notification.threadId}, rescheduling...`
 			);
+			// Reschedule with 1 minute delay via mutation (for guaranteed delivery semantics)
+			await ctx.runMutation(internal.admin.support.notifications.reschedulePendingNotification, {
+				notificationId: args.notificationId,
+				delayMs: 60_000 // 1 minute retry delay
+			});
 			return;
 		}
 
-		// Clean up the pending notification only if scheduledFnId matches
-		// This prevents race condition where new messages arrived while sending
-		const deleted = await ctx.runMutation(
-			internal.admin.support.notifications.deletePendingNotification,
-			{
-				notificationId: args.notificationId,
-				expectedScheduledFnId: myScheduledFnId
-			}
-		);
+		// Clean up the pending notification
+		// We already claimed ownership at the start, so we can delete unconditionally
+		await ctx.runMutation(internal.admin.support.notifications.deletePendingNotification, {
+			notificationId: args.notificationId
+		});
 
-		if (deleted) {
-			console.log(
-				`[sendPendingAdminNotification] Sent ${notification.isReopen ? 'reopen' : 'new ticket'} notification for thread ${notification.threadId} to ${sentCount}/${targetEmails.length} recipient(s)`
-			);
-		} else {
-			console.log(
-				`[sendPendingAdminNotification] Notification was rescheduled while sending, skipped delete for thread ${notification.threadId}`
-			);
-		}
+		console.log(
+			`[sendPendingAdminNotification] Sent ${notification.isReopen ? 'reopen' : 'new ticket'} notification for thread ${notification.threadId} to ${sentCount}/${targetEmails.length} recipient(s)`
+		);
 	}
 });
 
 // ============================================================================
 // Helper queries and mutations (internal only)
 // ============================================================================
+
+/**
+ * Claim ownership of a pending notification before sending
+ *
+ * Uses atomic mutation to prevent race conditions. Only one action can claim
+ * a notification - once claimed, scheduledFnId is cleared to prevent other
+ * actions from proceeding.
+ *
+ * This follows the "claim-then-act" pattern which is the idiomatic Convex
+ * approach for coordinating work in actions:
+ * - pending (scheduledFnId set) → claimed (scheduledFnId cleared) → deleted
+ *
+ * @param args.notificationId - The notification to claim
+ * @returns The notification data if claimed, null if already claimed or not found
+ */
+export const claimNotificationForSending = internalMutation({
+	args: {
+		notificationId: v.id('pendingAdminNotifications')
+	},
+	returns: v.union(
+		v.object({
+			threadId: v.string(),
+			messageIds: v.array(v.string()),
+			isReopen: v.boolean(),
+			notificationType: v.union(v.literal('newTickets'), v.literal('userReplies'))
+		}),
+		v.null()
+	),
+	handler: async (ctx, args) => {
+		const notification = await ctx.db.get(args.notificationId);
+
+		// Not found or already claimed (scheduledFnId is undefined when claimed)
+		if (!notification || notification.scheduledFnId === undefined) {
+			return null;
+		}
+
+		// Clear scheduledFnId to claim ownership atomically
+		// This prevents other actions from claiming this notification
+		await ctx.db.patch(args.notificationId, { scheduledFnId: undefined });
+
+		return {
+			threadId: notification.threadId,
+			messageIds: notification.messageIds,
+			isReopen: notification.isReopen,
+			notificationType: notification.notificationType
+		};
+	}
+});
 
 /**
  * Get a pending notification by ID
@@ -271,6 +319,7 @@ export const getPendingNotification = internalQuery({
 			_creationTime: v.number(),
 			threadId: v.string(),
 			isReopen: v.boolean(),
+			notificationType: v.union(v.literal('newTickets'), v.literal('userReplies')),
 			scheduledFor: v.number(),
 			messageIds: v.array(v.string()),
 			scheduledFnId: v.optional(v.id('_scheduled_functions')),
@@ -335,57 +384,88 @@ export const deletePendingNotification = internalMutation({
 });
 
 /**
+ * Reschedule a pending notification for retry
+ *
+ * Called when all email sends fail to ensure the notification is retried later.
+ * Updates the scheduledFnId to point to the new scheduled function.
+ *
+ * @param args.notificationId - The notification to reschedule
+ * @param args.delayMs - Delay in milliseconds before retry (default 60 seconds)
+ */
+export const reschedulePendingNotification = internalMutation({
+	args: {
+		notificationId: v.id('pendingAdminNotifications'),
+		delayMs: v.optional(v.number())
+	},
+	returns: v.boolean(),
+	handler: async (ctx, args) => {
+		const notification = await ctx.db.get(args.notificationId);
+
+		if (!notification) {
+			return false;
+		}
+
+		const delayMs = args.delayMs ?? 60_000; // Default 1 minute
+
+		// Schedule new send attempt
+		const newScheduledFnId = await ctx.scheduler.runAfter(
+			delayMs,
+			internal.admin.support.notifications.sendPendingAdminNotification,
+			{ notificationId: args.notificationId }
+		);
+
+		// Update notification with new scheduled function ID
+		await ctx.db.patch(args.notificationId, {
+			scheduledFor: Date.now() + delayMs,
+			scheduledFnId: newScheduledFnId
+		});
+
+		console.log(
+			`[reschedulePendingNotification] Rescheduled notification for thread ${notification.threadId} with ${delayMs}ms delay`
+		);
+
+		return true;
+	}
+});
+
+/**
  * Get target email addresses for admin notification
  *
- * Priority:
- * 1. Assigned admin's email
- * 2. Default support email from settings
- * 3. All admin emails
+ * Uses the adminNotificationPreferences table to determine recipients.
+ * If assigned admin has the notification enabled, prioritizes them.
+ * Otherwise returns all recipients with the notification type enabled.
+ *
+ * @param assignedTo - Optional admin user ID for ticket assignment priority
+ * @param notificationType - Type of notification ('newTickets' or 'userReplies')
  */
 export const getNotificationTargetEmails = internalQuery({
 	args: {
-		assignedTo: v.optional(v.string())
+		assignedTo: v.optional(v.string()),
+		notificationType: v.union(v.literal('newTickets'), v.literal('userReplies'))
 	},
 	returns: v.array(v.string()),
 	handler: async (ctx, args) => {
-		const emails: string[] = [];
+		// Get all preferences
+		const allPrefs = await ctx.db.query('adminNotificationPreferences').collect();
 
-		// 1. If assigned, get assigned admin's email
+		// Map notification type to field name
+		const toggleField =
+			args.notificationType === 'newTickets' ? 'notifyNewSupportTickets' : 'notifyUserReplies';
+
+		// Filter to active recipients (admins or custom emails) with this notification enabled
+		const activePrefs = allPrefs.filter(
+			(p) => (p.isAdminUser || p.userId === undefined) && p[toggleField]
+		);
+
+		// If assigned admin has this notification enabled, prioritize them
 		if (args.assignedTo) {
-			const admin = await ctx.runQuery(components.betterAuth.adapter.findOne, {
-				model: 'user',
-				where: [{ field: '_id', operator: 'eq', value: args.assignedTo }]
-			});
-			if (admin?.email) {
-				return [admin.email];
+			const assignedPref = activePrefs.find((p) => p.userId === args.assignedTo);
+			if (assignedPref) {
+				return [assignedPref.email];
 			}
 		}
 
-		// 2. Check for default support email in settings
-		const defaultEmailSetting = await ctx.db
-			.query('adminSettings')
-			.withIndex('by_key', (q) => q.eq('key', ADMIN_SETTING_KEYS.DEFAULT_SUPPORT_EMAIL))
-			.first();
-
-		if (defaultEmailSetting?.value) {
-			return [defaultEmailSetting.value];
-		}
-
-		// 3. Fallback: Get all admin users' emails
-		const adminsResult = await ctx.runQuery(components.betterAuth.adapter.findMany, {
-			model: 'user',
-			paginationOpts: { cursor: null, numItems: 100 },
-			where: [{ field: 'role', operator: 'eq', value: 'admin' }]
-		});
-
-		const admins = parseBetterAuthUsers(adminsResult.page);
-		for (const admin of admins) {
-			if (admin.email) {
-				emails.push(admin.email);
-			}
-		}
-
-		return emails;
+		return activePrefs.map((p) => p.email);
 	}
 });
 

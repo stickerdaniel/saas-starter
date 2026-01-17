@@ -1,6 +1,5 @@
 {
   "lockfileVersion": 1,
-  "configVersion": 0,
   "workspaces": {
     "": {
       "name": "saas-starter",
@@ -16,6 +15,7 @@
         "@stickerdaniel/convex-autumn-svelte": "^0.1.3",
         "@svelte-put/lockscroll": "^2.0.1",
         "@tolgee/cli": "^2.14.0",
+        "@tolgee/format-icu": "^6.2.7",
         "@tolgee/svelte": "^6.2.7",
         "@zumer/snapdom": "^2.0.0",
         "ai": "^5.0.93",
@@ -616,6 +616,8 @@
     "@tolgee/cli": ["@tolgee/cli@2.14.0", "", { "dependencies": { "ajv": "^8.17.1", "ansi-colors": "^4.1.3", "base32-decode": "^1.0.0", "commander": "^12.1.0", "cosmiconfig": "^9.0.0", "json5": "^2.2.3", "jsonschema": "^1.5.0", "openapi-fetch": "0.13.1", "tinyglobby": "^0.2.12", "unescape-js": "^1.1.4", "vscode-oniguruma": "^2.0.1", "vscode-textmate": "^9.1.0", "yauzl": "^3.2.0" }, "peerDependencies": { "jiti": ">= 2" }, "optionalPeers": ["jiti"], "bin": { "tolgee": "dist/cli.js" } }, "sha512-M5/VfZBaZ19lvZULdQswFVWwrn4bfaIsmyNzuM/WDpo5jFsAP7K/lyrg8H7ps4xLAWMmwy6gdy0ET0A5IYDFQg=="],
 
     "@tolgee/core": ["@tolgee/core@6.2.7", "", {}, "sha512-0Au+m9R23/gmeaLJY0X6lKcR2LSy9dW7hEFrpFvPdJoGvxc8XCNZpKlgnm1N534CwmtIBJ4rzOK6vOrSKbl45w=="],
+
+    "@tolgee/format-icu": ["@tolgee/format-icu@6.2.7", "", {}, "sha512-rLa8EZZVX3pDYC3I6HLnLvTgwLr2PAyOw+7SanS7d7SXp9cvcxbX8O6nqHubv6K7YDqVblcj9FoFbvGBQ22PgQ=="],
 
     "@tolgee/svelte": ["@tolgee/svelte@6.2.7", "", { "dependencies": { "@tolgee/web": "6.2.7" }, "peerDependencies": { "svelte": "^4.0.0 || ^5.0.0" } }, "sha512-R7J3XO3g5BtUnXwvzljajRAnJeFIPB0qmisEl896L4IJUMHfsddDytaFRP90hlQzEgwRICMtbr43T6XFgSNJrQ=="],
 

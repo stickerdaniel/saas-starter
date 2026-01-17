@@ -440,7 +440,8 @@ export const updateThreadHandoff = mutation({
 				{
 					threadId: args.threadId,
 					messageIds: recentMessageIds,
-					isReopen: false
+					isReopen: false,
+					notificationType: 'newTickets' // Handoff from AI to human
 				}
 			);
 		}
