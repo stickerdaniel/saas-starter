@@ -23,7 +23,8 @@ export const addEmailForm = form(emailSchema, async ({ email }, issue) => {
 		return { success: true };
 	} catch (err) {
 		if (err instanceof Error && err.message.includes('already exists')) {
-			invalid(issue.email('This email already exists'));
+			// Return validation error - don't re-throw
+			return invalid(issue.email('This email already exists'));
 		}
 		throw err;
 	}
