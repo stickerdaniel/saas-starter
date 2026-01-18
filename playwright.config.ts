@@ -8,6 +8,8 @@ dotenv.config({ path: '.env.test' });
 
 export default defineConfig({
 	testDir: 'e2e',
+	/* Clean up test data after all tests complete */
+	globalTeardown: './e2e/global-teardown.ts',
 	/* Run tests in files in parallel */
 	fullyParallel: true,
 	/* Fail the build on CI if you accidentally left test.only in the source code */
@@ -33,7 +35,7 @@ export default defineConfig({
 			name: 'setup',
 			testMatch: /signin\.setup\.ts/
 		},
-		// Admin setup - promotes test user to admin and saves admin auth state
+		// Admin setup - authenticates admin user and saves admin auth state
 		{
 			name: 'admin-setup',
 			testMatch: /admin\.setup\.ts/
