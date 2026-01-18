@@ -168,7 +168,9 @@ This project uses **PostHog** for product analytics with an optional **Cloudflar
 ### E2E Playwright Tests
 
 - Located in `e2e/` directory
-- Require test secret configured in Convex backend and .env.test file and test user created once with `bun run setup:test-user`
+- Test users are automatically created with unique emails each run (via globalSetup) and deleted after tests (via globalTeardown)
+- Requires `.env.test` with: AUTH_E2E_TEST_SECRET (must match Convex backend) and PUBLIC_CONVEX_URL
+- See `.env.test.example` for setup instructions
 
 ### Vitest Unit Tests
 
