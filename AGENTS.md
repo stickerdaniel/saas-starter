@@ -211,17 +211,17 @@ ALWAYS run `bun scripts/quality-check.ts` after a full feature implementation.
 #### UI Component Conventions
 
 - Always use shadcn-svelte for ui components first. Use btca with `shadcnSvelte` resource.
-- If a ui component doesnt exist in shadcn-svelte, check `@ieedan/shadcn-svelte-extras`. Use btca with `shadcnSvelteExtras` resource.
+- If a ui component doesn't exist in shadcn-svelte, check `@ieedan/shadcn-svelte-extras`. Use btca with `shadcnSvelteExtras` resource.
 - For AI related components, check if ai-elements has what you need. Use btca with `aiElements` resource.
 - Check cnblocks for well designed header, feature, pricing, footer and many more marketing blocks. Use btca with `cnblocks` resource.
-- Only create a new component if it doesnt exist in any of the above libraries.
+- Only create a new component if it doesn't exist in any of the above libraries.
 - When implementing a new component, follow the existing shadcn-svelte component api and patterns in `src/lib/components/ui/`
 - Use Tailwind CSS classes for layout and styling in general. Do not add additional styling classes to the shadcn svelte components. They look good by default.
 
 #### Animations
 
 Simple animations should be implemented with plain CSS whenever possible.
-Before implmenting any custom animation, check if sv-animate has a prebuilt component that can be used. Use btca with `svAnimate` resource.
+Before implementing any custom animation, check if sv-animate has a prebuilt component that can be used. Use btca with `svAnimate` resource.
 For custom animations, use Sveltes built in animations, or motion-svelte (Framer motion for Svelte). Use btca with `motionSvelte` resource. Before implementing any custom animation, read the `docs/animation-rules.md` file.
 
 #### Lists with a lot of items
