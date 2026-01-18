@@ -8,6 +8,8 @@ dotenv.config({ path: '.env.test' });
 
 export default defineConfig({
 	testDir: 'e2e',
+	/* Ensure test users exist before running tests */
+	globalSetup: './e2e/global-setup.ts',
 	/* Clean up test data after all tests complete */
 	globalTeardown: './e2e/global-teardown.ts',
 	/* Run tests in files in parallel */

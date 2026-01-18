@@ -97,6 +97,57 @@ export const createTestAdminUser = mutation({
 	}
 });
 
+// Delete a test user and all their associated accounts/sessions
+// Used by globalTeardown to clean up fresh test users created each run
+export const deleteTestUser = mutation({
+	args: { email: v.string(), secret: v.string() },
+	handler: async (ctx, { email, secret }) => {
+		// Verify test secret to prevent unauthorized access
+		const expectedSecret = process.env.AUTH_E2E_TEST_SECRET;
+		if (!expectedSecret || secret !== expectedSecret) {
+			throw new Error('Unauthorized: Invalid test secret');
+		}
+
+		// Find user by email
+		const user = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+			model: 'user',
+			where: [{ field: 'email', value: email }]
+		});
+
+		if (!user) {
+			return { success: false, error: 'User not found' };
+		}
+
+		// Delete ALL associated account records (user may have OAuth + credential accounts)
+		await ctx.runMutation(components.betterAuth.adapter.deleteMany, {
+			input: {
+				model: 'account',
+				where: [{ field: 'userId', value: user._id }]
+			},
+			paginationOpts: { numItems: 100, cursor: null }
+		});
+
+		// Delete ALL associated sessions (user may have multiple devices/browsers)
+		await ctx.runMutation(components.betterAuth.adapter.deleteMany, {
+			input: {
+				model: 'session',
+				where: [{ field: 'userId', value: user._id }]
+			},
+			paginationOpts: { numItems: 100, cursor: null }
+		});
+
+		// Delete the user
+		await ctx.runMutation(components.betterAuth.adapter.deleteOne, {
+			input: {
+				model: 'user',
+				where: [{ field: 'email', value: email }]
+			}
+		});
+
+		return { success: true, deletedEmail: email };
+	}
+});
+
 // Clean up test data created during E2E tests
 // Removes notification recipients with test email patterns
 // Note: Does NOT delete test user accounts - only test artifacts
