@@ -118,23 +118,35 @@ export const deleteTestUser = mutation({
 			return { success: false, error: 'User not found' };
 		}
 
-		// Delete ALL associated account records (user may have OAuth + credential accounts)
-		await ctx.runMutation(components.betterAuth.adapter.deleteMany, {
-			input: {
-				model: 'account',
-				where: [{ field: 'userId', value: user._id }]
-			},
-			paginationOpts: { numItems: 100, cursor: null }
-		});
+		// Delete ALL associated account records (loop until none remain)
+		let accountsDeleted = 0;
+		let hasMoreAccounts = true;
+		while (hasMoreAccounts) {
+			const result = await ctx.runMutation(components.betterAuth.adapter.deleteMany, {
+				input: {
+					model: 'account',
+					where: [{ field: 'userId', value: user._id }]
+				},
+				paginationOpts: { numItems: 100, cursor: null }
+			});
+			accountsDeleted += result?.deletedCount ?? 0;
+			hasMoreAccounts = (result?.deletedCount ?? 0) >= 100;
+		}
 
-		// Delete ALL associated sessions (user may have multiple devices/browsers)
-		await ctx.runMutation(components.betterAuth.adapter.deleteMany, {
-			input: {
-				model: 'session',
-				where: [{ field: 'userId', value: user._id }]
-			},
-			paginationOpts: { numItems: 100, cursor: null }
-		});
+		// Delete ALL associated sessions (loop until none remain)
+		let sessionsDeleted = 0;
+		let hasMoreSessions = true;
+		while (hasMoreSessions) {
+			const result = await ctx.runMutation(components.betterAuth.adapter.deleteMany, {
+				input: {
+					model: 'session',
+					where: [{ field: 'userId', value: user._id }]
+				},
+				paginationOpts: { numItems: 100, cursor: null }
+			});
+			sessionsDeleted += result?.deletedCount ?? 0;
+			hasMoreSessions = (result?.deletedCount ?? 0) >= 100;
+		}
 
 		// Delete the user
 		await ctx.runMutation(components.betterAuth.adapter.deleteOne, {
@@ -144,7 +156,7 @@ export const deleteTestUser = mutation({
 			}
 		});
 
-		return { success: true, deletedEmail: email };
+		return { success: true, deletedEmail: email, accountsDeleted, sessionsDeleted };
 	}
 });
 
