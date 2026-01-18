@@ -40,3 +40,6 @@ react-reference
 *.local*
 
 .opencode/plans
+
+# btca cache
+.btca

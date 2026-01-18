@@ -2,6 +2,24 @@
 
 This project is a saas template built with SvelteKit, Convex, Typescript and modern web technologies.
 
+## btca
+
+When you need up-to-date information about technologies used in this project, use btca to query source repositories directly.
+
+**Available resources**: svelte, sveltekit, shadcnSvelte, shadcnSvelteExtras, bitsUi, runed, formsnap, superforms, paneforge, svelteInfinite, motionSvelte, svAnimate, threlte, xyflow, cnblocks, aiElements, convex, convexSvelte, convexAgent, convexHelpers, convexResend, convexPresence, convexRag, convexStripe, convexRateLimiter, convexActionCache, convexFilesControl, convexTimeline, convexMigrations, convexAggregate, convexShardedCounter, convexGeospatial, convexWorkpool, convexWorkflow, convexRetrier, convexCrons, betterAuth, betterSvelteEmail, tailwind, vercelAi, zod, tanstackTable, tolgee, playwright, vitest
+
+### Usage
+
+```bash
+btca ask -r <resource> -q "<question>"
+```
+
+Use multiple `-r` flags to query multiple resources at once:
+
+```bash
+btca ask -r svelte -r convex -q "How do I integrate Convex with SvelteKit?"
+```
+
 ## Development Commands
 
 ### Core Development
@@ -72,7 +90,7 @@ These commands use `dotenv` to load the local TOLGEE_API_KEY from `.env.local`:
 
 - **Frontend**: SvelteKit, Svelte 5 (runes syntax!), Tailwind CSS v4, Shadcn Svelte
 - **Backend**: Convex (real-time database + serverless functions)
-- **Authentication**: Better Auth Svelte Convex Component @convex-dev/better-auth-svelte. We use the local install to get full better auth feature access like passkeys, admin, etc. See <https://labs.convex.dev/better-auth/features/local-install> for authentication documentation. Reference: `docs/references/better-auth/`
+- **Authentication**: Better Auth Svelte Convex Component @convex-dev/better-auth-svelte. We use the local install to get full better auth feature access like passkeys, admin, etc. See <https://labs.convex.dev/better-auth/features/local-install> for authentication documentation.
 - **Internationalization**: Tolgee (open source / cloud-hosted translation management with URL-based localization and in-context editing)
 - **Testing**: Playwright (E2E), Vitest (unit)
 - **Package Manager**: Bun. ALWAYS use bun instead of npm to run commands.
@@ -108,7 +126,7 @@ These commands use `dotenv` to load the local TOLGEE_API_KEY from `.env.local`:
 
 ### Email System
 
-Use the @convex-dev/resend email system for production-ready email delivery. For email templates, use better-svelte-email `docs/references/better-svelte-email/`.
+Use the @convex-dev/resend email system for production-ready email delivery. Use btca with `convexResend` resource for component docs. For svelte email docs and templates, use btca with `betterSvelteEmail` resource.
 
 #### Email System Architecture
 
@@ -176,8 +194,6 @@ Default to new syntax for Svelte 5 benefits.
 Avoid stores unless necessary for pub/sub.
 
 Use the Svelte MCPs Get Documentation tool to get up-to-date Svelte documentation (only call this with a subagent!) and check code with the MCPs autofixer for wrong patterns.
-
-Libraries used in this project are cloned as a submodule in the `docs/references/` folder. ALWAYS launch subagents that research the library code in `docs/references/` to understand its usage and patterns before planning the implementation of a feature that might require the use of any of the mentioned libs.
 </important_info>
 
 ### Quality Checks
@@ -194,10 +210,10 @@ ALWAYS run `bun scripts/quality-check.ts` after a full feature implementation.
 
 #### UI Component Conventions
 
-- Always use shadcn-svelte `docs/references/shadcn-svelte/` for ui components first.
-- If an ui component doesnt exist in shadcn-svelte, check `@ieedan/shadcn-svelte-extras` `docs/references/shadcn-svelte-extras/`.
-- For AI related components, check if ai-elements `docs/references/ai-elements/` has what you need.
-- Check cnblocks `docs/references/cnblocks/` for well designed header, feature, pricing, footer and many more marketing blocks.
+- Always use shadcn-svelte for ui components first. Use btca with `shadcnSvelte` resource.
+- If a ui component doesnt exist in shadcn-svelte, check `@ieedan/shadcn-svelte-extras`. Use btca with `shadcnSvelteExtras` resource.
+- For AI related components, check if ai-elements has what you need. Use btca with `aiElements` resource.
+- Check cnblocks for well designed header, feature, pricing, footer and many more marketing blocks. Use btca with `cnblocks` resource.
 - Only create a new component if it doesnt exist in any of the above libraries.
 - When implementing a new component, follow the existing shadcn-svelte component api and patterns in `src/lib/components/ui/`
 - Use Tailwind CSS classes for layout and styling in general. Do not add additional styling classes to the shadcn svelte components. They look good by default.
@@ -205,18 +221,18 @@ ALWAYS run `bun scripts/quality-check.ts` after a full feature implementation.
 #### Animations
 
 Simple animations should be implemented with plain CSS whenever possible.
-Before implmenting any custom animation, check if sv-animate `docs/references/sv-animate/` has a prebuilt component that can be used.
-For custom animations, use Sveltes built in animations, or motion-svelte `docs/references/motion-svelte/` (Framer motion for Svelte). Before implementing any custom animation, read the `docs/animation-rules.md` file.
+Before implmenting any custom animation, check if sv-animate has a prebuilt component that can be used. Use btca with `svAnimate` resource.
+For custom animations, use Sveltes built in animations, or motion-svelte (Framer motion for Svelte). Use btca with `motionSvelte` resource. Before implementing any custom animation, read the `docs/animation-rules.md` file.
 
 #### Lists with a lot of items
 
 ---
 
-Use `svelte-infinite` `docs/references/svelte-infinite/` with convex-svelte `docs/references/convex-svelte/` pagination for huge lists to automatically load more items as the user scrolls down the list. Before implementing this, research this codebase to see the pattern used in the existing code.
+Use `svelte-infinite` with convex-svelte pagination for huge lists to automatically load more items as the user scrolls down the list. Use btca with `svelteInfinite` and `convexSvelte` resources. Before implementing this, research this codebase to see the pattern used in the existing code.
 
 #### Runed (collection of utilities for Svelte 5)
 
-Before creating our own utilities, research the runed library in `docs/references/runed/` to see if the utility you need already exists.
+Before creating our own utilities, research the runed library to see if the utility you need already exists. Use btca with `runed` resource.
 Here is a list of the utilities available:
 
 <resource: Watches for changes and runs asynchronous data fetching, combining reactive state management with async operations.>
@@ -246,15 +262,15 @@ Here is a list of the utilities available:
 
 #### PaneForge
 
-Components that make it easy to create resizable panes in your Svelte apps. Reference: `docs/references/paneforge/` - <https://paneforge.com/docs>
+Components that make it easy to create resizable panes in your Svelte apps. Use btca with `paneforge` resource.
 
 #### Threlte
 
-Build interactive 3D apps for the web. Reference: `docs/references/threlte/` - <https://threlte.xyz/>
+Build interactive 3D apps for the web. Use btca with `threlte` resource. <https://threlte.xyz/>
 
 #### Svelte Flow
 
-A customizable Svelte component for building node-based editors and interactive diagrams by the creators of React Flow. Reference: `docs/references/xyflow/` - <https://svelteflow.dev/>
+A customizable Svelte component for building node-based editors and interactive diagrams by the creators of React Flow. Use btca with `xyflow` resource. <https://svelteflow.dev/>
 
 ### Vercel
 
