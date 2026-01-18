@@ -3,14 +3,14 @@ import { test as setup, expect } from '@playwright/test';
 const authFile = 'e2e/.auth/user.json';
 
 /**
- * This setup test authenticates a user and saves the session state.
+ * This setup test authenticates the regular test user and saves the session state.
  * Other tests will reuse this authenticated state.
  *
  * Prerequisites:
  * 1. Set TEST_USER_EMAIL and TEST_USER_PASSWORD in .env.test
- * 2. Run: bun run setup:test-user (with dev server running)
+ * 2. Run: bun run setup:test-users (with dev server running)
  */
-setup('signin with valid credentials', async ({ page }) => {
+setup('signin with regular user credentials', async ({ page }) => {
 	const email = process.env.TEST_USER_EMAIL;
 	const password = process.env.TEST_USER_PASSWORD;
 
@@ -18,15 +18,13 @@ setup('signin with valid credentials', async ({ page }) => {
 		throw new Error(
 			'TEST_USER_EMAIL and TEST_USER_PASSWORD must be set. ' +
 				'Update .env.test with test credentials, ' +
-				'then run: bun run setup:test-user'
+				'then run: bun run setup:test-users'
 		);
 	}
 
-	// Go to signin page (app will redirect to appropriate language prefix)
+	// Go to signin page and wait for form to be ready
 	await page.goto('/signin');
-
-	// Wait for the page to load
-	await page.waitForLoadState('networkidle');
+	await expect(page.locator('[data-testid="email-input"]')).toBeVisible({ timeout: 10000 });
 
 	// Fill in credentials using data-testid attributes
 	await page.fill('[data-testid="email-input"]', email);
