@@ -1,29 +1,29 @@
 import { test as setup, expect } from '@playwright/test';
+import fs from 'fs';
+import path from 'path';
 
 const adminAuthFile = 'e2e/.auth/admin.json';
+
+interface TestCredentials {
+	user: { email: string; password: string; name: string };
+	admin: { email: string; password: string; name: string };
+}
 
 /**
  * This setup test authenticates the admin test user and saves the session state.
  * Admin tests will use this authenticated state.
  *
- * The admin user is created and promoted to admin role via setup:test-users,
- * so no promotion is needed here - just sign in.
- *
- * Prerequisites:
- * 1. Set TEST_ADMIN_EMAIL and TEST_ADMIN_PASSWORD in .env.test
- * 2. Run: bun run setup:test-users (with dev server running)
+ * Credentials are read from e2e/.auth/test-credentials.json (created by globalSetup).
  */
 setup('signin with admin user credentials', async ({ page }) => {
-	const email = process.env.TEST_ADMIN_EMAIL;
-	const password = process.env.TEST_ADMIN_PASSWORD;
+	const credentialsPath = path.join(process.cwd(), 'e2e', '.auth', 'test-credentials.json');
 
-	if (!email || !password) {
-		throw new Error(
-			'TEST_ADMIN_EMAIL and TEST_ADMIN_PASSWORD must be set. ' +
-				'Update .env.test with admin credentials, ' +
-				'then run: bun run setup:test-users'
-		);
+	if (!fs.existsSync(credentialsPath)) {
+		throw new Error('test-credentials.json not found. globalSetup may have failed.');
 	}
+
+	const credentials: TestCredentials = JSON.parse(fs.readFileSync(credentialsPath, 'utf-8'));
+	const { email, password } = credentials.admin;
 
 	// Go to signin page and wait for form to be ready
 	await page.goto('/signin');

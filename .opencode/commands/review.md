@@ -6,7 +6,7 @@ allowed-tools: ['Bash', 'Glob', 'Grep', 'Read', 'Task']
 
 # Comprehensive PR Review
 
-Run a comprehensive pull request review using multiple specialized agents, each focusing on a different aspect of code quality.
+Run a comprehensive pull request review using multiple specialized agents, each focusing on a different aspect of code quality. You can review in plan mode, the review doesnt require modifications until the user approves the final plan with the suggested fixes.
 
 **Review Aspects (optional):** "$ARGUMENTS"
 
@@ -175,7 +175,7 @@ Run a comprehensive pull request review using multiple specialized agents, each 
 1. Write code
 2. Run: /review code errors
 3. After review agents have finished, launch a general subagent for every critical / important issue found that should verify if this is indeed an issue and if it should be fixed. Instruct those general agents to use the tools available. For example, if it's a Svelte specific issue, it should use the Svelte MCP. If it's a Convex related issue, use the Convex mcp.
-4. Create a plan that addresses the issues and how to fix them.
+4. Enter plan mode if you arent already in it. Create a plan that addresses the issues and how to fix them.
 5. User confirms the plan and fix the issues.
 ```
 
