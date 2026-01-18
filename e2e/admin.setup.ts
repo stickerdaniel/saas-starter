@@ -1,67 +1,44 @@
-import { test as setup } from '@playwright/test';
-import { ConvexHttpClient } from 'convex/browser';
-import { api } from '../src/lib/convex/_generated/api';
+import { test as setup, expect } from '@playwright/test';
 
 const adminAuthFile = 'e2e/.auth/admin.json';
 
 /**
- * This setup test promotes the test user to admin and saves a fresh auth state.
+ * This setup test authenticates the admin test user and saves the session state.
  * Admin tests will use this authenticated state.
  *
+ * The admin user is created and promoted to admin role via setup:test-users,
+ * so no promotion is needed here - just sign in.
+ *
  * Prerequisites:
- * 1. Set TEST_USER_EMAIL, TEST_USER_PASSWORD, and AUTH_E2E_TEST_SECRET in .env.test
- * 2. Run: bun run setup:test-user (with dev server running)
- * 3. Set CONVEX_URL in .env.test (e.g., from `bunx convex dev`)
+ * 1. Set TEST_ADMIN_EMAIL and TEST_ADMIN_PASSWORD in .env.test
+ * 2. Run: bun run setup:test-users (with dev server running)
  */
-setup('promote test user to admin', async ({ page }) => {
-	const email = process.env.TEST_USER_EMAIL;
-	const password = process.env.TEST_USER_PASSWORD;
-	const testSecret = process.env.AUTH_E2E_TEST_SECRET;
-	const convexUrl = process.env.PUBLIC_CONVEX_URL || process.env.VITE_CONVEX_URL;
+setup('signin with admin user credentials', async ({ page }) => {
+	const email = process.env.TEST_ADMIN_EMAIL;
+	const password = process.env.TEST_ADMIN_PASSWORD;
 
 	if (!email || !password) {
 		throw new Error(
-			'TEST_USER_EMAIL and TEST_USER_PASSWORD must be set. ' +
-				'Update .env.test with test credentials, ' +
-				'then run: bun run setup:test-user'
+			'TEST_ADMIN_EMAIL and TEST_ADMIN_PASSWORD must be set. ' +
+				'Update .env.test with admin credentials, ' +
+				'then run: bun run setup:test-users'
 		);
 	}
 
-	if (!testSecret) {
-		throw new Error('AUTH_E2E_TEST_SECRET must be set in .env.test');
-	}
-
-	if (!convexUrl) {
-		throw new Error('PUBLIC_CONVEX_URL or VITE_CONVEX_URL must be set in .env.test');
-	}
-
-	// Promote test user to admin via Convex mutation
-	const client = new ConvexHttpClient(convexUrl);
-	const result = await client.mutation(api.tests.promoteTestUserToAdmin, {
-		email,
-		secret: testSecret
-	});
-
-	if (!result.success) {
-		throw new Error(`Failed to promote test user to admin: ${result.error}`);
-	}
-
-	console.log(
-		result.alreadyAdmin
-			? `Test user ${email} is already an admin`
-			: `Promoted test user ${email} to admin`
-	);
-
-	// Sign in to get fresh auth state with admin role in JWT
+	// Go to signin page and wait for form to be ready
 	await page.goto('/signin');
-	await page.waitForLoadState('networkidle');
+	await expect(page.locator('[data-testid="email-input"]')).toBeVisible({ timeout: 10000 });
 
+	// Fill in admin credentials
 	await page.fill('[data-testid="email-input"]', email);
 	await page.fill('[data-testid="password-input"]', password);
 	await page.click('[data-testid="signin-button"]');
 
 	// Wait for redirect to app
 	await page.waitForURL(/\/[a-z]{2}\/app/, { timeout: 15000 });
+
+	// Verify we're authenticated
+	await expect(page).toHaveURL(/\/app/);
 
 	// Save authenticated state with admin role
 	await page.context().storageState({ path: adminAuthFile });
