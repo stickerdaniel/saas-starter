@@ -13,6 +13,12 @@ import { getAuthEmail, getSiteUrl } from '../env';
 import type { NotificationMessage } from '../../emails/templates/types';
 
 /**
+ * Check if an email address belongs to an E2E test user.
+ * Test emails are skipped to prevent sending real emails during automated testing.
+ */
+const isTestEmail = (email: string): boolean => email.endsWith('@e2e.example.com');
+
+/**
  * Send verification email with verification link
  *
  * Uses pre-rendered HTML templates with template placeholders for dynamic content.
@@ -25,6 +31,13 @@ export const sendVerificationEmail = internalMutation({
 	},
 	handler: async (ctx, args) => {
 		const { email, verificationUrl, expiryMinutes = 20 } = args;
+
+		// Skip sending emails to E2E test users
+		if (isTestEmail(email)) {
+			console.log(`[sendVerificationEmail] Skipping test email: ${email}`);
+			return;
+		}
+
 		const { html, text } = renderVerificationEmail(verificationUrl, expiryMinutes);
 
 		await resend.sendEmail(ctx, {
@@ -55,6 +68,13 @@ export const sendResetPasswordEmail = internalMutation({
 	},
 	handler: async (ctx, args) => {
 		const { email, resetUrl, userName } = args;
+
+		// Skip sending emails to E2E test users
+		if (isTestEmail(email)) {
+			console.log(`[sendResetPasswordEmail] Skipping test email: ${email}`);
+			return;
+		}
+
 		const { html, text } = renderPasswordResetEmail(resetUrl, userName);
 
 		await resend.sendEmail(ctx, {
@@ -88,6 +108,13 @@ export const sendAdminReplyNotification = internalMutation({
 	},
 	handler: async (ctx, args) => {
 		const { email, adminName, messagePreview, threadId, pageUrl } = args;
+
+		// Skip sending emails to E2E test users
+		if (isTestEmail(email)) {
+			console.log(`[sendAdminReplyNotification] Skipping test email: ${email}`);
+			return;
+		}
+
 		const siteUrl = getSiteUrl();
 
 		// Build deep link that opens the support widget to this thread
@@ -189,6 +216,13 @@ export const sendNewUserSignupNotification = internalMutation({
 	},
 	handler: async (ctx, args) => {
 		const { userName, userEmail, signupMethod, signupTime } = args;
+
+		// Skip sending notifications for E2E test users
+		if (isTestEmail(userEmail)) {
+			console.log(`[sendNewUserSignupNotification] Skipping test user: ${userEmail}`);
+			return;
+		}
+
 		const siteUrl = getSiteUrl();
 
 		// Get recipients who have new signup notifications enabled
