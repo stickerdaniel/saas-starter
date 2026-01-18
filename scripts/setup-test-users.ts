@@ -91,7 +91,10 @@ async function setupSingleUser(user: TestUserConfig, secret: string) {
 	try {
 		const signUpResponse = await fetch(`${SITE_URL}/api/auth/sign-up/email`, {
 			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
+			headers: {
+				'Content-Type': 'application/json',
+				Origin: SITE_URL
+			},
 			body: JSON.stringify({
 				email: user.email,
 				password: user.password,
@@ -231,7 +234,10 @@ async function verifyCredentials(email: string, password: string) {
 	console.log('   Verifying credentials...');
 	const signInResponse = await fetch(`${SITE_URL}/api/auth/sign-in/email`, {
 		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
+		headers: {
+			'Content-Type': 'application/json',
+			Origin: SITE_URL
+		},
 		body: JSON.stringify({ email, password })
 	});
 
