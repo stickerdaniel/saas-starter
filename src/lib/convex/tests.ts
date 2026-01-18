@@ -97,6 +97,69 @@ export const createTestAdminUser = mutation({
 	}
 });
 
+// Delete a test user and all their associated accounts/sessions
+// Used by globalTeardown to clean up fresh test users created each run
+export const deleteTestUser = mutation({
+	args: { email: v.string(), secret: v.string() },
+	handler: async (ctx, { email, secret }) => {
+		// Verify test secret to prevent unauthorized access
+		const expectedSecret = process.env.AUTH_E2E_TEST_SECRET;
+		if (!expectedSecret || secret !== expectedSecret) {
+			throw new Error('Unauthorized: Invalid test secret');
+		}
+
+		// Find user by email
+		const user = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+			model: 'user',
+			where: [{ field: 'email', value: email }]
+		});
+
+		if (!user) {
+			return { success: false, error: 'User not found' };
+		}
+
+		// Delete ALL associated account records (loop until none remain)
+		let accountsDeleted = 0;
+		let hasMoreAccounts = true;
+		while (hasMoreAccounts) {
+			const result = await ctx.runMutation(components.betterAuth.adapter.deleteMany, {
+				input: {
+					model: 'account',
+					where: [{ field: 'userId', value: user._id }]
+				},
+				paginationOpts: { numItems: 100, cursor: null }
+			});
+			accountsDeleted += result?.deletedCount ?? 0;
+			hasMoreAccounts = (result?.deletedCount ?? 0) >= 100;
+		}
+
+		// Delete ALL associated sessions (loop until none remain)
+		let sessionsDeleted = 0;
+		let hasMoreSessions = true;
+		while (hasMoreSessions) {
+			const result = await ctx.runMutation(components.betterAuth.adapter.deleteMany, {
+				input: {
+					model: 'session',
+					where: [{ field: 'userId', value: user._id }]
+				},
+				paginationOpts: { numItems: 100, cursor: null }
+			});
+			sessionsDeleted += result?.deletedCount ?? 0;
+			hasMoreSessions = (result?.deletedCount ?? 0) >= 100;
+		}
+
+		// Delete the user
+		await ctx.runMutation(components.betterAuth.adapter.deleteOne, {
+			input: {
+				model: 'user',
+				where: [{ field: 'email', value: email }]
+			}
+		});
+
+		return { success: true, deletedEmail: email, accountsDeleted, sessionsDeleted };
+	}
+});
+
 // Clean up test data created during E2E tests
 // Removes notification recipients with test email patterns
 // Note: Does NOT delete test user accounts - only test artifacts

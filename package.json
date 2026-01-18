@@ -26,7 +26,6 @@
 		"i18n:pull": "dotenv -e .env.local -- tolgee pull",
 		"i18n:push": "dotenv -e .env.local -- tolgee push",
 		"i18n:cleanup": "dotenv -e .env.local -- tolgee tag --filter-not-extracted --filter-tag production --tag deprecated --untag production",
-		"setup:test-users": "tsx scripts/setup-test-users.ts",
 		"worktree": "bun scripts/create-worktree.ts",
 		"worktree:setup": "bun scripts/create-worktree.ts --setup-only"
 	},
