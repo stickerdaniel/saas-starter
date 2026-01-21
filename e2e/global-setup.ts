@@ -10,6 +10,7 @@
 import { ConvexHttpClient } from 'convex/browser';
 import { api } from '../src/lib/convex/_generated/api';
 import dotenv from 'dotenv';
+import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 
@@ -21,6 +22,7 @@ const TEST_PASSWORD = 'TestPassword123!';
 interface TestCredentials {
 	user: { email: string; password: string; name: string };
 	admin: { email: string; password: string; name: string };
+	anonymousSupport: { userId: string; threadId: string };
 }
 
 async function globalSetup() {
@@ -54,6 +56,10 @@ async function globalSetup() {
 			email: `test-admin-${timestamp}@e2e.example.com`,
 			password: TEST_PASSWORD,
 			name: 'E2E Test Admin'
+		},
+		anonymousSupport: {
+			userId: '',
+			threadId: ''
 		}
 	};
 
@@ -66,6 +72,20 @@ async function globalSetup() {
 
 	// Create admin user
 	await createUser(credentials.admin, testSecret, client, true);
+
+	// Create anonymous support thread for migration tests
+	const anonymousUserId = `anon_${crypto.randomUUID()}`;
+	const anonymousThread = await client.mutation(api.tests.createAnonymousSupportThread, {
+		secret: testSecret,
+		anonymousUserId,
+		title: 'E2E Support Thread',
+		pageUrl: `${SITE_URL}/en/app`
+	});
+
+	credentials.anonymousSupport = {
+		userId: anonymousThread.anonymousUserId,
+		threadId: anonymousThread.threadId
+	};
 
 	// Save credentials for tests to read
 	const authDir = path.join(process.cwd(), 'e2e', '.auth');

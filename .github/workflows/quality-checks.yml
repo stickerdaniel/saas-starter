@@ -9,7 +9,7 @@ on:
 jobs:
   quality_checks:
     name: All Quality Checks
-    runs-on: ubicloud-standard-2
+    runs-on: ubuntu-latest
     env:
       NODE_OPTIONS: --max-old-space-size=4096
       PUBLIC_CONVEX_URL: ${{ secrets.TEST_CONVEX_URL }}

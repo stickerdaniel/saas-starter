@@ -20,8 +20,15 @@ export const load: LayoutServerLoad = async (event) => {
 	});
 
 	// Fetch customer and viewer in PARALLEL for faster initial load
+	// Wrap getCustomer in try-catch to handle Autumn failures gracefully (e.g., in CI)
 	const [customer, viewer] = isAuthenticated
-		? await Promise.all([getCustomer(event), client.query(api.auth.getCurrentUser, {})])
+		? await Promise.all([
+				getCustomer(event).catch((e) => {
+					console.error('[+layout.server.ts] Autumn getCustomer failed:', e);
+					return null;
+				}),
+				client.query(api.auth.getCurrentUser, {})
+			])
 		: [null, null];
 
 	return {

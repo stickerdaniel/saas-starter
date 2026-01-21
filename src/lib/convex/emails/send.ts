@@ -16,7 +16,21 @@ import type { NotificationMessage } from '../../emails/templates/types';
  * Check if an email address belongs to an E2E test user.
  * Test emails are skipped to prevent sending real emails during automated testing.
  */
-const isTestEmail = (email: string): boolean => email.endsWith('@e2e.example.com');
+function isTestEmail(email: string): boolean {
+	return email.endsWith('@e2e.example.com');
+}
+
+/**
+ * Check if email should be skipped for E2E test users and log if so.
+ * Returns true if email was skipped, false if it should be sent.
+ */
+function shouldSkipTestEmail(action: string, email: string): boolean {
+	if (isTestEmail(email)) {
+		console.log(`[${action}] Skipping test email: ${email}`);
+		return true;
+	}
+	return false;
+}
 
 /**
  * Send verification email with verification link
@@ -32,11 +46,7 @@ export const sendVerificationEmail = internalMutation({
 	handler: async (ctx, args) => {
 		const { email, verificationUrl, expiryMinutes = 20 } = args;
 
-		// Skip sending emails to E2E test users
-		if (isTestEmail(email)) {
-			console.log(`[sendVerificationEmail] Skipping test email: ${email}`);
-			return;
-		}
+		if (shouldSkipTestEmail('sendVerificationEmail', email)) return;
 
 		const { html, text } = renderVerificationEmail(verificationUrl, expiryMinutes);
 
@@ -69,11 +79,7 @@ export const sendResetPasswordEmail = internalMutation({
 	handler: async (ctx, args) => {
 		const { email, resetUrl, userName } = args;
 
-		// Skip sending emails to E2E test users
-		if (isTestEmail(email)) {
-			console.log(`[sendResetPasswordEmail] Skipping test email: ${email}`);
-			return;
-		}
+		if (shouldSkipTestEmail('sendResetPasswordEmail', email)) return;
 
 		const { html, text } = renderPasswordResetEmail(resetUrl, userName);
 
@@ -109,11 +115,7 @@ export const sendAdminReplyNotification = internalMutation({
 	handler: async (ctx, args) => {
 		const { email, adminName, messagePreview, threadId, pageUrl } = args;
 
-		// Skip sending emails to E2E test users
-		if (isTestEmail(email)) {
-			console.log(`[sendAdminReplyNotification] Skipping test email: ${email}`);
-			return;
-		}
+		if (shouldSkipTestEmail('sendAdminReplyNotification', email)) return;
 
 		const siteUrl = getSiteUrl();
 
@@ -217,11 +219,7 @@ export const sendNewUserSignupNotification = internalMutation({
 	handler: async (ctx, args) => {
 		const { userName, userEmail, signupMethod, signupTime } = args;
 
-		// Skip sending notifications for E2E test users
-		if (isTestEmail(userEmail)) {
-			console.log(`[sendNewUserSignupNotification] Skipping test user: ${userEmail}`);
-			return;
-		}
+		if (shouldSkipTestEmail('sendNewUserSignupNotification', userEmail)) return;
 
 		const siteUrl = getSiteUrl();
 
