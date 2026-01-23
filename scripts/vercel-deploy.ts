@@ -214,7 +214,7 @@ async function main(): Promise<void> {
 
 	// =============================================================================
 	// Post-deploy: Set and validate preview environment variables (now instance exists)
-	// IMPORTANT: We use CONVEX_DEPLOYMENT=prod:<name> instead of --preview-name because
+	// IMPORTANT: We use CONVEX_DEPLOYMENT=preview:<name> instead of --preview-name because
 	// --preview-name stores env vars in a separate namespace that the app runtime doesn't read.
 	// The app reads env vars directly from the deployment via its URL.
 	// =============================================================================
@@ -247,11 +247,11 @@ async function main(): Promise<void> {
 		const previewSiteUrl = `https://${VERCEL_URL}`;
 		const convexDeploymentEnv = {
 			...process.env,
-			CONVEX_DEPLOYMENT: `prod:${actualDeploymentName}`
+			CONVEX_DEPLOYMENT: `preview:${actualDeploymentName}`
 		};
 
 		console.log(`Setting SITE_URL for preview: ${previewSiteUrl}`);
-		console.log(`  Using CONVEX_DEPLOYMENT=prod:${actualDeploymentName}`);
+		console.log(`  Using CONVEX_DEPLOYMENT=preview:${actualDeploymentName}`);
 
 		// Set SITE_URL with retries using CONVEX_DEPLOYMENT env var
 		// This sets the env var directly on the deployment the app uses
