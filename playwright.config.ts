@@ -6,6 +6,11 @@ import { defineConfig, devices } from '@playwright/test';
 import dotenv from 'dotenv';
 dotenv.config({ path: '.env.test' });
 
+// In CI, tests run against actual Vercel preview deployment (PUBLIC_SITE_URL set by workflow)
+// Locally, tests run against dev server on localhost
+const baseURL = process.env.PUBLIC_SITE_URL || 'http://localhost:5173';
+const isCI = !!process.env.CI;
+
 export default defineConfig({
 	testDir: 'e2e',
 	/* Ensure test users exist before running tests */
@@ -15,17 +20,17 @@ export default defineConfig({
 	/* Run tests in files in parallel */
 	fullyParallel: true,
 	/* Fail the build on CI if you accidentally left test.only in the source code */
-	forbidOnly: !!process.env.CI,
+	forbidOnly: isCI,
 	/* Retry on CI only */
-	retries: process.env.CI ? 2 : 0,
+	retries: isCI ? 2 : 0,
 	/* Opt out of parallel tests on CI */
-	workers: process.env.CI ? 1 : undefined,
+	workers: isCI ? 1 : undefined,
 	/* Reporter to use */
 	reporter: 'html',
 	/* Shared settings for all the projects below */
 	use: {
 		/* Base URL to use in actions like `await page.goto('/')` */
-		baseURL: 'http://localhost:5173',
+		baseURL,
 		/* Collect trace when retrying the failed test */
 		trace: 'on-first-retry'
 	},
@@ -73,10 +78,14 @@ export default defineConfig({
 		}
 	],
 
-	webServer: {
-		command: 'bun run dev:frontend',
-		port: 5173,
-		reuseExistingServer: !process.env.CI,
-		timeout: 60000
-	}
+	// Only start local dev server when not in CI
+	// In CI, we test against the actual Vercel preview deployment
+	webServer: isCI
+		? undefined
+		: {
+				command: 'bun run dev:frontend',
+				port: 5173,
+				reuseExistingServer: true,
+				timeout: 60000
+			}
 });

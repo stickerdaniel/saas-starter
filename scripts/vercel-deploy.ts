@@ -5,11 +5,12 @@
  * - Tolgee translation tagging and pulling
  * - Convex environment variable validation (production and preview)
  * - Convex deployment
- * - E2E test triggering via GitHub webhook (preview only)
+ * - E2E config file generation (preview only)
  * - SvelteKit build
  */
 
 import { spawnSync } from 'child_process';
+import fs from 'fs';
 
 // Environment variables from Vercel
 const VERCEL_ENV = process.env.VERCEL_ENV;
@@ -220,42 +221,28 @@ async function main(): Promise<void> {
 		console.log(`SITE_URL (for SvelteKit build): ${buildEnv.SITE_URL}`);
 	}
 
-	// Trigger E2E tests immediately after Convex is ready (don't wait for SvelteKit build)
-	if (VERCEL_ENV === 'preview' && process.env.GITHUB_PAT && VERCEL_GIT_COMMIT_REF) {
-		console.log('Triggering E2E tests against preview Convex...');
+	// =============================================================================
+	// Write E2E config for preview deployments
+	// This allows E2E tests to discover Convex URLs without webhooks or API calls
+	// The config file is included in the deployment and fetched by the E2E workflow
+	// =============================================================================
+	if (VERCEL_ENV === 'preview' && deploymentName) {
+		const e2eConfig = {
+			convexUrl: buildEnv.PUBLIC_CONVEX_URL,
+			convexSiteUrl: buildEnv.PUBLIC_CONVEX_SITE_URL,
+			generatedAt: new Date().toISOString()
+		};
 
-		const githubRepo = `${process.env.VERCEL_GIT_REPO_OWNER}/${process.env.VERCEL_GIT_REPO_SLUG}`;
-		try {
-			const response = await fetch(`https://api.github.com/repos/${githubRepo}/dispatches`, {
-				method: 'POST',
-				headers: {
-					Authorization: `Bearer ${process.env.GITHUB_PAT}`,
-					Accept: 'application/vnd.github+json',
-					'Content-Type': 'application/json',
-					'X-GitHub-Api-Version': '2022-11-28'
-				},
-				body: JSON.stringify({
-					event_type: 'convex.deployed',
-					client_payload: {
-						convex_url: buildEnv.PUBLIC_CONVEX_URL,
-						convex_site_url: buildEnv.PUBLIC_CONVEX_SITE_URL,
-						git_sha: process.env.VERCEL_GIT_COMMIT_SHA,
-						branch: VERCEL_GIT_COMMIT_REF
-					}
-				})
-			});
+		const configDir = 'static/.well-known';
+		const configPath = `${configDir}/e2e-config.json`;
 
-			if (response.ok || response.status === 204) {
-				console.log(`${colors.green}E2E tests triggered${colors.reset}`);
-			} else {
-				const text = await response.text();
-				console.warn(
-					`${colors.yellow}Failed to trigger E2E tests: ${response.status} ${text}${colors.reset}`
-				);
-			}
-		} catch (error) {
-			console.warn(`${colors.yellow}Failed to trigger E2E tests: ${error}${colors.reset}`);
+		// Ensure directory exists
+		if (!fs.existsSync(configDir)) {
+			fs.mkdirSync(configDir, { recursive: true });
 		}
+
+		fs.writeFileSync(configPath, JSON.stringify(e2eConfig, null, 2));
+		console.log(`${colors.green}E2E config written to ${configPath}${colors.reset}`);
 	}
 
 	// Build SvelteKit with the computed environment variables
