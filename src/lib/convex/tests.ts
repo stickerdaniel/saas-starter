@@ -105,6 +105,25 @@ export const createTestAdminUser = mutation({
 			}
 		});
 
+		// Create notification preferences entry for the admin (needed for admin-settings E2E tests)
+		const existingPref = await ctx.db
+			.query('adminNotificationPreferences')
+			.withIndex('by_email', (q) => q.eq('email', email))
+			.first();
+
+		if (!existingPref) {
+			await ctx.db.insert('adminNotificationPreferences', {
+				email,
+				userId: user._id,
+				isAdminUser: true,
+				notifyNewSupportTickets: true,
+				notifyUserReplies: true,
+				notifyNewSignups: true,
+				createdAt: Date.now(),
+				updatedAt: Date.now()
+			});
+		}
+
 		return {
 			success: true,
 			wasAdmin: user.role === 'admin',
