@@ -74,17 +74,43 @@ function sleep(ms: number): Promise<void> {
 }
 
 /**
+ * Run a command and capture output with custom environment variables
+ */
+function runCommandCaptureWithEnv(
+	command: string,
+	args: string[],
+	env?: Record<string, string | undefined>
+): { success: boolean; stdout: string; stderr: string } {
+	const result = spawnSync(command, args, {
+		encoding: 'utf-8',
+		env: env ?? process.env
+	});
+	return {
+		success: result.status === 0,
+		stdout: result.stdout?.trim() ?? '',
+		stderr: result.stderr?.trim() ?? ''
+	};
+}
+
+/**
  * Run a command with retries and delay between attempts
  */
 async function runCommandWithRetry(
 	command: string,
 	args: string[],
-	options: { maxRetries?: number; delayMs?: number; description?: string } = {}
+	options: {
+		maxRetries?: number;
+		delayMs?: number;
+		description?: string;
+		env?: Record<string, string | undefined>;
+	} = {}
 ): Promise<{ success: boolean; stdout: string; stderr: string }> {
-	const { maxRetries = 5, delayMs = 5000, description = 'command' } = options;
+	const { maxRetries = 5, delayMs = 5000, description = 'command', env } = options;
 
 	for (let attempt = 1; attempt <= maxRetries; attempt++) {
-		const result = runCommandCapture(command, args);
+		const result = env
+			? runCommandCaptureWithEnv(command, args, env)
+			: runCommandCapture(command, args);
 
 		if (result.success) {
 			return result;
@@ -103,7 +129,7 @@ async function runCommandWithRetry(
 	}
 
 	// Return the last failed result
-	return runCommandCapture(command, args);
+	return env ? runCommandCaptureWithEnv(command, args, env) : runCommandCapture(command, args);
 }
 
 // Main execution
@@ -188,6 +214,9 @@ async function main(): Promise<void> {
 
 	// =============================================================================
 	// Post-deploy: Set and validate preview environment variables (now instance exists)
+	// IMPORTANT: We use CONVEX_DEPLOYMENT=prod:<name> instead of --preview-name because
+	// --preview-name stores env vars in a separate namespace that the app runtime doesn't read.
+	// The app reads env vars directly from the deployment via its URL.
 	// =============================================================================
 	if (VERCEL_ENV === 'preview') {
 		// Log all relevant env vars for debugging
@@ -201,9 +230,9 @@ async function main(): Promise<void> {
 		console.log('');
 
 		// Fail fast if required env vars are missing
-		if (!VERCEL_GIT_COMMIT_REF) {
+		if (!actualDeploymentName) {
 			console.error(
-				`${colors.red}Error: VERCEL_GIT_COMMIT_REF is not set. Cannot configure preview deployment.${colors.reset}`
+				`${colors.red}Error: Could not detect Convex deployment name from deploy output. Cannot set SITE_URL.${colors.reset}`
 			);
 			process.exit(1);
 		}
@@ -216,17 +245,24 @@ async function main(): Promise<void> {
 		}
 
 		const previewSiteUrl = `https://${VERCEL_URL}`;
-		console.log(`Setting SITE_URL for preview: ${previewSiteUrl}`);
-		console.log(`  Preview name (branch): ${VERCEL_GIT_COMMIT_REF}`);
+		const convexDeploymentEnv = {
+			...process.env,
+			CONVEX_DEPLOYMENT: `prod:${actualDeploymentName}`
+		};
 
-		// Set SITE_URL with retries to handle race condition where preview isn't fully provisioned
+		console.log(`Setting SITE_URL for preview: ${previewSiteUrl}`);
+		console.log(`  Using CONVEX_DEPLOYMENT=prod:${actualDeploymentName}`);
+
+		// Set SITE_URL with retries using CONVEX_DEPLOYMENT env var
+		// This sets the env var directly on the deployment the app uses
 		const setResult = await runCommandWithRetry(
 			'bunx',
-			['convex', 'env', 'set', 'SITE_URL', previewSiteUrl, '--preview-name', VERCEL_GIT_COMMIT_REF],
+			['convex', 'env', 'set', 'SITE_URL', previewSiteUrl],
 			{
 				maxRetries: 5,
 				delayMs: 5000,
-				description: 'convex env set SITE_URL'
+				description: 'convex env set SITE_URL',
+				env: convexDeploymentEnv
 			}
 		);
 
@@ -244,13 +280,11 @@ async function main(): Promise<void> {
 
 		// Verify SITE_URL was set correctly by listing env vars
 		console.log('Verifying SITE_URL was set correctly...');
-		const listResult = runCommandCapture('bunx', [
-			'convex',
-			'env',
-			'list',
-			'--preview-name',
-			VERCEL_GIT_COMMIT_REF
-		]);
+		const listResult = runCommandCaptureWithEnv(
+			'bunx',
+			['convex', 'env', 'list'],
+			convexDeploymentEnv
+		);
 
 		if (listResult.success) {
 			const siteUrlMatch = listResult.stdout.match(/^SITE_URL=(.+)$/m);
@@ -277,15 +311,9 @@ async function main(): Promise<void> {
 			console.log(`  stderr: ${listResult.stderr}`);
 		}
 
-		// Validate preview environment variables
+		// Validate preview environment variables using CONVEX_DEPLOYMENT
 		console.log('Checking required Convex environment variables (preview)...');
-		if (
-			!runCommand('bun', [
-				'scripts/validate-convex-env.ts',
-				'--preview-name',
-				VERCEL_GIT_COMMIT_REF
-			])
-		) {
+		if (!runCommand('bun', ['scripts/validate-convex-env.ts'], convexDeploymentEnv)) {
 			console.error(`${colors.red}Environment variable validation failed${colors.reset}`);
 			process.exit(1);
 		}
