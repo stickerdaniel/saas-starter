@@ -214,9 +214,9 @@ async function main(): Promise<void> {
 
 	// =============================================================================
 	// Post-deploy: Set and validate preview environment variables (now instance exists)
-	// IMPORTANT: We use CONVEX_DEPLOYMENT=preview:<name> instead of --preview-name because
+	// IMPORTANT: We use --deployment-name <name> flag instead of --preview-name because
 	// --preview-name stores env vars in a separate namespace that the app runtime doesn't read.
-	// The app reads env vars directly from the deployment via its URL.
+	// The --deployment-name flag targets the specific deployment directly.
 	// =============================================================================
 	if (VERCEL_ENV === 'preview') {
 		// Log all relevant env vars for debugging
@@ -245,24 +245,27 @@ async function main(): Promise<void> {
 		}
 
 		const previewSiteUrl = `https://${VERCEL_URL}`;
-		const convexDeploymentEnv = {
-			...process.env,
-			CONVEX_DEPLOYMENT: `preview:${actualDeploymentName}`
-		};
 
 		console.log(`Setting SITE_URL for preview: ${previewSiteUrl}`);
-		console.log(`  Using CONVEX_DEPLOYMENT=preview:${actualDeploymentName}`);
+		console.log(`  Using --deployment-name ${actualDeploymentName}`);
 
-		// Set SITE_URL with retries using CONVEX_DEPLOYMENT env var
-		// This sets the env var directly on the deployment the app uses
+		// Set SITE_URL with retries using --deployment-name flag
+		// This sets the env var directly on the specific deployment
 		const setResult = await runCommandWithRetry(
 			'bunx',
-			['convex', 'env', 'set', 'SITE_URL', previewSiteUrl],
+			[
+				'convex',
+				'env',
+				'set',
+				'--deployment-name',
+				actualDeploymentName,
+				'SITE_URL',
+				previewSiteUrl
+			],
 			{
 				maxRetries: 5,
 				delayMs: 5000,
-				description: 'convex env set SITE_URL',
-				env: convexDeploymentEnv
+				description: 'convex env set SITE_URL'
 			}
 		);
 
@@ -280,11 +283,13 @@ async function main(): Promise<void> {
 
 		// Verify SITE_URL was set correctly by listing env vars
 		console.log('Verifying SITE_URL was set correctly...');
-		const listResult = runCommandCaptureWithEnv(
-			'bunx',
-			['convex', 'env', 'list'],
-			convexDeploymentEnv
-		);
+		const listResult = runCommandCapture('bunx', [
+			'convex',
+			'env',
+			'list',
+			'--deployment-name',
+			actualDeploymentName
+		]);
 
 		if (listResult.success) {
 			const siteUrlMatch = listResult.stdout.match(/^SITE_URL=(.+)$/m);
@@ -311,9 +316,15 @@ async function main(): Promise<void> {
 			console.log(`  stderr: ${listResult.stderr}`);
 		}
 
-		// Validate preview environment variables using CONVEX_DEPLOYMENT
+		// Validate preview environment variables using --deployment-name
 		console.log('Checking required Convex environment variables (preview)...');
-		if (!runCommand('bun', ['scripts/validate-convex-env.ts'], convexDeploymentEnv)) {
+		if (
+			!runCommand('bun', [
+				'scripts/validate-convex-env.ts',
+				'--deployment-name',
+				actualDeploymentName
+			])
+		) {
 			console.error(`${colors.red}Environment variable validation failed${colors.reset}`);
 			process.exit(1);
 		}
