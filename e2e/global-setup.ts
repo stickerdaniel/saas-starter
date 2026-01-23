@@ -18,6 +18,8 @@ dotenv.config({ path: '.env.test' });
 
 const SITE_URL = process.env.PUBLIC_SITE_URL || 'http://localhost:5173';
 const TEST_PASSWORD = 'TestPassword123!';
+// Vercel automation bypass for protected preview deployments
+const VERCEL_BYPASS_SECRET = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
 
 interface TestCredentials {
 	user: { email: string; password: string; name: string };
@@ -62,6 +64,58 @@ async function globalSetup() {
 			threadId: ''
 		}
 	};
+
+	// For protected Vercel preview deployments, get the bypass cookie
+	// This cookie will be used by Playwright for browser-based tests
+	if (VERCEL_BYPASS_SECRET && SITE_URL.includes('vercel.app')) {
+		console.log('[Setup] Fetching Vercel bypass cookie...');
+		try {
+			// Request with x-vercel-set-bypass-cookie to get the cookie via redirect
+			const bypassResponse = await fetch(SITE_URL, {
+				headers: {
+					'x-vercel-protection-bypass': VERCEL_BYPASS_SECRET,
+					'x-vercel-set-bypass-cookie': 'true'
+				},
+				redirect: 'manual' // Don't follow redirect, we just need the Set-Cookie header
+			});
+
+			// Extract the bypass cookie from the response
+			const setCookie = bypassResponse.headers.get('set-cookie');
+			if (setCookie) {
+				// Save the cookie for Playwright to use
+				const authDir = path.join(process.cwd(), 'e2e', '.auth');
+				if (!fs.existsSync(authDir)) {
+					fs.mkdirSync(authDir, { recursive: true });
+				}
+
+				// Parse the cookie and save as Playwright storage state format
+				const cookieMatch = setCookie.match(/_vercel_jwt=([^;]+)/);
+				if (cookieMatch) {
+					const bypassCookie = {
+						cookies: [
+							{
+								name: '_vercel_jwt',
+								value: cookieMatch[1],
+								domain: new URL(SITE_URL).hostname,
+								path: '/',
+								httpOnly: true,
+								secure: true,
+								sameSite: 'Lax' as const
+							}
+						],
+						origins: []
+					};
+					fs.writeFileSync(
+						path.join(authDir, 'vercel-bypass.json'),
+						JSON.stringify(bypassCookie, null, 2)
+					);
+					console.log('[Setup]   Vercel bypass cookie saved');
+				}
+			}
+		} catch (error) {
+			console.warn('[Setup]   Warning: Failed to get Vercel bypass cookie:', error);
+		}
+	}
 
 	console.log('[Setup] Creating fresh test users...');
 	console.log(`[Setup]   User: ${credentials.user.email}`);
@@ -108,14 +162,23 @@ async function createUser(
 ) {
 	const userType = isAdmin ? 'Admin' : 'Regular';
 
+	// Build headers with optional Vercel bypass for protected preview deployments
+	const getHeaders = (): Record<string, string> => {
+		const headers: Record<string, string> = {
+			'Content-Type': 'application/json',
+			Origin: SITE_URL
+		};
+		if (VERCEL_BYPASS_SECRET) {
+			headers['x-vercel-protection-bypass'] = VERCEL_BYPASS_SECRET;
+		}
+		return headers;
+	};
+
 	// Sign up the user
 	try {
 		const signUpResponse = await fetch(`${SITE_URL}/api/auth/sign-up/email`, {
 			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json',
-				Origin: SITE_URL
-			},
+			headers: getHeaders(),
 			body: JSON.stringify({
 				email: user.email,
 				password: user.password,
@@ -155,10 +218,7 @@ async function createUser(
 		// Verify credentials work
 		const signInResponse = await fetch(`${SITE_URL}/api/auth/sign-in/email`, {
 			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json',
-				Origin: SITE_URL
-			},
+			headers: getHeaders(),
 			body: JSON.stringify({ email: user.email, password: user.password })
 		});
 

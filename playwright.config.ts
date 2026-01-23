@@ -11,6 +11,9 @@ dotenv.config({ path: '.env.test' });
 const baseURL = process.env.PUBLIC_SITE_URL || 'http://localhost:5173';
 const isCI = !!process.env.CI;
 
+// Vercel automation bypass for protected preview deployments
+const vercelBypassSecret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
+
 export default defineConfig({
 	testDir: 'e2e',
 	/* Ensure test users exist before running tests */
@@ -32,7 +35,14 @@ export default defineConfig({
 		/* Base URL to use in actions like `await page.goto('/')` */
 		baseURL,
 		/* Collect trace when retrying the failed test */
-		trace: 'on-first-retry'
+		trace: 'on-first-retry',
+		/* Vercel automation bypass header for protected preview deployments */
+		...(vercelBypassSecret && {
+			extraHTTPHeaders: {
+				'x-vercel-protection-bypass': vercelBypassSecret,
+				'x-vercel-set-bypass-cookie': 'samesitenone'
+			}
+		})
 	},
 
 	/* Configure projects */
