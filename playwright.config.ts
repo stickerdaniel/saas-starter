@@ -66,8 +66,20 @@ export default defineConfig({
 				storageState: 'e2e/.auth/user.json'
 			},
 			dependencies: ['setup'],
-			// Don't run invalid-auth or admin tests
-			testIgnore: [/invalid-auth\.spec\.ts/, /admin-.*\.spec\.ts/]
+			// Don't run invalid-auth, admin, or signout tests (signout runs last in its own project)
+			testIgnore: [/invalid-auth\.spec\.ts/, /admin-.*\.spec\.ts/, /signout\.spec\.ts/]
+		},
+		// Signout test - runs LAST to avoid invalidating session for other tests
+		// The signout test logs out on the server, which would break subsequent tests
+		// that reuse the same session token from user.json
+		{
+			name: 'chromium-signout',
+			use: {
+				...devices['Desktop Chrome'],
+				storageState: 'e2e/.auth/user.json'
+			},
+			dependencies: ['chromium'], // Runs after all chromium tests
+			testMatch: /signout\.spec\.ts/
 		},
 		// Admin tests - require admin role
 		{
