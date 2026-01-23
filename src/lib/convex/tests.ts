@@ -132,16 +132,18 @@ export const createTestAdminUser = mutation({
 	}
 });
 
-// Create an anonymous support thread for E2E tests
+// Create anonymous support thread(s) for E2E tests
 // Note: This mutation requires AUTH_E2E_TEST_SECRET for security
+// Use count param to create multiple threads (for pagination testing)
 export const createAnonymousSupportThread = mutation({
 	args: {
 		secret: v.string(),
 		anonymousUserId: v.string(),
 		title: v.optional(v.string()),
-		pageUrl: v.optional(v.string())
+		pageUrl: v.optional(v.string()),
+		count: v.optional(v.number())
 	},
-	handler: async (ctx, { secret, anonymousUserId, title, pageUrl }) => {
+	handler: async (ctx, { secret, anonymousUserId, title, pageUrl, count = 1 }) => {
 		const expectedSecret = process.env.AUTH_E2E_TEST_SECRET;
 		if (!expectedSecret || secret !== expectedSecret) {
 			throw new Error('Unauthorized: Invalid test secret');
@@ -151,37 +153,97 @@ export const createAnonymousSupportThread = mutation({
 			throw new Error('Invalid anonymous user ID');
 		}
 
-		const threadTitle = title ?? 'E2E Support Thread';
-		const summary = 'New support conversation';
-		const searchText = buildSearchText({ title: threadTitle, summary });
+		const threadIds: string[] = [];
 
-		const { threadId } = await supportAgent.createThread(ctx, {
-			userId: anonymousUserId,
-			title: threadTitle,
-			summary
+		for (let i = 0; i < count; i++) {
+			const threadTitle =
+				count > 1 ? `${title ?? 'E2E Support Thread'} #${i + 1}` : (title ?? 'E2E Support Thread');
+			const summary = 'New support conversation';
+			const searchText = buildSearchText({ title: threadTitle, summary });
+
+			const { threadId } = await supportAgent.createThread(ctx, {
+				userId: anonymousUserId,
+				title: threadTitle,
+				summary
+			});
+
+			await ctx.db.insert('supportThreads', {
+				threadId,
+				userId: anonymousUserId,
+				status: 'open',
+				isHandedOff: false,
+				awaitingAdminResponse: true,
+				assignedTo: undefined,
+				priority: undefined,
+				pageUrl: pageUrl || undefined,
+				createdAt: Date.now(),
+				updatedAt: Date.now(),
+				notificationEmail: undefined,
+				searchText,
+				title: threadTitle,
+				summary,
+				lastMessage: undefined,
+				userName: undefined,
+				userEmail: undefined
+			});
+
+			threadIds.push(threadId);
+		}
+
+		return { threadIds, anonymousUserId };
+	}
+});
+
+// Get support threads by userId for E2E test verification
+// Note: This mutation requires AUTH_E2E_TEST_SECRET for security
+export const getSupportThreadsByUserId = mutation({
+	args: {
+		secret: v.string(),
+		userId: v.string()
+	},
+	handler: async (ctx, { secret, userId }) => {
+		const expectedSecret = process.env.AUTH_E2E_TEST_SECRET;
+		if (!expectedSecret || secret !== expectedSecret) {
+			throw new Error('Unauthorized: Invalid test secret');
+		}
+
+		const threads = await ctx.db
+			.query('supportThreads')
+			.withIndex('by_user', (q) => q.eq('userId', userId))
+			.collect();
+
+		return threads.map((t) => ({
+			threadId: t.threadId,
+			userId: t.userId,
+			userName: t.userName,
+			userEmail: t.userEmail
+		}));
+	}
+});
+
+// Get the authenticated user's ID by email for E2E test verification
+// Note: This mutation requires AUTH_E2E_TEST_SECRET for security
+export const getAuthUserIdByEmail = mutation({
+	args: {
+		secret: v.string(),
+		email: v.string()
+	},
+	handler: async (ctx, { secret, email }) => {
+		const expectedSecret = process.env.AUTH_E2E_TEST_SECRET;
+		if (!expectedSecret || secret !== expectedSecret) {
+			throw new Error('Unauthorized: Invalid test secret');
+		}
+
+		const user = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+			model: 'user',
+			where: [{ field: 'email', value: email }]
 		});
 
-		await ctx.db.insert('supportThreads', {
-			threadId,
-			userId: anonymousUserId,
-			status: 'open',
-			isHandedOff: false,
-			awaitingAdminResponse: true,
-			assignedTo: undefined,
-			priority: undefined,
-			pageUrl: pageUrl || undefined,
-			createdAt: Date.now(),
-			updatedAt: Date.now(),
-			notificationEmail: undefined,
-			searchText,
-			title: threadTitle,
-			summary,
-			lastMessage: undefined,
-			userName: undefined,
-			userEmail: undefined
-		});
+		if (!user) {
+			return { userId: null };
+		}
 
-		return { threadId, anonymousUserId };
+		return { userId: user._id };
 	}
 });
 

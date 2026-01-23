@@ -24,7 +24,7 @@ const VERCEL_BYPASS_SECRET = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
 interface TestCredentials {
 	user: { email: string; password: string; name: string };
 	admin: { email: string; password: string; name: string };
-	anonymousSupport: { userId: string; threadId: string };
+	anonymousSupport: { userId: string; threadIds: string[] };
 }
 
 async function globalSetup() {
@@ -61,7 +61,7 @@ async function globalSetup() {
 		},
 		anonymousSupport: {
 			userId: '',
-			threadId: ''
+			threadIds: []
 		}
 	};
 
@@ -127,18 +127,21 @@ async function globalSetup() {
 	// Create admin user
 	await createUser(credentials.admin, testSecret, client, true);
 
-	// Create anonymous support thread for migration tests
+	// Create 105 anonymous support threads for migration tests (tests pagination > 100)
 	const anonymousUserId = `anon_${crypto.randomUUID()}`;
-	const anonymousThread = await client.mutation(api.tests.createAnonymousSupportThread, {
+	console.log('[Setup] Creating 105 anonymous support threads for migration test...');
+	const anonymousThreads = await client.mutation(api.tests.createAnonymousSupportThread, {
 		secret: testSecret,
 		anonymousUserId,
 		title: 'E2E Support Thread',
-		pageUrl: `${SITE_URL}/en/app`
+		pageUrl: `${SITE_URL}/en/app`,
+		count: 105
 	});
+	console.log(`[Setup]   Created ${anonymousThreads.threadIds.length} anonymous threads`);
 
 	credentials.anonymousSupport = {
-		userId: anonymousThread.anonymousUserId,
-		threadId: anonymousThread.threadId
+		userId: anonymousThreads.anonymousUserId,
+		threadIds: anonymousThreads.threadIds
 	};
 
 	// Save credentials for tests to read

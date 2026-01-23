@@ -37,13 +37,27 @@ export const migrateAnonymousTickets = mutation({
 			throw new Error('Invalid anonymous user ID');
 		}
 
-		// 3. Find all agent:threads with anonymous userId
-		const threads = await ctx.runQuery(components.agent.threads.listThreadsByUserId, {
+		// 3. Find ALL agent:threads with anonymous userId (paginate through all results)
+		const firstPage = await ctx.runQuery(components.agent.threads.listThreadsByUserId, {
 			userId: args.anonymousUserId,
 			paginationOpts: { numItems: 100, cursor: null }
 		});
 
-		if (threads.page.length === 0) {
+		let allThreads = [...firstPage.page];
+		let cursor = firstPage.continueCursor;
+		let isDone = firstPage.isDone;
+
+		while (!isDone) {
+			const nextPage = await ctx.runQuery(components.agent.threads.listThreadsByUserId, {
+				userId: args.anonymousUserId,
+				paginationOpts: { numItems: 100, cursor }
+			});
+			allThreads = allThreads.concat(nextPage.page);
+			cursor = nextPage.continueCursor;
+			isDone = nextPage.isDone;
+		}
+
+		if (allThreads.length === 0) {
 			return { migratedCount: 0 };
 		}
 
@@ -51,7 +65,7 @@ export const migrateAnonymousTickets = mutation({
 		const { _id: authUserId, name: authUserName, email: authUserEmail } = authUser;
 
 		// 4. Update each thread
-		for (const thread of threads.page) {
+		for (const thread of allThreads) {
 			// Update agent:threads userId via component API
 			await supportAgent.updateThreadMetadata(ctx, {
 				threadId: thread._id,
@@ -76,6 +90,6 @@ export const migrateAnonymousTickets = mutation({
 			}
 		}
 
-		return { migratedCount: threads.page.length };
+		return { migratedCount: allThreads.length };
 	}
 });
