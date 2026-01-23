@@ -5,6 +5,7 @@
  * - Tolgee translation tagging and pulling
  * - Convex environment variable validation (production and preview)
  * - Convex deployment
+ * - E2E test triggering via GitHub webhook (preview only)
  * - SvelteKit build
  */
 
@@ -57,8 +58,15 @@ function runCommandCapture(
 	};
 }
 
+/**
+ * Strip ANSI escape codes from string
+ */
+function stripAnsi(str: string): string {
+	return str.replace(/\x1b\[[0-9;]*m/g, '');
+}
+
 // Main execution
-function main(): void {
+async function main(): Promise<void> {
 	console.log(`Vercel Environment: ${VERCEL_ENV}`);
 
 	// Tag translations based on environment
@@ -110,11 +118,31 @@ function main(): void {
 		);
 	}
 
-	// Deploy Convex functions
+	// Deploy Convex functions and capture output to get actual deployment URL
 	console.log('Deploying Convex functions...');
-	if (!runCommand('bunx', ['convex', 'deploy'])) {
+	const convexDeployResult = runCommandCapture('bunx', ['convex', 'deploy']);
+
+	// Print the output so it's visible in logs
+	if (convexDeployResult.stdout) console.log(convexDeployResult.stdout);
+	if (convexDeployResult.stderr) console.error(convexDeployResult.stderr);
+
+	if (!convexDeployResult.success) {
 		console.error(`${colors.red}Convex deployment failed${colors.reset}`);
 		process.exit(1);
+	}
+
+	// Extract deployment URL from output (e.g., "Deployed Convex functions to https://xxx.convex.cloud")
+	// Check both stdout and stderr, strip ANSI codes
+	const combinedOutput = stripAnsi(convexDeployResult.stdout + '\n' + convexDeployResult.stderr);
+	const deployUrlMatch = combinedOutput.match(/https:\/\/([a-z0-9-]+)\.convex\.cloud/);
+	const actualDeploymentName = deployUrlMatch ? deployUrlMatch[1] : null;
+
+	if (actualDeploymentName) {
+		console.log(`Detected Convex deployment: ${actualDeploymentName}`);
+	} else {
+		console.warn(
+			`${colors.yellow}Warning: Could not parse deployment URL from convex deploy output${colors.reset}`
+		);
 	}
 
 	// =============================================================================
@@ -156,46 +184,33 @@ function main(): void {
 		}
 	}
 
-	// Extract deployment URL from CONVEX_DEPLOY_KEY and build environment for SvelteKit
-	// Format: prod:name|token or preview:identifier:name|token
-	// Production: prod:keen-labrador-829|... -> keen-labrador-829
-	// Preview: preview:team-project:name|... -> name
+	// Build environment for SvelteKit with correct Convex URLs
 	const buildEnv: Record<string, string | undefined> = { ...process.env };
 
-	if (CONVEX_DEPLOY_KEY) {
+	// Use actual deployment URL from convex deploy output (most reliable)
+	// Falls back to parsing CONVEX_DEPLOY_KEY if output parsing failed
+	let deploymentName = actualDeploymentName;
+
+	if (!deploymentName && CONVEX_DEPLOY_KEY) {
+		// Fallback: parse from deploy key
+		// Format: prod:name|token or preview:identifier:name|token
 		const parts = CONVEX_DEPLOY_KEY.split('|');
-
-		if (parts.length < 2) {
-			console.error(
-				`${colors.red}Invalid CONVEX_DEPLOY_KEY format. Expected: prod:name|token or preview:identifier:name|token${colors.reset}`
-			);
-			process.exit(1);
+		if (parts.length >= 2) {
+			const keyParts = parts[0].split(':');
+			deploymentName = keyParts[keyParts.length - 1];
 		}
+	}
 
-		const keyPart = parts[0];
-		const keyParts = keyPart.split(':');
-
-		if (keyParts.length < 2) {
-			console.error(
-				`${colors.red}Invalid CONVEX_DEPLOY_KEY format. Expected: prod:name|token or preview:identifier:name|token${colors.reset}`
-			);
-			process.exit(1);
-		}
-
-		if (keyParts[0] === 'preview' && keyParts.length < 3) {
-			console.error(
-				`${colors.red}Invalid preview CONVEX_DEPLOY_KEY format. Expected: preview:identifier:name|token${colors.reset}`
-			);
-			process.exit(1);
-		}
-
-		const deploymentName = keyParts[keyParts.length - 1];
-
+	if (deploymentName) {
 		buildEnv.PUBLIC_CONVEX_URL = `https://${deploymentName}.convex.cloud`;
 		buildEnv.PUBLIC_CONVEX_SITE_URL = `https://${deploymentName}.convex.site`;
 
 		console.log(`PUBLIC_CONVEX_URL: ${buildEnv.PUBLIC_CONVEX_URL}`);
 		console.log(`PUBLIC_CONVEX_SITE_URL: ${buildEnv.PUBLIC_CONVEX_SITE_URL}`);
+	} else {
+		console.warn(
+			`${colors.yellow}Warning: Could not determine Convex deployment URL${colors.reset}`
+		);
 	}
 
 	// For preview deployments, derive SITE_URL from VERCEL_URL for SvelteKit build
@@ -203,6 +218,44 @@ function main(): void {
 	if (VERCEL_ENV === 'preview' && VERCEL_URL) {
 		buildEnv.SITE_URL = `https://${VERCEL_URL}`;
 		console.log(`SITE_URL (for SvelteKit build): ${buildEnv.SITE_URL}`);
+	}
+
+	// Trigger E2E tests immediately after Convex is ready (don't wait for SvelteKit build)
+	if (VERCEL_ENV === 'preview' && process.env.GITHUB_PAT && VERCEL_GIT_COMMIT_REF) {
+		console.log('Triggering E2E tests against preview Convex...');
+
+		const githubRepo = `${process.env.VERCEL_GIT_REPO_OWNER}/${process.env.VERCEL_GIT_REPO_SLUG}`;
+		try {
+			const response = await fetch(`https://api.github.com/repos/${githubRepo}/dispatches`, {
+				method: 'POST',
+				headers: {
+					Authorization: `Bearer ${process.env.GITHUB_PAT}`,
+					Accept: 'application/vnd.github+json',
+					'Content-Type': 'application/json',
+					'X-GitHub-Api-Version': '2022-11-28'
+				},
+				body: JSON.stringify({
+					event_type: 'convex.deployed',
+					client_payload: {
+						convex_url: buildEnv.PUBLIC_CONVEX_URL,
+						convex_site_url: buildEnv.PUBLIC_CONVEX_SITE_URL,
+						git_sha: process.env.VERCEL_GIT_COMMIT_SHA,
+						branch: VERCEL_GIT_COMMIT_REF
+					}
+				})
+			});
+
+			if (response.ok || response.status === 204) {
+				console.log(`${colors.green}E2E tests triggered${colors.reset}`);
+			} else {
+				const text = await response.text();
+				console.warn(
+					`${colors.yellow}Failed to trigger E2E tests: ${response.status} ${text}${colors.reset}`
+				);
+			}
+		} catch (error) {
+			console.warn(`${colors.yellow}Failed to trigger E2E tests: ${error}${colors.reset}`);
+		}
 	}
 
 	// Build SvelteKit with the computed environment variables
