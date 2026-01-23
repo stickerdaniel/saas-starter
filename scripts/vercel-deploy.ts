@@ -66,6 +66,46 @@ function stripAnsi(str: string): string {
 	return str.replace(/\x1b\[[0-9;]*m/g, '');
 }
 
+/**
+ * Sleep for a given number of milliseconds
+ */
+function sleep(ms: number): Promise<void> {
+	return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Run a command with retries and delay between attempts
+ */
+async function runCommandWithRetry(
+	command: string,
+	args: string[],
+	options: { maxRetries?: number; delayMs?: number; description?: string } = {}
+): Promise<{ success: boolean; stdout: string; stderr: string }> {
+	const { maxRetries = 5, delayMs = 5000, description = 'command' } = options;
+
+	for (let attempt = 1; attempt <= maxRetries; attempt++) {
+		const result = runCommandCapture(command, args);
+
+		if (result.success) {
+			return result;
+		}
+
+		console.log(
+			`${colors.yellow}[Attempt ${attempt}/${maxRetries}] ${description} failed${colors.reset}`
+		);
+		if (result.stdout) console.log(`  stdout: ${result.stdout}`);
+		if (result.stderr) console.log(`  stderr: ${result.stderr}`);
+
+		if (attempt < maxRetries) {
+			console.log(`  Retrying in ${delayMs / 1000}s...`);
+			await sleep(delayMs);
+		}
+	}
+
+	// Return the last failed result
+	return runCommandCapture(command, args);
+}
+
 // Main execution
 async function main(): Promise<void> {
 	console.log(`Vercel Environment: ${VERCEL_ENV}`);
@@ -147,28 +187,94 @@ async function main(): Promise<void> {
 	}
 
 	// =============================================================================
-	// Post-deploy: Validate preview environment variables (now instance exists)
+	// Post-deploy: Set and validate preview environment variables (now instance exists)
 	// =============================================================================
-	if (VERCEL_ENV === 'preview' && VERCEL_GIT_COMMIT_REF) {
-		// Set SITE_URL now that the preview instance exists
-		if (VERCEL_URL) {
-			const previewSiteUrl = `https://${VERCEL_URL}`;
-			console.log(`Setting SITE_URL for preview: ${previewSiteUrl}`);
+	if (VERCEL_ENV === 'preview') {
+		// Log all relevant env vars for debugging
+		console.log('');
+		console.log('=== Preview Environment Debug ===');
+		console.log(`  VERCEL_ENV: ${VERCEL_ENV}`);
+		console.log(`  VERCEL_URL: ${VERCEL_URL ?? '(not set)'}`);
+		console.log(`  VERCEL_GIT_COMMIT_REF: ${VERCEL_GIT_COMMIT_REF ?? '(not set)'}`);
+		console.log(`  Detected deployment: ${actualDeploymentName ?? '(not detected)'}`);
+		console.log('=================================');
+		console.log('');
 
-			const result = runCommandCapture('bunx', [
-				'convex',
-				'env',
-				'set',
-				'SITE_URL',
-				previewSiteUrl,
-				'--preview-name',
-				VERCEL_GIT_COMMIT_REF
-			]);
+		// Fail fast if required env vars are missing
+		if (!VERCEL_GIT_COMMIT_REF) {
+			console.error(
+				`${colors.red}Error: VERCEL_GIT_COMMIT_REF is not set. Cannot configure preview deployment.${colors.reset}`
+			);
+			process.exit(1);
+		}
 
-			if (!result.success) {
-				console.error(`${colors.red}Failed to set SITE_URL for preview${colors.reset}`);
-				process.exit(1);
+		if (!VERCEL_URL) {
+			console.error(
+				`${colors.red}Error: VERCEL_URL is not set. Cannot set SITE_URL for preview.${colors.reset}`
+			);
+			process.exit(1);
+		}
+
+		const previewSiteUrl = `https://${VERCEL_URL}`;
+		console.log(`Setting SITE_URL for preview: ${previewSiteUrl}`);
+		console.log(`  Preview name (branch): ${VERCEL_GIT_COMMIT_REF}`);
+
+		// Set SITE_URL with retries to handle race condition where preview isn't fully provisioned
+		const setResult = await runCommandWithRetry(
+			'bunx',
+			['convex', 'env', 'set', 'SITE_URL', previewSiteUrl, '--preview-name', VERCEL_GIT_COMMIT_REF],
+			{
+				maxRetries: 5,
+				delayMs: 5000,
+				description: 'convex env set SITE_URL'
 			}
+		);
+
+		if (!setResult.success) {
+			console.error(
+				`${colors.red}Failed to set SITE_URL for preview after all retries${colors.reset}`
+			);
+			console.error(`  stdout: ${setResult.stdout}`);
+			console.error(`  stderr: ${setResult.stderr}`);
+			process.exit(1);
+		}
+
+		console.log(`${colors.green}SITE_URL set successfully${colors.reset}`);
+		if (setResult.stdout) console.log(`  stdout: ${setResult.stdout}`);
+
+		// Verify SITE_URL was set correctly by listing env vars
+		console.log('Verifying SITE_URL was set correctly...');
+		const listResult = runCommandCapture('bunx', [
+			'convex',
+			'env',
+			'list',
+			'--preview-name',
+			VERCEL_GIT_COMMIT_REF
+		]);
+
+		if (listResult.success) {
+			const siteUrlMatch = listResult.stdout.match(/^SITE_URL=(.+)$/m);
+			if (siteUrlMatch) {
+				const actualSiteUrl = siteUrlMatch[1];
+				if (actualSiteUrl === previewSiteUrl) {
+					console.log(`${colors.green}SITE_URL verified: ${actualSiteUrl}${colors.reset}`);
+				} else {
+					console.error(
+						`${colors.red}SITE_URL mismatch! Expected: ${previewSiteUrl}, Got: ${actualSiteUrl}${colors.reset}`
+					);
+					process.exit(1);
+				}
+			} else {
+				console.warn(
+					`${colors.yellow}Warning: Could not find SITE_URL in env list output${colors.reset}`
+				);
+				console.log(`  Output: ${listResult.stdout}`);
+			}
+		} else {
+			console.warn(
+				`${colors.yellow}Warning: Could not verify SITE_URL (env list failed)${colors.reset}`
+			);
+			console.log(`  stderr: ${listResult.stderr}`);
 		}
 
 		// Validate preview environment variables
