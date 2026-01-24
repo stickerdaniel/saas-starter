@@ -1,39 +1,38 @@
 <script lang="ts">
+	import * as v from 'valibot';
 	import { authClient } from '$lib/auth-client';
 	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
 	import { useQuery } from 'convex-svelte';
 	import { api } from '$lib/convex/_generated/api';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
-	import * as Form from '$lib/components/ui/form/index.js';
-	import { Tabs, TabsContent, TabsList, TabsTrigger } from '$lib/components/ui/tabs/index.js';
+	import * as Card from '$lib/components/ui/card/index.js';
 	import {
-		Card,
-		CardContent,
-		CardDescription,
-		CardHeader,
-		CardTitle
-	} from '$lib/components/ui/card/index.js';
+		FieldGroup,
+		Field,
+		FieldLabel,
+		FieldDescription,
+		FieldSeparator,
+		FieldError
+	} from '$lib/components/ui/field/index.js';
 	import { useSearchParams } from 'runed/kit';
-	import {
-		authParamsSchema,
-		signInSchema,
-		signUpSchema,
-		PASSWORD_MIN_LENGTH
-	} from '$lib/schemas/auth.js';
+	import { authParamsSchema } from '$lib/schemas/auth.js';
+	import { signInSchema, signUpSchema } from './schema.js';
 	import { localizedHref } from '$lib/utils/i18n';
 	import { T } from '@tolgee/svelte';
 	import KeyIcon from '@lucide/svelte/icons/key-round';
 	import { authFlow } from '$lib/hooks/auth-flow.svelte';
-	import { defaults, superForm } from 'sveltekit-superforms';
-	import { zod4 } from 'sveltekit-superforms/adapters';
+
+	let { data } = $props();
 
 	const auth = useAuth();
 	const params = useSearchParams(authParamsSchema, {
 		debounce: 300,
 		pushHistory: false
 	});
-	const oauthProviders = useQuery(api.auth.getAvailableOAuthProviders, {});
+	const oauthProviders = useQuery(api.auth.getAvailableOAuthProviders, {}, () => ({
+		initialData: data.oauthProviders
+	}));
 
 	// Passkeys are only available on signin tab
 	const hasPasskeyAuth = $derived(params.tab === 'signin');
@@ -44,97 +43,51 @@
 	// Show alternative auth section if any alternative is available
 	const hasAlternativeAuth = $derived(hasPasskeyAuth || hasOAuthAuth);
 
+	// Count enabled providers for grid columns
+	const enabledProviderCount = $derived(
+		(oauthProviders.data?.google ? 1 : 0) +
+			(oauthProviders.data?.github ? 1 : 0) +
+			(params.tab === 'signin' ? 1 : 0) // passkey
+	);
+
 	let isLoading = $state(false);
 	let formError = $state('');
 	let verificationStep = $state<{ email: string } | null>(null);
 
-	// Sign In Form
-	const signInForm = superForm(defaults({ email: '', password: '' }, zod4(signInSchema)), {
-		validators: zod4(signInSchema),
-		SPA: true,
-		onUpdate: async ({ form: f }) => {
-			if (!f.valid) return;
-			isLoading = true;
-			formError = '';
+	const id = $props.id();
 
-			try {
-				await authClient.signIn.email(
-					{ email: f.data.email, password: f.data.password },
-					{
-						onError: (ctx) => {
-							formError = ctx.error.message || 'auth.errors.invalid_credentials';
-						}
-					}
-				);
-			} catch {
-				formError = 'auth.errors.invalid_credentials';
-			} finally {
-				isLoading = false;
-			}
-		}
-	});
+	// Form data
+	let signInData = $state({ email: '', password: '' });
+	let signUpData = $state({ name: '', email: '', password: '' });
 
-	// Sign Up Form
-	const signUpForm = superForm(
-		defaults({ name: '', email: '', password: '' }, zod4(signUpSchema)),
-		{
-			validators: zod4(signUpSchema),
-			SPA: true,
-			onUpdate: async ({ form: f }) => {
-				if (!f.valid) return;
-				isLoading = true;
-				formError = '';
+	// Field errors (keyed by field name)
+	let signInErrors = $state<Record<string, string[]>>({});
+	let signUpErrors = $state<Record<string, string[]>>({});
 
-				try {
-					// After email verification, user will be auto-logged in and redirected to /app
-					const callbackURL = params.redirectTo || localizedHref('/app');
-					await authClient.signUp.email(
-						{
-							email: f.data.email,
-							password: f.data.password,
-							name: f.data.name,
-							callbackURL
-						},
-						{
-							onSuccess: () => {
-								verificationStep = { email: f.data.email };
-							},
-							onError: (ctx) => {
-								formError = ctx.error.message || 'auth.errors.signup_failed';
-							}
-						}
-					);
-				} catch {
-					formError = 'auth.errors.signup_failed';
-				} finally {
-					isLoading = false;
-				}
-			}
-		}
-	);
-
-	const { form: signInData, enhance: signInEnhance } = signInForm;
-	const { form: signUpData, enhance: signUpEnhance } = signUpForm;
+	// Helper to convert string[] to { message: string }[] for FieldError component
+	function toFieldErrors(errors: string[] | undefined): { message: string }[] | undefined {
+		return errors?.map((message) => ({ message }));
+	}
 
 	// Initialize email from global state
 	$effect(() => {
 		if (authFlow.email) {
-			$signInData.email = authFlow.email;
-			$signUpData.email = authFlow.email;
+			signInData.email = authFlow.email;
+			signUpData.email = authFlow.email;
 		}
 	});
 
 	// Sync email changes to global state and between forms
 	$effect(() => {
-		const email = params.tab === 'signin' ? $signInData.email : $signUpData.email;
+		const email = params.tab === 'signin' ? signInData.email : signUpData.email;
 		if (email) {
 			authFlow.email = email;
 		}
 		// Sync between forms
-		if (params.tab === 'signin' && $signInData.email !== $signUpData.email) {
-			$signUpData.email = $signInData.email;
-		} else if (params.tab === 'signup' && $signUpData.email !== $signInData.email) {
-			$signInData.email = $signUpData.email;
+		if (params.tab === 'signin' && signInData.email !== signUpData.email) {
+			signUpData.email = signInData.email;
+		} else if (params.tab === 'signup' && signUpData.email !== signInData.email) {
+			signInData.email = signUpData.email;
 		}
 	});
 
@@ -145,6 +98,109 @@
 			window.location.href = destination;
 		}
 	});
+
+	function validateSignIn(): boolean {
+		// Map form data to schema field names (_password)
+		const dataForValidation = {
+			email: signInData.email,
+			_password: signInData.password
+		};
+		const result = v.safeParse(signInSchema, dataForValidation);
+		if (!result.success) {
+			const errors: Record<string, string[]> = {};
+			for (const issue of result.issues) {
+				const path = issue.path?.[0]?.key as string;
+				// Map _password back to password for display
+				const fieldName = path === '_password' ? 'password' : path;
+				if (!errors[fieldName]) errors[fieldName] = [];
+				errors[fieldName].push(issue.message);
+			}
+			signInErrors = errors;
+			return false;
+		}
+		signInErrors = {};
+		return true;
+	}
+
+	function validateSignUp(): boolean {
+		// Map form data to schema field names (_password)
+		const dataForValidation = {
+			name: signUpData.name,
+			email: signUpData.email,
+			_password: signUpData.password
+		};
+		const result = v.safeParse(signUpSchema, dataForValidation);
+		if (!result.success) {
+			const errors: Record<string, string[]> = {};
+			for (const issue of result.issues) {
+				const path = issue.path?.[0]?.key as string;
+				// Map _password back to password for display
+				const fieldName = path === '_password' ? 'password' : path;
+				if (!errors[fieldName]) errors[fieldName] = [];
+				errors[fieldName].push(issue.message);
+			}
+			signUpErrors = errors;
+			return false;
+		}
+		signUpErrors = {};
+		return true;
+	}
+
+	async function handleSignIn(e: Event) {
+		e.preventDefault();
+		if (!validateSignIn()) return;
+
+		isLoading = true;
+		formError = '';
+
+		try {
+			await authClient.signIn.email(
+				{ email: signInData.email, password: signInData.password },
+				{
+					onError: (ctx: { error: Error }) => {
+						formError = ctx.error.message || 'auth.errors.invalid_credentials';
+					}
+				}
+			);
+		} catch {
+			formError = 'auth.errors.invalid_credentials';
+		} finally {
+			isLoading = false;
+		}
+	}
+
+	async function handleSignUp(e: Event) {
+		e.preventDefault();
+		if (!validateSignUp()) return;
+
+		isLoading = true;
+		formError = '';
+
+		try {
+			// After email verification, user will be auto-logged in and redirected to /app
+			const callbackURL = params.redirectTo || localizedHref('/app');
+			await authClient.signUp.email(
+				{
+					email: signUpData.email,
+					password: signUpData.password,
+					name: signUpData.name,
+					callbackURL
+				},
+				{
+					onSuccess: () => {
+						verificationStep = { email: signUpData.email };
+					},
+					onError: (ctx: { error: Error }) => {
+						formError = ctx.error.message || 'auth.errors.signup_failed';
+					}
+				}
+			);
+		} catch {
+			formError = 'auth.errors.signup_failed';
+		} finally {
+			isLoading = false;
+		}
+	}
 
 	function cancelVerification() {
 		verificationStep = null;
@@ -175,290 +231,299 @@
 	}
 </script>
 
-<div class="flex min-h-screen w-full">
-	<main class="mx-auto my-auto flex flex-col">
-		<Card class="w-[400px]">
-			<CardHeader>
-				<CardTitle>
-					{#if verificationStep}
-						<T keyName="auth.verification.title" />
-					{:else}
-						<T keyName="auth.signin.title" />
-					{/if}
-				</CardTitle>
-				<CardDescription>
-					{#if verificationStep}
-						<T keyName="auth.verification.description" />
-					{:else}
-						<T keyName="auth.signin.description" />
-					{/if}
-				</CardDescription>
-			</CardHeader>
-			<CardContent>
+<div class="flex min-h-svh flex-col items-center justify-center bg-muted p-6 md:p-10">
+	<div class="flex w-full max-w-sm flex-col gap-6 md:max-w-3xl">
+		<Card.Root class="overflow-hidden p-0">
+			<Card.Content class="grid p-0 md:grid-cols-2">
 				{#if verificationStep}
-					<!-- Email Verification Step - Link-based verification -->
-					<div class="space-y-4">
-						<p class="text-sm text-muted-foreground">
-							<T keyName="auth.verification.sent_to" />
-							<span class="font-medium">{verificationStep.email}</span>
-						</p>
-						<p class="text-sm text-muted-foreground">
-							<T keyName="auth.verification.check_email" />
-						</p>
-						{#if formError}
-							<p class="text-sm text-red-500">{formError}</p>
-						{/if}
-						<Button type="button" variant="ghost" class="w-full" onclick={cancelVerification}>
-							<T keyName="auth.verification.button_back" />
-						</Button>
+					<!-- Email Verification Step -->
+					<div class="p-6 md:p-8">
+						<FieldGroup>
+							<div class="flex flex-col items-center gap-2 text-center">
+								<h1 class="text-2xl font-bold">
+									<T keyName="auth.verification.title" />
+								</h1>
+								<p class="text-balance text-muted-foreground">
+									<T keyName="auth.verification.description" />
+								</p>
+							</div>
+							<Field>
+								<p class="text-sm text-muted-foreground">
+									<T keyName="auth.verification.sent_to" />
+									<span class="font-medium">{verificationStep.email}</span>
+								</p>
+							</Field>
+							<Field>
+								<p class="text-sm text-muted-foreground">
+									<T keyName="auth.verification.check_email" />
+								</p>
+							</Field>
+							{#if formError}
+								<Field>
+									<p class="text-sm text-red-500">{formError}</p>
+								</Field>
+							{/if}
+							<Field>
+								<Button type="button" variant="ghost" class="w-full" onclick={cancelVerification}>
+									<T keyName="auth.verification.button_back" />
+								</Button>
+							</Field>
+						</FieldGroup>
 					</div>
-				{:else}
-					<!-- Sign In / Sign Up Forms -->
-					<Tabs bind:value={params.tab} class="w-full">
-						<TabsList class="grid w-full grid-cols-2">
-							<TabsTrigger value="signin"><T keyName="auth.signin.tab_signin" /></TabsTrigger>
-							<TabsTrigger value="signup"><T keyName="auth.signin.tab_signup" /></TabsTrigger>
-						</TabsList>
-
-						<TabsContent value="signin">
-							<form method="POST" use:signInEnhance class="space-y-4">
-								<Form.Field form={signInForm} name="email">
-									<Form.Control>
-										{#snippet children({ props })}
-											<Form.Label><T keyName="auth.signin.email_label" /></Form.Label>
-											<Input
-												{...props}
-												data-testid="email-input"
-												type="email"
-												placeholder="you@example.com"
-												disabled={isLoading}
-												bind:value={$signInData.email}
-											/>
-										{/snippet}
-									</Form.Control>
-									<Form.FieldErrors>
-										{#snippet children({ errors })}
-											{#each errors as error}
-												<span class="block text-sm text-destructive">
-													<T keyName={error} params={{ minLength: PASSWORD_MIN_LENGTH }} />
-												</span>
-											{/each}
-										{/snippet}
-									</Form.FieldErrors>
-								</Form.Field>
-
-								<Form.Field form={signInForm} name="password">
-									<Form.Control>
-										{#snippet children({ props })}
-											<div class="flex items-center justify-between">
-												<Form.Label><T keyName="auth.signin.password_label" /></Form.Label>
-												<a
-													href={localizedHref('/forgot-password')}
-													class="text-sm text-muted-foreground hover:underline"
-												>
-													<T
-														keyName="auth.signin.forgot_password"
-														defaultValue="Forgot password?"
-													/>
-												</a>
-											</div>
-											<Input
-												{...props}
-												data-testid="password-input"
-												type="password"
-												placeholder="••••••••"
-												disabled={isLoading}
-												bind:value={$signInData.password}
-											/>
-										{/snippet}
-									</Form.Control>
-									<Form.FieldErrors>
-										{#snippet children({ errors })}
-											{#each errors as error}
-												<span class="block text-sm text-destructive">
-													<T keyName={error} params={{ minLength: PASSWORD_MIN_LENGTH }} />
-												</span>
-											{/each}
-										{/snippet}
-									</Form.FieldErrors>
-								</Form.Field>
-
-								{#if formError}
-									<p class="text-sm text-red-500" data-testid="auth-error">{formError}</p>
-								{/if}
-
-								<Form.Button class="w-full" disabled={isLoading} data-testid="signin-button">
+				{:else if params.tab === 'signin'}
+					<!-- Sign In Form -->
+					<form onsubmit={handleSignIn} class="p-6 md:p-8">
+						<FieldGroup>
+							<div class="flex flex-col items-center gap-2 text-center">
+								<h1 class="text-2xl font-bold">
+									<T keyName="auth.signin.title" />
+								</h1>
+								<p class="text-balance text-muted-foreground">
+									<T keyName="auth.signin.description" />
+								</p>
+							</div>
+							<Field>
+								<FieldLabel for="email-{id}"><T keyName="auth.signin.email_label" /></FieldLabel>
+								<Input
+									id="email-{id}"
+									data-testid="email-input"
+									type="email"
+									placeholder="m@example.com"
+									disabled={isLoading}
+									bind:value={signInData.email}
+								/>
+								<FieldError errors={toFieldErrors(signInErrors.email)} />
+							</Field>
+							<Field>
+								<div class="flex items-center">
+									<FieldLabel for="password-{id}"
+										><T keyName="auth.signin.password_label" /></FieldLabel
+									>
+									<a
+										href={localizedHref('/forgot-password')}
+										class="ms-auto text-sm text-muted-foreground underline-offset-2 hover:underline"
+									>
+										<T keyName="auth.signin.forgot_password" />
+									</a>
+								</div>
+								<Input
+									id="password-{id}"
+									data-testid="password-input"
+									type="password"
+									disabled={isLoading}
+									bind:value={signInData.password}
+								/>
+								<FieldError errors={toFieldErrors(signInErrors.password)} />
+							</Field>
+							<FieldError
+								errors={formError ? [{ message: formError }] : undefined}
+								data-testid="auth-error"
+							/>
+							<Field>
+								<Button
+									type="submit"
+									class="w-full"
+									disabled={isLoading}
+									data-testid="signin-button"
+								>
 									{#if isLoading}
 										<T keyName="auth.signin.button_signin_loading" />
 									{:else}
 										<T keyName="auth.signin.button_signin" />
 									{/if}
-								</Form.Button>
-							</form>
-						</TabsContent>
-
-						<TabsContent value="signup">
-							<form method="POST" use:signUpEnhance class="space-y-4">
-								<Form.Field form={signUpForm} name="name">
-									<Form.Control>
-										{#snippet children({ props })}
-											<Form.Label
-												><T keyName="auth.signin.name_label" defaultValue="Name" /></Form.Label
-											>
-											<Input
-												{...props}
-												type="text"
-												placeholder="Your name"
-												disabled={isLoading}
-												bind:value={$signUpData.name}
-											/>
-										{/snippet}
-									</Form.Control>
-									<Form.FieldErrors>
-										{#snippet children({ errors })}
-											{#each errors as error}
-												<span class="block text-sm text-destructive">
-													<T keyName={error} params={{ minLength: PASSWORD_MIN_LENGTH }} />
-												</span>
-											{/each}
-										{/snippet}
-									</Form.FieldErrors>
-								</Form.Field>
-
-								<Form.Field form={signUpForm} name="email">
-									<Form.Control>
-										{#snippet children({ props })}
-											<Form.Label><T keyName="auth.signin.email_label" /></Form.Label>
-											<Input
-												{...props}
-												type="email"
-												placeholder="you@example.com"
-												disabled={isLoading}
-												bind:value={$signUpData.email}
-											/>
-										{/snippet}
-									</Form.Control>
-									<Form.FieldErrors>
-										{#snippet children({ errors })}
-											{#each errors as error}
-												<span class="block text-sm text-destructive">
-													<T keyName={error} params={{ minLength: PASSWORD_MIN_LENGTH }} />
-												</span>
-											{/each}
-										{/snippet}
-									</Form.FieldErrors>
-								</Form.Field>
-
-								<Form.Field form={signUpForm} name="password">
-									<Form.Control>
-										{#snippet children({ props })}
-											<Form.Label><T keyName="auth.signin.password_label" /></Form.Label>
-											<Input
-												{...props}
-												type="password"
-												placeholder="••••••••"
-												disabled={isLoading}
-												bind:value={$signUpData.password}
-											/>
-										{/snippet}
-									</Form.Control>
-									<Form.FieldErrors>
-										{#snippet children({ errors })}
-											{#each errors as error}
-												<span class="block text-sm text-destructive">
-													<T keyName={error} params={{ minLength: PASSWORD_MIN_LENGTH }} />
-												</span>
-											{/each}
-										{/snippet}
-									</Form.FieldErrors>
-								</Form.Field>
-
-								{#if formError}
-									<p class="text-sm text-red-500" data-testid="auth-error">{formError}</p>
-								{/if}
-
-								<Form.Button class="w-full" disabled={isLoading} data-testid="signup-button">
+								</Button>
+							</Field>
+							{#if hasAlternativeAuth}
+								<FieldSeparator class="*:data-[slot=field-separator-content]:bg-card">
+									<T keyName="auth.signin.or_continue_with" />
+								</FieldSeparator>
+								<Field
+									class="grid gap-4"
+									style="grid-template-columns: repeat({enabledProviderCount}, minmax(0, 1fr));"
+								>
+									{#if oauthProviders.data?.google}
+										<Button variant="outline" type="button" onclick={() => handleOAuth('google')}>
+											<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+												<path
+													d="M12.48 10.92v3.28h7.84c-.24 1.84-.853 3.187-1.787 4.133-1.147 1.147-2.933 2.4-6.053 2.4-4.827 0-8.6-3.893-8.6-8.72s3.773-8.72 8.6-8.72c2.6 0 4.507 1.027 5.907 2.347l2.307-2.307C18.747 1.44 16.133 0 12.48 0 5.867 0 .307 5.387.307 12s5.56 12 12.173 12c3.573 0 6.267-1.173 8.373-3.36 2.16-2.16 2.84-5.213 2.84-7.667 0-.76-.053-1.467-.173-2.053H12.48z"
+													fill="currentColor"
+												/>
+											</svg>
+											<span class="sr-only"><T keyName="auth.signin.oauth_google" /></span>
+										</Button>
+									{/if}
+									{#if oauthProviders.data?.github}
+										<Button variant="outline" type="button" onclick={() => handleOAuth('github')}>
+											<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+												<path
+													d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"
+													fill="currentColor"
+												/>
+											</svg>
+											<span class="sr-only"><T keyName="auth.signin.oauth_github" /></span>
+										</Button>
+									{/if}
+									<Button
+										variant="outline"
+										type="button"
+										onclick={handlePasskeyLogin}
+										disabled={isLoading}
+									>
+										<KeyIcon class="h-4 w-4" />
+										<span class="sr-only"
+											><T
+												keyName="auth.signin.passkey_button"
+												defaultValue="Sign in with Passkey"
+											/></span
+										>
+									</Button>
+								</Field>
+							{/if}
+							<FieldDescription class="text-center">
+								<T keyName="auth.signin.no_account" defaultValue="Don't have an account?" />
+								<a href="?tab=signup" class="underline underline-offset-4"
+									><T keyName="auth.signin.link_signup" defaultValue="Sign up" /></a
+								>
+							</FieldDescription>
+						</FieldGroup>
+					</form>
+				{:else}
+					<!-- Sign Up Form -->
+					<form onsubmit={handleSignUp} class="p-6 md:p-8">
+						<FieldGroup>
+							<div class="flex flex-col items-center gap-2 text-center">
+								<h1 class="text-2xl font-bold">
+									<T keyName="auth.signup.title" defaultValue="Create an account" />
+								</h1>
+								<p class="text-balance text-muted-foreground">
+									<T
+										keyName="auth.signup.description"
+										defaultValue="Enter your details to get started"
+									/>
+								</p>
+							</div>
+							<Field>
+								<FieldLabel for="name-{id}"
+									><T keyName="auth.signin.name_label" defaultValue="Name" /></FieldLabel
+								>
+								<Input
+									id="name-{id}"
+									type="text"
+									placeholder="Your name"
+									disabled={isLoading}
+									bind:value={signUpData.name}
+								/>
+								<FieldError errors={toFieldErrors(signUpErrors.name)} />
+							</Field>
+							<Field>
+								<FieldLabel for="signup-email-{id}"
+									><T keyName="auth.signin.email_label" /></FieldLabel
+								>
+								<Input
+									id="signup-email-{id}"
+									type="email"
+									placeholder="m@example.com"
+									disabled={isLoading}
+									bind:value={signUpData.email}
+								/>
+								<FieldError errors={toFieldErrors(signUpErrors.email)} />
+							</Field>
+							<Field>
+								<FieldLabel for="signup-password-{id}"
+									><T keyName="auth.signin.password_label" /></FieldLabel
+								>
+								<Input
+									id="signup-password-{id}"
+									type="password"
+									disabled={isLoading}
+									bind:value={signUpData.password}
+								/>
+								<FieldDescription>
+									<T
+										keyName="auth.signup.password_hint"
+										defaultValue="Minimum 10 characters with uppercase, lowercase, and number"
+									/>
+								</FieldDescription>
+								<FieldError errors={toFieldErrors(signUpErrors.password)} />
+							</Field>
+							<FieldError
+								errors={formError ? [{ message: formError }] : undefined}
+								data-testid="auth-error"
+							/>
+							<Field>
+								<Button
+									type="submit"
+									class="w-full"
+									disabled={isLoading}
+									data-testid="signup-button"
+								>
 									{#if isLoading}
 										<T keyName="auth.signin.button_signup_loading" />
 									{:else}
 										<T keyName="auth.signin.button_signup" />
 									{/if}
-								</Form.Button>
-							</form>
-						</TabsContent>
-					</Tabs>
+								</Button>
+							</Field>
+							{#if hasOAuthAuth}
+								<FieldSeparator class="*:data-[slot=field-separator-content]:bg-card">
+									<T keyName="auth.signin.or_continue_with" />
+								</FieldSeparator>
+								<Field
+									class="grid gap-4"
+									style="grid-template-columns: repeat({(oauthProviders.data?.google ? 1 : 0) +
+										(oauthProviders.data?.github ? 1 : 0)}, minmax(0, 1fr));"
+								>
+									{#if oauthProviders.data?.google}
+										<Button variant="outline" type="button" onclick={() => handleOAuth('google')}>
+											<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+												<path
+													d="M12.48 10.92v3.28h7.84c-.24 1.84-.853 3.187-1.787 4.133-1.147 1.147-2.933 2.4-6.053 2.4-4.827 0-8.6-3.893-8.6-8.72s3.773-8.72 8.6-8.72c2.6 0 4.507 1.027 5.907 2.347l2.307-2.307C18.747 1.44 16.133 0 12.48 0 5.867 0 .307 5.387.307 12s5.56 12 12.173 12c3.573 0 6.267-1.173 8.373-3.36 2.16-2.16 2.84-5.213 2.84-7.667 0-.76-.053-1.467-.173-2.053H12.48z"
+													fill="currentColor"
+												/>
+											</svg>
+											<span class="sr-only"><T keyName="auth.signin.oauth_google" /></span>
+										</Button>
+									{/if}
+									{#if oauthProviders.data?.github}
+										<Button variant="outline" type="button" onclick={() => handleOAuth('github')}>
+											<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+												<path
+													d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"
+													fill="currentColor"
+												/>
+											</svg>
+											<span class="sr-only"><T keyName="auth.signin.oauth_github" /></span>
+										</Button>
+									{/if}
+								</Field>
+							{/if}
+							<FieldDescription class="text-center">
+								<T keyName="auth.signup.has_account" defaultValue="Already have an account?" />
+								<a href="?tab=signin" class="underline underline-offset-4"
+									><T keyName="auth.signup.link_signin" defaultValue="Sign in" /></a
+								>
+							</FieldDescription>
+						</FieldGroup>
+					</form>
 				{/if}
-
-				{#if !verificationStep && hasAlternativeAuth}
-					<div class="relative my-6">
-						<div class="absolute inset-0 flex items-center">
-							<span class="w-full border-t"></span>
-						</div>
-						<div class="relative flex justify-center text-xs uppercase">
-							<span class="bg-card px-2 text-muted-foreground">
-								<T keyName="auth.signin.or_continue_with" />
-							</span>
-						</div>
-					</div>
-
-					<div class="space-y-2">
-						<!-- Passkey Login - Only show on signin tab -->
-						{#if params.tab === 'signin'}
-							<Button
-								onclick={handlePasskeyLogin}
-								variant="outline"
-								class="w-full"
-								disabled={isLoading}
-							>
-								<KeyIcon class="mr-2 h-4 w-4" />
-								<T keyName="auth.signin.passkey_button" defaultValue="Sign in with Passkey" />
-							</Button>
-						{/if}
-
-						{#if oauthProviders.data?.github}
-							<Button onclick={() => handleOAuth('github')} variant="outline" class="w-full">
-								<svg class="mr-2 h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
-									<path
-										d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"
-									/>
-								</svg>
-								<T keyName="auth.signin.oauth_github" />
-							</Button>
-						{/if}
-						{#if oauthProviders.data?.google}
-							<Button onclick={() => handleOAuth('google')} variant="outline" class="w-full">
-								<svg class="mr-2 h-4 w-4" viewBox="0 0 24 24">
-									<path
-										fill="#4285F4"
-										d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-									/>
-									<path
-										fill="#34A853"
-										d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-									/>
-									<path
-										fill="#FBBC05"
-										d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-									/>
-									<path
-										fill="#EA4335"
-										d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-									/>
-								</svg>
-								<T keyName="auth.signin.oauth_google" />
-							</Button>
-						{/if}
-					</div>
-				{/if}
-
-				{#if !verificationStep}
-					<div class="mt-6 text-center">
-						<a class="text-sm text-muted-foreground hover:underline" href={localizedHref('/')}>
-							<T keyName="auth.signin.cancel" />
-						</a>
-					</div>
-				{/if}
-			</CardContent>
-		</Card>
-	</main>
+				<div class="relative hidden bg-muted md:block">
+					<img
+						src="/placeholder.svg"
+						alt=""
+						class="absolute inset-0 h-full w-full object-cover dark:brightness-[0.2] dark:grayscale"
+					/>
+				</div>
+			</Card.Content>
+		</Card.Root>
+		<FieldDescription class="px-6 text-center">
+			<T keyName="auth.terms.agreement" defaultValue="By clicking continue, you agree to our" />
+			<a href={localizedHref('/terms')} class="underline underline-offset-4"
+				><T keyName="auth.terms.terms_of_service" defaultValue="Terms of Service" /></a
+			>
+			<T keyName="auth.terms.and" defaultValue="and" />
+			<a href={localizedHref('/privacy')} class="underline underline-offset-4"
+				><T keyName="auth.terms.privacy_policy" defaultValue="Privacy Policy" /></a
+			>.
+		</FieldDescription>
+	</div>
 </div>

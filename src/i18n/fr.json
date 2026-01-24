@@ -254,6 +254,9 @@
 			"email_label": "E-mail",
 			"email_placeholder": "vous@exemple.fr",
 			"forgot_password": "Mot de passe oublié ?",
+			"link_signup": "S'inscrire",
+			"name_label": "Nom",
+			"no_account": "Pas encore de compte ?",
 			"oauth_github": "GitHub",
 			"oauth_google": "Google",
 			"or_continue_with": "Ou continuer avec",
@@ -265,9 +268,20 @@
 			"test_secret_button": "Se connecter avec un secret",
 			"test_secret_label": "Test uniquement : Se connecter avec un secret",
 			"test_secret_placeholder": "valeur secrète",
-			"title": "Bienvenue"
+			"title": "Bon retour"
 		},
 		"signup": "S'inscrire",
+		"signup.description": "Entrez vos informations pour commencer",
+		"signup.has_account": "Déjà un compte ?",
+		"signup.link_signin": "Se connecter",
+		"signup.password_hint": "Minimum 10 caractères avec majuscules, minuscules et chiffre",
+		"signup.title": "Créer un compte",
+		"terms": {
+			"agreement": "En continuant, vous acceptez nos",
+			"and": "et notre",
+			"privacy_policy": "Politique de confidentialité",
+			"terms_of_service": "Conditions d'utilisation"
+		},
 		"verification": {
 			"button_back": "Retour à la connexion",
 			"button_cancel": "Annuler",
@@ -402,7 +416,9 @@
 		"features": "Fonctionnalités",
 		"get_started": "Commencer",
 		"home": "Accueil",
+		"login": "Connexion",
 		"pricing": "Tarifs",
+		"signup": "S'inscrire",
 		"solution": "Solution"
 	},
 	"pricing": {
