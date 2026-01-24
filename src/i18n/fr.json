@@ -563,6 +563,26 @@
 		},
 		"title": "Paramètres"
 	},
+	"validation": {
+		"confirm_password": {
+			"mismatch": "Les mots de passe ne correspondent pas.",
+			"required": "Veuillez confirmer votre mot de passe."
+		},
+		"email": {
+			"invalid": "Veuillez entrer une adresse e-mail valide.",
+			"required": "Veuillez entrer votre adresse e-mail."
+		},
+		"name": {
+			"required": "Veuillez entrer votre nom."
+		},
+		"password": {
+			"lowercase": "Le mot de passe doit contenir au moins une lettre minuscule.",
+			"min_length": "Le mot de passe doit contenir au moins {count, number} caractères.",
+			"number": "Le mot de passe doit contenir au moins un chiffre.",
+			"required": "Veuillez entrer votre mot de passe.",
+			"uppercase": "Le mot de passe doit contenir au moins une lettre majuscule."
+		}
+	},
 	"team": {
 		"description": "Pendant le processus de travail, nous effectuons des ajustements réguliers avec le client car il est la seule personne qui peut sentir si un nouveau costume lui va bien ou non.",
 		"linktree": "Linktree",

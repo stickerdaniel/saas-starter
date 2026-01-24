@@ -1,28 +1,24 @@
 import * as v from 'valibot';
+import {
+	PASSWORD_MIN_LENGTH,
+	passwordValidation,
+	passwordRequired
+} from '$lib/schemas/password.js';
 
-// Password validation constants
-export const PASSWORD_MIN_LENGTH = 10;
+// Re-export for backward compatibility
+export { PASSWORD_MIN_LENGTH };
 
 // Sign In Schema
 export const signInSchema = v.object({
-	email: v.pipe(v.string(), v.email('Please enter a valid email.')),
-	_password: v.pipe(v.string(), v.nonEmpty('Please enter your password.'))
+	email: v.pipe(v.string(), v.email('validation.email.invalid')),
+	_password: passwordRequired
 });
 
 // Sign Up Schema
 export const signUpSchema = v.object({
-	name: v.pipe(v.string(), v.nonEmpty('Please enter your name.')),
-	email: v.pipe(v.string(), v.email('Please enter a valid email.')),
-	_password: v.pipe(
-		v.string(),
-		v.minLength(
-			PASSWORD_MIN_LENGTH,
-			`Password must be at least ${PASSWORD_MIN_LENGTH} characters.`
-		),
-		v.regex(/[A-Z]/, 'Password must contain at least one uppercase letter.'),
-		v.regex(/[a-z]/, 'Password must contain at least one lowercase letter.'),
-		v.regex(/[0-9]/, 'Password must contain at least one number.')
-	)
+	name: v.pipe(v.string(), v.nonEmpty('validation.name.required')),
+	email: v.pipe(v.string(), v.email('validation.email.invalid')),
+	_password: passwordValidation
 });
 
 // Types

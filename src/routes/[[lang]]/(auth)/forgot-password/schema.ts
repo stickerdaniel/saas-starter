@@ -2,7 +2,11 @@ import * as v from 'valibot';
 
 // Forgot Password Schema
 export const forgotPasswordSchema = v.object({
-	email: v.pipe(v.string(), v.email('Please enter a valid email.'))
+	email: v.pipe(
+		v.string(),
+		v.nonEmpty('validation.email.required'),
+		v.email('validation.email.invalid')
+	)
 });
 
 // Types
