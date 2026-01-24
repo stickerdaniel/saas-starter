@@ -216,6 +216,7 @@
 			"invalid_email": "Please enter a valid email",
 			"invalid_secret": "Invalid secret",
 			"name_required": "Name is required",
+			"oauth_failed": "Social sign-in failed. Please try again.",
 			"passkey_failed": "Passkey authentication failed",
 			"password_lowercase": "Password must contain at least one lowercase letter",
 			"password_min_length": "Password must be at least {minLength} characters",
