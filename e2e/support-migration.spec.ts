@@ -46,6 +46,34 @@ const getConvexClient = () => {
 
 // Uses pre-authenticated session state from signin.setup.ts
 test.describe('Support ticket migration', () => {
+	test('clears localStorage when anonymous user has zero threads', async ({ page }) => {
+		const client = getConvexClient();
+
+		// Create a fresh anonymous ID with NO threads
+		const emptyAnonymousId = `anon_${crypto.randomUUID()}`;
+
+		// Verify no threads exist for this ID
+		const threads = await client.mutation(api.tests.getSupportThreadsByUserId, {
+			secret: testSecret,
+			userId: emptyAnonymousId
+		});
+		expect(threads.length).toBe(0);
+
+		// Set the anonymous ID in localStorage
+		await page.addInitScript((id) => {
+			localStorage.setItem('supportUserId', id);
+		}, emptyAnonymousId);
+
+		// Navigate to app (triggers migration $effect)
+		await page.goto('/app');
+		await waitForAuthenticated(page);
+
+		// localStorage should be cleared even with 0 threads (migration succeeded)
+		await expect
+			.poll(() => page.evaluate(() => localStorage.getItem('supportUserId')), { timeout: 30000 })
+			.toBeNull();
+	});
+
 	test('migrates all 105 anonymous tickets and verifies database reassignment', async ({
 		page
 	}) => {
@@ -103,6 +131,22 @@ test.describe('Support ticket migration', () => {
 		const sampleThread = afterMigration[0];
 		expect(sampleThread.userName).toBe(credentials.user.name);
 		expect(sampleThread.userEmail).toBe(credentials.user.email);
+
+		// 9. UI Verification: Navigate to marketing page and verify threads in widget
+		await page.goto('/');
+		await page.waitForLoadState('networkidle');
+
+		// Click the feedback button to open the CustomerSupport widget (bottom-right corner)
+		const feedbackButton = page.locator('button.rounded-full').last();
+		await feedbackButton.click();
+
+		// Wait for widget to open and threads to load
+		await expect(page.getByText('Start a new conversation')).toBeVisible({ timeout: 10000 });
+
+		// Verify migrated threads are visible (threads show summary: "New support conversation")
+		await expect(page.getByText('New support conversation').first()).toBeVisible({
+			timeout: 10000
+		});
 	});
 
 	test('preserves localStorage on migration failure', async ({ page }) => {
