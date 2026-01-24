@@ -254,6 +254,9 @@
 			"email_label": "E-Mail",
 			"email_placeholder": "du@beispiel.de",
 			"forgot_password": "Passwort vergessen?",
+			"link_signup": "Registrieren",
+			"name_label": "Name",
+			"no_account": "Noch kein Konto?",
 			"oauth_github": "GitHub",
 			"oauth_google": "Google",
 			"or_continue_with": "Oder fortfahren mit",
@@ -265,9 +268,20 @@
 			"test_secret_button": "Mit Geheimnis anmelden",
 			"test_secret_label": "Nur Test: Mit Geheimnis anmelden",
 			"test_secret_placeholder": "Geheimnis-Wert",
-			"title": "Willkommen"
+			"title": "Willkommen zurück"
 		},
 		"signup": "Registrieren",
+		"signup.description": "Geben Sie Ihre Daten ein, um loszulegen",
+		"signup.has_account": "Bereits ein Konto?",
+		"signup.link_signin": "Anmelden",
+		"signup.password_hint": "Mindestens 10 Zeichen mit Groß-, Kleinbuchstaben und Zahl",
+		"signup.title": "Konto erstellen",
+		"terms": {
+			"agreement": "Mit dem Fortfahren stimmen Sie unseren",
+			"and": "und",
+			"privacy_policy": "Datenschutzrichtlinie",
+			"terms_of_service": "Nutzungsbedingungen"
+		},
 		"verification": {
 			"button_back": "Zurück zur Anmeldung",
 			"button_cancel": "Abbrechen",
@@ -402,7 +416,9 @@
 		"features": "Funktionen",
 		"get_started": "Jetzt starten",
 		"home": "Start",
+		"login": "Anmelden",
 		"pricing": "Pläne",
+		"signup": "Registrieren",
 		"solution": "Lösung"
 	},
 	"pricing": {

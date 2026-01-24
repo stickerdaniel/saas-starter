@@ -254,6 +254,9 @@
 			"email_label": "Correo electrónico",
 			"email_placeholder": "tu@ejemplo.com",
 			"forgot_password": "¿Olvidaste tu contraseña?",
+			"link_signup": "Regístrate",
+			"name_label": "Nombre",
+			"no_account": "¿No tienes cuenta?",
 			"oauth_github": "GitHub",
 			"oauth_google": "Google",
 			"or_continue_with": "O continuar con",
@@ -265,9 +268,20 @@
 			"test_secret_button": "Iniciar sesión con secreto",
 			"test_secret_label": "Solo prueba: Iniciar sesión con secreto",
 			"test_secret_placeholder": "valor secreto",
-			"title": "Bienvenido"
+			"title": "Bienvenido de nuevo"
 		},
 		"signup": "Registrarse",
+		"signup.description": "Ingresa tus datos para comenzar",
+		"signup.has_account": "¿Ya tienes una cuenta?",
+		"signup.link_signin": "Inicia sesión",
+		"signup.password_hint": "Mínimo 10 caracteres con mayúsculas, minúsculas y número",
+		"signup.title": "Crear una cuenta",
+		"terms": {
+			"agreement": "Al continuar, aceptas nuestros",
+			"and": "y",
+			"privacy_policy": "Política de Privacidad",
+			"terms_of_service": "Términos de Servicio"
+		},
 		"verification": {
 			"button_back": "Volver al inicio de sesión",
 			"button_cancel": "Cancelar",
@@ -402,7 +416,9 @@
 		"features": "Características",
 		"get_started": "Comenzar",
 		"home": "Inicio",
+		"login": "Iniciar sesión",
 		"pricing": "Precios",
+		"signup": "Registrarse",
 		"solution": "Solución"
 	},
 	"pricing": {
