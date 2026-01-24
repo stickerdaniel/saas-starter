@@ -212,10 +212,15 @@
 	}
 
 	async function handleOAuth(provider: 'google' | 'github') {
-		await authClient.signIn.social({
-			provider,
-			callbackURL: params.redirectTo || localizedHref('/app')
-		});
+		try {
+			await authClient.signIn.social({
+				provider,
+				callbackURL: params.redirectTo || localizedHref('/app')
+			});
+		} catch (error) {
+			console.error(`[SignIn] OAuth ${provider} error:`, error);
+			formError = 'auth.errors.oauth_failed';
+		}
 	}
 
 	async function handlePasskeyLogin() {

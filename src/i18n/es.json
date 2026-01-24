@@ -214,6 +214,7 @@
 			"invalid_email": "Por favor ingresa un correo electrónico válido",
 			"invalid_secret": "Secreto inválido",
 			"name_required": "El nombre es obligatorio",
+			"oauth_failed": "El inicio de sesión social falló. Por favor, inténtalo de nuevo.",
 			"passkey_failed": "La autenticación con passkey falló",
 			"password_lowercase": "La contraseña debe contener al menos una letra minúscula",
 			"password_min_length": "La contraseña debe tener al menos {minLength} caracteres",

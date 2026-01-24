@@ -2,6 +2,51 @@
 
 Always follow these rules when implementing animations.
 
+## Accessibility: Reduced Motion
+
+Always respect user preferences for reduced motion:
+
+```css
+/* CSS approach - wrap animations */
+@media (prefers-reduced-motion: no-preference) {
+	.animated-element {
+		transition: transform 0.3s ease-out;
+	}
+}
+
+/* Or disable for those who prefer reduced motion */
+@media (prefers-reduced-motion: reduce) {
+	.animated-element {
+		animation: none;
+		transition: none;
+	}
+}
+```
+
+```svelte
+<!-- Svelte approach - check preference -->
+<script>
+	import { browser } from '$app/environment';
+
+	const prefersReducedMotion = browser
+		? window.matchMedia('(prefers-reduced-motion: reduce)').matches
+		: false;
+</script>
+
+{#if !prefersReducedMotion}
+	<div transition:fade>Animated content</div>
+{:else}
+	<div>Static content</div>
+{/if}
+```
+
+**Key principles:**
+
+- Use `prefers-reduced-motion: reduce` media query
+- Provide instant alternatives (no animation, or very subtle)
+- Never disable essential functionality, only decorative motion
+- Test with "Reduce motion" enabled in OS accessibility settings
+
 ## When to Animate
 
 **Do animate:**
