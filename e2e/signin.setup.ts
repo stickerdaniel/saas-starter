@@ -1,12 +1,14 @@
 import { test as setup, expect } from '@playwright/test';
 import fs from 'fs';
 import path from 'path';
+import { waitForAuthenticated } from './utils/auth';
 
 const authFile = 'e2e/.auth/user.json';
 
 interface TestCredentials {
 	user: { email: string; password: string; name: string };
 	admin: { email: string; password: string; name: string };
+	anonymousSupport: { userId: string; threadIds: string[] };
 }
 
 /**
@@ -27,7 +29,7 @@ setup('signin with regular user credentials', async ({ page }) => {
 
 	// Go to signin page and wait for form to be ready
 	await page.goto('/signin');
-	await expect(page.locator('[data-testid="email-input"]')).toBeVisible({ timeout: 10000 });
+	await expect(page.locator('[data-testid="email-input"]')).toBeVisible({ timeout: 30000 });
 
 	// Fill in credentials using data-testid attributes
 	await page.fill('[data-testid="email-input"]', email);
@@ -36,12 +38,8 @@ setup('signin with regular user credentials', async ({ page }) => {
 	// Click sign in button
 	await page.click('[data-testid="signin-button"]');
 
-	// Wait for redirect to /en/app (indicates successful authentication)
-	// The app uses language prefixes in URLs
-	await page.waitForURL(/\/[a-z]{2}\/app/, { timeout: 15000 });
-
-	// Verify we're authenticated by checking we're on the app page
-	await expect(page).toHaveURL(/\/app/);
+	// Wait for authenticated state
+	await waitForAuthenticated(page);
 
 	// Save authenticated state (cookies)
 	await page.context().storageState({ path: authFile });

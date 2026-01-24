@@ -1,24 +1,29 @@
 name: E2E Tests (Preview)
 
 on:
-  repository_dispatch:
-    types: [convex.deployed]
+  deployment_status:
 
 jobs:
   e2e-tests:
     name: E2E Tests
     runs-on: ubuntu-latest
+    # Only run on successful Vercel preview deployments
+    if: |
+      github.event.deployment_status.state == 'success' &&
+      github.event.deployment_status.environment == 'Preview'
+
     env:
       NODE_OPTIONS: --max-old-space-size=4096
-      PUBLIC_CONVEX_URL: ${{ github.event.client_payload.convex_url }}
-      PUBLIC_CONVEX_SITE_URL: ${{ github.event.client_payload.convex_site_url }}
       AUTH_E2E_TEST_SECRET: ${{ secrets.AUTH_E2E_TEST_SECRET }}
+      VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+      # Preview URL from deployment event
+      PREVIEW_URL: ${{ github.event.deployment_status.environment_url }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.client_payload.git_sha }}
+          ref: ${{ github.event.deployment.sha }}
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -29,9 +34,42 @@ jobs:
       - name: Install Playwright
         run: bunx playwright install chromium --with-deps
 
-      - name: Log Convex URLs
+      - name: Fetch E2E config from preview
+        id: config
+        run: |
+          CONFIG_URL="${PREVIEW_URL}/.well-known/e2e-config.json"
+          echo "Fetching config from: $CONFIG_URL"
+
+          # Use Vercel's Protection Bypass for Automation to access protected preview
+          BYPASS_HEADER=""
+          if [ -n "$VERCEL_AUTOMATION_BYPASS_SECRET" ]; then
+            BYPASS_HEADER="-H x-vercel-protection-bypass:${VERCEL_AUTOMATION_BYPASS_SECRET}"
+            echo "Using Vercel automation bypass"
+          fi
+
+          # Retry up to 5 times (deployment might take a moment to be fully ready)
+          for i in {1..5}; do
+            if CONFIG=$(curl -sf $BYPASS_HEADER "$CONFIG_URL"); then
+              echo "Config fetched successfully"
+              echo "$CONFIG" | jq .
+
+              # Extract values and set as env vars
+              echo "PUBLIC_CONVEX_URL=$(echo $CONFIG | jq -r '.convexUrl')" >> $GITHUB_ENV
+              echo "PUBLIC_CONVEX_SITE_URL=$(echo $CONFIG | jq -r '.convexSiteUrl')" >> $GITHUB_ENV
+              echo "PUBLIC_SITE_URL=${PREVIEW_URL}" >> $GITHUB_ENV
+              exit 0
+            fi
+            echo "Attempt $i failed, retrying in 10s..."
+            sleep 10
+          done
+
+          echo "::error::Failed to fetch E2E config after 5 attempts"
+          exit 1
+
+      - name: Log test configuration
         run: |
           echo "Testing against preview deployment:"
+          echo "  PREVIEW_URL: $PREVIEW_URL"
           echo "  PUBLIC_CONVEX_URL: $PUBLIC_CONVEX_URL"
           echo "  PUBLIC_CONVEX_SITE_URL: $PUBLIC_CONVEX_SITE_URL"
 

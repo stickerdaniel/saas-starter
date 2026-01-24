@@ -1,12 +1,11 @@
-import { test, expect } from '@playwright/test';
+import { test } from '@playwright/test';
+import { waitForAuthenticated } from './utils/auth';
 
 // Uses pre-authenticated session state from setup
 test('signout works', async ({ page }) => {
 	// Already authenticated via session state - go directly to app
 	await page.goto('/app');
-
-	// Verify we're authenticated by being on the app page
-	await expect(page).toHaveURL(/\/app/);
+	await waitForAuthenticated(page);
 
 	// Click user menu and sign out
 	await page.locator('#user-menu-trigger').click();
