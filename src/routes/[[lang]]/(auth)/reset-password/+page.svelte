@@ -15,6 +15,7 @@
 	import { T, getTranslate } from '@tolgee/svelte';
 	import { PASSWORD_MIN_LENGTH, resetPasswordSchema } from './schema.js';
 	import { page } from '$app/state';
+	import { getAuthErrorKey } from '$lib/utils/auth-messages';
 	import { translateValidationErrors } from '$lib/utils/validation-i18n.js';
 
 	const { t } = getTranslate();
@@ -72,7 +73,7 @@
 		if (!validate()) return;
 
 		if (!token) {
-			formError = 'Missing or invalid reset token';
+			formError = 'auth.messages.missing_reset_token';
 			return;
 		}
 
@@ -87,13 +88,13 @@
 			});
 
 			if (err) {
-				formError = err.message ?? 'Failed to reset password';
+				formError = getAuthErrorKey(err, 'auth.messages.reset_failed');
 			} else {
-				message = 'Your password has been reset successfully.';
+				message = 'auth.messages.password_reset_success';
 			}
 		} catch (error) {
 			console.error('[ResetPassword] Reset error:', error);
-			formError = 'Failed to reset password';
+			formError = 'auth.messages.reset_failed';
 		} finally {
 			isLoading = false;
 		}
@@ -126,7 +127,7 @@
 						{#if formError}
 							<Field>
 								<div class="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-									{formError}
+									<T keyName={formError} />
 								</div>
 							</Field>
 						{/if}
@@ -135,10 +136,7 @@
 								<div
 									class="rounded-md bg-green-500/10 p-3 text-sm text-green-600 dark:text-green-400"
 								>
-									<T
-										keyName="auth.reset_password.success"
-										defaultValue="Your password has been reset."
-									/>
+									<T keyName={message} />
 									<a href={localizedHref('/signin')} class="underline">
 										<T keyName="auth.reset_password.sign_in_link" defaultValue="Sign in" />
 									</a>
@@ -214,6 +212,9 @@
 			<a href={localizedHref('/privacy')} class="underline underline-offset-4"
 				><T keyName="auth.terms.privacy_policy" defaultValue="Privacy Policy" /></a
 			>.
+			<a href={localizedHref('/')} class="underline underline-offset-4"
+				><T keyName="auth.back_to_home" defaultValue="Back to home" /></a
+			>
 		</FieldDescription>
 	</div>
 </div>

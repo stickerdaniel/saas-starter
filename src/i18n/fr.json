@@ -207,6 +207,7 @@
 		}
 	},
 	"auth": {
+		"back_to_home": "Retour à l'accueil",
 		"errors": {
 			"confirm_password_required": "Veuillez confirmer votre mot de passe",
 			"current_password_required": "Le mot de passe actuel est requis",
@@ -224,6 +225,37 @@
 			"password_uppercase": "Le mot de passe doit contenir au moins une lettre majuscule",
 			"signup_failed": "Impossible de créer le compte. L'e-mail est peut-être déjà utilisé.",
 			"verification_invalid": "Code de vérification invalide ou expiré. Veuillez réessayer."
+		},
+		"messages": {
+			"invalid_credentials": "E-mail ou mot de passe invalide",
+			"user_already_exists": "Un compte avec cet e-mail existe déjà",
+			"email_not_verified": "Veuillez vérifier votre adresse e-mail",
+			"invalid_token": "Jeton invalide ou expiré",
+			"password_compromised": "Ce mot de passe est compromis",
+			"too_many_attempts": "Trop de tentatives. Réessayez plus tard.",
+			"rate_limited": "Trop de requêtes. Réessayez plus tard.",
+			"oauth_failed": "La connexion sociale a échoué. Veuillez réessayer.",
+			"passkey_failed": "L'authentification par passkey a échoué",
+			"signup_failed": "Impossible de créer le compte",
+			"signup_disabled": "L'inscription est désactivée",
+			"auth_cancelled": "L'authentification a été annulée",
+			"reset_link_sent": "Vérifiez votre e-mail pour le lien de réinitialisation.",
+			"password_reset_success": "Votre mot de passe a été réinitialisé avec succès.",
+			"missing_reset_token": "Jeton de réinitialisation manquant ou invalide",
+			"reset_failed": "Impossible de réinitialiser le mot de passe",
+			"request_reset_failed": "Impossible de demander la réinitialisation du mot de passe",
+			"email_change_failed": "Impossible de modifier l'e-mail",
+			"email_same_as_current": "Le nouvel e-mail doit être différent de l'actuel",
+			"email_updated": "E-mail mis à jour avec succès",
+			"email_verification_sent": "Un e-mail de vérification a été envoyé à votre adresse actuelle. Vérifiez votre boîte de réception pour approuver le changement.",
+			"password_change_failed": "Impossible de changer le mot de passe",
+			"password_changed": "Mot de passe modifié avec succès",
+			"passkey_load_failed": "Impossible de charger les passkeys",
+			"passkey_add_failed": "Impossible d'ajouter la passkey",
+			"passkey_added": "Passkey ajoutée avec succès",
+			"passkey_delete_failed": "Impossible de supprimer la passkey",
+			"passkey_deleted": "Passkey supprimée",
+			"generic_error": "Une erreur est survenue. Veuillez réessayer."
 		},
 		"forgot_password": {
 			"back_to_signin": "Retour à la connexion",
@@ -564,6 +596,20 @@
 		},
 		"title": "Paramètres"
 	},
+	"team": {
+		"description": "Pendant le processus de travail, nous effectuons des ajustements réguliers avec le client car il est la seule personne qui peut sentir si un nouveau costume lui va bien ou non.",
+		"linktree": "Linktree",
+		"roles": {
+			"cofounder_cto": "Co-fondateur - CTO",
+			"founder_ceo": "Fondateur - PDG",
+			"interaction_designer": "Designer d'Interaction",
+			"sales_manager": "Responsable des Ventes",
+			"ux_engineer": "Ingénieur UX",
+			"visual_designer": "Designer Visuel"
+		},
+		"section_label": "Équipe",
+		"title": "Notre équipe de rêve"
+	},
 	"validation": {
 		"confirm_password": {
 			"mismatch": "Les mots de passe ne correspondent pas.",
@@ -583,19 +629,5 @@
 			"required": "Veuillez entrer votre mot de passe.",
 			"uppercase": "Le mot de passe doit contenir au moins une lettre majuscule."
 		}
-	},
-	"team": {
-		"description": "Pendant le processus de travail, nous effectuons des ajustements réguliers avec le client car il est la seule personne qui peut sentir si un nouveau costume lui va bien ou non.",
-		"linktree": "Linktree",
-		"roles": {
-			"cofounder_cto": "Co-fondateur - CTO",
-			"founder_ceo": "Fondateur - PDG",
-			"interaction_designer": "Designer d'Interaction",
-			"sales_manager": "Responsable des Ventes",
-			"ux_engineer": "Ingénieur UX",
-			"visual_designer": "Designer Visuel"
-		},
-		"section_label": "Équipe",
-		"title": "Notre équipe de rêve"
 	}
 }

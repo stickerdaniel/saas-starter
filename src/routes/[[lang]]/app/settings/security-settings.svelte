@@ -7,12 +7,15 @@
 	import * as Alert from '$lib/components/ui/alert/index.js';
 	import * as Item from '$lib/components/ui/item/index.js';
 	import { toast } from 'svelte-sonner';
-	import { T } from '@tolgee/svelte';
+	import { T, getTranslate } from '@tolgee/svelte';
 	import KeyIcon from '@lucide/svelte/icons/key-round';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
 	import ShieldCheckIcon from '@lucide/svelte/icons/shield-check';
 	import type { Passkey } from '@better-auth/passkey';
+	import { getAuthErrorKey } from '$lib/utils/auth-messages';
+
+	const { t } = getTranslate();
 
 	let passkeys = $state<Passkey[]>([]);
 	let isLoading = $state(false);
@@ -30,12 +33,12 @@
 		try {
 			const { data, error: err } = await authClient.passkey.listUserPasskeys();
 			if (err) {
-				error = err.message || 'Failed to load passkeys';
+				error = getAuthErrorKey(err, 'auth.messages.passkey_load_failed');
 			} else {
 				passkeys = data ?? [];
 			}
 		} catch (err) {
-			error = err instanceof Error ? err.message : 'Failed to load passkeys';
+			error = 'auth.messages.passkey_load_failed';
 		} finally {
 			isLoading = false;
 		}
@@ -51,16 +54,16 @@
 			});
 
 			if (result?.error) {
-				error = result.error.message || 'Failed to add passkey';
-				toast.error(error);
+				error = getAuthErrorKey(result.error, 'auth.messages.passkey_add_failed');
+				toast.error($t(error));
 			} else {
-				toast.success('Passkey added successfully');
+				toast.success($t('auth.messages.passkey_added'));
 				newPasskeyName = '';
 				await loadPasskeys();
 			}
 		} catch (err) {
-			error = err instanceof Error ? err.message : 'Failed to add passkey';
-			toast.error(error);
+			error = 'auth.messages.passkey_add_failed';
+			toast.error($t(error));
 		} finally {
 			isAdding = false;
 		}
@@ -71,14 +74,13 @@
 			const { error: err } = await authClient.passkey.deletePasskey({ id });
 
 			if (err) {
-				toast.error(err.message || 'Failed to delete passkey');
+				toast.error($t(getAuthErrorKey(err, 'auth.messages.passkey_delete_failed')));
 			} else {
-				toast.success('Passkey deleted');
+				toast.success($t('auth.messages.passkey_deleted'));
 				await loadPasskeys();
 			}
 		} catch (err) {
-			const message = err instanceof Error ? err.message : 'Failed to delete passkey';
-			toast.error(message);
+			toast.error($t('auth.messages.passkey_delete_failed'));
 		}
 	}
 
@@ -191,7 +193,9 @@
 		{#if error}
 			<Alert.Root variant="destructive">
 				<Alert.Title><T keyName="settings.security.error_title" /></Alert.Title>
-				<Alert.Description>{error}</Alert.Description>
+				<Alert.Description>
+					<T keyName={error} />
+				</Alert.Description>
 			</Alert.Root>
 		{/if}
 	</Card.Content>
