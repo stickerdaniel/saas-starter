@@ -6,7 +6,7 @@ import type { TFnType, DefaultParamType, TranslationKey } from '@tolgee/web';
 type TolgeeFn = TFnType<DefaultParamType, string, TranslationKey>;
 
 /**
- * Type for Tolgee parameters (primitive values only)
+ * Type for Tolgee parameters (serializable values)
  */
 type TolgeeParams = Record<string, string | number | bigint | boolean | Date | null | undefined>;
 
