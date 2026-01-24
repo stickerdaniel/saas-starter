@@ -22,6 +22,7 @@
 	import { T, getTranslate } from '@tolgee/svelte';
 	import KeyIcon from '@lucide/svelte/icons/key-round';
 	import { authFlow } from '$lib/hooks/auth-flow.svelte';
+	import { getAuthErrorKey } from '$lib/utils/auth-messages';
 	import { translateValidationErrors, translateFormError } from '$lib/utils/validation-i18n.js';
 
 	let { data } = $props();
@@ -159,14 +160,14 @@
 			await authClient.signIn.email(
 				{ email: signInData.email, password: signInData.password },
 				{
-					onError: (ctx: { error: Error }) => {
-						formError = ctx.error.message || 'auth.errors.invalid_credentials';
+					onError: (ctx) => {
+						formError = getAuthErrorKey(ctx.error, 'auth.messages.invalid_credentials');
 					}
 				}
 			);
 		} catch (error) {
 			console.error('[SignIn] Login error:', error);
-			formError = 'auth.errors.invalid_credentials';
+			formError = 'auth.messages.invalid_credentials';
 		} finally {
 			isLoading = false;
 		}
@@ -193,14 +194,14 @@
 					onSuccess: () => {
 						verificationStep = { email: signUpData.email };
 					},
-					onError: (ctx: { error: Error }) => {
-						formError = ctx.error.message || 'auth.errors.signup_failed';
+					onError: (ctx) => {
+						formError = getAuthErrorKey(ctx.error, 'auth.messages.signup_failed');
 					}
 				}
 			);
 		} catch (error) {
 			console.error('[SignUp] Registration error:', error);
-			formError = 'auth.errors.signup_failed';
+			formError = 'auth.messages.signup_failed';
 		} finally {
 			isLoading = false;
 		}
@@ -219,7 +220,7 @@
 			});
 		} catch (error) {
 			console.error(`[SignIn] OAuth ${provider} error:`, error);
-			formError = 'auth.errors.oauth_failed';
+			formError = 'auth.messages.oauth_failed';
 		}
 	}
 
@@ -230,11 +231,11 @@
 		try {
 			const result = await authClient.signIn.passkey();
 			if (result.error) {
-				formError = result.error.message || 'auth.errors.passkey_failed';
+				formError = getAuthErrorKey(result.error, 'auth.messages.passkey_failed');
 			}
 		} catch (error) {
 			console.error('[SignIn] Passkey login error:', error);
-			formError = 'auth.errors.passkey_failed';
+			formError = 'auth.messages.passkey_failed';
 		} finally {
 			isLoading = false;
 		}
@@ -276,7 +277,7 @@
 							</Field>
 							{#if formError}
 								<Field>
-									<p class="text-sm text-red-500">{formError}</p>
+									<FieldError errors={translateFormError(formError, $t)} />
 								</Field>
 							{/if}
 							<Field>
@@ -544,6 +545,9 @@
 			<a href={localizedHref('/privacy')} class="underline underline-offset-4"
 				><T keyName="auth.terms.privacy_policy" defaultValue="Privacy Policy" /></a
 			>.
+			<a href={localizedHref('/')} class="underline underline-offset-4"
+				><T keyName="auth.back_to_home" defaultValue="Back to home" /></a
+			>
 		</FieldDescription>
 	</div>
 </div>

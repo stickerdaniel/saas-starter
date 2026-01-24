@@ -15,6 +15,7 @@
 	import CircleCheckIcon from '@lucide/svelte/icons/circle-check';
 	import { localizedHref } from '$lib/utils/i18n';
 	import { changeEmailSchema } from './email-schema.js';
+	import { getAuthErrorKey } from '$lib/utils/auth-messages';
 	import { translateValidationErrors } from '$lib/utils/validation-i18n.js';
 
 	const { t } = getTranslate();
@@ -61,8 +62,8 @@
 		if (!validate()) return;
 
 		if (formData.newEmail === currentEmail) {
-			formError = 'settings.email.errors.same_email';
-			toast.error('New email must be different from current email');
+			formError = 'auth.messages.email_same_as_current';
+			toast.error($t(formError));
 			return;
 		}
 
@@ -76,23 +77,23 @@
 			});
 
 			if (authError) {
-				formError = authError.message || 'Failed to change email';
-				toast.error(formError);
+				formError = getAuthErrorKey(authError, 'auth.messages.email_change_failed');
+				toast.error($t(formError));
 				return;
 			}
 
 			toast.success(
 				isEmailVerified
-					? 'Verification email sent to your current address. Please check your inbox to approve the change.'
-					: 'Email updated successfully'
+					? $t('auth.messages.email_verification_sent')
+					: $t('auth.messages.email_updated')
 			);
 
 			// Clear form
 			formData.newEmail = '';
 		} catch (err) {
 			console.error('[EmailSettings] Change email error:', err);
-			formError = err instanceof Error ? err.message : 'Failed to change email';
-			toast.error(formError);
+			formError = 'auth.messages.email_change_failed';
+			toast.error($t(formError));
 		} finally {
 			isLoading = false;
 		}
@@ -134,11 +135,7 @@
 						<InfoIcon class="h-4 w-4" />
 						<Alert.Title><T keyName="settings.email.error_title" /></Alert.Title>
 						<Alert.Description>
-							{#if formError.startsWith('settings.')}
-								<T keyName={formError} />
-							{:else}
-								{formError}
-							{/if}
+							<T keyName={formError} />
 						</Alert.Description>
 					</Alert.Root>
 				{/if}

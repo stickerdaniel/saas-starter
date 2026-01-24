@@ -15,6 +15,7 @@
 	import { T, getTranslate } from '@tolgee/svelte';
 	import { forgotPasswordSchema } from './schema.js';
 	import { authFlow } from '$lib/hooks/auth-flow.svelte';
+	import { getAuthErrorKey } from '$lib/utils/auth-messages';
 	import { translateValidationErrors } from '$lib/utils/validation-i18n.js';
 
 	const { t } = getTranslate();
@@ -76,13 +77,13 @@
 			});
 
 			if (err) {
-				formError = err.message ?? 'Failed to send reset link';
+				formError = getAuthErrorKey(err, 'auth.messages.request_reset_failed');
 			} else {
-				message = 'Check your email for a reset link.';
+				message = 'auth.messages.reset_link_sent';
 			}
 		} catch (error) {
 			console.error('[ForgotPassword] Request error:', error);
-			formError = 'Failed to request password reset';
+			formError = 'auth.messages.request_reset_failed';
 		} finally {
 			isLoading = false;
 		}
@@ -115,7 +116,7 @@
 						{#if formError}
 							<Field>
 								<div class="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-									{formError}
+									<T keyName={formError} />
 								</div>
 							</Field>
 						{/if}
@@ -124,7 +125,7 @@
 								<div
 									class="rounded-md bg-green-500/10 p-3 text-sm text-green-600 dark:text-green-400"
 								>
-									{message}
+									<T keyName={message} />
 								</div>
 							</Field>
 						{/if}
@@ -175,6 +176,9 @@
 			<a href={localizedHref('/privacy')} class="underline underline-offset-4"
 				><T keyName="auth.terms.privacy_policy" defaultValue="Privacy Policy" /></a
 			>.
+			<a href={localizedHref('/')} class="underline underline-offset-4"
+				><T keyName="auth.back_to_home" defaultValue="Back to home" /></a
+			>
 		</FieldDescription>
 	</div>
 </div>

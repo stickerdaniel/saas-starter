@@ -12,6 +12,7 @@
 	import { T, getTranslate } from '@tolgee/svelte';
 	import InfoIcon from '@lucide/svelte/icons/info';
 	import { changePasswordSchema, PASSWORD_MIN_LENGTH } from './password-schema.js';
+	import { getAuthErrorKey } from '$lib/utils/auth-messages';
 	import { translateValidationErrors } from '$lib/utils/validation-i18n.js';
 
 	const { t } = getTranslate();
@@ -82,10 +83,10 @@
 			});
 
 			if (authError) {
-				formError = authError.message || 'Failed to change password';
-				toast.error(formError);
+				formError = getAuthErrorKey(authError, 'auth.messages.password_change_failed');
+				toast.error($t(formError));
 			} else {
-				toast.success('Password changed successfully');
+				toast.success($t('auth.messages.password_changed'));
 				// Clear form
 				formData.currentPassword = '';
 				formData.newPassword = '';
@@ -93,8 +94,8 @@
 			}
 		} catch (err) {
 			console.error('[PasswordSettings] Change password error:', err);
-			formError = err instanceof Error ? err.message : 'An unexpected error occurred';
-			toast.error(formError);
+			formError = 'auth.messages.password_change_failed';
+			toast.error($t(formError));
 		} finally {
 			isLoading = false;
 		}
@@ -112,7 +113,9 @@
 				<Alert.Root variant="destructive">
 					<InfoIcon class="h-4 w-4" />
 					<Alert.Title><T keyName="settings.password.error_title" /></Alert.Title>
-					<Alert.Description>{formError}</Alert.Description>
+					<Alert.Description>
+						<T keyName={formError} />
+					</Alert.Description>
 				</Alert.Root>
 			{/if}
 
