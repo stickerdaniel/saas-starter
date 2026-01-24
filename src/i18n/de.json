@@ -214,6 +214,7 @@
 			"invalid_email": "Bitte geben Sie eine gültige E-Mail-Adresse ein",
 			"invalid_secret": "Ungültiges Geheimnis",
 			"name_required": "Name ist erforderlich",
+			"oauth_failed": "Soziale Anmeldung fehlgeschlagen. Bitte versuchen Sie es erneut.",
 			"passkey_failed": "Passkey-Authentifizierung fehlgeschlagen",
 			"password_lowercase": "Passwort muss mindestens einen Kleinbuchstaben enthalten",
 			"password_min_length": "Passwort muss mindestens {minLength} Zeichen lang sein",
