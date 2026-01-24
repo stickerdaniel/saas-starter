@@ -10,11 +10,14 @@
 	import * as Field from '$lib/components/ui/field/index.js';
 	import { Label } from '$lib/components/ui/label/index.js';
 	import { toast } from 'svelte-sonner';
-	import { T } from '@tolgee/svelte';
+	import { T, getTranslate } from '@tolgee/svelte';
 	import InfoIcon from '@lucide/svelte/icons/info';
 	import CircleCheckIcon from '@lucide/svelte/icons/circle-check';
 	import { localizedHref } from '$lib/utils/i18n';
 	import { changeEmailSchema } from './email-schema.js';
+	import { translateValidationErrors } from '$lib/utils/validation-i18n.js';
+
+	const { t } = getTranslate();
 
 	interface Props {
 		user: {
@@ -36,11 +39,6 @@
 
 	// Field errors
 	let errors = $state<Record<string, string[]>>({});
-
-	// Helper to convert string[] to { message: string }[] for FieldError component
-	function toFieldErrors(fieldErrors: string[] | undefined): { message: string }[] | undefined {
-		return fieldErrors?.map((message) => ({ message }));
-	}
 
 	function validate(): boolean {
 		const result = v.safeParse(changeEmailSchema, formData);
@@ -151,7 +149,7 @@
 							autocomplete="email"
 							bind:value={formData.newEmail}
 						/>
-						<Field.Error errors={toFieldErrors(errors.newEmail)} />
+						<Field.Error errors={translateValidationErrors(errors.newEmail, $t)} />
 					</Field.Field>
 				</Field.Group>
 

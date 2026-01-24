@@ -1,30 +1,28 @@
 import * as v from 'valibot';
+import {
+	PASSWORD_MIN_LENGTH,
+	passwordValidation,
+	passwordRequired,
+	confirmPasswordRequired,
+	PASSWORD_MISMATCH_KEY
+} from '$lib/schemas/password.js';
 
-// Password validation constants
-export const PASSWORD_MIN_LENGTH = 10;
+// Re-export for backward compatibility
+export { PASSWORD_MIN_LENGTH };
 
 // Change Password Schema
 export const changePasswordSchema = v.pipe(
 	v.object({
-		_currentPassword: v.pipe(v.string(), v.nonEmpty('Please enter your current password.')),
-		_newPassword: v.pipe(
-			v.string(),
-			v.minLength(
-				PASSWORD_MIN_LENGTH,
-				`Password must be at least ${PASSWORD_MIN_LENGTH} characters.`
-			),
-			v.regex(/[A-Z]/, 'Password must contain at least one uppercase letter.'),
-			v.regex(/[a-z]/, 'Password must contain at least one lowercase letter.'),
-			v.regex(/[0-9]/, 'Password must contain at least one number.')
-		),
-		_confirmPassword: v.pipe(v.string(), v.nonEmpty('Please confirm your new password.')),
+		_currentPassword: passwordRequired,
+		_newPassword: passwordValidation,
+		_confirmPassword: confirmPasswordRequired,
 		revokeOtherSessions: v.optional(v.boolean(), true)
 	}),
 	v.forward(
 		v.partialCheck(
 			[['_newPassword'], ['_confirmPassword']],
 			(input) => input._newPassword === input._confirmPassword,
-			'Passwords do not match.'
+			PASSWORD_MISMATCH_KEY
 		),
 		['_confirmPassword']
 	)

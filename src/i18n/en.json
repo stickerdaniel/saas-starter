@@ -565,6 +565,26 @@
 		},
 		"title": "Settings"
 	},
+	"validation": {
+		"confirm_password": {
+			"mismatch": "Passwords do not match.",
+			"required": "Please confirm your password."
+		},
+		"email": {
+			"invalid": "Please enter a valid email address.",
+			"required": "Please enter your email address."
+		},
+		"name": {
+			"required": "Please enter your name."
+		},
+		"password": {
+			"lowercase": "Password must contain at least one lowercase letter.",
+			"min_length": "Password must be at least {count, number} characters.",
+			"number": "Password must contain at least one number.",
+			"required": "Please enter your password.",
+			"uppercase": "Password must contain at least one uppercase letter."
+		}
+	},
 	"team": {
 		"description": "During the working process, we perform regular fitting with the client because he is the only person who can feel whether a new suit fits or not.",
 		"linktree": "Linktree",
