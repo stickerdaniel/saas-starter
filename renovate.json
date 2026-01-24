@@ -1,9 +1,28 @@
 {
 	"$schema": "https://docs.renovatebot.com/renovate-schema.json",
-	"extends": ["config:best-practices", "group:allNonMajor"],
-	"vulnerabilityAlerts": {
-		"enabled": true,
-		"labels": ["security"],
-		"schedule": ["at any time"]
-	}
+	"extends": ["config:best-practices"],
+	"schedule": ["before 6am on Monday"],
+	"packageRules": [
+		{
+			"description": "Group all non-major updates together",
+			"matchUpdateTypes": ["minor", "patch", "pin", "digest"],
+			"groupName": "all non-major dependencies",
+			"groupSlug": "all-minor-patch"
+		},
+		{
+			"description": "Group all major updates together",
+			"matchUpdateTypes": ["major"],
+			"groupName": "all major dependencies",
+			"groupSlug": "all-major"
+		},
+		{
+			"description": "Keep security updates separate for priority",
+			"matchDatasources": ["npm"],
+			"vulnerabilityAlerts": {
+				"enabled": true,
+				"labels": ["security"],
+				"groupName": "security updates"
+			}
+		}
+	]
 }
