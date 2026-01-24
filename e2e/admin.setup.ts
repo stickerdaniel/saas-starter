@@ -1,12 +1,14 @@
 import { test as setup, expect } from '@playwright/test';
 import fs from 'fs';
 import path from 'path';
+import { waitForAuthenticated } from './utils/auth';
 
 const adminAuthFile = 'e2e/.auth/admin.json';
 
 interface TestCredentials {
 	user: { email: string; password: string; name: string };
 	admin: { email: string; password: string; name: string };
+	anonymousSupport: { userId: string; threadId: string };
 }
 
 /**
@@ -27,18 +29,15 @@ setup('signin with admin user credentials', async ({ page }) => {
 
 	// Go to signin page and wait for form to be ready
 	await page.goto('/signin');
-	await expect(page.locator('[data-testid="email-input"]')).toBeVisible({ timeout: 10000 });
+	await expect(page.locator('[data-testid="email-input"]')).toBeVisible({ timeout: 30000 });
 
 	// Fill in admin credentials
 	await page.fill('[data-testid="email-input"]', email);
 	await page.fill('[data-testid="password-input"]', password);
 	await page.click('[data-testid="signin-button"]');
 
-	// Wait for redirect to app
-	await page.waitForURL(/\/[a-z]{2}\/app/, { timeout: 15000 });
-
-	// Verify we're authenticated
-	await expect(page).toHaveURL(/\/app/);
+	// Wait for authenticated state
+	await waitForAuthenticated(page);
 
 	// Save authenticated state with admin role
 	await page.context().storageState({ path: adminAuthFile });

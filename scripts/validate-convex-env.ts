@@ -4,9 +4,13 @@
  * Called by vercel-deploy.ts before deploying.
  *
  * Usage:
- *   bun scripts/validate-convex-env.ts                           # development deployment
- *   bun scripts/validate-convex-env.ts --prod                    # production deployment
- *   bun scripts/validate-convex-env.ts --preview-name <branch>   # preview deployment
+ *   bun scripts/validate-convex-env.ts                              # development deployment
+ *   bun scripts/validate-convex-env.ts --prod                       # production deployment
+ *   bun scripts/validate-convex-env.ts --deployment-name <name>     # specific deployment by name
+ *   bun scripts/validate-convex-env.ts --preview-name <branch>      # preview deployment (legacy)
+ *
+ * For preview deployments, prefer --deployment-name with the actual deployment name
+ * instead of --preview-name, as --preview-name uses a separate namespace.
  */
 
 import { execSync } from 'child_process';
@@ -15,12 +19,24 @@ import { REQUIRED_VAR_NAMES } from '../src/lib/convex/env';
 // Single source of truth is defined in src/lib/convex/env.ts
 
 const isProd = process.argv.includes('--prod');
+const deploymentNameIndex = process.argv.indexOf('--deployment-name');
+const deploymentName = deploymentNameIndex !== -1 ? process.argv[deploymentNameIndex + 1] : null;
 const previewNameIndex = process.argv.indexOf('--preview-name');
 const previewName = previewNameIndex !== -1 ? process.argv[previewNameIndex + 1] : null;
 
-// Build the deployment flag for commands
-const deploymentFlag = isProd ? ' --prod' : previewName ? ` --preview-name ${previewName}` : '';
+// Priority: --deployment-name > --prod > --preview-name > default (local dev)
+const deploymentFlag = deploymentName
+	? ` --deployment-name ${deploymentName}`
+	: isProd
+		? ' --prod'
+		: previewName
+			? ` --preview-name ${previewName}`
+			: '';
 const cmd = `bunx convex env list${deploymentFlag}`;
+
+if (deploymentName) {
+	console.log(`Using --deployment-name ${deploymentName}`);
+}
 
 let output: string;
 try {

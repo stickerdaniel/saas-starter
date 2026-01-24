@@ -32,6 +32,9 @@ vite.config.ts.timestamp-*
 test-results
 e2e/.auth/
 
+# E2E config (generated during Vercel preview builds)
+static/.well-known/e2e-config.json
+
 # Bun cache
 Library/
 

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { createSvelteAuthClient } from '@mmailaender/convex-better-auth-svelte/svelte';
+	import { createSvelteAuthClient, useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
 	import { authClient } from '$lib/auth-client';
 	import { setupAutumn } from '@stickerdaniel/convex-autumn-svelte/sveltekit';
 	import { api } from '$lib/convex/_generated/api';
@@ -12,6 +12,9 @@
 	import PostHogIdentify from '$lib/components/analytics/PostHogIdentify.svelte';
 	import { ModeWatcher } from 'mode-watcher';
 	import { Toaster } from '$lib/components/ui/sonner';
+	import { browser } from '$app/environment';
+	import { useConvexClient } from 'convex-svelte';
+	import { isAnonymousUser } from '$lib/convex/utils/anonymousUser';
 
 	let { children, data } = $props();
 
@@ -21,11 +24,38 @@
 		getServerState: () => data.authState
 	});
 
+	const auth = useAuth();
+
 	// Setup Autumn with SSR support and auto-invalidation
 	setupAutumn({
 		convexApi: (api as any).autumn,
 		getServerState: () => data.autumnState,
 		invalidate
+	});
+
+	// Migrate anonymous support tickets to authenticated user
+	const convexClient = useConvexClient();
+	let migrationAttempted = false;
+
+	$effect(() => {
+		if (!browser || !data.viewer || migrationAttempted) return;
+		if (auth.isLoading || !auth.isAuthenticated) return;
+
+		const anonymousId = localStorage.getItem('supportUserId');
+		if (!anonymousId || !isAnonymousUser(anonymousId)) return;
+
+		migrationAttempted = true;
+		convexClient
+			.mutation(api.support.migration.migrateAnonymousTickets, {
+				anonymousUserId: anonymousId
+			})
+			.then(() => {
+				localStorage.removeItem('supportUserId');
+			})
+			.catch((err: unknown) => {
+				console.error('Failed to migrate anonymous tickets:', err);
+				migrationAttempted = false; // Allow retry on next navigation
+			});
 	});
 </script>
 
