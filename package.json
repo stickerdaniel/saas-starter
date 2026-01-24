@@ -44,7 +44,7 @@
 		"@tolgee/format-icu": "^6.2.7",
 		"@tolgee/svelte": "^6.2.7",
 		"@zumer/snapdom": "^2.0.0",
-		"ai": "^5.0.93",
+		"ai": "^6.0.0",
 		"atmn": "^0.0.30",
 		"autumn-js": "^0.1.43",
 		"better-auth": "1.4.13",
