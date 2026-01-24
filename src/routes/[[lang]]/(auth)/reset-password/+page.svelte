@@ -12,9 +12,12 @@
 	} from '$lib/components/ui/field/index.js';
 	import { authClient } from '$lib/auth-client.js';
 	import { localizedHref } from '$lib/utils/i18n';
-	import { T } from '@tolgee/svelte';
-	import { resetPasswordSchema } from './schema.js';
+	import { T, getTranslate } from '@tolgee/svelte';
+	import { PASSWORD_MIN_LENGTH, resetPasswordSchema } from './schema.js';
 	import { page } from '$app/state';
+	import { translateValidationErrors } from '$lib/utils/validation-i18n.js';
+
+	const { t } = getTranslate();
 
 	let isLoading = $state(false);
 	let message = $state<string | null>(null);
@@ -31,10 +34,10 @@
 	// Field errors
 	let errors = $state<Record<string, string[]>>({});
 
-	// Helper to convert string[] to { message: string }[] for FieldError component
-	function toFieldErrors(errors: string[] | undefined): { message: string }[] | undefined {
-		return errors?.map((message) => ({ message }));
-	}
+	// Translation params for password min_length validation
+	const passwordParams = {
+		'validation.password.min_length': { count: PASSWORD_MIN_LENGTH }
+	};
 
 	function validate(): boolean {
 		// Map form data to schema field names (_password, _confirmPassword)
@@ -96,6 +99,12 @@
 	}
 </script>
 
+<noscript>
+	<div class="fixed inset-x-0 top-0 z-50 bg-yellow-100 p-4 text-center text-yellow-800">
+		JavaScript is required for authentication. Please enable JavaScript to continue.
+	</div>
+</noscript>
+
 <div class="flex min-h-svh flex-col items-center justify-center bg-muted p-6 md:p-10">
 	<div class="flex w-full max-w-sm flex-col gap-6 md:max-w-3xl">
 		<Card.Root class="overflow-hidden p-0">
@@ -152,7 +161,7 @@
 									defaultValue="Minimum 10 characters with uppercase, lowercase, and number"
 								/>
 							</FieldDescription>
-							<FieldError errors={toFieldErrors(errors.password)} />
+							<FieldError errors={translateValidationErrors(errors.password, $t, passwordParams)} />
 						</Field>
 						<Field>
 							<FieldLabel for="confirm-password-{id}">
@@ -168,7 +177,7 @@
 								disabled={isLoading || !!message}
 								bind:value={formData.confirmPassword}
 							/>
-							<FieldError errors={toFieldErrors(errors.confirmPassword)} />
+							<FieldError errors={translateValidationErrors(errors.confirmPassword, $t)} />
 						</Field>
 						<Field>
 							<Button type="submit" class="w-full" disabled={isLoading || !!message}>

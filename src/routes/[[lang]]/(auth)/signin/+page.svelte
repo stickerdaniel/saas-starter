@@ -17,14 +17,16 @@
 	} from '$lib/components/ui/field/index.js';
 	import { useSearchParams } from 'runed/kit';
 	import { authParamsSchema } from '$lib/schemas/auth.js';
-	import { signInSchema, signUpSchema } from './schema.js';
+	import { PASSWORD_MIN_LENGTH, signInSchema, signUpSchema } from './schema.js';
 	import { localizedHref } from '$lib/utils/i18n';
-	import { T } from '@tolgee/svelte';
+	import { T, getTranslate } from '@tolgee/svelte';
 	import KeyIcon from '@lucide/svelte/icons/key-round';
 	import { authFlow } from '$lib/hooks/auth-flow.svelte';
+	import { translateValidationErrors, translateFormError } from '$lib/utils/validation-i18n.js';
 
 	let { data } = $props();
 
+	const { t } = getTranslate();
 	const auth = useAuth();
 	const params = useSearchParams(authParamsSchema, {
 		debounce: 300,
@@ -64,10 +66,10 @@
 	let signInErrors = $state<Record<string, string[]>>({});
 	let signUpErrors = $state<Record<string, string[]>>({});
 
-	// Helper to convert string[] to { message: string }[] for FieldError component
-	function toFieldErrors(errors: string[] | undefined): { message: string }[] | undefined {
-		return errors?.map((message) => ({ message }));
-	}
+	// Translation params for password min_length validation
+	const passwordParams = {
+		'validation.password.min_length': { count: PASSWORD_MIN_LENGTH }
+	};
 
 	// Initialize email from global state
 	$effect(() => {
@@ -231,6 +233,12 @@
 	}
 </script>
 
+<noscript>
+	<div class="fixed inset-x-0 top-0 z-50 bg-yellow-100 p-4 text-center text-yellow-800">
+		JavaScript is required for authentication. Please enable JavaScript to sign in.
+	</div>
+</noscript>
+
 <div class="flex min-h-svh flex-col items-center justify-center bg-muted p-6 md:p-10">
 	<div class="flex w-full max-w-sm flex-col gap-6 md:max-w-3xl">
 		<Card.Root class="overflow-hidden p-0">
@@ -292,7 +300,7 @@
 									disabled={isLoading}
 									bind:value={signInData.email}
 								/>
-								<FieldError errors={toFieldErrors(signInErrors.email)} />
+								<FieldError errors={translateValidationErrors(signInErrors.email, $t)} />
 							</Field>
 							<Field>
 								<div class="flex items-center">
@@ -313,12 +321,9 @@
 									disabled={isLoading}
 									bind:value={signInData.password}
 								/>
-								<FieldError errors={toFieldErrors(signInErrors.password)} />
+								<FieldError errors={translateValidationErrors(signInErrors.password, $t)} />
 							</Field>
-							<FieldError
-								errors={formError ? [{ message: formError }] : undefined}
-								data-testid="auth-error"
-							/>
+							<FieldError errors={translateFormError(formError, $t)} data-testid="auth-error" />
 							<Field>
 								<Button
 									type="submit"
@@ -381,7 +386,11 @@
 							{/if}
 							<FieldDescription class="text-center">
 								<T keyName="auth.signin.no_account" defaultValue="Don't have an account?" />
-								<a href="?tab=signup" class="underline underline-offset-4"
+								<a
+									href="?tab=signup{params.redirectTo
+										? `&redirectTo=${encodeURIComponent(params.redirectTo)}`
+										: ''}"
+									class="underline underline-offset-4"
 									><T keyName="auth.signin.link_signup" defaultValue="Sign up" /></a
 								>
 							</FieldDescription>
@@ -413,7 +422,7 @@
 									disabled={isLoading}
 									bind:value={signUpData.name}
 								/>
-								<FieldError errors={toFieldErrors(signUpErrors.name)} />
+								<FieldError errors={translateValidationErrors(signUpErrors.name, $t)} />
 							</Field>
 							<Field>
 								<FieldLabel for="signup-email-{id}"
@@ -426,7 +435,7 @@
 									disabled={isLoading}
 									bind:value={signUpData.email}
 								/>
-								<FieldError errors={toFieldErrors(signUpErrors.email)} />
+								<FieldError errors={translateValidationErrors(signUpErrors.email, $t)} />
 							</Field>
 							<Field>
 								<FieldLabel for="signup-password-{id}"
@@ -444,12 +453,11 @@
 										defaultValue="Minimum 10 characters with uppercase, lowercase, and number"
 									/>
 								</FieldDescription>
-								<FieldError errors={toFieldErrors(signUpErrors.password)} />
+								<FieldError
+									errors={translateValidationErrors(signUpErrors.password, $t, passwordParams)}
+								/>
 							</Field>
-							<FieldError
-								errors={formError ? [{ message: formError }] : undefined}
-								data-testid="auth-error"
-							/>
+							<FieldError errors={translateFormError(formError, $t)} data-testid="auth-error" />
 							<Field>
 								<Button
 									type="submit"
@@ -499,7 +507,11 @@
 							{/if}
 							<FieldDescription class="text-center">
 								<T keyName="auth.signup.has_account" defaultValue="Already have an account?" />
-								<a href="?tab=signin" class="underline underline-offset-4"
+								<a
+									href="?tab=signin{params.redirectTo
+										? `&redirectTo=${encodeURIComponent(params.redirectTo)}`
+										: ''}"
+									class="underline underline-offset-4"
 									><T keyName="auth.signup.link_signin" defaultValue="Sign in" /></a
 								>
 							</FieldDescription>

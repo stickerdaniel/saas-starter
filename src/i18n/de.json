@@ -563,6 +563,26 @@
 		},
 		"title": "Einstellungen"
 	},
+	"validation": {
+		"confirm_password": {
+			"mismatch": "Passwörter stimmen nicht überein.",
+			"required": "Bitte bestätigen Sie Ihr Passwort."
+		},
+		"email": {
+			"invalid": "Bitte geben Sie eine gültige E-Mail-Adresse ein.",
+			"required": "Bitte geben Sie Ihre E-Mail-Adresse ein."
+		},
+		"name": {
+			"required": "Bitte geben Sie Ihren Namen ein."
+		},
+		"password": {
+			"lowercase": "Passwort muss mindestens einen Kleinbuchstaben enthalten.",
+			"min_length": "Passwort muss mindestens {count, number} Zeichen lang sein.",
+			"number": "Passwort muss mindestens eine Zahl enthalten.",
+			"required": "Bitte geben Sie Ihr Passwort ein.",
+			"uppercase": "Passwort muss mindestens einen Großbuchstaben enthalten."
+		}
+	},
 	"team": {
 		"description": "Während des Arbeitsprozesses führen wir regelmäßige Anpassungen mit dem Kunden durch, denn er ist die einzige Person, die spüren kann, ob ein neuer Anzug passt oder nicht.",
 		"linktree": "Linktree",

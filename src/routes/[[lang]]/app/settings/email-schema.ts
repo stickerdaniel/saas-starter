@@ -4,8 +4,8 @@ import * as v from 'valibot';
 export const changeEmailSchema = v.object({
 	newEmail: v.pipe(
 		v.string(),
-		v.nonEmpty('Please enter your new email address.'),
-		v.email('Please enter a valid email address.')
+		v.nonEmpty('validation.email.required'),
+		v.email('validation.email.invalid')
 	)
 });
 

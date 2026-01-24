@@ -9,9 +9,12 @@
 	import * as Field from '$lib/components/ui/field/index.js';
 	import { Checkbox } from '$lib/components/ui/checkbox/index.js';
 	import { toast } from 'svelte-sonner';
-	import { T } from '@tolgee/svelte';
+	import { T, getTranslate } from '@tolgee/svelte';
 	import InfoIcon from '@lucide/svelte/icons/info';
 	import { changePasswordSchema, PASSWORD_MIN_LENGTH } from './password-schema.js';
+	import { translateValidationErrors } from '$lib/utils/validation-i18n.js';
+
+	const { t } = getTranslate();
 
 	let isLoading = $state(false);
 	let formError = $state('');
@@ -27,10 +30,10 @@
 	// Field errors
 	let errors = $state<Record<string, string[]>>({});
 
-	// Helper to convert string[] to { message: string }[] for FieldError component
-	function toFieldErrors(fieldErrors: string[] | undefined): { message: string }[] | undefined {
-		return fieldErrors?.map((message) => ({ message }));
-	}
+	// Translation params for password min_length validation
+	const passwordParams = {
+		'validation.password.min_length': { count: PASSWORD_MIN_LENGTH }
+	};
 
 	function validate(): boolean {
 		// Map form data to schema field names (with _ prefix for sensitive fields)
@@ -125,7 +128,7 @@
 						autocomplete="current-password"
 						bind:value={formData.currentPassword}
 					/>
-					<Field.Error errors={toFieldErrors(errors.currentPassword)} />
+					<Field.Error errors={translateValidationErrors(errors.currentPassword, $t)} />
 				</Field.Field>
 
 				<Field.Field>
@@ -143,7 +146,7 @@
 					<Field.Description>
 						<T keyName="auth.signup.password_hint" />
 					</Field.Description>
-					<Field.Error errors={toFieldErrors(errors.newPassword)} />
+					<Field.Error errors={translateValidationErrors(errors.newPassword, $t, passwordParams)} />
 				</Field.Field>
 
 				<Field.Field>
@@ -158,7 +161,7 @@
 						autocomplete="new-password"
 						bind:value={formData.confirmPassword}
 					/>
-					<Field.Error errors={toFieldErrors(errors.confirmPassword)} />
+					<Field.Error errors={translateValidationErrors(errors.confirmPassword, $t)} />
 				</Field.Field>
 
 				<Field.Field orientation="horizontal">

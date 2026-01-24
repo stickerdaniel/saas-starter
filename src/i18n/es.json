@@ -563,6 +563,26 @@
 		},
 		"title": "Configuración"
 	},
+	"validation": {
+		"confirm_password": {
+			"mismatch": "Las contraseñas no coinciden.",
+			"required": "Por favor confirma tu contraseña."
+		},
+		"email": {
+			"invalid": "Por favor ingresa una dirección de correo electrónico válida.",
+			"required": "Por favor ingresa tu dirección de correo electrónico."
+		},
+		"name": {
+			"required": "Por favor ingresa tu nombre."
+		},
+		"password": {
+			"lowercase": "La contraseña debe contener al menos una letra minúscula.",
+			"min_length": "La contraseña debe tener al menos {count, number} caracteres.",
+			"number": "La contraseña debe contener al menos un número.",
+			"required": "Por favor ingresa tu contraseña.",
+			"uppercase": "La contraseña debe contener al menos una letra mayúscula."
+		}
+	},
 	"team": {
 		"description": "Durante el proceso de trabajo, realizamos ajustes regulares con el cliente porque él es la única persona que puede sentir si un traje nuevo le queda bien o no.",
 		"linktree": "Linktree",
