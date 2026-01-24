@@ -1,127 +1,175 @@
 <script lang="ts">
+	import * as v from 'valibot';
 	import * as Card from '$lib/components/ui/card/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
-	import * as Form from '$lib/components/ui/form/index.js';
+	import { Button } from '$lib/components/ui/button/index.js';
+	import {
+		FieldGroup,
+		Field,
+		FieldLabel,
+		FieldDescription,
+		FieldError
+	} from '$lib/components/ui/field/index.js';
 	import { authClient } from '$lib/auth-client.js';
 	import { localizedHref } from '$lib/utils/i18n';
 	import { T } from '@tolgee/svelte';
-	import { defaults, superForm } from 'sveltekit-superforms';
-	import { zod4 } from 'sveltekit-superforms/adapters';
-	import { forgotPasswordSchema, PASSWORD_MIN_LENGTH } from '$lib/schemas/auth.js';
+	import { forgotPasswordSchema } from './schema.js';
 	import { authFlow } from '$lib/hooks/auth-flow.svelte';
 
 	let isLoading = $state(false);
 	let message = $state<string | null>(null);
 	let formError = $state<string | null>(null);
 
-	const form = superForm(defaults({ email: '' }, zod4(forgotPasswordSchema)), {
-		validators: zod4(forgotPasswordSchema),
-		SPA: true,
-		onUpdate: async ({ form: f }) => {
-			if (!f.valid) return;
-			isLoading = true;
-			message = null;
-			formError = null;
+	const id = $props.id();
 
-			try {
-				const { error: err } = await authClient.requestPasswordReset({
-					email: f.data.email,
-					redirectTo: localizedHref('/reset-password')
-				});
+	// Form data
+	let formData = $state({ email: '' });
 
-				if (err) {
-					formError = err.message ?? 'Failed to send reset link';
-				} else {
-					message = 'Check your email for a reset link.';
-				}
-			} catch {
-				formError = 'Failed to request password reset';
-			} finally {
-				isLoading = false;
-			}
-		}
-	});
+	// Field errors
+	let errors = $state<Record<string, string[]>>({});
 
-	const { form: formData, enhance } = form;
+	// Helper to convert string[] to { message: string }[] for FieldError component
+	function toFieldErrors(errors: string[] | undefined): { message: string }[] | undefined {
+		return errors?.map((message) => ({ message }));
+	}
 
 	// Initialize email from global state
 	$effect(() => {
-		if (authFlow.email && !$formData.email) {
-			$formData.email = authFlow.email;
+		if (authFlow.email && !formData.email) {
+			formData.email = authFlow.email;
 		}
 	});
 
 	// Sync email changes back to global state
 	$effect(() => {
-		if ($formData.email) {
-			authFlow.email = $formData.email;
+		if (formData.email) {
+			authFlow.email = formData.email;
 		}
 	});
+
+	function validate(): boolean {
+		const result = v.safeParse(forgotPasswordSchema, formData);
+		if (!result.success) {
+			const fieldErrors: Record<string, string[]> = {};
+			for (const issue of result.issues) {
+				const path = issue.path?.[0]?.key as string;
+				if (!fieldErrors[path]) fieldErrors[path] = [];
+				fieldErrors[path].push(issue.message);
+			}
+			errors = fieldErrors;
+			return false;
+		}
+		errors = {};
+		return true;
+	}
+
+	async function handleSubmit(e: Event) {
+		e.preventDefault();
+		if (!validate()) return;
+
+		isLoading = true;
+		message = null;
+		formError = null;
+
+		try {
+			const { error: err } = await authClient.requestPasswordReset({
+				email: formData.email,
+				redirectTo: localizedHref('/reset-password')
+			});
+
+			if (err) {
+				formError = err.message ?? 'Failed to send reset link';
+			} else {
+				message = 'Check your email for a reset link.';
+			}
+		} catch {
+			formError = 'Failed to request password reset';
+		} finally {
+			isLoading = false;
+		}
+	}
 </script>
 
-<div class="flex min-h-screen w-full items-center justify-center px-4">
-	<Card.Root class="mx-auto w-full max-w-sm">
-		<Card.Header>
-			<Card.Title class="text-2xl">
-				<T keyName="auth.forgot_password.title" defaultValue="Forgot password" />
-			</Card.Title>
-			<Card.Description>
-				<T
-					keyName="auth.forgot_password.description"
-					defaultValue="We will email you a reset link"
-				/>
-			</Card.Description>
-		</Card.Header>
-		<Card.Content>
-			<form method="POST" use:enhance class="grid gap-4">
-				{#if formError}
-					<div class="rounded-md bg-destructive/10 p-3 text-sm text-destructive">{formError}</div>
-				{/if}
-				{#if message}
-					<div class="rounded-md bg-green-500/10 p-3 text-sm text-green-600 dark:text-green-400">
-						{message}
-					</div>
-				{/if}
-
-				<Form.Field {form} name="email">
-					<Form.Control>
-						{#snippet children({ props })}
-							<Form.Label>
+<div class="flex min-h-svh flex-col items-center justify-center bg-muted p-6 md:p-10">
+	<div class="flex w-full max-w-sm flex-col gap-6 md:max-w-3xl">
+		<Card.Root class="overflow-hidden p-0">
+			<Card.Content class="grid p-0 md:grid-cols-2">
+				<form onsubmit={handleSubmit} class="p-6 md:p-8">
+					<FieldGroup>
+						<div class="flex flex-col items-center gap-2 text-center">
+							<h1 class="text-2xl font-bold">
+								<T keyName="auth.forgot_password.title" defaultValue="Forgot password" />
+							</h1>
+							<p class="text-balance text-muted-foreground">
+								<T
+									keyName="auth.forgot_password.description"
+									defaultValue="We will email you a reset link"
+								/>
+							</p>
+						</div>
+						{#if formError}
+							<Field>
+								<div class="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+									{formError}
+								</div>
+							</Field>
+						{/if}
+						{#if message}
+							<Field>
+								<div
+									class="rounded-md bg-green-500/10 p-3 text-sm text-green-600 dark:text-green-400"
+								>
+									{message}
+								</div>
+							</Field>
+						{/if}
+						<Field>
+							<FieldLabel for="email-{id}">
 								<T keyName="auth.signin.email_label" defaultValue="Email" />
-							</Form.Label>
+							</FieldLabel>
 							<Input
-								{...props}
+								id="email-{id}"
 								type="email"
-								placeholder="you@example.com"
+								placeholder="m@example.com"
 								disabled={isLoading}
-								bind:value={$formData.email}
+								bind:value={formData.email}
 							/>
-						{/snippet}
-					</Form.Control>
-					<Form.FieldErrors>
-						{#snippet children({ errors })}
-							{#each errors as error}
-								<span class="block text-sm text-destructive">
-									<T keyName={error} params={{ minLength: PASSWORD_MIN_LENGTH }} />
-								</span>
-							{/each}
-						{/snippet}
-					</Form.FieldErrors>
-				</Form.Field>
-
-				<Form.Button class="w-full" disabled={isLoading}>
-					{#if isLoading}
-						<T keyName="auth.forgot_password.button_loading" defaultValue="Sending..." />
-					{:else}
-						<T keyName="auth.forgot_password.button_submit" defaultValue="Send reset link" />
-					{/if}
-				</Form.Button>
-			</form>
-			<div class="mt-4 text-center">
-				<a class="text-sm text-muted-foreground hover:underline" href={localizedHref('/signin')}>
-					<T keyName="auth.forgot_password.back_to_signin" defaultValue="Back to sign in" />
-				</a>
-			</div>
-		</Card.Content>
-	</Card.Root>
+							<FieldError errors={toFieldErrors(errors.email)} />
+						</Field>
+						<Field>
+							<Button type="submit" class="w-full" disabled={isLoading}>
+								{#if isLoading}
+									<T keyName="auth.forgot_password.button_loading" defaultValue="Sending..." />
+								{:else}
+									<T keyName="auth.forgot_password.button_submit" defaultValue="Send reset link" />
+								{/if}
+							</Button>
+						</Field>
+						<FieldDescription class="text-center">
+							<a href={localizedHref('/signin')} class="underline underline-offset-4">
+								<T keyName="auth.forgot_password.back_to_signin" defaultValue="Back to sign in" />
+							</a>
+						</FieldDescription>
+					</FieldGroup>
+				</form>
+				<div class="relative hidden bg-muted md:block">
+					<img
+						src="/placeholder.svg"
+						alt=""
+						class="absolute inset-0 h-full w-full object-cover dark:brightness-[0.2] dark:grayscale"
+					/>
+				</div>
+			</Card.Content>
+		</Card.Root>
+		<FieldDescription class="px-6 text-center">
+			<T keyName="auth.terms.agreement" defaultValue="By clicking continue, you agree to our" />
+			<a href={localizedHref('/terms')} class="underline underline-offset-4"
+				><T keyName="auth.terms.terms_of_service" defaultValue="Terms of Service" /></a
+			>
+			<T keyName="auth.terms.and" defaultValue="and" />
+			<a href={localizedHref('/privacy')} class="underline underline-offset-4"
+				><T keyName="auth.terms.privacy_policy" defaultValue="Privacy Policy" /></a
+			>.
+		</FieldDescription>
+	</div>
 </div>

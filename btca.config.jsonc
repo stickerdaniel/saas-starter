@@ -294,10 +294,10 @@
 		},
 		{
 			"type": "git",
-			"name": "zod",
-			"url": "https://github.com/colinhacks/zod",
+			"name": "valibot",
+			"url": "https://github.com/fabian-hiller/valibot",
 			"branch": "main",
-			"specialNotes": "Schema validation. Types, parsing, transforms."
+			"specialNotes": "Schema validation. Modular, type-safe, smaller bundle."
 		},
 		{
 			"type": "git",
