@@ -1,0 +1,48 @@
+name: Static Checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  lint-format:
+    name: Lint & Format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install
+      - run: bun run lint
+      - run: bun run format --check
+
+  typecheck:
+    name: Type Check
+    runs-on: ubuntu-latest
+    env:
+      PUBLIC_CONVEX_URL: https://placeholder.convex.cloud
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install
+      - run: bun scripts/build-emails.ts
+      - run: bun run check
+
+  spell-check:
+    name: Spell Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+      - run: go install github.com/client9/misspell/cmd/misspell@latest
+      - name: Run misspell (excluding i18n)
+        run: |
+          find . -type f \
+            -not -path './node_modules/*' \
+            -not -path './.git/*' \
+            -not -path './src/i18n/*' \
+            -not -path './.svelte-kit/*' \
+            -not -path './convex/_generated/*' \
+            | xargs misspell -error

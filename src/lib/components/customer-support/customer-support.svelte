@@ -93,10 +93,9 @@
 	// Initialize user ID when component mounts
 	// Threads are now loaded reactively via useQuery in threads-overview.svelte
 	$effect(() => {
-		if (browser) {
-			const userId = getUserId();
-			threadContext.setUserId(userId);
-		}
+		if (!browser || auth.isLoading) return;
+		const userId = getUserId();
+		threadContext.setUserId(userId);
 	});
 
 	// Watch for widget open requests from chatbar

@@ -1,6 +1,22 @@
 import { components } from './_generated/api';
 import { mutation, internalQuery } from './_generated/server';
 import { v } from 'convex/values';
+import { supportAgent } from './support/agent';
+import { isAnonymousUser } from './utils/anonymousUser';
+
+function buildSearchText(fields: {
+	title?: string;
+	summary?: string;
+	userName?: string;
+	userEmail?: string;
+}): string {
+	return (
+		[fields.title, fields.summary, fields.userName, fields.userEmail]
+			.filter(Boolean)
+			.join(' | ')
+			.toLowerCase() || 'untitled'
+	);
+}
 
 export const getTestUser = internalQuery({
 	args: { email: v.string() },
@@ -89,10 +105,190 @@ export const createTestAdminUser = mutation({
 			}
 		});
 
+		// Create notification preferences entry for the admin (needed for admin-settings E2E tests)
+		const existingPref = await ctx.db
+			.query('adminNotificationPreferences')
+			.withIndex('by_email', (q) => q.eq('email', email))
+			.first();
+
+		if (!existingPref) {
+			await ctx.db.insert('adminNotificationPreferences', {
+				email,
+				userId: user._id,
+				isAdminUser: true,
+				notifyNewSupportTickets: true,
+				notifyUserReplies: true,
+				notifyNewSignups: true,
+				createdAt: Date.now(),
+				updatedAt: Date.now()
+			});
+		}
+
 		return {
 			success: true,
 			wasAdmin: user.role === 'admin',
 			wasVerified: user.emailVerified === true
+		};
+	}
+});
+
+// Create anonymous support thread(s) for E2E tests
+// Note: This mutation requires AUTH_E2E_TEST_SECRET for security
+// Use count param to create multiple threads (for pagination testing)
+export const createAnonymousSupportThread = mutation({
+	args: {
+		secret: v.string(),
+		anonymousUserId: v.string(),
+		title: v.optional(v.string()),
+		pageUrl: v.optional(v.string()),
+		count: v.optional(v.number())
+	},
+	handler: async (ctx, { secret, anonymousUserId, title, pageUrl, count = 1 }) => {
+		const expectedSecret = process.env.AUTH_E2E_TEST_SECRET;
+		if (!expectedSecret || secret !== expectedSecret) {
+			throw new Error('Unauthorized: Invalid test secret');
+		}
+
+		if (!isAnonymousUser(anonymousUserId)) {
+			throw new Error('Invalid anonymous user ID');
+		}
+
+		const threadIds: string[] = [];
+
+		for (let i = 0; i < count; i++) {
+			const threadTitle =
+				count > 1 ? `${title ?? 'E2E Support Thread'} #${i + 1}` : (title ?? 'E2E Support Thread');
+			const summary = 'New support conversation';
+			const searchText = buildSearchText({ title: threadTitle, summary });
+
+			const { threadId } = await supportAgent.createThread(ctx, {
+				userId: anonymousUserId,
+				title: threadTitle,
+				summary
+			});
+
+			await ctx.db.insert('supportThreads', {
+				threadId,
+				userId: anonymousUserId,
+				status: 'open',
+				isHandedOff: false,
+				awaitingAdminResponse: true,
+				assignedTo: undefined,
+				priority: undefined,
+				pageUrl: pageUrl || undefined,
+				createdAt: Date.now(),
+				updatedAt: Date.now(),
+				notificationEmail: undefined,
+				searchText,
+				title: threadTitle,
+				summary,
+				lastMessage: undefined,
+				userName: undefined,
+				userEmail: undefined
+			});
+
+			threadIds.push(threadId);
+		}
+
+		return { threadIds, anonymousUserId };
+	}
+});
+
+// Get support threads by userId for E2E test verification
+// Note: This mutation requires AUTH_E2E_TEST_SECRET for security
+export const getSupportThreadsByUserId = mutation({
+	args: {
+		secret: v.string(),
+		userId: v.string()
+	},
+	handler: async (ctx, { secret, userId }) => {
+		const expectedSecret = process.env.AUTH_E2E_TEST_SECRET;
+		if (!expectedSecret || secret !== expectedSecret) {
+			throw new Error('Unauthorized: Invalid test secret');
+		}
+
+		const threads = await ctx.db
+			.query('supportThreads')
+			.withIndex('by_user', (q) => q.eq('userId', userId))
+			.collect();
+
+		return threads.map((t) => ({
+			threadId: t.threadId,
+			userId: t.userId,
+			userName: t.userName,
+			userEmail: t.userEmail
+		}));
+	}
+});
+
+// Get the authenticated user's ID by email for E2E test verification
+// Note: This mutation requires AUTH_E2E_TEST_SECRET for security
+export const getAuthUserIdByEmail = mutation({
+	args: {
+		secret: v.string(),
+		email: v.string()
+	},
+	handler: async (ctx, { secret, email }) => {
+		const expectedSecret = process.env.AUTH_E2E_TEST_SECRET;
+		if (!expectedSecret || secret !== expectedSecret) {
+			throw new Error('Unauthorized: Invalid test secret');
+		}
+
+		const user = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+			model: 'user',
+			where: [{ field: 'email', value: email }]
+		});
+
+		if (!user) {
+			return { userId: null };
+		}
+
+		return { userId: user._id };
+	}
+});
+
+// Clean up anonymous support threads created in E2E tests
+// Note: This mutation requires AUTH_E2E_TEST_SECRET for security
+export const cleanupAnonymousSupportThreads = mutation({
+	args: {
+		secret: v.string(),
+		threadIds: v.array(v.string())
+	},
+	handler: async (ctx, { secret, threadIds }) => {
+		const expectedSecret = process.env.AUTH_E2E_TEST_SECRET;
+		if (!expectedSecret || secret !== expectedSecret) {
+			throw new Error('Unauthorized: Invalid test secret');
+		}
+
+		let deletedSupportThreads = 0;
+		let deletedAgentThreads = 0;
+
+		for (const threadId of threadIds) {
+			try {
+				await supportAgent.deleteThreadAsync(ctx, { threadId, pageSize: 100 });
+				deletedAgentThreads++;
+			} catch (error) {
+				console.warn(
+					`[cleanupAnonymousSupportThreads] Failed to delete agent thread ${threadId}:`,
+					error
+				);
+			}
+
+			const supportThread = await ctx.db
+				.query('supportThreads')
+				.withIndex('by_thread', (q) => q.eq('threadId', threadId))
+				.first();
+
+			if (supportThread) {
+				await ctx.db.delete(supportThread._id);
+				deletedSupportThreads++;
+			}
+		}
+
+		return {
+			success: true,
+			deletedSupportThreads,
+			deletedAgentThreads
 		};
 	}
 });

@@ -47,6 +47,7 @@ import type * as storage from "../storage.js";
 import type * as support_agent from "../support/agent.js";
 import type * as support_files from "../support/files.js";
 import type * as support_messages from "../support/messages.js";
+import type * as support_migration from "../support/migration.js";
 import type * as support_threads from "../support/threads.js";
 import type * as tests from "../tests.js";
 import type * as users from "../users.js";
@@ -98,6 +99,7 @@ declare const fullApi: ApiFromModules<{
   "support/agent": typeof support_agent;
   "support/files": typeof support_files;
   "support/messages": typeof support_messages;
+  "support/migration": typeof support_migration;
   "support/threads": typeof support_threads;
   tests: typeof tests;
   users: typeof users;

@@ -23,10 +23,11 @@ export default defineConfig({
 	test: {
 		exclude: [
 			'e2e/**',
-			'node_modules/**',
+			'**/node_modules/**',
 			'dist/**',
 			'.{idea,git,cache,output,temp}/**',
-			'docs/**'
+			'docs/**',
+			'.opencode/**'
 		],
 		passWithNoTests: true,
 		environment: 'jsdom'

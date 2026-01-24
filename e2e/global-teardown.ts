@@ -17,6 +17,7 @@ dotenv.config({ path: '.env.test' });
 interface TestCredentials {
 	user: { email: string; password: string; name: string };
 	admin: { email: string; password: string; name: string };
+	anonymousSupport: { userId: string; threadId: string };
 }
 
 async function globalTeardown() {
@@ -38,6 +39,19 @@ async function globalTeardown() {
 	if (fs.existsSync(credentialsPath)) {
 		try {
 			const credentials: TestCredentials = JSON.parse(fs.readFileSync(credentialsPath, 'utf-8'));
+
+			// Clean up anonymous support threads
+			if (credentials.anonymousSupport?.threadId) {
+				console.log('[Teardown] Deleting anonymous support threads');
+				try {
+					await client.mutation(api.tests.cleanupAnonymousSupportThreads, {
+						secret: testSecret,
+						threadIds: [credentials.anonymousSupport.threadId]
+					});
+				} catch (error) {
+					console.warn(`[Teardown] Failed to delete support threads: ${error}`);
+				}
+			}
 
 			// Delete test users
 			console.log(`[Teardown] Deleting user: ${credentials.user.email}`);
