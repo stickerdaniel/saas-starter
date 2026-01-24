@@ -288,7 +288,7 @@
 					</div>
 				{:else if params.tab === 'signin'}
 					<!-- Sign In Form -->
-					<form onsubmit={handleSignIn} class="p-6 md:p-8">
+					<form onsubmit={handleSignIn} novalidate class="p-6 md:p-8">
 						<FieldGroup>
 							<div class="flex flex-col items-center gap-2 text-center">
 								<h1 class="text-2xl font-bold">
@@ -406,7 +406,7 @@
 					</form>
 				{:else}
 					<!-- Sign Up Form -->
-					<form onsubmit={handleSignUp} class="p-6 md:p-8">
+					<form onsubmit={handleSignUp} novalidate class="p-6 md:p-8">
 						<FieldGroup>
 							<div class="flex flex-col items-center gap-2 text-center">
 								<h1 class="text-2xl font-bold">

@@ -10,22 +10,14 @@ export { PASSWORD_MIN_LENGTH };
 
 // Sign In Schema
 export const signInSchema = v.object({
-	email: v.pipe(
-		v.string(),
-		v.nonEmpty('validation.email.required'),
-		v.email('validation.email.invalid')
-	),
+	email: v.pipe(v.string(), v.email('validation.email.invalid')),
 	_password: passwordRequired
 });
 
 // Sign Up Schema
 export const signUpSchema = v.object({
 	name: v.pipe(v.string(), v.nonEmpty('validation.name.required')),
-	email: v.pipe(
-		v.string(),
-		v.nonEmpty('validation.email.required'),
-		v.email('validation.email.invalid')
-	),
+	email: v.pipe(v.string(), v.email('validation.email.invalid')),
 	_password: passwordValidation
 });
 
