@@ -84,6 +84,7 @@
 			// Clear form
 			formData.newEmail = '';
 		} catch (err) {
+			console.error('[EmailSettings] Change email error:', err);
 			formError = err instanceof Error ? err.message : 'Failed to change email';
 			toast.error(formError);
 		} finally {
