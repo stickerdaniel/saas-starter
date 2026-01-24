@@ -91,7 +91,8 @@
 			} else {
 				message = 'Your password has been reset successfully.';
 			}
-		} catch {
+		} catch (error) {
+			console.error('[ResetPassword] Reset error:', error);
 			formError = 'Failed to reset password';
 		} finally {
 			isLoading = false;

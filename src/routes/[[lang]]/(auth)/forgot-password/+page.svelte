@@ -80,7 +80,8 @@
 			} else {
 				message = 'Check your email for a reset link.';
 			}
-		} catch {
+		} catch (error) {
+			console.error('[ForgotPassword] Request error:', error);
 			formError = 'Failed to request password reset';
 		} finally {
 			isLoading = false;

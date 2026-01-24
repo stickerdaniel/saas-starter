@@ -164,7 +164,8 @@
 					}
 				}
 			);
-		} catch {
+		} catch (error) {
+			console.error('[SignIn] Login error:', error);
 			formError = 'auth.errors.invalid_credentials';
 		} finally {
 			isLoading = false;
@@ -197,7 +198,8 @@
 					}
 				}
 			);
-		} catch {
+		} catch (error) {
+			console.error('[SignUp] Registration error:', error);
 			formError = 'auth.errors.signup_failed';
 		} finally {
 			isLoading = false;
@@ -225,7 +227,8 @@
 			if (result.error) {
 				formError = result.error.message || 'auth.errors.passkey_failed';
 			}
-		} catch {
+		} catch (error) {
+			console.error('[SignIn] Passkey login error:', error);
 			formError = 'auth.errors.passkey_failed';
 		} finally {
 			isLoading = false;

@@ -92,6 +92,7 @@
 				formData.confirmPassword = '';
 			}
 		} catch (err) {
+			console.error('[PasswordSettings] Change password error:', err);
 			formError = err instanceof Error ? err.message : 'An unexpected error occurred';
 			toast.error(formError);
 		} finally {
