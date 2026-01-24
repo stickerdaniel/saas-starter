@@ -8,12 +8,12 @@ test.describe('Forgot Password', () => {
 		await page.goto('/forgot-password');
 		await page.waitForLoadState('networkidle');
 
-		// Try to submit with invalid email
+		// Try to submit with invalid email (browser validation disabled with novalidate)
 		await page.fill('input[type="email"]', 'notanemail');
 		await page.click('button[type="submit"]');
 
-		// Should show validation error
-		await expect(page.locator('text=valid email').first()).toBeVisible({ timeout: 5000 });
+		// Should show our styled validation error
+		await expect(page.getByText(/valid email/i).first()).toBeVisible({ timeout: 5000 });
 
 		// Should still be on forgot-password page
 		await expect(page).toHaveURL(/forgot-password/);
