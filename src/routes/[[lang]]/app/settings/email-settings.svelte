@@ -70,10 +70,16 @@
 		formError = '';
 
 		try {
-			await authClient.changeEmail({
+			const { error: authError } = await authClient.changeEmail({
 				newEmail: formData.newEmail,
 				callbackURL: localizedHref('/app/settings?email-changed=true')
 			});
+
+			if (authError) {
+				formError = authError.message || 'Failed to change email';
+				toast.error(formError);
+				return;
+			}
 
 			toast.success(
 				isEmailVerified
