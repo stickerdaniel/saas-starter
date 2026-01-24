@@ -207,6 +207,7 @@
 		}
 	},
 	"auth": {
+		"back_to_home": "Volver al inicio",
 		"errors": {
 			"confirm_password_required": "Por favor confirma tu contraseña",
 			"current_password_required": "La contraseña actual es obligatoria",
@@ -224,6 +225,37 @@
 			"password_uppercase": "La contraseña debe contener al menos una letra mayúscula",
 			"signup_failed": "No se pudo crear la cuenta. Es posible que el correo electrónico ya esté en uso.",
 			"verification_invalid": "Código de verificación inválido o caducado. Por favor, inténtalo de nuevo."
+		},
+		"messages": {
+			"invalid_credentials": "Correo electrónico o contraseña inválidos",
+			"user_already_exists": "Ya existe una cuenta con este correo electrónico",
+			"email_not_verified": "Por favor verifica tu correo electrónico",
+			"invalid_token": "Token inválido o caducado",
+			"password_compromised": "Esta contraseña está comprometida",
+			"too_many_attempts": "Demasiados intentos. Inténtalo más tarde.",
+			"rate_limited": "Demasiadas solicitudes. Inténtalo más tarde.",
+			"oauth_failed": "El inicio de sesión social falló. Inténtalo de nuevo.",
+			"passkey_failed": "La autenticación con passkey falló",
+			"signup_failed": "No se pudo crear la cuenta",
+			"signup_disabled": "El registro está deshabilitado",
+			"auth_cancelled": "La autenticación fue cancelada",
+			"reset_link_sent": "Revisa tu correo para el enlace de restablecimiento.",
+			"password_reset_success": "Tu contraseña se restableció correctamente.",
+			"missing_reset_token": "Falta el token de restablecimiento o es inválido",
+			"reset_failed": "No se pudo restablecer la contraseña",
+			"request_reset_failed": "No se pudo solicitar el restablecimiento de contraseña",
+			"email_change_failed": "No se pudo cambiar el correo",
+			"email_same_as_current": "El nuevo correo debe ser diferente al actual",
+			"email_updated": "Correo actualizado correctamente",
+			"email_verification_sent": "Se envió un correo de verificación a tu dirección actual. Revisa tu bandeja de entrada para aprobar el cambio.",
+			"password_change_failed": "No se pudo cambiar la contraseña",
+			"password_changed": "Contraseña cambiada correctamente",
+			"passkey_load_failed": "No se pudieron cargar las passkeys",
+			"passkey_add_failed": "No se pudo agregar la passkey",
+			"passkey_added": "Passkey agregada correctamente",
+			"passkey_delete_failed": "No se pudo eliminar la passkey",
+			"passkey_deleted": "Passkey eliminada",
+			"generic_error": "Ocurrió un error. Inténtalo de nuevo."
 		},
 		"forgot_password": {
 			"back_to_signin": "Volver a iniciar sesión",
@@ -564,6 +596,20 @@
 		},
 		"title": "Configuración"
 	},
+	"team": {
+		"description": "Durante el proceso de trabajo, realizamos ajustes regulares con el cliente porque él es la única persona que puede sentir si un traje nuevo le queda bien o no.",
+		"linktree": "Linktree",
+		"roles": {
+			"cofounder_cto": "Cofundador - CTO",
+			"founder_ceo": "Fundador - CEO",
+			"interaction_designer": "Diseñador de Interacción",
+			"sales_manager": "Gerente de Ventas",
+			"ux_engineer": "Ingeniero UX",
+			"visual_designer": "Diseñador Visual"
+		},
+		"section_label": "Equipo",
+		"title": "Nuestro equipo soñado"
+	},
 	"validation": {
 		"confirm_password": {
 			"mismatch": "Las contraseñas no coinciden.",
@@ -583,19 +629,5 @@
 			"required": "Por favor ingresa tu contraseña.",
 			"uppercase": "La contraseña debe contener al menos una letra mayúscula."
 		}
-	},
-	"team": {
-		"description": "Durante el proceso de trabajo, realizamos ajustes regulares con el cliente porque él es la única persona que puede sentir si un traje nuevo le queda bien o no.",
-		"linktree": "Linktree",
-		"roles": {
-			"cofounder_cto": "Cofundador - CTO",
-			"founder_ceo": "Fundador - CEO",
-			"interaction_designer": "Diseñador de Interacción",
-			"sales_manager": "Gerente de Ventas",
-			"ux_engineer": "Ingeniero UX",
-			"visual_designer": "Diseñador Visual"
-		},
-		"section_label": "Equipo",
-		"title": "Nuestro equipo soñado"
 	}
 }

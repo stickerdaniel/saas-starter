@@ -1,5 +1,6 @@
 <script>
 	import { T } from '@tolgee/svelte';
+	import { localizedHref } from '$lib/utils/i18n';
 	import Marquee from '../magic/Marquee.svelte';
 	import ProgressiveBlur from '../magic/ProgressiveBlur.svelte';
 	import Button from '$lib/components/ui/button/button.svelte';
@@ -37,7 +38,7 @@
 					>
 						<Button
 							size="lg"
-							href="#"
+							href={localizedHref('/signin?tab=signup')}
 							class=" pointer-events-auto h-12 rounded-full pr-3 pl-5 text-sm"
 						>
 							<span class="text-nowrap"><T keyName="hero.cta" /></span>
