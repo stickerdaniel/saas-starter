@@ -1,13 +1,13 @@
-import { z } from 'zod';
+import * as v from 'valibot';
 
-export const schema = z.object({
-	id: z.number(),
-	header: z.string(),
-	type: z.string(),
-	status: z.string(),
-	target: z.string(),
-	limit: z.string(),
-	reviewer: z.string()
+export const schema = v.object({
+	id: v.number(),
+	header: v.string(),
+	type: v.string(),
+	status: v.string(),
+	target: v.string(),
+	limit: v.string(),
+	reviewer: v.string()
 });
 
-export type Schema = z.infer<typeof schema>;
+export type Schema = v.InferOutput<typeof schema>;

@@ -1,4 +1,5 @@
 import { v } from 'convex/values';
+import * as val from 'valibot';
 import { components } from '../../_generated/api';
 import { paginationOptsValidator } from 'convex/server';
 import { adminQuery } from '../../functions';
@@ -222,9 +223,9 @@ export const listThreadsForAdmin = adminQuery({
 
 			// Build lookup map for user images
 			for (const user of usersResult.page) {
-				const parsed = betterAuthUserSchema.safeParse(user);
-				if (parsed.success && userIds.includes(parsed.data._id) && parsed.data.image) {
-					userImageMap.set(parsed.data._id, parsed.data.image);
+				const parsed = val.safeParse(betterAuthUserSchema, user);
+				if (parsed.success && userIds.includes(parsed.output._id) && parsed.output.image) {
+					userImageMap.set(parsed.output._id, parsed.output.image);
 				}
 			}
 		}
@@ -431,11 +432,11 @@ export const listInternalUserNotes = adminQuery({
 				where: [{ field: 'role', operator: 'eq', value: 'admin' }]
 			});
 
-			// Build lookup map for admins we need using Zod validation
+			// Build lookup map for admins we need using Valibot validation
 			for (const admin of adminsResult.page) {
-				const parsed = betterAuthUserSchema.safeParse(admin);
-				if (parsed.success && adminIds.includes(parsed.data._id)) {
-					adminMap.set(parsed.data._id, parsed.data);
+				const parsed = val.safeParse(betterAuthUserSchema, admin);
+				if (parsed.success && adminIds.includes(parsed.output._id)) {
+					adminMap.set(parsed.output._id, parsed.output);
 				}
 			}
 		}
@@ -498,7 +499,7 @@ export const listAdmins = adminQuery({
 			where: [{ field: 'role', operator: 'eq', value: 'admin' }]
 		});
 
-		// Parse and filter valid admin records using Zod validation
+		// Parse and filter valid admin records using Valibot validation
 		const admins = parseBetterAuthUsers(result.page);
 
 		// Return admin info

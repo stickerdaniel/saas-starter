@@ -7,7 +7,7 @@ import { emailSchema } from './email-schema';
 /**
  * Remote form for adding a custom email recipient
  *
- * Uses SvelteKit remote functions with Zod validation.
+ * Uses SvelteKit remote functions with Valibot validation.
  * Calls Convex mutation server-side with proper authentication.
  */
 export const addEmailForm = form(emailSchema, async ({ email }, issue) => {
