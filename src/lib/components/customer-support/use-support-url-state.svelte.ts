@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as v from 'valibot';
 import { useSearchParams } from 'runed/kit';
 
 /**
@@ -6,9 +6,9 @@ import { useSearchParams } from 'runed/kit';
  * - support: 'open' when widget is visible, '' when closed
  * - thread: thread ID when viewing a specific conversation
  */
-const supportUrlSchema = z.object({
-	support: z.enum(['open', '']).default(''),
-	thread: z.string().default('')
+const supportUrlSchema = v.object({
+	support: v.optional(v.fallback(v.picklist(['open', '']), ''), ''),
+	thread: v.optional(v.fallback(v.string(), ''), '')
 });
 
 /**
