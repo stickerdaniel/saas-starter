@@ -56,11 +56,6 @@
 		isInside = true;
 	};
 
-	// Easing function for smooth progress animation (ease-in-out cubic)
-	const easeInOutCubic = (t: number): number => {
-		return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
-	};
-
 	const updateHoldProgress = (timestamp: number) => {
 		if (!isHolding) return;
 
@@ -70,12 +65,11 @@
 			// Phase 1: Quick linear animation to 5% (0-100ms)
 			holdProgress = (elapsed / QUICK_PHASE_DURATION) * 5;
 		} else {
-			// Phase 2: Eased animation from 5% to 100% (100-3000ms)
+			// Phase 2: Linear animation from 5% to 100% (100-3000ms)
 			const remainingElapsed = elapsed - QUICK_PHASE_DURATION;
 			const remainingDuration = HOLD_DURATION - QUICK_PHASE_DURATION;
 			const linearProgress = Math.min(remainingElapsed / remainingDuration, 1);
-			const easedProgress = easeInOutCubic(linearProgress);
-			holdProgress = 5 + easedProgress * 95;
+			holdProgress = 5 + linearProgress * 95;
 		}
 
 		if (holdProgress >= 100) {
