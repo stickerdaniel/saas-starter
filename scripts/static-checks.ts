@@ -9,10 +9,10 @@
 import { spawnSync, type SpawnSyncOptions } from 'child_process';
 import { parseArgs } from 'util';
 
-// Configuration
+// Configuration (matches CI static-checks.yml exclusions)
 const CONFIG = {
 	misspell: {
-		ignore: ['src/i18n/de.json', 'src/i18n/es.json', 'src/i18n/fr.json', 'convex/_generated']
+		ignore: ['src/i18n/', 'convex/_generated/', 'node_modules/', '.git/', '.svelte-kit/']
 	}
 };
 
@@ -122,10 +122,10 @@ function main(): void {
 	printHeader(2, 'Spell checking');
 	if (hasMisspell()) {
 		if (stagedOnly) {
-			// Check only staged files (exclude non-English translations and generated)
-			const checkableFiles = allFiles
-				.filter((f) => /\.(js|ts|svelte|md)$/.test(f))
-				.filter((f) => !CONFIG.misspell.ignore.some((ignore) => f.includes(ignore)));
+			// Check all staged files (exclude paths matching CI exclusions)
+			const checkableFiles = allFiles.filter(
+				(f) => !CONFIG.misspell.ignore.some((ignore) => f.includes(ignore))
+			);
 
 			if (checkableFiles.length > 0) {
 				// Batch files to avoid command line length limits
@@ -138,12 +138,11 @@ function main(): void {
 				console.log('No staged files to spell check');
 			}
 		} else {
-			// Check all files using Bun.Glob (cross-platform, excludes non-English translations and generated)
-			const glob = new Bun.Glob('src/**/*.{js,ts,svelte,md}');
+			// Check all files (matches CI find command exclusions)
+			const glob = new Bun.Glob('**/*');
 			const files = [...glob.scanSync({ absolute: false })].filter(
 				(f) => !CONFIG.misspell.ignore.some((ignore) => f.includes(ignore))
 			);
-			files.push('README.md');
 
 			// Batch files to avoid command line length limits
 			const chunkSize = 100;
