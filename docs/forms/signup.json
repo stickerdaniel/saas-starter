@@ -1,0 +1,50 @@
+[
+	{
+		"id": "row-1",
+		"fields": [
+			{
+				"id": "field-1",
+				"name": "Input",
+				"type": "text",
+				"category": "text",
+				"label": "Name",
+				"description": "",
+				"placeholder": "Your name",
+				"required": true,
+				"position": "full"
+			}
+		]
+	},
+	{
+		"id": "row-2",
+		"fields": [
+			{
+				"id": "field-2",
+				"name": "Email",
+				"type": "email",
+				"category": "email",
+				"label": "Email",
+				"description": "",
+				"placeholder": "m@example.com",
+				"required": true,
+				"position": "full"
+			}
+		]
+	},
+	{
+		"id": "row-3",
+		"fields": [
+			{
+				"id": "field-3",
+				"name": "Password",
+				"type": "password",
+				"category": "password",
+				"label": "Password",
+				"description": "Minimum 10 characters with uppercase, lowercase, and number",
+				"placeholder": "",
+				"required": true,
+				"position": "full"
+			}
+		]
+	}
+]

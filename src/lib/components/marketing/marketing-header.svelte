@@ -15,6 +15,10 @@
 
 	const auth = useAuth();
 
+	// Scroll detection for button swap
+	let scrollY = $state(0);
+	const isAtTop = $derived(scrollY < 10);
+
 	// $derived menu items (href must update on lang switch)
 	let menuItems = $derived([
 		{ translationKey: 'nav.home', href: localizedHref('/') },
@@ -24,6 +28,8 @@
 
 	let menuState = $state(false);
 </script>
+
+<svelte:window bind:scrollY />
 
 <header>
 	<nav class="fixed z-40 w-full pt-4">
@@ -77,6 +83,13 @@
 							onclick={() => authClient.signOut()}
 						>
 							<LogOut class="size-4" />
+						</Button>
+					{:else if isAtTop}
+						<Button variant="ghost" size="sm" href={localizedHref('/signin')}>
+							<T keyName="nav.login" />
+						</Button>
+						<Button size="sm" href={localizedHref('/signin?tab=signup')}>
+							<T keyName="nav.signup" />
 						</Button>
 					{:else}
 						<Button size="sm" href={localizedHref('/signin?tab=signup')}>
@@ -142,6 +155,13 @@
 				{#if auth.isAuthenticated}
 					<Button size="sm" href={localizedHref('/app')} class="w-full">
 						<T keyName="nav.dashboard" />
+					</Button>
+				{:else if isAtTop}
+					<Button variant="ghost" size="sm" href={localizedHref('/signin')} class="w-full">
+						<T keyName="nav.login" />
+					</Button>
+					<Button size="sm" href={localizedHref('/signin?tab=signup')} class="w-full">
+						<T keyName="nav.signup" />
 					</Button>
 				{:else}
 					<Button size="sm" href={localizedHref('/signin?tab=signup')} class="w-full">

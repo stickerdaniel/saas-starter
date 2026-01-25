@@ -209,6 +209,7 @@
 		}
 	},
 	"auth": {
+		"back_to_home": "Back to home",
 		"errors": {
 			"confirm_password_required": "Please confirm your password",
 			"current_password_required": "Current password is required",
@@ -216,6 +217,7 @@
 			"invalid_email": "Please enter a valid email",
 			"invalid_secret": "Invalid secret",
 			"name_required": "Name is required",
+			"oauth_failed": "Social sign-in failed. Please try again.",
 			"passkey_failed": "Passkey authentication failed",
 			"password_lowercase": "Password must contain at least one lowercase letter",
 			"password_min_length": "Password must be at least {minLength} characters",
@@ -225,6 +227,37 @@
 			"password_uppercase": "Password must contain at least one uppercase letter",
 			"signup_failed": "Failed to create account. Email may already be in use.",
 			"verification_invalid": "Invalid or expired verification code. Please try again."
+		},
+		"messages": {
+			"invalid_credentials": "Invalid email or password",
+			"user_already_exists": "An account with this email already exists",
+			"email_not_verified": "Please verify your email address",
+			"invalid_token": "Invalid or expired token",
+			"password_compromised": "This password has been compromised",
+			"too_many_attempts": "Too many attempts. Please try again later.",
+			"rate_limited": "Too many requests. Please try again later.",
+			"oauth_failed": "Social sign-in failed. Please try again.",
+			"passkey_failed": "Passkey authentication failed",
+			"signup_failed": "Failed to create account",
+			"signup_disabled": "Sign up is disabled",
+			"auth_cancelled": "Authentication was cancelled",
+			"reset_link_sent": "Check your email for a reset link.",
+			"password_reset_success": "Your password has been reset successfully.",
+			"missing_reset_token": "Missing or invalid reset token",
+			"reset_failed": "Failed to reset password",
+			"request_reset_failed": "Failed to request password reset",
+			"email_change_failed": "Failed to change email",
+			"email_same_as_current": "New email must be different from current email",
+			"email_updated": "Email updated successfully",
+			"email_verification_sent": "Verification email sent to your current address. Please check your inbox to approve the change.",
+			"password_change_failed": "Failed to change password",
+			"password_changed": "Password changed successfully",
+			"passkey_load_failed": "Failed to load passkeys",
+			"passkey_add_failed": "Failed to add passkey",
+			"passkey_added": "Passkey added successfully",
+			"passkey_delete_failed": "Failed to delete passkey",
+			"passkey_deleted": "Passkey deleted",
+			"generic_error": "An error occurred. Please try again."
 		},
 		"forgot_password": {
 			"back_to_signin": "Back to sign in",
@@ -256,6 +289,9 @@
 			"email_label": "Email",
 			"email_placeholder": "you@example.com",
 			"forgot_password": "Forgot password?",
+			"link_signup": "Sign up",
+			"name_label": "Name",
+			"no_account": "Don't have an account?",
 			"oauth_github": "GitHub",
 			"oauth_google": "Google",
 			"or_continue_with": "Or continue with",
@@ -267,9 +303,20 @@
 			"test_secret_button": "Sign in with secret",
 			"test_secret_label": "Test only: Sign in with a secret",
 			"test_secret_placeholder": "secret value",
-			"title": "Welcome"
+			"title": "Welcome back"
 		},
 		"signup": "Sign Up",
+		"signup.description": "Enter your details to get started",
+		"signup.has_account": "Already have an account?",
+		"signup.link_signin": "Sign in",
+		"signup.password_hint": "Minimum 10 characters with uppercase, lowercase, and number",
+		"signup.title": "Create an account",
+		"terms": {
+			"agreement": "By clicking continue, you agree to our",
+			"and": "and",
+			"privacy_policy": "Privacy Policy",
+			"terms_of_service": "Terms of Service"
+		},
 		"verification": {
 			"button_back": "Back to login",
 			"button_cancel": "Cancel",
@@ -404,7 +451,9 @@
 		"features": "Features",
 		"get_started": "Get Started",
 		"home": "Home",
+		"login": "Login",
 		"pricing": "Pricing",
+		"signup": "Sign up",
 		"solution": "Solution"
 	},
 	"pricing": {
@@ -562,5 +611,25 @@
 		},
 		"section_label": "Team",
 		"title": "Our dream team"
+	},
+	"validation": {
+		"confirm_password": {
+			"mismatch": "Passwords do not match.",
+			"required": "Please confirm your password."
+		},
+		"email": {
+			"invalid": "Please enter a valid email address.",
+			"required": "Please enter your email address."
+		},
+		"name": {
+			"required": "Please enter your name."
+		},
+		"password": {
+			"lowercase": "Password must contain at least one lowercase letter.",
+			"min_length": "Password must be at least {count, number} characters.",
+			"number": "Password must contain at least one number.",
+			"required": "Please enter your password.",
+			"uppercase": "Password must contain at least one uppercase letter."
+		}
 	}
 }

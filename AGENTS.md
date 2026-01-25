@@ -6,7 +6,7 @@ This project is a saas template built with SvelteKit, Convex, Typescript and mod
 
 When you need up-to-date information about technologies used in this project, use btca to query source repositories directly.
 
-**Available resources**: svelte, sveltekit, shadcnSvelte, shadcnSvelteExtras, bitsUi, runed, formsnap, superforms, paneforge, svelteInfinite, motionSvelte, svAnimate, threlte, xyflow, cnblocks, aiElements, convex, convexSvelte, convexAgent, convexHelpers, convexResend, convexPresence, convexRag, convexStripe, convexRateLimiter, convexActionCache, convexFilesControl, convexTimeline, convexMigrations, convexAggregate, convexShardedCounter, convexGeospatial, convexWorkpool, convexWorkflow, convexRetrier, convexCrons, betterAuth, betterSvelteEmail, tailwind, vercelAi, zod, tanstackTable, tolgee, playwright, vitest
+**Available resources**: svelte, sveltekit, shadcnSvelte, shadcnSvelteExtras, bitsUi, runed, formsnap, superforms, paneforge, svelteInfinite, motionSvelte, svAnimate, threlte, xyflow, cnblocks, aiElements, convex, convexSvelte, convexAgent, convexHelpers, convexResend, convexPresence, convexRag, convexStripe, convexRateLimiter, convexActionCache, convexFilesControl, convexTimeline, convexMigrations, convexAggregate, convexShardedCounter, convexGeospatial, convexWorkpool, convexWorkflow, convexRetrier, convexCrons, betterAuth, betterSvelteEmail, tailwind, vercelAi, tanstackTable, tolgee, playwright, vitest, valibot
 
 ### Usage
 
@@ -24,15 +24,16 @@ btca ask -r svelte -r convex -q "How do I integrate Convex with SvelteKit?"
 
 ### Core Development
 
-- `bun run dev` - Start development server (SvelteKit + Convex)
+- `bun run generate` - To generate the code in the `convex/_generated` directory that includes types required for a TypeScript typecheck. Run this command whenever you make changes to the convex schema.
 - `bun run build` - Build for production
-- `bun run preview` - Preview production build locally
+
+NEVER use `bun run dev` to start the development server, its already running in a separate terminal.
 
 ### Quality Checks & Testing
 
-- `bun scripts/quality-check.ts --staged` - Check only staged files (used in git pre-commit hook)
+- `bun scripts/static-checks.ts --staged` - Check only staged files (used in git pre-commit hook)
 - `bun run test` - Run all tests (E2E + unit)
-- `bun run test:e2e` - Run Playwright E2E tests
+- `bun run test:e2e` - Run Playwright E2E tests. Always run this test after modifying E2E tests to ensure they are working!
 - `bun run test:unit` - Run Vitest unit tests
 - `bun run lint` - Run ESLint
 - `bun run format` - Format code with Prettier
@@ -40,7 +41,6 @@ btca ask -r svelte -r convex -q "How do I integrate Convex with SvelteKit?"
 
 ### Convex Backend
 
-- `bunx convex dev` - Start Convex development environment
 - `bunx convex run tests:init` - Initialize test data
 - `bunx convex env set KEY value` - Set Convex environment variables
 - `bunx convex env set KEY value --prod` - Set production environment variables
@@ -198,9 +198,9 @@ Avoid stores unless necessary for pub/sub.
 Use the Svelte MCPs Get Documentation tool to get up-to-date Svelte documentation (only call this with a subagent!) and check code with the MCPs autofixer for wrong patterns.
 </important_info>
 
-### Quality Checks
+### Static Checks
 
-ALWAYS run `bun scripts/quality-check.ts` after a full feature implementation.
+ALWAYS run `bun scripts/static-checks.ts` after a full feature implementation.
 
 ### Real-time Features
 
@@ -224,7 +224,11 @@ ALWAYS run `bun scripts/quality-check.ts` after a full feature implementation.
 
 Simple animations should be implemented with plain CSS whenever possible.
 Before implementing any custom animation, check if sv-animate has a prebuilt component that can be used. Use btca with `svAnimate` resource.
-For custom animations, use Sveltes built in animations, or motion-svelte (Framer motion for Svelte). Use btca with `motionSvelte` resource. Before implementing any custom animation, read the `docs/animation-rules.md` file.
+For custom animations, use Sveltes built in animations, or motion-svelte (Framer motion for Svelte). Use btca with `motionSvelte` resource. Before implementing any custom animation, read the `docs/animation-rules.md` file. You must follow the rules in the file when implementing your own animations!
+
+#### Forms
+
+Read the `docs/form-instructions.md` file for instructions on how to implement forms in the project. You must follow the instructions in the file when working on forms!
 
 #### Lists with a lot of items
 
