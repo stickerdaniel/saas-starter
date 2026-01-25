@@ -207,6 +207,7 @@
 		}
 	},
 	"auth": {
+		"back_to_home": "Retour à l'accueil",
 		"errors": {
 			"confirm_password_required": "Veuillez confirmer votre mot de passe",
 			"current_password_required": "Le mot de passe actuel est requis",
@@ -214,6 +215,7 @@
 			"invalid_email": "Veuillez entrer une adresse e-mail valide",
 			"invalid_secret": "Secret invalide",
 			"name_required": "Le nom est requis",
+			"oauth_failed": "La connexion sociale a échoué. Veuillez réessayer.",
 			"passkey_failed": "L'authentification par passkey a échoué",
 			"password_lowercase": "Le mot de passe doit contenir au moins une lettre minuscule",
 			"password_min_length": "Le mot de passe doit contenir au moins {minLength} caractères",
@@ -223,6 +225,37 @@
 			"password_uppercase": "Le mot de passe doit contenir au moins une lettre majuscule",
 			"signup_failed": "Impossible de créer le compte. L'e-mail est peut-être déjà utilisé.",
 			"verification_invalid": "Code de vérification invalide ou expiré. Veuillez réessayer."
+		},
+		"messages": {
+			"invalid_credentials": "E-mail ou mot de passe invalide",
+			"user_already_exists": "Un compte avec cet e-mail existe déjà",
+			"email_not_verified": "Veuillez vérifier votre adresse e-mail",
+			"invalid_token": "Jeton invalide ou expiré",
+			"password_compromised": "Ce mot de passe est compromis",
+			"too_many_attempts": "Trop de tentatives. Réessayez plus tard.",
+			"rate_limited": "Trop de requêtes. Réessayez plus tard.",
+			"oauth_failed": "La connexion sociale a échoué. Veuillez réessayer.",
+			"passkey_failed": "L'authentification par passkey a échoué",
+			"signup_failed": "Impossible de créer le compte",
+			"signup_disabled": "L'inscription est désactivée",
+			"auth_cancelled": "L'authentification a été annulée",
+			"reset_link_sent": "Vérifiez votre e-mail pour le lien de réinitialisation.",
+			"password_reset_success": "Votre mot de passe a été réinitialisé avec succès.",
+			"missing_reset_token": "Jeton de réinitialisation manquant ou invalide",
+			"reset_failed": "Impossible de réinitialiser le mot de passe",
+			"request_reset_failed": "Impossible de demander la réinitialisation du mot de passe",
+			"email_change_failed": "Impossible de modifier l'e-mail",
+			"email_same_as_current": "Le nouvel e-mail doit être différent de l'actuel",
+			"email_updated": "E-mail mis à jour avec succès",
+			"email_verification_sent": "Un e-mail de vérification a été envoyé à votre adresse actuelle. Vérifiez votre boîte de réception pour approuver le changement.",
+			"password_change_failed": "Impossible de changer le mot de passe",
+			"password_changed": "Mot de passe modifié avec succès",
+			"passkey_load_failed": "Impossible de charger les passkeys",
+			"passkey_add_failed": "Impossible d'ajouter la passkey",
+			"passkey_added": "Passkey ajoutée avec succès",
+			"passkey_delete_failed": "Impossible de supprimer la passkey",
+			"passkey_deleted": "Passkey supprimée",
+			"generic_error": "Une erreur est survenue. Veuillez réessayer."
 		},
 		"forgot_password": {
 			"back_to_signin": "Retour à la connexion",
@@ -254,6 +287,9 @@
 			"email_label": "E-mail",
 			"email_placeholder": "vous@exemple.fr",
 			"forgot_password": "Mot de passe oublié ?",
+			"link_signup": "S'inscrire",
+			"name_label": "Nom",
+			"no_account": "Pas encore de compte ?",
 			"oauth_github": "GitHub",
 			"oauth_google": "Google",
 			"or_continue_with": "Ou continuer avec",
@@ -265,9 +301,20 @@
 			"test_secret_button": "Se connecter avec un secret",
 			"test_secret_label": "Test uniquement : Se connecter avec un secret",
 			"test_secret_placeholder": "valeur secrète",
-			"title": "Bienvenue"
+			"title": "Bon retour"
 		},
 		"signup": "S'inscrire",
+		"signup.description": "Entrez vos informations pour commencer",
+		"signup.has_account": "Déjà un compte ?",
+		"signup.link_signin": "Se connecter",
+		"signup.password_hint": "Minimum 10 caractères avec majuscules, minuscules et chiffre",
+		"signup.title": "Créer un compte",
+		"terms": {
+			"agreement": "En continuant, vous acceptez nos",
+			"and": "et notre",
+			"privacy_policy": "Politique de confidentialité",
+			"terms_of_service": "Conditions d'utilisation"
+		},
 		"verification": {
 			"button_back": "Retour à la connexion",
 			"button_cancel": "Annuler",
@@ -402,7 +449,9 @@
 		"features": "Fonctionnalités",
 		"get_started": "Commencer",
 		"home": "Accueil",
+		"login": "Connexion",
 		"pricing": "Tarifs",
+		"signup": "S'inscrire",
 		"solution": "Solution"
 	},
 	"pricing": {
@@ -560,5 +609,25 @@
 		},
 		"section_label": "Équipe",
 		"title": "Notre équipe de rêve"
+	},
+	"validation": {
+		"confirm_password": {
+			"mismatch": "Les mots de passe ne correspondent pas.",
+			"required": "Veuillez confirmer votre mot de passe."
+		},
+		"email": {
+			"invalid": "Veuillez entrer une adresse e-mail valide.",
+			"required": "Veuillez entrer votre adresse e-mail."
+		},
+		"name": {
+			"required": "Veuillez entrer votre nom."
+		},
+		"password": {
+			"lowercase": "Le mot de passe doit contenir au moins une lettre minuscule.",
+			"min_length": "Le mot de passe doit contenir au moins {count, number} caractères.",
+			"number": "Le mot de passe doit contenir au moins un chiffre.",
+			"required": "Veuillez entrer votre mot de passe.",
+			"uppercase": "Le mot de passe doit contenir au moins une lettre majuscule."
+		}
 	}
 }

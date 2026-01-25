@@ -1,0 +1,18 @@
+[
+	{
+		"id": "row-1",
+		"fields": [
+			{
+				"id": "field-1",
+				"name": "Email",
+				"type": "email",
+				"category": "email",
+				"label": "New email address",
+				"description": "",
+				"placeholder": "Enter new email address",
+				"required": true,
+				"position": "full"
+			}
+		]
+	}
+]

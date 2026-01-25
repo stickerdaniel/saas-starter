@@ -207,6 +207,7 @@
 		}
 	},
 	"auth": {
+		"back_to_home": "Zurück zur Startseite",
 		"errors": {
 			"confirm_password_required": "Bitte bestätigen Sie Ihr Passwort",
 			"current_password_required": "Aktuelles Passwort ist erforderlich",
@@ -214,6 +215,7 @@
 			"invalid_email": "Bitte geben Sie eine gültige E-Mail-Adresse ein",
 			"invalid_secret": "Ungültiges Geheimnis",
 			"name_required": "Name ist erforderlich",
+			"oauth_failed": "Soziale Anmeldung fehlgeschlagen. Bitte versuchen Sie es erneut.",
 			"passkey_failed": "Passkey-Authentifizierung fehlgeschlagen",
 			"password_lowercase": "Passwort muss mindestens einen Kleinbuchstaben enthalten",
 			"password_min_length": "Passwort muss mindestens {minLength} Zeichen lang sein",
@@ -223,6 +225,37 @@
 			"password_uppercase": "Passwort muss mindestens einen Großbuchstaben enthalten",
 			"signup_failed": "Konto konnte nicht erstellt werden. E-Mail wird möglicherweise bereits verwendet.",
 			"verification_invalid": "Ungültiger oder abgelaufener Verifizierungscode. Bitte versuchen Sie es erneut."
+		},
+		"messages": {
+			"invalid_credentials": "Ungültige E-Mail oder Passwort",
+			"user_already_exists": "Ein Konto mit dieser E-Mail existiert bereits",
+			"email_not_verified": "Bitte bestätigen Sie Ihre E-Mail-Adresse",
+			"invalid_token": "Ungültiger oder abgelaufener Token",
+			"password_compromised": "Dieses Passwort wurde kompromittiert",
+			"too_many_attempts": "Zu viele Versuche. Bitte versuchen Sie es später erneut.",
+			"rate_limited": "Zu viele Anfragen. Bitte versuchen Sie es später erneut.",
+			"oauth_failed": "Soziale Anmeldung fehlgeschlagen. Bitte versuchen Sie es erneut.",
+			"passkey_failed": "Passkey-Authentifizierung fehlgeschlagen",
+			"signup_failed": "Konto konnte nicht erstellt werden",
+			"signup_disabled": "Registrierung ist deaktiviert",
+			"auth_cancelled": "Authentifizierung abgebrochen",
+			"reset_link_sent": "Bitte prüfen Sie Ihre E-Mail für den Reset-Link.",
+			"password_reset_success": "Ihr Passwort wurde erfolgreich zurückgesetzt.",
+			"missing_reset_token": "Fehlender oder ungültiger Reset-Token",
+			"reset_failed": "Passwort konnte nicht zurückgesetzt werden",
+			"request_reset_failed": "Passwort-Reset konnte nicht angefordert werden",
+			"email_change_failed": "E-Mail konnte nicht geändert werden",
+			"email_same_as_current": "Neue E-Mail muss sich von der aktuellen E-Mail unterscheiden",
+			"email_updated": "E-Mail erfolgreich aktualisiert",
+			"email_verification_sent": "Bestätigungs-E-Mail wurde an Ihre aktuelle Adresse gesendet. Bitte prüfen Sie Ihren Posteingang, um die Änderung zu bestätigen.",
+			"password_change_failed": "Passwort konnte nicht geändert werden",
+			"password_changed": "Passwort erfolgreich geändert",
+			"passkey_load_failed": "Passkeys konnten nicht geladen werden",
+			"passkey_add_failed": "Passkey konnte nicht hinzugefügt werden",
+			"passkey_added": "Passkey erfolgreich hinzugefügt",
+			"passkey_delete_failed": "Passkey konnte nicht gelöscht werden",
+			"passkey_deleted": "Passkey gelöscht",
+			"generic_error": "Ein Fehler ist aufgetreten. Bitte versuchen Sie es erneut."
 		},
 		"forgot_password": {
 			"back_to_signin": "Zurück zur Anmeldung",
@@ -254,6 +287,9 @@
 			"email_label": "E-Mail",
 			"email_placeholder": "du@beispiel.de",
 			"forgot_password": "Passwort vergessen?",
+			"link_signup": "Registrieren",
+			"name_label": "Name",
+			"no_account": "Noch kein Konto?",
 			"oauth_github": "GitHub",
 			"oauth_google": "Google",
 			"or_continue_with": "Oder fortfahren mit",
@@ -265,9 +301,20 @@
 			"test_secret_button": "Mit Geheimnis anmelden",
 			"test_secret_label": "Nur Test: Mit Geheimnis anmelden",
 			"test_secret_placeholder": "Geheimnis-Wert",
-			"title": "Willkommen"
+			"title": "Willkommen zurück"
 		},
 		"signup": "Registrieren",
+		"signup.description": "Geben Sie Ihre Daten ein, um loszulegen",
+		"signup.has_account": "Bereits ein Konto?",
+		"signup.link_signin": "Anmelden",
+		"signup.password_hint": "Mindestens 10 Zeichen mit Groß-, Kleinbuchstaben und Zahl",
+		"signup.title": "Konto erstellen",
+		"terms": {
+			"agreement": "Mit dem Fortfahren akzeptieren Sie unsere",
+			"and": "und",
+			"privacy_policy": "Datenschutzrichtlinie",
+			"terms_of_service": "Nutzungsbedingungen"
+		},
 		"verification": {
 			"button_back": "Zurück zur Anmeldung",
 			"button_cancel": "Abbrechen",
@@ -402,7 +449,9 @@
 		"features": "Funktionen",
 		"get_started": "Jetzt starten",
 		"home": "Start",
+		"login": "Anmelden",
 		"pricing": "Pläne",
+		"signup": "Registrieren",
 		"solution": "Lösung"
 	},
 	"pricing": {
@@ -560,5 +609,25 @@
 		},
 		"section_label": "Team",
 		"title": "Unser Traumteam"
+	},
+	"validation": {
+		"confirm_password": {
+			"mismatch": "Passwörter stimmen nicht überein.",
+			"required": "Bitte bestätigen Sie Ihr Passwort."
+		},
+		"email": {
+			"invalid": "Bitte geben Sie eine gültige E-Mail-Adresse ein.",
+			"required": "Bitte geben Sie Ihre E-Mail-Adresse ein."
+		},
+		"name": {
+			"required": "Bitte geben Sie Ihren Namen ein."
+		},
+		"password": {
+			"lowercase": "Passwort muss mindestens einen Kleinbuchstaben enthalten.",
+			"min_length": "Passwort muss mindestens {count, number} Zeichen lang sein.",
+			"number": "Passwort muss mindestens eine Zahl enthalten.",
+			"required": "Bitte geben Sie Ihr Passwort ein.",
+			"uppercase": "Passwort muss mindestens einen Großbuchstaben enthalten."
+		}
 	}
 }
