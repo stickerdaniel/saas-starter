@@ -25,7 +25,6 @@
 	let animationFrameId: number | null = null;
 
 	const HOLD_DURATION = 3000; // 3 seconds
-	const QUICK_PHASE_DURATION = 100; // 100ms quick start to 5%
 	const RIVE_URL = 'https://rive.app/marketplace/3293-6929-spring-demo/';
 
 	const handleMouseMove = (e: MouseEvent) => {
@@ -60,17 +59,8 @@
 		if (!isHolding) return;
 
 		const elapsed = timestamp - holdStartTime;
-
-		if (elapsed < QUICK_PHASE_DURATION) {
-			// Phase 1: Quick linear animation to 5% (0-100ms)
-			holdProgress = (elapsed / QUICK_PHASE_DURATION) * 5;
-		} else {
-			// Phase 2: Linear animation from 5% to 100% (100-3000ms)
-			const remainingElapsed = elapsed - QUICK_PHASE_DURATION;
-			const remainingDuration = HOLD_DURATION - QUICK_PHASE_DURATION;
-			const linearProgress = Math.min(remainingElapsed / remainingDuration, 1);
-			holdProgress = 5 + linearProgress * 95;
-		}
+		const progress = Math.min((elapsed / HOLD_DURATION) * 100, 100);
+		holdProgress = progress;
 
 		if (holdProgress >= 100) {
 			// Open link in new tab
@@ -156,8 +146,10 @@
 				>
 					<!-- Progress bar background -->
 					<div
-						class="absolute inset-0 bg-primary opacity-20"
-						style="width: {holdProgress}%; transform-origin: left;"
+						class="absolute inset-0 bg-primary opacity-20 transition-[width]"
+						style="width: {holdProgress}%; transform-origin: left; transition-duration: {isHolding
+							? '0ms'
+							: '150ms'}; transition-timing-function: {isHolding ? 'linear' : 'ease-out'};"
 					></div>
 
 					<!-- Text content -->
