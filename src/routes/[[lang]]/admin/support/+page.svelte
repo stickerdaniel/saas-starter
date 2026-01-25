@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
-	import { z } from 'zod';
+	import * as v from 'valibot';
 	import { useSearchParams } from 'runed/kit';
 	import { Debounced } from 'runed';
 	import { page } from '$app/stores';
@@ -20,10 +20,10 @@
 	import { adminCache } from '$lib/hooks/admin-cache.svelte';
 
 	// Filter state schema (thread managed separately to avoid reload on selection)
-	const filterSchema = z.object({
-		mode: z.enum(['all', 'unassigned', 'my-inbox']).default('all'),
-		status: z.enum(['open', 'done']).default('open'),
-		search: z.string().default('')
+	const filterSchema = v.object({
+		mode: v.optional(v.fallback(v.picklist(['all', 'unassigned', 'my-inbox']), 'all'), 'all'),
+		status: v.optional(v.fallback(v.picklist(['open', 'done']), 'open'), 'open'),
+		search: v.optional(v.fallback(v.string(), ''), '')
 	});
 
 	// Filter state management via useSearchParams

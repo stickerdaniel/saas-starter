@@ -1,10 +1,10 @@
-import { z } from 'zod';
+import * as v from 'valibot';
 
 /**
- * Zod schema for email validation
+ * Valibot schema for email validation
  * Used for both server-side validation in data.remote.ts and
  * client-side preflight validation in add-email-dialog.svelte
  */
-export const emailSchema = z.object({
-	email: z.string().email('Please enter a valid email address')
+export const emailSchema = v.object({
+	email: v.pipe(v.string(), v.email('Please enter a valid email address'))
 });

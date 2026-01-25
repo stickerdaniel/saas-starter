@@ -65,6 +65,7 @@
 		"svelte-infinite": "^0.5.1",
 		"svelte-konva": "^1.0.1",
 		"svelte-streamdown": "^3.0.0",
+		"valibot": "^1.2.0",
 		"vercel": "^50.0.0"
 	},
 	"devDependencies": {
@@ -123,7 +124,6 @@
 		"typescript": "5.9.3",
 		"vaul-svelte": "1.0.0-next.7",
 		"vite": "7.3.1",
-		"vitest": "4.0.17",
-		"zod": "4.3.5"
+		"vitest": "4.0.17"
 	}
 }
