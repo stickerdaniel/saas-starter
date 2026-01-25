@@ -1,4 +1,5 @@
 <script lang="ts">
+	import * as v from 'valibot';
 	import { toast } from 'svelte-sonner';
 	import * as InputGroup from '$lib/components/ui/input-group';
 	import { Button } from '$lib/components/ui/button';
@@ -35,7 +36,7 @@
 		}
 	});
 
-	const isValidEmail = $derived(emailSchema.safeParse(email.trim()).success);
+	const isValidEmail = $derived(v.safeParse(emailSchema, email.trim()).success);
 
 	// Check if email has changed from the saved value
 	const hasChanges = $derived(email.trim() !== (currentEmail || ''));

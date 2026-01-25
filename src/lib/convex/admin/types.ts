@@ -1,5 +1,5 @@
 import { v } from 'convex/values';
-import { z } from 'zod';
+import * as val from 'valibot';
 
 /**
  * Role enum - single source of truth for user roles.
@@ -92,33 +92,33 @@ export interface BetterAuthSession {
 }
 
 /**
- * Zod schema for Better Auth user records.
+ * Valibot schema for Better Auth user records.
  * Provides runtime validation when fetching from the Better Auth adapter.
  */
-export const betterAuthUserSchema = z.object({
-	_id: z.string(),
-	name: z.string().optional(),
-	email: z.string(),
-	emailVerified: z.boolean().optional(),
-	image: z.string().nullable().optional(),
-	role: z.enum(['user', 'admin']).nullable().optional(),
-	banned: z.boolean().nullable().optional(),
-	banReason: z.string().nullable().optional(),
-	banExpires: z.number().nullable().optional(),
-	createdAt: z.number().optional(),
-	updatedAt: z.number().optional()
+export const betterAuthUserSchema = val.object({
+	_id: val.string(),
+	name: val.optional(val.string()),
+	email: val.string(),
+	emailVerified: val.optional(val.boolean()),
+	image: val.optional(val.nullable(val.string())),
+	role: val.optional(val.nullable(val.picklist(['user', 'admin']))),
+	banned: val.optional(val.nullable(val.boolean())),
+	banReason: val.optional(val.nullable(val.string())),
+	banExpires: val.optional(val.nullable(val.number())),
+	createdAt: val.optional(val.number()),
+	updatedAt: val.optional(val.number())
 });
 
 /**
- * Zod schema for Better Auth session records.
+ * Valibot schema for Better Auth session records.
  */
-export const betterAuthSessionSchema = z.object({
-	_id: z.string(),
-	userId: z.string(),
-	expiresAt: z.number(),
-	createdAt: z.number().optional(),
-	updatedAt: z.number().optional(),
-	impersonatedBy: z.string().optional()
+export const betterAuthSessionSchema = val.object({
+	_id: val.string(),
+	userId: val.string(),
+	expiresAt: val.number(),
+	createdAt: val.optional(val.number()),
+	updatedAt: val.optional(val.number()),
+	impersonatedBy: val.optional(val.string())
 });
 
 /**
@@ -128,11 +128,11 @@ export const betterAuthSessionSchema = z.object({
 export function parseBetterAuthUsers(data: unknown[]): BetterAuthUser[] {
 	const users: BetterAuthUser[] = [];
 	for (const item of data) {
-		const result = betterAuthUserSchema.safeParse(item);
+		const result = val.safeParse(betterAuthUserSchema, item);
 		if (result.success) {
-			users.push(result.data);
+			users.push(result.output);
 		} else {
-			console.warn('[parseBetterAuthUsers] Invalid user record:', result.error.message);
+			console.warn('[parseBetterAuthUsers] Invalid user record:', result.issues[0]?.message);
 		}
 	}
 	return users;
@@ -145,23 +145,23 @@ export function parseBetterAuthUsers(data: unknown[]): BetterAuthUser[] {
 export function parseBetterAuthSessions(data: unknown[]): BetterAuthSession[] {
 	const sessions: BetterAuthSession[] = [];
 	for (const item of data) {
-		const result = betterAuthSessionSchema.safeParse(item);
+		const result = val.safeParse(betterAuthSessionSchema, item);
 		if (result.success) {
-			sessions.push(result.data);
+			sessions.push(result.output);
 		} else {
-			console.warn('[parseBetterAuthSessions] Invalid session record:', result.error.message);
+			console.warn('[parseBetterAuthSessions] Invalid session record:', result.issues[0]?.message);
 		}
 	}
 	return sessions;
 }
 
 /**
- * Type guard using Zod for single user validation.
+ * Parse and validate a single user record using Valibot.
  * Returns the parsed user or null if invalid.
  */
 export function parseUserRecord(obj: unknown): BetterAuthUser | null {
-	const result = betterAuthUserSchema.safeParse(obj);
-	return result.success ? result.data : null;
+	const result = val.safeParse(betterAuthUserSchema, obj);
+	return result.success ? result.output : null;
 }
 
 /**
