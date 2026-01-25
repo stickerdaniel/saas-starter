@@ -1,19 +1,18 @@
 /**
- * Unified quality check script (cross-platform TypeScript version)
+ * Unified static checks script (cross-platform TypeScript version)
  *
  * Usage:
- *   bun scripts/quality-check.ts          - Check all files (for CI)
- *   bun scripts/quality-check.ts --staged - Check only staged files (for pre-commit)
- *   bun scripts/quality-check.ts --no-tests --no-build - Skip tests and build
+ *   bun scripts/static-checks.ts          - Check all files (for CI)
+ *   bun scripts/static-checks.ts --staged - Check only staged files (for pre-commit)
  */
 
 import { spawnSync, type SpawnSyncOptions } from 'child_process';
 import { parseArgs } from 'util';
 
-// Configuration
+// Configuration (matches CI static-checks.yml exclusions)
 const CONFIG = {
 	misspell: {
-		ignore: ['src/i18n/de.json', 'src/i18n/es.json', 'src/i18n/fr.json', 'convex/_generated']
+		ignore: ['src/i18n/', 'convex/_generated/', 'node_modules/', '.git/', '.svelte-kit/']
 	}
 };
 
@@ -30,17 +29,13 @@ const colors = {
 const { values } = parseArgs({
 	args: Bun.argv,
 	options: {
-		staged: { type: 'boolean', default: false },
-		'no-tests': { type: 'boolean', default: false },
-		'no-build': { type: 'boolean', default: false }
+		staged: { type: 'boolean', default: false }
 	},
 	strict: false,
 	allowPositionals: true
 });
 
 const stagedOnly = values.staged ?? false;
-const runTests = !stagedOnly && !values['no-tests'];
-const runBuild = !stagedOnly && !values['no-build'];
 
 /**
  * Run a command and exit if it fails
@@ -106,7 +101,7 @@ function main(): void {
 		}
 
 		console.log('======================================================');
-		console.log(`Quality Checks (${allFiles.length} staged files)`);
+		console.log(`Static Checks (${allFiles.length} staged files)`);
 		console.log('======================================================\n');
 
 		jsTsSvelteFiles = allFiles.filter((f) => /\.(js|ts|svelte)$/.test(f));
@@ -114,7 +109,7 @@ function main(): void {
 		svelteFiles = allFiles.filter((f) => /\.svelte$/.test(f));
 	} else {
 		console.log('======================================================');
-		console.log('Quality Checks (full project)');
+		console.log('Static Checks (full project)');
 		console.log('======================================================\n');
 	}
 
@@ -127,10 +122,10 @@ function main(): void {
 	printHeader(2, 'Spell checking');
 	if (hasMisspell()) {
 		if (stagedOnly) {
-			// Check only staged files (exclude non-English translations and generated)
-			const checkableFiles = allFiles
-				.filter((f) => /\.(js|ts|svelte|md)$/.test(f))
-				.filter((f) => !CONFIG.misspell.ignore.some((ignore) => f.includes(ignore)));
+			// Check all staged files (exclude paths matching CI exclusions)
+			const checkableFiles = allFiles.filter(
+				(f) => !CONFIG.misspell.ignore.some((ignore) => f.includes(ignore))
+			);
 
 			if (checkableFiles.length > 0) {
 				// Batch files to avoid command line length limits
@@ -143,12 +138,11 @@ function main(): void {
 				console.log('No staged files to spell check');
 			}
 		} else {
-			// Check all files using Bun.Glob (cross-platform, excludes non-English translations and generated)
-			const glob = new Bun.Glob('src/**/*.{js,ts,svelte,md}');
+			// Check all files (matches CI find command exclusions)
+			const glob = new Bun.Glob('**/*');
 			const files = [...glob.scanSync({ absolute: false })].filter(
 				(f) => !CONFIG.misspell.ignore.some((ignore) => f.includes(ignore))
 			);
-			files.push('README.md');
 
 			// Batch files to avoid command line length limits
 			const chunkSize = 100;
@@ -193,8 +187,13 @@ function main(): void {
 	}
 	console.log('\n');
 
-	// 5. Type checking
-	printHeader(5, 'Type checking');
+	// 5. Build emails (required before type checking)
+	printHeader(5, 'Build emails');
+	runCommand('bun', ['scripts/build-emails.ts']);
+	console.log('\n');
+
+	// 6. Type checking
+	printHeader(6, 'Type checking');
 	if (stagedOnly && jsTsSvelteFiles.length === 0 && svelteFiles.length === 0) {
 		console.log('No TypeScript/Svelte files to check');
 	} else {
@@ -203,20 +202,6 @@ function main(): void {
 		});
 	}
 	console.log('\n');
-
-	// 6. Tests (only in full mode)
-	if (runTests) {
-		printHeader(6, 'Tests');
-		runCommand('bun', ['run', 'test']);
-		console.log('\n');
-	}
-
-	// 7. Production build (only in full mode)
-	if (runBuild) {
-		printHeader(7, 'Production build');
-		runCommand('bun', ['run', 'build']);
-		console.log('\n');
-	}
 
 	// Re-stage files if they were modified during staged-only checks
 	if (stagedOnly) {
