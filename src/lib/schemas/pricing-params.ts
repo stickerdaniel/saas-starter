@@ -1,5 +1,5 @@
-import { z } from 'zod';
+import * as v from 'valibot';
 
-export const pricingParamsSchema = z.object({
-	checkout: z.string().default('')
+export const pricingParamsSchema = v.object({
+	checkout: v.optional(v.fallback(v.string(), ''), '')
 });
