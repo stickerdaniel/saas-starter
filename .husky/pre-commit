@@ -1,1 +1,1 @@
-bun run quality-check:staged
+bun run static-checks:staged

@@ -4,19 +4,35 @@
 	"model": "anthropic/claude-opus-4-5",
 	// "model": "google/antigravity-claude-opus-4-5",
 	// "model": "github-copilot/claude-opus-4-5",
-	"plugin": ["@nick-vi/opencode-type-inject", "opencode-antigravity-auth@1.3.0"],
+	"plugin": [
+		//"@nick-vi/opencode-type-inject",
+		"opencode-antigravity-auth"
+	],
 	"mcp": {
 		"svelte": {
 			"type": "remote",
-			"url": "https://mcp.svelte.dev/mcp"
+			"url": "https://mcp.svelte.dev/mcp",
+			"enabled": true
 		},
 		"convex": {
 			"type": "local",
-			"command": ["bunx", "-y", "convex@latest", "mcp", "start"]
+			"command": [
+				"bunx",
+				"-y",
+				"convex@latest",
+				"mcp",
+				"start"
+			],
+			"enabled": true
 		},
 		"jsrepo": {
 			"type": "local",
-			"command": ["bunx", "-y", "jsrepo", "mcp"],
+			"command": [
+				"bunx",
+				"-y",
+				"jsrepo",
+				"mcp"
+			],
 			"enabled": false
 		},
 		"konva-documentation": {
@@ -31,8 +47,12 @@
 		},
 		"lighthouse": {
 			"type": "local",
-			"command": ["bunx", "-y", "@danielsogl/lighthouse-mcp@latest"],
-			"enabled": true
+			"command": [
+				"bunx",
+				"-y",
+				"@danielsogl/lighthouse-mcp@latest"
+			],
+			"enabled": false
 		}
 	},
 	"provider": {
@@ -45,8 +65,14 @@
 						"output": 65535
 					},
 					"modalities": {
-						"input": ["text", "image", "pdf"],
-						"output": ["text"]
+						"input": [
+							"text",
+							"image",
+							"pdf"
+						],
+						"output": [
+							"text"
+						]
 					},
 					"variants": {
 						"low": {
@@ -64,8 +90,14 @@
 						"output": 65536
 					},
 					"modalities": {
-						"input": ["text", "image", "pdf"],
-						"output": ["text"]
+						"input": [
+							"text",
+							"image",
+							"pdf"
+						],
+						"output": [
+							"text"
+						]
 					},
 					"variants": {
 						"minimal": {
@@ -89,8 +121,14 @@
 						"output": 64000
 					},
 					"modalities": {
-						"input": ["text", "image", "pdf"],
-						"output": ["text"]
+						"input": [
+							"text",
+							"image",
+							"pdf"
+						],
+						"output": [
+							"text"
+						]
 					}
 				},
 				"antigravity-claude-sonnet-4-5-thinking": {
@@ -100,8 +138,14 @@
 						"output": 64000
 					},
 					"modalities": {
-						"input": ["text", "image", "pdf"],
-						"output": ["text"]
+						"input": [
+							"text",
+							"image",
+							"pdf"
+						],
+						"output": [
+							"text"
+						]
 					},
 					"variants": {
 						"low": {
@@ -123,8 +167,14 @@
 						"output": 64000
 					},
 					"modalities": {
-						"input": ["text", "image", "pdf"],
-						"output": ["text"]
+						"input": [
+							"text",
+							"image",
+							"pdf"
+						],
+						"output": [
+							"text"
+						]
 					},
 					"variants": {
 						"low": {
