@@ -1,13 +1,13 @@
-import { z } from 'zod';
+import * as v from 'valibot';
 
 // Email validation schema (reusable across the app)
-export const emailSchema = z.string().email();
+export const emailSchema = v.pipe(v.string(), v.email());
 
 // URL params schema (for signin/signup tabs)
-export const authParamsSchema = z.object({
-	tab: z.enum(['signin', 'signup']).default('signin'),
-	redirectTo: z.string().default('')
+export const authParamsSchema = v.object({
+	tab: v.optional(v.fallback(v.picklist(['signin', 'signup']), 'signin'), 'signin'),
+	redirectTo: v.optional(v.fallback(v.string(), ''), '')
 });
 
 // Types
-export type AuthParams = z.infer<typeof authParamsSchema>;
+export type AuthParams = v.InferOutput<typeof authParamsSchema>;
