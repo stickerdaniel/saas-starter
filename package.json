@@ -22,6 +22,7 @@
 		"static-checks": "bun scripts/static-checks.ts",
 		"static-checks:staged": "bun scripts/static-checks.ts --staged",
 		"test:e2e": "playwright test",
+		"test:e2e:headed": "playwright test --headed",
 		"test": "bun run test:e2e && bun run test:unit",
 		"test:unit": "vitest --run --reporter=verbose --passWithNoTests",
 		"i18n:pull": "dotenv -e .env.local -- tolgee pull",
