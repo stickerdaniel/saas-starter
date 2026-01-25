@@ -72,7 +72,7 @@ Is the element entering or exiting the viewport?
     ├── Is it moving or morphing on screen?
     │   └── Yes → ease-in-out
     └── Is it a hover change?
-        ├── Yes → ease
+        ├── Yes → ease or cubic-bezier (0.19, 1, 0.22, 1) or cubic-bezier(0.785, 0.135, 0.15, 0.86) (don't forget to support focus-visible!)
         └── Is it constant motion?
             ├── Yes → linear
             └── Default → ease-out
