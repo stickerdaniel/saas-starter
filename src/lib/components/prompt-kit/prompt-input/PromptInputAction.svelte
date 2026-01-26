@@ -1,34 +1,34 @@
 <script lang="ts">
-	import { Tooltip as TooltipPrimitive } from 'bits-ui';
-	import TooltipContent from '$lib/components/ui/tooltip/tooltip-content.svelte';
-	import TooltipTrigger from '$lib/components/ui/tooltip/tooltip-trigger.svelte';
+	import * as Tooltip from '$lib/components/ui/tooltip/index.js';
+	import type { Snippet } from 'svelte';
 	import { promptInputContext } from './prompt-input-context.svelte.js';
 
 	let {
 		tooltip,
 		children,
 		class: className,
-		side = 'top',
-		...restProps
+		side = 'top'
 	}: {
-		tooltip: import('svelte').Snippet;
-		children: import('svelte').Snippet;
+		tooltip?: Snippet;
+		children: Snippet<[Record<string, unknown>]>;
 		class?: string;
 		side?: 'top' | 'bottom' | 'left' | 'right';
-	} & Partial<TooltipPrimitive.RootProps> = $props();
+	} = $props();
 
 	const context = promptInputContext.get();
-
-	function handleClick(event: MouseEvent) {
-		event.stopPropagation();
-	}
 </script>
 
-<TooltipPrimitive.Root {...restProps} delayDuration={0}>
-	<TooltipTrigger disabled={context.disabled} onclick={handleClick}>
-		{@render children()}
-	</TooltipTrigger>
-	<TooltipContent {side} class={className}>
-		{@render tooltip()}
-	</TooltipContent>
-</TooltipPrimitive.Root>
+{#if tooltip}
+	<Tooltip.Root>
+		<Tooltip.Trigger disabled={context.disabled}>
+			{#snippet child({ props })}
+				{@render children(props)}
+			{/snippet}
+		</Tooltip.Trigger>
+		<Tooltip.Content {side} class="z-250 {className}">
+			{@render tooltip()}
+		</Tooltip.Content>
+	</Tooltip.Root>
+{:else}
+	{@render children({})}
+{/if}

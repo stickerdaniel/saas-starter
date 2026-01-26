@@ -60,8 +60,13 @@
 	}
 
 	function handleKeyDown(e: KeyboardEvent) {
+		// Don't intercept Enter from buttons or other interactive elements
+		const target = e.target as HTMLElement;
+		if (target.closest('button, a, [role="button"]')) {
+			return;
+		}
+
 		// Only handle Enter key to focus textarea from wrapper
-		// Don't intercept Space key as it prevents typing spaces in the textarea
 		if (e.key === 'Enter') {
 			e.preventDefault();
 			handleClick();

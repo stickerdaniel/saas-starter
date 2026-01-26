@@ -5,6 +5,8 @@
 	import { supportThreadContext } from './support-thread-context.svelte';
 	import { lockscroll } from '@svelte-put/lockscroll';
 	import { IsMobile } from '$lib/hooks/is-mobile.svelte.js';
+	import { toast } from 'svelte-sonner';
+	import { ConvexError } from 'convex/values';
 
 	// Import new chat components
 	import { ChatRoot, ChatMessages, ChatInput, type ChatUIContext } from '$lib/chat';
@@ -146,6 +148,23 @@
 		{ text: 'I found a bug!', label: 'Report an issue' },
 		{ text: 'Help me set up the project.', label: 'Help me with...' }
 	];
+
+	// Auto-clear rate limit when it expires
+	$effect(() => {
+		if (!threadContext.rateLimitedUntil) return;
+
+		const timeUntilExpiry = threadContext.rateLimitedUntil - Date.now();
+		if (timeUntilExpiry <= 0) {
+			threadContext.clearRateLimit();
+			return;
+		}
+
+		const timeout = setTimeout(() => {
+			threadContext.clearRateLimit();
+		}, timeUntilExpiry);
+
+		return () => clearTimeout(timeout);
+	});
 </script>
 
 <svelte:body use:lockscroll={isMobile.current} />
@@ -206,6 +225,7 @@
 					showFileButton={true}
 					showHandoffButton={true}
 					isHandedOff={threadContext.isHandedOff}
+					isRateLimited={threadContext.isRateLimited}
 					onScreenshot={handleScreenshot}
 					onRequestHandoff={handleRequestHandoff}
 					onSend={async (prompt) => {
@@ -222,7 +242,23 @@
 							});
 						} catch (error) {
 							console.error('[handleSend] Error:', error);
-							threadContext.setError('Failed to send message');
+
+							// Handle rate limit errors with user-friendly toast
+							if (error instanceof ConvexError) {
+								const data = error.data as { code?: string; retryAfter?: number } | undefined;
+								if (data?.code === 'RATE_LIMITED') {
+									const retryAfter = data.retryAfter || 60000;
+									const seconds = Math.ceil(retryAfter / 1000);
+									threadContext.setRateLimited(retryAfter);
+									toast.error(`Slow down! Please wait ${seconds}s before sending another message.`);
+								} else {
+									toast.error('Failed to send message. Please try again.');
+								}
+							} else {
+								toast.error('Failed to send message. Please try again.');
+							}
+
+							threadContext.setError(null);
 							threadContext.setAwaitingStream(false);
 						}
 					}}

@@ -23,19 +23,8 @@
 </script>
 
 {#if asChild}
-	<div
-		role="button"
-		tabindex="0"
-		class={className}
-		onclick={handleClick}
-		onkeydown={(e) => {
-			if (e.key === 'Enter' || e.key === ' ') {
-				e.preventDefault();
-				handleClick(e as any);
-			}
-		}}
-		{...restProps}
-	>
+	<!-- When asChild, we don't add tabindex since the child element handles focus -->
+	<div role="presentation" class={className} onclick={handleClick} {...restProps}>
 		{@render children()}
 	</div>
 {:else}
