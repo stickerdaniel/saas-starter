@@ -111,11 +111,7 @@
 				onclick={handleSubmit}
 				disabled={!input.trim() || threadContext.isSending || threadContext.hasPendingToolCalls}
 			>
-				{#if threadContext.isSending}
-					<Square class="size-5 fill-current" />
-				{:else}
-					<ArrowUp class="size-5" />
-				{/if}
+				<ArrowUp class="size-5" />
 			</Button>
 		</PromptInput>
 	</div>
