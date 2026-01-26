@@ -13,7 +13,7 @@
 	}
 </script>
 
-<div class="fixed top-4 left-1/2 z-[110] -translate-x-1/2">
+<div class="fixed top-[1.625rem] left-1/2 z-[110] -translate-x-1/2">
 	<div
 		class="flex items-center gap-1 rounded-xl border border-border bg-background/95 p-1.5 shadow-lg backdrop-blur-sm"
 	>
