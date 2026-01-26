@@ -28,6 +28,7 @@
 		showFileButton = true,
 		showHandoffButton = false,
 		isHandedOff = false,
+		isRateLimited = false,
 		onScreenshot,
 		onSend,
 		onRequestHandoff,
@@ -47,6 +48,8 @@
 		showHandoffButton?: boolean;
 		/** Whether thread is already handed off to humans */
 		isHandedOff?: boolean;
+		/** Whether user is rate limited from sending messages */
+		isRateLimited?: boolean;
 		/** Callback when screenshot button clicked */
 		onScreenshot?: () => void;
 		/** Callback when message is sent - receives the prompt text */
@@ -63,8 +66,8 @@
 
 	const ctx = getChatUIContext();
 
-	// Use context for send validation
-	const canSend = $derived(ctx.canSend && !ctx.core.isSending);
+	// Use context for send validation - also check rate limit
+	const canSend = $derived(ctx.canSend && !ctx.core.isSending && !isRateLimited);
 
 	// Check if last assistant message is complete (for handoff button visibility)
 	const lastAssistantComplete = $derived.by(() => {
@@ -218,14 +221,17 @@
 							{#snippet tooltip()}
 								<p>Mark the bug</p>
 							{/snippet}
-							<Button
-								variant="outline"
-								size="icon"
-								class="size-9 rounded-full"
-								onclick={handleCameraClick}
-							>
-								<Camera class="h-[18px] w-[18px]" />
-							</Button>
+							{#snippet children(props)}
+								<Button
+									{...props}
+									variant="outline"
+									size="icon"
+									class="size-9 rounded-full"
+									onclick={handleCameraClick}
+								>
+									<Camera class="h-[18px] w-[18px]" />
+								</Button>
+							{/snippet}
 						</PromptInputAction>
 					{/if}
 					{#if showFileButton}
@@ -238,11 +244,13 @@
 								{#snippet tooltip()}
 									<p>Attach files</p>
 								{/snippet}
-								<FileUploadTrigger asChild={true}>
-									<Button variant="outline" size="icon" class="size-9 rounded-full">
-										<Paperclip class="h-[18px] w-[18px]" />
-									</Button>
-								</FileUploadTrigger>
+								{#snippet children(props)}
+									<FileUploadTrigger asChild={true}>
+										<Button {...props} variant="outline" size="icon" class="size-9 rounded-full">
+											<Paperclip class="h-[18px] w-[18px]" />
+										</Button>
+									</FileUploadTrigger>
+								{/snippet}
 							</PromptInputAction>
 						</FileUpload>
 					{/if}
@@ -254,13 +262,16 @@
 			{:else}
 				<div class="flex items-center gap-2">
 					{#if showHandoffButton}
-						<div
-							class="transition-opacity duration-200 {ctx.core.threadId !== null &&
+						{@const isVisible =
+							ctx.core.threadId !== null &&
 							ctx.displayMessages.length > 1 &&
 							!isHandedOff &&
-							hasShownHandoffButton
+							hasShownHandoffButton}
+						<div
+							class="transition-opacity duration-200 {isVisible
 								? 'opacity-100'
 								: 'pointer-events-none opacity-0'}"
+							inert={!isVisible ? true : undefined}
 						>
 							<PromptSuggestion onclick={() => onRequestHandoff?.()}
 								>Talk to a human</PromptSuggestion
@@ -274,11 +285,7 @@
 						class="size-9 rounded-full"
 						aria-label="Send"
 					>
-						{#if !ctx.core.isSending}
-							<ArrowUp class="h-[18px] w-[18px]" />
-						{:else}
-							<span class="size-3 rounded-xs bg-white"></span>
-						{/if}
+						<ArrowUp class="h-[18px] w-[18px]" />
 					</Button>
 				</div>
 			{/if}

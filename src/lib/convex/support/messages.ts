@@ -7,6 +7,10 @@ import { listUIMessages, syncStreams, getFile } from '@convex-dev/agent';
 import { vStreamArgs } from '@convex-dev/agent/validators';
 import { components } from '../_generated/api';
 import type { UserContent } from 'ai';
+import { supportRateLimiter } from './rateLimit';
+import { createRateLimitError } from './types';
+import { isAnonymousUser } from '../utils/anonymousUser';
+import { authComponent } from '../auth';
 
 /**
  * Send a user message and get AI response with streaming
@@ -24,6 +28,38 @@ export const sendMessage = mutation({
 		fileIds: v.optional(v.array(v.string()))
 	},
 	handler: async (ctx, args) => {
+		// Server-side user verification for rate limiting
+		// Prevents bypass by spoofing userId - uses server-verified auth when available
+		const authUser = await authComponent.safeGetAuthUser(ctx);
+		let effectiveUserId: string | undefined;
+
+		if (authUser) {
+			// Authenticated: Always use server-verified user ID
+			effectiveUserId = authUser._id;
+		} else if (args.userId && isAnonymousUser(args.userId)) {
+			// Anonymous: Only allow with valid anonymous user ID format
+			effectiveUserId = args.userId;
+		}
+		// If neither, effectiveUserId remains undefined (treated as anonymous per-thread)
+
+		// Rate limit check - stricter limits for anonymous users
+		// Authenticated users: keyed by verified user ID
+		// Anonymous users: keyed by anonymous user ID (fallback: thread ID if none)
+		const limitName =
+			effectiveUserId && !isAnonymousUser(effectiveUserId)
+				? 'supportMessage'
+				: 'supportMessageAnon';
+		const userKey = effectiveUserId || `anon:${args.threadId}`;
+
+		const rateLimitStatus = await supportRateLimiter.limit(ctx, limitName, { key: userKey });
+
+		if (!rateLimitStatus.ok) {
+			throw createRateLimitError(
+				rateLimitStatus.retryAfter,
+				'Too many messages. Please wait before sending another.'
+			);
+		}
+
 		let messageId: string;
 
 		// Check if we have file attachments
@@ -137,6 +173,24 @@ export const createAIResponse = internalAction({
 		userId: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
+		// Global rate limit check for cost protection
+		// This MUST fail the request to protect against runaway costs
+		const globalStatus = await supportRateLimiter.limit(ctx, 'globalLLM');
+		if (!globalStatus.ok) {
+			console.error(
+				`[createAIResponse] Global LLM rate limit exceeded. Retry after: ${globalStatus.retryAfter}ms`
+			);
+
+			// Save a system message so user knows why there's no response
+			await ctx.runMutation(internal.support.messages.createAssistantMessage, {
+				threadId: args.threadId,
+				text: "I'm currently experiencing high demand. Please try sending your message again in a moment."
+			});
+
+			// Don't throw - message saved explains the situation
+			return;
+		}
+
 		// Stream the AI response with tool execution support
 		// maxSteps is configured at the agent level (agent.ts) for multi-step tool execution
 		const result = await supportAgent.streamText(
