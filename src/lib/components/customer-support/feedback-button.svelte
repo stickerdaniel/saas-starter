@@ -49,14 +49,14 @@
 		>
 			<div class="relative size-6">
 				<ChevronDown
-					class="absolute inset-0 size-6 transition-all duration-200 ease-out {isFeedbackOpen
+					class="absolute inset-0 size-6 transition-all duration-200 ease-in-out {isFeedbackOpen
 						? 'blur-0 scale-100 opacity-100'
 						: 'scale-0 opacity-0 blur-sm'}"
 				/>
 				<div class="-scale-x-100">
 					<MessageSquare
 						class="absolute inset-0 size-6 fill-current transition-all duration-200 ease-in-out {isFeedbackOpen
-							? 'scale-0 opacity-0 blur-xs'
+							? 'scale-0 opacity-0 blur-sm'
 							: 'blur-0 scale-100 opacity-100'}"
 					/>
 				</div>

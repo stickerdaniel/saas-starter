@@ -292,3 +292,7 @@ A customizable Svelte component for building node-based editors and interactive 
 
 - Make the plan extremely concise. Sacrifice grammar for the sake of concision.
 - At the end of each plan, give me a list of unresolved questions to answer, if any, using the question tool.
+
+## esbuild/Vite Error: The service was stopped
+
+`bun i -f` should fix the issue.

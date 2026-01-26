@@ -92,6 +92,30 @@ export class SupportThreadContext {
 	isAwaitingStream = $state(false);
 	readonly streamCache = new StreamCacheManager();
 
+	// Rate limit state
+	rateLimitedUntil = $state<number | null>(null);
+
+	/**
+	 * Check if currently rate limited
+	 */
+	get isRateLimited(): boolean {
+		return this.rateLimitedUntil !== null && Date.now() < this.rateLimitedUntil;
+	}
+
+	/**
+	 * Set rate limit expiration time
+	 */
+	setRateLimited(retryAfterMs: number) {
+		this.rateLimitedUntil = Date.now() + retryAfterMs;
+	}
+
+	/**
+	 * Clear rate limit state
+	 */
+	clearRateLimit() {
+		this.rateLimitedUntil = null;
+	}
+
 	// Derived state
 	get hasThread() {
 		return this.threadId !== null;
@@ -393,9 +417,11 @@ export class SupportThreadContext {
 			});
 
 			// Send message with optional attachments
+			// Pass userId for anonymous user rate limiting (authenticated users verified server-side)
 			const result = await client.mutation(api.support.messages.sendMessage, {
 				threadId,
 				prompt: trimmedPrompt,
+				userId: this.userId || undefined,
 				fileIds: options?.fileIds
 			});
 
