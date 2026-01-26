@@ -318,6 +318,7 @@
 			class=" w-full rounded-full active:scale-99"
 			onclick={() => ctx.startNewThread()}
 			size="lg"
+			disabled={ctx.isRateLimited}
 		>
 			<Send />
 			Start a new conversation
