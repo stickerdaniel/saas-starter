@@ -107,6 +107,7 @@
 				bind:this={canvas}
 				class="pointer-events-none absolute -z-3 h-full w-full"
 				style="mix-blend-mode: multiply;"
+				tabindex="-1"
 			></canvas>
 
 			<!-- Canvas Cover (Fade in Effect) -->

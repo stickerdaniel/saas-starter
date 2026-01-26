@@ -110,8 +110,7 @@
 	onmousedown={handleBadgeMouseDown}
 	onmouseup={handleBadgeMouseUp}
 	style="cursor: none;"
-	role="button"
-	tabindex="0"
+	tabindex="-1"
 	class={cn('relative', className)}
 >
 	<AnimatePresence>
