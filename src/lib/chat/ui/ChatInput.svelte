@@ -231,6 +231,7 @@
 									size="icon"
 									class="size-9 rounded-full"
 									onclick={handleCameraClick}
+									aria-label={$t('chat.tooltip.mark_bug')}
 								>
 									<Camera class="h-[18px] w-[18px]" />
 								</Button>
@@ -249,7 +250,13 @@
 								{/snippet}
 								{#snippet children(props)}
 									<FileUploadTrigger asChild={true}>
-										<Button {...props} variant="outline" size="icon" class="size-9 rounded-full">
+										<Button
+											{...props}
+											variant="outline"
+											size="icon"
+											class="size-9 rounded-full"
+											aria-label={$t('chat.tooltip.attach_files')}
+										>
 											<Paperclip class="h-[18px] w-[18px]" />
 										</Button>
 									</FileUploadTrigger>
