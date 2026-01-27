@@ -2,6 +2,9 @@
 	import { Button } from '$lib/components/ui/button';
 	import { ChevronLeft, X } from '@lucide/svelte';
 	import { cn } from '$lib/utils';
+	import { getTranslate } from '@tolgee/svelte';
+
+	const { t } = getTranslate();
 
 	let {
 		type,
@@ -18,6 +21,7 @@
 	variant="ghost"
 	size="icon"
 	class={cn('h-10 w-10 shrink-0 rounded-full hover:!bg-muted-foreground/10', className)}
+	aria-label={type === 'back' ? $t('aria.go_back') : $t('aria.close')}
 	{onclick}
 >
 	{#if type === 'back'}

@@ -270,6 +270,8 @@
 	"aria": {
 		"breadcrumb": "migas de pan",
 		"change_language": "Cambiar idioma",
+		"close": "Cerrar",
+		"go_back": "Volver",
 		"feedback_close": "Cerrar comentarios",
 		"feedback_open": "Abrir comentarios",
 		"github_repository": "Repositorio de GitHub",
