@@ -15,6 +15,10 @@
 	import { useMedia } from '$lib/hooks/use-media.svelte';
 	import { SlidingHeader } from '$lib/components/ui/sliding-header';
 	import { adminSupportUI } from '$lib/hooks/admin-support-ui.svelte';
+	import { getTranslate } from '@tolgee/svelte';
+	import { page } from '$app/state';
+
+	const { t } = getTranslate();
 
 	let {
 		threadId,
@@ -34,10 +38,11 @@
 	const media = useMedia();
 	const client = useConvexClient();
 
-	// Upload configuration for file attachments
+	// Upload configuration for file attachments with locale for translated error messages
 	const uploadConfig: UploadConfig = {
 		generateUploadUrl: api.support.files.generateUploadUrl,
-		saveUploadedFile: api.support.files.saveUploadedFile
+		saveUploadedFile: api.support.files.saveUploadedFile,
+		locale: page.data.lang
 	};
 
 	// Create ChatCore for this thread (needed for ChatUIContext)
@@ -112,7 +117,9 @@
 						<PanelBottomOpen class="h-5 w-5" />
 					{/if}
 					<span class="sr-only">
-						{adminSupportUI.detailsOpen ? 'Close details panel' : 'Open details panel'}
+						{adminSupportUI.detailsOpen
+							? $t('admin.support.details.close_panel')
+							: $t('admin.support.details.open_panel')}
 					</span>
 				</Button>
 			</header>
@@ -139,7 +146,9 @@
 							<PanelBottomOpen class="h-5 w-5" />
 						{/if}
 						<span class="sr-only">
-							{adminSupportUI.detailsOpen ? 'Close details panel' : 'Open details panel'}
+							{adminSupportUI.detailsOpen
+								? $t('admin.support.details.close_panel')
+								: $t('admin.support.details.open_panel')}
 						</span>
 					</Button>
 				{/snippet}
@@ -192,7 +201,9 @@
 					>
 						<PanelRightIcon class="size-4" />
 						<span class="sr-only">
-							{adminSupportUI.detailsOpen ? 'Close details panel' : 'Open details panel'}
+							{adminSupportUI.detailsOpen
+								? $t('admin.support.details.close_panel')
+								: $t('admin.support.details.open_panel')}
 						</span>
 					</Button>
 				{/if}
@@ -216,7 +227,7 @@
 
 		<ChatInput
 			class="mx-4 -translate-y-4 p-0"
-			placeholder="Reply to customer..."
+			placeholder={$t('admin.support.chat.placeholder')}
 			showFileButton={true}
 			onSend={async (prompt) => {
 				if (!prompt) return;

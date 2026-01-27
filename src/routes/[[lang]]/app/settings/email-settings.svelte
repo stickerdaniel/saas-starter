@@ -149,7 +149,7 @@
 							type="email"
 							id="newEmail"
 							name="newEmail"
-							placeholder="Enter new email address"
+							placeholder={$t('settings.email.placeholder')}
 							autocomplete="email"
 							bind:value={formData.newEmail}
 						/>

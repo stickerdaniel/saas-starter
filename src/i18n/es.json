@@ -31,9 +31,9 @@
 		"metrics": {
 			"active_sessions": "Activos (24h)",
 			"active_sessions_desc": "Activos en las últimas 24 horas",
+			"admin_users": "Gestionando la plataforma",
 			"admins": "Admins",
 			"admins_desc": "Usuarios con privilegios de admin",
-			"admin_users": "Gestionando la plataforma",
 			"banned_users": "Usuarios Bloqueados",
 			"banned_users_desc": "Acceso restringido",
 			"currently_active": "Actividad diaria",
@@ -69,8 +69,8 @@
 			"delete_email_description": "¿Eliminar {email} de los destinatarios de notificaciones?",
 			"delete_email_title": "Eliminar Email",
 			"description": "Configura los ajustes del panel de administración y las notificaciones.",
-			"email_added": "Email agregado",
 			"email_add_failed": "No se pudo agregar el email",
+			"email_added": "Email agregado",
 			"email_exists": "Este email ya existe",
 			"email_removed": "Email eliminado",
 			"field_new_signups": "Notificaciones de nuevos registros",
@@ -115,6 +115,13 @@
 		},
 		"support": {
 			"all_statuses": "Todos los estados",
+			"assignee": {
+				"not_assigned": "No asignado",
+				"unassigned": "Sin asignar"
+			},
+			"chat": {
+				"placeholder": "Responder al cliente..."
+			},
 			"details": {
 				"assignee": "Asignado a",
 				"close_panel": "Cerrar panel de detalles",
@@ -127,6 +134,13 @@
 				"user_notes": "Notas del Usuario",
 				"user_notes_description": "Las notas se guardan a nivel de usuario y aparecen en todos sus hilos de soporte"
 			},
+			"email": {
+				"label": "Email de notificación"
+			},
+			"fallback": {
+				"admin": "Admin",
+				"no_user": "No hay usuario asociado con este hilo"
+			},
 			"filter": {
 				"all": "Todos",
 				"my_inbox": "Mi bandeja de entrada",
@@ -135,22 +149,45 @@
 			"no_chats": "No se encontraron chats",
 			"no_done_chats": "No hay chats completados",
 			"no_open_chats": "No hay chats abiertos",
+			"note": {
+				"add": "Agregar nota",
+				"adding": "Agregando...",
+				"placeholder": "Agregar una nota interna..."
+			},
 			"priority": {
 				"high": "Alta",
 				"low": "Baja",
-				"medium": "Media"
+				"medium": "Media",
+				"none": "Ninguna"
+			},
+			"search": {
+				"placeholder": "Buscar chats..."
 			},
 			"select_chat": "Seleccione un chat para ver la conversación",
 			"select_chat_for_details": "Seleccione un chat para ver detalles",
 			"status": {
 				"done": "Hecho",
-				"open": "Abierto"
+				"in_progress": "En progreso",
+				"open": "Abierto",
+				"resolved": "Resuelto"
+			},
+			"thread": {
+				"badge": {
+					"new": "Nuevo"
+				},
+				"load_failed": "Error al cargar más",
+				"loading": "Cargando más...",
+				"no_messages": "Sin mensajes",
+				"retry": "Reintentar"
 			},
 			"title": "Chats de Soporte"
 		},
 		"title": "Panel de Admin",
 		"users": {
 			"actions_column": "Acciones",
+			"ban_reason": {
+				"default": "Violación de los términos de servicio"
+			},
 			"banned": "Bloqueado",
 			"created": "Creado",
 			"email": "Correo",
@@ -159,7 +196,10 @@
 				"all_status": "Todos los estados",
 				"clear": "Limpiar",
 				"role_admin": "Admin",
-				"role_user": "Usuario"
+				"role_user": "Usuario",
+				"status_banned": "Bloqueado",
+				"status_unverified": "No verificado",
+				"status_verified": "Verificado"
 			},
 			"loading": "Cargando usuarios...",
 			"menu_open": "Abrir menú",
@@ -176,10 +216,29 @@
 			"rows_per_page": "Filas por página",
 			"search_placeholder": "Buscar usuarios...",
 			"select_all": "Seleccionar todo",
-			"selected": "{selected} de {total} usuarios seleccionados",
 			"select_row": "Seleccionar fila",
+			"selected": "{selected} de {total} usuarios seleccionados",
 			"status": "Estado",
 			"title": "Gestión de Usuarios",
+			"toast": {
+				"assignment_failed": "Error al actualizar asignación: {message}",
+				"assignment_updated": "Asignación actualizada",
+				"ban_failed": "Error al bloquear usuario: {message}",
+				"banned": "Usuario bloqueado",
+				"impersonate_failed": "Error al suplantar usuario: {message}",
+				"note_added": "Nota agregada",
+				"note_failed": "Error al agregar nota: {message}",
+				"priority_failed": "Error al actualizar prioridad: {message}",
+				"priority_updated": "Prioridad actualizada",
+				"revoke_failed": "Error al revocar sesiones: {message}",
+				"revoked": "Todas las sesiones han sido revocadas",
+				"role_failed": "Error al cambiar rol: {message}",
+				"role_updated": "Rol de usuario actualizado a {role}",
+				"status_failed": "Error al actualizar estado: {message}",
+				"status_updated": "Estado actualizado",
+				"unban_failed": "Error al desbloquear usuario: {message}",
+				"unbanned": "Usuario desbloqueado"
+			},
 			"total": "usuarios",
 			"unnamed": "Sin nombre",
 			"unverified": "No verificado",
@@ -199,12 +258,25 @@
 			"account": "Cuenta",
 			"billing": "Facturación",
 			"impersonating_banner": "Estás suplantando a este usuario",
+			"impersonation_stop_failed": "Error al dejar de suplantar",
+			"impersonation_stopped": "Suplantación detenida",
 			"logout": "Cerrar sesión",
 			"notifications": "Notificaciones",
 			"settings": "Configuración",
 			"stop_impersonating": "Dejar de suplantar",
 			"upgrade_pro": "Actualizar a Pro"
 		}
+	},
+	"aria": {
+		"breadcrumb": "migas de pan",
+		"change_language": "Cambiar idioma",
+		"github_repository": "Repositorio de GitHub",
+		"home": "inicio",
+		"menu_close": "Cerrar menú",
+		"menu_open": "Abrir menú",
+		"remove_attachment": "Eliminar adjunto",
+		"select_value": "Seleccionar un valor",
+		"toggle_sidebar": "Alternar barra lateral"
 	},
 	"auth": {
 		"back_to_home": "Volver al inicio",
@@ -221,41 +293,10 @@
 			"password_min_length": "La contraseña debe tener al menos {minLength} caracteres",
 			"password_number": "La contraseña debe contener al menos un número",
 			"password_required": "La contraseña es obligatoria",
-			"passwords_do_not_match": "Las contraseñas no coinciden",
 			"password_uppercase": "La contraseña debe contener al menos una letra mayúscula",
+			"passwords_do_not_match": "Las contraseñas no coinciden",
 			"signup_failed": "No se pudo crear la cuenta. Es posible que el correo electrónico ya esté en uso.",
 			"verification_invalid": "Código de verificación inválido o caducado. Por favor, inténtalo de nuevo."
-		},
-		"messages": {
-			"invalid_credentials": "Correo electrónico o contraseña inválidos",
-			"user_already_exists": "Ya existe una cuenta con este correo electrónico",
-			"email_not_verified": "Por favor verifica tu correo electrónico",
-			"invalid_token": "Token inválido o caducado",
-			"password_compromised": "Esta contraseña está comprometida",
-			"too_many_attempts": "Demasiados intentos. Inténtalo más tarde.",
-			"rate_limited": "Demasiadas solicitudes. Inténtalo más tarde.",
-			"oauth_failed": "El inicio de sesión social falló. Inténtalo de nuevo.",
-			"passkey_failed": "La autenticación con passkey falló",
-			"signup_failed": "No se pudo crear la cuenta",
-			"signup_disabled": "El registro está deshabilitado",
-			"auth_cancelled": "La autenticación fue cancelada",
-			"reset_link_sent": "Revisa tu correo para el enlace de restablecimiento.",
-			"password_reset_success": "Tu contraseña se restableció correctamente.",
-			"missing_reset_token": "Falta el token de restablecimiento o es inválido",
-			"reset_failed": "No se pudo restablecer la contraseña",
-			"request_reset_failed": "No se pudo solicitar el restablecimiento de contraseña",
-			"email_change_failed": "No se pudo cambiar el correo",
-			"email_same_as_current": "El nuevo correo debe ser diferente al actual",
-			"email_updated": "Correo actualizado correctamente",
-			"email_verification_sent": "Se envió un correo de verificación a tu dirección actual. Revisa tu bandeja de entrada para aprobar el cambio.",
-			"password_change_failed": "No se pudo cambiar la contraseña",
-			"password_changed": "Contraseña cambiada correctamente",
-			"passkey_load_failed": "No se pudieron cargar las passkeys",
-			"passkey_add_failed": "No se pudo agregar la passkey",
-			"passkey_added": "Passkey agregada correctamente",
-			"passkey_delete_failed": "No se pudo eliminar la passkey",
-			"passkey_deleted": "Passkey eliminada",
-			"generic_error": "Ocurrió un error. Inténtalo de nuevo."
 		},
 		"forgot_password": {
 			"back_to_signin": "Volver a iniciar sesión",
@@ -266,6 +307,37 @@
 		},
 		"login": "Iniciar sesión",
 		"logout": "Cerrar sesión",
+		"messages": {
+			"auth_cancelled": "La autenticación fue cancelada",
+			"email_change_failed": "No se pudo cambiar el correo",
+			"email_not_verified": "Por favor verifica tu correo electrónico",
+			"email_same_as_current": "El nuevo correo debe ser diferente al actual",
+			"email_updated": "Correo actualizado correctamente",
+			"email_verification_sent": "Se envió un correo de verificación a tu dirección actual. Revisa tu bandeja de entrada para aprobar el cambio.",
+			"generic_error": "Ocurrió un error. Inténtalo de nuevo.",
+			"invalid_credentials": "Correo electrónico o contraseña inválidos",
+			"invalid_token": "Token inválido o caducado",
+			"missing_reset_token": "Falta el token de restablecimiento o es inválido",
+			"oauth_failed": "El inicio de sesión social falló. Inténtalo de nuevo.",
+			"passkey_add_failed": "No se pudo agregar la passkey",
+			"passkey_added": "Passkey agregada correctamente",
+			"passkey_delete_failed": "No se pudo eliminar la passkey",
+			"passkey_deleted": "Passkey eliminada",
+			"passkey_failed": "La autenticación con passkey falló",
+			"passkey_load_failed": "No se pudieron cargar las passkeys",
+			"password_change_failed": "No se pudo cambiar la contraseña",
+			"password_changed": "Contraseña cambiada correctamente",
+			"password_compromised": "Esta contraseña está comprometida",
+			"password_reset_success": "Tu contraseña se restableció correctamente.",
+			"rate_limited": "Demasiadas solicitudes. Inténtalo más tarde.",
+			"request_reset_failed": "No se pudo solicitar el restablecimiento de contraseña",
+			"reset_failed": "No se pudo restablecer la contraseña",
+			"reset_link_sent": "Revisa tu correo para el enlace de restablecimiento.",
+			"signup_disabled": "El registro está deshabilitado",
+			"signup_failed": "No se pudo crear la cuenta",
+			"too_many_attempts": "Demasiados intentos. Inténtalo más tarde.",
+			"user_already_exists": "Ya existe una cuenta con este correo electrónico"
+		},
 		"reset_password": {
 			"back_to_signin": "Volver a iniciar sesión",
 			"button_loading": "Restableciendo...",
@@ -328,7 +400,31 @@
 			"title": "Verificación de correo electrónico"
 		}
 	},
+	"backend": {
+		"files": {
+			"fetch_failed": "No se pudo recuperar el archivo subido. Por favor intenta subirlo de nuevo.",
+			"type_not_allowed": "Tipo de archivo no permitido. Soportados: PNG, JPEG, WebP, GIF, PDF"
+		},
+		"support": {
+			"handoff": {
+				"response": "¡Claro! Te conecto ahora. Por favor ingresa tu email abajo y te notificaremos cuando nuestro equipo de soporte haya respondido. Mientras tanto, puedes agregar detalles adicionales que nos ayuden a asistirte mejor."
+			},
+			"rate_limit": {
+				"global": "Estoy experimentando alta demanda. Por favor intenta enviar tu mensaje de nuevo en un momento.",
+				"user": "Demasiados mensajes. Por favor espera antes de enviar otro."
+			},
+			"summary": {
+				"default": "Nueva conversación de soporte"
+			},
+			"title": {
+				"default": "Soporte al Cliente"
+			}
+		}
+	},
 	"chat": {
+		"action": {
+			"talk_to_human": "Hablar con una persona"
+		},
 		"alerts": {
 			"limit_reached": {
 				"description": "Has usado todos los {total} mensajes gratuitos de este mes.",
@@ -340,11 +436,40 @@
 				"title": "Pocos Mensajes"
 			}
 		},
+		"aria": {
+			"remove_attachment": "Eliminar {filename}",
+			"send": "Enviar"
+		},
+		"attachment": {
+			"dialog_title": "Adjunto",
+			"file_fallback": "Archivo",
+			"generic_fallback": "Adjunto",
+			"image_fallback": "Imagen"
+		},
+		"avatar": {
+			"team_member": "Miembro del equipo"
+		},
 		"buttons": {
 			"processing": "Procesando...",
 			"upgrade": "Actualizar a Pro"
 		},
 		"description": "Abre esta aplicación en múltiples ventanas del navegador para ver la base de datos en tiempo real en acción",
+		"email": {
+			"placeholder": "Email",
+			"save_failed": "Error al guardar email. Por favor intenta de nuevo.",
+			"saved_success": "¡Email guardado! Te notificaremos cuando respondamos.",
+			"subscribe_button": "Suscribirse",
+			"unsubscribe_failed": "Error al cancelar suscripción. Por favor intenta de nuevo.",
+			"unsubscribed": "Suscripción a notificaciones por email cancelada."
+		},
+		"error": {
+			"file_max_size": "Tamaño máximo es {maxSize}",
+			"file_too_large": "Archivo muy grande: \"{filename}\"",
+			"max_attachments": "Máximo {max} adjuntos permitidos",
+			"pasted_file_too_large": "Archivo pegado muy grande"
+		},
+		"greeting": "¿Cómo podemos ayudarte?",
+		"greeting_hi": "Hola",
 		"header": {
 			"messages_left": "({remaining}/{total} mensaje restante)",
 			"messages_left_plural": "({remaining}/{total} mensajes restantes)",
@@ -362,12 +487,47 @@
 			"send_failed": "Error al enviar mensaje",
 			"sent_success": "¡Mensaje enviado!"
 		},
-		"title": "Chat Comunitario"
+		"reasoning": {
+			"connecting": "Conectando...",
+			"thinking": "Pensando...",
+			"thought_for_few_seconds": "Pensó durante unos segundos",
+			"thought_for_seconds": "Pensó durante {duration} segundo",
+			"thought_for_seconds_plural": "Pensó durante {duration} segundos"
+		},
+		"suggestion": {
+			"help_label": "Obtener ayuda",
+			"help_text": "¿Puedes ayudarme con...",
+			"issue_label": "Reportar un problema",
+			"issue_text": "Encontré un problema con...",
+			"question_label": "Hacer una pregunta",
+			"question_text": "Tengo una pregunta sobre..."
+		},
+		"title": "Chat Comunitario",
+		"tooltip": {
+			"attach_files": "Adjuntar archivos",
+			"mark_bug": "Marcar el error"
+		}
 	},
 	"common": {
 		"adding": "Agregando...",
 		"cancel": "Cancelar",
 		"confirm": "Confirmar"
+	},
+	"email": {
+		"body": {
+			"no_messages": "Sin mensajes",
+			"ticket_message": "{userName} ha enviado un nuevo mensaje a un ticket previamente cerrado",
+			"ticket_new": "Nuevo ticket de soporte",
+			"ticket_reopened": "Ticket de soporte reabierto",
+			"ticket_started": "{userName} ha iniciado una nueva conversación de soporte"
+		},
+		"subject": {
+			"reset_password": "Restablecer tu contraseña",
+			"support_reply": "Nueva respuesta a tu solicitud de soporte",
+			"ticket_new": "Nuevo ticket de soporte de {userName}",
+			"ticket_reopened": "Ticket de soporte reabierto por {userName}",
+			"verify": "Verifica tu email"
+		}
 	},
 	"hero": {
 		"companies_text": "Impulsando a los mejores equipos",
@@ -526,9 +686,21 @@
 	},
 	"settings": {
 		"account": {
+			"avatar": {
+				"alt": "Vista previa del perfil",
+				"ready": "Imagen lista para guardar",
+				"removed": "Imagen eliminada - haz clic en Guardar para confirmar",
+				"select_error": "Por favor selecciona un archivo de imagen",
+				"size_error": "La imagen debe ser menor de {size}",
+				"upload_failed": "Error al subir la imagen"
+			},
 			"description": "Actualiza la información de tu cuenta aquí.",
+			"error": "Error al actualizar el perfil",
 			"file_helper": "PNG, JPG o GIF hasta 2MB.",
 			"link_from_url": "Enlace desde URL",
+			"name": {
+				"placeholder": "Tu nombre"
+			},
 			"name_helper": "Este es tu nombre público.",
 			"name_label": "Nombre",
 			"no_image": "Sin imagen",
@@ -538,9 +710,11 @@
 			"remove_button": "Eliminar",
 			"save_button": "Guardar cambios",
 			"saving": "Guardando...",
+			"success": "Perfil actualizado correctamente",
 			"title": "Información de la cuenta",
 			"upload_file": "Subir archivo",
-			"url_helper": "Pega un enlace de imagen en lugar de subir."
+			"url_helper": "Pega un enlace de imagen en lugar de subir.",
+			"url_placeholder": "https://example.com/avatar.jpg"
 		},
 		"description": "Administra la configuración de tu cuenta y preferencias.",
 		"email": {
@@ -550,6 +724,7 @@
 			"new_email_label": "Nueva dirección de correo",
 			"not_verified_description": "Tu correo actual no está verificado. El nuevo correo se actualizará inmediatamente sin verificación.",
 			"not_verified_title": "Correo no verificado",
+			"placeholder": "Ingresa nueva dirección de email",
 			"title": "Dirección de correo electrónico",
 			"unverified_badge": "No verificado",
 			"update_button": "Actualizar correo",
@@ -565,6 +740,11 @@
 			"error_title": "Error",
 			"new_password_label": "Nueva contraseña",
 			"password_helper": "Debe tener al menos 8 caracteres.",
+			"placeholder": {
+				"confirm": "Confirmar nueva contraseña",
+				"current": "Ingresa contraseña actual",
+				"new": "Ingresa nueva contraseña"
+			},
 			"revoke_sessions_label": "Cerrar sesión en todos los demás dispositivos",
 			"security_notice_description": "Cambiar tu contraseña requerirá que inicies sesión nuevamente en todos los dispositivos a menos que desmarques la opción anterior.",
 			"security_notice_title": "Aviso de seguridad",
@@ -574,14 +754,18 @@
 		},
 		"security": {
 			"add_button": "Añadir Passkey",
-			"adding": "Añadiendo...",
 			"add_passkey_helper": "Dale un nombre a tu passkey para identificar en qué dispositivo está registrado.",
 			"add_passkey_title": "Añadir un Passkey",
+			"adding": "Añadiendo...",
 			"created_at": "Creado ",
 			"description": "Administra tus passkeys y configuración de seguridad.",
 			"error_title": "Error",
 			"loading": "Cargando passkeys...",
 			"no_passkeys": "Aún no has registrado ningún passkey.",
+			"passkey": {
+				"placeholder": "Nombre del passkey (opcional)",
+				"unnamed": "Passkey sin nombre"
+			},
 			"passkey_info_description": "Los passkeys son una forma segura de iniciar sesión sin contraseña. Utilizan biometría o PIN del dispositivo y se almacenan de forma segura en tus dispositivos.",
 			"passkey_info_title": "¿Qué son los Passkeys?",
 			"passkey_name_label": "Nombre del passkey",
@@ -595,6 +779,84 @@
 			"security": "Seguridad"
 		},
 		"title": "Configuración"
+	},
+	"support": {
+		"avatar": {
+			"team_member": "Miembro del equipo"
+		},
+		"button": {
+			"start_new_conversation": "Iniciar nueva conversación"
+		},
+		"chatbar": {
+			"placeholder": "Pregúntame lo que quieras..."
+		},
+		"greeting": {
+			"hi": "Hola",
+			"how_can_we_help": "¿Cómo podemos ayudarte hoy?"
+		},
+		"header": {
+			"support_team": "Equipo de Soporte"
+		},
+		"message": {
+			"role_kai": "Kai",
+			"role_support": "Soporte",
+			"role_you": "Tú"
+		},
+		"screenshot": {
+			"action": {
+				"cancel": "Cancelar (Esc)",
+				"redo": "Rehacer (Ctrl+Shift+Z)",
+				"undo": "Deshacer (Ctrl+Z)"
+			},
+			"aria_label": "Editor de captura de pantalla",
+			"capture_failed": "Error al capturar pantalla. Revisa la consola para más detalles.",
+			"capturing": "Capturando...",
+			"next": "Siguiente",
+			"tool": {
+				"arrow": "Flecha (A)",
+				"circle": "Círculo (C)",
+				"color": "Cambiar color",
+				"pen": "Lápiz (P)",
+				"rectangle": "Rectángulo (R)"
+			}
+		},
+		"suggestion": {
+			"bug_report_label": "Reportar un problema",
+			"bug_report_text": "¡Encontré un error!",
+			"feature_request_label": "Solicitar una función",
+			"feature_request_text": "Me gustaría ver",
+			"help_label": "Ayúdame con...",
+			"help_text": "Ayúdame a configurar el proyecto.",
+			"question_label": "Hacer una pregunta",
+			"question_text": "¿Por qué SaaS Starter?"
+		},
+		"thread": {
+			"new_conversation": "Nueva conversación"
+		},
+		"time": {
+			"days_ago": "hace {days} días",
+			"few_seconds_ago": "hace unos segundos",
+			"hours_ago": "hace {hours} horas",
+			"just_now": "justo ahora",
+			"minutes_ago": "hace {minutes} minutos",
+			"one_hour_ago": "hace 1 hora",
+			"one_minute_ago": "hace 1 minuto",
+			"yesterday": "ayer"
+		},
+		"widget": {
+			"error": {
+				"rate_limit": "¡Más despacio! Por favor espera {seconds}s antes de enviar otro mensaje.",
+				"send_failed": "Error al enviar mensaje. Por favor intenta de nuevo."
+			},
+			"header": {
+				"bot_response": "Nuestro bot responderá al instante",
+				"messages": "Mensajes",
+				"with_team": "Tu solicitud está con nuestro equipo"
+			},
+			"input": {
+				"placeholder": "Escribe un mensaje o haz clic en una sugerencia..."
+			}
+		}
 	},
 	"team": {
 		"description": "Durante el proceso de trabajo, realizamos ajustes regulares con el cliente porque él es la única persona que puede sentir si un traje nuevo le queda bien o no.",

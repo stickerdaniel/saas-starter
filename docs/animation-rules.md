@@ -77,3 +77,25 @@ Is the element entering or exiting the viewport?
             ├── Yes → linear
             └── Default → ease-out
 ```
+
+## Icon Transitions (Toggle States)
+
+For morphing icons (e.g., toggle buttons):
+
+```svelte
+<!-- Icon 1 -->
+<Icon
+	class="transition-all duration-200 ease-in-out {active
+		? 'blur-0 scale-100 opacity-100'
+		: 'scale-0 opacity-0 blur-sm'}"
+/>
+
+<!-- Icon 2 -->
+<Icon
+	class="transition-all duration-200 ease-in-out {active
+		? 'scale-0 opacity-0 blur-sm'
+		: 'blur-0 scale-100 opacity-100'}"
+/>
+```
+
+**Standard:** 200ms, `ease-in-out`, opacity + scale + `blur-sm` → `blur-0`
