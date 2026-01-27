@@ -12,9 +12,11 @@
 	import SparklesIcon from '@lucide/svelte/icons/sparkles';
 	import SettingsIcon from '@lucide/svelte/icons/settings';
 	import UserXIcon from '@lucide/svelte/icons/user-x';
-	import { T } from '@tolgee/svelte';
+	import { T, getTranslate } from '@tolgee/svelte';
 	import { localizedHref } from '$lib/utils/i18n';
 	import { toast } from 'svelte-sonner';
+
+	const { t } = getTranslate();
 
 	interface Props {
 		user: { name: string; email: string; avatar: string };
@@ -37,13 +39,13 @@
 		try {
 			const result = await authClient.admin.stopImpersonating();
 			if (result.error) {
-				toast.error('Failed to stop impersonation');
+				toast.error($t('app.user_menu.impersonation_stop_failed'));
 				return;
 			}
-			toast.success('Stopped impersonating');
+			toast.success($t('app.user_menu.impersonation_stopped'));
 			goto(localizedHref('/admin/users'));
 		} catch (error) {
-			toast.error('Failed to stop impersonation');
+			toast.error($t('app.user_menu.impersonation_stop_failed'));
 		}
 	}
 </script>

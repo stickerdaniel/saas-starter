@@ -1,8 +1,11 @@
 <script lang="ts">
 	import { cn } from '$lib/utils';
+	import { getTranslate } from '@tolgee/svelte';
 	import * as Accordion from '$lib/components/ui/accordion/index.js';
 	import BotIcon from '@lucide/svelte/icons/bot';
 	import ReasoningShimmerLoader from '$lib/components/prompt-kit/loader/reasoning-shimmer-loader.svelte';
+
+	const { t } = getTranslate();
 
 	interface Props {
 		class?: string;
@@ -24,9 +27,11 @@
 	// State 3: Finished - show duration
 	let durationMessage = $derived.by(() => {
 		if (duration && duration > 0) {
-			return `Thought for ${duration} second${duration === 1 ? '' : 's'}`;
+			return duration === 1
+				? $t('chat.reasoning.thought_for_seconds', { duration })
+				: $t('chat.reasoning.thought_for_seconds_plural', { duration });
 		}
-		return 'Thought for a few seconds';
+		return $t('chat.reasoning.thought_for_few_seconds');
 	});
 </script>
 
@@ -44,10 +49,10 @@
 		<BotIcon class="size-4" />
 		{#if !hasContent}
 			<!-- State 1: Connecting - waiting for first reasoning content -->
-			<ReasoningShimmerLoader text="Connecting..." />
+			<ReasoningShimmerLoader text={$t('chat.reasoning.connecting')} />
 		{:else if isStreaming}
 			<!-- State 2: Thinking - receiving reasoning data -->
-			<ReasoningShimmerLoader text="Thinking..." />
+			<ReasoningShimmerLoader text={$t('chat.reasoning.thinking')} />
 		{:else}
 			<!-- State 3: Finished - show duration -->
 			<p>{durationMessage}</p>

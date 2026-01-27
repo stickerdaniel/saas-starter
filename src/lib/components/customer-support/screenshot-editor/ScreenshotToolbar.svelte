@@ -5,7 +5,9 @@
 	import { screenshotEditorContext } from './screenshot-editor-context.svelte';
 	import { cn } from '$lib/utils';
 	import { DEFAULT_COLORS } from './types';
+	import { getTranslate } from '@tolgee/svelte';
 
+	const { t } = getTranslate();
 	const editor = screenshotEditorContext.get();
 
 	function handleToolClick(tool: typeof editor.currentTool) {
@@ -23,7 +25,7 @@
 			size="icon"
 			class="size-9 "
 			onclick={() => handleToolClick('rect')}
-			title="Rectangle (R)"
+			title={$t('support.screenshot.tool.rectangle')}
 		>
 			<Square class="size-4" />
 		</Button>
@@ -34,7 +36,7 @@
 			size="icon"
 			class="size-9 "
 			onclick={() => handleToolClick('circle')}
-			title="Circle (C)"
+			title={$t('support.screenshot.tool.circle')}
 		>
 			<Circle class="size-4" />
 		</Button>
@@ -45,7 +47,7 @@
 			size="icon"
 			class="size-9 "
 			onclick={() => handleToolClick('arrow')}
-			title="Arrow (A)"
+			title={$t('support.screenshot.tool.arrow')}
 		>
 			<ArrowRight class="size-4" />
 		</Button>
@@ -56,7 +58,7 @@
 			size="icon"
 			class="size-9 "
 			onclick={() => handleToolClick('pen')}
-			title="Pen (P)"
+			title={$t('support.screenshot.tool.pen')}
 		>
 			<Pencil class="size-4" />
 		</Button>
@@ -74,7 +76,7 @@
 						size="icon"
 						class="size-6 rounded-full border-2 border-background ring-2 ring-border"
 						style="background-color: {editor.strokeColor};"
-						title="Change Color"
+						title={$t('support.screenshot.tool.color')}
 					></Button>
 				{/snippet}
 			</Popover.Trigger>
@@ -110,7 +112,7 @@
 			class="size-9 "
 			onclick={() => editor.history.undo()}
 			disabled={!editor.history.canUndo}
-			title="Undo (Ctrl+Z)"
+			title={$t('support.screenshot.action.undo')}
 		>
 			<Undo2 class="size-4" />
 		</Button>
@@ -122,7 +124,7 @@
 			class="size-9 "
 			onclick={() => editor.history.redo()}
 			disabled={!editor.history.canRedo}
-			title="Redo (Ctrl+Shift+Z)"
+			title={$t('support.screenshot.action.redo')}
 		>
 			<Redo2 class="size-4" />
 		</Button>
@@ -136,7 +138,7 @@
 			onclick={editor.handleSave}
 			disabled={editor.isSaving || !editor.hasShapes}
 		>
-			{editor.isSaving ? 'Capturing...' : 'Next'}
+			{editor.isSaving ? $t('support.screenshot.capturing') : $t('support.screenshot.next')}
 		</Button>
 
 		<!-- Close Button -->
@@ -145,7 +147,7 @@
 			size="icon"
 			class="size-9 "
 			onclick={editor.handleCancel}
-			title="Cancel (Esc)"
+			title={$t('support.screenshot.action.cancel')}
 		>
 			<X class="size-4" />
 		</Button>

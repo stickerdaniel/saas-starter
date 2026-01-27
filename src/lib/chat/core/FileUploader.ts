@@ -44,6 +44,7 @@ export async function uploadFileWithProgress(
 	api: {
 		generateUploadUrl: Parameters<ConvexClient['mutation']>[0];
 		saveUploadedFile: Parameters<ConvexClient['action']>[0];
+		locale?: string;
 	}
 ): Promise<UploadResult> {
 	// 1. Generate upload URL
@@ -56,7 +57,8 @@ export async function uploadFileWithProgress(
 	const result = await client.action(api.saveUploadedFile, {
 		storageId,
 		filename,
-		mimeType: file.type
+		mimeType: file.type,
+		locale: api.locale
 	});
 
 	// Ensure progress is 100% after completion

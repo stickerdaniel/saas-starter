@@ -1,9 +1,12 @@
 <script lang="ts">
 	import { X, File as FileIcon, Image as ImageIcon, LoaderCircle } from '@lucide/svelte';
+	import { getTranslate } from '@tolgee/svelte';
 	import Progress from '$lib/components/ui/progress/progress.svelte';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import type { Attachment, UploadState } from '../core/types.js';
 	import type { ChatAlignment } from './ChatContext.svelte.js';
+
+	const { t } = getTranslate();
 
 	let {
 		attachments = [],
@@ -35,9 +38,10 @@
 	function getFilename(attachment: Attachment): string {
 		if (attachment.type === 'file') return attachment.name;
 		if (attachment.type === 'screenshot') return attachment.name;
-		if (attachment.type === 'image') return attachment.filename || 'Image';
+		if (attachment.type === 'image')
+			return attachment.filename || $t('chat.attachment.image_fallback');
 		if (attachment.type === 'remote-file') return attachment.filename;
-		return 'Attachment';
+		return $t('chat.attachment.generic_fallback');
 	}
 
 	/**
@@ -90,7 +94,9 @@
 	<Dialog.Content>
 		<Dialog.Header>
 			<Dialog.Title
-				>{selectedAttachment ? getFilename(selectedAttachment) : 'Attachment'}</Dialog.Title
+				>{selectedAttachment
+					? getFilename(selectedAttachment)
+					: $t('chat.attachment.dialog_title')}</Dialog.Title
 			>
 		</Dialog.Header>
 		{#if selectedAttachment}
@@ -169,7 +175,7 @@
 						}}
 						class="shrink-0 rounded-full p-1 hover:bg-secondary/50"
 						type="button"
-						aria-label="Remove {filename}"
+						aria-label={$t('chat.aria.remove_attachment', { filename })}
 					>
 						<X class="size-4" />
 					</button>

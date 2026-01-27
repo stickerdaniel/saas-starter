@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import { getTranslate } from '@tolgee/svelte';
 	import {
 		ChatContainerRoot,
 		ChatContainerContent,
@@ -10,6 +11,8 @@
 	import { getChatUIContext } from './ChatContext.svelte.js';
 	import ChatMessage from './ChatMessage.svelte';
 	import type { DisplayMessage, Attachment } from '../core/types.js';
+
+	const { t } = getTranslate();
 
 	let {
 		emptyState,
@@ -36,10 +39,10 @@
 		class?: string;
 	} = $props();
 
-	// Handoff message text to detect
-	const HANDOFF_MESSAGE = 'Sure! I will connect you now.';
-
 	const ctx = getChatUIContext();
+
+	// Handoff message text to detect - use the same translation as backend
+	const HANDOFF_MESSAGE = $derived($t('backend.support.handoff.response').split('.')[0] + '.');
 
 	/**
 	 * Get the "sender type" for a message to determine grouping
@@ -86,13 +89,13 @@
 							attachments.push({
 								type: 'image',
 								url: url,
-								filename: part.filename || 'Image'
+								filename: part.filename || $t('chat.attachment.image_fallback')
 							});
 						} else {
 							attachments.push({
 								type: 'remote-file',
 								url: url,
-								filename: part.filename || 'File',
+								filename: part.filename || $t('chat.attachment.file_fallback'),
 								contentType: part.mediaType || part.mimeType
 							});
 						}

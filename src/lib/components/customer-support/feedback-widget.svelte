@@ -7,6 +7,7 @@
 	import { IsMobile } from '$lib/hooks/is-mobile.svelte.js';
 	import { toast } from 'svelte-sonner';
 	import { ConvexError } from 'convex/values';
+	import { getTranslate } from '@tolgee/svelte';
 
 	// Import new chat components
 	import { ChatRoot, ChatMessages, ChatInput, type ChatUIContext } from '$lib/chat';
@@ -17,6 +18,8 @@
 	import { Bot, MessagesSquare, UsersRound } from '@lucide/svelte';
 	import { SlidingPanel } from '$lib/components/ui/sliding-panel';
 	import { SlidingHeader } from '$lib/components/ui/sliding-header';
+
+	const { t } = getTranslate();
 
 	let {
 		isScreenshotMode = $bindable(false),
@@ -123,13 +126,13 @@
 							attachments.push({
 								type: 'image',
 								url: url,
-								filename: part.filename || 'Image'
+								filename: part.filename || $t('chat.attachment.image_fallback')
 							});
 						} else {
 							attachments.push({
 								type: 'remote-file',
 								url: url,
-								filename: part.filename || 'File',
+								filename: part.filename || $t('chat.attachment.file_fallback'),
 								contentType: part.mediaType || part.mimeType
 							});
 						}
@@ -142,12 +145,21 @@
 	}
 
 	// Suggestions for empty state
-	const suggestions = [
-		{ text: 'I would love to see', label: 'Request a feature' },
-		{ text: 'Why SaaS Starter?', label: 'Ask a question' },
-		{ text: 'I found a bug!', label: 'Report an issue' },
-		{ text: 'Help me set up the project.', label: 'Help me with...' }
-	];
+	const suggestions = $derived([
+		{
+			text: $t('support.suggestion.feature_request_text'),
+			label: $t('support.suggestion.feature_request_label')
+		},
+		{
+			text: $t('support.suggestion.question_text'),
+			label: $t('support.suggestion.question_label')
+		},
+		{
+			text: $t('support.suggestion.bug_report_text'),
+			label: $t('support.suggestion.bug_report_label')
+		},
+		{ text: $t('support.suggestion.help_text'), label: $t('support.suggestion.help_label') }
+	]);
 
 	// Auto-clear rate limit when it expires
 	$effect(() => {
@@ -165,6 +177,13 @@
 
 		return () => clearTimeout(timeout);
 	});
+
+	// Derive title icon based on handoff state
+	const titleIcon = $derived.by(() => {
+		if (!threadContext.isHandedOff) return Bot;
+		if (!assignedAdmin?.image) return UsersRound;
+		return undefined;
+	});
 </script>
 
 <svelte:body use:lockscroll={isMobile.current} />
@@ -177,16 +196,14 @@
 	<SlidingHeader
 		isBackView={threadContext.currentView !== 'overview'}
 		defaultIcon={MessagesSquare}
-		defaultTitle="Messages"
-		backTitle={threadContext.isHandedOff ? assignedAdmin?.name || 'Support Team' : agentName}
+		defaultTitle={$t('support.widget.header.messages')}
+		backTitle={threadContext.isHandedOff
+			? assignedAdmin?.name || $t('support.header.support_team')
+			: agentName}
 		backSubtitle={threadContext.isHandedOff
-			? 'Your request is with our team'
-			: 'Our bot will reply instantly'}
-		titleIcon={threadContext.isHandedOff && !assignedAdmin?.image
-			? UsersRound
-			: threadContext.isHandedOff
-				? undefined
-				: Bot}
+			? $t('support.widget.header.with_team')
+			: $t('support.widget.header.bot_response')}
+		{titleIcon}
 		titleImage={threadContext.isHandedOff ? assignedAdmin?.image : undefined}
 		onBackClick={() => threadContext.goBack()}
 		onCloseClick={onClose}
@@ -220,7 +237,7 @@
 				<ChatInput
 					class="mx-4 -translate-y-4 p-0"
 					{suggestions}
-					placeholder="Type a message or click a suggestion..."
+					placeholder={$t('support.widget.input.placeholder')}
 					showCameraButton={true}
 					showFileButton={true}
 					showHandoffButton={true}
@@ -250,12 +267,12 @@
 									const retryAfter = data.retryAfter || 60000;
 									const seconds = Math.ceil(retryAfter / 1000);
 									threadContext.setRateLimited(retryAfter);
-									toast.error(`Slow down! Please wait ${seconds}s before sending another message.`);
+									toast.error($t('support.widget.error.rate_limit', { seconds }));
 								} else {
-									toast.error('Failed to send message. Please try again.');
+									toast.error($t('support.widget.error.send_failed'));
 								}
 							} else {
-								toast.error('Failed to send message. Please try again.');
+								toast.error($t('support.widget.error.send_failed'));
 							}
 
 							threadContext.setError(null);

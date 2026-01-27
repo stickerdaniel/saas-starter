@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import { toast } from 'svelte-sonner';
+	import { getTranslate } from '@tolgee/svelte';
 	import {
 		PromptInput,
 		PromptInputAction,
@@ -20,6 +21,8 @@
 		MAX_FILE_SIZE,
 		MAX_FILE_SIZE_LABEL
 	} from '../core/types.js';
+
+	const { t } = getTranslate();
 
 	let {
 		suggestions = [],
@@ -107,13 +110,13 @@
 		for (const file of files) {
 			// Check attachment limit
 			if (ctx.attachments.length >= MAX_ATTACHMENTS) {
-				toast.error(`Maximum ${MAX_ATTACHMENTS} attachments allowed`);
+				toast.error($t('chat.error.max_attachments', { max: MAX_ATTACHMENTS }));
 				break;
 			}
 			// Check file size
 			if (file.size > MAX_FILE_SIZE) {
-				toast.error(`File too large: "${file.name}"`, {
-					description: `Maximum size is ${MAX_FILE_SIZE_LABEL}`
+				toast.error($t('chat.error.file_too_large', { filename: file.name }), {
+					description: $t('chat.error.file_max_size', { maxSize: MAX_FILE_SIZE_LABEL })
 				});
 				continue;
 			}
@@ -144,7 +147,7 @@
 
 			// Check attachment limit
 			if (ctx.attachments.length >= MAX_ATTACHMENTS) {
-				toast.error(`Maximum ${MAX_ATTACHMENTS} attachments allowed`);
+				toast.error($t('chat.error.max_attachments', { max: MAX_ATTACHMENTS }));
 				break;
 			}
 
@@ -153,8 +156,8 @@
 
 			// Validate file size
 			if (file.size > MAX_FILE_SIZE) {
-				toast.error('Pasted file too large', {
-					description: `Maximum size is ${MAX_FILE_SIZE_LABEL}`
+				toast.error($t('chat.error.pasted_file_too_large'), {
+					description: $t('chat.error.file_max_size', { maxSize: MAX_FILE_SIZE_LABEL })
 				});
 				continue;
 			}
@@ -219,7 +222,7 @@
 					{#if showCameraButton}
 						<PromptInputAction>
 							{#snippet tooltip()}
-								<p>Mark the bug</p>
+								<p>{$t('chat.tooltip.mark_bug')}</p>
 							{/snippet}
 							{#snippet children(props)}
 								<Button
@@ -242,7 +245,7 @@
 						>
 							<PromptInputAction>
 								{#snippet tooltip()}
-									<p>Attach files</p>
+									<p>{$t('chat.tooltip.attach_files')}</p>
 								{/snippet}
 								{#snippet children(props)}
 									<FileUploadTrigger asChild={true}>
@@ -260,7 +263,7 @@
 			{#if actionsRight}
 				{@render actionsRight()}
 			{:else}
-				<div class="flex items-center gap-2">
+				<div class="flex min-w-0 items-center gap-2">
 					{#if showHandoffButton}
 						{@const isVisible =
 							ctx.core.threadId !== null &&
@@ -268,22 +271,22 @@
 							!isHandedOff &&
 							hasShownHandoffButton}
 						<div
-							class="transition-opacity duration-200 {isVisible
+							class="min-w-0 transition-opacity duration-200 {isVisible
 								? 'opacity-100'
 								: 'pointer-events-none opacity-0'}"
 							inert={!isVisible ? true : undefined}
 						>
-							<PromptSuggestion onclick={() => onRequestHandoff?.()}
-								>Talk to a human</PromptSuggestion
-							>
+							<PromptSuggestion class="max-w-full" onclick={() => onRequestHandoff?.()}>
+								<span class="block truncate">{$t('chat.action.talk_to_human')}</span>
+							</PromptSuggestion>
 						</div>
 					{/if}
 					<Button
 						size="icon"
 						disabled={!canSend}
 						onclick={handleSend}
-						class="size-9 rounded-full"
-						aria-label="Send"
+						class="size-9 flex-shrink-0 rounded-full"
+						aria-label={$t('chat.aria.send')}
 					>
 						<ArrowUp class="h-[18px] w-[18px]" />
 					</Button>

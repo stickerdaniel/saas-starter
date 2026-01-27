@@ -1,4 +1,4 @@
-import { mutation, query, internalMutation } from '../_generated/server';
+import { mutation, query, internalMutation, internalQuery } from '../_generated/server';
 import { v } from 'convex/values';
 import * as val from 'valibot';
 import { supportAgent } from './agent';
@@ -6,6 +6,7 @@ import { components, internal } from '../_generated/api';
 import { paginationOptsValidator } from 'convex/server';
 import { isAnonymousUser } from '../utils/anonymousUser';
 import { authComponent } from '../auth';
+import { t, extractLocaleFromUrl } from '../i18n/translations';
 
 /**
  * Helper to build searchText from denormalized fields.
@@ -404,12 +405,13 @@ export const updateThreadHandoff = mutation({
 		});
 
 		// Save assistant response with email prompt
+		// Extract locale from the page URL where the user started the chat
+		const locale = extractLocaleFromUrl(supportThread.pageUrl);
 		await supportAgent.saveMessage(ctx, {
 			threadId: args.threadId,
 			message: {
 				role: 'assistant',
-				content:
-					"Sure! I will connect you now. Please enter your email below and we'll notify you when our support team has responded. In the meantime, feel free to add any additional details that might help us assist you better."
+				content: t(locale, 'backend.support.handoff.response')
 			},
 			skipEmbeddings: true
 		});
@@ -735,5 +737,25 @@ export const updateLastMessage = internalMutation({
 			searchText,
 			updatedAt: Date.now()
 		});
+	}
+});
+
+/**
+ * Internal query to get thread locale from pageUrl
+ *
+ * Used by internal actions that need to return localized messages.
+ */
+export const getThreadLocale = internalQuery({
+	args: {
+		threadId: v.string()
+	},
+	returns: v.string(),
+	handler: async (ctx, args) => {
+		const supportThread = await ctx.db
+			.query('supportThreads')
+			.withIndex('by_thread', (q) => q.eq('threadId', args.threadId))
+			.first();
+
+		return extractLocaleFromUrl(supportThread?.pageUrl);
 	}
 });

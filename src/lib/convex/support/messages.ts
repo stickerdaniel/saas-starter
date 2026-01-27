@@ -11,6 +11,7 @@ import { supportRateLimiter } from './rateLimit';
 import { createRateLimitError } from './types';
 import { isAnonymousUser } from '../utils/anonymousUser';
 import { authComponent } from '../auth';
+import { t, extractLocaleFromUrl } from '../i18n/translations';
 
 /**
  * Send a user message and get AI response with streaming
@@ -54,9 +55,16 @@ export const sendMessage = mutation({
 		const rateLimitStatus = await supportRateLimiter.limit(ctx, limitName, { key: userKey });
 
 		if (!rateLimitStatus.ok) {
+			// Get locale from thread's pageUrl for translated error message
+			const supportThread = await ctx.db
+				.query('supportThreads')
+				.withIndex('by_thread', (q) => q.eq('threadId', args.threadId))
+				.first();
+			const locale = extractLocaleFromUrl(supportThread?.pageUrl);
+
 			throw createRateLimitError(
 				rateLimitStatus.retryAfter,
-				'Too many messages. Please wait before sending another.'
+				t(locale, 'backend.support.rate_limit.user')
 			);
 		}
 
@@ -181,10 +189,15 @@ export const createAIResponse = internalAction({
 				`[createAIResponse] Global LLM rate limit exceeded. Retry after: ${globalStatus.retryAfter}ms`
 			);
 
+			// Get locale from thread's pageUrl for translated message
+			const locale = await ctx.runQuery(internal.support.threads.getThreadLocale, {
+				threadId: args.threadId
+			});
+
 			// Save a system message so user knows why there's no response
 			await ctx.runMutation(internal.support.messages.createAssistantMessage, {
 				threadId: args.threadId,
-				text: "I'm currently experiencing high demand. Please try sending your message again in a moment."
+				text: t(locale, 'backend.support.rate_limit.global')
 			});
 
 			// Don't throw - message saved explains the situation

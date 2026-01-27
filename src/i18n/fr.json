@@ -31,9 +31,9 @@
 		"metrics": {
 			"active_sessions": "Actifs (24h)",
 			"active_sessions_desc": "Actifs au cours des 24 dernières heures",
+			"admin_users": "Gestion de la plateforme",
 			"admins": "Admins",
 			"admins_desc": "Utilisateurs avec privilèges admin",
-			"admin_users": "Gestion de la plateforme",
 			"banned_users": "Utilisateurs Bannis",
 			"banned_users_desc": "Accès restreint",
 			"currently_active": "Activité quotidienne",
@@ -69,8 +69,8 @@
 			"delete_email_description": "Supprimer {email} des destinataires de notifications ?",
 			"delete_email_title": "Supprimer l'Email",
 			"description": "Configurez les paramètres du panneau d'administration et les notifications.",
-			"email_added": "Email ajouté",
 			"email_add_failed": "Impossible d'ajouter l'email",
+			"email_added": "Email ajouté",
 			"email_exists": "Cet email existe déjà",
 			"email_removed": "Email supprimé",
 			"field_new_signups": "Notifications de nouvelles inscriptions",
@@ -115,6 +115,13 @@
 		},
 		"support": {
 			"all_statuses": "Tous les statuts",
+			"assignee": {
+				"not_assigned": "Non assigné",
+				"unassigned": "Non assigné"
+			},
+			"chat": {
+				"placeholder": "Répondre au client..."
+			},
 			"details": {
 				"assignee": "Assigné à",
 				"close_panel": "Fermer le panneau des détails",
@@ -127,6 +134,13 @@
 				"user_notes": "Notes Utilisateur",
 				"user_notes_description": "Les notes sont enregistrées au niveau de l utilisateur et apparaissent dans tous leurs fils de support"
 			},
+			"email": {
+				"label": "Email de notification"
+			},
+			"fallback": {
+				"admin": "Admin",
+				"no_user": "Aucun utilisateur associé à ce fil"
+			},
 			"filter": {
 				"all": "Tous",
 				"my_inbox": "Ma boîte de réception",
@@ -135,22 +149,45 @@
 			"no_chats": "Aucun chat trouvé",
 			"no_done_chats": "Aucun chat terminé",
 			"no_open_chats": "Aucun chat ouvert",
+			"note": {
+				"add": "Ajouter une note",
+				"adding": "Ajout en cours...",
+				"placeholder": "Ajouter une note interne..."
+			},
 			"priority": {
 				"high": "Haute",
 				"low": "Basse",
-				"medium": "Moyenne"
+				"medium": "Moyenne",
+				"none": "Aucune"
+			},
+			"search": {
+				"placeholder": "Rechercher des chats..."
 			},
 			"select_chat": "Sélectionnez un chat pour voir la conversation",
 			"select_chat_for_details": "Sélectionnez un chat pour voir les détails",
 			"status": {
 				"done": "Terminé",
-				"open": "Ouvert"
+				"in_progress": "En cours",
+				"open": "Ouvert",
+				"resolved": "Résolu"
+			},
+			"thread": {
+				"badge": {
+					"new": "Nouveau"
+				},
+				"load_failed": "Échec du chargement",
+				"loading": "Chargement...",
+				"no_messages": "Aucun message",
+				"retry": "Réessayer"
 			},
 			"title": "Chats de Support"
 		},
 		"title": "Panneau Admin",
 		"users": {
 			"actions_column": "Actions",
+			"ban_reason": {
+				"default": "Violation des conditions d'utilisation"
+			},
 			"banned": "Banni",
 			"created": "Créé",
 			"email": "E-mail",
@@ -159,7 +196,10 @@
 				"all_status": "Tous les statuts",
 				"clear": "Effacer",
 				"role_admin": "Admin",
-				"role_user": "Utilisateur"
+				"role_user": "Utilisateur",
+				"status_banned": "Banni",
+				"status_unverified": "Non vérifié",
+				"status_verified": "Vérifié"
 			},
 			"loading": "Chargement des utilisateurs...",
 			"menu_open": "Ouvrir le menu",
@@ -176,10 +216,29 @@
 			"rows_per_page": "Lignes par page",
 			"search_placeholder": "Rechercher des utilisateurs...",
 			"select_all": "Tout sélectionner",
-			"selected": "{selected} sur {total} utilisateurs sélectionnés",
 			"select_row": "Sélectionner la ligne",
+			"selected": "{selected} sur {total} utilisateurs sélectionnés",
 			"status": "Statut",
 			"title": "Gestion des Utilisateurs",
+			"toast": {
+				"assignment_failed": "Échec de la mise à jour de l'assignation : {message}",
+				"assignment_updated": "Assignation mise à jour",
+				"ban_failed": "Échec du bannissement : {message}",
+				"banned": "Utilisateur banni",
+				"impersonate_failed": "Échec de l'usurpation : {message}",
+				"note_added": "Note ajoutée",
+				"note_failed": "Échec de l'ajout de la note : {message}",
+				"priority_failed": "Échec de la mise à jour de la priorité : {message}",
+				"priority_updated": "Priorité mise à jour",
+				"revoke_failed": "Échec de la révocation des sessions : {message}",
+				"revoked": "Toutes les sessions ont été révoquées",
+				"role_failed": "Échec du changement de rôle : {message}",
+				"role_updated": "Rôle de l'utilisateur changé en {role}",
+				"status_failed": "Échec de la mise à jour du statut : {message}",
+				"status_updated": "Statut mis à jour",
+				"unban_failed": "Échec du débannissement : {message}",
+				"unbanned": "Utilisateur débanni"
+			},
 			"total": "utilisateurs",
 			"unnamed": "Sans nom",
 			"unverified": "Non vérifié",
@@ -199,12 +258,25 @@
 			"account": "Compte",
 			"billing": "Facturation",
 			"impersonating_banner": "Vous usurpez l'identité de cet utilisateur",
+			"impersonation_stop_failed": "Échec de l'arrêt de l'usurpation",
+			"impersonation_stopped": "Usurpation arrêtée",
 			"logout": "Se déconnecter",
 			"notifications": "Notifications",
 			"settings": "Paramètres",
 			"stop_impersonating": "Arrêter l'usurpation",
 			"upgrade_pro": "Passer à Pro"
 		}
+	},
+	"aria": {
+		"breadcrumb": "fil d'Ariane",
+		"change_language": "Changer la langue",
+		"github_repository": "Dépôt GitHub",
+		"home": "accueil",
+		"menu_close": "Fermer le menu",
+		"menu_open": "Ouvrir le menu",
+		"remove_attachment": "Supprimer la pièce jointe",
+		"select_value": "Sélectionner une valeur",
+		"toggle_sidebar": "Basculer la barre latérale"
 	},
 	"auth": {
 		"back_to_home": "Retour à l'accueil",
@@ -221,41 +293,10 @@
 			"password_min_length": "Le mot de passe doit contenir au moins {minLength} caractères",
 			"password_number": "Le mot de passe doit contenir au moins un chiffre",
 			"password_required": "Le mot de passe est requis",
-			"passwords_do_not_match": "Les mots de passe ne correspondent pas",
 			"password_uppercase": "Le mot de passe doit contenir au moins une lettre majuscule",
+			"passwords_do_not_match": "Les mots de passe ne correspondent pas",
 			"signup_failed": "Impossible de créer le compte. L'e-mail est peut-être déjà utilisé.",
 			"verification_invalid": "Code de vérification invalide ou expiré. Veuillez réessayer."
-		},
-		"messages": {
-			"invalid_credentials": "E-mail ou mot de passe invalide",
-			"user_already_exists": "Un compte avec cet e-mail existe déjà",
-			"email_not_verified": "Veuillez vérifier votre adresse e-mail",
-			"invalid_token": "Jeton invalide ou expiré",
-			"password_compromised": "Ce mot de passe est compromis",
-			"too_many_attempts": "Trop de tentatives. Réessayez plus tard.",
-			"rate_limited": "Trop de requêtes. Réessayez plus tard.",
-			"oauth_failed": "La connexion sociale a échoué. Veuillez réessayer.",
-			"passkey_failed": "L'authentification par passkey a échoué",
-			"signup_failed": "Impossible de créer le compte",
-			"signup_disabled": "L'inscription est désactivée",
-			"auth_cancelled": "L'authentification a été annulée",
-			"reset_link_sent": "Vérifiez votre e-mail pour le lien de réinitialisation.",
-			"password_reset_success": "Votre mot de passe a été réinitialisé avec succès.",
-			"missing_reset_token": "Jeton de réinitialisation manquant ou invalide",
-			"reset_failed": "Impossible de réinitialiser le mot de passe",
-			"request_reset_failed": "Impossible de demander la réinitialisation du mot de passe",
-			"email_change_failed": "Impossible de modifier l'e-mail",
-			"email_same_as_current": "Le nouvel e-mail doit être différent de l'actuel",
-			"email_updated": "E-mail mis à jour avec succès",
-			"email_verification_sent": "Un e-mail de vérification a été envoyé à votre adresse actuelle. Vérifiez votre boîte de réception pour approuver le changement.",
-			"password_change_failed": "Impossible de changer le mot de passe",
-			"password_changed": "Mot de passe modifié avec succès",
-			"passkey_load_failed": "Impossible de charger les passkeys",
-			"passkey_add_failed": "Impossible d'ajouter la passkey",
-			"passkey_added": "Passkey ajoutée avec succès",
-			"passkey_delete_failed": "Impossible de supprimer la passkey",
-			"passkey_deleted": "Passkey supprimée",
-			"generic_error": "Une erreur est survenue. Veuillez réessayer."
 		},
 		"forgot_password": {
 			"back_to_signin": "Retour à la connexion",
@@ -266,6 +307,37 @@
 		},
 		"login": "Connexion",
 		"logout": "Déconnexion",
+		"messages": {
+			"auth_cancelled": "L'authentification a été annulée",
+			"email_change_failed": "Impossible de modifier l'e-mail",
+			"email_not_verified": "Veuillez vérifier votre adresse e-mail",
+			"email_same_as_current": "Le nouvel e-mail doit être différent de l'actuel",
+			"email_updated": "E-mail mis à jour avec succès",
+			"email_verification_sent": "Un e-mail de vérification a été envoyé à votre adresse actuelle. Vérifiez votre boîte de réception pour approuver le changement.",
+			"generic_error": "Une erreur est survenue. Veuillez réessayer.",
+			"invalid_credentials": "E-mail ou mot de passe invalide",
+			"invalid_token": "Jeton invalide ou expiré",
+			"missing_reset_token": "Jeton de réinitialisation manquant ou invalide",
+			"oauth_failed": "La connexion sociale a échoué. Veuillez réessayer.",
+			"passkey_add_failed": "Impossible d'ajouter la passkey",
+			"passkey_added": "Passkey ajoutée avec succès",
+			"passkey_delete_failed": "Impossible de supprimer la passkey",
+			"passkey_deleted": "Passkey supprimée",
+			"passkey_failed": "L'authentification par passkey a échoué",
+			"passkey_load_failed": "Impossible de charger les passkeys",
+			"password_change_failed": "Impossible de changer le mot de passe",
+			"password_changed": "Mot de passe modifié avec succès",
+			"password_compromised": "Ce mot de passe est compromis",
+			"password_reset_success": "Votre mot de passe a été réinitialisé avec succès.",
+			"rate_limited": "Trop de requêtes. Réessayez plus tard.",
+			"request_reset_failed": "Impossible de demander la réinitialisation du mot de passe",
+			"reset_failed": "Impossible de réinitialiser le mot de passe",
+			"reset_link_sent": "Vérifiez votre e-mail pour le lien de réinitialisation.",
+			"signup_disabled": "L'inscription est désactivée",
+			"signup_failed": "Impossible de créer le compte",
+			"too_many_attempts": "Trop de tentatives. Réessayez plus tard.",
+			"user_already_exists": "Un compte avec cet e-mail existe déjà"
+		},
 		"reset_password": {
 			"back_to_signin": "Retour à la connexion",
 			"button_loading": "Réinitialisation...",
@@ -328,7 +400,31 @@
 			"title": "Vérification de l'e-mail"
 		}
 	},
+	"backend": {
+		"files": {
+			"fetch_failed": "Impossible de récupérer le fichier téléchargé. Veuillez réessayer.",
+			"type_not_allowed": "Type de fichier non autorisé. Formats supportés : PNG, JPEG, WebP, GIF, PDF"
+		},
+		"support": {
+			"handoff": {
+				"response": "Bien sûr ! Je vous connecte maintenant. Veuillez entrer votre email ci-dessous et nous vous notifierons quand notre équipe de support aura répondu. En attendant, n'hésitez pas à ajouter des détails supplémentaires qui pourraient nous aider."
+			},
+			"rate_limit": {
+				"global": "Je suis actuellement très sollicité. Veuillez réessayer d'envoyer votre message dans un instant.",
+				"user": "Trop de messages. Veuillez patienter avant d'en envoyer un autre."
+			},
+			"summary": {
+				"default": "Nouvelle conversation de support"
+			},
+			"title": {
+				"default": "Support Client"
+			}
+		}
+	},
 	"chat": {
+		"action": {
+			"talk_to_human": "Parler à un humain"
+		},
 		"alerts": {
 			"limit_reached": {
 				"description": "Vous avez utilisé tous vos {total} messages gratuits de ce mois.",
@@ -340,11 +436,40 @@
 				"title": "Peu de Messages"
 			}
 		},
+		"aria": {
+			"remove_attachment": "Supprimer {filename}",
+			"send": "Envoyer"
+		},
+		"attachment": {
+			"dialog_title": "Pièce jointe",
+			"file_fallback": "Fichier",
+			"generic_fallback": "Pièce jointe",
+			"image_fallback": "Image"
+		},
+		"avatar": {
+			"team_member": "Membre de l'équipe"
+		},
 		"buttons": {
 			"processing": "Traitement...",
 			"upgrade": "Passer à Pro"
 		},
 		"description": "Ouvrez cette application dans plusieurs fenêtres de navigateur pour voir la base de données en temps réel en action",
+		"email": {
+			"placeholder": "Email",
+			"save_failed": "Échec de l'enregistrement de l'email. Veuillez réessayer.",
+			"saved_success": "Email enregistré ! Nous vous notifierons lorsque nous répondrons.",
+			"subscribe_button": "S'abonner",
+			"unsubscribe_failed": "Échec du désabonnement. Veuillez réessayer.",
+			"unsubscribed": "Désabonné des notifications par email."
+		},
+		"error": {
+			"file_max_size": "Taille maximale : {maxSize}",
+			"file_too_large": "Fichier trop volumineux : \"{filename}\"",
+			"max_attachments": "Maximum {max} pièces jointes autorisées",
+			"pasted_file_too_large": "Fichier collé trop volumineux"
+		},
+		"greeting": "Comment pouvons-nous vous aider ?",
+		"greeting_hi": "Bonjour",
 		"header": {
 			"messages_left": "({remaining}/{total} message restant)",
 			"messages_left_plural": "({remaining}/{total} messages restants)",
@@ -362,12 +487,47 @@
 			"send_failed": "Échec de l'envoi du message",
 			"sent_success": "Message envoyé !"
 		},
-		"title": "Chat Communautaire"
+		"reasoning": {
+			"connecting": "Connexion...",
+			"thinking": "Réflexion...",
+			"thought_for_few_seconds": "A réfléchi pendant quelques secondes",
+			"thought_for_seconds": "A réfléchi pendant {duration} seconde",
+			"thought_for_seconds_plural": "A réfléchi pendant {duration} secondes"
+		},
+		"suggestion": {
+			"help_label": "Obtenir de l'aide",
+			"help_text": "Pouvez-vous m'aider avec...",
+			"issue_label": "Signaler un problème",
+			"issue_text": "J'ai trouvé un problème avec...",
+			"question_label": "Poser une question",
+			"question_text": "J'ai une question sur..."
+		},
+		"title": "Chat Communautaire",
+		"tooltip": {
+			"attach_files": "Joindre des fichiers",
+			"mark_bug": "Marquer le bug"
+		}
 	},
 	"common": {
 		"adding": "Ajout en cours...",
 		"cancel": "Annuler",
 		"confirm": "Confirmer"
+	},
+	"email": {
+		"body": {
+			"no_messages": "Aucun message",
+			"ticket_message": "{userName} a envoyé un nouveau message sur un ticket précédemment fermé",
+			"ticket_new": "Nouveau ticket de support",
+			"ticket_reopened": "Ticket de support rouvert",
+			"ticket_started": "{userName} a démarré une nouvelle conversation de support"
+		},
+		"subject": {
+			"reset_password": "Réinitialisez votre mot de passe",
+			"support_reply": "Nouvelle réponse à votre demande de support",
+			"ticket_new": "Nouveau ticket de support de {userName}",
+			"ticket_reopened": "Ticket de support rouvert par {userName}",
+			"verify": "Vérifiez votre email"
+		}
 	},
 	"hero": {
 		"companies_text": "Propulsant les meilleures équipes",
@@ -526,9 +686,21 @@
 	},
 	"settings": {
 		"account": {
+			"avatar": {
+				"alt": "Aperçu du profil",
+				"ready": "Image prête à enregistrer",
+				"removed": "Image supprimée - cliquez sur Enregistrer pour confirmer",
+				"select_error": "Veuillez sélectionner un fichier image",
+				"size_error": "L'image doit être inférieure à {size}",
+				"upload_failed": "Échec du téléchargement de l'image"
+			},
 			"description": "Mettez à jour les informations de votre compte ici.",
+			"error": "Échec de la mise à jour du profil",
 			"file_helper": "PNG, JPG ou GIF jusqu'à 2 Mo.",
 			"link_from_url": "Lien depuis URL",
+			"name": {
+				"placeholder": "Votre nom"
+			},
 			"name_helper": "C'est votre nom d'affichage public.",
 			"name_label": "Nom",
 			"no_image": "Pas d'image",
@@ -538,9 +710,11 @@
 			"remove_button": "Supprimer",
 			"save_button": "Enregistrer",
 			"saving": "Enregistrement...",
+			"success": "Profil mis à jour avec succès",
 			"title": "Informations du compte",
 			"upload_file": "Télécharger un fichier",
-			"url_helper": "Collez un lien d'image au lieu de télécharger."
+			"url_helper": "Collez un lien d'image au lieu de télécharger.",
+			"url_placeholder": "https://example.com/avatar.jpg"
 		},
 		"description": "Gérez les paramètres et préférences de votre compte.",
 		"email": {
@@ -550,6 +724,7 @@
 			"new_email_label": "Nouvelle adresse e-mail",
 			"not_verified_description": "Votre e-mail actuel n'est pas vérifié. Le nouvel e-mail sera mis à jour immédiatement sans vérification.",
 			"not_verified_title": "E-mail non vérifié",
+			"placeholder": "Entrez la nouvelle adresse email",
 			"title": "Adresse e-mail",
 			"unverified_badge": "Non vérifié",
 			"update_button": "Mettre à jour l'e-mail",
@@ -565,6 +740,11 @@
 			"error_title": "Erreur",
 			"new_password_label": "Nouveau mot de passe",
 			"password_helper": "Doit contenir au moins 8 caractères.",
+			"placeholder": {
+				"confirm": "Confirmez le nouveau mot de passe",
+				"current": "Entrez le mot de passe actuel",
+				"new": "Entrez le nouveau mot de passe"
+			},
 			"revoke_sessions_label": "Se déconnecter de tous les autres appareils",
 			"security_notice_description": "Changer votre mot de passe vous obligera à vous reconnecter sur tous les appareils, sauf si vous décochez l'option ci-dessus.",
 			"security_notice_title": "Avis de sécurité",
@@ -574,14 +754,18 @@
 		},
 		"security": {
 			"add_button": "Ajouter un Passkey",
-			"adding": "Ajout en cours...",
 			"add_passkey_helper": "Donnez un nom à votre passkey pour identifier sur quel appareil il est enregistré.",
 			"add_passkey_title": "Ajouter un Passkey",
+			"adding": "Ajout en cours...",
 			"created_at": "Créé le ",
 			"description": "Gérez vos passkeys et paramètres de sécurité.",
 			"error_title": "Erreur",
 			"loading": "Chargement des passkeys...",
 			"no_passkeys": "Vous n'avez pas encore enregistré de passkey.",
+			"passkey": {
+				"placeholder": "Nom du passkey (optionnel)",
+				"unnamed": "Passkey sans nom"
+			},
 			"passkey_info_description": "Les passkeys sont un moyen sécurisé de se connecter sans mot de passe. Ils utilisent la biométrie ou le code PIN de l'appareil et sont stockés en toute sécurité sur vos appareils.",
 			"passkey_info_title": "Que sont les Passkeys ?",
 			"passkey_name_label": "Nom du passkey",
@@ -595,6 +779,84 @@
 			"security": "Sécurité"
 		},
 		"title": "Paramètres"
+	},
+	"support": {
+		"avatar": {
+			"team_member": "Membre de l'équipe"
+		},
+		"button": {
+			"start_new_conversation": "Démarrer une nouvelle conversation"
+		},
+		"chatbar": {
+			"placeholder": "Posez-moi une question…"
+		},
+		"greeting": {
+			"hi": "Salut",
+			"how_can_we_help": "Comment pouvons-nous vous aider aujourd'hui ?"
+		},
+		"header": {
+			"support_team": "Équipe de Support"
+		},
+		"message": {
+			"role_kai": "Kai",
+			"role_support": "Support",
+			"role_you": "Vous"
+		},
+		"screenshot": {
+			"action": {
+				"cancel": "Annuler (Échap)",
+				"redo": "Rétablir (Ctrl+Maj+Z)",
+				"undo": "Annuler (Ctrl+Z)"
+			},
+			"aria_label": "Éditeur de capture d'écran",
+			"capture_failed": "Échec de la capture d'écran. Consultez la console pour plus de détails.",
+			"capturing": "Capture en cours...",
+			"next": "Suivant",
+			"tool": {
+				"arrow": "Flèche (A)",
+				"circle": "Cercle (C)",
+				"color": "Changer la couleur",
+				"pen": "Stylo (P)",
+				"rectangle": "Rectangle (R)"
+			}
+		},
+		"suggestion": {
+			"bug_report_label": "Signaler un problème",
+			"bug_report_text": "J'ai trouvé un bug !",
+			"feature_request_label": "Demander une fonctionnalité",
+			"feature_request_text": "J'aimerais voir",
+			"help_label": "Aidez-moi avec...",
+			"help_text": "Aidez-moi à configurer le projet.",
+			"question_label": "Poser une question",
+			"question_text": "Pourquoi SaaS Starter ?"
+		},
+		"thread": {
+			"new_conversation": "Nouvelle conversation"
+		},
+		"time": {
+			"days_ago": "il y a {days} jours",
+			"few_seconds_ago": "il y a quelques secondes",
+			"hours_ago": "il y a {hours} heures",
+			"just_now": "à l'instant",
+			"minutes_ago": "il y a {minutes} minutes",
+			"one_hour_ago": "il y a 1 heure",
+			"one_minute_ago": "il y a 1 minute",
+			"yesterday": "hier"
+		},
+		"widget": {
+			"error": {
+				"rate_limit": "Doucement ! Veuillez attendre {seconds}s avant d'envoyer un autre message.",
+				"send_failed": "Échec de l'envoi du message. Veuillez réessayer."
+			},
+			"header": {
+				"bot_response": "Notre bot répondra instantanément",
+				"messages": "Messages",
+				"with_team": "Votre demande est auprès de notre équipe"
+			},
+			"input": {
+				"placeholder": "Tapez un message ou cliquez sur une suggestion..."
+			}
+		}
 	},
 	"team": {
 		"description": "Pendant le processus de travail, nous effectuons des ajustements réguliers avec le client car il est la seule personne qui peut sentir si un nouveau costume lui va bien ou non.",
