@@ -17,7 +17,7 @@
 		"convex": {
 			"type": "local",
 			"command": ["bunx", "-y", "convex@latest", "mcp", "start"],
-			"enabled": true
+			"enabled": false
 		},
 		"jsrepo": {
 			"type": "local",
@@ -37,7 +37,7 @@
 		"lighthouse": {
 			"type": "local",
 			"command": ["bunx", "-y", "@danielsogl/lighthouse-mcp@latest"],
-			"enabled": false
+			"enabled": true
 		}
 	},
 	"provider": {
