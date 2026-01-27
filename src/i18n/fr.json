@@ -270,6 +270,8 @@
 	"aria": {
 		"breadcrumb": "fil d'Ariane",
 		"change_language": "Changer la langue",
+		"close": "Fermer",
+		"go_back": "Retour",
 		"feedback_close": "Fermer les commentaires",
 		"feedback_open": "Ouvrir les commentaires",
 		"github_repository": "Dépôt GitHub",
