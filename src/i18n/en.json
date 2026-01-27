@@ -270,8 +270,11 @@
 	"aria": {
 		"breadcrumb": "breadcrumb",
 		"change_language": "Change language",
+		"feedback_close": "Close feedback",
+		"feedback_open": "Open feedback",
 		"github_repository": "GitHub repository",
 		"home": "home",
+		"logout": "Log out",
 		"menu_close": "Close Menu",
 		"menu_open": "Open Menu",
 		"remove_attachment": "Remove attachment",

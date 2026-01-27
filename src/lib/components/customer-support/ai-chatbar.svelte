@@ -113,6 +113,7 @@
 				class="h-8 w-8 rounded-full text-muted-foreground"
 				onclick={handleSubmit}
 				disabled={!input.trim() || threadContext.isSending || threadContext.hasPendingToolCalls}
+				aria-label={$t('chat.aria.send')}
 			>
 				<ArrowUp class="size-5" />
 			</Button>
