@@ -5,10 +5,12 @@
 	import { Label } from '$lib/components/ui/label/index.js';
 	import * as Card from '$lib/components/ui/card/index.js';
 	import { toast } from 'svelte-sonner';
-	import { T } from '@tolgee/svelte';
+	import { T, getTranslate } from '@tolgee/svelte';
 	import { useConvexClient } from 'convex-svelte';
 	import { api } from '$lib/convex/_generated/api.js';
 	import { PROFILE_IMAGE_MAX_SIZE, PROFILE_IMAGE_MAX_SIZE_LABEL } from '$lib/convex/constants.js';
+
+	const { t } = getTranslate();
 
 	interface Props {
 		user: {
@@ -44,14 +46,14 @@
 
 		// Validate file type
 		if (!file.type.startsWith('image/')) {
-			toast.error('Please select an image file');
+			toast.error($t('settings.account.avatar.select_error'));
 			target.value = '';
 			return;
 		}
 
 		// Validate file size
 		if (file.size > PROFILE_IMAGE_MAX_SIZE) {
-			toast.error(`Image must be less than ${PROFILE_IMAGE_MAX_SIZE_LABEL}`);
+			toast.error($t('settings.account.avatar.size_error', { size: PROFILE_IMAGE_MAX_SIZE_LABEL }));
 			target.value = '';
 			return;
 		}
@@ -74,9 +76,10 @@
 			// Update preview (don't save to DB yet)
 			image = imageUrl || '';
 
-			toast.success('Image ready to save');
+			toast.success($t('settings.account.avatar.ready'));
 		} catch (error) {
-			const message = error instanceof Error ? error.message : 'Failed to upload image';
+			const message =
+				error instanceof Error ? error.message : $t('settings.account.avatar.upload_failed');
 			toast.error(message);
 			target.value = '';
 		} finally {
@@ -86,7 +89,7 @@
 
 	function handleRemoveImage() {
 		image = '';
-		toast.success('Image removed - click Save to confirm');
+		toast.success($t('settings.account.avatar.removed'));
 	}
 
 	async function handleUpdateProfile(e: Event) {
@@ -99,9 +102,9 @@
 				image: image || null
 			});
 
-			toast.success('Profile updated successfully');
+			toast.success($t('settings.account.success'));
 		} catch (error) {
-			const message = error instanceof Error ? error.message : 'Failed to update profile';
+			const message = error instanceof Error ? error.message : $t('settings.account.error');
 			toast.error(message);
 		} finally {
 			isSaving = false;
@@ -118,7 +121,13 @@
 		<form onsubmit={handleUpdateProfile} class="space-y-4">
 			<div class="space-y-2">
 				<Label for="name"><T keyName="settings.account.name_label" /></Label>
-				<Input id="name" type="text" bind:value={name} placeholder="Your name" required />
+				<Input
+					id="name"
+					type="text"
+					bind:value={name}
+					placeholder={$t('settings.account.name.placeholder')}
+					required
+				/>
 				<p class="text-sm text-muted-foreground">
 					<T keyName="settings.account.name_helper" />
 				</p>
@@ -138,7 +147,7 @@
 						{#if image}
 							<img
 								src={image}
-								alt="Profile preview"
+								alt={$t('settings.account.avatar.alt')}
 								class="h-16 w-16 rounded-full border-2 border-border object-cover"
 								onerror={(e) => {
 									if (e.target instanceof HTMLImageElement) {
@@ -205,7 +214,7 @@
 							id="image"
 							type="url"
 							bind:value={image}
-							placeholder="https://example.com/avatar.jpg"
+							placeholder={$t('settings.account.url_placeholder')}
 							aria-describedby="image-helper"
 						/>
 						<p id="image-helper" class="text-sm text-muted-foreground">

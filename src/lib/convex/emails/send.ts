@@ -1,6 +1,6 @@
 import { internalMutation } from '../_generated/server';
 import { v } from 'convex/values';
-import { internal } from '../_generated/api';
+import { components, internal } from '../_generated/api';
 import { resend } from './resend';
 import {
 	renderVerificationEmail,
@@ -11,6 +11,27 @@ import {
 } from './templates';
 import { getAuthEmail, getSiteUrl } from '../env';
 import type { NotificationMessage } from '../../emails/templates/types';
+import { t, getValidLocale, type SupportedLocale } from '../i18n/translations';
+import type { GenericMutationCtx } from 'convex/server';
+import type { DataModel } from '../_generated/dataModel';
+
+/** Type for user result from Better Auth adapter with optional locale field */
+type UserWithLocale = { locale?: string | null } | null;
+
+/**
+ * Look up a user's locale preference by email address.
+ * Falls back to default locale if user not found or locale not set.
+ */
+async function getLocaleForEmail(
+	ctx: GenericMutationCtx<DataModel>,
+	email: string
+): Promise<SupportedLocale> {
+	const result = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+		model: 'user',
+		where: [{ field: 'email', operator: 'eq', value: email }]
+	});
+	return getValidLocale((result as UserWithLocale)?.locale);
+}
 
 /**
  * Check if an email address belongs to an E2E test user.
@@ -36,6 +57,7 @@ function shouldSkipTestEmail(action: string, email: string): boolean {
  * Send verification email with verification link
  *
  * Uses pre-rendered HTML templates with template placeholders for dynamic content.
+ * Looks up user's locale preference for translated subject.
  */
 export const sendVerificationEmail = internalMutation({
 	args: {
@@ -48,12 +70,13 @@ export const sendVerificationEmail = internalMutation({
 
 		if (shouldSkipTestEmail('sendVerificationEmail', email)) return;
 
+		const locale = await getLocaleForEmail(ctx, email);
 		const { html, text } = renderVerificationEmail(verificationUrl, expiryMinutes);
 
 		await resend.sendEmail(ctx, {
 			from: getAuthEmail(),
 			to: email,
-			subject: 'Verify your email',
+			subject: t(locale, 'email.subject.verify'),
 			html,
 			text,
 			// Analytics tracking via custom headers
@@ -69,6 +92,7 @@ export const sendVerificationEmail = internalMutation({
  * Send password reset email with reset link
  *
  * Uses pre-rendered HTML templates with template placeholders for dynamic content.
+ * Looks up user's locale preference for translated subject.
  */
 export const sendResetPasswordEmail = internalMutation({
 	args: {
@@ -81,12 +105,13 @@ export const sendResetPasswordEmail = internalMutation({
 
 		if (shouldSkipTestEmail('sendResetPasswordEmail', email)) return;
 
+		const locale = await getLocaleForEmail(ctx, email);
 		const { html, text } = renderPasswordResetEmail(resetUrl, userName);
 
 		await resend.sendEmail(ctx, {
 			from: getAuthEmail(),
 			to: email,
-			subject: 'Reset your password',
+			subject: t(locale, 'email.subject.reset_password'),
 			html,
 			text,
 			// Analytics tracking via custom headers
@@ -103,6 +128,7 @@ export const sendResetPasswordEmail = internalMutation({
  *
  * Called when an admin responds to a user's support request.
  * Uses pre-rendered HTML templates with template placeholders for dynamic content.
+ * Looks up user's locale preference for translated subject.
  */
 export const sendAdminReplyNotification = internalMutation({
 	args: {
@@ -117,6 +143,7 @@ export const sendAdminReplyNotification = internalMutation({
 
 		if (shouldSkipTestEmail('sendAdminReplyNotification', email)) return;
 
+		const locale = await getLocaleForEmail(ctx, email);
 		const siteUrl = getSiteUrl();
 
 		// Build deep link that opens the support widget to this thread
@@ -133,7 +160,7 @@ export const sendAdminReplyNotification = internalMutation({
 		await resend.sendEmail(ctx, {
 			from: getAuthEmail(),
 			to: email,
-			subject: 'New reply to your support request',
+			subject: t(locale, 'email.subject.support_reply'),
 			html,
 			text,
 			// Analytics tracking via custom headers
@@ -153,6 +180,7 @@ export const sendAdminReplyNotification = internalMutation({
  * or sends a message to a previously closed ticket.
  *
  * Uses pre-rendered HTML templates with template placeholders for dynamic content.
+ * Looks up admin's locale preference for translated subject.
  */
 export const sendNewTicketAdminNotification = internalMutation({
 	args: {
@@ -170,20 +198,24 @@ export const sendNewTicketAdminNotification = internalMutation({
 	handler: async (ctx, args) => {
 		const { email, isReopen, userName, messages, threadId } = args;
 		const siteUrl = getSiteUrl();
+		const locale = await getLocaleForEmail(ctx, email);
 
 		// Build admin dashboard link for this thread
 		const adminDashboardLink = `${siteUrl}/admin/support?thread=${threadId}`;
 
-		const { html, text } = renderNewTicketAdminNotificationEmail({
-			isReopen,
-			userName,
-			messages: messages as NotificationMessage[],
-			adminDashboardLink
-		});
+		const { html, text } = renderNewTicketAdminNotificationEmail(
+			{
+				isReopen,
+				userName,
+				messages: messages as NotificationMessage[],
+				adminDashboardLink
+			},
+			locale
+		);
 
 		const subject = isReopen
-			? `Support ticket reopened by ${userName}`
-			: `New support ticket from ${userName}`;
+			? t(locale, 'email.subject.ticket_reopened', { userName })
+			: t(locale, 'email.subject.ticket_new', { userName });
 
 		await resend.sendEmail(ctx, {
 			from: getAuthEmail(),

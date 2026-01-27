@@ -29,6 +29,7 @@ import {
 	NEWUSERSIGNUPNOTIFICATION_TEXT
 } from './_generated/index.js';
 import { getEmailAssetUrl } from '../env';
+import { t, DEFAULT_LOCALE } from '../i18n/translations';
 
 /**
  * Simple template renderer that replaces {{varName}} patterns with values.
@@ -60,7 +61,7 @@ function escapeHtml(str: string): string {
 
 /**
  * Get base URL for email assets (images, footer links)
- * Always uses production URL so images load in email clients
+ * Uses EMAIL_ASSET_URL env var - should point to publicly accessible URL
  */
 function getBaseUrl(): string {
 	return getEmailAssetUrl();
@@ -186,21 +187,25 @@ export function renderAdminReplyNotificationEmail(
  * - User reopens a closed ticket
  *
  * @param data - Email data including isReopen, user info, messages, and admin dashboard link
+ * @param locale - Locale for translated strings (optional, defaults to DEFAULT_LOCALE)
  * @returns Rendered HTML and plain text email
  */
 export function renderNewTicketAdminNotificationEmail(
-	data: NewTicketAdminNotificationEmailData
+	data: NewTicketAdminNotificationEmailData,
+	locale: string = DEFAULT_LOCALE
 ): RenderedEmail {
 	const baseUrl = getBaseUrl();
 
-	// Compute text values based on isReopen flag
-	const titleText = data.isReopen ? 'Support ticket reopened' : 'New support ticket';
+	// Compute text values based on isReopen flag using translations
+	const titleText = data.isReopen
+		? t(locale, 'email.body.ticket_reopened')
+		: t(locale, 'email.body.ticket_new');
 	const descriptionText = data.isReopen
-		? `${data.userName} has sent a new message to a previously closed ticket`
-		: `${data.userName} has started a new support conversation`;
+		? t(locale, 'email.body.ticket_message', { userName: data.userName })
+		: t(locale, 'email.body.ticket_started', { userName: data.userName });
 	const previewText = data.isReopen
-		? `${data.userName} has reopened a support ticket`
-		: `New support ticket from ${data.userName}`;
+		? t(locale, 'email.subject.ticket_reopened', { userName: data.userName })
+		: t(locale, 'email.subject.ticket_new', { userName: data.userName });
 
 	// Build HTML for messages (only show timestamp for first message)
 	const messagesHtml = data.messages
@@ -214,11 +219,12 @@ export function renderNewTicketAdminNotificationEmail(
 		)
 		.join('');
 
+	const noMessagesText = t(locale, 'email.body.no_messages');
 	const templateData = {
 		titleText: escapeHtml(titleText),
 		descriptionText: escapeHtml(descriptionText),
 		previewText: escapeHtml(previewText),
-		messagesHtml: messagesHtml || '<p style="color: #71717a;">No messages</p>',
+		messagesHtml: messagesHtml || `<p style="color: #71717a;">${escapeHtml(noMessagesText)}</p>`,
 		adminDashboardLink: escapeHtml(data.adminDashboardLink),
 		baseUrl: escapeHtml(baseUrl)
 	};
@@ -231,7 +237,7 @@ export function renderNewTicketAdminNotificationEmail(
 		titleText,
 		descriptionText,
 		previewText,
-		messagesHtml: messagesText || 'No messages',
+		messagesHtml: messagesText || noMessagesText,
 		adminDashboardLink: data.adminDashboardLink,
 		baseUrl
 	};

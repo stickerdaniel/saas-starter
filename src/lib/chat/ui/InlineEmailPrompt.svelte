@@ -6,6 +6,9 @@
 	import CircleCheckIcon from '@lucide/svelte/icons/circle-check';
 	import BellOffIcon from '@lucide/svelte/icons/bell-off';
 	import { emailSchema } from '$lib/schemas/auth';
+	import { getTranslate } from '@tolgee/svelte';
+
+	const { t } = getTranslate();
 
 	let {
 		currentEmail = '',
@@ -53,9 +56,9 @@
 		isSubmitting = true;
 		try {
 			await onSubmitEmail(email.trim());
-			toast.success("Email saved! We'll notify you when we respond.");
+			toast.success($t('chat.email.saved_success'));
 		} catch (error) {
-			toast.error('Failed to save email. Please try again.');
+			toast.error($t('chat.email.save_failed'));
 		} finally {
 			isSubmitting = false;
 		}
@@ -68,9 +71,9 @@
 		try {
 			email = '';
 			await onSubmitEmail('');
-			toast.success('Unsubscribed from email notifications.');
+			toast.success($t('chat.email.unsubscribed'));
 		} catch (error) {
-			toast.error('Failed to unsubscribe. Please try again.');
+			toast.error($t('chat.email.unsubscribe_failed'));
 		} finally {
 			isSubmitting = false;
 		}
@@ -81,7 +84,7 @@
 	<InputGroup.Root>
 		<InputGroup.Input
 			type="email"
-			placeholder="Email"
+			placeholder={$t('chat.email.placeholder')}
 			bind:value={email}
 			disabled={!!currentEmail}
 			onkeydown={(e) => e.key === 'Enter' && canSubscribe && handleSubmit()}
@@ -99,7 +102,7 @@
 		</Button>
 	{:else}
 		<Button variant="outline" onclick={handleSubmit} disabled={!canSubscribe || isSubmitting}>
-			Subscribe
+			{$t('chat.email.subscribe_button')}
 		</Button>
 	{/if}
 </div>
