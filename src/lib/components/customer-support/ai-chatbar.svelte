@@ -5,6 +5,9 @@
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { ArrowUp, Square } from '@lucide/svelte';
 	import { supportThreadContext } from './support-thread-context.svelte';
+	import { getTranslate } from '@tolgee/svelte';
+
+	const { t } = getTranslate();
 
 	let input = $state('');
 	let isFocused = $state(false);
@@ -99,7 +102,7 @@
 		>
 			<PromptInputTextarea
 				class="!h-auto !min-h-auto rounded-3xl bg-transparent !py-0 "
-				placeholder="Ask me anything..."
+				placeholder={$t('support.chatbar.placeholder')}
 				onfocus={handleFocus}
 				onblur={handleBlur}
 			/>

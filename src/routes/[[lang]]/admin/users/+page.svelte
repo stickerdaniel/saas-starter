@@ -431,7 +431,7 @@
 			const result = await authClient.admin.impersonateUser({ userId });
 			if (result.error) {
 				const message = result.error.message || 'Unknown error';
-				toast.error(`Failed to impersonate user: ${message}`);
+				toast.error($t('admin.users.toast.impersonate_failed', { message }));
 				console.error('Impersonation error:', result.error);
 				return;
 			}
@@ -440,7 +440,7 @@
 			impersonationDialogOpen = true;
 		} catch (error) {
 			const message = error instanceof Error ? error.message : 'Unknown error';
-			toast.error(`Failed to impersonate user: ${message}`);
+			toast.error($t('admin.users.toast.impersonate_failed', { message }));
 			console.error('Impersonation error:', error);
 		}
 	}
@@ -448,28 +448,29 @@
 	async function banUser() {
 		if (!selectedUser) return;
 
+		const defaultBanReason = $t('admin.users.ban_reason.default');
 		try {
 			const result = await authClient.admin.banUser({
 				userId: selectedUser.id,
-				banReason: banReason || 'Violated terms of service'
+				banReason: banReason || defaultBanReason
 			});
 
 			if (result.error) {
 				const message = result.error.message || 'Unknown error';
-				toast.error(`Failed to ban user: ${message}`);
+				toast.error($t('admin.users.toast.ban_failed', { message }));
 				console.error('Ban error:', result.error);
 				return;
 			}
 
 			await logAdminAction('ban_user', selectedUser.id, {
-				reason: banReason || 'Violated terms of service'
+				reason: banReason || defaultBanReason
 			});
 
-			toast.success('User has been banned');
+			toast.success($t('admin.users.toast.banned'));
 			closeDialog();
 		} catch (error) {
 			const message = error instanceof Error ? error.message : 'Unknown error';
-			toast.error(`Failed to ban user: ${message}`);
+			toast.error($t('admin.users.toast.ban_failed', { message }));
 			console.error('Ban error:', error);
 		}
 	}
@@ -484,17 +485,17 @@
 
 			if (result.error) {
 				const message = result.error.message || 'Unknown error';
-				toast.error(`Failed to unban user: ${message}`);
+				toast.error($t('admin.users.toast.unban_failed', { message }));
 				console.error('Unban error:', result.error);
 				return;
 			}
 
 			await logAdminAction('unban_user', selectedUser.id, {});
-			toast.success('User has been unbanned');
+			toast.success($t('admin.users.toast.unbanned'));
 			closeDialog();
 		} catch (error) {
 			const message = error instanceof Error ? error.message : 'Unknown error';
-			toast.error(`Failed to unban user: ${message}`);
+			toast.error($t('admin.users.toast.unban_failed', { message }));
 			console.error('Unban error:', error);
 		}
 	}
@@ -509,17 +510,17 @@
 
 			if (result.error) {
 				const message = result.error.message || 'Unknown error';
-				toast.error(`Failed to revoke sessions: ${message}`);
+				toast.error($t('admin.users.toast.revoke_failed', { message }));
 				console.error('Revoke sessions error:', result.error);
 				return;
 			}
 
 			await logAdminAction('revoke_sessions', selectedUser.id, {});
-			toast.success('All sessions have been revoked');
+			toast.success($t('admin.users.toast.revoked'));
 			closeDialog();
 		} catch (error) {
 			const message = error instanceof Error ? error.message : 'Unknown error';
-			toast.error(`Failed to revoke sessions: ${message}`);
+			toast.error($t('admin.users.toast.revoke_failed', { message }));
 			console.error('Revoke sessions error:', error);
 		}
 	}
@@ -533,11 +534,11 @@
 				role: selectedRole
 			});
 
-			toast.success(`User role updated to ${selectedRole}`);
+			toast.success($t('admin.users.toast.role_updated', { role: selectedRole }));
 			closeRoleDialog();
 		} catch (error) {
 			const message = error instanceof Error ? error.message : 'Unknown error';
-			toast.error(`Failed to set role: ${message}`);
+			toast.error($t('admin.users.toast.role_failed', { message }));
 			console.error('Set role error:', error);
 		}
 	}

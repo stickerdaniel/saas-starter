@@ -42,6 +42,7 @@ import type * as files_vacuum from "../files/vacuum.js";
 import type * as functions from "../functions.js";
 import type * as helpers from "../helpers.js";
 import type * as http from "../http.js";
+import type * as i18n_translations from "../i18n/translations.js";
 import type * as messages from "../messages.js";
 import type * as storage from "../storage.js";
 import type * as support_agent from "../support/agent.js";
@@ -96,6 +97,7 @@ declare const fullApi: ApiFromModules<{
   functions: typeof functions;
   helpers: typeof helpers;
   http: typeof http;
+  "i18n/translations": typeof i18n_translations;
   messages: typeof messages;
   storage: typeof storage;
   "support/agent": typeof support_agent;
@@ -153,6 +155,7 @@ export declare const components: {
                   email: string;
                   emailVerified: boolean;
                   image?: null | string;
+                  locale?: null | string;
                   name: string;
                   role?: null | string;
                   updatedAt: number;
@@ -250,6 +253,7 @@ export declare const components: {
                     | "banned"
                     | "banReason"
                     | "banExpires"
+                    | "locale"
                     | "_id";
                   operator?:
                     | "lt"
@@ -479,6 +483,7 @@ export declare const components: {
                     | "banned"
                     | "banReason"
                     | "banExpires"
+                    | "locale"
                     | "_id";
                   operator?:
                     | "lt"
@@ -780,6 +785,7 @@ export declare const components: {
                   email?: string;
                   emailVerified?: boolean;
                   image?: null | string;
+                  locale?: null | string;
                   name?: string;
                   role?: null | string;
                   updatedAt?: number;
@@ -799,6 +805,7 @@ export declare const components: {
                     | "banned"
                     | "banReason"
                     | "banExpires"
+                    | "locale"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1071,6 +1078,7 @@ export declare const components: {
                   email?: string;
                   emailVerified?: boolean;
                   image?: null | string;
+                  locale?: null | string;
                   name?: string;
                   role?: null | string;
                   updatedAt?: number;
@@ -1090,6 +1098,7 @@ export declare const components: {
                     | "banned"
                     | "banReason"
                     | "banExpires"
+                    | "locale"
                     | "_id";
                   operator?:
                     | "lt"

@@ -10,8 +10,10 @@
 	import ArchiveIcon from '@lucide/svelte/icons/archive';
 	import Loader2Icon from '@lucide/svelte/icons/loader-2';
 	import { formatDistanceToNow } from 'date-fns';
-	import { T } from '@tolgee/svelte';
+	import { T, getTranslate } from '@tolgee/svelte';
 	import { InfiniteLoader, LoaderState } from 'svelte-infinite';
+
+	const { t } = getTranslate();
 
 	interface Thread {
 		_id: string;
@@ -114,7 +116,7 @@
 			<div class="relative flex-1">
 				<SearchIcon class="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
 				<Input
-					placeholder="Search chats..."
+					placeholder={$t('admin.support.search.placeholder')}
 					class="pl-10"
 					value={searchQuery}
 					oninput={(e) => onSearchChange(e.currentTarget.value)}
@@ -229,13 +231,15 @@
 
 									<!-- Last Message Preview -->
 									<p class="truncate text-sm text-muted-foreground">
-										{thread.lastMessage || 'No messages'}
+										{thread.lastMessage || $t('admin.support.thread.no_messages')}
 									</p>
 
 									<!-- Badges -->
 									<div class="mt-2 flex flex-wrap items-center gap-1.5">
 										{#if thread.supportMetadata.awaitingAdminResponse}
-											<Badge variant="default" class="text-xs">New</Badge>
+											<Badge variant="default" class="text-xs"
+												><T keyName="admin.support.thread.badge.new" /></Badge
+											>
 										{/if}
 										{#if thread.supportMetadata.priority}
 											<Badge
@@ -263,14 +267,20 @@
 					{#snippet loading()}
 						<div class="flex items-center justify-center border-b p-4">
 							<Loader2Icon class="size-5 animate-spin text-muted-foreground" />
-							<span class="ml-2 text-sm text-muted-foreground">Loading more...</span>
+							<span class="ml-2 text-sm text-muted-foreground"
+								><T keyName="admin.support.thread.loading" /></span
+							>
 						</div>
 					{/snippet}
 
 					{#snippet error(attemptLoad)}
 						<div class="flex flex-col items-center justify-center gap-2 p-4">
-							<span class="text-sm text-muted-foreground">Failed to load more</span>
-							<Button variant="outline" size="sm" onclick={attemptLoad}>Retry</Button>
+							<span class="text-sm text-muted-foreground"
+								><T keyName="admin.support.thread.load_failed" /></span
+							>
+							<Button variant="outline" size="sm" onclick={attemptLoad}
+								><T keyName="admin.support.thread.retry" /></Button
+							>
 						</div>
 					{/snippet}
 

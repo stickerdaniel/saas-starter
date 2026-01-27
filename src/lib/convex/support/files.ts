@@ -2,6 +2,7 @@ import { action, mutation } from '../_generated/server';
 import { v } from 'convex/values';
 import { storeFile } from '@convex-dev/agent';
 import { components } from '../_generated/api';
+import { t } from '../i18n/translations';
 
 /**
  * Allowed file types for upload
@@ -45,7 +46,8 @@ export const saveUploadedFile = action({
 	args: {
 		storageId: v.id('_storage'),
 		filename: v.optional(v.string()),
-		mimeType: v.string()
+		mimeType: v.string(),
+		locale: v.optional(v.string())
 	},
 	handler: async (
 		ctx,
@@ -59,7 +61,7 @@ export const saveUploadedFile = action({
 	}> => {
 		// Validate file type
 		if (!ALLOWED_MIME_TYPES.includes(args.mimeType)) {
-			throw new Error('File type not allowed. Supported: PNG, JPEG, WebP, GIF, PDF');
+			throw new Error(t(args.locale, 'backend.files.type_not_allowed'));
 		}
 
 		// Get storage URL
@@ -71,6 +73,9 @@ export const saveUploadedFile = action({
 
 		// Fetch blob from storage
 		const response = await fetch(url);
+		if (!response.ok) {
+			throw new Error(t(args.locale, 'backend.files.fetch_failed'));
+		}
 		const blob = await response.blob();
 
 		// Register with agent component

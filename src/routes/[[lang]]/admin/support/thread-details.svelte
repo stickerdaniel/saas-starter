@@ -12,8 +12,10 @@
 	import { Textarea } from '$lib/components/ui/textarea';
 	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
 	import { toast } from 'svelte-sonner';
-	import { T } from '@tolgee/svelte';
+	import { T, getTranslate } from '@tolgee/svelte';
 	import { motion } from 'motion-sv';
+
+	const { t } = getTranslate();
 	import { formatDistanceToNow } from 'date-fns';
 
 	let {
@@ -55,10 +57,12 @@
 				threadId,
 				adminUserId: adminUserId === '' ? undefined : adminUserId
 			});
-			toast.success('Assignment updated');
+			toast.success($t('admin.users.toast.assignment_updated'));
 		} catch (error) {
 			toast.error(
-				`Failed to update assignment: ${error instanceof Error ? error.message : 'Unknown error'}`
+				$t('admin.users.toast.assignment_failed', {
+					message: error instanceof Error ? error.message : 'Unknown error'
+				})
 			);
 		}
 	}
@@ -69,10 +73,12 @@
 				threadId,
 				status
 			});
-			toast.success('Status updated');
+			toast.success($t('admin.users.toast.status_updated'));
 		} catch (error) {
 			toast.error(
-				`Failed to update status: ${error instanceof Error ? error.message : 'Unknown error'}`
+				$t('admin.users.toast.status_failed', {
+					message: error instanceof Error ? error.message : 'Unknown error'
+				})
 			);
 		}
 	}
@@ -83,10 +89,12 @@
 				threadId,
 				priority: priority === '' ? undefined : (priority as 'low' | 'medium' | 'high' | undefined)
 			});
-			toast.success('Priority updated');
+			toast.success($t('admin.users.toast.priority_updated'));
 		} catch (error) {
 			toast.error(
-				`Failed to update priority: ${error instanceof Error ? error.message : 'Unknown error'}`
+				$t('admin.users.toast.priority_failed', {
+					message: error instanceof Error ? error.message : 'Unknown error'
+				})
 			);
 		}
 	}
@@ -101,10 +109,12 @@
 				content: newNoteContent.trim()
 			});
 			newNoteContent = '';
-			toast.success('Note added');
+			toast.success($t('admin.users.toast.note_added'));
 		} catch (error) {
 			toast.error(
-				`Failed to add note: ${error instanceof Error ? error.message : 'Unknown error'}`
+				$t('admin.users.toast.note_failed', {
+					message: error instanceof Error ? error.message : 'Unknown error'
+				})
 			);
 		} finally {
 			isAddingNote = false;
@@ -126,10 +136,10 @@
 						onValueChange={updateAssignment}
 					>
 						<Select.Trigger>
-							{thread.assignedAdmin?.name || 'Not assigned'}
+							{thread.assignedAdmin?.name || $t('admin.support.assignee.not_assigned')}
 						</Select.Trigger>
 						<Select.Content>
-							<Select.Item value="">Unassigned</Select.Item>
+							<Select.Item value=""><T keyName="admin.support.assignee.unassigned" /></Select.Item>
 							{#each adminsQuery.data || [] as admin (admin.id)}
 								<Select.Item value={admin.id}>
 									{admin.name || admin.email}
@@ -166,10 +176,10 @@
 						onValueChange={(v) => updatePriority(v as 'low' | 'medium' | 'high' | '' | undefined)}
 					>
 						<Select.Trigger class="capitalize">
-							{thread.supportMetadata?.priority || 'None'}
+							{thread.supportMetadata?.priority || $t('admin.support.priority.none')}
 						</Select.Trigger>
 						<Select.Content>
-							<Select.Item value="">None</Select.Item>
+							<Select.Item value=""><T keyName="admin.support.priority.none" /></Select.Item>
 							<Select.Item value="low"><T keyName="admin.support.priority.low" /></Select.Item>
 							<Select.Item value="medium"><T keyName="admin.support.priority.medium" /></Select.Item
 							>
@@ -181,7 +191,7 @@
 				<!-- Notification Email -->
 				{#if thread.supportMetadata?.notificationEmail}
 					<div class="space-y-1">
-						<Label>Notification Email</Label>
+						<Label><T keyName="admin.support.email.label" /></Label>
 						<a
 							href="mailto:{thread.supportMetadata
 								.notificationEmail}?subject=Re: Your support request&body=Hi,%0A%0AThank you for reaching out!%0A%0A"
@@ -218,14 +228,14 @@
 
 						<!-- Add Note -->
 						<Textarea
-							placeholder="Add an internal note..."
+							placeholder={$t('admin.support.note.placeholder')}
 							bind:value={newNoteContent}
 							rows={INTERNAL_NOTE_TEXTAREA_ROWS}
 							class="resize-none"
 						/>
 						<div class="flex justify-end">
 							<Button size="sm" onclick={addNote} disabled={!newNoteContent.trim() || isAddingNote}>
-								{isAddingNote ? 'Adding...' : 'Add Note'}
+								{isAddingNote ? $t('admin.support.note.adding') : $t('admin.support.note.add')}
 							</Button>
 						</div>
 
@@ -240,7 +250,9 @@
 								{#each notesQuery.data.page as note (note._id)}
 									<div class="rounded-md bg-muted p-3">
 										<div class="mb-1 flex items-center justify-between">
-											<span class="text-sm font-medium">{note.adminName || 'Admin'}</span>
+											<span class="text-sm font-medium"
+												>{note.adminName || $t('admin.support.fallback.admin')}</span
+											>
 											<span class="text-xs text-muted-foreground">
 												{formatDistanceToNow(new Date(note.createdAt), { addSuffix: true })}
 											</span>
@@ -254,7 +266,9 @@
 				{:else}
 					<div class="space-y-1">
 						<Label><T keyName="admin.support.details.notes" /></Label>
-						<p class="text-sm text-muted-foreground">No user associated with this thread</p>
+						<p class="text-sm text-muted-foreground">
+							<T keyName="admin.support.fallback.no_user" />
+						</p>
 					</div>
 				{/if}
 			</div>

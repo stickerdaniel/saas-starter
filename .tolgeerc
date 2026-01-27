@@ -1,7 +1,9 @@
 {
-  "apiUrl": "https://app.tolgee.io",
+  "apiUrl": "https://tolgee.inframs.de",
   "format": "JSON_TOLGEE",
-  "patterns": ["src/**/*.{ts,svelte}"],
+  "patterns": [
+    "src/**/*.{ts,svelte}"
+  ],
   "push": {
     "filesTemplate": "./src/i18n/{languageTag}.json"
   },

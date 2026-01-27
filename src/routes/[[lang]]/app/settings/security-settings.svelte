@@ -126,7 +126,7 @@
 						id="passkey-name"
 						type="text"
 						bind:value={newPasskeyName}
-						placeholder="Passkey name (optional)"
+						placeholder={$t('settings.security.passkey.placeholder')}
 					/>
 				</div>
 				<Button onclick={handleAddPasskey} disabled={isAdding}>
@@ -165,7 +165,7 @@
 								<KeyIcon />
 							</Item.Media>
 							<Item.Content>
-								<Item.Title>{passkey.name || 'Unnamed Passkey'}</Item.Title>
+								<Item.Title>{passkey.name || $t('settings.security.passkey.unnamed')}</Item.Title>
 								<Item.Description>
 									<T keyName="settings.security.created_at" />
 									{formatDate(passkey.createdAt)}

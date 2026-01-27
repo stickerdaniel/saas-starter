@@ -11,7 +11,9 @@
 	import Logo from '$lib/components/icons/logo.svelte';
 	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
 	import { authClient } from '$lib/auth-client';
-	import { T } from '@tolgee/svelte';
+	import { T, getTranslate } from '@tolgee/svelte';
+
+	const { t } = getTranslate();
 
 	const auth = useAuth();
 
@@ -65,7 +67,7 @@
 						href="https://github.com/stickerdaniel/saas-starter"
 						target="_blank"
 						rel="noopener noreferrer"
-						aria-label="GitHub repository"
+						aria-label={$t('aria.github_repository')}
 						class="size-8"
 					>
 						<Github class="size-4" />
@@ -106,7 +108,7 @@
 						href="https://github.com/stickerdaniel/saas-starter"
 						target="_blank"
 						rel="noopener noreferrer"
-						aria-label="GitHub repository"
+						aria-label={$t('aria.github_repository')}
 						class="size-8"
 					>
 						<Github class="size-4" />
@@ -115,7 +117,7 @@
 					<LanguageSwitcher variant="ghost" />
 					<button
 						onclick={() => (menuState = !menuState)}
-						aria-label={menuState == true ? 'Close Menu' : 'Open Menu'}
+						aria-label={menuState ? $t('aria.menu_close') : $t('aria.menu_open')}
 						class="relative z-20 -m-2.5 -mr-4 block cursor-pointer p-2.5 pl-4"
 					>
 						<Menu

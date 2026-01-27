@@ -24,6 +24,8 @@ export type ChatAlignment = 'left' | 'right';
 export interface UploadConfig {
 	generateUploadUrl: Parameters<ConvexClient['mutation']>[0];
 	saveUploadedFile: Parameters<ConvexClient['action']>[0];
+	/** Locale for translated error messages */
+	locale?: string;
 }
 
 /**
