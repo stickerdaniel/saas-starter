@@ -128,7 +128,7 @@
 						type="password"
 						id="currentPassword"
 						name="currentPassword"
-						placeholder="Enter current password"
+						placeholder={$t('settings.password.placeholder.current')}
 						autocomplete="current-password"
 						bind:value={formData.currentPassword}
 					/>
@@ -143,7 +143,7 @@
 						type="password"
 						id="newPassword"
 						name="newPassword"
-						placeholder="Enter new password"
+						placeholder={$t('settings.password.placeholder.new')}
 						autocomplete="new-password"
 						bind:value={formData.newPassword}
 					/>
@@ -161,7 +161,7 @@
 						type="password"
 						id="confirmPassword"
 						name="confirmPassword"
-						placeholder="Confirm new password"
+						placeholder={$t('settings.password.placeholder.confirm')}
 						autocomplete="new-password"
 						bind:value={formData.confirmPassword}
 					/>

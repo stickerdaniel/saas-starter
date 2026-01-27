@@ -23,7 +23,8 @@ export const tables = {
 		role: v.optional(v.union(v.null(), v.string())),
 		banned: v.optional(v.union(v.null(), v.boolean())),
 		banReason: v.optional(v.union(v.null(), v.string())),
-		banExpires: v.optional(v.union(v.null(), v.number()))
+		banExpires: v.optional(v.union(v.null(), v.number())),
+		locale: v.optional(v.union(v.null(), v.string()))
 	})
 		.index('email_name', ['email', 'name'])
 		.index('name', ['name'])
