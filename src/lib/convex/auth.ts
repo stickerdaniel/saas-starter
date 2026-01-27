@@ -138,6 +138,16 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>): BetterAuthOptions
 		baseURL: getSiteUrl(),
 		secret: getBetterAuthSecret(),
 		database: authComponent.adapter(ctx),
+		user: {
+			additionalFields: {
+				locale: {
+					type: 'string',
+					required: false,
+					defaultValue: 'en',
+					input: true
+				}
+			}
+		},
 		emailAndPassword: {
 			enabled: true,
 			requireEmailVerification: true,

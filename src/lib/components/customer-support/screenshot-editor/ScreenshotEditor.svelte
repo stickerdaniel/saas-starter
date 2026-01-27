@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { lockscroll } from '@svelte-put/lockscroll';
 	import { snapdom } from '@zumer/snapdom';
+	import { getTranslate } from '@tolgee/svelte';
 	import { getSnapDOMConfig } from '$lib/utils/snapdom-config';
 	import {
 		ScreenshotEditorState,
@@ -8,6 +9,8 @@
 	} from './screenshot-editor-context.svelte';
 	import ScreenshotToolbar from './ScreenshotToolbar.svelte';
 	import ScreenshotCanvas from './ScreenshotCanvas.svelte';
+
+	const { t } = getTranslate();
 
 	let {
 		onCancel,
@@ -27,7 +30,7 @@
 		})
 	);
 
-	// Capture screenshot and download directly
+	// Capture screenshot and pass to callback
 	async function handleSave() {
 		try {
 			editorContext.isSaving = true;
@@ -120,7 +123,7 @@
 			onCancel?.();
 		} catch (error) {
 			console.error('Failed to capture screenshot:', error);
-			alert('Failed to capture screenshot. Check console for details.');
+			alert($t('support.screenshot.capture_failed'));
 		} finally {
 			editorContext.isSaving = false;
 		}
@@ -143,7 +146,7 @@
 	class="fixed inset-0 z-[100]"
 	role="dialog"
 	aria-modal="true"
-	aria-label="Screenshot editor"
+	aria-label={$t('support.screenshot.aria_label')}
 >
 	<ScreenshotToolbar />
 	<ScreenshotCanvas />

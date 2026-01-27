@@ -2,6 +2,9 @@
 	import { cn, type WithElementRef } from '$lib/utils.js';
 	import type { HTMLAttributes } from 'svelte/elements';
 	import { sidebarContext } from './context.svelte.js';
+	import { getTranslate } from '@tolgee/svelte';
+
+	const { t } = getTranslate();
 
 	let {
 		ref = $bindable(null),
@@ -17,10 +20,10 @@
 	bind:this={ref}
 	data-sidebar="rail"
 	data-slot="sidebar-rail"
-	aria-label="Toggle Sidebar"
+	aria-label={$t('aria.toggle_sidebar')}
 	tabIndex={-1}
 	onclick={sidebar.toggle}
-	title="Toggle Sidebar"
+	title={$t('aria.toggle_sidebar')}
 	class={cn(
 		'absolute inset-y-0 z-20 hidden w-4 -translate-x-1/2 transition-all ease-linear group-data-[side=left]:-right-4 group-data-[side=right]:left-0 after:absolute after:inset-y-0 after:left-[calc(1/2*100%-1px)] after:w-[2px] hover:after:bg-sidebar-border sm:flex',
 		'in-data-[side=left]:cursor-w-resize in-data-[side=right]:cursor-e-resize',

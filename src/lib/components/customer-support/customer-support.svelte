@@ -57,10 +57,11 @@
 	// Get auth state for user identification
 	const auth = useAuth();
 
-	// Upload API configuration
+	// Upload API configuration with locale for translated error messages
 	const uploadConfig: UploadConfig = {
 		generateUploadUrl: api.support.files.generateUploadUrl,
-		saveUploadedFile: api.support.files.saveUploadedFile
+		saveUploadedFile: api.support.files.saveUploadedFile,
+		locale: page.data.lang
 	};
 
 	// Create ChatUIContext at this level so we can handle screenshot uploads

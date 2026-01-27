@@ -4,6 +4,9 @@
 	import { buttonVariants } from '$lib/components/ui/button';
 	import { cn } from '$lib/utils/utils';
 	import type { LanguageSwitcherProps } from './types';
+	import { getTranslate } from '@tolgee/svelte';
+
+	const { t } = getTranslate();
 
 	let {
 		languages = [],
@@ -23,10 +26,10 @@
 <DropdownMenu.Root>
 	<DropdownMenu.Trigger
 		class={cn(buttonVariants({ variant, size: 'icon' }), className)}
-		aria-label="Change language"
+		aria-label={$t('aria.change_language')}
 	>
 		<GlobeIcon class="size-4" />
-		<span class="sr-only">Change language</span>
+		<span class="sr-only">{$t('aria.change_language')}</span>
 	</DropdownMenu.Trigger>
 	<DropdownMenu.Content {align}>
 		<DropdownMenu.RadioGroup bind:value onValueChange={onChange}>

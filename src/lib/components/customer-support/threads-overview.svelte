@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { useQuery } from 'convex-svelte';
+	import { getTranslate } from '@tolgee/svelte';
 	import { api } from '$lib/convex/_generated/api';
 	import { Button } from '$lib/components/ui/button';
 	import { Avatar, AvatarImage, AvatarFallback } from '$lib/components/ui/avatar';
@@ -12,6 +13,8 @@
 	import memberFive from '$blocks/team/avatars/member-five.webp';
 	import { motion } from 'motion-sv';
 	import { SvelteSet } from 'svelte/reactivity';
+
+	const { t } = getTranslate();
 
 	const ctx = supportThreadContext.get();
 
@@ -51,14 +54,14 @@
 			// Case 1: 3+ admins - show 3 random admin avatars (no bot icon)
 			return shuffledAdmins.slice(0, 3).map((admin, i) => ({
 				src: admin.image ?? placeholderAvatars[i],
-				alt: admin.name ?? 'Team member',
+				alt: admin.name ?? $t('support.avatar.team_member'),
 				isPlaceholder: false
 			}));
 		} else if (shuffledAdmins.length >= 2) {
 			// Case 2: 2 admins - show 2 admin avatars (bot icon shown separately)
 			return shuffledAdmins.slice(0, 2).map((admin, i) => ({
 				src: admin.image ?? placeholderAvatars[i],
-				alt: admin.name ?? 'Team member',
+				alt: admin.name ?? $t('support.avatar.team_member'),
 				isPlaceholder: false
 			}));
 		} else {
@@ -69,7 +72,7 @@
 			shuffledAdmins.forEach((admin, i) => {
 				result.push({
 					src: admin.image ?? placeholderAvatars[i],
-					alt: admin.name ?? 'Team member',
+					alt: admin.name ?? $t('support.avatar.team_member'),
 					isPlaceholder: false
 				});
 			});
@@ -79,7 +82,7 @@
 			for (let i = 0; i < remaining; i++) {
 				result.push({
 					src: placeholderAvatars[shuffledAdmins.length + i],
-					alt: 'Team member',
+					alt: $t('support.avatar.team_member'),
 					isPlaceholder: true
 				});
 			}
@@ -179,14 +182,14 @@
 		const hours = Math.floor(minutes / 60);
 		const days = Math.floor(hours / 24);
 
-		if (seconds < 10) return 'just now';
-		if (seconds < 60) return 'a few seconds ago';
-		if (minutes === 1) return '1 minute ago';
-		if (minutes < 60) return `${minutes} minutes ago`;
-		if (hours === 1) return '1 hour ago';
-		if (hours < 24) return `${hours} hours ago`;
-		if (days === 1) return 'yesterday';
-		if (days < 7) return `${days} days ago`;
+		if (seconds < 10) return $t('support.time.just_now');
+		if (seconds < 60) return $t('support.time.few_seconds_ago');
+		if (minutes === 1) return $t('support.time.one_minute_ago');
+		if (minutes < 60) return $t('support.time.minutes_ago', { minutes });
+		if (hours === 1) return $t('support.time.one_hour_ago');
+		if (hours < 24) return $t('support.time.hours_ago', { hours });
+		if (days === 1) return $t('support.time.yesterday');
+		if (days < 7) return $t('support.time.days_ago', { days });
 
 		return new Date(timestamp).toLocaleDateString();
 	}
@@ -256,7 +259,7 @@
 						transition={{ duration: 0.4, delay: 0.25, ease: 'easeOut' }}
 						class="mb-4 text-5xl font-semibold text-muted-foreground"
 					>
-						Hi 👋
+						{$t('support.greeting.hi')} 👋
 					</motion.h2>
 
 					<!-- Main heading -->
@@ -266,7 +269,7 @@
 						transition={{ duration: 0.4, delay: 0.5, ease: 'easeOut' }}
 						class="text-3xl font-bold"
 					>
-						How can we help you today?
+						{$t('support.greeting.how_can_we_help')}
 					</motion.h3>
 				</div>
 			</div>
@@ -296,8 +299,8 @@
 									: UsersRound
 								: Bot}
 							image={showAdminAvatar ? thread.assignedAdmin?.image : undefined}
-							title={thread.lastMessage || thread.summary || 'New conversation'}
-							subtitle={`${thread.lastMessageRole === 'user' ? 'You' : showAdminAvatar ? thread.assignedAdmin?.name || 'Support' : thread.lastAgentName || 'Kai'}\u00A0\u00A0·\u00A0\u00A0${formatRelativeTime(thread.lastMessageAt)}`}
+							title={thread.lastMessage || thread.summary || $t('support.thread.new_conversation')}
+							subtitle={`${thread.lastMessageRole === 'user' ? $t('support.message.role_you') : showAdminAvatar ? thread.assignedAdmin?.name || $t('support.message.role_support') : thread.lastAgentName || $t('support.message.role_kai')}\u00A0\u00A0·\u00A0\u00A0${formatRelativeTime(thread.lastMessageAt)}`}
 							bold={false}
 							fallbackText={thread.isHandedOff && thread.assignedAdmin?.name
 								? thread.assignedAdmin.name
@@ -321,7 +324,7 @@
 			disabled={ctx.isRateLimited}
 		>
 			<Send />
-			Start a new conversation
+			{$t('support.button.start_new_conversation')}
 		</Button>
 	</div>
 </div>
