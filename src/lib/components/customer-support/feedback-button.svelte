@@ -4,6 +4,9 @@
 	import FeedbackWidget from './feedback-widget.svelte';
 	import { on } from 'svelte/events';
 	import type { ChatUIContext } from '$lib/chat';
+	import { getTranslate } from '@tolgee/svelte';
+
+	const { t } = getTranslate();
 
 	let {
 		isFeedbackOpen = false,
@@ -45,6 +48,7 @@
 			variant="default"
 			size="icon"
 			onclick={toggleOpen}
+			aria-label={isFeedbackOpen ? $t('aria.feedback_close') : $t('aria.feedback_open')}
 			class="h-12 w-12 rounded-full transition-colors transition-transform duration-200 ease-in-out hover:scale-110 hover:bg-primary active:scale-105"
 		>
 			<div class="relative size-6">

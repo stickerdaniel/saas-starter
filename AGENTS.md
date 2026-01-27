@@ -296,3 +296,15 @@ A customizable Svelte component for building node-based editors and interactive 
 ## esbuild/Vite Error: The service was stopped
 
 `bun i -f` should fix the issue.
+
+## Lighthouse
+
+### 1. Generate report
+
+`npx lighthouse URL --only-categories=accessibility --output=json --chrome-flags="--headless=new" 2>/dev/null > /tmp/lh.json`
+
+### 2. Query score + failing elements
+
+`cat /tmp/lh.json | jq '{score: (.categories.accessibility.score*100|floor), failures: [.audits|to_entries[]|select(.value.score==0 and .value.scoreDisplayMode=="binary")|{id:.key,elements:[.value.details.items[]?|{selector:.node.selector,snippet:.node.snippet}]}]}'`
+
+Swap accessibility for performance, seo, best-practices as needed.
