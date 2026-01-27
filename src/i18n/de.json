@@ -270,6 +270,8 @@
 	"aria": {
 		"breadcrumb": "Brotkrümel",
 		"change_language": "Sprache ändern",
+		"close": "Schließen",
+		"go_back": "Zurück",
 		"feedback_close": "Feedback schließen",
 		"feedback_open": "Feedback öffnen",
 		"github_repository": "GitHub-Repository",
