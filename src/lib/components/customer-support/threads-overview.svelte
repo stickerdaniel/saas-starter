@@ -195,7 +195,7 @@
 	}
 </script>
 
-<div class="flex h-full flex-col">
+<div class="flex h-full flex-col" inert={ctx.currentView !== 'overview' ? true : undefined}>
 	<!-- Thread List -->
 	<div class="min-h-0 flex-1 overflow-y-auto">
 		{#if !isLoading && threads.length === 0}

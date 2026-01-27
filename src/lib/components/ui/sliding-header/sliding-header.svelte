@@ -6,6 +6,9 @@
 	import NavigationButton from '$lib/components/customer-support/navigation-button.svelte';
 	import AvatarHeading from '$lib/components/customer-support/avatar-heading.svelte';
 	import { ChevronLeft, MessagesSquare } from '@lucide/svelte';
+	import { getTranslate } from '@tolgee/svelte';
+
+	const { t } = getTranslate();
 
 	interface Props {
 		// View state
@@ -76,6 +79,7 @@
 					variant="ghost"
 					size="icon"
 					class="h-10 w-10 rounded-full hover:!bg-muted-foreground/10"
+					aria-label={$t('aria.go_back')}
 					onclick={onBackClick}
 				>
 					<svelte:component this={backIcon} class="size-5" />
