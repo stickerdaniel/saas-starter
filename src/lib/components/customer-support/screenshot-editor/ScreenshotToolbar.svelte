@@ -1,7 +1,13 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button';
 	import * as Popover from '$lib/components/ui/popover';
-	import { Square, Pencil, Undo2, Redo2, X, Circle, ArrowRight } from '@lucide/svelte';
+	import SquareIcon from '@lucide/svelte/icons/square';
+	import PencilIcon from '@lucide/svelte/icons/pencil';
+	import Undo2Icon from '@lucide/svelte/icons/undo-2';
+	import Redo2Icon from '@lucide/svelte/icons/redo-2';
+	import XIcon from '@lucide/svelte/icons/x';
+	import CircleIcon from '@lucide/svelte/icons/circle';
+	import ArrowRightIcon from '@lucide/svelte/icons/arrow-right';
 	import { screenshotEditorContext } from './screenshot-editor-context.svelte';
 	import { cn } from '$lib/utils';
 	import { DEFAULT_COLORS } from './types';
@@ -27,7 +33,7 @@
 			onclick={() => handleToolClick('rect')}
 			title={$t('support.screenshot.tool.rectangle')}
 		>
-			<Square class="size-4" />
+			<SquareIcon class="size-4" />
 		</Button>
 
 		<!-- Circle Tool -->
@@ -38,7 +44,7 @@
 			onclick={() => handleToolClick('circle')}
 			title={$t('support.screenshot.tool.circle')}
 		>
-			<Circle class="size-4" />
+			<CircleIcon class="size-4" />
 		</Button>
 
 		<!-- Arrow Tool -->
@@ -49,7 +55,7 @@
 			onclick={() => handleToolClick('arrow')}
 			title={$t('support.screenshot.tool.arrow')}
 		>
-			<ArrowRight class="size-4" />
+			<ArrowRightIcon class="size-4" />
 		</Button>
 
 		<!-- Pen Tool -->
@@ -60,7 +66,7 @@
 			onclick={() => handleToolClick('pen')}
 			title={$t('support.screenshot.tool.pen')}
 		>
-			<Pencil class="size-4" />
+			<PencilIcon class="size-4" />
 		</Button>
 
 		<!-- Divider -->
@@ -114,7 +120,7 @@
 			disabled={!editor.history.canUndo}
 			title={$t('support.screenshot.action.undo')}
 		>
-			<Undo2 class="size-4" />
+			<Undo2Icon class="size-4" />
 		</Button>
 
 		<!-- Redo Button -->
@@ -126,7 +132,7 @@
 			disabled={!editor.history.canRedo}
 			title={$t('support.screenshot.action.redo')}
 		>
-			<Redo2 class="size-4" />
+			<Redo2Icon class="size-4" />
 		</Button>
 
 		<!-- Divider -->
@@ -149,7 +155,7 @@
 			onclick={editor.handleCancel}
 			title={$t('support.screenshot.action.cancel')}
 		>
-			<X class="size-4" />
+			<XIcon class="size-4" />
 		</Button>
 	</div>
 </div>

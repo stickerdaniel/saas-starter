@@ -11,7 +11,9 @@
 	import { PromptSuggestion } from '$lib/components/prompt-kit/prompt-suggestion';
 	import { FileUpload, FileUploadTrigger } from '$lib/components/prompt-kit/file-upload';
 	import { Button } from '$lib/components/ui/button';
-	import { ArrowUp, Camera, Paperclip } from '@lucide/svelte';
+	import ArrowUpIcon from '@lucide/svelte/icons/arrow-up';
+	import CameraIcon from '@lucide/svelte/icons/camera';
+	import PaperclipIcon from '@lucide/svelte/icons/paperclip';
 	import ChatAttachments from './ChatAttachments.svelte';
 	import { getChatUIContext } from './ChatContext.svelte.js';
 	import {
@@ -233,7 +235,7 @@
 									onclick={handleCameraClick}
 									aria-label={$t('chat.tooltip.mark_bug')}
 								>
-									<Camera class="h-[18px] w-[18px]" />
+									<CameraIcon class="h-[18px] w-[18px]" />
 								</Button>
 							{/snippet}
 						</PromptInputAction>
@@ -257,7 +259,7 @@
 											class="size-9 rounded-full"
 											aria-label={$t('chat.tooltip.attach_files')}
 										>
-											<Paperclip class="h-[18px] w-[18px]" />
+											<PaperclipIcon class="h-[18px] w-[18px]" />
 										</Button>
 									</FileUploadTrigger>
 								{/snippet}
@@ -295,7 +297,7 @@
 						class="size-9 flex-shrink-0 rounded-full"
 						aria-label={$t('chat.aria.send')}
 					>
-						<ArrowUp class="h-[18px] w-[18px]" />
+						<ArrowUpIcon class="h-[18px] w-[18px]" />
 					</Button>
 				</div>
 			{/if}
