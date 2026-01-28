@@ -5,7 +5,8 @@
 	import { Button } from '$lib/components/ui/button';
 	import NavigationButton from '$lib/components/customer-support/navigation-button.svelte';
 	import AvatarHeading from '$lib/components/customer-support/avatar-heading.svelte';
-	import { ChevronLeft, MessagesSquare } from '@lucide/svelte';
+	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
+	import MessagesSquareIcon from '@lucide/svelte/icons/messages-square';
 	import { getTranslate } from '@tolgee/svelte';
 
 	const { t } = getTranslate();
@@ -39,11 +40,11 @@
 
 	let {
 		isBackView,
-		defaultIcon = MessagesSquare,
+		defaultIcon = MessagesSquareIcon,
 		backTitle,
 		backSubtitle,
 		defaultTitle,
-		backIcon = ChevronLeft,
+		backIcon = ChevronLeftIcon,
 		titleIcon,
 		titleImage,
 		onBackClick,

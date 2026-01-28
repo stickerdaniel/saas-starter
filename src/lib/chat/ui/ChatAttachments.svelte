@@ -1,5 +1,8 @@
 <script lang="ts">
-	import { X, File as FileIcon, Image as ImageIcon, LoaderCircle } from '@lucide/svelte';
+	import XIcon from '@lucide/svelte/icons/x';
+	import FileIcon from '@lucide/svelte/icons/file';
+	import ImageIcon from '@lucide/svelte/icons/image';
+	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
 	import { getTranslate } from '@tolgee/svelte';
 	import Progress from '$lib/components/ui/progress/progress.svelte';
 	import * as Dialog from '$lib/components/ui/dialog';
@@ -154,7 +157,7 @@
 						class="relative flex size-8 shrink-0 items-center justify-center overflow-hidden rounded bg-primary/15 text-muted-foreground"
 					>
 						{#if uploadState?.status === 'uploading'}
-							<LoaderCircle class="size-4 shrink-0 animate-spin" />
+							<LoaderCircleIcon class="size-4 shrink-0 animate-spin" />
 						{:else if preview}
 							<img src={preview} alt={filename} class="size-8 rounded object-cover" />
 						{:else if isScreenshot(attachment)}
@@ -177,7 +180,7 @@
 						type="button"
 						aria-label={$t('chat.aria.remove_attachment', { filename })}
 					>
-						<X class="size-4" />
+						<XIcon class="size-4" />
 					</button>
 				{/if}
 
