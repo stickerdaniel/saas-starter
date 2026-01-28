@@ -3,7 +3,7 @@
 	import { api } from '$lib/convex/_generated/api';
 	import { PromptInput, PromptInputTextarea } from '$lib/components/prompt-kit/prompt-input';
 	import { Button } from '$lib/components/ui/button/index.js';
-	import { ArrowUp, Square } from '@lucide/svelte';
+	import ArrowUpIcon from '@lucide/svelte/icons/arrow-up';
 	import { supportThreadContext } from './support-thread-context.svelte';
 	import { getTranslate } from '@tolgee/svelte';
 
@@ -115,7 +115,7 @@
 				disabled={!input.trim() || threadContext.isSending || threadContext.hasPendingToolCalls}
 				aria-label={$t('chat.aria.send')}
 			>
-				<ArrowUp class="size-5" />
+				<ArrowUpIcon class="size-5" />
 			</Button>
 		</PromptInput>
 	</div>

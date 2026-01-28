@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button/index.js';
-	import { MessageSquare, ChevronDown } from '@lucide/svelte';
+	import MessageSquareIcon from '@lucide/svelte/icons/message-square';
+	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import FeedbackWidget from './feedback-widget.svelte';
 	import { on } from 'svelte/events';
 	import type { ChatUIContext } from '$lib/chat';
@@ -52,13 +53,13 @@
 			class="h-12 w-12 rounded-full transition-colors transition-transform duration-200 ease-in-out hover:scale-110 hover:bg-primary active:scale-105"
 		>
 			<div class="relative size-6">
-				<ChevronDown
+				<ChevronDownIcon
 					class="absolute inset-0 size-6 transition-all duration-200 ease-in-out {isFeedbackOpen
 						? 'blur-0 scale-100 opacity-100'
 						: 'scale-0 opacity-0 blur-sm'}"
 				/>
 				<div class="-scale-x-100">
-					<MessageSquare
+					<MessageSquareIcon
 						class="absolute inset-0 size-6 fill-current transition-all duration-200 ease-in-out {isFeedbackOpen
 							? 'scale-0 opacity-0 blur-sm'
 							: 'blur-0 scale-100 opacity-100'}"

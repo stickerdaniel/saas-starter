@@ -2,7 +2,6 @@
 	import { cn } from '$lib/utils';
 	import type { Snippet } from 'svelte';
 	import type { HTMLAttributes } from 'svelte/elements';
-	import Markdown from '../markdown/Markdown.svelte';
 
 	let {
 		markdown = false,
@@ -24,12 +23,9 @@
 </script>
 
 {#if markdown && content}
-	<!-- Markdown rendering can be added here when needed -->
-	<!-- For now, we'll render as plain div -->
-	<!-- <div class={classNames} {...restProps}>
-		{@render children()}
-	</div> -->
-	<Markdown class={classNames} {content}></Markdown>
+	{#await import('../markdown/Markdown.svelte') then { default: Markdown }}
+		<Markdown class={classNames} {content}></Markdown>
+	{/await}
 {:else}
 	<div class={classNames} {...restProps}>
 		{@render children?.()}

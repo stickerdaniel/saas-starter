@@ -4,7 +4,10 @@
 	import { api } from '$lib/convex/_generated/api';
 	import { Button } from '$lib/components/ui/button';
 	import { Avatar, AvatarImage, AvatarFallback } from '$lib/components/ui/avatar';
-	import { Bot, ChevronRight, Send, UsersRound } from '@lucide/svelte';
+	import BotIcon from '@lucide/svelte/icons/bot';
+	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
+	import SendIcon from '@lucide/svelte/icons/send';
+	import UsersRoundIcon from '@lucide/svelte/icons/users-round';
 	import { supportThreadContext } from './support-thread-context.svelte';
 	import AvatarHeading from './avatar-heading.svelte';
 	import { FadeOnLoad } from '$lib/utils/fade-on-load.svelte.js';
@@ -216,7 +219,7 @@
 							>
 								<Avatar class="size-12 bg-primary outline outline-4 outline-secondary">
 									<AvatarFallback class="bg-primary text-primary-foreground">
-										<Bot class="size-8" />
+										<BotIcon class="size-8" />
 									</AvatarFallback>
 								</Avatar>
 							</motion.div>
@@ -296,8 +299,8 @@
 							icon={thread.isHandedOff
 								? thread.assignedAdmin?.image || thread.assignedAdmin?.name
 									? undefined
-									: UsersRound
-								: Bot}
+									: UsersRoundIcon
+								: BotIcon}
 							image={showAdminAvatar ? thread.assignedAdmin?.image : undefined}
 							title={thread.lastMessage || thread.summary || $t('support.thread.new_conversation')}
 							subtitle={`${thread.lastMessageRole === 'user' ? $t('support.message.role_you') : showAdminAvatar ? thread.assignedAdmin?.name || $t('support.message.role_support') : thread.lastAgentName || $t('support.message.role_kai')}\u00A0\u00A0·\u00A0\u00A0${formatRelativeTime(thread.lastMessageAt)}`}
@@ -308,7 +311,7 @@
 						/>
 
 						<!-- Chevron -->
-						<ChevronRight class="size-5 shrink-0 text-muted-foreground" />
+						<ChevronRightIcon class="size-5 shrink-0 text-muted-foreground" />
 					</button>
 				{/each}
 			</div>
@@ -323,7 +326,7 @@
 			size="lg"
 			disabled={ctx.isRateLimited}
 		>
-			<Send />
+			<SendIcon />
 			{$t('support.button.start_new_conversation')}
 		</Button>
 	</div>

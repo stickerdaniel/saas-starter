@@ -8,7 +8,7 @@
 	import { Separator } from '$lib/components/ui/separator';
 	import * as Avatar from '$lib/components/ui/avatar';
 	import { Progress } from '$lib/components/ui/progress';
-	import { CircleCheck } from '@lucide/svelte';
+	import CircleCheckIcon from '@lucide/svelte/icons/circle-check';
 
 	// Demo data
 	const completionPercentage = 75;
@@ -40,7 +40,7 @@
 			<Item.Root>
 				<Item.Header>
 					<Item.Media variant="icon">
-						<CircleCheck />
+						<CircleCheckIcon />
 					</Item.Media>
 					<Item.Content>
 						<Item.Title>ItemTitle</Item.Title>
