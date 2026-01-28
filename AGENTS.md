@@ -210,6 +210,24 @@ ALWAYS run `bun scripts/static-checks.ts` after a full feature implementation.
 
 ### Library Conventions and Key Patterns
 
+#### Import Conventions
+
+**CRITICAL: Avoid Barrel Imports for Performance**
+
+Always use individual imports instead of barrel imports to enable tree-shaking and reduce bundle size:
+
+```typescript
+// ❌ BAD - Barrel import (loads entire library, ~4.5MB for Lucide)
+import { ArrowUp, Camera, X } from '@lucide/svelte';
+
+// ✅ GOOD - Individual imports (only loads what's needed, ~5KB per icon)
+import ArrowUpIcon from '@lucide/svelte/icons/arrow-up';
+import CameraIcon from '@lucide/svelte/icons/camera';
+import XIcon from '@lucide/svelte/icons/x';
+```
+
+This applies to all icon libraries and large component libraries. Individual imports can reduce bundle size by 80-95% through proper tree-shaking.
+
 #### UI Component Conventions
 
 - Always use shadcn-svelte for ui components first. Use btca with `shadcnSvelte` resource.
