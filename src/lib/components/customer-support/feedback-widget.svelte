@@ -15,7 +15,9 @@
 
 	// Import thread navigation components
 	import ThreadsOverview from './threads-overview.svelte';
-	import { Bot, MessagesSquare, UsersRound } from '@lucide/svelte';
+	import BotIcon from '@lucide/svelte/icons/bot';
+	import MessagesSquareIcon from '@lucide/svelte/icons/messages-square';
+	import UsersRoundIcon from '@lucide/svelte/icons/users-round';
 	import { SlidingPanel } from '$lib/components/ui/sliding-panel';
 	import { SlidingHeader } from '$lib/components/ui/sliding-header';
 
@@ -180,8 +182,8 @@
 
 	// Derive title icon based on handoff state
 	const titleIcon = $derived.by(() => {
-		if (!threadContext.isHandedOff) return Bot;
-		if (!assignedAdmin?.image) return UsersRound;
+		if (!threadContext.isHandedOff) return BotIcon;
+		if (!assignedAdmin?.image) return UsersRoundIcon;
 		return undefined;
 	});
 </script>
@@ -195,7 +197,7 @@
 	<!-- Animated header with sliding icon and title -->
 	<SlidingHeader
 		isBackView={threadContext.currentView !== 'overview'}
-		defaultIcon={MessagesSquare}
+		defaultIcon={MessagesSquareIcon}
 		defaultTitle={$t('support.widget.header.messages')}
 		backTitle={threadContext.isHandedOff
 			? assignedAdmin?.name || $t('support.header.support_team')
