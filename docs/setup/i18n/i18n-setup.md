@@ -2,6 +2,54 @@
 
 This project uses **Tolgee** for cloud-hosted translation management with SEO-friendly URL-based localization.
 
+## ⚠️ Tolgee Free Tier Limitations
+
+This template includes **many translation keys that exceed Tolgee Cloud's free tier** (~1000 keys).
+
+**You have two options:**
+
+### Option 1: Delete Unused Keys
+
+Remove translations you don't need via the Tolgee dashboard to stay within the free tier limit.
+
+### Option 2: Self-Host Tolgee (Recommended)
+
+Self-hosting gives you unlimited keys and full control. The easiest way is using **Coolify's one-click deploy**:
+
+1. **Deploy Tolgee** via Coolify's one-click template or Docker:
+   - Coolify: Use the Tolgee service template
+   - Docker: See [Tolgee self-hosting docs](https://tolgee.io/platform/self_hosting/running_with_docker)
+
+2. **Update `.tolgeerc`** with your instance URL:
+
+   ```json
+   {
+   	"apiUrl": "https://tolgee.yourdomain.com",
+   	"format": "JSON_TOLGEE",
+   	"patterns": ["src/**/*.{ts,svelte}"],
+   	"push": {
+   		"filesTemplate": "./src/i18n/{languageTag}.json"
+   	},
+   	"pull": {
+   		"path": "./src/i18n"
+   	}
+   }
+   ```
+
+3. **Update `.env.local`**:
+
+   ```bash
+   VITE_TOLGEE_API_URL=https://tolgee.yourdomain.com
+   VITE_TOLGEE_API_KEY=your_self_hosted_api_key
+   TOLGEE_API_KEY=your_self_hosted_api_key
+   ```
+
+4. **Generate a new API key** in your self-hosted Tolgee instance (Project Settings → API keys)
+
+5. **Update Vercel environment variables** with the new `TOLGEE_API_KEY`
+
+That's it! The deploy script (`scripts/vercel-deploy.ts`) automatically reads from `.tolgeerc`, so no code changes needed.
+
 ## Quick Start
 
 ### 1. Set Up Tolgee Cloud
