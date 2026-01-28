@@ -1,29 +1,49 @@
 <script lang="ts">
 	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
 	import { page } from '$app/state';
-	import posthog from 'posthog-js';
+	import { onMount } from 'svelte';
+	import { getPosthog, onPosthogReady } from '$lib/analytics/posthog';
 
 	const auth = useAuth();
 	const isAuthenticated = $derived(auth.isAuthenticated);
+	let posthogReady = $state(false);
 
-	$effect(() => {
-		// Effect tracks: isAuthenticated, page.data.viewer
+	function markPosthogReady(): void {
+		posthogReady = true;
+	}
+
+	onMount(function onMountPosthogReady() {
+		if (getPosthog()) {
+			markPosthogReady();
+			return;
+		}
+
+		return onPosthogReady(markPosthogReady);
+	});
+
+	function syncPosthogIdentify(): void {
 		const viewer = page.data.viewer;
 
+		if (!posthogReady) return;
+		const posthog = getPosthog();
+		if (!posthog) return;
+
 		if (isAuthenticated && viewer?.email) {
-			// User logged in - identify them in PostHog
 			const properties: Record<string, string> = {
 				email: viewer.email
 			};
 
-			// Add optional properties only if they exist
 			if (viewer.name) properties.name = viewer.name;
 			if (viewer._id) properties.userId = viewer._id;
 
 			posthog.identify(viewer.email, properties);
-		} else if (!isAuthenticated) {
-			// User logged out - reset PostHog to start fresh anonymous session
+			return;
+		}
+
+		if (!isAuthenticated) {
 			posthog.reset();
 		}
-	});
+	}
+
+	$effect(syncPosthogIdentify);
 </script>
