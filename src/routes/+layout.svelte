@@ -1,84 +1,90 @@
 <script lang="ts">
-	import { createSvelteAuthClient, useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
-	import { authClient } from '$lib/auth-client';
-	import { setupAutumn } from '@stickerdaniel/convex-autumn-svelte/sveltekit';
-	import { api } from '$lib/convex/_generated/api';
-	import './layout.css';
-	import { navigating } from '$app/stores';
-	import { invalidate } from '$app/navigation';
+	import { onMount } from 'svelte';
 	import { expoOut } from 'svelte/easing';
 	import { slide } from 'svelte/transition';
-	import SEOHead from '$lib/components/SEOHead.svelte';
-	import PostHogIdentify from '$lib/components/analytics/PostHogIdentify.svelte';
-	import { ModeWatcher } from 'mode-watcher';
-	import { Toaster } from '$lib/components/ui/sonner';
 	import { browser } from '$app/environment';
-	import { useConvexClient } from 'convex-svelte';
-	import { isAnonymousUser } from '$lib/convex/utils/anonymousUser';
-	import * as Tooltip from '$lib/components/ui/tooltip/index.js';
-	import { onMount } from 'svelte';
+	import { invalidate } from '$app/navigation';
+	import { navigating } from '$app/stores';
 	import { env } from '$env/dynamic/public';
+	import { createSvelteAuthClient, useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
+	import { setupAutumn } from '@stickerdaniel/convex-autumn-svelte/sveltekit';
+	import { useConvexClient } from 'convex-svelte';
+	import { ModeWatcher } from 'mode-watcher';
+	import { initPosthog } from '$lib/analytics/posthog';
+	import { authClient } from '$lib/auth-client';
+	import { api } from '$lib/convex/_generated/api';
+	import { isAnonymousUser } from '$lib/convex/utils/anonymousUser';
+	import PostHogIdentify from '$lib/components/analytics/PostHogIdentify.svelte';
+	import SEOHead from '$lib/components/SEOHead.svelte';
+	import { Toaster } from '$lib/components/ui/sonner';
+	import * as Tooltip from '$lib/components/ui/tooltip/index.js';
+	import './layout.css';
 
 	let { children, data } = $props();
 
-	// Deferred PostHog initialization - loads after initial render
-	onMount(() => {
-		const POSTHOG_INIT_DELAY_MS = 100;
-		const ADBLOCK_DETECT_TIMEOUT_MS = 3000;
+	// Deferred PostHog initialization - loads after interaction or idle
+	onMount(function onMountPosthogInit() {
+		const PUBLIC_POSTHOG_API_KEY = env.PUBLIC_POSTHOG_API_KEY;
+		const PUBLIC_POSTHOG_HOST = env.PUBLIC_POSTHOG_HOST;
+		if (!PUBLIC_POSTHOG_API_KEY || !PUBLIC_POSTHOG_HOST) return;
 
-		// Detect if PostHog is blocked by ad-blocker or network issues
-		async function detectAdBlock(host: string): Promise<boolean> {
-			try {
-				const controller = new AbortController();
-				const timeoutId = setTimeout(() => controller.abort(), ADBLOCK_DETECT_TIMEOUT_MS);
+		let initialized = false;
+		let timeoutId: number | null = null;
+		let idleId: number | null = null;
+		const { requestIdleCallback, cancelIdleCallback } = window as Window & {
+			requestIdleCallback?: (callback: IdleRequestCallback, options?: IdleRequestOptions) => number;
+			cancelIdleCallback?: (id: number) => void;
+		};
 
-				await fetch(`${host}/static/array.js`, {
-					method: 'GET',
-					mode: 'no-cors',
-					cache: 'no-store',
-					signal: controller.signal
-				});
+		const interactionEvents: Array<keyof WindowEventMap> = [
+			'pointerdown',
+			'keydown',
+			'scroll',
+			'touchstart'
+		];
 
+		function initOnce(): void {
+			if (initialized) return;
+			initialized = true;
+			initPosthog();
+			cleanup();
+		}
+
+		function onUserInteraction(): void {
+			initOnce();
+		}
+
+		function cleanup(): void {
+			for (const eventName of interactionEvents) {
+				window.removeEventListener(eventName, onUserInteraction);
+			}
+			if (idleId !== null && cancelIdleCallback) {
+				cancelIdleCallback(idleId);
+			}
+			if (timeoutId !== null) {
 				clearTimeout(timeoutId);
-				return false; // Request succeeded = not blocked
-			} catch {
-				return true; // Blocked, timeout, or network error
 			}
 		}
 
-		const timer = setTimeout(async () => {
-			const PUBLIC_POSTHOG_API_KEY = env.PUBLIC_POSTHOG_API_KEY;
-			const PUBLIC_POSTHOG_HOST = env.PUBLIC_POSTHOG_HOST;
+		for (const eventName of interactionEvents) {
+			window.addEventListener(eventName, onUserInteraction, { passive: true, once: true });
+		}
 
-			if (!PUBLIC_POSTHOG_API_KEY || !PUBLIC_POSTHOG_HOST) return;
+		if (requestIdleCallback) {
+			idleId = requestIdleCallback(initOnce, { timeout: 3000 });
+		} else {
+			timeoutId = window.setTimeout(initOnce, 3000);
+		}
 
-			try {
-				// Dynamic import - only loads when needed
-				const posthog = (await import('posthog-js')).default;
-
-				const proxyHost = env.PUBLIC_POSTHOG_PROXY_HOST;
-				const isBlocked = await detectAdBlock(PUBLIC_POSTHOG_HOST);
-				const apiHost = isBlocked ? proxyHost || PUBLIC_POSTHOG_HOST : PUBLIC_POSTHOG_HOST;
-
-				posthog.init(PUBLIC_POSTHOG_API_KEY, {
-					api_host: apiHost,
-					ui_host: 'https://eu.posthog.com',
-					person_profiles: 'identified_only'
-				});
-			} catch (e) {
-				if (import.meta.env.DEV) {
-					console.warn('PostHog initialization failed:', e);
-				}
-			}
-		}, POSTHOG_INIT_DELAY_MS);
-
-		return () => clearTimeout(timer);
+		return cleanup;
 	});
 
 	// Initialize Better Auth client
 	createSvelteAuthClient({
 		authClient,
-		getServerState: () => data.authState
+		getServerState() {
+			return data.authState;
+		}
 	});
 
 	const auth = useAuth();
@@ -86,7 +92,9 @@
 	// Setup Autumn with SSR support and auto-invalidation
 	setupAutumn({
 		convexApi: (api as any).autumn,
-		getServerState: () => data.autumnState,
+		getServerState() {
+			return data.autumnState;
+		},
 		invalidate
 	});
 
@@ -94,7 +102,7 @@
 	const convexClient = useConvexClient();
 	let migrationAttempted = false;
 
-	$effect(() => {
+	$effect(function migrateAnonymousTicketsEffect() {
 		if (!browser || !data.viewer || migrationAttempted) return;
 		if (auth.isLoading || !auth.isAuthenticated) return;
 
@@ -106,10 +114,10 @@
 			.mutation(api.support.migration.migrateAnonymousTickets, {
 				anonymousUserId: anonymousId
 			})
-			.then(() => {
+			.then(function onMigrationSuccess() {
 				localStorage.removeItem('supportUserId');
 			})
-			.catch((err: unknown) => {
+			.catch(function onMigrationError(err: unknown) {
 				console.error('Failed to migrate anonymous tickets:', err);
 				migrationAttempted = false; // Allow retry on next navigation
 			});

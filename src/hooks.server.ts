@@ -7,35 +7,47 @@ import { isSupportedLanguage, DEFAULT_LANGUAGE } from '$lib/i18n/languages';
  * Get JWT token directly from cookies (no createAuth needed)
  * Cookie name depends on whether we're on HTTPS or HTTP
  */
-const getJwtToken = (cookies: Cookies, request: Request) => {
+function getJwtToken(cookies: Cookies, request: Request): string | undefined {
 	const isSecure = new URL(request.url).protocol === 'https:';
 	const cookieName = isSecure ? '__Secure-better-auth.convex_jwt' : 'better-auth.convex_jwt';
 	return cookies.get(cookieName);
-};
+}
 
 /**
  * Decode JWT payload without verification (cookie is already trusted)
  * Used for quick role checks in hooks without waiting for Convex queries
  */
-const decodeJwtPayload = (token: string): { role?: string } | null => {
+function decodeJwtPayload(token: string): { role?: string } | null {
 	try {
 		const payload = token.split('.')[1];
+		if (!payload) return null;
 		return JSON.parse(atob(payload));
 	} catch {
 		return null;
 	}
-};
+}
 
 // Route matchers
-const isSignInPage = (pathname: string) => /^\/[a-z]{2}\/signin$/.test(pathname);
-const isProtectedRoute = (pathname: string) => /^\/[a-z]{2}\/app(\/|$)/.test(pathname);
-const isAdminRoute = (pathname: string) => /^\/[a-z]{2}\/admin(\/|$)/.test(pathname);
-const isEmailsRoute = (pathname: string) => /^\/[a-z]{2}\/emails(\/|$)/.test(pathname);
+function isSignInPage(pathname: string): boolean {
+	return /^\/[a-z]{2}\/signin$/.test(pathname);
+}
+
+function isProtectedRoute(pathname: string): boolean {
+	return /^\/[a-z]{2}\/app(\/|$)/.test(pathname);
+}
+
+function isAdminRoute(pathname: string): boolean {
+	return /^\/[a-z]{2}\/admin(\/|$)/.test(pathname);
+}
+
+function isEmailsRoute(pathname: string): boolean {
+	return /^\/[a-z]{2}\/emails(\/|$)/.test(pathname);
+}
 
 /**
  * Block access to dev-only routes in production
  */
-const handleDevOnlyRoutes: Handle = async ({ event, resolve }) => {
+const handleDevOnlyRoutes: Handle = async function handleDevOnlyRoutes({ event, resolve }) {
 	if (!dev && isEmailsRoute(event.url.pathname)) {
 		return new Response('Not found', { status: 404 });
 	}
@@ -45,7 +57,7 @@ const handleDevOnlyRoutes: Handle = async ({ event, resolve }) => {
 /**
  * Extract authentication token from cookies
  */
-const handleAuth: Handle = async ({ event, resolve }) => {
+const handleAuth: Handle = async function handleAuth({ event, resolve }) {
 	event.locals.token = getJwtToken(event.cookies, event.request);
 	return resolve(event);
 };
@@ -53,7 +65,7 @@ const handleAuth: Handle = async ({ event, resolve }) => {
 /**
  * Handle language detection and redirect to localized URLs
  */
-const handleLanguage: Handle = async ({ event, resolve }) => {
+const handleLanguage: Handle = async function handleLanguage({ event, resolve }) {
 	const pathname = event.url.pathname;
 
 	// Skip API routes (check if path starts with /api)
@@ -63,7 +75,7 @@ const handleLanguage: Handle = async ({ event, resolve }) => {
 
 	// Check if path starts with a supported language code
 	const langMatch = pathname.match(/^\/([a-z]{2})(\/|$)/);
-	const hasLangPrefix = langMatch && isSupportedLanguage(langMatch[1]);
+	const hasLangPrefix = langMatch ? isSupportedLanguage(langMatch[1]) : false;
 
 	// If no language prefix, redirect to add one
 	if (!hasLangPrefix) {
@@ -85,7 +97,8 @@ const handleLanguage: Handle = async ({ event, resolve }) => {
 		}
 
 		// Redirect to language-prefixed URL, preserving query params
-		const newPath = `/${preferredLang}${pathname}${event.url.search}`;
+		const basePath = pathname === '/' ? `/${preferredLang}` : `/${preferredLang}${pathname}`;
+		const newPath = `${basePath}${event.url.search}`;
 		redirect(307, newPath);
 	}
 
@@ -95,7 +108,7 @@ const handleLanguage: Handle = async ({ event, resolve }) => {
 /**
  * Handle auth redirects with language-aware paths
  */
-const authFirstPattern: Handle = async ({ event, resolve }) => {
+const authFirstPattern: Handle = async function authFirstPattern({ event, resolve }) {
 	const authenticated = !!event.locals.token;
 	const pathname = event.url.pathname;
 	const redirectToParam = event.url.searchParams.get('redirectTo');
