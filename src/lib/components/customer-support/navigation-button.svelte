@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button';
-	import { ChevronLeft, X } from '@lucide/svelte';
+	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
+	import XIcon from '@lucide/svelte/icons/x';
 	import { cn } from '$lib/utils';
 	import { getTranslate } from '@tolgee/svelte';
 
@@ -25,8 +26,8 @@
 	{onclick}
 >
 	{#if type === 'back'}
-		<ChevronLeft class="size-5" />
+		<ChevronLeftIcon class="size-5" />
 	{:else}
-		<X class="size-5" />
+		<XIcon class="size-5" />
 	{/if}
 </Button>
