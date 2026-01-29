@@ -12,6 +12,7 @@
 	// Import new chat components
 	import { ChatRoot, ChatMessages, ChatInput, type ChatUIContext } from '$lib/chat';
 	import type { Attachment, DisplayMessage } from '$lib/chat';
+	import { createOptimisticUpdate, type ListMessagesArgs } from '$lib/chat/core/optimistic';
 
 	// Import thread navigation components
 	import ThreadsOverview from './threads-overview.svelte';
@@ -248,17 +249,62 @@
 					onScreenshot={handleScreenshot}
 					onRequestHandoff={handleRequestHandoff}
 					onSend={async (prompt) => {
-						if (!prompt) return;
+						if (!prompt || threadContext.isSending) return;
+
+						const trimmedPrompt = prompt.trim();
+						if (!trimmedPrompt) return;
 
 						// Get uploaded file IDs from context
 						const fileIds = chatUIContext.uploadedFileIds;
+						const attachments = chatUIContext.attachments;
+
+						threadContext.setSending(true);
+						threadContext.setAwaitingStream(true);
 
 						try {
-							threadContext.setAwaitingStream(true);
-							await threadContext.sendMessage(client, prompt, {
-								fileIds: fileIds.length > 0 ? fileIds : undefined,
-								attachments: chatUIContext.attachments
-							});
+							// Ensure thread exists (lazy thread creation)
+							let threadId = threadContext.threadId;
+							if (!threadId) {
+								const result = await client.mutation(api.support.threads.createThread, {
+									userId: threadContext.userId || undefined,
+									pageUrl: typeof window !== 'undefined' ? window.location.href : undefined
+								});
+								threadId = result.threadId;
+								// Update context state (don't call setThread which clears messages)
+								threadContext.threadId = threadId;
+								threadContext.notificationEmail = result.notificationEmail ?? null;
+								threadContext.currentView = 'chat';
+							}
+
+							// Build query args for optimistic update (must match ChatRoot's query exactly)
+							const queryArgs: ListMessagesArgs = {
+								threadId,
+								paginationOpts: { numItems: 50, cursor: null },
+								streamArgs: { kind: 'list' as const, startOrder: 0 }
+							};
+
+							// Send message with optimistic update via Convex's store.setQuery
+							await client.mutation(
+								api.support.messages.sendMessage,
+								{
+									threadId,
+									prompt: trimmedPrompt,
+									userId: threadContext.userId || undefined,
+									fileIds: fileIds.length > 0 ? fileIds : undefined
+								},
+								{
+									optimisticUpdate: createOptimisticUpdate(
+										api.support.messages.listMessages,
+										queryArgs,
+										'user',
+										trimmedPrompt,
+										{ attachments: attachments.length > 0 ? attachments : undefined }
+									)
+								}
+							);
+
+							// Clear attachments after successful send
+							chatUIContext.clearAttachments();
 						} catch (error) {
 							console.error('[handleSend] Error:', error);
 
@@ -279,6 +325,9 @@
 
 							threadContext.setError(null);
 							threadContext.setAwaitingStream(false);
+							// Optimistic update automatically rolled back by Convex
+						} finally {
+							threadContext.setSending(false);
 						}
 					}}
 				/>
