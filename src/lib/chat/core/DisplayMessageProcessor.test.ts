@@ -155,7 +155,6 @@ describe('transformToDisplayMessage', () => {
 			streamTextMap: new Map<number, string>(),
 			streamReasoningMap: new Map<number, string>(),
 			streamStatusMap: new Map<number, string>(),
-			optimisticKeyMap: new Map<string, string>(),
 			streamCache: mockCache
 		};
 	});
@@ -256,19 +255,6 @@ describe('transformToDisplayMessage', () => {
 		expect(result.isStreaming).toBe(false);
 	});
 
-	it('applies optimistic key mapping for render stability', () => {
-		const msg = createMessage({ id: 'real-msg-123' });
-
-		const context: TransformContext = {
-			...baseContext,
-			optimisticKeyMap: new Map([['real-msg-123', 'temp_optimistic-456']])
-		};
-
-		const result = transformToDisplayMessage(msg, context);
-
-		expect(result._renderKey).toBe('temp_optimistic-456');
-	});
-
 	it('updates cache when streaming reasoning is received', () => {
 		const msg = createMessage({ order: 3, stepOrder: 0 });
 
@@ -293,7 +279,7 @@ describe('transformToDisplayMessageSimple', () => {
 			text: 'Simple user message'
 		});
 
-		const result = transformToDisplayMessageSimple(msg, new Map());
+		const result = transformToDisplayMessageSimple(msg);
 
 		expect(result.displayText).toBe('Simple user message');
 		expect(result.isStreaming).toBe(false);
@@ -307,26 +293,17 @@ describe('transformToDisplayMessageSimple', () => {
 			parts: [{ type: 'reasoning', reasoning: 'My thought process' }] as MessagePart[]
 		});
 
-		const result = transformToDisplayMessageSimple(msg, new Map());
+		const result = transformToDisplayMessageSimple(msg);
 
 		expect(result.displayText).toBe('Response');
 		expect(result.displayReasoning).toBe('My thought process');
 		expect(result.hasReasoningStream).toBe(true);
 	});
 
-	it('applies optimistic key mapping', () => {
-		const msg = createMessage({ id: 'real-id' });
-		const keyMap = new Map([['real-id', 'optimistic-id']]);
-
-		const result = transformToDisplayMessageSimple(msg, keyMap);
-
-		expect(result._renderKey).toBe('optimistic-id');
-	});
-
 	it('returns empty reasoning when none exists', () => {
 		const msg = createMessage({ text: 'No reasoning here' });
 
-		const result = transformToDisplayMessageSimple(msg, new Map());
+		const result = transformToDisplayMessageSimple(msg);
 
 		expect(result.displayReasoning).toBe('');
 		expect(result.hasReasoningStream).toBe(false);

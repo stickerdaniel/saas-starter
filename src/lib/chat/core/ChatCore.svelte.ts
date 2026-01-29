@@ -6,15 +6,11 @@
  */
 
 import type { ConvexClient } from 'convex/browser';
-import type {
-	ChatMessage,
-	Attachment,
-	SendMessageOptions,
-	SendMessageResult,
-	ChatConfig
-} from './types.js';
+import type { FunctionReference } from 'convex/server';
+import type { ChatMessage, SendMessageOptions, SendMessageResult, ChatConfig } from './types.js';
 import { DEFAULT_CHAT_CONFIG } from './types.js';
 import { StreamCacheManager } from './StreamProcessor.js';
+import { createOptimisticUpdate, type ListMessagesArgs } from './optimistic.js';
 
 /**
  * API endpoints configuration for ChatCore
@@ -24,6 +20,8 @@ export interface ChatCoreAPI {
 	sendMessage: Parameters<ConvexClient['mutation']>[0];
 	/** Mutation to create a thread */
 	createThread?: Parameters<ConvexClient['mutation']>[0];
+	/** Query to list messages (required for optimistic updates) */
+	listMessages?: FunctionReference<'query'>;
 }
 
 /**
@@ -47,6 +45,8 @@ export interface ChatCoreOptions {
 export class ChatCore {
 	// Thread state
 	threadId = $state<string | null>(null);
+	/** True when user starts a new conversation - enables immediate suggestion display */
+	isNewConversation = $state(false);
 
 	// Messages state
 	messages = $state<ChatMessage[]>([]);
@@ -77,6 +77,7 @@ export class ChatCore {
 
 	constructor(options: ChatCoreOptions) {
 		this.threadId = options.threadId ?? null;
+		this.isNewConversation = this.threadId === null;
 		this.api = options.api;
 		this.config = { ...DEFAULT_CHAT_CONFIG, ...options.config };
 	}
@@ -94,88 +95,17 @@ export class ChatCore {
 		return this.streamingMessages.length > 0;
 	}
 
-	get optimisticMessages(): ChatMessage[] {
-		return this.messages.filter((m) => m.metadata?.optimistic);
-	}
-
 	/**
 	 * Initialize or load a thread
 	 */
 	setThread(threadId: string | null): void {
 		this.threadId = threadId;
+		this.isNewConversation = threadId === null;
 		this.messages = [];
 		this.hasMore = false;
 		this.continueCursor = null;
 		this.error = null;
 		this.streamCache.clear();
-	}
-
-	/**
-	 * Update messages from query result
-	 * Merges with existing messages, deduplicating by ID
-	 * Prefers real messages over optimistic ones
-	 */
-	updateMessages(page: ChatMessage[], isDone: boolean, cursor: string | null): void {
-		// Create a map of existing messages by ID
-		const existingMap = new Map(this.messages.map((m) => [m.id, m]));
-
-		// Create a map of new messages by ID (these override existing)
-		const newMap = new Map(page.map((m) => [m.id, m]));
-
-		// Merge: new messages override existing, keep existing if not in new
-		// Remove optimistic messages if real version exists
-		const merged = new Map<string, ChatMessage>();
-
-		// Add all new messages first (they're authoritative)
-		for (const [id, msg] of newMap) {
-			merged.set(id, msg);
-		}
-
-		// Add existing messages that aren't in new results
-		for (const [id, msg] of existingMap) {
-			if (!merged.has(id)) {
-				// Keep existing message if not optimistic or if no real version exists
-				if (!msg.metadata?.optimistic) {
-					merged.set(id, msg);
-				}
-			}
-		}
-
-		this.messages = Array.from(merged.values());
-		this.hasMore = isDone === false;
-		this.continueCursor = cursor;
-	}
-
-	/**
-	 * Add an optimistic user message
-	 */
-	addOptimisticMessage(content: string, attachments: Attachment[] = []): ChatMessage {
-		const optimisticMessage: ChatMessage = {
-			id: `temp_${crypto.randomUUID()}`,
-			_creationTime: Date.now(),
-			threadId: this.threadId!,
-			role: 'user',
-			message: {
-				role: 'user',
-				content
-			},
-			text: content,
-			status: 'success',
-			order: this.messages.length,
-			tool: false,
-			metadata: { optimistic: true },
-			localAttachments: attachments
-		};
-
-		this.messages = [...this.messages, optimisticMessage];
-		return optimisticMessage;
-	}
-
-	/**
-	 * Remove optimistic message
-	 */
-	removeOptimisticMessage(messageId: string): void {
-		this.messages = this.messages.filter((m) => m.id !== messageId);
 	}
 
 	/**
@@ -232,7 +162,7 @@ export class ChatCore {
 	 *
 	 * This method handles the complete message sending flow:
 	 * - Validation
-	 * - Optimistic updates
+	 * - Optimistic updates via store.setQuery (automatic rollback on failure)
 	 * - Backend mutation
 	 * - Error handling
 	 * - Widget opening (optional)
@@ -249,6 +179,7 @@ export class ChatCore {
 	): Promise<SendMessageResult> {
 		// Validate input
 		if (!prompt.trim() || !this.threadId || this.isSending) {
+			this.setError('Cannot send message yet. Please try again.');
 			throw new Error('Cannot send message: validation failed');
 		}
 
@@ -256,16 +187,34 @@ export class ChatCore {
 		this.setSending(true);
 		this.setAwaitingStream(true);
 
-		// Add optimistic message
-		const optimisticMessage = this.addOptimisticMessage(trimmedPrompt, options?.attachments);
-
 		try {
-			// Send message with optional attachments
-			const result = await client.mutation(this.api.sendMessage, {
-				threadId: this.threadId,
-				prompt: trimmedPrompt,
-				fileIds: options?.fileIds
-			});
+			// Build optimistic update if listMessages query is available
+			const mutationOptions = this.api.listMessages
+				? {
+						optimisticUpdate: createOptimisticUpdate(
+							this.api.listMessages,
+							{
+								threadId: this.threadId,
+								paginationOpts: { numItems: this.config.pageSize, cursor: null },
+								streamArgs: { kind: 'list' as const, startOrder: 0 }
+							} satisfies ListMessagesArgs,
+							'user',
+							trimmedPrompt,
+							{ attachments: options?.attachments }
+						)
+					}
+				: undefined;
+
+			// Send message with optional attachments and optimistic update
+			const result = await client.mutation(
+				this.api.sendMessage,
+				{
+					threadId: this.threadId,
+					prompt: trimmedPrompt,
+					fileIds: options?.fileIds
+				},
+				mutationOptions
+			);
 
 			// Request widget to open if requested
 			if (options?.openWidgetAfter) {
@@ -276,8 +225,8 @@ export class ChatCore {
 		} catch (error) {
 			console.error('[ChatCore.sendMessage] Failed to send message:', error);
 			this.setError('Failed to send message. Please try again.');
-			this.removeOptimisticMessage(optimisticMessage.id);
 			this.setAwaitingStream(false);
+			// Optimistic update automatically rolled back on failure
 			throw error;
 		} finally {
 			this.setSending(false);
@@ -318,6 +267,7 @@ export class ChatCore {
 	 */
 	reset(): void {
 		this.threadId = null;
+		this.isNewConversation = false;
 		this.messages = [];
 		this.isLoading = false;
 		this.isSending = false;

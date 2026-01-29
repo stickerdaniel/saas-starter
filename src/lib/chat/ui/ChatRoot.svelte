@@ -45,7 +45,6 @@
 		isSending: boolean;
 		error: string | null;
 		isAwaitingStream: boolean;
-		optimisticMessages: ChatMessage[];
 		setAwaitingStream: (awaiting: boolean) => void;
 		streamCache: ChatCore['streamCache'];
 	}
@@ -146,60 +145,15 @@
 			: undefined
 	);
 
-	// Build optimistic ID → real message ID mapping for stable render keys
-	// This prevents DOM element destruction when optimistic messages are replaced by real ones
-	const optimisticKeyMap = $derived.by(() => {
-		const messagesData = messagesQuery?.data as MessagesQueryResponse | undefined;
-		const queryMessages = messagesData?.page || [];
-		const optimisticMessages = core.optimisticMessages;
-
-		const map = new Map<string, string>();
-		const matchedOptimisticIds = new Set<string>();
-
-		for (const msg of queryMessages) {
-			const match = optimisticMessages.find(
-				(opt) => !matchedOptimisticIds.has(opt.id) && opt.role === msg.role && opt.text === msg.text
-			);
-			if (match) {
-				// Real message should use optimistic ID as render key
-				map.set(msg.id, match.id);
-				matchedOptimisticIds.add(match.id);
-			}
-		}
-		return map;
-	});
-
-	// Merge query messages with optimistic messages from core
+	// Get messages from query - optimistic updates are handled by Convex's store.setQuery
+	// When a mutation calls createOptimisticUpdate(), the query cache is updated immediately
+	// and automatically reverts if the mutation fails
 	const allMessages = $derived.by(() => {
 		const messagesData = messagesQuery?.data as MessagesQueryResponse | undefined;
 		const queryMessages = messagesData?.page || [];
-		const optimisticMessages = core.optimisticMessages;
 
-		// Normalize message to ensure top-level role exists
-		const messageMap = new Map<string, ChatMessage>();
-
-		// Add query messages first (normalized)
-		for (const msg of queryMessages) {
-			messageMap.set(msg.id, normalizeMessage(msg));
-		}
-
-		// Add optimistic messages that don't have real versions yet (normalized)
-		// Match by text content, not by ID or position
-		for (const msg of optimisticMessages) {
-			// Check if there's a real message with matching text and role
-			const hasRealMatch = queryMessages.some((qm) => qm.role === msg.role && qm.text === msg.text);
-
-			if (hasRealMatch) {
-				continue;
-			}
-
-			// No real match yet, keep the optimistic message
-			if (!messageMap.has(msg.id)) {
-				messageMap.set(msg.id, normalizeMessage(msg));
-			}
-		}
-
-		return Array.from(messageMap.values()).sort((a, b) => a._creationTime - b._creationTime);
+		// Normalize messages to ensure top-level role exists
+		return queryMessages.map((msg) => normalizeMessage(msg));
 	});
 
 	// Process streaming deltas to create display messages
@@ -212,7 +166,7 @@
 
 		// Fast path: no active streams
 		if (streamMessages.length === 0) {
-			return allMessages.map((msg) => transformToDisplayMessageSimple(msg, optimisticKeyMap));
+			return allMessages.map((msg) => transformToDisplayMessageSimple(msg));
 		}
 
 		// Process streams with delta processing
@@ -256,7 +210,6 @@
 			streamTextMap,
 			streamReasoningMap,
 			streamStatusMap,
-			optimisticKeyMap,
 			streamCache: core.streamCache
 		};
 
@@ -266,6 +219,12 @@
 	// Update UI context with display messages
 	$effect(() => {
 		uiContext.setDisplayMessages(displayMessages);
+	});
+
+	// Track when messages query has resolved (prevents suggestion chip flash)
+	const messagesReady = $derived(messagesQuery?.data !== undefined);
+	$effect(() => {
+		uiContext.setMessagesReady(messagesReady);
 	});
 
 	// Check for active streams

@@ -759,3 +759,60 @@ export const getThreadLocale = internalQuery({
 		return extractLocaleFromUrl(supportThread?.pageUrl);
 	}
 });
+
+/**
+ * Internal mutation to delete empty threads (no messages after 24h)
+ *
+ * Called by cron job to clean up threads created during eager thread creation
+ * where the user never sent a message.
+ *
+ * @see src/lib/convex/crons.ts
+ */
+export const deleteEmptyThreads = internalMutation({
+	args: {},
+	returns: v.object({ deleted: v.number() }),
+	handler: async (ctx) => {
+		const cutoffTime = Date.now() - 24 * 60 * 60 * 1000; // 24 hours ago
+
+		// Find threads older than 24h
+		const oldThreads = await ctx.db
+			.query('supportThreads')
+			.withIndex('by_creation_time')
+			.filter((q) => q.lt(q.field('_creationTime'), cutoffTime))
+			.take(100); // Batch to avoid timeout
+
+		let deletedCount = 0;
+
+		for (const supportThread of oldThreads) {
+			// Check if thread has any messages using agent's message API
+			const result = await ctx.runQuery(components.agent.messages.listMessagesByThreadId, {
+				threadId: supportThread.threadId,
+				order: 'asc',
+				paginationOpts: { numItems: 1, cursor: null }
+			});
+
+			if (result.page.length > 0) {
+				// Thread has messages - skip
+				continue;
+			}
+
+			// Delete agent thread first
+			try {
+				await supportAgent.deleteThreadAsync(ctx, { threadId: supportThread.threadId });
+			} catch (error) {
+				console.log(`[deleteEmptyThreads] Failed to delete agent thread: ${String(error)}`);
+				continue; // Skip supportThread deletion - retry next cron run
+			}
+
+			// Delete supportThread record
+			await ctx.db.delete(supportThread._id);
+			deletedCount++;
+		}
+
+		if (deletedCount > 0) {
+			console.log(`[deleteEmptyThreads] Deleted ${deletedCount} empty threads`);
+		}
+
+		return { deleted: deletedCount };
+	}
+});

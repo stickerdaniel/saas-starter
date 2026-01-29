@@ -53,6 +53,9 @@
 	// Get Convex client for mutations
 	const client = useConvexClient();
 
+	// Provide client to thread context for eager thread creation
+	threadContext.setClient(client);
+
 	// Get auth state for user identification
 	const auth = useAuth();
 

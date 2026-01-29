@@ -52,6 +52,9 @@ export class ChatUIContext {
 	/** Processed messages with display fields (set by ChatMessages) */
 	displayMessages = $state<DisplayMessage[]>([]);
 
+	/** Whether the messages query has resolved (prevents suggestion chip flash) */
+	messagesReady = $state(false);
+
 	/** Fade animation state for messages */
 	readonly messagesFade = new FadeOnLoad<DisplayMessage[]>();
 
@@ -147,6 +150,13 @@ export class ChatUIContext {
 				}
 			}
 		}
+	}
+
+	/**
+	 * Set messages ready state (true when query has resolved)
+	 */
+	setMessagesReady(ready: boolean): void {
+		this.messagesReady = ready;
 	}
 
 	/**

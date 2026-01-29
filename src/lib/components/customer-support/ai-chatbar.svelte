@@ -1,10 +1,13 @@
 <script lang="ts">
 	import { useConvexClient } from 'convex-svelte';
+	import { ConvexError } from 'convex/values';
+	import { toast } from 'svelte-sonner';
 	import { api } from '$lib/convex/_generated/api';
 	import { PromptInput, PromptInputTextarea } from '$lib/components/prompt-kit/prompt-input';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import ArrowUpIcon from '@lucide/svelte/icons/arrow-up';
 	import { supportThreadContext } from './support-thread-context.svelte';
+	import { createOptimisticUpdate, type ListMessagesArgs } from '$lib/chat/core/optimistic';
 	import { getTranslate } from '@tolgee/svelte';
 
 	const { t } = getTranslate();
@@ -42,23 +45,71 @@
 	});
 
 	async function handleSubmit() {
-		if (!input.trim()) return;
+		if (!input.trim() || threadContext.isSending) return;
 
-		const prompt = input.trim();
+		const trimmedPrompt = input.trim();
 
 		// Clear input immediately for better UX
 		input = '';
 
-		try {
-			// Always start a new thread from chatbar
-			threadContext.startNewThread();
+		// Start new thread (triggers eager creation)
+		threadContext.startNewThread();
+		threadContext.setSending(true);
+		threadContext.setAwaitingStream(true);
 
-			await threadContext.sendMessage(client, prompt, {
-				openWidgetAfter: true
-			});
+		try {
+			// Wait for thread to be created
+			const threadId = await threadContext.ensureThread(client);
+
+			// Build query args for optimistic update (must match ChatRoot's query exactly)
+			const queryArgs: ListMessagesArgs = {
+				threadId,
+				paginationOpts: { numItems: 50, cursor: null },
+				streamArgs: { kind: 'list' as const, startOrder: 0 }
+			};
+
+			// Send message with optimistic update via Convex's store.setQuery
+			await client.mutation(
+				api.support.messages.sendMessage,
+				{
+					threadId,
+					prompt: trimmedPrompt,
+					userId: threadContext.userId || undefined
+				},
+				{
+					optimisticUpdate: createOptimisticUpdate(
+						api.support.messages.listMessages,
+						queryArgs,
+						'user',
+						trimmedPrompt
+					)
+				}
+			);
+
+			// Open widget after successful send
+			threadContext.requestWidgetOpen();
 		} catch (error) {
-			// Error already handled in sendMessage
-			console.error('[handleSubmit] Error:', error);
+			console.error('[ai-chatbar handleSubmit] Error:', error);
+
+			// Handle rate limit errors with user-friendly toast
+			if (error instanceof ConvexError) {
+				const data = error.data as { code?: string; retryAfter?: number } | undefined;
+				if (data?.code === 'RATE_LIMITED') {
+					const retryAfter = data.retryAfter || 60000;
+					const seconds = Math.ceil(retryAfter / 1000);
+					threadContext.setRateLimited(retryAfter);
+					toast.error($t('support.widget.error.rate_limit', { seconds }));
+				} else {
+					toast.error($t('support.widget.error.send_failed'));
+				}
+			} else {
+				toast.error($t('support.widget.error.send_failed'));
+			}
+
+			threadContext.setAwaitingStream(false);
+			// Optimistic update automatically rolled back by Convex
+		} finally {
+			threadContext.setSending(false);
 		}
 	}
 

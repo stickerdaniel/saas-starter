@@ -1,11 +1,13 @@
 <script lang="ts">
 	import { useConvexClient, useQuery } from 'convex-svelte';
+	import { toast } from 'svelte-sonner';
 	import { api } from '$lib/convex/_generated/api';
 	import ChatRoot from '$lib/chat/ui/ChatRoot.svelte';
 	import ChatMessages from '$lib/chat/ui/ChatMessages.svelte';
 	import ChatInput from '$lib/chat/ui/ChatInput.svelte';
 	import { ChatUIContext, type UploadConfig } from '$lib/chat/ui/ChatContext.svelte';
 	import { ChatCore } from '$lib/chat/core/ChatCore.svelte';
+	import { createOptimisticUpdate, type ListMessagesArgs } from '$lib/chat/core/optimistic';
 	import { Button } from '$lib/components/ui/button';
 	import { Avatar, AvatarFallback, AvatarImage } from '$lib/components/ui/avatar';
 	import { Skeleton } from '$lib/components/ui/skeleton';
@@ -235,17 +237,38 @@
 				// Get uploaded file IDs from context
 				const fileIds = chatUIContext.uploadedFileIds;
 
+				// Build query args for optimistic update (must match ChatRoot's query)
+				const queryArgs: ListMessagesArgs = {
+					threadId,
+					paginationOpts: { numItems: 50, cursor: null },
+					streamArgs: { kind: 'list' as const, startOrder: 0 }
+				};
+
 				try {
-					await client.mutation(api.admin.support.mutations.sendAdminReply, {
-						threadId,
-						prompt,
-						fileIds: fileIds.length > 0 ? fileIds : undefined
-					});
+					await client.mutation(
+						api.admin.support.mutations.sendAdminReply,
+						{
+							threadId,
+							prompt,
+							fileIds: fileIds.length > 0 ? fileIds : undefined
+						},
+						{
+							optimisticUpdate: createOptimisticUpdate(
+								api.support.messages.listMessages,
+								queryArgs,
+								'assistant',
+								prompt,
+								{ metadata: { provider: 'human' } }
+							)
+						}
+					);
 
 					// Clear attachments after successful send
 					chatUIContext.clearAttachments();
 				} catch (error) {
 					console.error('[Admin sendAdminReply] Error:', error);
+					toast.error('Failed to send reply. Please try again.');
+					// Optimistic update automatically rolled back by Convex
 				}
 			}}
 		/>

@@ -120,7 +120,7 @@
 		{:else}
 			<!-- Messages list with fade-in animation on first load -->
 			<div class="px-9 py-20 {ctx.messagesFade.animationClass}">
-				{#each ctx.displayMessages as message, index (message._renderKey ?? message.id)}
+				{#each ctx.displayMessages as message, index (message.id)}
 					<ChatMessage
 						{message}
 						attachments={getAttachments(message)}
