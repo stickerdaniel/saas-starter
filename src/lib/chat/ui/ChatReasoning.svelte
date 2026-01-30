@@ -28,6 +28,6 @@
 <Reasoning {open} {onOpenChange}>
 	<ReasoningTrigger {isStreaming} {hasContent} />
 	{#if content}
-		<ReasoningContent class="opacity-50" {content} />
+		<ReasoningContent class="opacity-50" {content} {isStreaming} />
 	{/if}
 </Reasoning>

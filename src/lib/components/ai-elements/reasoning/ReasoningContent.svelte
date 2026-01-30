@@ -6,11 +6,13 @@
 	interface Props {
 		class?: string;
 		content: string;
+		/** Only animate when actively streaming */
+		isStreaming?: boolean;
 	}
 
-	let { class: className = '', content, ...props }: Props = $props();
+	let { class: className = '', content, isStreaming = false, ...props }: Props = $props();
 </script>
 
 <AccordionContent class={cn('text-sm outline-none', className)} {...props}>
-	<Response {content} animation={{ enabled: true }} class="grid gap-2" />
+	<Response {content} animation={{ enabled: isStreaming }} class="grid gap-2" />
 </AccordionContent>

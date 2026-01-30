@@ -259,10 +259,12 @@
 			// Auto-open when reasoning arrives without response
 			if (hasReasoning && !hasResponse) {
 				uiContext.setReasoningOpen(message.id, true);
+				uiContext.markAutoOpened(message.id);
 			}
-			// Auto-close when response starts
-			else if (hasResponse && uiContext.isReasoningOpen(message.id)) {
+			// Auto-close ONCE when response starts (only for messages we auto-opened)
+			else if (hasResponse && uiContext.wasAutoOpened(message.id)) {
 				uiContext.setReasoningOpen(message.id, false);
+				uiContext.clearAutoOpened(message.id);
 			}
 		});
 	});
