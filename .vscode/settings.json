@@ -1,4 +1,8 @@
 {
 	"npm.packageManager": "bun",
-	"editor.formatOnSave": true
+	"editor.formatOnSave": true,
+	"eslint.validate": ["javascript", "javascriptreact", "typescript", "svelte"],
+	"files.associations": {
+		"*.css": "tailwindcss"
+	}
 }
