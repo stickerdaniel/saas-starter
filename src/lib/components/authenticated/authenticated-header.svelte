@@ -61,7 +61,7 @@
 		<Separator orientation="vertical" class="mr-2 data-[orientation=vertical]:h-4" />
 		<Breadcrumb.Root>
 			<Breadcrumb.List>
-				{#each breadcrumbs as item, index}
+				{#each breadcrumbs as item, index (item.href)}
 					{#if index > 0}
 						<Breadcrumb.Separator class="hidden md:block" />
 					{/if}

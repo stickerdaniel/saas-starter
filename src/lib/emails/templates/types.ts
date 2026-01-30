@@ -19,6 +19,7 @@ export type NewUserSignupNotificationEmailProps = ComponentProps<
 >;
 
 // Helper to make all props required (removes optional defaults)
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 type RequiredProps<T> = {
 	[K in keyof T]-?: T[K];
 };

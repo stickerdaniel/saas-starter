@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { cn } from '$lib/utils';
 	import CircularLoader from './circular-loader.svelte';
 	import ClassicLoader from './classic-loader.svelte';
 	import PulseLoader from './pulse-loader.svelte';

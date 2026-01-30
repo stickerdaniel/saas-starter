@@ -27,7 +27,7 @@
 </script>
 
 <div class={cn('relative', _class)}>
-	{#each { length: layers } as _, index}
+	{#each { length: layers } as _, index (index)}
 		{@const angle = GRADIENT_ANGLES[direction]}
 		{@const gradientStops = [
 			index * segmentSize,

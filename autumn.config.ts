@@ -1,4 +1,4 @@
-import { feature, product, featureItem, pricedFeatureItem, priceItem } from 'atmn';
+import { feature, product, featureItem, priceItem } from 'atmn';
 
 /**
  * Defines single-use message features for billing and usage tracking.

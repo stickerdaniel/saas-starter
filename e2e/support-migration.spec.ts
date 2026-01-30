@@ -79,7 +79,7 @@ test.describe('Support ticket migration', () => {
 	}) => {
 		const credentials = readCredentials();
 		const client = getConvexClient();
-		const { userId: anonymousUserId, threadIds } = credentials.anonymousSupport;
+		const { userId: anonymousUserId, threadIds: _threadIds } = credentials.anonymousSupport;
 
 		if (!anonymousUserId) {
 			throw new Error('anonymousSupport.userId missing from test credentials');
