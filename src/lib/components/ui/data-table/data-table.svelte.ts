@@ -113,6 +113,7 @@ export function mergeObjects<Sources extends readonly MaybeThunk<any>[]>(
 		},
 
 		ownKeys(): (string | symbol)[] {
+			// eslint-disable-next-line svelte/prefer-svelte-reactivity -- local set for deduplication, not reactive state
 			const all = new Set<string | symbol>();
 			for (const s of sources) {
 				const obj = resolve(s);

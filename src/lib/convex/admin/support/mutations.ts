@@ -185,7 +185,7 @@ export const sendAdminReply = adminMutation({
 			messageContent = content;
 		}
 
-		const result = await saveMessage(ctx, components.agent, {
+		const _result = await saveMessage(ctx, components.agent, {
 			threadId: args.threadId,
 			agentName: adminName,
 			message: {

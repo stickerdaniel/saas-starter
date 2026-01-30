@@ -1,5 +1,6 @@
 <script lang="ts">
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
+	import { resolve } from '$app/paths';
 	import type { WithoutChildren } from '$lib/utils.js';
 	import type { ComponentProps } from 'svelte';
 	import type { Icon } from '@tabler/icons-svelte';
@@ -19,7 +20,7 @@
 				<Sidebar.MenuItem>
 					<Sidebar.MenuButton>
 						{#snippet child({ props })}
-							<a href={item.url} {...props}>
+							<a href={resolve(item.url)} {...props}>
 								<item.icon />
 								<span>{item.title}</span>
 							</a>
