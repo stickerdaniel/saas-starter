@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tick } from 'svelte';
 	import { useConvexClient } from 'convex-svelte';
 	import { ConvexError } from 'convex/values';
 	import { toast } from 'svelte-sonner';
@@ -28,6 +29,16 @@
 	// Track delayed feedback open state
 	const delayedFeedbackOpen = $derived(isFeedbackOpen);
 
+	// Local thread tracking - separate from shared context
+	// AI chatbar always creates fresh threads, stored locally until submit
+	// Pending thread is reused if user clears and retypes (no wasted threads)
+	let pendingThreadId = $state<string | null>(null);
+	let threadCreationPromise: Promise<string> | null = null;
+
+	// Query subscription for pre-warming cache (enables optimistic updates)
+	// The onUpdate return type is a function that can be called to unsubscribe
+	let queryUnsubscribe: (() => void) | null = null;
+
 	$effect(() => {
 		mounted = true;
 	});
@@ -36,18 +47,38 @@
 		if (!input.trim() || threadContext.isSending) return;
 
 		const trimmedPrompt = input.trim();
+		console.log(
+			'[AI Chatbar] handleSubmit - Starting message send, pendingThreadId:',
+			pendingThreadId,
+			'threadCreationPromise:',
+			!!threadCreationPromise
+		);
 
-		// Clear input immediately for better UX
-		input = '';
-
-		// Start new thread (triggers eager creation)
-		threadContext.startNewThread();
+		// Set isSending FIRST to prevent handleBlur from deleting the thread
+		// This must happen before clearing input
 		threadContext.setSending(true);
 		threadContext.setAwaitingStream(true);
+		console.log('[AI Chatbar] Set isSending=true to prevent thread deletion on blur');
+
+		// Now safe to clear input and open widget
+		input = '';
+		threadContext.requestWidgetOpen();
+		console.log('[AI Chatbar] Widget open requested');
 
 		try {
-			// Wait for thread to be created
-			const threadId = await threadContext.ensureThread(client);
+			// Wait for pending thread if still creating
+			console.log('[AI Chatbar] Waiting for thread...');
+			const threadId = pendingThreadId || (await threadCreationPromise!);
+			console.log('[AI Chatbar] Thread ready:', threadId);
+
+			// Update shared context (selectThread sets view='chat' + URL sync)
+			console.log('[AI Chatbar] Selecting thread in shared context:', threadId);
+			threadContext.selectThread(threadId);
+
+			// Force Svelte to re-render so ChatRoot subscribes before mutation
+			console.log('[AI Chatbar] Waiting for tick() to ensure ChatRoot subscribes');
+			await tick();
+			console.log('[AI Chatbar] tick() completed, ChatRoot should be subscribed');
 
 			// Build query args for optimistic update (must match ChatRoot's query exactly)
 			const queryArgs: ListMessagesArgs = {
@@ -55,8 +86,10 @@
 				paginationOpts: { numItems: 50, cursor: null },
 				streamArgs: { kind: 'list' as const, startOrder: 0 }
 			};
+			console.log('[AI Chatbar] Preparing optimistic update with args:', queryArgs);
 
-			// Send message with optimistic update via Convex's store.setQuery
+			// Send message with Convex's built-in optimistic update
+			console.log('[AI Chatbar] Sending message with optimistic update...');
 			await client.mutation(
 				api.support.messages.sendMessage,
 				{
@@ -73,11 +106,23 @@
 					)
 				}
 			);
+			console.log('[AI Chatbar] Message sent successfully with optimistic update');
 
-			// Open widget after successful send
-			threadContext.requestWidgetOpen();
+			// Reset local state for next fresh thread
+			console.log('[AI Chatbar] Resetting local thread state');
+			pendingThreadId = null;
+			threadCreationPromise = null;
+
+			// Cleanup query subscription after ChatRoot takes over (delayed to let ChatRoot subscribe first)
+			setTimeout(() => {
+				if (queryUnsubscribe) {
+					console.log('[AI Chatbar] Cleaning up pre-subscribe query');
+					queryUnsubscribe();
+					queryUnsubscribe = null;
+				}
+			}, 500);
 		} catch (error) {
-			console.error('[ai-chatbar handleSubmit] Error:', error);
+			console.error('[AI Chatbar] handleSubmit Error:', error);
 
 			// Handle rate limit errors with user-friendly toast
 			if (error instanceof ConvexError) {
@@ -98,19 +143,78 @@
 			// Optimistic update automatically rolled back by Convex
 		} finally {
 			threadContext.setSending(false);
+			console.log('[AI Chatbar] Set isSending=false, submit complete');
 		}
 	}
 
 	function handleValueChange(value: string) {
 		input = value;
+
+		// Create pending thread on first keystroke (or reuse existing pending thread)
+		// Always creates fresh thread locally - ignores any existing context thread
+		if (value.trim() && !pendingThreadId && !threadCreationPromise) {
+			console.log('[AI Chatbar] Eager thread creation started on first keystroke');
+			console.log(
+				'[AI Chatbar] Current state - pendingThreadId:',
+				pendingThreadId,
+				'threadCreationPromise:',
+				!!threadCreationPromise
+			);
+
+			threadCreationPromise = client
+				.mutation(api.support.threads.createThread, {
+					userId: threadContext.userId || undefined,
+					pageUrl: typeof window !== 'undefined' ? window.location.href : undefined
+				})
+				.then((result) => {
+					console.log('[AI Chatbar] Thread created successfully:', result.threadId);
+					pendingThreadId = result.threadId;
+
+					// Pre-subscribe to messages query so it's cached by submit time
+					// This ensures optimistic update finds the query in cache
+					const preSubscribeArgs = {
+						threadId: result.threadId,
+						paginationOpts: { numItems: 50, cursor: null },
+						streamArgs: { kind: 'list' as const, startOrder: 0 }
+					};
+					console.log('[AI Chatbar] Pre-subscribing to messages query for:', result.threadId);
+					queryUnsubscribe = client.onUpdate(
+						api.support.messages.listMessages,
+						preSubscribeArgs,
+						() => {
+							console.log('[AI Chatbar] Query cache warmed for:', result.threadId);
+						}
+					);
+
+					return result.threadId;
+				})
+				.catch((error) => {
+					console.error('[AI Chatbar] Thread creation failed:', error);
+					throw error;
+				});
+		}
 	}
 
 	function handleFocus() {
 		isFocused = true;
+		console.log(
+			'[AI Chatbar] handleFocus - input focused, pendingThreadId:',
+			pendingThreadId,
+			'threadCreationPromise:',
+			!!threadCreationPromise
+		);
 	}
 
 	function handleBlur() {
 		isFocused = false;
+		console.log(
+			'[AI Chatbar] handleBlur - pendingThreadId:',
+			pendingThreadId,
+			'isSending:',
+			threadContext.isSending
+		);
+		// Don't delete pending thread on blur - automatic cleanup handles unused threads
+		// Query subscription stays active for faster optimistic updates on re-focus
 	}
 </script>
 
