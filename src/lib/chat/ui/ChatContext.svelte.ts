@@ -6,7 +6,7 @@
  */
 
 import { getContext, setContext, untrack } from 'svelte';
-import { SvelteMap } from 'svelte/reactivity';
+import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 import { toast } from 'svelte-sonner';
 import type { ConvexClient } from 'convex/browser';
 import type { ChatCore } from '../core/ChatCore.svelte.js';
@@ -49,6 +49,9 @@ export class ChatUIContext {
 
 	/** UI state: which reasoning accordions are open */
 	reasoningOpenState = $state(new SvelteMap<string, boolean>());
+
+	/** Tracks messages that have been auto-opened (for auto-close logic) */
+	autoOpenedMessages = $state(new SvelteSet<string>());
 
 	/** Processed messages with display fields (set by ChatMessages) */
 	displayMessages = $state<DisplayMessage[]>([]);
@@ -117,6 +120,27 @@ export class ChatUIContext {
 	toggleReasoning(messageId: string): void {
 		const current = this.reasoningOpenState.get(messageId) ?? false;
 		this.reasoningOpenState.set(messageId, !current);
+	}
+
+	/**
+	 * Check if a message was auto-opened (for auto-close logic)
+	 */
+	wasAutoOpened(messageId: string): boolean {
+		return this.autoOpenedMessages.has(messageId);
+	}
+
+	/**
+	 * Mark a message as having been auto-opened
+	 */
+	markAutoOpened(messageId: string): void {
+		this.autoOpenedMessages.add(messageId);
+	}
+
+	/**
+	 * Clear auto-opened tracking for a message (after auto-close)
+	 */
+	clearAutoOpened(messageId: string): void {
+		this.autoOpenedMessages.delete(messageId);
 	}
 
 	/**
