@@ -19,7 +19,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { ArrowDown } from '@lucide/svelte';
 	import { stickToBottomContext } from './stick-to-bottom-context.svelte.js';
-	import { fade, fly, scale } from 'svelte/transition';
+	import { fly } from 'svelte/transition';
 	import { backOut } from 'svelte/easing';
 
 	let { class: className, onclick, ...restProps }: ConversationScrollButtonProps = $props();

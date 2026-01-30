@@ -194,7 +194,7 @@
 				: 'animate-in fade-in-0'}"
 		>
 			<div class="flex flex-wrap gap-2">
-				{#each suggestions as suggestion}
+				{#each suggestions as suggestion (suggestion.text)}
 					<PromptSuggestion onclick={() => handleSuggestionClick(suggestion.text)}>
 						{suggestion.label}
 					</PromptSuggestion>

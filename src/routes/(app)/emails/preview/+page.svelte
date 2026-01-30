@@ -27,7 +27,7 @@
 	<h1 class="mb-4 text-2xl font-bold">Email Template Preview</h1>
 
 	<div class="mb-4 flex gap-2">
-		{#each templates as template}
+		{#each templates as template (template)}
 			<button
 				class="rounded px-4 py-2 transition-colors {selectedTemplate === template
 					? 'bg-primary text-primary-foreground'

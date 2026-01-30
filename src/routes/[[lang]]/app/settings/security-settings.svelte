@@ -37,7 +37,7 @@
 			} else {
 				passkeys = data ?? [];
 			}
-		} catch (err) {
+		} catch {
 			error = 'auth.messages.passkey_load_failed';
 		} finally {
 			isLoading = false;
@@ -61,7 +61,7 @@
 				newPasskeyName = '';
 				await loadPasskeys();
 			}
-		} catch (err) {
+		} catch {
 			error = 'auth.messages.passkey_add_failed';
 			toast.error($t(error));
 		} finally {
@@ -79,7 +79,7 @@
 				toast.success($t('auth.messages.passkey_deleted'));
 				await loadPasskeys();
 			}
-		} catch (err) {
+		} catch {
 			toast.error($t('auth.messages.passkey_delete_failed'));
 		}
 	}

@@ -12,7 +12,6 @@ import type { UIMessage } from '@convex-dev/agent';
 import type { StreamDelta, StreamMessage, MessageStatus } from '@convex-dev/agent/validators';
 import type {
 	ChatMessage,
-	DisplayMessage,
 	MessagePart,
 	ReasoningUIPart,
 	TextUIPart,

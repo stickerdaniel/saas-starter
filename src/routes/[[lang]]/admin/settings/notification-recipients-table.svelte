@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { getCoreRowModel, type RowSelectionState } from '@tanstack/table-core';
+	import { SvelteMap } from 'svelte/reactivity';
 	import * as Table from '$lib/components/ui/table/index.js';
 	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
 	import { Checkbox } from '$lib/components/ui/checkbox/index.js';
@@ -16,7 +17,7 @@
 	import DataTableFilters from './data-table-filters.svelte';
 	import { ConfirmDeleteDialog } from '$lib/components/ui/confirm-delete-dialog';
 
-	const { t } = getTranslate();
+	const _t = getTranslate();
 	const client = useConvexClient();
 
 	// Query for notification recipients
@@ -26,7 +27,7 @@
 	);
 
 	// Track pending updates for optimistic UI
-	let pendingUpdates = $state<Map<string, Record<string, boolean>>>(new Map());
+	let pendingUpdates = new SvelteMap<string, Record<string, boolean>>();
 
 	// Filter state
 	let typeFilter = $state<'all' | 'admin' | 'custom'>('all');
@@ -70,7 +71,6 @@
 		// Optimistic update
 		const existing = pendingUpdates.get(email) ?? {};
 		pendingUpdates.set(email, { ...existing, [field]: newValue });
-		pendingUpdates = new Map(pendingUpdates);
 
 		try {
 			await client.mutation(api.admin.notificationPreferences.mutations.updatePreference, {
@@ -79,7 +79,7 @@
 				value: newValue
 			});
 		} catch (error) {
-			// Revert optimistic update
+			// Revert optimistic update - SvelteMap is reactive, so mutations trigger updates
 			const current = pendingUpdates.get(email);
 			if (current) {
 				delete current[field];
@@ -87,7 +87,6 @@
 					pendingUpdates.delete(email);
 				}
 			}
-			pendingUpdates = new Map(pendingUpdates);
 			throw error;
 		}
 	}

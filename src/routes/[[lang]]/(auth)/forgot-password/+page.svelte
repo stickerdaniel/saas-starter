@@ -12,6 +12,7 @@
 	} from '$lib/components/ui/field/index.js';
 	import { authClient } from '$lib/auth-client.js';
 	import { localizedHref } from '$lib/utils/i18n';
+	import { resolve } from '$app/paths';
 	import { T, getTranslate } from '@tolgee/svelte';
 	import { forgotPasswordSchema } from './schema.js';
 	import { authFlow } from '$lib/hooks/auth-flow.svelte';
@@ -152,7 +153,7 @@
 							</Button>
 						</Field>
 						<FieldDescription class="text-center">
-							<a href={localizedHref('/signin')} class="underline underline-offset-4">
+							<a href={resolve(localizedHref('/signin'))} class="underline underline-offset-4">
 								<T keyName="auth.forgot_password.back_to_signin" defaultValue="Back to sign in" />
 							</a>
 						</FieldDescription>
@@ -169,14 +170,14 @@
 		</Card.Root>
 		<FieldDescription class="px-6 text-center">
 			<T keyName="auth.terms.agreement" defaultValue="By clicking continue, you agree to our" />
-			<a href={localizedHref('/terms')} class="underline underline-offset-4"
+			<a href={resolve(localizedHref('/terms'))} class="underline underline-offset-4"
 				><T keyName="auth.terms.terms_of_service" defaultValue="Terms of Service" /></a
 			>
 			<T keyName="auth.terms.and" defaultValue="and" />
-			<a href={localizedHref('/privacy')} class="underline underline-offset-4"
+			<a href={resolve(localizedHref('/privacy'))} class="underline underline-offset-4"
 				><T keyName="auth.terms.privacy_policy" defaultValue="Privacy Policy" /></a
 			>.
-			<a href={localizedHref('/')} class="underline underline-offset-4"
+			<a href={resolve(localizedHref('/'))} class="underline underline-offset-4"
 				><T keyName="auth.back_to_home" defaultValue="Back to home" /></a
 			>
 		</FieldDescription>

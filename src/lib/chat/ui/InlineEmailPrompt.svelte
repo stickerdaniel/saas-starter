@@ -45,7 +45,7 @@
 	const hasChanges = $derived(email.trim() !== (currentEmail || ''));
 
 	// Is user currently subscribed (saved email exists and matches current input)
-	const isSubscribed = $derived(!!currentEmail && currentEmail === email.trim());
+	const _isSubscribed = $derived(!!currentEmail && currentEmail === email.trim());
 
 	// Can subscribe: valid email AND email has changed from saved value
 	const canSubscribe = $derived(isValidEmail && hasChanges);
@@ -57,7 +57,7 @@
 		try {
 			await onSubmitEmail(email.trim());
 			toast.success($t('chat.email.saved_success'));
-		} catch (error) {
+		} catch {
 			toast.error($t('chat.email.save_failed'));
 		} finally {
 			isSubmitting = false;
@@ -72,7 +72,7 @@
 			email = '';
 			await onSubmitEmail('');
 			toast.success($t('chat.email.unsubscribed'));
-		} catch (error) {
+		} catch {
 			toast.error($t('chat.email.unsubscribe_failed'));
 		} finally {
 			isSubmitting = false;

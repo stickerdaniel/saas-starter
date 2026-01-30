@@ -1,4 +1,5 @@
 <script lang="ts">
+	/* eslint-disable svelte/no-navigation-without-resolve -- Query-string-only hrefs don't need resolve() */
 	import * as v from 'valibot';
 	import { authClient } from '$lib/auth-client';
 	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
@@ -19,6 +20,7 @@
 	import { authParamsSchema } from '$lib/schemas/auth.js';
 	import { PASSWORD_MIN_LENGTH, signInSchema, signUpSchema } from './schema.js';
 	import { localizedHref } from '$lib/utils/i18n';
+	import { resolve } from '$app/paths';
 	import { T, getTranslate } from '@tolgee/svelte';
 	import KeyIcon from '@lucide/svelte/icons/key-round';
 	import { authFlow } from '$lib/hooks/auth-flow.svelte';
@@ -317,7 +319,7 @@
 										><T keyName="auth.signin.password_label" /></FieldLabel
 									>
 									<a
-										href={localizedHref('/forgot-password')}
+										href={resolve(localizedHref('/forgot-password'))}
 										class="ms-auto text-sm text-muted-foreground underline-offset-2 hover:underline"
 									>
 										<T keyName="auth.signin.forgot_password" />
@@ -538,14 +540,14 @@
 		</Card.Root>
 		<FieldDescription class="px-6 text-center">
 			<T keyName="auth.terms.agreement" defaultValue="By clicking continue, you agree to our" />
-			<a href={localizedHref('/terms')} class="underline underline-offset-4"
+			<a href={resolve(localizedHref('/terms'))} class="underline underline-offset-4"
 				><T keyName="auth.terms.terms_of_service" defaultValue="Terms of Service" /></a
 			>
 			<T keyName="auth.terms.and" defaultValue="and" />
-			<a href={localizedHref('/privacy')} class="underline underline-offset-4"
+			<a href={resolve(localizedHref('/privacy'))} class="underline underline-offset-4"
 				><T keyName="auth.terms.privacy_policy" defaultValue="Privacy Policy" /></a
 			>.
-			<a href={localizedHref('/')} class="underline underline-offset-4"
+			<a href={resolve(localizedHref('/'))} class="underline underline-offset-4"
 				><T keyName="auth.back_to_home" defaultValue="Back to home" /></a
 			>
 		</FieldDescription>

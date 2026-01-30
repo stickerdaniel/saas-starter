@@ -22,7 +22,7 @@
 </script>
 
 <div class={cn('flex', containerSizes[size], className)}>
-	{#each Array(3) as _, i}
+	{#each Array(3) as _, i (i)}
 		<!-- svelte-ignore element_invalid_self_closing_tag -->
 		<div
 			class={cn('h-full animate-[wave-bars_1.2s_ease-in-out_infinite] bg-primary', barWidths[size])}

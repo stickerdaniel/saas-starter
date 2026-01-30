@@ -17,7 +17,6 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 	// Validate language parameter
 	if (!isSupportedLanguage(lang)) {
 		const message = `Language '${String(lang)}' is not supported`;
-		// eslint-disable-next-line @typescript-eslint/only-throw-error
 		throw error(404, message);
 	}
 

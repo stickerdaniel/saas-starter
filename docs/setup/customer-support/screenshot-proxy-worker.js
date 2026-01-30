@@ -118,7 +118,7 @@ async function handleRequest(request) {
 	let target;
 	try {
 		target = new URL(targetUrl);
-	} catch (error) {
+	} catch {
 		return new Response('Invalid URL format', {
 			status: 400,
 			headers: getCorsHeaders(request)
@@ -199,7 +199,8 @@ function handleOptions(request) {
 // ====================================
 
 export default {
-	async fetch(request, env, ctx) {
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
+	async fetch(request, _env, _ctx) {
 		// Handle OPTIONS request (CORS preflight)
 		if (request.method === 'OPTIONS') {
 			return handleOptions(request);

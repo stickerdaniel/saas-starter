@@ -120,7 +120,6 @@ describe('resolveReasoning', () => {
 		});
 
 		expect(result.displayReasoning).toBe('');
-		// eslint-disable-next-line @typescript-eslint/unbound-method
 		expect(vi.mocked(cacheWithData.getCachedReasoning)).not.toHaveBeenCalled();
 	});
 
@@ -267,7 +266,6 @@ describe('transformToDisplayMessage', () => {
 
 		transformToDisplayMessage(msg, context);
 
-		// eslint-disable-next-line @typescript-eslint/unbound-method
 		expect(vi.mocked(mockCache.updateReasoningCache)).toHaveBeenCalledWith(3, 'Thinking...');
 	});
 });

@@ -6,6 +6,7 @@
  */
 
 import { getContext, setContext, untrack } from 'svelte';
+import { SvelteMap } from 'svelte/reactivity';
 import { toast } from 'svelte-sonner';
 import type { ConvexClient } from 'convex/browser';
 import type { ChatCore } from '../core/ChatCore.svelte.js';
@@ -47,7 +48,7 @@ export class ChatUIContext {
 	readonly userAlignment: ChatAlignment;
 
 	/** UI state: which reasoning accordions are open */
-	reasoningOpenState = $state<Map<string, boolean>>(new Map());
+	reasoningOpenState = $state(new SvelteMap<string, boolean>());
 
 	/** Processed messages with display fields (set by ChatMessages) */
 	displayMessages = $state<DisplayMessage[]>([]);
@@ -64,7 +65,8 @@ export class ChatUIContext {
 	/** Attachments for current message - keyed by unique ID for progress updates */
 	attachments = $state<Attachment[]>([]);
 
-	/** Internal map for tracking attachment keys (for progress updates) */
+	/** Internal map for tracking attachment keys (for progress updates) - not reactive, internal only */
+	// eslint-disable-next-line svelte/prefer-svelte-reactivity -- internal tracking map, not reactive state
 	private attachmentKeys = new Map<number, string>();
 	private nextAttachmentIndex = 0;
 

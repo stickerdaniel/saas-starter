@@ -5,8 +5,7 @@
 	import {
 		AttachmentsContext,
 		attachmentsContext,
-		type PromptInputMessage,
-		type FileUIPart
+		type PromptInputMessage
 	} from './attachments-context.svelte.js';
 
 	interface Props {
@@ -155,7 +154,7 @@
 		let text = (formData.get('message') as string) || '';
 
 		// Convert blob URLs to data URLs asynchronously
-		let filesPromises = attachments.files.map(async ({ id, ...item }) => {
+		let filesPromises = attachments.files.map(async ({ id: _id, ...item }) => {
 			if (item.url && item.url.startsWith('blob:')) {
 				return {
 					...item,

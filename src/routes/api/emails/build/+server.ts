@@ -14,7 +14,7 @@ import type { RequestHandler } from './$types';
 import { renderer } from '$lib/emails/renderer';
 import { getEmailComponent } from 'better-svelte-email/preview';
 import { toPlainText } from 'better-svelte-email/render';
-import { EMAIL_TEMPLATES, getTemplatesForRendering } from '$lib/emails/templates/registry';
+import { getTemplatesForRendering } from '$lib/emails/templates/registry';
 
 const TEMPLATES_PATH = '/src/lib/emails/templates';
 

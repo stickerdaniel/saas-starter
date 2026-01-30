@@ -22,26 +22,14 @@
 	// Get Convex client for mutations
 	const client = useConvexClient();
 
+	// eslint-disable-next-line svelte/prefer-writable-derived -- mounted needs to be set after hydration via effect
 	let mounted = $state(false);
-	let delayedFeedbackOpen = $state(false);
+
+	// Track delayed feedback open state
+	const delayedFeedbackOpen = $derived(isFeedbackOpen);
 
 	$effect(() => {
 		mounted = true;
-	});
-
-	$effect(() => {
-		if (isFeedbackOpen) {
-			delayedFeedbackOpen = true;
-			return;
-		}
-
-		const timer = setTimeout(() => {
-			delayedFeedbackOpen = false;
-		}, 300);
-
-		return () => {
-			clearTimeout(timer);
-		};
 	});
 
 	async function handleSubmit() {

@@ -182,9 +182,12 @@
 			allDeltas
 		);
 
-		// Build streaming data maps
+		// Build streaming data maps - local processing, not reactive state
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- local data processing
 		const streamTextMap = new Map<number, string>();
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- local data processing
 		const streamReasoningMap = new Map<number, string>();
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- local data processing
 		const streamStatusMap = new Map<number, string>();
 
 		streamMessages.forEach((streamMsg) => {
