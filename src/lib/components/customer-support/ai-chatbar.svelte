@@ -220,47 +220,50 @@
 
 <!-- Glow container with group hover/focus behavior -->
 <div
-	class="group ai-chatbar fixed bottom-5 left-1/2 z-[100] w-full -translate-x-1/2 pr-19 pl-5 md:mb-0 md:p-0 {!mounted ||
+	class="ai-chatbar fixed bottom-5 left-1/2 z-[100] w-full -translate-x-1/2 pr-19 pl-5 md:mb-0 md:p-0 {!mounted ||
 	delayedFeedbackOpen
 		? 'fade-out'
 		: ''}"
 >
 	<div
-		class="relative mx-auto transition-all duration-300 ease-in-out {isFocused
+		class="group relative mx-auto transition-all duration-300 ease-in-out {isFocused
 			? 'max-w-[430px]'
 			: 'max-w-[280px]'}"
 	>
-		<!-- Gradient glow layers (behind) -->
+		<!-- Gradient glow layers (behind) - not affected by fade animation -->
 		<div class="ai-gradient-wrapper-glow pointer-events-none rounded-3xl"></div>
 		<div class="ai-gradient-wrapper pointer-events-none rounded-3xl"></div>
-		<!-- Pill background layer -->
+		<!-- Pill background layer - outside content wrapper to stay aligned with gradients -->
 		<div class="ai-pill-bg pointer-events-none rounded-3xl"></div>
 
-		<PromptInput
-			value={input}
-			onValueChange={handleValueChange}
-			isLoading={threadContext.isSending}
-			onSubmit={handleSubmit}
-			class="relative z-[1] mb-1 flex w-full flex-row items-center border-0 bg-transparent !p-1 shadow-none"
-		>
-			<PromptInputTextarea
-				class="!h-auto !min-h-auto rounded-3xl bg-transparent !py-0 "
-				placeholder={$t('support.chatbar.placeholder')}
-				onfocus={handleFocus}
-				onblur={handleBlur}
-			/>
-
-			<Button
-				variant="secondary"
-				size="icon"
-				class="h-8 w-8 rounded-full text-muted-foreground"
-				onclick={handleSubmit}
-				disabled={!input.trim() || threadContext.isSending || threadContext.hasPendingToolCalls}
-				aria-label={$t('chat.aria.send')}
+		<!-- Content wrapper with separate opacity animation -->
+		<div class="ai-chatbar-content">
+			<PromptInput
+				value={input}
+				onValueChange={handleValueChange}
+				isLoading={threadContext.isSending}
+				onSubmit={handleSubmit}
+				class="relative z-[1] mb-1 flex w-full flex-row items-center border-0 bg-transparent !p-1 shadow-none"
 			>
-				<ArrowUpIcon class="size-5" />
-			</Button>
-		</PromptInput>
+				<PromptInputTextarea
+					class="!h-auto !min-h-auto rounded-3xl bg-transparent !py-0 "
+					placeholder={$t('support.chatbar.placeholder')}
+					onfocus={handleFocus}
+					onblur={handleBlur}
+				/>
+
+				<Button
+					variant="secondary"
+					size="icon"
+					class="h-8 w-8 rounded-full text-muted-foreground"
+					onclick={handleSubmit}
+					disabled={!input.trim() || threadContext.isSending || threadContext.hasPendingToolCalls}
+					aria-label={$t('chat.aria.send')}
+				>
+					<ArrowUpIcon class="size-5" />
+				</Button>
+			</PromptInput>
+		</div>
 	</div>
 </div>
 
@@ -270,7 +273,9 @@
 		position: absolute;
 		inset: -2px;
 		overflow: hidden;
-		transition: inset 0.2s ease-in-out;
+		transition:
+			inset 0.2s ease-in-out,
+			opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 	}
 	:global(.ai-gradient-wrapper-glow) {
 		filter: blur(15px);
@@ -321,19 +326,31 @@
 		background-color: rgba(80, 80, 80, 0.68);
 		backdrop-filter: blur(24px);
 	}
-	/* Base transition for smooth state changes */
+	/* Base transition for smooth state changes - transform only on container */
 	:global(.ai-chatbar) {
-		transition:
-			opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1),
-			transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+		transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+	}
+	/* Content wrapper handles opacity animation separately from gradient */
+	:global(.ai-chatbar-content) {
+		position: relative;
+		z-index: 1;
+		transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+	}
+	/* Pill bg needs opacity transition for fade */
+	:global(.ai-pill-bg) {
+		transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 	}
 	/* Hidden state, applied when feedback widget is open or before mount */
 	:global(.ai-chatbar.fade-out) {
-		opacity: 0;
 		transform: translateY(20px);
-		transition:
-			opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1),
-			transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+		transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+	}
+	:global(.ai-chatbar.fade-out .ai-chatbar-content),
+	:global(.ai-chatbar.fade-out .ai-pill-bg),
+	:global(.ai-chatbar.fade-out .ai-gradient-wrapper),
+	:global(.ai-chatbar.fade-out .ai-gradient-wrapper-glow) {
+		opacity: 0;
+		transition: opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 	}
 	@keyframes border-spin {
 		0% {

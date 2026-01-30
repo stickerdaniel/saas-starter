@@ -234,8 +234,9 @@
 			onSend={async (prompt) => {
 				if (!prompt) return;
 
-				// Get uploaded file IDs from context
+				// Get uploaded file IDs and attachments from context
 				const fileIds = chatUIContext.uploadedFileIds;
+				const attachments = chatUIContext.attachments;
 
 				// Build query args for optimistic update (must match ChatRoot's query)
 				const queryArgs: ListMessagesArgs = {
@@ -258,7 +259,10 @@
 								queryArgs,
 								'assistant',
 								prompt,
-								{ metadata: { provider: 'human' } }
+								{
+									metadata: { provider: 'human' },
+									attachments: attachments.length > 0 ? attachments : undefined
+								}
 							)
 						}
 					);
