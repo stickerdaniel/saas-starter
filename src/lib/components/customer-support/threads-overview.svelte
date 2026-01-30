@@ -31,7 +31,8 @@
 			: undefined
 	);
 
-	const threads = $derived(threadsQuery?.data?.page ?? []);
+	// Filter out threads with no messages (e.g., eagerly created but never used threads)
+	const threads = $derived((threadsQuery?.data?.page ?? []).filter((t) => t.lastMessage));
 	const isLoading = $derived(threadsQuery?.isLoading ?? !ctx.userId);
 
 	// Query admin avatars for the welcome screen

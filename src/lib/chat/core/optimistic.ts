@@ -72,8 +72,17 @@ export function createOptimisticMessage(
 	order: number,
 	options?: OptimisticMessageOptions
 ): ChatMessage {
+	const messageId = `temp_${crypto.randomUUID()}`;
+	console.log('[Optimistic] Creating optimistic message:', {
+		id: messageId,
+		threadId,
+		role,
+		content: content.substring(0, 50),
+		order
+	});
+
 	return {
-		id: `temp_${crypto.randomUUID()}`,
+		id: messageId,
 		_creationTime: Date.now(),
 		threadId,
 		role,
@@ -143,19 +152,34 @@ export function createOptimisticUpdate(
 	prompt: string,
 	options?: OptimisticMessageOptions
 ): (store: OptimisticLocalStore) => void {
+	console.log(
+		'[Optimistic] createOptimisticUpdate - preparing callback for threadId:',
+		queryArgs.threadId
+	);
+
 	return (store: OptimisticLocalStore) => {
+		console.log(
+			'[Optimistic] Optimistic callback invoked, querying store for:',
+			queryArgs.threadId
+		);
+
 		const current = store.getQuery(listMessagesQuery, queryArgs);
 
 		// Type guard: ensure valid pagination result
-		// This can be undefined on very first message before query is in cache
+		// If query isn't in cache yet, return early - use context-based optimistic messages instead
 		if (
 			!current ||
 			typeof current !== 'object' ||
 			!('page' in current) ||
 			!Array.isArray(current.page)
 		) {
+			console.log(
+				'[Optimistic] Query not in cache or invalid structure, skipping optimistic update'
+			);
 			return;
 		}
+
+		console.log('[Optimistic] Current page length:', current.page.length);
 
 		const optimisticMessage = createOptimisticMessage(
 			queryArgs.threadId!,
@@ -165,9 +189,16 @@ export function createOptimisticUpdate(
 			options
 		);
 
+		console.log(
+			'[Optimistic] Updating store with new optimistic message, new page length:',
+			current.page.length + 1
+		);
+
 		store.setQuery(listMessagesQuery, queryArgs, {
 			...current,
 			page: [...current.page, optimisticMessage]
 		});
+
+		console.log('[Optimistic] Store updated successfully');
 	};
 }
