@@ -43,6 +43,38 @@ export interface OptimisticMessageOptions {
 }
 
 /**
+ * Sanitize attachments for optimistic updates by removing non-serializable fields (File, Blob)
+ *
+ * Convex's optimistic update mechanism uses `structuredClone` internally, which cannot clone:
+ * 1. File or Blob objects
+ * 2. Svelte 5's $state Proxy objects
+ *
+ * This function uses JSON serialization to guarantee all proxy wrappers are broken,
+ * then filters out non-serializable fields (file, blob).
+ */
+function sanitizeAttachmentsForClone(attachments?: Attachment[]): Attachment[] | undefined {
+	if (!attachments?.length) return undefined;
+
+	// First, extract only serializable fields from each attachment
+	const serializableAttachments = attachments.map((att) => {
+		if (att.type === 'file') {
+			// Omit 'file' (File object)
+			const { file, ...rest } = att;
+			return rest;
+		} else if (att.type === 'screenshot') {
+			// Omit 'blob' (Blob object)
+			const { blob, ...rest } = att;
+			return rest;
+		}
+		return att;
+	});
+
+	// Use JSON round-trip to break ALL proxy wrappers (Svelte 5 $state proxies)
+	// This is the nuclear option but guaranteed to work
+	return JSON.parse(JSON.stringify(serializableAttachments)) as Attachment[];
+}
+
+/**
  * Create an optimistic message object
  *
  * @param threadId - The thread ID
@@ -91,8 +123,10 @@ export function createOptimisticMessage(
 		status: 'success',
 		order,
 		tool: false,
+		// Metadata is already sanitized by caller
 		metadata: { ...options?.metadata, optimistic: true },
-		localAttachments: options?.attachments?.length ? options.attachments : undefined
+		// Attachments are already sanitized by caller
+		localAttachments: options?.attachments
 	};
 }
 
@@ -157,6 +191,18 @@ export function createOptimisticUpdate(
 		queryArgs.threadId
 	);
 
+	// IMPORTANT: Sanitize IMMEDIATELY, BEFORE the closure captures them.
+	// Svelte 5's $state creates Proxy objects that cannot be cloned by structuredClone.
+	// JSON round-trip guarantees all proxy wrappers are broken.
+	const sanitizedOptions: OptimisticMessageOptions | undefined = options
+		? {
+				metadata: options.metadata
+					? (JSON.parse(JSON.stringify(options.metadata)) as Record<string, unknown>)
+					: undefined,
+				attachments: sanitizeAttachmentsForClone(options.attachments)
+			}
+		: undefined;
+
 	return (store: OptimisticLocalStore) => {
 		console.log(
 			'[Optimistic] Optimistic callback invoked, querying store for:',
@@ -186,7 +232,7 @@ export function createOptimisticUpdate(
 			role,
 			prompt,
 			current.page.length,
-			options
+			sanitizedOptions
 		);
 
 		console.log(
