@@ -109,13 +109,13 @@
 	function selectThread(id: string) {
 		const url = new URL($page.url);
 		url.searchParams.set('thread', id);
-		goto(resolve(url.toString()), { noScroll: true, replaceState: false });
+		goto(resolve(url.pathname + url.search), { noScroll: true, replaceState: false });
 	}
 
 	function clearThread() {
 		const url = new URL($page.url);
 		url.searchParams.delete('thread');
-		goto(resolve(url.toString()), { noScroll: true, replaceState: false });
+		goto(resolve(url.pathname + url.search), { noScroll: true, replaceState: false });
 	}
 
 	// Reset overlay state when thread changes
