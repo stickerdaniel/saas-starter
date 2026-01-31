@@ -127,21 +127,11 @@ async function globalSetup() {
 	// Create admin user
 	await createUser(credentials.admin, testSecret, client, true);
 
-	// Create 105 anonymous support threads for migration tests (tests pagination > 100)
-	const anonymousUserId = `anon_${crypto.randomUUID()}`;
-	console.log('[Setup] Creating 105 anonymous support threads for migration test...');
-	const anonymousThreads = await client.mutation(api.tests.createAnonymousSupportThread, {
-		secret: testSecret,
-		anonymousUserId,
-		title: 'E2E Support Thread',
-		pageUrl: `${SITE_URL}/en/app`,
-		count: 105
-	});
-	console.log(`[Setup]   Created ${anonymousThreads.threadIds.length} anonymous threads`);
-
+	// Anonymous support threads are created per-test for retry safety
+	// (Each test attempt creates fresh threads to avoid state pollution)
 	credentials.anonymousSupport = {
-		userId: anonymousThreads.anonymousUserId,
-		threadIds: anonymousThreads.threadIds
+		userId: '',
+		threadIds: []
 	};
 
 	// Save credentials for tests to read
