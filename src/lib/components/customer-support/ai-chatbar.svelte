@@ -7,6 +7,7 @@
 	import { PromptInput, PromptInputTextarea } from '$lib/components/prompt-kit/prompt-input';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import ArrowUpIcon from '@lucide/svelte/icons/arrow-up';
+	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
 	import { supportThreadContext } from './support-thread-context.svelte';
 	import { createOptimisticUpdate, type ListMessagesArgs } from '$lib/chat/core/optimistic';
 	import { getTranslate } from '@tolgee/svelte';
@@ -260,7 +261,11 @@
 					disabled={!input.trim() || threadContext.isSending || threadContext.hasPendingToolCalls}
 					aria-label={$t('chat.aria.send')}
 				>
-					<ArrowUpIcon class="size-5" />
+					{#if threadContext.isSending}
+						<LoaderCircleIcon class="size-5 animate-spin" />
+					{:else}
+						<ArrowUpIcon class="size-5" />
+					{/if}
 				</Button>
 			</PromptInput>
 		</div>

@@ -12,6 +12,8 @@
 	// This ensures useLanguage() always returns the current value of data.lang
 	languageContext.set(() => data.lang);
 
+	// Initial language seed; subsequent changes handled via watch() below.
+	// svelte-ignore state_referenced_locally
 	const tolgee = Tolgee()
 		.use(DevTools())
 		.use(FormatIcu())
@@ -39,6 +41,8 @@
 	// Sync Tolgee language with URL parameter when user navigates (back/forward buttons)
 	if (browser) {
 		// Set initial HTML lang attribute
+		// Initial seed; subsequent changes handled via watch() below.
+		// svelte-ignore state_referenced_locally
 		document.documentElement.lang = data.lang;
 
 		watch(

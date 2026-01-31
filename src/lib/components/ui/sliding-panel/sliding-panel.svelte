@@ -19,7 +19,7 @@
 	}: Props = $props();
 
 	// Map duration to Tailwind class (300 is most common, matches current usage)
-	const durationClass = duration === 300 ? 'duration-300' : `duration-[${duration}ms]`;
+	let durationClass = $derived(duration === 300 ? 'duration-300' : `duration-[${duration}ms]`);
 
 	// Compute transition classes based on direction and open state
 	const slideClasses = $derived.by(() => {

@@ -24,7 +24,7 @@
 	const editorContext = screenshotEditorContext.set(
 		new ScreenshotEditorState({
 			onSave: handleSave,
-			onCancel,
+			onCancel: () => onCancel?.(),
 			width: window.innerWidth,
 			height: window.innerHeight
 		})
