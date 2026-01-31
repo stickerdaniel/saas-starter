@@ -7,7 +7,7 @@
 
 	let { role }: Props = $props();
 
-	const isAdmin = role === 'admin';
+	let isAdmin = $derived(role === 'admin');
 </script>
 
 <span

@@ -16,9 +16,8 @@
 		children?: Snippet;
 	} & HTMLAttributes<HTMLDivElement> = $props();
 
-	const classNames = cn(
-		'text-foreground bg-secondary prose rounded-lg p-2 break-words whitespace-normal',
-		className
+	let classNames = $derived(
+		cn('text-foreground bg-secondary prose rounded-lg p-2 break-words whitespace-normal', className)
 	);
 </script>
 

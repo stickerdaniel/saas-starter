@@ -22,6 +22,8 @@
 	const ITEM_VALUE = 'reasoning-item';
 
 	// Set up controllable state for open
+	// defaultOpen is only used to seed uncontrolled state.
+	// svelte-ignore state_referenced_locally
 	let isOpen = $state(open ?? defaultOpen);
 
 	// Convert boolean open state to accordion value
