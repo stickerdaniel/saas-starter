@@ -55,6 +55,8 @@ export type {
 	SendMessageOptions,
 	SendMessageResult,
 	ChatConfig,
+	CreateThreadOptions,
+	CreateThreadResult,
 	UploadResult,
 	ProgressCallback,
 	ChatCoreAPI,

@@ -2,6 +2,7 @@
 	import NavUser from '../nav-user.svelte';
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
+	import { resolve } from '$app/paths';
 	import type { ComponentProps } from 'svelte';
 	import { T } from '@tolgee/svelte';
 	import type { SidebarConfig, User } from './types';
@@ -34,8 +35,8 @@
 							{/snippet}
 						</DropdownMenu.Trigger>
 						<DropdownMenu.Content align="start" class="w-56">
-							{#each config.header.dropdownItems as item}
-								<a href={item.url}>
+							{#each config.header.dropdownItems as item (item.translationKey)}
+								<a href={resolve(item.url)}>
 									<DropdownMenu.Item>
 										<item.icon class="size-4" />
 										<span><T keyName={item.translationKey} /></span>
@@ -47,7 +48,7 @@
 				{:else}
 					<Sidebar.MenuButton class="data-[slot=sidebar-menu-button]:!p-1.5">
 						{#snippet child({ props })}
-							<a href={config.header.href} {...props}>
+							<a href={resolve(config.header.href)} {...props}>
 								<config.header.icon class="!size-5" />
 								<span class="text-base font-semibold">
 									<T keyName={config.header.titleKey} />
@@ -64,13 +65,13 @@
 		<Sidebar.Group>
 			<Sidebar.GroupContent class="flex flex-col gap-2">
 				<Sidebar.Menu>
-					{#each config.navItems as item}
+					{#each config.navItems as item (item.translationKey)}
 						<Sidebar.MenuItem>
 							<Sidebar.MenuButton
 								class={item.isActive ? 'bg-sidebar-accent text-sidebar-accent-foreground' : ''}
 							>
 								{#snippet child({ props })}
-									<a href={item.url} {...props}>
+									<a href={resolve(item.url)} {...props}>
 										{#if item.icon}
 											<item.icon />
 										{/if}
@@ -91,12 +92,12 @@
 	<Sidebar.Footer>
 		{#if config.footerLinks && config.footerLinks.length > 0}
 			<Sidebar.Menu>
-				{#each config.footerLinks as link}
+				{#each config.footerLinks as link (link.translationKey)}
 					{#if link.condition !== false}
 						<Sidebar.MenuItem>
 							<Sidebar.MenuButton>
 								{#snippet child({ props })}
-									<a href={link.url} {...props}>
+									<a href={resolve(link.url)} {...props}>
 										<link.icon />
 										<span><T keyName={link.translationKey} /></span>
 									</a>

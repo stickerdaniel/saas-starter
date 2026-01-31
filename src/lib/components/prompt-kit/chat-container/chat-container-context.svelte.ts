@@ -32,6 +32,11 @@ export class ChatContainerContext {
 		);
 	}
 
+	setModes(resizeMode: ResizeMode, initialMode: InitialMode) {
+		this.#resizeMode = resizeMode;
+		this.#initialMode = initialMode;
+	}
+
 	setElement(element: HTMLElement) {
 		this.#element = element;
 	}

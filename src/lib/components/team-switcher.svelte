@@ -6,10 +6,11 @@
 	import PlusIcon from '@lucide/svelte/icons/plus';
 
 	// This should be `Component` after @lucide/svelte updates types
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	let { teams }: { teams: { name: string; logo: any; plan: string }[] } = $props();
 	const sidebar = sidebarContext.get();
 
+	// activeTeam is intentionally initialized once.
+	// svelte-ignore state_referenced_locally
 	let activeTeam = $state(teams[0]);
 </script>
 

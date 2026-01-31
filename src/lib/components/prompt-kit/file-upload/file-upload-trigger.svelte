@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { fileUploadContext } from './file-upload-context.svelte';
 	import type { Snippet } from 'svelte';
-	import { cn } from '$lib/utils';
 
 	type Props = {
 		asChild?: boolean;
