@@ -21,8 +21,6 @@
 	} = $props();
 
 	const contextInstance = promptInputContext.set(
-		// Values are synced to contextInstance via $effect blocks below.
-		// svelte-ignore state_referenced_locally
 		new PromptInputClass({
 			isLoading,
 			value,
