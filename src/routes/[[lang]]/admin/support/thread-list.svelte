@@ -97,7 +97,7 @@
 	}
 
 	// Reset loader when isDone changes to false (new query started)
-	let prevIsDone = $state(isDone);
+	let prevIsDone = $state(false);
 	$effect(() => {
 		if (prevIsDone && !isDone) {
 			// Query was reset (filters changed), reset loader state

@@ -400,6 +400,16 @@ export class ChatUIContext {
 	}
 
 	/**
+	 * Check if any assistant message is currently streaming
+	 * Uses displayMessages which is always synced from query
+	 */
+	get isStreaming(): boolean {
+		return this.displayMessages.some(
+			(m) => m.role === 'assistant' && (m.status === 'pending' || m.status === 'streaming')
+		);
+	}
+
+	/**
 	 * Get all successfully uploaded file IDs
 	 */
 	get uploadedFileIds(): string[] {

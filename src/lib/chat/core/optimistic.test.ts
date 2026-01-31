@@ -68,10 +68,12 @@ describe('createOptimisticMessage', () => {
 		expect(msg.localAttachments).toEqual(attachments);
 	});
 
-	it('does not include localAttachments when empty array', () => {
+	it('passes through empty attachments array (sanitization handled by caller)', () => {
 		const msg = createOptimisticMessage('thread-123', 'user', 'Hello', 0, { attachments: [] });
 
-		expect(msg.localAttachments).toBeUndefined();
+		// createOptimisticMessage is a low-level function that expects pre-sanitized input
+		// sanitizeAttachmentsForClone() in createOptimisticUpdate handles empty array → undefined
+		expect(msg.localAttachments).toEqual([]);
 	});
 
 	it('generates unique IDs for each message', () => {

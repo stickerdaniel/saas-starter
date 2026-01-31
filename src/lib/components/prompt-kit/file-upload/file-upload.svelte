@@ -12,7 +12,11 @@
 
 	let { onFilesAdded, children, multiple = true, accept, disabled = false }: Props = $props();
 
-	const ctx = fileUploadContext.set(new FileUploadContext(multiple, disabled));
+	const ctx = fileUploadContext.set(new FileUploadContext());
+	$effect(() => {
+		ctx.multiple = multiple;
+		ctx.disabled = disabled;
+	});
 
 	let dragCounter = 0;
 

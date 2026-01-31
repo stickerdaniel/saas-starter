@@ -102,8 +102,11 @@
 	});
 </script>
 
+<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 <div
 	bind:this={ref}
+	role="region"
+	aria-label="Interactive pointer tracking area"
 	onmouseleave={handleMouseLeave}
 	onmouseenter={handleMouseEnter}
 	onmousemove={handleMouseMove}

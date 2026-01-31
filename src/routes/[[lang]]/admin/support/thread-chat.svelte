@@ -48,10 +48,18 @@
 	};
 
 	// Create ChatCore for this thread (needed for ChatUIContext)
+	// Seed at creation; kept in sync via $effect below.
+	// svelte-ignore state_referenced_locally
 	const chatCore = new ChatCore({
 		threadId,
 		api: {
 			sendMessage: api.admin.support.mutations.sendAdminReply
+		}
+	});
+
+	$effect(() => {
+		if (chatCore.threadId !== threadId) {
+			chatCore.setThread(threadId);
 		}
 	});
 
@@ -217,6 +225,7 @@
 	<ChatRoot
 		{threadId}
 		userAlignment="left"
+		externalCore={chatCore}
 		externalUIContext={chatUIContext}
 		api={{
 			listMessages: api.support.messages.listMessages,

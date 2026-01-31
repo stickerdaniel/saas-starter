@@ -59,11 +59,11 @@ function sanitizeAttachmentsForClone(attachments?: Attachment[]): Attachment[] |
 	const serializableAttachments = attachments.map((att) => {
 		if (att.type === 'file') {
 			// Omit 'file' (File object)
-			const { file, ...rest } = att;
+			const { file: _file, ...rest } = att;
 			return rest;
 		} else if (att.type === 'screenshot') {
 			// Omit 'blob' (Blob object)
-			const { blob, ...rest } = att;
+			const { blob: _blob, ...rest } = att;
 			return rest;
 		}
 		return att;
@@ -212,7 +212,7 @@ export function createOptimisticUpdate(
 		const current = store.getQuery(listMessagesQuery, queryArgs);
 
 		// Type guard: ensure valid pagination result
-		// If query isn't in cache yet, return early - use context-based optimistic messages instead
+		// If query isn't in cache yet, skip optimistic update - message will appear after server response
 		if (
 			!current ||
 			typeof current !== 'object' ||

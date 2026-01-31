@@ -107,7 +107,7 @@
 		return attachments;
 	}
 
-	const getAttachments = extractAttachments || defaultExtractAttachments;
+	let getAttachments = $derived(extractAttachments ?? defaultExtractAttachments);
 </script>
 
 <ChatContainerRoot class="relative h-full {className}">

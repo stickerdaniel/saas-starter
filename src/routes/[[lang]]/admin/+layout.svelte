@@ -33,6 +33,8 @@
 	const fullControl = $derived(page.url.pathname.includes('/admin/support'));
 
 	// Provide current user ID for child components (e.g., preventing self-modification in admin actions)
+	// Context value is intentionally snapshot for layout lifetime.
+	// svelte-ignore state_referenced_locally
 	setContext('currentUserId', viewer?._id);
 </script>
 

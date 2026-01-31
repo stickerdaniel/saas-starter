@@ -9,6 +9,8 @@
 	let { teams }: { teams: { name: string; logo: any; plan: string }[] } = $props();
 	const sidebar = sidebarContext.get();
 
+	// activeTeam is intentionally initialized once.
+	// svelte-ignore state_referenced_locally
 	let activeTeam = $state(teams[0]);
 </script>
 

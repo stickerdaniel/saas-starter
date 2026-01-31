@@ -12,6 +12,7 @@
 	import { FileUpload, FileUploadTrigger } from '$lib/components/prompt-kit/file-upload';
 	import { Button } from '$lib/components/ui/button';
 	import ArrowUpIcon from '@lucide/svelte/icons/arrow-up';
+	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
 	import CameraIcon from '@lucide/svelte/icons/camera';
 	import PaperclipIcon from '@lucide/svelte/icons/paperclip';
 	import ChatAttachments from './ChatAttachments.svelte';
@@ -71,8 +72,30 @@
 
 	const ctx = getChatUIContext();
 
-	// Use context for send validation - also check rate limit
-	const canSend = $derived(ctx.canSend && !ctx.core.isSending && !isRateLimited);
+	// Use context for send validation
+	// isSending: mutation in progress
+	// isAwaitingStream: after mutation, before stream arrives (covers the gap)
+	// isStreaming: stream in progress (from displayMessages, always synced)
+	const isProcessing = $derived(ctx.core.isSending || ctx.core.isAwaitingStream || ctx.isStreaming);
+	const canSend = $derived(ctx.canSend && !isProcessing && !isRateLimited);
+
+	// DEBUG: Log state changes
+	$effect(() => {
+		console.log('[ChatInput] State:', {
+			isSending: ctx.core.isSending,
+			isAwaitingStream: ctx.core.isAwaitingStream,
+			isStreaming: ctx.isStreaming,
+			isProcessing,
+			canSend,
+			displayMessagesCount: ctx.displayMessages.length,
+			lastMessage: ctx.displayMessages.at(-1)
+				? {
+						role: ctx.displayMessages.at(-1)?.role,
+						status: ctx.displayMessages.at(-1)?.status
+					}
+				: null
+		});
+	});
 
 	// Check if last assistant message is complete (for handoff button visibility)
 	const lastAssistantComplete = $derived.by(() => {
@@ -300,7 +323,11 @@
 						class="size-9 flex-shrink-0 rounded-full"
 						aria-label={$t('chat.aria.send')}
 					>
-						<ArrowUpIcon class="h-[18px] w-[18px]" />
+						{#if isProcessing}
+							<LoaderCircleIcon class="h-[18px] w-[18px] animate-spin" />
+						{:else}
+							<ArrowUpIcon class="h-[18px] w-[18px]" />
+						{/if}
 					</Button>
 				</div>
 			{/if}

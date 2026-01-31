@@ -11,8 +11,10 @@
 		children?: import('svelte').Snippet;
 	}
 
-	let { initialInput = '', accept, multiple = true, children }: Props = $props();
+	const { initialInput = '', accept, multiple = true, children }: Props = $props();
 
+	// PromptInputController is intentionally initialized once.
+	// svelte-ignore state_referenced_locally
 	promptInputProviderContext.set(new PromptInputController(initialInput, accept, multiple));
 </script>
 

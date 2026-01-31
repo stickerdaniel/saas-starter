@@ -24,18 +24,16 @@
 
 	const convexClient = useConvexClient();
 
-	let name = $state(user?.name || '');
-	let image = $state(user?.image || '');
+	let name = $state('');
+	let image = $state('');
 	let isUploading = $state(false);
 	let isSaving = $state(false);
 	let fileInput = $state<HTMLInputElement>();
 
 	// Update reactive values when user changes
 	$effect(() => {
-		if (user) {
-			name = user.name || '';
-			image = user.image || '';
-		}
+		name = user?.name ?? '';
+		image = user?.image ?? '';
 	});
 
 	async function handleFileSelect(e: Event) {

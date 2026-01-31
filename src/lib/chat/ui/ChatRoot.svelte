@@ -66,7 +66,7 @@
 			listMessages: Parameters<typeof useQuery>[0];
 		};
 		/** External core adapter (optional - if provided, uses external state) */
-		externalCore?: ExternalCoreAdapter;
+		externalCore?: ExternalCoreAdapter | ChatCore;
 		/** External UI context (optional - if provided, uses existing context) */
 		externalUIContext?: ChatUIContext;
 		/** Upload configuration for file attachments */
@@ -83,6 +83,8 @@
 	const client = useConvexClient();
 
 	// Create ChatCore instance (only if not using external core)
+	// Intentional mount-time config capture; threadId is synced later via $effect.
+	// svelte-ignore state_referenced_locally
 	const internalCore = externalCore
 		? null
 		: new ChatCore({
@@ -91,9 +93,13 @@
 			});
 
 	// Use either external or internal core
+	// Core selection is fixed for component lifetime; swapping requires remount.
+	// svelte-ignore state_referenced_locally
 	const core = (externalCore as unknown as ChatCore) ?? internalCore!;
 
 	// Create and set UI context (use external if provided)
+	// Context object is created once and placed in Svelte context.
+	// svelte-ignore state_referenced_locally
 	const uiContext =
 		externalUIContext ?? new ChatUIContext(core, client, uploadConfig, userAlignment);
 	setChatUIContext(uiContext);
@@ -230,22 +236,20 @@
 		uiContext.setMessagesReady(messagesReady);
 	});
 
-	// Check for active streams
-	const hasActiveStreams = $derived.by(() => {
-		const messagesData = messagesQuery?.data as MessagesQueryResponse | undefined;
-		if (messagesData?.streams?.kind !== 'list') return false;
-		const arr = messagesData.streams?.messages || [];
-		return arr.length > 0;
-	});
-
-	// Clear awaiting state when streams arrive
+	// Clear awaiting state when NEW streaming assistant message appears
+	// (not based on hasActiveStreams which includes old finished streams)
 	$effect(() => {
-		if (hasActiveStreams) {
-			core.setAwaitingStream(false);
-			return;
-		}
-		const last = displayMessages.length ? displayMessages[displayMessages.length - 1] : undefined;
-		if (last && last.role === 'assistant' && (last.displayText || last.displayReasoning)) {
+		const hasStreamingAssistant = displayMessages.some(
+			(m) => m.role === 'assistant' && (m.status === 'pending' || m.status === 'streaming')
+		);
+		console.log('[ChatRoot] Awaiting stream effect:', {
+			hasStreamingAssistant,
+			isAwaitingStream: core.isAwaitingStream,
+			displayMessagesCount: displayMessages.length
+		});
+
+		if (hasStreamingAssistant && core.isAwaitingStream) {
+			console.log('[ChatRoot] Clearing isAwaitingStream (streaming assistant found)');
 			core.setAwaitingStream(false);
 		}
 	});

@@ -45,7 +45,7 @@
 				<p class="text-muted-foreground">Loading preview...</p>
 			</div>
 		{:else}
-			<iframe title="Email Preview" srcdoc={html} class="h-[600px] w-full border-0" />
+			<iframe title="Email Preview" srcdoc={html} class="h-[600px] w-full border-0"></iframe>
 		{/if}
 	</div>
 </div>

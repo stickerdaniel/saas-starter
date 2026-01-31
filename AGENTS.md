@@ -31,19 +31,17 @@ NEVER use `bun run dev` to start the development server, its already running in 
 
 ### Quality Checks & Testing
 
-- `bun scripts/static-checks.ts --staged` - Check only staged files (used in git pre-commit hook)
+- `bun run check` - Run Svelte type checking. Run this between implementations to catch type errors early.
 - `bun run test` - Run all tests (E2E + unit)
-- `bun run test:e2e` - Run Playwright E2E tests. Always run this test after modifying E2E tests to ensure they are working!
+- `bun run test:e2e` - Run Playwright E2E tests. Always run this after modifying E2E tests!
 - `bun run test:unit` - Run Vitest unit tests
-- `bun run lint` - Run ESLint
 - `bun run format` - Format code with Prettier
-- `bun run check` - Run Svelte type checking
 
 ### Convex Backend
 
-- `bunx convex run tests:init` - Initialize test data
-- `bunx convex env set KEY value` - Set Convex environment variables
-- `bunx convex env set KEY value --prod` - Set production environment variables
+- `bun convex run tests:init` - Initialize test data
+- `bun convex env set KEY value` - Set Convex environment variables
+- `bun convex env set KEY value --prod` - Set production environment variables
 
 ### Convex Platform Guarantees
 
