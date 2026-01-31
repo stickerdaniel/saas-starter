@@ -5,6 +5,7 @@
 	import { sidebarContext } from '$lib/components/ui/sidebar/index.js';
 	import { authClient } from '$lib/auth-client';
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import BellIcon from '@lucide/svelte/icons/bell';
 	import ChevronsUpDownIcon from '@lucide/svelte/icons/chevrons-up-down';
 	import CreditCardIcon from '@lucide/svelte/icons/credit-card';
@@ -31,7 +32,7 @@
 		if (result.error) {
 			console.error('Sign out error:', result.error);
 		} else {
-			await goto(localizedHref('/'));
+			await goto(resolve(localizedHref('/')));
 		}
 	}
 
@@ -43,8 +44,8 @@
 				return;
 			}
 			toast.success($t('app.user_menu.impersonation_stopped'));
-			goto(localizedHref('/admin/users'));
-		} catch (error) {
+			goto(resolve(localizedHref('/admin/users')));
+		} catch {
 			toast.error($t('app.user_menu.impersonation_stop_failed'));
 		}
 	}
@@ -108,7 +109,7 @@
 				</DropdownMenu.Group>
 				<DropdownMenu.Separator />
 				<DropdownMenu.Group>
-					<a href={localizedHref('/app/settings')}>
+					<a href={resolve(localizedHref('/app/settings'))}>
 						<DropdownMenu.Item>
 							<SettingsIcon />
 							<T keyName="app.user_menu.settings" />

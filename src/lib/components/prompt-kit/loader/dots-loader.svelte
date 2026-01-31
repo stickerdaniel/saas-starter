@@ -22,7 +22,7 @@
 </script>
 
 <div class={cn('flex items-center space-x-1', containerSizes[size], className)}>
-	{#each Array(3) as _, i}
+	{#each Array(3) as _, i (i)}
 		<div
 			class={cn(
 				'animate-[bounce-dots_1.4s_ease-in-out_infinite] rounded-full bg-primary',

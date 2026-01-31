@@ -22,12 +22,12 @@
 		blurIntensity = 0.25
 	}: ProgressiveBlurProps = $props();
 
-	let layers = $state(Math.max(blurLayers, 2));
-	let segmentSize = 1 / (blurLayers + 1);
+	let layers = $derived(Math.max(blurLayers, 2));
+	let segmentSize = $derived(1 / (blurLayers + 1));
 </script>
 
 <div class={cn('relative', _class)}>
-	{#each { length: layers } as _, index}
+	{#each { length: layers } as _, index (index)}
 		{@const angle = GRADIENT_ANGLES[direction]}
 		{@const gradientStops = [
 			index * segmentSize,

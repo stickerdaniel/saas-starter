@@ -1,11 +1,11 @@
 import { Context } from 'runed';
-import type { PaginationResult } from 'convex/server';
 import type { ConvexClient } from 'convex/browser';
 import type { UIMessagePart, UIDataTypes, UITools } from 'ai';
 import { isToolOrDynamicToolUIPart } from 'ai';
 import { api } from '$lib/convex/_generated/api';
 import type { Attachment } from '$lib/chat';
 import { StreamCacheManager } from '$lib/chat/core/StreamProcessor.js';
+import { createOptimisticUpdate, type ListMessagesArgs } from '$lib/chat/core/optimistic.js';
 
 /**
  * View types for the support widget navigation
@@ -72,6 +72,12 @@ export class SupportThreadContext {
 	// URL sync callback (called when thread changes for URL state updates)
 	private onThreadChange?: (threadId: string | null) => void;
 
+	// Convex client for mutations (set via setClient)
+	private client: ConvexClient | null = null;
+
+	// Track in-flight thread creation to avoid duplicates
+	private threadCreationPromise: Promise<string> | null = null;
+
 	// Current thread state
 	threadId = $state<string | null>(null);
 	threadAgentName = $state<string | undefined>(undefined);
@@ -83,6 +89,9 @@ export class SupportThreadContext {
 	isSending = $state(false);
 	error = $state<string | null>(null);
 	shouldOpenWidget = $state(false);
+
+	/** True when user starts a new conversation - enables immediate suggestion display */
+	isNewConversation = $state(false);
 
 	// Pagination state
 	hasMore = $state(false);
@@ -116,6 +125,48 @@ export class SupportThreadContext {
 		this.rateLimitedUntil = null;
 	}
 
+	/**
+	 * Set the Convex client for thread creation
+	 * Must be called from customer-support.svelte after client is available
+	 */
+	setClient(client: ConvexClient) {
+		this.client = client;
+	}
+
+	/**
+	 * Ensure a thread exists, creating one if needed
+	 * Returns existing threadId or creates a new one
+	 * Safe to call multiple times - deduplicates in-flight requests
+	 */
+	async ensureThread(client: ConvexClient): Promise<string> {
+		// Already have a thread
+		if (this.threadId) return this.threadId;
+
+		// Creation already in flight - return existing promise
+		if (this.threadCreationPromise) return this.threadCreationPromise;
+
+		// Start thread creation
+		this.threadCreationPromise = client
+			.mutation(api.support.threads.createThread, {
+				userId: this.userId || undefined,
+				pageUrl: typeof window !== 'undefined' ? window.location.href : undefined
+			})
+			.then((result) => {
+				// Only update state if user is still in chat view (didn't navigate away)
+				if (!this.threadId && this.currentView === 'chat') {
+					this.threadId = result.threadId;
+					this.notificationEmail = result.notificationEmail ?? null;
+					this.onThreadChange?.(result.threadId);
+				}
+				return result.threadId;
+			})
+			.finally(() => {
+				this.threadCreationPromise = null;
+			});
+
+		return this.threadCreationPromise;
+	}
+
 	// Derived state
 	get hasThread() {
 		return this.threadId !== null;
@@ -131,10 +182,6 @@ export class SupportThreadContext {
 
 	get currentAgentName(): string | undefined {
 		return this.threadAgentName;
-	}
-
-	get optimisticMessages() {
-		return this.messages.filter((m) => m.metadata?.optimistic);
 	}
 
 	/**
@@ -232,73 +279,110 @@ export class SupportThreadContext {
 	}
 
 	/**
-	 * Update messages from query result
-	 * Merges with existing messages, deduplicating by ID
-	 * Prefers real messages over optimistic ones
+	 * Send a message with optional file attachments
+	 *
+	 * This method handles the complete message sending flow:
+	 * - Thread creation (if no thread exists and no threadId provided)
+	 * - Setting isSending/isAwaitingStream flags
+	 * - Building optimistic update
+	 * - Sending mutation
+	 * - Clearing flags on completion/error
+	 *
+	 * @param client - Convex client instance
+	 * @param prompt - Message text content
+	 * @param options - Optional file IDs, attachments, and pre-created threadId
+	 * @returns Promise with result (throws on error for caller to handle)
 	 */
-	updateMessages(result: PaginationResult<SupportMessage>) {
-		const newMessages = result.page;
+	async sendMessage(
+		client: ConvexClient,
+		prompt: string,
+		options?: {
+			fileIds?: string[];
+			attachments?: Attachment[];
+			/** Pre-created threadId (e.g., from chatbar's eager thread creation) */
+			threadId?: string;
+		}
+	): Promise<{ threadId: string; threadCreated: boolean }> {
+		const trimmedPrompt = prompt.trim();
 
-		// Create a map of existing messages by ID
-		const existingMap = new Map(this.messages.map((m) => [m.id, m]));
-
-		// Create a map of new messages by ID (these override existing)
-		const newMap = new Map(newMessages.map((m) => [m.id, m]));
-
-		// Merge: new messages override existing, keep existing if not in new
-		// Remove optimistic messages if real version exists
-		const merged = new Map<string, SupportMessage>();
-
-		// Add all new messages first (they're authoritative)
-		for (const [id, msg] of newMap) {
-			merged.set(id, msg);
+		// Validate input
+		if (!trimmedPrompt || this.isSending) {
+			throw new Error('Cannot send message: validation failed');
 		}
 
-		// Add existing messages that aren't in new results
-		for (const [id, msg] of existingMap) {
-			if (!merged.has(id)) {
-				// Keep existing message if not optimistic or if no real version exists
-				if (!msg.metadata?.optimistic) {
-					merged.set(id, msg);
+		this.setSending(true);
+		this.setAwaitingStream(true);
+
+		let threadCreated = false;
+
+		try {
+			// Use provided threadId, context threadId, or await in-flight creation
+			let threadId = options?.threadId ?? this.threadId;
+
+			// Wait for any in-flight thread creation to complete (prevents duplicate threads)
+			if (!threadId && this.threadCreationPromise) {
+				try {
+					threadId = await this.threadCreationPromise;
+				} catch {
+					// If ensureThread failed, we'll create a new thread below
 				}
 			}
+
+			// Create thread if none exists
+			if (!threadId) {
+				const result = await client.mutation(api.support.threads.createThread, {
+					userId: this.userId || undefined,
+					pageUrl: typeof window !== 'undefined' ? window.location.href : undefined
+				});
+				threadId = result.threadId;
+				threadCreated = true;
+
+				// Update context state (don't call setThread which clears messages)
+				this.threadId = threadId;
+				this.notificationEmail = result.notificationEmail ?? null;
+				this.currentView = 'chat';
+			} else if (!this.threadId) {
+				// Thread was pre-created (e.g., by chatbar), update context
+				this.threadId = threadId;
+				this.currentView = 'chat';
+			}
+
+			// Build query args for optimistic update (must match ChatRoot's query exactly)
+			const queryArgs: ListMessagesArgs = {
+				threadId,
+				paginationOpts: { numItems: 50, cursor: null },
+				streamArgs: { kind: 'list' as const, startOrder: 0 }
+			};
+
+			// Send message with optimistic update via Convex's store.setQuery
+			await client.mutation(
+				api.support.messages.sendMessage,
+				{
+					threadId,
+					prompt: trimmedPrompt,
+					userId: this.userId || undefined,
+					fileIds: options?.fileIds?.length ? options.fileIds : undefined
+				},
+				{
+					optimisticUpdate: createOptimisticUpdate(
+						api.support.messages.listMessages,
+						queryArgs,
+						'user',
+						trimmedPrompt,
+						{ attachments: options?.attachments?.length ? options.attachments : undefined }
+					)
+				}
+			);
+
+			return { threadId, threadCreated };
+		} catch (error) {
+			this.setAwaitingStream(false);
+			console.error('[sendMessage] Failed:', error);
+			this.setError(error instanceof Error ? error.message : 'Failed to send message');
+			throw error;
+		} finally {
+			this.setSending(false);
 		}
-
-		this.messages = Array.from(merged.values());
-		this.hasMore = result.isDone === false;
-		this.continueCursor = result.continueCursor;
-	}
-
-	/**
-	 * Add an optimistic user message
-	 */
-	addOptimisticMessage(content: string, attachments: Attachment[] = []): SupportMessage {
-		const optimisticMessage: SupportMessage = {
-			id: `temp_${crypto.randomUUID()}`,
-			_creationTime: Date.now(),
-			threadId: this.threadId!,
-			role: 'user', // Top-level role (normalized)
-			message: {
-				role: 'user',
-				content
-			},
-			text: content, // Add convenience text field
-			status: 'success',
-			order: this.messages.length,
-			tool: false,
-			metadata: { optimistic: true },
-			localAttachments: attachments
-		};
-
-		this.messages = [...this.messages, optimisticMessage];
-		return optimisticMessage;
-	}
-
-	/**
-	 * Remove optimistic message
-	 */
-	removeOptimisticMessage(messageId: string) {
-		this.messages = this.messages.filter((m) => m.id !== messageId);
 	}
 
 	/**
@@ -348,105 +432,6 @@ export class SupportThreadContext {
 		this.shouldOpenWidget = false;
 	}
 
-	/**
-	 * Send a message with optional file attachments
-	 *
-	 * This method handles the complete message sending flow:
-	 * - Lazy thread creation (if threadId is null)
-	 * - Validation
-	 * - Optimistic updates
-	 * - Backend mutation
-	 * - Error handling
-	 * - Widget opening (optional)
-	 *
-	 * @param client - Convex client instance
-	 * @param prompt - Message text content
-	 * @param options - Optional configuration
-	 * @returns Promise with message ID
-	 */
-	async sendMessage(
-		client: ConvexClient,
-		prompt: string,
-		options?: {
-			fileIds?: string[];
-			openWidgetAfter?: boolean;
-			attachments?: Attachment[];
-		}
-	): Promise<{ messageId: string }> {
-		// Validate input
-		if (!prompt.trim() || this.isSending) {
-			console.log('[sendMessage] Blocked - validation failed', {
-				hasPrompt: !!prompt.trim(),
-				isSending: this.isSending
-			});
-			throw new Error('Cannot send message: validation failed');
-		}
-
-		const trimmedPrompt = prompt.trim();
-		this.setSending(true);
-
-		// Add optimistic message
-		const optimisticMessage = this.addOptimisticMessage(trimmedPrompt, options?.attachments);
-
-		try {
-			// Create thread if needed (lazy thread creation)
-			let threadId = this.threadId;
-			if (!threadId) {
-				console.log('[sendMessage] Creating new thread for user:', this.userId);
-				const result = await client.mutation(api.support.threads.createThread, {
-					userId: this.userId || undefined,
-					pageUrl: typeof window !== 'undefined' ? window.location.href : undefined
-				});
-				threadId = result.threadId;
-				// Just set threadId directly - don't call setThread() which clears messages
-				// This preserves the optimistic message for seamless transition
-				this.threadId = threadId;
-				// Set notification email from the created thread (auto-assigned for authenticated users)
-				this.notificationEmail = result.notificationEmail ?? null;
-				// Switch from compose to chat view
-				this.currentView = 'chat';
-				// Notify URL state of new thread
-				this.onThreadChange?.(threadId);
-			}
-
-			console.log('[sendMessage] Sending message', {
-				threadId,
-				promptLength: trimmedPrompt.length,
-				optimisticId: optimisticMessage.id,
-				fileCount: options?.fileIds?.length || 0
-			});
-
-			// Send message with optional attachments
-			// Pass userId for anonymous user rate limiting (authenticated users verified server-side)
-			const result = await client.mutation(api.support.messages.sendMessage, {
-				threadId,
-				prompt: trimmedPrompt,
-				userId: this.userId || undefined,
-				fileIds: options?.fileIds
-			});
-
-			console.log('[sendMessage] Message sent successfully', {
-				messageId: result.messageId,
-				optimisticId: optimisticMessage.id,
-				fileCount: options?.fileIds?.length || 0
-			});
-
-			// Request widget to open if requested
-			if (options?.openWidgetAfter) {
-				this.requestWidgetOpen();
-			}
-
-			return result;
-		} catch (error) {
-			console.error('[sendMessage] Failed to send message:', error);
-			this.setError('Failed to send message. Please try again.');
-			this.removeOptimisticMessage(optimisticMessage.id);
-			throw error;
-		} finally {
-			this.setSending(false);
-		}
-	}
-
 	// ========================================
 	// Navigation Methods
 	// ========================================
@@ -477,6 +462,7 @@ export class SupportThreadContext {
 	) {
 		this.setThread(threadId, agentName, isHandedOff, assignedAdmin, notificationEmail);
 		this.currentView = 'chat';
+		this.isNewConversation = false;
 		this.onThreadChange?.(threadId);
 	}
 
@@ -490,17 +476,27 @@ export class SupportThreadContext {
 		// reactively by the chat component's query
 		this.threadId = threadId;
 		this.currentView = 'chat';
+		this.isNewConversation = false;
 		// Don't call onThreadChange here - this is triggered BY the URL
 	}
 
 	/**
-	 * Start a new thread (navigate to compose view)
-	 * Thread is created lazily on first message
+	 * Start a new thread (navigate to chat view)
+	 * Thread is created eagerly for immediate optimistic updates
 	 */
 	startNewThread() {
 		this.setThread(null);
-		this.currentView = 'compose';
+		this.currentView = 'chat';
+		this.isNewConversation = true;
 		this.onThreadChange?.(null);
+
+		// Trigger eager thread creation if client is available
+		if (this.client) {
+			void this.ensureThread(this.client).catch((error) => {
+				console.error('[startNewThread] Thread creation failed:', error);
+				this.setError('Failed to start conversation. Please try again.');
+			});
+		}
 	}
 
 	/**
@@ -533,6 +529,7 @@ export class SupportThreadContext {
 		this.isSending = false;
 		this.error = null;
 		this.shouldOpenWidget = false;
+		this.isNewConversation = false;
 		this.hasMore = false;
 		this.continueCursor = null;
 	}

@@ -14,7 +14,7 @@
 	let {
 		attachments = [],
 		onRemove,
-		columns = 2,
+		columns: _columns = 2,
 		readonly = false,
 		align = 'right',
 		class: className = ''

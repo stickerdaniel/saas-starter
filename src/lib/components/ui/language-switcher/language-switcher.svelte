@@ -17,10 +17,12 @@
 		class: className
 	}: LanguageSwitcherProps = $props();
 
+	const firstCode = $derived(languages[0]?.code ?? '');
+
 	// set default code if there isn't one selected
-	if (value === '') {
-		value = languages[0].code;
-	}
+	$effect(() => {
+		if (!value && firstCode) value = firstCode;
+	});
 </script>
 
 <DropdownMenu.Root>

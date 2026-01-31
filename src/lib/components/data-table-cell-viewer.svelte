@@ -38,8 +38,14 @@
 
 	let { item }: { item: Schema } = $props();
 
+	// Intentionally snapshot initial item values for editing.
+	// svelte-ignore state_referenced_locally
 	let type = $state(item.type);
+	// Intentionally snapshot initial item values for editing.
+	// svelte-ignore state_referenced_locally
 	let status = $state(item.status);
+	// Intentionally snapshot initial item values for editing.
+	// svelte-ignore state_referenced_locally
 	let reviewer = $state(item.reviewer);
 </script>
 
