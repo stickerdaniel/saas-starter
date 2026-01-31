@@ -242,14 +242,8 @@
 		const hasStreamingAssistant = displayMessages.some(
 			(m) => m.role === 'assistant' && (m.status === 'pending' || m.status === 'streaming')
 		);
-		console.log('[ChatRoot] Awaiting stream effect:', {
-			hasStreamingAssistant,
-			isAwaitingStream: core.isAwaitingStream,
-			displayMessagesCount: displayMessages.length
-		});
 
 		if (hasStreamingAssistant && core.isAwaitingStream) {
-			console.log('[ChatRoot] Clearing isAwaitingStream (streaming assistant found)');
 			core.setAwaitingStream(false);
 		}
 	});

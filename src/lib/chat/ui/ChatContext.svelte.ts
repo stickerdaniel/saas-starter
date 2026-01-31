@@ -410,6 +410,14 @@ export class ChatUIContext {
 	}
 
 	/**
+	 * Check if chat is currently processing (sending, awaiting stream, or streaming)
+	 * Single source of truth for input blocking logic
+	 */
+	get isProcessing(): boolean {
+		return this.core.isSending || this.core.isAwaitingStream || this.isStreaming;
+	}
+
+	/**
 	 * Get all successfully uploaded file IDs
 	 */
 	get uploadedFileIds(): string[] {

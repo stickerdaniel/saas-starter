@@ -20,7 +20,8 @@ export type {
 	StreamStatus,
 	SendMessageOptions,
 	SendMessageResult,
-	ChatConfig
+	ChatConfig,
+	CreateThreadOptions
 } from './types.js';
 
 export {
@@ -53,6 +54,6 @@ export {
 } from './FileUploader.js';
 
 // Chat core
-export type { ChatCoreAPI, ChatCoreOptions } from './ChatCore.svelte.js';
+export type { ChatCoreAPI, ChatCoreOptions, CreateThreadResult } from './ChatCore.svelte.js';
 
 export { ChatCore, createChatCore } from './ChatCore.svelte.js';
