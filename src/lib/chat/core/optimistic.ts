@@ -43,14 +43,15 @@ export interface OptimisticMessageOptions {
 }
 
 /**
- * Sanitize attachments for optimistic updates by removing non-serializable fields (File, Blob)
+ * Sanitize attachments for optimistic updates by removing non-serializable fields
  *
- * Convex's optimistic update mechanism uses `structuredClone` internally, which cannot clone:
- * 1. File or Blob objects
- * 2. Svelte 5's $state Proxy objects
+ * While browser `structuredClone` supports File/Blob objects, sanitization is needed because:
+ * 1. Convex's data layer cannot serialize File/Blob - they must be uploaded via
+ *    Convex's file storage API and referenced by StorageId
+ * 2. Svelte 5's $state creates Proxy objects that cannot be cloned by structuredClone
  *
- * This function uses JSON serialization to guarantee all proxy wrappers are broken,
- * then filters out non-serializable fields (file, blob).
+ * Uses JSON round-trip to unwrap proxies, then filters out File/Blob fields.
+ * Note: In .svelte/.svelte.ts files, prefer using $state.snapshot() at the call site.
  */
 function sanitizeAttachmentsForClone(attachments?: Attachment[]): Attachment[] | undefined {
 	if (!attachments?.length) return undefined;
@@ -194,14 +195,21 @@ export function createOptimisticUpdate(
 	// IMPORTANT: Sanitize IMMEDIATELY, BEFORE the closure captures them.
 	// Svelte 5's $state creates Proxy objects that cannot be cloned by structuredClone.
 	// JSON round-trip guarantees all proxy wrappers are broken.
-	const sanitizedOptions: OptimisticMessageOptions | undefined = options
-		? {
-				metadata: options.metadata
-					? (JSON.parse(JSON.stringify(options.metadata)) as Record<string, unknown>)
-					: undefined,
-				attachments: sanitizeAttachmentsForClone(options.attachments)
-			}
-		: undefined;
+	let sanitizedOptions: OptimisticMessageOptions | undefined;
+	try {
+		sanitizedOptions = options
+			? {
+					metadata: options.metadata
+						? (JSON.parse(JSON.stringify(options.metadata)) as Record<string, unknown>)
+						: undefined,
+					attachments: sanitizeAttachmentsForClone(options.attachments)
+				}
+			: undefined;
+	} catch (error) {
+		// If sanitization fails (circular refs, BigInt, etc), skip optimistic update
+		console.error('[Optimistic] Failed to sanitize options:', error);
+		sanitizedOptions = undefined;
+	}
 
 	return (store: OptimisticLocalStore) => {
 		console.log(

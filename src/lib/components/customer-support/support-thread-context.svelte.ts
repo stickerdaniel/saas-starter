@@ -316,8 +316,19 @@ export class SupportThreadContext {
 		let threadCreated = false;
 
 		try {
-			// Use provided threadId, context threadId, or create new
+			// Use provided threadId, context threadId, or await in-flight creation
 			let threadId = options?.threadId ?? this.threadId;
+
+			// Wait for any in-flight thread creation to complete (prevents duplicate threads)
+			if (!threadId && this.threadCreationPromise) {
+				try {
+					threadId = await this.threadCreationPromise;
+				} catch {
+					// If ensureThread failed, we'll create a new thread below
+				}
+			}
+
+			// Create thread if none exists
 			if (!threadId) {
 				const result = await client.mutation(api.support.threads.createThread, {
 					userId: this.userId || undefined,
@@ -366,6 +377,8 @@ export class SupportThreadContext {
 			return { threadId, threadCreated };
 		} catch (error) {
 			this.setAwaitingStream(false);
+			console.error('[sendMessage] Failed:', error);
+			this.setError(error instanceof Error ? error.message : 'Failed to send message');
 			throw error;
 		} finally {
 			this.setSending(false);
