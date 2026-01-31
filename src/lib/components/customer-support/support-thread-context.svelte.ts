@@ -5,6 +5,7 @@ import { isToolOrDynamicToolUIPart } from 'ai';
 import { api } from '$lib/convex/_generated/api';
 import type { Attachment } from '$lib/chat';
 import { StreamCacheManager } from '$lib/chat/core/StreamProcessor.js';
+import { createOptimisticUpdate, type ListMessagesArgs } from '$lib/chat/core/optimistic.js';
 
 /**
  * View types for the support widget navigation
@@ -274,6 +275,100 @@ export class SupportThreadContext {
 			console.error('[setNotificationEmail] Failed:', error);
 			this.setError('Failed to save email. Please try again.');
 			return false;
+		}
+	}
+
+	/**
+	 * Send a message with optional file attachments
+	 *
+	 * This method handles the complete message sending flow:
+	 * - Thread creation (if no thread exists and no threadId provided)
+	 * - Setting isSending/isAwaitingStream flags
+	 * - Building optimistic update
+	 * - Sending mutation
+	 * - Clearing flags on completion/error
+	 *
+	 * @param client - Convex client instance
+	 * @param prompt - Message text content
+	 * @param options - Optional file IDs, attachments, and pre-created threadId
+	 * @returns Promise with result (throws on error for caller to handle)
+	 */
+	async sendMessage(
+		client: ConvexClient,
+		prompt: string,
+		options?: {
+			fileIds?: string[];
+			attachments?: Attachment[];
+			/** Pre-created threadId (e.g., from chatbar's eager thread creation) */
+			threadId?: string;
+		}
+	): Promise<{ threadId: string; threadCreated: boolean }> {
+		const trimmedPrompt = prompt.trim();
+
+		// Validate input
+		if (!trimmedPrompt || this.isSending) {
+			throw new Error('Cannot send message: validation failed');
+		}
+
+		this.setSending(true);
+		this.setAwaitingStream(true);
+
+		let threadCreated = false;
+
+		try {
+			// Use provided threadId, context threadId, or create new
+			let threadId = options?.threadId ?? this.threadId;
+			if (!threadId) {
+				const result = await client.mutation(api.support.threads.createThread, {
+					userId: this.userId || undefined,
+					pageUrl: typeof window !== 'undefined' ? window.location.href : undefined
+				});
+				threadId = result.threadId;
+				threadCreated = true;
+
+				// Update context state (don't call setThread which clears messages)
+				this.threadId = threadId;
+				this.notificationEmail = result.notificationEmail ?? null;
+				this.currentView = 'chat';
+			} else if (!this.threadId) {
+				// Thread was pre-created (e.g., by chatbar), update context
+				this.threadId = threadId;
+				this.currentView = 'chat';
+			}
+
+			// Build query args for optimistic update (must match ChatRoot's query exactly)
+			const queryArgs: ListMessagesArgs = {
+				threadId,
+				paginationOpts: { numItems: 50, cursor: null },
+				streamArgs: { kind: 'list' as const, startOrder: 0 }
+			};
+
+			// Send message with optimistic update via Convex's store.setQuery
+			await client.mutation(
+				api.support.messages.sendMessage,
+				{
+					threadId,
+					prompt: trimmedPrompt,
+					userId: this.userId || undefined,
+					fileIds: options?.fileIds?.length ? options.fileIds : undefined
+				},
+				{
+					optimisticUpdate: createOptimisticUpdate(
+						api.support.messages.listMessages,
+						queryArgs,
+						'user',
+						trimmedPrompt,
+						{ attachments: options?.attachments?.length ? options.attachments : undefined }
+					)
+				}
+			);
+
+			return { threadId, threadCreated };
+		} catch (error) {
+			this.setAwaitingStream(false);
+			throw error;
+		} finally {
+			this.setSending(false);
 		}
 	}
 

@@ -112,21 +112,12 @@
 				out:fly={{ y: 40, duration: 300, easing: cubicOut }}
 				class="col-start-1 row-start-1 flex h-10 items-center"
 			>
-				{#if titleIcon || titleImage}
-					<AvatarHeading
-						icon={titleIcon}
-						image={titleImage}
-						title={backTitle}
-						subtitle={backSubtitle || ''}
-					/>
-				{:else}
-					<div class="flex flex-col justify-center">
-						<h2 class="text-base leading-tight font-semibold">{backTitle}</h2>
-						{#if backSubtitle}
-							<p class="text-xs text-muted-foreground">{backSubtitle}</p>
-						{/if}
-					</div>
-				{/if}
+				<AvatarHeading
+					icon={titleIcon}
+					image={titleImage}
+					title={backTitle}
+					subtitle={backSubtitle || ''}
+				/>
 			</div>
 		{/if}
 	</div>
