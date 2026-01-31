@@ -7,10 +7,25 @@
 
 import type { ConvexClient } from 'convex/browser';
 import type { FunctionReference } from 'convex/server';
-import type { ChatMessage, SendMessageOptions, SendMessageResult, ChatConfig } from './types.js';
+import type {
+	ChatMessage,
+	SendMessageOptions,
+	SendMessageResult,
+	ChatConfig,
+	CreateThreadOptions
+} from './types.js';
 import { DEFAULT_CHAT_CONFIG } from './types.js';
 import { StreamCacheManager } from './StreamProcessor.js';
 import { createOptimisticUpdate, type ListMessagesArgs } from './optimistic.js';
+
+/**
+ * Result from creating a thread
+ */
+export interface CreateThreadResult {
+	threadId: string;
+	notificationEmail?: string | null;
+	[key: string]: unknown;
+}
 
 /**
  * API endpoints configuration for ChatCore
@@ -18,7 +33,7 @@ import { createOptimisticUpdate, type ListMessagesArgs } from './optimistic.js';
 export interface ChatCoreAPI {
 	/** Mutation to send a message */
 	sendMessage: Parameters<ConvexClient['mutation']>[0];
-	/** Mutation to create a thread */
+	/** Mutation to create a thread - returns CreateThreadResult */
 	createThread?: Parameters<ConvexClient['mutation']>[0];
 	/** Query to list messages (required for optimistic updates) */
 	listMessages?: FunctionReference<'query'>;
@@ -161,6 +176,7 @@ export class ChatCore {
 	 * Send a message with optional file attachments
 	 *
 	 * This method handles the complete message sending flow:
+	 * - Thread creation (if needed and createThread API configured)
 	 * - Validation
 	 * - Optimistic updates via store.setQuery (automatic rollback on failure)
 	 * - Backend mutation
@@ -170,31 +186,55 @@ export class ChatCore {
 	 * @param client - Convex client instance
 	 * @param prompt - Message text content
 	 * @param options - Optional configuration
-	 * @returns Promise with message ID
+	 * @returns Promise with message ID and optional thread creation result
 	 */
 	async sendMessage(
 		client: ConvexClient,
 		prompt: string,
 		options?: SendMessageOptions
-	): Promise<SendMessageResult> {
+	): Promise<SendMessageResult & { threadCreated?: CreateThreadResult }> {
+		const trimmedPrompt = prompt.trim();
+
 		// Validate input
-		if (!prompt.trim() || !this.threadId || this.isSending) {
+		if (!trimmedPrompt || this.isSending) {
 			this.setError('Cannot send message yet. Please try again.');
 			throw new Error('Cannot send message: validation failed');
 		}
 
-		const trimmedPrompt = prompt.trim();
 		this.setSending(true);
 		this.setAwaitingStream(true);
 
+		let threadCreated: CreateThreadResult | undefined;
+
 		try {
+			// Ensure thread exists (lazy thread creation)
+			let threadId = this.threadId;
+			if (!threadId) {
+				if (!this.api.createThread) {
+					this.setError('No thread and createThread not configured');
+					throw new Error('Cannot send message: no thread and createThread not configured');
+				}
+
+				const result = (await client.mutation(
+					this.api.createThread,
+					options?.createThreadOptions ?? {}
+				)) as CreateThreadResult;
+
+				threadId = result.threadId;
+				threadCreated = result;
+
+				// Update threadId without clearing messages (for optimistic updates)
+				this.threadId = threadId;
+				this.isNewConversation = false;
+			}
+
 			// Build optimistic update if listMessages query is available
 			const mutationOptions = this.api.listMessages
 				? {
 						optimisticUpdate: createOptimisticUpdate(
 							this.api.listMessages,
 							{
-								threadId: this.threadId,
+								threadId,
 								paginationOpts: { numItems: this.config.pageSize, cursor: null },
 								streamArgs: { kind: 'list' as const, startOrder: 0 }
 							} satisfies ListMessagesArgs,
@@ -209,8 +249,9 @@ export class ChatCore {
 			const result = await client.mutation(
 				this.api.sendMessage,
 				{
-					threadId: this.threadId,
+					threadId,
 					prompt: trimmedPrompt,
+					userId: options?.userId,
 					fileIds: options?.fileIds
 				},
 				mutationOptions
@@ -221,7 +262,7 @@ export class ChatCore {
 				this.requestWidgetOpen();
 			}
 
-			return result;
+			return { ...result, threadCreated };
 		} catch (error) {
 			console.error('[ChatCore.sendMessage] Failed to send message:', error);
 			this.setError('Failed to send message. Please try again.');
@@ -238,21 +279,24 @@ export class ChatCore {
 	 *
 	 * @param client - Convex client instance
 	 * @param options - Thread creation options
-	 * @returns Promise with thread ID
+	 * @returns Promise with thread creation result
 	 */
 	async createThread(
 		client: ConvexClient,
-		options?: { userId?: string; title?: string }
-	): Promise<string> {
+		options?: CreateThreadOptions
+	): Promise<CreateThreadResult> {
 		if (!this.api.createThread) {
 			throw new Error('createThread API not configured');
 		}
 
 		this.setLoading(true);
 		try {
-			const result = await client.mutation(this.api.createThread, options ?? {});
+			const result = (await client.mutation(
+				this.api.createThread,
+				options ?? {}
+			)) as CreateThreadResult;
 			this.setThread(result.threadId);
-			return result.threadId;
+			return result;
 		} catch (error) {
 			console.error('[ChatCore.createThread] Failed to create thread:', error);
 			this.setError('Failed to create thread. Please try again.');

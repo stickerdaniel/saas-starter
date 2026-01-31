@@ -152,12 +152,24 @@ export interface PaginationState {
 export type StreamStatus = 'streaming' | 'finished' | 'aborted';
 
 /**
+ * Options for creating a thread
+ */
+export interface CreateThreadOptions {
+	userId?: string;
+	pageUrl?: string;
+	title?: string;
+}
+
+/**
  * Options for sending a message
  */
 export interface SendMessageOptions {
 	fileIds?: string[];
 	openWidgetAfter?: boolean;
 	attachments?: Attachment[];
+	userId?: string;
+	/** Options for creating a thread if none exists */
+	createThreadOptions?: CreateThreadOptions;
 }
 
 /**

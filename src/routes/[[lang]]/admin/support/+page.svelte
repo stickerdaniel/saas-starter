@@ -154,7 +154,9 @@
 
 			<Pane defaultSize={50} minSize={30}>
 				{#if threadId}
-					<ThreadChat {threadId} initialThread={selectedThread} />
+					{#key threadId}
+						<ThreadChat {threadId} initialThread={selectedThread} />
+					{/key}
 				{:else}
 					<div
 						class="flex h-full items-center justify-center text-center text-balance text-muted-foreground"
@@ -208,7 +210,9 @@
 
 			<Pane defaultSize={70} minSize={50}>
 				{#if threadId}
-					<ThreadChat {threadId} initialThread={selectedThread} />
+					{#key threadId}
+						<ThreadChat {threadId} initialThread={selectedThread} />
+					{/key}
 				{:else}
 					<div
 						class="flex h-full items-center justify-center text-center text-balance text-muted-foreground"
@@ -242,7 +246,9 @@
 			<!-- Chat (slides over thread list from right) -->
 			<SlidingPanel open={!!threadId} class="bg-background">
 				{#if threadId}
-					<ThreadChat {threadId} initialThread={selectedThread} onBackClick={clearThread} />
+					{#key threadId}
+						<ThreadChat {threadId} initialThread={selectedThread} onBackClick={clearThread} />
+					{/key}
 				{/if}
 			</SlidingPanel>
 		</div>
