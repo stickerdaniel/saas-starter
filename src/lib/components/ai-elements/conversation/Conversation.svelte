@@ -16,13 +16,13 @@
 	let {
 		class: className,
 		children,
-		initial = 'smooth',
-		resize = 'smooth',
+		initial: _initial = 'smooth',
+		resize: _resize = 'smooth',
 		ref = $bindable(null),
 		...restProps
 	}: ConversationProps = $props();
 
-	let context = stickToBottomContext.set(new StickToBottomContext());
+	let _context = stickToBottomContext.set(new StickToBottomContext());
 </script>
 
 <div

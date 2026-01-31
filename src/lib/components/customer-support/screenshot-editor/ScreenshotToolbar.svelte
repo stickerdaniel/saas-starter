@@ -88,7 +88,7 @@
 			</Popover.Trigger>
 			<Popover.Content class="z-[120] w-auto p-2">
 				<div class="grid grid-cols-3 gap-1.5">
-					{#each DEFAULT_COLORS as { name, value }}
+					{#each DEFAULT_COLORS as { name, value } (value)}
 						<Button
 							variant="ghost"
 							size="icon"

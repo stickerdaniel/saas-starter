@@ -6,6 +6,7 @@
  */
 
 import { getContext, setContext, untrack } from 'svelte';
+import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 import { toast } from 'svelte-sonner';
 import type { ConvexClient } from 'convex/browser';
 import type { ChatCore } from '../core/ChatCore.svelte.js';
@@ -47,10 +48,16 @@ export class ChatUIContext {
 	readonly userAlignment: ChatAlignment;
 
 	/** UI state: which reasoning accordions are open */
-	reasoningOpenState = $state<Map<string, boolean>>(new Map());
+	reasoningOpenState = $state(new SvelteMap<string, boolean>());
+
+	/** Tracks messages that have been auto-opened (for auto-close logic) */
+	autoOpenedMessages = $state(new SvelteSet<string>());
 
 	/** Processed messages with display fields (set by ChatMessages) */
 	displayMessages = $state<DisplayMessage[]>([]);
+
+	/** Whether the messages query has resolved (prevents suggestion chip flash) */
+	messagesReady = $state(false);
 
 	/** Fade animation state for messages */
 	readonly messagesFade = new FadeOnLoad<DisplayMessage[]>();
@@ -61,7 +68,8 @@ export class ChatUIContext {
 	/** Attachments for current message - keyed by unique ID for progress updates */
 	attachments = $state<Attachment[]>([]);
 
-	/** Internal map for tracking attachment keys (for progress updates) */
+	/** Internal map for tracking attachment keys (for progress updates) - not reactive, internal only */
+	// eslint-disable-next-line svelte/prefer-svelte-reactivity -- internal tracking map, not reactive state
 	private attachmentKeys = new Map<number, string>();
 	private nextAttachmentIndex = 0;
 
@@ -115,6 +123,27 @@ export class ChatUIContext {
 	}
 
 	/**
+	 * Check if a message was auto-opened (for auto-close logic)
+	 */
+	wasAutoOpened(messageId: string): boolean {
+		return this.autoOpenedMessages.has(messageId);
+	}
+
+	/**
+	 * Mark a message as having been auto-opened
+	 */
+	markAutoOpened(messageId: string): void {
+		this.autoOpenedMessages.add(messageId);
+	}
+
+	/**
+	 * Clear auto-opened tracking for a message (after auto-close)
+	 */
+	clearAutoOpened(messageId: string): void {
+		this.autoOpenedMessages.delete(messageId);
+	}
+
+	/**
 	 * Update display messages
 	 */
 	setDisplayMessages(messages: DisplayMessage[]): void {
@@ -147,6 +176,13 @@ export class ChatUIContext {
 				}
 			}
 		}
+	}
+
+	/**
+	 * Set messages ready state (true when query has resolved)
+	 */
+	setMessagesReady(ready: boolean): void {
+		this.messagesReady = ready;
 	}
 
 	/**
@@ -361,6 +397,24 @@ export class ChatUIContext {
 	 */
 	get canSend(): boolean {
 		return !this.hasUploadingFiles && !!this.inputValue.trim();
+	}
+
+	/**
+	 * Check if any assistant message is currently streaming
+	 * Uses displayMessages which is always synced from query
+	 */
+	get isStreaming(): boolean {
+		return this.displayMessages.some(
+			(m) => m.role === 'assistant' && (m.status === 'pending' || m.status === 'streaming')
+		);
+	}
+
+	/**
+	 * Check if chat is currently processing (sending, awaiting stream, or streaming)
+	 * Single source of truth for input blocking logic
+	 */
+	get isProcessing(): boolean {
+		return this.core.isSending || this.core.isAwaitingStream || this.isStreaming;
 	}
 
 	/**

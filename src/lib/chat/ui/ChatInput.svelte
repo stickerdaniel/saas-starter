@@ -12,6 +12,7 @@
 	import { FileUpload, FileUploadTrigger } from '$lib/components/prompt-kit/file-upload';
 	import { Button } from '$lib/components/ui/button';
 	import ArrowUpIcon from '@lucide/svelte/icons/arrow-up';
+	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
 	import CameraIcon from '@lucide/svelte/icons/camera';
 	import PaperclipIcon from '@lucide/svelte/icons/paperclip';
 	import ChatAttachments from './ChatAttachments.svelte';
@@ -71,8 +72,9 @@
 
 	const ctx = getChatUIContext();
 
-	// Use context for send validation - also check rate limit
-	const canSend = $derived(ctx.canSend && !ctx.core.isSending && !isRateLimited);
+	// Use centralized isProcessing from context (single source of truth)
+	// When handed off to human support, don't block - use fire-and-forget pattern
+	const canSend = $derived(ctx.canSend && (!ctx.isProcessing || isHandedOff) && !isRateLimited);
 
 	// Check if last assistant message is complete (for handoff button visibility)
 	const lastAssistantComplete = $derived.by(() => {
@@ -184,21 +186,24 @@
 	onValueChange={handleValueChange}
 	onSubmit={handleSend}
 >
-	<!-- Suggestion chips - shown when composing new message (no thread created yet) -->
-	<!-- {#key} forces re-render on threadId change, triggering animation on navigation -->
-	{#key ctx.core.threadId}
-		{#if ctx.core.threadId === null && ctx.displayMessages.length === 0 && !ctx.inputValue.trim() && suggestions.length > 0}
-			<div class="absolute top-0 z-20 translate-y-[-100%] animate-in pb-2 duration-200 fade-in-0">
-				<div class="flex flex-wrap gap-2">
-					{#each suggestions as suggestion}
-						<PromptSuggestion onclick={() => handleSuggestionClick(suggestion.text)}>
-							{suggestion.label}
-						</PromptSuggestion>
-					{/each}
-				</div>
+	<!-- Suggestion chips - shown when starting new conversation or after messages loaded and empty -->
+	<!-- isNewConversation: show immediately for draft threads (eager creation) -->
+	<!-- messagesReady: wait for query to resolve for existing threads (prevents flash) -->
+	{#if (ctx.core.isNewConversation || ctx.messagesReady) && ctx.displayMessages.length === 0 && !ctx.inputValue.trim() && suggestions.length > 0}
+		<div
+			class="absolute top-0 z-20 translate-y-[-100%] pb-2 duration-200 {ctx.core.isNewConversation
+				? ''
+				: 'animate-in fade-in-0'}"
+		>
+			<div class="flex flex-wrap gap-2">
+				{#each suggestions as suggestion (suggestion.text)}
+					<PromptSuggestion onclick={() => handleSuggestionClick(suggestion.text)}>
+						{suggestion.label}
+					</PromptSuggestion>
+				{/each}
 			</div>
-		{/if}
-	{/key}
+		</div>
+	{/if}
 
 	<div class="flex flex-col p-2">
 		{#if ctx.attachments.length > 0}
@@ -297,7 +302,11 @@
 						class="size-9 flex-shrink-0 rounded-full"
 						aria-label={$t('chat.aria.send')}
 					>
-						<ArrowUpIcon class="h-[18px] w-[18px]" />
+						{#if ctx.isProcessing && !isHandedOff}
+							<LoaderCircleIcon class="h-[18px] w-[18px] animate-spin" />
+						{:else}
+							<ArrowUpIcon class="h-[18px] w-[18px]" />
+						{/if}
 					</Button>
 				</div>
 			{/if}

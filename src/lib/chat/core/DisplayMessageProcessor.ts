@@ -21,8 +21,6 @@ export interface TransformContext {
 	streamReasoningMap: Map<number, string>;
 	/** Map of order -> stream status */
 	streamStatusMap: Map<number, string>;
-	/** Map of real message ID -> optimistic ID for stable render keys */
-	optimisticKeyMap: Map<string, string>;
 	/** Cache manager for reasoning persistence */
 	streamCache: StreamCacheManager;
 }
@@ -90,7 +88,6 @@ export function resolveReasoning(
  * - Text extraction for user/assistant messages
  * - Streaming data application
  * - Reasoning resolution with caching
- * - Render key mapping for optimistic updates
  *
  * @param msg - The chat message to transform
  * @param context - Transformation context with streaming data
@@ -100,14 +97,8 @@ export function transformToDisplayMessage(
 	msg: ChatMessage,
 	context: TransformContext
 ): DisplayMessage {
-	const {
-		streamingKeys,
-		streamTextMap,
-		streamReasoningMap,
-		streamStatusMap,
-		optimisticKeyMap,
-		streamCache
-	} = context;
+	const { streamingKeys, streamTextMap, streamReasoningMap, streamStatusMap, streamCache } =
+		context;
 
 	// Determine if this specific message is being streamed
 	const msgKey = `${msg.order}-${(msg as { stepOrder?: number }).stepOrder ?? 0}`;
@@ -147,7 +138,6 @@ export function transformToDisplayMessage(
 
 	return {
 		...msg,
-		_renderKey: optimisticKeyMap.get(msg.id),
 		displayText,
 		displayReasoning: reasoningResult.displayReasoning,
 		isStreaming,
@@ -162,13 +152,9 @@ export function transformToDisplayMessage(
  * that skips streaming-related lookups.
  *
  * @param msg - The chat message to transform
- * @param optimisticKeyMap - Map of real message ID -> optimistic ID
  * @returns Display message for non-streaming context
  */
-export function transformToDisplayMessageSimple(
-	msg: ChatMessage,
-	optimisticKeyMap: Map<string, string>
-): DisplayMessage {
+export function transformToDisplayMessageSimple(msg: ChatMessage): DisplayMessage {
 	const isUser = msg.role === 'user';
 	let displayText = '';
 	if (isUser) {
@@ -181,7 +167,6 @@ export function transformToDisplayMessageSimple(
 
 	return {
 		...msg,
-		_renderKey: optimisticKeyMap.get(msg.id),
 		displayText,
 		displayReasoning: reasoning,
 		isStreaming: false,

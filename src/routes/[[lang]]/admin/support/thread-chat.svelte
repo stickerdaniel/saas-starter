@@ -1,14 +1,16 @@
 <script lang="ts">
 	import { useConvexClient, useQuery } from 'convex-svelte';
+	import { toast } from 'svelte-sonner';
 	import { api } from '$lib/convex/_generated/api';
 	import ChatRoot from '$lib/chat/ui/ChatRoot.svelte';
 	import ChatMessages from '$lib/chat/ui/ChatMessages.svelte';
 	import ChatInput from '$lib/chat/ui/ChatInput.svelte';
 	import { ChatUIContext, type UploadConfig } from '$lib/chat/ui/ChatContext.svelte';
 	import { ChatCore } from '$lib/chat/core/ChatCore.svelte';
+	import { createOptimisticUpdate, type ListMessagesArgs } from '$lib/chat/core/optimistic';
 	import { Button } from '$lib/components/ui/button';
-	import { Avatar, AvatarFallback, AvatarImage } from '$lib/components/ui/avatar';
 	import { Skeleton } from '$lib/components/ui/skeleton';
+	import AvatarHeading from '$lib/components/customer-support/avatar-heading.svelte';
 	import PanelRightIcon from '@lucide/svelte/icons/panel-right';
 	import PanelBottomOpen from '@lucide/svelte/icons/panel-bottom-open';
 	import ChevronLeft from '@lucide/svelte/icons/chevron-left';
@@ -46,10 +48,18 @@
 	};
 
 	// Create ChatCore for this thread (needed for ChatUIContext)
+	// Seed at creation; kept in sync via $effect below.
+	// svelte-ignore state_referenced_locally
 	const chatCore = new ChatCore({
 		threadId,
 		api: {
 			sendMessage: api.admin.support.mutations.sendAdminReply
+		}
+	});
+
+	$effect(() => {
+		if (chatCore.threadId !== threadId) {
+			chatCore.setThread(threadId);
 		}
 	});
 
@@ -160,34 +170,17 @@
 	{#if media.lg}
 		<div class="flex-shrink-0 border-b p-4">
 			<div class="flex items-center justify-between gap-4">
-				<div class="flex min-w-0 flex-1 items-center gap-3">
+				<div class="flex min-w-0 flex-1 items-center gap-2">
 					{#if isLoading}
-						<!-- Skeleton state (matches resolved text layout) -->
+						<!-- Skeleton state (matches AvatarHeading layout) -->
 						<Skeleton class="size-8 shrink-0 rounded-full" />
-						<div class="min-w-0 flex-1">
-							<div class="flex h-6 items-center">
-								<Skeleton class="h-4 w-28" />
-							</div>
-							<div class="flex h-5 items-center">
-								<Skeleton class="h-3.5 w-40" />
-							</div>
+						<div class="flex min-w-0 flex-col">
+							<Skeleton class="h-5 w-28" />
+							<Skeleton class="mt-1 h-4 w-40" />
 						</div>
 					{:else}
 						<!-- Resolved state -->
-						<Avatar class="size-8 shrink-0">
-							{#if userImage}
-								<AvatarImage src={userImage} alt={displayName} />
-							{/if}
-							<AvatarFallback>
-								{displayName[0]?.toUpperCase() || 'U'}
-							</AvatarFallback>
-						</Avatar>
-						<div class="min-w-0 flex-1">
-							<h2 class="truncate font-semibold">
-								{displayName}
-							</h2>
-							<p class="truncate text-sm text-muted-foreground">{displayEmail}</p>
-						</div>
+						<AvatarHeading image={userImage} title={displayName} subtitle={displayEmail} />
 					{/if}
 				</div>
 
@@ -215,6 +208,7 @@
 	<ChatRoot
 		{threadId}
 		userAlignment="left"
+		externalCore={chatCore}
 		externalUIContext={chatUIContext}
 		api={{
 			listMessages: api.support.messages.listMessages,
@@ -230,22 +224,47 @@
 			placeholder={$t('admin.support.chat.placeholder')}
 			showFileButton={true}
 			onSend={async (prompt) => {
-				if (!prompt) return;
+				if (!prompt?.trim()) return;
 
-				// Get uploaded file IDs from context
+				// Get uploaded file IDs and attachments from context
 				const fileIds = chatUIContext.uploadedFileIds;
+				const attachments = chatUIContext.attachments;
 
+				// Build query args for optimistic update (must match ChatRoot's query)
+				const queryArgs: ListMessagesArgs = {
+					threadId,
+					paginationOpts: { numItems: 50, cursor: null },
+					streamArgs: { kind: 'list' as const, startOrder: 0 }
+				};
+
+				// Fire-and-forget: no blocking, optimistic update provides instant feedback
 				try {
-					await client.mutation(api.admin.support.mutations.sendAdminReply, {
-						threadId,
-						prompt,
-						fileIds: fileIds.length > 0 ? fileIds : undefined
-					});
+					await client.mutation(
+						api.admin.support.mutations.sendAdminReply,
+						{
+							threadId,
+							prompt,
+							fileIds: fileIds.length > 0 ? fileIds : undefined
+						},
+						{
+							optimisticUpdate: createOptimisticUpdate(
+								api.support.messages.listMessages,
+								queryArgs,
+								'assistant',
+								prompt,
+								{
+									metadata: { provider: 'human' },
+									attachments: attachments.length > 0 ? attachments : undefined
+								}
+							)
+						}
+					);
 
 					// Clear attachments after successful send
 					chatUIContext.clearAttachments();
 				} catch (error) {
 					console.error('[Admin sendAdminReply] Error:', error);
+					toast.error($t('admin.support.chat.error.send_failed'));
 				}
 			}}
 		/>

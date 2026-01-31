@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { fade } from 'svelte/transition';
 	import {
 		type RowSelectionState,
 		type SortingState,
@@ -36,8 +35,9 @@
 	import DataTableFilters from './data-table-filters.svelte';
 	import type { ActionEvent } from './data-table-actions.svelte';
 	import { Debounced } from 'runed';
+	import { SvelteMap } from 'svelte/reactivity';
 
-	let { data }: { data: PageData } = $props();
+	let { data: _data }: { data: PageData } = $props();
 
 	const client = useConvexClient();
 
@@ -48,15 +48,15 @@
 	// Server-side pagination state
 	let pageSize = $state(10);
 	let pageIndex = $state(0);
-	let cursors = $state<Map<number, string | null>>(new Map([[0, null]]));
+	let cursors = new SvelteMap<number, string | null>([[0, null]]);
 
 	// Local page cache for instant navigation
-	type PageData = {
+	type CachedPageData = {
 		users: AdminUserData[];
 		continueCursor: string | null;
 		isDone: boolean;
 	};
-	let pageCache = $state<Map<number, PageData>>(new Map());
+	let pageCache = new SvelteMap<number, CachedPageData>();
 
 	// Track what cursor the current usersQuery.data was fetched with
 	let queryCursorUsed = $state<string | null | undefined>(undefined);
@@ -276,8 +276,8 @@
 
 			// Reset to page 0 and clear caches
 			pageIndex = 0;
-			cursors = new Map([[0, null]]);
-			pageCache = new Map();
+			cursors = new SvelteMap([[0, null]]);
+			pageCache = new SvelteMap();
 		}
 	});
 
@@ -323,8 +323,8 @@
 	function handlePageSizeChange(newSize: number) {
 		pageSize = newSize;
 		pageIndex = 0;
-		cursors = new Map([[0, null]]);
-		pageCache = new Map();
+		cursors = new SvelteMap([[0, null]]);
+		pageCache = new SvelteMap();
 		prefetchedNextPage = null; // Clear prefetch cache too
 	}
 

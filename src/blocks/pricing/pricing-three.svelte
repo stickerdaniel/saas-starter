@@ -15,6 +15,7 @@
 	import { pricingParamsSchema } from '$lib/schemas/pricing-params';
 	import { T, getTranslate } from '@tolgee/svelte';
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 
 	const { customer, checkout, openBillingPortal } = useCustomer();
@@ -58,7 +59,7 @@
 			// Include checkout param in redirectTo so it's preserved after signin
 			const redirectWithCheckout = `${currentUrl}?checkout=${productId}`;
 			console.log('[PRICING DEBUG] Redirecting to signin:', redirectWithCheckout);
-			goto(`${redirectUrl}?redirectTo=${encodeURIComponent(redirectWithCheckout)}`);
+			goto(resolve(`${redirectUrl}?redirectTo=${encodeURIComponent(redirectWithCheckout)}`));
 			return;
 		}
 
@@ -135,7 +136,7 @@
 					<hr class="border-dashed" />
 
 					<ul class="list-outside space-y-3 text-sm">
-						{#each freeFeatureKeys as key}
+						{#each freeFeatureKeys as key (key)}
 							<li class="flex items-center gap-2">
 								<Check class="size-3" />
 								<T keyName="pricing.features.free.{key}" />
@@ -202,7 +203,7 @@
 					<hr class="border-dashed" />
 
 					<ul class="list-outside space-y-3 text-sm">
-						{#each proFeatureKeys as key}
+						{#each proFeatureKeys as key (key)}
 							<li class="flex items-center gap-2">
 								<Check class="size-3" />
 								<T keyName="pricing.features.pro.{key}" />
@@ -235,7 +236,7 @@
 					<hr class="border-dashed" />
 
 					<ul class="list-outside space-y-3 text-sm">
-						{#each enterpriseFeatureKeys as key}
+						{#each enterpriseFeatureKeys as key (key)}
 							<li class="flex items-center gap-2">
 								<Check class="size-3" />
 								<T keyName="pricing.features.enterprise.{key}" />

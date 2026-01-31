@@ -5,6 +5,7 @@
 	import { Debounced } from 'runed';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { useQuery, usePaginatedQuery } from 'convex-svelte';
 	import { api } from '$lib/convex/_generated/api';
 	import { useMedia } from '$lib/hooks/use-media.svelte';
@@ -108,13 +109,13 @@
 	function selectThread(id: string) {
 		const url = new URL($page.url);
 		url.searchParams.set('thread', id);
-		goto(url.toString(), { noScroll: true, replaceState: false });
+		goto(resolve(url.pathname + url.search), { noScroll: true, replaceState: false });
 	}
 
 	function clearThread() {
 		const url = new URL($page.url);
 		url.searchParams.delete('thread');
-		goto(url.toString(), { noScroll: true, replaceState: false });
+		goto(resolve(url.pathname + url.search), { noScroll: true, replaceState: false });
 	}
 
 	// Reset overlay state when thread changes
@@ -153,7 +154,9 @@
 
 			<Pane defaultSize={50} minSize={30}>
 				{#if threadId}
-					<ThreadChat {threadId} initialThread={selectedThread} />
+					{#key threadId}
+						<ThreadChat {threadId} initialThread={selectedThread} />
+					{/key}
 				{:else}
 					<div
 						class="flex h-full items-center justify-center text-center text-balance text-muted-foreground"
@@ -207,7 +210,9 @@
 
 			<Pane defaultSize={70} minSize={50}>
 				{#if threadId}
-					<ThreadChat {threadId} initialThread={selectedThread} />
+					{#key threadId}
+						<ThreadChat {threadId} initialThread={selectedThread} />
+					{/key}
 				{:else}
 					<div
 						class="flex h-full items-center justify-center text-center text-balance text-muted-foreground"
@@ -241,7 +246,9 @@
 			<!-- Chat (slides over thread list from right) -->
 			<SlidingPanel open={!!threadId} class="bg-background">
 				{#if threadId}
-					<ThreadChat {threadId} initialThread={selectedThread} onBackClick={clearThread} />
+					{#key threadId}
+						<ThreadChat {threadId} initialThread={selectedThread} onBackClick={clearThread} />
+					{/key}
 				{/if}
 			</SlidingPanel>
 		</div>

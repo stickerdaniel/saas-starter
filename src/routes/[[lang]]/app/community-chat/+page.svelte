@@ -13,7 +13,7 @@
 	import SendIcon from '@lucide/svelte/icons/send';
 	import InnerShadowTopIcon from '@tabler/icons-svelte/icons/inner-shadow-top';
 	import { toast } from 'svelte-sonner';
-	import { goto } from '$app/navigation';
+
 	import { page } from '$app/state';
 	import { T, getTranslate } from '@tolgee/svelte';
 
@@ -48,7 +48,7 @@
 				? messagesFeature.included_usage
 				: 0
 	);
-	const usedMessages = $derived(totalMessages - remainingMessages);
+	const _usedMessages = $derived(totalMessages - remainingMessages);
 
 	async function handleSubmit(event: Event) {
 		event.preventDefault();
@@ -200,7 +200,7 @@
 				</div>
 				<Chat.List class="!h-[calc(100dvh-var(--header-height)-12rem)]">
 					{#if messages.data}
-						{#each messages.data as message}
+						{#each messages.data as message (message._id)}
 							<Chat.Bubble variant={message.userId === viewer.data._id ? 'sent' : 'received'}>
 								<Chat.BubbleAvatar>
 									<Chat.BubbleAvatarImage

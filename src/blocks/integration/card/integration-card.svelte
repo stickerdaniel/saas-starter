@@ -20,7 +20,7 @@
 		description,
 		link = 'https://github.com/SikandarJODD/cnblocks',
 		secondaryLink,
-		secondaryTitle,
+		secondaryTitle: _secondaryTitle,
 		buttonText,
 		secondaryButtonText
 	}: IntegrationCardProps = $props();

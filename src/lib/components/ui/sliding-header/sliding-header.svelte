@@ -40,11 +40,11 @@
 
 	let {
 		isBackView,
-		defaultIcon = MessagesSquareIcon,
+		defaultIcon: DefaultIcon = MessagesSquareIcon,
 		backTitle,
 		backSubtitle,
 		defaultTitle,
-		backIcon = ChevronLeftIcon,
+		backIcon: BackIcon = ChevronLeftIcon,
 		titleIcon,
 		titleImage,
 		onBackClick,
@@ -65,7 +65,7 @@
 				out:fly={{ x: -20, duration: 200, easing: cubicOut }}
 				class="absolute inset-0 flex items-center justify-center"
 			>
-				<svelte:component this={defaultIcon} class="size-5 text-muted-foreground" />
+				<DefaultIcon class="size-5 text-muted-foreground" />
 			</div>
 		{/if}
 
@@ -83,7 +83,7 @@
 					aria-label={$t('aria.go_back')}
 					onclick={onBackClick}
 				>
-					<svelte:component this={backIcon} class="size-5" />
+					<BackIcon class="size-5" />
 				</Button>
 			</div>
 		{/if}
@@ -112,21 +112,12 @@
 				out:fly={{ y: 40, duration: 300, easing: cubicOut }}
 				class="col-start-1 row-start-1 flex h-10 items-center"
 			>
-				{#if titleIcon || titleImage}
-					<AvatarHeading
-						icon={titleIcon}
-						image={titleImage}
-						title={backTitle}
-						subtitle={backSubtitle || ''}
-					/>
-				{:else}
-					<div class="flex flex-col justify-center">
-						<h2 class="text-base leading-tight font-semibold">{backTitle}</h2>
-						{#if backSubtitle}
-							<p class="text-xs text-muted-foreground">{backSubtitle}</p>
-						{/if}
-					</div>
-				{/if}
+				<AvatarHeading
+					icon={titleIcon}
+					image={titleImage}
+					title={backTitle}
+					subtitle={backSubtitle || ''}
+				/>
 			</div>
 		{/if}
 	</div>

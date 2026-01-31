@@ -5,8 +5,7 @@
 	import {
 		AttachmentsContext,
 		attachmentsContext,
-		type PromptInputMessage,
-		type FileUIPart
+		type PromptInputMessage
 	} from './attachments-context.svelte.js';
 
 	interface Props {
@@ -40,9 +39,10 @@
 
 	let anchorRef = $state<HTMLSpanElement | null>(null);
 	let formRef = $state<HTMLFormElement | null>(null);
-	const attachments = attachmentsContext.set(
-		new AttachmentsContext(accept, multiple, maxFiles, maxFileSize, onError)
-	);
+	const attachments = attachmentsContext.set(new AttachmentsContext());
+	$effect(() => {
+		attachments.configure({ accept, multiple, maxFiles, maxFileSize, onError });
+	});
 
 	// Find nearest form to scope drag & drop
 	onMount(() => {
@@ -155,7 +155,7 @@
 		let text = (formData.get('message') as string) || '';
 
 		// Convert blob URLs to data URLs asynchronously
-		let filesPromises = attachments.files.map(async ({ id, ...item }) => {
+		let filesPromises = attachments.files.map(async ({ id: _id, ...item }) => {
 			if (item.url && item.url.startsWith('blob:')) {
 				return {
 					...item,

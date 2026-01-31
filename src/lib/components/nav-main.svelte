@@ -1,6 +1,7 @@
 <script lang="ts">
 	import * as Collapsible from '$lib/components/ui/collapsible/index.js';
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
+	import { resolve } from '$app/paths';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 
 	let {
@@ -10,7 +11,6 @@
 			title: string;
 			url: string;
 			// this should be `Component` after @lucide/svelte updates types
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			icon?: any;
 			isActive?: boolean;
 			items?: {
@@ -47,7 +47,7 @@
 									<Sidebar.MenuSubItem>
 										<Sidebar.MenuSubButton>
 											{#snippet child({ props })}
-												<a href={subItem.url} {...props}>
+												<a href={resolve(subItem.url)} {...props}>
 													<span>{subItem.title}</span>
 												</a>
 											{/snippet}

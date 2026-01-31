@@ -95,10 +95,7 @@
 	tabindex={href && disabled ? -1 : tabindex}
 	class={cn(buttonVariants({ variant, size }), className)}
 	bind:this={ref}
-	onclick={async (
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		e: any
-	) => {
+	onclick={async (e: any) => {
 		onclick?.(e);
 
 		if (type === undefined) return;

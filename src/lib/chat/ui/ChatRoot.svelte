@@ -45,7 +45,6 @@
 		isSending: boolean;
 		error: string | null;
 		isAwaitingStream: boolean;
-		optimisticMessages: ChatMessage[];
 		setAwaitingStream: (awaiting: boolean) => void;
 		streamCache: ChatCore['streamCache'];
 	}
@@ -67,7 +66,7 @@
 			listMessages: Parameters<typeof useQuery>[0];
 		};
 		/** External core adapter (optional - if provided, uses external state) */
-		externalCore?: ExternalCoreAdapter;
+		externalCore?: ExternalCoreAdapter | ChatCore;
 		/** External UI context (optional - if provided, uses existing context) */
 		externalUIContext?: ChatUIContext;
 		/** Upload configuration for file attachments */
@@ -84,6 +83,8 @@
 	const client = useConvexClient();
 
 	// Create ChatCore instance (only if not using external core)
+	// Intentional mount-time config capture; threadId is synced later via $effect.
+	// svelte-ignore state_referenced_locally
 	const internalCore = externalCore
 		? null
 		: new ChatCore({
@@ -92,9 +93,13 @@
 			});
 
 	// Use either external or internal core
+	// Core selection is fixed for component lifetime; swapping requires remount.
+	// svelte-ignore state_referenced_locally
 	const core = (externalCore as unknown as ChatCore) ?? internalCore!;
 
 	// Create and set UI context (use external if provided)
+	// Context object is created once and placed in Svelte context.
+	// svelte-ignore state_referenced_locally
 	const uiContext =
 		externalUIContext ?? new ChatUIContext(core, client, uploadConfig, userAlignment);
 	setChatUIContext(uiContext);
@@ -146,60 +151,15 @@
 			: undefined
 	);
 
-	// Build optimistic ID → real message ID mapping for stable render keys
-	// This prevents DOM element destruction when optimistic messages are replaced by real ones
-	const optimisticKeyMap = $derived.by(() => {
-		const messagesData = messagesQuery?.data as MessagesQueryResponse | undefined;
-		const queryMessages = messagesData?.page || [];
-		const optimisticMessages = core.optimisticMessages;
-
-		const map = new Map<string, string>();
-		const matchedOptimisticIds = new Set<string>();
-
-		for (const msg of queryMessages) {
-			const match = optimisticMessages.find(
-				(opt) => !matchedOptimisticIds.has(opt.id) && opt.role === msg.role && opt.text === msg.text
-			);
-			if (match) {
-				// Real message should use optimistic ID as render key
-				map.set(msg.id, match.id);
-				matchedOptimisticIds.add(match.id);
-			}
-		}
-		return map;
-	});
-
-	// Merge query messages with optimistic messages from core
+	// Get messages from query - optimistic updates are handled by Convex's store.setQuery
+	// When a mutation calls createOptimisticUpdate(), the query cache is updated immediately
+	// and automatically reverts if the mutation fails
 	const allMessages = $derived.by(() => {
 		const messagesData = messagesQuery?.data as MessagesQueryResponse | undefined;
 		const queryMessages = messagesData?.page || [];
-		const optimisticMessages = core.optimisticMessages;
 
-		// Normalize message to ensure top-level role exists
-		const messageMap = new Map<string, ChatMessage>();
-
-		// Add query messages first (normalized)
-		for (const msg of queryMessages) {
-			messageMap.set(msg.id, normalizeMessage(msg));
-		}
-
-		// Add optimistic messages that don't have real versions yet (normalized)
-		// Match by text content, not by ID or position
-		for (const msg of optimisticMessages) {
-			// Check if there's a real message with matching text and role
-			const hasRealMatch = queryMessages.some((qm) => qm.role === msg.role && qm.text === msg.text);
-
-			if (hasRealMatch) {
-				continue;
-			}
-
-			// No real match yet, keep the optimistic message
-			if (!messageMap.has(msg.id)) {
-				messageMap.set(msg.id, normalizeMessage(msg));
-			}
-		}
-
-		return Array.from(messageMap.values()).sort((a, b) => a._creationTime - b._creationTime);
+		// Normalize messages to ensure top-level role exists
+		return queryMessages.map((msg) => normalizeMessage(msg));
 	});
 
 	// Process streaming deltas to create display messages
@@ -212,7 +172,7 @@
 
 		// Fast path: no active streams
 		if (streamMessages.length === 0) {
-			return allMessages.map((msg) => transformToDisplayMessageSimple(msg, optimisticKeyMap));
+			return allMessages.map((msg) => transformToDisplayMessageSimple(msg));
 		}
 
 		// Process streams with delta processing
@@ -228,9 +188,12 @@
 			allDeltas
 		);
 
-		// Build streaming data maps
+		// Build streaming data maps - local processing, not reactive state
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- local data processing
 		const streamTextMap = new Map<number, string>();
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- local data processing
 		const streamReasoningMap = new Map<number, string>();
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- local data processing
 		const streamStatusMap = new Map<number, string>();
 
 		streamMessages.forEach((streamMsg) => {
@@ -256,7 +219,6 @@
 			streamTextMap,
 			streamReasoningMap,
 			streamStatusMap,
-			optimisticKeyMap,
 			streamCache: core.streamCache
 		};
 
@@ -268,22 +230,20 @@
 		uiContext.setDisplayMessages(displayMessages);
 	});
 
-	// Check for active streams
-	const hasActiveStreams = $derived.by(() => {
-		const messagesData = messagesQuery?.data as MessagesQueryResponse | undefined;
-		if (messagesData?.streams?.kind !== 'list') return false;
-		const arr = messagesData.streams?.messages || [];
-		return arr.length > 0;
+	// Track when messages query has resolved (prevents suggestion chip flash)
+	const messagesReady = $derived(messagesQuery?.data !== undefined);
+	$effect(() => {
+		uiContext.setMessagesReady(messagesReady);
 	});
 
-	// Clear awaiting state when streams arrive
+	// Clear awaiting state when NEW streaming assistant message appears
+	// (not based on hasActiveStreams which includes old finished streams)
 	$effect(() => {
-		if (hasActiveStreams) {
-			core.setAwaitingStream(false);
-			return;
-		}
-		const last = displayMessages.length ? displayMessages[displayMessages.length - 1] : undefined;
-		if (last && last.role === 'assistant' && (last.displayText || last.displayReasoning)) {
+		const hasStreamingAssistant = displayMessages.some(
+			(m) => m.role === 'assistant' && (m.status === 'pending' || m.status === 'streaming')
+		);
+
+		if (hasStreamingAssistant && core.isAwaitingStream) {
 			core.setAwaitingStream(false);
 		}
 	});
@@ -297,10 +257,12 @@
 			// Auto-open when reasoning arrives without response
 			if (hasReasoning && !hasResponse) {
 				uiContext.setReasoningOpen(message.id, true);
+				uiContext.markAutoOpened(message.id);
 			}
-			// Auto-close when response starts
-			else if (hasResponse && uiContext.isReasoningOpen(message.id)) {
+			// Auto-close ONCE when response starts (only for messages we auto-opened)
+			else if (hasResponse && uiContext.wasAutoOpened(message.id)) {
 				uiContext.setReasoningOpen(message.id, false);
+				uiContext.clearAutoOpened(message.id);
 			}
 		});
 	});

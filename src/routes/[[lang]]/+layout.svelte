@@ -38,7 +38,6 @@
 
 	// Sync Tolgee language with URL parameter when user navigates (back/forward buttons)
 	if (browser) {
-		// Set initial HTML lang attribute
 		document.documentElement.lang = data.lang;
 
 		watch(

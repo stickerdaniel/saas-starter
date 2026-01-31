@@ -30,7 +30,7 @@
 		<div>
 			<h4 class="mb-2 text-sm font-medium text-muted-foreground">Input</h4>
 			<div class="rounded border bg-background p-2 font-mono text-sm">
-				{#each Object.entries(input) as [key, value]}
+				{#each Object.entries(input) as [key, value] (key)}
 					<div class="mb-1">
 						<span class="text-muted-foreground">{key}:</span>
 						<span>{formatValue(value)}</span>

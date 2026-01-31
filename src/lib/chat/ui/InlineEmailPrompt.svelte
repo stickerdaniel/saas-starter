@@ -23,11 +23,15 @@
 	} = $props();
 
 	// Initialize with saved email, fallback to default, or empty
+	// Intentionally seed local state; external currentEmail changes are synced below.
+	// svelte-ignore state_referenced_locally
 	let email = $state(currentEmail || defaultEmail || '');
 	let isSubmitting = $state(false);
 
 	// Track the previous currentEmail to detect external changes (e.g., switching threads)
-	let prevCurrentEmail = $state(currentEmail);
+	// Intentionally snapshot previous value for change detection.
+	// svelte-ignore state_referenced_locally
+	let prevCurrentEmail = currentEmail;
 
 	// Sync email only when currentEmail prop actually changes externally
 	$effect(() => {
@@ -45,7 +49,7 @@
 	const hasChanges = $derived(email.trim() !== (currentEmail || ''));
 
 	// Is user currently subscribed (saved email exists and matches current input)
-	const isSubscribed = $derived(!!currentEmail && currentEmail === email.trim());
+	const _isSubscribed = $derived(!!currentEmail && currentEmail === email.trim());
 
 	// Can subscribe: valid email AND email has changed from saved value
 	const canSubscribe = $derived(isValidEmail && hasChanges);
@@ -57,7 +61,7 @@
 		try {
 			await onSubmitEmail(email.trim());
 			toast.success($t('chat.email.saved_success'));
-		} catch (error) {
+		} catch {
 			toast.error($t('chat.email.save_failed'));
 		} finally {
 			isSubmitting = false;
@@ -72,7 +76,7 @@
 			email = '';
 			await onSubmitEmail('');
 			toast.success($t('chat.email.unsubscribed'));
-		} catch (error) {
+		} catch {
 			toast.error($t('chat.email.unsubscribe_failed'));
 		} finally {
 			isSubmitting = false;

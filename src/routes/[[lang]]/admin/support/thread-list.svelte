@@ -3,8 +3,8 @@
 	import * as Tabs from '$lib/components/ui/tabs';
 	import { Button } from '$lib/components/ui/button';
 	import { Badge } from '$lib/components/ui/badge';
-	import { Avatar, AvatarFallback, AvatarImage } from '$lib/components/ui/avatar';
 	import { Skeleton } from '$lib/components/ui/skeleton';
+	import AvatarHeading from '$lib/components/customer-support/avatar-heading.svelte';
 	import SearchIcon from '@lucide/svelte/icons/search';
 	import InboxIcon from '@lucide/svelte/icons/inbox';
 	import ArchiveIcon from '@lucide/svelte/icons/archive';
@@ -97,7 +97,7 @@
 	}
 
 	// Reset loader when isDone changes to false (new query started)
-	let prevIsDone = $state(isDone);
+	let prevIsDone = $state(false);
 	$effect(() => {
 		if (prevIsDone && !isDone) {
 			// Query was reset (filters changed), reset loader state
@@ -167,25 +167,20 @@
 			<div class="scrollbar-thin absolute inset-0 overflow-y-auto">
 				{#each Array(skeletonCount) as _, i (i)}
 					<div class="border-b p-4">
-						<div class="flex items-start gap-3">
-							<!-- Avatar -->
-							<Skeleton class="size-8 rounded-full" />
-
-							<div class="min-w-0 flex-1">
-								<!-- Name & Time -->
-								<div class="mb-1 flex items-center justify-between gap-2">
-									<Skeleton class="h-6 w-28" />
-									<Skeleton class="h-4 w-16" />
+						<div class="flex flex-col gap-2">
+							<!-- AvatarHeading skeleton -->
+							<div class="flex min-w-0 flex-1 items-center gap-2">
+								<Skeleton class="size-8 shrink-0 rounded-full" />
+								<div class="flex min-w-0 flex-col">
+									<Skeleton class="h-5 w-48" />
+									<Skeleton class="mt-1 h-4 w-32" />
 								</div>
+							</div>
 
-								<!-- Last Message Preview -->
-								<Skeleton class="h-5 w-full" />
-
-								<!-- Badges -->
-								<div class="mt-2 flex flex-wrap items-center gap-1.5">
-									<Skeleton class="h-[22px] w-10" />
-									<Skeleton class="h-[22px] w-10" />
-								</div>
+							<!-- Badges -->
+							<div class="flex flex-wrap items-center gap-1.5 pl-10">
+								<Skeleton class="h-[22px] w-10" />
+								<Skeleton class="h-[22px] w-10" />
 							</div>
 						</div>
 					</div>
@@ -205,60 +200,39 @@
 								: 'hover:bg-muted/30'}"
 							onclick={() => thread._id !== selectedThreadId && onThreadSelect(thread._id)}
 						>
-							<div class="flex items-start gap-3">
-								<!-- Avatar -->
-								<Avatar class="size-8">
-									{#if thread.userImage}
-										<AvatarImage src={thread.userImage} alt={thread.userName || 'User'} />
+							<div class="flex flex-col gap-2">
+								<AvatarHeading
+									image={thread.userImage}
+									title={thread.lastMessage || $t('admin.support.thread.no_messages')}
+									subtitle={`${thread.userName || thread.userEmail || 'Anonymous'}\u00A0\u00A0·\u00A0\u00A0${formatDistanceToNow(new Date(thread.lastMessageAt || thread._creationTime))}`}
+									fallbackText={thread.userName}
+									bold={false}
+								/>
+
+								<!-- Badges -->
+								<div class="flex flex-wrap items-center gap-1.5 pl-10">
+									{#if thread.supportMetadata.awaitingAdminResponse}
+										<Badge variant="default" class="text-xs"
+											><T keyName="admin.support.thread.badge.new" /></Badge
+										>
 									{/if}
-									<AvatarFallback>
-										{thread.userName?.[0]?.toUpperCase() || 'U'}
-									</AvatarFallback>
-								</Avatar>
-
-								<div class="min-w-0 flex-1">
-									<!-- Name & Time -->
-									<div class="mb-1 flex items-center justify-between gap-2">
-										<span class="truncate font-medium">
-											{thread.userName || thread.userEmail || 'Anonymous'}
-										</span>
-										<span class="text-xs whitespace-nowrap text-muted-foreground">
-											{formatDistanceToNow(new Date(thread.lastMessageAt || thread._creationTime), {
-												addSuffix: true
-											})}
-										</span>
-									</div>
-
-									<!-- Last Message Preview -->
-									<p class="truncate text-sm text-muted-foreground">
-										{thread.lastMessage || $t('admin.support.thread.no_messages')}
-									</p>
-
-									<!-- Badges -->
-									<div class="mt-2 flex flex-wrap items-center gap-1.5">
-										{#if thread.supportMetadata.awaitingAdminResponse}
-											<Badge variant="default" class="text-xs"
-												><T keyName="admin.support.thread.badge.new" /></Badge
-											>
-										{/if}
-										{#if thread.supportMetadata.priority}
-											<Badge
-												variant="outline"
-												class="text-xs capitalize {thread.supportMetadata.priority === 'low'
-													? 'border-green-500 bg-green-500/10 text-green-700 dark:text-green-400'
-													: thread.supportMetadata.priority === 'medium'
-														? 'border-yellow-500 bg-yellow-500/10 text-yellow-700 dark:text-yellow-400'
-														: 'border-red-500 bg-red-500/10 text-red-700 dark:text-red-400'}"
-											>
-												{thread.supportMetadata.priority}
-											</Badge>
-										{/if}
-										{#if thread.supportMetadata.status}
-											<Badge variant="secondary" class="text-xs capitalize"
-												>{thread.supportMetadata.status}</Badge
-											>
-										{/if}
-									</div>
+									{#if thread.supportMetadata.priority}
+										<Badge
+											variant="outline"
+											class="text-xs capitalize {thread.supportMetadata.priority === 'low'
+												? 'border-green-500 bg-green-500/10 text-green-700 dark:text-green-400'
+												: thread.supportMetadata.priority === 'medium'
+													? 'border-yellow-500 bg-yellow-500/10 text-yellow-700 dark:text-yellow-400'
+													: 'border-red-500 bg-red-500/10 text-red-700 dark:text-red-400'}"
+										>
+											{thread.supportMetadata.priority}
+										</Badge>
+									{/if}
+									{#if thread.supportMetadata.status}
+										<Badge variant="secondary" class="text-xs capitalize"
+											>{thread.supportMetadata.status}</Badge
+										>
+									{/if}
 								</div>
 							</div>
 						</button>

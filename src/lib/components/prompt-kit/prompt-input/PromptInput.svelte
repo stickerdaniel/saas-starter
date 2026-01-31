@@ -27,14 +27,13 @@
 			onValueChange,
 			maxHeight,
 			onSubmit,
-			disabled: isLoading
+			disabled: false
 		})
 	);
 
 	// Sync props with context
 	$effect(() => {
 		contextInstance.isLoading = isLoading;
-		contextInstance.disabled = isLoading;
 	});
 
 	$effect(() => {
