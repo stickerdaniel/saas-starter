@@ -41,7 +41,7 @@
 </script>
 
 {#if !isScreenshotMode}
-	<!-- Background bleed - only visible when widget is open on mobile -->
+	<!-- Background bleed - extends below screen to cover iOS 26 Liquid Glass toolbar gaps -->
 	{#if isFeedbackOpen}
 		<div
 			class="pointer-events-none fixed top-full left-0 z-0 h-[50vh] w-full bg-secondary md:hidden"
