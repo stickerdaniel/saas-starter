@@ -210,7 +210,7 @@
 
 <!-- Feedback widget container -->
 <div
-	class="fixed right-0 bottom-0 z-1 flex h-full w-full origin-bottom animate-in flex-col overflow-hidden bg-secondary shadow-[0_0px_30px_rgba(0,0,0,0.19)] duration-200 ease-out fade-in-0 zoom-in-95 slide-in-from-bottom-4 md:relative md:h-[700px] md:max-h-[calc(100svh-3rem-0.75rem-1.25rem-1.25rem)] md:w-[410px] md:origin-bottom-right md:rounded-3xl"
+	class="fixed right-0 bottom-0 z-1 flex h-dvh w-full origin-bottom animate-in flex-col overflow-hidden bg-secondary shadow-[0_0px_30px_rgba(0,0,0,0.19)] duration-200 ease-out fade-in-0 zoom-in-95 slide-in-from-bottom-4 md:relative md:h-[700px] md:max-h-[calc(100svh-3rem-0.75rem-1.25rem-1.25rem)] md:w-[410px] md:origin-bottom-right md:rounded-3xl"
 >
 	<!-- Animated header with sliding icon and title -->
 	<SlidingHeader
