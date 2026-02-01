@@ -234,19 +234,43 @@ export class SupportThreadContext {
 	 * This is a permanent action - AI will never respond in this thread again
 	 */
 	async requestHandoff(client: ConvexClient): Promise<boolean> {
-		if (!this.threadId) {
+		// Capture values in local variables to avoid $state proxy issues with optimistic updates
+		const threadId = this.threadId;
+		const userId = this.userId;
+
+		if (!threadId) {
 			console.error('[requestHandoff] No thread ID');
 			return false;
 		}
 
+		// Optimistically hide the button immediately
+		this.isHandedOff = true;
+
 		try {
-			await client.mutation(api.support.threads.updateThreadHandoff, {
-				threadId: this.threadId,
-				userId: this.userId || undefined
-			});
-			this.isHandedOff = true;
+			// Build query args for optimistic update (must match ChatRoot's query)
+			const queryArgs: ListMessagesArgs = {
+				threadId,
+				paginationOpts: { numItems: 50, cursor: null },
+				streamArgs: { kind: 'list' as const, startOrder: 0 }
+			};
+
+			// Send mutation with optimistic update for user message
+			await client.mutation(
+				api.support.threads.updateThreadHandoff,
+				{ threadId, userId: userId || undefined },
+				{
+					optimisticUpdate: createOptimisticUpdate(
+						api.support.messages.listMessages,
+						queryArgs,
+						'user',
+						'Talk to support' // Match backend hardcoded message
+					)
+				}
+			);
 			return true;
 		} catch (error) {
+			// Rollback on error
+			this.isHandedOff = false;
 			console.error('[requestHandoff] Failed:', error);
 			this.setError('Failed to request human support. Please try again.');
 			return false;
@@ -283,10 +307,12 @@ export class SupportThreadContext {
 	 *
 	 * This method handles the complete message sending flow:
 	 * - Thread creation (if no thread exists and no threadId provided)
-	 * - Setting isSending/isAwaitingStream flags
 	 * - Building optimistic update
 	 * - Sending mutation
-	 * - Clearing flags on completion/error
+	 *
+	 * Blocking behavior:
+	 * - AI mode (not handed off): Blocks until AI responds
+	 * - Handed-off mode: Fire-and-forget, allows multiple messages
 	 *
 	 * @param client - Convex client instance
 	 * @param prompt - Message text content
@@ -306,12 +332,18 @@ export class SupportThreadContext {
 		const trimmedPrompt = prompt.trim();
 
 		// Validate input
-		if (!trimmedPrompt || this.isSending) {
-			throw new Error('Cannot send message: validation failed');
+		if (!trimmedPrompt) {
+			throw new Error('Cannot send message: empty prompt');
 		}
 
+		// In AI mode (not handed off), block multiple sends until AI responds
+		// In handed-off mode, allow fire-and-forget like admin view
+		if (!this.isHandedOff && (this.isSending || this.isAwaitingStream || this.isStreaming)) {
+			throw new Error('Cannot send message: waiting for AI response');
+		}
+
+		// Set sending state (used for blocking in AI mode)
 		this.setSending(true);
-		this.setAwaitingStream(true);
 
 		let threadCreated = false;
 
@@ -354,7 +386,7 @@ export class SupportThreadContext {
 				streamArgs: { kind: 'list' as const, startOrder: 0 }
 			};
 
-			// Send message with optimistic update via Convex's store.setQuery
+			// Send message with optimistic update
 			await client.mutation(
 				api.support.messages.sendMessage,
 				{
@@ -374,13 +406,19 @@ export class SupportThreadContext {
 				}
 			);
 
+			// In AI mode, mark as awaiting stream until AI starts responding
+			// This blocks further sends until the AI response finishes
+			if (!this.isHandedOff) {
+				this.isAwaitingStream = true;
+			}
+
 			return { threadId, threadCreated };
 		} catch (error) {
-			this.setAwaitingStream(false);
 			console.error('[sendMessage] Failed:', error);
 			this.setError(error instanceof Error ? error.message : 'Failed to send message');
 			throw error;
 		} finally {
+			// Clear sending state
 			this.setSending(false);
 		}
 	}
