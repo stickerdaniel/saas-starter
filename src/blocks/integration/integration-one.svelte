@@ -25,7 +25,7 @@
 				<h2 class="text-3xl font-semibold text-balance md:text-4xl">
 					<T keyName="integrations.title" params={{ year: new Date().getFullYear() }} />
 				</h2>
-				<p class="mt-6 text-muted-foreground">
+				<p class="mt-6 text-balance text-muted-foreground">
 					<T keyName="integrations.description" />
 				</p>
 			</div>
