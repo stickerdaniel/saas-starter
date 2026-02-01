@@ -4,12 +4,6 @@
 
 @import 'tw-animate-css';
 
-/* iOS 26+ Safari Liquid Glass: Allow toolbar transparency */
-html,
-body {
-	background-color: transparent !important;
-}
-
 /* Outfit Font - Self-hosted */
 @font-face {
 	font-family: 'Outfit';
