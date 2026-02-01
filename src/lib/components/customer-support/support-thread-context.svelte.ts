@@ -1,4 +1,4 @@
-import { Context } from 'runed';
+import { Context, PersistedState } from 'runed';
 import type { ConvexClient } from 'convex/browser';
 import type { UIMessagePart, UIDataTypes, UITools } from 'ai';
 import { isToolOrDynamicToolUIPart } from 'ai';
@@ -103,6 +103,36 @@ export class SupportThreadContext {
 
 	// Rate limit state
 	rateLimitedUntil = $state<number | null>(null);
+
+	// Draft storage - persists input text per thread to localStorage
+	readonly drafts = new PersistedState<Record<string, string>>('support-drafts', {});
+
+	/**
+	 * Get draft text for a thread
+	 */
+	getDraft(threadId: string | null): string {
+		return threadId ? (this.drafts.current[threadId] ?? '') : '';
+	}
+
+	/**
+	 * Save draft text for a thread
+	 */
+	setDraft(threadId: string | null, text: string): void {
+		if (!threadId) return;
+		if (text.trim()) {
+			this.drafts.current[threadId] = text;
+		} else {
+			delete this.drafts.current[threadId];
+		}
+	}
+
+	/**
+	 * Clear draft for a thread (e.g., after sending)
+	 */
+	clearDraft(threadId: string | null): void {
+		if (!threadId) return;
+		delete this.drafts.current[threadId];
+	}
 
 	/**
 	 * Check if currently rate limited
