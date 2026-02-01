@@ -41,14 +41,6 @@
 </script>
 
 {#if !isScreenshotMode}
-	<!-- Background bleed - extends below screen to cover iOS 26 Liquid Glass toolbar gaps -->
-	{#if isFeedbackOpen}
-		<div
-			class="pointer-events-none fixed top-full left-0 z-0 h-[50vh] w-full bg-secondary md:hidden"
-			aria-hidden="true"
-		></div>
-	{/if}
-
 	<div class="fixed right-5 bottom-5 z-200 flex flex-col items-end justify-end gap-3">
 		{#if isFeedbackOpen}
 			<FeedbackWidget onClose={closeWidget} bind:isScreenshotMode {chatUIContext} />
