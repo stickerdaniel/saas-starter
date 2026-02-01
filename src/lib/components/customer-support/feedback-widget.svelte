@@ -74,6 +74,28 @@
 		}
 	});
 
+	// Track previous threadId for draft sync on navigation
+	let previousThreadId: string | null = null;
+
+	// Sync drafts when thread changes
+	$effect(() => {
+		const currentThreadId = threadContext.threadId;
+
+		// On thread change: save old draft, load new draft
+		if (previousThreadId !== currentThreadId) {
+			// Save draft from old thread (if we had one and input has content)
+			if (previousThreadId && chatUIContext.inputValue.trim()) {
+				threadContext.setDraft(previousThreadId, chatUIContext.inputValue);
+			}
+
+			// Load draft for new thread (or empty for new conversation)
+			const draft = threadContext.getDraft(currentThreadId);
+			chatUIContext.setInputValue(draft);
+
+			previousThreadId = currentThreadId;
+		}
+	});
+
 	// Handle handoff request
 	async function handleRequestHandoff() {
 		await threadContext.requestHandoff(client);
@@ -259,6 +281,8 @@
 								attachments: chatUIContext.attachments
 							});
 							chatUIContext.clearAttachments();
+							// Clear draft after successful send
+							threadContext.clearDraft(threadContext.threadId);
 						} catch (error) {
 							console.error('[handleSend] Error:', error);
 
