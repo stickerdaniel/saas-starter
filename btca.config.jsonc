@@ -336,6 +336,14 @@
 			"name": "svelteCli",
 			"url": "https://github.com/sveltejs/cli",
 			"branch": "main"
+		},
+		{
+			"type": "git",
+			"name": "renovate",
+			"url": "https://github.com/renovatebot/renovate",
+			"branch": "main",
+			"searchPath": "docs/usage",
+			"specialNotes": "Renovate dependency update automation. Configuration presets, package rules, scheduling, vulnerability alerts."
 		}
 	],
 	"model": "claude-haiku-4-5",
