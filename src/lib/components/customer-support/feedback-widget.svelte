@@ -74,6 +74,28 @@
 		}
 	});
 
+	// Track previous threadId for draft sync on navigation
+	let previousThreadId: string | null = null;
+
+	// Sync drafts when thread changes
+	$effect(() => {
+		const currentThreadId = threadContext.threadId;
+
+		// On thread change: save old draft, load new draft
+		if (previousThreadId !== currentThreadId) {
+			// Save draft from old thread (if we had one and input has content)
+			if (previousThreadId && chatUIContext.inputValue.trim()) {
+				threadContext.setDraft(previousThreadId, chatUIContext.inputValue);
+			}
+
+			// Load draft for new thread (or empty for new conversation)
+			const draft = threadContext.getDraft(currentThreadId);
+			chatUIContext.setInputValue(draft);
+
+			previousThreadId = currentThreadId;
+		}
+	});
+
 	// Handle handoff request
 	async function handleRequestHandoff() {
 		await threadContext.requestHandoff(client);
@@ -244,7 +266,14 @@
 					onScreenshot={handleScreenshot}
 					onRequestHandoff={handleRequestHandoff}
 					onSend={async (prompt) => {
-						if (!prompt?.trim() || threadContext.isSending) return;
+						if (!prompt?.trim()) return;
+						// In AI mode, block while processing (sending, awaiting stream, or streaming)
+						// In handed-off mode, allow fire-and-forget like admin view
+						const isProcessing =
+							threadContext.isSending ||
+							threadContext.isAwaitingStream ||
+							threadContext.isStreaming;
+						if (!threadContext.isHandedOff && isProcessing) return;
 
 						try {
 							await threadContext.sendMessage(client, prompt, {
@@ -252,6 +281,8 @@
 								attachments: chatUIContext.attachments
 							});
 							chatUIContext.clearAttachments();
+							// Clear draft after successful send
+							threadContext.clearDraft(threadContext.threadId);
 						} catch (error) {
 							console.error('[handleSend] Error:', error);
 
