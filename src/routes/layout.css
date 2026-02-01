@@ -7,7 +7,7 @@
 /* iOS 26+ Safari Liquid Glass: Allow toolbar transparency */
 html,
 body {
-	background-color: transparent;
+	background-color: transparent !important;
 }
 
 /* Outfit Font - Self-hosted */
