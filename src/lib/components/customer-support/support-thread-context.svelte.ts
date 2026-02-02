@@ -84,7 +84,6 @@ export class SupportThreadContext {
 	isHandedOff = $state(false); // Whether thread is handed off to human support
 	assignedAdmin = $state<{ name?: string; image: string | null } | undefined>(undefined);
 	notificationEmail = $state<string | null>(null); // Email for admin reply notifications
-	isEmailPending = $state(false); // True while email mutation is in flight (green check hidden)
 	messages = $state<SupportMessage[]>([]);
 	isLoading = $state(false);
 	isSending = $state(false);
@@ -311,56 +310,25 @@ export class SupportThreadContext {
 	/**
 	 * Set notification email for this thread
 	 * User will be notified when an admin responds (with 30-min cooldown)
-	 *
-	 * Uses Convex optimistic update to immediately show subscribed state,
-	 * while isEmailPending tracks whether mutation is still in flight.
-	 * Green check only shows when !isEmailPending (server confirmed).
 	 */
 	async setNotificationEmail(client: ConvexClient, email: string): Promise<boolean> {
-		// Capture values to avoid $state proxy issues
-		const threadId = this.threadId;
-		const userId = this.userId;
-
-		if (!threadId) {
+		if (!this.threadId) {
 			console.error('[setNotificationEmail] No thread ID');
 			return false;
 		}
 
-		const normalizedEmail = email.trim().toLowerCase();
-
-		// Mark as pending (green check won't show until mutation completes)
-		this.isEmailPending = true;
-
 		try {
-			// Build query args (must match threadQuery in feedback-widget.svelte)
-			const queryArgs = { threadId, userId: userId || undefined };
-
-			await client.mutation(
-				api.support.threads.updateNotificationEmail,
-				{ threadId, email: normalizedEmail, userId: userId || undefined },
-				{
-					optimisticUpdate: (store) => {
-						const current = store.getQuery(api.support.threads.getThread, queryArgs);
-						if (current !== undefined) {
-							store.setQuery(api.support.threads.getThread, queryArgs, {
-								...current,
-								notificationEmail: normalizedEmail || undefined
-							});
-						}
-					}
-				}
-			);
-
-			// Mutation succeeded - update local state (query subscription will also update)
-			this.notificationEmail = normalizedEmail || null;
+			await client.mutation(api.support.threads.updateNotificationEmail, {
+				threadId: this.threadId,
+				email,
+				userId: this.userId || undefined
+			});
+			this.notificationEmail = email.trim().toLowerCase();
 			return true;
 		} catch (error) {
 			console.error('[setNotificationEmail] Failed:', error);
 			this.setError('Failed to save email. Please try again.');
 			return false;
-		} finally {
-			// Clear pending state - green check can now appear
-			this.isEmailPending = false;
 		}
 	}
 
@@ -624,7 +592,6 @@ export class SupportThreadContext {
 		this.isHandedOff = false;
 		this.assignedAdmin = undefined;
 		this.notificationEmail = null;
-		this.isEmailPending = false;
 		this.messages = [];
 		this.isLoading = false;
 		this.isSending = false;
