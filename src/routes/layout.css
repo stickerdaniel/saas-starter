@@ -281,6 +281,48 @@
 	}
 }
 
+/* View Transitions - Respect reduced motion preference */
+@media (prefers-reduced-motion) {
+	::view-transition-group(*),
+	::view-transition-old(*),
+	::view-transition-new(*) {
+		animation: none !important;
+	}
+}
+
+/* View Transitions - Theme toggle circular reveal */
+:root {
+	--view-transition-x: 50%;
+	--view-transition-y: 50%;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+	::view-transition-old(root) {
+		animation: none;
+		z-index: 1;
+		mix-blend-mode: normal;
+	}
+
+	::view-transition-new(root) {
+		animation: reveal-circular 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+		z-index: 2;
+		mix-blend-mode: normal;
+	}
+
+	::view-transition-image-pair(root) {
+		isolation: isolate;
+	}
+
+	@keyframes reveal-circular {
+		from {
+			clip-path: circle(0% at var(--view-transition-x) var(--view-transition-y));
+		}
+		to {
+			clip-path: circle(150% at var(--view-transition-x) var(--view-transition-y));
+		}
+	}
+}
+
 @layer components {
 	.scrollbar-thin {
 		&::-webkit-scrollbar {
