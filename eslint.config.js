@@ -73,5 +73,13 @@ export default defineConfig(
 			// Allow await on non-Promise values (Convex queries can be non-Promise)
 			'@typescript-eslint/await-thenable': 'off'
 		}
+	},
+	// No console.log/debug/info in src/ (frontend code)
+	{
+		files: ['src/**/*.{ts,js,svelte}'],
+		ignores: ['src/lib/convex/**'],
+		rules: {
+			'no-console': ['error', { allow: ['warn', 'error'] }]
+		}
 	}
 );
