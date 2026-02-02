@@ -1,5 +1,6 @@
 <script lang="ts">
 	import * as v from 'valibot';
+	import { toast } from 'svelte-sonner';
 	import * as InputGroup from '$lib/components/ui/input-group';
 	import { Button } from '$lib/components/ui/button';
 	import CircleCheckIcon from '@lucide/svelte/icons/circle-check';
@@ -11,14 +12,11 @@
 
 	let {
 		currentEmail = '',
-		isPending = false,
 		defaultEmail = '',
 		onSubmitEmail
 	}: {
 		/** Currently saved notification email from thread */
 		currentEmail?: string;
-		/** True while email mutation is in flight (green check hidden until confirmed) */
-		isPending?: boolean;
 		/** Fallback email (e.g., from logged-in user) */
 		defaultEmail?: string;
 		onSubmitEmail: (email: string) => Promise<void>;
@@ -30,10 +28,6 @@
 	let email = $state(currentEmail || defaultEmail || '');
 	let isSubmitting = $state(false);
 
-	// Local optimistic state - allows immediate UI feedback before Convex query propagates
-	// null = use currentEmail, true = optimistically subscribed, false = optimistically unsubscribed
-	let optimisticSubscribed = $state<boolean | null>(null);
-
 	// Track the previous currentEmail to detect external changes (e.g., switching threads)
 	// Intentionally snapshot previous value for change detection.
 	// svelte-ignore state_referenced_locally
@@ -42,12 +36,10 @@
 	// Sync email only when currentEmail prop actually changes externally
 	$effect(() => {
 		if (currentEmail !== prevCurrentEmail) {
-			// External change (e.g., switching threads or Convex query update) - sync to new value
+			// External change (e.g., switching threads) - sync to new value
 			// Use empty string if currentEmail is empty (don't fall back to defaultEmail after unsubscribe)
 			email = currentEmail || '';
 			prevCurrentEmail = currentEmail;
-			// Clear optimistic state - real value has arrived
-			optimisticSubscribed = null;
 		}
 	});
 
@@ -56,11 +48,8 @@
 	// Check if email has changed from the saved value
 	const hasChanges = $derived(email.trim() !== (currentEmail || ''));
 
-	// Is user currently subscribed - use local optimistic state if set, otherwise use server state
-	const isSubscribed = $derived(optimisticSubscribed ?? !!currentEmail);
-
-	// Show green check only when subscribed AND server has confirmed (not pending, no local optimistic override)
-	const showConfirmed = $derived(!!currentEmail && !isPending && optimisticSubscribed === null);
+	// Is user currently subscribed (saved email exists and matches current input)
+	const _isSubscribed = $derived(!!currentEmail && currentEmail === email.trim());
 
 	// Can subscribe: valid email AND email has changed from saved value
 	const canSubscribe = $derived(isValidEmail && hasChanges);
@@ -68,15 +57,12 @@
 	async function handleSubmit() {
 		if (!canSubscribe || isSubmitting) return;
 
-		// Optimistic: immediately show subscribed state
-		optimisticSubscribed = true;
 		isSubmitting = true;
-
 		try {
 			await onSubmitEmail(email.trim());
+			toast.success($t('chat.email.saved_success'));
 		} catch {
-			// Rollback optimistic state on error
-			optimisticSubscribed = null;
+			toast.error($t('chat.email.save_failed'));
 		} finally {
 			isSubmitting = false;
 		}
@@ -85,17 +71,13 @@
 	async function handleUnsubscribe() {
 		if (isSubmitting) return;
 
-		// Optimistic: immediately show unsubscribed state (enables input)
-		optimisticSubscribed = false;
-		email = '';
 		isSubmitting = true;
-
 		try {
+			email = '';
 			await onSubmitEmail('');
+			toast.success($t('chat.email.unsubscribed'));
 		} catch {
-			// Rollback optimistic state on error
-			optimisticSubscribed = null;
-			email = currentEmail || '';
+			toast.error($t('chat.email.unsubscribe_failed'));
 		} finally {
 			isSubmitting = false;
 		}
@@ -108,17 +90,17 @@
 			type="email"
 			placeholder={$t('chat.email.placeholder')}
 			bind:value={email}
-			disabled={isSubscribed}
+			disabled={!!currentEmail}
 			onkeydown={(e) => e.key === 'Enter' && canSubscribe && handleSubmit()}
 		/>
-		{#if showConfirmed}
+		{#if currentEmail}
 			<InputGroup.Addon align="inline-end">
 				<CircleCheckIcon class="h-4 w-4 text-green-600" />
 			</InputGroup.Addon>
 		{/if}
 	</InputGroup.Root>
 
-	{#if isSubscribed}
+	{#if currentEmail}
 		<Button variant="outline" size="icon" onclick={handleUnsubscribe} disabled={isSubmitting}>
 			<BellOffIcon class="h-4 w-4" />
 		</Button>
