@@ -72,6 +72,8 @@
 							alt="team member"
 							width="826"
 							height="1239"
+							loading="lazy"
+							decoding="async"
 						/>
 						<div class="px-2 pt-2 sm:pt-4 sm:pb-0">
 							<div class="flex justify-between">
