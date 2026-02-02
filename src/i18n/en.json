@@ -120,7 +120,8 @@
 				"unassigned": "Unassigned"
 			},
 			"chat": {
-				"placeholder": "Reply to customer..."
+				"placeholder": "Reply to customer...",
+				"send_error": "Failed to send reply. Please try again."
 			},
 			"details": {
 				"assignee": "Assignee",
@@ -271,10 +272,10 @@
 		"breadcrumb": "breadcrumb",
 		"change_language": "Change language",
 		"close": "Close",
-		"go_back": "Go back",
 		"feedback_close": "Close feedback",
 		"feedback_open": "Open feedback",
 		"github_repository": "GitHub repository",
+		"go_back": "Go back",
 		"home": "home",
 		"logout": "Log out",
 		"menu_close": "Close Menu",
@@ -464,8 +465,8 @@
 			"save_failed": "Failed to save email. Please try again.",
 			"saved_success": "Email saved! We'll notify you when we respond.",
 			"subscribe_button": "Subscribe",
-			"unsubscribe_tooltip": "Unsubscribe",
 			"unsubscribe_failed": "Failed to unsubscribe. Please try again.",
+			"unsubscribe_tooltip": "Unsubscribe",
 			"unsubscribed": "Unsubscribed from email notifications."
 		},
 		"error": {
@@ -817,7 +818,7 @@
 			"aria_label": "Screenshot editor",
 			"capture_failed": "Failed to capture screenshot. Check console for details.",
 			"capturing": "Capturing...",
-			"next": "Next",
+			"next": "Bug Marked",
 			"tool": {
 				"arrow": "Arrow (A)",
 				"circle": "Circle (C)",
