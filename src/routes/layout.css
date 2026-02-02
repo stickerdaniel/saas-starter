@@ -296,7 +296,7 @@
 	--view-transition-y: 50%;
 }
 
-@media (prefers-reduced-motion: no-preference) {
+@media (prefers-reduced-motion: no-preference) and (min-width: 768px) {
 	::view-transition-old(root) {
 		animation: none;
 		z-index: 1;
@@ -304,7 +304,7 @@
 	}
 
 	::view-transition-new(root) {
-		animation: reveal-circular 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+		animation: reveal-circular 0.7s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 		z-index: 2;
 		mix-blend-mode: normal;
 	}
