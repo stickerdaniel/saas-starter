@@ -8,6 +8,7 @@
 	import XIcon from '@lucide/svelte/icons/x';
 	import CircleIcon from '@lucide/svelte/icons/circle';
 	import ArrowRightIcon from '@lucide/svelte/icons/arrow-right';
+	import CheckIcon from '@lucide/svelte/icons/check';
 	import { screenshotEditorContext } from './screenshot-editor-context.svelte';
 	import { cn } from '$lib/utils';
 	import { DEFAULT_COLORS } from './types';
@@ -21,9 +22,11 @@
 	}
 </script>
 
-<div class="fixed top-[1.625rem] left-1/2 z-[110] -translate-x-1/2">
+<div
+	class="fixed top-1/2 right-4 z-[110] -translate-y-1/2 sm:top-[1.625rem] sm:right-auto sm:left-1/2 sm:-translate-x-1/2 sm:translate-y-0"
+>
 	<div
-		class="flex items-center gap-1 rounded-xl border border-border bg-background/95 p-1.5 shadow-lg backdrop-blur-sm"
+		class="flex flex-col items-center gap-1 rounded-xl border border-border bg-background/95 p-1.5 shadow-lg backdrop-blur-sm sm:flex-row"
 	>
 		<!-- Rectangle Tool -->
 		<Button
@@ -70,7 +73,7 @@
 		</Button>
 
 		<!-- Divider -->
-		<div class="mx-1 h-6 w-px bg-border"></div>
+		<div class="my-1 h-px w-6 bg-border sm:mx-1 sm:my-0 sm:h-6 sm:w-px"></div>
 
 		<!-- Color Picker -->
 		<Popover.Root>
@@ -109,13 +112,13 @@
 		</Popover.Root>
 
 		<!-- Divider -->
-		<div class="mx-1 h-6 w-px bg-border"></div>
+		<div class="my-1 h-px w-6 bg-border sm:mx-1 sm:my-0 sm:h-6 sm:w-px"></div>
 
 		<!-- Undo Button -->
 		<Button
 			variant="ghost"
 			size="icon"
-			class="size-9 "
+			class="-order-3 size-9 sm:order-none"
 			onclick={() => editor.history.undo()}
 			disabled={!editor.history.canUndo}
 			title={$t('support.screenshot.action.undo')}
@@ -127,7 +130,7 @@
 		<Button
 			variant="ghost"
 			size="icon"
-			class="size-9 "
+			class="-order-2 size-9 sm:order-none"
 			onclick={() => editor.history.redo()}
 			disabled={!editor.history.canRedo}
 			title={$t('support.screenshot.action.redo')}
@@ -136,11 +139,24 @@
 		</Button>
 
 		<!-- Divider -->
-		<div class="mx-1 h-6 w-px bg-border"></div>
+		<div
+			class="-order-1 my-1 h-px w-6 bg-border sm:order-none sm:mx-1 sm:my-0 sm:h-6 sm:w-px"
+		></div>
 
-		<!-- Next Button -->
+		<!-- Next Button - Mobile: Icon -->
 		<Button
-			class="h-9  px-4"
+			size="icon"
+			class="size-9 sm:hidden"
+			onclick={editor.handleSave}
+			disabled={editor.isSaving || !editor.hasShapes}
+			title={$t('support.screenshot.next')}
+		>
+			<CheckIcon class="size-4" />
+		</Button>
+
+		<!-- Next Button - Desktop: Text -->
+		<Button
+			class="hidden h-9 px-4 sm:inline-flex"
 			onclick={editor.handleSave}
 			disabled={editor.isSaving || !editor.hasShapes}
 		>
@@ -151,7 +167,7 @@
 		<Button
 			variant="ghost"
 			size="icon"
-			class="size-9 "
+			class="-order-4 size-9 sm:order-none"
 			onclick={editor.handleCancel}
 			title={$t('support.screenshot.action.cancel')}
 		>
