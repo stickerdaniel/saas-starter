@@ -89,8 +89,8 @@
 		if (isSubmitting) return;
 
 		// Optimistic: immediately show unsubscribed state (enables input)
-		// Keep email value so user can fix typos
 		optimisticSubscribed = false;
+		email = '';
 		isSubmitting = true;
 
 		try {
@@ -136,7 +136,7 @@
 					</Button>
 				{/snippet}
 			</Tooltip.Trigger>
-			<Tooltip.Content>
+			<Tooltip.Content class="z-250">
 				{$t('chat.email.unsubscribe_tooltip')}
 			</Tooltip.Content>
 		</Tooltip.Root>
