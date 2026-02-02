@@ -1,6 +1,7 @@
 <script lang="ts">
 	import * as v from 'valibot';
 	import * as InputGroup from '$lib/components/ui/input-group';
+	import * as Tooltip from '$lib/components/ui/tooltip/index.js';
 	import { Button } from '$lib/components/ui/button';
 	import CircleCheckIcon from '@lucide/svelte/icons/circle-check';
 	import BellOffIcon from '@lucide/svelte/icons/bell-off';
@@ -88,8 +89,8 @@
 		if (isSubmitting) return;
 
 		// Optimistic: immediately show unsubscribed state (enables input)
+		// Keep email value so user can fix typos
 		optimisticSubscribed = false;
-		email = '';
 		isSubmitting = true;
 
 		try {
@@ -121,9 +122,24 @@
 	</InputGroup.Root>
 
 	{#if isSubscribed}
-		<Button variant="outline" size="icon" onclick={handleUnsubscribe} disabled={isSubmitting}>
-			<BellOffIcon class="h-4 w-4" />
-		</Button>
+		<Tooltip.Root>
+			<Tooltip.Trigger>
+				{#snippet child({ props })}
+					<Button
+						{...props}
+						variant="outline"
+						size="icon"
+						onclick={handleUnsubscribe}
+						disabled={isSubmitting}
+					>
+						<BellOffIcon class="h-4 w-4" />
+					</Button>
+				{/snippet}
+			</Tooltip.Trigger>
+			<Tooltip.Content>
+				{$t('chat.email.unsubscribe_tooltip')}
+			</Tooltip.Content>
+		</Tooltip.Root>
 	{:else}
 		<Button variant="outline" onclick={handleSubmit} disabled={!canSubscribe || isSubmitting}>
 			{$t('chat.email.subscribe_button')}
