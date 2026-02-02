@@ -464,6 +464,7 @@
 			"save_failed": "E-Mail konnte nicht gespeichert werden. Bitte versuchen Sie es erneut.",
 			"saved_success": "E-Mail gespeichert! Wir benachrichtigen Sie, wenn wir antworten.",
 			"subscribe_button": "Abonnieren",
+			"unsubscribe_tooltip": "Abbestellen",
 			"unsubscribe_failed": "Abmeldung fehlgeschlagen. Bitte versuchen Sie es erneut.",
 			"unsubscribed": "E-Mail-Benachrichtigungen abbestellt."
 		},
