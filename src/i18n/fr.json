@@ -120,7 +120,8 @@
 				"unassigned": "Non assigné"
 			},
 			"chat": {
-				"placeholder": "Répondre au client..."
+				"placeholder": "Répondre au client...",
+				"send_error": "Échec de l'envoi de la réponse. Veuillez réessayer."
 			},
 			"details": {
 				"assignee": "Assigné à",
@@ -271,10 +272,10 @@
 		"breadcrumb": "fil d'Ariane",
 		"change_language": "Changer la langue",
 		"close": "Fermer",
-		"go_back": "Retour",
 		"feedback_close": "Fermer les commentaires",
 		"feedback_open": "Ouvrir les commentaires",
 		"github_repository": "Dépôt GitHub",
+		"go_back": "Retour",
 		"home": "accueil",
 		"logout": "Se déconnecter",
 		"menu_close": "Fermer le menu",
@@ -464,8 +465,8 @@
 			"save_failed": "Échec de l'enregistrement de l'email. Veuillez réessayer.",
 			"saved_success": "Email enregistré ! Nous vous notifierons lorsque nous répondrons.",
 			"subscribe_button": "S'abonner",
-			"unsubscribe_tooltip": "Se désabonner",
 			"unsubscribe_failed": "Échec du désabonnement. Veuillez réessayer.",
+			"unsubscribe_tooltip": "Se désabonner",
 			"unsubscribed": "Désabonné des notifications par email."
 		},
 		"error": {
@@ -817,7 +818,7 @@
 			"aria_label": "Éditeur de capture d'écran",
 			"capture_failed": "Échec de la capture d'écran. Consultez la console pour plus de détails.",
 			"capturing": "Capture en cours...",
-			"next": "Suivant",
+			"next": "Bug Marqué",
 			"tool": {
 				"arrow": "Flèche (A)",
 				"circle": "Cercle (C)",

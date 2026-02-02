@@ -120,7 +120,8 @@
 				"unassigned": "Nicht zugewiesen"
 			},
 			"chat": {
-				"placeholder": "Antwort an Kunde..."
+				"placeholder": "Antwort an Kunde...",
+				"send_error": "Antwort konnte nicht gesendet werden. Bitte erneut versuchen."
 			},
 			"details": {
 				"assignee": "Zugewiesen an",
@@ -271,10 +272,10 @@
 		"breadcrumb": "Brotkrümel",
 		"change_language": "Sprache ändern",
 		"close": "Schließen",
-		"go_back": "Zurück",
 		"feedback_close": "Feedback schließen",
 		"feedback_open": "Feedback öffnen",
 		"github_repository": "GitHub-Repository",
+		"go_back": "Zurück",
 		"home": "Startseite",
 		"logout": "Abmelden",
 		"menu_close": "Menü schließen",
@@ -464,8 +465,8 @@
 			"save_failed": "E-Mail konnte nicht gespeichert werden. Bitte versuchen Sie es erneut.",
 			"saved_success": "E-Mail gespeichert! Wir benachrichtigen Sie, wenn wir antworten.",
 			"subscribe_button": "Abonnieren",
-			"unsubscribe_tooltip": "Abbestellen",
 			"unsubscribe_failed": "Abmeldung fehlgeschlagen. Bitte versuchen Sie es erneut.",
+			"unsubscribe_tooltip": "Abbestellen",
 			"unsubscribed": "E-Mail-Benachrichtigungen abbestellt."
 		},
 		"error": {
@@ -817,7 +818,7 @@
 			"aria_label": "Screenshot-Editor",
 			"capture_failed": "Screenshot fehlgeschlagen. Überprüfen Sie die Konsole für Details.",
 			"capturing": "Wird aufgenommen...",
-			"next": "Weiter",
+			"next": "Bug Markiert",
 			"tool": {
 				"arrow": "Pfeil (A)",
 				"circle": "Kreis (C)",
