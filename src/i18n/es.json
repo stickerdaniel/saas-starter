@@ -120,7 +120,8 @@
 				"unassigned": "Sin asignar"
 			},
 			"chat": {
-				"placeholder": "Responder al cliente..."
+				"placeholder": "Responder al cliente...",
+				"send_error": "Error al enviar la respuesta. Por favor, inténtalo de nuevo."
 			},
 			"details": {
 				"assignee": "Asignado a",
@@ -271,10 +272,10 @@
 		"breadcrumb": "migas de pan",
 		"change_language": "Cambiar idioma",
 		"close": "Cerrar",
-		"go_back": "Volver",
 		"feedback_close": "Cerrar comentarios",
 		"feedback_open": "Abrir comentarios",
 		"github_repository": "Repositorio de GitHub",
+		"go_back": "Volver",
 		"home": "inicio",
 		"logout": "Cerrar sesión",
 		"menu_close": "Cerrar menú",
@@ -464,8 +465,8 @@
 			"save_failed": "Error al guardar email. Por favor intenta de nuevo.",
 			"saved_success": "¡Email guardado! Te notificaremos cuando respondamos.",
 			"subscribe_button": "Suscribirse",
-			"unsubscribe_tooltip": "Cancelar suscripción",
 			"unsubscribe_failed": "Error al cancelar suscripción. Por favor intenta de nuevo.",
+			"unsubscribe_tooltip": "Cancelar suscripción",
 			"unsubscribed": "Suscripción a notificaciones por email cancelada."
 		},
 		"error": {
@@ -817,7 +818,7 @@
 			"aria_label": "Editor de captura de pantalla",
 			"capture_failed": "Error al capturar pantalla. Revisa la consola para más detalles.",
 			"capturing": "Capturando...",
-			"next": "Siguiente",
+			"next": "Bug Marcado",
 			"tool": {
 				"arrow": "Flecha (A)",
 				"circle": "Círculo (C)",
