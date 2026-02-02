@@ -193,7 +193,9 @@ Type $derived explicitly (e.g., let items: Item[] = $derived(...)) for arrays in
 Default to new syntax for Svelte 5 benefits.
 Avoid stores unless necessary for pub/sub.
 
-Use the Svelte MCPs Get Documentation tool to get up-to-date Svelte documentation (only call this with a subagent!) and check code with the MCPs autofixer for wrong patterns.
+Use the Svelte MCPs Get Documentation tool to get up-to-date Svelte documentation (only call this with a subagent!) and check code with the MCPs autofixer for wrong patterns. Query the svelte repo with btca for new features like remote functions.
+
+Prop names must match the parent's passed prop name exactly.
 </important_info>
 
 ### Static Checks
