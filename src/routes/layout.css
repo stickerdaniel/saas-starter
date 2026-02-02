@@ -281,6 +281,15 @@
 	}
 }
 
+/* View Transitions - Respect reduced motion preference */
+@media (prefers-reduced-motion) {
+	::view-transition-group(*),
+	::view-transition-old(*),
+	::view-transition-new(*) {
+		animation: none !important;
+	}
+}
+
 @layer components {
 	.scrollbar-thin {
 		&::-webkit-scrollbar {
