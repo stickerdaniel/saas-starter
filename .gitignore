@@ -44,3 +44,4 @@ react-reference
 *.local*
 
 .opencode/plans
+.eslintcache
