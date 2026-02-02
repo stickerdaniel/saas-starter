@@ -50,27 +50,22 @@
 	const enterpriseFeatureKeys = $derived(getFeatureKeys('pricing.features.enterprise'));
 
 	async function handleCheckout(productId: string) {
-		console.log('[PRICING DEBUG] handleCheckout called:', { productId, isAuthenticated });
-
 		// Check authentication first
 		if (!isAuthenticated) {
 			const redirectUrl = localizedHref('/signin');
 			const currentUrl = page.url.pathname;
 			// Include checkout param in redirectTo so it's preserved after signin
 			const redirectWithCheckout = `${currentUrl}?checkout=${productId}`;
-			console.log('[PRICING DEBUG] Redirecting to signin:', redirectWithCheckout);
 			goto(resolve(`${redirectUrl}?redirectTo=${encodeURIComponent(redirectWithCheckout)}`));
 			return;
 		}
 
-		console.log('[PRICING DEBUG] Executing upgrade operation...');
 		// Proceed with checkout for authenticated users
 		const result = await upgradeOperation.execute({
 			productId,
 			successUrl: page.url.origin + '/app/community-chat?upgraded=true'
 		});
 
-		console.log('[PRICING DEBUG] Upgrade result:', result);
 		if (result?.url) {
 			window.location.href = result.url;
 		}
@@ -78,14 +73,7 @@
 
 	// Auto-trigger checkout after signin if checkout param is present
 	$effect(() => {
-		console.log('[PRICING DEBUG] Effect running:', {
-			checkout: params.checkout,
-			isAuthenticated,
-			customer: customer ? 'present' : 'null'
-		});
-
 		if (params.checkout && isAuthenticated) {
-			console.log('[PRICING DEBUG] Triggering checkout for:', params.checkout);
 			handleCheckout(params.checkout);
 			// Clean up URL param after triggering checkout
 			params.checkout = '';
