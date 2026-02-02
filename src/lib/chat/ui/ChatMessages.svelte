@@ -19,7 +19,6 @@
 		extractAttachments,
 		showEmailPrompt = false,
 		currentEmail = '',
-		isEmailPending = false,
 		defaultEmail = '',
 		onSubmitEmail,
 		class: className = ''
@@ -32,8 +31,6 @@
 		showEmailPrompt?: boolean;
 		/** Currently saved notification email */
 		currentEmail?: string;
-		/** True while email mutation is in flight (green check hidden until confirmed) */
-		isEmailPending?: boolean;
 		/** Default email (from logged-in user) */
 		defaultEmail?: string;
 		/** Callback when email is submitted */
@@ -131,7 +128,6 @@
 						isHandoffMessage={message.displayText?.startsWith(HANDOFF_MESSAGE)}
 						{showEmailPrompt}
 						{currentEmail}
-						{isEmailPending}
 						{defaultEmail}
 						{onSubmitEmail}
 					/>
