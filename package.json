@@ -18,7 +18,7 @@
 		"check": "bun svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "bun svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"format": "prettier --write .",
-		"lint": "eslint .",
+		"lint": "eslint . --cache --concurrency auto",
 		"static-checks": "bun scripts/static-checks.ts",
 		"static-checks:staged": "bun scripts/static-checks.ts --staged",
 		"test:e2e": "playwright test",
