@@ -8,7 +8,7 @@ on:
 jobs:
   lint-format:
     name: Lint & Format
-    runs-on: ubuntu-latest
+    runs-on: ubicloud-standard-2
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - uses: oven-sh/setup-bun@3d267786b128fe76c2f16a390aa2448b815359f3 # v2
@@ -18,7 +18,7 @@ jobs:
 
   typecheck:
     name: Type Check
-    runs-on: ubuntu-latest
+    runs-on: ubicloud-standard-2
     env:
       PUBLIC_CONVEX_URL: https://placeholder.convex.cloud
     steps:
@@ -30,12 +30,12 @@ jobs:
 
   spell-check:
     name: Spell Check
-    runs-on: ubuntu-latest
+    runs-on: ubicloud-standard-2
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
-          go-version: 'stable'
+          go-version: "stable"
       - run: go install github.com/client9/misspell/cmd/misspell@latest
       - name: Run misspell (excluding i18n)
         run: |
