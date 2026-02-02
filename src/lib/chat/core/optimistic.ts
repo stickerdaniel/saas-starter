@@ -106,13 +106,6 @@ export function createOptimisticMessage(
 	options?: OptimisticMessageOptions
 ): ChatMessage {
 	const messageId = `temp_${crypto.randomUUID()}`;
-	console.log('[Optimistic] Creating optimistic message:', {
-		id: messageId,
-		threadId,
-		role,
-		content: content.substring(0, 50),
-		order
-	});
 
 	return {
 		id: messageId,
@@ -187,11 +180,6 @@ export function createOptimisticUpdate(
 	prompt: string,
 	options?: OptimisticMessageOptions
 ): (store: OptimisticLocalStore) => void {
-	console.log(
-		'[Optimistic] createOptimisticUpdate - preparing callback for threadId:',
-		queryArgs.threadId
-	);
-
 	// IMPORTANT: Sanitize IMMEDIATELY, BEFORE the closure captures them.
 	// Svelte 5's $state creates Proxy objects that cannot be cloned by structuredClone.
 	// JSON round-trip guarantees all proxy wrappers are broken.
@@ -212,11 +200,6 @@ export function createOptimisticUpdate(
 	}
 
 	return (store: OptimisticLocalStore) => {
-		console.log(
-			'[Optimistic] Optimistic callback invoked, querying store for:',
-			queryArgs.threadId
-		);
-
 		const current = store.getQuery(listMessagesQuery, queryArgs);
 
 		// Type guard: ensure valid pagination result
@@ -227,13 +210,8 @@ export function createOptimisticUpdate(
 			!('page' in current) ||
 			!Array.isArray(current.page)
 		) {
-			console.log(
-				'[Optimistic] Query not in cache or invalid structure, skipping optimistic update'
-			);
 			return;
 		}
-
-		console.log('[Optimistic] Current page length:', current.page.length);
 
 		const optimisticMessage = createOptimisticMessage(
 			queryArgs.threadId!,
@@ -243,16 +221,9 @@ export function createOptimisticUpdate(
 			sanitizedOptions
 		);
 
-		console.log(
-			'[Optimistic] Updating store with new optimistic message, new page length:',
-			current.page.length + 1
-		);
-
 		store.setQuery(listMessagesQuery, queryArgs, {
 			...current,
 			page: [...current.page, optimisticMessage]
 		});
-
-		console.log('[Optimistic] Store updated successfully');
 	};
 }
