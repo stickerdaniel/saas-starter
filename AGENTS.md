@@ -243,6 +243,7 @@ This applies to all icon libraries and large component libraries. Individual imp
 Simple animations should be implemented with plain CSS whenever possible.
 Before implementing any custom animation, check if sv-animate has a prebuilt component that can be used. Use btca with `svAnimate` resource.
 For custom animations, use Sveltes built in animations, or motion-svelte (Framer motion for Svelte). Use btca with `motionSvelte` resource. Before implementing any custom animation, read the `docs/animation-rules.md` file. You must follow the rules in the file when implementing your own animations!
+For page transitions and state changes, use the View Transitions API. See `docs/animation-rules.md` for setup and patterns.
 
 #### Forms
 
