@@ -159,7 +159,13 @@
 						{#if uploadState?.status === 'uploading'}
 							<LoaderCircleIcon class="size-4 shrink-0 animate-spin" />
 						{:else if preview}
-							<img src={preview} alt={filename} class="size-8 rounded object-cover" />
+							<img
+								src={preview}
+								alt={filename}
+								class="size-8 rounded object-cover"
+								loading="lazy"
+								decoding="async"
+							/>
 						{:else if isScreenshot(attachment)}
 							<ImageIcon class="size-4 shrink-0" />
 						{:else}
