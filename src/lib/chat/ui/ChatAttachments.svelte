@@ -76,7 +76,7 @@
 	}
 
 	function handleOpen(attachment: Attachment) {
-		if (attachment.type === 'image' || attachment.type === 'remote-file') {
+		if (hasPreview(attachment)) {
 			selectedAttachment = attachment;
 			isDialogOpen = true;
 		}
@@ -103,26 +103,19 @@
 			>
 		</Dialog.Header>
 		{#if selectedAttachment}
-			{#if selectedAttachment.type === 'image'}
-				<img
+			{@const previewUrl = hasPreview(selectedAttachment)}
+			{#if selectedAttachment.type === 'remote-file' && !selectedAttachment.contentType?.startsWith('image/')}
+				<iframe
 					src={selectedAttachment.url}
-					alt={selectedAttachment.filename}
+					title={selectedAttachment.filename}
+					class="h-[70vh] w-full rounded-md"
+				></iframe>
+			{:else if previewUrl}
+				<img
+					src={previewUrl}
+					alt={getFilename(selectedAttachment)}
 					class="mx-auto max-h-[70vh] max-w-full rounded-md object-contain"
 				/>
-			{:else if selectedAttachment.type === 'remote-file'}
-				{#if selectedAttachment.contentType?.startsWith('image/')}
-					<img
-						src={selectedAttachment.url}
-						alt={selectedAttachment.filename}
-						class="max-h-[70vh] rounded-md object-contain"
-					/>
-				{:else}
-					<iframe
-						src={selectedAttachment.url}
-						title={selectedAttachment.filename}
-						class="h-[70vh] w-full rounded-md"
-					></iframe>
-				{/if}
 			{/if}
 		{/if}
 	</Dialog.Content>
@@ -136,10 +129,11 @@
 		{#each readonly && align === 'right' ? [...attachments].reverse() : attachments as attachment, index (getKey(attachment))}
 			{@const preview = hasPreview(attachment)}
 			{@const filename = getFilename(attachment)}
-			{@const isClickable = attachment.type === 'image' || attachment.type === 'remote-file'}
+			{@const uploadState = getUploadState(attachment)}
+			{@const isUploading = uploadState?.status === 'uploading'}
+			{@const isClickable = !isUploading && !!preview}
 			{@const originalIndex =
 				readonly && align === 'right' ? attachments.length - 1 - index : index}
-			{@const uploadState = getUploadState(attachment)}
 
 			<!-- svelte-ignore a11y_click_events_have_key_events -->
 			<!-- svelte-ignore a11y_no_static_element_interactions -->
