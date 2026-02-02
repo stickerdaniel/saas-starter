@@ -15,6 +15,7 @@
 		isHandoffMessage = false,
 		showEmailPrompt = false,
 		currentEmail = '',
+		isEmailPending = false,
 		defaultEmail = '',
 		onSubmitEmail
 	}: {
@@ -30,6 +31,8 @@
 		showEmailPrompt?: boolean;
 		/** Currently saved notification email */
 		currentEmail?: string;
+		/** True while email mutation is in flight (green check hidden until confirmed) */
+		isEmailPending?: boolean;
 		/** Default email (from logged-in user) */
 		defaultEmail?: string;
 		/** Callback when email is submitted */
@@ -101,7 +104,7 @@
 					<Response content={message.displayText} animation={{ enabled: true }} />
 				{/if}
 				{#if isHandoffMessage && showEmailPrompt && onSubmitEmail}
-					<InlineEmailPrompt {currentEmail} {defaultEmail} {onSubmitEmail} />
+					<InlineEmailPrompt {currentEmail} {isEmailPending} {defaultEmail} {onSubmitEmail} />
 				{/if}
 			</MessageBubble>
 		{/if}

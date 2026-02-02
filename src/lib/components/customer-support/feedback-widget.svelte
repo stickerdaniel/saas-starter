@@ -67,10 +67,8 @@
 			if (threadQuery.data.assignedAdmin && !threadContext.assignedAdmin) {
 				threadContext.assignedAdmin = threadQuery.data.assignedAdmin;
 			}
-			// Sync notificationEmail if query has data and context doesn't
-			if (threadQuery.data.notificationEmail && !threadContext.notificationEmail) {
-				threadContext.notificationEmail = threadQuery.data.notificationEmail;
-			}
+			// Always sync notificationEmail from query (source of truth, includes optimistic updates)
+			threadContext.notificationEmail = threadQuery.data.notificationEmail ?? null;
 		}
 	});
 
@@ -254,6 +252,7 @@
 						{extractAttachments}
 						showEmailPrompt={threadContext.isHandedOff}
 						currentEmail={threadContext.notificationEmail ?? ''}
+						isEmailPending={threadContext.isEmailPending}
 						defaultEmail={page.data.viewer?.email ?? ''}
 						onSubmitEmail={handleSubmitEmail}
 					/>
