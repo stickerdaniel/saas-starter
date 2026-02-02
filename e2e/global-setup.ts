@@ -10,7 +10,6 @@
 import { ConvexHttpClient } from 'convex/browser';
 import { api } from '../src/lib/convex/_generated/api';
 import dotenv from 'dotenv';
-import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 
