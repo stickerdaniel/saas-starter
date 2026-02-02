@@ -464,6 +464,7 @@
 			"save_failed": "Error al guardar email. Por favor intenta de nuevo.",
 			"saved_success": "¡Email guardado! Te notificaremos cuando respondamos.",
 			"subscribe_button": "Suscribirse",
+			"unsubscribe_tooltip": "Cancelar suscripción",
 			"unsubscribe_failed": "Error al cancelar suscripción. Por favor intenta de nuevo.",
 			"unsubscribed": "Suscripción a notificaciones por email cancelada."
 		},

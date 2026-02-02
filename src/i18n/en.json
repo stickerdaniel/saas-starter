@@ -464,6 +464,7 @@
 			"save_failed": "Failed to save email. Please try again.",
 			"saved_success": "Email saved! We'll notify you when we respond.",
 			"subscribe_button": "Subscribe",
+			"unsubscribe_tooltip": "Unsubscribe",
 			"unsubscribe_failed": "Failed to unsubscribe. Please try again.",
 			"unsubscribed": "Unsubscribed from email notifications."
 		},

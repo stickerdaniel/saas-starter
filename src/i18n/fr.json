@@ -464,6 +464,7 @@
 			"save_failed": "Échec de l'enregistrement de l'email. Veuillez réessayer.",
 			"saved_success": "Email enregistré ! Nous vous notifierons lorsque nous répondrons.",
 			"subscribe_button": "S'abonner",
+			"unsubscribe_tooltip": "Se désabonner",
 			"unsubscribe_failed": "Échec du désabonnement. Veuillez réessayer.",
 			"unsubscribed": "Désabonné des notifications par email."
 		},

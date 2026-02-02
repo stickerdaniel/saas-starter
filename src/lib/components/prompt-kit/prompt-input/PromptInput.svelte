@@ -20,6 +20,8 @@
 		children: import('svelte').Snippet;
 	} = $props();
 
+	// Intentionally capture initial values; $effect() syncs updates below.
+	// svelte-ignore state_referenced_locally
 	const contextInstance = promptInputContext.set(
 		new PromptInputClass({
 			isLoading,

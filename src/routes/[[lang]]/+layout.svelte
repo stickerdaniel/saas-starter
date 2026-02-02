@@ -12,6 +12,8 @@
 	// This ensures useLanguage() always returns the current value of data.lang
 	languageContext.set(() => data.lang);
 
+	// Intentionally capture initial language; watch() syncs URL navigation changes below.
+	// svelte-ignore state_referenced_locally
 	const tolgee = Tolgee()
 		.use(DevTools())
 		.use(FormatIcu())
