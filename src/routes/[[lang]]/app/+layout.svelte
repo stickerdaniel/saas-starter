@@ -18,12 +18,6 @@
 	const sidebarConfig = $derived(
 		getAppSidebarConfig({ pathname: page.url.pathname, lang: page.params.lang }, viewer?.role)
 	);
-
-	// DEBUG: Log when viewer changes
-	$effect(() => {
-		console.log('[App Layout] viewer changed:', viewer);
-		console.log('[App Layout] data.viewer:', data.viewer);
-	});
 </script>
 
 <AuthenticatedLayout
