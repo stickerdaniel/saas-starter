@@ -232,27 +232,148 @@ export class ChatUIContext {
 	}
 
 	/**
+	 * Get image dimensions from a file
+	 */
+	private getImageDimensions(file: File | Blob): Promise<{ width: number; height: number }> {
+		return new Promise((resolve) => {
+			const img = new Image();
+			img.onload = () => {
+				resolve({ width: img.naturalWidth, height: img.naturalHeight });
+				URL.revokeObjectURL(img.src);
+			};
+			img.onerror = () => {
+				resolve({ width: 0, height: 0 });
+				URL.revokeObjectURL(img.src);
+			};
+			img.src = URL.createObjectURL(file);
+		});
+	}
+
+	/**
+	 * Process an image: resize if needed and optionally compress
+	 * @param file - Image file to process
+	 * @param outputFormat - Output MIME type ('image/png' for lossless, 'image/jpeg' for lossy)
+	 * @param quality - Quality for lossy formats (0-1), default 0.5
+	 * @param maxDimension - Max width/height, preserves aspect ratio
+	 * @returns Processed blob and final dimensions
+	 */
+	private processImage(
+		file: File | Blob,
+		outputFormat: 'image/png' | 'image/jpeg',
+		quality = 0.5,
+		maxDimension = 4096
+	): Promise<{ blob: Blob; width: number; height: number }> {
+		return new Promise((resolve, reject) => {
+			const img = new Image();
+			img.onload = () => {
+				// Calculate dimensions (preserve aspect ratio, limit max size)
+				let { naturalWidth: width, naturalHeight: height } = img;
+				if (width > maxDimension || height > maxDimension) {
+					const ratio = Math.min(maxDimension / width, maxDimension / height);
+					width = Math.round(width * ratio);
+					height = Math.round(height * ratio);
+				}
+
+				// Draw to canvas and export
+				const canvas = document.createElement('canvas');
+				canvas.width = width;
+				canvas.height = height;
+				const ctx = canvas.getContext('2d');
+				if (!ctx) {
+					URL.revokeObjectURL(img.src);
+					reject(new Error('Failed to get canvas context'));
+					return;
+				}
+				ctx.drawImage(img, 0, 0, width, height);
+				URL.revokeObjectURL(img.src);
+
+				// PNG is lossless (quality ignored), JPEG uses quality param
+				canvas.toBlob(
+					(blob) => {
+						if (blob) {
+							resolve({ blob, width, height });
+						} else {
+							reject(new Error('Failed to process image'));
+						}
+					},
+					outputFormat,
+					outputFormat === 'image/jpeg' ? quality : undefined
+				);
+			};
+			img.onerror = () => {
+				URL.revokeObjectURL(img.src);
+				reject(new Error('Failed to load image'));
+			};
+			img.src = URL.createObjectURL(file);
+		});
+	}
+
+	/**
 	 * Upload a file and add it as an attachment
 	 * Progress is tracked automatically
+	 * Images are processed based on format:
+	 * - PNG: resize only (lossless)
+	 * - JPEG: compress at 0.5 quality
+	 * - WebP: convert to PNG (LLM compatible, preserve transparency)
+	 * - GIF: keep as-is
 	 */
 	async uploadFile(file: File | Blob, filename?: string): Promise<void> {
 		if (!this.uploadConfig) {
 			throw new Error('Upload config not provided to ChatUIContext');
 		}
 
-		const name = filename ?? (file instanceof File ? file.name : 'file');
+		let name = filename ?? (file instanceof File ? file.name : 'file');
 		const attachmentIndex = this.nextAttachmentIndex++;
 		const key = crypto.randomUUID();
 		this.attachmentKeys.set(attachmentIndex, key);
+
+		// Process images based on format
+		let uploadFile: File | Blob = file;
+		let width: number | undefined;
+		let height: number | undefined;
+		let mimeType = file.type;
+
+		if (file.type.startsWith('image/') && file.type !== 'image/gif') {
+			try {
+				// Determine output format based on input
+				// PNG → PNG (lossless), JPEG → JPEG (lossy), WebP → PNG (LLM can't read WebP)
+				const outputFormat: 'image/png' | 'image/jpeg' =
+					file.type === 'image/jpeg' ? 'image/jpeg' : 'image/png';
+				const extension = outputFormat === 'image/jpeg' ? '.jpg' : '.png';
+
+				const processed = await this.processImage(file, outputFormat);
+				uploadFile = processed.blob;
+				width = processed.width;
+				height = processed.height;
+				mimeType = outputFormat;
+				name = name.replace(/\.[^.]+$/, extension);
+			} catch {
+				// Fall back to original file if processing fails
+				const dims = await this.getImageDimensions(file);
+				if (dims.width > 0 && dims.height > 0) {
+					width = dims.width;
+					height = dims.height;
+				}
+			}
+		} else if (file.type === 'image/gif') {
+			// GIF: just get dimensions, keep original
+			const dims = await this.getImageDimensions(file);
+			if (dims.width > 0 && dims.height > 0) {
+				width = dims.width;
+				height = dims.height;
+			}
+		}
 
 		// Add optimistic attachment with uploading state
 		const newAttachment: Attachment = {
 			type: 'file',
 			name,
-			size: file.size,
-			mimeType: file.type,
-			preview: file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined,
-			uploadState: { status: 'uploading', progress: 0 }
+			size: uploadFile.size,
+			mimeType,
+			preview: mimeType.startsWith('image/') ? URL.createObjectURL(uploadFile) : undefined,
+			uploadState: { status: 'uploading', progress: 0 },
+			width,
+			height
 		};
 
 		this.attachments = [...this.attachments, newAttachment];
@@ -261,7 +382,7 @@ export class ChatUIContext {
 		try {
 			const result = await uploadFileWithProgress(
 				this.client,
-				file,
+				uploadFile,
 				name,
 				(progress) => {
 					// Update progress for this specific attachment
@@ -271,7 +392,8 @@ export class ChatUIContext {
 							: a
 					);
 				},
-				this.uploadConfig
+				this.uploadConfig,
+				width && height ? { width, height } : undefined
 			);
 
 			// Mark as success
@@ -296,7 +418,11 @@ export class ChatUIContext {
 	/**
 	 * Upload a screenshot blob
 	 */
-	async uploadScreenshot(blob: Blob, filename: string): Promise<void> {
+	async uploadScreenshot(
+		blob: Blob,
+		filename: string,
+		dimensions?: { width: number; height: number }
+	): Promise<void> {
 		if (!this.uploadConfig) {
 			throw new Error('Upload config not provided to ChatUIContext');
 		}
@@ -312,7 +438,9 @@ export class ChatUIContext {
 			size: blob.size,
 			mimeType: blob.type,
 			preview: URL.createObjectURL(blob),
-			uploadState: { status: 'uploading', progress: 0 }
+			uploadState: { status: 'uploading', progress: 0 },
+			width: dimensions?.width,
+			height: dimensions?.height
 		};
 
 		this.attachments = [...this.attachments, newAttachment];
@@ -330,7 +458,8 @@ export class ChatUIContext {
 							: a
 					);
 				},
-				this.uploadConfig
+				this.uploadConfig,
+				dimensions
 			);
 
 			// Mark as success

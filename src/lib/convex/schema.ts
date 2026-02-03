@@ -140,7 +140,21 @@ export default defineSchema({
 		updatedAt: v.number()
 	})
 		.index('by_email', ['email'])
-		.index('by_user', ['userId'])
+		.index('by_user', ['userId']),
+
+	// File metadata - stores image dimensions for proper dialog sizing
+	// (agent component strips unknown fields from file parts, so we store dimensions separately)
+	fileMetadata: defineTable({
+		fileId: v.string(), // Reference to agent:files._id
+		storageId: v.string(), // Convex storage ID for lookups
+		url: v.optional(v.string()), // The actual URL from agent component (optional for legacy records)
+		width: v.optional(v.number()),
+		height: v.optional(v.number()),
+		createdAt: v.number()
+	})
+		.index('by_fileId', ['fileId'])
+		.index('by_storageId', ['storageId'])
+		.index('by_url', ['url'])
 
 	// Note: The agent component automatically creates the following tables:
 	// - agent:threads - Conversation threads for customer support

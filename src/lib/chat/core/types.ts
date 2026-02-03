@@ -30,6 +30,8 @@ export type Attachment =
 			preview?: string;
 			url?: string;
 			uploadState?: UploadState;
+			width?: number;
+			height?: number;
 	  }
 	| {
 			type: 'screenshot';
@@ -40,9 +42,18 @@ export type Attachment =
 			preview?: string;
 			url?: string;
 			uploadState?: UploadState;
+			width?: number;
+			height?: number;
 	  }
-	| { type: 'image'; url: string; filename?: string }
-	| { type: 'remote-file'; url: string; filename: string; contentType?: string };
+	| { type: 'image'; url: string; filename?: string; width?: number; height?: number }
+	| {
+			type: 'remote-file';
+			url: string;
+			filename: string;
+			contentType?: string;
+			width?: number;
+			height?: number;
+	  };
 
 /**
  * Message status
