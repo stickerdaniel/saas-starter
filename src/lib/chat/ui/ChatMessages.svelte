@@ -12,11 +12,18 @@
 	import ChatMessage from './ChatMessage.svelte';
 	import type { DisplayMessage, Attachment } from '../core/types.js';
 
+	/**
+	 * File metadata for dimension lookup
+	 * Map of fileId -> { width, height }
+	 */
+	type FileMetadataMap = Record<string, { width?: number; height?: number }>;
+
 	const { t } = getTranslate();
 
 	let {
 		emptyState,
 		extractAttachments,
+		fileMetadata = {},
 		showEmailPrompt = false,
 		currentEmail = '',
 		isEmailPending = false,
@@ -27,7 +34,9 @@
 		/** Custom empty state content */
 		emptyState?: Snippet;
 		/** Function to extract attachments from a message */
-		extractAttachments?: (message: DisplayMessage) => Attachment[];
+		extractAttachments?: (message: DisplayMessage, metadata?: FileMetadataMap) => Attachment[];
+		/** File metadata for dimension lookup (fileId -> dimensions) */
+		fileMetadata?: FileMetadataMap;
 		/** Whether to show email prompt in handoff message */
 		showEmailPrompt?: boolean;
 		/** Currently saved notification email */
@@ -68,7 +77,10 @@
 	}
 
 	// Default attachment extraction if not provided
-	function defaultExtractAttachments(msg: DisplayMessage): Attachment[] {
+	function defaultExtractAttachments(
+		msg: DisplayMessage,
+		metadata?: FileMetadataMap
+	): Attachment[] {
 		// 1. Optimistic attachments
 		if (msg.localAttachments && msg.localAttachments.length > 0) {
 			return msg.localAttachments;
@@ -88,18 +100,25 @@
 						const isImage =
 							part.mediaType?.startsWith('image/') || part.mimeType?.startsWith('image/');
 
+						// Get dimensions from metadata (keyed by URL since UIMessage parts don't have fileId)
+						const dims = metadata?.[url];
+
 						if (isImage) {
 							attachments.push({
-								type: 'image',
+								type: 'image' as const,
 								url: url,
-								filename: part.filename || $t('chat.attachment.image_fallback')
+								filename: part.filename || $t('chat.attachment.image_fallback'),
+								width: dims?.width ?? part.width,
+								height: dims?.height ?? part.height
 							});
 						} else {
 							attachments.push({
-								type: 'remote-file',
+								type: 'remote-file' as const,
 								url: url,
 								filename: part.filename || $t('chat.attachment.file_fallback'),
-								contentType: part.mediaType || part.mimeType
+								contentType: part.mediaType || part.mimeType,
+								width: dims?.width ?? part.width,
+								height: dims?.height ?? part.height
 							});
 						}
 					}
@@ -110,7 +129,11 @@
 		return attachments;
 	}
 
-	let getAttachments = $derived(extractAttachments ?? defaultExtractAttachments);
+	let getAttachments = $derived(
+		extractAttachments
+			? (msg: DisplayMessage) => extractAttachments(msg, fileMetadata)
+			: (msg: DisplayMessage) => defaultExtractAttachments(msg, fileMetadata)
+	);
 </script>
 
 <ChatContainerRoot class="relative h-full {className}">

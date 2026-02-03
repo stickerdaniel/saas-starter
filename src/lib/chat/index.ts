@@ -85,7 +85,7 @@ export {
 } from './core/index.js';
 
 // UI exports
-export type { UploadConfig } from './ui/index.js';
+export type { UploadConfig, FileMetadataMap } from './ui/index.js';
 
 export {
 	ChatUIContext,

@@ -84,6 +84,8 @@ export const sendMessage = mutation({
 			}
 
 			// Add file/image parts
+			// Note: Dimensions are now stored separately in fileMetadata table at upload time
+			// and retrieved via getFileMetadataBatch query on the frontend
 			for (const fileId of args.fileIds) {
 				const { filePart } = await getFile(ctx, components.agent, fileId);
 
@@ -339,5 +341,36 @@ export const createAssistantMessage = internalMutation({
 			},
 			skipEmbeddings: true
 		});
+	}
+});
+
+/**
+ * Get file metadata (dimensions) for multiple files by URL
+ *
+ * Used to load image dimensions for proper dialog sizing when
+ * displaying message attachments. Queries directly by URL since
+ * we store the URL from the agent component.
+ *
+ * Returns a map of URL -> dimensions.
+ */
+export const getFileMetadataBatch = query({
+	args: {
+		urls: v.array(v.string())
+	},
+	handler: async (ctx, args): Promise<Record<string, { width?: number; height?: number }>> => {
+		const results: Record<string, { width?: number; height?: number }> = {};
+
+		for (const url of args.urls) {
+			const meta = await ctx.db
+				.query('fileMetadata')
+				.withIndex('by_url', (q) => q.eq('url', url))
+				.first();
+
+			if (meta && (meta.width || meta.height)) {
+				results[url] = { width: meta.width, height: meta.height };
+			}
+		}
+
+		return results;
 	}
 });

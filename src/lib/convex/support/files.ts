@@ -1,7 +1,7 @@
-import { action, mutation } from '../_generated/server';
+import { action, mutation, internalMutation } from '../_generated/server';
 import { v } from 'convex/values';
 import { storeFile } from '@convex-dev/agent';
-import { components } from '../_generated/api';
+import { components, internal } from '../_generated/api';
 import { t } from '../i18n/translations';
 
 /**
@@ -47,7 +47,9 @@ export const saveUploadedFile = action({
 		storageId: v.id('_storage'),
 		filename: v.optional(v.string()),
 		mimeType: v.string(),
-		locale: v.optional(v.string())
+		locale: v.optional(v.string()),
+		width: v.optional(v.number()),
+		height: v.optional(v.number())
 	},
 	handler: async (
 		ctx,
@@ -83,6 +85,18 @@ export const saveUploadedFile = action({
 			filename: args.filename
 		});
 
+		// Store dimensions in fileMetadata table for proper dialog sizing
+		// (agent component strips unknown fields from file parts)
+		if (args.width && args.height && args.mimeType.startsWith('image/')) {
+			await ctx.runMutation(internal.support.files.storeFileMetadata, {
+				fileId: file.fileId,
+				storageId: file.storageId,
+				url: file.url, // Store URL for message matching
+				width: args.width,
+				height: args.height
+			});
+		}
+
 		return {
 			fileId: file.fileId,
 			storageId: file.storageId,
@@ -90,5 +104,68 @@ export const saveUploadedFile = action({
 			filename: file.filename,
 			isImage: args.mimeType.startsWith('image/')
 		};
+	}
+});
+
+/**
+ * Store file metadata (dimensions) for proper dialog sizing
+ *
+ * Called internally after uploading an image. Stores dimensions separately
+ * because the agent component's file parts schema doesn't preserve custom fields.
+ */
+export const storeFileMetadata = internalMutation({
+	args: {
+		fileId: v.string(),
+		storageId: v.string(),
+		url: v.string(),
+		width: v.number(),
+		height: v.number()
+	},
+	handler: async (ctx, args) => {
+		// Check if metadata already exists by URL (avoid duplicates)
+		const existing = await ctx.db
+			.query('fileMetadata')
+			.withIndex('by_url', (q) => q.eq('url', args.url))
+			.first();
+
+		if (existing) {
+			// Update existing metadata
+			await ctx.db.patch(existing._id, {
+				width: args.width,
+				height: args.height
+			});
+			return existing._id;
+		}
+
+		// Insert new metadata
+		return await ctx.db.insert('fileMetadata', {
+			fileId: args.fileId,
+			storageId: args.storageId,
+			url: args.url,
+			width: args.width,
+			height: args.height,
+			createdAt: Date.now()
+		});
+	}
+});
+
+/**
+ * Delete legacy fileMetadata records that don't have URL field
+ * (One-time cleanup mutation)
+ */
+export const cleanupLegacyFileMetadata = internalMutation({
+	args: {},
+	handler: async (ctx) => {
+		const allRecords = await ctx.db.query('fileMetadata').collect();
+		let deleted = 0;
+
+		for (const record of allRecords) {
+			if (!record.url) {
+				await ctx.db.delete(record._id);
+				deleted++;
+			}
+		}
+
+		return { deleted, total: allRecords.length };
 	}
 });

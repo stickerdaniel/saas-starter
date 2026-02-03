@@ -15,6 +15,13 @@ export {
 	tryGetChatUIContext
 } from './ChatContext.svelte.js';
 
+// Types
+/**
+ * File metadata for dimension lookup
+ * Map of fileId -> { width, height }
+ */
+export type FileMetadataMap = Record<string, { width?: number; height?: number }>;
+
 // Components
 export { default as ChatRoot } from './ChatRoot.svelte';
 export { default as ChatMessages } from './ChatMessages.svelte';
