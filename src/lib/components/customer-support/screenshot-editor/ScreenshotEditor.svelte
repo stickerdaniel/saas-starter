@@ -17,7 +17,11 @@
 		onScreenshotSaved
 	}: {
 		onCancel?: () => void;
-		onScreenshotSaved?: (blob: Blob, filename: string) => void;
+		onScreenshotSaved?: (
+			blob: Blob,
+			filename: string,
+			dimensions: { width: number; height: number }
+		) => void;
 	} = $props();
 
 	// Initialize editor context immediately (no screenshot capture needed)
@@ -100,16 +104,17 @@
 				canvas.height // Destination height
 			);
 
-			// Export final composite canvas
-			const dataUrl = canvas.toDataURL('image/png', 1.0);
+			// Export final composite canvas as PNG (lossless, sharp text, LLM compatible)
+			const dataUrl = canvas.toDataURL('image/png');
 
 			// Convert dataURL to Blob
 			const response = await fetch(dataUrl);
 			const blob = await response.blob();
 			const filename = `screenshot-${timestamp}.png`;
+			const dimensions = { width: canvas.width, height: canvas.height };
 
 			// Pass screenshot to parent via callback
-			onScreenshotSaved?.(blob, filename);
+			onScreenshotSaved?.(blob, filename, dimensions);
 
 			// Keep download code for debugging purposes (commented out)
 			// const downloadLink = document.createElement('a');

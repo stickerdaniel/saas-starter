@@ -113,9 +113,13 @@
 		isScreenshotMode = false;
 	}
 
-	async function handleScreenshotSaved(blob: Blob, filename: string) {
+	async function handleScreenshotSaved(
+		blob: Blob,
+		filename: string,
+		dimensions: { width: number; height: number }
+	) {
 		// Upload screenshot via ChatUIContext (adds to ctx.attachments)
-		await chatUIContext.uploadScreenshot(blob, filename);
+		await chatUIContext.uploadScreenshot(blob, filename, dimensions);
 	}
 </script>
 

@@ -34,6 +34,7 @@
 
 	let isDialogOpen = $state(false);
 	let selectedAttachment = $state<Attachment | null>(null);
+	let displayDimensions = $state<{ width: number; height: number } | null>(null);
 
 	/**
 	 * Get filename from attachment
@@ -78,6 +79,21 @@
 	function handleOpen(attachment: Attachment) {
 		if (hasPreview(attachment)) {
 			selectedAttachment = attachment;
+
+			// Pre-compute display dimensions to prevent dialog resize
+			const dims = getDimensions(attachment);
+			if (dims.width && dims.height) {
+				const maxHeight = window.innerHeight * 0.7; // 70vh
+				const maxWidth = Math.min(window.innerWidth * 0.9, 512); // dialog max-width ~512px
+				const scale = Math.min(maxWidth / dims.width, maxHeight / dims.height, 1);
+				displayDimensions = {
+					width: Math.round(dims.width * scale),
+					height: Math.round(dims.height * scale)
+				};
+			} else {
+				displayDimensions = null;
+			}
+
 			isDialogOpen = true;
 		}
 	}
@@ -91,10 +107,21 @@
 		}
 		return undefined;
 	}
+
+	/**
+	 * Get dimensions from attachment (if available)
+	 */
+	function getDimensions(attachment: Attachment): { width?: number; height?: number } {
+		// All attachment types now support width/height
+		return { width: attachment.width, height: attachment.height };
+	}
 </script>
 
 <Dialog.Root bind:open={isDialogOpen}>
-	<Dialog.Content>
+	<Dialog.Content
+		class={displayDimensions ? '!max-w-none' : ''}
+		style={displayDimensions ? `width: ${displayDimensions.width + 48}px;` : ''}
+	>
 		<Dialog.Header>
 			<Dialog.Title
 				>{selectedAttachment
@@ -111,11 +138,24 @@
 					class="h-[70vh] w-full rounded-md"
 				></iframe>
 			{:else if previewUrl}
-				<img
-					src={previewUrl}
-					alt={getFilename(selectedAttachment)}
-					class="mx-auto max-h-[70vh] max-w-full rounded-md object-contain"
-				/>
+				{#if displayDimensions}
+					<div
+						class="mx-auto overflow-hidden rounded-md"
+						style="width: {displayDimensions.width}px; height: {displayDimensions.height}px;"
+					>
+						<img
+							src={previewUrl}
+							alt={getFilename(selectedAttachment)}
+							class="size-full object-contain"
+						/>
+					</div>
+				{:else}
+					<img
+						src={previewUrl}
+						alt={getFilename(selectedAttachment)}
+						class="mx-auto max-h-[70vh] max-w-full rounded-md object-contain"
+					/>
+				{/if}
 			{/if}
 		{/if}
 	</Dialog.Content>
@@ -138,8 +178,8 @@
 			<!-- svelte-ignore a11y_click_events_have_key_events -->
 			<!-- svelte-ignore a11y_no_static_element_interactions -->
 			<div
-				class="relative flex items-center justify-between gap-2 overflow-hidden rounded-lg px-2 py-2 {isClickable
-					? 'cursor-pointer'
+				class="relative flex items-center justify-between gap-2 overflow-hidden rounded-lg px-2 py-2 transition-transform {isClickable
+					? 'cursor-pointer active:scale-97'
 					: ''} {readonly ? 'border text-foreground transition-colors' : 'bg-secondary/50'}"
 				style="width: {attachments.length === 1 && readonly
 					? '100%'
