@@ -11,7 +11,6 @@
 
 	// Import new chat components
 	import { ChatRoot, ChatMessages, ChatInput, type ChatUIContext } from '$lib/chat';
-	import type { Attachment, DisplayMessage } from '$lib/chat';
 
 	// Import thread navigation components
 	import ThreadsOverview from './threads-overview.svelte';
@@ -115,51 +114,34 @@
 		listMessages: api.support.messages.listMessages
 	};
 
-	function handleScreenshot() {
-		isScreenshotMode = true;
-	}
-
-	// Extract attachments from message content
-	function extractAttachments(msg: DisplayMessage): Attachment[] {
-		// 1. Optimistic attachments
-		if (msg.localAttachments && msg.localAttachments.length > 0) {
-			return msg.localAttachments;
-		}
-
-		const attachments: Attachment[] = [];
-
-		// 2. Real message content
-		const content = msg.parts || msg.message?.content;
-
-		if (Array.isArray(content)) {
-			for (const part of content) {
-				if (part.type === 'file') {
-					const url = part.url || (typeof part.data === 'string' ? part.data : null);
-
-					if (url) {
-						const isImage =
-							part.mediaType?.startsWith('image/') || part.mimeType?.startsWith('image/');
-
-						if (isImage) {
-							attachments.push({
-								type: 'image',
-								url: url,
-								filename: part.filename || $t('chat.attachment.image_fallback')
-							});
-						} else {
-							attachments.push({
-								type: 'remote-file',
-								url: url,
-								filename: part.filename || $t('chat.attachment.file_fallback'),
-								contentType: part.mediaType || part.mimeType
-							});
-						}
+	// Extract all file URLs from current messages for metadata query
+	// Note: UIMessage file parts don't have fileId, only url
+	const fileUrls = $derived.by(() => {
+		const urls: string[] = [];
+		for (const msg of chatUIContext.displayMessages) {
+			const content = msg.parts || msg.message?.content;
+			if (Array.isArray(content)) {
+				for (const part of content) {
+					if (part.type === 'file') {
+						const url = part.url || (typeof part.data === 'string' ? part.data : null);
+						if (url) urls.push(url);
 					}
 				}
 			}
 		}
+		return urls;
+	});
 
-		return attachments;
+	// Query file metadata for dimensions by URL (extracts storageId server-side)
+	const fileMetadataQuery = useQuery(api.support.messages.getFileMetadataBatch, () =>
+		fileUrls.length > 0 ? { urls: fileUrls } : 'skip'
+	);
+
+	// Derive file metadata map from query (keyed by URL)
+	const fileMetadata = $derived(fileMetadataQuery.data ?? {});
+
+	function handleScreenshot() {
+		isScreenshotMode = true;
 	}
 
 	// Suggestions for empty state
@@ -249,7 +231,7 @@
 				<!-- Messages container -->
 				<div class="relative min-h-0 w-full flex-1">
 					<ChatMessages
-						{extractAttachments}
+						{fileMetadata}
 						showEmailPrompt={threadContext.isHandedOff}
 						currentEmail={threadContext.notificationEmail ?? ''}
 						isEmailPending={threadContext.isEmailPending}
