@@ -34,6 +34,7 @@ export type ProgressCallback = (progress: number) => void;
  * @param filename - Name for the uploaded file
  * @param onProgress - Callback for progress updates (0-100)
  * @param api - Convex API endpoints for file operations
+ * @param dimensions - Optional image dimensions for storage
  * @returns Object containing fileId and url
  */
 export async function uploadFileWithProgress(
@@ -45,7 +46,8 @@ export async function uploadFileWithProgress(
 		generateUploadUrl: Parameters<ConvexClient['mutation']>[0];
 		saveUploadedFile: Parameters<ConvexClient['action']>[0];
 		locale?: string;
-	}
+	},
+	dimensions?: { width: number; height: number }
 ): Promise<UploadResult> {
 	// 1. Generate upload URL
 	const uploadUrl = await client.mutation(api.generateUploadUrl, {});
@@ -53,12 +55,14 @@ export async function uploadFileWithProgress(
 	// 2. Upload file with progress tracking
 	const storageId = await uploadToStorage(uploadUrl, file, onProgress);
 
-	// 3. Register file with agent component
+	// 3. Register file with agent component (including dimensions for images)
 	const result = await client.action(api.saveUploadedFile, {
 		storageId,
 		filename,
 		mimeType: file.type,
-		locale: api.locale
+		locale: api.locale,
+		width: dimensions?.width,
+		height: dimensions?.height
 	});
 
 	// Ensure progress is 100% after completion

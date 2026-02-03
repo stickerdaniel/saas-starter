@@ -450,6 +450,8 @@ export class SupportThreadContext {
 			};
 
 			// Send message with optimistic update
+			// Note: File dimensions are now stored in fileMetadata table at upload time,
+			// so we no longer need to pass fileDimensions here
 			await client.mutation(
 				api.support.messages.sendMessage,
 				{
