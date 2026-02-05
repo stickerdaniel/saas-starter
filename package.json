@@ -85,6 +85,10 @@
 	"devDependencies": {
 		"@axe-core/playwright": "4.11.1",
 		"@convex-dev/eslint-plugin": "1.2.1",
+		"@dnd-kit-svelte/core": "0.0.11",
+		"@dnd-kit-svelte/modifiers": "0.0.11",
+		"@dnd-kit-svelte/sortable": "0.0.11",
+		"@dnd-kit-svelte/utilities": "0.0.11",
 		"@eslint/compat": "2.0.3",
 		"@eslint/js": "9.39.4",
 		"@fontsource-variable/outfit": "^5.2.8",
@@ -93,6 +97,7 @@
 		"@playwright/test": "1.58.2",
 		"@resvg/resvg-js": "2.6.2",
 		"@sveltejs/adapter-auto": "7.0.1",
+		"@sveltejs/adapter-node": "^5.5.2",
 		"@sveltejs/adapter-vercel": "^6.3.1",
 		"@sveltejs/kit": "2.55.0",
 		"@sveltejs/package": "2.5.7",
