@@ -45,6 +45,8 @@ export const updateProfileImage = mutation({
 	handler: async (ctx, args) => {
 		const user = await authComponent.getAuthUser(ctx);
 		if (!user) {
+			// Clean up orphaned storage before rejecting
+			await ctx.storage.delete(args.storageId);
 			throw new Error('Unauthorized');
 		}
 
@@ -67,12 +69,18 @@ export const updateProfileImage = mutation({
 			throw new Error(`File too large. Maximum size: ${PROFILE_IMAGE_MAX_SIZE / 1024 / 1024}MB`);
 		}
 
-		await ctx.runMutation(components.convexFilesControl.upload.finalizeUpload, {
-			uploadToken: args.uploadToken,
-			storageId: args.storageId,
-			accessKeys: [user._id],
-			expiresAt: null
-		});
+		// Register with files-control, clean up storage on failure
+		try {
+			await ctx.runMutation(components.convexFilesControl.upload.finalizeUpload, {
+				uploadToken: args.uploadToken,
+				storageId: args.storageId,
+				accessKeys: [user._id],
+				expiresAt: null
+			});
+		} catch (error) {
+			await ctx.storage.delete(args.storageId);
+			throw error;
+		}
 
 		return await ctx.storage.getUrl(args.storageId);
 	}
