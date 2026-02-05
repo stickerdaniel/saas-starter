@@ -47,10 +47,11 @@ export async function uploadFileWithProgress(
 		saveUploadedFile: Parameters<ConvexClient['action']>[0];
 		locale?: string;
 	},
-	dimensions?: { width: number; height: number }
+	dimensions?: { width: number; height: number },
+	accessKey?: string
 ): Promise<UploadResult> {
 	// 1. Generate upload URL
-	const uploadUrl = await client.mutation(api.generateUploadUrl, {});
+	const { uploadUrl, uploadToken } = await client.mutation(api.generateUploadUrl, {});
 
 	// 2. Upload file with progress tracking
 	const storageId = await uploadToStorage(uploadUrl, file, onProgress);
@@ -58,9 +59,11 @@ export async function uploadFileWithProgress(
 	// 3. Register file with agent component (including dimensions for images)
 	const result = await client.action(api.saveUploadedFile, {
 		storageId,
+		uploadToken,
 		filename,
 		mimeType: file.type,
 		locale: api.locale,
+		accessKey,
 		width: dimensions?.width,
 		height: dimensions?.height
 	});
@@ -114,6 +117,7 @@ async function uploadToStorage(
 
 		// Start upload
 		xhr.open('POST', uploadUrl);
+		xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
 		xhr.send(file);
 	});
 }

@@ -3,7 +3,7 @@ name: silent-failure-hunter
 mode: subagent
 # https://models.dev/
 model: 'openai/gpt-5.2-codex'
-variant: 'xhigh'
+variant: 'high'
 # model: 'github-copilot/gpt-5.2-codex'
 color: '#eab308'
 description: |

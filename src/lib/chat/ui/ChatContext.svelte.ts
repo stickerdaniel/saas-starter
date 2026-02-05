@@ -27,6 +27,8 @@ export interface UploadConfig {
 	saveUploadedFile: Parameters<ConvexClient['action']>[0];
 	/** Locale for translated error messages */
 	locale?: string;
+	/** Optional access key provider for file control */
+	getAccessKey?: () => string | undefined;
 }
 
 /**
@@ -380,6 +382,7 @@ export class ChatUIContext {
 		const currentIndex = this.attachments.length - 1;
 
 		try {
+			const accessKey = this.uploadConfig?.getAccessKey?.();
 			const result = await uploadFileWithProgress(
 				this.client,
 				uploadFile,
@@ -393,7 +396,8 @@ export class ChatUIContext {
 					);
 				},
 				this.uploadConfig,
-				width && height ? { width, height } : undefined
+				width && height ? { width, height } : undefined,
+				accessKey
 			);
 
 			// Mark as success
@@ -447,6 +451,7 @@ export class ChatUIContext {
 		const currentIndex = this.attachments.length - 1;
 
 		try {
+			const accessKey = this.uploadConfig?.getAccessKey?.();
 			const result = await uploadFileWithProgress(
 				this.client,
 				blob,
@@ -459,7 +464,8 @@ export class ChatUIContext {
 					);
 				},
 				this.uploadConfig,
-				dimensions
+				dimensions,
+				accessKey
 			);
 
 			// Mark as success
