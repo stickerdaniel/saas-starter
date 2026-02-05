@@ -344,6 +344,12 @@
 			"branch": "main",
 			"searchPath": "docs/usage",
 			"specialNotes": "Renovate dependency update automation. Configuration presets, package rules, scheduling, vulnerability alerts."
+		},
+		{
+			"type": "git",
+			"name": "svelteRiveExample",
+			"url": "https://github.com/nilskj/svelte-rive-example",
+			"branch": "main"
 		}
 	],
 	"model": "claude-haiku-4-5",

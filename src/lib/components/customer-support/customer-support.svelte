@@ -63,7 +63,8 @@
 	const uploadConfig: UploadConfig = {
 		generateUploadUrl: api.support.files.generateUploadUrl,
 		saveUploadedFile: api.support.files.saveUploadedFile,
-		locale: page.data.lang
+		locale: page.data.lang,
+		getAccessKey: () => threadContext.threadId ?? threadContext.userId ?? 'support'
 	};
 
 	// Create ChatUIContext at this level so we can handle screenshot uploads
