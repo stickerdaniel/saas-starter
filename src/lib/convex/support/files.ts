@@ -1,6 +1,6 @@
-import { action, mutation, internalMutation } from '../_generated/server';
 import { v } from 'convex/values';
 import { storeFile } from '@convex-dev/agent';
+import { action, internalMutation, mutation } from '../_generated/server';
 import { components, internal } from '../_generated/api';
 import { t } from '../i18n/translations';
 
@@ -16,15 +16,17 @@ const ALLOWED_MIME_TYPES = [
 ];
 
 /**
- * Generate a URL for uploading files directly to Convex storage
+ * Generate a URL and token for uploading files directly to Convex storage
  *
- * This mutation generates a temporary URL that clients can use to upload
- * files directly to Convex storage with progress tracking support.
+ * This mutation generates a temporary URL + upload token that clients can use to
+ * upload files directly to Convex storage with progress tracking support.
  */
 export const generateUploadUrl = mutation({
 	args: {},
 	handler: async (ctx) => {
-		return await ctx.storage.generateUploadUrl();
+		return await ctx.runMutation(components.convexFilesControl.upload.generateUploadUrl, {
+			provider: 'convex'
+		});
 	}
 });
 
@@ -32,22 +34,30 @@ export const generateUploadUrl = mutation({
  * Register uploaded file with agent component
  *
  * Call this after successfully uploading to the URL from generateUploadUrl.
- * This action fetches the uploaded file from storage and registers it with
- * the agent component for use in multimodal messages.
+ * This action finalizes the upload with files-control, creates a download grant
+ * to fetch the file, then registers it with the agent component.
  *
  * @param args.storageId - The Convex storage ID of the uploaded file
+ * @param args.uploadToken - Upload token from files-control generateUploadUrl
  * @param args.filename - Optional original filename for display
  * @param args.mimeType - The MIME type of the uploaded file
+ * @param args.locale - Optional locale for translated error messages
+ * @param args.accessKey - Optional access key for file control (defaults to 'support')
+ * @param args.width - Optional image width for metadata storage
+ * @param args.height - Optional image height for metadata storage
  * @returns Object containing fileId, storageId, url, filename, and isImage flag
  * @throws {Error} When file type is not allowed (only PNG, JPEG, WebP, GIF, PDF supported)
- * @throws {Error} When storage URL cannot be retrieved
+ * @throws {Error} When download grant cannot be created or consumed
+ * @throws {Error} When file fetch fails
  */
 export const saveUploadedFile = action({
 	args: {
 		storageId: v.id('_storage'),
+		uploadToken: v.string(),
 		filename: v.optional(v.string()),
 		mimeType: v.string(),
 		locale: v.optional(v.string()),
+		accessKey: v.optional(v.string()),
 		width: v.optional(v.number()),
 		height: v.optional(v.number())
 	},
@@ -66,24 +76,58 @@ export const saveUploadedFile = action({
 			throw new Error(t(args.locale, 'backend.files.type_not_allowed'));
 		}
 
-		// Get storage URL
-		const url = await ctx.storage.getUrl(args.storageId);
-
-		if (!url) {
-			throw new Error('Failed to get storage URL');
-		}
-
-		// Fetch blob from storage
-		const response = await fetch(url);
-		if (!response.ok) {
-			throw new Error(t(args.locale, 'backend.files.fetch_failed'));
-		}
-		const blob = await response.blob();
-
-		// Register with agent component
-		const { file } = await storeFile(ctx, components.agent, blob, {
-			filename: args.filename
+		// Finalize upload with files-control before registering with agent
+		const accessKey = args.accessKey?.trim() || 'support';
+		await ctx.runMutation(components.convexFilesControl.upload.finalizeUpload, {
+			uploadToken: args.uploadToken,
+			storageId: args.storageId,
+			accessKeys: [accessKey],
+			expiresAt: null
 		});
+
+		// All operations after finalizeUpload must clean up on failure
+		let file: { fileId: string; storageId: string; url: string; filename?: string };
+		try {
+			const downloadGrant = await ctx.runMutation(
+				components.convexFilesControl.download.createDownloadGrant,
+				{
+					storageId: args.storageId,
+					maxUses: 1,
+					expiresAt: Date.now() + 5 * 60 * 1000,
+					shareableLink: false
+				}
+			);
+
+			const downloadResult = await ctx.runMutation(
+				components.convexFilesControl.download.consumeDownloadGrantForUrl,
+				{
+					downloadToken: downloadGrant.downloadToken,
+					accessKey
+				}
+			);
+
+			if (downloadResult.status !== 'ok' || !downloadResult.downloadUrl) {
+				throw new Error(`Failed to get download URL: ${downloadResult.status}`);
+			}
+
+			// Fetch blob from component storage
+			const response = await fetch(downloadResult.downloadUrl);
+			if (!response.ok) {
+				throw new Error(t(args.locale, 'backend.files.fetch_failed'));
+			}
+			const blob = await response.blob();
+
+			// Register with agent component
+			const result = await storeFile(ctx, components.agent, blob, {
+				filename: args.filename
+			});
+			file = result.file;
+		} catch (error) {
+			await ctx.runMutation(components.convexFilesControl.cleanUp.deleteFile, {
+				storageId: args.storageId
+			});
+			throw error;
+		}
 
 		// Store dimensions in fileMetadata table for proper dialog sizing
 		// (agent component strips unknown fields from file parts)
