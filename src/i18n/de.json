@@ -403,7 +403,9 @@
 			"code_placeholder": "12345678",
 			"description": "Wir haben Ihnen einen Verifizierungslink gesendet",
 			"sent_to": "Wir haben eine Verifizierungs-E-Mail an",
-			"title": "E-Mail-Verifizierung"
+			"title": "E-Mail-Verifizierung",
+			"verified_description": "Ihre E-Mail wurde verifiziert. Sie werden angemeldet...",
+			"verified_title": "E-Mail verifiziert"
 		}
 	},
 	"backend": {
