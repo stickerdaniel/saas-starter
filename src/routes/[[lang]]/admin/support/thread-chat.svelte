@@ -44,7 +44,8 @@
 	const uploadConfig: UploadConfig = {
 		generateUploadUrl: api.support.files.generateUploadUrl,
 		saveUploadedFile: api.support.files.saveUploadedFile,
-		locale: page.data.lang
+		locale: page.data.lang,
+		getAccessKey: () => threadId || 'support-admin'
 	};
 
 	// Create ChatCore for this thread (needed for ChatUIContext)

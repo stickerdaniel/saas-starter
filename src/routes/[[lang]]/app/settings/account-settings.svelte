@@ -59,7 +59,10 @@
 		// Auto-upload to Convex storage
 		isUploading = true;
 		try {
-			const uploadUrl = await convexClient.mutation(api.storage.generateUploadUrl, {});
+			const { uploadUrl, uploadToken } = await convexClient.mutation(
+				api.storage.generateUploadUrl,
+				{}
+			);
 
 			const result = await fetch(uploadUrl, {
 				method: 'POST',
@@ -69,7 +72,10 @@
 
 			const { storageId } = await result.json();
 
-			const imageUrl = await convexClient.mutation(api.storage.updateProfileImage, { storageId });
+			const imageUrl = await convexClient.mutation(api.storage.updateProfileImage, {
+				storageId,
+				uploadToken
+			});
 
 			// Update preview (don't save to DB yet)
 			image = imageUrl || '';
