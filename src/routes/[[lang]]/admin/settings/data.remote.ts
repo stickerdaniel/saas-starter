@@ -1,4 +1,5 @@
 import { form, getRequestEvent } from '$app/server';
+import { env } from '$env/dynamic/private';
 import { invalid } from '@sveltejs/kit';
 import { createConvexHttpClient } from '@mmailaender/convex-better-auth-svelte/sveltekit';
 import { api } from '$lib/convex/_generated/api';
@@ -12,7 +13,11 @@ import { emailSchema } from './email-schema';
  */
 export const addEmailForm = form(emailSchema, async ({ email }, issue) => {
 	const event = getRequestEvent();
-	const client = createConvexHttpClient({ token: event.locals.token });
+	// Use internal URL if available (same Docker network = skip public internet hop)
+	const client = createConvexHttpClient({
+		token: event.locals.token,
+		convexUrl: env.CONVEX_INTERNAL_URL || undefined
+	});
 
 	const normalizedEmail = email.trim().toLowerCase();
 
