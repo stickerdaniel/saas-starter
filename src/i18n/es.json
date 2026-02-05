@@ -403,7 +403,9 @@
 			"code_placeholder": "12345678",
 			"description": "Te hemos enviado un enlace de verificación",
 			"sent_to": "Hemos enviado un correo de verificación a",
-			"title": "Verificación de correo electrónico"
+			"title": "Verificación de correo electrónico",
+			"verified_description": "Tu correo ha sido verificado. Iniciando sesión...",
+			"verified_title": "Correo verificado"
 		}
 	},
 	"backend": {

@@ -183,8 +183,10 @@
 		formError = '';
 
 		try {
-			// After email verification, user will be auto-logged in and redirected to /app
-			const callbackURL = params.redirectTo || localizedHref('/app');
+			// After email verification, route through interstitial page before final destination
+			const finalDestination = params.redirectTo || localizedHref('/app');
+			const callbackURL =
+				localizedHref('/email-verified') + `?redirectTo=${encodeURIComponent(finalDestination)}`;
 			await authClient.signUp.email(
 				{
 					email: signUpData.email,
