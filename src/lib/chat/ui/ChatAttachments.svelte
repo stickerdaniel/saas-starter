@@ -49,13 +49,47 @@
 	}
 
 	/**
-	 * Check if attachment has a preview image
+	 * Check if attachment is an image (supports previews/thumbnails)
 	 */
-	function hasPreview(attachment: Attachment): string | undefined {
-		if (attachment.type === 'file') return attachment.preview || attachment.url;
-		if (attachment.type === 'screenshot') return attachment.preview || attachment.url;
+	function isImageAttachment(attachment: Attachment): boolean {
+		if (attachment.type === 'image') return true;
+		if (attachment.type === 'screenshot') return attachment.mimeType?.startsWith('image/');
+		if (attachment.type === 'file') return attachment.mimeType?.startsWith('image/');
+		if (attachment.type === 'remote-file')
+			return attachment.contentType?.startsWith('image/') ?? false;
+		return false;
+	}
+
+	/**
+	 * Get thumbnail URL for image attachments only
+	 */
+	function getThumbnailUrl(attachment: Attachment): string | undefined {
+		if (!isImageAttachment(attachment)) return undefined;
 		if (attachment.type === 'image') return attachment.url;
+		if (attachment.type === 'screenshot') return attachment.preview || attachment.url;
+		if (attachment.type === 'file') return attachment.preview || attachment.url;
+		if (attachment.type === 'remote-file') return attachment.url;
 		return undefined;
+	}
+
+	/**
+	 * Get URL to open in preview dialog
+	 */
+	function getOpenUrl(attachment: Attachment): string | undefined {
+		if (isImageAttachment(attachment)) {
+			return getThumbnailUrl(attachment) || attachment.url;
+		}
+		if (attachment.type === 'file') return attachment.url;
+		if (attachment.type === 'remote-file') return attachment.url;
+		if (attachment.type === 'screenshot') return attachment.url;
+		return undefined;
+	}
+
+	/**
+	 * Check if attachment can be opened
+	 */
+	function canOpen(attachment: Attachment): boolean {
+		return !!getOpenUrl(attachment);
 	}
 
 	/**
@@ -77,10 +111,13 @@
 	}
 
 	function handleOpen(attachment: Attachment) {
-		if (hasPreview(attachment)) {
-			selectedAttachment = attachment;
+		const openUrl = getOpenUrl(attachment);
+		if (!openUrl) return;
 
-			// Pre-compute display dimensions to prevent dialog resize
+		selectedAttachment = attachment;
+
+		// Pre-compute display dimensions to prevent dialog resize (images only)
+		if (isImageAttachment(attachment)) {
 			const dims = getDimensions(attachment);
 			if (dims.width && dims.height) {
 				const maxHeight = window.innerHeight * 0.7; // 70vh
@@ -93,9 +130,11 @@
 			} else {
 				displayDimensions = null;
 			}
-
-			isDialogOpen = true;
+		} else {
+			displayDimensions = null;
 		}
+
+		isDialogOpen = true;
 	}
 
 	/**
@@ -130,28 +169,29 @@
 			>
 		</Dialog.Header>
 		{#if selectedAttachment}
-			{@const previewUrl = hasPreview(selectedAttachment)}
-			{#if selectedAttachment.type === 'remote-file' && !selectedAttachment.contentType?.startsWith('image/')}
+			{@const openUrl = getOpenUrl(selectedAttachment)}
+			{@const isImage = isImageAttachment(selectedAttachment)}
+			{#if openUrl && !isImage}
 				<iframe
-					src={selectedAttachment.url}
-					title={selectedAttachment.filename}
+					src={openUrl}
+					title={getFilename(selectedAttachment)}
 					class="h-[70vh] w-full rounded-md"
 				></iframe>
-			{:else if previewUrl}
+			{:else if openUrl && isImage}
 				{#if displayDimensions}
 					<div
 						class="mx-auto overflow-hidden rounded-md"
 						style="width: {displayDimensions.width}px; height: {displayDimensions.height}px;"
 					>
 						<img
-							src={previewUrl}
+							src={openUrl}
 							alt={getFilename(selectedAttachment)}
 							class="size-full object-contain"
 						/>
 					</div>
 				{:else}
 					<img
-						src={previewUrl}
+						src={openUrl}
 						alt={getFilename(selectedAttachment)}
 						class="mx-auto max-h-[70vh] max-w-full rounded-md object-contain"
 					/>
@@ -167,11 +207,11 @@
 		style="flex-direction: {flexDirection}; flex-wrap: {flexWrap}; justify-content: flex-start; align-content: flex-end;"
 	>
 		{#each readonly && align === 'right' ? [...attachments].reverse() : attachments as attachment, index (getKey(attachment))}
-			{@const preview = hasPreview(attachment)}
+			{@const thumbnailUrl = getThumbnailUrl(attachment)}
 			{@const filename = getFilename(attachment)}
 			{@const uploadState = getUploadState(attachment)}
 			{@const isUploading = uploadState?.status === 'uploading'}
-			{@const isClickable = !isUploading && !!preview}
+			{@const isClickable = !isUploading && canOpen(attachment)}
 			{@const originalIndex =
 				readonly && align === 'right' ? attachments.length - 1 - index : index}
 
@@ -192,9 +232,9 @@
 					>
 						{#if uploadState?.status === 'uploading'}
 							<LoaderCircleIcon class="size-4 shrink-0 animate-spin" />
-						{:else if preview}
+						{:else if thumbnailUrl}
 							<img
-								src={preview}
+								src={thumbnailUrl}
 								alt={filename}
 								class="size-8 rounded object-cover"
 								loading="lazy"

@@ -43,6 +43,10 @@ NEVER use `bun run dev` to start the development server, its already running in 
 - `bun convex env set KEY value` - Set Convex environment variables
 - `bun convex env set KEY value --prod` - Set production environment variables
 
+### Convex Components Storage
+
+Convex components have isolated tables and storage namespaces. App code cannot use `ctx.storage.getUrl` to access a component's stored files. Use the component's APIs (e.g., download grants or HTTP routes) to fetch files/blobs instead.
+
 ### Convex Platform Guarantees
 
 When reviewing Convex backend code, be aware of these platform guarantees.

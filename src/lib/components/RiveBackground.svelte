@@ -56,27 +56,63 @@
 	let riveInstance: any = $state(null);
 	let isLoaded = $state(false);
 
-	onMount(() => {
-		import('@rive-app/canvas').then((RiveModule) => {
-			const Rive = RiveModule.Rive || (RiveModule as any).default || RiveModule;
+	// Cache the base buffer at instance level to avoid re-fetching on re-renders
+	let cachedBuffer: ArrayBuffer | null = null;
+	let cachedSrc: string | null = null;
 
-			riveInstance = new Rive({
-				src,
-				canvas,
-				autoplay: true,
-				stateMachines: stateMachine,
-				onLoad: () => {
-					riveInstance?.resizeDrawingSurfaceToCanvas();
-					isLoaded = true;
-				},
-				onLoadError: (error: any) => {
-					console.error('Error loading Rive file:', error);
-					isLoaded = true; // Fade out even on error to show content
+	onMount(() => {
+		let destroyed = false;
+		const abortController = new AbortController();
+
+		async function initRive() {
+			try {
+				// Fetch the .riv file manually if not cached or src changed
+				if (!cachedBuffer || cachedSrc !== src) {
+					const response = await fetch(src, { signal: abortController.signal });
+					if (!response.ok) throw new Error(`Failed to fetch ${src}: ${response.status}`);
+					cachedBuffer = await response.arrayBuffer();
+					cachedSrc = src;
 				}
-			});
-		});
+
+				if (destroyed) return;
+
+				// Clone the buffer so each Rive instance gets a fresh, non-detached copy
+				const riveBuffer = cachedBuffer.slice(0);
+
+				const RiveModule = await import('@rive-app/canvas');
+				if (destroyed) return;
+
+				const Rive = RiveModule.Rive || (RiveModule as any).default || RiveModule;
+
+				riveInstance = new Rive({
+					buffer: riveBuffer,
+					canvas,
+					autoplay: true,
+					stateMachines: stateMachine,
+					onLoad: () => {
+						if (destroyed) return;
+						riveInstance?.resizeDrawingSurfaceToCanvas();
+						isLoaded = true;
+					},
+					onLoadError: (error: any) => {
+						if (destroyed) return;
+						console.error('Error loading Rive file:', error);
+						isLoaded = true; // Fade out even on error to show content
+					}
+				});
+			} catch (error) {
+				if (destroyed) return;
+				if ((error as Error).name === 'AbortError') return;
+				console.error('Error initializing Rive:', error);
+				isLoaded = true; // Fade out even on error to show content
+			}
+		}
+
+		initRive();
 
 		return () => {
+			destroyed = true;
+			abortController.abort();
 			riveInstance?.cleanup();
 		};
 	});

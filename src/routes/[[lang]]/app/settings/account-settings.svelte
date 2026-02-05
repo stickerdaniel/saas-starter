@@ -9,6 +9,7 @@
 	import { useConvexClient } from 'convex-svelte';
 	import { api } from '$lib/convex/_generated/api.js';
 	import { PROFILE_IMAGE_MAX_SIZE, PROFILE_IMAGE_MAX_SIZE_LABEL } from '$lib/convex/constants.js';
+	import type { FunctionArgs } from 'convex/server';
 
 	const { t } = getTranslate();
 
@@ -59,7 +60,10 @@
 		// Auto-upload to Convex storage
 		isUploading = true;
 		try {
-			const uploadUrl = await convexClient.mutation(api.storage.generateUploadUrl, {});
+			const { uploadUrl, uploadToken } = await convexClient.mutation(
+				api.storage.generateUploadUrl,
+				{}
+			);
 
 			const result = await fetch(uploadUrl, {
 				method: 'POST',
@@ -69,7 +73,11 @@
 
 			const { storageId } = await result.json();
 
-			const imageUrl = await convexClient.mutation(api.storage.updateProfileImage, { storageId });
+			type UpdateProfileImageArgs = FunctionArgs<typeof api.storage.updateProfileImage>;
+			const imageUrl = await convexClient.mutation(api.storage.updateProfileImage, {
+				storageId,
+				uploadToken: uploadToken as UpdateProfileImageArgs['uploadToken']
+			});
 
 			// Update preview (don't save to DB yet)
 			image = imageUrl || '';
