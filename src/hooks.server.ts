@@ -2,6 +2,7 @@ import { sequence } from '@sveltejs/kit/hooks';
 import { redirect, type Handle, type Cookies } from '@sveltejs/kit';
 import { dev } from '$app/environment';
 import { isSupportedLanguage, DEFAULT_LANGUAGE } from '$lib/i18n/languages';
+import { safeRedirectPath } from '$lib/utils/url';
 
 /**
  * Get JWT token directly from cookies (no createAuth needed)
@@ -118,7 +119,7 @@ const authFirstPattern: Handle = async function authFirstPattern({ event, resolv
 	const lang = langMatch ? langMatch[1] : DEFAULT_LANGUAGE;
 
 	if (isSignInPage(pathname) && authenticated) {
-		const destination = redirectToParam || `/${lang}/app`;
+		const destination = safeRedirectPath(redirectToParam ?? '', `/${lang}/app`);
 		redirect(307, destination);
 	}
 	if (isProtectedRoute(pathname) && !authenticated) {
