@@ -221,7 +221,7 @@
 		try {
 			await authClient.signIn.social({
 				provider,
-				callbackURL: params.redirectTo || localizedHref('/app')
+				callbackURL: safeRedirectPath(params.redirectTo, localizedHref('/app'))
 			});
 		} catch (error) {
 			console.error(`[SignIn] OAuth ${provider} error:`, error);
