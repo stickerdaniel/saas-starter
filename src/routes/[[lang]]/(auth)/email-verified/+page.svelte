@@ -34,13 +34,15 @@
 		return () => clearTimeout(timeoutId);
 	});
 
-	// Fallback: redirect to signin if auth never resolves after 10s
+	// Fallback: redirect to signin if auth has settled but user is not authenticated after 10s
 	$effect(() => {
 		if (hasRedirected) return;
 
 		const timeoutId = setTimeout(() => {
-			if (!auth.isAuthenticated) {
-				window.location.href = localizedHref('/signin');
+			if (!auth.isLoading && !auth.isAuthenticated) {
+				const destination = safeRedirectPath(params.redirectTo, localizedHref('/app'));
+				const signinUrl = `${localizedHref('/signin')}?redirectTo=${encodeURIComponent(destination)}`;
+				window.location.href = signinUrl;
 			}
 		}, 10000);
 
