@@ -3,6 +3,7 @@
 	import { useSearchParams } from 'runed/kit';
 	import { authParamsSchema } from '$lib/schemas/auth.js';
 	import { localizedHref } from '$lib/utils/i18n';
+	import { safeRedirectPath } from '$lib/utils/url';
 	import * as Card from '$lib/components/ui/card/index.js';
 	import { FieldGroup, Field } from '$lib/components/ui/field/index.js';
 	import { T } from '@tolgee/svelte';
@@ -35,7 +36,7 @@
 
 			const timeoutId = setTimeout(() => {
 				hasRedirected = true;
-				const destination = params.redirectTo || localizedHref('/app');
+				const destination = safeRedirectPath(params.redirectTo, localizedHref('/app'));
 				window.location.href = destination;
 			}, remaining);
 

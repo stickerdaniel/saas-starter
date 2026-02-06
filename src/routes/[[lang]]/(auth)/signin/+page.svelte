@@ -26,6 +26,7 @@
 	import { authFlow } from '$lib/hooks/auth-flow.svelte';
 	import { getAuthErrorKey } from '$lib/utils/auth-messages';
 	import { translateValidationErrors, translateFormError } from '$lib/utils/validation-i18n.js';
+	import { safeRedirectPath } from '$lib/utils/url';
 
 	let { data } = $props();
 
@@ -99,7 +100,7 @@
 	// Redirect when authenticated on signin page (but not during verification step)
 	$effect(() => {
 		if (auth.isAuthenticated && !verificationStep) {
-			const destination = params.redirectTo || localizedHref('/app');
+			const destination = safeRedirectPath(params.redirectTo, localizedHref('/app'));
 			window.location.href = destination;
 		}
 	});
