@@ -219,9 +219,10 @@
 
 	async function handleOAuth(provider: 'google' | 'github') {
 		try {
+			const destination = safeRedirectPath(params.redirectTo, localizedHref('/app'));
 			await authClient.signIn.social({
 				provider,
-				callbackURL: params.redirectTo || localizedHref('/app')
+				callbackURL: destination
 			});
 		} catch (error) {
 			console.error(`[SignIn] OAuth ${provider} error:`, error);
