@@ -101,7 +101,7 @@
 	<div class="flex w-full max-w-sm flex-col gap-6 md:max-w-3xl">
 		<Card.Root class="overflow-hidden p-0">
 			<Card.Content class="grid p-0 md:grid-cols-2">
-				<form onsubmit={handleSubmit} novalidate class="p-6 md:p-8">
+				<form onsubmit={handleSubmit} novalidate class="min-h-96 p-6 md:p-8">
 					<FieldGroup>
 						<div class="flex flex-col items-center gap-2 text-center">
 							<h1 class="text-2xl font-bold">
