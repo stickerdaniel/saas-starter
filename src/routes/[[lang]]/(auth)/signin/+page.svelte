@@ -259,7 +259,7 @@
 			<Card.Content class="grid p-0 md:grid-cols-2">
 				{#if verificationStep}
 					<!-- Email Verification Step -->
-					<div class="p-6 md:p-8">
+					<div class="flex min-h-96 flex-col justify-center p-6 md:p-8">
 						<FieldGroup>
 							<div class="flex flex-col items-center gap-2 text-center">
 								<h1 class="text-2xl font-bold">
