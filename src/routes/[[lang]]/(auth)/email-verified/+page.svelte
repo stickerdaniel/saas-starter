@@ -7,7 +7,6 @@
 	import * as Card from '$lib/components/ui/card/index.js';
 	import { FieldGroup, Field } from '$lib/components/ui/field/index.js';
 	import { T } from '@tolgee/svelte';
-	import CircleCheckBigIcon from '@lucide/svelte/icons/circle-check-big';
 	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
 
 	const auth = useAuth();
@@ -19,30 +18,33 @@
 	let pageLoadTime = Date.now();
 	let hasRedirected = $state(false);
 
+	// Redirect to destination once authenticated (with 1.5s min display time)
 	$effect(() => {
-		// Wait for auth to finish loading (pattern from +layout.svelte:107)
-		if (auth.isLoading) return;
+		if (auth.isLoading || !auth.isAuthenticated || hasRedirected) return;
 
-		// If not authenticated after loading, redirect to signin
-		if (!auth.isAuthenticated) {
-			window.location.href = localizedHref('/signin');
-			return;
-		}
+		const elapsed = Date.now() - pageLoadTime;
+		const remaining = Math.max(0, 1500 - elapsed);
 
-		// If authenticated, redirect after minimum display time (1.5s to avoid flicker)
-		if (!hasRedirected) {
-			const elapsed = Date.now() - pageLoadTime;
-			const remaining = Math.max(0, 1500 - elapsed);
+		const timeoutId = setTimeout(() => {
+			hasRedirected = true;
+			const destination = safeRedirectPath(params.redirectTo, localizedHref('/app'));
+			window.location.href = destination;
+		}, remaining);
 
-			const timeoutId = setTimeout(() => {
-				hasRedirected = true;
-				const destination = safeRedirectPath(params.redirectTo, localizedHref('/app'));
-				window.location.href = destination;
-			}, remaining);
+		return () => clearTimeout(timeoutId);
+	});
 
-			// Cleanup: clear timeout if effect re-runs or component unmounts (Svelte 5 pattern)
-			return () => clearTimeout(timeoutId);
-		}
+	// Fallback: redirect to signin if auth never resolves after 10s
+	$effect(() => {
+		if (hasRedirected) return;
+
+		const timeoutId = setTimeout(() => {
+			if (!auth.isAuthenticated) {
+				window.location.href = localizedHref('/signin');
+			}
+		}, 10000);
+
+		return () => clearTimeout(timeoutId);
 	});
 </script>
 
@@ -50,10 +52,9 @@
 	<div class="flex w-full max-w-sm flex-col gap-6 md:max-w-3xl">
 		<Card.Root class="overflow-hidden p-0">
 			<Card.Content class="grid p-0 md:grid-cols-2">
-				<div class="p-6 md:p-8">
+				<div class="flex min-h-96 flex-col justify-center p-6 md:p-8">
 					<FieldGroup>
-						<div class="flex flex-col items-center gap-4 text-center">
-							<CircleCheckBigIcon class="h-12 w-12 text-green-500" />
+						<div class="flex flex-col items-center gap-2 text-center">
 							<h1 class="text-2xl font-bold">
 								<T keyName="auth.verification.verified_title" />
 							</h1>
