@@ -56,13 +56,6 @@ export const SEARCH_ROUTES: SearchRouteEntry[] = [
 		keywords: ['forgot password', 'reset']
 	},
 	{
-		href: '/reset-password',
-		access: 'public',
-		group: 'authentication',
-		titleKey: 'auth.reset_password.title',
-		keywords: ['reset password', 'password']
-	},
-	{
 		href: '/app',
 		access: 'authenticated',
 		group: 'app',
