@@ -13,6 +13,7 @@
 		FieldError
 	} from '$lib/components/ui/field/index.js';
 	import { authClient } from '$lib/auth-client.js';
+	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
 	import { localizedHref } from '$lib/utils/i18n';
 	import { resolve } from '$app/paths';
 	import { T, getTranslate } from '@tolgee/svelte';
@@ -22,6 +23,7 @@
 	import { translateValidationErrors } from '$lib/utils/validation-i18n.js';
 
 	const { t } = getTranslate();
+	const auth = useAuth();
 
 	let isLoading = $state(false);
 	let message = $state<string | null>(null);
@@ -66,6 +68,13 @@
 	$effect(() => {
 		if (formData.email) {
 			authFlow.email = formData.email;
+		}
+	});
+
+	// Redirect when already authenticated
+	$effect(() => {
+		if (auth.isAuthenticated) {
+			window.location.href = localizedHref('/app');
 		}
 	});
 
