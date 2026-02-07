@@ -1,4 +1,5 @@
 <script lang="ts">
+	import SEOHead from '$lib/components/SEOHead.svelte';
 	import { untrack } from 'svelte';
 	import * as v from 'valibot';
 	import { useSearchParams } from 'runed/kit';
@@ -9,7 +10,7 @@
 	import { useQuery, usePaginatedQuery } from 'convex-svelte';
 	import { api } from '$lib/convex/_generated/api';
 	import { useMedia } from '$lib/hooks/use-media.svelte';
-	import { T } from '@tolgee/svelte';
+	import { T, getTranslate } from '@tolgee/svelte';
 	import * as Sheet from '$lib/components/ui/sheet';
 	import * as Drawer from '$lib/components/ui/drawer';
 	import { SlidingPanel } from '$lib/components/ui/sliding-panel';
@@ -19,6 +20,8 @@
 	import ThreadDetails from './thread-details.svelte';
 	import { adminSupportUI } from '$lib/hooks/admin-support-ui.svelte';
 	import { adminCache } from '$lib/hooks/admin-cache.svelte';
+
+	const { t } = getTranslate();
 
 	// Filter state schema (thread managed separately to avoid reload on selection)
 	const filterSchema = v.object({
@@ -125,6 +128,11 @@
 		}
 	});
 </script>
+
+<SEOHead
+	title={$t('meta.admin.support.title')}
+	description={$t('meta.admin.support.description')}
+/>
 
 <div class="flex h-full flex-col">
 	<!-- Desktop XL (≥1280px): 3 panes with 2 resizers -->

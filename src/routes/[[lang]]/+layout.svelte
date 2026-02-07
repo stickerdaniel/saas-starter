@@ -2,6 +2,8 @@
 	import { Tolgee, DevTools, TolgeeProvider } from '@tolgee/svelte';
 	import { FormatIcu } from '@tolgee/format-icu';
 	import { browser } from '$app/environment';
+	import CommandMenu from '$lib/components/global-search/command-menu.svelte';
+	import { setGlobalSearchContext } from '$lib/components/global-search/context.svelte';
 	import type { LayoutData } from './$types';
 	import { watch } from 'runed';
 	import { languageContext } from '$lib/i18n/context';
@@ -11,6 +13,11 @@
 	// Set language context with a function to maintain reactivity
 	// This ensures useLanguage() always returns the current value of data.lang
 	languageContext.set(() => data.lang);
+	setGlobalSearchContext();
+
+	const viewer = $derived(data.viewer as (typeof data.viewer & { role?: string }) | null);
+	const isAuthenticated = $derived(Boolean(viewer));
+	const userRole = $derived(viewer?.role ?? null);
 
 	// Intentionally capture initial language; watch() syncs URL navigation changes below.
 	// svelte-ignore state_referenced_locally
@@ -60,5 +67,6 @@
 </script>
 
 <TolgeeProvider {tolgee}>
+	<CommandMenu {isAuthenticated} {userRole} />
 	{@render children()}
 </TolgeeProvider>

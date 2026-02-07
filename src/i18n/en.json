@@ -538,6 +538,15 @@
 			"verify": "Verify your email"
 		}
 	},
+	"error_page": {
+		"back_home": "Take me home",
+		"generic_description": "An unexpected error occurred while loading this page.",
+		"generic_title": "Something went wrong",
+		"need_help": "Need help?",
+		"not_found_description": "The page you're looking for doesn't exist. Try searching for what you need below.",
+		"not_found_title": "404 - Page Not Found",
+		"search_placeholder": "Try searching for pages..."
+	},
 	"hero": {
 		"companies_text": "Powering the best teams",
 		"cta": "Start Building",
@@ -607,9 +616,81 @@
 			"description": "Meet the talented team behind our product",
 			"title": "About Us - Meet Our Team"
 		},
+		"admin": {
+			"dashboard": {
+				"description": "Monitor platform metrics and external services.",
+				"title": "Admin Dashboard"
+			},
+			"home": {
+				"description": "Redirecting to the admin dashboard.",
+				"title": "Admin"
+			},
+			"settings": {
+				"description": "Configure admin notification recipients and preferences.",
+				"title": "Admin Settings"
+			},
+			"support": {
+				"description": "Review and respond to customer support threads.",
+				"title": "Support Inbox"
+			},
+			"users": {
+				"description": "Manage users, roles, and account status.",
+				"title": "User Management"
+			}
+		},
+		"app": {
+			"community_chat": {
+				"description": "Chat with the community in real time.",
+				"title": "Community Chat"
+			},
+			"dashboard": {
+				"description": "View key metrics and recent activity.",
+				"title": "Dashboard"
+			},
+			"home": {
+				"description": "Redirecting to your workspace dashboard.",
+				"title": "App Home"
+			},
+			"settings": {
+				"description": "Manage your account settings and preferences.",
+				"title": "Settings"
+			}
+		},
+		"auth": {
+			"email_verified": {
+				"description": "Your email address has been verified. You can continue to your account.",
+				"title": "Email Verified"
+			},
+			"forgot_password": {
+				"description": "Request a password reset link to regain access to your account.",
+				"title": "Forgot Password"
+			},
+			"reset_password": {
+				"description": "Set a new password for your account.",
+				"title": "Reset Password"
+			},
+			"signin": {
+				"description": "Access your account or create a new one.",
+				"title": "Sign In"
+			}
+		},
+		"emails": {
+			"preview": {
+				"description": "Preview email templates and rendered output.",
+				"title": "Email Preview"
+			}
+		},
 		"home": {
 			"description": "The ultimate SaaS starter template with SvelteKit, Convex, and modern web technologies. Build your brand in minutes, not weeks. Focus on your product and ship faster.",
 			"title": "Build & Ship Your Product Faster"
+		},
+		"pricing": {
+			"description": "Choose a plan and test the integrated billing flow.",
+			"title": "Pricing"
+		},
+		"shadcn_demo": {
+			"description": "Preview the UI components used in this project.",
+			"title": "Shadcn Demo"
 		}
 	},
 	"nav": {
@@ -692,6 +773,26 @@
 			}
 		},
 		"title": "Pricing that Scales with You"
+	},
+	"search": {
+		"command": {
+			"dialog_description": "Search for a page to navigate to.",
+			"dialog_title": "Search pages",
+			"footer": {
+				"go_to_page": "Go to page"
+			},
+			"groups": {
+				"admin": "Admin",
+				"app": "App",
+				"authentication": "Authentication",
+				"public": "Public"
+			},
+			"input_placeholder": "Search pages...",
+			"no_results": "No results found.",
+			"trigger_aria_label": "Open search",
+			"trigger_desktop": "Search pages...",
+			"trigger_mobile": "Search..."
+		}
 	},
 	"settings": {
 		"account": {
