@@ -1,913 +1,933 @@
 {
-  "admin": {
-    "actions": {
-      "ban": "Bloquear Usuario",
-      "impersonate": "Suplantar",
-      "revoke_sessions": "Revocar Sesiones",
-      "set_role": "Cambiar Rol",
-      "unban": "Desbloquear Usuario"
-    },
-    "dashboard": {
-      "database_backend": "Base de datos y backend",
-      "email_service": "Servicio de entrega de correo",
-      "external_services": "Servicios Externos",
-      "hosting_deployment": "Hosting y despliegue",
-      "title": "Panel de Administración"
-    },
-    "dialog": {
-      "ban_description": "¿Estás seguro de que quieres bloquear a {email}? No podrá acceder a la app.",
-      "ban_reason_placeholder": "Motivo del bloqueo (opcional)",
-      "ban_title": "Bloquear Usuario",
-      "impersonation_active_description": "Por favor, recarga la página para iniciar sesión como el usuario suplantado.",
-      "impersonation_active_title": "Suplantación activa",
-      "reload_page": "Recargar página",
-      "revoke_description": "¿Estás seguro de que quieres revocar todas las sesiones de {email}? Se cerrará sesión en todos los dispositivos.",
-      "revoke_title": "Revocar Sesiones",
-      "set_role_description": "¿Estás seguro de que quieres cambiar el rol de {email} a {role}?",
-      "set_role_title": "Cambiar Rol de Usuario",
-      "unban_description": "¿Estás seguro de que quieres desbloquear a {email}? Recuperará el acceso a la app.",
-      "unban_title": "Desbloquear Usuario"
-    },
-    "metrics": {
-      "active_sessions": "Activos (24h)",
-      "active_sessions_desc": "Activos en las últimas 24 horas",
-      "admin_users": "Gestionando la plataforma",
-      "admins": "Admins",
-      "admins_desc": "Usuarios con privilegios de admin",
-      "banned_users": "Usuarios Bloqueados",
-      "banned_users_desc": "Acceso restringido",
-      "currently_active": "Actividad diaria",
-      "last_7_days": "Últimos 7 días",
-      "recent_signups": "Registros Recientes",
-      "recent_signups_desc": "Crecimiento de usuarios",
-      "registered_users": "Base de usuarios",
-      "total_users": "Usuarios Totales",
-      "total_users_desc": "Todas las cuentas registradas",
-      "users_banned": "Cuentas pendientes de revisión"
-    },
-    "navigation": {
-      "app": "App",
-      "home": "Inicio",
-      "website": "Sitio Web"
-    },
-    "settings": {
-      "add_email": "Agregar Email",
-      "add_email_dialog_desc": "Agregar una dirección de email para recibir notificaciones de administrador",
-      "add_email_dialog_title": "Agregar Email Personalizado",
-      "add_email_placeholder": "email@example.com",
-      "column_email": "Email",
-      "column_name": "Nombre",
-      "column_new_signups": "Nuevos Registros",
-      "column_new_tickets": "Nuevos Tickets",
-      "column_type": "Tipo",
-      "column_user_replies": "Respuestas de Usuario",
-      "default_support_email": "Email de Soporte Predeterminado",
-      "default_support_email_help": "Dejar vacío para enviar notificaciones a todos los administradores.",
-      "default_support_email_placeholder": "soporte@example.com",
-      "delete_email": "Eliminar",
-      "delete_email_confirm": "¿Eliminar {email} de los destinatarios de notificaciones?",
-      "delete_email_description": "¿Eliminar {email} de los destinatarios de notificaciones?",
-      "delete_email_title": "Eliminar Email",
-      "description": "Configura los ajustes del panel de administración y las notificaciones.",
-      "email_add_failed": "No se pudo agregar el email",
-      "email_added": "Email agregado",
-      "email_exists": "Este email ya existe",
-      "email_removed": "Email eliminado",
-      "field_new_signups": "Notificaciones de nuevos registros",
-      "field_new_tickets": "Notificaciones de nuevos tickets",
-      "field_user_replies": "Notificaciones de respuestas de usuario",
-      "filter": {
-        "admin_only": "Solo Admins",
-        "all_types": "Todos los Tipos",
-        "clear": "Limpiar",
-        "custom_only": "Solo Personalizados"
-      },
-      "invalid_email": "Dirección de email inválida",
-      "no_recipients": "No hay destinatarios de notificaciones configurados",
-      "notification_recipients": "Destinatarios de Notificaciones",
-      "notification_recipients_desc": "Configura quién recibe notificaciones de administrador. Los usuarios administradores se incluyen automáticamente.",
-      "preference_disabled": "{field} desactivadas",
-      "preference_disabling": "Desactivando {field}...",
-      "preference_enabled": "{field} activadas",
-      "preference_enabling": "Activando {field}...",
-      "preference_update_failed": "Error al actualizar preferencia",
-      "recipient_count": "{count, plural, one {# destinatario} other {# destinatarios}}",
-      "save": "Guardar Configuración",
-      "saved": "Configuración guardada",
-      "saving": "Guardando...",
-      "selected": "{selected} de {total} seleccionados",
-      "support_notifications": "Notificaciones de Soporte",
-      "support_notifications_desc": "Configura las notificaciones por email para tickets de soporte nuevos y reabiertos no asignados.",
-      "tabs": {
-        "notifications": "Notificaciones",
-        "recipients": "Destinatarios"
-      },
-      "title": "Configuración de Admin",
-      "type_admin": "Admin",
-      "type_custom": "Personalizado"
-    },
-    "sidebar": {
-      "back_to_app": "Volver a la App",
-      "dashboard": "Panel",
-      "settings": "Configuración",
-      "support": "Soporte",
-      "users": "Usuarios"
-    },
-    "support": {
-      "all_statuses": "Todos los estados",
-      "assignee": {
-        "not_assigned": "No asignado",
-        "unassigned": "Sin asignar"
-      },
-      "chat": {
-        "placeholder": "Responder al cliente...",
-        "send_error": "Error al enviar la respuesta. Por favor, inténtalo de nuevo."
-      },
-      "details": {
-        "assignee": "Asignado a",
-        "close_panel": "Cerrar panel de detalles",
-        "notes": "Notas Internas",
-        "open_panel": "Abrir panel de detalles",
-        "page_url": "URL de la página",
-        "priority": "Prioridad",
-        "status": "Estado",
-        "title": "Detalles",
-        "user_notes": "Notas del Usuario",
-        "user_notes_description": "Las notas se guardan a nivel de usuario y aparecen en todos sus hilos de soporte"
-      },
-      "email": {
-        "label": "Email de notificación"
-      },
-      "fallback": {
-        "admin": "Admin",
-        "no_user": "No hay usuario asociado con este hilo"
-      },
-      "filter": {
-        "all": "Todos",
-        "my_inbox": "Mi bandeja de entrada",
-        "unassigned": "Sin asignar"
-      },
-      "no_chats": "No se encontraron chats",
-      "no_done_chats": "No hay chats completados",
-      "no_open_chats": "No hay chats abiertos",
-      "note": {
-        "add": "Agregar nota",
-        "adding": "Agregando...",
-        "placeholder": "Agregar una nota interna..."
-      },
-      "priority": {
-        "high": "Alta",
-        "low": "Baja",
-        "medium": "Media",
-        "none": "Ninguna"
-      },
-      "search": {
-        "placeholder": "Buscar chats..."
-      },
-      "select_chat": "Seleccione un chat para ver la conversación",
-      "select_chat_for_details": "Seleccione un chat para ver detalles",
-      "status": {
-        "done": "Hecho",
-        "in_progress": "En progreso",
-        "open": "Abierto",
-        "resolved": "Resuelto"
-      },
-      "thread": {
-        "badge": {
-          "new": "Nuevo"
-        },
-        "load_failed": "Error al cargar más",
-        "loading": "Cargando más...",
-        "no_messages": "Sin mensajes",
-        "retry": "Reintentar"
-      },
-      "title": "Chats de Soporte"
-    },
-    "title": "Panel de Admin",
-    "users": {
-      "actions_column": "Acciones",
-      "ban_reason": {
-        "default": "Violación de los términos de servicio"
-      },
-      "banned": "Bloqueado",
-      "created": "Creado",
-      "email": "Correo",
-      "filter": {
-        "all_roles": "Todos los roles",
-        "all_status": "Todos los estados",
-        "clear": "Limpiar",
-        "role_admin": "Admin",
-        "role_user": "Usuario",
-        "status_banned": "Bloqueado",
-        "status_unverified": "No verificado",
-        "status_verified": "Verificado"
-      },
-      "loading": "Cargando usuarios...",
-      "menu_open": "Abrir menú",
-      "name": "Nombre",
-      "no_results": "Sin resultados.",
-      "page_indicator": "Página {current} de {total}",
-      "pagination": {
-        "first": "Ir a la primera página",
-        "last": "Ir a la última página",
-        "next": "Ir a la siguiente página",
-        "previous": "Ir a la página anterior"
-      },
-      "role": "Rol",
-      "rows_per_page": "Filas por página",
-      "search_placeholder": "Buscar usuarios...",
-      "select_all": "Seleccionar todo",
-      "select_row": "Seleccionar fila",
-      "selected": "{selected} de {total} usuarios seleccionados",
-      "status": "Estado",
-      "title": "Gestión de Usuarios",
-      "toast": {
-        "assignment_failed": "Error al actualizar asignación: {message}",
-        "assignment_updated": "Asignación actualizada",
-        "ban_failed": "Error al bloquear usuario: {message}",
-        "banned": "Usuario bloqueado",
-        "impersonate_failed": "Error al suplantar usuario: {message}",
-        "note_added": "Nota agregada",
-        "note_failed": "Error al agregar nota: {message}",
-        "priority_failed": "Error al actualizar prioridad: {message}",
-        "priority_updated": "Prioridad actualizada",
-        "revoke_failed": "Error al revocar sesiones: {message}",
-        "revoked": "Todas las sesiones han sido revocadas",
-        "role_failed": "Error al cambiar rol: {message}",
-        "role_updated": "Rol de usuario actualizado a {role}",
-        "status_failed": "Error al actualizar estado: {message}",
-        "status_updated": "Estado actualizado",
-        "unban_failed": "Error al desbloquear usuario: {message}",
-        "unbanned": "Usuario desbloqueado"
-      },
-      "total": "usuarios",
-      "unnamed": "Sin nombre",
-      "unverified": "No verificado",
-      "verified": "Verificado"
-    }
-  },
-  "app": {
-    "name": "SaaS Starter",
-    "sidebar": {
-      "admin_panel": "Panel de Admin",
-      "community_chat": "Chat comunitario",
-      "dashboard": "Panel",
-      "docs": "Documentación",
-      "home": "Inicio"
-    },
-    "user_menu": {
-      "account": "Cuenta",
-      "billing": "Facturación",
-      "impersonating_banner": "Estás suplantando a este usuario",
-      "impersonation_stop_failed": "Error al dejar de suplantar",
-      "impersonation_stopped": "Suplantación detenida",
-      "logout": "Cerrar sesión",
-      "notifications": "Notificaciones",
-      "settings": "Configuración",
-      "stop_impersonating": "Dejar de suplantar",
-      "upgrade_pro": "Actualizar a Pro"
-    }
-  },
-  "aria": {
-    "breadcrumb": "migas de pan",
-    "change_language": "Cambiar idioma",
-    "close": "Cerrar",
-    "feedback_close": "Cerrar comentarios",
-    "feedback_open": "Abrir comentarios",
-    "github_repository": "Repositorio de GitHub",
-    "go_back": "Volver",
-    "home": "inicio",
-    "logout": "Cerrar sesión",
-    "menu_close": "Cerrar menú",
-    "menu_open": "Abrir menú",
-    "remove_attachment": "Eliminar adjunto",
-    "select_value": "Seleccionar un valor",
-    "toggle_sidebar": "Alternar barra lateral"
-  },
-  "auth": {
-    "back_to_home": "Volver al inicio",
-    "errors": {
-      "confirm_password_required": "Por favor confirma tu contraseña",
-      "current_password_required": "La contraseña actual es obligatoria",
-      "invalid_credentials": "Correo electrónico o contraseña inválidos",
-      "invalid_email": "Por favor ingresa un correo electrónico válido",
-      "invalid_secret": "Secreto inválido",
-      "name_required": "El nombre es obligatorio",
-      "oauth_failed": "El inicio de sesión social falló. Por favor, inténtalo de nuevo.",
-      "passkey_failed": "La autenticación con passkey falló",
-      "password_lowercase": "La contraseña debe contener al menos una letra minúscula",
-      "password_min_length": "La contraseña debe tener al menos {minLength} caracteres",
-      "password_number": "La contraseña debe contener al menos un número",
-      "password_required": "La contraseña es obligatoria",
-      "password_uppercase": "La contraseña debe contener al menos una letra mayúscula",
-      "passwords_do_not_match": "Las contraseñas no coinciden",
-      "signup_failed": "No se pudo crear la cuenta. Es posible que el correo electrónico ya esté en uso.",
-      "verification_invalid": "Código de verificación inválido o caducado. Por favor, inténtalo de nuevo."
-    },
-    "forgot_password": {
-      "back_to_signin": "Volver a iniciar sesión",
-      "button_loading": "Enviando...",
-      "button_submit": "Enviar enlace",
-      "description": "Te enviaremos un enlace para restablecer",
-      "title": "¿Olvidaste tu contraseña?"
-    },
-    "login": "Iniciar sesión",
-    "logout": "Cerrar sesión",
-    "messages": {
-      "auth_cancelled": "La autenticación fue cancelada",
-      "email_change_failed": "No se pudo cambiar el correo",
-      "email_not_verified": "Por favor verifica tu correo electrónico",
-      "email_same_as_current": "El nuevo correo debe ser diferente al actual",
-      "email_updated": "Correo actualizado correctamente",
-      "email_verification_sent": "Se envió un correo de verificación a tu dirección actual. Revisa tu bandeja de entrada para aprobar el cambio.",
-      "generic_error": "Ocurrió un error. Inténtalo de nuevo.",
-      "invalid_credentials": "Correo electrónico o contraseña inválidos",
-      "invalid_token": "Token inválido o caducado",
-      "missing_reset_token": "Falta el token de restablecimiento o es inválido",
-      "oauth_failed": "El inicio de sesión social falló. Inténtalo de nuevo.",
-      "passkey_add_failed": "No se pudo agregar la passkey",
-      "passkey_added": "Passkey agregada correctamente",
-      "passkey_delete_failed": "No se pudo eliminar la passkey",
-      "passkey_deleted": "Passkey eliminada",
-      "passkey_failed": "La autenticación con passkey falló",
-      "passkey_load_failed": "No se pudieron cargar las passkeys",
-      "password_change_failed": "No se pudo cambiar la contraseña",
-      "password_changed": "Contraseña cambiada correctamente",
-      "password_compromised": "Esta contraseña está comprometida",
-      "password_reset_success": "Tu contraseña se restableció correctamente.",
-      "rate_limited": "Demasiadas solicitudes. Inténtalo más tarde.",
-      "request_reset_failed": "No se pudo solicitar el restablecimiento de contraseña",
-      "reset_failed": "No se pudo restablecer la contraseña",
-      "reset_link_sent": "Revisa tu correo para el enlace de restablecimiento.",
-      "signup_disabled": "El registro está deshabilitado",
-      "signup_failed": "No se pudo crear la cuenta",
-      "too_many_attempts": "Demasiados intentos. Inténtalo más tarde.",
-      "user_already_exists": "Ya existe una cuenta con este correo electrónico"
-    },
-    "reset_password": {
-      "back_to_signin": "Volver a iniciar sesión",
-      "button_loading": "Restableciendo...",
-      "button_submit": "Restablecer contraseña",
-      "confirm_password_label": "Confirmar nueva contraseña",
-      "description": "Ingresa tu nueva contraseña",
-      "new_password_label": "Nueva contraseña",
-      "sign_in_link": "Iniciar sesión",
-      "success": "Tu contraseña ha sido restablecida.",
-      "title": "Restablecer contraseña"
-    },
-    "signin": {
-      "button_signin": "Iniciar sesión",
-      "button_signin_loading": "Iniciando sesión...",
-      "button_signup": "Registrarse",
-      "button_signup_loading": "Creando cuenta...",
-      "cancel": "Cancelar",
-      "description": "Inicia sesión en tu cuenta o crea una nueva",
-      "email_label": "Correo electrónico",
-      "email_placeholder": "tu@ejemplo.com",
-      "forgot_password": "¿Olvidaste tu contraseña?",
-      "link_signup": "Regístrate",
-      "name_label": "Nombre",
-      "no_account": "¿No tienes cuenta?",
-      "oauth_github": "GitHub",
-      "oauth_google": "Google",
-      "or_continue_with": "O continuar con",
-      "passkey_button": "Iniciar sesión con Passkey",
-      "password_label": "Contraseña",
-      "password_placeholder": "••••••••",
-      "tab_signin": "Iniciar sesión",
-      "tab_signup": "Registrarse",
-      "test_secret_button": "Iniciar sesión con secreto",
-      "test_secret_label": "Solo prueba: Iniciar sesión con secreto",
-      "test_secret_placeholder": "valor secreto",
-      "title": "Bienvenido de nuevo"
-    },
-    "signup": "Registrarse",
-    "signup.description": "Ingresa tus datos para comenzar",
-    "signup.has_account": "¿Ya tienes una cuenta?",
-    "signup.link_signin": "Inicia sesión",
-    "signup.password_hint": "Mínimo 10 caracteres con mayúsculas, minúsculas y número",
-    "signup.title": "Crear una cuenta",
-    "terms": {
-      "agreement": "Al continuar, aceptas nuestros",
-      "and": "y",
-      "privacy_policy": "Política de Privacidad",
-      "terms_of_service": "Términos de Servicio"
-    },
-    "verification": {
-      "button_back": "Volver al inicio de sesión",
-      "button_cancel": "Cancelar",
-      "button_verify": "Verificar correo",
-      "button_verify_loading": "Verificando...",
-      "check_email": "Por favor revisa tu correo electrónico y haz clic en el enlace de verificación para completar tu registro.",
-      "code_label": "Código de verificación",
-      "code_placeholder": "12345678",
-      "description": "Te hemos enviado un enlace de verificación",
-      "sent_to": "Hemos enviado un correo de verificación a",
-      "title": "Verificación de correo electrónico",
-      "verified_description": "Tu correo ha sido verificado. Iniciando sesión...",
-      "verified_title": "Correo verificado"
-    }
-  },
-  "backend": {
-    "files": {
-      "fetch_failed": "No se pudo recuperar el archivo subido. Por favor intenta subirlo de nuevo.",
-      "type_not_allowed": "Tipo de archivo no permitido. Soportados: PNG, JPEG, WebP, GIF, PDF"
-    },
-    "support": {
-      "handoff": {
-        "response": "¡Claro! Te conecto ahora. Por favor ingresa tu email abajo y te notificaremos cuando nuestro equipo de soporte haya respondido. Mientras tanto, puedes agregar detalles adicionales que nos ayuden a asistirte mejor."
-      },
-      "rate_limit": {
-        "global": "Estoy experimentando alta demanda. Por favor intenta enviar tu mensaje de nuevo en un momento.",
-        "user": "Demasiados mensajes. Por favor espera antes de enviar otro."
-      },
-      "summary": {
-        "default": "Nueva conversación de soporte"
-      },
-      "title": {
-        "default": "Soporte al Cliente"
-      }
-    }
-  },
-  "chat": {
-    "action": {
-      "talk_to_human": "Hablar con una persona"
-    },
-    "alerts": {
-      "limit_reached": {
-        "description": "Has usado todos los {total} mensajes gratuitos de este mes.",
-        "title": "Límite de Mensajes Alcanzado"
-      },
-      "low_messages": {
-        "description": "Tienes {remaining} de {total} mensaje restante este mes.",
-        "description_plural": "Tienes {remaining} de {total} mensajes restantes este mes.",
-        "title": "Pocos Mensajes"
-      }
-    },
-    "aria": {
-      "remove_attachment": "Eliminar {filename}",
-      "send": "Enviar"
-    },
-    "attachment": {
-      "dialog_title": "Adjunto",
-      "file_fallback": "Archivo",
-      "generic_fallback": "Adjunto",
-      "image_fallback": "Imagen"
-    },
-    "avatar": {
-      "team_member": "Miembro del equipo"
-    },
-    "buttons": {
-      "processing": "Procesando...",
-      "upgrade": "Actualizar a Pro"
-    },
-    "description": "Abre esta aplicación en múltiples ventanas del navegador para ver la base de datos en tiempo real en acción",
-    "email": {
-      "placeholder": "Email",
-      "save_failed": "Error al guardar email. Por favor intenta de nuevo.",
-      "saved_success": "¡Email guardado! Te notificaremos cuando respondamos.",
-      "subscribe_button": "Suscribirse",
-      "unsubscribe_failed": "Error al cancelar suscripción. Por favor intenta de nuevo.",
-      "unsubscribe_tooltip": "Cancelar suscripción",
-      "unsubscribed": "Suscripción a notificaciones por email cancelada."
-    },
-    "error": {
-      "file_max_size": "Tamaño máximo es {maxSize}",
-      "file_too_large": "Archivo muy grande: \"{filename}\"",
-      "max_attachments": "Máximo {max} adjuntos permitidos",
-      "pasted_file_too_large": "Archivo pegado muy grande"
-    },
-    "greeting": "¿Cómo podemos ayudarte?",
-    "greeting_hi": "Hola",
-    "header": {
-      "messages_left": "({remaining}/{total} mensaje restante)",
-      "messages_left_plural": "({remaining}/{total} mensajes restantes)",
-      "pro_unlimited": "(Pro - Ilimitado)",
-      "subtitle": "Chat en tiempo real",
-      "title": "Chat"
-    },
-    "input": {
-      "placeholder": "Escribe un mensaje...",
-      "placeholder_disabled": "Límite de mensajes alcanzado",
-      "send_tooltip": "Enviar mensaje",
-      "upgrade_tooltip": "Actualiza a Pro para mensajes ilimitados"
-    },
-    "messages": {
-      "send_failed": "Error al enviar mensaje",
-      "sent_success": "¡Mensaje enviado!"
-    },
-    "reasoning": {
-      "connecting": "Conectando...",
-      "thinking": "Pensando...",
-      "thought_for_few_seconds": "Pensó durante unos segundos",
-      "thought_for_seconds": "Pensó durante {duration} segundo",
-      "thought_for_seconds_plural": "Pensó durante {duration} segundos"
-    },
-    "suggestion": {
-      "help_label": "Obtener ayuda",
-      "help_text": "¿Puedes ayudarme con...",
-      "issue_label": "Reportar un problema",
-      "issue_text": "Encontré un problema con...",
-      "question_label": "Hacer una pregunta",
-      "question_text": "Tengo una pregunta sobre..."
-    },
-    "title": "Chat Comunitario",
-    "tooltip": {
-      "attach_files": "Adjuntar archivos",
-      "mark_bug": "Marcar el error"
-    }
-  },
-  "common": {
-    "adding": "Agregando...",
-    "cancel": "Cancelar",
-    "confirm": "Confirmar"
-  },
-  "email": {
-    "body": {
-      "no_messages": "Sin mensajes",
-      "ticket_message": "{userName} ha enviado un nuevo mensaje a un ticket previamente cerrado",
-      "ticket_new": "Nuevo ticket de soporte",
-      "ticket_reopened": "Ticket de soporte reabierto",
-      "ticket_started": "{userName} ha iniciado una nueva conversación de soporte"
-    },
-    "subject": {
-      "reset_password": "Restablecer tu contraseña",
-      "support_reply": "Nueva respuesta a tu solicitud de soporte",
-      "ticket_new": "Nuevo ticket de soporte de {userName}",
-      "ticket_reopened": "Ticket de soporte reabierto por {userName}",
-      "verify": "Verifica tu email"
-    }
-  },
-  "error_page": {
-    "back_home": "Volver al inicio",
-    "generic_description": "Ocurrió un error inesperado al cargar esta página.",
-    "generic_title": "Algo salió mal",
-    "need_help": "¿Necesitas ayuda?",
-    "not_found_description": "La página que buscas no existe. Prueba a buscar lo que necesitas abajo.",
-    "not_found_title": "404 - Página no encontrada",
-    "search_placeholder": "Prueba a buscar páginas..."
-  },
-  "hero": {
-    "companies_text": "Impulsando a los mejores equipos",
-    "cta": "Comenzar ahora",
-    "cta_demo": "Solicitar una demo",
-    "description": "Dale vida a tu SaaS en minutos, no en meses. Plantilla open-source cargada con la tecnología que te hace lanzar rápido.",
-    "section_label": "Inicio",
-    "tagline": "Foco en tu producto. Lanzamiento más rápido.",
-    "title": "Plantilla SaaS Starter"
-  },
-  "integrations": {
-    "cards": {
-      "autumn_stripe": {
-        "button": "Visitar Autumn",
-        "description": "Autumn maneja facturación, límites de funciones y seguimiento de uso—sin complejidad de webhooks. Stripe para procesamiento de pagos.",
-        "secondary_button": "Visitar Stripe",
-        "secondary_title": "Stripe",
-        "title": "Autumn + Stripe"
-      },
-      "better_auth": {
-        "button": "Visitar Better Auth",
-        "description": "La biblioteca de autenticación más completa para TypeScript. Sesiones, OAuth, passkeys y multi-tenencia listos para usar.",
-        "title": "Better Auth"
-      },
-      "convex": {
-        "button": "Visitar Convex",
-        "description": "La alternativa de código abierto a Firebase. Construido sobre PostgreSQL - la base de datos relacional más avanzada del mundo.",
-        "title": "Convex"
-      },
-      "posthog": {
-        "button": "Visitar PostHog",
-        "description": "PostHog es una plataforma de análisis de productos de código abierto para rastrear el comportamiento del usuario y medir conversiones.",
-        "title": "PostHog"
-      },
-      "resend": {
-        "button": "Visitar Resend",
-        "description": "La API de email para desarrolladores. Construye y envía emails transaccionales con una API moderna y confiable diseñada para escalar.",
-        "title": "Resend"
-      },
-      "sentry": {
-        "button": "Visitar Sentry",
-        "description": "Monitoreo de aplicaciones y seguimiento de errores. Identifica problemas antes que tus usuarios con alertas en tiempo real y stack traces detallados.",
-        "title": "Sentry"
-      },
-      "shadcn_svblocks": {
-        "button": "Visitar Shadcn Svelte",
-        "description": "Un conjunto de componentes bellamente diseñados y accesibles construidos con Tailwind CSS v4 y Bits UI.",
-        "secondary_button": "SVBlocks",
-        "secondary_title": "SVBlocks",
-        "title": "Shadcn Svelte + SVBlocks"
-      },
-      "svelte": {
-        "button": "Visitar Svelte 5",
-        "description": "El framework frontend más amado. Una forma simple, eficiente y a prueba de futuro de construir tu aplicación web.",
-        "title": "Svelte 5"
-      },
-      "tolgee": {
-        "button": "Visitar Tolgee",
-        "description": "Internacionalización bien hecha. Edición en contexto y traducción potenciada por ML para un flujo de localización sin problemas.",
-        "title": "Tolgee"
-      }
-    },
-    "description": "Soluciones súper rápidas con las que realmente es divertido construir",
-    "title": "Experiencia de Desarrollo Real {year}"
-  },
-  "meta": {
-    "about": {
-      "description": "Conoce al talentoso equipo detrás de nuestro producto",
-      "title": "Acerca de nosotros - Conoce a nuestro equipo"
-    },
-    "home": {
-      "description": "La plantilla SaaS definitiva con SvelteKit, Convex y tecnologías web modernas. Construye tu marca en minutos, no en semanas. Enfócate en tu producto y lanza más rápido.",
-      "title": "Construye y lanza tu producto más rápido"
-    }
-  },
-  "nav": {
-    "about": "Acerca de",
-    "dashboard": "Panel",
-    "features": "Características",
-    "get_started": "Comenzar",
-    "home": "Inicio",
-    "login": "Iniciar sesión",
-    "pricing": "Precios",
-    "signup": "Registrarse",
-    "solution": "Solución"
-  },
-  "pricing": {
-    "buttons": {
-      "loading": "Cargando...",
-      "manage_subscription": "Gestionar Suscripción"
-    },
-    "current_plan": "Plan Actual",
-    "current_plan_badge": "(Plan Actual)",
-    "description": "Esta plantilla SaaS starter es completamente gratuita y de código abierto. Prueba el flujo de pago usando el número de tarjeta de prueba 4242 4242 4242 4242 con cualquier fecha de vencimiento futura.",
-    "description_autumn": "Prueba el sistema de pago integrado powered by Autumn - una plataforma de facturación de código abierto que gestiona suscripciones, límites de uso y webhooks de Stripe automáticamente.",
-    "features": {
-      "enterprise": {
-        "0": "Límites de mensajes personalizados",
-        "1": "Gestor de cuenta dedicado",
-        "2": "Garantías de SLA",
-        "3": "Funciones de seguridad avanzadas"
-      },
-      "enterprise[0]": "Límites de mensajes personalizados",
-      "enterprise[1]": "Gestor de cuenta dedicado",
-      "enterprise[2]": "Garantías de SLA",
-      "enterprise[3]": "Funciones de seguridad avanzadas",
-      "enterprise[4]": "Integraciones personalizadas",
-      "enterprise[5]": "Opciones de marca blanca",
-      "free": {
-        "0": "10 mensajes por mes",
-        "1": "Acceso completo al código fuente",
-        "2": "Todas las funciones incluidas",
-        "3": "Licencia MIT"
-      },
-      "free[0]": "10 mensajes por mes",
-      "free[1]": "Acceso completo al código fuente",
-      "free[2]": "Todas las funciones incluidas",
-      "free[3]": "Licencia MIT",
-      "pro": {
-        "0": "Mensajes ilimitados",
-        "1": "Acceso completo al código fuente",
-        "2": "Todas las funciones incluidas",
-        "3": "Soporte prioritario"
-      },
-      "pro[0]": "Mensajes ilimitados",
-      "pro[1]": "Acceso completo al código fuente",
-      "pro[2]": "Todas las funciones incluidas",
-      "pro[3]": "Soporte prioritario"
-    },
-    "popular_badge": "Popular",
-    "section_label": "Precios",
-    "tiers": {
-      "enterprise": {
-        "button": "Contactar Ventas",
-        "description": "Para organizaciones con requisitos específicos",
-        "name": "Enterprise",
-        "price": "Personalizado"
-      },
-      "free": {
-        "button": "Gratis para siempre",
-        "button_manage": "Gestionar Suscripción",
-        "description": "Perfecto para comenzar",
-        "name": "Gratis",
-        "price": "$0 / mes"
-      },
-      "pro": {
-        "button": "Actualizar a Pro",
-        "button_loading": "Procesando...",
-        "button_manage": "Gestionar Suscripción",
-        "description": "Mensajes ilimitados y soporte prioritario",
-        "name": "Pro",
-        "price": "$10 / mes"
-      }
-    },
-    "title": "Precios que Escalan Contigo"
-  },
-  "settings": {
-    "account": {
-      "avatar": {
-        "alt": "Vista previa del perfil",
-        "ready": "Imagen lista para guardar",
-        "removed": "Imagen eliminada - haz clic en Guardar para confirmar",
-        "select_error": "Por favor selecciona un archivo de imagen",
-        "size_error": "La imagen debe ser menor de {size}",
-        "upload_failed": "Error al subir la imagen"
-      },
-      "description": "Actualiza la información de tu cuenta aquí.",
-      "error": "Error al actualizar el perfil",
-      "file_helper": "PNG, JPG o GIF hasta 2MB.",
-      "link_from_url": "Enlace desde URL",
-      "name": {
-        "placeholder": "Tu nombre"
-      },
-      "name_helper": "Este es tu nombre público.",
-      "name_label": "Nombre",
-      "no_image": "Sin imagen",
-      "or": "o",
-      "profile_picture": "Foto de perfil",
-      "profile_picture_helper": "Sube una imagen o pega un enlace. Recomendamos una imagen cuadrada de menos de 2MB.",
-      "remove_button": "Eliminar",
-      "save_button": "Guardar cambios",
-      "saving": "Guardando...",
-      "success": "Perfil actualizado correctamente",
-      "title": "Información de la cuenta",
-      "upload_file": "Subir archivo",
-      "url_helper": "Pega un enlace de imagen en lugar de subir.",
-      "url_placeholder": "https://example.com/avatar.jpg"
-    },
-    "description": "Administra la configuración de tu cuenta y preferencias.",
-    "email": {
-      "current_email_label": "Correo actual",
-      "description": "Actualiza tu dirección de correo para notificaciones e inicio de sesión.",
-      "error_title": "Error",
-      "new_email_label": "Nueva dirección de correo",
-      "not_verified_description": "Tu correo actual no está verificado. El nuevo correo se actualizará inmediatamente sin verificación.",
-      "not_verified_title": "Correo no verificado",
-      "placeholder": "Ingresa nueva dirección de email",
-      "title": "Dirección de correo electrónico",
-      "unverified_badge": "No verificado",
-      "update_button": "Actualizar correo",
-      "updating": "Actualizando...",
-      "verification_required_description": "Se enviará un correo de verificación a tu dirección actual. Debes aprobar el cambio antes de que tu nuevo correo esté activo.",
-      "verification_required_title": "Verificación requerida",
-      "verified_badge": "Verificado"
-    },
-    "password": {
-      "confirm_password_label": "Confirmar nueva contraseña",
-      "current_password_label": "Contraseña actual",
-      "description": "Actualiza tu contraseña para mantener tu cuenta segura.",
-      "error_title": "Error",
-      "new_password_label": "Nueva contraseña",
-      "password_helper": "Debe tener al menos 8 caracteres.",
-      "placeholder": {
-        "confirm": "Confirmar nueva contraseña",
-        "current": "Ingresa contraseña actual",
-        "new": "Ingresa nueva contraseña"
-      },
-      "revoke_sessions_label": "Cerrar sesión en todos los demás dispositivos",
-      "security_notice_description": "Cambiar tu contraseña requerirá que inicies sesión nuevamente en todos los dispositivos a menos que desmarques la opción anterior.",
-      "security_notice_title": "Aviso de seguridad",
-      "title": "Cambiar contraseña",
-      "update_button": "Actualizar contraseña",
-      "updating": "Actualizando..."
-    },
-    "security": {
-      "add_button": "Añadir Passkey",
-      "add_passkey_helper": "Dale un nombre a tu passkey para identificar en qué dispositivo está registrado.",
-      "add_passkey_title": "Añadir un Passkey",
-      "adding": "Añadiendo...",
-      "created_at": "Creado ",
-      "description": "Administra tus passkeys y configuración de seguridad.",
-      "error_title": "Error",
-      "loading": "Cargando passkeys...",
-      "no_passkeys": "Aún no has registrado ningún passkey.",
-      "passkey": {
-        "placeholder": "Nombre del passkey (opcional)",
-        "unnamed": "Passkey sin nombre"
-      },
-      "passkey_info_description": "Los passkeys son una forma segura de iniciar sesión sin contraseña. Utilizan biometría o PIN del dispositivo y se almacenan de forma segura en tus dispositivos.",
-      "passkey_info_title": "¿Qué son los Passkeys?",
-      "passkey_name_label": "Nombre del passkey",
-      "title": "Seguridad",
-      "your_passkeys_title": "Tus Passkeys"
-    },
-    "tabs": {
-      "account": "Cuenta",
-      "email": "Correo electrónico",
-      "password": "Contraseña",
-      "security": "Seguridad"
-    },
-    "title": "Configuración"
-  },
-  "support": {
-    "avatar": {
-      "team_member": "Miembro del equipo"
-    },
-    "button": {
-      "start_new_conversation": "Iniciar nueva conversación"
-    },
-    "chatbar": {
-      "placeholder": "Pregúntame lo que quieras..."
-    },
-    "greeting": {
-      "hi": "Hola",
-      "how_can_we_help": "¿Cómo podemos ayudarte hoy?"
-    },
-    "header": {
-      "support_team": "Equipo de Soporte"
-    },
-    "message": {
-      "role_kai": "Kai",
-      "role_support": "Soporte",
-      "role_you": "Tú"
-    },
-    "screenshot": {
-      "action": {
-        "cancel": "Cancelar (Esc)",
-        "redo": "Rehacer (Ctrl+Shift+Z)",
-        "undo": "Deshacer (Ctrl+Z)"
-      },
-      "aria_label": "Editor de captura de pantalla",
-      "capture_failed": "Error al capturar pantalla. Revisa la consola para más detalles.",
-      "capturing": "Capturando...",
-      "next": "Bug Marcado",
-      "tool": {
-        "arrow": "Flecha (A)",
-        "circle": "Círculo (C)",
-        "color": "Cambiar color",
-        "pen": "Lápiz (P)",
-        "rectangle": "Rectángulo (R)"
-      }
-    },
-    "suggestion": {
-      "bug_report_label": "Reportar un problema",
-      "bug_report_text": "¡Encontré un error!",
-      "feature_request_label": "Solicitar una función",
-      "feature_request_text": "Me gustaría ver",
-      "help_label": "Ayúdame con...",
-      "help_text": "Ayúdame a configurar el proyecto.",
-      "question_label": "Hacer una pregunta",
-      "question_text": "¿Por qué SaaS Starter?"
-    },
-    "thread": {
-      "new_conversation": "Nueva conversación"
-    },
-    "time": {
-      "days_ago": "hace {days} días",
-      "few_seconds_ago": "hace unos segundos",
-      "hours_ago": "hace {hours} horas",
-      "just_now": "justo ahora",
-      "minutes_ago": "hace {minutes} minutos",
-      "one_hour_ago": "hace 1 hora",
-      "one_minute_ago": "hace 1 minuto",
-      "yesterday": "ayer"
-    },
-    "widget": {
-      "error": {
-        "rate_limit": "¡Más despacio! Por favor espera {seconds}s antes de enviar otro mensaje.",
-        "send_failed": "Error al enviar mensaje. Por favor intenta de nuevo."
-      },
-      "header": {
-        "bot_response": "Nuestro bot responderá al instante",
-        "messages": "Mensajes",
-        "with_team": "Tu solicitud está con nuestro equipo"
-      },
-      "input": {
-        "placeholder": "Escribe un mensaje o haz clic en una sugerencia..."
-      }
-    }
-  },
-  "team": {
-    "description": "Durante el proceso de trabajo, realizamos ajustes regulares con el cliente porque él es la única persona que puede sentir si un traje nuevo le queda bien o no.",
-    "linktree": "Linktree",
-    "roles": {
-      "cofounder_cto": "Cofundador - CTO",
-      "founder_ceo": "Fundador - CEO",
-      "interaction_designer": "Diseñador de Interacción",
-      "sales_manager": "Gerente de Ventas",
-      "ux_engineer": "Ingeniero UX",
-      "visual_designer": "Diseñador Visual"
-    },
-    "section_label": "Equipo",
-    "title": "Nuestro equipo soñado"
-  },
-  "validation": {
-    "confirm_password": {
-      "mismatch": "Las contraseñas no coinciden.",
-      "required": "Por favor confirma tu contraseña."
-    },
-    "email": {
-      "invalid": "Por favor ingresa una dirección de correo electrónico válida.",
-      "required": "Por favor ingresa tu dirección de correo electrónico."
-    },
-    "name": {
-      "required": "Por favor ingresa tu nombre."
-    },
-    "password": {
-      "lowercase": "La contraseña debe contener al menos una letra minúscula.",
-      "min_length": "La contraseña debe tener al menos {count, number} caracteres.",
-      "number": "La contraseña debe contener al menos un número.",
-      "required": "Por favor ingresa tu contraseña.",
-      "uppercase": "La contraseña debe contener al menos una letra mayúscula."
-    }
-  }
+	"admin": {
+		"actions": {
+			"ban": "Bloquear Usuario",
+			"impersonate": "Suplantar",
+			"revoke_sessions": "Revocar Sesiones",
+			"set_role": "Cambiar Rol",
+			"unban": "Desbloquear Usuario"
+		},
+		"dashboard": {
+			"database_backend": "Base de datos y backend",
+			"email_service": "Servicio de entrega de correo",
+			"external_services": "Servicios Externos",
+			"hosting_deployment": "Hosting y despliegue",
+			"title": "Panel de Administración"
+		},
+		"dialog": {
+			"ban_description": "¿Estás seguro de que quieres bloquear a {email}? No podrá acceder a la app.",
+			"ban_reason_placeholder": "Motivo del bloqueo (opcional)",
+			"ban_title": "Bloquear Usuario",
+			"impersonation_active_description": "Por favor, recarga la página para iniciar sesión como el usuario suplantado.",
+			"impersonation_active_title": "Suplantación activa",
+			"reload_page": "Recargar página",
+			"revoke_description": "¿Estás seguro de que quieres revocar todas las sesiones de {email}? Se cerrará sesión en todos los dispositivos.",
+			"revoke_title": "Revocar Sesiones",
+			"set_role_description": "¿Estás seguro de que quieres cambiar el rol de {email} a {role}?",
+			"set_role_title": "Cambiar Rol de Usuario",
+			"unban_description": "¿Estás seguro de que quieres desbloquear a {email}? Recuperará el acceso a la app.",
+			"unban_title": "Desbloquear Usuario"
+		},
+		"metrics": {
+			"active_sessions": "Activos (24h)",
+			"active_sessions_desc": "Activos en las últimas 24 horas",
+			"admin_users": "Gestionando la plataforma",
+			"admins": "Admins",
+			"admins_desc": "Usuarios con privilegios de admin",
+			"banned_users": "Usuarios Bloqueados",
+			"banned_users_desc": "Acceso restringido",
+			"currently_active": "Actividad diaria",
+			"last_7_days": "Últimos 7 días",
+			"recent_signups": "Registros Recientes",
+			"recent_signups_desc": "Crecimiento de usuarios",
+			"registered_users": "Base de usuarios",
+			"total_users": "Usuarios Totales",
+			"total_users_desc": "Todas las cuentas registradas",
+			"users_banned": "Cuentas pendientes de revisión"
+		},
+		"navigation": {
+			"app": "App",
+			"home": "Inicio",
+			"website": "Sitio Web"
+		},
+		"settings": {
+			"add_email": "Agregar Email",
+			"add_email_dialog_desc": "Agregar una dirección de email para recibir notificaciones de administrador",
+			"add_email_dialog_title": "Agregar Email Personalizado",
+			"add_email_placeholder": "email@example.com",
+			"column_email": "Email",
+			"column_name": "Nombre",
+			"column_new_signups": "Nuevos Registros",
+			"column_new_tickets": "Nuevos Tickets",
+			"column_type": "Tipo",
+			"column_user_replies": "Respuestas de Usuario",
+			"default_support_email": "Email de Soporte Predeterminado",
+			"default_support_email_help": "Dejar vacío para enviar notificaciones a todos los administradores.",
+			"default_support_email_placeholder": "soporte@example.com",
+			"delete_email": "Eliminar",
+			"delete_email_confirm": "¿Eliminar {email} de los destinatarios de notificaciones?",
+			"delete_email_description": "¿Eliminar {email} de los destinatarios de notificaciones?",
+			"delete_email_title": "Eliminar Email",
+			"description": "Configura los ajustes del panel de administración y las notificaciones.",
+			"email_add_failed": "No se pudo agregar el email",
+			"email_added": "Email agregado",
+			"email_exists": "Este email ya existe",
+			"email_removed": "Email eliminado",
+			"field_new_signups": "Notificaciones de nuevos registros",
+			"field_new_tickets": "Notificaciones de nuevos tickets",
+			"field_user_replies": "Notificaciones de respuestas de usuario",
+			"filter": {
+				"admin_only": "Solo Admins",
+				"all_types": "Todos los Tipos",
+				"clear": "Limpiar",
+				"custom_only": "Solo Personalizados"
+			},
+			"invalid_email": "Dirección de email inválida",
+			"no_recipients": "No hay destinatarios de notificaciones configurados",
+			"notification_recipients": "Destinatarios de Notificaciones",
+			"notification_recipients_desc": "Configura quién recibe notificaciones de administrador. Los usuarios administradores se incluyen automáticamente.",
+			"preference_disabled": "{field} desactivadas",
+			"preference_disabling": "Desactivando {field}...",
+			"preference_enabled": "{field} activadas",
+			"preference_enabling": "Activando {field}...",
+			"preference_update_failed": "Error al actualizar preferencia",
+			"recipient_count": "{count, plural, one {# destinatario} other {# destinatarios}}",
+			"save": "Guardar Configuración",
+			"saved": "Configuración guardada",
+			"saving": "Guardando...",
+			"selected": "{selected} de {total} seleccionados",
+			"support_notifications": "Notificaciones de Soporte",
+			"support_notifications_desc": "Configura las notificaciones por email para tickets de soporte nuevos y reabiertos no asignados.",
+			"tabs": {
+				"notifications": "Notificaciones",
+				"recipients": "Destinatarios"
+			},
+			"title": "Configuración de Admin",
+			"type_admin": "Admin",
+			"type_custom": "Personalizado"
+		},
+		"sidebar": {
+			"back_to_app": "Volver a la App",
+			"dashboard": "Panel",
+			"settings": "Configuración",
+			"support": "Soporte",
+			"users": "Usuarios"
+		},
+		"support": {
+			"all_statuses": "Todos los estados",
+			"assignee": {
+				"not_assigned": "No asignado",
+				"unassigned": "Sin asignar"
+			},
+			"chat": {
+				"placeholder": "Responder al cliente...",
+				"send_error": "Error al enviar la respuesta. Por favor, inténtalo de nuevo."
+			},
+			"details": {
+				"assignee": "Asignado a",
+				"close_panel": "Cerrar panel de detalles",
+				"notes": "Notas Internas",
+				"open_panel": "Abrir panel de detalles",
+				"page_url": "URL de la página",
+				"priority": "Prioridad",
+				"status": "Estado",
+				"title": "Detalles",
+				"user_notes": "Notas del Usuario",
+				"user_notes_description": "Las notas se guardan a nivel de usuario y aparecen en todos sus hilos de soporte"
+			},
+			"email": {
+				"label": "Email de notificación"
+			},
+			"fallback": {
+				"admin": "Admin",
+				"no_user": "No hay usuario asociado con este hilo"
+			},
+			"filter": {
+				"all": "Todos",
+				"my_inbox": "Mi bandeja de entrada",
+				"unassigned": "Sin asignar"
+			},
+			"no_chats": "No se encontraron chats",
+			"no_done_chats": "No hay chats completados",
+			"no_open_chats": "No hay chats abiertos",
+			"note": {
+				"add": "Agregar nota",
+				"adding": "Agregando...",
+				"placeholder": "Agregar una nota interna..."
+			},
+			"priority": {
+				"high": "Alta",
+				"low": "Baja",
+				"medium": "Media",
+				"none": "Ninguna"
+			},
+			"search": {
+				"placeholder": "Buscar chats..."
+			},
+			"select_chat": "Seleccione un chat para ver la conversación",
+			"select_chat_for_details": "Seleccione un chat para ver detalles",
+			"status": {
+				"done": "Hecho",
+				"in_progress": "En progreso",
+				"open": "Abierto",
+				"resolved": "Resuelto"
+			},
+			"thread": {
+				"badge": {
+					"new": "Nuevo"
+				},
+				"load_failed": "Error al cargar más",
+				"loading": "Cargando más...",
+				"no_messages": "Sin mensajes",
+				"retry": "Reintentar"
+			},
+			"title": "Chats de Soporte"
+		},
+		"title": "Panel de Admin",
+		"users": {
+			"actions_column": "Acciones",
+			"ban_reason": {
+				"default": "Violación de los términos de servicio"
+			},
+			"banned": "Bloqueado",
+			"created": "Creado",
+			"email": "Correo",
+			"filter": {
+				"all_roles": "Todos los roles",
+				"all_status": "Todos los estados",
+				"clear": "Limpiar",
+				"role_admin": "Admin",
+				"role_user": "Usuario",
+				"status_banned": "Bloqueado",
+				"status_unverified": "No verificado",
+				"status_verified": "Verificado"
+			},
+			"loading": "Cargando usuarios...",
+			"menu_open": "Abrir menú",
+			"name": "Nombre",
+			"no_results": "Sin resultados.",
+			"page_indicator": "Página {current} de {total}",
+			"pagination": {
+				"first": "Ir a la primera página",
+				"last": "Ir a la última página",
+				"next": "Ir a la siguiente página",
+				"previous": "Ir a la página anterior"
+			},
+			"role": "Rol",
+			"rows_per_page": "Filas por página",
+			"search_placeholder": "Buscar usuarios...",
+			"select_all": "Seleccionar todo",
+			"select_row": "Seleccionar fila",
+			"selected": "{selected} de {total} usuarios seleccionados",
+			"status": "Estado",
+			"title": "Gestión de Usuarios",
+			"toast": {
+				"assignment_failed": "Error al actualizar asignación: {message}",
+				"assignment_updated": "Asignación actualizada",
+				"ban_failed": "Error al bloquear usuario: {message}",
+				"banned": "Usuario bloqueado",
+				"impersonate_failed": "Error al suplantar usuario: {message}",
+				"note_added": "Nota agregada",
+				"note_failed": "Error al agregar nota: {message}",
+				"priority_failed": "Error al actualizar prioridad: {message}",
+				"priority_updated": "Prioridad actualizada",
+				"revoke_failed": "Error al revocar sesiones: {message}",
+				"revoked": "Todas las sesiones han sido revocadas",
+				"role_failed": "Error al cambiar rol: {message}",
+				"role_updated": "Rol de usuario actualizado a {role}",
+				"status_failed": "Error al actualizar estado: {message}",
+				"status_updated": "Estado actualizado",
+				"unban_failed": "Error al desbloquear usuario: {message}",
+				"unbanned": "Usuario desbloqueado"
+			},
+			"total": "usuarios",
+			"unnamed": "Sin nombre",
+			"unverified": "No verificado",
+			"verified": "Verificado"
+		}
+	},
+	"app": {
+		"name": "SaaS Starter",
+		"sidebar": {
+			"admin_panel": "Panel de Admin",
+			"community_chat": "Chat comunitario",
+			"dashboard": "Panel",
+			"docs": "Documentación",
+			"home": "Inicio"
+		},
+		"user_menu": {
+			"account": "Cuenta",
+			"billing": "Facturación",
+			"impersonating_banner": "Estás suplantando a este usuario",
+			"impersonation_stop_failed": "Error al dejar de suplantar",
+			"impersonation_stopped": "Suplantación detenida",
+			"logout": "Cerrar sesión",
+			"notifications": "Notificaciones",
+			"settings": "Configuración",
+			"stop_impersonating": "Dejar de suplantar",
+			"upgrade_pro": "Actualizar a Pro"
+		}
+	},
+	"aria": {
+		"breadcrumb": "migas de pan",
+		"change_language": "Cambiar idioma",
+		"close": "Cerrar",
+		"feedback_close": "Cerrar comentarios",
+		"feedback_open": "Abrir comentarios",
+		"github_repository": "Repositorio de GitHub",
+		"go_back": "Volver",
+		"home": "inicio",
+		"logout": "Cerrar sesión",
+		"menu_close": "Cerrar menú",
+		"menu_open": "Abrir menú",
+		"remove_attachment": "Eliminar adjunto",
+		"select_value": "Seleccionar un valor",
+		"toggle_sidebar": "Alternar barra lateral"
+	},
+	"auth": {
+		"back_to_home": "Volver al inicio",
+		"errors": {
+			"confirm_password_required": "Por favor confirma tu contraseña",
+			"current_password_required": "La contraseña actual es obligatoria",
+			"invalid_credentials": "Correo electrónico o contraseña inválidos",
+			"invalid_email": "Por favor ingresa un correo electrónico válido",
+			"invalid_secret": "Secreto inválido",
+			"name_required": "El nombre es obligatorio",
+			"oauth_failed": "El inicio de sesión social falló. Por favor, inténtalo de nuevo.",
+			"passkey_failed": "La autenticación con passkey falló",
+			"password_lowercase": "La contraseña debe contener al menos una letra minúscula",
+			"password_min_length": "La contraseña debe tener al menos {minLength} caracteres",
+			"password_number": "La contraseña debe contener al menos un número",
+			"password_required": "La contraseña es obligatoria",
+			"password_uppercase": "La contraseña debe contener al menos una letra mayúscula",
+			"passwords_do_not_match": "Las contraseñas no coinciden",
+			"signup_failed": "No se pudo crear la cuenta. Es posible que el correo electrónico ya esté en uso.",
+			"verification_invalid": "Código de verificación inválido o caducado. Por favor, inténtalo de nuevo."
+		},
+		"forgot_password": {
+			"back_to_signin": "Volver a iniciar sesión",
+			"button_loading": "Enviando...",
+			"button_submit": "Enviar enlace",
+			"description": "Te enviaremos un enlace para restablecer",
+			"title": "¿Olvidaste tu contraseña?"
+		},
+		"login": "Iniciar sesión",
+		"logout": "Cerrar sesión",
+		"messages": {
+			"auth_cancelled": "La autenticación fue cancelada",
+			"email_change_failed": "No se pudo cambiar el correo",
+			"email_not_verified": "Por favor verifica tu correo electrónico",
+			"email_same_as_current": "El nuevo correo debe ser diferente al actual",
+			"email_updated": "Correo actualizado correctamente",
+			"email_verification_sent": "Se envió un correo de verificación a tu dirección actual. Revisa tu bandeja de entrada para aprobar el cambio.",
+			"generic_error": "Ocurrió un error. Inténtalo de nuevo.",
+			"invalid_credentials": "Correo electrónico o contraseña inválidos",
+			"invalid_token": "Token inválido o caducado",
+			"missing_reset_token": "Falta el token de restablecimiento o es inválido",
+			"oauth_failed": "El inicio de sesión social falló. Inténtalo de nuevo.",
+			"passkey_add_failed": "No se pudo agregar la passkey",
+			"passkey_added": "Passkey agregada correctamente",
+			"passkey_delete_failed": "No se pudo eliminar la passkey",
+			"passkey_deleted": "Passkey eliminada",
+			"passkey_failed": "La autenticación con passkey falló",
+			"passkey_load_failed": "No se pudieron cargar las passkeys",
+			"password_change_failed": "No se pudo cambiar la contraseña",
+			"password_changed": "Contraseña cambiada correctamente",
+			"password_compromised": "Esta contraseña está comprometida",
+			"password_reset_success": "Tu contraseña se restableció correctamente.",
+			"rate_limited": "Demasiadas solicitudes. Inténtalo más tarde.",
+			"request_reset_failed": "No se pudo solicitar el restablecimiento de contraseña",
+			"reset_failed": "No se pudo restablecer la contraseña",
+			"reset_link_sent": "Revisa tu correo para el enlace de restablecimiento.",
+			"signup_disabled": "El registro está deshabilitado",
+			"signup_failed": "No se pudo crear la cuenta",
+			"too_many_attempts": "Demasiados intentos. Inténtalo más tarde.",
+			"user_already_exists": "Ya existe una cuenta con este correo electrónico"
+		},
+		"reset_password": {
+			"back_to_signin": "Volver a iniciar sesión",
+			"button_loading": "Restableciendo...",
+			"button_submit": "Restablecer contraseña",
+			"confirm_password_label": "Confirmar nueva contraseña",
+			"description": "Ingresa tu nueva contraseña",
+			"new_password_label": "Nueva contraseña",
+			"sign_in_link": "Iniciar sesión",
+			"success": "Tu contraseña ha sido restablecida.",
+			"title": "Restablecer contraseña"
+		},
+		"signin": {
+			"button_signin": "Iniciar sesión",
+			"button_signin_loading": "Iniciando sesión...",
+			"button_signup": "Registrarse",
+			"button_signup_loading": "Creando cuenta...",
+			"cancel": "Cancelar",
+			"description": "Inicia sesión en tu cuenta o crea una nueva",
+			"email_label": "Correo electrónico",
+			"email_placeholder": "tu@ejemplo.com",
+			"forgot_password": "¿Olvidaste tu contraseña?",
+			"link_signup": "Regístrate",
+			"name_label": "Nombre",
+			"no_account": "¿No tienes cuenta?",
+			"oauth_github": "GitHub",
+			"oauth_google": "Google",
+			"or_continue_with": "O continuar con",
+			"passkey_button": "Iniciar sesión con Passkey",
+			"password_label": "Contraseña",
+			"password_placeholder": "••••••••",
+			"tab_signin": "Iniciar sesión",
+			"tab_signup": "Registrarse",
+			"test_secret_button": "Iniciar sesión con secreto",
+			"test_secret_label": "Solo prueba: Iniciar sesión con secreto",
+			"test_secret_placeholder": "valor secreto",
+			"title": "Bienvenido de nuevo"
+		},
+		"signup": "Registrarse",
+		"signup.description": "Ingresa tus datos para comenzar",
+		"signup.has_account": "¿Ya tienes una cuenta?",
+		"signup.link_signin": "Inicia sesión",
+		"signup.password_hint": "Mínimo 10 caracteres con mayúsculas, minúsculas y número",
+		"signup.title": "Crear una cuenta",
+		"terms": {
+			"agreement": "Al continuar, aceptas nuestros",
+			"and": "y",
+			"privacy_policy": "Política de Privacidad",
+			"terms_of_service": "Términos de Servicio"
+		},
+		"verification": {
+			"button_back": "Volver al inicio de sesión",
+			"button_cancel": "Cancelar",
+			"button_verify": "Verificar correo",
+			"button_verify_loading": "Verificando...",
+			"check_email": "Por favor revisa tu correo electrónico y haz clic en el enlace de verificación para completar tu registro.",
+			"code_label": "Código de verificación",
+			"code_placeholder": "12345678",
+			"description": "Te hemos enviado un enlace de verificación",
+			"sent_to": "Hemos enviado un correo de verificación a",
+			"title": "Verificación de correo electrónico",
+			"verified_description": "Tu correo ha sido verificado. Iniciando sesión...",
+			"verified_title": "Correo verificado"
+		}
+	},
+	"backend": {
+		"files": {
+			"fetch_failed": "No se pudo recuperar el archivo subido. Por favor intenta subirlo de nuevo.",
+			"type_not_allowed": "Tipo de archivo no permitido. Soportados: PNG, JPEG, WebP, GIF, PDF"
+		},
+		"support": {
+			"handoff": {
+				"response": "¡Claro! Te conecto ahora. Por favor ingresa tu email abajo y te notificaremos cuando nuestro equipo de soporte haya respondido. Mientras tanto, puedes agregar detalles adicionales que nos ayuden a asistirte mejor."
+			},
+			"rate_limit": {
+				"global": "Estoy experimentando alta demanda. Por favor intenta enviar tu mensaje de nuevo en un momento.",
+				"user": "Demasiados mensajes. Por favor espera antes de enviar otro."
+			},
+			"summary": {
+				"default": "Nueva conversación de soporte"
+			},
+			"title": {
+				"default": "Soporte al Cliente"
+			}
+		}
+	},
+	"chat": {
+		"action": {
+			"talk_to_human": "Hablar con una persona"
+		},
+		"alerts": {
+			"limit_reached": {
+				"description": "Has usado todos los {total} mensajes gratuitos de este mes.",
+				"title": "Límite de Mensajes Alcanzado"
+			},
+			"low_messages": {
+				"description": "Tienes {remaining} de {total} mensaje restante este mes.",
+				"description_plural": "Tienes {remaining} de {total} mensajes restantes este mes.",
+				"title": "Pocos Mensajes"
+			}
+		},
+		"aria": {
+			"remove_attachment": "Eliminar {filename}",
+			"send": "Enviar"
+		},
+		"attachment": {
+			"dialog_title": "Adjunto",
+			"file_fallback": "Archivo",
+			"generic_fallback": "Adjunto",
+			"image_fallback": "Imagen"
+		},
+		"avatar": {
+			"team_member": "Miembro del equipo"
+		},
+		"buttons": {
+			"processing": "Procesando...",
+			"upgrade": "Actualizar a Pro"
+		},
+		"description": "Abre esta aplicación en múltiples ventanas del navegador para ver la base de datos en tiempo real en acción",
+		"email": {
+			"placeholder": "Email",
+			"save_failed": "Error al guardar email. Por favor intenta de nuevo.",
+			"saved_success": "¡Email guardado! Te notificaremos cuando respondamos.",
+			"subscribe_button": "Suscribirse",
+			"unsubscribe_failed": "Error al cancelar suscripción. Por favor intenta de nuevo.",
+			"unsubscribe_tooltip": "Cancelar suscripción",
+			"unsubscribed": "Suscripción a notificaciones por email cancelada."
+		},
+		"error": {
+			"file_max_size": "Tamaño máximo es {maxSize}",
+			"file_too_large": "Archivo muy grande: \"{filename}\"",
+			"max_attachments": "Máximo {max} adjuntos permitidos",
+			"pasted_file_too_large": "Archivo pegado muy grande"
+		},
+		"greeting": "¿Cómo podemos ayudarte?",
+		"greeting_hi": "Hola",
+		"header": {
+			"messages_left": "({remaining}/{total} mensaje restante)",
+			"messages_left_plural": "({remaining}/{total} mensajes restantes)",
+			"pro_unlimited": "(Pro - Ilimitado)",
+			"subtitle": "Chat en tiempo real",
+			"title": "Chat"
+		},
+		"input": {
+			"placeholder": "Escribe un mensaje...",
+			"placeholder_disabled": "Límite de mensajes alcanzado",
+			"send_tooltip": "Enviar mensaje",
+			"upgrade_tooltip": "Actualiza a Pro para mensajes ilimitados"
+		},
+		"messages": {
+			"send_failed": "Error al enviar mensaje",
+			"sent_success": "¡Mensaje enviado!"
+		},
+		"reasoning": {
+			"connecting": "Conectando...",
+			"thinking": "Pensando...",
+			"thought_for_few_seconds": "Pensó durante unos segundos",
+			"thought_for_seconds": "Pensó durante {duration} segundo",
+			"thought_for_seconds_plural": "Pensó durante {duration} segundos"
+		},
+		"suggestion": {
+			"help_label": "Obtener ayuda",
+			"help_text": "¿Puedes ayudarme con...",
+			"issue_label": "Reportar un problema",
+			"issue_text": "Encontré un problema con...",
+			"question_label": "Hacer una pregunta",
+			"question_text": "Tengo una pregunta sobre..."
+		},
+		"title": "Chat Comunitario",
+		"tooltip": {
+			"attach_files": "Adjuntar archivos",
+			"mark_bug": "Marcar el error"
+		}
+	},
+	"common": {
+		"adding": "Agregando...",
+		"cancel": "Cancelar",
+		"confirm": "Confirmar"
+	},
+	"email": {
+		"body": {
+			"no_messages": "Sin mensajes",
+			"ticket_message": "{userName} ha enviado un nuevo mensaje a un ticket previamente cerrado",
+			"ticket_new": "Nuevo ticket de soporte",
+			"ticket_reopened": "Ticket de soporte reabierto",
+			"ticket_started": "{userName} ha iniciado una nueva conversación de soporte"
+		},
+		"subject": {
+			"reset_password": "Restablecer tu contraseña",
+			"support_reply": "Nueva respuesta a tu solicitud de soporte",
+			"ticket_new": "Nuevo ticket de soporte de {userName}",
+			"ticket_reopened": "Ticket de soporte reabierto por {userName}",
+			"verify": "Verifica tu email"
+		}
+	},
+	"error_page": {
+		"back_home": "Volver al inicio",
+		"generic_description": "Ocurrió un error inesperado al cargar esta página.",
+		"generic_title": "Algo salió mal",
+		"need_help": "¿Necesitas ayuda?",
+		"not_found_description": "La página que buscas no existe. Prueba a buscar lo que necesitas abajo.",
+		"not_found_title": "404 - Página no encontrada",
+		"search_placeholder": "Prueba a buscar páginas..."
+	},
+	"hero": {
+		"companies_text": "Impulsando a los mejores equipos",
+		"cta": "Comenzar ahora",
+		"cta_demo": "Solicitar una demo",
+		"description": "Dale vida a tu SaaS en minutos, no en meses. Plantilla open-source cargada con la tecnología que te hace lanzar rápido.",
+		"section_label": "Inicio",
+		"tagline": "Foco en tu producto. Lanzamiento más rápido.",
+		"title": "Plantilla SaaS Starter"
+	},
+	"integrations": {
+		"cards": {
+			"autumn_stripe": {
+				"button": "Visitar Autumn",
+				"description": "Autumn maneja facturación, límites de funciones y seguimiento de uso—sin complejidad de webhooks. Stripe para procesamiento de pagos.",
+				"secondary_button": "Visitar Stripe",
+				"secondary_title": "Stripe",
+				"title": "Autumn + Stripe"
+			},
+			"better_auth": {
+				"button": "Visitar Better Auth",
+				"description": "La biblioteca de autenticación más completa para TypeScript. Sesiones, OAuth, passkeys y multi-tenencia listos para usar.",
+				"title": "Better Auth"
+			},
+			"convex": {
+				"button": "Visitar Convex",
+				"description": "La alternativa de código abierto a Firebase. Construido sobre PostgreSQL - la base de datos relacional más avanzada del mundo.",
+				"title": "Convex"
+			},
+			"posthog": {
+				"button": "Visitar PostHog",
+				"description": "PostHog es una plataforma de análisis de productos de código abierto para rastrear el comportamiento del usuario y medir conversiones.",
+				"title": "PostHog"
+			},
+			"resend": {
+				"button": "Visitar Resend",
+				"description": "La API de email para desarrolladores. Construye y envía emails transaccionales con una API moderna y confiable diseñada para escalar.",
+				"title": "Resend"
+			},
+			"sentry": {
+				"button": "Visitar Sentry",
+				"description": "Monitoreo de aplicaciones y seguimiento de errores. Identifica problemas antes que tus usuarios con alertas en tiempo real y stack traces detallados.",
+				"title": "Sentry"
+			},
+			"shadcn_svblocks": {
+				"button": "Visitar Shadcn Svelte",
+				"description": "Un conjunto de componentes bellamente diseñados y accesibles construidos con Tailwind CSS v4 y Bits UI.",
+				"secondary_button": "SVBlocks",
+				"secondary_title": "SVBlocks",
+				"title": "Shadcn Svelte + SVBlocks"
+			},
+			"svelte": {
+				"button": "Visitar Svelte 5",
+				"description": "El framework frontend más amado. Una forma simple, eficiente y a prueba de futuro de construir tu aplicación web.",
+				"title": "Svelte 5"
+			},
+			"tolgee": {
+				"button": "Visitar Tolgee",
+				"description": "Internacionalización bien hecha. Edición en contexto y traducción potenciada por ML para un flujo de localización sin problemas.",
+				"title": "Tolgee"
+			}
+		},
+		"description": "Soluciones súper rápidas con las que realmente es divertido construir",
+		"title": "Experiencia de Desarrollo Real {year}"
+	},
+	"meta": {
+		"about": {
+			"description": "Conoce al talentoso equipo detrás de nuestro producto",
+			"title": "Acerca de nosotros - Conoce a nuestro equipo"
+		},
+		"home": {
+			"description": "La plantilla SaaS definitiva con SvelteKit, Convex y tecnologías web modernas. Construye tu marca en minutos, no en semanas. Enfócate en tu producto y lanza más rápido.",
+			"title": "Construye y lanza tu producto más rápido"
+		}
+	},
+	"nav": {
+		"about": "Acerca de",
+		"dashboard": "Panel",
+		"features": "Características",
+		"get_started": "Comenzar",
+		"home": "Inicio",
+		"login": "Iniciar sesión",
+		"pricing": "Precios",
+		"signup": "Registrarse",
+		"solution": "Solución"
+	},
+	"search": {
+		"command": {
+			"dialog_description": "Busca una página para navegar.",
+			"dialog_title": "Buscar páginas",
+			"footer": {
+				"go_to_page": "Ir a la página"
+			},
+			"groups": {
+				"admin": "Admin",
+				"app": "App",
+				"authentication": "Autenticación",
+				"public": "Público"
+			},
+			"input_placeholder": "Buscar páginas...",
+			"no_results": "No se encontraron resultados.",
+			"trigger_aria_label": "Abrir búsqueda",
+			"trigger_desktop": "Buscar páginas...",
+			"trigger_mobile": "Buscar..."
+		}
+	},
+	"pricing": {
+		"buttons": {
+			"loading": "Cargando...",
+			"manage_subscription": "Gestionar Suscripción"
+		},
+		"current_plan": "Plan Actual",
+		"current_plan_badge": "(Plan Actual)",
+		"description": "Esta plantilla SaaS starter es completamente gratuita y de código abierto. Prueba el flujo de pago usando el número de tarjeta de prueba 4242 4242 4242 4242 con cualquier fecha de vencimiento futura.",
+		"description_autumn": "Prueba el sistema de pago integrado powered by Autumn - una plataforma de facturación de código abierto que gestiona suscripciones, límites de uso y webhooks de Stripe automáticamente.",
+		"features": {
+			"enterprise": {
+				"0": "Límites de mensajes personalizados",
+				"1": "Gestor de cuenta dedicado",
+				"2": "Garantías de SLA",
+				"3": "Funciones de seguridad avanzadas"
+			},
+			"enterprise[0]": "Límites de mensajes personalizados",
+			"enterprise[1]": "Gestor de cuenta dedicado",
+			"enterprise[2]": "Garantías de SLA",
+			"enterprise[3]": "Funciones de seguridad avanzadas",
+			"enterprise[4]": "Integraciones personalizadas",
+			"enterprise[5]": "Opciones de marca blanca",
+			"free": {
+				"0": "10 mensajes por mes",
+				"1": "Acceso completo al código fuente",
+				"2": "Todas las funciones incluidas",
+				"3": "Licencia MIT"
+			},
+			"free[0]": "10 mensajes por mes",
+			"free[1]": "Acceso completo al código fuente",
+			"free[2]": "Todas las funciones incluidas",
+			"free[3]": "Licencia MIT",
+			"pro": {
+				"0": "Mensajes ilimitados",
+				"1": "Acceso completo al código fuente",
+				"2": "Todas las funciones incluidas",
+				"3": "Soporte prioritario"
+			},
+			"pro[0]": "Mensajes ilimitados",
+			"pro[1]": "Acceso completo al código fuente",
+			"pro[2]": "Todas las funciones incluidas",
+			"pro[3]": "Soporte prioritario"
+		},
+		"popular_badge": "Popular",
+		"section_label": "Precios",
+		"tiers": {
+			"enterprise": {
+				"button": "Contactar Ventas",
+				"description": "Para organizaciones con requisitos específicos",
+				"name": "Enterprise",
+				"price": "Personalizado"
+			},
+			"free": {
+				"button": "Gratis para siempre",
+				"button_manage": "Gestionar Suscripción",
+				"description": "Perfecto para comenzar",
+				"name": "Gratis",
+				"price": "$0 / mes"
+			},
+			"pro": {
+				"button": "Actualizar a Pro",
+				"button_loading": "Procesando...",
+				"button_manage": "Gestionar Suscripción",
+				"description": "Mensajes ilimitados y soporte prioritario",
+				"name": "Pro",
+				"price": "$10 / mes"
+			}
+		},
+		"title": "Precios que Escalan Contigo"
+	},
+	"settings": {
+		"account": {
+			"avatar": {
+				"alt": "Vista previa del perfil",
+				"ready": "Imagen lista para guardar",
+				"removed": "Imagen eliminada - haz clic en Guardar para confirmar",
+				"select_error": "Por favor selecciona un archivo de imagen",
+				"size_error": "La imagen debe ser menor de {size}",
+				"upload_failed": "Error al subir la imagen"
+			},
+			"description": "Actualiza la información de tu cuenta aquí.",
+			"error": "Error al actualizar el perfil",
+			"file_helper": "PNG, JPG o GIF hasta 2MB.",
+			"link_from_url": "Enlace desde URL",
+			"name": {
+				"placeholder": "Tu nombre"
+			},
+			"name_helper": "Este es tu nombre público.",
+			"name_label": "Nombre",
+			"no_image": "Sin imagen",
+			"or": "o",
+			"profile_picture": "Foto de perfil",
+			"profile_picture_helper": "Sube una imagen o pega un enlace. Recomendamos una imagen cuadrada de menos de 2MB.",
+			"remove_button": "Eliminar",
+			"save_button": "Guardar cambios",
+			"saving": "Guardando...",
+			"success": "Perfil actualizado correctamente",
+			"title": "Información de la cuenta",
+			"upload_file": "Subir archivo",
+			"url_helper": "Pega un enlace de imagen en lugar de subir.",
+			"url_placeholder": "https://example.com/avatar.jpg"
+		},
+		"description": "Administra la configuración de tu cuenta y preferencias.",
+		"email": {
+			"current_email_label": "Correo actual",
+			"description": "Actualiza tu dirección de correo para notificaciones e inicio de sesión.",
+			"error_title": "Error",
+			"new_email_label": "Nueva dirección de correo",
+			"not_verified_description": "Tu correo actual no está verificado. El nuevo correo se actualizará inmediatamente sin verificación.",
+			"not_verified_title": "Correo no verificado",
+			"placeholder": "Ingresa nueva dirección de email",
+			"title": "Dirección de correo electrónico",
+			"unverified_badge": "No verificado",
+			"update_button": "Actualizar correo",
+			"updating": "Actualizando...",
+			"verification_required_description": "Se enviará un correo de verificación a tu dirección actual. Debes aprobar el cambio antes de que tu nuevo correo esté activo.",
+			"verification_required_title": "Verificación requerida",
+			"verified_badge": "Verificado"
+		},
+		"password": {
+			"confirm_password_label": "Confirmar nueva contraseña",
+			"current_password_label": "Contraseña actual",
+			"description": "Actualiza tu contraseña para mantener tu cuenta segura.",
+			"error_title": "Error",
+			"new_password_label": "Nueva contraseña",
+			"password_helper": "Debe tener al menos 8 caracteres.",
+			"placeholder": {
+				"confirm": "Confirmar nueva contraseña",
+				"current": "Ingresa contraseña actual",
+				"new": "Ingresa nueva contraseña"
+			},
+			"revoke_sessions_label": "Cerrar sesión en todos los demás dispositivos",
+			"security_notice_description": "Cambiar tu contraseña requerirá que inicies sesión nuevamente en todos los dispositivos a menos que desmarques la opción anterior.",
+			"security_notice_title": "Aviso de seguridad",
+			"title": "Cambiar contraseña",
+			"update_button": "Actualizar contraseña",
+			"updating": "Actualizando..."
+		},
+		"security": {
+			"add_button": "Añadir Passkey",
+			"add_passkey_helper": "Dale un nombre a tu passkey para identificar en qué dispositivo está registrado.",
+			"add_passkey_title": "Añadir un Passkey",
+			"adding": "Añadiendo...",
+			"created_at": "Creado ",
+			"description": "Administra tus passkeys y configuración de seguridad.",
+			"error_title": "Error",
+			"loading": "Cargando passkeys...",
+			"no_passkeys": "Aún no has registrado ningún passkey.",
+			"passkey": {
+				"placeholder": "Nombre del passkey (opcional)",
+				"unnamed": "Passkey sin nombre"
+			},
+			"passkey_info_description": "Los passkeys son una forma segura de iniciar sesión sin contraseña. Utilizan biometría o PIN del dispositivo y se almacenan de forma segura en tus dispositivos.",
+			"passkey_info_title": "¿Qué son los Passkeys?",
+			"passkey_name_label": "Nombre del passkey",
+			"title": "Seguridad",
+			"your_passkeys_title": "Tus Passkeys"
+		},
+		"tabs": {
+			"account": "Cuenta",
+			"email": "Correo electrónico",
+			"password": "Contraseña",
+			"security": "Seguridad"
+		},
+		"title": "Configuración"
+	},
+	"support": {
+		"avatar": {
+			"team_member": "Miembro del equipo"
+		},
+		"button": {
+			"start_new_conversation": "Iniciar nueva conversación"
+		},
+		"chatbar": {
+			"placeholder": "Pregúntame lo que quieras..."
+		},
+		"greeting": {
+			"hi": "Hola",
+			"how_can_we_help": "¿Cómo podemos ayudarte hoy?"
+		},
+		"header": {
+			"support_team": "Equipo de Soporte"
+		},
+		"message": {
+			"role_kai": "Kai",
+			"role_support": "Soporte",
+			"role_you": "Tú"
+		},
+		"screenshot": {
+			"action": {
+				"cancel": "Cancelar (Esc)",
+				"redo": "Rehacer (Ctrl+Shift+Z)",
+				"undo": "Deshacer (Ctrl+Z)"
+			},
+			"aria_label": "Editor de captura de pantalla",
+			"capture_failed": "Error al capturar pantalla. Revisa la consola para más detalles.",
+			"capturing": "Capturando...",
+			"next": "Bug Marcado",
+			"tool": {
+				"arrow": "Flecha (A)",
+				"circle": "Círculo (C)",
+				"color": "Cambiar color",
+				"pen": "Lápiz (P)",
+				"rectangle": "Rectángulo (R)"
+			}
+		},
+		"suggestion": {
+			"bug_report_label": "Reportar un problema",
+			"bug_report_text": "¡Encontré un error!",
+			"feature_request_label": "Solicitar una función",
+			"feature_request_text": "Me gustaría ver",
+			"help_label": "Ayúdame con...",
+			"help_text": "Ayúdame a configurar el proyecto.",
+			"question_label": "Hacer una pregunta",
+			"question_text": "¿Por qué SaaS Starter?"
+		},
+		"thread": {
+			"new_conversation": "Nueva conversación"
+		},
+		"time": {
+			"days_ago": "hace {days} días",
+			"few_seconds_ago": "hace unos segundos",
+			"hours_ago": "hace {hours} horas",
+			"just_now": "justo ahora",
+			"minutes_ago": "hace {minutes} minutos",
+			"one_hour_ago": "hace 1 hora",
+			"one_minute_ago": "hace 1 minuto",
+			"yesterday": "ayer"
+		},
+		"widget": {
+			"error": {
+				"rate_limit": "¡Más despacio! Por favor espera {seconds}s antes de enviar otro mensaje.",
+				"send_failed": "Error al enviar mensaje. Por favor intenta de nuevo."
+			},
+			"header": {
+				"bot_response": "Nuestro bot responderá al instante",
+				"messages": "Mensajes",
+				"with_team": "Tu solicitud está con nuestro equipo"
+			},
+			"input": {
+				"placeholder": "Escribe un mensaje o haz clic en una sugerencia..."
+			}
+		}
+	},
+	"team": {
+		"description": "Durante el proceso de trabajo, realizamos ajustes regulares con el cliente porque él es la única persona que puede sentir si un traje nuevo le queda bien o no.",
+		"linktree": "Linktree",
+		"roles": {
+			"cofounder_cto": "Cofundador - CTO",
+			"founder_ceo": "Fundador - CEO",
+			"interaction_designer": "Diseñador de Interacción",
+			"sales_manager": "Gerente de Ventas",
+			"ux_engineer": "Ingeniero UX",
+			"visual_designer": "Diseñador Visual"
+		},
+		"section_label": "Equipo",
+		"title": "Nuestro equipo soñado"
+	},
+	"validation": {
+		"confirm_password": {
+			"mismatch": "Las contraseñas no coinciden.",
+			"required": "Por favor confirma tu contraseña."
+		},
+		"email": {
+			"invalid": "Por favor ingresa una dirección de correo electrónico válida.",
+			"required": "Por favor ingresa tu dirección de correo electrónico."
+		},
+		"name": {
+			"required": "Por favor ingresa tu nombre."
+		},
+		"password": {
+			"lowercase": "La contraseña debe contener al menos una letra minúscula.",
+			"min_length": "La contraseña debe tener al menos {count, number} caracteres.",
+			"number": "La contraseña debe contener al menos un número.",
+			"required": "Por favor ingresa tu contraseña.",
+			"uppercase": "La contraseña debe contener al menos una letra mayúscula."
+		}
+	}
 }
