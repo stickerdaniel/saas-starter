@@ -56,6 +56,11 @@
 		return isAuthenticated && userRole?.toLowerCase() === 'admin';
 	}
 
+	function isVisibleRoute(route: SearchRouteEntry): boolean {
+		if (route.group === 'authentication' && isAuthenticated) return false;
+		return hasAccess(route.access);
+	}
+
 	function isTypingTarget(target: EventTarget | null): boolean {
 		if (!(target instanceof HTMLElement)) return false;
 
@@ -88,7 +93,7 @@
 	}
 
 	const groupedRoutes = $derived.by(() => {
-		const visibleRoutes = SEARCH_ROUTES.filter((route) => hasAccess(route.access));
+		const visibleRoutes = SEARCH_ROUTES.filter(isVisibleRoute);
 		const menuGroups: MenuGroup[] = [];
 
 		for (const group of groupOrder) {
