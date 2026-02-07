@@ -1,911 +1,913 @@
 {
-	"admin": {
-		"actions": {
-			"ban": "Ban User",
-			"impersonate": "Impersonate",
-			"revoke_sessions": "Revoke Sessions",
-			"set_role": "Set Role",
-			"unban": "Unban User"
-		},
-		"dashboard": {
-			"database_backend": "Database & backend",
-			"email_service": "Email delivery service",
-			"external_services": "External Services",
-			"hosting_deployment": "Hosting & deployment",
-			"title": "Admin Dashboard"
-		},
-		"dialog": {
-			"ban_description": "Are you sure you want to ban {email}? They will be unable to access the app.",
-			"ban_reason_placeholder": "Ban reason (optional)",
-			"ban_title": "Ban User",
-			"impersonation_active_description": "Please reload the page to be logged in as the impersonated user.",
-			"impersonation_active_title": "Impersonation Active",
-			"reload_page": "Reload Page",
-			"revoke_description": "Are you sure you want to revoke all sessions for {email}? They will be logged out everywhere.",
-			"revoke_title": "Revoke Sessions",
-			"set_role_description": "Are you sure you want to change the role of {email} to {role}?",
-			"set_role_title": "Change User Role",
-			"unban_description": "Are you sure you want to unban {email}? They will regain access to the app.",
-			"unban_title": "Unban User"
-		},
-		"metrics": {
-			"active_sessions": "Active (24h)",
-			"active_sessions_desc": "Active in the last 24 hours",
-			"admin_users": "Managing the platform",
-			"admins": "Admins",
-			"admins_desc": "Users with admin privileges",
-			"banned_users": "Banned Users",
-			"banned_users_desc": "Access restricted",
-			"currently_active": "Daily activity",
-			"last_7_days": "Last 7 days",
-			"recent_signups": "Recent Signups",
-			"recent_signups_desc": "New user growth",
-			"registered_users": "Platform user base",
-			"total_users": "Total Users",
-			"total_users_desc": "All registered accounts",
-			"users_banned": "Accounts need review"
-		},
-		"navigation": {
-			"app": "App",
-			"home": "Home",
-			"website": "Website"
-		},
-		"settings": {
-			"add_email": "Add Email",
-			"add_email_dialog_desc": "Add an email address to receive admin notifications",
-			"add_email_dialog_title": "Add Custom Email",
-			"add_email_placeholder": "email@example.com",
-			"column_email": "Email",
-			"column_name": "Name",
-			"column_new_signups": "New Signups",
-			"column_new_tickets": "New Tickets",
-			"column_type": "Type",
-			"column_user_replies": "User Replies",
-			"default_support_email": "Default Support Email",
-			"default_support_email_help": "Leave empty to send notifications to all admin users.",
-			"default_support_email_placeholder": "support@example.com",
-			"delete_email": "Remove",
-			"delete_email_confirm": "Remove {email} from notification recipients?",
-			"delete_email_description": "Remove {email} from notification recipients?",
-			"delete_email_title": "Remove Email",
-			"description": "Configure admin panel settings and notifications.",
-			"email_add_failed": "Failed to add email",
-			"email_added": "Email added",
-			"email_exists": "This email already exists",
-			"email_removed": "Email removed",
-			"field_new_signups": "New signup notifications",
-			"field_new_tickets": "New ticket notifications",
-			"field_user_replies": "User reply notifications",
-			"filter": {
-				"admin_only": "Admin Only",
-				"all_types": "All Types",
-				"clear": "Clear",
-				"custom_only": "Custom Only"
-			},
-			"invalid_email": "Invalid email address",
-			"no_recipients": "No notification recipients configured",
-			"notification_recipients": "Notification Recipients",
-			"notification_recipients_desc": "Configure who receives admin notifications. Admin users are automatically included.",
-			"preference_disabled": "{field} disabled",
-			"preference_disabling": "Disabling {field}...",
-			"preference_enabled": "{field} enabled",
-			"preference_enabling": "Enabling {field}...",
-			"preference_update_failed": "Failed to update preference",
-			"recipient_count": "{count, plural, one {# recipient} other {# recipients}}",
-			"save": "Save Settings",
-			"saved": "Settings saved",
-			"saving": "Saving...",
-			"selected": "{selected} of {total} selected",
-			"support_notifications": "Support Notifications",
-			"support_notifications_desc": "Configure email notifications for new and unassigned reopened support tickets.",
-			"tabs": {
-				"notifications": "Notifications",
-				"recipients": "Recipients"
-			},
-			"title": "Admin Settings",
-			"type_admin": "Admin",
-			"type_custom": "Custom"
-		},
-		"sidebar": {
-			"back_to_app": "Back to App",
-			"dashboard": "Dashboard",
-			"settings": "Settings",
-			"support": "Support",
-			"users": "Users"
-		},
-		"support": {
-			"all_statuses": "All statuses",
-			"assignee": {
-				"not_assigned": "Not assigned",
-				"unassigned": "Unassigned"
-			},
-			"chat": {
-				"placeholder": "Reply to customer...",
-				"send_error": "Failed to send reply. Please try again."
-			},
-			"details": {
-				"assignee": "Assignee",
-				"close_panel": "Close details panel",
-				"notes": "Internal Notes",
-				"open_panel": "Open details panel",
-				"page_url": "Page URL",
-				"priority": "Priority",
-				"status": "Status",
-				"title": "Details",
-				"user_notes": "User Notes",
-				"user_notes_description": "Notes are saved at the user level and appear across all their support threads"
-			},
-			"email": {
-				"label": "Notification Email"
-			},
-			"fallback": {
-				"admin": "Admin",
-				"no_user": "No user associated with this thread"
-			},
-			"filter": {
-				"all": "All",
-				"my_inbox": "My Inbox",
-				"unassigned": "Unassigned"
-			},
-			"no_chats": "No chats found",
-			"no_done_chats": "No completed chats",
-			"no_open_chats": "No open chats",
-			"note": {
-				"add": "Add Note",
-				"adding": "Adding...",
-				"placeholder": "Add an internal note..."
-			},
-			"priority": {
-				"high": "High",
-				"low": "Low",
-				"medium": "Medium",
-				"none": "None"
-			},
-			"search": {
-				"placeholder": "Search chats..."
-			},
-			"select_chat": "Select a chat to view conversation",
-			"select_chat_for_details": "Select a chat to view details",
-			"status": {
-				"done": "Done",
-				"in_progress": "In Progress",
-				"open": "Open",
-				"resolved": "Resolved"
-			},
-			"thread": {
-				"badge": {
-					"new": "New"
-				},
-				"load_failed": "Failed to load more",
-				"loading": "Loading more...",
-				"no_messages": "No messages",
-				"retry": "Retry"
-			},
-			"title": "Support Chats"
-		},
-		"title": "Admin Panel",
-		"users": {
-			"actions_column": "Actions",
-			"ban_reason": {
-				"default": "Violated terms of service"
-			},
-			"banned": "Banned",
-			"created": "Created",
-			"email": "Email",
-			"filter": {
-				"all_roles": "All Roles",
-				"all_status": "All Status",
-				"clear": "Clear",
-				"role_admin": "Admin",
-				"role_user": "User",
-				"status_banned": "Banned",
-				"status_unverified": "Unverified",
-				"status_verified": "Verified"
-			},
-			"loading": "Loading users...",
-			"menu_open": "Open menu",
-			"name": "Name",
-			"no_results": "No results.",
-			"page_indicator": "Page {current} of {total}",
-			"pagination": {
-				"first": "Go to first page",
-				"last": "Go to last page",
-				"next": "Go to next page",
-				"previous": "Go to previous page"
-			},
-			"role": "Role",
-			"rows_per_page": "Rows per page",
-			"search_placeholder": "Search users...",
-			"select_all": "Select all",
-			"select_row": "Select row",
-			"selected": "{selected} of {total} users selected",
-			"status": "Status",
-			"title": "User Management",
-			"toast": {
-				"assignment_failed": "Failed to update assignment: {message}",
-				"assignment_updated": "Assignment updated",
-				"ban_failed": "Failed to ban user: {message}",
-				"banned": "User has been banned",
-				"impersonate_failed": "Failed to impersonate user: {message}",
-				"note_added": "Note added",
-				"note_failed": "Failed to add note: {message}",
-				"priority_failed": "Failed to update priority: {message}",
-				"priority_updated": "Priority updated",
-				"revoke_failed": "Failed to revoke sessions: {message}",
-				"revoked": "All sessions have been revoked",
-				"role_failed": "Failed to set role: {message}",
-				"role_updated": "User role updated to {role}",
-				"status_failed": "Failed to update status: {message}",
-				"status_updated": "Status updated",
-				"unban_failed": "Failed to unban user: {message}",
-				"unbanned": "User has been unbanned"
-			},
-			"total": "users",
-			"unnamed": "Unnamed",
-			"unverified": "Unverified",
-			"verified": "Verified"
-		}
-	},
-	"app": {
-		"name": "SaaS Starter",
-		"sidebar": {
-			"admin_panel": "Admin Panel",
-			"community_chat": "Community Chat",
-			"dashboard": "Dashboard",
-			"docs": "Docs",
-			"home": "Home"
-		},
-		"user_menu": {
-			"account": "Account",
-			"billing": "Billing",
-			"impersonating_banner": "You are impersonating this user",
-			"impersonation_stop_failed": "Failed to stop impersonation",
-			"impersonation_stopped": "Stopped impersonating",
-			"logout": "Log out",
-			"notifications": "Notifications",
-			"settings": "Settings",
-			"stop_impersonating": "Stop Impersonating",
-			"upgrade_pro": "Upgrade to Pro"
-		}
-	},
-	"aria": {
-		"breadcrumb": "breadcrumb",
-		"change_language": "Change language",
-		"close": "Close",
-		"feedback_close": "Close feedback",
-		"feedback_open": "Open feedback",
-		"github_repository": "GitHub repository",
-		"go_back": "Go back",
-		"home": "home",
-		"logout": "Log out",
-		"menu_close": "Close Menu",
-		"menu_open": "Open Menu",
-		"remove_attachment": "Remove attachment",
-		"select_value": "Select a value",
-		"toggle_sidebar": "Toggle Sidebar"
-	},
-	"auth": {
-		"back_to_home": "Back to home",
-		"errors": {
-			"confirm_password_required": "Please confirm your password",
-			"current_password_required": "Current password is required",
-			"invalid_credentials": "Invalid email or password",
-			"invalid_email": "Please enter a valid email",
-			"invalid_secret": "Invalid secret",
-			"name_required": "Name is required",
-			"oauth_failed": "Social sign-in failed. Please try again.",
-			"passkey_failed": "Passkey authentication failed",
-			"password_lowercase": "Password must contain at least one lowercase letter",
-			"password_min_length": "Password must be at least {minLength} characters",
-			"password_number": "Password must contain at least one number",
-			"password_required": "Password is required",
-			"password_uppercase": "Password must contain at least one uppercase letter",
-			"passwords_do_not_match": "Passwords do not match",
-			"signup_failed": "Failed to create account. Email may already be in use.",
-			"verification_invalid": "Invalid or expired verification code. Please try again."
-		},
-		"forgot_password": {
-			"back_to_signin": "Back to sign in",
-			"button_loading": "Sending...",
-			"button_submit": "Send reset link",
-			"description": "We will email you a reset link",
-			"title": "Forgot password"
-		},
-		"login": "Login",
-		"logout": "Logout",
-		"messages": {
-			"auth_cancelled": "Authentication was cancelled",
-			"email_change_failed": "Failed to change email",
-			"email_not_verified": "Please verify your email address",
-			"email_same_as_current": "New email must be different from current email",
-			"email_updated": "Email updated successfully",
-			"email_verification_sent": "Verification email sent to your current address. Please check your inbox to approve the change.",
-			"generic_error": "An error occurred. Please try again.",
-			"invalid_credentials": "Invalid email or password",
-			"invalid_token": "Invalid or expired token",
-			"missing_reset_token": "Missing or invalid reset token",
-			"oauth_failed": "Social sign-in failed. Please try again.",
-			"passkey_add_failed": "Failed to add passkey",
-			"passkey_added": "Passkey added successfully",
-			"passkey_delete_failed": "Failed to delete passkey",
-			"passkey_deleted": "Passkey deleted",
-			"passkey_failed": "Passkey authentication failed",
-			"passkey_load_failed": "Failed to load passkeys",
-			"password_change_failed": "Failed to change password",
-			"password_changed": "Password changed successfully",
-			"password_compromised": "This password has been compromised",
-			"password_reset_success": "Your password has been reset successfully.",
-			"rate_limited": "Too many requests. Please try again later.",
-			"request_reset_failed": "Failed to request password reset",
-			"reset_failed": "Failed to reset password",
-			"reset_link_sent": "Check your email for a reset link.",
-			"signup_disabled": "Sign up is disabled",
-			"signup_failed": "Failed to create account",
-			"too_many_attempts": "Too many attempts. Please try again later.",
-			"user_already_exists": "An account with this email already exists"
-		},
-		"reset_password": {
-			"back_to_signin": "Back to sign in",
-			"button_loading": "Resetting...",
-			"button_submit": "Reset password",
-			"confirm_password_label": "Confirm new password",
-			"description": "Enter your new password",
-			"new_password_label": "New password",
-			"sign_in_link": "Sign in",
-			"success": "Your password has been reset.",
-			"title": "Reset password"
-		},
-		"signin": {
-			"button_signin": "Sign In",
-			"button_signin_loading": "Signing in...",
-			"button_signup": "Sign Up",
-			"button_signup_loading": "Creating account...",
-			"cancel": "Cancel",
-			"description": "Sign in to your account or create a new one",
-			"email_label": "Email",
-			"email_placeholder": "you@example.com",
-			"forgot_password": "Forgot password?",
-			"link_signup": "Sign up",
-			"name_label": "Name",
-			"no_account": "Don't have an account?",
-			"oauth_github": "GitHub",
-			"oauth_google": "Google",
-			"or_continue_with": "Or continue with",
-			"passkey_button": "Sign in with Passkey",
-			"password_label": "Password",
-			"password_placeholder": "••••••••",
-			"tab_signin": "Sign In",
-			"tab_signup": "Sign Up",
-			"test_secret_button": "Sign in with secret",
-			"test_secret_label": "Test only: Sign in with a secret",
-			"test_secret_placeholder": "secret value",
-			"title": "Welcome back"
-		},
-		"signup": "Sign Up",
-		"signup.description": "Enter your details to get started",
-		"signup.has_account": "Already have an account?",
-		"signup.link_signin": "Sign in",
-		"signup.password_hint": "Minimum 10 characters with uppercase, lowercase, and number",
-		"signup.title": "Create an account",
-		"terms": {
-			"agreement": "By clicking continue, you agree to our",
-			"and": "and",
-			"privacy_policy": "Privacy Policy",
-			"terms_of_service": "Terms of Service"
-		},
-		"verification": {
-			"button_back": "Back to login",
-			"button_cancel": "Cancel",
-			"button_verify": "Verify Email",
-			"button_verify_loading": "Verifying...",
-			"check_email": "Please check your email and click the verification link to complete your registration.",
-			"code_label": "Verification Code",
-			"code_placeholder": "12345678",
-			"description": "We've sent you a verification link",
-			"sent_to": "We've sent a verification email to",
-			"title": "Email Verification",
-			"verified_description": "Your email has been verified. Signing you in...",
-			"verified_title": "Email Verified"
-		}
-	},
-	"backend": {
-		"files": {
-			"fetch_failed": "Failed to retrieve uploaded file. Please try uploading again.",
-			"type_not_allowed": "File type not allowed. Supported: PNG, JPEG, WebP, GIF, PDF"
-		},
-		"support": {
-			"handoff": {
-				"response": "Sure! I will connect you now. Please enter your email below and we'll notify you when our support team has responded. In the meantime, feel free to add any additional details that might help us assist you better."
-			},
-			"rate_limit": {
-				"global": "I'm currently experiencing high demand. Please try sending your message again in a moment.",
-				"user": "Too many messages. Please wait before sending another."
-			},
-			"summary": {
-				"default": "New support conversation"
-			},
-			"title": {
-				"default": "Customer Support"
-			}
-		}
-	},
-	"chat": {
-		"action": {
-			"talk_to_human": "Talk to a human"
-		},
-		"alerts": {
-			"limit_reached": {
-				"description": "You've used all {total} of your free messages this month.",
-				"title": "Message Limit Reached"
-			},
-			"low_messages": {
-				"description": "You have {remaining} of {total} message remaining this month.",
-				"description_plural": "You have {remaining} of {total} messages remaining this month.",
-				"title": "Low on Messages"
-			}
-		},
-		"aria": {
-			"remove_attachment": "Remove {filename}",
-			"send": "Send"
-		},
-		"attachment": {
-			"dialog_title": "Attachment",
-			"file_fallback": "File",
-			"generic_fallback": "Attachment",
-			"image_fallback": "Image"
-		},
-		"avatar": {
-			"team_member": "Team member"
-		},
-		"buttons": {
-			"processing": "Processing...",
-			"upgrade": "Upgrade to Pro"
-		},
-		"description": "Open this app in multiple browser windows to see the real-time database in action",
-		"email": {
-			"placeholder": "Email",
-			"save_failed": "Failed to save email. Please try again.",
-			"saved_success": "Email saved! We'll notify you when we respond.",
-			"subscribe_button": "Subscribe",
-			"unsubscribe_failed": "Failed to unsubscribe. Please try again.",
-			"unsubscribe_tooltip": "Unsubscribe",
-			"unsubscribed": "Unsubscribed from email notifications."
-		},
-		"error": {
-			"file_max_size": "Maximum size is {maxSize}",
-			"file_too_large": "File too large: \"{filename}\"",
-			"max_attachments": "Maximum {max} attachments allowed",
-			"pasted_file_too_large": "Pasted file too large"
-		},
-		"greeting": "How can we help?",
-		"greeting_hi": "Hi",
-		"header": {
-			"messages_left": "({remaining}/{total} message left)",
-			"messages_left_plural": "({remaining}/{total} messages left)",
-			"pro_unlimited": "(Pro - Unlimited)",
-			"subtitle": "Real-time chat",
-			"title": "Chat"
-		},
-		"input": {
-			"placeholder": "Type a message...",
-			"placeholder_disabled": "Message limit reached",
-			"send_tooltip": "Send message",
-			"upgrade_tooltip": "Upgrade to Pro for unlimited messages"
-		},
-		"messages": {
-			"send_failed": "Failed to send message",
-			"sent_success": "Message sent!"
-		},
-		"reasoning": {
-			"connecting": "Connecting...",
-			"thinking": "Thinking...",
-			"thought_for_few_seconds": "Thought for a few seconds",
-			"thought_for_seconds": "Thought for {duration} second",
-			"thought_for_seconds_plural": "Thought for {duration} seconds"
-		},
-		"suggestion": {
-			"help_label": "Get help",
-			"help_text": "Can you help me with...",
-			"issue_label": "Report an issue",
-			"issue_text": "I found an issue with...",
-			"question_label": "Ask a question",
-			"question_text": "I have a question about..."
-		},
-		"title": "Community Chat",
-		"tooltip": {
-			"attach_files": "Attach files",
-			"mark_bug": "Mark the bug"
-		}
-	},
-	"common": {
-		"adding": "Adding...",
-		"cancel": "Cancel",
-		"confirm": "Confirm"
-	},
-	"email": {
-		"body": {
-			"no_messages": "No messages",
-			"ticket_message": "{userName} has sent a new message to a previously closed ticket",
-			"ticket_new": "New support ticket",
-			"ticket_reopened": "Support ticket reopened",
-			"ticket_started": "{userName} has started a new support conversation"
-		},
-		"subject": {
-			"reset_password": "Reset your password",
-			"support_reply": "New reply to your support request",
-			"ticket_new": "New support ticket from {userName}",
-			"ticket_reopened": "Support ticket reopened by {userName}",
-			"verify": "Verify your email"
-		}
-	},
-	"error_page": {
-		"back_home": "Take me home",
-		"generic_description": "An unexpected error occurred while loading this page.",
-		"generic_title": "Something went wrong",
-		"not_found_description": "The page you're looking for doesn't exist or may have moved.",
-		"not_found_title": "404 - Page Not Found"
-	},
-	"hero": {
-		"companies_text": "Powering the best teams",
-		"cta": "Start Building",
-		"cta_demo": "Request a demo",
-		"description": "Bring your SaaS to life in minutes, not months. Open-source template loaded with the tech that gets you shipping.",
-		"section_label": "Home",
-		"tagline": "Focus on your product and ship faster.",
-		"title": "SaaS Starter Template"
-	},
-	"integrations": {
-		"cards": {
-			"autumn_stripe": {
-				"button": "Visit Autumn",
-				"description": "Autumn handles billing, feature gates, and usage tracking—no webhook complexity. Stripe for payment processing.",
-				"secondary_button": "Visit Stripe",
-				"secondary_title": "Stripe",
-				"title": "Autumn + Stripe"
-			},
-			"better_auth": {
-				"button": "Visit Better Auth",
-				"description": "The most comprehensive authentication library for TypeScript. Sessions, OAuth, passkeys, and multi-tenancy out of the box.",
-				"title": "Better Auth"
-			},
-			"convex": {
-				"button": "Visit Convex",
-				"description": "The open source Firebase alternative. Built on PostgreSQL - world's most advanced relational database.",
-				"title": "Convex"
-			},
-			"posthog": {
-				"button": "Visit PostHog",
-				"description": "PostHog is an open-source product analytics platform to track user behavior and measure conversions.",
-				"title": "PostHog"
-			},
-			"resend": {
-				"button": "Visit Resend",
-				"description": "The email API for developers. Build and send transactional emails with a modern, reliable API built for scale.",
-				"title": "Resend"
-			},
-			"sentry": {
-				"button": "Visit Sentry",
-				"description": "Application monitoring and error tracking. Identify issues before your users do with real-time alerts and detailed stack traces.",
-				"title": "Sentry"
-			},
-			"shadcn_svblocks": {
-				"button": "Visit Shadcn Svelte",
-				"description": "A set of beautifully-designed, accessible components built with Tailwind CSS v4 and Bits UI.",
-				"secondary_button": "SVBlocks",
-				"secondary_title": "SVBlocks",
-				"title": "Shadcn Svelte + SVBlocks"
-			},
-			"svelte": {
-				"button": "Visit Svelte 5",
-				"description": "The most lovved frontend framework. A simple, performant, and future-proof way to build your web app.",
-				"title": "Svelte 5"
-			},
-			"tolgee": {
-				"button": "Visit Tolgee",
-				"description": "Internationalization done right. In-context editing and ML-powered translation for a seamless localization workflow.",
-				"title": "Tolgee"
-			}
-		},
-		"description": "Super fast solutions that are actually fun to build with",
-		"title": "Real {year} Developer Experience"
-	},
-	"meta": {
-		"about": {
-			"description": "Meet the talented team behind our product",
-			"title": "About Us - Meet Our Team"
-		},
-		"home": {
-			"description": "The ultimate SaaS starter template with SvelteKit, Convex, and modern web technologies. Build your brand in minutes, not weeks. Focus on your product and ship faster.",
-			"title": "Build & Ship Your Product Faster"
-		}
-	},
-	"nav": {
-		"about": "About",
-		"dashboard": "Dashboard",
-		"features": "Features",
-		"get_started": "Get Started",
-		"home": "Home",
-		"login": "Login",
-		"pricing": "Pricing",
-		"signup": "Sign up",
-		"solution": "Solution"
-	},
-	"pricing": {
-		"buttons": {
-			"loading": "Loading...",
-			"manage_subscription": "Manage Subscription"
-		},
-		"current_plan": "Current Plan",
-		"current_plan_badge": "(Current Plan)",
-		"description": "This SaaS starter template is completely free and open source. Try the payment flow using the test card number 4242 4242 4242 4242 with any future expiry date.",
-		"description_autumn": "Test the integrated payment system powered by Autumn - an open-source billing platform that handles subscriptions, usage limits, and Stripe webhooks automatically.",
-		"features": {
-			"enterprise": {
-				"0": "Custom message limits",
-				"1": "Dedicated account manager",
-				"2": "SLA guarantees",
-				"3": "Advanced security features"
-			},
-			"enterprise[0]": "Custom message limits",
-			"enterprise[1]": "Dedicated account manager",
-			"enterprise[2]": "SLA guarantees",
-			"enterprise[3]": "Advanced security features",
-			"enterprise[4]": "Custom integrations",
-			"enterprise[5]": "White-label options",
-			"free": {
-				"0": "10 messages per month",
-				"1": "Full source code access",
-				"2": "All features included",
-				"3": "MIT License"
-			},
-			"free[0]": "10 messages per month",
-			"free[1]": "Full source code access",
-			"free[2]": "All features included",
-			"free[3]": "MIT License",
-			"pro": {
-				"0": "Unlimited messages",
-				"1": "Full source code access",
-				"2": "All features included",
-				"3": "Priority support"
-			},
-			"pro[0]": "Unlimited messages",
-			"pro[1]": "Full source code access",
-			"pro[2]": "All features included",
-			"pro[3]": "Priority support"
-		},
-		"popular_badge": "Popular",
-		"section_label": "Pricing",
-		"tiers": {
-			"enterprise": {
-				"button": "Contact Sales",
-				"description": "For organizations with specific requirements",
-				"name": "Enterprise",
-				"price": "Custom"
-			},
-			"free": {
-				"button": "Free Forever",
-				"button_manage": "Manage Subscription",
-				"description": "Perfect for getting started",
-				"name": "Free",
-				"price": "$0 / month"
-			},
-			"pro": {
-				"button": "Upgrade to Pro",
-				"button_loading": "Processing...",
-				"button_manage": "Manage Subscription",
-				"description": "Unlimited messages and priority support",
-				"name": "Pro",
-				"price": "$10 / month"
-			}
-		},
-		"title": "Pricing that Scales with You"
-	},
-	"settings": {
-		"account": {
-			"avatar": {
-				"alt": "Profile preview",
-				"ready": "Image ready to save",
-				"removed": "Image removed - click Save to confirm",
-				"select_error": "Please select an image file",
-				"size_error": "Image must be less than {size}",
-				"upload_failed": "Failed to upload image"
-			},
-			"description": "Update your account information here.",
-			"error": "Failed to update profile",
-			"file_helper": "PNG, JPG, or GIF up to 2MB.",
-			"link_from_url": "Link from URL",
-			"name": {
-				"placeholder": "Your name"
-			},
-			"name_helper": "This is your public display name.",
-			"name_label": "Name",
-			"no_image": "No image",
-			"or": "or",
-			"profile_picture": "Profile picture",
-			"profile_picture_helper": "Upload an image or paste a link. We recommend a square image under 2MB.",
-			"remove_button": "Remove",
-			"save_button": "Save Changes",
-			"saving": "Saving...",
-			"success": "Profile updated successfully",
-			"title": "Account Information",
-			"upload_file": "Upload a file",
-			"url_helper": "Paste an image link instead of uploading.",
-			"url_placeholder": "https://example.com/avatar.jpg"
-		},
-		"description": "Manage your account settings and preferences.",
-		"email": {
-			"current_email_label": "Current Email",
-			"description": "Update your email address for account notifications and login.",
-			"error_title": "Error",
-			"new_email_label": "New Email Address",
-			"not_verified_description": "Your current email is not verified. The new email will be updated immediately without verification.",
-			"not_verified_title": "Email Not Verified",
-			"placeholder": "Enter new email address",
-			"title": "Email Address",
-			"unverified_badge": "Unverified",
-			"update_button": "Update Email",
-			"updating": "Updating...",
-			"verification_required_description": "A verification email will be sent to your current email address. You must approve the change before your new email becomes active.",
-			"verification_required_title": "Verification Required",
-			"verified_badge": "Verified"
-		},
-		"password": {
-			"confirm_password_label": "Confirm New Password",
-			"current_password_label": "Current Password",
-			"description": "Update your password to keep your account secure.",
-			"error_title": "Error",
-			"new_password_label": "New Password",
-			"password_helper": "Must be at least 10 characters long.",
-			"placeholder": {
-				"confirm": "Confirm new password",
-				"current": "Enter current password",
-				"new": "Enter new password"
-			},
-			"revoke_sessions_label": "Sign out of all other devices",
-			"security_notice_description": "Changing your password will require you to sign in again on all devices unless you uncheck the option above.",
-			"security_notice_title": "Security Notice",
-			"title": "Change Password",
-			"update_button": "Update Password",
-			"updating": "Updating..."
-		},
-		"security": {
-			"add_button": "Add Passkey",
-			"add_passkey_helper": "Give your passkey a name to identify which device it's registered on.",
-			"add_passkey_title": "Add a Passkey",
-			"adding": "Adding...",
-			"created_at": "Created ",
-			"description": "Manage your passkeys and security settings.",
-			"error_title": "Error",
-			"loading": "Loading passkeys...",
-			"no_passkeys": "You haven't registered any passkeys yet.",
-			"passkey": {
-				"placeholder": "Passkey name (optional)",
-				"unnamed": "Unnamed Passkey"
-			},
-			"passkey_info_description": "Passkeys are a secure, passwordless way to sign in. They use biometrics or device PIN and are stored securely on your devices.",
-			"passkey_info_title": "What are Passkeys?",
-			"passkey_name_label": "Passkey name",
-			"title": "Security",
-			"your_passkeys_title": "Your Passkeys"
-		},
-		"tabs": {
-			"account": "Account",
-			"email": "Email",
-			"password": "Password",
-			"security": "Security"
-		},
-		"title": "Settings"
-	},
-	"support": {
-		"avatar": {
-			"team_member": "Team member"
-		},
-		"button": {
-			"start_new_conversation": "Start a new conversation"
-		},
-		"chatbar": {
-			"placeholder": "Ask me anything..."
-		},
-		"greeting": {
-			"hi": "Hi",
-			"how_can_we_help": "How can we help you today?"
-		},
-		"header": {
-			"support_team": "Support Team"
-		},
-		"message": {
-			"role_kai": "Kai",
-			"role_support": "Support",
-			"role_you": "You"
-		},
-		"screenshot": {
-			"action": {
-				"cancel": "Cancel (Esc)",
-				"redo": "Redo (Ctrl+Shift+Z)",
-				"undo": "Undo (Ctrl+Z)"
-			},
-			"aria_label": "Screenshot editor",
-			"capture_failed": "Failed to capture screenshot. Check console for details.",
-			"capturing": "Capturing...",
-			"next": "Bug Marked",
-			"tool": {
-				"arrow": "Arrow (A)",
-				"circle": "Circle (C)",
-				"color": "Change Color",
-				"pen": "Pen (P)",
-				"rectangle": "Rectangle (R)"
-			}
-		},
-		"suggestion": {
-			"bug_report_label": "Report an issue",
-			"bug_report_text": "I found a bug!",
-			"feature_request_label": "Request a feature",
-			"feature_request_text": "I would love to see",
-			"help_label": "Help me with...",
-			"help_text": "Help me set up the project.",
-			"question_label": "Ask a question",
-			"question_text": "Why SaaS Starter?"
-		},
-		"thread": {
-			"new_conversation": "New conversation"
-		},
-		"time": {
-			"days_ago": "{days} days ago",
-			"few_seconds_ago": "a few seconds ago",
-			"hours_ago": "{hours} hours ago",
-			"just_now": "just now",
-			"minutes_ago": "{minutes} minutes ago",
-			"one_hour_ago": "1 hour ago",
-			"one_minute_ago": "1 minute ago",
-			"yesterday": "yesterday"
-		},
-		"widget": {
-			"error": {
-				"rate_limit": "Slow down! Please wait {seconds}s before sending another message.",
-				"send_failed": "Failed to send message. Please try again."
-			},
-			"header": {
-				"bot_response": "Our bot will reply instantly",
-				"messages": "Messages",
-				"with_team": "Your request is with our team"
-			},
-			"input": {
-				"placeholder": "Type a message or click a suggestion..."
-			}
-		}
-	},
-	"team": {
-		"description": "During the working process, we perform regular fitting with the client because he is the only person who can feel whether a new suit fits or not.",
-		"linktree": "Linktree",
-		"roles": {
-			"cofounder_cto": "Co-Founder - CTO",
-			"founder_ceo": "Founder - CEO",
-			"interaction_designer": "Interaction Designer",
-			"sales_manager": "Sales Manager",
-			"ux_engineer": "UX Engineer",
-			"visual_designer": "Visual Designer"
-		},
-		"section_label": "Team",
-		"title": "Our dream team"
-	},
-	"validation": {
-		"confirm_password": {
-			"mismatch": "Passwords do not match.",
-			"required": "Please confirm your password."
-		},
-		"email": {
-			"invalid": "Please enter a valid email address.",
-			"required": "Please enter your email address."
-		},
-		"name": {
-			"required": "Please enter your name."
-		},
-		"password": {
-			"lowercase": "Password must contain at least one lowercase letter.",
-			"min_length": "Password must be at least {count, number} characters.",
-			"number": "Password must contain at least one number.",
-			"required": "Please enter your password.",
-			"uppercase": "Password must contain at least one uppercase letter."
-		}
-	}
+  "admin": {
+    "actions": {
+      "ban": "Ban User",
+      "impersonate": "Impersonate",
+      "revoke_sessions": "Revoke Sessions",
+      "set_role": "Set Role",
+      "unban": "Unban User"
+    },
+    "dashboard": {
+      "database_backend": "Database & backend",
+      "email_service": "Email delivery service",
+      "external_services": "External Services",
+      "hosting_deployment": "Hosting & deployment",
+      "title": "Admin Dashboard"
+    },
+    "dialog": {
+      "ban_description": "Are you sure you want to ban {email}? They will be unable to access the app.",
+      "ban_reason_placeholder": "Ban reason (optional)",
+      "ban_title": "Ban User",
+      "impersonation_active_description": "Please reload the page to be logged in as the impersonated user.",
+      "impersonation_active_title": "Impersonation Active",
+      "reload_page": "Reload Page",
+      "revoke_description": "Are you sure you want to revoke all sessions for {email}? They will be logged out everywhere.",
+      "revoke_title": "Revoke Sessions",
+      "set_role_description": "Are you sure you want to change the role of {email} to {role}?",
+      "set_role_title": "Change User Role",
+      "unban_description": "Are you sure you want to unban {email}? They will regain access to the app.",
+      "unban_title": "Unban User"
+    },
+    "metrics": {
+      "active_sessions": "Active (24h)",
+      "active_sessions_desc": "Active in the last 24 hours",
+      "admin_users": "Managing the platform",
+      "admins": "Admins",
+      "admins_desc": "Users with admin privileges",
+      "banned_users": "Banned Users",
+      "banned_users_desc": "Access restricted",
+      "currently_active": "Daily activity",
+      "last_7_days": "Last 7 days",
+      "recent_signups": "Recent Signups",
+      "recent_signups_desc": "New user growth",
+      "registered_users": "Platform user base",
+      "total_users": "Total Users",
+      "total_users_desc": "All registered accounts",
+      "users_banned": "Accounts need review"
+    },
+    "navigation": {
+      "app": "App",
+      "home": "Home",
+      "website": "Website"
+    },
+    "settings": {
+      "add_email": "Add Email",
+      "add_email_dialog_desc": "Add an email address to receive admin notifications",
+      "add_email_dialog_title": "Add Custom Email",
+      "add_email_placeholder": "email@example.com",
+      "column_email": "Email",
+      "column_name": "Name",
+      "column_new_signups": "New Signups",
+      "column_new_tickets": "New Tickets",
+      "column_type": "Type",
+      "column_user_replies": "User Replies",
+      "default_support_email": "Default Support Email",
+      "default_support_email_help": "Leave empty to send notifications to all admin users.",
+      "default_support_email_placeholder": "support@example.com",
+      "delete_email": "Remove",
+      "delete_email_confirm": "Remove {email} from notification recipients?",
+      "delete_email_description": "Remove {email} from notification recipients?",
+      "delete_email_title": "Remove Email",
+      "description": "Configure admin panel settings and notifications.",
+      "email_add_failed": "Failed to add email",
+      "email_added": "Email added",
+      "email_exists": "This email already exists",
+      "email_removed": "Email removed",
+      "field_new_signups": "New signup notifications",
+      "field_new_tickets": "New ticket notifications",
+      "field_user_replies": "User reply notifications",
+      "filter": {
+        "admin_only": "Admin Only",
+        "all_types": "All Types",
+        "clear": "Clear",
+        "custom_only": "Custom Only"
+      },
+      "invalid_email": "Invalid email address",
+      "no_recipients": "No notification recipients configured",
+      "notification_recipients": "Notification Recipients",
+      "notification_recipients_desc": "Configure who receives admin notifications. Admin users are automatically included.",
+      "preference_disabled": "{field} disabled",
+      "preference_disabling": "Disabling {field}...",
+      "preference_enabled": "{field} enabled",
+      "preference_enabling": "Enabling {field}...",
+      "preference_update_failed": "Failed to update preference",
+      "recipient_count": "{count, plural, one {# recipient} other {# recipients}}",
+      "save": "Save Settings",
+      "saved": "Settings saved",
+      "saving": "Saving...",
+      "selected": "{selected} of {total} selected",
+      "support_notifications": "Support Notifications",
+      "support_notifications_desc": "Configure email notifications for new and unassigned reopened support tickets.",
+      "tabs": {
+        "notifications": "Notifications",
+        "recipients": "Recipients"
+      },
+      "title": "Admin Settings",
+      "type_admin": "Admin",
+      "type_custom": "Custom"
+    },
+    "sidebar": {
+      "back_to_app": "Back to App",
+      "dashboard": "Dashboard",
+      "settings": "Settings",
+      "support": "Support",
+      "users": "Users"
+    },
+    "support": {
+      "all_statuses": "All statuses",
+      "assignee": {
+        "not_assigned": "Not assigned",
+        "unassigned": "Unassigned"
+      },
+      "chat": {
+        "placeholder": "Reply to customer...",
+        "send_error": "Failed to send reply. Please try again."
+      },
+      "details": {
+        "assignee": "Assignee",
+        "close_panel": "Close details panel",
+        "notes": "Internal Notes",
+        "open_panel": "Open details panel",
+        "page_url": "Page URL",
+        "priority": "Priority",
+        "status": "Status",
+        "title": "Details",
+        "user_notes": "User Notes",
+        "user_notes_description": "Notes are saved at the user level and appear across all their support threads"
+      },
+      "email": {
+        "label": "Notification Email"
+      },
+      "fallback": {
+        "admin": "Admin",
+        "no_user": "No user associated with this thread"
+      },
+      "filter": {
+        "all": "All",
+        "my_inbox": "My Inbox",
+        "unassigned": "Unassigned"
+      },
+      "no_chats": "No chats found",
+      "no_done_chats": "No completed chats",
+      "no_open_chats": "No open chats",
+      "note": {
+        "add": "Add Note",
+        "adding": "Adding...",
+        "placeholder": "Add an internal note..."
+      },
+      "priority": {
+        "high": "High",
+        "low": "Low",
+        "medium": "Medium",
+        "none": "None"
+      },
+      "search": {
+        "placeholder": "Search chats..."
+      },
+      "select_chat": "Select a chat to view conversation",
+      "select_chat_for_details": "Select a chat to view details",
+      "status": {
+        "done": "Done",
+        "in_progress": "In Progress",
+        "open": "Open",
+        "resolved": "Resolved"
+      },
+      "thread": {
+        "badge": {
+          "new": "New"
+        },
+        "load_failed": "Failed to load more",
+        "loading": "Loading more...",
+        "no_messages": "No messages",
+        "retry": "Retry"
+      },
+      "title": "Support Chats"
+    },
+    "title": "Admin Panel",
+    "users": {
+      "actions_column": "Actions",
+      "ban_reason": {
+        "default": "Violated terms of service"
+      },
+      "banned": "Banned",
+      "created": "Created",
+      "email": "Email",
+      "filter": {
+        "all_roles": "All Roles",
+        "all_status": "All Status",
+        "clear": "Clear",
+        "role_admin": "Admin",
+        "role_user": "User",
+        "status_banned": "Banned",
+        "status_unverified": "Unverified",
+        "status_verified": "Verified"
+      },
+      "loading": "Loading users...",
+      "menu_open": "Open menu",
+      "name": "Name",
+      "no_results": "No results.",
+      "page_indicator": "Page {current} of {total}",
+      "pagination": {
+        "first": "Go to first page",
+        "last": "Go to last page",
+        "next": "Go to next page",
+        "previous": "Go to previous page"
+      },
+      "role": "Role",
+      "rows_per_page": "Rows per page",
+      "search_placeholder": "Search users...",
+      "select_all": "Select all",
+      "select_row": "Select row",
+      "selected": "{selected} of {total} users selected",
+      "status": "Status",
+      "title": "User Management",
+      "toast": {
+        "assignment_failed": "Failed to update assignment: {message}",
+        "assignment_updated": "Assignment updated",
+        "ban_failed": "Failed to ban user: {message}",
+        "banned": "User has been banned",
+        "impersonate_failed": "Failed to impersonate user: {message}",
+        "note_added": "Note added",
+        "note_failed": "Failed to add note: {message}",
+        "priority_failed": "Failed to update priority: {message}",
+        "priority_updated": "Priority updated",
+        "revoke_failed": "Failed to revoke sessions: {message}",
+        "revoked": "All sessions have been revoked",
+        "role_failed": "Failed to set role: {message}",
+        "role_updated": "User role updated to {role}",
+        "status_failed": "Failed to update status: {message}",
+        "status_updated": "Status updated",
+        "unban_failed": "Failed to unban user: {message}",
+        "unbanned": "User has been unbanned"
+      },
+      "total": "users",
+      "unnamed": "Unnamed",
+      "unverified": "Unverified",
+      "verified": "Verified"
+    }
+  },
+  "app": {
+    "name": "SaaS Starter",
+    "sidebar": {
+      "admin_panel": "Admin Panel",
+      "community_chat": "Community Chat",
+      "dashboard": "Dashboard",
+      "docs": "Docs",
+      "home": "Home"
+    },
+    "user_menu": {
+      "account": "Account",
+      "billing": "Billing",
+      "impersonating_banner": "You are impersonating this user",
+      "impersonation_stop_failed": "Failed to stop impersonation",
+      "impersonation_stopped": "Stopped impersonating",
+      "logout": "Log out",
+      "notifications": "Notifications",
+      "settings": "Settings",
+      "stop_impersonating": "Stop Impersonating",
+      "upgrade_pro": "Upgrade to Pro"
+    }
+  },
+  "aria": {
+    "breadcrumb": "breadcrumb",
+    "change_language": "Change language",
+    "close": "Close",
+    "feedback_close": "Close feedback",
+    "feedback_open": "Open feedback",
+    "github_repository": "GitHub repository",
+    "go_back": "Go back",
+    "home": "home",
+    "logout": "Log out",
+    "menu_close": "Close Menu",
+    "menu_open": "Open Menu",
+    "remove_attachment": "Remove attachment",
+    "select_value": "Select a value",
+    "toggle_sidebar": "Toggle Sidebar"
+  },
+  "auth": {
+    "back_to_home": "Back to home",
+    "errors": {
+      "confirm_password_required": "Please confirm your password",
+      "current_password_required": "Current password is required",
+      "invalid_credentials": "Invalid email or password",
+      "invalid_email": "Please enter a valid email",
+      "invalid_secret": "Invalid secret",
+      "name_required": "Name is required",
+      "oauth_failed": "Social sign-in failed. Please try again.",
+      "passkey_failed": "Passkey authentication failed",
+      "password_lowercase": "Password must contain at least one lowercase letter",
+      "password_min_length": "Password must be at least {minLength} characters",
+      "password_number": "Password must contain at least one number",
+      "password_required": "Password is required",
+      "password_uppercase": "Password must contain at least one uppercase letter",
+      "passwords_do_not_match": "Passwords do not match",
+      "signup_failed": "Failed to create account. Email may already be in use.",
+      "verification_invalid": "Invalid or expired verification code. Please try again."
+    },
+    "forgot_password": {
+      "back_to_signin": "Back to sign in",
+      "button_loading": "Sending...",
+      "button_submit": "Send reset link",
+      "description": "We will email you a reset link",
+      "title": "Forgot password"
+    },
+    "login": "Login",
+    "logout": "Logout",
+    "messages": {
+      "auth_cancelled": "Authentication was cancelled",
+      "email_change_failed": "Failed to change email",
+      "email_not_verified": "Please verify your email address",
+      "email_same_as_current": "New email must be different from current email",
+      "email_updated": "Email updated successfully",
+      "email_verification_sent": "Verification email sent to your current address. Please check your inbox to approve the change.",
+      "generic_error": "An error occurred. Please try again.",
+      "invalid_credentials": "Invalid email or password",
+      "invalid_token": "Invalid or expired token",
+      "missing_reset_token": "Missing or invalid reset token",
+      "oauth_failed": "Social sign-in failed. Please try again.",
+      "passkey_add_failed": "Failed to add passkey",
+      "passkey_added": "Passkey added successfully",
+      "passkey_delete_failed": "Failed to delete passkey",
+      "passkey_deleted": "Passkey deleted",
+      "passkey_failed": "Passkey authentication failed",
+      "passkey_load_failed": "Failed to load passkeys",
+      "password_change_failed": "Failed to change password",
+      "password_changed": "Password changed successfully",
+      "password_compromised": "This password has been compromised",
+      "password_reset_success": "Your password has been reset successfully.",
+      "rate_limited": "Too many requests. Please try again later.",
+      "request_reset_failed": "Failed to request password reset",
+      "reset_failed": "Failed to reset password",
+      "reset_link_sent": "Check your email for a reset link.",
+      "signup_disabled": "Sign up is disabled",
+      "signup_failed": "Failed to create account",
+      "too_many_attempts": "Too many attempts. Please try again later.",
+      "user_already_exists": "An account with this email already exists"
+    },
+    "reset_password": {
+      "back_to_signin": "Back to sign in",
+      "button_loading": "Resetting...",
+      "button_submit": "Reset password",
+      "confirm_password_label": "Confirm new password",
+      "description": "Enter your new password",
+      "new_password_label": "New password",
+      "sign_in_link": "Sign in",
+      "success": "Your password has been reset.",
+      "title": "Reset password"
+    },
+    "signin": {
+      "button_signin": "Sign In",
+      "button_signin_loading": "Signing in...",
+      "button_signup": "Sign Up",
+      "button_signup_loading": "Creating account...",
+      "cancel": "Cancel",
+      "description": "Sign in to your account or create a new one",
+      "email_label": "Email",
+      "email_placeholder": "you@example.com",
+      "forgot_password": "Forgot password?",
+      "link_signup": "Sign up",
+      "name_label": "Name",
+      "no_account": "Don't have an account?",
+      "oauth_github": "GitHub",
+      "oauth_google": "Google",
+      "or_continue_with": "Or continue with",
+      "passkey_button": "Sign in with Passkey",
+      "password_label": "Password",
+      "password_placeholder": "••••••••",
+      "tab_signin": "Sign In",
+      "tab_signup": "Sign Up",
+      "test_secret_button": "Sign in with secret",
+      "test_secret_label": "Test only: Sign in with a secret",
+      "test_secret_placeholder": "secret value",
+      "title": "Welcome back"
+    },
+    "signup": "Sign Up",
+    "signup.description": "Enter your details to get started",
+    "signup.has_account": "Already have an account?",
+    "signup.link_signin": "Sign in",
+    "signup.password_hint": "Minimum 10 characters with uppercase, lowercase, and number",
+    "signup.title": "Create an account",
+    "terms": {
+      "agreement": "By clicking continue, you agree to our",
+      "and": "and",
+      "privacy_policy": "Privacy Policy",
+      "terms_of_service": "Terms of Service"
+    },
+    "verification": {
+      "button_back": "Back to login",
+      "button_cancel": "Cancel",
+      "button_verify": "Verify Email",
+      "button_verify_loading": "Verifying...",
+      "check_email": "Please check your email and click the verification link to complete your registration.",
+      "code_label": "Verification Code",
+      "code_placeholder": "12345678",
+      "description": "We've sent you a verification link",
+      "sent_to": "We've sent a verification email to",
+      "title": "Email Verification",
+      "verified_description": "Your email has been verified. Signing you in...",
+      "verified_title": "Email Verified"
+    }
+  },
+  "backend": {
+    "files": {
+      "fetch_failed": "Failed to retrieve uploaded file. Please try uploading again.",
+      "type_not_allowed": "File type not allowed. Supported: PNG, JPEG, WebP, GIF, PDF"
+    },
+    "support": {
+      "handoff": {
+        "response": "Sure! I will connect you now. Please enter your email below and we'll notify you when our support team has responded. In the meantime, feel free to add any additional details that might help us assist you better."
+      },
+      "rate_limit": {
+        "global": "I'm currently experiencing high demand. Please try sending your message again in a moment.",
+        "user": "Too many messages. Please wait before sending another."
+      },
+      "summary": {
+        "default": "New support conversation"
+      },
+      "title": {
+        "default": "Customer Support"
+      }
+    }
+  },
+  "chat": {
+    "action": {
+      "talk_to_human": "Talk to a human"
+    },
+    "alerts": {
+      "limit_reached": {
+        "description": "You've used all {total} of your free messages this month.",
+        "title": "Message Limit Reached"
+      },
+      "low_messages": {
+        "description": "You have {remaining} of {total} message remaining this month.",
+        "description_plural": "You have {remaining} of {total} messages remaining this month.",
+        "title": "Low on Messages"
+      }
+    },
+    "aria": {
+      "remove_attachment": "Remove {filename}",
+      "send": "Send"
+    },
+    "attachment": {
+      "dialog_title": "Attachment",
+      "file_fallback": "File",
+      "generic_fallback": "Attachment",
+      "image_fallback": "Image"
+    },
+    "avatar": {
+      "team_member": "Team member"
+    },
+    "buttons": {
+      "processing": "Processing...",
+      "upgrade": "Upgrade to Pro"
+    },
+    "description": "Open this app in multiple browser windows to see the real-time database in action",
+    "email": {
+      "placeholder": "Email",
+      "save_failed": "Failed to save email. Please try again.",
+      "saved_success": "Email saved! We'll notify you when we respond.",
+      "subscribe_button": "Subscribe",
+      "unsubscribe_failed": "Failed to unsubscribe. Please try again.",
+      "unsubscribe_tooltip": "Unsubscribe",
+      "unsubscribed": "Unsubscribed from email notifications."
+    },
+    "error": {
+      "file_max_size": "Maximum size is {maxSize}",
+      "file_too_large": "File too large: \"{filename}\"",
+      "max_attachments": "Maximum {max} attachments allowed",
+      "pasted_file_too_large": "Pasted file too large"
+    },
+    "greeting": "How can we help?",
+    "greeting_hi": "Hi",
+    "header": {
+      "messages_left": "({remaining}/{total} message left)",
+      "messages_left_plural": "({remaining}/{total} messages left)",
+      "pro_unlimited": "(Pro - Unlimited)",
+      "subtitle": "Real-time chat",
+      "title": "Chat"
+    },
+    "input": {
+      "placeholder": "Type a message...",
+      "placeholder_disabled": "Message limit reached",
+      "send_tooltip": "Send message",
+      "upgrade_tooltip": "Upgrade to Pro for unlimited messages"
+    },
+    "messages": {
+      "send_failed": "Failed to send message",
+      "sent_success": "Message sent!"
+    },
+    "reasoning": {
+      "connecting": "Connecting...",
+      "thinking": "Thinking...",
+      "thought_for_few_seconds": "Thought for a few seconds",
+      "thought_for_seconds": "Thought for {duration} second",
+      "thought_for_seconds_plural": "Thought for {duration} seconds"
+    },
+    "suggestion": {
+      "help_label": "Get help",
+      "help_text": "Can you help me with...",
+      "issue_label": "Report an issue",
+      "issue_text": "I found an issue with...",
+      "question_label": "Ask a question",
+      "question_text": "I have a question about..."
+    },
+    "title": "Community Chat",
+    "tooltip": {
+      "attach_files": "Attach files",
+      "mark_bug": "Mark the bug"
+    }
+  },
+  "common": {
+    "adding": "Adding...",
+    "cancel": "Cancel",
+    "confirm": "Confirm"
+  },
+  "email": {
+    "body": {
+      "no_messages": "No messages",
+      "ticket_message": "{userName} has sent a new message to a previously closed ticket",
+      "ticket_new": "New support ticket",
+      "ticket_reopened": "Support ticket reopened",
+      "ticket_started": "{userName} has started a new support conversation"
+    },
+    "subject": {
+      "reset_password": "Reset your password",
+      "support_reply": "New reply to your support request",
+      "ticket_new": "New support ticket from {userName}",
+      "ticket_reopened": "Support ticket reopened by {userName}",
+      "verify": "Verify your email"
+    }
+  },
+  "error_page": {
+    "back_home": "Take me home",
+    "generic_description": "An unexpected error occurred while loading this page.",
+    "generic_title": "Something went wrong",
+    "need_help": "Need help?",
+    "not_found_description": "The page you're looking for doesn't exist. Try searching for what you need below.",
+    "not_found_title": "404 - Page Not Found",
+    "search_placeholder": "Try searching for pages..."
+  },
+  "hero": {
+    "companies_text": "Powering the best teams",
+    "cta": "Start Building",
+    "cta_demo": "Request a demo",
+    "description": "Bring your SaaS to life in minutes, not months. Open-source template loaded with the tech that gets you shipping.",
+    "section_label": "Home",
+    "tagline": "Focus on your product and ship faster.",
+    "title": "SaaS Starter Template"
+  },
+  "integrations": {
+    "cards": {
+      "autumn_stripe": {
+        "button": "Visit Autumn",
+        "description": "Autumn handles billing, feature gates, and usage tracking—no webhook complexity. Stripe for payment processing.",
+        "secondary_button": "Visit Stripe",
+        "secondary_title": "Stripe",
+        "title": "Autumn + Stripe"
+      },
+      "better_auth": {
+        "button": "Visit Better Auth",
+        "description": "The most comprehensive authentication library for TypeScript. Sessions, OAuth, passkeys, and multi-tenancy out of the box.",
+        "title": "Better Auth"
+      },
+      "convex": {
+        "button": "Visit Convex",
+        "description": "The open source Firebase alternative. Built on PostgreSQL - world's most advanced relational database.",
+        "title": "Convex"
+      },
+      "posthog": {
+        "button": "Visit PostHog",
+        "description": "PostHog is an open-source product analytics platform to track user behavior and measure conversions.",
+        "title": "PostHog"
+      },
+      "resend": {
+        "button": "Visit Resend",
+        "description": "The email API for developers. Build and send transactional emails with a modern, reliable API built for scale.",
+        "title": "Resend"
+      },
+      "sentry": {
+        "button": "Visit Sentry",
+        "description": "Application monitoring and error tracking. Identify issues before your users do with real-time alerts and detailed stack traces.",
+        "title": "Sentry"
+      },
+      "shadcn_svblocks": {
+        "button": "Visit Shadcn Svelte",
+        "description": "A set of beautifully-designed, accessible components built with Tailwind CSS v4 and Bits UI.",
+        "secondary_button": "SVBlocks",
+        "secondary_title": "SVBlocks",
+        "title": "Shadcn Svelte + SVBlocks"
+      },
+      "svelte": {
+        "button": "Visit Svelte 5",
+        "description": "The most lovved frontend framework. A simple, performant, and future-proof way to build your web app.",
+        "title": "Svelte 5"
+      },
+      "tolgee": {
+        "button": "Visit Tolgee",
+        "description": "Internationalization done right. In-context editing and ML-powered translation for a seamless localization workflow.",
+        "title": "Tolgee"
+      }
+    },
+    "description": "Super fast solutions that are actually fun to build with",
+    "title": "Real {year} Developer Experience"
+  },
+  "meta": {
+    "about": {
+      "description": "Meet the talented team behind our product",
+      "title": "About Us - Meet Our Team"
+    },
+    "home": {
+      "description": "The ultimate SaaS starter template with SvelteKit, Convex, and modern web technologies. Build your brand in minutes, not weeks. Focus on your product and ship faster.",
+      "title": "Build & Ship Your Product Faster"
+    }
+  },
+  "nav": {
+    "about": "About",
+    "dashboard": "Dashboard",
+    "features": "Features",
+    "get_started": "Get Started",
+    "home": "Home",
+    "login": "Login",
+    "pricing": "Pricing",
+    "signup": "Sign up",
+    "solution": "Solution"
+  },
+  "pricing": {
+    "buttons": {
+      "loading": "Loading...",
+      "manage_subscription": "Manage Subscription"
+    },
+    "current_plan": "Current Plan",
+    "current_plan_badge": "(Current Plan)",
+    "description": "This SaaS starter template is completely free and open source. Try the payment flow using the test card number 4242 4242 4242 4242 with any future expiry date.",
+    "description_autumn": "Test the integrated payment system powered by Autumn - an open-source billing platform that handles subscriptions, usage limits, and Stripe webhooks automatically.",
+    "features": {
+      "enterprise": {
+        "0": "Custom message limits",
+        "1": "Dedicated account manager",
+        "2": "SLA guarantees",
+        "3": "Advanced security features"
+      },
+      "enterprise[0]": "Custom message limits",
+      "enterprise[1]": "Dedicated account manager",
+      "enterprise[2]": "SLA guarantees",
+      "enterprise[3]": "Advanced security features",
+      "enterprise[4]": "Custom integrations",
+      "enterprise[5]": "White-label options",
+      "free": {
+        "0": "10 messages per month",
+        "1": "Full source code access",
+        "2": "All features included",
+        "3": "MIT License"
+      },
+      "free[0]": "10 messages per month",
+      "free[1]": "Full source code access",
+      "free[2]": "All features included",
+      "free[3]": "MIT License",
+      "pro": {
+        "0": "Unlimited messages",
+        "1": "Full source code access",
+        "2": "All features included",
+        "3": "Priority support"
+      },
+      "pro[0]": "Unlimited messages",
+      "pro[1]": "Full source code access",
+      "pro[2]": "All features included",
+      "pro[3]": "Priority support"
+    },
+    "popular_badge": "Popular",
+    "section_label": "Pricing",
+    "tiers": {
+      "enterprise": {
+        "button": "Contact Sales",
+        "description": "For organizations with specific requirements",
+        "name": "Enterprise",
+        "price": "Custom"
+      },
+      "free": {
+        "button": "Free Forever",
+        "button_manage": "Manage Subscription",
+        "description": "Perfect for getting started",
+        "name": "Free",
+        "price": "$0 / month"
+      },
+      "pro": {
+        "button": "Upgrade to Pro",
+        "button_loading": "Processing...",
+        "button_manage": "Manage Subscription",
+        "description": "Unlimited messages and priority support",
+        "name": "Pro",
+        "price": "$10 / month"
+      }
+    },
+    "title": "Pricing that Scales with You"
+  },
+  "settings": {
+    "account": {
+      "avatar": {
+        "alt": "Profile preview",
+        "ready": "Image ready to save",
+        "removed": "Image removed - click Save to confirm",
+        "select_error": "Please select an image file",
+        "size_error": "Image must be less than {size}",
+        "upload_failed": "Failed to upload image"
+      },
+      "description": "Update your account information here.",
+      "error": "Failed to update profile",
+      "file_helper": "PNG, JPG, or GIF up to 2MB.",
+      "link_from_url": "Link from URL",
+      "name": {
+        "placeholder": "Your name"
+      },
+      "name_helper": "This is your public display name.",
+      "name_label": "Name",
+      "no_image": "No image",
+      "or": "or",
+      "profile_picture": "Profile picture",
+      "profile_picture_helper": "Upload an image or paste a link. We recommend a square image under 2MB.",
+      "remove_button": "Remove",
+      "save_button": "Save Changes",
+      "saving": "Saving...",
+      "success": "Profile updated successfully",
+      "title": "Account Information",
+      "upload_file": "Upload a file",
+      "url_helper": "Paste an image link instead of uploading.",
+      "url_placeholder": "https://example.com/avatar.jpg"
+    },
+    "description": "Manage your account settings and preferences.",
+    "email": {
+      "current_email_label": "Current Email",
+      "description": "Update your email address for account notifications and login.",
+      "error_title": "Error",
+      "new_email_label": "New Email Address",
+      "not_verified_description": "Your current email is not verified. The new email will be updated immediately without verification.",
+      "not_verified_title": "Email Not Verified",
+      "placeholder": "Enter new email address",
+      "title": "Email Address",
+      "unverified_badge": "Unverified",
+      "update_button": "Update Email",
+      "updating": "Updating...",
+      "verification_required_description": "A verification email will be sent to your current email address. You must approve the change before your new email becomes active.",
+      "verification_required_title": "Verification Required",
+      "verified_badge": "Verified"
+    },
+    "password": {
+      "confirm_password_label": "Confirm New Password",
+      "current_password_label": "Current Password",
+      "description": "Update your password to keep your account secure.",
+      "error_title": "Error",
+      "new_password_label": "New Password",
+      "password_helper": "Must be at least 10 characters long.",
+      "placeholder": {
+        "confirm": "Confirm new password",
+        "current": "Enter current password",
+        "new": "Enter new password"
+      },
+      "revoke_sessions_label": "Sign out of all other devices",
+      "security_notice_description": "Changing your password will require you to sign in again on all devices unless you uncheck the option above.",
+      "security_notice_title": "Security Notice",
+      "title": "Change Password",
+      "update_button": "Update Password",
+      "updating": "Updating..."
+    },
+    "security": {
+      "add_button": "Add Passkey",
+      "add_passkey_helper": "Give your passkey a name to identify which device it's registered on.",
+      "add_passkey_title": "Add a Passkey",
+      "adding": "Adding...",
+      "created_at": "Created ",
+      "description": "Manage your passkeys and security settings.",
+      "error_title": "Error",
+      "loading": "Loading passkeys...",
+      "no_passkeys": "You haven't registered any passkeys yet.",
+      "passkey": {
+        "placeholder": "Passkey name (optional)",
+        "unnamed": "Unnamed Passkey"
+      },
+      "passkey_info_description": "Passkeys are a secure, passwordless way to sign in. They use biometrics or device PIN and are stored securely on your devices.",
+      "passkey_info_title": "What are Passkeys?",
+      "passkey_name_label": "Passkey name",
+      "title": "Security",
+      "your_passkeys_title": "Your Passkeys"
+    },
+    "tabs": {
+      "account": "Account",
+      "email": "Email",
+      "password": "Password",
+      "security": "Security"
+    },
+    "title": "Settings"
+  },
+  "support": {
+    "avatar": {
+      "team_member": "Team member"
+    },
+    "button": {
+      "start_new_conversation": "Start a new conversation"
+    },
+    "chatbar": {
+      "placeholder": "Ask me anything..."
+    },
+    "greeting": {
+      "hi": "Hi",
+      "how_can_we_help": "How can we help you today?"
+    },
+    "header": {
+      "support_team": "Support Team"
+    },
+    "message": {
+      "role_kai": "Kai",
+      "role_support": "Support",
+      "role_you": "You"
+    },
+    "screenshot": {
+      "action": {
+        "cancel": "Cancel (Esc)",
+        "redo": "Redo (Ctrl+Shift+Z)",
+        "undo": "Undo (Ctrl+Z)"
+      },
+      "aria_label": "Screenshot editor",
+      "capture_failed": "Failed to capture screenshot. Check console for details.",
+      "capturing": "Capturing...",
+      "next": "Bug Marked",
+      "tool": {
+        "arrow": "Arrow (A)",
+        "circle": "Circle (C)",
+        "color": "Change Color",
+        "pen": "Pen (P)",
+        "rectangle": "Rectangle (R)"
+      }
+    },
+    "suggestion": {
+      "bug_report_label": "Report an issue",
+      "bug_report_text": "I found a bug!",
+      "feature_request_label": "Request a feature",
+      "feature_request_text": "I would love to see",
+      "help_label": "Help me with...",
+      "help_text": "Help me set up the project.",
+      "question_label": "Ask a question",
+      "question_text": "Why SaaS Starter?"
+    },
+    "thread": {
+      "new_conversation": "New conversation"
+    },
+    "time": {
+      "days_ago": "{days} days ago",
+      "few_seconds_ago": "a few seconds ago",
+      "hours_ago": "{hours} hours ago",
+      "just_now": "just now",
+      "minutes_ago": "{minutes} minutes ago",
+      "one_hour_ago": "1 hour ago",
+      "one_minute_ago": "1 minute ago",
+      "yesterday": "yesterday"
+    },
+    "widget": {
+      "error": {
+        "rate_limit": "Slow down! Please wait {seconds}s before sending another message.",
+        "send_failed": "Failed to send message. Please try again."
+      },
+      "header": {
+        "bot_response": "Our bot will reply instantly",
+        "messages": "Messages",
+        "with_team": "Your request is with our team"
+      },
+      "input": {
+        "placeholder": "Type a message or click a suggestion..."
+      }
+    }
+  },
+  "team": {
+    "description": "During the working process, we perform regular fitting with the client because he is the only person who can feel whether a new suit fits or not.",
+    "linktree": "Linktree",
+    "roles": {
+      "cofounder_cto": "Co-Founder - CTO",
+      "founder_ceo": "Founder - CEO",
+      "interaction_designer": "Interaction Designer",
+      "sales_manager": "Sales Manager",
+      "ux_engineer": "UX Engineer",
+      "visual_designer": "Visual Designer"
+    },
+    "section_label": "Team",
+    "title": "Our dream team"
+  },
+  "validation": {
+    "confirm_password": {
+      "mismatch": "Passwords do not match.",
+      "required": "Please confirm your password."
+    },
+    "email": {
+      "invalid": "Please enter a valid email address.",
+      "required": "Please enter your email address."
+    },
+    "name": {
+      "required": "Please enter your name."
+    },
+    "password": {
+      "lowercase": "Password must contain at least one lowercase letter.",
+      "min_length": "Password must be at least {count, number} characters.",
+      "number": "Password must contain at least one number.",
+      "required": "Please enter your password.",
+      "uppercase": "Password must contain at least one uppercase letter."
+    }
+  }
 }

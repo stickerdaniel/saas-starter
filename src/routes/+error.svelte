@@ -1,9 +1,10 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import { Button } from '$lib/components/ui/button/index.js';
 	import * as Empty from '$lib/components/ui/empty/index.js';
+	import * as InputGroup from '$lib/components/ui/input-group/index.js';
 	import { getLanguage } from '$lib/i18n/languages';
-	import SearchIcon from '@tabler/icons-svelte/icons/search';
+	import SearchIcon from '@lucide/svelte/icons/search';
 	import de from '../i18n/de.json';
 	import en from '../i18n/en.json';
 	import es from '../i18n/es.json';
@@ -14,8 +15,10 @@
 			back_home: string;
 			generic_description: string;
 			generic_title: string;
+			need_help: string;
 			not_found_description: string;
 			not_found_title: string;
+			search_placeholder: string;
 		};
 	};
 
@@ -47,14 +50,34 @@
 <main class="grid min-h-[100dvh] w-full place-items-center px-4 py-8">
 	<Empty.Root class="bg-background/60 w-full max-w-xl">
 		<Empty.Header>
-			<Empty.Media variant="icon">
-				<SearchIcon />
-			</Empty.Media>
 			<Empty.Title>{title}</Empty.Title>
 			<Empty.Description>{description}</Empty.Description>
 		</Empty.Header>
 		<Empty.Content>
-			<Button href={homeHref}>{translations.error_page.back_home}</Button>
+			<InputGroup.Root class="sm:w-3/4">
+				<InputGroup.Input
+					placeholder={translations.error_page.search_placeholder}
+					readonly
+					aria-readonly="true"
+					tabindex={-1}
+				/>
+				<InputGroup.Addon>
+					<SearchIcon />
+				</InputGroup.Addon>
+				<InputGroup.Addon align="inline-end">
+					<kbd
+						class="border-border bg-muted text-foreground rounded-sm border px-1 font-mono text-xs"
+					>
+						/
+					</kbd>
+				</InputGroup.Addon>
+			</InputGroup.Root>
+			<Empty.Description>
+				{translations.error_page.need_help}
+				<a href={resolve(homeHref)} class="text-primary underline-offset-4 hover:underline">
+					{translations.error_page.back_home}
+				</a>
+			</Empty.Description>
 		</Empty.Content>
 	</Empty.Root>
 </main>
