@@ -538,6 +538,13 @@
 			"verify": "Verifica tu email"
 		}
 	},
+	"error_page": {
+		"back_home": "Llévame al inicio",
+		"generic_description": "Ocurrió un error inesperado al cargar esta página.",
+		"generic_title": "Algo salió mal",
+		"not_found_description": "La página que buscas no existe o pudo haberse movido.",
+		"not_found_title": "404 - Página no encontrada"
+	},
 	"hero": {
 		"companies_text": "Impulsando a los mejores equipos",
 		"cta": "Comenzar ahora",

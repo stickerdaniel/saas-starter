@@ -538,6 +538,13 @@
 			"verify": "Verify your email"
 		}
 	},
+	"error_page": {
+		"back_home": "Take me home",
+		"generic_description": "An unexpected error occurred while loading this page.",
+		"generic_title": "Something went wrong",
+		"not_found_description": "The page you're looking for doesn't exist or may have moved.",
+		"not_found_title": "404 - Page Not Found"
+	},
 	"hero": {
 		"companies_text": "Powering the best teams",
 		"cta": "Start Building",

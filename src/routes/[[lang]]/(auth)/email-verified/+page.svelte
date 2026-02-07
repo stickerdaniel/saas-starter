@@ -5,6 +5,7 @@
 	import { localizedHref } from '$lib/utils/i18n';
 	import { safeRedirectPath } from '$lib/utils/url';
 	import * as Card from '$lib/components/ui/card/index.js';
+	import { LoadingBar } from '$lib/components/ui/loading-bar/index.js';
 	import { FieldGroup, Field } from '$lib/components/ui/field/index.js';
 	import { T } from '@tolgee/svelte';
 	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
@@ -54,26 +55,30 @@
 	<div class="flex w-full max-w-sm flex-col gap-6 md:max-w-3xl">
 		<Card.Root class="overflow-hidden p-0">
 			<Card.Content class="grid p-0 md:grid-cols-2">
-				<div class="flex min-h-96 flex-col justify-center p-6 md:p-8">
-					<FieldGroup>
-						<div class="flex flex-col items-center gap-2 text-center">
-							<h1 class="text-2xl font-bold">
-								<T keyName="auth.verification.verified_title" />
-							</h1>
-							<p class="text-balance text-muted-foreground">
-								<T keyName="auth.verification.verified_description" />
-							</p>
-						</div>
-						<Field class="flex justify-center">
-							<LoaderCircleIcon class="h-5 w-5 animate-spin text-muted-foreground" />
-						</Field>
-					</FieldGroup>
+				<div class="min-h-96">
+					<LoadingBar value={100} class="h-1 rounded-none" />
+					<div class="flex h-full flex-col justify-center p-6 md:p-8">
+						<FieldGroup>
+							<div class="flex flex-col items-center gap-2 text-center">
+								<h1 class="text-2xl font-bold">
+									<T keyName="auth.verification.verified_title" />
+								</h1>
+								<p class="text-balance text-muted-foreground">
+									<T keyName="auth.verification.verified_description" />
+								</p>
+							</div>
+							<Field class="flex justify-center">
+								<LoaderCircleIcon class="h-5 w-5 animate-spin text-muted-foreground" />
+							</Field>
+						</FieldGroup>
+					</div>
 				</div>
 				<div class="relative hidden bg-muted md:block">
 					<img
 						src="/placeholder.svg"
 						alt=""
-						class="absolute inset-0 h-full w-full object-cover dark:brightness-[0.2] dark:grayscale"
+						draggable="false"
+						class="absolute inset-0 h-full w-full object-cover select-none dark:brightness-[0.2] dark:grayscale"
 					/>
 				</div>
 			</Card.Content>
