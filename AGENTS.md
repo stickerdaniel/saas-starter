@@ -126,6 +126,9 @@ These commands use `dotenv` to load the local TOLGEE_API_KEY from `.env.local`:
 <SEOHead title="About Us" description="Learn more" />
 ```
 
+- Every new `+page.svelte` route must include `SEOHead`.
+- For localized routes under `src/routes/[[lang]]/`, `SEOHead` title and description must use translated `meta.*` keys in all 4 locale files (`en`, `de`, `es`, `fr`).
+
 ### Email System
 
 Use the @convex-dev/resend email system for production-ready email delivery. Use btca with `convexResend` resource for component docs. For svelte email docs and templates, use btca with `betterSvelteEmail` resource.
