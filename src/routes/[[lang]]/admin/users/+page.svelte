@@ -1,4 +1,5 @@
 <script lang="ts">
+	import SEOHead from '$lib/components/SEOHead.svelte';
 	import {
 		type RowSelectionState,
 		type SortingState,
@@ -569,6 +570,8 @@
 		selectedRole = 'user';
 	}
 </script>
+
+<SEOHead title={$t('meta.admin.users.title')} description={$t('meta.admin.users.description')} />
 
 <div class="flex flex-col gap-6 px-4 lg:px-6 xl:px-8 2xl:px-16">
 	<!-- Header -->

@@ -1,4 +1,6 @@
 <script lang="ts">
+	import SEOHead from '$lib/components/SEOHead.svelte';
+
 	let selectedTemplate = $state('VerificationEmail');
 	let html = $state('');
 	let loading = $state(false);
@@ -22,6 +24,8 @@
 		loadPreview();
 	});
 </script>
+
+<SEOHead title="Email Template Preview" description="Preview transactional email templates." />
 
 <div class="container mx-auto p-6">
 	<h1 class="mb-4 text-2xl font-bold">Email Template Preview</h1>

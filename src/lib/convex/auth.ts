@@ -4,6 +4,7 @@ import { convex } from '@convex-dev/better-auth/plugins';
 import { components, internal } from './_generated/api';
 import { type DataModel } from './_generated/dataModel';
 import { query } from './_generated/server';
+import type { GenericMutationCtx } from 'convex/server';
 import { passkey } from '@better-auth/passkey';
 import { admin } from 'better-auth/plugins/admin';
 import { betterAuth, type BetterAuthOptions } from 'better-auth';
@@ -13,6 +14,59 @@ import { getBetterAuthSecret, getSiteUrl, googleOAuth, githubOAuth } from './env
 
 // Required for triggers to work - references internal auth functions
 const authFunctions: AuthFunctions = internal.auth;
+
+type SignupMethod = 'Email' | 'Google' | 'GitHub';
+
+type SignupNotificationUser = {
+	_id: string;
+	name?: string | null;
+	email: string;
+	createdAt: number;
+};
+
+const detectSignupMethod = async (
+	ctx: GenericMutationCtx<DataModel>,
+	userId: string
+): Promise<SignupMethod> => {
+	const accountResult = await ctx.runQuery(components.betterAuth.adapter.findMany, {
+		model: 'account',
+		paginationOpts: { cursor: null, numItems: 1 },
+		where: [{ field: 'userId', operator: 'eq', value: userId }]
+	});
+	const account = accountResult.page[0] as { providerId?: string } | undefined;
+	return account?.providerId === 'google'
+		? 'Google'
+		: account?.providerId === 'github'
+			? 'GitHub'
+			: 'Email';
+};
+
+const formatSignupTime = (timestamp: number): string => {
+	return new Date(timestamp).toLocaleString('en-US', {
+		month: 'short',
+		day: 'numeric',
+		year: 'numeric',
+		hour: 'numeric',
+		minute: '2-digit',
+		hour12: true
+	});
+};
+
+const scheduleNewUserSignupNotification = async (
+	ctx: GenericMutationCtx<DataModel>,
+	user: SignupNotificationUser
+): Promise<void> => {
+	const signupMethod = await detectSignupMethod(ctx, user._id);
+	const signupTime = formatSignupTime(user.createdAt);
+
+	// Schedule signup notification email (runs after transaction commits)
+	await ctx.scheduler.runAfter(0, internal.emails.send.sendNewUserSignupNotification, {
+		userName: user.name ?? undefined,
+		userEmail: user.email,
+		signupMethod,
+		signupTime
+	});
+};
 
 // The component client has methods needed for integrating Convex with Better Auth,
 // as well as helper methods for general use.
@@ -26,54 +80,19 @@ export const authComponent = createClient<DataModel, typeof authSchema>(componen
 		user: {
 			/**
 			 * Called when a new user signs up
-			 * - Sends new user signup notification email to admins
+			 * - Sends new user signup notification to admins only after verification
 			 * - Creates notification preferences if user is admin (rare)
 			 *
-			 * Non-critical operations are wrapped in try/catch to prevent
-			 * blocking user signup if notifications or preferences fail.
+			 * Notification scheduling is intentionally unwrapped — it relies on
+			 * Convex transactional atomicity (scheduler + query cannot fail for
+			 * data created in the same flow). Preference sync IS wrapped because
+			 * it writes to a separate table with more failure modes.
 			 */
 			onCreate: async (ctx, user) => {
-				// Detect signup method from account using Better Auth adapter
-				let signupMethod: 'Email' | 'Google' | 'GitHub' = 'Email';
-				try {
-					const accountResult = await ctx.runQuery(components.betterAuth.adapter.findMany, {
-						model: 'account',
-						paginationOpts: { cursor: null, numItems: 1 },
-						where: [{ field: 'userId', operator: 'eq', value: user._id }]
-					});
-
-					const account = accountResult.page[0] as { providerId?: string } | undefined;
-
-					signupMethod =
-						account?.providerId === 'google'
-							? 'Google'
-							: account?.providerId === 'github'
-								? 'GitHub'
-								: 'Email';
-				} catch (error) {
-					console.error('Failed to detect signup method:', error);
-				}
-
-				const signupTime = new Date().toLocaleString('en-US', {
-					month: 'short',
-					day: 'numeric',
-					year: 'numeric',
-					hour: 'numeric',
-					minute: '2-digit',
-					hour12: true
-				});
-
-				// Schedule signup notification email (runs after transaction commits)
-				// Non-critical: don't block signup if notification scheduling fails
-				try {
-					await ctx.scheduler.runAfter(0, internal.emails.send.sendNewUserSignupNotification, {
-						userName: user.name,
-						userEmail: user.email,
-						signupMethod,
-						signupTime
-					});
-				} catch (error) {
-					console.error('Failed to schedule signup notification:', error);
+				// Send signup stats email immediately only for already-verified users
+				// (e.g. OAuth providers with verified emails)
+				if (user.emailVerified) {
+					await scheduleNewUserSignupNotification(ctx, user);
 				}
 
 				// If new user is admin (rare but possible via seeding), create preferences
@@ -92,14 +111,20 @@ export const authComponent = createClient<DataModel, typeof authSchema>(componen
 
 			/**
 			 * Called when a user is updated
+			 * - Sends signup notification when email becomes verified
 			 * - Detects admin role changes and syncs notification preferences
 			 *
-			 * Non-critical operations are wrapped in try/catch to prevent
-			 * blocking user updates if preference sync fails.
+			 * Notification scheduling is intentionally unwrapped (see onCreate).
+			 * Preference sync IS wrapped to prevent blocking user updates.
 			 */
 			onUpdate: async (ctx, newUser, oldUser) => {
+				const becameVerified = oldUser.emailVerified !== true && newUser.emailVerified === true;
 				const wasAdmin = oldUser.role === 'admin';
 				const isAdmin = newUser.role === 'admin';
+
+				if (becameVerified) {
+					await scheduleNewUserSignupNotification(ctx, newUser);
+				}
 
 				try {
 					if (!wasAdmin && isAdmin) {

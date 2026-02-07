@@ -538,6 +538,15 @@
 			"verify": "E-Mail-Adresse bestätigen"
 		}
 	},
+	"error_page": {
+		"back_home": "Zurück zur Startseite",
+		"generic_description": "Beim Laden dieser Seite ist ein unerwarteter Fehler aufgetreten.",
+		"generic_title": "Etwas ist schiefgelaufen",
+		"need_help": "Brauchen Sie Hilfe?",
+		"not_found_description": "Die gesuchte Seite existiert nicht. Versuchen Sie unten nach dem zu suchen, was Sie brauchen.",
+		"not_found_title": "404 - Seite nicht gefunden",
+		"search_placeholder": "Versuchen Sie, nach Seiten zu suchen..."
+	},
 	"hero": {
 		"companies_text": "Vertrauen der besten Teams",
 		"cta": "Jetzt starten",
@@ -607,9 +616,81 @@
 			"description": "Lernen Sie das talentierte Team hinter unserem Produkt kennen",
 			"title": "Über uns - Lernen Sie unser Team kennen"
 		},
+		"admin": {
+			"dashboard": {
+				"description": "Überwachen Sie Plattformmetriken und externe Dienste.",
+				"title": "Admin-Dashboard"
+			},
+			"home": {
+				"description": "Weiterleitung zum Admin-Dashboard.",
+				"title": "Admin"
+			},
+			"settings": {
+				"description": "Konfigurieren Sie Admin-Benachrichtigungen und Einstellungen.",
+				"title": "Admin-Einstellungen"
+			},
+			"support": {
+				"description": "Prüfen und beantworten Sie Support-Anfragen von Nutzern.",
+				"title": "Support-Postfach"
+			},
+			"users": {
+				"description": "Verwalten Sie Nutzer, Rollen und Kontostatus.",
+				"title": "Nutzerverwaltung"
+			}
+		},
+		"app": {
+			"community_chat": {
+				"description": "Chatten Sie in Echtzeit mit der Community.",
+				"title": "Community-Chat"
+			},
+			"dashboard": {
+				"description": "Sehen Sie wichtige Kennzahlen und aktuelle Aktivitäten.",
+				"title": "Dashboard"
+			},
+			"home": {
+				"description": "Weiterleitung zu Ihrem Workspace-Dashboard.",
+				"title": "App-Start"
+			},
+			"settings": {
+				"description": "Verwalten Sie Ihre Kontoeinstellungen und Präferenzen.",
+				"title": "Einstellungen"
+			}
+		},
+		"auth": {
+			"email_verified": {
+				"description": "Ihre E-Mail-Adresse wurde bestätigt. Sie können nun mit Ihrem Konto fortfahren.",
+				"title": "E-Mail bestätigt"
+			},
+			"forgot_password": {
+				"description": "Fordern Sie einen Link zum Zurücksetzen des Passworts an.",
+				"title": "Passwort vergessen"
+			},
+			"reset_password": {
+				"description": "Legen Sie ein neues Passwort für Ihr Konto fest.",
+				"title": "Passwort zurücksetzen"
+			},
+			"signin": {
+				"description": "Melden Sie sich an oder erstellen Sie ein neues Konto.",
+				"title": "Anmelden"
+			}
+		},
+		"emails": {
+			"preview": {
+				"description": "Vorschau von E-Mail-Templates und gerendertem Inhalt.",
+				"title": "E-Mail-Vorschau"
+			}
+		},
 		"home": {
 			"description": "Die ultimative SaaS-Starter-Vorlage mit SvelteKit, Convex und modernen Web-Technologien. Erstellen Sie Ihre Marke in Minuten, nicht in Wochen. Fokussieren Sie sich auf Ihr Produkt und veröffentlichen Sie schneller.",
 			"title": "Schneller entwickeln und veröffentlichen"
+		},
+		"pricing": {
+			"description": "Wählen Sie einen Plan und testen Sie den integrierten Abrechnungsablauf.",
+			"title": "Preise"
+		},
+		"shadcn_demo": {
+			"description": "Vorschau der in diesem Projekt verwendeten UI-Komponenten.",
+			"title": "Shadcn-Demo"
 		}
 	},
 	"nav": {
@@ -692,6 +773,26 @@
 			}
 		},
 		"title": "Preise, die mit Ihnen wachsen"
+	},
+	"search": {
+		"command": {
+			"dialog_description": "Suche nach einer Seite, zu der du navigieren möchtest.",
+			"dialog_title": "Seiten suchen",
+			"footer": {
+				"go_to_page": "Zur Seite wechseln"
+			},
+			"groups": {
+				"admin": "Admin",
+				"app": "App",
+				"authentication": "Authentifizierung",
+				"public": "Öffentlich"
+			},
+			"input_placeholder": "Seiten suchen...",
+			"no_results": "Keine Ergebnisse gefunden.",
+			"trigger_aria_label": "Suche öffnen",
+			"trigger_desktop": "Seiten suchen...",
+			"trigger_mobile": "Suchen..."
+		}
 	},
 	"settings": {
 		"account": {

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { expoOut } from 'svelte/easing';
-	import { slide } from 'svelte/transition';
+	import { fade, slide } from 'svelte/transition';
 	import { browser } from '$app/environment';
 	import { invalidate } from '$app/navigation';
 	import { navigating } from '$app/stores';
@@ -139,9 +139,14 @@
 			  while slow networks see it moving for a full 12 seconds
 		-->
 		<div
-			class="fixed top-0 right-0 left-0 z-50 h-1 w-full bg-primary"
-			in:slide={{ delay: 100, duration: 12000, axis: 'x', easing: expoOut }}
-		></div>
+			class="fixed top-0 right-0 left-0 z-50 h-1 w-full overflow-hidden"
+			in:fade={{ delay: 100, duration: 0 }}
+		>
+			<div
+				class="h-full w-full bg-primary"
+				in:slide={{ delay: 100, duration: 12000, axis: 'x', easing: expoOut }}
+			></div>
+		</div>
 	{/if}
 	{@render children()}
 </Tooltip.Provider>

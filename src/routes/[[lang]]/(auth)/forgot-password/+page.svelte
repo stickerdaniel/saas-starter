@@ -1,6 +1,8 @@
 <script lang="ts">
 	import * as v from 'valibot';
+	import SEOHead from '$lib/components/SEOHead.svelte';
 	import * as Card from '$lib/components/ui/card/index.js';
+	import { LoadingBar } from '$lib/components/ui/loading-bar/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import {
@@ -11,6 +13,7 @@
 		FieldError
 	} from '$lib/components/ui/field/index.js';
 	import { authClient } from '$lib/auth-client.js';
+	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
 	import { localizedHref } from '$lib/utils/i18n';
 	import { resolve } from '$app/paths';
 	import { T, getTranslate } from '@tolgee/svelte';
@@ -20,10 +23,12 @@
 	import { translateValidationErrors } from '$lib/utils/validation-i18n.js';
 
 	const { t } = getTranslate();
+	const auth = useAuth();
 
 	let isLoading = $state(false);
 	let message = $state<string | null>(null);
 	let formError = $state<string | null>(null);
+	let lastValidSubmission = $state<string | null>(null);
 
 	const id = $props.id();
 
@@ -32,6 +37,25 @@
 
 	// Field errors
 	let errors = $state<Record<string, string[]>>({});
+	const totalSteps = 2;
+	const validation = $derived.by(() => {
+		const result = v.safeParse(forgotPasswordSchema, formData);
+		const invalidFields = new Set<string>(
+			result.success
+				? []
+				: result.issues
+						.map((issue) => issue.path?.[0]?.key)
+						.filter((key): key is string => typeof key === 'string')
+		);
+		return {
+			isEmailValid: !invalidFields.has('email')
+		};
+	});
+	const submissionToken = $derived(formData.email);
+	const completedSteps = $derived(
+		(validation.isEmailValid ? 1 : 0) + (lastValidSubmission === submissionToken ? 1 : 0)
+	);
+	const progress = $derived((completedSteps / totalSteps) * 100);
 
 	// Initialize email from global state
 	$effect(() => {
@@ -44,6 +68,13 @@
 	$effect(() => {
 		if (formData.email) {
 			authFlow.email = formData.email;
+		}
+	});
+
+	// Redirect when already authenticated
+	$effect(() => {
+		if (auth.isAuthenticated) {
+			window.location.href = localizedHref('/app');
 		}
 	});
 
@@ -65,7 +96,11 @@
 
 	async function handleSubmit(e: Event) {
 		e.preventDefault();
-		if (!validate()) return;
+		if (!validate()) {
+			lastValidSubmission = null;
+			return;
+		}
+		lastValidSubmission = submissionToken;
 
 		isLoading = true;
 		message = null;
@@ -78,18 +113,25 @@
 			});
 
 			if (err) {
+				lastValidSubmission = null;
 				formError = getAuthErrorKey(err, 'auth.messages.request_reset_failed');
 			} else {
 				message = 'auth.messages.reset_link_sent';
 			}
 		} catch (error) {
 			console.error('[ForgotPassword] Request error:', error);
+			lastValidSubmission = null;
 			formError = 'auth.messages.request_reset_failed';
 		} finally {
 			isLoading = false;
 		}
 	}
 </script>
+
+<SEOHead
+	title={$t('meta.auth.forgot_password.title')}
+	description={$t('meta.auth.forgot_password.description')}
+/>
 
 <noscript>
 	<div class="fixed inset-x-0 top-0 z-50 bg-yellow-100 p-4 text-center text-yellow-800">
@@ -101,69 +143,76 @@
 	<div class="flex w-full max-w-sm flex-col gap-6 md:max-w-3xl">
 		<Card.Root class="overflow-hidden p-0">
 			<Card.Content class="grid p-0 md:grid-cols-2">
-				<form onsubmit={handleSubmit} novalidate class="min-h-96 p-6 md:p-8">
-					<FieldGroup>
-						<div class="flex flex-col items-center gap-2 text-center">
-							<h1 class="text-2xl font-bold">
-								<T keyName="auth.forgot_password.title" defaultValue="Forgot password" />
-							</h1>
-							<p class="text-balance text-muted-foreground">
-								<T
-									keyName="auth.forgot_password.description"
-									defaultValue="We will email you a reset link"
+				<form onsubmit={handleSubmit} novalidate class="min-h-96">
+					<LoadingBar value={progress} indeterminate={isLoading} class="h-1 rounded-none" />
+					<div class="p-6 md:p-8">
+						<FieldGroup>
+							<div class="flex flex-col items-center gap-2 text-center">
+								<h1 class="text-2xl font-bold">
+									<T keyName="auth.forgot_password.title" defaultValue="Forgot password" />
+								</h1>
+								<p class="text-balance text-muted-foreground">
+									<T
+										keyName="auth.forgot_password.description"
+										defaultValue="We will email you a reset link"
+									/>
+								</p>
+							</div>
+							{#if formError}
+								<Field>
+									<div class="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+										<T keyName={formError} />
+									</div>
+								</Field>
+							{/if}
+							{#if message}
+								<Field>
+									<div
+										class="rounded-md bg-green-500/10 p-3 text-sm text-green-600 dark:text-green-400"
+									>
+										<T keyName={message} />
+									</div>
+								</Field>
+							{/if}
+							<Field>
+								<FieldLabel for="email-{id}">
+									<T keyName="auth.signin.email_label" defaultValue="Email" />
+								</FieldLabel>
+								<Input
+									id="email-{id}"
+									type="email"
+									placeholder="m@example.com"
+									disabled={isLoading}
+									bind:value={formData.email}
 								/>
-							</p>
-						</div>
-						{#if formError}
-							<Field>
-								<div class="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-									<T keyName={formError} />
-								</div>
+								<FieldError errors={translateValidationErrors(errors.email, $t)} />
 							</Field>
-						{/if}
-						{#if message}
 							<Field>
-								<div
-									class="rounded-md bg-green-500/10 p-3 text-sm text-green-600 dark:text-green-400"
-								>
-									<T keyName={message} />
-								</div>
+								<Button type="submit" class="w-full" disabled={isLoading}>
+									{#if isLoading}
+										<T keyName="auth.forgot_password.button_loading" defaultValue="Sending..." />
+									{:else}
+										<T
+											keyName="auth.forgot_password.button_submit"
+											defaultValue="Send reset link"
+										/>
+									{/if}
+								</Button>
 							</Field>
-						{/if}
-						<Field>
-							<FieldLabel for="email-{id}">
-								<T keyName="auth.signin.email_label" defaultValue="Email" />
-							</FieldLabel>
-							<Input
-								id="email-{id}"
-								type="email"
-								placeholder="m@example.com"
-								disabled={isLoading}
-								bind:value={formData.email}
-							/>
-							<FieldError errors={translateValidationErrors(errors.email, $t)} />
-						</Field>
-						<Field>
-							<Button type="submit" class="w-full" disabled={isLoading}>
-								{#if isLoading}
-									<T keyName="auth.forgot_password.button_loading" defaultValue="Sending..." />
-								{:else}
-									<T keyName="auth.forgot_password.button_submit" defaultValue="Send reset link" />
-								{/if}
-							</Button>
-						</Field>
-						<FieldDescription class="text-center">
-							<a href={resolve(localizedHref('/signin'))} class="underline underline-offset-4">
-								<T keyName="auth.forgot_password.back_to_signin" defaultValue="Back to sign in" />
-							</a>
-						</FieldDescription>
-					</FieldGroup>
+							<FieldDescription class="text-center">
+								<a href={resolve(localizedHref('/signin'))} class="underline underline-offset-4">
+									<T keyName="auth.forgot_password.back_to_signin" defaultValue="Back to sign in" />
+								</a>
+							</FieldDescription>
+						</FieldGroup>
+					</div>
 				</form>
 				<div class="relative hidden bg-muted md:block">
 					<img
 						src="/placeholder.svg"
 						alt=""
-						class="absolute inset-0 h-full w-full object-cover dark:brightness-[0.2] dark:grayscale"
+						draggable="false"
+						class="absolute inset-0 h-full w-full object-cover select-none dark:brightness-[0.2] dark:grayscale"
 					/>
 				</div>
 			</Card.Content>
