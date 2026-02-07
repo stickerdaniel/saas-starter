@@ -1,6 +1,7 @@
 <script lang="ts">
 	import LightSwitch from '$lib/components/ui/light-switch/light-switch.svelte';
 	import LanguageSwitcher from '$lib/components/LanguageSwitcher.svelte';
+	import CommandTrigger from '$lib/components/global-search/command-trigger.svelte';
 	import Button from '$lib/components/ui/button/button.svelte';
 	import { cn } from '$lib/utils';
 	import { localizedHref } from '$lib/utils/i18n';
@@ -62,6 +63,7 @@
 
 				<!-- Desktop Actions -->
 				<div class="hidden items-center gap-3 lg:flex">
+					<CommandTrigger />
 					<Button
 						variant="ghost"
 						size="icon"

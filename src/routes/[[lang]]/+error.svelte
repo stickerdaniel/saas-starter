@@ -7,10 +7,10 @@
 	import * as Kbd from '$lib/components/ui/kbd/index.js';
 	import { getLanguage } from '$lib/i18n/languages';
 	import SearchIcon from '@lucide/svelte/icons/search';
-	import de from '../i18n/de.json';
-	import en from '../i18n/en.json';
-	import es from '../i18n/es.json';
-	import fr from '../i18n/fr.json';
+	import de from '../../i18n/de.json';
+	import en from '../../i18n/en.json';
+	import es from '../../i18n/es.json';
+	import fr from '../../i18n/fr.json';
 
 	type ErrorPageTranslations = {
 		error_page: {
@@ -48,16 +48,10 @@
 			: translations.error_page.generic_description
 	);
 
-	let globalSearch: ReturnType<typeof useGlobalSearchContext> | null = null;
-
-	try {
-		globalSearch = useGlobalSearchContext();
-	} catch {
-		globalSearch = null;
-	}
+	const globalSearch = useGlobalSearchContext();
 
 	function openGlobalSearch(): void {
-		globalSearch?.openMenu();
+		globalSearch.openMenu();
 	}
 
 	function handleSearchTriggerKeydown(event: KeyboardEvent): void {
@@ -81,7 +75,6 @@
 					readonly
 					aria-readonly="true"
 					tabindex={0}
-					onfocus={openGlobalSearch}
 					onkeydown={handleSearchTriggerKeydown}
 				/>
 				<InputGroup.Addon>

@@ -105,6 +105,7 @@
 		lastValidSubmission = submissionToken;
 
 		if (!token) {
+			lastValidSubmission = null;
 			formError = 'auth.messages.missing_reset_token';
 			return;
 		}
@@ -120,12 +121,14 @@
 			});
 
 			if (err) {
+				lastValidSubmission = null;
 				formError = getAuthErrorKey(err, 'auth.messages.reset_failed');
 			} else {
 				message = 'auth.messages.password_reset_success';
 			}
 		} catch (error) {
 			console.error('[ResetPassword] Reset error:', error);
+			lastValidSubmission = null;
 			formError = 'auth.messages.reset_failed';
 		} finally {
 			isLoading = false;

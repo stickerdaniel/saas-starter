@@ -24,7 +24,7 @@
 	aria-valuenow={value}
 	aria-valuemin={0}
 	aria-valuemax={max}
-	class={cn('h-2 w-full overflow-hidden rounded-full bg-neutral-300', className)}
+	class={cn('h-2 w-full overflow-hidden rounded-full bg-zinc-300', className)}
 	{...restProps}
 >
 	<div data-slot="progress-indicator" class="h-full bg-primary" style="width: {percentage}%"></div>

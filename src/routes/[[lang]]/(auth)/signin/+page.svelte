@@ -271,12 +271,14 @@
 						verificationStep = { email: signUpData.email };
 					},
 					onError: (ctx) => {
+						lastValidSignUpSubmission = null;
 						formError = getAuthErrorKey(ctx.error, 'auth.messages.signup_failed');
 					}
 				}
 			);
 		} catch (error) {
 			console.error('[SignUp] Registration error:', error);
+			lastValidSignUpSubmission = null;
 			formError = 'auth.messages.signup_failed';
 		} finally {
 			isLoading = false;

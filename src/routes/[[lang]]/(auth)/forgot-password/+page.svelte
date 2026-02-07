@@ -103,12 +103,14 @@
 			});
 
 			if (err) {
+				lastValidSubmission = null;
 				formError = getAuthErrorKey(err, 'auth.messages.request_reset_failed');
 			} else {
 				message = 'auth.messages.reset_link_sent';
 			}
 		} catch (error) {
 			console.error('[ForgotPassword] Request error:', error);
+			lastValidSubmission = null;
 			formError = 'auth.messages.request_reset_failed';
 		} finally {
 			isLoading = false;
