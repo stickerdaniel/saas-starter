@@ -128,6 +128,7 @@ These commands use `dotenv` to load the local TOLGEE_API_KEY from `.env.local`:
 
 - Every new `+page.svelte` route must include `SEOHead`.
 - For localized routes under `src/routes/[[lang]]/`, `SEOHead` title and description must use translated `meta.*` keys in all 4 locale files (`en`, `de`, `es`, `fr`).
+- `meta.*.title` values must be page-title only and must NOT include the site suffix or brand name. `SEOHead` appends `| SaaS Starter` automatically (use `"Settings"`, not `"Settings - SaaS Starter"`).
 
 ### Email System
 

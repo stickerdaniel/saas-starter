@@ -612,72 +612,72 @@
 		"title": "Real {year} Developer Experience"
 	},
 	"meta": {
-		"admin": {
-			"dashboard": {
-				"description": "Monitor platform metrics and external services.",
-				"title": "Admin Dashboard - SaaS Starter"
-			},
-			"home": {
-				"description": "Redirecting to the admin dashboard.",
-				"title": "Admin - SaaS Starter"
-			},
-			"settings": {
-				"description": "Configure admin notification recipients and preferences.",
-				"title": "Admin Settings - SaaS Starter"
-			},
-			"support": {
-				"description": "Review and respond to customer support threads.",
-				"title": "Support Inbox - SaaS Starter"
-			},
-			"users": {
-				"description": "Manage users, roles, and account status.",
-				"title": "User Management - SaaS Starter"
-			}
-		},
 		"about": {
 			"description": "Meet the talented team behind our product",
 			"title": "About Us - Meet Our Team"
 		},
+		"admin": {
+			"dashboard": {
+				"description": "Monitor platform metrics and external services.",
+				"title": "Admin Dashboard"
+			},
+			"home": {
+				"description": "Redirecting to the admin dashboard.",
+				"title": "Admin"
+			},
+			"settings": {
+				"description": "Configure admin notification recipients and preferences.",
+				"title": "Admin Settings"
+			},
+			"support": {
+				"description": "Review and respond to customer support threads.",
+				"title": "Support Inbox"
+			},
+			"users": {
+				"description": "Manage users, roles, and account status.",
+				"title": "User Management"
+			}
+		},
 		"app": {
 			"community_chat": {
 				"description": "Chat with the community in real time.",
-				"title": "Community Chat - SaaS Starter"
+				"title": "Community Chat"
 			},
 			"dashboard": {
 				"description": "View key metrics and recent activity.",
-				"title": "Dashboard - SaaS Starter"
+				"title": "Dashboard"
 			},
 			"home": {
 				"description": "Redirecting to your workspace dashboard.",
-				"title": "App Home - SaaS Starter"
+				"title": "App Home"
 			},
 			"settings": {
 				"description": "Manage your account settings and preferences.",
-				"title": "Settings - SaaS Starter"
+				"title": "Settings"
 			}
 		},
 		"auth": {
 			"email_verified": {
 				"description": "Your email address has been verified. You can continue to your account.",
-				"title": "Email Verified - SaaS Starter"
+				"title": "Email Verified"
 			},
 			"forgot_password": {
 				"description": "Request a password reset link to regain access to your account.",
-				"title": "Forgot Password - SaaS Starter"
+				"title": "Forgot Password"
 			},
 			"reset_password": {
 				"description": "Set a new password for your account.",
-				"title": "Reset Password - SaaS Starter"
+				"title": "Reset Password"
 			},
 			"signin": {
 				"description": "Access your account or create a new one.",
-				"title": "Sign In - SaaS Starter"
+				"title": "Sign In"
 			}
 		},
 		"emails": {
 			"preview": {
 				"description": "Preview email templates and rendered output.",
-				"title": "Email Preview - SaaS Starter"
+				"title": "Email Preview"
 			}
 		},
 		"home": {
@@ -686,11 +686,11 @@
 		},
 		"pricing": {
 			"description": "Choose a plan and test the integrated billing flow.",
-			"title": "Pricing - SaaS Starter"
+			"title": "Pricing"
 		},
 		"shadcn_demo": {
 			"description": "Preview the UI components used in this project.",
-			"title": "Shadcn Demo - SaaS Starter"
+			"title": "Shadcn Demo"
 		}
 	},
 	"nav": {

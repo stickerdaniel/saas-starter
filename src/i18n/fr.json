@@ -612,72 +612,72 @@
 		"title": "Véritable Expérience Développeur {year}"
 	},
 	"meta": {
-		"admin": {
-			"dashboard": {
-				"description": "Surveillez les métriques de la plateforme et les services externes.",
-				"title": "Tableau de bord Admin - SaaS Starter"
-			},
-			"home": {
-				"description": "Redirection vers le tableau de bord administrateur.",
-				"title": "Admin - SaaS Starter"
-			},
-			"settings": {
-				"description": "Configurez les destinataires et préférences de notifications admin.",
-				"title": "Paramètres Admin - SaaS Starter"
-			},
-			"support": {
-				"description": "Consultez et répondez aux conversations de support client.",
-				"title": "Boîte de support - SaaS Starter"
-			},
-			"users": {
-				"description": "Gérez les utilisateurs, les rôles et l'état des comptes.",
-				"title": "Gestion des utilisateurs - SaaS Starter"
-			}
-		},
 		"about": {
 			"description": "Rencontrez l'équipe talentueuse derrière notre produit",
 			"title": "À propos de nous - Rencontrez notre équipe"
 		},
+		"admin": {
+			"dashboard": {
+				"description": "Surveillez les métriques de la plateforme et les services externes.",
+				"title": "Tableau de bord Admin"
+			},
+			"home": {
+				"description": "Redirection vers le tableau de bord administrateur.",
+				"title": "Admin"
+			},
+			"settings": {
+				"description": "Configurez les destinataires et préférences de notifications admin.",
+				"title": "Paramètres Admin"
+			},
+			"support": {
+				"description": "Consultez et répondez aux conversations de support client.",
+				"title": "Boîte de support"
+			},
+			"users": {
+				"description": "Gérez les utilisateurs, les rôles et l'état des comptes.",
+				"title": "Gestion des utilisateurs"
+			}
+		},
 		"app": {
 			"community_chat": {
 				"description": "Discutez avec la communauté en temps réel.",
-				"title": "Chat communautaire - SaaS Starter"
+				"title": "Chat communautaire"
 			},
 			"dashboard": {
 				"description": "Consultez les métriques clés et l'activité récente.",
-				"title": "Tableau de bord - SaaS Starter"
+				"title": "Tableau de bord"
 			},
 			"home": {
 				"description": "Redirection vers le tableau de bord de votre espace de travail.",
-				"title": "Accueil App - SaaS Starter"
+				"title": "Accueil App"
 			},
 			"settings": {
 				"description": "Gérez les paramètres et préférences de votre compte.",
-				"title": "Paramètres - SaaS Starter"
+				"title": "Paramètres"
 			}
 		},
 		"auth": {
 			"email_verified": {
 				"description": "Votre adresse e-mail a été vérifiée. Vous pouvez continuer vers votre compte.",
-				"title": "E-mail vérifié - SaaS Starter"
+				"title": "E-mail vérifié"
 			},
 			"forgot_password": {
 				"description": "Demandez un lien de réinitialisation de mot de passe.",
-				"title": "Mot de passe oublié - SaaS Starter"
+				"title": "Mot de passe oublié"
 			},
 			"reset_password": {
 				"description": "Définissez un nouveau mot de passe pour votre compte.",
-				"title": "Réinitialiser le mot de passe - SaaS Starter"
+				"title": "Réinitialiser le mot de passe"
 			},
 			"signin": {
 				"description": "Connectez-vous à votre compte ou créez-en un nouveau.",
-				"title": "Connexion - SaaS Starter"
+				"title": "Connexion"
 			}
 		},
 		"emails": {
 			"preview": {
 				"description": "Prévisualisez les modèles d'e-mails et leur rendu.",
-				"title": "Aperçu des e-mails - SaaS Starter"
+				"title": "Aperçu des e-mails"
 			}
 		},
 		"home": {
@@ -686,11 +686,11 @@
 		},
 		"pricing": {
 			"description": "Choisissez une offre et testez le flux de facturation intégré.",
-			"title": "Tarifs - SaaS Starter"
+			"title": "Tarifs"
 		},
 		"shadcn_demo": {
 			"description": "Prévisualisez les composants UI utilisés dans ce projet.",
-			"title": "Démo Shadcn - SaaS Starter"
+			"title": "Démo Shadcn"
 		}
 	},
 	"nav": {

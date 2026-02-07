@@ -612,72 +612,72 @@
 		"title": "Echte {year} Developer Experience"
 	},
 	"meta": {
-		"admin": {
-			"dashboard": {
-				"description": "Überwachen Sie Plattformmetriken und externe Dienste.",
-				"title": "Admin-Dashboard - SaaS Starter"
-			},
-			"home": {
-				"description": "Weiterleitung zum Admin-Dashboard.",
-				"title": "Admin - SaaS Starter"
-			},
-			"settings": {
-				"description": "Konfigurieren Sie Admin-Benachrichtigungen und Einstellungen.",
-				"title": "Admin-Einstellungen - SaaS Starter"
-			},
-			"support": {
-				"description": "Prüfen und beantworten Sie Support-Anfragen von Nutzern.",
-				"title": "Support-Postfach - SaaS Starter"
-			},
-			"users": {
-				"description": "Verwalten Sie Nutzer, Rollen und Kontostatus.",
-				"title": "Nutzerverwaltung - SaaS Starter"
-			}
-		},
 		"about": {
 			"description": "Lernen Sie das talentierte Team hinter unserem Produkt kennen",
 			"title": "Über uns - Lernen Sie unser Team kennen"
 		},
+		"admin": {
+			"dashboard": {
+				"description": "Überwachen Sie Plattformmetriken und externe Dienste.",
+				"title": "Admin-Dashboard"
+			},
+			"home": {
+				"description": "Weiterleitung zum Admin-Dashboard.",
+				"title": "Admin"
+			},
+			"settings": {
+				"description": "Konfigurieren Sie Admin-Benachrichtigungen und Einstellungen.",
+				"title": "Admin-Einstellungen"
+			},
+			"support": {
+				"description": "Prüfen und beantworten Sie Support-Anfragen von Nutzern.",
+				"title": "Support-Postfach"
+			},
+			"users": {
+				"description": "Verwalten Sie Nutzer, Rollen und Kontostatus.",
+				"title": "Nutzerverwaltung"
+			}
+		},
 		"app": {
 			"community_chat": {
 				"description": "Chatten Sie in Echtzeit mit der Community.",
-				"title": "Community-Chat - SaaS Starter"
+				"title": "Community-Chat"
 			},
 			"dashboard": {
 				"description": "Sehen Sie wichtige Kennzahlen und aktuelle Aktivitäten.",
-				"title": "Dashboard - SaaS Starter"
+				"title": "Dashboard"
 			},
 			"home": {
 				"description": "Weiterleitung zu Ihrem Workspace-Dashboard.",
-				"title": "App-Start - SaaS Starter"
+				"title": "App-Start"
 			},
 			"settings": {
 				"description": "Verwalten Sie Ihre Kontoeinstellungen und Präferenzen.",
-				"title": "Einstellungen - SaaS Starter"
+				"title": "Einstellungen"
 			}
 		},
 		"auth": {
 			"email_verified": {
 				"description": "Ihre E-Mail-Adresse wurde bestätigt. Sie können nun mit Ihrem Konto fortfahren.",
-				"title": "E-Mail bestätigt - SaaS Starter"
+				"title": "E-Mail bestätigt"
 			},
 			"forgot_password": {
 				"description": "Fordern Sie einen Link zum Zurücksetzen des Passworts an.",
-				"title": "Passwort vergessen - SaaS Starter"
+				"title": "Passwort vergessen"
 			},
 			"reset_password": {
 				"description": "Legen Sie ein neues Passwort für Ihr Konto fest.",
-				"title": "Passwort zurücksetzen - SaaS Starter"
+				"title": "Passwort zurücksetzen"
 			},
 			"signin": {
 				"description": "Melden Sie sich an oder erstellen Sie ein neues Konto.",
-				"title": "Anmelden - SaaS Starter"
+				"title": "Anmelden"
 			}
 		},
 		"emails": {
 			"preview": {
 				"description": "Vorschau von E-Mail-Templates und gerendertem Inhalt.",
-				"title": "E-Mail-Vorschau - SaaS Starter"
+				"title": "E-Mail-Vorschau"
 			}
 		},
 		"home": {
@@ -686,11 +686,11 @@
 		},
 		"pricing": {
 			"description": "Wählen Sie einen Plan und testen Sie den integrierten Abrechnungsablauf.",
-			"title": "Preise - SaaS Starter"
+			"title": "Preise"
 		},
 		"shadcn_demo": {
 			"description": "Vorschau der in diesem Projekt verwendeten UI-Komponenten.",
-			"title": "Shadcn-Demo - SaaS Starter"
+			"title": "Shadcn-Demo"
 		}
 	},
 	"nav": {
