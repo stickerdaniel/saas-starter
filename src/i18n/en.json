@@ -612,13 +612,85 @@
 		"title": "Real {year} Developer Experience"
 	},
 	"meta": {
+		"admin": {
+			"dashboard": {
+				"description": "Monitor platform metrics and external services.",
+				"title": "Admin Dashboard - SaaS Starter"
+			},
+			"home": {
+				"description": "Redirecting to the admin dashboard.",
+				"title": "Admin - SaaS Starter"
+			},
+			"settings": {
+				"description": "Configure admin notification recipients and preferences.",
+				"title": "Admin Settings - SaaS Starter"
+			},
+			"support": {
+				"description": "Review and respond to customer support threads.",
+				"title": "Support Inbox - SaaS Starter"
+			},
+			"users": {
+				"description": "Manage users, roles, and account status.",
+				"title": "User Management - SaaS Starter"
+			}
+		},
 		"about": {
 			"description": "Meet the talented team behind our product",
 			"title": "About Us - Meet Our Team"
 		},
+		"app": {
+			"community_chat": {
+				"description": "Chat with the community in real time.",
+				"title": "Community Chat - SaaS Starter"
+			},
+			"dashboard": {
+				"description": "View key metrics and recent activity.",
+				"title": "Dashboard - SaaS Starter"
+			},
+			"home": {
+				"description": "Redirecting to your workspace dashboard.",
+				"title": "App Home - SaaS Starter"
+			},
+			"settings": {
+				"description": "Manage your account settings and preferences.",
+				"title": "Settings - SaaS Starter"
+			}
+		},
+		"auth": {
+			"email_verified": {
+				"description": "Your email address has been verified. You can continue to your account.",
+				"title": "Email Verified - SaaS Starter"
+			},
+			"forgot_password": {
+				"description": "Request a password reset link to regain access to your account.",
+				"title": "Forgot Password - SaaS Starter"
+			},
+			"reset_password": {
+				"description": "Set a new password for your account.",
+				"title": "Reset Password - SaaS Starter"
+			},
+			"signin": {
+				"description": "Access your account or create a new one.",
+				"title": "Sign In - SaaS Starter"
+			}
+		},
+		"emails": {
+			"preview": {
+				"description": "Preview email templates and rendered output.",
+				"title": "Email Preview - SaaS Starter"
+			}
+		},
 		"home": {
 			"description": "The ultimate SaaS starter template with SvelteKit, Convex, and modern web technologies. Build your brand in minutes, not weeks. Focus on your product and ship faster.",
 			"title": "Build & Ship Your Product Faster"
+		},
+		"pricing": {
+			"description": "Choose a plan and test the integrated billing flow.",
+			"title": "Pricing - SaaS Starter"
+		},
+		"shadcn_demo": {
+			"description": "Preview the UI components used in this project.",
+			"title": "Shadcn Demo - SaaS Starter"
 		}
 	},
 	"nav": {
@@ -631,26 +703,6 @@
 		"pricing": "Pricing",
 		"signup": "Sign up",
 		"solution": "Solution"
-	},
-	"search": {
-		"command": {
-			"dialog_description": "Search for a page to navigate to.",
-			"dialog_title": "Search pages",
-			"footer": {
-				"go_to_page": "Go to page"
-			},
-			"groups": {
-				"admin": "Admin",
-				"app": "App",
-				"authentication": "Authentication",
-				"public": "Public"
-			},
-			"input_placeholder": "Search pages...",
-			"no_results": "No results found.",
-			"trigger_aria_label": "Open search",
-			"trigger_desktop": "Search pages...",
-			"trigger_mobile": "Search..."
-		}
 	},
 	"pricing": {
 		"buttons": {
@@ -721,6 +773,26 @@
 			}
 		},
 		"title": "Pricing that Scales with You"
+	},
+	"search": {
+		"command": {
+			"dialog_description": "Search for a page to navigate to.",
+			"dialog_title": "Search pages",
+			"footer": {
+				"go_to_page": "Go to page"
+			},
+			"groups": {
+				"admin": "Admin",
+				"app": "App",
+				"authentication": "Authentication",
+				"public": "Public"
+			},
+			"input_placeholder": "Search pages...",
+			"no_results": "No results found.",
+			"trigger_aria_label": "Open search",
+			"trigger_desktop": "Search pages...",
+			"trigger_mobile": "Search..."
+		}
 	},
 	"settings": {
 		"account": {

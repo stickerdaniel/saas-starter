@@ -1,4 +1,5 @@
 <script lang="ts">
+	import SEOHead from '$lib/components/SEOHead.svelte';
 	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
 	import { useSearchParams } from 'runed/kit';
 	import { authParamsSchema } from '$lib/schemas/auth.js';
@@ -53,6 +54,11 @@
 		return () => clearTimeout(timeoutId);
 	});
 </script>
+
+<SEOHead
+	title={$t('meta.auth.email_verified.title')}
+	description={$t('meta.auth.email_verified.description')}
+/>
 
 <div class="flex min-h-svh flex-col items-center justify-center p-6 md:p-10">
 	<div class="flex w-full max-w-sm flex-col gap-6 md:max-w-3xl">

@@ -1,8 +1,9 @@
 <script lang="ts">
 	import type { PageData } from './$types';
+	import SEOHead from '$lib/components/SEOHead.svelte';
 	import { Separator } from '$lib/components/ui/separator/index.js';
 	import * as Tabs from '$lib/components/ui/tabs/index.js';
-	import { T } from '@tolgee/svelte';
+	import { T, getTranslate } from '@tolgee/svelte';
 	import AccountSettings from './account-settings.svelte';
 	import PasswordSettings from './password-settings.svelte';
 	import EmailSettings from './email-settings.svelte';
@@ -15,11 +16,10 @@
 	let { data }: Props = $props();
 
 	let user = $derived(data.user);
+	const { t } = getTranslate();
 </script>
 
-<svelte:head>
-	<title>Settings</title>
-</svelte:head>
+<SEOHead title={$t('meta.app.settings.title')} description={$t('meta.app.settings.description')} />
 
 <div class="flex flex-1 flex-col px-4 lg:px-6">
 	<div class="flex-1 space-y-6">

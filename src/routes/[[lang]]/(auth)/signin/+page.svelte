@@ -5,6 +5,7 @@
 	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
 	import { useQuery } from 'convex-svelte';
 	import { api } from '$lib/convex/_generated/api';
+	import SEOHead from '$lib/components/SEOHead.svelte';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import * as Card from '$lib/components/ui/card/index.js';
@@ -343,6 +344,8 @@
 		}
 	}
 </script>
+
+<SEOHead title={$t('meta.auth.signin.title')} description={$t('meta.auth.signin.description')} />
 
 <noscript>
 	<div class="fixed inset-x-0 top-0 z-50 bg-yellow-100 p-4 text-center text-yellow-800">

@@ -19,7 +19,7 @@
 <Button
 	variant="secondary"
 	class={cn(
-		'bg-surface text-foreground dark:bg-card relative h-8 w-full justify-start pl-3 font-medium shadow-none md:w-48 lg:w-56 xl:w-64',
+		'bg-surface relative h-8 w-full justify-start pl-3 font-medium text-foreground shadow-none md:w-48 lg:w-56 xl:w-64 dark:bg-card',
 		className
 	)}
 	onclick={() => globalSearch.openMenu()}

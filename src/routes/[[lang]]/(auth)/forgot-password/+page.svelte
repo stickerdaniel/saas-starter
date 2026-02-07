@@ -1,5 +1,6 @@
 <script lang="ts">
 	import * as v from 'valibot';
+	import SEOHead from '$lib/components/SEOHead.svelte';
 	import * as Card from '$lib/components/ui/card/index.js';
 	import { LoadingBar } from '$lib/components/ui/loading-bar/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
@@ -117,6 +118,11 @@
 		}
 	}
 </script>
+
+<SEOHead
+	title={$t('meta.auth.forgot_password.title')}
+	description={$t('meta.auth.forgot_password.description')}
+/>
 
 <noscript>
 	<div class="fixed inset-x-0 top-0 z-50 bg-yellow-100 p-4 text-center text-yellow-800">

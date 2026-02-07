@@ -1,4 +1,6 @@
 <script lang="ts">
+	import SEOHead from '$lib/components/SEOHead.svelte';
+	import { getTranslate } from '@tolgee/svelte';
 	// Regular UI components (what email SHOULD look like)
 	import * as Card from '$lib/components/ui/card';
 	import { Badge } from '$lib/components/ui/badge';
@@ -15,7 +17,10 @@
 	const buttonUrl = '#button-url';
 	const userName = 'User';
 	const userAvatar = 'https://github.com/shadcn.png';
+	const { t } = getTranslate();
 </script>
+
+<SEOHead title={$t('meta.shadcn_demo.title')} description={$t('meta.shadcn_demo.description')} />
 
 <div class="mx-auto max-w-[600px] py-10">
 	<Card.Root>

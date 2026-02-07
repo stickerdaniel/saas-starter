@@ -1,357 +1,357 @@
 {
-  "$schema": "https://btca.dev/btca.schema.json",
-  "providerTimeoutMs": 300000,
-  "resources": [
-    {
-      "type": "git",
-      "name": "svelte",
-      "url": "https://github.com/sveltejs/svelte.dev",
-      "branch": "main",
-      "searchPath": "apps/svelte.dev/content",
-      "specialNotes": "Svelte 5 docs. Focus on content/docs for runes, reactivity, components."
-    },
-    {
-      "type": "git",
-      "name": "sveltekit",
-      "url": "https://github.com/sveltejs/svelte.dev",
-      "branch": "main",
-      "searchPath": "apps/svelte.dev/content/docs/kit",
-      "specialNotes": "SvelteKit docs. Routing, load functions, hooks, adapters."
-    },
-    {
-      "type": "git",
-      "name": "shadcnSvelte",
-      "url": "https://github.com/huntabyte/shadcn-svelte",
-      "branch": "main",
-      "searchPath": "sites/docs/src/content",
-      "specialNotes": "UI components built on bits-ui. Check content for component docs."
-    },
-    {
-      "type": "git",
-      "name": "shadcnSvelteExtras",
-      "url": "https://github.com/ieedan/shadcn-svelte-extras",
-      "branch": "main",
-      "specialNotes": "Additional shadcn-svelte components not in main library."
-    },
-    {
-      "type": "git",
-      "name": "bitsUi",
-      "url": "https://github.com/huntabyte/bits-ui",
-      "branch": "main",
-      "searchPath": "docs/src/content",
-      "specialNotes": "Headless UI primitives. Foundation for shadcn-svelte."
-    },
-    {
-      "type": "git",
-      "name": "runed",
-      "url": "https://github.com/svecosystem/runed",
-      "branch": "main",
-      "specialNotes": "Svelte 5 utilities: useDebounce, PersistedState, ElementRect, etc."
-    },
-    {
-      "type": "git",
-      "name": "formsnap",
-      "url": "https://github.com/svecosystem/formsnap",
-      "branch": "main",
-      "specialNotes": "Form components for Svelte with superforms integration."
-    },
-    {
-      "type": "git",
-      "name": "superforms",
-      "url": "https://github.com/ciscoheat/sveltekit-superforms",
-      "branch": "main",
-      "specialNotes": "SvelteKit form library with validation, progressive enhancement."
-    },
-    {
-      "type": "git",
-      "name": "paneforge",
-      "url": "https://github.com/svecosystem/paneforge",
-      "branch": "main",
-      "specialNotes": "Resizable pane components for Svelte."
-    },
-    {
-      "type": "git",
-      "name": "svelteInfinite",
-      "url": "https://github.com/ndom91/svelte-infinite",
-      "branch": "main",
-      "specialNotes": "Infinite scroll for Svelte. Use with convex pagination."
-    },
-    {
-      "type": "git",
-      "name": "motionSvelte",
-      "url": "https://github.com/hanielu/motion-svelte",
-      "branch": "main",
-      "specialNotes": "Framer Motion for Svelte. Animation library."
-    },
-    {
-      "type": "git",
-      "name": "svAnimate",
-      "url": "https://github.com/SikandarJODD/sv-animate",
-      "branch": "main",
-      "specialNotes": "Prebuilt animation components for Svelte."
-    },
-    {
-      "type": "git",
-      "name": "threlte",
-      "url": "https://github.com/threlte/threlte",
-      "branch": "main",
-      "searchPath": "apps/docs/src/content",
-      "specialNotes": "Three.js for Svelte. 3D rendering and interactive scenes."
-    },
-    {
-      "type": "git",
-      "name": "xyflow",
-      "url": "https://github.com/xyflow/xyflow",
-      "branch": "main",
-      "searchPath": "packages/svelte",
-      "specialNotes": "Svelte Flow - node-based diagrams and editors."
-    },
-    {
-      "type": "git",
-      "name": "cnblocks",
-      "url": "https://github.com/SikandarJODD/cnblocks",
-      "branch": "main",
-      "specialNotes": "Marketing blocks: headers, features, pricing, footers."
-    },
-    {
-      "type": "git",
-      "name": "aiElements",
-      "url": "https://github.com/SikandarJODD/ai-elements",
-      "branch": "main",
-      "specialNotes": "AI-related UI components for Svelte."
-    },
-    {
-      "type": "git",
-      "name": "convex",
-      "url": "https://github.com/get-convex/convex-backend",
-      "branch": "main",
-      "searchPath": "npm-packages/docs",
-      "specialNotes": "Convex backend platform docs. Schema, queries, mutations, actions."
-    },
-    {
-      "type": "git",
-      "name": "convexSvelte",
-      "url": "https://github.com/mmailaender/convex-svelte",
-      "branch": "feat/pagination",
-      "specialNotes": "Convex Svelte bindings with pagination support."
-    },
-    {
-      "type": "git",
-      "name": "convexAgent",
-      "url": "https://github.com/get-convex/agent",
-      "branch": "main",
-      "specialNotes": "Convex AI agent library. Streaming, tool use, threads."
-    },
-    {
-      "type": "git",
-      "name": "convexHelpers",
-      "url": "https://github.com/get-convex/convex-helpers",
-      "branch": "main",
-      "specialNotes": "Convex utilities: validators, relationships, migrations."
-    },
-    {
-      "type": "git",
-      "name": "convexResend",
-      "url": "https://github.com/get-convex/resend",
-      "branch": "main",
-      "specialNotes": "Email sending with Resend. Webhooks, idempotency, workpools."
-    },
-    {
-      "type": "git",
-      "name": "convexPresence",
-      "url": "https://github.com/get-convex/presence",
-      "branch": "main",
-      "specialNotes": "User presence tracking. Live-updating list of users in a room."
-    },
-    {
-      "type": "git",
-      "name": "convexRag",
-      "url": "https://github.com/get-convex/rag",
-      "branch": "main",
-      "specialNotes": "RAG component. Semantic search, vector embeddings, LLM context."
-    },
-    {
-      "type": "git",
-      "name": "convexStripe",
-      "url": "https://github.com/get-convex/stripe",
-      "branch": "main",
-      "specialNotes": "Stripe payments. Subscriptions, checkout, webhooks, customer portal."
-    },
-    {
-      "type": "git",
-      "name": "convexRateLimiter",
-      "url": "https://github.com/get-convex/rate-limiter",
-      "branch": "main",
-      "specialNotes": "Rate limiting. Token bucket, fixed window, sharding."
-    },
-    {
-      "type": "git",
-      "name": "convexActionCache",
-      "url": "https://github.com/get-convex/action-cache",
-      "branch": "main",
-      "specialNotes": "Cache expensive action results with TTL."
-    },
-    {
-      "type": "git",
-      "name": "convexFilesControl",
-      "url": "https://github.com/gilhrpenner/convex-files-control",
-      "branch": "main",
-      "specialNotes": "File uploads, access control, download grants. Works with R2."
-    },
-    {
-      "type": "git",
-      "name": "convexTimeline",
-      "url": "https://github.com/MeshanKhosla/convex-timeline",
-      "branch": "main",
-      "specialNotes": "Undo/redo state management with named checkpoints."
-    },
-    {
-      "type": "git",
-      "name": "convexMigrations",
-      "url": "https://github.com/get-convex/migrations",
-      "branch": "main",
-      "specialNotes": "Database migrations. Batch processing, resumable, CLI support."
-    },
-    {
-      "type": "git",
-      "name": "convexAggregate",
-      "url": "https://github.com/get-convex/aggregate",
-      "branch": "main",
-      "specialNotes": "Efficient COUNT, SUM, MAX. O(log n) aggregations."
-    },
-    {
-      "type": "git",
-      "name": "convexShardedCounter",
-      "url": "https://github.com/get-convex/sharded-counter",
-      "branch": "main",
-      "specialNotes": "High-throughput counters with sharding."
-    },
-    {
-      "type": "git",
-      "name": "convexGeospatial",
-      "url": "https://github.com/get-convex/geospatial",
-      "branch": "main",
-      "specialNotes": "Geospatial indexing. Store/query points on Earth's surface."
-    },
-    {
-      "type": "git",
-      "name": "convexWorkpool",
-      "url": "https://github.com/get-convex/workpool",
-      "branch": "main",
-      "specialNotes": "Action pooling. Throttle parallel requests, retry with backoff."
-    },
-    {
-      "type": "git",
-      "name": "convexWorkflow",
-      "url": "https://github.com/get-convex/workflow",
-      "branch": "main",
-      "specialNotes": "Durable workflows. Long-running, resumable, cancelable."
-    },
-    {
-      "type": "git",
-      "name": "convexRetrier",
-      "url": "https://github.com/get-convex/action-retrier",
-      "branch": "main",
-      "specialNotes": "Action retry with exponential backoff."
-    },
-    {
-      "type": "git",
-      "name": "convexCrons",
-      "url": "https://github.com/get-convex/crons",
-      "branch": "main",
-      "specialNotes": "Runtime cron jobs. Dynamic registration, intervals, cron specs."
-    },
-    {
-      "type": "git",
-      "name": "betterAuth",
-      "url": "https://github.com/better-auth/better-auth",
-      "branch": "main",
-      "searchPath": "docs",
-      "specialNotes": "Auth library. Passkeys, OAuth, sessions. Use main repo not Convex fork."
-    },
-    {
-      "type": "git",
-      "name": "betterSvelteEmail",
-      "url": "https://github.com/Konixy/better-svelte-email",
-      "branch": "main",
-      "specialNotes": "Email templates for Svelte. Used with Resend."
-    },
-    {
-      "type": "git",
-      "name": "tailwind",
-      "url": "https://github.com/tailwindlabs/tailwindcss.com",
-      "branch": "main",
-      "searchPath": "src/docs",
-      "specialNotes": "Tailwind CSS v4 docs. Utility classes, configuration."
-    },
-    {
-      "type": "git",
-      "name": "vercelAi",
-      "url": "https://github.com/vercel/ai",
-      "branch": "main",
-      "searchPath": "content/docs",
-      "specialNotes": "Vercel AI SDK. Streaming, tools, providers."
-    },
-    {
-      "type": "git",
-      "name": "valibot",
-      "url": "https://github.com/fabian-hiller/valibot",
-      "branch": "main",
-      "specialNotes": "Schema validation. Modular, type-safe, smaller bundle."
-    },
-    {
-      "type": "git",
-      "name": "tanstackTable",
-      "url": "https://github.com/TanStack/table",
-      "branch": "main",
-      "searchPath": "docs",
-      "specialNotes": "Headless table library. Sorting, filtering, pagination."
-    },
-    {
-      "type": "git",
-      "name": "tolgee",
-      "url": "https://github.com/tolgee/tolgee-js",
-      "branch": "main",
-      "searchPath": "packages/svelte",
-      "specialNotes": "i18n for Svelte. Translation management, in-context editing."
-    },
-    {
-      "type": "git",
-      "name": "playwright",
-      "url": "https://github.com/microsoft/playwright",
-      "branch": "main",
-      "searchPath": "docs/src",
-      "specialNotes": "E2E testing. Browser automation, assertions, fixtures."
-    },
-    {
-      "type": "git",
-      "name": "vitest",
-      "url": "https://github.com/vitest-dev/vitest",
-      "branch": "main",
-      "searchPath": "docs",
-      "specialNotes": "Unit testing. Vite-native, Jest-compatible API."
-    },
-    {
-      "type": "git",
-      "name": "svelteCli",
-      "url": "https://github.com/sveltejs/cli",
-      "branch": "main"
-    },
-    {
-      "type": "git",
-      "name": "renovate",
-      "url": "https://github.com/renovatebot/renovate",
-      "branch": "main",
-      "searchPath": "docs/usage",
-      "specialNotes": "Renovate dependency update automation. Configuration presets, package rules, scheduling, vulnerability alerts."
-    },
-    {
-      "type": "git",
-      "name": "svelteRiveExample",
-      "url": "https://github.com/nilskj/svelte-rive-example",
-      "branch": "main"
-    }
-  ],
-  "model": "claude-haiku-4.5",
-  "provider": "github-copilot"
+	"$schema": "https://btca.dev/btca.schema.json",
+	"providerTimeoutMs": 300000,
+	"resources": [
+		{
+			"type": "git",
+			"name": "svelte",
+			"url": "https://github.com/sveltejs/svelte.dev",
+			"branch": "main",
+			"searchPath": "apps/svelte.dev/content",
+			"specialNotes": "Svelte 5 docs. Focus on content/docs for runes, reactivity, components."
+		},
+		{
+			"type": "git",
+			"name": "sveltekit",
+			"url": "https://github.com/sveltejs/svelte.dev",
+			"branch": "main",
+			"searchPath": "apps/svelte.dev/content/docs/kit",
+			"specialNotes": "SvelteKit docs. Routing, load functions, hooks, adapters."
+		},
+		{
+			"type": "git",
+			"name": "shadcnSvelte",
+			"url": "https://github.com/huntabyte/shadcn-svelte",
+			"branch": "main",
+			"searchPath": "sites/docs/src/content",
+			"specialNotes": "UI components built on bits-ui. Check content for component docs."
+		},
+		{
+			"type": "git",
+			"name": "shadcnSvelteExtras",
+			"url": "https://github.com/ieedan/shadcn-svelte-extras",
+			"branch": "main",
+			"specialNotes": "Additional shadcn-svelte components not in main library."
+		},
+		{
+			"type": "git",
+			"name": "bitsUi",
+			"url": "https://github.com/huntabyte/bits-ui",
+			"branch": "main",
+			"searchPath": "docs/src/content",
+			"specialNotes": "Headless UI primitives. Foundation for shadcn-svelte."
+		},
+		{
+			"type": "git",
+			"name": "runed",
+			"url": "https://github.com/svecosystem/runed",
+			"branch": "main",
+			"specialNotes": "Svelte 5 utilities: useDebounce, PersistedState, ElementRect, etc."
+		},
+		{
+			"type": "git",
+			"name": "formsnap",
+			"url": "https://github.com/svecosystem/formsnap",
+			"branch": "main",
+			"specialNotes": "Form components for Svelte with superforms integration."
+		},
+		{
+			"type": "git",
+			"name": "superforms",
+			"url": "https://github.com/ciscoheat/sveltekit-superforms",
+			"branch": "main",
+			"specialNotes": "SvelteKit form library with validation, progressive enhancement."
+		},
+		{
+			"type": "git",
+			"name": "paneforge",
+			"url": "https://github.com/svecosystem/paneforge",
+			"branch": "main",
+			"specialNotes": "Resizable pane components for Svelte."
+		},
+		{
+			"type": "git",
+			"name": "svelteInfinite",
+			"url": "https://github.com/ndom91/svelte-infinite",
+			"branch": "main",
+			"specialNotes": "Infinite scroll for Svelte. Use with convex pagination."
+		},
+		{
+			"type": "git",
+			"name": "motionSvelte",
+			"url": "https://github.com/hanielu/motion-svelte",
+			"branch": "main",
+			"specialNotes": "Framer Motion for Svelte. Animation library."
+		},
+		{
+			"type": "git",
+			"name": "svAnimate",
+			"url": "https://github.com/SikandarJODD/sv-animate",
+			"branch": "main",
+			"specialNotes": "Prebuilt animation components for Svelte."
+		},
+		{
+			"type": "git",
+			"name": "threlte",
+			"url": "https://github.com/threlte/threlte",
+			"branch": "main",
+			"searchPath": "apps/docs/src/content",
+			"specialNotes": "Three.js for Svelte. 3D rendering and interactive scenes."
+		},
+		{
+			"type": "git",
+			"name": "xyflow",
+			"url": "https://github.com/xyflow/xyflow",
+			"branch": "main",
+			"searchPath": "packages/svelte",
+			"specialNotes": "Svelte Flow - node-based diagrams and editors."
+		},
+		{
+			"type": "git",
+			"name": "cnblocks",
+			"url": "https://github.com/SikandarJODD/cnblocks",
+			"branch": "main",
+			"specialNotes": "Marketing blocks: headers, features, pricing, footers."
+		},
+		{
+			"type": "git",
+			"name": "aiElements",
+			"url": "https://github.com/SikandarJODD/ai-elements",
+			"branch": "main",
+			"specialNotes": "AI-related UI components for Svelte."
+		},
+		{
+			"type": "git",
+			"name": "convex",
+			"url": "https://github.com/get-convex/convex-backend",
+			"branch": "main",
+			"searchPath": "npm-packages/docs",
+			"specialNotes": "Convex backend platform docs. Schema, queries, mutations, actions."
+		},
+		{
+			"type": "git",
+			"name": "convexSvelte",
+			"url": "https://github.com/mmailaender/convex-svelte",
+			"branch": "feat/pagination",
+			"specialNotes": "Convex Svelte bindings with pagination support."
+		},
+		{
+			"type": "git",
+			"name": "convexAgent",
+			"url": "https://github.com/get-convex/agent",
+			"branch": "main",
+			"specialNotes": "Convex AI agent library. Streaming, tool use, threads."
+		},
+		{
+			"type": "git",
+			"name": "convexHelpers",
+			"url": "https://github.com/get-convex/convex-helpers",
+			"branch": "main",
+			"specialNotes": "Convex utilities: validators, relationships, migrations."
+		},
+		{
+			"type": "git",
+			"name": "convexResend",
+			"url": "https://github.com/get-convex/resend",
+			"branch": "main",
+			"specialNotes": "Email sending with Resend. Webhooks, idempotency, workpools."
+		},
+		{
+			"type": "git",
+			"name": "convexPresence",
+			"url": "https://github.com/get-convex/presence",
+			"branch": "main",
+			"specialNotes": "User presence tracking. Live-updating list of users in a room."
+		},
+		{
+			"type": "git",
+			"name": "convexRag",
+			"url": "https://github.com/get-convex/rag",
+			"branch": "main",
+			"specialNotes": "RAG component. Semantic search, vector embeddings, LLM context."
+		},
+		{
+			"type": "git",
+			"name": "convexStripe",
+			"url": "https://github.com/get-convex/stripe",
+			"branch": "main",
+			"specialNotes": "Stripe payments. Subscriptions, checkout, webhooks, customer portal."
+		},
+		{
+			"type": "git",
+			"name": "convexRateLimiter",
+			"url": "https://github.com/get-convex/rate-limiter",
+			"branch": "main",
+			"specialNotes": "Rate limiting. Token bucket, fixed window, sharding."
+		},
+		{
+			"type": "git",
+			"name": "convexActionCache",
+			"url": "https://github.com/get-convex/action-cache",
+			"branch": "main",
+			"specialNotes": "Cache expensive action results with TTL."
+		},
+		{
+			"type": "git",
+			"name": "convexFilesControl",
+			"url": "https://github.com/gilhrpenner/convex-files-control",
+			"branch": "main",
+			"specialNotes": "File uploads, access control, download grants. Works with R2."
+		},
+		{
+			"type": "git",
+			"name": "convexTimeline",
+			"url": "https://github.com/MeshanKhosla/convex-timeline",
+			"branch": "main",
+			"specialNotes": "Undo/redo state management with named checkpoints."
+		},
+		{
+			"type": "git",
+			"name": "convexMigrations",
+			"url": "https://github.com/get-convex/migrations",
+			"branch": "main",
+			"specialNotes": "Database migrations. Batch processing, resumable, CLI support."
+		},
+		{
+			"type": "git",
+			"name": "convexAggregate",
+			"url": "https://github.com/get-convex/aggregate",
+			"branch": "main",
+			"specialNotes": "Efficient COUNT, SUM, MAX. O(log n) aggregations."
+		},
+		{
+			"type": "git",
+			"name": "convexShardedCounter",
+			"url": "https://github.com/get-convex/sharded-counter",
+			"branch": "main",
+			"specialNotes": "High-throughput counters with sharding."
+		},
+		{
+			"type": "git",
+			"name": "convexGeospatial",
+			"url": "https://github.com/get-convex/geospatial",
+			"branch": "main",
+			"specialNotes": "Geospatial indexing. Store/query points on Earth's surface."
+		},
+		{
+			"type": "git",
+			"name": "convexWorkpool",
+			"url": "https://github.com/get-convex/workpool",
+			"branch": "main",
+			"specialNotes": "Action pooling. Throttle parallel requests, retry with backoff."
+		},
+		{
+			"type": "git",
+			"name": "convexWorkflow",
+			"url": "https://github.com/get-convex/workflow",
+			"branch": "main",
+			"specialNotes": "Durable workflows. Long-running, resumable, cancelable."
+		},
+		{
+			"type": "git",
+			"name": "convexRetrier",
+			"url": "https://github.com/get-convex/action-retrier",
+			"branch": "main",
+			"specialNotes": "Action retry with exponential backoff."
+		},
+		{
+			"type": "git",
+			"name": "convexCrons",
+			"url": "https://github.com/get-convex/crons",
+			"branch": "main",
+			"specialNotes": "Runtime cron jobs. Dynamic registration, intervals, cron specs."
+		},
+		{
+			"type": "git",
+			"name": "betterAuth",
+			"url": "https://github.com/better-auth/better-auth",
+			"branch": "main",
+			"searchPath": "docs",
+			"specialNotes": "Auth library. Passkeys, OAuth, sessions. Use main repo not Convex fork."
+		},
+		{
+			"type": "git",
+			"name": "betterSvelteEmail",
+			"url": "https://github.com/Konixy/better-svelte-email",
+			"branch": "main",
+			"specialNotes": "Email templates for Svelte. Used with Resend."
+		},
+		{
+			"type": "git",
+			"name": "tailwind",
+			"url": "https://github.com/tailwindlabs/tailwindcss.com",
+			"branch": "main",
+			"searchPath": "src/docs",
+			"specialNotes": "Tailwind CSS v4 docs. Utility classes, configuration."
+		},
+		{
+			"type": "git",
+			"name": "vercelAi",
+			"url": "https://github.com/vercel/ai",
+			"branch": "main",
+			"searchPath": "content/docs",
+			"specialNotes": "Vercel AI SDK. Streaming, tools, providers."
+		},
+		{
+			"type": "git",
+			"name": "valibot",
+			"url": "https://github.com/fabian-hiller/valibot",
+			"branch": "main",
+			"specialNotes": "Schema validation. Modular, type-safe, smaller bundle."
+		},
+		{
+			"type": "git",
+			"name": "tanstackTable",
+			"url": "https://github.com/TanStack/table",
+			"branch": "main",
+			"searchPath": "docs",
+			"specialNotes": "Headless table library. Sorting, filtering, pagination."
+		},
+		{
+			"type": "git",
+			"name": "tolgee",
+			"url": "https://github.com/tolgee/tolgee-js",
+			"branch": "main",
+			"searchPath": "packages/svelte",
+			"specialNotes": "i18n for Svelte. Translation management, in-context editing."
+		},
+		{
+			"type": "git",
+			"name": "playwright",
+			"url": "https://github.com/microsoft/playwright",
+			"branch": "main",
+			"searchPath": "docs/src",
+			"specialNotes": "E2E testing. Browser automation, assertions, fixtures."
+		},
+		{
+			"type": "git",
+			"name": "vitest",
+			"url": "https://github.com/vitest-dev/vitest",
+			"branch": "main",
+			"searchPath": "docs",
+			"specialNotes": "Unit testing. Vite-native, Jest-compatible API."
+		},
+		{
+			"type": "git",
+			"name": "svelteCli",
+			"url": "https://github.com/sveltejs/cli",
+			"branch": "main"
+		},
+		{
+			"type": "git",
+			"name": "renovate",
+			"url": "https://github.com/renovatebot/renovate",
+			"branch": "main",
+			"searchPath": "docs/usage",
+			"specialNotes": "Renovate dependency update automation. Configuration presets, package rules, scheduling, vulnerability alerts."
+		},
+		{
+			"type": "git",
+			"name": "svelteRiveExample",
+			"url": "https://github.com/nilskj/svelte-rive-example",
+			"branch": "main"
+		}
+	],
+	"model": "claude-haiku-4.5",
+	"provider": "github-copilot"
 }

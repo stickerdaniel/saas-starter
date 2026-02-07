@@ -612,13 +612,85 @@
 		"title": "Véritable Expérience Développeur {year}"
 	},
 	"meta": {
+		"admin": {
+			"dashboard": {
+				"description": "Surveillez les métriques de la plateforme et les services externes.",
+				"title": "Tableau de bord Admin - SaaS Starter"
+			},
+			"home": {
+				"description": "Redirection vers le tableau de bord administrateur.",
+				"title": "Admin - SaaS Starter"
+			},
+			"settings": {
+				"description": "Configurez les destinataires et préférences de notifications admin.",
+				"title": "Paramètres Admin - SaaS Starter"
+			},
+			"support": {
+				"description": "Consultez et répondez aux conversations de support client.",
+				"title": "Boîte de support - SaaS Starter"
+			},
+			"users": {
+				"description": "Gérez les utilisateurs, les rôles et l'état des comptes.",
+				"title": "Gestion des utilisateurs - SaaS Starter"
+			}
+		},
 		"about": {
 			"description": "Rencontrez l'équipe talentueuse derrière notre produit",
 			"title": "À propos de nous - Rencontrez notre équipe"
 		},
+		"app": {
+			"community_chat": {
+				"description": "Discutez avec la communauté en temps réel.",
+				"title": "Chat communautaire - SaaS Starter"
+			},
+			"dashboard": {
+				"description": "Consultez les métriques clés et l'activité récente.",
+				"title": "Tableau de bord - SaaS Starter"
+			},
+			"home": {
+				"description": "Redirection vers le tableau de bord de votre espace de travail.",
+				"title": "Accueil App - SaaS Starter"
+			},
+			"settings": {
+				"description": "Gérez les paramètres et préférences de votre compte.",
+				"title": "Paramètres - SaaS Starter"
+			}
+		},
+		"auth": {
+			"email_verified": {
+				"description": "Votre adresse e-mail a été vérifiée. Vous pouvez continuer vers votre compte.",
+				"title": "E-mail vérifié - SaaS Starter"
+			},
+			"forgot_password": {
+				"description": "Demandez un lien de réinitialisation de mot de passe.",
+				"title": "Mot de passe oublié - SaaS Starter"
+			},
+			"reset_password": {
+				"description": "Définissez un nouveau mot de passe pour votre compte.",
+				"title": "Réinitialiser le mot de passe - SaaS Starter"
+			},
+			"signin": {
+				"description": "Connectez-vous à votre compte ou créez-en un nouveau.",
+				"title": "Connexion - SaaS Starter"
+			}
+		},
+		"emails": {
+			"preview": {
+				"description": "Prévisualisez les modèles d'e-mails et leur rendu.",
+				"title": "Aperçu des e-mails - SaaS Starter"
+			}
+		},
 		"home": {
 			"description": "Le modèle SaaS ultime avec SvelteKit, Convex et les technologies web modernes. Construisez votre marque en minutes, pas en semaines. Concentrez-vous sur votre produit et lancez plus rapidement.",
 			"title": "Construisez et lancez votre produit plus rapidement"
+		},
+		"pricing": {
+			"description": "Choisissez une offre et testez le flux de facturation intégré.",
+			"title": "Tarifs - SaaS Starter"
+		},
+		"shadcn_demo": {
+			"description": "Prévisualisez les composants UI utilisés dans ce projet.",
+			"title": "Démo Shadcn - SaaS Starter"
 		}
 	},
 	"nav": {
@@ -631,26 +703,6 @@
 		"pricing": "Tarifs",
 		"signup": "S'inscrire",
 		"solution": "Solution"
-	},
-	"search": {
-		"command": {
-			"dialog_description": "Recherchez une page vers laquelle naviguer.",
-			"dialog_title": "Rechercher des pages",
-			"footer": {
-				"go_to_page": "Aller à la page"
-			},
-			"groups": {
-				"admin": "Admin",
-				"app": "App",
-				"authentication": "Authentification",
-				"public": "Public"
-			},
-			"input_placeholder": "Rechercher des pages...",
-			"no_results": "Aucun résultat trouvé.",
-			"trigger_aria_label": "Ouvrir la recherche",
-			"trigger_desktop": "Rechercher des pages...",
-			"trigger_mobile": "Rechercher..."
-		}
 	},
 	"pricing": {
 		"buttons": {
@@ -721,6 +773,26 @@
 			}
 		},
 		"title": "Tarification qui Évolue Avec Vous"
+	},
+	"search": {
+		"command": {
+			"dialog_description": "Recherchez une page vers laquelle naviguer.",
+			"dialog_title": "Rechercher des pages",
+			"footer": {
+				"go_to_page": "Aller à la page"
+			},
+			"groups": {
+				"admin": "Admin",
+				"app": "App",
+				"authentication": "Authentification",
+				"public": "Public"
+			},
+			"input_placeholder": "Rechercher des pages...",
+			"no_results": "Aucun résultat trouvé.",
+			"trigger_aria_label": "Ouvrir la recherche",
+			"trigger_desktop": "Rechercher des pages...",
+			"trigger_mobile": "Rechercher..."
+		}
 	},
 	"settings": {
 		"account": {
