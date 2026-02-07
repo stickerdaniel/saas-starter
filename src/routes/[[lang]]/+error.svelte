@@ -48,10 +48,16 @@
 			: translations.error_page.generic_description
 	);
 
-	const globalSearch = useGlobalSearchContext();
+	let globalSearch: ReturnType<typeof useGlobalSearchContext> | null = null;
+
+	try {
+		globalSearch = useGlobalSearchContext();
+	} catch {
+		globalSearch = null;
+	}
 
 	function openGlobalSearch(): void {
-		globalSearch.openMenu();
+		globalSearch?.openMenu();
 	}
 
 	function handleSearchTriggerKeydown(event: KeyboardEvent): void {
@@ -75,6 +81,7 @@
 					readonly
 					aria-readonly="true"
 					tabindex={0}
+					onfocus={openGlobalSearch}
 					onkeydown={handleSearchTriggerKeydown}
 				/>
 				<InputGroup.Addon>

@@ -238,7 +238,7 @@
 		} catch (error) {
 			console.error('[SignIn] Login error:', error);
 			lastValidSignInSubmission = null;
-			formError = 'auth.messages.invalid_credentials';
+			formError = 'auth.messages.generic_error';
 		} finally {
 			isLoading = false;
 		}
