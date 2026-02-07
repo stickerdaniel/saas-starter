@@ -200,13 +200,22 @@ async function main(): Promise<void> {
 	}
 
 	// Extract deployment URL from output (e.g., "Deployed Convex functions to https://xxx.convex.cloud")
+	// Supports both standard (xxx.convex.cloud) and regional (xxx.eu-west-1.convex.cloud) URLs
 	// Check both stdout and stderr, strip ANSI codes
 	const combinedOutput = stripAnsi(convexDeployResult.stdout + '\n' + convexDeployResult.stderr);
-	const deployUrlMatch = combinedOutput.match(/https:\/\/([a-z0-9-]+)\.convex\.cloud/);
-	const actualDeploymentName = deployUrlMatch ? deployUrlMatch[1] : null;
+	const deployUrlMatch = combinedOutput.match(
+		/https:\/\/(([a-z0-9-]+)(?:\.[a-z0-9-]+)*)\.convex\.cloud/
+	);
+	// Full URL subdomain including region (e.g., "curious-lark-703.eu-west-1" or "intent-snake-818")
+	const actualDeploymentUrlSlug = deployUrlMatch ? deployUrlMatch[1] : null;
+	// Deployment name only, used for --deployment-name CLI flag (e.g., "curious-lark-703")
+	const actualDeploymentName = deployUrlMatch ? deployUrlMatch[2] : null;
 
 	if (actualDeploymentName) {
 		console.log(`Detected Convex deployment: ${actualDeploymentName}`);
+		if (actualDeploymentUrlSlug !== actualDeploymentName) {
+			console.log(`  Regional URL: ${actualDeploymentUrlSlug}.convex.cloud`);
+		}
 	} else {
 		console.warn(
 			`${colors.yellow}Warning: Could not parse deployment URL from convex deploy output${colors.reset}`
@@ -337,20 +346,25 @@ async function main(): Promise<void> {
 	// Use actual deployment URL from convex deploy output (most reliable)
 	// Falls back to parsing CONVEX_DEPLOY_KEY if output parsing failed
 	let deploymentName = actualDeploymentName;
+	// URL slug includes region for regional deployments (e.g., "name.eu-west-1")
+	let deploymentUrlSlug = actualDeploymentUrlSlug;
 
 	if (!deploymentName && CONVEX_DEPLOY_KEY) {
 		// Fallback: parse from deploy key
 		// Format: prod:name|token or preview:identifier:name|token
+		// Note: deploy key only contains the name, not the regional URL slug
 		const parts = CONVEX_DEPLOY_KEY.split('|');
 		if (parts.length >= 2) {
 			const keyParts = parts[0].split(':');
 			deploymentName = keyParts[keyParts.length - 1];
+			// Without the deploy output, we can't determine the region — use name as slug
+			deploymentUrlSlug = deploymentName;
 		}
 	}
 
-	if (deploymentName) {
-		buildEnv.PUBLIC_CONVEX_URL = `https://${deploymentName}.convex.cloud`;
-		buildEnv.PUBLIC_CONVEX_SITE_URL = `https://${deploymentName}.convex.site`;
+	if (deploymentUrlSlug) {
+		buildEnv.PUBLIC_CONVEX_URL = `https://${deploymentUrlSlug}.convex.cloud`;
+		buildEnv.PUBLIC_CONVEX_SITE_URL = `https://${deploymentUrlSlug}.convex.site`;
 
 		console.log(`PUBLIC_CONVEX_URL: ${buildEnv.PUBLIC_CONVEX_URL}`);
 		console.log(`PUBLIC_CONVEX_SITE_URL: ${buildEnv.PUBLIC_CONVEX_SITE_URL}`);
@@ -372,7 +386,7 @@ async function main(): Promise<void> {
 	// This allows E2E tests to discover Convex URLs without webhooks or API calls
 	// The config file is included in the deployment and fetched by the E2E workflow
 	// =============================================================================
-	if (VERCEL_ENV === 'preview' && deploymentName) {
+	if (VERCEL_ENV === 'preview' && deploymentUrlSlug) {
 		const e2eConfig = {
 			convexUrl: buildEnv.PUBLIC_CONVEX_URL,
 			convexSiteUrl: buildEnv.PUBLIC_CONVEX_SITE_URL,

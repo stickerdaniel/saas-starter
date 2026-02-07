@@ -1,4 +1,5 @@
 <script lang="ts">
+	import SEOHead from '$lib/components/SEOHead.svelte';
 	import * as Item from '$lib/components/ui/item/index.js';
 	import MetricCard from '$lib/components/ui/metric-card.svelte';
 	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
@@ -31,6 +32,11 @@
 		}
 	});
 </script>
+
+<SEOHead
+	title={$t('meta.admin.dashboard.title')}
+	description={$t('meta.admin.dashboard.description')}
+/>
 
 <div class="flex flex-col gap-6">
 	<!-- Metrics Cards -->

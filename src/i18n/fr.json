@@ -538,6 +538,15 @@
 			"verify": "Vérifiez votre email"
 		}
 	},
+	"error_page": {
+		"back_home": "Retour à l'accueil",
+		"generic_description": "Une erreur inattendue s'est produite lors du chargement de cette page.",
+		"generic_title": "Un problème est survenu",
+		"need_help": "Besoin d'aide ?",
+		"not_found_description": "La page que vous cherchez n'existe pas. Essayez de rechercher ce dont vous avez besoin ci-dessous.",
+		"not_found_title": "404 - Page introuvable",
+		"search_placeholder": "Essayez de rechercher des pages..."
+	},
 	"hero": {
 		"companies_text": "Propulsant les meilleures équipes",
 		"cta": "Commencer maintenant",
@@ -607,9 +616,81 @@
 			"description": "Rencontrez l'équipe talentueuse derrière notre produit",
 			"title": "À propos de nous - Rencontrez notre équipe"
 		},
+		"admin": {
+			"dashboard": {
+				"description": "Surveillez les métriques de la plateforme et les services externes.",
+				"title": "Tableau de bord Admin"
+			},
+			"home": {
+				"description": "Redirection vers le tableau de bord administrateur.",
+				"title": "Admin"
+			},
+			"settings": {
+				"description": "Configurez les destinataires et préférences de notifications admin.",
+				"title": "Paramètres Admin"
+			},
+			"support": {
+				"description": "Consultez et répondez aux conversations de support client.",
+				"title": "Boîte de support"
+			},
+			"users": {
+				"description": "Gérez les utilisateurs, les rôles et l'état des comptes.",
+				"title": "Gestion des utilisateurs"
+			}
+		},
+		"app": {
+			"community_chat": {
+				"description": "Discutez avec la communauté en temps réel.",
+				"title": "Chat communautaire"
+			},
+			"dashboard": {
+				"description": "Consultez les métriques clés et l'activité récente.",
+				"title": "Tableau de bord"
+			},
+			"home": {
+				"description": "Redirection vers le tableau de bord de votre espace de travail.",
+				"title": "Accueil App"
+			},
+			"settings": {
+				"description": "Gérez les paramètres et préférences de votre compte.",
+				"title": "Paramètres"
+			}
+		},
+		"auth": {
+			"email_verified": {
+				"description": "Votre adresse e-mail a été vérifiée. Vous pouvez continuer vers votre compte.",
+				"title": "E-mail vérifié"
+			},
+			"forgot_password": {
+				"description": "Demandez un lien de réinitialisation de mot de passe.",
+				"title": "Mot de passe oublié"
+			},
+			"reset_password": {
+				"description": "Définissez un nouveau mot de passe pour votre compte.",
+				"title": "Réinitialiser le mot de passe"
+			},
+			"signin": {
+				"description": "Connectez-vous à votre compte ou créez-en un nouveau.",
+				"title": "Connexion"
+			}
+		},
+		"emails": {
+			"preview": {
+				"description": "Prévisualisez les modèles d'e-mails et leur rendu.",
+				"title": "Aperçu des e-mails"
+			}
+		},
 		"home": {
 			"description": "Le modèle SaaS ultime avec SvelteKit, Convex et les technologies web modernes. Construisez votre marque en minutes, pas en semaines. Concentrez-vous sur votre produit et lancez plus rapidement.",
 			"title": "Construisez et lancez votre produit plus rapidement"
+		},
+		"pricing": {
+			"description": "Choisissez une offre et testez le flux de facturation intégré.",
+			"title": "Tarifs"
+		},
+		"shadcn_demo": {
+			"description": "Prévisualisez les composants UI utilisés dans ce projet.",
+			"title": "Démo Shadcn"
 		}
 	},
 	"nav": {
@@ -692,6 +773,26 @@
 			}
 		},
 		"title": "Tarification qui Évolue Avec Vous"
+	},
+	"search": {
+		"command": {
+			"dialog_description": "Recherchez une page vers laquelle naviguer.",
+			"dialog_title": "Rechercher des pages",
+			"footer": {
+				"go_to_page": "Aller à la page"
+			},
+			"groups": {
+				"admin": "Admin",
+				"app": "App",
+				"authentication": "Authentification",
+				"public": "Public"
+			},
+			"input_placeholder": "Rechercher des pages...",
+			"no_results": "Aucun résultat trouvé.",
+			"trigger_aria_label": "Ouvrir la recherche",
+			"trigger_desktop": "Rechercher des pages...",
+			"trigger_mobile": "Rechercher..."
+		}
 	},
 	"settings": {
 		"account": {

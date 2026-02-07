@@ -1,6 +1,8 @@
 <script lang="ts">
 	import * as v from 'valibot';
+	import SEOHead from '$lib/components/SEOHead.svelte';
 	import * as Card from '$lib/components/ui/card/index.js';
+	import { LoadingBar } from '$lib/components/ui/loading-bar/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import {
@@ -11,6 +13,7 @@
 		FieldError
 	} from '$lib/components/ui/field/index.js';
 	import { authClient } from '$lib/auth-client.js';
+	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
 	import { localizedHref } from '$lib/utils/i18n';
 	import { resolve } from '$app/paths';
 	import { T, getTranslate } from '@tolgee/svelte';
@@ -20,10 +23,12 @@
 	import { translateValidationErrors } from '$lib/utils/validation-i18n.js';
 
 	const { t } = getTranslate();
+	const auth = useAuth();
 
 	let isLoading = $state(false);
 	let message = $state<string | null>(null);
 	let formError = $state<string | null>(null);
+	let lastValidSubmission = $state<string | null>(null);
 
 	const id = $props.id();
 
@@ -35,11 +40,43 @@
 
 	// Field errors
 	let errors = $state<Record<string, string[]>>({});
+	const totalSteps = 3;
+	const validation = $derived.by(() => {
+		const result = v.safeParse(resetPasswordSchema, {
+			_password: formData.password,
+			_confirmPassword: formData.confirmPassword
+		});
+		const invalidFields = new Set<string>(
+			result.success
+				? []
+				: result.issues
+						.map((issue) => issue.path?.[0]?.key)
+						.filter((key): key is string => typeof key === 'string')
+		);
+		return {
+			isPasswordValid: !invalidFields.has('_password'),
+			isConfirmPasswordValid: !invalidFields.has('_confirmPassword')
+		};
+	});
+	const submissionToken = $derived(`${formData.password}\u0000${formData.confirmPassword}`);
+	const completedSteps = $derived(
+		(validation.isPasswordValid ? 1 : 0) +
+			(validation.isConfirmPasswordValid ? 1 : 0) +
+			(lastValidSubmission === submissionToken ? 1 : 0)
+	);
+	const progress = $derived((completedSteps / totalSteps) * 100);
 
 	// Translation params for password min_length validation
 	const passwordParams = {
 		'validation.password.min_length': { count: PASSWORD_MIN_LENGTH }
 	};
+
+	// Redirect when already authenticated
+	$effect(() => {
+		if (auth.isAuthenticated) {
+			window.location.href = localizedHref('/app');
+		}
+	});
 
 	function validate(): boolean {
 		// Map form data to schema field names (_password, _confirmPassword)
@@ -71,9 +108,14 @@
 
 	async function handleSubmit(e: Event) {
 		e.preventDefault();
-		if (!validate()) return;
+		if (!validate()) {
+			lastValidSubmission = null;
+			return;
+		}
+		lastValidSubmission = submissionToken;
 
 		if (!token) {
+			lastValidSubmission = null;
 			formError = 'auth.messages.missing_reset_token';
 			return;
 		}
@@ -89,18 +131,25 @@
 			});
 
 			if (err) {
+				lastValidSubmission = null;
 				formError = getAuthErrorKey(err, 'auth.messages.reset_failed');
 			} else {
 				message = 'auth.messages.password_reset_success';
 			}
 		} catch (error) {
 			console.error('[ResetPassword] Reset error:', error);
+			lastValidSubmission = null;
 			formError = 'auth.messages.reset_failed';
 		} finally {
 			isLoading = false;
 		}
 	}
 </script>
+
+<SEOHead
+	title={$t('meta.auth.reset_password.title')}
+	description={$t('meta.auth.reset_password.description')}
+/>
 
 <noscript>
 	<div class="fixed inset-x-0 top-0 z-50 bg-yellow-100 p-4 text-center text-yellow-800">
@@ -112,94 +161,100 @@
 	<div class="flex w-full max-w-sm flex-col gap-6 md:max-w-3xl">
 		<Card.Root class="overflow-hidden p-0">
 			<Card.Content class="grid p-0 md:grid-cols-2">
-				<form onsubmit={handleSubmit} novalidate class="min-h-96 p-6 md:p-8">
-					<FieldGroup>
-						<div class="flex flex-col items-center gap-2 text-center">
-							<h1 class="text-2xl font-bold">
-								<T keyName="auth.reset_password.title" defaultValue="Reset password" />
-							</h1>
-							<p class="text-balance text-muted-foreground">
-								<T
-									keyName="auth.reset_password.description"
-									defaultValue="Enter your new password"
-								/>
-							</p>
-						</div>
-						{#if formError}
+				<form onsubmit={handleSubmit} novalidate class="min-h-96">
+					<LoadingBar value={progress} indeterminate={isLoading} class="h-1 rounded-none" />
+					<div class="p-6 md:p-8">
+						<FieldGroup>
+							<div class="flex flex-col items-center gap-2 text-center">
+								<h1 class="text-2xl font-bold">
+									<T keyName="auth.reset_password.title" defaultValue="Reset password" />
+								</h1>
+								<p class="text-balance text-muted-foreground">
+									<T
+										keyName="auth.reset_password.description"
+										defaultValue="Enter your new password"
+									/>
+								</p>
+							</div>
+							{#if formError}
+								<Field>
+									<div class="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+										<T keyName={formError} />
+									</div>
+								</Field>
+							{/if}
+							{#if message}
+								<Field>
+									<div
+										class="rounded-md bg-green-500/10 p-3 text-sm text-green-600 dark:text-green-400"
+									>
+										<T keyName={message} />
+										<a href={resolve(localizedHref('/signin'))} class="underline">
+											<T keyName="auth.reset_password.sign_in_link" defaultValue="Sign in" />
+										</a>
+									</div>
+								</Field>
+							{/if}
 							<Field>
-								<div class="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-									<T keyName={formError} />
-								</div>
-							</Field>
-						{/if}
-						{#if message}
-							<Field>
-								<div
-									class="rounded-md bg-green-500/10 p-3 text-sm text-green-600 dark:text-green-400"
-								>
-									<T keyName={message} />
-									<a href={resolve(localizedHref('/signin'))} class="underline">
-										<T keyName="auth.reset_password.sign_in_link" defaultValue="Sign in" />
-									</a>
-								</div>
-							</Field>
-						{/if}
-						<Field>
-							<FieldLabel for="password-{id}">
-								<T keyName="auth.reset_password.new_password_label" defaultValue="New password" />
-							</FieldLabel>
-							<Input
-								id="password-{id}"
-								type="password"
-								placeholder="••••••••"
-								disabled={isLoading || !!message}
-								bind:value={formData.password}
-							/>
-							<FieldDescription>
-								<T
-									keyName="auth.signup.password_hint"
-									defaultValue="Minimum 10 characters with uppercase, lowercase, and number"
+								<FieldLabel for="password-{id}">
+									<T keyName="auth.reset_password.new_password_label" defaultValue="New password" />
+								</FieldLabel>
+								<Input
+									id="password-{id}"
+									type="password"
+									placeholder="••••••••"
+									disabled={isLoading || !!message}
+									bind:value={formData.password}
 								/>
+								<FieldDescription>
+									<T
+										keyName="auth.signup.password_hint"
+										defaultValue="Minimum 10 characters with uppercase, lowercase, and number"
+									/>
+								</FieldDescription>
+								<FieldError
+									errors={translateValidationErrors(errors.password, $t, passwordParams)}
+								/>
+							</Field>
+							<Field>
+								<FieldLabel for="confirm-password-{id}">
+									<T
+										keyName="auth.reset_password.confirm_password_label"
+										defaultValue="Confirm new password"
+									/>
+								</FieldLabel>
+								<Input
+									id="confirm-password-{id}"
+									type="password"
+									placeholder="••••••••"
+									disabled={isLoading || !!message}
+									bind:value={formData.confirmPassword}
+								/>
+								<FieldError errors={translateValidationErrors(errors.confirmPassword, $t)} />
+							</Field>
+							<Field>
+								<Button type="submit" class="w-full" disabled={isLoading || !!message}>
+									{#if isLoading}
+										<T keyName="auth.reset_password.button_loading" defaultValue="Resetting..." />
+									{:else}
+										<T keyName="auth.reset_password.button_submit" defaultValue="Reset password" />
+									{/if}
+								</Button>
+							</Field>
+							<FieldDescription class="text-center">
+								<a href={resolve(localizedHref('/signin'))} class="underline underline-offset-4">
+									<T keyName="auth.reset_password.back_to_signin" defaultValue="Back to sign in" />
+								</a>
 							</FieldDescription>
-							<FieldError errors={translateValidationErrors(errors.password, $t, passwordParams)} />
-						</Field>
-						<Field>
-							<FieldLabel for="confirm-password-{id}">
-								<T
-									keyName="auth.reset_password.confirm_password_label"
-									defaultValue="Confirm new password"
-								/>
-							</FieldLabel>
-							<Input
-								id="confirm-password-{id}"
-								type="password"
-								placeholder="••••••••"
-								disabled={isLoading || !!message}
-								bind:value={formData.confirmPassword}
-							/>
-							<FieldError errors={translateValidationErrors(errors.confirmPassword, $t)} />
-						</Field>
-						<Field>
-							<Button type="submit" class="w-full" disabled={isLoading || !!message}>
-								{#if isLoading}
-									<T keyName="auth.reset_password.button_loading" defaultValue="Resetting..." />
-								{:else}
-									<T keyName="auth.reset_password.button_submit" defaultValue="Reset password" />
-								{/if}
-							</Button>
-						</Field>
-						<FieldDescription class="text-center">
-							<a href={resolve(localizedHref('/signin'))} class="underline underline-offset-4">
-								<T keyName="auth.reset_password.back_to_signin" defaultValue="Back to sign in" />
-							</a>
-						</FieldDescription>
-					</FieldGroup>
+						</FieldGroup>
+					</div>
 				</form>
 				<div class="relative hidden bg-muted md:block">
 					<img
 						src="/placeholder.svg"
 						alt=""
-						class="absolute inset-0 h-full w-full object-cover dark:brightness-[0.2] dark:grayscale"
+						draggable="false"
+						class="absolute inset-0 h-full w-full object-cover select-none dark:brightness-[0.2] dark:grayscale"
 					/>
 				</div>
 			</Card.Content>
