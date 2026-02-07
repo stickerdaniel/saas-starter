@@ -612,72 +612,72 @@
 		"title": "Experiencia de Desarrollo Real {year}"
 	},
 	"meta": {
-		"admin": {
-			"dashboard": {
-				"description": "Supervisa métricas de la plataforma y servicios externos.",
-				"title": "Panel de Admin - SaaS Starter"
-			},
-			"home": {
-				"description": "Redirigiendo al panel de administración.",
-				"title": "Admin - SaaS Starter"
-			},
-			"settings": {
-				"description": "Configura destinatarios y preferencias de notificaciones de admin.",
-				"title": "Ajustes de Admin - SaaS Starter"
-			},
-			"support": {
-				"description": "Revisa y responde conversaciones de soporte de clientes.",
-				"title": "Bandeja de Soporte - SaaS Starter"
-			},
-			"users": {
-				"description": "Administra usuarios, roles y estado de cuenta.",
-				"title": "Gestión de Usuarios - SaaS Starter"
-			}
-		},
 		"about": {
 			"description": "Conoce al talentoso equipo detrás de nuestro producto",
 			"title": "Acerca de nosotros - Conoce a nuestro equipo"
 		},
+		"admin": {
+			"dashboard": {
+				"description": "Supervisa métricas de la plataforma y servicios externos.",
+				"title": "Panel de Admin"
+			},
+			"home": {
+				"description": "Redirigiendo al panel de administración.",
+				"title": "Admin"
+			},
+			"settings": {
+				"description": "Configura destinatarios y preferencias de notificaciones de admin.",
+				"title": "Ajustes de Admin"
+			},
+			"support": {
+				"description": "Revisa y responde conversaciones de soporte de clientes.",
+				"title": "Bandeja de Soporte"
+			},
+			"users": {
+				"description": "Administra usuarios, roles y estado de cuenta.",
+				"title": "Gestión de Usuarios"
+			}
+		},
 		"app": {
 			"community_chat": {
 				"description": "Chatea con la comunidad en tiempo real.",
-				"title": "Chat de la Comunidad - SaaS Starter"
+				"title": "Chat de la Comunidad"
 			},
 			"dashboard": {
 				"description": "Consulta métricas clave y actividad reciente.",
-				"title": "Panel - SaaS Starter"
+				"title": "Panel"
 			},
 			"home": {
 				"description": "Redirigiendo al panel principal de tu espacio de trabajo.",
-				"title": "Inicio de App - SaaS Starter"
+				"title": "Inicio de App"
 			},
 			"settings": {
 				"description": "Administra la configuración y preferencias de tu cuenta.",
-				"title": "Configuración - SaaS Starter"
+				"title": "Configuración"
 			}
 		},
 		"auth": {
 			"email_verified": {
 				"description": "Tu correo electrónico ha sido verificado. Ya puedes continuar a tu cuenta.",
-				"title": "Correo Verificado - SaaS Starter"
+				"title": "Correo Verificado"
 			},
 			"forgot_password": {
 				"description": "Solicita un enlace para restablecer la contraseña de tu cuenta.",
-				"title": "Olvidé mi contraseña - SaaS Starter"
+				"title": "Olvidé mi contraseña"
 			},
 			"reset_password": {
 				"description": "Establece una nueva contraseña para tu cuenta.",
-				"title": "Restablecer contraseña - SaaS Starter"
+				"title": "Restablecer contraseña"
 			},
 			"signin": {
 				"description": "Accede a tu cuenta o crea una nueva.",
-				"title": "Iniciar sesión - SaaS Starter"
+				"title": "Iniciar sesión"
 			}
 		},
 		"emails": {
 			"preview": {
 				"description": "Vista previa de plantillas de correo y su renderizado.",
-				"title": "Vista previa de correos - SaaS Starter"
+				"title": "Vista previa de correos"
 			}
 		},
 		"home": {
@@ -686,11 +686,11 @@
 		},
 		"pricing": {
 			"description": "Elige un plan y prueba el flujo de facturación integrado.",
-			"title": "Precios - SaaS Starter"
+			"title": "Precios"
 		},
 		"shadcn_demo": {
 			"description": "Vista previa de los componentes UI usados en este proyecto.",
-			"title": "Demo de Shadcn - SaaS Starter"
+			"title": "Demo de Shadcn"
 		}
 	},
 	"nav": {
