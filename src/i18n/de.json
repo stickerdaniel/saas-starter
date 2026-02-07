@@ -538,6 +538,13 @@
 			"verify": "E-Mail-Adresse bestätigen"
 		}
 	},
+	"error_page": {
+		"back_home": "Zurück zur Startseite",
+		"generic_description": "Beim Laden dieser Seite ist ein unerwarteter Fehler aufgetreten.",
+		"generic_title": "Etwas ist schiefgelaufen",
+		"not_found_description": "Die gesuchte Seite existiert nicht oder wurde verschoben.",
+		"not_found_title": "404 - Seite nicht gefunden"
+	},
 	"hero": {
 		"companies_text": "Vertrauen der besten Teams",
 		"cta": "Jetzt starten",
