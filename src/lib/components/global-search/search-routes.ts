@@ -56,13 +56,6 @@ export const SEARCH_ROUTES: SearchRouteEntry[] = [
 		keywords: ['forgot password', 'reset']
 	},
 	{
-		href: '/app',
-		access: 'authenticated',
-		group: 'app',
-		titleKey: 'admin.navigation.app',
-		keywords: ['app']
-	},
-	{
 		href: '/app/dashboard',
 		access: 'authenticated',
 		group: 'app',
@@ -82,13 +75,6 @@ export const SEARCH_ROUTES: SearchRouteEntry[] = [
 		group: 'app',
 		titleKey: 'settings.title',
 		keywords: ['settings', 'account']
-	},
-	{
-		href: '/admin',
-		access: 'admin',
-		group: 'admin',
-		titleKey: 'admin.title',
-		keywords: ['admin']
 	},
 	{
 		href: '/admin/dashboard',
