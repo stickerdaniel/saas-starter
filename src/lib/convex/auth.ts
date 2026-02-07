@@ -83,8 +83,10 @@ export const authComponent = createClient<DataModel, typeof authSchema>(componen
 			 * - Sends new user signup notification to admins only after verification
 			 * - Creates notification preferences if user is admin (rare)
 			 *
-			 * Non-critical operations are wrapped in try/catch to prevent
-			 * blocking user signup if notifications or preferences fail.
+			 * Notification scheduling is intentionally unwrapped — it relies on
+			 * Convex transactional atomicity (scheduler + query cannot fail for
+			 * data created in the same flow). Preference sync IS wrapped because
+			 * it writes to a separate table with more failure modes.
 			 */
 			onCreate: async (ctx, user) => {
 				// Send signup stats email immediately only for already-verified users
@@ -112,8 +114,8 @@ export const authComponent = createClient<DataModel, typeof authSchema>(componen
 			 * - Sends signup notification when email becomes verified
 			 * - Detects admin role changes and syncs notification preferences
 			 *
-			 * Non-critical operations are wrapped in try/catch to prevent
-			 * blocking user updates if preference sync fails.
+			 * Notification scheduling is intentionally unwrapped (see onCreate).
+			 * Preference sync IS wrapped to prevent blocking user updates.
 			 */
 			onUpdate: async (ctx, newUser, oldUser) => {
 				const becameVerified = oldUser.emailVerified !== true && newUser.emailVerified === true;
