@@ -308,6 +308,9 @@
 	}
 
 	async function handleOAuth(provider: 'google' | 'github') {
+		isLoading = true;
+		formError = '';
+
 		try {
 			await authClient.signIn.social({
 				provider,
@@ -316,6 +319,8 @@
 		} catch (error) {
 			console.error(`[SignIn] OAuth ${provider} error:`, error);
 			formError = 'auth.messages.oauth_failed';
+		} finally {
+			isLoading = false;
 		}
 	}
 
@@ -388,7 +393,7 @@
 				{:else if params.tab === 'signin'}
 					<!-- Sign In Form -->
 					<form onsubmit={handleSignIn} novalidate class="min-h-96">
-						<LoadingBar value={signInProgress} class="h-1 rounded-none" />
+						<LoadingBar value={signInProgress} indeterminate={isLoading} class="h-1 rounded-none" />
 						<div class="p-6 md:p-8">
 							<FieldGroup>
 								<div class="flex flex-col items-center gap-2 text-center">
@@ -524,7 +529,7 @@
 				{:else}
 					<!-- Sign Up Form -->
 					<form onsubmit={handleSignUp} novalidate class="min-h-96">
-						<LoadingBar value={signUpProgress} class="h-1 rounded-none" />
+						<LoadingBar value={signUpProgress} indeterminate={isLoading} class="h-1 rounded-none" />
 						<div class="p-6 md:p-8">
 							<FieldGroup>
 								<div class="flex flex-col items-center gap-2 text-center">

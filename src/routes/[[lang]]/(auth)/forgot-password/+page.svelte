@@ -127,7 +127,7 @@
 		<Card.Root class="overflow-hidden p-0">
 			<Card.Content class="grid p-0 md:grid-cols-2">
 				<form onsubmit={handleSubmit} novalidate class="min-h-96">
-					<LoadingBar value={progress} class="h-1 rounded-none" />
+					<LoadingBar value={progress} indeterminate={isLoading} class="h-1 rounded-none" />
 					<div class="p-6 md:p-8">
 						<FieldGroup>
 							<div class="flex flex-col items-center gap-2 text-center">
