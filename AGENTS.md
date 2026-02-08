@@ -245,6 +245,7 @@ This applies to all icon libraries and large component libraries. Individual imp
 - Only create a new component if it doesn't exist in any of the above libraries.
 - When implementing a new component, follow the existing shadcn-svelte component api and patterns in `src/lib/components/ui/`
 - Use Tailwind CSS classes for layout and styling in general. Do not add additional styling classes to the shadcn svelte components. They look good by default.
+- Prefer reusable Tailwind utilities (defined globally with `@utility` in `src/routes/layout.css`) over component-local `<style>` blocks for shared styling patterns (for example `no-drag`).
 
 #### Animations
 

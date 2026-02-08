@@ -1,11 +1,14 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { api } from '$lib/convex/_generated/api';
 	import * as Command from '$lib/components/ui/command/index.js';
 	import * as Dialog from '$lib/components/ui/dialog/index.js';
 	import * as Kbd from '$lib/components/ui/kbd/index.js';
 	import { localizedHref } from '$lib/utils/i18n';
+	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
 	import { getTranslate } from '@tolgee/svelte';
+	import { useQuery } from 'convex-svelte';
 	import ArrowRightIcon from '@lucide/svelte/icons/arrow-right';
 	import CornerDownLeftIcon from '@lucide/svelte/icons/corner-down-left';
 	import CommandMenuItem from './command-menu-item.svelte';
@@ -16,11 +19,6 @@
 		type SearchRouteGroup
 	} from './search-routes';
 	import { useGlobalSearchContext } from './context.svelte';
-
-	interface Props {
-		isAuthenticated: boolean;
-		userRole?: string | null;
-	}
 
 	type MenuRouteItem = SearchRouteEntry & {
 		id: string;
@@ -36,11 +34,39 @@
 		items: MenuRouteItem[];
 	};
 
+	type EffectiveAuthState = {
+		isAuthenticated: boolean;
+		role: string | null;
+	};
+
 	const { t } = getTranslate();
 
-	let { isAuthenticated = false, userRole = null }: Props = $props();
-
 	const globalSearch = useGlobalSearchContext();
+	const auth = useAuth();
+	const viewer = useQuery(api.auth.getCurrentUser, {});
+
+	let lastStableAuth = $state<EffectiveAuthState>({
+		isAuthenticated: auth.isAuthenticated,
+		role: auth.isAuthenticated ? (viewer.data?.role ?? null) : null
+	});
+
+	$effect(() => {
+		if (auth.isLoading) return;
+
+		lastStableAuth = {
+			isAuthenticated: auth.isAuthenticated,
+			role: auth.isAuthenticated ? (viewer.data?.role ?? null) : null
+		};
+	});
+
+	const effectiveAuth = $derived.by<EffectiveAuthState>(() => {
+		if (auth.isLoading) return lastStableAuth;
+
+		return {
+			isAuthenticated: auth.isAuthenticated,
+			role: auth.isAuthenticated ? (viewer.data?.role ?? null) : null
+		};
+	});
 
 	const groupOrder: SearchRouteGroup[] = ['public', 'authentication', 'app', 'admin'];
 	const groupKeyMap: Record<SearchRouteGroup, string> = {
@@ -52,12 +78,12 @@
 
 	function hasAccess(access: SearchRouteEntry['access']): boolean {
 		if (access === 'public') return true;
-		if (access === 'authenticated') return isAuthenticated;
-		return isAuthenticated && userRole?.toLowerCase() === 'admin';
+		if (access === 'authenticated') return effectiveAuth.isAuthenticated;
+		return effectiveAuth.isAuthenticated && effectiveAuth.role?.toLowerCase() === 'admin';
 	}
 
 	function isVisibleRoute(route: SearchRouteEntry): boolean {
-		if (route.group === 'authentication' && isAuthenticated) return false;
+		if (route.group === 'authentication' && effectiveAuth.isAuthenticated) return false;
 		return hasAccess(route.access);
 	}
 
