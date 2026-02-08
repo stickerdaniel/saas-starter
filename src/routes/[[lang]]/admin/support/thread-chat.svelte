@@ -175,9 +175,13 @@
 					{#if isLoading}
 						<!-- Skeleton state (matches AvatarHeading layout) -->
 						<Skeleton class="size-8 shrink-0 rounded-full" />
-						<div class="flex min-w-0 flex-col">
-							<Skeleton class="h-5 w-28" />
-							<Skeleton class="mt-1 h-4 w-40" />
+						<div class="flex min-h-0 min-w-0 flex-col">
+							<div class="flex h-5 items-center">
+								<Skeleton class="h-4 w-28" />
+							</div>
+							<div class="flex h-[17.5px] items-center">
+								<Skeleton class="h-3.5 w-40" />
+							</div>
 						</div>
 					{:else}
 						<!-- Resolved state -->
