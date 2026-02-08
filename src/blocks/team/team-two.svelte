@@ -72,6 +72,7 @@
 							alt="team member"
 							width="826"
 							height="1239"
+							draggable={false}
 							loading="lazy"
 							decoding="async"
 						/>
@@ -92,6 +93,7 @@
 								</span>
 								<a
 									href={resolve(member.link)}
+									draggable={false}
 									class="group-hover:text-primary-600 dark:group-hover:text-primary-400 inline-block translate-y-8 text-sm tracking-wide opacity-0 transition-all duration-500 group-hover:translate-y-0 group-hover:opacity-100 hover:underline"
 								>
 									<T keyName="team.linktree" />
