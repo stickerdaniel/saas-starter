@@ -15,10 +15,6 @@
 	languageContext.set(() => data.lang);
 	setGlobalSearchContext();
 
-	const viewer = $derived(data.viewer as (typeof data.viewer & { role?: string }) | null);
-	const isAuthenticated = $derived(Boolean(viewer));
-	const userRole = $derived(viewer?.role ?? null);
-
 	// Intentionally capture initial language; watch() syncs URL navigation changes below.
 	// svelte-ignore state_referenced_locally
 	const tolgee = Tolgee()
@@ -67,6 +63,6 @@
 </script>
 
 <TolgeeProvider {tolgee}>
-	<CommandMenu {isAuthenticated} {userRole} />
+	<CommandMenu />
 	{@render children()}
 </TolgeeProvider>
