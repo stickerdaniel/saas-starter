@@ -332,6 +332,10 @@
 	}
 }
 
+@utility no-drag {
+	-webkit-user-drag: none;
+}
+
 @layer components {
 	.scrollbar-thin {
 		&::-webkit-scrollbar {
