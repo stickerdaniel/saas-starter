@@ -171,9 +171,13 @@
 							<!-- AvatarHeading skeleton -->
 							<div class="flex min-w-0 flex-1 items-center gap-2">
 								<Skeleton class="size-8 shrink-0 rounded-full" />
-								<div class="flex min-w-0 flex-col">
-									<Skeleton class="h-5 w-48" />
-									<Skeleton class="mt-1 h-4 w-32" />
+								<div class="flex min-h-0 min-w-0 flex-col">
+									<div class="flex h-5 items-center">
+										<Skeleton class="h-4 w-48" />
+									</div>
+									<div class="flex h-[17.5px] items-center">
+										<Skeleton class="h-3.5 w-32" />
+									</div>
 								</div>
 							</div>
 
