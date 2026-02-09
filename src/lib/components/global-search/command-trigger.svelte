@@ -3,6 +3,7 @@
 	import * as Kbd from '$lib/components/ui/kbd/index.js';
 	import { cn } from '$lib/utils.js';
 	import { getTranslate } from '@tolgee/svelte';
+	import { cmdOrCtrl } from '$lib/hooks/is-mac.svelte';
 	import { useGlobalSearchContext } from './context.svelte';
 
 	interface Props {
@@ -29,7 +30,7 @@
 	<span class="inline-flex lg:hidden">{$t('search.command.trigger_mobile')}</span>
 	<div class="absolute end-1.5 top-1.5 hidden gap-1 sm:flex">
 		<Kbd.Group>
-			<Kbd.Root class="border">⌘</Kbd.Root>
+			<Kbd.Root class="border">{cmdOrCtrl}</Kbd.Root>
 			<Kbd.Root class="border">K</Kbd.Root>
 		</Kbd.Group>
 	</div>
