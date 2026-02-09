@@ -247,6 +247,10 @@ This applies to all icon libraries and large component libraries. Individual imp
 - Use Tailwind CSS classes for layout and styling in general. Do not add additional styling classes to the shadcn svelte components. They look good by default.
 - Prefer reusable Tailwind utilities (defined globally with `@utility` in `src/routes/layout.css`) over component-local `<style>` blocks for shared styling patterns (for example `no-drag`).
 
+#### Keyboard Shortcuts
+
+Never hardcode `⌘` or `Ctrl`. Use `cmdOrCtrl` / `optionOrAlt` from `$lib/hooks/is-mac.svelte` to show the correct modifier per platform.
+
 #### Animations
 
 Simple animations should be implemented with plain CSS whenever possible.
