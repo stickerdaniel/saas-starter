@@ -8,6 +8,7 @@ import type { GenericMutationCtx } from 'convex/server';
 import { passkey } from '@better-auth/passkey';
 import { admin } from 'better-auth/plugins/admin';
 import { betterAuth, type BetterAuthOptions } from 'better-auth';
+import { createAuthMiddleware, APIError } from 'better-auth/api';
 import authSchema from './betterAuth/schema';
 import authConfig from './auth.config';
 import { getBetterAuthSecret, getSiteUrl, googleOAuth, githubOAuth } from './env';
@@ -175,6 +176,7 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>): BetterAuthOptions
 		},
 		emailAndPassword: {
 			enabled: true,
+			minPasswordLength: 10,
 			requireEmailVerification: true,
 			// Password reset email
 			sendResetPassword: async ({
@@ -228,7 +230,27 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>): BetterAuthOptions
 				defaultRole: 'user',
 				adminRoles: ['admin']
 			})
-		]
+		],
+		hooks: {
+			before: createAuthMiddleware(async (ctx) => {
+				const passwordPaths = ['/sign-up/email', '/reset-password', '/change-password'];
+				if (!passwordPaths.includes(ctx.path)) return;
+
+				const password = ctx.body?.password || ctx.body?.newPassword;
+				if (!password || typeof password !== 'string') return;
+
+				if (!/[A-Z]/.test(password))
+					throw new APIError('BAD_REQUEST', {
+						message: 'Password must contain an uppercase letter'
+					});
+				if (!/[a-z]/.test(password))
+					throw new APIError('BAD_REQUEST', {
+						message: 'Password must contain a lowercase letter'
+					});
+				if (!/[0-9]/.test(password))
+					throw new APIError('BAD_REQUEST', { message: 'Password must contain a number' });
+			})
+		}
 	};
 };
 

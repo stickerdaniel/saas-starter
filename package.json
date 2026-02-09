@@ -48,6 +48,9 @@
 		"@tolgee/format-icu": "^6.2.7",
 		"@tolgee/svelte": "^6.2.7",
 		"@zumer/snapdom": "^2.0.0",
+		"@zxcvbn-ts/core": "^3.0.4",
+		"@zxcvbn-ts/language-common": "^3.0.4",
+		"@zxcvbn-ts/language-en": "^3.0.2",
 		"ai": "^5.0.93",
 		"atmn": "^0.0.32",
 		"autumn-js": "^0.1.43",
@@ -67,6 +70,7 @@
 		"svelte-infinite": "^0.5.1",
 		"svelte-konva": "^1.0.1",
 		"svelte-streamdown": "^3.0.0",
+		"svelte-toolbelt": "^0.10.6",
 		"valibot": "^1.2.0",
 		"vercel": "^50.0.0"
 	},
