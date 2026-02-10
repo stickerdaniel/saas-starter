@@ -175,6 +175,7 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>): BetterAuthOptions
 		},
 		emailAndPassword: {
 			enabled: true,
+			minPasswordLength: 10,
 			requireEmailVerification: true,
 			// Password reset email
 			sendResetPassword: async ({
