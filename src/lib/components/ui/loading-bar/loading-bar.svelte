@@ -118,7 +118,7 @@
 		>
 			<div
 				data-slot="progress-indicator"
-				class="absolute inset-y-0 bg-primary transition-[left,width]"
+				class="absolute inset-y-0 bg-primary transition-[left,width] duration-500"
 				style="left: {startPercent}%; width: {widthPercent}%;"
 			></div>
 		</div>

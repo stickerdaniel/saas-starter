@@ -8,6 +8,7 @@
 	import SEOHead from '$lib/components/SEOHead.svelte';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
+	import * as Password from '$lib/components/ui/password';
 	import * as Card from '$lib/components/ui/card/index.js';
 	import { LoadingBar } from '$lib/components/ui/loading-bar/index.js';
 	import {
@@ -578,18 +579,16 @@
 									<FieldLabel for="signup-password-{id}"
 										><T keyName="auth.signin.password_label" /></FieldLabel
 									>
-									<Input
-										id="signup-password-{id}"
-										type="password"
-										disabled={isLoading}
-										bind:value={signUpData.password}
-									/>
-									<FieldDescription>
-										<T
-											keyName="auth.signup.password_hint"
-											defaultValue="Minimum 10 characters with uppercase, lowercase, and number"
-										/>
-									</FieldDescription>
+									<Password.Root>
+										<Password.Input
+											id="signup-password-{id}"
+											disabled={isLoading}
+											bind:value={signUpData.password}
+										>
+											<Password.ToggleVisibility />
+										</Password.Input>
+										<Password.Strength />
+									</Password.Root>
 									<FieldError
 										errors={translateValidationErrors(signUpErrors.password, $t, passwordParams)}
 									/>

@@ -2,6 +2,7 @@
 	import * as v from 'valibot';
 	import { authClient } from '$lib/auth-client.js';
 	import { Input } from '$lib/components/ui/input/index.js';
+	import * as Password from '$lib/components/ui/password';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import * as Card from '$lib/components/ui/card/index.js';
 	import * as Alert from '$lib/components/ui/alert/index.js';
@@ -139,17 +140,18 @@
 					<Field.Label for="newPassword">
 						<T keyName="settings.password.new_password_label" />
 					</Field.Label>
-					<Input
-						type="password"
-						id="newPassword"
-						name="newPassword"
-						placeholder={$t('settings.password.placeholder.new')}
-						autocomplete="new-password"
-						bind:value={formData.newPassword}
-					/>
-					<Field.Description>
-						<T keyName="auth.signup.password_hint" />
-					</Field.Description>
+					<Password.Root>
+						<Password.Input
+							id="newPassword"
+							name="newPassword"
+							placeholder={$t('settings.password.placeholder.new')}
+							autocomplete="new-password"
+							bind:value={formData.newPassword}
+						>
+							<Password.ToggleVisibility />
+						</Password.Input>
+						<Password.Strength />
+					</Password.Root>
 					<Field.Error errors={translateValidationErrors(errors.newPassword, $t, passwordParams)} />
 				</Field.Field>
 
