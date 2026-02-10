@@ -4,6 +4,7 @@
 	import * as Card from '$lib/components/ui/card/index.js';
 	import { LoadingBar } from '$lib/components/ui/loading-bar/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
+	import * as Password from '$lib/components/ui/password';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import {
 		FieldGroup,
@@ -199,19 +200,17 @@
 								<FieldLabel for="password-{id}">
 									<T keyName="auth.reset_password.new_password_label" defaultValue="New password" />
 								</FieldLabel>
-								<Input
-									id="password-{id}"
-									type="password"
-									placeholder="••••••••"
-									disabled={isLoading || !!message}
-									bind:value={formData.password}
-								/>
-								<FieldDescription>
-									<T
-										keyName="auth.signup.password_hint"
-										defaultValue="Minimum 10 characters with uppercase, lowercase, and number"
-									/>
-								</FieldDescription>
+								<Password.Root>
+									<Password.Input
+										id="password-{id}"
+										placeholder="••••••••"
+										disabled={isLoading || !!message}
+										bind:value={formData.password}
+									>
+										<Password.ToggleVisibility />
+									</Password.Input>
+									<Password.Strength />
+								</Password.Root>
 								<FieldError
 									errors={translateValidationErrors(errors.password, $t, passwordParams)}
 								/>
