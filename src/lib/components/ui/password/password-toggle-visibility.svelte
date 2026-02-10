@@ -22,7 +22,6 @@
 		},
 		className
 	)}
-	tabindex={-1}
 >
 	{#if state.root.opts.hidden.current}
 		<EyeIcon class="size-4" />

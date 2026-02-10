@@ -14,9 +14,9 @@ type Options = {
  * </script>
  *
  * <button onclick={() => clipboard.copy('Hello, World!')}>
- *     {#if clipboard.copied === 'success'}
+ *     {#if clipboard.status === 'success'}
  *         Copied!
- *     {:else if clipboard.copied === 'failure'}
+ *     {:else if clipboard.status === 'failure'}
  *         Failed to copy!
  *     {:else}
  *         Copy
@@ -85,15 +85,17 @@ export async function copyText(text: string): Promise<'success' | 'failure'> {
 		textArea.style.top = '0';
 		textArea.style.left = '0';
 		document.body.appendChild(textArea);
-		textArea.focus();
-		textArea.select();
 
-		const successful = document.execCommand('copy');
-
-		document.body.removeChild(textArea);
-
-		return successful ? 'success' : 'failure';
-	} catch {
+		try {
+			textArea.focus();
+			textArea.select();
+			const successful = document.execCommand('copy');
+			return successful ? 'success' : 'failure';
+		} finally {
+			textArea.remove();
+		}
+	} catch (error) {
+		console.error('Clipboard copy failed:', error);
 		return 'failure';
 	}
 }

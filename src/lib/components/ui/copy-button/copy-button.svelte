@@ -14,18 +14,15 @@
 		icon,
 		animationDuration = 500,
 		variant = 'ghost',
-		size = 'icon',
+		size: sizeProp = 'icon',
 		onCopy,
 		class: className,
-		tabindex = -1,
+		tabindex = 0,
 		children,
 		...rest
 	}: CopyButtonProps = $props();
 
-	// this way if the user passes text then the button will be the default size
-	if (size === 'icon' && children) {
-		size = 'default';
-	}
+	const resolvedSize = $derived(sizeProp === 'icon' && children ? 'default' : sizeProp);
 
 	const clipboard = new UseClipboard();
 </script>
@@ -34,7 +31,7 @@
 	{...rest}
 	bind:ref
 	{variant}
-	{size}
+	size={resolvedSize}
 	{tabindex}
 	class={cn('flex items-center gap-2', className)}
 	type="button"
