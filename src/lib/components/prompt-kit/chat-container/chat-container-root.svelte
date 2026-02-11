@@ -13,12 +13,14 @@
 		class: className,
 		resize = 'smooth',
 		initial = 'instant',
+		ref = $bindable(null),
 		...restProps
 	}: {
 		children?: import('svelte').Snippet;
 		class?: string;
 		resize?: ResizeMode;
 		initial?: InitialMode;
+		ref?: HTMLElement | null;
 		[key: string]: any;
 	} = $props();
 
@@ -27,20 +29,18 @@
 		context.setModes(resize, initial);
 	});
 
-	let containerElement: HTMLElement;
-
 	watch(
-		() => containerElement,
+		() => ref,
 		() => {
-			if (containerElement) {
-				context.setElement(containerElement);
+			if (ref) {
+				context.setElement(ref);
 			}
 		}
 	);
 </script>
 
 <div
-	bind:this={containerElement}
+	bind:this={ref}
 	class={cn(' scrollbar-thin flex flex-col overflow-y-auto', className)}
 	role="log"
 	{...restProps}
