@@ -166,7 +166,7 @@
 		<ChatContainerScrollAnchor />
 
 		<!-- Overlay area pinned to bottom of scroll container -->
-		<div class="pointer-events-none relative sticky bottom-0 z-10 min-h-16 w-full">
+		<div class="pointer-events-none relative sticky bottom-0 z-10 mt-auto min-h-16 w-full">
 			<!-- Progressive blur as background overlay - only shown when there are messages -->
 			{#if ctx.displayMessages.length > 0}
 				<ProgressiveBlur
