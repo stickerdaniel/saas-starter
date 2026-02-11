@@ -52,6 +52,9 @@
 	} = $props();
 
 	const ctx = getChatUIContext();
+	const SCROLL_BOTTOM_THRESHOLD = 50;
+	let scrollViewport: HTMLElement | null = $state(null);
+	let isAtBottom = $state(true);
 
 	// Handoff message text to detect - use the same translation as backend
 	const HANDOFF_MESSAGE = $derived($t('backend.support.handoff.response').split('.')[0] + '.');
@@ -134,10 +137,53 @@
 			? (msg: DisplayMessage) => extractAttachments(msg, fileMetadata)
 			: (msg: DisplayMessage) => defaultExtractAttachments(msg, fileMetadata)
 	);
+
+	function updateScrollState() {
+		if (!scrollViewport) {
+			isAtBottom = true;
+			return;
+		}
+
+		const { scrollTop, scrollHeight, clientHeight } = scrollViewport;
+		isAtBottom = scrollTop + clientHeight >= scrollHeight - SCROLL_BOTTOM_THRESHOLD;
+	}
+
+	function handleViewportScroll() {
+		updateScrollState();
+	}
+
+	function handleScrollToBottom() {
+		if (!scrollViewport) return;
+		scrollViewport.scrollTo({ top: scrollViewport.scrollHeight, behavior: 'smooth' });
+	}
+
+	$effect(() => {
+		const viewport = scrollViewport;
+		if (!viewport) {
+			isAtBottom = true;
+			return;
+		}
+
+		const observer = new ResizeObserver(() => {
+			updateScrollState();
+		});
+
+		observer.observe(viewport);
+		const content = viewport.firstElementChild;
+		if (content instanceof HTMLElement) {
+			observer.observe(content);
+		}
+
+		updateScrollState();
+
+		return () => {
+			observer.disconnect();
+		};
+	});
 </script>
 
 <div class="relative h-full {className}">
-	<ChatContainerRoot class="relative h-full">
+	<ChatContainerRoot bind:ref={scrollViewport} class="h-full" onscroll={handleViewportScroll}>
 		<ChatContainerContent class="!h-full">
 			{#if ctx.displayMessages.length === 0}
 				<!-- Empty state -->
@@ -166,12 +212,16 @@
 			<!-- Scroll anchor for auto-scroll functionality -->
 			<ChatContainerScrollAnchor />
 		</ChatContainerContent>
-
-		<!-- Scroll button pinned to bottom overlay, not in normal content flow -->
-		<div class="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-16 w-full">
-			<ScrollButton class="pointer-events-auto absolute right-9 bottom-6 z-20" />
-		</div>
 	</ChatContainerRoot>
+
+	<!-- Scroll button pinned to bottom overlay, outside scroll container -->
+	<div class="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-16 w-full">
+		<ScrollButton
+			class="pointer-events-auto absolute right-9 bottom-6 z-20"
+			{isAtBottom}
+			onScrollToBottom={handleScrollToBottom}
+		/>
+	</div>
 
 	<!-- Blur pinned to chat viewport bottom (outside scroll container) -->
 	{#if ctx.displayMessages.length > 0}
