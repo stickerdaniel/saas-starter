@@ -136,47 +136,49 @@
 	);
 </script>
 
-<ChatContainerRoot class="relative h-full {className}">
-	<ChatContainerContent class="!h-full">
-		{#if ctx.displayMessages.length === 0}
-			<!-- Empty state -->
-			{#if emptyState}
-				{@render emptyState()}
+<div class="relative h-full {className}">
+	<ChatContainerRoot class="relative h-full">
+		<ChatContainerContent class="!h-full">
+			{#if ctx.displayMessages.length === 0}
+				<!-- Empty state -->
+				{#if emptyState}
+					{@render emptyState()}
+				{/if}
+			{:else}
+				<!-- Messages list with fade-in animation on first load -->
+				<div class="px-9 py-20 {ctx.messagesFade.animationClass}">
+					{#each ctx.displayMessages as message, index (message.id)}
+						<ChatMessage
+							{message}
+							attachments={getAttachments(message)}
+							isFirstInGroup={isFirstInGroup(index, ctx.displayMessages)}
+							isHandoffMessage={message.displayText?.startsWith(HANDOFF_MESSAGE)}
+							{showEmailPrompt}
+							{currentEmail}
+							{isEmailPending}
+							{defaultEmail}
+							{onSubmitEmail}
+						/>
+					{/each}
+				</div>
 			{/if}
-		{:else}
-			<!-- Messages list with fade-in animation on first load -->
-			<div class="px-9 py-20 {ctx.messagesFade.animationClass}">
-				{#each ctx.displayMessages as message, index (message.id)}
-					<ChatMessage
-						{message}
-						attachments={getAttachments(message)}
-						isFirstInGroup={isFirstInGroup(index, ctx.displayMessages)}
-						isHandoffMessage={message.displayText?.startsWith(HANDOFF_MESSAGE)}
-						{showEmailPrompt}
-						{currentEmail}
-						{isEmailPending}
-						{defaultEmail}
-						{onSubmitEmail}
-					/>
-				{/each}
-			</div>
-		{/if}
 
-		<!-- Scroll anchor for auto-scroll functionality -->
-		<ChatContainerScrollAnchor />
+			<!-- Scroll anchor for auto-scroll functionality -->
+			<ChatContainerScrollAnchor />
+		</ChatContainerContent>
 
-		<!-- Overlay area pinned to bottom of scroll container -->
-		<div class="pointer-events-none relative sticky bottom-0 z-10 mt-auto min-h-16 w-full">
-			<!-- Progressive blur as background overlay - only shown when there are messages -->
-			{#if ctx.displayMessages.length > 0}
-				<ProgressiveBlur
-					class="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-20 w-full"
-					direction="bottom"
-					blurIntensity={1}
-				/>
-			{/if}
-			<!-- Scroll button over the blur -->
+		<!-- Scroll button pinned to bottom overlay, not in normal content flow -->
+		<div class="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-16 w-full">
 			<ScrollButton class="pointer-events-auto absolute right-9 bottom-6 z-20" />
 		</div>
-	</ChatContainerContent>
-</ChatContainerRoot>
+	</ChatContainerRoot>
+
+	<!-- Blur pinned to chat viewport bottom (outside scroll container) -->
+	{#if ctx.displayMessages.length > 0}
+		<ProgressiveBlur
+			class="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-20 w-full"
+			direction="bottom"
+			blurIntensity={1}
+		/>
+	{/if}
+</div>
