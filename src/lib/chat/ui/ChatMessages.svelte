@@ -4,7 +4,8 @@
 	import {
 		ChatContainerRoot,
 		ChatContainerContent,
-		ChatContainerScrollAnchor
+		ChatContainerScrollAnchor,
+		ChatContainerContext
 	} from '$lib/components/prompt-kit/chat-container';
 	import { ScrollButton } from '$lib/components/prompt-kit/scroll-button';
 	import ProgressiveBlur from '$blocks/magic/ProgressiveBlur.svelte';
@@ -14,7 +15,7 @@
 
 	/**
 	 * File metadata for dimension lookup
-	 * Map of fileId -> { width, height }
+	 * Map of URL -> { width, height }
 	 */
 	type FileMetadataMap = Record<string, { width?: number; height?: number }>;
 
@@ -35,7 +36,7 @@
 		emptyState?: Snippet;
 		/** Function to extract attachments from a message */
 		extractAttachments?: (message: DisplayMessage, metadata?: FileMetadataMap) => Attachment[];
-		/** File metadata for dimension lookup (fileId -> dimensions) */
+		/** File metadata for dimension lookup (URL -> dimensions) */
 		fileMetadata?: FileMetadataMap;
 		/** Whether to show email prompt in handoff message */
 		showEmailPrompt?: boolean;
@@ -52,9 +53,7 @@
 	} = $props();
 
 	const ctx = getChatUIContext();
-	const SCROLL_BOTTOM_THRESHOLD = 50;
-	let scrollViewport: HTMLElement | null = $state(null);
-	let isAtBottom = $state(true);
+	const chatCtx = new ChatContainerContext();
 
 	// Handoff message text to detect - use the same translation as backend
 	const HANDOFF_MESSAGE = $derived($t('backend.support.handoff.response').split('.')[0] + '.');
@@ -137,53 +136,10 @@
 			? (msg: DisplayMessage) => extractAttachments(msg, fileMetadata)
 			: (msg: DisplayMessage) => defaultExtractAttachments(msg, fileMetadata)
 	);
-
-	function updateScrollState() {
-		if (!scrollViewport) {
-			isAtBottom = true;
-			return;
-		}
-
-		const { scrollTop, scrollHeight, clientHeight } = scrollViewport;
-		isAtBottom = scrollTop + clientHeight >= scrollHeight - SCROLL_BOTTOM_THRESHOLD;
-	}
-
-	function handleViewportScroll() {
-		updateScrollState();
-	}
-
-	function handleScrollToBottom() {
-		if (!scrollViewport) return;
-		scrollViewport.scrollTo({ top: scrollViewport.scrollHeight, behavior: 'smooth' });
-	}
-
-	$effect(() => {
-		const viewport = scrollViewport;
-		if (!viewport) {
-			isAtBottom = true;
-			return;
-		}
-
-		const observer = new ResizeObserver(() => {
-			updateScrollState();
-		});
-
-		observer.observe(viewport);
-		const content = viewport.firstElementChild;
-		if (content instanceof HTMLElement) {
-			observer.observe(content);
-		}
-
-		updateScrollState();
-
-		return () => {
-			observer.disconnect();
-		};
-	});
 </script>
 
 <div class="relative h-full {className}">
-	<ChatContainerRoot bind:ref={scrollViewport} class="h-full" onscroll={handleViewportScroll}>
+	<ChatContainerRoot ctx={chatCtx} class="h-full">
 		<ChatContainerContent class="!h-full">
 			{#if ctx.displayMessages.length === 0}
 				<!-- Empty state -->
@@ -218,8 +174,8 @@
 	<div class="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-16 w-full">
 		<ScrollButton
 			class="pointer-events-auto absolute right-9 bottom-6 z-20"
-			{isAtBottom}
-			onScrollToBottom={handleScrollToBottom}
+			isAtBottom={chatCtx.isAtBottom}
+			onScrollToBottom={() => chatCtx.scrollToBottom()}
 		/>
 	</div>
 

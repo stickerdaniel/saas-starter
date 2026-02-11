@@ -48,6 +48,7 @@
 	bind:ref
 	{variant}
 	{size}
+	aria-label="Scroll to bottom"
 	class={cn(
 		'h-10 w-10 rounded-full transition-all duration-150 ease-out',
 		!resolvedIsAtBottom
