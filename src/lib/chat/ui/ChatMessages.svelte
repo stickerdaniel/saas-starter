@@ -4,7 +4,8 @@
 	import {
 		ChatContainerRoot,
 		ChatContainerContent,
-		ChatContainerScrollAnchor
+		ChatContainerScrollAnchor,
+		ChatContainerContext
 	} from '$lib/components/prompt-kit/chat-container';
 	import { ScrollButton } from '$lib/components/prompt-kit/scroll-button';
 	import ProgressiveBlur from '$blocks/magic/ProgressiveBlur.svelte';
@@ -14,7 +15,7 @@
 
 	/**
 	 * File metadata for dimension lookup
-	 * Map of fileId -> { width, height }
+	 * Map of URL -> { width, height }
 	 */
 	type FileMetadataMap = Record<string, { width?: number; height?: number }>;
 
@@ -35,7 +36,7 @@
 		emptyState?: Snippet;
 		/** Function to extract attachments from a message */
 		extractAttachments?: (message: DisplayMessage, metadata?: FileMetadataMap) => Attachment[];
-		/** File metadata for dimension lookup (fileId -> dimensions) */
+		/** File metadata for dimension lookup (URL -> dimensions) */
 		fileMetadata?: FileMetadataMap;
 		/** Whether to show email prompt in handoff message */
 		showEmailPrompt?: boolean;
@@ -52,6 +53,7 @@
 	} = $props();
 
 	const ctx = getChatUIContext();
+	const chatCtx = new ChatContainerContext();
 
 	// Handoff message text to detect - use the same translation as backend
 	const HANDOFF_MESSAGE = $derived($t('backend.support.handoff.response').split('.')[0] + '.');
@@ -137,7 +139,7 @@
 </script>
 
 <div class="relative h-full {className}">
-	<ChatContainerRoot class="relative h-full">
+	<ChatContainerRoot ctx={chatCtx} class="h-full">
 		<ChatContainerContent class="!h-full">
 			{#if ctx.displayMessages.length === 0}
 				<!-- Empty state -->
@@ -166,12 +168,16 @@
 			<!-- Scroll anchor for auto-scroll functionality -->
 			<ChatContainerScrollAnchor />
 		</ChatContainerContent>
-
-		<!-- Scroll button pinned to bottom overlay, not in normal content flow -->
-		<div class="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-16 w-full">
-			<ScrollButton class="pointer-events-auto absolute right-9 bottom-6 z-20" />
-		</div>
 	</ChatContainerRoot>
+
+	<!-- Scroll button pinned to bottom overlay, outside scroll container -->
+	<div class="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-16 w-full">
+		<ScrollButton
+			class="pointer-events-auto absolute right-9 bottom-6 z-20"
+			isAtBottom={chatCtx.isAtBottom}
+			onScrollToBottom={() => chatCtx.scrollToBottom()}
+		/>
+	</div>
 
 	<!-- Blur pinned to chat viewport bottom (outside scroll container) -->
 	{#if ctx.displayMessages.length > 0}
