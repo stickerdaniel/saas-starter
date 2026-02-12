@@ -77,6 +77,7 @@
 
 <script lang="ts">
 	import * as AlertDialog from '$lib/components/ui/alert-dialog';
+	import * as Field from '$lib/components/ui/field/index.js';
 	import { Input } from '$lib/components/ui/input';
 </script>
 
@@ -99,17 +100,23 @@
 				</AlertDialog.Description>
 			</AlertDialog.Header>
 			{#if dialogState.options?.input}
-				<Input
-					bind:value={dialogState.inputText}
-					placeholder={`Enter "${dialogState.options.input.confirmationText}" to confirm.`}
-					onkeydown={(e) => {
-						if (e.key === 'Enter') {
-							// for some reason without this the form will submit and the dialog will close immediately
-							e.preventDefault();
-							dialogState.confirm();
-						}
-					}}
-				/>
+				<Field.Group>
+					<Field.Field>
+						<Field.Label for="confirm-delete-input" class="sr-only">Confirmation</Field.Label>
+						<Input
+							id="confirm-delete-input"
+							bind:value={dialogState.inputText}
+							placeholder={`Enter "${dialogState.options.input.confirmationText}" to confirm.`}
+							onkeydown={(e) => {
+								if (e.key === 'Enter') {
+									// for some reason without this the form will submit and the dialog will close immediately
+									e.preventDefault();
+									dialogState.confirm();
+								}
+							}}
+						/>
+					</Field.Field>
+				</Field.Group>
 			{/if}
 			<AlertDialog.Footer>
 				<AlertDialog.Cancel

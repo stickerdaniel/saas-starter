@@ -2,7 +2,7 @@
 	import { authClient } from '$lib/auth-client.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
-	import { Label } from '$lib/components/ui/label/index.js';
+	import * as Field from '$lib/components/ui/field/index.js';
 	import * as Card from '$lib/components/ui/card/index.js';
 	import * as Alert from '$lib/components/ui/alert/index.js';
 	import * as Item from '$lib/components/ui/item/index.js';
@@ -117,30 +117,34 @@
 			<h3 class="text-sm font-semibold">
 				<T keyName="settings.security.add_passkey_title" />
 			</h3>
-			<div class="flex gap-2">
-				<div class="flex-1">
-					<Label class="sr-only" for="passkey-name">
+			<Field.Group>
+				<Field.Field>
+					<Field.Label class="sr-only" for="passkey-name">
 						<T keyName="settings.security.passkey_name_label" />
-					</Label>
-					<Input
-						id="passkey-name"
-						type="text"
-						bind:value={newPasskeyName}
-						placeholder={$t('settings.security.passkey.placeholder')}
-					/>
-				</div>
-				<Button onclick={handleAddPasskey} disabled={isAdding}>
-					{#if isAdding}
-						<T keyName="settings.security.adding" />
-					{:else}
-						<PlusIcon />
-						<T keyName="settings.security.add_button" />
-					{/if}
-				</Button>
-			</div>
-			<p class="text-sm text-muted-foreground">
-				<T keyName="settings.security.add_passkey_helper" />
-			</p>
+					</Field.Label>
+					<div class="flex gap-2">
+						<div class="flex-1">
+							<Input
+								id="passkey-name"
+								type="text"
+								bind:value={newPasskeyName}
+								placeholder={$t('settings.security.passkey.placeholder')}
+							/>
+						</div>
+						<Button onclick={handleAddPasskey} disabled={isAdding}>
+							{#if isAdding}
+								<T keyName="settings.security.adding" />
+							{:else}
+								<PlusIcon />
+								<T keyName="settings.security.add_button" />
+							{/if}
+						</Button>
+					</div>
+					<Field.Description>
+						<T keyName="settings.security.add_passkey_helper" />
+					</Field.Description>
+				</Field.Field>
+			</Field.Group>
 		</div>
 
 		<!-- Existing Passkeys -->

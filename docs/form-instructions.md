@@ -4,6 +4,16 @@ When working on forms in this project, first understand what elements are requir
 
 Next, ask the user to visit <https://svelte-form-builder.vercel.app/v2> and import the form JSON into the form builder. Follow the instructions on the page to build the form with valibot validation and SvelteKit remote functions toggled on! Use btca to get more information about SvelteKit remote functions. The user will then provide the generated client and server code. Implement the form in the project using the generated code, and make sure to use the shadcn-svelte components for the form elements instead of custom error labels.
 
+## Field Spacing Convention
+
+For semantic form sections (e.g. auth/settings/admin forms), use the shadcn field pattern consistently:
+
+- `import * as Field from '$lib/components/ui/field/index.js'`
+- Wrap grouped fields in `Field.Group`.
+- Each field is a `Field.Field` with label + control + optional description/error.
+- Keep `Field.Error` directly under its related control inside the same `Field.Field`.
+- Prefer one primary inline error message per field.
+
 ## Form Builder Import
 
 Generate a form JSON structure for my Svelte form builder. Use this exact schema:

@@ -11,14 +11,7 @@
 	import * as Password from '$lib/components/ui/password';
 	import * as Card from '$lib/components/ui/card/index.js';
 	import { LoadingBar } from '$lib/components/ui/loading-bar/index.js';
-	import {
-		FieldGroup,
-		Field,
-		FieldLabel,
-		FieldDescription,
-		FieldSeparator,
-		FieldError
-	} from '$lib/components/ui/field/index.js';
+	import * as Field from '$lib/components/ui/field/index.js';
 	import { useSearchParams } from 'runed/kit';
 	import { authParamsSchema } from '$lib/schemas/auth.js';
 	import { PASSWORD_MIN_LENGTH, signInSchema, signUpSchema } from './schema.js';
@@ -363,7 +356,7 @@
 					<div class="min-h-96">
 						<LoadingBar value={100} class="h-1 rounded-none" />
 						<div class="flex h-full flex-col justify-center p-6 md:p-8">
-							<FieldGroup>
+							<Field.Group>
 								<div class="flex flex-col items-center gap-2 text-center">
 									<h1 class="text-2xl font-bold">
 										<T keyName="auth.verification.title" />
@@ -372,28 +365,28 @@
 										<T keyName="auth.verification.description" />
 									</p>
 								</div>
-								<Field>
+								<Field.Field>
 									<p class="text-sm text-muted-foreground">
 										<T keyName="auth.verification.sent_to" />
 										<span class="font-medium">{verificationStep.email}</span>
 									</p>
-								</Field>
-								<Field>
+								</Field.Field>
+								<Field.Field>
 									<p class="text-sm text-muted-foreground">
 										<T keyName="auth.verification.check_email" />
 									</p>
-								</Field>
+								</Field.Field>
 								{#if formError}
-									<Field>
-										<FieldError errors={translateFormError(formError, $t)} />
-									</Field>
+									<Field.Field>
+										<Field.Error errors={translateFormError(formError, $t)} />
+									</Field.Field>
 								{/if}
-								<Field>
+								<Field.Field>
 									<Button type="button" variant="ghost" class="w-full" onclick={cancelVerification}>
 										<T keyName="auth.verification.button_back" />
 									</Button>
-								</Field>
-							</FieldGroup>
+								</Field.Field>
+							</Field.Group>
 						</div>
 					</div>
 				{:else if params.tab === 'signin'}
@@ -401,7 +394,7 @@
 					<form onsubmit={handleSignIn} novalidate class="min-h-96">
 						<LoadingBar value={signInProgress} indeterminate={isLoading} class="h-1 rounded-none" />
 						<div class="p-6 md:p-8">
-							<FieldGroup>
+							<Field.Group>
 								<div class="flex flex-col items-center gap-2 text-center">
 									<h1 class="text-2xl font-bold">
 										<T keyName="auth.signin.title" />
@@ -410,8 +403,9 @@
 										<T keyName="auth.signin.description" />
 									</p>
 								</div>
-								<Field>
-									<FieldLabel for="email-{id}"><T keyName="auth.signin.email_label" /></FieldLabel>
+								<Field.Field>
+									<Field.Label for="email-{id}"><T keyName="auth.signin.email_label" /></Field.Label
+									>
 									<Input
 										id="email-{id}"
 										data-testid="email-input"
@@ -420,12 +414,12 @@
 										disabled={isLoading}
 										bind:value={signInData.email}
 									/>
-									<FieldError errors={translateValidationErrors(signInErrors.email, $t)} />
-								</Field>
-								<Field>
+									<Field.Error errors={translateValidationErrors(signInErrors.email, $t)} />
+								</Field.Field>
+								<Field.Field>
 									<div class="flex items-center">
-										<FieldLabel for="password-{id}"
-											><T keyName="auth.signin.password_label" /></FieldLabel
+										<Field.Label for="password-{id}"
+											><T keyName="auth.signin.password_label" /></Field.Label
 										>
 										<a
 											bind:this={forgotPasswordLink}
@@ -444,10 +438,10 @@
 										disabled={isLoading}
 										bind:value={signInData.password}
 									/>
-									<FieldError errors={translateValidationErrors(signInErrors.password, $t)} />
-								</Field>
-								<FieldError errors={translateFormError(formError, $t)} data-testid="auth-error" />
-								<Field>
+									<Field.Error errors={translateValidationErrors(signInErrors.password, $t)} />
+								</Field.Field>
+								<Field.Error errors={translateFormError(formError, $t)} data-testid="auth-error" />
+								<Field.Field>
 									<Button
 										type="submit"
 										class="w-full"
@@ -460,12 +454,12 @@
 											<T keyName="auth.signin.button_signin" />
 										{/if}
 									</Button>
-								</Field>
+								</Field.Field>
 								{#if hasAlternativeAuth}
-									<FieldSeparator class="*:data-[slot=field-separator-content]:bg-card">
+									<Field.Separator class="*:data-[slot=field-separator-content]:bg-card">
 										<T keyName="auth.signin.or_continue_with" />
-									</FieldSeparator>
-									<Field
+									</Field.Separator>
+									<Field.Field
 										class="grid gap-4"
 										style="grid-template-columns: repeat({enabledProviderCount}, minmax(0, 1fr));"
 									>
@@ -515,9 +509,9 @@
 												/></span
 											>
 										</Button>
-									</Field>
+									</Field.Field>
 								{/if}
-								<FieldDescription class="text-center">
+								<Field.Description class="text-center">
 									<T keyName="auth.signin.no_account" defaultValue="Don't have an account?" />
 									<a
 										bind:this={signUpLink}
@@ -528,8 +522,8 @@
 										class="underline underline-offset-4"
 										><T keyName="auth.signin.link_signup" defaultValue="Sign up" /></a
 									>
-								</FieldDescription>
-							</FieldGroup>
+								</Field.Description>
+							</Field.Group>
 						</div>
 					</form>
 				{:else}
@@ -537,7 +531,7 @@
 					<form onsubmit={handleSignUp} novalidate class="min-h-96">
 						<LoadingBar value={signUpProgress} indeterminate={isLoading} class="h-1 rounded-none" />
 						<div class="p-6 md:p-8">
-							<FieldGroup>
+							<Field.Group>
 								<div class="flex flex-col items-center gap-2 text-center">
 									<h1 class="text-2xl font-bold">
 										<T keyName="auth.signup.title" defaultValue="Create an account" />
@@ -549,9 +543,9 @@
 										/>
 									</p>
 								</div>
-								<Field>
-									<FieldLabel for="name-{id}"
-										><T keyName="auth.signin.name_label" defaultValue="Name" /></FieldLabel
+								<Field.Field>
+									<Field.Label for="name-{id}"
+										><T keyName="auth.signin.name_label" defaultValue="Name" /></Field.Label
 									>
 									<Input
 										id="name-{id}"
@@ -560,11 +554,11 @@
 										disabled={isLoading}
 										bind:value={signUpData.name}
 									/>
-									<FieldError errors={translateValidationErrors(signUpErrors.name, $t)} />
-								</Field>
-								<Field>
-									<FieldLabel for="signup-email-{id}"
-										><T keyName="auth.signin.email_label" /></FieldLabel
+									<Field.Error errors={translateValidationErrors(signUpErrors.name, $t)} />
+								</Field.Field>
+								<Field.Field>
+									<Field.Label for="signup-email-{id}"
+										><T keyName="auth.signin.email_label" /></Field.Label
 									>
 									<Input
 										id="signup-email-{id}"
@@ -573,11 +567,11 @@
 										disabled={isLoading}
 										bind:value={signUpData.email}
 									/>
-									<FieldError errors={translateValidationErrors(signUpErrors.email, $t)} />
-								</Field>
-								<Field>
-									<FieldLabel for="signup-password-{id}"
-										><T keyName="auth.signin.password_label" /></FieldLabel
+									<Field.Error errors={translateValidationErrors(signUpErrors.email, $t)} />
+								</Field.Field>
+								<Field.Field>
+									<Field.Label for="signup-password-{id}"
+										><T keyName="auth.signin.password_label" /></Field.Label
 									>
 									<Password.Root>
 										<Password.Input
@@ -589,12 +583,12 @@
 										</Password.Input>
 										<Password.Strength />
 									</Password.Root>
-									<FieldError
+									<Field.Error
 										errors={translateValidationErrors(signUpErrors.password, $t, passwordParams)}
 									/>
-								</Field>
-								<FieldError errors={translateFormError(formError, $t)} data-testid="auth-error" />
-								<Field>
+								</Field.Field>
+								<Field.Error errors={translateFormError(formError, $t)} data-testid="auth-error" />
+								<Field.Field>
 									<Button
 										type="submit"
 										class="w-full"
@@ -607,12 +601,12 @@
 											<T keyName="auth.signin.button_signup" />
 										{/if}
 									</Button>
-								</Field>
+								</Field.Field>
 								{#if hasOAuthAuth}
-									<FieldSeparator class="*:data-[slot=field-separator-content]:bg-card">
+									<Field.Separator class="*:data-[slot=field-separator-content]:bg-card">
 										<T keyName="auth.signin.or_continue_with" />
-									</FieldSeparator>
-									<Field
+									</Field.Separator>
+									<Field.Field
 										class="grid gap-4"
 										style="grid-template-columns: repeat({(oauthProviders.data?.google ? 1 : 0) +
 											(oauthProviders.data?.github ? 1 : 0)}, minmax(0, 1fr));"
@@ -649,9 +643,9 @@
 												<span class="sr-only"><T keyName="auth.signin.oauth_github" /></span>
 											</Button>
 										{/if}
-									</Field>
+									</Field.Field>
 								{/if}
-								<FieldDescription class="text-center">
+								<Field.Description class="text-center">
 									<T keyName="auth.signup.has_account" defaultValue="Already have an account?" />
 									<a
 										href="?tab=signin{params.redirectTo
@@ -660,8 +654,8 @@
 										class="underline underline-offset-4"
 										><T keyName="auth.signup.link_signin" defaultValue="Sign in" /></a
 									>
-								</FieldDescription>
-							</FieldGroup>
+								</Field.Description>
+							</Field.Group>
 						</div>
 					</form>
 				{/if}
@@ -675,7 +669,7 @@
 				</div>
 			</Card.Content>
 		</Card.Root>
-		<FieldDescription class="px-6 text-center">
+		<Field.Description class="px-6 text-center">
 			<T keyName="auth.terms.agreement" defaultValue="By clicking continue, you agree to our" />
 			<a
 				bind:this={termsLink}
@@ -690,6 +684,6 @@
 			<a href={resolve(localizedHref('/'))} class="underline underline-offset-4"
 				><T keyName="auth.back_to_home" defaultValue="Back to home" /></a
 			>
-		</FieldDescription>
+		</Field.Description>
 	</div>
 </div>

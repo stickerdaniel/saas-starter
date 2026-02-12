@@ -20,6 +20,8 @@ Use multiple `-r` flags to query multiple resources at once:
 btca ask -r svelte -r convex -q "How do I integrate Convex with SvelteKit?"
 ```
 
+**Branch config:** When adding a new resource, verify the repo's default branch (`gh api repos/OWNER/REPO --jq '.default_branch'`). btca assumes `main` and fails silently on repos using `master`, `dev`, etc. Always set the `branch` field explicitly.
+
 ## Development Commands
 
 ### Core Development
