@@ -57,17 +57,19 @@
 			})}
 			class="grid gap-4"
 		>
-			<Field.Field>
-				<Field.Label for="email"><T keyName="admin.settings.column_email" /></Field.Label>
-				<Input
-					{...addEmailForm.fields.email.as('text')}
-					inputmode="email"
-					autocomplete="email"
-					placeholder={$t('admin.settings.add_email_placeholder')}
-					data-testid="add-email-input"
-				/>
-				<Field.Error errors={addEmailForm.fields.email.issues()} data-testid="add-email-error" />
-			</Field.Field>
+			<Field.Group>
+				<Field.Field>
+					<Field.Label for="email"><T keyName="admin.settings.column_email" /></Field.Label>
+					<Input
+						{...addEmailForm.fields.email.as('text')}
+						inputmode="email"
+						autocomplete="email"
+						placeholder={$t('admin.settings.add_email_placeholder')}
+						data-testid="add-email-input"
+					/>
+					<Field.Error errors={addEmailForm.fields.email.issues()} data-testid="add-email-error" />
+				</Field.Field>
+			</Field.Group>
 			<Dialog.Footer>
 				<Button
 					type="button"

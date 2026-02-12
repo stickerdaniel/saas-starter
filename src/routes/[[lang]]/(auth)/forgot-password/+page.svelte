@@ -5,13 +5,7 @@
 	import { LoadingBar } from '$lib/components/ui/loading-bar/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
-	import {
-		FieldGroup,
-		Field,
-		FieldLabel,
-		FieldDescription,
-		FieldError
-	} from '$lib/components/ui/field/index.js';
+	import * as Field from '$lib/components/ui/field/index.js';
 	import { authClient } from '$lib/auth-client.js';
 	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
 	import { localizedHref } from '$lib/utils/i18n';
@@ -146,7 +140,7 @@
 				<form onsubmit={handleSubmit} novalidate class="min-h-96">
 					<LoadingBar value={progress} indeterminate={isLoading} class="h-1 rounded-none" />
 					<div class="p-6 md:p-8">
-						<FieldGroup>
+						<Field.Group>
 							<div class="flex flex-col items-center gap-2 text-center">
 								<h1 class="text-2xl font-bold">
 									<T keyName="auth.forgot_password.title" defaultValue="Forgot password" />
@@ -159,25 +153,25 @@
 								</p>
 							</div>
 							{#if formError}
-								<Field>
+								<Field.Field>
 									<div class="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
 										<T keyName={formError} />
 									</div>
-								</Field>
+								</Field.Field>
 							{/if}
 							{#if message}
-								<Field>
+								<Field.Field>
 									<div
 										class="rounded-md bg-green-500/10 p-3 text-sm text-green-600 dark:text-green-400"
 									>
 										<T keyName={message} />
 									</div>
-								</Field>
+								</Field.Field>
 							{/if}
-							<Field>
-								<FieldLabel for="email-{id}">
+							<Field.Field>
+								<Field.Label for="email-{id}">
 									<T keyName="auth.signin.email_label" defaultValue="Email" />
-								</FieldLabel>
+								</Field.Label>
 								<Input
 									id="email-{id}"
 									type="email"
@@ -185,9 +179,9 @@
 									disabled={isLoading}
 									bind:value={formData.email}
 								/>
-								<FieldError errors={translateValidationErrors(errors.email, $t)} />
-							</Field>
-							<Field>
+								<Field.Error errors={translateValidationErrors(errors.email, $t)} />
+							</Field.Field>
+							<Field.Field>
 								<Button type="submit" class="w-full" disabled={isLoading}>
 									{#if isLoading}
 										<T keyName="auth.forgot_password.button_loading" defaultValue="Sending..." />
@@ -198,13 +192,13 @@
 										/>
 									{/if}
 								</Button>
-							</Field>
-							<FieldDescription class="text-center">
+							</Field.Field>
+							<Field.Description class="text-center">
 								<a href={resolve(localizedHref('/signin'))} class="underline underline-offset-4">
 									<T keyName="auth.forgot_password.back_to_signin" defaultValue="Back to sign in" />
 								</a>
-							</FieldDescription>
-						</FieldGroup>
+							</Field.Description>
+						</Field.Group>
 					</div>
 				</form>
 				<div class="relative hidden bg-muted md:block">
@@ -217,7 +211,7 @@
 				</div>
 			</Card.Content>
 		</Card.Root>
-		<FieldDescription class="px-6 text-center">
+		<Field.Description class="px-6 text-center">
 			<T keyName="auth.terms.agreement" defaultValue="By clicking continue, you agree to our" />
 			<a href={resolve(localizedHref('/terms'))} class="underline underline-offset-4"
 				><T keyName="auth.terms.terms_of_service" defaultValue="Terms of Service" /></a
@@ -229,6 +223,6 @@
 			<a href={resolve(localizedHref('/'))} class="underline underline-offset-4"
 				><T keyName="auth.back_to_home" defaultValue="Back to home" /></a
 			>
-		</FieldDescription>
+		</Field.Description>
 	</div>
 </div>
