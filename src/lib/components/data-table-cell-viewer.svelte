@@ -8,7 +8,7 @@
 	import { Button } from '$lib/components/ui/button/index.js';
 	import * as Chart from '$lib/components/ui/chart/index.js';
 	import { IsMobile } from '$lib/hooks/is-mobile.svelte.js';
-	import { Label } from '$lib/components/ui/label/index.js';
+	import * as Field from '$lib/components/ui/field/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import * as Select from '$lib/components/ui/select/index.js';
 	import { Separator } from '$lib/components/ui/separator/index.js';
@@ -122,66 +122,68 @@
 				<Separator />
 			{/if}
 			<form class="flex flex-col gap-4">
-				<div class="flex flex-col gap-3">
-					<Label for="header">Header</Label>
-					<Input id="header" value={item.header} />
-				</div>
-				<div class="grid grid-cols-2 gap-4">
-					<div class="flex flex-col gap-3">
-						<Label for="type">Type</Label>
-						<Select.Root type="single" bind:value={type}>
-							<Select.Trigger id="type" class="w-full">
-								{type ?? 'Select a type'}
+				<Field.Group>
+					<Field.Field>
+						<Field.Label for="header">Header</Field.Label>
+						<Input id="header" value={item.header} />
+					</Field.Field>
+					<div class="grid grid-cols-2 gap-4">
+						<Field.Field>
+							<Field.Label for="type">Type</Field.Label>
+							<Select.Root type="single" bind:value={type}>
+								<Select.Trigger id="type" class="w-full">
+									{type ?? 'Select a type'}
+								</Select.Trigger>
+								<Select.Content>
+									<Select.Item value="Table of Contents">Table of Contents</Select.Item>
+									<Select.Item value="Executive Summary">Executive Summary</Select.Item>
+									<Select.Item value="Technical Approach">Technical Approach</Select.Item>
+									<Select.Item value="Design">Design</Select.Item>
+									<Select.Item value="Capabilities">Capabilities</Select.Item>
+									<Select.Item value="Focus Documents">Focus Documents</Select.Item>
+									<Select.Item value="Narrative">Narrative</Select.Item>
+									<Select.Item value="Cover Page">Cover Page</Select.Item>
+								</Select.Content>
+							</Select.Root>
+						</Field.Field>
+						<Field.Field>
+							<Field.Label for="status">Status</Field.Label>
+							<Select.Root type="single" bind:value={status}>
+								<Select.Trigger id="status" class="w-full">
+									{status ?? 'Select a status'}
+								</Select.Trigger>
+								<Select.Content>
+									<Select.Item value="Done">Done</Select.Item>
+									<Select.Item value="In Progress">In Progress</Select.Item>
+									<Select.Item value="Not Started">Not Started</Select.Item>
+								</Select.Content>
+							</Select.Root>
+						</Field.Field>
+					</div>
+					<div class="grid grid-cols-2 gap-4">
+						<Field.Field>
+							<Field.Label for="target">Target</Field.Label>
+							<Input id="target" value={item.target} />
+						</Field.Field>
+						<Field.Field>
+							<Field.Label for="limit">Limit</Field.Label>
+							<Input id="limit" value={item.limit} />
+						</Field.Field>
+					</div>
+					<Field.Field>
+						<Field.Label for="reviewer">Reviewer</Field.Label>
+						<Select.Root type="single" bind:value={reviewer}>
+							<Select.Trigger id="reviewer" class="w-full">
+								{reviewer ?? 'Select a reviewer'}
 							</Select.Trigger>
 							<Select.Content>
-								<Select.Item value="Table of Contents">Table of Contents</Select.Item>
-								<Select.Item value="Executive Summary">Executive Summary</Select.Item>
-								<Select.Item value="Technical Approach">Technical Approach</Select.Item>
-								<Select.Item value="Design">Design</Select.Item>
-								<Select.Item value="Capabilities">Capabilities</Select.Item>
-								<Select.Item value="Focus Documents">Focus Documents</Select.Item>
-								<Select.Item value="Narrative">Narrative</Select.Item>
-								<Select.Item value="Cover Page">Cover Page</Select.Item>
+								<Select.Item value="Eddie Lake">Eddie Lake</Select.Item>
+								<Select.Item value="Jamik Tashpulatov">Jamik Tashpulatov</Select.Item>
+								<Select.Item value="Emily Whalen">Emily Whalen</Select.Item>
 							</Select.Content>
 						</Select.Root>
-					</div>
-					<div class="flex flex-col gap-3">
-						<Label for="status">Status</Label>
-						<Select.Root type="single" bind:value={status}>
-							<Select.Trigger id="status" class="w-full">
-								{status ?? 'Select a status'}
-							</Select.Trigger>
-							<Select.Content>
-								<Select.Item value="Done">Done</Select.Item>
-								<Select.Item value="In Progress">In Progress</Select.Item>
-								<Select.Item value="Not Started">Not Started</Select.Item>
-							</Select.Content>
-						</Select.Root>
-					</div>
-				</div>
-				<div class="grid grid-cols-2 gap-4">
-					<div class="flex flex-col gap-3">
-						<Label for="target">Target</Label>
-						<Input id="target" value={item.target} />
-					</div>
-					<div class="flex flex-col gap-3">
-						<Label for="limit">Limit</Label>
-						<Input id="limit" value={item.limit} />
-					</div>
-				</div>
-				<div class="flex flex-col gap-3">
-					<Label for="reviewer">Reviewer</Label>
-					<Select.Root type="single" bind:value={reviewer}>
-						<Select.Trigger id="reviewer" class="w-full">
-							{reviewer ?? 'Select a reviewer'}
-						</Select.Trigger>
-						<Select.Content>
-							<Select.Item value="Eddie Lake">Eddie Lake</Select.Item>
-							<Select.Item value="Jamik Tashpulatov">Jamik Tashpulatov</Select.Item>
-							<Select.Item value="Emily Whalen">Emily Whalen</Select.Item>
-						</Select.Content>
-					</Select.Root>
-				</div>
+					</Field.Field>
+				</Field.Group>
 			</form>
 		</div>
 		<Drawer.Footer>
