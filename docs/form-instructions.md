@@ -1,18 +1,19 @@
 # Form Instructions
 
-When working on forms in this project, first understand what elements are required for the form. Then, generate a form JSON following the schema below in the docs/forms folder.
+This document applies only to forms that will be implemented with SvelteKit remote functions (`form(schema, handler)`).
 
-Next, ask the user to visit <https://svelte-form-builder.vercel.app/v2> and import the form JSON into the form builder. Follow the instructions on the page to build the form with valibot validation and SvelteKit remote functions toggled on! Use btca to get more information about SvelteKit remote functions. The user will then provide the generated client and server code. Implement the form in the project using the generated code, and make sure to use the shadcn-svelte components for the form elements instead of custom error labels.
+Before using this workflow, confirm the form is a remote-form candidate via `AGENTS.md` (Forms decision tree).
 
-## Field Spacing Convention
+When working on a remote form in this project:
 
-For semantic form sections (e.g. auth/settings/admin forms), use the shadcn field pattern consistently:
+1. Understand the fields and validation requirements.
+2. Generate a form JSON following the schema below in `docs/forms/`.
+3. Ask the user to visit <https://svelte-form-builder.vercel.app/v2> and import the JSON.
+4. In the builder, ensure Valibot validation and SvelteKit remote functions are toggled on.
+5. Use btca to verify up-to-date SvelteKit remote-function patterns when needed.
+6. Implement the generated client/server code in the project, preserving existing UI structure and using shadcn-svelte components.
 
-- `import * as Field from '$lib/components/ui/field/index.js'`
-- Wrap grouped fields in `Field.Group`.
-- Each field is a `Field.Field` with label + control + optional description/error.
-- Keep `Field.Error` directly under its related control inside the same `Field.Field`.
-- Prefer one primary inline error message per field.
+Note: This document is intentionally scoped to remote-function forms only.
 
 ## Form Builder Import
 

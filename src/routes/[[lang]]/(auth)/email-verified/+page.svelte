@@ -7,7 +7,6 @@
 	import { safeRedirectPath } from '$lib/utils/url';
 	import * as Card from '$lib/components/ui/card/index.js';
 	import { LoadingBar } from '$lib/components/ui/loading-bar/index.js';
-	import * as Field from '$lib/components/ui/field/index.js';
 	import { T, getTranslate } from '@tolgee/svelte';
 
 	const auth = useAuth();
@@ -67,16 +66,14 @@
 				<div class="min-h-96">
 					<LoadingBar indeterminate class="h-1 rounded-none" />
 					<div class="flex h-full flex-col justify-center p-6 md:p-8">
-						<Field.Group>
-							<div class="flex flex-col items-center gap-2 text-center">
-								<h1 class="text-2xl font-bold">
-									<T keyName="auth.verification.verified_title" />
-								</h1>
-								<p class="text-balance whitespace-pre-line text-muted-foreground">
-									{verifiedDescription}
-								</p>
-							</div>
-						</Field.Group>
+						<div class="flex flex-col items-center gap-2 text-center">
+							<h1 class="text-2xl font-bold">
+								<T keyName="auth.verification.verified_title" />
+							</h1>
+							<p class="text-balance whitespace-pre-line text-muted-foreground">
+								{verifiedDescription}
+							</p>
+						</div>
 					</div>
 				</div>
 				<div class="relative hidden bg-muted md:block">

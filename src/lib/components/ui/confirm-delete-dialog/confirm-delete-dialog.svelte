@@ -100,23 +100,21 @@
 				</AlertDialog.Description>
 			</AlertDialog.Header>
 			{#if dialogState.options?.input}
-				<Field.Group>
-					<Field.Field>
-						<Field.Label for="confirm-delete-input" class="sr-only">Confirmation</Field.Label>
-						<Input
-							id="confirm-delete-input"
-							bind:value={dialogState.inputText}
-							placeholder={`Enter "${dialogState.options.input.confirmationText}" to confirm.`}
-							onkeydown={(e) => {
-								if (e.key === 'Enter') {
-									// for some reason without this the form will submit and the dialog will close immediately
-									e.preventDefault();
-									dialogState.confirm();
-								}
-							}}
-						/>
-					</Field.Field>
-				</Field.Group>
+				<Field.Field>
+					<Field.Label for="confirm-delete-input" class="sr-only">Confirmation</Field.Label>
+					<Input
+						id="confirm-delete-input"
+						bind:value={dialogState.inputText}
+						placeholder={`Enter "${dialogState.options.input.confirmationText}" to confirm.`}
+						onkeydown={(e) => {
+							if (e.key === 'Enter') {
+								// Prevent Enter from triggering native form submit before custom confirm flow
+								e.preventDefault();
+								dialogState.confirm();
+							}
+						}}
+					/>
+				</Field.Field>
 			{/if}
 			<AlertDialog.Footer>
 				<AlertDialog.Cancel
