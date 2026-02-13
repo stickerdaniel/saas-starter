@@ -113,7 +113,8 @@ export const columns: ColumnDef<AdminUserData>[] = [
 		filterFn: (row, _columnId, filterValue: string) => {
 			if (!filterValue || filterValue === 'all') return true;
 			return row.original.role === filterValue;
-		}
+		},
+		enableSorting: true
 	},
 	{
 		id: 'status',
@@ -137,7 +138,8 @@ export const columns: ColumnDef<AdminUserData>[] = [
 			if (filterValue === 'verified') return !user.banned && user.emailVerified === true;
 			if (filterValue === 'unverified') return !user.banned && !user.emailVerified;
 			return true;
-		}
+		},
+		enableSorting: false
 	},
 	{
 		accessorKey: 'createdAt',

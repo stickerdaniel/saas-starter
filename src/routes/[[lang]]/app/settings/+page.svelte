@@ -4,6 +4,8 @@
 	import { Separator } from '$lib/components/ui/separator/index.js';
 	import * as Tabs from '$lib/components/ui/tabs/index.js';
 	import { T, getTranslate } from '@tolgee/svelte';
+	import { useSearchParams } from 'runed/kit';
+	import * as v from 'valibot';
 	import AccountSettings from './account-settings.svelte';
 	import PasswordSettings from './password-settings.svelte';
 	import EmailSettings from './email-settings.svelte';
@@ -17,6 +19,31 @@
 
 	let user = $derived(data.user);
 	const { t } = getTranslate();
+	const SETTINGS_TABS = ['account', 'password', 'email', 'security'] as const;
+	type SettingsTab = (typeof SETTINGS_TABS)[number];
+	const DEFAULT_SETTINGS_TAB: SettingsTab = 'account';
+	const tabSchema = v.object({
+		tab: v.optional(
+			v.fallback(v.picklist(SETTINGS_TABS), DEFAULT_SETTINGS_TAB),
+			DEFAULT_SETTINGS_TAB
+		)
+	});
+
+	function isSettingsTab(value: string): value is SettingsTab {
+		return SETTINGS_TABS.includes(value as SettingsTab);
+	}
+
+	const searchParams = useSearchParams(tabSchema, {
+		showDefaults: true,
+		pushHistory: true,
+		noScroll: true
+	});
+	let activeTab = $derived(searchParams.tab);
+
+	function updateTab(value: string) {
+		if (!isSettingsTab(value) || value === searchParams.tab) return;
+		searchParams.tab = value;
+	}
 </script>
 
 <SEOHead title={$t('meta.app.settings.title')} description={$t('meta.app.settings.description')} />
@@ -34,7 +61,7 @@
 
 		<Separator />
 
-		<Tabs.Root value="account" class="space-y-6">
+		<Tabs.Root value={activeTab} onValueChange={updateTab} class="space-y-6">
 			<Tabs.List>
 				<Tabs.Trigger value="account">
 					<T keyName="settings.tabs.account" />
