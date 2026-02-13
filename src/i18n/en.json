@@ -856,7 +856,7 @@
 				"new": "Enter new password"
 			},
 			"revoke_sessions_label": "Sign out of all other devices",
-			"security_notice_description": "Changing your password will require you to sign in again on all devices unless you uncheck the option above.",
+			"security_notice_description": "If enabled, changing your password signs you out on all other devices.",
 			"security_notice_title": "Security Notice",
 			"title": "Change Password",
 			"update_button": "Update Password",
@@ -873,7 +873,7 @@
 			"loading": "Loading passkeys...",
 			"no_passkeys": "You haven't registered any passkeys yet.",
 			"passkey": {
-				"placeholder": "Passkey name (optional)",
+				"placeholder": "Passkey name",
 				"unnamed": "Unnamed Passkey"
 			},
 			"passkey_info_description": "Passkeys are a secure, passwordless way to sign in. They use biometrics or device PIN and are stored securely on your devices.",
