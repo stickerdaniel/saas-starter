@@ -8,7 +8,6 @@
 	import * as InputGroup from '$lib/components/ui/input-group/index.js';
 	import * as Item from '$lib/components/ui/item/index.js';
 	import * as Field from '$lib/components/ui/field/index.js';
-	import { Label } from '$lib/components/ui/label/index.js';
 	import { toast } from 'svelte-sonner';
 	import { T, getTranslate } from '@tolgee/svelte';
 	import InfoIcon from '@lucide/svelte/icons/info';
@@ -47,8 +46,8 @@
 			const fieldErrors: Record<string, string[]> = {};
 			for (const issue of result.issues) {
 				const path = (issue.path?.[0]?.key as string) || 'newEmail';
-				if (!fieldErrors[path]) fieldErrors[path] = [];
-				fieldErrors[path].push(issue.message);
+				// Keep the first issue per field so inline errors stay focused and predictable.
+				if (!fieldErrors[path]) fieldErrors[path] = [issue.message];
 			}
 			errors = fieldErrors;
 			return false;
@@ -108,26 +107,30 @@
 	<Card.Content>
 		<div class="space-y-4">
 			<!-- Current Email Display -->
-			<div class="space-y-2">
-				<Label><T keyName="settings.email.current_email_label" /></Label>
-				<InputGroup.Root data-disabled>
-					<InputGroup.Input value={currentEmail} disabled />
-					<InputGroup.Addon align="inline-end">
-						{#if isEmailVerified}
-							<div class="flex items-center gap-1 text-green-600">
-								<CircleCheckIcon class="h-3 w-3" />
-								<InputGroup.Text>
-									<T keyName="settings.email.verified_badge" />
+			<Field.Group>
+				<Field.Field>
+					<Field.Label for="currentEmail">
+						<T keyName="settings.email.current_email_label" />
+					</Field.Label>
+					<InputGroup.Root data-disabled>
+						<InputGroup.Input id="currentEmail" value={currentEmail} disabled />
+						<InputGroup.Addon align="inline-end">
+							{#if isEmailVerified}
+								<div class="flex items-center gap-1 text-green-600">
+									<CircleCheckIcon class="h-3 w-3" />
+									<InputGroup.Text>
+										<T keyName="settings.email.verified_badge" />
+									</InputGroup.Text>
+								</div>
+							{:else}
+								<InputGroup.Text class="text-muted-foreground">
+									<T keyName="settings.email.unverified_badge" />
 								</InputGroup.Text>
-							</div>
-						{:else}
-							<InputGroup.Text class="text-muted-foreground">
-								<T keyName="settings.email.unverified_badge" />
-							</InputGroup.Text>
-						{/if}
-					</InputGroup.Addon>
-				</InputGroup.Root>
-			</div>
+							{/if}
+						</InputGroup.Addon>
+					</InputGroup.Root>
+				</Field.Field>
+			</Field.Group>
 
 			<form onsubmit={handleSubmit} class="space-y-4">
 				{#if formError}

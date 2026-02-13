@@ -9,6 +9,7 @@
 	import * as Table from '$lib/components/ui/table/index.js';
 	import * as Dialog from '$lib/components/ui/dialog/index.js';
 	import * as Select from '$lib/components/ui/select/index.js';
+	import * as Field from '$lib/components/ui/field/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { Label } from '$lib/components/ui/label/index.js';
@@ -823,9 +824,14 @@
 			<Dialog.Description>
 				{#if actionType === 'ban'}
 					<T keyName="admin.dialog.ban_description" params={{ email: selectedUser?.email }} />
-					<div class="mt-4">
-						<Input placeholder={$t('admin.dialog.ban_reason_placeholder')} bind:value={banReason} />
-					</div>
+					<Field.Group class="mt-4">
+						<Field.Field>
+							<Input
+								placeholder={$t('admin.dialog.ban_reason_placeholder')}
+								bind:value={banReason}
+							/>
+						</Field.Field>
+					</Field.Group>
 				{:else if actionType === 'unban'}
 					<T keyName="admin.dialog.unban_description" params={{ email: selectedUser?.email }} />
 				{:else if actionType === 'revoke'}

@@ -14,6 +14,7 @@
 <Toggle
 	bind:ref
 	aria-label={state.root.opts.hidden.current ? 'Show password' : 'Hide password'}
+	tabindex={-1}
 	bind:pressed={state.root.opts.hidden.current}
 	class={cn(
 		'absolute top-1/2 right-0 size-9 min-w-0 -translate-y-1/2 p-0 hover:!bg-transparent data-[state=off]:text-muted-foreground hover:data-[state=off]:text-accent-foreground data-[state=on]:bg-transparent data-[state=on]:text-muted-foreground hover:data-[state=on]:text-accent-foreground',
