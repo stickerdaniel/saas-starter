@@ -19,7 +19,7 @@ type TolgeeParams = Record<string, string | number | bigint | boolean | Date | n
  * @param errors - Array of translation keys from Valibot validation
  * @param t - Tolgee translate function ($t from getTranslate())
  * @param params - Optional per-key parameters for parameterized translations
- * @returns Array of { message: string } objects for FieldError component, or undefined
+ * @returns Array of { message: string } objects for Field.Error component, or undefined
  *
  * @example
  * ```svelte
@@ -29,7 +29,7 @@ type TolgeeParams = Record<string, string | number | bigint | boolean | Date | n
  *   const { t } = getTranslate();
  * </script>
  *
- * <FieldError errors={translateValidationErrors(errors.email, $t)} />
+ * <Field.Error errors={translateValidationErrors(errors.email, $t)} />
  * ```
  */
 export function translateValidationErrors(
@@ -61,12 +61,12 @@ export function translateError(
 }
 
 /**
- * Converts a single translated error to FieldError format.
+ * Converts a single translated error to Field.Error format.
  *
  * @param error - Translation key or undefined
  * @param t - Tolgee translate function
  * @param params - Optional parameters for the translation
- * @returns Array with single { message: string } for FieldError, or undefined
+ * @returns Array with single { message: string } for Field.Error, or undefined
  */
 export function translateFormError(
 	error: string | undefined,
