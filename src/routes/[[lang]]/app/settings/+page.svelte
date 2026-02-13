@@ -22,7 +22,7 @@
 <SEOHead title={$t('meta.app.settings.title')} description={$t('meta.app.settings.description')} />
 
 <div class="flex flex-1 flex-col px-4 lg:px-6">
-	<div class="flex-1 space-y-6">
+	<div class="w-full max-w-3xl flex-1 space-y-6">
 		<div>
 			<h2 class="text-2xl font-bold tracking-tight">
 				<T keyName="settings.title" />

@@ -8,8 +8,8 @@
 		INTERNAL_NOTE_TEXTAREA_ROWS
 	} from '$lib/convex/admin/support/constants';
 	import * as Select from '$lib/components/ui/select';
+	import * as Field from '$lib/components/ui/field/index.js';
 	import { Button } from '$lib/components/ui/button';
-	import { Label } from '$lib/components/ui/label';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
 	import { toast } from 'svelte-sonner';
@@ -127,151 +127,159 @@
 	<!-- Details Form -->
 	<div class="flex-1 overflow-y-auto p-4">
 		{#if thread}
-			<div class="flex flex-col gap-6" in:fade={{ duration: 150 }}>
-				<!-- Assignee -->
-				<div class="space-y-1">
-					<Label><T keyName="admin.support.details.assignee" /></Label>
-					<Select.Root
-						type="single"
-						value={thread.supportMetadata?.assignedTo ?? ''}
-						onValueChange={updateAssignment}
-					>
-						<Select.Trigger>
-							{thread.assignedAdmin?.name || $t('admin.support.assignee.not_assigned')}
-						</Select.Trigger>
-						<Select.Content>
-							<Select.Item value=""><T keyName="admin.support.assignee.unassigned" /></Select.Item>
-							{#each adminsQuery.data || [] as admin (admin.id)}
-								<Select.Item value={admin.id}>
-									{admin.name || admin.email}
-								</Select.Item>
-							{/each}
-						</Select.Content>
-					</Select.Root>
-				</div>
-
-				<!-- Status -->
-				<div class="space-y-1">
-					<Label><T keyName="admin.support.details.status" /></Label>
-					<Select.Root
-						type="single"
-						value={thread.supportMetadata?.status || 'open'}
-						onValueChange={(v) => updateStatus(v as 'open' | 'done')}
-					>
-						<Select.Trigger class="capitalize">
-							{thread.supportMetadata?.status || 'open'}
-						</Select.Trigger>
-						<Select.Content>
-							<Select.Item value="open"><T keyName="admin.support.status.open" /></Select.Item>
-							<Select.Item value="done"><T keyName="admin.support.status.done" /></Select.Item>
-						</Select.Content>
-					</Select.Root>
-				</div>
-
-				<!-- Priority -->
-				<div class="space-y-1">
-					<Label><T keyName="admin.support.details.priority" /></Label>
-					<Select.Root
-						type="single"
-						value={thread.supportMetadata?.priority ?? ''}
-						onValueChange={(v) => updatePriority(v as 'low' | 'medium' | 'high' | '' | undefined)}
-					>
-						<Select.Trigger class="capitalize">
-							{thread.supportMetadata?.priority || $t('admin.support.priority.none')}
-						</Select.Trigger>
-						<Select.Content>
-							<Select.Item value=""><T keyName="admin.support.priority.none" /></Select.Item>
-							<Select.Item value="low"><T keyName="admin.support.priority.low" /></Select.Item>
-							<Select.Item value="medium"><T keyName="admin.support.priority.medium" /></Select.Item
-							>
-							<Select.Item value="high"><T keyName="admin.support.priority.high" /></Select.Item>
-						</Select.Content>
-					</Select.Root>
-				</div>
-
-				<!-- Notification Email -->
-				{#if thread.supportMetadata?.notificationEmail}
-					<div class="space-y-1">
-						<Label><T keyName="admin.support.email.label" /></Label>
-						<a
-							href="mailto:{thread.supportMetadata
-								.notificationEmail}?subject=Re: Your support request&body=Hi,%0A%0AThank you for reaching out!%0A%0A"
-							target="_blank"
-							rel="noopener noreferrer"
-							class="flex items-center gap-2 text-sm text-primary hover:underline"
+			<div in:fade={{ duration: 150 }}>
+				<Field.Group class="gap-6">
+					<!-- Assignee -->
+					<Field.Field>
+						<Field.Label><T keyName="admin.support.details.assignee" /></Field.Label>
+						<Select.Root
+							type="single"
+							value={thread.supportMetadata?.assignedTo ?? ''}
+							onValueChange={updateAssignment}
 						>
-							<span class="truncate">{thread.supportMetadata.notificationEmail}</span>
-							<ExternalLinkIcon class="size-3 flex-shrink-0" />
-						</a>
-					</div>
-				{/if}
-
-				<!-- Page URL -->
-				{#if thread.supportMetadata?.pageUrl}
-					<div class="space-y-1">
-						<Label><T keyName="admin.support.details.page_url" /></Label>
-						<a
-							href={thread.supportMetadata.pageUrl}
-							target="_blank"
-							rel="noopener noreferrer"
-							class="flex items-center gap-2 text-sm text-primary hover:underline"
-						>
-							<span class="truncate">{thread.supportMetadata.pageUrl}</span>
-							<ExternalLinkIcon class="size-3 flex-shrink-0" />
-						</a>
-					</div>
-				{/if}
-
-				<!-- Internal Notes -->
-				{#if userId}
-					<div class="space-y-1">
-						<Label><T keyName="admin.support.details.user_notes" /></Label>
-
-						<!-- Add Note -->
-						<Textarea
-							placeholder={$t('admin.support.note.placeholder')}
-							bind:value={newNoteContent}
-							rows={INTERNAL_NOTE_TEXTAREA_ROWS}
-							class="resize-none"
-						/>
-						<div class="flex justify-end">
-							<Button size="sm" onclick={addNote} disabled={!newNoteContent.trim() || isAddingNote}>
-								{isAddingNote ? $t('admin.support.note.adding') : $t('admin.support.note.add')}
-							</Button>
-						</div>
-
-						<!-- Notes List -->
-						{#if notesQuery.data?.page && notesQuery.data.page.length > 0}
-							<motion.div
-								initial={{ opacity: 0, y: 6, filter: 'blur(6px)' }}
-								animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-								transition={{ duration: 0.4, ease: 'easeOut' }}
-								class="mt-4 space-y-2"
-							>
-								{#each notesQuery.data.page as note (note._id)}
-									<div class="rounded-md bg-muted p-3">
-										<div class="mb-1 flex items-center justify-between">
-											<span class="text-sm font-medium"
-												>{note.adminName || $t('admin.support.fallback.admin')}</span
-											>
-											<span class="text-xs text-muted-foreground">
-												{formatDistanceToNow(new Date(note.createdAt), { addSuffix: true })}
-											</span>
-										</div>
-										<p class="text-sm">{note.content}</p>
-									</div>
+							<Select.Trigger>
+								{thread.assignedAdmin?.name || $t('admin.support.assignee.not_assigned')}
+							</Select.Trigger>
+							<Select.Content>
+								<Select.Item value=""><T keyName="admin.support.assignee.unassigned" /></Select.Item
+								>
+								{#each adminsQuery.data || [] as admin (admin.id)}
+									<Select.Item value={admin.id}>
+										{admin.name || admin.email}
+									</Select.Item>
 								{/each}
-							</motion.div>
-						{/if}
-					</div>
-				{:else}
-					<div class="space-y-1">
-						<Label><T keyName="admin.support.details.notes" /></Label>
-						<p class="text-sm text-muted-foreground">
-							<T keyName="admin.support.fallback.no_user" />
-						</p>
-					</div>
-				{/if}
+							</Select.Content>
+						</Select.Root>
+					</Field.Field>
+
+					<!-- Status -->
+					<Field.Field>
+						<Field.Label><T keyName="admin.support.details.status" /></Field.Label>
+						<Select.Root
+							type="single"
+							value={thread.supportMetadata?.status || 'open'}
+							onValueChange={(v) => updateStatus(v as 'open' | 'done')}
+						>
+							<Select.Trigger class="capitalize">
+								{thread.supportMetadata?.status || 'open'}
+							</Select.Trigger>
+							<Select.Content>
+								<Select.Item value="open"><T keyName="admin.support.status.open" /></Select.Item>
+								<Select.Item value="done"><T keyName="admin.support.status.done" /></Select.Item>
+							</Select.Content>
+						</Select.Root>
+					</Field.Field>
+
+					<!-- Priority -->
+					<Field.Field>
+						<Field.Label><T keyName="admin.support.details.priority" /></Field.Label>
+						<Select.Root
+							type="single"
+							value={thread.supportMetadata?.priority ?? ''}
+							onValueChange={(v) => updatePriority(v as 'low' | 'medium' | 'high' | '' | undefined)}
+						>
+							<Select.Trigger class="capitalize">
+								{thread.supportMetadata?.priority || $t('admin.support.priority.none')}
+							</Select.Trigger>
+							<Select.Content>
+								<Select.Item value=""><T keyName="admin.support.priority.none" /></Select.Item>
+								<Select.Item value="low"><T keyName="admin.support.priority.low" /></Select.Item>
+								<Select.Item value="medium"
+									><T keyName="admin.support.priority.medium" /></Select.Item
+								>
+								<Select.Item value="high"><T keyName="admin.support.priority.high" /></Select.Item>
+							</Select.Content>
+						</Select.Root>
+					</Field.Field>
+
+					<!-- Notification Email -->
+					{#if thread.supportMetadata?.notificationEmail}
+						<Field.Field>
+							<Field.Label><T keyName="admin.support.email.label" /></Field.Label>
+							<a
+								href="mailto:{thread.supportMetadata
+									.notificationEmail}?subject=Re: Your support request&body=Hi,%0A%0AThank you for reaching out!%0A%0A"
+								target="_blank"
+								rel="noopener noreferrer"
+								class="flex items-center gap-2 text-sm text-primary hover:underline"
+							>
+								<span class="truncate">{thread.supportMetadata.notificationEmail}</span>
+								<ExternalLinkIcon class="size-3 flex-shrink-0" />
+							</a>
+						</Field.Field>
+					{/if}
+
+					<!-- Page URL -->
+					{#if thread.supportMetadata?.pageUrl}
+						<Field.Field>
+							<Field.Label><T keyName="admin.support.details.page_url" /></Field.Label>
+							<a
+								href={thread.supportMetadata.pageUrl}
+								target="_blank"
+								rel="noopener noreferrer"
+								class="flex items-center gap-2 text-sm text-primary hover:underline"
+							>
+								<span class="truncate">{thread.supportMetadata.pageUrl}</span>
+								<ExternalLinkIcon class="size-3 flex-shrink-0" />
+							</a>
+						</Field.Field>
+					{/if}
+
+					<!-- Internal Notes -->
+					{#if userId}
+						<Field.Field>
+							<Field.Label><T keyName="admin.support.details.user_notes" /></Field.Label>
+
+							<!-- Add Note -->
+							<Textarea
+								placeholder={$t('admin.support.note.placeholder')}
+								bind:value={newNoteContent}
+								rows={INTERNAL_NOTE_TEXTAREA_ROWS}
+								class="resize-none"
+							/>
+							<div class="flex justify-end">
+								<Button
+									size="sm"
+									onclick={addNote}
+									disabled={!newNoteContent.trim() || isAddingNote}
+								>
+									{isAddingNote ? $t('admin.support.note.adding') : $t('admin.support.note.add')}
+								</Button>
+							</div>
+
+							<!-- Notes List -->
+							{#if notesQuery.data?.page && notesQuery.data.page.length > 0}
+								<motion.div
+									initial={{ opacity: 0, y: 6, filter: 'blur(6px)' }}
+									animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+									transition={{ duration: 0.4, ease: 'easeOut' }}
+									class="mt-4 space-y-2"
+								>
+									{#each notesQuery.data.page as note (note._id)}
+										<div class="rounded-md bg-muted p-3">
+											<div class="mb-1 flex items-center justify-between">
+												<span class="text-sm font-medium"
+													>{note.adminName || $t('admin.support.fallback.admin')}</span
+												>
+												<span class="text-xs text-muted-foreground">
+													{formatDistanceToNow(new Date(note.createdAt), { addSuffix: true })}
+												</span>
+											</div>
+											<p class="text-sm">{note.content}</p>
+										</div>
+									{/each}
+								</motion.div>
+							{/if}
+						</Field.Field>
+					{:else}
+						<Field.Field>
+							<Field.Label><T keyName="admin.support.details.notes" /></Field.Label>
+							<p class="text-sm text-muted-foreground">
+								<T keyName="admin.support.fallback.no_user" />
+							</p>
+						</Field.Field>
+					{/if}
+				</Field.Group>
 			</div>
 		{/if}
 	</div>

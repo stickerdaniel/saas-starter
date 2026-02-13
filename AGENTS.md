@@ -20,6 +20,8 @@ Use multiple `-r` flags to query multiple resources at once:
 btca ask -r svelte -r convex -q "How do I integrate Convex with SvelteKit?"
 ```
 
+**Branch config:** When adding a new resource, verify the repo's default branch (`gh api repos/OWNER/REPO --jq '.default_branch'`). btca assumes `main` and fails silently on repos using `master`, `dev`, etc. Always set the `branch` field explicitly.
+
 ## Development Commands
 
 ### Core Development
@@ -260,7 +262,37 @@ For page transitions and state changes, use the View Transitions API. See `docs/
 
 #### Forms
 
-Read the `docs/form-instructions.md` file for instructions on how to implement forms in the project. You must follow the instructions in the file when working on forms!
+Use this decision policy before implementing any form.
+
+**Field UI conventions (all forms):**
+
+- `import * as Field from '$lib/components/ui/field/index.js'`
+- Wrap grouped controls in `Field.Group`.
+- Each control should be a `Field.Field` with label + input + optional description/error.
+- Keep `Field.Error` directly under its input inside the same `Field.Field` for field-level errors.
+- Form-level errors (e.g. banners) may be outside `Field.Field`.
+- Prefer one primary inline error message per field.
+
+**Remote functions decision tree:**
+
+1. Is this a Better Auth/session-sensitive flow (`signin`, `signup`, `forgot/reset`, `changeEmail`, `changePassword`)?
+   - Yes -> Use existing client-side `authClient` pattern.
+   - No -> Continue.
+2. Is this realtime/high-frequency/optimistic interaction (chat composers, inline table edits, streaming workflows)?
+   - Yes -> Use Convex client `useMutation` / `useAction` patterns.
+   - No -> Continue.
+3. Is this a one-shot server mutation with clear submit lifecycle and schema validation needs?
+   - Yes -> Use SvelteKit remote `form(schema, handler)` with Valibot.
+   - No -> Keep local/client form handling.
+4. Does it include file upload?
+   - If pre-upload/presigned-upload is already part of UX, keep upload client-side and only remote-submit final metadata if needed.
+
+**Current repo guidance:**
+
+- Good remote-form candidates: admin/settings-style one-shot forms (e.g. add-email dialog).
+- Not recommended: auth pages, account email/password settings auth mutations, community chat submit, generic UI-only/dialog wrapper forms.
+
+For remote-form implementation workflow only, read `docs/form-instructions.md`.
 
 #### Lists with a lot of items
 

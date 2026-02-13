@@ -169,33 +169,29 @@
 					/>
 					<Field.Error errors={translateValidationErrors(errors.confirmPassword, $t)} />
 				</Field.Field>
-
-				<Field.Field orientation="horizontal">
-					<Checkbox
-						id="revokeOtherSessions"
-						name="revokeOtherSessions"
-						bind:checked={formData.revokeOtherSessions}
-					/>
-					<Field.Content>
-						<Field.Label for="revokeOtherSessions">
-							<T keyName="settings.password.revoke_sessions_label" />
-						</Field.Label>
-						<Field.Description>
-							<T keyName="settings.password.security_notice_description" />
-						</Field.Description>
-					</Field.Content>
-				</Field.Field>
 			</Field.Group>
 
 			<Item.Root variant="muted">
 				<Item.Media variant="icon">
 					<InfoIcon />
 				</Item.Media>
-				<Item.Content>
+				<Item.Content class="gap-3">
 					<Item.Title><T keyName="settings.password.security_notice_title" /></Item.Title>
 					<Item.Description>
 						<T keyName="settings.password.security_notice_description" />
 					</Item.Description>
+					<Field.Field orientation="horizontal" class="gap-2">
+						<Checkbox
+							id="revokeOtherSessions"
+							name="revokeOtherSessions"
+							bind:checked={formData.revokeOtherSessions}
+						/>
+						<Field.Content class="gap-0">
+							<Field.Label for="revokeOtherSessions">
+								<T keyName="settings.password.revoke_sessions_label" />
+							</Field.Label>
+						</Field.Content>
+					</Field.Field>
 				</Item.Content>
 			</Item.Root>
 

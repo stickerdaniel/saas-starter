@@ -87,7 +87,7 @@
 			"type": "git",
 			"name": "svAnimate",
 			"url": "https://github.com/SikandarJODD/sv-animate",
-			"branch": "main",
+			"branch": "master",
 			"specialNotes": "Prebuilt animation components for Svelte."
 		},
 		{
@@ -110,14 +110,14 @@
 			"type": "git",
 			"name": "cnblocks",
 			"url": "https://github.com/SikandarJODD/cnblocks",
-			"branch": "main",
+			"branch": "master",
 			"specialNotes": "Marketing blocks: headers, features, pricing, footers."
 		},
 		{
 			"type": "git",
 			"name": "aiElements",
 			"url": "https://github.com/SikandarJODD/ai-elements",
-			"branch": "main",
+			"branch": "master",
 			"specialNotes": "AI-related UI components for Svelte."
 		},
 		{
@@ -174,7 +174,7 @@
 			"type": "git",
 			"name": "convexStripe",
 			"url": "https://github.com/get-convex/stripe",
-			"branch": "main",
+			"branch": "master",
 			"specialNotes": "Stripe payments. Subscriptions, checkout, webhooks, customer portal."
 		},
 		{
@@ -265,7 +265,7 @@
 			"type": "git",
 			"name": "betterAuth",
 			"url": "https://github.com/better-auth/better-auth",
-			"branch": "main",
+			"branch": "canary",
 			"searchPath": "docs",
 			"specialNotes": "Auth library. Passkeys, OAuth, sessions. Use main repo not Convex fork."
 		},
@@ -349,7 +349,13 @@
 			"type": "git",
 			"name": "svelteRiveExample",
 			"url": "https://github.com/nilskj/svelte-rive-example",
-			"branch": "main"
+			"branch": "master"
+		},
+		{
+			"type": "git",
+			"name": "motionCore",
+			"url": "https://github.com/motion-core/motion-core",
+			"branch": "master"
 		}
 	],
 	"model": "claude-haiku-4.5",

@@ -856,7 +856,7 @@
 				"new": "Neues Passwort eingeben"
 			},
 			"revoke_sessions_label": "Von allen anderen Geräten abmelden",
-			"security_notice_description": "Das Ändern Ihres Passworts erfordert eine erneute Anmeldung auf allen Geräten, es sei denn, Sie deaktivieren die obige Option.",
+			"security_notice_description": "Wenn aktiviert, werden Sie durch das Ändern Ihres Passworts auf allen anderen Geräten abgemeldet.",
 			"security_notice_title": "Sicherheitshinweis",
 			"title": "Passwort ändern",
 			"update_button": "Passwort aktualisieren",
@@ -873,7 +873,7 @@
 			"loading": "Passkeys werden geladen...",
 			"no_passkeys": "Sie haben noch keine Passkeys registriert.",
 			"passkey": {
-				"placeholder": "Passkey-Name (optional)",
+				"placeholder": "Passkey-Name",
 				"unnamed": "Unbenannter Passkey"
 			},
 			"passkey_info_description": "Passkeys sind eine sichere, passwortlose Anmeldemethode. Sie verwenden Biometrie oder Geräte-PIN und werden sicher auf Ihren Geräten gespeichert.",
