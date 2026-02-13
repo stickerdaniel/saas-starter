@@ -28,7 +28,7 @@
 	import { api } from '$lib/convex/_generated/api.js';
 	import { authClient } from '$lib/auth-client.js';
 	import { toast } from 'svelte-sonner';
-	import { setContext } from 'svelte';
+	import { setContext, untrack } from 'svelte';
 	import { adminCache } from '$lib/hooks/admin-cache.svelte';
 	import type { PageData } from './$types';
 	import { type UserRole, type AdminUserData } from '$lib/convex/admin/types';
@@ -37,7 +37,6 @@
 	import DataTableFilters from './data-table-filters.svelte';
 	import type { ActionEvent } from './data-table-actions.svelte';
 	import { Debounced } from 'runed';
-	import { SvelteMap } from 'svelte/reactivity';
 
 	let { data: _data }: { data: PageData } = $props();
 
@@ -50,18 +49,13 @@
 	// Server-side pagination state
 	let pageSize = $state(10);
 	let pageIndex = $state(0);
-	let cursors = new SvelteMap<number, string | null>([[0, null]]);
-
-	// Local page cache for instant navigation
+	let pageCursors = $state<(string | null)[]>([null]);
 	type CachedPageData = {
 		users: AdminUserData[];
 		continueCursor: string | null;
 		isDone: boolean;
 	};
-	let pageCache = new SvelteMap<number, CachedPageData>();
-
-	// Track what cursor the current usersQuery.data was fetched with
-	let queryCursorUsed = $state<string | null | undefined>(undefined);
+	let pageCache = $state<Record<number, CachedPageData>>({});
 
 	// Server-side filter state
 	let roleFilter = $state<string | undefined>(undefined);
@@ -82,17 +76,18 @@
 	let impersonationDialogOpen = $state(false);
 
 	// Get current cursor for this page
-	const currentCursor = $derived(cursors.get(pageIndex) ?? null);
+	const currentCursor = $derived(pageCursors[pageIndex] ?? null);
 
 	// Convert TanStack sorting state to backend sortBy format
 	const sortBy = $derived.by(() => {
 		if (sorting.length === 0) return undefined;
 		const sort = sorting[0];
 		// Map column IDs to backend field names
-		const fieldMap: Record<string, 'createdAt' | 'email' | 'name'> = {
+		const fieldMap: Record<string, 'createdAt' | 'email' | 'name' | 'role'> = {
 			createdAt: 'createdAt',
 			email: 'email',
-			name: 'name'
+			name: 'name',
+			role: 'role'
 		};
 		const field = fieldMap[sort.id];
 		if (!field) return undefined;
@@ -102,22 +97,19 @@
 		};
 	});
 
-	// Query for current page with real cursor pagination
-	const usersQuery = useQuery(api.admin.queries.listUsers, () => ({
-		cursor: currentCursor ?? undefined,
+	const buildUsersQueryArgs = (cursor: string | null | undefined) => ({
+		cursor: cursor ?? undefined,
 		numItems: pageSize,
 		search: debouncedSearch.current || undefined,
 		roleFilter: roleFilter,
 		statusFilter: statusFilter,
 		sortBy: sortBy
-	}));
-
-	// Track the cursor that was used to fetch current query data
-	$effect(() => {
-		if (usersQuery.data && !usersQuery.isLoading) {
-			queryCursorUsed = currentCursor;
-		}
 	});
+
+	// Query for current page with real cursor pagination
+	const usersQuery = useQuery(api.admin.queries.listUsers, () =>
+		buildUsersQueryArgs(currentCursor)
+	);
 
 	// Query for total count (for page count calculation)
 	const countQuery = useQuery(api.admin.queries.getUserCount, () => ({
@@ -126,95 +118,90 @@
 		statusFilter: statusFilter
 	}));
 
-	// Prefetch state - stores the next page data for instant navigation
-	let prefetchedNextPage = $state<{
-		cursor: string;
-		data: typeof usersQuery.data;
-	} | null>(null);
+	const currentPageData = $derived(pageCache[pageIndex] ?? usersQuery.data);
 
-	// Track the next page cursor from current query
-	const nextPageCursor = $derived(usersQuery.data?.continueCursor);
+	function cachePage(index: number, data: CachedPageData | undefined) {
+		if (!data) return;
+		const existing = untrack(() => pageCache[index]);
+		if (
+			existing &&
+			existing.continueCursor === data.continueCursor &&
+			existing.isDone === data.isDone &&
+			existing.users.length === data.users.length
+		) {
+			return;
+		}
+		pageCache[index] = data;
+	}
 
-	// Prefetch query - runs when we have a next cursor
-	// We use a separate query that updates based on the next cursor
-	const prefetchArgs = $derived.by(() => {
-		if (!nextPageCursor) return null;
+	function cacheCurrentPage() {
+		const data = currentPageData;
+		if (!data) return;
+		cachePage(pageIndex, {
+			users: data.users,
+			continueCursor: data.continueCursor,
+			isDone: data.isDone
+		});
+	}
+
+	// Cache current page after data arrives so previous navigation is instant.
+	$effect(() => {
+		if (!usersQuery.data) return;
+		cachePage(pageIndex, {
+			users: usersQuery.data.users,
+			continueCursor: usersQuery.data.continueCursor,
+			isDone: usersQuery.data.isDone
+		});
+	});
+
+	const nextPrefetch = $derived.by(() => {
+		const data = currentPageData;
+		if (!data || data.isDone || !data.continueCursor) return null;
+		const index = pageIndex + 1;
+		if (pageCache[index]) return null;
 		return {
-			cursor: nextPageCursor,
-			numItems: pageSize,
-			search: debouncedSearch.current || undefined,
-			roleFilter: roleFilter,
-			statusFilter: statusFilter,
-			sortBy: sortBy
+			index,
+			args: buildUsersQueryArgs(data.continueCursor)
 		};
 	});
 
-	// Prefetch query - when no next cursor, use minimal args (numItems: 1)
-	// This creates minimal overhead when we don't need to prefetch
-	const prefetchQuery = useQuery(
+	const nextPrefetchQuery = useQuery(
 		api.admin.queries.listUsers,
-		() => prefetchArgs ?? { numItems: 1 } // Minimal fetch when no prefetch needed
+		() => nextPrefetch?.args ?? 'skip'
 	);
 
-	// Store prefetched data when it arrives
 	$effect(() => {
-		if (prefetchArgs && prefetchQuery.data && nextPageCursor) {
-			prefetchedNextPage = {
-				cursor: nextPageCursor,
-				data: prefetchQuery.data
-			};
-		}
+		if (!nextPrefetch || !nextPrefetchQuery.data) return;
+		cachePage(nextPrefetch.index, {
+			users: nextPrefetchQuery.data.users,
+			continueCursor: nextPrefetchQuery.data.continueCursor,
+			isDone: nextPrefetchQuery.data.isDone
+		});
 	});
 
-	// Clear prefetch when filters/search/sorting change
-	$effect(() => {
-		// This effect runs when any of these change
-		void debouncedSearch.current;
-		void roleFilter;
-		void statusFilter;
-		void sortBy;
-		prefetchedNextPage = null;
+	const previousPrefetch = $derived.by(() => {
+		const index = pageIndex - 1;
+		if (index < 0 || pageCache[index]) return null;
+		const cursor = pageCursors[index];
+		if (cursor === undefined) return null;
+		return {
+			index,
+			args: buildUsersQueryArgs(cursor)
+		};
 	});
 
-	// Cache pages when fetched from server
-	$effect(() => {
-		if (usersQuery.data && !usersQuery.isLoading) {
-			// Only cache if data was fetched with the cursor expected for this page
-			const expectedCursor = cursors.get(pageIndex) ?? null;
-			if (queryCursorUsed === expectedCursor) {
-				pageCache.set(pageIndex, {
-					users: usersQuery.data.users,
-					continueCursor: usersQuery.data.continueCursor,
-					isDone: usersQuery.data.isDone
-				});
-				pageCache = pageCache; // Trigger reactivity
-			}
-		}
-	});
+	const previousPrefetchQuery = useQuery(
+		api.admin.queries.listUsers,
+		() => previousPrefetch?.args ?? 'skip'
+	);
 
-	// Also cache prefetched pages
 	$effect(() => {
-		if (prefetchedNextPage?.data && prefetchedNextPage.cursor) {
-			// Find which page this prefetch belongs to by matching cursor
-			for (const [index, cursor] of cursors.entries()) {
-				if (cursor === prefetchedNextPage.cursor && !pageCache.has(index)) {
-					pageCache.set(index, {
-						users: prefetchedNextPage.data.users,
-						continueCursor: prefetchedNextPage.data.continueCursor,
-						isDone: prefetchedNextPage.data.isDone
-					});
-					pageCache = pageCache;
-					break;
-				}
-			}
-		}
-	});
-
-	// Get current page data - from cache (instant) or query (loading)
-	const currentPageData = $derived.by(() => {
-		const cached = pageCache.get(pageIndex);
-		if (cached) return cached;
-		return usersQuery.data;
+		if (!previousPrefetch || !previousPrefetchQuery.data) return;
+		cachePage(previousPrefetch.index, {
+			users: previousPrefetchQuery.data.users,
+			continueCursor: previousPrefetchQuery.data.continueCursor,
+			isDone: previousPrefetchQuery.data.isDone
+		});
 	});
 
 	// Provide context for action component (currentUserId is set by admin layout)
@@ -248,14 +235,6 @@
 		}
 	});
 
-	// Store next cursor when we get it
-	$effect(() => {
-		if (usersQuery.data?.continueCursor) {
-			cursors.set(pageIndex + 1, usersQuery.data.continueCursor);
-			cursors = cursors; // Trigger reactivity
-		}
-	});
-
 	// Reset pagination when filters/search/sorting change
 	let previousSearch = '';
 	let previousRoleFilter: string | undefined = undefined;
@@ -276,10 +255,10 @@
 			previousStatusFilter = statusFilter;
 			previousSortBy = currentSortBy;
 
-			// Reset to page 0 and clear caches
+			// Reset cursor stack when backend query args change.
 			pageIndex = 0;
-			cursors = new SvelteMap([[0, null]]);
-			pageCache = new SvelteMap();
+			pageCursors = [null];
+			pageCache = {};
 		}
 	});
 
@@ -293,27 +272,30 @@
 		if (data.isDone) return false;
 		// Must have a next cursor
 		if (!data.continueCursor) return false;
-		// Must not be at or past page count
-		if (pageCount > 0 && pageIndex >= pageCount - 1) return false;
 		return true;
 	});
 
 	function goToFirstPage() {
+		cacheCurrentPage();
 		pageIndex = 0;
 	}
 
 	function goToPreviousPage() {
 		if (canPreviousPage) {
+			cacheCurrentPage();
 			pageIndex = pageIndex - 1;
 		}
 	}
 
 	function goToNextPage() {
-		if (canNextPage && usersQuery.data?.continueCursor) {
-			// Store the cursor for the next page before navigating
-			cursors.set(pageIndex + 1, usersQuery.data.continueCursor);
-			cursors = cursors;
-			pageIndex = pageIndex + 1;
+		const nextCursor = currentPageData?.continueCursor;
+		if (canNextPage && nextCursor) {
+			cacheCurrentPage();
+			const nextIndex = pageIndex + 1;
+			const nextCursors = pageCursors.slice(0, nextIndex);
+			nextCursors[nextIndex] = nextCursor;
+			pageCursors = nextCursors;
+			pageIndex = nextIndex;
 		}
 	}
 
@@ -325,9 +307,8 @@
 	function handlePageSizeChange(newSize: number) {
 		pageSize = newSize;
 		pageIndex = 0;
-		cursors = new SvelteMap([[0, null]]);
-		pageCache = new SvelteMap();
-		prefetchedNextPage = null; // Clear prefetch cache too
+		pageCursors = [null];
+		pageCache = {};
 	}
 
 	// Filter change handler (called from DataTableFilters)
@@ -824,14 +805,16 @@
 			<Dialog.Description>
 				{#if actionType === 'ban'}
 					<T keyName="admin.dialog.ban_description" params={{ email: selectedUser?.email }} />
-					<Field.Group class="mt-4">
-						<Field.Field>
-							<Input
-								placeholder={$t('admin.dialog.ban_reason_placeholder')}
-								bind:value={banReason}
-							/>
-						</Field.Field>
-					</Field.Group>
+					<div class="mt-4">
+						<Field.Group>
+							<Field.Field>
+								<Input
+									placeholder={$t('admin.dialog.ban_reason_placeholder')}
+									bind:value={banReason}
+								/>
+							</Field.Field>
+						</Field.Group>
+					</div>
 				{:else if actionType === 'unban'}
 					<T keyName="admin.dialog.unban_description" params={{ email: selectedUser?.email }} />
 				{:else if actionType === 'revoke'}

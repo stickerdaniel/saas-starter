@@ -365,4 +365,9 @@
 	body {
 		@apply bg-background text-foreground;
 	}
+
+	html.auth-shell-bg,
+	body.auth-shell-bg {
+		background-color: var(--sidebar);
+	}
 }

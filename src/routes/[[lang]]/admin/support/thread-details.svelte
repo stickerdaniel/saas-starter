@@ -1,5 +1,4 @@
 <script lang="ts">
-	/* eslint-disable svelte/no-navigation-without-resolve -- External URLs don't need resolve() */
 	import { fade } from 'svelte/transition';
 	import { useQuery, useConvexClient } from 'convex-svelte';
 	import { api } from '$lib/convex/_generated/api';
@@ -128,7 +127,7 @@
 	<div class="flex-1 overflow-y-auto p-4">
 		{#if thread}
 			<div in:fade={{ duration: 150 }}>
-				<Field.Group class="gap-6">
+				<Field.Group>
 					<!-- Assignee -->
 					<Field.Field>
 						<Field.Label><T keyName="admin.support.details.assignee" /></Field.Label>
@@ -213,6 +212,7 @@
 					{#if thread.supportMetadata?.pageUrl}
 						<Field.Field>
 							<Field.Label><T keyName="admin.support.details.page_url" /></Field.Label>
+							<!-- eslint-disable svelte/no-navigation-without-resolve -->
 							<a
 								href={thread.supportMetadata.pageUrl}
 								target="_blank"
@@ -222,6 +222,7 @@
 								<span class="truncate">{thread.supportMetadata.pageUrl}</span>
 								<ExternalLinkIcon class="size-3 flex-shrink-0" />
 							</a>
+							<!-- eslint-enable svelte/no-navigation-without-resolve -->
 						</Field.Field>
 					{/if}
 
