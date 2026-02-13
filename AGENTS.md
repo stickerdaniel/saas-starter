@@ -210,7 +210,7 @@ Prop names must match the parent's passed prop name exactly.
 
 ### Static Checks
 
-ALWAYS run `bun scripts/static-checks.ts` after a full feature implementation.
+ALWAYS run `bun scripts/static-checks.ts --staged` after a full feature implementation.
 
 ### Real-time Features
 
@@ -268,6 +268,7 @@ Use this decision policy before implementing any form.
 
 - `import * as Field from '$lib/components/ui/field/index.js'`
 - Wrap grouped controls in `Field.Group`.
+- Do not add explicit spacing/layout utility classes to `Field.Group` (for example `gap-*`, `space-y-*`, `mt-*`, `mb-*`, `px-*`, `py-*`). Keep `Field.Group` spacing implicit.
 - Each control should be a `Field.Field` with label + input + optional description/error.
 - Keep `Field.Error` directly under its input inside the same `Field.Field` for field-level errors.
 - Form-level errors (e.g. banners) may be outside `Field.Field`.
@@ -303,7 +304,10 @@ Use `svelte-infinite` with convex-svelte pagination for huge lists to automatica
 #### Runed (collection of utilities for Svelte 5)
 
 Before creating our own utilities, research the runed library to see if the utility you need already exists. Use btca with `runed` resource.
-Here is a list of the utilities available:
+
+- For URL/query state, prefer Runed `useSearchParams` over manual `$page.url` + `goto` wiring.
+- Exception: in high-frequency selection UIs where query-param writes would cause unwanted Convex refetches (for example `src/routes/[[lang]]/admin/support/+page.svelte` thread selection), manual URL handling is acceptable.
+  Here is a list of the utilities available:
 
 <resource: Watches for changes and runs asynchronous data fetching, combining reactive state management with async operations.>
 <watch: Runs a callback whenever specified reactive sources change. Includes variants like watch.pre (uses $effect.pre) and watchOnce / watchOnce.pre (run only once).>

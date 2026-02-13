@@ -105,8 +105,17 @@
 		<Card.Description><T keyName="settings.email.description" /></Card.Description>
 	</Card.Header>
 	<Card.Content>
-		<div class="space-y-4">
-			<!-- Current Email Display -->
+		<form onsubmit={handleSubmit} class="space-y-4">
+			{#if formError}
+				<Alert.Root variant="destructive">
+					<InfoIcon class="h-4 w-4" />
+					<Alert.Title><T keyName="settings.email.error_title" /></Alert.Title>
+					<Alert.Description>
+						<T keyName={formError} />
+					</Alert.Description>
+				</Alert.Root>
+			{/if}
+
 			<Field.Group>
 				<Field.Field>
 					<Field.Label for="currentEmail">
@@ -130,62 +139,50 @@
 						</InputGroup.Addon>
 					</InputGroup.Root>
 				</Field.Field>
+
+				<Field.Field>
+					<Field.Label for="newEmail">
+						<T keyName="settings.email.new_email_label" />
+					</Field.Label>
+					<Input
+						type="email"
+						id="newEmail"
+						name="newEmail"
+						placeholder={$t('settings.email.placeholder')}
+						autocomplete="email"
+						bind:value={formData.newEmail}
+					/>
+					<Field.Error errors={translateValidationErrors(errors.newEmail, $t)} />
+				</Field.Field>
 			</Field.Group>
 
-			<form onsubmit={handleSubmit} class="space-y-4">
-				{#if formError}
-					<Alert.Root variant="destructive">
-						<InfoIcon class="h-4 w-4" />
-						<Alert.Title><T keyName="settings.email.error_title" /></Alert.Title>
-						<Alert.Description>
-							<T keyName={formError} />
-						</Alert.Description>
-					</Alert.Root>
-				{/if}
+			{#if isEmailVerified}
+				<Item.Root variant="muted">
+					<Item.Media variant="icon">
+						<InfoIcon />
+					</Item.Media>
+					<Item.Content>
+						<Item.Title><T keyName="settings.email.verification_required_title" /></Item.Title>
+						<Item.Description>
+							<T keyName="settings.email.verification_required_description" />
+						</Item.Description>
+					</Item.Content>
+				</Item.Root>
+			{:else}
+				<Item.Root variant="muted">
+					<Item.Media variant="icon">
+						<InfoIcon />
+					</Item.Media>
+					<Item.Content>
+						<Item.Title><T keyName="settings.email.not_verified_title" /></Item.Title>
+						<Item.Description>
+							<T keyName="settings.email.not_verified_description" />
+						</Item.Description>
+					</Item.Content>
+				</Item.Root>
+			{/if}
 
-				<Field.Group>
-					<Field.Field>
-						<Field.Label for="newEmail">
-							<T keyName="settings.email.new_email_label" />
-						</Field.Label>
-						<Input
-							type="email"
-							id="newEmail"
-							name="newEmail"
-							placeholder={$t('settings.email.placeholder')}
-							autocomplete="email"
-							bind:value={formData.newEmail}
-						/>
-						<Field.Error errors={translateValidationErrors(errors.newEmail, $t)} />
-					</Field.Field>
-				</Field.Group>
-
-				{#if isEmailVerified}
-					<Item.Root variant="muted">
-						<Item.Media variant="icon">
-							<InfoIcon />
-						</Item.Media>
-						<Item.Content>
-							<Item.Title><T keyName="settings.email.verification_required_title" /></Item.Title>
-							<Item.Description>
-								<T keyName="settings.email.verification_required_description" />
-							</Item.Description>
-						</Item.Content>
-					</Item.Root>
-				{:else}
-					<Item.Root variant="muted">
-						<Item.Media variant="icon">
-							<InfoIcon />
-						</Item.Media>
-						<Item.Content>
-							<Item.Title><T keyName="settings.email.not_verified_title" /></Item.Title>
-							<Item.Description>
-								<T keyName="settings.email.not_verified_description" />
-							</Item.Description>
-						</Item.Content>
-					</Item.Root>
-				{/if}
-
+			<div class="flex justify-end">
 				<Button type="submit" disabled={isLoading}>
 					{#if isLoading}
 						<T keyName="settings.email.updating" />
@@ -193,7 +190,7 @@
 						<T keyName="settings.email.update_button" />
 					{/if}
 				</Button>
-			</form>
-		</div>
+			</div>
+		</form>
 	</Card.Content>
 </Card.Root>

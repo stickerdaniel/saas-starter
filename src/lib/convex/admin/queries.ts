@@ -5,6 +5,160 @@ import type { BetterAuthUser, BetterAuthSession } from './types';
 import { parseBetterAuthUsers, parseBetterAuthSessions, parseUserRecord } from './types';
 import { adminQuery } from '../functions';
 
+type AdapterWhereCondition = {
+	connector?: 'AND' | 'OR';
+	field: string;
+	operator?:
+		| 'lt'
+		| 'lte'
+		| 'gt'
+		| 'gte'
+		| 'eq'
+		| 'in'
+		| 'not_in'
+		| 'ne'
+		| 'contains'
+		| 'starts_with'
+		| 'ends_with';
+	value: string | number | boolean | string[] | number[] | null;
+};
+
+type UserSortBy = {
+	field: 'createdAt' | 'email' | 'name' | 'role';
+	direction: 'asc' | 'desc';
+};
+
+type AdapterFindManyResult = {
+	page: unknown[];
+	isDone: boolean;
+	continueCursor: string | null;
+};
+
+const DEFAULT_USER_SORT: UserSortBy = {
+	field: 'createdAt',
+	direction: 'desc'
+};
+
+function addAndCondition(
+	where: AdapterWhereCondition[],
+	condition: Omit<AdapterWhereCondition, 'connector'>
+) {
+	where.push({
+		...condition,
+		connector: where.length > 0 ? 'AND' : undefined
+	});
+}
+
+function buildUserWhereConditions(args: {
+	roleFilter?: string;
+	statusFilter?: 'verified' | 'unverified' | 'banned';
+}) {
+	const whereConditions: AdapterWhereCondition[] = [];
+
+	// Role filter
+	if (args.roleFilter && args.roleFilter !== 'all') {
+		addAndCondition(whereConditions, {
+			field: 'role',
+			operator: 'eq',
+			value: args.roleFilter
+		});
+	}
+
+	// Status filter
+	if (args.statusFilter === 'banned') {
+		addAndCondition(whereConditions, {
+			field: 'banned',
+			operator: 'eq',
+			value: true
+		});
+	} else if (args.statusFilter === 'verified') {
+		// Keep status semantics aligned with UI:
+		// "verified" means email verified and not banned.
+		addAndCondition(whereConditions, {
+			field: 'banned',
+			operator: 'eq',
+			value: false
+		});
+		addAndCondition(whereConditions, {
+			field: 'emailVerified',
+			operator: 'eq',
+			value: true
+		});
+	} else if (args.statusFilter === 'unverified') {
+		// Keep status semantics aligned with UI:
+		// "unverified" means email unverified and not banned.
+		addAndCondition(whereConditions, {
+			field: 'banned',
+			operator: 'eq',
+			value: false
+		});
+		addAndCondition(whereConditions, {
+			field: 'emailVerified',
+			operator: 'eq',
+			value: false
+		});
+	}
+
+	return whereConditions;
+}
+
+function applyUserSearch(users: BetterAuthUser[], search: string | undefined) {
+	if (!search) return users;
+	const searchLower = search.toLowerCase();
+	return users.filter(
+		(user) =>
+			user.email?.toLowerCase().includes(searchLower) ||
+			user.name?.toLowerCase().includes(searchLower)
+	);
+}
+
+async function fetchAllUsersWithFilters(
+	ctx: QueryCtx,
+	args: {
+		whereConditions: AdapterWhereCondition[];
+		sortBy: UserSortBy;
+	}
+) {
+	const users: BetterAuthUser[] = [];
+	let cursor: string | null = null;
+
+	// Fully enumerate matching users so search+pagination stay consistent.
+	for (let page = 0; page < 500; page++) {
+		const result = (await ctx.runQuery(components.betterAuth.adapter.findMany, {
+			model: 'user',
+			paginationOpts: { cursor, numItems: 200 },
+			sortBy: args.sortBy,
+			where: args.whereConditions.length > 0 ? args.whereConditions : undefined
+		})) as AdapterFindManyResult;
+
+		users.push(...parseBetterAuthUsers(result.page));
+
+		if (result.isDone || !result.continueCursor) {
+			break;
+		}
+
+		cursor = result.continueCursor;
+	}
+
+	return users;
+}
+
+function mapAdminUser(user: BetterAuthUser) {
+	return {
+		id: user._id,
+		name: user.name,
+		email: user.email,
+		emailVerified: user.emailVerified,
+		image: user.image,
+		role: user.role ?? 'user',
+		banned: user.banned ?? false,
+		banReason: user.banReason,
+		banExpires: user.banExpires,
+		createdAt: user.createdAt,
+		updatedAt: user.updatedAt
+	};
+}
+
 /**
  * Helper to fetch all users from the BetterAuth component
  */
@@ -52,102 +206,55 @@ export const listUsers = adminQuery({
 		),
 		sortBy: v.optional(
 			v.object({
-				field: v.union(v.literal('createdAt'), v.literal('email'), v.literal('name')),
+				field: v.union(
+					v.literal('createdAt'),
+					v.literal('email'),
+					v.literal('name'),
+					v.literal('role')
+				),
 				direction: v.union(v.literal('asc'), v.literal('desc'))
 			})
 		)
 	},
 	handler: async (ctx, args) => {
-		// Build where conditions for filtering
-		const whereConditions: Array<{
-			connector?: 'AND' | 'OR';
-			field: string;
-			operator?:
-				| 'lt'
-				| 'lte'
-				| 'gt'
-				| 'gte'
-				| 'eq'
-				| 'in'
-				| 'not_in'
-				| 'ne'
-				| 'contains'
-				| 'starts_with'
-				| 'ends_with';
-			value: string | number | boolean | string[] | number[] | null;
-		}> = [];
+		const whereConditions = buildUserWhereConditions({
+			roleFilter: args.roleFilter,
+			statusFilter: args.statusFilter
+		});
+		const sortBy = args.sortBy ?? DEFAULT_USER_SORT;
 
-		// Role filter
-		if (args.roleFilter && args.roleFilter !== 'all') {
-			whereConditions.push({
-				field: 'role',
-				operator: 'eq',
-				value: args.roleFilter
-			});
+		// BetterAuth adapter cannot do multi-field OR search in one paginated call.
+		// For search, we fetch a consistent filtered set first, then apply offset cursor locally.
+		if (args.search) {
+			const allUsers = await fetchAllUsersWithFilters(ctx, { whereConditions, sortBy });
+			const searchedUsers = applyUserSearch(allUsers, args.search);
+
+			const offsetRaw = args.cursor ? Number.parseInt(args.cursor, 10) : 0;
+			const offset = Number.isFinite(offsetRaw) && offsetRaw >= 0 ? offsetRaw : 0;
+			const pageEnd = offset + args.numItems;
+			const usersPage = searchedUsers.slice(offset, pageEnd);
+			const isDone = pageEnd >= searchedUsers.length;
+
+			return {
+				users: usersPage.map(mapAdminUser),
+				continueCursor: isDone ? null : String(pageEnd),
+				isDone
+			};
 		}
 
-		// Status filter
-		if (args.statusFilter === 'banned') {
-			whereConditions.push({
-				field: 'banned',
-				operator: 'eq',
-				value: true,
-				connector: whereConditions.length > 0 ? 'AND' : undefined
-			});
-		} else if (args.statusFilter === 'verified') {
-			whereConditions.push({
-				field: 'emailVerified',
-				operator: 'eq',
-				value: true,
-				connector: whereConditions.length > 0 ? 'AND' : undefined
-			});
-		} else if (args.statusFilter === 'unverified') {
-			whereConditions.push({
-				field: 'emailVerified',
-				operator: 'eq',
-				value: false,
-				connector: whereConditions.length > 0 ? 'AND' : undefined
-			});
-		}
-
-		// Fetch with real cursor pagination
+		// No search: preserve adapter cursor pagination path.
 		const result = await ctx.runQuery(components.betterAuth.adapter.findMany, {
 			model: 'user',
 			paginationOpts: {
 				cursor: args.cursor ?? null,
 				numItems: args.numItems
 			},
-			sortBy: args.sortBy ?? { field: 'createdAt', direction: 'desc' },
+			sortBy,
 			where: whereConditions.length > 0 ? whereConditions : undefined
 		});
 
-		let users = parseBetterAuthUsers(result.page);
-
-		// Client-side search filtering (for multi-field search: email OR name)
-		// Note: This is done client-side because the BetterAuth adapter doesn't easily support OR across fields
-		if (args.search) {
-			const searchLower = args.search.toLowerCase();
-			users = users.filter(
-				(user) =>
-					user.email?.toLowerCase().includes(searchLower) ||
-					user.name?.toLowerCase().includes(searchLower)
-			);
-		}
-
 		return {
-			users: users.map((user) => ({
-				id: user._id,
-				name: user.name,
-				email: user.email,
-				emailVerified: user.emailVerified,
-				image: user.image,
-				role: user.role ?? 'user',
-				banned: user.banned ?? false,
-				banReason: user.banReason,
-				banExpires: user.banExpires,
-				createdAt: user.createdAt,
-				updatedAt: user.updatedAt
-			})),
+			users: parseBetterAuthUsers(result.page).map(mapAdminUser),
 			continueCursor: result.continueCursor,
 			isDone: result.isDone
 		};
@@ -174,78 +281,16 @@ export const getUserCount = adminQuery({
 		)
 	},
 	handler: async (ctx, args) => {
-		// Build where conditions for filtering
-		const whereConditions: Array<{
-			connector?: 'AND' | 'OR';
-			field: string;
-			operator?:
-				| 'lt'
-				| 'lte'
-				| 'gt'
-				| 'gte'
-				| 'eq'
-				| 'in'
-				| 'not_in'
-				| 'ne'
-				| 'contains'
-				| 'starts_with'
-				| 'ends_with';
-			value: string | number | boolean | string[] | number[] | null;
-		}> = [];
-
-		// Role filter
-		if (args.roleFilter && args.roleFilter !== 'all') {
-			whereConditions.push({
-				field: 'role',
-				operator: 'eq',
-				value: args.roleFilter
-			});
-		}
-
-		// Status filter
-		if (args.statusFilter === 'banned') {
-			whereConditions.push({
-				field: 'banned',
-				operator: 'eq',
-				value: true,
-				connector: whereConditions.length > 0 ? 'AND' : undefined
-			});
-		} else if (args.statusFilter === 'verified') {
-			whereConditions.push({
-				field: 'emailVerified',
-				operator: 'eq',
-				value: true,
-				connector: whereConditions.length > 0 ? 'AND' : undefined
-			});
-		} else if (args.statusFilter === 'unverified') {
-			whereConditions.push({
-				field: 'emailVerified',
-				operator: 'eq',
-				value: false,
-				connector: whereConditions.length > 0 ? 'AND' : undefined
-			});
-		}
-
-		// Fetch all matching users (for count)
-		const result = await ctx.runQuery(components.betterAuth.adapter.findMany, {
-			model: 'user',
-			paginationOpts: { cursor: null, numItems: 10000 },
-			where: whereConditions.length > 0 ? whereConditions : undefined
+		const whereConditions = buildUserWhereConditions({
+			roleFilter: args.roleFilter,
+			statusFilter: args.statusFilter
+		});
+		const allUsers = await fetchAllUsersWithFilters(ctx, {
+			whereConditions,
+			sortBy: DEFAULT_USER_SORT
 		});
 
-		let users = parseBetterAuthUsers(result.page);
-
-		// Client-side search filtering
-		if (args.search) {
-			const searchLower = args.search.toLowerCase();
-			users = users.filter(
-				(user) =>
-					user.email?.toLowerCase().includes(searchLower) ||
-					user.name?.toLowerCase().includes(searchLower)
-			);
-		}
-
-		return users.length;
+		return applyUserSearch(allUsers, args.search).length;
 	}
 });
 
