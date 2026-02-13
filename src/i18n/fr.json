@@ -856,7 +856,7 @@
 				"new": "Entrez le nouveau mot de passe"
 			},
 			"revoke_sessions_label": "Se déconnecter de tous les autres appareils",
-			"security_notice_description": "Changer votre mot de passe vous obligera à vous reconnecter sur tous les appareils, sauf si vous décochez l'option ci-dessus.",
+			"security_notice_description": "Si cette option est activée, changer votre mot de passe vous déconnectera de tous les autres appareils.",
 			"security_notice_title": "Avis de sécurité",
 			"title": "Changer le mot de passe",
 			"update_button": "Mettre à jour le mot de passe",
@@ -873,7 +873,7 @@
 			"loading": "Chargement des passkeys...",
 			"no_passkeys": "Vous n'avez pas encore enregistré de passkey.",
 			"passkey": {
-				"placeholder": "Nom du passkey (optionnel)",
+				"placeholder": "Nom du passkey",
 				"unnamed": "Passkey sans nom"
 			},
 			"passkey_info_description": "Les passkeys sont un moyen sécurisé de se connecter sans mot de passe. Ils utilisent la biométrie ou le code PIN de l'appareil et sont stockés en toute sécurité sur vos appareils.",
