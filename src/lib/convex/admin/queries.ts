@@ -49,14 +49,16 @@ function addAndCondition(
 	});
 }
 
+type UserRoleFilter = 'admin' | 'user';
+
 function buildUserWhereConditions(args: {
-	roleFilter?: string;
+	roleFilter?: UserRoleFilter;
 	statusFilter?: 'verified' | 'unverified' | 'banned';
 }) {
 	const whereConditions: AdapterWhereCondition[] = [];
 
 	// Role filter
-	if (args.roleFilter && args.roleFilter !== 'all') {
+	if (args.roleFilter) {
 		addAndCondition(whereConditions, {
 			field: 'role',
 			operator: 'eq',
@@ -182,14 +184,15 @@ async function fetchAllSessions(ctx: QueryCtx): Promise<BetterAuthSession[]> {
 }
 
 /**
- * List users with real cursor pagination for admin user management
+ * List users with pagination for admin user management
  *
- * Fetches paginated users with filtering by role, status, and search.
- * Search is performed client-side to support OR across email/name fields.
+ * Uses adapter cursor pagination by default. Falls back to offset-based
+ * pagination when `search` is present (fetches all matching users, then slices)
+ * to support OR search across email and name fields.
  *
- * @param args.cursor - Pagination cursor for fetching next page
+ * @param args.cursor - Pagination cursor (adapter cursor or offset depending on search mode)
  * @param args.numItems - Number of items to fetch per page
- * @param args.search - Optional search term to filter by email or name
+ * @param args.search - Optional search term to filter by email or name (triggers offset mode)
  * @param args.roleFilter - Optional role filter ('admin', 'user', or 'all')
  * @param args.statusFilter - Optional status filter ('verified', 'unverified', 'banned')
  * @param args.sortBy - Optional sort configuration with field and direction
@@ -200,7 +203,7 @@ export const listUsers = adminQuery({
 		cursor: v.optional(v.string()),
 		numItems: v.number(),
 		search: v.optional(v.string()),
-		roleFilter: v.optional(v.string()),
+		roleFilter: v.optional(v.union(v.literal('admin'), v.literal('user'))),
 		statusFilter: v.optional(
 			v.union(v.literal('verified'), v.literal('unverified'), v.literal('banned'))
 		),
@@ -275,7 +278,7 @@ export const listUsers = adminQuery({
 export const getUserCount = adminQuery({
 	args: {
 		search: v.optional(v.string()),
-		roleFilter: v.optional(v.string()),
+		roleFilter: v.optional(v.union(v.literal('admin'), v.literal('user'))),
 		statusFilter: v.optional(
 			v.union(v.literal('verified'), v.literal('unverified'), v.literal('banned'))
 		)
@@ -305,7 +308,7 @@ export const resolveUsersLastPage = adminQuery({
 	args: {
 		numItems: v.number(),
 		search: v.optional(v.string()),
-		roleFilter: v.optional(v.string()),
+		roleFilter: v.optional(v.union(v.literal('admin'), v.literal('user'))),
 		statusFilter: v.optional(
 			v.union(v.literal('verified'), v.literal('unverified'), v.literal('banned'))
 		),

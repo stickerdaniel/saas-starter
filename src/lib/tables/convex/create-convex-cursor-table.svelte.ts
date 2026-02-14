@@ -1,4 +1,4 @@
-import { Debounced } from 'runed';
+import { Debounced, watch } from 'runed';
 import { useSearchParams } from 'runed/kit';
 import { useConvexClient, useQuery } from 'convex-svelte';
 import { untrack } from 'svelte';
@@ -15,6 +15,32 @@ import {
 } from './url';
 
 type AnyQuery = FunctionReference<'query'>;
+
+/** Public state returned by `createConvexCursorTable`. */
+export type ConvexCursorTableState<TItem, TSortField extends string, TFilterKeys extends string> = {
+	readonly urlState: TableUrlState<TFilterKeys>;
+	readonly rows: TItem[];
+	readonly isLoading: boolean;
+	readonly totalCount: number | undefined;
+	readonly hasLoadedCount: boolean;
+	readonly pageCount: number;
+	readonly pageIndex: number;
+	readonly pageSize: number;
+	readonly sortBy: TableSortBy<TSortField> | undefined;
+	readonly filters: Record<TFilterKeys, string>;
+	readonly currentUrlState: TableUrlState<TFilterKeys>;
+	readonly canNextPage: boolean;
+	readonly canPreviousPage: boolean;
+	readonly isJumpingToLastPage: boolean;
+	setSearch: (value: string) => void;
+	setFilter: (key: TFilterKeys, value: string) => void;
+	setSort: (nextSort: TableSortBy<TSortField> | undefined) => void;
+	setPageSize: (nextPageSize: number) => void;
+	goFirst: () => void;
+	goLast: () => Promise<void>;
+	goNext: () => void;
+	goPrevious: () => Promise<void>;
+};
 
 type QueryIdentity<TFilterKeys extends string, TSortField extends string> = {
 	search: string;
@@ -163,7 +189,7 @@ type LastPageResolution = {
 	cursor: string | null;
 };
 
-type CreateConvexCursorTableOptions<
+export type CreateConvexCursorTableOptions<
 	TItem,
 	TFilterKeys extends string,
 	TSortField extends string,
@@ -186,13 +212,36 @@ type CreateConvexCursorTableOptions<
 	buildCountArgs: (
 		context: CountContext<TFilterKeys, TSortField, TUrlState>
 	) => FunctionArgs<TCountQuery>;
-	resolveLastPage?: (
+	resolveLastPage: (
 		context: CountContext<TFilterKeys, TSortField, TUrlState>
 	) => Promise<LastPageResolution | null>;
 	toListResult: (result: FunctionReturnType<TListQuery>) => CursorListResult<TItem>;
 	toCount: (result: FunctionReturnType<TCountQuery>) => number;
 };
 
+/**
+ * Create a reactive, cursor-paginated table state bound to Convex queries.
+ *
+ * Manages URL-synced pagination, search, filtering, sorting, and page caching.
+ * All query identity changes (search, filters, sort, page size) automatically
+ * reset pagination to page 1. Cursor state is persisted in URL params via
+ * Runed `useSearchParams` so deep links and browser back/forward work.
+ *
+ * @param options.listQuery - Convex query reference for fetching paginated rows
+ * @param options.countQuery - Convex query reference for total count
+ * @param options.urlSchema - Valibot schema defining the URL state shape
+ * @param options.defaultFilters - Default values for filter URL params (omitted from URL when active)
+ * @param options.pageSizeOptions - Allowed page size values (as strings)
+ * @param options.defaultPageSize - Initial page size (as string)
+ * @param options.sortFields - Valid sort field names for validation
+ * @param options.buildListArgs - Map current context to list query args
+ * @param options.buildCountArgs - Map current context to count query args
+ * @param options.resolveLastPage - Server-side resolver for jump-to-last-page
+ * @param options.toListResult - Normalize list query response to `CursorListResult`
+ * @param options.toCount - Extract count number from count query response
+ * @param options.debounceMs - Search debounce delay (default: 300ms)
+ * @param options.maxCachedPages - Max pages kept in memory cache (default: 5)
+ */
 export function createConvexCursorTable<
 	TItem,
 	TFilterKeys extends string,
@@ -236,11 +285,8 @@ export function createConvexCursorTable<
 
 	let pageCursors = $state<(string | null)[]>([null]);
 	let pageCache = $state<Record<number, CursorListResult<TItem>>>({});
-	let previousIdentity: QueryIdentity<TFilterKeys, TSortField> | undefined = undefined;
 	let isJumpingToLastPage = $state(false);
 	let isResolvingPreviousPage = $state(false);
-	let previousTotalCount: number | undefined = undefined;
-	let previousPageBoundary: PageBoundarySnapshot | undefined = undefined;
 
 	const currentCursor = $derived.by(() => {
 		if (pageIndex === 0) return null;
@@ -395,8 +441,6 @@ export function createConvexCursorTable<
 		}
 		pageCursors = [null];
 		pageCache = {};
-		previousTotalCount = undefined;
-		previousPageBoundary = undefined;
 	}
 
 	$effect(() => {
@@ -419,53 +463,43 @@ export function createConvexCursorTable<
 		resetPagination();
 	});
 
-	$effect(() => {
-		const nextIdentity: QueryIdentity<TFilterKeys, TSortField> = {
-			search: debouncedSearch.current,
-			pageSize,
-			filters,
-			sortBy
-		};
+	watch(
+		() =>
+			serializeQueryIdentity({
+				search: debouncedSearch.current,
+				pageSize,
+				filters,
+				sortBy
+			}),
+		(_curr, prev) => {
+			if (prev !== undefined) resetPagination();
+		},
+		{ lazy: true }
+	);
 
-		if (!previousIdentity) {
-			previousIdentity = nextIdentity;
-			return;
+	watch(
+		() => (countQuery.data === undefined ? undefined : options.toCount(countQuery.data)),
+		(curr, prev) => {
+			if (curr !== undefined && prev !== undefined && curr !== prev) {
+				keepOnlyCurrentPageCache();
+			}
 		}
+	);
 
-		if (!hasQueryIdentityChanged(previousIdentity, nextIdentity)) {
-			return;
-		}
-
-		previousIdentity = nextIdentity;
-		resetPagination();
-	});
-
-	$effect(() => {
-		const nextCount = countQuery.data === undefined ? undefined : options.toCount(countQuery.data);
-		if (nextCount === undefined) return;
-
-		if (hasTotalCountChanged(previousTotalCount, nextCount)) {
-			keepOnlyCurrentPageCache();
-		}
-		previousTotalCount = nextCount;
-	});
-
-	$effect(() => {
-		if (!listQuery.data) return;
+	const pageBoundaryKey = $derived.by(() => {
+		if (!listQuery.data) return undefined;
 		const normalized = options.toListResult(listQuery.data);
-		const nextBoundary: PageBoundarySnapshot = {
-			pageIndex,
-			cursor: currentCursor,
-			continueCursor: normalized.continueCursor,
-			isDone: normalized.isDone,
-			itemCount: normalized.items.length
-		};
-
-		if (hasPageBoundaryChanged(previousPageBoundary, nextBoundary)) {
-			keepOnlyCurrentPageCache();
-		}
-		previousPageBoundary = nextBoundary;
+		return `${pageIndex}:${currentCursor}:${normalized.continueCursor}:${normalized.isDone}:${normalized.items.length}`;
 	});
+
+	watch(
+		() => pageBoundaryKey,
+		(curr, prev) => {
+			if (curr !== undefined && prev !== undefined && curr !== prev) {
+				keepOnlyCurrentPageCache();
+			}
+		}
+	);
 
 	const nextPrefetch = $derived.by(() => {
 		const candidate = getNextPrefetchCandidate({
@@ -563,6 +597,9 @@ export function createConvexCursorTable<
 				pageCursors = hydrated.cursors;
 				pageCache = buildTrimmedCache(hydrated.cache, pageIndex, maxCachedPages);
 				previousCursor = hydrated.cursors[previousIndex];
+			} catch (error) {
+				console.error('Failed to navigate to previous page', error);
+				return;
 			} finally {
 				isResolvingPreviousPage = false;
 			}
@@ -595,91 +632,27 @@ export function createConvexCursorTable<
 		const identitySnapshot = serializeQueryIdentity(getQueryIdentity());
 
 		try {
-			if (options.resolveLastPage) {
-				const resolved = await options.resolveLastPage(getCountContext());
-				if (!resolved || !isIdentitySnapshotCurrent(identitySnapshot)) return;
+			const resolved = await options.resolveLastPage(getCountContext());
+			if (!resolved || !isIdentitySnapshotCurrent(identitySnapshot)) return;
 
-				const resolvedPage = Number.isFinite(resolved.page)
-					? Math.max(1, Math.trunc(resolved.page))
-					: 1;
-				const resolvedCursor = resolved.cursor ?? null;
+			const resolvedPage = Number.isFinite(resolved.page)
+				? Math.max(1, Math.trunc(resolved.page))
+				: 1;
+			const resolvedCursor = resolved.cursor ?? null;
 
-				if (resolvedPage <= 1) {
-					urlState.page = '1';
-					urlState.cursor = '';
-					pageCursors = [null];
-					return;
-				}
-
-				const resolvedIndex = resolvedPage - 1;
-				const nextCursors = pageCursors.slice(0, resolvedIndex + 1);
-				nextCursors[resolvedIndex] = resolvedCursor;
-				pageCursors = nextCursors;
-				urlState.page = `${resolvedPage}`;
-				urlState.cursor = serializeCursorParam(resolvedCursor);
+			if (resolvedPage <= 1) {
+				urlState.page = '1';
+				urlState.cursor = '';
+				pageCursors = [null];
 				return;
 			}
 
-			const nextCache = {
-				...untrack(() => pageCache)
-			};
-			let nextCursors = [...untrack(() => pageCursors)];
-
-			let walkIndex = pageIndex;
-			let walkCursor = currentCursor;
-			let walkPage = nextCache[walkIndex] ?? currentPageData;
-
-			if (walkIndex > 0 && nextCursors[walkIndex] === undefined) {
-				nextCursors[walkIndex] = walkCursor;
-			}
-
-			if (!walkPage) {
-				const fetched = await client.query(
-					options.listQuery,
-					options.buildListArgs(getListContext(walkCursor, walkIndex))
-				);
-				if (!isIdentitySnapshotCurrent(identitySnapshot)) return;
-				walkPage = options.toListResult(fetched);
-				nextCache[walkIndex] = walkPage;
-			}
-
-			const seenCursors: Record<string, true> = {};
-			while (!walkPage.isDone && walkPage.continueCursor) {
-				if (seenCursors[walkPage.continueCursor]) break;
-				seenCursors[walkPage.continueCursor] = true;
-
-				const nextIndex = walkIndex + 1;
-				nextCursors = buildNextPageCursors(nextCursors, nextIndex, walkPage.continueCursor);
-				const cachedNextPage = nextCache[nextIndex];
-
-				if (cachedNextPage) {
-					walkIndex = nextIndex;
-					walkCursor = walkPage.continueCursor;
-					walkPage = cachedNextPage;
-					continue;
-				}
-
-				const fetched = await client.query(
-					options.listQuery,
-					options.buildListArgs(getListContext(walkPage.continueCursor, nextIndex))
-				);
-				if (!isIdentitySnapshotCurrent(identitySnapshot)) return;
-
-				const normalized = options.toListResult(fetched);
-				nextCache[nextIndex] = normalized;
-				walkIndex = nextIndex;
-				walkCursor = walkPage.continueCursor;
-				walkPage = normalized;
-			}
-
-			if (!isIdentitySnapshotCurrent(identitySnapshot)) return;
-
+			const resolvedIndex = resolvedPage - 1;
+			const nextCursors = pageCursors.slice(0, resolvedIndex + 1);
+			nextCursors[resolvedIndex] = resolvedCursor;
 			pageCursors = nextCursors;
-			pageCache = buildTrimmedCache(nextCache, walkIndex, maxCachedPages);
-			urlState.page = `${walkIndex + 1}`;
-			urlState.cursor = serializeCursorParam(
-				walkIndex === 0 ? null : (nextCursors[walkIndex] ?? walkCursor ?? null)
-			);
+			urlState.page = `${resolvedPage}`;
+			urlState.cursor = serializeCursorParam(resolvedCursor);
 		} catch (error) {
 			console.error('Failed to jump to last page', error);
 		} finally {

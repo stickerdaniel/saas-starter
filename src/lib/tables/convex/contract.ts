@@ -1,8 +1,6 @@
-export type CursorListResult<TItem> = {
-	items: TItem[];
-	continueCursor: string | null;
-	isDone: boolean;
-};
+export type CursorListResult<TItem> =
+	| { items: TItem[]; continueCursor: string; isDone: false }
+	| { items: TItem[]; continueCursor: null; isDone: true };
 
 export type TableSortDirection = 'asc' | 'desc';
 

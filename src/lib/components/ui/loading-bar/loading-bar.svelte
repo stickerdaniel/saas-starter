@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Progress as ProgressPrimitive } from 'bits-ui';
+	import { watch } from 'runed';
 	import { cn, type WithoutChildrenOrChild } from '$lib/utils.js';
 
 	type LoadingBarProps = WithoutChildrenOrChild<ProgressPrimitive.RootProps> & {
@@ -31,8 +32,6 @@
 	let showIndeterminate = $state(false);
 	let deterministicOpacity = $state(0);
 	let indeterminateOpacity = $state(0);
-	let hasInitialized = $state(false);
-	let previousIndeterminate = $state(false);
 	let transitionTimer = $state<ReturnType<typeof setTimeout> | null>(null);
 
 	function clearTransitionTimer() {
@@ -74,21 +73,19 @@
 		}, fadeMs);
 	}
 
-	$effect(() => {
-		if (!hasInitialized) {
-			syncWithoutTransition(indeterminate);
-			previousIndeterminate = indeterminate;
-			hasInitialized = true;
+	// First call (prev === undefined) → init without transition; subsequent calls → animate
+	watch(
+		() => indeterminate,
+		(curr, prev) => {
+			if (prev === undefined) {
+				syncWithoutTransition(curr);
+			} else {
+				transitionBetweenModes(curr);
+			}
+
 			return () => clearTransitionTimer();
 		}
-
-		if (indeterminate !== previousIndeterminate) {
-			transitionBetweenModes(indeterminate);
-			previousIndeterminate = indeterminate;
-		}
-
-		return () => clearTransitionTimer();
-	});
+	);
 </script>
 
 <ProgressPrimitive.Root

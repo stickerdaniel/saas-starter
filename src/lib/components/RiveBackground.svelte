@@ -18,6 +18,7 @@
 
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { useMutationObserver } from 'runed';
 	import { TAILWIND_BREAKPOINTS, useMedia } from '$lib/hooks/use-media.svelte';
 	import FollowingPointer from '$lib/components/ui/FollowingPointer/FollowingPointer.svelte';
 
@@ -33,22 +34,19 @@
 
 	let isDark = $state(false);
 
+	// Check initial dark mode state on mount
 	onMount(() => {
-		// Check if dark mode is active
 		isDark = document.documentElement.classList.contains('dark');
-
-		// Watch for theme changes
-		const observer = new MutationObserver(() => {
-			isDark = document.documentElement.classList.contains('dark');
-		});
-
-		observer.observe(document.documentElement, {
-			attributes: true,
-			attributeFilter: ['class']
-		});
-
-		return () => observer.disconnect();
 	});
+
+	// Watch for theme class changes reactively
+	useMutationObserver(
+		() => document.documentElement,
+		() => {
+			isDark = document.documentElement.classList.contains('dark');
+		},
+		{ attributes: true, attributeFilter: ['class'] }
+	);
 
 	const opacity = $derived(isDark ? 1 : media.lg ? 1 : 0.3);
 
