@@ -1,5 +1,6 @@
 <script lang="ts">
 	import SEOHead from '$lib/components/SEOHead.svelte';
+	import * as v from 'valibot';
 	import {
 		type RowSelectionState,
 		type SortingState,
@@ -30,6 +31,7 @@
 	import { toast } from 'svelte-sonner';
 	import { setContext, untrack } from 'svelte';
 	import { adminCache } from '$lib/hooks/admin-cache.svelte';
+	import { useSearchParams } from 'runed/kit';
 	import type { PageData } from './$types';
 	import { type UserRole, type AdminUserData } from '$lib/convex/admin/types';
 	import { createSvelteTable, FlexRender } from '$lib/components/ui/data-table/index.js';
@@ -42,13 +44,84 @@
 
 	const client = useConvexClient();
 
-	// Search state with debouncing
-	let searchQuery = $state('');
-	const debouncedSearch = new Debounced(() => searchQuery, 300);
+	type UserStatusFilter = 'verified' | 'unverified' | 'banned';
+	type SortQueryField = 'created_at' | 'email' | 'name' | 'role';
+	type SortDirection = 'asc' | 'desc';
+	type UsersTableSort = `${SortQueryField}.${SortDirection}`;
+
+	const SORT_COLUMN_TO_QUERY_FIELD = {
+		createdAt: 'created_at',
+		email: 'email',
+		name: 'name',
+		role: 'role'
+	} as const;
+	const SORT_QUERY_FIELD_TO_COLUMN = {
+		created_at: 'createdAt',
+		email: 'email',
+		name: 'name',
+		role: 'role'
+	} as const;
+
+	const PAGE_SIZE_OPTIONS = ['1', '10', '20', '30', '40', '50'] as const;
+
+	const usersTableParamsSchema = v.object({
+		search: v.optional(v.fallback(v.string(), ''), ''),
+		role: v.optional(v.fallback(v.picklist(['all', 'admin', 'user']), 'all'), 'all'),
+		status: v.optional(
+			v.fallback(v.picklist(['all', 'verified', 'unverified', 'banned']), 'all'),
+			'all'
+		),
+		sort: v.optional(v.fallback(v.string(), ''), ''),
+		page: v.optional(v.fallback(v.string(), '1'), '1'),
+		page_size: v.optional(v.fallback(v.picklist(PAGE_SIZE_OPTIONS), '10'), '10'),
+		cursor: v.optional(v.fallback(v.string(), ''), '')
+	});
+
+	const tableParams = useSearchParams(usersTableParamsSchema, {
+		pushHistory: true,
+		noScroll: true
+	});
+
+	function parseSortParam(sort: string): SortingState {
+		if (!sort) return [];
+		const [field, direction] = sort.split(/[.:]/u);
+		if (direction !== 'asc' && direction !== 'desc') return [];
+		const columnId = SORT_QUERY_FIELD_TO_COLUMN[field as SortQueryField];
+		if (!columnId) return [];
+		return [{ id: columnId, desc: direction === 'desc' }];
+	}
+
+	function serializeSortParam(nextSorting: SortingState): UsersTableSort | '' {
+		if (nextSorting.length === 0) return '';
+		const primarySort = nextSorting[0];
+		const field =
+			SORT_COLUMN_TO_QUERY_FIELD[primarySort.id as keyof typeof SORT_COLUMN_TO_QUERY_FIELD];
+		if (!field) return '';
+		const direction: SortDirection = primarySort.desc ? 'desc' : 'asc';
+		return `${field}.${direction}`;
+	}
+
+	function parsePageIndex(page: string): number {
+		const parsed = Number.parseInt(page, 10);
+		if (!Number.isFinite(parsed) || parsed < 1) return 0;
+		return parsed - 1;
+	}
+
+	function handleSearchInput(event: Event) {
+		tableParams.search = (event.currentTarget as HTMLInputElement).value;
+	}
+
+	// URL-backed table state
+	const debouncedSearch = new Debounced(() => tableParams.search, 300);
+	const pageSize = $derived(Number.parseInt(tableParams.page_size, 10));
+	const pageIndex = $derived(parsePageIndex(tableParams.page));
+	const roleFilter = $derived.by(() => (tableParams.role === 'all' ? undefined : tableParams.role));
+	const statusFilter = $derived.by(() =>
+		tableParams.status === 'all' ? undefined : (tableParams.status as UserStatusFilter)
+	);
+	const sorting = $derived(parseSortParam(tableParams.sort));
 
 	// Server-side pagination state
-	let pageSize = $state(10);
-	let pageIndex = $state(0);
 	let pageCursors = $state<(string | null)[]>([null]);
 	type CachedPageData = {
 		users: AdminUserData[];
@@ -57,12 +130,7 @@
 	};
 	let pageCache = $state<Record<number, CachedPageData>>({});
 
-	// Server-side filter state
-	let roleFilter = $state<string | undefined>(undefined);
-	let statusFilter = $state<'verified' | 'unverified' | 'banned' | undefined>(undefined);
-
 	// TanStack Table state (only client-side concerns remain)
-	let sorting = $state<SortingState>([]);
 	let rowSelection = $state<RowSelectionState>({});
 	let columnVisibility = $state<VisibilityState>({});
 
@@ -76,7 +144,10 @@
 	let impersonationDialogOpen = $state(false);
 
 	// Get current cursor for this page
-	const currentCursor = $derived(pageCursors[pageIndex] ?? null);
+	const currentCursor = $derived.by(() => {
+		if (pageIndex === 0) return null;
+		return pageCursors[pageIndex] ?? (tableParams.cursor || null);
+	});
 
 	// Convert TanStack sorting state to backend sortBy format
 	const sortBy = $derived.by(() => {
@@ -119,6 +190,23 @@
 	}));
 
 	const currentPageData = $derived(pageCache[pageIndex] ?? usersQuery.data);
+
+	$effect(() => {
+		if (pageIndex === 0) return;
+		if (pageCursors[pageIndex]) return;
+		if (tableParams.cursor) {
+			const nextCursors = pageCursors.slice(0, pageIndex + 1);
+			nextCursors[pageIndex] = tableParams.cursor;
+			pageCursors = nextCursors;
+			return;
+		}
+
+		// Invalid deep-link state (page > 1 without a cursor): reset to first page.
+		tableParams.page = '1';
+		tableParams.cursor = '';
+		pageCursors = [null];
+		pageCache = {};
+	});
 
 	function cachePage(index: number, data: CachedPageData | undefined) {
 		if (!data) return;
@@ -236,14 +324,24 @@
 	});
 
 	// Reset pagination when filters/search/sorting change
+	let hasInitializedPaginationReset = false;
 	let previousSearch = '';
 	let previousRoleFilter: string | undefined = undefined;
-	let previousStatusFilter: 'verified' | 'unverified' | 'banned' | undefined = undefined;
+	let previousStatusFilter: UserStatusFilter | undefined = undefined;
 	let previousSortBy: typeof sortBy = undefined;
 
 	$effect(() => {
 		const currentSearch = debouncedSearch.current;
 		const currentSortBy = sortBy;
+		if (!hasInitializedPaginationReset) {
+			hasInitializedPaginationReset = true;
+			previousSearch = currentSearch;
+			previousRoleFilter = roleFilter;
+			previousStatusFilter = statusFilter;
+			previousSortBy = currentSortBy;
+			return;
+		}
+
 		if (
 			currentSearch !== previousSearch ||
 			roleFilter !== previousRoleFilter ||
@@ -256,14 +354,19 @@
 			previousSortBy = currentSortBy;
 
 			// Reset cursor stack when backend query args change.
-			pageIndex = 0;
+			tableParams.page = '1';
+			tableParams.cursor = '';
 			pageCursors = [null];
 			pageCache = {};
 		}
 	});
 
 	// Navigation helpers
-	const canPreviousPage = $derived(pageIndex > 0);
+	const canPreviousPage = $derived.by(() => {
+		if (pageIndex <= 0) return false;
+		if (pageIndex === 1) return true;
+		return pageCursors[pageIndex - 1] !== undefined;
+	});
 	const canNextPage = $derived.by(() => {
 		const data = currentPageData;
 		// Must have data loaded
@@ -277,14 +380,18 @@
 
 	function goToFirstPage() {
 		cacheCurrentPage();
-		pageIndex = 0;
+		tableParams.page = '1';
+		tableParams.cursor = '';
 	}
 
 	function goToPreviousPage() {
-		if (canPreviousPage) {
-			cacheCurrentPage();
-			pageIndex = pageIndex - 1;
-		}
+		if (!canPreviousPage) return;
+		cacheCurrentPage();
+		const previousIndex = pageIndex - 1;
+		const previousCursor = previousIndex === 0 ? null : pageCursors[previousIndex];
+		if (previousIndex > 0 && previousCursor === undefined) return;
+		tableParams.page = `${previousIndex + 1}`;
+		tableParams.cursor = previousCursor ?? '';
 	}
 
 	function goToNextPage() {
@@ -295,7 +402,8 @@
 			const nextCursors = pageCursors.slice(0, nextIndex);
 			nextCursors[nextIndex] = nextCursor;
 			pageCursors = nextCursors;
-			pageIndex = nextIndex;
+			tableParams.page = `${nextIndex + 1}`;
+			tableParams.cursor = nextCursor;
 		}
 	}
 
@@ -305,8 +413,11 @@
 	}
 
 	function handlePageSizeChange(newSize: number) {
-		pageSize = newSize;
-		pageIndex = 0;
+		if (newSize === pageSize) return;
+		if (!PAGE_SIZE_OPTIONS.includes(`${newSize}` as (typeof PAGE_SIZE_OPTIONS)[number])) return;
+		tableParams.page_size = `${newSize}` as (typeof PAGE_SIZE_OPTIONS)[number];
+		tableParams.page = '1';
+		tableParams.cursor = '';
 		pageCursors = [null];
 		pageCache = {};
 	}
@@ -314,10 +425,10 @@
 	// Filter change handler (called from DataTableFilters)
 	function handleFilterChange(filters: {
 		role: string | undefined;
-		status: 'verified' | 'unverified' | 'banned' | undefined;
+		status: UserStatusFilter | undefined;
 	}) {
-		roleFilter = filters.role;
-		statusFilter = filters.status;
+		tableParams.role = filters.role === 'admin' || filters.role === 'user' ? filters.role : 'all';
+		tableParams.status = filters.status ?? 'all';
 	}
 
 	// Create the table (manual pagination mode)
@@ -349,11 +460,8 @@
 		getRowId: (row) => row.id,
 		getCoreRowModel: getCoreRowModel(),
 		onSortingChange: (updater) => {
-			if (typeof updater === 'function') {
-				sorting = updater(sorting);
-			} else {
-				sorting = updater;
-			}
+			const nextSorting = typeof updater === 'function' ? updater(sorting) : updater;
+			tableParams.sort = serializeSortParam(nextSorting);
 		},
 		onColumnVisibilityChange: (updater) => {
 			if (typeof updater === 'function') {
@@ -555,7 +663,7 @@
 
 <SEOHead title={$t('meta.admin.users.title')} description={$t('meta.admin.users.description')} />
 
-<div class="flex flex-col gap-6 px-4 lg:px-6 xl:px-8 2xl:px-16">
+<div class="flex flex-col gap-6 px-4 lg:px-6 xl:px-8 2xl:px-16" data-testid="admin-users-page">
 	<!-- Header -->
 	<div class="flex items-center justify-between">
 		<h1 class="text-2xl font-bold"><T keyName="admin.users.title" /></h1>
@@ -571,7 +679,9 @@
 					type="search"
 					placeholder={$t('admin.users.search_placeholder')}
 					class="w-full pl-10 sm:w-64"
-					bind:value={searchQuery}
+					data-testid="admin-users-search"
+					value={tableParams.search}
+					oninput={handleSearchInput}
 				/>
 			</div>
 
@@ -606,7 +716,7 @@
 	</div>
 
 	<!-- Data Table -->
-	<div class="overflow-hidden rounded-md border">
+	<div class="overflow-hidden rounded-md border" data-testid="admin-users-table">
 		<Table.Root class="table-fixed">
 			<Table.Header class="sticky top-0 z-10 bg-muted">
 				{#each table.getHeaderGroups() as headerGroup (headerGroup.id)}
@@ -629,6 +739,11 @@
 			</Table.Header>
 			<Table.Body>
 				{#if currentPageData === undefined && skeletonCount > 0}
+					<Table.Row data-testid="admin-users-loading" class="hidden">
+						<Table.Cell colspan={columns.length}>
+							<T keyName="admin.users.loading" />
+						</Table.Cell>
+					</Table.Row>
 					<!-- Skeleton loading rows matching real row structure -->
 					{#each Array(skeletonCount) as _, i (i)}
 						<Table.Row>
@@ -678,6 +793,7 @@
 						<Table.Cell
 							colspan={columns.length}
 							class="h-24 text-center text-muted-foreground hover:!bg-transparent"
+							data-testid="admin-users-empty"
 						>
 							<T keyName="admin.users.no_results" />
 						</Table.Cell>
@@ -733,7 +849,10 @@
 			</div>
 
 			<!-- Page indicator -->
-			<div class="flex w-fit items-center justify-center text-sm font-medium">
+			<div
+				class="flex w-fit items-center justify-center text-sm font-medium"
+				data-testid="admin-users-page-indicator"
+			>
 				<T
 					keyName="admin.users.page_indicator"
 					params={{
@@ -760,6 +879,7 @@
 					size="icon"
 					onclick={goToPreviousPage}
 					disabled={!canPreviousPage}
+					data-testid="admin-users-pagination-prev"
 				>
 					<span class="sr-only"><T keyName="admin.users.pagination.previous" /></span>
 					<ChevronLeftIcon />
@@ -770,6 +890,7 @@
 					size="icon"
 					onclick={goToNextPage}
 					disabled={!canNextPage}
+					data-testid="admin-users-pagination-next"
 				>
 					<span class="sr-only"><T keyName="admin.users.pagination.next" /></span>
 					<ChevronRightIcon />

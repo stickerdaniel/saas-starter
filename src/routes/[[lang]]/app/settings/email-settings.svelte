@@ -183,7 +183,7 @@
 			{/if}
 
 			<div class="flex justify-end">
-				<Button type="submit" disabled={isLoading}>
+				<Button type="submit" size="sm" disabled={isLoading}>
 					{#if isLoading}
 						<T keyName="settings.email.updating" />
 					{:else}
