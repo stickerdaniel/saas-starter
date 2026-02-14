@@ -35,13 +35,13 @@
 <div class="flex items-center gap-2">
 	<!-- Type Filter -->
 	<Select.Root type="single" value={typeFilter} onValueChange={handleTypeChange}>
-		<Select.Trigger class="h-8 w-[130px]" data-testid="filter-type-trigger">
+		<Select.Trigger class="h-8 w-[130px]" data-testid="admin-settings-type-filter-trigger">
 			{typeOptions.find((opt) => opt.value === typeFilter)?.label ??
 				$t('admin.settings.filter.all_types')}
 		</Select.Trigger>
 		<Select.Content>
 			{#each typeOptions as option (option.value)}
-				<Select.Item value={option.value} data-testid="filter-{option.value}"
+				<Select.Item value={option.value} data-testid="admin-settings-type-filter-{option.value}"
 					>{option.label}</Select.Item
 				>
 			{/each}
@@ -55,7 +55,7 @@
 			size="sm"
 			class="h-8 px-2"
 			onclick={clearFilter}
-			data-testid="filter-clear"
+			data-testid="admin-settings-filter-clear"
 		>
 			<XIcon class="mr-1 size-4" />
 			<T keyName="admin.settings.filter.clear" />

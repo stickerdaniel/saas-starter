@@ -1,8 +1,11 @@
 <script lang="ts">
 	import { motion, AnimatePresence } from 'motion-sv';
+	import { getTranslate } from '@tolgee/svelte';
 	import { cn } from '$lib/utils';
 	import { onMount } from 'svelte';
 	import type { Snippet } from 'svelte';
+
+	const { t } = getTranslate();
 
 	interface Props {
 		className?: string;
@@ -106,7 +109,7 @@
 <div
 	bind:this={ref}
 	role="region"
-	aria-label="Interactive pointer tracking area"
+	aria-label={$t('aria.interactive_pointer_tracking_area')}
 	onmouseleave={handleMouseLeave}
 	onmouseenter={handleMouseEnter}
 	onmousemove={handleMouseMove}

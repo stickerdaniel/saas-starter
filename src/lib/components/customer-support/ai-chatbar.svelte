@@ -3,6 +3,7 @@
 	import { useConvexClient } from 'convex-svelte';
 	import { ConvexError } from 'convex/values';
 	import { toast } from 'svelte-sonner';
+	import { IsMounted } from 'runed';
 	import { api } from '$lib/convex/_generated/api';
 	import { PromptInput, PromptInputTextarea } from '$lib/components/prompt-kit/prompt-input';
 	import { Button } from '$lib/components/ui/button/index.js';
@@ -23,8 +24,7 @@
 	// Get Convex client for mutations
 	const client = useConvexClient();
 
-	// eslint-disable-next-line svelte/prefer-writable-derived -- mounted needs to be set after hydration via effect
-	let mounted = $state(false);
+	const mounted = new IsMounted();
 
 	// Track delayed feedback open state
 	const delayedFeedbackOpen = $derived(isFeedbackOpen);
@@ -38,10 +38,6 @@
 	// Query subscription for pre-warming cache (enables optimistic updates)
 	// The onUpdate return type is a function that can be called to unsubscribe
 	let queryUnsubscribe: (() => void) | null = null;
-
-	$effect(() => {
-		mounted = true;
-	});
 
 	async function handleSubmit() {
 		if (!input.trim() || threadContext.isSending) return;
@@ -148,7 +144,7 @@
 
 <!-- Glow container with group hover/focus behavior -->
 <div
-	class="ai-chatbar fixed bottom-5 left-1/2 z-[100] w-full -translate-x-1/2 pr-19 pl-5 md:mb-0 md:p-0 {!mounted ||
+	class="ai-chatbar fixed bottom-5 left-1/2 z-[100] w-full -translate-x-1/2 pr-19 pl-5 md:mb-0 md:p-0 {!mounted.current ||
 	delayedFeedbackOpen
 		? 'fade-out'
 		: ''}"

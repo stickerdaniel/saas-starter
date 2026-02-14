@@ -1,8 +1,11 @@
 <script lang="ts">
+	import { getTranslate } from '@tolgee/svelte';
 	import type { Row } from '@tanstack/table-core';
 	import type { Schema } from './schemas.js';
 	import { Label } from '$lib/components/ui/label/index.js';
 	import * as Select from '$lib/components/ui/select/index.js';
+
+	const { t } = getTranslate();
 
 	let { row }: { row: Row<Schema> } = $props();
 
@@ -13,7 +16,7 @@
 {#if isAssigned}
 	{row.original.reviewer}
 {:else}
-	<Label for="{row.original.id}-reviewer" class="sr-only">Reviewer</Label>
+	<Label for="{row.original.id}-reviewer" class="sr-only">{$t('aria.reviewer')}</Label>
 	<Select.Root type="single" bind:value={reviewer}>
 		<Select.Trigger
 			class="w-38 **:data-[slot=select-value]:block **:data-[slot=select-value]:truncate"

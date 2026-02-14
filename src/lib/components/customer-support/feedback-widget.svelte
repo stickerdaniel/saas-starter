@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { useConvexClient, useQuery } from 'convex-svelte';
 	import { page } from '$app/state';
+	import { watch } from 'runed';
 	import { api } from '$lib/convex/_generated/api';
 	import { supportThreadContext } from './support-thread-context.svelte';
 	import { lockscroll } from '@svelte-put/lockscroll';
@@ -71,15 +72,10 @@
 		}
 	});
 
-	// Track previous threadId for draft sync on navigation
-	let previousThreadId: string | null = null;
-
 	// Sync drafts when thread changes
-	$effect(() => {
-		const currentThreadId = threadContext.threadId;
-
-		// On thread change: save old draft, load new draft
-		if (previousThreadId !== currentThreadId) {
+	watch(
+		() => threadContext.threadId,
+		(currentThreadId, previousThreadId) => {
 			// Save draft from old thread (if we had one and input has content)
 			if (previousThreadId && chatUIContext.inputValue.trim()) {
 				threadContext.setDraft(previousThreadId, chatUIContext.inputValue);
@@ -88,10 +84,8 @@
 			// Load draft for new thread (or empty for new conversation)
 			const draft = threadContext.getDraft(currentThreadId);
 			chatUIContext.setInputValue(draft);
-
-			previousThreadId = currentThreadId;
 		}
-	});
+	);
 
 	// Handle handoff request
 	async function handleRequestHandoff() {

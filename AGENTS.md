@@ -6,7 +6,7 @@ This project is a saas template built with SvelteKit, Convex, Typescript and mod
 
 When you need up-to-date information about technologies used in this project, use btca to query source repositories directly.
 
-**Available resources**: svelte, sveltekit, shadcnSvelte, shadcnSvelteExtras, bitsUi, runed, formsnap, superforms, paneforge, svelteInfinite, motionSvelte, svAnimate, threlte, xyflow, cnblocks, aiElements, convex, convexSvelte, convexAgent, convexHelpers, convexResend, convexPresence, convexRag, convexStripe, convexRateLimiter, convexActionCache, convexFilesControl, convexTimeline, convexMigrations, convexAggregate, convexShardedCounter, convexGeospatial, convexWorkpool, convexWorkflow, convexRetrier, convexCrons, betterAuth, betterSvelteEmail, tailwind, vercelAi, tanstackTable, tolgee, playwright, vitest, valibot, renovate
+**Available resources**: svelte, sveltekit, shadcnSvelte, shadcnSvelteExtras, bitsUi, runed, formsnap, superforms, paneforge, svelteInfinite, motionSvelte, svAnimate, threlte, xyflow, cnblocks, aiElements, convex, convexSvelte, convexAgent, convexHelpers, convexResend, convexPresence, convexRag, convexStripe, convexRateLimiter, convexActionCache, convexFilesControl, convexTimeline, convexMigrations, convexAggregate, convexShardedCounter, convexGeospatial, convexWorkpool, convexWorkflow, convexRetrier, convexCrons, betterAuth, betterSvelteEmail, tailwind, vercelAi, tanstackTable, tolgee, playwright, vitest, valibot, nprogress, renovate
 
 ### Usage
 
@@ -180,6 +180,37 @@ This project uses **PostHog** for product analytics with an optional **Cloudflar
 - Requires `.env.test` with: AUTH_E2E_TEST_SECRET (must match Convex backend) and PUBLIC_CONVEX_URL
 - See `.env.test.example` for setup instructions
 
+#### `data-testid` convention
+
+- Prefer `data-testid` for all interactive controls and dynamic list/table content that E2E tests assert.
+- Use stable, feature-scoped kebab-case IDs: `<feature>-<element>-<action>` (example: `admin-users-pagination-next`).
+- Add test IDs on:
+  - page root container
+  - loading/empty states
+  - filters/search/sort controls
+  - pagination controls and page indicators
+  - repeatable row/cell primitives needed for assertions (for example role/status badges and email cells)
+- Avoid translated/user-generated strings in test IDs.
+- Keep IDs deterministic and never include runtime values unless the test explicitly needs entity-specific targeting.
+
+#### Convex table kit usage
+
+- Use `createConvexCursorTable(...)` for table state orchestration (URL params, cursor stack, search/filter/sort/page-size resets, and next/previous prefetching).
+- Use `ConvexCursorTableShell` for common chrome (search, toolbar slots, pagination controls, page indicator, rows-per-page).
+- Required backend contract:
+  - list query args: `cursor`, `numItems`, optional `search`, optional filters, optional `sortBy`
+  - list query return: `{ items, continueCursor, isDone }`
+  - count query args: same search/filter set (no cursor)
+  - count query return: `number`
+- Canonical URL keys for tables: `search`, `sort`, `page`, `page_size`, `cursor`, plus feature filter keys (for example `role`, `status`, `type`).
+- Canonical sort serialization: `field.dir`.
+- Default URL values must be omitted from links (`search=''`, `sort=''`, `page='1'`, `page_size` default, and default filter values).
+- Shell testid convention:
+  - search: `<prefix>-search`
+  - page indicator: `<prefix>-page-indicator`
+  - pagination: `<prefix>-pagination-prev` / `<prefix>-pagination-next` / `<prefix>-pagination-last` (first page button uses lg-only variant)
+  - keep route-specific row/cell IDs for assertions (for example `recipient-row-*`, `admin-users-email-cell`).
+
 ### Vitest Unit Tests
 
 ## Development
@@ -210,7 +241,7 @@ Prop names must match the parent's passed prop name exactly.
 
 ### Static Checks
 
-ALWAYS run `bun scripts/static-checks.ts` after a full feature implementation.
+ALWAYS run `bun scripts/static-checks.ts --staged` after a full feature implementation.
 
 ### Real-time Features
 
@@ -248,6 +279,10 @@ This applies to all icon libraries and large component libraries. Individual imp
 - When implementing a new component, follow the existing shadcn-svelte component api and patterns in `src/lib/components/ui/`
 - Use Tailwind CSS classes for layout and styling in general. Do not add additional styling classes to the shadcn svelte components. They look good by default.
 - Prefer reusable Tailwind utilities (defined globally with `@utility` in `src/routes/layout.css`) over component-local `<style>` blocks for shared styling patterns (for example `no-drag`).
+- Accessibility localization rule (all UI):
+  - Never hardcode human-facing `aria-label` or `.sr-only` text in English.
+  - Always localize screen-reader labels via Tolgee keys (not only tables, applies to all UI controls and navigation).
+  - Accessible naming convention: prefer localized `.sr-only` text for icon-only buttons, use localized `aria-label` when hidden text is not practical, and avoid redundant double-labeling.
 
 #### Keyboard Shortcuts
 
@@ -268,6 +303,7 @@ Use this decision policy before implementing any form.
 
 - `import * as Field from '$lib/components/ui/field/index.js'`
 - Wrap grouped controls in `Field.Group`.
+- Do not add explicit spacing/layout utility classes to `Field.Group` (for example `gap-*`, `space-y-*`, `mt-*`, `mb-*`, `px-*`, `py-*`). Keep `Field.Group` spacing implicit.
 - Each control should be a `Field.Field` with label + input + optional description/error.
 - Keep `Field.Error` directly under its input inside the same `Field.Field` for field-level errors.
 - Form-level errors (e.g. banners) may be outside `Field.Field`.
@@ -303,7 +339,10 @@ Use `svelte-infinite` with convex-svelte pagination for huge lists to automatica
 #### Runed (collection of utilities for Svelte 5)
 
 Before creating our own utilities, research the runed library to see if the utility you need already exists. Use btca with `runed` resource.
-Here is a list of the utilities available:
+
+- For URL/query state, prefer Runed `useSearchParams` over manual `$page.url` + `goto` wiring.
+- Exception: in high-frequency selection UIs where query-param writes would cause unwanted Convex refetches (for example `src/routes/[[lang]]/admin/support/+page.svelte` thread selection), manual URL handling is acceptable.
+  Here is a list of the utilities available:
 
 <resource: Watches for changes and runs asynchronous data fetching, combining reactive state management with async operations.>
 <watch: Runs a callback whenever specified reactive sources change. Includes variants like watch.pre (uses $effect.pre) and watchOnce / watchOnce.pre (run only once).>

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { cn } from '$lib/utils';
-	import { watch } from 'runed';
+	import { ElementSize } from 'runed';
 	import { attachmentsContext, type FileWithId } from './attachments-context.svelte.js';
 
 	interface Props {
@@ -11,7 +11,6 @@
 	let { class: className, children, ...props }: Props = $props();
 
 	const attachments = attachmentsContext.get();
-	let height = $state(0);
 	let contentRef = $state<HTMLDivElement | null>(null);
 
 	// Separate files and images for grouped rendering
@@ -23,28 +22,10 @@
 		attachments.files.filter((f) => f.mediaType?.startsWith('image/') && f.url)
 	);
 
-	// Watch for resize changes using ResizeObserver
-	watch(
-		() => contentRef,
-		(contentRef) => {
-			if (!contentRef) return;
+	// Track content height reactively via ElementSize
+	const contentSize = new ElementSize(() => contentRef);
 
-			let ro = new ResizeObserver(() => {
-				if (contentRef) {
-					height = contentRef.getBoundingClientRect().height;
-				}
-			});
-
-			ro.observe(contentRef);
-			height = contentRef.getBoundingClientRect().height;
-
-			return () => ro.disconnect();
-		}
-	);
-
-	let computedHeight = $derived.by(() => {
-		return attachments.files.length ? height : 0;
-	});
+	let computedHeight = $derived(attachments.files.length ? contentSize.height : 0);
 </script>
 
 <div

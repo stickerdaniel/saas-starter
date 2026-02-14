@@ -1,10 +1,13 @@
 <script lang="ts">
+	import { getTranslate } from '@tolgee/svelte';
 	import { Toggle } from '$lib/components/ui/toggle';
 	import EyeIcon from '@lucide/svelte/icons/eye';
 	import EyeOffIcon from '@lucide/svelte/icons/eye-off';
 	import { usePasswordToggleVisibility } from './password.svelte.js';
 	import type { PasswordToggleVisibilityProps } from './types.js';
 	import { cn } from '$lib/utils.js';
+
+	const { t } = getTranslate();
 
 	let { ref = $bindable(null), class: className }: PasswordToggleVisibilityProps = $props();
 
@@ -13,7 +16,7 @@
 
 <Toggle
 	bind:ref
-	aria-label={state.root.opts.hidden.current ? 'Show password' : 'Hide password'}
+	aria-label={$t(state.root.opts.hidden.current ? 'aria.show_password' : 'aria.hide_password')}
 	tabindex={-1}
 	bind:pressed={state.root.opts.hidden.current}
 	class={cn(

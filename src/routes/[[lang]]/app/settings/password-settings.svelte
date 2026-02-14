@@ -195,13 +195,15 @@
 				</Item.Content>
 			</Item.Root>
 
-			<Button type="submit" disabled={isLoading}>
-				{#if isLoading}
-					<T keyName="settings.password.updating" />
-				{:else}
-					<T keyName="settings.password.update_button" />
-				{/if}
-			</Button>
+			<div class="flex justify-end">
+				<Button type="submit" size="sm" disabled={isLoading}>
+					{#if isLoading}
+						<T keyName="settings.password.updating" />
+					{:else}
+						<T keyName="settings.password.update_button" />
+					{/if}
+				</Button>
+			</div>
 		</form>
 	</Card.Content>
 </Card.Root>
