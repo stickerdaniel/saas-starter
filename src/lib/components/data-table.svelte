@@ -1,77 +1,5 @@
-<script lang="ts" module>
-	export const columns: ColumnDef<Schema>[] = [
-		{
-			id: 'drag',
-			header: () => null,
-			cell: ({ row }) => renderSnippet(DragHandle, { id: row.original.id })
-		},
-		{
-			id: 'select',
-			header: ({ table }) =>
-				renderComponent(DataTableCheckbox, {
-					checked: table.getIsAllPageRowsSelected(),
-					indeterminate: table.getIsSomePageRowsSelected() && !table.getIsAllPageRowsSelected(),
-					onCheckedChange: (value) => table.toggleAllPageRowsSelected(!!value),
-					'aria-label': 'Select all'
-				}),
-			cell: ({ row }) =>
-				renderComponent(DataTableCheckbox, {
-					checked: row.getIsSelected(),
-					onCheckedChange: (value) => row.toggleSelected(!!value),
-					'aria-label': 'Select row'
-				}),
-			enableSorting: false,
-			enableHiding: false
-		},
-		{
-			accessorKey: 'header',
-			header: 'Header',
-			cell: ({ row }) => renderComponent(DataTableCellViewer, { item: row.original }),
-			enableHiding: false
-		},
-		{
-			accessorKey: 'type',
-			header: 'Section Type',
-			cell: ({ row }) => renderSnippet(DataTableType, { row })
-		},
-		{
-			accessorKey: 'status',
-			header: 'Status',
-			cell: ({ row }) => renderSnippet(DataTableStatus, { row })
-		},
-		{
-			accessorKey: 'target',
-			header: () =>
-				renderSnippet(
-					createRawSnippet(() => ({
-						render: () => '<div class="w-full text-center">Target</div>'
-					}))
-				),
-			cell: ({ row }) => renderSnippet(DataTableTarget, { row })
-		},
-		{
-			accessorKey: 'limit',
-			header: () =>
-				renderSnippet(
-					createRawSnippet(() => ({
-						render: () => '<div class="w-full text-center">Limit</div>'
-					}))
-				),
-			cell: ({ row }) => renderSnippet(DataTableLimit, { row })
-		},
-		{
-			accessorKey: 'reviewer',
-			header: 'Reviewer',
-			cell: ({ row }) => renderComponent(DataTableReviewer, { row })
-		},
-		{
-			id: 'actions',
-			cell: () => renderSnippet(DataTableActions)
-		}
-	];
-</script>
-
 <script lang="ts">
+	import { getTranslate } from '@tolgee/svelte';
 	import {
 		getCoreRowModel,
 		getFacetedRowModel,
@@ -138,12 +66,85 @@
 	import DataTableReviewer from './data-table-reviewer.svelte';
 	import { CSS } from '@dnd-kit-svelte/utilities';
 
+	const { t } = getTranslate();
+
 	let { data }: { data: Schema[] } = $props();
 	let pagination = $state<PaginationState>({ pageIndex: 0, pageSize: 10 });
 	let sorting = $state<SortingState>([]);
 	let columnFilters = $state<ColumnFiltersState>([]);
 	let rowSelection = $state<RowSelectionState>({});
 	let columnVisibility = $state<VisibilityState>({});
+
+	const columns: ColumnDef<Schema>[] = [
+		{
+			id: 'drag',
+			header: () => null,
+			cell: ({ row }) => renderSnippet(DragHandle, { id: row.original.id })
+		},
+		{
+			id: 'select',
+			header: ({ table }) =>
+				renderComponent(DataTableCheckbox, {
+					checked: table.getIsAllPageRowsSelected(),
+					indeterminate: table.getIsSomePageRowsSelected() && !table.getIsAllPageRowsSelected(),
+					onCheckedChange: (value) => table.toggleAllPageRowsSelected(!!value),
+					'aria-label-key': 'aria.select_all'
+				}),
+			cell: ({ row }) =>
+				renderComponent(DataTableCheckbox, {
+					checked: row.getIsSelected(),
+					onCheckedChange: (value) => row.toggleSelected(!!value),
+					'aria-label-key': 'aria.select_row'
+				}),
+			enableSorting: false,
+			enableHiding: false
+		},
+		{
+			accessorKey: 'header',
+			header: 'Header',
+			cell: ({ row }) => renderComponent(DataTableCellViewer, { item: row.original }),
+			enableHiding: false
+		},
+		{
+			accessorKey: 'type',
+			header: 'Section Type',
+			cell: ({ row }) => renderSnippet(DataTableType, { row })
+		},
+		{
+			accessorKey: 'status',
+			header: 'Status',
+			cell: ({ row }) => renderSnippet(DataTableStatus, { row })
+		},
+		{
+			accessorKey: 'target',
+			header: () =>
+				renderSnippet(
+					createRawSnippet(() => ({
+						render: () => '<div class="w-full text-center">Target</div>'
+					}))
+				),
+			cell: ({ row }) => renderSnippet(DataTableTarget, { row })
+		},
+		{
+			accessorKey: 'limit',
+			header: () =>
+				renderSnippet(
+					createRawSnippet(() => ({
+						render: () => '<div class="w-full text-center">Limit</div>'
+					}))
+				),
+			cell: ({ row }) => renderSnippet(DataTableLimit, { row })
+		},
+		{
+			accessorKey: 'reviewer',
+			header: 'Reviewer',
+			cell: ({ row }) => renderComponent(DataTableReviewer, { row })
+		},
+		{
+			id: 'actions',
+			cell: () => renderSnippet(DataTableActions)
+		}
+	];
 
 	const sortableId = $props.id();
 
@@ -260,7 +261,7 @@
 
 <Tabs.Root value="outline" class="w-full flex-col justify-start gap-6">
 	<div class="flex items-center justify-between px-4 lg:px-6">
-		<Label for="view-selector" class="sr-only">View</Label>
+		<Label for="view-selector" class="sr-only">{$t('aria.view')}</Label>
 		<Select.Root type="single" bind:value={view}>
 			<Select.Trigger class="flex w-fit @4xl/main:hidden" size="sm" id="view-selector">
 				{viewLabel}
@@ -396,7 +397,7 @@
 						onclick={() => table.setPageIndex(0)}
 						disabled={!table.getCanPreviousPage()}
 					>
-						<span class="sr-only">Go to first page</span>
+						<span class="sr-only">{$t('aria.pagination_first')}</span>
 						<ChevronsLeftIcon />
 					</Button>
 					<Button
@@ -406,7 +407,7 @@
 						onclick={() => table.previousPage()}
 						disabled={!table.getCanPreviousPage()}
 					>
-						<span class="sr-only">Go to previous page</span>
+						<span class="sr-only">{$t('aria.pagination_previous')}</span>
 						<ChevronLeftIcon />
 					</Button>
 					<Button
@@ -416,7 +417,7 @@
 						onclick={() => table.nextPage()}
 						disabled={!table.getCanNextPage()}
 					>
-						<span class="sr-only">Go to next page</span>
+						<span class="sr-only">{$t('aria.pagination_next')}</span>
 						<ChevronRightIcon />
 					</Button>
 					<Button
@@ -426,7 +427,7 @@
 						onclick={() => table.setPageIndex(table.getPageCount() - 1)}
 						disabled={!table.getCanNextPage()}
 					>
-						<span class="sr-only">Go to last page</span>
+						<span class="sr-only">{$t('aria.pagination_last')}</span>
 						<ChevronsRightIcon />
 					</Button>
 				</div>
@@ -456,7 +457,7 @@
 			});
 		}}
 	>
-		<Label for="{row.original.id}-limit" class="sr-only">Limit</Label>
+		<Label for="{row.original.id}-limit" class="sr-only">{$t('aria.limit')}</Label>
 		<Input
 			class="h-8 w-16 border-transparent bg-transparent text-right shadow-none hover:bg-input/30 focus-visible:border focus-visible:bg-background dark:bg-transparent dark:hover:bg-input/30 dark:focus-visible:bg-input/30"
 			value={row.original.limit}
@@ -477,7 +478,7 @@
 			});
 		}}
 	>
-		<Label for="{row.original.id}-target" class="sr-only">Target</Label>
+		<Label for="{row.original.id}-target" class="sr-only">{$t('aria.target')}</Label>
 		<Input
 			class="h-8 w-16 border-transparent bg-transparent text-right shadow-none hover:bg-input/30 focus-visible:border focus-visible:bg-background dark:bg-transparent dark:hover:bg-input/30 dark:focus-visible:bg-input/30"
 			value={row.original.target}
@@ -513,7 +514,7 @@
 			{#snippet child({ props })}
 				<Button variant="ghost" size="icon" {...props}>
 					<DotsVerticalIcon />
-					<span class="sr-only">Open menu</span>
+					<span class="sr-only">{$t('aria.menu_open')}</span>
 				</Button>
 			{/snippet}
 		</DropdownMenu.Trigger>
@@ -559,6 +560,6 @@
 		class="size-7 text-muted-foreground hover:bg-transparent"
 	>
 		<GripVerticalIcon class="size-3 text-muted-foreground" />
-		<span class="sr-only">Drag to reorder</span>
+		<span class="sr-only">{$t('aria.drag_to_reorder')}</span>
 	</Button>
 {/snippet}

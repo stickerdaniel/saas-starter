@@ -174,12 +174,11 @@ export const columns: ColumnDef<AdminUserData>[] = [
 		maxSize: 50,
 		enableHiding: false,
 		enableSorting: false,
-		header: () => {
-			const headerSnippet = createRawSnippet(() => ({
-				render: () => `<span class="sr-only">Actions</span>`
-			}));
-			return renderSnippet(headerSnippet, {});
-		},
+		header: () =>
+			renderComponent(DataTableColumnHeader, {
+				titleKey: 'aria.actions',
+				class: 'sr-only'
+			}),
 		cell: ({ row }) => renderComponent(DataTableActions, { user: row.original })
 	}
 ];

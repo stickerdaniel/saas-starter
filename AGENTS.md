@@ -279,6 +279,10 @@ This applies to all icon libraries and large component libraries. Individual imp
 - When implementing a new component, follow the existing shadcn-svelte component api and patterns in `src/lib/components/ui/`
 - Use Tailwind CSS classes for layout and styling in general. Do not add additional styling classes to the shadcn svelte components. They look good by default.
 - Prefer reusable Tailwind utilities (defined globally with `@utility` in `src/routes/layout.css`) over component-local `<style>` blocks for shared styling patterns (for example `no-drag`).
+- Accessibility localization rule (all UI):
+  - Never hardcode human-facing `aria-label` or `.sr-only` text in English.
+  - Always localize screen-reader labels via Tolgee keys (not only tables, applies to all UI controls and navigation).
+  - Accessible naming convention: prefer localized `.sr-only` text for icon-only buttons, use localized `aria-label` when hidden text is not practical, and avoid redundant double-labeling.
 
 #### Keyboard Shortcuts
 

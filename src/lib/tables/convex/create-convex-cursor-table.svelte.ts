@@ -21,7 +21,7 @@ export type ConvexCursorTableState<TItem, TSortField extends string, TFilterKeys
 	readonly urlState: TableUrlState<TFilterKeys>;
 	readonly rows: TItem[];
 	readonly isLoading: boolean;
-	readonly totalCount: number | undefined;
+	readonly totalCount: number;
 	readonly hasLoadedCount: boolean;
 	readonly pageCount: number;
 	readonly pageIndex: number;
@@ -269,7 +269,7 @@ export function createConvexCursorTable<
 	const maxCachedPages = options.maxCachedPages ?? 8;
 	const fallbackPageSize = Number.parseInt(options.defaultPageSize, 10);
 
-	const debouncedSearch = new Debounced(() => urlState.search, debounceMs);
+	const debouncedSearch = new Debounced(() => urlState.search.trim(), debounceMs);
 	const pageIndex = $derived(parsePageIndex(urlState.page));
 	const pageSize = $derived(parsePageSize(urlState.page_size, fallbackPageSize));
 	const sortBy = $derived(

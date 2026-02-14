@@ -8,22 +8,23 @@
 	import { T } from '@tolgee/svelte';
 
 	type Props = {
-		column: Column<AdminUserData, unknown>;
+		column?: Column<AdminUserData, unknown>;
 		titleKey: string;
+		class?: string;
 		testId?: string;
 	};
 
-	let { column, titleKey, testId }: Props = $props();
+	let { column, titleKey, class: className = '', testId }: Props = $props();
 
-	const canSort = $derived(column.getCanSort());
-	const sorted = $derived(column.getIsSorted());
+	const canSort = $derived(column?.getCanSort() ?? false);
+	const sorted = $derived(column?.getIsSorted() ?? false);
 </script>
 
-{#if canSort}
+{#if canSort && column}
 	<Button
 		variant="ghost"
 		size="sm"
-		class="-ml-3 h-8 data-[state=open]:bg-accent"
+		class={`-ml-3 h-8 data-[state=open]:bg-accent ${className}`.trim()}
 		onclick={column.getToggleSortingHandler()}
 		data-testid={testId}
 	>
@@ -37,5 +38,7 @@
 		{/if}
 	</Button>
 {:else}
-	<div><T keyName={titleKey} /></div>
+	<div class={className}>
+		<T keyName={titleKey} />
+	</div>
 {/if}
