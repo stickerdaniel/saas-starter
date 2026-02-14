@@ -35,9 +35,11 @@ export const columns: ColumnDef<NotificationRecipient>[] = [
 		accessorKey: 'email',
 		size: 250,
 		minSize: 200,
-		header: () =>
+		header: ({ column }) =>
 			renderComponent(DataTableColumnHeader, {
-				titleKey: 'admin.settings.column_email'
+				column,
+				titleKey: 'admin.settings.column_email',
+				testId: 'admin-settings-sort-email'
 			}),
 		cell: ({ row }) => {
 			const emailSnippet = createRawSnippet<[{ email: string }]>((getData) => {
@@ -54,9 +56,11 @@ export const columns: ColumnDef<NotificationRecipient>[] = [
 		accessorFn: (row) => row.name ?? '',
 		size: 150,
 		minSize: 120,
-		header: () =>
+		header: ({ column }) =>
 			renderComponent(DataTableColumnHeader, {
-				titleKey: 'admin.settings.column_name'
+				column,
+				titleKey: 'admin.settings.column_name',
+				testId: 'admin-settings-sort-name'
 			}),
 		cell: ({ row }) => {
 			const nameSnippet = createRawSnippet<[{ name?: string }]>((getData) => {
@@ -71,16 +75,20 @@ export const columns: ColumnDef<NotificationRecipient>[] = [
 	},
 	{
 		id: 'type',
+		accessorFn: (row) => (row.isAdminUser ? 0 : 1),
 		size: 100,
 		minSize: 80,
-		header: () =>
+		header: ({ column }) =>
 			renderComponent(DataTableColumnHeader, {
-				titleKey: 'admin.settings.column_type'
+				column,
+				titleKey: 'admin.settings.column_type',
+				testId: 'admin-settings-sort-type'
 			}),
 		cell: ({ row }) =>
 			renderComponent(TypeBadge, {
 				isAdmin: row.original.isAdminUser
-			})
+			}),
+		enableSorting: true
 	},
 	{
 		id: 'notifyNewSupportTickets',
@@ -136,12 +144,11 @@ export const columns: ColumnDef<NotificationRecipient>[] = [
 		minSize: 50,
 		maxSize: 50,
 		enableHiding: false,
-		header: () => {
-			const headerSnippet = createRawSnippet(() => ({
-				render: () => `<span class="sr-only">Actions</span>`
-			}));
-			return renderSnippet(headerSnippet, {});
-		},
+		header: () =>
+			renderComponent(DataTableColumnHeader, {
+				titleKey: 'aria.actions',
+				class: 'sr-only'
+			}),
 		cell: ({ row }) =>
 			renderComponent(RecipientsActions, {
 				email: row.original.email,

@@ -182,61 +182,65 @@
 					</div>
 				</div>
 
-				<Field.Group class="grid gap-6 md:grid-cols-[1fr_auto_1fr] md:items-center">
-					<Field.Field>
-						<Field.Label for="file-upload">
-							<T keyName="settings.account.upload_file" />
-						</Field.Label>
-						<input
-							bind:this={fileInput}
-							id="file-upload"
-							type="file"
-							accept="image/*"
-							onchange={handleFileSelect}
-							disabled={isUploading}
-							aria-describedby="file-helper"
-							class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
-						/>
-						<Field.Description id="file-helper">
-							<T keyName="settings.account.file_helper" />
-						</Field.Description>
-					</Field.Field>
+				<Field.Group>
+					<div class="grid gap-6 md:grid-cols-[1fr_auto_1fr] md:items-center">
+						<Field.Field>
+							<Field.Label for="file-upload">
+								<T keyName="settings.account.upload_file" />
+							</Field.Label>
+							<input
+								bind:this={fileInput}
+								id="file-upload"
+								type="file"
+								accept="image/*"
+								onchange={handleFileSelect}
+								disabled={isUploading}
+								aria-describedby="file-helper"
+								class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+							/>
+							<Field.Description id="file-helper">
+								<T keyName="settings.account.file_helper" />
+							</Field.Description>
+						</Field.Field>
 
-					<div class="flex h-10 items-center justify-center">
-						<div
-							class="flex items-center gap-2 text-xs font-semibold tracking-[0.2em] text-muted-foreground uppercase"
-						>
-							<span class="hidden h-px w-8 bg-border md:block" aria-hidden="true"></span>
-							<span><T keyName="settings.account.or" /></span>
-							<span class="hidden h-px w-8 bg-border md:block" aria-hidden="true"></span>
+						<div class="flex h-10 items-center justify-center">
+							<div
+								class="flex items-center gap-2 text-xs font-semibold tracking-[0.2em] text-muted-foreground uppercase"
+							>
+								<span class="hidden h-px w-8 bg-border md:block" aria-hidden="true"></span>
+								<span><T keyName="settings.account.or" /></span>
+								<span class="hidden h-px w-8 bg-border md:block" aria-hidden="true"></span>
+							</div>
 						</div>
-					</div>
 
-					<Field.Field>
-						<Field.Label for="image">
-							<T keyName="settings.account.link_from_url" />
-						</Field.Label>
-						<Input
-							id="image"
-							type="url"
-							bind:value={image}
-							placeholder={$t('settings.account.url_placeholder')}
-							aria-describedby="image-helper"
-						/>
-						<Field.Description id="image-helper">
-							<T keyName="settings.account.url_helper" />
-						</Field.Description>
-					</Field.Field>
+						<Field.Field>
+							<Field.Label for="image">
+								<T keyName="settings.account.link_from_url" />
+							</Field.Label>
+							<Input
+								id="image"
+								type="url"
+								bind:value={image}
+								placeholder={$t('settings.account.url_placeholder')}
+								aria-describedby="image-helper"
+							/>
+							<Field.Description id="image-helper">
+								<T keyName="settings.account.url_helper" />
+							</Field.Description>
+						</Field.Field>
+					</div>
 				</Field.Group>
 			</div>
 
-			<Button type="submit" disabled={isSaving}>
-				{#if isSaving}
-					<T keyName="settings.account.saving" />
-				{:else}
-					<T keyName="settings.account.save_button" />
-				{/if}
-			</Button>
+			<div class="flex justify-end">
+				<Button type="submit" size="sm" disabled={isSaving}>
+					{#if isSaving}
+						<T keyName="settings.account.saving" />
+					{:else}
+						<T keyName="settings.account.save_button" />
+					{/if}
+				</Button>
+			</div>
 		</form>
 	</Card.Content>
 </Card.Root>
