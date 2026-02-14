@@ -471,8 +471,8 @@ export function createConvexCursorTable<
 				filters,
 				sortBy
 			}),
-		(_curr, prev) => {
-			if (prev !== undefined) resetPagination();
+		(curr, prev) => {
+			if (prev !== undefined && curr !== prev) resetPagination();
 		},
 		{ lazy: true }
 	);
