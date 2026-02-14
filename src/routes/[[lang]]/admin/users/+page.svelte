@@ -483,10 +483,6 @@
 		onLastPage={usersTable.goLast}
 		onPageSizeChange={usersTable.setPageSize}
 		rowsPerPageLabel={$t('admin.users.rows_per_page')}
-		pageIndicatorText={$t('admin.users.page_indicator', {
-			current: usersTable.pageIndex + 1,
-			total: usersTable.pageCount
-		})}
 		selectionText={$t('admin.users.selected', {
 			selected: Object.keys(rowSelection).length,
 			total: usersTable.hasLoadedCount ? usersTable.totalCount : (adminCache.userCount.current ?? 0)

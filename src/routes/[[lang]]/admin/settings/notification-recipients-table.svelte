@@ -268,10 +268,6 @@
 	onLastPage={recipientsTable.goLast}
 	onPageSizeChange={recipientsTable.setPageSize}
 	rowsPerPageLabel={$t('admin.users.rows_per_page')}
-	pageIndicatorText={$t('admin.users.page_indicator', {
-		current: recipientsTable.pageIndex + 1,
-		total: effectivePageCount
-	})}
 	selectionText={$t('admin.settings.selected', {
 		selected: Object.keys(rowSelection).length,
 		total: totalCount
@@ -312,7 +308,7 @@
 						<Table.Row data-testid="recipients-loading">
 							<Table.Cell class="[&:has([role=checkbox])]:ps-3">
 								<div class="flex items-center justify-center">
-									<Checkbox disabled aria-label="Loading" />
+									<Checkbox disabled aria-label={$t('aria.loading')} />
 								</div>
 							</Table.Cell>
 							<Table.Cell>
@@ -326,17 +322,17 @@
 							</Table.Cell>
 							<Table.Cell class="[&:has([role=checkbox])]:ps-3">
 								<div class="flex items-center justify-center">
-									<Checkbox disabled aria-label="Loading" />
+									<Checkbox disabled aria-label={$t('aria.loading')} />
 								</div>
 							</Table.Cell>
 							<Table.Cell class="[&:has([role=checkbox])]:ps-3">
 								<div class="flex items-center justify-center">
-									<Checkbox disabled aria-label="Loading" />
+									<Checkbox disabled aria-label={$t('aria.loading')} />
 								</div>
 							</Table.Cell>
 							<Table.Cell class="[&:has([role=checkbox])]:ps-3">
 								<div class="flex items-center justify-center">
-									<Checkbox disabled aria-label="Loading" />
+									<Checkbox disabled aria-label={$t('aria.loading')} />
 								</div>
 							</Table.Cell>
 							<Table.Cell>

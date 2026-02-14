@@ -63,7 +63,10 @@
 
 <script lang="ts">
 	import { cn } from '$lib/utils/utils.js';
+	import { getTranslate } from '@tolgee/svelte';
 	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
+
+	const { t } = getTranslate();
 
 	let {
 		ref = $bindable(null),
@@ -115,7 +118,7 @@
 				<LoaderCircleIcon class="size-4" />
 			</div>
 		</div>
-		<span class="sr-only">Loading</span>
+		<span class="sr-only">{$t('aria.loading')}</span>
 	{/if}
 	{@render children?.()}
 </svelte:element>

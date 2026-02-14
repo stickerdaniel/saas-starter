@@ -1,6 +1,9 @@
 <script lang="ts">
+	import { getTranslate } from '@tolgee/svelte';
 	import type { WithElementRef } from '$lib/utils.js';
 	import type { HTMLAttributes } from 'svelte/elements';
+
+	const { t } = getTranslate();
 
 	let {
 		ref = $bindable(null),
@@ -14,7 +17,7 @@
 	bind:this={ref}
 	data-slot="breadcrumb"
 	class={className}
-	aria-label="breadcrumb"
+	aria-label={$t('aria.breadcrumb')}
 	{...restProps}
 >
 	{@render children?.()}

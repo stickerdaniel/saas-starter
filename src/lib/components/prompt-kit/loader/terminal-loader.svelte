@@ -1,5 +1,8 @@
 <script lang="ts">
 	import { cn } from '$lib/utils';
+	import { getTranslate } from '@tolgee/svelte';
+
+	const { t } = getTranslate();
 
 	interface Props {
 		class?: string;
@@ -30,5 +33,5 @@
 <div class={cn('flex items-center space-x-1', containerSizes[size], className)}>
 	<span class={cn('font-mono text-primary', textSizes[size])}>&gt;</span>
 	<div class={cn('animate-[blink_1s_step-end_infinite] bg-primary', cursorSizes[size])}></div>
-	<span class="sr-only">Loading</span>
+	<span class="sr-only">{$t('aria.loading')}</span>
 </div>

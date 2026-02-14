@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { getTranslate } from '@tolgee/svelte';
 	import DotsIcon from '@tabler/icons-svelte/icons/dots';
 	import FolderIcon from '@tabler/icons-svelte/icons/folder';
 	import Share3Icon from '@tabler/icons-svelte/icons/share-3';
@@ -10,6 +11,7 @@
 	import { resolve } from '$app/paths';
 
 	let { items }: { items: { name: string; url: string; icon: Icon }[] } = $props();
+	const { t } = getTranslate();
 
 	const sidebar = Sidebar.sidebarContext.get();
 </script>
@@ -36,7 +38,7 @@
 								class="rounded-sm data-[state=open]:bg-accent"
 							>
 								<DotsIcon />
-								<span class="sr-only">More</span>
+								<span class="sr-only">{$t('aria.more')}</span>
 							</Sidebar.MenuAction>
 						{/snippet}
 					</DropdownMenu.Trigger>

@@ -1,10 +1,13 @@
 <script lang="ts">
+	import { getTranslate } from '@tolgee/svelte';
 	import * as Card from '$lib/components/ui/card/index.js';
 	import * as Field from '$lib/components/ui/field/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { cn } from '$lib/utils.js';
 	import type { HTMLAttributes } from 'svelte/elements';
+
+	const { t } = getTranslate();
 
 	let { class: className, ...restProps }: HTMLAttributes<HTMLDivElement> = $props();
 
@@ -47,7 +50,7 @@
 									fill="currentColor"
 								/>
 							</svg>
-							<span class="sr-only">Login with Apple</span>
+							<span class="sr-only">{$t('aria.login_with_apple')}</span>
 						</Button>
 						<Button variant="outline" type="button">
 							<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
@@ -56,7 +59,7 @@
 									fill="currentColor"
 								/>
 							</svg>
-							<span class="sr-only">Login with Google</span>
+							<span class="sr-only">{$t('aria.login_with_google')}</span>
 						</Button>
 						<Button variant="outline" type="button">
 							<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
@@ -65,7 +68,7 @@
 									fill="currentColor"
 								/>
 							</svg>
-							<span class="sr-only">Login with Meta</span>
+							<span class="sr-only">{$t('aria.login_with_meta')}</span>
 						</Button>
 					</Field.Field>
 					<Field.Description class="text-center">
