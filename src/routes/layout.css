@@ -32,6 +32,7 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
+	--scrollbar-w: 3px;
 	--radius: 0.625rem;
 	--background: oklch(1 0 0);
 	--foreground: oklch(0.141 0.005 285.823);
@@ -339,8 +340,8 @@
 @layer components {
 	.scrollbar-thin {
 		&::-webkit-scrollbar {
-			width: 3px;
-			height: 3px;
+			width: var(--scrollbar-w);
+			height: var(--scrollbar-w);
 		}
 
 		&::-webkit-scrollbar-thumb {
