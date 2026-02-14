@@ -233,7 +233,7 @@
 			</div>
 
 			<div class="flex justify-end">
-				<Button type="submit" disabled={isSaving}>
+				<Button type="submit" size="sm" disabled={isSaving}>
 					{#if isSaving}
 						<T keyName="settings.account.saving" />
 					{:else}

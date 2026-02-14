@@ -48,7 +48,8 @@ export const columns: ColumnDef<AdminUserData>[] = [
 		header: ({ column }) =>
 			renderComponent(DataTableColumnHeader, {
 				column,
-				titleKey: 'admin.users.name'
+				titleKey: 'admin.users.name',
+				testId: 'admin-users-sort-name'
 			}),
 		cell: ({ row }) => {
 			const nameSnippet = createRawSnippet<[{ name?: string; image?: string | null }]>(
@@ -79,13 +80,14 @@ export const columns: ColumnDef<AdminUserData>[] = [
 		header: ({ column }) =>
 			renderComponent(DataTableColumnHeader, {
 				column,
-				titleKey: 'admin.users.email'
+				titleKey: 'admin.users.email',
+				testId: 'admin-users-sort-email'
 			}),
 		cell: ({ row }) => {
 			const emailSnippet = createRawSnippet<[{ email: string }]>((getData) => {
 				const { email } = getData();
 				return {
-					render: () => `<div>${email}</div>`
+					render: () => `<div data-testid="admin-users-email-cell">${email}</div>`
 				};
 			});
 			return renderSnippet(emailSnippet, { email: row.original.email });
@@ -104,11 +106,13 @@ export const columns: ColumnDef<AdminUserData>[] = [
 		header: ({ column }) =>
 			renderComponent(DataTableColumnHeader, {
 				column,
-				titleKey: 'admin.users.role'
+				titleKey: 'admin.users.role',
+				testId: 'admin-users-sort-role'
 			}),
 		cell: ({ row }) =>
 			renderComponent(RoleBadge, {
-				role: row.original.role
+				role: row.original.role,
+				testId: 'admin-users-role-badge'
 			}),
 		filterFn: (row, _columnId, filterValue: string) => {
 			if (!filterValue || filterValue === 'all') return true;
@@ -129,7 +133,8 @@ export const columns: ColumnDef<AdminUserData>[] = [
 		cell: ({ row }) =>
 			renderComponent(StatusBadge, {
 				banned: row.original.banned,
-				emailVerified: row.original.emailVerified
+				emailVerified: row.original.emailVerified,
+				testId: 'admin-users-status-badge'
 			}),
 		filterFn: (row, _columnId, filterValue: string) => {
 			if (!filterValue || filterValue === 'all') return true;
@@ -148,7 +153,8 @@ export const columns: ColumnDef<AdminUserData>[] = [
 		header: ({ column }) =>
 			renderComponent(DataTableColumnHeader, {
 				column,
-				titleKey: 'admin.users.created'
+				titleKey: 'admin.users.created',
+				testId: 'admin-users-sort-created'
 			}),
 		cell: ({ row }) => {
 			const dateSnippet = createRawSnippet<[{ createdAt?: number }]>((getData) => {

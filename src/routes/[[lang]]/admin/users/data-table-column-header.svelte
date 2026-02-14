@@ -10,9 +10,10 @@
 	type Props = {
 		column: Column<AdminUserData, unknown>;
 		titleKey: string;
+		testId?: string;
 	};
 
-	let { column, titleKey }: Props = $props();
+	let { column, titleKey, testId }: Props = $props();
 
 	const canSort = $derived(column.getCanSort());
 	const sorted = $derived(column.getIsSorted());
@@ -24,6 +25,7 @@
 		size="sm"
 		class="-ml-3 h-8 data-[state=open]:bg-accent"
 		onclick={column.getToggleSortingHandler()}
+		data-testid={testId}
 	>
 		<span><T keyName={titleKey} /></span>
 		{#if sorted === 'desc'}

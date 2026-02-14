@@ -180,6 +180,19 @@ This project uses **PostHog** for product analytics with an optional **Cloudflar
 - Requires `.env.test` with: AUTH_E2E_TEST_SECRET (must match Convex backend) and PUBLIC_CONVEX_URL
 - See `.env.test.example` for setup instructions
 
+#### `data-testid` convention
+
+- Prefer `data-testid` for all interactive controls and dynamic list/table content that E2E tests assert.
+- Use stable, feature-scoped kebab-case IDs: `<feature>-<element>-<action>` (example: `admin-users-pagination-next`).
+- Add test IDs on:
+  - page root container
+  - loading/empty states
+  - filters/search/sort controls
+  - pagination controls and page indicators
+  - repeatable row/cell primitives needed for assertions (for example role/status badges and email cells)
+- Avoid translated/user-generated strings in test IDs.
+- Keep IDs deterministic and never include runtime values unless the test explicitly needs entity-specific targeting.
+
 ### Vitest Unit Tests
 
 ## Development
