@@ -1,5 +1,8 @@
 <script lang="ts">
 	import { cn } from '$lib/utils';
+	import { getTranslate } from '@tolgee/svelte';
+
+	const { t } = getTranslate();
 
 	interface Props {
 		class?: string;
@@ -50,5 +53,5 @@
 			></div>
 		{/each}
 	</div>
-	<span class="sr-only">Loading</span>
+	<span class="sr-only">{$t('aria.loading')}</span>
 </div>

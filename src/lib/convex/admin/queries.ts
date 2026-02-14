@@ -105,8 +105,9 @@ function buildUserWhereConditions(args: {
 }
 
 function applyUserSearch(users: BetterAuthUser[], search: string | undefined) {
-	if (!search) return users;
-	const searchLower = search.toLowerCase();
+	const trimmed = search?.trim();
+	if (!trimmed) return users;
+	const searchLower = trimmed.toLowerCase();
 	return users.filter(
 		(user) =>
 			user.email?.toLowerCase().includes(searchLower) ||
@@ -228,7 +229,7 @@ export const listUsers = adminQuery({
 
 		// BetterAuth adapter cannot do multi-field OR search in one paginated call.
 		// For search, we fetch a consistent filtered set first, then apply offset cursor locally.
-		if (args.search) {
+		if (args.search?.trim()) {
 			const allUsers = await fetchAllUsersWithFilters(ctx, { whereConditions, sortBy });
 			const searchedUsers = applyUserSearch(allUsers, args.search);
 
@@ -349,7 +350,7 @@ export const resolveUsersLastPage = adminQuery({
 			return { page: 1, cursor: null };
 		}
 
-		if (args.search) {
+		if (args.search?.trim()) {
 			return {
 				page: lastPage,
 				cursor: String(targetOffset)

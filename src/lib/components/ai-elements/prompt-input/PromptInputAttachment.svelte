@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { cn } from '$lib/utils';
+	import { getTranslate } from '@tolgee/svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as Tooltip from '$lib/components/ui/tooltip/index.js';
 	import { attachmentsContext, type FileWithId } from './attachments-context.svelte.js';
@@ -12,6 +13,7 @@
 	}
 
 	let { data, class: className, ...props }: Props = $props();
+	const { t } = getTranslate();
 
 	const attachments = attachmentsContext.get();
 
@@ -61,7 +63,7 @@
 		</div>
 	{/if}
 	<Button
-		aria-label="Remove attachment"
+		aria-label={$t('aria.remove_attachment')}
 		class="absolute -top-1.5 -right-1.5 h-6 w-6 rounded-full opacity-0 group-hover:opacity-100"
 		onclick={() => attachments.remove(data.id)}
 		size="icon"

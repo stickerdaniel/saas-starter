@@ -4,10 +4,13 @@
 	import ChevronsRightIcon from '@tabler/icons-svelte/icons/chevrons-right';
 	import ChevronLeftIcon from '@tabler/icons-svelte/icons/chevron-left';
 	import ChevronRightIcon from '@tabler/icons-svelte/icons/chevron-right';
+	import { getTranslate } from '@tolgee/svelte';
 	import type { Snippet } from 'svelte';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import * as Select from '$lib/components/ui/select/index.js';
+
+	const { t } = getTranslate();
 
 	type Props = {
 		testIdPrefix: string;
@@ -25,7 +28,6 @@
 		onNextPage: () => void;
 		onLastPage: () => void | Promise<void>;
 		onPageSizeChange: (value: number) => void;
-		pageIndicatorText: string;
 		rowsPerPageLabel?: string;
 		selectionText?: string;
 		showRowsPerPage?: boolean;
@@ -46,8 +48,8 @@
 		searchValue,
 		searchPlaceholder,
 		onSearchChange,
-		pageIndex: _pageIndex,
-		pageCount: _pageCount,
+		pageIndex,
+		pageCount,
 		pageSize,
 		pageSizeOptions,
 		canPreviousPage,
@@ -57,7 +59,6 @@
 		onNextPage,
 		onLastPage,
 		onPageSizeChange,
-		pageIndicatorText,
 		rowsPerPageLabel = 'Rows per page',
 		selectionText,
 		showRowsPerPage = true,
@@ -133,7 +134,7 @@
 				class="flex w-fit items-center justify-center text-sm font-medium"
 				data-testid={pageIndicatorTestId}
 			>
-				{pageIndicatorText}
+				{$t('admin.users.page_indicator', { current: pageIndex + 1, total: pageCount })}
 			</div>
 
 			<div class="ml-auto flex items-center gap-2 lg:ml-0">
@@ -143,7 +144,7 @@
 					onclick={onFirstPage}
 					disabled={!canPreviousPage}
 				>
-					<span class="sr-only">First page</span>
+					<span class="sr-only">{$t('admin.users.pagination.first')}</span>
 					<ChevronsLeftIcon />
 				</Button>
 				<Button
@@ -154,7 +155,7 @@
 					disabled={!canPreviousPage}
 					data-testid={paginationPrevTestId}
 				>
-					<span class="sr-only">Previous page</span>
+					<span class="sr-only">{$t('admin.users.pagination.previous')}</span>
 					<ChevronLeftIcon />
 				</Button>
 				<Button
@@ -165,7 +166,7 @@
 					disabled={!canNextPage}
 					data-testid={paginationNextTestId}
 				>
-					<span class="sr-only">Next page</span>
+					<span class="sr-only">{$t('admin.users.pagination.next')}</span>
 					<ChevronRightIcon />
 				</Button>
 				<Button
@@ -175,7 +176,7 @@
 					disabled={!canNextPage}
 					data-testid={paginationLastTestId}
 				>
-					<span class="sr-only">Last page</span>
+					<span class="sr-only">{$t('admin.users.pagination.last')}</span>
 					<ChevronsRightIcon />
 				</Button>
 			</div>

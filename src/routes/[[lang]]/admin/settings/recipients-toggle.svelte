@@ -86,7 +86,10 @@
 	<Checkbox
 		{checked}
 		onCheckedChange={handleToggle}
-		aria-label="{field} for {email}"
+		aria-label={$t('aria.notification_toggle_for_email', {
+			field: $t(fieldTranslationKeys[field]),
+			email
+		})}
 		data-testid="toggle-{field}-{email}"
 	/>
 </div>
