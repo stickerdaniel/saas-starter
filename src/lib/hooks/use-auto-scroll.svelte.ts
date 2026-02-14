@@ -32,41 +32,47 @@ export class UseAutoScroll {
 	#userHasScrolled = $state(false);
 	private lastScrollHeight = 0;
 
-	// This sets everything up once #ref is bound
+	constructor() {
+		// $effect watches #ref — teardown runs automatically before re-run and on destroy
+		$effect(() => {
+			const el = this.#ref;
+			if (!el) return;
+
+			this.lastScrollHeight = el.scrollHeight;
+
+			// start from bottom or start position
+			el.scrollTo(0, this.#scrollY ? this.#scrollY : el.scrollHeight);
+
+			const onScroll = () => {
+				this.#scrollY = el.scrollTop;
+				this.disableAutoScroll();
+			};
+			el.addEventListener('scroll', onScroll);
+
+			const onResize = () => {
+				this.scrollToBottom(true);
+			};
+			window.addEventListener('resize', onResize);
+
+			// should detect when something changed that effected the scroll height
+			const observer = new MutationObserver(() => {
+				if (el.scrollHeight !== this.lastScrollHeight) {
+					this.scrollToBottom(true);
+				}
+				this.lastScrollHeight = el.scrollHeight;
+			});
+			observer.observe(el, { childList: true, subtree: true });
+
+			return () => {
+				el.removeEventListener('scroll', onScroll);
+				window.removeEventListener('resize', onResize);
+				observer.disconnect();
+			};
+		});
+	}
+
 	set ref(ref: HTMLElement | undefined) {
 		this.#ref = ref;
-
-		if (!this.#ref) return;
-
-		this.lastScrollHeight = this.#ref.scrollHeight;
-
-		// start from bottom or start position
-		this.#ref.scrollTo(0, this.#scrollY ? this.#scrollY : this.#ref.scrollHeight);
-
-		this.#ref.addEventListener('scroll', () => {
-			if (!this.#ref) return;
-
-			this.#scrollY = this.#ref.scrollTop;
-
-			this.disableAutoScroll();
-		});
-
-		window.addEventListener('resize', () => {
-			this.scrollToBottom(true);
-		});
-
-		// should detect when something changed that effected the scroll height
-		const observer = new MutationObserver(() => {
-			if (!this.#ref) return;
-
-			if (this.#ref.scrollHeight !== this.lastScrollHeight) {
-				this.scrollToBottom(true);
-			}
-
-			this.lastScrollHeight = this.#ref.scrollHeight;
-		});
-
-		observer.observe(this.#ref, { childList: true, subtree: true });
 	}
 
 	get ref() {

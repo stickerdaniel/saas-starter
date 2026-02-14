@@ -1,8 +1,9 @@
 import type { TableSortBy, TableSortDirection, TableUrlState } from './contract';
 
 const SORT_DIRECTIONS: TableSortDirection[] = ['asc', 'desc'];
-const SORT_PATTERN = /^([a-zA-Z0-9_]+)[.:](asc|desc)$/u;
+const SORT_PATTERN = /^([a-zA-Z0-9_]+)\.(asc|desc)$/u;
 const SAFE_CURSOR_PATTERN = /^[A-Za-z0-9._~-]+$/u;
+const BASE64URL_PATTERN = /^[A-Za-z0-9_-]+$/u;
 const CURSOR_B64_PREFIX = 'b64.';
 
 function toBase64Url(value: string): string {
@@ -70,12 +71,14 @@ export function serializeCursorParam(cursor: string | null | undefined): string 
 export function parseCursorParam(cursor: string): string | null {
 	if (!cursor) return null;
 	if (!cursor.startsWith(CURSOR_B64_PREFIX)) return cursor;
+	const encoded = cursor.slice(CURSOR_B64_PREFIX.length);
+	if (!encoded || !BASE64URL_PATTERN.test(encoded)) return null;
 
 	try {
-		return fromBase64Url(cursor.slice(CURSOR_B64_PREFIX.length));
+		const decoded = fromBase64Url(encoded);
+		return decoded ? decoded : null;
 	} catch {
-		// Keep backward compatibility for malformed values by passing through.
-		return cursor;
+		return null;
 	}
 }
 

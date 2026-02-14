@@ -301,6 +301,13 @@
 		},
 		{
 			"type": "git",
+			"name": "nprogress",
+			"url": "https://github.com/rstacruz/nprogress",
+			"branch": "master",
+			"specialNotes": "Top loading bar implementation. Study start/done behavior, trickle timing, and CSS structure."
+		},
+		{
+			"type": "git",
 			"name": "tanstackTable",
 			"url": "https://github.com/TanStack/table",
 			"branch": "main",

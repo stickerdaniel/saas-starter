@@ -13,6 +13,7 @@
 	import { createSvelteTable, FlexRender } from '$lib/components/ui/data-table/index.js';
 	import ConvexCursorTableShell from '$lib/components/tables/convex-cursor-table-shell.svelte';
 	import { createConvexCursorTable } from '$lib/tables/convex/create-convex-cursor-table.svelte';
+	import type { CursorListResult } from '$lib/tables/convex/contract';
 	import { columns } from './columns.js';
 	import type { NotificationRecipient } from '$lib/convex/admin/notificationPreferences/queries';
 	import { adminCache } from '$lib/hooks/admin-cache.svelte';
@@ -82,11 +83,25 @@
 			typeFilter:
 				filters.type === 'all' ? undefined : (filters.type as Exclude<RecipientTypeFilter, 'all'>)
 		}),
-		toListResult: (result) => ({
-			items: result.items,
-			continueCursor: result.continueCursor,
-			isDone: result.isDone
-		}),
+		resolveLastPage: async ({ pageSize, search, filters }) => {
+			const result = await client.query(
+				api.admin.notificationPreferences.queries.resolveNotificationRecipientsLastPage,
+				{
+					numItems: pageSize,
+					search,
+					typeFilter:
+						filters.type === 'all'
+							? undefined
+							: (filters.type as Exclude<RecipientTypeFilter, 'all'>)
+				}
+			);
+
+			return {
+				page: result.page,
+				cursor: result.cursor
+			};
+		},
+		toListResult: (result) => result as CursorListResult<NotificationRecipient>,
 		toCount: (result) => result
 	});
 

@@ -29,6 +29,7 @@
 	import { createSvelteTable, FlexRender } from '$lib/components/ui/data-table/index.js';
 	import ConvexCursorTableShell from '$lib/components/tables/convex-cursor-table-shell.svelte';
 	import { createConvexCursorTable } from '$lib/tables/convex/create-convex-cursor-table.svelte';
+	import type { CursorListResult } from '$lib/tables/convex/contract';
 	import { columns } from './columns.js';
 	import DataTableFilters from './data-table-filters.svelte';
 	import type { ActionEvent } from './data-table-actions.svelte';
@@ -98,7 +99,7 @@
 			cursor: cursor ?? undefined,
 			numItems: pageSize,
 			search,
-			roleFilter: filters.role === 'all' ? undefined : filters.role,
+			roleFilter: filters.role === 'all' ? undefined : (filters.role as 'admin' | 'user'),
 			statusFilter:
 				filters.status === 'all'
 					? undefined
@@ -112,7 +113,7 @@
 		}),
 		buildCountArgs: ({ search, filters }) => ({
 			search,
-			roleFilter: filters.role === 'all' ? undefined : filters.role,
+			roleFilter: filters.role === 'all' ? undefined : (filters.role as 'admin' | 'user'),
 			statusFilter:
 				filters.status === 'all'
 					? undefined
@@ -122,7 +123,7 @@
 			const result = await client.query(api.admin.queries.resolveUsersLastPage, {
 				numItems: pageSize,
 				search,
-				roleFilter: filters.role === 'all' ? undefined : filters.role,
+				roleFilter: filters.role === 'all' ? undefined : (filters.role as 'admin' | 'user'),
 				statusFilter:
 					filters.status === 'all'
 						? undefined
@@ -139,11 +140,12 @@
 				cursor: result.cursor
 			};
 		},
-		toListResult: (result) => ({
-			items: result.users,
-			continueCursor: result.continueCursor,
-			isDone: result.isDone
-		}),
+		toListResult: (result) =>
+			({
+				items: result.users,
+				continueCursor: result.continueCursor,
+				isDone: result.isDone
+			}) as CursorListResult<AdminUserData>,
 		toCount: (result) => result
 	});
 

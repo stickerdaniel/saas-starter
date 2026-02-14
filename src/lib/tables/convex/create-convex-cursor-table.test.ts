@@ -15,7 +15,7 @@ function page(
 	continueCursor: string | null,
 	isDone: boolean
 ): CursorListResult<string> {
-	return { items, continueCursor, isDone };
+	return { items, continueCursor, isDone } as CursorListResult<string>;
 }
 
 describe('convex cursor table helpers', () => {

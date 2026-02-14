@@ -6,7 +6,7 @@ This project is a saas template built with SvelteKit, Convex, Typescript and mod
 
 When you need up-to-date information about technologies used in this project, use btca to query source repositories directly.
 
-**Available resources**: svelte, sveltekit, shadcnSvelte, shadcnSvelteExtras, bitsUi, runed, formsnap, superforms, paneforge, svelteInfinite, motionSvelte, svAnimate, threlte, xyflow, cnblocks, aiElements, convex, convexSvelte, convexAgent, convexHelpers, convexResend, convexPresence, convexRag, convexStripe, convexRateLimiter, convexActionCache, convexFilesControl, convexTimeline, convexMigrations, convexAggregate, convexShardedCounter, convexGeospatial, convexWorkpool, convexWorkflow, convexRetrier, convexCrons, betterAuth, betterSvelteEmail, tailwind, vercelAi, tanstackTable, tolgee, playwright, vitest, valibot, renovate
+**Available resources**: svelte, sveltekit, shadcnSvelte, shadcnSvelteExtras, bitsUi, runed, formsnap, superforms, paneforge, svelteInfinite, motionSvelte, svAnimate, threlte, xyflow, cnblocks, aiElements, convex, convexSvelte, convexAgent, convexHelpers, convexResend, convexPresence, convexRag, convexStripe, convexRateLimiter, convexActionCache, convexFilesControl, convexTimeline, convexMigrations, convexAggregate, convexShardedCounter, convexGeospatial, convexWorkpool, convexWorkflow, convexRetrier, convexCrons, betterAuth, betterSvelteEmail, tailwind, vercelAi, tanstackTable, tolgee, playwright, vitest, valibot, nprogress, renovate
 
 ### Usage
 
@@ -203,12 +203,12 @@ This project uses **PostHog** for product analytics with an optional **Cloudflar
   - count query args: same search/filter set (no cursor)
   - count query return: `number`
 - Canonical URL keys for tables: `search`, `sort`, `page`, `page_size`, `cursor`, plus feature filter keys (for example `role`, `status`, `type`).
-- Canonical sort serialization: `field.dir` (parser must accept legacy `field:dir` for backwards compatibility).
+- Canonical sort serialization: `field.dir`.
 - Default URL values must be omitted from links (`search=''`, `sort=''`, `page='1'`, `page_size` default, and default filter values).
 - Shell testid convention:
   - search: `<prefix>-search`
   - page indicator: `<prefix>-page-indicator`
-  - pagination: `<prefix>-pagination-prev` / `<prefix>-pagination-next`
+  - pagination: `<prefix>-pagination-prev` / `<prefix>-pagination-next` / `<prefix>-pagination-last` (first page button uses lg-only variant)
   - keep route-specific row/cell IDs for assertions (for example `recipient-row-*`, `admin-users-email-cell`).
 
 ### Vitest Unit Tests

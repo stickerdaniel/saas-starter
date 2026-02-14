@@ -40,6 +40,7 @@ static/.well-known/e2e-config.json
 Library/
 
 react-reference
+references/
 
 *.local*
 
