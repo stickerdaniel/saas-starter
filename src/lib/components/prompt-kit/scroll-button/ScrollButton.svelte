@@ -15,9 +15,12 @@
 
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button/index.js';
+	import { getTranslate } from '@tolgee/svelte';
 	import ChevronDown from '@lucide/svelte/icons/chevron-down';
 	import { chatContainerContext } from '../chat-container/chat-container-context.svelte.js';
 	import { browser } from '$app/environment';
+
+	const { t } = getTranslate();
 
 	let {
 		class: className,
@@ -48,7 +51,7 @@
 	bind:ref
 	{variant}
 	{size}
-	aria-label="Scroll to bottom"
+	aria-label={$t('aria.scroll_to_bottom')}
 	class={cn(
 		'h-10 w-10 rounded-full transition-all duration-150 ease-out',
 		!resolvedIsAtBottom

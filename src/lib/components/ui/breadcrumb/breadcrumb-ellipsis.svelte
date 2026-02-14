@@ -1,7 +1,10 @@
 <script lang="ts">
+	import { getTranslate } from '@tolgee/svelte';
 	import EllipsisIcon from '@lucide/svelte/icons/ellipsis';
 	import type { HTMLAttributes } from 'svelte/elements';
 	import { cn, type WithElementRef, type WithoutChildren } from '$lib/utils.js';
+
+	const { t } = getTranslate();
 
 	let {
 		ref = $bindable(null),
@@ -19,5 +22,5 @@
 	{...restProps}
 >
 	<EllipsisIcon class="size-4" />
-	<span class="sr-only">More</span>
+	<span class="sr-only">{$t('aria.more')}</span>
 </span>

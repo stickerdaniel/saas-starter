@@ -1,8 +1,11 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button/index.js';
+	import { getTranslate } from '@tolgee/svelte';
 	import { cn } from '$lib/utils.js';
 	import PanelLeftIcon from '@lucide/svelte/icons/panel-left';
 	import { sidebarContext } from './context.svelte.js';
+
+	const { t } = getTranslate();
 
 	let {
 		ref = $bindable(null),
@@ -33,5 +36,5 @@
 	{...restProps}
 >
 	<PanelLeftIcon />
-	<span class="sr-only">Toggle Sidebar</span>
+	<span class="sr-only">{$t('aria.toggle_sidebar')}</span>
 </Button>

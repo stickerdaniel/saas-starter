@@ -5,6 +5,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import CircleCheckIcon from '@lucide/svelte/icons/circle-check';
 	import BellOffIcon from '@lucide/svelte/icons/bell-off';
+	import { watch } from 'runed';
 	import { emailSchema } from '$lib/schemas/auth';
 	import { getTranslate } from '@tolgee/svelte';
 
@@ -35,22 +36,18 @@
 	// null = use currentEmail, true = optimistically subscribed, false = optimistically unsubscribed
 	let optimisticSubscribed = $state<boolean | null>(null);
 
-	// Track the previous currentEmail to detect external changes (e.g., switching threads)
-	// Intentionally snapshot previous value for change detection.
-	// svelte-ignore state_referenced_locally
-	let prevCurrentEmail = currentEmail;
-
 	// Sync email only when currentEmail prop actually changes externally
-	$effect(() => {
-		if (currentEmail !== prevCurrentEmail) {
+	watch(
+		() => currentEmail,
+		(curr) => {
 			// External change (e.g., switching threads or Convex query update) - sync to new value
 			// Use empty string if currentEmail is empty (don't fall back to defaultEmail after unsubscribe)
-			email = currentEmail || '';
-			prevCurrentEmail = currentEmail;
+			email = curr || '';
 			// Clear optimistic state - real value has arrived
 			optimisticSubscribed = null;
-		}
-	});
+		},
+		{ lazy: true }
+	);
 
 	const isValidEmail = $derived(v.safeParse(emailSchema, email.trim()).success);
 

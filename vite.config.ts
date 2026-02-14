@@ -29,7 +29,8 @@ export default defineConfig({
 			'dist/**',
 			'.{idea,git,cache,output,temp}/**',
 			'docs/**',
-			'.opencode/**'
+			'.opencode/**',
+			'references/**'
 		],
 		passWithNoTests: true,
 		environment: 'jsdom'

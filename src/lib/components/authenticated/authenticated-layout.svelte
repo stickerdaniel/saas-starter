@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { browser } from '$app/environment';
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import AuthenticatedSidebar from './authenticated-sidebar.svelte';
 	import AuthenticatedHeader from './authenticated-header.svelte';
@@ -23,6 +24,18 @@
 		rootLabel,
 		fullControl = false
 	}: Props = $props();
+
+	$effect(() => {
+		if (!browser || !user) return;
+
+		document.documentElement.classList.add('auth-shell-bg');
+		document.body.classList.add('auth-shell-bg');
+
+		return () => {
+			document.documentElement.classList.remove('auth-shell-bg');
+			document.body.classList.remove('auth-shell-bg');
+		};
+	});
 </script>
 
 {#if user}

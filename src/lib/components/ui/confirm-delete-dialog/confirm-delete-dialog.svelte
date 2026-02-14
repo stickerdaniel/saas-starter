@@ -78,7 +78,10 @@
 <script lang="ts">
 	import * as AlertDialog from '$lib/components/ui/alert-dialog';
 	import * as Field from '$lib/components/ui/field/index.js';
+	import { getTranslate } from '@tolgee/svelte';
 	import { Input } from '$lib/components/ui/input';
+
+	const { t } = getTranslate();
 </script>
 
 <AlertDialog.Root bind:open={dialogState.open}>
@@ -101,7 +104,9 @@
 			</AlertDialog.Header>
 			{#if dialogState.options?.input}
 				<Field.Field>
-					<Field.Label for="confirm-delete-input" class="sr-only">Confirmation</Field.Label>
+					<Field.Label for="confirm-delete-input" class="sr-only"
+						>{$t('aria.confirmation')}</Field.Label
+					>
 					<Input
 						id="confirm-delete-input"
 						bind:value={dialogState.inputText}

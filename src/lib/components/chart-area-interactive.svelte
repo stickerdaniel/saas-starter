@@ -3,9 +3,12 @@
 	import * as Card from '$lib/components/ui/card/index.js';
 	import * as Select from '$lib/components/ui/select/index.js';
 	import * as ToggleGroup from '$lib/components/ui/toggle-group/index.js';
+	import { getTranslate } from '@tolgee/svelte';
 	import { scaleUtc } from 'd3-scale';
 	import { Area, AreaChart } from 'layerchart';
 	import { curveNatural } from 'd3-shape';
+
+	const { t } = getTranslate();
 
 	const chartData = [
 		{ date: new Date('2024-04-01'), desktop: 222, mobile: 150 },
@@ -160,7 +163,7 @@
 				<Select.Trigger
 					size="sm"
 					class="flex w-40 **:data-[slot=select-value]:block **:data-[slot=select-value]:truncate @[767px]/card:hidden"
-					aria-label="Select a value"
+					aria-label={$t('aria.select_value')}
 				>
 					<span data-slot="select-value">
 						{selectedLabel}
