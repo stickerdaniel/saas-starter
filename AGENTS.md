@@ -241,7 +241,7 @@ Prop names must match the parent's passed prop name exactly.
 
 ### Static Checks
 
-ALWAYS run `bun scripts/static-checks.ts --staged` after a full feature implementation.
+ALWAYS run `bun scripts/static-checks.ts src/lib/foo.ts src/routes/bar.svelte` after a full feature implementation with the changed files.
 
 ### Real-time Features
 
@@ -253,9 +253,7 @@ ALWAYS run `bun scripts/static-checks.ts --staged` after a full feature implemen
 
 #### Import Conventions
 
-**CRITICAL: Avoid Barrel Imports for Performance**
-
-Always use individual imports instead of barrel imports to enable tree-shaking and reduce bundle size:
+**CRITICAL:** NEVER use Barrel Imports
 
 ```typescript
 // ❌ BAD - Barrel import (loads entire library, ~4.5MB for Lucide)
@@ -263,11 +261,9 @@ import { ArrowUp, Camera, X } from '@lucide/svelte';
 
 // ✅ GOOD - Individual imports (only loads what's needed, ~5KB per icon)
 import ArrowUpIcon from '@lucide/svelte/icons/arrow-up';
-import CameraIcon from '@lucide/svelte/icons/camera';
-import XIcon from '@lucide/svelte/icons/x';
 ```
 
-This applies to all icon libraries and large component libraries. Individual imports can reduce bundle size by 80-95% through proper tree-shaking.
+This applies to all icon libraries and large component libraries.
 
 #### UI Component Conventions
 
