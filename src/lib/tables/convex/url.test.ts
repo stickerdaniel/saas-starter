@@ -10,15 +10,12 @@ import {
 import type { TableUrlState } from './contract';
 
 describe('table URL helpers', () => {
-	it('parses sort params in canonical and legacy formats', () => {
+	it('parses sort params in canonical format only', () => {
 		expect(parseSortParam('email.asc', ['email', 'name'] as const)).toEqual({
 			field: 'email',
 			direction: 'asc'
 		});
-		expect(parseSortParam('name:desc', ['email', 'name'] as const)).toEqual({
-			field: 'name',
-			direction: 'desc'
-		});
+		expect(parseSortParam('name:desc', ['email', 'name'] as const)).toBeUndefined();
 	});
 
 	it('serializes sort using canonical field.dir format', () => {
@@ -66,5 +63,9 @@ describe('table URL helpers', () => {
 		const serialized = serializeCursorParam(opaque);
 		expect(serialized.startsWith('b64.')).toBe(true);
 		expect(parseCursorParam(serialized)).toBe(opaque);
+	});
+
+	it('rejects malformed encoded cursors', () => {
+		expect(parseCursorParam('b64.%%%')).toBe(null);
 	});
 });

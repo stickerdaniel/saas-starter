@@ -10,6 +10,7 @@
 	import ArchiveIcon from '@lucide/svelte/icons/archive';
 	import Loader2Icon from '@lucide/svelte/icons/loader-2';
 	import { formatDistanceToNow } from 'date-fns';
+	import { watch } from 'runed';
 	import { T, getTranslate } from '@tolgee/svelte';
 	import { InfiniteLoader, LoaderState } from 'svelte-infinite';
 
@@ -96,15 +97,16 @@
 		}
 	}
 
-	// Reset loader when isDone changes to false (new query started)
-	let prevIsDone = $state(false);
-	$effect(() => {
-		if (prevIsDone && !isDone) {
-			// Query was reset (filters changed), reset loader state
-			loaderState.reset();
-		}
-		prevIsDone = isDone;
-	});
+	// Reset loader when isDone transitions from true → false (new query started)
+	watch(
+		() => isDone,
+		(curr, prev) => {
+			if (prev && !curr) {
+				loaderState.reset();
+			}
+		},
+		{ lazy: true }
+	);
 </script>
 
 <div class="flex h-full flex-col">

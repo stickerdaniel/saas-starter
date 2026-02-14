@@ -172,14 +172,21 @@ async function getFilteredSortedRecipients(
 }
 
 /**
- * List all notification recipients for the admin settings UI
+ * List notification recipients (paginated) for the admin settings UI
  *
  * Returns preferences where:
  * - isAdminUser=true (active admins)
  * - OR userId is undefined (custom email addresses)
  *
  * Dormant preferences (demoted admins with isAdminUser=false and userId set) are excluded.
+ * Uses offset-based pagination over the filtered/sorted result set.
  *
+ * @param args.cursor - Offset cursor (stringified integer) for the next page
+ * @param args.numItems - Number of items per page
+ * @param args.search - Optional search term to filter by email or name
+ * @param args.typeFilter - Optional filter by recipient type ('admin' or 'custom')
+ * @param args.sortBy - Optional sort configuration with field and direction
+ * @returns Paginated list with `items`, `continueCursor`, and `isDone`
  * @security Requires admin role
  */
 export const listNotificationRecipients = adminQuery({
@@ -244,6 +251,17 @@ export const listNotificationRecipients = adminQuery({
 	}
 });
 
+/**
+ * Count notification recipients matching the given filters.
+ *
+ * Applies the same search and type filters as `listNotificationRecipients`
+ * to provide an accurate total for pagination UI.
+ *
+ * @param args.search - Optional search term to filter by email or name
+ * @param args.typeFilter - Optional filter by recipient type ('admin' or 'custom')
+ * @returns Total count of matching recipients
+ * @security Requires admin role
+ */
 export const getNotificationRecipientCount = adminQuery({
 	args: {
 		search: v.optional(v.string()),
@@ -256,6 +274,38 @@ export const getNotificationRecipientCount = adminQuery({
 			typeFilter: args.typeFilter
 		});
 		return recipients.length;
+	}
+});
+
+export const resolveNotificationRecipientsLastPage = adminQuery({
+	args: {
+		numItems: v.number(),
+		search: v.optional(v.string()),
+		typeFilter: v.optional(v.union(v.literal('admin'), v.literal('custom')))
+	},
+	returns: v.object({
+		page: v.number(),
+		cursor: v.union(v.string(), v.null())
+	}),
+	handler: async (ctx, args): Promise<{ page: number; cursor: string | null }> => {
+		const recipients = await getFilteredSortedRecipients(ctx, {
+			search: args.search,
+			typeFilter: args.typeFilter
+		});
+		const total = recipients.length;
+
+		if (total <= 0) {
+			return { page: 1, cursor: null };
+		}
+
+		const pageSize = Number.isFinite(args.numItems) && args.numItems > 0 ? args.numItems : 10;
+		const lastPage = Math.max(1, Math.ceil(total / pageSize));
+		const offset = (lastPage - 1) * pageSize;
+
+		return {
+			page: lastPage,
+			cursor: offset > 0 ? String(offset) : null
+		};
 	}
 });
 
