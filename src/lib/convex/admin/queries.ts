@@ -295,6 +295,105 @@ export const getUserCount = adminQuery({
 });
 
 /**
+ * Resolve last page metadata for users table in a single query call.
+ *
+ * This avoids client-side cursor walking for jump-to-last actions.
+ * For search mode we can compute offset cursor directly from total.
+ * For adapter cursor mode we still walk internally, but only server-side.
+ */
+export const resolveUsersLastPage = adminQuery({
+	args: {
+		numItems: v.number(),
+		search: v.optional(v.string()),
+		roleFilter: v.optional(v.string()),
+		statusFilter: v.optional(
+			v.union(v.literal('verified'), v.literal('unverified'), v.literal('banned'))
+		),
+		sortBy: v.optional(
+			v.object({
+				field: v.union(
+					v.literal('createdAt'),
+					v.literal('email'),
+					v.literal('name'),
+					v.literal('role')
+				),
+				direction: v.union(v.literal('asc'), v.literal('desc'))
+			})
+		)
+	},
+	returns: v.object({
+		page: v.number(),
+		cursor: v.union(v.string(), v.null())
+	}),
+	handler: async (ctx, args): Promise<{ page: number; cursor: string | null }> => {
+		const whereConditions = buildUserWhereConditions({
+			roleFilter: args.roleFilter,
+			statusFilter: args.statusFilter
+		});
+		const sortBy = args.sortBy ?? DEFAULT_USER_SORT;
+		const pageSize = Number.isFinite(args.numItems) && args.numItems > 0 ? args.numItems : 10;
+		const strideSize = Math.max(pageSize, 1000);
+
+		const allUsers = await fetchAllUsersWithFilters(ctx, { whereConditions, sortBy });
+		const total = applyUserSearch(allUsers, args.search).length;
+		if (total <= 0) {
+			return { page: 1, cursor: null };
+		}
+
+		const lastPage = Math.max(1, Math.ceil(total / pageSize));
+		const targetOffset = (lastPage - 1) * pageSize;
+		if (targetOffset <= 0) {
+			return { page: 1, cursor: null };
+		}
+
+		if (args.search) {
+			return {
+				page: lastPage,
+				cursor: String(targetOffset)
+			};
+		}
+
+		let offset = 0;
+		let cursor: string | null = null;
+
+		while (offset + strideSize <= targetOffset) {
+			const result = (await ctx.runQuery(components.betterAuth.adapter.findMany, {
+				model: 'user',
+				paginationOpts: { cursor, numItems: strideSize },
+				sortBy,
+				where: whereConditions.length > 0 ? whereConditions : undefined
+			})) as AdapterFindManyResult;
+
+			if (result.isDone || !result.continueCursor) {
+				return {
+					page: lastPage,
+					cursor
+				};
+			}
+
+			cursor = result.continueCursor;
+			offset += strideSize;
+		}
+
+		const remaining = targetOffset - offset;
+		if (remaining > 0) {
+			const result = (await ctx.runQuery(components.betterAuth.adapter.findMany, {
+				model: 'user',
+				paginationOpts: { cursor, numItems: remaining },
+				sortBy,
+				where: whereConditions.length > 0 ? whereConditions : undefined
+			})) as AdapterFindManyResult;
+			cursor = result.continueCursor ?? cursor;
+		}
+
+		return {
+			page: lastPage,
+			cursor
+		};
+	}
+});
+
+/**
  * Get admin audit logs
  *
  * Retrieves audit trail of admin actions with optional filtering

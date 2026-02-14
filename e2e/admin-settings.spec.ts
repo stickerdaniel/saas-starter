@@ -28,7 +28,7 @@ test.describe('Admin Settings Page', () => {
 		await expect(page.getByTestId('recipients-table')).toBeVisible();
 
 		// Wait for data to load (no more loading skeletons)
-		await expect(page.getByTestId('recipients-loading')).not.toBeVisible({ timeout: 10000 });
+		await expect.poll(async () => page.getByTestId('recipients-loading').count()).toBe(0);
 
 		// Should have at least one recipient row (the admin user)
 		const rows = page.locator('[data-testid^="recipient-row-"]');
@@ -37,7 +37,7 @@ test.describe('Admin Settings Page', () => {
 
 	test('adds custom email recipient', async ({ page }) => {
 		// Wait for table to load
-		await expect(page.getByTestId('recipients-loading')).not.toBeVisible({ timeout: 10000 });
+		await expect.poll(async () => page.getByTestId('recipients-loading').count()).toBe(0);
 
 		// Generate unique email to avoid conflicts
 		const testEmail = `test-e2e-${Date.now()}@example.com`;
@@ -60,7 +60,7 @@ test.describe('Admin Settings Page', () => {
 
 	test('shows error for invalid email', async ({ page }) => {
 		// Wait for table to load
-		await expect(page.getByTestId('recipients-loading')).not.toBeVisible({ timeout: 10000 });
+		await expect.poll(async () => page.getByTestId('recipients-loading').count()).toBe(0);
 
 		// Open add email dialog
 		await page.getByTestId('add-email-button').click();
@@ -85,7 +85,7 @@ test.describe('Admin Settings Page', () => {
 
 	test('shows error for duplicate email', async ({ page }) => {
 		// Wait for table to load
-		await expect(page.getByTestId('recipients-loading')).not.toBeVisible({ timeout: 10000 });
+		await expect.poll(async () => page.getByTestId('recipients-loading').count()).toBe(0);
 
 		// First, add a custom email
 		const testEmail = `test-dup-${Date.now()}@example.com`;
@@ -116,7 +116,7 @@ test.describe('Admin Settings Page', () => {
 
 	test('filters recipients by type', async ({ page }) => {
 		// Wait for table to load
-		await expect(page.getByTestId('recipients-loading')).not.toBeVisible({ timeout: 10000 });
+		await expect.poll(async () => page.getByTestId('recipients-loading').count()).toBe(0);
 
 		// Get initial row count
 		const allRows = page.locator('[data-testid^="recipient-row-"]');
@@ -129,24 +129,24 @@ test.describe('Admin Settings Page', () => {
 		}
 
 		// Open filter dropdown
-		await page.getByTestId('filter-type-trigger').click();
+		await page.getByTestId('admin-settings-type-filter-trigger').click();
 
 		// Select admin filter
-		await page.getByTestId('filter-admin').click();
+		await page.getByTestId('admin-settings-type-filter-admin').click();
 
 		// Verify filter is applied (clear button appears)
-		await expect(page.getByTestId('filter-clear')).toBeVisible();
+		await expect(page.getByTestId('admin-settings-filter-clear')).toBeVisible();
 
 		// Clear filter
-		await page.getByTestId('filter-clear').click();
+		await page.getByTestId('admin-settings-filter-clear').click();
 
 		// Verify filter is cleared (clear button disappears)
-		await expect(page.getByTestId('filter-clear')).not.toBeVisible();
+		await expect(page.getByTestId('admin-settings-filter-clear')).not.toBeVisible();
 	});
 
 	test('toggles notification preference', async ({ page }) => {
 		// Wait for table to load
-		await expect(page.getByTestId('recipients-loading')).not.toBeVisible({ timeout: 10000 });
+		await expect.poll(async () => page.getByTestId('recipients-loading').count()).toBe(0);
 
 		// Find the first recipient row
 		const firstRow = page.locator('[data-testid^="recipient-row-"]').first();
@@ -195,7 +195,7 @@ test.describe('Admin Settings Page', () => {
 
 	test('removes custom email recipient', async ({ page }) => {
 		// Wait for table to load
-		await expect(page.getByTestId('recipients-loading')).not.toBeVisible({ timeout: 10000 });
+		await expect.poll(async () => page.getByTestId('recipients-loading').count()).toBe(0);
 
 		// First, add a custom email to remove
 		const testEmail = `test-remove-${Date.now()}@example.com`;

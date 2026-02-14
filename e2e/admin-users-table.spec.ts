@@ -2,6 +2,11 @@ import { test, expect, type Page } from '@playwright/test';
 import dotenv from 'dotenv';
 import { ConvexHttpClient } from 'convex/browser';
 import { api } from '../src/lib/convex/_generated/api';
+import {
+	expectTableQueryParamMissing,
+	expectTableQueryParams,
+	getTableQueryParam
+} from './utils/convex-table-url-assertions';
 
 dotenv.config({ path: '.env.test' });
 
@@ -92,8 +97,17 @@ async function getCurrentPageNumber(page: Page) {
 	return match ? Number.parseInt(match[1], 10) : NaN;
 }
 
-function getQueryParam(page: Page, key: string) {
-	return new URL(page.url()).searchParams.get(key);
+async function getPageIndicator(page: Page) {
+	const indicatorText =
+		(await page.getByTestId('admin-users-page-indicator').textContent())?.trim() ?? '';
+	const match = indicatorText.match(/Page\s+(\d+)\s+of\s+(\d+)/i);
+	if (!match) {
+		return { current: NaN, total: NaN };
+	}
+	return {
+		current: Number.parseInt(match[1], 10),
+		total: Number.parseInt(match[2], 10)
+	};
 }
 
 function expectSortedEmails(emails: string[], direction: 'asc' | 'desc') {
@@ -203,6 +217,7 @@ test.describe('Admin Users Table', () => {
 		await expect(page.getByTestId('admin-users-search')).toBeVisible();
 		await expect(page.getByTestId('admin-users-pagination-prev')).toBeVisible();
 		await expect(page.getByTestId('admin-users-pagination-next')).toBeVisible();
+		await expect(page.getByTestId('admin-users-pagination-last')).toBeVisible();
 	});
 
 	test('search filters users', async ({ page }) => {
@@ -280,6 +295,86 @@ test.describe('Admin Users Table', () => {
 		);
 	});
 
+	test('reopening page+cursor URL restores the same users page', async ({ page }) => {
+		await expect
+			.poll(async () => page.getByTestId('admin-users-pagination-next').isEnabled())
+			.toBe(true);
+
+		await page.getByTestId('admin-users-pagination-next').click();
+		await expect.poll(async () => page.getByTestId('admin-users-loading').count()).toBe(0);
+
+		const pageUrl = page.url();
+		const firstBefore = (
+			await page.getByTestId('admin-users-email-cell').first().textContent()
+		)?.trim();
+		const indicatorBefore = await getPageIndicator(page);
+		expect(firstBefore).toBeTruthy();
+		expect(indicatorBefore.current).toBe(2);
+
+		await page.goto(pageUrl);
+		await page.waitForLoadState('networkidle');
+		await waitForUsersTableReady(page);
+
+		const firstAfter = (
+			await page.getByTestId('admin-users-email-cell').first().textContent()
+		)?.trim();
+		const indicatorAfter = await getPageIndicator(page);
+		expect(indicatorAfter.current).toBe(2);
+		expect(firstAfter).toBe(firstBefore);
+	});
+
+	test('after refresh on deep page, previous page navigation still works', async ({ page }) => {
+		await page.goto(`/en/admin/users?search=${encodeURIComponent(seedPrefix)}&page_size=1`);
+		await page.waitForLoadState('networkidle');
+		await waitForUsersTableReady(page);
+
+		await expect
+			.poll(async () => page.getByTestId('admin-users-pagination-next').isEnabled())
+			.toBe(true);
+		await page.getByTestId('admin-users-pagination-next').click();
+		await expect.poll(() => getCurrentPageNumber(page)).toBe(2);
+		await page.getByTestId('admin-users-pagination-next').click();
+		await expect.poll(() => getCurrentPageNumber(page)).toBe(3);
+
+		const deepPageUrl = page.url();
+		await page.goto(deepPageUrl);
+		await page.waitForLoadState('networkidle');
+		await waitForUsersTableReady(page);
+		await expect.poll(() => getCurrentPageNumber(page)).toBe(3);
+
+		await expect(page.getByTestId('admin-users-pagination-prev')).toBeEnabled();
+		await page.getByTestId('admin-users-pagination-prev').click();
+		await expect.poll(() => getCurrentPageNumber(page)).toBe(2);
+	});
+
+	test('jump to last page walks cursors and lands on final page', async ({ page }) => {
+		await page.goto(`/en/admin/users?search=${encodeURIComponent(seedPrefix)}&page_size=1`);
+		await page.waitForLoadState('networkidle');
+		await waitForUsersTableReady(page);
+
+		await expect
+			.poll(async () => page.getByTestId('admin-users-pagination-next').isEnabled())
+			.toBe(true);
+
+		await page.getByTestId('admin-users-pagination-last').click();
+		await expect
+			.poll(
+				async () => {
+					const indicator = await getPageIndicator(page);
+					return indicator.current === indicator.total ? indicator.total : -1;
+				},
+				{ timeout: 30000 }
+			)
+			.toBeGreaterThan(1);
+
+		const indicator = await getPageIndicator(page);
+		await expectTableQueryParams(page, {
+			page: `${indicator.total}`,
+			cursor: /.+/
+		});
+		await expect(page.getByTestId('admin-users-pagination-next')).toBeDisabled();
+	});
+
 	test('role sorting toggles asc and desc', async ({ page }) => {
 		await applySeedSearch(page, seedPrefix);
 
@@ -304,41 +399,30 @@ test.describe('Admin Users Table', () => {
 
 	test('syncs table state to URL params', async ({ page }) => {
 		await applySeedSearch(page, seedPrefix);
-		await expect.poll(() => getQueryParam(page, 'search')).toBe(seedPrefix);
+		await expectTableQueryParams(page, { search: seedPrefix });
 
 		await page.getByTestId('admin-users-role-filter-trigger').click();
 		await page.getByTestId('admin-users-role-filter-admin').click();
-		await expect.poll(() => getQueryParam(page, 'role')).toBe('admin');
+		await expectTableQueryParams(page, { role: 'admin' });
 		await expect.poll(() => getCurrentPageNumber(page)).toBe(1);
 
 		await page.getByTestId('admin-users-status-filter-trigger').click();
 		await page.getByTestId('admin-users-status-filter-unverified').click();
-		await expect.poll(() => getQueryParam(page, 'status')).toBe('unverified');
+		await expectTableQueryParams(page, { status: 'unverified' });
 		await expect.poll(() => getCurrentPageNumber(page)).toBe(1);
 
 		await page.getByTestId('admin-users-sort-role').click();
-		await expect
-			.poll(() => {
-				const sort = getQueryParam(page, 'sort');
-				return sort === 'role.asc' || sort === 'role.desc';
-			})
-			.toBe(true);
+		await expect.poll(() => getTableQueryParam(page, 'sort') ?? '').toMatch(/^role\.(asc|desc)$/);
 
 		await page.getByTestId('admin-users-filter-clear').click();
 		await expect.poll(async () => page.getByTestId('admin-users-loading').count()).toBe(0);
-		await expect.poll(() => getQueryParam(page, 'search')).toBe(seedPrefix);
+		await expectTableQueryParams(page, { search: seedPrefix });
 
 		await expect
 			.poll(async () => page.getByTestId('admin-users-pagination-next').isEnabled())
 			.toBe(true);
 		await page.getByTestId('admin-users-pagination-next').click();
-		await expect.poll(() => getQueryParam(page, 'page')).toBe('2');
-		await expect
-			.poll(() => {
-				const cursor = getQueryParam(page, 'cursor');
-				return cursor !== null && cursor.length > 0;
-			})
-			.toBe(true);
+		await expectTableQueryParams(page, { page: '2', cursor: /.+/ });
 	});
 
 	test('hydrates table state from URL params', async ({ page }) => {
@@ -376,10 +460,13 @@ test.describe('Admin Users Table', () => {
 		expect(visibleEmails.length).toBeGreaterThan(1);
 		expectSortedEmails(visibleEmails, 'asc');
 
-		await expect.poll(() => getQueryParam(page, 'search')).toBe(seedPrefix);
-		await expect.poll(() => getQueryParam(page, 'role')).toBe('user');
-		await expect.poll(() => getQueryParam(page, 'status')).toBe('unverified');
-		await expect.poll(() => getQueryParam(page, 'sort')).toBe('email.asc');
-		await expect.poll(() => getQueryParam(page, 'page_size')).toBe('20');
+		await expectTableQueryParams(page, {
+			search: seedPrefix,
+			role: 'user',
+			status: 'unverified',
+			sort: 'email.asc',
+			page_size: '20'
+		});
+		await expectTableQueryParamMissing(page, 'cursor');
 	});
 });

@@ -8,6 +8,7 @@
 import { v } from 'convex/values';
 import { adminQuery } from '../../functions';
 import { internalQuery } from '../../_generated/server';
+import type { QueryCtx } from '../../_generated/server';
 import { components } from '../../_generated/api';
 import { parseBetterAuthUsers } from '../types';
 
@@ -37,6 +38,139 @@ export interface NotificationRecipient {
 	updatedAt: number;
 }
 
+type NotificationRecipientTypeFilter = 'admin' | 'custom';
+
+type NotificationRecipientSortBy = {
+	field: 'email' | 'name' | 'type' | 'createdAt';
+	direction: 'asc' | 'desc';
+};
+
+const DEFAULT_RECIPIENT_SORT: NotificationRecipientSortBy = {
+	field: 'createdAt',
+	direction: 'desc'
+};
+
+type AdapterFindManyResult = {
+	page: unknown[];
+	isDone: boolean;
+	continueCursor: string | null;
+};
+
+async function getAdminUserNameMap(ctx: QueryCtx) {
+	const userMap = new Map<string, string>();
+	let cursor: string | null = null;
+
+	for (let page = 0; page < 100; page++) {
+		const usersResult = (await ctx.runQuery(components.betterAuth.adapter.findMany, {
+			model: 'user',
+			paginationOpts: { cursor, numItems: 200 },
+			where: [{ field: 'role', operator: 'eq', value: 'admin' }]
+		})) as AdapterFindManyResult;
+		const users = parseBetterAuthUsers(usersResult.page);
+
+		for (const user of users) {
+			userMap.set(user._id, user.name || user.email);
+		}
+
+		if (usersResult.isDone || !usersResult.continueCursor) {
+			break;
+		}
+
+		cursor = usersResult.continueCursor;
+	}
+
+	return userMap;
+}
+
+function applyNotificationRecipientFilters(
+	recipients: NotificationRecipient[],
+	args: {
+		search?: string;
+		typeFilter?: NotificationRecipientTypeFilter;
+	}
+) {
+	let filtered = recipients;
+
+	if (args.typeFilter === 'admin') {
+		filtered = filtered.filter((recipient) => recipient.isAdminUser);
+	} else if (args.typeFilter === 'custom') {
+		filtered = filtered.filter((recipient) => !recipient.isAdminUser);
+	}
+
+	if (args.search) {
+		const search = args.search.trim().toLowerCase();
+		if (search.length > 0) {
+			filtered = filtered.filter((recipient) => {
+				const email = recipient.email.toLowerCase();
+				const name = recipient.name?.toLowerCase() ?? '';
+				return email.includes(search) || name.includes(search);
+			});
+		}
+	}
+
+	return filtered;
+}
+
+function sortNotificationRecipients(
+	recipients: NotificationRecipient[],
+	sortBy: NotificationRecipientSortBy
+) {
+	const direction = sortBy.direction === 'asc' ? 1 : -1;
+	const sorted = [...recipients];
+	sorted.sort((a, b) => {
+		let result = 0;
+
+		if (sortBy.field === 'email') {
+			result = a.email.localeCompare(b.email);
+		} else if (sortBy.field === 'name') {
+			result = (a.name ?? '').localeCompare(b.name ?? '');
+		} else if (sortBy.field === 'type') {
+			const aType = a.isAdminUser ? 0 : 1;
+			const bType = b.isAdminUser ? 0 : 1;
+			result = aType - bType;
+		} else {
+			result = a.createdAt - b.createdAt;
+		}
+
+		if (result === 0) {
+			result = a.email.localeCompare(b.email);
+		}
+
+		return result * direction;
+	});
+
+	return sorted;
+}
+
+async function getFilteredSortedRecipients(
+	ctx: QueryCtx,
+	args: {
+		search?: string;
+		typeFilter?: NotificationRecipientTypeFilter;
+		sortBy?: NotificationRecipientSortBy;
+	}
+) {
+	const allPrefs = await ctx.db.query('adminNotificationPreferences').collect();
+	const activePrefs = allPrefs.filter(
+		(preference) => preference.isAdminUser || preference.userId === undefined
+	);
+	const userMap = await getAdminUserNameMap(ctx);
+	const recipients: NotificationRecipient[] = activePrefs.map((preference) => ({
+		email: preference.email,
+		name: preference.userId ? userMap.get(preference.userId) : undefined,
+		userId: preference.userId,
+		isAdminUser: preference.isAdminUser,
+		notifyNewSupportTickets: preference.notifyNewSupportTickets,
+		notifyUserReplies: preference.notifyUserReplies,
+		notifyNewSignups: preference.notifyNewSignups,
+		createdAt: preference.createdAt,
+		updatedAt: preference.updatedAt
+	}));
+
+	const filtered = applyNotificationRecipientFilters(recipients, args);
+	return sortNotificationRecipients(filtered, args.sortBy ?? DEFAULT_RECIPIENT_SORT);
+}
+
 /**
  * List all notification recipients for the admin settings UI
  *
@@ -49,56 +183,79 @@ export interface NotificationRecipient {
  * @security Requires admin role
  */
 export const listNotificationRecipients = adminQuery({
-	args: {},
-	returns: v.array(
-		v.object({
-			email: v.string(),
-			name: v.optional(v.string()),
-			userId: v.optional(v.string()),
-			isAdminUser: v.boolean(),
-			notifyNewSupportTickets: v.boolean(),
-			notifyUserReplies: v.boolean(),
-			notifyNewSignups: v.boolean(),
-			createdAt: v.number(),
-			updatedAt: v.number()
-		})
-	),
-	handler: async (ctx): Promise<NotificationRecipient[]> => {
-		// Get all preferences
-		const allPrefs = await ctx.db.query('adminNotificationPreferences').collect();
+	args: {
+		cursor: v.optional(v.string()),
+		numItems: v.number(),
+		search: v.optional(v.string()),
+		typeFilter: v.optional(v.union(v.literal('admin'), v.literal('custom'))),
+		sortBy: v.optional(
+			v.object({
+				field: v.union(
+					v.literal('email'),
+					v.literal('name'),
+					v.literal('type'),
+					v.literal('createdAt')
+				),
+				direction: v.union(v.literal('asc'), v.literal('desc'))
+			})
+		)
+	},
+	returns: v.object({
+		items: v.array(
+			v.object({
+				email: v.string(),
+				name: v.optional(v.string()),
+				userId: v.optional(v.string()),
+				isAdminUser: v.boolean(),
+				notifyNewSupportTickets: v.boolean(),
+				notifyUserReplies: v.boolean(),
+				notifyNewSignups: v.boolean(),
+				createdAt: v.number(),
+				updatedAt: v.number()
+			})
+		),
+		continueCursor: v.union(v.string(), v.null()),
+		isDone: v.boolean()
+	}),
+	handler: async (
+		ctx,
+		args
+	): Promise<{
+		items: NotificationRecipient[];
+		continueCursor: string | null;
+		isDone: boolean;
+	}> => {
+		const recipients = await getFilteredSortedRecipients(ctx, {
+			search: args.search,
+			typeFilter: args.typeFilter,
+			sortBy: args.sortBy
+		});
+		const offsetRaw = args.cursor ? Number.parseInt(args.cursor, 10) : 0;
+		const offset = Number.isFinite(offsetRaw) && offsetRaw >= 0 ? offsetRaw : 0;
+		const pageEnd = offset + args.numItems;
+		const items = recipients.slice(offset, pageEnd);
+		const isDone = pageEnd >= recipients.length;
 
-		// Filter to active recipients (admins or custom emails)
-		const activePrefs = allPrefs.filter((p) => p.isAdminUser || p.userId === undefined);
+		return {
+			items,
+			continueCursor: isDone ? null : String(pageEnd),
+			isDone
+		};
+	}
+});
 
-		// Get admin user IDs to fetch names
-		const adminUserIds = activePrefs.filter((p) => p.userId).map((p) => p.userId as string);
-
-		// Fetch admin user data for names
-		const userMap = new Map<string, string>();
-		if (adminUserIds.length > 0) {
-			const usersResult = await ctx.runQuery(components.betterAuth.adapter.findMany, {
-				model: 'user',
-				paginationOpts: { cursor: null, numItems: 100 },
-				where: [{ field: 'role', operator: 'eq', value: 'admin' }]
-			});
-			const users = parseBetterAuthUsers(usersResult.page);
-			for (const user of users) {
-				userMap.set(user._id, user.name || user.email);
-			}
-		}
-
-		// Map to response format with names
-		return activePrefs.map((p) => ({
-			email: p.email,
-			name: p.userId ? userMap.get(p.userId) : undefined,
-			userId: p.userId,
-			isAdminUser: p.isAdminUser,
-			notifyNewSupportTickets: p.notifyNewSupportTickets,
-			notifyUserReplies: p.notifyUserReplies,
-			notifyNewSignups: p.notifyNewSignups,
-			createdAt: p.createdAt,
-			updatedAt: p.updatedAt
-		}));
+export const getNotificationRecipientCount = adminQuery({
+	args: {
+		search: v.optional(v.string()),
+		typeFilter: v.optional(v.union(v.literal('admin'), v.literal('custom')))
+	},
+	returns: v.number(),
+	handler: async (ctx, args): Promise<number> => {
+		const recipients = await getFilteredSortedRecipients(ctx, {
+			search: args.search,
+			typeFilter: args.typeFilter
+		});
+		return recipients.length;
 	}
 });
 
