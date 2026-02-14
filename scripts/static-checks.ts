@@ -2,8 +2,9 @@
  * Unified static checks script (cross-platform TypeScript version)
  *
  * Usage:
- *   bun scripts/static-checks.ts          - Check all files (for CI)
- *   bun scripts/static-checks.ts --staged - Check only staged files (for pre-commit)
+ *   bun scripts/static-checks.ts                      - Check all files (CI)
+ *   bun scripts/static-checks.ts --staged              - Check only staged files (pre-commit)
+ *   bun scripts/static-checks.ts file1.ts file2.svelte - Check specific files
  */
 
 import { spawnSync, type SpawnSyncOptions } from 'child_process';
@@ -26,7 +27,7 @@ const colors = {
 };
 
 // Parse command line arguments
-const { values } = parseArgs({
+const { values, positionals } = parseArgs({
 	args: Bun.argv,
 	options: {
 		staged: { type: 'boolean', default: false }
@@ -36,6 +37,8 @@ const { values } = parseArgs({
 });
 
 const stagedOnly = values.staged ?? false;
+// Skip first two positionals (bun runtime + script path)
+const positionalFiles = positionals.slice(2);
 
 /**
  * Run a command and exit if it fails
@@ -85,6 +88,22 @@ function printHeader(step: number, title: string): void {
 	console.log('======================================================');
 }
 
+/**
+ * Derive file subsets from a list of paths
+ */
+function deriveFileSets(files: string[]) {
+	return {
+		jsTsSvelteFiles: files.filter((f) => /\.(js|ts|svelte)$/.test(f)),
+		formattableFiles: files.filter((f) => /\.(js|ts|svelte|html|css|md|json)$/.test(f)),
+		svelteFiles: files.filter((f) => /\.svelte$/.test(f))
+	};
+}
+
+// Resolve mode: positional files > --staged > full project
+type Mode = 'files' | 'staged' | 'full';
+const mode: Mode = positionalFiles.length > 0 ? 'files' : stagedOnly ? 'staged' : 'full';
+const scopedMode = mode === 'files' || mode === 'staged';
+
 // Main execution
 function main(): void {
 	let allFiles: string[] = [];
@@ -92,7 +111,15 @@ function main(): void {
 	let formattableFiles: string[] = [];
 	let svelteFiles: string[] = [];
 
-	if (stagedOnly) {
+	if (mode === 'files') {
+		allFiles = positionalFiles;
+
+		console.log('======================================================');
+		console.log(`Static Checks (${allFiles.length} specified files)`);
+		console.log('======================================================\n');
+
+		({ jsTsSvelteFiles, formattableFiles, svelteFiles } = deriveFileSets(allFiles));
+	} else if (mode === 'staged') {
 		allFiles = getStagedFiles();
 
 		if (allFiles.length === 0) {
@@ -104,9 +131,7 @@ function main(): void {
 		console.log(`Static Checks (${allFiles.length} staged files)`);
 		console.log('======================================================\n');
 
-		jsTsSvelteFiles = allFiles.filter((f) => /\.(js|ts|svelte)$/.test(f));
-		formattableFiles = allFiles.filter((f) => /\.(js|ts|svelte|html|css|md|json)$/.test(f));
-		svelteFiles = allFiles.filter((f) => /\.svelte$/.test(f));
+		({ jsTsSvelteFiles, formattableFiles, svelteFiles } = deriveFileSets(allFiles));
 	} else {
 		console.log('======================================================');
 		console.log('Static Checks (full project)');
@@ -121,8 +146,8 @@ function main(): void {
 	// 2. Spell checking
 	printHeader(2, 'Spell checking');
 	if (hasMisspell()) {
-		if (stagedOnly) {
-			// Check all staged files (exclude paths matching CI exclusions)
+		if (scopedMode) {
+			// Check scoped files (exclude paths matching CI exclusions)
 			const checkableFiles = allFiles.filter(
 				(f) => !CONFIG.misspell.ignore.some((ignore) => f.includes(ignore))
 			);
@@ -135,7 +160,7 @@ function main(): void {
 					runCommand('misspell', ['-error', ...chunk]);
 				}
 			} else {
-				console.log('No staged files to spell check');
+				console.log('No files to spell check');
 			}
 		} else {
 			// Check all files (matches CI find command exclusions)
@@ -161,7 +186,7 @@ function main(): void {
 
 	// 3. Code formatting
 	printHeader(3, 'Code formatting');
-	if (stagedOnly && formattableFiles.length > 0) {
+	if (scopedMode && formattableFiles.length > 0) {
 		runCommand('bun', [
 			'prettier',
 			'--write',
@@ -169,7 +194,7 @@ function main(): void {
 			'prettier-plugin-svelte',
 			...formattableFiles
 		]);
-	} else if (!stagedOnly) {
+	} else if (!scopedMode) {
 		runCommand('bun', ['run', 'format']);
 	} else {
 		console.log('No files to format');
@@ -178,9 +203,9 @@ function main(): void {
 
 	// 4. ESLint
 	printHeader(4, 'ESLint');
-	if (stagedOnly && jsTsSvelteFiles.length > 0) {
+	if (scopedMode && jsTsSvelteFiles.length > 0) {
 		runCommand('bun', ['eslint', '--fix', ...jsTsSvelteFiles]);
-	} else if (!stagedOnly) {
+	} else if (!scopedMode) {
 		runCommand('bun', ['eslint', '.', '--fix']);
 	} else {
 		console.log('No JS/TS/Svelte files to lint');
@@ -194,7 +219,7 @@ function main(): void {
 
 	// 6. Type checking
 	printHeader(6, 'Type checking');
-	if (stagedOnly && jsTsSvelteFiles.length === 0 && svelteFiles.length === 0) {
+	if (scopedMode && jsTsSvelteFiles.length === 0 && svelteFiles.length === 0) {
 		console.log('No TypeScript/Svelte files to check');
 	} else {
 		runCommand('bun', ['svelte-check', '--tsconfig', './tsconfig.json'], {
@@ -203,8 +228,8 @@ function main(): void {
 	}
 	console.log('\n');
 
-	// Re-stage files if they were modified during staged-only checks
-	if (stagedOnly) {
+	// Re-stage files if they were modified during --staged checks
+	if (mode === 'staged') {
 		console.log('Re-staging modified files...');
 		runCommand('git', ['add', ...allFiles]);
 		console.log('');
