@@ -193,6 +193,24 @@ This project uses **PostHog** for product analytics with an optional **Cloudflar
 - Avoid translated/user-generated strings in test IDs.
 - Keep IDs deterministic and never include runtime values unless the test explicitly needs entity-specific targeting.
 
+#### Convex table kit usage
+
+- Use `createConvexCursorTable(...)` for table state orchestration (URL params, cursor stack, search/filter/sort/page-size resets, and next/previous prefetching).
+- Use `ConvexCursorTableShell` for common chrome (search, toolbar slots, pagination controls, page indicator, rows-per-page).
+- Required backend contract:
+  - list query args: `cursor`, `numItems`, optional `search`, optional filters, optional `sortBy`
+  - list query return: `{ items, continueCursor, isDone }`
+  - count query args: same search/filter set (no cursor)
+  - count query return: `number`
+- Canonical URL keys for tables: `search`, `sort`, `page`, `page_size`, `cursor`, plus feature filter keys (for example `role`, `status`, `type`).
+- Canonical sort serialization: `field.dir` (parser must accept legacy `field:dir` for backwards compatibility).
+- Default URL values must be omitted from links (`search=''`, `sort=''`, `page='1'`, `page_size` default, and default filter values).
+- Shell testid convention:
+  - search: `<prefix>-search`
+  - page indicator: `<prefix>-page-indicator`
+  - pagination: `<prefix>-pagination-prev` / `<prefix>-pagination-next`
+  - keep route-specific row/cell IDs for assertions (for example `recipient-row-*`, `admin-users-email-cell`).
+
 ### Vitest Unit Tests
 
 ## Development

@@ -325,7 +325,7 @@
 				id={sortableId}
 			>
 				<Table.Root>
-					<Table.Header class="sticky top-0 z-10 bg-muted">
+					<Table.Header class="sticky top-0 z-10 bg-muted dark:bg-background">
 						{#each table.getHeaderGroups() as headerGroup (headerGroup.id)}
 							<Table.Row>
 								{#each headerGroup.headers as header (header.id)}

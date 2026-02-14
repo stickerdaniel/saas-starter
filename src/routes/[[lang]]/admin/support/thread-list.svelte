@@ -109,7 +109,7 @@
 
 <div class="flex h-full flex-col">
 	<!-- Filters -->
-	<div class="flex-shrink-0 space-y-3 border-b p-4">
+	<div class="flex-shrink-0 space-y-3 border-b p-4 dark:bg-background">
 		<!-- Search & Status Filter Row -->
 		<div class="flex gap-3">
 			<!-- Search -->
@@ -166,7 +166,7 @@
 			<!-- Loading skeletons -->
 			<div class="scrollbar-thin absolute inset-0 overflow-y-auto">
 				{#each Array(skeletonCount) as _, i (i)}
-					<div class="border-b p-4">
+					<div class="border-b p-4 dark:bg-muted/20">
 						<div class="flex flex-col gap-2">
 							<!-- AvatarHeading skeleton -->
 							<div class="flex min-w-0 flex-1 items-center gap-2">
@@ -199,9 +199,9 @@
 				>
 					{#each threads as thread (thread._id)}
 						<button
-							class="w-full border-b p-4 text-left {thread._id === selectedThreadId
-								? 'bg-muted/70'
-								: 'hover:bg-muted/30'}"
+							class="w-full border-b p-4 text-left dark:bg-muted/20 {thread._id === selectedThreadId
+								? 'bg-muted/70 dark:bg-muted/35'
+								: 'hover:bg-muted/30 dark:hover:bg-muted/50'}"
 							onclick={() => thread._id !== selectedThreadId && onThreadSelect(thread._id)}
 						>
 							<div class="flex flex-col gap-2">
