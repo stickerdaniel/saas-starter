@@ -241,6 +241,9 @@ Avoid stores unless necessary for pub/sub.
 Use the Svelte MCPs Get Documentation tool to get up-to-date Svelte documentation (only call this with a subagent!) and check code with the MCPs autofixer for wrong patterns. Query the svelte repo with btca for new features like remote functions.
 
 Prop names must match the parent's passed prop name exactly.
+
+In Svelte files, use `SvelteSet` / `SvelteMap` from `svelte/reactivity` (avoid native mutable `Set` / `Map`).
+ALWAYS wrap `goto(...)` paths with `resolve(...)` from `$app/paths`.
 </important_info>
 
 ### Static Checks
