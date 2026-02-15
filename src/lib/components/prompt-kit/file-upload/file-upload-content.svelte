@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import { fileUploadContext } from './file-upload-context.svelte';
 	import type { Snippet } from 'svelte';
+	import { IsMounted } from 'runed';
 	import { cn } from '$lib/utils';
 
 	type Props = {
@@ -13,16 +13,9 @@
 	let { class: className, children, ...restProps }: Props = $props();
 
 	const context = fileUploadContext.get();
-	let mounted = $state(false);
+	const mounted = new IsMounted();
 
-	onMount(() => {
-		mounted = true;
-		return () => {
-			mounted = false;
-		};
-	});
-
-	const shouldRender = $derived(context?.isDragging && mounted && !context?.disabled);
+	const shouldRender = $derived(context?.isDragging && mounted.current && !context?.disabled);
 </script>
 
 {#if shouldRender}

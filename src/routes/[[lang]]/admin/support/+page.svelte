@@ -1,9 +1,8 @@
 <script lang="ts">
 	import SEOHead from '$lib/components/SEOHead.svelte';
-	import { untrack } from 'svelte';
 	import * as v from 'valibot';
 	import { useSearchParams } from 'runed/kit';
-	import { Debounced } from 'runed';
+	import { Debounced, watch } from 'runed';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
@@ -85,15 +84,18 @@
 		!debouncedSearch.current ? adminCache.supportThreadCounts.current[cacheKey] : undefined
 	);
 
-	// Update cache when query finishes loading (not during loading), only without search
-	// Use untrack to read cache without creating dependency, and only update if value changed
-	$effect(() => {
-		if (!debouncedSearch.current && !isLoading) {
-			const key = cacheKey;
-			const count = allThreads.length; // Can be 0 for empty results
-			const currentCache = untrack(() => adminCache.supportThreadCounts.current);
+	// Update cache when loading finishes or thread count changes, only without search
+	watch(
+		() => ({
+			search: debouncedSearch.current,
+			loading: isLoading,
+			key: cacheKey,
+			count: allThreads.length
+		}),
+		({ search, loading, key, count }) => {
+			if (search || loading) return;
 
-			// Only update if the value actually changed - prevents infinite loop
+			const currentCache = adminCache.supportThreadCounts.current;
 			if (currentCache[key] !== count) {
 				adminCache.supportThreadCounts.current = {
 					...currentCache,
@@ -101,7 +103,7 @@
 				};
 			}
 		}
-	});
+	);
 
 	// Load more handler for infinite scroll
 	function loadMoreThreads(numItems: number): boolean {

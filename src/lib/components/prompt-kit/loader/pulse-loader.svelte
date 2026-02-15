@@ -1,5 +1,8 @@
 <script lang="ts">
 	import { cn } from '$lib/utils';
+	import { getTranslate } from '@tolgee/svelte';
+
+	const { t } = getTranslate();
 
 	interface Props {
 		class?: string;
@@ -19,5 +22,5 @@
 	<div
 		class="absolute inset-0 animate-[thin-pulse_1.5s_ease-in-out_infinite] rounded-full border-2 border-primary"
 	></div>
-	<span class="sr-only">Loading</span>
+	<span class="sr-only">{$t('aria.loading')}</span>
 </div>

@@ -8,7 +8,6 @@
 	import * as InputGroup from '$lib/components/ui/input-group/index.js';
 	import * as Item from '$lib/components/ui/item/index.js';
 	import * as Field from '$lib/components/ui/field/index.js';
-	import { Label } from '$lib/components/ui/label/index.js';
 	import { toast } from 'svelte-sonner';
 	import { T, getTranslate } from '@tolgee/svelte';
 	import InfoIcon from '@lucide/svelte/icons/info';
@@ -47,8 +46,8 @@
 			const fieldErrors: Record<string, string[]> = {};
 			for (const issue of result.issues) {
 				const path = (issue.path?.[0]?.key as string) || 'newEmail';
-				if (!fieldErrors[path]) fieldErrors[path] = [];
-				fieldErrors[path].push(issue.message);
+				// Keep the first issue per field so inline errors stay focused and predictable.
+				if (!fieldErrors[path]) fieldErrors[path] = [issue.message];
 			}
 			errors = fieldErrors;
 			return false;
@@ -106,91 +105,92 @@
 		<Card.Description><T keyName="settings.email.description" /></Card.Description>
 	</Card.Header>
 	<Card.Content>
-		<div class="space-y-4">
-			<!-- Current Email Display -->
-			<div class="space-y-2">
-				<Label><T keyName="settings.email.current_email_label" /></Label>
-				<InputGroup.Root data-disabled>
-					<InputGroup.Input value={currentEmail} disabled />
-					<InputGroup.Addon align="inline-end">
-						{#if isEmailVerified}
-							<div class="flex items-center gap-1 text-green-600">
-								<CircleCheckIcon class="h-3 w-3" />
-								<InputGroup.Text>
-									<T keyName="settings.email.verified_badge" />
+		<form onsubmit={handleSubmit} class="space-y-4">
+			{#if formError}
+				<Alert.Root variant="destructive">
+					<InfoIcon class="h-4 w-4" />
+					<Alert.Title><T keyName="settings.email.error_title" /></Alert.Title>
+					<Alert.Description>
+						<T keyName={formError} />
+					</Alert.Description>
+				</Alert.Root>
+			{/if}
+
+			<Field.Group>
+				<Field.Field>
+					<Field.Label for="currentEmail">
+						<T keyName="settings.email.current_email_label" />
+					</Field.Label>
+					<InputGroup.Root data-disabled>
+						<InputGroup.Input id="currentEmail" value={currentEmail} disabled />
+						<InputGroup.Addon align="inline-end">
+							{#if isEmailVerified}
+								<div class="flex items-center gap-1 text-green-600">
+									<CircleCheckIcon class="h-3 w-3" />
+									<InputGroup.Text>
+										<T keyName="settings.email.verified_badge" />
+									</InputGroup.Text>
+								</div>
+							{:else}
+								<InputGroup.Text class="text-muted-foreground">
+									<T keyName="settings.email.unverified_badge" />
 								</InputGroup.Text>
-							</div>
-						{:else}
-							<InputGroup.Text class="text-muted-foreground">
-								<T keyName="settings.email.unverified_badge" />
-							</InputGroup.Text>
-						{/if}
-					</InputGroup.Addon>
-				</InputGroup.Root>
-			</div>
+							{/if}
+						</InputGroup.Addon>
+					</InputGroup.Root>
+				</Field.Field>
 
-			<form onsubmit={handleSubmit} class="space-y-4">
-				{#if formError}
-					<Alert.Root variant="destructive">
-						<InfoIcon class="h-4 w-4" />
-						<Alert.Title><T keyName="settings.email.error_title" /></Alert.Title>
-						<Alert.Description>
-							<T keyName={formError} />
-						</Alert.Description>
-					</Alert.Root>
-				{/if}
+				<Field.Field>
+					<Field.Label for="newEmail">
+						<T keyName="settings.email.new_email_label" />
+					</Field.Label>
+					<Input
+						type="email"
+						id="newEmail"
+						name="newEmail"
+						placeholder={$t('settings.email.placeholder')}
+						autocomplete="email"
+						bind:value={formData.newEmail}
+					/>
+					<Field.Error errors={translateValidationErrors(errors.newEmail, $t)} />
+				</Field.Field>
+			</Field.Group>
 
-				<Field.Group>
-					<Field.Field>
-						<Field.Label for="newEmail">
-							<T keyName="settings.email.new_email_label" />
-						</Field.Label>
-						<Input
-							type="email"
-							id="newEmail"
-							name="newEmail"
-							placeholder={$t('settings.email.placeholder')}
-							autocomplete="email"
-							bind:value={formData.newEmail}
-						/>
-						<Field.Error errors={translateValidationErrors(errors.newEmail, $t)} />
-					</Field.Field>
-				</Field.Group>
+			{#if isEmailVerified}
+				<Item.Root variant="muted">
+					<Item.Media variant="icon">
+						<InfoIcon />
+					</Item.Media>
+					<Item.Content>
+						<Item.Title><T keyName="settings.email.verification_required_title" /></Item.Title>
+						<Item.Description>
+							<T keyName="settings.email.verification_required_description" />
+						</Item.Description>
+					</Item.Content>
+				</Item.Root>
+			{:else}
+				<Item.Root variant="muted">
+					<Item.Media variant="icon">
+						<InfoIcon />
+					</Item.Media>
+					<Item.Content>
+						<Item.Title><T keyName="settings.email.not_verified_title" /></Item.Title>
+						<Item.Description>
+							<T keyName="settings.email.not_verified_description" />
+						</Item.Description>
+					</Item.Content>
+				</Item.Root>
+			{/if}
 
-				{#if isEmailVerified}
-					<Item.Root variant="muted">
-						<Item.Media variant="icon">
-							<InfoIcon />
-						</Item.Media>
-						<Item.Content>
-							<Item.Title><T keyName="settings.email.verification_required_title" /></Item.Title>
-							<Item.Description>
-								<T keyName="settings.email.verification_required_description" />
-							</Item.Description>
-						</Item.Content>
-					</Item.Root>
-				{:else}
-					<Item.Root variant="muted">
-						<Item.Media variant="icon">
-							<InfoIcon />
-						</Item.Media>
-						<Item.Content>
-							<Item.Title><T keyName="settings.email.not_verified_title" /></Item.Title>
-							<Item.Description>
-								<T keyName="settings.email.not_verified_description" />
-							</Item.Description>
-						</Item.Content>
-					</Item.Root>
-				{/if}
-
-				<Button type="submit" disabled={isLoading}>
+			<div class="flex justify-end">
+				<Button type="submit" size="sm" disabled={isLoading}>
 					{#if isLoading}
 						<T keyName="settings.email.updating" />
 					{:else}
 						<T keyName="settings.email.update_button" />
 					{/if}
 				</Button>
-			</form>
-		</div>
+			</div>
+		</form>
 	</Card.Content>
 </Card.Root>

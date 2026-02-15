@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { ComponentProps } from 'svelte';
-	import { useMutationObserver } from '$lib/hooks/use-mutation-observer.svelte';
+	import { useMutationObserver } from 'runed';
 	import * as Command from '$lib/components/ui/command/index.js';
 	import { cn } from '$lib/utils.js';
 

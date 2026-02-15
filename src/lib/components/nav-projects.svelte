@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { getTranslate } from '@tolgee/svelte';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
 	import { sidebarContext } from '$lib/components/ui/sidebar/context.svelte.js';
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
@@ -7,6 +8,8 @@
 	import FolderIcon from '@lucide/svelte/icons/folder';
 	import ForwardIcon from '@lucide/svelte/icons/forward';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
+
+	const { t } = getTranslate();
 
 	let {
 		projects
@@ -40,7 +43,7 @@
 						{#snippet child({ props })}
 							<Sidebar.MenuAction showOnHover {...props}>
 								<EllipsisIcon />
-								<span class="sr-only">More</span>
+								<span class="sr-only">{$t('aria.more')}</span>
 							</Sidebar.MenuAction>
 						{/snippet}
 					</DropdownMenu.Trigger>

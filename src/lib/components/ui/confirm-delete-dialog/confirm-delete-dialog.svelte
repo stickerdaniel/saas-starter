@@ -77,7 +77,11 @@
 
 <script lang="ts">
 	import * as AlertDialog from '$lib/components/ui/alert-dialog';
+	import * as Field from '$lib/components/ui/field/index.js';
+	import { getTranslate } from '@tolgee/svelte';
 	import { Input } from '$lib/components/ui/input';
+
+	const { t } = getTranslate();
 </script>
 
 <AlertDialog.Root bind:open={dialogState.open}>
@@ -99,17 +103,23 @@
 				</AlertDialog.Description>
 			</AlertDialog.Header>
 			{#if dialogState.options?.input}
-				<Input
-					bind:value={dialogState.inputText}
-					placeholder={`Enter "${dialogState.options.input.confirmationText}" to confirm.`}
-					onkeydown={(e) => {
-						if (e.key === 'Enter') {
-							// for some reason without this the form will submit and the dialog will close immediately
-							e.preventDefault();
-							dialogState.confirm();
-						}
-					}}
-				/>
+				<Field.Field>
+					<Field.Label for="confirm-delete-input" class="sr-only"
+						>{$t('aria.confirmation')}</Field.Label
+					>
+					<Input
+						id="confirm-delete-input"
+						bind:value={dialogState.inputText}
+						placeholder={`Enter "${dialogState.options.input.confirmationText}" to confirm.`}
+						onkeydown={(e) => {
+							if (e.key === 'Enter') {
+								// Prevent Enter from triggering native form submit before custom confirm flow
+								e.preventDefault();
+								dialogState.confirm();
+							}
+						}}
+					/>
+				</Field.Field>
 			{/if}
 			<AlertDialog.Footer>
 				<AlertDialog.Cancel

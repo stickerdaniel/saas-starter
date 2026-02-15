@@ -7,6 +7,7 @@
 	import * as Kbd from '$lib/components/ui/kbd/index.js';
 	import { localizedHref } from '$lib/utils/i18n';
 	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
+	import { watch } from 'runed';
 	import { getTranslate } from '@tolgee/svelte';
 	import { useQuery } from 'convex-svelte';
 	import ArrowRightIcon from '@lucide/svelte/icons/arrow-right';
@@ -50,14 +51,22 @@
 		role: auth.isAuthenticated ? (viewer.data?.role ?? null) : null
 	});
 
-	$effect(() => {
-		if (auth.isLoading) return;
-
-		lastStableAuth = {
+	// Only update stable auth snapshot when auth finishes loading
+	watch(
+		() => ({
+			isLoading: auth.isLoading,
 			isAuthenticated: auth.isAuthenticated,
-			role: auth.isAuthenticated ? (viewer.data?.role ?? null) : null
-		};
-	});
+			role: viewer.data?.role ?? null
+		}),
+		({ isLoading, isAuthenticated, role }) => {
+			if (isLoading) return;
+
+			lastStableAuth = {
+				isAuthenticated,
+				role: isAuthenticated ? role : null
+			};
+		}
+	);
 
 	const effectiveAuth = $derived.by<EffectiveAuthState>(() => {
 		if (auth.isLoading) return lastStableAuth;

@@ -55,6 +55,24 @@
 	const ctx = getChatUIContext();
 	const chatCtx = new ChatContainerContext();
 
+	// Resolve the actual background color from the nearest ancestor for the bottom gradient
+	let wrapperEl: HTMLDivElement | undefined = $state();
+	let resolvedBg = $state('');
+
+	$effect(() => {
+		if (!wrapperEl) return;
+		// Walk up to find the first ancestor with a non-transparent background
+		let el: HTMLElement | null = wrapperEl;
+		while (el) {
+			const bg = getComputedStyle(el).backgroundColor;
+			if (bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent') {
+				resolvedBg = bg;
+				return;
+			}
+			el = el.parentElement;
+		}
+	});
+
 	// Handoff message text to detect - use the same translation as backend
 	const HANDOFF_MESSAGE = $derived($t('backend.support.handoff.response').split('.')[0] + '.');
 
@@ -138,7 +156,7 @@
 	);
 </script>
 
-<div class="relative h-full {className}">
+<div bind:this={wrapperEl} class="relative h-full {className}">
 	<ChatContainerRoot ctx={chatCtx} class="h-full">
 		<ChatContainerContent class="!h-full">
 			{#if ctx.displayMessages.length === 0}
@@ -179,12 +197,20 @@
 		/>
 	</div>
 
-	<!-- Blur pinned to chat viewport bottom (outside scroll container) -->
+	<!-- Blur pinned to chat viewport bottom, inset to avoid the scrollbar -->
 	{#if ctx.displayMessages.length > 0}
-		<ProgressiveBlur
-			class="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-20 w-full"
-			direction="bottom"
-			blurIntensity={1}
-		/>
+		<div
+			class="pointer-events-none absolute bottom-0 left-0 z-10"
+			style="right: var(--scrollbar-w, 0px); height: 5rem;"
+		>
+			<ProgressiveBlur class="absolute inset-0" direction="bottom" blurIntensity={1} />
+			<!-- Gradient overlay: fades from transparent to parent background over the tucked-under portion -->
+			{#if resolvedBg}
+				<div
+					class="absolute inset-x-0 bottom-0 h-4"
+					style="background: linear-gradient(to bottom, transparent, {resolvedBg});"
+				></div>
+			{/if}
+		</div>
 	{/if}
 </div>
