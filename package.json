@@ -29,7 +29,13 @@
 		"i18n:push": "dotenv -e .env.local -- tolgee push",
 		"i18n:cleanup": "dotenv -e .env.local -- tolgee tag --filter-not-extracted --filter-tag production --tag deprecated --untag production",
 		"worktree": "bun scripts/create-worktree.ts",
-		"worktree:setup": "bun scripts/create-worktree.ts --setup-only"
+		"worktree:setup": "bun scripts/create-worktree.ts --setup-only",
+		"admin:generate:resource": "bun scripts/admin/generate-resource.ts",
+		"admin:generate:field": "bun scripts/admin/generate-field.ts",
+		"admin:generate:filter": "bun scripts/admin/generate-filter.ts",
+		"admin:generate:action": "bun scripts/admin/generate-action.ts",
+		"admin:generate:lens": "bun scripts/admin/generate-lens.ts",
+		"admin:generate:metric": "bun scripts/admin/generate-metric.ts"
 	},
 	"dependencies": {
 		"@better-auth/passkey": "^1.4.10",

@@ -1,0 +1,142 @@
+import type { Component } from 'svelte';
+import type { IconProps } from '@lucide/svelte';
+import type { GenericSchema } from 'valibot';
+import type { BetterAuthUser } from '$lib/convex/admin/types';
+
+export type LucideIcon = Component<IconProps, object, ''>;
+
+export type FieldType =
+	| 'text'
+	| 'textarea'
+	| 'number'
+	| 'boolean'
+	| 'select'
+	| 'date'
+	| 'datetime'
+	| 'email'
+	| 'url'
+	| 'json'
+	| 'badge'
+	| 'belongsTo'
+	| 'hasMany'
+	| 'manyToMany'
+	| 'morphTo';
+
+export type FieldContext = 'index' | 'detail' | 'form' | 'preview';
+
+export type FieldDependency = {
+	field: string;
+	value?: unknown;
+	predicate?: (value: unknown) => boolean;
+};
+
+export type FieldOption = {
+	value: string;
+	labelKey: string;
+};
+
+export type FieldDefinition<_TTable extends string = string> = {
+	type: FieldType;
+	attribute: string;
+	labelKey: string;
+	helpTextKey?: string;
+	placeholderKey?: string;
+	ariaLabelKey?: string;
+	sortable?: boolean;
+	searchable?: boolean;
+	filterable?: boolean;
+	showOnIndex?: boolean;
+	showOnDetail?: boolean;
+	showOnForm?: boolean;
+	rules?: GenericSchema;
+	readonly?: boolean | ((ctx: { user: BetterAuthUser; record?: unknown }) => boolean);
+	immutable?: boolean | ((ctx: { user: BetterAuthUser; record?: unknown }) => boolean);
+	dependsOn?: FieldDependency;
+	resolveUsing?: (record: unknown) => unknown;
+	displayUsing?: (value: unknown, record: unknown) => string;
+	fillUsing?: (value: unknown) => unknown;
+	canSee?: (user: BetterAuthUser, record?: unknown) => boolean;
+	securityLevel?: 'server' | 'client';
+	options?: FieldOption[];
+	defaultValue?: unknown;
+	relation?: {
+		resourceName: string;
+		valueField: string;
+		labelField: string;
+	};
+};
+
+export type ActionDefinition = {
+	key: string;
+	nameKey: string;
+	confirmTextKey?: string;
+	confirmButtonTextKey?: string;
+	cancelButtonTextKey?: string;
+	destructive?: boolean;
+	showOnIndex?: boolean;
+	showOnDetail?: boolean;
+	showInline?: boolean;
+	standalone?: boolean;
+	sole?: boolean;
+	withoutConfirmation?: boolean;
+	fields?: Array<FieldDefinition<any>>;
+	canRun?: (user: BetterAuthUser, record?: unknown) => boolean;
+};
+
+export type FilterOption = {
+	value: string;
+	labelKey: string;
+};
+
+export type FilterDefinition = {
+	key: string;
+	labelKey: string;
+	type: 'select' | 'boolean';
+	urlKey: string;
+	defaultValue: string;
+	options: FilterOption[];
+};
+
+export type LensDefinition<TTable extends string = string> = {
+	key: string;
+	nameKey: string;
+	fields?: Array<FieldDefinition<TTable>>;
+	filters?: FilterDefinition[];
+	actions?: ActionDefinition[];
+};
+
+export type MetricDefinition = {
+	key: string;
+	type: 'value' | 'trend' | 'partition' | 'progress' | 'table';
+	labelKey: string;
+	rangeOptions?: Array<{ value: string; labelKey: string }>;
+	format?: 'number' | 'currency' | 'percent';
+};
+
+export type ResourceDefinition<TTable extends string = string> = {
+	name: string;
+	table: TTable;
+	groupKey: string;
+	navTitleKey: string;
+	icon: LucideIcon;
+	title: (record: Record<string, unknown>) => string;
+	subtitle?: (record: Record<string, unknown>) => string;
+	search?: string[];
+	sortFields?: string[];
+	perPageOptions?: number[];
+	softDeletes?: boolean;
+	clickAction?: 'detail' | 'edit' | 'select' | 'preview' | 'ignore';
+	fields: Array<FieldDefinition<TTable>>;
+	filters?: FilterDefinition[];
+	actions?: ActionDefinition[];
+	lenses?: Array<LensDefinition<TTable>>;
+	metrics?: MetricDefinition[];
+	canSee?: (user: BetterAuthUser) => boolean;
+};
+
+export type ResourceName = string;
+
+export type ResourceGroup = {
+	groupKey: string;
+	resources: ResourceDefinition<any>[];
+};

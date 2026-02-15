@@ -391,3 +391,133 @@ export const cleanupTestData = mutation({
 		};
 	}
 });
+
+// Seed demo data for Nova-like admin framework resources.
+// Note: This mutation requires AUTH_E2E_TEST_SECRET for security.
+export const seedAdminFrameworkDemoData = mutation({
+	args: { secret: v.string(), reset: v.optional(v.boolean()) },
+	handler: async (ctx, { secret, reset }) => {
+		const expectedSecret = process.env.AUTH_E2E_TEST_SECRET;
+		if (!expectedSecret || secret !== expectedSecret) {
+			throw new Error('Unauthorized: Invalid test secret');
+		}
+
+		if (reset) {
+			const [comments, tasks, pivots, tags, projects] = await Promise.all([
+				ctx.db.query('adminDemoComments').collect(),
+				ctx.db.query('adminDemoTasks').collect(),
+				ctx.db.query('adminDemoProjectTags').collect(),
+				ctx.db.query('adminDemoTags').collect(),
+				ctx.db.query('adminDemoProjects').collect()
+			]);
+			for (const row of comments) await ctx.db.delete(row._id);
+			for (const row of tasks) await ctx.db.delete(row._id);
+			for (const row of pivots) await ctx.db.delete(row._id);
+			for (const row of tags) await ctx.db.delete(row._id);
+			for (const row of projects) await ctx.db.delete(row._id);
+		}
+
+		const existingProjects = await ctx.db.query('adminDemoProjects').take(1);
+		if (existingProjects.length > 0) {
+			return { seeded: false };
+		}
+
+		const now = Date.now();
+		const urgentTagId = await ctx.db.insert('adminDemoTags', {
+			name: 'Urgent',
+			color: '#ef4444',
+			createdAt: now,
+			updatedAt: now
+		});
+		const growthTagId = await ctx.db.insert('adminDemoTags', {
+			name: 'Growth',
+			color: '#22c55e',
+			createdAt: now,
+			updatedAt: now
+		});
+		const platformTagId = await ctx.db.insert('adminDemoTags', {
+			name: 'Platform',
+			color: '#3b82f6',
+			createdAt: now,
+			updatedAt: now
+		});
+
+		const projectIds: string[] = [];
+		for (const [index, status] of (['draft', 'active', 'active', 'archived'] as const).entries()) {
+			const projectId = await ctx.db.insert('adminDemoProjects', {
+				name: `Demo Project ${index + 1}`,
+				slug: `demo-project-${index + 1}`,
+				status,
+				ownerEmail: `owner${index + 1}@example.com`,
+				budget: 4_000 + index * 1_500,
+				isFeatured: index % 2 === 0,
+				description: `Seeded demo project ${index + 1}`,
+				createdAt: now - index * 60_000,
+				updatedAt: now - index * 60_000
+			});
+			projectIds.push(projectId);
+		}
+
+		for (const projectId of projectIds) {
+			await ctx.db.insert('adminDemoProjectTags', {
+				projectId: projectId as any,
+				tagId: urgentTagId,
+				createdAt: now
+			});
+			await ctx.db.insert('adminDemoProjectTags', {
+				projectId: projectId as any,
+				tagId: growthTagId,
+				createdAt: now
+			});
+		}
+
+		const taskIds: string[] = [];
+		for (const [index, status] of (
+			['todo', 'in_progress', 'done', 'todo', 'in_progress'] as const
+		).entries()) {
+			const taskId = await ctx.db.insert('adminDemoTasks', {
+				projectId: projectIds[index % projectIds.length] as any,
+				title: `Demo Task ${index + 1}`,
+				status,
+				priority: (['low', 'medium', 'high'] as const)[index % 3],
+				estimateHours: 2 + index,
+				assigneeEmail: `assignee${index + 1}@example.com`,
+				createdAt: now - index * 30_000,
+				updatedAt: now - index * 30_000
+			});
+			taskIds.push(taskId);
+		}
+
+		for (const [index, projectId] of projectIds.entries()) {
+			await ctx.db.insert('adminDemoComments', {
+				text: `Project comment ${index + 1}`,
+				authorEmail: `author${index + 1}@example.com`,
+				target: { kind: 'project', id: projectId as any },
+				targetProjectId: projectId as any,
+				targetTaskId: undefined,
+				createdAt: now - index * 20_000,
+				updatedAt: now - index * 20_000
+			});
+		}
+
+		for (const [index, taskId] of taskIds.entries()) {
+			await ctx.db.insert('adminDemoComments', {
+				text: `Task comment ${index + 1}`,
+				authorEmail: `task-author${index + 1}@example.com`,
+				target: { kind: 'task', id: taskId as any },
+				targetProjectId: undefined,
+				targetTaskId: taskId as any,
+				createdAt: now - index * 10_000,
+				updatedAt: now - index * 10_000
+			});
+		}
+
+		void platformTagId;
+
+		return {
+			seeded: true,
+			projectCount: projectIds.length,
+			taskCount: taskIds.length
+		};
+	}
+});

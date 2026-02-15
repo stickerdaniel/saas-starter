@@ -244,6 +244,186 @@
 			"unnamed": "Sans nom",
 			"unverified": "Non vérifié",
 			"verified": "Vérifié"
+		},
+		"resources": {
+			"groups": {
+				"demo_data": "Demo Resources"
+			},
+			"filters": {
+				"all": "All",
+				"clear": "Clear",
+				"select_placeholder": "Select option"
+			},
+			"values": {
+				"yes": "Yes",
+				"no": "No",
+				"enabled": "Enabled"
+			},
+			"columns": {
+				"actions": "Actions"
+			},
+			"search_placeholder": "Search resources...",
+			"rows_per_page": "Rows per page",
+			"selected": "{selected} of {total} selected",
+			"loading": "Loading resources...",
+			"empty": "No records found.",
+			"lenses": {
+				"all": "All Lenses"
+			},
+			"trashed": {
+				"without": "Without Trashed",
+				"with": "With Trashed",
+				"only": "Only Trashed"
+			},
+			"aria": {
+				"select_all": "Select all rows",
+				"select_row": "Select row"
+			},
+			"toasts": {
+				"created": "Resource created",
+				"updated": "Resource updated",
+				"save_error": "Failed to save resource",
+				"action_success": "Action completed",
+				"action_error": "Action failed",
+				"deleted": "Record deleted",
+				"restored": "Record restored",
+				"force_deleted": "Record permanently deleted",
+				"replicated": "Record replicated"
+			},
+			"sections": {
+				"preview": "Preview",
+				"details": "Details"
+			},
+			"form": {
+				"required": "This field is required",
+				"no_relation_options": "No options available"
+			},
+			"actions": {
+				"create": "Create",
+				"create_resource": "Create {resource}",
+				"edit": "Edit",
+				"view": "View",
+				"delete": "Delete",
+				"restore": "Restore",
+				"force_delete": "Force Delete",
+				"replicate": "Replicate"
+			},
+			"projects": {
+				"nav_title": "Demo Projects",
+				"fields": {
+					"name": "Name",
+					"slug": "Slug",
+					"status": "Status",
+					"owner_email": "Owner Email",
+					"budget": "Budget",
+					"featured": "Featured",
+					"description": "Description",
+					"tags": "Tags",
+					"tasks": "Tasks",
+					"tag": "Tag"
+				},
+				"options": {
+					"status_draft": "Draft",
+					"status_active": "Active",
+					"status_archived": "Archived"
+				},
+				"filters": {
+					"status": "Status",
+					"featured": "Featured",
+					"featured_only": "Featured Only",
+					"regular_only": "Regular Only"
+				},
+				"actions": {
+					"feature": "Mark Featured",
+					"archive": "Archive",
+					"attach_tag": "Attach Tag"
+				},
+				"lenses": {
+					"featured": "Featured Projects",
+					"archived": "Archived Projects",
+					"active": "Active Projects"
+				},
+				"metrics": {
+					"total": "Total Projects",
+					"active": "Active Projects",
+					"featured": "Featured Projects",
+					"budget": "Active Budget"
+				}
+			},
+			"tasks": {
+				"nav_title": "Demo Tasks",
+				"fields": {
+					"title": "Title",
+					"project": "Project",
+					"status": "Status",
+					"priority": "Priority",
+					"estimate_hours": "Estimate Hours",
+					"assignee_email": "Assignee Email"
+				},
+				"options": {
+					"todo": "Todo",
+					"in_progress": "In Progress",
+					"done": "Done",
+					"low": "Low",
+					"medium": "Medium",
+					"high": "High"
+				},
+				"filters": {
+					"status": "Status",
+					"priority": "Priority"
+				},
+				"actions": {
+					"mark_done": "Mark Done",
+					"mark_in_progress": "Mark In Progress"
+				},
+				"lenses": {
+					"due": "Due Tasks",
+					"completed": "Completed Tasks"
+				},
+				"metrics": {
+					"todo": "Todo",
+					"in_progress": "In Progress",
+					"done": "Done",
+					"estimate": "Estimated Hours"
+				}
+			},
+			"comments": {
+				"nav_title": "Demo Comments",
+				"fields": {
+					"text": "Text",
+					"author_email": "Author Email",
+					"target": "Target"
+				},
+				"options": {
+					"project": "Project",
+					"task": "Task"
+				},
+				"filters": {
+					"target_kind": "Target Kind"
+				},
+				"actions": {
+					"mark_reviewed": "Mark Reviewed"
+				},
+				"lenses": {
+					"project": "Project Comments",
+					"task": "Task Comments"
+				},
+				"metrics": {
+					"total": "Total Comments",
+					"project": "Project Comments",
+					"task": "Task Comments"
+				}
+			},
+			"tags": {
+				"nav_title": "Demo Tags",
+				"fields": {
+					"name": "Name",
+					"color": "Color"
+				},
+				"metrics": {
+					"total": "Total Tags"
+				}
+			}
 		}
 	},
 	"app": {
@@ -269,47 +449,47 @@
 		}
 	},
 	"aria": {
+		"actions": "Actions",
 		"breadcrumb": "fil d'Ariane",
 		"change_language": "Changer la langue",
 		"close": "Fermer",
+		"confirmation": "Confirmation",
+		"copied": "Copié",
+		"copy": "Copier",
+		"copy_failed": "Échec de la copie",
+		"drag_to_reorder": "Glisser pour réorganiser",
 		"feedback_close": "Fermer les commentaires",
 		"feedback_open": "Ouvrir les commentaires",
 		"github_repository": "Dépôt GitHub",
 		"go_back": "Retour",
-		"home": "accueil",
-		"logout": "Se déconnecter",
-		"menu_close": "Fermer le menu",
-		"menu_open": "Ouvrir le menu",
-		"remove_attachment": "Supprimer la pièce jointe",
-		"select_value": "Sélectionner une valeur",
-		"toggle_sidebar": "Basculer la barre latérale",
-		"loading": "Chargement",
-		"more": "Plus",
-		"toggle_theme": "Changer le thème",
-		"copy": "Copier",
-		"copied": "Copié",
-		"copy_failed": "Échec de la copie",
-		"scroll_to_bottom": "Faire défiler vers le bas",
-		"show_password": "Afficher le mot de passe",
 		"hide_password": "Masquer le mot de passe",
-		"drag_to_reorder": "Glisser pour réorganiser",
-		"pagination_first": "Première page",
-		"pagination_previous": "Page précédente",
-		"pagination_next": "Page suivante",
-		"pagination_last": "Dernière page",
-		"view": "Voir",
-		"limit": "Limite",
-		"target": "Cible",
-		"reviewer": "Réviseur",
-		"confirmation": "Confirmation",
+		"home": "accueil",
 		"interactive_pointer_tracking_area": "Zone interactive de suivi du pointeur",
-		"notification_toggle_for_email": "{field} pour {email}",
-		"select_all": "Tout sélectionner",
-		"select_row": "Sélectionner la ligne",
+		"limit": "Limite",
+		"loading": "Chargement",
 		"login_with_apple": "Se connecter avec Apple",
 		"login_with_google": "Se connecter avec Google",
 		"login_with_meta": "Se connecter avec Meta",
-		"actions": "Actions"
+		"logout": "Se déconnecter",
+		"menu_close": "Fermer le menu",
+		"menu_open": "Ouvrir le menu",
+		"more": "Plus",
+		"notification_toggle_for_email": "{field} pour {email}",
+		"pagination_first": "Première page",
+		"pagination_last": "Dernière page",
+		"pagination_next": "Page suivante",
+		"pagination_previous": "Page précédente",
+		"remove_attachment": "Supprimer la pièce jointe",
+		"reviewer": "Réviseur",
+		"scroll_to_bottom": "Faire défiler vers le bas",
+		"select_all": "Tout sélectionner",
+		"select_row": "Sélectionner la ligne",
+		"select_value": "Sélectionner une valeur",
+		"show_password": "Afficher le mot de passe",
+		"target": "Cible",
+		"toggle_sidebar": "Basculer la barre latérale",
+		"toggle_theme": "Changer le thème",
+		"view": "Voir"
 	},
 	"auth": {
 		"back_to_home": "Retour à l'accueil",
@@ -664,6 +844,22 @@
 			"users": {
 				"description": "Gérez les utilisateurs, les rôles et l'état des comptes.",
 				"title": "Gestion des utilisateurs"
+			},
+			"resource_index": {
+				"title": "{resource}",
+				"description": "Browse and manage {resource}."
+			},
+			"resource_create": {
+				"title": "Create {resource}",
+				"description": "Create a new {resource} record."
+			},
+			"resource_edit": {
+				"title": "Edit {resource}",
+				"description": "Edit a {resource} record."
+			},
+			"resource_detail": {
+				"title": "{resource} Details",
+				"description": "Review {resource} details and actions."
 			}
 		},
 		"app": {

@@ -155,7 +155,84 @@ export default defineSchema({
 	})
 		.index('by_fileId', ['fileId'])
 		.index('by_storageId', ['storageId'])
-		.index('by_url', ['url'])
+		.index('by_url', ['url']),
+
+	// Admin framework demo resource tables
+	adminDemoProjects: defineTable({
+		name: v.string(),
+		slug: v.string(),
+		status: v.union(v.literal('draft'), v.literal('active'), v.literal('archived')),
+		ownerEmail: v.string(),
+		budget: v.number(),
+		isFeatured: v.boolean(),
+		description: v.optional(v.string()),
+		deletedAt: v.optional(v.number()),
+		createdAt: v.number(),
+		updatedAt: v.number()
+	})
+		.index('by_slug', ['slug'])
+		.index('by_status', ['status'])
+		.index('by_deleted', ['deletedAt'])
+		.searchIndex('search_name_description', {
+			searchField: 'name',
+			filterFields: ['status', 'deletedAt']
+		}),
+
+	adminDemoTags: defineTable({
+		name: v.string(),
+		color: v.string(),
+		createdAt: v.number(),
+		updatedAt: v.number()
+	}).index('by_name', ['name']),
+
+	adminDemoProjectTags: defineTable({
+		projectId: v.id('adminDemoProjects'),
+		tagId: v.id('adminDemoTags'),
+		createdAt: v.number()
+	})
+		.index('by_project', ['projectId'])
+		.index('by_tag', ['tagId'])
+		.index('by_project_and_tag', ['projectId', 'tagId']),
+
+	adminDemoTasks: defineTable({
+		projectId: v.id('adminDemoProjects'),
+		title: v.string(),
+		status: v.union(v.literal('todo'), v.literal('in_progress'), v.literal('done')),
+		priority: v.union(v.literal('low'), v.literal('medium'), v.literal('high')),
+		estimateHours: v.number(),
+		assigneeEmail: v.optional(v.string()),
+		deletedAt: v.optional(v.number()),
+		createdAt: v.number(),
+		updatedAt: v.number()
+	})
+		.index('by_project', ['projectId'])
+		.index('by_status', ['status'])
+		.index('by_deleted', ['deletedAt'])
+		.searchIndex('search_title', {
+			searchField: 'title',
+			filterFields: ['status', 'priority', 'deletedAt']
+		}),
+
+	adminDemoComments: defineTable({
+		text: v.string(),
+		authorEmail: v.string(),
+		target: v.union(
+			v.object({ kind: v.literal('project'), id: v.id('adminDemoProjects') }),
+			v.object({ kind: v.literal('task'), id: v.id('adminDemoTasks') })
+		),
+		targetProjectId: v.optional(v.id('adminDemoProjects')),
+		targetTaskId: v.optional(v.id('adminDemoTasks')),
+		deletedAt: v.optional(v.number()),
+		createdAt: v.number(),
+		updatedAt: v.number()
+	})
+		.index('by_target_project', ['targetProjectId'])
+		.index('by_target_task', ['targetTaskId'])
+		.index('by_deleted', ['deletedAt'])
+		.searchIndex('search_text', {
+			searchField: 'text',
+			filterFields: ['deletedAt']
+		})
 
 	// Note: The agent component automatically creates the following tables:
 	// - agent:threads - Conversation threads for customer support
