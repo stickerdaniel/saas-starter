@@ -1,3 +1,5 @@
+import { getResourceDefinitions } from '$lib/admin/registry';
+
 export type SearchAccess = 'public' | 'authenticated' | 'admin';
 
 export type SearchRouteGroup = 'public' | 'authentication' | 'app' | 'admin';
@@ -10,6 +12,14 @@ export interface SearchRouteEntry {
 	seoTitleKey?: string;
 	keywords?: string[];
 }
+
+const ADMIN_RESOURCE_ROUTES: SearchRouteEntry[] = getResourceDefinitions().map((resource) => ({
+	href: `/admin/${resource.name}`,
+	access: 'admin',
+	group: 'admin',
+	titleKey: resource.navTitleKey,
+	keywords: ['admin', 'resource', resource.name]
+}));
 
 export const SEARCH_ROUTES: SearchRouteEntry[] = [
 	{
@@ -103,7 +113,8 @@ export const SEARCH_ROUTES: SearchRouteEntry[] = [
 		group: 'admin',
 		titleKey: 'admin.sidebar.settings',
 		keywords: ['admin settings']
-	}
+	},
+	...ADMIN_RESOURCE_ROUTES
 ];
 
 export function titleizeRouteFromHref(href: string): string {

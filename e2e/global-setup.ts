@@ -133,6 +133,12 @@ async function globalSetup() {
 		threadIds: []
 	};
 
+	// Seed deterministic demo admin resources used by admin framework E2E tests.
+	await client.mutation(api.tests.seedAdminFrameworkDemoData, {
+		secret: testSecret,
+		reset: true
+	});
+
 	// Save credentials for tests to read
 	const authDir = path.join(process.cwd(), 'e2e', '.auth');
 	if (!fs.existsSync(authDir)) {
