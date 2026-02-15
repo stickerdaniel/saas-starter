@@ -7,6 +7,7 @@ import ServerCogIcon from '@lucide/svelte/icons/server-cog';
 import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
 import HomeIcon from '@lucide/svelte/icons/home';
 import AppWindowIcon from '@lucide/svelte/icons/app-window';
+import { getResourceDefinitions } from '$lib/admin/registry';
 import type { SidebarConfig } from '../types';
 
 interface PageState {
@@ -17,6 +18,12 @@ interface PageState {
 
 export function getAdminSidebarConfig(pageState: PageState): SidebarConfig {
 	const { pathname, lang, supportBadge } = pageState;
+	const resourceNavItems = getResourceDefinitions().map((resource) => ({
+		translationKey: resource.navTitleKey,
+		url: localizedHref(`/admin/${resource.name}`),
+		icon: resource.icon,
+		isActive: pathname.startsWith(`/${lang}/admin/${resource.name}`)
+	}));
 
 	return {
 		header: {
@@ -61,7 +68,8 @@ export function getAdminSidebarConfig(pageState: PageState): SidebarConfig {
 				url: localizedHref('/admin/settings'),
 				icon: SettingsIcon,
 				isActive: pathname.startsWith(`/${lang}/admin/settings`)
-			}
+			},
+			...resourceNavItems
 		],
 		footerLinks: [
 			{

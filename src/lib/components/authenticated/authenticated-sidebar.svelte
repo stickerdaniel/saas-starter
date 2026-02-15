@@ -14,6 +14,18 @@
 	}
 
 	let { config, user, ...restProps }: Props = $props();
+
+	function toTestId(url: string) {
+		const normalized = url.replace(/^https?:\/\/[^/]+/, '');
+		const segments = normalized
+			.split('/')
+			.filter(Boolean)
+			.map((segment) => segment.replaceAll(':', '').replaceAll('.', ''));
+		if (segments.length > 0 && /^[a-z]{2}(?:-[A-Z]{2})?$/.test(segments[0])) {
+			segments.shift();
+		}
+		return segments.join('-');
+	}
 </script>
 
 <Sidebar.Root collapsible="offcanvas" {...restProps}>
@@ -70,6 +82,7 @@
 						<Sidebar.MenuItem>
 							<Sidebar.MenuButton
 								class={item.isActive ? 'bg-sidebar-accent text-sidebar-accent-foreground' : ''}
+								data-testid={`sidebar-nav-${toTestId(item.url)}`}
 							>
 								{#snippet child({ props })}
 									<a href={resolve(item.url)} onclick={() => haptic.trigger('light')} {...props}>
