@@ -56,7 +56,7 @@ async function resolveCommentTarget(ctx: any, comment: AdminDemoComment) {
 }
 
 function resolvedTargetKind(filters: Record<string, string>, lens?: string) {
-	if (filters.targetKind && filters.targetKind !== 'all') return filters.targetKind;
+	if (filters.target_kind && filters.target_kind !== 'all') return filters.target_kind;
 	if (lens === 'project' || lens === 'task') return lens;
 	return undefined;
 }
@@ -70,9 +70,9 @@ function matchesCommentLens(comment: AdminDemoComment, lens: string | undefined)
 
 function matchesCommentFilters(comment: AdminDemoComment, filters: Record<string, string>) {
 	if (
-		filters.targetKind &&
-		filters.targetKind !== 'all' &&
-		comment.target.kind !== filters.targetKind
+		filters.target_kind &&
+		filters.target_kind !== 'all' &&
+		comment.target.kind !== filters.target_kind
 	) {
 		return false;
 	}

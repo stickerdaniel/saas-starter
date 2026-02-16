@@ -1,3 +1,4 @@
+export {};
 const [, , rawResource, rawAttribute = 'name', rawType = 'text'] = process.argv;
 
 if (!rawResource) {

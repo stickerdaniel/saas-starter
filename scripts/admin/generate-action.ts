@@ -1,3 +1,4 @@
+export {};
 const [, , rawResource, rawKey = 'actionKey'] = process.argv;
 
 if (!rawResource) {

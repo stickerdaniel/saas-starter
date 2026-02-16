@@ -1,3 +1,4 @@
+export {};
 const [, , rawResource, rawKey = 'status'] = process.argv;
 
 if (!rawResource) {

@@ -101,7 +101,7 @@
 	let relationOptionsLoadError = $state(false);
 
 	async function executeAction(action: ActionDefinition, values: Record<string, unknown>) {
-		await executeResourceAction({
+		return executeResourceAction({
 			client,
 			runtime,
 			action: action.key,
@@ -160,8 +160,10 @@
 		if (!activeAction) return;
 		actionBusy = true;
 		try {
-			await executeAction(activeAction, actionValues);
-			actionOpen = false;
+			const response = await executeAction(activeAction, actionValues);
+			if (response.type !== 'danger') {
+				actionOpen = false;
+			}
 		} catch (error) {
 			const message =
 				error instanceof Error ? error.message : $t('admin.resources.toasts.action_error');
@@ -173,9 +175,14 @@
 
 	async function handleDelete() {
 		if (!canDeleteRecord) return;
-		await client.mutation(runtime.delete, { id: page.params.id } as never);
-		toast.success($t('admin.resources.toasts.deleted'));
-		await goto(resolve(`/${page.params.lang}/admin/${resource.name}`));
+		try {
+			await client.mutation(runtime.delete, { id: page.params.id } as never);
+			toast.success($t('admin.resources.toasts.deleted'));
+			await goto(resolve(`/${page.params.lang}/admin/${resource.name}`));
+		} catch (error) {
+			console.error(`[admin:${resource.name}] delete failed`, error);
+			toast.error($t('admin.resources.toasts.action_error'));
+		}
 	}
 
 	function confirmDeleteRecord() {
@@ -196,15 +203,25 @@
 
 	async function handleRestore() {
 		if (!canDeleteRecord) return;
-		await client.mutation(runtime.restore, { id: page.params.id } as never);
-		toast.success($t('admin.resources.toasts.restored'));
+		try {
+			await client.mutation(runtime.restore, { id: page.params.id } as never);
+			toast.success($t('admin.resources.toasts.restored'));
+		} catch (error) {
+			console.error(`[admin:${resource.name}] restore failed`, error);
+			toast.error($t('admin.resources.toasts.action_error'));
+		}
 	}
 
 	async function handleForceDelete() {
 		if (!canDeleteRecord) return;
-		await client.mutation(runtime.forceDelete, { id: page.params.id } as never);
-		toast.success($t('admin.resources.toasts.force_deleted'));
-		await goto(resolve(`/${page.params.lang}/admin/${resource.name}`));
+		try {
+			await client.mutation(runtime.forceDelete, { id: page.params.id } as never);
+			toast.success($t('admin.resources.toasts.force_deleted'));
+			await goto(resolve(`/${page.params.lang}/admin/${resource.name}`));
+		} catch (error) {
+			console.error(`[admin:${resource.name}] force delete failed`, error);
+			toast.error($t('admin.resources.toasts.action_error'));
+		}
 	}
 
 	function confirmForceDeleteRecord() {
@@ -225,8 +242,13 @@
 
 	async function handleReplicate() {
 		if (!canUpdateRecord) return;
-		await client.mutation(runtime.replicate, { id: page.params.id } as never);
-		toast.success($t('admin.resources.toasts.replicated'));
+		try {
+			await client.mutation(runtime.replicate, { id: page.params.id } as never);
+			toast.success($t('admin.resources.toasts.replicated'));
+		} catch (error) {
+			console.error(`[admin:${resource.name}] replicate failed`, error);
+			toast.error($t('admin.resources.toasts.action_error'));
+		}
 	}
 </script>
 

@@ -197,11 +197,13 @@
 		)
 	);
 	let metricsCards = $state<any[]>([]);
+	let metricsLoadError = $state(false);
 	let metricsRequestId = 0;
 	$effect(() => {
 		const requestId = ++metricsRequestId;
 		void (async () => {
 			try {
+				metricsLoadError = false;
 				const result = (await client.query(runtime.getMetrics, {
 					ranges: metricRanges
 				} as never)) as { cards?: Array<Record<string, unknown>> };
@@ -210,6 +212,9 @@
 				}
 			} catch (error) {
 				console.error(`[admin:${resource.name}] Failed to load metrics`, error);
+				if (requestId === metricsRequestId) {
+					metricsLoadError = true;
+				}
 			}
 		})();
 	});
@@ -391,7 +396,7 @@
 
 	async function executeAction(action: ActionDefinition, values: Record<string, unknown>) {
 		const ids = action.standalone ? [] : [...selectedIds];
-		await executeResourceAction({
+		const response = await executeResourceAction({
 			client,
 			runtime,
 			action: action.key,
@@ -402,7 +407,10 @@
 			},
 			t: $t
 		});
-		selectedRows = {};
+		if (response.type !== 'danger') {
+			selectedRows = {};
+		}
+		return response;
 	}
 
 	async function openAction(action: ActionDefinition) {
@@ -452,8 +460,10 @@
 		if (!activeAction) return;
 		actionBusy = true;
 		try {
-			await executeAction(activeAction, actionValues);
-			actionOpen = false;
+			const response = await executeAction(activeAction, actionValues);
+			if (response.type !== 'danger') {
+				actionOpen = false;
+			}
 		} catch (error) {
 			const message =
 				error instanceof Error ? error.message : $t('admin.resources.toasts.action_error');
@@ -481,10 +491,15 @@
 	async function softDelete(id: string) {
 		const row = getRowById(id);
 		if (row && !canDeleteRow(row)) return;
-		await client.mutation(runtime.delete, { id } as never, {
-			optimisticUpdate: createOptimisticDelete(runtime.list, id)
-		});
-		toast.success($t('admin.resources.toasts.deleted'));
+		try {
+			await client.mutation(runtime.delete, { id } as never, {
+				optimisticUpdate: createOptimisticDelete(runtime.list, id)
+			});
+			toast.success($t('admin.resources.toasts.deleted'));
+		} catch (error) {
+			console.error(`[admin:${resource.name}] delete failed`, error);
+			toast.error($t('admin.resources.toasts.action_error'));
+		}
 	}
 
 	function confirmSoftDelete(id: string) {
@@ -506,17 +521,27 @@
 	async function restore(id: string) {
 		const row = getRowById(id);
 		if (row && !canDeleteRow(row)) return;
-		await client.mutation(runtime.restore, { id } as never, {
-			optimisticUpdate: createOptimisticRestore(runtime.list, id)
-		});
-		toast.success($t('admin.resources.toasts.restored'));
+		try {
+			await client.mutation(runtime.restore, { id } as never, {
+				optimisticUpdate: createOptimisticRestore(runtime.list, id)
+			});
+			toast.success($t('admin.resources.toasts.restored'));
+		} catch (error) {
+			console.error(`[admin:${resource.name}] restore failed`, error);
+			toast.error($t('admin.resources.toasts.action_error'));
+		}
 	}
 
 	async function replicate(id: string) {
 		const row = getRowById(id);
 		if (row && !canUpdateRow(row)) return;
-		await client.mutation(runtime.replicate, { id } as never);
-		toast.success($t('admin.resources.toasts.replicated'));
+		try {
+			await client.mutation(runtime.replicate, { id } as never);
+			toast.success($t('admin.resources.toasts.replicated'));
+		} catch (error) {
+			console.error(`[admin:${resource.name}] replicate failed`, error);
+			toast.error($t('admin.resources.toasts.action_error'));
+		}
 	}
 
 	const canBulkDelete = $derived.by(() => {
@@ -561,43 +586,70 @@
 	async function bulkDeleteSelected() {
 		if (!canBulkDelete) return;
 		const optimistic = createOptimisticDeleteMany(runtime.list, selectedIds);
-		await Promise.all(
+		const results = await Promise.allSettled(
 			selectedIds.map((id) =>
 				client.mutation(runtime.delete, { id } as never, {
 					optimisticUpdate: optimistic
 				})
 			)
 		);
+		const failed = results.filter((r) => r.status === 'rejected');
 		selectedRows = {};
-		toast.success($t('admin.resources.toasts.deleted'));
+		if (failed.length > 0) {
+			console.error(
+				`[admin:${resource.name}] bulk delete: ${failed.length}/${results.length} failed`,
+				failed
+			);
+			toast.error($t('admin.resources.toasts.action_error'));
+		} else {
+			toast.success($t('admin.resources.toasts.deleted'));
+		}
 	}
 
 	async function bulkRestoreSelected() {
 		if (!canBulkRestore) return;
 		const optimistic = createOptimisticRestoreMany(runtime.list, selectedIds);
-		await Promise.all(
+		const results = await Promise.allSettled(
 			selectedIds.map((id) =>
 				client.mutation(runtime.restore, { id } as never, {
 					optimisticUpdate: optimistic
 				})
 			)
 		);
+		const failed = results.filter((r) => r.status === 'rejected');
 		selectedRows = {};
-		toast.success($t('admin.resources.toasts.restored'));
+		if (failed.length > 0) {
+			console.error(
+				`[admin:${resource.name}] bulk restore: ${failed.length}/${results.length} failed`,
+				failed
+			);
+			toast.error($t('admin.resources.toasts.action_error'));
+		} else {
+			toast.success($t('admin.resources.toasts.restored'));
+		}
 	}
 
 	async function bulkForceDeleteSelected() {
 		if (!canBulkForceDelete) return;
 		const optimistic = createOptimisticForceDeleteMany(runtime.list, selectedIds);
-		await Promise.all(
+		const results = await Promise.allSettled(
 			selectedIds.map((id) =>
 				client.mutation(runtime.forceDelete, { id } as never, {
 					optimisticUpdate: optimistic
 				})
 			)
 		);
+		const failed = results.filter((r) => r.status === 'rejected');
 		selectedRows = {};
-		toast.success($t('admin.resources.toasts.force_deleted'));
+		if (failed.length > 0) {
+			console.error(
+				`[admin:${resource.name}] bulk force delete: ${failed.length}/${results.length} failed`,
+				failed
+			);
+			toast.error($t('admin.resources.toasts.action_error'));
+		} else {
+			toast.success($t('admin.resources.toasts.force_deleted'));
+		}
 	}
 
 	function confirmBulkDeleteSelected() {
@@ -735,6 +787,7 @@
 	<MetricsCards
 		metrics={resource.metrics ?? []}
 		values={metricsCards}
+		error={metricsLoadError}
 		selectedRanges={metricRanges}
 		onRangeChange={setMetricRange}
 		{prefix}

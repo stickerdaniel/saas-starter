@@ -1,7 +1,10 @@
 import type { FieldDefinition } from '$lib/admin/types';
 
 function escapeCsvCell(value: unknown) {
-	const text = String(value ?? '');
+	let text = String(value ?? '');
+	if (/^[=+\-@\t\r]/.test(text)) {
+		text = `'${text}`;
+	}
 	if (/[",\n]/.test(text)) {
 		return `"${text.replaceAll('"', '""')}"`;
 	}

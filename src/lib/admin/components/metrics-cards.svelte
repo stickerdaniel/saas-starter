@@ -50,9 +50,17 @@
 		selectedRanges?: Record<string, string>;
 		onRangeChange?: (metricKey: string, value: string) => void;
 		prefix: string;
+		error?: boolean;
 	};
 
-	let { metrics, values, selectedRanges = {}, onRangeChange = () => {}, prefix }: Props = $props();
+	let {
+		metrics,
+		values,
+		selectedRanges = {},
+		onRangeChange = () => {},
+		prefix,
+		error = false
+	}: Props = $props();
 
 	function getMetric(metricKey: string) {
 		return values.find((value) => value.key === metricKey);
@@ -94,6 +102,14 @@
 </script>
 
 {#if metrics.length > 0}
+	{#if error}
+		<div
+			class="rounded-lg border border-destructive/50 bg-destructive/5 p-3 text-sm text-destructive"
+			data-testid={`${prefix}-metrics-error`}
+		>
+			<T keyName="admin.resources.metrics_load_error" />
+		</div>
+	{/if}
 	<div
 		class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4"
 		data-testid={`${prefix}-metrics`}

@@ -739,9 +739,13 @@ export const runProjectAction = permissionMutation({
 			return success('admin.resources.toasts.action_success');
 		}
 
+		let skipped = 0;
 		for (const id of args.ids) {
 			const project = await ctx.db.get(id);
-			if (!project) continue;
+			if (!project) {
+				skipped++;
+				continue;
+			}
 			if (args.action === 'feature') {
 				await ctx.db.patch(id, { isFeatured: true, updatedAt: Date.now() });
 			} else if (args.action === 'unfeature') {
@@ -751,6 +755,9 @@ export const runProjectAction = permissionMutation({
 			}
 		}
 
+		if (skipped > 0 && skipped === args.ids.length) {
+			return { type: 'danger', text: 'admin.resources.actions.records_not_found' };
+		}
 		return success('admin.resources.toasts.action_success');
 	}
 });

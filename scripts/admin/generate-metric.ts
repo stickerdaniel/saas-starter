@@ -1,3 +1,4 @@
+export {};
 const [, , rawResource, rawKey = 'total', rawType = 'value'] = process.argv;
 
 if (!rawResource) {
