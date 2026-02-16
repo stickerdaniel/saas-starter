@@ -12,6 +12,8 @@
 			"email_service": "Service d'envoi d'e-mails",
 			"external_services": "Services Externes",
 			"hosting_deployment": "Hébergement & déploiement",
+			"resource_overview": "Vue des Ressources",
+			"resource_records": "{count} enregistrements",
 			"title": "Tableau de bord Admin"
 		},
 		"dialog": {
@@ -49,6 +51,241 @@
 			"app": "App",
 			"home": "Accueil",
 			"website": "Site Web"
+		},
+		"resources": {
+			"actions": {
+				"create": "Create",
+				"create_resource": "Create {resource}",
+				"delete": "Delete",
+				"edit": "Edit",
+				"force_delete": "Force Delete",
+				"replicate": "Replicate",
+				"restore": "Restore",
+				"view": "View"
+			},
+			"aria": {
+				"select_all": "Select all rows",
+				"select_row": "Select row"
+			},
+			"columns": {
+				"actions": "Actions"
+			},
+			"bulk": {
+				"delete": "Supprimer en lot",
+				"delete_description": "Supprimer {count} enregistrements sélectionnés ?",
+				"restore": "Restaurer en lot",
+				"force_delete": "Suppression définitive en lot",
+				"force_delete_description": "Supprimer définitivement {count} enregistrements sélectionnés ?"
+			},
+			"comments": {
+				"actions": {
+					"mark_reviewed": "Mark Reviewed"
+				},
+				"fields": {
+					"author_email": "Author Email",
+					"target": "Target",
+					"text": "Text"
+				},
+				"filters": {
+					"target_kind": "Target Kind"
+				},
+				"lenses": {
+					"project": "Project Comments",
+					"task": "Task Comments"
+				},
+				"metrics": {
+					"project": "Project Comments",
+					"target_distribution": "Par cible",
+					"task": "Task Comments",
+					"total": "Total Comments"
+				},
+				"nav_title": "Demo Comments",
+				"options": {
+					"project": "Project",
+					"task": "Task"
+				}
+			},
+			"confirm": {
+				"delete_description": "This action cannot be undone.",
+				"force_delete_description": "This permanently removes the record and related data.",
+				"inline_edit_description": "Enregistrer cette modification en ligne maintenant ?",
+				"inline_edit_title": "Confirmer la modification en ligne"
+			},
+			"conflicts": {
+				"description": "{count} conflits de champ doivent être examinés.",
+				"discard": "Ignorer mes modifications",
+				"keep_mine": "Garder la mienne",
+				"local_value": "Ma valeur",
+				"remote_value": "Valeur distante",
+				"review": "Examiner les conflits",
+				"title": "Cet enregistrement a été mis à jour",
+				"use_theirs": "Utiliser la distante"
+			},
+			"empty": "No records found.",
+			"export": {
+				"csv": "Exporter CSV",
+				"json": "Exporter JSON",
+				"limit_error": "L'export est limité à {limit} enregistrements.",
+				"success_csv": "Export CSV démarré",
+				"success_json": "Export JSON démarré"
+			},
+			"fields": {
+				"created_at": "Créé le",
+				"updated_at": "Mis à jour le"
+			},
+			"filters": {
+				"all": "All",
+				"clear": "Clear",
+				"created_range": "Plage de création",
+				"select_placeholder": "Select option"
+			},
+			"form": {
+				"fix_errors": "Veuillez corriger les champs en surbrillance.",
+				"invalid": "Invalid field value",
+				"markdown_placeholder": "## Contenu Markdown",
+				"no_relation_options": "No options available",
+				"required": "This field is required",
+				"upload": "Téléverser un fichier"
+			},
+			"groups": {
+				"assignment": "Affectation",
+				"content": "Contenu",
+				"demo_data": "Demo Resources",
+				"main": "Principal",
+				"other": "Autres",
+				"overview": "Aperçu",
+				"relations": "Relations",
+				"system": "Système"
+			},
+			"lenses": {
+				"all": "All Lenses"
+			},
+			"loading": "Loading resources...",
+			"projects": {
+				"actions": {
+					"archive": "Archive",
+					"attach_tag": "Attach Tag",
+					"feature": "Mark Featured"
+				},
+				"fields": {
+					"budget": "Budget",
+					"code_snippet": "Extrait de code",
+					"cover_image": "URL de l'image de couverture",
+					"description": "Description",
+					"featured": "Featured",
+					"name": "Name",
+					"owner_email": "Owner Email",
+					"settings_json": "Paramètres JSON",
+					"slug": "Slug",
+					"spec_sheet": "URL de fiche technique",
+					"status": "Status",
+					"tag": "Tag",
+					"tags": "Tags",
+					"tasks": "Tasks"
+				},
+				"filters": {
+					"featured": "Featured",
+					"featured_only": "Featured Only",
+					"regular_only": "Regular Only",
+					"status": "Status"
+				},
+				"lenses": {
+					"active": "Active Projects",
+					"archived": "Archived Projects",
+					"featured": "Featured Projects"
+				},
+				"metrics": {
+					"active": "Active Projects",
+					"budget": "Active Budget",
+					"featured": "Featured Projects",
+					"total": "Total Projects"
+				},
+				"nav_title": "Demo Projects",
+				"options": {
+					"status_active": "Active",
+					"status_archived": "Archived",
+					"status_draft": "Draft"
+				}
+			},
+			"rows_per_page": "Rows per page",
+			"search_placeholder": "Search resources...",
+			"sections": {
+				"details": "Details",
+				"preview": "Preview"
+			},
+			"selected": "{selected} of {total} selected",
+			"tags": {
+				"fields": {
+					"color": "Color",
+					"name": "Name"
+				},
+				"metrics": {
+					"total": "Total Tags"
+				},
+				"nav_title": "Demo Tags"
+			},
+			"tasks": {
+				"actions": {
+					"mark_done": "Mark Done",
+					"mark_in_progress": "Mark In Progress"
+				},
+				"fields": {
+					"assignee_email": "Assignee Email",
+					"estimate_hours": "Estimate Hours",
+					"priority": "Priority",
+					"project": "Project",
+					"status": "Status",
+					"title": "Title"
+				},
+				"filters": {
+					"priority": "Priority",
+					"status": "Status"
+				},
+				"lenses": {
+					"completed": "Completed Tasks",
+					"due": "Due Tasks"
+				},
+				"metrics": {
+					"completion_rate": "Taux d'achèvement",
+					"done": "Done",
+					"estimate": "Estimated Hours",
+					"estimate_by_status": "Estimation par statut",
+					"in_progress": "In Progress",
+					"priority_split": "Répartition des priorités",
+					"status_trend": "Tendance du statut",
+					"todo": "Todo"
+				},
+				"nav_title": "Demo Tasks",
+				"options": {
+					"done": "Done",
+					"high": "High",
+					"in_progress": "In Progress",
+					"low": "Low",
+					"medium": "Medium",
+					"todo": "Todo"
+				}
+			},
+			"toasts": {
+				"action_error": "Action failed",
+				"action_success": "Action completed",
+				"created": "Resource created",
+				"deleted": "Record deleted",
+				"force_deleted": "Record permanently deleted",
+				"replicated": "Record replicated",
+				"restored": "Record restored",
+				"save_error": "Failed to save resource",
+				"updated": "Resource updated"
+			},
+			"trashed": {
+				"only": "Only Trashed",
+				"with": "With Trashed",
+				"without": "Without Trashed"
+			},
+			"values": {
+				"enabled": "Enabled",
+				"no": "No",
+				"yes": "Yes"
+			}
 		},
 		"settings": {
 			"add_email": "Ajouter un Email",
@@ -244,186 +481,6 @@
 			"unnamed": "Sans nom",
 			"unverified": "Non vérifié",
 			"verified": "Vérifié"
-		},
-		"resources": {
-			"groups": {
-				"demo_data": "Demo Resources"
-			},
-			"filters": {
-				"all": "All",
-				"clear": "Clear",
-				"select_placeholder": "Select option"
-			},
-			"values": {
-				"yes": "Yes",
-				"no": "No",
-				"enabled": "Enabled"
-			},
-			"columns": {
-				"actions": "Actions"
-			},
-			"search_placeholder": "Search resources...",
-			"rows_per_page": "Rows per page",
-			"selected": "{selected} of {total} selected",
-			"loading": "Loading resources...",
-			"empty": "No records found.",
-			"lenses": {
-				"all": "All Lenses"
-			},
-			"trashed": {
-				"without": "Without Trashed",
-				"with": "With Trashed",
-				"only": "Only Trashed"
-			},
-			"aria": {
-				"select_all": "Select all rows",
-				"select_row": "Select row"
-			},
-			"toasts": {
-				"created": "Resource created",
-				"updated": "Resource updated",
-				"save_error": "Failed to save resource",
-				"action_success": "Action completed",
-				"action_error": "Action failed",
-				"deleted": "Record deleted",
-				"restored": "Record restored",
-				"force_deleted": "Record permanently deleted",
-				"replicated": "Record replicated"
-			},
-			"sections": {
-				"preview": "Preview",
-				"details": "Details"
-			},
-			"form": {
-				"required": "This field is required",
-				"no_relation_options": "No options available"
-			},
-			"actions": {
-				"create": "Create",
-				"create_resource": "Create {resource}",
-				"edit": "Edit",
-				"view": "View",
-				"delete": "Delete",
-				"restore": "Restore",
-				"force_delete": "Force Delete",
-				"replicate": "Replicate"
-			},
-			"projects": {
-				"nav_title": "Demo Projects",
-				"fields": {
-					"name": "Name",
-					"slug": "Slug",
-					"status": "Status",
-					"owner_email": "Owner Email",
-					"budget": "Budget",
-					"featured": "Featured",
-					"description": "Description",
-					"tags": "Tags",
-					"tasks": "Tasks",
-					"tag": "Tag"
-				},
-				"options": {
-					"status_draft": "Draft",
-					"status_active": "Active",
-					"status_archived": "Archived"
-				},
-				"filters": {
-					"status": "Status",
-					"featured": "Featured",
-					"featured_only": "Featured Only",
-					"regular_only": "Regular Only"
-				},
-				"actions": {
-					"feature": "Mark Featured",
-					"archive": "Archive",
-					"attach_tag": "Attach Tag"
-				},
-				"lenses": {
-					"featured": "Featured Projects",
-					"archived": "Archived Projects",
-					"active": "Active Projects"
-				},
-				"metrics": {
-					"total": "Total Projects",
-					"active": "Active Projects",
-					"featured": "Featured Projects",
-					"budget": "Active Budget"
-				}
-			},
-			"tasks": {
-				"nav_title": "Demo Tasks",
-				"fields": {
-					"title": "Title",
-					"project": "Project",
-					"status": "Status",
-					"priority": "Priority",
-					"estimate_hours": "Estimate Hours",
-					"assignee_email": "Assignee Email"
-				},
-				"options": {
-					"todo": "Todo",
-					"in_progress": "In Progress",
-					"done": "Done",
-					"low": "Low",
-					"medium": "Medium",
-					"high": "High"
-				},
-				"filters": {
-					"status": "Status",
-					"priority": "Priority"
-				},
-				"actions": {
-					"mark_done": "Mark Done",
-					"mark_in_progress": "Mark In Progress"
-				},
-				"lenses": {
-					"due": "Due Tasks",
-					"completed": "Completed Tasks"
-				},
-				"metrics": {
-					"todo": "Todo",
-					"in_progress": "In Progress",
-					"done": "Done",
-					"estimate": "Estimated Hours"
-				}
-			},
-			"comments": {
-				"nav_title": "Demo Comments",
-				"fields": {
-					"text": "Text",
-					"author_email": "Author Email",
-					"target": "Target"
-				},
-				"options": {
-					"project": "Project",
-					"task": "Task"
-				},
-				"filters": {
-					"target_kind": "Target Kind"
-				},
-				"actions": {
-					"mark_reviewed": "Mark Reviewed"
-				},
-				"lenses": {
-					"project": "Project Comments",
-					"task": "Task Comments"
-				},
-				"metrics": {
-					"total": "Total Comments",
-					"project": "Project Comments",
-					"task": "Task Comments"
-				}
-			},
-			"tags": {
-				"nav_title": "Demo Tags",
-				"fields": {
-					"name": "Name",
-					"color": "Color"
-				},
-				"metrics": {
-					"total": "Total Tags"
-				}
-			}
 		}
 	},
 	"app": {
@@ -833,6 +890,22 @@
 				"description": "Redirection vers le tableau de bord administrateur.",
 				"title": "Admin"
 			},
+			"resource_create": {
+				"description": "Create a new {resource} record.",
+				"title": "Create {resource}"
+			},
+			"resource_detail": {
+				"description": "Review {resource} details and actions.",
+				"title": "{resource} Details"
+			},
+			"resource_edit": {
+				"description": "Edit a {resource} record.",
+				"title": "Edit {resource}"
+			},
+			"resource_index": {
+				"description": "Browse and manage {resource}.",
+				"title": "{resource}"
+			},
 			"settings": {
 				"description": "Configurez les destinataires et préférences de notifications admin.",
 				"title": "Paramètres Admin"
@@ -844,22 +917,6 @@
 			"users": {
 				"description": "Gérez les utilisateurs, les rôles et l'état des comptes.",
 				"title": "Gestion des utilisateurs"
-			},
-			"resource_index": {
-				"title": "{resource}",
-				"description": "Browse and manage {resource}."
-			},
-			"resource_create": {
-				"title": "Create {resource}",
-				"description": "Create a new {resource} record."
-			},
-			"resource_edit": {
-				"title": "Edit {resource}",
-				"description": "Edit a {resource} record."
-			},
-			"resource_detail": {
-				"title": "{resource} Details",
-				"description": "Review {resource} details and actions."
 			}
 		},
 		"app": {

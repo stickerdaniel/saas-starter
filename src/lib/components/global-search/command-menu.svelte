@@ -2,6 +2,8 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { api } from '$lib/convex/_generated/api';
+	import { getResourceDefinitions } from '$lib/admin/registry';
+	import { getViewerUser } from '$lib/admin/visibility';
 	import * as Command from '$lib/components/ui/command/index.js';
 	import * as Dialog from '$lib/components/ui/dialog/index.js';
 	import * as Kbd from '$lib/components/ui/kbd/index.js';
@@ -9,7 +11,7 @@
 	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
 	import { watch } from 'runed';
 	import { getTranslate } from '@tolgee/svelte';
-	import { useQuery } from 'convex-svelte';
+	import { useConvexClient, useQuery } from 'convex-svelte';
 	import ArrowRightIcon from '@lucide/svelte/icons/arrow-right';
 	import CornerDownLeftIcon from '@lucide/svelte/icons/corner-down-left';
 	import CommandMenuItem from './command-menu-item.svelte';
@@ -19,16 +21,16 @@
 		type SearchRouteEntry,
 		type SearchRouteGroup
 	} from './search-routes';
+	import {
+		fetchResourceSearchItems,
+		RESOURCE_SEARCH_DEBOUNCE_MS,
+		RESOURCE_SEARCH_MIN_QUERY_LENGTH,
+		type ResourceSearchItem
+	} from './resource-search';
 	import { haptic } from '$lib/hooks/use-haptic.svelte';
 	import { useGlobalSearchContext } from './context.svelte';
 
-	type MenuRouteItem = SearchRouteEntry & {
-		id: string;
-		label: string;
-		localizedUrl: string;
-		value: string;
-		keywords: string[];
-	};
+	type MenuRouteItem = ResourceSearchItem;
 
 	type MenuGroup = {
 		group: SearchRouteGroup;
@@ -45,7 +47,14 @@
 
 	const globalSearch = useGlobalSearchContext();
 	const auth = useAuth();
+	const client = useConvexClient();
 	const viewer = useQuery(api.auth.getCurrentUser, {});
+	const resources = getResourceDefinitions();
+	let commandQuery = $state('');
+	let resourceSearchItems = $state<MenuRouteItem[]>([]);
+	let resourceSearchLoading = $state(false);
+	let resourceSearchError = $state(false);
+	let latestResourceSearchRequest = 0;
 
 	let lastStableAuth = $state<EffectiveAuthState>({
 		isAuthenticated: auth.isAuthenticated,
@@ -143,7 +152,6 @@
 					const keywords = [...new Set([...(route.keywords ?? []), ...segmentKeywords])];
 
 					return {
-						...route,
 						id: `${group}:${route.href}`,
 						label,
 						localizedUrl,
@@ -151,6 +159,9 @@
 						keywords
 					};
 				});
+			if (group === 'admin' && resourceSearchItems.length > 0) {
+				items.push(...resourceSearchItems);
+			}
 
 			if (items.length > 0) {
 				menuGroups.push({
@@ -162,6 +173,51 @@
 		}
 
 		return menuGroups;
+	});
+
+	$effect(() => {
+		const query = commandQuery.trim();
+		const viewerUser = getViewerUser(viewer.data);
+		const shouldSearch =
+			globalSearch.open &&
+			query.length >= RESOURCE_SEARCH_MIN_QUERY_LENGTH &&
+			effectiveAuth.isAuthenticated &&
+			effectiveAuth.role?.toLowerCase() === 'admin';
+
+		if (!shouldSearch) {
+			resourceSearchItems = [];
+			resourceSearchLoading = false;
+			resourceSearchError = false;
+			return;
+		}
+
+		let cancelled = false;
+		const requestId = ++latestResourceSearchRequest;
+		resourceSearchLoading = true;
+		resourceSearchError = false;
+
+		const timer = setTimeout(() => {
+			void (async () => {
+				const result = await fetchResourceSearchItems({
+					client,
+					query,
+					resources,
+					viewerUser,
+					translate: $t
+				});
+
+				if (cancelled || requestId !== latestResourceSearchRequest) return;
+
+				resourceSearchError = result.hadError;
+				resourceSearchItems = result.items;
+				resourceSearchLoading = false;
+			})();
+		}, RESOURCE_SEARCH_DEBOUNCE_MS);
+
+		return () => {
+			cancelled = true;
+			clearTimeout(timer);
+		};
 	});
 
 	function runCommand(command: () => unknown): void {
@@ -205,7 +261,10 @@
 		<Command.Root
 			class="rounded-none bg-transparent **:data-[slot=command-input]:!h-9 **:data-[slot=command-input]:py-0 **:data-[slot=command-input-wrapper]:mb-0 **:data-[slot=command-input-wrapper]:!h-9 **:data-[slot=command-input-wrapper]:rounded-md **:data-[slot=command-input-wrapper]:border **:data-[slot=command-input-wrapper]:border-input **:data-[slot=command-input-wrapper]:bg-input/50"
 		>
-			<Command.Input placeholder={$t('search.command.input_placeholder')} />
+			<Command.Input
+				bind:value={commandQuery}
+				placeholder={$t('search.command.input_placeholder')}
+			/>
 			<Command.List tabindex={-1} class="no-scrollbar min-h-80 scroll-pt-2 scroll-pb-1.5">
 				<Command.Empty class="py-12 text-center text-sm text-muted-foreground">
 					{$t('search.command.no_results')}
@@ -231,6 +290,15 @@
 						{/each}
 					</Command.Group>
 				{/each}
+				{#if resourceSearchLoading}
+					<p class="px-3 py-2 text-xs text-muted-foreground">
+						{$t('admin.resources.loading')}
+					</p>
+				{:else if resourceSearchError}
+					<p class="px-3 py-2 text-xs text-destructive">
+						{$t('admin.resources.toasts.action_error')}
+					</p>
+				{/if}
 			</Command.List>
 		</Command.Root>
 		<div

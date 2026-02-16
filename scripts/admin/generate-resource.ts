@@ -28,7 +28,7 @@ import { defineResource, defineField } from '../builders';
 
 export const ${pascal}Resource = defineResource({
 	name: '${safeName}',
-	table: 'adminDemoProjects',
+	table: 'FIXME_TABLE_NAME',
 	groupKey: 'admin.resources.groups.demo_data',
 	navTitleKey: 'admin.resources.${safeName.replace(/-/g, '_')}.nav_title',
 	icon: DatabaseIcon,

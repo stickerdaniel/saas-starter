@@ -6,132 +6,180 @@
 	import { toast } from 'svelte-sonner';
 	import { useConvexClient, useQuery } from 'convex-svelte';
 	import SEOHead from '$lib/components/SEOHead.svelte';
+	import * as Alert from '$lib/components/ui/alert/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import * as Field from '$lib/components/ui/field/index.js';
+	import * as Tabs from '$lib/components/ui/tabs/index.js';
 	import FieldRenderer from '$lib/admin/fields/field-renderer.svelte';
 	import { getResourceContext } from '$lib/admin/page-helpers';
+	import { createDynamicForm } from '$lib/admin/create-dynamic-form.svelte';
+	import { resolveFieldGroups } from '$lib/admin/field-groups';
+	import { getValidationFieldErrors } from '$lib/admin/error-utils';
+	import { loadRelationOptionsForFields } from '$lib/admin/relation-options';
+	import { getViewerUser, isFieldDisabled, isResourceUpdatable } from '$lib/admin/visibility';
 
 	const { t } = getTranslate();
 	const client = useConvexClient();
-	const { resource, runtime, prefix } = getResourceContext(page.params.resource ?? '');
+	const viewer = getViewerUser(page.data.viewer);
+	const { resource, runtime, prefix } = getResourceContext(page.params.resource ?? '', viewer);
 
 	const detailQuery = useQuery(runtime.getById, { id: page.params.id } as never);
 	const formFields = resource.fields.filter((field) => field.showOnForm !== false);
 
-	let values = $state<Record<string, unknown>>({});
+	const form = createDynamicForm({
+		fields: formFields,
+		user: viewer,
+		isEdit: true,
+		t: $t
+	});
 	let relationOptions = $state<Record<string, Array<{ value: string; label: string }>>>({});
-	let errors = $state<Record<string, string>>({});
-	let submitting = $state(false);
-	let hydrated = $state(false);
-
-	function mapMorphOptions(target: string, options: Array<{ value: string; label: string }>) {
-		return options.map((option) => ({
-			value: `${target}:${option.value}`,
-			label: option.label
-		}));
-	}
+	type ConflictField = {
+		attribute: string;
+		labelKey: string;
+		localValue: unknown;
+		remoteValue: unknown;
+	};
+	let conflictFields = $state<Record<string, ConflictField>>({});
+	let showConflictReview = $state(false);
+	const visibleFormFields = $derived(
+		form.getVisibleFields((detailQuery.data as Record<string, unknown> | null | undefined) ?? null)
+	);
+	const formGroups = $derived(
+		resolveFieldGroups({
+			resource,
+			context: 'form',
+			fields: visibleFormFields
+		})
+	);
+	let activeFormGroup = $state('');
+	const canUpdateRecord = $derived.by(() => {
+		if (!detailQuery.data) return true;
+		return isResourceUpdatable(resource, viewer, detailQuery.data as Record<string, unknown>);
+	});
+	const conflictEntries = $derived(Object.values(conflictFields));
 
 	$effect(() => {
-		if (!detailQuery.data || hydrated) return;
-		values = Object.fromEntries(
-			formFields.map((field) => {
-				if (field.type === 'manyToMany') {
-					const tags = (detailQuery.data?.tags as Array<{ _id: string }> | undefined) ?? [];
-					return [field.attribute, tags.map((tag) => tag._id)];
-				}
-				if (field.type === 'morphTo') {
-					const target = detailQuery.data?.target as { kind: string; id: string } | undefined;
-					if (!target) return [field.attribute, ''];
-					return [field.attribute, `${target.kind}:${target.id}`];
-				}
-				return [field.attribute, detailQuery.data?.[field.attribute] ?? ''];
+		const first = formGroups[0]?.key ?? '';
+		if (!activeFormGroup || !formGroups.some((group) => group.key === activeFormGroup)) {
+			activeFormGroup = first;
+		}
+	});
+
+	$effect(() => {
+		const record = detailQuery.data as Record<string, unknown> | undefined;
+		if (!record) return;
+		if (!form.hydrated) {
+			form.initializeFromRecord(record);
+			conflictFields = {};
+			showConflictReview = false;
+			return;
+		}
+
+		const { changed, projected } = form.getChangedFields(record);
+		if (changed.length === 0) return;
+
+		const overlapping = changed.filter((attribute) => form.dirtyFields.has(attribute));
+		form.mergeNonDirty(record);
+		if (overlapping.length === 0) {
+			conflictFields = {};
+			return;
+		}
+
+		conflictFields = Object.fromEntries(
+			overlapping.map((attribute) => {
+				const field = formFields.find((entry) => entry.attribute === attribute);
+				return [
+					attribute,
+					{
+						attribute,
+						labelKey: field?.labelKey ?? 'admin.resources.columns.actions',
+						localValue: form.values[attribute],
+						remoteValue: projected[attribute]
+					}
+				];
 			})
 		);
-		hydrated = true;
 	});
 
 	$effect(() => {
 		void (async () => {
-			if (!runtime.listRelationOptions) return;
-			for (const field of formFields) {
-				if (!field.relation) continue;
-				if (field.type === 'morphTo') {
-					const projectQuery = runtime.listRelationOptions.targetProject;
-					const taskQuery = runtime.listRelationOptions.targetTask;
-					if (!projectQuery || !taskQuery) continue;
-					const [projects, tasks] = await Promise.all([
-						client.query(projectQuery, {} as never),
-						client.query(taskQuery, {} as never)
-					]);
-					relationOptions[field.attribute] = [
-						...mapMorphOptions('project', projects as Array<{ value: string; label: string }>),
-						...mapMorphOptions('task', tasks as Array<{ value: string; label: string }>)
-					];
-					continue;
-				}
-				const relationQuery = runtime.listRelationOptions[field.attribute];
-				if (!relationQuery) continue;
-				const options = await client.query(relationQuery, {} as never);
-				relationOptions[field.attribute] = (options as Array<{ value: string; label: string }>).map(
-					(option) => ({
-						value: String(option.value),
-						label: String(option.label)
-					})
-				);
-			}
+			relationOptions = await loadRelationOptionsForFields({
+				fields: formFields,
+				runtime,
+				client
+			});
 		})();
 	});
 
-	function normalizeValues() {
-		const next: Record<string, unknown> = { ...values };
-		for (const field of formFields) {
-			const current = next[field.attribute];
-			if (field.type === 'number') {
-				next[field.attribute] = Number(current ?? 0);
-			}
-			if (field.type === 'boolean') {
-				next[field.attribute] = Boolean(current);
-			}
-			if (field.type === 'morphTo' && typeof current === 'string') {
-				const [kind, id] = current.split(':');
-				if ((kind === 'project' || kind === 'task') && id) {
-					next[field.attribute] = { kind, id };
-				}
-			}
-		}
-		return next;
-	}
-
-	function validate() {
-		const nextErrors: Record<string, string> = {};
-		for (const field of formFields) {
-			const value = values[field.attribute];
-			if (field.type === 'boolean' || field.type === 'manyToMany') continue;
-			if (value === undefined || value === null || value === '') {
-				nextErrors[field.attribute] = $t('admin.resources.form.required');
-			}
-		}
-		errors = nextErrors;
-		return Object.keys(nextErrors).length === 0;
-	}
-
 	async function submit() {
-		if (!validate()) return;
-		submitting = true;
+		if (!canUpdateRecord) return;
+		const currentRecord = (detailQuery.data as Record<string, unknown> | null | undefined) ?? null;
+		const nextErrors = form.validate(currentRecord);
+		if (Object.keys(nextErrors).length > 0) return;
+		form.setSubmitting(true);
 		try {
 			await client.mutation(runtime.update, {
 				id: page.params.id,
-				values: normalizeValues()
+				values: form.normalize(currentRecord)
 			} as never);
 			toast.success($t('admin.resources.toasts.updated'));
 			await goto(resolve(`/${page.params.lang}/admin/${resource.name}/${page.params.id}`));
 		} catch (error) {
+			const fieldErrors = getValidationFieldErrors(error);
+			if (fieldErrors) {
+				form.setErrors({
+					...form.errors,
+					...fieldErrors
+				});
+				toast.error($t('admin.resources.form.fix_errors'));
+				return;
+			}
 			const message =
 				error instanceof Error ? error.message : $t('admin.resources.toasts.save_error');
 			toast.error(message);
 		} finally {
-			submitting = false;
+			form.setSubmitting(false);
 		}
+	}
+
+	function discardMyChanges() {
+		const record = detailQuery.data as Record<string, unknown> | undefined;
+		if (!record) return;
+		form.initializeFromRecord(record);
+		conflictFields = {};
+		showConflictReview = false;
+	}
+
+	function keepMine(attribute: string) {
+		const conflict = conflictFields[attribute];
+		if (!conflict) return;
+		form.keepLocalValue(attribute, conflict.remoteValue);
+		const next = { ...conflictFields };
+		delete next[attribute];
+		conflictFields = next;
+		if (Object.keys(next).length === 0) {
+			showConflictReview = false;
+		}
+	}
+
+	function useTheirs(attribute: string) {
+		const conflict = conflictFields[attribute];
+		if (!conflict) return;
+		form.useRemoteValue(attribute, conflict.remoteValue);
+		const next = { ...conflictFields };
+		delete next[attribute];
+		conflictFields = next;
+		if (Object.keys(next).length === 0) {
+			showConflictReview = false;
+		}
+	}
+
+	function formatConflictValue(value: unknown) {
+		if (value === null || value === undefined || value === '') return '-';
+		if (typeof value === 'object') {
+			return JSON.stringify(value);
+		}
+		return String(value);
 	}
 </script>
 
@@ -149,36 +197,168 @@
 		<h1 class="text-2xl font-bold"><T keyName="admin.resources.actions.edit" /></h1>
 	</div>
 
-	{#if detailQuery.isLoading || !hydrated}
+	{#if detailQuery.isLoading || !form.hydrated}
 		<div class="rounded-lg border p-4" data-testid={`${prefix}-edit-loading`}>
 			<T keyName="admin.resources.loading" />
 		</div>
+	{:else if !canUpdateRecord}
+		<div class="rounded-lg border p-4 text-sm text-muted-foreground">
+			<T keyName="admin.resources.empty" />
+		</div>
 	{:else}
 		<div class="rounded-lg border p-4">
-			<Field.Group>
-				{#each formFields as field (field.attribute)}
-					<FieldRenderer
-						context="form"
-						{field}
-						record={values}
-						value={values[field.attribute]}
-						error={errors[field.attribute]}
-						testId={`${prefix}-${field.attribute}-input`}
-						relationOptions={relationOptions[field.attribute] ?? []}
-						onChange={(value) => {
-							values = {
-								...values,
-								[field.attribute]: value
-							};
-						}}
-					/>
-				{/each}
-			</Field.Group>
+			{#if conflictEntries.length > 0}
+				<Alert.Root
+					variant="destructive"
+					class="mb-4"
+					data-testid={`${prefix}-edit-conflict-banner`}
+				>
+					<Alert.Title><T keyName="admin.resources.conflicts.title" /></Alert.Title>
+					<Alert.Description>
+						<T
+							keyName="admin.resources.conflicts.description"
+							params={{ count: conflictEntries.length }}
+						/>
+					</Alert.Description>
+					<div class="mt-3 flex flex-wrap gap-2">
+						<Button
+							size="sm"
+							variant="secondary"
+							onclick={discardMyChanges}
+							data-testid={`${prefix}-edit-conflict-discard`}
+						>
+							<T keyName="admin.resources.conflicts.discard" />
+						</Button>
+						<Button
+							size="sm"
+							variant="outline"
+							onclick={() => {
+								showConflictReview = !showConflictReview;
+							}}
+							data-testid={`${prefix}-edit-conflict-review-toggle`}
+						>
+							<T keyName="admin.resources.conflicts.review" />
+						</Button>
+					</div>
+				</Alert.Root>
+			{/if}
+
+			{#if showConflictReview && conflictEntries.length > 0}
+				<div class="mb-4 rounded-lg border p-4" data-testid={`${prefix}-edit-conflict-review`}>
+					<div class="space-y-3">
+						{#each conflictEntries as conflict (conflict.attribute)}
+							<div
+								class="rounded-md border p-3"
+								data-testid={`${prefix}-edit-conflict-${conflict.attribute}`}
+							>
+								<p class="text-sm font-medium"><T keyName={conflict.labelKey} /></p>
+								<p class="mt-1 text-xs text-muted-foreground">
+									<T keyName="admin.resources.conflicts.local_value" />:
+									{formatConflictValue(conflict.localValue)}
+								</p>
+								<p class="text-xs text-muted-foreground">
+									<T keyName="admin.resources.conflicts.remote_value" />:
+									{formatConflictValue(conflict.remoteValue)}
+								</p>
+								<div class="mt-2 flex flex-wrap gap-2">
+									<Button
+										size="sm"
+										variant="outline"
+										onclick={() => keepMine(conflict.attribute)}
+										data-testid={`${prefix}-edit-conflict-keep-${conflict.attribute}`}
+									>
+										<T keyName="admin.resources.conflicts.keep_mine" />
+									</Button>
+									<Button
+										size="sm"
+										variant="secondary"
+										onclick={() => useTheirs(conflict.attribute)}
+										data-testid={`${prefix}-edit-conflict-use-${conflict.attribute}`}
+									>
+										<T keyName="admin.resources.conflicts.use_theirs" />
+									</Button>
+								</div>
+							</div>
+						{/each}
+					</div>
+				</div>
+			{/if}
+
+			{#if formGroups.length > 1}
+				<Tabs.Root value={activeFormGroup} onValueChange={(next) => (activeFormGroup = next)}>
+					<Tabs.List data-testid={`${prefix}-edit-form-tabs`}>
+						{#each formGroups as group (group.key)}
+							<Tabs.Trigger value={group.key} data-testid={`${prefix}-edit-form-tab-${group.key}`}>
+								<T keyName={group.labelKey} />
+							</Tabs.Trigger>
+						{/each}
+					</Tabs.List>
+					{#each formGroups as group (group.key)}
+						<Tabs.Content value={group.key}>
+							<Field.Group>
+								{#each group.fields as field (field.attribute)}
+									<div
+										class={conflictFields[field.attribute]
+											? 'rounded-md border border-destructive/40 p-2'
+											: ''}
+									>
+										<FieldRenderer
+											context="form"
+											{field}
+											record={form.values}
+											value={form.values[field.attribute]}
+											error={form.errors[field.attribute]}
+											disabled={isFieldDisabled(field, {
+												user: viewer,
+												record: detailQuery.data as Record<string, unknown> | undefined,
+												isEdit: true
+											})}
+											testId={`${prefix}-${field.attribute}-input`}
+											relationOptions={relationOptions[field.attribute] ?? []}
+											onChange={(value) => {
+												form.setValue(field.attribute, value);
+											}}
+										/>
+									</div>
+								{/each}
+							</Field.Group>
+						</Tabs.Content>
+					{/each}
+				</Tabs.Root>
+			{:else}
+				<Field.Group>
+					{#each visibleFormFields as field (field.attribute)}
+						<div
+							class={conflictFields[field.attribute]
+								? 'rounded-md border border-destructive/40 p-2'
+								: ''}
+						>
+							<FieldRenderer
+								context="form"
+								{field}
+								record={form.values}
+								value={form.values[field.attribute]}
+								error={form.errors[field.attribute]}
+								disabled={isFieldDisabled(field, {
+									user: viewer,
+									record: detailQuery.data as Record<string, unknown> | undefined,
+									isEdit: true
+								})}
+								testId={`${prefix}-${field.attribute}-input`}
+								relationOptions={relationOptions[field.attribute] ?? []}
+								onChange={(value) => {
+									form.setValue(field.attribute, value);
+								}}
+							/>
+						</div>
+					{/each}
+				</Field.Group>
+			{/if}
 
 			<div class="mt-4 flex gap-2">
 				<Button
 					onclick={() => void submit()}
-					disabled={submitting}
+					disabled={form.submitting}
 					data-testid={`${prefix}-edit-submit`}
 				>
 					<T keyName="common.save" />

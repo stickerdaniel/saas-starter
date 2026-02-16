@@ -89,6 +89,7 @@ export interface BetterAuthSession {
 	createdAt?: number;
 	updatedAt?: number;
 	impersonatedBy?: string;
+	activeOrganizationId?: string | null;
 }
 
 /**
@@ -118,7 +119,8 @@ export const betterAuthSessionSchema = val.object({
 	expiresAt: val.number(),
 	createdAt: val.optional(val.number()),
 	updatedAt: val.optional(val.number()),
-	impersonatedBy: val.optional(val.string())
+	impersonatedBy: val.optional(val.string()),
+	activeOrganizationId: val.optional(val.nullable(val.string()))
 });
 
 /**

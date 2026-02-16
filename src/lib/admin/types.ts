@@ -13,9 +13,13 @@ export type FieldType =
 	| 'select'
 	| 'date'
 	| 'datetime'
+	| 'image'
+	| 'file'
 	| 'email'
 	| 'url'
 	| 'json'
+	| 'code'
+	| 'markdown'
 	| 'badge'
 	| 'belongsTo'
 	| 'hasMany'
@@ -35,6 +39,16 @@ export type FieldOption = {
 	labelKey: string;
 };
 
+export type MorphToTarget = {
+	kind: string;
+	resourceName: string;
+	labelKey: string;
+};
+
+export type MorphToConfig = {
+	targets: MorphToTarget[];
+};
+
 export type FieldDefinition<_TTable extends string = string> = {
 	type: FieldType;
 	attribute: string;
@@ -48,27 +62,34 @@ export type FieldDefinition<_TTable extends string = string> = {
 	showOnIndex?: boolean;
 	showOnDetail?: boolean;
 	showOnForm?: boolean;
+	required?: boolean;
 	rules?: GenericSchema;
 	readonly?: boolean | ((ctx: { user: BetterAuthUser; record?: unknown }) => boolean);
 	immutable?: boolean | ((ctx: { user: BetterAuthUser; record?: unknown }) => boolean);
+	inlineEditable?: boolean;
+	inlineConfirmation?: boolean;
 	dependsOn?: FieldDependency;
 	resolveUsing?: (record: unknown) => unknown;
 	displayUsing?: (value: unknown, record: unknown) => string;
 	fillUsing?: (value: unknown) => unknown;
+	renderOverride?: Partial<Record<FieldContext, Component<any>>>;
 	canSee?: (user: BetterAuthUser, record?: unknown) => boolean;
 	securityLevel?: 'server' | 'client';
 	options?: FieldOption[];
 	defaultValue?: unknown;
+	morphTo?: MorphToConfig;
 	relation?: {
 		resourceName: string;
 		valueField: string;
 		labelField: string;
+		foreignKey?: string;
 	};
 };
 
 export type ActionDefinition = {
 	key: string;
 	nameKey: string;
+	icon?: LucideIcon;
 	confirmTextKey?: string;
 	confirmButtonTextKey?: string;
 	cancelButtonTextKey?: string;
@@ -88,14 +109,23 @@ export type FilterOption = {
 	labelKey: string;
 };
 
-export type FilterDefinition = {
-	key: string;
-	labelKey: string;
-	type: 'select' | 'boolean';
-	urlKey: string;
-	defaultValue: string;
-	options: FilterOption[];
-};
+export type FilterDefinition =
+	| {
+			key: string;
+			labelKey: string;
+			type: 'select' | 'boolean';
+			urlKey: string;
+			defaultValue: string;
+			options: FilterOption[];
+	  }
+	| {
+			key: string;
+			labelKey: string;
+			type: 'date-range';
+			urlKey: string;
+			defaultValue: string;
+			options?: FilterOption[];
+	  };
 
 export type LensDefinition<TTable extends string = string> = {
 	key: string;
@@ -113,9 +143,17 @@ export type MetricDefinition = {
 	format?: 'number' | 'currency' | 'percent';
 };
 
+export type FieldGroupDefinition = {
+	key: string;
+	labelKey: string;
+	fields: string[];
+	contexts?: FieldContext[];
+};
+
 export type ResourceDefinition<TTable extends string = string> = {
 	name: string;
 	table: TTable;
+	tenantScoped?: boolean;
 	groupKey: string;
 	navTitleKey: string;
 	icon: LucideIcon;
@@ -131,7 +169,16 @@ export type ResourceDefinition<TTable extends string = string> = {
 	actions?: ActionDefinition[];
 	lenses?: Array<LensDefinition<TTable>>;
 	metrics?: MetricDefinition[];
+	fieldGroups?: FieldGroupDefinition[];
+	badgeQuery?: {
+		trashed?: 'without' | 'with' | 'only';
+		filters?: Record<string, string>;
+		lens?: string;
+	};
 	canSee?: (user: BetterAuthUser) => boolean;
+	canCreate?: (user: BetterAuthUser) => boolean;
+	canUpdate?: (user: BetterAuthUser, record: Record<string, unknown>) => boolean;
+	canDelete?: (user: BetterAuthUser, record: Record<string, unknown>) => boolean;
 };
 
 export type ResourceName = string;

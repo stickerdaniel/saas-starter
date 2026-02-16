@@ -6,17 +6,55 @@ import {
 	listArgsValidator,
 	resolveLastPage,
 	resolveLastPageArgsValidator,
+	countPaginatedQuery,
+	resolveLastPageForPaginatedQuery,
+	runPaginatedListQuery,
 	runResourceListQuery
 } from '../utils/resource_query';
-import { success, type ActionResponse, notFoundError } from '../utils/errors';
+import { success, type ActionResponse, notFoundError, validationError } from '../utils/errors';
+import {
+	applyFieldVisibility,
+	applyFieldVisibilityList,
+	type FieldPolicy
+} from '../utils/visibility';
+import { assertResourceCrudAllowed } from '../utils/resource_guards';
+import {
+	aggregateCountFeaturedProjects,
+	aggregateCountProjectsByStatus,
+	aggregateSumActiveProjectBudget
+} from '../utils/aggregates';
+import { getResourceSearchIndexConfig } from '../utils/search_index';
 
 export type AdminDemoProject = Doc<'adminDemoProjects'>;
 
 type ProjectListItem = AdminDemoProject & {
 	taskCount: number;
 	tagCount: number;
-	_visibleFields: string[];
 };
+
+const projectFieldPolicies: FieldPolicy<ProjectListItem>[] = [
+	{ attribute: 'name' },
+	{ attribute: 'slug' },
+	{ attribute: 'status' },
+	{ attribute: 'ownerEmail' },
+	{ attribute: 'budget' },
+	{ attribute: 'isFeatured' },
+	{ attribute: 'description' },
+	{ attribute: 'coverImageUrl' },
+	{ attribute: 'specSheetUrl' },
+	{ attribute: 'settingsJson' },
+	{
+		attribute: 'codeSnippet',
+		canSee: (_user, item) => item.isFeatured === true
+	},
+	{ attribute: 'taskCount' },
+	{ attribute: 'tagCount' },
+	{ attribute: 'tags' },
+	{ attribute: 'createdAt' },
+	{ attribute: 'updatedAt' }
+];
+
+const projectSearchIndex = getResourceSearchIndexConfig('demo-projects');
 
 function matchesProjectFilters(project: AdminDemoProject, filters: Record<string, string>) {
 	const status = filters.status;
@@ -28,6 +66,19 @@ function matchesProjectFilters(project: AdminDemoProject, filters: Record<string
 	if (featured === 'featured' && !project.isFeatured) return false;
 	if (featured === 'regular' && project.isFeatured) return false;
 
+	const createdRange = filters.createdRange;
+	if (createdRange && createdRange.includes('..')) {
+		const [startDate, endDate] = createdRange.split('..');
+		const start = startDate ? new Date(startDate).getTime() : Number.NaN;
+		const end = endDate ? new Date(endDate).getTime() : Number.NaN;
+		if (Number.isFinite(start) && Number.isFinite(end)) {
+			const endOfDay = end + 86_399_999;
+			if (project.createdAt < start || project.createdAt > endOfDay) {
+				return false;
+			}
+		}
+	}
+
 	return true;
 }
 
@@ -37,6 +88,14 @@ function matchesProjectLens(project: AdminDemoProject, lens: string | undefined)
 	if (lens === 'archived') return project.status === 'archived';
 	if (lens === 'active') return project.status === 'active';
 	return true;
+}
+
+function resolveProjectStatus(filters: Record<string, string>, lens?: string) {
+	const status = filters.status;
+	if (status && status !== 'all') return status;
+	if (lens === 'active') return 'active';
+	if (lens === 'archived') return 'archived';
+	return undefined;
 }
 
 async function buildProjectListItems(
@@ -61,32 +120,115 @@ async function buildProjectListItems(
 	return projects.map((project) => ({
 		...project,
 		taskCount: taskCountByProject.get(project._id) ?? 0,
-		tagCount: tagCountByProject.get(project._id) ?? 0,
-		_visibleFields: [
-			'name',
-			'slug',
-			'status',
-			'ownerEmail',
-			'budget',
-			'isFeatured',
-			'taskCount',
-			'tagCount',
-			'createdAt',
-			'updatedAt'
-		]
+		tagCount: tagCountByProject.get(project._id) ?? 0
 	}));
+}
+
+function getIndexedProjectQuery(
+	ctx: any,
+	args: {
+		filters?: Record<string, string>;
+		lens?: string;
+		trashed?: 'without' | 'with' | 'only';
+	}
+) {
+	const filters = args.filters ?? {};
+	if (filters.createdRange) return null;
+	if (filters.featured && filters.featured !== 'all') return null;
+	if (args.lens === 'featured') return null;
+
+	const status = resolveProjectStatus(filters, args.lens);
+	if (status && (args.trashed ?? 'without') !== 'with') return null;
+	if (status) {
+		return ctx.db
+			.query('adminDemoProjects')
+			.withIndex('by_status', (q: any) => q.eq('status', status));
+	}
+
+	if (args.trashed === 'only') {
+		return ctx.db
+			.query('adminDemoProjects')
+			.withIndex('by_deleted', (q: any) => q.gt('deletedAt', 0));
+	}
+	if (args.trashed === 'without') {
+		return ctx.db
+			.query('adminDemoProjects')
+			.withIndex('by_deleted', (q: any) => q.eq('deletedAt', undefined));
+	}
+	return ctx.db.query('adminDemoProjects');
 }
 
 export const listProjects = permissionQuery({
 	args: listArgsValidator,
 	handler: async (ctx, args) => {
 		assertPermission(ctx.user, { resource: ['read'] });
+		const search = args.search?.trim();
+		const indexedQuery = getIndexedProjectQuery(ctx, {
+			filters: args.filters,
+			lens: args.lens,
+			trashed: args.trashed
+		});
+		if (!search && indexedQuery && !args.sortBy) {
+			const paginated = await runPaginatedListQuery({
+				query: indexedQuery,
+				cursor: args.cursor,
+				numItems: args.numItems
+			});
+			const hydrated = await buildProjectListItems(paginated.items as AdminDemoProject[], ctx);
+			return {
+				items: applyFieldVisibilityList({
+					items: hydrated,
+					user: ctx.user,
+					policies: projectFieldPolicies
+				}),
+				continueCursor: paginated.continueCursor,
+				isDone: paginated.isDone
+			};
+		}
+
+		const status = resolveProjectStatus(args.filters ?? {}, args.lens);
+		const canUseSearchIndex =
+			Boolean(search) &&
+			!args.sortBy &&
+			!(args.filters?.createdRange ?? '') &&
+			(!args.filters?.featured || args.filters.featured === 'all') &&
+			args.lens !== 'featured' &&
+			((args.trashed ?? 'without') === 'without' || (args.trashed ?? 'without') === 'with');
+		if (canUseSearchIndex) {
+			const paginated = await runPaginatedListQuery({
+				query: ctx.db
+					.query('adminDemoProjects')
+					.withSearchIndex(projectSearchIndex.indexName, (q: any) => {
+						let query = q.search(projectSearchIndex.searchField, search as string);
+						if (status) {
+							query = query.eq('status', status);
+						}
+						if ((args.trashed ?? 'without') === 'without') {
+							query = query.eq('deletedAt', undefined);
+						}
+						return query;
+					}),
+				cursor: args.cursor,
+				numItems: args.numItems
+			});
+			const hydrated = await buildProjectListItems(paginated.items as AdminDemoProject[], ctx);
+			return {
+				items: applyFieldVisibilityList({
+					items: hydrated,
+					user: ctx.user,
+					policies: projectFieldPolicies
+				}),
+				continueCursor: paginated.continueCursor,
+				isDone: paginated.isDone
+			};
+		}
+
 		const projects = await ctx.db.query('adminDemoProjects').collect();
 		const query = runResourceListQuery({
 			items: projects,
 			cursor: args.cursor,
 			numItems: args.numItems,
-			search: args.search,
+			search,
 			trashed: args.trashed,
 			sortBy: args.sortBy,
 			sortMap: {
@@ -100,9 +242,14 @@ export const listProjects = permissionQuery({
 			applyFilters: (item) => matchesProjectFilters(item, args.filters ?? {}),
 			applyLens: (item) => matchesProjectLens(item, args.lens)
 		});
+		const hydrated = await buildProjectListItems(query.items, ctx);
 
 		return {
-			items: await buildProjectListItems(query.items, ctx),
+			items: applyFieldVisibilityList({
+				items: hydrated,
+				user: ctx.user,
+				policies: projectFieldPolicies
+			}),
 			continueCursor: query.continueCursor,
 			isDone: query.isDone
 		};
@@ -113,11 +260,53 @@ export const countProjects = permissionQuery({
 	args: countArgsValidator,
 	handler: async (ctx, args) => {
 		assertPermission(ctx.user, { resource: ['read'] });
+		const search = args.search?.trim();
+		const indexedQuery = getIndexedProjectQuery(ctx, {
+			filters: args.filters,
+			lens: args.lens,
+			trashed: args.trashed
+		});
+		if (!search && indexedQuery) {
+			return countPaginatedQuery({
+				createQuery: () =>
+					getIndexedProjectQuery(ctx, {
+						filters: args.filters,
+						lens: args.lens,
+						trashed: args.trashed
+					}) as any
+			});
+		}
+
+		const status = resolveProjectStatus(args.filters ?? {}, args.lens);
+		const canUseSearchIndex =
+			Boolean(search) &&
+			!(args.filters?.createdRange ?? '') &&
+			(!args.filters?.featured || args.filters.featured === 'all') &&
+			args.lens !== 'featured' &&
+			((args.trashed ?? 'without') === 'without' || (args.trashed ?? 'without') === 'with');
+		if (canUseSearchIndex) {
+			return countPaginatedQuery({
+				createQuery: () =>
+					ctx.db
+						.query('adminDemoProjects')
+						.withSearchIndex(projectSearchIndex.indexName, (q: any) => {
+							let query = q.search(projectSearchIndex.searchField, search as string);
+							if (status) {
+								query = query.eq('status', status);
+							}
+							if ((args.trashed ?? 'without') === 'without') {
+								query = query.eq('deletedAt', undefined);
+							}
+							return query;
+						})
+			});
+		}
+
 		const projects = await ctx.db.query('adminDemoProjects').collect();
 		return runResourceListQuery({
 			items: projects,
 			numItems: projects.length || 1,
-			search: args.search,
+			search,
 			trashed: args.trashed,
 			searchableValues: (item) => [item.name, item.slug, item.ownerEmail, item.description ?? ''],
 			applyFilters: (item) => matchesProjectFilters(item, args.filters ?? {}),
@@ -130,11 +319,56 @@ export const resolveProjectsLastPage = permissionQuery({
 	args: resolveLastPageArgsValidator,
 	handler: async (ctx, args) => {
 		assertPermission(ctx.user, { resource: ['read'] });
+		const search = args.search?.trim();
+		const indexedQuery = getIndexedProjectQuery(ctx, {
+			filters: args.filters,
+			lens: args.lens,
+			trashed: args.trashed
+		});
+		if (!search && indexedQuery && !args.sortBy) {
+			return resolveLastPageForPaginatedQuery({
+				createQuery: () =>
+					getIndexedProjectQuery(ctx, {
+						filters: args.filters,
+						lens: args.lens,
+						trashed: args.trashed
+					}) as any,
+				numItems: args.numItems
+			});
+		}
+
+		const status = resolveProjectStatus(args.filters ?? {}, args.lens);
+		const canUseSearchIndex =
+			Boolean(search) &&
+			!args.sortBy &&
+			!(args.filters?.createdRange ?? '') &&
+			(!args.filters?.featured || args.filters.featured === 'all') &&
+			args.lens !== 'featured' &&
+			((args.trashed ?? 'without') === 'without' || (args.trashed ?? 'without') === 'with');
+		if (canUseSearchIndex) {
+			return resolveLastPageForPaginatedQuery({
+				createQuery: () =>
+					ctx.db
+						.query('adminDemoProjects')
+						.withSearchIndex(projectSearchIndex.indexName, (q: any) => {
+							let query = q.search(projectSearchIndex.searchField, search as string);
+							if (status) {
+								query = query.eq('status', status);
+							}
+							if ((args.trashed ?? 'without') === 'without') {
+								query = query.eq('deletedAt', undefined);
+							}
+							return query;
+						}),
+				numItems: args.numItems
+			});
+		}
+
 		const projects = await ctx.db.query('adminDemoProjects').collect();
 		const totalCount = runResourceListQuery({
 			items: projects,
 			numItems: projects.length || 1,
-			search: args.search,
+			search,
 			trashed: args.trashed,
 			searchableValues: (item) => [item.name, item.slug, item.ownerEmail, item.description ?? ''],
 			applyFilters: (item) => matchesProjectFilters(item, args.filters ?? {}),
@@ -163,23 +397,16 @@ export const getProjectById = permissionQuery({
 			.withIndex('by_project', (q) => q.eq('projectId', args.id))
 			.collect();
 
-		return {
-			...project,
-			tags: tags.filter(Boolean),
-			taskCount: tasks.length,
-			_visibleFields: [
-				'name',
-				'slug',
-				'status',
-				'ownerEmail',
-				'budget',
-				'isFeatured',
-				'description',
-				'createdAt',
-				'updatedAt',
-				'deletedAt'
-			]
-		};
+		return applyFieldVisibility({
+			item: {
+				...project,
+				tags: tags.filter(Boolean),
+				taskCount: tasks.length,
+				tagCount: pivots.length
+			} as ProjectListItem,
+			user: ctx.user,
+			policies: projectFieldPolicies
+		});
 	}
 });
 
@@ -191,13 +418,64 @@ const createProjectValuesValidator = v.object({
 	budget: v.number(),
 	isFeatured: v.boolean(),
 	description: v.optional(v.string()),
+	coverImageUrl: v.optional(v.string()),
+	specSheetUrl: v.optional(v.string()),
+	settingsJson: v.optional(v.string()),
+	codeSnippet: v.optional(v.string()),
 	tagIds: v.optional(v.array(v.id('adminDemoTags')))
 });
+
+const updateProjectValuesValidator = v.object({
+	name: v.optional(v.string()),
+	slug: v.optional(v.string()),
+	status: v.optional(v.union(v.literal('draft'), v.literal('active'), v.literal('archived'))),
+	ownerEmail: v.optional(v.string()),
+	budget: v.optional(v.number()),
+	isFeatured: v.optional(v.boolean()),
+	description: v.optional(v.string()),
+	coverImageUrl: v.optional(v.string()),
+	specSheetUrl: v.optional(v.string()),
+	settingsJson: v.optional(v.string()),
+	codeSnippet: v.optional(v.string()),
+	tagIds: v.optional(v.array(v.id('adminDemoTags')))
+});
+
+function validateProjectValues(values: {
+	name: string;
+	slug: string;
+	ownerEmail: string;
+	budget: number;
+}) {
+	const fieldErrors: Record<string, string> = {};
+	if (values.name.trim().length === 0) {
+		fieldErrors.name = 'Project name is required.';
+	}
+	if (values.slug.trim().length === 0) {
+		fieldErrors.slug = 'Project slug is required.';
+	}
+	if (values.ownerEmail.trim().length === 0) {
+		fieldErrors.ownerEmail = 'Owner email is required.';
+	} else if (!values.ownerEmail.includes('@')) {
+		fieldErrors.ownerEmail = 'Owner email must be a valid email.';
+	}
+	if (!Number.isFinite(values.budget) || values.budget < 0) {
+		fieldErrors.budget = 'Budget must be a non-negative number.';
+	}
+	if (Object.keys(fieldErrors).length > 0) {
+		validationError(fieldErrors);
+	}
+}
 
 export const createProject = permissionMutation({
 	args: createProjectValuesValidator,
 	handler: async (ctx, args) => {
 		assertPermission(ctx.user, { resource: ['create'] });
+		assertResourceCrudAllowed({
+			resourceName: 'demo-projects',
+			operation: 'create',
+			user: ctx.user
+		});
+		validateProjectValues(args);
 		const now = Date.now();
 		const projectId = await ctx.db.insert('adminDemoProjects', {
 			name: args.name,
@@ -207,6 +485,10 @@ export const createProject = permissionMutation({
 			budget: args.budget,
 			isFeatured: args.isFeatured,
 			description: args.description,
+			coverImageUrl: args.coverImageUrl,
+			specSheetUrl: args.specSheetUrl,
+			settingsJson: args.settingsJson,
+			codeSnippet: args.codeSnippet,
 			createdAt: now,
 			updatedAt: now
 		});
@@ -226,38 +508,68 @@ export const createProject = permissionMutation({
 export const updateProject = permissionMutation({
 	args: {
 		id: v.id('adminDemoProjects'),
-		values: createProjectValuesValidator
+		values: updateProjectValuesValidator
 	},
 	handler: async (ctx, args) => {
 		assertPermission(ctx.user, { resource: ['update'] });
 		const project = await ctx.db.get(args.id);
 		if (!project) notFoundError('Project');
+		assertResourceCrudAllowed({
+			resourceName: 'demo-projects',
+			operation: 'update',
+			user: ctx.user,
+			record: project as Record<string, unknown>
+		});
+		const readOptionalString = (value: unknown, fallback: string | undefined) =>
+			typeof value === 'string' ? value : fallback;
+
+		const nextValues = {
+			name: args.values.name ?? project.name,
+			slug: args.values.slug ?? project.slug,
+			status: args.values.status ?? project.status,
+			ownerEmail: args.values.ownerEmail ?? project.ownerEmail,
+			budget: args.values.budget ?? project.budget,
+			isFeatured: args.values.isFeatured ?? project.isFeatured,
+			description: args.values.description ?? project.description,
+			coverImageUrl: readOptionalString(
+				args.values.coverImageUrl,
+				typeof project.coverImageUrl === 'string' ? project.coverImageUrl : undefined
+			),
+			specSheetUrl: readOptionalString(
+				args.values.specSheetUrl,
+				typeof project.specSheetUrl === 'string' ? project.specSheetUrl : undefined
+			),
+			settingsJson: readOptionalString(
+				args.values.settingsJson,
+				typeof project.settingsJson === 'string' ? project.settingsJson : undefined
+			),
+			codeSnippet: readOptionalString(
+				args.values.codeSnippet,
+				typeof project.codeSnippet === 'string' ? project.codeSnippet : undefined
+			)
+		};
+		validateProjectValues(nextValues);
 
 		await ctx.db.patch(args.id, {
-			name: args.values.name,
-			slug: args.values.slug,
-			status: args.values.status,
-			ownerEmail: args.values.ownerEmail,
-			budget: args.values.budget,
-			isFeatured: args.values.isFeatured,
-			description: args.values.description,
+			...nextValues,
 			updatedAt: Date.now()
 		});
+		if (args.values.tagIds) {
+			const existing = await ctx.db
+				.query('adminDemoProjectTags')
+				.withIndex('by_project', (q) => q.eq('projectId', args.id))
+				.collect();
+			for (const row of existing) {
+				await ctx.db.delete(row._id);
+			}
 
-		const existing = await ctx.db
-			.query('adminDemoProjectTags')
-			.withIndex('by_project', (q) => q.eq('projectId', args.id))
-			.collect();
-		for (const row of existing) {
-			await ctx.db.delete(row._id);
-		}
-
-		for (const tagId of args.values.tagIds ?? []) {
-			await ctx.db.insert('adminDemoProjectTags', {
-				projectId: args.id,
-				tagId,
-				createdAt: Date.now()
-			});
+			for (const tagId of args.values.tagIds) {
+				await ctx.db.insert('adminDemoProjectTags', {
+					projectId: args.id,
+					tagId,
+					createdAt: Date.now()
+				});
+			}
 		}
 
 		return { id: args.id };
@@ -270,6 +582,12 @@ export const deleteProject = permissionMutation({
 		assertPermission(ctx.user, { resource: ['delete'] });
 		const project = await ctx.db.get(args.id);
 		if (!project) notFoundError('Project');
+		assertResourceCrudAllowed({
+			resourceName: 'demo-projects',
+			operation: 'delete',
+			user: ctx.user,
+			record: project as Record<string, unknown>
+		});
 		await ctx.db.patch(args.id, {
 			deletedAt: Date.now(),
 			updatedAt: Date.now()
@@ -284,6 +602,12 @@ export const restoreProject = permissionMutation({
 		assertPermission(ctx.user, { resource: ['restore'] });
 		const project = await ctx.db.get(args.id);
 		if (!project) notFoundError('Project');
+		assertResourceCrudAllowed({
+			resourceName: 'demo-projects',
+			operation: 'delete',
+			user: ctx.user,
+			record: project as Record<string, unknown>
+		});
 		await ctx.db.patch(args.id, {
 			deletedAt: undefined,
 			updatedAt: Date.now()
@@ -298,6 +622,12 @@ export const forceDeleteProject = permissionMutation({
 		assertPermission(ctx.user, { resource: ['force-delete'] });
 		const project = await ctx.db.get(args.id);
 		if (!project) notFoundError('Project');
+		assertResourceCrudAllowed({
+			resourceName: 'demo-projects',
+			operation: 'delete',
+			user: ctx.user,
+			record: project as Record<string, unknown>
+		});
 
 		const relatedTasks = await ctx.db
 			.query('adminDemoTasks')
@@ -326,6 +656,12 @@ export const replicateProject = permissionMutation({
 		assertPermission(ctx.user, { resource: ['replicate'] });
 		const project = await ctx.db.get(args.id);
 		if (!project) notFoundError('Project');
+		assertResourceCrudAllowed({
+			resourceName: 'demo-projects',
+			operation: 'update',
+			user: ctx.user,
+			record: project as Record<string, unknown>
+		});
 
 		const now = Date.now();
 		const duplicated = await ctx.db.insert('adminDemoProjects', {
@@ -339,7 +675,6 @@ export const replicateProject = permissionMutation({
 			createdAt: now,
 			updatedAt: now
 		});
-
 		return { id: duplicated };
 	}
 });
@@ -494,27 +829,23 @@ export const detachProjectTag = permissionMutation({
 });
 
 export const getProjectMetrics = permissionQuery({
-	args: {},
+	args: {
+		ranges: v.optional(v.record(v.string(), v.string()))
+	},
 	handler: async (ctx) => {
 		assertPermission(ctx.user, { metric: ['read'] });
-		const projects = await ctx.db.query('adminDemoProjects').collect();
-		const active = projects.filter(
-			(project) => project.deletedAt === undefined && project.status === 'active'
-		);
-		const archived = projects.filter(
-			(project) => project.deletedAt === undefined && project.status === 'archived'
-		);
-		const featured = projects.filter(
-			(project) => project.deletedAt === undefined && project.isFeatured
-		);
-
-		const budgetTotal = active.reduce((sum, project) => sum + project.budget, 0);
+		const [activeCount, archivedCount, featuredCount, budgetTotal] = await Promise.all([
+			aggregateCountProjectsByStatus(ctx, 'active'),
+			aggregateCountProjectsByStatus(ctx, 'archived'),
+			aggregateCountFeaturedProjects(ctx),
+			aggregateSumActiveProjectBudget(ctx)
+		]);
 
 		return {
 			cards: [
-				{ key: 'total', type: 'value', value: active.length + archived.length },
-				{ key: 'active', type: 'value', value: active.length },
-				{ key: 'featured', type: 'value', value: featured.length },
+				{ key: 'total', type: 'value', value: activeCount + archivedCount },
+				{ key: 'active', type: 'value', value: activeCount },
+				{ key: 'featured', type: 'value', value: featuredCount },
 				{ key: 'budget', type: 'value', value: budgetTotal }
 			]
 		};
@@ -558,7 +889,6 @@ export const seedProjectDemoData = permissionMutation({
 				createdAt: now - index * 86_400_000,
 				updatedAt: now - index * 86_400_000
 			});
-
 			for (const tagId of tagIds.slice(0, 2)) {
 				await ctx.db.insert('adminDemoProjectTags', {
 					projectId,

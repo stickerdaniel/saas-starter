@@ -21,12 +21,25 @@
 			return `${targetKind}: ${targetTitle}`;
 		}
 		if (field.type === 'belongsTo') {
-			return (record.projectName as string | undefined) ?? String(value ?? '-');
+			const fieldLabelKey = `${field.attribute}Label`;
+			const fieldNameKey = field.attribute.endsWith('Id')
+				? `${field.attribute.slice(0, -2)}Name`
+				: `${field.attribute}Name`;
+			return (
+				(record[fieldLabelKey] as string | undefined) ??
+				(record[fieldNameKey] as string | undefined) ??
+				String(value ?? '-')
+			);
 		}
 		if (field.type === 'manyToMany') {
 			const tags = (record.tags as Array<{ name: string }> | undefined) ?? [];
 			if (tags.length === 0) return '-';
 			return tags.map((tag) => tag.name).join(', ');
+		}
+		if ((field.type === 'date' || field.type === 'datetime') && typeof value === 'number') {
+			const parsed = new Date(value);
+			if (Number.isNaN(parsed.valueOf())) return '-';
+			return field.type === 'date' ? parsed.toLocaleDateString() : parsed.toLocaleString();
 		}
 		return String(value ?? '-');
 	});
@@ -50,6 +63,16 @@
 		</Badge>
 	{:else if selectLabelKey}
 		<Badge variant="secondary"><T keyName={selectLabelKey} /></Badge>
+	{:else if field.type === 'image' && typeof value === 'string' && value.length > 0}
+		<img src={value} alt="" class="max-h-64 rounded-md border object-cover" />
+	{:else if field.type === 'file' && typeof value === 'string' && value.length > 0}
+		<button
+			type="button"
+			class="text-sm text-primary underline"
+			onclick={() => window.open(value, '_blank', 'noopener,noreferrer')}
+		>
+			{value}
+		</button>
 	{:else}
 		<p class="text-sm leading-6">{displayValue}</p>
 	{/if}

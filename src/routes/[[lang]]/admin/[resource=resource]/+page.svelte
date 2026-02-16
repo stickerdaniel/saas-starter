@@ -4,18 +4,21 @@
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { T, getTranslate } from '@tolgee/svelte';
+	import { SvelteSet } from 'svelte/reactivity';
 	import * as Table from '$lib/components/ui/table/index.js';
 	import { Checkbox } from '$lib/components/ui/checkbox/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
+	import * as Dialog from '$lib/components/ui/dialog/index.js';
 	import * as Select from '$lib/components/ui/select/index.js';
 	import { toast } from 'svelte-sonner';
-	import { useConvexClient, useQuery } from 'convex-svelte';
+	import { useConvexClient } from 'convex-svelte';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import EyeIcon from '@lucide/svelte/icons/eye';
 	import PencilIcon from '@lucide/svelte/icons/pencil';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
 	import Undo2Icon from '@lucide/svelte/icons/undo-2';
 	import CopyIcon from '@lucide/svelte/icons/copy';
+	import DownloadIcon from '@lucide/svelte/icons/download';
 	import ConvexCursorTableShell from '$lib/components/tables/convex-cursor-table-shell.svelte';
 	import { createConvexCursorTable } from '$lib/tables/convex/create-convex-cursor-table.svelte';
 	import type { CursorListResult } from '$lib/tables/convex/contract';
@@ -25,22 +28,100 @@
 		createResourceUrlSchema
 	} from '$lib/admin/page-helpers';
 	import FieldRenderer from '$lib/admin/fields/field-renderer.svelte';
+	import InlineEditCell from '$lib/admin/fields/inline-edit-cell.svelte';
 	import FilterPanel from '$lib/admin/components/filter-panel.svelte';
 	import ActionModal from '$lib/admin/components/action-modal.svelte';
 	import MetricsCards from '$lib/admin/components/metrics-cards.svelte';
-	import type { ActionDefinition } from '$lib/admin/types';
+	import type { ActionDefinition, FieldDefinition, FilterDefinition } from '$lib/admin/types';
+	import { ConfirmDeleteDialog, confirmDelete } from '$lib/components/ui/confirm-delete-dialog';
+	import {
+		createOptimisticDelete,
+		createOptimisticDeleteMany,
+		createOptimisticForceDeleteMany,
+		createOptimisticRestore,
+		createOptimisticRestoreMany
+	} from '$lib/admin/optimistic';
+	import { executeResourceAction } from '$lib/admin/action-response';
+	import { createCsvFromRows, createJsonFromRows, downloadTextFile } from '$lib/admin/export';
+	import {
+		getViewerUser,
+		isFieldDisabled,
+		isFieldVisible,
+		isResourceCreatable,
+		isResourceDeletable,
+		isResourceUpdatable
+	} from '$lib/admin/visibility';
 
 	const { t } = getTranslate();
 	const client = useConvexClient();
+	const viewer = getViewerUser(page.data.viewer);
 
-	const { resource, runtime, prefix } = getResourceContext(page.params.resource ?? '');
+	const { resource, runtime, prefix } = getResourceContext(page.params.resource ?? '', viewer);
 	const ResourceIcon = resource.icon;
+
+	function mergeFilters(
+		base: FilterDefinition[],
+		overrides: FilterDefinition[] | undefined
+	): FilterDefinition[] {
+		if (!overrides || overrides.length === 0) return base;
+		const merged = [...base];
+		for (const filter of overrides) {
+			const existingIndex = merged.findIndex((entry) => entry.urlKey === filter.urlKey);
+			if (existingIndex >= 0) {
+				merged[existingIndex] = filter;
+			} else {
+				merged.push(filter);
+			}
+		}
+		return merged;
+	}
+
+	function mergeActions(
+		base: ActionDefinition[],
+		overrides: ActionDefinition[] | undefined
+	): ActionDefinition[] {
+		if (!overrides || overrides.length === 0) return base;
+		const merged = [...base];
+		for (const action of overrides) {
+			const existingIndex = merged.findIndex((entry) => entry.key === action.key);
+			if (existingIndex >= 0) {
+				merged[existingIndex] = action;
+			} else {
+				merged.push(action);
+			}
+		}
+		return merged;
+	}
+
+	function mergeFields(
+		base: FieldDefinition<any>[],
+		overrides: FieldDefinition<any>[] | undefined
+	): FieldDefinition<any>[] {
+		if (!overrides || overrides.length === 0) return base;
+		const merged = [...base];
+		for (const field of overrides) {
+			const existingIndex = merged.findIndex((entry) => entry.attribute === field.attribute);
+			if (existingIndex >= 0) {
+				merged[existingIndex] = field;
+			} else {
+				merged.push(field);
+			}
+		}
+		return merged;
+	}
+
+	const allConfiguredFilters = [
+		...(resource.filters ?? []),
+		...(resource.lenses ?? []).flatMap((lens) => lens.filters ?? [])
+	].filter(
+		(filter, index, array) => array.findIndex((entry) => entry.urlKey === filter.urlKey) === index
+	);
 
 	const defaultFilters = {
 		lens: 'all',
 		trashed: 'without',
 		...Object.fromEntries(
-			(resource.filters ?? []).map((filter) => [filter.urlKey, filter.defaultValue])
+			allConfiguredFilters.map((filter) => [filter.urlKey, filter.defaultValue])
 		)
 	} as Record<string, string>;
 
@@ -49,7 +130,7 @@
 	const defaultPageSize = pageSizeOptions[0];
 
 	const urlSchema = createResourceUrlSchema({
-		filters: (resource.filters ?? []).map((filter) => ({
+		filters: allConfiguredFilters.map((filter) => ({
 			urlKey: filter.urlKey,
 			defaultValue: filter.defaultValue
 		})),
@@ -108,13 +189,56 @@
 		toCount: (result) => result as number
 	});
 
-	const metricsQuery = useQuery(runtime.getMetrics, {});
-
-	const indexFields = $derived(resource.fields.filter((field) => field.showOnIndex !== false));
+	let metricRanges = $state<Record<string, string>>(
+		Object.fromEntries(
+			(resource.metrics ?? [])
+				.filter((metric) => (metric.rangeOptions?.length ?? 0) > 0)
+				.map((metric) => [metric.key, metric.rangeOptions?.[0]?.value ?? ''])
+		)
+	);
+	let metricsCards = $state<any[]>([]);
+	$effect(() => {
+		void (async () => {
+			const result = (await client.query(runtime.getMetrics, {
+				ranges: metricRanges
+			} as never)) as { cards?: Array<Record<string, unknown>> };
+			metricsCards = result.cards ?? [];
+		})();
+	});
 	const rows = $derived(resourceTable.rows);
 	const tableParams = $derived(resourceTable.currentUrlState);
 	const activeLens = $derived(String(tableParams.lens ?? 'all'));
 	const activeTrashed = $derived(String(tableParams.trashed ?? 'without'));
+	const canCreate = $derived(isResourceCreatable(resource, viewer));
+
+	const activeLensDefinition = $derived(
+		(resource.lenses ?? []).find((lens) => lens.key === activeLens)
+	);
+	const activeFilters = $derived(
+		mergeFilters(resource.filters ?? [], activeLensDefinition?.filters)
+	);
+	const activeActions = $derived(
+		mergeActions(resource.actions ?? [], activeLensDefinition?.actions)
+	);
+	const activeFields = $derived(mergeFields(resource.fields, activeLensDefinition?.fields));
+
+	const indexFields = $derived.by(() => {
+		const runtimeVisible = new SvelteSet<string>();
+		for (const row of rows) {
+			const visible = row._visibleFields;
+			if (Array.isArray(visible)) {
+				for (const name of visible) {
+					runtimeVisible.add(String(name));
+				}
+			}
+		}
+		return activeFields.filter((field) => {
+			if (field.showOnIndex === false) return false;
+			if (!isFieldVisible(field, { user: viewer })) return false;
+			if (runtimeVisible.size > 0 && !runtimeVisible.has(field.attribute)) return false;
+			return true;
+		});
+	});
 
 	let selectedRows = $state<Record<string, boolean>>({});
 	const selectedIds = $derived(
@@ -124,7 +248,7 @@
 	);
 
 	const hasAnyFilters = $derived.by(() => {
-		for (const filter of resource.filters ?? []) {
+		for (const filter of allConfiguredFilters) {
 			if ((resourceTable.filters[filter.urlKey] ?? filter.defaultValue) !== filter.defaultValue) {
 				return true;
 			}
@@ -139,13 +263,32 @@
 	let activeAction = $state<ActionDefinition | undefined>(undefined);
 	let actionValues = $state<Record<string, unknown>>({});
 	let relationOptions = $state<Record<string, Array<{ value: string; label: string }>>>({});
+	let relationOptionsLoadError = $state(false);
+	let previewRecord = $state<Record<string, unknown> | null>(null);
 
 	const availableActions = $derived(
-		(resource.actions ?? []).filter((action) => action.showOnIndex !== false)
+		activeActions.filter((action) => {
+			if (action.showOnIndex === false) return false;
+			if (typeof action.canRun !== 'function') return true;
+			if (!viewer) return false;
+			return action.canRun(viewer);
+		})
 	);
 
 	function isSelected(id: string) {
 		return Boolean(selectedRows[id]);
+	}
+
+	function getRowById(id: string) {
+		return rows.find((row) => String(row._id) === id);
+	}
+
+	function canUpdateRow(row: Record<string, unknown>) {
+		return isResourceUpdatable(resource, viewer, row);
+	}
+
+	function canDeleteRow(row: Record<string, unknown>) {
+		return isResourceDeletable(resource, viewer, row);
 	}
 
 	function toggleRow(id: string, next: boolean) {
@@ -153,6 +296,38 @@
 			...selectedRows,
 			[id]: next
 		};
+	}
+
+	function isRowActionDisabled(action: ActionDefinition) {
+		if (action.standalone) return false;
+		if (action.sole) return selectedIds.length !== 1;
+		return selectedIds.length === 0;
+	}
+
+	function shouldIgnoreRowClick(target: EventTarget | null) {
+		if (!(target instanceof Element)) return false;
+		return Boolean(target.closest('[data-no-row-click],button,a,input,[role=checkbox]'));
+	}
+
+	function handleRowClick(event: MouseEvent, id: string) {
+		if (shouldIgnoreRowClick(event.target)) return;
+		const clickAction = resource.clickAction ?? 'detail';
+		if (clickAction === 'ignore') return;
+		if (clickAction === 'select') {
+			toggleRow(id, !isSelected(id));
+			return;
+		}
+		const row = getRowById(id);
+		if (!row) return;
+		if (clickAction === 'edit') {
+			void openEdit(id);
+			return;
+		}
+		if (clickAction === 'preview') {
+			previewRecord = row;
+			return;
+		}
+		void openDetail(id);
 	}
 
 	function toggleAllRows(next: boolean) {
@@ -174,7 +349,7 @@
 	function clearFilters() {
 		resourceTable.setFilter('lens', 'all');
 		resourceTable.setFilter('trashed', 'without');
-		for (const filter of resource.filters ?? []) {
+		for (const filter of allConfiguredFilters) {
 			resourceTable.setFilter(filter.urlKey, filter.defaultValue);
 		}
 	}
@@ -200,10 +375,40 @@
 		resourceTable.setSort(undefined);
 	}
 
+	async function executeAction(action: ActionDefinition, values: Record<string, unknown>) {
+		const ids = action.standalone ? [] : [...selectedIds];
+		await executeResourceAction({
+			client,
+			runtime,
+			action: action.key,
+			ids,
+			values,
+			navigateTo: async (url) => {
+				await goto(resolve(url));
+			}
+		});
+		selectedRows = {};
+	}
+
 	async function openAction(action: ActionDefinition) {
+		if (action.withoutConfirmation && (action.fields?.length ?? 0) === 0) {
+			actionBusy = true;
+			try {
+				await executeAction(action, {});
+			} catch (error) {
+				const message =
+					error instanceof Error ? error.message : $t('admin.resources.toasts.action_error');
+				toast.error(message);
+			} finally {
+				actionBusy = false;
+			}
+			return;
+		}
+
 		activeAction = action;
 		actionValues = {};
 		relationOptions = {};
+		relationOptionsLoadError = false;
 		actionOpen = true;
 
 		if (!action.fields || !runtime.listRelationOptions) return;
@@ -219,6 +424,7 @@
 					})
 				);
 			} catch (error) {
+				relationOptionsLoadError = true;
 				console.error('Failed to load action relation options', error);
 			}
 		}
@@ -228,20 +434,8 @@
 		if (!activeAction) return;
 		actionBusy = true;
 		try {
-			const response = await client.mutation(runtime.runAction, {
-				action: activeAction.key,
-				ids: selectedIds as any,
-				values: actionValues
-			});
-
-			if (response.type === 'danger') {
-				toast.error(response.text);
-			} else {
-				const responseText = 'text' in response ? response.text : undefined;
-				toast.success(responseText ?? $t('admin.resources.toasts.action_success'));
-			}
+			await executeAction(activeAction, actionValues);
 			actionOpen = false;
-			selectedRows = {};
 		} catch (error) {
 			const message =
 				error instanceof Error ? error.message : $t('admin.resources.toasts.action_error');
@@ -252,6 +446,7 @@
 	}
 
 	async function goToCreate() {
+		if (!canCreate) return;
 		await goto(resolve(`${page.url.pathname}/create`));
 	}
 
@@ -260,23 +455,240 @@
 	}
 
 	async function openEdit(id: string) {
+		const row = getRowById(id);
+		if (row && !canUpdateRow(row)) return;
 		await goto(resolve(`${page.url.pathname}/${id}/edit`));
 	}
 
 	async function softDelete(id: string) {
-		await client.mutation(runtime.delete, { id } as never);
+		const row = getRowById(id);
+		if (row && !canDeleteRow(row)) return;
+		await client.mutation(runtime.delete, { id } as never, {
+			optimisticUpdate: createOptimisticDelete(runtime.list, id)
+		});
 		toast.success($t('admin.resources.toasts.deleted'));
 	}
 
+	function confirmSoftDelete(id: string) {
+		confirmDelete({
+			title: $t('admin.resources.actions.delete'),
+			description: $t('admin.resources.confirm.delete_description'),
+			confirm: {
+				text: $t('admin.resources.actions.delete')
+			},
+			cancel: {
+				text: $t('common.cancel')
+			},
+			onConfirm: async () => {
+				await softDelete(id);
+			}
+		});
+	}
+
 	async function restore(id: string) {
-		await client.mutation(runtime.restore, { id } as never);
+		const row = getRowById(id);
+		if (row && !canDeleteRow(row)) return;
+		await client.mutation(runtime.restore, { id } as never, {
+			optimisticUpdate: createOptimisticRestore(runtime.list, id)
+		});
 		toast.success($t('admin.resources.toasts.restored'));
 	}
 
 	async function replicate(id: string) {
+		const row = getRowById(id);
+		if (row && !canUpdateRow(row)) return;
 		await client.mutation(runtime.replicate, { id } as never);
 		toast.success($t('admin.resources.toasts.replicated'));
 	}
+
+	const canBulkDelete = $derived.by(() => {
+		if (selectedIds.length === 0) return false;
+		if (resource.softDeletes) {
+			return activeTrashed !== 'only';
+		}
+		return true;
+	});
+
+	const canBulkRestore = $derived.by(() => {
+		if (!resource.softDeletes) return false;
+		return selectedIds.length > 0 && activeTrashed === 'only';
+	});
+
+	const canBulkForceDelete = $derived.by(() => {
+		if (!resource.softDeletes) return false;
+		return selectedIds.length > 0 && activeTrashed === 'only';
+	});
+
+	function buildListArgsForCursor(cursor?: string) {
+		return {
+			cursor,
+			numItems: Math.min(resourceTable.pageSize, 250),
+			search: String(tableParams.search ?? ''),
+			sortBy: resourceTable.sortBy,
+			filters: resourceTable.filters,
+			lens: activeLens === 'all' ? undefined : activeLens,
+			trashed: (activeTrashed as 'without' | 'with' | 'only' | undefined) ?? 'without'
+		};
+	}
+
+	function buildCountArgs() {
+		return {
+			search: String(tableParams.search ?? ''),
+			filters: resourceTable.filters,
+			lens: activeLens === 'all' ? undefined : activeLens,
+			trashed: (activeTrashed as 'without' | 'with' | 'only' | undefined) ?? 'without'
+		};
+	}
+
+	async function bulkDeleteSelected() {
+		if (!canBulkDelete) return;
+		const optimistic = createOptimisticDeleteMany(runtime.list, selectedIds);
+		await Promise.all(
+			selectedIds.map((id) =>
+				client.mutation(runtime.delete, { id } as never, {
+					optimisticUpdate: optimistic
+				})
+			)
+		);
+		selectedRows = {};
+		toast.success($t('admin.resources.toasts.deleted'));
+	}
+
+	async function bulkRestoreSelected() {
+		if (!canBulkRestore) return;
+		const optimistic = createOptimisticRestoreMany(runtime.list, selectedIds);
+		await Promise.all(
+			selectedIds.map((id) =>
+				client.mutation(runtime.restore, { id } as never, {
+					optimisticUpdate: optimistic
+				})
+			)
+		);
+		selectedRows = {};
+		toast.success($t('admin.resources.toasts.restored'));
+	}
+
+	async function bulkForceDeleteSelected() {
+		if (!canBulkForceDelete) return;
+		const optimistic = createOptimisticForceDeleteMany(runtime.list, selectedIds);
+		await Promise.all(
+			selectedIds.map((id) =>
+				client.mutation(runtime.forceDelete, { id } as never, {
+					optimisticUpdate: optimistic
+				})
+			)
+		);
+		selectedRows = {};
+		toast.success($t('admin.resources.toasts.force_deleted'));
+	}
+
+	function confirmBulkDeleteSelected() {
+		confirmDelete({
+			title: $t('admin.resources.bulk.delete'),
+			description: $t('admin.resources.bulk.delete_description', { count: selectedIds.length }),
+			confirm: { text: $t('admin.resources.bulk.delete') },
+			cancel: { text: $t('common.cancel') },
+			onConfirm: async () => {
+				await bulkDeleteSelected();
+			}
+		});
+	}
+
+	function confirmBulkForceDeleteSelected() {
+		confirmDelete({
+			title: $t('admin.resources.bulk.force_delete'),
+			description: $t('admin.resources.bulk.force_delete_description', {
+				count: selectedIds.length
+			}),
+			confirm: { text: $t('admin.resources.bulk.force_delete') },
+			cancel: { text: $t('common.cancel') },
+			onConfirm: async () => {
+				await bulkForceDeleteSelected();
+			}
+		});
+	}
+
+	async function fetchRowsForExport(limit = 5000) {
+		const count = (await client.query(runtime.count, buildCountArgs() as never)) as number;
+		if (count > limit) {
+			throw new Error($t('admin.resources.export.limit_error', { limit }));
+		}
+		let cursor: string | undefined = undefined;
+		const items: Record<string, unknown>[] = [];
+		while (true) {
+			const pageResult = (await client.query(
+				runtime.list,
+				buildListArgsForCursor(cursor) as never
+			)) as {
+				items: Record<string, unknown>[];
+				continueCursor: string | null;
+				isDone: boolean;
+			};
+			items.push(...(pageResult.items ?? []));
+			if (pageResult.isDone || !pageResult.continueCursor) {
+				break;
+			}
+			cursor = pageResult.continueCursor;
+		}
+		return items;
+	}
+
+	function getExportableFields() {
+		return activeFields.filter((field) => field.showOnIndex !== false);
+	}
+
+	async function exportCsv() {
+		try {
+			const rowsForExport = await fetchRowsForExport();
+			const fields = getExportableFields();
+			const content = createCsvFromRows({
+				fields,
+				rows: rowsForExport
+			});
+			downloadTextFile({
+				filename: `${resource.name}.csv`,
+				content,
+				mimeType: 'text/csv'
+			});
+			toast.success($t('admin.resources.export.success_csv'));
+		} catch (error) {
+			toast.error(
+				error instanceof Error ? error.message : $t('admin.resources.toasts.action_error')
+			);
+		}
+	}
+
+	async function exportJson() {
+		try {
+			const rowsForExport = await fetchRowsForExport();
+			const fields = getExportableFields();
+			const content = createJsonFromRows({
+				fields,
+				rows: rowsForExport
+			});
+			downloadTextFile({
+				filename: `${resource.name}.json`,
+				content,
+				mimeType: 'application/json'
+			});
+			toast.success($t('admin.resources.export.success_json'));
+		} catch (error) {
+			toast.error(
+				error instanceof Error ? error.message : $t('admin.resources.toasts.action_error')
+			);
+		}
+	}
+
+	function setMetricRange(metricKey: string, value: string) {
+		metricRanges = {
+			...metricRanges,
+			[metricKey]: value
+		};
+	}
+
+	const previewFields = $derived(
+		activeFields.filter((field) => field.showOnIndex !== false).slice(0, 6)
+	);
 </script>
 
 <SEOHead
@@ -294,13 +706,21 @@
 			<ResourceIcon class="size-5 text-muted-foreground" />
 			<h1 class="text-2xl font-bold"><T keyName={resource.navTitleKey} /></h1>
 		</div>
-		<Button onclick={() => void goToCreate()} data-testid={`${prefix}-create`}>
-			<PlusIcon class="mr-2 size-4" />
-			<T keyName="admin.resources.actions.create" />
-		</Button>
+		{#if canCreate}
+			<Button onclick={() => void goToCreate()} data-testid={`${prefix}-create`}>
+				<PlusIcon class="mr-2 size-4" />
+				<T keyName="admin.resources.actions.create" />
+			</Button>
+		{/if}
 	</div>
 
-	<MetricsCards metrics={resource.metrics ?? []} values={metricsQuery.data?.cards ?? []} {prefix} />
+	<MetricsCards
+		metrics={resource.metrics ?? []}
+		values={metricsCards}
+		selectedRanges={metricRanges}
+		onRangeChange={setMetricRange}
+		{prefix}
+	/>
 
 	<ConvexCursorTableShell
 		testIdPrefix={prefix}
@@ -327,10 +747,10 @@
 	>
 		{#snippet toolbarFilters()}
 			<div class="flex flex-wrap items-center gap-2">
-				{#if (resource.filters?.length ?? 0) > 0}
+				{#if activeFilters.length > 0}
 					<FilterPanel
 						{prefix}
-						filters={resource.filters ?? []}
+						filters={activeFilters}
 						values={resourceTable.filters}
 						onFilterChange={setFilter}
 						onClear={clearFilters}
@@ -403,14 +823,69 @@
 
 		{#snippet toolbarActions()}
 			<div class="flex flex-wrap items-center gap-2">
+				{#if canBulkDelete}
+					<Button
+						variant="outline"
+						size="sm"
+						onclick={confirmBulkDeleteSelected}
+						data-testid={`${prefix}-bulk-delete`}
+					>
+						<Trash2Icon class="mr-2 size-4" />
+						<T keyName="admin.resources.bulk.delete" />
+					</Button>
+				{/if}
+				{#if canBulkRestore}
+					<Button
+						variant="outline"
+						size="sm"
+						onclick={() => void bulkRestoreSelected()}
+						data-testid={`${prefix}-bulk-restore`}
+					>
+						<Undo2Icon class="mr-2 size-4" />
+						<T keyName="admin.resources.bulk.restore" />
+					</Button>
+				{/if}
+				{#if canBulkForceDelete}
+					<Button
+						variant="destructive"
+						size="sm"
+						onclick={confirmBulkForceDeleteSelected}
+						data-testid={`${prefix}-bulk-force-delete`}
+					>
+						<Trash2Icon class="mr-2 size-4" />
+						<T keyName="admin.resources.bulk.force_delete" />
+					</Button>
+				{/if}
+				<Button
+					variant="outline"
+					size="sm"
+					onclick={() => void exportCsv()}
+					data-testid={`${prefix}-export-csv`}
+				>
+					<DownloadIcon class="mr-2 size-4" />
+					<T keyName="admin.resources.export.csv" />
+				</Button>
+				<Button
+					variant="outline"
+					size="sm"
+					onclick={() => void exportJson()}
+					data-testid={`${prefix}-export-json`}
+				>
+					<DownloadIcon class="mr-2 size-4" />
+					<T keyName="admin.resources.export.json" />
+				</Button>
 				{#each availableActions as action (action.key)}
 					<Button
 						variant="outline"
 						size="sm"
 						onclick={() => void openAction(action)}
-						disabled={!action.standalone && selectedIds.length === 0}
+						disabled={isRowActionDisabled(action)}
 						data-testid={`${prefix}-action-${action.key}`}
 					>
+						{#if action.icon}
+							{@const ActionIcon = action.icon}
+							<ActionIcon class="mr-2 size-4" />
+						{/if}
 						<T keyName={action.nameKey} />
 					</Button>
 				{/each}
@@ -426,6 +901,7 @@
 								checked={rows.length > 0 && selectedIds.length === rows.length}
 								onCheckedChange={(checked) => toggleAllRows(Boolean(checked))}
 								aria-label={$t('admin.resources.aria.select_all')}
+								data-no-row-click="true"
 							/>
 						</Table.Head>
 						{#each indexFields as field (field.attribute)}
@@ -472,23 +948,42 @@
 						</Table.Row>
 					{:else}
 						{#each rows as row (String(row._id))}
-							<Table.Row data-testid={`${resource.name}-row-${row._id}`}>
+							<Table.Row
+								data-testid={`${resource.name}-row-${row._id}`}
+								onclick={(event) => handleRowClick(event, String(row._id))}
+							>
 								<Table.Cell>
 									<Checkbox
 										checked={isSelected(String(row._id))}
 										onCheckedChange={(checked) => toggleRow(String(row._id), Boolean(checked))}
 										aria-label={$t('admin.resources.aria.select_row')}
+										data-no-row-click="true"
 									/>
 								</Table.Cell>
 								{#each indexFields as field (field.attribute)}
 									<Table.Cell>
-										<FieldRenderer
-											context="index"
-											{field}
-											record={row}
-											value={field.resolveUsing ? field.resolveUsing(row) : row[field.attribute]}
-											testId={`${resource.name}-${field.attribute}-cell`}
-										/>
+										{@const visibleForRow = isFieldVisible(field, { user: viewer, record: row })}
+										{#if visibleForRow && field.inlineEditable && canUpdateRow(row) && !isFieldDisabled( field, { user: viewer, record: row, isEdit: true } )}
+											<InlineEditCell
+												{field}
+												record={row}
+												value={field.resolveUsing ? field.resolveUsing(row) : row[field.attribute]}
+												{runtime}
+												testId={`${resource.name}-${field.attribute}-cell`}
+											/>
+										{:else}
+											<FieldRenderer
+												context="index"
+												{field}
+												record={row}
+												value={visibleForRow
+													? field.resolveUsing
+														? field.resolveUsing(row)
+														: row[field.attribute]
+													: '-'}
+												testId={`${resource.name}-${field.attribute}-cell`}
+											/>
+										{/if}
 									</Table.Cell>
 								{/each}
 								<Table.Cell class="text-right">
@@ -498,6 +993,7 @@
 											size="icon"
 											onclick={() => void openDetail(String(row._id))}
 											data-testid={`${prefix}-row-view-${row._id}`}
+											data-no-row-click="true"
 										>
 											<EyeIcon class="size-4" />
 											<span class="sr-only"><T keyName="admin.resources.actions.view" /></span>
@@ -507,6 +1003,8 @@
 											size="icon"
 											onclick={() => void openEdit(String(row._id))}
 											data-testid={`${prefix}-row-edit-${row._id}`}
+											data-no-row-click="true"
+											disabled={!canUpdateRow(row)}
 										>
 											<PencilIcon class="size-4" />
 											<span class="sr-only"><T keyName="admin.resources.actions.edit" /></span>
@@ -516,6 +1014,8 @@
 											size="icon"
 											onclick={() => void replicate(String(row._id))}
 											data-testid={`${prefix}-row-replicate-${row._id}`}
+											data-no-row-click="true"
+											disabled={!canUpdateRow(row)}
 										>
 											<CopyIcon class="size-4" />
 											<span class="sr-only"><T keyName="admin.resources.actions.replicate" /></span>
@@ -526,6 +1026,8 @@
 												size="icon"
 												onclick={() => void restore(String(row._id))}
 												data-testid={`${prefix}-row-restore-${row._id}`}
+												data-no-row-click="true"
+												disabled={!canDeleteRow(row)}
 											>
 												<Undo2Icon class="size-4" />
 												<span class="sr-only"><T keyName="admin.resources.actions.restore" /></span>
@@ -534,8 +1036,10 @@
 											<Button
 												variant="ghost"
 												size="icon"
-												onclick={() => void softDelete(String(row._id))}
+												onclick={() => confirmSoftDelete(String(row._id))}
 												data-testid={`${prefix}-row-delete-${row._id}`}
+												data-no-row-click="true"
+												disabled={!canDeleteRow(row)}
 											>
 												<Trash2Icon class="size-4" />
 												<span class="sr-only"><T keyName="admin.resources.actions.delete" /></span>
@@ -552,11 +1056,64 @@
 	</ConvexCursorTableShell>
 </div>
 
+<Dialog.Root
+	open={previewRecord !== null}
+	onOpenChange={(open) => {
+		if (!open) {
+			previewRecord = null;
+		}
+	}}
+>
+	<Dialog.Content data-testid={`${prefix}-preview-dialog`}>
+		{#if previewRecord}
+			<Dialog.Header>
+				<Dialog.Title><T keyName="admin.resources.sections.preview" /></Dialog.Title>
+				<Dialog.Description>{resource.title(previewRecord as never)}</Dialog.Description>
+			</Dialog.Header>
+			<div class="grid gap-4 md:grid-cols-2" data-testid={`${prefix}-preview-content`}>
+				{#each previewFields as field (field.attribute)}
+					{#if isFieldVisible(field, { user: viewer, record: previewRecord })}
+						<FieldRenderer
+							context="preview"
+							{field}
+							record={previewRecord}
+							value={field.resolveUsing
+								? field.resolveUsing(previewRecord)
+								: previewRecord[field.attribute]}
+						/>
+					{/if}
+				{/each}
+			</div>
+			<Dialog.Footer>
+				<Button
+					variant="outline"
+					onclick={() => {
+						previewRecord = null;
+					}}
+				>
+					<T keyName="common.cancel" />
+				</Button>
+				<Button
+					onclick={() => {
+						if (!previewRecord?._id) return;
+						void openDetail(String(previewRecord._id));
+						previewRecord = null;
+					}}
+					data-testid={`${prefix}-preview-open-detail`}
+				>
+					<T keyName="admin.resources.actions.view" />
+				</Button>
+			</Dialog.Footer>
+		{/if}
+	</Dialog.Content>
+</Dialog.Root>
+
 <ActionModal
 	open={actionOpen}
 	action={activeAction}
 	values={actionValues}
 	{relationOptions}
+	{relationOptionsLoadError}
 	busy={actionBusy}
 	onOpenChange={(open) => {
 		actionOpen = open;
@@ -569,3 +1126,5 @@
 	}}
 	onConfirm={runActiveAction}
 />
+
+<ConfirmDeleteDialog />

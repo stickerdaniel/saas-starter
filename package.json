@@ -35,11 +35,13 @@
 		"admin:generate:filter": "bun scripts/admin/generate-filter.ts",
 		"admin:generate:action": "bun scripts/admin/generate-action.ts",
 		"admin:generate:lens": "bun scripts/admin/generate-lens.ts",
-		"admin:generate:metric": "bun scripts/admin/generate-metric.ts"
+		"admin:generate:metric": "bun scripts/admin/generate-metric.ts",
+		"admin:validate:search-indexes": "bun scripts/admin/validate-search-indexes.ts"
 	},
 	"dependencies": {
 		"@better-auth/passkey": "^1.4.10",
 		"@convex-dev/agent": "^0.3.0",
+		"@convex-dev/aggregate": "^0.2.1",
 		"@convex-dev/better-auth": "^0.10.0",
 		"@convex-dev/rate-limiter": "^0.3.2",
 		"@convex-dev/resend": "^0.2.0",
@@ -73,6 +75,7 @@
 		"posthog-js": "^1.290.0",
 		"resend": "^6.5.2",
 		"runed": "^0.37.0",
+		"shiki": "^3.20.0",
 		"svelte-infinite": "^0.5.1",
 		"svelte-konva": "^1.0.1",
 		"svelte-streamdown": "^3.0.0",

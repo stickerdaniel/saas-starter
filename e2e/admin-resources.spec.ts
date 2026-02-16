@@ -79,6 +79,7 @@ test.describe('Admin Resource Framework', () => {
 		await expect(page.getByText(updatedColor).first()).toBeVisible();
 
 		await page.getByTestId('admin-demo-tags-detail-delete').click();
+		await page.getByTestId('confirm-delete-button').click();
 		await waitForResourceTable(page, 'admin-demo-tags');
 	});
 });

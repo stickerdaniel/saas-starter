@@ -3,6 +3,11 @@ import type { FieldContext } from '$lib/admin/types';
 import IndexCell from './index-cell.svelte';
 import DetailValue from './detail-value.svelte';
 import FormInput from './form-input.svelte';
+import FormFileUpload from './form-file-upload.svelte';
+import LazyFormJsonEditor from './lazy-form-json-editor.svelte';
+import LazyDetailJsonViewer from './lazy-detail-json-viewer.svelte';
+import LazyFormMarkdownEditor from './lazy-form-markdown-editor.svelte';
+import LazyDetailMarkdownViewer from './lazy-detail-markdown-viewer.svelte';
 
 type FieldComponentMap = Record<string, Record<FieldContext, Component<any>>>;
 
@@ -85,6 +90,18 @@ export const fieldComponentMap: FieldComponentMap = {
 		form: FormInput,
 		preview: DetailValue
 	},
+	image: {
+		index: IndexCell,
+		detail: DetailValue,
+		form: FormFileUpload,
+		preview: DetailValue
+	},
+	file: {
+		index: IndexCell,
+		detail: DetailValue,
+		form: FormFileUpload,
+		preview: DetailValue
+	},
 	url: {
 		index: IndexCell,
 		detail: DetailValue,
@@ -93,9 +110,21 @@ export const fieldComponentMap: FieldComponentMap = {
 	},
 	json: {
 		index: IndexCell,
-		detail: DetailValue,
-		form: FormInput,
-		preview: DetailValue
+		detail: LazyDetailJsonViewer,
+		form: LazyFormJsonEditor,
+		preview: LazyDetailJsonViewer
+	},
+	code: {
+		index: IndexCell,
+		detail: LazyDetailJsonViewer,
+		form: LazyFormJsonEditor,
+		preview: LazyDetailJsonViewer
+	},
+	markdown: {
+		index: IndexCell,
+		detail: LazyDetailMarkdownViewer,
+		form: LazyFormMarkdownEditor,
+		preview: LazyDetailMarkdownViewer
 	}
 };
 
