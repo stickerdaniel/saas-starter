@@ -11,6 +11,7 @@
 		values: Record<string, unknown>;
 		errors?: Record<string, string>;
 		relationOptions?: Record<string, Array<{ value: string; label: string }>>;
+		relationOptionsLoadError?: boolean;
 		onOpenChange: (open: boolean) => void;
 		onValueChange: (key: string, value: unknown) => void;
 		onConfirm: () => Promise<void>;
@@ -23,6 +24,7 @@
 		values,
 		errors = {},
 		relationOptions = {},
+		relationOptionsLoadError = false,
 		onOpenChange,
 		onValueChange,
 		onConfirm,
@@ -46,6 +48,11 @@
 		</Dialog.Header>
 
 		<div class="space-y-3">
+			{#if relationOptionsLoadError}
+				<p class="text-sm text-destructive" data-testid="action-relation-options-load-error">
+					<T keyName="admin.resources.toasts.action_error" />
+				</p>
+			{/if}
 			{#each action?.fields ?? [] as field (field.attribute)}
 				<FieldRenderer
 					context="form"

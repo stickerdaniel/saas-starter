@@ -6,7 +6,7 @@ import { type DataModel } from './_generated/dataModel';
 import { query } from './_generated/server';
 import type { GenericMutationCtx } from 'convex/server';
 import { passkey } from '@better-auth/passkey';
-import { admin } from 'better-auth/plugins/admin';
+import { admin, organization } from 'better-auth/plugins';
 import { betterAuth, type BetterAuthOptions } from 'better-auth';
 import authSchema from './betterAuth/schema';
 import authConfig from './auth.config';
@@ -228,7 +228,8 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>): BetterAuthOptions
 			admin({
 				defaultRole: 'user',
 				adminRoles: ['admin']
-			})
+			}),
+			organization()
 		]
 	};
 };

@@ -20,12 +20,19 @@ export const demoCommentsResource = defineResource({
 	sortFields: ['createdAt', 'updatedAt', 'authorEmail'],
 	perPageOptions: [5, 10, 20, 50],
 	softDeletes: true,
+	badgeQuery: {
+		trashed: 'without'
+	},
 	clickAction: 'detail',
+	canCreate: (user) => user.role === 'admin',
+	canUpdate: (user) => user.role === 'admin',
+	canDelete: (user) => user.role === 'admin',
 	fields: [
 		defineField({
 			type: 'textarea',
 			attribute: 'text',
 			labelKey: 'admin.resources.comments.fields.text',
+			required: true,
 			searchable: true,
 			showOnIndex: true,
 			showOnDetail: true,
@@ -35,6 +42,11 @@ export const demoCommentsResource = defineResource({
 			type: 'email',
 			attribute: 'authorEmail',
 			labelKey: 'admin.resources.comments.fields.author_email',
+			canSee: (_user, record) =>
+				(record as { targetKind?: string; target?: { kind?: string } } | undefined)?.targetKind ===
+					'project' ||
+				(record as { target?: { kind?: string } } | undefined)?.target?.kind === 'project',
+			required: true,
 			sortable: true,
 			showOnIndex: true,
 			showOnDetail: true,
@@ -44,9 +56,32 @@ export const demoCommentsResource = defineResource({
 			type: 'morphTo',
 			attribute: 'target',
 			labelKey: 'admin.resources.comments.fields.target',
+			required: true,
 			showOnIndex: true,
 			showOnDetail: true,
-			showOnForm: true
+			showOnForm: true,
+			morphTo: {
+				targets: [
+					{
+						kind: 'project',
+						resourceName: 'demo-projects',
+						labelKey: 'admin.resources.comments.options.project'
+					},
+					{
+						kind: 'task',
+						resourceName: 'demo-tasks',
+						labelKey: 'admin.resources.comments.options.task'
+					}
+				]
+			}
+		}),
+		defineField({
+			type: 'datetime',
+			attribute: 'createdAt',
+			labelKey: 'admin.resources.fields.created_at',
+			showOnIndex: false,
+			showOnDetail: true,
+			showOnForm: false
 		})
 	],
 	filters: [
@@ -61,6 +96,14 @@ export const demoCommentsResource = defineResource({
 				{ value: 'project', labelKey: 'admin.resources.comments.options.project' },
 				{ value: 'task', labelKey: 'admin.resources.comments.options.task' }
 			]
+		}),
+		defineFilter({
+			key: 'createdRange',
+			labelKey: 'admin.resources.filters.created_range',
+			type: 'date-range',
+			urlKey: 'createdRange',
+			defaultValue: '',
+			options: []
 		})
 	],
 	actions: [
@@ -86,17 +129,30 @@ export const demoCommentsResource = defineResource({
 		defineMetric({
 			key: 'total',
 			type: 'value',
-			labelKey: 'admin.resources.comments.metrics.total'
+			labelKey: 'admin.resources.comments.metrics.total',
+			rangeOptions: [
+				{ value: 'without', labelKey: 'admin.resources.trashed.without' },
+				{ value: 'with', labelKey: 'admin.resources.trashed.with' }
+			]
 		}),
 		defineMetric({
-			key: 'project',
+			key: 'targetDistribution',
 			type: 'partition',
-			labelKey: 'admin.resources.comments.metrics.project'
-		}),
-		defineMetric({
-			key: 'task',
-			type: 'partition',
-			labelKey: 'admin.resources.comments.metrics.task'
+			labelKey: 'admin.resources.comments.metrics.target_distribution'
 		})
+	],
+	fieldGroups: [
+		{
+			key: 'overview',
+			labelKey: 'admin.resources.groups.overview',
+			contexts: ['form', 'detail', 'preview'],
+			fields: ['text', 'authorEmail', 'target']
+		},
+		{
+			key: 'system',
+			labelKey: 'admin.resources.groups.system',
+			contexts: ['detail'],
+			fields: ['createdAt']
+		}
 	]
 });

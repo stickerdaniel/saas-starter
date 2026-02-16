@@ -38,7 +38,8 @@ export const tables = {
 		ipAddress: v.optional(v.union(v.null(), v.string())),
 		userAgent: v.optional(v.union(v.null(), v.string())),
 		userId: v.string(),
-		impersonatedBy: v.optional(v.union(v.null(), v.string()))
+		impersonatedBy: v.optional(v.union(v.null(), v.string())),
+		activeOrganizationId: v.optional(v.union(v.null(), v.string()))
 	})
 		.index('expiresAt', ['expiresAt'])
 		.index('expiresAt_userId', ['expiresAt', 'userId'])
@@ -90,7 +91,34 @@ export const tables = {
 		aaguid: v.optional(v.union(v.null(), v.string()))
 	})
 		.index('credentialID', ['credentialID'])
+		.index('userId', ['userId']),
+	organization: defineTable({
+		name: v.string(),
+		slug: v.string(),
+		logo: v.optional(v.union(v.null(), v.string())),
+		metadata: v.optional(v.union(v.null(), v.string())),
+		createdAt: v.number()
+	}).index('slug', ['slug']),
+	member: defineTable({
+		userId: v.string(),
+		organizationId: v.string(),
+		role: v.string(),
+		createdAt: v.number()
+	})
 		.index('userId', ['userId'])
+		.index('organizationId', ['organizationId'])
+		.index('organizationId_userId', ['organizationId', 'userId']),
+	invitation: defineTable({
+		email: v.string(),
+		inviterId: v.string(),
+		organizationId: v.string(),
+		role: v.string(),
+		status: v.string(),
+		expiresAt: v.number(),
+		createdAt: v.number()
+	})
+		.index('email', ['email'])
+		.index('organizationId', ['organizationId'])
 };
 
 const schema = defineSchema(tables);

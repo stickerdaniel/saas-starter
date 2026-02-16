@@ -1,5 +1,5 @@
 import TagsIcon from '@lucide/svelte/icons/tags';
-import { defineField, defineMetric, defineResource } from '../builders';
+import { defineField, defineFilter, defineMetric, defineResource } from '../builders';
 
 export const demoTagsResource = defineResource({
 	name: 'demo-tags',
@@ -12,12 +12,20 @@ export const demoTagsResource = defineResource({
 	search: ['name'],
 	sortFields: ['name', 'createdAt'],
 	perPageOptions: [10, 20, 50],
-	clickAction: 'detail',
+	badgeQuery: {
+		trashed: 'without'
+	},
+	clickAction: 'preview',
+	canCreate: (user) => user.role === 'admin',
+	canUpdate: (user) => user.role === 'admin',
+	canDelete: (user) => user.role === 'admin',
 	fields: [
 		defineField({
 			type: 'text',
 			attribute: 'name',
 			labelKey: 'admin.resources.tags.fields.name',
+			required: true,
+			inlineEditable: true,
 			sortable: true,
 			searchable: true,
 			showOnIndex: true,
@@ -28,12 +36,54 @@ export const demoTagsResource = defineResource({
 			type: 'text',
 			attribute: 'color',
 			labelKey: 'admin.resources.tags.fields.color',
+			required: true,
+			inlineEditable: true,
 			showOnIndex: true,
 			showOnDetail: true,
 			showOnForm: true
+		}),
+		defineField({
+			type: 'date',
+			attribute: 'createdAt',
+			labelKey: 'admin.resources.fields.created_at',
+			showOnIndex: false,
+			showOnDetail: true,
+			showOnForm: false
+		}),
+		defineField({
+			type: 'datetime',
+			attribute: 'updatedAt',
+			labelKey: 'admin.resources.fields.updated_at',
+			showOnIndex: false,
+			showOnDetail: true,
+			showOnForm: false
+		})
+	],
+	filters: [
+		defineFilter({
+			key: 'createdRange',
+			labelKey: 'admin.resources.filters.created_range',
+			type: 'date-range',
+			urlKey: 'createdRange',
+			defaultValue: '',
+			options: []
 		})
 	],
 	metrics: [
 		defineMetric({ key: 'total', type: 'value', labelKey: 'admin.resources.tags.metrics.total' })
+	],
+	fieldGroups: [
+		{
+			key: 'overview',
+			labelKey: 'admin.resources.groups.overview',
+			contexts: ['form', 'detail', 'preview'],
+			fields: ['name', 'color']
+		},
+		{
+			key: 'system',
+			labelKey: 'admin.resources.groups.system',
+			contexts: ['detail'],
+			fields: ['createdAt', 'updatedAt']
+		}
 	]
 });

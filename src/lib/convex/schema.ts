@@ -165,6 +165,10 @@ export default defineSchema({
 		budget: v.number(),
 		isFeatured: v.boolean(),
 		description: v.optional(v.string()),
+		coverImageUrl: v.optional(v.string()),
+		specSheetUrl: v.optional(v.string()),
+		settingsJson: v.optional(v.string()),
+		codeSnippet: v.optional(v.string()),
 		deletedAt: v.optional(v.number()),
 		createdAt: v.number(),
 		updatedAt: v.number()
@@ -182,7 +186,11 @@ export default defineSchema({
 		color: v.string(),
 		createdAt: v.number(),
 		updatedAt: v.number()
-	}).index('by_name', ['name']),
+	})
+		.index('by_name', ['name'])
+		.searchIndex('search_name', {
+			searchField: 'name'
+		}),
 
 	adminDemoProjectTags: defineTable({
 		projectId: v.id('adminDemoProjects'),

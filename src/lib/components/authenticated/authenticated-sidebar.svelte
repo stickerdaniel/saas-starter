@@ -5,7 +5,7 @@
 	import { resolve } from '$app/paths';
 	import type { ComponentProps } from 'svelte';
 	import { T } from '@tolgee/svelte';
-	import type { SidebarConfig, User } from './types';
+	import type { NavGroup, SidebarConfig, User } from './types';
 
 	interface Props extends ComponentProps<typeof Sidebar.Root> {
 		config: SidebarConfig;
@@ -25,6 +25,11 @@
 		}
 		return segments.join('-');
 	}
+
+	const navGroups = $derived.by((): NavGroup[] => {
+		if (config.navGroups && config.navGroups.length > 0) return config.navGroups;
+		return [{ navItems: config.navItems ?? [] }];
+	});
 </script>
 
 <Sidebar.Root collapsible="offcanvas" {...restProps}>
@@ -74,32 +79,37 @@
 	</Sidebar.Header>
 
 	<Sidebar.Content>
-		<Sidebar.Group>
-			<Sidebar.GroupContent class="flex flex-col gap-2">
-				<Sidebar.Menu>
-					{#each config.navItems as item (item.translationKey)}
-						<Sidebar.MenuItem>
-							<Sidebar.MenuButton
-								class={item.isActive ? 'bg-sidebar-accent text-sidebar-accent-foreground' : ''}
-								data-testid={`sidebar-nav-${toTestId(item.url)}`}
-							>
-								{#snippet child({ props })}
-									<a href={resolve(item.url)} {...props}>
-										{#if item.icon}
-											<item.icon />
-										{/if}
-										<span><T keyName={item.translationKey} /></span>
-									</a>
-								{/snippet}
-							</Sidebar.MenuButton>
-							{#if item.badge && item.badge > 0}
-								<Sidebar.MenuBadge>{item.badge}</Sidebar.MenuBadge>
-							{/if}
-						</Sidebar.MenuItem>
-					{/each}
-				</Sidebar.Menu>
-			</Sidebar.GroupContent>
-		</Sidebar.Group>
+		{#each navGroups as group, index (group.labelKey ?? `group-${index}`)}
+			<Sidebar.Group>
+				{#if group.labelKey}
+					<Sidebar.GroupLabel><T keyName={group.labelKey} /></Sidebar.GroupLabel>
+				{/if}
+				<Sidebar.GroupContent class="flex flex-col gap-2">
+					<Sidebar.Menu>
+						{#each group.navItems as item (item.translationKey)}
+							<Sidebar.MenuItem>
+								<Sidebar.MenuButton
+									class={item.isActive ? 'bg-sidebar-accent text-sidebar-accent-foreground' : ''}
+									data-testid={`sidebar-nav-${toTestId(item.url)}`}
+								>
+									{#snippet child({ props })}
+										<a href={resolve(item.url)} {...props}>
+											{#if item.icon}
+												<item.icon />
+											{/if}
+											<span><T keyName={item.translationKey} /></span>
+										</a>
+									{/snippet}
+								</Sidebar.MenuButton>
+								{#if item.badge && item.badge > 0}
+									<Sidebar.MenuBadge>{item.badge}</Sidebar.MenuBadge>
+								{/if}
+							</Sidebar.MenuItem>
+						{/each}
+					</Sidebar.Menu>
+				</Sidebar.GroupContent>
+			</Sidebar.Group>
+		{/each}
 	</Sidebar.Content>
 
 	<Sidebar.Footer>
