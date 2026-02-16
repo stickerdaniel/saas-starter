@@ -1,19 +1,23 @@
 import { api } from '$lib/convex/_generated/api';
+import type { FunctionReference } from 'convex/server';
+
+type QueryRef = FunctionReference<'query'>;
+type MutationRef = FunctionReference<'mutation'>;
 
 export type ResourceRuntime = {
-	list: any;
-	count: any;
-	resolveLastPage: any;
-	getById: any;
-	create: any;
-	update: any;
-	delete: any;
-	restore: any;
-	forceDelete: any;
-	replicate: any;
-	runAction: any;
-	getMetrics: any;
-	listRelationOptions?: Record<string, any>;
+	list: QueryRef;
+	count: QueryRef;
+	resolveLastPage: QueryRef;
+	getById: QueryRef;
+	create: MutationRef;
+	update: MutationRef;
+	delete: MutationRef;
+	restore: MutationRef;
+	forceDelete: MutationRef;
+	replicate: MutationRef;
+	runAction: MutationRef;
+	getMetrics: QueryRef;
+	listRelationOptions?: Record<string, QueryRef>;
 };
 
 export const adminResourceRuntimeMap: Record<string, ResourceRuntime> = {
@@ -66,8 +70,8 @@ export const adminResourceRuntimeMap: Record<string, ResourceRuntime> = {
 		runAction: api.adminFramework.resources.comments.runCommentAction,
 		getMetrics: api.adminFramework.resources.comments.getCommentMetrics,
 		listRelationOptions: {
-			targetProject: api.adminFramework.resources.projects.listProjectOptions,
-			targetTask: api.adminFramework.resources.tasks.listTaskOptions
+			'demo-projects': api.adminFramework.resources.projects.listProjectOptions,
+			'demo-tasks': api.adminFramework.resources.tasks.listTaskOptions
 		}
 	},
 	'demo-tags': {

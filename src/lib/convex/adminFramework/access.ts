@@ -1,6 +1,10 @@
 import { createAccessControl } from 'better-auth/plugins/access';
 import type { BetterAuthUser } from '../admin/types';
-import { adminMutation, adminQuery } from '../functions';
+import { adminQuery, getActiveSession } from '../functions';
+import { customCtx, customMutation } from 'convex-helpers/server/customFunctions';
+import { mutation } from '../_generated/server';
+import { authComponent } from '../auth';
+import { adminFrameworkAggregateTriggers } from './utils/aggregates';
 
 export const adminFrameworkStatements = {
 	resource: ['read', 'create', 'update', 'delete', 'restore', 'force-delete', 'replicate'],
@@ -42,4 +46,19 @@ export function assertPermission(user: BetterAuthUser, request: StatementRequest
 
 export const permissionQuery = adminQuery;
 
-export const permissionMutation = adminMutation;
+export const permissionMutation = customMutation(
+	mutation,
+	customCtx(async (ctx) => {
+		const user = (await authComponent.getAuthUser(ctx)) as BetterAuthUser | null;
+		if (!user || user.role !== 'admin') {
+			throw new Error('Unauthorized: Admin access required');
+		}
+		const wrappedCtx = adminFrameworkAggregateTriggers.wrapDB(ctx);
+		const session = await getActiveSession(ctx);
+		return {
+			user,
+			db: wrappedCtx.db,
+			organizationId: session?.activeOrganizationId ?? null
+		};
+	})
+);

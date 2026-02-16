@@ -78,6 +78,8 @@
 				"restore": "Restore",
 				"select_exactly_one": "Please select exactly one record.",
 				"update_resource": "Update {resource}",
+				"replicate": "Replicate",
+				"restore": "Restore",
 				"view": "View"
 			},
 			"aria": {
@@ -165,6 +167,16 @@
 			"columns": {
 				"actions": "Actions"
 			},
+			"columns": {
+				"actions": "Actions"
+			},
+			"bulk": {
+				"delete": "Bulk Delete",
+				"delete_description": "Delete {count} selected records?",
+				"restore": "Bulk Restore",
+				"force_delete": "Bulk Force Delete",
+				"force_delete_description": "Permanently delete {count} selected records?"
+			},
 			"comments": {
 				"actions": {
 					"mark_reviewed": "Mark Reviewed"
@@ -173,7 +185,8 @@
 					"author_email": "Author Email",
 					"target": "Target",
 					"text": "Text",
-					"text_aria": "Comment text input"
+					"text_aria": "Comment text input",
+					"text": "Text"
 				},
 				"filters": {
 					"target_kind": "Target Kind"
@@ -188,7 +201,8 @@
 					"task": "Task Comments",
 					"total": "Total Comments",
 					"total_desc": "All comments across targets",
-					"total_subtitle": "Comment activity"
+					"total_subtitle": "Comment activity",
+					"total": "Total Comments"
 				},
 				"nav_title": "Demo Comments",
 				"options": {
@@ -255,7 +269,16 @@
 				"suggestions_input": "Type to search suggestions",
 				"suggestions_loading": "Loading suggestions…",
 				"upload": "Upload file",
-				"value_placeholder": "Value"
+				"value_placeholder": "Value",
+				"select_placeholder": "Select option"
+			},
+			"form": {
+				"fix_errors": "Please fix the highlighted fields.",
+				"invalid": "Invalid field value",
+				"markdown_placeholder": "## Markdown content",
+				"no_relation_options": "No options available",
+				"required": "This field is required",
+				"upload": "Upload file"
 			},
 			"groups": {
 				"assignment": "Assignment",
@@ -285,7 +308,8 @@
 					"purge_cancel_btn": "Cancel",
 					"purge_confirm": "This will permanently delete the selected projects and all related data. This action cannot be undone.",
 					"purge_confirm_btn": "Yes, Purge",
-					"seed_data": "Seed Data"
+					"seed_data": "Seed Data",
+					"feature": "Mark Featured"
 				},
 				"fields": {
 					"budget": "Budget",
@@ -297,6 +321,9 @@
 					"name": "Name",
 					"owner_email": "Owner Email",
 					"owner_email_placeholder": "owner@example.com",
+					"featured": "Featured",
+					"name": "Name",
+					"owner_email": "Owner Email",
 					"settings_json": "Settings JSON",
 					"slug": "Slug",
 					"spec_sheet": "Spec Sheet URL",
@@ -332,7 +359,10 @@
 					"featured_subtitle": "Highlighted projects",
 					"total": "Total Projects",
 					"total_desc": "All registered projects",
-					"total_subtitle": "Project portfolio"
+					"total_subtitle": "Project portfolio",
+					"budget": "Active Budget",
+					"featured": "Featured Projects",
+					"total": "Total Projects"
 				},
 				"nav_title": "Demo Projects",
 				"options": {
@@ -369,7 +399,8 @@
 				"metrics": {
 					"total": "Total Tags",
 					"total_desc": "All available tags",
-					"total_subtitle": "Tag library"
+					"total_subtitle": "Tag library",
+					"total": "Total Tags"
 				},
 				"nav_title": "Demo Tags"
 			},
@@ -379,7 +410,9 @@
 					"mark_done": "Mark Done",
 					"mark_in_progress": "Mark In Progress",
 					"queued_bulk_process": "Queued Bulk Process",
-					"quick_done": "Quick Done"
+					"quick_done": "Quick Done",
+					"mark_done": "Mark Done",
+					"mark_in_progress": "Mark In Progress"
 				},
 				"fields": {
 					"assignee_email": "Assignee Email",
@@ -415,7 +448,14 @@
 					"status_trend": "Status Trend",
 					"todo": "Todo",
 					"todo_desc": "Tasks awaiting start",
-					"todo_subtitle": "Backlog items"
+					"todo_subtitle": "Backlog items",
+					"done": "Done",
+					"estimate": "Estimated Hours",
+					"estimate_by_status": "Estimate by Status",
+					"in_progress": "In Progress",
+					"priority_split": "Priority Split",
+					"status_trend": "Status Trend",
+					"todo": "Todo"
 				},
 				"nav_title": "Demo Tasks",
 				"options": {
@@ -449,6 +489,7 @@
 				"no": "No",
 				"pairs_count": "{count} pairs",
 				"selected_count": "{count} selected",
+				"no": "No",
 				"yes": "Yes"
 			}
 		},
@@ -647,186 +688,6 @@
 			"unnamed": "Unnamed",
 			"unverified": "Unverified",
 			"verified": "Verified"
-		},
-		"resources": {
-			"groups": {
-				"demo_data": "Demo Resources"
-			},
-			"filters": {
-				"all": "All",
-				"clear": "Clear",
-				"select_placeholder": "Select option"
-			},
-			"values": {
-				"yes": "Yes",
-				"no": "No",
-				"enabled": "Enabled"
-			},
-			"columns": {
-				"actions": "Actions"
-			},
-			"search_placeholder": "Search resources...",
-			"rows_per_page": "Rows per page",
-			"selected": "{selected} of {total} selected",
-			"loading": "Loading resources...",
-			"empty": "No records found.",
-			"lenses": {
-				"all": "All Lenses"
-			},
-			"trashed": {
-				"without": "Without Trashed",
-				"with": "With Trashed",
-				"only": "Only Trashed"
-			},
-			"aria": {
-				"select_all": "Select all rows",
-				"select_row": "Select row"
-			},
-			"toasts": {
-				"created": "Resource created",
-				"updated": "Resource updated",
-				"save_error": "Failed to save resource",
-				"action_success": "Action completed",
-				"action_error": "Action failed",
-				"deleted": "Record deleted",
-				"restored": "Record restored",
-				"force_deleted": "Record permanently deleted",
-				"replicated": "Record replicated"
-			},
-			"sections": {
-				"preview": "Preview",
-				"details": "Details"
-			},
-			"form": {
-				"required": "This field is required",
-				"no_relation_options": "No options available"
-			},
-			"actions": {
-				"create": "Create",
-				"create_resource": "Create {resource}",
-				"edit": "Edit",
-				"view": "View",
-				"delete": "Delete",
-				"restore": "Restore",
-				"force_delete": "Force Delete",
-				"replicate": "Replicate"
-			},
-			"projects": {
-				"nav_title": "Demo Projects",
-				"fields": {
-					"name": "Name",
-					"slug": "Slug",
-					"status": "Status",
-					"owner_email": "Owner Email",
-					"budget": "Budget",
-					"featured": "Featured",
-					"description": "Description",
-					"tags": "Tags",
-					"tasks": "Tasks",
-					"tag": "Tag"
-				},
-				"options": {
-					"status_draft": "Draft",
-					"status_active": "Active",
-					"status_archived": "Archived"
-				},
-				"filters": {
-					"status": "Status",
-					"featured": "Featured",
-					"featured_only": "Featured Only",
-					"regular_only": "Regular Only"
-				},
-				"actions": {
-					"feature": "Mark Featured",
-					"archive": "Archive",
-					"attach_tag": "Attach Tag"
-				},
-				"lenses": {
-					"featured": "Featured Projects",
-					"archived": "Archived Projects",
-					"active": "Active Projects"
-				},
-				"metrics": {
-					"total": "Total Projects",
-					"active": "Active Projects",
-					"featured": "Featured Projects",
-					"budget": "Active Budget"
-				}
-			},
-			"tasks": {
-				"nav_title": "Demo Tasks",
-				"fields": {
-					"title": "Title",
-					"project": "Project",
-					"status": "Status",
-					"priority": "Priority",
-					"estimate_hours": "Estimate Hours",
-					"assignee_email": "Assignee Email"
-				},
-				"options": {
-					"todo": "Todo",
-					"in_progress": "In Progress",
-					"done": "Done",
-					"low": "Low",
-					"medium": "Medium",
-					"high": "High"
-				},
-				"filters": {
-					"status": "Status",
-					"priority": "Priority"
-				},
-				"actions": {
-					"mark_done": "Mark Done",
-					"mark_in_progress": "Mark In Progress"
-				},
-				"lenses": {
-					"due": "Due Tasks",
-					"completed": "Completed Tasks"
-				},
-				"metrics": {
-					"todo": "Todo",
-					"in_progress": "In Progress",
-					"done": "Done",
-					"estimate": "Estimated Hours"
-				}
-			},
-			"comments": {
-				"nav_title": "Demo Comments",
-				"fields": {
-					"text": "Text",
-					"author_email": "Author Email",
-					"target": "Target"
-				},
-				"options": {
-					"project": "Project",
-					"task": "Task"
-				},
-				"filters": {
-					"target_kind": "Target Kind"
-				},
-				"actions": {
-					"mark_reviewed": "Mark Reviewed"
-				},
-				"lenses": {
-					"project": "Project Comments",
-					"task": "Task Comments"
-				},
-				"metrics": {
-					"total": "Total Comments",
-					"project": "Project Comments",
-					"task": "Task Comments"
-				}
-			},
-			"tags": {
-				"nav_title": "Demo Tags",
-				"fields": {
-					"name": "Name",
-					"color": "Color"
-				},
-				"metrics": {
-					"total": "Total Tags"
-				}
-			}
 		}
 	},
 	"app": {
@@ -1267,22 +1128,6 @@
 			"users": {
 				"description": "Manage users, roles, and account status.",
 				"title": "User Management"
-			},
-			"resource_index": {
-				"title": "{resource}",
-				"description": "Browse and manage {resource}."
-			},
-			"resource_create": {
-				"title": "Create {resource}",
-				"description": "Create a new {resource} record."
-			},
-			"resource_edit": {
-				"title": "Edit {resource}",
-				"description": "Edit a {resource} record."
-			},
-			"resource_detail": {
-				"title": "{resource} Details",
-				"description": "Review {resource} details and actions."
 			}
 		},
 		"app": {

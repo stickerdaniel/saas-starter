@@ -11,6 +11,7 @@
 		value: unknown;
 		testId?: string;
 		error?: string;
+		disabled?: boolean;
 		relationOptions?: Option[];
 		onChange?: (value: unknown) => void;
 	};
@@ -22,11 +23,14 @@
 		value,
 		testId,
 		error,
+		disabled = false,
 		relationOptions = [],
 		onChange = () => {}
 	}: Props = $props();
 
-	const Component = $derived(getFieldComponent(field.type, context));
+	const Component = $derived(
+		field.renderOverride?.[context] ?? getFieldComponent(field.type, context)
+	);
 </script>
 
-<Component {field} {value} {record} {testId} {error} {relationOptions} {onChange} />
+<Component {field} {value} {record} {testId} {error} {disabled} {relationOptions} {onChange} />

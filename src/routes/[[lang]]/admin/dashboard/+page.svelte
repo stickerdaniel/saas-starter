@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import SEOHead from '$lib/components/SEOHead.svelte';
 	import * as Item from '$lib/components/ui/item/index.js';
 	import MetricCard from '$lib/components/ui/metric-card.svelte';
@@ -11,6 +12,9 @@
 	import { useQuery } from 'convex-svelte';
 	import { api } from '$lib/convex/_generated/api.js';
 	import { getContext } from 'svelte';
+	import { getResourceDefinitions } from '$lib/admin/registry';
+	import { adminResourceRuntimeMap } from '$lib/admin/runtime';
+	import { localizedHref } from '$lib/utils/i18n';
 
 	const { t } = getTranslate();
 
@@ -21,6 +25,41 @@
 
 	// Fetch dashboard metrics
 	const metrics = useQuery(api.admin.queries.getDashboardMetrics, {});
+	const resourceDefinitions = getResourceDefinitions();
+	const resourceOverviewQueries = resourceDefinitions.map((resource) => {
+		const runtime = adminResourceRuntimeMap[resource.name];
+		const defaultRanges = Object.fromEntries(
+			(resource.metrics ?? [])
+				.filter((metric) => (metric.rangeOptions?.length ?? 0) > 0)
+				.map((metric) => [metric.key, metric.rangeOptions?.[0]?.value ?? ''])
+		);
+		return {
+			resource,
+			count: useQuery(runtime.count, {
+				search: undefined,
+				trashed: resource.badgeQuery?.trashed ?? (resource.softDeletes ? 'without' : undefined),
+				filters: resource.badgeQuery?.filters ?? {},
+				lens: resource.badgeQuery?.lens
+			} as never),
+			metrics: useQuery(runtime.getMetrics, {
+				ranges: defaultRanges
+			} as never)
+		};
+	});
+	const resourceOverview = $derived.by(() =>
+		resourceOverviewQueries.map((entry) => {
+			const cards = (entry.metrics.data as { cards?: Array<Record<string, unknown>> } | undefined)
+				?.cards;
+			const firstValueCard = cards?.find((card) => card.type === 'value') as
+				| { value?: number }
+				| undefined;
+			return {
+				resource: entry.resource,
+				count: Number(entry.count.data ?? 0),
+				highlight: Number(firstValueCard?.value ?? 0)
+			};
+		})
+	);
 
 	// Derive loading state
 	let isLoading = $derived(!metrics.data);
@@ -81,6 +120,35 @@
 	</div>
 
 	<!-- External Service Links -->
+	<div class="flex flex-col gap-4 px-4 lg:px-6">
+		<h2 class="text-lg font-semibold"><T keyName="admin.dashboard.resource_overview" /></h2>
+		<div
+			class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4"
+			data-testid="admin-dashboard-resource-overview"
+		>
+			{#each resourceOverview as entry (entry.resource.name)}
+				<Item.Root variant="outline">
+					{#snippet child({ props })}
+						<a href={resolve(localizedHref(`/admin/${entry.resource.name}`))} {...props}>
+							<Item.Content>
+								<Item.Title>
+									<T keyName={entry.resource.navTitleKey} />
+								</Item.Title>
+								<Item.Description>
+									{$t('admin.dashboard.resource_records', { count: entry.count })}
+								</Item.Description>
+							</Item.Content>
+							<Item.Actions class="flex items-center gap-2 text-sm">
+								<span class="font-medium">{entry.highlight}</span>
+								<ExternalLinkIcon class="size-4" />
+							</Item.Actions>
+						</a>
+					{/snippet}
+				</Item.Root>
+			{/each}
+		</div>
+	</div>
+
 	<div class="flex flex-col gap-4 px-4 lg:px-6">
 		<h2 class="text-lg font-semibold"><T keyName="admin.dashboard.external_services" /></h2>
 		<div class="grid grid-cols-1 gap-4 md:grid-cols-3">

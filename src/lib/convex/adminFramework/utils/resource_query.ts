@@ -57,6 +57,17 @@ export type QueryOptions<TItem extends Record<string, unknown>> = {
 	applyLens?: (item: TItem) => boolean;
 };
 
+type PaginateResult<TItem> = {
+	page: TItem[];
+	continueCursor: string | null;
+	isDone: boolean;
+};
+
+type PaginatedQuery<TItem> = {
+	paginate: (opts: { cursor: string | null; numItems: number }) => Promise<PaginateResult<TItem>>;
+	order?: (direction: 'asc' | 'desc') => PaginatedQuery<TItem>;
+};
+
 function compareValue(a: unknown, b: unknown): number {
 	if (a === b) return 0;
 	if (a === undefined || a === null) return -1;
@@ -128,4 +139,101 @@ export function resolveLastPage(args: { totalCount: number; numItems: number }) 
 		page,
 		cursor: offset === 0 ? null : String(offset)
 	};
+}
+
+export async function runPaginatedListQuery<TItem extends Record<string, unknown>>(args: {
+	query: PaginatedQuery<TItem>;
+	cursor?: string;
+	numItems: number;
+	order?: 'asc' | 'desc';
+}) {
+	const query = args.order && args.query.order ? args.query.order(args.order) : args.query;
+	const result = await query.paginate({
+		cursor: args.cursor ?? null,
+		numItems: args.numItems
+	});
+	return {
+		items: result.page,
+		continueCursor: result.continueCursor,
+		isDone: result.isDone
+	};
+}
+
+async function countPaginatedQueryInternal<TItem extends Record<string, unknown>>(
+	query: PaginatedQuery<TItem>,
+	stride = 1000
+) {
+	let total = 0;
+	let cursor: string | null = null;
+	while (true) {
+		const result = await query.paginate({
+			cursor,
+			numItems: stride
+		});
+		total += result.page.length;
+		if (result.isDone || !result.continueCursor) {
+			break;
+		}
+		cursor = result.continueCursor;
+	}
+	return total;
+}
+
+export async function countPaginatedQuery<TItem extends Record<string, unknown>>(args: {
+	createQuery: () => PaginatedQuery<TItem>;
+	order?: 'asc' | 'desc';
+	stride?: number;
+}) {
+	const query = args.createQuery();
+	const ordered = args.order && query.order ? query.order(args.order) : query;
+	return countPaginatedQueryInternal(ordered, args.stride ?? 1000);
+}
+
+export async function resolveLastPageForPaginatedQuery<
+	TItem extends Record<string, unknown>
+>(args: { createQuery: () => PaginatedQuery<TItem>; numItems: number; order?: 'asc' | 'desc' }) {
+	const pageSize = Number.isFinite(args.numItems) && args.numItems > 0 ? args.numItems : 10;
+	const totalCount = await countPaginatedQuery({
+		createQuery: args.createQuery,
+		order: args.order,
+		stride: Math.max(pageSize, 1000)
+	});
+	if (totalCount <= 0) {
+		return { page: 1, cursor: null as string | null };
+	}
+
+	const page = Math.max(1, Math.ceil(totalCount / pageSize));
+	const targetOffset = (page - 1) * pageSize;
+	if (targetOffset <= 0) {
+		return { page: 1, cursor: null as string | null };
+	}
+
+	const query = args.createQuery();
+	const ordered = args.order && query.order ? query.order(args.order) : query;
+	const stride = Math.max(pageSize, 1000);
+	let cursor: string | null = null;
+	let walked = 0;
+
+	while (walked + stride <= targetOffset) {
+		const result = await ordered.paginate({
+			cursor,
+			numItems: stride
+		});
+		if (result.isDone || !result.continueCursor) {
+			return { page, cursor };
+		}
+		cursor = result.continueCursor;
+		walked += stride;
+	}
+
+	const remaining = targetOffset - walked;
+	if (remaining > 0) {
+		const result = await ordered.paginate({
+			cursor,
+			numItems: remaining
+		});
+		cursor = result.continueCursor ?? cursor;
+	}
+
+	return { page, cursor };
 }

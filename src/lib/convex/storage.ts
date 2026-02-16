@@ -85,3 +85,56 @@ export const updateProfileImage = mutation({
 		return await ctx.storage.getUrl(args.storageId);
 	}
 });
+
+/**
+ * Finalize a generic admin upload and return a public URL.
+ *
+ * Uses files-control finalizeUpload to register the upload, then returns
+ * the Convex storage URL for persistence in admin resources.
+ */
+export const finalizeAdminUpload = mutation({
+	args: {
+		storageId: v.id('_storage'),
+		uploadToken: v.string(),
+		kind: v.optional(v.union(v.literal('image'), v.literal('file')))
+	},
+	handler: async (ctx, args) => {
+		const user = await authComponent.getAuthUser(ctx);
+		if (!user) {
+			await ctx.storage.delete(args.storageId);
+			throw new Error('Unauthorized');
+		}
+
+		const metadata = await ctx.db.system.get(args.storageId);
+		if (!metadata) {
+			throw new Error('File not found');
+		}
+
+		if (args.kind === 'image' && !metadata.contentType?.startsWith('image/')) {
+			await ctx.storage.delete(args.storageId);
+			throw new Error('Invalid image file type');
+		}
+
+		try {
+			await ctx.runMutation(components.convexFilesControl.upload.finalizeUpload, {
+				uploadToken: args.uploadToken,
+				storageId: args.storageId,
+				accessKeys: [user._id],
+				expiresAt: null
+			});
+		} catch (error) {
+			await ctx.storage.delete(args.storageId);
+			throw error;
+		}
+
+		const url = await ctx.storage.getUrl(args.storageId);
+		if (!url) {
+			throw new Error('Could not generate file URL');
+		}
+
+		return {
+			storageId: args.storageId,
+			url
+		};
+	}
+});

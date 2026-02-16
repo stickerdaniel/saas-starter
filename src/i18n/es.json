@@ -78,6 +78,8 @@
 				"restore": "Restore",
 				"select_exactly_one": "Seleccione exactamente un registro.",
 				"update_resource": "Actualizar {resource}",
+				"replicate": "Replicate",
+				"restore": "Restore",
 				"view": "View"
 			},
 			"aria": {
@@ -165,6 +167,16 @@
 			"columns": {
 				"actions": "Actions"
 			},
+			"columns": {
+				"actions": "Actions"
+			},
+			"bulk": {
+				"delete": "Eliminar en lote",
+				"delete_description": "¿Eliminar {count} registros seleccionados?",
+				"restore": "Restaurar en lote",
+				"force_delete": "Eliminar definitivamente en lote",
+				"force_delete_description": "¿Eliminar permanentemente {count} registros seleccionados?"
+			},
 			"comments": {
 				"actions": {
 					"mark_reviewed": "Mark Reviewed"
@@ -173,7 +185,8 @@
 					"author_email": "Author Email",
 					"target": "Target",
 					"text": "Text",
-					"text_aria": "Entrada de texto del comentario"
+					"text_aria": "Entrada de texto del comentario",
+					"text": "Text"
 				},
 				"filters": {
 					"target_kind": "Target Kind"
@@ -188,7 +201,8 @@
 					"task": "Task Comments",
 					"total": "Comentarios totales",
 					"total_desc": "Todos los comentarios en todos los objetivos",
-					"total_subtitle": "Actividad de comentarios"
+					"total_subtitle": "Actividad de comentarios",
+					"total": "Total Comments"
 				},
 				"nav_title": "Demo Comments",
 				"options": {
@@ -255,7 +269,16 @@
 				"suggestions_input": "Escriba para buscar sugerencias",
 				"suggestions_loading": "Cargando sugerencias…",
 				"upload": "Subir archivo",
-				"value_placeholder": "Valor"
+				"value_placeholder": "Valor",
+				"select_placeholder": "Select option"
+			},
+			"form": {
+				"fix_errors": "Corrige los campos resaltados.",
+				"invalid": "Invalid field value",
+				"markdown_placeholder": "## Contenido Markdown",
+				"no_relation_options": "No options available",
+				"required": "This field is required",
+				"upload": "Subir archivo"
 			},
 			"groups": {
 				"assignment": "Asignación",
@@ -285,7 +308,8 @@
 					"purge_cancel_btn": "Cancelar",
 					"purge_confirm": "Esto eliminará permanentemente los proyectos seleccionados y todos los datos relacionados. Esta acción no se puede deshacer.",
 					"purge_confirm_btn": "Sí, purgar",
-					"seed_data": "Generar datos"
+					"seed_data": "Generar datos",
+					"feature": "Mark Featured"
 				},
 				"fields": {
 					"budget": "Budget",
@@ -297,6 +321,9 @@
 					"name": "Name",
 					"owner_email": "Owner Email",
 					"owner_email_placeholder": "propietario@ejemplo.com",
+					"featured": "Featured",
+					"name": "Name",
+					"owner_email": "Owner Email",
 					"settings_json": "Configuración JSON",
 					"slug": "Slug",
 					"spec_sheet": "URL de ficha técnica",
@@ -332,7 +359,11 @@
 					"featured_subtitle": "Proyectos seleccionados",
 					"total": "Proyectos totales",
 					"total_desc": "Todos los proyectos registrados",
-					"total_subtitle": "Portafolio de proyectos"
+					"total_subtitle": "Portafolio de proyectos",
+					"active": "Active Projects",
+					"budget": "Active Budget",
+					"featured": "Featured Projects",
+					"total": "Total Projects"
 				},
 				"nav_title": "Demo Projects",
 				"options": {
@@ -369,7 +400,8 @@
 				"metrics": {
 					"total": "Etiquetas totales",
 					"total_desc": "Todas las etiquetas disponibles",
-					"total_subtitle": "Biblioteca de etiquetas"
+					"total_subtitle": "Biblioteca de etiquetas",
+					"total": "Total Tags"
 				},
 				"nav_title": "Demo Tags"
 			},
@@ -379,7 +411,9 @@
 					"mark_done": "Mark Done",
 					"mark_in_progress": "Mark In Progress",
 					"queued_bulk_process": "Procesamiento masivo en cola",
-					"quick_done": "Marcar listo"
+					"quick_done": "Marcar listo",
+					"mark_done": "Mark Done",
+					"mark_in_progress": "Mark In Progress"
 				},
 				"fields": {
 					"assignee_email": "Assignee Email",
@@ -415,7 +449,14 @@
 					"status_trend": "Tendencia de estado",
 					"todo": "Pendiente",
 					"todo_desc": "Tareas pendientes de inicio",
-					"todo_subtitle": "Elementos del backlog"
+					"todo_subtitle": "Elementos del backlog",
+					"done": "Done",
+					"estimate": "Estimated Hours",
+					"estimate_by_status": "Estimación por estado",
+					"in_progress": "In Progress",
+					"priority_split": "Distribución por prioridad",
+					"status_trend": "Tendencia de estado",
+					"todo": "Todo"
 				},
 				"nav_title": "Demo Tasks",
 				"options": {
@@ -449,6 +490,7 @@
 				"no": "No",
 				"pairs_count": "{count} pares",
 				"selected_count": "{count} seleccionados",
+				"no": "No",
 				"yes": "Yes"
 			}
 		},
@@ -647,186 +689,6 @@
 			"unnamed": "Sin nombre",
 			"unverified": "No verificado",
 			"verified": "Verificado"
-		},
-		"resources": {
-			"groups": {
-				"demo_data": "Demo Resources"
-			},
-			"filters": {
-				"all": "All",
-				"clear": "Clear",
-				"select_placeholder": "Select option"
-			},
-			"values": {
-				"yes": "Yes",
-				"no": "No",
-				"enabled": "Enabled"
-			},
-			"columns": {
-				"actions": "Actions"
-			},
-			"search_placeholder": "Search resources...",
-			"rows_per_page": "Rows per page",
-			"selected": "{selected} of {total} selected",
-			"loading": "Loading resources...",
-			"empty": "No records found.",
-			"lenses": {
-				"all": "All Lenses"
-			},
-			"trashed": {
-				"without": "Without Trashed",
-				"with": "With Trashed",
-				"only": "Only Trashed"
-			},
-			"aria": {
-				"select_all": "Select all rows",
-				"select_row": "Select row"
-			},
-			"toasts": {
-				"created": "Resource created",
-				"updated": "Resource updated",
-				"save_error": "Failed to save resource",
-				"action_success": "Action completed",
-				"action_error": "Action failed",
-				"deleted": "Record deleted",
-				"restored": "Record restored",
-				"force_deleted": "Record permanently deleted",
-				"replicated": "Record replicated"
-			},
-			"sections": {
-				"preview": "Preview",
-				"details": "Details"
-			},
-			"form": {
-				"required": "This field is required",
-				"no_relation_options": "No options available"
-			},
-			"actions": {
-				"create": "Create",
-				"create_resource": "Create {resource}",
-				"edit": "Edit",
-				"view": "View",
-				"delete": "Delete",
-				"restore": "Restore",
-				"force_delete": "Force Delete",
-				"replicate": "Replicate"
-			},
-			"projects": {
-				"nav_title": "Demo Projects",
-				"fields": {
-					"name": "Name",
-					"slug": "Slug",
-					"status": "Status",
-					"owner_email": "Owner Email",
-					"budget": "Budget",
-					"featured": "Featured",
-					"description": "Description",
-					"tags": "Tags",
-					"tasks": "Tasks",
-					"tag": "Tag"
-				},
-				"options": {
-					"status_draft": "Draft",
-					"status_active": "Active",
-					"status_archived": "Archived"
-				},
-				"filters": {
-					"status": "Status",
-					"featured": "Featured",
-					"featured_only": "Featured Only",
-					"regular_only": "Regular Only"
-				},
-				"actions": {
-					"feature": "Mark Featured",
-					"archive": "Archive",
-					"attach_tag": "Attach Tag"
-				},
-				"lenses": {
-					"featured": "Featured Projects",
-					"archived": "Archived Projects",
-					"active": "Active Projects"
-				},
-				"metrics": {
-					"total": "Total Projects",
-					"active": "Active Projects",
-					"featured": "Featured Projects",
-					"budget": "Active Budget"
-				}
-			},
-			"tasks": {
-				"nav_title": "Demo Tasks",
-				"fields": {
-					"title": "Title",
-					"project": "Project",
-					"status": "Status",
-					"priority": "Priority",
-					"estimate_hours": "Estimate Hours",
-					"assignee_email": "Assignee Email"
-				},
-				"options": {
-					"todo": "Todo",
-					"in_progress": "In Progress",
-					"done": "Done",
-					"low": "Low",
-					"medium": "Medium",
-					"high": "High"
-				},
-				"filters": {
-					"status": "Status",
-					"priority": "Priority"
-				},
-				"actions": {
-					"mark_done": "Mark Done",
-					"mark_in_progress": "Mark In Progress"
-				},
-				"lenses": {
-					"due": "Due Tasks",
-					"completed": "Completed Tasks"
-				},
-				"metrics": {
-					"todo": "Todo",
-					"in_progress": "In Progress",
-					"done": "Done",
-					"estimate": "Estimated Hours"
-				}
-			},
-			"comments": {
-				"nav_title": "Demo Comments",
-				"fields": {
-					"text": "Text",
-					"author_email": "Author Email",
-					"target": "Target"
-				},
-				"options": {
-					"project": "Project",
-					"task": "Task"
-				},
-				"filters": {
-					"target_kind": "Target Kind"
-				},
-				"actions": {
-					"mark_reviewed": "Mark Reviewed"
-				},
-				"lenses": {
-					"project": "Project Comments",
-					"task": "Task Comments"
-				},
-				"metrics": {
-					"total": "Total Comments",
-					"project": "Project Comments",
-					"task": "Task Comments"
-				}
-			},
-			"tags": {
-				"nav_title": "Demo Tags",
-				"fields": {
-					"name": "Name",
-					"color": "Color"
-				},
-				"metrics": {
-					"total": "Total Tags"
-				}
-			}
 		}
 	},
 	"app": {
@@ -1267,22 +1129,6 @@
 			"users": {
 				"description": "Administra usuarios, roles y estado de cuenta.",
 				"title": "Gestión de Usuarios"
-			},
-			"resource_index": {
-				"title": "{resource}",
-				"description": "Browse and manage {resource}."
-			},
-			"resource_create": {
-				"title": "Create {resource}",
-				"description": "Create a new {resource} record."
-			},
-			"resource_edit": {
-				"title": "Edit {resource}",
-				"description": "Edit a {resource} record."
-			},
-			"resource_detail": {
-				"title": "{resource} Details",
-				"description": "Review {resource} details and actions."
 			}
 		},
 		"app": {

@@ -20,12 +20,19 @@ export const demoProjectsResource = defineResource({
 	sortFields: ['name', 'status', 'budget', 'createdAt', 'updatedAt'],
 	perPageOptions: [5, 10, 20, 50],
 	softDeletes: true,
+	badgeQuery: {
+		trashed: 'without'
+	},
 	clickAction: 'detail',
+	canCreate: (user) => user.role === 'admin',
+	canUpdate: (user) => user.role === 'admin',
+	canDelete: (user) => user.role === 'admin',
 	fields: [
 		defineField({
 			type: 'text',
 			attribute: 'name',
 			labelKey: 'admin.resources.projects.fields.name',
+			required: true,
 			sortable: true,
 			searchable: true,
 			showOnIndex: true,
@@ -36,6 +43,7 @@ export const demoProjectsResource = defineResource({
 			type: 'text',
 			attribute: 'slug',
 			labelKey: 'admin.resources.projects.fields.slug',
+			required: true,
 			sortable: true,
 			searchable: true,
 			showOnIndex: true,
@@ -46,6 +54,7 @@ export const demoProjectsResource = defineResource({
 			type: 'select',
 			attribute: 'status',
 			labelKey: 'admin.resources.projects.fields.status',
+			required: true,
 			sortable: true,
 			showOnIndex: true,
 			showOnDetail: true,
@@ -60,6 +69,8 @@ export const demoProjectsResource = defineResource({
 			type: 'email',
 			attribute: 'ownerEmail',
 			labelKey: 'admin.resources.projects.fields.owner_email',
+			required: true,
+			inlineEditable: true,
 			searchable: true,
 			showOnIndex: true,
 			showOnDetail: true,
@@ -69,6 +80,8 @@ export const demoProjectsResource = defineResource({
 			type: 'number',
 			attribute: 'budget',
 			labelKey: 'admin.resources.projects.fields.budget',
+			required: true,
+			inlineEditable: true,
 			sortable: true,
 			showOnIndex: true,
 			showOnDetail: true,
@@ -78,14 +91,50 @@ export const demoProjectsResource = defineResource({
 			type: 'boolean',
 			attribute: 'isFeatured',
 			labelKey: 'admin.resources.projects.fields.featured',
+			inlineEditable: true,
 			showOnIndex: true,
 			showOnDetail: true,
 			showOnForm: true
 		}),
 		defineField({
-			type: 'textarea',
+			type: 'markdown',
 			attribute: 'description',
 			labelKey: 'admin.resources.projects.fields.description',
+			showOnIndex: false,
+			showOnDetail: true,
+			showOnForm: true
+		}),
+		defineField({
+			type: 'image',
+			attribute: 'coverImageUrl',
+			labelKey: 'admin.resources.projects.fields.cover_image',
+			showOnIndex: false,
+			showOnDetail: true,
+			showOnForm: true
+		}),
+		defineField({
+			type: 'file',
+			attribute: 'specSheetUrl',
+			labelKey: 'admin.resources.projects.fields.spec_sheet',
+			showOnIndex: false,
+			showOnDetail: true,
+			showOnForm: true
+		}),
+		defineField({
+			type: 'json',
+			attribute: 'settingsJson',
+			labelKey: 'admin.resources.projects.fields.settings_json',
+			showOnIndex: false,
+			showOnDetail: true,
+			showOnForm: true
+		}),
+		defineField({
+			type: 'code',
+			attribute: 'codeSnippet',
+			labelKey: 'admin.resources.projects.fields.code_snippet',
+			canSee: (_user, record) =>
+				Boolean((record as { isFeatured?: boolean } | undefined)?.isFeatured),
+			showOnIndex: false,
 			showOnDetail: true,
 			showOnForm: true
 		}),
@@ -106,6 +155,28 @@ export const demoProjectsResource = defineResource({
 			attribute: 'taskCount',
 			labelKey: 'admin.resources.projects.fields.tasks',
 			showOnIndex: true,
+			showOnDetail: true,
+			showOnForm: false,
+			relation: {
+				resourceName: 'demo-tasks',
+				valueField: '_id',
+				labelField: 'title',
+				foreignKey: 'projectId'
+			}
+		}),
+		defineField({
+			type: 'date',
+			attribute: 'createdAt',
+			labelKey: 'admin.resources.fields.created_at',
+			showOnIndex: false,
+			showOnDetail: true,
+			showOnForm: false
+		}),
+		defineField({
+			type: 'datetime',
+			attribute: 'updatedAt',
+			labelKey: 'admin.resources.fields.updated_at',
+			showOnIndex: false,
 			showOnDetail: true,
 			showOnForm: false
 		})
@@ -135,6 +206,14 @@ export const demoProjectsResource = defineResource({
 				{ value: 'featured', labelKey: 'admin.resources.projects.filters.featured_only' },
 				{ value: 'regular', labelKey: 'admin.resources.projects.filters.regular_only' }
 			]
+		}),
+		defineFilter({
+			key: 'createdRange',
+			labelKey: 'admin.resources.filters.created_range',
+			type: 'date-range',
+			urlKey: 'createdRange',
+			defaultValue: '',
+			options: []
 		})
 	],
 	actions: [
@@ -184,7 +263,11 @@ export const demoProjectsResource = defineResource({
 		defineMetric({
 			key: 'total',
 			type: 'value',
-			labelKey: 'admin.resources.projects.metrics.total'
+			labelKey: 'admin.resources.projects.metrics.total',
+			rangeOptions: [
+				{ value: 'without', labelKey: 'admin.resources.trashed.without' },
+				{ value: 'with', labelKey: 'admin.resources.trashed.with' }
+			]
 		}),
 		defineMetric({
 			key: 'active',
@@ -199,7 +282,34 @@ export const demoProjectsResource = defineResource({
 		defineMetric({
 			key: 'budget',
 			type: 'value',
-			labelKey: 'admin.resources.projects.metrics.budget'
+			labelKey: 'admin.resources.projects.metrics.budget',
+			format: 'currency'
 		})
+	],
+	fieldGroups: [
+		{
+			key: 'overview',
+			labelKey: 'admin.resources.groups.overview',
+			contexts: ['form', 'detail', 'preview'],
+			fields: ['name', 'slug', 'status', 'ownerEmail', 'budget', 'isFeatured']
+		},
+		{
+			key: 'content',
+			labelKey: 'admin.resources.groups.content',
+			contexts: ['form', 'detail'],
+			fields: ['description', 'coverImageUrl', 'specSheetUrl', 'settingsJson', 'codeSnippet']
+		},
+		{
+			key: 'relations',
+			labelKey: 'admin.resources.groups.relations',
+			contexts: ['form', 'detail'],
+			fields: ['tagIds', 'taskCount']
+		},
+		{
+			key: 'system',
+			labelKey: 'admin.resources.groups.system',
+			contexts: ['detail'],
+			fields: ['createdAt', 'updatedAt']
+		}
 	]
 });

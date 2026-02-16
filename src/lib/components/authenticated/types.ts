@@ -12,6 +12,11 @@ export interface NavItem {
 	badge?: number;
 }
 
+export interface NavGroup {
+	labelKey?: string;
+	navItems: NavItem[];
+}
+
 export interface HeaderDropdownItem {
 	translationKey: string;
 	url: string;
@@ -34,7 +39,8 @@ export interface FooterLink {
 
 export interface SidebarConfig {
 	header: HeaderConfig;
-	navItems: NavItem[];
+	navItems?: NavItem[];
+	navGroups?: NavGroup[];
 	footerLinks?: FooterLink[];
 }
 

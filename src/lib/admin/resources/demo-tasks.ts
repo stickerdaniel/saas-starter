@@ -20,12 +20,20 @@ export const demoTasksResource = defineResource({
 	sortFields: ['title', 'status', 'priority', 'estimateHours', 'createdAt', 'updatedAt'],
 	perPageOptions: [5, 10, 20, 50],
 	softDeletes: true,
+	badgeQuery: {
+		trashed: 'without'
+	},
 	clickAction: 'detail',
+	canCreate: (user) => user.role === 'admin',
+	canUpdate: (user) => user.role === 'admin',
+	canDelete: (user) => user.role === 'admin',
 	fields: [
 		defineField({
 			type: 'text',
 			attribute: 'title',
 			labelKey: 'admin.resources.tasks.fields.title',
+			required: true,
+			inlineEditable: true,
 			sortable: true,
 			searchable: true,
 			showOnIndex: true,
@@ -36,6 +44,7 @@ export const demoTasksResource = defineResource({
 			type: 'belongsTo',
 			attribute: 'projectId',
 			labelKey: 'admin.resources.tasks.fields.project',
+			required: true,
 			showOnIndex: true,
 			showOnDetail: true,
 			showOnForm: true,
@@ -49,6 +58,8 @@ export const demoTasksResource = defineResource({
 			type: 'select',
 			attribute: 'status',
 			labelKey: 'admin.resources.tasks.fields.status',
+			required: true,
+			inlineEditable: true,
 			sortable: true,
 			showOnIndex: true,
 			showOnDetail: true,
@@ -63,6 +74,8 @@ export const demoTasksResource = defineResource({
 			type: 'select',
 			attribute: 'priority',
 			labelKey: 'admin.resources.tasks.fields.priority',
+			required: true,
+			inlineEditable: true,
 			sortable: true,
 			showOnIndex: true,
 			showOnDetail: true,
@@ -77,6 +90,8 @@ export const demoTasksResource = defineResource({
 			type: 'number',
 			attribute: 'estimateHours',
 			labelKey: 'admin.resources.tasks.fields.estimate_hours',
+			required: true,
+			inlineEditable: true,
 			sortable: true,
 			showOnIndex: true,
 			showOnDetail: true,
@@ -86,9 +101,26 @@ export const demoTasksResource = defineResource({
 			type: 'email',
 			attribute: 'assigneeEmail',
 			labelKey: 'admin.resources.tasks.fields.assignee_email',
+			canSee: (_user, record) => (record as { priority?: string } | undefined)?.priority === 'high',
 			showOnIndex: true,
 			showOnDetail: true,
 			showOnForm: true
+		}),
+		defineField({
+			type: 'date',
+			attribute: 'createdAt',
+			labelKey: 'admin.resources.fields.created_at',
+			showOnIndex: false,
+			showOnDetail: true,
+			showOnForm: false
+		}),
+		defineField({
+			type: 'datetime',
+			attribute: 'updatedAt',
+			labelKey: 'admin.resources.fields.updated_at',
+			showOnIndex: false,
+			showOnDetail: true,
+			showOnForm: false
 		})
 	],
 	filters: [
@@ -117,6 +149,14 @@ export const demoTasksResource = defineResource({
 				{ value: 'medium', labelKey: 'admin.resources.tasks.options.medium' },
 				{ value: 'high', labelKey: 'admin.resources.tasks.options.high' }
 			]
+		}),
+		defineFilter({
+			key: 'createdRange',
+			labelKey: 'admin.resources.filters.created_range',
+			type: 'date-range',
+			urlKey: 'createdRange',
+			defaultValue: '',
+			options: []
 		})
 	],
 	actions: [
@@ -144,7 +184,15 @@ export const demoTasksResource = defineResource({
 		})
 	],
 	metrics: [
-		defineMetric({ key: 'todo', type: 'value', labelKey: 'admin.resources.tasks.metrics.todo' }),
+		defineMetric({
+			key: 'todo',
+			type: 'value',
+			labelKey: 'admin.resources.tasks.metrics.todo',
+			rangeOptions: [
+				{ value: 'without', labelKey: 'admin.resources.trashed.without' },
+				{ value: 'with', labelKey: 'admin.resources.trashed.with' }
+			]
+		}),
 		defineMetric({
 			key: 'inProgress',
 			type: 'value',
@@ -155,6 +203,46 @@ export const demoTasksResource = defineResource({
 			key: 'estimate',
 			type: 'value',
 			labelKey: 'admin.resources.tasks.metrics.estimate'
+		}),
+		defineMetric({
+			key: 'completionRate',
+			type: 'progress',
+			labelKey: 'admin.resources.tasks.metrics.completion_rate'
+		}),
+		defineMetric({
+			key: 'statusTrend',
+			type: 'trend',
+			labelKey: 'admin.resources.tasks.metrics.status_trend'
+		}),
+		defineMetric({
+			key: 'prioritySplit',
+			type: 'partition',
+			labelKey: 'admin.resources.tasks.metrics.priority_split'
+		}),
+		defineMetric({
+			key: 'estimateByStatus',
+			type: 'table',
+			labelKey: 'admin.resources.tasks.metrics.estimate_by_status'
 		})
+	],
+	fieldGroups: [
+		{
+			key: 'overview',
+			labelKey: 'admin.resources.groups.overview',
+			contexts: ['form', 'detail', 'preview'],
+			fields: ['title', 'projectId', 'status', 'priority']
+		},
+		{
+			key: 'assignment',
+			labelKey: 'admin.resources.groups.assignment',
+			contexts: ['form', 'detail'],
+			fields: ['assigneeEmail', 'estimateHours']
+		},
+		{
+			key: 'system',
+			labelKey: 'admin.resources.groups.system',
+			contexts: ['detail'],
+			fields: ['createdAt', 'updatedAt']
+		}
 	]
 });

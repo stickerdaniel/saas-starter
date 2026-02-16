@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { SvelteSet } from 'svelte/reactivity';
-	import { T } from '@tolgee/svelte';
+	import { T, getTranslate } from '@tolgee/svelte';
 	import * as Field from '$lib/components/ui/field/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { Textarea } from '$lib/components/ui/textarea/index.js';
@@ -14,12 +14,22 @@
 		field: FieldDefinition<any>;
 		value: unknown;
 		error?: string;
+		disabled?: boolean;
 		testId?: string;
 		relationOptions?: Option[];
 		onChange: (value: unknown) => void;
 	};
 
-	let { field, value, error, testId, relationOptions = [], onChange }: Props = $props();
+	let {
+		field,
+		value,
+		error,
+		disabled = false,
+		testId,
+		relationOptions = [],
+		onChange
+	}: Props = $props();
+	const { t } = getTranslate();
 
 	const selectOptions = $derived.by(() => {
 		if (field.type === 'select' && field.options) {
@@ -63,6 +73,8 @@
 	{#if field.type === 'textarea'}
 		<Textarea
 			value={String(value ?? '')}
+			{disabled}
+			placeholder={field.placeholderKey ? $t(field.placeholderKey) : undefined}
 			oninput={(event) => onChange((event.currentTarget as HTMLTextAreaElement).value)}
 			data-testid={testId}
 		/>
@@ -70,6 +82,7 @@
 		<div class="flex items-center gap-3 py-2">
 			<Checkbox
 				checked={Boolean(value)}
+				{disabled}
 				onCheckedChange={(checked) => onChange(Boolean(checked))}
 				data-testid={testId}
 			/>
@@ -81,6 +94,7 @@
 		<Select.Root
 			type="single"
 			value={String(value ?? '')}
+			{disabled}
 			onValueChange={(next) => {
 				onChange(next);
 			}}
@@ -115,6 +129,7 @@
 					<label class="flex items-center gap-2">
 						<Checkbox
 							checked={selectedManyValues.includes(option.value)}
+							{disabled}
 							onCheckedChange={(checked) => handleManyToManyToggle(option.value, Boolean(checked))}
 							data-testid={testId ? `${testId}-${option.value}` : undefined}
 						/>
@@ -125,8 +140,20 @@
 		</div>
 	{:else}
 		<Input
-			type={field.type === 'number' ? 'number' : field.type === 'email' ? 'email' : 'text'}
+			type={field.type === 'number'
+				? 'number'
+				: field.type === 'email'
+					? 'email'
+					: field.type === 'url'
+						? 'url'
+						: field.type === 'date'
+							? 'date'
+							: field.type === 'datetime'
+								? 'datetime-local'
+								: 'text'}
 			value={String(value ?? '')}
+			{disabled}
+			placeholder={field.placeholderKey ? $t(field.placeholderKey) : undefined}
 			oninput={(event) => {
 				const inputValue = (event.currentTarget as HTMLInputElement).value;
 				onChange(field.type === 'number' ? Number(inputValue || '0') : inputValue);

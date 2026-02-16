@@ -25,10 +25,14 @@ import type * as adminFramework_resources_comments from "../adminFramework/resou
 import type * as adminFramework_resources_projects from "../adminFramework/resources/projects.js";
 import type * as adminFramework_resources_tags from "../adminFramework/resources/tags.js";
 import type * as adminFramework_resources_tasks from "../adminFramework/resources/tasks.js";
+import type * as adminFramework_utils_aggregates from "../adminFramework/utils/aggregates.js";
 import type * as adminFramework_utils_errors from "../adminFramework/utils/errors.js";
 import type * as adminFramework_utils_morph_to from "../adminFramework/utils/morph_to.js";
+import type * as adminFramework_utils_resource_guards from "../adminFramework/utils/resource_guards.js";
 import type * as adminFramework_utils_resource_mutation from "../adminFramework/utils/resource_mutation.js";
 import type * as adminFramework_utils_resource_query from "../adminFramework/utils/resource_query.js";
+import type * as adminFramework_utils_search_index from "../adminFramework/utils/search_index.js";
+import type * as adminFramework_utils_visibility from "../adminFramework/utils/visibility.js";
 import type * as auth from "../auth.js";
 import type * as autumn from "../autumn.js";
 import type * as constants from "../constants.js";
@@ -91,10 +95,14 @@ declare const fullApi: ApiFromModules<{
   "adminFramework/resources/projects": typeof adminFramework_resources_projects;
   "adminFramework/resources/tags": typeof adminFramework_resources_tags;
   "adminFramework/resources/tasks": typeof adminFramework_resources_tasks;
+  "adminFramework/utils/aggregates": typeof adminFramework_utils_aggregates;
   "adminFramework/utils/errors": typeof adminFramework_utils_errors;
   "adminFramework/utils/morph_to": typeof adminFramework_utils_morph_to;
+  "adminFramework/utils/resource_guards": typeof adminFramework_utils_resource_guards;
   "adminFramework/utils/resource_mutation": typeof adminFramework_utils_resource_mutation;
   "adminFramework/utils/resource_query": typeof adminFramework_utils_resource_query;
+  "adminFramework/utils/search_index": typeof adminFramework_utils_search_index;
+  "adminFramework/utils/visibility": typeof adminFramework_utils_visibility;
   auth: typeof auth;
   autumn: typeof autumn;
   constants: typeof constants;
@@ -187,6 +195,7 @@ export declare const components: {
               }
             | {
                 data: {
+                  activeOrganizationId?: null | string;
                   createdAt: number;
                   expiresAt: number;
                   impersonatedBy?: null | string;
@@ -248,6 +257,37 @@ export declare const components: {
                   userId: string;
                 };
                 model: "passkey";
+              }
+            | {
+                data: {
+                  createdAt: number;
+                  logo?: null | string;
+                  metadata?: null | string;
+                  name: string;
+                  slug: string;
+                };
+                model: "organization";
+              }
+            | {
+                data: {
+                  createdAt: number;
+                  organizationId: string;
+                  role: string;
+                  userId: string;
+                };
+                model: "member";
+              }
+            | {
+                data: {
+                  createdAt: number;
+                  email: string;
+                  expiresAt: number;
+                  inviterId: string;
+                  organizationId: string;
+                  role: string;
+                  status: string;
+                };
+                model: "invitation";
               };
           onCreateHandle?: string;
           select?: Array<string>;
@@ -311,6 +351,7 @@ export declare const components: {
                     | "userAgent"
                     | "userId"
                     | "impersonatedBy"
+                    | "activeOrganizationId"
                     | "_id";
                   operator?:
                     | "lt"
@@ -450,6 +491,103 @@ export declare const components: {
                     | "transports"
                     | "createdAt"
                     | "aaguid"
+                    | "_id";
+                  operator?:
+                    | "lt"
+                    | "lte"
+                    | "gt"
+                    | "gte"
+                    | "eq"
+                    | "in"
+                    | "not_in"
+                    | "ne"
+                    | "contains"
+                    | "starts_with"
+                    | "ends_with";
+                  value:
+                    | string
+                    | number
+                    | boolean
+                    | Array<string>
+                    | Array<number>
+                    | null;
+                }>;
+              }
+            | {
+                model: "organization";
+                where?: Array<{
+                  connector?: "AND" | "OR";
+                  field:
+                    | "name"
+                    | "slug"
+                    | "logo"
+                    | "metadata"
+                    | "createdAt"
+                    | "_id";
+                  operator?:
+                    | "lt"
+                    | "lte"
+                    | "gt"
+                    | "gte"
+                    | "eq"
+                    | "in"
+                    | "not_in"
+                    | "ne"
+                    | "contains"
+                    | "starts_with"
+                    | "ends_with";
+                  value:
+                    | string
+                    | number
+                    | boolean
+                    | Array<string>
+                    | Array<number>
+                    | null;
+                }>;
+              }
+            | {
+                model: "member";
+                where?: Array<{
+                  connector?: "AND" | "OR";
+                  field:
+                    | "userId"
+                    | "organizationId"
+                    | "role"
+                    | "createdAt"
+                    | "_id";
+                  operator?:
+                    | "lt"
+                    | "lte"
+                    | "gt"
+                    | "gte"
+                    | "eq"
+                    | "in"
+                    | "not_in"
+                    | "ne"
+                    | "contains"
+                    | "starts_with"
+                    | "ends_with";
+                  value:
+                    | string
+                    | number
+                    | boolean
+                    | Array<string>
+                    | Array<number>
+                    | null;
+                }>;
+              }
+            | {
+                model: "invitation";
+                where?: Array<{
+                  connector?: "AND" | "OR";
+                  field:
+                    | "email"
+                    | "inviterId"
+                    | "organizationId"
+                    | "role"
+                    | "status"
+                    | "expiresAt"
+                    | "createdAt"
                     | "_id";
                   operator?:
                     | "lt"
@@ -541,6 +679,7 @@ export declare const components: {
                     | "userAgent"
                     | "userId"
                     | "impersonatedBy"
+                    | "activeOrganizationId"
                     | "_id";
                   operator?:
                     | "lt"
@@ -701,6 +840,103 @@ export declare const components: {
                     | Array<number>
                     | null;
                 }>;
+              }
+            | {
+                model: "organization";
+                where?: Array<{
+                  connector?: "AND" | "OR";
+                  field:
+                    | "name"
+                    | "slug"
+                    | "logo"
+                    | "metadata"
+                    | "createdAt"
+                    | "_id";
+                  operator?:
+                    | "lt"
+                    | "lte"
+                    | "gt"
+                    | "gte"
+                    | "eq"
+                    | "in"
+                    | "not_in"
+                    | "ne"
+                    | "contains"
+                    | "starts_with"
+                    | "ends_with";
+                  value:
+                    | string
+                    | number
+                    | boolean
+                    | Array<string>
+                    | Array<number>
+                    | null;
+                }>;
+              }
+            | {
+                model: "member";
+                where?: Array<{
+                  connector?: "AND" | "OR";
+                  field:
+                    | "userId"
+                    | "organizationId"
+                    | "role"
+                    | "createdAt"
+                    | "_id";
+                  operator?:
+                    | "lt"
+                    | "lte"
+                    | "gt"
+                    | "gte"
+                    | "eq"
+                    | "in"
+                    | "not_in"
+                    | "ne"
+                    | "contains"
+                    | "starts_with"
+                    | "ends_with";
+                  value:
+                    | string
+                    | number
+                    | boolean
+                    | Array<string>
+                    | Array<number>
+                    | null;
+                }>;
+              }
+            | {
+                model: "invitation";
+                where?: Array<{
+                  connector?: "AND" | "OR";
+                  field:
+                    | "email"
+                    | "inviterId"
+                    | "organizationId"
+                    | "role"
+                    | "status"
+                    | "expiresAt"
+                    | "createdAt"
+                    | "_id";
+                  operator?:
+                    | "lt"
+                    | "lte"
+                    | "gt"
+                    | "gte"
+                    | "eq"
+                    | "in"
+                    | "not_in"
+                    | "ne"
+                    | "contains"
+                    | "starts_with"
+                    | "ends_with";
+                  value:
+                    | string
+                    | number
+                    | boolean
+                    | Array<string>
+                    | Array<number>
+                    | null;
+                }>;
               };
           onDeleteHandle?: string;
         },
@@ -717,7 +953,10 @@ export declare const components: {
             | "account"
             | "verification"
             | "jwks"
-            | "passkey";
+            | "passkey"
+            | "organization"
+            | "member"
+            | "invitation";
           offset?: number;
           paginationOpts: {
             cursor: string | null;
@@ -764,7 +1003,10 @@ export declare const components: {
             | "account"
             | "verification"
             | "jwks"
-            | "passkey";
+            | "passkey"
+            | "organization"
+            | "member"
+            | "invitation";
           select?: Array<string>;
           where?: Array<{
             connector?: "AND" | "OR";
@@ -853,6 +1095,7 @@ export declare const components: {
             | {
                 model: "session";
                 update: {
+                  activeOrganizationId?: null | string;
                   createdAt?: number;
                   expiresAt?: number;
                   impersonatedBy?: null | string;
@@ -873,6 +1116,7 @@ export declare const components: {
                     | "userAgent"
                     | "userId"
                     | "impersonatedBy"
+                    | "activeOrganizationId"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1051,6 +1295,125 @@ export declare const components: {
                     | "transports"
                     | "createdAt"
                     | "aaguid"
+                    | "_id";
+                  operator?:
+                    | "lt"
+                    | "lte"
+                    | "gt"
+                    | "gte"
+                    | "eq"
+                    | "in"
+                    | "not_in"
+                    | "ne"
+                    | "contains"
+                    | "starts_with"
+                    | "ends_with";
+                  value:
+                    | string
+                    | number
+                    | boolean
+                    | Array<string>
+                    | Array<number>
+                    | null;
+                }>;
+              }
+            | {
+                model: "organization";
+                update: {
+                  createdAt?: number;
+                  logo?: null | string;
+                  metadata?: null | string;
+                  name?: string;
+                  slug?: string;
+                };
+                where?: Array<{
+                  connector?: "AND" | "OR";
+                  field:
+                    | "name"
+                    | "slug"
+                    | "logo"
+                    | "metadata"
+                    | "createdAt"
+                    | "_id";
+                  operator?:
+                    | "lt"
+                    | "lte"
+                    | "gt"
+                    | "gte"
+                    | "eq"
+                    | "in"
+                    | "not_in"
+                    | "ne"
+                    | "contains"
+                    | "starts_with"
+                    | "ends_with";
+                  value:
+                    | string
+                    | number
+                    | boolean
+                    | Array<string>
+                    | Array<number>
+                    | null;
+                }>;
+              }
+            | {
+                model: "member";
+                update: {
+                  createdAt?: number;
+                  organizationId?: string;
+                  role?: string;
+                  userId?: string;
+                };
+                where?: Array<{
+                  connector?: "AND" | "OR";
+                  field:
+                    | "userId"
+                    | "organizationId"
+                    | "role"
+                    | "createdAt"
+                    | "_id";
+                  operator?:
+                    | "lt"
+                    | "lte"
+                    | "gt"
+                    | "gte"
+                    | "eq"
+                    | "in"
+                    | "not_in"
+                    | "ne"
+                    | "contains"
+                    | "starts_with"
+                    | "ends_with";
+                  value:
+                    | string
+                    | number
+                    | boolean
+                    | Array<string>
+                    | Array<number>
+                    | null;
+                }>;
+              }
+            | {
+                model: "invitation";
+                update: {
+                  createdAt?: number;
+                  email?: string;
+                  expiresAt?: number;
+                  inviterId?: string;
+                  organizationId?: string;
+                  role?: string;
+                  status?: string;
+                };
+                where?: Array<{
+                  connector?: "AND" | "OR";
+                  field:
+                    | "email"
+                    | "inviterId"
+                    | "organizationId"
+                    | "role"
+                    | "status"
+                    | "expiresAt"
+                    | "createdAt"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1146,6 +1509,7 @@ export declare const components: {
             | {
                 model: "session";
                 update: {
+                  activeOrganizationId?: null | string;
                   createdAt?: number;
                   expiresAt?: number;
                   impersonatedBy?: null | string;
@@ -1166,6 +1530,7 @@ export declare const components: {
                     | "userAgent"
                     | "userId"
                     | "impersonatedBy"
+                    | "activeOrganizationId"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1344,6 +1709,125 @@ export declare const components: {
                     | "transports"
                     | "createdAt"
                     | "aaguid"
+                    | "_id";
+                  operator?:
+                    | "lt"
+                    | "lte"
+                    | "gt"
+                    | "gte"
+                    | "eq"
+                    | "in"
+                    | "not_in"
+                    | "ne"
+                    | "contains"
+                    | "starts_with"
+                    | "ends_with";
+                  value:
+                    | string
+                    | number
+                    | boolean
+                    | Array<string>
+                    | Array<number>
+                    | null;
+                }>;
+              }
+            | {
+                model: "organization";
+                update: {
+                  createdAt?: number;
+                  logo?: null | string;
+                  metadata?: null | string;
+                  name?: string;
+                  slug?: string;
+                };
+                where?: Array<{
+                  connector?: "AND" | "OR";
+                  field:
+                    | "name"
+                    | "slug"
+                    | "logo"
+                    | "metadata"
+                    | "createdAt"
+                    | "_id";
+                  operator?:
+                    | "lt"
+                    | "lte"
+                    | "gt"
+                    | "gte"
+                    | "eq"
+                    | "in"
+                    | "not_in"
+                    | "ne"
+                    | "contains"
+                    | "starts_with"
+                    | "ends_with";
+                  value:
+                    | string
+                    | number
+                    | boolean
+                    | Array<string>
+                    | Array<number>
+                    | null;
+                }>;
+              }
+            | {
+                model: "member";
+                update: {
+                  createdAt?: number;
+                  organizationId?: string;
+                  role?: string;
+                  userId?: string;
+                };
+                where?: Array<{
+                  connector?: "AND" | "OR";
+                  field:
+                    | "userId"
+                    | "organizationId"
+                    | "role"
+                    | "createdAt"
+                    | "_id";
+                  operator?:
+                    | "lt"
+                    | "lte"
+                    | "gt"
+                    | "gte"
+                    | "eq"
+                    | "in"
+                    | "not_in"
+                    | "ne"
+                    | "contains"
+                    | "starts_with"
+                    | "ends_with";
+                  value:
+                    | string
+                    | number
+                    | boolean
+                    | Array<string>
+                    | Array<number>
+                    | null;
+                }>;
+              }
+            | {
+                model: "invitation";
+                update: {
+                  createdAt?: number;
+                  email?: string;
+                  expiresAt?: number;
+                  inviterId?: string;
+                  organizationId?: string;
+                  role?: string;
+                  status?: string;
+                };
+                where?: Array<{
+                  connector?: "AND" | "OR";
+                  field:
+                    | "email"
+                    | "inviterId"
+                    | "organizationId"
+                    | "role"
+                    | "status"
+                    | "expiresAt"
+                    | "createdAt"
                     | "_id";
                   operator?:
                     | "lt"
@@ -4890,6 +5374,192 @@ export declare const components: {
           storageProvider: "convex" | "r2";
           virtualPath: string | null;
         }
+      >;
+    };
+  };
+  aggregate: {
+    btree: {
+      aggregateBetween: FunctionReference<
+        "query",
+        "internal",
+        { k1?: any; k2?: any; namespace?: any },
+        { count: number; sum: number }
+      >;
+      aggregateBetweenBatch: FunctionReference<
+        "query",
+        "internal",
+        { queries: Array<{ k1?: any; k2?: any; namespace?: any }> },
+        Array<{ count: number; sum: number }>
+      >;
+      atNegativeOffset: FunctionReference<
+        "query",
+        "internal",
+        { k1?: any; k2?: any; namespace?: any; offset: number },
+        { k: any; s: number; v: any }
+      >;
+      atOffset: FunctionReference<
+        "query",
+        "internal",
+        { k1?: any; k2?: any; namespace?: any; offset: number },
+        { k: any; s: number; v: any }
+      >;
+      atOffsetBatch: FunctionReference<
+        "query",
+        "internal",
+        {
+          queries: Array<{
+            k1?: any;
+            k2?: any;
+            namespace?: any;
+            offset: number;
+          }>;
+        },
+        Array<{ k: any; s: number; v: any }>
+      >;
+      get: FunctionReference<
+        "query",
+        "internal",
+        { key: any; namespace?: any },
+        null | { k: any; s: number; v: any }
+      >;
+      offset: FunctionReference<
+        "query",
+        "internal",
+        { k1?: any; key: any; namespace?: any },
+        number
+      >;
+      offsetUntil: FunctionReference<
+        "query",
+        "internal",
+        { k2?: any; key: any; namespace?: any },
+        number
+      >;
+      paginate: FunctionReference<
+        "query",
+        "internal",
+        {
+          cursor?: string;
+          k1?: any;
+          k2?: any;
+          limit: number;
+          namespace?: any;
+          order: "asc" | "desc";
+        },
+        {
+          cursor: string;
+          isDone: boolean;
+          page: Array<{ k: any; s: number; v: any }>;
+        }
+      >;
+      paginateNamespaces: FunctionReference<
+        "query",
+        "internal",
+        { cursor?: string; limit: number },
+        { cursor: string; isDone: boolean; page: Array<any> }
+      >;
+      validate: FunctionReference<
+        "query",
+        "internal",
+        { namespace?: any },
+        any
+      >;
+    };
+    inspect: {
+      display: FunctionReference<"query", "internal", { namespace?: any }, any>;
+      dump: FunctionReference<"query", "internal", { namespace?: any }, string>;
+      inspectNode: FunctionReference<
+        "query",
+        "internal",
+        { namespace?: any; node?: string },
+        null
+      >;
+      listTreeNodes: FunctionReference<
+        "query",
+        "internal",
+        { take?: number },
+        Array<{
+          _creationTime: number;
+          _id: string;
+          aggregate?: { count: number; sum: number };
+          items: Array<{ k: any; s: number; v: any }>;
+          subtrees: Array<string>;
+        }>
+      >;
+      listTrees: FunctionReference<
+        "query",
+        "internal",
+        { take?: number },
+        Array<{
+          _creationTime: number;
+          _id: string;
+          maxNodeSize: number;
+          namespace?: any;
+          root: string;
+        }>
+      >;
+    };
+    public: {
+      clear: FunctionReference<
+        "mutation",
+        "internal",
+        { maxNodeSize?: number; namespace?: any; rootLazy?: boolean },
+        null
+      >;
+      delete_: FunctionReference<
+        "mutation",
+        "internal",
+        { key: any; namespace?: any },
+        null
+      >;
+      deleteIfExists: FunctionReference<
+        "mutation",
+        "internal",
+        { key: any; namespace?: any },
+        any
+      >;
+      init: FunctionReference<
+        "mutation",
+        "internal",
+        { maxNodeSize?: number; namespace?: any; rootLazy?: boolean },
+        null
+      >;
+      insert: FunctionReference<
+        "mutation",
+        "internal",
+        { key: any; namespace?: any; summand?: number; value: any },
+        null
+      >;
+      makeRootLazy: FunctionReference<
+        "mutation",
+        "internal",
+        { namespace?: any },
+        null
+      >;
+      replace: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          currentKey: any;
+          namespace?: any;
+          newKey: any;
+          newNamespace?: any;
+          summand?: number;
+          value: any;
+        },
+        null
+      >;
+      replaceOrInsert: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          currentKey: any;
+          namespace?: any;
+          newKey: any;
+          newNamespace?: any;
+          summand?: number;
+          value: any;
+        },
+        any
       >;
     };
   };
