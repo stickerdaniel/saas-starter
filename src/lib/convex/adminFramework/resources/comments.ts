@@ -366,12 +366,12 @@ const commentValuesValidator = v.object({
 function validateCommentValues(values: { text: string; authorEmail: string }) {
 	const fieldErrors: Record<string, string> = {};
 	if (values.text.trim().length === 0) {
-		fieldErrors.text = 'Comment text is required.';
+		fieldErrors.text = 'admin.resources.form.required';
 	}
 	if (values.authorEmail.trim().length === 0) {
-		fieldErrors.authorEmail = 'Author email is required.';
+		fieldErrors.authorEmail = 'admin.resources.form.required';
 	} else if (!values.authorEmail.includes('@')) {
-		fieldErrors.authorEmail = 'Author email must be a valid email.';
+		fieldErrors.authorEmail = 'admin.resources.form.invalid';
 	}
 	if (Object.keys(fieldErrors).length > 0) {
 		validationError(fieldErrors);
@@ -507,7 +507,7 @@ export const runCommentAction = permissionMutation({
 		ids: v.array(v.id('adminDemoComments'))
 	},
 	handler: async (_ctx, _args): Promise<ActionResponse> => {
-		return success('Comments reviewed.');
+		return success('admin.resources.toasts.action_success');
 	}
 });
 

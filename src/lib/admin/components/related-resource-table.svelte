@@ -41,6 +41,7 @@
 
 	let relatedRows = $state<Record<string, unknown>[]>([]);
 	let loading = $state(false);
+	let loadError = $state(false);
 
 	$effect(() => {
 		void (async () => {
@@ -49,6 +50,7 @@
 				return;
 			}
 			loading = true;
+			loadError = false;
 			try {
 				const result = (await client.query(relatedRuntime.list, {
 					cursor: undefined,
@@ -62,8 +64,12 @@
 				};
 				relatedRows = result.items ?? [];
 			} catch (error) {
-				console.error('Failed to load related rows', error);
+				console.error(
+					`[admin:related-table:${field.attribute}] Failed to load related rows`,
+					error
+				);
 				relatedRows = [];
+				loadError = true;
 			} finally {
 				loading = false;
 			}
@@ -124,6 +130,12 @@
 					<Table.Row>
 						<Table.Cell colspan={2} class="text-muted-foreground">
 							<T keyName="admin.resources.loading" />
+						</Table.Cell>
+					</Table.Row>
+				{:else if loadError}
+					<Table.Row>
+						<Table.Cell colspan={2} class="text-muted-foreground">
+							<T keyName="admin.resources.load_error" />
 						</Table.Cell>
 					</Table.Row>
 				{:else if relatedRows.length === 0}

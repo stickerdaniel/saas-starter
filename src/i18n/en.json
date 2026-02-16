@@ -57,6 +57,7 @@
 				"create": "Create",
 				"create_resource": "Create {resource}",
 				"delete": "Delete",
+				"no_records_selected": "No records selected.",
 				"edit": "Edit",
 				"force_delete": "Force Delete",
 				"replicate": "Replicate",
@@ -160,6 +161,8 @@
 			"lenses": {
 				"all": "All Lenses"
 			},
+			"load_error": "Failed to load this resource. Please try again.",
+			"load_error_relation_options": "Could not load options for {field}. Please retry.",
 			"loading": "Loading resources...",
 			"projects": {
 				"actions": {
@@ -784,7 +787,9 @@
 	"common": {
 		"adding": "Adding...",
 		"cancel": "Cancel",
-		"confirm": "Confirm"
+		"confirm": "Confirm",
+		"retry": "Retry",
+		"save": "Save"
 	},
 	"email": {
 		"body": {

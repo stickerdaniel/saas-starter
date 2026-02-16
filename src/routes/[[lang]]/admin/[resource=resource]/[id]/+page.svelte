@@ -6,6 +6,8 @@
 	import { toast } from 'svelte-sonner';
 	import { useConvexClient, useQuery } from 'convex-svelte';
 	import SEOHead from '$lib/components/SEOHead.svelte';
+	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
+	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Card, CardContent, CardHeader, CardTitle } from '$lib/components/ui/card/index.js';
 	import * as Tabs from '$lib/components/ui/tabs/index.js';
@@ -107,7 +109,8 @@
 			values,
 			navigateTo: async (url) => {
 				await goto(resolve(url));
-			}
+			},
+			t: $t
 		});
 	}
 
@@ -145,7 +148,10 @@
 				);
 			} catch (error) {
 				relationOptionsLoadError = true;
-				console.error('Failed to load action relation options', error);
+				console.error(
+					`[admin:${resource.name}] Failed to load relation options for action field "${field.attribute}"`,
+					error
+				);
 			}
 		}
 	}
@@ -237,9 +243,30 @@
 	class="flex flex-col gap-6 px-4 lg:px-6 xl:px-8 2xl:px-16"
 	data-testid={`${prefix}-detail-page`}
 >
-	{#if detailQuery.isLoading || !detailQuery.data}
+	{#if detailQuery.isLoading}
 		<div class="rounded-lg border p-4" data-testid={`${prefix}-detail-loading`}>
 			<T keyName="admin.resources.loading" />
+		</div>
+	{:else if detailQuery.error || !detailQuery.data}
+		<div
+			class="flex flex-col items-center gap-4 rounded-lg border p-8 text-center"
+			data-testid={`${prefix}-detail-error`}
+		>
+			<p class="text-sm text-muted-foreground"><T keyName="admin.resources.load_error" /></p>
+			<div class="flex gap-2">
+				<Button
+					variant="outline"
+					size="sm"
+					onclick={() => goto(resolve(`/${page.params.lang}/admin/${resource.name}`))}
+				>
+					<ArrowLeftIcon class="mr-2 size-4" />
+					<T keyName="aria.go_back" />
+				</Button>
+				<Button variant="outline" size="sm" onclick={() => location.reload()}>
+					<RefreshCwIcon class="mr-2 size-4" />
+					<T keyName="common.retry" />
+				</Button>
+			</div>
 		</div>
 	{:else}
 		<div class="flex flex-wrap items-center justify-between gap-4">

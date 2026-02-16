@@ -57,6 +57,7 @@
 				"create": "Create",
 				"create_resource": "Create {resource}",
 				"delete": "Delete",
+				"no_records_selected": "Aucun enregistrement selectionne.",
 				"edit": "Edit",
 				"force_delete": "Force Delete",
 				"replicate": "Replicate",
@@ -160,6 +161,8 @@
 			"lenses": {
 				"all": "All Lenses"
 			},
+			"load_error": "Impossible de charger cette ressource. Veuillez reessayer.",
+			"load_error_relation_options": "Impossible de charger les options pour {field}. Veuillez reessayer.",
 			"loading": "Loading resources...",
 			"projects": {
 				"actions": {
@@ -784,7 +787,9 @@
 	"common": {
 		"adding": "Ajout en cours...",
 		"cancel": "Annuler",
-		"confirm": "Confirmer"
+		"confirm": "Confirmer",
+		"retry": "Reessayer",
+		"save": "Enregistrer"
 	},
 	"email": {
 		"body": {

@@ -220,10 +220,10 @@ const tagUpdateValuesValidator = v.object({
 function validateTagValues(values: { name: string; color: string }) {
 	const fieldErrors: Record<string, string> = {};
 	if (values.name.trim().length === 0) {
-		fieldErrors.name = 'Tag name is required.';
+		fieldErrors.name = 'admin.resources.form.required';
 	}
 	if (values.color.trim().length === 0) {
-		fieldErrors.color = 'Tag color is required.';
+		fieldErrors.color = 'admin.resources.form.required';
 	}
 	if (Object.keys(fieldErrors).length > 0) {
 		validationError(fieldErrors);
@@ -367,7 +367,7 @@ export const runTagAction = permissionMutation({
 		ids: v.array(v.id('adminDemoTags'))
 	},
 	handler: async (_ctx) => {
-		return { type: 'message', text: 'No-op.' };
+		return { type: 'message', text: 'admin.resources.toasts.action_success' };
 	}
 });
 
@@ -380,8 +380,13 @@ export const getTagMetrics = permissionQuery({
 		let total: number;
 		try {
 			total = await aggregateCountTags(ctx);
-		} catch {
-			// Fallback when aggregate state has not been initialized yet.
+		} catch (error) {
+			// Fallback to full table scan when aggregate is uninitialized.
+			// Log unexpected errors to avoid hiding real issues.
+			const message = error instanceof Error ? error.message : '';
+			if (!message.includes('not been initialized') && !message.includes('aggregate')) {
+				console.error('[admin:tags] Unexpected aggregate error, falling back to table scan', error);
+			}
 			const tags = await ctx.db.query('adminDemoTags').collect();
 			total = tags.length;
 		}

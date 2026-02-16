@@ -92,6 +92,9 @@ export function filterTrashed<TItem extends Record<string, unknown>>(
 export function runResourceListQuery<TItem extends Record<string, unknown>>(
 	options: QueryOptions<TItem>
 ) {
+	if (!Number.isFinite(options.numItems) || options.numItems < 1) {
+		throw new Error('numItems must be a positive integer');
+	}
 	let working = filterTrashed(options.items, options.trashed);
 
 	if (options.applyLens) {
@@ -130,11 +133,12 @@ export function runResourceListQuery<TItem extends Record<string, unknown>>(
 }
 
 export function resolveLastPage(args: { totalCount: number; numItems: number }) {
+	const numItems = Number.isFinite(args.numItems) && args.numItems > 0 ? args.numItems : 10;
 	if (args.totalCount <= 0) {
 		return { page: 1, cursor: null as string | null };
 	}
-	const page = Math.max(1, Math.ceil(args.totalCount / args.numItems));
-	const offset = (page - 1) * args.numItems;
+	const page = Math.max(1, Math.ceil(args.totalCount / numItems));
+	const offset = (page - 1) * numItems;
 	return {
 		page,
 		cursor: offset === 0 ? null : String(offset)

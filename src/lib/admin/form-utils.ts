@@ -64,8 +64,6 @@ export function mapRecordToFormValues(
 				const fromAttribute = record[field.attribute];
 				if (Array.isArray(fromAttribute)) {
 					relationValues = fromAttribute;
-				} else if (Array.isArray(record.tags)) {
-					relationValues = record.tags as unknown[];
 				}
 				const ids = relationValues
 					.map((entry) => {
