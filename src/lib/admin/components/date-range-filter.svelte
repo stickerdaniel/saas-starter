@@ -35,10 +35,9 @@
 			onChange('');
 			return;
 		}
-		const start = next.start.toDate(getLocalTimeZone());
-		const end = next.end.toDate(getLocalTimeZone());
-		const format = (date: Date) => date.toISOString().slice(0, 10);
-		onChange(`${format(start)}..${format(end)}`);
+		const pad = (n: number) => String(n).padStart(2, '0');
+		const fmt = (d: typeof next.start) => `${d.year}-${pad(d.month)}-${pad(d.day)}`;
+		onChange(`${fmt(next.start)}..${fmt(next.end)}`);
 	}
 
 	const displayText = $derived.by(() => {

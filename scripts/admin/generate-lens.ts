@@ -1,3 +1,4 @@
+export {};
 const [, , rawResource, rawKey = 'default'] = process.argv;
 
 if (!rawResource) {

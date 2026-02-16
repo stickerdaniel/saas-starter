@@ -58,6 +58,7 @@
 				"create_resource": "Create {resource}",
 				"delete": "Delete",
 				"no_records_selected": "Aucun enregistrement selectionne.",
+				"records_not_found": "Les enregistrements selectionnes n'ont pas pu etre trouves.",
 				"edit": "Edit",
 				"force_delete": "Force Delete",
 				"replicate": "Replicate",
@@ -163,6 +164,7 @@
 			},
 			"load_error": "Impossible de charger cette ressource. Veuillez reessayer.",
 			"load_error_relation_options": "Impossible de charger les options pour {field}. Veuillez reessayer.",
+			"metrics_load_error": "Impossible de charger les metriques. Elles seront retentees automatiquement.",
 			"loading": "Loading resources...",
 			"projects": {
 				"actions": {

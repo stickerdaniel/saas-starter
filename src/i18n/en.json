@@ -58,6 +58,7 @@
 				"create_resource": "Create {resource}",
 				"delete": "Delete",
 				"no_records_selected": "No records selected.",
+				"records_not_found": "The selected records could not be found.",
 				"edit": "Edit",
 				"force_delete": "Force Delete",
 				"replicate": "Replicate",
@@ -163,6 +164,7 @@
 			},
 			"load_error": "Failed to load this resource. Please try again.",
 			"load_error_relation_options": "Could not load options for {field}. Please retry.",
+			"metrics_load_error": "Failed to load metrics. They will retry automatically.",
 			"loading": "Loading resources...",
 			"projects": {
 				"actions": {
