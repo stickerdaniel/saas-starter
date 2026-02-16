@@ -56,7 +56,7 @@
 		} catch (error) {
 			const fieldErrors = getValidationFieldErrors(error);
 			if (fieldErrors?.[field.attribute]) {
-				toast.error(fieldErrors[field.attribute]);
+				toast.error($t(fieldErrors[field.attribute]));
 			} else {
 				const message =
 					error instanceof Error ? error.message : $t('admin.resources.toasts.save_error');

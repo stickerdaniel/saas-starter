@@ -58,6 +58,7 @@
 				"create_resource": "Create {resource}",
 				"delete": "Delete",
 				"no_records_selected": "Keine Eintraege ausgewaehlt.",
+				"records_not_found": "Die ausgewaehlten Eintraege konnten nicht gefunden werden.",
 				"edit": "Edit",
 				"force_delete": "Force Delete",
 				"replicate": "Replicate",
@@ -163,6 +164,7 @@
 			},
 			"load_error": "Ressource konnte nicht geladen werden. Bitte versuchen Sie es erneut.",
 			"load_error_relation_options": "Optionen fuer {field} konnten nicht geladen werden. Bitte erneut versuchen.",
+			"metrics_load_error": "Metriken konnten nicht geladen werden. Sie werden automatisch erneut versucht.",
 			"loading": "Loading resources...",
 			"projects": {
 				"actions": {

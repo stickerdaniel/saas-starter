@@ -94,6 +94,14 @@ async function hydrateTaskRows(rows: AdminDemoTask[], ctx: any): Promise<TaskLis
 	);
 }
 
+function applyTrashedToQuery(query: any, trashed: 'without' | 'with' | 'only') {
+	if (trashed === 'with') return query;
+	if (trashed === 'only') {
+		return query.filter((q: any) => q.neq(q.field('deletedAt'), undefined));
+	}
+	return query.filter((q: any) => q.eq(q.field('deletedAt'), undefined));
+}
+
 function getIndexedTaskQuery(
 	ctx: any,
 	args: {
@@ -109,11 +117,14 @@ function getIndexedTaskQuery(
 	const priorityFilter = filters.priority;
 	if (priorityFilter && priorityFilter !== 'all') return null;
 
+	const trashed = args.trashed ?? 'without';
+
 	const projectFilter = filters.projectId;
 	if (projectFilter) {
-		return ctx.db
+		const q = ctx.db
 			.query('adminDemoTasks')
 			.withIndex('by_project', (q: any) => q.eq('projectId', projectFilter));
+		return applyTrashedToQuery(q, trashed);
 	}
 
 	const statusFilter = filters.status;
@@ -129,9 +140,10 @@ function getIndexedTaskQuery(
 	}
 
 	if (statusValue) {
-		return ctx.db
+		const q = ctx.db
 			.query('adminDemoTasks')
 			.withIndex('by_status', (q: any) => q.eq('status', statusValue));
+		return applyTrashedToQuery(q, trashed);
 	}
 
 	if (args.trashed === 'only') {
@@ -549,13 +561,20 @@ export const runTaskAction = permissionMutation({
 		if (args.ids.length === 0)
 			return { type: 'danger', text: 'admin.resources.actions.no_records_selected' };
 
+		let skipped = 0;
 		for (const id of args.ids) {
 			const task = await ctx.db.get(id);
-			if (!task) continue;
+			if (!task) {
+				skipped++;
+				continue;
+			}
 			await ctx.db.patch(id, {
 				status: args.action === 'markDone' ? 'done' : 'in_progress',
 				updatedAt: Date.now()
 			});
+		}
+		if (skipped > 0 && skipped === args.ids.length) {
+			return { type: 'danger', text: 'admin.resources.actions.records_not_found' };
 		}
 		return success('admin.resources.toasts.action_success');
 	}

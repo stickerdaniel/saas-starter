@@ -381,14 +381,13 @@ export const getTagMetrics = permissionQuery({
 		try {
 			total = await aggregateCountTags(ctx);
 		} catch (error) {
-			// Fallback to full table scan when aggregate is uninitialized.
-			// Log unexpected errors to avoid hiding real issues.
 			const message = error instanceof Error ? error.message : '';
-			if (!message.includes('not been initialized') && !message.includes('aggregate')) {
-				console.error('[admin:tags] Unexpected aggregate error, falling back to table scan', error);
+			if (message.includes('not been initialized') || message.includes('aggregate')) {
+				const tags = await ctx.db.query('adminDemoTags').collect();
+				total = tags.length;
+			} else {
+				throw error;
 			}
-			const tags = await ctx.db.query('adminDemoTags').collect();
-			total = tags.length;
 		}
 		return {
 			cards: [{ key: 'total', type: 'value', value: total }]
