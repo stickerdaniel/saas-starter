@@ -71,6 +71,7 @@
 				"create": "Create",
 				"create_resource": "Create {resource}",
 				"delete": "Delete",
+				"no_records_selected": "Keine Eintraege ausgewaehlt.",
 				"edit": "Edit",
 				"force_delete": "Force Delete",
 				"preview": "Vorschau",
@@ -293,6 +294,8 @@
 			"lenses": {
 				"all": "All Lenses"
 			},
+			"load_error": "Ressource konnte nicht geladen werden. Bitte versuchen Sie es erneut.",
+			"load_error_relation_options": "Optionen fuer {field} konnten nicht geladen werden. Bitte erneut versuchen.",
 			"loading": "Loading resources...",
 			"peek": {
 				"empty": "Keine Daten zum Anzeigen.",
@@ -993,6 +996,7 @@
 		"adding": "Wird hinzugefügt...",
 		"cancel": "Abbrechen",
 		"confirm": "Bestätigen",
+		"retry": "Erneut versuchen",
 		"save": "Speichern"
 	},
 	"email": {

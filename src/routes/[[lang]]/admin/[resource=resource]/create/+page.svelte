@@ -53,11 +53,16 @@
 
 	$effect(() => {
 		void (async () => {
-			relationOptions = await loadRelationOptionsForFields({
-				fields: formFields,
-				runtime,
-				client
-			});
+			try {
+				relationOptions = await loadRelationOptionsForFields({
+					fields: formFields,
+					runtime,
+					client
+				});
+			} catch (error) {
+				console.error(`[admin:${resource.name}] Failed to load relation options`, error);
+				toast.error($t('admin.resources.toasts.action_error'));
+			}
 		})();
 	});
 

@@ -392,13 +392,13 @@ function validateTaskValues(values: {
 }) {
 	const fieldErrors: Record<string, string> = {};
 	if (values.title.trim().length === 0) {
-		fieldErrors.title = 'Task title is required.';
+		fieldErrors.title = 'admin.resources.form.required';
 	}
 	if (!Number.isFinite(values.estimateHours) || values.estimateHours < 0) {
-		fieldErrors.estimateHours = 'Estimate hours must be a non-negative number.';
+		fieldErrors.estimateHours = 'admin.resources.form.invalid';
 	}
 	if (values.assigneeEmail && !values.assigneeEmail.includes('@')) {
-		fieldErrors.assigneeEmail = 'Assignee email must be a valid email.';
+		fieldErrors.assigneeEmail = 'admin.resources.form.invalid';
 	}
 	if (Object.keys(fieldErrors).length > 0) {
 		validationError(fieldErrors);
@@ -546,7 +546,8 @@ export const runTaskAction = permissionMutation({
 	},
 	handler: async (ctx, args): Promise<ActionResponse> => {
 		assertPermission(ctx.user, { action: ['run'] });
-		if (args.ids.length === 0) return { type: 'danger', text: 'No records selected.' };
+		if (args.ids.length === 0)
+			return { type: 'danger', text: 'admin.resources.actions.no_records_selected' };
 
 		for (const id of args.ids) {
 			const task = await ctx.db.get(id);
@@ -556,7 +557,7 @@ export const runTaskAction = permissionMutation({
 				updatedAt: Date.now()
 			});
 		}
-		return success('Action completed.');
+		return success('admin.resources.toasts.action_success');
 	}
 });
 

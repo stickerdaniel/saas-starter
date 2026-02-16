@@ -32,9 +32,19 @@
 			);
 		}
 		if (field.type === 'manyToMany') {
-			const tags = (record.tags as Array<{ name: string }> | undefined) ?? [];
-			if (tags.length === 0) return '-';
-			return tags.map((tag) => tag.name).join(', ');
+			const items = Array.isArray(value) ? value : [];
+			if (items.length === 0) return '-';
+			const labelKey = field.relation?.labelField ?? 'name';
+			return (
+				items
+					.map((item) =>
+						typeof item === 'object' && item !== null
+							? String((item as Record<string, unknown>)[labelKey] ?? '')
+							: String(item)
+					)
+					.filter(Boolean)
+					.join(', ') || '-'
+			);
 		}
 		if ((field.type === 'date' || field.type === 'datetime') && typeof value === 'number') {
 			const parsed = new Date(value);

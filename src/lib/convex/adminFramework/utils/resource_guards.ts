@@ -31,7 +31,12 @@ export function assertResourceCrudAllowed(args: {
 	}
 
 	const guard = resourceCrudGuards[resourceName];
-	if (!guard) return;
+	if (!guard) {
+		console.warn(
+			`[admin:guard] Unknown resource "${resourceName}" — no resource-specific guard configured`
+		);
+		return;
+	}
 
 	if (operation === 'create' && guard.canCreate && !guard.canCreate(user)) {
 		throw new Error('Not authorized');

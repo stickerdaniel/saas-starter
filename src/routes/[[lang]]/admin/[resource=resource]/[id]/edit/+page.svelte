@@ -6,6 +6,8 @@
 	import { toast } from 'svelte-sonner';
 	import { useConvexClient, useQuery } from 'convex-svelte';
 	import SEOHead from '$lib/components/SEOHead.svelte';
+	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
+	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
 	import * as Alert from '$lib/components/ui/alert/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import * as Field from '$lib/components/ui/field/index.js';
@@ -103,11 +105,16 @@
 
 	$effect(() => {
 		void (async () => {
-			relationOptions = await loadRelationOptionsForFields({
-				fields: formFields,
-				runtime,
-				client
-			});
+			try {
+				relationOptions = await loadRelationOptionsForFields({
+					fields: formFields,
+					runtime,
+					client
+				});
+			} catch (error) {
+				console.error(`[admin:${resource.name}] Failed to load relation options`, error);
+				toast.error($t('admin.resources.toasts.action_error'));
+			}
 		})();
 	});
 
@@ -197,7 +204,32 @@
 		<h1 class="text-2xl font-bold"><T keyName="admin.resources.actions.edit" /></h1>
 	</div>
 
-	{#if detailQuery.isLoading || !form.hydrated}
+	{#if detailQuery.isLoading}
+		<div class="rounded-lg border p-4" data-testid={`${prefix}-edit-loading`}>
+			<T keyName="admin.resources.loading" />
+		</div>
+	{:else if detailQuery.error || (!detailQuery.data && !form.hydrated)}
+		<div
+			class="flex flex-col items-center gap-4 rounded-lg border p-8 text-center"
+			data-testid={`${prefix}-edit-error`}
+		>
+			<p class="text-sm text-muted-foreground"><T keyName="admin.resources.load_error" /></p>
+			<div class="flex gap-2">
+				<Button
+					variant="outline"
+					size="sm"
+					onclick={() => goto(resolve(`/${page.params.lang}/admin/${resource.name}`))}
+				>
+					<ArrowLeftIcon class="mr-2 size-4" />
+					<T keyName="aria.go_back" />
+				</Button>
+				<Button variant="outline" size="sm" onclick={() => location.reload()}>
+					<RefreshCwIcon class="mr-2 size-4" />
+					<T keyName="common.retry" />
+				</Button>
+			</div>
+		</div>
+	{:else if !form.hydrated}
 		<div class="rounded-lg border p-4" data-testid={`${prefix}-edit-loading`}>
 			<T keyName="admin.resources.loading" />
 		</div>

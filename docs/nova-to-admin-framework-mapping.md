@@ -30,9 +30,11 @@
 
 ## Authorization Mapping
 
-- Nova policies/gates -> statement checks in `src/lib/convex/adminFramework/access.ts`
+- Nova policies/gates -> admin-role enforcement via `permissionQuery`/`permissionMutation` wrappers in `src/lib/convex/adminFramework/access.ts`
+- All query/mutation endpoints require admin role by default (enforced by the wrapper)
+- Statement-level checks (`assertPermission`) provide additional granular control where configured
 - Enforcement points:
-  - resource queries/mutations
-  - action execution
-  - relationship attach/detach
-  - metric reads
+  - resource queries/mutations (admin-role wrapper + optional statement checks)
+  - action execution (admin-role wrapper)
+  - relationship attach/detach (admin-role wrapper)
+  - metric reads (admin-role wrapper + statement checks)

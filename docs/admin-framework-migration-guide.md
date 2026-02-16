@@ -22,8 +22,8 @@
 ## Generator Shortcuts
 
 - `bun run admin:generate:resource <name>`
-- `bun run admin:generate:field <attribute> <type>`
-- `bun run admin:generate:filter <key>`
-- `bun run admin:generate:action <key>`
-- `bun run admin:generate:lens <key>`
-- `bun run admin:generate:metric <key> <type>`
+- `bun run admin:generate:field <resource-name> [attribute] [type]`
+- `bun run admin:generate:filter <resource-name> [filter-key]`
+- `bun run admin:generate:action <resource-name> [action-key]`
+- `bun run admin:generate:lens <resource-name> [lens-key]`
+- `bun run admin:generate:metric <resource-name> [metric-key] [type]`

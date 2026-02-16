@@ -197,12 +197,20 @@
 		)
 	);
 	let metricsCards = $state<any[]>([]);
+	let metricsRequestId = 0;
 	$effect(() => {
+		const requestId = ++metricsRequestId;
 		void (async () => {
-			const result = (await client.query(runtime.getMetrics, {
-				ranges: metricRanges
-			} as never)) as { cards?: Array<Record<string, unknown>> };
-			metricsCards = result.cards ?? [];
+			try {
+				const result = (await client.query(runtime.getMetrics, {
+					ranges: metricRanges
+				} as never)) as { cards?: Array<Record<string, unknown>> };
+				if (requestId === metricsRequestId) {
+					metricsCards = result.cards ?? [];
+				}
+			} catch (error) {
+				console.error(`[admin:${resource.name}] Failed to load metrics`, error);
+			}
 		})();
 	});
 	const rows = $derived(resourceTable.rows);
@@ -234,9 +242,15 @@
 		}
 		return activeFields.filter((field) => {
 			if (field.showOnIndex === false) return false;
-			if (!isFieldVisible(field, { user: viewer })) return false;
-			if (runtimeVisible.size > 0 && !runtimeVisible.has(field.attribute)) return false;
-			return true;
+			const userVisible = isFieldVisible(field, { user: viewer });
+			if (userVisible) {
+				// User-level permission passed; narrow by runtime row visibility if available
+				if (runtimeVisible.size > 0 && !runtimeVisible.has(field.attribute)) return false;
+				return true;
+			}
+			// canSee returned false without a record — keep column if any row exposes it
+			if (runtimeVisible.size > 0 && runtimeVisible.has(field.attribute)) return true;
+			return false;
 		});
 	});
 
@@ -385,7 +399,8 @@
 			values,
 			navigateTo: async (url) => {
 				await goto(resolve(url));
-			}
+			},
+			t: $t
 		});
 		selectedRows = {};
 	}
@@ -425,7 +440,10 @@
 				);
 			} catch (error) {
 				relationOptionsLoadError = true;
-				console.error('Failed to load action relation options', error);
+				console.error(
+					`[admin:${resource.name}] Failed to load relation options for action field "${field.attribute}"`,
+					error
+				);
 			}
 		}
 	}
