@@ -448,18 +448,18 @@ function validateProjectValues(values: {
 }) {
 	const fieldErrors: Record<string, string> = {};
 	if (values.name.trim().length === 0) {
-		fieldErrors.name = 'Project name is required.';
+		fieldErrors.name = 'admin.resources.form.required';
 	}
 	if (values.slug.trim().length === 0) {
-		fieldErrors.slug = 'Project slug is required.';
+		fieldErrors.slug = 'admin.resources.form.required';
 	}
 	if (values.ownerEmail.trim().length === 0) {
-		fieldErrors.ownerEmail = 'Owner email is required.';
+		fieldErrors.ownerEmail = 'admin.resources.form.required';
 	} else if (!values.ownerEmail.includes('@')) {
-		fieldErrors.ownerEmail = 'Owner email must be a valid email.';
+		fieldErrors.ownerEmail = 'admin.resources.form.invalid';
 	}
 	if (!Number.isFinite(values.budget) || values.budget < 0) {
-		fieldErrors.budget = 'Budget must be a non-negative number.';
+		fieldErrors.budget = 'admin.resources.form.invalid';
 	}
 	if (Object.keys(fieldErrors).length > 0) {
 		validationError(fieldErrors);
@@ -696,12 +696,12 @@ export const runProjectAction = permissionMutation({
 	handler: async (ctx, args): Promise<ActionResponse> => {
 		assertPermission(ctx.user, { action: ['run'] });
 		if (args.ids.length === 0) {
-			return { type: 'danger', text: 'No records selected.' };
+			return { type: 'danger', text: 'admin.resources.actions.no_records_selected' };
 		}
 
 		if (args.action === 'attachTag') {
 			if (!args.values?.tagId) {
-				return { type: 'danger', text: 'Tag is required.' };
+				return { type: 'danger', text: 'admin.resources.form.required' };
 			}
 			for (const id of args.ids) {
 				const exists = await ctx.db
@@ -718,12 +718,12 @@ export const runProjectAction = permissionMutation({
 					});
 				}
 			}
-			return success('Tag attached.');
+			return success('admin.resources.toasts.action_success');
 		}
 
 		if (args.action === 'detachTag') {
 			if (!args.values?.tagId) {
-				return { type: 'danger', text: 'Tag is required.' };
+				return { type: 'danger', text: 'admin.resources.form.required' };
 			}
 			for (const id of args.ids) {
 				const rows = await ctx.db
@@ -736,7 +736,7 @@ export const runProjectAction = permissionMutation({
 					await ctx.db.delete(row._id);
 				}
 			}
-			return success('Tag detached.');
+			return success('admin.resources.toasts.action_success');
 		}
 
 		for (const id of args.ids) {
@@ -751,7 +751,7 @@ export const runProjectAction = permissionMutation({
 			}
 		}
 
-		return success('Action completed.');
+		return success('admin.resources.toasts.action_success');
 	}
 });
 

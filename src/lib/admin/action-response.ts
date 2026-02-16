@@ -17,14 +17,16 @@ type NavigateTo = (url: string) => Promise<void>;
 
 export async function handleActionResponse(
 	response: AdminActionResponse,
-	navigateTo: NavigateTo
+	navigateTo: NavigateTo,
+	t?: (key: string) => string
 ): Promise<void> {
+	const translate = (text: string) => (t ? t(text) : text);
 	if (response.type === 'danger') {
-		toast.error(response.text);
+		toast.error(translate(response.text));
 		return;
 	}
 	if (response.type === 'message') {
-		toast.success(response.text);
+		toast.success(translate(response.text));
 		return;
 	}
 	if (response.type === 'download') {
@@ -53,7 +55,8 @@ export async function executeResourceAction({
 	action,
 	ids,
 	values,
-	navigateTo
+	navigateTo,
+	t
 }: {
 	client: ConvexClientLike;
 	runtime: ResourceRuntime;
@@ -61,6 +64,7 @@ export async function executeResourceAction({
 	ids: string[];
 	values: Record<string, unknown>;
 	navigateTo: NavigateTo;
+	t?: (key: string) => string;
 }): Promise<AdminActionResponse> {
 	const response = (await client.mutation(runtime.runAction, {
 		action,
@@ -68,6 +72,6 @@ export async function executeResourceAction({
 		values
 	} as never)) as AdminActionResponse;
 
-	await handleActionResponse(response, navigateTo);
+	await handleActionResponse(response, navigateTo, t);
 	return response;
 }
