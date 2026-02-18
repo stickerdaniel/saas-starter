@@ -4,24 +4,30 @@
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { T, getTranslate } from '@tolgee/svelte';
+	import type { ColumnDef } from '@tanstack/table-core';
 	import { SvelteSet } from 'svelte/reactivity';
-	import * as Table from '$lib/components/ui/table/index.js';
-	import { Checkbox } from '$lib/components/ui/checkbox/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import * as Dialog from '$lib/components/ui/dialog/index.js';
 	import * as Select from '$lib/components/ui/select/index.js';
+	import { renderComponent } from '$lib/components/ui/data-table/index.js';
+	import DataTableCheckbox from '$lib/components/data-table-checkbox.svelte';
 	import { toast } from 'svelte-sonner';
 	import { useConvexClient } from 'convex-svelte';
 	import PlusIcon from '@lucide/svelte/icons/plus';
-	import EyeIcon from '@lucide/svelte/icons/eye';
-	import PencilIcon from '@lucide/svelte/icons/pencil';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
 	import Undo2Icon from '@lucide/svelte/icons/undo-2';
-	import CopyIcon from '@lucide/svelte/icons/copy';
 	import DownloadIcon from '@lucide/svelte/icons/download';
-	import ConvexCursorTableShell from '$lib/components/tables/convex-cursor-table-shell.svelte';
+	import ConvexTanStackTable from '$lib/tables/convex/convex-tanstack-table.svelte';
+	import { getTableSkeletonColumnsFromColumnDefs } from '$lib/components/tables/table-loading-skeleton.js';
 	import { createConvexCursorTable } from '$lib/tables/convex/create-convex-cursor-table.svelte';
+	import { createConvexTanStackTableFromState } from '$lib/tables/convex/create-convex-tanstack-table.svelte';
 	import type { CursorListResult } from '$lib/tables/convex/contract';
+	import type { BaseTableRenderConfig } from '$lib/tables/core/types';
+	import {
+		applyColumnLayoutPreset,
+		COLUMN_LAYOUT_PRESETS,
+		getResourceFieldLayoutPreset
+	} from '$lib/tables/core/layout-presets';
 	import {
 		getResourceContext,
 		getPageSizeOptions,
@@ -29,6 +35,14 @@
 	} from '$lib/admin/page-helpers';
 	import FieldRenderer from '$lib/admin/fields/field-renderer.svelte';
 	import InlineEditCell from '$lib/admin/fields/inline-edit-cell.svelte';
+	import {
+		createResourceVisibleColumnsCache,
+		serializeVisibleColumnsIdentity
+	} from '$lib/admin/resource-visible-columns-cache.svelte';
+	import ResourceTableColumnHeader from '$lib/admin/components/resource-table-column-header.svelte';
+	import ResourceTableActionsCell from '$lib/admin/components/resource-table-actions-cell.svelte';
+	import TableLoadingActionIconsCell from '$lib/admin/components/table-loading-action-icons-cell.svelte';
+	import TableLoadingTextCell from '$lib/admin/components/table-loading-text-cell.svelte';
 	import FilterPanel from '$lib/admin/components/filter-panel.svelte';
 	import ActionModal from '$lib/admin/components/action-modal.svelte';
 	import MetricsCards from '$lib/admin/components/metrics-cards.svelte';
@@ -128,6 +142,9 @@
 	const pageSizeOptions = getPageSizeOptions(resource.perPageOptions);
 	const pageSizeNumbers = pageSizeOptions.map((option) => Number(option));
 	const defaultPageSize = pageSizeOptions[0];
+	const resourceSortFields = (
+		resource.sortFields?.length ? resource.sortFields : ['createdAt']
+	) as [string, ...string[]];
 
 	const urlSchema = createResourceUrlSchema({
 		filters: allConfiguredFilters.map((filter) => ({
@@ -152,10 +169,7 @@
 		defaultFilters,
 		pageSizeOptions,
 		defaultPageSize,
-		sortFields: (resource.sortFields?.length ? resource.sortFields : ['createdAt']) as [
-			string,
-			...string[]
-		],
+		sortFields: resourceSortFields,
 		buildListArgs: ({ cursor, pageSize, search, sortBy, filters, urlState }) => ({
 			cursor: cursor ?? undefined,
 			numItems: pageSize,
@@ -223,6 +237,7 @@
 	const activeLens = $derived(String(tableParams.lens ?? 'all'));
 	const activeTrashed = $derived(String(tableParams.trashed ?? 'without'));
 	const canCreate = $derived(isResourceCreatable(resource, viewer));
+	const visibleColumnsCache = createResourceVisibleColumnsCache(resource.name);
 
 	const activeLensDefinition = $derived(
 		(resource.lenses ?? []).find((lens) => lens.key === activeLens)
@@ -235,33 +250,188 @@
 	);
 	const activeFields = $derived(mergeFields(resource.fields, activeLensDefinition?.fields));
 
-	const indexFields = $derived.by(() => {
-		const runtimeVisible = new SvelteSet<string>();
+	const runtimeVisibleColumns = $derived.by(() => {
+		const visible = new SvelteSet<string>();
 		for (const row of rows) {
-			const visible = row._visibleFields;
-			if (Array.isArray(visible)) {
-				for (const name of visible) {
-					runtimeVisible.add(String(name));
-				}
+			const rowVisible = row._visibleFields;
+			if (!Array.isArray(rowVisible)) continue;
+			for (const attribute of rowVisible) {
+				visible.add(String(attribute));
 			}
 		}
+		return visible;
+	});
+
+	const visibilityIdentityFilters = $derived.by<Record<string, string>>(() => {
+		const next: Record<string, string> = {
+			lens: activeLens,
+			trashed: activeTrashed
+		};
+		for (const filter of allConfiguredFilters) {
+			next[filter.urlKey] = String(resourceTable.filters[filter.urlKey] ?? filter.defaultValue);
+		}
+		return next;
+	});
+
+	const visibilityIdentityKey = $derived(
+		serializeVisibleColumnsIdentity({
+			viewerId: viewer?._id,
+			search: String(tableParams.search ?? '').trim(),
+			filters: visibilityIdentityFilters
+		})
+	);
+
+	const cachedVisibleColumnsForIdentity = $derived(visibleColumnsCache.get(visibilityIdentityKey));
+
+	const cachedVisibleColumnsSet = $derived.by(() => {
+		const visible = new SvelteSet<string>();
+		for (const attribute of cachedVisibleColumnsForIdentity ?? []) {
+			visible.add(String(attribute));
+		}
+		return visible;
+	});
+
+	const indexFields = $derived.by(() => {
+		const hasRuntimeVisibility = runtimeVisibleColumns.size > 0;
+		const hasCachedVisibility = cachedVisibleColumnsSet.size > 0;
 		return activeFields.filter((field) => {
 			if (field.showOnIndex === false) return false;
-			const userVisible = isFieldVisible(field, { user: viewer });
-			if (userVisible) {
-				// User-level permission passed; narrow by runtime row visibility if available
-				if (runtimeVisible.size > 0 && !runtimeVisible.has(field.attribute)) return false;
-				return true;
+			if (hasRuntimeVisibility) {
+				return runtimeVisibleColumns.has(field.attribute);
 			}
-			// canSee returned false without a record — keep column if any row exposes it
-			if (runtimeVisible.size > 0 && runtimeVisible.has(field.attribute)) return true;
-			return false;
+			if (hasCachedVisibility) return cachedVisibleColumnsSet.has(field.attribute);
+			return isFieldVisible(field, { user: viewer });
 		});
 	});
 
-	let selectedRows = $state<Record<string, boolean>>({});
-	const selectedIds = $derived(
-		Object.entries(selectedRows)
+	$effect(() => {
+		if (resourceTable.isLoading) return;
+		if (rows.length === 0) return;
+		if (runtimeVisibleColumns.size === 0) return;
+		const orderedVisibleColumns = activeFields
+			.filter((field) => field.showOnIndex !== false && runtimeVisibleColumns.has(field.attribute))
+			.map((field) => field.attribute);
+		visibleColumnsCache.set(visibilityIdentityKey, orderedVisibleColumns);
+	});
+	const resourceSortColumnToField = Object.fromEntries(
+		resourceSortFields.map((field) => [field, field])
+	) as Record<string, string>;
+	const resourceSortFieldToColumn = Object.fromEntries(
+		resourceSortFields.map((field) => [field, field])
+	) as Record<string, string>;
+
+	const resourceColumns = $derived.by<ColumnDef<Record<string, unknown>>[]>(() => [
+		applyColumnLayoutPreset({
+			preset: COLUMN_LAYOUT_PRESETS.selectCheckbox,
+			column: {
+				id: 'select',
+				header: ({ table }) =>
+					renderComponent(DataTableCheckbox, {
+						checked: table.getIsAllPageRowsSelected(),
+						indeterminate: table.getIsSomePageRowsSelected() && !table.getIsAllPageRowsSelected(),
+						onCheckedChange: (checked: boolean) =>
+							table.toggleAllPageRowsSelected(Boolean(checked)),
+						'aria-label-key': 'admin.resources.aria.select_all',
+						'data-no-row-click': 'true'
+					}),
+				cell: ({ row }) =>
+					renderComponent(DataTableCheckbox, {
+						checked: row.getIsSelected(),
+						onCheckedChange: (checked: boolean) => row.toggleSelected(Boolean(checked)),
+						'aria-label-key': 'admin.resources.aria.select_row',
+						'data-no-row-click': 'true'
+					}),
+				enableSorting: false
+			}
+		}),
+		...indexFields.map((field) =>
+			applyColumnLayoutPreset({
+				preset: getResourceFieldLayoutPreset({
+					fieldType: field.type,
+					attribute: String(field.attribute),
+					inlineEditable: Boolean(field.inlineEditable)
+				}),
+				column: {
+					id: String(field.attribute),
+					header: () =>
+						renderComponent(ResourceTableColumnHeader, {
+							titleKey: field.labelKey,
+							sortable: field.sortable === true,
+							sorted: getFieldSortState(String(field.attribute)),
+							onToggleSort: () => handleSort(String(field.attribute)),
+							testId: `${prefix}-sort-${field.attribute}`
+						}),
+					cell: ({ row }: { row: { original: Record<string, unknown> } }) => {
+						const record = row.original;
+						const visibleForRow = isFieldVisible(field, { user: viewer, record });
+						if (
+							visibleForRow &&
+							field.inlineEditable &&
+							canUpdateRow(record) &&
+							!isFieldDisabled(field, { user: viewer, record, isEdit: true })
+						) {
+							return renderComponent(InlineEditCell, {
+								field,
+								record,
+								value: field.resolveUsing ? field.resolveUsing(record) : record[field.attribute],
+								runtime,
+								testId: `${resource.name}-${field.attribute}-cell`
+							});
+						}
+
+						return renderComponent(FieldRenderer, {
+							context: 'index',
+							field,
+							record,
+							value: visibleForRow
+								? field.resolveUsing
+									? field.resolveUsing(record)
+									: record[field.attribute]
+								: '-',
+							testId: `${resource.name}-${field.attribute}-cell`
+						});
+					},
+					enableSorting: field.sortable === true
+				}
+			})
+		),
+		applyColumnLayoutPreset({
+			preset: COLUMN_LAYOUT_PRESETS.actionsInline4,
+			column: {
+				id: 'actions',
+				header: () => $t('admin.resources.columns.actions'),
+				cell: ({ row }: { row: { original: Record<string, unknown> } }) =>
+					renderComponent(ResourceTableActionsCell, {
+						row: row.original,
+						prefix,
+						canUpdate: canUpdateRow(row.original),
+						canDelete: canDeleteRow(row.original),
+						onView: () => void openDetail(String(row.original._id)),
+						onEdit: () => void openEdit(String(row.original._id)),
+						onReplicate: () => void replicate(String(row.original._id)),
+						onRestore: () => void restore(String(row.original._id)),
+						onDelete: () => confirmSoftDelete(String(row.original._id))
+					})
+			}
+		})
+	]);
+
+	const resourceSkeletonColumns = $derived.by(() =>
+		getTableSkeletonColumnsFromColumnDefs(resourceColumns)
+	);
+
+	const resourceTableUi = createConvexTanStackTableFromState({
+		convex: resourceTable,
+		getColumns: () => resourceColumns,
+		getRowId: (row) => String(row._id),
+		sortMaps: {
+			columnToSort: resourceSortColumnToField,
+			sortToColumn: resourceSortFieldToColumn
+		}
+	});
+
+	const selectedIds = $derived.by<string[]>(() =>
+		Object.entries(resourceTableUi.rowSelection)
 			.filter(([, selected]) => selected)
 			.map(([id]) => id)
 	);
@@ -294,10 +464,6 @@
 		})
 	);
 
-	function isSelected(id: string) {
-		return Boolean(selectedRows[id]);
-	}
-
 	function getRowById(id: string) {
 		return rows.find((row) => String(row._id) === id);
 	}
@@ -308,13 +474,6 @@
 
 	function canDeleteRow(row: Record<string, unknown>) {
 		return isResourceDeletable(resource, viewer, row);
-	}
-
-	function toggleRow(id: string, next: boolean) {
-		selectedRows = {
-			...selectedRows,
-			[id]: next
-		};
 	}
 
 	function isRowActionDisabled(action: ActionDefinition) {
@@ -333,7 +492,8 @@
 		const clickAction = resource.clickAction ?? 'detail';
 		if (clickAction === 'ignore') return;
 		if (clickAction === 'select') {
-			toggleRow(id, !isSelected(id));
+			const tableRow = resourceTableUi.table.getRowModel().rows.find((row) => row.id === id);
+			tableRow?.toggleSelected(!tableRow.getIsSelected());
 			return;
 		}
 		const row = getRowById(id);
@@ -347,18 +507,6 @@
 			return;
 		}
 		void openDetail(id);
-	}
-
-	function toggleAllRows(next: boolean) {
-		if (!next) {
-			selectedRows = {};
-			return;
-		}
-		const nextState: Record<string, boolean> = {};
-		for (const row of rows) {
-			nextState[String(row._id)] = true;
-		}
-		selectedRows = nextState;
 	}
 
 	function setFilter(key: string, value: string) {
@@ -394,6 +542,12 @@
 		resourceTable.setSort(undefined);
 	}
 
+	function getFieldSortState(field: string): 'asc' | 'desc' | null {
+		const currentSort = resourceTable.sortBy;
+		if (!currentSort || currentSort.field !== field) return null;
+		return currentSort.direction;
+	}
+
 	async function executeAction(action: ActionDefinition, values: Record<string, unknown>) {
 		const ids = action.standalone ? [] : [...selectedIds];
 		const response = await executeResourceAction({
@@ -408,7 +562,7 @@
 			t: $t
 		});
 		if (response.type !== 'danger') {
-			selectedRows = {};
+			resourceTableUi.resetRowSelection();
 		}
 		return response;
 	}
@@ -594,7 +748,7 @@
 			)
 		);
 		const failed = results.filter((r) => r.status === 'rejected');
-		selectedRows = {};
+		resourceTableUi.resetRowSelection();
 		if (failed.length > 0) {
 			console.error(
 				`[admin:${resource.name}] bulk delete: ${failed.length}/${results.length} failed`,
@@ -617,7 +771,7 @@
 			)
 		);
 		const failed = results.filter((r) => r.status === 'rejected');
-		selectedRows = {};
+		resourceTableUi.resetRowSelection();
 		if (failed.length > 0) {
 			console.error(
 				`[admin:${resource.name}] bulk restore: ${failed.length}/${results.length} failed`,
@@ -640,7 +794,7 @@
 			)
 		);
 		const failed = results.filter((r) => r.status === 'rejected');
-		selectedRows = {};
+		resourceTableUi.resetRowSelection();
 		if (failed.length > 0) {
 			console.error(
 				`[admin:${resource.name}] bulk force delete: ${failed.length}/${results.length} failed`,
@@ -756,6 +910,64 @@
 		};
 	}
 
+	const resourceTableRenderConfig = $derived.by<BaseTableRenderConfig>(() => ({
+		testIdPrefix: prefix,
+		searchValue: tableParams.search,
+		searchPlaceholder: $t('admin.resources.search_placeholder'),
+		onSearchChange: resourceTable.setSearch,
+		pageIndex: resourceTable.pageIndex,
+		pageCount: resourceTable.displayPageCount,
+		pageSize: resourceTable.pageSize,
+		pageSizeOptions: pageSizeNumbers,
+		canPreviousPage: resourceTable.canPreviousPage,
+		canNextPage: resourceTable.canNextPage,
+		onFirstPage: resourceTable.goFirst,
+		onPreviousPage: resourceTable.goPrevious,
+		onNextPage: resourceTable.goNext,
+		onLastPage: resourceTable.goLast,
+		onPageSizeChange: resourceTable.setPageSize,
+		rowsPerPageLabel: $t('admin.resources.rows_per_page'),
+		selectionText: $t('admin.resources.selected', {
+			selected: selectedIds.length,
+			total: resourceTable.displayTotalCount
+		}),
+		emptyKey: 'admin.resources.empty',
+		loadingLabelKey: 'admin.resources.loading',
+		loadingStrategy: 'column-factory',
+		loadingCellFactory: ({ columnId }) => {
+			if (columnId === 'select') {
+				return renderComponent(DataTableCheckbox, {
+					checked: false,
+					disabled: true,
+					'aria-label-key': 'aria.loading',
+					'data-no-row-click': 'true'
+				});
+			}
+			if (columnId === 'actions') {
+				return renderComponent(TableLoadingActionIconsCell, { iconCount: 4 });
+			}
+			const field = indexFields.find((entry) => String(entry.attribute) === columnId);
+			if (!field) {
+				return renderComponent(TableLoadingTextCell);
+			}
+			return renderComponent(FieldRenderer, {
+				context: 'index',
+				field,
+				record: {},
+				value: undefined,
+				mode: 'loading'
+			});
+		},
+		skeletonColumns: resourceSkeletonColumns,
+		skeletonRowCount: resourceTable.skeletonRowCount,
+		colspan: resourceColumns.length,
+		testIds: {
+			table: `${prefix}-table`,
+			loading: `${prefix}-loading`,
+			empty: `${prefix}-empty`
+		}
+	}));
+
 	const previewFields = $derived(
 		activeFields.filter((field) => field.showOnIndex !== false).slice(0, 6)
 	);
@@ -793,28 +1005,11 @@
 		{prefix}
 	/>
 
-	<ConvexCursorTableShell
-		testIdPrefix={prefix}
-		tableTestId={`${prefix}-table`}
-		searchValue={tableParams.search}
-		searchPlaceholder={$t('admin.resources.search_placeholder')}
-		onSearchChange={resourceTable.setSearch}
-		pageIndex={resourceTable.pageIndex}
-		pageCount={resourceTable.pageCount}
-		pageSize={resourceTable.pageSize}
-		pageSizeOptions={pageSizeNumbers}
-		canPreviousPage={resourceTable.canPreviousPage}
-		canNextPage={resourceTable.canNextPage}
-		onFirstPage={resourceTable.goFirst}
-		onPreviousPage={resourceTable.goPrevious}
-		onNextPage={resourceTable.goNext}
-		onLastPage={resourceTable.goLast}
-		onPageSizeChange={resourceTable.setPageSize}
-		rowsPerPageLabel={$t('admin.resources.rows_per_page')}
-		selectionText={$t('admin.resources.selected', {
-			selected: selectedIds.length,
-			total: resourceTable.totalCount
-		})}
+	<ConvexTanStackTable
+		table={resourceTableUi.table}
+		config={resourceTableRenderConfig}
+		rowTestId={(row) => `${resource.name}-row-${row.id}`}
+		onRowClick={(row, event) => handleRowClick(event, String(row.original._id))}
 	>
 		{#snippet toolbarFilters()}
 			<div class="flex flex-wrap items-center gap-2">
@@ -962,169 +1157,7 @@
 				{/each}
 			</div>
 		{/snippet}
-
-		{#snippet tableContent()}
-			<Table.Root>
-				<Table.Header>
-					<Table.Row>
-						<Table.Head class="w-10">
-							<Checkbox
-								checked={rows.length > 0 && selectedIds.length === rows.length}
-								onCheckedChange={(checked) => toggleAllRows(Boolean(checked))}
-								aria-label={$t('admin.resources.aria.select_all')}
-								data-no-row-click="true"
-							/>
-						</Table.Head>
-						{#each indexFields as field (field.attribute)}
-							<Table.Head>
-								{#if field.sortable}
-									<Button
-										variant="ghost"
-										size="sm"
-										onclick={() => handleSort(String(field.attribute))}
-										data-testid={`${prefix}-sort-${field.attribute}`}
-									>
-										<T keyName={field.labelKey} />
-									</Button>
-								{:else}
-									<T keyName={field.labelKey} />
-								{/if}
-							</Table.Head>
-						{/each}
-						<Table.Head class="w-40 text-right">
-							<T keyName="admin.resources.columns.actions" />
-						</Table.Head>
-					</Table.Row>
-				</Table.Header>
-
-				<Table.Body>
-					{#if resourceTable.isLoading}
-						<Table.Row data-testid={`${prefix}-loading`}>
-							<Table.Cell
-								colspan={indexFields.length + 2}
-								class="h-24 text-center text-muted-foreground"
-							>
-								<T keyName="admin.resources.loading" />
-							</Table.Cell>
-						</Table.Row>
-					{:else if rows.length === 0}
-						<Table.Row>
-							<Table.Cell
-								colspan={indexFields.length + 2}
-								class="h-24 text-center text-muted-foreground"
-								data-testid={`${prefix}-empty`}
-							>
-								<T keyName="admin.resources.empty" />
-							</Table.Cell>
-						</Table.Row>
-					{:else}
-						{#each rows as row (String(row._id))}
-							<Table.Row
-								data-testid={`${resource.name}-row-${row._id}`}
-								onclick={(event) => handleRowClick(event, String(row._id))}
-							>
-								<Table.Cell>
-									<Checkbox
-										checked={isSelected(String(row._id))}
-										onCheckedChange={(checked) => toggleRow(String(row._id), Boolean(checked))}
-										aria-label={$t('admin.resources.aria.select_row')}
-										data-no-row-click="true"
-									/>
-								</Table.Cell>
-								{#each indexFields as field (field.attribute)}
-									<Table.Cell>
-										{@const visibleForRow = isFieldVisible(field, { user: viewer, record: row })}
-										{#if visibleForRow && field.inlineEditable && canUpdateRow(row) && !isFieldDisabled( field, { user: viewer, record: row, isEdit: true } )}
-											<InlineEditCell
-												{field}
-												record={row}
-												value={field.resolveUsing ? field.resolveUsing(row) : row[field.attribute]}
-												{runtime}
-												testId={`${resource.name}-${field.attribute}-cell`}
-											/>
-										{:else}
-											<FieldRenderer
-												context="index"
-												{field}
-												record={row}
-												value={visibleForRow
-													? field.resolveUsing
-														? field.resolveUsing(row)
-														: row[field.attribute]
-													: '-'}
-												testId={`${resource.name}-${field.attribute}-cell`}
-											/>
-										{/if}
-									</Table.Cell>
-								{/each}
-								<Table.Cell class="text-right">
-									<div class="flex justify-end gap-1">
-										<Button
-											variant="ghost"
-											size="icon"
-											onclick={() => void openDetail(String(row._id))}
-											data-testid={`${prefix}-row-view-${row._id}`}
-											data-no-row-click="true"
-										>
-											<EyeIcon class="size-4" />
-											<span class="sr-only"><T keyName="admin.resources.actions.view" /></span>
-										</Button>
-										<Button
-											variant="ghost"
-											size="icon"
-											onclick={() => void openEdit(String(row._id))}
-											data-testid={`${prefix}-row-edit-${row._id}`}
-											data-no-row-click="true"
-											disabled={!canUpdateRow(row)}
-										>
-											<PencilIcon class="size-4" />
-											<span class="sr-only"><T keyName="admin.resources.actions.edit" /></span>
-										</Button>
-										<Button
-											variant="ghost"
-											size="icon"
-											onclick={() => void replicate(String(row._id))}
-											data-testid={`${prefix}-row-replicate-${row._id}`}
-											data-no-row-click="true"
-											disabled={!canUpdateRow(row)}
-										>
-											<CopyIcon class="size-4" />
-											<span class="sr-only"><T keyName="admin.resources.actions.replicate" /></span>
-										</Button>
-										{#if row.deletedAt}
-											<Button
-												variant="ghost"
-												size="icon"
-												onclick={() => void restore(String(row._id))}
-												data-testid={`${prefix}-row-restore-${row._id}`}
-												data-no-row-click="true"
-												disabled={!canDeleteRow(row)}
-											>
-												<Undo2Icon class="size-4" />
-												<span class="sr-only"><T keyName="admin.resources.actions.restore" /></span>
-											</Button>
-										{:else}
-											<Button
-												variant="ghost"
-												size="icon"
-												onclick={() => confirmSoftDelete(String(row._id))}
-												data-testid={`${prefix}-row-delete-${row._id}`}
-												data-no-row-click="true"
-												disabled={!canDeleteRow(row)}
-											>
-												<Trash2Icon class="size-4" />
-												<span class="sr-only"><T keyName="admin.resources.actions.delete" /></span>
-											</Button>
-										{/if}
-									</div>
-								</Table.Cell>
-							</Table.Row>
-						{/each}
-					{/if}
-				</Table.Body>
-			</Table.Root>
-		{/snippet}
-	</ConvexCursorTableShell>
+	</ConvexTanStackTable>
 </div>
 
 <Dialog.Root

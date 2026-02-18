@@ -102,13 +102,15 @@
 </script>
 
 {#if field.type === 'boolean'}
-	<Checkbox
-		checked={Boolean(value)}
-		disabled={saving}
-		onCheckedChange={(checked) => void save(Boolean(checked))}
-		data-testid={testId}
-		data-no-row-click="true"
-	/>
+	<div class="flex items-center justify-center">
+		<Checkbox
+			checked={Boolean(value)}
+			disabled={saving}
+			onCheckedChange={(checked) => void save(Boolean(checked))}
+			data-testid={testId}
+			data-no-row-click="true"
+		/>
+	</div>
 {:else if field.type === 'select' && field.options}
 	<Select.Root
 		type="single"
