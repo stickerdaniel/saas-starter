@@ -1,12 +1,15 @@
 import MessageSquareTextIcon from '@lucide/svelte/icons/message-square-text';
+import { api } from '$lib/convex/_generated/api';
 import {
 	defineAction,
 	defineField,
 	defineFilter,
 	defineLens,
 	defineMetric,
-	defineResource
+	defineResource,
+	defineResourceModule
 } from '../builders';
+import type { ResourceRuntime } from '../types';
 
 export const demoCommentsResource = defineResource({
 	name: 'demo-comments',
@@ -155,4 +158,28 @@ export const demoCommentsResource = defineResource({
 			fields: ['createdAt']
 		}
 	]
+});
+
+export const demoCommentsRuntime: ResourceRuntime = {
+	list: api.adminFramework.resources.comments.listComments,
+	count: api.adminFramework.resources.comments.countComments,
+	resolveLastPage: api.adminFramework.resources.comments.resolveCommentsLastPage,
+	getById: api.adminFramework.resources.comments.getCommentById,
+	create: api.adminFramework.resources.comments.createComment,
+	update: api.adminFramework.resources.comments.updateComment,
+	delete: api.adminFramework.resources.comments.deleteComment,
+	restore: api.adminFramework.resources.comments.restoreComment,
+	forceDelete: api.adminFramework.resources.comments.forceDeleteComment,
+	replicate: api.adminFramework.resources.comments.replicateComment,
+	runAction: api.adminFramework.resources.comments.runCommentAction,
+	getMetrics: api.adminFramework.resources.comments.getCommentMetrics,
+	listRelationOptions: {
+		'demo-projects': api.adminFramework.resources.projects.listProjectOptions,
+		'demo-tasks': api.adminFramework.resources.tasks.listTaskOptions
+	}
+};
+
+export default defineResourceModule({
+	resource: demoCommentsResource,
+	runtime: demoCommentsRuntime
 });

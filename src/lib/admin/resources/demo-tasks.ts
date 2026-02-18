@@ -1,12 +1,15 @@
 import ListTodoIcon from '@lucide/svelte/icons/list-todo';
+import { api } from '$lib/convex/_generated/api';
 import {
 	defineAction,
 	defineField,
 	defineFilter,
 	defineLens,
 	defineMetric,
-	defineResource
+	defineResource,
+	defineResourceModule
 } from '../builders';
+import type { ResourceRuntime } from '../types';
 
 export const demoTasksResource = defineResource({
 	name: 'demo-tasks',
@@ -245,4 +248,27 @@ export const demoTasksResource = defineResource({
 			fields: ['createdAt', 'updatedAt']
 		}
 	]
+});
+
+export const demoTasksRuntime: ResourceRuntime = {
+	list: api.adminFramework.resources.tasks.listTasks,
+	count: api.adminFramework.resources.tasks.countTasks,
+	resolveLastPage: api.adminFramework.resources.tasks.resolveTasksLastPage,
+	getById: api.adminFramework.resources.tasks.getTaskById,
+	create: api.adminFramework.resources.tasks.createTask,
+	update: api.adminFramework.resources.tasks.updateTask,
+	delete: api.adminFramework.resources.tasks.deleteTask,
+	restore: api.adminFramework.resources.tasks.restoreTask,
+	forceDelete: api.adminFramework.resources.tasks.forceDeleteTask,
+	replicate: api.adminFramework.resources.tasks.replicateTask,
+	runAction: api.adminFramework.resources.tasks.runTaskAction,
+	getMetrics: api.adminFramework.resources.tasks.getTaskMetrics,
+	listRelationOptions: {
+		projectId: api.adminFramework.resources.projects.listProjectOptions
+	}
+};
+
+export default defineResourceModule({
+	resource: demoTasksResource,
+	runtime: demoTasksRuntime
 });

@@ -1,5 +1,5 @@
 import { localizedHref } from '$lib/utils/i18n';
-import { adminResourceRuntimeMap } from '$lib/admin/runtime';
+import { getResourceRuntime } from '$lib/admin/registry';
 import { isResourceVisible, type ViewerUser } from '$lib/admin/visibility';
 import type { ResourceDefinition } from '$lib/admin/types';
 
@@ -39,7 +39,7 @@ export async function fetchResourceSearchItems(args: {
 
 	const settled = await Promise.allSettled(
 		visibleResources.map(async (resource) => {
-			const runtime = adminResourceRuntimeMap[resource.name];
+			const runtime = getResourceRuntime(resource.name);
 			if (!runtime) return [];
 			const response = (await args.client.query(runtime.list, {
 				cursor: undefined,
