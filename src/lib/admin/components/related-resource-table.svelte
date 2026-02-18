@@ -8,8 +8,7 @@
 	import { renderComponent } from '$lib/components/ui/data-table/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import type { FieldDefinition } from '$lib/admin/types';
-	import { getResourceByName } from '$lib/admin/registry';
-	import { adminResourceRuntimeMap } from '$lib/admin/runtime';
+	import { getResourceByName, getResourceRuntime } from '$lib/admin/registry';
 	import { ConfirmDeleteDialog, confirmDelete } from '$lib/components/ui/confirm-delete-dialog';
 	import { createBaseTanStackTable } from '$lib/tables/core/create-base-tanstack-table.svelte';
 	import BaseTanStackTable from '$lib/tables/core/base-tanstack-table.svelte';
@@ -37,7 +36,7 @@
 		relation?.resourceName ? getResourceByName(relation.resourceName) : undefined
 	);
 	const relatedRuntime = $derived(
-		relatedResource ? adminResourceRuntimeMap[relatedResource.name] : undefined
+		relatedResource ? getResourceRuntime(relatedResource.name) : undefined
 	);
 	const foreignKey = $derived(relation?.foreignKey ?? '');
 	const parentId = $derived(String(record._id ?? ''));

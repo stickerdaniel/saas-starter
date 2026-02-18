@@ -24,7 +24,7 @@ A **declarative resource configuration** drives the entire admin UI: tables, det
 - **Custom `$state` forms**: Not Superforms — Superforms is designed for SvelteKit form actions and doesn't fit Convex-backed dynamic CRUD
 - **URL state via Runed `useSearchParams`**: Already proven in `createConvexCursorTable`
 - **Server-side field authorization**: `canSee` runs in Convex queries — unauthorized data never leaves the server
-- **Central resource registry**: Explicit imports in a registry file (not `import.meta.glob`) for full type safety
+- **Auto-discovery resource registry**: `import.meta.glob` in `registry.ts` discovers resource modules automatically from `resources/*.ts` files — no manual registration needed
 - **Granular permissions**: Better Auth's `createAccessControl` with custom statements and roles
 
 ---
@@ -472,9 +472,9 @@ src/routes/[[lang]]/admin/
 
 ```typescript
 // src/params/resource.ts
-import { adminResources } from '$lib/admin/registry';
+import { isResourceName } from '$lib/admin/registry';
 export function match(param: string): boolean {
-	return adminResources.some((r) => r.name === param);
+	return isResourceName(param);
 }
 ```
 
@@ -579,27 +579,23 @@ Must be declared per table in the schema at deploy time. The framework documents
 
 ## Resource Registration
 
-Central registry file with explicit imports:
+Auto-discovery registry using `import.meta.glob`:
 
 ```typescript
 // src/lib/admin/registry.ts
-import { usersResource } from './resources/users';
-import { ordersResource } from './resources/orders';
-
-export const adminResources = [usersResource, ordersResource] as const;
-
-export function getResource(name: string) {
-	return adminResources.find((r) => r.name === name);
-}
-
-export function getResourceGroups() {
-	const groups: Record<string, (typeof adminResources)[number][]> = {};
-	for (const r of adminResources) {
-		(groups[r.group] ??= []).push(r);
-	}
-	return groups;
-}
+const modules = import.meta.glob('./resources/*.ts', { eager: true });
+// Extracts default.resource + default.runtime from each module
+// Builds RESOURCE_REGISTRY array + RUNTIME_MAP
 ```
+
+Each resource file exports a default `ResourceModule` with co-located runtime:
+
+```typescript
+// src/lib/admin/resources/my-resource.ts
+export default defineResourceModule({ resource: myResource, runtime: myRuntime });
+```
+
+No manual registration step — adding a file to `resources/` is sufficient.
 
 ---
 

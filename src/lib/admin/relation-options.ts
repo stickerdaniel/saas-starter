@@ -1,6 +1,6 @@
 import type { ConvexClient } from 'convex/browser';
 import type { FieldDefinition } from './types';
-import type { ResourceRuntime } from './runtime';
+import type { ResourceRuntime } from './types';
 import { mapMorphOptions, type RelationOption } from './form-utils';
 
 type RelationOptionMap = Record<string, RelationOption[]>;

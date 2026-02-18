@@ -1,11 +1,24 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { getResourceDefinitions } from '../../src/lib/admin/registry';
 import type { ResourceDefinition } from '../../src/lib/admin/types';
 import {
 	RESOURCE_SEARCH_INDEXES,
 	type ResourceSearchIndexConfig
 } from '../../src/lib/convex/adminFramework/utils/search_index';
+
+// Discover resource modules at script runtime (no import.meta.glob)
+async function discoverResources(): Promise<ResourceDefinition<any>[]> {
+	const resourceDir = path.join(process.cwd(), 'src/lib/admin/resources');
+	const files = fs.readdirSync(resourceDir).filter((f) => f.endsWith('.ts'));
+	const resources: ResourceDefinition<any>[] = [];
+	for (const file of files) {
+		const mod = await import(path.join(resourceDir, file));
+		if (mod.default?.resource) {
+			resources.push(mod.default.resource);
+		}
+	}
+	return resources;
+}
 
 function getTableBlock(schemaSource: string, tableName: string) {
 	const start = schemaSource.indexOf(`${tableName}: defineTable(`);
@@ -57,11 +70,11 @@ function validateConfig(
 	return errors;
 }
 
-function main() {
+async function main() {
 	const projectRoot = process.cwd();
 	const schemaPath = path.join(projectRoot, 'src/lib/convex/schema.ts');
 	const schemaSource = fs.readFileSync(schemaPath, 'utf8');
-	const resources = getResourceDefinitions();
+	const resources = await discoverResources();
 	const resourcesWithSearch = resources.filter((resource) => (resource.search?.length ?? 0) > 0);
 	const errors: string[] = [];
 

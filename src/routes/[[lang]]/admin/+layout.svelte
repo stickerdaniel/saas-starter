@@ -6,8 +6,7 @@
 	import { setContext } from 'svelte';
 	import { useQuery } from 'convex-svelte';
 	import { api } from '$lib/convex/_generated/api';
-	import { getResourceDefinitions } from '$lib/admin/registry';
-	import { adminResourceRuntimeMap } from '$lib/admin/runtime';
+	import { getResourceDefinitions, getResourceRuntime } from '$lib/admin/registry';
 
 	interface Props {
 		children?: Snippet;
@@ -26,7 +25,7 @@
 		.filter((resource) => resource.badgeQuery)
 		.map((resource) => ({
 			resourceName: resource.name,
-			query: useQuery(adminResourceRuntimeMap[resource.name].count, {
+			query: useQuery(getResourceRuntime(resource.name)!.count, {
 				search: undefined,
 				trashed: resource.badgeQuery?.trashed,
 				filters: resource.badgeQuery?.filters ?? {},

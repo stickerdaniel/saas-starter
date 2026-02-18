@@ -3,17 +3,35 @@ import {
 	getResourceDefinitions,
 	getResourceByName,
 	getResourceNames,
+	getResourceRuntime,
 	isResourceName
 } from './registry';
 import { getResourceGroups } from './resource-groups';
 
 describe('admin resource registry', () => {
-	it('registers demo resources', () => {
+	it('discovers all demo resources', () => {
 		const names = getResourceNames();
-		expect(names).toEqual(['demo-projects', 'demo-tasks', 'demo-comments', 'demo-tags']);
+		expect(names).toHaveLength(4);
+		expect(names).toContain('demo-projects');
+		expect(names).toContain('demo-tasks');
+		expect(names).toContain('demo-comments');
+		expect(names).toContain('demo-tags');
 		expect(isResourceName('demo-projects')).toBe(true);
 		expect(isResourceName('missing-resource')).toBe(false);
 		expect(getResourceByName('demo-tasks')?.navTitleKey).toBe('admin.resources.tasks.nav_title');
+	});
+
+	it('every discovered resource has a runtime', () => {
+		for (const name of getResourceNames()) {
+			const runtime = getResourceRuntime(name);
+			expect(runtime, `runtime for ${name}`).toBeDefined();
+			expect(runtime!.list).toBeDefined();
+			expect(runtime!.count).toBeDefined();
+			expect(runtime!.create).toBeDefined();
+			expect(runtime!.update).toBeDefined();
+			expect(runtime!.delete).toBeDefined();
+			expect(runtime!.getMetrics).toBeDefined();
+		}
 	});
 
 	it('groups resources by configured group key', () => {

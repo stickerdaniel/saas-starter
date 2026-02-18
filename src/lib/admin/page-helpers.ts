@@ -1,8 +1,7 @@
 import * as v from 'valibot';
 import type { GenericSchema } from 'valibot';
 import { error } from '@sveltejs/kit';
-import { getResourceByName } from './registry';
-import { adminResourceRuntimeMap } from './runtime';
+import { getResourceByName, getResourceRuntime } from './registry';
 import type { BetterAuthUser } from '$lib/convex/admin/types';
 import { isResourceVisible } from './visibility';
 
@@ -10,7 +9,7 @@ const PAGE_SIZE_OPTIONS = ['5', '10', '20', '50', '100'] as const;
 
 export function getResourceContext(resourceName: string, viewer?: BetterAuthUser) {
 	const resource = getResourceByName(resourceName);
-	const runtime = adminResourceRuntimeMap[resourceName];
+	const runtime = getResourceRuntime(resourceName);
 	if (!resource || !runtime) {
 		throw error(404, 'Resource not found');
 	}
