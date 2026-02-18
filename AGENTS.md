@@ -31,9 +31,12 @@ btca ask -r svelte -r convex -q "How do I integrate Convex with SvelteKit?"
 
 NEVER use `bun run dev` to start the development server, its already running in a separate terminal.
 
-### Quality Checks & Testing
+### Static Checks
 
-- `bun run check` - Run Svelte type checking. Run this between implementations to catch type errors early.
+ALWAYS run `bun scripts/static-checks.ts src/lib/foo.ts src/routes/bar.svelte` after a full feature implementation with the changed files.
+
+### Testing
+
 - `bun run test` - Run all tests (E2E + unit)
 - `bun run test:e2e` - Run Playwright E2E tests. Always run this after modifying E2E tests!
 - `bun run test:unit` - Run Vitest unit tests
@@ -195,8 +198,11 @@ This project uses **PostHog** for product analytics with an optional **Cloudflar
 
 #### Convex table kit usage
 
-- Use `createConvexCursorTable(...)` for table state orchestration (URL params, cursor stack, search/filter/sort/page-size resets, and next/previous prefetching).
-- Use `ConvexCursorTableShell` for common chrome (search, toolbar slots, pagination controls, page indicator, rows-per-page).
+- For Convex-backed tables in feature/page code, use `createConvexTanStackTable(...)` with `ConvexTanStackTable`.
+- For local/non-Convex tables in feature/page code, use `createBaseTanStackTable(...)` with `BaseTanStackTable`.
+- `createConvexCursorTable(...)` and `createSvelteTable(...)` are internal building blocks for shared table packages, not feature-level imports.
+- For resource/admin column sizing/alignment, use shared presets from `src/lib/tables/core/layout-presets.ts` via `applyColumnLayoutPreset(...)`; avoid implicit TanStack default widths.
+- Derive skeleton columns from table column metadata with `getTableSkeletonColumnsFromColumnDefs(columns)`; do not maintain hand-written skeleton maps for resource tables.
 - Required backend contract:
   - list query args: `cursor`, `numItems`, optional `search`, optional filters, optional `sortBy`
   - list query return: `{ items, continueCursor, isDone }`
@@ -241,10 +247,6 @@ Prop names must match the parent's passed prop name exactly.
 In Svelte files, use `SvelteSet` / `SvelteMap` from `svelte/reactivity` (avoid native mutable `Set` / `Map`).
 ALWAYS wrap `goto(...)` paths with `resolve(...)` from `$app/paths`.
 </important_info>
-
-### Static Checks
-
-ALWAYS run `bun scripts/static-checks.ts src/lib/foo.ts src/routes/bar.svelte` after a full feature implementation with the changed files.
 
 ### Real-time Features
 

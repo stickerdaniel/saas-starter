@@ -76,6 +76,33 @@ export default defineConfig(
 	},
 	// No console.log/debug/info in src/ (frontend code)
 	{
+		files: ['src/routes/**/*.{ts,js,svelte}', 'src/lib/admin/**/*.{ts,js,svelte}'],
+		ignores: [
+			'src/lib/tables/core/**',
+			'src/lib/tables/convex/**',
+			'src/lib/components/ui/data-table/**'
+		],
+		rules: {
+			'no-restricted-imports': [
+				'error',
+				{
+					paths: [
+						{
+							name: '$lib/components/ui/data-table/index.js',
+							importNames: ['createSvelteTable'],
+							message: 'Use BaseTanStackTable or ConvexTanStackTable.'
+						},
+						{
+							name: '$lib/components/ui/data-table/data-table.svelte.js',
+							importNames: ['createSvelteTable'],
+							message: 'Use BaseTanStackTable or ConvexTanStackTable.'
+						}
+					]
+				}
+			]
+		}
+	},
+	{
 		files: ['src/**/*.{ts,js,svelte}'],
 		ignores: ['src/lib/convex/**'],
 		rules: {

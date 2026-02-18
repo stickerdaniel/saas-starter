@@ -9,6 +9,7 @@
 		context: FieldContext;
 		record: Record<string, unknown>;
 		value: unknown;
+		mode?: 'resolved' | 'loading';
 		testId?: string;
 		error?: string;
 		disabled?: boolean;
@@ -21,6 +22,7 @@
 		context,
 		record,
 		value,
+		mode = 'resolved',
 		testId,
 		error,
 		disabled = false,
@@ -33,4 +35,15 @@
 	);
 </script>
 
-<Component {field} {value} {record} {testId} {error} {disabled} {relationOptions} {onChange} />
+<Component
+	{field}
+	{value}
+	{record}
+	{context}
+	{mode}
+	{testId}
+	{error}
+	{disabled}
+	{relationOptions}
+	{onChange}
+/>

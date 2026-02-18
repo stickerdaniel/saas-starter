@@ -1,8 +1,13 @@
-import { Debounced, watch } from 'runed';
+import { Debounced, PersistedState, watch } from 'runed';
 import { useSearchParams } from 'runed/kit';
 import { useConvexClient, useQuery } from 'convex-svelte';
 import { untrack } from 'svelte';
-import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server';
+import {
+	getFunctionName,
+	type FunctionArgs,
+	type FunctionReference,
+	type FunctionReturnType
+} from 'convex/server';
 import type { GenericSchema } from 'valibot';
 import type { CursorListResult, TableSortBy, TableUrlState } from './contract';
 import {
@@ -24,6 +29,10 @@ export type ConvexCursorTableState<TItem, TSortField extends string, TFilterKeys
 	readonly totalCount: number;
 	readonly hasLoadedCount: boolean;
 	readonly pageCount: number;
+	readonly displayTotalCount: number;
+	readonly displayPageCount: number;
+	readonly skeletonRowCount: number;
+	readonly cachedTotalCountForIdentity: number | undefined;
 	readonly pageIndex: number;
 	readonly pageSize: number;
 	readonly sortBy: TableSortBy<TSortField> | undefined;
@@ -49,6 +58,11 @@ type QueryIdentity<TFilterKeys extends string, TSortField extends string> = {
 	sortBy: TableSortBy<TSortField> | undefined;
 };
 
+type CountIdentity<TFilterKeys extends string> = {
+	search: string;
+	filters: Record<TFilterKeys, string>;
+};
+
 export function serializeQueryIdentity<TFilterKeys extends string, TSortField extends string>(
 	identity: QueryIdentity<TFilterKeys, TSortField>
 ) {
@@ -66,6 +80,23 @@ export function hasQueryIdentityChanged<TFilterKeys extends string, TSortField e
 	next: QueryIdentity<TFilterKeys, TSortField>
 ) {
 	return serializeQueryIdentity(previous) !== serializeQueryIdentity(next);
+}
+
+export function serializeCountIdentity<TFilterKeys extends string>(
+	identity: CountIdentity<TFilterKeys>
+) {
+	const filterEntries = Object.entries(identity.filters).sort(([a], [b]) => a.localeCompare(b));
+	return JSON.stringify({
+		search: identity.search,
+		filters: filterEntries
+	});
+}
+
+export function hasCountIdentityChanged<TFilterKeys extends string>(
+	previous: CountIdentity<TFilterKeys>,
+	next: CountIdentity<TFilterKeys>
+) {
+	return serializeCountIdentity(previous) !== serializeCountIdentity(next);
 }
 
 export function buildNextPageCursors(
@@ -148,6 +179,71 @@ type PageBoundarySnapshot = {
 export function hasTotalCountChanged(previous: number | undefined, next: number | undefined) {
 	if (previous === undefined || next === undefined) return false;
 	return previous !== next;
+}
+
+export function getDisplayTotalCount(args: {
+	liveTotalCount: number;
+	hasLoadedCount: boolean;
+	cachedTotalCount: number | undefined;
+}) {
+	if (args.hasLoadedCount) return args.liveTotalCount;
+	return args.cachedTotalCount ?? 0;
+}
+
+export function getDisplayPageCount(displayTotalCount: number, pageSize: number) {
+	if (pageSize <= 0) return 1;
+	return Math.max(1, Math.ceil(displayTotalCount / pageSize));
+}
+
+export function getEffectiveDisplayPageCount(args: {
+	displayPageCountFromCount: number;
+	pageIndex: number;
+	canNextPage: boolean;
+}) {
+	const minimumFromCursor = args.pageIndex + 1 + (args.canNextPage ? 1 : 0);
+	return Math.max(args.displayPageCountFromCount, minimumFromCursor, 1);
+}
+
+export function getSkeletonRowCount(args: {
+	totalCount: number | undefined;
+	pageIndex: number;
+	pageSize: number;
+}) {
+	if (args.totalCount === undefined) return args.pageSize;
+	const remaining = args.totalCount - args.pageIndex * args.pageSize;
+	return Math.min(Math.max(remaining, 0), args.pageSize);
+}
+
+export function isPageIndexOutOfRange(args: {
+	hasLoadedCount: boolean;
+	pageIndex: number;
+	pageCount: number;
+}) {
+	if (!args.hasLoadedCount) return false;
+	return args.pageIndex >= Math.max(args.pageCount, 1);
+}
+
+export function isAtLastPage(args: {
+	pageIndex: number;
+	pageCount: number;
+	currentPageIsDone: boolean;
+}) {
+	if (!args.currentPageIsDone) return false;
+	const lastPageIndex = Math.max(args.pageCount - 1, 0);
+	return args.pageIndex === lastPageIndex;
+}
+
+export function getCanNextPage(args: {
+	isJumpingToLastPage: boolean;
+	currentPage: { isDone: boolean; continueCursor: string | null } | undefined;
+	hasLoadedCount: boolean;
+	pageIndex: number;
+	pageCount: number;
+}) {
+	if (args.isJumpingToLastPage) return false;
+	if (!args.currentPage) return false;
+	if (args.hasLoadedCount && args.pageIndex >= Math.max(args.pageCount - 1, 0)) return false;
+	return !args.currentPage.isDone && !!args.currentPage.continueCursor;
 }
 
 export function hasPageBoundaryChanged(
@@ -272,6 +368,10 @@ export function createConvexCursorTable<
 	const debouncedSearch = new Debounced(() => urlState.search.trim(), debounceMs);
 	const pageIndex = $derived(parsePageIndex(urlState.page));
 	const pageSize = $derived(parsePageSize(urlState.page_size, fallbackPageSize));
+	const countCache = new PersistedState<Record<string, number>>(
+		`convex-table:count-cache:${getFunctionName(options.countQuery)}`,
+		{}
+	);
 	const sortBy = $derived(
 		parseSortParam(urlState.sort, options.sortFields) as TableSortBy<TSortField> | undefined
 	);
@@ -395,11 +495,49 @@ export function createConvexCursorTable<
 	const totalCount = $derived(countQuery.data === undefined ? 0 : options.toCount(countQuery.data));
 	const hasLoadedCount = $derived(countQuery.data !== undefined);
 	const pageCount = $derived(Math.max(1, Math.ceil(totalCount / pageSize)));
+	const countIdentityKey = $derived.by(() =>
+		serializeCountIdentity({
+			search: debouncedSearch.current,
+			filters
+		})
+	);
+	const cachedTotalCountForIdentity = $derived.by(() => countCache.current[countIdentityKey]);
+	const knownTotalCount = $derived.by<number | undefined>(() =>
+		hasLoadedCount ? totalCount : cachedTotalCountForIdentity
+	);
+	const displayTotalCount = $derived.by(() =>
+		getDisplayTotalCount({
+			liveTotalCount: totalCount,
+			hasLoadedCount,
+			cachedTotalCount: cachedTotalCountForIdentity
+		})
+	);
+	const displayPageCountFromCount = $derived.by(() =>
+		getDisplayPageCount(displayTotalCount, pageSize)
+	);
+	const skeletonRowCount = $derived.by(() =>
+		getSkeletonRowCount({
+			totalCount: knownTotalCount,
+			pageIndex,
+			pageSize
+		})
+	);
 	const isLoading = $derived(
 		isJumpingToLastPage ||
 			isResolvingPreviousPage ||
 			(currentPageData === undefined && listQuery.isLoading)
 	);
+
+	$effect(() => {
+		if (!hasLoadedCount) return;
+		const cacheKey = countIdentityKey;
+		const currentCache = countCache.current;
+		if (currentCache[cacheKey] === totalCount) return;
+		countCache.current = {
+			...currentCache,
+			[cacheKey]: totalCount
+		};
+	});
 
 	function cachePage(index: number, data: CursorListResult<TItem> | undefined) {
 		if (!data) return;
@@ -501,6 +639,26 @@ export function createConvexCursorTable<
 		}
 	);
 
+	$effect(() => {
+		if (isJumpingToLastPage || isResolvingPreviousPage) return;
+		if (
+			!isPageIndexOutOfRange({
+				hasLoadedCount,
+				pageIndex,
+				pageCount
+			})
+		) {
+			return;
+		}
+
+		if (pageCount <= 1) {
+			resetPagination();
+			return;
+		}
+
+		void goLast();
+	});
+
 	const nextPrefetch = $derived.by(() => {
 		const candidate = getNextPrefetchCandidate({
 			pageIndex,
@@ -546,11 +704,27 @@ export function createConvexCursorTable<
 		return pageIndex > 0;
 	});
 
-	const canNextPage = $derived.by(() => {
-		if (isJumpingToLastPage) return false;
-		const data = currentPageData;
-		return !!data && !data.isDone && !!data.continueCursor;
-	});
+	const canNextPage = $derived.by(() =>
+		getCanNextPage({
+			isJumpingToLastPage,
+			currentPage: currentPageData
+				? {
+						isDone: currentPageData.isDone,
+						continueCursor: currentPageData.continueCursor
+					}
+				: undefined,
+			hasLoadedCount,
+			pageIndex,
+			pageCount
+		})
+	);
+	const displayPageCount = $derived.by(() =>
+		getEffectiveDisplayPageCount({
+			displayPageCountFromCount,
+			pageIndex,
+			canNextPage
+		})
+	);
 
 	function setSearch(search: string) {
 		urlState.search = search;
@@ -626,7 +800,15 @@ export function createConvexCursorTable<
 		if (isJumpingToLastPage) return;
 
 		cacheCurrentPage();
-		if (currentPageData?.isDone) return;
+		if (
+			isAtLastPage({
+				pageIndex,
+				pageCount,
+				currentPageIsDone: Boolean(currentPageData?.isDone)
+			})
+		) {
+			return;
+		}
 
 		isJumpingToLastPage = true;
 		const identitySnapshot = serializeQueryIdentity(getQueryIdentity());
@@ -678,6 +860,18 @@ export function createConvexCursorTable<
 		},
 		get pageCount() {
 			return pageCount;
+		},
+		get displayTotalCount() {
+			return displayTotalCount;
+		},
+		get displayPageCount() {
+			return displayPageCount;
+		},
+		get skeletonRowCount() {
+			return skeletonRowCount;
+		},
+		get cachedTotalCountForIdentity() {
+			return cachedTotalCountForIdentity;
 		},
 		get pageIndex() {
 			return pageIndex;
