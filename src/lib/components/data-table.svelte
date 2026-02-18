@@ -1,20 +1,6 @@
 <script lang="ts">
 	import { getTranslate } from '@tolgee/svelte';
-	import {
-		getCoreRowModel,
-		getFacetedRowModel,
-		getFacetedUniqueValues,
-		getFilteredRowModel,
-		getPaginationRowModel,
-		getSortedRowModel,
-		type ColumnDef,
-		type ColumnFiltersState,
-		type PaginationState,
-		type Row,
-		type RowSelectionState,
-		type SortingState,
-		type VisibilityState
-	} from '@tanstack/table-core';
+	import { type ColumnDef, type Row } from '@tanstack/table-core';
 	import type { Schema } from './schemas.js';
 	import {
 		useSensors,
@@ -34,7 +20,7 @@
 		verticalListSortingStrategy
 	} from '@dnd-kit-svelte/sortable';
 	import { restrictToVerticalAxis } from '@dnd-kit-svelte/modifiers';
-	import { createSvelteTable } from '$lib/components/ui/data-table/data-table.svelte.js';
+	import { createBaseTanStackTable } from '$lib/tables/core/create-base-tanstack-table.svelte';
 	import * as Tabs from '$lib/components/ui/tabs/index.js';
 	import * as Table from '$lib/components/ui/table/index.js';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
@@ -70,11 +56,6 @@
 	const { t } = getTranslate();
 
 	let { data }: { data: Schema[] } = $props();
-	let pagination = $state<PaginationState>({ pageIndex: 0, pageSize: 10 });
-	let sorting = $state<SortingState>([]);
-	let columnFilters = $state<ColumnFiltersState>([]);
-	let rowSelection = $state<RowSelectionState>({});
-	let columnVisibility = $state<VisibilityState>({});
 
 	const columns: ColumnDef<Schema>[] = [
 		{
@@ -157,72 +138,14 @@
 
 	const dataIds: UniqueIdentifier[] = $derived(data.map((item) => item.id));
 
-	const table = createSvelteTable({
-		get data() {
-			return data;
-		},
+	const tableState = createBaseTanStackTable({
 		columns,
-		state: {
-			get pagination() {
-				return pagination;
-			},
-			get sorting() {
-				return sorting;
-			},
-			get columnVisibility() {
-				return columnVisibility;
-			},
-			get rowSelection() {
-				return rowSelection;
-			},
-			get columnFilters() {
-				return columnFilters;
-			}
-		},
+		getColumns: () => columns,
+		getData: () => data,
 		getRowId: (row) => row.id.toString(),
-		enableRowSelection: true,
-		getCoreRowModel: getCoreRowModel(),
-		getPaginationRowModel: getPaginationRowModel(),
-		getSortedRowModel: getSortedRowModel(),
-		getFacetedRowModel: getFacetedRowModel(),
-		getFacetedUniqueValues: getFacetedUniqueValues(),
-		getFilteredRowModel: getFilteredRowModel(),
-		onPaginationChange: (updater) => {
-			if (typeof updater === 'function') {
-				pagination = updater(pagination);
-			} else {
-				pagination = updater;
-			}
-		},
-		onSortingChange: (updater) => {
-			if (typeof updater === 'function') {
-				sorting = updater(sorting);
-			} else {
-				sorting = updater;
-			}
-		},
-		onColumnFiltersChange: (updater) => {
-			if (typeof updater === 'function') {
-				columnFilters = updater(columnFilters);
-			} else {
-				columnFilters = updater;
-			}
-		},
-		onColumnVisibilityChange: (updater) => {
-			if (typeof updater === 'function') {
-				columnVisibility = updater(columnVisibility);
-			} else {
-				columnVisibility = updater;
-			}
-		},
-		onRowSelectionChange: (updater) => {
-			if (typeof updater === 'function') {
-				rowSelection = updater(rowSelection);
-			} else {
-				rowSelection = updater;
-			}
-		}
+		enableRowSelection: true
 	});
+	const table = tableState.table;
 
 	function handleDragEnd(event: DragEndEvent) {
 		haptic.trigger('medium');

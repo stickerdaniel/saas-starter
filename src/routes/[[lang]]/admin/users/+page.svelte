@@ -1,20 +1,10 @@
 <script lang="ts">
 	import SEOHead from '$lib/components/SEOHead.svelte';
 	import * as v from 'valibot';
-	import {
-		type RowSelectionState,
-		type SortingState,
-		type VisibilityState,
-		getCoreRowModel
-	} from '@tanstack/table-core';
-	import * as Table from '$lib/components/ui/table/index.js';
 	import * as Dialog from '$lib/components/ui/dialog/index.js';
 	import * as Field from '$lib/components/ui/field/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
-	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
-	import { Checkbox } from '$lib/components/ui/checkbox/index.js';
-	import DotsVerticalIcon from '@tabler/icons-svelte/icons/dots-vertical';
 	import { T, getTranslate } from '@tolgee/svelte';
 
 	const { t } = getTranslate();
@@ -23,12 +13,12 @@
 	import { authClient } from '$lib/auth-client.js';
 	import { toast } from 'svelte-sonner';
 	import { setContext } from 'svelte';
-	import { adminCache } from '$lib/hooks/admin-cache.svelte';
 	import type { PageData } from './$types';
 	import { type UserRole, type AdminUserData } from '$lib/convex/admin/types';
-	import { createSvelteTable, FlexRender } from '$lib/components/ui/data-table/index.js';
-	import ConvexCursorTableShell from '$lib/components/tables/convex-cursor-table-shell.svelte';
-	import { createConvexCursorTable } from '$lib/tables/convex/create-convex-cursor-table.svelte';
+	import ConvexTanStackTable from '$lib/tables/convex/convex-tanstack-table.svelte';
+	import { createConvexTanStackTable } from '$lib/tables/convex/create-convex-tanstack-table.svelte';
+	import type { BaseTableRenderConfig } from '$lib/tables/core/types';
+	import { getTableSkeletonColumnsFromColumnDefs } from '$lib/components/tables/table-loading-skeleton.js';
 	import type { CursorListResult } from '$lib/tables/convex/contract';
 	import { columns } from './columns.js';
 	import DataTableFilters from './data-table-filters.svelte';
@@ -77,7 +67,7 @@
 		cursor: v.optional(v.fallback(v.string(), ''), '')
 	});
 
-	const usersTable = createConvexCursorTable<
+	const usersTable = createConvexTanStackTable<
 		AdminUserData,
 		'role' | 'status',
 		SortQueryField,
@@ -85,42 +75,19 @@
 		typeof api.admin.queries.getUserCount,
 		v.InferOutput<typeof usersTableParamsSchema>
 	>({
-		listQuery: api.admin.queries.listUsers,
-		countQuery: api.admin.queries.getUserCount,
-		urlSchema: usersTableParamsSchema,
-		defaultFilters: {
-			role: 'all',
-			status: 'all'
-		},
-		pageSizeOptions: PAGE_SIZE_OPTIONS,
-		defaultPageSize: '10',
-		sortFields: ['created_at', 'email', 'name', 'role'],
-		buildListArgs: ({ cursor, pageSize, search, filters, sortBy }) => ({
-			cursor: cursor ?? undefined,
-			numItems: pageSize,
-			search,
-			roleFilter: filters.role === 'all' ? undefined : (filters.role as 'admin' | 'user'),
-			statusFilter:
-				filters.status === 'all'
-					? undefined
-					: (filters.status as 'verified' | 'unverified' | 'banned'),
-			sortBy: sortBy
-				? {
-						field: SORT_QUERY_FIELD_TO_BACKEND_FIELD[sortBy.field],
-						direction: sortBy.direction
-					}
-				: undefined
-		}),
-		buildCountArgs: ({ search, filters }) => ({
-			search,
-			roleFilter: filters.role === 'all' ? undefined : (filters.role as 'admin' | 'user'),
-			statusFilter:
-				filters.status === 'all'
-					? undefined
-					: (filters.status as 'verified' | 'unverified' | 'banned')
-		}),
-		resolveLastPage: async ({ pageSize, search, filters, sortBy }) => {
-			const result = await client.query(api.admin.queries.resolveUsersLastPage, {
+		convex: {
+			listQuery: api.admin.queries.listUsers,
+			countQuery: api.admin.queries.getUserCount,
+			urlSchema: usersTableParamsSchema,
+			defaultFilters: {
+				role: 'all',
+				status: 'all'
+			},
+			pageSizeOptions: PAGE_SIZE_OPTIONS,
+			defaultPageSize: '10',
+			sortFields: ['created_at', 'email', 'name', 'role'],
+			buildListArgs: ({ cursor, pageSize, search, filters, sortBy }) => ({
+				cursor: cursor ?? undefined,
 				numItems: pageSize,
 				search,
 				roleFilter: filters.role === 'all' ? undefined : (filters.role as 'admin' | 'user'),
@@ -134,44 +101,61 @@
 							direction: sortBy.direction
 						}
 					: undefined
-			});
-			return {
-				page: result.page,
-				cursor: result.cursor
-			};
+			}),
+			buildCountArgs: ({ search, filters }) => ({
+				search,
+				roleFilter: filters.role === 'all' ? undefined : (filters.role as 'admin' | 'user'),
+				statusFilter:
+					filters.status === 'all'
+						? undefined
+						: (filters.status as 'verified' | 'unverified' | 'banned')
+			}),
+			resolveLastPage: async ({ pageSize, search, filters, sortBy }) => {
+				const result = await client.query(api.admin.queries.resolveUsersLastPage, {
+					numItems: pageSize,
+					search,
+					roleFilter: filters.role === 'all' ? undefined : (filters.role as 'admin' | 'user'),
+					statusFilter:
+						filters.status === 'all'
+							? undefined
+							: (filters.status as 'verified' | 'unverified' | 'banned'),
+					sortBy: sortBy
+						? {
+								field: SORT_QUERY_FIELD_TO_BACKEND_FIELD[sortBy.field],
+								direction: sortBy.direction
+							}
+						: undefined
+				});
+				return {
+					page: result.page,
+					cursor: result.cursor
+				};
+			},
+			toListResult: (result) =>
+				({
+					items: result.users,
+					continueCursor: result.continueCursor,
+					isDone: result.isDone
+				}) as CursorListResult<AdminUserData>,
+			toCount: (result) => result
 		},
-		toListResult: (result) =>
-			({
-				items: result.users,
-				continueCursor: result.continueCursor,
-				isDone: result.isDone
-			}) as CursorListResult<AdminUserData>,
-		toCount: (result) => result
+		columns,
+		getRowId: (row) => row.id,
+		sortMaps: {
+			columnToSort: SORT_COLUMN_TO_QUERY_FIELD,
+			sortToColumn: SORT_QUERY_FIELD_TO_COLUMN
+		}
 	});
 
-	const tableParams = $derived(usersTable.currentUrlState);
-	const pageIndex = $derived(usersTable.pageIndex);
-	const pageSize = $derived(usersTable.pageSize);
-	const sorting = $derived.by<SortingState>(() => {
-		const sortBy = usersTable.sortBy;
-		if (!sortBy) return [];
-		const columnId = SORT_QUERY_FIELD_TO_COLUMN[sortBy.field];
-		if (!columnId) return [];
-		return [{ id: columnId, desc: sortBy.direction === 'desc' }];
-	});
+	const tableParams = $derived(usersTable.convex.currentUrlState);
 	const roleFilter = $derived.by(() =>
-		usersTable.filters.role === 'all' ? undefined : usersTable.filters.role
+		usersTable.convex.filters.role === 'all' ? undefined : usersTable.convex.filters.role
 	);
 	const statusFilter = $derived.by(() =>
-		usersTable.filters.status === 'all'
+		usersTable.convex.filters.status === 'all'
 			? undefined
-			: (usersTable.filters.status as UserStatusFilter)
+			: (usersTable.convex.filters.status as UserStatusFilter)
 	);
-	const isLoading = $derived(usersTable.isLoading);
-
-	// TanStack Table state (only client-side concerns remain)
-	let rowSelection = $state<RowSelectionState>({});
-	let columnVisibility = $state<VisibilityState>({});
 
 	// Dialog state
 	let selectedUser = $state<AdminUserData | null>(null);
@@ -185,95 +169,51 @@
 	// Provide context for action component (currentUserId is set by admin layout)
 	setContext('onUserAction', handleUserAction);
 
-	// Calculate skeleton rows: min(knownCount - offset, pageSize) or pageSize if unknown
-	const skeletonCount = $derived.by(() => {
-		if (adminCache.userCount.current !== null) {
-			const remaining = adminCache.userCount.current - pageIndex * pageSize;
-			return Math.min(Math.max(remaining, 0), pageSize);
-		}
-		return pageSize;
-	});
-
-	// Update user count cache when count data loads
-	$effect(() => {
-		if (usersTable.hasLoadedCount) {
-			adminCache.userCount.current = usersTable.totalCount;
-		}
-	});
+	const usersSkeletonColumns = getTableSkeletonColumnsFromColumnDefs(columns);
 
 	// Filter change handler (called from DataTableFilters)
 	function handleFilterChange(filters: {
 		role: string | undefined;
 		status: UserStatusFilter | undefined;
 	}) {
-		usersTable.setFilter(
+		usersTable.convex.setFilter(
 			'role',
 			filters.role === 'admin' || filters.role === 'user' ? filters.role : 'all'
 		);
-		usersTable.setFilter('status', filters.status ?? 'all');
+		usersTable.convex.setFilter('status', filters.status ?? 'all');
 	}
-
-	// Create the table (manual pagination mode)
-	const table = createSvelteTable({
-		get data() {
-			return usersTable.rows;
-		},
-		columns,
-		state: {
-			get pagination() {
-				return { pageIndex, pageSize };
-			},
-			get sorting() {
-				return sorting;
-			},
-			get columnVisibility() {
-				return columnVisibility;
-			},
-			get rowSelection() {
-				return rowSelection;
-			}
-		},
-		manualPagination: true,
-		manualFiltering: true,
-		manualSorting: true,
-		get pageCount() {
-			return usersTable.pageCount;
-		},
-		getRowId: (row) => row.id,
-		getCoreRowModel: getCoreRowModel(),
-		onSortingChange: (updater) => {
-			const nextSorting = typeof updater === 'function' ? updater(sorting) : updater;
-			if (nextSorting.length === 0) {
-				usersTable.setSort(undefined);
-				return;
-			}
-			const primarySort = nextSorting[0];
-			const field =
-				SORT_COLUMN_TO_QUERY_FIELD[primarySort.id as keyof typeof SORT_COLUMN_TO_QUERY_FIELD];
-			if (!field) {
-				usersTable.setSort(undefined);
-				return;
-			}
-			usersTable.setSort({
-				field,
-				direction: primarySort.desc ? 'desc' : 'asc'
-			});
-		},
-		onColumnVisibilityChange: (updater) => {
-			if (typeof updater === 'function') {
-				columnVisibility = updater(columnVisibility);
-			} else {
-				columnVisibility = updater;
-			}
-		},
-		onRowSelectionChange: (updater) => {
-			if (typeof updater === 'function') {
-				rowSelection = updater(rowSelection);
-			} else {
-				rowSelection = updater;
-			}
+	const usersTableRenderConfig = $derived.by<BaseTableRenderConfig>(() => ({
+		testIdPrefix: 'admin-users',
+		searchValue: tableParams.search,
+		searchPlaceholder: $t('admin.users.search_placeholder'),
+		onSearchChange: usersTable.convex.setSearch,
+		pageIndex: usersTable.convex.pageIndex,
+		pageCount: usersTable.convex.displayPageCount,
+		pageSize: usersTable.convex.pageSize,
+		pageSizeOptions: PAGE_SIZE_NUM_OPTIONS,
+		canPreviousPage: usersTable.convex.canPreviousPage,
+		canNextPage: usersTable.convex.canNextPage,
+		onFirstPage: usersTable.convex.goFirst,
+		onPreviousPage: usersTable.convex.goPrevious,
+		onNextPage: usersTable.convex.goNext,
+		onLastPage: usersTable.convex.goLast,
+		onPageSizeChange: usersTable.convex.setPageSize,
+		rowsPerPageLabel: $t('admin.users.rows_per_page'),
+		selectionText: $t('admin.users.selected', {
+			selected: usersTable.selectedCount,
+			total: usersTable.convex.displayTotalCount
+		}),
+		emptyKey: 'admin.users.no_results',
+		emptyTestId: 'admin-users-empty',
+		loadingLabelKey: 'admin.users.loading',
+		skeletonColumns: usersSkeletonColumns,
+		skeletonRowCount: usersTable.convex.skeletonRowCount,
+		colspan: columns.length,
+		testIds: {
+			table: 'admin-users-table',
+			loading: 'admin-users-loading'
 		}
-	});
+	}));
 
 	// Action handlers
 	function handleUserAction(event: ActionEvent) {
@@ -465,122 +405,15 @@
 		<h1 class="text-2xl font-bold"><T keyName="admin.users.title" /></h1>
 	</div>
 
-	<ConvexCursorTableShell
-		testIdPrefix="admin-users"
-		tableTestId="admin-users-table"
-		searchValue={tableParams.search}
-		searchPlaceholder={$t('admin.users.search_placeholder')}
-		onSearchChange={usersTable.setSearch}
-		pageIndex={usersTable.pageIndex}
-		pageCount={usersTable.pageCount}
-		pageSize={usersTable.pageSize}
-		pageSizeOptions={PAGE_SIZE_NUM_OPTIONS}
-		canPreviousPage={usersTable.canPreviousPage}
-		canNextPage={usersTable.canNextPage}
-		onFirstPage={usersTable.goFirst}
-		onPreviousPage={usersTable.goPrevious}
-		onNextPage={usersTable.goNext}
-		onLastPage={usersTable.goLast}
-		onPageSizeChange={usersTable.setPageSize}
-		rowsPerPageLabel={$t('admin.users.rows_per_page')}
-		selectionText={$t('admin.users.selected', {
-			selected: Object.keys(rowSelection).length,
-			total: usersTable.hasLoadedCount ? usersTable.totalCount : (adminCache.userCount.current ?? 0)
-		})}
+	<ConvexTanStackTable
+		table={usersTable.table}
+		config={usersTableRenderConfig}
+		rowTestId={(row) => `admin-users-row-${row.id}`}
 	>
 		{#snippet toolbarFilters()}
 			<DataTableFilters {roleFilter} {statusFilter} onFilterChange={handleFilterChange} />
 		{/snippet}
-
-		{#snippet tableContent()}
-			<Table.Root class="table-fixed">
-				<Table.Header class="sticky top-0 z-10 bg-muted dark:bg-background">
-					{#each table.getHeaderGroups() as headerGroup (headerGroup.id)}
-						<Table.Row class="hover:[&>th]:bg-muted dark:hover:[&>th]:bg-background">
-							{#each headerGroup.headers as header (header.id)}
-								<Table.Head
-									class="[&:has([role=checkbox])]:ps-3"
-									style="width: {header.getSize()}px; min-width: {header.column.columnDef
-										.minSize}px;"
-								>
-									{#if !header.isPlaceholder}
-										<FlexRender
-											content={header.column.columnDef.header}
-											context={header.getContext()}
-										/>
-									{/if}
-								</Table.Head>
-							{/each}
-						</Table.Row>
-					{/each}
-				</Table.Header>
-				<Table.Body>
-					{#if isLoading && skeletonCount > 0}
-						<Table.Row data-testid="admin-users-loading" class="hidden">
-							<Table.Cell colspan={columns.length}>
-								<T keyName="admin.users.loading" />
-							</Table.Cell>
-						</Table.Row>
-						{#each Array(skeletonCount) as _, i (i)}
-							<Table.Row>
-								<Table.Cell class="[&:has([role=checkbox])]:ps-3">
-									<div class="flex items-center justify-center">
-										<Checkbox disabled aria-label={$t('admin.users.select_row')} />
-									</div>
-								</Table.Cell>
-								<Table.Cell>
-									<div class="flex items-center gap-2">
-										<Skeleton class="size-8 rounded-full" />
-										<span class="font-medium">
-											<Skeleton class="h-4 w-20" />
-										</span>
-									</div>
-								</Table.Cell>
-								<Table.Cell>
-									<Skeleton class="h-4 w-48" />
-								</Table.Cell>
-								<Table.Cell>
-									<Skeleton class="h-5 w-12 rounded-md" />
-								</Table.Cell>
-								<Table.Cell>
-									<Skeleton class="h-5 w-[65px] rounded-md" />
-								</Table.Cell>
-								<Table.Cell>
-									<Skeleton class="h-4 w-20" />
-								</Table.Cell>
-								<Table.Cell>
-									<Button variant="ghost" size="icon" disabled>
-										<DotsVerticalIcon class="size-4" />
-										<span class="sr-only"><T keyName="admin.users.menu_open" /></span>
-									</Button>
-								</Table.Cell>
-							</Table.Row>
-						{/each}
-					{:else if table.getRowModel().rows.length === 0 || (isLoading && skeletonCount === 0)}
-						<Table.Row>
-							<Table.Cell
-								colspan={columns.length}
-								class="h-24 text-center text-muted-foreground hover:!bg-transparent"
-								data-testid="admin-users-empty"
-							>
-								<T keyName="admin.users.no_results" />
-							</Table.Cell>
-						</Table.Row>
-					{:else}
-						{#each table.getRowModel().rows as row (row.id)}
-							<Table.Row data-state={row.getIsSelected() && 'selected'}>
-								{#each row.getVisibleCells() as cell (cell.id)}
-									<Table.Cell class="[&:has([role=checkbox])]:ps-3">
-										<FlexRender content={cell.column.columnDef.cell} context={cell.getContext()} />
-									</Table.Cell>
-								{/each}
-							</Table.Row>
-						{/each}
-					{/if}
-				</Table.Body>
-			</Table.Root>
-		{/snippet}
-	</ConvexCursorTableShell>
+	</ConvexTanStackTable>
 </div>
 
 <!-- Action Confirmation Dialog -->
