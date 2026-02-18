@@ -2,14 +2,16 @@
 	import { T } from '@tolgee/svelte';
 	import type { FieldDefinition } from '$lib/admin/types';
 	import { Badge } from '$lib/components/ui/badge/index.js';
+	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
 
 	type Props = {
 		field: FieldDefinition<any>;
 		value: unknown;
 		record: Record<string, unknown>;
+		mode?: 'resolved' | 'loading';
 	};
 
-	let { field, value, record }: Props = $props();
+	let { field, value, record, mode = 'resolved' }: Props = $props();
 
 	const displayValue = $derived.by(() => {
 		if (field.displayUsing) {
@@ -63,7 +65,21 @@
 
 <div class="space-y-2">
 	<p class="text-sm font-medium text-muted-foreground"><T keyName={field.labelKey} /></p>
-	{#if field.type === 'boolean'}
+	{#if mode === 'loading'}
+		{#if field.type === 'boolean' || field.type === 'select' || field.type === 'badge'}
+			<Skeleton class="h-5 w-14 rounded-md" />
+		{:else if field.type === 'image'}
+			<Skeleton class="h-32 w-full rounded-md" />
+		{:else if field.type === 'date' || field.type === 'datetime'}
+			<Skeleton class="h-4 w-24" />
+		{:else if field.type === 'number'}
+			<Skeleton class="h-4 w-16" />
+		{:else if field.type === 'email' || field.type === 'url'}
+			<Skeleton class="h-4 w-40" />
+		{:else}
+			<Skeleton class="h-4 w-32" />
+		{/if}
+	{:else if field.type === 'boolean'}
 		<Badge variant={value ? 'default' : 'secondary'}>
 			{#if value}
 				<T keyName="admin.resources.values.yes" />

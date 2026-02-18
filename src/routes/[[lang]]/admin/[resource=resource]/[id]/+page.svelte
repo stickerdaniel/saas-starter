@@ -32,25 +32,31 @@
 	const { resource, runtime, prefix } = getResourceContext(page.params.resource ?? '', viewer);
 
 	const detailQuery = useQuery(runtime.getById, { id: page.params.id } as never);
+	const ssrRecord = page.data.record as Record<string, unknown> | undefined;
+	const record = $derived((detailQuery.data ?? ssrRecord ?? {}) as Record<string, unknown>);
+	const hasData = $derived(!!detailQuery.data || !!ssrRecord);
+	const isLoading = $derived(!hasData && detailQuery.isLoading);
+	const mode: 'resolved' | 'loading' = $derived(isLoading ? 'loading' : 'resolved');
+	const hasError = $derived(!isLoading && (detailQuery.error || !detailQuery.data) && !ssrRecord);
 	const canUpdateRecord = $derived.by(() => {
-		if (!detailQuery.data) return true;
-		return isResourceUpdatable(resource, viewer, detailQuery.data as Record<string, unknown>);
+		if (!hasData) return true;
+		return isResourceUpdatable(resource, viewer, record);
 	});
 	const canDeleteRecord = $derived.by(() => {
-		if (!detailQuery.data) return true;
-		return isResourceDeletable(resource, viewer, detailQuery.data as Record<string, unknown>);
+		if (!hasData) return true;
+		return isResourceDeletable(resource, viewer, record);
 	});
 	const detailFields = $derived.by(() =>
 		resource.fields.filter((field) => {
 			if (field.showOnDetail === false) return false;
-			return isFieldVisible(field, { user: viewer, record: detailQuery.data as any });
+			return isFieldVisible(field, { user: viewer, record: record as any });
 		})
 	);
 	const previewFields = $derived.by(() =>
 		resource.fields
 			.filter((field) => {
 				if (field.showOnIndex === false) return false;
-				return isFieldVisible(field, { user: viewer, record: detailQuery.data as any });
+				return isFieldVisible(field, { user: viewer, record: record as any });
 			})
 			.slice(0, 3)
 	);
@@ -88,8 +94,8 @@
 		(resource.actions ?? []).filter((action) => {
 			if (action.showOnDetail === false) return false;
 			if (!action.canRun) return true;
-			if (!viewer || !detailQuery.data) return false;
-			return action.canRun(viewer, detailQuery.data);
+			if (!viewer || !hasData) return false;
+			return action.canRun(viewer, record);
 		})
 	);
 
@@ -265,11 +271,7 @@
 	class="flex flex-col gap-6 px-4 lg:px-6 xl:px-8 2xl:px-16"
 	data-testid={`${prefix}-detail-page`}
 >
-	{#if detailQuery.isLoading}
-		<div class="rounded-lg border p-4" data-testid={`${prefix}-detail-loading`}>
-			<T keyName="admin.resources.loading" />
-		</div>
-	{:else if detailQuery.error || !detailQuery.data}
+	{#if hasError}
 		<div
 			class="flex flex-col items-center gap-4 rounded-lg border p-8 text-center"
 			data-testid={`${prefix}-detail-error`}
@@ -293,10 +295,10 @@
 	{:else}
 		<div class="flex flex-wrap items-center justify-between gap-4">
 			<div>
-				<h1 class="text-2xl font-bold">{resource.title(detailQuery.data as never)}</h1>
+				<h1 class="text-2xl font-bold">{resource.title(record as never)}</h1>
 				{#if resource.subtitle}
 					<p class="text-sm text-muted-foreground">
-						{resource.subtitle(detailQuery.data as never)}
+						{resource.subtitle(record as never)}
 					</p>
 				{/if}
 			</div>
@@ -304,6 +306,7 @@
 				{#if canUpdateRecord}
 					<Button
 						variant="outline"
+						disabled={isLoading}
 						onclick={() =>
 							goto(resolve(`/${page.params.lang}/admin/${resource.name}/${page.params.id}/edit`))}
 						data-testid={`${prefix}-detail-edit`}
@@ -312,6 +315,7 @@
 					</Button>
 					<Button
 						variant="outline"
+						disabled={isLoading}
 						onclick={() => void handleReplicate()}
 						data-testid={`${prefix}-detail-replicate`}
 					>
@@ -319,7 +323,7 @@
 					</Button>
 				{/if}
 				{#if canDeleteRecord}
-					{#if detailQuery.data.deletedAt}
+					{#if hasData && record.deletedAt}
 						<Button
 							variant="outline"
 							onclick={() => void handleRestore()}
@@ -337,6 +341,7 @@
 					{:else}
 						<Button
 							variant="destructive"
+							disabled={isLoading}
 							onclick={confirmDeleteRecord}
 							data-testid={`${prefix}-detail-delete`}
 						>
@@ -347,21 +352,23 @@
 			</div>
 		</div>
 
-		<div class="flex flex-wrap gap-2">
-			{#each detailActions as action (action.key)}
-				<Button
-					variant="outline"
-					onclick={() => void openAction(action)}
-					data-testid={`${prefix}-detail-action-${action.key}`}
-				>
-					{#if action.icon}
-						{@const ActionIcon = action.icon}
-						<ActionIcon class="mr-2 size-4" />
-					{/if}
-					<T keyName={action.nameKey} />
-				</Button>
-			{/each}
-		</div>
+		{#if detailActions.length > 0}
+			<div class="flex flex-wrap gap-2">
+				{#each detailActions as action (action.key)}
+					<Button
+						variant="outline"
+						onclick={() => void openAction(action)}
+						data-testid={`${prefix}-detail-action-${action.key}`}
+					>
+						{#if action.icon}
+							{@const ActionIcon = action.icon}
+							<ActionIcon class="mr-2 size-4" />
+						{/if}
+						<T keyName={action.nameKey} />
+					</Button>
+				{/each}
+			</div>
+		{/if}
 
 		<Card>
 			<CardHeader>
@@ -387,10 +394,11 @@
 										<FieldRenderer
 											context="preview"
 											{field}
-											record={detailQuery.data}
+											{mode}
+											{record}
 											value={field.resolveUsing
-												? field.resolveUsing(detailQuery.data)
-												: detailQuery.data[field.attribute]}
+												? field.resolveUsing(record)
+												: record[field.attribute]}
 										/>
 									{/each}
 								</div>
@@ -403,10 +411,9 @@
 							<FieldRenderer
 								context="preview"
 								{field}
-								record={detailQuery.data}
-								value={field.resolveUsing
-									? field.resolveUsing(detailQuery.data)
-									: detailQuery.data[field.attribute]}
+								{mode}
+								{record}
+								value={field.resolveUsing ? field.resolveUsing(record) : record[field.attribute]}
 							/>
 						{/each}
 					</div>
@@ -435,7 +442,7 @@
 										{#if field.type === 'hasMany' && field.relation}
 											<RelatedResourceTable
 												{field}
-												record={detailQuery.data}
+												{record}
 												lang={page.params.lang ?? 'en'}
 												{prefix}
 											/>
@@ -443,10 +450,11 @@
 											<FieldRenderer
 												context="detail"
 												{field}
-												record={detailQuery.data}
+												{mode}
+												{record}
 												value={field.resolveUsing
-													? field.resolveUsing(detailQuery.data)
-													: detailQuery.data[field.attribute]}
+													? field.resolveUsing(record)
+													: record[field.attribute]}
 											/>
 										{/if}
 									{/each}
@@ -458,20 +466,14 @@
 					<div class="grid gap-4 md:grid-cols-2">
 						{#each detailFields as field (field.attribute)}
 							{#if field.type === 'hasMany' && field.relation}
-								<RelatedResourceTable
-									{field}
-									record={detailQuery.data}
-									lang={page.params.lang ?? 'en'}
-									{prefix}
-								/>
+								<RelatedResourceTable {field} {record} lang={page.params.lang ?? 'en'} {prefix} />
 							{:else}
 								<FieldRenderer
 									context="detail"
 									{field}
-									record={detailQuery.data}
-									value={field.resolveUsing
-										? field.resolveUsing(detailQuery.data)
-										: detailQuery.data[field.attribute]}
+									{mode}
+									{record}
+									value={field.resolveUsing ? field.resolveUsing(record) : record[field.attribute]}
 								/>
 							{/if}
 						{/each}
