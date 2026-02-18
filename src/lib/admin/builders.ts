@@ -4,7 +4,8 @@ import type {
 	FilterDefinition,
 	LensDefinition,
 	MetricDefinition,
-	ResourceDefinition
+	ResourceDefinition,
+	ResourceModule
 } from './types';
 
 export function defineResource<TTable extends string>(
@@ -35,4 +36,8 @@ export function defineLens<TTable extends string>(
 
 export function defineMetric(metric: MetricDefinition): MetricDefinition {
 	return metric;
+}
+
+export function defineResourceModule(mod: ResourceModule): ResourceModule {
+	return mod;
 }

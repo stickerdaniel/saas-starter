@@ -32,11 +32,6 @@
 		"worktree": "bun scripts/create-worktree.ts",
 		"worktree:setup": "bun scripts/create-worktree.ts --setup-only",
 		"admin:generate:resource": "bun scripts/admin/generate-resource.ts",
-		"admin:generate:field": "bun scripts/admin/generate-field.ts",
-		"admin:generate:filter": "bun scripts/admin/generate-filter.ts",
-		"admin:generate:action": "bun scripts/admin/generate-action.ts",
-		"admin:generate:lens": "bun scripts/admin/generate-lens.ts",
-		"admin:generate:metric": "bun scripts/admin/generate-metric.ts",
 		"admin:validate:search-indexes": "bun scripts/admin/validate-search-indexes.ts"
 	},
 	"dependencies": {
@@ -88,6 +83,7 @@
 		"web-haptics": "^0.0.6"
 	},
 	"devDependencies": {
+		"@clack/prompts": "^1.0.1",
 		"@convex-dev/eslint-plugin": "^1.1.1",
 		"@dnd-kit-svelte/core": "0.0.11",
 		"@dnd-kit-svelte/modifiers": "0.0.11",

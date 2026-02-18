@@ -1,7 +1,32 @@
 import type { Component } from 'svelte';
 import type { IconProps } from '@lucide/svelte';
 import type { GenericSchema } from 'valibot';
+import type { FunctionReference } from 'convex/server';
 import type { BetterAuthUser } from '$lib/convex/admin/types';
+
+type QueryRef = FunctionReference<'query'>;
+type MutationRef = FunctionReference<'mutation'>;
+
+export type ResourceRuntime = {
+	list: QueryRef;
+	count: QueryRef;
+	resolveLastPage: QueryRef;
+	getById: QueryRef;
+	create: MutationRef;
+	update: MutationRef;
+	delete: MutationRef;
+	restore: MutationRef;
+	forceDelete: MutationRef;
+	replicate: MutationRef;
+	runAction: MutationRef;
+	getMetrics: QueryRef;
+	listRelationOptions?: Record<string, QueryRef>;
+};
+
+export type ResourceModule = {
+	resource: ResourceDefinition<any>;
+	runtime: ResourceRuntime;
+};
 
 export type LucideIcon = Component<IconProps, object, ''>;
 

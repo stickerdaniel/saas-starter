@@ -12,8 +12,7 @@
 	import { useQuery } from 'convex-svelte';
 	import { api } from '$lib/convex/_generated/api.js';
 	import { getContext } from 'svelte';
-	import { getResourceDefinitions } from '$lib/admin/registry';
-	import { adminResourceRuntimeMap } from '$lib/admin/runtime';
+	import { getResourceDefinitions, getResourceRuntime } from '$lib/admin/registry';
 	import { localizedHref } from '$lib/utils/i18n';
 
 	const { t } = getTranslate();
@@ -27,7 +26,7 @@
 	const metrics = useQuery(api.admin.queries.getDashboardMetrics, {});
 	const resourceDefinitions = getResourceDefinitions();
 	const resourceOverviewQueries = resourceDefinitions.map((resource) => {
-		const runtime = adminResourceRuntimeMap[resource.name];
+		const runtime = getResourceRuntime(resource.name)!;
 		const defaultRanges = Object.fromEntries(
 			(resource.metrics ?? [])
 				.filter((metric) => (metric.rangeOptions?.length ?? 0) > 0)

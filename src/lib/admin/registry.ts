@@ -1,21 +1,23 @@
-import type { ResourceDefinition } from './types';
-import { demoCommentsResource } from './resources/demo-comments';
-import { demoProjectsResource } from './resources/demo-projects';
-import { demoTagsResource } from './resources/demo-tags';
-import { demoTasksResource } from './resources/demo-tasks';
+import type { ResourceDefinition, ResourceModule, ResourceRuntime } from './types';
 
-const RESOURCE_REGISTRY = [
-	demoProjectsResource,
-	demoTasksResource,
-	demoCommentsResource,
-	demoTagsResource
-] as const satisfies readonly ResourceDefinition<any>[];
+const modules = import.meta.glob('./resources/*.ts', { eager: true }) as Record<
+	string,
+	{ default?: ResourceModule }
+>;
 
-const RESOURCE_MAP = new Map<string, ResourceDefinition<any>>(
-	RESOURCE_REGISTRY.map((resource) => [resource.name, resource])
-);
+const RESOURCE_REGISTRY: ResourceDefinition<any>[] = [];
+const RESOURCE_MAP = new Map<string, ResourceDefinition<any>>();
+const RUNTIME_MAP = new Map<string, ResourceRuntime>();
 
-export function getResourceDefinitions() {
+for (const [, mod] of Object.entries(modules)) {
+	const resourceModule = mod.default;
+	if (!resourceModule?.resource || !resourceModule?.runtime) continue;
+	RESOURCE_REGISTRY.push(resourceModule.resource);
+	RESOURCE_MAP.set(resourceModule.resource.name, resourceModule.resource);
+	RUNTIME_MAP.set(resourceModule.resource.name, resourceModule.runtime);
+}
+
+export function getResourceDefinitions(): readonly ResourceDefinition<any>[] {
 	return RESOURCE_REGISTRY;
 }
 
@@ -29,4 +31,12 @@ export function getResourceNames() {
 
 export function isResourceName(value: string) {
 	return RESOURCE_MAP.has(value);
+}
+
+export function getResourceRuntime(name: string): ResourceRuntime | undefined {
+	return RUNTIME_MAP.get(name);
+}
+
+export function getResourceRuntimeMap(): ReadonlyMap<string, ResourceRuntime> {
+	return RUNTIME_MAP;
 }

@@ -1,4 +1,4 @@
-import type { ResourceRuntime } from '$lib/admin/runtime';
+import type { ResourceRuntime } from '$lib/admin/types';
 import { toast } from 'svelte-sonner';
 
 export type AdminActionResponse =

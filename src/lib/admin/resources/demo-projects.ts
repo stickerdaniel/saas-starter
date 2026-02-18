@@ -1,12 +1,15 @@
 import FolderKanbanIcon from '@lucide/svelte/icons/folder-kanban';
+import { api } from '$lib/convex/_generated/api';
 import {
 	defineAction,
 	defineField,
 	defineFilter,
 	defineLens,
 	defineMetric,
-	defineResource
+	defineResource,
+	defineResourceModule
 } from '../builders';
+import type { ResourceRuntime } from '../types';
 
 export const demoProjectsResource = defineResource({
 	name: 'demo-projects',
@@ -312,4 +315,28 @@ export const demoProjectsResource = defineResource({
 			fields: ['createdAt', 'updatedAt']
 		}
 	]
+});
+
+export const demoProjectsRuntime: ResourceRuntime = {
+	list: api.adminFramework.resources.projects.listProjects,
+	count: api.adminFramework.resources.projects.countProjects,
+	resolveLastPage: api.adminFramework.resources.projects.resolveProjectsLastPage,
+	getById: api.adminFramework.resources.projects.getProjectById,
+	create: api.adminFramework.resources.projects.createProject,
+	update: api.adminFramework.resources.projects.updateProject,
+	delete: api.adminFramework.resources.projects.deleteProject,
+	restore: api.adminFramework.resources.projects.restoreProject,
+	forceDelete: api.adminFramework.resources.projects.forceDeleteProject,
+	replicate: api.adminFramework.resources.projects.replicateProject,
+	runAction: api.adminFramework.resources.projects.runProjectAction,
+	getMetrics: api.adminFramework.resources.projects.getProjectMetrics,
+	listRelationOptions: {
+		tagId: api.adminFramework.resources.projects.listProjectTagOptions,
+		tagIds: api.adminFramework.resources.projects.listProjectTagOptions
+	}
+};
+
+export default defineResourceModule({
+	resource: demoProjectsResource,
+	runtime: demoProjectsRuntime
 });

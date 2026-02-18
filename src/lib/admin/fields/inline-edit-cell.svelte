@@ -7,7 +7,7 @@
 	import * as Select from '$lib/components/ui/select/index.js';
 	import { confirmDelete } from '$lib/components/ui/confirm-delete-dialog';
 	import type { FieldDefinition } from '$lib/admin/types';
-	import type { ResourceRuntime } from '$lib/admin/runtime';
+	import type { ResourceRuntime } from '$lib/admin/types';
 	import { getValidationFieldErrors } from '$lib/admin/error-utils';
 
 	type Props = {

@@ -1,5 +1,13 @@
 import TagsIcon from '@lucide/svelte/icons/tags';
-import { defineField, defineFilter, defineMetric, defineResource } from '../builders';
+import { api } from '$lib/convex/_generated/api';
+import {
+	defineField,
+	defineFilter,
+	defineMetric,
+	defineResource,
+	defineResourceModule
+} from '../builders';
+import type { ResourceRuntime } from '../types';
 
 export const demoTagsResource = defineResource({
 	name: 'demo-tags',
@@ -86,4 +94,24 @@ export const demoTagsResource = defineResource({
 			fields: ['createdAt', 'updatedAt']
 		}
 	]
+});
+
+export const demoTagsRuntime: ResourceRuntime = {
+	list: api.adminFramework.resources.tags.listTags,
+	count: api.adminFramework.resources.tags.countTags,
+	resolveLastPage: api.adminFramework.resources.tags.resolveTagsLastPage,
+	getById: api.adminFramework.resources.tags.getTagById,
+	create: api.adminFramework.resources.tags.createTag,
+	update: api.adminFramework.resources.tags.updateTag,
+	delete: api.adminFramework.resources.tags.deleteTag,
+	restore: api.adminFramework.resources.tags.restoreTag,
+	forceDelete: api.adminFramework.resources.tags.forceDeleteTag,
+	replicate: api.adminFramework.resources.tags.replicateTag,
+	runAction: api.adminFramework.resources.tags.runTagAction,
+	getMetrics: api.adminFramework.resources.tags.getTagMetrics
+};
+
+export default defineResourceModule({
+	resource: demoTagsResource,
+	runtime: demoTagsRuntime
 });
