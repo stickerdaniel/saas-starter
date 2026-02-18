@@ -7,6 +7,9 @@
 	import LightSwitch from '$lib/components/ui/light-switch/light-switch.svelte';
 	import CommandTrigger from '$lib/components/global-search/command-trigger.svelte';
 	import { localizedHref } from '$lib/utils/i18n';
+	import { isResourceName } from '$lib/admin/registry';
+
+	const ADMIN_STATIC_SEGMENTS = new Set(['create', 'edit']);
 
 	interface Props {
 		routePrefix: string;
@@ -32,21 +35,22 @@
 				isLast: segments.length === 1 || (segments[0].length === 2 && segments.length === 2)
 			});
 
-			// Add subsequent segments (skip language segment if present)
+			// Add all subsequent segments (skip language segment if present)
 			const prefixSegmentIndex = segments[0] === routePrefix ? 0 : 1;
-			if (segments.length > prefixSegmentIndex + 1) {
-				const lastSegment = segments[segments.length - 1];
-				// Format the segment name (e.g., "community-chat" -> "Community Chat")
-				const formattedLabel = lastSegment
-					.split('-')
-					.map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-					.join(' ');
-
-				items.push({
-					label: formattedLabel,
-					href: pathname,
-					isLast: true
-				});
+			const startIndex = prefixSegmentIndex + 1;
+			for (let i = startIndex; i < segments.length; i++) {
+				const seg = segments[i];
+				let label: string;
+				if (routePrefix === 'admin' && !isResourceName(seg) && !ADMIN_STATIC_SEGMENTS.has(seg)) {
+					label = 'Details';
+				} else {
+					label = seg
+						.split('-')
+						.map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+						.join(' ');
+				}
+				const href = '/' + segments.slice(0, i + 1).join('/');
+				items.push({ label, href, isLast: i === segments.length - 1 });
 			}
 		}
 
