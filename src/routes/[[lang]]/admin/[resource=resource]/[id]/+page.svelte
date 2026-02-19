@@ -2,7 +2,9 @@
 	import { resolve } from '$app/paths';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
+	import { useSearchParams } from 'runed/kit';
 	import { T, getTranslate } from '@tolgee/svelte';
+	import * as v from 'valibot';
 	import { toast } from 'svelte-sonner';
 	import { useConvexClient, useQuery } from 'convex-svelte';
 	import SEOHead from '$lib/components/SEOHead.svelte';
@@ -17,6 +19,7 @@
 	import { getResourceContext } from '$lib/admin/page-helpers';
 	import { resolveFieldGroups } from '$lib/admin/field-groups';
 	import type { ActionDefinition } from '$lib/admin/types';
+	import { resolveFieldValue } from '$lib/admin/field-utils';
 	import {
 		getViewerUser,
 		isFieldVisible,
@@ -74,14 +77,18 @@
 			fields: previewFields
 		})
 	);
-	let activeDetailGroup = $state('');
 	let activePreviewGroup = $state('');
-
-	$effect(() => {
-		const first = detailGroups[0]?.key ?? '';
-		if (!activeDetailGroup || !detailGroups.some((group) => group.key === activeDetailGroup)) {
-			activeDetailGroup = first;
-		}
+	const detailTabSchema = v.object({
+		detail: v.optional(v.fallback(v.string(), ''), '')
+	});
+	const detailTabParams = useSearchParams(detailTabSchema, {
+		pushHistory: true,
+		noScroll: true
+	});
+	const activeDetailGroup = $derived.by(() => {
+		const selected = detailTabParams.detail;
+		if (selected && detailGroups.some((group) => group.key === selected)) return selected;
+		return detailGroups[0]?.key ?? '';
 	});
 
 	$effect(() => {
@@ -90,6 +97,13 @@
 			activePreviewGroup = first;
 		}
 	});
+
+	function updateDetailGroup(next: string) {
+		if (!detailGroups.some((group) => group.key === next)) return;
+		if (detailTabParams.detail === next) return;
+		detailTabParams.detail = next;
+	}
+
 	const detailActions = $derived.by(() =>
 		(resource.actions ?? []).filter((action) => {
 			if (action.showOnDetail === false) return false;
@@ -356,7 +370,7 @@
 			<div class="flex flex-wrap gap-2">
 				{#each detailActions as action (action.key)}
 					<Button
-						variant="outline"
+						variant={action.destructive ? 'destructive' : 'outline'}
 						onclick={() => void openAction(action)}
 						data-testid={`${prefix}-detail-action-${action.key}`}
 					>
@@ -396,9 +410,7 @@
 											{field}
 											{mode}
 											{record}
-											value={field.resolveUsing
-												? field.resolveUsing(record)
-												: record[field.attribute]}
+											value={resolveFieldValue(field, record)}
 										/>
 									{/each}
 								</div>
@@ -413,7 +425,7 @@
 								{field}
 								{mode}
 								{record}
-								value={field.resolveUsing ? field.resolveUsing(record) : record[field.attribute]}
+								value={resolveFieldValue(field, record)}
 							/>
 						{/each}
 					</div>
@@ -427,7 +439,7 @@
 			</CardHeader>
 			<CardContent>
 				{#if detailGroups.length > 1}
-					<Tabs.Root value={activeDetailGroup} onValueChange={(next) => (activeDetailGroup = next)}>
+					<Tabs.Root value={activeDetailGroup} onValueChange={updateDetailGroup}>
 						<Tabs.List data-testid={`${prefix}-detail-tabs`}>
 							{#each detailGroups as group (group.key)}
 								<Tabs.Trigger value={group.key} data-testid={`${prefix}-detail-tab-${group.key}`}>
@@ -445,6 +457,7 @@
 												{record}
 												lang={page.params.lang ?? 'en'}
 												{prefix}
+												resourceName={resource.name}
 											/>
 										{:else}
 											<FieldRenderer
@@ -452,9 +465,7 @@
 												{field}
 												{mode}
 												{record}
-												value={field.resolveUsing
-													? field.resolveUsing(record)
-													: record[field.attribute]}
+												value={resolveFieldValue(field, record)}
 											/>
 										{/if}
 									{/each}
@@ -466,14 +477,20 @@
 					<div class="grid gap-4 md:grid-cols-2">
 						{#each detailFields as field (field.attribute)}
 							{#if field.type === 'hasMany' && field.relation}
-								<RelatedResourceTable {field} {record} lang={page.params.lang ?? 'en'} {prefix} />
+								<RelatedResourceTable
+									{field}
+									{record}
+									lang={page.params.lang ?? 'en'}
+									{prefix}
+									resourceName={resource.name}
+								/>
 							{:else}
 								<FieldRenderer
 									context="detail"
 									{field}
 									{mode}
 									{record}
-									value={field.resolveUsing ? field.resolveUsing(record) : record[field.attribute]}
+									value={resolveFieldValue(field, record)}
 								/>
 							{/if}
 						{/each}

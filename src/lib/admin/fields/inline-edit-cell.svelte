@@ -34,7 +34,7 @@
 	});
 
 	function normalizeInlineValue(input: unknown) {
-		if (field.type === 'number') {
+		if (field.type === 'number' || field.type === 'currency') {
 			const parsed = Number(input);
 			return Number.isFinite(parsed) ? parsed : 0;
 		}
@@ -131,9 +131,21 @@
 			{/each}
 		</Select.Content>
 	</Select.Root>
+{:else if field.type === 'color'}
+	<div class="flex items-center gap-2" data-no-row-click="true">
+		<input
+			type="color"
+			value={String(value ?? '#000000')}
+			disabled={saving}
+			oninput={(event) => void save((event.currentTarget as HTMLInputElement).value)}
+			data-testid={testId}
+			class="h-8 w-10 cursor-pointer rounded border"
+		/>
+		<span class="text-xs text-muted-foreground">{String(value ?? '')}</span>
+	</div>
 {:else if editing}
 	<Input
-		type={field.type === 'number' ? 'number' : 'text'}
+		type={field.type === 'number' || field.type === 'currency' ? 'number' : 'text'}
 		value={String(editValue ?? '')}
 		disabled={saving}
 		oninput={(event) => {

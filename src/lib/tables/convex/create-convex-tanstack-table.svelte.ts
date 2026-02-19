@@ -106,6 +106,9 @@ function createTanStackForConvex<TItem extends RowData, TSortField extends strin
 		meta: {
 			get isLoading() {
 				return convex.isLoading;
+			},
+			get showEmptyPlaceholderWhileLoading() {
+				return convex.showEmptyPlaceholderWhileLoading;
 			}
 		},
 		manualPagination: true,

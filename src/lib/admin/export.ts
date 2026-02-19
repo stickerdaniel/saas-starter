@@ -1,4 +1,5 @@
 import type { FieldDefinition } from '$lib/admin/types';
+import { resolveFieldValue } from '$lib/admin/field-utils';
 
 function escapeCsvCell(value: unknown) {
 	let text = String(value ?? '');
@@ -12,7 +13,7 @@ function escapeCsvCell(value: unknown) {
 }
 
 function toExportValue(field: FieldDefinition<any>, row: Record<string, unknown>) {
-	const resolved = field.resolveUsing ? field.resolveUsing(row) : row[field.attribute];
+	const resolved = resolveFieldValue(field, row);
 	if (
 		typeof resolved === 'string' ||
 		typeof resolved === 'number' ||
@@ -50,7 +51,7 @@ export function createJsonFromRows(args: {
 	const items = args.rows.map((row) => {
 		const next: Record<string, unknown> = {};
 		for (const field of args.fields) {
-			next[field.attribute] = field.resolveUsing ? field.resolveUsing(row) : row[field.attribute];
+			next[field.attribute] = resolveFieldValue(field, row);
 		}
 		return next;
 	});

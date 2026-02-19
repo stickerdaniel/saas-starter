@@ -11,7 +11,7 @@
 	import TableLoadingSkeleton from '$lib/components/tables/table-loading-skeleton.svelte';
 	import type { BaseTableRenderConfig } from './types';
 	import type { TableColumnMeta } from './types';
-	import { buildColumnStyle } from './layout-presets';
+	import { buildColumnStyle, getColumnStyleArgs } from './layout-presets';
 	import { cn } from '$lib/utils.js';
 
 	type Props = {
@@ -21,6 +21,7 @@
 		toolbarActions?: Snippet;
 		rowTestId?: (row: any) => string;
 		onRowClick?: (row: any, event: MouseEvent) => void;
+		onRowHover?: (row: any) => void;
 	};
 
 	let {
@@ -29,7 +30,8 @@
 		toolbarFilters: _toolbarFilters,
 		toolbarActions: _toolbarActions,
 		rowTestId,
-		onRowClick
+		onRowClick,
+		onRowHover
 	}: Props = $props();
 	const { t } = getTranslate();
 
@@ -83,8 +85,12 @@
 							<Table.Head
 								class={cn(headerMeta.headClass)}
 								style={buildColumnStyle({
-									width: header.getSize(),
-									minWidth: header.column.columnDef.minSize
+									...getColumnStyleArgs({
+										size: header.getSize(),
+										minSize: header.column.columnDef.minSize,
+										maxSize: header.column.columnDef.maxSize,
+										meta: headerMeta
+									})
 								})}
 							>
 								{#if !header.isPlaceholder}
@@ -117,7 +123,17 @@
 									rowIndex,
 									columnIndex
 								})}
-								<Table.Cell class={cn(columnMeta.cellClass)}>
+								<Table.Cell
+									class={cn(columnMeta.cellClass)}
+									style={buildColumnStyle({
+										...getColumnStyleArgs({
+											size: column.getSize(),
+											minSize: column.columnDef.minSize,
+											maxSize: column.columnDef.maxSize,
+											meta: columnMeta
+										})
+									})}
+								>
 									{#if loadingContent instanceof RenderComponentConfig}
 										{@const { component: Component, props } = loadingContent}
 										<Component {...props} />
@@ -143,7 +159,16 @@
 						rowTestId={config.testIds?.loadingRow}
 					/>
 				{:else if table.options.meta?.isLoading}
-					{#if config.testIds?.loading}
+					{#if table.options.meta?.showEmptyPlaceholderWhileLoading}
+						<Table.Row data-testid={config.testIds?.loading}>
+							<Table.Cell
+								colspan={config.colspan}
+								class="h-24 text-center text-muted-foreground hover:!bg-transparent"
+							>
+								<span class="sr-only">{$t(config.loadingLabelKey ?? 'aria.loading')}</span>
+							</Table.Cell>
+						</Table.Row>
+					{:else if config.testIds?.loading}
 						<Table.Row data-testid={config.testIds.loading} class="hidden">
 							<Table.Cell colspan={config.colspan}>
 								{$t(config.loadingLabelKey ?? 'aria.loading')}
@@ -156,7 +181,11 @@
 							colspan={config.colspan}
 							class="h-24 text-center text-muted-foreground hover:!bg-transparent"
 						>
-							{$t(config.emptyKey)}
+							<span
+								class="motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-200 motion-safe:[--tw-ease:ease-out]"
+							>
+								{$t(config.emptyKey)}
+							</span>
 						</Table.Cell>
 					</Table.Row>
 				{:else}
@@ -165,10 +194,21 @@
 							data-state={row.getIsSelected() && 'selected'}
 							data-testid={rowTestId?.(row)}
 							onclick={(event) => onRowClick?.(row, event)}
+							onpointerenter={() => onRowHover?.(row)}
 						>
 							{#each row.getVisibleCells() as cell (cell.id)}
 								{@const cellMeta = getColumnMeta(cell.column.columnDef)}
-								<Table.Cell class={cn(cellMeta.cellClass)}>
+								<Table.Cell
+									class={cn(cellMeta.cellClass)}
+									style={buildColumnStyle({
+										...getColumnStyleArgs({
+											size: cell.column.getSize(),
+											minSize: cell.column.columnDef.minSize,
+											maxSize: cell.column.columnDef.maxSize,
+											meta: cellMeta
+										})
+									})}
+								>
 									<FlexRender content={cell.column.columnDef.cell} context={cell.getContext()} />
 								</Table.Cell>
 							{/each}

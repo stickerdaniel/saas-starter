@@ -4,6 +4,7 @@ import type { TableSkeletonColumn } from '$lib/components/tables/table-loading-s
 export type TableColumnMeta = {
 	headClass?: string;
 	cellClass?: string;
+	sizingMode?: 'fixed' | 'fluid';
 	skeleton?: Omit<TableSkeletonColumn, 'key'>;
 };
 

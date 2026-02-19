@@ -24,6 +24,17 @@ export function defineAction(action: ActionDefinition): ActionDefinition {
 	return action;
 }
 
+export function defineDestructiveAction(
+	action: Omit<ActionDefinition, 'destructive' | 'withoutConfirmation'>
+): ActionDefinition {
+	return {
+		...action,
+		destructive: true,
+		withoutConfirmation: false,
+		confirmTextKey: action.confirmTextKey ?? action.nameKey
+	};
+}
+
 export function defineFilter(filter: FilterDefinition): FilterDefinition {
 	return filter;
 }

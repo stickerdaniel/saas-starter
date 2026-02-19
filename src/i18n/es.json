@@ -57,8 +57,6 @@
 				"create": "Create",
 				"create_resource": "Create {resource}",
 				"delete": "Delete",
-				"no_records_selected": "No se seleccionaron registros.",
-				"records_not_found": "Los registros seleccionados no se pudieron encontrar.",
 				"edit": "Edit",
 				"force_delete": "Force Delete",
 				"replicate": "Replicate",
@@ -69,15 +67,20 @@
 				"select_all": "Select all rows",
 				"select_row": "Select row"
 			},
-			"columns": {
-				"actions": "Actions"
-			},
 			"bulk": {
+				"action_cancelled": "Cancelado. {processed} de {total} procesados.",
+				"action_partial_failure": "{failed} de {total} fallaron.",
+				"chunks_failed": "{count} lote(s) fallaron",
 				"delete": "Eliminar en lote",
 				"delete_description": "¿Eliminar {count} registros seleccionados?",
-				"restore": "Restaurar en lote",
 				"force_delete": "Eliminar definitivamente en lote",
-				"force_delete_description": "¿Eliminar permanentemente {count} registros seleccionados?"
+				"force_delete_description": "¿Eliminar permanentemente {count} registros seleccionados?",
+				"partial_delete_error": "{failed} de {total} eliminaciones fallaron.",
+				"processing_chunks": "Procesando {current} de {total}...",
+				"restore": "Restaurar en lote"
+			},
+			"columns": {
+				"actions": "Actions"
 			},
 			"comments": {
 				"actions": {
@@ -99,7 +102,9 @@
 					"project": "Project Comments",
 					"target_distribution": "Por objetivo",
 					"task": "Task Comments",
-					"total": "Total Comments"
+					"total": "Comentarios totales",
+					"total_desc": "Todos los comentarios en todos los objetivos",
+					"total_subtitle": "Actividad de comentarios"
 				},
 				"nav_title": "Demo Comments",
 				"options": {
@@ -139,15 +144,23 @@
 				"all": "All",
 				"clear": "Clear",
 				"created_range": "Rango de creación",
-				"select_placeholder": "Select option"
+				"select_placeholder": "Select option",
+				"yes": "Sí",
+				"no": "No"
 			},
 			"form": {
+				"add_pair": "Agregar par",
+				"auto_generate": "Generar automáticamente",
 				"fix_errors": "Corrige los campos resaltados.",
 				"invalid": "Invalid field value",
+				"key_placeholder": "Clave",
 				"markdown_placeholder": "## Contenido Markdown",
 				"no_relation_options": "No options available",
+				"remove_pair": "Eliminar par",
 				"required": "This field is required",
-				"upload": "Subir archivo"
+				"slug_preview": "Vista previa del slug",
+				"upload": "Subir archivo",
+				"value_placeholder": "Valor"
 			},
 			"groups": {
 				"assignment": "Asignación",
@@ -162,9 +175,6 @@
 			"lenses": {
 				"all": "All Lenses"
 			},
-			"load_error": "No se pudo cargar este recurso. Por favor, intentelo de nuevo.",
-			"load_error_relation_options": "No se pudieron cargar las opciones para {field}. Por favor, reintente.",
-			"metrics_load_error": "No se pudieron cargar las metricas. Se reintentara automaticamente.",
 			"loading": "Loading resources...",
 			"projects": {
 				"actions": {
@@ -200,10 +210,18 @@
 					"featured": "Featured Projects"
 				},
 				"metrics": {
-					"active": "Active Projects",
-					"budget": "Active Budget",
-					"featured": "Featured Projects",
-					"total": "Total Projects"
+					"active": "Proyectos activos",
+					"active_desc": "Proyectos actualmente activos",
+					"active_subtitle": "Estado: activo",
+					"budget": "Presupuesto activo",
+					"budget_desc": "Presupuesto total de proyectos activos",
+					"budget_subtitle": "En todos los proyectos activos",
+					"featured": "Proyectos destacados",
+					"featured_desc": "Proyectos marcados como destacados",
+					"featured_subtitle": "Proyectos seleccionados",
+					"total": "Proyectos totales",
+					"total_desc": "Todos los proyectos registrados",
+					"total_subtitle": "Portafolio de proyectos"
 				},
 				"nav_title": "Demo Projects",
 				"options": {
@@ -225,7 +243,9 @@
 					"name": "Name"
 				},
 				"metrics": {
-					"total": "Total Tags"
+					"total": "Etiquetas totales",
+					"total_desc": "Todas las etiquetas disponibles",
+					"total_subtitle": "Biblioteca de etiquetas"
 				},
 				"nav_title": "Demo Tags"
 			},
@@ -252,13 +272,23 @@
 				},
 				"metrics": {
 					"completion_rate": "Tasa de finalización",
-					"done": "Done",
-					"estimate": "Estimated Hours",
+					"completion_rate_desc": "Hechas vs. tareas totales",
+					"completion_rate_subtitle": "Progreso general",
+					"done": "Hecho",
+					"done_desc": "Tareas marcadas como completadas",
+					"done_subtitle": "Trabajo terminado",
+					"estimate": "Horas estimadas",
 					"estimate_by_status": "Estimación por estado",
-					"in_progress": "In Progress",
+					"estimate_desc": "Total de horas de trabajo estimadas",
+					"estimate_subtitle": "En todas las tareas",
+					"in_progress": "En progreso",
+					"in_progress_desc": "Tareas en las que se está trabajando",
+					"in_progress_subtitle": "Trabajo activo",
 					"priority_split": "Distribución por prioridad",
 					"status_trend": "Tendencia de estado",
-					"todo": "Todo"
+					"todo": "Pendiente",
+					"todo_desc": "Tareas pendientes de inicio",
+					"todo_subtitle": "Elementos del backlog"
 				},
 				"nav_title": "Demo Tasks",
 				"options": {
@@ -288,7 +318,10 @@
 			},
 			"values": {
 				"enabled": "Enabled",
+				"masked": "••••••••",
 				"no": "No",
+				"pairs_count": "{count} pares",
+				"selected_count": "{count} seleccionados",
 				"yes": "Yes"
 			}
 		},
@@ -790,9 +823,7 @@
 	"common": {
 		"adding": "Agregando...",
 		"cancel": "Cancelar",
-		"confirm": "Confirmar",
-		"retry": "Reintentar",
-		"save": "Guardar"
+		"confirm": "Confirmar"
 	},
 	"email": {
 		"body": {
