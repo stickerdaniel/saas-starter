@@ -1,4 +1,8 @@
 import FolderKanbanIcon from '@lucide/svelte/icons/folder-kanban';
+import HashIcon from '@lucide/svelte/icons/hash';
+import ZapIcon from '@lucide/svelte/icons/zap';
+import StarIcon from '@lucide/svelte/icons/star';
+import DollarSignIcon from '@lucide/svelte/icons/dollar-sign';
 import { api } from '$lib/convex/_generated/api';
 import {
 	defineAction,
@@ -20,7 +24,7 @@ export const demoProjectsResource = defineResource({
 	title: (record) => String(record.name ?? ''),
 	subtitle: (record) => String(record.slug ?? ''),
 	search: ['name', 'slug', 'ownerEmail'],
-	sortFields: ['name', 'status', 'budget', 'createdAt', 'updatedAt'],
+	sortFields: ['name', 'slug', 'status', 'budget', 'createdAt', 'updatedAt'],
 	perPageOptions: [5, 10, 20, 50],
 	softDeletes: true,
 	badgeQuery: {
@@ -58,6 +62,7 @@ export const demoProjectsResource = defineResource({
 			attribute: 'status',
 			labelKey: 'admin.resources.projects.fields.status',
 			required: true,
+			filterable: true,
 			sortable: true,
 			showOnIndex: true,
 			showOnDetail: true,
@@ -85,6 +90,10 @@ export const demoProjectsResource = defineResource({
 			labelKey: 'admin.resources.projects.fields.budget',
 			required: true,
 			inlineEditable: true,
+			indexColumn: {
+				preset: 'number',
+				fixed: true
+			},
 			sortable: true,
 			showOnIndex: true,
 			showOnDetail: true,
@@ -95,6 +104,10 @@ export const demoProjectsResource = defineResource({
 			attribute: 'isFeatured',
 			labelKey: 'admin.resources.projects.fields.featured',
 			inlineEditable: true,
+			indexColumn: {
+				preset: 'inlineCheckbox',
+				fixed: true
+			},
 			showOnIndex: true,
 			showOnDetail: true,
 			showOnForm: true
@@ -157,6 +170,10 @@ export const demoProjectsResource = defineResource({
 			type: 'hasMany',
 			attribute: 'taskCount',
 			labelKey: 'admin.resources.projects.fields.tasks',
+			indexColumn: {
+				preset: 'number',
+				fixed: true
+			},
 			showOnIndex: true,
 			showOnDetail: true,
 			showOnForm: false,
@@ -185,19 +202,6 @@ export const demoProjectsResource = defineResource({
 		})
 	],
 	filters: [
-		defineFilter({
-			key: 'status',
-			labelKey: 'admin.resources.projects.filters.status',
-			type: 'select',
-			urlKey: 'status',
-			defaultValue: 'all',
-			options: [
-				{ value: 'all', labelKey: 'admin.resources.filters.all' },
-				{ value: 'draft', labelKey: 'admin.resources.projects.options.status_draft' },
-				{ value: 'active', labelKey: 'admin.resources.projects.options.status_active' },
-				{ value: 'archived', labelKey: 'admin.resources.projects.options.status_archived' }
-			]
-		}),
 		defineFilter({
 			key: 'featured',
 			labelKey: 'admin.resources.projects.filters.featured',
@@ -267,6 +271,9 @@ export const demoProjectsResource = defineResource({
 			key: 'total',
 			type: 'value',
 			labelKey: 'admin.resources.projects.metrics.total',
+			icon: HashIcon,
+			descriptionKey: 'admin.resources.projects.metrics.total_desc',
+			subtitleKey: 'admin.resources.projects.metrics.total_subtitle',
 			rangeOptions: [
 				{ value: 'without', labelKey: 'admin.resources.trashed.without' },
 				{ value: 'with', labelKey: 'admin.resources.trashed.with' }
@@ -275,17 +282,26 @@ export const demoProjectsResource = defineResource({
 		defineMetric({
 			key: 'active',
 			type: 'value',
-			labelKey: 'admin.resources.projects.metrics.active'
+			labelKey: 'admin.resources.projects.metrics.active',
+			icon: ZapIcon,
+			descriptionKey: 'admin.resources.projects.metrics.active_desc',
+			subtitleKey: 'admin.resources.projects.metrics.active_subtitle'
 		}),
 		defineMetric({
 			key: 'featured',
 			type: 'value',
-			labelKey: 'admin.resources.projects.metrics.featured'
+			labelKey: 'admin.resources.projects.metrics.featured',
+			icon: StarIcon,
+			descriptionKey: 'admin.resources.projects.metrics.featured_desc',
+			subtitleKey: 'admin.resources.projects.metrics.featured_subtitle'
 		}),
 		defineMetric({
 			key: 'budget',
 			type: 'value',
 			labelKey: 'admin.resources.projects.metrics.budget',
+			icon: DollarSignIcon,
+			descriptionKey: 'admin.resources.projects.metrics.budget_desc',
+			subtitleKey: 'admin.resources.projects.metrics.budget_subtitle',
 			format: 'currency'
 		})
 	],

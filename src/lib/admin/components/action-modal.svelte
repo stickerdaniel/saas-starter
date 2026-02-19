@@ -2,8 +2,10 @@
 	import { T } from '@tolgee/svelte';
 	import * as Dialog from '$lib/components/ui/dialog/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
+	import { Progress } from '$lib/components/ui/progress/index.js';
 	import FieldRenderer from '$lib/admin/fields/field-renderer.svelte';
 	import type { ActionDefinition } from '$lib/admin/types';
+	import type { ChunkProgress } from '$lib/admin/action-response';
 
 	type Props = {
 		open: boolean;
@@ -16,6 +18,7 @@
 		onValueChange: (key: string, value: unknown) => void;
 		onConfirm: () => Promise<void>;
 		busy?: boolean;
+		progress?: ChunkProgress | null;
 	};
 
 	let {
@@ -28,8 +31,13 @@
 		onOpenChange,
 		onValueChange,
 		onConfirm,
-		busy = false
+		busy = false,
+		progress = null
 	}: Props = $props();
+
+	const progressPercent = $derived(
+		progress ? Math.round((progress.processedIds / progress.totalIds) * 100) : 0
+	);
 </script>
 
 <Dialog.Root {open} {onOpenChange}>
@@ -67,6 +75,26 @@
 			{/each}
 		</div>
 
+		{#if progress}
+			<div class="space-y-2" data-testid="action-chunk-progress">
+				<Progress value={progressPercent} max={100} />
+				<p class="text-sm text-muted-foreground">
+					<T
+						keyName="admin.resources.bulk.processing_chunks"
+						params={{ current: progress.currentChunk, total: progress.totalChunks }}
+					/>
+				</p>
+				{#if progress.failedChunks > 0}
+					<p class="text-sm text-destructive">
+						<T
+							keyName="admin.resources.bulk.chunks_failed"
+							params={{ count: progress.failedChunks }}
+						/>
+					</p>
+				{/if}
+			</div>
+		{/if}
+
 		<Dialog.Footer>
 			<Button variant="outline" onclick={() => onOpenChange(false)}>
 				{#if action?.cancelButtonTextKey}
@@ -75,7 +103,11 @@
 					<T keyName="common.cancel" />
 				{/if}
 			</Button>
-			<Button onclick={() => void onConfirm()} disabled={busy}>
+			<Button
+				variant={action?.destructive ? 'destructive' : 'default'}
+				onclick={() => void onConfirm()}
+				disabled={busy}
+			>
 				{#if action?.confirmButtonTextKey}
 					<T keyName={action.confirmButtonTextKey} />
 				{:else}

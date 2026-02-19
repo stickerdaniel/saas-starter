@@ -66,6 +66,7 @@
 			defaultFilters: { type: 'all' },
 			pageSizeOptions: PAGE_SIZE_OPTIONS,
 			defaultPageSize: '10',
+			pageSizeStorageKey: 'admin-settings-notification-recipients',
 			sortFields: ['email', 'name', 'type'],
 			buildListArgs: ({ cursor, pageSize, search, filters, sortBy }) => ({
 				cursor: cursor ?? undefined,

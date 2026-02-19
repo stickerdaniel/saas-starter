@@ -9,6 +9,7 @@ declare module '@tanstack/table-core' {
 	interface ColumnMeta<TData extends RowData, TValue> {
 		headClass?: TableColumnMeta['headClass'];
 		cellClass?: TableColumnMeta['cellClass'];
+		sizingMode?: TableColumnMeta['sizingMode'];
 		skeleton?: TableColumnMeta['skeleton'];
 	}
 }
@@ -26,11 +27,12 @@ export const COLUMN_LAYOUT_PRESETS = {
 		minSize: 40,
 		maxSize: 40,
 		meta: {
-			headClass: '[&:has([role=checkbox])]:ps-3',
-			cellClass: '[&:has([role=checkbox])]:ps-3',
+			headClass: '[&:has([role=checkbox])]:px-0',
+			cellClass: '[&:has([role=checkbox])]:px-0',
+			sizingMode: 'fixed',
 			skeleton: {
 				kind: 'checkbox',
-				cellClass: '[&:has([role=checkbox])]:ps-3'
+				cellClass: '[&:has([role=checkbox])]:px-0'
 			}
 		}
 	},
@@ -41,6 +43,7 @@ export const COLUMN_LAYOUT_PRESETS = {
 		meta: {
 			headClass: 'text-right',
 			cellClass: 'text-right',
+			sizingMode: 'fixed',
 			skeleton: {
 				kind: 'iconButton',
 				cellClass: 'text-right'
@@ -54,6 +57,7 @@ export const COLUMN_LAYOUT_PRESETS = {
 		meta: {
 			headClass: 'text-right',
 			cellClass: 'text-right',
+			sizingMode: 'fixed',
 			skeleton: {
 				kind: 'iconButtonGroup',
 				iconCount: 3,
@@ -68,6 +72,7 @@ export const COLUMN_LAYOUT_PRESETS = {
 		meta: {
 			headClass: 'text-right',
 			cellClass: 'text-right',
+			sizingMode: 'fixed',
 			skeleton: {
 				kind: 'iconButtonGroup',
 				iconCount: 4,
@@ -156,9 +161,11 @@ export const COLUMN_LAYOUT_PRESETS = {
 		}
 	},
 	number: {
-		size: 110,
-		minSize: 100,
+		size: 92,
+		minSize: 80,
+		maxSize: 120,
 		meta: {
+			sizingMode: 'fixed',
 			skeleton: {
 				kind: 'text',
 				widthClass: 'w-16'
@@ -176,11 +183,13 @@ export const COLUMN_LAYOUT_PRESETS = {
 		}
 	},
 	inlineCheckbox: {
-		size: 100,
-		minSize: 100,
+		size: 72,
+		minSize: 72,
+		maxSize: 72,
 		meta: {
 			headClass: 'text-center',
 			cellClass: 'text-center',
+			sizingMode: 'fixed',
 			skeleton: {
 				kind: 'checkbox',
 				cellClass: 'text-center'
@@ -194,6 +203,42 @@ export const COLUMN_LAYOUT_PRESETS = {
 			skeleton: {
 				kind: 'text',
 				widthClass: 'w-32'
+			}
+		}
+	},
+	colorSwatch: {
+		size: 100,
+		minSize: 80,
+		maxSize: 120,
+		meta: {
+			sizingMode: 'fixed',
+			skeleton: {
+				kind: 'badge',
+				widthClass: 'w-10'
+			}
+		}
+	},
+	avatar: {
+		size: 60,
+		minSize: 60,
+		maxSize: 60,
+		meta: {
+			sizingMode: 'fixed',
+			skeleton: {
+				kind: 'avatarText',
+				widthClass: 'w-8'
+			}
+		}
+	},
+	currency: {
+		size: 110,
+		minSize: 90,
+		maxSize: 140,
+		meta: {
+			sizingMode: 'fixed',
+			skeleton: {
+				kind: 'text',
+				widthClass: 'w-16'
 			}
 		}
 	}
@@ -238,10 +283,14 @@ export function getResourceFieldLayoutPreset(args: {
 }) {
 	const attribute = args.attribute.toLowerCase();
 	if (args.fieldType === 'image') return COLUMN_LAYOUT_PRESETS.avatarText;
+	if (args.fieldType === 'avatar') return COLUMN_LAYOUT_PRESETS.avatar;
 	if (args.fieldType === 'email' || attribute.includes('email')) return COLUMN_LAYOUT_PRESETS.email;
 	if (args.fieldType === 'date' || args.fieldType === 'datetime') return COLUMN_LAYOUT_PRESETS.date;
 	if (args.fieldType === 'number') return COLUMN_LAYOUT_PRESETS.number;
-	if (args.fieldType === 'badge') return COLUMN_LAYOUT_PRESETS.badgeMd;
+	if (args.fieldType === 'currency') return COLUMN_LAYOUT_PRESETS.currency;
+	if (args.fieldType === 'color') return COLUMN_LAYOUT_PRESETS.colorSwatch;
+	if (args.fieldType === 'badge' || args.fieldType === 'status')
+		return COLUMN_LAYOUT_PRESETS.badgeMd;
 	if (args.fieldType === 'select') {
 		return args.inlineEditable ? COLUMN_LAYOUT_PRESETS.inlineSelect : COLUMN_LAYOUT_PRESETS.badgeMd;
 	}
@@ -257,19 +306,47 @@ export function getResourceFieldLayoutPreset(args: {
 	) {
 		return COLUMN_LAYOUT_PRESETS.relationTitle;
 	}
-	if (args.fieldType === 'hasMany') return COLUMN_LAYOUT_PRESETS.badgeSm;
+	if (args.fieldType === 'hasMany') return COLUMN_LAYOUT_PRESETS.number;
+	if (args.fieldType === 'password') return COLUMN_LAYOUT_PRESETS.textSm;
+	if (args.fieldType === 'slug') return COLUMN_LAYOUT_PRESETS.textMd;
+	if (args.fieldType === 'hidden' || args.fieldType === 'heading')
+		return COLUMN_LAYOUT_PRESETS.textSm;
+	if (args.fieldType === 'booleanGroup') return COLUMN_LAYOUT_PRESETS.badgeSm;
+	if (args.fieldType === 'multiselect') return COLUMN_LAYOUT_PRESETS.textMd;
+	if (args.fieldType === 'keyValue') return COLUMN_LAYOUT_PRESETS.badgeSm;
 	if (attribute.includes('title') || attribute.includes('name'))
 		return COLUMN_LAYOUT_PRESETS.textMd;
 	return COLUMN_LAYOUT_PRESETS.textMd;
 }
 
-export function buildColumnStyle(args: { width: number; minWidth?: number }) {
+export function buildColumnStyle(args: { width?: number; minWidth?: number; maxWidth?: number }) {
 	const parts: string[] = [];
-	if (Number.isFinite(args.width)) {
+	if (typeof args.width === 'number' && Number.isFinite(args.width)) {
 		parts.push(`width: ${args.width}px;`);
 	}
 	if (typeof args.minWidth === 'number' && Number.isFinite(args.minWidth)) {
 		parts.push(`min-width: ${args.minWidth}px;`);
 	}
+	if (typeof args.maxWidth === 'number' && Number.isFinite(args.maxWidth)) {
+		parts.push(`max-width: ${args.maxWidth}px;`);
+	}
 	return parts.join(' ');
+}
+
+export function getColumnStyleArgs(args: {
+	size?: number;
+	minSize?: number;
+	maxSize?: number;
+	meta?: Pick<TableColumnMeta, 'sizingMode'>;
+}) {
+	if (args.meta?.sizingMode === 'fixed') {
+		return {
+			width: args.size,
+			minWidth: args.minSize,
+			maxWidth: args.maxSize
+		};
+	}
+	return {
+		minWidth: args.minSize
+	};
 }

@@ -85,6 +85,7 @@
 			},
 			pageSizeOptions: PAGE_SIZE_OPTIONS,
 			defaultPageSize: '10',
+			pageSizeStorageKey: 'admin-users',
 			sortFields: ['created_at', 'email', 'name', 'role'],
 			buildListArgs: ({ cursor, pageSize, search, filters, sortBy }) => ({
 				cursor: cursor ?? undefined,

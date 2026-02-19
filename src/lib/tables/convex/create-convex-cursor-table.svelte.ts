@@ -26,6 +26,7 @@ export type ConvexCursorTableState<TItem, TSortField extends string, TFilterKeys
 	readonly urlState: TableUrlState<TFilterKeys>;
 	readonly rows: TItem[];
 	readonly isLoading: boolean;
+	readonly showEmptyPlaceholderWhileLoading: boolean;
 	readonly totalCount: number;
 	readonly hasLoadedCount: boolean;
 	readonly pageCount: number;
@@ -168,6 +169,77 @@ export function getPreviousPrefetchCandidate<TItem>(args: {
 	};
 }
 
+export function normalizePageSizeOption(
+	value: string | undefined,
+	options: readonly string[],
+	fallback: string
+) {
+	if (value && options.includes(value)) return value;
+	if (options.includes(fallback)) return fallback;
+	return options[0] ?? fallback;
+}
+
+export function getExplicitPageSizeFromSearch(
+	search: string,
+	_reactiveMarker?: string
+): string | undefined {
+	const trimmed = search.startsWith('?') ? search.slice(1) : search;
+	if (!trimmed) return undefined;
+
+	for (const segment of trimmed.split('&')) {
+		if (!segment) continue;
+		const [rawKey, ...rawValueParts] = segment.split('=');
+		const key = rawKey.replace(/\+/g, ' ');
+		if (key !== 'page_size') continue;
+		const rawValue = rawValueParts.join('=').replace(/\+/g, ' ');
+		try {
+			return decodeURIComponent(rawValue);
+		} catch {
+			return rawValue;
+		}
+	}
+
+	return undefined;
+}
+
+export function resolveExplicitPageSizeDuringUrlSync(
+	explicitPageSizeFromSearch: string | undefined,
+	urlStatePageSize: string
+): string | undefined {
+	if (explicitPageSizeFromSearch === undefined) return undefined;
+	// `window.location.search` can lag behind `useSearchParams` writes for one tick.
+	// Prefer current reactive URL state to avoid snapping page size back.
+	return urlStatePageSize;
+}
+
+export function resolveEffectivePageSizeParam(args: {
+	explicitUrlPageSize?: string;
+	persistedPageSize?: string;
+	urlStatePageSize: string;
+	pageSizeOptions: readonly string[];
+	defaultPageSize: string;
+}) {
+	const normalizedDefault = normalizePageSizeOption(
+		args.defaultPageSize,
+		args.pageSizeOptions,
+		args.defaultPageSize
+	);
+
+	if (args.explicitUrlPageSize !== undefined) {
+		return normalizePageSizeOption(
+			args.explicitUrlPageSize,
+			args.pageSizeOptions,
+			normalizedDefault
+		);
+	}
+
+	if (args.persistedPageSize !== undefined) {
+		return normalizePageSizeOption(args.persistedPageSize, args.pageSizeOptions, normalizedDefault);
+	}
+
+	return normalizePageSizeOption(args.urlStatePageSize, args.pageSizeOptions, normalizedDefault);
+}
+
 type PageBoundarySnapshot = {
 	pageIndex: number;
 	cursor: string | null;
@@ -212,6 +284,14 @@ export function getSkeletonRowCount(args: {
 	if (args.totalCount === undefined) return args.pageSize;
 	const remaining = args.totalCount - args.pageIndex * args.pageSize;
 	return Math.min(Math.max(remaining, 0), args.pageSize);
+}
+
+export function shouldShowEmptyPlaceholderWhileLoading(args: {
+	isLoading: boolean;
+	hasLoadedCount: boolean;
+	cachedTotalCount: number | undefined;
+}) {
+	return args.isLoading && !args.hasLoadedCount && args.cachedTotalCount === 0;
 }
 
 export function isPageIndexOutOfRange(args: {
@@ -299,6 +379,7 @@ export type CreateConvexCursorTableOptions<
 	defaultFilters: Record<TFilterKeys, string>;
 	pageSizeOptions: readonly string[];
 	defaultPageSize: string;
+	pageSizeStorageKey?: string;
 	sortFields: readonly TSortField[];
 	debounceMs?: number;
 	maxCachedPages?: number;
@@ -363,11 +444,38 @@ export function createConvexCursorTable<
 
 	const debounceMs = options.debounceMs ?? 300;
 	const maxCachedPages = options.maxCachedPages ?? 8;
-	const fallbackPageSize = Number.parseInt(options.defaultPageSize, 10);
+	const normalizedDefaultPageSize = normalizePageSizeOption(
+		options.defaultPageSize,
+		options.pageSizeOptions,
+		options.defaultPageSize
+	);
+	const fallbackPageSize = Number.parseInt(normalizedDefaultPageSize, 10);
 
 	const debouncedSearch = new Debounced(() => urlState.search.trim(), debounceMs);
 	const pageIndex = $derived(parsePageIndex(urlState.page));
-	const pageSize = $derived(parsePageSize(urlState.page_size, fallbackPageSize));
+	const pageSizePreference = new PersistedState<string>(
+		`convex-table:page-size:${options.pageSizeStorageKey ?? getFunctionName(options.listQuery)}`,
+		normalizedDefaultPageSize
+	);
+	const explicitUrlPageSize = $derived.by(() =>
+		resolveExplicitPageSizeDuringUrlSync(
+			getExplicitPageSizeFromSearch(
+				typeof window === 'undefined' ? '' : window.location.search,
+				urlState.page_size
+			),
+			urlState.page_size
+		)
+	);
+	const effectivePageSizeParam = $derived.by(() =>
+		resolveEffectivePageSizeParam({
+			explicitUrlPageSize,
+			persistedPageSize: pageSizePreference.current,
+			urlStatePageSize: urlState.page_size,
+			pageSizeOptions: options.pageSizeOptions,
+			defaultPageSize: normalizedDefaultPageSize
+		})
+	);
+	const pageSize = $derived(parsePageSize(effectivePageSizeParam, fallbackPageSize));
 	const countCache = new PersistedState<Record<string, number>>(
 		`convex-table:count-cache:${getFunctionName(options.countQuery)}`,
 		{}
@@ -387,6 +495,26 @@ export function createConvexCursorTable<
 	let pageCache = $state<Record<number, CursorListResult<TItem>>>({});
 	let isJumpingToLastPage = $state(false);
 	let isResolvingPreviousPage = $state(false);
+
+	$effect(() => {
+		const normalizedStored = normalizePageSizeOption(
+			pageSizePreference.current,
+			options.pageSizeOptions,
+			normalizedDefaultPageSize
+		);
+		if (normalizedStored === pageSizePreference.current) return;
+		pageSizePreference.current = normalizedStored;
+	});
+
+	$effect(() => {
+		if (urlState.page_size === effectivePageSizeParam) return;
+		urlState.page_size = effectivePageSizeParam;
+	});
+
+	$effect(() => {
+		if (pageSizePreference.current === effectivePageSizeParam) return;
+		pageSizePreference.current = effectivePageSizeParam;
+	});
 
 	const currentCursor = $derived.by(() => {
 		if (pageIndex === 0) return null;
@@ -526,6 +654,13 @@ export function createConvexCursorTable<
 		isJumpingToLastPage ||
 			isResolvingPreviousPage ||
 			(currentPageData === undefined && listQuery.isLoading)
+	);
+	const showEmptyPlaceholderWhileLoading = $derived.by(() =>
+		shouldShowEmptyPlaceholderWhileLoading({
+			isLoading,
+			hasLoadedCount,
+			cachedTotalCount: cachedTotalCountForIdentity
+		})
 	);
 
 	$effect(() => {
@@ -743,6 +878,9 @@ export function createConvexCursorTable<
 	function setPageSize(nextPageSize: number) {
 		const next = `${nextPageSize}`;
 		if (!options.pageSizeOptions.includes(next)) return;
+		if (pageSizePreference.current !== next) {
+			pageSizePreference.current = next;
+		}
 		if (urlState.page_size === next) return;
 		urlState.page_size = next;
 		resetPagination();
@@ -851,6 +989,9 @@ export function createConvexCursorTable<
 		},
 		get isLoading() {
 			return isLoading;
+		},
+		get showEmptyPlaceholderWhileLoading() {
+			return showEmptyPlaceholderWhileLoading;
 		},
 		get totalCount() {
 			return totalCount;

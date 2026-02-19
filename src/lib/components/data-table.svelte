@@ -21,6 +21,13 @@
 	} from '@dnd-kit-svelte/sortable';
 	import { restrictToVerticalAxis } from '@dnd-kit-svelte/modifiers';
 	import { createBaseTanStackTable } from '$lib/tables/core/create-base-tanstack-table.svelte';
+	import {
+		applyColumnLayoutPreset,
+		buildColumnStyle,
+		COLUMN_LAYOUT_PRESETS,
+		getColumnStyleArgs
+	} from '$lib/tables/core/layout-presets';
+	import type { TableColumnMeta } from '$lib/tables/core/types';
 	import * as Tabs from '$lib/components/ui/tabs/index.js';
 	import * as Table from '$lib/components/ui/table/index.js';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
@@ -56,30 +63,37 @@
 
 	let { data }: { data: Schema[] } = $props();
 
+	function getColumnMeta(def: { meta?: unknown }) {
+		return (def.meta ?? {}) as TableColumnMeta;
+	}
+
 	const columns: ColumnDef<Schema>[] = [
 		{
 			id: 'drag',
 			header: () => null,
 			cell: ({ row }) => renderSnippet(DragHandle, { id: row.original.id })
 		},
-		{
-			id: 'select',
-			header: ({ table }) =>
-				renderComponent(DataTableCheckbox, {
-					checked: table.getIsAllPageRowsSelected(),
-					indeterminate: table.getIsSomePageRowsSelected() && !table.getIsAllPageRowsSelected(),
-					onCheckedChange: (value) => table.toggleAllPageRowsSelected(!!value),
-					'aria-label-key': 'aria.select_all'
-				}),
-			cell: ({ row }) =>
-				renderComponent(DataTableCheckbox, {
-					checked: row.getIsSelected(),
-					onCheckedChange: (value) => row.toggleSelected(!!value),
-					'aria-label-key': 'aria.select_row'
-				}),
-			enableSorting: false,
-			enableHiding: false
-		},
+		applyColumnLayoutPreset({
+			preset: COLUMN_LAYOUT_PRESETS.selectCheckbox,
+			column: {
+				id: 'select',
+				header: ({ table }) =>
+					renderComponent(DataTableCheckbox, {
+						checked: table.getIsAllPageRowsSelected(),
+						indeterminate: table.getIsSomePageRowsSelected() && !table.getIsAllPageRowsSelected(),
+						onCheckedChange: (value) => table.toggleAllPageRowsSelected(!!value),
+						'aria-label-key': 'aria.select_all'
+					}),
+				cell: ({ row }) =>
+					renderComponent(DataTableCheckbox, {
+						checked: row.getIsSelected(),
+						onCheckedChange: (value) => row.toggleSelected(!!value),
+						'aria-label-key': 'aria.select_row'
+					}),
+				enableSorting: false,
+				enableHiding: false
+			}
+		}),
 		{
 			accessorKey: 'header',
 			header: 'Header',
@@ -142,7 +156,9 @@
 		getColumns: () => columns,
 		getData: () => data,
 		getRowId: (row) => row.id.toString(),
-		enableRowSelection: true
+		enableRowSelection: true,
+		pageSizeStorageKey: 'demo-data-table',
+		pageSizeOptions: [10, 20, 30, 40, 50]
 	});
 	const table = tableState.table;
 
@@ -253,7 +269,19 @@
 						{#each table.getHeaderGroups() as headerGroup (headerGroup.id)}
 							<Table.Row>
 								{#each headerGroup.headers as header (header.id)}
-									<Table.Head colspan={header.colSpan}>
+									{@const headerMeta = getColumnMeta(header.column.columnDef)}
+									<Table.Head
+										colspan={header.colSpan}
+										class={headerMeta.headClass}
+										style={buildColumnStyle({
+											...getColumnStyleArgs({
+												size: header.getSize(),
+												minSize: header.column.columnDef.minSize,
+												maxSize: header.column.columnDef.maxSize,
+												meta: headerMeta
+											})
+										})}
+									>
 										{#if !header.isPlaceholder}
 											<FlexRender
 												content={header.column.columnDef.header}
@@ -465,7 +493,18 @@
 		style="transition: {transition.current}; transform: {CSS.Transform.toString(transform.current)}"
 	>
 		{#each row.getVisibleCells() as cell (cell.id)}
-			<Table.Cell>
+			{@const cellMeta = getColumnMeta(cell.column.columnDef)}
+			<Table.Cell
+				class={cellMeta.cellClass}
+				style={buildColumnStyle({
+					...getColumnStyleArgs({
+						size: cell.column.getSize(),
+						minSize: cell.column.columnDef.minSize,
+						maxSize: cell.column.columnDef.maxSize,
+						meta: cellMeta
+					})
+				})}
+			>
 				<FlexRender content={cell.column.columnDef.cell} context={cell.getContext()} />
 			</Table.Cell>
 		{/each}

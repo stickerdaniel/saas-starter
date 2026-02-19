@@ -3,7 +3,10 @@ import type { GenericSchema } from 'valibot';
 import { error } from '@sveltejs/kit';
 import { getResourceByName, getResourceRuntime } from './registry';
 import type { BetterAuthUser } from '$lib/convex/admin/types';
+import type { ResourceDefinition } from './types';
 import { isResourceVisible } from './visibility';
+import { resolveFieldFilters } from './filters';
+import { parseSortParam, parsePageSize } from '$lib/tables/convex/url';
 
 const PAGE_SIZE_OPTIONS = ['5', '10', '20', '50', '100'] as const;
 
@@ -57,4 +60,89 @@ export function createResourceUrlSchema(args: {
 	}
 
 	return v.object(shape);
+}
+
+export function getResourceTableDefaults(resource: ResourceDefinition<any>) {
+	const fieldFilters = resolveFieldFilters(resource.fields);
+	const allConfiguredFilters = [
+		...(resource.filters ?? []),
+		...fieldFilters,
+		...(resource.lenses ?? []).flatMap((lens) => lens.filters ?? [])
+	].filter(
+		(filter, index, array) => array.findIndex((entry) => entry.urlKey === filter.urlKey) === index
+	);
+
+	const defaultFilters: Record<string, string> = {
+		lens: 'all',
+		trashed: 'without',
+		...Object.fromEntries(
+			allConfiguredFilters.map((filter) => [filter.urlKey, filter.defaultValue])
+		)
+	};
+
+	const pageSizeOptions = getPageSizeOptions(resource.perPageOptions);
+	const defaultPageSize = pageSizeOptions[0];
+	const sortFields = (resource.sortFields?.length ? resource.sortFields : ['createdAt']) as [
+		string,
+		...string[]
+	];
+
+	const urlSchema = createResourceUrlSchema({
+		filters: allConfiguredFilters.map((filter) => ({
+			urlKey: filter.urlKey,
+			defaultValue: filter.defaultValue
+		})),
+		pageSizeOptions,
+		defaultPageSize
+	});
+
+	return {
+		allConfiguredFilters,
+		defaultFilters,
+		pageSizeOptions,
+		defaultPageSize,
+		sortFields,
+		urlSchema
+	};
+}
+
+export function parseResourceListArgs(resource: ResourceDefinition<any>, url: URL) {
+	const { allConfiguredFilters, defaultPageSize, sortFields, urlSchema } =
+		getResourceTableDefaults(resource);
+
+	const raw: Record<string, string> = {};
+	for (const [key, value] of url.searchParams) {
+		raw[key] = value;
+	}
+	const state = v.parse(urlSchema, raw) as Record<string, string>;
+
+	const sortBy = parseSortParam(state.sort ?? '', sortFields);
+	const pageSize = parsePageSize(state.page_size ?? defaultPageSize, Number(defaultPageSize));
+	const search = state.search ?? '';
+
+	const filters: Record<string, string> = {};
+	for (const filter of allConfiguredFilters) {
+		filters[filter.urlKey] = state[filter.urlKey] ?? filter.defaultValue;
+	}
+
+	const lens = (state.lens ?? 'all') === 'all' ? undefined : state.lens;
+	const trashed = (state.trashed ?? 'without') as 'without' | 'with' | 'only';
+
+	return {
+		listArgs: {
+			cursor: undefined as string | undefined,
+			numItems: pageSize,
+			search,
+			sortBy,
+			filters,
+			lens,
+			trashed
+		},
+		countArgs: {
+			search,
+			filters,
+			lens,
+			trashed
+		}
+	};
 }

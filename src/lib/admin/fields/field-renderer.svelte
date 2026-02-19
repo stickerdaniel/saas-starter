@@ -14,6 +14,7 @@
 		error?: string;
 		disabled?: boolean;
 		relationOptions?: Option[];
+		allValues?: Record<string, unknown>;
 		onChange?: (value: unknown) => void;
 	};
 
@@ -27,6 +28,7 @@
 		error,
 		disabled = false,
 		relationOptions = [],
+		allValues = {},
 		onChange = () => {}
 	}: Props = $props();
 
@@ -45,5 +47,6 @@
 	{error}
 	{disabled}
 	{relationOptions}
+	{allValues}
 	{onChange}
 />

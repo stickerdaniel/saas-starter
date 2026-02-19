@@ -392,6 +392,23 @@ A customizable Svelte component for building node-based editors and interactive 
 - `vercel logs` - View deployment logs
 - `vercel domains` - Manage custom domains
 
+## Admin Framework (Nova-Inspired)
+
+The admin framework is modeled after [Laravel Nova](https://nova.laravel.com/), a PHP admin panel, re-implemented for our SvelteKit + Convex stack. The reference Nova source lives at `references/vendor/laravel/nova/` (installed via Composer for read-only reference).
+
+**Goal:** Build a metadata-driven, generic resource CRUD framework that matches Nova's developer experience (define a resource once, get list/detail/create/edit/actions/metrics for free) while leveraging Convex real-time subscriptions, SvelteKit SSR, and TypeScript type safety.
+
+**State file:** `docs/nova-vs-admin-framework-comparison.md` tracks the current alignment between Nova and our implementation. **Always update this file** when adding or changing admin framework features — mark items as aligned, note new gaps, or remove resolved gaps.
+
+**Key locations:**
+
+- Resource definitions: `src/lib/admin/resources/*.ts`
+- Core types: `src/lib/admin/types.ts`
+- Field registry: `src/lib/admin/fields/registry.ts`
+- Table system: `src/lib/tables/`
+- Backend: `src/lib/convex/adminFramework/`
+- Routes: `src/routes/[[lang]]/admin/[resource=resource]/`
+
 ## Plan Mode
 
 - Make the plan extremely concise. Sacrifice grammar for the sake of concision.

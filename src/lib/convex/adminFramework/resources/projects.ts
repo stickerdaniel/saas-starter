@@ -233,6 +233,7 @@ export const listProjects = permissionQuery({
 			sortBy: args.sortBy,
 			sortMap: {
 				name: (item) => item.name,
+				slug: (item) => item.slug,
 				status: (item) => item.status,
 				budget: (item) => item.budget,
 				createdAt: (item) => item.createdAt,

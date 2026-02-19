@@ -1,4 +1,5 @@
 import TagsIcon from '@lucide/svelte/icons/tags';
+import HashIcon from '@lucide/svelte/icons/hash';
 import { api } from '$lib/convex/_generated/api';
 import {
 	defineField,
@@ -78,7 +79,14 @@ export const demoTagsResource = defineResource({
 		})
 	],
 	metrics: [
-		defineMetric({ key: 'total', type: 'value', labelKey: 'admin.resources.tags.metrics.total' })
+		defineMetric({
+			key: 'total',
+			type: 'value',
+			labelKey: 'admin.resources.tags.metrics.total',
+			icon: HashIcon,
+			descriptionKey: 'admin.resources.tags.metrics.total_desc',
+			subtitleKey: 'admin.resources.tags.metrics.total_subtitle'
+		})
 	],
 	fieldGroups: [
 		{
