@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	buildNextPageCursors,
 	buildTrimmedCache,
+	getExplicitPageSizeFromSearch,
 	getCanNextPage,
 	getDisplayPageCount,
 	getEffectiveDisplayPageCount,
@@ -9,12 +10,16 @@ import {
 	getNextPrefetchCandidate,
 	getPreviousPrefetchCandidate,
 	getSkeletonRowCount,
+	shouldShowEmptyPlaceholderWhileLoading,
 	isAtLastPage,
 	isPageIndexOutOfRange,
 	hasCountIdentityChanged,
 	hasPageBoundaryChanged,
 	hasQueryIdentityChanged,
 	hasTotalCountChanged,
+	normalizePageSizeOption,
+	resolveExplicitPageSizeDuringUrlSync,
+	resolveEffectivePageSizeParam,
 	serializeCountIdentity
 } from './create-convex-cursor-table.svelte';
 import type { CursorListResult } from './contract';
@@ -28,6 +33,64 @@ function page(
 }
 
 describe('convex cursor table helpers', () => {
+	it('extracts explicit page_size only when present in search params', () => {
+		expect(getExplicitPageSizeFromSearch('?page=2&page_size=20')).toBe('20');
+		expect(getExplicitPageSizeFromSearch('?page=2')).toBeUndefined();
+		expect(getExplicitPageSizeFromSearch('')).toBeUndefined();
+	});
+
+	it('prefers reactive URL state when explicit search param is present', () => {
+		expect(resolveExplicitPageSizeDuringUrlSync('10', '20')).toBe('20');
+		expect(resolveExplicitPageSizeDuringUrlSync(undefined, '20')).toBeUndefined();
+	});
+
+	it('normalizes page size options safely', () => {
+		expect(normalizePageSizeOption('20', ['10', '20', '50'], '10')).toBe('20');
+		expect(normalizePageSizeOption('999', ['10', '20', '50'], '10')).toBe('10');
+		expect(normalizePageSizeOption(undefined, ['10', '20', '50'], '10')).toBe('10');
+		expect(normalizePageSizeOption(undefined, ['10', '20', '50'], '999')).toBe('10');
+	});
+
+	it('resolves effective page size with URL-first precedence', () => {
+		expect(
+			resolveEffectivePageSizeParam({
+				explicitUrlPageSize: '10',
+				persistedPageSize: '50',
+				urlStatePageSize: '20',
+				pageSizeOptions: ['10', '20', '50'],
+				defaultPageSize: '10'
+			})
+		).toBe('10');
+
+		expect(
+			resolveEffectivePageSizeParam({
+				persistedPageSize: '50',
+				urlStatePageSize: '20',
+				pageSizeOptions: ['10', '20', '50'],
+				defaultPageSize: '10'
+			})
+		).toBe('50');
+
+		expect(
+			resolveEffectivePageSizeParam({
+				persistedPageSize: '999',
+				urlStatePageSize: '20',
+				pageSizeOptions: ['10', '20', '50'],
+				defaultPageSize: '10'
+			})
+		).toBe('10');
+
+		expect(
+			resolveEffectivePageSizeParam({
+				explicitUrlPageSize: '999',
+				persistedPageSize: '50',
+				urlStatePageSize: '20',
+				pageSizeOptions: ['10', '20', '50'],
+				defaultPageSize: '10'
+			})
+		).toBe('10');
+	});
+
 	it('detects query identity changes for reset triggers', () => {
 		const base = {
 			search: '',
@@ -230,6 +293,37 @@ describe('convex cursor table helpers', () => {
 				pageSize: 10
 			})
 		).toBe(10);
+	});
+
+	it('shows empty placeholder while loading when cached count is zero', () => {
+		expect(
+			shouldShowEmptyPlaceholderWhileLoading({
+				isLoading: true,
+				hasLoadedCount: false,
+				cachedTotalCount: 0
+			})
+		).toBe(true);
+		expect(
+			shouldShowEmptyPlaceholderWhileLoading({
+				isLoading: true,
+				hasLoadedCount: false,
+				cachedTotalCount: 3
+			})
+		).toBe(false);
+		expect(
+			shouldShowEmptyPlaceholderWhileLoading({
+				isLoading: true,
+				hasLoadedCount: true,
+				cachedTotalCount: 0
+			})
+		).toBe(false);
+		expect(
+			shouldShowEmptyPlaceholderWhileLoading({
+				isLoading: false,
+				hasLoadedCount: false,
+				cachedTotalCount: 0
+			})
+		).toBe(false);
 	});
 
 	it('detects out-of-range page indexes after count is known', () => {

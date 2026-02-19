@@ -37,14 +37,15 @@ const tagCountAggregate = new TableAggregate<TagAggregateShape>(components.aggre
 
 const projectLiveCountAggregate = new TableAggregate<ProjectAggregateShape>(components.aggregate, {
 	sortKey: (doc) => doc.createdAt,
-	namespace: (doc) => (doc.deletedAt === undefined ? 'live' : 'trashed')
+	namespace: (doc) => (doc.deletedAt === undefined ? 'projectLive:live' : 'projectLive:trashed')
 });
 
 const projectStatusCountAggregate = new TableAggregate<ProjectAggregateShape>(
 	components.aggregate,
 	{
 		sortKey: (doc) => doc.createdAt,
-		namespace: (doc) => (doc.deletedAt === undefined ? `live:${doc.status}` : 'trashed')
+		namespace: (doc) =>
+			doc.deletedAt === undefined ? `projectStatus:live:${doc.status}` : 'projectStatus:trashed'
 	}
 );
 
@@ -52,7 +53,10 @@ const projectFeaturedCountAggregate = new TableAggregate<ProjectAggregateShape>(
 	components.aggregate,
 	{
 		sortKey: (doc) => doc.createdAt,
-		namespace: (doc) => (doc.deletedAt === undefined && doc.isFeatured ? 'live:featured' : 'other')
+		namespace: (doc) =>
+			doc.deletedAt === undefined && doc.isFeatured
+				? 'projectFeatured:live:featured'
+				: 'projectFeatured:other'
 	}
 );
 
@@ -60,46 +64,57 @@ const projectBudgetSumAggregate = new TableAggregate<ProjectAggregateShape>(comp
 	sortKey: (doc) => doc.createdAt,
 	sumValue: (doc) => doc.budget,
 	namespace: (doc) =>
-		doc.deletedAt === undefined && doc.status === 'active' ? 'live:active' : 'other'
+		doc.deletedAt === undefined && doc.status === 'active'
+			? 'projectBudget:live:active'
+			: 'projectBudget:other'
 });
 
 const taskLiveCountAggregate = new TableAggregate<TaskAggregateShape>(components.aggregate, {
 	sortKey: (doc) => doc.createdAt,
-	namespace: (doc) => (doc.deletedAt === undefined ? 'live' : 'trashed')
+	namespace: (doc) => (doc.deletedAt === undefined ? 'taskLive:live' : 'taskLive:trashed')
 });
 
 const taskStatusCountAggregate = new TableAggregate<TaskAggregateShape>(components.aggregate, {
 	sortKey: (doc) => doc.createdAt,
-	namespace: (doc) => (doc.deletedAt === undefined ? `live:${doc.status}` : 'trashed')
+	namespace: (doc) =>
+		doc.deletedAt === undefined ? `taskStatus:live:${doc.status}` : 'taskStatus:trashed'
 });
 
 const taskPriorityCountAggregate = new TableAggregate<TaskAggregateShape>(components.aggregate, {
 	sortKey: (doc) => doc.createdAt,
-	namespace: (doc) => (doc.deletedAt === undefined ? `live:${doc.priority}` : 'trashed')
+	namespace: (doc) =>
+		doc.deletedAt === undefined ? `taskPriority:live:${doc.priority}` : 'taskPriority:trashed'
 });
 
 const taskEstimateTotalAggregate = new TableAggregate<TaskAggregateShape>(components.aggregate, {
 	sortKey: (doc) => doc.createdAt,
 	sumValue: (doc) => doc.estimateHours,
-	namespace: (doc) => (doc.deletedAt === undefined ? 'live' : 'trashed')
+	namespace: (doc) =>
+		doc.deletedAt === undefined ? 'taskEstimateTotal:live' : 'taskEstimateTotal:trashed'
 });
 
 const taskEstimateByStatusAggregate = new TableAggregate<TaskAggregateShape>(components.aggregate, {
 	sortKey: (doc) => doc.createdAt,
 	sumValue: (doc) => doc.estimateHours,
-	namespace: (doc) => (doc.deletedAt === undefined ? `live:${doc.status}` : 'trashed')
+	namespace: (doc) =>
+		doc.deletedAt === undefined
+			? `taskEstimateByStatus:live:${doc.status}`
+			: 'taskEstimateByStatus:trashed'
 });
 
 const commentLiveCountAggregate = new TableAggregate<CommentAggregateShape>(components.aggregate, {
 	sortKey: (doc) => doc.createdAt,
-	namespace: (doc) => (doc.deletedAt === undefined ? 'live' : 'trashed')
+	namespace: (doc) => (doc.deletedAt === undefined ? 'commentLive:live' : 'commentLive:trashed')
 });
 
 const commentTargetCountAggregate = new TableAggregate<CommentAggregateShape>(
 	components.aggregate,
 	{
 		sortKey: (doc) => doc.createdAt,
-		namespace: (doc) => (doc.deletedAt === undefined ? `live:${doc.target.kind}` : 'trashed')
+		namespace: (doc) =>
+			doc.deletedAt === undefined
+				? `commentTarget:live:${doc.target.kind}`
+				: 'commentTarget:trashed'
 	}
 );
 
@@ -158,53 +173,55 @@ export async function aggregateCountProjectsByStatus(
 	ctx: QueryCtx,
 	status: Doc<'adminDemoProjects'>['status']
 ) {
-	return projectStatusCountAggregate.count(ctx, { namespace: `live:${status}` });
+	return projectStatusCountAggregate.count(ctx, { namespace: `projectStatus:live:${status}` });
 }
 
 export async function aggregateCountFeaturedProjects(ctx: QueryCtx) {
-	return projectFeaturedCountAggregate.count(ctx, { namespace: 'live:featured' });
+	return projectFeaturedCountAggregate.count(ctx, { namespace: 'projectFeatured:live:featured' });
 }
 
 export async function aggregateSumActiveProjectBudget(ctx: QueryCtx) {
-	return projectBudgetSumAggregate.sum(ctx, { namespace: 'live:active' });
+	return projectBudgetSumAggregate.sum(ctx, { namespace: 'projectBudget:live:active' });
 }
 
 export async function aggregateCountLiveTasks(ctx: QueryCtx) {
-	return taskLiveCountAggregate.count(ctx, { namespace: 'live' });
+	return taskLiveCountAggregate.count(ctx, { namespace: 'taskLive:live' });
 }
 
 export async function aggregateCountTasksByStatus(
 	ctx: QueryCtx,
 	status: Doc<'adminDemoTasks'>['status']
 ) {
-	return taskStatusCountAggregate.count(ctx, { namespace: `live:${status}` });
+	return taskStatusCountAggregate.count(ctx, { namespace: `taskStatus:live:${status}` });
 }
 
 export async function aggregateCountTasksByPriority(
 	ctx: QueryCtx,
 	priority: Doc<'adminDemoTasks'>['priority']
 ) {
-	return taskPriorityCountAggregate.count(ctx, { namespace: `live:${priority}` });
+	return taskPriorityCountAggregate.count(ctx, { namespace: `taskPriority:live:${priority}` });
 }
 
 export async function aggregateSumTaskEstimate(ctx: QueryCtx) {
-	return taskEstimateTotalAggregate.sum(ctx, { namespace: 'live' });
+	return taskEstimateTotalAggregate.sum(ctx, { namespace: 'taskEstimateTotal:live' });
 }
 
 export async function aggregateSumTaskEstimateByStatus(
 	ctx: QueryCtx,
 	status: Doc<'adminDemoTasks'>['status']
 ) {
-	return taskEstimateByStatusAggregate.sum(ctx, { namespace: `live:${status}` });
+	return taskEstimateByStatusAggregate.sum(ctx, {
+		namespace: `taskEstimateByStatus:live:${status}`
+	});
 }
 
 export async function aggregateCountLiveComments(ctx: QueryCtx) {
-	return commentLiveCountAggregate.count(ctx, { namespace: 'live' });
+	return commentLiveCountAggregate.count(ctx, { namespace: 'commentLive:live' });
 }
 
 export async function aggregateCountCommentsByTarget(
 	ctx: QueryCtx,
 	kind: Doc<'adminDemoComments'>['target']['kind']
 ) {
-	return commentTargetCountAggregate.count(ctx, { namespace: `live:${kind}` });
+	return commentTargetCountAggregate.count(ctx, { namespace: `commentTarget:live:${kind}` });
 }

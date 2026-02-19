@@ -4,6 +4,8 @@ import IndexCell from './index-cell.svelte';
 import DetailValue from './detail-value.svelte';
 import FormInput from './form-input.svelte';
 import FormFileUpload from './form-file-upload.svelte';
+import FormHeading from './form-heading.svelte';
+import FormKeyValue from './form-key-value.svelte';
 import LazyFormJsonEditor from './lazy-form-json-editor.svelte';
 import LazyDetailJsonViewer from './lazy-detail-json-viewer.svelte';
 import LazyFormMarkdownEditor from './lazy-form-markdown-editor.svelte';
@@ -11,83 +13,45 @@ import LazyDetailMarkdownViewer from './lazy-detail-markdown-viewer.svelte';
 
 type FieldComponentMap = Record<string, Record<FieldContext, Component<any>>>;
 
+const standardEntry = {
+	index: IndexCell,
+	detail: DetailValue,
+	form: FormInput,
+	preview: DetailValue
+};
+
 export const fieldComponentMap: FieldComponentMap = {
-	text: {
+	text: standardEntry,
+	textarea: standardEntry,
+	number: standardEntry,
+	boolean: standardEntry,
+	select: standardEntry,
+	email: standardEntry,
+	badge: standardEntry,
+	belongsTo: standardEntry,
+	hasMany: standardEntry,
+	manyToMany: standardEntry,
+	morphTo: standardEntry,
+	date: standardEntry,
+	datetime: standardEntry,
+	url: standardEntry,
+	password: standardEntry,
+	color: standardEntry,
+	slug: standardEntry,
+	currency: standardEntry,
+	hidden: standardEntry,
+	booleanGroup: standardEntry,
+	multiselect: standardEntry,
+	status: {
 		index: IndexCell,
 		detail: DetailValue,
 		form: FormInput,
 		preview: DetailValue
 	},
-	textarea: {
+	avatar: {
 		index: IndexCell,
 		detail: DetailValue,
-		form: FormInput,
-		preview: DetailValue
-	},
-	number: {
-		index: IndexCell,
-		detail: DetailValue,
-		form: FormInput,
-		preview: DetailValue
-	},
-	boolean: {
-		index: IndexCell,
-		detail: DetailValue,
-		form: FormInput,
-		preview: DetailValue
-	},
-	select: {
-		index: IndexCell,
-		detail: DetailValue,
-		form: FormInput,
-		preview: DetailValue
-	},
-	email: {
-		index: IndexCell,
-		detail: DetailValue,
-		form: FormInput,
-		preview: DetailValue
-	},
-	badge: {
-		index: IndexCell,
-		detail: DetailValue,
-		form: FormInput,
-		preview: DetailValue
-	},
-	belongsTo: {
-		index: IndexCell,
-		detail: DetailValue,
-		form: FormInput,
-		preview: DetailValue
-	},
-	hasMany: {
-		index: IndexCell,
-		detail: DetailValue,
-		form: FormInput,
-		preview: DetailValue
-	},
-	manyToMany: {
-		index: IndexCell,
-		detail: DetailValue,
-		form: FormInput,
-		preview: DetailValue
-	},
-	morphTo: {
-		index: IndexCell,
-		detail: DetailValue,
-		form: FormInput,
-		preview: DetailValue
-	},
-	date: {
-		index: IndexCell,
-		detail: DetailValue,
-		form: FormInput,
-		preview: DetailValue
-	},
-	datetime: {
-		index: IndexCell,
-		detail: DetailValue,
-		form: FormInput,
+		form: FormFileUpload,
 		preview: DetailValue
 	},
 	image: {
@@ -102,10 +66,16 @@ export const fieldComponentMap: FieldComponentMap = {
 		form: FormFileUpload,
 		preview: DetailValue
 	},
-	url: {
+	keyValue: {
 		index: IndexCell,
 		detail: DetailValue,
-		form: FormInput,
+		form: FormKeyValue,
+		preview: DetailValue
+	},
+	heading: {
+		index: IndexCell,
+		detail: DetailValue,
+		form: FormHeading,
 		preview: DetailValue
 	},
 	json: {

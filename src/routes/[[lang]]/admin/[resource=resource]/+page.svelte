@@ -2,7 +2,7 @@
 	import SEOHead from '$lib/components/SEOHead.svelte';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import { goto } from '$app/navigation';
+	import { goto, preloadData } from '$app/navigation';
 	import { T, getTranslate } from '@tolgee/svelte';
 	import type { ColumnDef } from '@tanstack/table-core';
 	import { SvelteSet } from 'svelte/reactivity';
@@ -26,13 +26,10 @@
 	import {
 		applyColumnLayoutPreset,
 		COLUMN_LAYOUT_PRESETS,
-		getResourceFieldLayoutPreset
+		getResourceFieldLayoutPreset,
+		type ColumnLayoutPreset
 	} from '$lib/tables/core/layout-presets';
-	import {
-		getResourceContext,
-		getPageSizeOptions,
-		createResourceUrlSchema
-	} from '$lib/admin/page-helpers';
+	import { getResourceContext, getResourceTableDefaults } from '$lib/admin/page-helpers';
 	import FieldRenderer from '$lib/admin/fields/field-renderer.svelte';
 	import InlineEditCell from '$lib/admin/fields/inline-edit-cell.svelte';
 	import {
@@ -47,6 +44,7 @@
 	import ActionModal from '$lib/admin/components/action-modal.svelte';
 	import MetricsCards from '$lib/admin/components/metrics-cards.svelte';
 	import type { ActionDefinition, FieldDefinition, FilterDefinition } from '$lib/admin/types';
+	import { resolveFieldValue } from '$lib/admin/field-utils';
 	import { ConfirmDeleteDialog, confirmDelete } from '$lib/components/ui/confirm-delete-dialog';
 	import {
 		createOptimisticDelete,
@@ -55,7 +53,11 @@
 		createOptimisticRestore,
 		createOptimisticRestoreMany
 	} from '$lib/admin/optimistic';
-	import { executeResourceAction } from '$lib/admin/action-response';
+	import {
+		executeChunkedResourceAction,
+		executeChunkedMutations,
+		type ChunkProgress
+	} from '$lib/admin/action-response';
 	import { createCsvFromRows, createJsonFromRows, downloadTextFile } from '$lib/admin/export';
 	import {
 		getViewerUser,
@@ -124,36 +126,15 @@
 		return merged;
 	}
 
-	const allConfiguredFilters = [
-		...(resource.filters ?? []),
-		...(resource.lenses ?? []).flatMap((lens) => lens.filters ?? [])
-	].filter(
-		(filter, index, array) => array.findIndex((entry) => entry.urlKey === filter.urlKey) === index
-	);
-
-	const defaultFilters = {
-		lens: 'all',
-		trashed: 'without',
-		...Object.fromEntries(
-			allConfiguredFilters.map((filter) => [filter.urlKey, filter.defaultValue])
-		)
-	} as Record<string, string>;
-
-	const pageSizeOptions = getPageSizeOptions(resource.perPageOptions);
-	const pageSizeNumbers = pageSizeOptions.map((option) => Number(option));
-	const defaultPageSize = pageSizeOptions[0];
-	const resourceSortFields = (
-		resource.sortFields?.length ? resource.sortFields : ['createdAt']
-	) as [string, ...string[]];
-
-	const urlSchema = createResourceUrlSchema({
-		filters: allConfiguredFilters.map((filter) => ({
-			urlKey: filter.urlKey,
-			defaultValue: filter.defaultValue
-		})),
+	const {
+		allConfiguredFilters,
+		defaultFilters,
 		pageSizeOptions,
-		defaultPageSize
-	});
+		defaultPageSize,
+		sortFields: resourceSortFields,
+		urlSchema
+	} = getResourceTableDefaults(resource);
+	const pageSizeNumbers = pageSizeOptions.map((option) => Number(option));
 
 	const resourceTable = createConvexCursorTable<
 		Record<string, unknown>,
@@ -169,6 +150,7 @@
 		defaultFilters,
 		pageSizeOptions,
 		defaultPageSize,
+		pageSizeStorageKey: `admin-resource:${resource.name}`,
 		sortFields: resourceSortFields,
 		buildListArgs: ({ cursor, pageSize, search, sortBy, filters, urlState }) => ({
 			cursor: cursor ?? undefined,
@@ -210,7 +192,8 @@
 				.map((metric) => [metric.key, metric.rangeOptions?.[0]?.value ?? ''])
 		)
 	);
-	let metricsCards = $state<any[]>([]);
+	const ssrMetrics = (page.data.metricsCards ?? []) as any[];
+	let metricsCards = $state<any[]>(ssrMetrics);
 	let metricsLoadError = $state(false);
 	let metricsRequestId = 0;
 	$effect(() => {
@@ -344,13 +327,11 @@
 				enableSorting: false
 			}
 		}),
-		...indexFields.map((field) =>
-			applyColumnLayoutPreset({
-				preset: getResourceFieldLayoutPreset({
-					fieldType: field.type,
-					attribute: String(field.attribute),
-					inlineEditable: Boolean(field.inlineEditable)
-				}),
+		...indexFields.map((field) => {
+			const fieldLayout = resolveFieldColumnLayout(field);
+			return applyColumnLayoutPreset({
+				preset: fieldLayout.preset,
+				overrides: fieldLayout.overrides,
 				column: {
 					id: String(field.attribute),
 					header: () =>
@@ -373,7 +354,7 @@
 							return renderComponent(InlineEditCell, {
 								field,
 								record,
-								value: field.resolveUsing ? field.resolveUsing(record) : record[field.attribute],
+								value: resolveFieldValue(field, record),
 								runtime,
 								testId: `${resource.name}-${field.attribute}-cell`
 							});
@@ -383,18 +364,14 @@
 							context: 'index',
 							field,
 							record,
-							value: visibleForRow
-								? field.resolveUsing
-									? field.resolveUsing(record)
-									: record[field.attribute]
-								: '-',
+							value: visibleForRow ? resolveFieldValue(field, record) : '-',
 							testId: `${resource.name}-${field.attribute}-cell`
 						});
 					},
 					enableSorting: field.sortable === true
 				}
-			})
-		),
+			});
+		}),
 		applyColumnLayoutPreset({
 			preset: COLUMN_LAYOUT_PRESETS.actionsInline4,
 			column: {
@@ -454,6 +431,8 @@
 	let relationOptions = $state<Record<string, Array<{ value: string; label: string }>>>({});
 	let relationOptionsLoadError = $state(false);
 	let previewRecord = $state<Record<string, unknown> | null>(null);
+	let actionProgress = $state<ChunkProgress | null>(null);
+	let cancelledRef = $state(false);
 
 	const availableActions = $derived(
 		activeActions.filter((action) => {
@@ -509,6 +488,16 @@
 		void openDetail(id);
 	}
 
+	function handleRowHover(row: any) {
+		const clickAction = resource.clickAction ?? 'detail';
+		if (clickAction !== 'detail' && clickAction !== 'edit') return;
+		const id = String(row.original._id);
+		const url = resolve(
+			clickAction === 'edit' ? `${page.url.pathname}/${id}/edit` : `${page.url.pathname}/${id}`
+		);
+		void preloadData(url);
+	}
+
 	function setFilter(key: string, value: string) {
 		resourceTable.setFilter(key, value);
 	}
@@ -548,23 +537,85 @@
 		return currentSort.direction;
 	}
 
+	function resolveFieldColumnLayout(field: FieldDefinition<any>): {
+		preset: ColumnLayoutPreset;
+		overrides?: Partial<ColumnLayoutPreset>;
+	} {
+		const indexColumn = field.indexColumn;
+		const defaultPreset = getResourceFieldLayoutPreset({
+			fieldType: field.type,
+			attribute: String(field.attribute),
+			inlineEditable: Boolean(field.inlineEditable)
+		});
+		const preset =
+			indexColumn?.preset !== undefined ? COLUMN_LAYOUT_PRESETS[indexColumn.preset] : defaultPreset;
+
+		if (!indexColumn) {
+			return { preset };
+		}
+
+		return {
+			preset,
+			overrides: {
+				size: indexColumn.size,
+				minSize: indexColumn.minSize,
+				maxSize: indexColumn.maxSize,
+				meta:
+					indexColumn.fixed === undefined
+						? undefined
+						: {
+								sizingMode: indexColumn.fixed ? 'fixed' : 'fluid'
+							}
+			}
+		};
+	}
+
 	async function executeAction(action: ActionDefinition, values: Record<string, unknown>) {
 		const ids = action.standalone ? [] : [...selectedIds];
-		const response = await executeResourceAction({
+		actionProgress = null;
+		const result = await executeChunkedResourceAction({
 			client,
 			runtime,
 			action: action.key,
 			ids,
 			values,
+			chunkSize: action.chunkSize,
 			navigateTo: async (url) => {
 				await goto(resolve(url));
 			},
-			t: $t
+			t: $t,
+			onProgress: (progress) => {
+				actionProgress = progress;
+			},
+			shouldCancel: () => cancelledRef
 		});
-		if (response.type !== 'danger') {
+		actionProgress = null;
+
+		if (result.cancelled) {
+			toast.info(
+				$t('admin.resources.bulk.action_cancelled', {
+					processed: result.totalProcessed,
+					total: ids.length
+				})
+			);
+			if (result.totalProcessed > 0) resourceTableUi.resetRowSelection();
+			return result;
+		}
+		if (result.failedChunks.length > 0) {
+			toast.error(
+				$t('admin.resources.bulk.action_partial_failure', {
+					failed: result.totalFailed,
+					total: ids.length
+				})
+			);
+			resourceTableUi.resetRowSelection();
+			return result;
+		}
+		const hasAnyDanger = result.responses.some((r) => r.type === 'danger');
+		if (!hasAnyDanger) {
 			resourceTableUi.resetRowSelection();
 		}
-		return response;
+		return result;
 	}
 
 	async function openAction(action: ActionDefinition) {
@@ -612,10 +663,13 @@
 
 	async function runActiveAction() {
 		if (!activeAction) return;
+		cancelledRef = false;
 		actionBusy = true;
 		try {
-			const response = await executeAction(activeAction, actionValues);
-			if (response.type !== 'danger') {
+			const result = await executeAction(activeAction, actionValues);
+			const hasAnyDanger =
+				'responses' in result && result.responses.some((r: any) => r.type === 'danger');
+			if (!result.cancelled && !hasAnyDanger) {
 				actionOpen = false;
 			}
 		} catch (error) {
@@ -624,6 +678,7 @@
 			toast.error(message);
 		} finally {
 			actionBusy = false;
+			actionProgress = null;
 		}
 	}
 
@@ -739,22 +794,33 @@
 
 	async function bulkDeleteSelected() {
 		if (!canBulkDelete) return;
-		const optimistic = createOptimisticDeleteMany(runtime.list, selectedIds);
-		const results = await Promise.allSettled(
-			selectedIds.map((id) =>
+		const ids = [...selectedIds];
+		const optimistic = createOptimisticDeleteMany(runtime.list, ids);
+		cancelledRef = false;
+		const result = await executeChunkedMutations({
+			ids,
+			executeMutation: (id) =>
 				client.mutation(runtime.delete, { id } as never, {
 					optimisticUpdate: optimistic
-				})
-			)
-		);
-		const failed = results.filter((r) => r.status === 'rejected');
+				}),
+			shouldCancel: () => cancelledRef
+		});
 		resourceTableUi.resetRowSelection();
-		if (failed.length > 0) {
-			console.error(
-				`[admin:${resource.name}] bulk delete: ${failed.length}/${results.length} failed`,
-				failed
+		if (result.cancelled) {
+			toast.info(
+				$t('admin.resources.bulk.action_cancelled', {
+					processed: result.succeeded,
+					total: ids.length
+				})
 			);
-			toast.error($t('admin.resources.toasts.action_error'));
+		} else if (result.failed > 0) {
+			console.error(`[admin:${resource.name}] bulk delete: ${result.failed}/${ids.length} failed`);
+			toast.error(
+				$t('admin.resources.bulk.partial_delete_error', {
+					failed: result.failed,
+					total: ids.length
+				})
+			);
 		} else {
 			toast.success($t('admin.resources.toasts.deleted'));
 		}
@@ -762,22 +828,33 @@
 
 	async function bulkRestoreSelected() {
 		if (!canBulkRestore) return;
-		const optimistic = createOptimisticRestoreMany(runtime.list, selectedIds);
-		const results = await Promise.allSettled(
-			selectedIds.map((id) =>
+		const ids = [...selectedIds];
+		const optimistic = createOptimisticRestoreMany(runtime.list, ids);
+		cancelledRef = false;
+		const result = await executeChunkedMutations({
+			ids,
+			executeMutation: (id) =>
 				client.mutation(runtime.restore, { id } as never, {
 					optimisticUpdate: optimistic
-				})
-			)
-		);
-		const failed = results.filter((r) => r.status === 'rejected');
+				}),
+			shouldCancel: () => cancelledRef
+		});
 		resourceTableUi.resetRowSelection();
-		if (failed.length > 0) {
-			console.error(
-				`[admin:${resource.name}] bulk restore: ${failed.length}/${results.length} failed`,
-				failed
+		if (result.cancelled) {
+			toast.info(
+				$t('admin.resources.bulk.action_cancelled', {
+					processed: result.succeeded,
+					total: ids.length
+				})
 			);
-			toast.error($t('admin.resources.toasts.action_error'));
+		} else if (result.failed > 0) {
+			console.error(`[admin:${resource.name}] bulk restore: ${result.failed}/${ids.length} failed`);
+			toast.error(
+				$t('admin.resources.bulk.partial_delete_error', {
+					failed: result.failed,
+					total: ids.length
+				})
+			);
 		} else {
 			toast.success($t('admin.resources.toasts.restored'));
 		}
@@ -785,22 +862,35 @@
 
 	async function bulkForceDeleteSelected() {
 		if (!canBulkForceDelete) return;
-		const optimistic = createOptimisticForceDeleteMany(runtime.list, selectedIds);
-		const results = await Promise.allSettled(
-			selectedIds.map((id) =>
+		const ids = [...selectedIds];
+		const optimistic = createOptimisticForceDeleteMany(runtime.list, ids);
+		cancelledRef = false;
+		const result = await executeChunkedMutations({
+			ids,
+			executeMutation: (id) =>
 				client.mutation(runtime.forceDelete, { id } as never, {
 					optimisticUpdate: optimistic
-				})
-			)
-		);
-		const failed = results.filter((r) => r.status === 'rejected');
+				}),
+			shouldCancel: () => cancelledRef
+		});
 		resourceTableUi.resetRowSelection();
-		if (failed.length > 0) {
-			console.error(
-				`[admin:${resource.name}] bulk force delete: ${failed.length}/${results.length} failed`,
-				failed
+		if (result.cancelled) {
+			toast.info(
+				$t('admin.resources.bulk.action_cancelled', {
+					processed: result.succeeded,
+					total: ids.length
+				})
 			);
-			toast.error($t('admin.resources.toasts.action_error'));
+		} else if (result.failed > 0) {
+			console.error(
+				`[admin:${resource.name}] bulk force delete: ${result.failed}/${ids.length} failed`
+			);
+			toast.error(
+				$t('admin.resources.bulk.partial_delete_error', {
+					failed: result.failed,
+					total: ids.length
+				})
+			);
 		} else {
 			toast.success($t('admin.resources.toasts.force_deleted'));
 		}
@@ -1002,6 +1092,7 @@
 		error={metricsLoadError}
 		selectedRanges={metricRanges}
 		onRangeChange={setMetricRange}
+		animated={ssrMetrics.length === 0}
 		{prefix}
 	/>
 
@@ -1010,6 +1101,7 @@
 		config={resourceTableRenderConfig}
 		rowTestId={(row) => `${resource.name}-row-${row.id}`}
 		onRowClick={(row, event) => handleRowClick(event, String(row.original._id))}
+		onRowHover={handleRowHover}
 	>
 		{#snippet toolbarFilters()}
 			<div class="flex flex-wrap items-center gap-2">
@@ -1142,7 +1234,7 @@
 				</Button>
 				{#each availableActions as action (action.key)}
 					<Button
-						variant="outline"
+						variant={action.destructive ? 'destructive' : 'outline'}
 						size="sm"
 						onclick={() => void openAction(action)}
 						disabled={isRowActionDisabled(action)}
@@ -1181,9 +1273,7 @@
 							context="preview"
 							{field}
 							record={previewRecord}
-							value={field.resolveUsing
-								? field.resolveUsing(previewRecord)
-								: previewRecord[field.attribute]}
+							value={resolveFieldValue(field, previewRecord)}
 						/>
 					{/if}
 				{/each}
@@ -1219,7 +1309,12 @@
 	{relationOptions}
 	{relationOptionsLoadError}
 	busy={actionBusy}
+	progress={actionProgress}
 	onOpenChange={(open) => {
+		if (!open && actionBusy) {
+			cancelledRef = true;
+			return;
+		}
 		actionOpen = open;
 	}}
 	onValueChange={(key, value) => {

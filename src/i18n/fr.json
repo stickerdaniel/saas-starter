@@ -71,8 +71,6 @@
 				"create": "Create",
 				"create_resource": "Create {resource}",
 				"delete": "Delete",
-				"no_records_selected": "Aucun enregistrement selectionne.",
-				"records_not_found": "Les enregistrements selectionnes n'ont pas pu etre trouves.",
 				"edit": "Edit",
 				"force_delete": "Force Delete",
 				"preview": "Aperçu",
@@ -173,11 +171,19 @@
 				"actions": "Actions"
 			},
 			"bulk": {
+				"action_cancelled": "Annulé. {processed} sur {total} traités.",
+				"action_partial_failure": "{failed} sur {total} ont échoué.",
+				"chunks_failed": "{count} lot(s) ont échoué",
 				"delete": "Supprimer en lot",
 				"delete_description": "Supprimer {count} enregistrements sélectionnés ?",
-				"restore": "Restaurer en lot",
 				"force_delete": "Suppression définitive en lot",
-				"force_delete_description": "Supprimer définitivement {count} enregistrements sélectionnés ?"
+				"force_delete_description": "Supprimer définitivement {count} enregistrements sélectionnés ?",
+				"partial_delete_error": "{failed} sur {total} suppressions ont échoué.",
+				"processing_chunks": "Traitement de {current} sur {total}...",
+				"restore": "Restaurer en lot"
+			},
+			"columns": {
+				"actions": "Actions"
 			},
 			"comments": {
 				"actions": {
@@ -204,7 +210,8 @@
 					"total": "Commentaires au total",
 					"total_desc": "Tous les commentaires sur toutes les cibles",
 					"total_subtitle": "Activité des commentaires",
-					"total": "Total Comments"
+					"total": "Total Comments",
+					"total_subtitle": "Activité des commentaires"
 				},
 				"nav_title": "Demo Comments",
 				"options": {
@@ -272,15 +279,24 @@
 				"suggestions_loading": "Chargement des suggestions…",
 				"upload": "Téléverser un fichier",
 				"value_placeholder": "Valeur",
-				"select_placeholder": "Select option"
+				"select_placeholder": "Select option",
+				"select_placeholder": "Select option",
+				"yes": "Oui",
+				"no": "Non"
 			},
 			"form": {
+				"add_pair": "Ajouter une paire",
+				"auto_generate": "Générer automatiquement",
 				"fix_errors": "Veuillez corriger les champs en surbrillance.",
 				"invalid": "Invalid field value",
+				"key_placeholder": "Clé",
 				"markdown_placeholder": "## Contenu Markdown",
 				"no_relation_options": "No options available",
+				"remove_pair": "Supprimer la paire",
 				"required": "This field is required",
-				"upload": "Téléverser un fichier"
+				"slug_preview": "Aperçu du slug",
+				"upload": "Téléverser un fichier",
+				"value_placeholder": "Valeur"
 			},
 			"groups": {
 				"assignment": "Affectation",
@@ -295,9 +311,6 @@
 			"lenses": {
 				"all": "All Lenses"
 			},
-			"load_error": "Impossible de charger cette ressource. Veuillez reessayer.",
-			"load_error_relation_options": "Impossible de charger les options pour {field}. Veuillez reessayer.",
-			"metrics_load_error": "Impossible de charger les metriques. Elles seront retentees automatiquement.",
 			"loading": "Loading resources...",
 			"peek": {
 				"empty": "Rien à afficher ici.",
@@ -368,7 +381,8 @@
 					"active": "Active Projects",
 					"budget": "Active Budget",
 					"featured": "Featured Projects",
-					"total": "Total Projects"
+					"total": "Total Projects",
+					"total_subtitle": "Portefeuille de projets"
 				},
 				"nav_title": "Demo Projects",
 				"options": {
@@ -406,7 +420,8 @@
 					"total": "Étiquettes au total",
 					"total_desc": "Toutes les étiquettes disponibles",
 					"total_subtitle": "Bibliothèque d'étiquettes",
-					"total": "Total Tags"
+					"total": "Total Tags",
+					"total_subtitle": "Bibliothèque d'étiquettes"
 				},
 				"nav_title": "Demo Tags"
 			},
@@ -458,10 +473,16 @@
 					"done": "Done",
 					"estimate": "Estimated Hours",
 					"estimate_by_status": "Estimation par statut",
-					"in_progress": "In Progress",
+					"estimate_desc": "Total des heures de travail estimées",
+					"estimate_subtitle": "Sur toutes les tâches",
+					"in_progress": "En cours",
+					"in_progress_desc": "Tâches en cours de réalisation",
+					"in_progress_subtitle": "Travail actif",
 					"priority_split": "Répartition des priorités",
 					"status_trend": "Tendance du statut",
-					"todo": "Todo"
+					"todo": "À faire",
+					"todo_desc": "Tâches en attente de démarrage",
+					"todo_subtitle": "Éléments du backlog"
 				},
 				"nav_title": "Demo Tasks",
 				"options": {
@@ -496,6 +517,8 @@
 				"pairs_count": "{count} paires",
 				"selected_count": "{count} sélectionnés",
 				"no": "No",
+				"pairs_count": "{count} paires",
+				"selected_count": "{count} sélectionnés",
 				"yes": "Yes"
 			}
 		},
@@ -997,9 +1020,7 @@
 	"common": {
 		"adding": "Ajout en cours...",
 		"cancel": "Annuler",
-		"confirm": "Confirmer",
-		"retry": "Reessayer",
-		"save": "Enregistrer"
+		"confirm": "Confirmer"
 	},
 	"email": {
 		"body": {

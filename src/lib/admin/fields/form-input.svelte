@@ -17,6 +17,7 @@
 		disabled?: boolean;
 		testId?: string;
 		relationOptions?: Option[];
+		allValues?: Record<string, unknown>;
 		onChange: (value: unknown) => void;
 	};
 
@@ -27,6 +28,7 @@
 		disabled = false,
 		testId,
 		relationOptions = [],
+		allValues = {},
 		onChange
 	}: Props = $props();
 	const { t } = getTranslate();
@@ -65,108 +67,282 @@
 		}
 		onChange(Array.from(set));
 	}
+
+	// slug auto-generation
+	function toSlug(input: string) {
+		return input
+			.toLowerCase()
+			.trim()
+			.replace(/[^\w\s-]/g, '')
+			.replace(/[\s_]+/g, '-')
+			.replace(/-+/g, '-');
+	}
+
+	$effect(() => {
+		if (field.type === 'slug' && field.slugFrom) {
+			const source = allValues[field.slugFrom];
+			if (typeof source === 'string' && source.length > 0) {
+				const generated = toSlug(source);
+				if (!value || value === toSlug(String(value))) {
+					onChange(generated);
+				}
+			}
+		}
+	});
+
+	// currency formatting
+	const currencyDisplay = $derived.by(() => {
+		if (field.type !== 'currency') return '';
+		const numVal = Number(value ?? 0);
+		if (!Number.isFinite(numVal)) return '';
+		try {
+			return new Intl.NumberFormat(field.currencyLocale ?? 'en-US', {
+				style: 'currency',
+				currency: field.currencyCode ?? 'USD'
+			}).format(numVal / 100);
+		} catch {
+			return String(numVal / 100);
+		}
+	});
+
+	// booleanGroup helpers
+	const booleanGroupValues = $derived.by(() => {
+		if (field.type !== 'booleanGroup') return {} as Record<string, boolean>;
+		if (value && typeof value === 'object' && !Array.isArray(value)) {
+			return value as Record<string, boolean>;
+		}
+		return {} as Record<string, boolean>;
+	});
+
+	function handleBooleanGroupToggle(optionValue: string, checked: boolean) {
+		const next = { ...booleanGroupValues, [optionValue]: Boolean(checked) };
+		onChange(next);
+	}
+
+	// multiselect helpers
+	const multiselectValues = $derived.by(() => {
+		if (!Array.isArray(value)) return [] as string[];
+		return value.map((entry) => String(entry));
+	});
+
+	function handleMultiselectToggle(optionValue: string, checked: boolean) {
+		const set = new SvelteSet(multiselectValues);
+		if (checked) {
+			set.add(optionValue);
+		} else {
+			set.delete(optionValue);
+		}
+		onChange(Array.from(set));
+	}
 </script>
 
-<Field.Field>
-	<Field.Label><T keyName={field.labelKey} /></Field.Label>
+{#if field.type === 'heading'}
+	<!-- heading is handled by FormHeading, not rendered here -->
+{:else if field.type === 'hidden'}
+	<input type="hidden" value={String(value ?? '')} data-testid={testId} />
+{:else}
+	<Field.Field>
+		<Field.Label><T keyName={field.labelKey} /></Field.Label>
 
-	{#if field.type === 'textarea'}
-		<Textarea
-			value={String(value ?? '')}
-			{disabled}
-			placeholder={field.placeholderKey ? $t(field.placeholderKey) : undefined}
-			oninput={(event) => onChange((event.currentTarget as HTMLTextAreaElement).value)}
-			data-testid={testId}
-		/>
-	{:else if field.type === 'boolean'}
-		<div class="flex items-center gap-3 py-2">
-			<Checkbox
-				checked={Boolean(value)}
+		{#if field.type === 'textarea'}
+			<Textarea
+				value={String(value ?? '')}
 				{disabled}
-				onCheckedChange={(checked) => onChange(Boolean(checked))}
+				placeholder={field.placeholderKey ? $t(field.placeholderKey) : undefined}
+				oninput={(event) => onChange((event.currentTarget as HTMLTextAreaElement).value)}
 				data-testid={testId}
 			/>
-			<span class="text-sm text-muted-foreground"
-				><T keyName="admin.resources.values.enabled" /></span
+		{:else if field.type === 'boolean'}
+			<div class="flex items-center gap-3 py-2">
+				<Checkbox
+					checked={Boolean(value)}
+					{disabled}
+					onCheckedChange={(checked) => onChange(Boolean(checked))}
+					data-testid={testId}
+				/>
+				<span class="text-sm text-muted-foreground"
+					><T keyName="admin.resources.values.enabled" /></span
+				>
+			</div>
+		{:else if field.type === 'select' || field.type === 'belongsTo' || field.type === 'morphTo'}
+			<Select.Root
+				type="single"
+				value={String(value ?? '')}
+				{disabled}
+				onValueChange={(next) => {
+					onChange(next);
+				}}
 			>
-		</div>
-	{:else if field.type === 'select' || field.type === 'belongsTo' || field.type === 'morphTo'}
-		<Select.Root
-			type="single"
-			value={String(value ?? '')}
-			{disabled}
-			onValueChange={(next) => {
-				onChange(next);
-			}}
-		>
-			<Select.Trigger data-testid={testId}>
-				{#if field.placeholderKey}
-					<T keyName={field.placeholderKey} />
+				<Select.Trigger data-testid={testId}>
+					{#if field.placeholderKey}
+						<T keyName={field.placeholderKey} />
+					{:else}
+						<T keyName="admin.resources.filters.select_placeholder" />
+					{/if}
+				</Select.Trigger>
+				<Select.Content>
+					{#each selectOptions as option (option.value)}
+						<Select.Item value={option.value}>
+							{#if option.translatable}
+								<T keyName={option.label} />
+							{:else}
+								{option.label}
+							{/if}
+						</Select.Item>
+					{/each}
+				</Select.Content>
+			</Select.Root>
+		{:else if field.type === 'manyToMany'}
+			<div class="space-y-2 rounded-md border p-3">
+				{#if selectOptions.length === 0}
+					<p class="text-sm text-muted-foreground">
+						<T keyName="admin.resources.form.no_relation_options" />
+					</p>
 				{:else}
-					<T keyName="admin.resources.filters.select_placeholder" />
+					{#each selectOptions as option (option.value)}
+						<label class="flex items-center gap-2">
+							<Checkbox
+								checked={selectedManyValues.includes(option.value)}
+								{disabled}
+								onCheckedChange={(checked) =>
+									handleManyToManyToggle(option.value, Boolean(checked))}
+								data-testid={testId ? `${testId}-${option.value}` : undefined}
+							/>
+							<span class="text-sm">{option.label}</span>
+						</label>
+					{/each}
 				{/if}
-			</Select.Trigger>
-			<Select.Content>
-				{#each selectOptions as option (option.value)}
-					<Select.Item value={option.value}>
-						{#if option.translatable}
-							<T keyName={option.label} />
-						{:else}
-							{option.label}
-						{/if}
-					</Select.Item>
-				{/each}
-			</Select.Content>
-		</Select.Root>
-	{:else if field.type === 'manyToMany'}
-		<div class="space-y-2 rounded-md border p-3">
-			{#if selectOptions.length === 0}
-				<p class="text-sm text-muted-foreground">
-					<T keyName="admin.resources.form.no_relation_options" />
-				</p>
-			{:else}
-				{#each selectOptions as option (option.value)}
+			</div>
+		{:else if field.type === 'password'}
+			<Input
+				type="password"
+				value={String(value ?? '')}
+				{disabled}
+				placeholder={field.placeholderKey ? $t(field.placeholderKey) : undefined}
+				oninput={(event) => onChange((event.currentTarget as HTMLInputElement).value)}
+				data-testid={testId}
+			/>
+		{:else if field.type === 'color'}
+			<div class="flex items-center gap-3">
+				<input
+					type="color"
+					value={String(value ?? '#000000')}
+					{disabled}
+					oninput={(event) => onChange((event.currentTarget as HTMLInputElement).value)}
+					data-testid={testId}
+					class="h-10 w-14 cursor-pointer rounded border"
+				/>
+				<Input
+					type="text"
+					value={String(value ?? '')}
+					{disabled}
+					placeholder="#000000"
+					oninput={(event) => onChange((event.currentTarget as HTMLInputElement).value)}
+					class="max-w-32"
+				/>
+			</div>
+		{:else if field.type === 'slug'}
+			<div class="space-y-1">
+				<Input
+					type="text"
+					value={String(value ?? '')}
+					{disabled}
+					placeholder={field.placeholderKey ? $t(field.placeholderKey) : undefined}
+					oninput={(event) => onChange((event.currentTarget as HTMLInputElement).value)}
+					data-testid={testId}
+				/>
+				{#if field.slugFrom && value}
+					<p class="text-xs text-muted-foreground">
+						<T keyName="admin.resources.form.slug_preview" />: {value}
+					</p>
+				{/if}
+			</div>
+		{:else if field.type === 'currency'}
+			<div class="space-y-1">
+				<Input
+					type="number"
+					value={String(value ?? '')}
+					{disabled}
+					placeholder={field.placeholderKey ? $t(field.placeholderKey) : '0'}
+					oninput={(event) =>
+						onChange(Number((event.currentTarget as HTMLInputElement).value || '0'))}
+					data-testid={testId}
+				/>
+				{#if currencyDisplay}
+					<p class="text-xs text-muted-foreground">{currencyDisplay}</p>
+				{/if}
+			</div>
+		{:else if field.type === 'booleanGroup' && field.options}
+			<div class="space-y-2 rounded-md border p-3">
+				{#each field.options as option (option.value)}
 					<label class="flex items-center gap-2">
 						<Checkbox
-							checked={selectedManyValues.includes(option.value)}
+							checked={Boolean(booleanGroupValues[option.value])}
 							{disabled}
-							onCheckedChange={(checked) => handleManyToManyToggle(option.value, Boolean(checked))}
+							onCheckedChange={(checked) =>
+								handleBooleanGroupToggle(option.value, Boolean(checked))}
 							data-testid={testId ? `${testId}-${option.value}` : undefined}
 						/>
-						<span class="text-sm">{option.label}</span>
+						<span class="text-sm"><T keyName={option.labelKey} /></span>
 					</label>
 				{/each}
+			</div>
+		{:else if field.type === 'multiselect' && field.options}
+			<div class="space-y-2 rounded-md border p-3">
+				{#each field.options as option (option.value)}
+					<label class="flex items-center gap-2">
+						<Checkbox
+							checked={multiselectValues.includes(option.value)}
+							{disabled}
+							onCheckedChange={(checked) => handleMultiselectToggle(option.value, Boolean(checked))}
+							data-testid={testId ? `${testId}-${option.value}` : undefined}
+						/>
+						<span class="text-sm"><T keyName={option.labelKey} /></span>
+					</label>
+				{/each}
+			</div>
+		{:else if field.type === 'status'}
+			<!-- status fields are not editable on forms -->
+			{#if field.statusMapping}
+				{@const mapping = field.statusMapping[String(value ?? '')]}
+				{#if mapping}
+					<p class="text-sm"><T keyName={mapping.labelKey} /></p>
+				{:else}
+					<p class="text-sm text-muted-foreground">{String(value ?? '-')}</p>
+				{/if}
+			{:else}
+				<p class="text-sm text-muted-foreground">{String(value ?? '-')}</p>
 			{/if}
-		</div>
-	{:else}
-		<Input
-			type={field.type === 'number'
-				? 'number'
-				: field.type === 'email'
-					? 'email'
-					: field.type === 'url'
-						? 'url'
-						: field.type === 'date'
-							? 'date'
-							: field.type === 'datetime'
-								? 'datetime-local'
-								: 'text'}
-			value={String(value ?? '')}
-			{disabled}
-			placeholder={field.placeholderKey ? $t(field.placeholderKey) : undefined}
-			oninput={(event) => {
-				const inputValue = (event.currentTarget as HTMLInputElement).value;
-				onChange(field.type === 'number' ? Number(inputValue || '0') : inputValue);
-			}}
-			data-testid={testId}
-		/>
-	{/if}
+		{:else}
+			<Input
+				type={field.type === 'number'
+					? 'number'
+					: field.type === 'email'
+						? 'email'
+						: field.type === 'url'
+							? 'url'
+							: field.type === 'date'
+								? 'date'
+								: field.type === 'datetime'
+									? 'datetime-local'
+									: 'text'}
+				value={String(value ?? '')}
+				{disabled}
+				placeholder={field.placeholderKey ? $t(field.placeholderKey) : undefined}
+				oninput={(event) => {
+					const inputValue = (event.currentTarget as HTMLInputElement).value;
+					onChange(field.type === 'number' ? Number(inputValue || '0') : inputValue);
+				}}
+				data-testid={testId}
+			/>
+		{/if}
 
-	{#if field.helpTextKey}
-		<Field.Description><T keyName={field.helpTextKey} /></Field.Description>
-	{/if}
+		{#if field.helpTextKey}
+			<Field.Description><T keyName={field.helpTextKey} /></Field.Description>
+		{/if}
 
-	{#if error}
-		<Field.Error>{error}</Field.Error>
-	{/if}
-</Field.Field>
+		{#if error}
+			<Field.Error>{error}</Field.Error>
+		{/if}
+	</Field.Field>
+{/if}

@@ -25,7 +25,17 @@
 	const viewer = getViewerUser(page.data.viewer);
 	const { resource, runtime, prefix } = getResourceContext(page.params.resource ?? '', viewer);
 
+	const viaResource = page.url.searchParams.get('via');
+	const viaId = page.url.searchParams.get('viaId');
+	const returnPath = $derived(
+		viaResource && viaId
+			? `/${page.params.lang}/admin/${viaResource}/${viaId}`
+			: `/${page.params.lang}/admin/${resource.name}/${page.params.id}`
+	);
+
 	const detailQuery = useQuery(runtime.getById, { id: page.params.id } as never);
+	const ssrRecord = page.data.record as Record<string, unknown> | undefined;
+	const record = $derived((detailQuery.data ?? ssrRecord) as Record<string, unknown> | undefined);
 	const formFields = resource.fields.filter((field) => field.showOnForm !== false);
 
 	const form = createDynamicForm({
@@ -34,6 +44,9 @@
 		isEdit: true,
 		t: $t
 	});
+	if (ssrRecord) {
+		form.initializeFromRecord(ssrRecord);
+	}
 	let relationOptions = $state<Record<string, Array<{ value: string; label: string }>>>({});
 	type ConflictField = {
 		attribute: string;
@@ -43,9 +56,7 @@
 	};
 	let conflictFields = $state<Record<string, ConflictField>>({});
 	let showConflictReview = $state(false);
-	const visibleFormFields = $derived(
-		form.getVisibleFields((detailQuery.data as Record<string, unknown> | null | undefined) ?? null)
-	);
+	const visibleFormFields = $derived(form.getVisibleFields(record ?? null));
 	const formGroups = $derived(
 		resolveFieldGroups({
 			resource,
@@ -55,8 +66,8 @@
 	);
 	let activeFormGroup = $state('');
 	const canUpdateRecord = $derived.by(() => {
-		if (!detailQuery.data) return true;
-		return isResourceUpdatable(resource, viewer, detailQuery.data as Record<string, unknown>);
+		if (!record) return true;
+		return isResourceUpdatable(resource, viewer, record);
 	});
 	const conflictEntries = $derived(Object.values(conflictFields));
 
@@ -120,7 +131,7 @@
 
 	async function submit() {
 		if (!canUpdateRecord) return;
-		const currentRecord = (detailQuery.data as Record<string, unknown> | null | undefined) ?? null;
+		const currentRecord = record ?? null;
 		const nextErrors = form.validate(currentRecord);
 		if (Object.keys(nextErrors).length > 0) return;
 		form.setSubmitting(true);
@@ -130,7 +141,7 @@
 				values: form.normalize(currentRecord)
 			} as never);
 			toast.success($t('admin.resources.toasts.updated'));
-			await goto(resolve(`/${page.params.lang}/admin/${resource.name}/${page.params.id}`));
+			await goto(resolve(returnPath));
 		} catch (error) {
 			const fieldErrors = getValidationFieldErrors(error);
 			if (fieldErrors) {
@@ -150,7 +161,6 @@
 	}
 
 	function discardMyChanges() {
-		const record = detailQuery.data as Record<string, unknown> | undefined;
 		if (!record) return;
 		form.initializeFromRecord(record);
 		conflictFields = {};
@@ -204,7 +214,7 @@
 		<h1 class="text-2xl font-bold"><T keyName="admin.resources.actions.edit" /></h1>
 	</div>
 
-	{#if detailQuery.isLoading}
+	{#if detailQuery.isLoading && !form.hydrated}
 		<div class="rounded-lg border p-4" data-testid={`${prefix}-edit-loading`}>
 			<T keyName="admin.resources.loading" />
 		</div>
@@ -342,7 +352,7 @@
 											error={form.errors[field.attribute]}
 											disabled={isFieldDisabled(field, {
 												user: viewer,
-												record: detailQuery.data as Record<string, unknown> | undefined,
+												record,
 												isEdit: true
 											})}
 											testId={`${prefix}-${field.attribute}-input`}
@@ -373,7 +383,7 @@
 								error={form.errors[field.attribute]}
 								disabled={isFieldDisabled(field, {
 									user: viewer,
-									record: detailQuery.data as Record<string, unknown> | undefined,
+									record,
 									isEdit: true
 								})}
 								testId={`${prefix}-${field.attribute}-input`}
@@ -397,8 +407,7 @@
 				</Button>
 				<Button
 					variant="outline"
-					onclick={() =>
-						goto(resolve(`/${page.params.lang}/admin/${resource.name}/${page.params.id}`))}
+					onclick={() => goto(resolve(returnPath))}
 					data-testid={`${prefix}-edit-cancel`}
 				>
 					<T keyName="common.cancel" />

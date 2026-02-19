@@ -49,7 +49,18 @@ export type FieldType =
 	| 'belongsTo'
 	| 'hasMany'
 	| 'manyToMany'
-	| 'morphTo';
+	| 'morphTo'
+	| 'password'
+	| 'color'
+	| 'slug'
+	| 'currency'
+	| 'hidden'
+	| 'keyValue'
+	| 'booleanGroup'
+	| 'multiselect'
+	| 'heading'
+	| 'status'
+	| 'avatar';
 
 export type FieldContext = 'index' | 'detail' | 'form' | 'preview';
 
@@ -64,6 +75,36 @@ export type FieldOption = {
 	labelKey: string;
 };
 
+export type FieldIndexColumnPreset =
+	| 'textSm'
+	| 'textMd'
+	| 'textLg'
+	| 'avatarText'
+	| 'email'
+	| 'badgeSm'
+	| 'badgeMd'
+	| 'date'
+	| 'number'
+	| 'inlineSelect'
+	| 'inlineCheckbox'
+	| 'relationTitle'
+	| 'colorSwatch'
+	| 'avatar'
+	| 'currency';
+
+export type StatusMappingEntry = {
+	labelKey: string;
+	variant: 'default' | 'secondary' | 'destructive' | 'outline';
+};
+
+export type FieldIndexColumnConfig = {
+	preset?: FieldIndexColumnPreset;
+	size?: number;
+	minSize?: number;
+	maxSize?: number;
+	fixed?: boolean;
+};
+
 export type MorphToTarget = {
 	kind: string;
 	resourceName: string;
@@ -72,6 +113,15 @@ export type MorphToTarget = {
 
 export type MorphToConfig = {
 	targets: MorphToTarget[];
+};
+
+export type FilterableConfig = {
+	key?: string;
+	labelKey?: string;
+	urlKey?: string;
+	defaultValue?: string;
+	options?: FilterOption[];
+	type?: 'select' | 'boolean' | 'date-range';
 };
 
 export type FieldDefinition<_TTable extends string = string> = {
@@ -83,7 +133,7 @@ export type FieldDefinition<_TTable extends string = string> = {
 	ariaLabelKey?: string;
 	sortable?: boolean;
 	searchable?: boolean;
-	filterable?: boolean;
+	filterable?: boolean | FilterableConfig;
 	showOnIndex?: boolean;
 	showOnDetail?: boolean;
 	showOnForm?: boolean;
@@ -94,14 +144,21 @@ export type FieldDefinition<_TTable extends string = string> = {
 	inlineEditable?: boolean;
 	inlineConfirmation?: boolean;
 	dependsOn?: FieldDependency;
-	resolveUsing?: (record: unknown) => unknown;
-	displayUsing?: (value: unknown, record: unknown) => string;
-	fillUsing?: (value: unknown) => unknown;
+	resolveUsing?: (value: unknown, record: unknown, attribute: string) => unknown;
+	displayUsing?: (value: unknown, record: unknown, attribute: string) => string;
+	fillUsing?: (value: unknown, values: Record<string, unknown>, attribute: string) => unknown;
 	renderOverride?: Partial<Record<FieldContext, Component<any>>>;
+	indexColumn?: FieldIndexColumnConfig;
 	canSee?: (user: BetterAuthUser, record?: unknown) => boolean;
 	securityLevel?: 'server' | 'client';
 	options?: FieldOption[];
 	defaultValue?: unknown;
+	slugFrom?: string;
+	currencyCode?: string;
+	currencyLocale?: string;
+	statusMapping?: Record<string, StatusMappingEntry>;
+	avatarFallback?: 'initials' | 'gravatar';
+	avatarNameField?: string;
 	morphTo?: MorphToConfig;
 	relation?: {
 		resourceName: string;
@@ -126,6 +183,7 @@ export type ActionDefinition = {
 	sole?: boolean;
 	withoutConfirmation?: boolean;
 	fields?: Array<FieldDefinition<any>>;
+	chunkSize?: number;
 	canRun?: (user: BetterAuthUser, record?: unknown) => boolean;
 };
 
@@ -166,6 +224,13 @@ export type MetricDefinition = {
 	labelKey: string;
 	rangeOptions?: Array<{ value: string; labelKey: string }>;
 	format?: 'number' | 'currency' | 'percent';
+	icon?: LucideIcon;
+	descriptionKey?: string;
+	subtitleKey?: string;
+	/** Invert progress color logic (red = high, green = low). */
+	avoid?: boolean;
+	/** Progress visualization style (default: 'bar'). */
+	display?: 'bar' | 'radial';
 };
 
 export type FieldGroupDefinition = {

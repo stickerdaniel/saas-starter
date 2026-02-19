@@ -45,7 +45,7 @@ function inferColumnPreset(key: string): Omit<TableSkeletonColumn, 'key'> {
 	if (normalizedKey === 'select') {
 		return {
 			kind: 'checkbox',
-			cellClass: '[&:has([role=checkbox])]:ps-3'
+			cellClass: '[&:has([role=checkbox])]:px-0'
 		};
 	}
 
@@ -58,7 +58,7 @@ function inferColumnPreset(key: string): Omit<TableSkeletonColumn, 'key'> {
 	if (normalizedKey.startsWith('notify')) {
 		return {
 			kind: 'checkbox',
-			cellClass: '[&:has([role=checkbox])]:ps-3'
+			cellClass: '[&:has([role=checkbox])]:px-0'
 		};
 	}
 

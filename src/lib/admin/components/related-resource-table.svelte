@@ -24,9 +24,10 @@
 		record: Record<string, unknown>;
 		lang: string;
 		prefix: string;
+		resourceName: string;
 	};
 
-	let { field, record, lang, prefix }: Props = $props();
+	let { field, record, lang, prefix, resourceName }: Props = $props();
 
 	const client = useConvexClient();
 	const { t } = getTranslate();
@@ -76,6 +77,12 @@
 		return relatedRows.length;
 	});
 
+	function viaParams() {
+		const id = String(record._id ?? '');
+		if (!id) return '';
+		return `?via=${resourceName}&viaId=${id}`;
+	}
+
 	async function openRow(id: string) {
 		if (!relatedResource) return;
 		await goto(resolve(`/${lang}/admin/${relatedResource.name}/${id}`));
@@ -83,12 +90,12 @@
 
 	async function openEditRow(id: string) {
 		if (!relatedResource) return;
-		await goto(resolve(`/${lang}/admin/${relatedResource.name}/${id}/edit`));
+		await goto(resolve(`/${lang}/admin/${relatedResource.name}/${id}/edit${viaParams()}`));
 	}
 
 	async function createRelated() {
 		if (!relatedResource) return;
-		await goto(resolve(`/${lang}/admin/${relatedResource.name}/create`));
+		await goto(resolve(`/${lang}/admin/${relatedResource.name}/create${viaParams()}`));
 	}
 
 	function deleteRow(id: string) {

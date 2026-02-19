@@ -1,4 +1,5 @@
 import MessageSquareTextIcon from '@lucide/svelte/icons/message-square-text';
+import HashIcon from '@lucide/svelte/icons/hash';
 import { api } from '$lib/convex/_generated/api';
 import {
 	defineAction,
@@ -133,6 +134,9 @@ export const demoCommentsResource = defineResource({
 			key: 'total',
 			type: 'value',
 			labelKey: 'admin.resources.comments.metrics.total',
+			icon: HashIcon,
+			descriptionKey: 'admin.resources.comments.metrics.total_desc',
+			subtitleKey: 'admin.resources.comments.metrics.total_subtitle',
 			rangeOptions: [
 				{ value: 'without', labelKey: 'admin.resources.trashed.without' },
 				{ value: 'with', labelKey: 'admin.resources.trashed.with' }

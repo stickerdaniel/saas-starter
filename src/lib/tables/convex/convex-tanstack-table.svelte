@@ -10,9 +10,19 @@
 		toolbarActions?: Snippet;
 		rowTestId?: (row: any) => string;
 		onRowClick?: (row: any, event: MouseEvent) => void;
+		onRowHover?: (row: any) => void;
 	};
 
-	let { table, config, toolbarFilters, toolbarActions, rowTestId, onRowClick }: Props = $props();
+	let { table, config, toolbarFilters, toolbarActions, rowTestId, onRowClick, onRowHover }: Props =
+		$props();
 </script>
 
-<BaseTableRenderer {table} {config} {toolbarFilters} {toolbarActions} {rowTestId} {onRowClick} />
+<BaseTableRenderer
+	{table}
+	{config}
+	{toolbarFilters}
+	{toolbarActions}
+	{rowTestId}
+	{onRowClick}
+	{onRowHover}
+/>

@@ -8,7 +8,7 @@ import { adminFrameworkAggregateTriggers } from './utils/aggregates';
 
 export const adminFrameworkStatements = {
 	resource: ['read', 'create', 'update', 'delete', 'restore', 'force-delete', 'replicate'],
-	action: ['run'],
+	action: ['run', 'run-destructive'],
 	relationship: ['attach', 'detach'],
 	metric: ['read']
 } as const;
@@ -17,7 +17,7 @@ const accessControl = createAccessControl(adminFrameworkStatements);
 
 const adminRole = accessControl.newRole({
 	resource: ['read', 'create', 'update', 'delete', 'restore', 'force-delete', 'replicate'],
-	action: ['run'],
+	action: ['run', 'run-destructive'],
 	relationship: ['attach', 'detach'],
 	metric: ['read']
 });

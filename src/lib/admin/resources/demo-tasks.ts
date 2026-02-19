@@ -1,4 +1,9 @@
 import ListTodoIcon from '@lucide/svelte/icons/list-todo';
+import CircleDotIcon from '@lucide/svelte/icons/circle-dot';
+import LoaderIcon from '@lucide/svelte/icons/loader';
+import CircleCheckIcon from '@lucide/svelte/icons/circle-check';
+import ClockIcon from '@lucide/svelte/icons/clock';
+import ChartPieIcon from '@lucide/svelte/icons/chart-pie';
 import { api } from '$lib/convex/_generated/api';
 import {
 	defineAction,
@@ -62,6 +67,7 @@ export const demoTasksResource = defineResource({
 			attribute: 'status',
 			labelKey: 'admin.resources.tasks.fields.status',
 			required: true,
+			filterable: true,
 			inlineEditable: true,
 			sortable: true,
 			showOnIndex: true,
@@ -78,6 +84,7 @@ export const demoTasksResource = defineResource({
 			attribute: 'priority',
 			labelKey: 'admin.resources.tasks.fields.priority',
 			required: true,
+			filterable: true,
 			inlineEditable: true,
 			sortable: true,
 			showOnIndex: true,
@@ -128,32 +135,6 @@ export const demoTasksResource = defineResource({
 	],
 	filters: [
 		defineFilter({
-			key: 'status',
-			labelKey: 'admin.resources.tasks.filters.status',
-			type: 'select',
-			urlKey: 'status',
-			defaultValue: 'all',
-			options: [
-				{ value: 'all', labelKey: 'admin.resources.filters.all' },
-				{ value: 'todo', labelKey: 'admin.resources.tasks.options.todo' },
-				{ value: 'in_progress', labelKey: 'admin.resources.tasks.options.in_progress' },
-				{ value: 'done', labelKey: 'admin.resources.tasks.options.done' }
-			]
-		}),
-		defineFilter({
-			key: 'priority',
-			labelKey: 'admin.resources.tasks.filters.priority',
-			type: 'select',
-			urlKey: 'priority',
-			defaultValue: 'all',
-			options: [
-				{ value: 'all', labelKey: 'admin.resources.filters.all' },
-				{ value: 'low', labelKey: 'admin.resources.tasks.options.low' },
-				{ value: 'medium', labelKey: 'admin.resources.tasks.options.medium' },
-				{ value: 'high', labelKey: 'admin.resources.tasks.options.high' }
-			]
-		}),
-		defineFilter({
 			key: 'createdRange',
 			labelKey: 'admin.resources.filters.created_range',
 			type: 'date-range',
@@ -191,6 +172,9 @@ export const demoTasksResource = defineResource({
 			key: 'todo',
 			type: 'value',
 			labelKey: 'admin.resources.tasks.metrics.todo',
+			icon: CircleDotIcon,
+			descriptionKey: 'admin.resources.tasks.metrics.todo_desc',
+			subtitleKey: 'admin.resources.tasks.metrics.todo_subtitle',
 			rangeOptions: [
 				{ value: 'without', labelKey: 'admin.resources.trashed.without' },
 				{ value: 'with', labelKey: 'admin.resources.trashed.with' }
@@ -199,18 +183,35 @@ export const demoTasksResource = defineResource({
 		defineMetric({
 			key: 'inProgress',
 			type: 'value',
-			labelKey: 'admin.resources.tasks.metrics.in_progress'
+			labelKey: 'admin.resources.tasks.metrics.in_progress',
+			icon: LoaderIcon,
+			descriptionKey: 'admin.resources.tasks.metrics.in_progress_desc',
+			subtitleKey: 'admin.resources.tasks.metrics.in_progress_subtitle'
 		}),
-		defineMetric({ key: 'done', type: 'value', labelKey: 'admin.resources.tasks.metrics.done' }),
+		defineMetric({
+			key: 'done',
+			type: 'value',
+			labelKey: 'admin.resources.tasks.metrics.done',
+			icon: CircleCheckIcon,
+			descriptionKey: 'admin.resources.tasks.metrics.done_desc',
+			subtitleKey: 'admin.resources.tasks.metrics.done_subtitle'
+		}),
 		defineMetric({
 			key: 'estimate',
 			type: 'value',
-			labelKey: 'admin.resources.tasks.metrics.estimate'
+			labelKey: 'admin.resources.tasks.metrics.estimate',
+			icon: ClockIcon,
+			descriptionKey: 'admin.resources.tasks.metrics.estimate_desc',
+			subtitleKey: 'admin.resources.tasks.metrics.estimate_subtitle'
 		}),
 		defineMetric({
 			key: 'completionRate',
 			type: 'progress',
-			labelKey: 'admin.resources.tasks.metrics.completion_rate'
+			labelKey: 'admin.resources.tasks.metrics.completion_rate',
+			icon: ChartPieIcon,
+			descriptionKey: 'admin.resources.tasks.metrics.completion_rate_desc',
+			subtitleKey: 'admin.resources.tasks.metrics.completion_rate_subtitle',
+			display: 'radial'
 		}),
 		defineMetric({
 			key: 'statusTrend',

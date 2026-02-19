@@ -39,7 +39,18 @@ const FIELD_TYPES = [
 	'json',
 	'code',
 	'markdown',
-	'badge'
+	'badge',
+	'password',
+	'color',
+	'slug',
+	'currency',
+	'hidden',
+	'keyValue',
+	'booleanGroup',
+	'multiselect',
+	'heading',
+	'status',
+	'avatar'
 ] as const;
 
 // ── Helpers ────────────────────────────────────────────────────────────
@@ -212,7 +223,14 @@ ${systemFields}
 		})
 	],
 	metrics: [
-		defineMetric({ key: 'total', type: 'value', labelKey: 'admin.resources.${snake}.metrics.total' })
+		defineMetric({
+			key: 'total',
+			type: 'value',
+			labelKey: 'admin.resources.${snake}.metrics.total',
+			icon: DatabaseIcon,
+			descriptionKey: 'admin.resources.${snake}.metrics.total_desc',
+			subtitleKey: 'admin.resources.${snake}.metrics.total_subtitle'
+		})
 	],
 	fieldGroups: [
 		{
