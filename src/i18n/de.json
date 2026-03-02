@@ -12,6 +12,8 @@
 			"email_service": "E-Mail-Zustelldienst",
 			"external_services": "Externe Dienste",
 			"hosting_deployment": "Hosting & Deployment",
+			"resource_overview": "Ressourcenübersicht",
+			"resource_records": "{count} Einträge",
 			"title": "Admin Dashboard"
 		},
 		"dialog": {
@@ -49,6 +51,283 @@
 			"app": "App",
 			"home": "Startseite",
 			"website": "Webseite"
+		},
+		"resources": {
+			"actions": {
+				"create": "Create",
+				"create_resource": "Create {resource}",
+				"delete": "Delete",
+				"edit": "Edit",
+				"force_delete": "Force Delete",
+				"replicate": "Replicate",
+				"restore": "Restore",
+				"view": "View"
+			},
+			"aria": {
+				"select_all": "Select all rows",
+				"select_row": "Select row"
+			},
+			"bulk": {
+				"action_cancelled": "Abgebrochen. {processed} von {total} verarbeitet.",
+				"action_partial_failure": "{failed} von {total} fehlgeschlagen.",
+				"chunks_failed": "{count} Stapel fehlgeschlagen",
+				"delete": "Mehrfach löschen",
+				"delete_description": "{count} ausgewählte Einträge löschen?",
+				"force_delete": "Endgültig mehrfach löschen",
+				"force_delete_description": "{count} ausgewählte Einträge dauerhaft löschen?",
+				"partial_delete_error": "{failed} von {total} Löschungen fehlgeschlagen.",
+				"processing_chunks": "Verarbeite {current} von {total}...",
+				"restore": "Mehrfach wiederherstellen"
+			},
+			"columns": {
+				"actions": "Actions"
+			},
+			"comments": {
+				"actions": {
+					"mark_reviewed": "Mark Reviewed"
+				},
+				"fields": {
+					"author_email": "Author Email",
+					"target": "Target",
+					"text": "Text"
+				},
+				"filters": {
+					"target_kind": "Target Kind"
+				},
+				"lenses": {
+					"project": "Project Comments",
+					"task": "Task Comments"
+				},
+				"metrics": {
+					"project": "Project Comments",
+					"target_distribution": "Nach Zieltyp",
+					"task": "Task Comments",
+					"total": "Kommentare gesamt",
+					"total_desc": "Alle Kommentare über alle Ziele",
+					"total_subtitle": "Kommentaraktivität"
+				},
+				"nav_title": "Demo Comments",
+				"options": {
+					"project": "Project",
+					"task": "Task"
+				}
+			},
+			"confirm": {
+				"delete_description": "This action cannot be undone.",
+				"force_delete_description": "This permanently removes the record and related data.",
+				"inline_edit_description": "Diese Inline-Änderung jetzt speichern?",
+				"inline_edit_title": "Inline-Änderung bestätigen"
+			},
+			"conflicts": {
+				"description": "{count} Feldkonflikte müssen geprüft werden.",
+				"discard": "Meine Änderungen verwerfen",
+				"keep_mine": "Meinen behalten",
+				"local_value": "Mein Wert",
+				"remote_value": "Remote-Wert",
+				"review": "Konflikte prüfen",
+				"title": "Dieser Datensatz wurde aktualisiert",
+				"use_theirs": "Deren übernehmen"
+			},
+			"empty": "No records found.",
+			"export": {
+				"csv": "CSV exportieren",
+				"json": "JSON exportieren",
+				"limit_error": "Export ist auf {limit} Einträge begrenzt.",
+				"success_csv": "CSV-Export gestartet",
+				"success_json": "JSON-Export gestartet"
+			},
+			"fields": {
+				"created_at": "Erstellt am",
+				"updated_at": "Aktualisiert am"
+			},
+			"filters": {
+				"all": "All",
+				"clear": "Clear",
+				"created_range": "Erstellungszeitraum",
+				"select_placeholder": "Select option",
+				"yes": "Ja",
+				"no": "Nein"
+			},
+			"form": {
+				"add_pair": "Paar hinzufügen",
+				"auto_generate": "Automatisch generieren",
+				"fix_errors": "Bitte korrigiere die markierten Felder.",
+				"invalid": "Invalid field value",
+				"key_placeholder": "Schlüssel",
+				"markdown_placeholder": "## Markdown-Inhalt",
+				"no_relation_options": "No options available",
+				"remove_pair": "Paar entfernen",
+				"required": "This field is required",
+				"slug_preview": "Slug-Vorschau",
+				"upload": "Datei hochladen",
+				"value_placeholder": "Wert",
+				"tag_placeholder": "Tags suchen oder hinzufügen…",
+				"tag_add_more": "Weitere hinzufügen…",
+				"tag_create": "„{name}“ erstellen",
+				"tag_remove": "{name} entfernen"
+			},
+			"groups": {
+				"assignment": "Zuweisung",
+				"content": "Inhalt",
+				"demo_data": "Demo Resources",
+				"main": "Hauptbereich",
+				"other": "Weitere",
+				"overview": "Übersicht",
+				"relations": "Beziehungen",
+				"system": "System"
+			},
+			"lenses": {
+				"all": "All Lenses"
+			},
+			"loading": "Loading resources...",
+			"projects": {
+				"actions": {
+					"archive": "Archive",
+					"attach_tag": "Attach Tag",
+					"feature": "Mark Featured"
+				},
+				"fields": {
+					"budget": "Budget",
+					"code_snippet": "Code-Snippet",
+					"cover_image": "Cover-Bild-URL",
+					"description": "Description",
+					"featured": "Featured",
+					"name": "Name",
+					"owner_email": "Owner Email",
+					"settings_json": "Einstellungen JSON",
+					"slug": "Slug",
+					"spec_sheet": "Datenblatt-URL",
+					"status": "Status",
+					"tag": "Tag",
+					"tags": "Tags",
+					"tasks": "Tasks"
+				},
+				"filters": {
+					"featured": "Featured",
+					"featured_only": "Featured Only",
+					"regular_only": "Regular Only",
+					"status": "Status"
+				},
+				"lenses": {
+					"active": "Active Projects",
+					"archived": "Archived Projects",
+					"featured": "Featured Projects"
+				},
+				"metrics": {
+					"active": "Aktive Projekte",
+					"active_desc": "Derzeit aktive Projekte",
+					"active_subtitle": "Status: aktiv",
+					"budget": "Aktives Budget",
+					"budget_desc": "Gesamtbudget aktiver Projekte",
+					"budget_subtitle": "Über alle aktiven Projekte",
+					"featured": "Hervorgehobene Projekte",
+					"featured_desc": "Als hervorgehoben markierte Projekte",
+					"featured_subtitle": "Ausgewählte Projekte",
+					"total": "Projekte gesamt",
+					"total_desc": "Alle registrierten Projekte",
+					"total_subtitle": "Projektportfolio"
+				},
+				"nav_title": "Demo Projects",
+				"options": {
+					"status_active": "Active",
+					"status_archived": "Archived",
+					"status_draft": "Draft"
+				}
+			},
+			"rows_per_page": "Rows per page",
+			"search_placeholder": "Search resources...",
+			"sections": {
+				"details": "Details",
+				"preview": "Preview"
+			},
+			"selected": "{selected} of {total} selected",
+			"tags": {
+				"fields": {
+					"color": "Color",
+					"name": "Name"
+				},
+				"metrics": {
+					"total": "Tags gesamt",
+					"total_desc": "Alle verfügbaren Tags",
+					"total_subtitle": "Tag-Bibliothek"
+				},
+				"nav_title": "Demo Tags"
+			},
+			"tasks": {
+				"actions": {
+					"mark_done": "Mark Done",
+					"mark_in_progress": "Mark In Progress"
+				},
+				"fields": {
+					"assignee_email": "Assignee Email",
+					"estimate_hours": "Estimate Hours",
+					"priority": "Priority",
+					"project": "Project",
+					"status": "Status",
+					"title": "Title"
+				},
+				"filters": {
+					"priority": "Priority",
+					"status": "Status"
+				},
+				"lenses": {
+					"completed": "Completed Tasks",
+					"due": "Due Tasks"
+				},
+				"metrics": {
+					"completion_rate": "Fertigstellungsrate",
+					"completion_rate_desc": "Erledigt vs. Gesamtaufgaben",
+					"completion_rate_subtitle": "Gesamtfortschritt",
+					"done": "Erledigt",
+					"done_desc": "Als abgeschlossen markierte Aufgaben",
+					"done_subtitle": "Abgeschlossene Arbeit",
+					"estimate": "Geschätzte Stunden",
+					"estimate_by_status": "Schätzung nach Status",
+					"estimate_desc": "Gesamte geschätzte Arbeitsstunden",
+					"estimate_subtitle": "Über alle Aufgaben",
+					"in_progress": "In Bearbeitung",
+					"in_progress_desc": "Aufgaben in aktiver Bearbeitung",
+					"in_progress_subtitle": "Aktive Arbeit",
+					"priority_split": "Prioritätsverteilung",
+					"status_trend": "Status-Trend",
+					"todo": "Zu erledigen",
+					"todo_desc": "Aufgaben, die noch nicht begonnen wurden",
+					"todo_subtitle": "Backlog-Elemente"
+				},
+				"nav_title": "Demo Tasks",
+				"options": {
+					"done": "Done",
+					"high": "High",
+					"in_progress": "In Progress",
+					"low": "Low",
+					"medium": "Medium",
+					"todo": "Todo"
+				}
+			},
+			"toasts": {
+				"action_error": "Action failed",
+				"action_success": "Action completed",
+				"created": "Resource created",
+				"deleted": "Record deleted",
+				"force_deleted": "Record permanently deleted",
+				"replicated": "Record replicated",
+				"restored": "Record restored",
+				"save_error": "Failed to save resource",
+				"updated": "Resource updated"
+			},
+			"trashed": {
+				"only": "Only Trashed",
+				"with": "With Trashed",
+				"without": "Without Trashed"
+			},
+			"values": {
+				"enabled": "Enabled",
+				"masked": "••••••••",
+				"no": "No",
+				"pairs_count": "{count} Paare",
+				"selected_count": "{count} ausgewählt",
+				"yes": "Yes"
+			}
 		},
 		"settings": {
 			"add_email": "E-Mail hinzufügen",
@@ -269,47 +548,47 @@
 		}
 	},
 	"aria": {
+		"actions": "Aktionen",
 		"breadcrumb": "Brotkrümel",
 		"change_language": "Sprache ändern",
 		"close": "Schließen",
+		"confirmation": "Bestätigung",
+		"copied": "Kopiert",
+		"copy": "Kopieren",
+		"copy_failed": "Kopieren fehlgeschlagen",
+		"drag_to_reorder": "Zum Neuanordnen ziehen",
 		"feedback_close": "Feedback schließen",
 		"feedback_open": "Feedback öffnen",
 		"github_repository": "GitHub-Repository",
 		"go_back": "Zurück",
-		"home": "Startseite",
-		"logout": "Abmelden",
-		"menu_close": "Menü schließen",
-		"menu_open": "Menü öffnen",
-		"remove_attachment": "Anhang entfernen",
-		"select_value": "Wert auswählen",
-		"toggle_sidebar": "Seitenleiste umschalten",
-		"loading": "Wird geladen",
-		"more": "Mehr",
-		"toggle_theme": "Design umschalten",
-		"copy": "Kopieren",
-		"copied": "Kopiert",
-		"copy_failed": "Kopieren fehlgeschlagen",
-		"scroll_to_bottom": "Nach unten scrollen",
-		"show_password": "Passwort anzeigen",
 		"hide_password": "Passwort ausblenden",
-		"drag_to_reorder": "Zum Neuanordnen ziehen",
-		"pagination_first": "Erste Seite",
-		"pagination_previous": "Vorherige Seite",
-		"pagination_next": "Nächste Seite",
-		"pagination_last": "Letzte Seite",
-		"view": "Ansicht",
-		"limit": "Limit",
-		"target": "Ziel",
-		"reviewer": "Prüfer",
-		"confirmation": "Bestätigung",
+		"home": "Startseite",
 		"interactive_pointer_tracking_area": "Interaktiver Bereich zur Zeigerverfolgung",
-		"notification_toggle_for_email": "{field} für {email}",
-		"select_all": "Alle auswählen",
-		"select_row": "Zeile auswählen",
+		"limit": "Limit",
+		"loading": "Wird geladen",
 		"login_with_apple": "Mit Apple anmelden",
 		"login_with_google": "Mit Google anmelden",
 		"login_with_meta": "Mit Meta anmelden",
-		"actions": "Aktionen"
+		"logout": "Abmelden",
+		"menu_close": "Menü schließen",
+		"menu_open": "Menü öffnen",
+		"more": "Mehr",
+		"notification_toggle_for_email": "{field} für {email}",
+		"pagination_first": "Erste Seite",
+		"pagination_last": "Letzte Seite",
+		"pagination_next": "Nächste Seite",
+		"pagination_previous": "Vorherige Seite",
+		"remove_attachment": "Anhang entfernen",
+		"reviewer": "Prüfer",
+		"scroll_to_bottom": "Nach unten scrollen",
+		"select_all": "Alle auswählen",
+		"select_row": "Zeile auswählen",
+		"select_value": "Wert auswählen",
+		"show_password": "Passwort anzeigen",
+		"target": "Ziel",
+		"toggle_sidebar": "Seitenleiste umschalten",
+		"toggle_theme": "Design umschalten",
+		"view": "Ansicht"
 	},
 	"auth": {
 		"back_to_home": "Zurück zur Startseite",
@@ -651,6 +930,22 @@
 			"home": {
 				"description": "Weiterleitung zum Admin-Dashboard.",
 				"title": "Admin"
+			},
+			"resource_create": {
+				"description": "Create a new {resource} record.",
+				"title": "Create {resource}"
+			},
+			"resource_detail": {
+				"description": "Review {resource} details and actions.",
+				"title": "{resource} Details"
+			},
+			"resource_edit": {
+				"description": "Edit a {resource} record.",
+				"title": "Edit {resource}"
+			},
+			"resource_index": {
+				"description": "Browse and manage {resource}.",
+				"title": "{resource}"
 			},
 			"settings": {
 				"description": "Konfigurieren Sie Admin-Benachrichtigungen und Einstellungen.",
