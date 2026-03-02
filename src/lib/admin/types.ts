@@ -121,7 +121,7 @@ export type FilterableConfig = {
 	urlKey?: string;
 	defaultValue?: string;
 	options?: FilterOption[];
-	type?: 'select' | 'boolean' | 'date-range';
+	type?: 'select' | 'boolean' | 'date-range' | 'number-range';
 };
 
 export type FieldDefinition<_TTable extends string = string> = {
@@ -205,6 +205,14 @@ export type FilterDefinition =
 			key: string;
 			labelKey: string;
 			type: 'date-range';
+			urlKey: string;
+			defaultValue: string;
+			options?: FilterOption[];
+	  }
+	| {
+			key: string;
+			labelKey: string;
+			type: 'number-range';
 			urlKey: string;
 			defaultValue: string;
 			options?: FilterOption[];

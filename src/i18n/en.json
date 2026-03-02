@@ -144,6 +144,9 @@
 				"all": "All",
 				"clear": "Clear",
 				"created_range": "Created Range",
+				"number_range_min": "Min",
+				"number_range_max": "Max",
+				"number_range_apply": "Apply",
 				"select_placeholder": "Select option",
 				"yes": "Yes",
 				"no": "No"
@@ -199,6 +202,7 @@
 					"tasks": "Tasks"
 				},
 				"filters": {
+					"budget_range": "Budget Range",
 					"featured": "Featured",
 					"featured_only": "Featured Only",
 					"regular_only": "Regular Only",
