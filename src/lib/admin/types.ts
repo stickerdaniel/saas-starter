@@ -166,6 +166,12 @@ export type FieldDefinition<_TTable extends string = string> = {
 		valueField: string;
 		labelField: string;
 		foreignKey?: string;
+		/** Guard: can the user add (create) a new related record? Defaults to true. */
+		canAdd?: (user: BetterAuthUser, parentRecord: Record<string, unknown>) => boolean;
+		/** Guard: can the user attach an existing record? Defaults to true. */
+		canAttach?: (user: BetterAuthUser, parentRecord: Record<string, unknown>) => boolean;
+		/** Guard: can the user detach a related record? Defaults to true. */
+		canDetach?: (user: BetterAuthUser, parentRecord: Record<string, unknown>) => boolean;
 	};
 };
 

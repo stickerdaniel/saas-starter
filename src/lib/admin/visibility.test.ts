@@ -5,6 +5,9 @@ import {
 	isFieldDependencySatisfied,
 	isFieldDisabled,
 	isFieldVisible,
+	isRelationAddable,
+	isRelationAttachable,
+	isRelationDetachable,
 	isResourceVisible
 } from './visibility';
 
@@ -76,5 +79,70 @@ describe('admin visibility helpers', () => {
 				record: { _visibleFields: ['secret'] }
 			})
 		).toBe(true);
+	});
+
+	describe('relation guards', () => {
+		const activeProject = { _id: 'p1', status: 'active' };
+		const archivedProject = { _id: 'p2', status: 'archived' };
+
+		const fieldWithGuards = defineField({
+			type: 'manyToMany',
+			attribute: 'tagIds',
+			labelKey: 'admin.resources.projects.fields.tags',
+			relation: {
+				resourceName: 'demo-tags',
+				valueField: '_id',
+				labelField: 'name',
+				canAdd: (_user, parent) => parent.status !== 'archived',
+				canAttach: (_user, parent) => parent.status !== 'archived',
+				canDetach: (_user, parent) => parent.status !== 'archived'
+			}
+		});
+
+		const fieldWithoutGuards = defineField({
+			type: 'manyToMany',
+			attribute: 'tagIds',
+			labelKey: 'admin.resources.projects.fields.tags',
+			relation: {
+				resourceName: 'demo-tags',
+				valueField: '_id',
+				labelField: 'name'
+			}
+		});
+
+		it('allows relation operations when no guards are defined', () => {
+			expect(isRelationAddable(fieldWithoutGuards, adminUser, activeProject)).toBe(true);
+			expect(isRelationAttachable(fieldWithoutGuards, adminUser, activeProject)).toBe(true);
+			expect(isRelationDetachable(fieldWithoutGuards, adminUser, activeProject)).toBe(true);
+		});
+
+		it('allows relation operations on active parent', () => {
+			expect(isRelationAddable(fieldWithGuards, adminUser, activeProject)).toBe(true);
+			expect(isRelationAttachable(fieldWithGuards, adminUser, activeProject)).toBe(true);
+			expect(isRelationDetachable(fieldWithGuards, adminUser, activeProject)).toBe(true);
+		});
+
+		it('blocks relation operations on archived parent', () => {
+			expect(isRelationAddable(fieldWithGuards, adminUser, archivedProject)).toBe(false);
+			expect(isRelationAttachable(fieldWithGuards, adminUser, archivedProject)).toBe(false);
+			expect(isRelationDetachable(fieldWithGuards, adminUser, archivedProject)).toBe(false);
+		});
+
+		it('blocks all relation operations for non-admin users', () => {
+			const regularUser: BetterAuthUser = {
+				_id: 'user_regular',
+				email: 'user@example.com',
+				role: 'user'
+			};
+			expect(isRelationAddable(fieldWithGuards, regularUser, activeProject)).toBe(false);
+			expect(isRelationAttachable(fieldWithGuards, regularUser, activeProject)).toBe(false);
+			expect(isRelationDetachable(fieldWithGuards, regularUser, activeProject)).toBe(false);
+		});
+
+		it('defaults to true when user is admin and no parent record provided', () => {
+			expect(isRelationAddable(fieldWithGuards, adminUser, null)).toBe(true);
+			expect(isRelationAttachable(fieldWithGuards, adminUser, undefined)).toBe(true);
+			expect(isRelationDetachable(fieldWithGuards, adminUser, null)).toBe(true);
+		});
 	});
 });

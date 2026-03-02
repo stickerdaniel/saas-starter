@@ -8,7 +8,9 @@
 	import { renderComponent } from '$lib/components/ui/data-table/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import type { FieldDefinition } from '$lib/admin/types';
+	import type { BetterAuthUser } from '$lib/convex/admin/types';
 	import { getResourceByName, getResourceRuntime } from '$lib/admin/registry';
+	import { isRelationAddable, isRelationDetachable } from '$lib/admin/visibility';
 	import { ConfirmDeleteDialog, confirmDelete } from '$lib/components/ui/confirm-delete-dialog';
 	import { createBaseTanStackTable } from '$lib/tables/core/create-base-tanstack-table.svelte';
 	import BaseTanStackTable from '$lib/tables/core/base-tanstack-table.svelte';
@@ -25,9 +27,13 @@
 		lang: string;
 		prefix: string;
 		resourceName: string;
+		viewer?: BetterAuthUser;
 	};
 
-	let { field, record, lang, prefix, resourceName }: Props = $props();
+	let { field, record, lang, prefix, resourceName, viewer }: Props = $props();
+
+	const canAdd = $derived(isRelationAddable(field, viewer, record));
+	const canDetach = $derived(isRelationDetachable(field, viewer, record));
 
 	const client = useConvexClient();
 	const { t } = getTranslate();
@@ -131,7 +137,7 @@
 						prefix,
 						onView: () => void openRow(String(row.original._id)),
 						onEdit: () => void openEditRow(String(row.original._id)),
-						onDelete: () => deleteRow(String(row.original._id))
+						onDelete: canDetach ? () => deleteRow(String(row.original._id)) : undefined
 					})
 			}
 		})
@@ -189,10 +195,12 @@
 	<div class="space-y-3">
 		<div class="flex items-center justify-between">
 			<h3 class="text-sm font-medium"><T keyName={field.labelKey} /></h3>
-			<Button size="sm" variant="outline" onclick={() => void createRelated()}>
-				<PlusIcon class="mr-2 size-4" />
-				<T keyName="admin.resources.actions.create" />
-			</Button>
+			{#if canAdd}
+				<Button size="sm" variant="outline" onclick={() => void createRelated()}>
+					<PlusIcon class="mr-2 size-4" />
+					<T keyName="admin.resources.actions.create" />
+				</Button>
+			{/if}
 		</div>
 		<BaseTanStackTable table={table.table} config={renderConfig} />
 	</div>
