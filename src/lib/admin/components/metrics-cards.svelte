@@ -5,7 +5,27 @@
 	import * as Select from '$lib/components/ui/select/index.js';
 	import MetricCard from '$lib/components/ui/metric-card.svelte';
 	import ProgressRadial from '$lib/admin/components/progress-radial.svelte';
-	import type { MetricDefinition } from '$lib/admin/types';
+	import type { MetricDefinition, MetricWidth, MetricHeight } from '$lib/admin/types';
+
+	const METRIC_WIDTH_COL_SPAN: Record<MetricWidth, string> = {
+		full: 'md:col-span-12',
+		'3/4': 'md:col-span-9',
+		'2/3': 'md:col-span-8',
+		'1/2': 'md:col-span-6',
+		'1/3': 'md:col-span-4',
+		'1/4': 'md:col-span-3'
+	};
+
+	function getColSpanClass(width: MetricWidth | undefined): string {
+		return METRIC_WIDTH_COL_SPAN[width ?? '1/3'];
+	}
+
+	function getHeightClass(metric: MetricDefinition): string {
+		const width = metric.width ?? '1/3';
+		const height: MetricHeight = metric.height ?? (width === 'full' ? 'dynamic' : 'fixed');
+		if (height === 'dynamic') return 'min-h-[200px]';
+		return 'h-[200px] overflow-hidden';
+	}
 
 	type MetricValueCard = {
 		key: string;
@@ -155,129 +175,133 @@
 		</div>
 	{/if}
 	<div
-		class="grid grid-cols-1 gap-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card *:data-[slot=card]:shadow-xs md:grid-cols-2 xl:grid-cols-4 dark:*:data-[slot=card]:bg-card"
+		class="grid grid-cols-1 gap-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card *:data-[slot=card]:shadow-xs md:grid-cols-12 dark:*:data-[slot=card]:bg-card"
 		data-testid={`${prefix}-metrics`}
 	>
 		{#each metrics as metric (metric.key)}
-			{#if metric.type === 'value'}
-				<MetricCard
-					label={$t(metric.labelKey)}
-					value={formatValue(getValue(metric.key), metric.format)}
-					icon={metric.icon}
-					description={metric.descriptionKey ? $t(metric.descriptionKey) : undefined}
-					subtitle={metric.subtitleKey ? $t(metric.subtitleKey) : undefined}
-					loading={values.length === 0}
-					{animated}
-				>
-					{#snippet headerAction()}
-						{@render rangeSelector(metric)}
-					{/snippet}
-				</MetricCard>
-			{:else if metric.type === 'progress'}
-				{@const card = getMetric(metric.key)}
-				{@const pCard = card?.type === 'progress' ? card : undefined}
-				{@const pPercent = pCard ? getProgressPercent(pCard.value, pCard.target) : 0}
-				{@const pColor = getProgressColorClass(pPercent, metric.avoid)}
-				<MetricCard
-					label={$t(metric.labelKey)}
-					value="{pPercent}%"
-					icon={metric.icon}
-					description={metric.descriptionKey ? $t(metric.descriptionKey) : undefined}
-					subtitle={metric.subtitleKey ? $t(metric.subtitleKey) : undefined}
-					loading={values.length === 0}
-					{animated}
-				>
-					{#snippet headerAction()}
-						{@render rangeSelector(metric)}
-					{/snippet}
-					{#snippet footer()}
-						{#if pCard}
-							{#if metric.display === 'radial'}
-								<ProgressRadial
-									value={pCard.value}
-									target={pCard.target}
-									colorClass={pColor.split(' ').find((c) => c.startsWith('text-')) ??
-										'text-emerald-500'}
-									loading={values.length === 0}
-								/>
-							{:else}
-								<div class="w-full space-y-1.5">
-									<Progress
+			<div class="col-span-1 {getColSpanClass(metric.width)} {getHeightClass(metric)}">
+				{#if metric.type === 'value'}
+					<MetricCard
+						label={$t(metric.labelKey)}
+						value={formatValue(getValue(metric.key), metric.format)}
+						icon={metric.icon}
+						description={metric.descriptionKey ? $t(metric.descriptionKey) : undefined}
+						subtitle={metric.subtitleKey ? $t(metric.subtitleKey) : undefined}
+						loading={values.length === 0}
+						{animated}
+						class="h-full"
+					>
+						{#snippet headerAction()}
+							{@render rangeSelector(metric)}
+						{/snippet}
+					</MetricCard>
+				{:else if metric.type === 'progress'}
+					{@const card = getMetric(metric.key)}
+					{@const pCard = card?.type === 'progress' ? card : undefined}
+					{@const pPercent = pCard ? getProgressPercent(pCard.value, pCard.target) : 0}
+					{@const pColor = getProgressColorClass(pPercent, metric.avoid)}
+					<MetricCard
+						label={$t(metric.labelKey)}
+						value="{pPercent}%"
+						icon={metric.icon}
+						description={metric.descriptionKey ? $t(metric.descriptionKey) : undefined}
+						subtitle={metric.subtitleKey ? $t(metric.subtitleKey) : undefined}
+						loading={values.length === 0}
+						{animated}
+						class="h-full"
+					>
+						{#snippet headerAction()}
+							{@render rangeSelector(metric)}
+						{/snippet}
+						{#snippet footer()}
+							{#if pCard}
+								{#if metric.display === 'radial'}
+									<ProgressRadial
 										value={pCard.value}
-										max={pCard.target}
-										indicatorClass={pColor.split(' ').find((c) => c.startsWith('bg-'))}
+										target={pCard.target}
+										colorClass={pColor.split(' ').find((c) => c.startsWith('text-')) ??
+											'text-emerald-500'}
+										loading={values.length === 0}
 									/>
-									<p class="text-xs text-muted-foreground">
-										{pCard.value}/{pCard.target}
-									</p>
+								{:else}
+									<div class="w-full space-y-1.5">
+										<Progress
+											value={pCard.value}
+											max={pCard.target}
+											indicatorClass={pColor.split(' ').find((c) => c.startsWith('bg-'))}
+										/>
+										<p class="text-xs text-muted-foreground">
+											{pCard.value}/{pCard.target}
+										</p>
+									</div>
+								{/if}
+							{/if}
+						{/snippet}
+					</MetricCard>
+				{:else}
+					<Card.Root class="@container/card h-full" data-slot="card">
+						<Card.Header class="pb-2">
+							<div class="flex items-center justify-between gap-2">
+								<Card.Description><T keyName={metric.labelKey} /></Card.Description>
+								{@render rangeSelector(metric)}
+							</div>
+							<Card.Title class="text-2xl tabular-nums">
+								{formatValue(getValue(metric.key), metric.format)}
+							</Card.Title>
+						</Card.Header>
+						<Card.Content>
+							{@const card = getMetric(metric.key)}
+							{#if card?.type === 'trend'}
+								<div class="space-y-2 text-xs text-muted-foreground">
+									{#each card.points as point, index (`point-${index}`)}
+										<div class="flex items-center justify-between">
+											<span>
+												{#if point.labelKey}
+													<T keyName={point.labelKey} />
+												{:else}
+													{point.label ?? `#${index + 1}`}
+												{/if}
+											</span>
+											<span>{point.value}</span>
+										</div>
+									{/each}
+								</div>
+							{:else if card?.type === 'partition'}
+								{@const total = totalSegments(card.segments)}
+								<div class="space-y-2 text-xs">
+									{#each card.segments as segment, index (`seg-${index}`)}
+										<div class="flex items-center justify-between">
+											<span class="text-muted-foreground">
+												{#if segment.labelKey}
+													<T keyName={segment.labelKey} />
+												{:else}
+													{segment.label ?? `#${index + 1}`}
+												{/if}
+											</span>
+											<span>{segment.value} ({formatPercent(segment.value, total)})</span>
+										</div>
+									{/each}
+								</div>
+							{:else if card?.type === 'table'}
+								<div class="space-y-2 text-xs">
+									{#each card.rows as row, index (`row-${index}`)}
+										<div class="flex items-center justify-between">
+											<span class="text-muted-foreground">
+												{#if row.labelKey}
+													<T keyName={row.labelKey} />
+												{:else}
+													{row.label ?? `#${index + 1}`}
+												{/if}
+											</span>
+											<span>{row.value}</span>
+										</div>
+									{/each}
 								</div>
 							{/if}
-						{/if}
-					{/snippet}
-				</MetricCard>
-			{:else}
-				<Card.Root class="@container/card" data-slot="card">
-					<Card.Header class="pb-2">
-						<div class="flex items-center justify-between gap-2">
-							<Card.Description><T keyName={metric.labelKey} /></Card.Description>
-							{@render rangeSelector(metric)}
-						</div>
-						<Card.Title class="text-2xl tabular-nums">
-							{formatValue(getValue(metric.key), metric.format)}
-						</Card.Title>
-					</Card.Header>
-					<Card.Content>
-						{@const card = getMetric(metric.key)}
-						{#if card?.type === 'trend'}
-							<div class="space-y-2 text-xs text-muted-foreground">
-								{#each card.points as point, index (`point-${index}`)}
-									<div class="flex items-center justify-between">
-										<span>
-											{#if point.labelKey}
-												<T keyName={point.labelKey} />
-											{:else}
-												{point.label ?? `#${index + 1}`}
-											{/if}
-										</span>
-										<span>{point.value}</span>
-									</div>
-								{/each}
-							</div>
-						{:else if card?.type === 'partition'}
-							{@const total = totalSegments(card.segments)}
-							<div class="space-y-2 text-xs">
-								{#each card.segments as segment, index (`seg-${index}`)}
-									<div class="flex items-center justify-between">
-										<span class="text-muted-foreground">
-											{#if segment.labelKey}
-												<T keyName={segment.labelKey} />
-											{:else}
-												{segment.label ?? `#${index + 1}`}
-											{/if}
-										</span>
-										<span>{segment.value} ({formatPercent(segment.value, total)})</span>
-									</div>
-								{/each}
-							</div>
-						{:else if card?.type === 'table'}
-							<div class="space-y-2 text-xs">
-								{#each card.rows as row, index (`row-${index}`)}
-									<div class="flex items-center justify-between">
-										<span class="text-muted-foreground">
-											{#if row.labelKey}
-												<T keyName={row.labelKey} />
-											{:else}
-												{row.label ?? `#${index + 1}`}
-											{/if}
-										</span>
-										<span>{row.value}</span>
-									</div>
-								{/each}
-							</div>
-						{/if}
-					</Card.Content>
-				</Card.Root>
-			{/if}
+						</Card.Content>
+					</Card.Root>
+				{/if}
+			</div>
 		{/each}
 	</div>
 {/if}
