@@ -17,7 +17,8 @@ export type DynamicFormConfig = {
 
 function getDefaultFieldValue(field: FieldDefinition<any>) {
 	if (field.defaultValue !== undefined) return field.defaultValue;
-	if (field.type === 'manyToMany' || field.type === 'multiselect') return [];
+	if (field.type === 'manyToMany' || field.type === 'multiselect' || field.type === 'tag')
+		return [];
 	if (field.type === 'boolean') return false;
 	if (field.type === 'booleanGroup') return {};
 	if (field.type === 'keyValue') return {};

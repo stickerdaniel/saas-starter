@@ -18,6 +18,7 @@
 	import { resolveFieldGroups } from '$lib/admin/field-groups';
 	import { getValidationFieldErrors } from '$lib/admin/error-utils';
 	import { loadRelationOptionsForFields } from '$lib/admin/relation-options';
+	import { buildTagUpsertHandlers } from '$lib/admin/tag-upsert';
 	import { getViewerUser, isFieldDisabled, isResourceUpdatable } from '$lib/admin/visibility';
 
 	const { t } = getTranslate();
@@ -48,6 +49,15 @@
 		form.initializeFromRecord(ssrRecord);
 	}
 	let relationOptions = $state<Record<string, Array<{ value: string; label: string }>>>({});
+	let relationOptionsVersion = $state(0);
+	const tagUpsertHandlers = buildTagUpsertHandlers({
+		fields: formFields,
+		runtime,
+		client,
+		onOptionsRefresh: () => {
+			relationOptionsVersion += 1;
+		}
+	});
 	type ConflictField = {
 		attribute: string;
 		labelKey: string;
@@ -115,6 +125,8 @@
 	});
 
 	$effect(() => {
+		// Re-fetch when version bumps (e.g. after inline tag creation)
+		void relationOptionsVersion;
 		void (async () => {
 			try {
 				relationOptions = await loadRelationOptionsForFields({
@@ -381,6 +393,7 @@
 												form.setValue(field.attribute, value);
 											}}
 											onRelationCreated={handleRelationCreated}
+											onCreateTag={tagUpsertHandlers[field.attribute]}
 										/>
 									</div>
 								{/each}
@@ -414,6 +427,7 @@
 									form.setValue(field.attribute, value);
 								}}
 								onRelationCreated={handleRelationCreated}
+								onCreateTag={tagUpsertHandlers[field.attribute]}
 							/>
 						</div>
 					{/each}

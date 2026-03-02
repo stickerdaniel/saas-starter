@@ -199,6 +199,10 @@
 				"remove_pair": "Remove pair",
 				"required": "This field is required",
 				"slug_preview": "Slug preview",
+				"tag_add_more": "Add more...",
+				"tag_create": "Create \"{name}\"",
+				"tag_placeholder": "Search or add tags...",
+				"tag_remove": "Remove {name}",
 				"upload": "Upload file",
 				"value_placeholder": "Value"
 			},
