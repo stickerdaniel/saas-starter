@@ -9,7 +9,7 @@
 	let { field }: Props = $props();
 </script>
 
-<div class="border-b pb-2 pt-4">
+<div class="border-b pt-4 pb-2">
 	<h3 class="text-lg font-semibold"><T keyName={field.labelKey} /></h3>
 	{#if field.helpTextKey}
 		<p class="text-sm text-muted-foreground"><T keyName={field.helpTextKey} /></p>

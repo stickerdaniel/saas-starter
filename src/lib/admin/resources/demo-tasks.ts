@@ -60,7 +60,8 @@ export const demoTasksResource = defineResource({
 				resourceName: 'demo-projects',
 				valueField: '_id',
 				labelField: 'name'
-			}
+			},
+			inlineCreatable: true
 		}),
 		defineField({
 			type: 'select',

@@ -166,6 +166,8 @@ export type FieldDefinition<_TTable extends string = string> = {
 		labelField: string;
 		foreignKey?: string;
 	};
+	/** Allow creating a related resource inline from a BelongsTo/MorphTo dropdown. */
+	inlineCreatable?: boolean | { fields?: string[] };
 };
 
 export type ActionDefinition = {

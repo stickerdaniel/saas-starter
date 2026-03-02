@@ -131,7 +131,7 @@
 					<Button
 						variant="destructive"
 						size="icon"
-						class="absolute -right-2 -top-2 size-6"
+						class="absolute -top-2 -right-2 size-6"
 						onclick={handleRemove}
 						data-testid={testId ? `${testId}-remove` : undefined}
 					>
