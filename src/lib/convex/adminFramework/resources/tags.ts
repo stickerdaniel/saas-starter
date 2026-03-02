@@ -394,3 +394,39 @@ export const getTagMetrics = permissionQuery({
 		};
 	}
 });
+
+/**
+ * Upsert a tag by name: returns the existing tag's ID if one already exists
+ * with the same name (case-insensitive via the by_name index), otherwise
+ * creates a new tag with a default color and returns the new ID.
+ */
+export const upsertTag = permissionMutation({
+	args: { name: v.string() },
+	handler: async (ctx, args) => {
+		assertPermission(ctx.user, { resource: ['create'] });
+		const trimmedName = args.name.trim();
+		if (trimmedName.length === 0) {
+			validationError({ name: 'admin.resources.form.required' });
+		}
+
+		// Check for existing tag with the same name using the by_name index
+		const existing = await ctx.db
+			.query('adminDemoTags')
+			.withIndex('by_name', (q) => q.eq('name', trimmedName))
+			.first();
+
+		if (existing) {
+			return { id: existing._id };
+		}
+
+		// Create new tag with a default color
+		const now = Date.now();
+		const id = await ctx.db.insert('adminDemoTags', {
+			name: trimmedName,
+			color: '#6366f1',
+			createdAt: now,
+			updatedAt: now
+		});
+		return { id };
+	}
+});

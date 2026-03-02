@@ -16,6 +16,7 @@
 	import { resolveFieldGroups } from '$lib/admin/field-groups';
 	import { getValidationFieldErrors } from '$lib/admin/error-utils';
 	import { loadRelationOptionsForFields } from '$lib/admin/relation-options';
+	import { buildTagUpsertHandlers } from '$lib/admin/tag-upsert';
 	import { getViewerUser, isFieldDisabled, isResourceCreatable } from '$lib/admin/visibility';
 
 	const { t } = getTranslate();
@@ -34,6 +35,15 @@
 		t: $t
 	});
 	let relationOptions = $state<Record<string, Array<{ value: string; label: string }>>>({});
+	let relationOptionsVersion = $state(0);
+	const tagUpsertHandlers = buildTagUpsertHandlers({
+		fields: formFields,
+		runtime,
+		client,
+		onOptionsRefresh: () => {
+			relationOptionsVersion += 1;
+		}
+	});
 	const visibleFormFields = $derived(form.getVisibleFields(null));
 	const formGroups = $derived(
 		resolveFieldGroups({
@@ -52,6 +62,8 @@
 	});
 
 	$effect(() => {
+		// Re-fetch when version bumps (e.g. after inline tag creation)
+		void relationOptionsVersion;
 		void (async () => {
 			try {
 				relationOptions = await loadRelationOptionsForFields({
@@ -163,6 +175,7 @@
 										form.setValue(field.attribute, value);
 									}}
 									onRelationCreated={handleRelationCreated}
+										onCreateTag={tagUpsertHandlers[field.attribute]}
 								/>
 							{/each}
 						</Field.Group>
@@ -186,6 +199,7 @@
 							form.setValue(field.attribute, value);
 						}}
 						onRelationCreated={handleRelationCreated}
+						onCreateTag={tagUpsertHandlers[field.attribute]}
 					/>
 				{/each}
 			</Field.Group>

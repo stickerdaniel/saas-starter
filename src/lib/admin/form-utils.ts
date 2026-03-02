@@ -76,7 +76,7 @@ export function mapRecordToFormValues(
 		fields
 			.filter((f) => f.type !== 'heading' && f.type !== 'line')
 			.map((field) => {
-				if (field.type === 'manyToMany' || field.type === 'multiselect') {
+				if (field.type === 'manyToMany' || field.type === 'multiselect' || field.type === 'tag') {
 					let relationValues: unknown[] = [];
 					const fromAttribute = record[field.attribute];
 					if (Array.isArray(fromAttribute)) {
@@ -154,6 +154,7 @@ export function validateFormValues(args: {
 			field.required &&
 			field.type !== 'boolean' &&
 			field.type !== 'manyToMany' &&
+			field.type !== 'tag' &&
 			field.type !== 'booleanGroup' &&
 			field.type !== 'multiselect' &&
 			field.type !== 'keyValue'

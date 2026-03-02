@@ -34,7 +34,7 @@
 				String(value ?? '-')
 			);
 		}
-		if (field.type === 'manyToMany') {
+		if (field.type === 'manyToMany' || field.type === 'tag') {
 			const items = Array.isArray(value) ? value : [];
 			if (items.length === 0) return '-';
 			const labelKey = field.relation?.labelField ?? 'name';

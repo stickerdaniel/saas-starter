@@ -19,6 +19,7 @@
 		viewer?: BetterAuthUser;
 		onChange?: (value: unknown) => void;
 		onRelationCreated?: (fieldAttribute: string, newOption: Option) => void;
+		onCreateTag?: (name: string) => Promise<string | null>;
 	};
 
 	let {
@@ -34,7 +35,8 @@
 		allValues = {},
 		viewer,
 		onChange = () => {},
-		onRelationCreated
+		onRelationCreated,
+		onCreateTag
 	}: Props = $props();
 
 	const Component = $derived(
@@ -56,4 +58,5 @@
 	{viewer}
 	{onChange}
 	{onRelationCreated}
+	{onCreateTag}
 />
