@@ -157,6 +157,68 @@ export default defineSchema({
 		.index('by_storageId', ['storageId'])
 		.index('by_url', ['url']),
 
+	// Admin framework in-app notifications — real-time notification bell for admin users
+	adminNotifications: defineTable({
+		type: v.union(
+			v.literal('success'),
+			v.literal('error'),
+			v.literal('warning'),
+			v.literal('info')
+		),
+		icon: v.string(),
+		message: v.string(),
+		messageParams: v.optional(v.any()),
+		actionText: v.optional(v.string()),
+		actionUrl: v.optional(v.string()),
+		openInNewTab: v.optional(v.boolean()),
+		userId: v.string(),
+		readAt: v.optional(v.number()),
+		source: v.optional(
+			v.union(v.literal('audit'), v.literal('action'), v.literal('system'), v.literal('admin'))
+		),
+		sourceResourceName: v.optional(v.string()),
+		sourceResourceId: v.optional(v.string()),
+		createdAt: v.number()
+	})
+		.index('by_user_created', ['userId', 'createdAt'])
+		.index('by_user_unread', ['userId', 'readAt'])
+		.index('by_created', ['createdAt']),
+
+	// Admin framework resource audit logs — tracks every CRUD operation with before/after snapshots
+	adminResourceAuditLogs: defineTable({
+		adminUserId: v.string(),
+		adminEmail: v.string(),
+		event: v.union(
+			v.literal('Create'),
+			v.literal('Update'),
+			v.literal('Delete'),
+			v.literal('Restore'),
+			v.literal('ForceDelete'),
+			v.literal('Replicate'),
+			v.literal('Action'),
+			v.literal('Attach'),
+			v.literal('Detach')
+		),
+		resourceName: v.string(),
+		resourceId: v.string(),
+		actionName: v.optional(v.string()),
+		original: v.optional(v.any()),
+		changes: v.optional(v.any()),
+		batchId: v.optional(v.string()),
+		status: v.union(v.literal('finished'), v.literal('failed')),
+		exception: v.optional(v.string()),
+		timestamp: v.number()
+	})
+		.index('by_resource', ['resourceName', 'resourceId', 'timestamp'])
+		.index('by_admin', ['adminUserId', 'timestamp'])
+		.index('by_event', ['event', 'timestamp'])
+		.index('by_timestamp', ['timestamp'])
+		.index('by_batch', ['batchId'])
+		.searchIndex('search_audit', {
+			searchField: 'resourceName',
+			filterFields: ['event', 'adminUserId']
+		}),
+
 	// Admin framework demo resource tables
 	adminDemoProjects: defineTable({
 		name: v.string(),
