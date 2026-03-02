@@ -214,6 +214,8 @@ Cursor pagination with page cache + prefetch is more sophisticated than Nova's o
 | Progress `avoid` mode | Inverts color logic                      | `avoid?: boolean` on `MetricDefinition`                             |
 | Progress colors       | Nova green/yellow/red                    | Emerald ≥75%, amber 50-74%, destructive <50% (inverted for `avoid`) |
 | Format                | Number, currency via PHP formatting      | `format: 'number' \| 'currency' \| 'percent'`                       |
+| Card width            | `$width` (full, 1/3, 1/2, 1/4, 2/3, 3/4) | `width?: MetricWidth` -- 12-col CSS grid with col-span mapping     |
+| Card height           | Fixed height per card                    | `height?: 'fixed' \| 'dynamic'` -- fixed 200px or auto min-200px     |
 | Caching               | `cacheFor()` duration                    | N/A — always live via Convex subscription (superior)                |
 | Refresh on action     | `$refreshWhenActionRuns`                 | N/A — Convex subscriptions auto-refresh on any data change          |
 | Refresh on filter     | `$refreshWhenFiltersChange`              | N/A — metric queries re-run reactively when filter args change      |
