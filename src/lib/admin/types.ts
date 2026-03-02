@@ -231,6 +231,8 @@ export type MetricDefinition = {
 	avoid?: boolean;
 	/** Progress visualization style (default: 'bar'). */
 	display?: 'bar' | 'radial';
+	/** Show this metric only on the detail page (not on the index list page). */
+	onlyOnDetail?: boolean;
 };
 
 export type FieldGroupDefinition = {

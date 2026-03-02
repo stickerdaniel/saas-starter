@@ -15,6 +15,7 @@
 	import * as Tabs from '$lib/components/ui/tabs/index.js';
 	import FieldRenderer from '$lib/admin/fields/field-renderer.svelte';
 	import ActionModal from '$lib/admin/components/action-modal.svelte';
+	import MetricsCards from '$lib/admin/components/metrics-cards.svelte';
 	import RelatedResourceTable from '$lib/admin/components/related-resource-table.svelte';
 	import { getResourceContext } from '$lib/admin/page-helpers';
 	import { resolveFieldGroups } from '$lib/admin/field-groups';
@@ -112,6 +113,46 @@
 			return action.canRun(viewer, record);
 		})
 	);
+
+	const detailOnlyMetrics = $derived(
+		(resource.metrics ?? []).filter((m) => m.onlyOnDetail === true)
+	);
+	let detailMetricRanges = $state<Record<string, string>>(
+		Object.fromEntries(
+			(resource.metrics ?? [])
+				.filter((m) => m.onlyOnDetail && (m.rangeOptions?.length ?? 0) > 0)
+				.map((m) => [m.key, m.rangeOptions?.[0]?.value ?? ''])
+		)
+	);
+	let detailMetricsCards = $state<any[]>([]);
+	let detailMetricsLoadError = $state(false);
+	let detailMetricsRequestId = 0;
+
+	$effect(() => {
+		if (detailOnlyMetrics.length === 0 || !hasData) return;
+		const requestId = ++detailMetricsRequestId;
+		void (async () => {
+			try {
+				detailMetricsLoadError = false;
+				const result = (await client.query(runtime.getMetrics, {
+					ranges: detailMetricRanges,
+					recordId: page.params.id
+				} as never)) as { cards?: Array<Record<string, unknown>> };
+				if (requestId === detailMetricsRequestId) {
+					detailMetricsCards = result.cards ?? [];
+				}
+			} catch (error) {
+				console.error(`[admin:${resource.name}] Failed to load detail metrics`, error);
+				if (requestId === detailMetricsRequestId) {
+					detailMetricsLoadError = true;
+				}
+			}
+		})();
+	});
+
+	function setDetailMetricRange(metricKey: string, value: string) {
+		detailMetricRanges = { ...detailMetricRanges, [metricKey]: value };
+	}
 
 	let actionOpen = $state(false);
 	let actionBusy = $state(false);
@@ -382,6 +423,18 @@
 					</Button>
 				{/each}
 			</div>
+		{/if}
+
+		{#if detailOnlyMetrics.length > 0}
+			<MetricsCards
+				metrics={detailOnlyMetrics}
+				values={detailMetricsCards}
+				error={detailMetricsLoadError}
+				selectedRanges={detailMetricRanges}
+				onRangeChange={setDetailMetricRange}
+				animated={true}
+				{prefix}
+			/>
 		{/if}
 
 		<Card>

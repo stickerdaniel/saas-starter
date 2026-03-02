@@ -206,7 +206,7 @@ Cursor pagination with page cache + prefetch is more sophisticated than Nova's o
 | Caching               | `cacheFor()` duration                    | N/A — always live via Convex subscription (superior)                |
 | Refresh on action     | `$refreshWhenActionRuns`                 | N/A — Convex subscriptions auto-refresh on any data change          |
 | Refresh on filter     | `$refreshWhenFiltersChange`              | N/A — metric queries re-run reactively when filter args change      |
-| Detail-only           | `onlyOnDetail` flag                      | Missing — metrics only on list page                                 |
+| Detail-only           | `onlyOnDetail` flag                      | `onlyOnDetail?: boolean` on `MetricDefinition`; detail page fetches with `recordId` |
 | Real-time aggregates  | N/A (compute on request)                 | `@convex-dev/aggregate` for live counts/sums                        |
 
 ### Our advantage
@@ -475,7 +475,7 @@ These are genuinely missing features, but Convex real-time + our existing infras
 | 8   | Queued actions             | Background job processing (Convex scheduled functions could power this)     | Low      |
 | 9   | Table style options        | `tableStyle` (tight/default), `showColumnBorders`                           | Low      |
 | 10  | Redirect customization     | `redirectAfterCreate/Update/Delete` callbacks                               | Low      |
-| 11  | Detail-only metrics        | `onlyOnDetail` flag for metrics                                             | Low      |
+| 11  | ~~Detail-only metrics~~    | ~~`onlyOnDetail` flag for metrics~~ — Implemented                           | Done     |
 | 12  | Missing relation types     | HasOne, HasOneThrough, HasManyThrough, MorphedByMany                        | Low      |
 | 13  | Missing field types        | Timezone, Tag, Line                                                         | Low      |
 | 14  | Multiple dashboards        | Register multiple dashboard pages (we have one)                             | Low      |

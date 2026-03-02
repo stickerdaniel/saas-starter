@@ -1087,7 +1087,7 @@
 	</div>
 
 	<MetricsCards
-		metrics={resource.metrics ?? []}
+		metrics={(resource.metrics ?? []).filter((m) => !m.onlyOnDetail)}
 		values={metricsCards}
 		error={metricsLoadError}
 		selectedRanges={metricRanges}

@@ -3,6 +3,9 @@ import HashIcon from '@lucide/svelte/icons/hash';
 import ZapIcon from '@lucide/svelte/icons/zap';
 import StarIcon from '@lucide/svelte/icons/star';
 import DollarSignIcon from '@lucide/svelte/icons/dollar-sign';
+import ListChecksIcon from '@lucide/svelte/icons/list-checks';
+import TagIcon from '@lucide/svelte/icons/tag';
+import CircleCheckBigIcon from '@lucide/svelte/icons/circle-check-big';
 import { api } from '$lib/convex/_generated/api';
 import {
 	defineAction,
@@ -303,6 +306,33 @@ export const demoProjectsResource = defineResource({
 			descriptionKey: 'admin.resources.projects.metrics.budget_desc',
 			subtitleKey: 'admin.resources.projects.metrics.budget_subtitle',
 			format: 'currency'
+		}),
+		defineMetric({
+			key: 'taskCount',
+			type: 'value',
+			labelKey: 'admin.resources.projects.metrics.task_count',
+			icon: ListChecksIcon,
+			descriptionKey: 'admin.resources.projects.metrics.task_count_desc',
+			subtitleKey: 'admin.resources.projects.metrics.task_count_subtitle',
+			onlyOnDetail: true
+		}),
+		defineMetric({
+			key: 'tagCount',
+			type: 'value',
+			labelKey: 'admin.resources.projects.metrics.tag_count',
+			icon: TagIcon,
+			descriptionKey: 'admin.resources.projects.metrics.tag_count_desc',
+			subtitleKey: 'admin.resources.projects.metrics.tag_count_subtitle',
+			onlyOnDetail: true
+		}),
+		defineMetric({
+			key: 'taskCompletion',
+			type: 'progress',
+			labelKey: 'admin.resources.projects.metrics.task_completion',
+			icon: CircleCheckBigIcon,
+			descriptionKey: 'admin.resources.projects.metrics.task_completion_desc',
+			subtitleKey: 'admin.resources.projects.metrics.task_completion_subtitle',
+			onlyOnDetail: true
 		})
 	],
 	fieldGroups: [
