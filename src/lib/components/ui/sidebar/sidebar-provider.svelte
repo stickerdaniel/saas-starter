@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { afterNavigate } from '$app/navigation';
 	import * as Tooltip from '$lib/components/ui/tooltip/index.js';
 	import { cn, type WithElementRef } from '$lib/utils.js';
 	import type { HTMLAttributes } from 'svelte/elements';
@@ -35,6 +36,10 @@
 			}
 		})
 	);
+
+	afterNavigate(() => {
+		sidebar.setOpenMobile(false);
+	});
 </script>
 
 <svelte:window onkeydown={sidebar.handleShortcutKeydown} />
