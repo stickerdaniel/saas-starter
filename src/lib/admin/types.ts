@@ -21,6 +21,7 @@ export type ResourceRuntime = {
 	runAction: MutationRef;
 	getMetrics: QueryRef;
 	listRelationOptions?: Record<string, QueryRef>;
+	upsertRelation?: Record<string, MutationRef>;
 };
 
 export type ResourceModule = {
@@ -61,7 +62,8 @@ export type FieldType =
 	| 'heading'
 	| 'line'
 	| 'status'
-	| 'avatar';
+	| 'avatar'
+	| 'tag';
 
 export type FieldContext = 'index' | 'detail' | 'form' | 'preview';
 
@@ -161,6 +163,10 @@ export type FieldDefinition<_TTable extends string = string> = {
 	avatarFallback?: 'initials' | 'gravatar';
 	avatarNameField?: string;
 	morphTo?: MorphToConfig;
+	tagConfig?: {
+		/** Allow creating new tags inline from the chips input. Requires an upsert mutation. */
+		allowCreate?: boolean;
+	};
 	relation?: {
 		resourceName: string;
 		valueField: string;
@@ -243,6 +249,9 @@ export type LensDefinition<TTable extends string = string> = {
 	actions?: ActionDefinition[];
 };
 
+export type MetricWidth = 'full' | '1/3' | '1/2' | '1/4' | '2/3' | '3/4';
+export type MetricHeight = 'fixed' | 'dynamic';
+
 export type MetricDefinition = {
 	key: string;
 	type: 'value' | 'trend' | 'partition' | 'progress' | 'table';
@@ -256,6 +265,10 @@ export type MetricDefinition = {
 	avoid?: boolean;
 	/** Progress visualization style (default: 'bar'). */
 	display?: 'bar' | 'radial';
+	/** Card width in 12-column grid (default: '1/3'). */
+	width?: MetricWidth;
+	/** Card height behavior: 'fixed' = fixed 200px, 'dynamic' = auto height with 200px min (default: 'fixed'). Full-width cards default to 'dynamic'. */
+	height?: MetricHeight;
 	/** Show this metric only on the detail page (not on the index list page). */
 	onlyOnDetail?: boolean;
 };
