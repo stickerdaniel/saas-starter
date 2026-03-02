@@ -145,6 +145,8 @@
 		{/if}
 	{:else if field.type === 'heading'}
 		<!-- headings have no data value -->
+	{:else if field.type === 'line'}
+		<!-- lines have no data value -->
 	{:else if field.type === 'password'}
 		<p class="text-sm leading-6"><T keyName="admin.resources.values.masked" /></p>
 	{:else if field.type === 'color'}

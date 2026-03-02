@@ -32,7 +32,7 @@ export function normalizeFormValues(
 ) {
 	const next: Record<string, unknown> = { ...values };
 	for (const field of fields) {
-		if (field.type === 'heading') continue;
+		if (field.type === 'heading' || field.type === 'line') continue;
 		let current = next[field.attribute];
 		if (field.type === 'number' || field.type === 'currency') {
 			current = Number(current ?? 0);
@@ -74,7 +74,7 @@ export function mapRecordToFormValues(
 ): Record<string, unknown> {
 	return Object.fromEntries(
 		fields
-			.filter((f) => f.type !== 'heading')
+			.filter((f) => f.type !== 'heading' && f.type !== 'line')
 			.map((field) => {
 				if (field.type === 'manyToMany' || field.type === 'multiselect') {
 					let relationValues: unknown[] = [];
@@ -149,7 +149,7 @@ export function validateFormValues(args: {
 			continue;
 		}
 
-		if (field.type === 'heading') continue;
+		if (field.type === 'heading' || field.type === 'line') continue;
 		if (
 			field.required &&
 			field.type !== 'boolean' &&

@@ -91,7 +91,7 @@ Architectural difference (class inheritance vs object literals) — idiomatic to
 | Missing | Gravatar / UiAvatar                                | `avatar` covers basics; no Gravatar API                          |
 | Missing | Stack (visual field stacking)                      | — (niche display-only)                                           |
 | Missing | Sparkline (inline chart)                           | — (niche display-only)                                           |
-| Missing | Line (visual divider)                              | —                                                                |
+| Aligned | Line (visual divider)                              | `line` — display-only `<Separator/>`, no data storage            |
 | N/A     | Token                                              | Not needed                                                       |
 
 ### Relationship types
@@ -477,7 +477,7 @@ These are genuinely missing features, but Convex real-time + our existing infras
 | 10  | Redirect customization     | `redirectAfterCreate/Update/Delete` callbacks                               | Low      |
 | 11  | Detail-only metrics        | `onlyOnDetail` flag for metrics                                             | Low      |
 | 12  | Missing relation types     | HasOne, HasOneThrough, HasManyThrough, MorphedByMany                        | Low      |
-| 13  | Missing field types        | Timezone, Tag, Line                                                         | Low      |
+| 13  | Missing field types        | Timezone, Tag                                                               | Low      |
 | 14  | Multiple dashboards        | Register multiple dashboard pages (we have one)                             | Low      |
 | 15  | Button label customization | `createButtonLabel`, `updateButtonLabel` overrides                          | Low      |
 | 16  | Per-page via relation      | `$perPageViaRelationshipOptions` for related tables                         | Low      |
@@ -492,6 +492,7 @@ These are genuinely missing features, but Convex real-time + our existing infras
 | ~~Per-field fill logic~~            | `fillUsing(value, values, attribute)` callback                      |
 | ~~Batch chunking~~                  | 50 IDs/chunk, configurable, with progress + cancellation            |
 | ~~Code field~~                      | `code` and `json` field types with lazy-loaded editors              |
+| ~~Line field~~                      | `line` type — display-only `<Separator/>`, no data storage          |
 
 ---
 

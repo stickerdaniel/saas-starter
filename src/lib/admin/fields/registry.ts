@@ -5,6 +5,7 @@ import DetailValue from './detail-value.svelte';
 import FormInput from './form-input.svelte';
 import FormFileUpload from './form-file-upload.svelte';
 import FormHeading from './form-heading.svelte';
+import FormLine from './form-line.svelte';
 import FormKeyValue from './form-key-value.svelte';
 import LazyFormJsonEditor from './lazy-form-json-editor.svelte';
 import LazyDetailJsonViewer from './lazy-detail-json-viewer.svelte';
@@ -77,6 +78,12 @@ export const fieldComponentMap: FieldComponentMap = {
 		detail: DetailValue,
 		form: FormHeading,
 		preview: DetailValue
+	},
+	line: {
+		index: IndexCell,
+		detail: FormLine,
+		form: FormLine,
+		preview: FormLine
 	},
 	json: {
 		index: IndexCell,
