@@ -1,12 +1,17 @@
 <script lang="ts">
 	import { SvelteSet } from 'svelte/reactivity';
 	import { T, getTranslate } from '@tolgee/svelte';
+	import PlusIcon from '@lucide/svelte/icons/plus';
 	import * as Field from '$lib/components/ui/field/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { Textarea } from '$lib/components/ui/textarea/index.js';
 	import { Checkbox } from '$lib/components/ui/checkbox/index.js';
 	import * as Select from '$lib/components/ui/select/index.js';
+	import { Button } from '$lib/components/ui/button/index.js';
+	import InlineCreateModal from '$lib/admin/components/inline-create-modal.svelte';
+	import { getResourceByName, getResourceRuntime } from '$lib/admin/registry';
 	import type { FieldDefinition } from '$lib/admin/types';
+	import type { BetterAuthUser } from '$lib/convex/admin/types';
 
 	type Option = { value: string; label: string };
 
@@ -18,7 +23,9 @@
 		testId?: string;
 		relationOptions?: Option[];
 		allValues?: Record<string, unknown>;
+		viewer?: BetterAuthUser;
 		onChange: (value: unknown) => void;
+		onRelationCreated?: (fieldAttribute: string, newOption: Option) => void;
 	};
 
 	let {
@@ -29,9 +36,40 @@
 		testId,
 		relationOptions = [],
 		allValues = {},
-		onChange
+		viewer,
+		onChange,
+		onRelationCreated
 	}: Props = $props();
 	const { t } = getTranslate();
+
+	// Inline creation state
+	let inlineCreateOpen = $state(false);
+
+	const canInlineCreate = $derived(
+		field.inlineCreatable &&
+			(field.type === 'belongsTo' || field.type === 'morphTo') &&
+			field.relation?.resourceName
+	);
+
+	const targetResource = $derived(
+		canInlineCreate && field.relation ? getResourceByName(field.relation.resourceName) : undefined
+	);
+
+	const targetRuntime = $derived(
+		canInlineCreate && field.relation ? getResourceRuntime(field.relation.resourceName) : undefined
+	);
+
+	const inlineFieldSubset = $derived.by(() => {
+		if (!field.inlineCreatable || typeof field.inlineCreatable === 'boolean') return undefined;
+		return field.inlineCreatable.fields;
+	});
+
+	function handleInlineCreated(newId: string) {
+		onChange(newId);
+		if (onRelationCreated && targetResource) {
+			onRelationCreated(field.attribute, { value: newId, label: newId });
+		}
+	}
 
 	const selectOptions = $derived.by(() => {
 		if (field.type === 'select' && field.options) {
@@ -167,33 +205,60 @@
 				>
 			</div>
 		{:else if field.type === 'select' || field.type === 'belongsTo' || field.type === 'morphTo'}
-			<Select.Root
-				type="single"
-				value={String(value ?? '')}
-				{disabled}
-				onValueChange={(next) => {
-					onChange(next);
-				}}
-			>
-				<Select.Trigger data-testid={testId}>
-					{#if field.placeholderKey}
-						<T keyName={field.placeholderKey} />
-					{:else}
-						<T keyName="admin.resources.filters.select_placeholder" />
-					{/if}
-				</Select.Trigger>
-				<Select.Content>
-					{#each selectOptions as option (option.value)}
-						<Select.Item value={option.value}>
-							{#if option.translatable}
-								<T keyName={option.label} />
+			<div class="flex items-center gap-2">
+				<div class="flex-1">
+					<Select.Root
+						type="single"
+						value={String(value ?? '')}
+						{disabled}
+						onValueChange={(next) => {
+							onChange(next);
+						}}
+					>
+						<Select.Trigger data-testid={testId}>
+							{#if field.placeholderKey}
+								<T keyName={field.placeholderKey} />
 							{:else}
-								{option.label}
+								<T keyName="admin.resources.filters.select_placeholder" />
 							{/if}
-						</Select.Item>
-					{/each}
-				</Select.Content>
-			</Select.Root>
+						</Select.Trigger>
+						<Select.Content>
+							{#each selectOptions as option (option.value)}
+								<Select.Item value={option.value}>
+									{#if option.translatable}
+										<T keyName={option.label} />
+									{:else}
+										{option.label}
+									{/if}
+								</Select.Item>
+							{/each}
+						</Select.Content>
+					</Select.Root>
+				</div>
+				{#if canInlineCreate && targetResource && targetRuntime}
+					<Button
+						variant="outline"
+						size="icon"
+						{disabled}
+						onclick={() => (inlineCreateOpen = true)}
+						data-testid={testId ? `${testId}-inline-create` : undefined}
+					>
+						<PlusIcon class="h-4 w-4" />
+						<span class="sr-only"><T keyName="admin.resources.form.inline_create_button" /></span>
+					</Button>
+				{/if}
+			</div>
+			{#if canInlineCreate && targetResource && targetRuntime}
+				<InlineCreateModal
+					open={inlineCreateOpen}
+					{targetResource}
+					{targetRuntime}
+					fieldSubset={inlineFieldSubset}
+					{viewer}
+					onOpenChange={(next) => (inlineCreateOpen = next)}
+					onCreated={handleInlineCreated}
+				/>
+			{/if}
 		{:else if field.type === 'manyToMany'}
 			<div class="space-y-2 rounded-md border p-3">
 				{#if selectOptions.length === 0}

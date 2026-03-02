@@ -173,6 +173,8 @@ export type FieldDefinition<_TTable extends string = string> = {
 		/** Guard: can the user detach a related record? Defaults to true. */
 		canDetach?: (user: BetterAuthUser, parentRecord: Record<string, unknown>) => boolean;
 	};
+	/** Allow creating a related resource inline from a BelongsTo/MorphTo dropdown. */
+	inlineCreatable?: boolean | { fields?: string[] };
 };
 
 export type ActionModalStyle = 'window' | 'fullscreen';

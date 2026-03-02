@@ -277,7 +277,7 @@
 			</div>
 		{:else}
 			<div
-				class="absolute inset-0 flex items-center justify-center p-8 text-center text-muted-foreground motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-200 motion-safe:[--tw-ease:ease-out]"
+				class="absolute inset-0 flex items-center justify-center p-8 text-center text-muted-foreground motion-safe:animate-in motion-safe:duration-200 motion-safe:fade-in-0 motion-safe:[--tw-ease:ease-out]"
 			>
 				<T keyName={showingOpen ? 'admin.support.no_open_chats' : 'admin.support.no_done_chats'} />
 			</div>

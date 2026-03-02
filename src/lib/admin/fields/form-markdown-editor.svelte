@@ -38,7 +38,7 @@
 			data-testid={testId}
 			class="min-h-56"
 		/>
-		<div class="prose max-w-none rounded-md border p-3 text-sm dark:prose-invert">
+		<div class="prose dark:prose-invert max-w-none rounded-md border p-3 text-sm">
 			{#if markdown.trim().length > 0}
 				<!-- Marked output sanitized with DOMPurify -->
 				<!-- eslint-disable-next-line svelte/no-at-html-tags -->

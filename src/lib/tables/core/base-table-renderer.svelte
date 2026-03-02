@@ -182,7 +182,7 @@
 							class="h-24 text-center text-muted-foreground hover:!bg-transparent"
 						>
 							<span
-								class="motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-200 motion-safe:[--tw-ease:ease-out]"
+								class="motion-safe:animate-in motion-safe:duration-200 motion-safe:fade-in-0 motion-safe:[--tw-ease:ease-out]"
 							>
 								{$t(config.emptyKey)}
 							</span>

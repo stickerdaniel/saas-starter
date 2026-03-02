@@ -129,6 +129,25 @@
 		})();
 	});
 
+	async function reloadRelationOptions() {
+		try {
+			relationOptions = await loadRelationOptionsForFields({
+				fields: formFields,
+				runtime,
+				client
+			});
+		} catch (err) {
+			console.error(`[admin:${resource.name}] Failed to reload relation options`, err);
+		}
+	}
+
+	function handleRelationCreated(
+		_fieldAttribute: string,
+		_newOption: { value: string; label: string }
+	) {
+		void reloadRelationOptions();
+	}
+
 	async function submit() {
 		if (!canUpdateRecord) return;
 		const currentRecord = record ?? null;
@@ -357,9 +376,11 @@
 											})}
 											testId={`${prefix}-${field.attribute}-input`}
 											relationOptions={relationOptions[field.attribute] ?? []}
+											{viewer}
 											onChange={(value) => {
 												form.setValue(field.attribute, value);
 											}}
+											onRelationCreated={handleRelationCreated}
 										/>
 									</div>
 								{/each}
@@ -388,9 +409,11 @@
 								})}
 								testId={`${prefix}-${field.attribute}-input`}
 								relationOptions={relationOptions[field.attribute] ?? []}
+								{viewer}
 								onChange={(value) => {
 									form.setValue(field.attribute, value);
 								}}
+								onRelationCreated={handleRelationCreated}
 							/>
 						</div>
 					{/each}
