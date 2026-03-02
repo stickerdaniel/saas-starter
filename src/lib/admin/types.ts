@@ -169,6 +169,9 @@ export type FieldDefinition<_TTable extends string = string> = {
 	};
 };
 
+export type ActionModalStyle = 'window' | 'fullscreen';
+export type ActionModalSize = 'sm' | 'md' | 'lg' | 'xl' | '2xl';
+
 export type ActionDefinition = {
 	key: string;
 	nameKey: string;
@@ -186,6 +189,10 @@ export type ActionDefinition = {
 	fields?: Array<FieldDefinition<any>>;
 	chunkSize?: number;
 	canRun?: (user: BetterAuthUser, record?: unknown) => boolean;
+	/** Modal display style: 'window' (default centered dialog) or 'fullscreen' (viewport-filling). */
+	modalStyle?: ActionModalStyle;
+	/** Modal width for window style: 'sm' | 'md' | 'lg' (default) | 'xl' | '2xl'. Ignored in fullscreen mode. */
+	modalSize?: ActionModalSize;
 };
 
 export type FilterOption = {

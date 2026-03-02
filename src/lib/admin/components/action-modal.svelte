@@ -4,7 +4,7 @@
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Progress } from '$lib/components/ui/progress/index.js';
 	import FieldRenderer from '$lib/admin/fields/field-renderer.svelte';
-	import type { ActionDefinition } from '$lib/admin/types';
+	import type { ActionDefinition, ActionModalSize } from '$lib/admin/types';
 	import type { ChunkProgress } from '$lib/admin/action-response';
 
 	type Props = {
@@ -38,10 +38,27 @@
 	const progressPercent = $derived(
 		progress ? Math.round((progress.processedIds / progress.totalIds) * 100) : 0
 	);
+
+	const windowSizeMap: Record<ActionModalSize, string> = {
+		sm: 'sm:max-w-sm',
+		md: 'sm:max-w-md',
+		lg: 'sm:max-w-lg',
+		xl: 'sm:max-w-xl',
+		'2xl': 'sm:max-w-2xl'
+	};
+
+	const modalClasses = $derived.by(() => {
+		const style = action?.modalStyle ?? 'window';
+		if (style === 'fullscreen') {
+			return 'inset-0 h-full w-full max-w-none translate-x-0 translate-y-0 rounded-none sm:max-w-none';
+		}
+		const size = action?.modalSize ?? 'lg';
+		return windowSizeMap[size];
+	});
 </script>
 
 <Dialog.Root {open} {onOpenChange}>
-	<Dialog.Content>
+	<Dialog.Content class={modalClasses}>
 		<Dialog.Header>
 			<Dialog.Title>
 				{#if action}
