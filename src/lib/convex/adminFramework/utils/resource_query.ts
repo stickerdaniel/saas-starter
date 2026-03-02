@@ -241,3 +241,24 @@ export async function resolveLastPageForPaginatedQuery<
 
 	return { page, cursor };
 }
+
+/**
+ * Parse a `min..max` string and test whether `value` falls within the range (inclusive).
+ * Either bound may be omitted: `..100` means <= 100, `50..` means >= 50.
+ * Returns `true` when the value is in range or the filter string is empty/invalid.
+ */
+export function matchesNumberRange(value: unknown, rangeStr: string | undefined): boolean {
+	if (!rangeStr || !rangeStr.includes('..')) return true;
+	const [minStr, maxStr] = rangeStr.split('..');
+	const min = minStr !== '' ? Number(minStr) : null;
+	const max = maxStr !== '' ? Number(maxStr) : null;
+	if (min !== null && !Number.isFinite(min)) return true;
+	if (max !== null && !Number.isFinite(max)) return true;
+
+	const num = typeof value === 'number' ? value : Number(value);
+	if (!Number.isFinite(num)) return true;
+
+	if (min !== null && num < min) return false;
+	if (max !== null && num > max) return false;
+	return true;
+}
