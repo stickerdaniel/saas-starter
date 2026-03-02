@@ -241,6 +241,7 @@ export const demoProjectsResource = defineResource({
 			nameKey: 'admin.resources.projects.actions.attach_tag',
 			showOnIndex: true,
 			showOnDetail: true,
+			modalSize: 'xl',
 			fields: [
 				defineField({
 					type: 'select',
