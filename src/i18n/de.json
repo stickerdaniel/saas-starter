@@ -7,6 +7,40 @@
 			"set_role": "Rolle ändern",
 			"unban": "Sperre aufheben"
 		},
+		"audit_log": {
+			"column": {
+				"admin": "Admin",
+				"details": "Details",
+				"event": "Ereignis",
+				"target_user": "Zielbenutzer",
+				"timestamp": "Zeitstempel"
+			},
+			"event": {
+				"ban_user": "Benutzer sperren",
+				"impersonate": "Identität annehmen",
+				"revoke_sessions": "Sitzungen widerrufen",
+				"set_role": "Rolle ändern",
+				"stop_impersonation": "Identitätsübernahme beenden",
+				"unban_user": "Sperre aufheben"
+			},
+			"filter": {
+				"all_events": "Alle Ereignisse",
+				"clear": "Zurücksetzen"
+			},
+			"loading": "Protokoll wird geladen...",
+			"no_results": "Keine Protokolleinträge gefunden.",
+			"page_indicator": "Seite {current} von {total}",
+			"pagination": {
+				"first": "Zur ersten Seite",
+				"last": "Zur letzten Seite",
+				"next": "Zur nächsten Seite",
+				"previous": "Zur vorherigen Seite"
+			},
+			"rows_per_page": "Zeilen pro Seite",
+			"search_placeholder": "Protokoll durchsuchen...",
+			"title": "Aktivitätsprotokoll",
+			"total_entries": "{count, plural, one {# Eintrag} other {# Einträge}}"
+		},
 		"dashboard": {
 			"database_backend": "Datenbank & Backend",
 			"email_service": "E-Mail-Zustelldienst",
@@ -382,6 +416,7 @@
 			"type_custom": "Benutzerdefiniert"
 		},
 		"sidebar": {
+			"audit_log": "Aktivitätsprotokoll",
 			"back_to_app": "Zurück zur App",
 			"dashboard": "Dashboard",
 			"settings": "Einstellungen",
@@ -920,6 +955,10 @@
 			"title": "Über uns - Lernen Sie unser Team kennen"
 		},
 		"admin": {
+			"audit_log": {
+				"description": "Verlauf der Admin-Aktionen und Änderungen anzeigen.",
+				"title": "Aktivitätsprotokoll"
+			},
 			"dashboard": {
 				"description": "Überwachen Sie Plattformmetriken und externe Dienste.",
 				"title": "Admin-Dashboard"

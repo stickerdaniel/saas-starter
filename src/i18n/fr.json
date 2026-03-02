@@ -7,6 +7,40 @@
 			"set_role": "Changer le Rôle",
 			"unban": "Débannir l'Utilisateur"
 		},
+		"audit_log": {
+			"column": {
+				"admin": "Administrateur",
+				"details": "Détails",
+				"event": "Événement",
+				"target_user": "Utilisateur Cible",
+				"timestamp": "Horodatage"
+			},
+			"event": {
+				"ban_user": "Bannir l'Utilisateur",
+				"impersonate": "Usurper",
+				"revoke_sessions": "Révoquer les Sessions",
+				"set_role": "Changer le Rôle",
+				"stop_impersonation": "Arrêter l'Usurpation",
+				"unban_user": "Débannir l'Utilisateur"
+			},
+			"filter": {
+				"all_events": "Tous les Événements",
+				"clear": "Effacer"
+			},
+			"loading": "Chargement du journal...",
+			"no_results": "Aucune entrée dans le journal d'audit.",
+			"page_indicator": "Page {current} sur {total}",
+			"pagination": {
+				"first": "Aller à la première page",
+				"last": "Aller à la dernière page",
+				"next": "Aller à la page suivante",
+				"previous": "Aller à la page précédente"
+			},
+			"rows_per_page": "Lignes par page",
+			"search_placeholder": "Rechercher dans le journal...",
+			"title": "Journal d'Audit",
+			"total_entries": "{count, plural, one {# entrée} other {# entrées}}"
+		},
 		"dashboard": {
 			"database_backend": "Base de données & backend",
 			"email_service": "Service d'envoi d'e-mails",
@@ -382,6 +416,7 @@
 			"type_custom": "Personnalisé"
 		},
 		"sidebar": {
+			"audit_log": "Journal d'Audit",
 			"back_to_app": "Retour à l'App",
 			"dashboard": "Tableau de bord",
 			"settings": "Paramètres",
@@ -920,6 +955,10 @@
 			"title": "À propos de nous - Rencontrez notre équipe"
 		},
 		"admin": {
+			"audit_log": {
+				"description": "Consulter l'historique des actions et modifications d'administration.",
+				"title": "Journal d'Audit"
+			},
 			"dashboard": {
 				"description": "Surveillez les métriques de la plateforme et les services externes.",
 				"title": "Tableau de bord Admin"
