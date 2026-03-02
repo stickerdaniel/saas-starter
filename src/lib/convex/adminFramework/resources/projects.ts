@@ -17,7 +17,7 @@ import {
 	applyFieldVisibilityList,
 	type FieldPolicy
 } from '../utils/visibility';
-import { assertResourceCrudAllowed } from '../utils/resource_guards';
+import { assertResourceCrudAllowed, assertRelationAllowed } from '../utils/resource_guards';
 import {
 	aggregateCountFeaturedProjects,
 	aggregateCountProjectsByStatus,
@@ -705,6 +705,15 @@ export const runProjectAction = permissionMutation({
 				return { type: 'danger', text: 'admin.resources.form.required' };
 			}
 			for (const id of args.ids) {
+				const project = await ctx.db.get(id);
+				if (!project) continue;
+				assertRelationAllowed({
+					resourceName: 'demo-projects',
+					relationField: 'tagIds',
+					operation: 'attach',
+					user: ctx.user,
+					parentRecord: project as Record<string, unknown>
+				});
 				const exists = await ctx.db
 					.query('adminDemoProjectTags')
 					.withIndex('by_project_and_tag', (q) =>
@@ -727,6 +736,15 @@ export const runProjectAction = permissionMutation({
 				return { type: 'danger', text: 'admin.resources.form.required' };
 			}
 			for (const id of args.ids) {
+				const project = await ctx.db.get(id);
+				if (!project) continue;
+				assertRelationAllowed({
+					resourceName: 'demo-projects',
+					relationField: 'tagIds',
+					operation: 'detach',
+					user: ctx.user,
+					parentRecord: project as Record<string, unknown>
+				});
 				const rows = await ctx.db
 					.query('adminDemoProjectTags')
 					.withIndex('by_project_and_tag', (q) =>
@@ -797,6 +815,15 @@ export const attachProjectTag = permissionMutation({
 	},
 	handler: async (ctx, args) => {
 		assertPermission(ctx.user, { relationship: ['attach'] });
+		const project = await ctx.db.get(args.projectId);
+		if (!project) notFoundError('Project');
+		assertRelationAllowed({
+			resourceName: 'demo-projects',
+			relationField: 'tagIds',
+			operation: 'attach',
+			user: ctx.user,
+			parentRecord: project as Record<string, unknown>
+		});
 		const exists = await ctx.db
 			.query('adminDemoProjectTags')
 			.withIndex('by_project_and_tag', (q) =>
@@ -823,6 +850,15 @@ export const detachProjectTag = permissionMutation({
 	},
 	handler: async (ctx, args) => {
 		assertPermission(ctx.user, { relationship: ['detach'] });
+		const project = await ctx.db.get(args.projectId);
+		if (!project) notFoundError('Project');
+		assertRelationAllowed({
+			resourceName: 'demo-projects',
+			relationField: 'tagIds',
+			operation: 'detach',
+			user: ctx.user,
+			parentRecord: project as Record<string, unknown>
+		});
 		const rows = await ctx.db
 			.query('adminDemoProjectTags')
 			.withIndex('by_project_and_tag', (q) =>

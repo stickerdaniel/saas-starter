@@ -10,7 +10,7 @@
 		prefix: string;
 		onView: () => void;
 		onEdit: () => void;
-		onDelete: () => void;
+		onDelete?: (() => void) | undefined;
 	};
 
 	let { row, prefix, onView, onEdit, onDelete }: Props = $props();
@@ -37,14 +37,16 @@
 		<PencilIcon class="size-4" />
 		<span class="sr-only"><T keyName="admin.resources.actions.edit" /></span>
 	</Button>
-	<Button
-		variant="ghost"
-		size="icon"
-		onclick={onDelete}
-		data-testid={`${prefix}-row-delete-${row._id}`}
-		data-no-row-click="true"
-	>
-		<Trash2Icon class="size-4" />
-		<span class="sr-only"><T keyName="admin.resources.actions.delete" /></span>
-	</Button>
+	{#if onDelete}
+		<Button
+			variant="ghost"
+			size="icon"
+			onclick={onDelete}
+			data-testid={`${prefix}-row-delete-${row._id}`}
+			data-no-row-click="true"
+		>
+			<Trash2Icon class="size-4" />
+			<span class="sr-only"><T keyName="admin.resources.actions.delete" /></span>
+		</Button>
+	{/if}
 </div>

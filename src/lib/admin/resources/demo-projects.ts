@@ -163,7 +163,8 @@ export const demoProjectsResource = defineResource({
 			relation: {
 				resourceName: 'demo-tags',
 				valueField: '_id',
-				labelField: 'name'
+				labelField: 'name',
+				canDetach: (_user, parent) => parent.status !== 'archived'
 			}
 		}),
 		defineField({

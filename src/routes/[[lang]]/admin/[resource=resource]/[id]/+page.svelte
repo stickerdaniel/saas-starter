@@ -458,6 +458,7 @@
 												lang={page.params.lang ?? 'en'}
 												{prefix}
 												resourceName={resource.name}
+												{viewer}
 											/>
 										{:else}
 											<FieldRenderer

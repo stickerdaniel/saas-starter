@@ -124,3 +124,41 @@ export function isFieldDisabled(
 	if (args.isEdit && evaluateGuard(field.immutable, args)) return true;
 	return false;
 }
+
+function evaluateRelationGuard(
+	guard: ((user: BetterAuthUser, parentRecord: Record<string, unknown>) => boolean) | undefined,
+	user: MaybeUser,
+	parentRecord: MaybeRecord
+): boolean {
+	if (!guard) return true;
+	if (!hasRoleAdmin(user)) return false;
+	if (!parentRecord || typeof parentRecord !== 'object') return true;
+	return guard(user, parentRecord);
+}
+
+/** Can the user create (add) a new related record for this relation field? */
+export function isRelationAddable(
+	field: FieldDefinition<any>,
+	user: MaybeUser,
+	parentRecord: MaybeRecord
+): boolean {
+	return evaluateRelationGuard(field.relation?.canAdd, user, parentRecord);
+}
+
+/** Can the user attach an existing record to this relation field? */
+export function isRelationAttachable(
+	field: FieldDefinition<any>,
+	user: MaybeUser,
+	parentRecord: MaybeRecord
+): boolean {
+	return evaluateRelationGuard(field.relation?.canAttach, user, parentRecord);
+}
+
+/** Can the user detach a record from this relation field? */
+export function isRelationDetachable(
+	field: FieldDefinition<any>,
+	user: MaybeUser,
+	parentRecord: MaybeRecord
+): boolean {
+	return evaluateRelationGuard(field.relation?.canDetach, user, parentRecord);
+}
