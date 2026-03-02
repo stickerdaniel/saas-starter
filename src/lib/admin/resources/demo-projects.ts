@@ -314,7 +314,8 @@ export const demoProjectsResource = defineResource({
 			icon: DollarSignIcon,
 			descriptionKey: 'admin.resources.projects.metrics.budget_desc',
 			subtitleKey: 'admin.resources.projects.metrics.budget_subtitle',
-			format: 'currency'
+			format: 'currency',
+			width: '1/2'
 		}),
 		defineMetric({
 			key: 'taskCount',
