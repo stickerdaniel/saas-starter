@@ -7,6 +7,40 @@
 			"set_role": "Set Role",
 			"unban": "Unban User"
 		},
+		"audit_log": {
+			"column": {
+				"admin": "Admin",
+				"details": "Details",
+				"event": "Event",
+				"target_user": "Target User",
+				"timestamp": "Timestamp"
+			},
+			"event": {
+				"ban_user": "Ban User",
+				"impersonate": "Impersonate",
+				"revoke_sessions": "Revoke Sessions",
+				"set_role": "Set Role",
+				"stop_impersonation": "Stop Impersonation",
+				"unban_user": "Unban User"
+			},
+			"filter": {
+				"all_events": "All Events",
+				"clear": "Clear"
+			},
+			"loading": "Loading audit logs...",
+			"no_results": "No audit log entries found.",
+			"page_indicator": "Page {current} of {total}",
+			"pagination": {
+				"first": "Go to first page",
+				"last": "Go to last page",
+				"next": "Go to next page",
+				"previous": "Go to previous page"
+			},
+			"rows_per_page": "Rows per page",
+			"search_placeholder": "Search audit logs...",
+			"title": "Audit Log",
+			"total_entries": "{count, plural, one {# entry} other {# entries}}"
+		},
 		"dashboard": {
 			"database_backend": "Database & backend",
 			"email_service": "Email delivery service",
@@ -382,6 +416,7 @@
 			"type_custom": "Custom"
 		},
 		"sidebar": {
+			"audit_log": "Audit Log",
 			"back_to_app": "Back to App",
 			"dashboard": "Dashboard",
 			"settings": "Settings",
@@ -919,6 +954,10 @@
 			"title": "About Us - Meet Our Team"
 		},
 		"admin": {
+			"audit_log": {
+				"description": "View the history of admin actions and changes.",
+				"title": "Audit Log"
+			},
 			"dashboard": {
 				"description": "Monitor platform metrics and external services.",
 				"title": "Admin Dashboard"
