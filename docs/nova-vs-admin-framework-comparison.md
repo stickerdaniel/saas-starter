@@ -30,7 +30,7 @@ Living document tracking alignment between Laravel Nova (`references/vendor/lara
 | Column borders        | `$showColumnBorders`                                                      | Missing                                      |
 | Redirect after CRUD   | `redirectAfterCreate()`, `redirectAfterUpdate()`, `redirectAfterDelete()` | Missing — hardcoded to detail/list           |
 | Button labels         | `createButtonLabel()`, `updateButtonLabel()`                              | Missing — uses i18n keys only                |
-| Per-page via relation | `$perPageViaRelationshipOptions`                                          | Missing (related tables use fixed page size) |
+| Per-page via relation | `$perPageViaRelationshipOptions`                                          | Aligned — `relation.perPageOptions` on field |
 
 Architectural difference (class inheritance vs object literals) — idiomatic to each stack.
 
@@ -148,7 +148,7 @@ Nova's `Relatable` trait provides per-relation `relatableXxx()` methods to contr
 | Sort                  | `ORDER BY` on Eloquent                  | `sortBy` param → 3-tier query strategy (index → search → full collect) |
 | Filters               | `Filter::apply()` mutates query builder | URL filter values → Convex query args                                  |
 | Query hooks           | `indexQuery()` etc. overrideable        | Backend handler has full control                                       |
-| Per-page via relation | `$perPageViaRelationshipOptions`        | Fixed per related table                                                |
+| Per-page via relation | `$perPageViaRelationshipOptions`        | `relation.perPageOptions` with local-state cursor pagination           |
 
 Cursor pagination with page cache + prefetch is more sophisticated than Nova's offset pagination.
 
@@ -482,28 +482,29 @@ These are genuinely missing features, but Convex real-time + our existing infras
 | 4   | Numeric range filter       | `RangeFilter` for min/max number filtering                                  | Low      |
 | 5   | Copyable fields            | Copy-to-clipboard on index/detail                                           | Low      |
 | 6   | Field UI traits            | Expandable, Collapsable, Suggestions, FullWidth, Maxlength                  | Low      |
-| 7   | ~~Action modal styles~~    | ~~Fullscreen/window modal variants~~ — Implemented via `modalStyle`/`modalSize` on `ActionDefinition` | Done     |
+| 7   | ~~Action modal styles~~    | ~~Fullscreen/window modal variants~~ -- Implemented via `modalStyle`/`modalSize` on `ActionDefinition` | Done     |
 | 8   | Queued actions             | Background job processing (Convex scheduled functions could power this)     | Low      |
 | 9   | Table style options        | `tableStyle` (tight/default), `showColumnBorders`                           | Low      |
 | 10  | Redirect customization     | `redirectAfterCreate/Update/Delete` callbacks                               | Low      |
-| 11  | ~~Detail-only metrics~~    | ~~`onlyOnDetail` flag for metrics~~ — Implemented                           | Done     |
+| 11  | ~~Detail-only metrics~~    | ~~`onlyOnDetail` flag for metrics~~ -- Implemented                           | Done     |
 | 12  | Missing relation types     | HasOne, HasOneThrough, HasManyThrough, MorphedByMany                        | Low      |
 | 13  | Missing field types        | Timezone, Tag                                                               | Low      |
 | 14  | Multiple dashboards        | Register multiple dashboard pages (we have one)                             | Low      |
 | 15  | Button label customization | `createButtonLabel`, `updateButtonLabel` overrides                          | Low      |
-| 16  | Per-page via relation      | `$perPageViaRelationshipOptions` for related tables                         | Low      |
+| 16  | ~~Per-page via relation~~  | ~~`$perPageViaRelationshipOptions` for related tables~~ -- Implemented      | Done     |
 
 ### Resolved gaps
 
-| Gap                                 | Resolution                                                          |
-| ----------------------------------- | ------------------------------------------------------------------- |
-| ~~Filterable fields~~               | `filterable: true \| FilterableConfig` on `FieldDefinition`         |
-| ~~Field resolve/display callbacks~~ | `resolveUsing` / `displayUsing` / `fillUsing`                       |
-| ~~DestructiveAction~~               | `defineDestructiveAction()` + `run-destructive` permission + red UI |
-| ~~Per-field fill logic~~            | `fillUsing(value, values, attribute)` callback                      |
-| ~~Batch chunking~~                  | 50 IDs/chunk, configurable, with progress + cancellation            |
-| ~~Code field~~                      | `code` and `json` field types with lazy-loaded editors              |
-| ~~Line field~~                      | `line` type — display-only `<Separator/>`, no data storage          |
+| Gap                                 | Resolution                                                           |
+| ----------------------------------- | -------------------------------------------------------------------- |
+| ~~Filterable fields~~               | `filterable: true \| FilterableConfig` on `FieldDefinition`          |
+| ~~Field resolve/display callbacks~~ | `resolveUsing` / `displayUsing` / `fillUsing`                        |
+| ~~DestructiveAction~~               | `defineDestructiveAction()` + `run-destructive` permission + red UI  |
+| ~~Per-field fill logic~~            | `fillUsing(value, values, attribute)` callback                       |
+| ~~Batch chunking~~                  | 50 IDs/chunk, configurable, with progress + cancellation             |
+| ~~Code field~~                      | `code` and `json` field types with lazy-loaded editors               |
+| ~~Line field~~                      | `line` type -- display-only `<Separator/>`, no data storage          |
+| ~~Per-page via relation~~           | `relation.perPageOptions` + local cursor pagination in related table |
 
 ---
 
