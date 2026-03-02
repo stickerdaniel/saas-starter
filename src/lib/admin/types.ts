@@ -165,6 +165,7 @@ export type FieldDefinition<_TTable extends string = string> = {
 		valueField: string;
 		labelField: string;
 		foreignKey?: string;
+		perPageOptions?: number[];
 	};
 };
 

@@ -181,7 +181,8 @@ export const demoProjectsResource = defineResource({
 				resourceName: 'demo-tasks',
 				valueField: '_id',
 				labelField: 'title',
-				foreignKey: 'projectId'
+				foreignKey: 'projectId',
+				perPageOptions: [5, 10, 25]
 			}
 		}),
 		defineField({

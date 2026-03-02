@@ -5,8 +5,11 @@
 	import type { ColumnDef } from '@tanstack/table-core';
 	import { useConvexClient, useQuery } from 'convex-svelte';
 	import PlusIcon from '@lucide/svelte/icons/plus';
+	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
+	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import { renderComponent } from '$lib/components/ui/data-table/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
+	import * as Select from '$lib/components/ui/select/index.js';
 	import type { FieldDefinition } from '$lib/admin/types';
 	import { getResourceByName, getResourceRuntime } from '$lib/admin/registry';
 	import { ConfirmDeleteDialog, confirmDelete } from '$lib/components/ui/confirm-delete-dialog';
@@ -18,6 +21,8 @@
 	import RelatedResourceActionsCell from '$lib/admin/components/related-resource-actions-cell.svelte';
 	import TableLoadingActionIconsCell from '$lib/admin/components/table-loading-action-icons-cell.svelte';
 	import TableLoadingTextCell from '$lib/admin/components/table-loading-text-cell.svelte';
+
+	const DEFAULT_PER_PAGE_OPTIONS = [5, 10, 25] as const;
 
 	type Props = {
 		field: FieldDefinition<any>;
@@ -41,12 +46,30 @@
 	);
 	const foreignKey = $derived(relation?.foreignKey ?? '');
 	const parentId = $derived(String(record._id ?? ''));
+
+	const perPageOptions: number[] = $derived(
+		relation?.perPageOptions?.length ? relation.perPageOptions : [...DEFAULT_PER_PAGE_OPTIONS]
+	);
+
+	let pageSize = $state(0);
+	let pageIndex = $state(0);
+	let cursorStack: string[] = $state([]);
+
+	$effect(() => {
+		const first = perPageOptions[0] ?? 5;
+		if (pageSize === 0 || !perPageOptions.includes(pageSize)) {
+			pageSize = first;
+		}
+	});
+
+	const currentCursor = $derived(pageIndex === 0 ? undefined : cursorStack[pageIndex - 1]);
+
 	const relatedListQuery = relatedRuntime
 		? useQuery(relatedRuntime.list, () =>
-				parentId
+				parentId && pageSize > 0
 					? ({
-							cursor: undefined,
-							numItems: 10,
+							cursor: currentCursor,
+							numItems: pageSize,
 							filters: {
 								[foreignKey]: parentId
 							},
@@ -55,6 +78,7 @@
 					: 'skip'
 			)
 		: undefined;
+
 	const relatedCountQuery = relatedRuntime
 		? useQuery(relatedRuntime.count, () =>
 				parentId
@@ -68,14 +92,52 @@
 			)
 		: undefined;
 
-	const relatedRows = $derived.by<Record<string, unknown>[]>(
-		() => (relatedListQuery?.data as { items?: Record<string, unknown>[] } | undefined)?.items ?? []
-	);
+	type ListResponse = {
+		items?: Record<string, unknown>[];
+		continueCursor?: string;
+		isDone?: boolean;
+	};
+
+	const listResponse = $derived.by<ListResponse>(() => {
+		const data = relatedListQuery?.data as ListResponse | undefined;
+		return data ?? {};
+	});
+	const relatedRows = $derived.by<Record<string, unknown>[]>(() => listResponse.items ?? []);
+	const continueCursor = $derived(listResponse.continueCursor);
+	const isDone = $derived(listResponse.isDone ?? true);
 	const loading = $derived(relatedListQuery?.isLoading ?? false);
 	const totalCount = $derived.by(() => {
 		if (typeof relatedCountQuery?.data === 'number') return relatedCountQuery.data;
 		return relatedRows.length;
 	});
+
+	const pageCount = $derived.by(() => {
+		if (totalCount === 0 || pageSize === 0) return 1;
+		return Math.ceil(totalCount / pageSize);
+	});
+	const canPreviousPage = $derived(pageIndex > 0);
+	const canNextPage = $derived(!isDone && !!continueCursor);
+
+	function goToPreviousPage() {
+		if (!canPreviousPage) return;
+		pageIndex = pageIndex - 1;
+	}
+
+	function goToNextPage() {
+		if (!canNextPage || !continueCursor) return;
+		if (cursorStack.length <= pageIndex) {
+			cursorStack = [...cursorStack, continueCursor];
+		} else {
+			cursorStack[pageIndex] = continueCursor;
+		}
+		pageIndex = pageIndex + 1;
+	}
+
+	function handlePageSizeChange(newSize: number) {
+		pageSize = newSize;
+		pageIndex = 0;
+		cursorStack = [];
+	}
 
 	function viaParams() {
 		const id = String(record._id ?? '');
@@ -147,25 +209,26 @@
 	});
 
 	const skeletonColumns = $derived.by(() => getTableSkeletonColumnsFromColumnDefs(columns));
+	const testIdBase = $derived(`${prefix}-${field.attribute}-related`);
 
 	const renderConfig = $derived.by<BaseTableRenderConfig>(() => ({
-		testIdPrefix: `${prefix}-${field.attribute}-related`,
+		testIdPrefix: testIdBase,
 		searchValue: '',
 		searchPlaceholder: '',
 		onSearchChange: () => {},
 		showSearch: false,
-		pageIndex: 0,
-		pageCount: 1,
-		pageSize: Math.max(relatedRows.length, 1),
-		pageSizeOptions: [10],
+		pageIndex,
+		pageCount,
+		pageSize,
+		pageSizeOptions: perPageOptions,
 		showRowsPerPage: false,
-		canPreviousPage: false,
-		canNextPage: false,
+		canPreviousPage,
+		canNextPage,
 		onFirstPage: () => {},
-		onPreviousPage: () => {},
-		onNextPage: () => {},
+		onPreviousPage: goToPreviousPage,
+		onNextPage: goToNextPage,
 		onLastPage: () => {},
-		onPageSizeChange: () => {},
+		onPageSizeChange: handlePageSizeChange,
 		rowsPerPageLabel: '',
 		emptyKey: 'admin.resources.empty',
 		loadingLabelKey: 'admin.resources.loading',
@@ -177,10 +240,10 @@
 			return renderComponent(TableLoadingTextCell, { widthClass: 'w-32' });
 		},
 		skeletonColumns,
-		skeletonRowCount: loading ? Math.min(10, Math.max(totalCount, 1)) : 0,
+		skeletonRowCount: loading ? Math.min(pageSize || 5, Math.max(totalCount, 1)) : 0,
 		colspan: columns.length,
 		testIds: {
-			table: `${prefix}-${field.attribute}-related-table`
+			table: `${testIdBase}-table`
 		}
 	}));
 </script>
@@ -195,6 +258,61 @@
 			</Button>
 		</div>
 		<BaseTanStackTable table={table.table} config={renderConfig} />
+		<div class="flex items-center justify-between">
+			<div class="flex items-center gap-2">
+				<span class="text-xs text-muted-foreground">
+					{$t('admin.resources.rows_per_page')}
+				</span>
+				<Select.Root
+					type="single"
+					value={`${pageSize}`}
+					onValueChange={(value) => handlePageSizeChange(Number(value))}
+				>
+					<Select.Trigger
+						size="sm"
+						class="h-7 w-16 text-xs"
+						data-testid={`${testIdBase}-page-size`}
+					>
+						{pageSize}
+					</Select.Trigger>
+					<Select.Content side="top">
+						{#each perPageOptions as option (option)}
+							<Select.Item value={`${option}`}>{option}</Select.Item>
+						{/each}
+					</Select.Content>
+				</Select.Root>
+			</div>
+			<div class="flex items-center gap-1">
+				<span class="text-xs text-muted-foreground" data-testid={`${testIdBase}-page-indicator`}>
+					{$t('admin.users.page_indicator', {
+						current: pageIndex + 1,
+						total: pageCount
+					})}
+				</span>
+				<Button
+					variant="ghost"
+					size="icon"
+					class="size-7"
+					onclick={goToPreviousPage}
+					disabled={!canPreviousPage}
+					data-testid={`${testIdBase}-pagination-prev`}
+				>
+					<span class="sr-only">{$t('admin.users.pagination.previous')}</span>
+					<ChevronLeftIcon class="size-4" />
+				</Button>
+				<Button
+					variant="ghost"
+					size="icon"
+					class="size-7"
+					onclick={goToNextPage}
+					disabled={!canNextPage}
+					data-testid={`${testIdBase}-pagination-next`}
+				>
+					<span class="sr-only">{$t('admin.users.pagination.next')}</span>
+					<ChevronRightIcon class="size-4" />
+				</Button>
+			</div>
+		</div>
 	</div>
 {/if}
 
