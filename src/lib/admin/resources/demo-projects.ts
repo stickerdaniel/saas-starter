@@ -158,11 +158,15 @@ export const demoProjectsResource = defineResource({
 			showOnForm: true
 		}),
 		defineField({
-			type: 'manyToMany',
+			type: 'tag',
 			attribute: 'tagIds',
 			labelKey: 'admin.resources.projects.fields.tags',
+			placeholderKey: 'admin.resources.form.tag_placeholder',
 			showOnDetail: true,
 			showOnForm: true,
+			tagConfig: {
+				allowCreate: true
+			},
 			relation: {
 				resourceName: 'demo-tags',
 				valueField: '_id',
@@ -185,7 +189,8 @@ export const demoProjectsResource = defineResource({
 				resourceName: 'demo-tasks',
 				valueField: '_id',
 				labelField: 'title',
-				foreignKey: 'projectId'
+				foreignKey: 'projectId',
+				perPageOptions: [5, 10, 25]
 			}
 		}),
 		defineField({
@@ -389,6 +394,9 @@ export const demoProjectsRuntime: ResourceRuntime = {
 	listRelationOptions: {
 		tagId: api.adminFramework.resources.projects.listProjectTagOptions,
 		tagIds: api.adminFramework.resources.projects.listProjectTagOptions
+	},
+	upsertRelation: {
+		tagIds: api.adminFramework.resources.tags.upsertTag
 	}
 };
 

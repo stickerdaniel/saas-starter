@@ -11,6 +11,7 @@ import LazyFormJsonEditor from './lazy-form-json-editor.svelte';
 import LazyDetailJsonViewer from './lazy-detail-json-viewer.svelte';
 import LazyFormMarkdownEditor from './lazy-form-markdown-editor.svelte';
 import LazyDetailMarkdownViewer from './lazy-detail-markdown-viewer.svelte';
+import FormTagInput from './form-tag-input.svelte';
 
 type FieldComponentMap = Record<string, Record<FieldContext, Component<any>>>;
 
@@ -102,6 +103,12 @@ export const fieldComponentMap: FieldComponentMap = {
 		detail: LazyDetailMarkdownViewer,
 		form: LazyFormMarkdownEditor,
 		preview: LazyDetailMarkdownViewer
+	},
+	tag: {
+		index: IndexCell,
+		detail: DetailValue,
+		form: FormTagInput,
+		preview: DetailValue
 	}
 };
 
