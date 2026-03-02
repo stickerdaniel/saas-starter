@@ -7,6 +7,40 @@
 			"set_role": "Cambiar Rol",
 			"unban": "Desbloquear Usuario"
 		},
+		"audit_log": {
+			"column": {
+				"admin": "Administrador",
+				"details": "Detalles",
+				"event": "Evento",
+				"target_user": "Usuario Objetivo",
+				"timestamp": "Fecha y hora"
+			},
+			"event": {
+				"ban_user": "Bloquear Usuario",
+				"impersonate": "Suplantar",
+				"revoke_sessions": "Revocar Sesiones",
+				"set_role": "Cambiar Rol",
+				"stop_impersonation": "Detener Suplantación",
+				"unban_user": "Desbloquear Usuario"
+			},
+			"filter": {
+				"all_events": "Todos los Eventos",
+				"clear": "Limpiar"
+			},
+			"loading": "Cargando registros...",
+			"no_results": "No se encontraron registros de auditoría.",
+			"page_indicator": "Página {current} de {total}",
+			"pagination": {
+				"first": "Ir a la primera página",
+				"last": "Ir a la última página",
+				"next": "Ir a la siguiente página",
+				"previous": "Ir a la página anterior"
+			},
+			"rows_per_page": "Filas por página",
+			"search_placeholder": "Buscar registros...",
+			"title": "Registro de Auditoría",
+			"total_entries": "{count, plural, one {# entrada} other {# entradas}}"
+		},
 		"dashboard": {
 			"database_backend": "Base de datos y backend",
 			"email_service": "Servicio de entrega de correo",
@@ -107,6 +141,7 @@
 			"type_custom": "Personalizado"
 		},
 		"sidebar": {
+			"audit_log": "Registro de Auditoría",
 			"back_to_app": "Volver a la App",
 			"dashboard": "Panel",
 			"settings": "Configuración",
@@ -644,6 +679,10 @@
 			"title": "Acerca de nosotros - Conoce a nuestro equipo"
 		},
 		"admin": {
+			"audit_log": {
+				"description": "Ver el historial de acciones y cambios de administración.",
+				"title": "Registro de Auditoría"
+			},
 			"dashboard": {
 				"description": "Supervisa métricas de la plataforma y servicios externos.",
 				"title": "Panel de Admin"
