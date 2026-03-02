@@ -127,7 +127,7 @@
 	{:else if field.type === 'avatar'}
 		<Skeleton class="size-8 rounded-full" />
 	{:else if field.type === 'select' && field.inlineEditable}
-		<Skeleton class="h-8 min-w-24 w-24 rounded-md" />
+		<Skeleton class="h-8 w-24 min-w-24 rounded-md" />
 	{:else if field.type === 'boolean' && field.inlineEditable}
 		<div class="flex items-center justify-center">
 			<Skeleton class="h-4 w-4 rounded-sm" />

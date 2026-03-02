@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { FieldContext, FieldDefinition } from '$lib/admin/types';
+	import type { BetterAuthUser } from '$lib/convex/admin/types';
 	import { getFieldComponent } from './registry';
 
 	type Option = { value: string; label: string };
@@ -15,7 +16,9 @@
 		disabled?: boolean;
 		relationOptions?: Option[];
 		allValues?: Record<string, unknown>;
+		viewer?: BetterAuthUser;
 		onChange?: (value: unknown) => void;
+		onRelationCreated?: (fieldAttribute: string, newOption: Option) => void;
 	};
 
 	let {
@@ -29,7 +32,9 @@
 		disabled = false,
 		relationOptions = [],
 		allValues = {},
-		onChange = () => {}
+		viewer,
+		onChange = () => {},
+		onRelationCreated
 	}: Props = $props();
 
 	const Component = $derived(
@@ -48,5 +53,7 @@
 	{disabled}
 	{relationOptions}
 	{allValues}
+	{viewer}
 	{onChange}
+	{onRelationCreated}
 />

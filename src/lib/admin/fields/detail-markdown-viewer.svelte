@@ -25,7 +25,7 @@
 <div class="space-y-2" data-testid={testId}>
 	<p class="text-sm font-medium text-muted-foreground"><T keyName={field.labelKey} /></p>
 	{#if markdown.trim().length > 0}
-		<div class="prose max-w-none text-sm dark:prose-invert">
+		<div class="prose dark:prose-invert max-w-none text-sm">
 			<!-- Marked output sanitized with DOMPurify -->
 			<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 			{@html renderedHtml}
