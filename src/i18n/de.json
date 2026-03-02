@@ -314,6 +314,9 @@
 				"upload": "Datei hochladen",
 				"value_placeholder": "Wert",
 				"select_placeholder": "Select option",
+				"number_range_min": "Min",
+				"number_range_max": "Max",
+				"number_range_apply": "Anwenden",
 				"select_placeholder": "Select option",
 				"yes": "Ja",
 				"no": "Nein"
@@ -385,6 +388,7 @@
 					"tasks": "Tasks"
 				},
 				"filters": {
+					"budget_range": "Budgetbereich",
 					"featured": "Featured",
 					"featured_only": "Featured Only",
 					"owner_1": "Eigentümer 1",

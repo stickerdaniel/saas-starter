@@ -9,7 +9,8 @@ import {
 	countPaginatedQuery,
 	resolveLastPageForPaginatedQuery,
 	runPaginatedListQuery,
-	runResourceListQuery
+	runResourceListQuery,
+	matchesNumberRange
 } from '../utils/resource_query';
 import { success, type ActionResponse, notFoundError, validationError } from '../utils/errors';
 import {
@@ -79,6 +80,10 @@ function matchesProjectFilters(project: AdminDemoProject, filters: Record<string
 		}
 	}
 
+	if (!matchesNumberRange(project.budget, filters.budget)) {
+		return false;
+	}
+
 	return true;
 }
 
@@ -134,6 +139,7 @@ function getIndexedProjectQuery(
 ) {
 	const filters = args.filters ?? {};
 	if (filters.createdRange) return null;
+	if (filters.budget) return null;
 	if (filters.featured && filters.featured !== 'all') return null;
 	if (args.lens === 'featured') return null;
 
@@ -191,6 +197,7 @@ export const listProjects = permissionQuery({
 			Boolean(search) &&
 			!args.sortBy &&
 			!(args.filters?.createdRange ?? '') &&
+			!(args.filters?.budget ?? '') &&
 			(!args.filters?.featured || args.filters.featured === 'all') &&
 			args.lens !== 'featured' &&
 			((args.trashed ?? 'without') === 'without' || (args.trashed ?? 'without') === 'with');
@@ -282,6 +289,7 @@ export const countProjects = permissionQuery({
 		const canUseSearchIndex =
 			Boolean(search) &&
 			!(args.filters?.createdRange ?? '') &&
+			!(args.filters?.budget ?? '') &&
 			(!args.filters?.featured || args.filters.featured === 'all') &&
 			args.lens !== 'featured' &&
 			((args.trashed ?? 'without') === 'without' || (args.trashed ?? 'without') === 'with');
@@ -343,6 +351,7 @@ export const resolveProjectsLastPage = permissionQuery({
 			Boolean(search) &&
 			!args.sortBy &&
 			!(args.filters?.createdRange ?? '') &&
+			!(args.filters?.budget ?? '') &&
 			(!args.filters?.featured || args.filters.featured === 'all') &&
 			args.lens !== 'featured' &&
 			((args.trashed ?? 'without') === 'without' || (args.trashed ?? 'without') === 'with');

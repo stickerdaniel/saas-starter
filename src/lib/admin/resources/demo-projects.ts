@@ -222,6 +222,13 @@ export const demoProjectsResource = defineResource({
 			urlKey: 'createdRange',
 			defaultValue: '',
 			options: []
+		}),
+		defineFilter({
+			key: 'budgetRange',
+			labelKey: 'admin.resources.projects.filters.budget_range',
+			type: 'number-range',
+			urlKey: 'budget',
+			defaultValue: ''
 		})
 	],
 	actions: [

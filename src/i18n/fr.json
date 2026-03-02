@@ -314,6 +314,9 @@
 				"upload": "Téléverser un fichier",
 				"value_placeholder": "Valeur",
 				"select_placeholder": "Select option",
+				"number_range_min": "Min",
+				"number_range_max": "Max",
+				"number_range_apply": "Appliquer",
 				"select_placeholder": "Select option",
 				"yes": "Oui",
 				"no": "Non"
@@ -385,6 +388,7 @@
 					"tasks": "Tasks"
 				},
 				"filters": {
+					"budget_range": "Plage de budget",
 					"featured": "Featured",
 					"featured_only": "Featured Only",
 					"owner_1": "Propriétaire 1",

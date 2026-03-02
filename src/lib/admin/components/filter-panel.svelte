@@ -4,6 +4,7 @@
 	import { Button } from '$lib/components/ui/button/index.js';
 	import type { FilterDefinition } from '$lib/admin/types';
 	import DateRangeFilter from './date-range-filter.svelte';
+	import NumberRangeFilter from './number-range-filter.svelte';
 
 	type Props = {
 		prefix: string;
@@ -20,6 +21,13 @@
 	{#each filters as filter (filter.key)}
 		{#if filter.type === 'date-range'}
 			<DateRangeFilter
+				labelKey={filter.labelKey}
+				value={values[filter.urlKey] ?? filter.defaultValue}
+				testId={`${prefix}-${filter.key}-filter`}
+				onChange={(nextValue) => onFilterChange(filter.urlKey, nextValue)}
+			/>
+		{:else if filter.type === 'number-range'}
+			<NumberRangeFilter
 				labelKey={filter.labelKey}
 				value={values[filter.urlKey] ?? filter.defaultValue}
 				testId={`${prefix}-${filter.key}-filter`}

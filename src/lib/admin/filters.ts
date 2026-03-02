@@ -53,10 +53,23 @@ function buildDateRangeFilter(field: FieldDefinition, config: FilterableConfig):
 	};
 }
 
+function buildNumberRangeFilter(
+	field: FieldDefinition,
+	config: FilterableConfig
+): FilterDefinition {
+	return {
+		key: config.key ?? field.attribute,
+		labelKey: config.labelKey ?? field.labelKey,
+		type: 'number-range',
+		urlKey: config.urlKey ?? field.attribute,
+		defaultValue: config.defaultValue ?? ''
+	};
+}
+
 function resolveFilterType(
 	field: FieldDefinition,
 	config: FilterableConfig
-): 'select' | 'boolean' | 'date-range' | null {
+): 'select' | 'boolean' | 'date-range' | 'number-range' | null {
 	if (config.type) return config.type;
 	switch (field.type) {
 		case 'select':
@@ -67,6 +80,9 @@ function resolveFilterType(
 		case 'date':
 		case 'datetime':
 			return 'date-range';
+		case 'number':
+		case 'currency':
+			return 'number-range';
 		case 'belongsTo':
 			return config.options ? 'select' : null;
 		default:
@@ -88,6 +104,8 @@ export function resolveFieldFilter(field: FieldDefinition): FilterDefinition | n
 			return buildBooleanFilter(field, config);
 		case 'date-range':
 			return buildDateRangeFilter(field, config);
+		case 'number-range':
+			return buildNumberRangeFilter(field, config);
 	}
 }
 

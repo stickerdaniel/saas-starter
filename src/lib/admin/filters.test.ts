@@ -116,10 +116,40 @@ describe('resolveFieldFilter', () => {
 		expect(filter!.type).toBe('date-range');
 	});
 
-	it('returns null for text/number/email fields', () => {
+	it('returns null for text/email fields', () => {
 		expect(resolveFieldFilter(makeField({ type: 'text', filterable: true }))).toBeNull();
-		expect(resolveFieldFilter(makeField({ type: 'number', filterable: true }))).toBeNull();
 		expect(resolveFieldFilter(makeField({ type: 'email', filterable: true }))).toBeNull();
+	});
+
+	it('generates a number-range filter from a number field', () => {
+		const field = makeField({
+			type: 'number',
+			attribute: 'budget',
+			labelKey: 'fields.budget',
+			filterable: true
+		});
+
+		const filter = resolveFieldFilter(field);
+		expect(filter).toEqual({
+			key: 'budget',
+			labelKey: 'fields.budget',
+			type: 'number-range',
+			urlKey: 'budget',
+			defaultValue: ''
+		});
+	});
+
+	it('generates a number-range filter from a currency field', () => {
+		const field = makeField({
+			type: 'currency',
+			attribute: 'price',
+			labelKey: 'fields.price',
+			filterable: true
+		});
+
+		const filter = resolveFieldFilter(field);
+		expect(filter).not.toBeNull();
+		expect(filter!.type).toBe('number-range');
 	});
 
 	it('returns null for a select field without options', () => {

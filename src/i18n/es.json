@@ -314,6 +314,9 @@
 				"upload": "Subir archivo",
 				"value_placeholder": "Valor",
 				"select_placeholder": "Select option",
+				"number_range_min": "Mín",
+				"number_range_max": "Máx",
+				"number_range_apply": "Aplicar",
 				"select_placeholder": "Select option",
 				"yes": "Sí",
 				"no": "No"
@@ -385,6 +388,7 @@
 					"tasks": "Tasks"
 				},
 				"filters": {
+					"budget_range": "Rango de presupuesto",
 					"featured": "Featured",
 					"featured_only": "Featured Only",
 					"owner_1": "Propietario 1",
