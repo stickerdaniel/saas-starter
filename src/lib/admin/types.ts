@@ -59,6 +59,7 @@ export type FieldType =
 	| 'booleanGroup'
 	| 'multiselect'
 	| 'heading'
+	| 'line'
 	| 'status'
 	| 'avatar';
 

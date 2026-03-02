@@ -21,7 +21,7 @@ function getDefaultFieldValue(field: FieldDefinition<any>) {
 	if (field.type === 'boolean') return false;
 	if (field.type === 'booleanGroup') return {};
 	if (field.type === 'keyValue') return {};
-	if (field.type === 'heading') return undefined;
+	if (field.type === 'heading' || field.type === 'line') return undefined;
 	return '';
 }
 

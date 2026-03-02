@@ -108,6 +108,14 @@ export const demoTasksResource = defineResource({
 			showOnForm: true
 		}),
 		defineField({
+			type: 'line',
+			attribute: '_line_assignment',
+			labelKey: '',
+			showOnIndex: false,
+			showOnDetail: true,
+			showOnForm: true
+		}),
+		defineField({
 			type: 'email',
 			attribute: 'assigneeEmail',
 			labelKey: 'admin.resources.tasks.fields.assignee_email',
