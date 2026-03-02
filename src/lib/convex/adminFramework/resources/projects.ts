@@ -883,10 +883,42 @@ export const detachProjectTag = permissionMutation({
 
 export const getProjectMetrics = permissionQuery({
 	args: {
-		ranges: v.optional(v.record(v.string(), v.string()))
+		ranges: v.optional(v.record(v.string(), v.string())),
+		recordId: v.optional(v.id('adminDemoProjects'))
 	},
-	handler: async (ctx) => {
+	handler: async (ctx, args) => {
 		assertPermission(ctx.user, { metric: ['read'] });
+
+		if (args.recordId) {
+			const project = await ctx.db.get(args.recordId);
+			if (!project) notFoundError('Project');
+
+			const tasks = await ctx.db
+				.query('adminDemoTasks')
+				.withIndex('by_project', (q) => q.eq('projectId', args.recordId!))
+				.collect();
+
+			const pivots = await ctx.db
+				.query('adminDemoProjectTags')
+				.withIndex('by_project', (q) => q.eq('projectId', args.recordId!))
+				.collect();
+
+			const completedTasks = tasks.filter((t) => t.status === 'done');
+
+			return {
+				cards: [
+					{ key: 'taskCount', type: 'value', value: tasks.length },
+					{ key: 'tagCount', type: 'value', value: pivots.length },
+					{
+						key: 'taskCompletion',
+						type: 'progress',
+						value: completedTasks.length,
+						target: tasks.length
+					}
+				]
+			};
+		}
+
 		const [activeCount, archivedCount, featuredCount, budgetTotal] = await Promise.all([
 			aggregateCountProjectsByStatus(ctx, 'active'),
 			aggregateCountProjectsByStatus(ctx, 'archived'),
