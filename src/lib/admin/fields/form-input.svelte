@@ -138,6 +138,8 @@
 
 {#if field.type === 'heading'}
 	<!-- heading is handled by FormHeading, not rendered here -->
+{:else if field.type === 'line'}
+	<!-- line is handled by FormLine, not rendered here -->
 {:else if field.type === 'hidden'}
 	<input type="hidden" value={String(value ?? '')} data-testid={testId} />
 {:else}
