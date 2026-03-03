@@ -25,6 +25,7 @@ export function beginOAuth(provider: PendingOAuthProvider) {
 
 export function commitOAuthSuccessIfPending() {
 	const provider = pendingOAuthProvider.current;
+	if (!provider) return;
 	if (provider === 'google' || provider === 'github') {
 		lastSuccessfulAuthMethod.current = provider;
 	}
@@ -40,5 +41,7 @@ export function clearLastSuccessfulAuthMethod() {
 }
 
 export function clearPendingOAuthProvider() {
-	pendingOAuthProvider.current = null;
+	if (pendingOAuthProvider.current !== null) {
+		pendingOAuthProvider.current = null;
+	}
 }
