@@ -1,4 +1,5 @@
 import type { LayoutServerLoad } from './$types';
+import { env } from '$env/dynamic/private';
 import { api } from '$lib/convex/_generated/api';
 import { createConvexHttpClient } from '@mmailaender/convex-better-auth-svelte/sveltekit';
 import { createAutumnHandlers } from '@stickerdaniel/convex-autumn-svelte/sveltekit/server';
@@ -11,7 +12,11 @@ export const load: LayoutServerLoad = async (event) => {
 	const isAuthenticated = !!event.locals.token;
 	const authState = { isAuthenticated };
 
-	const client = createConvexHttpClient({ token: event.locals.token });
+	// Use internal URL if available (same Docker network = skip public internet hop)
+	const client = createConvexHttpClient({
+		token: event.locals.token,
+		convexUrl: env.CONVEX_INTERNAL_URL || undefined
+	});
 
 	// Autumn handlers for billing/subscription data
 	const { getCustomer } = createAutumnHandlers({
