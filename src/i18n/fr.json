@@ -397,6 +397,7 @@
 			"no_account": "Pas encore de compte ?",
 			"oauth_github": "GitHub",
 			"oauth_google": "Google",
+			"oauth_last_used": "Dernière utilisation",
 			"or_continue_with": "Ou continuer avec",
 			"passkey_button": "Se connecter avec Passkey",
 			"password_label": "Mot de passe",
