@@ -122,7 +122,7 @@
 		"prettier-plugin-svelte": "3.4.1",
 		"prettier-plugin-tailwindcss": "0.7.2",
 		"rollup-plugin-visualizer": "6.0.5",
-		"svelte": "5.48.2",
+		"svelte": "5.53.5",
 		"svelte-check": "4.3.5",
 		"svelte-sonner": "1.0.7",
 		"sveltekit-superforms": "2.29.1",
