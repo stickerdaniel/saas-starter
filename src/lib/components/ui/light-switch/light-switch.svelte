@@ -3,6 +3,7 @@
 	import MoonIcon from '@lucide/svelte/icons/moon';
 	import { getTranslate } from '@tolgee/svelte';
 	import { toggleMode } from 'mode-watcher';
+	import { haptic } from '$lib/hooks/use-haptic.svelte';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import type { LightSwitchProps } from './types';
 
@@ -11,6 +12,7 @@
 	let { variant = 'outline' }: LightSwitchProps = $props();
 
 	function handleToggle(event: MouseEvent) {
+		haptic.trigger('medium');
 		// Get click position for reveal origin
 		const target = event.currentTarget as HTMLElement;
 		const rect = target.getBoundingClientRect();

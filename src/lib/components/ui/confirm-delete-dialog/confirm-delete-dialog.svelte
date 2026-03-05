@@ -29,6 +29,7 @@
 				}
 			}
 
+			import('$lib/hooks/use-haptic.svelte').then((m) => m.haptic.trigger('warning'));
 			this.loading = true;
 			this.options
 				?.onConfirm()
@@ -78,6 +79,7 @@
 <script lang="ts">
 	import * as AlertDialog from '$lib/components/ui/alert-dialog';
 	import * as Field from '$lib/components/ui/field/index.js';
+	import { haptic } from '$lib/hooks/use-haptic.svelte';
 	import { getTranslate } from '@tolgee/svelte';
 	import { Input } from '$lib/components/ui/input';
 
@@ -124,7 +126,10 @@
 			<AlertDialog.Footer>
 				<AlertDialog.Cancel
 					type="button"
-					onclick={dialogState.cancel}
+					onclick={() => {
+						haptic.trigger('light');
+						dialogState.cancel();
+					}}
 					data-testid="confirm-delete-cancel"
 				>
 					{dialogState.options?.cancel?.text ?? 'Cancel'}

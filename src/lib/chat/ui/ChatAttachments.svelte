@@ -4,6 +4,7 @@
 	import ImageIcon from '@lucide/svelte/icons/image';
 	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
 	import { getTranslate } from '@tolgee/svelte';
+	import { haptic } from '$lib/hooks/use-haptic.svelte';
 	import Progress from '$lib/components/ui/progress/progress.svelte';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import type { Attachment, UploadState } from '../core/types.js';
@@ -254,6 +255,7 @@
 					<button
 						onclick={(e) => {
 							e.stopPropagation();
+							haptic.trigger('light');
 							onRemove?.(originalIndex);
 						}}
 						class="shrink-0 rounded-full p-1 hover:bg-secondary/50"

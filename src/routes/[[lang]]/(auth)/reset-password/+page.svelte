@@ -12,6 +12,7 @@
 	import { localizedHref } from '$lib/utils/i18n';
 	import { resolve } from '$app/paths';
 	import { T, getTranslate } from '@tolgee/svelte';
+	import { haptic } from '$lib/hooks/use-haptic.svelte';
 	import { PASSWORD_MIN_LENGTH, resetPasswordSchema } from './schema.js';
 	import { page } from '$app/state';
 	import { getAuthErrorKey } from '$lib/utils/auth-messages';
@@ -126,9 +127,11 @@
 			});
 
 			if (err) {
+				haptic.trigger('error');
 				lastValidSubmission = null;
 				formError = getAuthErrorKey(err, 'auth.messages.reset_failed');
 			} else {
+				haptic.trigger('success');
 				message = 'auth.messages.password_reset_success';
 			}
 		} catch (error) {

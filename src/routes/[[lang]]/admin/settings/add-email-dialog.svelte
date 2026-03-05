@@ -5,6 +5,7 @@
 	import { Input } from '$lib/components/ui/input/index.js';
 	import PlusIcon from '@tabler/icons-svelte/icons/plus';
 	import { T, getTranslate } from '@tolgee/svelte';
+	import { haptic } from '$lib/hooks/use-haptic.svelte';
 	import { toast } from 'svelte-sonner';
 	import { addEmailForm } from './data.remote';
 	import { emailSchema } from './email-schema';
@@ -49,9 +50,11 @@
 						return;
 					}
 					formEl.reset();
+					haptic.trigger('success');
 					toast.success($t('admin.settings.email_added'));
 					open = false;
 				} catch {
+					haptic.trigger('error');
 					toast.error($t('admin.settings.email_add_failed'));
 				}
 			})}

@@ -4,6 +4,7 @@
 	import { Input } from '$lib/components/ui/input/index.js';
 	import * as Field from '$lib/components/ui/field/index.js';
 	import * as Card from '$lib/components/ui/card/index.js';
+	import { haptic } from '$lib/hooks/use-haptic.svelte';
 	import { toast } from 'svelte-sonner';
 	import { T, getTranslate } from '@tolgee/svelte';
 	import { useConvexClient } from 'convex-svelte';
@@ -41,6 +42,8 @@
 		const file = target.files?.[0];
 
 		if (!file) return;
+
+		haptic.trigger('medium');
 
 		// Validate file type
 		if (!file.type.startsWith('image/')) {
@@ -80,10 +83,12 @@
 			// Update preview (don't save to DB yet)
 			image = imageUrl || '';
 
+			haptic.trigger('success');
 			toast.success($t('settings.account.avatar.ready'));
 		} catch (error) {
 			const message =
 				error instanceof Error ? error.message : $t('settings.account.avatar.upload_failed');
+			haptic.trigger('error');
 			toast.error(message);
 			target.value = '';
 		} finally {
@@ -92,6 +97,7 @@
 	}
 
 	function handleRemoveImage() {
+		haptic.trigger('warning');
 		image = '';
 		toast.success($t('settings.account.avatar.removed'));
 	}
@@ -106,9 +112,11 @@
 				image: image || null
 			});
 
+			haptic.trigger('success');
 			toast.success($t('settings.account.success'));
 		} catch (error) {
 			const message = error instanceof Error ? error.message : $t('settings.account.error');
+			haptic.trigger('error');
 			toast.error(message);
 		} finally {
 			isSaving = false;

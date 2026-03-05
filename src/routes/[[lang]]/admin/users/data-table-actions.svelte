@@ -18,6 +18,7 @@
 	import LogoutIcon from '@tabler/icons-svelte/icons/logout';
 	import ShieldIcon from '@tabler/icons-svelte/icons/shield';
 	import CheckIcon from '@tabler/icons-svelte/icons/check';
+	import { haptic } from '$lib/hooks/use-haptic.svelte';
 	import { T } from '@tolgee/svelte';
 	import { USER_ROLES } from '$lib/convex/admin/types';
 	import { getContext } from 'svelte';
@@ -37,22 +38,27 @@
 	const isCurrentUser = $derived(currentUserId === user.id);
 
 	function handleImpersonate() {
+		haptic.trigger('light');
 		onAction({ type: 'impersonate', userId: user.id });
 	}
 
 	function handleSetRole(role: UserRole) {
+		haptic.trigger('light');
 		onAction({ type: 'openRoleDialog', user, role });
 	}
 
 	function handleBan() {
+		haptic.trigger('warning');
 		onAction({ type: 'openBanDialog', user });
 	}
 
 	function handleUnban() {
+		haptic.trigger('light');
 		onAction({ type: 'openUnbanDialog', user });
 	}
 
 	function handleRevoke() {
+		haptic.trigger('warning');
 		onAction({ type: 'openRevokeDialog', user });
 	}
 </script>

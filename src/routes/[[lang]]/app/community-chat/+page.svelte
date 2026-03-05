@@ -13,6 +13,7 @@
 	import InfoIcon from '@lucide/svelte/icons/info';
 	import SendIcon from '@lucide/svelte/icons/send';
 	import InnerShadowTopIcon from '@tabler/icons-svelte/icons/inner-shadow-top';
+	import { haptic } from '$lib/hooks/use-haptic.svelte';
 	import { toast } from 'svelte-sonner';
 
 	import { page } from '$app/state';
@@ -62,16 +63,19 @@
 
 			if (!result.success) {
 				sendError = result.error ?? $t('chat.messages.send_failed');
+				haptic.trigger('error');
 				toast.error(sendError);
 				return;
 			}
 
 			newMessageText = '';
 			await autumn.refetch();
+			haptic.trigger('success');
 			toast.success($t('chat.messages.sent_success'));
 		} catch (error) {
 			console.error('Failed to send message:', error);
 			sendError = $t('chat.messages.send_failed');
+			haptic.trigger('error');
 			toast.error(sendError);
 		}
 	}

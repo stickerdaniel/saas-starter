@@ -4,6 +4,7 @@
 	import ChevronsRightIcon from '@tabler/icons-svelte/icons/chevrons-right';
 	import ChevronLeftIcon from '@tabler/icons-svelte/icons/chevron-left';
 	import ChevronRightIcon from '@tabler/icons-svelte/icons/chevron-right';
+	import { haptic } from '$lib/hooks/use-haptic.svelte';
 	import { getTranslate } from '@tolgee/svelte';
 	import type { Snippet } from 'svelte';
 	import { Input } from '$lib/components/ui/input/index.js';
@@ -116,7 +117,10 @@
 					<Select.Root
 						type="single"
 						value={`${pageSize}`}
-						onValueChange={(value) => onPageSizeChange(Number(value))}
+						onValueChange={(value) => {
+							haptic.trigger('light');
+							onPageSizeChange(Number(value));
+						}}
 					>
 						<Select.Trigger size="sm" class="w-20">
 							{pageSize}
@@ -141,7 +145,10 @@
 				<Button
 					variant="outline"
 					class="hidden h-8 w-8 p-0 lg:flex"
-					onclick={onFirstPage}
+					onclick={() => {
+						haptic.trigger('light');
+						onFirstPage();
+					}}
 					disabled={!canPreviousPage}
 				>
 					<span class="sr-only">{$t('admin.users.pagination.first')}</span>
@@ -151,7 +158,10 @@
 					variant="outline"
 					class="size-8"
 					size="icon"
-					onclick={onPreviousPage}
+					onclick={() => {
+						haptic.trigger('light');
+						onPreviousPage();
+					}}
 					disabled={!canPreviousPage}
 					data-testid={paginationPrevTestId}
 				>
@@ -162,7 +172,10 @@
 					variant="outline"
 					class="size-8"
 					size="icon"
-					onclick={onNextPage}
+					onclick={() => {
+						haptic.trigger('light');
+						onNextPage();
+					}}
 					disabled={!canNextPage}
 					data-testid={paginationNextTestId}
 				>
@@ -172,7 +185,10 @@
 				<Button
 					variant="outline"
 					class="hidden h-8 w-8 p-0 lg:flex"
-					onclick={() => void onLastPage()}
+					onclick={() => {
+						haptic.trigger('light');
+						void onLastPage();
+					}}
 					disabled={!canNextPage}
 					data-testid={paginationLastTestId}
 				>

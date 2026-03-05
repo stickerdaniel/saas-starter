@@ -4,6 +4,7 @@
 	import { buttonVariants } from '$lib/components/ui/button';
 	import { cn } from '$lib/utils/utils';
 	import type { LanguageSwitcherProps } from './types';
+	import { haptic } from '$lib/hooks/use-haptic.svelte';
 	import { getTranslate } from '@tolgee/svelte';
 
 	const { t } = getTranslate();
@@ -34,7 +35,13 @@
 		<span class="sr-only">{$t('aria.change_language')}</span>
 	</DropdownMenu.Trigger>
 	<DropdownMenu.Content {align}>
-		<DropdownMenu.RadioGroup bind:value onValueChange={onChange}>
+		<DropdownMenu.RadioGroup
+			bind:value
+			onValueChange={(v) => {
+				haptic.trigger('light');
+				onChange?.(v);
+			}}
+		>
 			{#each languages as language (language.code)}
 				<DropdownMenu.RadioItem value={language.code}>
 					{language.label}

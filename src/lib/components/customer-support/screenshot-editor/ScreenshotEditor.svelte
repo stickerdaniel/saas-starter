@@ -8,6 +8,7 @@
 		screenshotEditorContext
 	} from './screenshot-editor-context.svelte';
 	import ScreenshotToolbar from './ScreenshotToolbar.svelte';
+	import { haptic } from '$lib/hooks/use-haptic.svelte';
 	import ScreenshotCanvas from './ScreenshotCanvas.svelte';
 
 	const { t } = getTranslate();
@@ -36,6 +37,7 @@
 
 	// Capture screenshot and pass to callback
 	async function handleSave() {
+		haptic.trigger('medium');
 		try {
 			editorContext.isSaving = true;
 

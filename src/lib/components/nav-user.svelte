@@ -15,6 +15,7 @@
 	import UserXIcon from '@lucide/svelte/icons/user-x';
 	import { T, getTranslate } from '@tolgee/svelte';
 	import { localizedHref } from '$lib/utils/i18n';
+	import { haptic } from '$lib/hooks/use-haptic.svelte';
 	import { toast } from 'svelte-sonner';
 
 	const { t } = getTranslate();
@@ -28,6 +29,7 @@
 	const sidebar = sidebarContext.get();
 
 	async function signOut() {
+		haptic.trigger('light');
 		const result = await authClient.signOut();
 		if (result.error) {
 			console.error('Sign out error:', result.error);
@@ -37,6 +39,7 @@
 	}
 
 	async function stopImpersonating() {
+		haptic.trigger('warning');
 		try {
 			const result = await authClient.admin.stopImpersonating();
 			if (result.error) {

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Checkbox } from '$lib/components/ui/checkbox/index.js';
+	import { haptic } from '$lib/hooks/use-haptic.svelte';
 	import { getTranslate } from '@tolgee/svelte';
 	import type { ComponentProps } from 'svelte';
 
@@ -22,7 +23,13 @@
 
 <div class="flex items-center justify-center">
 	<Checkbox
-		bind:checked={() => checked, onCheckedChange}
+		bind:checked={
+			() => checked,
+			(v) => {
+				haptic.trigger('selection');
+				onCheckedChange(v);
+			}
+		}
 		aria-label={translatedAriaLabel}
 		{...restProps}
 	/>

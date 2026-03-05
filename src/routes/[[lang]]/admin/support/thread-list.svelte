@@ -11,6 +11,7 @@
 	import Loader2Icon from '@lucide/svelte/icons/loader-2';
 	import { formatDistanceToNow } from 'date-fns';
 	import { watch } from 'runed';
+	import { haptic } from '$lib/hooks/use-haptic.svelte';
 	import { T, getTranslate } from '@tolgee/svelte';
 	import { InfiniteLoader, LoaderState } from 'svelte-infinite';
 
@@ -204,7 +205,12 @@
 							class="w-full border-b p-4 text-left dark:bg-muted/20 {thread._id === selectedThreadId
 								? 'bg-muted/70 dark:bg-muted/35'
 								: 'hover:bg-muted/30 dark:hover:bg-muted/50'}"
-							onclick={() => thread._id !== selectedThreadId && onThreadSelect(thread._id)}
+							onclick={() => {
+								if (thread._id !== selectedThreadId) {
+									haptic.trigger('light');
+									onThreadSelect(thread._id);
+								}
+							}}
 						>
 							<div class="flex flex-col gap-2">
 								<AvatarHeading

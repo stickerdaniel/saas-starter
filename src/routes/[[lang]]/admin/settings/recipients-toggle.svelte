@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Checkbox } from '$lib/components/ui/checkbox/index.js';
 	import { getContext } from 'svelte';
+	import { haptic } from '$lib/hooks/use-haptic.svelte';
 	import { toast } from 'svelte-sonner';
 	import { getTranslate } from '@tolgee/svelte';
 	import type { RowSelectionState } from '@tanstack/table-core';
@@ -36,6 +37,7 @@
 	};
 
 	function handleToggle() {
+		haptic.trigger('selection');
 		const newValue = !checked;
 		const fieldName = $t(fieldTranslationKeys[field]);
 		const rowSelection = getRowSelection();
