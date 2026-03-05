@@ -59,6 +59,7 @@
 	import CircleCheckFilledIcon from '@tabler/icons-svelte/icons/circle-check-filled';
 	import LoaderIcon from '@tabler/icons-svelte/icons/loader';
 	import DotsVerticalIcon from '@tabler/icons-svelte/icons/dots-vertical';
+	import { haptic } from '$lib/hooks/use-haptic.svelte';
 	import { toast } from 'svelte-sonner';
 	import DataTableCheckbox from './data-table-checkbox.svelte';
 	import DataTableCellViewer from './data-table-cell-viewer.svelte';
@@ -224,6 +225,7 @@
 	});
 
 	function handleDragEnd(event: DragEndEvent) {
+		haptic.trigger('medium');
 		const { active, over } = event;
 		if (active && over && active.id !== over.id) {
 			const oldIndex = dataIds.indexOf(active.id);

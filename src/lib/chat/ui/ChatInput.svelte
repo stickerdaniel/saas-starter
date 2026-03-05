@@ -16,6 +16,7 @@
 	import CameraIcon from '@lucide/svelte/icons/camera';
 	import PaperclipIcon from '@lucide/svelte/icons/paperclip';
 	import ChatAttachments from './ChatAttachments.svelte';
+	import { haptic } from '$lib/hooks/use-haptic.svelte';
 	import { getChatUIContext } from './ChatContext.svelte.js';
 	import {
 		ALLOWED_FILE_EXTENSIONS,
@@ -94,6 +95,7 @@
 
 	async function handleSend() {
 		if (!canSend) return;
+		haptic.trigger('medium');
 		const prompt = ctx.inputValue.trim();
 		ctx.clearInput();
 		const sendPromise = onSend?.(prompt);
@@ -114,17 +116,20 @@
 		for (const file of files) {
 			// Check attachment limit
 			if (ctx.attachments.length >= MAX_ATTACHMENTS) {
+				haptic.trigger('error');
 				toast.error($t('chat.error.max_attachments', { max: MAX_ATTACHMENTS }));
 				break;
 			}
 			// Check file size
 			if (file.size > MAX_FILE_SIZE) {
+				haptic.trigger('error');
 				toast.error($t('chat.error.file_too_large', { filename: file.name }), {
 					description: $t('chat.error.file_max_size', { maxSize: MAX_FILE_SIZE_LABEL })
 				});
 				continue;
 			}
 			if (!ctx.hasFile(file.name, file.size)) {
+				haptic.trigger('medium');
 				// Fire and forget - context manages progress
 				ctx.uploadFile(file);
 			}
@@ -151,6 +156,7 @@
 
 			// Check attachment limit
 			if (ctx.attachments.length >= MAX_ATTACHMENTS) {
+				haptic.trigger('error');
 				toast.error($t('chat.error.max_attachments', { max: MAX_ATTACHMENTS }));
 				break;
 			}

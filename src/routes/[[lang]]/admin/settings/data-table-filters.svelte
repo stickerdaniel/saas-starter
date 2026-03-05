@@ -2,6 +2,7 @@
 	import * as Select from '$lib/components/ui/select/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import XIcon from '@tabler/icons-svelte/icons/x';
+	import { haptic } from '$lib/hooks/use-haptic.svelte';
 	import { T, getTranslate } from '@tolgee/svelte';
 
 	const { t } = getTranslate();
@@ -17,6 +18,7 @@
 	const hasActiveFilter = $derived(typeFilter !== 'all');
 
 	function handleTypeChange(value: string) {
+		haptic.trigger('light');
 		onFilterChange(value as 'all' | 'admin' | 'custom');
 	}
 

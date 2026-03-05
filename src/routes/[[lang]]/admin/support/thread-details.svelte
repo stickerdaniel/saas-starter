@@ -11,6 +11,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
+	import { haptic } from '$lib/hooks/use-haptic.svelte';
 	import { toast } from 'svelte-sonner';
 	import { T, getTranslate } from '@tolgee/svelte';
 	import { motion } from 'motion-sv';
@@ -57,6 +58,7 @@
 				threadId,
 				adminUserId: adminUserId === '' ? undefined : adminUserId
 			});
+			haptic.trigger('success');
 			toast.success($t('admin.users.toast.assignment_updated'));
 		} catch (error) {
 			toast.error(
@@ -73,6 +75,7 @@
 				threadId,
 				status
 			});
+			haptic.trigger('success');
 			toast.success($t('admin.users.toast.status_updated'));
 		} catch (error) {
 			toast.error(

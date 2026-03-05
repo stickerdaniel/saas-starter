@@ -2,6 +2,7 @@
 	import * as Select from '$lib/components/ui/select/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import XIcon from '@tabler/icons-svelte/icons/x';
+	import { haptic } from '$lib/hooks/use-haptic.svelte';
 	import { T, getTranslate } from '@tolgee/svelte';
 
 	const { t } = getTranslate();
@@ -25,6 +26,7 @@
 	const hasActiveFilters = $derived(roleFilter !== undefined || statusFilter !== undefined);
 
 	function handleRoleChange(value: string) {
+		haptic.trigger('light');
 		onFilterChange({
 			role: value === 'all' ? undefined : value,
 			status: statusFilter
@@ -32,6 +34,7 @@
 	}
 
 	function handleStatusChange(value: string) {
+		haptic.trigger('light');
 		onFilterChange({
 			role: roleFilter,
 			status: value === 'all' ? undefined : (value as 'verified' | 'unverified' | 'banned')

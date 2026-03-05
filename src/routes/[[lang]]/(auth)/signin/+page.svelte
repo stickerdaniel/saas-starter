@@ -20,6 +20,7 @@
 	import { resolve } from '$app/paths';
 	import { T, getTranslate } from '@tolgee/svelte';
 	import KeyIcon from '@lucide/svelte/icons/key-round';
+	import { haptic } from '$lib/hooks/use-haptic.svelte';
 	import { authFlow } from '$lib/hooks/auth-flow.svelte';
 	import {
 		type LastAuthMethod,
@@ -241,16 +242,21 @@
 					onError: (ctx) => {
 						failed = true;
 						lastValidSignInSubmission = null;
+						haptic.trigger('error');
 						formError = getAuthErrorKey(ctx.error, 'auth.messages.invalid_credentials');
 					}
 				}
 			);
 			if (!failed) {
+				haptic.trigger('success');
 				clearLastSuccessfulAuthMethod();
 				clearPendingOAuthProvider();
+			} else {
+				haptic.trigger('error');
 			}
 		} catch (error) {
 			console.error('[SignIn] Login error:', error);
+			haptic.trigger('error');
 			lastValidSignInSubmission = null;
 			formError = 'auth.messages.generic_error';
 		} finally {
@@ -284,6 +290,7 @@
 				},
 				{
 					onSuccess: () => {
+						haptic.trigger('success');
 						clearLastSuccessfulAuthMethod();
 						clearPendingOAuthProvider();
 						verificationStep = { email: signUpData.email };
@@ -291,6 +298,7 @@
 					onError: (ctx) => {
 						failed = true;
 						lastValidSignUpSubmission = null;
+						haptic.trigger('error');
 						formError = getAuthErrorKey(ctx.error, 'auth.messages.signup_failed');
 					}
 				}
@@ -332,6 +340,7 @@
 	}
 
 	async function handleOAuth(provider: PendingOAuthProvider) {
+		haptic.trigger('light');
 		isLoading = true;
 		formError = '';
 		beginOAuth(provider);
@@ -351,6 +360,7 @@
 	}
 
 	async function handlePasskeyLogin() {
+		haptic.trigger('light');
 		isLoading = true;
 		formError = '';
 
@@ -516,7 +526,7 @@
 												{#if isLastUsedAuthMethod('google')}
 													<Badge
 														variant="secondary"
-														class="pointer-events-none absolute -right-2 -top-2 px-1.5 py-0 text-[10px] whitespace-nowrap"
+														class="pointer-events-none absolute -top-2 -right-2 px-1.5 py-0 text-[10px] whitespace-nowrap"
 														data-testid="oauth-google-last-used-badge"
 													>
 														<T keyName="auth.signin.oauth_last_used" defaultValue="Last used" />
@@ -545,7 +555,7 @@
 												{#if isLastUsedAuthMethod('github')}
 													<Badge
 														variant="secondary"
-														class="pointer-events-none absolute -right-2 -top-2 px-1.5 py-0 text-[10px] whitespace-nowrap"
+														class="pointer-events-none absolute -top-2 -right-2 px-1.5 py-0 text-[10px] whitespace-nowrap"
 														data-testid="oauth-github-last-used-badge"
 													>
 														<T keyName="auth.signin.oauth_last_used" defaultValue="Last used" />
@@ -573,7 +583,7 @@
 											{#if isLastUsedAuthMethod('passkey')}
 												<Badge
 													variant="secondary"
-													class="pointer-events-none absolute -right-2 -top-2 px-1.5 py-0 text-[10px] whitespace-nowrap"
+													class="pointer-events-none absolute -top-2 -right-2 px-1.5 py-0 text-[10px] whitespace-nowrap"
 													data-testid="oauth-passkey-last-used-badge"
 												>
 													<T keyName="auth.signin.oauth_last_used" defaultValue="Last used" />
@@ -703,7 +713,7 @@
 												{#if isLastUsedAuthMethod('google')}
 													<Badge
 														variant="secondary"
-														class="pointer-events-none absolute -right-2 -top-2 px-1.5 py-0 text-[10px] whitespace-nowrap"
+														class="pointer-events-none absolute -top-2 -right-2 px-1.5 py-0 text-[10px] whitespace-nowrap"
 														data-testid="oauth-google-last-used-badge"
 													>
 														<T keyName="auth.signin.oauth_last_used" defaultValue="Last used" />
@@ -732,7 +742,7 @@
 												{#if isLastUsedAuthMethod('github')}
 													<Badge
 														variant="secondary"
-														class="pointer-events-none absolute -right-2 -top-2 px-1.5 py-0 text-[10px] whitespace-nowrap"
+														class="pointer-events-none absolute -top-2 -right-2 px-1.5 py-0 text-[10px] whitespace-nowrap"
 														data-testid="oauth-github-last-used-badge"
 													>
 														<T keyName="auth.signin.oauth_last_used" defaultValue="Last used" />

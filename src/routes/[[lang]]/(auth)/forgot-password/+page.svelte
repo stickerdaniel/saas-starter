@@ -11,6 +11,7 @@
 	import { localizedHref } from '$lib/utils/i18n';
 	import { resolve } from '$app/paths';
 	import { T, getTranslate } from '@tolgee/svelte';
+	import { haptic } from '$lib/hooks/use-haptic.svelte';
 	import { forgotPasswordSchema } from './schema.js';
 	import { authFlow } from '$lib/hooks/auth-flow.svelte';
 	import { getAuthErrorKey } from '$lib/utils/auth-messages';
@@ -107,9 +108,11 @@
 			});
 
 			if (err) {
+				haptic.trigger('error');
 				lastValidSubmission = null;
 				formError = getAuthErrorKey(err, 'auth.messages.request_reset_failed');
 			} else {
+				haptic.trigger('success');
 				message = 'auth.messages.reset_link_sent';
 			}
 		} catch (error) {
