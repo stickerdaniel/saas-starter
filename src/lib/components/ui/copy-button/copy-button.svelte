@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button';
 	import { UseClipboard } from '$lib/hooks/use-clipboard.svelte';
+	import { haptic } from '$lib/hooks/use-haptic.svelte';
 	import { cn } from '$lib/utils.js';
 	import { getTranslate } from '@tolgee/svelte';
 	import CheckIcon from '@lucide/svelte/icons/check';
@@ -41,7 +42,7 @@
 	name="copy"
 	onclick={async () => {
 		const status = await clipboard.copy(text);
-
+		haptic.trigger(status === 'success' ? 'success' : 'error');
 		onCopy?.(status);
 	}}
 >

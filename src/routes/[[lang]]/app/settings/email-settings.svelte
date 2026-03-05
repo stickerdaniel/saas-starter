@@ -8,6 +8,7 @@
 	import * as InputGroup from '$lib/components/ui/input-group/index.js';
 	import * as Item from '$lib/components/ui/item/index.js';
 	import * as Field from '$lib/components/ui/field/index.js';
+	import { haptic } from '$lib/hooks/use-haptic.svelte';
 	import { toast } from 'svelte-sonner';
 	import { T, getTranslate } from '@tolgee/svelte';
 	import InfoIcon from '@lucide/svelte/icons/info';
@@ -77,10 +78,12 @@
 
 			if (authError) {
 				formError = getAuthErrorKey(authError, 'auth.messages.email_change_failed');
+				haptic.trigger('error');
 				toast.error($t(formError));
 				return;
 			}
 
+			haptic.trigger('success');
 			toast.success(
 				isEmailVerified
 					? $t('auth.messages.email_verification_sent')

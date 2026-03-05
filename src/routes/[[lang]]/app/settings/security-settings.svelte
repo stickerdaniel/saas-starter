@@ -6,6 +6,7 @@
 	import * as Card from '$lib/components/ui/card/index.js';
 	import * as Alert from '$lib/components/ui/alert/index.js';
 	import * as Item from '$lib/components/ui/item/index.js';
+	import { haptic } from '$lib/hooks/use-haptic.svelte';
 	import { toast } from 'svelte-sonner';
 	import { T, getTranslate } from '@tolgee/svelte';
 	import KeyIcon from '@lucide/svelte/icons/key-round';
@@ -57,12 +58,14 @@
 				error = getAuthErrorKey(result.error, 'auth.messages.passkey_add_failed');
 				toast.error($t(error));
 			} else {
+				haptic.trigger('medium');
 				toast.success($t('auth.messages.passkey_added'));
 				newPasskeyName = '';
 				await loadPasskeys();
 			}
 		} catch {
 			error = 'auth.messages.passkey_add_failed';
+			haptic.trigger('error');
 			toast.error($t(error));
 		} finally {
 			isAdding = false;
@@ -76,6 +79,7 @@
 			if (err) {
 				toast.error($t(getAuthErrorKey(err, 'auth.messages.passkey_delete_failed')));
 			} else {
+				haptic.trigger('warning');
 				toast.success($t('auth.messages.passkey_deleted'));
 				await loadPasskeys();
 			}

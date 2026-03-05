@@ -5,6 +5,7 @@
 	import FeedbackWidget from './feedback-widget.svelte';
 	import { on } from 'svelte/events';
 	import type { ChatUIContext } from '$lib/chat';
+	import { haptic } from '$lib/hooks/use-haptic.svelte';
 	import { getTranslate } from '@tolgee/svelte';
 
 	const { t } = getTranslate();
@@ -22,6 +23,7 @@
 	} = $props();
 
 	function toggleOpen() {
+		haptic.trigger('light');
 		onToggle?.(!isFeedbackOpen);
 	}
 

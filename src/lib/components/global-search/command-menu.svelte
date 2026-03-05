@@ -19,6 +19,7 @@
 		type SearchRouteEntry,
 		type SearchRouteGroup
 	} from './search-routes';
+	import { haptic } from '$lib/hooks/use-haptic.svelte';
 	import { useGlobalSearchContext } from './context.svelte';
 
 	type MenuRouteItem = SearchRouteEntry & {
@@ -164,11 +165,13 @@
 	});
 
 	function runCommand(command: () => unknown): void {
+		haptic.trigger('light');
 		globalSearch.closeMenu();
 		command();
 	}
 
 	function openCommandMenu(): void {
+		haptic.trigger('light');
 		globalSearch.openMenu();
 	}
 
