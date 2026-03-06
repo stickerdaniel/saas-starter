@@ -239,6 +239,7 @@ export const listMessages = query({
 		paginationOpts: paginationOptsValidator,
 		streamArgs: vStreamArgs
 	},
+	returns: v.any(),
 	handler: async (ctx, args): Promise<unknown> => {
 		await assertThreadOwnership(ctx, {
 			threadId: args.threadId,
@@ -263,6 +264,7 @@ export const deleteMessage = mutation({
 		messageId: v.string(),
 		anonymousUserId: v.optional(v.string())
 	},
+	returns: v.null(),
 	handler: async (ctx, args) => {
 		await assertMessageOwnership(ctx, {
 			messageId: args.messageId,
