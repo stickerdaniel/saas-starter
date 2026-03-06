@@ -41,9 +41,13 @@ NEVER use `bun run dev` to start the development server, its already running in 
 
 ### Convex Backend
 
+**IMPORTANT:** When any task involves Convex backend code — writing, reviewing, or modifying queries, mutations, actions, schema, HTTP endpoints, auth, file storage, or crons — you MUST read `docs/convex-guidelines.md` first. It contains the canonical Convex coding patterns for this project.
+
 - `bun convex run tests:init` - Initialize test data
 - `bun convex env set KEY value` - Set Convex environment variables
 - `bun convex env set KEY value --prod` - Set production environment variables
+
+**E2E Test Security:** `src/lib/convex/tests.ts` contains public mutations (verify emails, promote to admin, delete users) gated by `AUTH_E2E_TEST_SECRET`. These are safe ONLY because the env var is NOT set in production. NEVER set `AUTH_E2E_TEST_SECRET` in the production Convex environment (`--prod`). If it's unset, all test endpoints are dead code.
 
 ### Convex Components Storage
 
