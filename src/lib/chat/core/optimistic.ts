@@ -17,6 +17,7 @@ import type { ChatMessage, Attachment } from './types.js';
  */
 export interface ListMessagesArgs {
 	threadId: string | null;
+	anonymousUserId?: string;
 	paginationOpts: { numItems: number; cursor: string | null };
 	streamArgs: { kind: 'list'; startOrder: number };
 }

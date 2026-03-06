@@ -6,6 +6,7 @@ import { api } from '$lib/convex/_generated/api';
 import type { Attachment } from '$lib/chat';
 import { StreamCacheManager } from '$lib/chat/core/StreamProcessor.js';
 import { createOptimisticUpdate, type ListMessagesArgs } from '$lib/chat/core/optimistic.js';
+import { isAnonymousUser } from '$lib/convex/utils/anonymousUser';
 
 /**
  * View types for the support widget navigation
@@ -77,6 +78,11 @@ export class SupportThreadContext {
 
 	// Track in-flight thread creation to avoid duplicates
 	private threadCreationPromise: Promise<string> | null = null;
+
+	private getAnonymousUserId(): string | undefined {
+		const userId = this.userId;
+		return isAnonymousUser(userId) ? (userId ?? undefined) : undefined;
+	}
 
 	// Current thread state
 	threadId = $state<string | null>(null);
@@ -179,7 +185,7 @@ export class SupportThreadContext {
 		// Start thread creation
 		this.threadCreationPromise = client
 			.mutation(api.support.threads.createThread, {
-				userId: this.userId || undefined,
+				anonymousUserId: this.getAnonymousUserId(),
 				pageUrl: typeof window !== 'undefined' ? window.location.href : undefined
 			})
 			.then((result) => {
@@ -278,9 +284,12 @@ export class SupportThreadContext {
 		this.isHandedOff = true;
 
 		try {
+			const anonymousUserId = isAnonymousUser(userId) ? (userId ?? undefined) : undefined;
+
 			// Build query args for optimistic update (must match ChatRoot's query)
 			const queryArgs: ListMessagesArgs = {
 				threadId,
+				...(anonymousUserId ? { anonymousUserId } : {}),
 				paginationOpts: { numItems: 50, cursor: null },
 				streamArgs: { kind: 'list' as const, startOrder: 0 }
 			};
@@ -288,7 +297,10 @@ export class SupportThreadContext {
 			// Send mutation with optimistic update for user message
 			await client.mutation(
 				api.support.threads.updateThreadHandoff,
-				{ threadId, userId: userId || undefined },
+				{
+					threadId,
+					anonymousUserId
+				},
 				{
 					optimisticUpdate: createOptimisticUpdate(
 						api.support.messages.listMessages,
@@ -333,12 +345,21 @@ export class SupportThreadContext {
 		this.isEmailPending = true;
 
 		try {
+			const anonymousUserId = isAnonymousUser(userId) ? (userId ?? undefined) : undefined;
+
 			// Build query args (must match threadQuery in feedback-widget.svelte)
-			const queryArgs = { threadId, userId: userId || undefined };
+			const queryArgs = {
+				threadId,
+				anonymousUserId
+			};
 
 			await client.mutation(
 				api.support.threads.updateNotificationEmail,
-				{ threadId, email: normalizedEmail, userId: userId || undefined },
+				{
+					threadId,
+					email: normalizedEmail,
+					anonymousUserId
+				},
 				{
 					optimisticUpdate: (store) => {
 						const current = store.getQuery(api.support.threads.getThread, queryArgs);
@@ -426,7 +447,7 @@ export class SupportThreadContext {
 			// Create thread if none exists
 			if (!threadId) {
 				const result = await client.mutation(api.support.threads.createThread, {
-					userId: this.userId || undefined,
+					anonymousUserId: this.getAnonymousUserId(),
 					pageUrl: typeof window !== 'undefined' ? window.location.href : undefined
 				});
 				threadId = result.threadId;
@@ -443,8 +464,10 @@ export class SupportThreadContext {
 			}
 
 			// Build query args for optimistic update (must match ChatRoot's query exactly)
+			const anonymousUserId = this.getAnonymousUserId();
 			const queryArgs: ListMessagesArgs = {
 				threadId,
+				...(anonymousUserId ? { anonymousUserId } : {}),
 				paginationOpts: { numItems: 50, cursor: null },
 				streamArgs: { kind: 'list' as const, startOrder: 0 }
 			};
@@ -457,7 +480,7 @@ export class SupportThreadContext {
 				{
 					threadId,
 					prompt: trimmedPrompt,
-					userId: this.userId || undefined,
+					anonymousUserId,
 					fileIds: options?.fileIds?.length ? options.fileIds : undefined
 				},
 				{
