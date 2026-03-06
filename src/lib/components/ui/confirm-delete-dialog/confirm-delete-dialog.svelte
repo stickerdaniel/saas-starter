@@ -29,7 +29,9 @@
 				}
 			}
 
-			import('$lib/hooks/use-haptic.svelte').then((m) => m.haptic.trigger('warning'));
+			import('$lib/hooks/use-haptic.svelte')
+				.then((m) => m.haptic.trigger('warning'))
+				.catch(() => {});
 			this.loading = true;
 			this.options
 				?.onConfirm()
