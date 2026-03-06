@@ -392,6 +392,7 @@ export const listMessagesForAdmin = adminQuery({
 		paginationOpts: paginationOptsValidator,
 		streamArgs: vStreamArgs
 	},
+	returns: v.any(),
 	handler: async (ctx, args): Promise<unknown> => {
 		return await listMessagesForThread(ctx, {
 			threadId: args.threadId,
