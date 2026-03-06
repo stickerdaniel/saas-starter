@@ -11,6 +11,7 @@
 	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
 	import { supportThreadContext } from './support-thread-context.svelte';
 	import { getTranslate } from '@tolgee/svelte';
+	import { isAnonymousUser } from '$lib/convex/utils/anonymousUser';
 
 	const { t } = getTranslate();
 
@@ -20,6 +21,10 @@
 
 	// Get thread context
 	const threadContext = supportThreadContext.get();
+	const anonymousUserId = $derived.by(() => {
+		const userId = threadContext.userId;
+		return isAnonymousUser(userId) ? (userId ?? undefined) : undefined;
+	});
 
 	// Get Convex client for mutations
 	const client = useConvexClient();
@@ -101,7 +106,7 @@
 		if (value.trim() && !pendingThreadId && !threadCreationPromise) {
 			threadCreationPromise = client
 				.mutation(api.support.threads.createThread, {
-					userId: threadContext.userId || undefined,
+					anonymousUserId,
 					pageUrl: typeof window !== 'undefined' ? window.location.href : undefined
 				})
 				.then((result) => {
@@ -111,6 +116,7 @@
 					// This ensures optimistic update finds the query in cache
 					const preSubscribeArgs = {
 						threadId: result.threadId,
+						...(anonymousUserId ? { anonymousUserId } : {}),
 						paginationOpts: { numItems: 50, cursor: null },
 						streamArgs: { kind: 'list' as const, startOrder: 0 }
 					};

@@ -10,6 +10,7 @@
 	import { ConvexError } from 'convex/values';
 	import { getTranslate } from '@tolgee/svelte';
 	import { haptic } from '$lib/hooks/use-haptic.svelte';
+	import { isAnonymousUser } from '$lib/convex/utils/anonymousUser';
 
 	// Import new chat components
 	import { ChatRoot, ChatMessages, ChatInput, type ChatUIContext } from '$lib/chat';
@@ -36,6 +37,10 @@
 
 	// Get thread context
 	const threadContext = supportThreadContext.get();
+	const anonymousUserId = $derived.by(() => {
+		const userId = threadContext.userId;
+		return isAnonymousUser(userId) ? (userId ?? undefined) : undefined;
+	});
 
 	// Derive agent name from context with fallback
 	let agentName = $derived(threadContext.currentAgentName || 'Kai');
@@ -49,7 +54,10 @@
 	// Query thread status (for handoff state)
 	const threadQuery = useQuery(api.support.threads.getThread, () =>
 		threadContext.threadId
-			? { threadId: threadContext.threadId, userId: threadContext.userId || undefined }
+			? {
+					threadId: threadContext.threadId,
+					anonymousUserId
+				}
 			: 'skip'
 	);
 
@@ -222,6 +230,7 @@
 				api={chatApi}
 				externalCore={threadContext}
 				externalUIContext={chatUIContext}
+				listMessagesArgs={anonymousUserId ? { anonymousUserId } : undefined}
 			>
 				<!-- Messages container -->
 				<div class="relative min-h-0 w-full flex-1">

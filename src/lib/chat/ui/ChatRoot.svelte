@@ -55,6 +55,7 @@
 		externalCore,
 		externalUIContext,
 		uploadConfig,
+		listMessagesArgs,
 		userAlignment = 'right',
 		pageSize = 50,
 		children
@@ -71,6 +72,8 @@
 		externalUIContext?: ChatUIContext;
 		/** Upload configuration for file attachments */
 		uploadConfig?: UploadConfig;
+		/** Additional args for the listMessages query */
+		listMessagesArgs?: Record<string, unknown>;
 		/** User message alignment - 'right' (default) or 'left' for admin view */
 		userAlignment?: ChatAlignment;
 		/** Number of messages per page */
@@ -116,6 +119,7 @@
 		threadId
 			? useQuery(api.listMessages, {
 					threadId: threadId,
+					...listMessagesArgs,
 					paginationOpts: { numItems: pageSize, cursor: null },
 					streamArgs: { kind: 'list' as const, startOrder: 0 }
 				})
@@ -139,6 +143,7 @@
 		threadId && activeStreamIds.length > 0
 			? useQuery(api.listMessages, {
 					threadId: threadId,
+					...listMessagesArgs,
 					paginationOpts: { numItems: 0, cursor: null },
 					streamArgs: {
 						kind: 'deltas' as const,
