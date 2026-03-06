@@ -216,7 +216,7 @@
 		externalCore={chatCore}
 		externalUIContext={chatUIContext}
 		api={{
-			listMessages: api.support.messages.listMessages,
+			listMessages: api.admin.support.queries.listMessagesForAdmin,
 			sendMessage: api.admin.support.mutations.sendAdminReply
 		}}
 	>
@@ -253,7 +253,7 @@
 						},
 						{
 							optimisticUpdate: createOptimisticUpdate(
-								api.support.messages.listMessages,
+								api.admin.support.queries.listMessagesForAdmin,
 								queryArgs,
 								'assistant',
 								prompt,
