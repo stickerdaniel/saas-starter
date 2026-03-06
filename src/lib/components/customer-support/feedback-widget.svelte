@@ -9,6 +9,7 @@
 	import { toast } from 'svelte-sonner';
 	import { ConvexError } from 'convex/values';
 	import { getTranslate } from '@tolgee/svelte';
+	import { haptic } from '$lib/hooks/use-haptic.svelte';
 
 	// Import new chat components
 	import { ChatRoot, ChatMessages, ChatInput, type ChatUIContext } from '$lib/chat';
@@ -274,11 +275,14 @@
 									const retryAfter = data.retryAfter || 60000;
 									const seconds = Math.ceil(retryAfter / 1000);
 									threadContext.setRateLimited(retryAfter);
+									haptic.trigger('error');
 									toast.error($t('support.widget.error.rate_limit', { seconds }));
 								} else {
+									haptic.trigger('error');
 									toast.error($t('support.widget.error.send_failed'));
 								}
 							} else {
+								haptic.trigger('error');
 								toast.error($t('support.widget.error.send_failed'));
 							}
 						}
