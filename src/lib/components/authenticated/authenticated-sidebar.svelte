@@ -6,6 +6,7 @@
 	import type { ComponentProps } from 'svelte';
 	import { T } from '@tolgee/svelte';
 	import type { SidebarConfig, User } from './types';
+	import { haptic } from '$lib/hooks/use-haptic.svelte';
 
 	interface Props extends ComponentProps<typeof Sidebar.Root> {
 		config: SidebarConfig;
@@ -36,7 +37,7 @@
 						</DropdownMenu.Trigger>
 						<DropdownMenu.Content align="start" class="w-56">
 							{#each config.header.dropdownItems as item (item.translationKey)}
-								<a href={resolve(item.url)}>
+								<a href={resolve(item.url)} onclick={() => haptic.trigger('light')}>
 									<DropdownMenu.Item>
 										<item.icon class="size-4" />
 										<span><T keyName={item.translationKey} /></span>
@@ -71,7 +72,7 @@
 								class={item.isActive ? 'bg-sidebar-accent text-sidebar-accent-foreground' : ''}
 							>
 								{#snippet child({ props })}
-									<a href={resolve(item.url)} {...props}>
+									<a href={resolve(item.url)} onclick={() => haptic.trigger('light')} {...props}>
 										{#if item.icon}
 											<item.icon />
 										{/if}
@@ -97,7 +98,7 @@
 						<Sidebar.MenuItem>
 							<Sidebar.MenuButton>
 								{#snippet child({ props })}
-									<a href={resolve(link.url)} {...props}>
+									<a href={resolve(link.url)} onclick={() => haptic.trigger('light')} {...props}>
 										<link.icon />
 										<span><T keyName={link.translationKey} /></span>
 									</a>
