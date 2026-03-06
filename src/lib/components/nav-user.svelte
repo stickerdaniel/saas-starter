@@ -105,7 +105,7 @@
 				</DropdownMenu.Label>
 				<DropdownMenu.Separator />
 				<DropdownMenu.Group>
-					<DropdownMenu.Item>
+					<DropdownMenu.Item onclick={() => haptic.trigger('light')}>
 						<SparklesIcon />
 						<T keyName="app.user_menu.upgrade_pro" />
 					</DropdownMenu.Item>
@@ -118,7 +118,7 @@
 							<T keyName="app.user_menu.settings" />
 						</DropdownMenu.Item>
 					</a>
-					<DropdownMenu.Item>
+					<DropdownMenu.Item onclick={() => haptic.trigger('light')}>
 						<CreditCardIcon />
 						<T keyName="app.user_menu.billing" />
 					</DropdownMenu.Item>
