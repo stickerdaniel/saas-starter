@@ -284,7 +284,7 @@ export class SupportThreadContext {
 		this.isHandedOff = true;
 
 		try {
-			const anonymousUserId = this.getAnonymousUserId();
+			const anonymousUserId = isAnonymousUser(userId) ? (userId ?? undefined) : undefined;
 
 			// Build query args for optimistic update (must match ChatRoot's query)
 			const queryArgs: ListMessagesArgs = {
@@ -299,7 +299,7 @@ export class SupportThreadContext {
 				api.support.threads.updateThreadHandoff,
 				{
 					threadId,
-					anonymousUserId: isAnonymousUser(userId) ? (userId ?? undefined) : undefined
+					anonymousUserId
 				},
 				{
 					optimisticUpdate: createOptimisticUpdate(
