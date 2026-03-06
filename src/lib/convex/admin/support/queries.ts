@@ -6,6 +6,8 @@ import { adminQuery } from '../../functions';
 import { SUPPORT_THREADS_PAGE_SIZE, ADMIN_USERS_BATCH_SIZE } from './constants';
 import { parseBetterAuthUsers, betterAuthUserSchema } from '../types';
 import { isAnonymousUser } from '../../utils/anonymousUser';
+import { vStreamArgs } from '@convex-dev/agent/validators';
+import { listMessagesForThread } from '../../support/messageListing';
 
 /**
  * List threads with admin filters
@@ -381,6 +383,21 @@ export const getThreadForAdmin = adminQuery({
 			assignedAdmin,
 			user
 		};
+	}
+});
+
+export const listMessagesForAdmin = adminQuery({
+	args: {
+		threadId: v.string(),
+		paginationOpts: paginationOptsValidator,
+		streamArgs: vStreamArgs
+	},
+	handler: async (ctx, args): Promise<unknown> => {
+		return await listMessagesForThread(ctx, {
+			threadId: args.threadId,
+			paginationOpts: args.paginationOpts,
+			streamArgs: args.streamArgs
+		});
 	}
 });
 
