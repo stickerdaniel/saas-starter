@@ -251,8 +251,6 @@
 				haptic.trigger('success');
 				clearLastSuccessfulAuthMethod();
 				clearPendingOAuthProvider();
-			} else {
-				haptic.trigger('error');
 			}
 		} catch (error) {
 			console.error('[SignIn] Login error:', error);
