@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import { FileUploadContext, fileUploadContext } from './file-upload-context.svelte';
+	import { haptic } from '$lib/hooks/use-haptic.svelte';
 
 	type Props = {
 		onFilesAdded: (files: File[]) => void;
@@ -21,6 +22,7 @@
 	let dragCounter = 0;
 
 	function handleFiles(files: FileList) {
+		haptic.trigger('medium');
 		const newFiles = Array.from(files);
 		if (multiple) {
 			onFilesAdded(newFiles);

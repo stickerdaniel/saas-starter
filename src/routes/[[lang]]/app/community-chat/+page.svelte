@@ -81,6 +81,7 @@
 	}
 
 	async function handleUpgrade() {
+		haptic.trigger('light');
 		const result = await upgradeOperation.execute({
 			productId: 'pro',
 			successUrl: page.url.href + '?upgraded=true'
