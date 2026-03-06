@@ -16,16 +16,21 @@
 	import memberFive from '$blocks/team/avatars/member-five.webp';
 	import { motion } from 'motion-sv';
 	import { SvelteSet } from 'svelte/reactivity';
+	import { isAnonymousUser } from '$lib/convex/utils/anonymousUser';
 
 	const { t } = getTranslate();
 
 	const ctx = supportThreadContext.get();
+	const anonymousUserId = $derived.by(() => {
+		const userId = ctx.userId;
+		return isAnonymousUser(userId) ? (userId ?? undefined) : undefined;
+	});
 
 	// Reactive query for threads - auto-updates when new threads are created
 	const threadsQuery = $derived(
 		ctx.userId
 			? useQuery(api.support.threads.listThreads, {
-					userId: ctx.userId,
+					anonymousUserId,
 					paginationOpts: { numItems: 20, cursor: null }
 				})
 			: undefined

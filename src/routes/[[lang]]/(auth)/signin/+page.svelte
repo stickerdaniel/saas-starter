@@ -1,25 +1,18 @@
 <script lang="ts">
-	/* eslint-disable svelte/no-navigation-without-resolve -- Query-string-only hrefs don't need resolve() */
 	import * as v from 'valibot';
 	import { authClient } from '$lib/auth-client';
 	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
 	import { useQuery } from 'convex-svelte';
 	import { api } from '$lib/convex/_generated/api';
 	import SEOHead from '$lib/components/SEOHead.svelte';
-	import { Badge } from '$lib/components/ui/badge/index.js';
-	import { Button } from '$lib/components/ui/button/index.js';
-	import { Input } from '$lib/components/ui/input/index.js';
-	import * as Password from '$lib/components/ui/password';
 	import * as Card from '$lib/components/ui/card/index.js';
-	import { LoadingBar } from '$lib/components/ui/loading-bar/index.js';
 	import * as Field from '$lib/components/ui/field/index.js';
 	import { useSearchParams } from 'runed/kit';
 	import { authParamsSchema } from '$lib/schemas/auth.js';
-	import { PASSWORD_MIN_LENGTH, signInSchema, signUpSchema } from './schema.js';
+	import { signInSchema, signUpSchema } from './schema.js';
 	import { localizedHref } from '$lib/utils/i18n';
 	import { resolve } from '$app/paths';
 	import { T, getTranslate } from '@tolgee/svelte';
-	import KeyIcon from '@lucide/svelte/icons/key-round';
 	import { haptic } from '$lib/hooks/use-haptic.svelte';
 	import { authFlow } from '$lib/hooks/auth-flow.svelte';
 	import {
@@ -32,8 +25,10 @@
 		clearLastSuccessfulAuthMethod
 	} from '$lib/hooks/last-auth-method.svelte';
 	import { getAuthErrorKey } from '$lib/utils/auth-messages';
-	import { translateValidationErrors, translateFormError } from '$lib/utils/validation-i18n.js';
 	import { safeRedirectPath } from '$lib/utils/url';
+	import SignInForm from './SignInForm.svelte';
+	import SignUpForm from './SignUpForm.svelte';
+	import VerificationStep from './VerificationStep.svelte';
 
 	let { data } = $props();
 
@@ -68,8 +63,6 @@
 	let verificationStep = $state<{ email: string } | null>(null);
 	let lastValidSignInSubmission = $state<string | null>(null);
 	let lastValidSignUpSubmission = $state<string | null>(null);
-	let forgotPasswordLink = $state<HTMLAnchorElement | null>(null);
-	let signUpLink = $state<HTMLAnchorElement | null>(null);
 	let termsLink = $state<HTMLAnchorElement | null>(null);
 
 	const id = $props.id();
@@ -86,10 +79,6 @@
 		return lastSuccessfulAuthMethod.current === method;
 	}
 
-	// Translation params for password min_length validation
-	const passwordParams = {
-		'validation.password.min_length': { count: PASSWORD_MIN_LENGTH }
-	};
 	const signInTotalSteps = 3;
 	const signUpTotalSteps = 4;
 	const signInValidation = $derived.by(() => {
@@ -318,25 +307,6 @@
 		formError = '';
 	}
 
-	function handleSignUpLinkKeydown(event: KeyboardEvent) {
-		if (event.key !== 'Tab' || event.shiftKey || !forgotPasswordLink) return;
-		event.preventDefault();
-		forgotPasswordLink.focus();
-	}
-
-	function handleForgotPasswordKeydown(event: KeyboardEvent) {
-		if (event.key !== 'Tab') return;
-		if (event.shiftKey && signUpLink) {
-			event.preventDefault();
-			signUpLink.focus();
-			return;
-		}
-		if (!event.shiftKey && termsLink) {
-			event.preventDefault();
-			termsLink.focus();
-		}
-	}
-
 	async function handleOAuth(provider: PendingOAuthProvider) {
 		haptic.trigger('light');
 		isLoading = true;
@@ -392,377 +362,44 @@
 		<Card.Root class="overflow-hidden p-0">
 			<Card.Content class="grid p-0 md:grid-cols-2">
 				{#if verificationStep}
-					<!-- Email Verification Step -->
-					<div class="min-h-96">
-						<LoadingBar value={100} class="h-1 rounded-none" />
-						<div class="flex h-full flex-col justify-center p-6 md:p-8">
-							<Field.Group>
-								<div class="flex flex-col items-center gap-2 text-center">
-									<h1 class="text-2xl font-bold">
-										<T keyName="auth.verification.title" />
-									</h1>
-									<p class="text-balance text-muted-foreground">
-										<T keyName="auth.verification.description" />
-									</p>
-								</div>
-								<Field.Field>
-									<p class="text-sm text-muted-foreground">
-										<T keyName="auth.verification.sent_to" />
-										<span class="font-medium">{verificationStep.email}</span>
-									</p>
-								</Field.Field>
-								<Field.Field>
-									<p class="text-sm text-muted-foreground">
-										<T keyName="auth.verification.check_email" />
-									</p>
-								</Field.Field>
-								{#if formError}
-									<Field.Field>
-										<Field.Error errors={translateFormError(formError, $t)} />
-									</Field.Field>
-								{/if}
-								<Field.Field>
-									<Button type="button" variant="ghost" class="w-full" onclick={cancelVerification}>
-										<T keyName="auth.verification.button_back" />
-									</Button>
-								</Field.Field>
-							</Field.Group>
-						</div>
-					</div>
+					<VerificationStep
+						email={verificationStep.email}
+						{formError}
+						onBack={cancelVerification}
+					/>
 				{:else if params.tab === 'signin'}
-					<!-- Sign In Form -->
-					<form onsubmit={handleSignIn} novalidate class="min-h-96">
-						<LoadingBar value={signInProgress} indeterminate={isLoading} class="h-1 rounded-none" />
-						<div class="p-6 md:p-8">
-							<Field.Group>
-								<div class="flex flex-col items-center gap-2 text-center">
-									<h1 class="text-2xl font-bold">
-										<T keyName="auth.signin.title" />
-									</h1>
-									<p class="text-balance text-muted-foreground">
-										<T keyName="auth.signin.description" />
-									</p>
-								</div>
-								<Field.Field>
-									<Field.Label for="email-{id}"><T keyName="auth.signin.email_label" /></Field.Label
-									>
-									<Input
-										id="email-{id}"
-										data-testid="email-input"
-										type="email"
-										placeholder="m@example.com"
-										disabled={isLoading}
-										bind:value={signInData.email}
-									/>
-									<Field.Error errors={translateValidationErrors(signInErrors.email, $t)} />
-								</Field.Field>
-								<Field.Field>
-									<div class="flex items-center">
-										<Field.Label for="password-{id}"
-											><T keyName="auth.signin.password_label" /></Field.Label
-										>
-										<a
-											bind:this={forgotPasswordLink}
-											href={resolve(localizedHref('/forgot-password'))}
-											tabindex="-1"
-											onkeydown={handleForgotPasswordKeydown}
-											class="ms-auto text-sm text-muted-foreground underline-offset-2 hover:underline"
-										>
-											<T keyName="auth.signin.forgot_password" />
-										</a>
-									</div>
-									<Input
-										id="password-{id}"
-										data-testid="password-input"
-										type="password"
-										disabled={isLoading}
-										bind:value={signInData.password}
-									/>
-									<Field.Error errors={translateValidationErrors(signInErrors.password, $t)} />
-								</Field.Field>
-								<Field.Error errors={translateFormError(formError, $t)} data-testid="auth-error" />
-								<Field.Field>
-									<Button
-										type="submit"
-										class="w-full"
-										disabled={isLoading}
-										data-testid="signin-button"
-									>
-										{#if isLoading}
-											<T keyName="auth.signin.button_signin_loading" />
-										{:else}
-											<T keyName="auth.signin.button_signin" />
-										{/if}
-									</Button>
-								</Field.Field>
-								{#if hasAlternativeAuth}
-									<Field.Separator class="*:data-[slot=field-separator-content]:bg-card">
-										<T keyName="auth.signin.or_continue_with" />
-									</Field.Separator>
-									<Field.Field
-										class="grid gap-4"
-										style="grid-template-columns: repeat({enabledProviderCount}, minmax(0, 1fr));"
-									>
-										{#if oauthProviders.data?.google}
-											<div class="relative">
-												<Button
-													class="w-full"
-													data-testid="signin-oauth-google-button"
-													variant="outline"
-													type="button"
-													onclick={() => handleOAuth('google')}
-													disabled={isLoading}
-												>
-													<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-														<path
-															d="M12.48 10.92v3.28h7.84c-.24 1.84-.853 3.187-1.787 4.133-1.147 1.147-2.933 2.4-6.053 2.4-4.827 0-8.6-3.893-8.6-8.72s3.773-8.72 8.6-8.72c2.6 0 4.507 1.027 5.907 2.347l2.307-2.307C18.747 1.44 16.133 0 12.48 0 5.867 0 .307 5.387.307 12s5.56 12 12.173 12c3.573 0 6.267-1.173 8.373-3.36 2.16-2.16 2.84-5.213 2.84-7.667 0-.76-.053-1.467-.173-2.053H12.48z"
-															fill="currentColor"
-														/>
-													</svg>
-													<span class="sr-only"><T keyName="auth.signin.oauth_google" /></span>
-												</Button>
-												{#if isLastUsedAuthMethod('google')}
-													<Badge
-														variant="secondary"
-														class="pointer-events-none absolute -top-2 -right-2 px-1.5 py-0 text-[10px] whitespace-nowrap"
-														data-testid="oauth-google-last-used-badge"
-													>
-														<T keyName="auth.signin.oauth_last_used" defaultValue="Last used" />
-													</Badge>
-												{/if}
-											</div>
-										{/if}
-										{#if oauthProviders.data?.github}
-											<div class="relative">
-												<Button
-													class="w-full"
-													data-testid="signin-oauth-github-button"
-													variant="outline"
-													type="button"
-													onclick={() => handleOAuth('github')}
-													disabled={isLoading}
-												>
-													<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-														<path
-															d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"
-															fill="currentColor"
-														/>
-													</svg>
-													<span class="sr-only"><T keyName="auth.signin.oauth_github" /></span>
-												</Button>
-												{#if isLastUsedAuthMethod('github')}
-													<Badge
-														variant="secondary"
-														class="pointer-events-none absolute -top-2 -right-2 px-1.5 py-0 text-[10px] whitespace-nowrap"
-														data-testid="oauth-github-last-used-badge"
-													>
-														<T keyName="auth.signin.oauth_last_used" defaultValue="Last used" />
-													</Badge>
-												{/if}
-											</div>
-										{/if}
-										<div class="relative">
-											<Button
-												class="w-full"
-												data-testid="signin-oauth-passkey-button"
-												variant="outline"
-												type="button"
-												onclick={handlePasskeyLogin}
-												disabled={isLoading}
-											>
-												<KeyIcon class="h-4 w-4" />
-												<span class="sr-only"
-													><T
-														keyName="auth.signin.passkey_button"
-														defaultValue="Sign in with Passkey"
-													/></span
-												>
-											</Button>
-											{#if isLastUsedAuthMethod('passkey')}
-												<Badge
-													variant="secondary"
-													class="pointer-events-none absolute -top-2 -right-2 px-1.5 py-0 text-[10px] whitespace-nowrap"
-													data-testid="oauth-passkey-last-used-badge"
-												>
-													<T keyName="auth.signin.oauth_last_used" defaultValue="Last used" />
-												</Badge>
-											{/if}
-										</div>
-									</Field.Field>
-								{/if}
-								<Field.Description class="text-center">
-									<T keyName="auth.signin.no_account" defaultValue="Don't have an account?" />
-									<a
-										bind:this={signUpLink}
-										href="?tab=signup{params.redirectTo
-											? `&redirectTo=${encodeURIComponent(params.redirectTo)}`
-											: ''}"
-										onkeydown={handleSignUpLinkKeydown}
-										class="underline underline-offset-4"
-										><T keyName="auth.signin.link_signup" defaultValue="Sign up" /></a
-									>
-								</Field.Description>
-							</Field.Group>
-						</div>
-					</form>
+					<SignInForm
+						{id}
+						{signInData}
+						{signInErrors}
+						{formError}
+						{isLoading}
+						{signInProgress}
+						{hasAlternativeAuth}
+						{enabledProviderCount}
+						oauthProviders={oauthProviders.data}
+						redirectTo={params.redirectTo}
+						{termsLink}
+						{isLastUsedAuthMethod}
+						onSubmit={handleSignIn}
+						onOAuth={handleOAuth}
+						onPasskey={handlePasskeyLogin}
+					/>
 				{:else}
-					<!-- Sign Up Form -->
-					<form onsubmit={handleSignUp} novalidate class="min-h-96">
-						<LoadingBar value={signUpProgress} indeterminate={isLoading} class="h-1 rounded-none" />
-						<div class="p-6 md:p-8">
-							<Field.Group>
-								<div class="flex flex-col items-center gap-2 text-center">
-									<h1 class="text-2xl font-bold">
-										<T keyName="auth.signup.title" defaultValue="Create an account" />
-									</h1>
-									<p class="text-balance text-muted-foreground">
-										<T
-											keyName="auth.signup.description"
-											defaultValue="Enter your details to get started"
-										/>
-									</p>
-								</div>
-								<Field.Field>
-									<Field.Label for="name-{id}"
-										><T keyName="auth.signin.name_label" defaultValue="Name" /></Field.Label
-									>
-									<Input
-										id="name-{id}"
-										type="text"
-										placeholder="Your name"
-										disabled={isLoading}
-										bind:value={signUpData.name}
-									/>
-									<Field.Error errors={translateValidationErrors(signUpErrors.name, $t)} />
-								</Field.Field>
-								<Field.Field>
-									<Field.Label for="signup-email-{id}"
-										><T keyName="auth.signin.email_label" /></Field.Label
-									>
-									<Input
-										id="signup-email-{id}"
-										type="email"
-										placeholder="m@example.com"
-										disabled={isLoading}
-										bind:value={signUpData.email}
-									/>
-									<Field.Error errors={translateValidationErrors(signUpErrors.email, $t)} />
-								</Field.Field>
-								<Field.Field>
-									<Field.Label for="signup-password-{id}"
-										><T keyName="auth.signin.password_label" /></Field.Label
-									>
-									<Password.Root>
-										<Password.Input
-											id="signup-password-{id}"
-											disabled={isLoading}
-											bind:value={signUpData.password}
-										>
-											<Password.ToggleVisibility />
-										</Password.Input>
-										<Password.Strength />
-									</Password.Root>
-									<Field.Error
-										errors={translateValidationErrors(signUpErrors.password, $t, passwordParams)}
-									/>
-								</Field.Field>
-								<Field.Error errors={translateFormError(formError, $t)} data-testid="auth-error" />
-								<Field.Field>
-									<Button
-										type="submit"
-										class="w-full"
-										disabled={isLoading}
-										data-testid="signup-button"
-									>
-										{#if isLoading}
-											<T keyName="auth.signin.button_signup_loading" />
-										{:else}
-											<T keyName="auth.signin.button_signup" />
-										{/if}
-									</Button>
-								</Field.Field>
-								{#if hasOAuthAuth}
-									<Field.Separator class="*:data-[slot=field-separator-content]:bg-card">
-										<T keyName="auth.signin.or_continue_with" />
-									</Field.Separator>
-									<Field.Field
-										class="grid gap-4"
-										style="grid-template-columns: repeat({(oauthProviders.data?.google ? 1 : 0) +
-											(oauthProviders.data?.github ? 1 : 0)}, minmax(0, 1fr));"
-									>
-										{#if oauthProviders.data?.google}
-											<div class="relative">
-												<Button
-													class="w-full"
-													data-testid="signup-oauth-google-button"
-													variant="outline"
-													type="button"
-													onclick={() => handleOAuth('google')}
-													disabled={isLoading}
-												>
-													<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-														<path
-															d="M12.48 10.92v3.28h7.84c-.24 1.84-.853 3.187-1.787 4.133-1.147 1.147-2.933 2.4-6.053 2.4-4.827 0-8.6-3.893-8.6-8.72s3.773-8.72 8.6-8.72c2.6 0 4.507 1.027 5.907 2.347l2.307-2.307C18.747 1.44 16.133 0 12.48 0 5.867 0 .307 5.387.307 12s5.56 12 12.173 12c3.573 0 6.267-1.173 8.373-3.36 2.16-2.16 2.84-5.213 2.84-7.667 0-.76-.053-1.467-.173-2.053H12.48z"
-															fill="currentColor"
-														/>
-													</svg>
-													<span class="sr-only"><T keyName="auth.signin.oauth_google" /></span>
-												</Button>
-												{#if isLastUsedAuthMethod('google')}
-													<Badge
-														variant="secondary"
-														class="pointer-events-none absolute -top-2 -right-2 px-1.5 py-0 text-[10px] whitespace-nowrap"
-														data-testid="oauth-google-last-used-badge"
-													>
-														<T keyName="auth.signin.oauth_last_used" defaultValue="Last used" />
-													</Badge>
-												{/if}
-											</div>
-										{/if}
-										{#if oauthProviders.data?.github}
-											<div class="relative">
-												<Button
-													class="w-full"
-													data-testid="signup-oauth-github-button"
-													variant="outline"
-													type="button"
-													onclick={() => handleOAuth('github')}
-													disabled={isLoading}
-												>
-													<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-														<path
-															d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"
-															fill="currentColor"
-														/>
-													</svg>
-													<span class="sr-only"><T keyName="auth.signin.oauth_github" /></span>
-												</Button>
-												{#if isLastUsedAuthMethod('github')}
-													<Badge
-														variant="secondary"
-														class="pointer-events-none absolute -top-2 -right-2 px-1.5 py-0 text-[10px] whitespace-nowrap"
-														data-testid="oauth-github-last-used-badge"
-													>
-														<T keyName="auth.signin.oauth_last_used" defaultValue="Last used" />
-													</Badge>
-												{/if}
-											</div>
-										{/if}
-									</Field.Field>
-								{/if}
-								<Field.Description class="text-center">
-									<T keyName="auth.signup.has_account" defaultValue="Already have an account?" />
-									<a
-										href="?tab=signin{params.redirectTo
-											? `&redirectTo=${encodeURIComponent(params.redirectTo)}`
-											: ''}"
-										class="underline underline-offset-4"
-										><T keyName="auth.signup.link_signin" defaultValue="Sign in" /></a
-									>
-								</Field.Description>
-							</Field.Group>
-						</div>
-					</form>
+					<SignUpForm
+						{id}
+						{signUpData}
+						{signUpErrors}
+						{formError}
+						{isLoading}
+						{signUpProgress}
+						{hasOAuthAuth}
+						oauthProviders={oauthProviders.data}
+						redirectTo={params.redirectTo}
+						{isLastUsedAuthMethod}
+						onSubmit={handleSignUp}
+						onOAuth={handleOAuth}
+					/>
 				{/if}
 				<div class="relative hidden bg-muted md:block">
 					<img

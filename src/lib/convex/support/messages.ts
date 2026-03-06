@@ -3,15 +3,15 @@ import { v } from 'convex/values';
 import { internal } from '../_generated/api';
 import { supportAgent } from './agent';
 import { paginationOptsValidator } from 'convex/server';
-import { listUIMessages, syncStreams, getFile } from '@convex-dev/agent';
+import { getFile } from '@convex-dev/agent';
 import { vStreamArgs } from '@convex-dev/agent/validators';
 import { components } from '../_generated/api';
 import type { UserContent } from 'ai';
 import { supportRateLimiter } from './rateLimit';
 import { createRateLimitError } from './types';
-import { isAnonymousUser } from '../utils/anonymousUser';
-import { authComponent } from '../auth';
 import { t, extractLocaleFromUrl } from '../i18n/translations';
+import { assertMessageOwnership, assertThreadOwnership } from './ownership';
+import { listMessagesForThread } from './messageListing';
 
 /**
  * Send a user message and get AI response with streaming
@@ -25,31 +25,20 @@ export const sendMessage = mutation({
 	args: {
 		threadId: v.string(),
 		prompt: v.string(),
-		userId: v.optional(v.string()),
+		anonymousUserId: v.optional(v.string()),
 		fileIds: v.optional(v.array(v.string()))
 	},
 	handler: async (ctx, args) => {
-		// Server-side user verification for rate limiting
-		// Prevents bypass by spoofing userId - uses server-verified auth when available
-		const authUser = await authComponent.safeGetAuthUser(ctx);
-		let effectiveUserId: string | undefined;
-
-		if (authUser) {
-			// Authenticated: Always use server-verified user ID
-			effectiveUserId = authUser._id;
-		} else if (args.userId && isAnonymousUser(args.userId)) {
-			// Anonymous: Only allow with valid anonymous user ID format
-			effectiveUserId = args.userId;
-		}
-		// If neither, effectiveUserId remains undefined (treated as anonymous per-thread)
+		const { owner } = await assertThreadOwnership(ctx, {
+			threadId: args.threadId,
+			anonymousUserId: args.anonymousUserId
+		});
+		const effectiveUserId = owner.ownerId;
 
 		// Rate limit check - stricter limits for anonymous users
 		// Authenticated users: keyed by verified user ID
 		// Anonymous users: keyed by anonymous user ID (fallback: thread ID if none)
-		const limitName =
-			effectiveUserId && !isAnonymousUser(effectiveUserId)
-				? 'supportMessage'
-				: 'supportMessageAnon';
+		const limitName = owner.isAnonymous ? 'supportMessageAnon' : 'supportMessage';
 		const userKey = effectiveUserId || `anon:${args.threadId}`;
 
 		const rateLimitStatus = await supportRateLimiter.limit(ctx, limitName, { key: userKey });
@@ -133,7 +122,7 @@ export const sendMessage = mutation({
 			await ctx.scheduler.runAfter(0, internal.support.messages.createAIResponse, {
 				threadId: args.threadId,
 				promptMessageId: messageId,
-				userId: args.userId
+				userId: effectiveUserId
 			});
 		}
 
@@ -246,61 +235,20 @@ export const createAIResponse = internalAction({
 export const listMessages = query({
 	args: {
 		threadId: v.string(),
+		anonymousUserId: v.optional(v.string()),
 		paginationOpts: paginationOptsValidator,
 		streamArgs: vStreamArgs
 	},
 	handler: async (ctx, args): Promise<unknown> => {
-		// Get paginated UIMessages (includes id field and text for display)
-		const paginated = await listUIMessages(ctx, components.agent, {
+		await assertThreadOwnership(ctx, {
 			threadId: args.threadId,
-			paginationOpts: args.paginationOpts
+			anonymousUserId: args.anonymousUserId
 		});
-
-		// Get raw messages to access metadata (listUIMessages doesn't include it)
-		// Skip when numItems is 0 (delta-only queries don't need metadata)
-		let rawMessages: { page: Array<{ _id: string; metadata?: Record<string, unknown> }> } = {
-			page: []
-		};
-		if (args.paginationOpts.numItems > 0) {
-			rawMessages = await ctx.runQuery(components.agent.messages.listMessagesByThreadId, {
-				threadId: args.threadId,
-				paginationOpts: args.paginationOpts,
-				order: 'asc'
-			});
-		}
-
-		// Create a map of message id -> metadata
-		// Note: metadata fields (provider, providerMetadata) are stored as top-level fields
-		const metadataMap = new Map<string, Record<string, unknown>>();
-		for (const msg of rawMessages.page) {
-			const rawMsg = msg as unknown as {
-				_id: string;
-				provider?: string;
-				providerMetadata?: Record<string, unknown>;
-			};
-			// Only create metadata object if provider fields exist
-			if (rawMsg.provider || rawMsg.providerMetadata) {
-				metadataMap.set(rawMsg._id, {
-					provider: rawMsg.provider,
-					providerMetadata: rawMsg.providerMetadata
-				});
-			}
-		}
-
-		// Enrich UIMessages with metadata
-		const enrichedPage = paginated.page.map((msg) => ({
-			...msg,
-			metadata: metadataMap.get(msg.id)
-		}));
-
-		// Get streaming deltas for in-progress messages
-		const streams = await syncStreams(ctx, components.agent, {
+		return await listMessagesForThread(ctx, {
 			threadId: args.threadId,
-			streamArgs: args.streamArgs,
-			includeStatuses: ['streaming', 'finished', 'aborted']
+			paginationOpts: args.paginationOpts,
+			streamArgs: args.streamArgs
 		});
-
-		return { ...paginated, page: enrichedPage, streams };
 	}
 });
 
@@ -312,9 +260,14 @@ export const listMessages = query({
  */
 export const deleteMessage = mutation({
 	args: {
-		messageId: v.string()
+		messageId: v.string(),
+		anonymousUserId: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
+		await assertMessageOwnership(ctx, {
+			messageId: args.messageId,
+			anonymousUserId: args.anonymousUserId
+		});
 		await supportAgent.deleteMessage(ctx, {
 			messageId: args.messageId
 		});
