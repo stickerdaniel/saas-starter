@@ -78,7 +78,7 @@
         "bun-tasks": "0.1.2",
         "clsx": "2.1.1",
         "convex": "1.32.0",
-        "convex-svelte": "./convex-svelte-0.0.12.tgz",
+        "convex-svelte": "npm:@mmailaender/convex-svelte@^0.15.1",
         "d3-scale": "4.0.2",
         "d3-shape": "3.2.0",
         "dotenv": "17.3.1",
@@ -1197,7 +1197,7 @@
 
     "convex-helpers": ["convex-helpers@0.1.108", "", { "peerDependencies": { "@standard-schema/spec": "^1.0.0", "convex": "^1.25.4", "hono": "^4.0.5", "react": "^17.0.2 || ^18.0.0 || ^19.0.0", "typescript": "^5.5", "zod": "^3.25.0 || ^4.0.0" }, "optionalPeers": ["@standard-schema/spec", "hono", "react", "typescript", "zod"], "bin": { "convex-helpers": "bin.cjs" } }, "sha512-5dHYX4Dy/qnBuvP5CI9ZKEwYtSlyQKK2MiIdGTVV8WUON5mWr/St8IeBxsJTBNh/vuBrlX0XPAZ1arbk4KQUdg=="],
 
-    "convex-svelte": ["convex-svelte@./convex-svelte-0.0.12.tgz", { "dependencies": { "esm-env": "^1.2.2", "runed": "^0.31.1" }, "peerDependencies": { "convex": "^1.30.0", "svelte": "^5.0.0" } }],
+    "convex-svelte": ["@mmailaender/convex-svelte@0.15.1", "", { "dependencies": { "esm-env": "^1.2.2", "runed": "^0.37.1" }, "peerDependencies": { "convex": ">1.10.0", "svelte": ">=5.36.0" } }, "sha512-cidSnmB+ZdgL6T9WSJeCoaN2pLu7AmfZviz+HQ5VeNsdF/JKOb4YtzYn8IYzEjLLnQlXeqYQxft8RD3YMmkDGA=="],
 
     "cookie": ["cookie@0.6.0", "", {}, "sha512-U71cyTamuh1CRNCfpGY6to28lxvNwPG4Guz/EVjgf3Jmzv0vlDp1atT9eS5dDjMYHucpHbWns6Lwf3BKz6svdw=="],
 
@@ -2518,8 +2518,6 @@
     "better-svelte-email/tailwindcss": ["tailwindcss@4.1.18", "", {}, "sha512-4+Z+0yiYyEtUVCScyfHCxOYP06L5Ne+JiHhY2IjR2KWMIWhJOYZKLSGZaP5HkZ8+bY0cxfzwDE5uOmzFXyIwxw=="],
 
     "bits-ui/runed": ["runed@0.35.1", "", { "dependencies": { "dequal": "^2.0.3", "esm-env": "^1.0.0", "lz-string": "^1.5.0" }, "peerDependencies": { "@sveltejs/kit": "^2.21.0", "svelte": "^5.7.0" }, "optionalPeers": ["@sveltejs/kit"] }, "sha512-2F4Q/FZzbeJTFdIS/PuOoPRSm92sA2LhzTnv6FXhCoENb3huf5+fDuNOg1LNvGOouy3u/225qxmuJvcV3IZK5Q=="],
-
-    "convex-svelte/runed": ["runed@0.31.1", "", { "dependencies": { "esm-env": "^1.0.0" }, "peerDependencies": { "svelte": "^5.7.0" } }, "sha512-v3czcTnO+EJjiPvD4dwIqfTdHLZ8oH0zJheKqAHh9QMViY7Qb29UlAMRpX7ZtHh7AFqV60KmfxaJ9QMy+L1igQ=="],
 
     "cytoscape-fcose/cose-base": ["cose-base@2.2.0", "", { "dependencies": { "layout-base": "^2.0.0" } }, "sha512-AzlgcsCbUMymkADOJtQm3wO9S3ltPfYOFD5033keQn9NJzIbtnZj+UdBJe7DYml/8TdbtHJW3j58SOnKhWY/5g=="],
 
