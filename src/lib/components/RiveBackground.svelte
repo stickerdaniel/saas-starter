@@ -202,7 +202,7 @@
 				{#if isDark}
 					<!-- Spotlight 1 (soft) -->
 					<div
-						class="lg:h-450px] pointer-events-none absolute top-1/2 left-1/2 -z-5 h-[360px] w-[360px] blur-xl transition-transform duration-1000 ease-out lg:w-[450px] {isLoaded
+						class="lg:h-[450px] pointer-events-none absolute top-1/2 left-1/2 -z-5 h-[360px] w-[360px] blur-xl transition-transform duration-1000 ease-out lg:w-[450px] {isLoaded
 							? 'animate-[breathe_5s_ease-in-out_infinite_1s]'
 							: ''}"
 						style="background: radial-gradient(circle at center, rgba(255, 255, 255, 1) 20%, rgba(255, 255, 255, 0.1) 50%, rgba(255, 255, 255, 0) 80%); will-change: opacity, transform; opacity: {isLoaded
