@@ -3,12 +3,12 @@
 	import { getTranslate } from '@tolgee/svelte';
 	import HeroFive from '$blocks/hero/hero-five.svelte';
 	import IntegrationOne from '$blocks/integration/integration-one.svelte';
-	import CustomerSupport from '$lib/components/customer-support/customer-support.svelte';
+	import LazyCustomerSupport from '$lib/components/customer-support/LazyCustomerSupport.svelte';
 	const { t } = getTranslate();
 </script>
 
 <SEOHead title={$t('meta.home.title')} description={$t('meta.home.description')} />
-<CustomerSupport />
+<LazyCustomerSupport />
 
 <HeroFive />
 <IntegrationOne />
