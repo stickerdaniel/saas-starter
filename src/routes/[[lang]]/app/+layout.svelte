@@ -1,4 +1,6 @@
 <script lang="ts">
+	import PostHogIdentify from '$lib/components/analytics/PostHogIdentify.svelte';
+	import SupportTicketMigrationBootstrap from '$lib/components/customer-support/support-ticket-migration-bootstrap.svelte';
 	import { AuthenticatedLayout, getAppSidebarConfig } from '$lib/components/authenticated';
 	import { page } from '$app/state';
 	import type { LayoutData } from './$types';
@@ -19,6 +21,9 @@
 		getAppSidebarConfig({ pathname: page.url.pathname, lang: page.params.lang }, viewer?.role)
 	);
 </script>
+
+<PostHogIdentify />
+<SupportTicketMigrationBootstrap />
 
 <AuthenticatedLayout
 	{sidebarConfig}
