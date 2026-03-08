@@ -1,7 +1,8 @@
 <script lang="ts">
+	import { page } from '$app/state';
+	import CommandTrigger from '$lib/components/global-search/command-trigger.svelte';
 	import LightSwitch from '$lib/components/ui/light-switch/light-switch.svelte';
 	import LanguageSwitcher from '$lib/components/LanguageSwitcher.svelte';
-	import CommandTrigger from '$lib/components/global-search/command-trigger.svelte';
 	import Button from '$lib/components/ui/button/button.svelte';
 	import { cn } from '$lib/utils';
 	import { localizedHref } from '$lib/utils/i18n';
@@ -11,13 +12,11 @@
 	import LogOut from '@lucide/svelte/icons/log-out';
 	import Github from '@lucide/svelte/icons/github';
 	import Logo from '$lib/components/icons/logo.svelte';
-	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
 	import { authClient } from '$lib/auth-client';
 	import { T, getTranslate } from '@tolgee/svelte';
 
 	const { t } = getTranslate();
-
-	const auth = useAuth();
+	const isAuthenticated = $derived(Boolean(page.data.authState?.isAuthenticated));
 
 	// Scroll detection for button swap
 	let scrollY = $state(0);
@@ -77,7 +76,7 @@
 					</Button>
 					<LightSwitch variant="ghost" />
 					<LanguageSwitcher variant="ghost" />
-					{#if auth.isAuthenticated}
+					{#if isAuthenticated}
 						<Button size="sm" href={localizedHref('/app')}>
 							<T keyName="nav.dashboard" />
 						</Button>
@@ -158,7 +157,7 @@
 				{/each}
 			</ul>
 			<div class="mt-6 flex flex-col gap-3">
-				{#if auth.isAuthenticated}
+				{#if isAuthenticated}
 					<Button size="sm" href={localizedHref('/app')} class="w-full">
 						<T keyName="nav.dashboard" />
 					</Button>
