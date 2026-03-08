@@ -14,84 +14,86 @@
 		{
 			"description": "Group all safe non-major updates together",
 			"matchUpdateTypes": ["minor", "patch", "pin", "digest"],
-			"excludePackageNames": [
-				"better-auth",
-				"ai",
-				"eslint",
-				"@eslint/compat",
-				"@eslint/js",
-				"@convex-dev/agent",
-				"@convex-dev/better-auth",
-				"@mmailaender/convex-better-auth-svelte",
-				"@openrouter/ai-sdk-provider"
-			],
-			"excludePackagePatterns": ["^@better-auth/", "^@ai-sdk/"],
 			"groupName": "all non-major dependencies",
-			"groupSlug": "all-minor-patch"
+			"groupSlug": "all-minor-patch",
+			"matchPackageNames": [
+				"!better-auth",
+				"!ai",
+				"!eslint",
+				"!@eslint/compat",
+				"!@eslint/js",
+				"!@convex-dev/agent",
+				"!@convex-dev/better-auth",
+				"!@mmailaender/convex-better-auth-svelte",
+				"!@openrouter/ai-sdk-provider",
+				"!/^@better-auth//",
+				"!/^@ai-sdk//"
+			]
 		},
 		{
 			"description": "Group all safe major updates together",
 			"matchUpdateTypes": ["major"],
-			"excludePackageNames": [
-				"better-auth",
-				"ai",
-				"eslint",
-				"@eslint/compat",
-				"@eslint/js",
-				"@convex-dev/agent",
-				"@convex-dev/better-auth",
-				"@mmailaender/convex-better-auth-svelte",
-				"@openrouter/ai-sdk-provider"
-			],
-			"excludePackagePatterns": ["^@better-auth/", "^@ai-sdk/"],
 			"groupName": "all major dependencies",
-			"groupSlug": "all-major"
+			"groupSlug": "all-major",
+			"matchPackageNames": [
+				"!better-auth",
+				"!ai",
+				"!eslint",
+				"!@eslint/compat",
+				"!@eslint/js",
+				"!@convex-dev/agent",
+				"!@convex-dev/better-auth",
+				"!@mmailaender/convex-better-auth-svelte",
+				"!@openrouter/ai-sdk-provider",
+				"!/^@better-auth//",
+				"!/^@ai-sdk//"
+			]
 		},
 		{
 			"description": "Group Better Auth ecosystem non-major updates for manual review",
-			"matchPackagePatterns": [
-				"^better-auth$",
-				"^@better-auth/",
-				"^@convex-dev/better-auth$",
-				"^@mmailaender/convex-better-auth-svelte$"
-			],
 			"matchUpdateTypes": ["minor", "patch", "pin", "digest"],
 			"groupName": "better-auth ecosystem",
-			"groupSlug": "better-auth-ecosystem"
+			"groupSlug": "better-auth-ecosystem",
+			"matchPackageNames": [
+				"/^better-auth$/",
+				"/^@better-auth//",
+				"/^@convex-dev/better-auth$/",
+				"/^@mmailaender/convex-better-auth-svelte$/"
+			]
 		},
 		{
 			"description": "Disable Better Auth ecosystem major updates until the stack is migrated together",
-			"matchPackagePatterns": [
-				"^better-auth$",
-				"^@better-auth/",
-				"^@convex-dev/better-auth$",
-				"^@mmailaender/convex-better-auth-svelte$"
-			],
 			"matchUpdateTypes": ["major"],
-			"enabled": false
+			"enabled": false,
+			"matchPackageNames": [
+				"/^better-auth$/",
+				"/^@better-auth//",
+				"/^@convex-dev/better-auth$/",
+				"/^@mmailaender/convex-better-auth-svelte$/"
+			]
 		},
 		{
 			"description": "Group AI ecosystem non-major updates for manual review",
-			"matchPackagePatterns": [
-				"^ai$",
-				"^@ai-sdk/",
-				"^@convex-dev/agent$",
-				"^@openrouter/ai-sdk-provider$"
-			],
 			"matchUpdateTypes": ["minor", "patch", "pin", "digest"],
 			"groupName": "ai ecosystem",
-			"groupSlug": "ai-ecosystem"
+			"groupSlug": "ai-ecosystem",
+			"matchPackageNames": [
+				"/^ai$/",
+				"/^@ai-sdk//",
+				"/^@convex-dev/agent$/",
+				"/^@openrouter/ai-sdk-provider$/"
+			]
 		},
 		{
 			"description": "Disable AI ecosystem major updates until Convex Agent supports AI SDK v6",
-			"matchPackagePatterns": [
-				"^ai$",
-				"^@ai-sdk/",
-				"^@convex-dev/agent$",
-				"^@openrouter/ai-sdk-provider$"
-			],
 			"matchUpdateTypes": ["major"],
-			"enabled": false
+			"enabled": false,
+			"matchPackageNames": [
+				"/^ai$/",
+				"/^@ai-sdk//",
+				"/^@convex-dev/agent$/",
+				"/^@openrouter/ai-sdk-provider$/"
+			]
 		},
 		{
 			"description": "Group ESLint non-major updates for manual review",
