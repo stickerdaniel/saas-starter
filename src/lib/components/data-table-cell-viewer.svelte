@@ -1,38 +1,14 @@
 <script lang="ts">
 	import TrendingUpIcon from '@tabler/icons-svelte/icons/trending-up';
-	import { AreaChart } from 'layerchart';
-	import { scaleUtc } from 'd3-scale';
-	import { curveNatural } from 'd3-shape';
 
 	import * as Drawer from '$lib/components/ui/drawer/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
-	import * as Chart from '$lib/components/ui/chart/index.js';
 	import { IsMobile } from '$lib/hooks/is-mobile.svelte.js';
 	import * as Field from '$lib/components/ui/field/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import * as Select from '$lib/components/ui/select/index.js';
 	import { Separator } from '$lib/components/ui/separator/index.js';
 	import type { Schema } from './schemas.js';
-
-	const chartData = [
-		{ date: new Date('2024-01-01'), desktop: 186, mobile: 80 },
-		{ date: new Date('2024-02-01'), desktop: 305, mobile: 200 },
-		{ date: new Date('2024-03-01'), desktop: 237, mobile: 120 },
-		{ date: new Date('2024-04-01'), desktop: 73, mobile: 190 },
-		{ date: new Date('2024-05-01'), desktop: 209, mobile: 130 },
-		{ date: new Date('2024-06-01'), desktop: 214, mobile: 140 }
-	];
-
-	const chartConfig = {
-		desktop: {
-			label: 'Desktop',
-			color: 'var(--primary)'
-		},
-		mobile: {
-			label: 'Mobile',
-			color: 'var(--primary)'
-		}
-	} satisfies Chart.ChartConfig;
 
 	const isMobile = new IsMobile();
 
@@ -64,50 +40,13 @@
 		</Drawer.Header>
 		<div class="flex flex-col gap-4 overflow-y-auto px-4 text-sm">
 			{#if !isMobile.current}
-				<Chart.Container config={chartConfig}>
-					<AreaChart
-						data={chartData}
-						x="date"
-						xScale={scaleUtc()}
-						yDomain={[0, 600]}
-						series={[
-							{
-								key: 'mobile',
-								label: 'Mobile',
-								color: chartConfig.mobile.color
-							},
-							{
-								key: 'desktop',
-								label: 'Desktop',
-								color: chartConfig.desktop.color
-							}
-						]}
-						seriesLayout="stack"
-						props={{
-							area: {
-								curve: curveNatural,
-								'fill-opacity': 0.4,
-								line: { class: 'stroke-1' },
-								motion: 'tween'
-							},
-							xAxis: {
-								format: (v) => v.toLocaleDateString('en-US', { month: 'short' })
-							},
-							yAxis: { ticks: [0, 300, 600] }
-						}}
+				<div
+					class="flex h-40 items-center justify-center rounded-xl border border-dashed bg-muted/40"
+				>
+					<span class="text-muted-foreground"
+						>Chart temporarily disabled for server-rendered builds.</span
 					>
-						{#snippet tooltip()}
-							<Chart.Tooltip
-								labelFormatter={(v: Date) => {
-									return v.toLocaleDateString('en-US', {
-										month: 'long'
-									});
-								}}
-								indicator="dot"
-							/>
-						{/snippet}
-					</AreaChart>
-				</Chart.Container>
+				</div>
 				<Separator />
 				<div class="grid gap-2">
 					<div class="flex gap-2 leading-none font-medium">
