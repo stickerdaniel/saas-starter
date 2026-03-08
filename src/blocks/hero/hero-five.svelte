@@ -21,6 +21,7 @@
 		<RiveBackground
 			src="/animations/spring-demo.riv"
 			stateMachine="Motion"
+			defer
 			className="absolute lg:left-[45%] xl:left-[52%] -bottom-1/5 lg:-bottom-1/6 w-[550px] h-[550px] lg:w-[700px] lg:h-[700px]"
 		/>
 
