@@ -2,8 +2,9 @@
 	import { Tolgee, DevTools, TolgeeProvider } from '@tolgee/svelte';
 	import { FormatIcu } from '@tolgee/format-icu';
 	import { browser } from '$app/environment';
-	import CommandMenu from '$lib/components/global-search/command-menu.svelte';
+	import AppAuthOAuthBootstrap from '$lib/components/app/app-auth-oauth-bootstrap.svelte';
 	import { setGlobalSearchContext } from '$lib/components/global-search/context.svelte';
+	import GlobalSearchShell from '$lib/components/global-search/global-search-shell.svelte';
 	import type { LayoutData } from './$types';
 	import { watch } from 'runed';
 	import { languageContext } from '$lib/i18n/context';
@@ -63,6 +64,7 @@
 </script>
 
 <TolgeeProvider {tolgee}>
-	<CommandMenu />
+	<AppAuthOAuthBootstrap />
+	<GlobalSearchShell />
 	{@render children()}
 </TolgeeProvider>
