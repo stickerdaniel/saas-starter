@@ -105,7 +105,7 @@
 		"bun-tasks": "0.1.2",
 		"clsx": "2.1.1",
 		"convex": "1.32.0",
-		"convex-svelte": "./convex-svelte-0.0.12.tgz",
+		"convex-svelte": "npm:@mmailaender/convex-svelte@^0.15.1",
 		"d3-scale": "4.0.2",
 		"d3-shape": "3.2.0",
 		"dotenv": "17.3.1",
