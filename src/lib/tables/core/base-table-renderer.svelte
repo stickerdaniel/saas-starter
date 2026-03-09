@@ -38,6 +38,12 @@
 	function getColumnMeta(def: { meta?: unknown }) {
 		return (def.meta ?? {}) as TableColumnMeta;
 	}
+
+	const isTight = $derived(config.tableStyle === 'tight');
+	const hasColumnBorders = $derived(config.showColumnBorders === true);
+	const densityHeadClass = $derived(isTight ? 'py-1.5 text-xs' : '');
+	const densityCellClass = $derived(isTight ? 'py-1 text-sm' : '');
+	const borderClass = $derived(hasColumnBorders ? 'border-x first:border-l-0 last:border-r-0' : '');
 </script>
 
 <ConvexCursorTableShell
@@ -83,7 +89,7 @@
 						{#each headerGroup.headers as header (header.id)}
 							{@const headerMeta = getColumnMeta(header.column.columnDef)}
 							<Table.Head
-								class={cn(headerMeta.headClass)}
+								class={cn(headerMeta.headClass, densityHeadClass, borderClass)}
 								style={buildColumnStyle({
 									...getColumnStyleArgs({
 										size: header.getSize(),
@@ -124,7 +130,7 @@
 									columnIndex
 								})}
 								<Table.Cell
-									class={cn(columnMeta.cellClass)}
+									class={cn(columnMeta.cellClass, densityCellClass, borderClass)}
 									style={buildColumnStyle({
 										...getColumnStyleArgs({
 											size: column.getSize(),
@@ -199,7 +205,7 @@
 							{#each row.getVisibleCells() as cell (cell.id)}
 								{@const cellMeta = getColumnMeta(cell.column.columnDef)}
 								<Table.Cell
-									class={cn(cellMeta.cellClass)}
+									class={cn(cellMeta.cellClass, densityCellClass, borderClass)}
 									style={buildColumnStyle({
 										...getColumnStyleArgs({
 											size: cell.column.getSize(),

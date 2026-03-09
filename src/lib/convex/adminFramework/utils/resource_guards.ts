@@ -20,7 +20,20 @@ const resourceCrudGuards: Record<string, CrudGuard> = {
 	'demo-projects': {},
 	'demo-tasks': {},
 	'demo-comments': {},
-	'demo-tags': {}
+	'demo-tags': {},
+	'demo-articles': {}
+};
+
+type ReadGuard = {
+	canRead?: (user: BetterAuthUser) => boolean;
+};
+
+const resourceReadGuards: Record<string, ReadGuard> = {
+	'demo-projects': {},
+	'demo-tasks': {},
+	'demo-comments': {},
+	'demo-tags': {},
+	'demo-articles': {}
 };
 
 /**
@@ -100,5 +113,26 @@ export function assertRelationAllowed(args: {
 	}
 	if (operation === 'detach' && guard.canDetach && !guard.canDetach(user, parentRecord)) {
 		throw new Error('Not authorized: cannot detach related record');
+	}
+}
+
+export function isResourceReadAllowed(args: {
+	resourceName: string;
+	user: BetterAuthUser | null | undefined;
+}): boolean {
+	const { resourceName, user } = args;
+	if (!isAdmin(user)) return false;
+	const guard = resourceReadGuards[resourceName];
+	if (!guard) return false;
+	if (guard.canRead && !guard.canRead(user)) return false;
+	return true;
+}
+
+export function assertResourceReadAllowed(args: {
+	resourceName: string;
+	user: BetterAuthUser | null | undefined;
+}) {
+	if (!isResourceReadAllowed(args)) {
+		throw new Error('Not authorized');
 	}
 }

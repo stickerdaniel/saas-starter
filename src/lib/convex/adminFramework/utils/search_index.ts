@@ -3,6 +3,7 @@ export type ResourceSearchIndexConfig = {
 	table: string;
 	indexName: string;
 	searchField: string;
+	softDeletes?: boolean;
 };
 
 export const RESOURCE_SEARCH_INDEXES = {
@@ -10,25 +11,36 @@ export const RESOURCE_SEARCH_INDEXES = {
 		resourceName: 'demo-projects',
 		table: 'adminDemoProjects',
 		indexName: 'search_name_description',
-		searchField: 'name'
+		searchField: 'name',
+		softDeletes: true
 	},
 	'demo-tasks': {
 		resourceName: 'demo-tasks',
 		table: 'adminDemoTasks',
 		indexName: 'search_title',
-		searchField: 'title'
+		searchField: 'title',
+		softDeletes: true
 	},
 	'demo-comments': {
 		resourceName: 'demo-comments',
 		table: 'adminDemoComments',
 		indexName: 'search_text',
-		searchField: 'text'
+		searchField: 'text',
+		softDeletes: true
 	},
 	'demo-tags': {
 		resourceName: 'demo-tags',
 		table: 'adminDemoTags',
 		indexName: 'search_name',
-		searchField: 'name'
+		searchField: 'name',
+		softDeletes: false
+	},
+	'demo-articles': {
+		resourceName: 'demo-articles',
+		table: 'adminDemoArticles',
+		indexName: 'search_title_author',
+		searchField: 'title',
+		softDeletes: true
 	}
 } as const satisfies Record<string, ResourceSearchIndexConfig>;
 

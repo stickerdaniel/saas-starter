@@ -5,6 +5,7 @@ import { customCtx, customMutation } from 'convex-helpers/server/customFunctions
 import { mutation } from '../_generated/server';
 import { authComponent } from '../auth';
 import { adminFrameworkAggregateTriggers } from './utils/aggregates';
+import { createAuditState } from './utils/audit_log';
 
 export const adminFrameworkStatements = {
 	resource: ['read', 'create', 'update', 'delete', 'restore', 'force-delete', 'replicate'],
@@ -55,10 +56,12 @@ export const permissionMutation = customMutation(
 		}
 		const wrappedCtx = adminFrameworkAggregateTriggers.wrapDB(ctx);
 		const session = await getActiveSession(ctx);
+		const _auditState = createAuditState();
 		return {
 			user,
 			db: wrappedCtx.db,
-			organizationId: session?.activeOrganizationId ?? null
+			organizationId: session?.activeOrganizationId ?? null,
+			_auditState
 		};
 	})
 );

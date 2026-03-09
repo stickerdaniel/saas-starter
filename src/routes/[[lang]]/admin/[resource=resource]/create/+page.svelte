@@ -10,6 +10,7 @@
 	import { Button } from '$lib/components/ui/button/index.js';
 	import * as Field from '$lib/components/ui/field/index.js';
 	import FieldRenderer from '$lib/admin/fields/field-renderer.svelte';
+	import CollapsibleFieldGroup from '$lib/admin/components/collapsible-field-group.svelte';
 	import * as Tabs from '$lib/components/ui/tabs/index.js';
 	import { getResourceContext } from '$lib/admin/page-helpers';
 	import { createDynamicForm } from '$lib/admin/create-dynamic-form.svelte';
@@ -97,15 +98,23 @@
 		void reloadRelationOptions();
 	}
 
+	function resolveCreateRedirectPath(newId: string): string {
+		const redirect = resource.redirectAfterCreate;
+		if (typeof redirect === 'function') return redirect(newId);
+		if (redirect === 'detail') return `/${page.params.lang}/admin/${resource.name}/${newId}`;
+		if (redirect === 'edit') return `/${page.params.lang}/admin/${resource.name}/${newId}/edit`;
+		return `/${page.params.lang}/admin/${resource.name}`;
+	}
+
 	async function submit() {
 		const nextErrors = form.validate(null);
 		if (Object.keys(nextErrors).length > 0) return;
 		form.setSubmitting(true);
 		try {
 			const payload = form.normalize(null);
-			await client.mutation(runtime.create, payload as never);
+			const result = (await client.mutation(runtime.create, payload as never)) as { id: string };
 			toast.success($t('admin.resources.toasts.created'));
-			await goto(resolve(`/${page.params.lang}/admin/${resource.name}`));
+			await goto(resolve(resolveCreateRedirectPath(result.id)));
 		} catch (error) {
 			const fieldErrors = getValidationFieldErrors(error);
 			if (fieldErrors) {
@@ -159,6 +168,70 @@
 				</Tabs.List>
 				{#each formGroups as group (group.key)}
 					<Tabs.Content value={group.key}>
+						{#if group.collapsible}
+							<CollapsibleFieldGroup
+								groupKey={group.key}
+								labelKey={group.labelKey}
+								testId={`${prefix}-group-${group.key}`}
+							>
+								<Field.Group>
+									{#each group.fields as field (field.attribute)}
+										<FieldRenderer
+											context="form"
+											{field}
+											record={form.values}
+											value={form.values[field.attribute]}
+											error={form.errors[field.attribute]}
+											disabled={isFieldDisabled(field, {
+												user: viewer,
+												record: null,
+												isEdit: false
+											})}
+											testId={`${prefix}-${field.attribute}-input`}
+											relationOptions={relationOptions[field.attribute] ?? []}
+											{viewer}
+											onChange={(value) => {
+												form.setValue(field.attribute, value);
+											}}
+											onRelationCreated={handleRelationCreated}
+											onCreateTag={tagUpsertHandlers[field.attribute]}
+										/>
+									{/each}
+								</Field.Group>
+							</CollapsibleFieldGroup>
+						{:else}
+							<Field.Group>
+								{#each group.fields as field (field.attribute)}
+									<FieldRenderer
+										context="form"
+										{field}
+										record={form.values}
+										value={form.values[field.attribute]}
+										error={form.errors[field.attribute]}
+										disabled={isFieldDisabled(field, { user: viewer, record: null, isEdit: false })}
+										testId={`${prefix}-${field.attribute}-input`}
+										relationOptions={relationOptions[field.attribute] ?? []}
+										{viewer}
+										onChange={(value) => {
+											form.setValue(field.attribute, value);
+										}}
+										onRelationCreated={handleRelationCreated}
+										onCreateTag={tagUpsertHandlers[field.attribute]}
+									/>
+								{/each}
+							</Field.Group>
+						{/if}
+					</Tabs.Content>
+				{/each}
+			</Tabs.Root>
+		{:else}
+			{#each formGroups as group (group.key)}
+				{#if group.collapsible}
+					<CollapsibleFieldGroup
+						groupKey={group.key}
+						labelKey={group.labelKey}
+						testId={`${prefix}-group-${group.key}`}
+					>
 						<Field.Group>
 							{#each group.fields as field (field.attribute)}
 								<FieldRenderer
@@ -175,34 +248,34 @@
 										form.setValue(field.attribute, value);
 									}}
 									onRelationCreated={handleRelationCreated}
-										onCreateTag={tagUpsertHandlers[field.attribute]}
+									onCreateTag={tagUpsertHandlers[field.attribute]}
 								/>
 							{/each}
 						</Field.Group>
-					</Tabs.Content>
-				{/each}
-			</Tabs.Root>
-		{:else}
-			<Field.Group>
-				{#each visibleFormFields as field (field.attribute)}
-					<FieldRenderer
-						context="form"
-						{field}
-						record={form.values}
-						value={form.values[field.attribute]}
-						error={form.errors[field.attribute]}
-						disabled={isFieldDisabled(field, { user: viewer, record: null, isEdit: false })}
-						testId={`${prefix}-${field.attribute}-input`}
-						relationOptions={relationOptions[field.attribute] ?? []}
-						{viewer}
-						onChange={(value) => {
-							form.setValue(field.attribute, value);
-						}}
-						onRelationCreated={handleRelationCreated}
-						onCreateTag={tagUpsertHandlers[field.attribute]}
-					/>
-				{/each}
-			</Field.Group>
+					</CollapsibleFieldGroup>
+				{:else}
+					<Field.Group>
+						{#each group.fields as field (field.attribute)}
+							<FieldRenderer
+								context="form"
+								{field}
+								record={form.values}
+								value={form.values[field.attribute]}
+								error={form.errors[field.attribute]}
+								disabled={isFieldDisabled(field, { user: viewer, record: null, isEdit: false })}
+								testId={`${prefix}-${field.attribute}-input`}
+								relationOptions={relationOptions[field.attribute] ?? []}
+								{viewer}
+								onChange={(value) => {
+									form.setValue(field.attribute, value);
+								}}
+								onRelationCreated={handleRelationCreated}
+								onCreateTag={tagUpsertHandlers[field.attribute]}
+							/>
+						{/each}
+					</Field.Group>
+				{/if}
+			{/each}
 		{/if}
 
 		<div class="mt-4 flex gap-2">
@@ -211,7 +284,7 @@
 				disabled={form.submitting}
 				data-testid={`${prefix}-create-submit`}
 			>
-				<T keyName="common.save" />
+				<T keyName={resource.createButtonLabelKey ?? 'common.save'} />
 			</Button>
 			<Button
 				variant="outline"

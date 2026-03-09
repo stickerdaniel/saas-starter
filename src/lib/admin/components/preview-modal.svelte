@@ -13,25 +13,43 @@
 
 	type Props = {
 		open: boolean;
-		resourceId: string | null;
+		/** Pass a record directly (from table row) to avoid an extra query. */
+		record?: Record<string, unknown> | null;
+		/** Pass a resourceId to keep the preview live via useQuery. */
+		resourceId?: string | null;
 		resource: ResourceDefinition<any>;
-		runtime: ResourceRuntime;
+		getByIdQuery: ResourceRuntime['getById'];
 		prefix: string;
 		onClose: () => void;
 		onOpenDetail: (id: string) => void;
 	};
 
-	let { open, resourceId, resource, runtime, prefix, onClose, onOpenDetail }: Props = $props();
+	let {
+		open,
+		record: directRecord = null,
+		resourceId = null,
+		resource,
+		getByIdQuery,
+		prefix,
+		onClose,
+		onOpenDetail
+	}: Props = $props();
 
 	const viewer = getViewerUser(page.data.viewer);
 	const previewFields = $derived(getPreviewFields(resource));
 
-	const detailQuery = $derived(
-		resourceId ? useQuery(runtime.getById, { id: resourceId } as never) : null
+	// Subscribe when the modal is open and a resource id is available. If a direct
+	// record was passed from the table row, use it as the initial fallback until the
+	// live query resolves.
+	const detailQuery = useQuery(getByIdQuery, () =>
+		open && resourceId ? ({ id: resourceId } as never) : 'skip'
 	);
 
-	const record = $derived(detailQuery?.data as Record<string, unknown> | null | undefined);
-	const isLoading = $derived(detailQuery?.isLoading ?? true);
+	const record = $derived(
+		(detailQuery.data as Record<string, unknown> | null | undefined) ?? directRecord ?? null
+	);
+	const isLoading = $derived(Boolean(open && resourceId && !detailQuery.data && !directRecord));
+	const recordId = $derived(resourceId ?? (directRecord ? String(directRecord._id ?? '') : null));
 </script>
 
 <Dialog.Root
@@ -80,12 +98,12 @@
 			</Button>
 			<Button
 				onclick={() => {
-					if (resourceId) {
-						onOpenDetail(resourceId);
+					if (recordId) {
+						onOpenDetail(recordId);
 						onClose();
 					}
 				}}
-				disabled={!resourceId}
+				disabled={!recordId}
 				data-testid={`${prefix}-preview-open-detail`}
 			>
 				<T keyName="admin.resources.actions.view" />

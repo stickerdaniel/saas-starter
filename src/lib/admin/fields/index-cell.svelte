@@ -4,6 +4,7 @@
 	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
 	import * as Avatar from '$lib/components/ui/avatar/index.js';
 	import type { FieldDefinition } from '$lib/admin/types';
+	import CopyableWrapper from '$lib/admin/fields/copyable-wrapper.svelte';
 
 	type Props = {
 		field: FieldDefinition<any>;
@@ -227,6 +228,10 @@
 	>
 		{value}
 	</button>
+{:else if field.copyable}
+	<CopyableWrapper value={displayValue}>
+		<span data-testid={testId}>{displayValue}</span>
+	</CopyableWrapper>
 {:else}
 	<span data-testid={testId}>{displayValue}</span>
 {/if}
