@@ -33,6 +33,14 @@ A **declarative resource configuration** drives the entire admin UI: tables, det
 - **Server-side field authorization**: `canSee` runs in Convex queries — unauthorized data never leaves the server
 - **Auto-discovery resource registry**: `import.meta.glob` in `registry.ts` discovers resource modules automatically from `resources/*.ts` files — no manual registration needed
 - **Granular permissions**: Better Auth's `createAccessControl` with custom statements and roles
+- **Custom admin tools coexist with generated resources**: bespoke pages like support remain valid; the generated `[resource=resource]` path is the canonical Nova-parity surface
+- **Durable background work should use Convex components**: prefer `@convex-dev/workpool` for queued batch actions over ad-hoc scheduler tables once the prototype is replaced
+
+### Forward-Looking Decisions
+
+- **Queued actions**: Keep `runtime.runAction` for small synchronous actions. For long-running or high-cardinality batch work, move to `@convex-dev/workpool` with per-resource queues, retry/backoff, concurrency limits, and progress documents that the UI can subscribe to.
+- **Peek / preview**: Treat preview and peek as live read models, not one-shot snapshots. The default should be a subscription-backed query with server-side field visibility. Add an optional lightweight `peek` query per resource later if `getById` becomes too heavy.
+- **Audit logging**: Standardize on one append-only admin audit event stream for future work. Resource CRUD, relation changes, admin-tool events, and queued action lifecycle should all land in the same canonical table shape, with projections/queries layered on top for resource detail timelines, global audit views, and notification fan-out.
 
 ### Nova Mapping At The Architecture Layer
 
@@ -635,41 +643,25 @@ No manual registration step — adding a file to `resources/` is sufficient.
 
 ## What We Already Have vs. What to Build
 
-| Capability                         | Status   | Notes                                                          |
-| ---------------------------------- | -------- | -------------------------------------------------------------- |
-| Admin route protection             | Done     | Server hooks + JWT                                             |
-| `adminQuery` / `adminMutation`     | Done     | Convex function builders                                       |
-| Data table with sorting/pagination | Done     | `createConvexCursorTable` + `ConvexCursorTableShell`           |
-| Bulk actions UI                    | Done     | Checkbox selection on user table                               |
-| Filters (select, status)           | Done     | On user management page                                        |
-| URL state management               | Done     | Runed `useSearchParams` + Valibot schema                       |
-| Dashboard metrics                  | Done     | Cards on admin dashboard                                       |
-| Charts                             | Done     | LayerChart/D3 area charts                                      |
-| Global search                      | Done     | Command palette                                                |
-| Sidebar navigation                 | Done     | `AuthenticatedLayout` with config objects                      |
-| Audit logging                      | Done     | `adminAuditLogs` table                                         |
-| Toast notifications                | Done     | `svelte-sonner`                                                |
-| Inline editing (toggles)           | Done     | `SvelteMap` overlay pattern in settings                        |
-| Optimistic updates                 | Done     | Both `SvelteMap` and Convex `optimisticUpdate` patterns        |
-| `defineResource` builder           | To Build | Type-safe with `DocFields<TTable>` validation                  |
-| `defineField` builder              | To Build | Field type registry + component map                            |
-| `defineAction` builder             | To Build | Action config + modal form                                     |
-| `defineFilter` builder             | To Build | Filter config system                                           |
-| `defineMetric` builder             | To Build | Metric config + `@convex-dev/aggregate`                        |
-| Generic resource pages             | To Build | Index, Detail, Create, Edit using `[resource=resource]` routes |
-| Field component registry           | To Build | Per-type, per-context component map                            |
-| `ActionModal.svelte`               | To Build | Generic confirmation dialog with dynamic fields                |
-| `FieldRenderer.svelte`             | To Build | Context-aware rendering from component map                     |
-| `createDynamicForm`                | To Build | `$state`-based form with Valibot validation                    |
-| Dynamic sidebar from resources     | To Build | Auto-generate from registry `getResourceGroups()`              |
-| Relationship field handling        | To Build | `convex-helpers`: `getOneFrom`, `getManyFrom`, `getManyVia`    |
-| Shared resource query utilities    | To Build | `applyResourceQuery()`, `applyResourceMutation()`              |
-| Param matcher                      | To Build | `src/params/resource.ts` for `[resource=resource]`             |
-| Permission system                  | To Build | Better Auth `createAccessControl` + `permissionQuery` builder  |
-| Field-level authorization          | To Build | Server-side `canSee` in Convex queries                         |
-| Tab panels for detail/form         | To Build | shadcn-svelte Tabs + `FieldGroup[]` config                     |
-| Dependent fields                   | To Build | `dependsOn` + `$derived` visibility                            |
-| Validation error mapping           | To Build | `ConvexError` → field errors + `isValidationError()` guard     |
+| Capability                             | Status  | Notes                                                                  |
+| -------------------------------------- | ------- | ---------------------------------------------------------------------- |
+| `defineResource` / registry / runtimes | Done    | Auto-discovery via `import.meta.glob`, co-located resource runtimes    |
+| Generic resource pages                 | Done    | Index, detail, create, edit, preview on `[resource=resource]` routes   |
+| Field component registry               | Done    | Context-aware rendering for index/detail/form/preview                  |
+| Dynamic form state                     | Done    | `$state`-based form model with Valibot validation + error mapping      |
+| Filters, lenses, metrics               | Done    | URL-driven filters, lens overrides, live metrics, detail-only metrics  |
+| Relation fields                        | Done    | `belongsTo`, `hasMany`, `manyToMany`, `morphTo`, inline create/tagging |
+| Field-level authorization              | Done    | Backend `_visibleFields` stripping + client guards                     |
+| Optimistic CRUD + conflict handling    | Done    | Optimistic delete/restore and per-field conflict resolution            |
+| Resource search in command menu        | Partial | Works via parallel resource list queries; dedicated endpoint unused    |
+| Notifications                          | Partial | Backend + panel exist; header/layout integration still missing         |
+| Queued actions                         | Partial | Prototype exists; generated resource UI still uses synchronous actions |
+| Audit logging                          | Partial | Resource audit stream exists; legacy admin audit path still separate   |
+| Live relation peek                     | Partial | Preview modal is live; relation popover still one-shot                 |
+| Full-width fields                      | Missing | Only remaining field UI trait gap                                      |
+| WYSIWYG / repeater / timezone fields   | Missing | Still not implemented                                                  |
+| Missing relation types                 | Missing | `HasOne`, `HasOneThrough`, `HasManyThrough`, `MorphedByMany`           |
+| Multiple dashboards                    | Missing | Single dashboard remains intentional for now                           |
 
 ---
 
@@ -679,12 +671,14 @@ No manual registration step — adding a file to `resources/` is sufficient.
 
 Existing pages (`/admin/users`, `/admin/support`, `/admin/settings`, `/admin/dashboard`) are the equivalent of Nova "tools" — fully custom pages. They keep their own routes and components. New resource-driven pages use `[resource=resource]/` dynamic routes. Both coexist naturally in the sidebar.
 
+The generated resource pages are the canonical Nova parity target. Custom pages do not need to be forced into the resource abstraction if custom UI is the better fit.
+
 **Migration order:**
 
-1. Build framework core (defineResource, FieldRenderer, ResourceIndex)
-2. Create a new resource using the framework (e.g., audit logs) as proof-of-concept
-3. Gradually port existing pages one at a time, keeping custom pages as fallbacks
-4. Some pages (support with PaneForge, dashboard) may stay custom permanently
+1. Keep polishing the generated resource path until it covers the Nova checklist end-to-end
+2. Use demo resources as the exhaustive feature surface for parity testing
+3. Port real CRUD/admin resources when the abstraction is a net gain
+4. Keep custom tools like support custom where the UX warrants it
 
 ### Existing Convex Functions
 
@@ -700,5 +694,6 @@ The generic resource system **wraps** existing functions, not replaces. Each res
 4. **Phase 4 — Actions & Filters**: `defineAction`, `defineFilter`, `ActionModal`, `FilterPanel`, inline editing support
 5. **Phase 5 — Metrics**: `defineMetric`, metric components, `@convex-dev/aggregate` integration, dashboard integration
 6. **Phase 6 — Authorization**: `createAccessControl` setup, `permissionQuery` builder, resource/field `canSee`, action `canRun`
-7. **Phase 7 — Polish**: Global search integration, relation fields (`belongsTo`/`hasMany`), file/image fields, optimistic updates for CRUD
-8. **Phase 8 — Migration**: Convert existing admin pages to resource definitions where appropriate
+7. **Phase 7 — Polish**: Mount notifications/action jobs, convert relation peek to live subscriptions, unify audit feeds, finish checklist gaps
+8. **Phase 8 — Durable background work**: Replace queued action prototype with `@convex-dev/workpool` where batch work needs retries/concurrency control
+9. **Phase 9 — Migration**: Convert real resources to definitions where appropriate; keep custom tools custom
