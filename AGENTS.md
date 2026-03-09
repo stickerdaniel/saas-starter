@@ -402,7 +402,10 @@ The admin framework is modeled after [Laravel Nova](https://nova.laravel.com/), 
 
 **Goal:** Build a metadata-driven, generic resource CRUD framework that matches Nova's developer experience (define a resource once, get list/detail/create/edit/actions/metrics for free) while leveraging Convex real-time subscriptions, SvelteKit SSR, and TypeScript type safety.
 
-**State file:** `docs/nova-vs-admin-framework-comparison.md` tracks the current alignment between Nova and our implementation. **Always update this file** when adding or changing admin framework features — mark items as aligned, note new gaps, or remove resolved gaps.
+**Doc model:**
+
+- `docs/nova-vs-admin-framework-comparison.md` is the canonical parity and intentional-drift doc. Update it whenever admin framework features change. Record whether a feature mirrors Nova, is intentionally better because of Convex real-time behavior, is an architectural alternative, or is still missing.
+- `docs/admin-framework-plan.md` is the canonical architecture doc. Update it when durable implementation-model decisions change.
 
 **Key locations:**
 

@@ -8,6 +8,13 @@ Building a declarative, resource-driven admin panel inspired by Laravel Nova —
 
 A **declarative resource configuration** drives the entire admin UI: tables, detail pages, forms, filters, sidebar navigation, search, and authorization.
 
+### Documentation Model
+
+- `docs/nova-vs-admin-framework-comparison.md` is the canonical parity and intentional-drift ledger.
+- `docs/admin-framework-plan.md` is the canonical architecture and implementation-model document.
+- Do not maintain a separate long-lived Nova mapping doc. If a change affects feature parity, update the comparison doc. If it affects durable architecture, update this file.
+- When Nova and Convex-native UX differ, document the divergence explicitly instead of implying 1:1 parity.
+
 ### Data Flow
 
 1. Resource definition objects declare fields, actions, filters, metrics
@@ -26,6 +33,33 @@ A **declarative resource configuration** drives the entire admin UI: tables, det
 - **Server-side field authorization**: `canSee` runs in Convex queries — unauthorized data never leaves the server
 - **Auto-discovery resource registry**: `import.meta.glob` in `registry.ts` discovers resource modules automatically from `resources/*.ts` files — no manual registration needed
 - **Granular permissions**: Better Auth's `createAccessControl` with custom statements and roles
+
+### Nova Mapping At The Architecture Layer
+
+These are stable framework-level mappings and should live here instead of in a separate mapping file.
+
+- **Core parity**
+  - `Nova Resource` -> `ResourceDefinition` in `src/lib/admin/resources/*.ts`
+  - `fields()` -> `fields: FieldDefinition[]`
+  - `filters()` -> `filters: FilterDefinition[]` with URL state sync
+  - `actions()` -> `actions: ActionDefinition[]` + resource action mutations
+  - `lenses()` -> `lenses: LensDefinition[]` via URL state + backend interpretation
+  - `cards()/metrics()` -> `metrics: MetricDefinition[]` + resource metric queries
+  - `softDeletes()` -> `deletedAt` + `trashed` filter + restore/force-delete mutations
+  - `replicate()` -> `replicate<Resource>` mutations
+- **Relationship mapping**
+  - `belongsTo` -> document ID + relation option query
+  - `hasMany` -> derived related-resource payloads on detail views
+  - `manyToMany` -> pivot table + attach/detach mutations
+  - `morphTo` -> discriminated union with per-kind indexes and resolvers
+- **Intentional runtime drift**
+  - Nova polling -> intentionally omitted; Convex subscriptions are the live-update model
+  - Resource index state -> `createConvexCursorTable` + `ConvexCursorTableShell`
+  - Server field visibility -> `_visibleFields` in list/detail payloads
+  - Admin navigation/search -> resource registry entries appended around existing custom admin pages
+- **Authorization mapping**
+  - Nova policies/gates -> admin-role enforcement via Convex wrappers plus optional statement-level checks
+  - Enforcement points: resource queries/mutations, action execution, relationship attach/detach, and metric reads
 
 ---
 

@@ -1,6 +1,25 @@
 # Nova vs Admin Framework — Comparison State
 
-Living document tracking alignment between Laravel Nova (`references/vendor/laravel/nova/`) and our SvelteKit + Convex admin framework. Update this file whenever admin framework features are added or changed.
+Canonical parity and UX-drift ledger for Laravel Nova (`references/vendor/laravel/nova/`) versus our SvelteKit + Convex admin framework. Update this file whenever admin framework features are added or changed.
+
+## How To Use This Doc
+
+Use this file to answer three questions:
+
+1. What does Nova do?
+2. What do we do today?
+3. If we diverge, is that because the feature is missing, intentionally different, or superseded by Convex real-time behavior?
+
+### Documentation Rules
+
+- Treat Nova as the reference for developer experience, not a 1:1 product spec.
+- When Convex subscriptions, optimistic updates, or atomic mutations enable a better UX, document the feature here as one of:
+  - `Superseded by Convex real-time (N/A)`
+  - `Can build a better solution`
+  - `Architectural alternative`
+  - `Genuinely missing`
+- Every implemented gap should record whether it mirrors Nova or intentionally exceeds it.
+- Durable architecture decisions belong in `docs/admin-framework-plan.md`; this file should link to those decisions, not duplicate full design rationale.
 
 ---
 
@@ -111,12 +130,12 @@ Architectural difference (class inheritance vs object literals) — idiomatic to
 
 Nova's `Relatable` trait provides per-relation `relatableXxx()` methods to control whether a user can attach/detach. Our equivalent:
 
-| Nova                           | Ours                                                         | Notes                             |
-| ------------------------------ | ------------------------------------------------------------ | --------------------------------- |
-| `relatableXxx()` query scope   | `canAttach` / `canDetach` / `canAdd` on `relation` config    | Aligned — declarative callbacks   |
-| Attach/detach policy methods   | `assertRelationAllowed()` backend guard                      | Aligned — enforced in mutations   |
-| Frontend attach button control | `isRelationAddable()` / `isRelationAttachable()` visibility  | Aligned                           |
-| Frontend detach button control | `isRelationDetachable()` visibility helper                   | Aligned                           |
+| Nova                           | Ours                                                        | Notes                           |
+| ------------------------------ | ----------------------------------------------------------- | ------------------------------- |
+| `relatableXxx()` query scope   | `canAttach` / `canDetach` / `canAdd` on `relation` config   | Aligned — declarative callbacks |
+| Attach/detach policy methods   | `assertRelationAllowed()` backend guard                     | Aligned — enforced in mutations |
+| Frontend attach button control | `isRelationAddable()` / `isRelationAttachable()` visibility | Aligned                         |
+| Frontend detach button control | `isRelationDetachable()` visibility helper                  | Aligned                         |
 
 ---
 
@@ -182,7 +201,7 @@ Cursor pagination with page cache + prefetch is more sophisticated than Nova's o
 | Destructive variant | `DestructiveAction` subclass (red UI, delete auth)              | `defineDestructiveAction()` + `run-destructive` permission + red UI                           |
 | Batch chunking      | 200 models per chunk                                            | 50 IDs per chunk (configurable via `chunkSize`), frontend-driven with progress + cancellation |
 | Authorization       | `->canRun(Closure)` per-model                                   | `canRun?(user, record?)` per-action                                                           |
-| Modal style         | `FULLSCREEN_STYLE`, `WINDOW_STYLE` constants                    | `modalStyle: 'window' \| 'fullscreen'`, `modalSize: 'sm' \| 'md' \| 'lg' \| 'xl' \| '2xl'`  |
+| Modal style         | `FULLSCREEN_STYLE`, `WINDOW_STYLE` constants                    | `modalStyle: 'window' \| 'fullscreen'`, `modalSize: 'sm' \| 'md' \| 'lg' \| 'xl' \| '2xl'`    |
 | Queued actions      | `ShouldQueue` interface for background jobs                     | Missing — all actions run synchronously                                                       |
 
 ---
@@ -204,23 +223,23 @@ Cursor pagination with page cache + prefetch is more sophisticated than Nova's o
 
 ## 9. Metrics — Aligned (with gaps)
 
-| Aspect                | Nova                                     | Ours                                                                |
-| --------------------- | ---------------------------------------- | ------------------------------------------------------------------- |
-| Types                 | Value, Trend, Partition, Progress, Table | `value`, `trend`, `partition`, `progress`, `table`                  |
-| Ranges                | Dropdown (30d, 60d, MTD, YTD)            | Configurable per metric via `rangeOptions`                          |
-| Previous period       | Auto-computed % change                   | Supported via `getMetrics`                                          |
-| Placement             | Resource cards + Dashboard cards         | Resource list page + admin dashboard                                |
-| Progress display      | Linear bar only                          | `bar` (default) or `radial` (ArcChart)                              |
-| Progress `avoid` mode | Inverts color logic                      | `avoid?: boolean` on `MetricDefinition`                             |
-| Progress colors       | Nova green/yellow/red                    | Emerald ≥75%, amber 50-74%, destructive <50% (inverted for `avoid`) |
-| Format                | Number, currency via PHP formatting      | `format: 'number' \| 'currency' \| 'percent'`                       |
-| Card width            | `$width` (full, 1/3, 1/2, 1/4, 2/3, 3/4) | `width?: MetricWidth` -- 12-col CSS grid with col-span mapping     |
-| Card height           | Fixed height per card                    | `height?: 'fixed' \| 'dynamic'` -- fixed 200px or auto min-200px     |
-| Caching               | `cacheFor()` duration                    | N/A — always live via Convex subscription (superior)                |
-| Refresh on action     | `$refreshWhenActionRuns`                 | N/A — Convex subscriptions auto-refresh on any data change          |
-| Refresh on filter     | `$refreshWhenFiltersChange`              | N/A — metric queries re-run reactively when filter args change      |
+| Aspect                | Nova                                     | Ours                                                                                |
+| --------------------- | ---------------------------------------- | ----------------------------------------------------------------------------------- |
+| Types                 | Value, Trend, Partition, Progress, Table | `value`, `trend`, `partition`, `progress`, `table`                                  |
+| Ranges                | Dropdown (30d, 60d, MTD, YTD)            | Configurable per metric via `rangeOptions`                                          |
+| Previous period       | Auto-computed % change                   | Supported via `getMetrics`                                                          |
+| Placement             | Resource cards + Dashboard cards         | Resource list page + admin dashboard                                                |
+| Progress display      | Linear bar only                          | `bar` (default) or `radial` (ArcChart)                                              |
+| Progress `avoid` mode | Inverts color logic                      | `avoid?: boolean` on `MetricDefinition`                                             |
+| Progress colors       | Nova green/yellow/red                    | Emerald ≥75%, amber 50-74%, destructive <50% (inverted for `avoid`)                 |
+| Format                | Number, currency via PHP formatting      | `format: 'number' \| 'currency' \| 'percent'`                                       |
+| Card width            | `$width` (full, 1/3, 1/2, 1/4, 2/3, 3/4) | `width?: MetricWidth` -- 12-col CSS grid with col-span mapping                      |
+| Card height           | Fixed height per card                    | `height?: 'fixed' \| 'dynamic'` -- fixed 200px or auto min-200px                    |
+| Caching               | `cacheFor()` duration                    | N/A — always live via Convex subscription (superior)                                |
+| Refresh on action     | `$refreshWhenActionRuns`                 | N/A — Convex subscriptions auto-refresh on any data change                          |
+| Refresh on filter     | `$refreshWhenFiltersChange`              | N/A — metric queries re-run reactively when filter args change                      |
 | Detail-only           | `onlyOnDetail` flag                      | `onlyOnDetail?: boolean` on `MetricDefinition`; detail page fetches with `recordId` |
-| Real-time aggregates  | N/A (compute on request)                 | `@convex-dev/aggregate` for live counts/sums                        |
+| Real-time aggregates  | N/A (compute on request)                 | `@convex-dev/aggregate` for live counts/sums                                        |
 
 ### Our advantage
 
@@ -476,24 +495,24 @@ These are genuinely missing features, but Convex real-time + our existing infras
 
 ### Genuinely missing features
 
-| #   | Gap                        | Description                                                                 | Priority |
-| --- | -------------------------- | --------------------------------------------------------------------------- | -------- |
-| 1   | Lens field overrides       | Lenses with custom columns (Nova lenses can show entirely different fields) | Low      |
-| 2   | WYSIWYG field              | Rich text editing (Trix equivalent)                                         | Low      |
-| 3   | Repeater field             | Nested repeatable field groups                                              | Low      |
-| 4   | Numeric range filter       | `RangeFilter` for min/max number filtering                                  | Low      |
-| 5   | Copyable fields            | Copy-to-clipboard on index/detail                                           | Low      |
-| 6   | Field UI traits            | Expandable, Collapsable, Suggestions, FullWidth, Maxlength                  | Low      |
+| #   | Gap                        | Description                                                                                            | Priority |
+| --- | -------------------------- | ------------------------------------------------------------------------------------------------------ | -------- |
+| 1   | Lens field overrides       | Lenses with custom columns (Nova lenses can show entirely different fields)                            | Low      |
+| 2   | WYSIWYG field              | Rich text editing (Trix equivalent)                                                                    | Low      |
+| 3   | Repeater field             | Nested repeatable field groups                                                                         | Low      |
+| 4   | Numeric range filter       | `RangeFilter` for min/max number filtering                                                             | Low      |
+| 5   | Copyable fields            | Copy-to-clipboard on index/detail                                                                      | Low      |
+| 6   | Field UI traits            | Expandable, Collapsable, Suggestions, FullWidth, Maxlength                                             | Low      |
 | 7   | ~~Action modal styles~~    | ~~Fullscreen/window modal variants~~ -- Implemented via `modalStyle`/`modalSize` on `ActionDefinition` | Done     |
-| 8   | Queued actions             | Background job processing (Convex scheduled functions could power this)     | Low      |
-| 9   | Table style options        | `tableStyle` (tight/default), `showColumnBorders`                           | Low      |
-| 10  | Redirect customization     | `redirectAfterCreate/Update/Delete` callbacks                               | Low      |
-| 11  | ~~Detail-only metrics~~    | ~~`onlyOnDetail` flag for metrics~~ -- Implemented                           | Done     |
-| 12  | Missing relation types     | HasOne, HasOneThrough, HasManyThrough, MorphedByMany                        | Low      |
-| 13  | Missing field types        | Timezone, Tag                                                               | Low      |
-| 14  | Multiple dashboards        | Register multiple dashboard pages (we have one)                             | Low      |
-| 15  | Button label customization | `createButtonLabel`, `updateButtonLabel` overrides                          | Low      |
-| 16  | ~~Per-page via relation~~  | ~~`$perPageViaRelationshipOptions` for related tables~~ -- Implemented      | Done     |
+| 8   | Queued actions             | Background job processing (Convex scheduled functions could power this)                                | Low      |
+| 9   | Table style options        | `tableStyle` (tight/default), `showColumnBorders`                                                      | Low      |
+| 10  | Redirect customization     | `redirectAfterCreate/Update/Delete` callbacks                                                          | Low      |
+| 11  | ~~Detail-only metrics~~    | ~~`onlyOnDetail` flag for metrics~~ -- Implemented                                                     | Done     |
+| 12  | Missing relation types     | HasOne, HasOneThrough, HasManyThrough, MorphedByMany                                                   | Low      |
+| 13  | Missing field types        | Timezone, Tag                                                                                          | Low      |
+| 14  | Multiple dashboards        | Register multiple dashboard pages (we have one)                                                        | Low      |
+| 15  | Button label customization | `createButtonLabel`, `updateButtonLabel` overrides                                                     | Low      |
+| 16  | ~~Per-page via relation~~  | ~~`$perPageViaRelationshipOptions` for related tables~~ -- Implemented                                 | Done     |
 
 ### Resolved gaps
 
@@ -536,6 +555,7 @@ These are genuinely missing features, but Convex real-time + our existing infras
 
 | Date       | Change                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-03-09 | Promoted this file to the canonical parity and intentional-drift ledger for Nova vs the admin framework. Added documentation rules for classifying Convex-native divergences. Folded long-lived mapping ownership into `docs/admin-framework-plan.md` and removed the separate mapping doc to reduce drift.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | 2026-03-02 | Added metric card `width` (full/1-3/1-2/1-4/2-3/3-4) and `height` (fixed/dynamic) to `MetricDefinition`. 12-column CSS grid with col-span mapping. Defaults (1/3 + fixed) preserve current layout. Full-width cards auto-default to dynamic height. |
 | 2026-03-02 | Added `modalStyle` (`window` / `fullscreen`) and `modalSize` (`sm`–`2xl`) options to `ActionDefinition`. Window mode maps size to `sm:max-w-{size}`. Fullscreen fills viewport. Demo: `attachTag` action on demo-projects uses `modalSize: 'xl'`. |
 | 2026-03-02 | Added **relatable authorization**: per-relation `canAdd`/`canAttach`/`canDetach` guards on `FieldDefinition.relation`. Frontend visibility helpers (`isRelationAddable`, `isRelationAttachable`, `isRelationDetachable`). Backend `assertRelationAllowed()` guard wired into attach/detach mutations and bulk actions. Demo: `canDetach` blocks tag removal from archived projects. |
