@@ -61,6 +61,10 @@ export type BaseTableRenderConfig = {
 	skeletonRowCount: number;
 	colspan: number;
 	testIds?: CanonicalTableTestIds;
+	/** Table density style ('default' or 'tight'). */
+	tableStyle?: 'default' | 'tight';
+	/** Show vertical borders between table columns. */
+	showColumnBorders?: boolean;
 };
 
 export type SortFieldMaps<TSortField extends string> = {

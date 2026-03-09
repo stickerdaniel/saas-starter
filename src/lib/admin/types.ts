@@ -140,6 +140,10 @@ export type FieldDefinition<_TTable extends string = string> = {
 	showOnIndex?: boolean;
 	showOnDetail?: boolean;
 	showOnForm?: boolean;
+	/** Show this field in peek popovers (hover on relation links). */
+	showWhenPeeking?: boolean;
+	/** Show this field in preview modals. */
+	showOnPreview?: boolean;
 	required?: boolean;
 	rules?: GenericSchema;
 	readonly?: boolean | ((ctx: { user: BetterAuthUser; record?: unknown }) => boolean);
@@ -170,18 +174,30 @@ export type FieldDefinition<_TTable extends string = string> = {
 		relation?: {
 			resourceName: string;
 			valueField: string;
-			labelField: string;
-			foreignKey?: string;
-			/** Guard: can the user add (create) a new related record? Defaults to true. */
-			canAdd?: (user: BetterAuthUser, parentRecord: Record<string, unknown>) => boolean;
-			/** Guard: can the user attach an existing record? Defaults to true. */
-			canAttach?: (user: BetterAuthUser, parentRecord: Record<string, unknown>) => boolean;
-			/** Guard: can the user detach a related record? Defaults to true. */
-			canDetach?: (user: BetterAuthUser, parentRecord: Record<string, unknown>) => boolean;
+		labelField: string;
+		foreignKey?: string;
+		/** Guard: can the user add (create) a new related record? Defaults to true. */
+		canAdd?: (user: BetterAuthUser, parentRecord: Record<string, unknown>) => boolean;
+		/** Guard: can the user attach an existing record? Defaults to true. */
+		canAttach?: (user: BetterAuthUser, parentRecord: Record<string, unknown>) => boolean;
+		/** Guard: can the user detach a related record? Defaults to true. */
+		canDetach?: (user: BetterAuthUser, parentRecord: Record<string, unknown>) => boolean;
 			perPageOptions?: number[];
+			/** Show a peek popover when hovering relation links. */
+			peekable?: boolean;
 		};
 	/** Allow creating a related resource inline from a BelongsTo/MorphTo dropdown. */
 	inlineCreatable?: boolean | { fields?: string[] };
+	/** Maximum character length for text/textarea inputs. */
+	maxlength?: number;
+	/** When true, prevent typing beyond maxlength (default: allow with warning). */
+	enforceMaxlength?: boolean;
+	/** Autocomplete suggestions for text inputs. */
+	suggestions?: string[] | ((query: string) => Promise<string[]>);
+	/** Show an expand/collapse toggle for long content on detail views. */
+	expandable?: boolean;
+	/** Show a copy-to-clipboard button on index/detail views. */
+	copyable?: boolean;
 };
 
 export type ActionModalStyle = 'window' | 'fullscreen';
@@ -223,6 +239,8 @@ export type FilterDefinition =
 			urlKey: string;
 			defaultValue: string;
 			options: FilterOption[];
+			/** Show a search box inside the filter dropdown (useful for many options). */
+			searchable?: boolean;
 	  }
 	| {
 			key: string;
@@ -278,6 +296,8 @@ export type FieldGroupDefinition = {
 	labelKey: string;
 	fields: string[];
 	contexts?: FieldContext[];
+	/** Allow collapsing this field group in detail/form views. */
+	collapsible?: boolean;
 };
 
 export type ResourceDefinition<TTable extends string = string> = {
@@ -309,6 +329,22 @@ export type ResourceDefinition<TTable extends string = string> = {
 	canCreate?: (user: BetterAuthUser) => boolean;
 	canUpdate?: (user: BetterAuthUser, record: Record<string, unknown>) => boolean;
 	canDelete?: (user: BetterAuthUser, record: Record<string, unknown>) => boolean;
+	/** i18n key for the create button label (defaults to generic "Create"). */
+	createButtonLabelKey?: string;
+	/** i18n key for the update/save button label (defaults to generic "Update"). */
+	updateButtonLabelKey?: string;
+	/** Where to navigate after successful create. */
+	redirectAfterCreate?: 'index' | 'detail' | 'edit' | ((id: string) => string);
+	/** Where to navigate after successful update. */
+	redirectAfterUpdate?: 'index' | 'detail' | ((id: string) => string);
+	/** Where to navigate after successful delete. */
+	redirectAfterDelete?: 'index' | string;
+	/** Table density style for the index page. */
+	tableStyle?: 'default' | 'tight';
+	/** Show vertical borders between table columns on the index page. */
+	showColumnBorders?: boolean;
+	/** Include this resource in global admin search (default true if search fields configured). */
+	globallySearchable?: boolean;
 };
 
 export type ResourceName = string;

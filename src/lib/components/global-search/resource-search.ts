@@ -33,9 +33,17 @@ export async function fetchResourceSearchItems(args: {
 	viewerUser: ViewerUser;
 	translate: TranslateFn;
 }) {
-	const visibleResources = args.resources.filter((resource) =>
-		isResourceVisible(resource, args.viewerUser)
-	);
+	const visibleResources = args.resources.filter((resource) => {
+		if (!isResourceVisible(resource, args.viewerUser)) return false;
+		// Respect globallySearchable: explicit false excludes, default true if search fields exist
+		if (resource.globallySearchable === false) return false;
+		if (
+			resource.globallySearchable === undefined &&
+			(!resource.search || resource.search.length === 0)
+		)
+			return false;
+		return true;
+	});
 
 	const settled = await Promise.allSettled(
 		visibleResources.map(async (resource) => {

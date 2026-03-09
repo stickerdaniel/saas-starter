@@ -234,12 +234,18 @@
 		}
 	}
 
+	function resolveDeleteRedirectPath(): string {
+		const redirect = resource.redirectAfterDelete;
+		if (typeof redirect === 'string' && redirect !== 'index') return redirect;
+		return `/${page.params.lang}/admin/${resource.name}`;
+	}
+
 	async function handleDelete() {
 		if (!canDeleteRecord) return;
 		try {
 			await client.mutation(runtime.delete, { id: page.params.id } as never);
 			toast.success($t('admin.resources.toasts.deleted'));
-			await goto(resolve(`/${page.params.lang}/admin/${resource.name}`));
+			await goto(resolve(resolveDeleteRedirectPath()));
 		} catch (error) {
 			console.error(`[admin:${resource.name}] delete failed`, error);
 			toast.error($t('admin.resources.toasts.action_error'));
@@ -278,7 +284,7 @@
 		try {
 			await client.mutation(runtime.forceDelete, { id: page.params.id } as never);
 			toast.success($t('admin.resources.toasts.force_deleted'));
-			await goto(resolve(`/${page.params.lang}/admin/${resource.name}`));
+			await goto(resolve(resolveDeleteRedirectPath()));
 		} catch (error) {
 			console.error(`[admin:${resource.name}] force delete failed`, error);
 			toast.error($t('admin.resources.toasts.action_error'));

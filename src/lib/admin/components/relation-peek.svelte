@@ -87,7 +87,7 @@
 						{#each visibleFields as field (field.attribute)}
 							<div class="px-4 py-3">
 								<FieldRenderer
-									context="peek"
+									context="preview"
 									{field}
 									{record}
 									value={resolveFieldValue(field, record)}

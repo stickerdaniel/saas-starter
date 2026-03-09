@@ -262,3 +262,20 @@ export function matchesNumberRange(value: unknown, rangeStr: string | undefined)
 	if (max !== null && num > max) return false;
 	return true;
 }
+
+/**
+ * Parse a `startTimestamp..endTimestamp` string and test whether `createdAt` falls within the range.
+ * Either bound may be omitted: `..end` means <= end, `start..` means >= start.
+ * Returns `true` when the value is in range or the filter string is empty/invalid.
+ */
+export function matchesCreatedRange(createdAt: number, rangeStr: string | undefined): boolean {
+	if (!rangeStr || !rangeStr.includes('..')) return true;
+	const [startStr, endStr] = rangeStr.split('..');
+	const start = startStr !== '' ? Number(startStr) : null;
+	const end = endStr !== '' ? Number(endStr) : null;
+	if (start !== null && !Number.isFinite(start)) return true;
+	if (end !== null && !Number.isFinite(end)) return true;
+	if (start !== null && createdAt < start) return false;
+	if (end !== null && createdAt > end) return false;
+	return true;
+}

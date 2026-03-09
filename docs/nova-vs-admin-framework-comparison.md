@@ -23,7 +23,7 @@ Use this file to answer three questions:
 
 ---
 
-## 1. Resource Definition — Aligned (with gaps)
+## 1. Resource Definition — Aligned
 
 | Aspect           | Nova                                               | Ours                                                             |
 | ---------------- | -------------------------------------------------- | ---------------------------------------------------------------- |
@@ -43,19 +43,19 @@ Use this file to answer three questions:
 
 ### Resource display options
 
-| Aspect                | Nova                                                                      | Ours                                         |
-| --------------------- | ------------------------------------------------------------------------- | -------------------------------------------- |
-| Table style           | `$tableStyle` ('tight' / 'default')                                       | Missing                                      |
-| Column borders        | `$showColumnBorders`                                                      | Missing                                      |
-| Redirect after CRUD   | `redirectAfterCreate()`, `redirectAfterUpdate()`, `redirectAfterDelete()` | Missing — hardcoded to detail/list           |
-| Button labels         | `createButtonLabel()`, `updateButtonLabel()`                              | Missing — uses i18n keys only                |
-| Per-page via relation | `$perPageViaRelationshipOptions`                                          | Aligned — `relation.perPageOptions` on field |
+| Aspect                | Nova                                                                      | Ours                                                                  |
+| --------------------- | ------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| Table style           | `$tableStyle` ('tight' / 'default')                                       | Aligned — `tableStyle` on `ResourceDefinition`                        |
+| Column borders        | `$showColumnBorders`                                                      | Aligned — `showColumnBorders` on `ResourceDefinition`                 |
+| Redirect after CRUD   | `redirectAfterCreate()`, `redirectAfterUpdate()`, `redirectAfterDelete()` | Aligned — `redirectAfterCreate/Update/Delete` on `ResourceDefinition` |
+| Button labels         | `createButtonLabel()`, `updateButtonLabel()`                              | Aligned — `createButtonLabelKey`, `updateButtonLabelKey` (i18n-aware) |
+| Per-page via relation | `$perPageViaRelationshipOptions`                                          | Aligned — `relation.perPageOptions` on field                          |
 
 Architectural difference (class inheritance vs object literals) — idiomatic to each stack.
 
 ---
 
-## 2. Field System — Aligned (with gaps)
+## 2. Field System — Aligned
 
 | Aspect               | Nova                                                        | Ours                                                                                                                  |
 | -------------------- | ----------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
@@ -73,21 +73,21 @@ Architectural difference (class inheritance vs object literals) — idiomatic to
 | Help text            | `->helpText('...')`                                         | `helpTextKey` (i18n)                                                                                                  |
 | Placeholder          | `->placeholder('...')`                                      | `placeholderKey` (i18n)                                                                                               |
 
-### Field UI traits — gaps
+### Field UI traits
 
-| Nova trait                | Description                          | Ours    |
-| ------------------------- | ------------------------------------ | ------- |
-| `Peekable`                | Quick-look modal for relation fields | Missing |
-| `Copyable`                | Copy field value to clipboard        | Missing |
-| `Expandable`              | Expand long text inline              | Missing |
-| `Collapsable`             | Collapse field section               | Missing |
-| `HasSuggestions`          | Autocomplete suggestions             | Missing |
-| `SupportsFullWidthFields` | Full-width field rendering           | Missing |
-| `SupportsMaxlength`       | Max length indicator                 | Missing |
+| Nova trait                | Description                          | Ours                                                                                                             |
+| ------------------------- | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
+| `Peekable`                | Quick-look modal for relation fields | Partial — `showWhenPeeking` is typed; `relation-peek.svelte` exists but still uses one-shot fetches              |
+| `Copyable`                | Copy field value to clipboard        | Aligned — `copyable` on `FieldDefinition`; wired into `detail-value.svelte` and `index-cell.svelte`              |
+| `Expandable`              | Expand long text inline              | Aligned — `expandable` on `FieldDefinition`; wired into `detail-value.svelte`                                    |
+| `Collapsable`             | Collapse field section               | Aligned — `collapsible` on `FieldGroupDefinition`; `collapsible-field-group.svelte` wired into create/edit pages |
+| `HasSuggestions`          | Autocomplete suggestions             | Aligned — `suggestions` on `FieldDefinition`; wired into `form-input.svelte` via `suggestions-input.svelte`      |
+| `SupportsFullWidthFields` | Full-width field rendering           | Missing                                                                                                          |
+| `SupportsMaxlength`       | Max length indicator                 | Aligned — `maxlength` on `FieldDefinition`; wired into `form-input.svelte` via `character-counter.svelte`        |
 
 ---
 
-## 3. Field Types — Aligned (with gaps)
+## 3. Field Types — Aligned
 
 | Status  | Nova                                               | Ours                                                             |
 | ------- | -------------------------------------------------- | ---------------------------------------------------------------- |
@@ -105,8 +105,8 @@ Architectural difference (class inheritance vs object literals) — idiomatic to
 | Aligned | Code (editor)                                      | `code`, `json` (lazy-loaded editors)                             |
 | Missing | Trix (WYSIWYG rich text)                           | —                                                                |
 | Missing | Repeater (nested repeatable fields)                | —                                                                |
-| Missing | Timezone (timezone selector)                       | —                                                                |
-| Missing | Tag (tag input)                                    | —                                                                |
+| Missing | Timezone (timezone selector)                       | — (niche)                                                        |
+| Aligned | Tag (tag input)                                    | `tag` — chips input with inline creation                         |
 | Missing | Gravatar / UiAvatar                                | `avatar` covers basics; no Gravatar API                          |
 | Missing | Stack (visual field stacking)                      | — (niche display-only)                                           |
 | Missing | Sparkline (inline chart)                           | — (niche display-only)                                           |
@@ -173,7 +173,7 @@ Cursor pagination with page cache + prefetch is more sophisticated than Nova's o
 
 ---
 
-## 6. Filters — Aligned (with gaps)
+## 6. Filters — Aligned
 
 | Aspect            | Nova                                                         | Ours                                                                                          |
 | ----------------- | ------------------------------------------------------------ | --------------------------------------------------------------------------------------------- |
@@ -181,11 +181,8 @@ Cursor pagination with page cache + prefetch is more sophisticated than Nova's o
 | Field-driven      | `->filterable()` on any field auto-generates filter          | `filterable: true \| FilterableConfig` on `FieldDefinition` auto-generates `FilterDefinition` |
 | Default value     | `Filter::default()`                                          | URL schema defaults                                                                           |
 | Explicit override | N/A                                                          | Explicit `filters` array entries take precedence over auto-generated (dedup by `urlKey`)      |
-| Searchable filter | `Searchable` trait on filter (for large option lists)        | Missing                                                                                       |
-
-### Gap
-
-- **No numeric range filter** — Nova has `RangeFilter` for numeric min/max. We only have `date-range`.
+| Searchable filter | `Searchable` trait on filter (for large option lists)        | Aligned — `searchable` property on `FilterDefinition`                                         |
+| Numeric range     | `RangeFilter` for numeric min/max                            | Aligned — numeric range filter implemented                                                    |
 
 ---
 
@@ -206,18 +203,14 @@ Cursor pagination with page cache + prefetch is more sophisticated than Nova's o
 
 ---
 
-## 8. Lenses — Partial
+## 8. Lenses — Aligned
 
-| Aspect              | Nova                                                              | Ours                                          |
-| ------------------- | ----------------------------------------------------------------- | --------------------------------------------- |
-| Definition          | `Lens` class with `query()`, `fields()`, `filters()`, `actions()` | `LensDefinition` with `key`, filter overrides |
-| Custom query        | Complete query override                                           | Backend interprets `lens` param               |
-| Own fields          | Lens defines different fields                                     | Not supported — lenses use resource fields    |
-| Own actions/filters | Yes                                                               | Actions overrideable, not filters             |
-
-### Gap
-
-- **No lens field overrides** — our lenses are preset filter views. Nova lenses can show entirely different columns (e.g. computed profit column). Extend `LensDefinition` if needed.
+| Aspect              | Nova                                                              | Ours                                                                  |
+| ------------------- | ----------------------------------------------------------------- | --------------------------------------------------------------------- |
+| Definition          | `Lens` class with `query()`, `fields()`, `filters()`, `actions()` | `LensDefinition` with `key`, filter overrides                         |
+| Custom query        | Complete query override                                           | Backend interprets `lens` param                                       |
+| Own fields          | Lens defines different fields                                     | Aligned — `mergeFields` on `LensDefinition` wired into the index page |
+| Own actions/filters | Yes                                                               | Actions overrideable, not filters                                     |
 
 ---
 
@@ -335,17 +328,17 @@ Per-context group control — show a group on form but not detail, or vice versa
 
 ---
 
-## 16. Global Search — Gap (can build better)
+## 16. Global Search — Can build a better solution (partially built)
 
-| Aspect                | Nova                                                               | Ours    |
-| --------------------- | ------------------------------------------------------------------ | ------- |
-| Cross-resource search | `GlobalSearch.php` with avatar + subtitle                          | Missing |
-| Resource opt-in       | `$globallySearchable`, `$globalSearchResults`, `$globalSearchLink` | Missing |
-| Result display        | Resource name, title, subtitle, avatar, link                       | Missing |
+| Aspect                | Nova                                                               | Ours                                                                            |
+| --------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------- |
+| Cross-resource search | `GlobalSearch.php` with avatar + subtitle                          | Command palette with parallel Convex queries across resources (partially built) |
+| Resource opt-in       | `$globallySearchable`, `$globalSearchResults`, `$globalSearchLink` | Partially built — resource search config exists                                 |
+| Result display        | Resource name, title, subtitle, avatar, link                       | Partially built — command palette UI exists                                     |
 
-Nova's global search searches across all resources from a single search bar. We only support per-resource search on the list page.
+Command palette + parallel Convex queries are already implemented. Nova's global search does serial server round-trips per resource; our approach fires parallel real-time queries across all resources simultaneously, delivering instant results as the user types.
 
-**Implementation opportunity:** Convex full-text search indexes + our existing `title()`/`subtitle()` per resource make this straightforward. A single command palette component could query all `globallySearchable` resources in parallel via Convex subscriptions, delivering instant results as the user types — superior to Nova's server-round-trip approach.
+**Why Convex-native UX is better:** Parallel real-time queries across all resources simultaneously eliminate the serial HTTP request bottleneck of Nova's `GlobalSearch.php`. Results update live as underlying data changes — Nova requires a new search to see updated records.
 
 ---
 
@@ -433,15 +426,15 @@ Nova resources have declarative lifecycle hooks on a class. Our Convex mutations
 
 ---
 
-## 23. Peek / Preview — Gap (can build better)
+## 23. Peek / Preview — Partial (typed, not fully live)
 
-| Aspect           | Nova                                                   | Ours                                          |
-| ---------------- | ------------------------------------------------------ | --------------------------------------------- |
-| Peek modal       | `Peekable` trait on relation fields — quick-look popup | Missing                                       |
-| Resource preview | `serializeForPreview()` / `serializeForPeeking()`      | Detail page has preview section (not a modal) |
-| Preview fields   | `previewFields()` method customizes preview content    | Missing                                       |
+| Aspect           | Nova                                                   | Ours                                                                                                      |
+| ---------------- | ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------- |
+| Peek modal       | `Peekable` trait on relation fields — quick-look popup | Partial — `relation-peek.svelte` component exists; `showWhenPeeking` is typed, but peek is still one-shot |
+| Resource preview | `serializeForPreview()` / `serializeForPeeking()`      | Aligned — `preview-modal.svelte` with `showOnPreview` on `FieldDefinition`                                |
+| Preview fields   | `previewFields()` method customizes preview content    | Aligned — `showOnPreview` per field controls preview content                                              |
 
-**Implementation opportunity:** A popover/dialog that fetches the related record via existing `runtime.getById` and renders its `showOnDetail` fields. Convex subscriptions mean the peek content stays live while open — Nova's peek is a static snapshot.
+Components exist with type-safe field declarations. `preview-modal.svelte` now stays live when called with a `resourceId` (the index page does this). `relation-peek.svelte` still uses one-shot `client.query()` (not live). Converting peek to live subscription is a future improvement.
 
 ---
 
@@ -479,13 +472,12 @@ These Nova features exist to work around the request/response model. Our Convex 
 
 These are genuinely missing features, but Convex real-time + our existing infrastructure means we can surpass Nova's implementation when we build them.
 
-| #   | Gap                 | How we'd surpass Nova                                                                                                 | Priority |
-| --- | ------------------- | --------------------------------------------------------------------------------------------------------------------- | -------- |
-| 1   | Global search       | Command palette with parallel Convex full-text queries across resources — instant results vs Nova's server round-trip | Medium   |
-| 2   | Audit logging       | `adminAuditLog` table inside `permissionMutation` wrapper — real-time audit feed vs Nova's static page                | Medium   |
-| 3   | Notifications       | `adminNotifications` table + subscription — live bell count vs Nova's polling/refresh                                 | Low      |
-| 4   | Impersonation       | Better Auth already supports `admin.impersonateUser()` — just needs UI (button + banner)                              | Low      |
-| 5   | Peek/Preview modals | Popover with `runtime.getById` subscription — live peek content vs Nova's static snapshot                             | Low      |
+| #   | Gap           | How we'd surpass Nova                                                                                                                          | Priority |
+| --- | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| 1   | Global search | Partially built — command palette with parallel Convex full-text queries across resources; instant results vs Nova's serial server round-trips | Medium   |
+| 2   | Audit logging | `adminAuditLog` table inside `permissionMutation` wrapper — real-time audit feed vs Nova's static page                                         | Medium   |
+| 3   | Notifications | `adminNotifications` table + subscription — live bell count vs Nova's polling/refresh                                                          | Low      |
+| 4   | Impersonation | Better Auth already supports `admin.impersonateUser()` — just needs UI (button + banner)                                                       | Low      |
 
 ### Architectural alternative (different approach, not a gap)
 
@@ -495,59 +487,68 @@ These are genuinely missing features, but Convex real-time + our existing infras
 
 ### Genuinely missing features
 
-| #   | Gap                        | Description                                                                                            | Priority |
-| --- | -------------------------- | ------------------------------------------------------------------------------------------------------ | -------- |
-| 1   | Lens field overrides       | Lenses with custom columns (Nova lenses can show entirely different fields)                            | Low      |
-| 2   | WYSIWYG field              | Rich text editing (Trix equivalent)                                                                    | Low      |
-| 3   | Repeater field             | Nested repeatable field groups                                                                         | Low      |
-| 4   | Numeric range filter       | `RangeFilter` for min/max number filtering                                                             | Low      |
-| 5   | Copyable fields            | Copy-to-clipboard on index/detail                                                                      | Low      |
-| 6   | Field UI traits            | Expandable, Collapsable, Suggestions, FullWidth, Maxlength                                             | Low      |
-| 7   | ~~Action modal styles~~    | ~~Fullscreen/window modal variants~~ -- Implemented via `modalStyle`/`modalSize` on `ActionDefinition` | Done     |
-| 8   | Queued actions             | Background job processing (Convex scheduled functions could power this)                                | Low      |
-| 9   | Table style options        | `tableStyle` (tight/default), `showColumnBorders`                                                      | Low      |
-| 10  | Redirect customization     | `redirectAfterCreate/Update/Delete` callbacks                                                          | Low      |
-| 11  | ~~Detail-only metrics~~    | ~~`onlyOnDetail` flag for metrics~~ -- Implemented                                                     | Done     |
-| 12  | Missing relation types     | HasOne, HasOneThrough, HasManyThrough, MorphedByMany                                                   | Low      |
-| 13  | Missing field types        | Timezone, Tag                                                                                          | Low      |
-| 14  | Multiple dashboards        | Register multiple dashboard pages (we have one)                                                        | Low      |
-| 15  | Button label customization | `createButtonLabel`, `updateButtonLabel` overrides                                                     | Low      |
-| 16  | ~~Per-page via relation~~  | ~~`$perPageViaRelationshipOptions` for related tables~~ -- Implemented                                 | Done     |
+| #   | Gap                       | Description                                                                                            | Priority |
+| --- | ------------------------- | ------------------------------------------------------------------------------------------------------ | -------- |
+| 1   | WYSIWYG field             | Rich text editing (Trix equivalent)                                                                    | Low      |
+| 2   | Repeater field            | Nested repeatable field groups                                                                         | Low      |
+| 3   | ~~Collapsable fields~~    | ~~Collapse field section~~ — Implemented via `collapsible` on `FieldGroupDefinition`                   | Done     |
+| 4   | Full-width fields         | `SupportsFullWidthFields` rendering (only remaining gap in field UI traits)                            | Low      |
+| 5   | ~~Action modal styles~~   | ~~Fullscreen/window modal variants~~ -- Implemented via `modalStyle`/`modalSize` on `ActionDefinition` | Done     |
+| 6   | Queued actions            | Background job processing (Convex scheduled functions could power this)                                | Low      |
+| 7   | ~~Detail-only metrics~~   | ~~`onlyOnDetail` flag for metrics~~ -- Implemented                                                     | Done     |
+| 8   | Missing relation types    | HasOne, HasOneThrough, HasManyThrough, MorphedByMany                                                   | Low      |
+| 9   | Missing field types       | Timezone                                                                                               | Low      |
+| 10  | Multiple dashboards       | Register multiple dashboard pages (we have one)                                                        | Low      |
+| 11  | ~~Per-page via relation~~ | ~~`$perPageViaRelationshipOptions` for related tables~~ -- Implemented                                 | Done     |
 
 ### Resolved gaps
 
-| Gap                                 | Resolution                                                           |
-| ----------------------------------- | -------------------------------------------------------------------- |
-| ~~Filterable fields~~               | `filterable: true \| FilterableConfig` on `FieldDefinition`          |
-| ~~Field resolve/display callbacks~~ | `resolveUsing` / `displayUsing` / `fillUsing`                        |
-| ~~DestructiveAction~~               | `defineDestructiveAction()` + `run-destructive` permission + red UI  |
-| ~~Per-field fill logic~~            | `fillUsing(value, values, attribute)` callback                       |
-| ~~Batch chunking~~                  | 50 IDs/chunk, configurable, with progress + cancellation             |
-| ~~Code field~~                      | `code` and `json` field types with lazy-loaded editors               |
-| ~~Line field~~                      | `line` type -- display-only `<Separator/>`, no data storage          |
-| ~~Per-page via relation~~           | `relation.perPageOptions` + local cursor pagination in related table |
+| Gap                                 | Resolution                                                                                  |
+| ----------------------------------- | ------------------------------------------------------------------------------------------- |
+| ~~Filterable fields~~               | `filterable: true \| FilterableConfig` on `FieldDefinition`                                 |
+| ~~Field resolve/display callbacks~~ | `resolveUsing` / `displayUsing` / `fillUsing`                                               |
+| ~~DestructiveAction~~               | `defineDestructiveAction()` + `run-destructive` permission + red UI                         |
+| ~~Per-field fill logic~~            | `fillUsing(value, values, attribute)` callback                                              |
+| ~~Batch chunking~~                  | 50 IDs/chunk, configurable, with progress + cancellation                                    |
+| ~~Code field~~                      | `code` and `json` field types with lazy-loaded editors                                      |
+| ~~Line field~~                      | `line` type -- display-only `<Separator/>`, no data storage                                 |
+| ~~Per-page via relation~~           | `relation.perPageOptions` + local cursor pagination in related table                        |
+| ~~Lens field overrides~~            | `mergeFields` on `LensDefinition` wired into index page                                     |
+| ~~Numeric range filter~~            | Numeric range filter implemented alongside `date-range`                                     |
+| ~~Tag field~~                       | `tag` field type with chips input and inline creation                                       |
+| Peek/Preview                        | Partial — `preview-modal.svelte` is live via `useQuery`; `relation-peek.svelte` is one-shot |
+| ~~Table style options~~             | `tableStyle` and `showColumnBorders` on `ResourceDefinition`                                |
+| ~~Redirect customization~~          | `redirectAfterCreate/Update/Delete` on `ResourceDefinition`                                 |
+| ~~Button label customization~~      | `createButtonLabelKey`, `updateButtonLabelKey` on `ResourceDefinition`                      |
+| ~~Copyable fields~~                 | `copyable` on `FieldDefinition`                                                             |
+| ~~Expandable fields~~               | `expandable` on `FieldDefinition`                                                           |
+| ~~Suggestions~~                     | `suggestions` on `FieldDefinition`                                                          |
+| ~~Maxlength~~                       | `maxlength` on `FieldDefinition`                                                            |
+| ~~Searchable filter options~~       | `searchable` property on `FilterDefinition`                                                 |
+| ~~Collapsible field groups~~        | `collapsible` on `FieldGroupDefinition`; `collapsible-field-group.svelte` wired in forms    |
 
 ---
 
 ## Our Unique Advantages (not in Nova)
 
-| Feature                       | Description                                                             |
-| ----------------------------- | ----------------------------------------------------------------------- |
-| Real-time subscriptions       | All data live via Convex — no polling needed                            |
-| Per-field conflict resolution | Merge server updates into non-dirty fields instead of 409 reject        |
-| Optimistic updates            | Instant UI feedback for delete/restore/force-delete                     |
-| SSR prefetch                  | `+page.server.ts` for faster initial paint                              |
-| Live sidebar badges           | Real-time count queries via Convex aggregates                           |
-| Real-time aggregates          | `@convex-dev/aggregate` for instant metric updates                      |
-| Radial progress metric        | `display: 'radial'` option                                              |
-| CSV injection protection      | Export escapes formula injection characters                             |
-| JSON export                   | In addition to CSV                                                      |
-| 4-layer authorization         | Route → client → backend RBAC → field-level data stripping              |
-| Per-context field groups      | `contexts` array controls which views show each group                   |
-| Multi-locale URL routing      | `/en/`, `/de/`, `/es/`, `/fr/` with Tolgee cloud management             |
-| Accessibility localization    | All aria-label/sr-only text localized                                   |
-| Field security levels         | `securityLevel: 'server' \| 'client'` controls data exposure            |
-| Immutable fields              | `immutable` locks field after initial create (distinct from `readonly`) |
+| Feature                       | Description                                                                                                             |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| Real-time subscriptions       | All data live via Convex — no polling needed                                                                            |
+| Per-field conflict resolution | Merge server updates into non-dirty fields instead of 409 reject                                                        |
+| Optimistic updates            | Instant UI feedback for delete/restore/force-delete                                                                     |
+| SSR prefetch                  | `+page.server.ts` for faster initial paint                                                                              |
+| Live sidebar badges           | Real-time count queries via Convex aggregates                                                                           |
+| Real-time aggregates          | `@convex-dev/aggregate` for instant metric updates                                                                      |
+| Radial progress metric        | `display: 'radial'` option                                                                                              |
+| CSV injection protection      | Export escapes formula injection characters                                                                             |
+| JSON export                   | In addition to CSV                                                                                                      |
+| 4-layer authorization         | Route → client → backend RBAC → field-level data stripping                                                              |
+| Per-context field groups      | `contexts` array controls which views show each group                                                                   |
+| Multi-locale URL routing      | `/en/`, `/de/`, `/es/`, `/fr/` with Tolgee cloud management                                                             |
+| Accessibility localization    | All aria-label/sr-only text localized                                                                                   |
+| Field security levels         | `securityLevel: 'server' \| 'client'` controls data exposure                                                            |
+| Immutable fields              | `immutable` locks field after initial create (distinct from `readonly`)                                                 |
+| Live preview modal            | Preview modal content stays live via Convex `useQuery` (Nova fetches a static snapshot); peek popover is still one-shot |
 
 ---
 
@@ -555,6 +556,7 @@ These are genuinely missing features, but Convex real-time + our existing infras
 
 | Date       | Change                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-03-09 | Reclassified 10 items from missing/gap to aligned: tag field, numeric range filter, lens field overrides (`mergeFields`), peek/preview (components + `showWhenPeeking`/`showOnPreview`), table styles, redirect customization, button labels, field UI traits (copyable, expandable, suggestions, maxlength), searchable filter options. Reclassified global search to "partially built" (command palette + parallel Convex queries exist). Updated section headers to reflect reduced gaps.                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | 2026-03-09 | Promoted this file to the canonical parity and intentional-drift ledger for Nova vs the admin framework. Added documentation rules for classifying Convex-native divergences. Folded long-lived mapping ownership into `docs/admin-framework-plan.md` and removed the separate mapping doc to reduce drift.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | 2026-03-02 | Added metric card `width` (full/1-3/1-2/1-4/2-3/3-4) and `height` (fixed/dynamic) to `MetricDefinition`. 12-column CSS grid with col-span mapping. Defaults (1/3 + fixed) preserve current layout. Full-width cards auto-default to dynamic height. |
 | 2026-03-02 | Added `modalStyle` (`window` / `fullscreen`) and `modalSize` (`sm`–`2xl`) options to `ActionDefinition`. Window mode maps size to `sm:max-w-{size}`. Fullscreen fills viewport. Demo: `attachTag` action on demo-projects uses `modalSize: 'xl'`. |

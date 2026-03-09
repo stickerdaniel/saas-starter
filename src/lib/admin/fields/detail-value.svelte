@@ -4,6 +4,8 @@
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
 	import * as Avatar from '$lib/components/ui/avatar/index.js';
+	import CopyableWrapper from '$lib/admin/fields/copyable-wrapper.svelte';
+	import ExpandableContent from '$lib/admin/fields/expandable-content.svelte';
 
 	type Props = {
 		field: FieldDefinition<any>;
@@ -223,13 +225,39 @@
 	{:else if field.type === 'image' && typeof value === 'string' && value.length > 0}
 		<img src={value} alt="" class="max-h-64 rounded-md border object-cover" />
 	{:else if field.type === 'file' && typeof value === 'string' && value.length > 0}
-		<button
-			type="button"
-			class="text-sm text-primary underline"
-			onclick={() => window.open(value, '_blank', 'noopener,noreferrer')}
-		>
-			{value}
-		</button>
+		{#if field.copyable}
+			<CopyableWrapper value={String(value)}>
+				<button
+					type="button"
+					class="text-sm text-primary underline"
+					onclick={() => window.open(value, '_blank', 'noopener,noreferrer')}
+				>
+					{value}
+				</button>
+			</CopyableWrapper>
+		{:else}
+			<button
+				type="button"
+				class="text-sm text-primary underline"
+				onclick={() => window.open(value, '_blank', 'noopener,noreferrer')}
+			>
+				{value}
+			</button>
+		{/if}
+	{:else if field.expandable}
+		<ExpandableContent>
+			{#if field.copyable}
+				<CopyableWrapper value={displayValue}>
+					<p class="text-sm leading-6">{displayValue}</p>
+				</CopyableWrapper>
+			{:else}
+				<p class="text-sm leading-6">{displayValue}</p>
+			{/if}
+		</ExpandableContent>
+	{:else if field.copyable}
+		<CopyableWrapper value={displayValue}>
+			<p class="text-sm leading-6">{displayValue}</p>
+		</CopyableWrapper>
 	{:else}
 		<p class="text-sm leading-6">{displayValue}</p>
 	{/if}

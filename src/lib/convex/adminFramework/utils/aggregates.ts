@@ -1,8 +1,16 @@
 import { TableAggregate } from '@convex-dev/aggregate';
 import { Triggers } from 'convex-helpers/server/triggers';
+import type { GenericMutationCtx } from 'convex/server';
 import { components } from '../../_generated/api';
 import type { DataModel, Doc } from '../../_generated/dataModel';
 import type { QueryCtx } from '../../_generated/server';
+import type { BetterAuthUser } from '../../admin/types';
+import type { AuditState } from './audit_log';
+
+export type AdminTriggerCtx = GenericMutationCtx<DataModel> & {
+	user: BetterAuthUser;
+	_auditState: AuditState;
+};
 
 type TagAggregateShape = {
 	Key: number;
@@ -28,6 +36,13 @@ type CommentAggregateShape = {
 	Key: number;
 	DataModel: DataModel;
 	TableName: 'adminDemoComments';
+	Namespace: string;
+};
+
+type ArticleAggregateShape = {
+	Key: number;
+	DataModel: DataModel;
+	TableName: 'adminDemoArticles';
 	Namespace: string;
 };
 
@@ -118,6 +133,20 @@ const commentTargetCountAggregate = new TableAggregate<CommentAggregateShape>(
 	}
 );
 
+const articleLiveCountAggregate = new TableAggregate<ArticleAggregateShape>(components.aggregate, {
+	sortKey: (doc) => doc.createdAt,
+	namespace: (doc) => (doc.deletedAt === undefined ? 'articleLive:live' : 'articleLive:trashed')
+});
+
+const articleStatusCountAggregate = new TableAggregate<ArticleAggregateShape>(
+	components.aggregate,
+	{
+		sortKey: (doc) => doc.createdAt,
+		namespace: (doc) =>
+			doc.deletedAt === undefined ? `articleStatus:live:${doc.status}` : 'articleStatus:trashed'
+	}
+);
+
 export const adminFrameworkAggregateTriggers = new Triggers<DataModel>();
 adminFrameworkAggregateTriggers.register('adminDemoTags', tagCountAggregate.idempotentTrigger());
 adminFrameworkAggregateTriggers.register(
@@ -163,6 +192,14 @@ adminFrameworkAggregateTriggers.register(
 adminFrameworkAggregateTriggers.register(
 	'adminDemoComments',
 	commentTargetCountAggregate.idempotentTrigger()
+);
+adminFrameworkAggregateTriggers.register(
+	'adminDemoArticles',
+	articleLiveCountAggregate.idempotentTrigger()
+);
+adminFrameworkAggregateTriggers.register(
+	'adminDemoArticles',
+	articleStatusCountAggregate.idempotentTrigger()
 );
 
 export async function aggregateCountTags(ctx: QueryCtx) {
@@ -224,4 +261,16 @@ export async function aggregateCountCommentsByTarget(
 	kind: Doc<'adminDemoComments'>['target']['kind']
 ) {
 	return commentTargetCountAggregate.count(ctx, { namespace: `commentTarget:live:${kind}` });
+}
+
+export async function aggregateCountLiveArticles(ctx: QueryCtx) {
+	return articleLiveCountAggregate.count(ctx, { namespace: 'articleLive:live' });
+}
+
+export async function aggregateCountArticlesByStatus(ctx: QueryCtx, status: string) {
+	return articleStatusCountAggregate.count(ctx, { namespace: `articleStatus:live:${status}` });
+}
+
+export async function aggregateCountTrashedArticles(ctx: QueryCtx) {
+	return articleLiveCountAggregate.count(ctx, { namespace: 'articleLive:trashed' });
 }

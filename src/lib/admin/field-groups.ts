@@ -3,6 +3,7 @@ import type { FieldContext, FieldDefinition, ResourceDefinition } from './types'
 export type ResolvedFieldGroup = {
 	key: string;
 	labelKey: string;
+	collapsible?: boolean;
 	fields: FieldDefinition<any>[];
 };
 
@@ -25,6 +26,7 @@ export function resolveFieldGroups(args: {
 		.map((group) => ({
 			key: group.key,
 			labelKey: group.labelKey,
+			collapsible: group.collapsible,
 			fields: group.fields
 				.map((attribute) => byAttribute.get(attribute))
 				.filter((field): field is FieldDefinition<any> => Boolean(field))

@@ -22,7 +22,7 @@
 	type Pair = { key: string; value: string };
 
 	let userEdited = $state(false);
-	let pairs: Pair[] = $state(toPairs(value));
+	let pairs: Pair[] = $state([{ key: '', value: '' }]);
 
 	// Sync pairs from external value changes (e.g. hydration from record)
 	$effect(() => {

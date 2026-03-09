@@ -44,12 +44,13 @@
 	const { t } = getTranslate();
 
 	const relation = $derived(field.relation);
-	const relatedResource = $derived(
-		relation?.resourceName ? getResourceByName(relation.resourceName) : undefined
-	);
-	const relatedRuntime = $derived(
-		relatedResource ? getResourceRuntime(relatedResource.name) : undefined
-	);
+	// Stable lookups — relation identity doesn't change during component lifetime.
+	// field.relation is read outside $derived intentionally: useQuery() needs a
+	// non-reactive ref, and the field identity is stable for this component's life.
+	const relatedResource = field.relation?.resourceName
+		? getResourceByName(field.relation.resourceName)
+		: undefined;
+	const relatedRuntime = relatedResource ? getResourceRuntime(relatedResource.name) : undefined;
 	const foreignKey = $derived(relation?.foreignKey ?? '');
 	const parentId = $derived(String(record._id ?? ''));
 

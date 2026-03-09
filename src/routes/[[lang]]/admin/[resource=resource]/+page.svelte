@@ -7,7 +7,7 @@
 	import type { ColumnDef } from '@tanstack/table-core';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { Button } from '$lib/components/ui/button/index.js';
-	import * as Dialog from '$lib/components/ui/dialog/index.js';
+	import PreviewModal from '$lib/admin/components/preview-modal.svelte';
 	import * as Select from '$lib/components/ui/select/index.js';
 	import { renderComponent } from '$lib/components/ui/data-table/index.js';
 	import DataTableCheckbox from '$lib/components/data-table-checkbox.svelte';
@@ -1055,12 +1055,10 @@
 			table: `${prefix}-table`,
 			loading: `${prefix}-loading`,
 			empty: `${prefix}-empty`
-		}
+		},
+		tableStyle: resource.tableStyle,
+		showColumnBorders: resource.showColumnBorders
 	}));
-
-	const previewFields = $derived(
-		activeFields.filter((field) => field.showOnIndex !== false).slice(0, 6)
-	);
 </script>
 
 <SEOHead
@@ -1081,7 +1079,7 @@
 		{#if canCreate}
 			<Button onclick={() => void goToCreate()} data-testid={`${prefix}-create`}>
 				<PlusIcon class="mr-2 size-4" />
-				<T keyName="admin.resources.actions.create" />
+				<T keyName={resource.createButtonLabelKey ?? 'admin.resources.actions.create'} />
 			</Button>
 		{/if}
 	</div>
@@ -1252,55 +1250,21 @@
 	</ConvexTanStackTable>
 </div>
 
-<Dialog.Root
+<PreviewModal
 	open={previewRecord !== null}
-	onOpenChange={(open) => {
-		if (!open) {
-			previewRecord = null;
-		}
+	record={previewRecord}
+	resourceId={previewRecord ? String(previewRecord._id ?? '') : null}
+	{resource}
+	getByIdQuery={runtime.getById}
+	{prefix}
+	onClose={() => {
+		previewRecord = null;
 	}}
->
-	<Dialog.Content data-testid={`${prefix}-preview-dialog`}>
-		{#if previewRecord}
-			<Dialog.Header>
-				<Dialog.Title><T keyName="admin.resources.sections.preview" /></Dialog.Title>
-				<Dialog.Description>{resource.title(previewRecord as never)}</Dialog.Description>
-			</Dialog.Header>
-			<div class="grid gap-4 md:grid-cols-2" data-testid={`${prefix}-preview-content`}>
-				{#each previewFields as field (field.attribute)}
-					{#if isFieldVisible(field, { user: viewer, record: previewRecord })}
-						<FieldRenderer
-							context="preview"
-							{field}
-							record={previewRecord}
-							value={resolveFieldValue(field, previewRecord)}
-						/>
-					{/if}
-				{/each}
-			</div>
-			<Dialog.Footer>
-				<Button
-					variant="outline"
-					onclick={() => {
-						previewRecord = null;
-					}}
-				>
-					<T keyName="common.cancel" />
-				</Button>
-				<Button
-					onclick={() => {
-						if (!previewRecord?._id) return;
-						void openDetail(String(previewRecord._id));
-						previewRecord = null;
-					}}
-					data-testid={`${prefix}-preview-open-detail`}
-				>
-					<T keyName="admin.resources.actions.view" />
-				</Button>
-			</Dialog.Footer>
-		{/if}
-	</Dialog.Content>
-</Dialog.Root>
+	onOpenDetail={(id) => {
+		void openDetail(id);
+		previewRecord = null;
+	}}
+/>
 
 <ActionModal
 	open={actionOpen}

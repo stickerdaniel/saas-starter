@@ -9,6 +9,8 @@
 	import * as Select from '$lib/components/ui/select/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import InlineCreateModal from '$lib/admin/components/inline-create-modal.svelte';
+	import SuggestionsInput from '$lib/admin/fields/suggestions-input.svelte';
+	import CharacterCounter from '$lib/admin/fields/character-counter.svelte';
 	import { getResourceByName, getResourceRuntime } from '$lib/admin/registry';
 	import type { FieldDefinition } from '$lib/admin/types';
 	import type { BetterAuthUser } from '$lib/convex/admin/types';
@@ -188,10 +190,14 @@
 			<Textarea
 				value={String(value ?? '')}
 				{disabled}
+				maxlength={field.enforceMaxlength ? field.maxlength : undefined}
 				placeholder={field.placeholderKey ? $t(field.placeholderKey) : undefined}
 				oninput={(event) => onChange((event.currentTarget as HTMLTextAreaElement).value)}
 				data-testid={testId}
 			/>
+			{#if field.maxlength}
+				<CharacterCounter count={String(value ?? '').length} limit={field.maxlength} />
+			{/if}
 		{:else if field.type === 'boolean'}
 			<div class="flex items-center gap-3 py-2">
 				<Checkbox
@@ -381,8 +387,8 @@
 				<p class="text-sm text-muted-foreground">{String(value ?? '-')}</p>
 			{/if}
 		{:else}
-			<Input
-				type={field.type === 'number'
+			{@const inputType =
+				field.type === 'number'
 					? 'number'
 					: field.type === 'email'
 						? 'email'
@@ -393,15 +399,34 @@
 								: field.type === 'datetime'
 									? 'datetime-local'
 									: 'text'}
-				value={String(value ?? '')}
-				{disabled}
-				placeholder={field.placeholderKey ? $t(field.placeholderKey) : undefined}
-				oninput={(event) => {
-					const inputValue = (event.currentTarget as HTMLInputElement).value;
-					onChange(field.type === 'number' ? Number(inputValue || '0') : inputValue);
-				}}
-				data-testid={testId}
-			/>
+			{#if field.suggestions}
+				<SuggestionsInput
+					type={inputType}
+					value={String(value ?? '')}
+					{disabled}
+					maxlength={field.enforceMaxlength ? field.maxlength : undefined}
+					placeholder={field.placeholderKey ? $t(field.placeholderKey) : undefined}
+					suggestions={field.suggestions}
+					{testId}
+					onInput={(v) => onChange(field.type === 'number' ? Number(v || '0') : v)}
+				/>
+			{:else}
+				<Input
+					type={inputType}
+					value={String(value ?? '')}
+					{disabled}
+					maxlength={field.enforceMaxlength ? field.maxlength : undefined}
+					placeholder={field.placeholderKey ? $t(field.placeholderKey) : undefined}
+					oninput={(event) => {
+						const inputValue = (event.currentTarget as HTMLInputElement).value;
+						onChange(field.type === 'number' ? Number(inputValue || '0') : inputValue);
+					}}
+					data-testid={testId}
+				/>
+			{/if}
+			{#if field.maxlength}
+				<CharacterCounter count={String(value ?? '').length} limit={field.maxlength} />
+			{/if}
 		{/if}
 
 		{#if field.helpTextKey}

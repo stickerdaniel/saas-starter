@@ -13,6 +13,7 @@
 	import * as Field from '$lib/components/ui/field/index.js';
 	import * as Tabs from '$lib/components/ui/tabs/index.js';
 	import FieldRenderer from '$lib/admin/fields/field-renderer.svelte';
+	import CollapsibleFieldGroup from '$lib/admin/components/collapsible-field-group.svelte';
 	import { getResourceContext } from '$lib/admin/page-helpers';
 	import { createDynamicForm } from '$lib/admin/create-dynamic-form.svelte';
 	import { resolveFieldGroups } from '$lib/admin/field-groups';
@@ -160,6 +161,14 @@
 		void reloadRelationOptions();
 	}
 
+	function resolveUpdateRedirectPath(): string {
+		const redirect = resource.redirectAfterUpdate;
+		if (typeof redirect === 'function') return redirect(page.params.id ?? '');
+		if (redirect === 'index') return `/${page.params.lang}/admin/${resource.name}`;
+		// Default: return to detail (or via-path if present)
+		return returnPath;
+	}
+
 	async function submit() {
 		if (!canUpdateRecord) return;
 		const currentRecord = record ?? null;
@@ -172,7 +181,7 @@
 				values: form.normalize(currentRecord)
 			} as never);
 			toast.success($t('admin.resources.toasts.updated'));
-			await goto(resolve(returnPath));
+			await goto(resolve(resolveUpdateRedirectPath()));
 		} catch (error) {
 			const fieldErrors = getValidationFieldErrors(error);
 			if (fieldErrors) {
@@ -368,6 +377,86 @@
 					</Tabs.List>
 					{#each formGroups as group (group.key)}
 						<Tabs.Content value={group.key}>
+							{#if group.collapsible}
+								<CollapsibleFieldGroup
+									groupKey={group.key}
+									labelKey={group.labelKey}
+									testId={`${prefix}-group-${group.key}`}
+								>
+									<Field.Group>
+										{#each group.fields as field (field.attribute)}
+											<div
+												class={conflictFields[field.attribute]
+													? 'rounded-md border border-destructive/40 p-2'
+													: ''}
+											>
+												<FieldRenderer
+													context="form"
+													{field}
+													record={form.values}
+													value={form.values[field.attribute]}
+													error={form.errors[field.attribute]}
+													disabled={isFieldDisabled(field, {
+														user: viewer,
+														record,
+														isEdit: true
+													})}
+													testId={`${prefix}-${field.attribute}-input`}
+													relationOptions={relationOptions[field.attribute] ?? []}
+													{viewer}
+													onChange={(value) => {
+														form.setValue(field.attribute, value);
+													}}
+													onRelationCreated={handleRelationCreated}
+													onCreateTag={tagUpsertHandlers[field.attribute]}
+												/>
+											</div>
+										{/each}
+									</Field.Group>
+								</CollapsibleFieldGroup>
+							{:else}
+								<Field.Group>
+									{#each group.fields as field (field.attribute)}
+										<div
+											class={conflictFields[field.attribute]
+												? 'rounded-md border border-destructive/40 p-2'
+												: ''}
+										>
+											<FieldRenderer
+												context="form"
+												{field}
+												record={form.values}
+												value={form.values[field.attribute]}
+												error={form.errors[field.attribute]}
+												disabled={isFieldDisabled(field, {
+													user: viewer,
+													record,
+													isEdit: true
+												})}
+												testId={`${prefix}-${field.attribute}-input`}
+												relationOptions={relationOptions[field.attribute] ?? []}
+												{viewer}
+												onChange={(value) => {
+													form.setValue(field.attribute, value);
+												}}
+												onRelationCreated={handleRelationCreated}
+												onCreateTag={tagUpsertHandlers[field.attribute]}
+											/>
+										</div>
+									{/each}
+								</Field.Group>
+							{/if}
+						</Tabs.Content>
+					{/each}
+				</Tabs.Root>
+			{:else}
+				{#each formGroups as group (group.key)}
+					{#if group.collapsible}
+						<CollapsibleFieldGroup
+							groupKey={group.key}
+							labelKey={group.labelKey}
+							testId={`${prefix}-group-${group.key}`}
+						>
 							<Field.Group>
 								{#each group.fields as field (field.attribute)}
 									<div
@@ -398,40 +487,40 @@
 									</div>
 								{/each}
 							</Field.Group>
-						</Tabs.Content>
-					{/each}
-				</Tabs.Root>
-			{:else}
-				<Field.Group>
-					{#each visibleFormFields as field (field.attribute)}
-						<div
-							class={conflictFields[field.attribute]
-								? 'rounded-md border border-destructive/40 p-2'
-								: ''}
-						>
-							<FieldRenderer
-								context="form"
-								{field}
-								record={form.values}
-								value={form.values[field.attribute]}
-								error={form.errors[field.attribute]}
-								disabled={isFieldDisabled(field, {
-									user: viewer,
-									record,
-									isEdit: true
-								})}
-								testId={`${prefix}-${field.attribute}-input`}
-								relationOptions={relationOptions[field.attribute] ?? []}
-								{viewer}
-								onChange={(value) => {
-									form.setValue(field.attribute, value);
-								}}
-								onRelationCreated={handleRelationCreated}
-								onCreateTag={tagUpsertHandlers[field.attribute]}
-							/>
-						</div>
-					{/each}
-				</Field.Group>
+						</CollapsibleFieldGroup>
+					{:else}
+						<Field.Group>
+							{#each group.fields as field (field.attribute)}
+								<div
+									class={conflictFields[field.attribute]
+										? 'rounded-md border border-destructive/40 p-2'
+										: ''}
+								>
+									<FieldRenderer
+										context="form"
+										{field}
+										record={form.values}
+										value={form.values[field.attribute]}
+										error={form.errors[field.attribute]}
+										disabled={isFieldDisabled(field, {
+											user: viewer,
+											record,
+											isEdit: true
+										})}
+										testId={`${prefix}-${field.attribute}-input`}
+										relationOptions={relationOptions[field.attribute] ?? []}
+										{viewer}
+										onChange={(value) => {
+											form.setValue(field.attribute, value);
+										}}
+										onRelationCreated={handleRelationCreated}
+										onCreateTag={tagUpsertHandlers[field.attribute]}
+									/>
+								</div>
+							{/each}
+						</Field.Group>
+					{/if}
+				{/each}
 			{/if}
 
 			<div class="mt-4 flex gap-2">
@@ -440,7 +529,7 @@
 					disabled={form.submitting}
 					data-testid={`${prefix}-edit-submit`}
 				>
-					<T keyName="common.save" />
+					<T keyName={resource.updateButtonLabelKey ?? 'common.save'} />
 				</Button>
 				<Button
 					variant="outline"

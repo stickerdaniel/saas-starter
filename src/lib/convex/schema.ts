@@ -302,6 +302,65 @@ export default defineSchema({
 		.searchIndex('search_text', {
 			searchField: 'text',
 			filterFields: ['deletedAt']
+		}),
+
+	adminActionJobs: defineTable({
+		actionName: v.string(),
+		resourceName: v.string(),
+		recordIds: v.array(v.string()),
+		actionValues: v.optional(v.any()),
+		totalChunks: v.number(),
+		chunkSize: v.number(),
+		status: v.union(
+			v.literal('pending'),
+			v.literal('running'),
+			v.literal('completed'),
+			v.literal('cancelled'),
+			v.literal('failed')
+		),
+		processedChunks: v.number(),
+		processedIds: v.number(),
+		failedIds: v.number(),
+		chunkErrors: v.optional(v.array(v.object({ chunkIndex: v.number(), error: v.string() }))),
+		adminUserId: v.string(),
+		adminEmail: v.string(),
+		startedAt: v.number(),
+		completedAt: v.optional(v.number()),
+		cancelledAt: v.optional(v.number()),
+		error: v.optional(v.string()),
+		notifyOnComplete: v.boolean()
+	})
+		.index('by_admin', ['adminUserId'])
+		.index('by_admin_status', ['adminUserId', 'status']),
+
+	adminDemoArticles: defineTable({
+		title: v.string(),
+		slug: v.string(),
+		authorAvatarUrl: v.optional(v.string()),
+		authorName: v.string(),
+		websiteUrl: v.optional(v.string()),
+		apiKey: v.optional(v.string()),
+		category: v.string(),
+		priority: v.optional(v.array(v.string())),
+		status: v.string(),
+		price: v.number(),
+		isPublished: v.boolean(),
+		publishedAt: v.optional(v.number()),
+		body: v.optional(v.string()),
+		tags: v.optional(v.array(v.string())),
+		permissions: v.optional(v.any()),
+		metadata: v.optional(v.any()),
+		internalRef: v.optional(v.string()),
+		deletedAt: v.optional(v.number()),
+		createdAt: v.number(),
+		updatedAt: v.number()
+	})
+		.index('by_status', ['status'])
+		.index('by_deleted', ['deletedAt'])
+		.index('by_slug', ['slug'])
+		.searchIndex('search_title_author', {
+			searchField: 'title',
+			filterFields: ['status', 'deletedAt']
 		})
 
 	// Note: The agent component automatically creates the following tables:
