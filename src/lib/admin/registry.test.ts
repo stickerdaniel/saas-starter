@@ -11,7 +11,8 @@ import { getResourceGroups } from './resource-groups';
 describe('admin resource registry', () => {
 	it('discovers all demo resources', () => {
 		const names = getResourceNames();
-		expect(names).toHaveLength(4);
+		expect(names).toHaveLength(5);
+		expect(names).toContain('demo-articles');
 		expect(names).toContain('demo-projects');
 		expect(names).toContain('demo-tasks');
 		expect(names).toContain('demo-comments');

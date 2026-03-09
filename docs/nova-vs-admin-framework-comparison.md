@@ -186,20 +186,20 @@ Cursor pagination with page cache + prefetch is more sophisticated than Nova's o
 
 ---
 
-## 7. Actions — Aligned
+## 7. Actions — Aligned (queued actions partial)
 
-| Aspect              | Nova                                                            | Ours                                                                                          |
-| ------------------- | --------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| Definition          | `Action` class with `handle()` + `fields()`                     | `ActionDefinition` object with `key`, `fields`, visibility flags                              |
-| Visibility          | `showOnIndex()`, `showOnDetail()`, `showInline()`               | `showOnIndex`, `showOnDetail`, `showInline`                                                   |
-| Standalone / Sole   | `->standalone()`, `->sole()`                                    | `standalone: true`, `sole: true`                                                              |
-| Confirmation        | Default confirm, `->withoutConfirmation()`                      | `withoutConfirmation: true`                                                                   |
-| Response types      | message, danger, redirect, download, modal, visit, openInNewTab | message, danger, redirect, download, modal, event                                             |
-| Destructive variant | `DestructiveAction` subclass (red UI, delete auth)              | `defineDestructiveAction()` + `run-destructive` permission + red UI                           |
-| Batch chunking      | 200 models per chunk                                            | 50 IDs per chunk (configurable via `chunkSize`), frontend-driven with progress + cancellation |
-| Authorization       | `->canRun(Closure)` per-model                                   | `canRun?(user, record?)` per-action                                                           |
-| Modal style         | `FULLSCREEN_STYLE`, `WINDOW_STYLE` constants                    | `modalStyle: 'window' \| 'fullscreen'`, `modalSize: 'sm' \| 'md' \| 'lg' \| 'xl' \| '2xl'`    |
-| Queued actions      | `ShouldQueue` interface for background jobs                     | Missing — all actions run synchronously                                                       |
+| Aspect              | Nova                                                            | Ours                                                                                                           |
+| ------------------- | --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Definition          | `Action` class with `handle()` + `fields()`                     | `ActionDefinition` object with `key`, `fields`, visibility flags                                               |
+| Visibility          | `showOnIndex()`, `showOnDetail()`, `showInline()`               | `showOnIndex`, `showOnDetail`, `showInline`                                                                    |
+| Standalone / Sole   | `->standalone()`, `->sole()`                                    | `standalone: true`, `sole: true`                                                                               |
+| Confirmation        | Default confirm, `->withoutConfirmation()`                      | `withoutConfirmation: true`                                                                                    |
+| Response types      | message, danger, redirect, download, modal, visit, openInNewTab | message, danger, redirect, download, modal, event                                                              |
+| Destructive variant | `DestructiveAction` subclass (red UI, delete auth)              | `defineDestructiveAction()` + `run-destructive` permission + red UI                                            |
+| Batch chunking      | 200 models per chunk                                            | 50 IDs per chunk (configurable via `chunkSize`), frontend-driven with progress + cancellation                  |
+| Authorization       | `->canRun(Closure)` per-model                                   | `canRun?(user, record?)` per-action                                                                            |
+| Modal style         | `FULLSCREEN_STYLE`, `WINDOW_STYLE` constants                    | `modalStyle: 'window' \| 'fullscreen'`, `modalSize: 'sm' \| 'md' \| 'lg' \| 'xl' \| '2xl'`                     |
+| Queued actions      | `ShouldQueue` interface for background jobs                     | Partial — prototype exists via `adminActionJobs`, but generated resources still call `runAction` synchronously |
 
 ---
 
@@ -342,17 +342,15 @@ Command palette + parallel Convex queries are already implemented. Nova's global
 
 ---
 
-## 17. Notifications — Gap (can build better)
+## 17. Notifications — Partial
 
-| Aspect               | Nova                                                                  | Ours    |
-| -------------------- | --------------------------------------------------------------------- | ------- |
-| In-app notifications | `nova_notifications` table, `NovaChannel`, read/unread tracking       | Missing |
-| Notification display | Bell icon with unread count, notification center                      | Missing |
-| Programmatic send    | `NovaNotification::make()` with types (info, success, warning, error) | Missing |
+| Aspect               | Nova                                                                  | Ours                                                                                    |
+| -------------------- | --------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| In-app notifications | `nova_notifications` table, `NovaChannel`, read/unread tracking       | Implemented — `adminNotifications` table + Convex queries/mutations                     |
+| Notification display | Bell icon with unread count, notification center                      | Partial — `notification-panel.svelte` exists but is not mounted in the admin header yet |
+| Programmatic send    | `NovaNotification::make()` with types (info, success, warning, error) | Implemented — `sendAdminNotification()` helper writes typed notifications               |
 
-Nova provides a built-in notification system for sending in-app messages to admin users. We have no equivalent.
-
-**Implementation opportunity:** A Convex `adminNotifications` table + subscription would deliver real-time notification updates instantly (bell icon count updates without polling). Nova notifications require page refresh or polling to appear.
+The backend model, CRUD endpoints, pruning, and panel UI now exist. The remaining work is integration and polish: mount the panel in the shared admin shell and decide which framework events should emit notifications by default.
 
 ---
 
@@ -386,18 +384,16 @@ Real-time data via Convex subscriptions is fundamentally superior to polling. Ze
 
 ---
 
-## 20. Audit Logging / Action Events — Gap (can build better)
+## 20. Audit Logging / Action Events — Partial
 
-| Aspect                | Nova                                                         | Ours    |
-| --------------------- | ------------------------------------------------------------ | ------- |
-| Action event tracking | `action_events` table logging all CRUD operations            | Missing |
-| Tracked data          | Who, what, when, batch ID, original vs changes, status       | Missing |
-| Event types           | Create, Update, Delete, Restore, ForceDelete, Attach, Detach | Missing |
-| Pruning               | `ActionEvent::prune()` for cleanup                           | Missing |
+| Aspect                | Nova                                                         | Ours                                                                            |
+| --------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------- |
+| Action event tracking | `action_events` table logging all CRUD operations            | Partial — `adminResourceAuditLogs` exists for resource CRUD/actions             |
+| Tracked data          | Who, what, when, batch ID, original vs changes, status       | Implemented on the resource audit stream                                        |
+| Event types           | Create, Update, Delete, Restore, ForceDelete, Attach, Detach | Implemented on the resource audit stream; legacy admin events still separate    |
+| Pruning               | `ActionEvent::prune()` for cleanup                           | Implemented — pruning functions exist for both legacy and resource audit tables |
 
-Nova automatically logs every CRUD operation with before/after snapshots. We have no audit trail.
-
-**Implementation opportunity:** Our `permissionMutation` wrapper already intercepts all CRUD operations with the authenticated user. Adding an `adminAuditLog` Convex table + a write inside the wrapper would capture who/what/when/changes with minimal code. Convex subscriptions would then power a real-time audit feed — Nova's audit log is only visible on page load.
+The main remaining gap is convergence, not existence. Today there is a framework-oriented resource audit stream and an older admin-user-action audit stream. Future work should collapse them into one canonical append-only audit event model with multiple views over it.
 
 ---
 
@@ -475,9 +471,7 @@ These are genuinely missing features, but Convex real-time + our existing infras
 | #   | Gap           | How we'd surpass Nova                                                                                                                          | Priority |
 | --- | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
 | 1   | Global search | Partially built — command palette with parallel Convex full-text queries across resources; instant results vs Nova's serial server round-trips | Medium   |
-| 2   | Audit logging | `adminAuditLog` table inside `permissionMutation` wrapper — real-time audit feed vs Nova's static page                                         | Medium   |
-| 3   | Notifications | `adminNotifications` table + subscription — live bell count vs Nova's polling/refresh                                                          | Low      |
-| 4   | Impersonation | Better Auth already supports `admin.impersonateUser()` — just needs UI (button + banner)                                                       | Low      |
+| 2   | Impersonation | Better Auth already supports `admin.impersonateUser()` — just needs UI (button + banner)                                                       | Low      |
 
 ### Architectural alternative (different approach, not a gap)
 
@@ -487,19 +481,19 @@ These are genuinely missing features, but Convex real-time + our existing infras
 
 ### Genuinely missing features
 
-| #   | Gap                       | Description                                                                                            | Priority |
-| --- | ------------------------- | ------------------------------------------------------------------------------------------------------ | -------- |
-| 1   | WYSIWYG field             | Rich text editing (Trix equivalent)                                                                    | Low      |
-| 2   | Repeater field            | Nested repeatable field groups                                                                         | Low      |
-| 3   | ~~Collapsable fields~~    | ~~Collapse field section~~ — Implemented via `collapsible` on `FieldGroupDefinition`                   | Done     |
-| 4   | Full-width fields         | `SupportsFullWidthFields` rendering (only remaining gap in field UI traits)                            | Low      |
-| 5   | ~~Action modal styles~~   | ~~Fullscreen/window modal variants~~ -- Implemented via `modalStyle`/`modalSize` on `ActionDefinition` | Done     |
-| 6   | Queued actions            | Background job processing (Convex scheduled functions could power this)                                | Low      |
-| 7   | ~~Detail-only metrics~~   | ~~`onlyOnDetail` flag for metrics~~ -- Implemented                                                     | Done     |
-| 8   | Missing relation types    | HasOne, HasOneThrough, HasManyThrough, MorphedByMany                                                   | Low      |
-| 9   | Missing field types       | Timezone                                                                                               | Low      |
-| 10  | Multiple dashboards       | Register multiple dashboard pages (we have one)                                                        | Low      |
-| 11  | ~~Per-page via relation~~ | ~~`$perPageViaRelationshipOptions` for related tables~~ -- Implemented                                 | Done     |
+| #   | Gap                        | Description                                                                                                                                               | Priority |
+| --- | -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| 1   | WYSIWYG field              | Rich text editing (Trix equivalent)                                                                                                                       | Low      |
+| 2   | Repeater field             | Nested repeatable field groups                                                                                                                            | Low      |
+| 3   | ~~Collapsable fields~~     | ~~Collapse field section~~ — Implemented via `collapsible` on `FieldGroupDefinition`                                                                      | Done     |
+| 4   | Full-width fields          | `SupportsFullWidthFields` rendering (only remaining gap in field UI traits)                                                                               | Low      |
+| 5   | ~~Action modal styles~~    | ~~Fullscreen/window modal variants~~ -- Implemented via `modalStyle`/`modalSize` on `ActionDefinition`                                                    | Done     |
+| 6   | Queued actions integration | Prototype exists, but generated resources still need a first-class queued action path; prefer `@convex-dev/workpool` over bespoke scheduler orchestration | Medium   |
+| 7   | ~~Detail-only metrics~~    | ~~`onlyOnDetail` flag for metrics~~ -- Implemented                                                                                                        | Done     |
+| 8   | Missing relation types     | HasOne, HasOneThrough, HasManyThrough, MorphedByMany                                                                                                      | Low      |
+| 9   | Missing field types        | Timezone                                                                                                                                                  | Low      |
+| 10  | Multiple dashboards        | Register multiple dashboard pages (we have one)                                                                                                           | Low      |
+| 11  | ~~Per-page via relation~~  | ~~`$perPageViaRelationshipOptions` for related tables~~ -- Implemented                                                                                    | Done     |
 
 ### Resolved gaps
 
@@ -558,6 +552,7 @@ These are genuinely missing features, but Convex real-time + our existing infras
 | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 2026-03-09 | Reclassified 10 items from missing/gap to aligned: tag field, numeric range filter, lens field overrides (`mergeFields`), peek/preview (components + `showWhenPeeking`/`showOnPreview`), table styles, redirect customization, button labels, field UI traits (copyable, expandable, suggestions, maxlength), searchable filter options. Reclassified global search to "partially built" (command palette + parallel Convex queries exist). Updated section headers to reflect reduced gaps.                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | 2026-03-09 | Promoted this file to the canonical parity and intentional-drift ledger for Nova vs the admin framework. Added documentation rules for classifying Convex-native divergences. Folded long-lived mapping ownership into `docs/admin-framework-plan.md` and removed the separate mapping doc to reduce drift.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| 2026-03-09 | Corrected parity state to match the codebase: notifications are now partial/implemented rather than missing, resource audit logging is partial rather than missing, queued actions are partial rather than absent, and the open-gap list now treats queued actions as a Workpool-backed integration task instead of a greenfield feature. Clarified that custom admin pages can coexist with the generated resource surface, while the generated resource surface remains the Nova checklist target.                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | 2026-03-02 | Added metric card `width` (full/1-3/1-2/1-4/2-3/3-4) and `height` (fixed/dynamic) to `MetricDefinition`. 12-column CSS grid with col-span mapping. Defaults (1/3 + fixed) preserve current layout. Full-width cards auto-default to dynamic height.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | 2026-03-02 | Added `modalStyle` (`window` / `fullscreen`) and `modalSize` (`sm`–`2xl`) options to `ActionDefinition`. Window mode maps size to `sm:max-w-{size}`. Fullscreen fills viewport. Demo: `attachTag` action on demo-projects uses `modalSize: 'xl'`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | 2026-03-02 | Added **relatable authorization**: per-relation `canAdd`/`canAttach`/`canDetach` guards on `FieldDefinition.relation`. Frontend visibility helpers (`isRelationAddable`, `isRelationAttachable`, `isRelationDetachable`). Backend `assertRelationAllowed()` guard wired into attach/detach mutations and bulk actions. Demo: `canDetach` blocks tag removal from archived projects.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
