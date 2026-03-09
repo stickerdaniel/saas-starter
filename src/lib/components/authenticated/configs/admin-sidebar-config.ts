@@ -36,24 +36,24 @@ export function getAdminSidebarConfig(pageState: PageState): SidebarConfig {
 			icon: UsersIcon,
 			isActive: pathname.startsWith(`/${lang}/admin/users`)
 		},
-			{
-				translationKey: 'admin.sidebar.support',
-				url: localizedHref('/admin/support'),
-				icon: MessagesSquareIcon,
-				isActive: pathname.startsWith(`/${lang}/admin/support`),
-				badge: supportBadge
-			},
-			{
-				translationKey: 'admin.sidebar.audit_log',
-				url: localizedHref('/admin/audit-log'),
-				icon: FileClockIcon,
-				isActive: pathname.startsWith(`/${lang}/admin/audit-log`)
-			},
-			{
-				translationKey: 'admin.sidebar.settings',
-				url: localizedHref('/admin/settings'),
-				icon: SettingsIcon,
-				isActive: pathname.startsWith(`/${lang}/admin/settings`)
+		{
+			translationKey: 'admin.sidebar.support',
+			url: localizedHref('/admin/support'),
+			icon: MessagesSquareIcon,
+			isActive: pathname.startsWith(`/${lang}/admin/support`),
+			badge: supportBadge
+		},
+		{
+			translationKey: 'admin.sidebar.audit_log',
+			url: localizedHref('/admin/audit-log'),
+			icon: FileClockIcon,
+			isActive: pathname.startsWith(`/${lang}/admin/audit-log`)
+		},
+		{
+			translationKey: 'admin.sidebar.settings',
+			url: localizedHref('/admin/settings'),
+			icon: SettingsIcon,
+			isActive: pathname.startsWith(`/${lang}/admin/settings`)
 		}
 	];
 
@@ -90,8 +90,8 @@ export function getAdminSidebarConfig(pageState: PageState): SidebarConfig {
 				}
 			]
 		},
-			navGroups: [{ navItems: fixedAdminNavItems }, ...resourceGroups],
-			footerLinks: [
+		navGroups: [{ navItems: fixedAdminNavItems }, ...resourceGroups],
+		footerLinks: [
 			{
 				translationKey: 'admin.sidebar.back_to_app',
 				url: localizedHref('/app'),

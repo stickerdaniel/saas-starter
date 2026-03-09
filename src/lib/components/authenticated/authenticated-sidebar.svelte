@@ -80,9 +80,9 @@
 	</Sidebar.Header>
 
 	<Sidebar.Content>
-			{#each navGroups as group, index (group.labelKey ?? `group-${index}`)}
-				<Sidebar.Group>
-					{#if group.labelKey}
+		{#each navGroups as group, index (group.labelKey ?? `group-${index}`)}
+			<Sidebar.Group>
+				{#if group.labelKey}
 					<Sidebar.GroupLabel><T keyName={group.labelKey} /></Sidebar.GroupLabel>
 				{/if}
 				<Sidebar.GroupContent class="flex flex-col gap-2">
@@ -92,12 +92,12 @@
 								<Sidebar.MenuButton
 									class={item.isActive ? 'bg-sidebar-accent text-sidebar-accent-foreground' : ''}
 									data-testid={`sidebar-nav-${toTestId(item.url)}`}
-									>
-										{#snippet child({ props })}
-											<a href={resolve(item.url)} onclick={() => haptic.trigger('light')} {...props}>
-												{#if item.icon}
-													<item.icon />
-												{/if}
+								>
+									{#snippet child({ props })}
+										<a href={resolve(item.url)} onclick={() => haptic.trigger('light')} {...props}>
+											{#if item.icon}
+												<item.icon />
+											{/if}
 											<span><T keyName={item.translationKey} /></span>
 										</a>
 									{/snippet}
@@ -108,10 +108,10 @@
 							</Sidebar.MenuItem>
 						{/each}
 					</Sidebar.Menu>
-					</Sidebar.GroupContent>
-				</Sidebar.Group>
-			{/each}
-		</Sidebar.Content>
+				</Sidebar.GroupContent>
+			</Sidebar.Group>
+		{/each}
+	</Sidebar.Content>
 
 	<Sidebar.Footer>
 		{#if config.footerLinks && config.footerLinks.length > 0}
