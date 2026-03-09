@@ -18,10 +18,10 @@
 			}
 		},
 		{
-			"label": "bun run quality-check",
+			"label": "bun run static-checks",
 			"type": "shell",
 			"command": "bun",
-			"args": ["run", "quality-check"],
+			"args": ["run", "static-checks"],
 			"group": {
 				"kind": "test",
 				"isDefault": true
@@ -33,10 +33,10 @@
 			}
 		},
 		{
-			"label": "bun run quality-check:staged",
+			"label": "bun run static-checks:staged",
 			"type": "shell",
 			"command": "bun",
-			"args": ["run", "quality-check:staged"],
+			"args": ["run", "static-checks:staged"],
 			"group": "test",
 			"problemMatcher": ["$eslint-compact", "$tsc"],
 			"detail": "Run pre-commit checks on staged files only",
