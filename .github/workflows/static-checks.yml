@@ -45,4 +45,5 @@ jobs:
             -not -path './src/i18n/*' \
             -not -path './.svelte-kit/*' \
             -not -path './convex/_generated/*' \
+            -not -path './references/*' \
             | xargs misspell -error
