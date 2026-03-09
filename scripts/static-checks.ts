@@ -13,7 +13,14 @@ import { parseArgs } from 'util';
 // Configuration (matches CI static-checks.yml exclusions)
 const CONFIG = {
 	misspell: {
-		ignore: ['src/i18n/', 'convex/_generated/', 'node_modules/', '.git/', '.svelte-kit/']
+		ignore: [
+			'src/i18n/',
+			'convex/_generated/',
+			'node_modules/',
+			'.git/',
+			'.svelte-kit/',
+			'references/'
+		]
 	}
 };
 
