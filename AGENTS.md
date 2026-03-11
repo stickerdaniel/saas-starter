@@ -49,6 +49,18 @@ NEVER use `bun run dev` to start the development server, its already running in 
 
 **E2E Test Security:** `src/lib/convex/tests.ts` contains public mutations (verify emails, promote to admin, delete users) gated by `AUTH_E2E_TEST_SECRET`. These are safe ONLY because the env var is NOT set in production. NEVER set `AUTH_E2E_TEST_SECRET` in the production Convex environment (`--prod`). If it's unset, all test endpoints are dead code.
 
+### Intentional Anti-Pattern Comments
+
+When using a pattern that would normally be flagged (e.g. unbounded `.collect()`, sequential deletes) but is acceptable in context, always add a short inline comment explaining why. This prevents future reviewers and agents from re-flagging it.
+
+```typescript
+// Bounded: adminNotificationPreferences table is small (admin users + custom emails, typically <100 rows)
+const allPrefs = await ctx.db.query('adminNotificationPreferences').collect();
+
+// Sequential deletes in test cleanup (test-only, small dataset)
+for (const pref of allPreferences) { ... }
+```
+
 ### Convex Components Storage
 
 Convex components have isolated tables and storage namespaces. App code cannot use `ctx.storage.getUrl` to access a component's stored files. Use the component's APIs (e.g., download grants or HTTP routes) to fetch files/blobs instead.

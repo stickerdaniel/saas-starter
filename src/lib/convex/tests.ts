@@ -372,7 +372,7 @@ export const cleanupTestData = mutation({
 		const testPatterns = ['test-e2e-', 'test-dup-', 'test-remove-'];
 		let deletedCount = 0;
 
-		// Find and delete test notification recipients
+		// Sequential deletes in test cleanup (test-only, small dataset)
 		const allPreferences = await ctx.db.query('adminNotificationPreferences').collect();
 
 		for (const pref of allPreferences) {
