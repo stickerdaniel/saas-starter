@@ -9,11 +9,9 @@
 
 import { ConvexHttpClient } from 'convex/browser';
 import { api } from '../src/lib/convex/_generated/api';
-import dotenv from 'dotenv';
+import 'varlock/auto-load';
 import fs from 'fs';
 import path from 'path';
-
-dotenv.config({ path: '.env.test' });
 
 const SITE_URL = process.env.PUBLIC_SITE_URL || 'http://localhost:5173';
 const TEST_PASSWORD = 'TestPassword123!';
