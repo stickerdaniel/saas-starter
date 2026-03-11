@@ -36,7 +36,9 @@ export default {
 		// Knip can't trace Svelte dynamic imports ({#await import(...)})
 		'src/lib/components/customer-support/**',
 		'src/lib/chat/**',
-		'src/lib/components/global-search/**'
+		'src/lib/components/global-search/**',
+		// Used by customer-support screenshot editor (ignored above)
+		'src/lib/utils/snapdom-config.ts'
 	],
 	ignoreDependencies: [
 		// Tailwind v4 plugins — referenced via CSS @plugin, not JS imports
@@ -83,8 +85,6 @@ export default {
 	],
 	ignoreExportsUsedInFile: true,
 	rules: {
-		// Existing dead code — tracked as warnings until cleanup
-		files: 'warn',
 		// shadcn barrel re-exports and Valibot schema types are part of the API surface
 		exports: 'warn',
 		types: 'warn'
