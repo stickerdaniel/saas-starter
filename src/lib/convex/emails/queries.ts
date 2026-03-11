@@ -76,53 +76,6 @@ export const listEmailEventsByType = adminQuery({
 		return events;
 	}
 });
-
-/**
- * Get email statistics
- *
- * Returns aggregated statistics about email events.
- * Useful for dashboards and monitoring.
- *
- * @security Requires admin role - email statistics are sensitive operational data
- */
-export const getEmailStats = adminQuery({
-	args: {},
-	handler: async (ctx) => {
-		const allEvents = await ctx.db.query('emailEvents').collect();
-
-		const stats = {
-			total: allEvents.length,
-			delivered: 0,
-			bounced: 0,
-			complained: 0,
-			opened: 0,
-			clicked: 0
-		};
-
-		for (const event of allEvents) {
-			switch (event.eventType) {
-				case 'email.delivered':
-					stats.delivered++;
-					break;
-				case 'email.bounced':
-					stats.bounced++;
-					break;
-				case 'email.complained':
-					stats.complained++;
-					break;
-				case 'email.opened':
-					stats.opened++;
-					break;
-				case 'email.clicked':
-					stats.clicked++;
-					break;
-			}
-		}
-
-		return stats;
-	}
-});
-
 /**
  * Get email status
  *
