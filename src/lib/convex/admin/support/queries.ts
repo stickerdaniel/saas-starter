@@ -477,8 +477,10 @@ export const listInternalUserNotes = adminQuery({
 });
 
 /**
- * Get count of threads awaiting admin response
- * For notification badges - counts handed-off threads where user is waiting for a reply
+ * Get count of threads awaiting admin response (capped at 100)
+ *
+ * Returns min(actualCount, 100) for sidebar badge display.
+ * UI shows "99+" when the returned value is 100.
  */
 export const getAwaitingResponseCount = adminQuery({
 	args: {},
