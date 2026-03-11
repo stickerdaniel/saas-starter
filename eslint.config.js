@@ -75,6 +75,31 @@ export default defineConfig(
 			'@typescript-eslint/await-thenable': 'off'
 		}
 	},
+	// Prevent barrel imports from large icon libraries (breaks tree-shaking)
+	{
+		files: ['src/**/*.{ts,js,svelte}'],
+		rules: {
+			'@typescript-eslint/no-restricted-imports': [
+				'error',
+				{
+					paths: [
+						{
+							name: '@lucide/svelte',
+							message:
+								"Import individual icons instead: import Icon from '@lucide/svelte/icons/icon-name'",
+							allowTypeImports: true
+						},
+						{
+							name: 'lucide-svelte',
+							message:
+								"Import individual icons instead: import Icon from 'lucide-svelte/icons/icon-name'",
+							allowTypeImports: true
+						}
+					]
+				}
+			]
+		}
+	},
 	// No console.log/debug/info in src/ (frontend code)
 	{
 		files: ['src/**/*.{ts,js,svelte}'],
