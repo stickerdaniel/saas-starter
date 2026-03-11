@@ -445,7 +445,7 @@ export const getNotificationTargetEmails = internalQuery({
 	},
 	returns: v.array(v.string()),
 	handler: async (ctx, args) => {
-		// Get all preferences
+		// Bounded: adminNotificationPreferences table is small (admin users + custom emails, typically <100 rows)
 		const allPrefs = await ctx.db.query('adminNotificationPreferences').collect();
 
 		// Map notification type to field name
