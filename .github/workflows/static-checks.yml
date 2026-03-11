@@ -21,6 +21,7 @@ jobs:
     runs-on: ubicloud-standard-2
     env:
       PUBLIC_CONVEX_URL: https://placeholder.convex.cloud
+      PUBLIC_CONVEX_SITE_URL: https://placeholder.convex.site
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
       - uses: oven-sh/setup-bun@ecf28ddc73e819eb6fa29df6b34ef8921c743461 # v2
