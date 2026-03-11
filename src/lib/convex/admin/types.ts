@@ -46,7 +46,7 @@ export const adminActionValidator = v.union(
  */
 export type AuditMetadata =
 	| { reason: string } // ban_user, unban_user
-	| { newRole: UserRole; previousRole: UserRole } // set_role
+	| { newRole: string; previousRole: string } // set_role
 	| Record<string, never>; // other actions (empty object)
 
 /**

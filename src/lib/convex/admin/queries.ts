@@ -4,6 +4,7 @@ import { v } from 'convex/values';
 import type { BetterAuthUser, BetterAuthSession } from './types';
 import { parseBetterAuthUsers, parseBetterAuthSessions, parseUserRecord } from './types';
 import { adminQuery } from '../functions';
+import { createUserEmailMap, mergeUnifiedAdminAuditLogs } from './audit-log';
 
 type AdapterWhereCondition = {
 	connector?: 'AND' | 'OR';
@@ -398,10 +399,14 @@ export const resolveUsersLastPage = adminQuery({
 });
 
 /**
- * Get admin audit logs
+ * Get admin audit logs.
  *
- * Retrieves audit trail of admin actions with optional filtering
- * by admin user or target user.
+ * Reads a normalized union of:
+ * 1. legacy `adminAuditLogs` rows
+ * 2. canonical admin user-action rows stored in `adminResourceAuditLogs`
+ *
+ * This preserves historical data while all new writes go to the canonical
+ * append-only stream.
  *
  * @param args.limit - Maximum number of logs to return (default: 100)
  * @param args.adminUserId - Optional filter by admin who performed the action
@@ -416,21 +421,26 @@ export const listAuditLogs = adminQuery({
 	},
 	handler: async (ctx, args) => {
 		const limit = args.limit ?? 100;
+		const fetchLimit = Math.max(limit, 500);
 
-		const logsQuery = ctx.db.query('adminAuditLogs').withIndex('by_timestamp').order('desc');
+		const [users, legacyLogs, canonicalLogs] = await Promise.all([
+			fetchAllUsers(ctx),
+			ctx.db.query('adminAuditLogs').withIndex('by_timestamp').order('desc').take(fetchLimit),
+			ctx.db
+				.query('adminResourceAuditLogs')
+				.withIndex('by_timestamp')
+				.order('desc')
+				.take(fetchLimit)
+		]);
 
-		const logs = await logsQuery.take(limit);
-
-		// Filter by admin or target user if specified
-		let filteredLogs = logs;
-		if (args.adminUserId) {
-			filteredLogs = filteredLogs.filter((log) => log.adminUserId === args.adminUserId);
-		}
-		if (args.targetUserId) {
-			filteredLogs = filteredLogs.filter((log) => log.targetUserId === args.targetUserId);
-		}
-
-		return filteredLogs;
+		return mergeUnifiedAdminAuditLogs({
+			legacyLogs,
+			canonicalLogs,
+			userEmails: createUserEmailMap(users),
+			adminUserId: args.adminUserId,
+			targetUserId: args.targetUserId,
+			limit
+		});
 	}
 });
 

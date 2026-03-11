@@ -4,6 +4,7 @@ import { v } from 'convex/values';
 import type { BetterAuthUser } from './types';
 import { roleValidator, adminActionValidator, auditMetadataValidator } from './types';
 import { adminMutation } from '../functions';
+import { buildCanonicalAdminActionAuditEntry } from './audit-log';
 
 /**
  * Helper to fetch all users from the BetterAuth component
@@ -39,10 +40,12 @@ async function findUserById(ctx: MutationCtx, userId: string): Promise<BetterAut
 }
 
 /**
- * Log an admin action for audit trail
+ * Log an admin action to the canonical audit stream.
  *
- * Records admin actions in the audit log for compliance and tracking.
- * This is called from the client after BetterAuth admin actions.
+ * Records admin user-management actions in the canonical append-only
+ * `adminResourceAuditLogs` stream. This mutation is still called from the
+ * client after Better Auth admin actions, but it no longer writes the legacy
+ * `adminAuditLogs` table.
  *
  * @param args.action - The type of action performed (e.g., 'ban_user', 'set_role')
  * @param args.targetUserId - The ID of the user affected by the action
@@ -56,18 +59,23 @@ export const createAuditLog = adminMutation({
 		metadata: auditMetadataValidator
 	},
 	handler: async (ctx, args) => {
-		await ctx.db.insert('adminAuditLogs', {
-			adminUserId: ctx.user._id,
-			action: args.action,
-			targetUserId: args.targetUserId,
-			metadata: args.metadata,
-			timestamp: Date.now()
-		});
+		await ctx.db.insert(
+			'adminResourceAuditLogs',
+			buildCanonicalAdminActionAuditEntry({
+				adminUserId: ctx.user._id,
+				adminEmail: ctx.user.email,
+				targetUserId: args.targetUserId,
+				action: args.action,
+				metadata: args.metadata
+			})
+		);
 	}
 });
 
 /**
- * Internal mutation for logging admin actions (for server-side use)
+ * Internal mutation for logging admin actions (for server-side use).
+ *
+ * Writes the canonical resource audit stream for user-management actions.
  */
 export const createAuditLogInternal = internalMutation({
 	args: {
@@ -77,13 +85,21 @@ export const createAuditLogInternal = internalMutation({
 		metadata: auditMetadataValidator
 	},
 	handler: async (ctx, args) => {
-		await ctx.db.insert('adminAuditLogs', {
-			adminUserId: args.adminUserId,
-			action: args.action,
-			targetUserId: args.targetUserId,
-			metadata: args.metadata,
-			timestamp: Date.now()
-		});
+		const adminUser = await findUserById(ctx, args.adminUserId);
+		if (!adminUser) {
+			throw new Error('Admin user not found');
+		}
+
+		await ctx.db.insert(
+			'adminResourceAuditLogs',
+			buildCanonicalAdminActionAuditEntry({
+				adminUserId: args.adminUserId,
+				adminEmail: adminUser.email,
+				targetUserId: args.targetUserId,
+				action: args.action,
+				metadata: args.metadata
+			})
+		);
 	}
 });
 
@@ -146,14 +162,17 @@ export const setUserRole = adminMutation({
 			);
 		}
 
-		// Log the action
-		await ctx.db.insert('adminAuditLogs', {
-			adminUserId: ctx.user._id,
-			action: 'set_role',
-			targetUserId: args.userId,
-			metadata: { newRole: args.role, previousRole: user.role ?? 'user' },
-			timestamp: Date.now()
-		});
+		// Log the action to the canonical audit stream.
+		await ctx.db.insert(
+			'adminResourceAuditLogs',
+			buildCanonicalAdminActionAuditEntry({
+				adminUserId: ctx.user._id,
+				adminEmail: ctx.user.email,
+				targetUserId: args.userId,
+				action: 'set_role',
+				metadata: { newRole: args.role, previousRole: user.role ?? 'user' }
+			})
+		);
 
 		return { success: true };
 	}
