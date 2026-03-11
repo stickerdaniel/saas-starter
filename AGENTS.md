@@ -243,6 +243,10 @@ Use the Svelte MCPs Get Documentation tool to get up-to-date Svelte documentatio
 Prop names must match the parent's passed prop name exactly.
 </important_info>
 
+### ESLint & Legacy Plugins
+
+When adding ESLint plugins that export legacy `.eslintrc`-style configs (objects with `overrides`), use `fixupConfigRules()` from `@eslint/compat` to convert. See the Convex plugin block in `eslint.config.js` for the pattern.
+
 ### Static Checks
 
 ALWAYS run `bun scripts/static-checks.ts src/lib/foo.ts src/routes/bar.svelte` after a full feature implementation with the changed files.
