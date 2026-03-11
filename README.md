@@ -203,12 +203,10 @@ See [Convex Documentation](src/lib/convex/README.md) for schema and functions.
 1. **Configure test environment variables:**
 
    ```bash
-   # Copy the example file
-   cp .env.test.example .env.test
-
-   # Edit .env.test and ensure it contains:
+   # Create .env.test with test-specific overrides (see .env.schema for all vars)
+   # Required:
    # AUTH_E2E_TEST_SECRET=test-secret
-   # PUBLIC_E2E_TEST=true
+   # PUBLIC_CONVEX_URL=https://your-deployment.convex.cloud
    ```
 
 2. **Configure Convex backend:**
@@ -225,7 +223,6 @@ See [Convex Documentation](src/lib/convex/README.md) for schema and functions.
    - Go to your repository Settings → Secrets and variables → Actions
    - Add the following repository secrets:
      - `AUTH_E2E_TEST_SECRET`: Set to `test-secret`
-     - `TEST_CONVEX_URL`: Your development Convex URL (for running tests)
      - `PUBLIC_CONVEX_URL`: Your production Convex URL (for deployment)
    - Tests run against the development environment to keep production clean
    - This is already configured in `.github/workflows/quality-checks.yml`
@@ -246,7 +243,7 @@ See [Convex Documentation](src/lib/convex/README.md) for schema and functions.
 - Convex development backend (for test authentication) - NOT in production
 - GitHub Secrets (for CI/CD)
 
-**Note:** CI/CD tests run against the development Convex deployment to keep production data clean. The `TEST_CONVEX_URL` secret points to your development environment while `PUBLIC_CONVEX_URL` is used for production deployments.
+**Note:** CI/CD tests use preview deployments with dynamic URL discovery via `.well-known/e2e-config.json`. No separate `TEST_CONVEX_URL` is needed.
 
 ### Unit Testing
 
