@@ -11,7 +11,7 @@
 		"postinstall": "bun svelte-kit sync && varlock typegen && bun run build:emails",
 		"prebuild": "bun run build:emails",
 		"build": "vite build",
-		"build:emails": "varlock run -- tsx scripts/build-emails.ts",
+		"build:emails": "tsx scripts/build-emails.ts",
 		"preview": "vite preview",
 		"prepare": "husky",
 		"package": "bun svelte-kit sync && svelte-package",
