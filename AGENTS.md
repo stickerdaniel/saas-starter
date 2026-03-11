@@ -273,17 +273,7 @@ ALWAYS run `bun scripts/static-checks.ts src/lib/foo.ts src/routes/bar.svelte` a
 
 #### Import Conventions
 
-**CRITICAL:** NEVER use Barrel Imports
-
-```typescript
-// ❌ BAD - Barrel import (loads entire library, ~4.5MB for Lucide)
-import { ArrowUp, Camera, X } from '@lucide/svelte';
-
-// ✅ GOOD - Individual imports (only loads what's needed, ~5KB per icon)
-import ArrowUpIcon from '@lucide/svelte/icons/arrow-up';
-```
-
-This applies to all icon libraries and large component libraries.
+No barrel imports from icon libraries — use individual imports (`@lucide/svelte/icons/icon-name`).
 
 #### UI Component Conventions
 
