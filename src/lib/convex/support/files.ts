@@ -200,6 +200,7 @@ export const storeFileMetadata = internalMutation({
 export const cleanupLegacyFileMetadata = internalMutation({
 	args: {},
 	handler: async (ctx) => {
+		// Sequential deletes in one-time cleanup mutation (small dataset)
 		const allRecords = await ctx.db.query('fileMetadata').collect();
 		let deleted = 0;
 

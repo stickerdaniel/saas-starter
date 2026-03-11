@@ -484,13 +484,13 @@ export const getAwaitingResponseCount = adminQuery({
 	args: {},
 	returns: v.number(),
 	handler: async (ctx) => {
-		// Count all handed-off threads awaiting admin response
+		// Capped at 100 to avoid unbounded scan; UI shows "99+" for >= 100
 		const awaitingThreads = await ctx.db
 			.query('supportThreads')
 			.withIndex('by_needs_response', (q) =>
 				q.eq('isHandedOff', true).eq('status', 'open').eq('awaitingAdminResponse', true)
 			)
-			.collect();
+			.take(100);
 		return awaitingThreads.length;
 	}
 });
@@ -526,41 +526,5 @@ export const listAdmins = adminQuery({
 			email: admin.email,
 			image: admin.image ?? null
 		}));
-	}
-});
-
-/**
- * Debug helper to inspect supportThreads table
- * Usage: bunx convex run admin/support/queries:debugSupportThreads
- */
-export const debugSupportThreads = adminQuery({
-	args: {},
-	returns: v.object({
-		count: v.number(),
-		threads: v.array(
-			v.object({
-				_id: v.string(),
-				threadId: v.string(),
-				userId: v.optional(v.string()),
-				status: v.union(v.literal('open'), v.literal('done')),
-				assignedTo: v.optional(v.string())
-			})
-		)
-	}),
-	handler: async (ctx) => {
-		const supportThreads = await ctx.db.query('supportThreads').collect();
-
-		console.log(`[debugSupportThreads] Found ${supportThreads.length} total supportThreads`);
-
-		return {
-			count: supportThreads.length,
-			threads: supportThreads.map((t) => ({
-				_id: t._id,
-				threadId: t.threadId,
-				userId: t.userId,
-				status: t.status,
-				assignedTo: t.assignedTo
-			}))
-		};
 	}
 });
