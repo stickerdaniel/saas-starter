@@ -2,6 +2,7 @@ import prettier from 'eslint-config-prettier';
 import path from 'node:path';
 import { includeIgnoreFile } from '@eslint/compat';
 import js from '@eslint/js';
+import convexPlugin from '@convex-dev/eslint-plugin';
 import svelte from 'eslint-plugin-svelte';
 import { defineConfig } from 'eslint/config';
 import globals from 'globals';
@@ -81,5 +82,11 @@ export default defineConfig(
 		rules: {
 			'no-console': ['error', { allow: ['warn', 'error'] }]
 		}
+	},
+	// Convex best-practice rules
+	{
+		files: ['**/src/lib/convex/**/*.ts'],
+		plugins: { '@convex-dev': convexPlugin },
+		rules: convexPlugin.configs.recommended[0].rules
 	}
 );
