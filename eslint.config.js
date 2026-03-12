@@ -94,6 +94,12 @@ export default defineConfig(
 							message:
 								"Import individual icons instead: import Icon from 'lucide-svelte/icons/icon-name'",
 							allowTypeImports: true
+						},
+						{
+							name: '@tabler/icons-svelte',
+							message:
+								"Import individual icons instead: import Icon from '@tabler/icons-svelte/icons/icon-name'",
+							allowTypeImports: true
 						}
 					]
 				}
