@@ -8,11 +8,9 @@
 
 import { ConvexHttpClient } from 'convex/browser';
 import { api } from '../src/lib/convex/_generated/api';
-import dotenv from 'dotenv';
+import 'varlock/auto-load';
 import fs from 'fs';
 import path from 'path';
-
-dotenv.config({ path: '.env.test' });
 
 interface TestCredentials {
 	user: { email: string; password: string; name: string };
