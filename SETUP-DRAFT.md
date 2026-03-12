@@ -55,7 +55,7 @@ The build process (via `scripts/vercel-deploy.ts`) automatically executes these 
 
    ```bash
    # Tag current keys as production (add version tag if needed)
-   bunx dotenv -e .env.local -- bunx tolgee tag --filter-extracted --tag production --tag v1.5.0
+   bun run i18n:push -- --tag-new-keys v1.5.0
 
    # Pull latest translations for build
    bun run i18n:pull
@@ -88,7 +88,7 @@ The build process (via `scripts/vercel-deploy.ts`) automatically executes these 
 
 Tolgee CLI is configured via `.tolgeerc` in the project root. The project uses a **Project API Key** (starts with `tgpak_`), which automatically includes the project ID - no manual configuration needed.
 
-The CLI uses the `TOLGEE_API_KEY` environment variable for authentication in CI/CD (see `.env.local.example`). Locally, the key is stored in `.tolgeerc` (which is gitignored).
+The CLI uses the `TOLGEE_API_KEY` environment variable for authentication in CI/CD (see `.env.schema`). Locally, the key is stored in `.env.local` (which is gitignored).
 
 
 **CI/CD Integration:**
@@ -217,21 +217,19 @@ This project uses multiple environment variable configurations organized by purp
 
 ### Configuration Files Overview
 
-| File                                               | Purpose                     | Platform                     | When Used                     |
-| -------------------------------------------------- | --------------------------- | ---------------------------- | ----------------------------- |
-| [.env.local.example](.env.local.example)           | Local development           | Your machine                 | Running `bun run dev`         |
-| [.env.ci.example](.env.ci.example)                 | CI testing & quality checks | GitHub Actions Secrets       | Every push/PR                 |
-| [.env.deployment.example](.env.deployment.example) | Automatic deployments       | Vercel Environment Variables | Preview/PR/Production deploys |
-| [.env.convex.example](.env.convex.example)         | Backend configuration       | Convex Dashboard             | Backend runtime               |
-| [.env.test.example](.env.test.example)             | E2E testing                 | Local + GitHub Actions       | Running tests                 |
+| File                                       | Purpose                                           | Platform         | When Used                  |
+| ------------------------------------------ | ------------------------------------------------- | ---------------- | -------------------------- |
+| [.env.schema](.env.schema)                 | Source of truth for all SvelteKit/script env vars | All              | All environments           |
+| [.env.convex.example](.env.convex.example) | Backend configuration                             | Convex Dashboard | Backend runtime            |
+| `.env.local`                               | Local dev values (git-ignored)                    | Your machine     | Running `bun run dev`      |
+| `.env.test`                                | Test-specific overrides (git-ignored)             | Local + CI       | Running `bun run test:e2e` |
 
 ### Quick Setup Guide
 
 **1. Local Development** (`.env.local`)
 
 ```bash
-# Copy example and fill in values
-cp .env.local.example .env.local
+# Create .env.local and fill in values (see .env.schema for all available vars)
 # Required: CONVEX_DEPLOYMENT, PUBLIC_CONVEX_URL, VITE_TOLGEE_API_KEY, TOLGEE_API_KEY
 ```
 
@@ -239,8 +237,8 @@ cp .env.local.example .env.local
 
 ```bash
 # Add to: Repository Settings → Secrets → Actions
-# Required: TEST_CONVEX_URL, AUTH_E2E_TEST_SECRET, TOLGEE_API_KEY
-# See .env.ci.example for details
+# Required: AUTH_E2E_TEST_SECRET, TOLGEE_API_KEY
+# CI tests use preview deployments with dynamic URL discovery via .well-known/e2e-config.json
 ```
 
 **3. Vercel** (Environment Variables)
@@ -248,7 +246,7 @@ cp .env.local.example .env.local
 ```bash
 # Add to: Vercel Dashboard → Project Settings → Environment Variables
 # Required: PUBLIC_CONVEX_URL, CONVEX_DEPLOY_KEY, TOLGEE_API_KEY
-# See .env.deployment.example for details
+# See .env.schema for all available vars with types and descriptions
 ```
 
 **4. Convex Backend** (via CLI)
@@ -281,7 +279,6 @@ bunx convex env set KEY value
 
 **GitHub Actions** (Repository Secrets):
 
-- `TEST_CONVEX_URL` - Test Convex deployment
 - `AUTH_E2E_TEST_SECRET` - E2E test auth
 - `TOLGEE_API_KEY` - Tag production keys
 
@@ -333,5 +330,6 @@ This project uses the **@convex-dev/resend** component for production-ready emai
 
 - Automated quality checks on push/PR
 - Uses development Convex environment for tests
-- Requires secrets: `TEST_CONVEX_URL`, `AUTH_E2E_TEST_SECRET`
+- Requires secrets: `AUTH_E2E_TEST_SECRET`
+- CI tests use preview deployments with dynamic URL discovery
 ```

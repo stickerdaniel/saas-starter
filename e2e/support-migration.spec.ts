@@ -1,12 +1,10 @@
 import { test, expect } from '@playwright/test';
 import fs from 'fs';
 import path from 'path';
-import dotenv from 'dotenv';
+import 'varlock/auto-load';
 import { ConvexHttpClient } from 'convex/browser';
 import { api } from '../src/lib/convex/_generated/api';
 import { waitForAuthenticated } from './utils/auth';
-
-dotenv.config({ path: '.env.test' });
 
 /**
  * E2E tests for anonymous support ticket migration.

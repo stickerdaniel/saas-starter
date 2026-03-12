@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import dotenv from 'dotenv';
+import 'varlock/auto-load';
 import { ConvexHttpClient } from 'convex/browser';
 import { api } from '../src/lib/convex/_generated/api';
 import {
@@ -7,8 +7,6 @@ import {
 	expectTableQueryParams,
 	getTableQueryParam
 } from './utils/convex-table-url-assertions';
-
-dotenv.config({ path: '.env.test' });
 
 const SITE_URL = process.env.PUBLIC_SITE_URL || 'http://localhost:5173';
 const TEST_PASSWORD = 'TestPassword123!';
