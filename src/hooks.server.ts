@@ -45,6 +45,15 @@ function isEmailsRoute(pathname: string): boolean {
 	return /^\/[a-z]{2}\/emails(\/|$)/.test(pathname);
 }
 
+export function shouldBypassLanguageRedirect(pathname: string): boolean {
+	if (pathname.startsWith('/api')) {
+		return true;
+	}
+
+	const normalizedPath = pathname !== '/' ? pathname.replace(/\/+$/, '') : pathname;
+	return normalizedPath === '/llms.txt';
+}
+
 /**
  * Block access to dev-only routes in production
  */
@@ -69,8 +78,8 @@ const handleAuth: Handle = async function handleAuth({ event, resolve }) {
 const handleLanguage: Handle = async function handleLanguage({ event, resolve }) {
 	const pathname = event.url.pathname;
 
-	// Skip API routes (check if path starts with /api)
-	if (pathname.startsWith('/api')) {
+	// Skip routes that should stay at the root or manage their own content negotiation
+	if (shouldBypassLanguageRedirect(pathname)) {
 		return resolve(event);
 	}
 
