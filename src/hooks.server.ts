@@ -2,6 +2,11 @@ import { sequence } from '@sveltejs/kit/hooks';
 import { redirect, type Handle, type Cookies } from '@sveltejs/kit';
 import { dev } from '$app/environment';
 import { isSupportedLanguage, DEFAULT_LANGUAGE } from '$lib/i18n/languages';
+import {
+	getMarketingMarkdownDocument,
+	matchPublicMarketingRoute
+} from '$lib/marketing/public-routes';
+import { createMarketingMarkdownResponse, isMarkdownRequest } from '$lib/markdown/marketing';
 import { safeRedirectPath } from '$lib/utils/url';
 
 /**
@@ -51,7 +56,7 @@ export function shouldBypassLanguageRedirect(pathname: string): boolean {
 	}
 
 	const normalizedPath = pathname !== '/' ? pathname.replace(/\/+$/, '') : pathname;
-	return normalizedPath === '/llms.txt';
+	return ['/llms.txt', '/robots.txt', '/sitemap.xml'].includes(normalizedPath);
 }
 
 /**
@@ -70,6 +75,27 @@ const handleDevOnlyRoutes: Handle = async function handleDevOnlyRoutes({ event, 
 const handleAuth: Handle = async function handleAuth({ event, resolve }) {
 	event.locals.token = getJwtToken(event.cookies, event.request);
 	return resolve(event);
+};
+
+const handleMarketingMarkdown: Handle = async function handleMarketingMarkdown({ event, resolve }) {
+	if (!['GET', 'HEAD'].includes(event.request.method)) {
+		return resolve(event);
+	}
+
+	if (!isMarkdownRequest(event.request)) {
+		return resolve(event);
+	}
+
+	const matchedRoute = matchPublicMarketingRoute(event.url.pathname);
+	if (!matchedRoute) {
+		return resolve(event);
+	}
+
+	return createMarketingMarkdownResponse(getMarketingMarkdownDocument(matchedRoute.routeKey), {
+		origin: event.url.origin,
+		pathname: event.url.pathname,
+		lang: matchedRoute.lang ?? DEFAULT_LANGUAGE
+	});
 };
 
 /**
@@ -152,4 +178,10 @@ const authFirstPattern: Handle = async function authFirstPattern({ event, resolv
 	return resolve(event);
 };
 
-export const handle = sequence(handleDevOnlyRoutes, handleAuth, handleLanguage, authFirstPattern);
+export const handle = sequence(
+	handleDevOnlyRoutes,
+	handleAuth,
+	handleMarketingMarkdown,
+	handleLanguage,
+	authFirstPattern
+);

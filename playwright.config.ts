@@ -67,7 +67,17 @@ export default defineConfig({
 			},
 			dependencies: ['setup'],
 			// Don't run invalid-auth, admin, or signout tests (signout runs last in its own project)
-			testIgnore: [/invalid-auth\.spec\.ts/, /admin-.*\.spec\.ts/, /signout\.spec\.ts/]
+			testIgnore: [
+				/invalid-auth\.spec\.ts/,
+				/admin-.*\.spec\.ts/,
+				/signout\.spec\.ts/,
+				/public-.*\.spec\.ts/
+			]
+		},
+		{
+			name: 'chromium-public',
+			use: { ...devices['Desktop Chrome'] },
+			testMatch: /public-.*\.spec\.ts/
 		},
 		// Signout test - runs LAST to avoid invalidating session for other tests
 		// The signout test logs out on the server, which would break subsequent tests

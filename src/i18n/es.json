@@ -12,6 +12,8 @@
 			"email_service": "Servicio de entrega de correo",
 			"external_services": "Servicios Externos",
 			"hosting_deployment": "Hosting y despliegue",
+			"resource_overview": "Resumen de Recursos",
+			"resource_records": "{count} registros",
 			"title": "Panel de Administración"
 		},
 		"dialog": {
@@ -49,6 +51,406 @@
 			"app": "App",
 			"home": "Inicio",
 			"website": "Sitio Web"
+		},
+		"notifications": {
+			"bell_label": "Notificaciones",
+			"close": "Cerrar",
+			"delete": "Eliminar",
+			"mark_all_read": "Marcar todas como leídas",
+			"mark_read": "Marcar como leída",
+			"mark_unread": "Marcar como no leída",
+			"new_notification": "Tiene una nueva notificación",
+			"no_notifications": "Sin notificaciones",
+			"no_notifications_description": "No hay nada pendiente.",
+			"queued_action_failure": "Acción en segundo plano \"{action}\" finalizada con {failures} errores en {resource}",
+			"queued_action_success": "Acción en segundo plano \"{action}\" completada en {count} registros de {resource}",
+			"title": "Notificaciones"
+		},
+		"resources": {
+			"actions": {
+				"create": "Create",
+				"create_resource": "Create {resource}",
+				"delete": "Delete",
+				"edit": "Edit",
+				"force_delete": "Force Delete",
+				"preview": "Vista previa",
+				"replicate": "Replicate",
+				"restore": "Restore",
+				"select_exactly_one": "Seleccione exactamente un registro.",
+				"update_resource": "Actualizar {resource}",
+				"view": "View"
+			},
+			"aria": {
+				"select_all": "Select all rows",
+				"select_row": "Select row"
+			},
+			"articles": {
+				"actions": {
+					"publish": "Publicar",
+					"unpublish": "Despublicar"
+				},
+				"buttons": {
+					"publish_article": "Publicar artículo"
+				},
+				"fields": {
+					"api_key": "Clave API",
+					"author_avatar": "Avatar del autor",
+					"author_name": "Nombre del autor",
+					"body": "Contenido",
+					"body_help": "Escribe el contenido del artículo. Admite texto plano.",
+					"body_placeholder": "Comienza a escribir tu artículo...",
+					"category": "Categoría",
+					"internal_ref": "Referencia interna",
+					"is_published": "Publicado",
+					"metadata": "Metadatos",
+					"permissions": "Permisos",
+					"price": "Precio",
+					"priority": "Prioridad",
+					"published_at": "Publicado el",
+					"settings_heading": "Configuración",
+					"slug": "Slug",
+					"status": "Estado",
+					"tags": "Etiquetas",
+					"title": "Título",
+					"website_url": "URL del sitio web"
+				},
+				"groups": {
+					"settings": "Configuración"
+				},
+				"lenses": {
+					"drafts": "Borradores",
+					"published": "Artículos publicados"
+				},
+				"metrics": {
+					"published_rate": "Tasa de publicación",
+					"total": "Total de artículos",
+					"total_desc": "Todos los artículos registrados",
+					"total_subtitle": "Portafolio de artículos"
+				},
+				"nav_title": "Demo Artículos",
+				"options": {
+					"category_business": "Negocios",
+					"category_design": "Diseño",
+					"category_science": "Ciencia",
+					"category_tech": "Tecnología",
+					"perm_admin": "Puede administrar",
+					"perm_delete": "Puede eliminar",
+					"perm_read": "Puede leer",
+					"perm_write": "Puede escribir",
+					"priority_critical": "Crítica",
+					"priority_high": "Alta",
+					"priority_low": "Baja",
+					"priority_medium": "Media",
+					"status_archived": "Archivado",
+					"status_draft": "Borrador",
+					"status_published": "Publicado",
+					"tag_editorial": "Editorial",
+					"tag_featured": "Destacado",
+					"tag_sponsored": "Patrocinado",
+					"tag_trending": "Tendencia"
+				}
+			},
+			"bulk": {
+				"action_cancelled": "Cancelado. {processed} de {total} procesados.",
+				"action_partial_failure": "{failed} de {total} fallaron.",
+				"chunks_failed": "{count} lote(s) fallaron",
+				"delete": "Eliminar en lote",
+				"delete_description": "¿Eliminar {count} registros seleccionados?",
+				"force_delete": "Eliminar definitivamente en lote",
+				"force_delete_description": "¿Eliminar permanentemente {count} registros seleccionados?",
+				"partial_delete_error": "{failed} de {total} eliminaciones fallaron.",
+				"processing_chunks": "Procesando {current} de {total}...",
+				"restore": "Restaurar en lote"
+			},
+			"columns": {
+				"actions": "Actions"
+			},
+			"comments": {
+				"actions": {
+					"mark_reviewed": "Mark Reviewed"
+				},
+				"fields": {
+					"author_email": "Author Email",
+					"target": "Target",
+					"text": "Text",
+					"text_aria": "Entrada de texto del comentario"
+				},
+				"filters": {
+					"target_kind": "Target Kind"
+				},
+				"lenses": {
+					"project": "Project Comments",
+					"task": "Task Comments"
+				},
+				"metrics": {
+					"project": "Project Comments",
+					"target_distribution": "Por objetivo",
+					"task": "Task Comments",
+					"total": "Comentarios totales",
+					"total_desc": "Todos los comentarios en todos los objetivos",
+					"total_subtitle": "Actividad de comentarios"
+				},
+				"nav_title": "Demo Comments",
+				"options": {
+					"project": "Project",
+					"task": "Task"
+				}
+			},
+			"confirm": {
+				"delete_description": "This action cannot be undone.",
+				"force_delete_description": "This permanently removes the record and related data.",
+				"inline_edit_description": "¿Guardar este cambio en línea ahora?",
+				"inline_edit_title": "Confirmar edición en línea"
+			},
+			"conflicts": {
+				"description": "Hay {count} conflictos de campo por revisar.",
+				"discard": "Descartar mis cambios",
+				"keep_mine": "Conservar el mío",
+				"local_value": "Mi valor",
+				"remote_value": "Valor remoto",
+				"review": "Revisar conflictos",
+				"title": "Este registro fue actualizado",
+				"use_theirs": "Usar el remoto"
+			},
+			"copy": {
+				"copied_tooltip": "¡Copiado!",
+				"tooltip": "Copiar al portapapeles"
+			},
+			"empty": "No records found.",
+			"export": {
+				"csv": "Exportar CSV",
+				"json": "Exportar JSON",
+				"limit_error": "La exportación está limitada a {limit} registros.",
+				"success_csv": "Exportación CSV iniciada",
+				"success_json": "Exportación JSON iniciada"
+			},
+			"fields": {
+				"created_at": "Creado el",
+				"updated_at": "Actualizado el"
+			},
+			"filters": {
+				"all": "All",
+				"clear": "Clear",
+				"created_range": "Rango de creación",
+				"no": "No",
+				"select_placeholder": "Select option",
+				"yes": "Sí"
+			},
+			"form": {
+				"add_pair": "Agregar par",
+				"auto_generate": "Generar automáticamente",
+				"characters_count": "{count} / {limit}",
+				"fix_errors": "Corrige los campos resaltados.",
+				"hide_content": "Ocultar contenido",
+				"invalid": "Invalid field value",
+				"key_placeholder": "Clave",
+				"markdown_placeholder": "## Contenido Markdown",
+				"maxlength_exceeded": "Excede la longitud máxima de {limit} caracteres",
+				"no_relation_options": "No options available",
+				"no_suggestions": "Sin sugerencias",
+				"remove_pair": "Eliminar par",
+				"required": "This field is required",
+				"show_content": "Mostrar contenido",
+				"slug_preview": "Vista previa del slug",
+				"suggestions_input": "Escriba para buscar sugerencias",
+				"suggestions_loading": "Cargando sugerencias…",
+				"upload": "Subir archivo",
+				"value_placeholder": "Valor"
+			},
+			"groups": {
+				"assignment": "Asignación",
+				"content": "Contenido",
+				"demo_data": "Demo Resources",
+				"main": "Principal",
+				"other": "Otros",
+				"overview": "Resumen",
+				"relations": "Relaciones",
+				"system": "Sistema"
+			},
+			"lenses": {
+				"all": "All Lenses"
+			},
+			"loading": "Loading resources...",
+			"peek": {
+				"empty": "No hay datos para mostrar.",
+				"loading": "Cargando..."
+			},
+			"projects": {
+				"actions": {
+					"archive": "Archive",
+					"attach_tag": "Attach Tag",
+					"export_csv": "Exportar CSV",
+					"feature": "Mark Featured",
+					"purge": "Purgar",
+					"purge_cancel_btn": "Cancelar",
+					"purge_confirm": "Esto eliminará permanentemente los proyectos seleccionados y todos los datos relacionados. Esta acción no se puede deshacer.",
+					"purge_confirm_btn": "Sí, purgar",
+					"seed_data": "Generar datos"
+				},
+				"fields": {
+					"budget": "Budget",
+					"code_snippet": "Fragmento de código",
+					"cover_image": "URL de imagen de portada",
+					"description": "Description",
+					"description_help": "Admite formato Markdown.",
+					"featured": "Featured",
+					"name": "Name",
+					"owner_email": "Owner Email",
+					"owner_email_placeholder": "propietario@ejemplo.com",
+					"settings_json": "Configuración JSON",
+					"slug": "Slug",
+					"spec_sheet": "URL de ficha técnica",
+					"status": "Status",
+					"tag": "Tag",
+					"tags": "Tags",
+					"tasks": "Tasks"
+				},
+				"filters": {
+					"featured": "Featured",
+					"featured_only": "Featured Only",
+					"owner_1": "Propietario 1",
+					"owner_2": "Propietario 2",
+					"regular_only": "Regular Only",
+					"status": "Status"
+				},
+				"lenses": {
+					"active": "Active Projects",
+					"archived": "Archived Projects",
+					"featured": "Featured Projects"
+				},
+				"metrics": {
+					"active": "Proyectos activos",
+					"active_desc": "Proyectos actualmente activos",
+					"active_subtitle": "Estado: activo",
+					"budget": "Presupuesto activo",
+					"budget_desc": "Presupuesto total de proyectos activos",
+					"budget_subtitle": "En todos los proyectos activos",
+					"completion": "Completado",
+					"error_rate": "Tasa de errores",
+					"featured": "Proyectos destacados",
+					"featured_desc": "Proyectos marcados como destacados",
+					"featured_subtitle": "Proyectos seleccionados",
+					"total": "Proyectos totales",
+					"total_desc": "Todos los proyectos registrados",
+					"total_subtitle": "Portafolio de proyectos"
+				},
+				"nav_title": "Demo Projects",
+				"options": {
+					"status_active": "Active",
+					"status_archived": "Archived",
+					"status_draft": "Draft"
+				}
+			},
+			"queued_actions": {
+				"cancel_job": "Cancelar",
+				"enqueued": "Acción en cola para procesamiento en segundo plano",
+				"no_active_jobs": "No hay tareas activas",
+				"panel_title": "Tareas en segundo plano",
+				"progress": "{processed} de {total} procesados",
+				"status_cancelled": "Cancelado",
+				"status_completed": "Completado",
+				"status_failed": "Fallido",
+				"status_pending": "Pendiente",
+				"status_running": "Ejecutando",
+				"will_run_in_background": "Esta acción se ejecutará en segundo plano"
+			},
+			"rows_per_page": "Rows per page",
+			"search_placeholder": "Search resources...",
+			"sections": {
+				"details": "Details",
+				"preview": "Preview"
+			},
+			"selected": "{selected} of {total} selected",
+			"tags": {
+				"fields": {
+					"color": "Color",
+					"name": "Name"
+				},
+				"metrics": {
+					"total": "Etiquetas totales",
+					"total_desc": "Todas las etiquetas disponibles",
+					"total_subtitle": "Biblioteca de etiquetas"
+				},
+				"nav_title": "Demo Tags"
+			},
+			"tasks": {
+				"actions": {
+					"assign_to_me": "Asignarme",
+					"mark_done": "Mark Done",
+					"mark_in_progress": "Mark In Progress",
+					"queued_bulk_process": "Procesamiento masivo en cola",
+					"quick_done": "Marcar listo"
+				},
+				"fields": {
+					"assignee_email": "Assignee Email",
+					"estimate_hours": "Estimate Hours",
+					"priority": "Priority",
+					"project": "Project",
+					"status": "Status",
+					"title": "Title"
+				},
+				"filters": {
+					"priority": "Priority",
+					"status": "Status"
+				},
+				"lenses": {
+					"completed": "Completed Tasks",
+					"due": "Due Tasks"
+				},
+				"metrics": {
+					"completion_rate": "Tasa de finalización",
+					"completion_rate_desc": "Hechas vs. tareas totales",
+					"completion_rate_subtitle": "Progreso general",
+					"done": "Hecho",
+					"done_desc": "Tareas marcadas como completadas",
+					"done_subtitle": "Trabajo terminado",
+					"estimate": "Horas estimadas",
+					"estimate_by_status": "Estimación por estado",
+					"estimate_desc": "Total de horas de trabajo estimadas",
+					"estimate_subtitle": "En todas las tareas",
+					"in_progress": "En progreso",
+					"in_progress_desc": "Tareas en las que se está trabajando",
+					"in_progress_subtitle": "Trabajo activo",
+					"priority_split": "Distribución por prioridad",
+					"status_trend": "Tendencia de estado",
+					"todo": "Pendiente",
+					"todo_desc": "Tareas pendientes de inicio",
+					"todo_subtitle": "Elementos del backlog"
+				},
+				"nav_title": "Demo Tasks",
+				"options": {
+					"done": "Done",
+					"high": "High",
+					"in_progress": "In Progress",
+					"low": "Low",
+					"medium": "Medium",
+					"todo": "Todo"
+				}
+			},
+			"toasts": {
+				"action_error": "Action failed",
+				"action_success": "Action completed",
+				"created": "Resource created",
+				"deleted": "Record deleted",
+				"force_deleted": "Record permanently deleted",
+				"replicated": "Record replicated",
+				"restored": "Record restored",
+				"save_error": "Failed to save resource",
+				"updated": "Resource updated"
+			},
+			"trashed": {
+				"only": "Only Trashed",
+				"with": "With Trashed",
+				"without": "Without Trashed"
+			},
+			"values": {
+				"enabled": "Enabled",
+				"masked": "••••••••",
+				"no": "No",
+				"pairs_count": "{count} pares",
+				"selected_count": "{count} seleccionados",
+				"yes": "Yes"
+			}
 		},
 		"settings": {
 			"add_email": "Agregar Email",
@@ -227,6 +629,7 @@
 				"ban_failed": "Error al bloquear usuario: {message}",
 				"banned": "Usuario bloqueado",
 				"impersonate_failed": "Error al suplantar usuario: {message}",
+				"impersonation_started": "Suplantación de usuario iniciada",
 				"note_added": "Nota agregada",
 				"note_failed": "Error al agregar nota: {message}",
 				"priority_failed": "Error al actualizar prioridad: {message}",
@@ -247,7 +650,7 @@
 		}
 	},
 	"app": {
-		"name": "SaaS Starter",
+		"name": "Promus",
 		"sidebar": {
 			"admin_panel": "Panel de Admin",
 			"community_chat": "Chat comunitario",
@@ -269,47 +672,47 @@
 		}
 	},
 	"aria": {
+		"actions": "Acciones",
 		"breadcrumb": "migas de pan",
 		"change_language": "Cambiar idioma",
 		"close": "Cerrar",
+		"confirmation": "Confirmación",
+		"copied": "Copiado",
+		"copy": "Copiar",
+		"copy_failed": "Error al copiar",
+		"drag_to_reorder": "Arrastrar para reordenar",
 		"feedback_close": "Cerrar comentarios",
 		"feedback_open": "Abrir comentarios",
 		"github_repository": "Repositorio de GitHub",
 		"go_back": "Volver",
-		"home": "inicio",
-		"logout": "Cerrar sesión",
-		"menu_close": "Cerrar menú",
-		"menu_open": "Abrir menú",
-		"remove_attachment": "Eliminar adjunto",
-		"select_value": "Seleccionar un valor",
-		"toggle_sidebar": "Alternar barra lateral",
-		"loading": "Cargando",
-		"more": "Más",
-		"toggle_theme": "Cambiar tema",
-		"copy": "Copiar",
-		"copied": "Copiado",
-		"copy_failed": "Error al copiar",
-		"scroll_to_bottom": "Desplazarse al final",
-		"show_password": "Mostrar contraseña",
 		"hide_password": "Ocultar contraseña",
-		"drag_to_reorder": "Arrastrar para reordenar",
-		"pagination_first": "Primera página",
-		"pagination_previous": "Página anterior",
-		"pagination_next": "Página siguiente",
-		"pagination_last": "Última página",
-		"view": "Ver",
-		"limit": "Límite",
-		"target": "Destino",
-		"reviewer": "Revisor",
-		"confirmation": "Confirmación",
+		"home": "inicio",
 		"interactive_pointer_tracking_area": "Área interactiva de seguimiento del puntero",
-		"notification_toggle_for_email": "{field} para {email}",
-		"select_all": "Seleccionar todo",
-		"select_row": "Seleccionar fila",
+		"limit": "Límite",
+		"loading": "Cargando",
 		"login_with_apple": "Iniciar sesión con Apple",
 		"login_with_google": "Iniciar sesión con Google",
 		"login_with_meta": "Iniciar sesión con Meta",
-		"actions": "Acciones"
+		"logout": "Cerrar sesión",
+		"menu_close": "Cerrar menú",
+		"menu_open": "Abrir menú",
+		"more": "Más",
+		"notification_toggle_for_email": "{field} para {email}",
+		"pagination_first": "Primera página",
+		"pagination_last": "Última página",
+		"pagination_next": "Página siguiente",
+		"pagination_previous": "Página anterior",
+		"remove_attachment": "Eliminar adjunto",
+		"reviewer": "Revisor",
+		"scroll_to_bottom": "Desplazarse al final",
+		"select_all": "Seleccionar todo",
+		"select_row": "Seleccionar fila",
+		"select_value": "Seleccionar un valor",
+		"show_password": "Mostrar contraseña",
+		"target": "Destino",
+		"toggle_sidebar": "Alternar barra lateral",
+		"toggle_theme": "Cambiar tema",
+		"view": "Ver"
 	},
 	"auth": {
 		"back_to_home": "Volver al inicio",
@@ -397,7 +800,6 @@
 			"no_account": "¿No tienes cuenta?",
 			"oauth_github": "GitHub",
 			"oauth_google": "Google",
-			"oauth_last_used": "Último usado",
 			"or_continue_with": "O continuar con",
 			"passkey_button": "Iniciar sesión con Passkey",
 			"password_label": "Contraseña",
@@ -548,7 +950,8 @@
 	"common": {
 		"adding": "Agregando...",
 		"cancel": "Cancelar",
-		"confirm": "Confirmar"
+		"confirm": "Confirmar",
+		"save": "Guardar"
 	},
 	"email": {
 		"body": {
@@ -583,6 +986,10 @@
 		"section_label": "Inicio",
 		"tagline": "Foco en tu producto. Lanzamiento más rápido.",
 		"title": "Plantilla SaaS Starter"
+	},
+	"impersonation": {
+		"banner_text": "Estás viendo como otro usuario",
+		"stop_button": "Dejar de suplantar"
 	},
 	"integrations": {
 		"cards": {
@@ -653,6 +1060,22 @@
 				"description": "Redirigiendo al panel de administración.",
 				"title": "Admin"
 			},
+			"resource_create": {
+				"description": "Create a new {resource} record.",
+				"title": "Create {resource}"
+			},
+			"resource_detail": {
+				"description": "Review {resource} details and actions.",
+				"title": "{resource} Details"
+			},
+			"resource_edit": {
+				"description": "Edit a {resource} record.",
+				"title": "Edit {resource}"
+			},
+			"resource_index": {
+				"description": "Browse and manage {resource}.",
+				"title": "{resource}"
+			},
 			"settings": {
 				"description": "Configura destinatarios y preferencias de notificaciones de admin.",
 				"title": "Ajustes de Admin"
@@ -709,7 +1132,7 @@
 			}
 		},
 		"home": {
-			"description": "La plantilla SaaS definitiva con SvelteKit, Convex y tecnologías web modernas. Construye tu marca en minutos, no en semanas. Enfócate en tu producto y lanza más rápido.",
+			"description": "Starter SaaS para SvelteKit con auth, pagos, email y analítica.",
 			"title": "Construye y lanza tu producto más rápido"
 		},
 		"pricing": {
@@ -807,7 +1230,8 @@
 			"dialog_description": "Busca una página para navegar.",
 			"dialog_title": "Buscar páginas",
 			"footer": {
-				"go_to_page": "Ir a la página"
+				"go_to_page": "Ir a la página",
+				"open_new_tab": "Clic para abrir en nueva pestaña"
 			},
 			"groups": {
 				"admin": "Admin",

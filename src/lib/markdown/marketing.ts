@@ -3,6 +3,8 @@ import type {
 	MarketingMarkdownRenderContext,
 	MarketingMarkdownSection
 } from './types';
+import { getLocalizedMarketingUrls } from '$lib/marketing/public-routes';
+import { SUPPORTED_LANGUAGES } from '$lib/i18n/languages';
 
 const MARKDOWN_CONTENT_TYPE = 'text/markdown; charset=utf-8';
 const TEXT_CONTENT_TYPE = 'text/plain; charset=utf-8';
@@ -114,8 +116,20 @@ export function createMarketingMarkdownErrorResponse(): Response {
 	});
 }
 
+function xmlEscape(value: string): string {
+	return value
+		.replaceAll('&', '&amp;')
+		.replaceAll('<', '&lt;')
+		.replaceAll('>', '&gt;')
+		.replaceAll('"', '&quot;')
+		.replaceAll("'", '&apos;');
+}
+
 export function renderLlmsTxt(origin: string): string {
 	const baseOrigin = origin.replace(/\/$/, '');
+	const [homeUrl, aboutUrl, pricingUrl] = getLocalizedMarketingUrls(baseOrigin).filter((url) =>
+		url.startsWith(`${baseOrigin}/en`)
+	);
 
 	return [
 		'# SaaS Starter',
@@ -128,9 +142,9 @@ export function renderLlmsTxt(origin: string): string {
 		'',
 		'## Canonical Pages',
 		'',
-		`- [Home](${baseOrigin}/en): product overview, positioning, and core integrations`,
-		`- [About](${baseOrigin}/en/about): team overview and roles`,
-		`- [Pricing](${baseOrigin}/en/pricing): pricing tiers, included features, and billing notes`,
+		`- [Home](${homeUrl}): product overview, positioning, and core integrations`,
+		`- [About](${aboutUrl}): team overview and roles`,
+		`- [Pricing](${pricingUrl}): pricing tiers, included features, and billing notes`,
 		'',
 		'## Markdown Access',
 		'',
@@ -149,6 +163,61 @@ export function createLlmsTxtResponse(origin: string): Response {
 		status: 200,
 		headers: {
 			'Content-Type': TEXT_CONTENT_TYPE,
+			'Cache-Control': MARKETING_CACHE_CONTROL
+		}
+	});
+}
+
+export function renderRobotsTxt(origin: string): string {
+	const baseOrigin = origin.replace(/\/$/, '');
+	const disallowLines = SUPPORTED_LANGUAGES.flatMap((language) => [
+		`Disallow: /${language.code}/app`,
+		`Disallow: /${language.code}/admin`,
+		`Disallow: /${language.code}/emails`
+	]);
+
+	return [
+		'User-agent: *',
+		'Allow: /',
+		'',
+		'Disallow: /api/',
+		...disallowLines,
+		'',
+		`Sitemap: ${baseOrigin}/sitemap.xml`,
+		''
+	].join('\n');
+}
+
+export function createRobotsTxtResponse(origin: string): Response {
+	return new Response(renderRobotsTxt(origin), {
+		status: 200,
+		headers: {
+			'Content-Type': TEXT_CONTENT_TYPE,
+			'Cache-Control': MARKETING_CACHE_CONTROL
+		}
+	});
+}
+
+export function renderSitemapXml(origin: string): string {
+	const urls = getLocalizedMarketingUrls(origin);
+	const urlEntries = urls
+		.map((url) => `  <url>\n    <loc>${xmlEscape(url)}</loc>\n  </url>`)
+		.join('\n');
+
+	return [
+		'<?xml version="1.0" encoding="UTF-8"?>',
+		'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+		urlEntries,
+		'</urlset>',
+		''
+	].join('\n');
+}
+
+export function createSitemapXmlResponse(origin: string): Response {
+	return new Response(renderSitemapXml(origin), {
+		status: 200,
+		headers: {
+			'Content-Type': 'application/xml; charset=utf-8',
 			'Cache-Control': MARKETING_CACHE_CONTROL
 		}
 	});
