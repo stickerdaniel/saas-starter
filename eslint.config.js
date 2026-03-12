@@ -8,8 +8,14 @@ import { defineConfig } from 'eslint/config';
 import globals from 'globals';
 import ts from 'typescript-eslint';
 import svelteConfig from './svelte.config.js';
+import requireMarketingMarkdownRule from './eslint/rules/require-marketing-markdown.js';
 
 const gitignorePath = path.resolve(import.meta.dirname, '.gitignore');
+const localPlugin = {
+	rules: {
+		'require-marketing-markdown': requireMarketingMarkdownRule
+	}
+};
 
 export default defineConfig(
 	includeIgnoreFile(gitignorePath),
@@ -112,6 +118,15 @@ export default defineConfig(
 		ignores: ['src/lib/convex/**'],
 		rules: {
 			'no-console': ['error', { allow: ['warn', 'error'] }]
+		}
+	},
+	{
+		files: ['src/routes/**/*.svelte'],
+		plugins: {
+			local: localPlugin
+		},
+		rules: {
+			'local/require-marketing-markdown': 'error'
 		}
 	},
 	// Convex best-practice rules (legacy plugin config converted via fixupConfigRules)
