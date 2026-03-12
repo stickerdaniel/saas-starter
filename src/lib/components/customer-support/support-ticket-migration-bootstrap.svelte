@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import { page } from '$app/state';
-	import { useAuth } from '$lib/auth-svelte.svelte';
+	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
 	import { useConvexClient } from 'convex-svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { api } from '$lib/convex/_generated/api';

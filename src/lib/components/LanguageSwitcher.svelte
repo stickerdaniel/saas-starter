@@ -6,7 +6,7 @@
 	import { LanguageSwitcher as LanguageSwitcherUI } from '$lib/components/ui/language-switcher';
 	import type { LanguageSwitcherProps } from './ui/language-switcher/types';
 	import { useLanguage } from '$lib/utils/i18n';
-	import { useAuth } from '$lib/auth-svelte.svelte';
+	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
 	import { updateUserWithLocale } from '$lib/auth-client';
 
 	interface Props {

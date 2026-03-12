@@ -10,7 +10,8 @@ const config = {
 	kit: {
 		adapter: adapter(),
 		alias: {
-			$blocks: 'src/blocks'
+			$blocks: 'src/blocks',
+			'@mmailaender/convex-better-auth-svelte/svelte': 'src/lib/auth-svelte.svelte.ts'
 		},
 		experimental: {
 			remoteFunctions: true
