@@ -6,7 +6,7 @@
 	import * as Dialog from '$lib/components/ui/dialog/index.js';
 	import * as Kbd from '$lib/components/ui/kbd/index.js';
 	import { localizedHref } from '$lib/utils/i18n';
-	import { useAuth } from '$lib/auth-svelte.svelte';
+	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
 	import { watch } from 'runed';
 	import { getTranslate } from '@tolgee/svelte';
 	import { useQuery } from 'convex-svelte';

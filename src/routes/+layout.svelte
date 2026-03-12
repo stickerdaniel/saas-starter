@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { createSvelteAuthClient } from '$lib/auth-svelte.svelte';
+	import { createSvelteAuthClient } from '@mmailaender/convex-better-auth-svelte/svelte';
 	import { ModeWatcher } from 'mode-watcher';
 	import AppAutumnProvider from '$lib/components/app/app-autumn-provider.svelte';
 	import AppPostHogBootstrap from '$lib/components/app/app-posthog-bootstrap.svelte';

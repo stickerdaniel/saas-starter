@@ -1,7 +1,7 @@
 <script lang="ts">
 	import * as v from 'valibot';
 	import { authClient } from '$lib/auth-client';
-	import { useAuth } from '$lib/auth-svelte.svelte';
+	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
 	import { useQuery } from 'convex-svelte';
 	import { api } from '$lib/convex/_generated/api';
 	import SEOHead from '$lib/components/SEOHead.svelte';
