@@ -995,55 +995,55 @@
 		"cards": {
 			"autumn_stripe": {
 				"button": "Visit Autumn",
-				"description": "Billing and payments for SaaS.",
+				"description": "Autumn handles billing, feature gates, and usage tracking—no webhook complexity. Stripe for payment processing.",
 				"secondary_button": "Visit Stripe",
 				"secondary_title": "Stripe",
 				"title": "Autumn + Stripe"
 			},
 			"better_auth": {
 				"button": "Visit Better Auth",
-				"description": "Auth with sessions and passkeys.",
+				"description": "The most comprehensive authentication library for TypeScript. Sessions, OAuth, passkeys, and multi-tenancy out of the box.",
 				"title": "Better Auth"
 			},
 			"convex": {
 				"button": "Visit Convex",
-				"description": "Backend with realtime data.",
+				"description": "The open source Firebase alternative. Built on PostgreSQL - world's most advanced relational database.",
 				"title": "Convex"
 			},
 			"posthog": {
 				"button": "Visit PostHog",
-				"description": "Product analytics and events.",
+				"description": "PostHog is an open-source product analytics platform to track user behavior and measure conversions.",
 				"title": "PostHog"
 			},
 			"resend": {
 				"button": "Visit Resend",
-				"description": "API for transactional email.",
+				"description": "The email API for developers. Build and send transactional emails with a modern, reliable API built for scale.",
 				"title": "Resend"
 			},
 			"sentry": {
 				"button": "Visit Sentry",
-				"description": "Monitoring and error tracking.",
+				"description": "Application monitoring and error tracking. Identify issues before your users do with real-time alerts and detailed stack traces.",
 				"title": "Sentry"
 			},
 			"shadcn_svblocks": {
 				"button": "Visit Shadcn Svelte",
-				"description": "UI blocks and components.",
+				"description": "A set of beautifully-designed, accessible components built with Tailwind CSS v4 and Bits UI.",
 				"secondary_button": "SVBlocks",
 				"secondary_title": "SVBlocks",
 				"title": "Shadcn Svelte + SVBlocks"
 			},
 			"svelte": {
 				"button": "Visit Svelte 5",
-				"description": "Fast UI for the web.",
+				"description": "The most lovved frontend framework. A simple, performant, and future-proof way to build your web app.",
 				"title": "Svelte 5"
 			},
 			"tolgee": {
 				"button": "Visit Tolgee",
-				"description": "Translations with in-context editing.",
+				"description": "Internationalization done right. In-context editing and ML-powered translation for a seamless localization workflow.",
 				"title": "Tolgee"
 			}
 		},
-		"description": "Modern stack. Fast to build. Easy to extend.",
+		"description": "Super fast solutions that are actually fun to build with",
 		"title": "Real {year} Developer Experience"
 	},
 	"meta": {
