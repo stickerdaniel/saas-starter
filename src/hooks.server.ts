@@ -1,5 +1,5 @@
 import { sequence } from '@sveltejs/kit/hooks';
-import { redirect, type Handle, type Cookies } from '@sveltejs/kit';
+import { redirect, type Handle, type Cookies, type HandleServerError } from '@sveltejs/kit';
 import { dev } from '$app/environment';
 import { isSupportedLanguage, DEFAULT_LANGUAGE } from '$lib/i18n/languages';
 import { safeRedirectPath } from '$lib/utils/url';
@@ -141,6 +141,20 @@ const authFirstPattern: Handle = async function authFirstPattern({ event, resolv
 	}
 
 	return resolve(event);
+};
+
+// Temporary diagnostic logging for preview SSR failures.
+export const handleError: HandleServerError = ({ error, event, status, message }) => {
+	console.error('[SvelteKit Error]', {
+		path: event.url.pathname,
+		method: event.request.method,
+		status,
+		message,
+		error,
+		stack: error instanceof Error ? error.stack : undefined
+	});
+
+	return { message };
 };
 
 export const handle = sequence(handleDevOnlyRoutes, handleAuth, handleLanguage, authFirstPattern);
