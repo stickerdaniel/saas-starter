@@ -85,7 +85,7 @@ Note: Other components (`@convex-dev/better-auth`, `@convex-dev/rate-limiter`, `
 
 ### Tolgee CLI
 
-These commands use `dotenv` to load the local TOLGEE_API_KEY from `.env.local`:
+These commands use `varlock run` to load env vars from `.env.schema` + `.env.local`:
 
 - `bun run i18n:pull` - Download latest translations from Tolgee Cloud. Run this ALWAYS before making any changes to the `src/i18n/*` json translation files.
 - When adding new translation keys, ALWAYS add translations for ALL languages in the `src/i18n/*` json translation files.
@@ -103,6 +103,16 @@ These commands use `dotenv` to load the local TOLGEE_API_KEY from `.env.local`:
 - `preview` - Automatically set for preview deployment keys
 - `production` - Automatically set for production deployment keys
 - `deprecated` - Keys no longer in code (safe to delete after review)
+
+### Environment Variables
+
+- `.env.schema` — schema for SvelteKit/script env vars (types, sensitivity, descriptions, platform-injected vars)
+- `.env.convex.example` — Convex cloud backend vars (validated by `validate-convex-env.ts`)
+- `varlock load` — validate env config and see resolved values
+- `varlock run -- <cmd>` — run command with validated env + log redaction
+- `varlock scan` — scan for leaked secrets in codebase
+- `src/env.d.ts` — auto-generated TypeScript types for env vars
+- `VITE_*` vars exposed to browser must be marked `@public` in schema
 
 ## Architecture Overview
 
@@ -194,7 +204,7 @@ This project uses **PostHog** for product analytics with an optional **Cloudflar
 - Located in `e2e/` directory
 - Test users are automatically created with unique emails each run (via globalSetup) and deleted after tests (via globalTeardown)
 - Requires `.env.test` with: AUTH_E2E_TEST_SECRET (must match Convex backend) and PUBLIC_CONVEX_URL
-- See `.env.test.example` for setup instructions
+- See `.env.schema` for all available env vars with types and descriptions
 
 #### `data-testid` convention
 

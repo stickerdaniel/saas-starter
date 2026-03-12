@@ -1,10 +1,10 @@
 import { defineConfig, devices } from '@playwright/test';
 
 /**
- * Read environment variables from .env.test
+ * Load environment variables via Varlock schema
+ * VARLOCK_ENV=test is set by the test:e2e script to load .env.test
  */
-import dotenv from 'dotenv';
-dotenv.config({ path: '.env.test' });
+import 'varlock/auto-load';
 
 // In CI, tests run against actual Vercel preview deployment (PUBLIC_SITE_URL set by workflow)
 // Locally, tests run against dev server on localhost
