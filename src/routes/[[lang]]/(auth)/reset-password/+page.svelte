@@ -8,7 +8,7 @@
 	import { Button } from '$lib/components/ui/button/index.js';
 	import * as Field from '$lib/components/ui/field/index.js';
 	import { authClient } from '$lib/auth-client.js';
-	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
+	import { useAuth } from '$lib/auth-svelte.svelte';
 	import { localizedHref } from '$lib/utils/i18n';
 	import { resolve } from '$app/paths';
 	import { T, getTranslate } from '@tolgee/svelte';

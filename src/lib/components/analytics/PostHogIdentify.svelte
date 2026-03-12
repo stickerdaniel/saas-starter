@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
+	import { useAuth } from '$lib/auth-svelte.svelte';
 	import { page } from '$app/state';
 	import { onMount } from 'svelte';
 	import { getPosthog, onPosthogReady } from '$lib/analytics/posthog';
