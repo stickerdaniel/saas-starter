@@ -342,6 +342,7 @@ async function main(): Promise<void> {
 
 	// Build environment for SvelteKit with correct Convex URLs
 	const buildEnv: Record<string, string | undefined> = { ...process.env };
+	delete buildEnv.__VARLOCK_ENV;
 
 	// Use actual deployment URL from convex deploy output (most reliable)
 	// Falls back to parsing CONVEX_DEPLOY_KEY if output parsing failed
