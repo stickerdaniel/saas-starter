@@ -31,18 +31,22 @@ function parseRootAttributes(svgContent: string): {
 	namespaceAttrs: Record<string, string>;
 	presentationAttrs: Record<string, string>;
 	viewBox: string | null;
+	width: string | null;
+	height: string | null;
 	innerContent: string;
 } {
-	// Extract the opening <svg ...> tag
-	const svgTagMatch = svgContent.match(/<svg\s([^>]*)>/s);
+	// Extract the opening <svg> tag (with or without attributes)
+	const svgTagMatch = svgContent.match(/<svg(\s[^>]*)?\s*>/s);
 	if (!svgTagMatch) {
 		throw new Error('Could not parse <svg> tag from source');
 	}
 
-	const attrsString = svgTagMatch[1];
+	const attrsString = svgTagMatch[1]?.trim() ?? '';
 	const namespaceAttrs: Record<string, string> = {};
 	const presentationAttrs: Record<string, string> = {};
 	let viewBox: string | null = null;
+	let width: string | null = null;
+	let height: string | null = null;
 
 	// Parse attributes from the <svg> tag
 	const attrRegex = /([\w:.-]+)\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
@@ -52,6 +56,10 @@ function parseRootAttributes(svgContent: string): {
 		const value = doubleQ ?? singleQ;
 		if (name === 'viewBox') {
 			viewBox = value;
+		} else if (name === 'width') {
+			width = value;
+		} else if (name === 'height') {
+			height = value;
 		} else if (isNamespaceAttr(name)) {
 			namespaceAttrs[name] = value;
 		} else if (!STRUCTURAL_ATTRS.has(name)) {
@@ -66,18 +74,32 @@ function parseRootAttributes(svgContent: string): {
 	}
 
 	// Extract inner content (everything between <svg> and </svg>)
-	const innerMatch = svgContent.match(/<svg\s[^>]*>([\s\S]*)<\/svg>/);
+	const innerMatch = svgContent.match(/<svg(?:\s[^>]*)?\s*>([\s\S]*)<\/svg>/);
 	const innerContent = innerMatch ? innerMatch[1] : '';
 
-	return { namespaceAttrs, presentationAttrs, viewBox, innerContent };
+	return { namespaceAttrs, presentationAttrs, viewBox, width, height, innerContent };
 }
 
 function buildWrapperSvg(source: string): string {
-	const { namespaceAttrs, presentationAttrs, viewBox, innerContent } = parseRootAttributes(source);
+	const { namespaceAttrs, presentationAttrs, viewBox, width, height, innerContent } =
+		parseRootAttributes(source);
 
-	// Use source viewBox or fall back to 0 0 24 24 (common icon size)
-	const srcViewBox = viewBox ?? '0 0 24 24';
-	const [minX, minY, vbWidth, vbHeight] = srcViewBox.split(/\s+/).map(Number);
+	// Resolve canvas dimensions: viewBox > width/height > error
+	let minX = 0;
+	let minY = 0;
+	let vbWidth: number;
+	let vbHeight: number;
+
+	if (viewBox) {
+		[minX, minY, vbWidth, vbHeight] = viewBox.split(/\s+/).map(Number);
+	} else if (width && height) {
+		vbWidth = parseFloat(width);
+		vbHeight = parseFloat(height);
+	} else {
+		throw new Error(
+			'Source SVG has no viewBox or width/height attributes. Cannot determine canvas dimensions.'
+		);
+	}
 
 	// Calculate logo positioning within the output, accounting for viewBox origin
 	const logoSize = SIZE - PADDING * 2; // area available for the logo
