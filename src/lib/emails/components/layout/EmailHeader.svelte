@@ -15,7 +15,7 @@
 	<Row>
 		<Column align="left" class="px-6">
 			<Img
-				src="__BASEURL__/logo.png"
+				src="__BASEURL__/logo-email.png"
 				width="28"
 				height="28"
 				alt="SaaS Starter Logo"
