@@ -155,7 +155,25 @@ export default defineSchema({
 	})
 		.index('by_fileId', ['fileId'])
 		.index('by_storageId', ['storageId'])
-		.index('by_url', ['url'])
+		.index('by_url', ['url']),
+
+	// Founder welcome emails - delayed personal welcome from a team member
+	// Sent ~16-19 min after signup to feel organic. Config stored in adminSettings.
+	founderWelcomeEmails: defineTable({
+		userId: v.string(),
+		signupEmail: v.string(),
+		delayMs: v.number(),
+		status: v.union(
+			v.literal('pending_verification'),
+			v.literal('scheduled'),
+			v.literal('sent'),
+			v.literal('skipped')
+		),
+		scheduledFnId: v.optional(v.id('_scheduled_functions')),
+		sentAt: v.optional(v.number()),
+		skippedReason: v.optional(v.string()),
+		createdAt: v.number()
+	}).index('by_user', ['userId'])
 
 	// Note: The agent component automatically creates the following tables:
 	// - agent:threads - Conversation threads for customer support
