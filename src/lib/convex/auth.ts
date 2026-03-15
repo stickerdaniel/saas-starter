@@ -11,6 +11,7 @@ import { betterAuth, type BetterAuthOptions } from 'better-auth';
 import authSchema from './betterAuth/schema';
 import authConfig from './auth.config';
 import { getBetterAuthSecret, getSiteUrl, googleOAuth, githubOAuth } from './env';
+import { getFounderWelcomeDelay } from './emails/helpers';
 
 // Required for triggers to work - references internal auth functions
 const authFunctions: AuthFunctions = internal.auth;
@@ -107,6 +108,41 @@ export const authComponent = createClient<DataModel, typeof authSchema>(componen
 						console.error('Failed to create admin preferences:', error);
 					}
 				}
+
+				// Founder welcome email: check if feature is enabled
+				const contactSetting = await ctx.db
+					.query('adminSettings')
+					.withIndex('by_key', (q: any) => q.eq('key', 'founderWelcome.contactUserId'))
+					.unique();
+
+				if (contactSetting) {
+					const delayMs = getFounderWelcomeDelay();
+					if (user.emailVerified) {
+						// OAuth signup: schedule immediately
+						const id = await ctx.db.insert('founderWelcomeEmails', {
+							userId: user._id,
+							signupEmail: user.email,
+							delayMs,
+							status: 'scheduled',
+							createdAt: Date.now()
+						});
+						const scheduledFnId = await ctx.scheduler.runAfter(
+							delayMs,
+							internal.emails.send.sendFounderWelcomeEmail,
+							{ founderWelcomeId: id }
+						);
+						await ctx.db.patch(id, { scheduledFnId });
+					} else {
+						// Email signup: wait for verification
+						await ctx.db.insert('founderWelcomeEmails', {
+							userId: user._id,
+							signupEmail: user.email,
+							delayMs,
+							status: 'pending_verification',
+							createdAt: Date.now()
+						});
+					}
+				}
 			},
 
 			/**
@@ -124,6 +160,28 @@ export const authComponent = createClient<DataModel, typeof authSchema>(componen
 
 				if (becameVerified) {
 					await scheduleNewUserSignupNotification(ctx, newUser);
+
+					// Founder welcome email: schedule if pending
+					const founderRow = await ctx.db
+						.query('founderWelcomeEmails')
+						.withIndex('by_user', (q: any) => q.eq('userId', newUser._id))
+						.unique();
+
+					if (founderRow && founderRow.status === 'pending_verification') {
+						if (newUser.email === founderRow.signupEmail) {
+							const scheduledFnId = await ctx.scheduler.runAfter(
+								founderRow.delayMs,
+								internal.emails.send.sendFounderWelcomeEmail,
+								{ founderWelcomeId: founderRow._id }
+							);
+							await ctx.db.patch(founderRow._id, { status: 'scheduled', scheduledFnId });
+						} else {
+							await ctx.db.patch(founderRow._id, {
+								status: 'skipped',
+								skippedReason: 'email_changed'
+							});
+						}
+					}
 				}
 
 				try {

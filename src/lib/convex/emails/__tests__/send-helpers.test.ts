@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { isTestEmail, shouldSkipTestEmail, getFounderWelcomeDelay } from '../helpers';
 
 /**
  * Tests for email send helper functions.
@@ -6,11 +7,6 @@ import { describe, it, expect } from 'vitest';
  * Note: We test the helper logic directly since the actual send functions
  * are Convex internal mutations that require the full Convex runtime.
  */
-
-// Test the isTestEmail logic (mirrored from send.ts)
-function isTestEmail(email: string): boolean {
-	return email.endsWith('@e2e.example.com');
-}
 
 describe('isTestEmail', () => {
 	it('returns true for e2e test emails', () => {
@@ -45,15 +41,6 @@ describe('isTestEmail', () => {
 	});
 });
 
-// Test the shouldSkipTestEmail logic (mirrored from send.ts)
-function shouldSkipTestEmail(action: string, email: string): boolean {
-	if (isTestEmail(email)) {
-		// In actual code: console.log(`[${action}] Skipping test email: ${email}`);
-		return true;
-	}
-	return false;
-}
-
 describe('shouldSkipTestEmail', () => {
 	it('returns true and would log for test emails', () => {
 		expect(shouldSkipTestEmail('sendVerificationEmail', 'test@e2e.example.com')).toBe(true);
@@ -63,5 +50,18 @@ describe('shouldSkipTestEmail', () => {
 	it('returns false for regular emails', () => {
 		expect(shouldSkipTestEmail('sendVerificationEmail', 'user@example.com')).toBe(false);
 		expect(shouldSkipTestEmail('sendResetPasswordEmail', 'admin@company.com')).toBe(false);
+	});
+});
+
+describe('getFounderWelcomeDelay', () => {
+	it('returns value between 16 and 19 minutes (sampled 100x)', () => {
+		const MIN = 16 * 60 * 1000;
+		const MAX = 19 * 60 * 1000;
+
+		for (let i = 0; i < 100; i++) {
+			const delay = getFounderWelcomeDelay();
+			expect(delay).toBeGreaterThanOrEqual(MIN);
+			expect(delay).toBeLessThan(MAX);
+		}
 	});
 });

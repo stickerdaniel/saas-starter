@@ -8,6 +8,8 @@
  * @module
  */
 
+import type * as admin_founderWelcome_mutations from "../admin/founderWelcome/mutations.js";
+import type * as admin_founderWelcome_queries from "../admin/founderWelcome/queries.js";
 import type * as admin_mutations from "../admin/mutations.js";
 import type * as admin_notificationPreferences_index from "../admin/notificationPreferences/index.js";
 import type * as admin_notificationPreferences_mutations from "../admin/notificationPreferences/mutations.js";
@@ -32,6 +34,7 @@ import type * as emails__generated_passwordReset from "../emails/_generated/pass
 import type * as emails__generated_verification from "../emails/_generated/verification.js";
 import type * as emails__generated_verificationCode from "../emails/_generated/verificationCode.js";
 import type * as emails_events from "../emails/events.js";
+import type * as emails_helpers from "../emails/helpers.js";
 import type * as emails_mutations from "../emails/mutations.js";
 import type * as emails_queries from "../emails/queries.js";
 import type * as emails_resend from "../emails/resend.js";
@@ -65,6 +68,8 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  "admin/founderWelcome/mutations": typeof admin_founderWelcome_mutations;
+  "admin/founderWelcome/queries": typeof admin_founderWelcome_queries;
   "admin/mutations": typeof admin_mutations;
   "admin/notificationPreferences/index": typeof admin_notificationPreferences_index;
   "admin/notificationPreferences/mutations": typeof admin_notificationPreferences_mutations;
@@ -89,6 +94,7 @@ declare const fullApi: ApiFromModules<{
   "emails/_generated/verification": typeof emails__generated_verification;
   "emails/_generated/verificationCode": typeof emails__generated_verificationCode;
   "emails/events": typeof emails_events;
+  "emails/helpers": typeof emails_helpers;
   "emails/mutations": typeof emails_mutations;
   "emails/queries": typeof emails_queries;
   "emails/resend": typeof emails_resend;
