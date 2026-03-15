@@ -2,6 +2,10 @@
 
 This project is a saas template built with SvelteKit, Convex, Typescript and modern web technologies.
 
+### Cross-Platform Scripts
+
+All npm scripts must work on macOS, Linux, and Windows. Avoid `sh -c` or bash-specific syntax. Use TypeScript scripts with `bun` for complex logic and `bun-tasks` for parallel execution. Bun's built-in cross-platform shell handles `VAR=$OTHER_VAR command` syntax in package.json scripts (see `_tolgee:*` scripts for the pattern).
+
 ## btca
 
 When you need up-to-date information about technologies used in this project, use btca to query source repositories directly.

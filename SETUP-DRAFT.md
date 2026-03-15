@@ -88,7 +88,7 @@ The build process (via `scripts/vercel-deploy.ts`) automatically executes these 
 
 Tolgee CLI is configured via `.tolgeerc` in the project root. The project uses a **Project API Key** (starts with `tgpak_`), which automatically includes the project ID - no manual configuration needed.
 
-The CLI uses the `TOLGEE_API_KEY` environment variable for authentication in CI/CD (see `.env.schema`). Locally, the key is stored in `.env.local` (which is gitignored).
+Locally, the CLI derives `TOLGEE_API_KEY` from `VITE_TOLGEE_API_KEY` via the `i18n:*` npm scripts. In CI/CD and Vercel, `TOLGEE_API_KEY` is set directly as an environment variable.
 
 
 **CI/CD Integration:**
@@ -230,7 +230,7 @@ This project uses multiple environment variable configurations organized by purp
 
 ```bash
 # Create .env.local and fill in values (see .env.schema for all available vars)
-# Required: CONVEX_DEPLOYMENT, PUBLIC_CONVEX_URL, VITE_TOLGEE_API_KEY, TOLGEE_API_KEY
+# Required: CONVEX_DEPLOYMENT, PUBLIC_CONVEX_URL, VITE_TOLGEE_API_KEY
 ```
 
 **2. GitHub Actions** (Repository Secrets)
@@ -286,8 +286,7 @@ bunx convex env set KEY value
 
 - `CONVEX_DEPLOYMENT` - Dev deployment name
 - `PUBLIC_CONVEX_URL` - Dev Convex URL
-- `VITE_TOLGEE_API_KEY` - DevTools in-context editing
-- `TOLGEE_API_KEY` - CLI for pulling translations
+- `VITE_TOLGEE_API_KEY` - DevTools in-context editing + CLI (derived via npm scripts)
 
 **E2E Testing** (`.env.test`):
 
