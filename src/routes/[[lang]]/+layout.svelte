@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Tolgee, DevTools, TolgeeProvider } from '@tolgee/svelte';
+	import type { TolgeeStaticData } from '@tolgee/svelte';
 	import { FormatIcu } from '@tolgee/format-icu';
 	import { browser } from '$app/environment';
 	import AppAuthOAuthBootstrap from '$lib/components/app/app-auth-oauth-bootstrap.svelte';
@@ -8,6 +9,13 @@
 	import type { LayoutData } from './$types';
 	import { watch } from 'runed';
 	import { languageContext } from '$lib/i18n/context';
+	import en from '../../i18n/en.json';
+	import de from '../../i18n/de.json';
+	import es from '../../i18n/es.json';
+	import fr from '../../i18n/fr.json';
+
+	// Eager imports so Tolgee's cache is populated at init, enabling SSR rendering
+	const translations: TolgeeStaticData = { en, de, es, fr };
 
 	let { data, children }: { data: LayoutData; children: any } = $props();
 
@@ -24,8 +32,7 @@
 		.init({
 			language: data.lang,
 
-			// Eager imports via data.translations so Tolgee cache is populated at init (enables SSR)
-			staticData: data.translations,
+			staticData: translations,
 
 			availableLanguages: ['en', 'de', 'es', 'fr'],
 			defaultLanguage: 'en',
