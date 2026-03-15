@@ -24,14 +24,8 @@
 		.init({
 			language: data.lang,
 
-			// Production: Use static translations bundled at build-time (pulled via CLI)
-			// Development: DevTools can still use API key if VITE_TOLGEE_API_KEY is set
-			staticData: {
-				en: () => import('../../i18n/en.json'),
-				de: () => import('../../i18n/de.json'),
-				es: () => import('../../i18n/es.json'),
-				fr: () => import('../../i18n/fr.json')
-			},
+			// Eager imports via data.translations so Tolgee cache is populated at init (enables SSR)
+			staticData: data.translations,
 
 			availableLanguages: ['en', 'de', 'es', 'fr'],
 			defaultLanguage: 'en',
