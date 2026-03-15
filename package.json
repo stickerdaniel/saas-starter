@@ -12,7 +12,7 @@
 		"prebuild": "bun run build:emails",
 		"build": "vite build",
 		"generate:logos": "bun scripts/generate-logos.ts",
-		"build:emails": "bun scripts/generate-logos.ts && tsx scripts/build-emails.ts",
+		"build:emails": "bun run generate:logos && tsx scripts/build-emails.ts",
 		"preview": "vite preview",
 		"prepare": "husky",
 		"package": "bun svelte-kit sync && svelte-package",

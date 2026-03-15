@@ -7,9 +7,8 @@
  * Usage: bun scripts/generate-logos.ts
  */
 
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { Resvg } from '@resvg/resvg-js';
 
 const ROOT = join(import.meta.dirname, '..');
 const SVG_PATH = join(ROOT, 'static/logo.svg');
@@ -129,13 +128,26 @@ function buildWrapperSvg(source: string): string {
 
 // --- Main ---
 
-const svgSource = readFileSync(SVG_PATH, 'utf-8');
-const wrapperSvg = buildWrapperSvg(svgSource);
+try {
+	const { Resvg } = await import('@resvg/resvg-js');
 
-const resvg = new Resvg(wrapperSvg, {
-	fitTo: { mode: 'width', value: SIZE }
-});
-const png = resvg.render().asPng();
+	const svgSource = readFileSync(SVG_PATH, 'utf-8');
+	const wrapperSvg = buildWrapperSvg(svgSource);
 
-writeFileSync(OUT_PATH, png);
-console.log(`Generated ${OUT_PATH} (${SIZE}x${SIZE})`);
+	const resvg = new Resvg(wrapperSvg, {
+		fitTo: { mode: 'width', value: SIZE }
+	});
+	const png = resvg.render().asPng();
+
+	writeFileSync(OUT_PATH, png);
+	console.log(`Generated ${OUT_PATH} (${SIZE}x${SIZE})`);
+} catch (err) {
+	if (existsSync(OUT_PATH)) {
+		console.warn(
+			`⚠️  Could not regenerate logo-email.png (${err instanceof Error ? err.message : err})`
+		);
+		console.warn('   Using existing committed file.');
+	} else {
+		throw err;
+	}
+}
