@@ -20,7 +20,19 @@
 	const auth = useAuth();
 	let signingOut = $state(false);
 	const isAuthenticated = $derived(auth.isAuthenticated && !signingOut);
-	const isAuthLoading = $derived(auth.isLoading);
+
+	// Capture once: did the server have a valid JWT?
+	const ssrAuthenticated = auth.isAuthenticated;
+
+	let sessionChecked = $state(false);
+	$effect(() => {
+		const unsub = authClient.useSession().subscribe((s) => {
+			if (!s.isPending) sessionChecked = true;
+		});
+		return unsub;
+	});
+
+	const showAuthButtons = $derived(ssrAuthenticated || (sessionChecked && !auth.isLoading));
 
 	async function signOut() {
 		signingOut = true;
@@ -90,7 +102,7 @@
 					</Button>
 					<LightSwitch variant="ghost" />
 					<LanguageSwitcher variant="ghost" />
-					{#if !isAuthLoading}
+					{#if showAuthButtons}
 						<div class="flex items-center gap-3 motion-safe:animate-fade-in">
 							{#if isAuthenticated}
 								<Button size="sm" href={localizedHref('/app')}>
@@ -175,7 +187,7 @@
 				{/each}
 			</ul>
 			<div class="mt-6 flex flex-col gap-3">
-				{#if !isAuthLoading}
+				{#if showAuthButtons}
 					<div class="flex flex-col gap-3 motion-safe:animate-fade-in">
 						{#if isAuthenticated}
 							<Button size="sm" href={localizedHref('/app')} class="w-full">
