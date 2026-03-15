@@ -341,12 +341,27 @@
 	animation: fade-in 200ms ease-out both;
 }
 
+@utility animate-spotlight {
+	animation: spotlight 2s ease 0s 1 forwards;
+}
+
 @keyframes fade-in {
 	from {
 		opacity: 0;
 	}
 	to {
 		opacity: 1;
+	}
+}
+
+@keyframes spotlight {
+	0% {
+		opacity: 0;
+		transform: translate(-55%, -45%) scale(0.85);
+	}
+	100% {
+		opacity: 1;
+		transform: translate(-50%, -40%) scale(1);
 	}
 }
 
