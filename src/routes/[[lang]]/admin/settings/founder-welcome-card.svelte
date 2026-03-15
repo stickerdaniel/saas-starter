@@ -24,6 +24,7 @@
 	let isStepping = $state(false);
 	let isTakingOver = $state(false);
 	let showSetupForm = $state(false);
+	let showStepDownConfirm = $state(false);
 
 	// Sync edit fields when config loads
 	$effect(() => {
@@ -236,10 +237,24 @@
 					<Button size="sm" onclick={handleSave} disabled={isSaving || !canSave}>
 						<T keyName="admin.settings.founder_welcome.save" />
 					</Button>
-					<Button size="sm" variant="ghost" onclick={handleStepDown} disabled={isStepping}>
-						<T keyName="admin.settings.founder_welcome.step_down" />
-					</Button>
+					{#if showStepDownConfirm}
+						<Button size="sm" variant="destructive" onclick={handleStepDown} disabled={isStepping}>
+							<T keyName="admin.settings.founder_welcome.setup_confirm" />
+						</Button>
+						<Button size="sm" variant="ghost" onclick={() => (showStepDownConfirm = false)}>
+							<T keyName="admin.settings.founder_welcome.cancel" />
+						</Button>
+					{:else}
+						<Button size="sm" variant="ghost" onclick={() => (showStepDownConfirm = true)}>
+							<T keyName="admin.settings.founder_welcome.step_down" />
+						</Button>
+					{/if}
 				</div>
+				{#if showStepDownConfirm}
+					<p class="text-muted-foreground text-sm">
+						<T keyName="admin.settings.founder_welcome.step_down_confirm" />
+					</p>
+				{/if}
 
 				<!-- Live preview -->
 				<Separator />
