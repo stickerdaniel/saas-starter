@@ -14,6 +14,7 @@ import type { NotificationMessage } from '../../emails/templates/types';
 import { t, getValidLocale, type SupportedLocale } from '../i18n/translations';
 import type { GenericMutationCtx } from 'convex/server';
 import type { DataModel } from '../_generated/dataModel';
+import { shouldSkipTestEmail } from './helpers';
 
 /** Type for user result from Better Auth adapter with optional locale field */
 type UserWithLocale = { locale?: string | null } | null;
@@ -31,26 +32,6 @@ async function getLocaleForEmail(
 		where: [{ field: 'email', operator: 'eq', value: email }]
 	});
 	return getValidLocale((result as UserWithLocale)?.locale);
-}
-
-/**
- * Check if an email address belongs to an E2E test user.
- * Test emails are skipped to prevent sending real emails during automated testing.
- */
-function isTestEmail(email: string): boolean {
-	return email.endsWith('@e2e.example.com');
-}
-
-/**
- * Check if email should be skipped for E2E test users and log if so.
- * Returns true if email was skipped, false if it should be sent.
- */
-function shouldSkipTestEmail(action: string, email: string): boolean {
-	if (isTestEmail(email)) {
-		console.log(`[${action}] Skipping test email: ${email}`);
-		return true;
-	}
-	return false;
 }
 
 /**
@@ -315,5 +296,112 @@ export const sendNewUserSignupNotification = internalMutation({
 				`[sendNewUserSignupNotification] All ${recipients.length} email sends failed for new user ${userEmail}`
 			);
 		}
+	}
+});
+
+/**
+ * Send founder welcome email to a new user
+ *
+ * Reads config from adminSettings at send time (not at schedule time)
+ * to ensure the latest config is used. Sends plain text only.
+ */
+export const sendFounderWelcomeEmail = internalMutation({
+	args: { founderWelcomeId: v.id('founderWelcomeEmails') },
+	returns: v.null(),
+	handler: async (ctx, { founderWelcomeId }) => {
+		const row = await ctx.db.get(founderWelcomeId);
+		if (!row || row.status !== 'scheduled') return null;
+
+		// Read config at send time
+		const config = await ctx.runQuery(
+			internal.admin.founderWelcome.queries.getFounderWelcomeConfigInternal,
+			{}
+		);
+		if (!config.enabled) {
+			await ctx.db.patch(founderWelcomeId, {
+				status: 'skipped',
+				skippedReason: 'feature_disabled'
+			});
+			return null;
+		}
+
+		// Resolve current user
+		const user = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+			model: 'user',
+			where: [{ field: '_id', operator: 'eq', value: row.userId }]
+		});
+		if (!user) {
+			await ctx.db.patch(founderWelcomeId, {
+				status: 'skipped',
+				skippedReason: 'user_deleted'
+			});
+			return null;
+		}
+
+		const { email, name, emailVerified } = user as {
+			email: string;
+			name?: string;
+			emailVerified?: boolean;
+		};
+
+		// Guards
+		if (!emailVerified) {
+			await ctx.db.patch(founderWelcomeId, {
+				status: 'skipped',
+				skippedReason: 'not_verified'
+			});
+			return null;
+		}
+		if (email !== row.signupEmail) {
+			await ctx.db.patch(founderWelcomeId, {
+				status: 'skipped',
+				skippedReason: 'email_changed'
+			});
+			return null;
+		}
+		if (shouldSkipTestEmail('sendFounderWelcomeEmail', email)) {
+			await ctx.db.patch(founderWelcomeId, {
+				status: 'skipped',
+				skippedReason: 'test_email'
+			});
+			return null;
+		}
+
+		// Guard against empty config (subject/body required for a valid email)
+		if (!config.subject.trim() || !config.body.trim()) {
+			await ctx.db.patch(founderWelcomeId, {
+				status: 'skipped',
+				skippedReason: 'empty_template'
+			});
+			return null;
+		}
+
+		// Render plain text with {{placeholder}} interpolation
+		const templateVars: Record<string, string> = {
+			userName: name || 'there',
+			founderName: config.contactUser.name,
+			founderTitle: config.title
+		};
+
+		const renderTemplate = (template: string) =>
+			template.replace(/\{\{(\w+)\}\}/g, (_, key) => templateVars[key] ?? '');
+
+		const text = renderTemplate(config.body);
+		const subject = renderTemplate(config.subject);
+
+		await resend.sendEmail(ctx, {
+			from: getAuthEmail(),
+			replyTo: [config.contactUser.email],
+			to: email,
+			subject,
+			text,
+			headers: [
+				{ name: 'X-Email-Category', value: 'onboarding' },
+				{ name: 'X-Email-Template', value: 'founder-welcome' }
+			]
+		});
+
+		await ctx.db.patch(founderWelcomeId, { status: 'sent', sentAt: Date.now() });
+		return null;
 	}
 });
