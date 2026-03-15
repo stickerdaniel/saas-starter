@@ -31,6 +31,12 @@ btca ask -r svelte -r convex -q "How do I integrate Convex with SvelteKit?"
 
 NEVER use `bun run dev` to start the development server, its already running in a separate terminal.
 
+### Logo Generation
+
+- `bun run generate:logos` — Regenerate `static/logo-email.png` from `static/logo.svg`
+- Runs automatically before `build:emails`. Always regenerates (no cache).
+- When the user changes the logo: replace `static/logo.svg`, then run `bun run build:emails`
+
 ### Quality Checks & Testing
 
 - `bun run check` - Run Svelte type checking. Run this between implementations to catch type errors early.
