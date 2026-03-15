@@ -102,35 +102,48 @@
 					</Button>
 					<LightSwitch variant="ghost" />
 					<LanguageSwitcher variant="ghost" />
-					{#if showAuthButtons}
-						<div class="flex items-center gap-3 motion-safe:animate-fade-in">
-							{#if isAuthenticated}
-								<Button size="sm" href={localizedHref('/app')}>
-									<T keyName="nav.dashboard" />
-								</Button>
-								<Button
-									variant="outline"
-									size="icon"
-									class="size-8"
-									onclick={() => signOut()}
-									aria-label={$t('aria.logout')}
-								>
-									<LogOut class="size-4" />
-								</Button>
-							{:else if isAtTop}
-								<Button variant="ghost" size="sm" href={localizedHref('/signin')}>
-									<T keyName="nav.login" />
-								</Button>
-								<Button size="sm" href={localizedHref('/signin?tab=signup')}>
-									<T keyName="nav.signup" />
-								</Button>
-							{:else}
-								<Button size="sm" href={localizedHref('/signin?tab=signup')}>
-									<T keyName="nav.get_started" />
-								</Button>
-							{/if}
+					<div class="relative flex items-center">
+						<!-- Spacer: always reserves width of widest button combo -->
+						<div class="pointer-events-none invisible flex items-center gap-3" aria-hidden="true">
+							<Button variant="ghost" size="sm" tabindex={-1}>
+								<T keyName="nav.login" />
+							</Button>
+							<Button size="sm" tabindex={-1}>
+								<T keyName="nav.signup" />
+							</Button>
 						</div>
-					{/if}
+						{#if showAuthButtons}
+							<div
+								class="absolute inset-y-0 right-0 flex items-center gap-3 motion-safe:animate-fade-in"
+							>
+								{#if isAuthenticated}
+									<Button size="sm" href={localizedHref('/app')}>
+										<T keyName="nav.dashboard" />
+									</Button>
+									<Button
+										variant="outline"
+										size="icon"
+										class="size-8"
+										onclick={() => signOut()}
+										aria-label={$t('aria.logout')}
+									>
+										<LogOut class="size-4" />
+									</Button>
+								{:else if isAtTop}
+									<Button variant="ghost" size="sm" href={localizedHref('/signin')}>
+										<T keyName="nav.login" />
+									</Button>
+									<Button size="sm" href={localizedHref('/signin?tab=signup')}>
+										<T keyName="nav.signup" />
+									</Button>
+								{:else}
+									<Button size="sm" href={localizedHref('/signin?tab=signup')}>
+										<T keyName="nav.get_started" />
+									</Button>
+								{/if}
+							</div>
+						{/if}
+					</div>
 				</div>
 
 				<!-- Mobile Menu Button -->
