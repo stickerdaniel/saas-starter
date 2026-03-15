@@ -2,7 +2,7 @@
 	import { T, getTranslate } from '@tolgee/svelte';
 	import { useQuery, useConvexClient } from 'convex-svelte';
 	import { api } from '$lib/convex/_generated/api.js';
-	import * as Card from '$lib/components/ui/card/index.js';
+	import * as Item from '$lib/components/ui/item/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { Textarea } from '$lib/components/ui/textarea/index.js';
@@ -122,23 +122,25 @@
 	}
 </script>
 
-<Card.Root data-testid="founder-welcome-card">
-	<Card.Header>
-		<Card.Title><T keyName="admin.settings.founder_welcome.title" /></Card.Title>
-		<Card.Description><T keyName="admin.settings.founder_welcome.description" /></Card.Description>
-	</Card.Header>
-	<Card.Content>
+<Item.Root variant="outline" data-testid="founder-welcome-card">
+	<Item.Content>
+		<Item.Title><T keyName="admin.settings.founder_welcome.title" /></Item.Title>
+		<Item.Description class="line-clamp-none">
+			<T keyName="admin.settings.founder_welcome.description" />
+		</Item.Description>
+	</Item.Content>
+	<Item.Footer>
 		{#if !config.data}
 			<!-- Loading state -->
 			<div class="text-muted-foreground text-sm">...</div>
 		{:else if !config.data.enabled}
 			<!-- State 1: Not configured -->
-			<p class="text-muted-foreground mb-4 text-sm">
-				<T keyName="admin.settings.founder_welcome.not_configured" />
-			</p>
+			<div class="w-full space-y-4">
+				<p class="text-muted-foreground text-sm">
+					<T keyName="admin.settings.founder_welcome.not_configured" />
+				</p>
 
-			{#if showSetupForm}
-				<div class="space-y-4">
+				{#if showSetupForm}
 					<Field.Group>
 						<Field.Field>
 							<Field.Label for="setup-title">
@@ -174,15 +176,15 @@
 							<T keyName="admin.settings.founder_welcome.cancel" />
 						</Button>
 					</div>
-				</div>
-			{:else}
-				<Button size="sm" onclick={() => (showSetupForm = true)}>
-					<T keyName="admin.settings.founder_welcome.setup_button" />
-				</Button>
-			{/if}
+				{:else}
+					<Button size="sm" onclick={() => (showSetupForm = true)}>
+						<T keyName="admin.settings.founder_welcome.setup_button" />
+					</Button>
+				{/if}
+			</div>
 		{:else if isSomeoneElseContact}
 			<!-- State 2: Someone else is the contact person -->
-			<div class="space-y-4">
+			<div class="w-full space-y-4">
 				<div>
 					<p class="text-muted-foreground mb-1 text-xs font-medium uppercase tracking-wide">
 						<T keyName="admin.settings.founder_welcome.contact_person" />
@@ -206,7 +208,7 @@
 			</div>
 		{:else if isContactPerson}
 			<!-- State 3: You are the contact person -->
-			<div class="space-y-6">
+			<div class="w-full space-y-6">
 				<Field.Group>
 					<Field.Field>
 						<Field.Label for="config-title">
@@ -272,5 +274,5 @@
 				</div>
 			</div>
 		{/if}
-	</Card.Content>
-</Card.Root>
+	</Item.Footer>
+</Item.Root>
