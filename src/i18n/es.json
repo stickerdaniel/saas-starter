@@ -678,7 +678,7 @@
 		}
 	},
 	"app": {
-		"name": "Promus",
+		"name": "SaaS Starter",
 		"sidebar": {
 			"admin_panel": "Panel de Admin",
 			"community_chat": "Chat comunitario",
