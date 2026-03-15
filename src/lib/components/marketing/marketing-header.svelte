@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { page } from '$app/state';
 	import CommandTrigger from '$lib/components/global-search/command-trigger.svelte';
 	import LightSwitch from '$lib/components/ui/light-switch/light-switch.svelte';
 	import LanguageSwitcher from '$lib/components/LanguageSwitcher.svelte';
@@ -7,16 +6,31 @@
 	import { cn } from '$lib/utils';
 	import { localizedHref } from '$lib/utils/i18n';
 	import { resolve } from '$app/paths';
+	import { goto } from '$app/navigation';
 	import Menu from '@lucide/svelte/icons/menu';
 	import X from '@lucide/svelte/icons/x';
 	import LogOut from '@lucide/svelte/icons/log-out';
 	import Github from '@lucide/svelte/icons/github';
 	import Logo from '$lib/components/icons/logo.svelte';
 	import { authClient } from '$lib/auth-client';
+	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
 	import { T, getTranslate } from '@tolgee/svelte';
 
 	const { t } = getTranslate();
-	const isAuthenticated = $derived(Boolean(page.data.authState?.isAuthenticated));
+	const auth = useAuth();
+	let signingOut = $state(false);
+	const isAuthenticated = $derived(auth.isAuthenticated && !signingOut);
+	const isAuthLoading = $derived(auth.isLoading);
+
+	async function signOut() {
+		signingOut = true;
+		const result = await authClient.signOut();
+		if (!result.error) {
+			await goto(resolve(localizedHref('/')));
+		} else {
+			signingOut = false;
+		}
+	}
 
 	// Scroll detection for button swap
 	let scrollY = $state(0);
@@ -76,30 +90,34 @@
 					</Button>
 					<LightSwitch variant="ghost" />
 					<LanguageSwitcher variant="ghost" />
-					{#if isAuthenticated}
-						<Button size="sm" href={localizedHref('/app')}>
-							<T keyName="nav.dashboard" />
-						</Button>
-						<Button
-							variant="outline"
-							size="icon"
-							class="size-8"
-							onclick={() => authClient.signOut()}
-							aria-label={$t('aria.logout')}
-						>
-							<LogOut class="size-4" />
-						</Button>
-					{:else if isAtTop}
-						<Button variant="ghost" size="sm" href={localizedHref('/signin')}>
-							<T keyName="nav.login" />
-						</Button>
-						<Button size="sm" href={localizedHref('/signin?tab=signup')}>
-							<T keyName="nav.signup" />
-						</Button>
-					{:else}
-						<Button size="sm" href={localizedHref('/signin?tab=signup')}>
-							<T keyName="nav.get_started" />
-						</Button>
+					{#if !isAuthLoading}
+						<div class="flex items-center gap-3 motion-safe:animate-fade-in">
+							{#if isAuthenticated}
+								<Button size="sm" href={localizedHref('/app')}>
+									<T keyName="nav.dashboard" />
+								</Button>
+								<Button
+									variant="outline"
+									size="icon"
+									class="size-8"
+									onclick={() => signOut()}
+									aria-label={$t('aria.logout')}
+								>
+									<LogOut class="size-4" />
+								</Button>
+							{:else if isAtTop}
+								<Button variant="ghost" size="sm" href={localizedHref('/signin')}>
+									<T keyName="nav.login" />
+								</Button>
+								<Button size="sm" href={localizedHref('/signin?tab=signup')}>
+									<T keyName="nav.signup" />
+								</Button>
+							{:else}
+								<Button size="sm" href={localizedHref('/signin?tab=signup')}>
+									<T keyName="nav.get_started" />
+								</Button>
+							{/if}
+						</div>
 					{/if}
 				</div>
 
@@ -157,21 +175,25 @@
 				{/each}
 			</ul>
 			<div class="mt-6 flex flex-col gap-3">
-				{#if isAuthenticated}
-					<Button size="sm" href={localizedHref('/app')} class="w-full">
-						<T keyName="nav.dashboard" />
-					</Button>
-				{:else if isAtTop}
-					<Button variant="ghost" size="sm" href={localizedHref('/signin')} class="w-full">
-						<T keyName="nav.login" />
-					</Button>
-					<Button size="sm" href={localizedHref('/signin?tab=signup')} class="w-full">
-						<T keyName="nav.signup" />
-					</Button>
-				{:else}
-					<Button size="sm" href={localizedHref('/signin?tab=signup')} class="w-full">
-						<T keyName="nav.get_started" />
-					</Button>
+				{#if !isAuthLoading}
+					<div class="flex flex-col gap-3 motion-safe:animate-fade-in">
+						{#if isAuthenticated}
+							<Button size="sm" href={localizedHref('/app')} class="w-full">
+								<T keyName="nav.dashboard" />
+							</Button>
+						{:else if isAtTop}
+							<Button variant="ghost" size="sm" href={localizedHref('/signin')} class="w-full">
+								<T keyName="nav.login" />
+							</Button>
+							<Button size="sm" href={localizedHref('/signin?tab=signup')} class="w-full">
+								<T keyName="nav.signup" />
+							</Button>
+						{:else}
+							<Button size="sm" href={localizedHref('/signin?tab=signup')} class="w-full">
+								<T keyName="nav.get_started" />
+							</Button>
+						{/if}
+					</div>
 				{/if}
 			</div>
 		</div>
