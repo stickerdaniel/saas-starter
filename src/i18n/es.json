@@ -484,6 +484,34 @@
 				"clear": "Limpiar",
 				"custom_only": "Solo Personalizados"
 			},
+			"founder_welcome": {
+				"became_contact": "Ahora eres la persona de contacto para emails de bienvenida",
+				"cancel": "Cancelar",
+				"config_body_label": "Cuerpo del email",
+				"config_subject_label": "Asunto del email",
+				"config_title_label": "Su título",
+				"config_variables_hint": "Variables disponibles: {{userName}}, {{founderName}}, {{founderTitle}}",
+				"contact_person": "Persona de contacto",
+				"contact_person_info": "{name} ({email})",
+				"description": "Envía automáticamente un email personal de bienvenida de un miembro del equipo a nuevos usuarios después del registro. Se envía como texto plano para mayor autenticidad.",
+				"error": "Algo salió mal. Por favor, inténtalo de nuevo.",
+				"not_configured": "No hay persona de contacto configurada. Configure un miembro del equipo para enviar emails de bienvenida a nuevos usuarios.",
+				"preview_subject": "Asunto",
+				"preview_title": "Vista previa",
+				"save": "Guardar cambios",
+				"saved": "Configuración de email de bienvenida guardada",
+				"setup_button": "Ser persona de contacto",
+				"setup_confirm": "Configurar",
+				"setup_title_label": "Su título",
+				"setup_title_placeholder": "ej. Cofundador de NombreProducto",
+				"step_down": "Dejar el rol",
+				"step_down_confirm": "¿Dejar de ser persona de contacto? Los emails de bienvenida dejarán de enviarse.",
+				"stepped_down": "Ya no eres la persona de contacto",
+				"take_over": "Asumir rol",
+				"take_over_confirm": "¿Asumir como persona de contacto? La plantilla de email existente se conservará.",
+				"title": "Email de bienvenida del fundador",
+				"took_over": "Has asumido como persona de contacto"
+			},
 			"invalid_email": "Dirección de email inválida",
 			"no_recipients": "No hay destinatarios de notificaciones configurados",
 			"notification_recipients": "Destinatarios de Notificaciones",
@@ -650,7 +678,7 @@
 		}
 	},
 	"app": {
-		"name": "Promus",
+		"name": "SaaS Starter",
 		"sidebar": {
 			"admin_panel": "Panel de Admin",
 			"community_chat": "Chat comunitario",

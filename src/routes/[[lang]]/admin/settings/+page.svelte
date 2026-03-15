@@ -2,6 +2,7 @@
 	import SEOHead from '$lib/components/SEOHead.svelte';
 	import { T, getTranslate } from '@tolgee/svelte';
 	import NotificationRecipientsTable from './notification-recipients-table.svelte';
+	import FounderWelcomeCard from './founder-welcome-card.svelte';
 
 	const { t } = getTranslate();
 </script>
@@ -16,6 +17,8 @@
 	<div class="flex items-center justify-between">
 		<h1 class="text-2xl font-bold"><T keyName="admin.settings.title" /></h1>
 	</div>
+
+	<FounderWelcomeCard />
 
 	<!-- Notification Recipients Table -->
 	<NotificationRecipientsTable />

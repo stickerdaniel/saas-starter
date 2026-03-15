@@ -2,9 +2,20 @@ import { v } from 'convex/values';
 import { adminMutation } from '../../functions';
 
 /**
+ * Key prefixes reserved for dedicated mutation endpoints with custom access control.
+ * The generic updateSetting/deleteSetting endpoints reject these to prevent bypass.
+ */
+const RESERVED_KEY_PREFIXES = ['founderWelcome.'] as const;
+
+function isReservedKey(key: string): boolean {
+	return RESERVED_KEY_PREFIXES.some((prefix) => key.startsWith(prefix));
+}
+
+/**
  * Update an admin setting
  *
  * Creates the setting if it doesn't exist, or updates it if it does.
+ * Reserved key prefixes are rejected — use their dedicated endpoints instead.
  *
  * @param args.key - The setting key to update
  * @param args.value - The new value (empty string to clear)
@@ -16,6 +27,10 @@ export const updateSetting = adminMutation({
 	},
 	returns: v.null(),
 	handler: async (ctx, args) => {
+		if (isReservedKey(args.key)) {
+			throw new Error(`Key "${args.key}" is managed by a dedicated endpoint`);
+		}
+
 		const existing = await ctx.db
 			.query('adminSettings')
 			.withIndex('by_key', (q) => q.eq('key', args.key))
@@ -46,6 +61,7 @@ export const updateSetting = adminMutation({
  * Delete an admin setting
  *
  * Removes a setting from the database entirely.
+ * Reserved key prefixes are rejected — use their dedicated endpoints instead.
  *
  * @param args.key - The setting key to delete
  * @returns boolean - true if deleted, false if not found
@@ -56,6 +72,10 @@ export const deleteSetting = adminMutation({
 	},
 	returns: v.boolean(),
 	handler: async (ctx, args) => {
+		if (isReservedKey(args.key)) {
+			throw new Error(`Key "${args.key}" is managed by a dedicated endpoint`);
+		}
+
 		const existing = await ctx.db
 			.query('adminSettings')
 			.withIndex('by_key', (q) => q.eq('key', args.key))
