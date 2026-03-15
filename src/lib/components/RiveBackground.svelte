@@ -200,20 +200,8 @@
 
 			<div class="h-full w-full" style="opacity: {opacity};">
 				<!-- Spotlight for dark mode -->
-				{#if isDark}
-					<!-- Radial glow (disabled for testing) -->
-					<!-- <div
-						class="pointer-events-none absolute top-1/2 left-1/2 -z-5 h-[360px] w-[360px] blur-xl transition-transform duration-1000 ease-out lg:h-[450px] lg:w-[450px] {isLoaded
-							? 'animate-[breathe_5s_ease-in-out_infinite_1s]'
-							: ''}"
-						style="background: radial-gradient(circle at center, rgba(255, 255, 255, 1) 20%, rgba(255, 255, 255, 0.1) 50%, rgba(255, 255, 255, 0) 80%); will-change: opacity, transform; opacity: {isLoaded
-							? 1
-							: 0}; transform: translate(-50%, -50%) scale({isLoaded ? 1 : 0.7});"
-					></div> -->
-					<!-- Light beam from top-right -->
-					{#if isLoaded}
-						<Spotlight className="-top-50 right-[-285%] -z-5 lg:-top-72" fill="white" />
-					{/if}
+				{#if isDark && isLoaded}
+					<Spotlight className="-top-50 right-[-285%] -z-5 lg:-top-72" fill="white" />
 				{/if}
 
 				<!-- Rive Canvas -->
@@ -243,17 +231,3 @@
 		</FollowingPointer>
 	{/if}
 </div>
-
-<style>
-	:global {
-		@keyframes breathe {
-			0%,
-			100% {
-				transform: translate(-50%, -50%) scale(1);
-			}
-			50% {
-				transform: translate(-50%, -50%) scale(0.95);
-			}
-		}
-	}
-</style>
