@@ -41,7 +41,6 @@ Self-hosting gives you unlimited keys and full control. The easiest way is using
    ```bash
    VITE_TOLGEE_API_URL=https://tolgee.yourdomain.com
    VITE_TOLGEE_API_KEY=your_self_hosted_api_key
-   TOLGEE_API_KEY=your_self_hosted_api_key
    ```
 
 4. **Generate a new API key** in your self-hosted Tolgee instance (Project Settings → API keys)
