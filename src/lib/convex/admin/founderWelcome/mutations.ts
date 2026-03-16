@@ -53,7 +53,8 @@ export const updateConfig = adminMutation({
 	returns: v.null(),
 	handler: async (ctx, args) => {
 		const adminUserId = ctx.user._id;
-		const name = args.name.trim();
+		// Strip chars unsafe for email From header (newlines, angle brackets)
+		const name = args.name.trim().replace(/[\r\n<>]/g, '');
 		const title = args.title.trim();
 		const subject = args.subject.trim();
 		const body = args.body.trim();

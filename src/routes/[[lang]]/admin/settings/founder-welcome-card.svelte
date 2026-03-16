@@ -110,6 +110,9 @@
 
 	function handleDialogOpenChange(open: boolean) {
 		dialogOpen = open;
+		if (!open) {
+			stepDownDialogOpen = false;
+		}
 	}
 </script>
 
