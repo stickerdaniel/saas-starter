@@ -368,17 +368,14 @@ export const cleanupTestData = mutation({
 			throw new Error('Unauthorized: Invalid test secret');
 		}
 
-		// Patterns for test data emails created during E2E tests
-		const testPatterns = ['test-e2e-', 'test-dup-', 'test-remove-'];
 		let deletedCount = 0;
 
-		// Sequential deletes in test cleanup (test-only, small dataset)
+		// Bounded: adminNotificationPreferences table is small (admin users + custom emails, typically <100 rows)
 		const allPreferences = await ctx.db.query('adminNotificationPreferences').collect();
 
+		// Sequential deletes in test cleanup (test-only, small dataset)
 		for (const pref of allPreferences) {
-			const matchesPattern = testPatterns.some((pattern) => pref.email.startsWith(pattern));
-
-			if (matchesPattern) {
+			if (pref.email.endsWith('@e2e.example.com')) {
 				await ctx.db.delete(pref._id);
 				deletedCount++;
 			}
