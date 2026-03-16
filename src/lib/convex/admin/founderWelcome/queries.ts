@@ -13,6 +13,7 @@ type FounderWelcomeConfig =
 			title: string;
 			subject: string;
 			body: string;
+			replyTo: string;
 	  }
 	| { enabled: false };
 
@@ -27,14 +28,15 @@ const founderWelcomeConfigValidator = v.union(
 		name: v.string(),
 		title: v.string(),
 		subject: v.string(),
-		body: v.string()
+		body: v.string(),
+		replyTo: v.string()
 	}),
 	v.object({
 		enabled: v.literal(false)
 	})
 );
 
-/** Shared config reader used by both public and internal queries */
+/** Shared config reader used by both admin and internal queries */
 async function readFounderWelcomeConfig(ctx: QueryCtx): Promise<FounderWelcomeConfig> {
 	const contactSetting = await ctx.db
 		.query('adminSettings')
@@ -84,7 +86,8 @@ async function readFounderWelcomeConfig(ctx: QueryCtx): Promise<FounderWelcomeCo
 		name: profile?.founderWelcomeName ?? name ?? 'Unknown',
 		title: profile?.founderWelcomeTitle ?? '',
 		subject: subjectSetting?.value ?? FOUNDER_WELCOME_DEFAULTS.subject,
-		body: bodySetting?.value ?? FOUNDER_WELCOME_DEFAULTS.body
+		body: bodySetting?.value ?? FOUNDER_WELCOME_DEFAULTS.body,
+		replyTo: profile?.founderWelcomeReplyTo ?? email
 	};
 }
 
@@ -93,7 +96,8 @@ const adminConfigValidator = v.object({
 	config: founderWelcomeConfigValidator,
 	viewerProfile: v.object({
 		name: v.string(),
-		title: v.string()
+		title: v.string(),
+		replyTo: v.string()
 	})
 });
 
@@ -113,15 +117,18 @@ export const getFounderWelcomeConfig = adminQuery({
 			model: 'user',
 			where: [{ field: '_id', operator: 'eq', value: ctx.user._id }]
 		});
-		const viewerFullName = (viewerUser as { name?: string } | null)?.name ?? '';
+		const viewer = viewerUser as { name?: string; email?: string } | null;
+		const viewerFullName = viewer?.name ?? '';
 		// Default to first name only for a more personal feel
 		const viewerFirstName = viewerFullName.split(' ')[0] || viewerFullName;
+		const viewerEmail = viewer?.email ?? '';
 
 		return {
 			config,
 			viewerProfile: {
 				name: viewerProfile?.founderWelcomeName ?? viewerFirstName,
-				title: viewerProfile?.founderWelcomeTitle ?? ''
+				title: viewerProfile?.founderWelcomeTitle ?? '',
+				replyTo: viewerProfile?.founderWelcomeReplyTo ?? viewerEmail
 			}
 		};
 	}
