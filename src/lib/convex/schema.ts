@@ -143,6 +143,12 @@ export default defineSchema({
 		.index('by_email', ['email'])
 		.index('by_user', ['userId']),
 
+	adminProfiles: defineTable({
+		userId: v.string(),
+		founderWelcomeName: v.optional(v.string()),
+		founderWelcomeTitle: v.optional(v.string())
+	}).index('by_userId', ['userId']),
+
 	// File metadata - stores image dimensions for proper dialog sizing
 	// (agent component strips unknown fields from file parts, so we store dimensions separately)
 	fileMetadata: defineTable({
