@@ -85,7 +85,7 @@ test.describe('Admin Settings Table', () => {
 	});
 
 	test('paginates with cursor params and restores previous page', async ({ page }) => {
-		const customEmail = `settings-table-${Date.now()}@example.com`;
+		const customEmail = `settings-table-${Date.now()}@e2e.example.com`;
 		await addCustomEmailRecipient(page, customEmail);
 
 		await page.goto('/en/admin/settings?page_size=1');

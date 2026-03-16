@@ -9,6 +9,7 @@ type FounderWelcomeConfig =
 	| {
 			enabled: true;
 			contactUser: { id: string; name: string; email: string };
+			name: string;
 			title: string;
 			subject: string;
 			body: string;
@@ -23,6 +24,7 @@ const founderWelcomeConfigValidator = v.union(
 			name: v.string(),
 			email: v.string()
 		}),
+		name: v.string(),
 		title: v.string(),
 		subject: v.string(),
 		body: v.string()
@@ -56,10 +58,13 @@ async function readFounderWelcomeConfig(ctx: QueryCtx): Promise<FounderWelcomeCo
 
 	const { name, email } = user as { name?: string; email: string };
 
-	const titleSetting = await ctx.db
-		.query('adminSettings')
-		.withIndex('by_key', (q) => q.eq('key', 'founderWelcome.title'))
+	// Read per-user profile for contact person
+	const profile = await ctx.db
+		.query('adminProfiles')
+		.withIndex('by_userId', (q) => q.eq('userId', contactUserId))
 		.unique();
+
+	// Read global email config
 	const subjectSetting = await ctx.db
 		.query('adminSettings')
 		.withIndex('by_key', (q) => q.eq('key', 'founderWelcome.subject'))
@@ -76,20 +81,49 @@ async function readFounderWelcomeConfig(ctx: QueryCtx): Promise<FounderWelcomeCo
 			name: name || 'Unknown',
 			email
 		},
-		title: titleSetting?.value ?? '',
+		name: profile?.founderWelcomeName ?? name ?? 'Unknown',
+		title: profile?.founderWelcomeTitle ?? '',
 		subject: subjectSetting?.value ?? FOUNDER_WELCOME_DEFAULTS.subject,
 		body: bodySetting?.value ?? FOUNDER_WELCOME_DEFAULTS.body
 	};
 }
 
-/**
- * Get founder welcome config (admin-facing)
- */
+/** Admin-facing config query — includes viewer's own profile for form pre-fill */
+const adminConfigValidator = v.object({
+	config: founderWelcomeConfigValidator,
+	viewerProfile: v.object({
+		name: v.string(),
+		title: v.string()
+	})
+});
+
 export const getFounderWelcomeConfig = adminQuery({
 	args: {},
-	returns: founderWelcomeConfigValidator,
-	handler: async (ctx): Promise<FounderWelcomeConfig> => {
-		return readFounderWelcomeConfig(ctx);
+	returns: adminConfigValidator,
+	handler: async (ctx) => {
+		const config = await readFounderWelcomeConfig(ctx);
+
+		// Read viewer's own profile for form pre-fill
+		const viewerProfile = await ctx.db
+			.query('adminProfiles')
+			.withIndex('by_userId', (q) => q.eq('userId', ctx.user._id))
+			.unique();
+
+		const viewerUser = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+			model: 'user',
+			where: [{ field: '_id', operator: 'eq', value: ctx.user._id }]
+		});
+		const viewerFullName = (viewerUser as { name?: string } | null)?.name ?? '';
+		// Default to first name only for a more personal feel
+		const viewerFirstName = viewerFullName.split(' ')[0] || viewerFullName;
+
+		return {
+			config,
+			viewerProfile: {
+				name: viewerProfile?.founderWelcomeName ?? viewerFirstName,
+				title: viewerProfile?.founderWelcomeTitle ?? ''
+			}
+		};
 	}
 });
 
