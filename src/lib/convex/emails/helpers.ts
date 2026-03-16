@@ -38,7 +38,7 @@ export function getFounderWelcomeDelay(): number {
 /** Default content for founder welcome email */
 export const FOUNDER_WELCOME_DEFAULTS = {
 	subject: 'A quick hello',
-	body: `Hey {{userName}},
+	body: `Hey {{userFirstName}},
 
 I'm {{founderName}}, {{founderTitle}}. I wanted to say thanks for giving us a try.
 
