@@ -1,12 +1,12 @@
 import { v } from 'convex/values';
+import type { MutationCtx } from '../../_generated/server';
 import { adminMutation } from '../../functions';
-import { FOUNDER_WELCOME_DEFAULTS } from '../../emails/helpers';
 
 /** Helper to upsert an admin setting */
-async function upsertSetting(ctx: any, key: string, value: string, adminUserId: string) {
+async function upsertSetting(ctx: MutationCtx, key: string, value: string, adminUserId: string) {
 	const existing = await ctx.db
 		.query('adminSettings')
-		.withIndex('by_key', (q: any) => q.eq('key', key))
+		.withIndex('by_key', (q) => q.eq('key', key))
 		.first();
 
 	if (existing) {
@@ -26,10 +26,10 @@ async function upsertSetting(ctx: any, key: string, value: string, adminUserId: 
 }
 
 /** Helper to delete an admin setting */
-async function deleteSetting(ctx: any, key: string) {
+async function deleteSetting(ctx: MutationCtx, key: string) {
 	const existing = await ctx.db
 		.query('adminSettings')
-		.withIndex('by_key', (q: any) => q.eq('key', key))
+		.withIndex('by_key', (q) => q.eq('key', key))
 		.first();
 
 	if (existing) {
@@ -38,90 +38,63 @@ async function deleteSetting(ctx: any, key: string) {
 }
 
 /**
- * Become the contact person for founder welcome emails.
- * If title provided (first-time setup), sets it + populates defaults.
- * If title omitted (takeover), preserves existing config.
+ * Save founder welcome config and become/stay contact person.
+ * Any admin can call this — atomically sets themselves as contact person.
+ * Name/title stored per-user in adminProfiles, subject/body stored globally.
  */
-export const becomeContactPerson = adminMutation({
+export const updateConfig = adminMutation({
 	args: {
-		title: v.optional(v.string())
+		name: v.string(),
+		title: v.string(),
+		subject: v.string(),
+		body: v.string()
 	},
 	returns: v.null(),
 	handler: async (ctx, args) => {
 		const adminUserId = ctx.user._id;
+		const name = args.name.trim();
+		const title = args.title.trim();
+		const subject = args.subject.trim();
+		const body = args.body.trim();
+
+		if (!name) throw new Error('Name cannot be empty');
+		if (!title) throw new Error('Title cannot be empty');
+		if (!subject) throw new Error('Subject cannot be empty');
+		if (!body) throw new Error('Body cannot be empty');
 
 		// Set this admin as contact person
 		await upsertSetting(ctx, 'founderWelcome.contactUserId', adminUserId, adminUserId);
 
-		// If title provided (first-time setup or explicit update), set title + defaults
-		if (args.title !== undefined) {
-			if (!args.title.trim()) {
-				throw new Error('Title cannot be empty');
-			}
-			await upsertSetting(ctx, 'founderWelcome.title', args.title, adminUserId);
-			await upsertSetting(
-				ctx,
-				'founderWelcome.subject',
-				FOUNDER_WELCOME_DEFAULTS.subject,
-				adminUserId
-			);
-			await upsertSetting(ctx, 'founderWelcome.body', FOUNDER_WELCOME_DEFAULTS.body, adminUserId);
-		}
-		// If title omitted (takeover), preserve existing title/subject/body
-
-		return null;
-	}
-});
-
-/**
- * Update founder welcome config.
- * Only works if caller is the current contact person.
- */
-export const updateConfig = adminMutation({
-	args: {
-		title: v.optional(v.string()),
-		subject: v.optional(v.string()),
-		body: v.optional(v.string())
-	},
-	returns: v.null(),
-	handler: async (ctx, args) => {
-		// Verify caller is the current contact person
-		const contactSetting = await ctx.db
-			.query('adminSettings')
-			.withIndex('by_key', (q) => q.eq('key', 'founderWelcome.contactUserId'))
+		// Upsert per-user profile (name + title)
+		const existingProfile = await ctx.db
+			.query('adminProfiles')
+			.withIndex('by_userId', (q) => q.eq('userId', adminUserId))
 			.unique();
 
-		if (!contactSetting || contactSetting.value !== ctx.user._id) {
-			throw new Error('Only the current contact person can update the config');
+		if (existingProfile) {
+			await ctx.db.patch(existingProfile._id, {
+				founderWelcomeName: name,
+				founderWelcomeTitle: title
+			});
+		} else {
+			await ctx.db.insert('adminProfiles', {
+				userId: adminUserId,
+				founderWelcomeName: name,
+				founderWelcomeTitle: title
+			});
 		}
 
-		const adminUserId = ctx.user._id;
-
-		if (args.title !== undefined) {
-			if (!args.title.trim()) {
-				throw new Error('Title cannot be empty');
-			}
-			await upsertSetting(ctx, 'founderWelcome.title', args.title, adminUserId);
-		}
-		if (args.subject !== undefined) {
-			if (!args.subject.trim()) {
-				throw new Error('Subject cannot be empty');
-			}
-			await upsertSetting(ctx, 'founderWelcome.subject', args.subject, adminUserId);
-		}
-		if (args.body !== undefined) {
-			if (!args.body.trim()) {
-				throw new Error('Body cannot be empty');
-			}
-			await upsertSetting(ctx, 'founderWelcome.body', args.body, adminUserId);
-		}
+		// Save global email config
+		await upsertSetting(ctx, 'founderWelcome.subject', subject, adminUserId);
+		await upsertSetting(ctx, 'founderWelcome.body', body, adminUserId);
 
 		return null;
 	}
 });
 
 /**
- * Step down as contact person. Clears all founder welcome settings.
+ * Step down as contact person. Only clears contactUserId.
+ * Per-user profile and global email config are preserved.
  */
 export const stepDown = adminMutation({
 	args: {},
@@ -137,12 +110,7 @@ export const stepDown = adminMutation({
 			throw new Error('Only the current contact person can step down');
 		}
 
-		// Delete all founder welcome settings
-		// Sequential deletes acceptable here (at most 4 settings)
 		await deleteSetting(ctx, 'founderWelcome.contactUserId');
-		await deleteSetting(ctx, 'founderWelcome.title');
-		await deleteSetting(ctx, 'founderWelcome.subject');
-		await deleteSetting(ctx, 'founderWelcome.body');
 
 		return null;
 	}

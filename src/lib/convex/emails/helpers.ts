@@ -42,7 +42,7 @@ export const FOUNDER_WELCOME_DEFAULTS = {
 
 I'm {{founderName}}, {{founderTitle}}. I wanted to say thanks for giving us a try.
 
-I know there are a lot of tools out there, so the fact that you chose to spend time with ours means a lot. If anything feels confusing or missing, I genuinely want to know — this is the kind of feedback that shapes what we build next.
+I know there are a lot of tools out there, so the fact that you chose to spend time with ours means a lot. If anything feels confusing or missing, I genuinely want to know. This is the kind of feedback that shapes what we build next.
 
 Reply anytime. I read every response.
 
