@@ -40,32 +40,38 @@ async function deleteSetting(ctx: MutationCtx, key: string) {
 /**
  * Save founder welcome config and become/stay contact person.
  * Any admin can call this — atomically sets themselves as contact person.
- * Name/title stored per-user in adminProfiles, subject/body stored globally.
+ * Name/title/replyTo stored per-user in adminProfiles, subject/body stored globally.
  */
 export const updateConfig = adminMutation({
 	args: {
 		name: v.string(),
 		title: v.string(),
 		subject: v.string(),
-		body: v.string()
+		body: v.string(),
+		replyTo: v.optional(v.string())
 	},
 	returns: v.null(),
 	handler: async (ctx, args) => {
 		const adminUserId = ctx.user._id;
-		const name = args.name.trim();
+		// Strip chars unsafe for email From header (newlines, angle brackets)
+		const name = args.name.trim().replace(/[\r\n<>]/g, '');
 		const title = args.title.trim();
 		const subject = args.subject.trim();
 		const body = args.body.trim();
+		const replyTo = args.replyTo?.trim() || undefined;
 
 		if (!name) throw new Error('Name cannot be empty');
 		if (!title) throw new Error('Title cannot be empty');
 		if (!subject) throw new Error('Subject cannot be empty');
 		if (!body) throw new Error('Body cannot be empty');
+		if (replyTo && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(replyTo)) {
+			throw new Error('Invalid reply-to email address');
+		}
 
 		// Set this admin as contact person
 		await upsertSetting(ctx, 'founderWelcome.contactUserId', adminUserId, adminUserId);
 
-		// Upsert per-user profile (name + title)
+		// Upsert per-user profile (name, title, replyTo)
 		const existingProfile = await ctx.db
 			.query('adminProfiles')
 			.withIndex('by_userId', (q) => q.eq('userId', adminUserId))
@@ -74,13 +80,15 @@ export const updateConfig = adminMutation({
 		if (existingProfile) {
 			await ctx.db.patch(existingProfile._id, {
 				founderWelcomeName: name,
-				founderWelcomeTitle: title
+				founderWelcomeTitle: title,
+				founderWelcomeReplyTo: replyTo
 			});
 		} else {
 			await ctx.db.insert('adminProfiles', {
 				userId: adminUserId,
 				founderWelcomeName: name,
-				founderWelcomeTitle: title
+				founderWelcomeTitle: title,
+				founderWelcomeReplyTo: replyTo
 			});
 		}
 

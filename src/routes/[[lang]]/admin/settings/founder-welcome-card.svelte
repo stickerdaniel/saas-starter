@@ -3,10 +3,11 @@
 	import { useQuery, useConvexClient } from 'convex-svelte';
 	import { api } from '$lib/convex/_generated/api.js';
 	import * as Item from '$lib/components/ui/item/index.js';
+	import * as AlertDialog from '$lib/components/ui/alert-dialog/index.js';
 	import * as Dialog from '$lib/components/ui/dialog/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
-	import { Textarea } from '$lib/components/ui/textarea/index.js';
+	import { TemplateTextarea } from '$lib/components/ui/template-textarea/index.js';
 	import * as Field from '$lib/components/ui/field/index.js';
 	import { toast } from 'svelte-sonner';
 	import { tick } from 'svelte';
@@ -20,11 +21,12 @@
 	let dialogOpen = $state(false);
 	let editName = $state('');
 	let editTitle = $state('');
+	let editReplyTo = $state('');
 	let editSubject = $state('');
 	let editBody = $state('');
 	let isSaving = $state(false);
 	let isStepping = $state(false);
-	let showStepDownConfirm = $state(false);
+	let stepDownDialogOpen = $state(false);
 	let editingBody = $state(false);
 
 	const config = $derived(result.data?.config);
@@ -46,18 +48,21 @@
 	const previewText = $derived.by(() => {
 		const template = editBody || '';
 		return template
-			.replace(/\{\{userName\}\}/g, 'Alex')
+			.replace(/\{\{userFirstName\}\}/g, 'Alex')
+			.replace(/\{\{userLastName\}\}/g, 'Johnson')
 			.replace(/\{\{founderName\}\}/g, editName || 'You')
 			.replace(/\{\{founderTitle\}\}/g, editTitle || 'Founder');
 	});
 
 	function openDialog() {
-		// Pre-fill with viewer's own profile (name/title persist per-user)
+		editingBody = false;
+		// Pre-fill with viewer's own profile (name/title/replyTo persist per-user)
 		if (viewerProfile) {
 			editName = viewerProfile.name;
 			editTitle = viewerProfile.title;
+			editReplyTo = viewerProfile.replyTo;
 		}
-		// Pre-fill email from global config or defaults
+		// Pre-fill subject/body from global config or defaults
 		if (config?.enabled) {
 			editSubject = config.subject;
 			editBody = config.body;
@@ -74,6 +79,7 @@
 			await client.mutation(api.admin.founderWelcome.mutations.updateConfig, {
 				name: editName,
 				title: editTitle,
+				replyTo: editReplyTo || undefined,
 				subject: editSubject,
 				body: editBody
 			});
@@ -91,8 +97,8 @@
 		isStepping = true;
 		try {
 			await client.mutation(api.admin.founderWelcome.mutations.stepDown, {});
+			stepDownDialogOpen = false;
 			dialogOpen = false;
-			showStepDownConfirm = false;
 			toast.success($t('admin.settings.founder_welcome.stepped_down'));
 		} catch (error) {
 			console.error('Failed to step down:', error);
@@ -105,8 +111,7 @@
 	function handleDialogOpenChange(open: boolean) {
 		dialogOpen = open;
 		if (!open) {
-			showStepDownConfirm = false;
-			editingBody = false;
+			stepDownDialogOpen = false;
 		}
 	}
 </script>
@@ -120,36 +125,15 @@
 	</Item.Content>
 	<Item.Footer>
 		{#if !result.data}
-			<div class="text-muted-foreground text-sm">...</div>
+			<Button size="sm" variant="outline" class="invisible">&nbsp;</Button>
 		{:else if !isEnabled}
-			<div class="w-full space-y-4">
-				<p class="text-muted-foreground text-sm">
-					<T keyName="admin.settings.founder_welcome.not_configured" />
-				</p>
-				<Button size="sm" onclick={openDialog}>
-					<T keyName="admin.settings.founder_welcome.setup_button" />
-				</Button>
-			</div>
+			<Button size="sm" onclick={openDialog}>
+				<T keyName="admin.settings.founder_welcome.setup_button" />
+			</Button>
 		{:else if isSomeoneElseContact && config?.enabled}
-			<div class="w-full space-y-4">
-				<div>
-					<p class="text-muted-foreground mb-1 text-xs font-medium uppercase tracking-wide">
-						<T keyName="admin.settings.founder_welcome.contact_person" />
-					</p>
-					<p class="text-sm">
-						<T
-							keyName="admin.settings.founder_welcome.contact_person_info"
-							params={{
-								name: config.contactUser.name,
-								email: config.contactUser.email
-							}}
-						/>
-					</p>
-				</div>
-				<Button size="sm" variant="outline" onclick={openDialog}>
-					<T keyName="admin.settings.founder_welcome.take_over" />
-				</Button>
-			</div>
+			<Button size="sm" variant="outline" disabled>
+				{config.name}
+			</Button>
 		{:else if isContactPerson}
 			<Button size="sm" variant="outline" onclick={openDialog}>
 				<T keyName="admin.settings.founder_welcome.edit_button" />
@@ -168,20 +152,33 @@
 		</Dialog.Header>
 
 		<Field.Group>
+			<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+				<Field.Field>
+					<Field.Label for="config-name">
+						<T keyName="admin.settings.founder_welcome.config_name_label" />
+					</Field.Label>
+					<Input id="config-name" bind:value={editName} />
+				</Field.Field>
+				<Field.Field>
+					<Field.Label for="config-title">
+						<T keyName="admin.settings.founder_welcome.config_title_label" />
+					</Field.Label>
+					<Input
+						id="config-title"
+						placeholder={$t('admin.settings.founder_welcome.setup_title_placeholder')}
+						bind:value={editTitle}
+					/>
+				</Field.Field>
+			</div>
 			<Field.Field>
-				<Field.Label for="config-name">
-					<T keyName="admin.settings.founder_welcome.config_name_label" />
-				</Field.Label>
-				<Input id="config-name" bind:value={editName} />
-			</Field.Field>
-			<Field.Field>
-				<Field.Label for="config-title">
-					<T keyName="admin.settings.founder_welcome.config_title_label" />
+				<Field.Label for="config-reply-to">
+					<T keyName="admin.settings.founder_welcome.config_reply_to_label" />
 				</Field.Label>
 				<Input
-					id="config-title"
-					placeholder={$t('admin.settings.founder_welcome.setup_title_placeholder')}
-					bind:value={editTitle}
+					id="config-reply-to"
+					type="email"
+					placeholder={$t('admin.settings.founder_welcome.config_reply_to_placeholder')}
+					bind:value={editReplyTo}
 				/>
 			</Field.Field>
 			<Field.Field>
@@ -195,9 +192,10 @@
 					<T keyName="admin.settings.founder_welcome.config_body_label" />
 				</Field.Label>
 				{#if editingBody || !editBody}
-					<Textarea
+					<TemplateTextarea
 						id="config-body"
 						rows={8}
+						variables={['userFirstName', 'userLastName', 'founderName', 'founderTitle']}
 						bind:value={editBody}
 						onfocus={() => {
 							editingBody = true;
@@ -211,7 +209,7 @@
 					/>
 					<Field.Description>
 						<T keyName="admin.settings.founder_welcome.variables_label" />
-						{' {{userName}}, {{founderName}}, {{founderTitle}}'}
+						{' {{userFirstName}}, {{userLastName}}, {{founderName}}, {{founderTitle}}'}
 					</Field.Description>
 				{:else}
 					<button
@@ -236,28 +234,37 @@
 		>
 			<div>
 				{#if isContactPerson}
-					{#if showStepDownConfirm}
-						<div class="flex items-center gap-2">
-							<Button
-								size="sm"
-								variant="destructive"
-								onclick={handleStepDown}
-								disabled={isStepping}
-							>
-								<T keyName="admin.settings.founder_welcome.step_down" />
-							</Button>
-							<Button size="sm" variant="ghost" onclick={() => (showStepDownConfirm = false)}>
-								<T keyName="admin.settings.founder_welcome.cancel" />
-							</Button>
-						</div>
-						<p class="text-muted-foreground mt-1 text-sm">
-							<T keyName="admin.settings.founder_welcome.step_down_confirm" />
-						</p>
-					{:else}
-						<Button size="sm" variant="ghost" onclick={() => (showStepDownConfirm = true)}>
-							<T keyName="admin.settings.founder_welcome.step_down" />
-						</Button>
-					{/if}
+					<AlertDialog.Root bind:open={stepDownDialogOpen}>
+						<AlertDialog.Trigger>
+							{#snippet child({ props })}
+								<Button size="sm" variant="ghost" {...props}>
+									<T keyName="admin.settings.founder_welcome.step_down" />
+								</Button>
+							{/snippet}
+						</AlertDialog.Trigger>
+						<AlertDialog.Content>
+							<AlertDialog.Header>
+								<AlertDialog.Title>
+									<T keyName="admin.settings.founder_welcome.step_down" />
+								</AlertDialog.Title>
+								<AlertDialog.Description>
+									<T keyName="admin.settings.founder_welcome.step_down_confirm" />
+								</AlertDialog.Description>
+							</AlertDialog.Header>
+							<AlertDialog.Footer>
+								<AlertDialog.Cancel>
+									<T keyName="admin.settings.founder_welcome.cancel" />
+								</AlertDialog.Cancel>
+								<AlertDialog.Action
+									onclick={handleStepDown}
+									disabled={isStepping}
+									class="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+								>
+									<T keyName="admin.settings.founder_welcome.step_down" />
+								</AlertDialog.Action>
+							</AlertDialog.Footer>
+						</AlertDialog.Content>
+					</AlertDialog.Root>
 				{/if}
 			</div>
 			<Button onclick={handleSave} disabled={isSaving || !canSave}>

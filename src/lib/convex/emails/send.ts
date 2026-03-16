@@ -377,8 +377,10 @@ export const sendFounderWelcomeEmail = internalMutation({
 		}
 
 		// Render plain text with {{placeholder}} interpolation
+		const parts = (name?.trim() || 'there').split(/\s+/);
 		const templateVars: Record<string, string> = {
-			userName: name || 'there',
+			userFirstName: parts[0],
+			userLastName: parts.slice(1).join(' '),
 			founderName: config.name,
 			founderTitle: config.title
 		};
@@ -390,8 +392,8 @@ export const sendFounderWelcomeEmail = internalMutation({
 		const subject = renderTemplate(config.subject);
 
 		await resend.sendEmail(ctx, {
-			from: getAuthEmail(),
-			replyTo: [config.contactUser.email],
+			from: `${config.name} <${getAuthEmail()}>`,
+			replyTo: config.replyTo ? [config.replyTo] : undefined,
 			to: email,
 			subject,
 			text,
