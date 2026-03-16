@@ -40,7 +40,7 @@ test.describe('Admin Settings Page', () => {
 		await expect.poll(async () => page.getByTestId('recipients-loading').count()).toBe(0);
 
 		// Generate unique email to avoid conflicts
-		const testEmail = `test-e2e-${Date.now()}@example.com`;
+		const testEmail = `test-e2e-${Date.now()}@e2e.example.com`;
 
 		// Open add email dialog
 		await page.getByTestId('add-email-button').click();
@@ -88,7 +88,7 @@ test.describe('Admin Settings Page', () => {
 		await expect.poll(async () => page.getByTestId('recipients-loading').count()).toBe(0);
 
 		// First, add a custom email
-		const testEmail = `test-dup-${Date.now()}@example.com`;
+		const testEmail = `test-dup-${Date.now()}@e2e.example.com`;
 
 		await page.getByTestId('add-email-button').click();
 		await page.getByTestId('add-email-input').fill(testEmail);
@@ -198,7 +198,7 @@ test.describe('Admin Settings Page', () => {
 		await expect.poll(async () => page.getByTestId('recipients-loading').count()).toBe(0);
 
 		// First, add a custom email to remove
-		const testEmail = `test-remove-${Date.now()}@example.com`;
+		const testEmail = `test-remove-${Date.now()}@e2e.example.com`;
 
 		await page.getByTestId('add-email-button').click();
 		await page.getByTestId('add-email-input').fill(testEmail);
