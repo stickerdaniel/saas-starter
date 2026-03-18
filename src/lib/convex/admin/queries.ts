@@ -4,6 +4,7 @@ import { v } from 'convex/values';
 import type { BetterAuthUser, BetterAuthSession } from './types';
 import { parseBetterAuthUsers, parseBetterAuthSessions, parseUserRecord } from './types';
 import { adminQuery } from '../functions';
+import { getCounters } from './counters';
 
 type AdapterWhereCondition = {
 	connector?: 'AND' | 'OR';
@@ -490,27 +491,24 @@ export const getUserById = adminQuery({
 export const getDashboardMetrics = adminQuery({
 	args: {},
 	handler: async (ctx) => {
-		const users = await fetchAllUsers(ctx);
-		const sessions = await fetchAllSessions(ctx);
+		// Static counts from materialized singleton (avoids loading all users)
+		const counters = await getCounters(ctx);
 
-		// Count unique users active in the last 24 hours
+		// Time-windowed metrics — bounded by recency, so full-scan is acceptable
+		const sessions = await fetchAllSessions(ctx);
 		const now = Date.now();
 		const oneDayAgo = now - 24 * 60 * 60 * 1000;
 		const activeIn24h = sessions.filter((s) => s.updatedAt && s.updatedAt > oneDayAgo);
 		const uniqueActiveUsers = new Set(activeIn24h.map((s) => s.userId));
 
-		// Count users by role
-		const adminCount = users.filter((u) => u.role === 'admin').length;
-		const bannedCount = users.filter((u) => u.banned === true).length;
-
-		// Get recent signups (last 7 days)
+		const users = await fetchAllUsers(ctx);
 		const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
 		const recentSignups = users.filter((u) => u.createdAt && u.createdAt > sevenDaysAgo).length;
 
 		return {
-			totalUsers: users.length,
-			adminCount,
-			bannedCount,
+			totalUsers: counters.totalUsers,
+			adminCount: counters.adminCount,
+			bannedCount: counters.bannedCount,
 			activeIn24h: uniqueActiveUsers.size,
 			recentSignups
 		};

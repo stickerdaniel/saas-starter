@@ -91,6 +91,7 @@
 <ProgressPrimitive.Root
 	bind:ref
 	data-slot="progress"
+	aria-label="Loading"
 	class={cn(
 		'relative h-2 w-full overflow-hidden rounded-full',
 		showBackground && 'bg-primary/20',

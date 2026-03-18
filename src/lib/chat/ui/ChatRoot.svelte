@@ -115,20 +115,20 @@
 	});
 
 	// Query messages with streamArgs for streaming support
-	const messagesQuery = $derived(
+	const messagesQuery = useQuery(api.listMessages, () =>
 		threadId
-			? useQuery(api.listMessages, {
+			? {
 					threadId: threadId,
 					...listMessagesArgs,
 					paginationOpts: { numItems: pageSize, cursor: null },
 					streamArgs: { kind: 'list' as const, startOrder: 0 }
-				})
-			: undefined
+				}
+			: 'skip'
 	);
 
 	// Extract active stream IDs for delta query
 	const activeStreamIds = $derived.by(() => {
-		const messagesData = messagesQuery?.data as MessagesQueryResponse | undefined;
+		const messagesData = messagesQuery.data as MessagesQueryResponse | undefined;
 		return messagesData?.streams?.kind === 'list'
 			? (messagesData.streams.messages || [])
 					.filter(
@@ -139,9 +139,9 @@
 	});
 
 	// Second query: Get text deltas for active streams
-	const deltasQuery = $derived(
+	const deltasQuery = useQuery(api.listMessages, () =>
 		threadId && activeStreamIds.length > 0
-			? useQuery(api.listMessages, {
+			? {
 					threadId: threadId,
 					...listMessagesArgs,
 					paginationOpts: { numItems: 0, cursor: null },
@@ -152,15 +152,15 @@
 							cursor: 0
 						}))
 					}
-				})
-			: undefined
+				}
+			: 'skip'
 	);
 
 	// Get messages from query - optimistic updates are handled by Convex's store.setQuery
 	// When a mutation calls createOptimisticUpdate(), the query cache is updated immediately
 	// and automatically reverts if the mutation fails
 	const allMessages = $derived.by(() => {
-		const messagesData = messagesQuery?.data as MessagesQueryResponse | undefined;
+		const messagesData = messagesQuery.data as MessagesQueryResponse | undefined;
 		const queryMessages = messagesData?.page || [];
 
 		// Normalize messages to ensure top-level role exists
@@ -169,8 +169,8 @@
 
 	// Process streaming deltas to create display messages
 	const displayMessages = $derived.by((): DisplayMessage[] => {
-		const messagesData = messagesQuery?.data as MessagesQueryResponse | undefined;
-		const deltasData = deltasQuery?.data as MessagesQueryResponse | undefined;
+		const messagesData = messagesQuery.data as MessagesQueryResponse | undefined;
+		const deltasData = deltasQuery.data as MessagesQueryResponse | undefined;
 
 		const streamMessages =
 			messagesData?.streams?.kind === 'list' ? messagesData.streams.messages || [] : [];
@@ -236,7 +236,7 @@
 	});
 
 	// Track when messages query has resolved (prevents suggestion chip flash)
-	const messagesReady = $derived(messagesQuery?.data !== undefined);
+	const messagesReady = $derived(messagesQuery.data !== undefined);
 	$effect(() => {
 		uiContext.setMessagesReady(messagesReady);
 	});
