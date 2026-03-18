@@ -24,6 +24,9 @@ import { internal, components } from '../../_generated/api';
 /** Delay before sending notification (2 minutes) */
 const NOTIFICATION_DELAY_MS = 2 * 60 * 1000;
 
+/** Maximum number of retry attempts before giving up */
+const MAX_RETRY_COUNT = 5;
+
 /**
  * Schedule or update an admin notification for a support thread
  *
@@ -229,10 +232,21 @@ export const sendPendingAdminNotification = internalAction({
 			}
 		}
 
-		// If all sends failed, reschedule for retry
+		// If all sends failed, reschedule for retry (up to MAX_RETRY_COUNT attempts)
 		if (sentCount === 0) {
+			const currentRetry = notification.retryCount;
+			if (currentRetry >= MAX_RETRY_COUNT) {
+				console.error(
+					`[sendPendingAdminNotification] All ${targetEmails.length} email sends failed for thread ${notification.threadId} after ${currentRetry} retries, giving up`
+				);
+				await ctx.runMutation(internal.admin.support.notifications.deletePendingNotification, {
+					notificationId: args.notificationId
+				});
+				return;
+			}
+
 			console.error(
-				`[sendPendingAdminNotification] All ${targetEmails.length} email sends failed for thread ${notification.threadId}, rescheduling...`
+				`[sendPendingAdminNotification] All ${targetEmails.length} email sends failed for thread ${notification.threadId}, retry ${currentRetry + 1}/${MAX_RETRY_COUNT}...`
 			);
 			// Reschedule with 1 minute delay via mutation (for guaranteed delivery semantics)
 			await ctx.runMutation(internal.admin.support.notifications.reschedulePendingNotification, {
@@ -281,7 +295,8 @@ export const claimNotificationForSending = internalMutation({
 			threadId: v.string(),
 			messageIds: v.array(v.string()),
 			isReopen: v.boolean(),
-			notificationType: v.union(v.literal('newTickets'), v.literal('userReplies'))
+			notificationType: v.union(v.literal('newTickets'), v.literal('userReplies')),
+			retryCount: v.number()
 		}),
 		v.null()
 	),
@@ -301,7 +316,8 @@ export const claimNotificationForSending = internalMutation({
 			threadId: notification.threadId,
 			messageIds: notification.messageIds,
 			isReopen: notification.isReopen,
-			notificationType: notification.notificationType
+			notificationType: notification.notificationType,
+			retryCount: notification.retryCount ?? 0
 		};
 	}
 });
@@ -323,6 +339,7 @@ export const getPendingNotification = internalQuery({
 			scheduledFor: v.number(),
 			messageIds: v.array(v.string()),
 			scheduledFnId: v.optional(v.id('_scheduled_functions')),
+			retryCount: v.optional(v.number()),
 			createdAt: v.number()
 		}),
 		v.null()
@@ -406,6 +423,7 @@ export const reschedulePendingNotification = internalMutation({
 		}
 
 		const delayMs = args.delayMs ?? 60_000; // Default 1 minute
+		const nextRetryCount = (notification.retryCount ?? 0) + 1;
 
 		// Schedule new send attempt
 		const newScheduledFnId = await ctx.scheduler.runAfter(
@@ -414,14 +432,15 @@ export const reschedulePendingNotification = internalMutation({
 			{ notificationId: args.notificationId }
 		);
 
-		// Update notification with new scheduled function ID
+		// Update notification with new scheduled function ID and incremented retry count
 		await ctx.db.patch(args.notificationId, {
 			scheduledFor: Date.now() + delayMs,
-			scheduledFnId: newScheduledFnId
+			scheduledFnId: newScheduledFnId,
+			retryCount: nextRetryCount
 		});
 
 		console.log(
-			`[reschedulePendingNotification] Rescheduled notification for thread ${notification.threadId} with ${delayMs}ms delay`
+			`[reschedulePendingNotification] Rescheduled notification for thread ${notification.threadId} with ${delayMs}ms delay (retry ${nextRetryCount}/${MAX_RETRY_COUNT})`
 		);
 
 		return true;

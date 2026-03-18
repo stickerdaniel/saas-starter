@@ -1,10 +1,11 @@
-import { query, action, internalMutation } from './_generated/server';
+import { action, internalMutation } from './_generated/server';
 import { v } from 'convex/values';
 import { autumn } from './autumn';
-import { internal } from './_generated/api';
+import { components, internal } from './_generated/api';
 import { authComponent } from './auth';
+import { authedQuery } from './functions';
 
-export const list = query({
+export const list = authedQuery({
 	args: {},
 	returns: v.array(
 		v.object({
@@ -17,22 +18,39 @@ export const list = query({
 		})
 	),
 	handler: async (ctx) => {
-		const user = await authComponent.getAuthUser(ctx);
-		if (!user) {
-			throw new Error('Not signed in');
-		}
 		// Grab the most recent messages.
 		const messages = await ctx.db.query('messages').order('desc').take(100);
 		// Reverse the list so that it's in a chronological order.
-		return Promise.all(
-			messages.reverse().map(async (message) => {
-				return {
-					...message,
-					author: user.name ?? user.email ?? 'Anonymous',
-					authorImage: user.image ?? undefined
-				};
-			})
-		);
+		const chronological = messages.reverse();
+
+		// Batch-fetch all unique message authors
+		const uniqueUserIds = [...new Set(chronological.map((m) => m.userId))];
+		const userMap = new Map<string, { name: string; image?: string }>();
+
+		if (uniqueUserIds.length > 0) {
+			// Bounded: community chat shows at most 100 messages, so unique authors is small
+			const result = await ctx.runQuery(components.betterAuth.adapter.findMany, {
+				model: 'user',
+				paginationOpts: { cursor: null, numItems: uniqueUserIds.length },
+				where: [{ field: '_id', operator: 'in', value: uniqueUserIds }]
+			});
+			for (const record of result.page) {
+				const u = record as { _id: string; name?: string; email?: string; image?: string | null };
+				userMap.set(u._id, {
+					name: u.name ?? u.email ?? 'Anonymous',
+					image: u.image ?? undefined
+				});
+			}
+		}
+
+		return chronological.map((message) => {
+			const authorInfo = userMap.get(message.userId);
+			return {
+				...message,
+				author: authorInfo?.name ?? 'Anonymous',
+				authorImage: authorInfo?.image
+			};
+		});
 	}
 });
 

@@ -1,4 +1,5 @@
 <script lang="ts">
+	// @todo unused component — delete if still unused by next audit
 	import { cn } from '$lib/utils';
 	import type { HTMLImgAttributes } from 'svelte/elements';
 
@@ -22,19 +23,27 @@
 		...props
 	}: Props = $props();
 
-	let src = $derived.by(() => {
-		// Base64 takes precedence
+	let src = $state<string | undefined>(undefined);
+
+	$effect(() => {
+		// Base64 takes precedence — no cleanup needed for data URIs
 		if (base64 && mediaType) {
-			return `data:${mediaType};base64,${base64}`;
+			src = `data:${mediaType};base64,${base64}`;
+			return;
 		}
 
-		// Handle Uint8Array
+		// Handle Uint8Array — object URLs must be revoked to avoid memory leaks
 		if (uint8Array && mediaType) {
 			const blob = new Blob([uint8Array as BlobPart], { type: mediaType });
-			return URL.createObjectURL(blob);
+			const objectUrl = URL.createObjectURL(blob);
+			src = objectUrl;
+
+			return () => {
+				URL.revokeObjectURL(objectUrl);
+			};
 		}
 
-		return undefined;
+		src = undefined;
 	});
 </script>
 

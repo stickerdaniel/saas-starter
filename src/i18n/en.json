@@ -1,4 +1,7 @@
 {
+	"a11y": {
+		"skip_to_content": "Skip to content"
+	},
 	"admin": {
 		"actions": {
 			"ban": "Ban User",
@@ -490,10 +493,11 @@
 				"click_to_edit": "Click to edit",
 				"config_body_label": "Email Body",
 				"config_name_label": "Your Name",
-				"config_subject_label": "Email Subject",
-				"config_title_label": "Your Title",
+				"config_reply_to_description": "Where replies go. Defaults to your account email if left empty.",
 				"config_reply_to_label": "Reply-To Email",
 				"config_reply_to_placeholder": "e.g. hello@yourcompany.com",
+				"config_subject_label": "Email Subject",
+				"config_title_label": "Your Title",
 				"config_variables_hint": "Available variables: '{{userFirstName}}', '{{userLastName}}', '{{founderName}}', '{{founderTitle}}'",
 				"contact_person": "Contact Person",
 				"contact_person_info": "{name} ({email})",
@@ -1015,7 +1019,7 @@
 		"search_placeholder": "Try searching for pages..."
 	},
 	"footer": {
-		"copyright": "\u00a9 {year} SaaS Starter",
+		"copyright": "© {year} SaaS Starter",
 		"privacy": "Privacy Policy",
 		"terms": "Terms of Service"
 	},
