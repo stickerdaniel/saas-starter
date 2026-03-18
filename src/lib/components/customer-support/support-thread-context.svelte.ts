@@ -3,7 +3,7 @@ import type { ConvexClient } from 'convex/browser';
 import type { UIMessagePart, UIDataTypes, UITools } from 'ai';
 import { isToolOrDynamicToolUIPart } from 'ai';
 import { api } from '$lib/convex/_generated/api';
-import type { Attachment } from '$lib/chat';
+import type { Attachment, ChatMessage } from '$lib/chat';
 import { StreamCacheManager } from '$lib/chat/core/StreamProcessor.js';
 import { createOptimisticUpdate, type ListMessagesArgs } from '$lib/chat/core/optimistic.js';
 import { isAnonymousUser } from '$lib/convex/utils/anonymousUser';
@@ -27,37 +27,6 @@ export interface ThreadSummary {
 	lastMessageRole?: 'user' | 'assistant' | 'tool' | 'system';
 	lastMessage?: string;
 	lastMessageAt?: number;
-}
-
-/**
- * Message interface matching Convex Agent message structure
- */
-export interface SupportMessage {
-	id: string; // Changed from _id to match UIMessage from listUIMessages
-	_creationTime: number;
-	threadId?: string;
-	message?: {
-		role: 'user' | 'assistant' | 'system' | 'tool';
-		content: any; // Can be string or complex array structure
-		providerOptions?: Record<string, any>;
-	};
-	text?: string; // Convenience field with full text content
-	reasoning?: string; // Reasoning content (for models like DeepSeek R1)
-	status: 'pending' | 'success' | 'failed' | 'streaming';
-	order: number;
-	tool?: boolean;
-	agentName?: string;
-	embeddingId?: string;
-	model?: string;
-	usage?: Record<string, any>;
-	metadata?: Record<string, any>;
-	// Additional UIMessage fields
-	key?: string;
-	role: 'user' | 'assistant' | 'system' | 'tool'; // Required (normalized)
-	parts?: UIMessagePart<UIDataTypes, UITools>[];
-	stepOrder?: number;
-	// Optimistic attachments
-	localAttachments?: Attachment[];
 }
 
 /**
@@ -91,7 +60,7 @@ export class SupportThreadContext {
 	assignedAdmin = $state<{ name?: string; image: string | null } | undefined>(undefined);
 	notificationEmail = $state<string | null>(null); // Email for admin reply notifications
 	isEmailPending = $state(false); // True while email mutation is in flight (green check hidden)
-	messages = $state<SupportMessage[]>([]);
+	messages = $state<ChatMessage[]>([]);
 	isLoading = $state(false);
 	isSending = $state(false);
 	error = $state<string | null>(null);
@@ -226,9 +195,12 @@ export class SupportThreadContext {
 	 */
 	get hasPendingToolCalls(): boolean {
 		return this.messages.some((msg) =>
-			msg.parts?.some(
-				(p) => isToolOrDynamicToolUIPart(p) && p.state === 'input-available' && !p.output
-			)
+			msg.parts?.some((p) => {
+				// Cast needed: MessagePart's catch-all { type: string; [key: string]: unknown }
+				// is structurally compatible but not assignable to UIMessagePart union
+				const part = p as UIMessagePart<UIDataTypes, UITools>;
+				return isToolOrDynamicToolUIPart(part) && part.state === 'input-available' && !part.output;
+			})
 		);
 	}
 

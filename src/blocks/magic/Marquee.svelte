@@ -71,4 +71,12 @@
 	.animate-marquee-vertical {
 		animation: marquee-vertical var(--duration) linear infinite;
 	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.animate-marquee,
+		.animate-marquee-vertical {
+			animation: none;
+			transform: translateX(0);
+		}
+	}
 </style>

@@ -121,6 +121,7 @@ export default defineSchema({
 		scheduledFor: v.number(), // Timestamp when notification should send
 		messageIds: v.array(v.string()), // Accumulated message IDs to include
 		scheduledFnId: v.optional(v.id('_scheduled_functions')), // For cancellation
+		retryCount: v.optional(v.number()), // Number of retry attempts (stops after 5)
 		createdAt: v.number()
 	}).index('by_thread', ['threadId']),
 
