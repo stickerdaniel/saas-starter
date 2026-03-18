@@ -1377,6 +1377,7 @@
 			"add_passkey_title": "Ajouter un Passkey",
 			"adding": "Ajout en cours...",
 			"created_at": "Créé le ",
+			"delete_passkey": "Supprimer la passkey",
 			"description": "Gérez vos passkeys et paramètres de sécurité.",
 			"error_title": "Erreur",
 			"loading": "Chargement des passkeys...",
@@ -1385,8 +1386,6 @@
 				"placeholder": "Nom du passkey",
 				"unnamed": "Passkey sans nom"
 			},
-			"passkey_delete_failed": "Impossible de supprimer la passkey",
-			"passkey_deleted": "Passkey supprimée",
 			"passkey_info_description": "Les passkeys sont un moyen sécurisé de se connecter sans mot de passe. Ils utilisent la biométrie ou le code PIN de l'appareil et sont stockés en toute sécurité sur vos appareils.",
 			"passkey_info_title": "Que sont les Passkeys ?",
 			"passkey_name_label": "Nom du passkey",

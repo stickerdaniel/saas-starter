@@ -88,6 +88,7 @@
 	);
 </script>
 
+<!-- aria-label is hardcoded English: low-level UI primitive without access to Tolgee i18n context -->
 <ProgressPrimitive.Root
 	bind:ref
 	data-slot="progress"
