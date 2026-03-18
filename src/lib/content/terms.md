@@ -6,7 +6,7 @@ Last Updated: March 18, 2026
 
 Daniel Sticker ("we", "us", "our"), provides the SaaS Starter service (described below) to you through the website and its related services (collectively, such services, including any new features and applications, the "Service"), subject to the following Terms of Service (as amended from time to time, the "Terms of Service"). We reserve the right, at our sole discretion, to change or modify portions of these Terms of Service at any time. If we do this, we will post the changes on this page and will indicate at the top of this page the date these terms were last revised. Your continued use of the Service after the date any such changes become effective constitutes your acceptance of the new Terms of Service.
 
-By using the Service or by clicking to accept the Terms of Service when this option is made available to you, you accept and agree to be bound and abide by these Terms of Service and our [Privacy Policy](/privacy). If you do not want to agree to these Terms of Service or the Privacy Policy, you must not access or use the Service.
+By using the Service or by clicking to accept the Terms of Service when this option is made available to you, you accept and agree to be bound and abide by these Terms of Service and our [Privacy Policy](privacy). If you do not want to agree to these Terms of Service or the Privacy Policy, you must not access or use the Service.
 
 ## I. Service Description and Modifications.
 
@@ -14,7 +14,7 @@ The Service is a web application template and starter kit, provided as a persona
 
 ## II. Registration and Accounts.
 
-You may be required to register in order to access and use certain features of the Service. If you register, you agree to provide and maintain true, accurate, current and complete information about yourself. Registration data and certain other information about you are governed by our [Privacy Policy](/privacy).
+You may be required to register in order to access and use certain features of the Service. If you register, you agree to provide and maintain true, accurate, current and complete information about yourself. Registration data and certain other information about you are governed by our [Privacy Policy](privacy).
 
 You are responsible for maintaining the confidentiality of your password and account and are fully responsible for any and all activities that occur under your password or account. You agree to immediately notify us of any unauthorized use of your password or account or any other breach of security, and to ensure that you exit from your account at the end of each session when accessing the Service. We will not be liable for any loss or damage arising from your failure to comply with this section.
 
@@ -46,7 +46,7 @@ We may suspend or terminate your account (or any part thereof) or use of the Ser
 
 ## IX. Data Protection.
 
-We process personal data in accordance with our [Privacy Policy](/privacy) and applicable data protection law, including the General Data Protection Regulation (GDPR). To the extent that we process personal data on your behalf, we will do so only in accordance with your instructions and applicable law.
+We process personal data in accordance with our [Privacy Policy](privacy) and applicable data protection law, including the General Data Protection Regulation (GDPR). To the extent that we process personal data on your behalf, we will do so only in accordance with your instructions and applicable law.
 
 ## X. Governing Law and Jurisdiction.
 
