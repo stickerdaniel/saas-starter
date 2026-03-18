@@ -46,18 +46,10 @@ export function matchPublicMarketingRoute(pathname: string): MatchedPublicMarket
 		return null;
 	}
 
-	const routeKey: PublicMarketingRouteKey =
-		section === 'about'
-			? 'about'
-			: section === 'pricing'
-				? 'pricing'
-				: section === 'privacy'
-					? 'privacy'
-					: section === 'terms'
-						? 'terms'
-						: 'home';
-
-	return { lang, routeKey };
+	return {
+		lang,
+		routeKey: (section ?? 'home') as PublicMarketingRouteKey
+	};
 }
 
 export function getMarketingMarkdownDocument(routeKey: PublicMarketingRouteKey) {

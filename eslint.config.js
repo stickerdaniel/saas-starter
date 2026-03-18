@@ -9,11 +9,13 @@ import globals from 'globals';
 import ts from 'typescript-eslint';
 import svelteConfig from './svelte.config.js';
 import requireMarketingMarkdownRule from './eslint/rules/require-marketing-markdown.js';
+import requireMarketingRouteRegistrationRule from './eslint/rules/require-marketing-route-registration.js';
 
 const gitignorePath = path.resolve(import.meta.dirname, '.gitignore');
 const localPlugin = {
 	rules: {
-		'require-marketing-markdown': requireMarketingMarkdownRule
+		'require-marketing-markdown': requireMarketingMarkdownRule,
+		'require-marketing-route-registration': requireMarketingRouteRegistrationRule
 	}
 };
 
@@ -126,7 +128,8 @@ export default defineConfig(
 			local: localPlugin
 		},
 		rules: {
-			'local/require-marketing-markdown': 'error'
+			'local/require-marketing-markdown': 'error',
+			'local/require-marketing-route-registration': 'error'
 		}
 	},
 	// Convex best-practice rules (legacy plugin config converted via fixupConfigRules)
