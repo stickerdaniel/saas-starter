@@ -1,4 +1,4 @@
-import { mutation } from '../_generated/server';
+import { adminMutation } from '../functions';
 import { vEmailId } from '@convex-dev/resend';
 import { resend } from './resend';
 
@@ -10,8 +10,10 @@ import { resend } from './resend';
  * sent to the Resend API yet.
  *
  * Note: Cancellation does not trigger an email event.
+ *
+ * @security Requires admin role - only admins can cancel emails
  */
-export const cancelEmail = mutation({
+export const cancelEmail = adminMutation({
 	args: {
 		emailId: vEmailId
 	},

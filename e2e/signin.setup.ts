@@ -5,11 +5,7 @@ import { waitForAuthenticated } from './utils/auth';
 
 const authFile = 'e2e/.auth/user.json';
 
-interface TestCredentials {
-	user: { email: string; password: string; name: string };
-	admin: { email: string; password: string; name: string };
-	anonymousSupport: { userId: string; threadIds: string[] };
-}
+import type { TestCredentials } from './utils/types';
 
 /**
  * This setup test authenticates the regular test user and saves the session state.

@@ -4,7 +4,15 @@ Always follow these rules when implementing animations.
 
 ## Accessibility: Reduced Motion
 
-Always respect user preferences for reduced motion:
+Always respect user preferences for reduced motion.
+
+**Hard rule:** Every `animation: ... infinite` and every `transition` in `<style>` blocks MUST have a `@media (prefers-reduced-motion: reduce)` counterpart. For Tailwind classes, use the `motion-safe:` prefix (e.g., `motion-safe:animate-fade-in`). Existing examples in codebase: `spotlight.svelte` uses `motion-reduce:animate-none`, `marketing-header.svelte` uses `motion-safe:animate-fade-in`, `layout.css` disables view transitions under reduced motion.
+
+**Marquee/carousel note:** Don't just freeze mid-scroll with `animation-play-state: paused` — logos may be half-visible at the edge. Reset `transform: translateX(0)` so content snaps to a clean grid.
+
+**Hover animations note:** For content revealed only on hover (opacity 0 → 1, translate-y), the reduced-motion version should show the content always visible (`opacity-100 translate-y-0`), since hiding content behind hover is itself an a11y barrier for motion-sensitive users.
+
+Patterns:
 
 ```css
 /* CSS approach - wrap animations */

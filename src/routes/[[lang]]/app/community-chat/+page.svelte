@@ -198,13 +198,31 @@
 						</div>
 					</div>
 					<div class="flex place-items-center">
-						<Button variant="ghost" size="icon" class="rounded-full">
+						<Button
+							variant="ghost"
+							size="icon"
+							class="rounded-full"
+							aria-hidden="true"
+							tabindex={-1}
+						>
 							<PhoneIcon />
 						</Button>
-						<Button variant="ghost" size="icon" class="rounded-full">
+						<Button
+							variant="ghost"
+							size="icon"
+							class="rounded-full"
+							aria-hidden="true"
+							tabindex={-1}
+						>
 							<VideoIcon />
 						</Button>
-						<Button variant="ghost" size="icon" class="rounded-full">
+						<Button
+							variant="ghost"
+							size="icon"
+							class="rounded-full"
+							aria-hidden="true"
+							tabindex={-1}
+						>
 							<InfoIcon />
 						</Button>
 					</div>

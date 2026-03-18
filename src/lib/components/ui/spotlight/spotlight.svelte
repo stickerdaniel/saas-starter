@@ -2,11 +2,11 @@
 	import { cn } from '$lib/utils.js';
 
 	interface SpotlightProps {
-		className?: string;
+		class?: string;
 		fill?: string;
 	}
 
-	let { className, fill = 'white' }: SpotlightProps = $props();
+	let { class: className = '', fill = 'white' }: SpotlightProps = $props();
 </script>
 
 <svg

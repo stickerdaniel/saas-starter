@@ -25,7 +25,7 @@
 
 	interface RiveBackgroundProps {
 		src: string;
-		className?: string;
+		class?: string;
 		stateMachine?: string;
 		defer?: boolean;
 		desktopOnly?: boolean;
@@ -33,7 +33,7 @@
 
 	let {
 		src,
-		className = '',
+		class: className = '',
 		stateMachine = 'Motion',
 		defer = false,
 		desktopOnly = false
@@ -193,7 +193,7 @@
 
 <div class={className}>
 	{#if shouldRender}
-		<FollowingPointer className="h-full w-full">
+		<FollowingPointer class="h-full w-full">
 			{#snippet title()}
 				<p class="text-xs">Rive animation by JcToon</p>
 			{/snippet}
@@ -201,7 +201,7 @@
 			<div class="h-full w-full" style="opacity: {opacity};">
 				<!-- Spotlight for dark mode -->
 				{#if isDark && isLoaded}
-					<Spotlight className="-top-50 right-[-285%] -z-5 lg:-top-72" fill="white" />
+					<Spotlight class="-top-50 right-[-285%] -z-5 lg:-top-72" fill="white" />
 				{/if}
 
 				<!-- Rive Canvas -->

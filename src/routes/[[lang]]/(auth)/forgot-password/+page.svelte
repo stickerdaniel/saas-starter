@@ -178,6 +178,7 @@
 								<Input
 									id="email-{id}"
 									type="email"
+									autocomplete="email"
 									placeholder="m@example.com"
 									disabled={isLoading}
 									bind:value={formData.email}

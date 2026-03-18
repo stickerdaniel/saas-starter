@@ -10,7 +10,7 @@
 
 <SEOHead title={$t('meta.terms.title')} description={$t('meta.terms.description')} />
 
-<div class="prose prose-sm dark:prose-invert mx-auto max-w-3xl px-6 pt-40 pb-24 lg:px-12">
+<div class="mx-auto prose prose-sm max-w-3xl px-6 pt-40 pb-24 lg:px-12 dark:prose-invert">
 	<SvelteMarkdown {source} />
 	<p>
 		To report any violations of these Terms of Service or to pose any questions, please contact us

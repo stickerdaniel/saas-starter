@@ -12,11 +12,7 @@ import 'varlock/auto-load';
 import fs from 'fs';
 import path from 'path';
 
-interface TestCredentials {
-	user: { email: string; password: string; name: string };
-	admin: { email: string; password: string; name: string };
-	anonymousSupport: { userId: string; threadIds: string[] };
-}
+import type { TestCredentials } from './utils/types';
 
 async function globalTeardown() {
 	const testSecret = process.env.AUTH_E2E_TEST_SECRET;
