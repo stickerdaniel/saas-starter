@@ -21,6 +21,23 @@
 	let rect = $state<DOMRect | null>(null);
 	let isInside = $state(false);
 
+	// Spring blend transition: 1 = raw mouse (near-instant), 0 = default spring animation
+	let mixFactor = $state(0);
+	let enterTime = 0;
+	const MIX_DURATION = 800; // ms to transition from raw mouse to spring
+
+	// Compute spring transition based on mix factor (exponential interpolation)
+	// mix=0: default spring (stiffness: 500, damping: 25) — matches motion-sv underDampedSpring
+	// mix=1: overdamped spring (stiffness: 5000, damping: 200) — near-instant mouse following
+	const currentTransition = $derived.by(() => {
+		const stiffness = 500 * Math.pow(10, mixFactor);
+		const damping = 25 * Math.pow(8, mixFactor);
+		return {
+			x: { type: 'spring' as const, stiffness, damping, restSpeed: 10 },
+			y: { type: 'spring' as const, stiffness, damping, restSpeed: 10 }
+		};
+	});
+
 	// Long-press state
 	let isHolding = $state(false);
 	let holdProgress = $state(0);
@@ -35,6 +52,10 @@
 			x = e.clientX - rect.left;
 			y = e.clientY - rect.top;
 		}
+		// Update blend factor: quadratic ease-out from raw mouse (1) to spring (0)
+		const elapsed = performance.now() - enterTime;
+		const t = Math.min(elapsed / MIX_DURATION, 1);
+		mixFactor = (1 - t) * (1 - t);
 	};
 
 	const handleMouseLeave = () => {
@@ -55,6 +76,9 @@
 			x = e.clientX - rect.left;
 			y = e.clientY - rect.top;
 		}
+		// Start blend: cursor matches mouse exactly, then eases into spring animation
+		mixFactor = 1;
+		enterTime = performance.now();
 		isInside = true;
 	};
 
@@ -124,6 +148,7 @@
 			<motion.div
 				initial={false}
 				animate={{ x, y, scale: isHolding ? 0.95 : 1, opacity: 1 }}
+				transition={currentTransition}
 				exit={{ scale: 0, opacity: 0 }}
 				style={{ pointerEvents: 'none' }}
 				class="absolute z-50 h-4 w-4 rounded-full"
