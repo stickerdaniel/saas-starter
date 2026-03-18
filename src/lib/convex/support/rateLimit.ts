@@ -11,7 +11,8 @@ import { components } from '../_generated/api';
  *
  * Rate limit keying strategy:
  * - Authenticated users: keyed by server-verified user ID
- * - Anonymous users: keyed by anonymous user ID (fallback: thread ID)
+ * - Anonymous messages: keyed by anonymous user ID (fallback: thread ID)
+ * - Anonymous uploads: shared global bucket (client IDs are spoofable)
  */
 export const supportRateLimiter = new RateLimiter(components.rateLimiter, {
 	// Authenticated user message limit
@@ -41,13 +42,15 @@ export const supportRateLimiter = new RateLimiter(components.rateLimiter, {
 		capacity: 10
 	},
 
-	// Anonymous user file upload limit (stricter to prevent abuse)
-	// Token bucket: 5-file burst, sustained 5/hour
+	// Anonymous file upload limit — GLOBAL shared bucket (not per-user)
+	// Anonymous IDs are client-generated and spoofable, so all anonymous
+	// uploads share one bucket keyed 'anonymous-global' in files.ts
+	// Token bucket: 10-file burst, sustained 20/hour
 	supportFileUploadAnon: {
 		kind: 'token bucket',
-		rate: 5,
+		rate: 20,
 		period: HOUR,
-		capacity: 5
+		capacity: 10
 	},
 
 	// Global LLM call limit (cost protection)
