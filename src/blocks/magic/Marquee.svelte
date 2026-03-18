@@ -73,10 +73,13 @@
 	}
 
 	@media (prefers-reduced-motion: reduce) {
-		.animate-marquee,
-		.animate-marquee-vertical {
+		.animate-marquee {
 			animation: none;
 			transform: translateX(0);
+		}
+		.animate-marquee-vertical {
+			animation: none;
+			transform: translateY(0);
 		}
 	}
 </style>
