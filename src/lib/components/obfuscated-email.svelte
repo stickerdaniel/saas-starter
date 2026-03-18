@@ -23,7 +23,11 @@
   which doesn't match email regex. Humans see "daniel@sticker.name" correctly.
   Copy-paste includes the hidden text, producing an invalid address.
 -->
-<button onclick={handleClick} class="cursor-pointer {className}" type="button"
+<button
+	onclick={handleClick}
+	class="cursor-pointer {className}"
+	type="button"
+	aria-label="{user}@{domain}.{tld}"
 	>{user}<span class="hidden" aria-hidden="true">.nope</span>@<span
 		class="hidden"
 		aria-hidden="true">null.</span
