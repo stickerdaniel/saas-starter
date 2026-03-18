@@ -120,7 +120,7 @@
 					</Button>
 				</CardHeader>
 
-				<CardContent class="space-y-4">
+				<CardContent class="space-y-4 pb-6">
 					<hr class="border-dashed" />
 
 					<ul class="list-outside space-y-3 text-sm">
@@ -187,7 +187,7 @@
 					{/if}
 				</CardHeader>
 
-				<CardContent class="space-y-4">
+				<CardContent class="space-y-4 pb-6">
 					<hr class="border-dashed" />
 
 					<ul class="list-outside space-y-3 text-sm">
@@ -220,7 +220,7 @@
 					</Button>
 				</CardHeader>
 
-				<CardContent class="space-y-4">
+				<CardContent class="space-y-4 pb-6">
 					<hr class="border-dashed" />
 
 					<ul class="list-outside space-y-3 text-sm">
