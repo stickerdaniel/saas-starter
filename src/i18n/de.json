@@ -1,4 +1,7 @@
 {
+	"a11y": {
+		"skip_to_content": "Zum Inhalt springen"
+	},
 	"admin": {
 		"actions": {
 			"ban": "Benutzer sperren",
@@ -490,10 +493,11 @@
 				"click_to_edit": "Klicken zum Bearbeiten",
 				"config_body_label": "E-Mail-Text",
 				"config_name_label": "Ihr Name",
-				"config_subject_label": "E-Mail-Betreff",
-				"config_title_label": "Ihr Titel",
+				"config_reply_to_description": "Wohin Antworten gehen. Standardmäßig Ihre Konto-E-Mail, wenn leer.",
 				"config_reply_to_label": "Antwort-E-Mail",
 				"config_reply_to_placeholder": "z.B. hallo@ihrfirma.de",
+				"config_subject_label": "E-Mail-Betreff",
+				"config_title_label": "Ihr Titel",
 				"config_variables_hint": "Verfügbare Variablen: '{{userFirstName}}', '{{userLastName}}', '{{founderName}}', '{{founderTitle}}'",
 				"contact_person": "Ansprechpartner",
 				"contact_person_info": "{name} ({email})",

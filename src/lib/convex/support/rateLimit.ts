@@ -1,4 +1,4 @@
-import { RateLimiter, MINUTE } from '@convex-dev/rate-limiter';
+import { RateLimiter, MINUTE, HOUR } from '@convex-dev/rate-limiter';
 import { components } from '../_generated/api';
 
 /**
@@ -6,6 +6,7 @@ import { components } from '../_generated/api';
  *
  * Prevents abuse of the AI support agent by limiting:
  * - Per-user message frequency (authenticated vs anonymous)
+ * - Per-user file upload frequency (authenticated vs anonymous)
  * - Global LLM calls for cost protection
  *
  * Rate limit keying strategy:
@@ -29,6 +30,24 @@ export const supportRateLimiter = new RateLimiter(components.rateLimiter, {
 		rate: 3,
 		period: MINUTE,
 		capacity: 3
+	},
+
+	// Authenticated user file upload limit
+	// Token bucket: 10-file burst for batch uploads, sustained 10/hour
+	supportFileUpload: {
+		kind: 'token bucket',
+		rate: 10,
+		period: HOUR,
+		capacity: 10
+	},
+
+	// Anonymous user file upload limit (stricter to prevent abuse)
+	// Token bucket: 5-file burst, sustained 5/hour
+	supportFileUploadAnon: {
+		kind: 'token bucket',
+		rate: 5,
+		period: HOUR,
+		capacity: 5
 	},
 
 	// Global LLM call limit (cost protection)

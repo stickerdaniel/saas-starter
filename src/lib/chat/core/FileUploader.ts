@@ -46,12 +46,15 @@ export async function uploadFileWithProgress(
 		generateUploadUrl: Parameters<ConvexClient['mutation']>[0];
 		saveUploadedFile: Parameters<ConvexClient['action']>[0];
 		locale?: string;
+		/** Provider for extra args to pass to generateUploadUrl (e.g., anonymousUserId for rate limiting) */
+		getGenerateUploadUrlArgs?: () => Record<string, unknown>;
 	},
 	dimensions?: { width: number; height: number },
 	accessKey?: string
 ): Promise<UploadResult> {
-	// 1. Generate upload URL
-	const { uploadUrl, uploadToken } = await client.mutation(api.generateUploadUrl, {});
+	// 1. Generate upload URL (with optional extra args for rate limiting)
+	const uploadUrlArgs = api.getGenerateUploadUrlArgs?.() ?? {};
+	const { uploadUrl, uploadToken } = await client.mutation(api.generateUploadUrl, uploadUrlArgs);
 
 	// 2. Upload file with progress tracking
 	const storageId = await uploadToStorage(uploadUrl, file, onProgress);

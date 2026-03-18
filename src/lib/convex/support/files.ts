@@ -3,6 +3,9 @@ import { storeFile } from '@convex-dev/agent';
 import { action, internalMutation, mutation } from '../_generated/server';
 import { components, internal } from '../_generated/api';
 import { t } from '../i18n/translations';
+import { supportRateLimiter } from './rateLimit';
+import { createRateLimitError } from './types';
+import { getSupportOwnerIdentity } from './ownership';
 
 /**
  * Allowed file types for upload
@@ -20,10 +23,31 @@ const ALLOWED_MIME_TYPES = [
  *
  * This mutation generates a temporary URL + upload token that clients can use to
  * upload files directly to Convex storage with progress tracking support.
+ *
+ * Rate limited per user to prevent storage abuse.
+ *
+ * @security Anonymous access: support file uploads are available to unauthenticated users
  */
 export const generateUploadUrl = mutation({
-	args: {},
-	handler: async (ctx) => {
+	args: {
+		anonymousUserId: v.optional(v.string())
+	},
+	handler: async (ctx, args) => {
+		const owner = await getSupportOwnerIdentity(ctx, args.anonymousUserId);
+
+		// Rate limit check - stricter limits for anonymous/unknown users
+		const limitName = !owner || owner.isAnonymous ? 'supportFileUploadAnon' : 'supportFileUpload';
+		const userKey = owner?.ownerId ?? 'anonymous';
+
+		const rateLimitStatus = await supportRateLimiter.limit(ctx, limitName, { key: userKey });
+
+		if (!rateLimitStatus.ok) {
+			throw createRateLimitError(
+				rateLimitStatus.retryAfter,
+				'Too many file uploads. Please try again later.'
+			);
+		}
+
 		return await ctx.runMutation(components.convexFilesControl.upload.generateUploadUrl, {
 			provider: 'convex'
 		});

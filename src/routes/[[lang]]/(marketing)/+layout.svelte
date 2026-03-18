@@ -16,8 +16,8 @@
 <SupportTicketMigrationBootstrap />
 <MarketingHeader />
 <div class="flex min-h-svh flex-col pt-4 sm:pt-0">
-	<div class="flex-1">
+	<main id="main-content" class="flex-1">
 		{@render children?.()}
-	</div>
+	</main>
 	<MarketingFooter />
 </div>

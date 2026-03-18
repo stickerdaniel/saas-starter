@@ -8,7 +8,7 @@
 	import { SupportThreadContext, supportThreadContext } from './support-thread-context.svelte';
 	import { ChatUIContext, type UploadConfig } from '$lib/chat';
 	import { browser } from '$app/environment';
-	import { generateAnonymousUserId } from '$lib/convex/utils/anonymousUser';
+	import { generateAnonymousUserId, isAnonymousUser } from '$lib/convex/utils/anonymousUser';
 	import { useSupportUrlState } from './use-support-url-state.svelte';
 
 	// URL state for shareable links
@@ -64,7 +64,12 @@
 		generateUploadUrl: api.support.files.generateUploadUrl,
 		saveUploadedFile: api.support.files.saveUploadedFile,
 		locale: page.data.lang,
-		getAccessKey: () => threadContext.threadId ?? threadContext.userId ?? 'support'
+		getAccessKey: () => threadContext.threadId ?? threadContext.userId ?? 'support',
+		getGenerateUploadUrlArgs: () => {
+			const userId = threadContext.userId;
+			const anonymousUserId = isAnonymousUser(userId) ? (userId ?? undefined) : undefined;
+			return anonymousUserId ? { anonymousUserId } : {};
+		}
 	};
 
 	// Create ChatUIContext at this level so we can handle screenshot uploads
