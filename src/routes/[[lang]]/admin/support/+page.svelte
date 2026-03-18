@@ -19,6 +19,7 @@
 	import ThreadDetails from './thread-details.svelte';
 	import { adminSupportUI } from '$lib/hooks/admin-support-ui.svelte';
 	import { adminCache } from '$lib/hooks/admin-cache.svelte';
+	import { browser } from '$app/environment';
 
 	const { t } = getTranslate();
 
@@ -137,8 +138,10 @@
 />
 
 <div class="flex h-full flex-col">
-	<!-- Desktop XL (≥1280px): 3 panes with 2 resizers -->
-	{#if media.xl}
+	<!-- Wait for browser to resolve media queries — prevents layout flash from SSR fallback -->
+	{#if !browser}
+		<div class="h-full"></div>
+	{:else if media.xl}
 		<PaneGroup direction="horizontal" autoSaveId="support-3pane" class="h-full">
 			<Pane defaultSize={25} minSize={20} maxSize={40}>
 				<ThreadList
