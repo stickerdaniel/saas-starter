@@ -3,6 +3,12 @@
 @source '../node_modules/svelte-streamdown/**/*';
 
 @import 'tw-animate-css';
+@plugin '@tailwindcss/typography';
+
+/* Match prose hr to shadcn separator */
+.prose hr {
+	border-color: var(--border);
+}
 
 /* Outfit Font - Self-hosted */
 @font-face {
