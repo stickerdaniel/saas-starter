@@ -1014,6 +1014,11 @@
 		"not_found_title": "404 - Página no encontrada",
 		"search_placeholder": "Prueba a buscar páginas..."
 	},
+	"footer": {
+		"copyright": "© {year} SaaS Starter",
+		"privacy": "Privacidad",
+		"terms": "Condiciones de uso"
+	},
 	"hero": {
 		"companies_text": "Impulsando a los mejores equipos",
 		"cta": "Comenzar ahora",
@@ -1175,9 +1180,17 @@
 			"description": "Elige un plan y prueba el flujo de facturación integrado.",
 			"title": "Precios"
 		},
+		"privacy": {
+			"description": "Cómo recopilamos, usamos y protegemos sus datos personales.",
+			"title": "Política de privacidad"
+		},
 		"shadcn_demo": {
 			"description": "Vista previa de los componentes UI usados en este proyecto.",
 			"title": "Demo de Shadcn"
+		},
+		"terms": {
+			"description": "Los términos y condiciones para usar nuestro servicio.",
+			"title": "Condiciones de uso"
 		}
 	},
 	"nav": {

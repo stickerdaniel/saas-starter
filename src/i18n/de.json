@@ -1014,6 +1014,11 @@
 		"not_found_title": "404 - Seite nicht gefunden",
 		"search_placeholder": "Versuchen Sie, nach Seiten zu suchen..."
 	},
+	"footer": {
+		"copyright": "© {year} SaaS Starter",
+		"privacy": "Datenschutz",
+		"terms": "Nutzungsbedingungen"
+	},
 	"hero": {
 		"companies_text": "Vertrauen der besten Teams",
 		"cta": "Jetzt starten",
@@ -1175,9 +1180,17 @@
 			"description": "Wählen Sie einen Plan und testen Sie den integrierten Abrechnungsablauf.",
 			"title": "Preise"
 		},
+		"privacy": {
+			"description": "Wie wir Ihre Daten erheben, nutzen und schützen.",
+			"title": "Datenschutzerklärung"
+		},
 		"shadcn_demo": {
 			"description": "Vorschau der in diesem Projekt verwendeten UI-Komponenten.",
 			"title": "Shadcn-Demo"
+		},
+		"terms": {
+			"description": "Die Bedingungen für die Nutzung unseres Dienstes.",
+			"title": "Nutzungsbedingungen"
 		}
 	},
 	"nav": {

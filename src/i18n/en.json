@@ -1014,6 +1014,11 @@
 		"not_found_title": "404 - Page Not Found",
 		"search_placeholder": "Try searching for pages..."
 	},
+	"footer": {
+		"copyright": "\u00a9 {year} SaaS Starter",
+		"privacy": "Privacy Policy",
+		"terms": "Terms of Service"
+	},
 	"hero": {
 		"companies_text": "Powering the best teams",
 		"cta": "Start Building",
@@ -1175,9 +1180,17 @@
 			"description": "Choose a plan and test the integrated billing flow.",
 			"title": "Pricing"
 		},
+		"privacy": {
+			"description": "How we collect, use, and protect your personal data.",
+			"title": "Privacy Policy"
+		},
 		"shadcn_demo": {
 			"description": "Preview the UI components used in this project.",
 			"title": "Shadcn Demo"
+		},
+		"terms": {
+			"description": "The terms and conditions for using our service.",
+			"title": "Terms of Service"
 		}
 	},
 	"nav": {
