@@ -1377,6 +1377,7 @@
 			"add_passkey_title": "Passkey hinzufügen",
 			"adding": "Wird hinzugefügt...",
 			"created_at": "Erstellt am ",
+			"delete_passkey": "Passkey löschen",
 			"description": "Verwalten Sie Ihre Passkeys und Sicherheitseinstellungen.",
 			"error_title": "Fehler",
 			"loading": "Passkeys werden geladen...",
@@ -1385,8 +1386,6 @@
 				"placeholder": "Passkey-Name",
 				"unnamed": "Unbenannter Passkey"
 			},
-			"passkey_delete_failed": "Passkey konnte nicht gelöscht werden",
-			"passkey_deleted": "Passkey entfernt",
 			"passkey_info_description": "Passkeys sind eine sichere, passwortlose Anmeldemethode. Sie verwenden Biometrie oder Geräte-PIN und werden sicher auf Ihren Geräten gespeichert.",
 			"passkey_info_title": "Was sind Passkeys?",
 			"passkey_name_label": "Passkey-Name",

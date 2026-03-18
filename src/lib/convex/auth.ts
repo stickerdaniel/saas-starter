@@ -156,6 +156,20 @@ export const authComponent = createClient<DataModel, typeof authSchema>(componen
 			},
 
 			/**
+			 * Called when a user is deleted
+			 * - Decrements materialized dashboard counters
+			 */
+			onDelete: async (ctx, user) => {
+				await incrementCounter(ctx, 'totalUsers', -1);
+				if (user.role === 'admin') {
+					await incrementCounter(ctx, 'adminCount', -1);
+				}
+				if (user.banned === true) {
+					await incrementCounter(ctx, 'bannedCount', -1);
+				}
+			},
+
+			/**
 			 * Called when a user is updated
 			 * - Sends signup notification when email becomes verified
 			 * - Detects admin role changes and syncs notification preferences

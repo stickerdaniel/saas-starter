@@ -77,12 +77,14 @@
 		const removedPasskey = passkeys.find((p) => p.id === id);
 		if (!removedPasskey) return;
 
+		const originalIndex = passkeys.indexOf(removedPasskey);
 		passkeys = passkeys.filter((p) => p.id !== id);
 		let undone = false;
 
 		const restore = () => {
 			undone = true;
-			passkeys = [...passkeys, removedPasskey];
+			passkeys.splice(originalIndex, 0, removedPasskey);
+			passkeys = passkeys;
 		};
 
 		const executeDelete = async () => {
@@ -208,6 +210,7 @@
 									size="icon"
 									onclick={() => handleDeletePasskey(passkey.id)}
 									class="text-destructive hover:text-destructive"
+									aria-label={$t('settings.security.delete_passkey')}
 								>
 									<Trash2Icon class="h-4 w-4" />
 								</Button>
