@@ -9,7 +9,7 @@
 <div class="flex items-center gap-2">
 	<Avatar.Root class="size-8">
 		{#if image}
-			<Avatar.Image src={image} alt={name || 'User'} />
+			<Avatar.Image src={image} alt={name || 'User'} referrerpolicy="no-referrer" />
 		{/if}
 		<Avatar.Fallback class="text-xs">{initials}</Avatar.Fallback>
 	</Avatar.Root>
