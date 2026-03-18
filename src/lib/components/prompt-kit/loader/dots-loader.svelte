@@ -28,7 +28,7 @@
 	{#each Array(3) as _, i (i)}
 		<div
 			class={cn(
-				'animate-[bounce-dots_1.4s_ease-in-out_infinite] rounded-full bg-primary',
+				'animate-[bounce-dots_1.4s_ease-in-out_infinite] motion-reduce:animate-none rounded-full bg-primary',
 				dotSizes[size]
 			)}
 			style:animation-delay="{i * 160}ms"
