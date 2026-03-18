@@ -388,3 +388,60 @@ export const cleanupTestData = mutation({
 		};
 	}
 });
+
+// Bulk-delete ALL stale E2E test users (@e2e.example.com)
+// Finds all users matching the pattern and deletes them + accounts + sessions
+export const cleanupAllTestUsers = mutation({
+	args: { secret: v.string() },
+	handler: async (ctx, { secret }) => {
+		const expectedSecret = process.env.AUTH_E2E_TEST_SECRET;
+		if (!expectedSecret || secret !== expectedSecret) {
+			throw new Error('Unauthorized: Invalid test secret');
+		}
+
+		// Fetch all users and filter for e2e pattern
+		const e2eUsers: Array<{ _id: string; email: string }> = [];
+		let cursor: string | null = null;
+		let hasMore = true;
+
+		while (hasMore) {
+			const result: { page: Record<string, unknown>[]; isDone: boolean; continueCursor: string } =
+				await ctx.runQuery(components.betterAuth.adapter.findMany, {
+					model: 'user',
+					paginationOpts: { cursor, numItems: 200 }
+				});
+			for (const user of result.page) {
+				const u = user as { _id: string; email?: string };
+				if (u.email?.endsWith('@e2e.example.com')) {
+					e2eUsers.push({ _id: u._id, email: u.email });
+				}
+			}
+			hasMore = !result.isDone;
+			cursor = result.continueCursor;
+		}
+
+		// Sequential deletes in one-time cleanup (test-only, bounded dataset)
+		let deleted = 0;
+		for (const user of e2eUsers) {
+			await ctx.runMutation(components.betterAuth.adapter.deleteMany, {
+				input: { model: 'account', where: [{ field: 'userId', value: user._id }] },
+				paginationOpts: { numItems: 100, cursor: null }
+			});
+			await ctx.runMutation(components.betterAuth.adapter.deleteMany, {
+				input: { model: 'session', where: [{ field: 'userId', value: user._id }] },
+				paginationOpts: { numItems: 100, cursor: null }
+			});
+			const pref = await ctx.db
+				.query('adminNotificationPreferences')
+				.withIndex('by_email', (q) => q.eq('email', user.email))
+				.first();
+			if (pref) await ctx.db.delete(pref._id);
+			await ctx.runMutation(components.betterAuth.adapter.deleteOne, {
+				input: { model: 'user', where: [{ field: 'email', value: user.email }] }
+			});
+			deleted++;
+		}
+
+		return { success: true, found: e2eUsers.length, deleted };
+	}
+});
