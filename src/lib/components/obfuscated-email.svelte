@@ -27,7 +27,7 @@
 	onclick={handleClick}
 	class="cursor-pointer {className}"
 	type="button"
-	aria-label="{user}@{domain}.{tld}"
+	aria-label="{user} at {domain} dot {tld}"
 	>{user}<span class="hidden" aria-hidden="true">.nope</span>@<span
 		class="hidden"
 		aria-hidden="true">null.</span
