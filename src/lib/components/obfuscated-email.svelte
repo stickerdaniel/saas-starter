@@ -17,12 +17,8 @@
 	}
 </script>
 
-<!--
-  Anti-scraping: hidden <span> decoys break regex pattern matching.
-  Bots see "daniel<hidden junk>@<hidden junk>sticker<hidden junk>.<hidden junk>name"
-  which doesn't match email regex. Humans see "daniel@sticker.name" correctly.
-  Copy-paste includes the hidden text, producing an invalid address.
--->
+<!-- Hidden span decoys reduce the chance of naive regex scrapers extracting a valid email address.
+     The mailto: is only assembled via JS onclick. Not a guarantee against headless-browser scrapers. -->
 <button
 	onclick={handleClick}
 	class="cursor-pointer {className}"
