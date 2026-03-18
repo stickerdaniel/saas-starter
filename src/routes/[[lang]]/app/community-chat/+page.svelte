@@ -198,33 +198,24 @@
 						</div>
 					</div>
 					<div class="flex place-items-center">
-						<Button
-							variant="ghost"
-							size="icon"
-							class="rounded-full"
+						<div
+							class="inline-flex size-9 items-center justify-center rounded-full text-muted-foreground"
 							aria-hidden="true"
-							tabindex={-1}
 						>
-							<PhoneIcon />
-						</Button>
-						<Button
-							variant="ghost"
-							size="icon"
-							class="rounded-full"
+							<PhoneIcon class="size-4" />
+						</div>
+						<div
+							class="inline-flex size-9 items-center justify-center rounded-full text-muted-foreground"
 							aria-hidden="true"
-							tabindex={-1}
 						>
-							<VideoIcon />
-						</Button>
-						<Button
-							variant="ghost"
-							size="icon"
-							class="rounded-full"
+							<VideoIcon class="size-4" />
+						</div>
+						<div
+							class="inline-flex size-9 items-center justify-center rounded-full text-muted-foreground"
 							aria-hidden="true"
-							tabindex={-1}
 						>
-							<InfoIcon />
-						</Button>
+							<InfoIcon class="size-4" />
+						</div>
 					</div>
 				</div>
 				<Chat.List class="!h-[calc(100dvh-var(--header-height)-12rem)]">
