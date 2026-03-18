@@ -17,13 +17,16 @@
 	}
 </script>
 
-<!--
-  Anti-scraping: hidden <span> decoys break regex pattern matching.
-  Bots see "daniel<hidden junk>@<hidden junk>sticker<hidden junk>.<hidden junk>name"
-  which doesn't match email regex. Humans see "daniel@sticker.name" correctly.
-  Copy-paste includes the hidden text, producing an invalid address.
--->
-<button onclick={handleClick} class="cursor-pointer {className}" type="button"
+<!-- Hidden span decoys reduce the chance of naive regex scrapers extracting a valid email address.
+     The mailto: is only assembled via JS onclick. Not a guarantee against headless-browser scrapers. -->
+<!-- Anti-scraping: aria-label intentionally NOT localized via Tolgee. Putting email parts
+     in i18n bundles would defeat the obfuscation. English "at"/"dot" format is acceptable
+     since this component is only used for static contact info on legal pages. -->
+<button
+	onclick={handleClick}
+	class="cursor-pointer {className}"
+	type="button"
+	aria-label="{user} at {domain} dot {tld}"
 	>{user}<span class="hidden" aria-hidden="true">.nope</span>@<span
 		class="hidden"
 		aria-hidden="true">null.</span
