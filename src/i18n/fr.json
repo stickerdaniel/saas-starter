@@ -1014,6 +1014,11 @@
 		"not_found_title": "404 - Page introuvable",
 		"search_placeholder": "Essayez de rechercher des pages..."
 	},
+	"footer": {
+		"copyright": "© {year} SaaS Starter",
+		"privacy": "Confidentialité",
+		"terms": "Conditions d'utilisation"
+	},
 	"hero": {
 		"companies_text": "Propulsant les meilleures équipes",
 		"cta": "Commencer maintenant",
@@ -1175,9 +1180,17 @@
 			"description": "Choisissez une offre et testez le flux de facturation intégré.",
 			"title": "Tarifs"
 		},
+		"privacy": {
+			"description": "Comment nous collectons, utilisons et protégeons vos données.",
+			"title": "Politique de confidentialité"
+		},
 		"shadcn_demo": {
 			"description": "Prévisualisez les composants UI utilisés dans ce projet.",
 			"title": "Démo Shadcn"
+		},
+		"terms": {
+			"description": "Les conditions d'utilisation de notre service.",
+			"title": "Conditions d'utilisation"
 		}
 	},
 	"nav": {

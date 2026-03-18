@@ -85,7 +85,7 @@
 			size="icon"
 			onclick={openSupport}
 			aria-label={$t('aria.feedback_open')}
-			class="h-12 w-12 rounded-full transition-colors transition-transform duration-200 ease-in-out hover:scale-110 hover:bg-primary active:scale-105"
+			class="h-12 w-12 rounded-xl transition-colors transition-transform duration-200 ease-in-out hover:scale-110 hover:bg-primary active:scale-105"
 		>
 			<div class="-scale-x-100">
 				<MessageSquareIcon class="size-6 fill-current" />
