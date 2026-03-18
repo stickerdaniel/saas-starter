@@ -35,9 +35,11 @@ export const generateUploadUrl = mutation({
 	handler: async (ctx, args) => {
 		const owner = await getSupportOwnerIdentity(ctx, args.anonymousUserId);
 
-		// Rate limit check - stricter limits for anonymous/unknown users
-		const limitName = !owner || owner.isAnonymous ? 'supportFileUploadAnon' : 'supportFileUpload';
-		const userKey = owner?.ownerId ?? 'anonymous';
+		// Rate limit check - anonymous users share a single global bucket to prevent
+		// storage abuse via ID rotation (anonymous IDs are client-generated)
+		const isAnon = !owner || owner.isAnonymous;
+		const limitName = isAnon ? 'supportFileUploadAnon' : 'supportFileUpload';
+		const userKey = isAnon ? 'anonymous-global' : owner.ownerId;
 
 		const rateLimitStatus = await supportRateLimiter.limit(ctx, limitName, { key: userKey });
 
