@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const MARKETING_ROUTE_SEGMENT = `${path.sep}src${path.sep}routes${path.sep}[[lang]]${path.sep}(marketing)${path.sep}`;
+const MARKETING_ROUTE_SEGMENT = `${path.sep}src${path.sep}routes${path.sep}[[lang]]${path.sep}(marketing)`;
 
 export default {
 	meta: {
@@ -32,7 +32,9 @@ export default {
 				// Root marketing page: .../[[lang]]/(marketing)/+page.svelte → "home"
 				const dir = path.dirname(filename);
 				const marketingIdx = dir.indexOf(MARKETING_ROUTE_SEGMENT);
-				const afterMarketing = dir.slice(marketingIdx + MARKETING_ROUTE_SEGMENT.length);
+				const afterMarketing = dir
+					.slice(marketingIdx + MARKETING_ROUTE_SEGMENT.length)
+					.replace(/^[/\\]/, '');
 				const routeKey = afterMarketing || 'home';
 
 				// Read public-routes.ts and check if this route key is registered

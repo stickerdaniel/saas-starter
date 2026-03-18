@@ -19,6 +19,9 @@
 
 <!-- Hidden span decoys reduce the chance of naive regex scrapers extracting a valid email address.
      The mailto: is only assembled via JS onclick. Not a guarantee against headless-browser scrapers. -->
+<!-- Anti-scraping: aria-label intentionally NOT localized via Tolgee. Putting email parts
+     in i18n bundles would defeat the obfuscation. English "at"/"dot" format is acceptable
+     since this component is only used for static contact info on legal pages. -->
 <button
 	onclick={handleClick}
 	class="cursor-pointer {className}"
