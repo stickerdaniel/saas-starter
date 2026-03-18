@@ -18,11 +18,7 @@ const TEST_PASSWORD = 'TestPassword123!';
 // Vercel automation bypass for protected preview deployments
 const VERCEL_BYPASS_SECRET = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
 
-interface TestCredentials {
-	user: { email: string; password: string; name: string };
-	admin: { email: string; password: string; name: string };
-	anonymousSupport: { userId: string; threadIds: string[] };
-}
+import type { TestCredentials } from './utils/types';
 
 async function globalSetup() {
 	const testSecret = process.env.AUTH_E2E_TEST_SECRET;
