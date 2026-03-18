@@ -33,6 +33,7 @@
 	import { columns } from './columns.js';
 	import DataTableFilters from './data-table-filters.svelte';
 	import type { ActionEvent } from './data-table-actions.svelte';
+	import { browser } from '$app/environment';
 
 	let { data: _data }: { data: PageData } = $props();
 
@@ -478,122 +479,127 @@
 		<h1 class="text-2xl font-bold"><T keyName="admin.users.title" /></h1>
 	</div>
 
-	<ConvexCursorTableShell
-		testIdPrefix="admin-users"
-		tableTestId="admin-users-table"
-		searchValue={tableParams.search}
-		searchPlaceholder={$t('admin.users.search_placeholder')}
-		onSearchChange={usersTable.setSearch}
-		pageIndex={usersTable.pageIndex}
-		pageCount={usersTable.pageCount}
-		pageSize={usersTable.pageSize}
-		pageSizeOptions={PAGE_SIZE_NUM_OPTIONS}
-		canPreviousPage={usersTable.canPreviousPage}
-		canNextPage={usersTable.canNextPage}
-		onFirstPage={usersTable.goFirst}
-		onPreviousPage={usersTable.goPrevious}
-		onNextPage={usersTable.goNext}
-		onLastPage={usersTable.goLast}
-		onPageSizeChange={usersTable.setPageSize}
-		rowsPerPageLabel={$t('admin.users.rows_per_page')}
-		selectionText={$t('admin.users.selected', {
-			selected: Object.keys(rowSelection).length,
-			total: usersTable.hasLoadedCount ? usersTable.totalCount : (adminCache.userCount.current ?? 0)
-		})}
-	>
-		{#snippet toolbarFilters()}
-			<DataTableFilters {roleFilter} {statusFilter} onFilterChange={handleFilterChange} />
-		{/snippet}
+	{#if browser}<ConvexCursorTableShell
+			testIdPrefix="admin-users"
+			tableTestId="admin-users-table"
+			searchValue={tableParams.search}
+			searchPlaceholder={$t('admin.users.search_placeholder')}
+			onSearchChange={usersTable.setSearch}
+			pageIndex={usersTable.pageIndex}
+			pageCount={usersTable.pageCount}
+			pageSize={usersTable.pageSize}
+			pageSizeOptions={PAGE_SIZE_NUM_OPTIONS}
+			canPreviousPage={usersTable.canPreviousPage}
+			canNextPage={usersTable.canNextPage}
+			onFirstPage={usersTable.goFirst}
+			onPreviousPage={usersTable.goPrevious}
+			onNextPage={usersTable.goNext}
+			onLastPage={usersTable.goLast}
+			onPageSizeChange={usersTable.setPageSize}
+			rowsPerPageLabel={$t('admin.users.rows_per_page')}
+			selectionText={$t('admin.users.selected', {
+				selected: Object.keys(rowSelection).length,
+				total: usersTable.hasLoadedCount
+					? usersTable.totalCount
+					: (adminCache.userCount.current ?? 0)
+			})}
+		>
+			{#snippet toolbarFilters()}
+				<DataTableFilters {roleFilter} {statusFilter} onFilterChange={handleFilterChange} />
+			{/snippet}
 
-		{#snippet tableContent()}
-			<Table.Root class="table-fixed">
-				<Table.Header class="sticky top-0 z-10 bg-muted dark:bg-background">
-					{#each table.getHeaderGroups() as headerGroup (headerGroup.id)}
-						<Table.Row class="hover:[&>th]:bg-muted dark:hover:[&>th]:bg-background">
-							{#each headerGroup.headers as header (header.id)}
-								<Table.Head
-									class="[&:has([role=checkbox])]:ps-3"
-									style="width: {header.getSize()}px; min-width: {header.column.columnDef
-										.minSize}px;"
-								>
-									{#if !header.isPlaceholder}
-										<FlexRender
-											content={header.column.columnDef.header}
-											context={header.getContext()}
-										/>
-									{/if}
-								</Table.Head>
-							{/each}
-						</Table.Row>
-					{/each}
-				</Table.Header>
-				<Table.Body>
-					{#if isLoading && skeletonCount > 0}
-						<Table.Row data-testid="admin-users-loading" class="hidden">
-							<Table.Cell colspan={columns.length}>
-								<T keyName="admin.users.loading" />
-							</Table.Cell>
-						</Table.Row>
-						{#each Array(skeletonCount) as _, i (i)}
-							<Table.Row>
-								<Table.Cell class="[&:has([role=checkbox])]:ps-3">
-									<div class="flex items-center justify-center">
-										<Checkbox disabled aria-label={$t('admin.users.select_row')} />
-									</div>
-								</Table.Cell>
-								<Table.Cell>
-									<div class="flex items-center gap-2">
-										<Skeleton class="size-8 rounded-full" />
-										<span class="font-medium">
-											<Skeleton class="h-4 w-20" />
-										</span>
-									</div>
-								</Table.Cell>
-								<Table.Cell>
-									<Skeleton class="h-4 w-48" />
-								</Table.Cell>
-								<Table.Cell>
-									<Skeleton class="h-5 w-12 rounded-md" />
-								</Table.Cell>
-								<Table.Cell>
-									<Skeleton class="h-5 w-[65px] rounded-md" />
-								</Table.Cell>
-								<Table.Cell>
-									<Skeleton class="h-4 w-20" />
-								</Table.Cell>
-								<Table.Cell>
-									<Button variant="ghost" size="icon" disabled>
-										<DotsVerticalIcon class="size-4" />
-										<span class="sr-only"><T keyName="admin.users.menu_open" /></span>
-									</Button>
-								</Table.Cell>
-							</Table.Row>
-						{/each}
-					{:else if table.getRowModel().rows.length === 0 || (isLoading && skeletonCount === 0)}
-						<Table.Row>
-							<Table.Cell
-								colspan={columns.length}
-								class="h-24 text-center text-muted-foreground hover:!bg-transparent"
-								data-testid="admin-users-empty"
-							>
-								<T keyName="admin.users.no_results" />
-							</Table.Cell>
-						</Table.Row>
-					{:else}
-						{#each table.getRowModel().rows as row (row.id)}
-							<Table.Row data-state={row.getIsSelected() && 'selected'}>
-								{#each row.getVisibleCells() as cell (cell.id)}
-									<Table.Cell class="[&:has([role=checkbox])]:ps-3">
-										<FlexRender content={cell.column.columnDef.cell} context={cell.getContext()} />
-									</Table.Cell>
+			{#snippet tableContent()}
+				<Table.Root class="table-fixed">
+					<Table.Header class="sticky top-0 z-10 bg-muted dark:bg-background">
+						{#each table.getHeaderGroups() as headerGroup (headerGroup.id)}
+							<Table.Row class="hover:[&>th]:bg-muted dark:hover:[&>th]:bg-background">
+								{#each headerGroup.headers as header (header.id)}
+									<Table.Head
+										class="[&:has([role=checkbox])]:ps-3"
+										style="width: {header.getSize()}px; min-width: {header.column.columnDef
+											.minSize}px;"
+									>
+										{#if !header.isPlaceholder}
+											<FlexRender
+												content={header.column.columnDef.header}
+												context={header.getContext()}
+											/>
+										{/if}
+									</Table.Head>
 								{/each}
 							</Table.Row>
 						{/each}
-					{/if}
-				</Table.Body>
-			</Table.Root>
-		{/snippet}
-	</ConvexCursorTableShell>
+					</Table.Header>
+					<Table.Body>
+						{#if isLoading && skeletonCount > 0}
+							<Table.Row data-testid="admin-users-loading" class="hidden">
+								<Table.Cell colspan={columns.length}>
+									<T keyName="admin.users.loading" />
+								</Table.Cell>
+							</Table.Row>
+							{#each Array(skeletonCount) as _, i (i)}
+								<Table.Row>
+									<Table.Cell class="[&:has([role=checkbox])]:ps-3">
+										<div class="flex items-center justify-center">
+											<Checkbox disabled aria-label={$t('admin.users.select_row')} />
+										</div>
+									</Table.Cell>
+									<Table.Cell>
+										<div class="flex items-center gap-2">
+											<Skeleton class="size-8 rounded-full" />
+											<span class="font-medium">
+												<Skeleton class="h-4 w-20" />
+											</span>
+										</div>
+									</Table.Cell>
+									<Table.Cell>
+										<Skeleton class="h-4 w-48" />
+									</Table.Cell>
+									<Table.Cell>
+										<Skeleton class="h-5 w-12 rounded-md" />
+									</Table.Cell>
+									<Table.Cell>
+										<Skeleton class="h-5 w-[65px] rounded-md" />
+									</Table.Cell>
+									<Table.Cell>
+										<Skeleton class="h-4 w-20" />
+									</Table.Cell>
+									<Table.Cell>
+										<Button variant="ghost" size="icon" disabled>
+											<DotsVerticalIcon class="size-4" />
+											<span class="sr-only"><T keyName="admin.users.menu_open" /></span>
+										</Button>
+									</Table.Cell>
+								</Table.Row>
+							{/each}
+						{:else if table.getRowModel().rows.length === 0 || (isLoading && skeletonCount === 0)}
+							<Table.Row>
+								<Table.Cell
+									colspan={columns.length}
+									class="h-24 text-center text-muted-foreground hover:!bg-transparent"
+									data-testid="admin-users-empty"
+								>
+									<T keyName="admin.users.no_results" />
+								</Table.Cell>
+							</Table.Row>
+						{:else}
+							{#each table.getRowModel().rows as row (row.id)}
+								<Table.Row data-state={row.getIsSelected() && 'selected'}>
+									{#each row.getVisibleCells() as cell (cell.id)}
+										<Table.Cell class="[&:has([role=checkbox])]:ps-3">
+											<FlexRender
+												content={cell.column.columnDef.cell}
+												context={cell.getContext()}
+											/>
+										</Table.Cell>
+									{/each}
+								</Table.Row>
+							{/each}
+						{/if}
+					</Table.Body>
+				</Table.Root>
+			{/snippet}
+		</ConvexCursorTableShell>{/if}
 </div>
 
 <!-- Action Confirmation Dialog -->
