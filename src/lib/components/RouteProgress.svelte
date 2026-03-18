@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { tick, untrack } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
-	import { navigating } from '$app/state';
+	// eslint-disable-next-line @typescript-eslint/no-restricted-imports
+	import { navigating } from '$app/stores';
 
 	const SUPPRESSED_QUERY_KEYS = new SvelteSet(['sort', 'page', 'page_size', 'cursor', 'search']);
 	const MINIMUM = 0.08;
@@ -20,7 +21,7 @@
 	let fadeTimer: ReturnType<typeof setTimeout> | null = null;
 	let barEl: HTMLDivElement | undefined = $state();
 
-	function isPathNavigation(nav: typeof navigating): boolean {
+	function isPathNavigation(nav: typeof $navigating): boolean {
 		if (!nav) return false;
 		const fromPath = nav.from?.url.pathname;
 		const toPath = nav.to?.url.pathname;
@@ -118,7 +119,7 @@
 	}
 
 	$effect(() => {
-		const nav = navigating;
+		const nav = $navigating;
 		untrack(() => {
 			if (isPathNavigation(nav) && !started) {
 				started = true;
