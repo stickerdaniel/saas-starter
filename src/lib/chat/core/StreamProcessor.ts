@@ -124,7 +124,7 @@ export function extractReasoning(parts: MessagePart[] | undefined): string {
 	return parts
 		.map((part) => {
 			if (part.type === 'reasoning') {
-				return (part as ReasoningUIPart).reasoning;
+				return (part as ReasoningUIPart).text;
 			}
 			return '';
 		})
@@ -232,8 +232,7 @@ export function updateFromTextStreamParts(
 				}
 				if (part.type === 'text-delta') {
 					const textPart = textPartsById.get(part.id)!;
-					const delta = (part as { delta?: string }).delta ?? '';
-					textPart.text += delta;
+					textPart.text += part.text;
 					textPart.providerMetadata = mergeProviderMetadata(
 						textPart.providerMetadata,
 						part.providerMetadata
@@ -246,22 +245,22 @@ export function updateFromTextStreamParts(
 				if (!reasoningPartsById.has(part.id)) {
 					const lastPart = message.parts.at(-1);
 					if (lastPart?.type === 'reasoning') {
-						reasoningPartsById.set(part.id, lastPart as unknown as ReasoningUIPart);
+						reasoningPartsById.set(part.id, lastPart as ReasoningUIPart);
 					} else {
 						const newPart = {
 							type: 'reasoning',
-							reasoning: '',
+							text: '',
+							state: 'streaming',
 							providerMetadata: part.providerMetadata
 						} satisfies ReasoningUIPart;
 						reasoningPartsById.set(part.id, newPart);
 
-						message.parts.push(newPart as any);
+						message.parts.push(newPart);
 					}
 				}
 				if (part.type === 'reasoning-delta') {
 					const reasoningPart = reasoningPartsById.get(part.id)!;
-					const delta = (part as { delta?: string }).delta ?? '';
-					reasoningPart.reasoning += delta;
+					reasoningPart.text += part.text;
 					reasoningPart.providerMetadata = mergeProviderMetadata(
 						reasoningPart.providerMetadata,
 						part.providerMetadata

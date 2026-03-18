@@ -182,10 +182,25 @@ const authFirstPattern: Handle = async function authFirstPattern({ event, resolv
 	return resolve(event);
 };
 
+/**
+ * Add security headers to all responses
+ */
+const handleSecurityHeaders: Handle = async function handleSecurityHeaders({ event, resolve }) {
+	const response = await resolve(event);
+	response.headers.set('X-Content-Type-Options', 'nosniff');
+	response.headers.set('X-Frame-Options', 'DENY');
+	response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+	response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+	response.headers.set('X-DNS-Prefetch-Control', 'off');
+	response.headers.set('Strict-Transport-Security', 'max-age=3600; includeSubDomains');
+	return response;
+};
+
 export const handle = sequence(
 	handleDevOnlyRoutes,
 	handleAuth,
 	handleMarketingMarkdown,
 	handleLanguage,
-	authFirstPattern
+	authFirstPattern,
+	handleSecurityHeaders
 );
