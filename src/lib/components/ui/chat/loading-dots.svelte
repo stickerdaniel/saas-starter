@@ -43,4 +43,11 @@
 			opacity: 0.2;
 		}
 	}
+
+	@media (prefers-reduced-motion: reduce) {
+		span {
+			animation: none;
+			opacity: 1;
+		}
+	}
 </style>

@@ -17,7 +17,11 @@
 </script>
 
 <div
-	class={cn('animate-[text-blink_2s_ease-in-out_infinite] font-medium', textSizes[size], className)}
+	class={cn(
+		'animate-[text-blink_2s_ease-in-out_infinite] motion-reduce:animate-none font-medium',
+		textSizes[size],
+		className
+	)}
 >
 	{text}
 </div>

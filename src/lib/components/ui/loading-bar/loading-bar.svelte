@@ -137,6 +137,13 @@
 		animation: loading-bar-indeterminate 3s infinite;
 	}
 
+	@media (prefers-reduced-motion: reduce) {
+		.loading-bar-indeterminate {
+			animation: none;
+			background-size: 100% 100%;
+		}
+	}
+
 	@keyframes loading-bar-indeterminate {
 		0% {
 			background-position:

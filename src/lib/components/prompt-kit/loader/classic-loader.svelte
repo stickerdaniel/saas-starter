@@ -40,7 +40,7 @@
 	<div class="absolute h-full w-full">
 		{#each Array(12) as _, i (i)}
 			<div
-				class="absolute animate-[spinner-fade_1.2s_linear_infinite] rounded-full bg-primary"
+				class="absolute animate-[spinner-fade_1.2s_linear_infinite] motion-reduce:animate-none rounded-full bg-primary"
 				style:top="0"
 				style:left="50%"
 				style:margin-left={marginLeft[size]}
