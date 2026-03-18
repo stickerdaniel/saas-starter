@@ -2,7 +2,7 @@
 	import SEOHead from '$lib/components/SEOHead.svelte';
 	import { getTranslate } from '@tolgee/svelte';
 	import EmailPreview from 'better-svelte-email/preview/EmailPreview.svelte';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 
 	const { t } = getTranslate();
 </script>
@@ -12,4 +12,4 @@
 	description={$t('meta.emails.preview.description')}
 />
 
-<EmailPreview page={$page} />
+<EmailPreview {page} />

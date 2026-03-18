@@ -1,4 +1,4 @@
-import type { PageServerLoad } from '../$types';
+import type { PageServerLoad } from './$types';
 import { api } from '$lib/convex/_generated/api.js';
 import { createConvexHttpClient } from '@mmailaender/convex-better-auth-svelte/sveltekit';
 

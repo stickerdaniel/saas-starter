@@ -40,6 +40,8 @@ http.route({
 - Do NOT register functions through the `api` or `internal` objects.
 - ALWAYS include `args` validators for every function.
 - ALWAYS include `returns` validators for every function. If a function returns nothing, use `returns: v.null()`.
+- **Default to `authedMutation`/`authedQuery`** (from `functions.ts`) for new functions. Only use raw `mutation`/`query` when anonymous access is explicitly required, and add a `// @security Anonymous access: <reason>` comment explaining why.
+- **Scheduled retry functions MUST have a max retry count.** Add a `retryCount` field to the relevant table and stop retrying after N attempts (typically 5). Log the final failure for observability.
 
 ### Function Calling
 

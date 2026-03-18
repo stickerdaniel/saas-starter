@@ -98,6 +98,7 @@
 					id="email-{id}"
 					data-testid="email-input"
 					type="email"
+					autocomplete="email"
 					placeholder="m@example.com"
 					disabled={isLoading}
 					bind:value={signInData.email}
@@ -123,6 +124,7 @@
 					id="password-{id}"
 					data-testid="password-input"
 					type="password"
+					autocomplete="current-password"
 					disabled={isLoading}
 					bind:value={signInData.password}
 				/>

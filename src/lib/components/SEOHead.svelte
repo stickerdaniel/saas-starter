@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE } from '$lib/i18n/languages';
 
 	interface Props {
@@ -14,12 +14,12 @@
 	let { title, description, canonicalUrl }: Props = $props();
 
 	// Get current language and path
-	let currentLang = $derived($page.params.lang || DEFAULT_LANGUAGE);
-	let currentPath = $derived($page.url.pathname);
-	let origin = $derived($page.url.origin);
+	let currentLang = $derived(page.params.lang || DEFAULT_LANGUAGE);
+	let currentPath = $derived(page.url.pathname);
+	let origin = $derived(page.url.origin);
 
 	// Generate path without language prefix for alternate links
-	let pathWithoutLang = $derived(() => {
+	let pathWithoutLang = $derived.by(() => {
 		if (currentPath.startsWith(`/${currentLang}`)) {
 			return currentPath.replace(`/${currentLang}`, '') || '/';
 		}
@@ -28,7 +28,7 @@
 
 	// Generate canonical URL
 	let canonical = $derived(
-		canonicalUrl || `${origin}/${currentLang}${pathWithoutLang() === '/' ? '' : pathWithoutLang()}`
+		canonicalUrl || `${origin}/${currentLang}${pathWithoutLang === '/' ? '' : pathWithoutLang}`
 	);
 </script>
 
@@ -54,7 +54,7 @@
 		<link
 			rel="alternate"
 			hreflang={language.code}
-			href="{origin}/{language.code}{pathWithoutLang() === '/' ? '' : pathWithoutLang()}"
+			href="{origin}/{language.code}{pathWithoutLang === '/' ? '' : pathWithoutLang}"
 		/>
 	{/each}
 
@@ -62,7 +62,7 @@
 	<link
 		rel="alternate"
 		hreflang="x-default"
-		href="{origin}/{DEFAULT_LANGUAGE}{pathWithoutLang() === '/' ? '' : pathWithoutLang()}"
+		href="{origin}/{DEFAULT_LANGUAGE}{pathWithoutLang === '/' ? '' : pathWithoutLang}"
 	/>
 
 	<!-- Language metadata -->

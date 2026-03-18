@@ -181,6 +181,7 @@
 	let roleDialogOpen = $state(false);
 	let selectedRole = $state<UserRole>('user');
 	let impersonationDialogOpen = $state(false);
+	let isActionLoading = $state(false);
 
 	// Provide context for action component (currentUserId is set by admin layout)
 	setContext('onUserAction', handleUserAction);
@@ -335,6 +336,7 @@
 	async function banUser() {
 		if (!selectedUser) return;
 
+		isActionLoading = true;
 		const defaultBanReason = $t('admin.users.ban_reason.default');
 		try {
 			const result = await authClient.admin.banUser({
@@ -359,12 +361,15 @@
 			const message = error instanceof Error ? error.message : 'Unknown error';
 			toast.error($t('admin.users.toast.ban_failed', { message }));
 			console.error('Ban error:', error);
+		} finally {
+			isActionLoading = false;
 		}
 	}
 
 	async function unbanUser() {
 		if (!selectedUser) return;
 
+		isActionLoading = true;
 		try {
 			const result = await authClient.admin.unbanUser({
 				userId: selectedUser.id
@@ -384,12 +389,15 @@
 			const message = error instanceof Error ? error.message : 'Unknown error';
 			toast.error($t('admin.users.toast.unban_failed', { message }));
 			console.error('Unban error:', error);
+		} finally {
+			isActionLoading = false;
 		}
 	}
 
 	async function revokeSessions() {
 		if (!selectedUser) return;
 
+		isActionLoading = true;
 		try {
 			const result = await authClient.admin.revokeUserSessions({
 				userId: selectedUser.id
@@ -409,12 +417,15 @@
 			const message = error instanceof Error ? error.message : 'Unknown error';
 			toast.error($t('admin.users.toast.revoke_failed', { message }));
 			console.error('Revoke sessions error:', error);
+		} finally {
+			isActionLoading = false;
 		}
 	}
 
 	async function setUserRole() {
 		if (!selectedUser) return;
 
+		isActionLoading = true;
 		try {
 			await client.mutation(api.admin.mutations.setUserRole, {
 				userId: selectedUser.id,
@@ -427,6 +438,8 @@
 			const message = error instanceof Error ? error.message : 'Unknown error';
 			toast.error($t('admin.users.toast.role_failed', { message }));
 			console.error('Set role error:', error);
+		} finally {
+			isActionLoading = false;
 		}
 	}
 
@@ -617,7 +630,9 @@
 			</Dialog.Description>
 		</Dialog.Header>
 		<Dialog.Footer>
-			<Button variant="outline" onclick={closeDialog}><T keyName="common.cancel" /></Button>
+			<Button variant="outline" onclick={closeDialog} disabled={isActionLoading}
+				><T keyName="common.cancel" /></Button
+			>
 			<Button
 				onclick={() => {
 					if (actionType === 'ban') banUser();
@@ -625,6 +640,7 @@
 					else if (actionType === 'revoke') revokeSessions();
 				}}
 				variant={actionType === 'ban' ? 'destructive' : 'default'}
+				disabled={isActionLoading}
 			>
 				<T keyName="common.confirm" />
 			</Button>
@@ -647,8 +663,10 @@
 			</Dialog.Description>
 		</Dialog.Header>
 		<Dialog.Footer>
-			<Button variant="outline" onclick={closeRoleDialog}><T keyName="common.cancel" /></Button>
-			<Button onclick={setUserRole}>
+			<Button variant="outline" onclick={closeRoleDialog} disabled={isActionLoading}
+				><T keyName="common.cancel" /></Button
+			>
+			<Button onclick={setUserRole} disabled={isActionLoading}>
 				<T keyName="common.confirm" />
 			</Button>
 		</Dialog.Footer>
