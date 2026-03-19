@@ -17,7 +17,9 @@
 	// Eager imports so Tolgee's cache is populated at init, enabling SSR rendering
 	const translations: TolgeeStaticData = { en, de, es, fr };
 
-	let { data, children }: { data: LayoutData; children: any } = $props();
+	import type { Snippet } from 'svelte';
+
+	let { data, children }: { data: LayoutData; children: Snippet } = $props();
 
 	// Set language context with a function to maintain reactivity
 	// This ensures useLanguage() always returns the current value of data.lang

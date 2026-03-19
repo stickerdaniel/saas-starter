@@ -3,7 +3,7 @@
 	import * as v from 'valibot';
 	import { useSearchParams } from 'runed/kit';
 	import { Debounced, watch } from 'runed';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { useQuery, usePaginatedQuery } from 'convex-svelte';
@@ -38,8 +38,8 @@
 	// Debounce search to avoid API call on every keystroke
 	const debouncedSearch = new Debounced(() => filters.search, 300);
 
-	// Thread selection managed separately via $page.url (doesn't trigger filter reactivity)
-	const threadId = $derived($page.url.searchParams.get('thread') ?? '');
+	// Thread selection managed separately via page.url (doesn't trigger filter reactivity)
+	const threadId = $derived(page.url.searchParams.get('thread') ?? '');
 
 	// Responsive breakpoints
 	const media = useMedia();
@@ -112,13 +112,13 @@
 
 	// Select thread handler (uses goto to avoid triggering filter reactivity)
 	function selectThread(id: string) {
-		const url = new URL($page.url);
+		const url = new URL(page.url);
 		url.searchParams.set('thread', id);
 		goto(resolve(url.pathname + url.search), { noScroll: true, replaceState: false });
 	}
 
 	function clearThread() {
-		const url = new URL($page.url);
+		const url = new URL(page.url);
 		url.searchParams.delete('thread');
 		goto(resolve(url.pathname + url.search), { noScroll: true, replaceState: false });
 	}

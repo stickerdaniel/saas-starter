@@ -108,6 +108,18 @@ export default defineConfig(
 							message:
 								"Import individual icons instead: import Icon from '@tabler/icons-svelte/icons/icon-name'",
 							allowTypeImports: true
+						},
+						{
+							name: '$app/stores',
+							message: '$app/stores is deprecated since SvelteKit 2.12. Use $app/state instead.'
+						},
+						{
+							name: '$lib/utils/utils',
+							message: 'Import from $lib/utils instead (canonical location).'
+						},
+						{
+							name: '$lib/utils/utils.js',
+							message: 'Import from $lib/utils.js instead (canonical location).'
 						}
 					]
 				}

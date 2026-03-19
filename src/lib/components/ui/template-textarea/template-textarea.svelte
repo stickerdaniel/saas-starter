@@ -39,7 +39,7 @@
 		bind:this={highlightEl}
 		aria-hidden="true"
 		class={cn(
-			'pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words rounded-md border border-transparent px-3 py-2 text-base md:text-sm',
+			'pointer-events-none absolute inset-0 overflow-hidden rounded-md border border-transparent px-3 py-2 text-base break-words whitespace-pre-wrap md:text-sm',
 			className
 		)}
 	>
@@ -50,7 +50,7 @@
 	<!-- Transparent textarea (on top, receives input) -->
 	<textarea
 		class={cn(
-			'flex field-sizing-content min-h-16 w-full whitespace-pre-wrap break-words rounded-md border border-input bg-transparent px-3 py-2 text-base shadow-xs transition-[color,box-shadow] outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 md:text-sm dark:bg-input/30 dark:aria-invalid:ring-destructive/40',
+			'flex field-sizing-content min-h-16 w-full rounded-md border border-input bg-transparent px-3 py-2 text-base break-words whitespace-pre-wrap shadow-xs transition-[color,box-shadow] outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 md:text-sm dark:bg-input/30 dark:aria-invalid:ring-destructive/40',
 			className
 		)}
 		style="color: transparent; caret-color: var(--color-foreground);"
