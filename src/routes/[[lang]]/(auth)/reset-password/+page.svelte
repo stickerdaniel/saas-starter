@@ -176,7 +176,10 @@
 							</div>
 							{#if formError}
 								<Field.Field>
-									<div class="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+									<div
+										data-testid="reset-password-form-error"
+										class="rounded-md bg-destructive/10 p-3 text-sm text-destructive"
+									>
 										<T keyName={formError} />
 									</div>
 								</Field.Field>
@@ -184,6 +187,7 @@
 							{#if message}
 								<Field.Field>
 									<div
+										data-testid="reset-password-success-message"
 										class="rounded-md bg-green-500/10 p-3 text-sm text-green-600 dark:text-green-400"
 									>
 										<T keyName={message} />
@@ -200,6 +204,7 @@
 								<Password.Root>
 									<Password.Input
 										id="password-{id}"
+										data-testid="reset-password-password-input"
 										autocomplete="new-password"
 										placeholder="••••••••"
 										disabled={isLoading || !!message}
@@ -222,6 +227,7 @@
 								</Field.Label>
 								<Input
 									id="confirm-password-{id}"
+									data-testid="reset-password-confirm-input"
 									type="password"
 									autocomplete="new-password"
 									placeholder="••••••••"
@@ -231,7 +237,12 @@
 								<Field.Error errors={translateValidationErrors(errors.confirmPassword, $t)} />
 							</Field.Field>
 							<Field.Field>
-								<Button type="submit" class="w-full" disabled={isLoading || !!message}>
+								<Button
+									type="submit"
+									data-testid="reset-password-submit-button"
+									class="w-full"
+									disabled={isLoading || !!message}
+								>
 									{#if isLoading}
 										<T keyName="auth.reset_password.button_loading" defaultValue="Resetting..." />
 									{:else}
@@ -240,7 +251,11 @@
 								</Button>
 							</Field.Field>
 							<Field.Description class="text-center">
-								<a href={resolve(localizedHref('/signin'))} class="underline underline-offset-4">
+								<a
+									href={resolve(localizedHref('/signin'))}
+									data-testid="reset-password-back-link"
+									class="underline underline-offset-4"
+								>
 									<T keyName="auth.reset_password.back_to_signin" defaultValue="Back to sign in" />
 								</a>
 							</Field.Description>

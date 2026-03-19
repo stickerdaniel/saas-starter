@@ -156,7 +156,7 @@
 		: ''}"
 >
 	<div
-		class="group relative mx-auto transition-all duration-300 ease-in-out {isFocused
+		class="group relative mx-auto motion-safe:transition-all motion-safe:duration-300 motion-safe:ease-in-out {isFocused
 			? 'max-w-[430px]'
 			: 'max-w-[280px]'}"
 	>
@@ -191,7 +191,7 @@
 					aria-label={$t('chat.aria.send')}
 				>
 					{#if threadContext.isSending}
-						<LoaderCircleIcon class="size-5 animate-spin" />
+						<LoaderCircleIcon class="size-5 motion-safe:animate-spin" />
 					{:else}
 						<ArrowUpIcon class="size-5" />
 					{/if}
@@ -292,6 +292,35 @@
 		}
 		100% {
 			transform: translate(-50%, -50%) rotate(-360deg);
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		:global(.ai-gradient-wrapper::before),
+		:global(.ai-gradient-wrapper-glow::before) {
+			animation: none;
+		}
+		:global(.ai-gradient-wrapper),
+		:global(.ai-gradient-wrapper-glow) {
+			transition: none;
+		}
+		:global(.ai-chatbar) {
+			transition: none;
+		}
+		:global(.ai-chatbar-content) {
+			transition: none;
+		}
+		:global(.ai-pill-bg) {
+			transition: none;
+		}
+		:global(.ai-chatbar.fade-out) {
+			transition: none;
+		}
+		:global(.ai-chatbar.fade-out .ai-chatbar-content),
+		:global(.ai-chatbar.fade-out .ai-pill-bg),
+		:global(.ai-chatbar.fade-out .ai-gradient-wrapper),
+		:global(.ai-chatbar.fade-out .ai-gradient-wrapper-glow) {
+			transition: none;
 		}
 	}
 </style>
