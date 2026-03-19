@@ -6,6 +6,11 @@
 			"sourceType": "github",
 			"computedHash": "747d7f73bd9e2ec5317b8ef88dc70f97df716d00e3d02de4051feebaa48b062d"
 		},
+		"emil-design-eng": {
+			"source": "emilkowalski/skill",
+			"sourceType": "github",
+			"computedHash": "32f63a1e56fc41f53497f7b19d6391b7c3e55bedd884c5a4d10bc4eacd2310e4"
+		},
 		"organization-best-practices": {
 			"source": "better-auth/skills",
 			"sourceType": "github",
