@@ -7,6 +7,7 @@ import DataTableActions from './data-table-actions.svelte';
 import type { AdminUserData } from '$lib/convex/admin/types';
 import StatusBadge from './status-badge.svelte';
 import RoleBadge from './role-badge.svelte';
+import UserAvatar from './user-avatar.svelte';
 
 /**
  * Derive a sortable status value from user data.
@@ -51,27 +52,11 @@ export const columns: ColumnDef<AdminUserData>[] = [
 				titleKey: 'admin.users.name',
 				testId: 'admin-users-sort-name'
 			}),
-		cell: ({ row }) => {
-			const nameSnippet = createRawSnippet<[{ name?: string; image?: string | null }]>(
-				(getData) => {
-					const { name, image } = getData();
-					const displayName = name || 'Unnamed';
-					const avatarHtml = image
-						? `<img src="${image}" alt="${displayName}" class="size-8 rounded-full" />`
-						: `<div class="flex size-8 items-center justify-center rounded-full bg-muted">
-								<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="size-4"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-							</div>`;
-					return {
-						render: () =>
-							`<div class="flex items-center gap-2">${avatarHtml}<span class="font-medium">${displayName}</span></div>`
-					};
-				}
-			);
-			return renderSnippet(nameSnippet, {
+		cell: ({ row }) =>
+			renderComponent(UserAvatar, {
 				name: row.original.name,
 				image: row.original.image
-			});
-		}
+			})
 	},
 	{
 		accessorKey: 'email',

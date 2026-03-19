@@ -83,6 +83,7 @@
 		"web-haptics": "^0.0.6"
 	},
 	"devDependencies": {
+		"@axe-core/playwright": "^4.11.1",
 		"@convex-dev/eslint-plugin": "^1.1.1",
 		"@dnd-kit-svelte/core": "0.0.11",
 		"@dnd-kit-svelte/modifiers": "0.0.11",

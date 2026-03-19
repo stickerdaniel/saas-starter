@@ -88,9 +88,11 @@
 	);
 </script>
 
+<!-- aria-label is hardcoded English: low-level UI primitive without access to Tolgee i18n context -->
 <ProgressPrimitive.Root
 	bind:ref
 	data-slot="progress"
+	aria-label="Loading"
 	class={cn(
 		'relative h-2 w-full overflow-hidden rounded-full',
 		showBackground && 'bg-primary/20',
@@ -134,6 +136,13 @@
 		background: var(--loading-bar-color), var(--loading-bar-color), transparent;
 		background-size: 60% 100%;
 		animation: loading-bar-indeterminate 3s infinite;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.loading-bar-indeterminate {
+			animation: none;
+			background-size: 100% 100%;
+		}
 	}
 
 	@keyframes loading-bar-indeterminate {

@@ -690,6 +690,10 @@
 		}
 	},
 	"app": {
+		"dashboard": {
+			"subtitle": "Dies ist Ihre Zentrale. Echtzeit-Metriken und Aktivitäten werden hier angezeigt, während Sie Ihre App aufbauen.",
+			"title": "Willkommen in Ihrem Dashboard"
+		},
 		"name": "SaaS Starter",
 		"sidebar": {
 			"admin_panel": "Admin-Bereich",
@@ -1373,6 +1377,7 @@
 			"add_passkey_title": "Passkey hinzufügen",
 			"adding": "Wird hinzugefügt...",
 			"created_at": "Erstellt am ",
+			"delete_passkey": "Passkey löschen",
 			"description": "Verwalten Sie Ihre Passkeys und Sicherheitseinstellungen.",
 			"error_title": "Fehler",
 			"loading": "Passkeys werden geladen...",
@@ -1384,6 +1389,7 @@
 			"passkey_info_description": "Passkeys sind eine sichere, passwortlose Anmeldemethode. Sie verwenden Biometrie oder Geräte-PIN und werden sicher auf Ihren Geräten gespeichert.",
 			"passkey_info_title": "Was sind Passkeys?",
 			"passkey_name_label": "Passkey-Name",
+			"passkey_undo": "Rückgängig",
 			"title": "Sicherheit",
 			"your_passkeys_title": "Ihre Passkeys"
 		},

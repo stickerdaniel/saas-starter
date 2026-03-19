@@ -68,7 +68,7 @@
 	}
 </script>
 
-<main class="grid min-h-[100dvh] w-full place-items-center px-4 py-8">
+<main id="main-content" class="grid min-h-[100dvh] w-full place-items-center px-4 py-8">
 	<Empty.Root class="w-full max-w-xl bg-background/60">
 		<Empty.Header>
 			<Empty.Title>{title}</Empty.Title>

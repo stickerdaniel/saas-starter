@@ -48,7 +48,7 @@ describe('resolveReasoning', () => {
 
 	it('prefers stream reasoning when available', () => {
 		const msg = createMessage({
-			parts: [{ type: 'reasoning', reasoning: 'persisted reasoning' }] as MessagePart[]
+			parts: [{ type: 'reasoning', text: 'persisted reasoning' }] as MessagePart[]
 		});
 
 		const result = resolveReasoning(msg, {
@@ -64,7 +64,7 @@ describe('resolveReasoning', () => {
 
 	it('falls back to persisted reasoning from parts', () => {
 		const msg = createMessage({
-			parts: [{ type: 'reasoning', reasoning: 'persisted from parts' }] as MessagePart[]
+			parts: [{ type: 'reasoning', text: 'persisted from parts' }] as MessagePart[]
 		});
 
 		const result = resolveReasoning(msg, {
@@ -129,7 +129,7 @@ describe('resolveReasoning', () => {
 
 		const msg = createMessage({
 			order: 0,
-			parts: [{ type: 'reasoning', reasoning: 'now persisted' }] as MessagePart[]
+			parts: [{ type: 'reasoning', text: 'now persisted' }] as MessagePart[]
 		});
 
 		const result = resolveReasoning(msg, {
@@ -288,7 +288,7 @@ describe('transformToDisplayMessageSimple', () => {
 		const msg = createMessage({
 			role: 'assistant',
 			text: 'Response',
-			parts: [{ type: 'reasoning', reasoning: 'My thought process' }] as MessagePart[]
+			parts: [{ type: 'reasoning', text: 'My thought process' }] as MessagePart[]
 		});
 
 		const result = transformToDisplayMessageSimple(msg);

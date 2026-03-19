@@ -690,6 +690,10 @@
 		}
 	},
 	"app": {
+		"dashboard": {
+			"subtitle": "Voici votre base. Les métriques en temps réel et l'activité apparaîtront ici au fur et à mesure que vous développez votre application.",
+			"title": "Bienvenue sur votre tableau de bord"
+		},
 		"name": "SaaS Starter",
 		"sidebar": {
 			"admin_panel": "Panneau Admin",
@@ -1373,6 +1377,7 @@
 			"add_passkey_title": "Ajouter un Passkey",
 			"adding": "Ajout en cours...",
 			"created_at": "Créé le ",
+			"delete_passkey": "Supprimer la passkey",
 			"description": "Gérez vos passkeys et paramètres de sécurité.",
 			"error_title": "Erreur",
 			"loading": "Chargement des passkeys...",
@@ -1384,6 +1389,7 @@
 			"passkey_info_description": "Les passkeys sont un moyen sécurisé de se connecter sans mot de passe. Ils utilisent la biométrie ou le code PIN de l'appareil et sont stockés en toute sécurité sur vos appareils.",
 			"passkey_info_title": "Que sont les Passkeys ?",
 			"passkey_name_label": "Nom du passkey",
+			"passkey_undo": "Annuler",
 			"title": "Sécurité",
 			"your_passkeys_title": "Vos Passkeys"
 		},

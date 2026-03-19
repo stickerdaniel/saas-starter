@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { useQuery } from 'convex-svelte';
 	import { getTranslate } from '@tolgee/svelte';
 	import { api } from '$lib/convex/_generated/api';
@@ -27,18 +28,18 @@
 	});
 
 	// Reactive query for threads - auto-updates when new threads are created
-	const threadsQuery = $derived(
+	const threadsQuery = useQuery(api.support.threads.listThreads, () =>
 		ctx.userId
-			? useQuery(api.support.threads.listThreads, {
+			? {
 					anonymousUserId,
 					paginationOpts: { numItems: 20, cursor: null }
-				})
-			: undefined
+				}
+			: 'skip'
 	);
 
 	// Filter out threads with no messages (e.g., eagerly created but never used threads)
-	const threads = $derived((threadsQuery?.data?.page ?? []).filter((t) => t.lastMessage));
-	const isLoading = $derived(threadsQuery?.isLoading ?? !ctx.userId);
+	const threads = $derived((threadsQuery.data?.page ?? []).filter((t) => t.lastMessage));
+	const isLoading = $derived(!ctx.userId ? true : threadsQuery.isLoading);
 
 	// Query admin avatars for the welcome screen
 	const adminAvatarsQuery = useQuery(api.support.threads.getAdminAvatars, {});
@@ -58,19 +59,20 @@
 	const displayAvatars = $derived.by(() => {
 		// Shuffle admins for randomness
 		const shuffledAdmins = [...adminUsers].sort(() => Math.random() - 0.5);
+		const teamMemberAlt = untrack(() => $t('support.avatar.team_member'));
 
 		if (shuffledAdmins.length >= 3) {
 			// Case 1: 3+ admins - show 3 random admin avatars (no bot icon)
 			return shuffledAdmins.slice(0, 3).map((admin, i) => ({
 				src: admin.image ?? placeholderAvatars[i],
-				alt: admin.name ?? $t('support.avatar.team_member'),
+				alt: admin.name ?? teamMemberAlt,
 				isPlaceholder: false
 			}));
 		} else if (shuffledAdmins.length >= 2) {
 			// Case 2: 2 admins - show 2 admin avatars (bot icon shown separately)
 			return shuffledAdmins.slice(0, 2).map((admin, i) => ({
 				src: admin.image ?? placeholderAvatars[i],
-				alt: admin.name ?? $t('support.avatar.team_member'),
+				alt: admin.name ?? teamMemberAlt,
 				isPlaceholder: false
 			}));
 		} else {
@@ -81,7 +83,7 @@
 			shuffledAdmins.forEach((admin, i) => {
 				result.push({
 					src: admin.image ?? placeholderAvatars[i],
-					alt: admin.name ?? $t('support.avatar.team_member'),
+					alt: admin.name ?? teamMemberAlt,
 					isPlaceholder: false
 				});
 			});
@@ -91,7 +93,7 @@
 			for (let i = 0; i < remaining; i++) {
 				result.push({
 					src: placeholderAvatars[shuffledAdmins.length + i],
-					alt: $t('support.avatar.team_member'),
+					alt: teamMemberAlt,
 					isPlaceholder: true
 				});
 			}

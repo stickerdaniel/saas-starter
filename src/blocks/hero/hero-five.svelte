@@ -16,7 +16,7 @@
 	import openaiLogo from './logos/openai.svg';
 </script>
 
-<main class="overflow-hidden">
+<div class="overflow-hidden">
 	<section class="relative flex items-center justify-center">
 		<RiveBackground
 			src="/animations/spring-demo.riv"
@@ -168,4 +168,4 @@
 			</div>
 		</div>
 	</section>
-</main>
+</div>

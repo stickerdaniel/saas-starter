@@ -71,7 +71,6 @@
 			newMessageText = '';
 			await autumn.refetch();
 			haptic.trigger('success');
-			toast.success($t('chat.messages.sent_success'));
 		} catch (error) {
 			console.error('Failed to send message:', error);
 			sendError = $t('chat.messages.send_failed');
