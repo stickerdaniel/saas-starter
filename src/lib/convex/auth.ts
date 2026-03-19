@@ -26,6 +26,15 @@ type SignupNotificationUser = {
 	createdAt: number;
 };
 
+function isLocalSeededAdmin(user: { email: string }): boolean {
+	const localSeededAdminEmail = process.env.LOCAL_SEEDED_ADMIN_EMAIL?.trim().toLowerCase();
+	return (
+		process.env.LOCAL_CONVEX_DEV === 'true' &&
+		!!localSeededAdminEmail &&
+		user.email.toLowerCase() === localSeededAdminEmail
+	);
+}
+
 const detectSignupMethod = async (
 	ctx: GenericMutationCtx<DataModel>,
 	userId: string
@@ -91,6 +100,8 @@ export const authComponent = createClient<DataModel, typeof authSchema>(componen
 			 * it writes to a separate table with more failure modes.
 			 */
 			onCreate: async (ctx, user) => {
+				const seededLocalAdmin = isLocalSeededAdmin(user);
+
 				// --- Materialized dashboard counters ---
 				await incrementCounter(ctx, 'totalUsers', 1);
 				if (user.role === 'admin') {
@@ -102,7 +113,7 @@ export const authComponent = createClient<DataModel, typeof authSchema>(componen
 
 				// Send signup stats email immediately only for already-verified users
 				// (e.g. OAuth providers with verified emails)
-				if (user.emailVerified) {
+				if (user.emailVerified && !seededLocalAdmin) {
 					await scheduleNewUserSignupNotification(ctx, user);
 				}
 
@@ -119,13 +130,17 @@ export const authComponent = createClient<DataModel, typeof authSchema>(componen
 					}
 				}
 
-				// Founder welcome email: check if feature is enabled
-				const contactSetting = await ctx.db
-					.query('adminSettings')
-					.withIndex('by_key', (q: any) => q.eq('key', 'founderWelcome.contactUserId'))
-					.unique();
+				// Local seeded admin should not enqueue email-dependent onboarding jobs.
+				if (!seededLocalAdmin) {
+					const contactSetting = await ctx.db
+						.query('adminSettings')
+						.withIndex('by_key', (q: any) => q.eq('key', 'founderWelcome.contactUserId'))
+						.unique();
 
-				if (contactSetting) {
+					if (!contactSetting) {
+						return;
+					}
+
 					const delayMs = getFounderWelcomeDelay();
 					if (user.emailVerified) {
 						// OAuth signup: schedule immediately
@@ -183,6 +198,7 @@ export const authComponent = createClient<DataModel, typeof authSchema>(componen
 				const isAdmin = newUser.role === 'admin';
 				const wasBanned = oldUser.banned === true;
 				const isBanned = newUser.banned === true;
+				const seededLocalAdmin = isLocalSeededAdmin(newUser);
 
 				// --- Materialized dashboard counters ---
 				if (!wasAdmin && isAdmin) {
@@ -196,7 +212,7 @@ export const authComponent = createClient<DataModel, typeof authSchema>(componen
 					await incrementCounter(ctx, 'bannedCount', -1);
 				}
 
-				if (becameVerified) {
+				if (becameVerified && !seededLocalAdmin) {
 					await scheduleNewUserSignupNotification(ctx, newUser);
 
 					// Founder welcome email: schedule if pending
