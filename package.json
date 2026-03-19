@@ -118,7 +118,7 @@
 		"convex-svelte": "npm:@mmailaender/convex-svelte@0.17.1",
 		"d3-scale": "4.0.2",
 		"d3-shape": "3.2.0",
-		"eslint": "9.39.3",
+		"eslint": "9.39.4",
 		"eslint-config-prettier": "10.1.8",
 		"eslint-plugin-svelte": "3.15.2",
 		"formsnap": "2.0.1",
