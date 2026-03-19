@@ -21,8 +21,12 @@
 
 	async function openSupport(): Promise<void> {
 		isLoading = true;
-		await preload();
-		isLoading = false;
+		try {
+			await preload();
+		} finally {
+			isLoading = false;
+		}
+		if (!CustomerSupport) return;
 		isOpen = true;
 		const url = new URL(window.location.href);
 		url.searchParams.set('support', 'open');
