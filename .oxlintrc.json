@@ -1,0 +1,14 @@
+{
+	"$schema": "./node_modules/oxlint/configuration_schema.json",
+	"jsPlugins": ["oxlint-plugin-convex"],
+	"ignorePatterns": ["**/node_modules/**", "**/_generated/**", "**/references/**"],
+	"rules": {
+		"convex/no-unused-functions": [
+			"warn",
+			{
+				"ignorePatterns": ["tests.*", "localDev.*"],
+				"ignoreUsageFiles": ["**/*.test.ts", "e2e/**"]
+			}
+		]
+	}
+}
