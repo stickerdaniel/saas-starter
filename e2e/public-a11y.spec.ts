@@ -1,45 +1,31 @@
 import { test, expect } from './utils/axe-test';
 
-test.describe('Accessibility - Public Pages', () => {
-	test('marketing home has no a11y violations', async ({ page, makeAxeBuilder }) => {
-		await page.goto('/en');
-		const results = await makeAxeBuilder().analyze();
-		expect(results.violations).toEqual([]);
-	});
+const pages = [
+	{ name: 'marketing home', path: '/en' },
+	{ name: 'signin', path: '/en/signin' },
+	{ name: 'forgot password', path: '/en/forgot-password' },
+	{ name: 'about', path: '/en/about' },
+	{ name: 'pricing', path: '/en/pricing' },
+	{ name: 'terms', path: '/en/terms' },
+	{ name: 'privacy', path: '/en/privacy' }
+];
 
-	test('signin page has no a11y violations', async ({ page, makeAxeBuilder }) => {
-		await page.goto('/en/signin');
-		const results = await makeAxeBuilder().analyze();
-		expect(results.violations).toEqual([]);
-	});
+for (const theme of ['light', 'dark'] as const) {
+	test.describe(`Accessibility - Public Pages (${theme})`, () => {
+		test.use({
+			colorScheme: theme
+		});
 
-	test('forgot password page has no a11y violations', async ({ page, makeAxeBuilder }) => {
-		await page.goto('/en/forgot-password');
-		const results = await makeAxeBuilder().analyze();
-		expect(results.violations).toEqual([]);
+		for (const { name, path } of pages) {
+			test(`${name} has no a11y violations`, async ({ page, makeAxeBuilder }) => {
+				// Set ModeWatcher to the correct theme before navigating
+				await page.addInitScript((t) => {
+					localStorage.setItem('mode-watcher-mode', t);
+				}, theme);
+				await page.goto(path);
+				const results = await makeAxeBuilder().analyze();
+				expect(results.violations).toEqual([]);
+			});
+		}
 	});
-
-	test('about page has no a11y violations', async ({ page, makeAxeBuilder }) => {
-		await page.goto('/en/about');
-		const results = await makeAxeBuilder().analyze();
-		expect(results.violations).toEqual([]);
-	});
-
-	test('pricing page has no a11y violations', async ({ page, makeAxeBuilder }) => {
-		await page.goto('/en/pricing');
-		const results = await makeAxeBuilder().analyze();
-		expect(results.violations).toEqual([]);
-	});
-
-	test('terms page has no a11y violations', async ({ page, makeAxeBuilder }) => {
-		await page.goto('/en/terms');
-		const results = await makeAxeBuilder().analyze();
-		expect(results.violations).toEqual([]);
-	});
-
-	test('privacy page has no a11y violations', async ({ page, makeAxeBuilder }) => {
-		await page.goto('/en/privacy');
-		const results = await makeAxeBuilder().analyze();
-		expect(results.violations).toEqual([]);
-	});
-});
+}
