@@ -79,7 +79,7 @@
 						<div class="px-2 pt-2 sm:pt-4 sm:pb-0">
 							<div class="flex justify-between">
 								<h3
-									class="text-title text-base font-medium transition-all duration-300 group-hover:tracking-wider"
+									class="text-base font-medium text-foreground transition-all duration-300 group-hover:tracking-wider"
 								>
 									{member.name}
 								</h3>
@@ -94,7 +94,7 @@
 								<a
 									href={resolve(member.link)}
 									draggable={false}
-									class="group-hover:text-primary-600 dark:group-hover:text-primary-400 inline-block translate-y-8 text-sm tracking-wide opacity-0 transition-all duration-300 no-drag group-hover:translate-y-0 group-hover:opacity-100 hover:underline"
+									class="inline-block translate-y-8 text-sm tracking-wide opacity-0 transition-all duration-300 no-drag group-hover:translate-y-0 group-hover:text-primary group-hover:opacity-100 hover:underline"
 								>
 									<T keyName="team.linktree" />
 								</a>

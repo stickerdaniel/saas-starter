@@ -1,6 +1,5 @@
 import { v } from 'convex/values';
 import { adminQuery } from '../functions';
-import { query } from '../_generated/server';
 import { vEmailId } from '@convex-dev/resend';
 import { resend } from './resend';
 
@@ -81,8 +80,10 @@ export const listEmailEventsByType = adminQuery({
  *
  * Check the current status of a sent email.
  * Returns status information from the Resend component.
+ *
+ * @security Requires admin role - email status contains sensitive delivery data
  */
-export const getEmailStatus = query({
+export const getEmailStatus = adminQuery({
 	args: {
 		emailId: vEmailId
 	},

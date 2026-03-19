@@ -8,12 +8,12 @@
 	const { t } = getTranslate();
 
 	interface Props {
-		className?: string;
+		class?: string;
 		title?: Snippet;
 		children?: Snippet;
 	}
 
-	let { className = undefined, title, children }: Props = $props();
+	let { class: className = undefined, title, children }: Props = $props();
 
 	let x = $state(0);
 	let y = $state(0);

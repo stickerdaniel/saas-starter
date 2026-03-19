@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { tick, untrack } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
+	// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 	import { navigating } from '$app/stores';
 
 	const SUPPRESSED_QUERY_KEYS = new SvelteSet(['sort', 'page', 'page_size', 'cursor', 'search']);

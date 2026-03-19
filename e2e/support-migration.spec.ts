@@ -17,11 +17,7 @@ import { waitForAuthenticated } from './utils/auth';
  * 5. Database shows threads now belong to authenticated user with enriched data
  */
 
-interface TestCredentials {
-	user: { email: string; password: string; name: string };
-	admin: { email: string; password: string; name: string };
-	anonymousSupport: { userId: string; threadIds: string[] };
-}
+import type { TestCredentials } from './utils/types';
 
 const credentialsPath = path.join(process.cwd(), 'e2e', '.auth', 'test-credentials.json');
 const testSecret = process.env.AUTH_E2E_TEST_SECRET!;

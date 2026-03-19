@@ -271,6 +271,12 @@ Type $derived explicitly (e.g., let items: Item[] = $derived(...)) for arrays in
 Default to new syntax for Svelte 5 benefits.
 Avoid stores unless necessary for pub/sub.
 
+Rune pitfalls:
+
+- `$derived(() => { ... })` stores the **function**, not its return value. Use `$derived.by(() => { ... })` for multi-line computations. `$derived(expr)` is only for simple expressions.
+- `$derived` has **no cleanup mechanism**. Never create `URL.createObjectURL()` or subscriptions inside `$derived`. Use `$effect` with a cleanup return instead.
+- Never call `useQuery()` inside `$derived()`. Each call creates fresh `$state`/`$effect` internals without cleanup, causing ghost subscriptions. Use `useQuery(fn, () => condition ? args : 'skip')` for conditional queries.
+
 Use the Svelte MCPs Get Documentation tool to get up-to-date Svelte documentation (only call this with a subagent!) and check code with the MCPs autofixer for wrong patterns. Query the svelte repo with btca for new features like remote functions.
 
 Prop names must match the parent's passed prop name exactly.
@@ -286,7 +292,7 @@ ALWAYS run `bun scripts/static-checks.ts src/lib/foo.ts src/routes/bar.svelte` a
 
 ### Real-time Features
 
-- Use Convex's `useQuery` for reactive data
+- Use Convex's `useQuery` for reactive data — **never inside `$derived()`**, use the `'skip'` pattern instead
 - Use Convex's `useMutation` for data modifications
 - Use Convex's `useAction` for server-side actions
 
@@ -301,7 +307,7 @@ No barrel imports from icon libraries — use individual imports (`@lucide/svelt
 - Always use shadcn-svelte for ui components first. Use btca with `shadcnSvelte` resource.
 - If a ui component doesn't exist in shadcn-svelte, check `@ieedan/shadcn-svelte-extras`. Use btca with `shadcnSvelteExtras` resource.
 - For AI related components, check if ai-elements has what you need. Use btca with `aiElements` resource.
-- Check cnblocks for well designed header, feature, pricing, footer and many more marketing blocks. Use btca with `cnblocks` resource.
+- Check cnblocks for well designed header, feature, pricing, footer and many more marketing blocks. Use btca with `cnblocks` resource. **When importing cnblocks components, verify they use project theme tokens** — cnblocks defines its own `--color-title`, `--color-primary-600` etc. that don't exist in this project's `@theme`. Replace with project tokens (`text-foreground`, `text-primary`). Also rename `className` prop to `class: className` to match project convention.
 - Only create a new component if it doesn't exist in any of the above libraries.
 - When implementing a new component, follow the existing shadcn-svelte component api and patterns in `src/lib/components/ui/`
 - Use Tailwind CSS classes for layout and styling in general. Do not add additional styling classes to the shadcn svelte components. They look good by default.
@@ -310,6 +316,8 @@ No barrel imports from icon libraries — use individual imports (`@lucide/svelt
   - Never hardcode human-facing `aria-label` or `.sr-only` text in English.
   - Always localize screen-reader labels via Tolgee keys (not only tables, applies to all UI controls and navigation).
   - Accessible naming convention: prefer localized `.sr-only` text for icon-only buttons, use localized `aria-label` when hidden text is not practical, and avoid redundant double-labeling.
+  - Never add ARIA labels to non-functional buttons (no click handler). Hide decorative buttons from the a11y tree with `aria-hidden="true"` + `tabindex="-1"`, or remove them.
+  - `<noscript>` content never needs `dark:` variants — dark mode requires JS (ModeWatcher). Noscript users always see light theme.
 
 #### Keyboard Shortcuts
 

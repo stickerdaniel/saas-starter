@@ -26,8 +26,8 @@ export default defineConfig({
 	forbidOnly: isCI,
 	/* Retry on CI only */
 	retries: isCI ? 2 : 0,
-	/* Single worker prevents dev server overload in headed mode */
-	workers: 1,
+	/* CI: auto-detect workers based on CPU cores; locally: single worker prevents dev server overload in headed mode */
+	workers: isCI ? undefined : 1,
 	/* Reporter to use - auto-open after tests complete */
 	reporter: [['html', { open: 'always' }]],
 	/* Shared settings for all the projects below */
