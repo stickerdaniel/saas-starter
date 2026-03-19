@@ -29,6 +29,8 @@ export interface UploadConfig {
 	locale?: string;
 	/** Optional access key provider for file control */
 	getAccessKey?: () => string | undefined;
+	/** Provider for extra args to pass to generateUploadUrl (e.g., anonymousUserId for rate limiting) */
+	getGenerateUploadUrlArgs?: () => Record<string, unknown>;
 }
 
 /**

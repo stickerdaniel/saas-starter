@@ -9,9 +9,20 @@
 		description?: string;
 		/** Custom canonical URL (optional, defaults to current page) */
 		canonicalUrl?: string;
+		/** Open Graph type (defaults to "website") */
+		ogType?: string;
+		/**
+		 * OG/Twitter image path relative to static/ (e.g. "/og-image.png").
+		 * Will be converted to an absolute URL using the current origin.
+		 * If omitted, no og:image / twitter:image tags are rendered.
+		 *
+		 * TODO: Add a default OG image to static/ (recommended 1200x630px)
+		 * and change the default here once it exists.
+		 */
+		image?: string;
 	}
 
-	let { title, description, canonicalUrl }: Props = $props();
+	let { title, description, canonicalUrl, ogType = 'website', image }: Props = $props();
 
 	// Get current language and path
 	let currentLang = $derived(page.params.lang || DEFAULT_LANGUAGE);
@@ -30,6 +41,9 @@
 	let canonical = $derived(
 		canonicalUrl || `${origin}/${currentLang}${pathWithoutLang === '/' ? '' : pathWithoutLang}`
 	);
+
+	// og:image must be an absolute URL for social sharing crawlers
+	let absoluteImageUrl = $derived(image ? `${origin}${image}` : undefined);
 </script>
 
 <svelte:head>
@@ -48,6 +62,18 @@
 	<!-- Canonical URL -->
 	<link rel="canonical" href={canonical} />
 	<meta property="og:url" content={canonical} />
+
+	<!-- Open Graph type & image -->
+	<meta property="og:type" content={ogType} />
+	{#if absoluteImageUrl}
+		<meta property="og:image" content={absoluteImageUrl} />
+	{/if}
+
+	<!-- Twitter card -->
+	<meta name="twitter:card" content={absoluteImageUrl ? 'summary_large_image' : 'summary'} />
+	{#if absoluteImageUrl}
+		<meta name="twitter:image" content={absoluteImageUrl} />
+	{/if}
 
 	<!-- Hreflang tags for each language -->
 	{#each SUPPORTED_LANGUAGES as language (language.code)}

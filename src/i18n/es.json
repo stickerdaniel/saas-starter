@@ -1,4 +1,7 @@
 {
+	"a11y": {
+		"skip_to_content": "Saltar al contenido"
+	},
 	"admin": {
 		"actions": {
 			"ban": "Bloquear Usuario",
@@ -490,10 +493,11 @@
 				"click_to_edit": "Haz clic para editar",
 				"config_body_label": "Cuerpo del email",
 				"config_name_label": "Tu nombre",
-				"config_subject_label": "Asunto del email",
-				"config_title_label": "Su título",
+				"config_reply_to_description": "A dónde van las respuestas. Usa tu email de cuenta si se deja vacío.",
 				"config_reply_to_label": "Email de respuesta",
 				"config_reply_to_placeholder": "ej. hola@tuempresa.com",
+				"config_subject_label": "Asunto del email",
+				"config_title_label": "Su título",
 				"config_variables_hint": "Variables disponibles: '{{userFirstName}}', '{{userLastName}}', '{{founderName}}', '{{founderTitle}}'",
 				"contact_person": "Persona de contacto",
 				"contact_person_info": "{name} ({email})",

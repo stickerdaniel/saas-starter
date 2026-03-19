@@ -10,6 +10,7 @@
 
 <SEOHead title={$t('meta.privacy.title')} description={$t('meta.privacy.description')} />
 
+<!-- Legal text is intentionally English-only — the English version is the governed version. -->
 <div class="mx-auto prose prose-sm max-w-3xl px-6 pt-40 pb-24 lg:px-12 dark:prose-invert">
 	<SvelteMarkdown {source} />
 	<p>

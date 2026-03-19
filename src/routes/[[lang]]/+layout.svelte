@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Tolgee, DevTools, TolgeeProvider } from '@tolgee/svelte';
+	import { T, Tolgee, DevTools, TolgeeProvider } from '@tolgee/svelte';
 	import type { TolgeeStaticData } from '@tolgee/svelte';
 	import { FormatIcu } from '@tolgee/format-icu';
 	import { browser } from '$app/environment';
@@ -67,6 +67,12 @@
 </script>
 
 <TolgeeProvider {tolgee}>
+	<a
+		href="#main-content"
+		class="sr-only z-50 focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:rounded-md focus:bg-background focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-foreground focus:shadow-md focus:ring-2 focus:ring-ring focus:ring-offset-2"
+	>
+		<T keyName="a11y.skip_to_content" />
+	</a>
 	<AppAuthOAuthBootstrap />
 	<GlobalSearchShell />
 	{@render children()}
