@@ -342,14 +342,6 @@ export const getCurrentUser = query({
 	}
 });
 
-// Alias for backward compatibility with existing code
-export const viewer = query({
-	args: {},
-	handler: async (ctx) => {
-		return authComponent.getAuthUser(ctx);
-	}
-});
-
 /** Returns which OAuth providers are configured and available */
 export const getAvailableOAuthProviders = query({
 	args: {},

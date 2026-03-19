@@ -323,33 +323,6 @@ export const claimNotificationForSending = internalMutation({
 });
 
 /**
- * Get a pending notification by ID
- */
-export const getPendingNotification = internalQuery({
-	args: {
-		notificationId: v.id('pendingAdminNotifications')
-	},
-	returns: v.union(
-		v.object({
-			_id: v.id('pendingAdminNotifications'),
-			_creationTime: v.number(),
-			threadId: v.string(),
-			isReopen: v.boolean(),
-			notificationType: v.union(v.literal('newTickets'), v.literal('userReplies')),
-			scheduledFor: v.number(),
-			messageIds: v.array(v.string()),
-			scheduledFnId: v.optional(v.id('_scheduled_functions')),
-			retryCount: v.optional(v.number()),
-			createdAt: v.number()
-		}),
-		v.null()
-	),
-	handler: async (ctx, args) => {
-		return await ctx.db.get(args.notificationId);
-	}
-});
-
-/**
  * Get support thread data for notification
  */
 export const getSupportThread = internalQuery({

@@ -16,8 +16,6 @@ import type * as admin_notificationPreferences_index from "../admin/notification
 import type * as admin_notificationPreferences_mutations from "../admin/notificationPreferences/mutations.js";
 import type * as admin_notificationPreferences_queries from "../admin/notificationPreferences/queries.js";
 import type * as admin_queries from "../admin/queries.js";
-import type * as admin_settings_mutations from "../admin/settings/mutations.js";
-import type * as admin_settings_queries from "../admin/settings/queries.js";
 import type * as admin_support_constants from "../admin/support/constants.js";
 import type * as admin_support_mutations from "../admin/support/mutations.js";
 import type * as admin_support_notifications from "../admin/support/notifications.js";
@@ -36,8 +34,6 @@ import type * as emails__generated_verification from "../emails/_generated/verif
 import type * as emails__generated_verificationCode from "../emails/_generated/verificationCode.js";
 import type * as emails_events from "../emails/events.js";
 import type * as emails_helpers from "../emails/helpers.js";
-import type * as emails_mutations from "../emails/mutations.js";
-import type * as emails_queries from "../emails/queries.js";
 import type * as emails_resend from "../emails/resend.js";
 import type * as emails_send from "../emails/send.js";
 import type * as emails_templates from "../emails/templates.js";
@@ -77,8 +73,6 @@ declare const fullApi: ApiFromModules<{
   "admin/notificationPreferences/mutations": typeof admin_notificationPreferences_mutations;
   "admin/notificationPreferences/queries": typeof admin_notificationPreferences_queries;
   "admin/queries": typeof admin_queries;
-  "admin/settings/mutations": typeof admin_settings_mutations;
-  "admin/settings/queries": typeof admin_settings_queries;
   "admin/support/constants": typeof admin_support_constants;
   "admin/support/mutations": typeof admin_support_mutations;
   "admin/support/notifications": typeof admin_support_notifications;
@@ -97,8 +91,6 @@ declare const fullApi: ApiFromModules<{
   "emails/_generated/verificationCode": typeof emails__generated_verificationCode;
   "emails/events": typeof emails_events;
   "emails/helpers": typeof emails_helpers;
-  "emails/mutations": typeof emails_mutations;
-  "emails/queries": typeof emails_queries;
   "emails/resend": typeof emails_resend;
   "emails/send": typeof emails_send;
   "emails/templates": typeof emails_templates;
