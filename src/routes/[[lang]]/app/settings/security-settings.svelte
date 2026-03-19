@@ -72,20 +72,45 @@
 		}
 	}
 
-	async function handleDeletePasskey(id: string) {
-		try {
-			const { error: err } = await authClient.passkey.deletePasskey({ id });
+	function handleDeletePasskey(id: string) {
+		// Optimistically remove the passkey from local state
+		const removedPasskey = passkeys.find((p) => p.id === id);
+		if (!removedPasskey) return;
 
-			if (err) {
-				toast.error($t(getAuthErrorKey(err, 'auth.messages.passkey_delete_failed')));
-			} else {
-				haptic.trigger('warning');
-				toast.success($t('auth.messages.passkey_deleted'));
-				await loadPasskeys();
+		const originalIndex = passkeys.indexOf(removedPasskey);
+		passkeys = passkeys.filter((p) => p.id !== id);
+		let undone = false;
+
+		const restore = () => {
+			undone = true;
+			passkeys.splice(originalIndex, 0, removedPasskey);
+			passkeys = passkeys;
+		};
+
+		const executeDelete = async () => {
+			if (undone) return;
+			try {
+				const { error: err } = await authClient.passkey.deletePasskey({ id });
+				if (err) {
+					toast.error($t(getAuthErrorKey(err, 'auth.messages.passkey_delete_failed')));
+					restore();
+				}
+			} catch {
+				toast.error($t('auth.messages.passkey_delete_failed'));
+				restore();
 			}
-		} catch {
-			toast.error($t('auth.messages.passkey_delete_failed'));
-		}
+		};
+
+		haptic.trigger('warning');
+		toast($t('auth.messages.passkey_deleted'), {
+			duration: 5000,
+			action: {
+				label: $t('settings.security.passkey_undo'),
+				onClick: restore
+			},
+			onAutoClose: () => executeDelete(),
+			onDismiss: () => executeDelete()
+		});
 	}
 
 	function formatDate(date: Date): string {
@@ -185,6 +210,7 @@
 									size="icon"
 									onclick={() => handleDeletePasskey(passkey.id)}
 									class="text-destructive hover:text-destructive"
+									aria-label={$t('settings.security.delete_passkey')}
 								>
 									<Trash2Icon class="h-4 w-4" />
 								</Button>

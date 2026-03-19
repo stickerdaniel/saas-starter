@@ -12,6 +12,7 @@ import authSchema from './betterAuth/schema';
 import authConfig from './auth.config';
 import { getBetterAuthSecret, getSiteUrl, googleOAuth, githubOAuth } from './env';
 import { getFounderWelcomeDelay } from './emails/helpers';
+import { incrementCounter } from './admin/counters';
 
 // Required for triggers to work - references internal auth functions
 const authFunctions: AuthFunctions = internal.auth;
@@ -90,6 +91,15 @@ export const authComponent = createClient<DataModel, typeof authSchema>(componen
 			 * it writes to a separate table with more failure modes.
 			 */
 			onCreate: async (ctx, user) => {
+				// --- Materialized dashboard counters ---
+				await incrementCounter(ctx, 'totalUsers', 1);
+				if (user.role === 'admin') {
+					await incrementCounter(ctx, 'adminCount', 1);
+				}
+				if (user.banned === true) {
+					await incrementCounter(ctx, 'bannedCount', 1);
+				}
+
 				// Send signup stats email immediately only for already-verified users
 				// (e.g. OAuth providers with verified emails)
 				if (user.emailVerified) {
@@ -146,6 +156,20 @@ export const authComponent = createClient<DataModel, typeof authSchema>(componen
 			},
 
 			/**
+			 * Called when a user is deleted
+			 * - Decrements materialized dashboard counters
+			 */
+			onDelete: async (ctx, user) => {
+				await incrementCounter(ctx, 'totalUsers', -1);
+				if (user.role === 'admin') {
+					await incrementCounter(ctx, 'adminCount', -1);
+				}
+				if (user.banned === true) {
+					await incrementCounter(ctx, 'bannedCount', -1);
+				}
+			},
+
+			/**
 			 * Called when a user is updated
 			 * - Sends signup notification when email becomes verified
 			 * - Detects admin role changes and syncs notification preferences
@@ -157,6 +181,20 @@ export const authComponent = createClient<DataModel, typeof authSchema>(componen
 				const becameVerified = oldUser.emailVerified !== true && newUser.emailVerified === true;
 				const wasAdmin = oldUser.role === 'admin';
 				const isAdmin = newUser.role === 'admin';
+				const wasBanned = oldUser.banned === true;
+				const isBanned = newUser.banned === true;
+
+				// --- Materialized dashboard counters ---
+				if (!wasAdmin && isAdmin) {
+					await incrementCounter(ctx, 'adminCount', 1);
+				} else if (wasAdmin && !isAdmin) {
+					await incrementCounter(ctx, 'adminCount', -1);
+				}
+				if (!wasBanned && isBanned) {
+					await incrementCounter(ctx, 'bannedCount', 1);
+				} else if (wasBanned && !isBanned) {
+					await incrementCounter(ctx, 'bannedCount', -1);
+				}
 
 				if (becameVerified) {
 					await scheduleNewUserSignupNotification(ctx, newUser);
