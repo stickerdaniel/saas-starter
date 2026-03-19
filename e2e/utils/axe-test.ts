@@ -8,10 +8,7 @@ type AxeFixture = {
 export const test = base.extend<AxeFixture>({
 	makeAxeBuilder: async ({ page }, use) => {
 		const makeAxeBuilder = () =>
-			new AxeBuilder({ page })
-				.withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
-				// Exclude rules with known false positives from third-party components
-				.disableRules(['color-contrast', 'svg-img-alt']);
+			new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']);
 		await use(makeAxeBuilder);
 	}
 });
