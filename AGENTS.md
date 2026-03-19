@@ -32,8 +32,18 @@ btca ask -r svelte -r convex -q "How do I integrate Convex with SvelteKit?"
 
 - `bun run generate` - To generate the code in the `convex/_generated` directory that includes types required for a TypeScript typecheck. Run this command whenever you make changes to the convex schema.
 - `bun run build` - Build for production
+- `bun run dev:local` - Start Vite with an embedded local Convex backend via `convex-vite-plugin`
 
 NEVER use `bun run dev` to start the development server, its already running in a separate terminal.
+
+`dev:local` notes:
+
+- Seeds a verified local admin automatically after startup.
+- Local seeded admin credentials: `admin@local.dev` / `LocalDevAdmin123!`
+- `RESEND_API_KEY` and `AUTH_EMAIL` are optional for local boot and only needed for real signup, verification, and password reset email flows.
+- Optional local extras: OAuth (`AUTH_GOOGLE_*`, `AUTH_GITHUB_*`), AI (`OPENROUTER_API_KEY`), billing (`AUTUMN_SECRET_KEY`), and E2E test secret (`AUTH_E2E_TEST_SECRET`).
+- Local Convex state is isolated per branch/worktree under `.convex/`.
+- `RESET_LOCAL_BACKEND=true bun run dev:local` clears the existing local Convex state before startup and restores the default seeded admin credentials.
 
 ### Logo Generation
 
@@ -51,7 +61,7 @@ NEVER use `bun run dev` to start the development server, its already running in 
 
 ### Convex Backend
 
-**IMPORTANT:** When any task involves Convex backend code — writing, reviewing, or modifying queries, mutations, actions, schema, HTTP endpoints, auth, file storage, or crons — you MUST read `docs/convex-guidelines.md` first. It contains the canonical Convex coding patterns for this project.
+**IMPORTANT:** When any task involves Convex backend code — writing, reviewing, or modifying queries, mutations, actions, schema, HTTP endpoints, auth, file storage, or crons — you MUST read the `convex-guidelines` skill (`skills/convex-guidelines/SKILL.md`) first. It contains the canonical Convex coding patterns for this project.
 
 - `bun convex run tests:init` - Initialize test data
 - `bun convex env set KEY value` - Set Convex environment variables
@@ -325,10 +335,33 @@ Never hardcode `⌘` or `Ctrl`. Use `cmdOrCtrl` / `optionOrAlt` from `$lib/hooks
 
 #### Animations
 
-Simple animations should be implemented with plain CSS whenever possible.
-Before implementing any custom animation, check if sv-animate has a prebuilt component that can be used. Use btca with `svAnimate` resource.
-For custom animations, use Sveltes built in animations, or motion-svelte (Framer motion for Svelte). Use btca with `motionSvelte` resource. Before implementing any custom animation, read the `docs/animation-rules.md` file. You must follow the rules in the file when implementing your own animations!
-For page transitions and state changes, use the View Transitions API. See `docs/animation-rules.md` for setup and patterns.
+For general animation craft (easing, duration, when to animate, performance, accessibility), follow the `emil-design-eng` skill (installed in `.agents/skills/`).
+
+**Project-specific rules:**
+
+- Simple animations should be implemented with plain CSS whenever possible.
+- Before implementing any custom animation, check if sv-animate has a prebuilt component that can be used. Use btca with `svAnimate` resource.
+- For custom animations, use Svelte's built-in animations, or motion-svelte (Framer Motion for Svelte). Use btca with `motionSvelte` resource.
+- For Tailwind, use `motion-safe:` / `motion-reduce:` prefixes (e.g., `motion-safe:animate-fade-in`, `motion-reduce:animate-none`).
+- For page transitions and state changes, use the View Transitions API with SvelteKit's `onNavigate`:
+
+```svelte
+<script lang="ts">
+	import { onNavigate } from '$app/navigation';
+	onNavigate((navigation) => {
+		if (!document.startViewTransition) return;
+		return new Promise((resolve) => {
+			document.startViewTransition(async () => {
+				resolve();
+				await navigation.complete;
+			});
+		});
+	});
+</script>
+```
+
+- Give elements unique `view-transition-name` to animate them independently. For UI elements (buttons, cards), override aspect ratio with `width: 100%; height: 100%` on the `::view-transition-old`/`::view-transition-new` pseudo-elements.
+- Icon toggle pattern: 200ms `ease-in-out`, opacity + scale + `blur-sm` → `blur-0`.
 
 #### Forms
 
@@ -363,7 +396,7 @@ Use this decision policy before implementing any form.
 - Good remote-form candidates: admin/settings-style one-shot forms (e.g. add-email dialog).
 - Not recommended: auth pages, account email/password settings auth mutations, community chat submit, generic UI-only/dialog wrapper forms.
 
-For remote-form implementation workflow only, read `docs/form-instructions.md`.
+For remote-form implementation workflow only, read the `svelte-form-builder` skill (`skills/svelte-form-builder/SKILL.md`).
 
 #### Lists with a lot of items
 
