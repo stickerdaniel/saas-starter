@@ -1,6 +1,11 @@
+---
+name: convex-guidelines
+description: Canonical Convex backend coding patterns — validators, function registration, queries, mutations, actions, schemas, pagination, cron jobs, file storage, and Better Auth integration. Use when writing or reviewing any Convex backend code.
+---
+
 # Convex Coding Guidelines
 
-These guidelines must be followed when writing, reviewing, or modifying any Convex backend code in this project.
+These guidelines must be followed when writing, reviewing, or modifying any Convex backend code.
 
 ## Function Guidelines
 
@@ -40,7 +45,6 @@ http.route({
 - Do NOT register functions through the `api` or `internal` objects.
 - ALWAYS include `args` validators for every function.
 - ALWAYS include `returns` validators for every function. If a function returns nothing, use `returns: v.null()`.
-- **Default to `authedMutation`/`authedQuery`** (from `functions.ts`) for new functions. Only use raw `mutation`/`query` when anonymous access is explicitly required, and add a `// @security Anonymous access: <reason>` comment explaining why.
 - **Scheduled retry functions MUST have a max retry count.** Add a `retryCount` field to the relevant table and stop retrying after N attempts (typically 5). Log the final failure for observability.
 
 ### Function Calling
@@ -112,25 +116,23 @@ export const list = query({
 
 ## Authentication Guidelines (Better Auth + Convex)
 
-This project uses `@convex-dev/better-auth` with a local install — NOT vanilla Convex JWT auth (`auth.config.ts` + `ctx.auth.getUserIdentity()`).
+This section applies to projects using `@convex-dev/better-auth` with a local install — NOT vanilla Convex JWT auth (`auth.config.ts` + `ctx.auth.getUserIdentity()`).
 
 ### Server-side (Convex Backend)
 
-- Auth is configured in `src/lib/convex/auth.ts` via `createAuth()` and `createAuthOptions()`.
+- Auth is configured via `createAuth()` and `createAuthOptions()`.
 - Use `authComponent.getAuthUser(ctx)` to get the current authenticated user in any query, mutation, or action. Returns `null` if unauthenticated.
 - NEVER accept a `userId` or any user identifier as a function argument for authorization. Always derive identity server-side via `authComponent.getAuthUser(ctx)`.
 - HTTP auth routes are registered via `authComponent.registerRoutes(http, createAuth)` in `convex/http.ts`.
-- Auth tables (`user`, `session`, `account`, `verification`, `jwks`, `passkey`) are managed by the Better Auth component in `src/lib/convex/betterAuth/schema.ts`.
+- Auth tables (`user`, `session`, `account`, `verification`, `jwks`, `passkey`) are managed by the Better Auth component.
 - Supported auth methods: email/password, OAuth (Google, GitHub), passkeys.
-- User triggers (`onCreate`, `onUpdate`) handle verification emails, admin notifications, and preference syncing.
 
 ### Client-side (SvelteKit)
 
-- Auth client is created in `src/lib/auth-client.ts` via `createAuthClient()` with plugins: `convexClient()`, `passkeyClient()`, `adminClient()`.
-- Use `useAuth()` from `@mmailaender/convex-better-auth-svelte/svelte` for reactive auth state (`isAuthenticated`, `session`, `user`).
-- Route protection is handled in `src/hooks.server.ts`: JWT extracted from cookies, `/app/**` requires auth, `/admin/**` requires `role === 'admin'`.
+- Auth client is created via `createAuthClient()` with plugins: `convexClient()`, `passkeyClient()`, `adminClient()`.
+- Use `useAuth()` for reactive auth state (`isAuthenticated`, `session`, `user`).
+- Route protection is handled in `hooks.server.ts`: JWT extracted from cookies, `/app/**` requires auth, `/admin/**` requires `role === 'admin'`.
 - Sign-in/sign-up: `authClient.signIn.email()`, `authClient.signUp.email()`, `authClient.signIn.social()`, `authClient.signIn.passkey()`.
-- Auth error codes are mapped to i18n keys via `getAuthErrorKey()` in `src/lib/utils/auth-messages.ts`.
 
 ## TypeScript Guidelines
 
@@ -138,8 +140,6 @@ This project uses `@convex-dev/better-auth` with a local install — NOT vanilla
 - Use `Doc<"tableName">` from `./_generated/dataModel` for full document types.
 - Use `QueryCtx`, `MutationCtx`, `ActionCtx` from `./_generated/server` for typing function contexts. NEVER use `any` for ctx parameters.
 - Match `Record` key/value types to the validator: `v.record(v.id('users'), v.string())` → `Record<Id<'users'>, string>`.
-- Use `as const` for string literals in discriminated union types.
-- Always type arrays as `const array: Array<T> = [...]` and records as `const record: Record<K, V> = {...}`.
 
 ## Query Guidelines
 
@@ -176,21 +176,6 @@ const messages = await ctx.db
 - NEVER add `"use node";` to a file that also exports queries or mutations. Only actions can run in the Node.js runtime; queries and mutations must stay in the default Convex runtime. If you need Node.js built-ins alongside queries or mutations, put the action in a separate file.
 - `fetch()` is available in the default Convex runtime. You do NOT need `"use node";` just to use `fetch()`.
 - Never use `ctx.db` inside of an action. Actions don't have access to the database. Use `ctx.runQuery` or `ctx.runMutation` instead.
-- Example:
-
-```typescript
-import { action } from './_generated/server';
-import { v } from 'convex/values';
-
-export const exampleAction = action({
-	args: {},
-	returns: v.null(),
-	handler: async (ctx, args) => {
-		console.log('This action does not return anything');
-		return null;
-	}
-});
-```
 
 ## Scheduling Guidelines
 
