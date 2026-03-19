@@ -279,27 +279,3 @@ export const addInternalUserNote = adminMutation({
 		});
 	}
 });
-
-/**
- * Delete internal user note
- *
- * Permanently removes an internal note from the database.
- *
- * @param args.noteId - The ID of the note to delete
- * @returns void
- * @throws {Error} When note is not found
- */
-export const deleteInternalUserNote = adminMutation({
-	args: {
-		noteId: v.id('internalUserNotes')
-	},
-	handler: async (ctx, args) => {
-		const note = await ctx.db.get(args.noteId);
-
-		if (!note) {
-			throw new Error('Note not found');
-		}
-
-		await ctx.db.delete(args.noteId);
-	}
-});
