@@ -26,6 +26,36 @@ type SignupNotificationUser = {
 	createdAt: number;
 };
 
+type BetterAuthCallbackArg<T extends (...args: any[]) => Promise<void>> = Parameters<T>[0];
+
+type SendResetPasswordArgs = BetterAuthCallbackArg<
+	NonNullable<NonNullable<BetterAuthOptions['emailAndPassword']>['sendResetPassword']>
+>;
+
+type SendVerificationEmailArgs = BetterAuthCallbackArg<
+	NonNullable<NonNullable<BetterAuthOptions['emailVerification']>['sendVerificationEmail']>
+>;
+
+function requireAuthUserEmail(
+	user: { email?: string | null },
+	context: 'reset password email' | 'verification email'
+): string {
+	const email = user.email?.trim();
+	if (!email) {
+		throw new Error(`Better Auth attempted to send ${context} without a user email`);
+	}
+	return email;
+}
+
+function isLocalSeededAdmin(user: { email: string }): boolean {
+	const localSeededAdminEmail = process.env.LOCAL_SEEDED_ADMIN_EMAIL?.trim().toLowerCase();
+	return (
+		process.env.LOCAL_CONVEX_DEV === 'true' &&
+		!!localSeededAdminEmail &&
+		user.email.toLowerCase() === localSeededAdminEmail
+	);
+}
+
 const detectSignupMethod = async (
 	ctx: GenericMutationCtx<DataModel>,
 	userId: string
@@ -91,6 +121,8 @@ export const authComponent = createClient<DataModel, typeof authSchema>(componen
 			 * it writes to a separate table with more failure modes.
 			 */
 			onCreate: async (ctx, user) => {
+				const seededLocalAdmin = isLocalSeededAdmin(user);
+
 				// --- Materialized dashboard counters ---
 				await incrementCounter(ctx, 'totalUsers', 1);
 				if (user.role === 'admin') {
@@ -102,7 +134,7 @@ export const authComponent = createClient<DataModel, typeof authSchema>(componen
 
 				// Send signup stats email immediately only for already-verified users
 				// (e.g. OAuth providers with verified emails)
-				if (user.emailVerified) {
+				if (user.emailVerified && !seededLocalAdmin) {
 					await scheduleNewUserSignupNotification(ctx, user);
 				}
 
@@ -119,13 +151,17 @@ export const authComponent = createClient<DataModel, typeof authSchema>(componen
 					}
 				}
 
-				// Founder welcome email: check if feature is enabled
-				const contactSetting = await ctx.db
-					.query('adminSettings')
-					.withIndex('by_key', (q: any) => q.eq('key', 'founderWelcome.contactUserId'))
-					.unique();
+				// Local seeded admin should not enqueue email-dependent onboarding jobs.
+				if (!seededLocalAdmin) {
+					const contactSetting = await ctx.db
+						.query('adminSettings')
+						.withIndex('by_key', (q: any) => q.eq('key', 'founderWelcome.contactUserId'))
+						.unique();
 
-				if (contactSetting) {
+					if (!contactSetting) {
+						return;
+					}
+
 					const delayMs = getFounderWelcomeDelay();
 					if (user.emailVerified) {
 						// OAuth signup: schedule immediately
@@ -183,6 +219,7 @@ export const authComponent = createClient<DataModel, typeof authSchema>(componen
 				const isAdmin = newUser.role === 'admin';
 				const wasBanned = oldUser.banned === true;
 				const isBanned = newUser.banned === true;
+				const seededLocalAdmin = isLocalSeededAdmin(newUser);
 
 				// --- Materialized dashboard counters ---
 				if (!wasAdmin && isAdmin) {
@@ -196,7 +233,7 @@ export const authComponent = createClient<DataModel, typeof authSchema>(componen
 					await incrementCounter(ctx, 'bannedCount', -1);
 				}
 
-				if (becameVerified) {
+				if (becameVerified && !seededLocalAdmin) {
 					await scheduleNewUserSignupNotification(ctx, newUser);
 
 					// Founder welcome email: schedule if pending
@@ -274,27 +311,23 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>): BetterAuthOptions
 			minPasswordLength: 10,
 			requireEmailVerification: true,
 			// Password reset email
-			sendResetPassword: async ({
-				user,
-				url
-			}: {
-				user: { email: string; name?: string };
-				url: string;
-			}) => {
+			sendResetPassword: async ({ user, url }: SendResetPasswordArgs) => {
 				const mutationCtx = requireRunMutationCtx(ctx);
+				const email = requireAuthUserEmail(user, 'reset password email');
 				await mutationCtx.runMutation(internal.emails.send.sendResetPasswordEmail, {
-					email: user.email,
+					email,
 					resetUrl: url,
-					userName: user.name
+					userName: user.name ?? undefined
 				});
 			}
 		},
 		emailVerification: {
 			// Email verification (moved from emailAndPassword in Better Auth 1.4.x)
-			sendVerificationEmail: async ({ user, url }: { user: { email: string }; url: string }) => {
+			sendVerificationEmail: async ({ user, url }: SendVerificationEmailArgs) => {
 				const mutationCtx = requireRunMutationCtx(ctx);
+				const email = requireAuthUserEmail(user, 'verification email');
 				await mutationCtx.runMutation(internal.emails.send.sendVerificationEmail, {
-					email: user.email,
+					email,
 					verificationUrl: url,
 					expiryMinutes: 20
 				});
