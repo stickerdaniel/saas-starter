@@ -67,27 +67,6 @@ export const createAuditLog = adminMutation({
 });
 
 /**
- * Internal mutation for logging admin actions (for server-side use)
- */
-export const createAuditLogInternal = internalMutation({
-	args: {
-		adminUserId: v.string(),
-		action: adminActionValidator,
-		targetUserId: v.string(),
-		metadata: auditMetadataValidator
-	},
-	handler: async (ctx, args) => {
-		await ctx.db.insert('adminAuditLogs', {
-			adminUserId: args.adminUserId,
-			action: args.action,
-			targetUserId: args.targetUserId,
-			metadata: args.metadata,
-			timestamp: Date.now()
-		});
-	}
-});
-
-/**
  * Set user role (for initial admin setup or role changes)
  *
  * Updates a user's role and logs the action to the audit trail.

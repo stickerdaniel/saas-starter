@@ -2,7 +2,7 @@ import { type QueryCtx } from '../_generated/server';
 import { components } from '../_generated/api';
 import { v } from 'convex/values';
 import type { BetterAuthUser, BetterAuthSession } from './types';
-import { parseBetterAuthUsers, parseBetterAuthSessions, parseUserRecord } from './types';
+import { parseBetterAuthUsers, parseBetterAuthSessions } from './types';
 import { adminQuery } from '../functions';
 import { getCounters } from './counters';
 
@@ -394,83 +394,6 @@ export const resolveUsersLastPage = adminQuery({
 		return {
 			page: lastPage,
 			cursor
-		};
-	}
-});
-
-/**
- * Get admin audit logs
- *
- * Retrieves audit trail of admin actions with optional filtering
- * by admin user or target user.
- *
- * @param args.limit - Maximum number of logs to return (default: 100)
- * @param args.adminUserId - Optional filter by admin who performed the action
- * @param args.targetUserId - Optional filter by user who was affected
- * @returns Array of audit log entries sorted by timestamp (newest first)
- */
-export const listAuditLogs = adminQuery({
-	args: {
-		limit: v.optional(v.number()),
-		adminUserId: v.optional(v.string()),
-		targetUserId: v.optional(v.string())
-	},
-	handler: async (ctx, args) => {
-		const limit = args.limit ?? 100;
-
-		const logsQuery = ctx.db.query('adminAuditLogs').withIndex('by_timestamp').order('desc');
-
-		const logs = await logsQuery.take(limit);
-
-		// Filter by admin or target user if specified
-		let filteredLogs = logs;
-		if (args.adminUserId) {
-			filteredLogs = filteredLogs.filter((log) => log.adminUserId === args.adminUserId);
-		}
-		if (args.targetUserId) {
-			filteredLogs = filteredLogs.filter((log) => log.targetUserId === args.targetUserId);
-		}
-
-		return filteredLogs;
-	}
-});
-
-/**
- * Get a single user by ID for admin view
- *
- * Fetches detailed user information including role, ban status,
- * and account metadata for admin user management.
- *
- * @param args.userId - The ID of the user to fetch
- * @returns User object with full details, or null if not found
- */
-export const getUserById = adminQuery({
-	args: {
-		userId: v.string()
-	},
-	handler: async (ctx, args) => {
-		const result = await ctx.runQuery(components.betterAuth.adapter.findOne, {
-			model: 'user',
-			where: [{ field: '_id', operator: 'eq', value: args.userId }]
-		});
-
-		const user = parseUserRecord(result);
-		if (!user) {
-			return null;
-		}
-
-		return {
-			id: user._id,
-			name: user.name,
-			email: user.email,
-			emailVerified: user.emailVerified,
-			image: user.image,
-			role: user.role ?? 'user',
-			banned: user.banned ?? false,
-			banReason: user.banReason,
-			banExpires: user.banExpires,
-			createdAt: user.createdAt,
-			updatedAt: user.updatedAt
 		};
 	}
 });
