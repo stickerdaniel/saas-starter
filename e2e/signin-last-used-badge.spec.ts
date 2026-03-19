@@ -5,11 +5,7 @@ import { waitForAuthenticated } from './utils/auth';
 
 test.use({ storageState: { cookies: [], origins: [] } });
 
-interface TestCredentials {
-	user: { email: string; password: string; name: string };
-	admin: { email: string; password: string; name: string };
-	anonymousSupport: { userId: string; threadIds: string[] };
-}
+import type { TestCredentials } from './utils/types';
 
 function getUserCredentials() {
 	const credentialsPath = path.join(process.cwd(), 'e2e', '.auth', 'test-credentials.json');

@@ -215,7 +215,7 @@
 					<button
 						id="config-body-preview"
 						type="button"
-						class="bg-muted/30 max-h-60 w-full cursor-text overflow-y-auto rounded-md border p-3 text-left text-sm"
+						class="max-h-60 w-full cursor-text overflow-y-auto rounded-md border bg-muted/30 p-3 text-left text-sm"
 						onclick={async () => {
 							editingBody = true;
 							await tick();
@@ -258,7 +258,7 @@
 								<AlertDialog.Action
 									onclick={handleStepDown}
 									disabled={isStepping}
-									class="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+									class="text-destructive-foreground bg-destructive hover:bg-destructive/90"
 								>
 									<T keyName="admin.settings.founder_welcome.step_down" />
 								</AlertDialog.Action>

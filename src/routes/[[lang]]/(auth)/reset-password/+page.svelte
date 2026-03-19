@@ -200,6 +200,7 @@
 								<Password.Root>
 									<Password.Input
 										id="password-{id}"
+										autocomplete="new-password"
 										placeholder="••••••••"
 										disabled={isLoading || !!message}
 										bind:value={formData.password}
@@ -222,6 +223,7 @@
 								<Input
 									id="confirm-password-{id}"
 									type="password"
+									autocomplete="new-password"
 									placeholder="••••••••"
 									disabled={isLoading || !!message}
 									bind:value={formData.confirmPassword}

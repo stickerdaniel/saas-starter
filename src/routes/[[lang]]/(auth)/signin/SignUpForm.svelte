@@ -76,6 +76,7 @@
 				<Input
 					id="name-{id}"
 					type="text"
+					autocomplete="name"
 					placeholder="Your name"
 					disabled={isLoading}
 					bind:value={signUpData.name}
@@ -89,6 +90,7 @@
 				<Input
 					id="signup-email-{id}"
 					type="email"
+					autocomplete="email"
 					placeholder="m@example.com"
 					disabled={isLoading}
 					bind:value={signUpData.email}
@@ -102,6 +104,7 @@
 				<Password.Root>
 					<Password.Input
 						id="signup-password-{id}"
+						autocomplete="new-password"
 						disabled={isLoading}
 						bind:value={signUpData.password}
 					>
