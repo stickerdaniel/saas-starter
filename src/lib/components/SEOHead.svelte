@@ -11,18 +11,19 @@
 		canonicalUrl?: string;
 		/** Open Graph type (defaults to "website") */
 		ogType?: string;
-		/**
-		 * OG/Twitter image path relative to static/ (e.g. "/og-image.png").
+		/** OG/Twitter image path relative to static/ (e.g. "/og-image.png").
 		 * Will be converted to an absolute URL using the current origin.
-		 * If omitted, no og:image / twitter:image tags are rendered.
-		 *
-		 * TODO: Add a default OG image to static/ (recommended 1200x630px)
-		 * and change the default here once it exists.
-		 */
+		 * Defaults to /og-image.png (1200x630). */
 		image?: string;
 	}
 
-	let { title, description, canonicalUrl, ogType = 'website', image }: Props = $props();
+	let {
+		title,
+		description,
+		canonicalUrl,
+		ogType = 'website',
+		image = '/og-image.png'
+	}: Props = $props();
 
 	// Get current language and path
 	let currentLang = $derived(page.params.lang || DEFAULT_LANGUAGE);
