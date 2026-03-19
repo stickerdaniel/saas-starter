@@ -10,7 +10,7 @@
 	width="1em"
 	color="currentColor"
 	fill="none"
-	role="img"
+	aria-hidden="true"
 	{...rest}
 >
 	<path
