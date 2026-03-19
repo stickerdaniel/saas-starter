@@ -157,7 +157,10 @@
 							</div>
 							{#if formError}
 								<Field.Field>
-									<div class="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+									<div
+										data-testid="forgot-password-form-error"
+										class="rounded-md bg-destructive/10 p-3 text-sm text-destructive"
+									>
 										<T keyName={formError} />
 									</div>
 								</Field.Field>
@@ -165,6 +168,7 @@
 							{#if message}
 								<Field.Field>
 									<div
+										data-testid="forgot-password-success-message"
 										class="rounded-md bg-green-500/10 p-3 text-sm text-green-600 dark:text-green-400"
 									>
 										<T keyName={message} />
@@ -177,6 +181,7 @@
 								</Field.Label>
 								<Input
 									id="email-{id}"
+									data-testid="forgot-password-email-input"
 									type="email"
 									autocomplete="email"
 									placeholder="m@example.com"
@@ -186,7 +191,12 @@
 								<Field.Error errors={translateValidationErrors(errors.email, $t)} />
 							</Field.Field>
 							<Field.Field>
-								<Button type="submit" class="w-full" disabled={isLoading}>
+								<Button
+									type="submit"
+									data-testid="forgot-password-submit-button"
+									class="w-full"
+									disabled={isLoading}
+								>
 									{#if isLoading}
 										<T keyName="auth.forgot_password.button_loading" defaultValue="Sending..." />
 									{:else}
@@ -198,7 +208,11 @@
 								</Button>
 							</Field.Field>
 							<Field.Description class="text-center">
-								<a href={resolve(localizedHref('/signin'))} class="underline underline-offset-4">
+								<a
+									href={resolve(localizedHref('/signin'))}
+									data-testid="forgot-password-back-link"
+									class="underline underline-offset-4"
+								>
 									<T keyName="auth.forgot_password.back_to_signin" defaultValue="Back to sign in" />
 								</a>
 							</Field.Description>

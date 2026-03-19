@@ -1,4 +1,4 @@
-import { RateLimiter, MINUTE } from '@convex-dev/rate-limiter';
+import { RateLimiter, MINUTE, HOUR } from '@convex-dev/rate-limiter';
 import { components } from '../_generated/api';
 
 /**
@@ -6,11 +6,13 @@ import { components } from '../_generated/api';
  *
  * Prevents abuse of the AI support agent by limiting:
  * - Per-user message frequency (authenticated vs anonymous)
+ * - Per-user file upload frequency (authenticated vs anonymous)
  * - Global LLM calls for cost protection
  *
  * Rate limit keying strategy:
  * - Authenticated users: keyed by server-verified user ID
- * - Anonymous users: keyed by anonymous user ID (fallback: thread ID)
+ * - Anonymous messages: keyed by anonymous user ID (fallback: thread ID)
+ * - Anonymous uploads: shared global bucket (client IDs are spoofable)
  */
 export const supportRateLimiter = new RateLimiter(components.rateLimiter, {
 	// Authenticated user message limit
@@ -29,6 +31,26 @@ export const supportRateLimiter = new RateLimiter(components.rateLimiter, {
 		rate: 3,
 		period: MINUTE,
 		capacity: 3
+	},
+
+	// Authenticated user file upload limit
+	// Token bucket: 10-file burst for batch uploads, sustained 10/hour
+	supportFileUpload: {
+		kind: 'token bucket',
+		rate: 10,
+		period: HOUR,
+		capacity: 10
+	},
+
+	// Anonymous file upload limit — GLOBAL shared bucket (not per-user)
+	// Anonymous IDs are client-generated and spoofable, so all anonymous
+	// uploads share one bucket keyed 'anonymous-global' in files.ts
+	// Token bucket: 10-file burst, sustained 20/hour
+	supportFileUploadAnon: {
+		kind: 'token bucket',
+		rate: 20,
+		period: HOUR,
+		capacity: 10
 	},
 
 	// Global LLM call limit (cost protection)

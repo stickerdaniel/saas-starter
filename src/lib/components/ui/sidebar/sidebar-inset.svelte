@@ -12,6 +12,7 @@
 
 <main
 	bind:this={ref}
+	id="main-content"
 	data-slot="sidebar-inset"
 	class={cn(
 		'relative flex w-full flex-1 flex-col bg-background',
