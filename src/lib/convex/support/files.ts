@@ -218,25 +218,3 @@ export const storeFileMetadata = internalMutation({
 		});
 	}
 });
-
-/**
- * Delete legacy fileMetadata records that don't have URL field
- * (One-time cleanup mutation)
- */
-export const cleanupLegacyFileMetadata = internalMutation({
-	args: {},
-	handler: async (ctx) => {
-		// Sequential deletes in one-time cleanup mutation (small dataset)
-		const allRecords = await ctx.db.query('fileMetadata').collect();
-		let deleted = 0;
-
-		for (const record of allRecords) {
-			if (!record.url) {
-				await ctx.db.delete(record._id);
-				deleted++;
-			}
-		}
-
-		return { deleted, total: allRecords.length };
-	}
-});

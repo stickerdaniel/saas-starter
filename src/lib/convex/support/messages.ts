@@ -10,7 +10,7 @@ import type { UserContent } from 'ai';
 import { supportRateLimiter } from './rateLimit';
 import { createRateLimitError } from './types';
 import { t, extractLocaleFromUrl } from '../i18n/translations';
-import { assertMessageOwnership, assertThreadOwnership } from './ownership';
+import { assertThreadOwnership } from './ownership';
 import { listMessagesForThread } from './messageListing';
 
 /**
@@ -248,28 +248,6 @@ export const listMessages = query({
 			threadId: args.threadId,
 			paginationOpts: args.paginationOpts,
 			streamArgs: args.streamArgs
-		});
-	}
-});
-
-/**
- * Delete a message
- *
- * Removes a message from the thread. Useful for moderating content
- * or allowing users to remove their messages.
- */
-export const deleteMessage = mutation({
-	args: {
-		messageId: v.string(),
-		anonymousUserId: v.optional(v.string())
-	},
-	handler: async (ctx, args) => {
-		await assertMessageOwnership(ctx, {
-			messageId: args.messageId,
-			anonymousUserId: args.anonymousUserId
-		});
-		await supportAgent.deleteMessage(ctx, {
-			messageId: args.messageId
 		});
 	}
 });
