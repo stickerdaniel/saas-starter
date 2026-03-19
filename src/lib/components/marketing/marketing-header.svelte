@@ -21,8 +21,13 @@
 	let signingOut = $state(false);
 	const isAuthenticated = $derived(auth.isAuthenticated && !signingOut);
 
-	// Capture once: did the server have a valid JWT?
+	// Capture once at mount: did the server have a valid JWT?
 	const ssrAuthenticated = auth.isAuthenticated;
+
+	// Check if a session cookie exists (may need refresh → wait for result).
+	// No session cookie = definitely unauthenticated → show buttons instantly.
+	const hasSessionCookie =
+		typeof document !== 'undefined' && document.cookie.includes('better-auth.session_token');
 
 	let sessionChecked = $state(false);
 	$effect(() => {
@@ -32,7 +37,12 @@
 		return unsub;
 	});
 
-	const showAuthButtons = $derived(ssrAuthenticated || (sessionChecked && !auth.isLoading));
+	// SSR authenticated: show immediately (server knew auth state).
+	// No session cookie: show immediately (definitely unauthenticated).
+	// Session cookie but no JWT: wait for refresh to avoid Login→Dashboard flash.
+	const showAuthButtons = $derived(
+		ssrAuthenticated || !hasSessionCookie || (sessionChecked && !auth.isLoading)
+	);
 
 	async function signOut() {
 		signingOut = true;
@@ -114,7 +124,10 @@
 						</div>
 						{#if showAuthButtons}
 							<div
-								class="absolute inset-y-0 right-0 flex items-center gap-3 motion-safe:animate-fade-in"
+								class={cn(
+									'absolute inset-y-0 right-0 flex items-center gap-3',
+									!ssrAuthenticated && hasSessionCookie && 'motion-safe:animate-fade-in'
+								)}
 							>
 								{#if isAuthenticated}
 									<Button size="sm" href={localizedHref('/app')}>
@@ -201,7 +214,12 @@
 			</ul>
 			<div class="mt-6 flex flex-col gap-3">
 				{#if showAuthButtons}
-					<div class="flex flex-col gap-3 motion-safe:animate-fade-in">
+					<div
+						class={cn(
+							'flex flex-col gap-3',
+							!ssrAuthenticated && hasSessionCookie && 'motion-safe:animate-fade-in'
+						)}
+					>
 						{#if isAuthenticated}
 							<Button size="sm" href={localizedHref('/app')} class="w-full">
 								<T keyName="nav.dashboard" />
