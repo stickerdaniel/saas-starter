@@ -1,0 +1,15 @@
+diff --git a/dist/index.mjs b/dist/index.mjs
+index 197f48d7c6739cd772d131ab8074b4f32bd18731..372d1bf351904262c82ed6339d744b7bdc00bbc7 100644
+--- a/dist/index.mjs
++++ b/dist/index.mjs
+@@ -126,7 +126,9 @@ const DEFAULT_EXTENSIONS = [
+ 	".ts",
+ 	".tsx",
+ 	".js",
+-	".jsx"
++	".jsx",
++	".svelte",
++	".vue"
+ ];
+ const DEFAULT_SKIP_DIRS = [
+ 	"node_modules",
