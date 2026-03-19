@@ -31,7 +31,6 @@
 			onConfirm: async () => {
 				try {
 					await onRemove(email);
-					toast.success($t('admin.settings.email_removed'));
 				} catch (error) {
 					console.error('[recipients-actions] Failed to remove email:', error);
 					toast.error(

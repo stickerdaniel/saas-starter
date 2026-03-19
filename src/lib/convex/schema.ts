@@ -165,6 +165,15 @@ export default defineSchema({
 		.index('by_storageId', ['storageId'])
 		.index('by_url', ['url']),
 
+	// Dashboard counters - singleton for materialized user metrics
+	// Updated atomically via auth triggers (onCreate, onUpdate) to avoid
+	// fetching all users on every dashboard load.
+	dashboardCounters: defineTable({
+		totalUsers: v.number(),
+		adminCount: v.number(),
+		bannedCount: v.number()
+	}),
+
 	// Founder welcome emails - delayed personal welcome from a team member
 	// Sent ~16-19 min after signup to feel organic. Config stored in adminSettings.
 	founderWelcomeEmails: defineTable({

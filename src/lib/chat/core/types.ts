@@ -139,7 +139,8 @@ export type TextUIPart = {
  */
 export type ReasoningUIPart = {
 	type: 'reasoning';
-	reasoning: string;
+	text: string;
+	state?: 'streaming' | 'done';
 	providerMetadata?: ProviderMetadata;
 };
 
