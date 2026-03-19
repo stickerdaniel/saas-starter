@@ -1386,6 +1386,8 @@
 				"placeholder": "Passkey name",
 				"unnamed": "Unnamed Passkey"
 			},
+			"passkey_delete_failed": "Failed to delete passkey",
+			"passkey_deleted": "Passkey removed",
 			"passkey_info_description": "Passkeys are a secure, passwordless way to sign in. They use biometrics or device PIN and are stored securely on your devices.",
 			"passkey_info_title": "What are Passkeys?",
 			"passkey_name_label": "Passkey name",

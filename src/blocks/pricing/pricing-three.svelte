@@ -35,12 +35,17 @@
 	// Get translation function
 	const { t } = getTranslate();
 
-	// Helper function to get non-empty feature keys for a tier
+	// Helper function to get non-empty feature keys for a tier.
+	// Tolgee wraps output with invisible Unicode markers in dev mode, so we
+	// strip non-printable chars before checking for missing/fallback keys.
 	function getFeatureKeys(tierPath: string): string[] {
-		const keys = ['0', '1', '2', '3', '4'];
+		const keys = ['0', '1', '2', '3', '4', '5'];
 		return keys.filter((key) => {
-			const value = $t(`${tierPath}.${key}`, { orEmpty: true });
-			return value && value.trim().length > 0;
+			const fullKey = `${tierPath}.${key}`;
+			const value = $t(fullKey, { orEmpty: true });
+			// Strip zero-width Unicode chars Tolgee adds for in-context editing
+			const clean = value?.replace(/[\u200B-\u200D\u2060\uFEFF]/g, '').trim();
+			return clean && clean.length > 0 && clean !== fullKey;
 		});
 	}
 

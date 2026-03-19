@@ -27,7 +27,7 @@
 		"test:e2e:headed": "VARLOCK_ENV=test playwright test --headed",
 		"test": "bun run test:e2e && bun run test:unit",
 		"test:unit": "vitest --run --reporter=verbose --passWithNoTests",
-		"i18n:pull": "varlock run -- bun run _tolgee:pull",
+		"i18n:pull": "varlock run -- bun run _tolgee:pull && prettier --write src/i18n/*.json",
 		"i18n:push": "varlock run -- bun run _tolgee:push",
 		"i18n:cleanup": "varlock run -- bun run _tolgee:cleanup",
 		"_tolgee:pull": "TOLGEE_API_KEY=$VITE_TOLGEE_API_KEY tolgee pull",

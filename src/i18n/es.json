@@ -1386,6 +1386,8 @@
 				"placeholder": "Nombre del passkey",
 				"unnamed": "Passkey sin nombre"
 			},
+			"passkey_delete_failed": "No se pudo eliminar la passkey",
+			"passkey_deleted": "Passkey eliminada",
 			"passkey_info_description": "Los passkeys son una forma segura de iniciar sesión sin contraseña. Utilizan biometría o PIN del dispositivo y se almacenan de forma segura en tus dispositivos.",
 			"passkey_info_title": "¿Qué son los Passkeys?",
 			"passkey_name_label": "Nombre del passkey",
