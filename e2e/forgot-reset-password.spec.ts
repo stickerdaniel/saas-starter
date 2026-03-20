@@ -7,6 +7,10 @@ test.describe('Forgot Password', () => {
 	test('shows validation error for invalid email', async ({ page }) => {
 		await page.goto('/forgot-password');
 		await page.waitForLoadState('domcontentloaded');
+		await expect(page.getByTestId('forgot-password-email-input')).toBeEnabled({ timeout: 30000 });
+		await expect(page.getByTestId('forgot-password-submit-button')).toBeEnabled({
+			timeout: 30000
+		});
 
 		// Try to submit with invalid email (browser validation disabled with novalidate)
 		await page.getByTestId('forgot-password-email-input').fill('notanemail');
@@ -22,6 +26,10 @@ test.describe('Forgot Password', () => {
 	test('shows success message after valid email submission', async ({ page }) => {
 		await page.goto('/forgot-password');
 		await page.waitForLoadState('domcontentloaded');
+		await expect(page.getByTestId('forgot-password-email-input')).toBeEnabled({ timeout: 30000 });
+		await expect(page.getByTestId('forgot-password-submit-button')).toBeEnabled({
+			timeout: 30000
+		});
 
 		// Submit with valid email (doesn't need to exist for this test)
 		await page.getByTestId('forgot-password-email-input').fill('test@example.com');
@@ -49,6 +57,12 @@ test.describe('Reset Password', () => {
 	test('shows error when token is missing', async ({ page }) => {
 		await page.goto('/reset-password');
 		await page.waitForLoadState('domcontentloaded');
+		await expect(page.getByTestId('reset-password-password-input')).toBeEnabled({
+			timeout: 30000
+		});
+		await expect(page.getByTestId('reset-password-submit-button')).toBeEnabled({
+			timeout: 30000
+		});
 
 		// Fill in passwords
 		await page.getByTestId('reset-password-password-input').fill('NewPassword123');
@@ -66,6 +80,12 @@ test.describe('Reset Password', () => {
 		// Navigate with a dummy token (will fail on submit, but we can test client validation)
 		await page.goto('/reset-password?token=dummy-token');
 		await page.waitForLoadState('domcontentloaded');
+		await expect(page.getByTestId('reset-password-password-input')).toBeEnabled({
+			timeout: 30000
+		});
+		await expect(page.getByTestId('reset-password-submit-button')).toBeEnabled({
+			timeout: 30000
+		});
 
 		// Fill in mismatched passwords
 		await page.getByTestId('reset-password-password-input').fill('Password123');
@@ -83,6 +103,12 @@ test.describe('Reset Password', () => {
 	test('shows validation error for weak password', async ({ page }) => {
 		await page.goto('/reset-password?token=dummy-token');
 		await page.waitForLoadState('domcontentloaded');
+		await expect(page.getByTestId('reset-password-password-input')).toBeEnabled({
+			timeout: 30000
+		});
+		await expect(page.getByTestId('reset-password-submit-button')).toBeEnabled({
+			timeout: 30000
+		});
 
 		// Fill in weak password (no uppercase)
 		await page.getByTestId('reset-password-password-input').fill('weakpass1');

@@ -34,10 +34,16 @@ export function commitOAuthSuccessIfPending() {
 
 export function setLastSuccessfulAuthMethod(method: LastAuthMethod) {
 	lastSuccessfulAuthMethod.current = method;
+	if (typeof localStorage !== 'undefined') {
+		localStorage.setItem(LAST_AUTH_METHOD_STORAGE_KEY, JSON.stringify(method));
+	}
 }
 
 export function clearLastSuccessfulAuthMethod() {
 	lastSuccessfulAuthMethod.current = null;
+	if (typeof localStorage !== 'undefined') {
+		localStorage.removeItem(LAST_AUTH_METHOD_STORAGE_KEY);
+	}
 }
 
 export function clearPendingOAuthProvider() {

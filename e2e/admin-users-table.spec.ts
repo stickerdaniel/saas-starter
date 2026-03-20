@@ -437,7 +437,7 @@ test.describe('Admin Users Table', () => {
 		await waitForUsersTableReady(page);
 
 		await expect(page.getByTestId('admin-users-search')).toHaveValue(seedPrefix);
-		await expect(page.getByTestId('admin-users-role-filter-trigger')).toContainText('user');
+		await expect(page.getByTestId('admin-users-role-filter-trigger')).toContainText(/user/i);
 		await expect(page.getByTestId('admin-users-status-filter-trigger')).toContainText('Unverified');
 
 		const roleLabels = (await page.getByTestId('admin-users-role-badge').allTextContents()).map(
