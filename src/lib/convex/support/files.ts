@@ -1,4 +1,4 @@
-import { v } from 'convex/values';
+import { v, ConvexError } from 'convex/values';
 import { storeFile } from '@convex-dev/agent';
 import { action, internalMutation, mutation } from '../_generated/server';
 import { components, internal } from '../_generated/api';
@@ -139,12 +139,12 @@ export const saveUploadedFile = action({
 			// Fetch blob from component storage
 			const response = await fetch(downloadResult.downloadUrl);
 			if (!response.ok) {
-				throw new Error(t(args.locale, 'backend.files.fetch_failed'));
+				throw new ConvexError(t(args.locale, 'backend.files.fetch_failed'));
 			}
 			const blob = await response.blob();
 
 			if (blob.size > MAX_SUPPORT_FILE_SIZE) {
-				throw new Error(
+				throw new ConvexError(
 					`File too large: ${(blob.size / 1024 / 1024).toFixed(1)}MB exceeds maximum of 5MB`
 				);
 			}
@@ -152,7 +152,7 @@ export const saveUploadedFile = action({
 			// Validate MIME type against the actual blob — not the client-supplied args.mimeType
 			// which is untrusted input and could be spoofed.
 			if (!ALLOWED_MIME_TYPES.includes(blob.type)) {
-				throw new Error(t(args.locale, 'backend.files.type_not_allowed'));
+				throw new ConvexError(t(args.locale, 'backend.files.type_not_allowed'));
 			}
 
 			// Register with agent component

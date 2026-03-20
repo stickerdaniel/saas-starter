@@ -29,6 +29,10 @@ export const sendMessage = mutation({
 		fileIds: v.optional(v.array(v.string()))
 	},
 	handler: async (ctx, args) => {
+		if (args.prompt.length > 2000) {
+			throw new Error('Message is too long (max 2000 characters)');
+		}
+
 		const { owner } = await assertThreadOwnership(ctx, {
 			threadId: args.threadId,
 			anonymousUserId: args.anonymousUserId

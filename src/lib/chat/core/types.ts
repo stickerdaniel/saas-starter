@@ -139,7 +139,7 @@ export type TextUIPart = {
  */
 export type ReasoningUIPart = {
 	type: 'reasoning';
-	text: string;
+	text?: string;
 	state?: 'streaming' | 'done';
 	providerMetadata?: ProviderMetadata;
 };
@@ -147,7 +147,11 @@ export type ReasoningUIPart = {
 /**
  * Extended message part types
  */
-export type MessagePart = TextUIPart | ReasoningUIPart | { type: string; [key: string]: unknown };
+export type MessagePart =
+	| TextUIPart
+	| ReasoningUIPart
+	| ToolCallPart
+	| { type: string; [key: string]: unknown };
 
 /**
  * Pagination state

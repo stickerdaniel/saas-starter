@@ -25,9 +25,6 @@ export default defineConfig({
 				]
 			: [])
 	] as any,
-	resolve: {
-		conditions: ['browser']
-	},
 	test: {
 		exclude: [
 			'e2e/**',

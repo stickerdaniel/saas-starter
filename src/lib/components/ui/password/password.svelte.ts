@@ -1,25 +1,69 @@
 import { Context, watch } from 'runed';
 import type { ReadableBoxedValues, WritableBoxedValues } from 'svelte-toolbelt';
-import { zxcvbn, zxcvbnOptions } from '@zxcvbn-ts/core';
-import * as zxcvbnCommonPackage from '@zxcvbn-ts/language-common';
-import * as zxcvbnEnPackage from '@zxcvbn-ts/language-en';
+import type { ZxcvbnResult } from '@zxcvbn-ts/core';
 
-const passwordOptions = {
-	translations: zxcvbnEnPackage.translations,
-	graphs: zxcvbnCommonPackage.adjacencyGraphs,
-	dictionary: {
-		...zxcvbnCommonPackage.dictionary,
-		...zxcvbnEnPackage.dictionary
-	}
+type ZxcvbnRunner = (typeof import('@zxcvbn-ts/core'))['zxcvbn'];
+
+/** Tracks whether zxcvbn is ready. Reactive via $state. */
+let dictionariesLoaded = $state(false);
+let zxcvbnRunner: ZxcvbnRunner | null = null;
+let loadPromise: Promise<ZxcvbnRunner> | null = null;
+
+function loadZxcvbn(): Promise<ZxcvbnRunner> {
+	if (loadPromise) return loadPromise;
+	loadPromise = Promise.all([
+		import('@zxcvbn-ts/core'),
+		import('@zxcvbn-ts/language-common'),
+		import('@zxcvbn-ts/language-en')
+	])
+		.then(([core, common, en]) => {
+			core.zxcvbnOptions.setOptions({
+				translations: en.translations,
+				graphs: common.adjacencyGraphs,
+				dictionary: {
+					...common.dictionary,
+					...en.dictionary
+				}
+			});
+			zxcvbnRunner = core.zxcvbn;
+			dictionariesLoaded = true;
+			return core.zxcvbn;
+		})
+		.catch((error: unknown) => {
+			loadPromise = null; // allow retry on failure
+			throw error;
+		});
+	return loadPromise;
+}
+
+const EMPTY_RESULT: ZxcvbnResult = {
+	calcTime: 0,
+	crackTimesDisplay: {
+		offlineFastHashing1e10PerSecond: '',
+		offlineSlowHashing1e4PerSecond: '',
+		onlineNoThrottling10PerSecond: '',
+		onlineThrottling100PerHour: ''
+	},
+	crackTimesSeconds: {
+		offlineFastHashing1e10PerSecond: 0,
+		offlineSlowHashing1e4PerSecond: 0,
+		onlineNoThrottling10PerSecond: 0,
+		onlineThrottling100PerHour: 0
+	},
+	feedback: { warning: null, suggestions: [] },
+	guesses: 0,
+	guessesLog10: 0,
+	password: '',
+	score: 0,
+	sequence: []
 };
-
-zxcvbnOptions.setOptions(passwordOptions);
 
 type PasswordRootStateProps = WritableBoxedValues<{
 	hidden: boolean;
 }> &
 	ReadableBoxedValues<{
 		minScore: number;
+		validationMessage: string;
 	}>;
 
 type PasswordState = {
@@ -41,10 +85,15 @@ const defaultPasswordState: PasswordState = {
 class PasswordRootState {
 	passwordState = $state(defaultPasswordState);
 
-	constructor(readonly opts: PasswordRootStateProps) {}
+	constructor(readonly opts: PasswordRootStateProps) {
+		loadZxcvbn();
+	}
 
-	// only re-run when the password changes
-	strength = $derived.by(() => zxcvbn(this.passwordState.value));
+	// Re-runs when password changes OR when dictionariesLoaded flips to true
+	strength = $derived.by(() => {
+		if (!dictionariesLoaded || !zxcvbnRunner) return EMPTY_RESULT;
+		return zxcvbnRunner(this.passwordState.value);
+	});
 }
 
 type PasswordInputStateProps = WritableBoxedValues<{
@@ -77,7 +126,7 @@ class PasswordInputState {
 				this.root.passwordState.value !== '' &&
 				this.root.strength.score < this.root.opts.minScore.current
 			) {
-				this.opts.ref.current?.setCustomValidity('Password is too weak');
+				this.opts.ref.current?.setCustomValidity(this.root.opts.validationMessage.current);
 			} else {
 				this.opts.ref.current?.setCustomValidity('');
 			}

@@ -29,8 +29,6 @@
 	let image = $state('');
 	let isUploading = $state(false);
 	let isSaving = $state(false);
-	let fileInput = $state<HTMLInputElement>();
-
 	// Update reactive values when user changes
 	$effect(() => {
 		name = user?.name ?? '';
@@ -196,15 +194,13 @@
 							<Field.Label for="file-upload">
 								<T keyName="settings.account.upload_file" />
 							</Field.Label>
-							<input
-								bind:this={fileInput}
+							<Input
 								id="file-upload"
 								type="file"
 								accept="image/*"
 								onchange={handleFileSelect}
 								disabled={isUploading}
 								aria-describedby="file-helper"
-								class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
 							/>
 							<Field.Description id="file-helper">
 								<T keyName="settings.account.file_helper" />
