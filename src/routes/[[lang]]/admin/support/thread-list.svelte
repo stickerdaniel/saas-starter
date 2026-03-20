@@ -257,7 +257,7 @@
 
 					{#snippet loading()}
 						<div class="flex items-center justify-center border-b p-4">
-							<Loader2Icon class="size-5 motion-safe:animate-spin text-muted-foreground" />
+							<Loader2Icon class="size-5 text-muted-foreground motion-safe:animate-spin" />
 							<span class="ml-2 text-sm text-muted-foreground"
 								><T keyName="admin.support.thread.loading" /></span
 							>

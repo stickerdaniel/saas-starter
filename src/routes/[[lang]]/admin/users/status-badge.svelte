@@ -12,7 +12,7 @@
 
 {#if banned}
 	<span
-		class="text-white inline-flex items-center rounded-md bg-destructive px-2 py-1 text-xs font-medium ring-1 ring-destructive/20 ring-inset"
+		class="inline-flex items-center rounded-md bg-destructive px-2 py-1 text-xs font-medium text-white ring-1 ring-destructive/20 ring-inset"
 		data-testid={testId}
 	>
 		<T keyName="admin.users.banned" />

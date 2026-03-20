@@ -20,7 +20,7 @@
 
 <div
 	class={cn(
-		'animate-[pulse-dot_1.2s_ease-in-out_infinite] motion-reduce:animate-none rounded-full bg-primary',
+		'animate-[pulse-dot_1.2s_ease-in-out_infinite] rounded-full bg-primary motion-reduce:animate-none',
 		sizeClasses[size],
 		className
 	)}

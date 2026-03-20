@@ -30,6 +30,7 @@ const ERROR_CODE_MAP: Record<string, string> = {
 	EMAIL_MISMATCH: 'auth.messages.oauth_failed',
 
 	// Passkey (@better-auth/passkey plugin)
+	AUTH_CANCELLED: 'auth.messages.passkey_cancelled',
 	CHALLENGE_NOT_FOUND: 'auth.messages.passkey_failed',
 	PASSKEY_NOT_FOUND: 'auth.messages.passkey_failed',
 	AUTHENTICATION_FAILED: 'auth.messages.passkey_failed',

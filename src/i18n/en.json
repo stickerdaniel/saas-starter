@@ -806,6 +806,7 @@
 			"oauth_failed": "Social sign-in failed. Please try again.",
 			"passkey_add_failed": "Failed to add passkey",
 			"passkey_added": "Passkey added successfully",
+			"passkey_cancelled": "Passkey sign-in was cancelled",
 			"passkey_delete_failed": "Failed to delete passkey",
 			"passkey_deleted": "Passkey deleted",
 			"passkey_failed": "Passkey authentication failed",

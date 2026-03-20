@@ -2,9 +2,15 @@
  * Unified static checks script (cross-platform TypeScript version)
  *
  * Usage:
- *   bun scripts/static-checks.ts                      - Check all files (CI)
+ *   bun scripts/static-checks.ts                      - Check all files, auto-fix (local dev)
+ *   bun scripts/static-checks.ts --ci                  - Check all files, assert-only (CI)
  *   bun scripts/static-checks.ts --staged              - Check only staged files (pre-commit)
  *   bun scripts/static-checks.ts file1.ts file2.svelte - Check specific files
+ *
+ * Flags:
+ *   --ci      Assert mode: uses --check for formatting, omits --fix for ESLint.
+ *             Requires misspell to be installed (fails if missing).
+ *   --staged  Scope to git-staged files only. Auto-fixes and re-stages.
  */
 
 import { spawnSync, type SpawnSyncOptions } from 'child_process';
@@ -45,13 +51,15 @@ const colors = {
 const { values, positionals } = parseArgs({
 	args: Bun.argv,
 	options: {
-		staged: { type: 'boolean', default: false }
+		staged: { type: 'boolean', default: false },
+		ci: { type: 'boolean', default: false }
 	},
 	strict: false,
 	allowPositionals: true
 });
 
 const stagedOnly = values.staged ?? false;
+const ciMode = values.ci ?? false;
 // Skip first two positionals (bun runtime + script path)
 const positionalFiles = positionals.slice(2);
 
@@ -88,11 +96,10 @@ function getStagedFiles(): string[] {
 }
 
 /**
- * Check if misspell is installed
+ * Check if misspell is installed (cross-platform via Bun.which)
  */
 function hasMisspell(): boolean {
-	const result = spawnSync('which', ['misspell'], { encoding: 'utf-8' });
-	return result.status === 0;
+	return Bun.which('misspell') !== null;
 }
 
 /**
@@ -195,6 +202,11 @@ async function main(): Promise<void> {
 				runCommand('misspell', ['-error', ...chunk]);
 			}
 		}
+	} else if (ciMode) {
+		console.error(
+			`${colors.red}ERROR: misspell is required in CI but not installed${colors.reset}`
+		);
+		process.exit(1);
 	} else {
 		console.log(
 			`${colors.yellow}WARNING: misspell not installed (skipping spell check)${colors.reset}`
@@ -242,39 +254,50 @@ async function main(): Promise<void> {
 
 	// 4. Code formatting
 	printHeader(4, 'Code formatting');
-	if (scopedMode && formattableFiles.length > 0) {
-		runCommand('bun', [
-			'prettier',
-			'--write',
-			'--plugin',
-			'prettier-plugin-svelte',
-			...formattableFiles
-		]);
-	} else if (!scopedMode) {
-		runCommand('bun', ['run', 'format']);
-	} else {
-		console.log('No files to format');
+	{
+		const formatFlag = ciMode ? '--check' : '--write';
+		if (scopedMode && formattableFiles.length > 0) {
+			runCommand('bun', [
+				'prettier',
+				formatFlag,
+				'--plugin',
+				'prettier-plugin-svelte',
+				...formattableFiles
+			]);
+		} else if (!scopedMode) {
+			runCommand('bun', ['prettier', formatFlag, '.']);
+		} else {
+			console.log('No files to format');
+		}
 	}
 	console.log('\n');
 
 	// 5. ESLint
 	printHeader(5, 'ESLint');
-	if (scopedMode && jsTsSvelteFiles.length > 0) {
-		runCommand('bun', ['eslint', '--fix', ...jsTsSvelteFiles]);
-	} else if (!scopedMode) {
-		runCommand('bun', ['eslint', '.', '--fix']);
-	} else {
-		console.log('No JS/TS/Svelte files to lint');
+	{
+		const fixArgs = ciMode ? [] : ['--fix'];
+		if (scopedMode && jsTsSvelteFiles.length > 0) {
+			runCommand('bun', ['eslint', ...fixArgs, ...jsTsSvelteFiles]);
+		} else if (!scopedMode) {
+			runCommand('bun', ['eslint', '.', ...fixArgs]);
+		} else {
+			console.log('No JS/TS/Svelte files to lint');
+		}
 	}
 	console.log('\n');
 
-	// 6. Build emails (required before type checking)
-	printHeader(6, 'Build emails');
+	// 6. oxlint
+	printHeader(6, 'oxlint');
+	runCommand('bun', ['oxlint']);
+	console.log('\n');
+
+	// 7. Build emails (required before type checking)
+	printHeader(7, 'Build emails');
 	runCommand('bun', ['scripts/build-emails.ts']);
 	console.log('\n');
 
-	// 7. Type checking
-	printHeader(7, 'Type checking');
+	// 8. Type checking
+	printHeader(8, 'Type checking');
 	if (scopedMode && jsTsSvelteFiles.length === 0 && svelteFiles.length === 0) {
 		console.log('No TypeScript/Svelte files to check');
 	} else {
@@ -285,7 +308,7 @@ async function main(): Promise<void> {
 	console.log('\n');
 
 	// Re-stage files if they were modified during --staged checks
-	if (mode === 'staged') {
+	if (mode === 'staged' && !ciMode) {
 		console.log('Re-staging modified files...');
 		runCommand('git', ['add', ...allFiles]);
 		console.log('');

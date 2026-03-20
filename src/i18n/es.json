@@ -806,6 +806,7 @@
 			"oauth_failed": "El inicio de sesión social falló. Inténtalo de nuevo.",
 			"passkey_add_failed": "No se pudo agregar la passkey",
 			"passkey_added": "Passkey agregada correctamente",
+			"passkey_cancelled": "Se canceló el inicio de sesión con passkey",
 			"passkey_delete_failed": "No se pudo eliminar la passkey",
 			"passkey_deleted": "Passkey eliminada",
 			"passkey_failed": "La autenticación con passkey falló",

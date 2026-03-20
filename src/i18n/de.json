@@ -806,6 +806,7 @@
 			"oauth_failed": "Soziale Anmeldung fehlgeschlagen. Bitte versuchen Sie es erneut.",
 			"passkey_add_failed": "Passkey konnte nicht hinzugefügt werden",
 			"passkey_added": "Passkey erfolgreich hinzugefügt",
+			"passkey_cancelled": "Passkey-Anmeldung wurde abgebrochen",
 			"passkey_delete_failed": "Passkey konnte nicht gelöscht werden",
 			"passkey_deleted": "Passkey gelöscht",
 			"passkey_failed": "Passkey-Authentifizierung fehlgeschlagen",

@@ -105,6 +105,10 @@ describe('getAuthErrorKey', () => {
 
 	// Passkey codes
 	describe('passkey errors', () => {
+		it('maps AUTH_CANCELLED to passkey_cancelled', () => {
+			expect(getAuthErrorKey({ code: 'AUTH_CANCELLED' })).toBe('auth.messages.passkey_cancelled');
+		});
+
 		it('maps CHALLENGE_NOT_FOUND to passkey_failed', () => {
 			expect(getAuthErrorKey({ code: 'CHALLENGE_NOT_FOUND' })).toBe('auth.messages.passkey_failed');
 		});

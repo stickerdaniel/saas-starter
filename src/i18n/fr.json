@@ -806,6 +806,7 @@
 			"oauth_failed": "La connexion sociale a échoué. Veuillez réessayer.",
 			"passkey_add_failed": "Impossible d'ajouter la passkey",
 			"passkey_added": "Passkey ajoutée avec succès",
+			"passkey_cancelled": "La connexion par passkey a été annulée",
 			"passkey_delete_failed": "Impossible de supprimer la passkey",
 			"passkey_deleted": "Passkey supprimée",
 			"passkey_failed": "L'authentification par passkey a échoué",

@@ -20,7 +20,7 @@
 
 <div
 	class={cn(
-		'motion-safe:animate-spin rounded-full border-2 border-primary border-t-transparent',
+		'rounded-full border-2 border-primary border-t-transparent motion-safe:animate-spin',
 		sizeClasses[size],
 		className
 	)}
