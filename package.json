@@ -101,8 +101,6 @@
 		"@tailwindcss/typography": "0.5.19",
 		"@tailwindcss/vite": "4.2.1",
 		"@tanstack/table-core": "8.21.3",
-		"@testing-library/jest-dom": "6.9.1",
-		"@testing-library/svelte": "5.3.1",
 		"@types/d3-scale": "4.0.9",
 		"@types/d3-shape": "3.1.8",
 		"@types/node": "25.5.0",
