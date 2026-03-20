@@ -4,6 +4,17 @@ import { v } from 'convex/values';
 import { supportAgent } from './support/agent';
 import { isAnonymousUser } from './utils/anonymousUser';
 
+/**
+ * Verify the e2e test secret. Throws if missing or mismatched.
+ * AUTH_E2E_TEST_SECRET is only set in test environments.
+ */
+function requireTestSecret(secret: string): void {
+	const expected = process.env.AUTH_E2E_TEST_SECRET;
+	if (!expected || secret !== expected) {
+		throw new Error('Unauthorized: Invalid test secret');
+	}
+}
+
 function buildSearchText(fields: {
 	title?: string;
 	summary?: string;
@@ -36,11 +47,8 @@ export const getTestUser = internalQuery({
 export const verifyTestUserEmail = mutation({
 	args: { email: v.string(), secret: v.string() },
 	handler: async (ctx, { email, secret }) => {
-		// Verify test secret to prevent unauthorized access
-		const expectedSecret = process.env.AUTH_E2E_TEST_SECRET;
-		if (!expectedSecret || secret !== expectedSecret) {
-			throw new Error('Unauthorized: Invalid test secret');
-		}
+		requireTestSecret(secret);
+
 		// Find user by email using Better Auth adapter
 		const user = await ctx.runQuery(components.betterAuth.adapter.findOne, {
 			model: 'user',
@@ -75,11 +83,7 @@ export const verifyTestUserEmail = mutation({
 export const createTestAdminUser = mutation({
 	args: { email: v.string(), secret: v.string() },
 	handler: async (ctx, { email, secret }) => {
-		// Verify test secret to prevent unauthorized access
-		const expectedSecret = process.env.AUTH_E2E_TEST_SECRET;
-		if (!expectedSecret || secret !== expectedSecret) {
-			throw new Error('Unauthorized: Invalid test secret');
-		}
+		requireTestSecret(secret);
 
 		// Find user by email using Better Auth adapter
 		const user = await ctx.runQuery(components.betterAuth.adapter.findOne, {
@@ -144,10 +148,7 @@ export const createAnonymousSupportThread = mutation({
 		count: v.optional(v.number())
 	},
 	handler: async (ctx, { secret, anonymousUserId, title, pageUrl, count = 1 }) => {
-		const expectedSecret = process.env.AUTH_E2E_TEST_SECRET;
-		if (!expectedSecret || secret !== expectedSecret) {
-			throw new Error('Unauthorized: Invalid test secret');
-		}
+		requireTestSecret(secret);
 
 		if (!isAnonymousUser(anonymousUserId)) {
 			throw new Error('Invalid anonymous user ID');
@@ -202,10 +203,7 @@ export const getSupportThreadsByUserId = mutation({
 		userId: v.string()
 	},
 	handler: async (ctx, { secret, userId }) => {
-		const expectedSecret = process.env.AUTH_E2E_TEST_SECRET;
-		if (!expectedSecret || secret !== expectedSecret) {
-			throw new Error('Unauthorized: Invalid test secret');
-		}
+		requireTestSecret(secret);
 
 		const threads = await ctx.db
 			.query('supportThreads')
@@ -229,10 +227,7 @@ export const getAuthUserIdByEmail = mutation({
 		email: v.string()
 	},
 	handler: async (ctx, { secret, email }) => {
-		const expectedSecret = process.env.AUTH_E2E_TEST_SECRET;
-		if (!expectedSecret || secret !== expectedSecret) {
-			throw new Error('Unauthorized: Invalid test secret');
-		}
+		requireTestSecret(secret);
 
 		const user = await ctx.runQuery(components.betterAuth.adapter.findOne, {
 			model: 'user',
@@ -255,10 +250,7 @@ export const cleanupAnonymousSupportThreads = mutation({
 		threadIds: v.array(v.string())
 	},
 	handler: async (ctx, { secret, threadIds }) => {
-		const expectedSecret = process.env.AUTH_E2E_TEST_SECRET;
-		if (!expectedSecret || secret !== expectedSecret) {
-			throw new Error('Unauthorized: Invalid test secret');
-		}
+		requireTestSecret(secret);
 
 		let deletedSupportThreads = 0;
 		let deletedAgentThreads = 0;
@@ -298,11 +290,7 @@ export const cleanupAnonymousSupportThreads = mutation({
 export const deleteTestUser = mutation({
 	args: { email: v.string(), secret: v.string() },
 	handler: async (ctx, { email, secret }) => {
-		// Verify test secret to prevent unauthorized access
-		const expectedSecret = process.env.AUTH_E2E_TEST_SECRET;
-		if (!expectedSecret || secret !== expectedSecret) {
-			throw new Error('Unauthorized: Invalid test secret');
-		}
+		requireTestSecret(secret);
 
 		// Find user by email
 		const user = await ctx.runQuery(components.betterAuth.adapter.findOne, {
@@ -362,11 +350,7 @@ export const deleteTestUser = mutation({
 export const cleanupTestData = mutation({
 	args: { secret: v.string() },
 	handler: async (ctx, { secret }) => {
-		// Verify test secret to prevent unauthorized access
-		const expectedSecret = process.env.AUTH_E2E_TEST_SECRET;
-		if (!expectedSecret || secret !== expectedSecret) {
-			throw new Error('Unauthorized: Invalid test secret');
-		}
+		requireTestSecret(secret);
 
 		let deletedCount = 0;
 
@@ -394,10 +378,7 @@ export const cleanupTestData = mutation({
 export const cleanupAllTestUsers = mutation({
 	args: { secret: v.string() },
 	handler: async (ctx, { secret }) => {
-		const expectedSecret = process.env.AUTH_E2E_TEST_SECRET;
-		if (!expectedSecret || secret !== expectedSecret) {
-			throw new Error('Unauthorized: Invalid test secret');
-		}
+		requireTestSecret(secret);
 
 		// Fetch all users and filter for e2e pattern
 		const e2eUsers: Array<{ _id: string; email: string }> = [];
