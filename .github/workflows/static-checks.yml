@@ -38,6 +38,14 @@ jobs:
       - run: bun install
       - run: bun run test:unit
 
+  deprecated-css-tokens:
+    name: Deprecated CSS Tokens
+    runs-on: ubicloud-standard-2
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - name: Check for removed shadcn v1 / Tailwind v3 tokens
+        run: "! grep -rn --include='*.svelte' --include='*.ts' -E 'ring-offset-background|ring-offset-foreground|text-destructive-foreground' src/"
+
   spell-check:
     name: Spell Check
     runs-on: ubicloud-standard-2
