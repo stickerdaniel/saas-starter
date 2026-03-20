@@ -22,6 +22,7 @@
 	// from the referenced tsconfig.json - TypeScript does not merge them in
 	"exclude": [
 		"node_modules/**",
+		"references/**",
 		"src/service-worker.js",
 		"src/service-worker/**/*.js",
 		"src/service-worker.ts",

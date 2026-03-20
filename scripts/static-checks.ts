@@ -12,6 +12,7 @@ import { parseArgs } from 'util';
 
 // Configuration (matches CI static-checks.yml exclusions)
 const CONFIG = {
+	ignorePaths: ['references/'],
 	misspell: {
 		ignore: [
 			'src/i18n/',
@@ -106,10 +107,14 @@ function printHeader(step: number, title: string): void {
  * Derive file subsets from a list of paths
  */
 function deriveFileSets(files: string[]) {
+	const relevantFiles = files.filter(
+		(f) => !CONFIG.ignorePaths.some((ignore) => f.includes(ignore))
+	);
+
 	return {
-		jsTsSvelteFiles: files.filter((f) => /\.(js|ts|svelte)$/.test(f)),
-		formattableFiles: files.filter((f) => /\.(js|ts|svelte|html|css|md|json)$/.test(f)),
-		svelteFiles: files.filter((f) => /\.svelte$/.test(f))
+		jsTsSvelteFiles: relevantFiles.filter((f) => /\.(js|ts|svelte)$/.test(f)),
+		formattableFiles: relevantFiles.filter((f) => /\.(js|ts|svelte|html|css|md|json)$/.test(f)),
+		svelteFiles: relevantFiles.filter((f) => /\.svelte$/.test(f))
 	};
 }
 
