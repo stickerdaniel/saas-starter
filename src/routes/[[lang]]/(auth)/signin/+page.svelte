@@ -240,6 +240,8 @@
 				haptic.trigger('success');
 				clearLastSuccessfulAuthMethod();
 				clearPendingOAuthProvider();
+				window.location.href = safeRedirectPath(params.redirectTo, localizedHref('/app'));
+				return;
 			}
 		} catch (error) {
 			console.error('[SignIn] Login error:', error);
