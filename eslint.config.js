@@ -65,21 +65,21 @@ export default defineConfig(
 			// Allow escaping the compiler
 			'@typescript-eslint/ban-ts-comment': 'error',
 
-			// Allow explicit `any`s
-			'@typescript-eslint/no-explicit-any': 'off',
+			// Off globally: ~26 legitimate usages in UI-kit/vendor code (shadcn, Konva, Rive, TanStack)
+			'@typescript-eslint/no-explicit-any': 'off'
+		}
+	},
+	// Convex-specific: suppress type-checked rules that don't apply to Convex handler patterns
+	{
+		files: ['**/src/lib/convex/**/*.ts'],
+		rules: {
 			'@typescript-eslint/no-unsafe-argument': 'off',
 			'@typescript-eslint/no-unsafe-assignment': 'off',
 			'@typescript-eslint/no-unsafe-call': 'off',
 			'@typescript-eslint/no-unsafe-member-access': 'off',
 			'@typescript-eslint/no-unsafe-return': 'off',
-
-			// Allow async functions without await (for Convex handlers)
 			'@typescript-eslint/require-await': 'off',
-
-			// Allow non-Error promise rejections (common in web APIs)
 			'@typescript-eslint/prefer-promise-reject-errors': 'off',
-
-			// Allow await on non-Promise values (Convex queries can be non-Promise)
 			'@typescript-eslint/await-thenable': 'off'
 		}
 	},

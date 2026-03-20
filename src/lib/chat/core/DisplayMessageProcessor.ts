@@ -38,6 +38,21 @@ export interface ReasoningResult {
 }
 
 /**
+ * Defensive render guard: collapse duplicate message IDs so keyed each blocks do not crash
+ * during brief query/stream reconciliation windows.
+ */
+export function dedupeDisplayMessagesForRender(messages: DisplayMessage[]): DisplayMessage[] {
+	const lastIndexById = new Map<string, number>();
+	messages.forEach((message, index) => {
+		lastIndexById.set(message.id, index);
+	});
+
+	if (lastIndexById.size === messages.length) return messages;
+
+	return messages.filter((message, index) => lastIndexById.get(message.id) === index);
+}
+
+/**
  * Resolve reasoning with three-tier fallback and cache management
  *
  * Priority order:

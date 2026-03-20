@@ -27,7 +27,7 @@ function decodeJwtPayload(token: string): { role?: string } | null {
 	try {
 		const payload = token.split('.')[1];
 		if (!payload) return null;
-		return JSON.parse(atob(payload));
+		return JSON.parse(Buffer.from(payload, 'base64url').toString('utf-8'));
 	} catch {
 		return null;
 	}
@@ -50,6 +50,10 @@ function isEmailsRoute(pathname: string): boolean {
 	return /^\/[a-z]{2}\/emails(\/|$)/.test(pathname);
 }
 
+function isEmailsApiRoute(pathname: string): boolean {
+	return /^\/api\/emails(\/|$)/.test(pathname);
+}
+
 function isShadcnDemoRoute(pathname: string): boolean {
 	return /^\/[a-z]{2}\/shadcn-demo(\/|$)/.test(pathname);
 }
@@ -67,7 +71,12 @@ export function shouldBypassLanguageRedirect(pathname: string): boolean {
  * Block access to dev-only routes in production
  */
 const handleDevOnlyRoutes: Handle = async function handleDevOnlyRoutes({ event, resolve }) {
-	if (!dev && (isEmailsRoute(event.url.pathname) || isShadcnDemoRoute(event.url.pathname))) {
+	if (
+		!dev &&
+		(isEmailsRoute(event.url.pathname) ||
+			isEmailsApiRoute(event.url.pathname) ||
+			isShadcnDemoRoute(event.url.pathname))
+	) {
 		return new Response('Not found', { status: 404 });
 	}
 	return resolve(event);

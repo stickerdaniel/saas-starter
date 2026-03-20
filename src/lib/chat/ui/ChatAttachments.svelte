@@ -216,8 +216,6 @@
 			{@const originalIndex =
 				readonly && align === 'right' ? attachments.length - 1 - index : index}
 
-			<!-- svelte-ignore a11y_click_events_have_key_events -->
-			<!-- svelte-ignore a11y_no_static_element_interactions -->
 			<div
 				class="relative flex items-center justify-between gap-2 overflow-hidden rounded-lg px-2 py-2 transition-transform {isClickable
 					? 'cursor-pointer active:scale-97'
@@ -225,7 +223,15 @@
 				style="width: {attachments.length === 1 && readonly
 					? '100%'
 					: 'calc(50% - 0.25rem)'}; box-sizing: border-box;"
+				role={isClickable ? 'button' : undefined}
+				tabindex={isClickable ? 0 : undefined}
 				onclick={() => isClickable && handleOpen(attachment)}
+				onkeydown={(e) => {
+					if (isClickable && (e.key === 'Enter' || e.key === ' ')) {
+						e.preventDefault();
+						handleOpen(attachment);
+					}
+				}}
 			>
 				<div class="flex flex-1 items-center gap-2 overflow-hidden">
 					<div

@@ -5,6 +5,7 @@
 import { describe, it, expect } from 'vitest';
 import {
 	blankUIMessage,
+	deriveUIMessagesFromTextStreamParts,
 	statusFromStreamStatus,
 	extractReasoning,
 	extractUserMessageText
@@ -169,6 +170,62 @@ describe('extractReasoning', () => {
 			{ type: 'tool-call', toolCallId: 'id-1' }
 		];
 		expect(extractReasoning(parts)).toBe('');
+	});
+
+	it('ignores reasoning parts with missing text', () => {
+		const parts: MessagePart[] = [{ type: 'reasoning' }];
+		expect(extractReasoning(parts)).toBe('');
+	});
+
+	it('ignores reasoning parts with non-string text', () => {
+		const parts: MessagePart[] = [
+			{ type: 'reasoning', text: 42 as unknown as string },
+			{ type: 'reasoning', text: { value: 'nope' } as unknown as string }
+		];
+		expect(extractReasoning(parts)).toBe('');
+	});
+
+	it('ignores malformed reasoning parts mixed with tool parts', () => {
+		const parts: MessagePart[] = [
+			{ type: 'reasoning' },
+			{ type: 'tool-requestUserEmail', toolCallId: 'tool-1', state: 'input-available' },
+			{ type: 'reasoning', text: 'Real reasoning' }
+		];
+		expect(extractReasoning(parts)).toBe('Real reasoning');
+	});
+});
+
+describe('deriveUIMessagesFromTextStreamParts', () => {
+	it('appends repeated reasoning delta ids into one logical reasoning part', () => {
+		const [messages] = deriveUIMessagesFromTextStreamParts(
+			'thread-1',
+			[createStreamMessage({ streamId: 'stream-1', order: 1, stepOrder: 0 })],
+			[],
+			[
+				{
+					streamId: 'stream-1',
+					start: 0,
+					end: 1,
+					parts: [{ type: 'reasoning-start', id: 'reason-1' }]
+				},
+				{
+					streamId: 'stream-1',
+					start: 1,
+					end: 2,
+					parts: [{ type: 'reasoning-delta', id: 'reason-1', text: 'First ' }]
+				},
+				{
+					streamId: 'stream-1',
+					start: 2,
+					end: 3,
+					parts: [{ type: 'reasoning-delta', id: 'reason-1', text: 'second' }]
+				}
+			] as any
+		);
+
+		expect(messages).toHaveLength(1);
+		expect(messages[0].parts?.filter((part) => part.type === 'reasoning')).toHaveLength(1);
+		expect(extractReasoning(messages[0].parts as MessagePart[])).toBe('First second');
 	});
 });
 

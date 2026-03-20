@@ -221,7 +221,7 @@ export const listThreadsForAdmin = adminQuery({
 				userIds.map((userId) =>
 					ctx.runQuery(components.betterAuth.adapter.findOne, {
 						model: 'user',
-						where: [{ field: 'id', value: userId }]
+						where: [{ field: '_id', operator: 'eq', value: userId }]
 					})
 				)
 			);
