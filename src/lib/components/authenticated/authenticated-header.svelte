@@ -25,17 +25,18 @@
 		const items: { label: string; href: string; isLast: boolean }[] = [];
 
 		// Check if current route matches the prefix
-		if (segments[0] === routePrefix || (segments[0].length === 2 && segments[1] === routePrefix)) {
+		const first = segments[0]!;
+		if (first === routePrefix || (first.length === 2 && segments[1] === routePrefix)) {
 			items.push({
 				label: rootLabel,
 				href: localizedHref(`/${routePrefix}`),
-				isLast: segments.length === 1 || (segments[0].length === 2 && segments.length === 2)
+				isLast: segments.length === 1 || (first.length === 2 && segments.length === 2)
 			});
 
 			// Add subsequent segments (skip language segment if present)
-			const prefixSegmentIndex = segments[0] === routePrefix ? 0 : 1;
+			const prefixSegmentIndex = first === routePrefix ? 0 : 1;
 			if (segments.length > prefixSegmentIndex + 1) {
-				const lastSegment = segments[segments.length - 1];
+				const lastSegment = segments[segments.length - 1]!;
 				// Format the segment name (e.g., "community-chat" -> "Community Chat")
 				const formattedLabel = lastSegment
 					.split('-')

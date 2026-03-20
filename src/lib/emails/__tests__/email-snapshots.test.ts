@@ -142,14 +142,14 @@ describe('Generated Email Templates', () => {
 			const content = readFileSync(join(generatedDir, 'verification.ts'), 'utf-8');
 			const htmlMatch = content.match(/export const VERIFICATION_HTML = `([^`]+)`/s);
 			expect(htmlMatch).toBeTruthy();
-			expect(htmlMatch![1].length).toBeGreaterThan(100);
+			expect(htmlMatch![1]!.length).toBeGreaterThan(100);
 		});
 
 		it('verification TEXT template is not empty', () => {
 			const content = readFileSync(join(generatedDir, 'verification.ts'), 'utf-8');
 			const textMatch = content.match(/export const VERIFICATION_TEXT = `([^`]+)`/s);
 			expect(textMatch).toBeTruthy();
-			expect(textMatch![1].length).toBeGreaterThan(50);
+			expect(textMatch![1]!.length).toBeGreaterThan(50);
 		});
 
 		it('templates do not contain raw Svelte syntax', () => {

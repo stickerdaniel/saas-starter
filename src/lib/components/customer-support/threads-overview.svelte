@@ -109,7 +109,7 @@
 	// This ensures we wait for the actual admin images, not placeholders shown before data loads
 	const imageUrlsToLoad = $derived.by(() => {
 		if (!isAdminDataLoaded) return [];
-		return displayAvatars.map((a) => a.src);
+		return displayAvatars.map((a) => a.src).filter((url): url is string => !!url);
 	});
 
 	// All images are ready when every required URL is preloaded

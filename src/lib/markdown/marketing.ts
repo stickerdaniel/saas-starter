@@ -67,7 +67,7 @@ export function renderMarketingMarkdown(
 
 	const frontmatter = [
 		'---',
-		...frontmatterEntries.map(([key, value]) => `${key}: ${quoteFrontmatterValue(value)}`),
+		...frontmatterEntries.map(([key, value]) => `${key}: ${quoteFrontmatterValue(value!)}`),
 		'---'
 	].join('\n');
 

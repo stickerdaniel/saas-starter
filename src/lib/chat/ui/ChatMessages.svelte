@@ -94,8 +94,8 @@
 	 */
 	function isFirstInGroup(index: number, messages: DisplayMessage[]): boolean {
 		if (index === 0) return true;
-		const currentSender = getSenderType(messages[index]);
-		const previousSender = getSenderType(messages[index - 1]);
+		const currentSender = getSenderType(messages[index]!);
+		const previousSender = getSenderType(messages[index - 1]!);
 		return currentSender !== previousSender;
 	}
 

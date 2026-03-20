@@ -224,7 +224,7 @@
 				recipientsTable.setSort(undefined);
 				return;
 			}
-			const primarySort = nextSorting[0];
+			const primarySort = nextSorting[0]!;
 			const field = SORT_COLUMN_TO_FIELD[primarySort.id as keyof typeof SORT_COLUMN_TO_FIELD];
 			if (!field) {
 				recipientsTable.setSort(undefined);

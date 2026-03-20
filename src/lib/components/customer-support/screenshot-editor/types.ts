@@ -98,7 +98,7 @@ export const DEFAULT_STROKE_WIDTH = 10;
 /**
  * Default stroke color
  */
-export const DEFAULT_STROKE_COLOR = DEFAULT_COLORS[0].value;
+export const DEFAULT_STROKE_COLOR = DEFAULT_COLORS[0]!.value;
 
 /**
  * Default fill (transparent)

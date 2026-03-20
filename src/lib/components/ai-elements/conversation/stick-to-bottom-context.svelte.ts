@@ -80,7 +80,7 @@ export class StickToBottomContext {
 		// Setup intersection observer to detect if we're at bottom
 		this.#intersectionObserver = new IntersectionObserver(
 			(entries) => {
-				const entry = entries[0];
+				const entry = entries[0]!;
 				// Use intersection observer as a backup, but prioritize scroll-based detection
 				if (entry.isIntersecting) {
 					this.#isAtBottom = true;

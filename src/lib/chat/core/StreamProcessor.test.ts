@@ -224,8 +224,8 @@ describe('deriveUIMessagesFromTextStreamParts', () => {
 		);
 
 		expect(messages).toHaveLength(1);
-		expect(messages[0].parts?.filter((part) => part.type === 'reasoning')).toHaveLength(1);
-		expect(extractReasoning(messages[0].parts as MessagePart[])).toBe('First second');
+		expect(messages[0]!.parts?.filter((part) => part.type === 'reasoning')).toHaveLength(1);
+		expect(extractReasoning(messages[0]!.parts as MessagePart[])).toBe('First second');
 	});
 });
 
