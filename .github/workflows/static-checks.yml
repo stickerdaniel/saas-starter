@@ -48,6 +48,8 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
       - name: Check for removed shadcn v1 / Tailwind v3 tokens
         run: "! grep -rn --include='*.svelte' --include='*.ts' -E 'ring-offset-background|ring-offset-foreground|text-destructive-foreground|flex-shrink-0|bg-gradient-to-' src/"
+      - name: Check for animate-spin without motion-safe prefix
+        run: "! grep -rn --include='*.svelte' --include='*.ts' 'animate-spin' src/ | grep -v 'motion-safe:animate-spin'"
 
   spell-check:
     name: Spell Check
