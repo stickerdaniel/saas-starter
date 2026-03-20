@@ -25,6 +25,7 @@ test('shows passkey last-used badge from local storage', async ({ page }) => {
 
 	await page.goto('/signin');
 	await expect(page.locator('[data-testid="email-input"]')).toBeVisible({ timeout: 30000 });
+	await expect(page.locator('[data-testid="email-input"]')).toBeEnabled({ timeout: 30000 });
 
 	await expect(page.locator('[data-testid="oauth-passkey-last-used-badge"]')).toBeVisible();
 	await expect(page.locator('[data-testid="oauth-google-last-used-badge"]')).toHaveCount(0);
@@ -39,6 +40,7 @@ test('email/password signin clears stored last-used method', async ({ page }) =>
 
 	await page.goto('/signin');
 	await expect(page.locator('[data-testid="email-input"]')).toBeVisible({ timeout: 30000 });
+	await expect(page.locator('[data-testid="email-input"]')).toBeEnabled({ timeout: 30000 });
 
 	const hasGoogleOAuth =
 		(await page.locator('[data-testid="signin-oauth-google-button"]').count()) > 0;
@@ -61,6 +63,7 @@ test('email/password signin clears stored last-used method', async ({ page }) =>
 	await page.context().clearCookies();
 	await page.goto('/signin');
 	await expect(page.locator('[data-testid="email-input"]')).toBeVisible({ timeout: 30000 });
+	await expect(page.locator('[data-testid="email-input"]')).toBeEnabled({ timeout: 30000 });
 	await expect(page.locator('[data-testid="oauth-google-last-used-badge"]')).toHaveCount(0);
 	await expect(page.locator('[data-testid="oauth-github-last-used-badge"]')).toHaveCount(0);
 	await expect(page.locator('[data-testid="oauth-passkey-last-used-badge"]')).toHaveCount(0);

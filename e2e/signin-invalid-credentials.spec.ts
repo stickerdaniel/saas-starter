@@ -8,6 +8,8 @@ test('signin fails with invalid credentials', async ({ page }) => {
 
 	// Wait for the page to load
 	await page.waitForLoadState('domcontentloaded');
+	await expect(page.locator('[data-testid="email-input"]')).toBeEnabled({ timeout: 30000 });
+	await expect(page.locator('[data-testid="signin-button"]')).toBeEnabled({ timeout: 30000 });
 
 	// Fill in invalid credentials
 	await page.fill('[data-testid="email-input"]', 'invalid@example.com');

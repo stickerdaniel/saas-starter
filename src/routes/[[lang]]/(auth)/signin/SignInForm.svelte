@@ -1,5 +1,6 @@
 <script lang="ts">
 	/* eslint-disable svelte/no-navigation-without-resolve -- Query-string-only hrefs don't need resolve() */
+	import { onMount } from 'svelte';
 	import { T, getTranslate } from '@tolgee/svelte';
 	import { resolve } from '$app/paths';
 	import { localizedHref } from '$lib/utils/i18n';
@@ -57,8 +58,14 @@
 
 	const { t } = getTranslate();
 
+	let hydrated = $state(false);
 	let forgotPasswordLink = $state<HTMLAnchorElement | null>(null);
 	let signUpLink = $state<HTMLAnchorElement | null>(null);
+	const isFormDisabled = $derived(isLoading || !hydrated);
+
+	onMount(() => {
+		hydrated = true;
+	});
 
 	function handleSignUpLinkKeydown(event: KeyboardEvent) {
 		if (event.key !== 'Tab' || event.shiftKey || !forgotPasswordLink) return;
@@ -78,9 +85,14 @@
 			termsLink.focus();
 		}
 	}
+
+	function handleSubmit(event: SubmitEvent) {
+		event.preventDefault();
+		void onSubmit(event);
+	}
 </script>
 
-<form onsubmit={onSubmit} novalidate class="min-h-96">
+<form onsubmit={handleSubmit} novalidate class="min-h-96">
 	<LoadingBar value={signInProgress} indeterminate={isLoading} class="h-1 rounded-none" />
 	<div class="p-6 md:p-8">
 		<Field.Group>
@@ -100,7 +112,7 @@
 					type="email"
 					autocomplete="email"
 					placeholder="m@example.com"
-					disabled={isLoading}
+					disabled={isFormDisabled}
 					bind:value={signInData.email}
 				/>
 				<Field.Error errors={translateValidationErrors(signInErrors.email, $t)} />
@@ -125,14 +137,14 @@
 					data-testid="password-input"
 					type="password"
 					autocomplete="current-password"
-					disabled={isLoading}
+					disabled={isFormDisabled}
 					bind:value={signInData.password}
 				/>
 				<Field.Error errors={translateValidationErrors(signInErrors.password, $t)} />
 			</Field.Field>
 			<Field.Error errors={translateFormError(formError, $t)} data-testid="auth-error" />
 			<Field.Field>
-				<Button type="submit" class="w-full" disabled={isLoading} data-testid="signin-button">
+				<Button type="submit" class="w-full" disabled={isFormDisabled} data-testid="signin-button">
 					{#if isLoading}
 						<T keyName="auth.signin.button_signin_loading" />
 					{:else}
@@ -148,7 +160,7 @@
 					<OAuthButtons
 						mode="signin"
 						providers={oauthProviders}
-						{isLoading}
+						isLoading={isFormDisabled}
 						showPasskey={true}
 						{enabledProviderCount}
 						{isLastUsedAuthMethod}

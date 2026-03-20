@@ -1,5 +1,6 @@
 <script lang="ts">
 	/* eslint-disable svelte/no-navigation-without-resolve -- Query-string-only hrefs don't need resolve() */
+	import { onMount } from 'svelte';
 	import { T, getTranslate } from '@tolgee/svelte';
 	import { PASSWORD_MIN_LENGTH } from './schema.js';
 	import { Button } from '$lib/components/ui/button/index.js';
@@ -51,13 +52,24 @@
 	}: Props = $props();
 
 	const { t } = getTranslate();
+	let hydrated = $state(false);
+	const isFormDisabled = $derived(isLoading || !hydrated);
 
 	const passwordParams = {
 		'validation.password.min_length': { count: PASSWORD_MIN_LENGTH }
 	};
+
+	onMount(() => {
+		hydrated = true;
+	});
+
+	function handleSubmit(event: SubmitEvent) {
+		event.preventDefault();
+		void onSubmit(event);
+	}
 </script>
 
-<form onsubmit={onSubmit} novalidate class="min-h-96">
+<form onsubmit={handleSubmit} novalidate class="min-h-96">
 	<LoadingBar value={signUpProgress} indeterminate={isLoading} class="h-1 rounded-none" />
 	<div class="p-6 md:p-8">
 		<Field.Group>
@@ -78,7 +90,7 @@
 					type="text"
 					autocomplete="name"
 					placeholder="Your name"
-					disabled={isLoading}
+					disabled={isFormDisabled}
 					bind:value={signUpData.name}
 				/>
 				<Field.Error errors={translateValidationErrors(signUpErrors.name, $t)} />
@@ -92,7 +104,7 @@
 					type="email"
 					autocomplete="email"
 					placeholder="m@example.com"
-					disabled={isLoading}
+					disabled={isFormDisabled}
 					bind:value={signUpData.email}
 				/>
 				<Field.Error errors={translateValidationErrors(signUpErrors.email, $t)} />
@@ -105,7 +117,7 @@
 					<Password.Input
 						id="signup-password-{id}"
 						autocomplete="new-password"
-						disabled={isLoading}
+						disabled={isFormDisabled}
 						bind:value={signUpData.password}
 					>
 						<Password.ToggleVisibility />
@@ -118,7 +130,7 @@
 			</Field.Field>
 			<Field.Error errors={translateFormError(formError, $t)} data-testid="auth-error" />
 			<Field.Field>
-				<Button type="submit" class="w-full" disabled={isLoading} data-testid="signup-button">
+				<Button type="submit" class="w-full" disabled={isFormDisabled} data-testid="signup-button">
 					{#if isLoading}
 						<T keyName="auth.signin.button_signup_loading" />
 					{:else}
@@ -134,7 +146,7 @@
 					<OAuthButtons
 						mode="signup"
 						providers={oauthProviders}
-						{isLoading}
+						isLoading={isFormDisabled}
 						showPasskey={false}
 						enabledProviderCount={(oauthProviders?.google ? 1 : 0) +
 							(oauthProviders?.github ? 1 : 0)}
