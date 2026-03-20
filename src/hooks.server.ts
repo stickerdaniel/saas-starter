@@ -192,7 +192,7 @@ const handleSecurityHeaders: Handle = async function handleSecurityHeaders({ eve
 	response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
 	response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
 	response.headers.set('X-DNS-Prefetch-Control', 'off');
-	response.headers.set('Strict-Transport-Security', 'max-age=3600; includeSubDomains');
+	response.headers.set('Strict-Transport-Security', 'max-age=63072000; includeSubDomains');
 	return response;
 };
 

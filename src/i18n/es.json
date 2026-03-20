@@ -557,6 +557,7 @@
 		},
 		"support": {
 			"all_statuses": "Todos los estados",
+			"anonymous": "Anónimo",
 			"assignee": {
 				"not_assigned": "No asignado",
 				"unassigned": "Sin asignar"
@@ -591,6 +592,7 @@
 			},
 			"no_chats": "No se encontraron chats",
 			"no_done_chats": "No hay chats completados",
+			"no_email": "Sin correo electrónico",
 			"no_open_chats": "No hay chats abiertos",
 			"note": {
 				"add": "Agregar nota",
@@ -603,6 +605,8 @@
 				"medium": "Media",
 				"none": "Ninguna"
 			},
+			"filter_showing_completed": "Mostrando hilos completados, haga clic para ver los abiertos",
+			"filter_showing_open": "Mostrando hilos abiertos, haga clic para ver los completados",
 			"search": {
 				"placeholder": "Buscar chats..."
 			},
@@ -623,6 +627,7 @@
 				"no_messages": "Sin mensajes",
 				"retry": "Reintentar"
 			},
+			"threads_title": "Hilos de Soporte",
 			"title": "Chats de Soporte"
 		},
 		"title": "Panel de Admin",

@@ -557,6 +557,7 @@
 		},
 		"support": {
 			"all_statuses": "All statuses",
+			"anonymous": "Anonymous",
 			"assignee": {
 				"not_assigned": "Not assigned",
 				"unassigned": "Unassigned"
@@ -591,6 +592,7 @@
 			},
 			"no_chats": "No chats found",
 			"no_done_chats": "No completed chats",
+			"no_email": "No email",
 			"no_open_chats": "No open chats",
 			"note": {
 				"add": "Add Note",
@@ -603,6 +605,8 @@
 				"medium": "Medium",
 				"none": "None"
 			},
+			"filter_showing_completed": "Showing completed threads, click to show open",
+			"filter_showing_open": "Showing open threads, click to show completed",
 			"search": {
 				"placeholder": "Search chats..."
 			},
@@ -623,6 +627,7 @@
 				"no_messages": "No messages",
 				"retry": "Retry"
 			},
+			"threads_title": "Support Threads",
 			"title": "Support Chats"
 		},
 		"title": "Admin Panel",

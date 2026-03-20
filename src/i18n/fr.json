@@ -557,6 +557,7 @@
 		},
 		"support": {
 			"all_statuses": "Tous les statuts",
+			"anonymous": "Anonyme",
 			"assignee": {
 				"not_assigned": "Non assigné",
 				"unassigned": "Non assigné"
@@ -591,6 +592,7 @@
 			},
 			"no_chats": "Aucun chat trouvé",
 			"no_done_chats": "Aucun chat terminé",
+			"no_email": "Pas d'e-mail",
 			"no_open_chats": "Aucun chat ouvert",
 			"note": {
 				"add": "Ajouter une note",
@@ -603,6 +605,8 @@
 				"medium": "Moyenne",
 				"none": "Aucune"
 			},
+			"filter_showing_completed": "Affiche les fils terminés, cliquer pour afficher les ouverts",
+			"filter_showing_open": "Affiche les fils ouverts, cliquer pour afficher les terminés",
 			"search": {
 				"placeholder": "Rechercher des chats..."
 			},
@@ -623,6 +627,7 @@
 				"no_messages": "Aucun message",
 				"retry": "Réessayer"
 			},
+			"threads_title": "Fils de Support",
 			"title": "Chats de Support"
 		},
 		"title": "Panneau Admin",

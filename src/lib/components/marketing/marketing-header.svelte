@@ -88,7 +88,7 @@
 						<li>
 							<a
 								href={resolve(item.href)}
-								class="block text-muted-foreground duration-150 hover:text-accent-foreground"
+								class="block text-muted-foreground transition-colors duration-150 hover:text-accent-foreground"
 							>
 								<span><T keyName={item.translationKey} /></span>
 							</a>
@@ -204,7 +204,7 @@
 					<li>
 						<a
 							href={resolve(item.href)}
-							class="block text-muted-foreground duration-150 hover:text-accent-foreground"
+							class="block text-muted-foreground transition-colors duration-150 hover:text-accent-foreground"
 							onclick={() => (menuState = false)}
 						>
 							<span><T keyName={item.translationKey} /></span>

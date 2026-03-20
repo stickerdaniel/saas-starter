@@ -16,8 +16,14 @@
 	import { T, getTranslate } from '@tolgee/svelte';
 	import { motion } from 'motion-sv';
 
-	const { t } = getTranslate();
 	import { formatDistanceToNow } from 'date-fns';
+	import { type Locale, de, es, fr } from 'date-fns/locale';
+	import { page } from '$app/state';
+
+	const { t } = getTranslate();
+
+	const dateFnsLocaleMap: Record<string, Locale> = { de, es, fr };
+	const dateFnsLocale = $derived(dateFnsLocaleMap[page.data.lang] ?? undefined);
 
 	let {
 		threadId
@@ -266,7 +272,10 @@
 													>{note.adminName || $t('admin.support.fallback.admin')}</span
 												>
 												<span class="text-xs text-muted-foreground">
-													{formatDistanceToNow(new Date(note.createdAt), { addSuffix: true })}
+													{formatDistanceToNow(new Date(note.createdAt), {
+														locale: dateFnsLocale,
+														addSuffix: true
+													})}
 												</span>
 											</div>
 											<p class="text-sm">{note.content}</p>

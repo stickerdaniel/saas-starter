@@ -557,6 +557,7 @@
 		},
 		"support": {
 			"all_statuses": "Alle Status",
+			"anonymous": "Anonym",
 			"assignee": {
 				"not_assigned": "Nicht zugewiesen",
 				"unassigned": "Nicht zugewiesen"
@@ -591,6 +592,7 @@
 			},
 			"no_chats": "Keine Chats gefunden",
 			"no_done_chats": "Keine abgeschlossenen Chats",
+			"no_email": "Keine E-Mail",
 			"no_open_chats": "Keine offenen Chats",
 			"note": {
 				"add": "Notiz hinzufügen",
@@ -603,6 +605,8 @@
 				"medium": "Mittel",
 				"none": "Keine"
 			},
+			"filter_showing_completed": "Zeigt abgeschlossene Threads, klicken um offene anzuzeigen",
+			"filter_showing_open": "Zeigt offene Threads, klicken um abgeschlossene anzuzeigen",
 			"search": {
 				"placeholder": "Chats suchen..."
 			},
@@ -623,6 +627,7 @@
 				"no_messages": "Keine Nachrichten",
 				"retry": "Erneut versuchen"
 			},
+			"threads_title": "Support-Threads",
 			"title": "Support-Chats"
 		},
 		"title": "Admin-Bereich",

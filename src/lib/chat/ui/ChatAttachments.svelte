@@ -232,7 +232,7 @@
 						class="relative flex size-8 shrink-0 items-center justify-center overflow-hidden rounded bg-primary/15 text-muted-foreground"
 					>
 						{#if uploadState?.status === 'uploading'}
-							<LoaderCircleIcon class="size-4 shrink-0 animate-spin" />
+							<LoaderCircleIcon class="size-4 shrink-0 motion-safe:animate-spin" />
 						{:else if thumbnailUrl}
 							<img
 								src={thumbnailUrl}

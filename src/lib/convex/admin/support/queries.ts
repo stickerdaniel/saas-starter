@@ -216,17 +216,21 @@ export const listThreadsForAdmin = adminQuery({
 		const userImageMap = new Map<string, string>();
 
 		if (userIds.length > 0) {
-			// Batch fetch users to get their images
-			const usersResult = await ctx.runQuery(components.betterAuth.adapter.findMany, {
-				model: 'user',
-				paginationOpts: { cursor: null, numItems: userIds.length },
-				where: []
-			});
+			// Fetch each user individually by ID to avoid fetching arbitrary first-N users
+			const userResults = await Promise.all(
+				userIds.map((userId) =>
+					ctx.runQuery(components.betterAuth.adapter.findOne, {
+						model: 'user',
+						where: [{ field: 'id', value: userId }]
+					})
+				)
+			);
 
 			// Build lookup map for user images
-			for (const user of usersResult.page) {
+			for (const user of userResults) {
+				if (!user) continue;
 				const parsed = val.safeParse(betterAuthUserSchema, user);
-				if (parsed.success && userIds.includes(parsed.output._id) && parsed.output.image) {
+				if (parsed.success && parsed.output.image) {
 					userImageMap.set(parsed.output._id, parsed.output.image);
 				}
 			}

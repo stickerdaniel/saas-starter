@@ -20,8 +20,6 @@ export const autumn = new Autumn(components.autumn, {
 	}
 });
 
-// Re-export with proper types - library has type inference issues
-// Using type assertion to avoid TypeScript portability errors with library internals
 export const {
 	track,
 	cancel,
@@ -38,4 +36,4 @@ export const {
 	redeemReferralCode,
 	createEntity,
 	getEntity
-} = autumn.api() as any;
+} = autumn.api() as any; // Required: library types reference non-portable internal paths (helpers/utils)

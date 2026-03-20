@@ -10,10 +10,15 @@
 	import ArchiveIcon from '@lucide/svelte/icons/archive';
 	import Loader2Icon from '@lucide/svelte/icons/loader-2';
 	import { formatDistanceToNow } from 'date-fns';
+	import { type Locale, de, es, fr } from 'date-fns/locale';
 	import { watch } from 'runed';
 	import { haptic } from '$lib/hooks/use-haptic.svelte';
 	import { T, getTranslate } from '@tolgee/svelte';
 	import { InfiniteLoader, LoaderState } from 'svelte-infinite';
+	import { page } from '$app/state';
+
+	const dateFnsLocaleMap: Record<string, Locale> = { de, es, fr };
+	const dateFnsLocale = $derived(dateFnsLocaleMap[page.data.lang] ?? undefined);
 
 	const { t } = getTranslate();
 
@@ -132,8 +137,8 @@
 				variant="outline"
 				size="icon"
 				aria-label={showingOpen
-					? 'Showing open threads, click to show completed'
-					: 'Showing completed threads, click to show open'}
+					? $t('admin.support.filter_showing_open')
+					: $t('admin.support.filter_showing_completed')}
 			>
 				<InboxIcon
 					class="size-4 transition-all duration-200 ease-in-out {showingOpen
@@ -216,7 +221,7 @@
 								<AvatarHeading
 									image={thread.userImage}
 									title={thread.lastMessage || $t('admin.support.thread.no_messages')}
-									subtitle={`${thread.userName || thread.userEmail || 'Anonymous'}\u00A0\u00A0·\u00A0\u00A0${formatDistanceToNow(new Date(thread.lastMessageAt || thread._creationTime))}`}
+									subtitle={`${thread.userName || thread.userEmail || 'Anonymous'}\u00A0\u00A0·\u00A0\u00A0${formatDistanceToNow(new Date(thread.lastMessageAt || thread._creationTime), { locale: dateFnsLocale, addSuffix: true })}`}
 									fallbackText={thread.userName}
 									bold={false}
 								/>
@@ -252,7 +257,7 @@
 
 					{#snippet loading()}
 						<div class="flex items-center justify-center border-b p-4">
-							<Loader2Icon class="size-5 animate-spin text-muted-foreground" />
+							<Loader2Icon class="size-5 motion-safe:animate-spin text-muted-foreground" />
 							<span class="ml-2 text-sm text-muted-foreground"
 								><T keyName="admin.support.thread.loading" /></span
 							>

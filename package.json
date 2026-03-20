@@ -86,10 +86,6 @@
 	"devDependencies": {
 		"@axe-core/playwright": "4.11.1",
 		"@convex-dev/eslint-plugin": "1.2.1",
-		"@dnd-kit-svelte/core": "0.0.11",
-		"@dnd-kit-svelte/modifiers": "0.0.11",
-		"@dnd-kit-svelte/sortable": "0.0.11",
-		"@dnd-kit-svelte/utilities": "0.0.11",
 		"@eslint/compat": "2.0.3",
 		"@eslint/js": "9.39.4",
 		"@internationalized/date": "3.12.0",

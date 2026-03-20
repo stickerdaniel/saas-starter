@@ -13,13 +13,17 @@ export default defineConfig({
 		sveltekit(),
 		devtoolsJson(),
 		// Bundle analyzer
-		visualizer({
-			emitFile: true,
-			filename: 'stats.html',
-			template: 'treemap',
-			gzipSize: true,
-			brotliSize: true
-		}) as PluginOption
+		...(process.env.ANALYZE === 'true'
+			? [
+					visualizer({
+						emitFile: true,
+						filename: 'stats.html',
+						template: 'treemap',
+						gzipSize: true,
+						brotliSize: true
+					}) as PluginOption
+				]
+			: [])
 	] as any,
 	resolve: {
 		conditions: ['browser']

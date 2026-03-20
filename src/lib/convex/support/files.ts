@@ -8,6 +8,11 @@ import { createRateLimitError } from './types';
 import { getSupportOwnerIdentity } from './ownership';
 
 /**
+ * Maximum file size for support uploads (10MB)
+ */
+const MAX_SUPPORT_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+
+/**
  * Allowed file types for upload
  */
 const ALLOWED_MIME_TYPES = [
@@ -97,11 +102,6 @@ export const saveUploadedFile = action({
 		filename: string | undefined;
 		isImage: boolean;
 	}> => {
-		// Validate file type
-		if (!ALLOWED_MIME_TYPES.includes(args.mimeType)) {
-			throw new Error(t(args.locale, 'backend.files.type_not_allowed'));
-		}
-
 		// Finalize upload with files-control before registering with agent
 		const accessKey = args.accessKey?.trim() || 'support';
 		await ctx.runMutation(components.convexFilesControl.upload.finalizeUpload, {
@@ -142,6 +142,18 @@ export const saveUploadedFile = action({
 				throw new Error(t(args.locale, 'backend.files.fetch_failed'));
 			}
 			const blob = await response.blob();
+
+			if (blob.size > MAX_SUPPORT_FILE_SIZE) {
+				throw new Error(
+					`File too large: ${(blob.size / 1024 / 1024).toFixed(1)}MB exceeds maximum of 10MB`
+				);
+			}
+
+			// Validate MIME type against the actual blob — not the client-supplied args.mimeType
+			// which is untrusted input and could be spoofed.
+			if (!ALLOWED_MIME_TYPES.includes(blob.type)) {
+				throw new Error(t(args.locale, 'backend.files.type_not_allowed'));
+			}
 
 			// Register with agent component
 			const result = await storeFile(ctx, components.agent, blob, {

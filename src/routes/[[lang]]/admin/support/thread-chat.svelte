@@ -82,14 +82,14 @@
 			initialThread?.userEmail ||
 			thread?.user?.name ||
 			thread?.user?.email ||
-			'Anonymous'
+			$t('admin.support.anonymous')
 	);
 	const userEmail = $derived(initialThread?.userEmail || thread?.user?.email);
 	const userImage = $derived(initialThread?.userImage || thread?.user?.image);
 
 	// Display email: user email, or notification email for anonymous users, or "No email"
 	const displayEmail = $derived(
-		userEmail || thread?.supportMetadata?.notificationEmail || 'No email'
+		userEmail || thread?.supportMetadata?.notificationEmail || $t('admin.support.no_email')
 	);
 </script>
 
@@ -140,7 +140,7 @@
 				backTitle={displayName}
 				backSubtitle={displayEmail}
 				titleImage={userImage}
-				defaultTitle="Support Threads"
+				defaultTitle={$t('admin.support.threads_title')}
 				{onBackClick}
 				showClose={false}
 			>

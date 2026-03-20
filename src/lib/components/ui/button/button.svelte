@@ -114,7 +114,7 @@
 >
 	{#if type !== undefined && loading}
 		<div class="absolute flex size-full place-items-center justify-center bg-inherit">
-			<div class="flex animate-spin place-items-center justify-center">
+			<div class="flex motion-safe:animate-spin place-items-center justify-center">
 				<LoaderCircleIcon class="size-4" />
 			</div>
 		</div>

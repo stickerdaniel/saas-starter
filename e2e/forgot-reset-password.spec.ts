@@ -27,12 +27,10 @@ test.describe('Forgot Password', () => {
 		await page.getByTestId('forgot-password-email-input').fill('test@example.com');
 		await page.getByTestId('forgot-password-submit-button').click();
 
-		// Should show success message or stay on page without error
-		// The API might return success even for non-existent emails (security best practice)
-		await page.waitForTimeout(2000);
-
-		// Either success message appears OR we're still on the page (no redirect)
-		await expect(page).toHaveURL(/forgot-password/);
+		// Should show success message (API returns success even for non-existent emails — security best practice)
+		await expect(page.getByTestId('forgot-password-success-message')).toBeVisible({
+			timeout: 10000
+		});
 	});
 
 	test('navigates back to signin', async ({ page }) => {

@@ -33,6 +33,7 @@
 		const result = await authClient.signOut();
 		if (result.error) {
 			console.error('Sign out error:', result.error);
+			toast.error($t('common.error'));
 		} else {
 			await goto(resolve(localizedHref('/')));
 		}

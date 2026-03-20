@@ -309,7 +309,7 @@
 						aria-label={$t('chat.aria.send')}
 					>
 						{#if ctx.isProcessing && !isHandedOff}
-							<LoaderCircleIcon class="h-[18px] w-[18px] animate-spin" />
+							<LoaderCircleIcon class="h-[18px] w-[18px] motion-safe:animate-spin" />
 						{:else}
 							<ArrowUpIcon class="h-[18px] w-[18px]" />
 						{/if}
