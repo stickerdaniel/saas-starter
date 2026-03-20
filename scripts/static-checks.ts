@@ -21,6 +21,13 @@ const CONFIG = {
 			'.svelte-kit/',
 			'references/'
 		]
+	},
+	bannedPatterns: {
+		/** Removed shadcn v1 / Tailwind v3 tokens and legacy class names */
+		deprecated:
+			/ring-offset-background|ring-offset-foreground|text-destructive-foreground|flex-shrink-0|bg-gradient-to-/,
+		/** animate-spin without motion-safe: prefix (WCAG 2.3.3) */
+		bareAnimateSpin: /(?<!motion-safe:)animate-spin/
 	}
 };
 
@@ -112,7 +119,7 @@ const mode: Mode = positionalFiles.length > 0 ? 'files' : stagedOnly ? 'staged' 
 const scopedMode = mode === 'files' || mode === 'staged';
 
 // Main execution
-function main(): void {
+async function main(): Promise<void> {
 	let allFiles: string[] = [];
 	let jsTsSvelteFiles: string[] = [];
 	let formattableFiles: string[] = [];
@@ -191,8 +198,45 @@ function main(): void {
 	}
 	console.log('\n');
 
-	// 3. Code formatting
-	printHeader(3, 'Code formatting');
+	// 3. Banned patterns (deprecated tokens, bare animate-spin)
+	printHeader(3, 'Banned patterns');
+	{
+		const filesToScan = scopedMode
+			? allFiles.filter((f) => /\.(svelte|ts)$/.test(f) && f.startsWith('src/'))
+			: (() => {
+					const glob = new Bun.Glob('src/**/*.{svelte,ts}');
+					return [...glob.scanSync({ absolute: false })];
+				})();
+
+		const violations: string[] = [];
+		for (const file of filesToScan) {
+			const content = Bun.file(file);
+			const text = await content.text();
+			const lines = text.split('\n');
+			for (let i = 0; i < lines.length; i++) {
+				const line = lines[i]!;
+				if (CONFIG.bannedPatterns.deprecated.test(line)) {
+					violations.push(`${file}:${i + 1}: deprecated token: ${line.trim()}`);
+				}
+				if (CONFIG.bannedPatterns.bareAnimateSpin.test(line)) {
+					violations.push(
+						`${file}:${i + 1}: bare animate-spin (use motion-safe:animate-spin): ${line.trim()}`
+					);
+				}
+			}
+		}
+
+		if (violations.length > 0) {
+			console.error(`${colors.red}Found ${violations.length} banned pattern(s):${colors.reset}`);
+			for (const v of violations) console.error(`  ${v}`);
+			process.exit(1);
+		}
+		console.log(`Scanned ${filesToScan.length} files — no banned patterns found`);
+	}
+	console.log('\n');
+
+	// 4. Code formatting
+	printHeader(4, 'Code formatting');
 	if (scopedMode && formattableFiles.length > 0) {
 		runCommand('bun', [
 			'prettier',
@@ -208,8 +252,8 @@ function main(): void {
 	}
 	console.log('\n');
 
-	// 4. ESLint
-	printHeader(4, 'ESLint');
+	// 5. ESLint
+	printHeader(5, 'ESLint');
 	if (scopedMode && jsTsSvelteFiles.length > 0) {
 		runCommand('bun', ['eslint', '--fix', ...jsTsSvelteFiles]);
 	} else if (!scopedMode) {
@@ -219,13 +263,13 @@ function main(): void {
 	}
 	console.log('\n');
 
-	// 5. Build emails (required before type checking)
-	printHeader(5, 'Build emails');
+	// 6. Build emails (required before type checking)
+	printHeader(6, 'Build emails');
 	runCommand('bun', ['scripts/build-emails.ts']);
 	console.log('\n');
 
-	// 6. Type checking
-	printHeader(6, 'Type checking');
+	// 7. Type checking
+	printHeader(7, 'Type checking');
 	if (scopedMode && jsTsSvelteFiles.length === 0 && svelteFiles.length === 0) {
 		console.log('No TypeScript/Svelte files to check');
 	} else {
