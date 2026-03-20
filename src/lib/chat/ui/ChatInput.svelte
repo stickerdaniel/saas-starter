@@ -306,7 +306,7 @@
 						size="icon"
 						disabled={!canSend}
 						onclick={handleSend}
-						class="size-9 flex-shrink-0 rounded-full"
+						class="size-9 shrink-0 rounded-full"
 						aria-label={$t('chat.aria.send')}
 					>
 						{#if ctx.isProcessing && !isHandedOff}

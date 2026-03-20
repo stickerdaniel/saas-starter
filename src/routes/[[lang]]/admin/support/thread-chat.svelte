@@ -169,7 +169,7 @@
 
 	<!-- Desktop: Standard header (≥1024px) -->
 	{#if media.lg}
-		<div class="flex-shrink-0 border-b p-4">
+		<div class="shrink-0 border-b p-4">
 			<div class="flex items-center justify-between gap-4">
 				<div class="flex min-w-0 flex-1 items-center gap-2">
 					{#if isLoading}
@@ -195,7 +195,7 @@
 						variant="ghost"
 						size="icon"
 						onclick={() => adminSupportUI.toggle()}
-						class="flex-shrink-0"
+						class="shrink-0"
 					>
 						<PanelRightIcon class="size-4" />
 						<span class="sr-only">

@@ -117,7 +117,7 @@
 
 <div class="flex h-full flex-col">
 	<!-- Filters -->
-	<div class="flex-shrink-0 space-y-3 border-b p-4 dark:bg-background">
+	<div class="shrink-0 space-y-3 border-b p-4 dark:bg-background">
 		<!-- Search & Status Filter Row -->
 		<div class="flex gap-3">
 			<!-- Search -->

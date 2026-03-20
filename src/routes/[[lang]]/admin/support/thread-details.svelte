@@ -211,7 +211,7 @@
 								class="flex items-center gap-2 text-sm text-primary hover:underline"
 							>
 								<span class="truncate">{thread.supportMetadata.notificationEmail}</span>
-								<ExternalLinkIcon class="size-3 flex-shrink-0" />
+								<ExternalLinkIcon class="size-3 shrink-0" />
 							</a>
 						</Field.Field>
 					{/if}
@@ -228,7 +228,7 @@
 								class="flex items-center gap-2 text-sm text-primary hover:underline"
 							>
 								<span class="truncate">{thread.supportMetadata.pageUrl}</span>
-								<ExternalLinkIcon class="size-3 flex-shrink-0" />
+								<ExternalLinkIcon class="size-3 shrink-0" />
 							</a>
 							<!-- eslint-enable svelte/no-navigation-without-resolve -->
 						</Field.Field>
