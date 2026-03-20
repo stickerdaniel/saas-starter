@@ -7,7 +7,7 @@ test('signin fails with invalid credentials', async ({ page }) => {
 	await page.goto('/signin');
 
 	// Wait for the page to load
-	await page.waitForLoadState('networkidle');
+	await page.waitForLoadState('domcontentloaded');
 
 	// Fill in invalid credentials
 	await page.fill('[data-testid="email-input"]', 'invalid@example.com');

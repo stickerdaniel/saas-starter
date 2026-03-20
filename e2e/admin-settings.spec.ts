@@ -11,7 +11,7 @@ test.describe('Admin Settings Page', () => {
 	test.beforeEach(async ({ page }) => {
 		// Navigate to admin settings page
 		await page.goto('/admin/settings');
-		await page.waitForLoadState('networkidle');
+		await page.waitForLoadState('domcontentloaded');
 	});
 
 	test('displays recipients table', async ({ page }) => {

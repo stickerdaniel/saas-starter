@@ -12,7 +12,7 @@ import { expect, type Page } from '@playwright/test';
 export async function waitForAuthenticated(page: Page, timeout = 30000, maxRetries = 3) {
 	for (let attempt = 1; attempt <= maxRetries; attempt++) {
 		await page.waitForURL(/\/[a-z]{2}\/app/, { timeout });
-		await page.waitForLoadState('networkidle', { timeout });
+		await page.waitForLoadState('domcontentloaded', { timeout });
 
 		const body = await page
 			.locator('body')

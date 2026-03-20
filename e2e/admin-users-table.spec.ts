@@ -200,7 +200,7 @@ test.describe('Admin Users Table', () => {
 		});
 
 		await page.goto('/en/admin/users');
-		await page.waitForLoadState('networkidle');
+		await page.waitForLoadState('domcontentloaded');
 		await waitForUsersTableReady(page);
 	});
 
@@ -310,7 +310,7 @@ test.describe('Admin Users Table', () => {
 		expect(indicatorBefore.current).toBe(2);
 
 		await page.goto(pageUrl);
-		await page.waitForLoadState('networkidle');
+		await page.waitForLoadState('domcontentloaded');
 		await waitForUsersTableReady(page);
 
 		const firstAfter = (
@@ -323,7 +323,7 @@ test.describe('Admin Users Table', () => {
 
 	test('after refresh on deep page, previous page navigation still works', async ({ page }) => {
 		await page.goto(`/en/admin/users?search=${encodeURIComponent(seedPrefix)}&page_size=1`);
-		await page.waitForLoadState('networkidle');
+		await page.waitForLoadState('domcontentloaded');
 		await waitForUsersTableReady(page);
 
 		await expect
@@ -336,7 +336,7 @@ test.describe('Admin Users Table', () => {
 
 		const deepPageUrl = page.url();
 		await page.goto(deepPageUrl);
-		await page.waitForLoadState('networkidle');
+		await page.waitForLoadState('domcontentloaded');
 		await waitForUsersTableReady(page);
 		await expect.poll(() => getCurrentPageNumber(page)).toBe(3);
 
@@ -347,7 +347,7 @@ test.describe('Admin Users Table', () => {
 
 	test('jump to last page walks cursors and lands on final page', async ({ page }) => {
 		await page.goto(`/en/admin/users?search=${encodeURIComponent(seedPrefix)}&page_size=1`);
-		await page.waitForLoadState('networkidle');
+		await page.waitForLoadState('domcontentloaded');
 		await waitForUsersTableReady(page);
 
 		await expect
@@ -433,7 +433,7 @@ test.describe('Admin Users Table', () => {
 			page: '1'
 		});
 		await page.goto(`/en/admin/users?${params.toString()}`);
-		await page.waitForLoadState('networkidle');
+		await page.waitForLoadState('domcontentloaded');
 		await waitForUsersTableReady(page);
 
 		await expect(page.getByTestId('admin-users-search')).toHaveValue(seedPrefix);
