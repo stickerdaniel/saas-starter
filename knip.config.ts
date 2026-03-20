@@ -65,8 +65,6 @@ export default {
 		'marked',
 		'konva',
 		'svelte-konva',
-		// CLI tool, not a runtime dependency
-		'vercel',
 		// Used by autumn integration in Convex
 		'autumn-js',
 		'atmn',
