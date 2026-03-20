@@ -20,8 +20,12 @@
 	let fadeTimer: ReturnType<typeof setTimeout> | null = null;
 	let barEl: HTMLDivElement | undefined = $state();
 
+	function hasActiveNavigation(nav: typeof navigating): boolean {
+		return nav.to !== null && nav.type !== null && nav.complete !== null;
+	}
+
 	function isPathNavigation(nav: typeof navigating): boolean {
-		if (!nav) return false;
+		if (!hasActiveNavigation(nav)) return false;
 		const fromPath = nav.from?.url.pathname;
 		const toPath = nav.to?.url.pathname;
 
