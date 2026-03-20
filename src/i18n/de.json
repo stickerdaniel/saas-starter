@@ -793,7 +793,7 @@
 		"login": "Anmelden",
 		"logout": "Abmelden",
 		"messages": {
-			"auth_cancelled": "Authentifizierung abgebrochen",
+			"credential_account_not_found": "Kein Passwortkonto gefunden. Versuchen Sie die Anmeldung mit Ihrem sozialen Anbieter.",
 			"email_change_failed": "E-Mail konnte nicht geändert werden",
 			"email_not_verified": "Bitte bestätigen Sie Ihre E-Mail-Adresse",
 			"email_same_as_current": "Neue E-Mail muss sich von der aktuellen E-Mail unterscheiden",
@@ -812,15 +812,13 @@
 			"passkey_load_failed": "Passkeys konnten nicht geladen werden",
 			"password_change_failed": "Passwort konnte nicht geändert werden",
 			"password_changed": "Passwort erfolgreich geändert",
-			"password_compromised": "Dieses Passwort wurde kompromittiert",
 			"password_reset_success": "Ihr Passwort wurde erfolgreich zurückgesetzt.",
-			"rate_limited": "Zu viele Anfragen. Bitte versuchen Sie es später erneut.",
+			"password_too_long": "Passwort ist zu lang",
+			"password_too_short": "Passwort ist zu kurz",
 			"request_reset_failed": "Passwort-Reset konnte nicht angefordert werden",
 			"reset_failed": "Passwort konnte nicht zurückgesetzt werden",
 			"reset_link_sent": "Bitte prüfen Sie Ihre E-Mail für den Reset-Link.",
-			"signup_disabled": "Registrierung ist deaktiviert",
 			"signup_failed": "Konto konnte nicht erstellt werden",
-			"too_many_attempts": "Zu viele Versuche. Bitte versuchen Sie es später erneut.",
 			"user_already_exists": "Ein Konto mit dieser E-Mail existiert bereits"
 		},
 		"reset_password": {

@@ -793,7 +793,7 @@
 		"login": "Iniciar sesión",
 		"logout": "Cerrar sesión",
 		"messages": {
-			"auth_cancelled": "La autenticación fue cancelada",
+			"credential_account_not_found": "No se encontró cuenta con contraseña. Intenta iniciar sesión con tu proveedor social.",
 			"email_change_failed": "No se pudo cambiar el correo",
 			"email_not_verified": "Por favor verifica tu correo electrónico",
 			"email_same_as_current": "El nuevo correo debe ser diferente al actual",
@@ -812,15 +812,13 @@
 			"passkey_load_failed": "No se pudieron cargar las passkeys",
 			"password_change_failed": "No se pudo cambiar la contraseña",
 			"password_changed": "Contraseña cambiada correctamente",
-			"password_compromised": "Esta contraseña está comprometida",
 			"password_reset_success": "Tu contraseña se restableció correctamente.",
-			"rate_limited": "Demasiadas solicitudes. Inténtalo más tarde.",
+			"password_too_long": "La contraseña es demasiado larga",
+			"password_too_short": "La contraseña es demasiado corta",
 			"request_reset_failed": "No se pudo solicitar el restablecimiento de contraseña",
 			"reset_failed": "No se pudo restablecer la contraseña",
 			"reset_link_sent": "Revisa tu correo para el enlace de restablecimiento.",
-			"signup_disabled": "El registro está deshabilitado",
 			"signup_failed": "No se pudo crear la cuenta",
-			"too_many_attempts": "Demasiados intentos. Inténtalo más tarde.",
 			"user_already_exists": "Ya existe una cuenta con este correo electrónico"
 		},
 		"reset_password": {

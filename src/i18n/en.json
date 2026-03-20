@@ -793,7 +793,7 @@
 		"login": "Login",
 		"logout": "Logout",
 		"messages": {
-			"auth_cancelled": "Authentication was cancelled",
+			"credential_account_not_found": "No password account found. Try signing in with your social provider.",
 			"email_change_failed": "Failed to change email",
 			"email_not_verified": "Please verify your email address",
 			"email_same_as_current": "New email must be different from current email",
@@ -812,15 +812,13 @@
 			"passkey_load_failed": "Failed to load passkeys",
 			"password_change_failed": "Failed to change password",
 			"password_changed": "Password changed successfully",
-			"password_compromised": "This password has been compromised",
 			"password_reset_success": "Your password has been reset successfully.",
-			"rate_limited": "Too many requests. Please try again later.",
+			"password_too_long": "Password is too long",
+			"password_too_short": "Password is too short",
 			"request_reset_failed": "Failed to request password reset",
 			"reset_failed": "Failed to reset password",
 			"reset_link_sent": "Check your email for a reset link.",
-			"signup_disabled": "Sign up is disabled",
 			"signup_failed": "Failed to create account",
-			"too_many_attempts": "Too many attempts. Please try again later.",
 			"user_already_exists": "An account with this email already exists"
 		},
 		"reset_password": {
