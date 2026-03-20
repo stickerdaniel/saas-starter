@@ -15,6 +15,7 @@
 	import memberFour from '$blocks/team/avatars/member-four.webp';
 	import memberTwo from '$blocks/team/avatars/member-two.webp';
 	import memberFive from '$blocks/team/avatars/member-five.webp';
+	import { motion } from 'motion-sv';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { isAnonymousUser } from '$lib/convex/utils/anonymousUser';
 
@@ -217,23 +218,32 @@
 					<div class="mb-6 flex -space-x-3">
 						{#if adminUsers.length < 3}
 							<!-- Avatar 1: Bot icon (only shown when <3 admins) -->
-							<div
-								style="--enter-delay: 100ms; --enter-duration: 200ms; --enter-from-y: 20px;"
-								class={allImagesLoaded ? 'animate-enter-blur-up' : 'enter-blur-up-wait'}
+							<motion.div
+								initial={{ opacity: 0, y: 20 }}
+								animate={allImagesLoaded ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
+								transition={{
+									opacity: { duration: 0.2, delay: 0.1 },
+									y: { type: 'spring', stiffness: 260, damping: 12, mass: 0.8, delay: 0.1 }
+								}}
 							>
 								<Avatar class="size-12 bg-primary outline outline-4 outline-secondary">
 									<AvatarFallback class="bg-primary text-primary-foreground">
 										<BotIcon class="size-8" />
 									</AvatarFallback>
 								</Avatar>
-							</div>
+							</motion.div>
 						{/if}
 
 						<!-- Avatars: Admin avatars or grayscale placeholders -->
 						{#each displayAvatars as avatar, i (i)}
-							<div
-								style={`--enter-delay: ${showBotIcon ? 150 + i * 50 : 100 + i * 50}ms; --enter-duration: 200ms; --enter-from-y: 20px;`}
-								class={allImagesLoaded ? 'animate-enter-blur-up' : 'enter-blur-up-wait'}
+							{@const delay = showBotIcon ? 0.15 + i * 0.05 : 0.1 + i * 0.05}
+							<motion.div
+								initial={{ opacity: 0, y: 20 }}
+								animate={allImagesLoaded ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
+								transition={{
+									opacity: { duration: 0.2, delay },
+									y: { type: 'spring', stiffness: 260, damping: 12, mass: 0.8, delay }
+								}}
 							>
 								<Avatar class="size-12 outline outline-4 outline-secondary">
 									<AvatarImage
@@ -242,22 +252,29 @@
 										class={avatar.isPlaceholder ? 'object-cover grayscale' : 'object-cover'}
 									/>
 								</Avatar>
-							</div>
+							</motion.div>
 						{/each}
 					</div>
 
 					<!-- Greeting -->
-					<h2
-						style="--enter-delay: 250ms;"
-						class="animate-enter-blur-up mb-4 text-5xl font-semibold text-muted-foreground"
+					<motion.h2
+						initial={{ opacity: 0, y: 6, filter: 'blur(6px)' }}
+						animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+						transition={{ duration: 0.4, delay: 0.25, ease: 'easeOut' }}
+						class="mb-4 text-5xl font-semibold text-muted-foreground"
 					>
 						{$t('support.greeting.hi')} 👋
-					</h2>
+					</motion.h2>
 
 					<!-- Main heading -->
-					<h3 style="--enter-delay: 500ms;" class="animate-enter-blur-up text-3xl font-bold">
+					<motion.h3
+						initial={{ opacity: 0, y: 6, filter: 'blur(6px)' }}
+						animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+						transition={{ duration: 0.4, delay: 0.5, ease: 'easeOut' }}
+						class="text-3xl font-bold"
+					>
 						{$t('support.greeting.how_can_we_help')}
-					</h3>
+					</motion.h3>
 				</div>
 			</div>
 		{:else}
