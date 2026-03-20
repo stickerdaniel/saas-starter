@@ -14,7 +14,6 @@
 	import { haptic } from '$lib/hooks/use-haptic.svelte';
 	import { toast } from 'svelte-sonner';
 	import { T, getTranslate } from '@tolgee/svelte';
-	import { motion } from 'motion-sv';
 
 	import { formatDistanceToNow } from 'date-fns';
 	import { type Locale, de, es, fr } from 'date-fns/locale';
@@ -259,12 +258,7 @@
 
 							<!-- Notes List -->
 							{#if notesQuery.data?.page && notesQuery.data.page.length > 0}
-								<motion.div
-									initial={{ opacity: 0, y: 6, filter: 'blur(6px)' }}
-									animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-									transition={{ duration: 0.4, ease: 'easeOut' }}
-									class="mt-4 space-y-2"
-								>
+								<div class="animate-enter-blur-up mt-4 space-y-2">
 									{#each notesQuery.data.page as note (note._id)}
 										<div class="rounded-md bg-muted p-3">
 											<div class="mb-1 flex items-center justify-between">
@@ -281,7 +275,7 @@
 											<p class="text-sm">{note.content}</p>
 										</div>
 									{/each}
-								</motion.div>
+								</div>
 							{/if}
 						</Field.Field>
 					{:else}

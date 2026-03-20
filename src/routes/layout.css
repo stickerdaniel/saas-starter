@@ -351,12 +351,50 @@
 	animation: spotlight 2s ease 0s 1 forwards;
 }
 
+@utility enter-blur-up-wait {
+	opacity: 0;
+	transform: translateY(var(--enter-from-y, 6px));
+	filter: blur(var(--enter-from-blur, 6px));
+
+	@media (prefers-reduced-motion: reduce) {
+		opacity: 1;
+		transform: none;
+		filter: none;
+	}
+}
+
+@utility animate-enter-blur-up {
+	animation: enter-blur-up var(--enter-duration, 400ms) var(--enter-ease, ease-out) both;
+	animation-delay: var(--enter-delay, 0ms);
+
+	@media (prefers-reduced-motion: reduce) {
+		animation: none;
+		opacity: 1;
+		transform: none;
+		filter: none;
+	}
+}
+
 @keyframes fade-in {
 	from {
 		opacity: 0;
 	}
 	to {
 		opacity: 1;
+	}
+}
+
+@keyframes enter-blur-up {
+	from {
+		opacity: 0;
+		transform: translateY(var(--enter-from-y, 6px));
+		filter: blur(var(--enter-from-blur, 6px));
+	}
+
+	to {
+		opacity: 1;
+		transform: translateY(0);
+		filter: blur(0);
 	}
 }
 
