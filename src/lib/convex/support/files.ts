@@ -8,9 +8,9 @@ import { createRateLimitError } from './types';
 import { getSupportOwnerIdentity } from './ownership';
 
 /**
- * Maximum file size for support uploads (10MB)
+ * Maximum file size for support uploads (5MB)
  */
-const MAX_SUPPORT_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_SUPPORT_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
 /**
  * Allowed file types for upload
@@ -145,7 +145,7 @@ export const saveUploadedFile = action({
 
 			if (blob.size > MAX_SUPPORT_FILE_SIZE) {
 				throw new Error(
-					`File too large: ${(blob.size / 1024 / 1024).toFixed(1)}MB exceeds maximum of 10MB`
+					`File too large: ${(blob.size / 1024 / 1024).toFixed(1)}MB exceeds maximum of 5MB`
 				);
 			}
 

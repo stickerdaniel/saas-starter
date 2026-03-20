@@ -220,6 +220,6 @@ export const ALLOWED_FILE_TYPES = [
 	'application/pdf'
 ];
 export const ALLOWED_FILE_EXTENSIONS = '.png,.jpg,.jpeg,.webp,.gif,.pdf';
-export const MAX_FILE_SIZE = 3 * 1024 * 1024; // 3MB
-export const MAX_FILE_SIZE_LABEL = '3MB';
+export const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+export const MAX_FILE_SIZE_LABEL = '5MB';
 export const MAX_ATTACHMENTS = 6;
