@@ -1044,7 +1044,7 @@
 		"cta_demo": "Request a demo",
 		"description": "SaaS starter with SvelteKit, auth, billing, and analytics.",
 		"section_label": "Home",
-		"tagline": "Focus on your product. Ship faster.",
+		"tagline": "Focus on your product.\nShip faster.",
 		"title": "SaaS Starter Template"
 	},
 	"impersonation": {
