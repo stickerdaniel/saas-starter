@@ -37,7 +37,7 @@
 	function getStateIconClass(): string {
 		switch (toolPart.state) {
 			case 'input-streaming':
-				return 'h-4 w-4 animate-spin text-blue-500';
+				return 'h-4 w-4 motion-safe:animate-spin text-blue-500';
 			case 'input-available':
 				return 'h-4 w-4 text-orange-500';
 			case 'output-available':

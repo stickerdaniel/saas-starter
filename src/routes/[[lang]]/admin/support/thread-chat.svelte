@@ -82,14 +82,14 @@
 			initialThread?.userEmail ||
 			thread?.user?.name ||
 			thread?.user?.email ||
-			'Anonymous'
+			$t('admin.support.anonymous')
 	);
 	const userEmail = $derived(initialThread?.userEmail || thread?.user?.email);
 	const userImage = $derived(initialThread?.userImage || thread?.user?.image);
 
 	// Display email: user email, or notification email for anonymous users, or "No email"
 	const displayEmail = $derived(
-		userEmail || thread?.supportMetadata?.notificationEmail || 'No email'
+		userEmail || thread?.supportMetadata?.notificationEmail || $t('admin.support.no_email')
 	);
 </script>
 
@@ -140,7 +140,7 @@
 				backTitle={displayName}
 				backSubtitle={displayEmail}
 				titleImage={userImage}
-				defaultTitle="Support Threads"
+				defaultTitle={$t('admin.support.threads_title')}
 				{onBackClick}
 				showClose={false}
 			>
@@ -169,7 +169,7 @@
 
 	<!-- Desktop: Standard header (≥1024px) -->
 	{#if media.lg}
-		<div class="flex-shrink-0 border-b p-4">
+		<div class="shrink-0 border-b p-4">
 			<div class="flex items-center justify-between gap-4">
 				<div class="flex min-w-0 flex-1 items-center gap-2">
 					{#if isLoading}
@@ -195,7 +195,7 @@
 						variant="ghost"
 						size="icon"
 						onclick={() => adminSupportUI.toggle()}
-						class="flex-shrink-0"
+						class="shrink-0"
 					>
 						<PanelRightIcon class="size-4" />
 						<span class="sr-only">

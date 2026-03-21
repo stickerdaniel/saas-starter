@@ -21,13 +21,13 @@
 		{text}
 	</span>
 	<span class="inline-flex">
-		<span class="animate-[loading-dots_1.4s_infinite_0.2s] motion-reduce:animate-none text-primary"
+		<span class="animate-[loading-dots_1.4s_infinite_0.2s] text-primary motion-reduce:animate-none"
 			>.</span
 		>
-		<span class="animate-[loading-dots_1.4s_infinite_0.4s] motion-reduce:animate-none text-primary"
+		<span class="animate-[loading-dots_1.4s_infinite_0.4s] text-primary motion-reduce:animate-none"
 			>.</span
 		>
-		<span class="animate-[loading-dots_1.4s_infinite_0.6s] motion-reduce:animate-none text-primary"
+		<span class="animate-[loading-dots_1.4s_infinite_0.6s] text-primary motion-reduce:animate-none"
 			>.</span
 		>
 	</span>

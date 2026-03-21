@@ -34,7 +34,7 @@
 	<span class={cn('font-mono text-primary', textSizes[size])}>&gt;</span>
 	<div
 		class={cn(
-			'animate-[blink_1s_step-end_infinite] motion-reduce:animate-none bg-primary',
+			'animate-[blink_1s_step-end_infinite] bg-primary motion-reduce:animate-none',
 			cursorSizes[size]
 		)}
 	></div>

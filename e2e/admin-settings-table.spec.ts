@@ -27,7 +27,7 @@ test.describe('Admin Settings Table', () => {
 			uncaughtPageErrors.push(error.message);
 		});
 		await page.goto('/en/admin/settings');
-		await page.waitForLoadState('networkidle');
+		await page.waitForLoadState('domcontentloaded');
 		await waitForSettingsTableReady(page);
 	});
 
@@ -69,7 +69,7 @@ test.describe('Admin Settings Table', () => {
 			page: '1'
 		});
 		await page.goto(`/en/admin/settings?${params.toString()}`);
-		await page.waitForLoadState('networkidle');
+		await page.waitForLoadState('domcontentloaded');
 		await waitForSettingsTableReady(page);
 
 		await expect(page.getByTestId('admin-settings-search')).toHaveValue('admin');
@@ -89,7 +89,7 @@ test.describe('Admin Settings Table', () => {
 		await addCustomEmailRecipient(page, customEmail);
 
 		await page.goto('/en/admin/settings?page_size=1');
-		await page.waitForLoadState('networkidle');
+		await page.waitForLoadState('domcontentloaded');
 		await waitForSettingsTableReady(page);
 
 		await expect

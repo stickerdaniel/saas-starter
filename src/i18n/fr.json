@@ -557,6 +557,7 @@
 		},
 		"support": {
 			"all_statuses": "Tous les statuts",
+			"anonymous": "Anonyme",
 			"assignee": {
 				"not_assigned": "Non assigné",
 				"unassigned": "Non assigné"
@@ -591,6 +592,7 @@
 			},
 			"no_chats": "Aucun chat trouvé",
 			"no_done_chats": "Aucun chat terminé",
+			"no_email": "Pas d'e-mail",
 			"no_open_chats": "Aucun chat ouvert",
 			"note": {
 				"add": "Ajouter une note",
@@ -603,6 +605,8 @@
 				"medium": "Moyenne",
 				"none": "Aucune"
 			},
+			"filter_showing_completed": "Affiche les fils terminés, cliquer pour afficher les ouverts",
+			"filter_showing_open": "Affiche les fils ouverts, cliquer pour afficher les terminés",
 			"search": {
 				"placeholder": "Rechercher des chats..."
 			},
@@ -623,6 +627,7 @@
 				"no_messages": "Aucun message",
 				"retry": "Réessayer"
 			},
+			"threads_title": "Fils de Support",
 			"title": "Chats de Support"
 		},
 		"title": "Panneau Admin",
@@ -788,7 +793,7 @@
 		"login": "Connexion",
 		"logout": "Déconnexion",
 		"messages": {
-			"auth_cancelled": "L'authentification a été annulée",
+			"credential_account_not_found": "Aucun compte avec mot de passe trouvé. Essayez de vous connecter avec votre fournisseur social.",
 			"email_change_failed": "Impossible de modifier l'e-mail",
 			"email_not_verified": "Veuillez vérifier votre adresse e-mail",
 			"email_same_as_current": "Le nouvel e-mail doit être différent de l'actuel",
@@ -801,21 +806,20 @@
 			"oauth_failed": "La connexion sociale a échoué. Veuillez réessayer.",
 			"passkey_add_failed": "Impossible d'ajouter la passkey",
 			"passkey_added": "Passkey ajoutée avec succès",
+			"passkey_cancelled": "La connexion par passkey a été annulée",
 			"passkey_delete_failed": "Impossible de supprimer la passkey",
 			"passkey_deleted": "Passkey supprimée",
 			"passkey_failed": "L'authentification par passkey a échoué",
 			"passkey_load_failed": "Impossible de charger les passkeys",
 			"password_change_failed": "Impossible de changer le mot de passe",
 			"password_changed": "Mot de passe modifié avec succès",
-			"password_compromised": "Ce mot de passe est compromis",
 			"password_reset_success": "Votre mot de passe a été réinitialisé avec succès.",
-			"rate_limited": "Trop de requêtes. Réessayez plus tard.",
+			"password_too_long": "Le mot de passe est trop long",
+			"password_too_short": "Le mot de passe est trop court",
 			"request_reset_failed": "Impossible de demander la réinitialisation du mot de passe",
 			"reset_failed": "Impossible de réinitialiser le mot de passe",
 			"reset_link_sent": "Vérifiez votre e-mail pour le lien de réinitialisation.",
-			"signup_disabled": "L'inscription est désactivée",
 			"signup_failed": "Impossible de créer le compte",
-			"too_many_attempts": "Trop de tentatives. Réessayez plus tard.",
 			"user_already_exists": "Un compte avec cet e-mail existe déjà"
 		},
 		"reset_password": {
@@ -885,6 +889,7 @@
 	"backend": {
 		"files": {
 			"fetch_failed": "Impossible de récupérer le fichier téléchargé. Veuillez réessayer.",
+			"file_too_large": "Fichier trop volumineux : {size} dépasse le maximum de {max}",
 			"type_not_allowed": "Type de fichier non autorisé. Formats supportés : PNG, JPEG, WebP, GIF, PDF"
 		},
 		"support": {

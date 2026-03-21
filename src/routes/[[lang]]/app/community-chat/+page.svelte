@@ -92,10 +92,9 @@
 	}
 
 	function formatTime(timestamp: number) {
-		return new Date(timestamp).toLocaleTimeString('en-US', {
+		return new Date(timestamp).toLocaleTimeString(data.lang ?? 'en', {
 			hour: 'numeric',
-			minute: '2-digit',
-			hour12: true
+			minute: '2-digit'
 		});
 	}
 
@@ -258,6 +257,9 @@
 						class="shrink-0 rounded-full"
 						disabled={newMessageText === '' || !hasMessagesAvailable}
 						title={!hasMessagesAvailable
+							? $t('chat.input.upgrade_tooltip')
+							: $t('chat.input.send_tooltip')}
+						aria-label={!hasMessagesAvailable
 							? $t('chat.input.upgrade_tooltip')
 							: $t('chat.input.send_tooltip')}
 					>

@@ -33,6 +33,7 @@
 		const result = await authClient.signOut();
 		if (result.error) {
 			console.error('Sign out error:', result.error);
+			toast.error($t('common.error'));
 		} else {
 			await goto(resolve(localizedHref('/')));
 		}
@@ -56,7 +57,7 @@
 
 {#if isImpersonating}
 	<div
-		class="bg-warning/10 text-warning border-warning/20 mb-2 rounded-md border px-3 py-2 text-xs font-medium"
+		class="mb-2 rounded-md border border-warning/20 bg-warning/10 px-3 py-2 text-xs font-medium text-warning"
 	>
 		<T keyName="app.user_menu.impersonating_banner" />
 	</div>
@@ -69,7 +70,7 @@
 					<Sidebar.MenuButton
 						size="lg"
 						class="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground {isImpersonating
-							? 'ring-warning ring-2'
+							? 'ring-2 ring-warning'
 							: ''}"
 						{...props}
 					>

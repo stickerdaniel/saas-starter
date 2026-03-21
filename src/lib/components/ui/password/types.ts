@@ -16,6 +16,11 @@ export type PasswordRootPropsWithoutHTML = WithChildren<{
 	 * @default 3
 	 */
 	minScore?: 0 | 1 | 2 | 3 | 4;
+	/** The validation message shown when the password is too weak.
+	 *
+	 * @default 'Password is too weak'
+	 */
+	validationMessage?: string;
 }>;
 
 export type PasswordRootProps = WithoutChildren<HTMLAttributes<HTMLDivElement>> &

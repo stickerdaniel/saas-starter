@@ -5,6 +5,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
 	resolveReasoning,
+	dedupeDisplayMessagesForRender,
 	transformToDisplayMessage,
 	transformToDisplayMessageSimple,
 	type TransformContext
@@ -268,6 +269,17 @@ describe('transformToDisplayMessage', () => {
 
 		expect(vi.mocked(mockCache.updateReasoningCache)).toHaveBeenCalledWith(3, 'Thinking...');
 	});
+
+	it('returns empty displayReasoning for malformed reasoning parts', () => {
+		const msg = createMessage({
+			text: 'Assistant response',
+			parts: [{ type: 'reasoning' }] as MessagePart[]
+		});
+
+		const result = transformToDisplayMessage(msg, baseContext);
+
+		expect(result.displayReasoning).toBe('');
+	});
 });
 
 describe('transformToDisplayMessageSimple', () => {
@@ -305,5 +317,20 @@ describe('transformToDisplayMessageSimple', () => {
 
 		expect(result.displayReasoning).toBe('');
 		expect(result.hasReasoningStream).toBe(false);
+	});
+});
+
+describe('dedupeDisplayMessagesForRender', () => {
+	it('keeps the last occurrence of duplicate message ids while preserving order', () => {
+		const messages = [
+			transformToDisplayMessageSimple(createMessage({ id: 'msg-1', text: 'first' })),
+			transformToDisplayMessageSimple(createMessage({ id: 'msg-2', text: 'middle' })),
+			transformToDisplayMessageSimple(createMessage({ id: 'msg-1', text: 'last' }))
+		];
+
+		expect(dedupeDisplayMessagesForRender(messages)).toMatchObject([
+			{ id: 'msg-2', displayText: 'middle' },
+			{ id: 'msg-1', displayText: 'last' }
+		]);
 	});
 });

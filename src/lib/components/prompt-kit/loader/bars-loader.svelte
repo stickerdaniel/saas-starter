@@ -29,7 +29,7 @@
 		<!-- svelte-ignore element_invalid_self_closing_tag -->
 		<div
 			class={cn(
-				'h-full animate-[wave-bars_1.2s_ease-in-out_infinite] motion-reduce:animate-none bg-primary',
+				'h-full animate-[wave-bars_1.2s_ease-in-out_infinite] bg-primary motion-reduce:animate-none',
 				barWidths[size]
 			)}
 			style:animation-delay="{i * 0.2}s"

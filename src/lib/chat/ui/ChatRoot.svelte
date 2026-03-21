@@ -14,7 +14,8 @@
 	import {
 		transformToDisplayMessage,
 		transformToDisplayMessageSimple,
-		type TransformContext
+		type TransformContext,
+		dedupeDisplayMessagesForRender
 	} from '../core/DisplayMessageProcessor.js';
 	import {
 		ChatUIContext,
@@ -232,7 +233,9 @@
 
 	// Update UI context with display messages
 	$effect(() => {
-		uiContext.setDisplayMessages(displayMessages);
+		// Defensive UI guard: query/stream reconciliation should not duplicate IDs, but collapse any
+		// transient duplicates here so keyed message rendering cannot crash.
+		uiContext.setDisplayMessages(dedupeDisplayMessagesForRender(displayMessages));
 	});
 
 	// Track when messages query has resolved (prevents suggestion chip flash)

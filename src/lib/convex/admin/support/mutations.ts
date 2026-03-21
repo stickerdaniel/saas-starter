@@ -1,4 +1,4 @@
-import { v } from 'convex/values';
+import { v, ConvexError } from 'convex/values';
 import { internal, components } from '../../_generated/api';
 import { saveMessage, getFile } from '@convex-dev/agent';
 import { adminMutation } from '../../functions';
@@ -28,7 +28,7 @@ export const updateThreadAssignment = adminMutation({
 			.first();
 
 		if (!supportThread) {
-			throw new Error('Support thread not found');
+			throw new ConvexError('Support thread not found');
 		}
 
 		// Update assignedTo
@@ -70,7 +70,7 @@ export const updateThreadStatus = adminMutation({
 			.first();
 
 		if (!supportThread) {
-			throw new Error('Support thread not found');
+			throw new ConvexError('Support thread not found');
 		}
 
 		await ctx.db.patch(supportThread._id, {
@@ -111,7 +111,7 @@ export const updateThreadPriority = adminMutation({
 			.first();
 
 		if (!supportThread) {
-			throw new Error('Support thread not found');
+			throw new ConvexError('Support thread not found');
 		}
 
 		await ctx.db.patch(supportThread._id, {
@@ -144,7 +144,7 @@ export const sendAdminReply = adminMutation({
 	handler: async (ctx, args) => {
 		// Validate content
 		if (!args.prompt.trim() && (!args.fileIds || args.fileIds.length === 0)) {
-			throw new Error('Message content cannot be empty');
+			throw new ConvexError('Message content cannot be empty');
 		}
 
 		// Get support thread for auto-assign and read status
@@ -154,7 +154,7 @@ export const sendAdminReply = adminMutation({
 			.first();
 
 		if (!supportThread) {
-			throw new Error('Support thread not found');
+			throw new ConvexError('Support thread not found');
 		}
 
 		// Save admin message with role: "assistant" and human provider metadata
@@ -268,7 +268,7 @@ export const addInternalUserNote = adminMutation({
 	handler: async (ctx, args) => {
 		// Validate content
 		if (!args.content.trim()) {
-			throw new Error('Note content cannot be empty');
+			throw new ConvexError('Note content cannot be empty');
 		}
 
 		await ctx.db.insert('internalUserNotes', {
