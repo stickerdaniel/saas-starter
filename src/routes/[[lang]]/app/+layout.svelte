@@ -5,6 +5,7 @@
 	import { page } from '$app/state';
 	import type { LayoutData } from './$types';
 	import type { Snippet } from 'svelte';
+	import { onMount } from 'svelte';
 
 	interface Props {
 		children?: Snippet;
@@ -20,6 +21,11 @@
 	const sidebarConfig = $derived(
 		getAppSidebarConfig({ pathname: page.url.pathname, lang: page.params.lang }, viewer?.role)
 	);
+
+	// Signal that Svelte hydration is complete (used by E2E tests)
+	onMount(() => {
+		document.documentElement.dataset.hydrated = '';
+	});
 </script>
 
 <PostHogIdentify />
