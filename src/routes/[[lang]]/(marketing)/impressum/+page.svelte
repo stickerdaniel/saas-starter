@@ -9,9 +9,13 @@
 
 	const source = `# Impressum
 
-Angaben gemaess Paragraph 5 DDG.
+Last Updated: March 18, 2026
 
-## Anbieter
+---
+
+Information pursuant to Section 5 DDG.
+
+## Provider
 
 ${LEGAL_CONFIG.operatorName}
 
@@ -23,7 +27,7 @@ ${LEGAL_CONFIG.address}`;
 <div class="mx-auto prose prose-sm max-w-3xl px-6 pt-40 pb-24 lg:px-12 dark:prose-invert">
 	<SvelteMarkdown {source} />
 	<p>
-		E-Mail:
+		Email:
 		<ObfuscatedEmail
 			user={LEGAL_CONFIG.email.user}
 			domain={LEGAL_CONFIG.email.domain}

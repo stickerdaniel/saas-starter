@@ -8,10 +8,11 @@ export const marketingMarkdown: MarketingMarkdownDocument = {
 		{
 			heading: 'Impressum',
 			paragraphs: [
-				'Angaben gemaess Paragraph 5 DDG.',
-				`Anbieter: ${LEGAL_CONFIG.operatorName}`,
-				`Adresse: ${LEGAL_CONFIG.address}`,
-				`E-Mail: ${getLegalEmailAddress()}`
+				'Last Updated: March 18, 2026',
+				'Information pursuant to Section 5 DDG.',
+				`Provider: ${LEGAL_CONFIG.operatorName}`,
+				`Address: ${LEGAL_CONFIG.address}`,
+				`Email: ${getLegalEmailAddress()}`
 			]
 		}
 	]
