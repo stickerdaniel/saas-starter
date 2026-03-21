@@ -8,7 +8,7 @@ export const marketingMarkdown: MarketingMarkdownDocument = {
 		{
 			heading: 'Impressum',
 			paragraphs: [
-				'Last Updated: March 18, 2026',
+				'Last Updated: March 21, 2026',
 				'Information pursuant to Section 5 DDG.',
 				`Provider: ${LEGAL_CONFIG.operatorName}`,
 				`Address: ${LEGAL_CONFIG.address}`,

@@ -9,7 +9,7 @@
 
 	const source = `# Impressum
 
-Last Updated: March 18, 2026
+Last Updated: March 21, 2026
 
 ---
 
