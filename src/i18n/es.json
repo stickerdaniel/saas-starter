@@ -590,6 +590,8 @@
 				"my_inbox": "Mi bandeja de entrada",
 				"unassigned": "Sin asignar"
 			},
+			"filter_showing_completed": "Mostrando hilos completados, haga clic para ver los abiertos",
+			"filter_showing_open": "Mostrando hilos abiertos, haga clic para ver los completados",
 			"no_chats": "No se encontraron chats",
 			"no_done_chats": "No hay chats completados",
 			"no_email": "Sin correo electrónico",
@@ -605,8 +607,6 @@
 				"medium": "Media",
 				"none": "Ninguna"
 			},
-			"filter_showing_completed": "Mostrando hilos completados, haga clic para ver los abiertos",
-			"filter_showing_open": "Mostrando hilos abiertos, haga clic para ver los completados",
 			"search": {
 				"placeholder": "Buscar chats..."
 			},
@@ -793,6 +793,7 @@
 		"login": "Iniciar sesión",
 		"logout": "Cerrar sesión",
 		"messages": {
+			"auth_cancelled": "La autenticación fue cancelada",
 			"credential_account_not_found": "No se encontró cuenta con contraseña. Intenta iniciar sesión con tu proveedor social.",
 			"email_change_failed": "No se pudo cambiar el correo",
 			"email_not_verified": "Por favor verifica tu correo electrónico",
@@ -813,13 +814,17 @@
 			"passkey_load_failed": "No se pudieron cargar las passkeys",
 			"password_change_failed": "No se pudo cambiar la contraseña",
 			"password_changed": "Contraseña cambiada correctamente",
+			"password_compromised": "Esta contraseña está comprometida",
 			"password_reset_success": "Tu contraseña se restableció correctamente.",
 			"password_too_long": "La contraseña es demasiado larga",
 			"password_too_short": "La contraseña es demasiado corta",
+			"rate_limited": "Demasiadas solicitudes. Inténtalo más tarde.",
 			"request_reset_failed": "No se pudo solicitar el restablecimiento de contraseña",
 			"reset_failed": "No se pudo restablecer la contraseña",
 			"reset_link_sent": "Revisa tu correo para el enlace de restablecimiento.",
+			"signup_disabled": "El registro está deshabilitado",
 			"signup_failed": "No se pudo crear la cuenta",
+			"too_many_attempts": "Demasiados intentos. Inténtalo más tarde.",
 			"user_already_exists": "Ya existe una cuenta con este correo electrónico"
 		},
 		"reset_password": {
@@ -1029,6 +1034,7 @@
 	},
 	"footer": {
 		"copyright": "© {year} SaaS Starter",
+		"impressum": "Aviso legal",
 		"privacy": "Privacidad",
 		"terms": "Condiciones de uso"
 	},
@@ -1038,7 +1044,7 @@
 		"cta_demo": "Solicitar una demo",
 		"description": "Dale vida a tu SaaS en minutos, no en meses. Plantilla open-source cargada con la tecnología que te hace lanzar rápido.",
 		"section_label": "Inicio",
-		"tagline": "Foco en tu producto. Lanzamiento más rápido.",
+		"tagline": "Foco en tu producto.\nLanzamiento más rápido.",
 		"title": "Plantilla SaaS Starter"
 	},
 	"impersonation": {
@@ -1192,6 +1198,10 @@
 		"pricing": {
 			"description": "Elige un plan y prueba el flujo de facturación integrado.",
 			"title": "Precios"
+		},
+		"impressum": {
+			"description": "Identificación del proveedor y datos de contacto.",
+			"title": "Impressum"
 		},
 		"privacy": {
 			"description": "Cómo recopilamos, usamos y protegemos sus datos personales.",
@@ -1391,6 +1401,8 @@
 				"placeholder": "Nombre del passkey",
 				"unnamed": "Passkey sin nombre"
 			},
+			"passkey_delete_failed": "No se pudo eliminar la passkey",
+			"passkey_deleted": "Passkey eliminada",
 			"passkey_info_description": "Los passkeys son una forma segura de iniciar sesión sin contraseña. Utilizan biometría o PIN del dispositivo y se almacenan de forma segura en tus dispositivos.",
 			"passkey_info_title": "¿Qué son los Passkeys?",
 			"passkey_name_label": "Nombre del passkey",

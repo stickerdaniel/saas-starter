@@ -178,6 +178,7 @@ These commands use `varlock run` to load env vars from `.env.schema` + `.env.loc
 - For localized routes under `src/routes/[[lang]]/`, `SEOHead` title and description must use translated `meta.*` keys in all 4 locale files (`en`, `de`, `es`, `fr`).
 - `meta.*.title` values must be page-title only and must NOT include the site suffix or brand name. `SEOHead` appends `| SaaS Starter` automatically (use `"Settings"`, not `"Settings - SaaS Starter"`).
 - Public marketing routes under `src/routes/[[lang]]/(marketing)/` can expose agent-facing markdown from the same URL via `Accept: text/markdown`. Keep the markdown source in a sibling `page.md.ts` file, not a `+page.*` file, and keep it in sync with the marketing page content. `/llms.txt` is the discovery entrypoint, and v1 markdown content is English-only.
+- If a marketing/legal page obfuscates contact email in HTML, keep the agent-facing `page.md.ts` variant obfuscated too. Do not expose the raw email address only via `Accept: text/markdown`.
 
 ### Email System
 
