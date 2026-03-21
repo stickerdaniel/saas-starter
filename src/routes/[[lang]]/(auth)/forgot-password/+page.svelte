@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import * as v from 'valibot';
 	import SEOHead from '$lib/components/SEOHead.svelte';
 	import * as Card from '$lib/components/ui/card/index.js';
@@ -20,6 +21,7 @@
 	const { t } = getTranslate();
 	const auth = useAuth();
 
+	let hydrated = $state(false);
 	let isLoading = $state(false);
 	let message = $state<string | null>(null);
 	let formError = $state<string | null>(null);
@@ -29,6 +31,7 @@
 
 	// Form data
 	let formData = $state({ email: '' });
+	const isFormDisabled = $derived(isLoading || !hydrated);
 
 	// Field errors
 	let errors = $state<Record<string, string[]>>({});
@@ -51,6 +54,10 @@
 		(validation.isEmailValid ? 1 : 0) + (lastValidSubmission === submissionToken ? 1 : 0)
 	);
 	const progress = $derived((completedSteps / totalSteps) * 100);
+
+	onMount(() => {
+		hydrated = true;
+	});
 
 	// Initialize email from global state
 	$effect(() => {
@@ -185,7 +192,7 @@
 									type="email"
 									autocomplete="email"
 									placeholder="m@example.com"
-									disabled={isLoading}
+									disabled={isFormDisabled}
 									bind:value={formData.email}
 								/>
 								<Field.Error errors={translateValidationErrors(errors.email, $t)} />
@@ -195,7 +202,7 @@
 									type="submit"
 									data-testid="forgot-password-submit-button"
 									class="w-full"
-									disabled={isLoading}
+									disabled={isFormDisabled}
 								>
 									{#if isLoading}
 										<T keyName="auth.forgot_password.button_loading" defaultValue="Sending..." />

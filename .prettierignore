@@ -10,3 +10,4 @@ docs/references/
 
 # Generated files
 **/_generated/
+src/env.d.ts

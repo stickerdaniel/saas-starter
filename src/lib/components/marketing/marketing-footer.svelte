@@ -16,14 +16,14 @@
 				<nav class="flex items-center gap-3 text-xs text-muted-foreground">
 					<a
 						href={resolve(localizedHref('/terms'))}
-						class="duration-150 hover:text-accent-foreground"
+						class="transition-colors duration-150 hover:text-accent-foreground"
 					>
 						<T keyName="footer.terms" />
 					</a>
 					<span aria-hidden="true">&middot;</span>
 					<a
 						href={resolve(localizedHref('/privacy'))}
-						class="duration-150 hover:text-accent-foreground"
+						class="transition-colors duration-150 hover:text-accent-foreground"
 					>
 						<T keyName="footer.privacy" />
 					</a>

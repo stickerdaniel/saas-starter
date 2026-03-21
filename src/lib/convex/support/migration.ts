@@ -1,5 +1,5 @@
 import { mutation } from '../_generated/server';
-import { v } from 'convex/values';
+import { v, ConvexError } from 'convex/values';
 import { authComponent } from '../auth';
 import { isAnonymousUser } from '../utils/anonymousUser';
 import { components } from '../_generated/api';
@@ -29,12 +29,12 @@ export const migrateAnonymousTickets = mutation({
 		// 1. Verify caller is authenticated
 		const authUser = await authComponent.getAuthUser(ctx);
 		if (!authUser) {
-			throw new Error('Authentication required');
+			throw new ConvexError('Authentication required');
 		}
 
 		// 2. Validate anonymous ID format
 		if (!isAnonymousUser(args.anonymousUserId)) {
-			throw new Error('Invalid anonymous user ID');
+			throw new ConvexError('Invalid anonymous user ID');
 		}
 
 		// 3. Find ALL agent:threads with anonymous userId (paginate through all results)

@@ -1,4 +1,4 @@
-import { v } from 'convex/values';
+import { v, ConvexError } from 'convex/values';
 import { storeFile } from '@convex-dev/agent';
 import { action, internalMutation, mutation } from '../_generated/server';
 import { components, internal } from '../_generated/api';
@@ -6,6 +6,11 @@ import { t } from '../i18n/translations';
 import { supportRateLimiter } from './rateLimit';
 import { createRateLimitError } from './types';
 import { getSupportOwnerIdentity } from './ownership';
+
+/**
+ * Maximum file size for support uploads (5MB)
+ */
+const MAX_SUPPORT_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
 /**
  * Allowed file types for upload
@@ -97,11 +102,6 @@ export const saveUploadedFile = action({
 		filename: string | undefined;
 		isImage: boolean;
 	}> => {
-		// Validate file type
-		if (!ALLOWED_MIME_TYPES.includes(args.mimeType)) {
-			throw new Error(t(args.locale, 'backend.files.type_not_allowed'));
-		}
-
 		// Finalize upload with files-control before registering with agent
 		const accessKey = args.accessKey?.trim() || 'support';
 		await ctx.runMutation(components.convexFilesControl.upload.finalizeUpload, {
@@ -113,6 +113,7 @@ export const saveUploadedFile = action({
 
 		// All operations after finalizeUpload must clean up on failure
 		let file: { fileId: string; storageId: string; url: string; filename?: string };
+		let verifiedMimeType: string;
 		try {
 			const downloadGrant = await ctx.runMutation(
 				components.convexFilesControl.download.createDownloadGrant,
@@ -139,9 +140,26 @@ export const saveUploadedFile = action({
 			// Fetch blob from component storage
 			const response = await fetch(downloadResult.downloadUrl);
 			if (!response.ok) {
-				throw new Error(t(args.locale, 'backend.files.fetch_failed'));
+				throw new ConvexError(t(args.locale, 'backend.files.fetch_failed'));
 			}
 			const blob = await response.blob();
+
+			if (blob.size > MAX_SUPPORT_FILE_SIZE) {
+				const maxMB = Math.round(MAX_SUPPORT_FILE_SIZE / 1024 / 1024);
+				throw new ConvexError(
+					t(args.locale, 'backend.files.file_too_large', {
+						size: `${(blob.size / 1024 / 1024).toFixed(1)}MB`,
+						max: `${maxMB}MB`
+					})
+				);
+			}
+
+			// Validate MIME type against the actual blob — not the client-supplied args.mimeType
+			// which is untrusted input and could be spoofed.
+			if (!ALLOWED_MIME_TYPES.includes(blob.type)) {
+				throw new ConvexError(t(args.locale, 'backend.files.type_not_allowed'));
+			}
+			verifiedMimeType = blob.type;
 
 			// Register with agent component
 			const result = await storeFile(ctx, components.agent, blob, {
@@ -157,7 +175,7 @@ export const saveUploadedFile = action({
 
 		// Store dimensions in fileMetadata table for proper dialog sizing
 		// (agent component strips unknown fields from file parts)
-		if (args.width && args.height && args.mimeType.startsWith('image/')) {
+		if (args.width && args.height && verifiedMimeType.startsWith('image/')) {
 			await ctx.runMutation(internal.support.files.storeFileMetadata, {
 				fileId: file.fileId,
 				storageId: file.storageId,
@@ -172,7 +190,7 @@ export const saveUploadedFile = action({
 			storageId: file.storageId,
 			url: file.url,
 			filename: file.filename,
-			isImage: args.mimeType.startsWith('image/')
+			isImage: verifiedMimeType.startsWith('image/')
 		};
 	}
 });

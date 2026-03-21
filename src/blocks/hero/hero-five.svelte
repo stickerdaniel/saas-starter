@@ -84,7 +84,6 @@
 								src={nvidiaLogo}
 								alt="Nvidia Logo"
 								height="20"
-								width="auto"
 							/>
 						</div>
 						<div class="flex">
@@ -93,7 +92,6 @@
 								src={columnLogo}
 								alt="Column Logo"
 								height="16"
-								width="auto"
 							/>
 						</div>
 						<div class="flex">
@@ -102,7 +100,6 @@
 								src={githubLogo}
 								alt="GitHub Logo"
 								height="16"
-								width="auto"
 							/>
 						</div>
 						<div class="flex">
@@ -111,7 +108,6 @@
 								src={nikeLogo}
 								alt="Nike Logo"
 								height="20"
-								width="auto"
 							/>
 						</div>
 						<div class="flex">
@@ -120,7 +116,6 @@
 								src={lemonsqueezyLogo}
 								alt="Lemon Squeezy Logo"
 								height="20"
-								width="auto"
 							/>
 						</div>
 						<div class="flex">
@@ -129,7 +124,6 @@
 								src={laravelLogo}
 								alt="Laravel Logo"
 								height="16"
-								width="auto"
 							/>
 						</div>
 						<div class="flex">
@@ -138,7 +132,6 @@
 								src={lillyLogo}
 								alt="Lilly Logo"
 								height="28"
-								width="auto"
 							/>
 						</div>
 						<div class="flex">
@@ -147,7 +140,6 @@
 								src={openaiLogo}
 								alt="OpenAI Logo"
 								height="24"
-								width="auto"
 							/>
 						</div>
 					</Marquee>

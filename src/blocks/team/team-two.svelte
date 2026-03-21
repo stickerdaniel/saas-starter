@@ -67,7 +67,7 @@
 				{#each members as member, index (member.name)}
 					<div class="group overflow-hidden">
 						<img
-							class="h-96 w-full rounded-md object-cover object-top grayscale motion-safe:transition-all motion-safe:duration-300 no-drag group-hover:h-[22.5rem] group-hover:rounded-xl hover:grayscale-0"
+							class="h-96 w-full rounded-md object-cover object-top grayscale no-drag group-hover:h-[22.5rem] group-hover:rounded-xl hover:grayscale-0 motion-safe:transition-all motion-safe:duration-300"
 							src={member.avatar}
 							alt="team member"
 							width="826"
@@ -79,7 +79,7 @@
 						<div class="px-2 pt-2 sm:pt-4 sm:pb-0">
 							<div class="flex justify-between">
 								<h3
-									class="text-base font-medium text-foreground motion-safe:transition-all motion-safe:duration-300 group-hover:tracking-wider"
+									class="text-base font-medium text-foreground group-hover:tracking-wider motion-safe:transition-all motion-safe:duration-300"
 								>
 									{member.name}
 								</h3>
@@ -87,14 +87,14 @@
 							</div>
 							<div class="mt-1 flex items-center justify-between">
 								<span
-									class="inline-block text-sm text-muted-foreground motion-safe:translate-y-6 motion-safe:opacity-0 motion-safe:transition motion-safe:duration-200 group-hover:translate-y-0 group-hover:opacity-100"
+									class="inline-block text-sm text-muted-foreground group-hover:translate-y-0 group-hover:opacity-100 motion-safe:translate-y-6 motion-safe:opacity-0 motion-safe:transition motion-safe:duration-200"
 								>
 									<T keyName={member.roleKey} />
 								</span>
 								<a
 									href={resolve(member.link)}
 									draggable={false}
-									class="inline-block text-sm tracking-wide motion-safe:translate-y-8 motion-safe:opacity-0 motion-safe:transition-all motion-safe:duration-300 no-drag group-hover:translate-y-0 group-hover:text-primary group-hover:opacity-100 hover:underline"
+									class="inline-block text-sm tracking-wide no-drag group-hover:translate-y-0 group-hover:text-primary group-hover:opacity-100 hover:underline motion-safe:translate-y-8 motion-safe:opacity-0 motion-safe:transition-all motion-safe:duration-300"
 								>
 									<T keyName="team.linktree" />
 								</a>

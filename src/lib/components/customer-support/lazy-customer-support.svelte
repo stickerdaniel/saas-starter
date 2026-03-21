@@ -9,7 +9,6 @@
 
 	const { t } = getTranslate();
 
-	let isOpen = $state(false);
 	let isLoading = $state(false);
 	let CustomerSupport: Component | null = $state(null);
 
@@ -27,7 +26,6 @@
 			isLoading = false;
 		}
 		if (!CustomerSupport) return;
-		isOpen = true;
 		const url = new URL(window.location.href);
 		url.searchParams.set('support', 'open');
 		await goto(resolve(`${window.location.pathname}${url.search}`), {
@@ -39,7 +37,6 @@
 	onMount(() => {
 		const currentUrl = new URL(window.location.href);
 		if (currentUrl.searchParams.get('support') === 'open') {
-			isOpen = true;
 			preload();
 			return;
 		}
@@ -91,7 +88,7 @@
 	});
 </script>
 
-{#if isOpen && CustomerSupport}
+{#if CustomerSupport}
 	<CustomerSupport />
 {:else}
 	<div class="fixed right-5 bottom-5 z-200 flex items-end justify-end">

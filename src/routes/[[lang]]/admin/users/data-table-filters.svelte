@@ -50,15 +50,15 @@
 
 	const roleOptions = $derived([
 		{ value: 'all', label: $t('admin.users.filter.all_roles') },
-		{ value: 'admin', label: 'admin' },
-		{ value: 'user', label: 'user' }
+		{ value: 'admin', label: $t('admin.users.filter.role_admin') },
+		{ value: 'user', label: $t('admin.users.filter.role_user') }
 	]);
 
 	const statusOptions = $derived([
 		{ value: 'all', label: $t('admin.users.filter.all_status') },
-		{ value: 'verified', label: 'Verified' },
-		{ value: 'unverified', label: 'Unverified' },
-		{ value: 'banned', label: 'Banned' }
+		{ value: 'verified', label: $t('admin.users.filter.status_verified') },
+		{ value: 'unverified', label: $t('admin.users.filter.status_unverified') },
+		{ value: 'banned', label: $t('admin.users.filter.status_banned') }
 	]);
 </script>
 

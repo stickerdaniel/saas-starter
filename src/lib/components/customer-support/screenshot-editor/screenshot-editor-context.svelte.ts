@@ -282,9 +282,10 @@ export class ScreenshotEditorState {
 			a: 'arrow'
 		};
 
-		if (toolShortcuts[e.key.toLowerCase()]) {
+		const tool = toolShortcuts[e.key.toLowerCase()];
+		if (tool) {
 			e.preventDefault();
-			this.setTool(toolShortcuts[e.key.toLowerCase()]);
+			this.setTool(tool);
 		}
 	};
 }

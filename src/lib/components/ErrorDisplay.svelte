@@ -36,7 +36,7 @@
 	);
 	const homeHref = $derived(`/${currentLang}`);
 	const isNotFound = $derived(page.status === 404);
-	const translations = $derived(translationsByLang[currentLang]);
+	const translations = $derived(translationsByLang[currentLang] ?? translationsByLang['en']!);
 	const title = $derived(
 		isNotFound
 			? translations.error_page.not_found_title

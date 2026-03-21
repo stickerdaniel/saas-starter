@@ -258,7 +258,7 @@
 								<AlertDialog.Action
 									onclick={handleStepDown}
 									disabled={isStepping}
-									class="text-destructive-foreground bg-destructive hover:bg-destructive/90"
+									class="bg-destructive text-white hover:bg-destructive/90"
 								>
 									<T keyName="admin.settings.founder_welcome.step_down" />
 								</AlertDialog.Action>

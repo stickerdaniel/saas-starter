@@ -28,7 +28,7 @@
 	{#each Array(3) as _, i (i)}
 		<div
 			class={cn(
-				'animate-[typing_1s_infinite] motion-reduce:animate-none rounded-full bg-primary',
+				'animate-[typing_1s_infinite] rounded-full bg-primary motion-reduce:animate-none',
 				dotSizes[size]
 			)}
 			style:animation-delay="{i * 250}ms"

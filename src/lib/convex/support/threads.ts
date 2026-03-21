@@ -1,5 +1,5 @@
 import { mutation, query, internalMutation, internalQuery } from '../_generated/server';
-import { v } from 'convex/values';
+import { v, ConvexError } from 'convex/values';
 import * as val from 'valibot';
 import { supportAgent } from './agent';
 import { components, internal } from '../_generated/api';
@@ -350,7 +350,7 @@ export const updateThreadHandoff = mutation({
 			.first();
 
 		if (!supportThread) {
-			throw new Error('Support thread not found');
+			throw new ConvexError('Support thread not found');
 		}
 
 		// Already handed off - no action needed
@@ -512,7 +512,7 @@ export const updateNotificationEmail = mutation({
 			normalizedEmail &&
 			!val.safeParse(val.pipe(val.string(), val.email()), normalizedEmail).success
 		) {
-			throw new Error('Invalid email format');
+			throw new ConvexError('Invalid email format');
 		}
 
 		await assertThreadOwnership(ctx, {
@@ -527,7 +527,7 @@ export const updateNotificationEmail = mutation({
 			.first();
 
 		if (!supportThread) {
-			throw new Error('Support thread not found');
+			throw new ConvexError('Support thread not found');
 		}
 
 		// Update notification email (undefined to unsubscribe)

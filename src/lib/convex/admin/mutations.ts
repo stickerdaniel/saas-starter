@@ -1,6 +1,6 @@
 import { internalMutation, type MutationCtx } from '../_generated/server';
 import { components, internal } from '../_generated/api';
-import { v } from 'convex/values';
+import { v, ConvexError } from 'convex/values';
 import type { BetterAuthUser } from './types';
 import { roleValidator, adminActionValidator, auditMetadataValidator } from './types';
 import { adminMutation } from '../functions';
@@ -87,13 +87,13 @@ export const setUserRole = adminMutation({
 	handler: async (ctx, args) => {
 		// Prevent admin from changing their own role
 		if (ctx.user._id === args.userId) {
-			throw new Error('Cannot change your own role');
+			throw new ConvexError('Cannot change your own role');
 		}
 
 		const user = await findUserById(ctx, args.userId);
 
 		if (!user) {
-			throw new Error('User not found');
+			throw new ConvexError('User not found');
 		}
 
 		const wasAdmin = user.role === 'admin';
@@ -150,7 +150,7 @@ export const seedFirstAdmin = internalMutation({
 		const user = await findUserByEmail(ctx, args.email);
 
 		if (!user) {
-			throw new Error(`User with email ${args.email} not found`);
+			throw new ConvexError(`User with email ${args.email} not found`);
 		}
 
 		// Check if there are already admins

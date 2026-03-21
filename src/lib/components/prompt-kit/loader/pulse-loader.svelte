@@ -20,7 +20,7 @@
 
 <div class={cn('relative', sizeClasses[size], className)}>
 	<div
-		class="absolute inset-0 animate-[thin-pulse_1.5s_ease-in-out_infinite] motion-reduce:animate-none rounded-full border-2 border-primary"
+		class="absolute inset-0 animate-[thin-pulse_1.5s_ease-in-out_infinite] rounded-full border-2 border-primary motion-reduce:animate-none"
 	></div>
 	<span class="sr-only">{$t('aria.loading')}</span>
 </div>

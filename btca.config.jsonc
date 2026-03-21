@@ -371,8 +371,16 @@
 			"branch": "main",
 			"searchPath": "packages/web-haptics/src",
 			"specialNotes": "Haptic feedback for mobile web. Svelte integration via createWebHaptics. Patterns: success, error, warning, etc. Check apps/svelte-example for usage."
+		},
+		{
+			"type": "git",
+			"name": "movingIcons",
+			"url": "https://github.com/jis3r/icons",
+			"branch": "main",
+			"searchPath": "src/lib/icons",
+			"specialNotes": "Animated Lucide icons for Svelte 5. Zero dependencies, pure CSS keyframes. Use @jis3r/icons package. Each icon has bespoke hand-crafted animation. Props: size, color, strokeWidth, animate (boolean), class."
 		}
 	],
-	"model": "claude-haiku-4.5",
-	"provider": "github-copilot"
+	"model": "gpt-5.4-mini",
+	"provider": "openai"
 }

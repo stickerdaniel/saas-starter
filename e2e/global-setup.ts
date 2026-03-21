@@ -15,10 +15,47 @@ import path from 'path';
 
 const SITE_URL = process.env.PUBLIC_SITE_URL || 'http://localhost:5173';
 const TEST_PASSWORD = 'TestPassword123!';
+const SETUP_RETRY_ATTEMPTS = 3;
 // Vercel automation bypass for protected preview deployments
 const VERCEL_BYPASS_SECRET = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
 
 import type { TestCredentials } from './utils/types';
+
+function isTransientSetupError(error: unknown): boolean {
+	if (!(error instanceof Error)) return false;
+
+	const details = [error.message, error.cause instanceof Error ? error.cause.message : '']
+		.join(' ')
+		.toLowerCase();
+
+	return (
+		details.includes('fetch failed') ||
+		details.includes('connect timeout') ||
+		details.includes('connection refused') ||
+		details.includes('econnreset') ||
+		details.includes('etimedout')
+	);
+}
+
+async function retrySetupStep<T>(label: string, run: () => Promise<T>): Promise<T> {
+	for (let attempt = 1; attempt <= SETUP_RETRY_ATTEMPTS; attempt++) {
+		try {
+			return await run();
+		} catch (error) {
+			if (!isTransientSetupError(error) || attempt === SETUP_RETRY_ATTEMPTS) {
+				throw error;
+			}
+
+			const delayMs = attempt * 1000;
+			console.warn(
+				`[Setup]   ${label} failed on attempt ${attempt}/${SETUP_RETRY_ATTEMPTS}, retrying in ${delayMs}ms`
+			);
+			await new Promise((resolve) => setTimeout(resolve, delayMs));
+		}
+	}
+
+	throw new Error(`[Setup] Unexpected retry fallthrough for ${label}`);
+}
 
 async function globalSetup() {
 	const testSecret = process.env.AUTH_E2E_TEST_SECRET;
@@ -182,19 +219,23 @@ async function createUser(
 
 		// Verify email (or set admin role + verify)
 		if (isAdmin) {
-			const result = await client.mutation(api.tests.createTestAdminUser, {
-				email: user.email,
-				secret
-			});
+			const result = await retrySetupStep('createTestAdminUser', () =>
+				client.mutation(api.tests.createTestAdminUser, {
+					email: user.email,
+					secret
+				})
+			);
 			if (!result.success) {
 				throw new Error(`Failed to setup admin: ${result.error}`);
 			}
 			console.log(`[Setup]   Admin role set and email verified`);
 		} else {
-			const result = await client.mutation(api.tests.verifyTestUserEmail, {
-				email: user.email,
-				secret
-			});
+			const result = await retrySetupStep('verifyTestUserEmail', () =>
+				client.mutation(api.tests.verifyTestUserEmail, {
+					email: user.email,
+					secret
+				})
+			);
 			if (!result.success) {
 				throw new Error(`Failed to verify email: ${result.error}`);
 			}

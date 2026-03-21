@@ -20,8 +20,8 @@
 	import { onMount, tick } from 'svelte';
 	import { useMutationObserver } from 'runed';
 	import { TAILWIND_BREAKPOINTS, useMedia } from '$lib/hooks/use-media.svelte';
-	import FollowingPointer from '$lib/components/ui/FollowingPointer/FollowingPointer.svelte';
 	import { Spotlight } from '$lib/components/ui/spotlight/index.js';
+	import type { Component } from 'svelte';
 
 	interface RiveBackgroundProps {
 		src: string;
@@ -63,6 +63,7 @@
 	let riveInstance: any = $state(null);
 	let isLoaded = $state(false);
 	let shouldRender = $state(false);
+	let FollowingPointerComponent = $state<Component | null>(null);
 
 	// Cache the base buffer at instance level to avoid re-fetching on re-renders
 	let cachedBuffer: ArrayBuffer | null = null;
@@ -129,6 +130,12 @@
 		async function startRive() {
 			if (destroyed || riveInstance || shouldRender) return;
 
+			if (!FollowingPointerComponent) {
+				const mod = await import('$lib/components/ui/FollowingPointer/FollowingPointer.svelte');
+				if (destroyed) return;
+				FollowingPointerComponent = mod.default;
+			}
+
 			shouldRender = true;
 			await tick();
 			if (destroyed) return;
@@ -192,8 +199,8 @@
 </script>
 
 <div class={className}>
-	{#if shouldRender}
-		<FollowingPointer class="h-full w-full">
+	{#if shouldRender && FollowingPointerComponent}
+		<FollowingPointerComponent class="h-full w-full">
 			{#snippet title()}
 				<p class="text-xs">Rive animation by JcToon</p>
 			{/snippet}
@@ -228,6 +235,6 @@
 					></div>
 				{/if}
 			</div>
-		</FollowingPointer>
+		</FollowingPointerComponent>
 	{/if}
 </div>
