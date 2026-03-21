@@ -6,6 +6,7 @@
 	import { ScrollArea } from '$lib/components/ui/scroll-area';
 	import type { Snippet } from 'svelte';
 	import type { SidebarConfig, User } from './types';
+	import { onMount } from 'svelte';
 
 	interface Props {
 		children?: Snippet;
@@ -35,6 +36,11 @@
 			document.documentElement.classList.remove('auth-shell-bg');
 			document.body.classList.remove('auth-shell-bg');
 		};
+	});
+
+	// Signal that Svelte hydration is complete (used by E2E tests via waitForAuthenticated)
+	onMount(() => {
+		document.documentElement.dataset.hydrated = '';
 	});
 </script>
 
