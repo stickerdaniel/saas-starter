@@ -2,12 +2,13 @@
 	import type { HTMLAttributes } from 'svelte/elements';
 	import { Link } from 'better-svelte-email/components';
 	import { Separator } from '$lib/emails/components/ui/index.js';
+	import { LEGAL_CONFIG } from '$lib/config/legal';
 
 	const currentYear = new Date().getFullYear();
 
 	let {
-		companyName = 'SaaS Starter Inc.',
-		address = '123 Main Street, Suite 100, San Francisco, CA 94102',
+		companyName = LEGAL_CONFIG.companyName,
+		address = LEGAL_CONFIG.address,
 		class: className,
 		...restProps
 	}: HTMLAttributes<HTMLDivElement> & {

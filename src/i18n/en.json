@@ -590,6 +590,8 @@
 				"my_inbox": "My Inbox",
 				"unassigned": "Unassigned"
 			},
+			"filter_showing_completed": "Showing completed threads, click to show open",
+			"filter_showing_open": "Showing open threads, click to show completed",
 			"no_chats": "No chats found",
 			"no_done_chats": "No completed chats",
 			"no_email": "No email",
@@ -605,8 +607,6 @@
 				"medium": "Medium",
 				"none": "None"
 			},
-			"filter_showing_completed": "Showing completed threads, click to show open",
-			"filter_showing_open": "Showing open threads, click to show completed",
 			"search": {
 				"placeholder": "Search chats..."
 			},
@@ -793,6 +793,7 @@
 		"login": "Login",
 		"logout": "Logout",
 		"messages": {
+			"auth_cancelled": "Authentication was cancelled",
 			"credential_account_not_found": "No password account found. Try signing in with your social provider.",
 			"email_change_failed": "Failed to change email",
 			"email_not_verified": "Please verify your email address",
@@ -813,13 +814,17 @@
 			"passkey_load_failed": "Failed to load passkeys",
 			"password_change_failed": "Failed to change password",
 			"password_changed": "Password changed successfully",
+			"password_compromised": "This password has been compromised",
 			"password_reset_success": "Your password has been reset successfully.",
 			"password_too_long": "Password is too long",
 			"password_too_short": "Password is too short",
+			"rate_limited": "Too many requests. Please try again later.",
 			"request_reset_failed": "Failed to request password reset",
 			"reset_failed": "Failed to reset password",
 			"reset_link_sent": "Check your email for a reset link.",
+			"signup_disabled": "Sign up is disabled",
 			"signup_failed": "Failed to create account",
+			"too_many_attempts": "Too many attempts. Please try again later.",
 			"user_already_exists": "An account with this email already exists"
 		},
 		"reset_password": {
@@ -1029,6 +1034,7 @@
 	},
 	"footer": {
 		"copyright": "© {year} SaaS Starter",
+		"impressum": "Impressum",
 		"privacy": "Privacy Policy",
 		"terms": "Terms of Service"
 	},
@@ -1192,6 +1198,10 @@
 		"pricing": {
 			"description": "Choose a plan and test the integrated billing flow.",
 			"title": "Pricing"
+		},
+		"impressum": {
+			"description": "Provider identification and contact details.",
+			"title": "Impressum"
 		},
 		"privacy": {
 			"description": "How we collect, use, and protect your personal data.",
@@ -1391,6 +1401,8 @@
 				"placeholder": "Passkey name",
 				"unnamed": "Unnamed Passkey"
 			},
+			"passkey_delete_failed": "Failed to delete passkey",
+			"passkey_deleted": "Passkey removed",
 			"passkey_info_description": "Passkeys are a secure, passwordless way to sign in. They use biometrics or device PIN and are stored securely on your devices.",
 			"passkey_info_title": "What are Passkeys?",
 			"passkey_name_label": "Passkey name",
