@@ -27,7 +27,7 @@ function decodeJwtPayload(token: string): { role?: string } | null {
 	try {
 		const payload = token.split('.')[1];
 		if (!payload) return null;
-		return JSON.parse(atob(payload));
+		return JSON.parse(Buffer.from(payload, 'base64url').toString('utf-8'));
 	} catch {
 		return null;
 	}
@@ -50,6 +50,10 @@ function isEmailsRoute(pathname: string): boolean {
 	return /^\/[a-z]{2}\/emails(\/|$)/.test(pathname);
 }
 
+function isEmailsApiRoute(pathname: string): boolean {
+	return /^\/api\/emails(\/|$)/.test(pathname);
+}
+
 function isShadcnDemoRoute(pathname: string): boolean {
 	return /^\/[a-z]{2}\/shadcn-demo(\/|$)/.test(pathname);
 }
@@ -67,7 +71,12 @@ export function shouldBypassLanguageRedirect(pathname: string): boolean {
  * Block access to dev-only routes in production
  */
 const handleDevOnlyRoutes: Handle = async function handleDevOnlyRoutes({ event, resolve }) {
-	if (!dev && (isEmailsRoute(event.url.pathname) || isShadcnDemoRoute(event.url.pathname))) {
+	if (
+		!dev &&
+		(isEmailsRoute(event.url.pathname) ||
+			isEmailsApiRoute(event.url.pathname) ||
+			isShadcnDemoRoute(event.url.pathname))
+	) {
 		return new Response('Not found', { status: 404 });
 	}
 	return resolve(event);
@@ -127,7 +136,7 @@ const handleLanguage: Handle = async function handleLanguage({ event, resolve })
 			// Parse Accept-Language header (e.g., "en-US,en;q=0.9,de;q=0.8")
 			const languages = acceptLanguage
 				.split(',')
-				.map((lang) => lang.split(';')[0].trim().split('-')[0]);
+				.map((lang) => lang.split(';')[0]!.trim().split('-')[0]!);
 
 			// Find first supported language
 			const supported = languages.find((lang) => isSupportedLanguage(lang));
@@ -192,7 +201,7 @@ const handleSecurityHeaders: Handle = async function handleSecurityHeaders({ eve
 	response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
 	response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
 	response.headers.set('X-DNS-Prefetch-Control', 'off');
-	response.headers.set('Strict-Transport-Security', 'max-age=3600; includeSubDomains');
+	response.headers.set('Strict-Transport-Security', 'max-age=63072000; includeSubDomains');
 	return response;
 };
 

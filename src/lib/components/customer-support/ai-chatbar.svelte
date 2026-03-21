@@ -180,6 +180,7 @@
 					placeholder={$t('support.chatbar.placeholder')}
 					onfocus={handleFocus}
 					onblur={handleBlur}
+					maxlength={2000}
 				/>
 
 				<Button

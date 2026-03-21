@@ -1,30 +1,46 @@
 type ErrorWithCode = { code?: string | null };
 
+// Maps Better Auth 1.4.17 error codes to i18n translation keys.
+// Codes verified against @better-auth/core/src/error/codes.ts
 const ERROR_CODE_MAP: Record<string, string> = {
-	INVALID_CREDENTIALS: 'auth.messages.invalid_credentials',
+	// Credential/auth
+	INVALID_EMAIL_OR_PASSWORD: 'auth.messages.invalid_credentials',
 	INVALID_EMAIL: 'auth.messages.invalid_credentials',
 	INVALID_PASSWORD: 'auth.messages.invalid_credentials',
+	CREDENTIAL_ACCOUNT_NOT_FOUND: 'auth.messages.credential_account_not_found',
+
+	// Account
 	USER_ALREADY_EXISTS: 'auth.messages.user_already_exists',
+	USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL: 'auth.messages.user_already_exists',
 	EMAIL_NOT_VERIFIED: 'auth.messages.email_not_verified',
+
+	// Token
 	INVALID_TOKEN: 'auth.messages.invalid_token',
-	PASSWORD_COMPROMISED: 'auth.messages.password_compromised',
-	TOO_MANY_ATTEMPTS: 'auth.messages.too_many_attempts',
-	RATE_LIMITED: 'auth.messages.rate_limited',
-	SIGNUP_DISABLED: 'auth.messages.signup_disabled',
-	AUTH_CANCELLED: 'auth.messages.auth_cancelled',
-	BAD_REQUEST: 'auth.messages.generic_error',
-	UNKNOWN: 'auth.messages.generic_error',
-	INVALID_CALLBACK_REQUEST: 'auth.messages.oauth_failed',
-	STATE_NOT_FOUND: 'auth.messages.oauth_failed',
-	STATE_MISMATCH: 'auth.messages.oauth_failed',
-	ACCOUNT_ALREADY_LINKED_TO_DIFFERENT_USER: 'auth.messages.oauth_failed',
-	"EMAIL_DOESN'T_MATCH": 'auth.messages.oauth_failed',
-	EMAIL_NOT_FOUND: 'auth.messages.oauth_failed',
-	NO_CALLBACK_URL: 'auth.messages.oauth_failed',
-	NO_CODE: 'auth.messages.oauth_failed',
-	OAUTH_PROVIDER_NOT_FOUND: 'auth.messages.oauth_failed',
-	UNABLE_TO_LINK_ACCOUNT: 'auth.messages.oauth_failed',
-	UNABLE_TO_GET_USER_INFO: 'auth.messages.oauth_failed'
+
+	// Password validation
+	PASSWORD_TOO_SHORT: 'auth.messages.password_too_short',
+	PASSWORD_TOO_LONG: 'auth.messages.password_too_long',
+
+	// OAuth/social
+	PROVIDER_NOT_FOUND: 'auth.messages.oauth_failed',
+	SOCIAL_ACCOUNT_ALREADY_LINKED: 'auth.messages.oauth_failed',
+	LINKED_ACCOUNT_ALREADY_EXISTS: 'auth.messages.oauth_failed',
+	FAILED_TO_GET_USER_INFO: 'auth.messages.oauth_failed',
+	USER_EMAIL_NOT_FOUND: 'auth.messages.oauth_failed',
+	EMAIL_MISMATCH: 'auth.messages.oauth_failed',
+
+	// Passkey (@better-auth/passkey plugin)
+	AUTH_CANCELLED: 'auth.messages.passkey_cancelled',
+	CHALLENGE_NOT_FOUND: 'auth.messages.passkey_failed',
+	PASSKEY_NOT_FOUND: 'auth.messages.passkey_failed',
+	AUTHENTICATION_FAILED: 'auth.messages.passkey_failed',
+	FAILED_TO_VERIFY_REGISTRATION: 'auth.messages.passkey_add_failed',
+	YOU_ARE_NOT_ALLOWED_TO_REGISTER_THIS_PASSKEY: 'auth.messages.passkey_add_failed',
+
+	// Server errors
+	FAILED_TO_CREATE_USER: 'auth.messages.signup_failed',
+	FAILED_TO_CREATE_SESSION: 'auth.messages.generic_error',
+	USER_NOT_FOUND: 'auth.messages.generic_error'
 };
 
 export const DEFAULT_AUTH_ERROR_KEY = 'auth.messages.generic_error';

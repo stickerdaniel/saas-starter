@@ -12,6 +12,7 @@
 	import { getChatUIContext } from './ChatContext.svelte.js';
 	import ChatMessage from './ChatMessage.svelte';
 	import type { DisplayMessage, Attachment } from '../core/types.js';
+	import { mode } from 'mode-watcher';
 
 	/**
 	 * File metadata for dimension lookup
@@ -61,6 +62,8 @@
 
 	$effect(() => {
 		if (!wrapperEl) return;
+		// Re-run when the color mode changes so the gradient matches the new theme background
+		void mode.current;
 		// Walk up to find the first ancestor with a non-transparent background
 		let el: HTMLElement | null = wrapperEl;
 		while (el) {
@@ -91,8 +94,8 @@
 	 */
 	function isFirstInGroup(index: number, messages: DisplayMessage[]): boolean {
 		if (index === 0) return true;
-		const currentSender = getSenderType(messages[index]);
-		const previousSender = getSenderType(messages[index - 1]);
+		const currentSender = getSenderType(messages[index]!);
+		const previousSender = getSenderType(messages[index - 1]!);
 		return currentSender !== previousSender;
 	}
 

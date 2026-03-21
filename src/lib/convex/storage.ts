@@ -1,5 +1,5 @@
 import { mutation } from './_generated/server';
-import { v } from 'convex/values';
+import { v, ConvexError } from 'convex/values';
 import { PROFILE_IMAGE_ALLOWED_TYPES, PROFILE_IMAGE_MAX_SIZE } from './constants';
 import { authComponent } from './auth';
 import { components } from './_generated/api';
@@ -18,7 +18,7 @@ export const generateUploadUrl = mutation({
 	handler: async (ctx) => {
 		const user = await authComponent.getAuthUser(ctx);
 		if (!user) {
-			throw new Error('Unauthorized');
+			throw new ConvexError('Unauthorized');
 		}
 		return await ctx.runMutation(components.convexFilesControl.upload.generateUploadUrl, {
 			provider: 'convex'
@@ -47,18 +47,18 @@ export const updateProfileImage = mutation({
 		if (!user) {
 			// Clean up orphaned storage before rejecting
 			await ctx.storage.delete(args.storageId);
-			throw new Error('Unauthorized');
+			throw new ConvexError('Unauthorized');
 		}
 
 		const metadata = await ctx.db.system.get(args.storageId);
 		if (!metadata) {
-			throw new Error('File not found');
+			throw new ConvexError('File not found');
 		}
 
 		// Validate MIME type
 		if (!metadata.contentType || !PROFILE_IMAGE_ALLOWED_TYPES.includes(metadata.contentType)) {
 			await ctx.storage.delete(args.storageId);
-			throw new Error(
+			throw new ConvexError(
 				`Invalid file type. Allowed types: ${PROFILE_IMAGE_ALLOWED_TYPES.join(', ')}`
 			);
 		}
@@ -66,7 +66,9 @@ export const updateProfileImage = mutation({
 		// Validate file size
 		if (metadata.size > PROFILE_IMAGE_MAX_SIZE) {
 			await ctx.storage.delete(args.storageId);
-			throw new Error(`File too large. Maximum size: ${PROFILE_IMAGE_MAX_SIZE / 1024 / 1024}MB`);
+			throw new ConvexError(
+				`File too large. Maximum size: ${PROFILE_IMAGE_MAX_SIZE / 1024 / 1024}MB`
+			);
 		}
 
 		// Register with files-control, clean up storage on failure

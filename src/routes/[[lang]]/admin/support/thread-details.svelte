@@ -14,10 +14,15 @@
 	import { haptic } from '$lib/hooks/use-haptic.svelte';
 	import { toast } from 'svelte-sonner';
 	import { T, getTranslate } from '@tolgee/svelte';
-	import { motion } from 'motion-sv';
+
+	import { formatDistanceToNow } from 'date-fns';
+	import { type Locale, de, es, fr } from 'date-fns/locale';
+	import { page } from '$app/state';
 
 	const { t } = getTranslate();
-	import { formatDistanceToNow } from 'date-fns';
+
+	const dateFnsLocaleMap: Record<string, Locale> = { de, es, fr };
+	const dateFnsLocale = $derived(dateFnsLocaleMap[page.data.lang] ?? undefined);
 
 	let {
 		threadId
@@ -206,7 +211,7 @@
 								class="flex items-center gap-2 text-sm text-primary hover:underline"
 							>
 								<span class="truncate">{thread.supportMetadata.notificationEmail}</span>
-								<ExternalLinkIcon class="size-3 flex-shrink-0" />
+								<ExternalLinkIcon class="size-3 shrink-0" />
 							</a>
 						</Field.Field>
 					{/if}
@@ -223,7 +228,7 @@
 								class="flex items-center gap-2 text-sm text-primary hover:underline"
 							>
 								<span class="truncate">{thread.supportMetadata.pageUrl}</span>
-								<ExternalLinkIcon class="size-3 flex-shrink-0" />
+								<ExternalLinkIcon class="size-3 shrink-0" />
 							</a>
 							<!-- eslint-enable svelte/no-navigation-without-resolve -->
 						</Field.Field>
@@ -253,12 +258,7 @@
 
 							<!-- Notes List -->
 							{#if notesQuery.data?.page && notesQuery.data.page.length > 0}
-								<motion.div
-									initial={{ opacity: 0, y: 6, filter: 'blur(6px)' }}
-									animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-									transition={{ duration: 0.4, ease: 'easeOut' }}
-									class="mt-4 space-y-2"
-								>
+								<div class="mt-4 animate-enter-blur-up space-y-2">
 									{#each notesQuery.data.page as note (note._id)}
 										<div class="rounded-md bg-muted p-3">
 											<div class="mb-1 flex items-center justify-between">
@@ -266,13 +266,16 @@
 													>{note.adminName || $t('admin.support.fallback.admin')}</span
 												>
 												<span class="text-xs text-muted-foreground">
-													{formatDistanceToNow(new Date(note.createdAt), { addSuffix: true })}
+													{formatDistanceToNow(new Date(note.createdAt), {
+														locale: dateFnsLocale,
+														addSuffix: true
+													})}
 												</span>
 											</div>
 											<p class="text-sm">{note.content}</p>
 										</div>
 									{/each}
-								</motion.div>
+								</div>
 							{/if}
 						</Field.Field>
 					{:else}

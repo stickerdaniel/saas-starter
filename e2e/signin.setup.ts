@@ -26,6 +26,8 @@ setup('signin with regular user credentials', async ({ page }) => {
 	// Go to signin page and wait for form to be ready
 	await page.goto('/signin');
 	await expect(page.locator('[data-testid="email-input"]')).toBeVisible({ timeout: 30000 });
+	await expect(page.locator('[data-testid="email-input"]')).toBeEnabled({ timeout: 30000 });
+	await expect(page.locator('[data-testid="signin-button"]')).toBeEnabled({ timeout: 30000 });
 
 	// Fill in credentials using data-testid attributes
 	await page.fill('[data-testid="email-input"]', email);

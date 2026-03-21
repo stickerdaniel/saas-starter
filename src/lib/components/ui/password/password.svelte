@@ -8,6 +8,7 @@
 		ref = $bindable(null),
 		hidden = $bindable(true),
 		minScore = 3,
+		validationMessage = 'Password is too weak',
 		class: className,
 		children
 	}: PasswordRootProps = $props();
@@ -17,7 +18,8 @@
 			() => hidden,
 			(v) => (hidden = v)
 		),
-		minScore: box.with(() => minScore)
+		minScore: box.with(() => minScore),
+		validationMessage: box.with(() => validationMessage)
 	});
 </script>
 

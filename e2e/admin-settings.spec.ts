@@ -11,17 +11,12 @@ test.describe('Admin Settings Page', () => {
 	test.beforeEach(async ({ page }) => {
 		// Navigate to admin settings page
 		await page.goto('/admin/settings');
-		await page.waitForLoadState('networkidle');
-
-		// Debug: log current URL and page title
-		console.log('Current URL:', page.url());
-		console.log('Page title:', await page.title());
+		await page.waitForLoadState('domcontentloaded');
 	});
 
 	test('displays recipients table', async ({ page }) => {
 		// Debug: take screenshot
 		await page.screenshot({ path: 'test-results/admin-settings-debug.png' });
-		console.log('Page HTML:', await page.content());
 
 		// Verify page loads
 		await expect(page.getByTestId('admin-settings-page')).toBeVisible();

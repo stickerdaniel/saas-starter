@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import * as v from 'valibot';
 	import SEOHead from '$lib/components/SEOHead.svelte';
 	import * as Card from '$lib/components/ui/card/index.js';
@@ -21,6 +22,7 @@
 	const { t } = getTranslate();
 	const auth = useAuth();
 
+	let hydrated = $state(false);
 	let isLoading = $state(false);
 	let message = $state<string | null>(null);
 	let formError = $state<string | null>(null);
@@ -33,6 +35,7 @@
 
 	// Form data
 	let formData = $state({ password: '', confirmPassword: '' });
+	const isFormDisabled = $derived(isLoading || !!message || !hydrated);
 
 	// Field errors
 	let errors = $state<Record<string, string[]>>({});
@@ -66,6 +69,10 @@
 	const passwordParams = {
 		'validation.password.min_length': { count: PASSWORD_MIN_LENGTH }
 	};
+
+	onMount(() => {
+		hydrated = true;
+	});
 
 	// Redirect when already authenticated
 	$effect(() => {
@@ -207,7 +214,7 @@
 										data-testid="reset-password-password-input"
 										autocomplete="new-password"
 										placeholder="••••••••"
-										disabled={isLoading || !!message}
+										disabled={isFormDisabled}
 										bind:value={formData.password}
 									>
 										<Password.ToggleVisibility />
@@ -231,7 +238,7 @@
 									type="password"
 									autocomplete="new-password"
 									placeholder="••••••••"
-									disabled={isLoading || !!message}
+									disabled={isFormDisabled}
 									bind:value={formData.confirmPassword}
 								/>
 								<Field.Error errors={translateValidationErrors(errors.confirmPassword, $t)} />
@@ -241,7 +248,7 @@
 									type="submit"
 									data-testid="reset-password-submit-button"
 									class="w-full"
-									disabled={isLoading || !!message}
+									disabled={isFormDisabled}
 								>
 									{#if isLoading}
 										<T keyName="auth.reset_password.button_loading" defaultValue="Resetting..." />

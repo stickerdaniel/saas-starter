@@ -1,4 +1,4 @@
-import { v } from 'convex/values';
+import { v, ConvexError } from 'convex/values';
 import type { MutationCtx } from '../../_generated/server';
 import { adminMutation } from '../../functions';
 
@@ -60,12 +60,12 @@ export const updateConfig = adminMutation({
 		const body = args.body.trim();
 		const replyTo = args.replyTo?.trim() || undefined;
 
-		if (!name) throw new Error('Name cannot be empty');
-		if (!title) throw new Error('Title cannot be empty');
-		if (!subject) throw new Error('Subject cannot be empty');
-		if (!body) throw new Error('Body cannot be empty');
+		if (!name) throw new ConvexError('Name cannot be empty');
+		if (!title) throw new ConvexError('Title cannot be empty');
+		if (!subject) throw new ConvexError('Subject cannot be empty');
+		if (!body) throw new ConvexError('Body cannot be empty');
 		if (replyTo && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(replyTo)) {
-			throw new Error('Invalid reply-to email address');
+			throw new ConvexError('Invalid reply-to email address');
 		}
 
 		// Set this admin as contact person
@@ -115,7 +115,7 @@ export const stepDown = adminMutation({
 			.unique();
 
 		if (!contactSetting || contactSetting.value !== ctx.user._id) {
-			throw new Error('Only the current contact person can step down');
+			throw new ConvexError('Only the current contact person can step down');
 		}
 
 		await deleteSetting(ctx, 'founderWelcome.contactUserId');

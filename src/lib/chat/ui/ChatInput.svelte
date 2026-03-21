@@ -225,6 +225,7 @@
 			{placeholder}
 			class="min-h-[44px] pt-3 pl-4 text-base leading-[1.3]"
 			onpaste={handlePaste}
+			maxlength={2000}
 		/>
 
 		<PromptInputActions class="mt-5 flex w-full items-center justify-between gap-2 px-3 pb-3">
@@ -305,11 +306,11 @@
 						size="icon"
 						disabled={!canSend}
 						onclick={handleSend}
-						class="size-9 flex-shrink-0 rounded-full"
+						class="size-9 shrink-0 rounded-full"
 						aria-label={$t('chat.aria.send')}
 					>
 						{#if ctx.isProcessing && !isHandedOff}
-							<LoaderCircleIcon class="h-[18px] w-[18px] animate-spin" />
+							<LoaderCircleIcon class="h-[18px] w-[18px] motion-safe:animate-spin" />
 						{:else}
 							<ArrowUpIcon class="h-[18px] w-[18px]" />
 						{/if}

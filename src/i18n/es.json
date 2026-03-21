@@ -557,6 +557,7 @@
 		},
 		"support": {
 			"all_statuses": "Todos los estados",
+			"anonymous": "Anónimo",
 			"assignee": {
 				"not_assigned": "No asignado",
 				"unassigned": "Sin asignar"
@@ -591,6 +592,7 @@
 			},
 			"no_chats": "No se encontraron chats",
 			"no_done_chats": "No hay chats completados",
+			"no_email": "Sin correo electrónico",
 			"no_open_chats": "No hay chats abiertos",
 			"note": {
 				"add": "Agregar nota",
@@ -603,6 +605,8 @@
 				"medium": "Media",
 				"none": "Ninguna"
 			},
+			"filter_showing_completed": "Mostrando hilos completados, haga clic para ver los abiertos",
+			"filter_showing_open": "Mostrando hilos abiertos, haga clic para ver los completados",
 			"search": {
 				"placeholder": "Buscar chats..."
 			},
@@ -623,6 +627,7 @@
 				"no_messages": "Sin mensajes",
 				"retry": "Reintentar"
 			},
+			"threads_title": "Hilos de Soporte",
 			"title": "Chats de Soporte"
 		},
 		"title": "Panel de Admin",
@@ -788,7 +793,7 @@
 		"login": "Iniciar sesión",
 		"logout": "Cerrar sesión",
 		"messages": {
-			"auth_cancelled": "La autenticación fue cancelada",
+			"credential_account_not_found": "No se encontró cuenta con contraseña. Intenta iniciar sesión con tu proveedor social.",
 			"email_change_failed": "No se pudo cambiar el correo",
 			"email_not_verified": "Por favor verifica tu correo electrónico",
 			"email_same_as_current": "El nuevo correo debe ser diferente al actual",
@@ -801,21 +806,20 @@
 			"oauth_failed": "El inicio de sesión social falló. Inténtalo de nuevo.",
 			"passkey_add_failed": "No se pudo agregar la passkey",
 			"passkey_added": "Passkey agregada correctamente",
+			"passkey_cancelled": "Se canceló el inicio de sesión con passkey",
 			"passkey_delete_failed": "No se pudo eliminar la passkey",
 			"passkey_deleted": "Passkey eliminada",
 			"passkey_failed": "La autenticación con passkey falló",
 			"passkey_load_failed": "No se pudieron cargar las passkeys",
 			"password_change_failed": "No se pudo cambiar la contraseña",
 			"password_changed": "Contraseña cambiada correctamente",
-			"password_compromised": "Esta contraseña está comprometida",
 			"password_reset_success": "Tu contraseña se restableció correctamente.",
-			"rate_limited": "Demasiadas solicitudes. Inténtalo más tarde.",
+			"password_too_long": "La contraseña es demasiado larga",
+			"password_too_short": "La contraseña es demasiado corta",
 			"request_reset_failed": "No se pudo solicitar el restablecimiento de contraseña",
 			"reset_failed": "No se pudo restablecer la contraseña",
 			"reset_link_sent": "Revisa tu correo para el enlace de restablecimiento.",
-			"signup_disabled": "El registro está deshabilitado",
 			"signup_failed": "No se pudo crear la cuenta",
-			"too_many_attempts": "Demasiados intentos. Inténtalo más tarde.",
 			"user_already_exists": "Ya existe una cuenta con este correo electrónico"
 		},
 		"reset_password": {
@@ -885,6 +889,7 @@
 	"backend": {
 		"files": {
 			"fetch_failed": "No se pudo recuperar el archivo subido. Por favor intenta subirlo de nuevo.",
+			"file_too_large": "Archivo demasiado grande: {size} supera el máximo de {max}",
 			"type_not_allowed": "Tipo de archivo no permitido. Soportados: PNG, JPEG, WebP, GIF, PDF"
 		},
 		"support": {

@@ -111,7 +111,7 @@ export function extractLocaleFromUrl(url: string | null | undefined): SupportedL
 		// Extract the first path segment after the leading slash
 		const match = pathname.match(/^\/([a-z]{2})(?:\/|$)/i);
 		if (match) {
-			const potentialLocale = match[1].toLowerCase();
+			const potentialLocale = match[1]?.toLowerCase();
 			if (SUPPORTED_LOCALES.includes(potentialLocale as SupportedLocale)) {
 				return potentialLocale as SupportedLocale;
 			}

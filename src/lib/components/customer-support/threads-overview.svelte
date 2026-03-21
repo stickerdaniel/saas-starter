@@ -48,6 +48,7 @@
 
 	// Placeholder avatars with grayscale filter when not enough admins
 	const placeholderAvatars = [memberFour, memberTwo, memberFive];
+	const showBotIcon = $derived(adminUsers.length < 3);
 
 	/**
 	 * Select avatars to display based on admin count:
@@ -109,7 +110,7 @@
 	// This ensures we wait for the actual admin images, not placeholders shown before data loads
 	const imageUrlsToLoad = $derived.by(() => {
 		if (!isAdminDataLoaded) return [];
-		return displayAvatars.map((a) => a.src);
+		return displayAvatars.map((a) => a.src).filter((url): url is string => !!url);
 	});
 
 	// All images are ready when every required URL is preloaded
@@ -235,21 +236,13 @@
 
 						<!-- Avatars: Admin avatars or grayscale placeholders -->
 						{#each displayAvatars as avatar, i (i)}
+							{@const delay = showBotIcon ? 0.15 + i * 0.05 : 0.1 + i * 0.05}
 							<motion.div
 								initial={{ opacity: 0, y: 20 }}
 								animate={allImagesLoaded ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
 								transition={{
-									opacity: {
-										duration: 0.2,
-										delay: adminUsers.length < 3 ? 0.15 + i * 0.05 : 0.1 + i * 0.05
-									},
-									y: {
-										type: 'spring',
-										stiffness: 260,
-										damping: 12,
-										mass: 0.8,
-										delay: adminUsers.length < 3 ? 0.15 + i * 0.05 : 0.1 + i * 0.05
-									}
+									opacity: { duration: 0.2, delay },
+									y: { type: 'spring', stiffness: 260, damping: 12, mass: 0.8, delay }
 								}}
 							>
 								<Avatar class="size-12 outline outline-4 outline-secondary">

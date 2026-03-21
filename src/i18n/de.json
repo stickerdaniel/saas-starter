@@ -557,6 +557,7 @@
 		},
 		"support": {
 			"all_statuses": "Alle Status",
+			"anonymous": "Anonym",
 			"assignee": {
 				"not_assigned": "Nicht zugewiesen",
 				"unassigned": "Nicht zugewiesen"
@@ -591,6 +592,7 @@
 			},
 			"no_chats": "Keine Chats gefunden",
 			"no_done_chats": "Keine abgeschlossenen Chats",
+			"no_email": "Keine E-Mail",
 			"no_open_chats": "Keine offenen Chats",
 			"note": {
 				"add": "Notiz hinzufügen",
@@ -603,6 +605,8 @@
 				"medium": "Mittel",
 				"none": "Keine"
 			},
+			"filter_showing_completed": "Zeigt abgeschlossene Threads, klicken um offene anzuzeigen",
+			"filter_showing_open": "Zeigt offene Threads, klicken um abgeschlossene anzuzeigen",
 			"search": {
 				"placeholder": "Chats suchen..."
 			},
@@ -623,6 +627,7 @@
 				"no_messages": "Keine Nachrichten",
 				"retry": "Erneut versuchen"
 			},
+			"threads_title": "Support-Threads",
 			"title": "Support-Chats"
 		},
 		"title": "Admin-Bereich",
@@ -788,7 +793,7 @@
 		"login": "Anmelden",
 		"logout": "Abmelden",
 		"messages": {
-			"auth_cancelled": "Authentifizierung abgebrochen",
+			"credential_account_not_found": "Kein Passwortkonto gefunden. Versuchen Sie die Anmeldung mit Ihrem sozialen Anbieter.",
 			"email_change_failed": "E-Mail konnte nicht geändert werden",
 			"email_not_verified": "Bitte bestätigen Sie Ihre E-Mail-Adresse",
 			"email_same_as_current": "Neue E-Mail muss sich von der aktuellen E-Mail unterscheiden",
@@ -801,21 +806,20 @@
 			"oauth_failed": "Soziale Anmeldung fehlgeschlagen. Bitte versuchen Sie es erneut.",
 			"passkey_add_failed": "Passkey konnte nicht hinzugefügt werden",
 			"passkey_added": "Passkey erfolgreich hinzugefügt",
+			"passkey_cancelled": "Passkey-Anmeldung wurde abgebrochen",
 			"passkey_delete_failed": "Passkey konnte nicht gelöscht werden",
 			"passkey_deleted": "Passkey gelöscht",
 			"passkey_failed": "Passkey-Authentifizierung fehlgeschlagen",
 			"passkey_load_failed": "Passkeys konnten nicht geladen werden",
 			"password_change_failed": "Passwort konnte nicht geändert werden",
 			"password_changed": "Passwort erfolgreich geändert",
-			"password_compromised": "Dieses Passwort wurde kompromittiert",
 			"password_reset_success": "Ihr Passwort wurde erfolgreich zurückgesetzt.",
-			"rate_limited": "Zu viele Anfragen. Bitte versuchen Sie es später erneut.",
+			"password_too_long": "Passwort ist zu lang",
+			"password_too_short": "Passwort ist zu kurz",
 			"request_reset_failed": "Passwort-Reset konnte nicht angefordert werden",
 			"reset_failed": "Passwort konnte nicht zurückgesetzt werden",
 			"reset_link_sent": "Bitte prüfen Sie Ihre E-Mail für den Reset-Link.",
-			"signup_disabled": "Registrierung ist deaktiviert",
 			"signup_failed": "Konto konnte nicht erstellt werden",
-			"too_many_attempts": "Zu viele Versuche. Bitte versuchen Sie es später erneut.",
 			"user_already_exists": "Ein Konto mit dieser E-Mail existiert bereits"
 		},
 		"reset_password": {
@@ -885,6 +889,7 @@
 	"backend": {
 		"files": {
 			"fetch_failed": "Die hochgeladene Datei konnte nicht abgerufen werden. Bitte versuchen Sie es erneut.",
+			"file_too_large": "Datei zu groß: {size} überschreitet das Maximum von {max}",
 			"type_not_allowed": "Dateityp nicht erlaubt. Unterstützt: PNG, JPEG, WebP, GIF, PDF"
 		},
 		"support": {

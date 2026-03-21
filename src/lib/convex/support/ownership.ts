@@ -1,3 +1,4 @@
+import { ConvexError } from 'convex/values';
 import { components } from '../_generated/api';
 import type { MutationCtx, QueryCtx } from '../_generated/server';
 import { authComponent } from '../auth';
@@ -41,7 +42,7 @@ export async function requireSupportOwnerIdentity(
 ): Promise<SupportOwnerIdentity> {
 	const identity = await getSupportOwnerIdentity(ctx, anonymousUserId);
 	if (!identity) {
-		throw new Error('Authentication required');
+		throw new ConvexError('Authentication required');
 	}
 	return identity;
 }
@@ -59,7 +60,7 @@ export async function assertThreadOwnership(
 	const owner = await requireSupportOwnerIdentity(ctx, args.anonymousUserId);
 
 	if (thread.userId !== owner.ownerId) {
-		throw new Error("Unauthorized: Cannot access another user's thread");
+		throw new ConvexError("Unauthorized: Cannot access another user's thread");
 	}
 
 	return { thread, owner };
@@ -81,7 +82,7 @@ export async function assertMessageOwnership(
 	})) as Array<AgentMessageLookupResult | null>;
 
 	if (!message) {
-		throw new Error('Message not found');
+		throw new ConvexError('Message not found');
 	}
 
 	const { thread, owner } = await assertThreadOwnership(ctx, {

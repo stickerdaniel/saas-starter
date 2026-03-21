@@ -117,18 +117,22 @@ function joinText(parts: UIMessage['parts']): string {
 }
 
 /**
+ * Safely extract textual reasoning from a reasoning part.
+ *
+ * AI SDK part shapes can include reasoning entries without a textual payload yet.
+ */
+function getReasoningText(part: MessagePart): string {
+	if (part.type !== 'reasoning') return '';
+	const text = (part as ReasoningUIPart).text;
+	return typeof text === 'string' ? text : '';
+}
+
+/**
  * Extract reasoning content from message parts
  */
 export function extractReasoning(parts: MessagePart[] | undefined): string {
 	if (!parts) return '';
-	return parts
-		.map((part) => {
-			if (part.type === 'reasoning') {
-				return (part as ReasoningUIPart).text;
-			}
-			return '';
-		})
-		.join('');
+	return parts.map((part) => getReasoningText(part)).join('');
 }
 
 /**
@@ -212,6 +216,15 @@ export function updateFromTextStreamParts(
 	const textPartsById = new Map<string, TextUIPart>();
 	const reasoningPartsById = new Map<string, ReasoningUIPart>();
 
+	for (const existingPart of message.parts) {
+		if (
+			existingPart.type === 'reasoning' &&
+			typeof (existingPart as any).streamPartId === 'string'
+		) {
+			reasoningPartsById.set((existingPart as any).streamPartId, existingPart as ReasoningUIPart);
+		}
+	}
+
 	for (const part of parts) {
 		switch (part.type) {
 			case 'text-start':
@@ -243,24 +256,19 @@ export function updateFromTextStreamParts(
 			case 'reasoning-start':
 			case 'reasoning-delta': {
 				if (!reasoningPartsById.has(part.id)) {
-					const lastPart = message.parts.at(-1);
-					if (lastPart?.type === 'reasoning') {
-						reasoningPartsById.set(part.id, lastPart as ReasoningUIPart);
-					} else {
-						const newPart = {
-							type: 'reasoning',
-							text: '',
-							state: 'streaming',
-							providerMetadata: part.providerMetadata
-						} satisfies ReasoningUIPart;
-						reasoningPartsById.set(part.id, newPart);
-
-						message.parts.push(newPart);
-					}
+					const newPart = {
+						type: 'reasoning',
+						text: '',
+						state: 'streaming',
+						providerMetadata: part.providerMetadata,
+						streamPartId: part.id
+					} satisfies ReasoningUIPart & { streamPartId: string };
+					reasoningPartsById.set(part.id, newPart);
+					message.parts.push(newPart);
 				}
 				if (part.type === 'reasoning-delta') {
 					const reasoningPart = reasoningPartsById.get(part.id)!;
-					reasoningPart.text += part.text;
+					reasoningPart.text = (reasoningPart.text ?? '') + part.text;
 					reasoningPart.providerMetadata = mergeProviderMetadata(
 						reasoningPart.providerMetadata,
 						part.providerMetadata

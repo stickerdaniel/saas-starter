@@ -48,3 +48,6 @@ references/
 
 .opencode/plans
 .eslintcache
+
+# local convex dev deployment
+.convex

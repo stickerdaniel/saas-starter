@@ -1,5 +1,5 @@
 import { action, internalMutation } from './_generated/server';
-import { v } from 'convex/values';
+import { v, ConvexError } from 'convex/values';
 import { autumn } from './autumn';
 import { components, internal } from './_generated/api';
 import { authComponent } from './auth';
@@ -83,7 +83,7 @@ export const send = action({
 	handler: async (ctx, { body }) => {
 		const user = await authComponent.getAuthUser(ctx);
 		if (!user) {
-			throw new Error('Not signed in');
+			throw new ConvexError('Not signed in');
 		}
 		const userId = user._id;
 

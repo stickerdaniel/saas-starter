@@ -379,7 +379,7 @@ export const sendFounderWelcomeEmail = internalMutation({
 		// Render plain text with {{placeholder}} interpolation
 		const parts = (name?.trim() || 'there').split(/\s+/);
 		const templateVars: Record<string, string> = {
-			userFirstName: parts[0],
+			userFirstName: parts[0] ?? '',
 			userLastName: parts.slice(1).join(' '),
 			founderName: config.name,
 			founderTitle: config.title

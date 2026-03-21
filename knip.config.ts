@@ -65,8 +65,6 @@ export default {
 		'marked',
 		'konva',
 		'svelte-konva',
-		// CLI tool, not a runtime dependency
-		'vercel',
 		// Used by autumn integration in Convex
 		'autumn-js',
 		'atmn',
@@ -74,9 +72,6 @@ export default {
 		'@useautumn/convex',
 		// Used by Better Auth internally
 		'@oslojs/crypto',
-		// Testing libraries — used in test files
-		'@testing-library/jest-dom',
-		'@testing-library/svelte',
 		// Type definitions for d3 (used by chart scaffolding)
 		'@types/d3-scale',
 		'@types/d3-shape',

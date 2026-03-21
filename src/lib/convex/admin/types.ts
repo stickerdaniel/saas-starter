@@ -56,7 +56,7 @@ export type AuditMetadata =
 export const auditMetadataValidator = v.optional(
 	v.union(
 		v.object({ reason: v.string() }), // ban_user, unban_user
-		v.object({ newRole: v.string(), previousRole: v.string() }), // set_role
+		v.object({ newRole: roleValidator, previousRole: roleValidator }), // set_role
 		v.object({}) // other actions
 	)
 );

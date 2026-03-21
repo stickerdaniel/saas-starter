@@ -83,7 +83,7 @@ export class ChatContainerContext {
 
 		this.#intersectionObserver = new IntersectionObserver(
 			(entries) => {
-				const entry = entries[0];
+				const entry = entries[0]!;
 				if (entry.isIntersecting && !this.#userHasScrolled) {
 					this.#isAtBottom = true;
 				}
