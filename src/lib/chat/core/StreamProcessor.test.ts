@@ -196,7 +196,7 @@ describe('extractReasoning', () => {
 });
 
 describe('deriveUIMessagesFromTextStreamParts', () => {
-	it('appends repeated reasoning delta ids into one logical reasoning part', () => {
+	it('appends repeated reasoning delta ids into one logical reasoning part (TextStreamPart format)', () => {
 		const [messages] = deriveUIMessagesFromTextStreamParts(
 			'thread-1',
 			[createStreamMessage({ streamId: 'stream-1', order: 1, stepOrder: 0 })],
@@ -226,6 +226,104 @@ describe('deriveUIMessagesFromTextStreamParts', () => {
 		expect(messages).toHaveLength(1);
 		expect(messages[0]!.parts?.filter((part) => part.type === 'reasoning')).toHaveLength(1);
 		expect(extractReasoning(messages[0]!.parts as MessagePart[])).toBe('First second');
+	});
+
+	it('handles UIMessageChunk format where text content is in delta field', () => {
+		const [messages] = deriveUIMessagesFromTextStreamParts(
+			'thread-1',
+			[createStreamMessage({ streamId: 'stream-1', order: 1, stepOrder: 0 })],
+			[],
+			[
+				{
+					streamId: 'stream-1',
+					start: 0,
+					end: 1,
+					parts: [{ type: 'text-start', id: 'text-1' }]
+				},
+				{
+					streamId: 'stream-1',
+					start: 1,
+					end: 2,
+					parts: [{ type: 'text-delta', id: 'text-1', delta: 'Hello ' }]
+				},
+				{
+					streamId: 'stream-1',
+					start: 2,
+					end: 3,
+					parts: [{ type: 'text-delta', id: 'text-1', delta: 'world' }]
+				}
+			] as any
+		);
+
+		expect(messages).toHaveLength(1);
+		expect(messages[0]!.text).toBe('Hello world');
+	});
+
+	it('handles UIMessageChunk format for reasoning deltas (delta field)', () => {
+		const [messages] = deriveUIMessagesFromTextStreamParts(
+			'thread-1',
+			[createStreamMessage({ streamId: 'stream-1', order: 1, stepOrder: 0 })],
+			[],
+			[
+				{
+					streamId: 'stream-1',
+					start: 0,
+					end: 1,
+					parts: [{ type: 'reasoning-start', id: 'reason-1' }]
+				},
+				{
+					streamId: 'stream-1',
+					start: 1,
+					end: 2,
+					parts: [{ type: 'reasoning-delta', id: 'reason-1', delta: 'Thinking ' }]
+				},
+				{
+					streamId: 'stream-1',
+					start: 2,
+					end: 3,
+					parts: [{ type: 'reasoning-delta', id: 'reason-1', delta: 'about it' }]
+				}
+			] as any
+		);
+
+		expect(messages).toHaveLength(1);
+		expect(extractReasoning(messages[0]!.parts as MessagePart[])).toBe('Thinking about it');
+	});
+
+	it('does NOT produce "undefined" strings when delta parts lack a text field', () => {
+		// This is the exact bug scenario: UIMessageChunk format parts have `delta`
+		// field but no `text` field. Without the fix, part.text would be undefined
+		// and string concatenation would produce literal "undefined" strings.
+		const [messages] = deriveUIMessagesFromTextStreamParts(
+			'thread-1',
+			[createStreamMessage({ streamId: 'stream-1', order: 1, stepOrder: 0 })],
+			[],
+			[
+				{
+					streamId: 'stream-1',
+					start: 0,
+					end: 1,
+					parts: [{ type: 'text-start', id: 'text-1' }]
+				},
+				{
+					streamId: 'stream-1',
+					start: 1,
+					end: 2,
+					// Simulates UIMessageChunk: has `delta` but no `text`
+					parts: [{ type: 'text-delta', id: 'text-1', delta: 'Hi' }]
+				},
+				{
+					streamId: 'stream-1',
+					start: 2,
+					end: 3,
+					parts: [{ type: 'text-delta', id: 'text-1', delta: ' there' }]
+				}
+			] as any
+		);
+
+		expect(messages).toHaveLength(1);
+		expect(messages[0]!.text).toBe('Hi there');
+		expect(messages[0]!.text).not.toContain('undefined');
 	});
 });
 
