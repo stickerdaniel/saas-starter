@@ -225,6 +225,7 @@ This project uses **PostHog** for product analytics with an optional **Cloudflar
 - Located in `e2e/` directory
 - Test users are automatically created with unique emails each run (via globalSetup) and deleted after tests (via globalTeardown)
 - Requires `.env.test` with: AUTH_E2E_TEST_SECRET (must match Convex backend) and PUBLIC_CONVEX_URL
+- `AuthenticatedLayout` sets `data-hydrated` on `<html>` in `onMount`; `waitForAuthenticated` in `e2e/utils/auth.ts` waits for it so clicks happen after Svelte hydration, not on inert SSR markup.
 - See `.env.schema` for all available env vars with types and descriptions
 
 #### `data-testid` convention
