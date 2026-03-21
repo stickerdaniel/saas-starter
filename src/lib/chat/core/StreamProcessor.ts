@@ -5,6 +5,12 @@
  * Processes streaming deltas into UIMessages with progressive text and reasoning.
  *
  * Based on @convex-dev/agent deltas processing.
+ *
+ * IMPORTANT: The @convex-dev/agent library stores stream deltas in two possible formats:
+ * - "UIMessageChunk" format: text/reasoning content is in a `delta` field
+ * - "TextStreamPart" format: text/reasoning content is in a `text` field
+ *
+ * When reading text from delta parts, always use getDeltaText() to handle both formats.
  */
 
 import type { TextStreamPart, ToolSet, ProviderMetadata } from 'ai';
@@ -17,6 +23,15 @@ import type {
 	TextUIPart,
 	StreamStatus
 } from './types.js';
+
+/**
+ * Extract text content from a stream delta part, handling both formats:
+ * - UIMessageChunk format: content is in `delta` field
+ * - TextStreamPart format: content is in `text` field
+ */
+function getDeltaText(part: { text?: string; delta?: string }): string {
+	return (part as { delta?: string }).delta ?? part.text ?? '';
+}
 
 /**
  * Create a blank UIMessage from stream metadata
@@ -245,7 +260,7 @@ export function updateFromTextStreamParts(
 				}
 				if (part.type === 'text-delta') {
 					const textPart = textPartsById.get(part.id)!;
-					textPart.text += part.text;
+					textPart.text += getDeltaText(part);
 					textPart.providerMetadata = mergeProviderMetadata(
 						textPart.providerMetadata,
 						part.providerMetadata
@@ -268,7 +283,7 @@ export function updateFromTextStreamParts(
 				}
 				if (part.type === 'reasoning-delta') {
 					const reasoningPart = reasoningPartsById.get(part.id)!;
-					reasoningPart.text = (reasoningPart.text ?? '') + part.text;
+					reasoningPart.text = (reasoningPart.text ?? '') + getDeltaText(part);
 					reasoningPart.providerMetadata = mergeProviderMetadata(
 						reasoningPart.providerMetadata,
 						part.providerMetadata
