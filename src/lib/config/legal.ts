@@ -13,3 +13,7 @@ export const LEGAL_CONFIG = {
 export function getLegalEmailAddress(): string {
 	return `${LEGAL_CONFIG.email.user}@${LEGAL_CONFIG.email.domain}.${LEGAL_CONFIG.email.tld}`;
 }
+
+export function getObfuscatedLegalEmailAddress(): string {
+	return `${LEGAL_CONFIG.email.user} [at] ${LEGAL_CONFIG.email.domain} [dot] ${LEGAL_CONFIG.email.tld}`;
+}
