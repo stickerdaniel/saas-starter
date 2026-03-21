@@ -145,8 +145,12 @@ export const saveUploadedFile = action({
 			const blob = await response.blob();
 
 			if (blob.size > MAX_SUPPORT_FILE_SIZE) {
+				const maxMB = Math.round(MAX_SUPPORT_FILE_SIZE / 1024 / 1024);
 				throw new ConvexError(
-					`File too large: ${(blob.size / 1024 / 1024).toFixed(1)}MB exceeds maximum of 5MB`
+					t(args.locale, 'backend.files.file_too_large', {
+						size: `${(blob.size / 1024 / 1024).toFixed(1)}MB`,
+						max: `${maxMB}MB`
+					})
 				);
 			}
 

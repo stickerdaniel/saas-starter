@@ -889,6 +889,7 @@
 	"backend": {
 		"files": {
 			"fetch_failed": "Failed to retrieve uploaded file. Please try uploading again.",
+			"file_too_large": "File too large: {size} exceeds maximum of {max}",
 			"type_not_allowed": "File type not allowed. Supported: PNG, JPEG, WebP, GIF, PDF"
 		},
 		"support": {

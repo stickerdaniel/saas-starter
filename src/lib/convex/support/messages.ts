@@ -1,5 +1,5 @@
 import { internalAction, internalMutation, mutation, query } from '../_generated/server';
-import { v } from 'convex/values';
+import { v, ConvexError } from 'convex/values';
 import { internal } from '../_generated/api';
 import { supportAgent } from './agent';
 import { paginationOptsValidator } from 'convex/server';
@@ -30,7 +30,7 @@ export const sendMessage = mutation({
 	},
 	handler: async (ctx, args) => {
 		if (args.prompt.length > 2000) {
-			throw new Error('Message is too long (max 2000 characters)');
+			throw new ConvexError('Message is too long (max 2000 characters)');
 		}
 
 		const { owner } = await assertThreadOwnership(ctx, {

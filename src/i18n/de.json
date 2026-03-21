@@ -889,6 +889,7 @@
 	"backend": {
 		"files": {
 			"fetch_failed": "Die hochgeladene Datei konnte nicht abgerufen werden. Bitte versuchen Sie es erneut.",
+			"file_too_large": "Datei zu groß: {size} überschreitet das Maximum von {max}",
 			"type_not_allowed": "Dateityp nicht erlaubt. Unterstützt: PNG, JPEG, WebP, GIF, PDF"
 		},
 		"support": {

@@ -889,6 +889,7 @@
 	"backend": {
 		"files": {
 			"fetch_failed": "Impossible de récupérer le fichier téléchargé. Veuillez réessayer.",
+			"file_too_large": "Fichier trop volumineux : {size} dépasse le maximum de {max}",
 			"type_not_allowed": "Type de fichier non autorisé. Formats supportés : PNG, JPEG, WebP, GIF, PDF"
 		},
 		"support": {

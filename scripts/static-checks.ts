@@ -4,6 +4,8 @@
  * Usage:
  *   bun scripts/static-checks.ts                      - Check all files, auto-fix (local dev)
  *   bun scripts/static-checks.ts --ci                  - Check all files, assert-only (CI)
+ *   bun scripts/static-checks.ts --ci --scope lint     - Linting checks only (CI job group)
+ *   bun scripts/static-checks.ts --ci --scope types    - Type checking only (CI job group)
  *   bun scripts/static-checks.ts --staged              - Check only staged files (pre-commit)
  *   bun scripts/static-checks.ts file1.ts file2.svelte - Check specific files
  *
@@ -11,6 +13,9 @@
  *   --ci      Assert mode: uses --check for formatting, omits --fix for ESLint.
  *             Requires misspell to be installed (fails if missing).
  *   --staged  Scope to git-staged files only. Auto-fixes and re-stages.
+ *   --scope   Run a subset of checks: "lint" (misspell, banned patterns, prettier,
+ *             eslint, oxlint) or "types" (build-emails, svelte-check).
+ *             Both groups run svelte-kit sync first. Omit to run all checks.
  */
 
 import { spawnSync, type SpawnSyncOptions } from 'child_process';
@@ -52,7 +57,8 @@ const { values, positionals } = parseArgs({
 	args: Bun.argv,
 	options: {
 		staged: { type: 'boolean', default: false },
-		ci: { type: 'boolean', default: false }
+		ci: { type: 'boolean', default: false },
+		scope: { type: 'string' }
 	},
 	strict: false,
 	allowPositionals: true
@@ -60,6 +66,17 @@ const { values, positionals } = parseArgs({
 
 const stagedOnly = values.staged ?? false;
 const ciMode = values.ci ?? false;
+const scope = values.scope as 'lint' | 'types' | undefined;
+
+if (scope && !['lint', 'types'].includes(scope)) {
+	console.error(
+		`${colors.red}Invalid --scope value: "${scope}". Use "lint" or "types".${colors.reset}`
+	);
+	process.exit(1);
+}
+
+const shouldRunLint = !scope || scope === 'lint';
+const shouldRunTypes = !scope || scope === 'types';
 // Skip first two positionals (bun runtime + script path)
 const positionalFiles = positionals.slice(2);
 
@@ -159,153 +176,164 @@ async function main(): Promise<void> {
 
 		({ jsTsSvelteFiles, formattableFiles, svelteFiles } = deriveFileSets(allFiles));
 	} else {
+		const scopeLabel = scope ? ` — ${scope} only` : '';
 		console.log('======================================================');
-		console.log('Static Checks (full project)');
+		console.log(`Static Checks (full project${scopeLabel})`);
 		console.log('======================================================\n');
 	}
 
-	// 1. SvelteKit sync
-	printHeader(1, 'SvelteKit sync');
+	let step = 1;
+
+	// SvelteKit sync (always runs — needed by both lint and types)
+	printHeader(step++, 'SvelteKit sync');
 	runCommand('bun', ['svelte-kit', 'sync']);
 	console.log('\n');
 
-	// 2. Spell checking
-	printHeader(2, 'Spell checking');
-	if (hasMisspell()) {
-		if (scopedMode) {
-			// Check scoped files (exclude paths matching CI exclusions)
-			const checkableFiles = allFiles.filter(
-				(f) => !CONFIG.misspell.ignore.some((ignore) => f.includes(ignore))
-			);
+	// -- Lint group: misspell, banned patterns, prettier, eslint, oxlint --
 
-			if (checkableFiles.length > 0) {
-				// Batch files to avoid command line length limits
-				const chunkSize = 100;
-				for (let i = 0; i < checkableFiles.length; i += chunkSize) {
-					const chunk = checkableFiles.slice(i, i + chunkSize);
-					runCommand('misspell', ['-error', ...chunk]);
+	if (shouldRunLint) {
+		// Spell checking
+		printHeader(step++, 'Spell checking');
+		if (hasMisspell()) {
+			if (scopedMode) {
+				// Check scoped files (exclude paths matching CI exclusions)
+				const checkableFiles = allFiles.filter(
+					(f) => !CONFIG.misspell.ignore.some((ignore) => f.includes(ignore))
+				);
+
+				if (checkableFiles.length > 0) {
+					// Batch files to avoid command line length limits
+					const chunkSize = 100;
+					for (let i = 0; i < checkableFiles.length; i += chunkSize) {
+						const chunk = checkableFiles.slice(i, i + chunkSize);
+						runCommand('misspell', ['-error', ...chunk]);
+					}
+				} else {
+					console.log('No files to spell check');
 				}
 			} else {
-				console.log('No files to spell check');
+				// Check all files (matches CI find command exclusions)
+				const glob = new Bun.Glob('**/*');
+				const files = [...glob.scanSync({ absolute: false })].filter(
+					(f) => !CONFIG.misspell.ignore.some((ignore) => f.includes(ignore))
+				);
+
+				// Batch files to avoid command line length limits
+				const chunkSize = 100;
+				for (let i = 0; i < files.length; i += chunkSize) {
+					const chunk = files.slice(i, i + chunkSize);
+					runCommand('misspell', ['-error', ...chunk]);
+				}
 			}
-		} else {
-			// Check all files (matches CI find command exclusions)
-			const glob = new Bun.Glob('**/*');
-			const files = [...glob.scanSync({ absolute: false })].filter(
-				(f) => !CONFIG.misspell.ignore.some((ignore) => f.includes(ignore))
+		} else if (ciMode) {
+			console.error(
+				`${colors.red}ERROR: misspell is required in CI but not installed${colors.reset}`
 			);
-
-			// Batch files to avoid command line length limits
-			const chunkSize = 100;
-			for (let i = 0; i < files.length; i += chunkSize) {
-				const chunk = files.slice(i, i + chunkSize);
-				runCommand('misspell', ['-error', ...chunk]);
-			}
-		}
-	} else if (ciMode) {
-		console.error(
-			`${colors.red}ERROR: misspell is required in CI but not installed${colors.reset}`
-		);
-		process.exit(1);
-	} else {
-		console.log(
-			`${colors.yellow}WARNING: misspell not installed (skipping spell check)${colors.reset}`
-		);
-		console.log('Install with: go install github.com/client9/misspell/cmd/misspell@latest');
-	}
-	console.log('\n');
-
-	// 3. Banned patterns (deprecated tokens, bare animate-spin)
-	printHeader(3, 'Banned patterns');
-	{
-		const filesToScan = scopedMode
-			? allFiles.filter((f) => /\.(svelte|ts)$/.test(f) && f.startsWith('src/'))
-			: (() => {
-					const glob = new Bun.Glob('src/**/*.{svelte,ts}');
-					return [...glob.scanSync({ absolute: false })];
-				})();
-
-		const violations: string[] = [];
-		for (const file of filesToScan) {
-			const content = Bun.file(file);
-			const text = await content.text();
-			const lines = text.split('\n');
-			for (let i = 0; i < lines.length; i++) {
-				const line = lines[i]!;
-				if (CONFIG.bannedPatterns.deprecated.test(line)) {
-					violations.push(`${file}:${i + 1}: deprecated token: ${line.trim()}`);
-				}
-				if (CONFIG.bannedPatterns.bareAnimateSpin.test(line)) {
-					violations.push(
-						`${file}:${i + 1}: bare animate-spin (use motion-safe:animate-spin): ${line.trim()}`
-					);
-				}
-			}
-		}
-
-		if (violations.length > 0) {
-			console.error(`${colors.red}Found ${violations.length} banned pattern(s):${colors.reset}`);
-			for (const v of violations) console.error(`  ${v}`);
 			process.exit(1);
-		}
-		console.log(`Scanned ${filesToScan.length} files — no banned patterns found`);
-	}
-	console.log('\n');
-
-	// 4. Code formatting
-	printHeader(4, 'Code formatting');
-	{
-		const formatFlag = ciMode ? '--check' : '--write';
-		if (scopedMode && formattableFiles.length > 0) {
-			runCommand('bun', [
-				'prettier',
-				formatFlag,
-				'--plugin',
-				'prettier-plugin-svelte',
-				...formattableFiles
-			]);
-		} else if (!scopedMode) {
-			runCommand('bun', ['prettier', formatFlag, '.']);
 		} else {
-			console.log('No files to format');
+			console.log(
+				`${colors.yellow}WARNING: misspell not installed (skipping spell check)${colors.reset}`
+			);
+			console.log('Install with: go install github.com/client9/misspell/cmd/misspell@latest');
 		}
-	}
-	console.log('\n');
+		console.log('\n');
 
-	// 5. ESLint
-	printHeader(5, 'ESLint');
-	{
-		const fixArgs = ciMode ? [] : ['--fix'];
-		if (scopedMode && jsTsSvelteFiles.length > 0) {
-			runCommand('bun', ['eslint', ...fixArgs, ...jsTsSvelteFiles]);
-		} else if (!scopedMode) {
-			runCommand('bun', ['eslint', '.', ...fixArgs]);
+		// Banned patterns (deprecated tokens, bare animate-spin)
+		printHeader(step++, 'Banned patterns');
+		{
+			const filesToScan = scopedMode
+				? allFiles.filter((f) => /\.(svelte|ts)$/.test(f) && f.startsWith('src/'))
+				: (() => {
+						const glob = new Bun.Glob('src/**/*.{svelte,ts}');
+						return [...glob.scanSync({ absolute: false })];
+					})();
+
+			const violations: string[] = [];
+			for (const file of filesToScan) {
+				const content = Bun.file(file);
+				const text = await content.text();
+				const lines = text.split('\n');
+				for (let i = 0; i < lines.length; i++) {
+					const line = lines[i]!;
+					if (CONFIG.bannedPatterns.deprecated.test(line)) {
+						violations.push(`${file}:${i + 1}: deprecated token: ${line.trim()}`);
+					}
+					if (CONFIG.bannedPatterns.bareAnimateSpin.test(line)) {
+						violations.push(
+							`${file}:${i + 1}: bare animate-spin (use motion-safe:animate-spin): ${line.trim()}`
+						);
+					}
+				}
+			}
+
+			if (violations.length > 0) {
+				console.error(`${colors.red}Found ${violations.length} banned pattern(s):${colors.reset}`);
+				for (const v of violations) console.error(`  ${v}`);
+				process.exit(1);
+			}
+			console.log(`Scanned ${filesToScan.length} files — no banned patterns found`);
+		}
+		console.log('\n');
+
+		// Code formatting
+		printHeader(step++, 'Code formatting');
+		{
+			const formatFlag = ciMode ? '--check' : '--write';
+			if (scopedMode && formattableFiles.length > 0) {
+				runCommand('bun', [
+					'prettier',
+					formatFlag,
+					'--plugin',
+					'prettier-plugin-svelte',
+					...formattableFiles
+				]);
+			} else if (!scopedMode) {
+				runCommand('bun', ['prettier', formatFlag, '.']);
+			} else {
+				console.log('No files to format');
+			}
+		}
+		console.log('\n');
+
+		// ESLint
+		printHeader(step++, 'ESLint');
+		{
+			const fixArgs = ciMode ? [] : ['--fix'];
+			if (scopedMode && jsTsSvelteFiles.length > 0) {
+				runCommand('bun', ['eslint', ...fixArgs, ...jsTsSvelteFiles]);
+			} else if (!scopedMode) {
+				runCommand('bun', ['eslint', '.', ...fixArgs]);
+			} else {
+				console.log('No JS/TS/Svelte files to lint');
+			}
+		}
+		console.log('\n');
+
+		// oxlint
+		printHeader(step++, 'oxlint');
+		runCommand('bun', ['oxlint']);
+		console.log('\n');
+	}
+
+	// -- Types group: build-emails, svelte-check --
+
+	if (shouldRunTypes) {
+		// Build emails (required before type checking)
+		printHeader(step++, 'Build emails');
+		runCommand('bun', ['scripts/build-emails.ts']);
+		console.log('\n');
+
+		// Type checking
+		printHeader(step++, 'Type checking');
+		if (scopedMode && jsTsSvelteFiles.length === 0 && svelteFiles.length === 0) {
+			console.log('No TypeScript/Svelte files to check');
 		} else {
-			console.log('No JS/TS/Svelte files to lint');
+			runCommand('bun', ['svelte-check', '--tsconfig', './tsconfig.json'], {
+				env: { ...process.env, NODE_OPTIONS: '--max-old-space-size=8192' }
+			});
 		}
+		console.log('\n');
 	}
-	console.log('\n');
-
-	// 6. oxlint
-	printHeader(6, 'oxlint');
-	runCommand('bun', ['oxlint']);
-	console.log('\n');
-
-	// 7. Build emails (required before type checking)
-	printHeader(7, 'Build emails');
-	runCommand('bun', ['scripts/build-emails.ts']);
-	console.log('\n');
-
-	// 8. Type checking
-	printHeader(8, 'Type checking');
-	if (scopedMode && jsTsSvelteFiles.length === 0 && svelteFiles.length === 0) {
-		console.log('No TypeScript/Svelte files to check');
-	} else {
-		runCommand('bun', ['svelte-check', '--tsconfig', './tsconfig.json'], {
-			env: { ...process.env, NODE_OPTIONS: '--max-old-space-size=8192' }
-		});
-	}
-	console.log('\n');
 
 	// Re-stage files if they were modified during --staged checks
 	if (mode === 'staged' && !ciMode) {
@@ -319,4 +347,7 @@ async function main(): Promise<void> {
 	console.log('======================================================');
 }
 
-main();
+main().catch((error: Error) => {
+	console.error(`${colors.red}Fatal error: ${error.message}${colors.reset}`);
+	process.exit(1);
+});
