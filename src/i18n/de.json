@@ -590,6 +590,8 @@
 				"my_inbox": "Mein Posteingang",
 				"unassigned": "Nicht zugewiesen"
 			},
+			"filter_showing_completed": "Zeigt abgeschlossene Threads, klicken um offene anzuzeigen",
+			"filter_showing_open": "Zeigt offene Threads, klicken um abgeschlossene anzuzeigen",
 			"no_chats": "Keine Chats gefunden",
 			"no_done_chats": "Keine abgeschlossenen Chats",
 			"no_email": "Keine E-Mail",
@@ -605,8 +607,6 @@
 				"medium": "Mittel",
 				"none": "Keine"
 			},
-			"filter_showing_completed": "Zeigt abgeschlossene Threads, klicken um offene anzuzeigen",
-			"filter_showing_open": "Zeigt offene Threads, klicken um abgeschlossene anzuzeigen",
 			"search": {
 				"placeholder": "Chats suchen..."
 			},
@@ -793,6 +793,7 @@
 		"login": "Anmelden",
 		"logout": "Abmelden",
 		"messages": {
+			"auth_cancelled": "Authentifizierung abgebrochen",
 			"credential_account_not_found": "Kein Passwortkonto gefunden. Versuchen Sie die Anmeldung mit Ihrem sozialen Anbieter.",
 			"email_change_failed": "E-Mail konnte nicht geändert werden",
 			"email_not_verified": "Bitte bestätigen Sie Ihre E-Mail-Adresse",
@@ -813,13 +814,17 @@
 			"passkey_load_failed": "Passkeys konnten nicht geladen werden",
 			"password_change_failed": "Passwort konnte nicht geändert werden",
 			"password_changed": "Passwort erfolgreich geändert",
+			"password_compromised": "Dieses Passwort wurde kompromittiert",
 			"password_reset_success": "Ihr Passwort wurde erfolgreich zurückgesetzt.",
 			"password_too_long": "Passwort ist zu lang",
 			"password_too_short": "Passwort ist zu kurz",
+			"rate_limited": "Zu viele Anfragen. Bitte versuchen Sie es später erneut.",
 			"request_reset_failed": "Passwort-Reset konnte nicht angefordert werden",
 			"reset_failed": "Passwort konnte nicht zurückgesetzt werden",
 			"reset_link_sent": "Bitte prüfen Sie Ihre E-Mail für den Reset-Link.",
+			"signup_disabled": "Registrierung ist deaktiviert",
 			"signup_failed": "Konto konnte nicht erstellt werden",
+			"too_many_attempts": "Zu viele Versuche. Bitte versuchen Sie es später erneut.",
 			"user_already_exists": "Ein Konto mit dieser E-Mail existiert bereits"
 		},
 		"reset_password": {
@@ -1029,6 +1034,7 @@
 	},
 	"footer": {
 		"copyright": "© {year} SaaS Starter",
+		"impressum": "Impressum",
 		"privacy": "Datenschutz",
 		"terms": "Nutzungsbedingungen"
 	},
@@ -1038,7 +1044,7 @@
 		"cta_demo": "Demo anfordern",
 		"description": "Erwecke dein SaaS zum Leben in Minuten, nicht in Monaten. Open-Source Template mit einem Tech-Stack, der dich schnell shippen lässt.",
 		"section_label": "Start",
-		"tagline": "Mit Produktfokus schneller zum Ziel",
+		"tagline": "Mit Produktfokus\nschneller zum Ziel",
 		"title": "SaaS-Starter-Vorlage"
 	},
 	"impersonation": {
@@ -1192,6 +1198,10 @@
 		"pricing": {
 			"description": "Wählen Sie einen Plan und testen Sie den integrierten Abrechnungsablauf.",
 			"title": "Preise"
+		},
+		"impressum": {
+			"description": "Anbieterkennzeichnung und Kontaktdaten.",
+			"title": "Impressum"
 		},
 		"privacy": {
 			"description": "Wie wir Ihre Daten erheben, nutzen und schützen.",
@@ -1391,6 +1401,8 @@
 				"placeholder": "Passkey-Name",
 				"unnamed": "Unbenannter Passkey"
 			},
+			"passkey_delete_failed": "Passkey konnte nicht gelöscht werden",
+			"passkey_deleted": "Passkey entfernt",
 			"passkey_info_description": "Passkeys sind eine sichere, passwortlose Anmeldemethode. Sie verwenden Biometrie oder Geräte-PIN und werden sicher auf Ihren Geräten gespeichert.",
 			"passkey_info_title": "Was sind Passkeys?",
 			"passkey_name_label": "Passkey-Name",

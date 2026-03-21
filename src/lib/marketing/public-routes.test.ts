@@ -7,6 +7,7 @@ import {
 } from './public-routes';
 import { marketingMarkdown as aboutMarketingMarkdown } from '../../routes/[[lang]]/(marketing)/about/page.md';
 import { marketingMarkdown as homeMarketingMarkdown } from '../../routes/[[lang]]/(marketing)/page.md';
+import { marketingMarkdown as impressumMarketingMarkdown } from '../../routes/[[lang]]/(marketing)/impressum/page.md';
 import { marketingMarkdown as pricingMarketingMarkdown } from '../../routes/[[lang]]/(marketing)/pricing/page.md';
 import { marketingMarkdown as privacyMarketingMarkdown } from '../../routes/[[lang]]/(marketing)/privacy/page.md';
 import { marketingMarkdown as termsMarketingMarkdown } from '../../routes/[[lang]]/(marketing)/terms/page.md';
@@ -18,7 +19,8 @@ describe('public marketing route registry', () => {
 			{ key: 'about', pathSuffix: '/about' },
 			{ key: 'pricing', pathSuffix: '/pricing' },
 			{ key: 'privacy', pathSuffix: '/privacy' },
-			{ key: 'terms', pathSuffix: '/terms' }
+			{ key: 'terms', pathSuffix: '/terms' },
+			{ key: 'impressum', pathSuffix: '/impressum' }
 		]);
 	});
 
@@ -36,6 +38,10 @@ describe('public marketing route registry', () => {
 			routeKey: 'privacy'
 		});
 		expect(matchPublicMarketingRoute('/de/terms')).toEqual({ lang: 'de', routeKey: 'terms' });
+		expect(matchPublicMarketingRoute('/fr/impressum')).toEqual({
+			lang: 'fr',
+			routeKey: 'impressum'
+		});
 	});
 
 	it('rejects non-marketing or non-localized paths', () => {
@@ -53,6 +59,7 @@ describe('public marketing route registry', () => {
 		expect(getMarketingMarkdownDocument('pricing')).toBe(pricingMarketingMarkdown);
 		expect(getMarketingMarkdownDocument('privacy')).toBe(privacyMarketingMarkdown);
 		expect(getMarketingMarkdownDocument('terms')).toBe(termsMarketingMarkdown);
+		expect(getMarketingMarkdownDocument('impressum')).toBe(impressumMarketingMarkdown);
 	});
 
 	it('generates the expected localized public marketing URLs', () => {
@@ -62,21 +69,25 @@ describe('public marketing route registry', () => {
 			'https://example.com/en/pricing',
 			'https://example.com/en/privacy',
 			'https://example.com/en/terms',
+			'https://example.com/en/impressum',
 			'https://example.com/de',
 			'https://example.com/de/about',
 			'https://example.com/de/pricing',
 			'https://example.com/de/privacy',
 			'https://example.com/de/terms',
+			'https://example.com/de/impressum',
 			'https://example.com/es',
 			'https://example.com/es/about',
 			'https://example.com/es/pricing',
 			'https://example.com/es/privacy',
 			'https://example.com/es/terms',
+			'https://example.com/es/impressum',
 			'https://example.com/fr',
 			'https://example.com/fr/about',
 			'https://example.com/fr/pricing',
 			'https://example.com/fr/privacy',
-			'https://example.com/fr/terms'
+			'https://example.com/fr/terms',
+			'https://example.com/fr/impressum'
 		]);
 	});
 });

@@ -127,9 +127,8 @@ function xmlEscape(value: string): string {
 
 export function renderLlmsTxt(origin: string): string {
 	const baseOrigin = origin.replace(/\/$/, '');
-	const [homeUrl, aboutUrl, pricingUrl, privacyUrl, termsUrl] = getLocalizedMarketingUrls(
-		baseOrigin
-	).filter((url) => url.startsWith(`${baseOrigin}/en`));
+	const [homeUrl, aboutUrl, pricingUrl, privacyUrl, termsUrl, impressumUrl] =
+		getLocalizedMarketingUrls(baseOrigin).filter((url) => url.startsWith(`${baseOrigin}/en`));
 
 	return [
 		'# SaaS Starter',
@@ -147,6 +146,7 @@ export function renderLlmsTxt(origin: string): string {
 		`- [Pricing](${pricingUrl}): pricing tiers, included features, and billing notes`,
 		`- [Privacy Policy](${privacyUrl}): how personal data is collected, used, and protected`,
 		`- [Terms of Service](${termsUrl}): terms and conditions for using the service`,
+		`- [Impressum](${impressumUrl}): provider identification and contact details`,
 		'',
 		'## Markdown Access',
 		'',
