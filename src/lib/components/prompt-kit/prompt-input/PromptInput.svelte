@@ -80,8 +80,7 @@
 		class={cn('cursor-text rounded-3xl border border-input bg-background p-2 shadow-xs', className)}
 		onclick={handleClick}
 		onkeydown={handleKeyDown}
-		role="button"
-		tabindex="-1"
+		role="presentation"
 	>
 		{@render children()}
 	</div>
