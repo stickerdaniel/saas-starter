@@ -15,6 +15,13 @@
 				</p>
 				<nav class="flex items-center gap-3 text-xs text-muted-foreground">
 					<a
+						href={resolve(localizedHref('/impressum'))}
+						class="transition-colors duration-150 hover:text-accent-foreground"
+					>
+						<T keyName="footer.impressum" />
+					</a>
+					<span aria-hidden="true">&middot;</span>
+					<a
 						href={resolve(localizedHref('/terms'))}
 						class="transition-colors duration-150 hover:text-accent-foreground"
 					>

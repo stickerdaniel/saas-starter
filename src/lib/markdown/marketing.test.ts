@@ -98,6 +98,7 @@ describe('marketing markdown helpers', () => {
 		expect(llms).toContain('https://example.com/en/about');
 		expect(llms).toContain('https://example.com/en/privacy');
 		expect(llms).toContain('https://example.com/en/terms');
+		expect(llms).toContain('https://example.com/en/impressum');
 		expect(llms).toContain('Accept: text/markdown');
 	});
 
@@ -136,6 +137,7 @@ describe('marketing markdown helpers', () => {
 		expect(sitemap).toContain('<loc>https://example.com/fr/pricing</loc>');
 		expect(sitemap).toContain('<loc>https://example.com/en/privacy</loc>');
 		expect(sitemap).toContain('<loc>https://example.com/en/terms</loc>');
+		expect(sitemap).toContain('<loc>https://example.com/en/impressum</loc>');
 		expect(sitemap).not.toContain('/en/app');
 		expect(sitemap).not.toContain('/en/admin');
 	});
