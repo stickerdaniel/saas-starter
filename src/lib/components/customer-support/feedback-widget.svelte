@@ -48,6 +48,17 @@
 	// Derive chat panel open state
 	const isChatOpen = $derived(threadContext.currentView !== 'overview');
 
+	// Skip animation when loading thread from URL (show instantly)
+	const panelDuration = $derived(threadContext.skipAnimation ? 0 : 300);
+
+	$effect(() => {
+		if (threadContext.skipAnimation && isChatOpen) {
+			requestAnimationFrame(() => {
+				threadContext.skipAnimation = false;
+			});
+		}
+	});
+
 	// Get Convex client
 	const client = useConvexClient();
 
@@ -203,6 +214,7 @@
 >
 	<!-- Animated header with sliding icon and title -->
 	<SlidingHeader
+		skipTransition={threadContext.skipAnimation}
 		isBackView={threadContext.currentView !== 'overview'}
 		defaultIcon={MessagesSquareIcon}
 		defaultTitle={$t('support.widget.header.messages')}
@@ -224,7 +236,7 @@
 		<ThreadsOverview />
 
 		<!-- Chat sheet - slides in from right like iOS/Android navigation -->
-		<SlidingPanel open={isChatOpen} class="bg-secondary">
+		<SlidingPanel open={isChatOpen} duration={panelDuration} class="bg-secondary">
 			<ChatRoot
 				threadId={threadContext.threadId}
 				api={chatApi}
