@@ -54,7 +54,9 @@
 	$effect(() => {
 		if (threadContext.skipAnimation && isChatOpen) {
 			requestAnimationFrame(() => {
-				threadContext.skipAnimation = false;
+				setTimeout(() => {
+					threadContext.skipAnimation = false;
+				});
 			});
 		}
 	});

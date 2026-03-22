@@ -26,6 +26,11 @@
 	const threadContext = new SupportThreadContext();
 	supportThreadContext.set(threadContext);
 
+	// Pre-set skipAnimation if URL already has a thread (before FeedbackWidget mounts)
+	if (urlState.thread) {
+		threadContext.skipAnimation = true;
+	}
+
 	// URL state sync handlers
 	function setWidgetOpen(open: boolean) {
 		urlState.support = open ? 'open' : '';
