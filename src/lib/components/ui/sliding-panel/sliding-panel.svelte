@@ -23,19 +23,14 @@
 
 	// Compute transition classes based on direction and open state
 	const slideClasses = $derived.by(() => {
-		const baseClasses = 'absolute inset-0 flex flex-col transition-all overflow-hidden';
+		const transitionClass = duration === 0 ? 'transition-none' : `transition-all ${durationClass}`;
+		const baseClasses = `absolute inset-0 flex flex-col overflow-hidden ${transitionClass}`;
 
 		if (open) {
-			return cn(baseClasses, durationClass, 'translate-x-0 opacity-100', className);
+			return cn(baseClasses, 'translate-x-0 opacity-100', className);
 		} else {
 			const hideTransform = direction === 'right' ? 'translate-x-full' : '-translate-x-full';
-			return cn(
-				baseClasses,
-				durationClass,
-				hideTransform,
-				'opacity-0 pointer-events-none',
-				className
-			);
+			return cn(baseClasses, hideTransform, 'opacity-0 pointer-events-none', className);
 		}
 	});
 </script>
