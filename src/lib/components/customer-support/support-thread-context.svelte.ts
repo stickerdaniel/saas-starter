@@ -65,6 +65,7 @@ export class SupportThreadContext {
 	isSending = $state(false);
 	error = $state<string | null>(null);
 	shouldOpenWidget = $state(false);
+	skipAnimation = $state(false);
 
 	/** True when user starts a new conversation - enables immediate suggestion display */
 	isNewConversation = $state(false);
@@ -575,6 +576,7 @@ export class SupportThreadContext {
 		this.threadId = threadId;
 		this.currentView = 'chat';
 		this.isNewConversation = false;
+		this.skipAnimation = true;
 		// Don't call onThreadChange here - this is triggered BY the URL
 	}
 
