@@ -31,6 +31,8 @@
 		urlState.support = open ? 'open' : '';
 		if (!open) {
 			urlState.thread = ''; // Clear thread when closing widget
+		} else if (threadContext.threadId) {
+			urlState.thread = threadContext.threadId;
 		}
 	}
 

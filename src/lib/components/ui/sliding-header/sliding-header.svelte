@@ -33,6 +33,7 @@
 		// Styling
 		class?: string;
 		showClose?: boolean;
+		skipTransition?: boolean;
 
 		// Actions
 		actions?: Snippet;
@@ -51,6 +52,7 @@
 		onCloseClick,
 		class: className,
 		showClose = true,
+		skipTransition = false,
 		actions
 	}: Props = $props();
 </script>
@@ -61,8 +63,8 @@
 		<!-- Default icon (visible when NOT in back view) -->
 		{#if !isBackView}
 			<div
-				in:fly={{ x: 20, duration: 200, easing: backOut }}
-				out:fly={{ x: -20, duration: 200, easing: cubicOut }}
+				in:fly={{ x: 20, duration: skipTransition ? 0 : 200, easing: backOut }}
+				out:fly={{ x: -20, duration: skipTransition ? 0 : 200, easing: cubicOut }}
 				class="absolute inset-0 flex items-center justify-center"
 			>
 				<DefaultIcon class="size-5 text-muted-foreground" />
@@ -72,8 +74,8 @@
 		<!-- Back button (visible when in back view) -->
 		{#if isBackView}
 			<div
-				in:fly={{ x: 20, duration: 200, easing: backOut }}
-				out:fly={{ x: -20, duration: 200, easing: cubicOut }}
+				in:fly={{ x: 20, duration: skipTransition ? 0 : 200, easing: backOut }}
+				out:fly={{ x: -20, duration: skipTransition ? 0 : 200, easing: cubicOut }}
 				class="absolute inset-0 flex items-center justify-center"
 			>
 				<Button
@@ -97,8 +99,8 @@
 		<!-- Default title -->
 		{#if !isBackView}
 			<div
-				in:fly={{ y: -40, duration: 300, easing: backOut }}
-				out:fly={{ y: 40, duration: 300, easing: cubicOut }}
+				in:fly={{ y: -40, duration: skipTransition ? 0 : 300, easing: backOut }}
+				out:fly={{ y: 40, duration: skipTransition ? 0 : 300, easing: cubicOut }}
 				class="col-start-1 row-start-1 flex h-10 items-center"
 			>
 				<h2 class="text-xl leading-none font-semibold">{defaultTitle}</h2>
@@ -108,8 +110,8 @@
 		<!-- Back view title -->
 		{#if isBackView}
 			<div
-				in:fly={{ y: -40, duration: 300, easing: backOut }}
-				out:fly={{ y: 40, duration: 300, easing: cubicOut }}
+				in:fly={{ y: -40, duration: skipTransition ? 0 : 300, easing: backOut }}
+				out:fly={{ y: 40, duration: skipTransition ? 0 : 300, easing: cubicOut }}
 				class="col-start-1 row-start-1 flex h-10 items-center"
 			>
 				<AvatarHeading
