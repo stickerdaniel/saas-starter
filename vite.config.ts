@@ -116,6 +116,11 @@ export default defineConfig(async ({ mode }) => {
 		process.env.PUBLIC_CONVEX_URL = backendUrl;
 		process.env.PUBLIC_CONVEX_SITE_URL = siteProxyUrl;
 
+		// Raise V8 isolate heap limit to 128 MiB (default 64 MiB).
+		// Better Auth's bundle uses ~50 MiB, leaving too little room at the default.
+		// https://github.com/get-convex/convex-backend/issues/312
+		process.env.ISOLATE_MAX_USER_HEAP_SIZE ??= '134217728';
+
 		plugins.push(
 			convexLocal({
 				convexDir: 'src/lib/convex',
