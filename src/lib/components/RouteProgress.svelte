@@ -1,9 +1,8 @@
 <script lang="ts">
 	import { tick, untrack } from 'svelte';
-	import { SvelteSet } from 'svelte/reactivity';
 	import { navigating } from '$app/state';
 
-	const SUPPRESSED_QUERY_KEYS = new SvelteSet(['sort', 'page', 'page_size', 'cursor', 'search']);
+	const SUPPRESSED_QUERY_KEYS = new Set(['sort', 'page', 'page_size', 'cursor', 'search']);
 	const MINIMUM = 0.08;
 	const SPEED = 200;
 	const TRICKLE_MS = 200;
@@ -37,7 +36,8 @@
 
 		const fromParams = new URLSearchParams(fromSearch);
 		const toParams = new URLSearchParams(toSearch);
-		const changedKeys = new SvelteSet<string>();
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- ephemeral local computation, not reactive state
+		const changedKeys = new Set<string>();
 
 		for (const key of fromParams.keys()) {
 			if (fromParams.getAll(key).join(',') !== toParams.getAll(key).join(',')) changedKeys.add(key);
@@ -122,12 +122,13 @@
 	}
 
 	$effect(() => {
-		const nav = navigating;
+		// Read reactive properties outside untrack() so the effect re-runs on navigation changes
+		const isActive = isPathNavigation(navigating);
 		untrack(() => {
-			if (isPathNavigation(nav) && !started) {
+			if (isActive && !started) {
 				started = true;
 				startProgress();
-			} else if (!isPathNavigation(nav) && started) {
+			} else if (!isActive && started) {
 				started = false;
 				completeProgress();
 			}
