@@ -13,24 +13,20 @@
 
 	function handleToggle(event: MouseEvent) {
 		haptic.trigger('medium');
-		// Get click position for reveal origin
 		const target = event.currentTarget as HTMLElement;
 		const rect = target.getBoundingClientRect();
 		const x = rect.left + rect.width / 2;
 		const y = rect.top + rect.height / 2;
+		document.documentElement.style.setProperty('--view-transition-x', `${x}px`);
+		document.documentElement.style.setProperty('--view-transition-y', `${y}px`);
 
-		// Fallback for unsupported browsers
 		if (!document.startViewTransition) {
 			toggleMode();
 			return;
 		}
 
-		const transition = document.startViewTransition(toggleMode);
-
-		// Set reveal origin when transition is ready
-		transition.ready.then(() => {
-			document.documentElement.style.setProperty('--view-transition-x', `${x}px`);
-			document.documentElement.style.setProperty('--view-transition-y', `${y}px`);
+		document.startViewTransition(() => {
+			toggleMode();
 		});
 	}
 </script>

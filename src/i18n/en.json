@@ -745,7 +745,9 @@
 		"logout": "Log out",
 		"menu_close": "Close Menu",
 		"menu_open": "Open Menu",
+		"mobile_sidebar_description": "Displays the mobile sidebar.",
 		"more": "More",
+		"sidebar": "Sidebar",
 		"notification_toggle_for_email": "{field} for {email}",
 		"pagination_first": "First page",
 		"pagination_last": "Last page",
@@ -1195,13 +1197,13 @@
 			"description": "SaaS starter for SvelteKit with auth, billing, email, and analytics.",
 			"title": "Build & Ship Your Product Faster"
 		},
-		"pricing": {
-			"description": "Choose a plan and test the integrated billing flow.",
-			"title": "Pricing"
-		},
 		"impressum": {
 			"description": "Provider identification and contact details.",
 			"title": "Impressum"
+		},
+		"pricing": {
+			"description": "Choose a plan and test the integrated billing flow.",
+			"title": "Pricing"
 		},
 		"privacy": {
 			"description": "How we collect, use, and protect your personal data.",

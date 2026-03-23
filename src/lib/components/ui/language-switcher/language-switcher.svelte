@@ -1,8 +1,7 @@
 <script lang="ts">
 	import GlobeIcon from '@lucide/svelte/icons/globe';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
-	import { buttonVariants } from '$lib/components/ui/button';
-	import { cn } from '$lib/utils.js';
+	import { Button } from '$lib/components/ui/button';
 	import type { LanguageSwitcherProps } from './types';
 	import { haptic } from '$lib/hooks/use-haptic.svelte';
 	import { getTranslate } from '@tolgee/svelte';
@@ -27,12 +26,19 @@
 </script>
 
 <DropdownMenu.Root>
-	<DropdownMenu.Trigger
-		class={cn(buttonVariants({ variant, size: 'icon' }), className)}
-		aria-label={$t('aria.change_language')}
-	>
-		<GlobeIcon class="size-4" />
-		<span class="sr-only">{$t('aria.change_language')}</span>
+	<DropdownMenu.Trigger>
+		{#snippet child({ props })}
+			<Button
+				{variant}
+				size="icon"
+				class={className}
+				aria-label={$t('aria.change_language')}
+				{...props}
+			>
+				<GlobeIcon class="size-4" />
+				<span class="sr-only">{$t('aria.change_language')}</span>
+			</Button>
+		{/snippet}
 	</DropdownMenu.Trigger>
 	<DropdownMenu.Content {align}>
 		<DropdownMenu.RadioGroup

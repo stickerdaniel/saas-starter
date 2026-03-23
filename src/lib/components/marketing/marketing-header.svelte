@@ -10,7 +10,6 @@
 	import Menu from '@lucide/svelte/icons/menu';
 	import X from '@lucide/svelte/icons/x';
 	import LogOut from '@lucide/svelte/icons/log-out';
-	import Github from '@lucide/svelte/icons/github';
 	import Logo from '$lib/components/icons/logo.svelte';
 	import { authClient } from '$lib/auth-client';
 	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
@@ -68,13 +67,34 @@
 	let menuState = $state(false);
 </script>
 
+{#snippet githubIcon()}
+	<svg
+		xmlns="http://www.w3.org/2000/svg"
+		width="24"
+		height="24"
+		viewBox="0 0 24 24"
+		fill="none"
+		stroke="currentColor"
+		stroke-width="2"
+		stroke-linecap="round"
+		stroke-linejoin="round"
+		class="lucide-icon lucide lucide-github size-4"
+		aria-hidden="true"
+	>
+		<path
+			d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"
+		/>
+		<path d="M9 18c-4.51 2-5-2-7-2" />
+	</svg>
+{/snippet}
+
 <svelte:window bind:scrollY />
 
 <header>
 	<nav class="fixed z-40 w-full pt-4">
 		<div class="mx-auto max-w-6xl px-6 lg:px-12">
 			<div
-				class="-mx-2 flex w-[calc(100%+1rem)] items-center justify-between rounded-2xl border border-black/[0.06] px-6 py-4 [box-shadow:inset_0_1px_1px_0_rgba(255,255,255,0.5)] backdrop-blur-[5px] transition-[height,transform] duration-300 [background:linear-gradient(137deg,rgba(252,252,255,0.9)_4.87%,rgba(240,240,248,0.95)_75.88%)] lg:-mx-8 lg:w-[calc(100%+4rem)] lg:px-8 dark:border-white/[0.06] dark:[box-shadow:inset_0_1px_1px_0_rgba(255,255,255,0.15)] dark:[background:linear-gradient(137deg,rgba(17,18,20,0.75)_4.87%,rgba(12,13,15,0.9)_75.88%)]"
+				class="-mx-2 flex w-[calc(100%+1rem)] items-center justify-between rounded-2xl border marketing-shell-panel px-6 py-4 transition-[height,transform,background-color,border-color] duration-300 lg:-mx-8 lg:w-[calc(100%+4rem)] lg:px-8"
 			>
 				<!-- Logo -->
 				<Button
@@ -114,7 +134,7 @@
 						aria-label={$t('aria.github_repository')}
 						class="size-8"
 					>
-						<Github class="size-4" />
+						{@render githubIcon()}
 					</Button>
 					<LightSwitch variant="ghost" />
 					<LanguageSwitcher variant="ghost" />
@@ -176,7 +196,7 @@
 						aria-label={$t('aria.github_repository')}
 						class="size-8"
 					>
-						<Github class="size-4" />
+						{@render githubIcon()}
 					</Button>
 					<LightSwitch variant="ghost" />
 					<LanguageSwitcher variant="ghost" />
