@@ -61,4 +61,15 @@ describe('no-hardcoded-aria-label', () => {
 		const reports = lint('<button aria-label></button>');
 		expect(reports).toHaveLength(0);
 	});
+
+	it("flags string literal inside expression: aria-label={'Close'}", () => {
+		const reports = lint("<button aria-label={'Close'}></button>");
+		expect(reports).toHaveLength(1);
+		expect(reports[0].messageId).toBe('hardcodedAriaLabel');
+	});
+
+	it('allows variable expressions (may come from $t() upstream)', () => {
+		const reports = lint('<button aria-label={label}></button>');
+		expect(reports).toHaveLength(0);
+	});
 });

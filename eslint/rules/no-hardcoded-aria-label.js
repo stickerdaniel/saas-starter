@@ -5,8 +5,10 @@
  * All aria-label values must be localized via $t() calls.
  *
  * ✅ aria-label={$t('aria.close')}
+ * ✅ aria-label={someVariable}       (variable may come from $t() upstream — not our call)
  * ❌ aria-label="Close"
  * ❌ aria-label="Close {name}"
+ * ❌ aria-label={'Close'}            (string literal inside expression)
  */
 export default {
 	meta: {
@@ -40,9 +42,17 @@ export default {
 
 				if (allLocalized) return;
 
-				// If any value part is a SvelteLiteral (hardcoded string), flag it
-				const hasLiteral = node.value.some((v) => v.type === 'SvelteLiteral');
-				if (hasLiteral) {
+				// Flag if any value part contains a hardcoded string:
+				// - SvelteLiteral: aria-label="Close" or aria-label="Close {name}"
+				// - SvelteMustacheTag with a Literal expression: aria-label={'Close'}
+				const hasHardcodedString = node.value.some(
+					(v) =>
+						v.type === 'SvelteLiteral' ||
+						(v.type === 'SvelteMustacheTag' &&
+							v.expression?.type === 'Literal' &&
+							typeof v.expression.value === 'string')
+				);
+				if (hasHardcodedString) {
 					context.report({ node, messageId: 'hardcodedAriaLabel' });
 				}
 			}
