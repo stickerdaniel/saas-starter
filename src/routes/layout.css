@@ -4,6 +4,8 @@
 
 @import 'tw-animate-css';
 
+@import "@fontsource-variable/outfit";
+
 @plugin '@tailwindcss/typography';
 
 /* Match prose hr to shadcn separator */
@@ -121,9 +123,7 @@
 }
 
 @theme inline {
-	--font-sans:
-		'Outfit', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
-		'Segoe UI Symbol', 'Noto Color Emoji';
+	--font-sans: 'Outfit Variable', sans-serif;
 	--radius-sm: calc(var(--radius) - 4px);
 	--radius-md: calc(var(--radius) - 2px);
 	--radius-lg: var(--radius);
@@ -326,6 +326,38 @@
 :root {
 	--view-transition-x: 50%;
 	--view-transition-y: 50%;
+	--background: oklch(1 0 0);
+	--foreground: oklch(0.141 0.005 285.823);
+	--card: oklch(1 0 0);
+	--card-foreground: oklch(0.141 0.005 285.823);
+	--popover: oklch(1 0 0);
+	--popover-foreground: oklch(0.141 0.005 285.823);
+	--primary: oklch(0.21 0.006 285.885);
+	--primary-foreground: oklch(0.985 0 0);
+	--secondary: oklch(0.967 0.001 286.375);
+	--secondary-foreground: oklch(0.21 0.006 285.885);
+	--muted: oklch(0.967 0.001 286.375);
+	--muted-foreground: oklch(0.552 0.016 285.938);
+	--accent: oklch(0.967 0.001 286.375);
+	--accent-foreground: oklch(0.21 0.006 285.885);
+	--destructive: oklch(0.577 0.245 27.325);
+	--border: oklch(0.92 0.004 286.32);
+	--input: oklch(0.92 0.004 286.32);
+	--ring: oklch(0.705 0.015 286.067);
+	--chart-1: oklch(0.879 0.169 91.605);
+	--chart-2: oklch(0.769 0.188 70.08);
+	--chart-3: oklch(0.666 0.179 58.318);
+	--chart-4: oklch(0.555 0.163 48.998);
+	--chart-5: oklch(0.473 0.137 46.201);
+	--radius: 0.625rem;
+	--sidebar: oklch(0.985 0 0);
+	--sidebar-foreground: oklch(0.141 0.005 285.823);
+	--sidebar-primary: oklch(0.21 0.006 285.885);
+	--sidebar-primary-foreground: oklch(0.985 0 0);
+	--sidebar-accent: oklch(0.967 0.001 286.375);
+	--sidebar-accent-foreground: oklch(0.21 0.006 285.885);
+	--sidebar-border: oklch(0.92 0.004 286.32);
+	--sidebar-ring: oklch(0.705 0.015 286.067);
 }
 
 @media (prefers-reduced-motion: no-preference) and (min-width: 768px) {
@@ -502,11 +534,17 @@
 	&:where([data-open]:not([data-open='false'])) {
 		@slot;
 	}
+	&:where([data-state="open"]), &:where([data-open]:not([data-open="false"])) {
+		@slot;
+	}
 }
 
 @custom-variant data-closed {
 	&:where([data-state='closed']),
 	&:where([data-closed]:not([data-closed='false'])) {
+		@slot;
+	}
+	&:where([data-state="closed"]), &:where([data-closed]:not([data-closed="false"])) {
 		@slot;
 	}
 }
@@ -520,6 +558,9 @@
 	&:where([data-checked]:not([data-checked='false'])) {
 		@slot;
 	}
+	&:where([data-state="checked"]), &:where([data-checked]:not([data-checked="false"])) {
+		@slot;
+	}
 }
 
 @custom-variant data-unchecked {
@@ -529,6 +570,9 @@
 	}
 	&:where([data-state='unchecked']),
 	&:where([data-unchecked]:not([data-unchecked='false'])) {
+		@slot;
+	}
+	&:where([data-state="unchecked"]), &:where([data-unchecked]:not([data-unchecked="false"])) {
 		@slot;
 	}
 }
@@ -548,6 +592,9 @@
 	&:where([data-disabled]:not([data-disabled='false'])) {
 		@slot;
 	}
+	&:where([data-disabled="true"]), &:where([data-disabled]:not([data-disabled="false"])) {
+		@slot;
+	}
 }
 
 @custom-variant data-active {
@@ -559,6 +606,9 @@
 	&:where([data-active]:not([data-active='false'])) {
 		@slot;
 	}
+	&:where([data-state="active"]), &:where([data-active]:not([data-active="false"])) {
+		@slot;
+	}
 }
 
 @custom-variant data-horizontal {
@@ -568,6 +618,9 @@
 	&:where([data-orientation='horizontal']) {
 		@slot;
 	}
+	&:where([data-orientation="horizontal"]) {
+		@slot;
+	}
 }
 
 @custom-variant data-vertical {
@@ -575,6 +628,9 @@
 		@slot;
 	}
 	&:where([data-orientation='vertical']) {
+		@slot;
+	}
+	&:where([data-orientation="vertical"]) {
 		@slot;
 	}
 }

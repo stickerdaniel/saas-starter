@@ -53,8 +53,9 @@
         "@convex-dev/eslint-plugin": "1.2.1",
         "@eslint/compat": "2.0.3",
         "@eslint/js": "9.39.4",
+        "@fontsource-variable/outfit": "^5.2.8",
         "@internationalized/date": "3.12.0",
-        "@lucide/svelte": "^0.577.0",
+        "@lucide/svelte": "^1.0.1",
         "@playwright/test": "1.58.2",
         "@resvg/resvg-js": "2.6.2",
         "@sveltejs/adapter-auto": "7.0.1",
@@ -393,6 +394,8 @@
 
     "@floating-ui/utils": ["@floating-ui/utils@0.2.10", "", {}, "sha512-aGTxbpbg8/b5JfU1HXSrbH3wXZuLPJcNEcZQFMxLs3oSzgtVu6nFPkbbGGUvBcUjKV2YyB9Wxxabo+HEH9tcRQ=="],
 
+    "@fontsource-variable/outfit": ["@fontsource-variable/outfit@5.2.8", "", {}, "sha512-4oUDCZx/Tcz6HZP423w/niqEH31Gks5IsqHV2ZZz1qKHaVIZdj2f0/S1IK2n8jl6Xo0o3N+3RjNHlV9R73ozQA=="],
+
     "@gilhrpenner/convex-files-control": ["@gilhrpenner/convex-files-control@0.5.1", "", { "dependencies": { "@aws-sdk/client-s3": "^3.958.0", "@aws-sdk/s3-request-presigner": "^3.958.0", "@convex-dev/action-retrier": "^0.3.0", "convex-helpers": "^0.1.108" }, "peerDependencies": { "convex": "^1.29.3", "react": "^18.3.1 || ^19.0.0" } }, "sha512-2pgZlgO1mlK4g8fhTFILNPCcte9uypbhwSzVZQcUt9PJExp9kcoQgkNFzvl4EkY1FLHaYIB+dD9RlnaI5wBuyQ=="],
 
     "@hapi/hoek": ["@hapi/hoek@9.3.0", "", {}, "sha512-/c6rf4UJlmHlC9b5BaNvzAcFv7HZ2QHaV0D4/HNlBdvFnvQq8RI4kYdhyPCl7Xj+oWvTWQ8ujhqS53LIgAe6KQ=="],
@@ -481,7 +484,7 @@
 
     "@levischuck/tiny-cbor": ["@levischuck/tiny-cbor@0.2.11", "", {}, "sha512-llBRm4dT4Z89aRsm6u2oEZ8tfwL/2l6BwpZ7JcyieouniDECM5AqNgr/y08zalEIvW3RSK4upYyybDcmjXqAow=="],
 
-    "@lucide/svelte": ["@lucide/svelte@0.577.0", "", { "peerDependencies": { "svelte": "^5" } }, "sha512-0P6mkySd2MapIEgq08tADPmcN4DHndC/02PWwaLkOerXlx5Sv9aT4BxyXLIY+eccr0g/nEyCYiJesqS61YdBZQ=="],
+    "@lucide/svelte": ["@lucide/svelte@1.0.1", "", { "peerDependencies": { "svelte": "^5" } }, "sha512-iIcE+CDaHtjVKT5UkpnBIRy1b51u29RHgQxrjy5SMTp/KyqbtNfzkWnmWpBoCWKs2RKiF/e8VW+z0dw+wpb4Rw=="],
 
     "@mapbox/node-pre-gyp": ["@mapbox/node-pre-gyp@2.0.3", "", { "dependencies": { "consola": "^3.2.3", "detect-libc": "^2.0.0", "https-proxy-agent": "^7.0.5", "node-fetch": "^2.6.7", "nopt": "^8.0.0", "semver": "^7.5.3", "tar": "^7.4.0" }, "bin": { "node-pre-gyp": "bin/node-pre-gyp" } }, "sha512-uwPAhccfFJlsfCxMYTwOdVfOz3xqyj8xYL3zJj8f0pb30tLohnnFPhLuqp4/qoEz8sNxe4SESZedcBojRefIzg=="],
 

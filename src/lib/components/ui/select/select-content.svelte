@@ -1,11 +1,11 @@
 <script lang="ts">
-	import { Select as SelectPrimitive } from 'bits-ui';
-	import SelectPortal from './select-portal.svelte';
-	import SelectScrollUpButton from './select-scroll-up-button.svelte';
-	import SelectScrollDownButton from './select-scroll-down-button.svelte';
-	import { cn, type WithoutChild } from '$lib/utils.js';
-	import type { ComponentProps } from 'svelte';
-	import type { WithoutChildrenOrChild } from '$lib/utils.js';
+	import { Select as SelectPrimitive } from "bits-ui";
+	import SelectPortal from "./select-portal.svelte";
+	import SelectScrollUpButton from "./select-scroll-up-button.svelte";
+	import SelectScrollDownButton from "./select-scroll-down-button.svelte";
+	import { cn, type WithoutChild } from "$lib/utils.js";
+	import type { ComponentProps } from "svelte";
+	import type { WithoutChildrenOrChild } from "$lib/utils.js";
 
 	let {
 		ref = $bindable(null),
@@ -27,7 +27,7 @@
 		{preventScroll}
 		data-slot="select-content"
 		class={cn(
-			'relative isolate z-50 min-w-36 animate-none! overflow-x-hidden overflow-y-auto rounded-md bg-popover/70 text-popover-foreground shadow-md ring-1 ring-foreground/10 duration-100 before:pointer-events-none before:absolute before:inset-0 before:-z-1 before:rounded-[inherit] before:backdrop-blur-2xl before:backdrop-saturate-150 data-[side=bottom]:slide-in-from-top-2 data-[side=inline-end]:slide-in-from-left-2 data-[side=inline-start]:slide-in-from-right-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 **:data-[slot$=-item]:focus:bg-foreground/10 **:data-[slot$=-item]:data-highlighted:bg-foreground/10 **:data-[slot$=-separator]:bg-foreground/5 **:data-[slot$=-trigger]:focus:bg-foreground/10 **:data-[slot$=-trigger]:aria-expanded:bg-foreground/10! **:data-[variant=destructive]:**:text-accent-foreground! **:data-[variant=destructive]:text-accent-foreground! **:data-[variant=destructive]:focus:bg-foreground/10! data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95',
+			"bg-popover text-popover-foreground data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 data-closed:zoom-out-95 data-open:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 ring-foreground/10 min-w-36 rounded-md shadow-md ring-1 duration-100 data-[side=inline-start]:slide-in-from-right-2 data-[side=inline-end]:slide-in-from-left-2 relative isolate z-50 overflow-x-hidden overflow-y-auto",
 			className
 		)}
 		{...restProps}
@@ -35,7 +35,7 @@
 		<SelectScrollUpButton />
 		<SelectPrimitive.Viewport
 			class={cn(
-				'h-(--bits-select-anchor-height) w-full min-w-(--bits-select-anchor-width) scroll-my-1'
+				"h-(--bits-select-anchor-height) w-full min-w-(--bits-select-anchor-width) scroll-my-1"
 			)}
 		>
 			{@render children?.()}
