@@ -1,7 +1,10 @@
 <script lang="ts">
-	import type { WithElementRef } from "$lib/utils.js";
-	import type { HTMLAttributes } from "svelte/elements";
-	import { cn } from "$lib/utils.js";
+	import { getTranslate } from '@tolgee/svelte';
+	import type { WithElementRef } from '$lib/utils.js';
+	import type { HTMLAttributes } from 'svelte/elements';
+	import { cn } from '$lib/utils.js';
+
+	const { t } = getTranslate();
 
 	let {
 		ref = $bindable(null),
@@ -14,8 +17,8 @@
 <nav
 	bind:this={ref}
 	data-slot="breadcrumb"
-	aria-label="breadcrumb"
-	class={cn("cn-breadcrumb", className)}
+	aria-label={$t('aria.breadcrumb')}
+	class={cn('cn-breadcrumb', className)}
 	{...restProps}
 >
 	{@render children?.()}

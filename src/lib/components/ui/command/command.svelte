@@ -1,13 +1,13 @@
 <script lang="ts">
-	import { cn } from "$lib/utils.js";
-	import { Command as CommandPrimitive } from "bits-ui";
+	import { cn } from '$lib/utils.js';
+	import { Command as CommandPrimitive } from 'bits-ui';
 
 	export type CommandRootApi = CommandPrimitive.Root;
 
 	let {
 		api = $bindable(null),
 		ref = $bindable(null),
-		value = $bindable(""),
+		value = $bindable(''),
 		class: className,
 		...restProps
 	}: CommandPrimitive.RootProps & {
@@ -20,6 +20,9 @@
 	bind:value
 	bind:ref
 	data-slot="command"
-	class={cn("bg-popover text-popover-foreground rounded-xl! p-1 flex size-full flex-col overflow-hidden", className)}
+	class={cn(
+		'flex size-full flex-col overflow-hidden rounded-xl! bg-popover p-1 text-popover-foreground',
+		className
+	)}
 	{...restProps}
 />

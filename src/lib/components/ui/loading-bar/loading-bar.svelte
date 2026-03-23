@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { getTranslate } from '@tolgee/svelte';
 	import { Progress as ProgressPrimitive } from 'bits-ui';
 	import { watch } from 'runed';
 	import { getTranslate } from '@tolgee/svelte';
