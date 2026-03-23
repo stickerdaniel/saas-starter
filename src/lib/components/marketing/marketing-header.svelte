@@ -77,21 +77,27 @@
 				class="-mx-2 flex w-[calc(100%+1rem)] items-center justify-between rounded-2xl border border-black/[0.06] px-6 py-4 [box-shadow:inset_0_1px_1px_0_rgba(255,255,255,0.5)] backdrop-blur-[5px] transition-[height,transform] duration-300 [background:linear-gradient(137deg,rgba(252,252,255,0.9)_4.87%,rgba(240,240,248,0.95)_75.88%)] lg:-mx-8 lg:w-[calc(100%+4rem)] lg:px-8 dark:border-white/[0.06] dark:[box-shadow:inset_0_1px_1px_0_rgba(255,255,255,0.15)] dark:[background:linear-gradient(137deg,rgba(17,18,20,0.75)_4.87%,rgba(12,13,15,0.9)_75.88%)]"
 			>
 				<!-- Logo -->
-				<a href={resolve(localizedHref('/'))} class="flex items-center space-x-2">
+				<Button
+					variant="ghost"
+					href={resolve(localizedHref('/'))}
+					class="-ml-3.5 flex items-center gap-2 px-3 font-semibold"
+				>
 					<Logo class="size-5" />
-					<span class="font-semibold">SaaS Starter</span>
-				</a>
+					SaaS Starter
+				</Button>
 
 				<!-- Desktop Navigation -->
-				<ul class="hidden gap-8 text-sm lg:flex">
+				<ul class="hidden gap-2 text-sm lg:flex">
 					{#each menuItems as item (item.translationKey)}
 						<li>
-							<a
+							<Button
+								variant="ghost"
+								size="sm"
 								href={resolve(item.href)}
-								class="block text-muted-foreground transition-colors duration-150 hover:text-accent-foreground"
+								class="text-muted-foreground"
 							>
-								<span><T keyName={item.translationKey} /></span>
-							</a>
+								<T keyName={item.translationKey} />
+							</Button>
 						</li>
 					{/each}
 				</ul>
@@ -199,16 +205,17 @@
 		<div
 			class="fixed top-24 right-4 left-4 z-30 rounded-2xl border border-white/[0.06] bg-background/95 p-6 backdrop-blur-xl lg:hidden"
 		>
-			<ul class="space-y-4 text-base">
+			<ul class="space-y-1 text-base">
 				{#each menuItems as item (item.translationKey)}
 					<li>
-						<a
+						<Button
+							variant="ghost"
 							href={resolve(item.href)}
-							class="block text-muted-foreground transition-colors duration-150 hover:text-accent-foreground"
+							class="w-full justify-start text-muted-foreground"
 							onclick={() => (menuState = false)}
 						>
-							<span><T keyName={item.translationKey} /></span>
-						</a>
+							<T keyName={item.translationKey} />
+						</Button>
 					</li>
 				{/each}
 			</ul>
