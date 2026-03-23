@@ -2,6 +2,7 @@
 	import { T } from '@tolgee/svelte';
 	import { localizedHref } from '$lib/utils/i18n';
 	import { resolve } from '$app/paths';
+	import Button from '$lib/components/ui/button/button.svelte';
 </script>
 
 <footer class="mt-auto pt-24">
@@ -14,28 +15,34 @@
 					<T keyName="footer.copyright" params={{ year: new Date().getFullYear().toString() }} />
 				</p>
 				<nav
-					class="flex flex-col items-end gap-1 text-xs text-muted-foreground sm:flex-row sm:items-center sm:gap-3"
+					class="flex flex-col items-end gap-0 text-xs text-muted-foreground sm:flex-row sm:items-center sm:gap-1"
 				>
-					<a
+					<Button
+						variant="ghost"
+						size="sm"
 						href={resolve(localizedHref('/impressum'))}
-						class="transition-colors duration-150 hover:text-accent-foreground"
+						class="h-7 text-xs text-muted-foreground"
 					>
 						<T keyName="footer.impressum" />
-					</a>
+					</Button>
 					<span class="hidden sm:inline" aria-hidden="true">&middot;</span>
-					<a
+					<Button
+						variant="ghost"
+						size="sm"
 						href={resolve(localizedHref('/terms'))}
-						class="transition-colors duration-150 hover:text-accent-foreground"
+						class="h-7 text-xs text-muted-foreground"
 					>
 						<T keyName="footer.terms" />
-					</a>
+					</Button>
 					<span class="hidden sm:inline" aria-hidden="true">&middot;</span>
-					<a
+					<Button
+						variant="ghost"
+						size="sm"
 						href={resolve(localizedHref('/privacy'))}
-						class="transition-colors duration-150 hover:text-accent-foreground"
+						class="h-7 text-xs text-muted-foreground"
 					>
 						<T keyName="footer.privacy" />
-					</a>
+					</Button>
 				</nav>
 			</div>
 		</div>
