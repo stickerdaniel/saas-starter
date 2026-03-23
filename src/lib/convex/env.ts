@@ -14,18 +14,38 @@ type RequiredKeys = {
 }[keyof CoercedEnvSchema];
 
 /**
+ * Placeholders for vars accessed at module-analysis time.
+ *
+ * Convex bundles and statically analyzes modules before env vars are available.
+ * `createApi()` in adapter.ts calls `createAuthOptions()` at load time to
+ * extract the Better Auth schema, so BETTER_AUTH_SECRET and SITE_URL must
+ * return something during analysis. These placeholders are never used at
+ * runtime -- build-time validation (validate-convex-env.ts) ensures the
+ * real values are set before deploy.
+ */
+const ANALYSIS_PLACEHOLDERS: Partial<Record<string, string>> = {
+	BETTER_AUTH_SECRET: 'placeholder-secret-for-analysis',
+	SITE_URL: 'https://placeholder.invalid'
+};
+
+/**
  * Get a required env var or throw with a helpful message.
  * Only accepts keys marked `@required` in `.env-convex.schema`.
+ *
+ * Falls back to analysis placeholders for vars that are read at module load
+ * time (before Convex sets env vars). All other missing vars throw immediately.
  */
 export function requireEnv<K extends RequiredKeys>(name: K): string {
 	const value = process.env[name as string];
-	if (!value) {
-		throw new Error(
-			`Missing required environment variable: ${name}\n` +
-				`Set via: bunx convex env set ${name} <value>`
-		);
-	}
-	return value;
+	if (value) return value;
+
+	const placeholder = ANALYSIS_PLACEHOLDERS[name as string];
+	if (placeholder) return placeholder;
+
+	throw new Error(
+		`Missing required environment variable: ${name}\n` +
+			`Set via: bunx convex env set ${name} <value>`
+	);
 }
 
 // =============================================================================
