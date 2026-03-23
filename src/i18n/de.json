@@ -745,7 +745,9 @@
 		"logout": "Abmelden",
 		"menu_close": "Menü schließen",
 		"menu_open": "Menü öffnen",
+		"mobile_sidebar_description": "Zeigt die mobile Seitenleiste an.",
 		"more": "Mehr",
+		"sidebar": "Seitenleiste",
 		"notification_toggle_for_email": "{field} für {email}",
 		"pagination_first": "Erste Seite",
 		"pagination_last": "Letzte Seite",
@@ -1195,13 +1197,13 @@
 			"description": "SaaS-Starter für SvelteKit mit Auth, Billing, E-Mail und Analytics.",
 			"title": "Schneller entwickeln und veröffentlichen"
 		},
-		"pricing": {
-			"description": "Wählen Sie einen Plan und testen Sie den integrierten Abrechnungsablauf.",
-			"title": "Preise"
-		},
 		"impressum": {
 			"description": "Anbieterkennzeichnung und Kontaktdaten.",
 			"title": "Impressum"
+		},
+		"pricing": {
+			"description": "Wählen Sie einen Plan und testen Sie den integrierten Abrechnungsablauf.",
+			"title": "Preise"
 		},
 		"privacy": {
 			"description": "Wie wir Ihre Daten erheben, nutzen und schützen.",

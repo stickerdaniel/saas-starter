@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Button } from '$lib/components/ui/button';
+	import { buttonVariants } from '$lib/components/ui/button';
 	import { UseClipboard } from '$lib/hooks/use-clipboard.svelte';
 	import { haptic } from '$lib/hooks/use-haptic.svelte';
 	import { cn } from '$lib/utils.js';
@@ -27,17 +27,18 @@
 	}: CopyButtonProps = $props();
 
 	const resolvedSize = $derived(sizeProp === 'icon' && children ? 'default' : sizeProp);
+	const buttonProps = $derived(
+		rest as Omit<import('svelte/elements').HTMLButtonAttributes, 'type'>
+	);
 
 	const clipboard = new UseClipboard();
 </script>
 
-<Button
-	{...rest}
-	bind:ref
-	{variant}
-	size={resolvedSize}
+<button
+	{...buttonProps}
+	bind:this={ref}
 	{tabindex}
-	class={cn('flex items-center gap-2', className)}
+	class={cn(buttonVariants({ variant, size: resolvedSize }), 'flex items-center gap-2', className)}
 	type="button"
 	name="copy"
 	onclick={async () => {
@@ -67,4 +68,4 @@
 		</div>
 	{/if}
 	{@render children?.()}
-</Button>
+</button>

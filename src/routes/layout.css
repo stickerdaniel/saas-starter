@@ -304,6 +304,12 @@
 			opacity: 1;
 		}
 	}
+
+	--radius-2xl: calc(var(--radius) * 1.8);
+
+	--radius-3xl: calc(var(--radius) * 2.2);
+
+	--radius-4xl: calc(var(--radius) * 2.6);
 }
 
 /* View Transitions - Respect reduced motion preference */
@@ -359,6 +365,30 @@
 
 @utility no-drag {
 	-webkit-user-drag: none;
+}
+
+@utility marketing-shell-panel {
+	border-color: rgb(0 0 0 / 0.06);
+	background: linear-gradient(137deg, rgb(252 252 255 / 0.9) 4.87%, rgb(240 240 248 / 0.95) 75.88%);
+	box-shadow: inset 0 1px 1px 0 rgb(255 255 255 / 0.5);
+	backdrop-filter: blur(5px);
+}
+
+@utility marketing-shell-panel-footer {
+	border-color: color-mix(in srgb, var(--border) 50%, transparent);
+	background: linear-gradient(137deg, rgb(252 252 255 / 0.9) 4.87%, rgb(240 240 248 / 0.95) 75.88%);
+	box-shadow: inset 0 1px 1px 0 rgb(255 255 255 / 0.5);
+	backdrop-filter: blur(5px);
+}
+
+.dark .marketing-shell-panel,
+.dark .marketing-shell-panel-footer {
+	background: linear-gradient(137deg, rgb(17 18 20 / 0.75) 4.87%, rgb(12 13 15 / 0.9) 75.88%);
+	box-shadow: inset 0 1px 1px 0 rgb(255 255 255 / 0.15);
+}
+
+.dark .marketing-shell-panel {
+	border-color: rgb(255 255 255 / 0.06);
 }
 
 @utility animate-fade-in {
@@ -460,5 +490,68 @@
 	html.auth-shell-bg,
 	body.auth-shell-bg {
 		background-color: var(--sidebar);
+	}
+	html {
+		@apply font-sans;
+	}
+}
+
+@custom-variant data-open {
+	&:where([data-state='open']),
+	&:where([data-open]:not([data-open='false'])) {
+		@slot;
+	}
+}
+
+@custom-variant data-closed {
+	&:where([data-state='closed']),
+	&:where([data-closed]:not([data-closed='false'])) {
+		@slot;
+	}
+}
+
+@custom-variant data-checked {
+	&:where([data-state='checked']),
+	&:where([data-checked]:not([data-checked='false'])) {
+		@slot;
+	}
+}
+
+@custom-variant data-unchecked {
+	&:where([data-state='unchecked']),
+	&:where([data-unchecked]:not([data-unchecked='false'])) {
+		@slot;
+	}
+}
+
+@custom-variant data-selected {
+	&:where([data-selected]) {
+		@slot;
+	}
+}
+
+@custom-variant data-disabled {
+	&:where([data-disabled='true']),
+	&:where([data-disabled]:not([data-disabled='false'])) {
+		@slot;
+	}
+}
+
+@custom-variant data-active {
+	&:where([data-state='active']),
+	&:where([data-active]:not([data-active='false'])) {
+		@slot;
+	}
+}
+
+@custom-variant data-horizontal {
+	&:where([data-orientation='horizontal']) {
+		@slot;
+	}
+}
+
+@custom-variant data-vertical {
+	&:where([data-orientation='vertical']) {
+		@slot;
 	}
 }

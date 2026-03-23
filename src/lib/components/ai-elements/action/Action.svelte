@@ -1,13 +1,12 @@
 <script lang="ts">
 	import { cn } from '$lib/utils';
 	import {
-		Button,
-		type ButtonPropsWithoutHTML,
+		buttonVariants,
 		type ButtonVariant,
 		type ButtonSize
 	} from '$lib/components/ui/button/index.js';
 	import type { HTMLButtonAttributes } from 'svelte/elements';
-	import type { WithoutChildren } from 'bits-ui';
+	import type { WithChildren, WithoutChildren } from 'bits-ui';
 	import {
 		Tooltip,
 		TooltipContent,
@@ -15,13 +14,15 @@
 		TooltipTrigger
 	} from '$lib/components/ui/tooltip/index.js';
 
-	export type ActionProps = ButtonPropsWithoutHTML &
-		WithoutChildren<Omit<HTMLButtonAttributes, 'type'>> & {
-			tooltip?: string;
-			label?: string;
-			variant?: ButtonVariant;
-			size?: ButtonSize;
-		};
+	type ActionButtonAttrs = WithoutChildren<Omit<HTMLButtonAttributes, 'type'>>;
+
+	export type ActionProps = WithChildren<ActionButtonAttrs> & {
+		tooltip?: string;
+		label?: string;
+		variant?: ButtonVariant;
+		size?: ButtonSize;
+		ref?: HTMLButtonElement | null;
+	};
 
 	let {
 		tooltip,
@@ -36,16 +37,21 @@
 	let buttonClasses = $derived(
 		cn('text-muted-foreground hover:text-foreground relative size-9 p-1.5', className)
 	);
+	let buttonProps = $derived(restProps as ActionButtonAttrs);
 </script>
 
 {#if tooltip}
 	<TooltipProvider>
 		<Tooltip delayDuration={150}>
 			<TooltipTrigger>
-				<Button class={buttonClasses} {size} type="button" {variant} {...restProps}>
+				<button
+					class={cn(buttonVariants({ variant, size }), buttonClasses)}
+					type="button"
+					{...buttonProps}
+				>
 					{@render children?.()}
 					<span class="sr-only">{label || tooltip}</span>
-				</Button>
+				</button>
 			</TooltipTrigger>
 			<TooltipContent>
 				<p>{tooltip}</p>
@@ -53,8 +59,12 @@
 		</Tooltip>
 	</TooltipProvider>
 {:else}
-	<Button class={buttonClasses} {size} type="button" {variant} {...restProps}>
+	<button
+		class={cn(buttonVariants({ variant, size }), buttonClasses)}
+		type="button"
+		{...buttonProps}
+	>
 		{@render children?.()}
 		<span class="sr-only">{label || tooltip}</span>
-	</Button>
+	</button>
 {/if}

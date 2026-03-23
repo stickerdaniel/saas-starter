@@ -5,6 +5,7 @@
 	import { getTooltipContext, Tooltip as TooltipPrimitive } from 'layerchart';
 	import type { Snippet } from 'svelte';
 
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	function defaultFormatter(value: any, _payload: TooltipPayload[]) {
 		return `${value}`;
 	}
@@ -31,7 +32,8 @@
 		labelKey?: string;
 		hideIndicator?: boolean;
 		labelClassName?: string;
-		labelFormatter?: ((value: any, payload: TooltipPayload[]) => string | number | Snippet) | null;
+		labelFormatter?: // eslint-disable-next-line @typescript-eslint/no-explicit-any
+			((value: any, payload: TooltipPayload[]) => string | number | Snippet) | null;
 		formatter?: Snippet<
 			[
 				{
@@ -51,16 +53,16 @@
 	const formattedLabel = $derived.by(() => {
 		if (hideLabel || !tooltipCtx.payload?.length) return null;
 
-		const item = tooltipCtx.payload[0];
+		const [item] = tooltipCtx.payload;
 		if (!item) return null;
-		const key = labelKey ?? item.label ?? item.name ?? 'value';
+		const key = labelKey ?? item?.label ?? item?.name ?? 'value';
 
 		const itemConfig = getPayloadConfigFromPayload(chart.config, item, key);
 
 		const value =
 			!labelKey && typeof label === 'string'
 				? (chart.config[label as keyof typeof chart.config]?.label ?? label)
-				: (itemConfig?.label ?? item.label);
+				: (itemConfig?.label ?? item.label ?? item.name);
 
 		if (value === undefined) return null;
 		if (!labelFormatter) return value;
@@ -84,6 +86,7 @@
 
 <TooltipPrimitive.Root variant="none">
 	<div
+		bind:this={ref}
 		class={cn(
 			'grid min-w-[9rem] items-start gap-1.5 rounded-lg border border-border/50 bg-background px-2.5 py-1.5 text-xs shadow-xl',
 			className
