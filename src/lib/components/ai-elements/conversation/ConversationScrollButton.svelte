@@ -1,22 +1,20 @@
 <script lang="ts" module>
 	import { cn } from '$lib/utils';
-	import type {
-		ButtonPropsWithoutHTML,
-		ButtonVariant,
-		ButtonSize
-	} from '$lib/components/ui/button/index.js';
+	import type { ButtonVariant, ButtonSize } from '$lib/components/ui/button/index.js';
 	import type { HTMLButtonAttributes } from 'svelte/elements';
 	import type { WithoutChildren } from 'bits-ui';
 
-	export type ConversationScrollButtonProps = ButtonPropsWithoutHTML &
-		WithoutChildren<Omit<HTMLButtonAttributes, 'type'>> & {
-			variant?: ButtonVariant;
-			size?: ButtonSize;
-		};
+	type ScrollButtonAttrs = WithoutChildren<Omit<HTMLButtonAttributes, 'type'>>;
+
+	export type ConversationScrollButtonProps = ScrollButtonAttrs & {
+		variant?: ButtonVariant;
+		size?: ButtonSize;
+		ref?: HTMLButtonElement | null;
+	};
 </script>
 
 <script lang="ts">
-	import { Button } from '$lib/components/ui/button';
+	import { buttonVariants } from '$lib/components/ui/button';
 	import ArrowDown from '@lucide/svelte/icons/arrow-down';
 	import { stickToBottomContext } from './stick-to-bottom-context.svelte.js';
 	import { fly } from 'svelte/transition';
@@ -25,6 +23,7 @@
 	let { class: className, onclick, ...restProps }: ConversationScrollButtonProps = $props();
 
 	const context = stickToBottomContext.get();
+	const buttonProps = $derived(restProps as ScrollButtonAttrs);
 
 	const handleScrollToBottom = (event: MouseEvent) => {
 		context.scrollToBottom();
@@ -52,18 +51,17 @@
 		}}
 		class="absolute bottom-4 left-[50%] translate-x-[-50%]"
 	>
-		<Button
+		<button
 			class={cn(
+				buttonVariants({ variant: 'outline', size: 'icon' }),
 				'rounded-full border-border/50 bg-background/80 shadow-lg backdrop-blur-sm hover:bg-background/90 hover:shadow-xl',
 				className
 			)}
 			onclick={handleScrollToBottom}
-			size="icon"
 			type="button"
-			variant="outline"
-			{...restProps}
+			{...buttonProps}
 		>
 			<ArrowDown class="size-4" />
-		</Button>
+		</button>
 	</div>
 {/if}

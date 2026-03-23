@@ -1,33 +1,29 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button/index.js';
-	import { getTranslate } from '@tolgee/svelte';
-	import { cn } from '$lib/utils.js';
 	import PanelLeftIcon from '@lucide/svelte/icons/panel-left';
-	import { sidebarContext } from './context.svelte.js';
-
-	const { t } = getTranslate();
+	import { cn } from '$lib/utils.js';
+	import type { ComponentProps } from 'svelte';
+	import { useSidebar } from './context.svelte.js';
 
 	let {
 		ref = $bindable(null),
 		class: className,
 		onclick,
 		...restProps
-	}: {
-		ref?: HTMLButtonElement | null;
-		class?: string;
+	}: ComponentProps<typeof Button> & {
 		onclick?: (e: MouseEvent) => void;
-		[key: string]: any;
 	} = $props();
 
-	const sidebar = sidebarContext.get();
+	const sidebar = useSidebar();
 </script>
 
 <Button
+	bind:ref
 	data-sidebar="trigger"
 	data-slot="sidebar-trigger"
 	variant="ghost"
-	size="icon"
-	class={cn('size-7', className)}
+	size="icon-sm"
+	class={cn('cn-sidebar-trigger', className)}
 	type="button"
 	onclick={(e) => {
 		onclick?.(e);
@@ -36,5 +32,5 @@
 	{...restProps}
 >
 	<PanelLeftIcon />
-	<span class="sr-only">{$t('aria.toggle_sidebar')}</span>
+	<span class="sr-only">Toggle Sidebar</span>
 </Button>

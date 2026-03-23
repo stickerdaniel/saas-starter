@@ -48,7 +48,7 @@ export function getPayloadConfigFromPayload(
 		configLabelKey = payloadPayload[key as keyof typeof payloadPayload] as string;
 	}
 
-	return configLabelKey in config ? config[configLabelKey] : config[key];
+	return configLabelKey in config ? config[configLabelKey] : config[key as keyof typeof config];
 }
 
 type ChartContextValue = {
