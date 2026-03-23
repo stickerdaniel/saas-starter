@@ -1,10 +1,10 @@
 import { Autumn } from '@useautumn/convex';
 import { components } from './_generated/api';
 import { authComponent } from './auth';
-import { getAutumnSecretKey } from './env';
+import { requireEnv } from './env';
 
 export const autumn = new Autumn(components.autumn, {
-	secretKey: getAutumnSecretKey() ?? '',
+	secretKey: requireEnv('AUTUMN_SECRET_KEY'),
 	identify: async (ctx: Parameters<typeof authComponent.getAuthUser>[0]) => {
 		// Get the authenticated user from Better Auth
 		const user = await authComponent.getAuthUser(ctx);

@@ -76,21 +76,32 @@ function getPersistentBetterAuthSecret(projectDir: string, reset: boolean): stri
 	return secret;
 }
 
-function addOptionalEnv(
-	envVars: Record<string, string>,
-	key: string,
-	value: string | undefined
-): void {
-	const trimmed = value?.trim();
-	if (trimmed) {
-		envVars[key] = trimmed;
+/**
+ * Parse a dotenv-style file into a Record<string, string>.
+ * Skips blank lines and comments. Does not expand variables.
+ */
+function parseEnvFile(filePath: string): Record<string, string> {
+	if (!fs.existsSync(filePath)) return {};
+	const vars: Record<string, string> = {};
+	for (const line of fs.readFileSync(filePath, 'utf-8').split('\n')) {
+		const trimmed = line.trim();
+		if (!trimmed || trimmed.startsWith('#')) continue;
+		const eqIndex = trimmed.indexOf('=');
+		if (eqIndex === -1) continue;
+		const key = trimmed.slice(0, eqIndex).trim();
+		const value = trimmed.slice(eqIndex + 1).trim();
+		if (key && value) {
+			vars[key] = value;
+		}
 	}
+	return vars;
 }
 
 export default defineConfig(async ({ mode }) => {
 	const cwd = process.cwd();
 	const loadedEnv = loadEnv(mode, cwd, '');
-	const useLocalConvex = (process.env.USE_LOCAL_CONVEX ?? loadedEnv.USE_LOCAL_CONVEX) === 'true';
+	// Auto-detect: local backend unless a cloud CONVEX_DEPLOYMENT is configured
+	const useLocalConvex = !loadedEnv.CONVEX_DEPLOYMENT;
 	const plugins: PluginOption[] = [];
 
 	if (useLocalConvex) {
@@ -98,17 +109,19 @@ export default defineConfig(async ({ mode }) => {
 		const siteProxyPort = await findAvailablePort(backendPort + 1);
 		const backendUrl = `http://localhost:${backendPort}`;
 		const siteProxyUrl = `http://localhost:${siteProxyPort}`;
-		const missingEmailEnv = ['RESEND_API_KEY', 'AUTH_EMAIL'].filter(
-			(key) => !loadedEnv[key]?.trim()
-		);
-		const resetLocalBackend =
-			(process.env.RESET_LOCAL_BACKEND ?? loadedEnv.RESET_LOCAL_BACKEND) === 'true';
+		const resetLocalBackend = process.env.RESET_LOCAL_BACKEND === 'true';
 		const betterAuthSecret =
 			loadedEnv.BETTER_AUTH_SECRET?.trim() || getPersistentBetterAuthSecret(cwd, resetLocalBackend);
 
+		// Load Convex backend env vars from .env.convex.local
+		const convexLocalEnv = parseEnvFile(path.join(cwd, '.env.convex.local'));
+		const missingEmailEnv = ['RESEND_API_KEY', 'AUTH_EMAIL'].filter(
+			(key) => !convexLocalEnv[key]?.trim()
+		);
+
 		if (missingEmailEnv.length > 0) {
 			console.warn(
-				`[dev:local] Missing ${missingEmailEnv.join(', ')} in .env.local. ` +
+				`[dev] Missing ${missingEmailEnv.join(', ')} in .env.convex.local. ` +
 					'Local boot will use the seeded admin account, but manual signup, verification, and password reset emails will not work until these are configured.'
 			);
 		}
@@ -130,27 +143,17 @@ export default defineConfig(async ({ mode }) => {
 				onReady: [{ name: 'localDev:ensureSeededAdmin' }],
 				envVars: ({ vitePort, resolvedUrls }) => {
 					const siteUrl = resolvedUrls?.local[0] ?? `http://localhost:${vitePort}`;
-					const envVars: Record<string, string> = {
+					return {
+						// Auto-generated defaults for local dev
 						BETTER_AUTH_SECRET: betterAuthSecret,
 						SITE_URL: siteUrl,
-						EMAIL_ASSET_URL: siteUrl,
 						LOCAL_CONVEX_DEV: 'true',
 						LOCAL_SEEDED_ADMIN_EMAIL: 'admin@local.dev',
 						LOCAL_SEEDED_ADMIN_PASSWORD: 'LocalDevAdmin123!',
-						LOCAL_SEEDED_ADMIN_NAME: 'Local Admin'
+						LOCAL_SEEDED_ADMIN_NAME: 'Local Admin',
+						// User overrides from .env.convex.local (takes precedence)
+						...convexLocalEnv
 					};
-
-					addOptionalEnv(envVars, 'RESEND_API_KEY', loadedEnv.RESEND_API_KEY);
-					addOptionalEnv(envVars, 'AUTH_EMAIL', loadedEnv.AUTH_EMAIL);
-					addOptionalEnv(envVars, 'AUTH_GOOGLE_ID', loadedEnv.AUTH_GOOGLE_ID);
-					addOptionalEnv(envVars, 'AUTH_GOOGLE_SECRET', loadedEnv.AUTH_GOOGLE_SECRET);
-					addOptionalEnv(envVars, 'AUTH_GITHUB_ID', loadedEnv.AUTH_GITHUB_ID);
-					addOptionalEnv(envVars, 'AUTH_GITHUB_SECRET', loadedEnv.AUTH_GITHUB_SECRET);
-					addOptionalEnv(envVars, 'OPENROUTER_API_KEY', loadedEnv.OPENROUTER_API_KEY);
-					addOptionalEnv(envVars, 'AUTUMN_SECRET_KEY', loadedEnv.AUTUMN_SECRET_KEY);
-					addOptionalEnv(envVars, 'AUTH_E2E_TEST_SECRET', loadedEnv.AUTH_E2E_TEST_SECRET);
-
-					return envVars;
 				}
 			})
 		);

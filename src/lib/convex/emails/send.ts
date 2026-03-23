@@ -9,7 +9,7 @@ import {
 	renderNewTicketAdminNotificationEmail,
 	renderNewUserSignupNotificationEmail
 } from './templates';
-import { getAuthEmail, getSiteUrl } from '../env';
+import { requireEnv } from '../env';
 import type { NotificationMessage } from '../../emails/templates/types';
 import { t, getValidLocale, type SupportedLocale } from '../i18n/translations';
 import type { GenericMutationCtx } from 'convex/server';
@@ -55,7 +55,7 @@ export const sendVerificationEmail = internalMutation({
 		const { html, text } = renderVerificationEmail(verificationUrl, expiryMinutes);
 
 		await resend.sendEmail(ctx, {
-			from: getAuthEmail(),
+			from: requireEnv('AUTH_EMAIL'),
 			to: email,
 			subject: t(locale, 'email.subject.verify'),
 			html,
@@ -90,7 +90,7 @@ export const sendResetPasswordEmail = internalMutation({
 		const { html, text } = renderPasswordResetEmail(resetUrl, userName);
 
 		await resend.sendEmail(ctx, {
-			from: getAuthEmail(),
+			from: requireEnv('AUTH_EMAIL'),
 			to: email,
 			subject: t(locale, 'email.subject.reset_password'),
 			html,
@@ -125,7 +125,7 @@ export const sendAdminReplyNotification = internalMutation({
 		if (shouldSkipTestEmail('sendAdminReplyNotification', email)) return;
 
 		const locale = await getLocaleForEmail(ctx, email);
-		const siteUrl = getSiteUrl();
+		const siteUrl = requireEnv('SITE_URL');
 
 		// Build deep link that opens the support widget to this thread
 		// Strip any existing support/thread params to avoid duplicates
@@ -139,7 +139,7 @@ export const sendAdminReplyNotification = internalMutation({
 		const { html, text } = renderAdminReplyNotificationEmail(adminName, messagePreview, deepLink);
 
 		await resend.sendEmail(ctx, {
-			from: getAuthEmail(),
+			from: requireEnv('AUTH_EMAIL'),
 			to: email,
 			subject: t(locale, 'email.subject.support_reply'),
 			html,
@@ -178,7 +178,7 @@ export const sendNewTicketAdminNotification = internalMutation({
 	},
 	handler: async (ctx, args) => {
 		const { email, isReopen, userName, messages, threadId } = args;
-		const siteUrl = getSiteUrl();
+		const siteUrl = requireEnv('SITE_URL');
 		const locale = await getLocaleForEmail(ctx, email);
 
 		// Build admin dashboard link for this thread
@@ -199,7 +199,7 @@ export const sendNewTicketAdminNotification = internalMutation({
 			: t(locale, 'email.subject.ticket_new', { userName });
 
 		await resend.sendEmail(ctx, {
-			from: getAuthEmail(),
+			from: requireEnv('AUTH_EMAIL'),
 			to: email,
 			subject,
 			html,
@@ -234,7 +234,7 @@ export const sendNewUserSignupNotification = internalMutation({
 
 		if (shouldSkipTestEmail('sendNewUserSignupNotification', userEmail)) return;
 
-		const siteUrl = getSiteUrl();
+		const siteUrl = requireEnv('SITE_URL');
 
 		// Get recipients who have new signup notifications enabled
 		const recipients = await ctx.runQuery(
@@ -265,7 +265,7 @@ export const sendNewUserSignupNotification = internalMutation({
 		for (const email of recipients) {
 			try {
 				await resend.sendEmail(ctx, {
-					from: getAuthEmail(),
+					from: requireEnv('AUTH_EMAIL'),
 					to: email,
 					subject: `New user signup: ${userEmail}`,
 					html,
@@ -392,7 +392,7 @@ export const sendFounderWelcomeEmail = internalMutation({
 		const subject = renderTemplate(config.subject);
 
 		await resend.sendEmail(ctx, {
-			from: `${config.name} <${getAuthEmail()}>`,
+			from: `${config.name} <${requireEnv('AUTH_EMAIL')}>`,
 			replyTo: config.replyTo ? [config.replyTo] : undefined,
 			to: email,
 			subject,

@@ -2,9 +2,14 @@ import { describe, it, expect, vi } from 'vitest';
 
 // Mock the env module before importing templates
 vi.mock('$lib/convex/env', () => ({
-	getEmailAssetUrl: () => 'https://test.example.com',
-	getSiteUrl: () => 'https://test.example.com',
-	getAuthEmail: () => 'test@example.com'
+	requireEnv: (name: string) => {
+		const vars: Record<string, string> = {
+			EMAIL_ASSET_URL: 'https://test.example.com',
+			SITE_URL: 'https://test.example.com',
+			AUTH_EMAIL: 'test@example.com'
+		};
+		return vars[name] ?? '';
+	}
 }));
 
 import {

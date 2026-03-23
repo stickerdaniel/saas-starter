@@ -115,7 +115,7 @@ export default defineConfig({
 	webServer: isCI
 		? undefined
 		: {
-				command: 'bun run dev:frontend',
+				command: 'bun run dev:cloud:frontend',
 				port: 5173,
 				reuseExistingServer: true,
 				timeout: 60000

@@ -10,7 +10,7 @@ import { admin } from 'better-auth/plugins/admin';
 import { betterAuth, type BetterAuthOptions } from 'better-auth';
 import authSchema from './betterAuth/schema';
 import authConfig from './auth.config';
-import { getBetterAuthSecret, getSiteUrl, googleOAuth, githubOAuth } from './env';
+import { requireEnv, googleOAuth, githubOAuth } from './env';
 import { getFounderWelcomeDelay } from './emails/helpers';
 import { incrementCounter } from './admin/counters';
 
@@ -293,8 +293,8 @@ export const { onCreate, onUpdate, onDelete } = authComponent.triggersApi();
 // Creates Better Auth options object (used by adapter and betterAuth CLI)
 export const createAuthOptions = (ctx: GenericCtx<DataModel>): BetterAuthOptions => {
 	return {
-		baseURL: getSiteUrl(),
-		secret: getBetterAuthSecret(),
+		baseURL: requireEnv('SITE_URL'),
+		secret: requireEnv('BETTER_AUTH_SECRET'),
 		database: authComponent.adapter(ctx),
 		user: {
 			additionalFields: {

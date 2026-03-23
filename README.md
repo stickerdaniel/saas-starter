@@ -31,122 +31,76 @@ cd saas-starter
 bun install
 ```
 
-### 2. Set up Convex
-
-```bash
-# Initialize Convex project
-bunx convex dev
-```
-
-### 3. Environment Variables
-
-Create `.env.local`:
-
-```bash
-CONVEX_DEPLOYMENT=your-deployment-name
-PUBLIC_CONVEX_URL=https://your-deployment-name.convex.cloud
-```
-
-### 4. OAuth Providers (Optional)
-
-#### Google OAuth Setup
-
-1. Create a Google OAuth app in the [Google Cloud Console](https://console.cloud.google.com/)
-2. Set callback URL: `https://[your-deployment-name].convex.site/api/auth/callback/google`
-3. Set environment variables:
-
-```bash
-bunx convex env set AUTH_GOOGLE_ID your_google_client_id
-bunx convex env set AUTH_GOOGLE_SECRET your_google_client_secret
-```
-
-### 5. Email Configuration (Required for Auth)
-
-This project uses [Resend](https://resend.com/) for production-ready email delivery.
-
-#### Setup Resend
-
-1. **Create a Resend account** at [resend.com](https://resend.com/)
-2. **Get your API key** from the Resend dashboard
-3. **Verify your domain** (or use `onboarding@resend.dev` for testing)
-
-#### Configure Environment Variables
-
-```bash
-# Set your Resend API key
-bunx convex env set RESEND_API_KEY re_xxxxxxxxxxxx
-
-# Set your sender email address
-bunx convex env set AUTH_EMAIL "noreply@yourdomain.com"
-```
-
-**For testing:** You can use `onboarding@resend.dev` as your sender while in development.
-
-#### Email Features
-
-- ✅ **Automatic Queuing** - Reliably handles email delivery
-- ✅ **Durable Execution** - Survives server restarts
-- ✅ **Idempotency** - Prevents duplicate sends
-- ✅ **Event Tracking** - Track deliveries, bounces, spam complaints
-- ✅ **Test Mode** - Safe development with delivery restrictions
-
-#### Webhook Setup (Optional)
-
-For email event tracking (delivery confirmations, bounces, etc.):
-
-1. Go to your Resend dashboard → Webhooks
-2. Add a new webhook endpoint:
-   ```
-   https://your-deployment-name.convex.site/resend-webhook
-   ```
-3. Select events to track (delivered, bounced, complained, etc.)
-4. Copy the webhook signing secret
-5. Set the secret in Convex:
-   ```bash
-   bunx convex env set RESEND_WEBHOOK_SECRET whsec_xxxxxxxxxxxx
-   ```
-
-### 6. Run Development Server
+### 2. Run Local Development
 
 ```bash
 bun run dev
 ```
 
-Visit `http://localhost:5173` to see your app!
+That's it. A local Convex backend starts automatically with a seeded admin account:
 
-### 7. Set Up First Admin (Required for Admin Panel)
+- **Email:** `admin@local.dev`
+- **Password:** `LocalDevAdmin123!`
 
-The admin panel requires at least one admin user. To promote your first admin:
+Visit `http://localhost:5173`, sign in, and explore.
 
-1. **Sign up** with the email you want to be admin
-2. **Run the seed command:**
+### 3. Optional Services (`.env.convex.local`)
 
-   ```bash
-   bunx convex run admin/mutations:seedFirstAdmin '{"email":"your-email@example.com"}'
-   ```
-
-This is a one-time setup. The command will:
-
-- Verify the user exists
-- Check that no admins exist yet (prevents accidental re-runs)
-- Promote the user to admin role
-- Enable notification preferences for admin alerts
-
-**Note:** After the first admin is set up, additional admins can be promoted via the Admin Panel → Users page.
-
-### 8. Sync Existing Admins (Migration)
-
-If you had admin users before the notification preferences feature was added, run this one-time migration to sync them:
+Create `.env.convex.local` at the project root to enable optional services in local dev:
 
 ```bash
-bunx convex run admin/notificationPreferences/mutations:syncAllAdminPreferences
+# Email (signup, verification, password reset)
+RESEND_API_KEY=re_xxxxxxxxxxxx
+AUTH_EMAIL=noreply@yourdomain.com
+EMAIL_ASSET_URL=https://yourdomain.com
+
+# OAuth
+AUTH_GOOGLE_ID=your-client-id
+AUTH_GOOGLE_SECRET=your-client-secret
+AUTH_GITHUB_ID=your-client-id
+AUTH_GITHUB_SECRET=your-client-secret
+
+# AI support chat
+OPENROUTER_API_KEY=sk-or-v1-xxxx
+
+# Billing
+AUTUMN_SECRET_KEY=am_sk_xxxx
 ```
 
-This ensures all existing admins appear in the Admin Settings → Notification Recipients page. Safe to run multiple times.
+Without these, the app boots fine using the seeded admin. Email, OAuth, AI, and billing features are simply inactive.
+
+### 4. Cloud Development
+
+For cloud Convex (shared dev database, CI/CD):
+
+1. Initialize a Convex project: `bunx convex init`
+2. Add `CONVEX_DEPLOYMENT` to `.env.local`
+3. Run: `bun run dev:cloud`
+4. Set backend vars: `bunx convex env set KEY value` (see `.env-convex.schema` for all vars)
+
+### 5. Email Configuration
+
+This project uses [Resend](https://resend.com/) for email delivery:
+
+1. Create a Resend account at [resend.com](https://resend.com/)
+2. Get your API key and verify your domain
+3. Set vars in `.env.convex.local` (local) or via `bunx convex env set` (cloud)
+
+Email features: automatic queuing, durable execution, idempotency, event tracking, test mode.
+
+### 6. Set Up First Admin (Cloud Only)
+
+In local dev, the seeded admin is created automatically. For cloud deployments:
+
+1. Sign up with the email you want to be admin
+2. Run: `bunx convex run admin/mutations:seedFirstAdmin '{"email":"your-email@example.com"}'`
+
+After the first admin, promote additional admins via the Admin Panel.
 
 ## Available Scripts
 
-- `bun run dev` - Start development server
+- `bun run dev` - Start local dev (Convex backend embedded)
+- `bun run dev:cloud` - Start cloud dev (requires `CONVEX_DEPLOYMENT`)
 - `bun run build` - Build for production
 - `bun run preview` - Preview production build
 - `bun run test` - Run all tests (E2E + unit)
@@ -154,6 +108,24 @@ This ensures all existing admins appear in the Admin Settings → Notification R
 - `bun run test:unit` - Run unit tests only
 - `bun run lint` - Lint code
 - `bun run format` - Format code
+
+## Environment Variables
+
+Two separate runtimes, two schemas:
+
+| File                 | Runtime        | Description           |
+| -------------------- | -------------- | --------------------- |
+| `.env.schema`        | SvelteKit      | Frontend/Vercel vars  |
+| `.env-convex.schema` | Convex backend | Backend function vars |
+
+Runtime env files:
+
+| File                | Purpose                                   |
+| ------------------- | ----------------------------------------- |
+| `.env.local`        | SvelteKit vars (Vite loads automatically) |
+| `.env.convex.local` | Convex backend vars for local dev         |
+
+For cloud Convex, set vars via `bunx convex env set KEY value` (dev) or `bunx convex env set KEY value --prod` (production).
 
 ## Project Structure
 
