@@ -24,7 +24,8 @@ ${LEGAL_CONFIG.address}`;
 
 <SEOHead title={$t('meta.impressum.title')} description={$t('meta.impressum.description')} />
 
-<div class="mx-auto prose prose-sm max-w-3xl px-6 pt-40 pb-24 lg:px-12 dark:prose-invert">
+<!-- Impressum content is intentionally English-only. -->
+<div lang="en" class="mx-auto prose prose-sm max-w-3xl px-6 pt-40 pb-24 lg:px-12 dark:prose-invert">
 	<SvelteMarkdown {source} />
 	<p>
 		Email:
