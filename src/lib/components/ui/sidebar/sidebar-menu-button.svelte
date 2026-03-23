@@ -2,17 +2,17 @@
 	import { tv, type VariantProps } from 'tailwind-variants';
 
 	export const sidebarMenuButtonVariants = tv({
-		base: 'peer/menu-button outline-hidden ring-sidebar-ring hover:bg-sidebar-accent hover:text-sidebar-accent-foreground active:bg-sidebar-accent active:text-sidebar-accent-foreground active:scale-97 group-has-data-[sidebar=menu-action]/menu-item:pr-8 data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground data-[state=open]:hover:bg-sidebar-accent data-[state=open]:hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:p-2! flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm transition-[width,height,padding,scale] focus-visible:ring-2 disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[active=true]:font-medium [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0',
+		base: 'ring-sidebar-ring hover:bg-sidebar-accent hover:text-sidebar-accent-foreground active:bg-sidebar-accent active:text-sidebar-accent-foreground data-active:bg-sidebar-accent data-active:text-sidebar-accent-foreground data-open:hover:bg-sidebar-accent data-open:hover:text-sidebar-accent-foreground gap-2 rounded-md p-2 text-left text-sm transition-[width,height,padding] group-has-data-[sidebar=menu-action]/menu-item:pr-8 group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:p-2! focus-visible:ring-2 data-active:font-medium peer/menu-button group/menu-button flex w-full items-center overflow-hidden outline-hidden disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0 [&>span:last-child]:truncate',
 		variants: {
 			variant: {
 				default: 'hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
 				outline:
-					'bg-background hover:bg-sidebar-accent hover:text-sidebar-accent-foreground shadow-[0_0_0_1px_var(--sidebar-border)] hover:shadow-[0_0_0_1px_var(--sidebar-accent)]'
+					'bg-background hover:bg-sidebar-accent hover:text-sidebar-accent-foreground shadow-[0_0_0_1px_hsl(var(--sidebar-border))] hover:shadow-[0_0_0_1px_hsl(var(--sidebar-accent))]'
 			},
 			size: {
 				default: 'h-8 text-sm',
 				sm: 'h-7 text-xs',
-				lg: 'group-data-[collapsible=icon]:p-0! h-12 text-sm'
+				lg: 'h-12 text-sm group-data-[collapsible=icon]:p-0!'
 			}
 		},
 		defaultVariants: {
@@ -31,7 +31,7 @@
 	import { mergeProps } from 'bits-ui';
 	import type { ComponentProps, Snippet } from 'svelte';
 	import type { HTMLAttributes } from 'svelte/elements';
-	import { sidebarContext } from './context.svelte.js';
+	import { useSidebar } from './context.svelte.js';
 
 	let {
 		ref = $bindable(null),
@@ -53,7 +53,7 @@
 		child?: Snippet<[{ props: Record<string, unknown> }]>;
 	} = $props();
 
-	const sidebar = sidebarContext.get();
+	const sidebar = useSidebar();
 
 	const buttonProps = $derived({
 		class: cn(sidebarMenuButtonVariants({ variant, size }), className),
@@ -65,7 +65,6 @@
 	});
 </script>
 
-<!-- prettier-ignore -->
 {#snippet Button({ props }: { props?: Record<string, unknown> })}
 	{@const mergedProps = mergeProps(buttonProps, props)}
 	{#if child}

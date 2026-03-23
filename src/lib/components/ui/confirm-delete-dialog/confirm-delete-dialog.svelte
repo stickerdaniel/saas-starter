@@ -84,6 +84,7 @@
 	import { haptic } from '$lib/hooks/use-haptic.svelte';
 	import { getTranslate } from '@tolgee/svelte';
 	import { Input } from '$lib/components/ui/input';
+	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
 
 	const { t } = getTranslate();
 </script>
@@ -139,11 +140,13 @@
 				<AlertDialog.Action
 					type="submit"
 					variant="destructive"
-					loading={dialogState.loading}
 					disabled={dialogState.options?.input &&
 						dialogState.inputText !== dialogState.options.input.confirmationText}
 					data-testid="confirm-delete-button"
 				>
+					{#if dialogState.loading}
+						<LoaderCircleIcon class="size-4 motion-safe:animate-spin" />
+					{/if}
 					{dialogState.options?.confirm?.text ?? 'Delete'}
 				</AlertDialog.Action>
 			</AlertDialog.Footer>
