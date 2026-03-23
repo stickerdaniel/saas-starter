@@ -1,8 +1,11 @@
 <script lang="ts">
+	import { getTranslate } from '@tolgee/svelte';
 	import { cn, type WithElementRef } from '$lib/utils.js';
 	import type { HTMLAttributes } from 'svelte/elements';
 	import { Dialog as DialogPrimitive } from 'bits-ui';
 	import { Button } from '$lib/components/ui/button/index.js';
+
+	const { t } = getTranslate();
 
 	let {
 		ref = $bindable(null),
@@ -19,7 +22,7 @@
 	bind:this={ref}
 	data-slot="dialog-footer"
 	class={cn(
-		'bg-muted/50 -mx-4 -mb-4 rounded-b-xl border-t p-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end',
+		'-mx-4 -mb-4 flex flex-col-reverse gap-2 rounded-b-xl border-t bg-muted/50 p-4 sm:flex-row sm:justify-end',
 		className
 	)}
 	{...restProps}
@@ -28,7 +31,7 @@
 	{#if showCloseButton}
 		<DialogPrimitive.Close>
 			{#snippet child({ props })}
-				<Button variant="outline" {...props}>Close</Button>
+				<Button variant="outline" {...props}>{$t('aria.close')}</Button>
 			{/snippet}
 		</DialogPrimitive.Close>
 	{/if}

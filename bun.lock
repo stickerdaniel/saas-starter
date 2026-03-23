@@ -53,7 +53,6 @@
         "@convex-dev/eslint-plugin": "1.2.1",
         "@eslint/compat": "2.0.3",
         "@eslint/js": "9.39.4",
-        "@fontsource-variable/geist": "^5.2.8",
         "@internationalized/date": "3.12.0",
         "@lucide/svelte": "^0.577.0",
         "@playwright/test": "1.58.2",
@@ -393,8 +392,6 @@
     "@floating-ui/dom": ["@floating-ui/dom@1.7.4", "", { "dependencies": { "@floating-ui/core": "^1.7.3", "@floating-ui/utils": "^0.2.10" } }, "sha512-OOchDgh4F2CchOX94cRVqhvy7b3AFb+/rQXyswmzmGakRfkMgoWVjfnLWkRirfLEfuD4ysVW16eXzwt3jHIzKA=="],
 
     "@floating-ui/utils": ["@floating-ui/utils@0.2.10", "", {}, "sha512-aGTxbpbg8/b5JfU1HXSrbH3wXZuLPJcNEcZQFMxLs3oSzgtVu6nFPkbbGGUvBcUjKV2YyB9Wxxabo+HEH9tcRQ=="],
-
-    "@fontsource-variable/geist": ["@fontsource-variable/geist@5.2.8", "", {}, "sha512-cJ6m9e+8MQ5dCYJsLylfZrgBh6KkG4bOLckB35Tr9J/EqdkEM6QllH5PxqP1dhTvFup+HtMRPuz9xOjxXJggxw=="],
 
     "@gilhrpenner/convex-files-control": ["@gilhrpenner/convex-files-control@0.5.1", "", { "dependencies": { "@aws-sdk/client-s3": "^3.958.0", "@aws-sdk/s3-request-presigner": "^3.958.0", "@convex-dev/action-retrier": "^0.3.0", "convex-helpers": "^0.1.108" }, "peerDependencies": { "convex": "^1.29.3", "react": "^18.3.1 || ^19.0.0" } }, "sha512-2pgZlgO1mlK4g8fhTFILNPCcte9uypbhwSzVZQcUt9PJExp9kcoQgkNFzvl4EkY1FLHaYIB+dD9RlnaI5wBuyQ=="],
 

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { afterNavigate } from '$app/navigation';
 	import * as Tooltip from '$lib/components/ui/tooltip/index.js';
 	import { cn, type WithElementRef } from '$lib/utils.js';
 	import type { HTMLAttributes } from 'svelte/elements';
@@ -33,6 +34,12 @@
 			document.cookie = `${SIDEBAR_COOKIE_NAME}=${open}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`;
 		}
 	});
+
+	afterNavigate(() => {
+		if (sidebar.isMobile && sidebar.openMobile) {
+			sidebar.setOpenMobile(false);
+		}
+	});
 </script>
 
 <svelte:window onkeydown={sidebar.handleShortcutKeydown} />
@@ -42,7 +49,7 @@
 		data-slot="sidebar-wrapper"
 		style="--sidebar-width: {SIDEBAR_WIDTH}; --sidebar-width-icon: {SIDEBAR_WIDTH_ICON}; {style}"
 		class={cn(
-			'group/sidebar-wrapper has-data-[variant=inset]:bg-sidebar flex min-h-svh w-full',
+			'group/sidebar-wrapper flex min-h-svh w-full has-data-[variant=inset]:bg-sidebar',
 			className
 		)}
 		bind:this={ref}

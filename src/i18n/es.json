@@ -745,7 +745,9 @@
 		"logout": "Cerrar sesión",
 		"menu_close": "Cerrar menú",
 		"menu_open": "Abrir menú",
+		"mobile_sidebar_description": "Muestra la barra lateral móvil.",
 		"more": "Más",
+		"sidebar": "Barra lateral",
 		"notification_toggle_for_email": "{field} para {email}",
 		"pagination_first": "Primera página",
 		"pagination_last": "Última página",
@@ -1195,13 +1197,13 @@
 			"description": "Starter SaaS para SvelteKit con auth, pagos, email y analítica.",
 			"title": "Construye y lanza tu producto más rápido"
 		},
-		"pricing": {
-			"description": "Elige un plan y prueba el flujo de facturación integrado.",
-			"title": "Precios"
-		},
 		"impressum": {
 			"description": "Identificación del proveedor y datos de contacto.",
 			"title": "Impressum"
+		},
+		"pricing": {
+			"description": "Elige un plan y prueba el flujo de facturación integrado.",
+			"title": "Precios"
 		},
 		"privacy": {
 			"description": "Cómo recopilamos, usamos y protegemos sus datos personales.",
