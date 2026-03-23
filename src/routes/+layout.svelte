@@ -1,15 +1,72 @@
 <script lang="ts">
+	import { browser } from '$app/environment';
+	import { page } from '$app/state';
+	import { T, Tolgee, DevTools, TolgeeProvider } from '@tolgee/svelte';
+	import type { TolgeeStaticData } from '@tolgee/svelte';
+	import { FormatIcu } from '@tolgee/format-icu';
 	import { ModeWatcher } from 'mode-watcher';
 	import AppAuthProvider from '$lib/components/app/app-auth-provider.svelte';
 	import AppAutumnProvider from '$lib/components/app/app-autumn-provider.svelte';
 	import AppPostHogBootstrap from '$lib/components/app/app-posthog-bootstrap.svelte';
+	import { setGlobalSearchContext } from '$lib/components/global-search/context.svelte';
+	import GlobalSearchShell from '$lib/components/global-search/global-search-shell.svelte';
+	import { languageContext } from '$lib/i18n/context';
+	import { getLanguage } from '$lib/i18n/languages';
 	import RouteProgress from '$lib/components/RouteProgress.svelte';
 	import SEOHead from '$lib/components/SEOHead.svelte';
 	import { Toaster } from '$lib/components/ui/sonner';
 	import * as Tooltip from '$lib/components/ui/tooltip/index.js';
+	import { watch } from 'runed';
+	import de from '../i18n/de.json';
+	import en from '../i18n/en.json';
+	import es from '../i18n/es.json';
+	import fr from '../i18n/fr.json';
 	import './layout.css';
 
+	const translations: TolgeeStaticData = { en, de, es, fr };
+
 	let { children } = $props();
+
+	const currentLang = $derived(getLanguage(page.params.lang).code);
+
+	languageContext.set(() => currentLang);
+	setGlobalSearchContext();
+
+	// Intentionally capture initial language; watch() syncs route changes below.
+	// svelte-ignore state_referenced_locally
+	const tolgee = Tolgee()
+		.use(DevTools())
+		.use(FormatIcu())
+		.init({
+			language: currentLang,
+
+			staticData: translations,
+
+			availableLanguages: ['en', 'de', 'es', 'fr'],
+			defaultLanguage: 'en',
+			fallbackLanguage: 'en',
+
+			apiUrl: import.meta.env.VITE_TOLGEE_API_URL,
+			apiKey: import.meta.env.VITE_TOLGEE_API_KEY
+		});
+
+	if (browser) {
+		watch(
+			() => currentLang,
+			(newLang) => {
+				if (tolgee.getLanguage() !== newLang) {
+					tolgee.changeLanguage(newLang);
+				}
+			}
+		);
+
+		watch(
+			() => currentLang,
+			(newLang) => {
+				document.documentElement.lang = newLang;
+			}
+		);
+	}
 </script>
 
 <ModeWatcher />
@@ -22,7 +79,16 @@
 		<RouteProgress />
 
 		<Tooltip.Provider>
-			{@render children()}
+			<TolgeeProvider {tolgee}>
+				<a
+					href="#main-content"
+					class="sr-only z-50 focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:rounded-md focus:bg-background focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-foreground focus:shadow-md focus:ring-2 focus:ring-ring focus:ring-offset-2"
+				>
+					<T keyName="a11y.skip_to_content" />
+				</a>
+				<GlobalSearchShell />
+				{@render children()}
+			</TolgeeProvider>
 		</Tooltip.Provider>
 	</AppAutumnProvider>
 </AppAuthProvider>

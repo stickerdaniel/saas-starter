@@ -1,4 +1,4 @@
-import { DEFAULT_LANGUAGE } from '$lib/i18n/languages';
+import { getLanguage } from '$lib/i18n/languages';
 import { page } from '$app/state';
 import { useLanguage as useLanguageContext } from '$lib/i18n/context';
 
@@ -52,8 +52,9 @@ export function localizedHref(path: string, lang?: string): string {
 		return path;
 	}
 
-	// Use explicit lang if provided, otherwise read from page state
-	const currentLang = lang ?? page.params.lang ?? DEFAULT_LANGUAGE;
+	// Sanitize route-derived language so invalid 404 segments like `/ttps:/...`
+	// don't leak into generated internal links.
+	const currentLang = getLanguage(lang ?? page.params.lang).code;
 
 	// Ensure path starts with /
 	const cleanPath = path.startsWith('/') ? path : `/${path}`;
