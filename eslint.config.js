@@ -10,12 +10,16 @@ import ts from 'typescript-eslint';
 import svelteConfig from './svelte.config.js';
 import requireMarketingMarkdownRule from './eslint/rules/require-marketing-markdown.js';
 import requireMarketingRouteRegistrationRule from './eslint/rules/require-marketing-route-registration.js';
+import noHardcodedAriaLabelRule from './eslint/rules/no-hardcoded-aria-label.js';
+import noHardcodedSrOnlyRule from './eslint/rules/no-hardcoded-sr-only.js';
 
 const gitignorePath = path.resolve(import.meta.dirname, '.gitignore');
 const localPlugin = {
 	rules: {
 		'require-marketing-markdown': requireMarketingMarkdownRule,
-		'require-marketing-route-registration': requireMarketingRouteRegistrationRule
+		'require-marketing-route-registration': requireMarketingRouteRegistrationRule,
+		'no-hardcoded-aria-label': noHardcodedAriaLabelRule,
+		'no-hardcoded-sr-only': noHardcodedSrOnlyRule
 	}
 };
 
@@ -142,6 +146,16 @@ export default defineConfig(
 		rules: {
 			'local/require-marketing-markdown': 'error',
 			'local/require-marketing-route-registration': 'error'
+		}
+	},
+	{
+		files: ['src/**/*.svelte'],
+		plugins: {
+			local: localPlugin
+		},
+		rules: {
+			'local/no-hardcoded-aria-label': 'error',
+			'local/no-hardcoded-sr-only': 'error'
 		}
 	},
 	// Convex best-practice rules (legacy plugin config converted via fixupConfigRules)

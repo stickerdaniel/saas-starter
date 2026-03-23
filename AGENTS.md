@@ -327,7 +327,8 @@ No barrel imports from icon libraries — use individual imports (`@lucide/svelt
 - Accessibility localization rule (all UI):
   - Never hardcode human-facing `aria-label` or `.sr-only` text in English.
   - Always localize screen-reader labels via Tolgee keys (not only tables, applies to all UI controls and navigation).
-  - Accessible naming convention: prefer localized `.sr-only` text for icon-only buttons, use localized `aria-label` when hidden text is not practical, and avoid redundant double-labeling.
+  - Accessible naming convention: prefer localized `.sr-only` text for icon-only buttons, use localized `aria-label` when hidden text is not practical, and avoid redundant double-labeling. Exception: keep `aria-label` in shadcn-svelte components as-is (their upstream pattern) to minimize theme maintenance diff.
+  - Add `lang="en"` to content blocks that bypass Tolgee (e.g., legal pages rendered from raw English markdown).
   - Never add ARIA labels to non-functional buttons (no click handler). Hide decorative buttons from the a11y tree with `aria-hidden="true"` + `tabindex="-1"`, or remove them.
   - `<noscript>` content never needs `dark:` variants — dark mode requires JS (ModeWatcher). Noscript users always see light theme.
 
