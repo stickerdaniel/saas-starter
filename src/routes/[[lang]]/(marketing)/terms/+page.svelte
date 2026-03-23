@@ -11,7 +11,7 @@
 <SEOHead title={$t('meta.terms.title')} description={$t('meta.terms.description')} />
 
 <!-- Legal text is intentionally English-only — the English version is the governed version. -->
-<div class="mx-auto prose prose-sm max-w-3xl px-6 pt-40 pb-24 lg:px-12 dark:prose-invert">
+<div lang="en" class="mx-auto prose prose-sm max-w-3xl px-6 pt-40 pb-24 lg:px-12 dark:prose-invert">
 	<SvelteMarkdown {source} />
 	<p>
 		To report any violations of these Terms of Service or to pose any questions, please contact us

@@ -1,7 +1,10 @@
 <script lang="ts">
 	import { Progress as ProgressPrimitive } from 'bits-ui';
 	import { watch } from 'runed';
+	import { getTranslate } from '@tolgee/svelte';
 	import { cn, type WithoutChildrenOrChild } from '$lib/utils.js';
+
+	const { t } = getTranslate();
 
 	type LoadingBarProps = WithoutChildrenOrChild<ProgressPrimitive.RootProps> & {
 		start?: number;
@@ -88,11 +91,10 @@
 	);
 </script>
 
-<!-- aria-label is hardcoded English: low-level UI primitive without access to Tolgee i18n context -->
 <ProgressPrimitive.Root
 	bind:ref
 	data-slot="progress"
-	aria-label="Loading"
+	aria-label={$t('aria.loading')}
 	class={cn(
 		'relative h-2 w-full overflow-hidden rounded-full',
 		showBackground && 'bg-primary/20',

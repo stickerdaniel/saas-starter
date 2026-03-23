@@ -22,6 +22,7 @@
 <!-- Anti-scraping: aria-label intentionally NOT localized via Tolgee. Putting email parts
      in i18n bundles would defeat the obfuscation. English "at"/"dot" format is acceptable
      since this component is only used for static contact info on legal pages. -->
+<!-- eslint-disable local/no-hardcoded-aria-label -->
 <button
 	onclick={handleClick}
 	class="cursor-pointer {className}"
@@ -32,3 +33,4 @@
 		aria-hidden="true">null.</span
 	>{domain}<span class="hidden" aria-hidden="true">.fake</span>.{tld}</button
 >
+<!-- eslint-enable local/no-hardcoded-aria-label -->
