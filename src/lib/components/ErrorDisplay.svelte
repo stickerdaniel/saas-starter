@@ -81,7 +81,6 @@
 					readonly
 					aria-readonly="true"
 					tabindex={0}
-					onfocus={openGlobalSearch}
 					onkeydown={handleSearchTriggerKeydown}
 				/>
 				<InputGroup.Addon>
