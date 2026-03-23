@@ -115,11 +115,6 @@
 	}
 
 	function getRouteLabel(route: SearchRouteEntry): string {
-		if (route.seoTitleKey) {
-			const seoTitle = getTranslatedIfExists(route.seoTitleKey);
-			if (seoTitle) return seoTitle;
-		}
-
 		if (route.titleKey) {
 			const title = getTranslatedIfExists(route.titleKey);
 			if (title) return title;

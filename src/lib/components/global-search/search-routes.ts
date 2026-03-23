@@ -7,7 +7,6 @@ export interface SearchRouteEntry {
 	access: SearchAccess;
 	group: SearchRouteGroup;
 	titleKey?: string;
-	seoTitleKey?: string;
 	keywords?: string[];
 }
 
@@ -16,7 +15,6 @@ export const SEARCH_ROUTES: SearchRouteEntry[] = [
 		href: '/',
 		access: 'public',
 		group: 'public',
-		seoTitleKey: 'meta.home.title',
 		titleKey: 'nav.home',
 		keywords: ['home', 'landing']
 	},
@@ -31,7 +29,6 @@ export const SEARCH_ROUTES: SearchRouteEntry[] = [
 		href: '/about',
 		access: 'public',
 		group: 'public',
-		seoTitleKey: 'meta.about.title',
 		titleKey: 'nav.about',
 		keywords: ['about', 'team']
 	},
@@ -39,6 +36,7 @@ export const SEARCH_ROUTES: SearchRouteEntry[] = [
 		href: '/shadcn-demo',
 		access: 'public',
 		group: 'public',
+		titleKey: 'meta.shadcn_demo.title',
 		keywords: ['demo', 'shadcn']
 	},
 	{
