@@ -202,9 +202,7 @@
 			<Dialog.Title>{$t('search.command.dialog_title')}</Dialog.Title>
 			<Dialog.Description>{$t('search.command.dialog_description')}</Dialog.Description>
 		</Dialog.Header>
-		<Command.Root
-			class="rounded-none bg-transparent **:data-[slot=command-input]:!h-9 **:data-[slot=command-input]:py-0 **:data-[slot=command-input-wrapper]:mb-0 **:data-[slot=command-input-wrapper]:!h-9 **:data-[slot=command-input-wrapper]:rounded-md **:data-[slot=command-input-wrapper]:border **:data-[slot=command-input-wrapper]:border-input **:data-[slot=command-input-wrapper]:bg-input/50"
-		>
+		<Command.Root class="rounded-none bg-transparent">
 			<Command.Input placeholder={$t('search.command.input_placeholder')} />
 			<Command.List tabindex={-1} class="no-scrollbar min-h-80 scroll-pt-2 scroll-pb-1.5">
 				<Command.Empty class="py-12 text-center text-sm text-muted-foreground">
