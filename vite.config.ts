@@ -100,8 +100,10 @@ function parseEnvFile(filePath: string): Record<string, string> {
 export default defineConfig(async ({ mode }) => {
 	const cwd = process.cwd();
 	const loadedEnv = loadEnv(mode, cwd, '');
-	// Auto-detect: local backend unless a cloud CONVEX_DEPLOYMENT is configured
-	const useLocalConvex = !loadedEnv.CONVEX_DEPLOYMENT;
+	// Local Convex backend only during `bun run dev` (not CI, builds, postinstall, or scripts).
+	// build:emails uses createServer() which re-enters this config -- lifecycle check prevents that.
+	const useLocalConvex =
+		process.env.npm_lifecycle_event === 'dev' && !loadedEnv.CONVEX_DEPLOYMENT && !process.env.CI;
 	const plugins: PluginOption[] = [];
 
 	if (useLocalConvex) {
