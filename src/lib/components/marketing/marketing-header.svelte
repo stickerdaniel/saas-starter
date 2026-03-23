@@ -80,7 +80,7 @@
 				<Button
 					variant="ghost"
 					href={resolve(localizedHref('/'))}
-					class="-ml-3 flex items-center gap-2 px-3 font-semibold"
+					class="-ml-4 flex items-center gap-2 px-3 font-semibold"
 				>
 					<Logo class="size-5" />
 					SaaS Starter
