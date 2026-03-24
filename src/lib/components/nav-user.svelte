@@ -30,12 +30,14 @@
 	const sidebar = useSidebar();
 
 	const initials = $derived(
-		user.name
-			.split(' ')
+		(user.name ?? '')
+			.trim()
+			.split(/\s+/)
+			.filter(Boolean)
 			.map((n) => n[0])
 			.join('')
 			.toUpperCase()
-			.slice(0, 2)
+			.slice(0, 2) || '?'
 	);
 
 	async function signOut() {
