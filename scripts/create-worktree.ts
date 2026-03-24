@@ -224,12 +224,14 @@ function setupWorktree(rootPath: string): void {
 		console.log('  4. Push & open PR: git push -u origin HEAD && gh pr create');
 	}
 	console.log('');
+	console.log('To iterate (CI fixes, review feedback):');
+	console.log('  1. Make changes');
+	console.log('  2. git add .');
+	console.log('  3. git commit -m "fix: address review feedback"');
 	if (gtReady) {
-		console.log('To stack more changes on top:');
-		console.log('  1. Make more changes');
-		console.log('  2. git add .');
-		console.log('  3. gt create -m "feat: another feature"  # Creates new branch');
-		console.log('  4. gt submit --stack');
+		console.log('  4. gt submit');
+	} else {
+		console.log('  4. git push');
 	}
 	console.log('');
 }
