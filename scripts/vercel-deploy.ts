@@ -372,10 +372,12 @@ async function main(): Promise<void> {
 					`${colors.yellow}Warning: Failed to set PREVIEW_ADMIN_PASSWORD, skipping admin seed${colors.reset}`
 				);
 			} else {
-				// Run the seed mutation (targets preview deployment via CONVEX_DEPLOY_KEY)
+				// Run the seed mutation on the same Convex deployment
 				const seedResult = runCommandCapture('bunx', [
 					'convex',
 					'run',
+					'--deployment-name',
+					actualDeploymentName,
 					'previewDev:ensurePreviewAdmin'
 				]);
 
