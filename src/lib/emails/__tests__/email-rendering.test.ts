@@ -8,7 +8,8 @@ vi.mock('$lib/convex/env', () => ({
 			SITE_URL: 'https://test.example.com',
 			AUTH_EMAIL: 'test@example.com'
 		};
-		return vars[name] ?? '';
+		if (name in vars) return vars[name];
+		throw new Error(`Unexpected env var requested in test: ${name}`);
 	}
 }));
 

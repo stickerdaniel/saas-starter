@@ -86,10 +86,24 @@ function parseEnvFile(filePath: string): Record<string, string> {
 	for (const line of fs.readFileSync(filePath, 'utf-8').split('\n')) {
 		const trimmed = line.trim();
 		if (!trimmed || trimmed.startsWith('#')) continue;
-		const eqIndex = trimmed.indexOf('=');
+		// Strip optional leading `export`
+		const effective = trimmed.startsWith('export ') ? trimmed.slice(7).trim() : trimmed;
+		const eqIndex = effective.indexOf('=');
 		if (eqIndex === -1) continue;
-		const key = trimmed.slice(0, eqIndex).trim();
-		const value = trimmed.slice(eqIndex + 1).trim();
+		const key = effective.slice(0, eqIndex).trim();
+		let value = effective.slice(eqIndex + 1).trim();
+		// Strip inline comment (only outside of quotes)
+		if (!value.startsWith('"') && !value.startsWith("'")) {
+			const hashIndex = value.indexOf(' #');
+			if (hashIndex !== -1) value = value.slice(0, hashIndex).trim();
+		}
+		// Strip surrounding quotes
+		if (
+			(value.startsWith('"') && value.endsWith('"')) ||
+			(value.startsWith("'") && value.endsWith("'"))
+		) {
+			value = value.slice(1, -1);
+		}
 		if (key && value) {
 			vars[key] = value;
 		}
@@ -182,9 +196,6 @@ export default defineConfig(async ({ mode }) => {
 
 	return {
 		plugins: plugins as any,
-		resolve: {
-			conditions: ['browser']
-		},
 		test: {
 			exclude: [
 				'e2e/**',
