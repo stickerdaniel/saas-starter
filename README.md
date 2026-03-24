@@ -19,6 +19,24 @@ Visit `http://localhost:5173` and sign in. No external services needed.
 
 To activate all features locally, create `.env.convex.local` and add the keys you need. See the [environment variable matrix](#environment-variables) below for which keys to set and where.
 
+<details>
+<summary><strong>Convex cloud dev deployment (optional)</strong></summary>
+
+The local embedded backend is preferred for day-to-day work. Each git worktree gets its own isolated Convex instance, so you can develop multiple features in parallel without conflicts. Use a cloud backend only when you need to test against cloud-specific behavior.
+
+```bash
+bunx convex init                              # creates a Convex project
+```
+
+Add `CONVEX_DEPLOYMENT` to `.env.local` (printed by `convex init`), then:
+
+```bash
+bun run dev:cloud                             # frontend + cloud Convex backend
+bunx convex env set KEY value                 # set backend env vars (see .env-convex.schema / env matrix below)
+```
+
+</details>
+
 ## 2. Preview Deployments (Vercel + Convex)
 
 Each PR gets its own Vercel preview with an isolated Convex preview backend.
@@ -30,21 +48,6 @@ Set the required Vercel and Convex preview variables listed in the [environment 
 The deploy script (`scripts/vercel-deploy.ts`) tags and pulls translations, runs `bunx convex deploy` to create a preview backend named after the branch, auto-computes `PUBLIC_CONVEX_URL` and `PUBLIC_CONVEX_SITE_URL` from the deploy output, and sets `SITE_URL` on the Convex instance to match the Vercel preview URL. When `PREVIEW_ADMIN_PASSWORD` is set, it also seeds an admin user.
 
 Push a branch and Vercel creates a preview deployment with its own Convex preview backend. Convex cleans up preview deployments after 5 days (14 days on Professional).
-
-### Cloud development (optional)
-
-To develop locally against a cloud Convex backend instead of the embedded one:
-
-```bash
-bunx convex init                              # creates a Convex project (if not done above)
-```
-
-Add `CONVEX_DEPLOYMENT` to `.env.local` (printed by `convex init`), then:
-
-```bash
-bun run dev:cloud                             # frontend + cloud Convex backend
-bunx convex env set KEY value                 # set backend env vars (see .env-convex.schema)
-```
 
 ## 3. Production Deployment
 
@@ -58,7 +61,7 @@ vercel --prod
 
 ### First Admin
 
-Sign up on the site, then either set the user's role to `admin` in the Convex dashboard or run:
+Sign up on the site, then either set the user's role to `admin` in the Convex dashboard or run (with the email you signed up with):
 
 ```bash
 bunx convex run admin/mutations:seedFirstAdmin '{"email":"you@example.com"}' --prod
@@ -138,7 +141,7 @@ Transactional email via [Resend](https://www.convex.dev/components/resend) with 
 
 ### Analytics
 
-[PostHog](https://posthog.com/) with lazy loading and ad-blocker detection. When blocked, it falls back to a [Cloudflare Worker proxy](https://posthog.com/docs/deployment/cloudflare-worker). Only identified users are tracked (`person_profiles: 'identified_only'`).
+[PostHog](https://posthog.com/) with lazy loading and ad-blocker detection. When blocked, it falls back to a [Cloudflare Worker proxy](https://posthog.com/docs/advanced/proxy/cloudflare). Only identified users are tracked (`person_profiles: 'identified_only'`).
 
 ### AI Readiness
 
@@ -199,7 +202,7 @@ Renovate groups non-major updates into a single PR and isolates breaking-change-
 
 ### Email Development
 
-Edit Svelte email components, run `bun run build:emails` to compile to inline HTML. Preview all templates in the browser at `/emails` with mock data, and optionally send test emails when a Resend key is configured.
+Email templates are Svelte components compiled to inline HTML on `postinstall` and during builds. Preview all templates in the browser at `/emails` with mock data, and optionally send test emails when a Resend key is configured.
 
 </details>
 
