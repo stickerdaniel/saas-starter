@@ -2,9 +2,9 @@
  * Worktree management with Graphite integration (cross-platform TypeScript version)
  *
  * Usage:
- *   bun scripts/create-worktree.ts <branch-name>           # Full mode: create + setup
- *   bun scripts/create-worktree.ts --setup-only            # Setup mode: setup only (for Cursor)
- *   bun scripts/create-worktree.ts <branch-name> --open-editor cursor
+ *   bun scripts/create-worktree.ts feature/dark-mode           # Full mode: create + setup
+ *   bun scripts/create-worktree.ts --setup-only               # Setup mode: setup only (for Cursor)
+ *   bun scripts/create-worktree.ts feature/dark-mode --open-editor cursor
  */
 
 import { spawnSync } from 'child_process';
@@ -242,13 +242,13 @@ function setupWorktree(rootPath: string): void {
 function showHelp(): void {
 	console.log('Usage:');
 	console.log(
-		'  bun scripts/create-worktree.ts <branch-name>               Create worktree with setup'
+		'  bun scripts/create-worktree.ts feature/dark-mode               Create worktree with setup'
 	);
 	console.log(
-		'  bun scripts/create-worktree.ts --setup-only                Setup only (for Cursor UI)'
+		'  bun scripts/create-worktree.ts --setup-only                    Setup only (for Cursor UI)'
 	);
 	console.log(
-		'  bun scripts/create-worktree.ts <branch-name> --open-editor <editor>   Open in editor after creation'
+		'  bun scripts/create-worktree.ts feature/dark-mode --open-editor cursor   Open in editor after creation'
 	);
 	console.log('');
 	console.log('Options:');
