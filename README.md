@@ -87,7 +87,7 @@ Two runtimes, two schemas, both managed by [varlock](https://github.com/nickrees
 | `EMAIL_ASSET_URL`        | Public URL for email images (always prod) |   ○   |    ✓    |  ✓   |
 | `AUTUMN_SECRET_KEY`      | Autumn billing secret key                 |   ○   |    ✓    |  ✓   |
 | `OPENROUTER_API_KEY`     | OpenRouter API key for AI support chat    |   ○   |    ✓    |  ✓   |
-| `AUTH_E2E_TEST_SECRET`   | Secret for E2E test mutations             |   ·   |    ✓    |      |
+| `AUTH_E2E_TEST_SECRET`   | Secret for E2E test mutations             |   ○   |    ○    |      |
 | `AUTH_GOOGLE_ID`         | Google OAuth client ID                    |   ○   |    ○    |  ○   |
 | `AUTH_GOOGLE_SECRET`     | Google OAuth client secret                |   ○   |    ○    |  ○   |
 | `AUTH_GITHUB_ID`         | GitHub OAuth client ID                    |   ○   |    ○    |  ○   |
@@ -98,15 +98,13 @@ Two runtimes, two schemas, both managed by [varlock](https://github.com/nickrees
 
 **Vercel** (project settings):
 
-| Variable                 |                                  | Preview | Prod |
-| ------------------------ | -------------------------------- | :-----: | :--: |
-| `CONVEX_DEPLOY_KEY`      | Convex deploy key                |    ✓    |  ✓   |
-| `TOLGEE_API_KEY`         | Tolgee API key for translations  |    ✓    |  ✓   |
-| `PREVIEW_ADMIN_PASSWORD` | Preview admin password           |    ○    |      |
-| `AUTUMN_SECRET_KEY`      | Autumn billing secret            |         |  ○   |
-| `AUTUMN_PROD_SECRET_KEY` | Autumn production billing secret |         |  ○   |
-| `PUBLIC_POSTHOG_API_KEY` | PostHog analytics API key        |         |  ○   |
-| `PUBLIC_POSTHOG_HOST`    | PostHog analytics host           |         |  ○   |
+| Variable                 |                                 | Preview | Prod |
+| ------------------------ | ------------------------------- | :-----: | :--: |
+| `CONVEX_DEPLOY_KEY`      | Convex deploy key               |    ✓    |  ✓   |
+| `TOLGEE_API_KEY`         | Tolgee API key for translations |    ✓    |  ✓   |
+| `PREVIEW_ADMIN_PASSWORD` | Preview admin password          |    ○    |      |
+| `PUBLIC_POSTHOG_API_KEY` | PostHog analytics API key       |         |  ○   |
+| `PUBLIC_POSTHOG_HOST`    | PostHog analytics host          |         |  ○   |
 
 </details>
 
