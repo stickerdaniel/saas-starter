@@ -1,18 +1,22 @@
 # Internationalization (i18n) Setup Guide
 
-This project uses **Tolgee** for cloud-hosted translation management with SEO-friendly URL-based localization.
+This project uses SEO-friendly URL-based localization (`/en/`, `/de/`, etc.) with translations stored as committed JSON files in `src/i18n/`. **Tolgee is entirely optional** -- the i18n system works out of the box without any Tolgee account or API key.
 
-## ⚠️ Tolgee Free Tier Limitations
+## Tolgee is Optional
 
-This template includes **many translation keys that exceed Tolgee Cloud's free tier** (~1000 keys).
+Without a `TOLGEE_API_KEY`, the deploy script skips Tolgee entirely and builds with the committed JSON files. The full i18n system still works: URL-based routing, the `<T>` component, language switcher, SEO hreflang tags, and backend translations in Convex all read from those static JSON imports. You just edit the JSON files directly and commit them.
 
-**You have two options:**
+Setting up Tolgee adds a translation management dashboard, in-context editing (Alt+Click in dev), and CLI-based sync. Choose the option that fits your needs:
 
-### Option 1: Delete Unused Keys
+### Option 1: No Tolgee (default)
 
-Remove translations you don't need via the Tolgee dashboard to stay within the free tier limit.
+Edit `src/i18n/*.json` files directly, commit them, and deploy. Nothing else needed.
 
-### Option 2: Self-Host Tolgee (Recommended)
+### Option 2: Delete Unused Keys (Tolgee Cloud free tier)
+
+This template includes many translation keys that exceed Tolgee Cloud's free tier (~1000 keys). Remove translations you don't need via the Tolgee dashboard to stay within the free tier limit.
+
+### Option 3: Self-Host Tolgee
 
 Self-hosting gives you unlimited keys and full control. The easiest way is using **Coolify's one-click deploy**:
 
