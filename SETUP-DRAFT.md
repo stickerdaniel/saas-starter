@@ -230,14 +230,16 @@ This project uses multiple environment variable configurations organized by purp
 
 ```bash
 # Create .env.local and fill in values (see .env.schema for all available vars)
-# Required: CONVEX_DEPLOYMENT, PUBLIC_CONVEX_URL, VITE_TOLGEE_API_KEY
+# Required: CONVEX_DEPLOYMENT, PUBLIC_CONVEX_URL
+# Optional: VITE_TOLGEE_API_KEY (for in-context editing)
 ```
 
 **2. GitHub Actions** (Repository Secrets)
 
 ```bash
 # Add to: Repository Settings → Secrets → Actions
-# Required: AUTH_E2E_TEST_SECRET, TOLGEE_API_KEY
+# Required: AUTH_E2E_TEST_SECRET
+# Optional: TOLGEE_API_KEY (for translation sync during deploys)
 # CI tests use preview deployments with dynamic URL discovery via .well-known/e2e-config.json
 ```
 
@@ -245,7 +247,8 @@ This project uses multiple environment variable configurations organized by purp
 
 ```bash
 # Add to: Vercel Dashboard → Project Settings → Environment Variables
-# Required: PUBLIC_CONVEX_URL, CONVEX_DEPLOY_KEY, TOLGEE_API_KEY
+# Required: PUBLIC_CONVEX_URL, CONVEX_DEPLOY_KEY
+# Optional: TOLGEE_API_KEY (for translation sync during deploys)
 # See .env.schema for all available vars with types and descriptions
 ```
 
@@ -275,18 +278,18 @@ bunx convex env set KEY value
 
 - `PUBLIC_CONVEX_URL` - Production Convex URL (runtime)
 - `CONVEX_DEPLOY_KEY` - Deploy Convex functions (build-time)
-- `TOLGEE_API_KEY` - Pull translations (build-time)
+- `TOLGEE_API_KEY` - Pull translations (build-time, optional)
 
 **GitHub Actions** (Repository Secrets):
 
 - `AUTH_E2E_TEST_SECRET` - E2E test auth
-- `TOLGEE_API_KEY` - Tag production keys
+- `TOLGEE_API_KEY` - Tag production keys (optional)
 
 **Local Development** (`.env.local`):
 
 - `CONVEX_DEPLOYMENT` - Dev deployment name
 - `PUBLIC_CONVEX_URL` - Dev Convex URL
-- `VITE_TOLGEE_API_KEY` - DevTools in-context editing + CLI (derived via npm scripts)
+- `VITE_TOLGEE_API_KEY` - DevTools in-context editing + CLI (optional, derived via npm scripts)
 
 **E2E Testing** (`.env.test`):
 
