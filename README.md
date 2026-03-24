@@ -17,14 +17,14 @@ A local Convex backend starts automatically with a seeded admin:
 
 Visit `http://localhost:5173` and sign in. No external services needed.
 
-Thanks to [convex-vite-plugin](https://github.com/juliusmarminge/convex-vite-plugin), each git worktree gets its own isolated Convex backend and the frontend is automatically wired to it, so you can develop multiple features in parallel without conflicts. Run `bun run worktree --open-editor` to create a new worktree with all local env vars copied over, or use the VS Code task (`Cmd/Ctrl+Shift+P` > `Run Task`).
+Thanks to [convex-vite-plugin](https://github.com/juliusmarminge/convex-vite-plugin), each git worktree gets its own isolated Convex backend and the frontend is automatically wired to it, so you can develop multiple features in parallel without conflicts. Run `bun run worktree --open-editor` to create a new worktree with `.env.local` and `.env.test` copied over, or use the VS Code task (`Cmd/Ctrl+Shift+P` > `Run Task`). If you use optional integrations via `.env.convex.local`, copy that file to the new worktree manually.
 
 ### Enable Services Locally
 
 Create `.env.convex.local` at the project root to activate optional integrations:
 
 ```bash
-# Email delivery
+# Email delivery (also add RESEND_API_KEY to .env.local for the /emails preview)
 RESEND_API_KEY=re_xxxxxxxxxxxx
 AUTH_EMAIL=noreply@yourdomain.com
 EMAIL_ASSET_URL=https://yourdomain.com
