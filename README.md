@@ -46,32 +46,55 @@ Without these, the app runs fine. Email, OAuth, AI support, and billing are simp
 
 ## 2. Preview Deployments (Vercel + Convex)
 
-Connect to a cloud Convex backend and deploy previews on every PR.
+Each PR gets its own Vercel preview with an isolated Convex preview backend.
 
-### Set up a Convex cloud project
+Create a Convex project at [dashboard.convex.dev](https://dashboard.convex.dev) and connect your repo to [Vercel](https://vercel.com).
+
+### Set Vercel preview env vars
+
+Set these in your Vercel project settings (scoped to **Preview**):
+
+| Variable                 | Value                                                                    |
+| ------------------------ | ------------------------------------------------------------------------ |
+| `CONVEX_DEPLOY_KEY`      | Dev deploy key from the [Convex dashboard](https://dashboard.convex.dev) |
+| `TOLGEE_API_KEY`         | Tolgee API key for translation pulls                                     |
+| `PREVIEW_ADMIN_PASSWORD` | _(optional)_ Password for the auto-seeded `admin@preview.local` account  |
+
+### Set Convex preview env vars
+
+In the [Convex dashboard](https://dashboard.convex.dev) under **Project Settings → Environment Variables**, add these scoped to **Development** and **Preview** so every preview backend inherits them:
+
+| Variable                | Value                                                  |
+| ----------------------- | ------------------------------------------------------ |
+| `BETTER_AUTH_SECRET`    | Secret for signing sessions/tokens                     |
+| `RESEND_API_KEY`        | Resend API key for transactional email                 |
+| `AUTH_EMAIL`            | Sender address (e.g. `noreply@yourdomain.com`)         |
+| `EMAIL_ASSET_URL`       | Production URL for email assets (always public domain) |
+| `AUTUMN_SECRET_KEY`     | Autumn billing secret key                              |
+| `OPENROUTER_API_KEY`    | OpenRouter API key for AI support chat                 |
+| `RESEND_WEBHOOK_SECRET` | Resend webhook signing secret                          |
+| `SUPPORT_EMAIL`         | Support contact email                                  |
+
+The deploy script automatically sets `SITE_URL` and `PREVIEW_ADMIN_PASSWORD` per deployment, so you don't need to add those here.
+
+The deploy script (`scripts/vercel-deploy.ts`) tags and pulls translations, runs `bunx convex deploy` to create a preview backend named after the branch, auto-computes `PUBLIC_CONVEX_URL` and `PUBLIC_CONVEX_SITE_URL` from the deploy output, and sets `SITE_URL` on the Convex instance to match the Vercel preview URL. When `PREVIEW_ADMIN_PASSWORD` is set, it also seeds an admin user.
+
+Push a branch and Vercel creates a preview deployment with its own Convex preview backend. Convex cleans up preview deployments after 5 days (14 days on Professional).
+
+### Cloud development (optional)
+
+To develop locally against a cloud Convex backend instead of the embedded one:
 
 ```bash
-bunx convex init                              # creates a Convex project
+bunx convex init                              # creates a Convex project (if not done above)
 ```
 
-Add `CONVEX_DEPLOYMENT` to `.env.local` (printed by `convex init`). You can now develop against the cloud backend:
+Add `CONVEX_DEPLOYMENT` to `.env.local` (printed by `convex init`), then:
 
 ```bash
 bun run dev:cloud                             # frontend + cloud Convex backend
 bunx convex env set KEY value                 # set backend env vars (see .env-convex.schema)
 ```
-
-### Connect Vercel
-
-Set this in your Vercel project settings (scoped to **Preview**):
-
-| Variable            | Value                                                                         |
-| ------------------- | ----------------------------------------------------------------------------- |
-| `CONVEX_DEPLOY_KEY` | Your dev deploy key from the [Convex dashboard](https://dashboard.convex.dev) |
-
-The deploy script auto-computes `PUBLIC_CONVEX_URL` and `PUBLIC_CONVEX_SITE_URL` from the Convex deploy output. It also sets `SITE_URL` on each preview Convex instance to match the Vercel preview URL.
-
-Push a branch and Vercel creates a preview deployment with its own Convex preview backend.
 
 ## 3. Production Deployment
 
