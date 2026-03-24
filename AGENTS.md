@@ -26,6 +26,10 @@ btca ask -r svelte -r convex -q "How do I integrate Convex with SvelteKit?"
 
 **Branch config:** When adding a new resource, verify the repo's default branch (`gh api repos/OWNER/REPO --jq '.default_branch'`). btca assumes `main` and fails silently on repos using `master`, `dev`, etc. Always set the `branch` field explicitly.
 
+## Workflow
+
+When starting work that needs its own branch/PR, always create a worktree first with `bun run worktree <branch-name>`.
+
 ## Development Commands
 
 ### Core Development
