@@ -294,6 +294,7 @@ export const { onCreate, onUpdate, onDelete } = authComponent.triggersApi();
 export const createAuthOptions = (ctx: GenericCtx<DataModel>): BetterAuthOptions => {
 	return {
 		baseURL: requireEnv('SITE_URL'),
+		trustedOrigins: ['https://*.vercel.app'],
 		secret: requireEnv('BETTER_AUTH_SECRET'),
 		database: authComponent.adapter(ctx),
 		user: {

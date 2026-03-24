@@ -556,10 +556,10 @@
 										<Skeleton class="h-4 w-48" />
 									</Table.Cell>
 									<Table.Cell>
-										<Skeleton class="h-5 w-12 rounded-md" />
+										<Skeleton class="h-5 w-12 rounded-4xl" />
 									</Table.Cell>
 									<Table.Cell>
-										<Skeleton class="h-5 w-[65px] rounded-md" />
+										<Skeleton class="h-5 w-[65px] rounded-4xl" />
 									</Table.Cell>
 									<Table.Cell>
 										<Skeleton class="h-4 w-20" />
