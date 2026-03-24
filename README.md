@@ -63,7 +63,7 @@ bunx convex env set KEY value                 # set backend env vars (see .env-c
 
 ### Connect Vercel
 
-Set these in your Vercel project settings (scoped to **Preview**):
+Set this in your Vercel project settings (scoped to **Preview**):
 
 | Variable            | Value                                                                         |
 | ------------------- | ----------------------------------------------------------------------------- |
