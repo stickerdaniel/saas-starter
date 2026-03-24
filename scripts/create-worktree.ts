@@ -38,12 +38,10 @@ const openEditor = values['open-editor'];
 const branchName = positionals[0];
 
 /**
- * Check if a command exists on the system
+ * Check if a command exists on the system (uses Bun.which for cross-platform support)
  */
 function commandExists(command: string): boolean {
-	const cmd = process.platform === 'win32' ? 'where' : 'which';
-	const result = spawnSync(cmd, [command], { encoding: 'utf-8', stdio: 'pipe' });
-	return result.status === 0;
+	return Bun.which(command) !== null;
 }
 
 /**
@@ -164,9 +162,13 @@ function setupWorktree(rootPath: string): void {
 	console.log(`${colors.green}Dependencies installed${colors.reset}`);
 	console.log('');
 
-	if (commandExists('gt')) {
+	const hasGt = commandExists('gt');
+	let gtReady = false;
+
+	if (hasGt) {
 		console.log('Tracking branch with Graphite...');
-		if (!runCommandInherit('gt', ['track'])) {
+		const tracked = runCommandInherit('gt', ['track']);
+		if (!tracked) {
 			console.log(
 				`${colors.yellow}Warning: gt track failed (non-fatal, worktree is still usable)${colors.reset}`
 			);
@@ -176,7 +178,8 @@ function setupWorktree(rootPath: string): void {
 		console.log('');
 
 		console.log('Syncing with trunk...');
-		if (!runCommandInherit('gt', ['sync'])) {
+		const synced = runCommandInherit('gt', ['sync']);
+		if (!synced) {
 			console.log(
 				`${colors.yellow}Warning: gt sync failed (non-fatal, worktree is still usable)${colors.reset}`
 			);
@@ -184,6 +187,8 @@ function setupWorktree(rootPath: string): void {
 			console.log(`${colors.green}Synced with trunk${colors.reset}`);
 		}
 		console.log('');
+
+		gtReady = tracked && synced;
 	} else {
 		console.log(
 			`${colors.yellow}Graphite CLI (gt) not found — skipping gt track/sync.${colors.reset}`
@@ -196,18 +201,17 @@ function setupWorktree(rootPath: string): void {
 	console.log(`${colors.green}Worktree setup complete!${colors.reset}`);
 	console.log('======================================================');
 	console.log('');
-	const hasGt = commandExists('gt');
 	console.log('Next steps:');
 	console.log('  1. Make your changes');
 	console.log('  2. Stage them: git add .');
 	console.log('  3. Commit changes: git commit -m "feat: your feature"');
-	if (hasGt) {
+	if (gtReady) {
 		console.log('  4. Submit PR: gt submit');
 	} else {
 		console.log('  4. Push & open PR: git push -u origin HEAD && gh pr create');
 	}
 	console.log('');
-	if (hasGt) {
+	if (gtReady) {
 		console.log('To stack more changes on top:');
 		console.log('  1. Make more changes');
 		console.log('  2. git add .');
