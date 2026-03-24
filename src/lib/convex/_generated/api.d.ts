@@ -43,6 +43,7 @@ import type * as files_vacuum from "../files/vacuum.js";
 import type * as functions from "../functions.js";
 import type * as http from "../http.js";
 import type * as i18n_translations from "../i18n/translations.js";
+import type * as localDev from "../localDev.js";
 import type * as messages from "../messages.js";
 import type * as storage from "../storage.js";
 import type * as support_agent from "../support/agent.js";
@@ -100,6 +101,7 @@ declare const fullApi: ApiFromModules<{
   functions: typeof functions;
   http: typeof http;
   "i18n/translations": typeof i18n_translations;
+  localDev: typeof localDev;
   messages: typeof messages;
   storage: typeof storage;
   "support/agent": typeof support_agent;
