@@ -38,6 +38,15 @@ const openEditor = values['open-editor'];
 const branchName = positionals[0];
 
 /**
+ * Check if a command exists on the system
+ */
+function commandExists(command: string): boolean {
+	const cmd = process.platform === 'win32' ? 'where' : 'which';
+	const result = spawnSync(cmd, [command], { encoding: 'utf-8', stdio: 'pipe' });
+	return result.status === 0;
+}
+
+/**
  * Run a command and return the result
  */
 function runCommand(
@@ -155,37 +164,56 @@ function setupWorktree(rootPath: string): void {
 	console.log(`${colors.green}Dependencies installed${colors.reset}`);
 	console.log('');
 
-	console.log('Tracking branch with Graphite...');
-	if (!runCommandInherit('gt', ['track'])) {
-		console.error(`${colors.red}Failed to track branch${colors.reset}`);
-		process.exit(1);
-	}
-	console.log(`${colors.green}Branch tracked${colors.reset}`);
-	console.log('');
+	if (commandExists('gt')) {
+		console.log('Tracking branch with Graphite...');
+		if (!runCommandInherit('gt', ['track'])) {
+			console.log(
+				`${colors.yellow}Warning: gt track failed (non-fatal, worktree is still usable)${colors.reset}`
+			);
+		} else {
+			console.log(`${colors.green}Branch tracked${colors.reset}`);
+		}
+		console.log('');
 
-	console.log('Syncing with trunk...');
-	if (!runCommandInherit('gt', ['sync'])) {
-		console.error(`${colors.red}Failed to sync${colors.reset}`);
-		process.exit(1);
+		console.log('Syncing with trunk...');
+		if (!runCommandInherit('gt', ['sync'])) {
+			console.log(
+				`${colors.yellow}Warning: gt sync failed (non-fatal, worktree is still usable)${colors.reset}`
+			);
+		} else {
+			console.log(`${colors.green}Synced with trunk${colors.reset}`);
+		}
+		console.log('');
+	} else {
+		console.log(
+			`${colors.yellow}Graphite CLI (gt) not found — skipping gt track/sync.${colors.reset}`
+		);
+		console.log('Install: https://graphite.dev/docs/graphite-cli/quickstart');
+		console.log('');
 	}
-	console.log(`${colors.green}Synced with trunk${colors.reset}`);
-	console.log('');
 
 	console.log('======================================================');
 	console.log(`${colors.green}Worktree setup complete!${colors.reset}`);
 	console.log('======================================================');
 	console.log('');
+	const hasGt = commandExists('gt');
 	console.log('Next steps:');
 	console.log('  1. Make your changes');
 	console.log('  2. Stage them: git add .');
 	console.log('  3. Commit changes: git commit -m "feat: your feature"');
-	console.log('  4. Submit PR: gt submit');
+	if (hasGt) {
+		console.log('  4. Submit PR: gt submit');
+	} else {
+		console.log('  4. Push & open PR: git push -u origin HEAD && gh pr create');
+	}
 	console.log('');
-	console.log('To stack more changes on top:');
-	console.log('  1. Make more changes');
-	console.log('  2. git add .');
-	console.log('  3. gt create -m "feat: another feature"  # Creates new branch');
-	console.log('  4. gt submit --stack');
+	if (hasGt) {
+		console.log('To stack more changes on top:');
+		console.log('  1. Make more changes');
+		console.log('  2. git add .');
+		console.log('  3. gt create -m "feat: another feature"  # Creates new branch');
+		console.log('  4. gt submit --stack');
+	}
 	console.log('');
 }
 
