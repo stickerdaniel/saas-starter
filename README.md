@@ -63,12 +63,11 @@ bunx convex env set KEY value                 # set backend env vars (see .env-c
 
 ### Connect Vercel
 
-Set these in your Vercel project settings (scoped to **Preview**):
+Set this in your Vercel project settings (scoped to **Preview**):
 
 | Variable            | Value                                                                         |
 | ------------------- | ----------------------------------------------------------------------------- |
 | `CONVEX_DEPLOY_KEY` | Your dev deploy key from the [Convex dashboard](https://dashboard.convex.dev) |
-| `TOLGEE_API_KEY`    | Tolgee API key for translation pulls                                          |
 
 The deploy script auto-computes `PUBLIC_CONVEX_URL` and `PUBLIC_CONVEX_SITE_URL` from the Convex deploy output. It also sets `SITE_URL` on each preview Convex instance to match the Vercel preview URL.
 
@@ -78,14 +77,13 @@ Push a branch and Vercel creates a preview deployment with its own Convex previe
 
 ### Set Vercel production env vars
 
-Add the same two variables scoped to **Production**, using your production deploy key:
+Add the same variable scoped to **Production**, using your production deploy key:
 
 | Variable            | Value                      |
 | ------------------- | -------------------------- |
 | `CONVEX_DEPLOY_KEY` | Your production deploy key |
-| `TOLGEE_API_KEY`    | Tolgee API key             |
 
-Optional (if those features are used): `AUTUMN_SECRET_KEY`, `AUTUMN_PROD_SECRET_KEY`, `PUBLIC_POSTHOG_API_KEY`, `PUBLIC_POSTHOG_HOST`.
+Optional (if those features are used): `TOLGEE_API_KEY`, `AUTUMN_SECRET_KEY`, `AUTUMN_PROD_SECRET_KEY`, `PUBLIC_POSTHOG_API_KEY`, `PUBLIC_POSTHOG_HOST`.
 
 ### Set Convex production env vars
 
