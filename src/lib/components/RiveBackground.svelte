@@ -153,21 +153,15 @@
 			if (destroyed) return;
 
 			if (requestIdleCallback) {
-				idleId = requestIdleCallback(
-					() => {
-						void startRive();
-					},
-					{ timeout: isDesktop ? 2500 : 5000 }
-				);
+				idleId = requestIdleCallback(() => {
+					void startRive();
+				});
 				return;
 			}
 
-			timeoutId = window.setTimeout(
-				() => {
-					void startRive();
-				},
-				isDesktop ? 1500 : 3000
-			);
+			timeoutId = window.setTimeout(() => {
+				void startRive();
+			}, 10000);
 		}
 
 		if (!defer) {
