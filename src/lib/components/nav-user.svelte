@@ -2,6 +2,7 @@
 	import * as Avatar from '$lib/components/ui/avatar/index.js';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
+	import { Button } from '$lib/components/ui/button/index.js';
 	import { useSidebar } from '$lib/components/ui/sidebar/index.js';
 	import { authClient } from '$lib/auth-client';
 	import { goto } from '$app/navigation';
@@ -76,9 +77,9 @@
 		<DropdownMenu.Root>
 			<DropdownMenu.Trigger id="user-menu-trigger">
 				{#snippet child({ props })}
-					<Sidebar.MenuButton
-						size="lg"
-						class="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground {isImpersonating
+					<Button
+						variant="ghost"
+						class="h-12 w-full justify-start gap-2 px-2 data-[state=open]:bg-muted {isImpersonating
 							? 'ring-2 ring-warning'
 							: ''}"
 						{...props}
@@ -92,7 +93,7 @@
 							<span class="truncate text-xs">{user.email}</span>
 						</div>
 						<ChevronsUpDownIcon class="ml-auto size-4" />
-					</Sidebar.MenuButton>
+					</Button>
 				{/snippet}
 			</DropdownMenu.Trigger>
 			<DropdownMenu.Content
