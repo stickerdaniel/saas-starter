@@ -8,7 +8,7 @@
  */
 
 import { spawnSync } from 'child_process';
-import { existsSync, copyFileSync, mkdirSync } from 'fs';
+import { chmodSync, existsSync, copyFileSync, mkdirSync, readdirSync, statSync } from 'fs';
 import { dirname, join } from 'path';
 import { parseArgs } from 'util';
 
@@ -36,6 +36,13 @@ const { values, positionals } = parseArgs({
 const setupOnly = values['setup-only'] ?? false;
 const openEditor = values['open-editor'];
 const branchName = positionals[0];
+
+/**
+ * Check if a command exists on the system (uses Bun.which for cross-platform support)
+ */
+function commandExists(command: string): boolean {
+	return Bun.which(command) !== null;
+}
 
 /**
  * Run a command and return the result
@@ -155,21 +162,53 @@ function setupWorktree(rootPath: string): void {
 	console.log(`${colors.green}Dependencies installed${colors.reset}`);
 	console.log('');
 
-	console.log('Tracking branch with Graphite...');
-	if (!runCommandInherit('gt', ['track'])) {
-		console.error(`${colors.red}Failed to track branch${colors.reset}`);
-		process.exit(1);
+	// Ensure husky hooks are executable (bun install/husky can reset the bit)
+	const huskyDir = join(process.cwd(), '.husky');
+	if (existsSync(huskyDir)) {
+		for (const entry of readdirSync(huskyDir)) {
+			const hookPath = join(huskyDir, entry);
+			if (statSync(hookPath).isFile() && !entry.startsWith('_')) {
+				chmodSync(hookPath, 0o755);
+			}
+		}
+		console.log(`${colors.green}Husky hooks set as executable${colors.reset}`);
+		console.log('');
 	}
-	console.log(`${colors.green}Branch tracked${colors.reset}`);
-	console.log('');
 
-	console.log('Syncing with trunk...');
-	if (!runCommandInherit('gt', ['sync'])) {
-		console.error(`${colors.red}Failed to sync${colors.reset}`);
-		process.exit(1);
+	const hasGt = commandExists('gt');
+	let gtReady = false;
+
+	if (hasGt) {
+		console.log('Tracking branch with Graphite...');
+		const tracked = runCommandInherit('gt', ['track']);
+		if (!tracked) {
+			console.log(
+				`${colors.yellow}Warning: gt track failed (non-fatal, worktree is still usable)${colors.reset}`
+			);
+		} else {
+			console.log(`${colors.green}Branch tracked${colors.reset}`);
+		}
+		console.log('');
+
+		console.log('Syncing with trunk...');
+		const synced = runCommandInherit('gt', ['sync']);
+		if (!synced) {
+			console.log(
+				`${colors.yellow}Warning: gt sync failed (non-fatal, worktree is still usable)${colors.reset}`
+			);
+		} else {
+			console.log(`${colors.green}Synced with trunk${colors.reset}`);
+		}
+		console.log('');
+
+		gtReady = tracked && synced;
+	} else {
+		console.log(
+			`${colors.yellow}Graphite CLI (gt) not found — skipping gt track/sync.${colors.reset}`
+		);
+		console.log('Install: https://graphite.dev/docs/graphite-cli/quickstart');
+		console.log('');
 	}
-	console.log(`${colors.green}Synced with trunk${colors.reset}`);
-	console.log('');
 
 	console.log('======================================================');
 	console.log(`${colors.green}Worktree setup complete!${colors.reset}`);
@@ -179,13 +218,19 @@ function setupWorktree(rootPath: string): void {
 	console.log('  1. Make your changes');
 	console.log('  2. Stage them: git add .');
 	console.log('  3. Commit changes: git commit -m "feat: your feature"');
-	console.log('  4. Submit PR: gt submit');
+	if (gtReady) {
+		console.log('  4. Submit PR: gt submit');
+	} else {
+		console.log('  4. Push & open PR: git push -u origin HEAD && gh pr create');
+	}
 	console.log('');
-	console.log('To stack more changes on top:');
-	console.log('  1. Make more changes');
-	console.log('  2. git add .');
-	console.log('  3. gt create -m "feat: another feature"  # Creates new branch');
-	console.log('  4. gt submit --stack');
+	if (gtReady) {
+		console.log('To stack more changes on top:');
+		console.log('  1. Make more changes');
+		console.log('  2. git add .');
+		console.log('  3. gt create -m "feat: another feature"  # Creates new branch');
+		console.log('  4. gt submit --stack');
+	}
 	console.log('');
 }
 
