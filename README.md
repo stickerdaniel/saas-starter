@@ -1,6 +1,6 @@
 # SaaS Starter
 
-You want to ship your SaaS, not rebuild auth, billing, and admin panels from scratch. Clone this, run `bun run dev`, and start building your actual product.
+Agents write better code when they have good examples to work from. This starter ships with auth, billing, admin, AI chat, email, i18n, and more, all implemented end-to-end so your agents have real patterns to reference when building new features. It also includes the DX tools and guardrails to make sure what ships stays secure, performant, and maintainable. Clone it, run `bun run dev`, and start building.
 
 ## 1. Local Development
 
@@ -17,86 +17,41 @@ A local Convex backend starts automatically with a seeded admin:
 
 Visit `http://localhost:5173` and sign in. No external services needed.
 
-Thanks to [convex-vite-plugin](https://github.com/juliusmarminge/convex-vite-plugin), each git worktree gets its own isolated Convex backend and the frontend is automatically wired to it, so you can develop multiple features in parallel without conflicts. Run `bun run worktree --open-editor` to create a new worktree with all local env vars copied over, or use the VS Code task (`Cmd/Ctrl+Shift+P` > `Run Task`).
+To activate all features locally, create `.env.convex.local` and add the keys you need. See the [environment variable matrix](#environment-variables) below for which keys to set and where.
 
-### Enable Services Locally
+<details>
+<summary><strong>Convex cloud dev deployment (optional)</strong></summary>
 
-Create `.env.convex.local` at the project root to activate optional integrations:
-
-```bash
-# Email delivery
-RESEND_API_KEY=re_xxxxxxxxxxxx
-AUTH_EMAIL=noreply@yourdomain.com
-EMAIL_ASSET_URL=https://yourdomain.com
-
-# OAuth providers
-AUTH_GOOGLE_ID=your-client-id
-AUTH_GOOGLE_SECRET=your-client-secret
-AUTH_GITHUB_ID=your-client-id
-AUTH_GITHUB_SECRET=your-client-secret
-
-# AI support chat
-OPENROUTER_API_KEY=sk-or-v1-xxxx
-
-# Billing
-AUTUMN_SECRET_KEY=am_sk_xxxx
-```
-
-Without these, the app runs fine. Email, OAuth, AI support, and billing are simply inactive.
-
-## 2. Preview Deployments (Vercel + Convex)
-
-Connect to a cloud Convex backend and deploy previews on every PR.
-
-### Set up a Convex cloud project
+The local embedded backend is preferred for day-to-day work. Each git worktree gets its own isolated Convex instance, so you can develop multiple features in parallel without conflicts. Use a cloud backend only when you need to test against cloud-specific behavior.
 
 ```bash
 bunx convex init                              # creates a Convex project
 ```
 
-Add `CONVEX_DEPLOYMENT` to `.env.local` (printed by `convex init`). You can now develop against the cloud backend:
+Add `CONVEX_DEPLOYMENT` to `.env.local` (printed by `convex init`), then:
 
 ```bash
 bun run dev:cloud                             # frontend + cloud Convex backend
-bunx convex env set KEY value                 # set backend env vars (see .env-convex.schema)
+bunx convex env set KEY value                 # set backend env vars (see .env-convex.schema / env matrix below)
 ```
 
-### Connect Vercel
+</details>
 
-Set this in your Vercel project settings (scoped to **Preview**):
+## 2. Preview Deployments (Vercel + Convex)
 
-| Variable            | Value                                                                         |
-| ------------------- | ----------------------------------------------------------------------------- |
-| `CONVEX_DEPLOY_KEY` | Your dev deploy key from the [Convex dashboard](https://dashboard.convex.dev) |
+Each PR gets its own Vercel preview with an isolated Convex preview backend.
 
-The deploy script auto-computes `PUBLIC_CONVEX_URL` and `PUBLIC_CONVEX_SITE_URL` from the Convex deploy output. It also sets `SITE_URL` on each preview Convex instance to match the Vercel preview URL.
+Create a Convex project at [dashboard.convex.dev](https://dashboard.convex.dev) and connect your repo to [Vercel](https://vercel.com).
 
-Push a branch and Vercel creates a preview deployment with its own Convex preview backend.
+Set the required Vercel and Convex preview variables listed in the [environment variable matrix](#environment-variables) below.
+
+The deploy script (`scripts/vercel-deploy.ts`) tags and pulls translations, runs `bunx convex deploy` to create a preview backend named after the branch, auto-computes `PUBLIC_CONVEX_URL` and `PUBLIC_CONVEX_SITE_URL` from the deploy output, and sets `SITE_URL` on the Convex instance to match the Vercel preview URL. When `PREVIEW_ADMIN_PASSWORD` is set, it also seeds an admin user.
+
+Push a branch and Vercel creates a preview deployment with its own Convex preview backend. Convex cleans up preview deployments after 5 days (14 days on Professional).
 
 ## 3. Production Deployment
 
-### Set Vercel production env vars
-
-Add the same variable scoped to **Production**, using your production deploy key:
-
-| Variable            | Value                      |
-| ------------------- | -------------------------- |
-| `CONVEX_DEPLOY_KEY` | Your production deploy key |
-
-Optional (if those features are used): `TOLGEE_API_KEY`, `AUTUMN_SECRET_KEY`, `AUTUMN_PROD_SECRET_KEY`, `PUBLIC_POSTHOG_API_KEY`, `PUBLIC_POSTHOG_HOST`.
-
-### Set Convex production env vars
-
-```bash
-bunx convex env set BETTER_AUTH_SECRET "your-secret" --prod
-bunx convex env set SITE_URL "https://yourdomain.com" --prod
-bunx convex env set RESEND_API_KEY "re_xxx" --prod
-bunx convex env set AUTH_EMAIL "noreply@yourdomain.com" --prod
-bunx convex env set EMAIL_ASSET_URL "https://yourdomain.com" --prod
-bunx convex env set AUTUMN_SECRET_KEY "am_sk_xxx" --prod
-bunx convex env set OPENROUTER_API_KEY "sk-or-v1-xxx" --prod
-# Optional: AUTH_GOOGLE_ID, AUTH_GOOGLE_SECRET, AUTH_GITHUB_ID, AUTH_GITHUB_SECRET, RESEND_WEBHOOK_SECRET
-```
+Set the required Vercel and Convex production variables listed in the [environment variable matrix](#environment-variables) below.
 
 ### Deploy
 
@@ -106,7 +61,7 @@ vercel --prod
 
 ### First Admin
 
-Sign up on the site, then either set the user's role to `admin` in the Convex dashboard or run:
+Sign up on the site, then either set the user's role to `admin` in the Convex dashboard or run (with the email you signed up with):
 
 ```bash
 bunx convex run admin/mutations:seedFirstAdmin '{"email":"you@example.com"}' --prod
@@ -115,136 +70,137 @@ bunx convex run admin/mutations:seedFirstAdmin '{"email":"you@example.com"}' --p
 ---
 
 <details>
-<summary><strong>What You Get</strong></summary>
+<summary><strong>Environment Variables</strong></summary>
+
+Two runtimes, two schemas, both managed by [varlock](https://github.com/nickreese/varlock) for type-safe access. `.env.schema` covers SvelteKit (Vite), `.env-convex.schema` covers the Convex backend. The matrix below shows every variable and where it needs to be set.
+
+`✓` required | `○` optional | `·` auto-set by tooling
+
+**Convex backend** (`.env.convex.local` for local, [dashboard](https://dashboard.convex.dev) for cloud):
+
+| Variable                 |                                           | Local | Preview | Prod |
+| ------------------------ | ----------------------------------------- | :---: | :-----: | :--: |
+| `BETTER_AUTH_SECRET`     | Session/token signing secret              |   ·   |    ✓    |  ✓   |
+| `SITE_URL`               | Base URL for OAuth redirects              |   ·   |    ·    |  ✓   |
+| `RESEND_API_KEY`         | Resend API key for transactional email    |   ○   |    ✓    |  ✓   |
+| `AUTH_EMAIL`             | Sender address for auth emails            |   ○   |    ✓    |  ✓   |
+| `EMAIL_ASSET_URL`        | Public URL for email images (always prod) |   ○   |    ✓    |  ✓   |
+| `AUTUMN_SECRET_KEY`      | Autumn billing secret key                 |   ○   |    ✓    |  ✓   |
+| `OPENROUTER_API_KEY`     | OpenRouter API key for AI support chat    |   ○   |    ✓    |  ✓   |
+| `AUTH_E2E_TEST_SECRET`   | Secret for E2E test mutations             |   ○   |    ○    |      |
+| `AUTH_GOOGLE_ID`         | Google OAuth client ID                    |   ○   |    ○    |  ○   |
+| `AUTH_GOOGLE_SECRET`     | Google OAuth client secret                |   ○   |    ○    |  ○   |
+| `AUTH_GITHUB_ID`         | GitHub OAuth client ID                    |   ○   |    ○    |  ○   |
+| `AUTH_GITHUB_SECRET`     | GitHub OAuth client secret                |   ○   |    ○    |  ○   |
+| `RESEND_WEBHOOK_SECRET`  | Resend webhook signing secret             |   ○   |    ○    |  ○   |
+| `SUPPORT_EMAIL`          | Support contact email                     |   ○   |    ○    |  ○   |
+| `PREVIEW_ADMIN_PASSWORD` | Password for auto-seeded preview admin    |       |    ·    |      |
+
+**Vercel** (project settings):
+
+| Variable                 |                                 | Preview | Prod |
+| ------------------------ | ------------------------------- | :-----: | :--: |
+| `CONVEX_DEPLOY_KEY`      | Convex deploy key               |    ✓    |  ✓   |
+| `TOLGEE_API_KEY`         | Tolgee API key for translations |    ✓    |  ✓   |
+| `PREVIEW_ADMIN_PASSWORD` | Preview admin password          |    ○    |      |
+| `PUBLIC_POSTHOG_API_KEY` | PostHog analytics API key       |         |  ○   |
+| `PUBLIC_POSTHOG_HOST`    | PostHog analytics host          |         |  ○   |
+
+</details>
+
+<details>
+<summary><strong>Features</strong></summary>
 
 ### Authentication
 
-Email/password, Google and GitHub OAuth, and passkeys (WebAuthn) via [Better Auth](https://www.better-auth.com/) with a [local Convex install](https://labs.convex.dev/better-auth/features/local-install) for full feature access. Email verification required on signup, password reset flow, auto sign-in after verification. Role-based route protection (`user`/`admin`) checked via JWT in the SvelteKit hook, no round-trip to the backend.
+Sign in with email/password, Google, GitHub, or passkeys. Powered by [Better Auth](https://www.better-auth.com/) running as a [local Convex install](https://labs.convex.dev/better-auth/features/local-install) so every auth feature works without an external service. New signups verify their email before getting access, password resets work out of the box, and users are signed in automatically after verification. Routes are protected by role (`user` or `admin`) via a JWT check in the SvelteKit hook, with no extra round-trip to the backend.
 
 ### Billing
 
-[Autumn](https://docs.useautumn.com/welcome) wraps Stripe so you configure pricing tiers and usage gates without writing webhook handlers. Define your products in `autumn.config.ts` or generate it at [app.useautumn.com/sandbox/quickstart](https://app.useautumn.com/sandbox/quickstart). Ships with Free (10 messages/month) and Pro ($10/month, unlimited) tiers. The community chat enforces the quota with low-balance warnings and an upgrade flow.
+[Autumn](https://docs.useautumn.com/welcome) sits on top of Stripe and lets you define pricing tiers and usage gates without writing webhook handlers. Configure your products in `autumn.config.ts` or generate a starter config at [app.useautumn.com/sandbox/quickstart](https://app.useautumn.com/sandbox/quickstart). Ships with a Free tier (10 messages/month) and a Pro tier ($10/month, unlimited). The community chat enforces quotas, warns users when they are running low, and offers an upgrade flow.
 
 ### Admin Panel
 
-Full admin area at `/admin` with real-time metrics (total users, active sessions, recent signups), a users table with search/filter/sort and cursor-based pagination, per-user actions (ban, unban, impersonate, role change, session revocation), and a full audit log.
+A full admin area at `/admin` with live metrics (total users, active sessions, recent signups), a searchable users table with filtering, sorting, and cursor-based pagination, per-user actions (ban, unban, impersonate, change role, revoke sessions), and a complete audit log.
 
 ### AI Support Chat
 
-An AI agent powered by [Convex Agent](https://www.convex.dev/components/agent) + [OpenRouter](https://openrouter.ai/) answers product questions, collects bug reports, and guides users through setup. A floating chatbar appears on every page. Users can attach images/PDFs and annotate screenshots with a built-in canvas editor before sending. When a question needs a human, admins take over from a 3-pane support dashboard with thread assignment, priority, internal notes, and status tracking. Users get an email when an admin replies.
+An AI agent built on [Convex Agent](https://www.convex.dev/components/agent) and [OpenRouter](https://openrouter.ai/) answers product questions, collects bug reports, and walks users through setup. A floating chatbar is available on every page. Users can attach images or PDFs and annotate screenshots with a built-in canvas editor before sending. When a question needs a human, admins take over from a 3-pane support dashboard with thread assignment, priority levels, internal notes, and status tracking. Users receive an email when an admin replies.
 
 ### Email System
 
-Transactional email via [Resend](https://www.convex.dev/components/resend) with automatic retries, idempotency, and delivery event tracking. Templates are built as Svelte components using a shadcn-style email component library (same `tv()` variants, same design tokens) and compiled to inline HTML at build time. The logo is auto-generated as an email-safe PNG from your SVG. Preview all templates in the browser at `/emails` during development, with optional "send test email" when a Resend key is configured.
+Transactional email delivered through [Resend](https://www.convex.dev/components/resend) with automatic retries, idempotency, and delivery tracking. Templates are written as Svelte components using a shadcn-style email component library (same `tv()` variants, same design tokens) and compiled to inline HTML at build time. Your logo is converted to an email-safe PNG automatically. During development, preview every template in the browser at `/emails` and optionally send a real test email when a Resend key is configured.
 
 ### Internationalization
 
-4 languages (EN, DE, ES, FR) with URL-based routing (`/de/pricing`, `/fr/about`) via [Tolgee](https://docs.tolgee.io/). In-context editing with Tolgee DevTools in development. The production build automatically tags and pulls the latest translations. A custom ESLint rule enforces that all `aria-label` attributes use translation keys instead of hardcoded strings.
+4 languages (EN, DE, ES, FR) with URL-based routing (`/de/pricing`, `/fr/about`) powered by [Tolgee](https://docs.tolgee.io/). Edit translations in context with Tolgee DevTools during development. Production builds tag and pull the latest translations automatically. A custom ESLint rule ensures every `aria-label` uses a translation key instead of a hardcoded string.
 
 > This project has too many translation keys for Tolgee Cloud's free tier. A self-hosted instance deploys in one click via [Coolify](https://coolify.io/docs/services/tolgee).
 
 ### Analytics
 
-[PostHog](https://posthog.com/) with lazy loading and ad-blocker detection. When blocked, it falls back to a [Cloudflare Worker proxy](https://posthog.com/docs/deployment/cloudflare-worker). Only identified users are tracked (`person_profiles: 'identified_only'`).
+[PostHog](https://posthog.com/) loads lazily and detects ad blockers. When blocked, tracking falls back to a [Cloudflare Worker proxy](https://posthog.com/docs/advanced/proxy/cloudflare). Only identified users are tracked (`person_profiles: 'identified_only'`).
 
 ### AI Readiness
 
-Marketing pages serve structured markdown when an AI agent sends `Accept: text/markdown`, with YAML frontmatter and `Vary: Accept` for correct CDN caching. A `/llms.txt` endpoint tells agents which pages are available and how to request them. Sitemap and robots.txt are generated dynamically across all 4 languages.
+Marketing pages return structured markdown when an AI agent sends `Accept: text/markdown`, complete with YAML frontmatter and `Vary: Accept` headers for correct CDN caching. A `/llms.txt` endpoint lists available pages and explains how to request them. Sitemap and robots.txt are generated dynamically across all 4 languages.
 
 ### SEO
 
-`<SEOHead>` component on every page emitting OpenGraph, Twitter Cards, canonical URLs, and `hreflang` alternates for all languages plus `x-default`. OG image included at `static/og-image.png` (1200x630).
+Every page includes a `<SEOHead>` component that outputs OpenGraph tags, Twitter Cards, canonical URLs, and `hreflang` alternates for all languages plus `x-default`. An OG image is included at `static/og-image.png` (1200x630).
 
 ### Accessibility
 
-Automated WCAG 2.1 AA testing via axe-core on all public pages in both light and dark mode. Skip-to-content link, semantic HTML, translated `aria-label` attributes, and `motion-safe:` prefixes enforced by a banned-pattern scanner.
+All public pages are tested against WCAG 2.1 AA using axe-core in both light and dark mode. The template includes a skip-to-content link, semantic HTML throughout, translated `aria-label` attributes, and a banned-pattern scanner that enforces `motion-safe:` prefixes on animations.
 
 ### Real-Time
 
-Everything updates live. Dashboard metrics, admin users table, community chat, support threads, AI agent responses (streamed token-by-token). Powered by Convex reactive queries.
+Everything updates live: dashboard metrics, the admin users table, community chat, support threads, and AI agent responses streamed token-by-token. Built on Convex reactive queries. Messages, file uploads, and LLM calls are rate-limited via `@convex-dev/rate-limiter`.
 
-### More
+### User Settings
 
-- **Dark mode** via `mode-watcher`, all components respond to the `.dark` class
-- **Rate limiting** on support messages, file uploads, and LLM calls via `@convex-dev/rate-limiter`
-- **File uploads** with server-side MIME validation, access control, and hourly cleanup crons
-- **Mobile haptics** via `web-haptics` (respects `prefers-reduced-motion`)
-- **User settings**: change name, avatar (upload or URL), password (with strength indicator), email (with re-verification), manage passkeys, view/revoke active sessions
+Users can update their profile, change their password with live strength feedback, swap their email (triggers re-verification), manage passkeys, and review or revoke active sessions. Uploaded avatars and attachments are validated on the server and cleaned up automatically.
+
+### Dark Mode
+
+Every component supports light and dark mode via `mode-watcher`. Interactive elements provide subtle haptic feedback on mobile via `web-haptics` (respects `prefers-reduced-motion`).
 
 </details>
 
 <details>
 <summary><strong>Developer Experience</strong></summary>
 
-- **Worktrees**: Each worktree gets its own isolated Convex backend, port, and auth secret. `bun run worktree --open-editor` creates one with env vars copied over.
-- **Type-safe env vars**: [varlock](https://github.com/nickreese/varlock) validates and generates types from `.env.schema` and `.env-convex.schema`.
-- **Pre-commit hooks**: `varlock scan` checks for leaked secrets, then `static-checks:staged` runs spell checking, banned pattern detection (deprecated Tailwind tokens, bare `animate-spin`), Prettier, ESLint, and oxlint.
-- **Dead code detection**: [Knip](https://knip.dev/) configured for SvelteKit file-system routing and Convex backend entry points.
-- **Bundle analysis**: `ANALYZE=true bun run build` generates a treemap with gzip/brotli sizes.
-- **VS Code tasks**: Dev server, static checks, i18n sync, email build, and worktree creation all available via `Run Task`.
-- **Dependency automation**: Renovate groups non-major updates, isolates breaking-change-prone packages (Better Auth, AI SDK, ESLint) into separate PRs.
-- **Email development**: Edit Svelte email components, run `bun run build:emails` to compile to inline HTML. Preview all templates in the browser with mock data.
+### Worktrees
 
-</details>
+Each worktree gets its own isolated Convex backend, port, and auth secret via [convex-vite-plugin](https://github.com/juliusmarminge/convex-vite-plugin). Run `bun run worktree feature/dark-mode --open-editor` to create one with all local env vars copied over, or use the VS Code task. Work on multiple features in parallel without stepping on each other.
 
-<details>
-<summary><strong>Environment Variables</strong></summary>
+### Type-Safe Environment Variables
 
-Two runtimes, two schemas:
+[varlock](https://github.com/nickreese/varlock) validates env vars against two schemas and generates TypeScript types from them. `.env.schema` covers SvelteKit (Vite), `.env-convex.schema` covers the Convex backend. If a required variable is missing or mistyped, you find out before the app starts.
 
-| Schema               | Runtime          | Local file                                                   |
-| -------------------- | ---------------- | ------------------------------------------------------------ |
-| `.env.schema`        | SvelteKit (Vite) | `.env.local`                                                 |
-| `.env-convex.schema` | Convex backend   | `.env.convex.local` (local) or `bunx convex env set` (cloud) |
+### Pre-Commit Hooks
 
-Both schemas are managed by [varlock](https://github.com/nickreese/varlock) for type-safe env access.
+Every commit is checked automatically. `varlock scan` looks for leaked secrets, then `static-checks:staged` runs spell checking, banned pattern detection (catches deprecated Tailwind tokens, bare `animate-spin`, and similar issues), Prettier, ESLint, and oxlint on staged files only.
 
-</details>
+### Dead Code Detection
 
-<details>
-<summary><strong>Project Structure</strong></summary>
+[Knip](https://knip.dev/) is configured for SvelteKit file-system routing and Convex backend entry points. It catches unused exports, stale dependencies, and orphaned files so the codebase stays clean.
 
-```
-src/
-  lib/
-    convex/           Convex backend (schema, queries, mutations, actions)
-    components/       App components
-    components/ui/    shadcn-svelte primitives
-    emails/           Email templates and shadcn-style email components
-    i18n/             Translation files (en, de, es, fr)
-    markdown/         AI agent markdown rendering
-    marketing/        Public route definitions
-  routes/
-    api/auth/         Better Auth API handler
-    llms.txt/         AI agent discovery
-    sitemap.xml/      Dynamic sitemap
-    robots.txt/       Crawler rules
-    [[lang]]/
-      (auth)/         Sign-in, forgot/reset password, email verification
-      (marketing)/    Landing, pricing, about, legal pages
-      app/            Protected area (dashboard, settings, community chat)
-      admin/          Admin panel (dashboard, users, support, settings)
-```
+### Bundle Analysis
 
-</details>
+Run `ANALYZE=true bun run build` to generate a treemap with gzip and brotli sizes. Helps you spot bloat before it reaches production.
 
-<details>
-<summary><strong>Scripts</strong></summary>
+### VS Code Integration
 
-| Command                | Description                              |
-| ---------------------- | ---------------------------------------- |
-| `bun run dev`          | Local dev (embedded Convex backend)      |
-| `bun run dev:cloud`    | Cloud dev (requires `CONVEX_DEPLOYMENT`) |
-| `bun run build`        | Production build                         |
-| `bun run test`         | All tests (E2E + unit)                   |
-| `bun run test:e2e`     | Playwright E2E tests                     |
-| `bun run test:unit`    | Vitest unit tests                        |
-| `bun run lint`         | ESLint + OxLint                          |
-| `bun run check`        | svelte-check type checking               |
-| `bun run build:emails` | Compile email templates                  |
-| `bun run i18n:push`    | Push translations to Tolgee              |
-| `bun run i18n:pull`    | Pull translations from Tolgee            |
-| `bun run worktree`     | Create an isolated git worktree          |
+Dev server, static checks, i18n sync, email build, and worktree creation are all available as VS Code tasks via `Run Task` (`Cmd/Ctrl+Shift+P`).
+
+### Dependency Automation
+
+Renovate groups non-major updates into a single PR and creates separate PRs for packages that tend to ship breaking changes (Better Auth, AI SDK, ESLint), so upgrades are easier to review.
+
+### Email Development
+
+Email templates are Svelte components compiled to inline HTML on `postinstall` and during builds. Preview every template in the browser at `/emails` with mock data, and optionally send a real test email when a Resend key is configured.
 
 </details>
 
