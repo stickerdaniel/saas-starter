@@ -191,8 +191,8 @@
 
 							<!-- Badges -->
 							<div class="flex flex-wrap items-center gap-1.5 pl-10">
-								<Skeleton class="h-[22px] w-10" />
-								<Skeleton class="h-[22px] w-10" />
+								<Skeleton class="h-5 w-10 rounded-4xl" />
+								<Skeleton class="h-5 w-10 rounded-4xl" />
 							</div>
 						</div>
 					</div>
