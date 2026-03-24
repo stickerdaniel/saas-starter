@@ -2,7 +2,7 @@
  * Vercel deployment script (cross-platform TypeScript version)
  *
  * Handles:
- * - Tolgee translation tagging and pulling
+ * - Tolgee translation tagging and pulling (optional, skipped without TOLGEE_API_KEY)
  * - Convex environment variable validation (production and preview)
  * - Convex deployment
  * - E2E config file generation (preview only)
@@ -138,37 +138,46 @@ async function runCommandWithRetry(
 async function main(): Promise<void> {
 	console.log(`Vercel Environment: ${VERCEL_ENV}`);
 
-	// Tag translations based on environment
-	if (VERCEL_ENV === 'production') {
-		console.log('Tagging production keys...');
-		if (
-			!runCommand('tolgee', [
-				'tag',
-				'--filter-extracted',
-				'--tag',
-				'production',
-				'--untag',
-				'preview'
-			])
-		) {
-			console.error(`${colors.red}Tolgee tagging failed${colors.reset}`);
-			process.exit(1);
+	// Tolgee translation sync (optional — skipped when TOLGEE_API_KEY is not set)
+	const TOLGEE_API_KEY = process.env.TOLGEE_API_KEY;
+
+	if (TOLGEE_API_KEY) {
+		// Tag translations based on environment
+		if (VERCEL_ENV === 'production') {
+			console.log('Tagging production keys...');
+			if (
+				!runCommand('tolgee', [
+					'tag',
+					'--filter-extracted',
+					'--tag',
+					'production',
+					'--untag',
+					'preview'
+				])
+			) {
+				console.error(`${colors.red}Tolgee tagging failed${colors.reset}`);
+				process.exit(1);
+			}
+		} else if (VERCEL_ENV === 'preview') {
+			console.log('Tagging preview keys...');
+			if (!runCommand('tolgee', ['tag', '--filter-extracted', '--tag', 'preview'])) {
+				console.error(`${colors.red}Tolgee tagging failed${colors.reset}`);
+				process.exit(1);
+			}
+		} else {
+			console.log(`${colors.yellow}Unknown environment, skipping tagging${colors.reset}`);
 		}
-	} else if (VERCEL_ENV === 'preview') {
-		console.log('Tagging preview keys...');
-		if (!runCommand('tolgee', ['tag', '--filter-extracted', '--tag', 'preview'])) {
-			console.error(`${colors.red}Tolgee tagging failed${colors.reset}`);
+
+		// Pull latest translations
+		console.log('Pulling latest translations...');
+		if (!runCommand('tolgee', ['pull'])) {
+			console.error(`${colors.red}Tolgee pull failed${colors.reset}`);
 			process.exit(1);
 		}
 	} else {
-		console.log(`${colors.yellow}Unknown environment, skipping tagging${colors.reset}`);
-	}
-
-	// Pull latest translations
-	console.log('Pulling latest translations...');
-	if (!runCommand('tolgee', ['pull'])) {
-		console.error(`${colors.red}Tolgee pull failed${colors.reset}`);
-		process.exit(1);
+		console.log(
+			`${colors.yellow}TOLGEE_API_KEY not set, skipping Tolgee sync (using committed translations)${colors.reset}`
+		);
 	}
 
 	// =============================================================================
