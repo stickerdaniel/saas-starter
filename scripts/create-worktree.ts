@@ -8,7 +8,7 @@
  */
 
 import { spawnSync } from 'child_process';
-import { existsSync, copyFileSync, mkdirSync } from 'fs';
+import { chmodSync, existsSync, copyFileSync, mkdirSync, readdirSync, statSync } from 'fs';
 import { dirname, join } from 'path';
 import { parseArgs } from 'util';
 
@@ -161,6 +161,19 @@ function setupWorktree(rootPath: string): void {
 	}
 	console.log(`${colors.green}Dependencies installed${colors.reset}`);
 	console.log('');
+
+	// Ensure husky hooks are executable (bun install/husky can reset the bit)
+	const huskyDir = join(process.cwd(), '.husky');
+	if (existsSync(huskyDir)) {
+		for (const entry of readdirSync(huskyDir)) {
+			const hookPath = join(huskyDir, entry);
+			if (statSync(hookPath).isFile() && !entry.startsWith('_')) {
+				chmodSync(hookPath, 0o755);
+			}
+		}
+		console.log(`${colors.green}Husky hooks set as executable${colors.reset}`);
+		console.log('');
+	}
 
 	const hasGt = commandExists('gt');
 	let gtReady = false;
