@@ -17,6 +17,7 @@ const VERCEL_ENV = process.env.VERCEL_ENV;
 const VERCEL_URL = process.env.VERCEL_URL;
 const VERCEL_GIT_COMMIT_REF = process.env.VERCEL_GIT_COMMIT_REF;
 const CONVEX_DEPLOY_KEY = process.env.CONVEX_DEPLOY_KEY;
+const PREVIEW_ADMIN_PASSWORD = process.env.PREVIEW_ADMIN_PASSWORD;
 
 // ANSI colors for terminal output
 const colors = {
@@ -337,6 +338,67 @@ async function main(): Promise<void> {
 		) {
 			console.error(`${colors.red}Environment variable validation failed${colors.reset}`);
 			process.exit(1);
+		}
+
+		// =============================================================================
+		// Seed preview admin user (only if PREVIEW_ADMIN_PASSWORD is configured)
+		// This creates an admin user so developers can immediately log in to previews
+		// =============================================================================
+		if (PREVIEW_ADMIN_PASSWORD) {
+			console.log('');
+			console.log('Seeding preview admin user...');
+
+			// Set PREVIEW_ADMIN_PASSWORD on the Convex deployment
+			const setPwResult = await runCommandWithRetry(
+				'bunx',
+				[
+					'convex',
+					'env',
+					'set',
+					'--deployment-name',
+					actualDeploymentName,
+					'PREVIEW_ADMIN_PASSWORD',
+					PREVIEW_ADMIN_PASSWORD
+				],
+				{
+					maxRetries: 3,
+					delayMs: 3000,
+					description: 'convex env set PREVIEW_ADMIN_PASSWORD'
+				}
+			);
+
+			if (!setPwResult.success) {
+				console.warn(
+					`${colors.yellow}Warning: Failed to set PREVIEW_ADMIN_PASSWORD, skipping admin seed${colors.reset}`
+				);
+			} else {
+				// Run the seed mutation on the same Convex deployment
+				const seedResult = runCommandCapture('bunx', [
+					'convex',
+					'run',
+					'--deployment-name',
+					actualDeploymentName,
+					'previewDev:ensurePreviewAdmin'
+				]);
+
+				if (seedResult.success) {
+					console.log(`${colors.green}=== Preview Admin Seeded ===${colors.reset}`);
+					console.log(`  Email:    admin@preview.local`);
+					console.log(`  Password: (set via PREVIEW_ADMIN_PASSWORD)`);
+					console.log(`${colors.green}============================${colors.reset}`);
+					if (seedResult.stdout) console.log(`  Result: ${seedResult.stdout}`);
+				} else {
+					console.warn(
+						`${colors.yellow}Warning: Preview admin seeding failed (non-blocking)${colors.reset}`
+					);
+					if (seedResult.stdout) console.log(`  stdout: ${seedResult.stdout}`);
+					if (seedResult.stderr) console.log(`  stderr: ${seedResult.stderr}`);
+				}
+			}
+		} else {
+			console.log(
+				`${colors.yellow}PREVIEW_ADMIN_PASSWORD not set, skipping preview admin seed${colors.reset}`
+			);
 		}
 	}
 
