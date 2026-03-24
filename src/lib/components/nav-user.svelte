@@ -29,6 +29,17 @@
 	let { user, isImpersonating = false }: Props = $props();
 	const sidebar = useSidebar();
 
+	const initials = $derived(
+		(user.name ?? '')
+			.trim()
+			.split(/\s+/)
+			.filter(Boolean)
+			.map((n) => n[0])
+			.join('')
+			.toUpperCase()
+			.slice(0, 2) || '?'
+	);
+
 	async function signOut() {
 		haptic.trigger('light');
 		const result = await authClient.signOut();
@@ -77,7 +88,7 @@
 					>
 						<Avatar.Root class="size-8 rounded-lg">
 							<Avatar.Image src={user.avatar} alt={user.name} />
-							<Avatar.Fallback class="rounded-lg">CN</Avatar.Fallback>
+							<Avatar.Fallback class="rounded-lg">{initials}</Avatar.Fallback>
 						</Avatar.Root>
 						<div class="grid flex-1 text-left text-sm leading-tight">
 							<span class="truncate font-medium">{user.name}</span>
@@ -97,7 +108,7 @@
 					<div class="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
 						<Avatar.Root class="size-8 rounded-lg">
 							<Avatar.Image src={user.avatar} alt={user.name} />
-							<Avatar.Fallback class="rounded-lg">CN</Avatar.Fallback>
+							<Avatar.Fallback class="rounded-lg">{initials}</Avatar.Fallback>
 						</Avatar.Root>
 						<div class="grid flex-1 text-left text-sm leading-tight">
 							<span class="truncate font-medium">{user.name}</span>
