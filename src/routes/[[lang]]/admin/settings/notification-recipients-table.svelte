@@ -320,7 +320,7 @@
 									<span class="text-muted-foreground/50">-</span>
 								</Table.Cell>
 								<Table.Cell>
-									<Skeleton class="h-[22px] w-14 rounded-md" />
+									<Skeleton class="h-5 w-14 rounded-4xl" />
 								</Table.Cell>
 								<Table.Cell class="[&:has([role=checkbox])]:ps-3">
 									<div class="flex items-center justify-center">
