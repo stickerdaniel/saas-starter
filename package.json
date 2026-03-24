@@ -5,9 +5,9 @@
 	"type": "module",
 	"scripts": {
 		"dev": "vite dev --open",
-		"dev:cloud:frontend": "vite dev --open",
-		"dev:cloud:backend": "convex dev",
-		"dev:cloud": "bun-tasks dev:cloud:frontend ::: dev:cloud:backend",
+		"dev:frontend": "vite dev --open",
+		"dev:backend:cloud": "convex dev",
+		"dev:cloud": "bun-tasks dev:frontend ::: dev:backend:cloud",
 		"generate": "bun run convex codegen",
 		"postinstall": "bun svelte-kit sync && varlock typegen && varlock typegen --path .env-convex.schema && bun run build:emails",
 		"prebuild": "bun run build:emails",
