@@ -1,92 +1,56 @@
 /**
- * Centralized Environment Variable Access
+ * Typed Convex Environment Variable Access
  *
- * Build-time validation: vercel-deploy.ts checks all required vars before deploy
- * Runtime validation: Getters throw if vars are missing (safety net for local dev)
- *
- * Auth vars (BETTER_AUTH_SECRET, SITE_URL) have placeholders to allow Convex
- * module analysis to pass during bundling. Placeholders are only used when:
- * - Convex bundles and analyzes the module before deploy-time validation
- * - Environment variables are not yet available during static analysis
+ * Type source of truth: .env-convex.schema (varlock)
+ * Generated types: ./convex-env.d.ts (via `varlock typegen --path .env-convex.schema`)
+ * Build-time validation: scripts/validate-convex-env.ts
  */
 
-// =============================================================================
-// REQUIRED VARIABLES - Single source of truth (used by vercel-deploy.ts)
-// =============================================================================
+import type { CoercedEnvSchema } from './convex-env';
 
-export const REQUIRED_VAR_NAMES = [
-	'BETTER_AUTH_SECRET',
-	'SITE_URL',
-	'EMAIL_ASSET_URL',
-	'AUTH_EMAIL',
-	'AUTUMN_SECRET_KEY',
-	'RESEND_API_KEY',
-	'OPENROUTER_API_KEY',
-	'RESEND_WEBHOOK_SECRET'
-] as const;
-
-// =============================================================================
-// PLACEHOLDERS - Allow Convex module analysis to pass during bundling
-// Auth module is loaded at analysis time, so these vars need fallbacks
-// =============================================================================
-
-const AUTH_PLACEHOLDERS: Record<string, string> = {
-	BETTER_AUTH_SECRET: 'placeholder-secret-for-analysis',
-	SITE_URL: 'https://placeholder.invalid'
-};
-
-// =============================================================================
-// RUNTIME GETTERS - Throw if var missing (safety net for local dev)
-// Note: Build-time validation (validate-convex-env.ts) throws all missing at once
-// =============================================================================
+// Extract keys whose type is `string` (required) vs `string | undefined` (optional)
+type RequiredKeys = {
+	[K in keyof CoercedEnvSchema]-?: undefined extends CoercedEnvSchema[K] ? never : K;
+}[keyof CoercedEnvSchema];
 
 /**
- * Helper to get env var or throw with helpful message.
- * Vars with placeholders return the placeholder during Convex module analysis.
+ * Placeholders for vars accessed at module-analysis time.
+ *
+ * Convex bundles and statically analyzes modules before env vars are available.
+ * `createApi()` in adapter.ts calls `createAuthOptions()` at load time to
+ * extract the Better Auth schema, and `new Autumn()` in autumn.ts runs at
+ * top level, so these vars must return something during analysis.
+ * Placeholders are never used at runtime -- build-time validation
+ * (validate-convex-env.ts) ensures the real values are set before deploy.
  */
-function getRequiredEnv(name: string, placeholder?: string): string {
-	const value = process.env[name];
+const ANALYSIS_PLACEHOLDERS: Partial<Record<string, string>> = {
+	BETTER_AUTH_SECRET: 'placeholder-secret-for-analysis',
+	SITE_URL: 'https://placeholder.invalid',
+	AUTUMN_SECRET_KEY: 'placeholder-key-for-analysis'
+};
 
-	// Use placeholder during Convex module analysis (when var not yet set)
-	if (!value && placeholder) return placeholder;
+/**
+ * Get a required env var or throw with a helpful message.
+ * Only accepts keys marked `@required` in `.env-convex.schema`.
+ *
+ * Falls back to analysis placeholders for vars that are read at module load
+ * time (before Convex sets env vars). All other missing vars throw immediately.
+ */
+export function requireEnv<K extends RequiredKeys>(name: K): string {
+	const value = process.env[name as string];
+	if (value) return value;
 
-	if (!value) {
-		throw new Error(
-			`Missing required environment variable: ${name}\n` +
-				`Set via: bunx convex env set ${name} <value>`
-		);
-	}
+	const placeholder = ANALYSIS_PLACEHOLDERS[name as string];
+	if (placeholder) return placeholder;
 
-	return value;
+	throw new Error(
+		`Missing required environment variable: ${name}\n` +
+			`Set via: bunx convex env set ${name} <value>`
+	);
 }
 
-/** Authentication secret for signing sessions */
-export const getBetterAuthSecret = (): string =>
-	getRequiredEnv('BETTER_AUTH_SECRET', AUTH_PLACEHOLDERS.BETTER_AUTH_SECRET);
-
-/** Site URL for OAuth redirects and email deep links */
-export const getSiteUrl = (): string => getRequiredEnv('SITE_URL', AUTH_PLACEHOLDERS.SITE_URL);
-
-/** Email asset URL for images */
-export const getEmailAssetUrl = (): string => getRequiredEnv('EMAIL_ASSET_URL');
-
-/** Email sender address */
-export const getAuthEmail = (): string => getRequiredEnv('AUTH_EMAIL');
-
-/** Autumn billing secret key */
-export const getAutumnSecretKey = (): string => getRequiredEnv('AUTUMN_SECRET_KEY');
-
-/** Resend API key for email delivery */
-export const getResendApiKey = (): string => getRequiredEnv('RESEND_API_KEY');
-
-/** OpenRouter API key for AI support chat */
-export const getOpenRouterApiKey = (): string => getRequiredEnv('OPENROUTER_API_KEY');
-
-/** Resend webhook secret for signature verification */
-export const getResendWebhookSecret = (): string => getRequiredEnv('RESEND_WEBHOOK_SECRET');
-
 // =============================================================================
-// OPTIONAL VARIABLES - Features gracefully disable if not set
+// Optional OAuth providers - features gracefully disable if not set
 // =============================================================================
 
 /** Google OAuth - disabled if not configured */

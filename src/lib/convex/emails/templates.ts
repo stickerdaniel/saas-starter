@@ -28,7 +28,7 @@ import {
 	NEWUSERSIGNUPNOTIFICATION_HTML,
 	NEWUSERSIGNUPNOTIFICATION_TEXT
 } from './_generated/index.js';
-import { getEmailAssetUrl } from '../env';
+import { requireEnv } from '../env';
 import { t, DEFAULT_LOCALE } from '../i18n/translations';
 
 /**
@@ -64,7 +64,7 @@ function escapeHtml(str: string): string {
  * Uses EMAIL_ASSET_URL env var - should point to publicly accessible URL
  */
 function getBaseUrl(): string {
-	return getEmailAssetUrl();
+	return requireEnv('EMAIL_ASSET_URL');
 }
 
 /**

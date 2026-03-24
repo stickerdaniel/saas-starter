@@ -32,18 +32,20 @@ btca ask -r svelte -r convex -q "How do I integrate Convex with SvelteKit?"
 
 - `bun run generate` - To generate the code in the `convex/_generated` directory that includes types required for a TypeScript typecheck. Run this command whenever you make changes to the convex schema.
 - `bun run build` - Build for production
-- `bun run dev:local` - Start Vite with an embedded local Convex backend via `convex-vite-plugin`
+- `bun run dev` - Start Vite with an embedded local Convex backend (default)
+- `bun run dev:cloud` - Start Vite + cloud Convex backend (requires `CONVEX_DEPLOYMENT` in `.env.local`)
 
 NEVER use `bun run dev` to start the development server, its already running in a separate terminal.
 
-`dev:local` notes:
+Local dev notes (`bun run dev`):
 
+- Auto-detected: runs local backend unless `CONVEX_DEPLOYMENT` is set in `.env.local`.
 - Seeds a verified local admin automatically after startup.
 - Local seeded admin credentials: `admin@local.dev` / `LocalDevAdmin123!`
-- `RESEND_API_KEY` and `AUTH_EMAIL` are optional for local boot and only needed for real signup, verification, and password reset email flows.
-- Optional local extras: OAuth (`AUTH_GOOGLE_*`, `AUTH_GITHUB_*`), AI (`OPENROUTER_API_KEY`), billing (`AUTUMN_SECRET_KEY`), and E2E test secret (`AUTH_E2E_TEST_SECRET`).
+- Convex backend env vars are loaded from `.env.convex.local` (optional services like email, OAuth, billing, AI).
+- `RESEND_API_KEY` and `AUTH_EMAIL` in `.env.convex.local` are only needed for real signup, verification, and password reset email flows.
 - Local Convex state is isolated per branch/worktree under `.convex/`.
-- `RESET_LOCAL_BACKEND=true bun run dev:local` clears the existing local Convex state before startup and restores the default seeded admin credentials.
+- `RESET_LOCAL_BACKEND=true bun run dev` clears the existing local Convex state before startup and restores the default seeded admin credentials.
 
 ### Logo Generation
 
@@ -126,12 +128,24 @@ These commands use `varlock run` to load env vars from `.env.schema` + `.env.loc
 
 ### Environment Variables
 
-- `.env.schema` — schema for SvelteKit/script env vars (types, sensitivity, descriptions, platform-injected vars)
-- `.env.convex.example` — Convex cloud backend vars (validated by `validate-convex-env.ts`)
+Two separate runtimes, two varlock schemas:
+
+| File                 | Runtime                        | Types generated                  |
+| -------------------- | ------------------------------ | -------------------------------- |
+| `.env.schema`        | SvelteKit (Vercel / local)     | `src/env.d.ts`                   |
+| `.env-convex.schema` | Convex backend (cloud / local) | `src/lib/convex/convex-env.d.ts` |
+
+Runtime files:
+
+| File                | Purpose                                                        |
+| ------------------- | -------------------------------------------------------------- |
+| `.env.local`        | SvelteKit vars (Vite loads automatically)                      |
+| `.env.convex.local` | Convex backend vars for local dev (loaded by `vite.config.ts`) |
+
 - `varlock load` — validate env config and see resolved values
 - `varlock run -- <cmd>` — run command with validated env + log redaction
+- `varlock typegen --path .env-convex.schema` — regenerate `src/lib/convex/convex-env.d.ts`
 - `varlock scan` — scan for leaked secrets in codebase
-- `src/env.d.ts` — auto-generated TypeScript types for env vars
 - `VITE_*` vars exposed to browser must be marked `@public` in schema
 
 ## Architecture Overview

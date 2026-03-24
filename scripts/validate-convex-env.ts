@@ -3,6 +3,10 @@
  * Build-time validation: Ensures all required Convex environment variables are set.
  * Called by vercel-deploy.ts before deploying.
  *
+ * Required var names are derived from `.env-convex.schema` (varlock) - the single
+ * source of truth. Any var whose preceding decorator block does NOT contain
+ * `@optional` is considered required.
+ *
  * Usage:
  *   bun scripts/validate-convex-env.ts                              # development deployment
  *   bun scripts/validate-convex-env.ts --prod                       # production deployment
@@ -14,9 +18,56 @@
  */
 
 import { execSync } from 'child_process';
-import { REQUIRED_VAR_NAMES } from '../src/lib/convex/env';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 
-// Single source of truth is defined in src/lib/convex/env.ts
+/**
+ * Parse `.env-convex.schema` to extract required var names.
+ * Scans past the `# ---` header separator, then collects var names whose
+ * preceding decorator block does NOT contain `@optional`.
+ */
+function getRequiredVarNames(): string[] {
+	const schemaPath = path.resolve(import.meta.dirname, '..', '.env-convex.schema');
+	const content = fs.readFileSync(schemaPath, 'utf-8');
+	const lines = content.split('\n');
+
+	// Skip header (everything before `# ---`)
+	const headerEnd = lines.findIndex((line) => line.trim() === '# ---');
+	if (headerEnd === -1) {
+		throw new Error('.env-convex.schema: missing `# ---` header separator');
+	}
+
+	const required: string[] = [];
+	let currentBlockIsOptional = false;
+
+	for (let i = headerEnd + 1; i < lines.length; i++) {
+		const line = lines[i].trim();
+
+		// Skip blank lines (reset decorator context)
+		if (!line) {
+			currentBlockIsOptional = false;
+			continue;
+		}
+
+		// Comment/decorator line
+		if (line.startsWith('#')) {
+			if (line.includes('@optional')) {
+				currentBlockIsOptional = true;
+			}
+			continue;
+		}
+
+		// Variable line: NAME= or NAME=value
+		const match = line.match(/^([A-Z_][A-Z0-9_]*)=/);
+		if (match && !currentBlockIsOptional) {
+			required.push(match[1]);
+		}
+	}
+
+	return required;
+}
+
+const REQUIRED_VAR_NAMES = getRequiredVarNames();
 
 const isProd = process.argv.includes('--prod');
 const deploymentNameIndex = process.argv.indexOf('--deployment-name');
@@ -59,7 +110,7 @@ const missingVars = REQUIRED_VAR_NAMES.filter((name) => !existingVars.has(name))
 if (missingVars.length > 0) {
 	console.error('');
 	console.error('============================================================');
-	console.error('❌ MISSING REQUIRED CONVEX ENVIRONMENT VARIABLES');
+	console.error('MISSING REQUIRED CONVEX ENVIRONMENT VARIABLES');
 	console.error('============================================================');
 	console.error('');
 	console.error('The following variables are not set in your Convex environment:');
