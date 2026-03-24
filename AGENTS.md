@@ -28,7 +28,7 @@ btca ask -r svelte -r convex -q "How do I integrate Convex with SvelteKit?"
 
 ## Workflow
 
-When starting work that needs its own branch/PR, always create a worktree first with `bun run worktree <branch-name>`.
+When starting work that needs its own branch/PR, always create a worktree first with `bun run worktree <type/short-description>` (e.g. `feat/add-billing-page`, `fix/avatar-fallback`).
 
 ## Development Commands
 
