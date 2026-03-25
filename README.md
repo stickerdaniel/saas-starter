@@ -49,6 +49,8 @@ The deploy script (`scripts/vercel-deploy.ts`) tags and pulls translations, runs
 
 Push a branch and Vercel creates a preview deployment with its own Convex preview backend. Convex cleans up preview deployments after 5 days (14 days on Professional).
 
+> **Tip:** Preview deployments show the user-facing side of the app. To access admin features (admin panel, support dashboard, user management), run the project locally with `bun run dev` and sign in with the seeded admin credentials.
+
 ## 3. Production Deployment
 
 Set the required Vercel and Convex production variables listed in the [environment variable matrix](#environment-variables) below.
@@ -98,13 +100,13 @@ Two runtimes, two schemas, both managed by [varlock](https://github.com/nickrees
 
 **Vercel** (project settings):
 
-| Variable                 |                                 | Preview | Prod |
-| ------------------------ | ------------------------------- | :-----: | :--: |
-| `CONVEX_DEPLOY_KEY`      | Convex deploy key               |    ✓    |  ✓   |
-| `TOLGEE_API_KEY`         | Tolgee API key for translations |    ✓    |  ✓   |
-| `PREVIEW_ADMIN_PASSWORD` | Preview admin password          |    ○    |      |
-| `PUBLIC_POSTHOG_API_KEY` | PostHog analytics API key       |         |  ○   |
-| `PUBLIC_POSTHOG_HOST`    | PostHog analytics host          |         |  ○   |
+| Variable                 |                                                                  | Preview | Prod |
+| ------------------------ | ---------------------------------------------------------------- | :-----: | :--: |
+| `CONVEX_DEPLOY_KEY`      | Convex deploy key                                                |    ✓    |  ✓   |
+| `TOLGEE_API_KEY`         | Tolgee CLI key for deploy-time sync (optional, skips when unset) |    ○    |  ○   |
+| `PREVIEW_ADMIN_PASSWORD` | Preview admin password                                           |    ○    |      |
+| `PUBLIC_POSTHOG_API_KEY` | PostHog analytics API key                                        |         |  ○   |
+| `PUBLIC_POSTHOG_HOST`    | PostHog analytics host                                           |         |  ○   |
 
 </details>
 
