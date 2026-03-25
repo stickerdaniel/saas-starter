@@ -204,6 +204,8 @@ Email templates are Svelte components compiled to inline HTML on `postinstall` a
 
 </details>
 
+---
+
 ## License
 
 MIT
