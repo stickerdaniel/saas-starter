@@ -69,7 +69,7 @@ bunx convex run admin/mutations:seedFirstAdmin '{"email":"you@example.com"}' --p
 
 ---
 
-<details>
+<details id="environment-variables">
 <summary><strong>Environment Variables</strong></summary>
 
 Two runtimes, two schemas, both managed by [varlock](https://github.com/nickreese/varlock) for type-safe access. `.env.schema` covers SvelteKit (Vite), `.env-convex.schema` covers the Convex backend. The matrix below shows every variable and where it needs to be set.
