@@ -20,9 +20,9 @@ Visit `http://localhost:5173` and sign in. No external services needed.
 To activate all features locally, create `.env.convex.local` and add the keys you need. See the [environment variable matrix](#environment-variables) below for which keys to set and where.
 
 <details>
-<summary><strong>Convex cloud dev deployment (optional)</strong></summary>
+<summary><strong>What about the Convex cloud dev deployment?</strong></summary>
 
-The local embedded backend is preferred for day-to-day work. Each git worktree gets its own isolated Convex instance, so you can develop multiple features in parallel without conflicts. Use a cloud backend only when you need to test against cloud-specific behavior.
+I'd recommend the local embedded backend for day-to-day work. Each git worktree gets its own isolated Convex instance, you can develop multiple features in parallel without conflicts.
 
 ```bash
 bunx convex init                              # creates a Convex project
