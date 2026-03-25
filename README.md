@@ -15,7 +15,12 @@ bun run dev
 
 A local Convex backend starts automatically with a seeded admin:
 
-- `admin@local.dev` / `LocalDevAdmin123!`
+```text
+admin@local.dev
+```
+```text
+LocalDevAdmin123!
+```
 
 Visit `http://localhost:5173` and sign in. No external services needed.
 
