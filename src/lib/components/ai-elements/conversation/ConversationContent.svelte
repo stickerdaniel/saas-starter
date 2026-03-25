@@ -20,7 +20,7 @@
 	}: ConversationContentProps = $props();
 
 	const context = stickToBottomContext.get();
-	let element: HTMLDivElement;
+	let element: HTMLDivElement; // assigned by Svelte bind:this
 
 	watch(
 		() => element,

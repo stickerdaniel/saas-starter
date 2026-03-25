@@ -138,7 +138,7 @@ function deriveFileSets(files: string[]) {
 	return {
 		jsTsSvelteFiles: relevantFiles.filter((f) => /\.(js|ts|svelte)$/.test(f)),
 		formattableFiles: relevantFiles.filter((f) => /\.(js|ts|svelte|html|css|md|json)$/.test(f)),
-		svelteFiles: relevantFiles.filter((f) => /\.svelte$/.test(f))
+		svelteFiles: relevantFiles.filter((f) => f.endsWith('.svelte'))
 	};
 }
 
