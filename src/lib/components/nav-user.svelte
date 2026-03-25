@@ -9,6 +9,7 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
+	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
 	import ChevronsUpDownIcon from '@lucide/svelte/icons/chevrons-up-down';
 	import CreditCardIcon from '@lucide/svelte/icons/credit-card';
 	import LogOutIcon from '@lucide/svelte/icons/log-out';
@@ -153,7 +154,11 @@
 				{#if !isPro}
 					<DropdownMenu.Group>
 						<DropdownMenu.Item onclick={handleUpgrade} disabled={upgradeOperation.isLoading}>
-							<SparklesIcon />
+							{#if upgradeOperation.isLoading}
+								<LoaderCircleIcon class="motion-safe:animate-spin" />
+							{:else}
+								<SparklesIcon />
+							{/if}
 							<T keyName="app.user_menu.upgrade_pro" />
 						</DropdownMenu.Item>
 					</DropdownMenu.Group>
@@ -167,7 +172,11 @@
 						</DropdownMenu.Item>
 					</a>
 					<DropdownMenu.Item onclick={handleBilling} disabled={portalOperation.isLoading}>
-						<CreditCardIcon />
+						{#if portalOperation.isLoading}
+							<LoaderCircleIcon class="motion-safe:animate-spin" />
+						{:else}
+							<CreditCardIcon />
+						{/if}
 						<T keyName="app.user_menu.billing" />
 					</DropdownMenu.Item>
 				</DropdownMenu.Group>
