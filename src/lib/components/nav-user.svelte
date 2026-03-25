@@ -61,10 +61,7 @@
 
 	async function handleBilling() {
 		haptic.trigger('light');
-		const result = await portalOperation.execute({});
-		if (result?.url) {
-			window.location.href = result.url;
-		}
+		await portalOperation.execute({});
 	}
 
 	async function signOut() {
