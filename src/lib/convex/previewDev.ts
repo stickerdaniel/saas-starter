@@ -30,6 +30,7 @@ async function findUserByEmail(ctx: MutationCtx, email: string): Promise<BetterA
 	return (user as BetterAuthUser | null) ?? null;
 }
 
+// Invoked by preview deploy script (scripts/vercel-deploy.ts)
 export const ensurePreviewAdmin = internalMutation({
 	args: {},
 	returns: v.object({

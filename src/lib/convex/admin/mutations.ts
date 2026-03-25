@@ -142,6 +142,7 @@ export const setUserRole = adminMutation({
  * Seed first admin user (one-time setup)
  * This should be called once to set up the first admin
  */
+// Invoked via CLI: bunx convex run admin/mutations:seedFirstAdmin
 export const seedFirstAdmin = internalMutation({
 	args: {
 		email: v.string()
