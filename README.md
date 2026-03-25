@@ -2,6 +2,8 @@
 
 Agents write better code when they have good examples to work from. This starter ships with auth, billing, admin, AI chat, email, i18n, and more, all implemented end-to-end so your agents have real patterns to reference when building new features. It also includes the DX tools and guardrails to make sure what ships stays secure, performant, and maintainable. Clone it, run `bun run dev`, and start building.
 
+> **[saas.daniel.sticker.name](https://saas.daniel.sticker.name)** — Live demo of the user-facing side. Admin features (admin panel, support dashboard, user management) are not accessible there. To explore everything, clone the repo, run `bun run dev`, and sign in with the seeded admin credentials.
+
 ## 1. Local Development
 
 ```bash
@@ -48,8 +50,6 @@ Set the required Vercel and Convex preview variables listed in the [environment 
 The deploy script (`scripts/vercel-deploy.ts`) tags and pulls translations, runs `bunx convex deploy` to create a preview backend named after the branch, auto-computes `PUBLIC_CONVEX_URL` and `PUBLIC_CONVEX_SITE_URL` from the deploy output, and sets `SITE_URL` on the Convex instance to match the Vercel preview URL. When `PREVIEW_ADMIN_PASSWORD` is set, it also seeds an admin user.
 
 Push a branch and Vercel creates a preview deployment with its own Convex preview backend. Convex cleans up preview deployments after 5 days (14 days on Professional).
-
-> **Tip:** Preview deployments show the user-facing side of the app. To access admin features (admin panel, support dashboard, user management), run the project locally with `bun run dev` and sign in with the seeded admin credentials.
 
 ## 3. Production Deployment
 
