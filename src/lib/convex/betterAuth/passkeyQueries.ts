@@ -11,6 +11,7 @@ import { v } from 'convex/values';
  *
  * This query uses the credentialID index instead of db.get() for proper lookups.
  */
+// Used by Better Auth passkey internals
 export const findByCredentialID = query({
 	args: { credentialID: v.string() },
 	handler: async (ctx, { credentialID }) => {
@@ -24,6 +25,7 @@ export const findByCredentialID = query({
 /**
  * List all passkeys for a user
  */
+// Used by Better Auth passkey internals
 export const listByUserId = query({
 	args: { userId: v.string() },
 	handler: async (ctx, { userId }) => {

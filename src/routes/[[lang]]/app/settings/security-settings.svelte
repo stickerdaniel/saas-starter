@@ -84,7 +84,6 @@
 		const restore = () => {
 			undone = true;
 			passkeys.splice(originalIndex, 0, removedPasskey);
-			passkeys = passkeys;
 		};
 
 		const executeDelete = async () => {

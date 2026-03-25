@@ -114,7 +114,7 @@ function mergeProviderMetadata(
 	b: ProviderMetadata | undefined
 ): ProviderMetadata | undefined {
 	if (!a && !b) return undefined;
-	return { ...(a ?? {}), ...(b ?? {}) };
+	return { ...a, ...b };
 }
 
 /**
