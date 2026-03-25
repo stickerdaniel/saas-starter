@@ -47,6 +47,9 @@ Create a Convex project at [dashboard.convex.dev](https://dashboard.convex.dev) 
 
 Set the required Vercel and Convex preview variables listed in the [environment variable matrix](#environment-variables) below.
 
+- Vercel: Project Settings > Environment Variables
+- Convex: Project settings > Default Environment Variables > Add with ✓ Production
+
 The deploy script (`scripts/vercel-deploy.ts`) tags and pulls translations, runs `bunx convex deploy` to create a preview backend named after the branch, auto-computes `PUBLIC_CONVEX_URL` and `PUBLIC_CONVEX_SITE_URL` from the deploy output, and sets `SITE_URL` on the Convex instance to match the Vercel preview URL. When `PREVIEW_ADMIN_PASSWORD` is set, it also seeds an admin user.
 
 Push a branch and Vercel creates a preview deployment with its own Convex preview backend. Convex cleans up preview deployments after 5 days (14 days on Professional).
@@ -54,6 +57,9 @@ Push a branch and Vercel creates a preview deployment with its own Convex previe
 ## 3. Production Deployment
 
 Set the required Vercel and Convex production variables listed in the [environment variable matrix](#environment-variables) below.
+
+- Vercel: Project Settings > Environment Variables
+- Convex: Select your Prod deploymnent > Settings > Environment Variables > Add
 
 ### Deploy
 
