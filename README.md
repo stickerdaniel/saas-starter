@@ -22,7 +22,7 @@ To activate all features locally, create `.env.convex.local` and add the keys yo
 <details>
 <summary><strong>What about the Convex cloud dev deployment?</strong></summary>
 
-I'd reccommend the local embedded backend for day-to-day work. Each git worktree gets its own isolated Convex instance, you can develop multiple features in parallel without conflicts.
+I'd recommend the local embedded backend for day-to-day work. Each git worktree gets its own isolated Convex instance, you can develop multiple features in parallel without conflicts.
 
 ```bash
 bunx convex init                              # creates a Convex project
