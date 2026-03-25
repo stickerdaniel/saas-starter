@@ -3,11 +3,13 @@
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
+	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { useSidebar } from '$lib/components/ui/sidebar/index.js';
 	import { authClient } from '$lib/auth-client';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import BellIcon from '@lucide/svelte/icons/bell';
+	import { page } from '$app/state';
+	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
 	import ChevronsUpDownIcon from '@lucide/svelte/icons/chevrons-up-down';
 	import CreditCardIcon from '@lucide/svelte/icons/credit-card';
 	import LogOutIcon from '@lucide/svelte/icons/log-out';
@@ -18,6 +20,7 @@
 	import { localizedHref } from '$lib/utils/i18n';
 	import { haptic } from '$lib/hooks/use-haptic.svelte';
 	import { toast } from 'svelte-sonner';
+	import { useCustomer, useAutumnOperation } from '@stickerdaniel/convex-autumn-svelte/sveltekit';
 
 	const { t } = getTranslate();
 
@@ -29,6 +32,12 @@
 	let { user, isImpersonating = false }: Props = $props();
 	const sidebar = useSidebar();
 
+	// Autumn subscription state
+	const autumn = useCustomer();
+	const upgradeOperation = useAutumnOperation(autumn.checkout);
+	const portalOperation = useAutumnOperation(autumn.openBillingPortal);
+	const isPro = $derived(autumn.customer?.products?.some((p) => p.id === 'pro') ?? false);
+
 	const initials = $derived(
 		(user.name ?? '')
 			.trim()
@@ -39,6 +48,22 @@
 			.toUpperCase()
 			.slice(0, 2) || '?'
 	);
+
+	async function handleUpgrade() {
+		haptic.trigger('light');
+		const result = await upgradeOperation.execute({
+			productId: 'pro',
+			successUrl: page.url.origin + '/app/community-chat?upgraded=true'
+		});
+		if (result?.url) {
+			window.location.href = result.url;
+		}
+	}
+
+	async function handleBilling() {
+		haptic.trigger('light');
+		await portalOperation.execute({});
+	}
 
 	async function signOut() {
 		haptic.trigger('light');
@@ -86,7 +111,7 @@
 							: ''}"
 						{...props}
 					>
-						<Avatar.Root class="size-8 rounded-lg">
+						<Avatar.Root class="size-8 rounded-lg after:rounded-lg">
 							<Avatar.Image src={user.avatar} alt={user.name} />
 							<Avatar.Fallback class="rounded-lg">{initials}</Avatar.Fallback>
 						</Avatar.Root>
@@ -106,24 +131,39 @@
 			>
 				<DropdownMenu.Label class="p-0 font-normal">
 					<div class="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-						<Avatar.Root class="size-8 rounded-lg">
+						<Avatar.Root class="size-8 rounded-lg after:rounded-lg">
 							<Avatar.Image src={user.avatar} alt={user.name} />
 							<Avatar.Fallback class="rounded-lg">{initials}</Avatar.Fallback>
 						</Avatar.Root>
 						<div class="grid flex-1 text-left text-sm leading-tight">
-							<span class="truncate font-medium">{user.name}</span>
+							<span class="flex items-center gap-1.5 truncate font-medium">
+								{user.name}
+								{#if isPro}
+									<Badge
+										class="h-auto bg-purple-500/15 px-1.5 py-0.5 text-[10px] leading-none text-purple-400"
+									>
+										<T keyName="app.user_menu.pro_badge" />
+									</Badge>
+								{/if}
+							</span>
 							<span class="truncate text-xs">{user.email}</span>
 						</div>
 					</div>
 				</DropdownMenu.Label>
 				<DropdownMenu.Separator />
-				<DropdownMenu.Group>
-					<DropdownMenu.Item onclick={() => haptic.trigger('light')}>
-						<SparklesIcon />
-						<T keyName="app.user_menu.upgrade_pro" />
-					</DropdownMenu.Item>
-				</DropdownMenu.Group>
-				<DropdownMenu.Separator />
+				{#if !isPro}
+					<DropdownMenu.Group>
+						<DropdownMenu.Item onclick={handleUpgrade} disabled={upgradeOperation.isLoading}>
+							{#if upgradeOperation.isLoading}
+								<LoaderCircleIcon class="motion-safe:animate-spin" />
+							{:else}
+								<SparklesIcon />
+							{/if}
+							<T keyName="app.user_menu.upgrade_pro" />
+						</DropdownMenu.Item>
+					</DropdownMenu.Group>
+					<DropdownMenu.Separator />
+				{/if}
 				<DropdownMenu.Group>
 					<a href={resolve(localizedHref('/app/settings'))}>
 						<DropdownMenu.Item>
@@ -131,13 +171,13 @@
 							<T keyName="app.user_menu.settings" />
 						</DropdownMenu.Item>
 					</a>
-					<DropdownMenu.Item onclick={() => haptic.trigger('light')}>
-						<CreditCardIcon />
+					<DropdownMenu.Item onclick={handleBilling} disabled={portalOperation.isLoading}>
+						{#if portalOperation.isLoading}
+							<LoaderCircleIcon class="motion-safe:animate-spin" />
+						{:else}
+							<CreditCardIcon />
+						{/if}
 						<T keyName="app.user_menu.billing" />
-					</DropdownMenu.Item>
-					<DropdownMenu.Item>
-						<BellIcon />
-						<T keyName="app.user_menu.notifications" />
 					</DropdownMenu.Item>
 				</DropdownMenu.Group>
 				{#if isImpersonating}

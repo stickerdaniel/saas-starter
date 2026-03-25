@@ -1,6 +1,8 @@
 # SaaS Starter
 
-Agents write better code when they have good examples to work from. This starter ships with auth, billing, admin, AI chat, email, i18n, and more, all implemented end-to-end so your agents have real patterns to reference when building new features. It also includes the DX tools and guardrails to make sure what ships stays secure, performant, and maintainable. Clone it, run `bun run dev`, and start building.
+Agents write better code when they have good examples to work from. This starter ships with auth, billing, admin, AI chat, email, i18n, and more, all implemented end-to-end so your agents have real patterns to reference when building new features. It also includes the DX tools and guardrails to make sure what ships stays secure, performant, and maintainable.
+
+> See a live demo of the user-facing side at **[saas.daniel.sticker.name](https://saas.daniel.sticker.name)**. Admin features like the admin panel, support dashboard, and user management are not accessible there. To explore everything, follow the steps below.
 
 ## 1. Local Development
 
@@ -13,16 +15,21 @@ bun run dev
 
 A local Convex backend starts automatically with a seeded admin:
 
-- `admin@local.dev` / `LocalDevAdmin123!`
+```text
+admin@local.dev
+```
+```text
+LocalDevAdmin123!
+```
 
 Visit `http://localhost:5173` and sign in. No external services needed.
 
 To activate all features locally, create `.env.convex.local` and add the keys you need. See the [environment variable matrix](#environment-variables) below for which keys to set and where.
 
 <details>
-<summary><strong>Convex cloud dev deployment (optional)</strong></summary>
+<summary><strong>What about the Convex cloud dev deployment?</strong></summary>
 
-The local embedded backend is preferred for day-to-day work. Each git worktree gets its own isolated Convex instance, so you can develop multiple features in parallel without conflicts. Use a cloud backend only when you need to test against cloud-specific behavior.
+I'd recommend the local embedded backend for day-to-day work. Each git worktree gets its own isolated Convex instance, you can develop multiple features in parallel without conflicts.
 
 ```bash
 bunx convex init                              # creates a Convex project
@@ -37,13 +44,16 @@ bunx convex env set KEY value                 # set backend env vars (see .env-c
 
 </details>
 
-## 2. Preview Deployments (Vercel + Convex)
+## 2. Preview Deployments
 
 Each PR gets its own Vercel preview with an isolated Convex preview backend.
 
 Create a Convex project at [dashboard.convex.dev](https://dashboard.convex.dev) and connect your repo to [Vercel](https://vercel.com).
 
 Set the required Vercel and Convex preview variables listed in the [environment variable matrix](#environment-variables) below.
+
+- Vercel: Project Settings > Environment Variables
+- Convex: Project settings > Default Environment Variables > Add with ✓ Production
 
 The deploy script (`scripts/vercel-deploy.ts`) tags and pulls translations, runs `bunx convex deploy` to create a preview backend named after the branch, auto-computes `PUBLIC_CONVEX_URL` and `PUBLIC_CONVEX_SITE_URL` from the deploy output, and sets `SITE_URL` on the Convex instance to match the Vercel preview URL. When `PREVIEW_ADMIN_PASSWORD` is set, it also seeds an admin user.
 
@@ -52,6 +62,9 @@ Push a branch and Vercel creates a preview deployment with its own Convex previe
 ## 3. Production Deployment
 
 Set the required Vercel and Convex production variables listed in the [environment variable matrix](#environment-variables) below.
+
+- Vercel: Project Settings > Environment Variables
+- Convex: Select your Prod deploymnent > Settings > Environment Variables > Add
 
 ### Deploy
 
@@ -69,7 +82,7 @@ bunx convex run admin/mutations:seedFirstAdmin '{"email":"you@example.com"}' --p
 
 ---
 
-<details>
+<details id="environment-variables">
 <summary><strong>Environment Variables</strong></summary>
 
 Two runtimes, two schemas, both managed by [varlock](https://github.com/nickreese/varlock) for type-safe access. `.env.schema` covers SvelteKit (Vite), `.env-convex.schema` covers the Convex backend. The matrix below shows every variable and where it needs to be set.
@@ -98,13 +111,13 @@ Two runtimes, two schemas, both managed by [varlock](https://github.com/nickrees
 
 **Vercel** (project settings):
 
-| Variable                 |                                 | Preview | Prod |
-| ------------------------ | ------------------------------- | :-----: | :--: |
-| `CONVEX_DEPLOY_KEY`      | Convex deploy key               |    ✓    |  ✓   |
-| `TOLGEE_API_KEY`         | Tolgee API key for translations |    ✓    |  ✓   |
-| `PREVIEW_ADMIN_PASSWORD` | Preview admin password          |    ○    |      |
-| `PUBLIC_POSTHOG_API_KEY` | PostHog analytics API key       |         |  ○   |
-| `PUBLIC_POSTHOG_HOST`    | PostHog analytics host          |         |  ○   |
+| Variable                 |                                                                  | Preview | Prod |
+| ------------------------ | ---------------------------------------------------------------- | :-----: | :--: |
+| `CONVEX_DEPLOY_KEY`      | Convex deploy key                                                |    ✓    |  ✓   |
+| `TOLGEE_API_KEY`         | Tolgee CLI key for deploy-time sync (optional, skips when unset) |    ○    |  ○   |
+| `PREVIEW_ADMIN_PASSWORD` | Preview admin password                                           |    ○    |      |
+| `PUBLIC_POSTHOG_API_KEY` | PostHog analytics API key                                        |         |  ○   |
+| `PUBLIC_POSTHOG_HOST`    | PostHog analytics host                                           |         |  ○   |
 
 </details>
 
@@ -203,6 +216,8 @@ Renovate groups non-major updates into a single PR and creates separate PRs for 
 Email templates are Svelte components compiled to inline HTML on `postinstall` and during builds. Preview every template in the browser at `/emails` with mock data, and optionally send a real test email when a Resend key is configured.
 
 </details>
+
+---
 
 ## License
 
