@@ -2,6 +2,8 @@
 
 Agents write better code when they have good examples to work from. This starter ships with auth, billing, admin, AI chat, email, i18n, and more, all implemented end-to-end so your agents have real patterns to reference when building new features. It also includes the DX tools and guardrails to make sure what ships stays secure, performant, and maintainable. Clone it, run `bun run dev`, and start building.
 
+> See a live demo of the user-facing side at **[saas.daniel.sticker.name](https://saas.daniel.sticker.name)**. Admin features like the admin panel, support dashboard, and user management are not accessible there. To explore everything, clone the repo, run `bun run dev`, and sign in with the seeded admin credentials.
+
 ## 1. Local Development
 
 ```bash
@@ -69,7 +71,7 @@ bunx convex run admin/mutations:seedFirstAdmin '{"email":"you@example.com"}' --p
 
 ---
 
-<details>
+<details id="environment-variables">
 <summary><strong>Environment Variables</strong></summary>
 
 Two runtimes, two schemas, both managed by [varlock](https://github.com/nickreese/varlock) for type-safe access. `.env.schema` covers SvelteKit (Vite), `.env-convex.schema` covers the Convex backend. The matrix below shows every variable and where it needs to be set.
@@ -98,13 +100,13 @@ Two runtimes, two schemas, both managed by [varlock](https://github.com/nickrees
 
 **Vercel** (project settings):
 
-| Variable                 |                                 | Preview | Prod |
-| ------------------------ | ------------------------------- | :-----: | :--: |
-| `CONVEX_DEPLOY_KEY`      | Convex deploy key               |    ✓    |  ✓   |
-| `TOLGEE_API_KEY`         | Tolgee API key for translations |    ✓    |  ✓   |
-| `PREVIEW_ADMIN_PASSWORD` | Preview admin password          |    ○    |      |
-| `PUBLIC_POSTHOG_API_KEY` | PostHog analytics API key       |         |  ○   |
-| `PUBLIC_POSTHOG_HOST`    | PostHog analytics host          |         |  ○   |
+| Variable                 |                                                                  | Preview | Prod |
+| ------------------------ | ---------------------------------------------------------------- | :-----: | :--: |
+| `CONVEX_DEPLOY_KEY`      | Convex deploy key                                                |    ✓    |  ✓   |
+| `TOLGEE_API_KEY`         | Tolgee CLI key for deploy-time sync (optional, skips when unset) |    ○    |  ○   |
+| `PREVIEW_ADMIN_PASSWORD` | Preview admin password                                           |    ○    |      |
+| `PUBLIC_POSTHOG_API_KEY` | PostHog analytics API key                                        |         |  ○   |
+| `PUBLIC_POSTHOG_HOST`    | PostHog analytics host                                           |         |  ○   |
 
 </details>
 
