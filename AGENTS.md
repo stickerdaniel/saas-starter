@@ -30,6 +30,8 @@ btca ask -r svelte -r convex -q "How do I integrate Convex with SvelteKit?"
 
 When starting work that needs its own branch/PR, always create a worktree first with `bun run worktree <type/short-description>` (e.g. `feature/dark-mode`, `fix/422-password-reset`, `chore/upgrade-svelte-5`, `hotfix/rate-limit-bypass`, `docs/api-reference`).
 
+NEVER use the `EnterWorktree` tool. Always use `bun run worktree` instead and add the worktree path before all consecutive actions. You must do this, the cwd is reset after each action and theres currently no better way to do this.
+
 ## Development Commands
 
 ### Core Development
