@@ -2,8 +2,8 @@
 
 [![Static Checks](https://github.com/stickerdaniel/saas-starter/actions/workflows/static-checks.yml/badge.svg)](https://github.com/stickerdaniel/saas-starter/actions/workflows/static-checks.yml)
 [![E2E Tests](https://github.com/stickerdaniel/saas-starter/actions/workflows/e2e-preview.yml/badge.svg)](https://github.com/stickerdaniel/saas-starter/actions/workflows/e2e-preview.yml)
-[![Deploy](https://img.shields.io/github/deployments/stickerdaniel/saas-starter/production?label=Vercel&logo=vercel)](https://vercel.com/daniel-sticker-projects/saas-starter)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
+[![Deploy](https://img.shields.io/github/deployments/stickerdaniel/saas-starter/production?label=Vercel&logo=vercel&color=%233fb950)](https://vercel.com/daniel-sticker-projects/saas-starter)
+[![License: MIT](https://img.shields.io/badge/License-MIT-%233fb950)](https://opensource.org/licenses/MIT)
 
 Agents write better code when they have good examples to work from. This starter ships with auth, billing, admin, AI chat, email, i18n, and more, all implemented end-to-end so your agents have real patterns to reference when building new features. It also includes the DX tools and guardrails to make sure what ships stays secure, performant, and maintainable.
 
