@@ -39,7 +39,7 @@ bunx convex env set KEY value                 # set backend env vars (see .env-c
 
 </details>
 
-## 2. Preview Deployments (Vercel + Convex)
+## 2. Preview Deployments
 
 Each PR gets its own Vercel preview with an isolated Convex preview backend.
 
