@@ -33,13 +33,6 @@ export const SEARCH_ROUTES: SearchRouteEntry[] = [
 		keywords: ['about', 'team']
 	},
 	{
-		href: '/shadcn-demo',
-		access: 'public',
-		group: 'public',
-		titleKey: 'meta.shadcn_demo.title',
-		keywords: ['demo', 'shadcn']
-	},
-	{
 		href: '/signin',
 		access: 'public',
 		group: 'authentication',
