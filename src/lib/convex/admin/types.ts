@@ -177,6 +177,7 @@ export interface AdminUserData {
 	banned: boolean;
 	banReason?: string | null;
 	banExpires?: number | null;
+	providers: string[];
 	createdAt?: number;
 	updatedAt?: number;
 }
