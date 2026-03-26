@@ -40,36 +40,45 @@
 	const client = useConvexClient();
 
 	type UserStatusFilter = 'verified' | 'unverified' | 'banned';
-	type SortQueryField = 'created_at' | 'email' | 'name' | 'role';
+	type SortQueryField = 'created_at' | 'email' | 'name' | 'role' | 'provider';
 
 	const SORT_COLUMN_TO_QUERY_FIELD = {
 		createdAt: 'created_at',
 		email: 'email',
 		name: 'name',
-		role: 'role'
+		role: 'role',
+		providers: 'provider'
 	} as const;
 
 	const SORT_QUERY_FIELD_TO_COLUMN = {
 		created_at: 'createdAt',
 		email: 'email',
 		name: 'name',
-		role: 'role'
+		role: 'role',
+		provider: 'providers'
 	} as const;
 	const SORT_QUERY_FIELD_TO_BACKEND_FIELD = {
 		created_at: 'createdAt',
 		email: 'email',
 		name: 'name',
-		role: 'role'
+		role: 'role',
+		provider: 'provider'
 	} as const;
 
 	const PAGE_SIZE_OPTIONS = ['1', '10', '20', '30', '40', '50'] as const;
 	const PAGE_SIZE_NUM_OPTIONS = [1, 10, 20, 30, 40, 50] as const;
+
+	type ProviderFilter = 'credential' | 'google' | 'github' | 'passkey';
 
 	const usersTableParamsSchema = v.object({
 		search: v.optional(v.fallback(v.string(), ''), ''),
 		role: v.optional(v.fallback(v.picklist(['all', 'admin', 'user']), 'all'), 'all'),
 		status: v.optional(
 			v.fallback(v.picklist(['all', 'verified', 'unverified', 'banned']), 'all'),
+			'all'
+		),
+		provider: v.optional(
+			v.fallback(v.picklist(['all', 'credential', 'google', 'github', 'passkey']), 'all'),
 			'all'
 		),
 		sort: v.optional(v.fallback(v.string(), ''), ''),
@@ -80,7 +89,7 @@
 
 	const usersTable = createConvexCursorTable<
 		AdminUserData,
-		'role' | 'status',
+		'role' | 'status' | 'provider',
 		SortQueryField,
 		typeof api.admin.queries.listUsers,
 		typeof api.admin.queries.getUserCount,
@@ -91,11 +100,12 @@
 		urlSchema: usersTableParamsSchema,
 		defaultFilters: {
 			role: 'all',
-			status: 'all'
+			status: 'all',
+			provider: 'all'
 		},
 		pageSizeOptions: PAGE_SIZE_OPTIONS,
 		defaultPageSize: '10',
-		sortFields: ['created_at', 'email', 'name', 'role'],
+		sortFields: ['created_at', 'email', 'name', 'role', 'provider'],
 		buildListArgs: ({ cursor, pageSize, search, filters, sortBy }) => ({
 			cursor: cursor ?? undefined,
 			numItems: pageSize,
@@ -105,6 +115,7 @@
 				filters.status === 'all'
 					? undefined
 					: (filters.status as 'verified' | 'unverified' | 'banned'),
+			providerFilter: filters.provider === 'all' ? undefined : (filters.provider as ProviderFilter),
 			sortBy: sortBy
 				? {
 						field: SORT_QUERY_FIELD_TO_BACKEND_FIELD[sortBy.field],
@@ -118,7 +129,8 @@
 			statusFilter:
 				filters.status === 'all'
 					? undefined
-					: (filters.status as 'verified' | 'unverified' | 'banned')
+					: (filters.status as 'verified' | 'unverified' | 'banned'),
+			providerFilter: filters.provider === 'all' ? undefined : (filters.provider as ProviderFilter)
 		}),
 		resolveLastPage: async ({ pageSize, search, filters, sortBy }) => {
 			const result = await client.query(api.admin.queries.resolveUsersLastPage, {
@@ -129,6 +141,8 @@
 					filters.status === 'all'
 						? undefined
 						: (filters.status as 'verified' | 'unverified' | 'banned'),
+				providerFilter:
+					filters.provider === 'all' ? undefined : (filters.provider as ProviderFilter),
 				sortBy: sortBy
 					? {
 							field: SORT_QUERY_FIELD_TO_BACKEND_FIELD[sortBy.field],
@@ -167,6 +181,11 @@
 		usersTable.filters.status === 'all'
 			? undefined
 			: (usersTable.filters.status as UserStatusFilter)
+	);
+	const providerFilter = $derived.by(() =>
+		usersTable.filters.provider === 'all'
+			? undefined
+			: (usersTable.filters.provider as ProviderFilter)
 	);
 	const isLoading = $derived(usersTable.isLoading);
 
@@ -207,12 +226,14 @@
 	function handleFilterChange(filters: {
 		role: string | undefined;
 		status: UserStatusFilter | undefined;
+		provider: ProviderFilter | undefined;
 	}) {
 		usersTable.setFilter(
 			'role',
 			filters.role === 'admin' || filters.role === 'user' ? filters.role : 'all'
 		);
 		usersTable.setFilter('status', filters.status ?? 'all');
+		usersTable.setFilter('provider', filters.provider ?? 'all');
 	}
 
 	// Create the table (manual pagination mode)
@@ -505,7 +526,12 @@
 			})}
 		>
 			{#snippet toolbarFilters()}
-				<DataTableFilters {roleFilter} {statusFilter} onFilterChange={handleFilterChange} />
+				<DataTableFilters
+					{roleFilter}
+					{statusFilter}
+					{providerFilter}
+					onFilterChange={handleFilterChange}
+				/>
 			{/snippet}
 
 			{#snippet tableContent()}
@@ -562,6 +588,11 @@
 										<Skeleton class="h-5 w-[65px] rounded-4xl" />
 									</Table.Cell>
 									<Table.Cell>
+										<div class="flex items-center gap-1">
+											<Skeleton class="size-5 rounded-md" />
+										</div>
+									</Table.Cell>
+									<Table.Cell>
 										<Skeleton class="h-4 w-20" />
 									</Table.Cell>
 									<Table.Cell>
@@ -573,10 +604,10 @@
 								</Table.Row>
 							{/each}
 						{:else if table.getRowModel().rows.length === 0 || (isLoading && skeletonCount === 0)}
-							<Table.Row>
+							<Table.Row class="hover:!bg-transparent">
 								<Table.Cell
 									colspan={columns.length}
-									class="h-24 text-center text-muted-foreground hover:!bg-transparent"
+									class="h-24 text-center text-muted-foreground"
 									data-testid="admin-users-empty"
 								>
 									<T keyName="admin.users.no_results" />
