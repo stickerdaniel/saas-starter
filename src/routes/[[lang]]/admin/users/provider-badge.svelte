@@ -14,7 +14,7 @@
 </script>
 
 <div class="flex items-center gap-1" data-testid={testId}>
-	{#each providers as provider, index (index)}
+	{#each providers as provider (provider)}
 		{#if provider === 'credential'}
 			<span
 				class="inline-flex items-center rounded-md border px-1.5 py-0.5 text-muted-foreground ring-1 ring-border ring-inset"

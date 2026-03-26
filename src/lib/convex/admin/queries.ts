@@ -172,9 +172,7 @@ async function fetchProvidersForUsers(
 				const a = account as { userId?: string; providerId?: string };
 				if (a.userId && a.providerId) {
 					const existing = map.get(a.userId) ?? [];
-					if (!existing.includes(a.providerId)) {
-						existing.push(a.providerId);
-					}
+					existing.push(a.providerId);
 					map.set(a.userId, existing);
 				}
 			}
