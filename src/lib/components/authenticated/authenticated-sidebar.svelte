@@ -113,7 +113,7 @@
 											{#snippet child({ props })}
 												<Sidebar.MenuAction
 													{...props}
-													class="active:translate-y-px transition-transform duration-200 data-[state=open]:rotate-90"
+													class="transition-transform duration-200 active:translate-y-px data-[state=open]:rotate-90"
 												>
 													<ChevronRightIcon />
 												</Sidebar.MenuAction>
