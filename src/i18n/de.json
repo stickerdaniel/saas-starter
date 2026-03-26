@@ -705,17 +705,10 @@
 		}
 	},
 	"app": {
-		"dashboard": {
-			"subtitle": "Dies ist Ihre Zentrale. Echtzeit-Metriken und Aktivitäten werden hier angezeigt, während Sie Ihre App aufbauen.",
-			"title": "Willkommen in Ihrem Dashboard"
-		},
 		"name": "SaaS Starter",
 		"sidebar": {
 			"admin_panel": "Admin-Bereich",
-			"community_chat": "Community-Chat",
-			"dashboard": "Dashboard",
-			"docs": "Dokumentation",
-			"home": "Start"
+			"community_chat": "Community-Chat"
 		},
 		"user_menu": {
 			"account": "Konto",
@@ -1166,14 +1159,6 @@
 			"community_chat": {
 				"description": "Chatten Sie in Echtzeit mit der Community.",
 				"title": "Community-Chat"
-			},
-			"dashboard": {
-				"description": "Sehen Sie wichtige Kennzahlen und aktuelle Aktivitäten.",
-				"title": "Dashboard"
-			},
-			"home": {
-				"description": "Weiterleitung zu Ihrem Workspace-Dashboard.",
-				"title": "App-Start"
 			},
 			"settings": {
 				"description": "Verwalten Sie Ihre Kontoeinstellungen und Präferenzen.",

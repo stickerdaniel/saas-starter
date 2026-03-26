@@ -47,13 +47,6 @@ export const SEARCH_ROUTES: SearchRouteEntry[] = [
 		keywords: ['forgot password', 'reset']
 	},
 	{
-		href: '/app/dashboard',
-		access: 'authenticated',
-		group: 'app',
-		titleKey: 'app.sidebar.dashboard',
-		keywords: ['dashboard']
-	},
-	{
 		href: '/app/community-chat',
 		access: 'authenticated',
 		group: 'app',

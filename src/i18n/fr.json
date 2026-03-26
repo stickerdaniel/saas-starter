@@ -705,17 +705,10 @@
 		}
 	},
 	"app": {
-		"dashboard": {
-			"subtitle": "Voici votre base. Les métriques en temps réel et l'activité apparaîtront ici au fur et à mesure que vous développez votre application.",
-			"title": "Bienvenue sur votre tableau de bord"
-		},
 		"name": "SaaS Starter",
 		"sidebar": {
 			"admin_panel": "Panneau Admin",
-			"community_chat": "Chat communautaire",
-			"dashboard": "Tableau de bord",
-			"docs": "Documentation",
-			"home": "Accueil"
+			"community_chat": "Chat communautaire"
 		},
 		"user_menu": {
 			"account": "Compte",
@@ -1166,14 +1159,6 @@
 			"community_chat": {
 				"description": "Discutez avec la communauté en temps réel.",
 				"title": "Chat communautaire"
-			},
-			"dashboard": {
-				"description": "Consultez les métriques clés et l'activité récente.",
-				"title": "Tableau de bord"
-			},
-			"home": {
-				"description": "Redirection vers le tableau de bord de votre espace de travail.",
-				"title": "Accueil App"
 			},
 			"settings": {
 				"description": "Gérez les paramètres et préférences de votre compte.",

@@ -705,17 +705,10 @@
 		}
 	},
 	"app": {
-		"dashboard": {
-			"subtitle": "This is your home base. Real-time metrics and activity will appear here as you build out your app.",
-			"title": "Welcome to your dashboard"
-		},
 		"name": "SaaS Starter",
 		"sidebar": {
 			"admin_panel": "Admin Panel",
-			"community_chat": "Community Chat",
-			"dashboard": "Dashboard",
-			"docs": "Docs",
-			"home": "Home"
+			"community_chat": "Community Chat"
 		},
 		"user_menu": {
 			"account": "Account",
@@ -1166,14 +1159,6 @@
 			"community_chat": {
 				"description": "Chat with the community in real time.",
 				"title": "Community Chat"
-			},
-			"dashboard": {
-				"description": "View key metrics and recent activity.",
-				"title": "Dashboard"
-			},
-			"home": {
-				"description": "Redirecting to your workspace dashboard.",
-				"title": "App Home"
 			},
 			"settings": {
 				"description": "Manage your account settings and preferences.",
