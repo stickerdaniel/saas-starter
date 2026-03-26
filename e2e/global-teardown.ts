@@ -13,10 +13,11 @@ import fs from 'fs';
 import path from 'path';
 
 import type { TestCredentials } from './utils/types';
+import { resolveConvexUrl } from './utils/convex-url';
 
 async function globalTeardown() {
 	const testSecret = process.env.AUTH_E2E_TEST_SECRET;
-	const convexUrl = process.env.PUBLIC_CONVEX_URL || process.env.VITE_CONVEX_URL;
+	const convexUrl = resolveConvexUrl();
 
 	if (!testSecret || !convexUrl) {
 		console.warn('[Teardown] Missing AUTH_E2E_TEST_SECRET or CONVEX_URL - skipping cleanup');

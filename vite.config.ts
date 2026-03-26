@@ -126,6 +126,11 @@ export default defineConfig(async ({ mode }) => {
 		const backendUrl = `http://localhost:${backendPort}`;
 		const siteProxyUrl = `http://localhost:${siteProxyPort}`;
 		const resetLocalBackend = process.env.RESET_LOCAL_BACKEND === 'true';
+
+		// Write backend URL so E2E tests (Playwright) can discover it
+		const convexStateDir = path.join(cwd, '.convex');
+		fs.mkdirSync(convexStateDir, { recursive: true });
+		fs.writeFileSync(path.join(convexStateDir, '.backend-url'), backendUrl);
 		const betterAuthSecret =
 			loadedEnv.BETTER_AUTH_SECRET?.trim() || getPersistentBetterAuthSecret(cwd, resetLocalBackend);
 

@@ -20,6 +20,7 @@ const SETUP_RETRY_ATTEMPTS = 3;
 const VERCEL_BYPASS_SECRET = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
 
 import type { TestCredentials } from './utils/types';
+import { resolveConvexUrl } from './utils/convex-url';
 
 function isTransientSetupError(error: unknown): boolean {
 	if (!(error instanceof Error)) return false;
@@ -59,7 +60,7 @@ async function retrySetupStep<T>(label: string, run: () => Promise<T>): Promise<
 
 async function globalSetup() {
 	const testSecret = process.env.AUTH_E2E_TEST_SECRET;
-	const convexUrl = process.env.PUBLIC_CONVEX_URL || process.env.VITE_CONVEX_URL;
+	const convexUrl = resolveConvexUrl();
 
 	if (!testSecret) {
 		console.error('[Setup] Error: AUTH_E2E_TEST_SECRET missing from .env.test');
@@ -70,8 +71,11 @@ async function globalSetup() {
 	}
 
 	if (!convexUrl) {
-		console.error('[Setup] Error: PUBLIC_CONVEX_URL missing from .env.test');
-		throw new Error('PUBLIC_CONVEX_URL not configured');
+		console.error('[Setup] Error: PUBLIC_CONVEX_URL not set and no local backend URL found');
+		console.error(
+			'[Setup] Either set PUBLIC_CONVEX_URL in .env.test or start the dev server first'
+		);
+		throw new Error('Convex URL not configured');
 	}
 
 	const client = new ConvexHttpClient(convexUrl);
