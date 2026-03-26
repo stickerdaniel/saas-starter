@@ -1,18 +1,14 @@
 <script lang="ts">
 	import { api } from '$lib/convex/_generated/api';
 	import SEOHead from '$lib/components/SEOHead.svelte';
-	import AppPageTitle from '$lib/components/app/app-page-title.svelte';
+	import { Separator } from '$lib/components/ui/separator/index.js';
 	import { useQuery, useConvexClient } from 'convex-svelte';
 	import { useCustomer, useAutumnOperation } from '@stickerdaniel/convex-autumn-svelte/sveltekit';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import * as Chat from '$lib/components/ui/chat/index.js';
 	import * as Alert from '$lib/components/ui/alert/index.js';
-	import PhoneIcon from '@lucide/svelte/icons/phone';
-	import VideoIcon from '@lucide/svelte/icons/video';
-	import InfoIcon from '@lucide/svelte/icons/info';
 	import SendIcon from '@lucide/svelte/icons/send';
-	import InnerShadowTopIcon from '@tabler/icons-svelte/icons/inner-shadow-top';
 	import { haptic } from '$lib/hooks/use-haptic.svelte';
 	import { toast } from 'svelte-sonner';
 
@@ -113,13 +109,22 @@
 />
 
 {#if viewer.data}
-	<div class="h-full px-4 lg:px-6">
-		<div class="flex flex-1 flex-wrap gap-4 md:gap-6">
-			<AppPageTitle title={$t('chat.title')} description={$t('chat.description')} />
+	<div class="flex flex-1 flex-col px-4 lg:px-6">
+		<div class="mx-auto w-full max-w-3xl flex-1 space-y-6">
+			<div>
+				<h2 class="text-2xl font-bold tracking-tight">
+					<T keyName="chat.title" />
+				</h2>
+				<p class="text-muted-foreground">
+					<T keyName="chat.description" />
+				</p>
+			</div>
+
+			<Separator />
 
 			<!-- Quota warning banner -->
 			{#if !isPro && !hasMessagesAvailable}
-				<Alert.Root variant="destructive" class="w-full">
+				<Alert.Root variant="destructive">
 					<Alert.Title><T keyName="chat.alerts.limit_reached.title" /></Alert.Title>
 					<Alert.Description class="flex items-center justify-between">
 						<span>
@@ -141,7 +146,7 @@
 					</Alert.Description>
 				</Alert.Root>
 			{:else if !isPro && remainingMessages <= 3}
-				<Alert.Root class="w-full">
+				<Alert.Root>
 					<Alert.Title><T keyName="chat.alerts.low_messages.title" /></Alert.Title>
 					<Alert.Description class="flex items-center justify-between">
 						<span>
@@ -166,57 +171,32 @@
 				</Alert.Root>
 			{/if}
 
-			<div class="flex-1 rounded-lg border">
-				<div class="flex place-items-center justify-between border-b p-2">
-					<div class="flex place-items-center gap-2">
-						<div class="flex size-8 items-center justify-center">
-							<InnerShadowTopIcon class="!size-5" />
-						</div>
-						<div class="flex flex-col">
-							<span class="text-sm font-medium">
-								<T keyName="chat.header.title" />
-								{#if isPro}
-									<span class="ml-2 text-xs font-normal text-muted-foreground">
-										<T keyName="chat.header.pro_unlimited" />
-									</span>
-								{:else}
-									<span class="ml-2 text-xs font-normal text-muted-foreground">
-										<T
-											keyName={remainingMessages !== 1
-												? 'chat.header.messages_left_plural'
-												: 'chat.header.messages_left'}
-											params={{ remaining: remainingMessages, total: totalMessages }}
-										/>
-									</span>
-								{/if}
-							</span>
-							<span class="text-xs text-nowrap">
-								<T keyName="chat.header.subtitle" />
-							</span>
-						</div>
-					</div>
-					<div class="flex place-items-center">
-						<div
-							class="inline-flex size-9 items-center justify-center rounded-full text-muted-foreground"
-							aria-hidden="true"
-						>
-							<PhoneIcon class="size-4" />
-						</div>
-						<div
-							class="inline-flex size-9 items-center justify-center rounded-full text-muted-foreground"
-							aria-hidden="true"
-						>
-							<VideoIcon class="size-4" />
-						</div>
-						<div
-							class="inline-flex size-9 items-center justify-center rounded-full text-muted-foreground"
-							aria-hidden="true"
-						>
-							<InfoIcon class="size-4" />
-						</div>
+			<div class="rounded-lg border">
+				<div class="flex items-center justify-between border-b px-4 py-3">
+					<div class="flex flex-col">
+						<span class="text-sm font-medium">
+							<T keyName="chat.header.title" />
+							{#if isPro}
+								<span class="ml-2 text-xs font-normal text-muted-foreground">
+									<T keyName="chat.header.pro_unlimited" />
+								</span>
+							{:else}
+								<span class="ml-2 text-xs font-normal text-muted-foreground">
+									<T
+										keyName={remainingMessages !== 1
+											? 'chat.header.messages_left_plural'
+											: 'chat.header.messages_left'}
+										params={{ remaining: remainingMessages, total: totalMessages }}
+									/>
+								</span>
+							{/if}
+						</span>
+						<span class="text-xs text-muted-foreground">
+							<T keyName="chat.header.subtitle" />
+						</span>
 					</div>
 				</div>
-				<Chat.List class="!h-[calc(100dvh-var(--header-height)-12rem)]">
+				<Chat.List class="!h-[calc(100dvh-var(--header-height)-20rem)]">
 					{#if messages.data}
 						{#each messages.data as message (message._id)}
 							<Chat.Bubble variant={message.userId === viewer.data._id ? 'sent' : 'received'}>
@@ -241,7 +221,7 @@
 						{/each}
 					{/if}
 				</Chat.List>
-				<form onsubmit={handleSubmit} class="flex place-items-center gap-2 p-2">
+				<form onsubmit={handleSubmit} class="flex items-center gap-2 border-t p-3">
 					<Input
 						bind:value={newMessageText}
 						class="rounded-full"

@@ -1,5 +1,5 @@
 import { localizedHref } from '$lib/utils/i18n';
-import MessageCircleIcon from '@lucide/svelte/icons/message-circle';
+import MessagesSquareIcon from '@lucide/svelte/icons/messages-square';
 import ServerCogIcon from '@lucide/svelte/icons/server-cog';
 import Logo from '$lib/components/icons/logo.svelte';
 import type { SidebarConfig } from '../types';
@@ -22,7 +22,7 @@ export function getAppSidebarConfig(pageState: PageState, userRole?: string): Si
 			{
 				translationKey: 'app.sidebar.community_chat',
 				url: localizedHref('/app/community-chat'),
-				icon: MessageCircleIcon,
+				icon: MessagesSquareIcon,
 				isActive: pathname === `/${lang}/app/community-chat`
 			}
 		],
