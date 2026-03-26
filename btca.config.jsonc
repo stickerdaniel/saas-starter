@@ -258,7 +258,7 @@
 			"type": "git",
 			"name": "betterAuth",
 			"url": "https://github.com/better-auth/better-auth",
-			"branch": "canary",
+			"branch": "main",
 			"specialNotes": "Auth library. Passkeys, OAuth, sessions. Use main repo not Convex fork."
 		},
 		{
