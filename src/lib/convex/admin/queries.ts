@@ -154,20 +154,41 @@ async function fetchProvidersForUsers(
 	userIds: string[]
 ): Promise<Map<string, string[]>> {
 	if (userIds.length === 0) return new Map();
-	const result = (await ctx.runQuery(components.betterAuth.adapter.findMany, {
-		model: 'account',
-		paginationOpts: { cursor: null, numItems: userIds.length * 5 },
-		where: [{ field: 'userId', operator: 'in' as const, value: userIds }]
-	})) as AdapterFindManyResult;
 	const map = new Map<string, string[]>();
-	for (const account of result.page) {
-		const a = account as { userId?: string; providerId?: string };
-		if (a.userId && a.providerId) {
-			const existing = map.get(a.userId) ?? [];
-			existing.push(a.providerId);
-			map.set(a.userId, existing);
+
+	// Chunk userIds to keep per-request size bounded
+	const CHUNK_SIZE = 200;
+	for (let i = 0; i < userIds.length; i += CHUNK_SIZE) {
+		const chunk = userIds.slice(i, i + CHUNK_SIZE);
+		let cursor: string | null = null;
+		// Paginate through all accounts for this chunk
+		for (let page = 0; page < 500; page++) {
+			const result = (await ctx.runQuery(components.betterAuth.adapter.findMany, {
+				model: 'account',
+				paginationOpts: { cursor, numItems: 200 },
+				where: [{ field: 'userId', operator: 'in' as const, value: chunk }]
+			})) as AdapterFindManyResult;
+			for (const account of result.page) {
+				const a = account as { userId?: string; providerId?: string };
+				if (a.userId && a.providerId) {
+					const existing = map.get(a.userId) ?? [];
+					if (!existing.includes(a.providerId)) {
+						existing.push(a.providerId);
+					}
+					map.set(a.userId, existing);
+				}
+			}
+			if (result.isDone || !result.continueCursor) break;
+			cursor = result.continueCursor;
 		}
 	}
+
+	// Sort providers for stable UI ordering
+	for (const [userId, providers] of map) {
+		providers.sort();
+		map.set(userId, providers);
+	}
+
 	return map;
 }
 
@@ -302,11 +323,14 @@ export const listUsers = adminQuery({
 					ctx,
 					filteredUsers.map((u) => u._id)
 				);
+				// Precompute sort keys to avoid repeated work in comparator
+				const sortKeys = new Map<string, string>();
+				for (const u of filteredUsers) {
+					sortKeys.set(u._id, (allProviderMap.get(u._id) ?? []).join(','));
+				}
 				const dir = args.sortBy?.direction === 'asc' ? 1 : -1;
 				filteredUsers.sort((a, b) => {
-					const pa = (allProviderMap.get(a._id) ?? []).sort().join(',');
-					const pb = (allProviderMap.get(b._id) ?? []).sort().join(',');
-					return dir * pa.localeCompare(pb);
+					return dir * (sortKeys.get(a._id) ?? '').localeCompare(sortKeys.get(b._id) ?? '');
 				});
 			}
 
@@ -316,16 +340,10 @@ export const listUsers = adminQuery({
 			const usersPage = filteredUsers.slice(offset, pageEnd);
 			const isDone = pageEnd >= filteredUsers.length;
 
-			// Fetch providers for the page (may already be cached from sort above)
-			const providerMap = isProviderSort
-				? await fetchProvidersForUsers(
-						ctx,
-						usersPage.map((u) => u._id)
-					)
-				: await fetchProvidersForUsers(
-						ctx,
-						usersPage.map((u) => u._id)
-					);
+			const providerMap = await fetchProvidersForUsers(
+				ctx,
+				usersPage.map((u) => u._id)
+			);
 
 			return {
 				users: usersPage.map((u) => mapAdminUser(u, providerMap.get(u._id) ?? [])),
