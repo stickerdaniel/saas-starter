@@ -11,6 +11,11 @@
 			"sourceType": "github",
 			"computedHash": "32f63a1e56fc41f53497f7b19d6391b7c3e55bedd884c5a4d10bc4eacd2310e4"
 		},
+		"expect": {
+			"source": "millionco/expect",
+			"sourceType": "github",
+			"computedHash": "9a05dd2233fbde2e3fb125250caa637d0713f82e3ef6faed6aa25446f14e8373"
+		},
 		"organization-best-practices": {
 			"source": "better-auth/skills",
 			"sourceType": "github",
