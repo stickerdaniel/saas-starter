@@ -7,6 +7,7 @@ import DataTableActions from './data-table-actions.svelte';
 import type { AdminUserData } from '$lib/convex/admin/types';
 import StatusBadge from './status-badge.svelte';
 import RoleBadge from './role-badge.svelte';
+import ProviderBadge from './provider-badge.svelte';
 import UserAvatar from './user-avatar.svelte';
 
 /**
@@ -130,6 +131,24 @@ export const columns: ColumnDef<AdminUserData>[] = [
 			return true;
 		},
 		enableSorting: false
+	},
+	{
+		accessorKey: 'providers',
+		accessorFn: (row) => row.providers.join(','),
+		size: 100,
+		minSize: 80,
+		header: ({ column }) =>
+			renderComponent(DataTableColumnHeader, {
+				column,
+				titleKey: 'admin.users.provider',
+				testId: 'admin-users-sort-provider'
+			}),
+		cell: ({ row }) =>
+			renderComponent(ProviderBadge, {
+				providers: row.original.providers,
+				testId: 'admin-users-provider-badge'
+			}),
+		enableSorting: true
 	},
 	{
 		accessorKey: 'createdAt',
