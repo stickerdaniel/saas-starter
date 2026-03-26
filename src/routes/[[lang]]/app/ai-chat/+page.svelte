@@ -27,13 +27,14 @@
 	// Thread from URL param
 	const threadId = $derived(page.url.searchParams.get('thread') ?? '');
 
-	// Auto-create thread when navigating to /ai-chat without a thread param
-	let creatingThread = $state(false);
+	// Fallback: if navigated to /ai-chat without ?thread= (e.g. direct URL), get warm thread.
+	// The common path (sidebar click) already includes ?thread=warmId, so this rarely fires.
+	let resolvingThread = $state(false);
 
 	$effect(() => {
-		if (!threadId && !creatingThread && viewer.data) {
-			creatingThread = true;
-			client.mutation(api.aiChat.threads.createThread, {}).then((result) => {
+		if (!threadId && !resolvingThread && viewer.data) {
+			resolvingThread = true;
+			client.mutation(api.aiChat.threads.getOrCreateWarmThread, {}).then((result) => {
 				const url = new URL(page.url);
 				url.searchParams.set('thread', result.threadId);
 				goto(resolve(url.pathname + url.search), { noScroll: true, replaceState: true });

@@ -40,6 +40,11 @@ export const sendMessage = authedMutation({
 			throw new ConvexError('Thread not found');
 		}
 
+		// Consume warm thread on first message (backend-driven, no client coordination needed)
+		if (record.isWarm) {
+			await ctx.db.patch(record._id, { isWarm: false });
+		}
+
 		// Rate limit check
 		const rateLimitStatus = await aiChatRateLimiter.limit(ctx, 'aiChatMessage', { key: userId });
 		if (!rateLimitStatus.ok) {

@@ -102,7 +102,7 @@
 				suggestions={isPro ? suggestions : []}
 				showFileButton={isPro}
 				showHandoffButton={false}
-				isRateLimited={!isPro || !threadId}
+				isRateLimited={!isPro}
 				onSend={async (prompt) => {
 					if (!isPro || !prompt?.trim()) return;
 

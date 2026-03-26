@@ -186,7 +186,7 @@
 </script>
 
 <PromptInput
-	class="relative z-20 p-0 {className}"
+	class="relative z-20 bg-popover p-0 {className}"
 	value={ctx.inputValue}
 	isLoading={ctx.core.isSending}
 	onValueChange={handleValueChange}
@@ -212,10 +212,10 @@
 		</div>
 	{/if}
 
-	<div class="flex flex-col p-2">
+	<div class="flex flex-col">
 		{#if ctx.attachments.length > 0}
 			<ChatAttachments
-				class="mx-2 mt-2"
+				class="mx-3 mt-3"
 				attachments={ctx.attachments}
 				onRemove={handleRemoveAttachment}
 				columns={2}
