@@ -1,6 +1,7 @@
 <script lang="ts">
 	import NavUser from '../nav-user.svelte';
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
+	import * as Collapsible from '$lib/components/ui/collapsible/index.js';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { resolve } from '$app/paths';
@@ -8,6 +9,9 @@
 	import { T } from '@tolgee/svelte';
 	import type { SidebarConfig, User } from './types';
 	import { haptic } from '$lib/hooks/use-haptic.svelte';
+	import { PersistedState } from 'runed';
+	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
+	import autoAnimate from '@formkit/auto-animate';
 
 	interface Props extends ComponentProps<typeof Sidebar.Root> {
 		config: SidebarConfig;
@@ -15,6 +19,16 @@
 	}
 
 	let { config, user, ...restProps }: Props = $props();
+
+	const aiChatOpen = new PersistedState('ai-chat-threads-open', true);
+
+	let subMenuRef = $state<HTMLElement | null>(null);
+
+	$effect(() => {
+		if (subMenuRef) {
+			autoAnimate(subMenuRef, { duration: 180, easing: 'ease-out' });
+		}
+	});
 </script>
 
 <Sidebar.Root collapsible="offcanvas" {...restProps}>
@@ -69,26 +83,88 @@
 			<Sidebar.GroupContent class="flex flex-col gap-2">
 				<Sidebar.Menu>
 					{#each config.navItems as item (item.translationKey)}
-						<Sidebar.MenuItem>
-							<Button
-								variant="ghost"
-								href={resolve(item.url)}
-								onclick={() => haptic.trigger('light')}
-								class="peer/menu-button w-full justify-start gap-2 {item.isActive
-									? 'bg-muted font-medium text-foreground'
-									: ''}"
-								data-active={item.isActive || undefined}
-								data-size="default"
+						{#if item.collapsible}
+							<!-- Collapsible nav item: main button navigates, chevron toggles -->
+							<Collapsible.Root
+								open={aiChatOpen.current}
+								onOpenChange={(open) => (aiChatOpen.current = open)}
+								class="group/collapsible"
 							>
-								{#if item.icon}
-									<item.icon />
+								{#snippet child({ props })}
+									<Sidebar.MenuItem {...props}>
+										<Sidebar.MenuButton
+											isActive={item.isActive}
+											onclick={() => haptic.trigger('light')}
+										>
+											{#snippet child({ props })}
+												<a
+													href={resolve(item.url)}
+													{...props}
+													onclick={item.disableNav ? (e) => e.preventDefault() : undefined}
+												>
+													{#if item.icon}
+														<item.icon />
+													{/if}
+													<span><T keyName={item.translationKey} /></span>
+												</a>
+											{/snippet}
+										</Sidebar.MenuButton>
+										<Collapsible.Trigger>
+											{#snippet child({ props })}
+												<Sidebar.MenuAction
+													{...props}
+													class="transition-transform duration-200 data-[state=open]:rotate-90"
+												>
+													<ChevronRightIcon />
+												</Sidebar.MenuAction>
+											{/snippet}
+										</Collapsible.Trigger>
+										<Collapsible.Content>
+											<Sidebar.MenuSub bind:ref={subMenuRef}>
+												{#if item.subItems}
+													{#each item.subItems as sub (sub.id)}
+														<Sidebar.MenuSubItem>
+															<Sidebar.MenuSubButton
+																isActive={sub.isActive}
+																onclick={() => haptic.trigger('light')}
+															>
+																{#snippet child({ props })}
+																	<a href={resolve(sub.url)} {...props}>
+																		<span>{sub.label}</span>
+																	</a>
+																{/snippet}
+															</Sidebar.MenuSubButton>
+														</Sidebar.MenuSubItem>
+													{/each}
+												{/if}
+											</Sidebar.MenuSub>
+										</Collapsible.Content>
+									</Sidebar.MenuItem>
+								{/snippet}
+							</Collapsible.Root>
+						{:else}
+							<!-- Standard nav item -->
+							<Sidebar.MenuItem>
+								<Button
+									variant="ghost"
+									href={resolve(item.url)}
+									onclick={() => haptic.trigger('light')}
+									class="peer/menu-button w-full justify-start gap-2 {item.isActive
+										? 'bg-muted font-medium text-foreground'
+										: ''}"
+									data-active={item.isActive || undefined}
+									data-size="default"
+								>
+									{#if item.icon}
+										<item.icon />
+									{/if}
+									<span><T keyName={item.translationKey} /></span>
+								</Button>
+								{#if item.badge && item.badge > 0}
+									<Sidebar.MenuBadge>{item.badge >= 100 ? '99+' : item.badge}</Sidebar.MenuBadge>
 								{/if}
-								<span><T keyName={item.translationKey} /></span>
-							</Button>
-							{#if item.badge && item.badge > 0}
-								<Sidebar.MenuBadge>{item.badge >= 100 ? '99+' : item.badge}</Sidebar.MenuBadge>
-							{/if}
-						</Sidebar.MenuItem>
+							</Sidebar.MenuItem>
+						{/if}
 					{/each}
 				</Sidebar.Menu>
 			</Sidebar.GroupContent>

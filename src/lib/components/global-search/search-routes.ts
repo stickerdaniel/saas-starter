@@ -54,6 +54,13 @@ export const SEARCH_ROUTES: SearchRouteEntry[] = [
 		keywords: ['chat', 'community']
 	},
 	{
+		href: '/app/ai-chat',
+		access: 'authenticated',
+		group: 'app',
+		titleKey: 'app.sidebar.ai_chat',
+		keywords: ['ai', 'chat', 'assistant', 'bot']
+	},
+	{
 		href: '/app/settings',
 		access: 'authenticated',
 		group: 'app',

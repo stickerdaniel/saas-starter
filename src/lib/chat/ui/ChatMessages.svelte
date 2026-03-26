@@ -172,7 +172,7 @@
 				{/if}
 			{:else}
 				<!-- Messages list with fade-in animation on first load -->
-				<div class="px-9 py-20 {ctx.messagesFade.animationClass}">
+				<div class="mx-auto w-full max-w-3xl px-9 py-20 {ctx.messagesFade.animationClass}">
 					{#each ctx.displayMessages as message, index (message.id)}
 						<ChatMessage
 							{message}
@@ -194,10 +194,10 @@
 		</ChatContainerContent>
 	</ChatContainerRoot>
 
-	<!-- Scroll button pinned to bottom overlay, outside scroll container -->
+	<!-- Scroll button: right-aligned in narrow views, centered when content is max-w constrained -->
 	<div class="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-16 w-full">
 		<ScrollButton
-			class="pointer-events-auto absolute right-9 bottom-6 z-20"
+			class="pointer-events-auto absolute right-9 bottom-6 z-20 @min-3xl/main:right-auto @min-3xl/main:left-1/2 @min-3xl/main:-translate-x-1/2"
 			isAtBottom={chatCtx.isAtBottom}
 			onScrollToBottom={() => chatCtx.scrollToBottom()}
 		/>

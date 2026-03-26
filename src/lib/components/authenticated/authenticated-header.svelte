@@ -60,7 +60,7 @@
 </script>
 
 <header
-	class="flex h-16 shrink-0 items-center gap-2 border-b transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12"
+	class="flex h-16 shrink-0 items-center gap-2 border-b bg-sidebar/30 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12"
 >
 	<div class="flex w-full items-center gap-2 px-4">
 		<Sidebar.Trigger class="-ml-1" />

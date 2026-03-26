@@ -708,6 +708,7 @@
 		"name": "SaaS Starter",
 		"sidebar": {
 			"admin_panel": "Admin-Bereich",
+			"ai_chat": "KI-Chat",
 			"community_chat": "Community-Chat"
 		},
 		"user_menu": {
@@ -722,6 +723,34 @@
 			"settings": "Einstellungen",
 			"stop_impersonating": "Identitätswechsel beenden",
 			"upgrade_pro": "Auf Pro upgraden"
+		}
+	},
+	"ai_chat": {
+		"title": "KI-Chat",
+		"description": "Chatten Sie mit unserem KI-Assistenten",
+		"new_chat": "Neuer Chat",
+		"select_chat": "Wählen Sie eine Unterhaltung oder starten Sie einen neuen Chat",
+		"delete_thread": "Unterhaltung löschen",
+		"delete_thread_confirm": "Sind Sie sicher, dass Sie diese Unterhaltung löschen möchten?",
+		"empty": {
+			"title": "Unterhaltung starten",
+			"description": "Stellen Sie eine Frage und erhalten Sie sofort KI-gestützte Antworten."
+		},
+		"input": {
+			"placeholder": "Nachricht eingeben..."
+		},
+		"suggestion": {
+			"understand": "Hilf mir zu verstehen",
+			"explain": "Erkläre etwas",
+			"help": "Hilfe erhalten"
+		},
+		"pro_required": {
+			"title": "Pro-Funktion",
+			"description": "KI-Chat ist für Pro-Abonnenten verfügbar. Upgraden Sie, um mit unserem KI-Assistenten zu chatten."
+		},
+		"thread": {
+			"no_messages": "Neue Unterhaltung",
+			"loading": "Wird geladen..."
 		}
 	},
 	"aria": {
@@ -1156,6 +1185,10 @@
 			}
 		},
 		"app": {
+			"ai_chat": {
+				"description": "Chatten Sie mit unserem KI-Assistenten.",
+				"title": "KI-Chat"
+			},
 			"community_chat": {
 				"description": "Chatten Sie in Echtzeit mit der Community.",
 				"title": "Community-Chat"

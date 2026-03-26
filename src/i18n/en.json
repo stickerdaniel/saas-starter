@@ -708,6 +708,7 @@
 		"name": "SaaS Starter",
 		"sidebar": {
 			"admin_panel": "Admin Panel",
+			"ai_chat": "AI Chat",
 			"community_chat": "Community Chat"
 		},
 		"user_menu": {
@@ -722,6 +723,34 @@
 			"settings": "Settings",
 			"stop_impersonating": "Stop Impersonating",
 			"upgrade_pro": "Upgrade to Pro"
+		}
+	},
+	"ai_chat": {
+		"title": "AI Chat",
+		"description": "Chat with our AI assistant",
+		"new_chat": "New Chat",
+		"select_chat": "Select a conversation or start a new chat",
+		"delete_thread": "Delete conversation",
+		"delete_thread_confirm": "Are you sure you want to delete this conversation?",
+		"empty": {
+			"title": "Start a conversation",
+			"description": "Ask anything and get instant AI-powered answers."
+		},
+		"input": {
+			"placeholder": "Type a message..."
+		},
+		"suggestion": {
+			"understand": "Help me understand",
+			"explain": "Explain something",
+			"help": "Get help"
+		},
+		"pro_required": {
+			"title": "Pro Feature",
+			"description": "AI Chat is available for Pro subscribers. Upgrade to start chatting with our AI assistant."
+		},
+		"thread": {
+			"no_messages": "New conversation",
+			"loading": "Loading..."
 		}
 	},
 	"aria": {
@@ -1156,6 +1185,10 @@
 			}
 		},
 		"app": {
+			"ai_chat": {
+				"description": "Chat with our AI assistant for instant help.",
+				"title": "AI Chat"
+			},
 			"community_chat": {
 				"description": "Chat with the community in real time.",
 				"title": "Community Chat"

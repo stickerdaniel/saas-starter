@@ -708,6 +708,7 @@
 		"name": "SaaS Starter",
 		"sidebar": {
 			"admin_panel": "Panel de Admin",
+			"ai_chat": "Chat IA",
 			"community_chat": "Chat comunitario"
 		},
 		"user_menu": {
@@ -722,6 +723,34 @@
 			"settings": "Configuración",
 			"stop_impersonating": "Dejar de suplantar",
 			"upgrade_pro": "Actualizar a Pro"
+		}
+	},
+	"ai_chat": {
+		"title": "Chat IA",
+		"description": "Chatea con nuestro asistente de IA",
+		"new_chat": "Nuevo chat",
+		"select_chat": "Selecciona una conversación o inicia un nuevo chat",
+		"delete_thread": "Eliminar conversación",
+		"delete_thread_confirm": "¿Estás seguro de que quieres eliminar esta conversación?",
+		"empty": {
+			"title": "Inicia una conversación",
+			"description": "Pregunta lo que quieras y obtén respuestas instantáneas con IA."
+		},
+		"input": {
+			"placeholder": "Escribe un mensaje..."
+		},
+		"suggestion": {
+			"understand": "Ayúdame a entender",
+			"explain": "Explica algo",
+			"help": "Obtener ayuda"
+		},
+		"pro_required": {
+			"title": "Función Pro",
+			"description": "El Chat IA está disponible para suscriptores Pro. Actualiza para chatear con nuestro asistente de IA."
+		},
+		"thread": {
+			"no_messages": "Nueva conversación",
+			"loading": "Cargando..."
 		}
 	},
 	"aria": {
@@ -1156,6 +1185,10 @@
 			}
 		},
 		"app": {
+			"ai_chat": {
+				"description": "Chatea con nuestro asistente de IA.",
+				"title": "Chat IA"
+			},
 			"community_chat": {
 				"description": "Chatea con la comunidad en tiempo real.",
 				"title": "Chat de la Comunidad"

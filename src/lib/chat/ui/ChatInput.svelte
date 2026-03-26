@@ -186,7 +186,7 @@
 </script>
 
 <PromptInput
-	class="relative z-20 {className}"
+	class="relative z-20 p-0 {className}"
 	value={ctx.inputValue}
 	isLoading={ctx.core.isSending}
 	onValueChange={handleValueChange}
@@ -196,16 +196,17 @@
 	<!-- isNewConversation: show immediately for draft threads (eager creation) -->
 	<!-- messagesReady: wait for query to resolve for existing threads (prevents flash) -->
 	{#if (ctx.core.isNewConversation || ctx.messagesReady) && ctx.displayMessages.length === 0 && !ctx.inputValue.trim() && suggestions.length > 0}
-		<div
-			class="absolute top-0 z-20 translate-y-[-100%] pb-2 duration-200 {ctx.core.isNewConversation
-				? ''
-				: 'animate-in fade-in-0'}"
-		>
+		<div class="absolute top-0 z-20 translate-y-[-100%] pb-2">
 			<div class="flex flex-wrap gap-2">
-				{#each suggestions as suggestion (suggestion.text)}
-					<PromptSuggestion onclick={() => handleSuggestionClick(suggestion.text)}>
-						{suggestion.label}
-					</PromptSuggestion>
+				{#each suggestions as suggestion, i (suggestion.text)}
+					<div
+						class="motion-safe:animate-[chip-in_375ms_ease-in_both]"
+						style="animation-delay: {i * 50}ms"
+					>
+						<PromptSuggestion onclick={() => handleSuggestionClick(suggestion.text)}>
+							{suggestion.label}
+						</PromptSuggestion>
+					</div>
 				{/each}
 			</div>
 		</div>

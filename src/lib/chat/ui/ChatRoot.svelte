@@ -116,6 +116,8 @@
 	});
 
 	// Query messages with streamArgs for streaming support
+	// API reference is stable for component lifetime; threadId is reactive in the closure.
+	// svelte-ignore state_referenced_locally
 	const messagesQuery = useQuery(api.listMessages, () =>
 		threadId
 			? {
@@ -140,6 +142,7 @@
 	});
 
 	// Second query: Get text deltas for active streams
+	// svelte-ignore state_referenced_locally
 	const deltasQuery = useQuery(api.listMessages, () =>
 		threadId && activeStreamIds.length > 0
 			? {

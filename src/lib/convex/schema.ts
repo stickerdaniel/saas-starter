@@ -190,7 +190,16 @@ export default defineSchema({
 		sentAt: v.optional(v.number()),
 		skippedReason: v.optional(v.string()),
 		createdAt: v.number()
-	}).index('by_user', ['userId'])
+	}).index('by_user', ['userId']),
+
+	// AI Chat thread metadata - maps agent threads to authenticated users
+	aiChatThreads: defineTable({
+		threadId: v.string(), // Reference to agent:threads
+		userId: v.string(), // Better Auth user ID
+		createdAt: v.number()
+	})
+		.index('by_user', ['userId'])
+		.index('by_thread', ['threadId'])
 
 	// Note: The agent component automatically creates the following tables:
 	// - agent:threads - Conversation threads for customer support
