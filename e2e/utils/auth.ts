@@ -19,7 +19,7 @@ export async function waitForAuthenticated(page: Page, timeout = 30000, maxRetri
 		await page.waitForLoadState('domcontentloaded', { timeout });
 
 		try {
-			await expect(page.locator('[data-sidebar="menu-button"][data-size="lg"]')).toBeVisible({
+			await expect(page.locator('#user-menu-trigger')).toBeVisible({
 				timeout: perAttemptTimeout
 			});
 			// Wait for Svelte hydration to complete so event handlers are attached.
