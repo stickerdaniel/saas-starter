@@ -3,7 +3,7 @@ import { components, internal } from './_generated/api';
 import { internalMutation, type MutationCtx } from './_generated/server';
 import { createAuth } from './auth';
 
-const PREVIEW_ADMIN_EMAIL = 'admin@preview.local';
+const PREVIEW_ADMIN_EMAIL = 'admin@preview.dev';
 const PREVIEW_ADMIN_NAME = 'Preview Admin';
 
 type BetterAuthUser = {
