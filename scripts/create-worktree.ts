@@ -27,6 +27,7 @@ const { values, positionals } = parseArgs({
 	options: {
 		'setup-only': { type: 'boolean', default: false },
 		'open-editor': { type: 'string' },
+		base: { type: 'string', short: 'b' },
 		help: { type: 'boolean', short: 'h', default: false }
 	},
 	strict: false,
@@ -91,21 +92,6 @@ function getRootWorktree(): string {
 		process.exit(1);
 	}
 	return result.stdout;
-}
-
-/**
- * Get default branch from remote
- */
-function getDefaultBranch(): string {
-	const result = runCommand('git', ['symbolic-ref', 'refs/remotes/origin/HEAD', '--short'], {
-		silent: true
-	});
-
-	if (result.success) {
-		return result.stdout.replace('origin/', '');
-	}
-
-	return 'main';
 }
 
 /**
@@ -252,7 +238,8 @@ function showHelp(): void {
 	);
 	console.log('');
 	console.log('Options:');
-	console.log('  --open-editor code|cursor      Open the worktree in VS Code or Cursor');
+	console.log('  -b, --base <branch>            Base branch (default: current branch)');
+	console.log('  --open-editor code|cursor       Open the worktree in VS Code or Cursor');
 	console.log('');
 	console.log('Example:');
 	console.log('  bun scripts/create-worktree.ts feature-auth');
@@ -313,15 +300,26 @@ function main(): void {
 		process.exit(1);
 	}
 
-	// Get default branch
-	const defaultBranch = getDefaultBranch();
-	console.log(`Base branch: ${defaultBranch}`);
+	// Determine base branch: current branch by default, or --base override
+	const baseArg = values['base'] as string | undefined;
+	let baseBranch: string;
+	if (baseArg) {
+		baseBranch = baseArg;
+	} else {
+		const result = runCommand('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { silent: true });
+		if (!result.success || !result.stdout) {
+			console.error(
+				`${colors.red}Error: Cannot determine current branch. Use --base <branch> explicitly.${colors.reset}`
+			);
+			process.exit(1);
+		}
+		baseBranch = result.stdout;
+	}
+	console.log(`Base branch: ${baseBranch}`);
 
 	// Create worktree
 	console.log('Creating git worktree...');
-	if (
-		!runCommandInherit('git', ['worktree', 'add', worktreePath, '-b', branchName, defaultBranch])
-	) {
+	if (!runCommandInherit('git', ['worktree', 'add', worktreePath, '-b', branchName, baseBranch])) {
 		console.error(`${colors.red}Failed to create worktree${colors.reset}`);
 		process.exit(1);
 	}
