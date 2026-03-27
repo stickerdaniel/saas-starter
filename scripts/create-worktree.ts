@@ -301,9 +301,20 @@ function main(): void {
 	}
 
 	// Determine base branch: current branch by default, or --base override
-	const baseBranch =
-		(values['base'] as string | undefined) ??
-		runCommand('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { silent: true }).stdout;
+	const baseArg = values['base'] as string | undefined;
+	let baseBranch: string;
+	if (baseArg) {
+		baseBranch = baseArg;
+	} else {
+		const result = runCommand('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { silent: true });
+		if (!result.success || !result.stdout) {
+			console.error(
+				`${colors.red}Error: Cannot determine current branch. Use --base <branch> explicitly.${colors.reset}`
+			);
+			process.exit(1);
+		}
+		baseBranch = result.stdout;
+	}
 	console.log(`Base branch: ${baseBranch}`);
 
 	// Create worktree
