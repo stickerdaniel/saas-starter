@@ -64,16 +64,19 @@
 		if (!wrapperEl) return;
 		// Re-run when the color mode changes so the gradient matches the new theme background
 		void mode.current;
-		// Walk up to find the first ancestor with a non-transparent background
-		let el: HTMLElement | null = wrapperEl;
-		while (el) {
-			const bg = getComputedStyle(el).backgroundColor;
-			if (bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent') {
-				resolvedBg = bg;
-				return;
+		// Defer style read until the browser has applied the new theme class
+		requestAnimationFrame(() => {
+			// Walk up to find the first ancestor with a non-transparent background
+			let el: HTMLElement | null = wrapperEl!;
+			while (el) {
+				const bg = getComputedStyle(el).backgroundColor;
+				if (bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent') {
+					resolvedBg = bg;
+					return;
+				}
+				el = el.parentElement;
 			}
-			el = el.parentElement;
-		}
+		});
 	});
 
 	// Handoff message text to detect - use the same translation as backend
