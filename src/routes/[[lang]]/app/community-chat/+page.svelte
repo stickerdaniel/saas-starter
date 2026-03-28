@@ -211,7 +211,7 @@
 											</span>
 										{/if}
 										<div
-											class="min-w-28 max-w-[85%] overflow-hidden rounded-2xl bg-primary/15 px-4 py-2.5 text-foreground break-words md:max-w-[75%]"
+											class="max-w-[85%] min-w-28 overflow-hidden rounded-2xl bg-primary/15 px-4 py-2.5 break-words text-foreground md:max-w-[75%]"
 										>
 											<div class="flex items-end gap-3">
 												<p class="min-w-0 break-words whitespace-pre-wrap">
