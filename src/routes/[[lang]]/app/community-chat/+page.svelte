@@ -24,6 +24,7 @@
 	import { haptic } from '$lib/hooks/use-haptic.svelte';
 	import { toast } from 'svelte-sonner';
 	import { mode } from 'mode-watcher';
+	import { tick, onMount } from 'svelte';
 
 	import { page } from '$app/state';
 	import { T, getTranslate } from '@tolgee/svelte';
@@ -59,6 +60,11 @@
 
 	// Scroll context
 	const chatCtx = new ChatContainerContext();
+
+	// Auto-focus input on mount
+	onMount(() => {
+		tick().then(() => document.querySelector<HTMLTextAreaElement>('textarea')?.focus());
+	});
 
 	// Fade animation
 	const messagesFade = new FadeOnLoad();

@@ -207,6 +207,13 @@
 										<item.icon />
 									{/if}
 									<span><T keyName={item.translationKey} /></span>
+									{#if item.kbd}
+										<Kbd.Root
+											class="ml-auto opacity-0 transition-opacity group-hover/menu-item:opacity-50"
+										>
+											{item.kbd}
+										</Kbd.Root>
+									{/if}
 								</Button>
 								{#if item.badge && item.badge > 0}
 									<Sidebar.MenuBadge>{item.badge >= 100 ? '99+' : item.badge}</Sidebar.MenuBadge>
@@ -233,6 +240,13 @@
 							>
 								<link.icon />
 								<span><T keyName={link.translationKey} /></span>
+								{#if link.kbd}
+									<Kbd.Root
+										class="ml-auto opacity-0 transition-opacity group-hover/menu-item:opacity-50"
+									>
+										{link.kbd}
+									</Kbd.Root>
+								{/if}
 							</Button>
 						</Sidebar.MenuItem>
 					{/if}

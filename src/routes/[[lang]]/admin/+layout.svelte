@@ -3,6 +3,9 @@
 	import SupportTicketMigrationBootstrap from '$lib/components/customer-support/support-ticket-migration-bootstrap.svelte';
 	import { AuthenticatedLayout, getAdminSidebarConfig } from '$lib/components/authenticated';
 	import { page } from '$app/state';
+	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
+	import { localizedHref } from '$lib/utils/i18n';
 	import type { LayoutData } from './$types';
 	import type { Snippet } from 'svelte';
 	import { setContext } from 'svelte';
@@ -38,7 +41,30 @@
 	// Context value is intentionally snapshot for layout lifetime.
 	// svelte-ignore state_referenced_locally
 	setContext('currentUserId', viewer?._id);
+
+	// Keyboard shortcuts for admin sidebar navigation
+	function handleKeydown(e: KeyboardEvent) {
+		if (!(e.metaKey || e.ctrlKey) || e.shiftKey || e.altKey) return;
+		const target = e.target as HTMLElement;
+		if (target.closest('input, textarea, [contenteditable]')) return;
+
+		const routes: Record<string, string> = {
+			'1': localizedHref('/admin/dashboard'),
+			'2': localizedHref('/admin/users'),
+			'3': localizedHref('/admin/support'),
+			'4': localizedHref('/admin/settings'),
+			';': localizedHref('/app')
+		};
+
+		const url = routes[e.key];
+		if (!url) return;
+
+		e.preventDefault();
+		goto(resolve(url));
+	}
 </script>
+
+<svelte:document onkeydown={handleKeydown} />
 
 <PostHogIdentify />
 <SupportTicketMigrationBootstrap />

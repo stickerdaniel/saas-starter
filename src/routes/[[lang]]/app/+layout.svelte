@@ -5,6 +5,7 @@
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { tick } from 'svelte';
 	import { localizedHref } from '$lib/utils/i18n';
 	import { useQuery, useConvexClient } from 'convex-svelte';
 	import { api } from '$lib/convex/_generated/api';
@@ -62,15 +63,29 @@
 		page.url.pathname.includes('/app/ai-chat') || page.url.pathname.includes('/app/community-chat')
 	);
 
-	// Cmd+Shift+O / Ctrl+Shift+O: navigate to new AI chat thread
+	// Keyboard shortcuts for sidebar navigation
 	function handleKeydown(e: KeyboardEvent) {
-		if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'o') {
-			e.preventDefault();
-			const url = warmThreadId
+		if (!(e.metaKey || e.ctrlKey) || e.shiftKey || e.altKey) return;
+		const target = e.target as HTMLElement;
+		if (target.closest('input, textarea, [contenteditable]')) return;
+
+		const routes: Record<string, string> = {
+			'1': localizedHref('/app/community-chat'),
+			'2': warmThreadId
 				? localizedHref(`/app/ai-chat?thread=${warmThreadId}`)
-				: localizedHref('/app/ai-chat');
-			goto(resolve(url));
-		}
+				: localizedHref('/app/ai-chat'),
+			';': localizedHref('/admin'),
+			',': localizedHref('/app/settings')
+		};
+
+		const url = routes[e.key];
+		if (!url) return;
+
+		e.preventDefault();
+		goto(resolve(url)).then(() => {
+			// Focus chat input even if already on the page
+			tick().then(() => document.querySelector<HTMLTextAreaElement>('textarea')?.focus());
+		});
 	}
 
 	// Generate sidebar config based on current page state

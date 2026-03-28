@@ -51,6 +51,8 @@ export interface FooterLink {
 	url: string;
 	icon: LucideIcon;
 	condition?: boolean;
+	/** Keyboard shortcut hint (e.g. "⌘;") */
+	kbd?: string;
 }
 
 export interface SidebarConfig {
