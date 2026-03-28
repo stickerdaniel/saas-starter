@@ -212,11 +212,11 @@
 											</span>
 										{/if}
 										<MessageBubble align={own ? 'right' : 'left'} variant="filled">
-											<p class="inline whitespace-pre-wrap break-words">
+											<p class="inline break-words whitespace-pre-wrap">
 												{message.body}
 											</p>
 											<span
-												class="ml-2 inline-block translate-y-[3px] whitespace-nowrap align-bottom text-xs text-muted-foreground/60"
+												class="ml-2 inline-block translate-y-[3px] align-bottom text-xs whitespace-nowrap text-muted-foreground/60"
 											>
 												{formatTime(message._creationTime)}
 											</span>
