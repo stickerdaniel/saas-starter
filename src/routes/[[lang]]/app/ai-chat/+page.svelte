@@ -76,6 +76,7 @@
 			isPro={hasAiChatAccess}
 			onUpgrade={handleUpgrade}
 			isUpgrading={upgradeOperation.isLoading}
+			onMessageSent={() => autumn.refetch()}
 		/>
 	</div>
 {/if}

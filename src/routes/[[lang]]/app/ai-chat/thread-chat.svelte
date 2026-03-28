@@ -18,12 +18,14 @@
 		threadId,
 		isPro = false,
 		onUpgrade,
-		isUpgrading = false
+		isUpgrading = false,
+		onMessageSent
 	}: {
 		threadId: string;
 		isPro?: boolean;
 		onUpgrade?: () => void;
 		isUpgrading?: boolean;
+		onMessageSent?: () => void;
 	} = $props();
 
 	const client = useConvexClient();
@@ -112,6 +114,7 @@
 							attachments: chatUIContext.attachments
 						});
 						chatUIContext.clearAttachments();
+						onMessageSent?.();
 					} catch (error) {
 						console.error('[AI Chat sendMessage] Error:', error);
 						toast.error($t('chat.messages.send_failed'));
