@@ -336,7 +336,7 @@ async function main(): Promise<void> {
 
 		// Autumn billing config validation (no auth needed, runs locally)
 		printHeader(step++, 'Autumn config');
-		runCommand('atmn', ['preview']);
+		runCommand('bun', ['atmn', 'preview']);
 		console.log('\n');
 	}
 
