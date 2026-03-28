@@ -1,5 +1,4 @@
 <script lang="ts">
-	/* eslint-disable svelte/no-navigation-without-resolve -- Query-string-only hrefs don't need resolve() */
 	import { onMount } from 'svelte';
 	import { T, getTranslate } from '@tolgee/svelte';
 	import { resolve } from '$app/paths';
@@ -181,7 +180,10 @@
 				<T keyName="auth.signin.no_account" defaultValue="Don't have an account?" />
 				<a
 					bind:this={signUpLink}
-					href="?tab=signup{redirectTo ? `&redirectTo=${encodeURIComponent(redirectTo)}` : ''}"
+					href={resolve(
+						localizedHref('/signup') +
+							(redirectTo ? `?redirectTo=${encodeURIComponent(redirectTo)}` : '')
+					)}
 					onkeydown={handleSignUpLinkKeydown}
 					class="underline underline-offset-4"
 				>
