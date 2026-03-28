@@ -107,7 +107,10 @@
 								class="group/collapsible"
 							>
 								{#snippet child({ props })}
-									<Sidebar.MenuItem {...props} class="has-[:active]:translate-y-px">
+									<Sidebar.MenuItem
+										{...props}
+										class="has-[[data-sidebar=menu-button]:active]:translate-y-px"
+									>
 										<Sidebar.MenuButton
 											isActive={item.isActive}
 											class="active:!translate-y-0"
@@ -135,7 +138,7 @@
 											{#snippet child({ props })}
 												<Sidebar.MenuAction
 													{...props}
-													class="transition-transform duration-200 data-[state=open]:rotate-90"
+													class="transition-transform duration-200 active:translate-y-px data-[state=open]:rotate-90"
 												>
 													<ChevronRightIcon />
 												</Sidebar.MenuAction>
