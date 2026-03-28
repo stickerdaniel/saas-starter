@@ -216,7 +216,11 @@
 												<p class="whitespace-pre-wrap break-words">
 													{message.body}
 												</p>
-												<span class="text-xs text-muted-foreground/60 {own ? 'text-end' : ''}">
+												<span
+													class="whitespace-nowrap text-xs text-muted-foreground/60 {own
+														? 'text-end'
+														: ''}"
+												>
 													{formatTime(message._creationTime)}
 												</span>
 											</div>
