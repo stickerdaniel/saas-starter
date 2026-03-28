@@ -385,6 +385,10 @@
 	-webkit-user-drag: none;
 }
 
+@utility ease-sidebar {
+	transition-timing-function: cubic-bezier(0.23, 1, 0.32, 1);
+}
+
 @utility marketing-shell-panel {
 	border-color: rgb(0 0 0 / 0.06);
 	background: linear-gradient(137deg, rgb(252 252 255 / 0.9) 4.87%, rgb(240 240 248 / 0.95) 75.88%);
