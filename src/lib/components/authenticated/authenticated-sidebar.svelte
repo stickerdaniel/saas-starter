@@ -107,13 +107,9 @@
 								class="group/collapsible"
 							>
 								{#snippet child({ props })}
-									<Sidebar.MenuItem
-										{...props}
-										class="has-[[data-sidebar=menu-button]:active]:translate-y-px"
-									>
+									<Sidebar.MenuItem {...props}>
 										<Sidebar.MenuButton
 											isActive={item.isActive}
-											class="active:!translate-y-0"
 											onclick={() => haptic.trigger('light')}
 										>
 											{#snippet child({ props })}
