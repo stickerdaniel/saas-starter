@@ -31,7 +31,7 @@ export const free = plan({
 	items: [
 		item({
 			featureId: messages.id,
-			included: 10,
+			included: 3,
 			reset: { interval: 'month' }
 		})
 	]
@@ -52,7 +52,7 @@ export const pro = plan({
 		}),
 		item({
 			featureId: aiChatMessages.id,
-			included: 200,
+			included: 30,
 			reset: { interval: 'month' }
 		})
 	]
