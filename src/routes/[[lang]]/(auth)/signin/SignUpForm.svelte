@@ -87,6 +87,7 @@
 				</Field.Label>
 				<Input
 					id="name-{id}"
+					name="name"
 					type="text"
 					autocomplete="name"
 					placeholder="Your name"
@@ -101,6 +102,7 @@
 				</Field.Label>
 				<Input
 					id="signup-email-{id}"
+					name="email"
 					type="email"
 					autocomplete="username"
 					placeholder="m@example.com"
@@ -116,6 +118,7 @@
 				<Password.Root>
 					<Password.Input
 						id="signup-password-{id}"
+						name="password"
 						autocomplete="new-password"
 						disabled={isFormDisabled}
 						bind:value={signUpData.password}

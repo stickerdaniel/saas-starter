@@ -108,6 +108,7 @@
 				<Field.Label for="email-{id}"><T keyName="auth.signin.email_label" /></Field.Label>
 				<Input
 					id="email-{id}"
+					name="email"
 					data-testid="email-input"
 					type="email"
 					autocomplete="username"
@@ -134,6 +135,7 @@
 				</div>
 				<Input
 					id="password-{id}"
+					name="password"
 					data-testid="password-input"
 					type="password"
 					autocomplete="current-password"

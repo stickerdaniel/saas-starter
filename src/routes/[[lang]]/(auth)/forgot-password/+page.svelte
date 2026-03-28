@@ -188,6 +188,7 @@
 								</Field.Label>
 								<Input
 									id="email-{id}"
+									name="email"
 									data-testid="forgot-password-email-input"
 									type="email"
 									autocomplete="username"
