@@ -333,6 +333,11 @@ async function main(): Promise<void> {
 			});
 		}
 		console.log('\n');
+
+		// Autumn billing config validation (no auth needed, runs locally)
+		printHeader(step++, 'Autumn config');
+		runCommand('atmn', ['preview']);
+		console.log('\n');
 	}
 
 	// Re-stage files if they were modified during --staged checks
