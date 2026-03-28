@@ -146,7 +146,7 @@
 
 		try {
 			let failed = false;
-			const finalDestination = params.redirectTo || localizedHref('/app');
+			const finalDestination = safeRedirectPath(params.redirectTo, localizedHref('/app'));
 			const callbackURL =
 				localizedHref('/email-verified') + `?redirectTo=${encodeURIComponent(finalDestination)}`;
 			await authClient.signUp.email(

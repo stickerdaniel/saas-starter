@@ -44,7 +44,7 @@
 	const hasOAuthAuth = $derived(
 		Boolean(oauthProviders.data?.google || oauthProviders.data?.github)
 	);
-	const hasAlternativeAuth = $derived(hasOAuthAuth || true); // passkey always available on signin
+	const hasAlternativeAuth = true; // passkey always available on signin
 	const enabledProviderCount = $derived(
 		(oauthProviders.data?.google ? 1 : 0) + (oauthProviders.data?.github ? 1 : 0) + 1 // passkey
 	);
