@@ -30,9 +30,10 @@ export const generateUploadUrl = mutation({
 			throw new ConvexError('Authentication required');
 		}
 
-		// Verify Pro subscription (defense-in-depth, UI also gates)
+		// Verify Pro subscription (defense-in-depth, UI is primary gate)
+		// Only hard-block on definitive denial; fall through on errors/missing data
 		const proCheck = await autumn.check(ctx, { productId: 'pro' });
-		if (proCheck.error || !proCheck.data?.allowed) {
+		if (proCheck.data && !proCheck.data.allowed) {
 			throw new ConvexError('Pro subscription required');
 		}
 
