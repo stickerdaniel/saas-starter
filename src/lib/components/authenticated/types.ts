@@ -27,6 +27,8 @@ export interface NavItem {
 	hasMore?: boolean;
 	/** Callback to load more sub-items */
 	onLoadMore?: () => void;
+	/** Keyboard shortcut hint (e.g. "⌘N") */
+	kbd?: string;
 	/** When true, clicking the main button does nothing (e.g. already on empty thread) */
 	disableNav?: boolean;
 }

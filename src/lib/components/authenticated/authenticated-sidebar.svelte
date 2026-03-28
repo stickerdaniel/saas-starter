@@ -12,6 +12,7 @@
 	import { PersistedState } from 'runed';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import autoAnimate from '@formkit/auto-animate';
+	import * as Kbd from '$lib/components/ui/kbd/index.js';
 	import { getTranslate } from '@tolgee/svelte';
 
 	const { t } = getTranslate();
@@ -121,6 +122,11 @@
 														<item.icon />
 													{/if}
 													<span><T keyName={item.translationKey} /></span>
+													{#if item.kbd}
+														<Kbd.Root class="ml-auto opacity-50">
+															{item.kbd}
+														</Kbd.Root>
+													{/if}
 												</a>
 											{/snippet}
 										</Sidebar.MenuButton>

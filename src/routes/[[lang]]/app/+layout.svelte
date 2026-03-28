@@ -3,6 +3,9 @@
 	import SupportTicketMigrationBootstrap from '$lib/components/customer-support/support-ticket-migration-bootstrap.svelte';
 	import { AuthenticatedLayout, getAppSidebarConfig } from '$lib/components/authenticated';
 	import { page } from '$app/state';
+	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
+	import { localizedHref } from '$lib/utils/i18n';
 	import { useQuery, useConvexClient } from 'convex-svelte';
 	import { api } from '$lib/convex/_generated/api';
 	import { getTranslate } from '@tolgee/svelte';
@@ -59,6 +62,19 @@
 		page.url.pathname.includes('/app/ai-chat') || page.url.pathname.includes('/app/community-chat')
 	);
 
+	// Cmd+N / Ctrl+N: navigate to new AI chat thread
+	function handleKeydown(e: KeyboardEvent) {
+		if ((e.metaKey || e.ctrlKey) && e.key === 'n') {
+			const target = e.target as HTMLElement;
+			if (target.closest('input, textarea, [contenteditable]')) return;
+			e.preventDefault();
+			const url = warmThreadId
+				? localizedHref(`/app/ai-chat?thread=${warmThreadId}`)
+				: localizedHref('/app/ai-chat');
+			goto(resolve(url));
+		}
+	}
+
 	// Generate sidebar config based on current page state
 	const sidebarConfig = $derived(
 		getAppSidebarConfig(
@@ -72,6 +88,8 @@
 		)
 	);
 </script>
+
+<svelte:document onkeydown={handleKeydown} />
 
 <PostHogIdentify />
 <SupportTicketMigrationBootstrap />

@@ -1,4 +1,5 @@
 import { localizedHref } from '$lib/utils/i18n';
+import { cmdOrCtrl } from '$lib/hooks/is-mac.svelte';
 import MessagesSquareIcon from '@lucide/svelte/icons/messages-square';
 import BotMessageSquareIcon from '@lucide/svelte/icons/bot-message-square';
 import ServerCogIcon from '@lucide/svelte/icons/server-cog';
@@ -71,6 +72,7 @@ export function getAppSidebarConfig(
 				subItems: aiChatSubItems,
 				hasMore: threadsHasMore,
 				onLoadMore: onLoadMoreThreads,
+				kbd: `${cmdOrCtrl}N`,
 				// Disable nav when already on the warm thread (already "new chat")
 				disableNav: !!activeThreadId && activeThreadId === warmThreadId
 			}

@@ -11,6 +11,7 @@
 	import LockIcon from '@lucide/svelte/icons/lock';
 	import { T, getTranslate } from '@tolgee/svelte';
 	import { page } from '$app/state';
+	import { tick } from 'svelte';
 
 	const { t } = getTranslate();
 
@@ -62,6 +63,17 @@
 
 	const chatUIContext = new ChatUIContext(chatCore, client, uploadConfig, 'right');
 
+	// Auto-focus input when thread changes
+	let chatContainer: HTMLDivElement | undefined = $state();
+
+	$effect(() => {
+		void threadId;
+		if (!chatContainer) return;
+		tick().then(() => {
+			chatContainer?.querySelector<HTMLTextAreaElement>('textarea')?.focus();
+		});
+	});
+
 	const suggestions = [
 		{ text: $t('ai_chat.suggestion.understand'), label: $t('ai_chat.suggestion.understand') },
 		{ text: $t('ai_chat.suggestion.explain'), label: $t('ai_chat.suggestion.explain') },
@@ -69,7 +81,7 @@
 	];
 </script>
 
-<div class="flex h-full flex-col">
+<div bind:this={chatContainer} class="flex h-full flex-col">
 	<ChatRoot
 		threadId={threadId || null}
 		externalCore={chatCore}
