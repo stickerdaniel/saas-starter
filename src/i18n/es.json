@@ -717,7 +717,7 @@
 		},
 		"new_chat": "Nuevo chat",
 		"pro_required": {
-			"description": "El Chat IA está disponible para suscriptores Pro. Prueba gratis con la tarjeta de prueba 4242 4242 4242 4242.",
+			"description": "Actualiza a Pro para 30 mensajes de Chat IA al mes. Prueba gratis con la tarjeta de prueba 4242 4242 4242 4242.",
 			"title": "Función Pro"
 		},
 		"select_chat": "Selecciona una conversación o inicia un nuevo chat",

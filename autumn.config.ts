@@ -33,6 +33,11 @@ export const free = plan({
 			featureId: messages.id,
 			included: 3,
 			reset: { interval: 'month' }
+		}),
+		item({
+			featureId: aiChatMessages.id,
+			included: 3,
+			reset: { interval: 'month' }
 		})
 	]
 });
