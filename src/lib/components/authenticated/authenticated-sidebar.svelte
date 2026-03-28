@@ -24,14 +24,13 @@
 	let { config, user, ...restProps }: Props = $props();
 
 	function timeAgo(timestamp: number): string {
-		const seconds = Math.floor((Date.now() - timestamp) / 1000);
-		if (seconds < 60) return $t('ai_chat.time.just_now');
-		const minutes = Math.floor(seconds / 60);
+		const diff = Date.now() - timestamp;
+		const minutes = Math.floor(diff / 60_000);
+		if (minutes < 1) return 'now';
 		if (minutes < 60) return `${minutes}m`;
 		const hours = Math.floor(minutes / 60);
 		if (hours < 24) return `${hours}h`;
-		const days = Math.floor(hours / 24);
-		return `${days}d`;
+		return `${Math.floor(hours / 24)}d`;
 	}
 
 	const aiChatOpen = new PersistedState('ai-chat-threads-open', true);
