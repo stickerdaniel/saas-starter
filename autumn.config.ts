@@ -22,12 +22,12 @@ export const aiChatMessages = feature({
 
 /**
  * Free tier with limited message usage.
- * Automatically attached to new customers via is_default.
+ * Automatically attached to new customers via autoEnable.
  */
 export const free = plan({
 	id: 'free',
 	name: 'Free',
-	is_default: true,
+	autoEnable: true,
 	items: [
 		item({
 			featureId: messages.id,
