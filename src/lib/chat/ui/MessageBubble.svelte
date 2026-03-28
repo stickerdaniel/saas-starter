@@ -34,7 +34,7 @@
 	// Variant styling - stays constant regardless of alignment
 	const variantClasses = $derived(
 		variant === 'filled'
-			? 'bg-primary/15 px-4 py-2 max-w-[85%] md:max-w-[75%] overflow-hidden rounded-2xl text-foreground break-words'
+			? 'bg-primary/15 px-4 py-2 min-w-28 max-w-[85%] md:max-w-[75%] overflow-hidden rounded-2xl text-foreground break-words'
 			: 'bg-transparent p-0 prose w-full rounded-3xl text-foreground'
 	);
 </script>
