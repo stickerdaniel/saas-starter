@@ -704,12 +704,47 @@
 			"verified": "Verifiziert"
 		}
 	},
+	"ai_chat": {
+		"delete_thread": "Unterhaltung löschen",
+		"delete_thread_confirm": "Sind Sie sicher, dass Sie diese Unterhaltung löschen möchten?",
+		"description": "Chatten Sie mit unserem KI-Assistenten",
+		"empty": {
+			"description": "Stellen Sie eine Frage und erhalten Sie sofort KI-gestützte Antworten.",
+			"title": "Unterhaltung starten"
+		},
+		"input": {
+			"placeholder": "Nachricht eingeben..."
+		},
+		"new_chat": "Neuer Chat",
+		"pro_required": {
+			"description": "KI-Chat ist für Pro-Abonnenten verfügbar. Upgraden Sie, um mit unserem KI-Assistenten zu chatten.",
+			"title": "Pro-Funktion"
+		},
+		"select_chat": "Wählen Sie eine Unterhaltung oder starten Sie einen neuen Chat",
+		"suggestion": {
+			"explain": "Erkläre etwas",
+			"help": "Hilfe erhalten",
+			"understand": "Hilf mir zu verstehen"
+		},
+		"thread": {
+			"loading": "Wird geladen...",
+			"no_messages": "Neue Unterhaltung"
+		},
+		"title": "KI-Chat"
+	},
 	"app": {
+		"dashboard": {
+			"subtitle": "Dies ist Ihre Zentrale. Echtzeit-Metriken und Aktivitäten werden hier angezeigt, während Sie Ihre App aufbauen.",
+			"title": "Willkommen in Ihrem Dashboard"
+		},
 		"name": "SaaS Starter",
 		"sidebar": {
 			"admin_panel": "Admin-Bereich",
 			"ai_chat": "KI-Chat",
-			"community_chat": "Community-Chat"
+			"community_chat": "Community-Chat",
+			"dashboard": "Dashboard",
+			"docs": "Dokumentation",
+			"home": "Start"
 		},
 		"user_menu": {
 			"account": "Konto",
@@ -723,34 +758,6 @@
 			"settings": "Einstellungen",
 			"stop_impersonating": "Identitätswechsel beenden",
 			"upgrade_pro": "Auf Pro upgraden"
-		}
-	},
-	"ai_chat": {
-		"title": "KI-Chat",
-		"description": "Chatten Sie mit unserem KI-Assistenten",
-		"new_chat": "Neuer Chat",
-		"select_chat": "Wählen Sie eine Unterhaltung oder starten Sie einen neuen Chat",
-		"delete_thread": "Unterhaltung löschen",
-		"delete_thread_confirm": "Sind Sie sicher, dass Sie diese Unterhaltung löschen möchten?",
-		"empty": {
-			"title": "Unterhaltung starten",
-			"description": "Stellen Sie eine Frage und erhalten Sie sofort KI-gestützte Antworten."
-		},
-		"input": {
-			"placeholder": "Nachricht eingeben..."
-		},
-		"suggestion": {
-			"understand": "Hilf mir zu verstehen",
-			"explain": "Erkläre etwas",
-			"help": "Hilfe erhalten"
-		},
-		"pro_required": {
-			"title": "Pro-Funktion",
-			"description": "KI-Chat ist für Pro-Abonnenten verfügbar. Upgraden Sie, um mit unserem KI-Assistenten zu chatten."
-		},
-		"thread": {
-			"no_messages": "Neue Unterhaltung",
-			"loading": "Wird geladen..."
 		}
 	},
 	"aria": {
@@ -1192,6 +1199,14 @@
 			"community_chat": {
 				"description": "Chatten Sie in Echtzeit mit der Community.",
 				"title": "Community-Chat"
+			},
+			"dashboard": {
+				"description": "Sehen Sie wichtige Kennzahlen und aktuelle Aktivitäten.",
+				"title": "Dashboard"
+			},
+			"home": {
+				"description": "Weiterleitung zu Ihrem Workspace-Dashboard.",
+				"title": "App-Start"
 			},
 			"settings": {
 				"description": "Verwalten Sie Ihre Kontoeinstellungen und Präferenzen.",

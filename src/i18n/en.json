@@ -704,12 +704,47 @@
 			"verified": "Verified"
 		}
 	},
+	"ai_chat": {
+		"delete_thread": "Delete conversation",
+		"delete_thread_confirm": "Are you sure you want to delete this conversation?",
+		"description": "Chat with our AI assistant",
+		"empty": {
+			"description": "Ask anything and get instant AI-powered answers.",
+			"title": "Start a conversation"
+		},
+		"input": {
+			"placeholder": "Type a message..."
+		},
+		"new_chat": "New Chat",
+		"pro_required": {
+			"description": "AI Chat is available for Pro subscribers. Upgrade to start chatting with our AI assistant.",
+			"title": "Pro Feature"
+		},
+		"select_chat": "Select a conversation or start a new chat",
+		"suggestion": {
+			"explain": "Explain something",
+			"help": "Get help",
+			"understand": "Help me understand"
+		},
+		"thread": {
+			"loading": "Loading...",
+			"no_messages": "New conversation"
+		},
+		"title": "AI Chat"
+	},
 	"app": {
+		"dashboard": {
+			"subtitle": "This is your home base. Real-time metrics and activity will appear here as you build out your app.",
+			"title": "Welcome to your dashboard"
+		},
 		"name": "SaaS Starter",
 		"sidebar": {
 			"admin_panel": "Admin Panel",
 			"ai_chat": "AI Chat",
-			"community_chat": "Community Chat"
+			"community_chat": "Community Chat",
+			"dashboard": "Dashboard",
+			"docs": "Docs",
+			"home": "Home"
 		},
 		"user_menu": {
 			"account": "Account",
@@ -723,34 +758,6 @@
 			"settings": "Settings",
 			"stop_impersonating": "Stop Impersonating",
 			"upgrade_pro": "Upgrade to Pro"
-		}
-	},
-	"ai_chat": {
-		"title": "AI Chat",
-		"description": "Chat with our AI assistant",
-		"new_chat": "New Chat",
-		"select_chat": "Select a conversation or start a new chat",
-		"delete_thread": "Delete conversation",
-		"delete_thread_confirm": "Are you sure you want to delete this conversation?",
-		"empty": {
-			"title": "Start a conversation",
-			"description": "Ask anything and get instant AI-powered answers."
-		},
-		"input": {
-			"placeholder": "Type a message..."
-		},
-		"suggestion": {
-			"understand": "Help me understand",
-			"explain": "Explain something",
-			"help": "Get help"
-		},
-		"pro_required": {
-			"title": "Pro Feature",
-			"description": "AI Chat is available for Pro subscribers. Upgrade to start chatting with our AI assistant."
-		},
-		"thread": {
-			"no_messages": "New conversation",
-			"loading": "Loading..."
 		}
 	},
 	"aria": {
@@ -1192,6 +1199,14 @@
 			"community_chat": {
 				"description": "Chat with the community in real time.",
 				"title": "Community Chat"
+			},
+			"dashboard": {
+				"description": "View key metrics and recent activity.",
+				"title": "Dashboard"
+			},
+			"home": {
+				"description": "Redirecting to your workspace dashboard.",
+				"title": "App Home"
 			},
 			"settings": {
 				"description": "Manage your account settings and preferences.",

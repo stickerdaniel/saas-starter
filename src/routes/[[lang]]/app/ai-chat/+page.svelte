@@ -34,19 +34,30 @@
 	$effect(() => {
 		if (!threadId && !resolvingThread && viewer.data) {
 			resolvingThread = true;
-			client.mutation(api.aiChat.threads.getOrCreateWarmThread, {}).then((result) => {
-				const url = new URL(page.url);
-				url.searchParams.set('thread', result.threadId);
-				goto(resolve(url.pathname + url.search), { noScroll: true, replaceState: true });
-			});
+			client
+				.mutation(api.aiChat.threads.getOrCreateWarmThread, {})
+				.then((result) => {
+					const url = new URL(page.url);
+					url.searchParams.set('thread', result.threadId);
+					goto(resolve(url.pathname + url.search), { noScroll: true, replaceState: true });
+				})
+				.catch((err) => {
+					console.error('[ai-chat] Failed to resolve warm thread:', err);
+				})
+				.finally(() => {
+					resolvingThread = false;
+				});
 		}
 	});
 
 	async function handleUpgrade() {
 		haptic.trigger('light');
+		const successUrl = new URL(page.url.href);
+		successUrl.searchParams.delete('thread');
+		successUrl.searchParams.set('upgraded', 'true');
 		const result = await upgradeOperation.execute({
 			productId: 'pro',
-			successUrl: page.url.href + '?upgraded=true'
+			successUrl: successUrl.href
 		});
 		if (result?.url) {
 			window.location.href = result.url;

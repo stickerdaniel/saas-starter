@@ -11,6 +11,7 @@ import { aiChatRateLimiter } from './rateLimit';
 import { listMessagesForThread } from '../support/messageListing';
 import { authedMutation } from '../functions';
 import { authComponent } from '../auth';
+import { autumn } from '../autumn';
 
 /**
  * Send a user message and get AI response with streaming
@@ -38,6 +39,12 @@ export const sendMessage = authedMutation({
 			.first();
 		if (!record || record.userId !== userId) {
 			throw new ConvexError('Thread not found');
+		}
+
+		// Verify Pro subscription (defense-in-depth, UI also gates)
+		const proCheck = await autumn.check(ctx, { productId: 'pro' });
+		if (proCheck.error || !proCheck.data?.allowed) {
+			throw new ConvexError('Pro subscription required');
 		}
 
 		// Consume warm thread on first message (backend-driven, no client coordination needed)

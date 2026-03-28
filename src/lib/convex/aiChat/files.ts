@@ -5,6 +5,7 @@ import { components, internal } from '../_generated/api';
 import { t } from '../i18n/translations';
 import { aiChatRateLimiter } from './rateLimit';
 import { authComponent } from '../auth';
+import { autumn } from '../autumn';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
@@ -27,6 +28,12 @@ export const generateUploadUrl = mutation({
 		const user = await authComponent.getAuthUser(ctx);
 		if (!user) {
 			throw new ConvexError('Authentication required');
+		}
+
+		// Verify Pro subscription (defense-in-depth, UI also gates)
+		const proCheck = await autumn.check(ctx, { productId: 'pro' });
+		if (proCheck.error || !proCheck.data?.allowed) {
+			throw new ConvexError('Pro subscription required');
 		}
 
 		const rateLimitStatus = await aiChatRateLimiter.limit(ctx, 'aiChatFileUpload', {

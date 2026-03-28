@@ -5,8 +5,11 @@
 	import { page } from '$app/state';
 	import { useQuery, useConvexClient } from 'convex-svelte';
 	import { api } from '$lib/convex/_generated/api';
+	import { getTranslate } from '@tolgee/svelte';
 	import type { LayoutData } from './$types';
 	import type { Snippet } from 'svelte';
+
+	const { t } = getTranslate();
 
 	interface Props {
 		children?: Snippet;
@@ -48,7 +51,8 @@
 			{ pathname: page.url.pathname, search: page.url.search, lang: page.params.lang },
 			viewer?.role,
 			aiChatThreads,
-			warmThreadId
+			warmThreadId,
+			$t('ai_chat.thread.no_messages')
 		)
 	);
 </script>

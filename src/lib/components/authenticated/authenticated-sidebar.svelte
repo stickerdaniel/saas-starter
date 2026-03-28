@@ -25,9 +25,11 @@
 	let subMenuRef = $state<HTMLElement | null>(null);
 
 	$effect(() => {
-		if (subMenuRef) {
-			autoAnimate(subMenuRef, { duration: 180, easing: 'ease-out' });
-		}
+		if (!subMenuRef) return;
+		const controller = autoAnimate(subMenuRef, { duration: 180, easing: 'ease-out' });
+		return () => {
+			controller.destroy?.();
+		};
 	});
 </script>
 

@@ -20,7 +20,8 @@ export function getAppSidebarConfig(
 	pageState: PageState,
 	userRole?: string,
 	aiChatThreads?: AiChatThread[],
-	warmThreadId?: string | null
+	warmThreadId?: string | null,
+	newConversationLabel?: string
 ): SidebarConfig {
 	const { pathname, search, lang } = pageState;
 
@@ -34,7 +35,7 @@ export function getAppSidebarConfig(
 			? thread.lastMessage.length > 30
 				? thread.lastMessage.slice(0, 30) + '...'
 				: thread.lastMessage
-			: 'New conversation',
+			: newConversationLabel || 'New conversation',
 		url: localizedHref(`/app/ai-chat?thread=${thread._id}`),
 		isActive: activeThreadId === thread._id
 	}));
