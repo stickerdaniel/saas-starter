@@ -42,8 +42,10 @@
 		}
 	});
 
-	// AI chat page needs fullControl (manages own scroll like admin support)
-	const fullControl = $derived(page.url.pathname.includes('/app/ai-chat'));
+	// Chat pages need fullControl (manage own scroll containers)
+	const fullControl = $derived(
+		page.url.pathname.includes('/app/ai-chat') || page.url.pathname.includes('/app/community-chat')
+	);
 
 	// Generate sidebar config based on current page state
 	const sidebarConfig = $derived(

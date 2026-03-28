@@ -1,9 +1,8 @@
-import { action, internalMutation } from './_generated/server';
+import { internalAction } from './_generated/server';
 import { v, ConvexError } from 'convex/values';
-import { autumn } from './autumn';
 import { components, internal } from './_generated/api';
-import { authComponent } from './auth';
-import { authedQuery } from './functions';
+import { authedQuery, authedMutation } from './functions';
+import { getAutumnSdk } from './autumn';
 
 export const list = authedQuery({
 	args: {},
@@ -55,69 +54,44 @@ export const list = authedQuery({
 });
 
 /**
- * Internal mutation to insert a message into the database.
- * Called by the send action after billing checks pass.
+ * Send a community chat message.
+ *
+ * Mutation (not action) so Convex optimistic updates work.
+ * Billing is enforced client-side via Autumn customer balance;
+ * usage tracking is scheduled as a fire-and-forget internalAction.
  */
-export const insertMessage = internalMutation({
-	args: {
-		body: v.string(),
-		userId: v.string()
-	},
-	returns: v.id('messages'),
-	handler: async (ctx, { body, userId }) => {
-		return await ctx.db.insert('messages', { body, userId });
+export const send = authedMutation({
+	args: { body: v.string() },
+	handler: async (ctx, { body }) => {
+		if (body.length > 2000) {
+			throw new ConvexError('Message is too long (max 2000 characters)');
+		}
+
+		const messageId = await ctx.db.insert('messages', {
+			body,
+			userId: ctx.user._id
+		});
+
+		await ctx.scheduler.runAfter(0, internal.messages.trackMessageUsage, {
+			userId: ctx.user._id
+		});
+
+		return { messageId };
 	}
 });
 
 /**
- * Send a message action.
- * Checks billing limits, inserts message, and tracks usage.
+ * Track community chat message usage via Autumn SDK.
+ * Scheduled from the send mutation (fire-and-forget).
  */
-export const send = action({
-	args: { body: v.string() },
-	returns: v.object({
-		success: v.boolean(),
-		error: v.optional(v.string()),
-		remainingMessages: v.optional(v.number())
-	}),
-	handler: async (ctx, { body }) => {
-		const user = await authComponent.getAuthUser(ctx);
-		if (!user) {
-			throw new ConvexError('Not signed in');
-		}
-		const userId = user._id;
-
-		// Check if user has available messages
-		const checkResult = await autumn.check(ctx, { featureId: 'messages' });
-
-		// Handle error or null data
-		if (checkResult.error || !checkResult.data) {
-			return {
-				success: false,
-				error: checkResult.error?.message ?? 'Failed to check message limit',
-				remainingMessages: 0
-			};
-		}
-
-		if (!checkResult.data.allowed) {
-			return {
-				success: false,
-				error: 'Message limit reached. Please upgrade to Pro for unlimited messages.',
-				remainingMessages: 0
-			};
-		}
-
-		// Insert the message
-		await ctx.runMutation(internal.messages.insertMessage, { body, userId });
-
-		// Track message usage
-		await autumn.track(ctx, { featureId: 'messages', value: 1 });
-
-		// Return success with remaining messages
-		const balance = checkResult.data.balance;
-		return {
-			success: true,
-			remainingMessages: balance !== null && balance !== undefined ? balance - 1 : undefined
-		};
+export const trackMessageUsage = internalAction({
+	args: { userId: v.string() },
+	handler: async (_ctx, { userId }) => {
+		const sdk = await getAutumnSdk();
+		await sdk.track({
+			customer_id: userId,
+			feature_id: 'messages',
+			value: 1
+		});
 	}
 });
