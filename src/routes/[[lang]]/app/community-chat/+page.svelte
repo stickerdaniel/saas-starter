@@ -16,7 +16,6 @@
 		ChatContainerContext
 	} from '$lib/components/prompt-kit/chat-container';
 	import { ScrollButton } from '$lib/components/prompt-kit/scroll-button';
-	import MessageBubble from '$lib/chat/ui/MessageBubble.svelte';
 	import * as Avatar from '$lib/components/ui/avatar/index.js';
 	import ProgressiveBlur from '$blocks/magic/ProgressiveBlur.svelte';
 	import { FadeOnLoad } from '$lib/utils/fade-on-load.svelte.js';
@@ -211,7 +210,9 @@
 												{message.author}
 											</span>
 										{/if}
-										<MessageBubble align={own ? 'right' : 'left'} variant="filled">
+										<div
+											class="min-w-28 max-w-[85%] overflow-hidden rounded-2xl bg-primary/15 px-4 py-2.5 text-foreground break-words md:max-w-[75%]"
+										>
 											<div class="flex items-end gap-3">
 												<p class="min-w-0 break-words whitespace-pre-wrap">
 													{message.body}
@@ -222,7 +223,7 @@
 													{formatTime(message._creationTime)}
 												</span>
 											</div>
-										</MessageBubble>
+										</div>
 									</div>
 								</div>
 							{/each}
