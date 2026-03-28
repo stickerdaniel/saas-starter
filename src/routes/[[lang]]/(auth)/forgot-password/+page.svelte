@@ -190,7 +190,7 @@
 									id="email-{id}"
 									data-testid="forgot-password-email-input"
 									type="email"
-									autocomplete="email"
+									autocomplete="username"
 									placeholder="m@example.com"
 									disabled={isFormDisabled}
 									bind:value={formData.email}
