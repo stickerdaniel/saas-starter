@@ -5,7 +5,6 @@ import { components, internal } from '../_generated/api';
 import { t } from '../i18n/translations';
 import { aiChatRateLimiter } from './rateLimit';
 import { authComponent } from '../auth';
-import { autumn } from '../autumn';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
@@ -28,12 +27,6 @@ export const generateUploadUrl = mutation({
 		const user = await authComponent.getAuthUser(ctx);
 		if (!user) {
 			throw new ConvexError('Authentication required');
-		}
-
-		// Check AI chat message allowance (Autumn SDK has built-in fail-open)
-		const checkResult = await autumn.check(ctx, { featureId: 'ai_chat_messages' });
-		if (!checkResult.data?.allowed) {
-			throw new ConvexError('AI chat message limit reached');
 		}
 
 		const rateLimitStatus = await aiChatRateLimiter.limit(ctx, 'aiChatFileUpload', {

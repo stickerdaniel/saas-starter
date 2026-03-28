@@ -107,11 +107,22 @@
 					if (!isPro || !prompt?.trim()) return;
 
 					try {
+						// Check billing (action can make HTTP calls to Autumn)
+						const { allowed } = await client.action(api.aiChat.messages.checkAndTrackAiChat, {});
+						if (!allowed) {
+							toast.error($t('ai_chat.pro_required.description'));
+							return;
+						}
+
+						// Send message (mutation for optimistic updates)
 						await chatCore.sendMessage(client, prompt, {
 							fileIds: chatUIContext.uploadedFileIds,
 							attachments: chatUIContext.attachments
 						});
 						chatUIContext.clearAttachments();
+
+						// Track usage after success (fire and forget)
+						client.action(api.aiChat.messages.checkAndTrackAiChat, { track: true });
 					} catch (error) {
 						console.error('[AI Chat sendMessage] Error:', error);
 						toast.error($t('chat.messages.send_failed'));

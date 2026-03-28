@@ -1,4 +1,4 @@
-import { internalAction, query } from '../_generated/server';
+import { action, internalAction, query } from '../_generated/server';
 import { v, ConvexError } from 'convex/values';
 import { internal } from '../_generated/api';
 import { aiChatAgent } from './agent';
@@ -14,10 +14,33 @@ import { authComponent } from '../auth';
 import { autumn } from '../autumn';
 
 /**
- * Send a user message and get AI response with streaming
+ * Check AI chat message allowance or track usage (action for HTTP calls).
  *
- * Metered via Autumn `ai_chat_messages` feature (check → work → track).
- * Supports multimodal messages with file and image attachments.
+ * Called by the frontend before/after sendMessage mutation.
+ * Actions can make HTTP calls; mutations cannot.
+ */
+export const checkAndTrackAiChat = action({
+	args: { track: v.optional(v.boolean()) },
+	returns: v.object({ allowed: v.boolean() }),
+	handler: async (ctx, args) => {
+		const user = await authComponent.getAuthUser(ctx);
+		if (!user) throw new ConvexError('Not signed in');
+
+		if (args.track) {
+			await autumn.track(ctx, { featureId: 'ai_chat_messages', value: 1 });
+			return { allowed: true };
+		}
+
+		const checkResult = await autumn.check(ctx, { featureId: 'ai_chat_messages' });
+		return { allowed: checkResult.data?.allowed ?? false };
+	}
+});
+
+/**
+ * Send a user message and get AI response with streaming.
+ *
+ * Billing check happens in a separate action (checkAndTrackAiChat) called
+ * by the frontend. Kept as a mutation for optimistic update support.
  */
 export const sendMessage = authedMutation({
 	args: {
@@ -39,12 +62,6 @@ export const sendMessage = authedMutation({
 			.first();
 		if (!record || record.userId !== userId) {
 			throw new ConvexError('Thread not found');
-		}
-
-		// Check AI chat message allowance (Autumn SDK has built-in fail-open)
-		const checkResult = await autumn.check(ctx, { featureId: 'ai_chat_messages' });
-		if (!checkResult.data?.allowed) {
-			throw new ConvexError('AI chat message limit reached');
 		}
 
 		// Consume warm thread on first message (backend-driven, no client coordination needed)
@@ -94,9 +111,6 @@ export const sendMessage = authedMutation({
 			promptMessageId: messageId,
 			userId
 		});
-
-		// Track usage after successful send
-		await autumn.track(ctx, { featureId: 'ai_chat_messages', value: 1 });
 
 		return { messageId };
 	}
