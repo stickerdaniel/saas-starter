@@ -1,5 +1,4 @@
 import { Autumn } from '@useautumn/convex';
-import { Autumn as AutumnSDK } from 'autumn-js';
 import { components } from './_generated/api';
 import { authComponent } from './auth';
 import { requireEnv } from './env';
@@ -42,10 +41,14 @@ export const {
 } = autumn.api() as any; // Required: library types reference non-portable internal paths (helpers/utils)
 
 /**
- * Direct Autumn SDK for use in internalActions/scheduled functions
+ * Get direct Autumn SDK for use in internalActions/scheduled functions
  * where there is no auth context (identify callback returns null).
  *
+ * Lazy-loaded to avoid bundling autumn-js into mutation code.
  * Pass explicit customer_id to check/track methods.
  * See: https://github.com/useautumn/autumn-js/issues/51
  */
-export const autumnSdk = new AutumnSDK({ secretKey });
+export async function getAutumnSdk() {
+	const { Autumn: AutumnSDK } = await import('autumn-js');
+	return new AutumnSDK({ secretKey });
+}

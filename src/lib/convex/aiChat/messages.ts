@@ -11,7 +11,7 @@ import { aiChatRateLimiter } from './rateLimit';
 import { listMessagesForThread } from '../support/messageListing';
 import { authedMutation } from '../functions';
 import { authComponent } from '../auth';
-import { autumnSdk } from '../autumn';
+import { getAutumnSdk } from '../autumn';
 
 /**
  * Send a user message and get AI response with streaming.
@@ -109,7 +109,8 @@ export const createAIResponse = internalAction({
 		// Check AI chat message allowance via direct SDK (no auth context in internalAction).
 		// See: https://github.com/useautumn/autumn-js/issues/51
 		if (args.userId) {
-			const checkResult = await autumnSdk.check({
+			const sdk = await getAutumnSdk();
+			const checkResult = await sdk.check({
 				customer_id: args.userId,
 				feature_id: 'ai_chat_messages'
 			});
@@ -135,7 +136,8 @@ export const createAIResponse = internalAction({
 
 		// Track usage after successful AI response
 		if (args.userId) {
-			await autumnSdk.track({
+			const sdk = await getAutumnSdk();
+			await sdk.track({
 				customer_id: args.userId,
 				feature_id: 'ai_chat_messages',
 				value: 1
