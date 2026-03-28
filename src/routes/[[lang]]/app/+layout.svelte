@@ -63,27 +63,34 @@
 		page.url.pathname.includes('/app/ai-chat') || page.url.pathname.includes('/app/community-chat')
 	);
 
-	// Keyboard shortcuts for sidebar navigation
+	// Keyboard shortcuts for sidebar navigation (⌘⇧1-2, ⌘;, ⌘,)
 	function handleKeydown(e: KeyboardEvent) {
-		if (!(e.metaKey || e.ctrlKey) || e.shiftKey || e.altKey) return;
+		if (!(e.metaKey || e.ctrlKey)) return;
 		const target = e.target as HTMLElement;
 		if (target.closest('input, textarea, [contenteditable]')) return;
 
-		const routes: Record<string, string> = {
-			'1': localizedHref('/app/community-chat'),
-			'2': warmThreadId
-				? localizedHref(`/app/ai-chat?thread=${warmThreadId}`)
-				: localizedHref('/app/ai-chat'),
-			';': localizedHref('/admin'),
-			',': localizedHref('/app/settings')
-		};
+		let url: string | undefined;
 
-		const url = routes[e.key];
+		if (e.shiftKey && !e.altKey) {
+			// ⌘⇧1-2: nav items (use e.code for keyboard-layout independence)
+			const shiftRoutes: Record<string, string> = {
+				Digit1: localizedHref('/app/community-chat'),
+				Digit2: localizedHref(warmThreadId ? `/app/ai-chat?thread=${warmThreadId}` : '/app/ai-chat')
+			};
+			url = shiftRoutes[e.code];
+		} else if (!e.shiftKey && !e.altKey) {
+			// ⌘. and ⌘,
+			const plainRoutes: Record<string, string> = {
+				'.': localizedHref('/admin'),
+				',': localizedHref('/app/settings')
+			};
+			url = plainRoutes[e.key];
+		}
+
 		if (!url) return;
 
 		e.preventDefault();
 		goto(resolve(url)).then(() => {
-			// Focus chat input even if already on the page
 			tick().then(() => document.querySelector<HTMLTextAreaElement>('textarea')?.focus());
 		});
 	}
