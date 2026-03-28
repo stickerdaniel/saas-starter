@@ -24,12 +24,20 @@
 	const viewer = $derived(data.viewer as typeof data.viewer & { role?: string });
 
 	// Query AI chat threads for sidebar
+	// Keep previous results while loading more so autoAnimate only adds new items
 	let threadLimit = $state(5);
 	const aiChatThreadsQuery = useQuery(api.aiChat.threads.listThreads, () => ({
 		limit: threadLimit
 	}));
-	const aiChatThreads = $derived(aiChatThreadsQuery.data?.threads ?? []);
-	const threadsHasMore = $derived(aiChatThreadsQuery.data?.hasMore ?? false);
+	let prevThreads = $state<typeof aiChatThreadsQuery.data>(undefined);
+	$effect(() => {
+		if (aiChatThreadsQuery.data) {
+			prevThreads = aiChatThreadsQuery.data;
+		}
+	});
+	const threadData = $derived(aiChatThreadsQuery.data ?? prevThreads);
+	const aiChatThreads = $derived(threadData?.threads ?? []);
+	const threadsHasMore = $derived(threadData?.hasMore ?? false);
 
 	// Pre-warm thread: always keep one empty thread ready for instant "new chat"
 	const warmThreadQuery = useQuery(api.aiChat.threads.getWarmThread, {});
