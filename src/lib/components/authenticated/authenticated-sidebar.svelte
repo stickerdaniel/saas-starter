@@ -12,6 +12,9 @@
 	import { PersistedState } from 'runed';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import autoAnimate from '@formkit/auto-animate';
+	import { getTranslate } from '@tolgee/svelte';
+
+	const { t } = getTranslate();
 
 	interface Props extends ComponentProps<typeof Sidebar.Root> {
 		config: SidebarConfig;
@@ -19,6 +22,17 @@
 	}
 
 	let { config, user, ...restProps }: Props = $props();
+
+	function timeAgo(timestamp: number): string {
+		const seconds = Math.floor((Date.now() - timestamp) / 1000);
+		if (seconds < 60) return $t('time.just_now');
+		const minutes = Math.floor(seconds / 60);
+		if (minutes < 60) return `${minutes}m`;
+		const hours = Math.floor(minutes / 60);
+		if (hours < 24) return `${hours}h`;
+		const days = Math.floor(hours / 24);
+		return `${days}d`;
+	}
 
 	const aiChatOpen = new PersistedState('ai-chat-threads-open', true);
 
@@ -131,13 +145,37 @@
 																onclick={() => haptic.trigger('light')}
 															>
 																{#snippet child({ props })}
-																	<a href={resolve(sub.url)} {...props}>
-																		<span>{sub.label}</span>
+																	<a
+																		href={resolve(sub.url)}
+																		{...props}
+																		class="{props.class} flex items-center gap-1"
+																	>
+																		<span class="min-w-0 truncate">{sub.label}</span>
+																		{#if sub.timestamp}
+																			<span
+																				class="ml-auto shrink-0 text-[11px] text-muted-foreground/50"
+																			>
+																				{timeAgo(sub.timestamp)}
+																			</span>
+																		{/if}
 																	</a>
 																{/snippet}
 															</Sidebar.MenuSubButton>
 														</Sidebar.MenuSubItem>
 													{/each}
+													{#if item.hasMore && item.onLoadMore}
+														<Sidebar.MenuSubItem>
+															<button
+																class="w-full px-2 py-1 text-left text-xs text-muted-foreground hover:text-foreground"
+																onclick={() => {
+																	haptic.trigger('light');
+																	item.onLoadMore?.();
+																}}
+															>
+																{$t('app.sidebar.show_more')}
+															</button>
+														</Sidebar.MenuSubItem>
+													{/if}
 												{/if}
 											</Sidebar.MenuSub>
 										</Collapsible.Content>

@@ -744,7 +744,9 @@
 			"community_chat": "Community Chat",
 			"dashboard": "Dashboard",
 			"docs": "Docs",
-			"home": "Home"
+			"home": "Home",
+			"show_more": "Show more",
+			"show_less": "Show less"
 		},
 		"user_menu": {
 			"account": "Account",

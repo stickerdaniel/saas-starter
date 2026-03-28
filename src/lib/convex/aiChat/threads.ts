@@ -1,5 +1,4 @@
 import { v } from 'convex/values';
-import { paginationOptsValidator } from 'convex/server';
 import { internalMutation, internalQuery } from '../_generated/server';
 import { authedQuery, authedMutation } from '../functions';
 import { aiChatAgent } from './agent';
@@ -8,16 +7,19 @@ import { components } from '../_generated/api';
 /**
  * List AI chat threads for the current user
  *
- * Returns paginated threads with last message preview, ordered by most recent activity.
+ * Returns threads with last message preview, ordered by most recent activity.
+ * Uses limit-based pagination (not Convex cursor pagination) because threads
+ * are sorted by lastMessageAt which lives in the agent component, not our table.
  */
 export const listThreads = authedQuery({
 	args: {
-		paginationOpts: v.optional(paginationOptsValidator)
+		limit: v.optional(v.number())
 	},
-	handler: async (ctx, _args) => {
+	handler: async (ctx, args) => {
 		const userId = ctx.user._id;
+		const limit = args.limit ?? 5;
 
-		// Get user's AI chat thread records (exclude warm/pre-warmed threads)
+		// Bounded: 1 record per thread per user, collect is safe for typical user sizes
 		const aiChatThreadRecords = await ctx.db
 			.query('aiChatThreads')
 			.withIndex('by_user', (q) => q.eq('userId', userId))
@@ -27,24 +29,20 @@ export const listThreads = authedQuery({
 		const nonWarmRecords = aiChatThreadRecords.filter((r) => !r.isWarm);
 
 		if (nonWarmRecords.length === 0) {
-			return { page: [], isDone: true, continueCursor: '' };
+			return { threads: [], hasMore: false };
 		}
 
-		// Get agent thread details for each
-		const threadIds = nonWarmRecords.map((r) => r.threadId);
-
+		// Get agent thread details in parallel
 		const threadsWithLastMessage = await Promise.all(
-			threadIds.map(async (threadId) => {
-				// Get agent thread metadata
+			nonWarmRecords.map(async (record) => {
 				const agentThread = await ctx.runQuery(components.agent.threads.getThread, {
-					threadId
+					threadId: record.threadId
 				});
 
 				if (!agentThread) return null;
 
-				// Get last completed message
 				const messages = await ctx.runQuery(components.agent.messages.listMessagesByThreadId, {
-					threadId,
+					threadId: record.threadId,
 					order: 'desc',
 					statuses: ['success'],
 					excludeToolMessages: true,
@@ -63,16 +61,14 @@ export const listThreads = authedQuery({
 			})
 		);
 
-		// Filter nulls (deleted agent threads) and empty conversations (no messages),
-		// then sort by last activity
+		// Filter nulls and empty conversations, sort by last activity
 		const validThreads = threadsWithLastMessage
 			.filter((t): t is NonNullable<typeof t> => t !== null && !!t.lastMessage)
 			.sort((a, b) => (b.lastMessageAt ?? 0) - (a.lastMessageAt ?? 0));
 
 		return {
-			page: validThreads,
-			isDone: true,
-			continueCursor: ''
+			threads: validThreads.slice(0, limit),
+			hasMore: validThreads.length > limit
 		};
 	}
 });

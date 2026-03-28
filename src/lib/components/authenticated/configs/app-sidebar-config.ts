@@ -14,6 +14,7 @@ interface PageState {
 interface AiChatThread {
 	_id: string;
 	lastMessage?: string;
+	lastMessageAt?: number;
 }
 
 export function getAppSidebarConfig(
@@ -21,7 +22,9 @@ export function getAppSidebarConfig(
 	userRole?: string,
 	aiChatThreads?: AiChatThread[],
 	warmThreadId?: string | null,
-	newConversationLabel?: string
+	newConversationLabel?: string,
+	threadsHasMore?: boolean,
+	onLoadMoreThreads?: () => void
 ): SidebarConfig {
 	const { pathname, search, lang } = pageState;
 
@@ -37,7 +40,8 @@ export function getAppSidebarConfig(
 				: thread.lastMessage
 			: newConversationLabel || 'New conversation',
 		url: localizedHref(`/app/ai-chat?thread=${thread._id}`),
-		isActive: activeThreadId === thread._id
+		isActive: activeThreadId === thread._id,
+		timestamp: thread.lastMessageAt
 	}));
 
 	// Point "AI Chat" to the pre-warmed thread when available
@@ -65,6 +69,8 @@ export function getAppSidebarConfig(
 				isActive: pathname.startsWith(`/${lang}/app/ai-chat`),
 				collapsible: true,
 				subItems: aiChatSubItems,
+				hasMore: threadsHasMore,
+				onLoadMore: onLoadMoreThreads,
 				// Disable nav when already on the warm thread (already "new chat")
 				disableNav: !!activeThreadId && activeThreadId === warmThreadId
 			}

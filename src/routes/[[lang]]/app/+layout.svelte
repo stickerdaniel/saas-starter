@@ -24,8 +24,12 @@
 	const viewer = $derived(data.viewer as typeof data.viewer & { role?: string });
 
 	// Query AI chat threads for sidebar
-	const aiChatThreadsQuery = useQuery(api.aiChat.threads.listThreads, {});
-	const aiChatThreads = $derived(aiChatThreadsQuery.data?.page ?? []);
+	let threadLimit = $state(5);
+	const aiChatThreadsQuery = useQuery(api.aiChat.threads.listThreads, () => ({
+		limit: threadLimit
+	}));
+	const aiChatThreads = $derived(aiChatThreadsQuery.data?.threads ?? []);
+	const threadsHasMore = $derived(aiChatThreadsQuery.data?.hasMore ?? false);
 
 	// Pre-warm thread: always keep one empty thread ready for instant "new chat"
 	const warmThreadQuery = useQuery(api.aiChat.threads.getWarmThread, {});
@@ -54,7 +58,9 @@
 			viewer?.role,
 			aiChatThreads,
 			warmThreadId,
-			$t('ai_chat.thread.no_messages')
+			$t('ai_chat.thread.no_messages'),
+			threadsHasMore,
+			() => (threadLimit += 5)
 		)
 	);
 </script>

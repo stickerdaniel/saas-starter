@@ -744,7 +744,9 @@
 			"community_chat": "Chat comunitario",
 			"dashboard": "Panel",
 			"docs": "Documentación",
-			"home": "Inicio"
+			"home": "Inicio",
+			"show_more": "Mostrar más",
+			"show_less": "Mostrar menos"
 		},
 		"user_menu": {
 			"account": "Cuenta",
