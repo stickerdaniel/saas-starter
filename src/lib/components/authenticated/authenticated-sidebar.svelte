@@ -165,7 +165,7 @@
 													{#if item.hasMore && item.onLoadMore}
 														<Sidebar.MenuSubItem>
 															<button
-																class="w-full px-2 py-1 text-left text-xs text-muted-foreground hover:text-foreground"
+																class="w-full px-2 py-1 text-left text-xs text-muted-foreground hover:text-foreground active:translate-y-px"
 																onclick={() => {
 																	haptic.trigger('light');
 																	item.onLoadMore?.();
