@@ -16,7 +16,7 @@ import { autumn } from '../autumn';
 /**
  * Send a user message and get AI response with streaming
  *
- * Pro-only enforcement is done client-side (page gates non-Pro users).
+ * Metered via Autumn `ai_chat_messages` feature (check → work → track).
  * Supports multimodal messages with file and image attachments.
  */
 export const sendMessage = authedMutation({
@@ -41,11 +41,13 @@ export const sendMessage = authedMutation({
 			throw new ConvexError('Thread not found');
 		}
 
-		// Verify Pro subscription (defense-in-depth, UI is primary gate)
-		// Only hard-block on definitive denial; fall through on errors/missing data
-		const proCheck = await autumn.check(ctx, { productId: 'pro' });
-		if (proCheck.data && !proCheck.data.allowed) {
-			throw new ConvexError('Pro subscription required');
+		// Check AI chat message allowance (Autumn SDK has built-in fail-open)
+		const checkResult = await autumn.check(ctx, { featureId: 'ai_chat_messages' });
+		if (checkResult.error || !checkResult.data) {
+			throw new ConvexError('Failed to verify message limit');
+		}
+		if (!checkResult.data.allowed) {
+			throw new ConvexError('AI chat message limit reached');
 		}
 
 		// Consume warm thread on first message (backend-driven, no client coordination needed)
@@ -95,6 +97,9 @@ export const sendMessage = authedMutation({
 			promptMessageId: messageId,
 			userId
 		});
+
+		// Track usage after successful send
+		await autumn.track(ctx, { featureId: 'ai_chat_messages', value: 1 });
 
 		return { messageId };
 	}

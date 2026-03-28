@@ -30,11 +30,13 @@ export const generateUploadUrl = mutation({
 			throw new ConvexError('Authentication required');
 		}
 
-		// Verify Pro subscription (defense-in-depth, UI is primary gate)
-		// Only hard-block on definitive denial; fall through on errors/missing data
-		const proCheck = await autumn.check(ctx, { productId: 'pro' });
-		if (proCheck.data && !proCheck.data.allowed) {
-			throw new ConvexError('Pro subscription required');
+		// Check AI chat message allowance (Autumn SDK has built-in fail-open)
+		const checkResult = await autumn.check(ctx, { featureId: 'ai_chat_messages' });
+		if (checkResult.error || !checkResult.data) {
+			throw new ConvexError('Failed to verify message limit');
+		}
+		if (!checkResult.data.allowed) {
+			throw new ConvexError('AI chat message limit reached');
 		}
 
 		const rateLimitStatus = await aiChatRateLimiter.limit(ctx, 'aiChatFileUpload', {
