@@ -370,6 +370,13 @@
 			"url": "https://github.com/jis3r/icons",
 			"branch": "main",
 			"specialNotes": "Animated Lucide icons for Svelte 5. Zero dependencies, pure CSS keyframes. Use @jis3r/icons package. Each icon has bespoke hand-crafted animation. Props: size, color, strokeWidth, animate (boolean), class."
+		},
+		{
+			"type": "git",
+			"name": "autumnJs",
+			"url": "https://github.com/useautumn/autumn-js",
+			"branch": "main",
+			"specialNotes": "Autumn billing SDK and Convex component (@useautumn/convex). Check, track, checkout, attach. Convex component uses identify callback for auth context."
 		}
 	],
 	"model": "gpt-5.4-mini",
