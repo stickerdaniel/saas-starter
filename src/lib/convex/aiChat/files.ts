@@ -32,10 +32,7 @@ export const generateUploadUrl = mutation({
 
 		// Check AI chat message allowance (Autumn SDK has built-in fail-open)
 		const checkResult = await autumn.check(ctx, { featureId: 'ai_chat_messages' });
-		if (checkResult.error || !checkResult.data) {
-			throw new ConvexError('Failed to verify message limit');
-		}
-		if (!checkResult.data.allowed) {
+		if (!checkResult.data?.allowed) {
 			throw new ConvexError('AI chat message limit reached');
 		}
 
