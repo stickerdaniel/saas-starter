@@ -1,46 +1,59 @@
-import { feature, product, featureItem, priceItem } from 'atmn';
+import { feature, item, plan } from 'atmn';
 
 /**
- * Defines single-use message features for billing and usage tracking.
+ * Community chat messages - metered per month.
  */
 export const messages = feature({
 	id: 'messages',
 	name: 'Messages',
-	type: 'single_use'
+	type: 'metered',
+	consumable: true
 });
 
 /**
- * Free tier product with limited message usage.
+ * AI chat messages - metered per month.
+ */
+export const aiChatMessages = feature({
+	id: 'ai_chat_messages',
+	name: 'AI Chat Messages',
+	type: 'metered',
+	consumable: true
+});
+
+/**
+ * Free tier with limited message usage.
  * Automatically attached to new customers via is_default.
  */
-export const free = product({
+export const free = plan({
 	id: 'free',
 	name: 'Free',
 	is_default: true,
 	items: [
-		featureItem({
-			feature_id: messages.id,
-			included_usage: 10,
-			interval: 'month'
+		item({
+			featureId: messages.id,
+			included: 10,
+			reset: { interval: 'month' }
 		})
 	]
 });
 
 /**
- * Pro tier product with unlimited message usage and monthly pricing.
+ * Pro tier with unlimited community chat and 200 AI chat messages/month.
  */
-export const pro = product({
+export const pro = plan({
 	id: 'pro',
 	name: 'Pro',
+	price: { amount: 10, interval: 'month' },
 	items: [
-		priceItem({
-			price: 10,
-			interval: 'month'
+		item({
+			featureId: messages.id,
+			unlimited: true,
+			reset: { interval: 'month' }
 		}),
-		featureItem({
-			feature_id: messages.id,
-			included_usage: 'inf',
-			interval: 'month'
+		item({
+			featureId: aiChatMessages.id,
+			included: 200,
+			reset: { interval: 'month' }
 		})
 	]
 });
