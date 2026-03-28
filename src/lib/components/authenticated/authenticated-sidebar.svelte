@@ -124,7 +124,7 @@
 													<span><T keyName={item.translationKey} /></span>
 													{#if item.kbd}
 														<Kbd.Root
-															class="ml-auto opacity-0 transition-all group-hover/menu-item:opacity-50"
+															class="ml-auto opacity-0 transition-all group-hover/menu-button:opacity-50"
 														>
 															{item.kbd}
 														</Kbd.Root>
@@ -208,7 +208,7 @@
 									<span><T keyName={item.translationKey} /></span>
 									{#if item.kbd}
 										<Kbd.Root
-											class="ml-auto opacity-0 transition-all group-hover/menu-item:opacity-50"
+											class="ml-auto opacity-0 transition-all group-hover/menu-button:opacity-50"
 										>
 											{item.kbd}
 										</Kbd.Root>
@@ -241,7 +241,7 @@
 								<span><T keyName={link.translationKey} /></span>
 								{#if link.kbd}
 									<Kbd.Root
-										class="ml-auto opacity-0 transition-all group-hover/menu-item:opacity-50"
+										class="ml-auto opacity-0 transition-all group-hover/menu-button:opacity-50"
 									>
 										{link.kbd}
 									</Kbd.Root>
