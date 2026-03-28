@@ -3,8 +3,9 @@ import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import * as net from 'node:net';
 import * as path from 'node:path';
-import { varlockVitePlugin } from '@varlock/vite-integration';
+import { varlockLoadedEnv, varlockVitePlugin } from '@varlock/vite-integration';
 import { convexLocal } from 'convex-vite-plugin';
+import { resetRedactionMap } from 'varlock/env';
 import devtoolsJson from 'vite-plugin-devtools-json';
 import tailwindcss from '@tailwindcss/vite';
 import { sveltekit } from '@sveltejs/kit/vite';
@@ -111,6 +112,58 @@ function parseEnvFile(filePath: string): Record<string, string> {
 	return vars;
 }
 
+/**
+ * Parse a varlock .env schema and return var names marked @sensitive.
+ * Also handles @defaultSensitive=inferFromPrefix(PREFIX_) — vars without
+ * the prefix are treated as sensitive by default.
+ */
+function parseSensitiveVarNames(schemaPath: string): Set<string> {
+	if (!fs.existsSync(schemaPath)) return new Set();
+	const lines = fs.readFileSync(schemaPath, 'utf-8').split('\n');
+
+	let publicPrefix: string | undefined;
+	for (const line of lines) {
+		const match = line.match(/^#\s*@defaultSensitive=inferFromPrefix\((\w+)\)/);
+		if (match?.[1]) {
+			publicPrefix = match[1];
+			break;
+		}
+		if (line.trim() === '# ---') break;
+	}
+
+	const sensitiveNames = new Set<string>();
+	let nextIsSensitive: boolean | undefined;
+
+	for (const line of lines) {
+		const trimmed = line.trim();
+		if (trimmed.startsWith('#')) {
+			if (trimmed.includes('@sensitive')) nextIsSensitive = true;
+			continue;
+		}
+
+		const effective = trimmed.startsWith('export ') ? trimmed.slice(7).trim() : trimmed;
+		const eqIndex = effective.indexOf('=');
+		if (eqIndex === -1) {
+			nextIsSensitive = undefined;
+			continue;
+		}
+		const key = effective.slice(0, eqIndex).trim();
+		if (!key) {
+			nextIsSensitive = undefined;
+			continue;
+		}
+
+		if (nextIsSensitive === true) {
+			sensitiveNames.add(key);
+		} else if (nextIsSensitive === undefined && publicPrefix && !key.startsWith(publicPrefix)) {
+			sensitiveNames.add(key);
+		}
+		nextIsSensitive = undefined;
+	}
+
+	return sensitiveNames;
+}
+
 export default defineConfig(async ({ mode }) => {
 	const cwd = process.cwd();
 	const loadedEnv = loadEnv(mode, cwd, '');
@@ -136,6 +189,37 @@ export default defineConfig(async ({ mode }) => {
 
 		// Load Convex backend env vars from .env.convex.local
 		const convexLocalEnv = parseEnvFile(path.join(cwd, '.env.convex.local'));
+		// Register Convex backend env values with varlock's redaction map so that
+		// convex-vite-plugin's env-var logging is automatically redacted.
+		// varlockLoadedEnv already contains .env.schema values; we merge in
+		// the Convex backend values marked @sensitive in .env-convex.schema.
+		const convexSensitiveNames = parseSensitiveVarNames(path.join(cwd, '.env-convex.schema'));
+		convexSensitiveNames.add('BETTER_AUTH_SECRET');
+
+		const mergedConfig: Record<string, { value: any; isSensitive: boolean }> = {
+			...varlockLoadedEnv?.config
+		};
+
+		const allConvexEnvVars: Record<string, string> = {
+			BETTER_AUTH_SECRET: betterAuthSecret,
+			LOCAL_SEEDED_ADMIN_PASSWORD: 'LocalDevAdmin123!',
+			...convexLocalEnv
+		};
+
+		for (const [key, value] of Object.entries(allConvexEnvVars)) {
+			if (!value) continue;
+			const existing = mergedConfig[key];
+			if (!existing || !existing.value) {
+				mergedConfig[key] = { value, isSensitive: convexSensitiveNames.has(key) };
+			}
+		}
+
+		resetRedactionMap({
+			settings: { redactLogs: true },
+			sources: varlockLoadedEnv?.sources ?? [],
+			config: mergedConfig
+		});
+
 		const missingEmailEnv = ['RESEND_API_KEY', 'AUTH_EMAIL'].filter(
 			(key) => !convexLocalEnv[key]?.trim()
 		);
