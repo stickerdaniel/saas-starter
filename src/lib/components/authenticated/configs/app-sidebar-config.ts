@@ -72,7 +72,7 @@ export function getAppSidebarConfig(
 				subItems: aiChatSubItems,
 				hasMore: threadsHasMore,
 				onLoadMore: onLoadMoreThreads,
-				kbd: `${cmdOrCtrl}N`,
+				kbd: `${cmdOrCtrl}⇧O`,
 				// Disable nav when already on the warm thread (already "new chat")
 				disableNav: !!activeThreadId && activeThreadId === warmThreadId
 			}

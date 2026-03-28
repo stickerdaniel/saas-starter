@@ -62,11 +62,9 @@
 		page.url.pathname.includes('/app/ai-chat') || page.url.pathname.includes('/app/community-chat')
 	);
 
-	// Cmd+N / Ctrl+N: navigate to new AI chat thread
+	// Cmd+Shift+O / Ctrl+Shift+O: navigate to new AI chat thread
 	function handleKeydown(e: KeyboardEvent) {
-		if ((e.metaKey || e.ctrlKey) && e.key === 'n') {
-			const target = e.target as HTMLElement;
-			if (target.closest('input, textarea, [contenteditable]')) return;
+		if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'o') {
 			e.preventDefault();
 			const url = warmThreadId
 				? localizedHref(`/app/ai-chat?thread=${warmThreadId}`)
