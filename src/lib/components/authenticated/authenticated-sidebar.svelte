@@ -124,9 +124,7 @@
 													{/if}
 													<span><T keyName={item.translationKey} /></span>
 													{#if item.kbd}
-														<Kbd.Root
-															class="ml-auto opacity-0 transition-opacity group-hover/menu-item:opacity-50"
-														>
+														<Kbd.Root class="ml-auto opacity-0 group-hover/menu-item:opacity-50">
 															{item.kbd}
 														</Kbd.Root>
 													{/if}
@@ -208,9 +206,7 @@
 									{/if}
 									<span><T keyName={item.translationKey} /></span>
 									{#if item.kbd}
-										<Kbd.Root
-											class="ml-auto opacity-0 transition-opacity group-hover/menu-item:opacity-50"
-										>
+										<Kbd.Root class="ml-auto opacity-0 group-hover/menu-item:opacity-50">
 											{item.kbd}
 										</Kbd.Root>
 									{/if}
@@ -241,9 +237,7 @@
 								<link.icon />
 								<span><T keyName={link.translationKey} /></span>
 								{#if link.kbd}
-									<Kbd.Root
-										class="ml-auto opacity-0 transition-opacity group-hover/menu-item:opacity-50"
-									>
+									<Kbd.Root class="ml-auto opacity-0 group-hover/menu-item:opacity-50">
 										{link.kbd}
 									</Kbd.Root>
 								{/if}
