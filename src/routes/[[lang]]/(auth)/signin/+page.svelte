@@ -40,11 +40,8 @@
 		initialData: data.oauthProviders
 	}));
 
-	// Passkeys + OAuth
-	const hasOAuthAuth = $derived(
-		Boolean(oauthProviders.data?.google || oauthProviders.data?.github)
-	);
-	const hasAlternativeAuth = true; // passkey always available on signin
+	// Passkey always available on signin, so alternative auth is always shown
+	const hasAlternativeAuth = true;
 	const enabledProviderCount = $derived(
 		(oauthProviders.data?.google ? 1 : 0) + (oauthProviders.data?.github ? 1 : 0) + 1 // passkey
 	);
