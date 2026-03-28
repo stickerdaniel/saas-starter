@@ -1,10 +1,13 @@
 import { Autumn } from '@useautumn/convex';
+import { Autumn as AutumnSDK } from 'autumn-js';
 import { components } from './_generated/api';
 import { authComponent } from './auth';
 import { requireEnv } from './env';
 
+const secretKey = requireEnv('AUTUMN_SECRET_KEY');
+
 export const autumn = new Autumn(components.autumn, {
-	secretKey: requireEnv('AUTUMN_SECRET_KEY'),
+	secretKey,
 	identify: async (ctx: Parameters<typeof authComponent.getAuthUser>[0]) => {
 		// Get the authenticated user from Better Auth
 		const user = await authComponent.getAuthUser(ctx);
@@ -37,3 +40,12 @@ export const {
 	createEntity,
 	getEntity
 } = autumn.api() as any; // Required: library types reference non-portable internal paths (helpers/utils)
+
+/**
+ * Direct Autumn SDK for use in internalActions/scheduled functions
+ * where there is no auth context (identify callback returns null).
+ *
+ * Pass explicit customer_id to check/track methods.
+ * See: https://github.com/useautumn/autumn-js/issues/51
+ */
+export const autumnSdk = new AutumnSDK({ secretKey });

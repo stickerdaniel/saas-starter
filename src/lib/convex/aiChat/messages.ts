@@ -11,7 +11,7 @@ import { aiChatRateLimiter } from './rateLimit';
 import { listMessagesForThread } from '../support/messageListing';
 import { authedMutation } from '../functions';
 import { authComponent } from '../auth';
-import { autumn } from '../autumn';
+import { autumnSdk } from '../autumn';
 
 /**
  * Send a user message and get AI response with streaming.
@@ -106,13 +106,10 @@ export const createAIResponse = internalAction({
 		userId: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
-		// Check AI chat message allowance using Autumn REST API directly.
-		// internalAction has no auth context, so autumn.check (which relies on
-		// identify callback) won't work. Use the SDK with explicit customer_id.
+		// Check AI chat message allowance via direct SDK (no auth context in internalAction).
+		// See: https://github.com/useautumn/autumn-js/issues/51
 		if (args.userId) {
-			const { Autumn: AutumnSDK } = await import('autumn-js');
-			const sdk = new AutumnSDK({ secretKey: process.env.AUTUMN_SECRET_KEY! });
-			const checkResult = await sdk.check({
+			const checkResult = await autumnSdk.check({
 				customer_id: args.userId,
 				feature_id: 'ai_chat_messages'
 			});
@@ -136,11 +133,9 @@ export const createAIResponse = internalAction({
 
 		await result.consumeStream();
 
-		// Track usage after successful AI response (direct SDK, no auth context)
+		// Track usage after successful AI response
 		if (args.userId) {
-			const { Autumn: AutumnSDK } = await import('autumn-js');
-			const sdk = new AutumnSDK({ secretKey: process.env.AUTUMN_SECRET_KEY! });
-			await sdk.track({
+			await autumnSdk.track({
 				customer_id: args.userId,
 				feature_id: 'ai_chat_messages',
 				value: 1
