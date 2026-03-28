@@ -200,7 +200,7 @@
 			<div class="flex flex-wrap gap-2">
 				{#each suggestions as suggestion, i (suggestion.text)}
 					<div
-						class="motion-safe:animate-[chip-in_375ms_ease-in_both]"
+						class="motion-safe:animate-[chip-in_375ms_ease-out_both]"
 						style="animation-delay: {i * 50}ms"
 					>
 						<PromptSuggestion onclick={() => handleSuggestionClick(suggestion.text)}>
