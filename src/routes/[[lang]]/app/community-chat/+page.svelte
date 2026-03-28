@@ -212,18 +212,14 @@
 											</span>
 										{/if}
 										<MessageBubble align={own ? 'right' : 'left'} variant="filled">
-											<div class="flex flex-col gap-1">
-												<p class="whitespace-pre-wrap break-words">
-													{message.body}
-												</p>
-												<span
-													class="whitespace-nowrap text-xs text-muted-foreground/60 {own
-														? 'text-end'
-														: ''}"
-												>
-													{formatTime(message._creationTime)}
-												</span>
-											</div>
+											<p class="inline whitespace-pre-wrap break-words">
+												{message.body}
+											</p>
+											<span
+												class="ml-2 inline-block translate-y-[3px] whitespace-nowrap align-bottom text-xs text-muted-foreground/60"
+											>
+												{formatTime(message._creationTime)}
+											</span>
 										</MessageBubble>
 									</div>
 								</div>
