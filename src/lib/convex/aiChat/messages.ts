@@ -1,4 +1,4 @@
-import { action, internalAction, query } from '../_generated/server';
+import { internalAction, query } from '../_generated/server';
 import { v, ConvexError } from 'convex/values';
 import { internal } from '../_generated/api';
 import { aiChatAgent } from './agent';
@@ -12,29 +12,6 @@ import { listMessagesForThread } from '../support/messageListing';
 import { authedMutation } from '../functions';
 import { authComponent } from '../auth';
 import { autumn } from '../autumn';
-
-/**
- * Check AI chat message allowance or track usage (action for HTTP calls).
- *
- * Called by the frontend before/after sendMessage mutation.
- * Actions can make HTTP calls; mutations cannot.
- */
-export const checkAndTrackAiChat = action({
-	args: { track: v.optional(v.boolean()) },
-	returns: v.object({ allowed: v.boolean() }),
-	handler: async (ctx, args) => {
-		const user = await authComponent.getAuthUser(ctx);
-		if (!user) throw new ConvexError('Not signed in');
-
-		if (args.track) {
-			await autumn.track(ctx, { featureId: 'ai_chat_messages', value: 1 });
-			return { allowed: true };
-		}
-
-		const checkResult = await autumn.check(ctx, { featureId: 'ai_chat_messages' });
-		return { allowed: checkResult.data?.allowed ?? false };
-	}
-});
 
 /**
  * Send a user message and get AI response with streaming.
@@ -117,7 +94,10 @@ export const sendMessage = authedMutation({
 });
 
 /**
- * Internal action to generate AI response with streaming
+ * Internal action to generate AI response with streaming.
+ *
+ * Checks Autumn billing before generating (action can make HTTP calls).
+ * Tracks usage after successful response.
  */
 export const createAIResponse = internalAction({
 	args: {
@@ -126,6 +106,14 @@ export const createAIResponse = internalAction({
 		userId: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
+		// Check AI chat message allowance (action context allows HTTP calls)
+		const checkResult = await autumn.check(ctx, { featureId: 'ai_chat_messages' });
+		if (!checkResult.data?.allowed) {
+			// User's message was saved but AI won't respond - limit reached
+			console.warn(`[createAIResponse] AI chat limit reached for user ${args.userId}`);
+			return;
+		}
+
 		const result = await aiChatAgent.streamText(
 			ctx,
 			{ threadId: args.threadId, userId: args.userId },
@@ -139,6 +127,9 @@ export const createAIResponse = internalAction({
 		);
 
 		await result.consumeStream();
+
+		// Track usage after successful AI response
+		await autumn.track(ctx, { featureId: 'ai_chat_messages', value: 1 });
 	}
 });
 
