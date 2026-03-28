@@ -102,7 +102,7 @@
 				<Input
 					id="signup-email-{id}"
 					type="email"
-					autocomplete="email"
+					autocomplete="username"
 					placeholder="m@example.com"
 					disabled={isFormDisabled}
 					bind:value={signUpData.email}

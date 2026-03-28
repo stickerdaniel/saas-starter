@@ -110,7 +110,7 @@
 					id="email-{id}"
 					data-testid="email-input"
 					type="email"
-					autocomplete="email"
+					autocomplete="username"
 					placeholder="m@example.com"
 					disabled={isFormDisabled}
 					bind:value={signInData.email}
