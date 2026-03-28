@@ -98,7 +98,7 @@
 			{/if}
 			<ChatInput
 				class="mx-4"
-				placeholder={isPro ? $t('ai_chat.input.placeholder') : $t('ai_chat.pro_required.title')}
+				placeholder={$t('ai_chat.input.placeholder')}
 				suggestions={isPro ? suggestions : []}
 				showFileButton={isPro}
 				showHandoffButton={false}
