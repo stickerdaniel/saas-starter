@@ -17,6 +17,7 @@
 	} from '$lib/components/prompt-kit/chat-container';
 	import { ScrollButton } from '$lib/components/prompt-kit/scroll-button';
 	import MessageBubble from '$lib/chat/ui/MessageBubble.svelte';
+	import * as Avatar from '$lib/components/ui/avatar/index.js';
 	import ProgressiveBlur from '$blocks/magic/ProgressiveBlur.svelte';
 	import { FadeOnLoad } from '$lib/utils/fade-on-load.svelte.js';
 	import ArrowUpIcon from '@lucide/svelte/icons/arrow-up';
@@ -95,6 +96,15 @@
 	function isFirstInGroup(index: number): boolean {
 		if (!messages.data || index === 0) return true;
 		return messages.data[index]!.userId !== messages.data[index - 1]!.userId;
+	}
+
+	function getInitials(name: string) {
+		return name
+			.split(' ')
+			.map((n) => n[0])
+			.join('')
+			.toUpperCase()
+			.slice(0, 2);
 	}
 
 	function formatTime(timestamp: number) {
@@ -177,23 +187,41 @@
 								{@const own = isOwnMessage(message.userId)}
 								{@const firstInGroup = isFirstInGroup(index)}
 								<div
-									class="flex w-full flex-col gap-1 {own
-										? 'items-end'
-										: 'items-start'} {firstInGroup ? 'mt-8' : 'mt-1'}"
+									class="flex w-full gap-2 {own ? 'flex-row-reverse' : 'flex-row'} {firstInGroup
+										? 'mt-6'
+										: 'mt-1'}"
 								>
-									{#if !own && firstInGroup}
-										<span class="px-2 text-xs text-muted-foreground">
-											{message.author}
-										</span>
-									{/if}
-									<MessageBubble align={own ? 'right' : 'left'} variant="filled">
-										<div class="flex flex-col gap-1">
-											<p class="whitespace-pre-wrap break-words">{message.body}</p>
-											<span class="text-xs text-muted-foreground/60 {own ? 'text-end' : ''}">
-												{formatTime(message._creationTime)}
-											</span>
+									<!-- Avatar column for received messages -->
+									{#if !own}
+										<div class="mt-auto w-7 shrink-0">
+											{#if firstInGroup}
+												<Avatar.Root size="sm" class="size-7">
+													<Avatar.Image src={message.authorImage} alt={message.author} />
+													<Avatar.Fallback class="text-[10px]">
+														{getInitials(message.author)}
+													</Avatar.Fallback>
+												</Avatar.Root>
+											{/if}
 										</div>
-									</MessageBubble>
+									{/if}
+
+									<div class="flex min-w-0 flex-col gap-0.5 {own ? 'items-end' : 'items-start'}">
+										{#if !own && firstInGroup}
+											<span class="px-2 text-xs text-muted-foreground">
+												{message.author}
+											</span>
+										{/if}
+										<MessageBubble align={own ? 'right' : 'left'} variant="filled">
+											<div class="flex flex-col gap-1">
+												<p class="whitespace-pre-wrap break-words">
+													{message.body}
+												</p>
+												<span class="text-xs text-muted-foreground/60 {own ? 'text-end' : ''}">
+													{formatTime(message._creationTime)}
+												</span>
+											</div>
+										</MessageBubble>
+									</div>
 								</div>
 							{/each}
 						</div>
