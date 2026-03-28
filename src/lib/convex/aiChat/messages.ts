@@ -106,12 +106,20 @@ export const createAIResponse = internalAction({
 		userId: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
-		// Check AI chat message allowance (action context allows HTTP calls)
-		const checkResult = await autumn.check(ctx, { featureId: 'ai_chat_messages' });
-		if (!checkResult.data?.allowed) {
-			// User's message was saved but AI won't respond - limit reached
-			console.warn(`[createAIResponse] AI chat limit reached for user ${args.userId}`);
-			return;
+		// Check AI chat message allowance using Autumn REST API directly.
+		// internalAction has no auth context, so autumn.check (which relies on
+		// identify callback) won't work. Use the SDK with explicit customer_id.
+		if (args.userId) {
+			const { Autumn: AutumnSDK } = await import('autumn-js');
+			const sdk = new AutumnSDK({ secretKey: process.env.AUTUMN_SECRET_KEY! });
+			const checkResult = await sdk.check({
+				customer_id: args.userId,
+				feature_id: 'ai_chat_messages'
+			});
+			if (checkResult.data && !checkResult.data.allowed) {
+				console.warn(`[createAIResponse] AI chat limit reached for user ${args.userId}`);
+				return;
+			}
 		}
 
 		const result = await aiChatAgent.streamText(
@@ -128,8 +136,16 @@ export const createAIResponse = internalAction({
 
 		await result.consumeStream();
 
-		// Track usage after successful AI response
-		await autumn.track(ctx, { featureId: 'ai_chat_messages', value: 1 });
+		// Track usage after successful AI response (direct SDK, no auth context)
+		if (args.userId) {
+			const { Autumn: AutumnSDK } = await import('autumn-js');
+			const sdk = new AutumnSDK({ secretKey: process.env.AUTUMN_SECRET_KEY! });
+			await sdk.track({
+				customer_id: args.userId,
+				feature_id: 'ai_chat_messages',
+				value: 1
+			});
+		}
 	}
 });
 
