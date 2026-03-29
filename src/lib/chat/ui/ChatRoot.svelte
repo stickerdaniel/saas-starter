@@ -1,38 +1,27 @@
 <script lang="ts">
 	import { useQuery, useConvexClient } from 'convex-svelte';
 	import type { Snippet } from 'svelte';
-	import type { PaginationResult } from 'convex/server';
-	import type { StreamDelta, StreamMessage } from '@convex-dev/agent/validators';
 	import type { UIMessage } from '@convex-dev/agent';
 	import { ChatCore, type ChatCoreAPI } from '../core/ChatCore.svelte.js';
 	import type { ChatMessage, DisplayMessage } from '../core/types.js';
-	import {
-		combineStreamingUIMessages,
-		deriveUIMessagesFromDeltas
-	} from '../core/stream-materialization.js';
-	import { extractReasoning, normalizeMessage } from '../core/message-extraction.js';
-	import {
-		transformToDisplayMessage,
-		transformToDisplayMessageSimple,
-		type TransformContext,
-		dedupeDisplayMessagesForRender
-	} from '../core/DisplayMessageProcessor.js';
 	import {
 		ChatUIContext,
 		setChatUIContext,
 		type UploadConfig,
 		type ChatAlignment
 	} from './ChatContext.svelte.js';
-	import { getActiveStreamingReasoningIndex, getReasoningPartKey } from './reasoning-parts.js';
-
-	// Type for the query response with streams
-	type MessagesQueryResponse = PaginationResult<ChatMessage> & {
-		streams: {
-			kind: 'list' | 'deltas';
-			messages?: StreamMessage[];
-			deltas?: StreamDelta[];
-		};
-	};
+	import {
+		buildDisplayMessages,
+		dedupeChatDisplayMessages,
+		decodeStreamingUIMessages,
+		getActiveStreamIds,
+		getListStreamMessages,
+		getNormalizedMessages,
+		getStreamDeltas,
+		hasStreamingAssistantMessage,
+		type MessagesQueryResponse
+	} from './streaming-display.js';
+	import { syncReasoningAccordionState } from './reasoning-accordion-sync.js';
 
 	/**
 	 * External core adapter interface
@@ -132,14 +121,9 @@
 
 	// Extract active stream IDs for delta query
 	const activeStreamIds = $derived.by(() => {
-		const messagesData = messagesQuery.data as MessagesQueryResponse | undefined;
-		return messagesData?.streams?.kind === 'list'
-			? (messagesData.streams.messages || [])
-					.filter(
-						(m) => m.status === 'streaming' || m.status === 'finished' || m.status === 'aborted'
-					)
-					.map((m) => m.streamId)
-			: [];
+		return getActiveStreamIds(
+			getListStreamMessages(messagesQuery.data as MessagesQueryResponse | undefined)
+		);
 	});
 
 	// Second query: Get text deltas for active streams
@@ -165,23 +149,15 @@
 	// When a mutation calls createOptimisticUpdate(), the query cache is updated immediately
 	// and automatically reverts if the mutation fails
 	const allMessages = $derived.by(() => {
-		const messagesData = messagesQuery.data as MessagesQueryResponse | undefined;
-		const queryMessages = messagesData?.page || [];
-
-		// Normalize messages to ensure top-level role exists
-		return queryMessages.map((msg) => normalizeMessage(msg));
+		return getNormalizedMessages(messagesQuery.data as MessagesQueryResponse | undefined);
 	});
 
 	const streamMessages = $derived.by(() => {
-		const messagesData = messagesQuery.data as MessagesQueryResponse | undefined;
-		return messagesData?.streams?.kind === 'list' ? messagesData.streams.messages || [] : [];
+		return getListStreamMessages(messagesQuery.data as MessagesQueryResponse | undefined);
 	});
 
 	const allDeltas = $derived.by(() => {
-		const deltasData = deltasQuery.data as MessagesQueryResponse | undefined;
-		return deltasData?.streams?.kind === 'deltas'
-			? ((deltasData.streams.deltas || []) as StreamDelta[])
-			: [];
+		return getStreamDeltas(deltasQuery.data as MessagesQueryResponse | undefined);
 	});
 
 	let streamingUIMessages: UIMessage[] = $state([]);
@@ -199,13 +175,13 @@
 
 		void (async () => {
 			try {
-				const decodedMessages = await deriveUIMessagesFromDeltas(
+				const decodedMessages = await decodeStreamingUIMessages(
 					currentThreadId,
 					currentStreamMessages,
 					currentDeltas
 				);
 				if (cancelled) return;
-				streamingUIMessages = combineStreamingUIMessages(decodedMessages);
+				streamingUIMessages = decodedMessages;
 			} catch (error) {
 				if (cancelled) return;
 				console.error('Failed to decode streaming UI messages', error);
@@ -220,64 +196,19 @@
 
 	// Process streaming deltas to create display messages
 	const displayMessages = $derived.by((): DisplayMessage[] => {
-		// Fast path: no active streams
-		if (streamMessages.length === 0) {
-			return allMessages.map((msg) => transformToDisplayMessageSimple(msg));
-		}
-
-		// Build streaming data maps - local processing, not reactive state
-		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- local data processing
-		const streamPartsMap = new Map<string, UIMessage['parts']>();
-		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- local data processing
-		const streamTextMap = new Map<number, string>();
-		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- local data processing
-		const streamReasoningMap = new Map<number, string>();
-		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- local data processing
-		const streamStatusMap = new Map<number, string>();
-
-		[...streamMessages]
-			.sort((a, b) => {
-				if (a.order !== b.order) return a.order - b.order;
-				return a.stepOrder - b.stepOrder;
-			})
-			.forEach((streamMsg) => {
-				streamStatusMap.set(streamMsg.order, streamMsg.status);
-				core.streamCache.updateStatusCache(streamMsg.order, streamMsg.status);
-			});
-
-		streamingUIMessages.forEach((uiMsg: UIMessage) => {
-			streamPartsMap.set(`${uiMsg.order}-${uiMsg.stepOrder ?? 0}`, uiMsg.parts || []);
-			streamTextMap.set(uiMsg.order, uiMsg.text || '');
-			const reasoning = extractReasoning(uiMsg.parts || []);
-			if (reasoning) {
-				streamReasoningMap.set(uiMsg.order, reasoning);
-				core.streamCache.updateReasoningCache(uiMsg.order, reasoning);
-			}
-		});
-
-		// Build streaming keys set for message identification
-		const streamingKeys = new Set(
-			streamingUIMessages.map((uiMsg) => `${uiMsg.order}-${uiMsg.stepOrder ?? 0}`)
-		);
-
-		// Transform context for message processing
-		const context: TransformContext = {
-			streamingKeys,
-			streamPartsMap,
-			streamTextMap,
-			streamReasoningMap,
-			streamStatusMap,
+		return buildDisplayMessages({
+			allMessages,
+			streamMessages,
+			streamingUIMessages,
 			streamCache: core.streamCache
-		};
-
-		return allMessages.map((msg) => transformToDisplayMessage(msg, context));
+		});
 	});
 
 	// Update UI context with display messages
 	$effect(() => {
 		// Defensive UI guard: query/stream reconciliation should not duplicate IDs, but collapse any
 		// transient duplicates here so keyed message rendering cannot crash.
-		uiContext.setDisplayMessages(dedupeDisplayMessagesForRender(displayMessages));
+		uiContext.setDisplayMessages(dedupeChatDisplayMessages(displayMessages));
 	});
 
 	// Track when messages query has resolved (prevents suggestion chip flash)
@@ -289,11 +220,7 @@
 	// Clear awaiting state when NEW streaming assistant message appears
 	// (not based on hasActiveStreams which includes old finished streams)
 	$effect(() => {
-		const hasStreamingAssistant = displayMessages.some(
-			(m) => m.role === 'assistant' && (m.status === 'pending' || m.status === 'streaming')
-		);
-
-		if (hasStreamingAssistant && core.isAwaitingStream) {
+		if (hasStreamingAssistantMessage(displayMessages) && core.isAwaitingStream) {
 			core.setAwaitingStream(false);
 		}
 	});
@@ -301,41 +228,7 @@
 	// Auto-manage reasoning accordion state for interleaved reasoning/tool/text parts.
 	// Only the last overall part can be considered the active streaming reasoning part.
 	$effect(() => {
-		displayMessages.forEach((message) => {
-			const parts = message.parts ?? [];
-
-			if (parts.length > 0) {
-				const isMessageInProgress = message.status === 'pending' || message.status === 'streaming';
-				const activeReasoningIndex = getActiveStreamingReasoningIndex(parts, isMessageInProgress);
-
-				parts.forEach((part, idx) => {
-					if (part.type !== 'reasoning') return;
-					const partKey = `${message.id}:${getReasoningPartKey(idx)}`;
-
-					if (idx === activeReasoningIndex) {
-						if (!uiContext.isReasoningOpen(partKey)) {
-							uiContext.setReasoningOpen(partKey, true);
-							uiContext.markAutoOpened(partKey);
-						}
-					} else if (uiContext.wasAutoOpened(partKey)) {
-						uiContext.setReasoningOpen(partKey, false);
-						uiContext.clearAutoOpened(partKey);
-					}
-				});
-			} else {
-				// Fallback: message-level reasoning state for messages without parts
-				const hasReasoning = !!message.displayReasoning;
-				const hasResponse = !!message.displayText;
-
-				if (hasReasoning && !hasResponse) {
-					uiContext.setReasoningOpen(message.id, true);
-					uiContext.markAutoOpened(message.id);
-				} else if (hasResponse && uiContext.wasAutoOpened(message.id)) {
-					uiContext.setReasoningOpen(message.id, false);
-					uiContext.clearAutoOpened(message.id);
-				}
-			}
-		});
+		syncReasoningAccordionState(displayMessages, uiContext);
 	});
 </script>
 
