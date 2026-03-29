@@ -704,6 +704,34 @@
 			"verified": "Vérifié"
 		}
 	},
+	"ai_chat": {
+		"delete_thread": "Supprimer la conversation",
+		"delete_thread_confirm": "Êtes-vous sûr de vouloir supprimer cette conversation ?",
+		"description": "Discutez avec notre assistant IA",
+		"empty": {
+			"description": "Posez n'importe quelle question et obtenez des réponses instantanées par IA.",
+			"title": "Démarrer une conversation"
+		},
+		"input": {
+			"placeholder": "Tapez un message..."
+		},
+		"new_chat": "Nouveau chat",
+		"pro_required": {
+			"description": "Passez à Pro pour 30 messages Chat IA par mois. Essayez gratuitement avec la carte test 4242 4242 4242 4242.",
+			"title": "Fonction Pro"
+		},
+		"select_chat": "Sélectionnez une conversation ou démarrez un nouveau chat",
+		"suggestion": {
+			"explain": "Explique quelque chose",
+			"help": "Obtenir de l'aide",
+			"understand": "Aide-moi à comprendre"
+		},
+		"thread": {
+			"loading": "Chargement...",
+			"no_messages": "Nouvelle conversation"
+		},
+		"title": "Chat IA"
+	},
 	"app": {
 		"dashboard": {
 			"subtitle": "Voici votre base. Les métriques en temps réel et l'activité apparaîtront ici au fur et à mesure que vous développez votre application.",
@@ -712,10 +740,13 @@
 		"name": "SaaS Starter",
 		"sidebar": {
 			"admin_panel": "Panneau Admin",
+			"ai_chat": "Chat IA",
 			"community_chat": "Chat communautaire",
 			"dashboard": "Tableau de bord",
 			"docs": "Documentation",
-			"home": "Accueil"
+			"home": "Accueil",
+			"show_more": "Afficher plus",
+			"show_less": "Afficher moins"
 		},
 		"user_menu": {
 			"account": "Compte",
@@ -1163,6 +1194,10 @@
 			}
 		},
 		"app": {
+			"ai_chat": {
+				"description": "Discutez avec notre assistant IA.",
+				"title": "Chat IA"
+			},
 			"community_chat": {
 				"description": "Discutez avec la communauté en temps réel.",
 				"title": "Chat communautaire"

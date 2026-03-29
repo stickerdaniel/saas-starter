@@ -190,7 +190,18 @@ export default defineSchema({
 		sentAt: v.optional(v.number()),
 		skippedReason: v.optional(v.string()),
 		createdAt: v.number()
-	}).index('by_user', ['userId'])
+	}).index('by_user', ['userId']),
+
+	// AI Chat thread metadata - maps agent threads to authenticated users
+	aiChatThreads: defineTable({
+		threadId: v.string(), // Reference to agent:threads
+		userId: v.string(), // Better Auth user ID
+		createdAt: v.number(),
+		isWarm: v.optional(v.boolean()) // true = pre-warmed empty thread, awaiting first message
+	})
+		.index('by_user', ['userId'])
+		.index('by_thread', ['threadId'])
+		.index('by_user_warm', ['userId', 'isWarm'])
 
 	// Note: The agent component automatically creates the following tables:
 	// - agent:threads - Conversation threads for customer support

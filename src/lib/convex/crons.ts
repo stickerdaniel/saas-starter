@@ -13,4 +13,12 @@ crons.interval('cleanupExpiredFiles', { hours: 1 }, internal.files.cleanup.clean
 // Runs every 6 hours to delete threads older than 24h with no messages
 crons.interval('deleteEmptyThreads', { hours: 6 }, internal.support.threads.deleteEmptyThreads, {});
 
+// Clean up stale pre-warmed AI chat threads (older than 7 days, never used)
+crons.interval(
+	'deleteStaleWarmThreads',
+	{ hours: 24 },
+	internal.aiChat.threads.deleteStaleWarmThreads,
+	{}
+);
+
 export default crons;

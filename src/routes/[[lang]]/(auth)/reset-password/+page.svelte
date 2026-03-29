@@ -211,6 +211,7 @@
 								<Password.Root>
 									<Password.Input
 										id="password-{id}"
+										name="password"
 										data-testid="reset-password-password-input"
 										autocomplete="new-password"
 										placeholder="••••••••"
@@ -234,6 +235,7 @@
 								</Field.Label>
 								<Input
 									id="confirm-password-{id}"
+									name="confirmPassword"
 									data-testid="reset-password-confirm-input"
 									type="password"
 									autocomplete="new-password"

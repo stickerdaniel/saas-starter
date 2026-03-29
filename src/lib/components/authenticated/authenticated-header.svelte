@@ -60,13 +60,13 @@
 </script>
 
 <header
-	class="flex h-16 shrink-0 items-center gap-2 border-b transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12"
+	class="flex h-16 shrink-0 items-center gap-2 border-b bg-sidebar/30 transition-[width,height] ease-sidebar group-has-data-[collapsible=icon]/sidebar-wrapper:h-12"
 >
 	<div class="flex w-full items-center gap-2 px-4">
 		<Sidebar.Trigger class="-ml-1" />
 		<Separator orientation="vertical" class="mr-2 data-[orientation=vertical]:h-4" />
-		<Breadcrumb.Root>
-			<Breadcrumb.List>
+		<Breadcrumb.Root class="min-w-0">
+			<Breadcrumb.List class="flex-nowrap truncate">
 				{#each breadcrumbs as item, index (item.href)}
 					{#if index > 0}
 						<Breadcrumb.Separator class="hidden md:block" />

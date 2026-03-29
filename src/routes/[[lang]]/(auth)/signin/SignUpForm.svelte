@@ -69,7 +69,13 @@
 	}
 </script>
 
-<form onsubmit={handleSubmit} novalidate class="min-h-96">
+<form
+	onsubmit={handleSubmit}
+	action="/api/auth/sign-up/email"
+	method="POST"
+	novalidate
+	class="min-h-96"
+>
 	<LoadingBar value={signUpProgress} indeterminate={isLoading} class="h-1 rounded-none" />
 	<div class="p-6 md:p-8">
 		<Field.Group>
@@ -87,6 +93,7 @@
 				</Field.Label>
 				<Input
 					id="name-{id}"
+					name="name"
 					type="text"
 					autocomplete="name"
 					placeholder="Your name"
@@ -101,8 +108,9 @@
 				</Field.Label>
 				<Input
 					id="signup-email-{id}"
+					name="username"
 					type="email"
-					autocomplete="email"
+					autocomplete="username"
 					placeholder="m@example.com"
 					disabled={isFormDisabled}
 					bind:value={signUpData.email}
@@ -116,6 +124,7 @@
 				<Password.Root>
 					<Password.Input
 						id="signup-password-{id}"
+						name="password"
 						autocomplete="new-password"
 						disabled={isFormDisabled}
 						bind:value={signUpData.password}

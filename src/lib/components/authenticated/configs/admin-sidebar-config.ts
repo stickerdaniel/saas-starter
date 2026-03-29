@@ -1,4 +1,5 @@
 import { localizedHref } from '$lib/utils/i18n';
+import { cmdOrCtrl } from '$lib/hooks/is-mac.svelte';
 import LayoutDashboardIcon from '@lucide/svelte/icons/layout-dashboard';
 import UsersIcon from '@lucide/svelte/icons/users';
 import MessagesSquareIcon from '@lucide/svelte/icons/messages-square';
@@ -41,26 +42,30 @@ export function getAdminSidebarConfig(pageState: PageState): SidebarConfig {
 				translationKey: 'admin.sidebar.dashboard',
 				url: localizedHref('/admin/dashboard'),
 				icon: LayoutDashboardIcon,
-				isActive: pathname.startsWith(`/${lang}/admin/dashboard`)
+				isActive: pathname.startsWith(`/${lang}/admin/dashboard`),
+				kbd: `${cmdOrCtrl}⇧1`
 			},
 			{
 				translationKey: 'admin.sidebar.users',
 				url: localizedHref('/admin/users'),
 				icon: UsersIcon,
-				isActive: pathname.startsWith(`/${lang}/admin/users`)
+				isActive: pathname.startsWith(`/${lang}/admin/users`),
+				kbd: `${cmdOrCtrl}⇧2`
 			},
 			{
 				translationKey: 'admin.sidebar.support',
 				url: localizedHref('/admin/support'),
 				icon: MessagesSquareIcon,
 				isActive: pathname.startsWith(`/${lang}/admin/support`),
-				badge: supportBadge
+				badge: supportBadge,
+				kbd: `${cmdOrCtrl}⇧3`
 			},
 			{
 				translationKey: 'admin.sidebar.settings',
 				url: localizedHref('/admin/settings'),
 				icon: SettingsIcon,
-				isActive: pathname.startsWith(`/${lang}/admin/settings`)
+				isActive: pathname.startsWith(`/${lang}/admin/settings`),
+				kbd: `${cmdOrCtrl}⇧4`
 			}
 		],
 		footerLinks: [
@@ -68,7 +73,8 @@ export function getAdminSidebarConfig(pageState: PageState): SidebarConfig {
 				translationKey: 'admin.sidebar.back_to_app',
 				url: localizedHref('/app'),
 				icon: ArrowLeftIcon,
-				condition: true
+				condition: true,
+				kbd: `${cmdOrCtrl}.`
 			}
 		]
 	};

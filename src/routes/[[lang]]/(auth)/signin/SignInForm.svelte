@@ -92,7 +92,13 @@
 	}
 </script>
 
-<form onsubmit={handleSubmit} novalidate class="min-h-96">
+<form
+	onsubmit={handleSubmit}
+	action="/api/auth/sign-in/email"
+	method="POST"
+	novalidate
+	class="min-h-96"
+>
 	<LoadingBar value={signInProgress} indeterminate={isLoading} class="h-1 rounded-none" />
 	<div class="p-6 md:p-8">
 		<Field.Group>
@@ -108,9 +114,10 @@
 				<Field.Label for="email-{id}"><T keyName="auth.signin.email_label" /></Field.Label>
 				<Input
 					id="email-{id}"
+					name="username"
 					data-testid="email-input"
 					type="email"
-					autocomplete="email"
+					autocomplete="username"
 					placeholder="m@example.com"
 					disabled={isFormDisabled}
 					bind:value={signInData.email}
@@ -134,6 +141,7 @@
 				</div>
 				<Input
 					id="password-{id}"
+					name="password"
 					data-testid="password-input"
 					type="password"
 					autocomplete="current-password"
