@@ -1,0 +1,115 @@
+name: E2E Tests (CF Preview)
+
+on:
+  push:
+    branches-ignore:
+      - main
+
+jobs:
+  e2e-tests:
+    name: E2E Tests
+    runs-on: ubicloud-standard-2
+    env:
+      NODE_OPTIONS: --max-old-space-size=4096
+      AUTH_E2E_TEST_SECRET: ${{ secrets.AUTH_E2E_TEST_SECRET }}
+      CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+      CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Install Playwright
+        run: bunx playwright install chromium --with-deps
+
+      # Wait for CF Pages deployment to complete and get preview URL.
+      # Polls the CF API by commit SHA until the deployment succeeds.
+      # API fields (deployment_trigger.metadata.commit_hash, latest_stage.status)
+      # are confirmed by Wrangler source (workers-sdk/packages/wrangler/src/pages/types.ts)
+      # but not in CF's public API docs. Validate if the jq filter breaks.
+      - name: Wait for CF deployment
+        id: cf-deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          PROJECT=$(grep '^name' wrangler.toml | cut -d'"' -f2)
+
+          echo "Waiting for CF Pages deployment of $COMMIT_SHA..."
+          echo "  Project: $PROJECT"
+
+          for i in {1..30}; do
+            DEPLOYMENTS=$(curl -sf \
+              -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+              "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects/$PROJECT/deployments")
+
+            DEPLOY_URL=$(echo "$DEPLOYMENTS" | jq -r \
+              ".result[] | select(.deployment_trigger.metadata.commit_hash == \"$COMMIT_SHA\") | select(.latest_stage.status == \"success\") | .url" \
+              | head -1)
+
+            if [ -n "$DEPLOY_URL" ] && [ "$DEPLOY_URL" != "null" ]; then
+              echo "Deployment ready: $DEPLOY_URL"
+              echo "PREVIEW_URL=$DEPLOY_URL" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+
+            echo "Attempt $i/30: deployment not ready, waiting 20s..."
+            sleep 20
+          done
+
+          echo "::error::CF deployment not found after 10 minutes"
+          exit 1
+
+      - name: Fetch E2E config from preview
+        env:
+          PREVIEW_URL: ${{ steps.cf-deploy.outputs.PREVIEW_URL }}
+        run: |
+          echo "Fetching config from: ${PREVIEW_URL}/.well-known/e2e-config.json"
+
+          HEADERS=""
+          if [ -n "$CF_ACCESS_CLIENT_ID" ]; then
+            HEADERS="-H CF-Access-Client-Id:$CF_ACCESS_CLIENT_ID -H CF-Access-Client-Secret:$CF_ACCESS_CLIENT_SECRET"
+          fi
+
+          for i in {1..5}; do
+            if CONFIG=$(curl -sf $HEADERS "${PREVIEW_URL}/.well-known/e2e-config.json"); then
+              echo "Config fetched successfully"
+              echo "$CONFIG" | jq .
+
+              echo "PUBLIC_CONVEX_URL=$(echo "$CONFIG" | jq -r '.convexUrl')" >> "$GITHUB_ENV"
+              echo "PUBLIC_CONVEX_SITE_URL=$(echo "$CONFIG" | jq -r '.convexSiteUrl')" >> "$GITHUB_ENV"
+              echo "PUBLIC_SITE_URL=${PREVIEW_URL}" >> "$GITHUB_ENV"
+              exit 0
+            fi
+            echo "Attempt $i failed, retrying in 10s..."
+            sleep 10
+          done
+
+          echo "::error::Failed to fetch E2E config after 5 attempts"
+          exit 1
+
+      - name: Log test configuration
+        env:
+          PREVIEW_URL: ${{ steps.cf-deploy.outputs.PREVIEW_URL }}
+        run: |
+          echo "Testing against CF preview deployment:"
+          echo "  PREVIEW_URL: $PREVIEW_URL"
+          echo "  PUBLIC_CONVEX_URL: $PUBLIC_CONVEX_URL"
+          echo "  PUBLIC_CONVEX_SITE_URL: $PUBLIC_CONVEX_SITE_URL"
+
+      - name: Run E2E tests
+        run: bun run test:e2e
+
+      - name: Upload test results
+        if: failure()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
+        with:
+          name: playwright-report
+          path: playwright-report/
