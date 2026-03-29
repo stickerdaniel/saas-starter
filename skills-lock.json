@@ -1,11 +1,6 @@
 {
 	"version": 1,
 	"skills": {
-		"autumn-best-practices": {
-			"source": "useautumn/skills",
-			"sourceType": "github",
-			"computedHash": "d4148e55c3c75e121c3e967d8d2d9a8eda3ee9b99a87db853f9b6788d98d713c"
-		},
 		"email-and-password-best-practices": {
 			"source": "better-auth/skills",
 			"sourceType": "github",
@@ -30,6 +25,11 @@
 			"source": "sveltejs/ai-tools",
 			"sourceType": "github",
 			"computedHash": "bec11e369679027edf9d4acbe6d9788f8da33dc14b48b874f231d3ba13705324"
+		},
+		"triage-reviews": {
+			"source": "stickerdaniel/linkedin-mcp-server",
+			"sourceType": "github",
+			"computedHash": "c148529762a856a8f08a4db4b08c1bf7409281347d545f022e04a8e301af6868"
 		}
 	}
 }
