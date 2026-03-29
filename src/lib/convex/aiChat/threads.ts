@@ -3,6 +3,10 @@ import { internalMutation, internalQuery } from '../_generated/server';
 import { authedQuery, authedMutation } from '../functions';
 import { aiChatAgent } from './agent';
 import { components } from '../_generated/api';
+import { requireAiChatThreadRecord } from './ownership';
+
+// aiChatThreads is the feature registry for AI chat access and sidebar state.
+// agent:threads remains generic conversation storage/runtime shared across features.
 
 // Strip \u200C (ZWNJ) and \u200D (ZWJ) from preview text.
 // Tolgee's InvisibleObserver uses these exact chars for key encoding.
@@ -90,14 +94,10 @@ export const deleteThread = authedMutation({
 	handler: async (ctx, args) => {
 		const userId = ctx.user._id;
 
-		const record = await ctx.db
-			.query('aiChatThreads')
-			.withIndex('by_thread', (q) => q.eq('threadId', args.threadId))
-			.first();
-
-		if (!record || record.userId !== userId) {
-			throw new Error('Thread not found');
-		}
+		const record = await requireAiChatThreadRecord(ctx, {
+			threadId: args.threadId,
+			userId
+		});
 
 		await ctx.db.delete(record._id);
 	}

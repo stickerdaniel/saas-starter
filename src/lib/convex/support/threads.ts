@@ -1,4 +1,10 @@
-import { mutation, query, internalMutation, internalQuery } from '../_generated/server';
+import {
+	mutation,
+	query,
+	internalMutation,
+	internalQuery,
+	type QueryCtx
+} from '../_generated/server';
 import { v, ConvexError } from 'convex/values';
 import * as val from 'valibot';
 import { supportAgent } from './agent';
@@ -6,28 +12,33 @@ import { components, internal } from '../_generated/api';
 import { paginationOptsValidator } from 'convex/server';
 import { t, extractLocaleFromUrl } from '../i18n/translations';
 import {
-	assertThreadOwnership,
+	requireSupportThreadAccess,
+	requireSupportThreadRecord,
 	getSupportOwnerIdentity,
 	requireSupportOwnerIdentity
 } from './ownership';
+import {
+	buildSupportMessageDenormalization,
+	buildSupportSearchText,
+	type SupportLatestThreadMessage
+} from './denormalization';
 
-/**
- * Helper to build searchText from denormalized fields.
- * Combines all searchable fields into a single lowercase string.
- */
-function buildSearchText(fields: {
-	title?: string;
-	summary?: string;
-	lastMessage?: string;
-	userName?: string;
-	userEmail?: string;
-}): string {
-	return (
-		[fields.title, fields.summary, fields.lastMessage, fields.userName, fields.userEmail]
-			.filter(Boolean)
-			.join(' | ')
-			.toLowerCase() || 'untitled'
-	);
+// supportThreads is the source of truth for support thread membership and list rendering.
+// agent:threads remains shared runtime/storage used only for generic conversation metadata.
+
+async function getLatestCompletedThreadMessage(
+	ctx: QueryCtx,
+	threadId: string
+): Promise<SupportLatestThreadMessage | undefined> {
+	const messages = await ctx.runQuery(components.agent.messages.listMessagesByThreadId, {
+		threadId,
+		order: 'desc',
+		statuses: ['success'],
+		excludeToolMessages: true,
+		paginationOpts: { numItems: 1, cursor: null }
+	});
+
+	return messages.page[0] as SupportLatestThreadMessage | undefined;
 }
 
 /**
@@ -82,7 +93,7 @@ export const createThread = mutation({
 		// Build denormalized search fields
 		const title = args.title || 'Customer Support';
 		const summary = 'New support conversation';
-		const searchText = buildSearchText({ title, summary, userName, userEmail });
+		const searchText = buildSupportSearchText({ title, summary, userName, userEmail });
 
 		// Create supportThread record with admin metadata + search fields
 		await ctx.db.insert('supportThreads', {
@@ -103,6 +114,9 @@ export const createThread = mutation({
 			title,
 			summary,
 			lastMessage: undefined,
+			lastMessageAt: undefined,
+			lastMessageRole: undefined,
+			lastAgentName: undefined,
 			userName,
 			userEmail
 		});
@@ -160,36 +174,16 @@ export const listThreads = query({
 			return { page: [], isDone: true, continueCursor: '' };
 		}
 
-		// Get threads from the agent component
-		const threads = await ctx.runQuery(components.agent.threads.listThreadsByUserId, {
-			userId: owner.ownerId,
-			paginationOpts: args.paginationOpts ?? { numItems: 20, cursor: null },
-			order: 'desc'
-		});
-
-		// Get supportThreads for all threads (for handoff status, assigned admin, and notification email)
-		const supportThreadsMap = new Map<
-			string,
-			{ isHandedOff?: boolean; assignedTo?: string; notificationEmail?: string }
-		>();
-		for (const thread of threads.page) {
-			const supportThread = await ctx.db
-				.query('supportThreads')
-				.withIndex('by_thread', (q) => q.eq('threadId', thread._id))
-				.first();
-			if (supportThread) {
-				supportThreadsMap.set(thread._id, {
-					isHandedOff: supportThread.isHandedOff,
-					assignedTo: supportThread.assignedTo,
-					notificationEmail: supportThread.notificationEmail
-				});
-			}
-		}
+		const supportThreads = await ctx.db
+			.query('supportThreads')
+			.withIndex('by_user_and_updated', (q) => q.eq('userId', owner.ownerId))
+			.order('desc')
+			.paginate(args.paginationOpts ?? { numItems: 20, cursor: null });
 
 		// Collect unique admin IDs and fetch their info
 		const adminIds = new Set<string>();
-		for (const st of supportThreadsMap.values()) {
-			if (st.assignedTo) adminIds.add(st.assignedTo);
+		for (const supportThread of supportThreads.page) {
+			if (supportThread.assignedTo) adminIds.add(supportThread.assignedTo);
 		}
 
 		const adminMap = new Map<string, { name?: string; image: string | null }>();
@@ -209,47 +203,56 @@ export const listThreads = query({
 
 		// For each thread, get the last message and combine with support data
 		const threadsWithLastMessage = await Promise.all(
-			threads.page.map(async (thread) => {
-				// Get the most recent completed message in this thread (exclude pending/streaming)
-				const messages = await ctx.runQuery(components.agent.messages.listMessagesByThreadId, {
-					threadId: thread._id,
-					order: 'desc',
-					statuses: ['success'],
-					excludeToolMessages: true,
-					paginationOpts: { numItems: 1, cursor: null }
-				});
+			supportThreads.page.map(async (supportThread) => {
+				let thread;
+				try {
+					thread = await ctx.runQuery(components.agent.threads.getThread, {
+						threadId: supportThread.threadId
+					});
+				} catch (error) {
+					console.log(
+						`[listThreads] Failed to fetch agent thread ${supportThread.threadId}:`,
+						error
+					);
+					return null;
+				}
 
-				const lastMessage = messages.page[0];
-				const supportThread = supportThreadsMap.get(thread._id);
-				const assignedAdmin = supportThread?.assignedTo
+				if (!thread) {
+					return null;
+				}
+
+				const assignedAdmin = supportThread.assignedTo
 					? adminMap.get(supportThread.assignedTo)
 					: undefined;
 
 				return {
-					_id: thread._id,
-					_creationTime: thread._creationTime,
-					userId: thread.userId,
-					title: thread.title,
-					summary: thread.summary,
+					_id: supportThread.threadId,
+					_creationTime: supportThread.createdAt,
+					userId: supportThread.userId ?? thread.userId,
+					title: supportThread.title,
+					summary: supportThread.summary,
 					status: thread.status,
-					lastAgentName: lastMessage?.agentName,
-					lastMessageRole: lastMessage?.message?.role,
-					lastMessage: lastMessage?.text,
-					lastMessageAt: lastMessage?._creationTime ?? thread._creationTime,
-					isHandedOff: supportThread?.isHandedOff ?? false,
-					notificationEmail: supportThread?.notificationEmail,
+					lastAgentName: supportThread.lastAgentName,
+					lastMessageRole: supportThread.lastMessageRole,
+					lastMessage: supportThread.lastMessage,
+					lastMessageAt: supportThread.lastMessageAt,
+					isHandedOff: supportThread.isHandedOff ?? false,
+					notificationEmail: supportThread.notificationEmail,
 					assignedAdmin
 				};
 			})
 		);
 
 		// Sort by lastMessageAt in descending order (most recent first)
-		threadsWithLastMessage.sort((a, b) => (b.lastMessageAt ?? 0) - (a.lastMessageAt ?? 0));
+		const validThreads = threadsWithLastMessage.filter(
+			(thread): thread is NonNullable<(typeof threadsWithLastMessage)[number]> => thread !== null
+		);
+		validThreads.sort((a, b) => (b.lastMessageAt ?? 0) - (a.lastMessageAt ?? 0));
 
 		return {
-			page: threadsWithLastMessage,
-			isDone: threads.isDone,
-			continueCursor: threads.continueCursor
+			page: validThreads,
+			isDone: supportThreads.isDone,
+			continueCursor: supportThreads.continueCursor
 		};
 	}
 });
@@ -285,16 +288,10 @@ export const getThread = query({
 		)
 	}),
 	handler: async (ctx, args) => {
-		const { thread } = await assertThreadOwnership(ctx, {
+		const { supportThread, thread } = await requireSupportThreadAccess(ctx, {
 			threadId: args.threadId,
 			anonymousUserId: args.anonymousUserId
 		});
-
-		// Get supportThread to check handoff status and assigned admin
-		const supportThread = await ctx.db
-			.query('supportThreads')
-			.withIndex('by_thread', (q) => q.eq('threadId', args.threadId))
-			.first();
 
 		// Fetch assigned admin info if thread is assigned
 		let assignedAdmin: { name?: string; image: string | null } | undefined;
@@ -338,20 +335,10 @@ export const updateThreadHandoff = mutation({
 	},
 	returns: v.boolean(),
 	handler: async (ctx, args) => {
-		await assertThreadOwnership(ctx, {
+		const { supportThread } = await requireSupportThreadRecord(ctx, {
 			threadId: args.threadId,
 			anonymousUserId: args.anonymousUserId
 		});
-
-		// Get supportThread record
-		const supportThread = await ctx.db
-			.query('supportThreads')
-			.withIndex('by_thread', (q) => q.eq('threadId', args.threadId))
-			.first();
-
-		if (!supportThread) {
-			throw new ConvexError('Support thread not found');
-		}
 
 		// Already handed off - no action needed
 		if (supportThread.isHandedOff) {
@@ -515,20 +502,10 @@ export const updateNotificationEmail = mutation({
 			throw new ConvexError('Invalid email format');
 		}
 
-		await assertThreadOwnership(ctx, {
+		const { supportThread } = await requireSupportThreadRecord(ctx, {
 			threadId: args.threadId,
 			anonymousUserId: args.anonymousUserId
 		});
-
-		// Get supportThread record
-		const supportThread = await ctx.db
-			.query('supportThreads')
-			.withIndex('by_thread', (q) => q.eq('threadId', args.threadId))
-			.first();
-
-		if (!supportThread) {
-			throw new ConvexError('Support thread not found');
-		}
 
 		// Update notification email (undefined to unsubscribe)
 		await ctx.db.patch(supportThread._id, {
@@ -570,7 +547,7 @@ export const updateThreadMetadata = internalMutation({
 		const summary = args.summary ?? supportThread.summary;
 
 		// Rebuild searchText
-		const searchText = buildSearchText({
+		const searchText = buildSupportSearchText({
 			title,
 			summary,
 			lastMessage: supportThread.lastMessage,
@@ -606,32 +583,63 @@ export const updateLastMessage = internalMutation({
 			return;
 		}
 
-		// Get latest message (truncated to 500 chars for search)
-		const messages = await ctx.runQuery(components.agent.messages.listMessagesByThreadId, {
-			threadId: args.threadId,
-			order: 'desc',
-			statuses: ['success'],
-			excludeToolMessages: true,
-			paginationOpts: { numItems: 1, cursor: null }
-		});
-
-		const lastMessageText = messages.page[0]?.text;
-		const lastMessage = lastMessageText?.slice(0, 500);
-
-		// Rebuild searchText
-		const searchText = buildSearchText({
+		const latestMessage = await getLatestCompletedThreadMessage(ctx, args.threadId);
+		const patch = buildSupportMessageDenormalization({
 			title: supportThread.title,
 			summary: supportThread.summary,
-			lastMessage,
 			userName: supportThread.userName,
-			userEmail: supportThread.userEmail
+			userEmail: supportThread.userEmail,
+			latestMessage
 		});
 
 		await ctx.db.patch(supportThread._id, {
-			lastMessage,
-			searchText,
+			...patch,
 			updatedAt: Date.now()
 		});
+	}
+});
+
+/**
+ * Backfill support denormalized fields from existing supportThreads + agent data.
+ * Run manually before removing any historical compatibility code.
+ */
+export const backfillThreadMetadata = internalMutation({
+	args: {},
+	returns: v.object({ updated: v.number(), total: v.number() }),
+	handler: async (ctx) => {
+		// One-time backfill for pre-release data; supportThreads volume is bounded in this repo.
+		const supportThreads = await ctx.db.query('supportThreads').collect();
+		let updated = 0;
+
+		for (const supportThread of supportThreads) {
+			let agentThread;
+			try {
+				agentThread = await ctx.runQuery(components.agent.threads.getThread, {
+					threadId: supportThread.threadId
+				});
+			} catch {
+				continue;
+			}
+
+			if (!agentThread) continue;
+
+			const patch = {
+				title: agentThread.title,
+				summary: agentThread.summary,
+				...buildSupportMessageDenormalization({
+					title: agentThread.title,
+					summary: agentThread.summary,
+					userName: supportThread.userName,
+					userEmail: supportThread.userEmail,
+					latestMessage: await getLatestCompletedThreadMessage(ctx, supportThread.threadId)
+				})
+			};
+
+			await ctx.db.patch(supportThread._id, patch);
+			updated++;
+		}
+
+		return { updated, total: supportThreads.length };
 	}
 });
 

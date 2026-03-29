@@ -12,6 +12,7 @@ import { listMessagesForThread } from '../support/messageListing';
 import { authedMutation } from '../functions';
 import { authComponent } from '../auth';
 import { getAutumnSdk } from '../autumn';
+import { requireAiChatThreadRecord } from './ownership';
 
 /**
  * Send a user message and get AI response with streaming.
@@ -33,13 +34,10 @@ export const sendMessage = authedMutation({
 		const userId = ctx.user._id;
 
 		// Verify thread ownership
-		const record = await ctx.db
-			.query('aiChatThreads')
-			.withIndex('by_thread', (q) => q.eq('threadId', args.threadId))
-			.first();
-		if (!record || record.userId !== userId) {
-			throw new ConvexError('Thread not found');
-		}
+		const record = await requireAiChatThreadRecord(ctx, {
+			threadId: args.threadId,
+			userId
+		});
 
 		// Consume warm thread on first message (backend-driven, no client coordination needed)
 		if (record.isWarm) {
@@ -179,13 +177,10 @@ export const listMessages = query({
 		}
 
 		// Verify ownership
-		const record = await ctx.db
-			.query('aiChatThreads')
-			.withIndex('by_thread', (q) => q.eq('threadId', args.threadId))
-			.first();
-		if (!record || record.userId !== user._id) {
-			throw new ConvexError('Thread not found');
-		}
+		await requireAiChatThreadRecord(ctx, {
+			threadId: args.threadId,
+			userId: user._id
+		});
 
 		return await listMessagesForThread(ctx, {
 			threadId: args.threadId,
