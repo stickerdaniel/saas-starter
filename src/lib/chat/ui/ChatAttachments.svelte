@@ -216,9 +216,11 @@
 			{@const originalIndex =
 				readonly && align === 'right' ? attachments.length - 1 - index : index}
 
+			<!-- tabindex and role are set together: when isClickable, role="button" makes this interactive -->
+			<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 			<div
 				class="relative flex items-center justify-between gap-2 overflow-hidden rounded-lg px-2 py-2 transition-transform {isClickable
-					? 'cursor-pointer active:scale-97'
+					? 'cursor-pointer active:translate-y-px'
 					: ''} {readonly ? 'border text-foreground transition-colors' : 'bg-secondary/50'}"
 				style="width: {attachments.length === 1 && readonly
 					? '100%'

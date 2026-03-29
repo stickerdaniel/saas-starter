@@ -7,6 +7,7 @@ import {
 	expectTableQueryParams,
 	getTableQueryParam
 } from './utils/convex-table-url-assertions';
+import { resolveConvexUrl } from './utils/convex-url';
 
 const SITE_URL = process.env.PUBLIC_SITE_URL || 'http://localhost:5173';
 const TEST_PASSWORD = 'TestPassword123!';
@@ -119,7 +120,7 @@ test.describe('Admin Users Table', () => {
 	test.describe.configure({ mode: 'serial', timeout: 180000 });
 
 	const testSecret = process.env.AUTH_E2E_TEST_SECRET;
-	const convexUrl = process.env.PUBLIC_CONVEX_URL || process.env.VITE_CONVEX_URL;
+	const convexUrl = resolveConvexUrl();
 
 	let client: ConvexHttpClient;
 	let seedPrefix = '';
@@ -135,7 +136,9 @@ test.describe('Admin Users Table', () => {
 			throw new Error('AUTH_E2E_TEST_SECRET is required in .env.test');
 		}
 		if (!convexUrl) {
-			throw new Error('PUBLIC_CONVEX_URL or VITE_CONVEX_URL is required in .env.test');
+			throw new Error(
+				'Convex URL not configured (set PUBLIC_CONVEX_URL or start local dev server)'
+			);
 		}
 
 		client = new ConvexHttpClient(convexUrl);

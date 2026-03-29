@@ -141,13 +141,13 @@
 					: $t('admin.support.filter_showing_completed')}
 			>
 				<InboxIcon
-					class="size-4 transition-all duration-200 ease-in-out {showingOpen
+					class="size-4 transition-[transform,opacity,filter] duration-200 ease-out {showingOpen
 						? 'blur-0 scale-100 opacity-100'
-						: 'scale-0 opacity-0 blur-sm'}"
+						: 'scale-75 opacity-0 blur-sm'}"
 				/>
 				<ArchiveIcon
-					class="absolute size-4 transition-all duration-200 ease-in-out {showingOpen
-						? 'scale-0 opacity-0 blur-sm'
+					class="absolute size-4 transition-[transform,opacity,filter] duration-200 ease-out {showingOpen
+						? 'scale-75 opacity-0 blur-sm'
 						: 'blur-0 scale-100 opacity-100'}"
 				/>
 			</Button>

@@ -18,10 +18,11 @@ import { waitForAuthenticated } from './utils/auth';
  */
 
 import type { TestCredentials } from './utils/types';
+import { resolveConvexUrl } from './utils/convex-url';
 
 const credentialsPath = path.join(process.cwd(), 'e2e', '.auth', 'test-credentials.json');
 const testSecret = process.env.AUTH_E2E_TEST_SECRET!;
-const convexUrl = process.env.PUBLIC_CONVEX_URL || process.env.VITE_CONVEX_URL;
+const convexUrl = resolveConvexUrl();
 
 const readCredentials = (): TestCredentials => {
 	if (!fs.existsSync(credentialsPath)) {
@@ -33,7 +34,7 @@ const readCredentials = (): TestCredentials => {
 
 const getConvexClient = () => {
 	if (!convexUrl) {
-		throw new Error('PUBLIC_CONVEX_URL not configured in .env.test');
+		throw new Error('Convex URL not configured (set PUBLIC_CONVEX_URL or start local dev server)');
 	}
 	return new ConvexHttpClient(convexUrl);
 };

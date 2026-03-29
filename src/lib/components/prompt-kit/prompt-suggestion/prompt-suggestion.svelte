@@ -84,7 +84,7 @@
 		bind:ref
 		variant={variant || 'outline'}
 		size={size || 'lg'}
-		class={cn('rounded-full', className)}
+		class={cn('rounded-full px-4', className)}
 		{onclick}
 		{disabled}
 		{type}

@@ -52,18 +52,18 @@
 			size="icon"
 			onclick={toggleOpen}
 			aria-label={isFeedbackOpen ? $t('aria.feedback_close') : $t('aria.feedback_open')}
-			class="size-12 rounded-xl"
+			class="size-12 rounded-xl transition-transform duration-150 ease-out active:scale-95"
 		>
 			<div class="relative size-6">
 				<ChevronDownIcon
-					class="absolute inset-0 size-6 transition-all duration-200 ease-in-out {isFeedbackOpen
+					class="absolute inset-0 size-6 transition-[transform,opacity,filter] duration-200 ease-out {isFeedbackOpen
 						? 'blur-0 scale-100 opacity-100'
-						: 'scale-0 opacity-0 blur-sm'}"
+						: 'scale-75 opacity-0 blur-sm'}"
 				/>
 				<div class="-scale-x-100">
 					<MessageSquareIcon
-						class="absolute inset-0 size-6 fill-current transition-all duration-200 ease-in-out {isFeedbackOpen
-							? 'scale-0 opacity-0 blur-sm'
+						class="absolute inset-0 size-6 fill-current transition-[transform,opacity,filter] duration-200 ease-out {isFeedbackOpen
+							? 'scale-75 opacity-0 blur-sm'
 							: 'blur-0 scale-100 opacity-100'}"
 					/>
 				</div>
