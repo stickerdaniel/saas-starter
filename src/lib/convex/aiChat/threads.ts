@@ -4,50 +4,12 @@ import { authedQuery, authedMutation } from '../functions';
 import { aiChatAgent } from './agent';
 import { components } from '../_generated/api';
 
-/**
- * Strip invisible/control Unicode characters that cause infinite re-render
- * loops when rendered in DOM nodes observed by MutationObserver (autoAnimate).
- *
- * The loop: browser normalizes these chars in text nodes → Svelte detects DOM
- * differs from state → re-sets text → MutationObserver fires → repeat.
- *
- * Covers: zero-width chars (ZWSP, ZWNJ, ZWJ, WJ, BOM, soft hyphen, CGJ),
- * bidi controls, variation selectors, C0/C1 control chars, and other
- * invisible formatting characters.
- */
-
-// Invisible Unicode chars that cause autoAnimate + Svelte 5 re-render loops.
-// Built from string to satisfy eslint no-control-regex / no-misleading-character-class.
-const _ranges = [
-	[0x0000, 0x0008], // C0 controls (NUL..BS)
-	[0x000b, 0x000b], // vertical tab
-	[0x000e, 0x001f], // C0 controls (SO..US)
-	[0x007f, 0x009f], // DELETE + C1 controls
-	[0x00ad, 0x00ad], // soft hyphen
-	[0x034f, 0x034f], // combining grapheme joiner
-	[0x061c, 0x061c], // Arabic letter mark
-	[0x180b, 0x180f], // Mongolian variation selectors
-	[0x200b, 0x200f], // zero-width + bidi marks
-	[0x202a, 0x202e], // bidi embeddings/overrides
-	[0x2060, 0x2064], // word joiner + invisible math operators
-	[0x2066, 0x2069], // bidi isolates
-	[0xfeff, 0xfeff] // BOM / zero-width no-break space
-] as const;
-const INVISIBLE_CHARS = new RegExp(
-	'[' +
-		_ranges
-			.map(([lo, hi]) =>
-				lo === hi
-					? String.fromCharCode(lo)
-					: String.fromCharCode(lo) + '-' + String.fromCharCode(hi)
-			)
-			.join('') +
-		']',
-	'g'
-);
-
+// Strip \u200C (ZWNJ) and \u200D (ZWJ) from preview text.
+// Tolgee's InvisibleObserver uses these exact chars for key encoding.
+// When AI output contains them, the observer enters an infinite loop
+// stripping/re-rendering the text (tolgee/tolgee-js#3475).
 function sanitizePreview(text: string): string {
-	return text.replace(INVISIBLE_CHARS, '');
+	return text.replace(/[\u200C\u200D]/g, '');
 }
 
 /**
