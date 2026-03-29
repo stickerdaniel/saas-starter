@@ -18,12 +18,18 @@
 	let {
 		threadId,
 		isPro = false,
+		hasMessagesAvailable = false,
+		remainingMessages = 0,
+		totalMessages = 0,
 		onUpgrade,
 		isUpgrading = false,
 		onMessageSent
 	}: {
 		threadId: string;
 		isPro?: boolean;
+		hasMessagesAvailable?: boolean;
+		remainingMessages?: number;
+		totalMessages?: number;
 		onUpgrade?: () => void;
 		isUpgrading?: boolean;
 		onMessageSent?: () => void;
@@ -96,29 +102,55 @@
 		</div>
 
 		<div class="relative z-20 mx-auto w-full max-w-3xl -translate-y-4">
-			{#if !isPro}
-				<!-- Pro upgrade banner floating above input -->
+			{#if !hasMessagesAvailable && !isPro}
+				<!-- Free user, out of messages: upgrade banner -->
 				<div
 					class="mx-4 mb-2 flex items-center justify-between rounded-lg border border-border/50 bg-muted/50 px-4 py-3 backdrop-blur-sm"
 				>
 					<div class="flex items-center gap-2 text-sm text-muted-foreground">
 						<LockIcon class="size-4 shrink-0" />
-						<span><T keyName="ai_chat.pro_required.description" /></span>
+						<span><T keyName="ai_chat.alerts.limit_reached_free" /></span>
 					</div>
 					<Button size="sm" variant="default" onclick={onUpgrade} disabled={isUpgrading}>
 						{isUpgrading ? $t('chat.buttons.processing') : $t('chat.buttons.upgrade')}
 					</Button>
 				</div>
+			{:else if !hasMessagesAvailable && isPro}
+				<!-- Pro user, out of messages: no upgrade CTA -->
+				<div
+					class="mx-4 mb-2 flex items-center justify-between rounded-lg border border-border/50 bg-muted/50 px-4 py-3 backdrop-blur-sm"
+				>
+					<div class="flex items-center gap-2 text-sm text-muted-foreground">
+						<LockIcon class="size-4 shrink-0" />
+						<span><T keyName="ai_chat.alerts.limit_reached_pro" /></span>
+					</div>
+				</div>
+			{:else if isPro && remainingMessages <= 3 && remainingMessages > 0}
+				<!-- Pro user, low messages warning -->
+				<div
+					class="mx-4 mb-2 flex items-center justify-between rounded-lg border border-border/50 bg-muted/50 px-4 py-3 backdrop-blur-sm"
+				>
+					<div class="flex items-center gap-2 text-sm text-muted-foreground">
+						<span>
+							<T
+								keyName={remainingMessages !== 1
+									? 'ai_chat.alerts.low_messages_plural'
+									: 'ai_chat.alerts.low_messages'}
+								params={{ remaining: remainingMessages, total: totalMessages }}
+							/>
+						</span>
+					</div>
+				</div>
 			{/if}
 			<ChatInput
 				class="mx-4"
 				placeholder={$t('ai_chat.input.placeholder')}
-				suggestions={isPro ? suggestions : []}
-				showFileButton={isPro}
+				suggestions={hasMessagesAvailable ? suggestions : []}
+				showFileButton={hasMessagesAvailable}
 				showHandoffButton={false}
-				isRateLimited={!isPro}
+				isRateLimited={!hasMessagesAvailable}
 				onSend={async (prompt) => {
-					if (!isPro || !prompt?.trim()) return;
+					if (!hasMessagesAvailable || !prompt?.trim()) return;
 
 					try {
 						await chatCore.sendMessage(client, prompt, {

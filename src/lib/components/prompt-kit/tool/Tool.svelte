@@ -21,7 +21,7 @@
 
 <Collapsible
 	bind:open
-	class={cn('mt-3 overflow-hidden rounded-lg border border-border', className)}
+	class={cn('mb-4 overflow-hidden rounded-lg border border-border', className)}
 >
 	{@render children(toolPart)}
 </Collapsible>

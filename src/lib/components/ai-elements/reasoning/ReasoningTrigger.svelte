@@ -38,7 +38,7 @@
 <Accordion.Trigger
 	disabled={!hasContent}
 	class={cn(
-		'flex items-start justify-start gap-2 py-0 text-sm text-muted-foreground hover:no-underline',
+		'flex items-start justify-start gap-2 py-0 text-sm text-muted-foreground hover:no-underline active:translate-y-px',
 		className
 	)}
 	{...props}

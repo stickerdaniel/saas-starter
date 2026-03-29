@@ -68,9 +68,9 @@
 				<span class="font-mono text-sm font-medium">
 					{toolPart.type}
 				</span>
-				<ToolBadge state={toolPart.state} />
+				<!-- <ToolBadge state={toolPart.state} /> -->
 			</div>
-			<ChevronDown class="h-4 w-4" />
+			<!-- <ChevronDown class="h-4 w-4" /> -->
 		</Button>
 	{/snippet}
 </CollapsibleTrigger>

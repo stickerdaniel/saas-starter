@@ -705,6 +705,12 @@
 		}
 	},
 	"ai_chat": {
+		"alerts": {
+			"limit_reached_free": "Upgrade to Pro for 30 AI chat messages per month.",
+			"limit_reached_pro": "You've used all your AI chat messages this month. They reset next month.",
+			"low_messages": "{remaining} of {total} AI chat message remaining this month.",
+			"low_messages_plural": "{remaining} of {total} AI chat messages remaining this month."
+		},
 		"delete_thread": "Delete conversation",
 		"delete_thread_confirm": "Are you sure you want to delete this conversation?",
 		"description": "Chat with our AI assistant",
@@ -724,6 +730,7 @@
 		"suggestion": {
 			"explain": "Explain something",
 			"help": "Get help",
+			"understand": "Help me understand",
 			"weather": "What's the weather like in Tokyo?"
 		},
 		"thread": {

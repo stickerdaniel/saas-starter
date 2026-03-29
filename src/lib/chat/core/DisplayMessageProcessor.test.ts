@@ -152,6 +152,7 @@ describe('transformToDisplayMessage', () => {
 		mockCache = createMockStreamCache();
 		baseContext = {
 			streamingKeys: new Set<string>(),
+			streamPartsMap: new Map(),
 			streamTextMap: new Map<number, string>(),
 			streamReasoningMap: new Map<number, string>(),
 			streamStatusMap: new Map<number, string>(),
@@ -227,6 +228,7 @@ describe('transformToDisplayMessage', () => {
 		const context: TransformContext = {
 			...baseContext,
 			streamingKeys: new Set(['5-0']),
+			streamPartsMap: new Map(),
 			streamTextMap: new Map([[5, 'Full streaming response']]),
 			streamStatusMap: new Map([[5, 'streaming']])
 		};
@@ -245,6 +247,7 @@ describe('transformToDisplayMessage', () => {
 		const context: TransformContext = {
 			...baseContext,
 			streamingKeys: new Set(['5-0']), // Only order 5 is streaming
+			streamPartsMap: new Map(),
 			streamTextMap: new Map([[5, 'Streaming content']]),
 			streamStatusMap: new Map([[5, 'streaming']])
 		};
@@ -261,6 +264,7 @@ describe('transformToDisplayMessage', () => {
 		const context: TransformContext = {
 			...baseContext,
 			streamingKeys: new Set(['3-0']),
+			streamPartsMap: new Map(),
 			streamReasoningMap: new Map([[3, 'Thinking...']]),
 			streamStatusMap: new Map([[3, 'streaming']])
 		};

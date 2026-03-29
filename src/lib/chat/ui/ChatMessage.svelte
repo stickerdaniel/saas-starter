@@ -8,6 +8,7 @@
 	import MessageBubble from './MessageBubble.svelte';
 	import InlineEmailPrompt from './InlineEmailPrompt.svelte';
 	import { getChatUIContext } from './ChatContext.svelte.js';
+	import { getActiveStreamingReasoningIndex, getReasoningPartKey } from './reasoning-parts.js';
 	import { type DisplayMessage, type Attachment } from '../core/types.js';
 
 	let {
@@ -50,41 +51,78 @@
 				?.isAdminMessage === true
 	);
 	const align = $derived(ctx.getAlignment(message.role));
+	function isReasoningPartOpen(partKey: string): boolean {
+		return ctx.isReasoningOpen(`${message.id}:${partKey}`);
+	}
+
+	function handleReasoningPartOpenChange(partKey: string, open: boolean) {
+		ctx.setReasoningOpen(`${message.id}:${partKey}`, open);
+	}
+
+	// Fallback: single reasoning open state for messages without parts
 	const isReasoningOpen = $derived(ctx.isReasoningOpen(message.id));
 
-	// For assistant messages, determine if we should show reasoning section
-	const showReasoning = $derived(
+	// Whether this message has interleaved parts (reasoning/tool/text in order)
+	const hasParts = $derived(!!(message.parts && message.parts.length > 0));
+
+	// Fallback deriveds for messages without parts (pending state, old messages)
+	const showReasoningFallback = $derived(
 		message.displayReasoning ||
 			message.hasReasoningStream ||
 			(message.status === 'pending' && !message.displayText)
 	);
+	const shimmerFallback = $derived(!!message.displayReasoning && !message.displayText);
 
-	// Whether to use shimmer effect
-	const shouldUseShimmer = $derived(!!message.displayReasoning && !message.displayText);
+	type OrderedPart =
+		| { kind: 'reasoning'; text: string; isStreaming: boolean; hasContent: boolean; key: string }
+		| { kind: 'tool'; toolPart: ToolPart; key: string }
+		| { kind: 'text'; text: string; key: string };
 
-	// Whether we have reasoning content
-	const hasReasoningContent = $derived(!!message.displayReasoning);
-
-	// Derive keyed tool parts for rendering
-	const toolParts: (ToolPart & { key: string })[] = $derived(
-		(message.parts ?? [])
-			.filter(
-				(p): p is typeof p & { state: ToolPart['state'] } =>
-					typeof p.type === 'string' && p.type.startsWith('tool-') && 'state' in p
-			)
-			.map((p, idx) => ({
-				type: p.type,
-				state: p.state,
-				input: (p as { input?: Record<string, unknown> }).input,
-				output: (p as { output?: unknown }).output as Record<string, unknown> | undefined,
-				toolCallId: (p as { toolCallId?: string }).toolCallId,
-				errorText: (p as { errorText?: string }).errorText,
-				key:
-					(p as { toolCallId?: string }).toolCallId ??
-					(p as { streamId?: string }).streamId ??
-					`tool-${idx}`
-			}))
-	);
+	// Derive ordered parts for chronological rendering
+	const orderedParts: OrderedPart[] = $derived.by(() => {
+		const parts = message.parts ?? [];
+		const isMessageInProgress = message.status === 'pending' || message.status === 'streaming';
+		const activeReasoningIndex = getActiveStreamingReasoningIndex(parts, isMessageInProgress);
+		return parts
+			.map((p, idx): OrderedPart | null => {
+				if (p.type === 'reasoning') {
+					const text = (p as { text?: string }).text ?? '';
+					return {
+						kind: 'reasoning',
+						text,
+						isStreaming: idx === activeReasoningIndex,
+						hasContent: !!text,
+						key: getReasoningPartKey(idx)
+					};
+				}
+				if (p.type === 'text') {
+					return {
+						kind: 'text',
+						text: (p as { text?: string }).text ?? '',
+						key: `text-${idx}`
+					};
+				}
+				if (typeof p.type === 'string' && p.type.startsWith('tool-') && 'state' in p) {
+					return {
+						kind: 'tool',
+						toolPart: {
+							type: p.type,
+							state: (p as { state: ToolPart['state'] }).state,
+							input: (p as { input?: Record<string, unknown> }).input,
+							output: (p as { output?: unknown }).output as Record<string, unknown> | undefined,
+							toolCallId: (p as { toolCallId?: string }).toolCallId,
+							errorText: (p as { errorText?: string }).errorText
+						},
+						key:
+							(p as { toolCallId?: string }).toolCallId ??
+							(p as { streamId?: string }).streamId ??
+							`tool-${idx}`
+					};
+				}
+				return null;
+			})
+			.filter((p): p is OrderedPart => p !== null);
+	});
 
 	function handleReasoningOpenChange(open: boolean) {
 		ctx.setReasoningOpen(message.id, open);
@@ -112,22 +150,38 @@
 				{message.displayText}
 			</MessageBubble>
 		{:else}
-			<!-- AI messages: ghost/prose style with reasoning -->
+			<!-- AI messages: ghost/prose style with interleaved reasoning/tools/text -->
 			<MessageBubble {align} variant="ghost">
-				{#if showReasoning}
-					<ChatReasoning
-						open={isReasoningOpen}
-						onOpenChange={handleReasoningOpenChange}
-						isStreaming={shouldUseShimmer}
-						hasContent={hasReasoningContent}
-						content={message.displayReasoning}
-					/>
-				{/if}
-				{#each toolParts as part (part.key)}
-					<ToolComposed toolPart={part} defaultOpen={part.state === 'input-streaming'} />
-				{/each}
-				{#if message.displayText}
-					<Response content={message.displayText} animation={{ enabled: true }} />
+				{#if hasParts}
+					{#each orderedParts as part (part.key)}
+						{#if part.kind === 'reasoning'}
+							<ChatReasoning
+								open={isReasoningPartOpen(part.key)}
+								onOpenChange={(open) => handleReasoningPartOpenChange(part.key, open)}
+								isStreaming={part.isStreaming}
+								hasContent={part.hasContent}
+								content={part.text}
+							/>
+						{:else if part.kind === 'tool'}
+							<ToolComposed toolPart={part.toolPart} />
+						{:else if part.kind === 'text'}
+							<Response content={part.text} animation={{ enabled: true }} />
+						{/if}
+					{/each}
+				{:else}
+					<!-- Fallback for messages without parts (pending, old messages) -->
+					{#if showReasoningFallback}
+						<ChatReasoning
+							open={isReasoningOpen}
+							onOpenChange={handleReasoningOpenChange}
+							isStreaming={shimmerFallback}
+							hasContent={!!message.displayReasoning}
+							content={message.displayReasoning}
+						/>
+					{/if}
+					{#if message.displayText}
+						<Response content={message.displayText} animation={{ enabled: true }} />
+					{/if}
 				{/if}
 				{#if isHandoffMessage && showEmailPrompt && onSubmitEmail}
 					<InlineEmailPrompt {currentEmail} {isEmailPending} {defaultEmail} {onSubmitEmail} />

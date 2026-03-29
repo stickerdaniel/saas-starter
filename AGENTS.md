@@ -65,11 +65,10 @@ Local dev notes (`bun run dev`):
 
 ### Quality Checks & Testing
 
-- `bun run check` - Run Svelte type checking. Run this between implementations to catch type errors early.
+- `bun scripts/static-checks.ts src/lib/foo.ts src/routes/bar.svelte` - ALWAYS run after implementation with the changed files. Runs all static checks (sync, spelling, banned patterns, formatting, ESLint, oxlint, email builds, type checking, Autumn config) scoped to those files.
 - `bun run test` - Run all tests (E2E + unit)
 - `bun run test:e2e` - Run Playwright E2E tests. Always run this after modifying E2E tests!
 - `bun run test:unit` - Run Vitest unit tests
-- `bun run format` - Format code with Prettier
 
 ### Convex Backend
 
@@ -336,10 +335,6 @@ Prop names must match the parent's passed prop name exactly.
 ### ESLint & Legacy Plugins
 
 When adding ESLint plugins that export legacy `.eslintrc`-style configs (objects with `overrides`), use `fixupConfigRules()` from `@eslint/compat` to convert. See the Convex plugin block in `eslint.config.js` for the pattern.
-
-### Static Checks
-
-ALWAYS run `bun scripts/static-checks.ts src/lib/foo.ts src/routes/bar.svelte` after a full feature implementation with the changed files.
 
 ### Real-time Features
 

@@ -8,6 +8,7 @@
 import type { ChatMessage, DisplayMessage } from './types.js';
 import { extractReasoning, extractUserMessageText } from './StreamProcessor.js';
 import type { StreamCacheManager } from './StreamProcessor.js';
+import type { UIMessage } from '@convex-dev/agent';
 
 /**
  * Context for transforming messages with streaming data
@@ -15,6 +16,8 @@ import type { StreamCacheManager } from './StreamProcessor.js';
 export interface TransformContext {
 	/** Set of message keys currently being streamed (format: "order-stepOrder") */
 	streamingKeys: Set<string>;
+	/** Map of order-stepOrder -> latest streaming UI message parts */
+	streamPartsMap: Map<string, UIMessage['parts']>;
 	/** Map of order -> streaming text content */
 	streamTextMap: Map<number, string>;
 	/** Map of order -> streaming reasoning content */
@@ -112,8 +115,14 @@ export function transformToDisplayMessage(
 	msg: ChatMessage,
 	context: TransformContext
 ): DisplayMessage {
-	const { streamingKeys, streamTextMap, streamReasoningMap, streamStatusMap, streamCache } =
-		context;
+	const {
+		streamingKeys,
+		streamPartsMap,
+		streamTextMap,
+		streamReasoningMap,
+		streamStatusMap,
+		streamCache
+	} = context;
 
 	// Determine if this specific message is being streamed
 	const msgKey = `${msg.order}-${(msg as { stepOrder?: number }).stepOrder ?? 0}`;
@@ -123,6 +132,7 @@ export function transformToDisplayMessage(
 	const streamText = isBeingStreamed ? streamTextMap.get(msg.order) : undefined;
 	const streamReasoning = isBeingStreamed ? streamReasoningMap.get(msg.order) : undefined;
 	const streamStatus = isBeingStreamed ? streamStatusMap.get(msg.order) : undefined;
+	const streamParts = isBeingStreamed ? streamPartsMap.get(msgKey) : undefined;
 
 	const isStreaming = streamStatus === 'streaming';
 	const hasReasoningStream = isBeingStreamed && streamStatus !== undefined;
@@ -153,6 +163,7 @@ export function transformToDisplayMessage(
 
 	return {
 		...msg,
+		parts: streamParts ?? msg.parts,
 		displayText,
 		displayReasoning: reasoningResult.displayReasoning,
 		isStreaming,

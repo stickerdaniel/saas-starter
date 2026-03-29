@@ -13,7 +13,13 @@
  * When reading text from delta parts, always use getDeltaText() to handle both formats.
  */
 
-import type { TextStreamPart, ToolSet, ProviderMetadata } from 'ai';
+import {
+	readUIMessageStream,
+	type ProviderMetadata,
+	type TextStreamPart,
+	type ToolSet,
+	type UIMessageChunk
+} from 'ai';
 import type { UIMessage } from '@convex-dev/agent';
 import type { StreamDelta, StreamMessage, MessageStatus } from '@convex-dev/agent/validators';
 import type {
@@ -200,6 +206,48 @@ export function normalizeMessage<T extends ChatMessage>(msg: T): T {
 }
 
 /**
+ * Update a UIMessage from UIMessageChunk deltas using the AI SDK chunk reader.
+ */
+export async function updateFromUIMessageChunks(
+	uiMessage: UIMessage,
+	parts: UIMessageChunk[]
+): Promise<UIMessage> {
+	const partsStream = new ReadableStream<UIMessageChunk>({
+		start(controller) {
+			for (const part of parts) {
+				controller.enqueue(part);
+			}
+			controller.close();
+		}
+	});
+
+	let failed = false;
+	const messageStream = readUIMessageStream({
+		message: uiMessage,
+		stream: partsStream,
+		onError: (error) => {
+			failed = true;
+			console.error('Error in UI message stream', error);
+		},
+		terminateOnError: true
+	});
+
+	let message = uiMessage;
+	for await (const nextMessage of messageStream) {
+		if (nextMessage.id !== message.id) {
+			throw new Error('Expected exactly one UI message per stream');
+		}
+		message = nextMessage;
+	}
+
+	if (failed) {
+		message.status = 'failed';
+	}
+	message.text = joinText(message.parts);
+	return message;
+}
+
+/**
  * Update UIMessage from text stream parts
  */
 export function updateFromTextStreamParts(
@@ -291,37 +339,7 @@ export function updateFromTextStreamParts(
 				}
 				break;
 			}
-			case 'tool-input-start': {
-				// Tool input is starting to stream
-				const inputStart = part as {
-					type: 'tool-input-start';
-					id: string;
-					toolName: string;
-				};
-				const toolPartType = `tool-${inputStart.toolName}`;
-
-				// Create streaming tool part with temporary ID (will be updated with toolCallId later)
-				const newToolPart = {
-					type: toolPartType,
-					toolName: inputStart.toolName,
-					streamId: inputStart.id, // Track by stream id until we get toolCallId
-					input: {},
-					state: 'input-streaming'
-				};
-				message.parts.push(newToolPart as any);
-				break;
-			}
-			case 'tool-input-delta': {
-				// Incremental input delta - we can't easily parse partial JSON
-				// so we just wait for the complete tool-call event
-				break;
-			}
-			case 'tool-input-end': {
-				// Tool input finished streaming, but we wait for tool-call for complete data
-				break;
-			}
 			case 'tool-call': {
-				// Complete tool call with all args
 				const toolCall = part as {
 					type: 'tool-call';
 					toolCallId: string;
@@ -329,27 +347,17 @@ export function updateFromTextStreamParts(
 					input: Record<string, unknown>;
 				};
 				const toolPartType = `tool-${toolCall.toolName}`;
-
-				// Find by streamId (which equals toolCallId) OR by existing toolCallId
 				const existingToolPart = message.parts.find(
-					(p) =>
-						p.type === toolPartType &&
-						((p as any).streamId === toolCall.toolCallId ||
-							(p as any).toolCallId === toolCall.toolCallId)
+					(p) => p.type === toolPartType && (p as any).toolCallId === toolCall.toolCallId
 				);
 
 				if (existingToolPart) {
-					// Update existing streaming part with complete data
-					(existingToolPart as any).toolCallId = toolCall.toolCallId;
 					(existingToolPart as any).input = toolCall.input;
 					(existingToolPart as any).state = 'input-available';
-					delete (existingToolPart as any).streamId;
 				} else {
-					// Create new complete tool call part
 					const newToolPart = {
 						type: toolPartType,
 						toolCallId: toolCall.toolCallId,
-						toolName: toolCall.toolName,
 						input: toolCall.input,
 						state: 'input-available'
 					};
@@ -358,22 +366,33 @@ export function updateFromTextStreamParts(
 				break;
 			}
 			case 'tool-result': {
-				// Handle tool result - find matching tool call and add output
-				const resultPart = part as unknown as {
+				const resultPart = part as {
 					type: 'tool-result';
 					toolCallId: string;
-					toolName: string;
+					input?: unknown;
 					output: unknown;
 				};
-				const toolPartType = `tool-${resultPart.toolName}`;
-
 				const matchingToolPart = message.parts.find(
-					(p) => p.type === toolPartType && (p as any).toolCallId === resultPart.toolCallId
+					(p) => (p as any).toolCallId === resultPart.toolCallId
 				);
 
 				if (matchingToolPart) {
+					if (resultPart.input !== undefined) {
+						(matchingToolPart as any).input = resultPart.input;
+					}
 					(matchingToolPart as any).output = resultPart.output;
 					(matchingToolPart as any).state = 'output-available';
+				}
+				break;
+			}
+			case 'reasoning-end': {
+				const reasoningPart = reasoningPartsById.get(part.id);
+				if (reasoningPart) {
+					reasoningPart.state = 'done';
+					reasoningPart.providerMetadata = mergeProviderMetadata(
+						reasoningPart.providerMetadata,
+						part.providerMetadata
+					);
 				}
 				break;
 			}
@@ -429,6 +448,61 @@ export function deriveUIMessagesFromTextStreamParts(
 			return a.stepOrder - b.stepOrder;
 		});
 	return [messages, newStreams, changed];
+}
+
+/**
+ * Decode stream deltas using the format declared on each stream.
+ */
+export async function deriveUIMessagesFromDeltas(
+	threadId: string,
+	streamMessages: StreamMessage[],
+	allDeltas: StreamDelta[]
+): Promise<UIMessage[]> {
+	const messages = await Promise.all(
+		streamMessages.map(async (streamMessage) => {
+			const deltas = allDeltas.filter((delta) => delta.streamId === streamMessage.streamId);
+			if (streamMessage.format === 'UIMessageChunk') {
+				const { parts } = getParts<UIMessageChunk>(deltas, 0);
+				return updateFromUIMessageChunks(blankUIMessage(streamMessage, threadId), parts);
+			}
+
+			const [uiMessages] = deriveUIMessagesFromTextStreamParts(
+				threadId,
+				[streamMessage],
+				[],
+				deltas
+			);
+			return uiMessages[0]!;
+		})
+	);
+
+	return messages.sort((a, b) => {
+		if (a.order !== b.order) return a.order - b.order;
+		return a.stepOrder - b.stepOrder;
+	});
+}
+
+/**
+ * Combine streamed assistant steps so they match the grouped saved-message shape.
+ */
+export function combineStreamingUIMessages(messages: UIMessage[]): UIMessage[] {
+	const sortedMessages = [...messages].sort((a, b) => {
+		if (a.order !== b.order) return a.order - b.order;
+		return a.stepOrder - b.stepOrder;
+	});
+
+	return sortedMessages.reduce<UIMessage[]>((combined, message) => {
+		const previous = combined.at(-1);
+		if (!previous || previous.order !== message.order || previous.role !== message.role) {
+			combined.push(structuredClone(message));
+			return combined;
+		}
+
+		previous.parts = [...(previous.parts ?? []), ...(message.parts ?? [])];
+		previous.status = message.status;
+		previous.text = joinText(previous.parts);
+		return combined;
+	}, []);
 }
 
 /**

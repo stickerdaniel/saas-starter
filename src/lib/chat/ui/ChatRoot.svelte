@@ -7,7 +7,8 @@
 	import { ChatCore, type ChatCoreAPI } from '../core/ChatCore.svelte.js';
 	import type { ChatMessage, DisplayMessage } from '../core/types.js';
 	import {
-		deriveUIMessagesFromTextStreamParts,
+		combineStreamingUIMessages,
+		deriveUIMessagesFromDeltas,
 		extractReasoning,
 		normalizeMessage
 	} from '../core/StreamProcessor.js';
@@ -23,6 +24,7 @@
 		type UploadConfig,
 		type ChatAlignment
 	} from './ChatContext.svelte.js';
+	import { getActiveStreamingReasoningIndex, getReasoningPartKey } from './reasoning-parts.js';
 
 	// Type for the query response with streams
 	type MessagesQueryResponse = PaginationResult<ChatMessage> & {
@@ -171,33 +173,62 @@
 		return queryMessages.map((msg) => normalizeMessage(msg));
 	});
 
+	const streamMessages = $derived.by(() => {
+		const messagesData = messagesQuery.data as MessagesQueryResponse | undefined;
+		return messagesData?.streams?.kind === 'list' ? messagesData.streams.messages || [] : [];
+	});
+
+	const allDeltas = $derived.by(() => {
+		const deltasData = deltasQuery.data as MessagesQueryResponse | undefined;
+		return deltasData?.streams?.kind === 'deltas'
+			? ((deltasData.streams.deltas || []) as StreamDelta[])
+			: [];
+	});
+
+	let streamingUIMessages: UIMessage[] = $state([]);
+
+	$effect(() => {
+		const currentThreadId = threadId;
+		const currentStreamMessages = streamMessages;
+		const currentDeltas = allDeltas;
+		let cancelled = false;
+
+		if (!currentThreadId || currentStreamMessages.length === 0) {
+			streamingUIMessages = [];
+			return;
+		}
+
+		void (async () => {
+			try {
+				const decodedMessages = await deriveUIMessagesFromDeltas(
+					currentThreadId,
+					currentStreamMessages,
+					currentDeltas
+				);
+				if (cancelled) return;
+				streamingUIMessages = combineStreamingUIMessages(decodedMessages);
+			} catch (error) {
+				if (cancelled) return;
+				console.error('Failed to decode streaming UI messages', error);
+				streamingUIMessages = [];
+			}
+		})();
+
+		return () => {
+			cancelled = true;
+		};
+	});
+
 	// Process streaming deltas to create display messages
 	const displayMessages = $derived.by((): DisplayMessage[] => {
-		const messagesData = messagesQuery.data as MessagesQueryResponse | undefined;
-		const deltasData = deltasQuery.data as MessagesQueryResponse | undefined;
-
-		const streamMessages =
-			messagesData?.streams?.kind === 'list' ? messagesData.streams.messages || [] : [];
-
 		// Fast path: no active streams
 		if (streamMessages.length === 0) {
 			return allMessages.map((msg) => transformToDisplayMessageSimple(msg));
 		}
 
-		// Process streams with delta processing
-		const allDeltas =
-			deltasData?.streams?.kind === 'deltas'
-				? ((deltasData.streams.deltas || []) as StreamDelta[])
-				: [];
-
-		const [streamingUIMessages] = deriveUIMessagesFromTextStreamParts(
-			threadId!,
-			streamMessages,
-			[],
-			allDeltas
-		);
-
 		// Build streaming data maps - local processing, not reactive state
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- local data processing
+		const streamPartsMap = new Map<string, UIMessage['parts']>();
 		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- local data processing
 		const streamTextMap = new Map<number, string>();
 		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- local data processing
@@ -205,12 +236,18 @@
 		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- local data processing
 		const streamStatusMap = new Map<number, string>();
 
-		streamMessages.forEach((streamMsg) => {
-			streamStatusMap.set(streamMsg.order, streamMsg.status);
-			core.streamCache.updateStatusCache(streamMsg.order, streamMsg.status);
-		});
+		[...streamMessages]
+			.sort((a, b) => {
+				if (a.order !== b.order) return a.order - b.order;
+				return a.stepOrder - b.stepOrder;
+			})
+			.forEach((streamMsg) => {
+				streamStatusMap.set(streamMsg.order, streamMsg.status);
+				core.streamCache.updateStatusCache(streamMsg.order, streamMsg.status);
+			});
 
 		streamingUIMessages.forEach((uiMsg: UIMessage) => {
+			streamPartsMap.set(`${uiMsg.order}-${uiMsg.stepOrder ?? 0}`, uiMsg.parts || []);
 			streamTextMap.set(uiMsg.order, uiMsg.text || '');
 			const reasoning = extractReasoning(uiMsg.parts || []);
 			if (reasoning) {
@@ -220,11 +257,14 @@
 		});
 
 		// Build streaming keys set for message identification
-		const streamingKeys = new Set(streamMessages.map((s) => `${s.order}-${s.stepOrder}`));
+		const streamingKeys = new Set(
+			streamingUIMessages.map((uiMsg) => `${uiMsg.order}-${uiMsg.stepOrder ?? 0}`)
+		);
 
 		// Transform context for message processing
 		const context: TransformContext = {
 			streamingKeys,
+			streamPartsMap,
 			streamTextMap,
 			streamReasoningMap,
 			streamStatusMap,
@@ -259,21 +299,42 @@
 		}
 	});
 
-	// Auto-manage reasoning accordion state
+	// Auto-manage reasoning accordion state for interleaved reasoning/tool/text parts.
+	// Only the last overall part can be considered the active streaming reasoning part.
 	$effect(() => {
 		displayMessages.forEach((message) => {
-			const hasReasoning = !!message.displayReasoning;
-			const hasResponse = !!message.displayText;
+			const parts = message.parts ?? [];
 
-			// Auto-open when reasoning arrives without response
-			if (hasReasoning && !hasResponse) {
-				uiContext.setReasoningOpen(message.id, true);
-				uiContext.markAutoOpened(message.id);
-			}
-			// Auto-close ONCE when response starts (only for messages we auto-opened)
-			else if (hasResponse && uiContext.wasAutoOpened(message.id)) {
-				uiContext.setReasoningOpen(message.id, false);
-				uiContext.clearAutoOpened(message.id);
+			if (parts.length > 0) {
+				const isMessageInProgress = message.status === 'pending' || message.status === 'streaming';
+				const activeReasoningIndex = getActiveStreamingReasoningIndex(parts, isMessageInProgress);
+
+				parts.forEach((part, idx) => {
+					if (part.type !== 'reasoning') return;
+					const partKey = `${message.id}:${getReasoningPartKey(idx)}`;
+
+					if (idx === activeReasoningIndex) {
+						if (!uiContext.isReasoningOpen(partKey)) {
+							uiContext.setReasoningOpen(partKey, true);
+							uiContext.markAutoOpened(partKey);
+						}
+					} else if (uiContext.wasAutoOpened(partKey)) {
+						uiContext.setReasoningOpen(partKey, false);
+						uiContext.clearAutoOpened(partKey);
+					}
+				});
+			} else {
+				// Fallback: message-level reasoning state for messages without parts
+				const hasReasoning = !!message.displayReasoning;
+				const hasResponse = !!message.displayText;
+
+				if (hasReasoning && !hasResponse) {
+					uiContext.setReasoningOpen(message.id, true);
+					uiContext.markAutoOpened(message.id);
+				} else if (hasResponse && uiContext.wasAutoOpened(message.id)) {
+					uiContext.setReasoningOpen(message.id, false);
+					uiContext.clearAutoOpened(message.id);
+				}
 			}
 		});
 	});
