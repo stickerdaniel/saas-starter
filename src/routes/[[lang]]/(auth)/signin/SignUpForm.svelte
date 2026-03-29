@@ -1,7 +1,8 @@
 <script lang="ts">
-	/* eslint-disable svelte/no-navigation-without-resolve -- Query-string-only hrefs don't need resolve() */
 	import { onMount } from 'svelte';
 	import { T, getTranslate } from '@tolgee/svelte';
+	import { resolve } from '$app/paths';
+	import { localizedHref } from '$lib/utils/i18n';
 	import { PASSWORD_MIN_LENGTH } from './schema.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import * as Field from '$lib/components/ui/field/index.js';
@@ -167,7 +168,10 @@
 			<Field.Description class="text-center">
 				<T keyName="auth.signup.has_account" defaultValue="Already have an account?" />
 				<a
-					href="?tab=signin{redirectTo ? `&redirectTo=${encodeURIComponent(redirectTo)}` : ''}"
+					href={resolve(
+						localizedHref('/signin') +
+							(redirectTo ? `?redirectTo=${encodeURIComponent(redirectTo)}` : '')
+					)}
 					class="underline underline-offset-4"
 				>
 					<T keyName="auth.signup.link_signin" defaultValue="Sign in" />

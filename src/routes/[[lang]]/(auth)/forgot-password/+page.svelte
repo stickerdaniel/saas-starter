@@ -14,6 +14,7 @@
 	import { T, getTranslate } from '@tolgee/svelte';
 	import { haptic } from '$lib/hooks/use-haptic.svelte';
 	import { forgotPasswordSchema } from './schema.js';
+	import { slide } from 'svelte/transition';
 	import { authFlow } from '$lib/hooks/auth-flow.svelte';
 	import { getAuthErrorKey } from '$lib/utils/auth-messages';
 	import { translateValidationErrors } from '$lib/utils/validation-i18n.js';
@@ -163,24 +164,22 @@
 								</p>
 							</div>
 							{#if formError}
-								<Field.Field>
-									<div
-										data-testid="forgot-password-form-error"
-										class="rounded-md bg-destructive/10 p-3 text-sm text-destructive"
-									>
-										<T keyName={formError} />
-									</div>
-								</Field.Field>
+								<div
+									data-testid="forgot-password-form-error"
+									transition:slide={{ duration: 200 }}
+									class="rounded-md bg-destructive/10 p-3 text-sm text-destructive"
+								>
+									<T keyName={formError} />
+								</div>
 							{/if}
 							{#if message}
-								<Field.Field>
-									<div
-										data-testid="forgot-password-success-message"
-										class="rounded-md bg-green-500/10 p-3 text-sm text-green-600 dark:text-green-400"
-									>
-										<T keyName={message} />
-									</div>
-								</Field.Field>
+								<div
+									data-testid="forgot-password-success-message"
+									transition:slide={{ duration: 200 }}
+									class="rounded-md bg-green-500/10 p-3 text-sm text-green-600 dark:text-green-400"
+								>
+									<T keyName={message} />
+								</div>
 							{/if}
 							<Field.Field>
 								<Field.Label for="email-{id}">

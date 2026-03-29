@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { slide } from 'svelte/transition';
 	import { cn, type WithElementRef } from '$lib/utils.js';
 	import type { HTMLAttributes } from 'svelte/elements';
 	import type { Snippet } from 'svelte';
@@ -14,23 +15,10 @@
 		errors?: { message?: string }[];
 	} = $props();
 
-	const hasContent = $derived.by(() => {
-		// has slotted error
-		if (children) return true;
-
-		// no errors
-		if (!errors || errors.length === 0) return false;
-
-		// has an error but no message
-		if (errors.length === 1 && !errors[0]?.message) {
-			return false;
-		}
-
-		return true;
-	});
-
-	const isMultipleErrors = $derived(errors && errors.length > 1);
-	const singleErrorMessage = $derived(errors && errors.length === 1 && errors[0]?.message);
+	const errorMessages = $derived(
+		errors?.map((e) => e?.message).filter((m): m is string => !!m) ?? []
+	);
+	const hasContent = $derived(children || errorMessages.length > 0);
 </script>
 
 {#if hasContent}
@@ -38,19 +26,16 @@
 		bind:this={ref}
 		role="alert"
 		data-slot="field-error"
+		transition:slide={{ duration: 200 }}
 		class={cn('text-sm font-normal text-destructive', className)}
 		{...restProps}
 	>
 		{#if children}
 			{@render children()}
-		{:else if singleErrorMessage}
-			{singleErrorMessage}
-		{:else if isMultipleErrors}
-			<ul class="ml-4 flex list-disc flex-col gap-1">
-				{#each errors ?? [] as error, index (index)}
-					{#if error?.message}
-						<li>{error.message}</li>
-					{/if}
+		{:else}
+			<ul class={errorMessages.length > 1 ? 'ml-4 list-disc space-y-1' : 'list-none'}>
+				{#each errorMessages as message (message)}
+					<li transition:slide={{ duration: 150 }}>{message}</li>
 				{/each}
 			</ul>
 		{/if}
