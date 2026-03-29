@@ -23,25 +23,15 @@
 	let { children, data }: Props = $props();
 
 	const client = useConvexClient();
-
-	// Cast viewer to include role field from BetterAuth admin plugin
 	const viewer = $derived(data.viewer as typeof data.viewer & { role?: string });
 
-	// Query AI chat threads for sidebar
-	// Keep previous results while loading more so autoAnimate only adds new items
-	let threadLimit = $state(5);
-	const aiChatThreadsQuery = useQuery(api.aiChat.threads.listThreads, () => ({
-		limit: threadLimit
-	}));
-	let prevThreads = $state<typeof aiChatThreadsQuery.data>(undefined);
-	$effect(() => {
-		if (aiChatThreadsQuery.data) {
-			prevThreads = aiChatThreadsQuery.data;
-		}
-	});
-	const threadData = $derived(aiChatThreadsQuery.data ?? prevThreads);
-	const aiChatThreads = $derived(threadData?.threads ?? []);
-	const threadsHasMore = $derived(threadData?.hasMore ?? false);
+	// AI chat threads for sidebar.
+	// Zero-width chars in lastMessage are stripped server-side to prevent
+	// autoAnimate + Svelte re-render loops (see threads.ts).
+	let threadLimit = $state(20);
+	const threadsQuery = useQuery(api.aiChat.threads.listThreads, () => ({ limit: threadLimit }));
+	const aiChatThreads = $derived(threadsQuery.data?.threads ?? []);
+	const threadsHasMore = $derived(threadsQuery.data?.hasMore ?? false);
 
 	// Pre-warm thread: always keep one empty thread ready for instant "new chat"
 	const warmThreadQuery = useQuery(api.aiChat.threads.getWarmThread, {});
@@ -72,14 +62,12 @@
 		let url: string | undefined;
 
 		if (e.shiftKey && !e.altKey) {
-			// ⌘⇧1-2: nav items (use e.code for keyboard-layout independence)
 			const shiftRoutes: Record<string, string> = {
 				Digit1: localizedHref('/app/community-chat'),
 				Digit2: localizedHref(warmThreadId ? `/app/ai-chat?thread=${warmThreadId}` : '/app/ai-chat')
 			};
 			url = shiftRoutes[e.code];
 		} else if (!e.shiftKey && !e.altKey) {
-			// ⌘. and ⌘,
 			const plainRoutes: Record<string, string> = {
 				'.': localizedHref('/admin'),
 				',': localizedHref('/app/settings')

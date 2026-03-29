@@ -57,7 +57,7 @@
 							{#snippet child({ props })}
 								<Button
 									variant="ghost"
-									class="w-full justify-start gap-2 px-1.5 data-[state=open]:bg-muted"
+									class="!transition-transform w-full justify-start gap-2 px-1.5 data-[state=open]:bg-muted"
 									{...props}
 								>
 									<config.header.icon class="!size-5" />
@@ -82,7 +82,7 @@
 					<Button
 						variant="ghost"
 						href={resolve(config.header.href)}
-						class="w-full justify-start gap-2 px-1.5"
+						class="!transition-transform w-full justify-start gap-2 px-1.5"
 					>
 						<config.header.icon class="!size-5" />
 						<span class="text-base font-semibold">
@@ -110,7 +110,7 @@
 									<Sidebar.MenuItem {...props}>
 										<Sidebar.MenuButton
 											isActive={item.isActive}
-											class="transition-all"
+											class="!transition-transform"
 											onclick={() => haptic.trigger('light')}
 										>
 											{#snippet child({ props })}
@@ -124,11 +124,11 @@
 													{/if}
 													<span><T keyName={item.translationKey} /></span>
 													{#if item.kbd}
-														<Kbd.Root
-															class="ml-auto opacity-0 transition-all group-hover/menu-button:opacity-50"
-														>
-															{item.kbd}
-														</Kbd.Root>
+														<Kbd.Group class="ml-auto opacity-0 group-hover/menu-button:opacity-50">
+															{#each item.kbd as key (key)}
+																<Kbd.Root>{key}</Kbd.Root>
+															{/each}
+														</Kbd.Group>
 													{/if}
 												</a>
 											{/snippet}
@@ -197,7 +197,7 @@
 									variant="ghost"
 									href={resolve(item.url)}
 									onclick={() => haptic.trigger('light')}
-									class="group/menu-button peer/menu-button w-full justify-start gap-2 {item.isActive
+									class="!transition-transform group/menu-button peer/menu-button w-full justify-start gap-2 {item.isActive
 										? 'bg-muted font-medium text-foreground hover:bg-muted dark:hover:bg-muted'
 										: ''}"
 									data-active={item.isActive || undefined}
@@ -208,11 +208,11 @@
 									{/if}
 									<span><T keyName={item.translationKey} /></span>
 									{#if item.kbd}
-										<Kbd.Root
-											class="ml-auto opacity-0 transition-all group-hover/menu-button:opacity-50"
-										>
-											{item.kbd}
-										</Kbd.Root>
+										<Kbd.Group class="ml-auto opacity-0 group-hover/menu-button:opacity-50">
+											{#each item.kbd as key (key)}
+												<Kbd.Root>{key}</Kbd.Root>
+											{/each}
+										</Kbd.Group>
 									{/if}
 								</Button>
 								{#if item.badge && item.badge > 0}
@@ -236,16 +236,16 @@
 								variant="ghost"
 								href={resolve(link.url)}
 								onclick={() => haptic.trigger('light')}
-								class="group/menu-button w-full justify-start gap-2"
+								class="!transition-transform group/menu-button w-full justify-start gap-2"
 							>
 								<link.icon />
 								<span><T keyName={link.translationKey} /></span>
 								{#if link.kbd}
-									<Kbd.Root
-										class="ml-auto opacity-0 transition-all group-hover/menu-button:opacity-50"
-									>
-										{link.kbd}
-									</Kbd.Root>
+									<Kbd.Group class="ml-auto opacity-0 group-hover/menu-button:opacity-50">
+										{#each link.kbd as key (key)}
+											<Kbd.Root>{key}</Kbd.Root>
+										{/each}
+									</Kbd.Group>
 								{/if}
 							</Button>
 						</Sidebar.MenuItem>

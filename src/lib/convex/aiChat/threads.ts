@@ -5,11 +5,60 @@ import { aiChatAgent } from './agent';
 import { components } from '../_generated/api';
 
 /**
+ * Strip invisible/control Unicode characters that cause infinite re-render
+ * loops when rendered in DOM nodes observed by MutationObserver (autoAnimate).
+ *
+ * The loop: browser normalizes these chars in text nodes → Svelte detects DOM
+ * differs from state → re-sets text → MutationObserver fires → repeat.
+ *
+ * Covers: zero-width chars (ZWSP, ZWNJ, ZWJ, WJ, BOM, soft hyphen, CGJ),
+ * bidi controls, variation selectors, C0/C1 control chars, and other
+ * invisible formatting characters.
+ */
+
+// Invisible Unicode chars that cause autoAnimate + Svelte 5 re-render loops.
+// Built from string to satisfy eslint no-control-regex / no-misleading-character-class.
+const _ranges = [
+	[0x0000, 0x0008], // C0 controls (NUL..BS)
+	[0x000b, 0x000b], // vertical tab
+	[0x000e, 0x001f], // C0 controls (SO..US)
+	[0x007f, 0x009f], // DELETE + C1 controls
+	[0x00ad, 0x00ad], // soft hyphen
+	[0x034f, 0x034f], // combining grapheme joiner
+	[0x061c, 0x061c], // Arabic letter mark
+	[0x180b, 0x180f], // Mongolian variation selectors
+	[0x200b, 0x200f], // zero-width + bidi marks
+	[0x202a, 0x202e], // bidi embeddings/overrides
+	[0x2060, 0x2064], // word joiner + invisible math operators
+	[0x2066, 0x2069], // bidi isolates
+	[0xfeff, 0xfeff] // BOM / zero-width no-break space
+] as const;
+const INVISIBLE_CHARS = new RegExp(
+	'[' +
+		_ranges
+			.map(([lo, hi]) =>
+				lo === hi
+					? String.fromCharCode(lo)
+					: String.fromCharCode(lo) + '-' + String.fromCharCode(hi)
+			)
+			.join('') +
+		']',
+	'g'
+);
+
+function sanitizePreview(text: string): string {
+	return text.replace(INVISIBLE_CHARS, '');
+}
+
+/**
  * List AI chat threads for the current user
  *
- * Returns threads with last message preview, ordered by most recent activity.
- * Uses limit-based pagination (not Convex cursor pagination) because threads
- * are sorted by lastMessageAt which lives in the agent component, not our table.
+ * Returns threads with denormalized last message preview, ordered by most
+ * recent activity. Reads only from our own aiChatThreads table — no
+ * ctx.runQuery into agent component tables.
+ *
+ * Client uses onUpdate + $state.raw instead of useQuery to avoid Svelte 5
+ * deep proxy infinite re-render loop (convex-svelte #44).
  */
 export const listThreads = authedQuery({
 	args: {
@@ -17,57 +66,25 @@ export const listThreads = authedQuery({
 	},
 	handler: async (ctx, args) => {
 		const userId = ctx.user._id;
-		const limit = args.limit ?? 5;
+		const limit = args.limit ?? 20;
 
-		// Bounded: 1 record per thread per user, collect is safe for typical user sizes
-		const aiChatThreadRecords = await ctx.db
+		const records = await ctx.db
 			.query('aiChatThreads')
 			.withIndex('by_user', (q) => q.eq('userId', userId))
 			.order('desc')
 			.collect();
 
-		const nonWarmRecords = aiChatThreadRecords.filter((r) => !r.isWarm);
-
-		if (nonWarmRecords.length === 0) {
-			return { threads: [], hasMore: false };
-		}
-
-		// Get agent thread details in parallel
-		const threadsWithLastMessage = await Promise.all(
-			nonWarmRecords.map(async (record) => {
-				const agentThread = await ctx.runQuery(components.agent.threads.getThread, {
-					threadId: record.threadId
-				});
-
-				if (!agentThread) return null;
-
-				const messages = await ctx.runQuery(components.agent.messages.listMessagesByThreadId, {
-					threadId: record.threadId,
-					order: 'desc',
-					statuses: ['success'],
-					excludeToolMessages: true,
-					paginationOpts: { numItems: 1, cursor: null }
-				});
-
-				const lastMessage = messages.page[0];
-
-				return {
-					_id: agentThread._id,
-					_creationTime: agentThread._creationTime,
-					title: agentThread.title,
-					lastMessage: lastMessage?.text,
-					lastMessageAt: lastMessage?._creationTime ?? agentThread._creationTime
-				};
-			})
-		);
-
-		// Filter nulls and empty conversations, sort by last activity
-		const validThreads = threadsWithLastMessage
-			.filter((t): t is NonNullable<typeof t> => t !== null && !!t.lastMessage)
+		const validThreads = records
+			.filter((r) => !r.isWarm && r.lastMessage)
 			.sort((a, b) => (b.lastMessageAt ?? 0) - (a.lastMessageAt ?? 0));
 
 		return {
-			threads: validThreads.slice(0, limit),
+			threads: validThreads.slice(0, limit).map((r) => ({
+				_id: r.threadId,
+				title: r.title,
+				lastMessage: r.lastMessage ? sanitizePreview(r.lastMessage) : undefined,
+				lastMessageAt: r.lastMessageAt ?? r.createdAt
+			})),
 			hasMore: validThreads.length > limit
 		};
 	}
@@ -209,6 +226,74 @@ export const deleteStaleWarmThreads = internalMutation({
 		}
 
 		return { deleted };
+	}
+});
+
+/**
+ * Update denormalized thread metadata (called after AI response completes)
+ */
+export const updateThreadMetadata = internalMutation({
+	args: {
+		threadId: v.string(),
+		lastMessage: v.optional(v.string()),
+		lastMessageAt: v.optional(v.number()),
+		title: v.optional(v.string())
+	},
+	handler: async (ctx, args) => {
+		const record = await ctx.db
+			.query('aiChatThreads')
+			.withIndex('by_thread', (q) => q.eq('threadId', args.threadId))
+			.first();
+		if (!record) return;
+
+		const patch: Record<string, unknown> = {};
+		if (args.lastMessage !== undefined) patch.lastMessage = sanitizePreview(args.lastMessage);
+		if (args.lastMessageAt !== undefined) patch.lastMessageAt = args.lastMessageAt;
+		if (args.title !== undefined) patch.title = args.title;
+
+		if (Object.keys(patch).length > 0) {
+			await ctx.db.patch(record._id, patch);
+		}
+	}
+});
+
+/**
+ * Backfill denormalized fields for existing threads (one-time migration).
+ * Run via: bunx convex run aiChat/threads:backfillThreadMetadata
+ */
+export const backfillThreadMetadata = internalMutation({
+	args: {},
+	handler: async (ctx) => {
+		const records = await ctx.db.query('aiChatThreads').collect();
+		let updated = 0;
+
+		for (const record of records) {
+			if (record.lastMessage) continue; // Already has denormalized data
+
+			const agentThread = await ctx.runQuery(components.agent.threads.getThread, {
+				threadId: record.threadId
+			});
+
+			const messages = await ctx.runQuery(components.agent.messages.listMessagesByThreadId, {
+				threadId: record.threadId,
+				order: 'desc',
+				statuses: ['success'],
+				excludeToolMessages: true,
+				paginationOpts: { numItems: 1, cursor: null }
+			});
+
+			const lastMsg = messages.page[0];
+			if (lastMsg?.text) {
+				await ctx.db.patch(record._id, {
+					title: agentThread?.title,
+					lastMessage: lastMsg.text.length > 100 ? lastMsg.text.slice(0, 100) : lastMsg.text,
+					lastMessageAt: lastMsg._creationTime
+				});
+				updated++;
+			}
+		}
+
+		return { updated, total: records.length };
 	}
 });
 

@@ -82,6 +82,12 @@ export const sendMessage = authedMutation({
 			messageId = result.messageId;
 		}
 
+		// Denormalize: update lastMessage on the thread record for sidebar display
+		await ctx.db.patch(record._id, {
+			lastMessage: args.prompt.length > 100 ? args.prompt.slice(0, 100) : args.prompt,
+			lastMessageAt: Date.now()
+		});
+
 		// Schedule AI response
 		await ctx.scheduler.runAfter(0, internal.aiChat.messages.createAIResponse, {
 			threadId: args.threadId,
@@ -133,6 +139,16 @@ export const createAIResponse = internalAction({
 		);
 
 		await result.consumeStream();
+
+		// Denormalize: update thread sidebar metadata with the AI's response
+		const responseText = await result.text;
+		if (responseText) {
+			await ctx.runMutation(internal.aiChat.threads.updateThreadMetadata, {
+				threadId: args.threadId,
+				lastMessage: responseText.length > 100 ? responseText.slice(0, 100) : responseText,
+				lastMessageAt: Date.now()
+			});
+		}
 
 		// Track usage after successful AI response
 		if (args.userId) {
