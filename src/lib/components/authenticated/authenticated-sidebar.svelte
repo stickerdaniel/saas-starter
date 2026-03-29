@@ -110,6 +110,7 @@
 									<Sidebar.MenuItem {...props}>
 										<Sidebar.MenuButton
 											isActive={item.isActive}
+											class="transition-all"
 											onclick={() => haptic.trigger('light')}
 										>
 											{#snippet child({ props })}
@@ -196,7 +197,7 @@
 									variant="ghost"
 									href={resolve(item.url)}
 									onclick={() => haptic.trigger('light')}
-									class="peer/menu-button w-full justify-start gap-2 {item.isActive
+									class="group/menu-button peer/menu-button w-full justify-start gap-2 {item.isActive
 										? 'bg-muted font-medium text-foreground'
 										: ''}"
 									data-active={item.isActive || undefined}
@@ -235,7 +236,7 @@
 								variant="ghost"
 								href={resolve(link.url)}
 								onclick={() => haptic.trigger('light')}
-								class="w-full justify-start gap-2"
+								class="group/menu-button w-full justify-start gap-2"
 							>
 								<link.icon />
 								<span><T keyName={link.translationKey} /></span>
