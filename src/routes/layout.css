@@ -295,6 +295,24 @@
 		}
 	}
 
+	/* Stock auto-animate add: hold at scale(.98)/opacity:0 for first half, then ease in */
+	@keyframes chip-in {
+		0% {
+			transform: scale(0.98);
+			opacity: 0;
+		}
+
+		50% {
+			transform: scale(0.98);
+			opacity: 0;
+		}
+
+		100% {
+			transform: scale(1);
+			opacity: 1;
+		}
+	}
+
 	@keyframes spinner-fade {
 		0% {
 			opacity: 0;
@@ -365,6 +383,10 @@
 
 @utility no-drag {
 	-webkit-user-drag: none;
+}
+
+@utility ease-sidebar {
+	transition-timing-function: cubic-bezier(0.23, 1, 0.32, 1);
 }
 
 @utility marketing-shell-panel {

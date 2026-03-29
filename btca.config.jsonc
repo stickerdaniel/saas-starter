@@ -7,7 +7,6 @@
 			"name": "svelte",
 			"url": "https://github.com/sveltejs/svelte.dev",
 			"branch": "main",
-			"searchPath": "apps/svelte.dev/content",
 			"specialNotes": "Svelte 5 docs. Focus on content/docs for runes, reactivity, components."
 		},
 		{
@@ -15,7 +14,6 @@
 			"name": "sveltekit",
 			"url": "https://github.com/sveltejs/svelte.dev",
 			"branch": "main",
-			"searchPath": "apps/svelte.dev/content/docs/kit",
 			"specialNotes": "SvelteKit docs. Routing, load functions, hooks, adapters."
 		},
 		{
@@ -23,8 +21,7 @@
 			"name": "shadcnSvelte",
 			"url": "https://github.com/huntabyte/shadcn-svelte",
 			"branch": "main",
-			"searchPath": "sites/docs/src/content",
-			"specialNotes": "UI components built on bits-ui. Check content for component docs."
+			"specialNotes": "UI components built on bits-ui. Blocks in registry/blocks/, components in registry/ui/. Check registry/ for source code, content/ for docs."
 		},
 		{
 			"type": "git",
@@ -38,7 +35,6 @@
 			"name": "bitsUi",
 			"url": "https://github.com/huntabyte/bits-ui",
 			"branch": "main",
-			"searchPath": "docs/src/content",
 			"specialNotes": "Headless UI primitives. Foundation for shadcn-svelte."
 		},
 		{
@@ -95,7 +91,6 @@
 			"name": "threlte",
 			"url": "https://github.com/threlte/threlte",
 			"branch": "main",
-			"searchPath": "apps/docs/src/content",
 			"specialNotes": "Three.js for Svelte. 3D rendering and interactive scenes."
 		},
 		{
@@ -103,7 +98,6 @@
 			"name": "xyflow",
 			"url": "https://github.com/xyflow/xyflow",
 			"branch": "main",
-			"searchPath": "packages/svelte",
 			"specialNotes": "Svelte Flow - node-based diagrams and editors."
 		},
 		{
@@ -125,7 +119,6 @@
 			"name": "convex",
 			"url": "https://github.com/get-convex/convex-backend",
 			"branch": "main",
-			"searchPath": "npm-packages/docs",
 			"specialNotes": "Convex backend platform docs. Schema, queries, mutations, actions."
 		},
 		{
@@ -266,7 +259,6 @@
 			"name": "betterAuth",
 			"url": "https://github.com/better-auth/better-auth",
 			"branch": "main",
-			"searchPath": "docs",
 			"specialNotes": "Auth library. Passkeys, OAuth, sessions. Use main repo not Convex fork."
 		},
 		{
@@ -281,7 +273,6 @@
 			"name": "tailwind",
 			"url": "https://github.com/tailwindlabs/tailwindcss.com",
 			"branch": "main",
-			"searchPath": "src/docs",
 			"specialNotes": "Tailwind CSS v4 docs. Utility classes, configuration."
 		},
 		{
@@ -289,7 +280,6 @@
 			"name": "vercelAi",
 			"url": "https://github.com/vercel/ai",
 			"branch": "main",
-			"searchPath": "content/docs",
 			"specialNotes": "Vercel AI SDK. Streaming, tools, providers."
 		},
 		{
@@ -311,7 +301,6 @@
 			"name": "tanstackTable",
 			"url": "https://github.com/TanStack/table",
 			"branch": "main",
-			"searchPath": "docs",
 			"specialNotes": "Headless table library. Sorting, filtering, pagination."
 		},
 		{
@@ -327,7 +316,6 @@
 			"name": "playwright",
 			"url": "https://github.com/microsoft/playwright",
 			"branch": "main",
-			"searchPath": "docs/src",
 			"specialNotes": "E2E testing. Browser automation, assertions, fixtures."
 		},
 		{
@@ -335,7 +323,6 @@
 			"name": "vitest",
 			"url": "https://github.com/vitest-dev/vitest",
 			"branch": "main",
-			"searchPath": "docs",
 			"specialNotes": "Unit testing. Vite-native, Jest-compatible API."
 		},
 		{
@@ -349,7 +336,6 @@
 			"name": "renovate",
 			"url": "https://github.com/renovatebot/renovate",
 			"branch": "main",
-			"searchPath": "docs/usage",
 			"specialNotes": "Renovate dependency update automation. Configuration presets, package rules, scheduling, vulnerability alerts."
 		},
 		{
@@ -369,16 +355,35 @@
 			"name": "webHaptics",
 			"url": "https://github.com/lochie/web-haptics",
 			"branch": "main",
-			"searchPath": "packages/web-haptics/src",
 			"specialNotes": "Haptic feedback for mobile web. Svelte integration via createWebHaptics. Patterns: success, error, warning, etc. Check apps/svelte-example for usage."
+		},
+		{
+			"type": "git",
+			"name": "autoAnimate",
+			"url": "https://github.com/formkit/auto-animate",
+			"branch": "master",
+			"specialNotes": "Automatic animations for DOM changes. Svelte action via use:autoAnimate. Custom KeyframeEffect for fine-grained control."
 		},
 		{
 			"type": "git",
 			"name": "movingIcons",
 			"url": "https://github.com/jis3r/icons",
 			"branch": "main",
-			"searchPath": "src/lib/icons",
 			"specialNotes": "Animated Lucide icons for Svelte 5. Zero dependencies, pure CSS keyframes. Use @jis3r/icons package. Each icon has bespoke hand-crafted animation. Props: size, color, strokeWidth, animate (boolean), class."
+		},
+		{
+			"type": "git",
+			"name": "autumnJs",
+			"url": "https://github.com/useautumn/autumn-js",
+			"branch": "main",
+			"specialNotes": "Autumn billing SDK and Convex component (@useautumn/convex). Check, track, checkout, attach. Convex component uses identify callback for auth context."
+		},
+		{
+			"type": "git",
+			"name": "varlock",
+			"url": "https://github.com/dmno-dev/varlock",
+			"branch": "main",
+			"specialNotes": "Varlock env management. Schema validation, log redaction (patchGlobalConsole, resetRedactionMap), leak prevention. Check packages/varlock/src for runtime API."
 		}
 	],
 	"model": "gpt-5.4-mini",

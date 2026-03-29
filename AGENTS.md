@@ -10,7 +10,7 @@ All npm scripts must work on macOS, Linux, and Windows. Avoid `sh -c` or bash-sp
 
 When you need up-to-date information about technologies used in this project, use btca to query source repositories directly.
 
-**Available resources**: svelte, sveltekit, shadcnSvelte, shadcnSvelteExtras, bitsUi, runed, formsnap, superforms, paneforge, svelteInfinite, motionSvelte, svAnimate, threlte, xyflow, cnblocks, aiElements, convex, convexSvelte, convexAgent, convexHelpers, convexResend, convexPresence, convexRag, convexStripe, convexRateLimiter, convexActionCache, convexFilesControl, convexTimeline, convexMigrations, convexAggregate, convexShardedCounter, convexGeospatial, convexWorkpool, convexWorkflow, convexRetrier, convexCrons, betterAuth, betterSvelteEmail, tailwind, vercelAi, tanstackTable, tolgee, playwright, vitest, valibot, nprogress, renovate, webHaptics
+Run `btca resources` to get the full list of all configured resources.
 
 ### Usage
 
@@ -25,6 +25,8 @@ btca ask -r svelte -r convex -q "How do I integrate Convex with SvelteKit?"
 ```
 
 **Branch config:** When adding a new resource, verify the repo's default branch (`gh api repos/OWNER/REPO --jq '.default_branch'`). btca assumes `main` and fails silently on repos using `master`, `dev`, etc. Always set the `branch` field explicitly.
+
+**New dependencies:** When adding a new dependency or devDependency, always add its repo to btca and verify with a simple test question (`btca ask -r <name> -q "<test>"`). This keeps btca comprehensive across all project deps.
 
 ## Workflow
 
@@ -108,6 +110,8 @@ See [official docs](https://docs.convex.dev/scheduling/scheduled-functions) for 
 
 - `@convex-dev/resend`: Idempotency keys guarantee exactly-once email delivery, durable execution via workpools (default: 5 retries, 30s initial backoff). Catching errors from `resend.sendEmail()` is valid - they indicate permanent failures (invalid config), not transient network issues. See [component docs](https://www.convex.dev/components/resend).
 - `@convex-dev/workpool`: Configurable retry with backoff/jitter, `onComplete` callbacks, parallelism control.
+
+- `@useautumn/convex`: SDK has built-in fail-open (returns `allowed: true` on 5xx/network errors). No manual fail-open logic needed in `autumn.check()` calls.
 
 Note: Other components (`@convex-dev/better-auth`, `@convex-dev/rate-limiter`, `@convex-dev/agent`) do NOT have automatic retry for external API calls - standard error handling applies.
 

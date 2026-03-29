@@ -1,6 +1,11 @@
 {
 	"version": 1,
 	"skills": {
+		"autumn-best-practices": {
+			"source": "useautumn/skills",
+			"sourceType": "github",
+			"computedHash": "d4148e55c3c75e121c3e967d8d2d9a8eda3ee9b99a87db853f9b6788d98d713c"
+		},
 		"email-and-password-best-practices": {
 			"source": "better-auth/skills",
 			"sourceType": "github",
