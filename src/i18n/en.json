@@ -1229,8 +1229,12 @@
 				"title": "Reset Password"
 			},
 			"signin": {
-				"description": "Access your account or create a new one.",
+				"description": "Sign in to your account.",
 				"title": "Sign In"
+			},
+			"signup": {
+				"description": "Create a new account to get started.",
+				"title": "Sign Up"
 			}
 		},
 		"emails": {

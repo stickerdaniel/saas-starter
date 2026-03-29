@@ -16,6 +16,7 @@
 	import { haptic } from '$lib/hooks/use-haptic.svelte';
 	import { PASSWORD_MIN_LENGTH, resetPasswordSchema } from './schema.js';
 	import { page } from '$app/state';
+	import { slide } from 'svelte/transition';
 	import { getAuthErrorKey } from '$lib/utils/auth-messages';
 	import { translateValidationErrors } from '$lib/utils/validation-i18n.js';
 
@@ -182,27 +183,25 @@
 								</p>
 							</div>
 							{#if formError}
-								<Field.Field>
-									<div
-										data-testid="reset-password-form-error"
-										class="rounded-md bg-destructive/10 p-3 text-sm text-destructive"
-									>
-										<T keyName={formError} />
-									</div>
-								</Field.Field>
+								<div
+									data-testid="reset-password-form-error"
+									transition:slide={{ duration: 200 }}
+									class="rounded-md bg-destructive/10 p-3 text-sm text-destructive"
+								>
+									<T keyName={formError} />
+								</div>
 							{/if}
 							{#if message}
-								<Field.Field>
-									<div
-										data-testid="reset-password-success-message"
-										class="rounded-md bg-green-500/10 p-3 text-sm text-green-600 dark:text-green-400"
-									>
-										<T keyName={message} />
-										<a href={resolve(localizedHref('/signin'))} class="underline">
-											<T keyName="auth.reset_password.sign_in_link" defaultValue="Sign in" />
-										</a>
-									</div>
-								</Field.Field>
+								<div
+									data-testid="reset-password-success-message"
+									transition:slide={{ duration: 200 }}
+									class="rounded-md bg-green-500/10 p-3 text-sm text-green-600 dark:text-green-400"
+								>
+									<T keyName={message} />
+									<a href={resolve(localizedHref('/signin'))} class="underline">
+										<T keyName="auth.reset_password.sign_in_link" defaultValue="Sign in" />
+									</a>
+								</div>
 							{/if}
 							<Field.Field>
 								<Field.Label for="password-{id}">

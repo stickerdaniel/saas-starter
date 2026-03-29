@@ -67,7 +67,7 @@ export const marketingMarkdown: MarketingMarkdownDocument = {
 			links: [
 				{
 					label: 'Start building',
-					href: '/en/signin?tab=signup',
+					href: '/en/signup',
 					description: 'Create an account and enter the product flow'
 				}
 			]

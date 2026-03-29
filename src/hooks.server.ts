@@ -34,8 +34,8 @@ function decodeJwtPayload(token: string): { role?: string } | null {
 }
 
 // Route matchers
-function isSignInPage(pathname: string): boolean {
-	return /^\/[a-z]{2}\/signin$/.test(pathname);
+function isAuthPage(pathname: string): boolean {
+	return /^\/[a-z]{2}\/(signin|signup)$/.test(pathname);
 }
 
 function isProtectedRoute(pathname: string): boolean {
@@ -166,7 +166,7 @@ const authFirstPattern: Handle = async function authFirstPattern({ event, resolv
 	const langMatch = pathname.match(/^\/([a-z]{2})\//);
 	const lang = langMatch ? langMatch[1] : DEFAULT_LANGUAGE;
 
-	if (isSignInPage(pathname) && authenticated) {
+	if (isAuthPage(pathname) && authenticated) {
 		const destination = safeRedirectPath(redirectToParam ?? '', `/${lang}/app`);
 		redirect(307, destination);
 	}
