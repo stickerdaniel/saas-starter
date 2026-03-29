@@ -724,7 +724,7 @@
 		"suggestion": {
 			"explain": "Explique quelque chose",
 			"help": "Obtenir de l'aide",
-			"understand": "Aide-moi à comprendre"
+			"weather": "Quel temps fait-il \u00e0 Tokyo ?"
 		},
 		"thread": {
 			"loading": "Chargement...",
@@ -745,8 +745,8 @@
 			"dashboard": "Tableau de bord",
 			"docs": "Documentation",
 			"home": "Accueil",
-			"show_more": "Afficher plus",
-			"show_less": "Afficher moins"
+			"show_less": "Afficher moins",
+			"show_more": "Afficher plus"
 		},
 		"user_menu": {
 			"account": "Compte",

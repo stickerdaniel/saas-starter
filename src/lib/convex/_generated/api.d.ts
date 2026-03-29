@@ -26,6 +26,7 @@ import type * as aiChat_files from "../aiChat/files.js";
 import type * as aiChat_messages from "../aiChat/messages.js";
 import type * as aiChat_rateLimit from "../aiChat/rateLimit.js";
 import type * as aiChat_threads from "../aiChat/threads.js";
+import type * as aiChat_tools_weather from "../aiChat/tools/weather.js";
 import type * as auth from "../auth.js";
 import type * as autumn from "../autumn.js";
 import type * as constants from "../constants.js";
@@ -90,6 +91,7 @@ declare const fullApi: ApiFromModules<{
   "aiChat/messages": typeof aiChat_messages;
   "aiChat/rateLimit": typeof aiChat_rateLimit;
   "aiChat/threads": typeof aiChat_threads;
+  "aiChat/tools/weather": typeof aiChat_tools_weather;
   auth: typeof auth;
   autumn: typeof autumn;
   constants: typeof constants;

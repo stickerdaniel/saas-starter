@@ -724,7 +724,7 @@
 		"suggestion": {
 			"explain": "Explain something",
 			"help": "Get help",
-			"understand": "Help me understand"
+			"weather": "What's the weather like in Tokyo?"
 		},
 		"thread": {
 			"loading": "Loading...",
@@ -745,8 +745,8 @@
 			"dashboard": "Dashboard",
 			"docs": "Docs",
 			"home": "Home",
-			"show_more": "Show more",
-			"show_less": "Show less"
+			"show_less": "Show less",
+			"show_more": "Show more"
 		},
 		"user_menu": {
 			"account": "Account",

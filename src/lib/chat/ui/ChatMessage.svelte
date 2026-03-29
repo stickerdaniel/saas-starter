@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { Message } from '$lib/components/prompt-kit/message';
 	import { Response } from '$lib/components/ai-elements/response';
+	import { ToolComposed } from '$lib/components/prompt-kit/tool';
+	import type { ToolPart } from '$lib/components/prompt-kit/tool/types.js';
 	import ChatAttachments from './ChatAttachments.svelte';
 	import ChatReasoning from './ChatReasoning.svelte';
 	import MessageBubble from './MessageBubble.svelte';
@@ -63,6 +65,27 @@
 	// Whether we have reasoning content
 	const hasReasoningContent = $derived(!!message.displayReasoning);
 
+	// Derive keyed tool parts for rendering
+	const toolParts: (ToolPart & { key: string })[] = $derived(
+		(message.parts ?? [])
+			.filter(
+				(p): p is typeof p & { state: ToolPart['state'] } =>
+					typeof p.type === 'string' && p.type.startsWith('tool-') && 'state' in p
+			)
+			.map((p, idx) => ({
+				type: p.type,
+				state: p.state,
+				input: (p as { input?: Record<string, unknown> }).input,
+				output: (p as { output?: unknown }).output as Record<string, unknown> | undefined,
+				toolCallId: (p as { toolCallId?: string }).toolCallId,
+				errorText: (p as { errorText?: string }).errorText,
+				key:
+					(p as { toolCallId?: string }).toolCallId ??
+					(p as { streamId?: string }).streamId ??
+					`tool-${idx}`
+			}))
+	);
+
 	function handleReasoningOpenChange(open: boolean) {
 		ctx.setReasoningOpen(message.id, open);
 	}
@@ -100,6 +123,9 @@
 						content={message.displayReasoning}
 					/>
 				{/if}
+				{#each toolParts as part (part.key)}
+					<ToolComposed toolPart={part} defaultOpen={part.state === 'input-streaming'} />
+				{/each}
 				{#if message.displayText}
 					<Response content={message.displayText} animation={{ enabled: true }} />
 				{/if}
