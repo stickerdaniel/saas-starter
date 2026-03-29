@@ -198,7 +198,7 @@
 									href={resolve(item.url)}
 									onclick={() => haptic.trigger('light')}
 									class="group/menu-button peer/menu-button w-full justify-start gap-2 {item.isActive
-										? 'bg-muted font-medium text-foreground'
+										? 'bg-muted font-medium text-foreground hover:bg-muted dark:hover:bg-muted'
 										: ''}"
 									data-active={item.isActive || undefined}
 									data-size="default"
