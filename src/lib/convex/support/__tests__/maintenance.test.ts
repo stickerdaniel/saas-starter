@@ -8,7 +8,8 @@ vi.mock('../../auth', () => ({
 
 vi.mock('../agent', () => ({
 	supportAgent: {
-		updateThreadMetadata: vi.fn()
+		updateThreadMetadata: vi.fn(),
+		deleteThreadAsync: vi.fn()
 	}
 }));
 
@@ -35,6 +36,7 @@ const getAuthUserMock = authComponent.getAuthUser as unknown as ReturnType<typeo
 const updateThreadMetadataMock = supportAgent.updateThreadMetadata as unknown as ReturnType<
 	typeof vi.fn
 >;
+const deleteThreadAsyncMock = supportAgent.deleteThreadAsync as unknown as ReturnType<typeof vi.fn>;
 
 type MutationHandler<TArgs, TResult> = {
 	_handler: (ctx: unknown, args: TArgs) => Promise<TResult>;
@@ -118,12 +120,19 @@ describe('support maintenance helpers', () => {
 				notificationEmail: undefined
 			},
 			{
+				_id: 'support_doc_warm',
+				threadId: 'thread_support_warm',
+				isWarm: true,
+				notificationEmail: undefined
+			},
+			{
 				_id: 'support_doc_2',
 				threadId: 'thread_support_2',
 				notificationEmail: 'custom@example.com'
 			}
 		]);
 		const patch = vi.fn().mockResolvedValue(undefined);
+		const deleteDoc = vi.fn().mockResolvedValue(undefined);
 		const ctx = {
 			db: {
 				query: vi.fn(() => ({
@@ -131,7 +140,8 @@ describe('support maintenance helpers', () => {
 						collect
 					}))
 				})),
-				patch
+				patch,
+				delete: deleteDoc
 			}
 		};
 
@@ -140,6 +150,10 @@ describe('support maintenance helpers', () => {
 		});
 
 		expect(result).toEqual({ migratedCount: 2 });
+		expect(deleteThreadAsyncMock).toHaveBeenCalledWith(ctx, {
+			threadId: 'thread_support_warm'
+		});
+		expect(patch).not.toHaveBeenCalledWith('support_doc_warm', expect.anything());
 		expect(updateThreadMetadataMock).toHaveBeenCalledTimes(2);
 		expect(updateThreadMetadataMock).toHaveBeenNthCalledWith(1, ctx, {
 			threadId: 'thread_support_1',
@@ -163,5 +177,6 @@ describe('support maintenance helpers', () => {
 			notificationEmail: 'custom@example.com',
 			updatedAt: expect.any(Number)
 		});
+		expect(deleteDoc).toHaveBeenCalledWith('support_doc_warm');
 	});
 });

@@ -52,7 +52,7 @@
 			size="icon"
 			onclick={toggleOpen}
 			aria-label={isFeedbackOpen ? $t('aria.feedback_close') : $t('aria.feedback_open')}
-			class="size-12 rounded-xl transition-transform duration-150 ease-out active:scale-95"
+			class="size-12 rounded-xl transition-transform duration-150 ease-out active:scale-[0.97]"
 		>
 			<div class="relative size-6">
 				<ChevronDownIcon

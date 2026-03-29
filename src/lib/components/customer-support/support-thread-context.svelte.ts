@@ -67,6 +67,10 @@ export class SupportThreadContext {
 	shouldOpenWidget = $state(false);
 	skipAnimation = $state(false);
 
+	/** Monotonic counter — bumps each time a new thread session starts.
+	 *  Used as a {#key} to replay chip-in animations without double-firing. */
+	threadGeneration = $state(0);
+
 	/** True when user starts a new conversation - enables immediate suggestion display */
 	isNewConversation = $state(false);
 
@@ -142,7 +146,7 @@ export class SupportThreadContext {
 
 	/**
 	 * Ensure a thread exists, creating one if needed
-	 * Returns existing threadId or creates a new one
+	 * Returns existing threadId or acquires a warm one
 	 * Safe to call multiple times - deduplicates in-flight requests
 	 */
 	async ensureThread(client: ConvexClient): Promise<string> {
@@ -152,9 +156,9 @@ export class SupportThreadContext {
 		// Creation already in flight - return existing promise
 		if (this.threadCreationPromise) return this.threadCreationPromise;
 
-		// Start thread creation
+		// Acquire a warm support thread
 		this.threadCreationPromise = client
-			.mutation(api.support.threads.createThread, {
+			.mutation(api.support.threads.getOrCreateWarmThread, {
 				anonymousUserId: this.getAnonymousUserId(),
 				pageUrl: typeof window !== 'undefined' ? window.location.href : undefined
 			})
@@ -413,13 +417,13 @@ export class SupportThreadContext {
 				try {
 					threadId = await this.threadCreationPromise;
 				} catch {
-					// If ensureThread failed, we'll create a new thread below
+					// If warm-thread acquisition failed, we'll retry below
 				}
 			}
 
-			// Create thread if none exists
+			// Acquire a warm thread if none exists yet
 			if (!threadId) {
-				const result = await client.mutation(api.support.threads.createThread, {
+				const result = await client.mutation(api.support.threads.getOrCreateWarmThread, {
 					anonymousUserId: this.getAnonymousUserId(),
 					pageUrl: typeof window !== 'undefined' ? window.location.href : undefined
 				});
@@ -582,12 +586,13 @@ export class SupportThreadContext {
 
 	/**
 	 * Start a new thread (navigate to chat view)
-	 * Thread is created eagerly for immediate optimistic updates
+	 * A warm thread is acquired eagerly for immediate optimistic updates
 	 */
 	startNewThread() {
 		this.setThread(null);
 		this.currentView = 'chat';
 		this.isNewConversation = true;
+		this.threadGeneration++;
 		this.onThreadChange?.(null);
 
 		// Trigger eager thread creation if client is available

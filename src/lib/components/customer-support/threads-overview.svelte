@@ -284,9 +284,9 @@
 					{@const isSelected = thread._id === ctx.threadId}
 					{@const showAdminAvatar = thread.isHandedOff && thread.assignedAdmin}
 					<button
-						class="flex w-full items-center gap-3 border-b border-border/30 p-4 px-5 text-left transition-none {isSelected
-							? 'bg-muted-foreground/[0.02]'
-							: 'hover:bg-muted-foreground/[0.03]'}"
+						class="flex w-full items-center gap-3 border-b border-border/30 p-4 px-5 text-left transition-colors duration-150 {isSelected
+							? 'bg-muted-foreground/[0.04]'
+							: 'hover:bg-muted-foreground/[0.06]'}"
 						onclick={() =>
 							ctx.selectThread(
 								thread._id,
@@ -322,7 +322,7 @@
 	<!-- New Message Button -->
 	<div class="shrink-0 border-t border-border/50 bg-secondary p-4">
 		<Button
-			class=" w-full rounded-full active:scale-99"
+			class=" w-full rounded-full active:scale-[0.97]"
 			onclick={() => ctx.startNewThread()}
 			size="lg"
 			disabled={ctx.isRateLimited}

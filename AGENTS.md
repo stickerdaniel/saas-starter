@@ -40,7 +40,6 @@ NEVER use the `EnterWorktree` tool. Always use `bun run worktree` instead and ad
 
 ### Core Development
 
-- `bun run generate` - To generate the code in the `convex/_generated` directory that includes types required for a TypeScript typecheck. Run this command whenever you make changes to the convex schema.
 - `bun run build` - Build for production
 - `bun run dev` - Start Vite with an embedded local Convex backend (default)
 - `bun run dev:cloud` - Start Vite + cloud Convex backend (requires `CONVEX_DEPLOYMENT` in `.env.local`)
@@ -65,7 +64,7 @@ Local dev notes (`bun run dev`):
 
 ### Quality Checks & Testing
 
-- `bun scripts/static-checks.ts src/lib/foo.ts src/routes/bar.svelte` - ALWAYS run after implementation with the changed files. Runs all static checks (sync, spelling, banned patterns, formatting, ESLint, oxlint, email builds, type checking, Autumn config) scoped to those files.
+- `bun scripts/static-checks.ts src/lib/foo.ts src/routes/bar.svelte` - ALWAYS run after implementation with the changed files. This is the main app/project validation command.
 - `bun run test` - Run all tests (E2E + unit)
 - `bun run test:e2e` - Run Playwright E2E tests. Always run this after modifying E2E tests!
 - `bun run test:unit` - Run Vitest unit tests
@@ -73,6 +72,8 @@ Local dev notes (`bun run dev`):
 ### Convex Backend
 
 **IMPORTANT:** When any task involves Convex backend code — writing, reviewing, or modifying queries, mutations, actions, schema, HTTP endpoints, auth, file storage, or crons — you MUST read the `convex-guidelines` skill (`skills/convex-guidelines/SKILL.md`) first. It contains the canonical Convex coding patterns for this project.
+
+- `bun run check:convex` - Run the Convex TypeScript project check. Run this whenever you change `src/lib/convex/**` or shared code imported by Convex.
 
 - `bun convex env set KEY value` - Set Convex environment variables (cloud)
 - `bun convex env set KEY value --prod` - Set production environment variables (cloud)

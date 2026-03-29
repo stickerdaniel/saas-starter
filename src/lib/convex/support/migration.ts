@@ -50,6 +50,21 @@ export const migrateAnonymousTickets = mutation({
 
 		// 4. Update each thread
 		for (const supportThread of supportThreads) {
+			if (supportThread.isWarm) {
+				try {
+					await supportAgent.deleteThreadAsync(ctx, { threadId: supportThread.threadId });
+				} catch (error) {
+					console.log(
+						`[migrateAnonymousTickets] Failed to delete warm thread ${supportThread.threadId}:`,
+						error
+					);
+					continue;
+				}
+
+				await ctx.db.delete(supportThread._id);
+				continue;
+			}
+
 			// Update agent:threads userId via component API
 			await supportAgent.updateThreadMetadata(ctx, {
 				threadId: supportThread.threadId,
@@ -67,6 +82,8 @@ export const migrateAnonymousTickets = mutation({
 			});
 		}
 
-		return { migratedCount: supportThreads.length };
+		return {
+			migratedCount: supportThreads.filter((supportThread) => !supportThread.isWarm).length
+		};
 	}
 });

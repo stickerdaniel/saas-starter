@@ -218,7 +218,8 @@ export function updateFromTextStreamParts(
 			case 'text-start':
 			case 'text-delta': {
 				if (!textPartsById.has(part.id)) {
-					const lastPart = message.parts.at(-1);
+					const lastPart =
+						message.parts.length > 0 ? message.parts[message.parts.length - 1] : undefined;
 					if (lastPart?.type === 'text') {
 						textPartsById.set(part.id, lastPart);
 					} else {
@@ -411,7 +412,7 @@ export function combineStreamingUIMessages(messages: UIMessage[]): UIMessage[] {
 	});
 
 	return sortedMessages.reduce<UIMessage[]>((combined, message) => {
-		const previous = combined.at(-1);
+		const previous = combined.length > 0 ? combined[combined.length - 1] : undefined;
 		if (
 			!previous ||
 			message.order !== previous.order ||

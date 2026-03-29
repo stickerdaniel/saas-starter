@@ -38,6 +38,7 @@ export const sendMessage = mutation({
 			anonymousUserId: args.anonymousUserId
 		});
 		const effectiveUserId = owner.ownerId;
+		const wasWarmThread = supportThread.isWarm === true;
 
 		// Rate limit check - stricter limits for anonymous users
 		// Authenticated users: keyed by verified user ID
@@ -126,6 +127,7 @@ export const sendMessage = mutation({
 		const wasClosedBeforeThisMessage = supportThread.status === 'done';
 
 		await ctx.db.patch(supportThread._id, {
+			isWarm: wasWarmThread ? false : supportThread.isWarm,
 			status: 'open',
 			awaitingAdminResponse: true,
 			updatedAt: Date.now()

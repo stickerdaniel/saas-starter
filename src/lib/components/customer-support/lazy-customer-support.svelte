@@ -98,7 +98,7 @@
 			disabled={isLoading}
 			onclick={openSupport}
 			aria-label={$t('aria.feedback_open')}
-			class="h-12 w-12 rounded-xl transition-colors transition-transform duration-200 ease-in-out hover:scale-110 hover:bg-primary active:scale-105"
+			class="h-12 w-12 rounded-xl transition-[colors,transform] duration-200 ease-out hover:scale-105 hover:bg-primary active:scale-[0.97]"
 		>
 			<div class="-scale-x-100">
 				<MessageSquareIcon class="size-6 fill-current" />

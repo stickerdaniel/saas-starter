@@ -3,7 +3,8 @@ import {
 	query,
 	internalMutation,
 	internalQuery,
-	type QueryCtx
+	type QueryCtx,
+	type MutationCtx
 } from '../_generated/server';
 import { v, ConvexError } from 'convex/values';
 import * as val from 'valibot';
@@ -41,6 +42,91 @@ async function getLatestCompletedThreadMessage(
 	return messages.page[0] as SupportLatestThreadMessage | undefined;
 }
 
+async function getSupportOwnerProfile(
+	ctx: QueryCtx | MutationCtx,
+	resolvedUserId: string,
+	isAnonymous: boolean
+) {
+	if (isAnonymous) {
+		return { userName: undefined, userEmail: undefined };
+	}
+
+	try {
+		const user = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+			model: 'user',
+			where: [{ field: '_id', operator: 'eq', value: resolvedUserId }]
+		});
+		if (user) {
+			return {
+				userName: user.name,
+				userEmail: user.email
+			};
+		}
+	} catch (error) {
+		console.log(`[supportThreads] Failed to fetch user ${resolvedUserId}:`, error);
+	}
+
+	return { userName: undefined, userEmail: undefined };
+}
+
+async function createSupportThreadRecord(
+	ctx: MutationCtx,
+	args: {
+		resolvedUserId: string;
+		isAnonymous: boolean;
+		title: string;
+		summary: string;
+		pageUrl?: string;
+		isWarm?: boolean;
+		awaitingAdminResponse: boolean;
+	}
+) {
+	const { threadId } = await supportAgent.createThread(ctx, {
+		userId: args.resolvedUserId,
+		title: args.title,
+		summary: args.summary
+	});
+
+	const { userName, userEmail } = await getSupportOwnerProfile(
+		ctx,
+		args.resolvedUserId,
+		args.isAnonymous
+	);
+	const searchText = buildSupportSearchText({
+		title: args.title,
+		summary: args.summary,
+		userName,
+		userEmail
+	});
+	const now = Date.now();
+
+	await ctx.db.insert('supportThreads', {
+		threadId,
+		userId: args.resolvedUserId,
+		isWarm: args.isWarm,
+		status: 'open',
+		isHandedOff: false,
+		awaitingAdminResponse: args.awaitingAdminResponse,
+		assignedTo: undefined,
+		priority: undefined,
+		pageUrl: args.pageUrl || undefined,
+		createdAt: now,
+		updatedAt: now,
+		notificationEmail: userEmail,
+		searchText,
+		title: args.title,
+		summary: args.summary,
+		lastMessage: undefined,
+		lastMessageAt: undefined,
+		lastMessageRole: undefined,
+		lastAgentName: undefined,
+		userName,
+		userEmail
+	});
+
+	return { threadId, notificationEmail: userEmail };
+}
+
 /**
  * Create a new support thread
  *
@@ -62,66 +148,63 @@ export const createThread = mutation({
 	}),
 	handler: async (ctx, args) => {
 		const owner = await requireSupportOwnerIdentity(ctx, args.anonymousUserId);
-		const resolvedUserId = owner.ownerId;
-
-		// Create agent thread (NO metadata field - it's ignored!)
-		const { threadId } = await supportAgent.createThread(ctx, {
-			userId: resolvedUserId,
+		return await createSupportThreadRecord(ctx, {
+			resolvedUserId: owner.ownerId,
+			isAnonymous: owner.isAnonymous,
 			title: args.title || 'Customer Support',
-			summary: 'New support conversation'
+			summary: 'New support conversation',
+			pageUrl: args.pageUrl,
+			awaitingAdminResponse: true
 		});
+	}
+});
 
-		// Get user info for denormalized search fields (skip anonymous users)
-		let userName: string | undefined;
-		let userEmail: string | undefined;
+/**
+ * Get or create a reusable empty support thread for the current support owner.
+ *
+ * Uses the same owner identity as support access: authenticated user ID when
+ * available, otherwise the validated anonymous `anon_*` ID.
+ */
+export const getOrCreateWarmThread = mutation({
+	args: {
+		anonymousUserId: v.optional(v.string()),
+		pageUrl: v.optional(v.string())
+	},
+	returns: v.object({
+		threadId: v.string(),
+		notificationEmail: v.optional(v.string())
+	}),
+	handler: async (ctx, args) => {
+		const owner = await requireSupportOwnerIdentity(ctx, args.anonymousUserId);
 
-		if (!owner.isAnonymous) {
-			try {
-				const user = await ctx.runQuery(components.betterAuth.adapter.findOne, {
-					model: 'user',
-					where: [{ field: '_id', operator: 'eq', value: resolvedUserId }]
+		const existingWarm = await ctx.db
+			.query('supportThreads')
+			.withIndex('by_user_warm', (q) => q.eq('userId', owner.ownerId).eq('isWarm', true))
+			.first();
+
+		if (existingWarm) {
+			if (args.pageUrl && existingWarm.pageUrl !== args.pageUrl) {
+				await ctx.db.patch(existingWarm._id, {
+					pageUrl: args.pageUrl,
+					updatedAt: Date.now()
 				});
-				if (user) {
-					userName = user.name;
-					userEmail = user.email;
-				}
-			} catch (error) {
-				console.log(`[createThread] Failed to fetch user ${resolvedUserId}:`, error);
 			}
+
+			return {
+				threadId: existingWarm.threadId,
+				notificationEmail: existingWarm.notificationEmail
+			};
 		}
 
-		// Build denormalized search fields
-		const title = args.title || 'Customer Support';
-		const summary = 'New support conversation';
-		const searchText = buildSupportSearchText({ title, summary, userName, userEmail });
-
-		// Create supportThread record with admin metadata + search fields
-		await ctx.db.insert('supportThreads', {
-			threadId,
-			userId: resolvedUserId,
-			status: 'open',
-			isHandedOff: false, // AI responds by default, user can request handoff
-			awaitingAdminResponse: true, // User is waiting for first response
-			assignedTo: undefined,
-			priority: undefined,
-			pageUrl: args.pageUrl || undefined,
-			createdAt: Date.now(),
-			updatedAt: Date.now(),
-			// Auto-enable notifications for authenticated users
-			notificationEmail: userEmail,
-			// Denormalized search fields
-			searchText,
-			title,
-			summary,
-			lastMessage: undefined,
-			lastMessageAt: undefined,
-			lastMessageRole: undefined,
-			lastAgentName: undefined,
-			userName,
-			userEmail
+		return await createSupportThreadRecord(ctx, {
+			resolvedUserId: owner.ownerId,
+			isAnonymous: owner.isAnonymous,
+			title: 'Customer Support',
+			summary: 'New support conversation',
+			pageUrl: args.pageUrl,
+			isWarm: true,
+			awaitingAdminResponse: false
 		});
-
-		return { threadId, notificationEmail: userEmail };
 	}
 });
 
@@ -174,15 +257,16 @@ export const listThreads = query({
 			return { page: [], isDone: true, continueCursor: '' };
 		}
 
-		const supportThreads = await ctx.db
+		const supportThreadsPage = await ctx.db
 			.query('supportThreads')
 			.withIndex('by_user_and_updated', (q) => q.eq('userId', owner.ownerId))
 			.order('desc')
 			.paginate(args.paginationOpts ?? { numItems: 20, cursor: null });
+		const supportThreads = supportThreadsPage.page.filter((supportThread) => !supportThread.isWarm);
 
 		// Collect unique admin IDs and fetch their info
 		const adminIds = new Set<string>();
-		for (const supportThread of supportThreads.page) {
+		for (const supportThread of supportThreads) {
 			if (supportThread.assignedTo) adminIds.add(supportThread.assignedTo);
 		}
 
@@ -203,7 +287,7 @@ export const listThreads = query({
 
 		// For each thread, get the last message and combine with support data
 		const threadsWithLastMessage = await Promise.all(
-			supportThreads.page.map(async (supportThread) => {
+			supportThreads.map(async (supportThread) => {
 				let thread;
 				try {
 					thread = await ctx.runQuery(components.agent.threads.getThread, {
@@ -251,8 +335,8 @@ export const listThreads = query({
 
 		return {
 			page: validThreads,
-			isDone: supportThreads.isDone,
-			continueCursor: supportThreads.continueCursor
+			isDone: supportThreadsPage.isDone,
+			continueCursor: supportThreadsPage.continueCursor
 		};
 	}
 });

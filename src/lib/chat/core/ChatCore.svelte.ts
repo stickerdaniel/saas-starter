@@ -62,6 +62,9 @@ export class ChatCore {
 	threadId = $state<string | null>(null);
 	/** True when user starts a new conversation - enables immediate suggestion display */
 	isNewConversation = $state(false);
+	/** Monotonic counter — bumps each time a new thread session starts.
+	 *  Used as a {#key} to replay chip entrance animations. */
+	threadGeneration = $state(0);
 
 	// Messages state
 	messages = $state<ChatMessage[]>([]);

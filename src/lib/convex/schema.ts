@@ -68,6 +68,7 @@ export default defineSchema({
 	supportThreads: defineTable({
 		threadId: v.string(), // Reference to agent:threads
 		userId: v.optional(v.string()), // Denormalized for quick lookups
+		isWarm: v.optional(v.boolean()), // true = pre-warmed empty support thread awaiting first message
 		status: v.union(v.literal('open'), v.literal('done')),
 		isHandedOff: v.optional(v.boolean()), // true = human-only mode, undefined/false = AI responds
 		awaitingAdminResponse: v.optional(v.boolean()), // true = user waiting for reply, false = admin has responded
@@ -97,6 +98,7 @@ export default defineSchema({
 	})
 		.index('by_thread', ['threadId'])
 		.index('by_user', ['userId'])
+		.index('by_user_warm', ['userId', 'isWarm'])
 		.index('by_user_and_updated', ['userId', 'updatedAt'])
 		.index('by_status', ['status'])
 		.index('by_assigned', ['assignedTo'])
