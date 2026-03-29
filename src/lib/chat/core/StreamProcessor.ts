@@ -493,16 +493,63 @@ export function combineStreamingUIMessages(messages: UIMessage[]): UIMessage[] {
 
 	return sortedMessages.reduce<UIMessage[]>((combined, message) => {
 		const previous = combined.at(-1);
-		if (!previous || previous.order !== message.order || previous.role !== message.role) {
+		if (
+			!previous ||
+			message.order !== previous.order ||
+			previous.role !== message.role ||
+			message.role !== 'assistant'
+		) {
 			combined.push(structuredClone(message));
 			return combined;
 		}
 
-		previous.parts = [...(previous.parts ?? []), ...(message.parts ?? [])];
-		previous.status = message.status;
-		previous.text = joinText(previous.parts);
+		const mergedParts = [...previous.parts];
+		for (const part of message.parts) {
+			const toolCallId = getToolCallId(part);
+			if (!toolCallId) {
+				mergedParts.push(part);
+				continue;
+			}
+
+			const previousPartIndex = mergedParts.findIndex((existingPart) => {
+				return getToolCallId(existingPart) === toolCallId;
+			});
+			if (previousPartIndex === -1) {
+				mergedParts.push(part);
+				continue;
+			}
+			const previousPart = mergedParts.splice(previousPartIndex, 1)[0]!;
+
+			mergedParts.push(mergeStreamParts(previousPart, part));
+		}
+
+		combined[combined.length - 1] = {
+			...previous,
+			status: message.status,
+			metadata: message.metadata ?? previous.metadata,
+			agentName: message.agentName ?? previous.agentName,
+			parts: mergedParts,
+			text: joinText(mergedParts)
+		};
 		return combined;
 	}, []);
+}
+
+function getToolCallId(part: UIMessage['parts'][number] & { toolCallId?: string }) {
+	return part.toolCallId;
+}
+
+function mergeStreamParts(
+	previousPart: UIMessage['parts'][number],
+	part: UIMessage['parts'][number]
+): UIMessage['parts'][number] {
+	const merged: Record<string, unknown> = { ...previousPart };
+	for (const [key, value] of Object.entries(part)) {
+		if (value !== undefined) {
+			merged[key] = value;
+		}
+	}
+	return merged as UIMessage['parts'][number];
 }
 
 /**

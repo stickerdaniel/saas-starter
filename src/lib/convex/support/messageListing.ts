@@ -1,6 +1,13 @@
 import { listUIMessages, syncStreams } from '@convex-dev/agent';
 import { components } from '../_generated/api';
 import type { QueryCtx } from '../_generated/server';
+import {
+	combineStreamingUIMessages,
+	deriveUIMessagesFromDeltas
+} from '../../chat/core/StreamProcessor';
+import type { ChatMessage } from '../../chat/core/types';
+import type { UIMessage } from '@convex-dev/agent';
+import type { StreamMessage } from '@convex-dev/agent/validators';
 
 type MessagePaginationArgs = {
 	numItems: number;
@@ -79,5 +86,78 @@ export async function listMessagesForThread(
 		includeStatuses: ['streaming', 'finished', 'aborted']
 	});
 
-	return { ...paginated, page: enrichedPage, streams };
+	if (streams?.kind !== 'list' || args.paginationOpts.numItems === 0) {
+		return { ...paginated, page: enrichedPage, streams };
+	}
+
+	const materializedPage = await mergeRecentStreamsIntoPage(ctx, {
+		threadId: args.threadId,
+		page: enrichedPage,
+		streamMessages: streams.messages ?? []
+	});
+
+	const liveStreams = {
+		kind: 'list' as const,
+		messages: (streams.messages ?? []).filter(
+			(streamMessage) => streamMessage.status === 'streaming'
+		)
+	};
+
+	return { ...paginated, page: materializedPage, streams: liveStreams };
+}
+
+async function mergeRecentStreamsIntoPage(
+	ctx: QueryCtx,
+	args: {
+		threadId: string;
+		page: Array<ChatMessage>;
+		streamMessages: StreamMessage[];
+	}
+): Promise<Array<ChatMessage>> {
+	if (args.streamMessages.length === 0) {
+		return args.page;
+	}
+
+	const deltas = await ctx.runQuery(components.agent.streams.listDeltas, {
+		threadId: args.threadId,
+		cursors: args.streamMessages.map((streamMessage) => ({
+			streamId: streamMessage.streamId,
+			cursor: 0
+		}))
+	});
+
+	const materializedStreams = combineStreamingUIMessages(
+		await deriveUIMessagesFromDeltas(args.threadId, args.streamMessages, deltas)
+	);
+	return mergeMaterializedStreamsIntoPage(args.page, materializedStreams);
+}
+
+export function mergeMaterializedStreamsIntoPage(
+	page: Array<ChatMessage>,
+	materializedStreams: Array<UIMessage>
+): Array<ChatMessage> {
+	const streamedByOrder = new Map(materializedStreams.map((message) => [message.order, message]));
+
+	return page.map((message) => {
+		if (message.role !== 'assistant') {
+			return message;
+		}
+
+		const materialized = streamedByOrder.get(message.order);
+		if (!materialized) {
+			return message;
+		}
+
+		return mergeAssistantMessage(message, materialized);
+	});
+}
+
+export function mergeAssistantMessage(message: ChatMessage, materialized: UIMessage): ChatMessage {
+	return {
+		...message,
+		status: materialized.status,
+		text: materialized.text,
+		parts: materialized.parts as ChatMessage['parts'],
+		agentName: materialized.agentName ?? message.agentName
+	};
 }
