@@ -4,7 +4,7 @@ import type { QueryCtx } from '../_generated/server';
 import {
 	combineStreamingUIMessages,
 	deriveUIMessagesFromDeltas
-} from '../../chat/core/StreamProcessor';
+} from '../../chat/core/stream-materialization';
 import type { ChatMessage } from '../../chat/core/types';
 import type { UIMessage } from '@convex-dev/agent';
 import type { StreamMessage } from '@convex-dev/agent/validators';

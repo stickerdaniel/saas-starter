@@ -8,10 +8,9 @@ import {
 	combineStreamingUIMessages,
 	deriveUIMessagesFromDeltas,
 	deriveUIMessagesFromTextStreamParts,
-	statusFromStreamStatus,
-	extractReasoning,
-	extractUserMessageText
-} from './StreamProcessor.js';
+	statusFromStreamStatus
+} from './stream-materialization.js';
+import { extractReasoning, extractUserMessageText } from './message-extraction.js';
 import type { MessagePart, ChatMessage } from './types.js';
 import type { UIMessage } from '@convex-dev/agent';
 import type { StreamMessage } from '@convex-dev/agent/validators';

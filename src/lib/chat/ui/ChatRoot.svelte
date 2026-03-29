@@ -8,10 +8,9 @@
 	import type { ChatMessage, DisplayMessage } from '../core/types.js';
 	import {
 		combineStreamingUIMessages,
-		deriveUIMessagesFromDeltas,
-		extractReasoning,
-		normalizeMessage
-	} from '../core/StreamProcessor.js';
+		deriveUIMessagesFromDeltas
+	} from '../core/stream-materialization.js';
+	import { extractReasoning, normalizeMessage } from '../core/message-extraction.js';
 	import {
 		transformToDisplayMessage,
 		transformToDisplayMessageSimple,

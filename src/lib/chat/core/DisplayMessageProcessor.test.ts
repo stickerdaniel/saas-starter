@@ -11,7 +11,7 @@ import {
 	type TransformContext
 } from './DisplayMessageProcessor.js';
 import type { ChatMessage, MessagePart } from './types.js';
-import type { StreamCacheManager } from './StreamProcessor.js';
+import type { StreamCacheManager } from './stream-cache.js';
 
 // Mock StreamCacheManager
 function createMockStreamCache(cachedReasoning?: Map<number, string>): StreamCacheManager {
@@ -121,7 +121,7 @@ describe('resolveReasoning', () => {
 		});
 
 		expect(result.displayReasoning).toBe('');
-		expect(vi.mocked(cacheWithData.getCachedReasoning)).not.toHaveBeenCalled();
+		expect(cacheWithData.getCachedReasoning).not.toHaveBeenCalled();
 	});
 
 	it('signals cache clear when persisted reasoning exists with cached value', () => {
@@ -271,7 +271,7 @@ describe('transformToDisplayMessage', () => {
 
 		transformToDisplayMessage(msg, context);
 
-		expect(vi.mocked(mockCache.updateReasoningCache)).toHaveBeenCalledWith(3, 'Thinking...');
+		expect(mockCache.updateReasoningCache).toHaveBeenCalledWith(3, 'Thinking...');
 	});
 
 	it('returns empty displayReasoning for malformed reasoning parts', () => {

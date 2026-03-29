@@ -73,6 +73,8 @@ export {
 	extractUserMessageText,
 	normalizeMessage,
 	deriveUIMessagesFromTextStreamParts,
+	deriveUIMessagesFromDeltas,
+	combineStreamingUIMessages,
 	StreamCacheManager,
 	uploadFileWithProgress,
 	createUploadState,

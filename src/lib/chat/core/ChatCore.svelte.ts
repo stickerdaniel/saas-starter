@@ -15,7 +15,7 @@ import type {
 	CreateThreadOptions
 } from './types.js';
 import { DEFAULT_CHAT_CONFIG } from './types.js';
-import { StreamCacheManager } from './StreamProcessor.js';
+import { StreamCacheManager } from './stream-cache.js';
 import { createOptimisticUpdate, type ListMessagesArgs } from './optimistic.js';
 
 /**

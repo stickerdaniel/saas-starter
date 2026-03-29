@@ -6,8 +6,8 @@
  */
 
 import type { ChatMessage, DisplayMessage } from './types.js';
-import { extractReasoning, extractUserMessageText } from './StreamProcessor.js';
-import type { StreamCacheManager } from './StreamProcessor.js';
+import { extractReasoning, extractUserMessageText } from './message-extraction.js';
+import type { StreamCacheManager } from './stream-cache.js';
 import type { UIMessage } from '@convex-dev/agent';
 
 /**

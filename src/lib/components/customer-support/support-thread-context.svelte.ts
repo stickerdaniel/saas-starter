@@ -4,7 +4,7 @@ import type { UIMessagePart, UIDataTypes, UITools } from 'ai';
 import { isToolOrDynamicToolUIPart } from 'ai';
 import { api } from '$lib/convex/_generated/api';
 import type { Attachment, ChatMessage } from '$lib/chat';
-import { StreamCacheManager } from '$lib/chat/core/StreamProcessor.js';
+import { StreamCacheManager } from '$lib/chat/core/stream-cache.js';
 import { createOptimisticUpdate, type ListMessagesArgs } from '$lib/chat/core/optimistic.js';
 import { isAnonymousUser } from '$lib/convex/utils/anonymousUser';
 

@@ -1,18 +1,3 @@
-/**
- * Stream processing utilities
- *
- * Framework-agnostic delta processing for streaming AI responses.
- * Processes streaming deltas into UIMessages with progressive text and reasoning.
- *
- * Based on @convex-dev/agent deltas processing.
- *
- * IMPORTANT: The @convex-dev/agent library stores stream deltas in two possible formats:
- * - "UIMessageChunk" format: text/reasoning content is in a `delta` field
- * - "TextStreamPart" format: text/reasoning content is in a `text` field
- *
- * When reading text from delta parts, always use getDeltaText() to handle both formats.
- */
-
 import {
 	readUIMessageStream,
 	type ProviderMetadata,
@@ -22,13 +7,7 @@ import {
 } from 'ai';
 import type { UIMessage } from '@convex-dev/agent';
 import type { StreamDelta, StreamMessage, MessageStatus } from '@convex-dev/agent/validators';
-import type {
-	ChatMessage,
-	MessagePart,
-	ReasoningUIPart,
-	TextUIPart,
-	StreamStatus
-} from './types.js';
+import type { ReasoningUIPart, TextUIPart, ToolCallPart } from './types.js';
 
 /**
  * Extract text content from a stream delta part, handling both formats:
@@ -137,72 +116,17 @@ function joinText(parts: UIMessage['parts']): string {
 		.join('');
 }
 
-/**
- * Safely extract textual reasoning from a reasoning part.
- *
- * AI SDK part shapes can include reasoning entries without a textual payload yet.
- */
-function getReasoningText(part: MessagePart): string {
-	if (part.type !== 'reasoning') return '';
-	const text = (part as ReasoningUIPart).text;
-	return typeof text === 'string' ? text : '';
+function asRecord(part: UIMessage['parts'][number]): Record<string, unknown> {
+	return part as Record<string, unknown>;
 }
 
-/**
- * Extract reasoning content from message parts
- */
-export function extractReasoning(parts: MessagePart[] | undefined): string {
-	if (!parts) return '';
-	return parts.map((part) => getReasoningText(part)).join('');
+function getStreamPartId(part: UIMessage['parts'][number]): string | undefined {
+	const streamPartId = asRecord(part).streamPartId;
+	return typeof streamPartId === 'string' ? streamPartId : undefined;
 }
 
-/**
- * Extract text content from user message (handles various formats)
- */
-export function extractUserMessageText(msg: ChatMessage): string {
-	// First try msg.text (UIMessage field)
-	if (msg.text && typeof msg.text === 'string') {
-		return msg.text;
-	}
-
-	// Then try msg.message.content
-	if (msg.message?.content !== undefined && msg.message?.content !== null) {
-		const content = msg.message.content;
-
-		// String content (most common)
-		if (typeof content === 'string') {
-			return content;
-		}
-
-		// Array content (multimodal messages)
-		if (Array.isArray(content)) {
-			return content
-				.map((part) => {
-					if (typeof part === 'string') return part;
-					if (part && typeof part === 'object' && 'text' in part) return part.text;
-					return '';
-				})
-				.filter(Boolean)
-				.join(' ');
-		}
-
-		// Object content with text field
-		if (typeof content === 'object' && content !== null && 'text' in content) {
-			return (content as { text: string }).text;
-		}
-	}
-
-	return '';
-}
-
-/**
- * Normalize message to ensure top-level role exists
- */
-export function normalizeMessage<T extends ChatMessage>(msg: T): T {
-	return {
-		...msg,
-		role: msg.role || msg.message?.role || 'assistant'
-	};
+function isToolUIPart(part: UIMessage['parts'][number]): boolean {
+	return part.type.startsWith('tool-') && typeof asRecord(part).toolCallId === 'string';
 }
 
 /**
@@ -277,14 +201,15 @@ export function updateFromTextStreamParts(
 	message.status = statusFromStreamStatus(streamMessage.status);
 
 	const textPartsById = new Map<string, TextUIPart>();
-	const reasoningPartsById = new Map<string, ReasoningUIPart>();
+	const reasoningPartsById = new Map<string, ReasoningUIPart & { streamPartId: string }>();
 
 	for (const existingPart of message.parts) {
-		if (
-			existingPart.type === 'reasoning' &&
-			typeof (existingPart as any).streamPartId === 'string'
-		) {
-			reasoningPartsById.set((existingPart as any).streamPartId, existingPart as ReasoningUIPart);
+		const streamPartId = getStreamPartId(existingPart);
+		if (existingPart.type === 'reasoning' && streamPartId) {
+			reasoningPartsById.set(
+				streamPartId,
+				existingPart as ReasoningUIPart & { streamPartId: string }
+			);
 		}
 	}
 
@@ -340,48 +265,39 @@ export function updateFromTextStreamParts(
 				break;
 			}
 			case 'tool-call': {
-				const toolCall = part as {
-					type: 'tool-call';
-					toolCallId: string;
-					toolName: string;
-					input: Record<string, unknown>;
-				};
-				const toolPartType = `tool-${toolCall.toolName}`;
+				const toolPartType = `tool-${part.toolName}` as const;
 				const existingToolPart = message.parts.find(
-					(p) => p.type === toolPartType && (p as any).toolCallId === toolCall.toolCallId
+					(existingPart) =>
+						existingPart.type === toolPartType && getToolCallId(existingPart) === part.toolCallId
 				);
 
 				if (existingToolPart) {
-					(existingToolPart as any).input = toolCall.input;
-					(existingToolPart as any).state = 'input-available';
+					const toolPart = existingToolPart as ToolCallPart;
+					toolPart.input = part.input;
+					toolPart.state = 'input-available';
 				} else {
 					const newToolPart = {
 						type: toolPartType,
-						toolCallId: toolCall.toolCallId,
-						input: toolCall.input,
+						toolCallId: part.toolCallId,
+						input: part.input,
 						state: 'input-available'
-					};
-					message.parts.push(newToolPart as any);
+					} satisfies ToolCallPart;
+					message.parts.push(newToolPart);
 				}
 				break;
 			}
 			case 'tool-result': {
-				const resultPart = part as {
-					type: 'tool-result';
-					toolCallId: string;
-					input?: unknown;
-					output: unknown;
-				};
 				const matchingToolPart = message.parts.find(
-					(p) => (p as any).toolCallId === resultPart.toolCallId
+					(existingPart) => getToolCallId(existingPart) === part.toolCallId
 				);
 
 				if (matchingToolPart) {
-					if (resultPart.input !== undefined) {
-						(matchingToolPart as any).input = resultPart.input;
+					const toolPart = matchingToolPart as ToolCallPart;
+					if (part.input !== undefined) {
+						toolPart.input = part.input;
 					}
-					(matchingToolPart as any).output = resultPart.output;
-					(matchingToolPart as any).state = 'output-available';
+					toolPart.output = part.output;
+					toolPart.state = 'output-available';
 				}
 				break;
 			}
@@ -437,12 +353,12 @@ export function deriveUIMessagesFromTextStreamParts(
 		if (messageChanged) changed = true;
 	}
 	for (const { streamId } of existingStreams) {
-		if (!newStreams.find((s) => s.streamId === streamId)) {
+		if (!newStreams.find((stream) => stream.streamId === streamId)) {
 			changed = true;
 		}
 	}
 	const messages = newStreams
-		.map((s) => s.message)
+		.map((stream) => stream.message)
 		.sort((a, b) => {
 			if (a.order !== b.order) return a.order - b.order;
 			return a.stepOrder - b.stepOrder;
@@ -484,6 +400,9 @@ export async function deriveUIMessagesFromDeltas(
 
 /**
  * Combine streamed assistant steps so they match the grouped saved-message shape.
+ *
+ * Mirrors the upstream @convex-dev/agent `combineUIMessages` grouping semantics:
+ * repeated assistant steps with the same order collapse into one grouped UI message.
  */
 export function combineStreamingUIMessages(messages: UIMessage[]): UIMessage[] {
 	const sortedMessages = [...messages].sort((a, b) => {
@@ -511,15 +430,15 @@ export function combineStreamingUIMessages(messages: UIMessage[]): UIMessage[] {
 				continue;
 			}
 
-			const previousPartIndex = mergedParts.findIndex((existingPart) => {
-				return getToolCallId(existingPart) === toolCallId;
-			});
+			const previousPartIndex = mergedParts.findIndex(
+				(existingPart) => getToolCallId(existingPart) === toolCallId
+			);
 			if (previousPartIndex === -1) {
 				mergedParts.push(part);
 				continue;
 			}
-			const previousPart = mergedParts.splice(previousPartIndex, 1)[0]!;
 
+			const previousPart = mergedParts.splice(previousPartIndex, 1)[0]!;
 			mergedParts.push(mergeStreamParts(previousPart, part));
 		}
 
@@ -535,8 +454,8 @@ export function combineStreamingUIMessages(messages: UIMessage[]): UIMessage[] {
 	}, []);
 }
 
-function getToolCallId(part: UIMessage['parts'][number] & { toolCallId?: string }) {
-	return part.toolCallId;
+function getToolCallId(part: UIMessage['parts'][number]) {
+	return isToolUIPart(part) ? (asRecord(part).toolCallId as string) : undefined;
 }
 
 function mergeStreamParts(
@@ -550,67 +469,4 @@ function mergeStreamParts(
 		}
 	}
 	return merged as UIMessage['parts'][number];
-}
-
-/**
- * Cache manager for stream state
- *
- * Manages reasoning cache and stream status cache to prevent UI flicker
- * during query transitions.
- */
-export class StreamCacheManager {
-	private reasoningCache = new Map<number, string>();
-	private streamStatusCache = new Map<number, StreamStatus>();
-
-	/**
-	 * Get cached reasoning for a message order
-	 */
-	getCachedReasoning(order: number): string | undefined {
-		return this.reasoningCache.get(order);
-	}
-
-	/**
-	 * Update reasoning cache
-	 */
-	updateReasoningCache(order: number, reasoning: string): void {
-		if (reasoning) {
-			this.reasoningCache.set(order, reasoning);
-		}
-	}
-
-	/**
-	 * Clear reasoning cache for a message order
-	 */
-	clearReasoningCache(order: number): void {
-		this.reasoningCache.delete(order);
-	}
-
-	/**
-	 * Get cached stream status for a message order
-	 */
-	getCachedStatus(order: number): StreamStatus | undefined {
-		return this.streamStatusCache.get(order);
-	}
-
-	/**
-	 * Update stream status cache
-	 */
-	updateStatusCache(order: number, status: StreamStatus): void {
-		this.streamStatusCache.set(order, status);
-	}
-
-	/**
-	 * Check if status cache has entry for order
-	 */
-	hasStatusCache(order: number): boolean {
-		return this.streamStatusCache.has(order);
-	}
-
-	/**
-	 * Clear all caches
-	 */
-	clear(): void {
-		this.reasoningCache.clear();
-		this.streamStatusCache.clear();
-	}
 }
