@@ -1229,8 +1229,12 @@
 				"title": "Restablecer contraseña"
 			},
 			"signin": {
-				"description": "Accede a tu cuenta o crea una nueva.",
+				"description": "Accede a tu cuenta.",
 				"title": "Iniciar sesión"
+			},
+			"signup": {
+				"description": "Crea una cuenta nueva para empezar.",
+				"title": "Registrarse"
 			}
 		},
 		"emails": {

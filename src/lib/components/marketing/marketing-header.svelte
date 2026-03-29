@@ -172,11 +172,11 @@
 									<Button variant="ghost" size="sm" href={localizedHref('/signin')}>
 										<T keyName="nav.login" />
 									</Button>
-									<Button size="sm" href={localizedHref('/signin?tab=signup')}>
+									<Button size="sm" href={localizedHref('/signup')}>
 										<T keyName="nav.signup" />
 									</Button>
 								{:else}
-									<Button size="sm" href={localizedHref('/signin?tab=signup')}>
+									<Button size="sm" href={localizedHref('/signup')}>
 										<T keyName="nav.get_started" />
 									</Button>
 								{/if}
@@ -255,11 +255,11 @@
 							<Button variant="ghost" size="sm" href={localizedHref('/signin')} class="w-full">
 								<T keyName="nav.login" />
 							</Button>
-							<Button size="sm" href={localizedHref('/signin?tab=signup')} class="w-full">
+							<Button size="sm" href={localizedHref('/signup')} class="w-full">
 								<T keyName="nav.signup" />
 							</Button>
 						{:else}
-							<Button size="sm" href={localizedHref('/signin?tab=signup')} class="w-full">
+							<Button size="sm" href={localizedHref('/signup')} class="w-full">
 								<T keyName="nav.get_started" />
 							</Button>
 						{/if}

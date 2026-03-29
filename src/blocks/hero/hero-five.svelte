@@ -39,7 +39,7 @@
 					>
 						<Button
 							size="lg"
-							href={localizedHref('/signin?tab=signup')}
+							href={localizedHref('/signup')}
 							class=" pointer-events-auto h-12 rounded-full pr-3 pl-5 text-sm"
 						>
 							<span class="text-nowrap"><T keyName="hero.cta" /></span>
