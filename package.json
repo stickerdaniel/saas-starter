@@ -4,8 +4,8 @@
 	"license": "MIT",
 	"type": "module",
 	"scripts": {
-		"dev": "vite dev --open",
-		"dev:frontend": "vite dev --open",
+		"dev": "vite dev",
+		"dev:frontend": "vite dev",
 		"dev:backend:cloud": "convex dev",
 		"dev:cloud": "bun-tasks dev:frontend ::: dev:backend:cloud",
 		"generate": "bun run convex codegen",
