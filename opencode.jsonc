@@ -38,6 +38,11 @@
 			"type": "local",
 			"command": ["bunx", "-y", "@danielsogl/lighthouse-mcp@latest"],
 			"enabled": true
+		},
+		"chrome-devtools": {
+			"type": "local",
+			"command": ["bunx", "-y", "chrome-devtools-mcp@latest", "--no-usage-statistics"],
+			"enabled": true
 		}
 	},
 	"provider": {

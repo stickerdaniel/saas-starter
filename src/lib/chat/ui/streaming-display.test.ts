@@ -133,6 +133,42 @@ describe('buildDisplayMessages', () => {
 		expect(displayMessages[0]?.isStreaming).toBe(true);
 	});
 
+	it('creates a synthetic assistant row while a stream exists before the persisted assistant message arrives', () => {
+		const userMessage = {
+			...createAssistantMessage({
+				id: 'user-1',
+				role: 'user',
+				order: 1,
+				text: 'Need help',
+				message: { role: 'user', content: 'Need help' }
+			}),
+			parts: undefined
+		} as ChatMessage;
+
+		const displayMessages = buildDisplayMessages({
+			allMessages: [userMessage],
+			streamMessages: [createStreamMessage({ order: 2, status: 'streaming' })],
+			streamingUIMessages: [
+				createStreamingUIMessage({
+					id: 'stream:2',
+					order: 2,
+					status: 'streaming',
+					text: '',
+					parts: []
+				})
+			],
+			streamCache: createStreamCache()
+		});
+
+		expect(displayMessages).toHaveLength(2);
+		expect(displayMessages[1]?.id).toBe('stream:2');
+		expect(displayMessages[1]?.role).toBe('assistant');
+		expect(displayMessages[1]?.status).toBe('streaming');
+		expect(displayMessages[1]?.hasReasoningStream).toBe(true);
+		expect(displayMessages[1]?.displayText).toBe('');
+		expect(displayMessages[1]?.displayReasoning).toBe('');
+	});
+
 	it('merges a live streamed step into persisted grouped assistant parts without dropping earlier steps', () => {
 		const message = createAssistantMessage({
 			order: 4,

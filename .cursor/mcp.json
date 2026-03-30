@@ -11,6 +11,10 @@
 		"convex": {
 			"command": "bunx",
 			"args": ["-y", "convex@latest", "mcp", "start"]
+		},
+		"chrome-devtools": {
+			"command": "bunx",
+			"args": ["-y", "chrome-devtools-mcp@latest", "--no-usage-statistics"]
 		}
 	}
 }

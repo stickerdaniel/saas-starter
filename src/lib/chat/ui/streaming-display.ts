@@ -102,7 +102,38 @@ export function buildDisplayMessages(args: {
 		streamCache: args.streamCache
 	});
 
-	return args.allMessages.map((message) => transformToDisplayMessage(message, context));
+	const assistantOrders = new Set(
+		args.allMessages
+			.filter((message) => message.role === 'assistant')
+			.map((message) => message.order)
+	);
+
+	const streamOnlyMessages = args.streamingUIMessages
+		.filter((uiMessage) => !assistantOrders.has(uiMessage.order))
+		.map((uiMessage) => createStreamOnlyChatMessage(uiMessage));
+
+	return [...args.allMessages, ...streamOnlyMessages]
+		.sort((a, b) => {
+			if (a.order !== b.order) return a.order - b.order;
+			return a._creationTime - b._creationTime;
+		})
+		.map((message) => transformToDisplayMessage(message, context));
+}
+
+function createStreamOnlyChatMessage(uiMessage: UIMessage): ChatMessage {
+	return {
+		id: uiMessage.id,
+		_creationTime: uiMessage._creationTime,
+		key: uiMessage.key,
+		role: 'assistant',
+		status: uiMessage.status,
+		order: uiMessage.order,
+		stepOrder: uiMessage.stepOrder,
+		text: uiMessage.text,
+		parts: uiMessage.parts as ChatMessage['parts'],
+		agentName: uiMessage.agentName,
+		metadata: uiMessage.metadata as Record<string, unknown> | undefined
+	};
 }
 
 export function dedupeChatDisplayMessages(messages: DisplayMessage[]): DisplayMessage[] {

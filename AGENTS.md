@@ -92,6 +92,14 @@ Local dev notes (`bun run dev`):
   ```
   Replace `/api/mutation` with `/api/query` or `/api/action` as needed.
 
+**Local Convex dashboard (requires Docker):**
+
+```bash
+docker run -e 'NEXT_PUBLIC_DEPLOYMENT_URL=http://127.0.0.1:PORT' -p '6791:6791' 'ghcr.io/get-convex/convex-dashboard:latest'
+```
+
+Open `http://localhost:6791` and enter the admin key from the dev server logs. Safari blocks localhost — use Chrome/Firefox. Local Convex dashboard is not required for local development, but it's useful for debugging and monitoring the Convex backend.
+
 **E2E Test Security:** `src/lib/convex/tests.ts` contains public mutations (verify emails, promote to admin, delete users) gated by `AUTH_E2E_TEST_SECRET`. These are safe ONLY because the env var is NOT set in production. NEVER set `AUTH_E2E_TEST_SECRET` in the production Convex environment (`--prod`). If it's unset, all test endpoints are dead code.
 
 ### Intentional Anti-Pattern Comments
