@@ -5,14 +5,15 @@ import { defineConfig, devices } from '@playwright/test';
  * VARLOCK_ENV=test is set by the test:e2e script to load .env.test
  */
 import 'varlock/auto-load';
+import { getPreviewBypass } from './e2e/utils/preview-bypass';
 
-// In CI, tests run against actual Vercel preview deployment (PUBLIC_SITE_URL set by workflow)
+// In CI, tests run against actual preview deployment (PUBLIC_SITE_URL set by workflow)
 // Locally, tests run against dev server on localhost
 const baseURL = process.env.PUBLIC_SITE_URL || 'http://localhost:5173';
 const isCI = !!process.env.CI;
 
-// Vercel automation bypass for protected preview deployments
-const vercelBypassSecret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
+// Preview bypass headers for protected preview deployments (Vercel or Cloudflare Access)
+const bypass = getPreviewBypass();
 
 export default defineConfig({
 	testDir: 'e2e',
@@ -36,12 +37,9 @@ export default defineConfig({
 		baseURL,
 		/* Collect trace when retrying the failed test */
 		trace: 'on-first-retry',
-		/* Vercel automation bypass header for protected preview deployments */
-		...(vercelBypassSecret && {
-			extraHTTPHeaders: {
-				'x-vercel-protection-bypass': vercelBypassSecret,
-				'x-vercel-set-bypass-cookie': 'samesitenone'
-			}
+		/* Preview bypass headers for protected deployments */
+		...(Object.keys(bypass.headers).length > 0 && {
+			extraHTTPHeaders: bypass.headers
 		})
 	},
 
@@ -111,7 +109,7 @@ export default defineConfig({
 	],
 
 	// Only start local dev server when not in CI
-	// In CI, we test against the actual Vercel preview deployment
+	// In CI, we test against the actual preview deployment
 	webServer: isCI
 		? undefined
 		: {
