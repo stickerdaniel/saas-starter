@@ -13,6 +13,7 @@ import type { ChatCore } from '../core/ChatCore.svelte.js';
 import type { DisplayMessage, Attachment, MessageRole } from '../core/types.js';
 import { uploadFileWithProgress } from '../core/FileUploader.js';
 import { FadeOnLoad } from '$lib/utils/fade-on-load.svelte.js';
+import type { ChatDebugTrace } from './chat-debug-trace.svelte.js';
 
 /**
  * Message alignment - controls which side messages appear on
@@ -50,6 +51,9 @@ export class ChatUIContext {
 
 	/** User message alignment (assistant gets opposite) */
 	readonly userAlignment: ChatAlignment;
+
+	/** Dev-only chat trace */
+	debugTrace?: ChatDebugTrace;
 
 	/** UI state: which reasoning accordions are open */
 	reasoningOpenState = $state(new SvelteMap<string, boolean>());
@@ -145,6 +149,10 @@ export class ChatUIContext {
 	 */
 	clearAutoOpened(messageId: string): void {
 		this.autoOpenedMessages.delete(messageId);
+	}
+
+	getAutoOpenedKeys(): Iterable<string> {
+		return this.autoOpenedMessages.keys();
 	}
 
 	/**

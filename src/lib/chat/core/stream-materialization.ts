@@ -125,6 +125,19 @@ function getStreamPartId(part: UIMessage['parts'][number]): string | undefined {
 	return typeof streamPartId === 'string' ? streamPartId : undefined;
 }
 
+function getReasoningPartId(part: UIMessage['parts'][number]): string | undefined {
+	if (part.type !== 'reasoning') return undefined;
+
+	const record = asRecord(part);
+	const streamPartId = record.streamPartId;
+	if (typeof streamPartId === 'string') {
+		return streamPartId;
+	}
+
+	const id = record.id;
+	return typeof id === 'string' ? id : undefined;
+}
+
 function isToolUIPart(part: UIMessage['parts'][number]): boolean {
 	return part.type.startsWith('tool-') && typeof asRecord(part).toolCallId === 'string';
 }
@@ -423,25 +436,7 @@ export function combineStreamingUIMessages(messages: UIMessage[]): UIMessage[] {
 			return combined;
 		}
 
-		const mergedParts = [...previous.parts];
-		for (const part of message.parts) {
-			const toolCallId = getToolCallId(part);
-			if (!toolCallId) {
-				mergedParts.push(part);
-				continue;
-			}
-
-			const previousPartIndex = mergedParts.findIndex(
-				(existingPart) => getToolCallId(existingPart) === toolCallId
-			);
-			if (previousPartIndex === -1) {
-				mergedParts.push(part);
-				continue;
-			}
-
-			const previousPart = mergedParts.splice(previousPartIndex, 1)[0]!;
-			mergedParts.push(mergeStreamParts(previousPart, part));
-		}
+		const mergedParts = mergeAssistantMessageParts(previous.parts, message.parts);
 
 		combined[combined.length - 1] = {
 			...previous,
@@ -453,6 +448,125 @@ export function combineStreamingUIMessages(messages: UIMessage[]): UIMessage[] {
 		};
 		return combined;
 	}, []);
+}
+
+export function mergeAssistantMessageParts(
+	existingParts: UIMessage['parts'],
+	incomingParts: UIMessage['parts']
+): UIMessage['parts'] {
+	if (existingParts.length === 0) return [...incomingParts];
+	if (incomingParts.length === 0) return [...existingParts];
+
+	const compatiblePrefixLength = getCompatiblePrefixLength(existingParts, incomingParts);
+	if (compatiblePrefixLength > 0) {
+		const mergedPrefix = existingParts
+			.slice(0, compatiblePrefixLength)
+			.map((part, index) => mergeStreamParts(part, incomingParts[index]!));
+
+		const tail =
+			incomingParts.length > compatiblePrefixLength
+				? incomingParts.slice(compatiblePrefixLength)
+				: existingParts.slice(compatiblePrefixLength);
+
+		return [...mergedPrefix, ...tail];
+	}
+
+	const mergedParts = [...existingParts];
+
+	for (const part of incomingParts) {
+		const toolCallId = getToolCallId(part);
+		if (toolCallId) {
+			const existingIndex = mergedParts.findIndex(
+				(existingPart) => getToolCallId(existingPart) === toolCallId
+			);
+
+			if (existingIndex === -1) {
+				mergedParts.push(part);
+			} else {
+				mergedParts[existingIndex] = mergeStreamParts(mergedParts[existingIndex]!, part);
+			}
+			continue;
+		}
+
+		const reasoningPartId = getReasoningPartId(part);
+		if (reasoningPartId) {
+			const existingIndex = mergedParts.findIndex(
+				(existingPart) => getReasoningPartId(existingPart) === reasoningPartId
+			);
+
+			if (existingIndex === -1) {
+				mergedParts.push(part);
+			} else {
+				mergedParts[existingIndex] = mergeStreamParts(mergedParts[existingIndex]!, part);
+			}
+			continue;
+		}
+
+		const lastIndex = mergedParts.length - 1;
+		const lastPart = lastIndex >= 0 ? mergedParts[lastIndex] : undefined;
+
+		if (part.type === 'text' && lastPart?.type === 'text' && arePartsCompatible(lastPart, part)) {
+			mergedParts[lastIndex] = mergeStreamParts(lastPart, part);
+			continue;
+		}
+
+		mergedParts.push(part);
+	}
+
+	return mergedParts;
+}
+
+function getCompatiblePrefixLength(
+	existingParts: UIMessage['parts'],
+	incomingParts: UIMessage['parts']
+): number {
+	const maxLength = Math.min(existingParts.length, incomingParts.length);
+	let index = 0;
+
+	while (index < maxLength && arePartsCompatible(existingParts[index]!, incomingParts[index]!)) {
+		index += 1;
+	}
+
+	return index;
+}
+
+function arePartsCompatible(
+	existingPart: UIMessage['parts'][number],
+	incomingPart: UIMessage['parts'][number]
+): boolean {
+	if (existingPart.type !== incomingPart.type) return false;
+
+	if (existingPart.type === 'step-start') {
+		return true;
+	}
+
+	const existingToolCallId = getToolCallId(existingPart);
+	const incomingToolCallId = getToolCallId(incomingPart);
+	if (existingToolCallId || incomingToolCallId) {
+		return existingToolCallId === incomingToolCallId;
+	}
+
+	const existingReasoningId = getReasoningPartId(existingPart);
+	const incomingReasoningId = getReasoningPartId(incomingPart);
+	if (existingReasoningId || incomingReasoningId) {
+		return existingReasoningId === incomingReasoningId;
+	}
+
+	if (existingPart.type === 'text' || existingPart.type === 'reasoning') {
+		return areTextsCompatible(getPartText(existingPart), getPartText(incomingPart));
+	}
+
+	return false;
+}
+
+function getPartText(part: UIMessage['parts'][number]): string {
+	const text = asRecord(part).text;
+	return typeof text === 'string' ? text : '';
+}
+
+function areTextsCompatible(existingText: string, incomingText: string): boolean {
+	if (existingText.length === 0 || incomingText.length === 0) return true;
+	return existingText.startsWith(incomingText) || incomingText.startsWith(existingText);
 }
 
 function getToolCallId(part: UIMessage['parts'][number]) {

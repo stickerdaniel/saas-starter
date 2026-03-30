@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { browser } from '$app/environment';
 	import { useQuery, useConvexClient } from 'convex-svelte';
 	import type { Snippet } from 'svelte';
 	import type { UIMessage } from '@convex-dev/agent';
@@ -22,6 +23,14 @@
 		type MessagesQueryResponse
 	} from './streaming-display.js';
 	import { syncReasoningAccordionState } from './reasoning-accordion-sync.js';
+	import ChatDebugPanel from './ChatDebugPanel.svelte';
+	import {
+		ChatDebugTrace,
+		summarizeAccordionState,
+		summarizeChatMessage,
+		summarizeStreamDelta,
+		summarizeStreamMessage
+	} from './chat-debug-trace.svelte.js';
 
 	/**
 	 * External core adapter interface
@@ -97,6 +106,24 @@
 	const uiContext =
 		externalUIContext ?? new ChatUIContext(core, client, uploadConfig, userAlignment);
 	setChatUIContext(uiContext);
+
+	const isChatDebugEnabled =
+		import.meta.env.DEV &&
+		browser &&
+		new URLSearchParams(window.location.search).get('chatDebug') === '1';
+	const chatDebugTrace = isChatDebugEnabled ? new ChatDebugTrace() : null;
+	if (chatDebugTrace) {
+		uiContext.debugTrace = chatDebugTrace;
+	}
+
+	$effect(() => {
+		if (!chatDebugTrace) return;
+		chatDebugTrace.attachToWindow();
+
+		return () => {
+			chatDebugTrace.detachFromWindow();
+		};
+	});
 
 	// Update core threadId when prop changes (only for internal core)
 	$effect(() => {
@@ -185,6 +212,9 @@
 			} catch (error) {
 				if (cancelled) return;
 				console.error('Failed to decode streaming UI messages', error);
+				chatDebugTrace?.record('decode-error', 'streaming-ui-messages', currentThreadId, {
+					error: error instanceof Error ? error.message : String(error)
+				});
 				streamingUIMessages = [];
 			}
 		})();
@@ -204,11 +234,13 @@
 		});
 	});
 
+	const renderDisplayMessages = $derived.by(() => dedupeChatDisplayMessages(displayMessages));
+
 	// Update UI context with display messages
 	$effect(() => {
 		// Defensive UI guard: query/stream reconciliation should not duplicate IDs, but collapse any
 		// transient duplicates here so keyed message rendering cannot crash.
-		uiContext.setDisplayMessages(dedupeChatDisplayMessages(displayMessages));
+		uiContext.setDisplayMessages(renderDisplayMessages);
 	});
 
 	// Track when messages query has resolved (prevents suggestion chip flash)
@@ -225,11 +257,57 @@
 		}
 	});
 
+	$effect(() => {
+		if (!chatDebugTrace) return;
+		chatDebugTrace.recordSnapshot('messages-query', 'root', threadId, {
+			messages: allMessages.map((message) => summarizeChatMessage(message)),
+			streamMessages: streamMessages.map((streamMessage) => summarizeStreamMessage(streamMessage))
+		});
+	});
+
+	$effect(() => {
+		if (!chatDebugTrace) return;
+		chatDebugTrace.recordSnapshot('stream-deltas', 'root', threadId, {
+			activeStreamIds,
+			deltas: allDeltas.map((delta) => summarizeStreamDelta(delta))
+		});
+	});
+
+	$effect(() => {
+		if (!chatDebugTrace) return;
+		chatDebugTrace.recordSnapshot('decoded-streams', 'root', threadId, {
+			messages: streamingUIMessages.map((message) => summarizeChatMessage(message))
+		});
+	});
+
+	$effect(() => {
+		if (!chatDebugTrace) return;
+		chatDebugTrace.recordSnapshot('display-messages', 'root', threadId, {
+			messages: renderDisplayMessages.map((message) => summarizeChatMessage(message))
+		});
+	});
+
 	// Auto-manage reasoning accordion state for interleaved reasoning/tool/text parts.
 	// Only the last overall part can be considered the active streaming reasoning part.
 	$effect(() => {
+		chatDebugTrace?.recordSnapshot(
+			'accordion-before',
+			'root',
+			threadId,
+			summarizeAccordionState(renderDisplayMessages, uiContext)
+		);
 		syncReasoningAccordionState(displayMessages, uiContext);
+		chatDebugTrace?.recordSnapshot(
+			'accordion-after',
+			'root',
+			threadId,
+			summarizeAccordionState(renderDisplayMessages, uiContext)
+		);
 	});
 </script>
 
 {@render children()}
+
+{#if chatDebugTrace}
+	<ChatDebugPanel trace={chatDebugTrace} />
+{/if}

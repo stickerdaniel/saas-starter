@@ -7,12 +7,15 @@ export interface ReasoningAccordionController {
 	wasAutoOpened(messageId: string): boolean;
 	markAutoOpened(messageId: string): void;
 	clearAutoOpened(messageId: string): void;
+	getAutoOpenedKeys(): Iterable<string>;
 }
 
 export function syncReasoningAccordionState(
 	messages: DisplayMessage[],
 	controller: ReasoningAccordionController
 ): void {
+	const validReasoningKeys = new Set<string>();
+
 	messages.forEach((message) => {
 		const parts = message.parts ?? [];
 
@@ -22,7 +25,8 @@ export function syncReasoningAccordionState(
 
 			parts.forEach((part, index) => {
 				if (part.type !== 'reasoning') return;
-				const partKey = `${message.id}:${getReasoningPartKey(index)}`;
+				const partKey = `${message.id}:${getReasoningPartKey(part, index)}`;
+				validReasoningKeys.add(partKey);
 
 				if (index === activeReasoningIndex) {
 					if (!controller.isReasoningOpen(partKey)) {
@@ -41,11 +45,19 @@ export function syncReasoningAccordionState(
 		const hasResponse = !!message.displayText;
 
 		if (hasReasoning && !hasResponse) {
+			validReasoningKeys.add(message.id);
 			controller.setReasoningOpen(message.id, true);
 			controller.markAutoOpened(message.id);
 		} else if (hasResponse && controller.wasAutoOpened(message.id)) {
+			validReasoningKeys.add(message.id);
 			controller.setReasoningOpen(message.id, false);
 			controller.clearAutoOpened(message.id);
 		}
 	});
+
+	for (const autoOpenedKey of controller.getAutoOpenedKeys()) {
+		if (validReasoningKeys.has(autoOpenedKey)) continue;
+		controller.setReasoningOpen(autoOpenedKey, false);
+		controller.clearAutoOpened(autoOpenedKey);
+	}
 }

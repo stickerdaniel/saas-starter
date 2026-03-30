@@ -93,7 +93,7 @@ describe('buildTransformContext', () => {
 			streamCache
 		});
 
-		expect(context.streamingKeys.has('2-0')).toBe(true);
+		expect(context.streamingOrders.has(2)).toBe(true);
 		expect(context.streamTextMap.get(2)).toBe('Streaming response');
 		expect(context.streamReasoningMap.get(2)).toBe('Thinking');
 		expect(streamCache.updateStatusCache).toHaveBeenCalledWith(2, 'finished');
@@ -133,6 +133,90 @@ describe('buildDisplayMessages', () => {
 		expect(displayMessages[0]?.displayText).toBe('Streaming response');
 		expect(displayMessages[0]?.parts).toEqual([{ type: 'text', text: 'Streaming response' }]);
 		expect(displayMessages[0]?.isStreaming).toBe(true);
+	});
+
+	it('merges a live streamed step into persisted grouped assistant parts without dropping earlier steps', () => {
+		const message = createAssistantMessage({
+			order: 4,
+			parts: [
+				{ type: 'reasoning', text: 'Find coordinates', streamPartId: 'reason-1' },
+				{ type: 'tool-getGeocoding', toolCallId: 'tool-1', state: 'output-available' },
+				{ type: 'reasoning', text: 'Check forecast', streamPartId: 'reason-2' },
+				{ type: 'tool-getWeather', toolCallId: 'tool-2', state: 'output-available' }
+			]
+		});
+
+		const displayMessages = buildDisplayMessages({
+			allMessages: [message],
+			streamMessages: [createStreamMessage({ order: 4, status: 'streaming' })],
+			streamingUIMessages: [
+				createStreamingUIMessage({
+					order: 4,
+					text: '',
+					parts: [{ type: 'reasoning', text: 'Draft final answer' }]
+				})
+			],
+			streamCache: createStreamCache()
+		});
+
+		expect(displayMessages[0]?.parts).toEqual([
+			{ type: 'reasoning', text: 'Find coordinates', streamPartId: 'reason-1' },
+			{ type: 'tool-getGeocoding', toolCallId: 'tool-1', state: 'output-available' },
+			{ type: 'reasoning', text: 'Check forecast', streamPartId: 'reason-2' },
+			{ type: 'tool-getWeather', toolCallId: 'tool-2', state: 'output-available' },
+			{ type: 'reasoning', text: 'Draft final answer' }
+		]);
+		expect(displayMessages[0]?.isStreaming).toBe(true);
+	});
+
+	it('does not invent duplicate reasoning blocks when the grouped live stream repeats an existing prefix', () => {
+		const message = createAssistantMessage({
+			order: 5,
+			parts: [
+				{ type: 'step-start' },
+				{ type: 'reasoning', text: 'Find coordinates' },
+				{ type: 'tool-getGeocoding', toolCallId: 'tool-1', state: 'output-available' }
+			]
+		});
+
+		const displayMessages = buildDisplayMessages({
+			allMessages: [message],
+			streamMessages: [createStreamMessage({ order: 5, status: 'streaming' })],
+			streamingUIMessages: [
+				createStreamingUIMessage({
+					order: 5,
+					text: '',
+					parts: [
+						{ type: 'step-start' },
+						{ type: 'reasoning', text: 'Find coordinates' },
+						{
+							type: 'tool-getGeocoding',
+							toolCallId: 'tool-1',
+							state: 'output-available',
+							input: { location: 'Tokyo' },
+							output: { latitude: 35.68, longitude: 139.69 }
+						},
+						{ type: 'step-start' },
+						{ type: 'reasoning', text: 'Check forecast' }
+					]
+				})
+			],
+			streamCache: createStreamCache()
+		});
+
+		expect(displayMessages[0]?.parts).toEqual([
+			{ type: 'step-start' },
+			{ type: 'reasoning', text: 'Find coordinates' },
+			{
+				type: 'tool-getGeocoding',
+				toolCallId: 'tool-1',
+				state: 'output-available',
+				input: { location: 'Tokyo' },
+				output: { latitude: 35.68, longitude: 139.69 }
+			},
+			{ type: 'step-start' },
+			{ type: 'reasoning', text: 'Check forecast' }
+		]);
 	});
 });
 

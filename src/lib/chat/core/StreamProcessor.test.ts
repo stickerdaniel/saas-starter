@@ -8,6 +8,7 @@ import {
 	combineStreamingUIMessages,
 	deriveUIMessagesFromDeltas,
 	deriveUIMessagesFromTextStreamParts,
+	mergeAssistantMessageParts,
 	statusFromStreamStatus
 } from './stream-materialization.js';
 import { extractReasoning, extractUserMessageText } from './message-extraction.js';
@@ -464,6 +465,77 @@ describe('combineStreamingUIMessages', () => {
 			'text'
 		]);
 		expect(combined[0]!.text).toBe('It is 10.1C.');
+	});
+});
+
+describe('mergeAssistantMessageParts', () => {
+	it('treats a grouped streamed prefix as authoritative instead of appending duplicate reasoning blocks', () => {
+		const merged = mergeAssistantMessageParts(
+			[
+				{ type: 'step-start' },
+				{ type: 'reasoning', text: 'Find coordinates' },
+				{ type: 'tool-getGeocoding', toolCallId: 'tool-1', state: 'output-available' }
+			] as UIMessage['parts'],
+			[
+				{ type: 'step-start' },
+				{ type: 'reasoning', text: 'Find coordinates' },
+				{ type: 'tool-getGeocoding', toolCallId: 'tool-1', state: 'output-available' },
+				{ type: 'step-start' },
+				{ type: 'reasoning', text: 'Check forecast' }
+			] as UIMessage['parts']
+		);
+
+		expect(merged).toEqual([
+			{ type: 'step-start' },
+			{ type: 'reasoning', text: 'Find coordinates' },
+			{ type: 'tool-getGeocoding', toolCallId: 'tool-1', state: 'output-available' },
+			{ type: 'step-start' },
+			{ type: 'reasoning', text: 'Check forecast' }
+		]);
+	});
+
+	it('keeps the persisted prefix when the live stream only exposes a new tail step', () => {
+		const merged = mergeAssistantMessageParts(
+			[
+				{ type: 'reasoning', text: 'Find coordinates', streamPartId: 'reason-1' },
+				{
+					type: 'tool-getGeocoding',
+					toolCallId: 'tool-1',
+					state: 'output-available',
+					input: { location: 'Tokyo' },
+					output: { latitude: 35.68, longitude: 139.69 }
+				},
+				{ type: 'reasoning', text: 'Check forecast', streamPartId: 'reason-2' },
+				{
+					type: 'tool-getWeather',
+					toolCallId: 'tool-2',
+					state: 'output-available',
+					input: { latitude: 35.68, longitude: 139.69 },
+					output: { temperature: 62.6 }
+				}
+			] as UIMessage['parts'],
+			[{ type: 'reasoning', text: 'Draft final answer' }] as UIMessage['parts']
+		);
+
+		expect(merged).toEqual([
+			{ type: 'reasoning', text: 'Find coordinates', streamPartId: 'reason-1' },
+			{
+				type: 'tool-getGeocoding',
+				toolCallId: 'tool-1',
+				state: 'output-available',
+				input: { location: 'Tokyo' },
+				output: { latitude: 35.68, longitude: 139.69 }
+			},
+			{ type: 'reasoning', text: 'Check forecast', streamPartId: 'reason-2' },
+			{
+				type: 'tool-getWeather',
+				toolCallId: 'tool-2',
+				state: 'output-available',
+				input: { latitude: 35.68, longitude: 139.69 },
+				output: { temperature: 62.6 }
+			},
+			{ type: 'reasoning', text: 'Draft final answer' }
+		]);
 	});
 });
 

@@ -24,7 +24,8 @@ function createController(initiallyOpen: string[] = [], initiallyAutoOpened: str
 		},
 		clearAutoOpened: (messageId) => {
 			autoOpened.delete(messageId);
-		}
+		},
+		getAutoOpenedKeys: () => autoOpened.values()
 	};
 
 	return { controller, openState, autoOpened };
@@ -56,21 +57,21 @@ describe('syncReasoningAccordionState', () => {
 				createDisplayMessage({
 					parts: [
 						{ type: 'tool-getWeather', toolCallId: 'tool-1', state: 'output-available' },
-						{ type: 'reasoning', text: 'Thinking' }
+						{ type: 'reasoning', text: 'Thinking', streamPartId: 'reason-1' }
 					]
 				})
 			],
 			controller
 		);
 
-		expect(openState.has('msg-1:reasoning-1')).toBe(true);
-		expect(autoOpened.has('msg-1:reasoning-1')).toBe(true);
+		expect(openState.has('msg-1:reasoning-reason-1')).toBe(true);
+		expect(autoOpened.has('msg-1:reasoning-reason-1')).toBe(true);
 	});
 
 	it('closes previously auto-opened reasoning parts once a later part appears', () => {
 		const { controller, openState, autoOpened } = createController(
-			['msg-1:reasoning-0'],
-			['msg-1:reasoning-0']
+			['msg-1:reasoning-reason-1'],
+			['msg-1:reasoning-reason-1']
 		);
 
 		syncReasoningAccordionState(
@@ -78,7 +79,7 @@ describe('syncReasoningAccordionState', () => {
 				createDisplayMessage({
 					status: 'success',
 					parts: [
-						{ type: 'reasoning', text: 'Done reasoning' },
+						{ type: 'reasoning', text: 'Done reasoning', streamPartId: 'reason-1' },
 						{ type: 'text', text: 'Visible answer' }
 					]
 				})
@@ -86,8 +87,85 @@ describe('syncReasoningAccordionState', () => {
 			controller
 		);
 
-		expect(openState.has('msg-1:reasoning-0')).toBe(false);
-		expect(autoOpened.has('msg-1:reasoning-0')).toBe(false);
+		expect(openState.has('msg-1:reasoning-reason-1')).toBe(false);
+		expect(autoOpened.has('msg-1:reasoning-reason-1')).toBe(false);
+	});
+
+	it('opens only the latest reasoning block across multiple reasoning and tool phases', () => {
+		const { controller, openState } = createController();
+
+		syncReasoningAccordionState(
+			[
+				createDisplayMessage({
+					parts: [{ type: 'reasoning', text: 'First', streamPartId: 'reason-1' }]
+				})
+			],
+			controller
+		);
+		expect(openState.has('msg-1:reasoning-reason-1')).toBe(true);
+
+		syncReasoningAccordionState(
+			[
+				createDisplayMessage({
+					status: 'success',
+					parts: [
+						{ type: 'reasoning', text: 'First', streamPartId: 'reason-1' },
+						{ type: 'tool-getGeocoding', toolCallId: 'tool-1', state: 'output-available' }
+					]
+				})
+			],
+			controller
+		);
+		expect(openState.has('msg-1:reasoning-reason-1')).toBe(false);
+
+		syncReasoningAccordionState(
+			[
+				createDisplayMessage({
+					parts: [
+						{ type: 'reasoning', text: 'First', streamPartId: 'reason-1' },
+						{ type: 'tool-getGeocoding', toolCallId: 'tool-1', state: 'output-available' },
+						{ type: 'reasoning', text: 'Second', streamPartId: 'reason-2' }
+					]
+				})
+			],
+			controller
+		);
+		expect(openState.has('msg-1:reasoning-reason-1')).toBe(false);
+		expect(openState.has('msg-1:reasoning-reason-2')).toBe(true);
+
+		syncReasoningAccordionState(
+			[
+				createDisplayMessage({
+					status: 'success',
+					parts: [
+						{ type: 'reasoning', text: 'First', streamPartId: 'reason-1' },
+						{ type: 'tool-getGeocoding', toolCallId: 'tool-1', state: 'output-available' },
+						{ type: 'reasoning', text: 'Second', streamPartId: 'reason-2' },
+						{ type: 'tool-getWeather', toolCallId: 'tool-2', state: 'output-available' }
+					]
+				})
+			],
+			controller
+		);
+		expect(openState.has('msg-1:reasoning-reason-2')).toBe(false);
+
+		syncReasoningAccordionState(
+			[
+				createDisplayMessage({
+					parts: [
+						{ type: 'reasoning', text: 'First', streamPartId: 'reason-1' },
+						{ type: 'tool-getGeocoding', toolCallId: 'tool-1', state: 'output-available' },
+						{ type: 'reasoning', text: 'Second', streamPartId: 'reason-2' },
+						{ type: 'tool-getWeather', toolCallId: 'tool-2', state: 'output-available' },
+						{ type: 'reasoning', text: 'Third', streamPartId: 'reason-3' }
+					]
+				})
+			],
+			controller
+		);
+		expect(openState.has('msg-1:reasoning-reason-1')).toBe(false);
+		expect(openState.has('msg-1:reasoning-reason-2')).toBe(false);
+		expect(openState.has('msg-1:reasoning-reason-3')).toBe(true);
 	});
 
 	it('keeps the message-level fallback behavior for messages without parts', () => {
@@ -106,5 +184,25 @@ describe('syncReasoningAccordionState', () => {
 		);
 
 		expect(openState.has('msg-legacy')).toBe(true);
+	});
+
+	it('removes stale auto-opened keys that are no longer present in the current message parts', () => {
+		const { controller, openState, autoOpened } = createController(
+			['msg-1:reasoning-ghost'],
+			['msg-1:reasoning-ghost']
+		);
+
+		syncReasoningAccordionState(
+			[
+				createDisplayMessage({
+					status: 'success',
+					parts: [{ type: 'reasoning', text: 'Current', streamPartId: 'reason-1' }]
+				})
+			],
+			controller
+		);
+
+		expect(openState.has('msg-1:reasoning-ghost')).toBe(false);
+		expect(autoOpened.has('msg-1:reasoning-ghost')).toBe(false);
 	});
 });

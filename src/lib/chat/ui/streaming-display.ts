@@ -66,7 +66,7 @@ export function buildTransformContext(args: {
 	streamingUIMessages: UIMessage[];
 	streamCache: StreamCacheManager;
 }): TransformContext {
-	const streamPartsMap = new Map<string, UIMessage['parts']>();
+	const streamPartsMap = new Map<number, UIMessage['parts']>();
 	const streamTextMap = new Map<number, string>();
 	const streamReasoningMap = new Map<number, string>();
 	const streamStatusMap = new Map<number, string>();
@@ -82,7 +82,7 @@ export function buildTransformContext(args: {
 		});
 
 	args.streamingUIMessages.forEach((uiMessage) => {
-		streamPartsMap.set(`${uiMessage.order}-${uiMessage.stepOrder ?? 0}`, uiMessage.parts ?? []);
+		streamPartsMap.set(uiMessage.order, uiMessage.parts ?? []);
 		streamTextMap.set(uiMessage.order, uiMessage.text || '');
 		const reasoning = extractReasoning(uiMessage.parts);
 		if (reasoning) {
@@ -92,9 +92,7 @@ export function buildTransformContext(args: {
 	});
 
 	return {
-		streamingKeys: new Set(
-			args.streamingUIMessages.map((uiMessage) => `${uiMessage.order}-${uiMessage.stepOrder ?? 0}`)
-		),
+		streamingOrders: new Set(args.streamingUIMessages.map((uiMessage) => uiMessage.order)),
 		streamPartsMap,
 		streamTextMap,
 		streamReasoningMap,

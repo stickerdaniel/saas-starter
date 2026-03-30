@@ -7,7 +7,7 @@
 	import { Avatar, AvatarImage, AvatarFallback } from '$lib/components/ui/avatar';
 	import BotIcon from '@lucide/svelte/icons/bot';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
-	import SendIcon from '@lucide/svelte/icons/send';
+	import PlusIcon from '@lucide/svelte/icons/plus';
 	import UsersRoundIcon from '@lucide/svelte/icons/users-round';
 	import { supportThreadContext } from './support-thread-context.svelte';
 	import AvatarHeading from './avatar-heading.svelte';
@@ -322,12 +322,12 @@
 	<!-- New Message Button -->
 	<div class="shrink-0 border-t border-border/50 bg-secondary p-4">
 		<Button
-			class=" w-full rounded-full active:scale-[0.97]"
+			class="w-full rounded-full"
 			onclick={() => ctx.startNewThread()}
 			size="lg"
 			disabled={ctx.isRateLimited}
 		>
-			<SendIcon />
+			<PlusIcon />
 			{$t('support.button.start_new_conversation')}
 		</Button>
 	</div>

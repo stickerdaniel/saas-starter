@@ -9,15 +9,16 @@ import type { ChatMessage, DisplayMessage } from './types.js';
 import { extractReasoning, extractUserMessageText } from './message-extraction.js';
 import type { StreamCacheManager } from './stream-cache.js';
 import type { UIMessage } from '@convex-dev/agent';
+import { mergeAssistantMessageParts } from './stream-materialization.js';
 
 /**
  * Context for transforming messages with streaming data
  */
 export interface TransformContext {
-	/** Set of message keys currently being streamed (format: "order-stepOrder") */
-	streamingKeys: Set<string>;
-	/** Map of order-stepOrder -> latest streaming UI message parts */
-	streamPartsMap: Map<string, UIMessage['parts']>;
+	/** Set of assistant orders currently being streamed */
+	streamingOrders: Set<number>;
+	/** Map of order -> latest grouped streaming UI message parts */
+	streamPartsMap: Map<number, UIMessage['parts']>;
 	/** Map of order -> streaming text content */
 	streamTextMap: Map<number, string>;
 	/** Map of order -> streaming reasoning content */
@@ -116,7 +117,7 @@ export function transformToDisplayMessage(
 	context: TransformContext
 ): DisplayMessage {
 	const {
-		streamingKeys,
+		streamingOrders,
 		streamPartsMap,
 		streamTextMap,
 		streamReasoningMap,
@@ -124,15 +125,14 @@ export function transformToDisplayMessage(
 		streamCache
 	} = context;
 
-	// Determine if this specific message is being streamed
-	const msgKey = `${msg.order}-${(msg as { stepOrder?: number }).stepOrder ?? 0}`;
-	const isBeingStreamed = streamingKeys.has(msgKey);
+	// Assistant messages are grouped by order. Live stream overlays should match that grouped shape.
+	const isBeingStreamed = msg.role === 'assistant' && streamingOrders.has(msg.order);
 
 	// Get streaming data only if this message is being streamed
 	const streamText = isBeingStreamed ? streamTextMap.get(msg.order) : undefined;
 	const streamReasoning = isBeingStreamed ? streamReasoningMap.get(msg.order) : undefined;
 	const streamStatus = isBeingStreamed ? streamStatusMap.get(msg.order) : undefined;
-	const streamParts = isBeingStreamed ? streamPartsMap.get(msgKey) : undefined;
+	const streamParts = isBeingStreamed ? streamPartsMap.get(msg.order) : undefined;
 
 	const isStreaming = streamStatus === 'streaming';
 	const hasReasoningStream = isBeingStreamed && streamStatus !== undefined;
@@ -161,9 +161,17 @@ export function transformToDisplayMessage(
 		streamCache.clearReasoningCache(msg.order);
 	}
 
+	const mergedParts =
+		msg.role === 'assistant' && streamParts
+			? (mergeAssistantMessageParts(
+					(msg.parts ?? []) as UIMessage['parts'],
+					streamParts
+				) as ChatMessage['parts'])
+			: (streamParts ?? msg.parts);
+
 	return {
 		...msg,
-		parts: streamParts ?? msg.parts,
+		parts: mergedParts,
 		displayText,
 		displayReasoning: reasoningResult.displayReasoning,
 		isStreaming,

@@ -1,6 +1,14 @@
 import type { MessagePart } from '../core/types.js';
 
-export function getReasoningPartKey(index: number): string {
+export function getReasoningPartKey(part: MessagePart, index: number): string {
+	if (part.type === 'reasoning') {
+		const record = part as { streamPartId?: unknown; id?: unknown };
+		const partId = record.streamPartId ?? record.id;
+		if (typeof partId === 'string') {
+			return `reasoning-${partId}`;
+		}
+	}
+
 	return `reasoning-${index}`;
 }
 
