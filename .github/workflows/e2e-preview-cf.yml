@@ -9,6 +9,8 @@ jobs:
   e2e-tests:
     name: E2E Tests
     runs-on: ubicloud-standard-2
+    # Only run when CF Pages is configured (secrets can't be used in if: directly)
+    if: ${{ vars.CF_PAGES_ENABLED == 'true' }}
     env:
       NODE_OPTIONS: --max-old-space-size=4096
       AUTH_E2E_TEST_SECRET: ${{ secrets.AUTH_E2E_TEST_SECRET }}

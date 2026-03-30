@@ -269,11 +269,10 @@ export async function setupPreviewEnv(
  * Write E2E config for preview deployments
  */
 export function writeE2eConfig(
-	deployment: ConvexDeployment,
 	platform: PlatformContext,
 	buildEnv: Record<string, string | undefined>
 ): void {
-	if (!platform.isPreview || !deployment.urlSlug) return;
+	if (!platform.isPreview || !buildEnv.PUBLIC_CONVEX_URL) return;
 
 	const e2eConfig = {
 		convexUrl: buildEnv.PUBLIC_CONVEX_URL,

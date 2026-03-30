@@ -50,7 +50,7 @@ async function main(): Promise<void> {
 
 	// 5. Compute build env and write E2E config
 	const buildEnv = computeBuildEnv(platform, deployment);
-	writeE2eConfig(deployment, platform, buildEnv);
+	writeE2eConfig(platform, buildEnv);
 
 	// 6. Build SvelteKit
 	buildSvelteKit(buildEnv);
