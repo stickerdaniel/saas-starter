@@ -93,7 +93,6 @@ describe('buildTransformContext', () => {
 			streamCache
 		});
 
-		expect(context.streamingOrders.has(2)).toBe(true);
 		expect(context.streamMessageMap.get(2)?.text).toBe('Streaming response');
 		expect(streamCache.updateStatusCache).toHaveBeenCalledWith(2, 'finished');
 		expect(streamCache.updateReasoningCache).toHaveBeenCalledWith(2, 'Thinking');

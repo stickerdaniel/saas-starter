@@ -151,7 +151,6 @@ describe('transformToDisplayMessage', () => {
 	beforeEach(() => {
 		mockCache = createMockStreamCache();
 		baseContext = {
-			streamingOrders: new Set<number>(),
 			streamMessageMap: new Map(),
 			streamStatusMap: new Map<number, string>(),
 			streamCache: mockCache
@@ -225,7 +224,6 @@ describe('transformToDisplayMessage', () => {
 
 		const context: TransformContext = {
 			...baseContext,
-			streamingOrders: new Set([5]),
 			streamMessageMap: new Map([
 				[
 					5,
@@ -259,7 +257,6 @@ describe('transformToDisplayMessage', () => {
 
 		const context: TransformContext = {
 			...baseContext,
-			streamingOrders: new Set([5]), // Only order 5 is streaming
 			streamMessageMap: new Map([
 				[
 					5,
@@ -291,7 +288,6 @@ describe('transformToDisplayMessage', () => {
 
 		const context: TransformContext = {
 			...baseContext,
-			streamingOrders: new Set([3]),
 			streamMessageMap: new Map([
 				[
 					3,

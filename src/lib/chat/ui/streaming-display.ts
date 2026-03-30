@@ -88,7 +88,6 @@ export function buildTransformContext(args: {
 	});
 
 	return {
-		streamingOrders: new Set(args.streamingUIMessages.map((uiMessage) => uiMessage.order)),
 		streamMessageMap,
 		streamStatusMap,
 		streamCache: args.streamCache
