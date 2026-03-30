@@ -23,10 +23,6 @@ export interface NavItem {
 	collapsible?: boolean;
 	/** Sub-items shown under collapsible toggle */
 	subItems?: NavSubItem[];
-	/** Whether more sub-items can be loaded */
-	hasMore?: boolean;
-	/** Callback to load more sub-items */
-	onLoadMore?: () => void;
 	/** Keyboard shortcut keys (e.g. ["⌘", "⇧", "1"]) */
 	kbd?: string[];
 	/** When true, clicking the main button does nothing (e.g. already on empty thread) */

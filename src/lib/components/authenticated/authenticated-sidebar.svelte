@@ -11,40 +11,19 @@
 	import { haptic } from '$lib/hooks/use-haptic.svelte';
 	import { PersistedState } from 'runed';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
-	import autoAnimate from '@formkit/auto-animate';
+	import SidebarThreadList from './sidebar-thread-list.svelte';
 	import * as Kbd from '$lib/components/ui/kbd/index.js';
-	import { getTranslate } from '@tolgee/svelte';
-
-	const { t } = getTranslate();
 
 	interface Props extends ComponentProps<typeof Sidebar.Root> {
 		config: SidebarConfig;
 		user?: User;
+		/** Thread sub-items passed separately to avoid snippet re-render destroying DOM nodes */
+		threadSubItems?: import('./types').NavSubItem[];
 	}
 
-	let { config, user, ...restProps }: Props = $props();
-
-	function timeAgo(timestamp: number): string {
-		const diff = Date.now() - timestamp;
-		const minutes = Math.floor(diff / 60_000);
-		if (minutes < 1) return 'now';
-		if (minutes < 60) return `${minutes}m`;
-		const hours = Math.floor(minutes / 60);
-		if (hours < 24) return `${hours}h`;
-		return `${Math.floor(hours / 24)}d`;
-	}
+	let { config, user, threadSubItems, ...restProps }: Props = $props();
 
 	const aiChatOpen = new PersistedState('ai-chat-threads-open', true);
-
-	let subMenuRef = $state<HTMLElement | null>(null);
-
-	$effect(() => {
-		if (!subMenuRef) return;
-		const controller = autoAnimate(subMenuRef, { duration: 180, easing: 'ease-out' });
-		return () => {
-			controller.destroy?.();
-		};
-	});
 </script>
 
 <Sidebar.Root collapsible="offcanvas" {...restProps}>
@@ -143,50 +122,6 @@
 												</Sidebar.MenuAction>
 											{/snippet}
 										</Collapsible.Trigger>
-										<Collapsible.Content>
-											<Sidebar.MenuSub bind:ref={subMenuRef}>
-												{#if item.subItems}
-													{#each item.subItems as sub (sub.id)}
-														<Sidebar.MenuSubItem>
-															<Sidebar.MenuSubButton
-																isActive={sub.isActive}
-																onclick={() => haptic.trigger('light')}
-															>
-																{#snippet child({ props })}
-																	<a
-																		href={resolve(sub.url)}
-																		{...props}
-																		class="{props.class} flex items-center gap-1"
-																	>
-																		<span class="min-w-0 truncate">{sub.label}</span>
-																		{#if sub.timestamp}
-																			<span
-																				class="ml-auto shrink-0 text-[11px] text-muted-foreground/50"
-																			>
-																				{timeAgo(sub.timestamp)}
-																			</span>
-																		{/if}
-																	</a>
-																{/snippet}
-															</Sidebar.MenuSubButton>
-														</Sidebar.MenuSubItem>
-													{/each}
-													{#if item.hasMore && item.onLoadMore}
-														<Sidebar.MenuSubItem>
-															<button
-																class="w-full px-2 py-1 text-left text-xs text-muted-foreground hover:text-foreground active:translate-y-px"
-																onclick={() => {
-																	haptic.trigger('light');
-																	item.onLoadMore?.();
-																}}
-															>
-																{$t('app.sidebar.show_more')}
-															</button>
-														</Sidebar.MenuSubItem>
-													{/if}
-												{/if}
-											</Sidebar.MenuSub>
-										</Collapsible.Content>
 									</Sidebar.MenuItem>
 								{/snippet}
 							</Collapsible.Root>
@@ -223,6 +158,12 @@
 					{/each}
 				</Sidebar.Menu>
 			</Sidebar.GroupContent>
+			<!-- Thread list with client-side display limit (t3code pattern).
+				 "Show more" only changes local state inside SidebarThreadList,
+				 so no parent re-render and autoAnimate works correctly. -->
+			{#if aiChatOpen.current}
+				<SidebarThreadList items={threadSubItems ?? []} />
+			{/if}
 		</Sidebar.Group>
 	</Sidebar.Content>
 

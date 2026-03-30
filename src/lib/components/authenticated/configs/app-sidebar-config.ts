@@ -23,9 +23,7 @@ export function getAppSidebarConfig(
 	userRole?: string,
 	aiChatThreads?: AiChatThread[],
 	warmThreadId?: string | null,
-	newConversationLabel?: string,
-	threadsHasMore?: boolean,
-	onLoadMoreThreads?: () => void
+	newConversationLabel?: string
 ): SidebarConfig {
 	const { pathname, search, lang } = pageState;
 
@@ -71,8 +69,6 @@ export function getAppSidebarConfig(
 				isActive: pathname.startsWith(`/${lang}/app/ai-chat`),
 				collapsible: true,
 				subItems: aiChatSubItems,
-				hasMore: threadsHasMore,
-				onLoadMore: onLoadMoreThreads,
 				kbd: [cmdOrCtrl, '⇧', '2'],
 				// Disable nav when already on the warm thread (already "new chat")
 				disableNav: !!activeThreadId && activeThreadId === warmThreadId

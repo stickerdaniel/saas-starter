@@ -125,7 +125,7 @@
 						<span><T keyName="ai_chat.alerts.limit_reached_pro" /></span>
 					</div>
 				</div>
-			{:else if remainingMessages === 1}
+			{:else if totalMessages > 0 && remainingMessages > 0 && remainingMessages / totalMessages <= 1 / 3}
 				<!-- Pro user, low messages warning -->
 				<div
 					class="mx-4 mb-2 flex items-center justify-between rounded-lg border border-border/50 bg-muted/50 px-4 py-3 backdrop-blur-sm"
@@ -133,7 +133,9 @@
 					<div class="flex items-center gap-2 text-sm text-muted-foreground">
 						<span>
 							<T
-								keyName="ai_chat.alerts.low_messages"
+								keyName={remainingMessages !== 1
+									? 'ai_chat.alerts.low_messages_plural'
+									: 'ai_chat.alerts.low_messages'}
 								params={{ remaining: remainingMessages, total: totalMessages }}
 							/>
 						</span>

@@ -84,10 +84,7 @@
 		bind:ref
 		variant={variant || 'outline'}
 		size={size || 'lg'}
-		class={cn(
-			'rounded-full px-4 transition-[colors,transform] duration-150 active:scale-[0.97]',
-			className
-		)}
+		class={cn('rounded-full px-4', className)}
 		{onclick}
 		{disabled}
 		{type}

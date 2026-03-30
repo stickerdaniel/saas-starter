@@ -26,12 +26,11 @@
 	const viewer = $derived(data.viewer as typeof data.viewer & { role?: string });
 
 	// AI chat threads for sidebar.
-	// Zero-width chars in lastMessage are stripped server-side to prevent
-	// autoAnimate + Svelte re-render loops (see threads.ts).
-	let threadLimit = $state(20);
-	const threadsQuery = useQuery(api.aiChat.threads.listThreads, () => ({ limit: threadLimit }));
+	// Load a generous batch upfront; display limit is managed client-side
+	// inside SidebarThreadList (same pattern as t3code) so "Show more"
+	// never triggers a server re-fetch or parent re-render.
+	const threadsQuery = useQuery(api.aiChat.threads.listThreads, () => ({ limit: 50 }));
 	const aiChatThreads = $derived(threadsQuery.data?.threads ?? []);
-	const threadsHasMore = $derived(threadsQuery.data?.hasMore ?? false);
 
 	// Pre-warm thread: always keep one empty thread ready for instant "new chat"
 	const warmThreadQuery = useQuery(api.aiChat.threads.getWarmThread, {});
@@ -90,10 +89,14 @@
 			viewer?.role,
 			aiChatThreads,
 			warmThreadId,
-			$t('ai_chat.thread.no_messages'),
-			threadsHasMore,
-			() => (threadLimit += 5)
+			$t('ai_chat.thread.no_messages')
 		)
+	);
+
+	// Thread sub-items passed as separate prop to avoid snippet re-render
+	// destroying autoAnimate DOM nodes (see authenticated-sidebar.svelte)
+	const threadSubItems: import('$lib/components/authenticated/types').NavSubItem[] = $derived(
+		sidebarConfig.navItems.find((i) => i.collapsible)?.subItems ?? []
 	);
 </script>
 
@@ -115,6 +118,7 @@
 	routePrefix="app"
 	rootLabel="App"
 	{fullControl}
+	{threadSubItems}
 >
 	{@render children?.()}
 </AuthenticatedLayout>
