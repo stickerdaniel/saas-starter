@@ -36,7 +36,7 @@
 							{#snippet child({ props })}
 								<Button
 									variant="ghost"
-									class="!transition-transform w-full justify-start gap-2 px-1.5 data-[state=open]:bg-muted"
+									class="w-full justify-start gap-2 px-1.5 !transition-transform data-[state=open]:bg-muted"
 									{...props}
 								>
 									<config.header.icon class="!size-5" />
@@ -61,7 +61,7 @@
 					<Button
 						variant="ghost"
 						href={resolve(config.header.href)}
-						class="!transition-transform w-full justify-start gap-2 px-1.5"
+						class="w-full justify-start gap-2 px-1.5 !transition-transform"
 					>
 						<config.header.icon class="!size-5" />
 						<span class="text-base font-semibold">
@@ -132,7 +132,7 @@
 									variant="ghost"
 									href={resolve(item.url)}
 									onclick={() => haptic.trigger('light')}
-									class="!transition-transform group/menu-button peer/menu-button w-full justify-start gap-2 {item.isActive
+									class="group/menu-button peer/menu-button w-full justify-start gap-2 !transition-transform {item.isActive
 										? 'bg-muted font-medium text-foreground hover:bg-muted dark:hover:bg-muted'
 										: ''}"
 									data-active={item.isActive || undefined}
@@ -177,7 +177,7 @@
 								variant="ghost"
 								href={resolve(link.url)}
 								onclick={() => haptic.trigger('light')}
-								class="!transition-transform group/menu-button w-full justify-start gap-2"
+								class="group/menu-button w-full justify-start gap-2 !transition-transform"
 							>
 								<link.icon />
 								<span><T keyName={link.translationKey} /></span>
