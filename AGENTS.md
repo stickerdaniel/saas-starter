@@ -138,6 +138,15 @@ See [official docs](https://docs.convex.dev/scheduling/scheduled-functions) for 
 
 Note: Other components (`@convex-dev/better-auth`, `@convex-dev/rate-limiter`, `@convex-dev/agent`) do NOT have automatic retry for external API calls - standard error handling applies.
 
+### Autumn Billing Config
+
+After modifying `autumn.config.ts`, ALWAYS push changes to Autumn:
+
+- `bunx atmn push` — Push config to sandbox
+- `bunx atmn push -p` — Push config to production
+
+Without pushing, the config change only exists locally and has no effect.
+
 ### Tolgee CLI
 
 These commands use `varlock run` to load env vars from `.env.schema` + `.env.local`:
