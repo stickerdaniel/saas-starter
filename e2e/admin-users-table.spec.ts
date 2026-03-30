@@ -8,10 +8,11 @@ import {
 	getTableQueryParam
 } from './utils/convex-table-url-assertions';
 import { resolveConvexUrl } from './utils/convex-url';
+import { getPreviewBypass } from './utils/preview-bypass';
 
 const SITE_URL = process.env.PUBLIC_SITE_URL || 'http://localhost:5173';
 const TEST_PASSWORD = 'TestPassword123!';
-const VERCEL_BYPASS_SECRET = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
+const bypass = getPreviewBypass();
 
 type SeedRole = 'admin' | 'user';
 type SeedVerification = 'verified' | 'unverified';
@@ -24,14 +25,11 @@ type SeedUser = {
 };
 
 function getRequestHeaders(): Record<string, string> {
-	const headers: Record<string, string> = {
+	return {
 		'Content-Type': 'application/json',
-		Origin: SITE_URL
+		Origin: SITE_URL,
+		...bypass.headers
 	};
-	if (VERCEL_BYPASS_SECRET) {
-		headers['x-vercel-protection-bypass'] = VERCEL_BYPASS_SECRET;
-	}
-	return headers;
 }
 
 async function createAuthUser(user: SeedUser) {

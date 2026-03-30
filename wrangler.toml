@@ -1,0 +1,5 @@
+#:schema node_modules/wrangler/config-schema.json
+name = "my-saas-project" # TEMPLATE: rename to your CF Pages project name
+pages_build_output_dir = ".svelte-kit/cloudflare"
+compatibility_date = "2026-03-29"
+compatibility_flags = ["nodejs_compat"]

@@ -1,8 +1,8 @@
 # SaaS Starter
 
 [![Static Checks](https://github.com/stickerdaniel/saas-starter/actions/workflows/static-checks.yml/badge.svg)](https://github.com/stickerdaniel/saas-starter/actions/workflows/static-checks.yml)
-[![E2E Tests](https://github.com/stickerdaniel/saas-starter/actions/workflows/e2e-preview.yml/badge.svg)](https://github.com/stickerdaniel/saas-starter/actions/workflows/e2e-preview.yml)
-[![Deploy](https://img.shields.io/github/deployments/stickerdaniel/saas-starter/production?label=Vercel&logo=vercel&color=%233fb950)](https://vercel.com/daniel-sticker-projects/saas-starter)
+[![E2E Tests (Vercel)](https://github.com/stickerdaniel/saas-starter/actions/workflows/e2e-preview-vercel.yml/badge.svg)](https://github.com/stickerdaniel/saas-starter/actions/workflows/e2e-preview-vercel.yml)
+[![E2E Tests (CF)](https://github.com/stickerdaniel/saas-starter/actions/workflows/e2e-preview-cf.yml/badge.svg)](https://github.com/stickerdaniel/saas-starter/actions/workflows/e2e-preview-cf.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-%233fb950)](https://opensource.org/licenses/MIT)
 
 Agents write better code when they have good examples to work from. This starter ships with auth, billing, admin, AI chat, email, i18n, and more, all implemented end-to-end so your agents have real patterns to reference when building new features. It also includes the DX tools and guardrails to make sure what ships stays secure, performant, and maintainable.
@@ -52,31 +52,56 @@ bunx convex env set KEY value                 # set backend env vars (see .env-c
 
 ## 2. Preview Deployments
 
-Each PR gets its own Vercel preview with an isolated Convex preview backend.
+Each PR gets its own preview deployment with an isolated Convex preview backend. Supports both Vercel and Cloudflare Pages.
 
-Create a Convex project at [dashboard.convex.dev](https://dashboard.convex.dev) and connect your repo to [Vercel](https://vercel.com).
+Create a Convex project at [dashboard.convex.dev](https://dashboard.convex.dev) and connect your repo to your hosting platform.
 
-Set the required Vercel and Convex preview variables listed in the [environment variable matrix](#environment-variables) below.
+The deploy script (`scripts/deploy.ts`) auto-detects the platform from environment variables (`VERCEL` or `CF_PAGES`), tags and pulls translations, runs `bunx convex deploy` to create a preview backend named after the branch, auto-computes `PUBLIC_CONVEX_URL` and `PUBLIC_CONVEX_SITE_URL` from the deploy output, and sets `SITE_URL` on the Convex instance to match the preview URL. When `PREVIEW_ADMIN_PASSWORD` is set, it also seeds an admin user.
+
+<details>
+<summary><strong>Vercel setup</strong></summary>
+
+Connect your repo to [Vercel](https://vercel.com). Set the required Vercel and Convex preview variables listed in the [environment variable matrix](#environment-variables) below.
 
 - Vercel: Project Settings > Environment Variables
 - Convex: Project settings > Default Environment Variables > Add with ✓ Production
 
-The deploy script (`scripts/vercel-deploy.ts`) tags and pulls translations, runs `bunx convex deploy` to create a preview backend named after the branch, auto-computes `PUBLIC_CONVEX_URL` and `PUBLIC_CONVEX_SITE_URL` from the deploy output, and sets `SITE_URL` on the Convex instance to match the Vercel preview URL. When `PREVIEW_ADMIN_PASSWORD` is set, it also seeds an admin user.
+Push a branch and Vercel creates a preview deployment with its own Convex preview backend.
 
-Push a branch and Vercel creates a preview deployment with its own Convex preview backend. Convex cleans up preview deployments after 5 days (14 days on Professional).
+</details>
+
+<details>
+<summary><strong>Cloudflare Pages setup</strong></summary>
+
+Connect your repo to [Cloudflare Pages](https://pages.cloudflare.com/). Configure the build:
+
+1. Rename `name` in `wrangler.toml` to match your CF Pages project name
+2. Set the build command in CF Pages Settings > Builds & deployments: `bunx varlock run -- bun scripts/deploy.ts`
+3. Set `nodejs_compat` in CF Pages Settings > Functions > Compatibility flags (or it's already in `wrangler.toml`)
+4. Set the required environment variables in CF Pages Settings > Environment Variables
+
+Push a branch and CF Pages creates a preview deployment with its own Convex preview backend.
+
+</details>
+
+Convex cleans up preview deployments after 5 days (14 days on Professional).
 
 ## 3. Production Deployment
 
-Set the required Vercel and Convex production variables listed in the [environment variable matrix](#environment-variables) below.
+Set the required platform and Convex production variables listed in the [environment variable matrix](#environment-variables) below.
 
-- Vercel: Project Settings > Environment Variables
-- Convex: Select your Prod deploymnent > Settings > Environment Variables > Add
+- Platform: Project Settings > Environment Variables (Vercel or CF Pages)
+- Convex: Select your Prod deployment > Settings > Environment Variables > Add
 
 ### Deploy
+
+**Vercel:**
 
 ```bash
 vercel --prod
 ```
+
+**Cloudflare Pages:** Push to your production branch (default: `main`). CF Pages deploys automatically.
 
 ### First Admin
 
@@ -115,7 +140,7 @@ Two runtimes, two schemas, both managed by [varlock](https://github.com/nickrees
 | `SUPPORT_EMAIL`          | Support contact email                     |   ○   |    ○    |  ○   |
 | `PREVIEW_ADMIN_PASSWORD` | Password for auto-seeded preview admin    |       |    ·    |      |
 
-**Vercel** (project settings):
+**Hosting platform** (Vercel project settings or CF Pages environment variables):
 
 | Variable                 |                                                                  | Preview | Prod |
 | ------------------------ | ---------------------------------------------------------------- | :-----: | :--: |
@@ -124,6 +149,7 @@ Two runtimes, two schemas, both managed by [varlock](https://github.com/nickrees
 | `PREVIEW_ADMIN_PASSWORD` | Preview admin password                                           |    ○    |      |
 | `PUBLIC_POSTHOG_API_KEY` | PostHog analytics API key                                        |         |  ○   |
 | `PUBLIC_POSTHOG_HOST`    | PostHog analytics host                                           |         |  ○   |
+| `PRODUCTION_BRANCH`      | CF Pages only: production branch name (default: `main`)          |    ○    |  ○   |
 
 </details>
 
