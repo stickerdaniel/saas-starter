@@ -142,6 +142,14 @@ function deriveFileSets(files: string[]) {
 	};
 }
 
+function shouldRunConvexTypecheck(files: string[], scopedMode: boolean): boolean {
+	if (!scopedMode) {
+		return true;
+	}
+
+	return files.some((file) => file.startsWith('src/lib/convex/'));
+}
+
 // Resolve mode: positional files > --staged > full project
 type Mode = 'files' | 'staged' | 'full';
 const mode: Mode = positionalFiles.length > 0 ? 'files' : stagedOnly ? 'staged' : 'full';
@@ -331,6 +339,15 @@ async function main(): Promise<void> {
 			runCommand('bun', ['svelte-check', '--tsconfig', './tsconfig.json'], {
 				env: { ...process.env, NODE_OPTIONS: '--max-old-space-size=8192' }
 			});
+		}
+		console.log('\n');
+
+		// Convex type checking
+		printHeader(step++, 'Convex type checking');
+		if (shouldRunConvexTypecheck(allFiles, scopedMode)) {
+			runCommand('bun', ['run', 'check:convex']);
+		} else {
+			console.log('No Convex files to check');
 		}
 		console.log('\n');
 

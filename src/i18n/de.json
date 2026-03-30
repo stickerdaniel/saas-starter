@@ -705,6 +705,12 @@
 		}
 	},
 	"ai_chat": {
+		"alerts": {
+			"limit_reached_free": "Upgraden Sie auf Pro für mehr KI-Chat-Nachrichten pro Monat.",
+			"limit_reached_pro": "Sie haben alle Ihre KI-Chat-Nachrichten diesen Monat aufgebraucht. Sie werden nächsten Monat zurückgesetzt.",
+			"low_messages": "{remaining} von {total} KI-Chat-Nachricht verbleibend diesen Monat.",
+			"low_messages_plural": "{remaining} von {total} KI-Chat-Nachrichten verbleibend diesen Monat."
+		},
 		"delete_thread": "Unterhaltung löschen",
 		"delete_thread_confirm": "Sind Sie sicher, dass Sie diese Unterhaltung löschen möchten?",
 		"description": "Chatten Sie mit unserem KI-Assistenten",
@@ -724,7 +730,8 @@
 		"suggestion": {
 			"explain": "Erkläre etwas",
 			"help": "Hilfe erhalten",
-			"understand": "Hilf mir zu verstehen"
+			"understand": "Hilf mir zu verstehen",
+			"weather": "Wie ist das Wetter in Tokio?"
 		},
 		"thread": {
 			"loading": "Wird geladen...",
@@ -745,8 +752,8 @@
 			"dashboard": "Dashboard",
 			"docs": "Dokumentation",
 			"home": "Start",
-			"show_more": "Mehr anzeigen",
-			"show_less": "Weniger anzeigen"
+			"show_less": "Weniger anzeigen",
+			"show_more": "Mehr anzeigen"
 		},
 		"user_menu": {
 			"account": "Konto",

@@ -705,6 +705,12 @@
 		}
 	},
 	"ai_chat": {
+		"alerts": {
+			"limit_reached_free": "Actualiza a Pro para más mensajes de chat con IA al mes.",
+			"limit_reached_pro": "Has usado todos tus mensajes de chat con IA este mes. Se reinician el mes que viene.",
+			"low_messages": "{remaining} de {total} mensaje de chat con IA restante este mes.",
+			"low_messages_plural": "{remaining} de {total} mensajes de chat con IA restantes este mes."
+		},
 		"delete_thread": "Eliminar conversación",
 		"delete_thread_confirm": "¿Estás seguro de que quieres eliminar esta conversación?",
 		"description": "Chatea con nuestro asistente de IA",
@@ -724,7 +730,8 @@
 		"suggestion": {
 			"explain": "Explica algo",
 			"help": "Obtener ayuda",
-			"understand": "Ayúdame a entender"
+			"understand": "Ayúdame a entender",
+			"weather": "¿Qué tiempo hace en Tokio?"
 		},
 		"thread": {
 			"loading": "Cargando...",
@@ -745,8 +752,8 @@
 			"dashboard": "Panel",
 			"docs": "Documentación",
 			"home": "Inicio",
-			"show_more": "Mostrar más",
-			"show_less": "Mostrar menos"
+			"show_less": "Mostrar menos",
+			"show_more": "Mostrar más"
 		},
 		"user_menu": {
 			"account": "Cuenta",

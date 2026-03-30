@@ -60,10 +60,10 @@
 	const opacity = $derived(isDark ? 1 : media.lg ? 1 : 0.3);
 
 	let canvas = $state<HTMLCanvasElement | null>(null);
-	let riveInstance: any = $state(null);
+	let riveInstance: any = null;
 	let isLoaded = $state(false);
 	let shouldRender = $state(false);
-	let FollowingPointerComponent = $state<Component | null>(null);
+	let FollowingPointerComponent = $state.raw<Component | null>(null);
 
 	// Cache the base buffer at instance level to avoid re-fetching on re-renders
 	let cachedBuffer: ArrayBuffer | null = null;

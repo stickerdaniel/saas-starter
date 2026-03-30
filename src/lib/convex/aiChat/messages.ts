@@ -12,6 +12,7 @@ import { listMessagesForThread } from '../support/messageListing';
 import { authedMutation } from '../functions';
 import { authComponent } from '../auth';
 import { getAutumnSdk } from '../autumn';
+import { requireAiChatThreadRecord } from './ownership';
 
 /**
  * Send a user message and get AI response with streaming.
@@ -33,13 +34,10 @@ export const sendMessage = authedMutation({
 		const userId = ctx.user._id;
 
 		// Verify thread ownership
-		const record = await ctx.db
-			.query('aiChatThreads')
-			.withIndex('by_thread', (q) => q.eq('threadId', args.threadId))
-			.first();
-		if (!record || record.userId !== userId) {
-			throw new ConvexError('Thread not found');
-		}
+		const record = await requireAiChatThreadRecord(ctx, {
+			threadId: args.threadId,
+			userId
+		});
 
 		// Consume warm thread on first message (backend-driven, no client coordination needed)
 		if (record.isWarm) {
@@ -81,6 +79,12 @@ export const sendMessage = authedMutation({
 			});
 			messageId = result.messageId;
 		}
+
+		// Denormalize: update lastMessage on the thread record for sidebar display
+		await ctx.db.patch(record._id, {
+			lastMessage: args.prompt.length > 100 ? args.prompt.slice(0, 100) : args.prompt,
+			lastMessageAt: Date.now()
+		});
 
 		// Schedule AI response
 		await ctx.scheduler.runAfter(0, internal.aiChat.messages.createAIResponse, {
@@ -134,6 +138,16 @@ export const createAIResponse = internalAction({
 
 		await result.consumeStream();
 
+		// Denormalize: update thread sidebar metadata with the AI's response
+		const responseText = await result.text;
+		if (responseText) {
+			await ctx.runMutation(internal.aiChat.threads.updateThreadMetadata, {
+				threadId: args.threadId,
+				lastMessage: responseText.length > 100 ? responseText.slice(0, 100) : responseText,
+				lastMessageAt: Date.now()
+			});
+		}
+
 		// Track usage after successful AI response
 		if (args.userId) {
 			const sdk = await getAutumnSdk();
@@ -163,13 +177,10 @@ export const listMessages = query({
 		}
 
 		// Verify ownership
-		const record = await ctx.db
-			.query('aiChatThreads')
-			.withIndex('by_thread', (q) => q.eq('threadId', args.threadId))
-			.first();
-		if (!record || record.userId !== user._id) {
-			throw new ConvexError('Thread not found');
-		}
+		await requireAiChatThreadRecord(ctx, {
+			threadId: args.threadId,
+			userId: user._id
+		});
 
 		return await listMessagesForThread(ctx, {
 			threadId: args.threadId,
