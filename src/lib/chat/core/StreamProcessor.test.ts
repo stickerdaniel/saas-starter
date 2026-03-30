@@ -5,18 +5,23 @@
 import { describe, it, expect } from 'vitest';
 import {
 	blankUIMessage,
+	combineStreamingUIMessages,
+	deriveUIMessagesFromDeltas,
 	deriveUIMessagesFromTextStreamParts,
-	statusFromStreamStatus,
-	extractReasoning,
-	extractUserMessageText
-} from './StreamProcessor.js';
+	mergeAssistantMessageParts,
+	statusFromStreamStatus
+} from './stream-materialization.js';
+import { extractReasoning, extractUserMessageText } from './message-extraction.js';
 import type { MessagePart, ChatMessage } from './types.js';
+import type { UIMessage } from '@convex-dev/agent';
+import type { StreamMessage } from '@convex-dev/agent/validators';
 
 // Minimal StreamMessage factory matching @convex-dev/agent shape
 function createStreamMessage(
 	overrides: Partial<{
 		streamId: string;
 		status: 'streaming' | 'finished' | 'aborted';
+		format: 'UIMessageChunk' | 'TextStreamPart';
 		order: number;
 		stepOrder: number;
 		agentName: string | undefined;
@@ -324,6 +329,213 @@ describe('deriveUIMessagesFromTextStreamParts', () => {
 		expect(messages).toHaveLength(1);
 		expect(messages[0]!.text).toBe('Hi there');
 		expect(messages[0]!.text).not.toContain('undefined');
+	});
+});
+
+describe('deriveUIMessagesFromDeltas', () => {
+	it('materializes UIMessageChunk tool parts to output-available', async () => {
+		const messages = await deriveUIMessagesFromDeltas(
+			'thread-1',
+			[
+				createStreamMessage({
+					streamId: 'stream-1',
+					order: 1,
+					stepOrder: 0,
+					status: 'streaming',
+					format: 'UIMessageChunk' as const
+				}) as StreamMessage
+			],
+			[
+				{
+					streamId: 'stream-1',
+					start: 0,
+					end: 1,
+					parts: [{ type: 'start' }]
+				},
+				{
+					streamId: 'stream-1',
+					start: 1,
+					end: 2,
+					parts: [{ type: 'start-step' }]
+				},
+				{
+					streamId: 'stream-1',
+					start: 2,
+					end: 3,
+					parts: [{ type: 'tool-input-start', toolCallId: 'tool-1', toolName: 'getWeather' }]
+				},
+				{
+					streamId: 'stream-1',
+					start: 3,
+					end: 4,
+					parts: [
+						{
+							type: 'tool-input-available',
+							toolCallId: 'tool-1',
+							toolName: 'getWeather',
+							input: { latitude: 35.68, longitude: 139.69 }
+						}
+					]
+				},
+				{
+					streamId: 'stream-1',
+					start: 4,
+					end: 5,
+					parts: [
+						{
+							type: 'tool-output-available',
+							toolCallId: 'tool-1',
+							output: { temperature: 10.1, unit: 'C' }
+						}
+					]
+				}
+			] as any
+		);
+
+		expect(messages).toHaveLength(1);
+		expect(messages[0]!.parts).toContainEqual(
+			expect.objectContaining({
+				type: 'tool-getWeather',
+				toolCallId: 'tool-1',
+				state: 'output-available',
+				input: { latitude: 35.68, longitude: 139.69 },
+				output: { temperature: 10.1, unit: 'C' }
+			})
+		);
+	});
+});
+
+describe('combineStreamingUIMessages', () => {
+	it('combines assistant stream steps by order so later steps override the grouped UI message', () => {
+		const messages: UIMessage[] = [
+			{
+				id: 'stream:1',
+				key: 'thread-1-1-0',
+				order: 1,
+				stepOrder: 0,
+				status: 'streaming',
+				agentName: 'assistant',
+				text: '',
+				_creationTime: 1,
+				role: 'assistant',
+				parts: [{ type: 'reasoning', text: 'Finding coordinates', state: 'done' }]
+			},
+			{
+				id: 'stream:2',
+				key: 'thread-1-1-1',
+				order: 1,
+				stepOrder: 1,
+				status: 'streaming',
+				agentName: 'assistant',
+				text: '',
+				_creationTime: 2,
+				role: 'assistant',
+				parts: [
+					{
+						type: 'tool-getGeocoding',
+						toolCallId: 'tool-1',
+						state: 'output-available',
+						input: { location: 'Tokyo' },
+						output: { latitude: 35.68, longitude: 139.69 }
+					}
+				]
+			},
+			{
+				id: 'stream:3',
+				key: 'thread-1-1-2',
+				order: 1,
+				stepOrder: 2,
+				status: 'success',
+				agentName: 'assistant',
+				text: 'It is 10.1C.',
+				_creationTime: 3,
+				role: 'assistant',
+				parts: [{ type: 'text', text: 'It is 10.1C.' }]
+			}
+		];
+
+		const combined = combineStreamingUIMessages(messages);
+
+		expect(combined).toHaveLength(1);
+		expect(combined[0]!.stepOrder).toBe(0);
+		expect(combined[0]!.status).toBe('success');
+		expect(combined[0]!.parts.map((part) => part.type)).toEqual([
+			'reasoning',
+			'tool-getGeocoding',
+			'text'
+		]);
+		expect(combined[0]!.text).toBe('It is 10.1C.');
+	});
+});
+
+describe('mergeAssistantMessageParts', () => {
+	it('treats a grouped streamed prefix as authoritative instead of appending duplicate reasoning blocks', () => {
+		const merged = mergeAssistantMessageParts(
+			[
+				{ type: 'step-start' },
+				{ type: 'reasoning', text: 'Find coordinates' },
+				{ type: 'tool-getGeocoding', toolCallId: 'tool-1', state: 'output-available' }
+			] as UIMessage['parts'],
+			[
+				{ type: 'step-start' },
+				{ type: 'reasoning', text: 'Find coordinates' },
+				{ type: 'tool-getGeocoding', toolCallId: 'tool-1', state: 'output-available' },
+				{ type: 'step-start' },
+				{ type: 'reasoning', text: 'Check forecast' }
+			] as UIMessage['parts']
+		);
+
+		expect(merged).toEqual([
+			{ type: 'step-start' },
+			{ type: 'reasoning', text: 'Find coordinates' },
+			{ type: 'tool-getGeocoding', toolCallId: 'tool-1', state: 'output-available' },
+			{ type: 'step-start' },
+			{ type: 'reasoning', text: 'Check forecast' }
+		]);
+	});
+
+	it('keeps the persisted prefix when the live stream only exposes a new tail step', () => {
+		const merged = mergeAssistantMessageParts(
+			[
+				{ type: 'reasoning', text: 'Find coordinates', streamPartId: 'reason-1' },
+				{
+					type: 'tool-getGeocoding',
+					toolCallId: 'tool-1',
+					state: 'output-available',
+					input: { location: 'Tokyo' },
+					output: { latitude: 35.68, longitude: 139.69 }
+				},
+				{ type: 'reasoning', text: 'Check forecast', streamPartId: 'reason-2' },
+				{
+					type: 'tool-getWeather',
+					toolCallId: 'tool-2',
+					state: 'output-available',
+					input: { latitude: 35.68, longitude: 139.69 },
+					output: { temperature: 62.6 }
+				}
+			] as UIMessage['parts'],
+			[{ type: 'reasoning', text: 'Draft final answer' }] as UIMessage['parts']
+		);
+
+		expect(merged).toEqual([
+			{ type: 'reasoning', text: 'Find coordinates', streamPartId: 'reason-1' },
+			{
+				type: 'tool-getGeocoding',
+				toolCallId: 'tool-1',
+				state: 'output-available',
+				input: { location: 'Tokyo' },
+				output: { latitude: 35.68, longitude: 139.69 }
+			},
+			{ type: 'reasoning', text: 'Check forecast', streamPartId: 'reason-2' },
+			{
+				type: 'tool-getWeather',
+				toolCallId: 'tool-2',
+				state: 'output-available',
+				input: { latitude: 35.68, longitude: 139.69 },
+				output: { temperature: 62.6 }
+			},
+			{ type: 'reasoning', text: 'Draft final answer' }
+		]);
 	});
 });
 

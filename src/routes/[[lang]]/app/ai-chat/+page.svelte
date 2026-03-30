@@ -24,7 +24,15 @@
 	const upgradeOperation = useAutumnOperation(autumn.checkout);
 	const isPro = $derived(autumn.customer?.products?.some((p) => p.id === 'pro') ?? false);
 	const aiChatFeature = $derived(autumn.customer?.features?.ai_chat_messages);
-	const hasAiChatAccess = $derived(isPro || (aiChatFeature?.balance ?? 0) > 0);
+	const remainingMessages = $derived(aiChatFeature?.balance ?? 0);
+	const hasMessagesAvailable = $derived(remainingMessages > 0);
+	const totalMessages = $derived(
+		aiChatFeature?.included_usage === 'inf'
+			? Infinity
+			: typeof aiChatFeature?.included_usage === 'number'
+				? aiChatFeature.included_usage
+				: 0
+	);
 
 	// Thread from URL param
 	const threadId = $derived(page.url.searchParams.get('thread') ?? '');
@@ -73,7 +81,10 @@
 	<div class="flex h-full flex-col">
 		<ThreadChat
 			{threadId}
-			isPro={hasAiChatAccess}
+			{isPro}
+			{hasMessagesAvailable}
+			{remainingMessages}
+			{totalMessages}
 			onUpgrade={handleUpgrade}
 			isUpgrading={upgradeOperation.isLoading}
 			onMessageSent={() => autumn.refetch()}

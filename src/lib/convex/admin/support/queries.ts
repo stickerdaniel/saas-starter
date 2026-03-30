@@ -61,6 +61,16 @@ export const listThreadsForAdmin = adminQuery({
 					title: v.optional(v.string()),
 					summary: v.optional(v.string()),
 					lastMessage: v.optional(v.string()),
+					lastMessageAt: v.optional(v.number()),
+					lastMessageRole: v.optional(
+						v.union(
+							v.literal('user'),
+							v.literal('assistant'),
+							v.literal('tool'),
+							v.literal('system')
+						)
+					),
+					lastAgentName: v.optional(v.string()),
 					userName: v.optional(v.string()),
 					userEmail: v.optional(v.string())
 				}),
@@ -161,12 +171,11 @@ export const listThreadsForAdmin = adminQuery({
 		}
 
 		// =========================================================================
-		// ENRICHMENT: Get agent thread status (denormalized fields already available)
+		// ENRICHMENT: Read generic agent-thread metadata after support registry selection
 		// =========================================================================
 		const threadsWithDetails = await Promise.all(
 			supportThreads.page.map(async (supportThread) => {
 				try {
-					// Get agent thread (for status field - required by return type)
 					const agentThread = await ctx.runQuery(components.agent.threads.getThread, {
 						threadId: supportThread.threadId
 					});
@@ -176,18 +185,16 @@ export const listThreadsForAdmin = adminQuery({
 						return null;
 					}
 
-					// Use denormalized fields from supportThread when available
-					// Fall back to agent thread data for non-backfilled records
 					return {
-						_id: agentThread._id,
-						_creationTime: agentThread._creationTime,
-						userId: agentThread.userId,
-						title: supportThread.title ?? agentThread.title,
-						summary: supportThread.summary ?? agentThread.summary,
+						_id: supportThread.threadId,
+						_creationTime: supportThread.createdAt,
+						userId: supportThread.userId,
+						title: supportThread.title,
+						summary: supportThread.summary,
 						status: agentThread.status,
 						supportMetadata: supportThread,
 						lastMessage: supportThread.lastMessage,
-						lastMessageAt: supportThread.updatedAt ?? agentThread._creationTime,
+						lastMessageAt: supportThread.lastMessageAt,
 						userName: supportThread.userName,
 						userEmail: supportThread.userEmail
 					};
@@ -283,6 +290,11 @@ export const getThreadForAdmin = adminQuery({
 			title: v.optional(v.string()),
 			summary: v.optional(v.string()),
 			lastMessage: v.optional(v.string()),
+			lastMessageAt: v.optional(v.number()),
+			lastMessageRole: v.optional(
+				v.union(v.literal('user'), v.literal('assistant'), v.literal('tool'), v.literal('system'))
+			),
+			lastAgentName: v.optional(v.string()),
 			userName: v.optional(v.string()),
 			userEmail: v.optional(v.string())
 		}),
@@ -304,9 +316,15 @@ export const getThreadForAdmin = adminQuery({
 		)
 	}),
 	handler: async (ctx, args) => {
-		// NEW APPROACH: Get agent thread FIRST (primary source), then LEFT JOIN supportThreads
+		const supportThread = await ctx.db
+			.query('supportThreads')
+			.withIndex('by_thread', (q) => q.eq('threadId', args.threadId))
+			.first();
 
-		// 1. Get agent thread (primary source of truth)
+		if (!supportThread) {
+			throw new Error(`Support thread not found for threadId: ${args.threadId}`);
+		}
+
 		const agentThread = await ctx.runQuery(components.agent.threads.getThread, {
 			threadId: args.threadId
 		});
@@ -315,35 +333,12 @@ export const getThreadForAdmin = adminQuery({
 			throw new Error(`Agent thread not found for threadId: ${args.threadId}`);
 		}
 
-		// 2. Try to get supportThread metadata
-		const supportThread = await ctx.db
-			.query('supportThreads')
-			.withIndex('by_thread', (q) => q.eq('threadId', args.threadId))
-			.first();
-
-		// 3. Use default values if no supportThreads record exists
-		const supportMetadata = supportThread ?? {
-			_id: agentThread._id, // Synthetic ID
-			_creationTime: agentThread._creationTime,
-			threadId: agentThread._id,
-			userId: agentThread.userId,
-			status: 'open' as const,
-			assignedTo: undefined,
-			priority: undefined,
-			pageUrl: undefined,
-			notificationEmail: undefined,
-			notificationSentAt: undefined,
-			awaitingAdminResponse: true,
-			createdAt: agentThread._creationTime,
-			updatedAt: agentThread._creationTime
-		};
-
 		// 4. Get assigned admin details
 		let assignedAdmin;
-		if (supportMetadata.assignedTo) {
+		if (supportThread.assignedTo) {
 			const admin = await ctx.runQuery(components.betterAuth.adapter.findOne, {
 				model: 'user',
-				where: [{ field: '_id', operator: 'eq', value: supportMetadata.assignedTo }]
+				where: [{ field: '_id', operator: 'eq', value: supportThread.assignedTo }]
 			});
 			if (admin) {
 				assignedAdmin = {
@@ -357,13 +352,13 @@ export const getThreadForAdmin = adminQuery({
 
 		// 5. Get user details (handle anonymous users)
 		let user;
-		if (agentThread.userId) {
-			if (!isAnonymousUser(agentThread.userId)) {
+		if (supportThread.userId) {
+			if (!isAnonymousUser(supportThread.userId)) {
 				// Registered user - lookup in user table
 				try {
 					const userData = await ctx.runQuery(components.betterAuth.adapter.findOne, {
 						model: 'user',
-						where: [{ field: '_id', operator: 'eq', value: agentThread.userId }]
+						where: [{ field: '_id', operator: 'eq', value: supportThread.userId }]
 					});
 					if (userData) {
 						user = {
@@ -374,7 +369,7 @@ export const getThreadForAdmin = adminQuery({
 						};
 					}
 				} catch (error) {
-					console.error(`[getThreadForAdmin] Failed to fetch user ${agentThread.userId}:`, error);
+					console.error(`[getThreadForAdmin] Failed to fetch user ${supportThread.userId}:`, error);
 					// Leave user as undefined
 				}
 			}
@@ -382,8 +377,13 @@ export const getThreadForAdmin = adminQuery({
 		}
 
 		return {
-			...agentThread,
-			supportMetadata,
+			_id: supportThread.threadId,
+			_creationTime: supportThread.createdAt,
+			userId: supportThread.userId,
+			title: supportThread.title,
+			summary: supportThread.summary,
+			status: agentThread.status,
+			supportMetadata: supportThread,
 			assignedAdmin,
 			user
 		};
@@ -397,6 +397,15 @@ export const listMessagesForAdmin = adminQuery({
 		streamArgs: vStreamArgs
 	},
 	handler: async (ctx, args): Promise<unknown> => {
+		const supportThread = await ctx.db
+			.query('supportThreads')
+			.withIndex('by_thread', (q) => q.eq('threadId', args.threadId))
+			.first();
+
+		if (!supportThread) {
+			throw new Error(`Support thread not found for threadId: ${args.threadId}`);
+		}
+
 		return await listMessagesForThread(ctx, {
 			threadId: args.threadId,
 			paginationOpts: args.paginationOpts,

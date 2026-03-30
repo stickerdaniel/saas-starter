@@ -57,7 +57,7 @@ export const pro = plan({
 		}),
 		item({
 			featureId: aiChatMessages.id,
-			included: 30,
+			included: 500,
 			reset: { interval: 'month' }
 		})
 	]

@@ -9,12 +9,7 @@
 		"emil-design-eng": {
 			"source": "emilkowalski/skill",
 			"sourceType": "github",
-			"computedHash": "32f63a1e56fc41f53497f7b19d6391b7c3e55bedd884c5a4d10bc4eacd2310e4"
-		},
-		"expect": {
-			"source": "millionco/expect",
-			"sourceType": "github",
-			"computedHash": "9a05dd2233fbde2e3fb125250caa637d0713f82e3ef6faed6aa25446f14e8373"
+			"computedHash": "8bdf9e4e6de7a4969147bf4828a4ad2c5aacd9fba4b690b250a85e0467ca387d"
 		},
 		"organization-best-practices": {
 			"source": "better-auth/skills",

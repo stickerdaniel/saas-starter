@@ -7,11 +7,10 @@ import {
 	resolveReasoning,
 	dedupeDisplayMessagesForRender,
 	transformToDisplayMessage,
-	transformToDisplayMessageSimple,
 	type TransformContext
 } from './DisplayMessageProcessor.js';
 import type { ChatMessage, MessagePart } from './types.js';
-import type { StreamCacheManager } from './StreamProcessor.js';
+import type { StreamCacheManager } from './stream-cache.js';
 
 // Mock StreamCacheManager
 function createMockStreamCache(cachedReasoning?: Map<number, string>): StreamCacheManager {
@@ -121,7 +120,7 @@ describe('resolveReasoning', () => {
 		});
 
 		expect(result.displayReasoning).toBe('');
-		expect(vi.mocked(cacheWithData.getCachedReasoning)).not.toHaveBeenCalled();
+		expect(cacheWithData.getCachedReasoning).not.toHaveBeenCalled();
 	});
 
 	it('signals cache clear when persisted reasoning exists with cached value', () => {
@@ -151,10 +150,7 @@ describe('transformToDisplayMessage', () => {
 	beforeEach(() => {
 		mockCache = createMockStreamCache();
 		baseContext = {
-			streamingKeys: new Set<string>(),
-			streamTextMap: new Map<number, string>(),
-			streamReasoningMap: new Map<number, string>(),
-			streamStatusMap: new Map<number, string>(),
+			streamMessageMap: new Map(),
 			streamCache: mockCache
 		};
 	});
@@ -226,9 +222,23 @@ describe('transformToDisplayMessage', () => {
 
 		const context: TransformContext = {
 			...baseContext,
-			streamingKeys: new Set(['5-0']),
-			streamTextMap: new Map([[5, 'Full streaming response']]),
-			streamStatusMap: new Map([[5, 'streaming']])
+			streamMessageMap: new Map([
+				[
+					5,
+					{
+						id: 'stream:5',
+						key: 'thread-1-5-0',
+						order: 5,
+						stepOrder: 0,
+						agentName: 'assistant',
+						text: 'Full streaming response',
+						_creationTime: 1,
+						role: 'assistant',
+						status: 'streaming',
+						parts: [{ type: 'text', text: 'Full streaming response' }]
+					}
+				]
+			])
 		};
 
 		const result = transformToDisplayMessage(msg, context);
@@ -244,9 +254,23 @@ describe('transformToDisplayMessage', () => {
 
 		const context: TransformContext = {
 			...baseContext,
-			streamingKeys: new Set(['5-0']), // Only order 5 is streaming
-			streamTextMap: new Map([[5, 'Streaming content']]),
-			streamStatusMap: new Map([[5, 'streaming']])
+			streamMessageMap: new Map([
+				[
+					5,
+					{
+						id: 'stream:5',
+						key: 'thread-1-5-0',
+						order: 5,
+						stepOrder: 0,
+						agentName: 'assistant',
+						text: 'Streaming content',
+						_creationTime: 1,
+						role: 'assistant',
+						status: 'streaming',
+						parts: [{ type: 'text', text: 'Streaming content' }]
+					}
+				]
+			])
 		};
 
 		const result = transformToDisplayMessage(otherMsg, context);
@@ -260,14 +284,28 @@ describe('transformToDisplayMessage', () => {
 
 		const context: TransformContext = {
 			...baseContext,
-			streamingKeys: new Set(['3-0']),
-			streamReasoningMap: new Map([[3, 'Thinking...']]),
-			streamStatusMap: new Map([[3, 'streaming']])
+			streamMessageMap: new Map([
+				[
+					3,
+					{
+						id: 'stream:3',
+						key: 'thread-1-3-0',
+						order: 3,
+						stepOrder: 0,
+						agentName: 'assistant',
+						text: '',
+						_creationTime: 1,
+						role: 'assistant',
+						status: 'streaming',
+						parts: [{ type: 'reasoning', text: 'Thinking...' }]
+					}
+				]
+			])
 		};
 
 		transformToDisplayMessage(msg, context);
 
-		expect(vi.mocked(mockCache.updateReasoningCache)).toHaveBeenCalledWith(3, 'Thinking...');
+		expect(mockCache.updateReasoningCache).toHaveBeenCalledWith(3, 'Thinking...');
 	});
 
 	it('returns empty displayReasoning for malformed reasoning parts', () => {
@@ -282,50 +320,16 @@ describe('transformToDisplayMessage', () => {
 	});
 });
 
-describe('transformToDisplayMessageSimple', () => {
-	it('transforms user message correctly', () => {
-		const msg = createMessage({
-			role: 'user',
-			text: 'Simple user message'
-		});
-
-		const result = transformToDisplayMessageSimple(msg);
-
-		expect(result.displayText).toBe('Simple user message');
-		expect(result.isStreaming).toBe(false);
-		expect(result.hasReasoningStream).toBe(false);
-	});
-
-	it('transforms assistant message with reasoning', () => {
-		const msg = createMessage({
-			role: 'assistant',
-			text: 'Response',
-			parts: [{ type: 'reasoning', text: 'My thought process' }] as MessagePart[]
-		});
-
-		const result = transformToDisplayMessageSimple(msg);
-
-		expect(result.displayText).toBe('Response');
-		expect(result.displayReasoning).toBe('My thought process');
-		expect(result.hasReasoningStream).toBe(true);
-	});
-
-	it('returns empty reasoning when none exists', () => {
-		const msg = createMessage({ text: 'No reasoning here' });
-
-		const result = transformToDisplayMessageSimple(msg);
-
-		expect(result.displayReasoning).toBe('');
-		expect(result.hasReasoningStream).toBe(false);
-	});
-});
-
 describe('dedupeDisplayMessagesForRender', () => {
 	it('keeps the last occurrence of duplicate message ids while preserving order', () => {
+		const context: TransformContext = {
+			streamMessageMap: new Map(),
+			streamCache: createMockStreamCache()
+		};
 		const messages = [
-			transformToDisplayMessageSimple(createMessage({ id: 'msg-1', text: 'first' })),
-			transformToDisplayMessageSimple(createMessage({ id: 'msg-2', text: 'middle' })),
-			transformToDisplayMessageSimple(createMessage({ id: 'msg-1', text: 'last' }))
+			transformToDisplayMessage(createMessage({ id: 'msg-1', text: 'first' }), context),
+			transformToDisplayMessage(createMessage({ id: 'msg-2', text: 'middle' }), context),
+			transformToDisplayMessage(createMessage({ id: 'msg-1', text: 'last' }), context)
 		];
 
 		expect(dedupeDisplayMessagesForRender(messages)).toMatchObject([
