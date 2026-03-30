@@ -4,13 +4,9 @@
 			"type": "http",
 			"url": "https://mcp.svelte.dev/mcp"
 		},
-		"jsrepo": {
+		"chrome-devtools": {
 			"command": "bunx",
-			"args": ["jsrepo", "mcp"]
-		},
-		"convex": {
-			"command": "bunx",
-			"args": ["-y", "convex@latest", "mcp", "start"]
+			"args": ["-y", "chrome-devtools-mcp@latest", "--no-usage-statistics"]
 		}
 	}
 }

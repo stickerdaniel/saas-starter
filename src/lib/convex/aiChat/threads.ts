@@ -3,13 +3,27 @@ import { internalMutation, internalQuery } from '../_generated/server';
 import { authedQuery, authedMutation } from '../functions';
 import { aiChatAgent } from './agent';
 import { components } from '../_generated/api';
+import { requireAiChatThreadRecord } from './ownership';
+
+// aiChatThreads is the feature registry for AI chat access and sidebar state.
+// agent:threads remains generic conversation storage/runtime shared across features.
+
+// Strip \u200C (ZWNJ) and \u200D (ZWJ) from preview text.
+// Tolgee's InvisibleObserver uses these exact chars for key encoding.
+// When AI output contains them, the observer enters an infinite loop
+// stripping/re-rendering the text (tolgee/tolgee-js#3475).
+function sanitizePreview(text: string): string {
+	return text.replace(/[\u200C\u200D]/g, '');
+}
 
 /**
  * List AI chat threads for the current user
  *
- * Returns threads with last message preview, ordered by most recent activity.
- * Uses limit-based pagination (not Convex cursor pagination) because threads
- * are sorted by lastMessageAt which lives in the agent component, not our table.
+ * Returns threads with denormalized last message preview, ordered by most
+ * recent activity. Reads only from our own aiChatThreads table — no
+ * ctx.runQuery into agent component tables.
+ *
+ * Client uses useQuery(api.aiChat.threads.listThreads) in app layout.
  */
 export const listThreads = authedQuery({
 	args: {
@@ -17,57 +31,25 @@ export const listThreads = authedQuery({
 	},
 	handler: async (ctx, args) => {
 		const userId = ctx.user._id;
-		const limit = args.limit ?? 5;
+		const limit = args.limit ?? 20;
 
-		// Bounded: 1 record per thread per user, collect is safe for typical user sizes
-		const aiChatThreadRecords = await ctx.db
+		const records = await ctx.db
 			.query('aiChatThreads')
 			.withIndex('by_user', (q) => q.eq('userId', userId))
 			.order('desc')
 			.collect();
 
-		const nonWarmRecords = aiChatThreadRecords.filter((r) => !r.isWarm);
-
-		if (nonWarmRecords.length === 0) {
-			return { threads: [], hasMore: false };
-		}
-
-		// Get agent thread details in parallel
-		const threadsWithLastMessage = await Promise.all(
-			nonWarmRecords.map(async (record) => {
-				const agentThread = await ctx.runQuery(components.agent.threads.getThread, {
-					threadId: record.threadId
-				});
-
-				if (!agentThread) return null;
-
-				const messages = await ctx.runQuery(components.agent.messages.listMessagesByThreadId, {
-					threadId: record.threadId,
-					order: 'desc',
-					statuses: ['success'],
-					excludeToolMessages: true,
-					paginationOpts: { numItems: 1, cursor: null }
-				});
-
-				const lastMessage = messages.page[0];
-
-				return {
-					_id: agentThread._id,
-					_creationTime: agentThread._creationTime,
-					title: agentThread.title,
-					lastMessage: lastMessage?.text,
-					lastMessageAt: lastMessage?._creationTime ?? agentThread._creationTime
-				};
-			})
-		);
-
-		// Filter nulls and empty conversations, sort by last activity
-		const validThreads = threadsWithLastMessage
-			.filter((t): t is NonNullable<typeof t> => t !== null && !!t.lastMessage)
+		const validThreads = records
+			.filter((r) => !r.isWarm && r.lastMessage)
 			.sort((a, b) => (b.lastMessageAt ?? 0) - (a.lastMessageAt ?? 0));
 
 		return {
-			threads: validThreads.slice(0, limit),
+			threads: validThreads.slice(0, limit).map((r) => ({
+				_id: r.threadId,
+				title: r.title,
+				lastMessage: r.lastMessage ? sanitizePreview(r.lastMessage) : undefined,
+				lastMessageAt: r.lastMessageAt ?? r.createdAt
+			})),
 			hasMore: validThreads.length > limit
 		};
 	}
@@ -111,14 +93,10 @@ export const deleteThread = authedMutation({
 	handler: async (ctx, args) => {
 		const userId = ctx.user._id;
 
-		const record = await ctx.db
-			.query('aiChatThreads')
-			.withIndex('by_thread', (q) => q.eq('threadId', args.threadId))
-			.first();
-
-		if (!record || record.userId !== userId) {
-			throw new Error('Thread not found');
-		}
+		const record = await requireAiChatThreadRecord(ctx, {
+			threadId: args.threadId,
+			userId
+		});
 
 		await ctx.db.delete(record._id);
 	}
@@ -209,6 +187,76 @@ export const deleteStaleWarmThreads = internalMutation({
 		}
 
 		return { deleted };
+	}
+});
+
+/**
+ * Update denormalized thread metadata (called after AI response completes)
+ */
+export const updateThreadMetadata = internalMutation({
+	args: {
+		threadId: v.string(),
+		lastMessage: v.optional(v.string()),
+		lastMessageAt: v.optional(v.number()),
+		title: v.optional(v.string())
+	},
+	handler: async (ctx, args) => {
+		const record = await ctx.db
+			.query('aiChatThreads')
+			.withIndex('by_thread', (q) => q.eq('threadId', args.threadId))
+			.first();
+		if (!record) return;
+
+		const patch: Record<string, unknown> = {};
+		if (args.lastMessage !== undefined) patch.lastMessage = sanitizePreview(args.lastMessage);
+		if (args.lastMessageAt !== undefined) patch.lastMessageAt = args.lastMessageAt;
+		if (args.title !== undefined) patch.title = args.title;
+
+		if (Object.keys(patch).length > 0) {
+			await ctx.db.patch(record._id, patch);
+		}
+	}
+});
+
+/**
+ * Backfill denormalized fields for existing threads (one-time migration).
+ * Run via: bunx convex run aiChat/threads:backfillThreadMetadata
+ */
+export const backfillThreadMetadata = internalMutation({
+	args: {},
+	handler: async (ctx) => {
+		const records = await ctx.db.query('aiChatThreads').collect();
+		let updated = 0;
+
+		for (const record of records) {
+			if (record.lastMessage) continue; // Already has denormalized data
+
+			const agentThread = await ctx.runQuery(components.agent.threads.getThread, {
+				threadId: record.threadId
+			});
+
+			const messages = await ctx.runQuery(components.agent.messages.listMessagesByThreadId, {
+				threadId: record.threadId,
+				order: 'desc',
+				statuses: ['success'],
+				excludeToolMessages: true,
+				paginationOpts: { numItems: 1, cursor: null }
+			});
+
+			const lastMsg = messages.page[0];
+			if (lastMsg?.text) {
+				await ctx.db.patch(record._id, {
+					title: agentThread?.title,
+					lastMessage: sanitizePreview(
+						lastMsg.text.length > 100 ? lastMsg.text.slice(0, 100) : lastMsg.text
+					),
+					lastMessageAt: lastMsg._creationTime
+				});
+				updated++;
+			}
+		}
+
+		return { updated, total: records.length };
 	}
 });
 

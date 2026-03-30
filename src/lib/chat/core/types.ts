@@ -106,6 +106,13 @@ export interface DisplayMessage extends ChatMessage {
 	hasReasoningStream: boolean;
 }
 
+export type ToolPartType = `tool-${string}`;
+export type ToolPartState =
+	| 'input-streaming'
+	| 'input-available'
+	| 'output-available'
+	| 'output-error';
+
 /**
  * Tool UI part from agent messages
  *
@@ -117,10 +124,10 @@ export interface DisplayMessage extends ChatMessage {
  * - arguments are in "input" (not "args")
  */
 export interface ToolCallPart {
-	type: string; // "tool-{toolName}" format
+	type: ToolPartType;
 	toolCallId: string;
 	input?: Record<string, unknown>; // Tool arguments
-	state?: 'input-streaming' | 'input-available' | 'output-available' | 'output-error';
+	state?: ToolPartState;
 	output?: unknown;
 	[key: string]: unknown;
 }
@@ -142,6 +149,7 @@ export type ReasoningUIPart = {
 	text?: string;
 	state?: 'streaming' | 'done';
 	providerMetadata?: ProviderMetadata;
+	streamPartId?: string;
 };
 
 /**

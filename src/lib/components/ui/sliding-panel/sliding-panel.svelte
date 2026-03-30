@@ -23,7 +23,10 @@
 
 	// Compute transition classes based on direction and open state
 	const slideClasses = $derived.by(() => {
-		const transitionClass = duration === 0 ? 'transition-none' : `transition-all ${durationClass}`;
+		const transitionClass =
+			duration === 0
+				? 'transition-none'
+				: `transition-[transform,opacity] ${durationClass} ease-[cubic-bezier(0.23,1,0.32,1)]`;
 		const baseClasses = `absolute inset-0 flex flex-col overflow-hidden ${transitionClass}`;
 
 		if (open) {

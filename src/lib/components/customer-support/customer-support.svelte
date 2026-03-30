@@ -48,15 +48,6 @@
 	// Connect thread context to URL state
 	threadContext.setOnThreadChange(setThreadInUrl);
 
-	// Sync thread from URL on mount/change
-	$effect(() => {
-		const threadFromUrl = urlState.thread;
-		if (threadFromUrl && threadFromUrl !== threadContext.threadId) {
-			// Open widget and load thread from URL
-			threadContext.selectThreadFromUrl(threadFromUrl);
-		}
-	});
-
 	// Get Convex client for mutations
 	const client = useConvexClient();
 
@@ -112,6 +103,42 @@
 		if (!browser || auth.isLoading) return;
 		const userId = getUserId();
 		threadContext.setUserId(userId);
+	});
+
+	// Sync thread from URL only after validating that it is actually a support thread
+	$effect(() => {
+		const threadFromUrl = urlState.thread;
+		const userId = threadContext.userId;
+
+		if (!browser || !threadFromUrl || !userId || threadFromUrl === threadContext.threadId) {
+			return;
+		}
+
+		const anonymousUserId = isAnonymousUser(userId) ? userId : undefined;
+		let cancelled = false;
+
+		void client
+			.query(api.support.threads.getThread, {
+				threadId: threadFromUrl,
+				...(anonymousUserId ? { anonymousUserId } : {})
+			})
+			.then(() => {
+				if (cancelled || urlState.thread !== threadFromUrl) return;
+				threadContext.selectThreadFromUrl(threadFromUrl);
+			})
+			.catch((error) => {
+				if (cancelled || urlState.thread !== threadFromUrl) return;
+
+				console.warn('[customer-support] Ignoring invalid support thread URL:', error);
+				threadContext.setThread(null);
+				threadContext.currentView = 'overview';
+				threadContext.skipAnimation = false;
+				urlState.thread = '';
+			});
+
+		return () => {
+			cancelled = true;
+		};
 	});
 
 	// Watch for widget open requests from chatbar

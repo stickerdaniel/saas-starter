@@ -10,7 +10,7 @@ import type { UserContent } from 'ai';
 import { supportRateLimiter } from './rateLimit';
 import { createRateLimitError } from './types';
 import { t, extractLocaleFromUrl } from '../i18n/translations';
-import { assertThreadOwnership } from './ownership';
+import { requireSupportThreadAccess } from './ownership';
 import { listMessagesForThread } from './messageListing';
 
 /**
@@ -33,11 +33,12 @@ export const sendMessage = mutation({
 			throw new ConvexError('Message is too long (max 2000 characters)');
 		}
 
-		const { owner } = await assertThreadOwnership(ctx, {
+		const { owner, supportThread } = await requireSupportThreadAccess(ctx, {
 			threadId: args.threadId,
 			anonymousUserId: args.anonymousUserId
 		});
 		const effectiveUserId = owner.ownerId;
+		const wasWarmThread = supportThread.isWarm === true;
 
 		// Rate limit check - stricter limits for anonymous users
 		// Authenticated users: keyed by verified user ID
@@ -49,11 +50,7 @@ export const sendMessage = mutation({
 
 		if (!rateLimitStatus.ok) {
 			// Get locale from thread's pageUrl for translated error message
-			const supportThread = await ctx.db
-				.query('supportThreads')
-				.withIndex('by_thread', (q) => q.eq('threadId', args.threadId))
-				.first();
-			const locale = extractLocaleFromUrl(supportThread?.pageUrl);
+			const locale = extractLocaleFromUrl(supportThread.pageUrl);
 
 			throw createRateLimitError(
 				rateLimitStatus.retryAfter,
@@ -116,12 +113,7 @@ export const sendMessage = mutation({
 
 		// Check if thread is handed off to human support
 		// When handed off, skip AI response - only humans respond
-		const supportThread = await ctx.db
-			.query('supportThreads')
-			.withIndex('by_thread', (q) => q.eq('threadId', args.threadId))
-			.first();
-
-		if (!supportThread?.isHandedOff) {
+		if (!supportThread.isHandedOff) {
 			// AI mode: Schedule async action to generate AI response with streaming
 			await ctx.scheduler.runAfter(0, internal.support.messages.createAIResponse, {
 				threadId: args.threadId,
@@ -131,32 +123,31 @@ export const sendMessage = mutation({
 		}
 
 		// Reopen thread and mark as awaiting response when user sends message
-		if (supportThread) {
-			// Check if this is a reopened ticket (was closed, now being reopened)
-			const wasClosedBeforeThisMessage = supportThread.status === 'done';
+		// Check if this is a reopened ticket (was closed, now being reopened)
+		const wasClosedBeforeThisMessage = supportThread.status === 'done';
 
-			await ctx.db.patch(supportThread._id, {
-				status: 'open',
-				awaitingAdminResponse: true,
-				updatedAt: Date.now()
-			});
+		await ctx.db.patch(supportThread._id, {
+			isWarm: wasWarmThread ? false : supportThread.isWarm,
+			status: 'open',
+			awaitingAdminResponse: true,
+			updatedAt: Date.now()
+		});
 
-			// Schedule admin notification for handed-off tickets
-			// We only notify for handed-off tickets since AI-handled tickets don't need admin attention
-			// Note: scheduleAdminNotification handles both create and update cases internally
-			if (supportThread.isHandedOff) {
-				await ctx.scheduler.runAfter(
-					0,
-					internal.admin.support.notifications.scheduleAdminNotification,
-					{
-						threadId: args.threadId,
-						messageIds: [messageId],
-						isReopen: wasClosedBeforeThisMessage,
-						// Reopened tickets use 'newTickets' preference; follow-up messages use 'userReplies'
-						notificationType: wasClosedBeforeThisMessage ? 'newTickets' : 'userReplies'
-					}
-				);
-			}
+		// Schedule admin notification for handed-off tickets
+		// We only notify for handed-off tickets since AI-handled tickets don't need admin attention
+		// Note: scheduleAdminNotification handles both create and update cases internally
+		if (supportThread.isHandedOff) {
+			await ctx.scheduler.runAfter(
+				0,
+				internal.admin.support.notifications.scheduleAdminNotification,
+				{
+					threadId: args.threadId,
+					messageIds: [messageId],
+					isReopen: wasClosedBeforeThisMessage,
+					// Reopened tickets use 'newTickets' preference; follow-up messages use 'userReplies'
+					notificationType: wasClosedBeforeThisMessage ? 'newTickets' : 'userReplies'
+				}
+			);
 		}
 
 		return { messageId };
@@ -244,7 +235,7 @@ export const listMessages = query({
 		streamArgs: vStreamArgs
 	},
 	handler: async (ctx, args): Promise<unknown> => {
-		await assertThreadOwnership(ctx, {
+		await requireSupportThreadAccess(ctx, {
 			threadId: args.threadId,
 			anonymousUserId: args.anonymousUserId
 		});

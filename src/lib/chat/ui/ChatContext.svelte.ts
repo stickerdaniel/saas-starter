@@ -147,6 +147,10 @@ export class ChatUIContext {
 		this.autoOpenedMessages.delete(messageId);
 	}
 
+	getAutoOpenedKeys(): Iterable<string> {
+		return this.autoOpenedMessages.keys();
+	}
+
 	/**
 	 * Update display messages
 	 */

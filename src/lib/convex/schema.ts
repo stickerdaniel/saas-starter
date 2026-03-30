@@ -62,11 +62,13 @@ export default defineSchema({
 		.index('by_admin', ['adminUserId'])
 		.index('by_created', ['createdAt']),
 
-	// Support thread metadata - extends agent threads with admin features
-	// (agent threads don't support custom metadata, so we store admin-specific data separately)
+	// Support feature registry.
+	// Source of truth for support thread membership, access, and denormalized list/search data.
+	// agent:threads remains generic conversation storage/runtime shared across features.
 	supportThreads: defineTable({
 		threadId: v.string(), // Reference to agent:threads
 		userId: v.optional(v.string()), // Denormalized for quick lookups
+		isWarm: v.optional(v.boolean()), // true = pre-warmed empty support thread awaiting first message
 		status: v.union(v.literal('open'), v.literal('done')),
 		isHandedOff: v.optional(v.boolean()), // true = human-only mode, undefined/false = AI responds
 		awaitingAdminResponse: v.optional(v.boolean()), // true = user waiting for reply, false = admin has responded
@@ -82,6 +84,11 @@ export default defineSchema({
 		title: v.optional(v.string()), // From agent:threads
 		summary: v.optional(v.string()), // From agent:threads
 		lastMessage: v.optional(v.string()), // From agent:messages (truncated to 500 chars)
+		lastMessageAt: v.optional(v.number()), // Timestamp of the latest non-tool successful message
+		lastMessageRole: v.optional(
+			v.union(v.literal('user'), v.literal('assistant'), v.literal('tool'), v.literal('system'))
+		),
+		lastAgentName: v.optional(v.string()),
 		userName: v.optional(v.string()), // From user table
 		userEmail: v.optional(v.string()), // From user table
 
@@ -91,6 +98,8 @@ export default defineSchema({
 	})
 		.index('by_thread', ['threadId'])
 		.index('by_user', ['userId'])
+		.index('by_user_warm', ['userId', 'isWarm'])
+		.index('by_user_and_updated', ['userId', 'updatedAt'])
 		.index('by_status', ['status'])
 		.index('by_assigned', ['assignedTo'])
 		.index('by_status_and_assigned', ['status', 'assignedTo'])
@@ -192,12 +201,17 @@ export default defineSchema({
 		createdAt: v.number()
 	}).index('by_user', ['userId']),
 
-	// AI Chat thread metadata - maps agent threads to authenticated users
+	// AI chat feature registry.
+	// Source of truth for AI chat membership and sidebar state.
+	// Denormalized fields avoid ctx.runQuery into generic agent tables on the hot path.
 	aiChatThreads: defineTable({
 		threadId: v.string(), // Reference to agent:threads
 		userId: v.string(), // Better Auth user ID
 		createdAt: v.number(),
-		isWarm: v.optional(v.boolean()) // true = pre-warmed empty thread, awaiting first message
+		isWarm: v.optional(v.boolean()), // true = pre-warmed empty thread, awaiting first message
+		title: v.optional(v.string()),
+		lastMessage: v.optional(v.string()),
+		lastMessageAt: v.optional(v.number())
 	})
 		.index('by_user', ['userId'])
 		.index('by_thread', ['threadId'])

@@ -40,7 +40,6 @@ NEVER use the `EnterWorktree` tool. Always use `bun run worktree` instead and ad
 
 ### Core Development
 
-- `bun run generate` - To generate the code in the `convex/_generated` directory that includes types required for a TypeScript typecheck. Run this command whenever you make changes to the convex schema.
 - `bun run build` - Build for production
 - `bun run dev` - Start Vite with an embedded local Convex backend (default)
 - `bun run dev:cloud` - Start Vite + cloud Convex backend (requires `CONVEX_DEPLOYMENT` in `.env.local`)
@@ -65,19 +64,41 @@ Local dev notes (`bun run dev`):
 
 ### Quality Checks & Testing
 
-- `bun run check` - Run Svelte type checking. Run this between implementations to catch type errors early.
+- `bun scripts/static-checks.ts src/lib/foo.ts src/routes/bar.svelte` - ALWAYS run after implementation with the changed files. This is the main app/project validation command.
 - `bun run test` - Run all tests (E2E + unit)
 - `bun run test:e2e` - Run Playwright E2E tests. Always run this after modifying E2E tests!
 - `bun run test:unit` - Run Vitest unit tests
-- `bun run format` - Format code with Prettier
 
 ### Convex Backend
 
 **IMPORTANT:** When any task involves Convex backend code — writing, reviewing, or modifying queries, mutations, actions, schema, HTTP endpoints, auth, file storage, or crons — you MUST read the `convex-guidelines` skill (`skills/convex-guidelines/SKILL.md`) first. It contains the canonical Convex coding patterns for this project.
 
-- `bun convex run tests:init` - Initialize test data
-- `bun convex env set KEY value` - Set Convex environment variables
-- `bun convex env set KEY value --prod` - Set production environment variables
+- `bun run check:convex` - Run the Convex TypeScript project check. Run this whenever you change `src/lib/convex/**` or shared code imported by Convex.
+
+- `bun convex env set KEY value` - Set Convex environment variables (cloud)
+- `bun convex env set KEY value --prod` - Set production environment variables (cloud)
+
+**Running functions (cloud vs local):**
+
+- **Cloud:** `bun convex run module:functionName '{"arg": "value"}'` — requires `CONVEX_DEPLOYMENT` in `.env.local`
+- **Local dev:** Use the HTTP API directly (the Convex MCP and CLI don't support local backends):
+  ```bash
+  # Admin key and port are printed in dev server startup logs
+  # Backend URL is saved to .convex/.backend-url
+  curl http://localhost:PORT/api/mutation \
+    -H "Content-Type: application/json" \
+    -H "Authorization: Convex ADMIN_KEY" \
+    -d '{"path":"module:functionName","args":{},"format":"json"}'
+  ```
+  Replace `/api/mutation` with `/api/query` or `/api/action` as needed.
+
+**Local Convex dashboard (requires Docker):**
+
+```bash
+docker run -e 'NEXT_PUBLIC_DEPLOYMENT_URL=http://127.0.0.1:PORT' -p '6791:6791' 'ghcr.io/get-convex/convex-dashboard:latest'
+```
+
+Open `http://localhost:6791` and enter the admin key from the dev server logs. Safari blocks localhost — use Chrome/Firefox. Local Convex dashboard is not required for local development, but it's useful for debugging and monitoring the Convex backend.
 
 **E2E Test Security:** `src/lib/convex/tests.ts` contains public mutations (verify emails, promote to admin, delete users) gated by `AUTH_E2E_TEST_SECRET`. These are safe ONLY because the env var is NOT set in production. NEVER set `AUTH_E2E_TEST_SECRET` in the production Convex environment (`--prod`). If it's unset, all test endpoints are dead code.
 
@@ -116,6 +137,15 @@ See [official docs](https://docs.convex.dev/scheduling/scheduled-functions) for 
 - `@useautumn/convex`: SDK has built-in fail-open (returns `allowed: true` on 5xx/network errors). No manual fail-open logic needed in `autumn.check()` calls.
 
 Note: Other components (`@convex-dev/better-auth`, `@convex-dev/rate-limiter`, `@convex-dev/agent`) do NOT have automatic retry for external API calls - standard error handling applies.
+
+### Autumn Billing Config
+
+After modifying `autumn.config.ts`, ALWAYS push changes to Autumn:
+
+- `bunx atmn push` — Push config to sandbox
+- `bunx atmn push -p` — Push config to production
+
+Without pushing, the config change only exists locally and has no effect.
 
 ### Tolgee CLI
 
@@ -323,10 +353,6 @@ Prop names must match the parent's passed prop name exactly.
 ### ESLint & Legacy Plugins
 
 When adding ESLint plugins that export legacy `.eslintrc`-style configs (objects with `overrides`), use `fixupConfigRules()` from `@eslint/compat` to convert. See the Convex plugin block in `eslint.config.js` for the pattern.
-
-### Static Checks
-
-ALWAYS run `bun scripts/static-checks.ts src/lib/foo.ts src/routes/bar.svelte` after a full feature implementation with the changed files.
 
 ### Real-time Features
 

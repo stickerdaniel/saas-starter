@@ -2,7 +2,6 @@ import { mutation } from '../_generated/server';
 import { v, ConvexError } from 'convex/values';
 import { authComponent } from '../auth';
 import { isAnonymousUser } from '../utils/anonymousUser';
-import { components } from '../_generated/api';
 import { supportAgent } from './agent';
 
 /**
@@ -14,7 +13,7 @@ import { supportAgent } from './agent';
  * This mutation:
  * 1. Verifies the caller is authenticated
  * 2. Validates the anonymous user ID format
- * 3. Finds all threads belonging to the anonymous user
+ * 3. Finds all supportThreads belonging to the anonymous user
  * 4. Updates both agent:threads and supportThreads with the authenticated userId
  * 5. Enriches threads with user profile data (name, email)
  *
@@ -37,27 +36,12 @@ export const migrateAnonymousTickets = mutation({
 			throw new ConvexError('Invalid anonymous user ID');
 		}
 
-		// 3. Find ALL agent:threads with anonymous userId (paginate through all results)
-		const firstPage = await ctx.runQuery(components.agent.threads.listThreadsByUserId, {
-			userId: args.anonymousUserId,
-			paginationOpts: { numItems: 100, cursor: null }
-		});
+		const supportThreads = await ctx.db
+			.query('supportThreads')
+			.withIndex('by_user', (q) => q.eq('userId', args.anonymousUserId))
+			.collect();
 
-		let allThreads = [...firstPage.page];
-		let cursor = firstPage.continueCursor;
-		let isDone = firstPage.isDone;
-
-		while (!isDone) {
-			const nextPage = await ctx.runQuery(components.agent.threads.listThreadsByUserId, {
-				userId: args.anonymousUserId,
-				paginationOpts: { numItems: 100, cursor }
-			});
-			allThreads = allThreads.concat(nextPage.page);
-			cursor = nextPage.continueCursor;
-			isDone = nextPage.isDone;
-		}
-
-		if (allThreads.length === 0) {
+		if (supportThreads.length === 0) {
 			return { migratedCount: 0 };
 		}
 
@@ -65,31 +49,41 @@ export const migrateAnonymousTickets = mutation({
 		const { _id: authUserId, name: authUserName, email: authUserEmail } = authUser;
 
 		// 4. Update each thread
-		for (const thread of allThreads) {
+		for (const supportThread of supportThreads) {
+			if (supportThread.isWarm) {
+				try {
+					await supportAgent.deleteThreadAsync(ctx, { threadId: supportThread.threadId });
+				} catch (error) {
+					console.log(
+						`[migrateAnonymousTickets] Failed to delete warm thread ${supportThread.threadId}:`,
+						error
+					);
+					continue;
+				}
+
+				await ctx.db.delete(supportThread._id);
+				continue;
+			}
+
 			// Update agent:threads userId via component API
 			await supportAgent.updateThreadMetadata(ctx, {
-				threadId: thread._id,
+				threadId: supportThread.threadId,
 				patch: { userId: authUserId }
 			});
 
 			// Update supportThreads.userId and enrich with user data
-			const supportThread = await ctx.db
-				.query('supportThreads')
-				.withIndex('by_thread', (q) => q.eq('threadId', thread._id))
-				.first();
-
-			if (supportThread) {
-				await ctx.db.patch(supportThread._id, {
-					userId: authUserId,
-					userName: authUserName,
-					userEmail: authUserEmail,
-					// Keep existing notification email if set, otherwise use account email
-					notificationEmail: supportThread.notificationEmail || authUserEmail,
-					updatedAt: Date.now()
-				});
-			}
+			await ctx.db.patch(supportThread._id, {
+				userId: authUserId,
+				userName: authUserName,
+				userEmail: authUserEmail,
+				// Keep existing notification email if set, otherwise use account email
+				notificationEmail: supportThread.notificationEmail || authUserEmail,
+				updatedAt: Date.now()
+			});
 		}
 
-		return { migratedCount: allThreads.length };
+		return {
+			migratedCount: supportThreads.filter((supportThread) => !supportThread.isWarm).length
+		};
 	}
 });

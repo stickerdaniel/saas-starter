@@ -43,14 +43,14 @@ export function getAdminSidebarConfig(pageState: PageState): SidebarConfig {
 				url: localizedHref('/admin/dashboard'),
 				icon: LayoutDashboardIcon,
 				isActive: pathname.startsWith(`/${lang}/admin/dashboard`),
-				kbd: `${cmdOrCtrl}⇧1`
+				kbd: [cmdOrCtrl, '⇧', '1']
 			},
 			{
 				translationKey: 'admin.sidebar.users',
 				url: localizedHref('/admin/users'),
 				icon: UsersIcon,
 				isActive: pathname.startsWith(`/${lang}/admin/users`),
-				kbd: `${cmdOrCtrl}⇧2`
+				kbd: [cmdOrCtrl, '⇧', '2']
 			},
 			{
 				translationKey: 'admin.sidebar.support',
@@ -58,14 +58,14 @@ export function getAdminSidebarConfig(pageState: PageState): SidebarConfig {
 				icon: MessagesSquareIcon,
 				isActive: pathname.startsWith(`/${lang}/admin/support`),
 				badge: supportBadge,
-				kbd: `${cmdOrCtrl}⇧3`
+				kbd: [cmdOrCtrl, '⇧', '3']
 			},
 			{
 				translationKey: 'admin.sidebar.settings',
 				url: localizedHref('/admin/settings'),
 				icon: SettingsIcon,
 				isActive: pathname.startsWith(`/${lang}/admin/settings`),
-				kbd: `${cmdOrCtrl}⇧4`
+				kbd: [cmdOrCtrl, '⇧', '4']
 			}
 		],
 		footerLinks: [
@@ -74,7 +74,7 @@ export function getAdminSidebarConfig(pageState: PageState): SidebarConfig {
 				url: localizedHref('/app'),
 				icon: ArrowLeftIcon,
 				condition: true,
-				kbd: `${cmdOrCtrl}.`
+				kbd: [cmdOrCtrl, '.']
 			}
 		]
 	};

@@ -4,10 +4,8 @@
 	import Loader2 from '@lucide/svelte/icons/loader-2';
 	import Settings from '@lucide/svelte/icons/settings';
 	import XCircle from '@lucide/svelte/icons/x-circle';
-	import ChevronDown from '@lucide/svelte/icons/chevron-down';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { CollapsibleTrigger } from '$lib/components/ui/collapsible/index.js';
-	import ToolBadge from './ToolBadge.svelte';
 	import type { ToolPart } from './types.js';
 	import type { Component } from 'svelte';
 
@@ -68,9 +66,7 @@
 				<span class="font-mono text-sm font-medium">
 					{toolPart.type}
 				</span>
-				<ToolBadge state={toolPart.state} />
 			</div>
-			<ChevronDown class="h-4 w-4" />
 		</Button>
 	{/snippet}
 </CollapsibleTrigger>

@@ -6,21 +6,17 @@
  */
 
 import type { ChatMessage, DisplayMessage } from './types.js';
-import { extractReasoning, extractUserMessageText } from './StreamProcessor.js';
-import type { StreamCacheManager } from './StreamProcessor.js';
+import { extractReasoning, extractUserMessageText } from './message-extraction.js';
+import type { StreamCacheManager } from './stream-cache.js';
+import type { UIMessage } from '@convex-dev/agent';
+import { mergeAssistantMessageParts } from './stream-materialization.js';
 
 /**
  * Context for transforming messages with streaming data
  */
 export interface TransformContext {
-	/** Set of message keys currently being streamed (format: "order-stepOrder") */
-	streamingKeys: Set<string>;
-	/** Map of order -> streaming text content */
-	streamTextMap: Map<number, string>;
-	/** Map of order -> streaming reasoning content */
-	streamReasoningMap: Map<number, string>;
-	/** Map of order -> stream status */
-	streamStatusMap: Map<number, string>;
+	/** Map of order -> latest grouped streaming UI message */
+	streamMessageMap: Map<number, UIMessage>;
 	/** Cache manager for reasoning persistence */
 	streamCache: StreamCacheManager;
 }
@@ -112,29 +108,22 @@ export function transformToDisplayMessage(
 	msg: ChatMessage,
 	context: TransformContext
 ): DisplayMessage {
-	const { streamingKeys, streamTextMap, streamReasoningMap, streamStatusMap, streamCache } =
-		context;
+	const { streamMessageMap, streamCache } = context;
 
-	// Determine if this specific message is being streamed
-	const msgKey = `${msg.order}-${(msg as { stepOrder?: number }).stepOrder ?? 0}`;
-	const isBeingStreamed = streamingKeys.has(msgKey);
+	// Assistant messages are grouped by order. Live stream overlays should match that grouped shape.
+	const isBeingStreamed = msg.role === 'assistant' && streamMessageMap.has(msg.order);
 
 	// Get streaming data only if this message is being streamed
-	const streamText = isBeingStreamed ? streamTextMap.get(msg.order) : undefined;
-	const streamReasoning = isBeingStreamed ? streamReasoningMap.get(msg.order) : undefined;
-	const streamStatus = isBeingStreamed ? streamStatusMap.get(msg.order) : undefined;
+	const streamMessage = isBeingStreamed ? streamMessageMap.get(msg.order) : undefined;
+	const streamText = streamMessage?.text;
+	const streamReasoning = extractReasoning(streamMessage?.parts);
+	const streamStatus = streamMessage?.status;
+	const streamParts = streamMessage?.parts;
 
 	const isStreaming = streamStatus === 'streaming';
-	const hasReasoningStream = isBeingStreamed && streamStatus !== undefined;
+	const hasReasoningStream = !!streamMessage;
 
-	// Extract display text
-	const isUser = msg.role === 'user';
-	let displayText = '';
-	if (isUser) {
-		displayText = extractUserMessageText(msg);
-	} else {
-		displayText = streamText || msg.text || '';
-	}
+	const displayText = getDisplayText(msg, streamText);
 
 	// Resolve reasoning with three-tier fallback
 	const reasoningResult = resolveReasoning(msg, {
@@ -151,8 +140,17 @@ export function transformToDisplayMessage(
 		streamCache.clearReasoningCache(msg.order);
 	}
 
+	const mergedParts =
+		msg.role === 'assistant' && streamParts
+			? (mergeAssistantMessageParts(
+					(msg.parts ?? []) as UIMessage['parts'],
+					streamParts
+				) as ChatMessage['parts'])
+			: (streamParts ?? msg.parts);
+
 	return {
 		...msg,
+		parts: mergedParts,
 		displayText,
 		displayReasoning: reasoningResult.displayReasoning,
 		isStreaming,
@@ -160,31 +158,10 @@ export function transformToDisplayMessage(
 	};
 }
 
-/**
- * Transform messages without streaming context (simple path)
- *
- * Used when there are no active streams - provides a faster code path
- * that skips streaming-related lookups.
- *
- * @param msg - The chat message to transform
- * @returns Display message for non-streaming context
- */
-export function transformToDisplayMessageSimple(msg: ChatMessage): DisplayMessage {
-	const isUser = msg.role === 'user';
-	let displayText = '';
-	if (isUser) {
-		displayText = extractUserMessageText(msg);
-	} else {
-		displayText = msg.text || '';
+function getDisplayText(msg: ChatMessage, streamText?: string): string {
+	if (msg.role === 'user') {
+		return extractUserMessageText(msg);
 	}
 
-	const reasoning = msg.parts ? extractReasoning(msg.parts) : msg.reasoning || '';
-
-	return {
-		...msg,
-		displayText,
-		displayReasoning: reasoning,
-		isStreaming: false,
-		hasReasoningStream: !!reasoning
-	};
+	return streamText || msg.text || '';
 }

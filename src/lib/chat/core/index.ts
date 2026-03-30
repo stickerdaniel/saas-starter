@@ -36,10 +36,18 @@ export {
 export {
 	extractReasoning,
 	extractUserMessageText,
-	normalizeMessage,
+	normalizeMessage
+} from './message-extraction.js';
+
+export {
+	blankUIMessage,
+	statusFromStreamStatus,
 	deriveUIMessagesFromTextStreamParts,
-	StreamCacheManager
-} from './StreamProcessor.js';
+	deriveUIMessagesFromDeltas,
+	combineStreamingUIMessages
+} from './stream-materialization.js';
+
+export { StreamCacheManager } from './stream-cache.js';
 
 // File upload
 export type { UploadResult, ProgressCallback } from './FileUploader.js';

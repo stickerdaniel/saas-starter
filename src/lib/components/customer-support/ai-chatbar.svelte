@@ -35,8 +35,7 @@
 	const delayedFeedbackOpen = $derived(isFeedbackOpen);
 
 	// Local thread tracking - separate from shared context
-	// AI chatbar always creates fresh threads, stored locally until submit
-	// Pending thread is reused if user clears and retypes (no wasted threads)
+	// A warm support thread is acquired on first keystroke and reused until submit.
 	let pendingThreadId = $state<string | null>(null);
 	let threadCreationPromise: Promise<string> | null = null;
 
@@ -67,7 +66,7 @@
 			// Send message using centralized method (handles flags + optimistic update)
 			await threadContext.sendMessage(client, trimmedPrompt, { threadId });
 
-			// Reset local state for next fresh thread
+			// Reset local state so the next interaction can acquire a fresh warm thread
 			pendingThreadId = null;
 			threadCreationPromise = null;
 
@@ -101,11 +100,10 @@
 	function handleValueChange(value: string) {
 		input = value;
 
-		// Create pending thread on first keystroke (or reuse existing pending thread)
-		// Always creates fresh thread locally - ignores any existing context thread
+		// Acquire a warm thread on first keystroke (or reuse the existing pending one)
 		if (value.trim() && !pendingThreadId && !threadCreationPromise) {
 			threadCreationPromise = client
-				.mutation(api.support.threads.createThread, {
+				.mutation(api.support.threads.getOrCreateWarmThread, {
 					anonymousUserId,
 					pageUrl: typeof window !== 'undefined' ? window.location.href : undefined
 				})
@@ -156,7 +154,7 @@
 		: ''}"
 >
 	<div
-		class="group relative mx-auto motion-safe:transition-all motion-safe:duration-300 motion-safe:ease-in-out {isFocused
+		class="group relative mx-auto motion-safe:transition-[max-width] motion-safe:duration-300 motion-safe:ease-in-out {isFocused
 			? 'max-w-[430px]'
 			: 'max-w-[280px]'}"
 	>
@@ -210,7 +208,7 @@
 		overflow: hidden;
 		transition:
 			inset 0.2s ease-in-out,
-			opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+			opacity 0.3s cubic-bezier(0.23, 1, 0.32, 1);
 	}
 	:global(.ai-gradient-wrapper-glow) {
 		filter: blur(15px);
@@ -263,17 +261,17 @@
 	}
 	/* Base transition for smooth state changes - transform only on container */
 	:global(.ai-chatbar) {
-		transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+		transition: transform 0.3s cubic-bezier(0.23, 1, 0.32, 1);
 	}
 	/* Content wrapper handles opacity animation separately from gradient */
 	:global(.ai-chatbar-content) {
 		position: relative;
 		z-index: 1;
-		transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+		transition: opacity 0.25s cubic-bezier(0.23, 1, 0.32, 1);
 	}
 	/* Pill bg needs opacity transition for fade */
 	:global(.ai-pill-bg) {
-		transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+		transition: opacity 0.25s cubic-bezier(0.23, 1, 0.32, 1);
 	}
 	/* Hidden state, applied when feedback widget is open or before mount */
 	:global(.ai-chatbar.fade-out) {

@@ -5,7 +5,7 @@
 	import AuthenticatedHeader from './authenticated-header.svelte';
 	import { ScrollArea } from '$lib/components/ui/scroll-area';
 	import type { Snippet } from 'svelte';
-	import type { SidebarConfig, User } from './types';
+	import type { NavSubItem, SidebarConfig, User } from './types';
 	import { onMount } from 'svelte';
 
 	interface Props {
@@ -15,6 +15,8 @@
 		routePrefix: string;
 		rootLabel: string;
 		fullControl?: boolean;
+		/** Thread sub-items passed separately to preserve DOM nodes in autoAnimate */
+		threadSubItems?: NavSubItem[];
 	}
 
 	let {
@@ -23,7 +25,8 @@
 		user,
 		routePrefix,
 		rootLabel,
-		fullControl = false
+		fullControl = false,
+		threadSubItems
 	}: Props = $props();
 
 	$effect(() => {
@@ -49,7 +52,7 @@
 		style="--sidebar-width: calc(var(--spacing) * 72); --header-height: calc(var(--spacing) * 12);"
 		class="h-svh overflow-hidden"
 	>
-		<AuthenticatedSidebar variant="inset" config={sidebarConfig} {user} />
+		<AuthenticatedSidebar variant="inset" config={sidebarConfig} {user} {threadSubItems} />
 		<Sidebar.Inset class={fullControl ? 'flex flex-col overflow-hidden' : ''}>
 			<AuthenticatedHeader {routePrefix} {rootLabel} />
 

@@ -115,6 +115,19 @@ function setupWorktree(rootPath: string): void {
 	}
 	console.log('');
 
+	// Copy .env.convex.local if it exists
+	const envConvexLocalSrc = join(rootPath, '.env.convex.local');
+	if (existsSync(envConvexLocalSrc)) {
+		console.log('Copying .env.convex.local...');
+		copyFileSync(envConvexLocalSrc, '.env.convex.local');
+		console.log(`${colors.green}.env.convex.local copied${colors.reset}`);
+	} else {
+		console.log(
+			`${colors.yellow}No .env.convex.local found in root worktree (skipping)${colors.reset}`
+		);
+	}
+	console.log('');
+
 	// Copy .env.test if it exists
 	const envTestSrc = join(rootPath, '.env.test');
 	if (existsSync(envTestSrc)) {
