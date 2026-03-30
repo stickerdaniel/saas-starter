@@ -290,11 +290,17 @@ export const authComponent = createClient<DataModel, typeof authSchema>(componen
 // Export trigger handlers (required for triggers to be registered)
 export const { onCreate, onUpdate, onDelete } = authComponent.triggersApi();
 
+function buildTrustedOrigins(): string[] {
+	const custom = process.env.TRUSTED_ORIGINS;
+	if (custom) return custom.split(',').map((s) => s.trim());
+	return ['https://*.vercel.app', 'https://*.pages.dev'];
+}
+
 // Creates Better Auth options object (used by adapter and betterAuth CLI)
 export const createAuthOptions = (ctx: GenericCtx<DataModel>): BetterAuthOptions => {
 	return {
 		baseURL: requireEnv('SITE_URL'),
-		trustedOrigins: ['https://*.vercel.app'],
+		trustedOrigins: buildTrustedOrigins(),
 		secret: requireEnv('BETTER_AUTH_SECRET'),
 		database: authComponent.adapter(ctx),
 		user: {

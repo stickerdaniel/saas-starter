@@ -1,4 +1,4 @@
-name: E2E Tests (Preview)
+name: E2E Tests (Vercel Preview)
 
 on:
   deployment_status:
@@ -15,7 +15,7 @@ jobs:
     env:
       NODE_OPTIONS: --max-old-space-size=4096
       AUTH_E2E_TEST_SECRET: ${{ secrets.AUTH_E2E_TEST_SECRET }}
-      VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+      PREVIEW_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
       # Preview URL from deployment event
       PREVIEW_URL: ${{ github.event.deployment_status.environment_url }}
 
@@ -40,11 +40,11 @@ jobs:
           CONFIG_URL="${PREVIEW_URL}/.well-known/e2e-config.json"
           echo "Fetching config from: $CONFIG_URL"
 
-          # Use Vercel's Protection Bypass for Automation to access protected preview
+          # Use preview bypass for protected deployments
           BYPASS_HEADER=""
-          if [ -n "$VERCEL_AUTOMATION_BYPASS_SECRET" ]; then
-            BYPASS_HEADER="-H x-vercel-protection-bypass:${VERCEL_AUTOMATION_BYPASS_SECRET}"
-            echo "Using Vercel automation bypass"
+          if [ -n "$PREVIEW_BYPASS_SECRET" ]; then
+            BYPASS_HEADER="-H x-vercel-protection-bypass:${PREVIEW_BYPASS_SECRET}"
+            echo "Using preview bypass"
           fi
 
           # Retry up to 5 times (deployment might take a moment to be fully ready)
