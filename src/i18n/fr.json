@@ -706,6 +706,7 @@
 	},
 	"ai_chat": {
 		"alerts": {
+			"limit_reached": "Vous avez utilisé tous vos messages de chat IA ce mois-ci. Passez à Pro pour en obtenir plus.",
 			"limit_reached_free": "Passez à Pro pour 30 messages de chat IA par mois.",
 			"limit_reached_pro": "Vous avez utilisé tous vos messages de chat IA ce mois-ci. Ils seront réinitialisés le mois prochain.",
 			"low_messages": "{remaining} sur {total} message de chat IA restant ce mois-ci.",
@@ -722,10 +723,6 @@
 			"placeholder": "Tapez un message..."
 		},
 		"new_chat": "Nouveau chat",
-		"pro_required": {
-			"description": "Passez à Pro pour 30 messages Chat IA par mois. Essayez gratuitement avec la carte test 4242 4242 4242 4242.",
-			"title": "Fonction Pro"
-		},
 		"select_chat": "Sélectionnez une conversation ou démarrez un nouveau chat",
 		"suggestion": {
 			"explain": "Explique quelque chose",

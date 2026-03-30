@@ -706,6 +706,7 @@
 	},
 	"ai_chat": {
 		"alerts": {
+			"limit_reached": "Sie haben alle Ihre KI-Chat-Nachrichten diesen Monat aufgebraucht. Upgraden Sie auf Pro für mehr.",
 			"limit_reached_free": "Upgraden Sie auf Pro für 30 KI-Chat-Nachrichten pro Monat.",
 			"limit_reached_pro": "Sie haben alle Ihre KI-Chat-Nachrichten diesen Monat aufgebraucht. Sie werden nächsten Monat zurückgesetzt.",
 			"low_messages": "{remaining} von {total} KI-Chat-Nachricht verbleibend diesen Monat.",
@@ -722,10 +723,6 @@
 			"placeholder": "Nachricht eingeben..."
 		},
 		"new_chat": "Neuer Chat",
-		"pro_required": {
-			"description": "Upgraden Sie auf Pro für 30 KI-Chat-Nachrichten pro Monat. Testen Sie kostenlos mit der Testkarte 4242 4242 4242 4242.",
-			"title": "Pro-Funktion"
-		},
 		"select_chat": "Wählen Sie eine Unterhaltung oder starten Sie einen neuen Chat",
 		"suggestion": {
 			"explain": "Erkläre etwas",

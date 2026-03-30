@@ -23,8 +23,7 @@ function sanitizePreview(text: string): string {
  * recent activity. Reads only from our own aiChatThreads table — no
  * ctx.runQuery into agent component tables.
  *
- * Client uses onUpdate + $state.raw instead of useQuery to avoid Svelte 5
- * deep proxy infinite re-render loop (convex-svelte #44).
+ * Client uses useQuery(api.aiChat.threads.listThreads) in app layout.
  */
 export const listThreads = authedQuery({
 	args: {
@@ -248,7 +247,9 @@ export const backfillThreadMetadata = internalMutation({
 			if (lastMsg?.text) {
 				await ctx.db.patch(record._id, {
 					title: agentThread?.title,
-					lastMessage: lastMsg.text.length > 100 ? lastMsg.text.slice(0, 100) : lastMsg.text,
+					lastMessage: sanitizePreview(
+						lastMsg.text.length > 100 ? lastMsg.text.slice(0, 100) : lastMsg.text
+					),
 					lastMessageAt: lastMsg._creationTime
 				});
 				updated++;

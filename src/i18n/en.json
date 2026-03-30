@@ -706,6 +706,7 @@
 	},
 	"ai_chat": {
 		"alerts": {
+			"limit_reached": "You've used all your AI chat messages this month. Upgrade to Pro for more.",
 			"limit_reached_free": "Upgrade to Pro for 30 AI chat messages per month.",
 			"limit_reached_pro": "You've used all your AI chat messages this month. They reset next month.",
 			"low_messages": "{remaining} of {total} AI chat message remaining this month.",
@@ -722,10 +723,6 @@
 			"placeholder": "Type a message..."
 		},
 		"new_chat": "New Chat",
-		"pro_required": {
-			"description": "Upgrade to Pro for 30 AI chat messages per month. Try it free with test card 4242 4242 4242 4242.",
-			"title": "Pro Feature"
-		},
 		"select_chat": "Select a conversation or start a new chat",
 		"suggestion": {
 			"explain": "Explain something",

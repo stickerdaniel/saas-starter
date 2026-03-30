@@ -9,6 +9,9 @@ export const getGeocoding = tool({
 	execute: async ({ location }) => {
 		const geocodingUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(location)}&count=1`;
 		const response = await fetch(geocodingUrl);
+		if (!response.ok) {
+			throw new Error(`Geocoding API error: ${response.status} ${response.statusText}`);
+		}
 		const data = (await response.json()) as {
 			results?: {
 				latitude: number;
@@ -36,6 +39,9 @@ export const getWeather = tool({
 		const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${args.latitude}&longitude=${args.longitude}&current=temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,wind_gusts_10m,weather_code&wind_speed_unit=mph&temperature_unit=fahrenheit`;
 
 		const response = await fetch(weatherUrl);
+		if (!response.ok) {
+			throw new Error(`Weather API error: ${response.status} ${response.statusText}`);
+		}
 		const data = (await response.json()) as {
 			current: {
 				temperature_2m: number;

@@ -26,7 +26,7 @@
 		const transitionClass =
 			duration === 0
 				? 'transition-none'
-				: `transition-[translate,opacity] ${durationClass} ease-[cubic-bezier(0.23,1,0.32,1)]`;
+				: `transition-[transform,opacity] ${durationClass} ease-[cubic-bezier(0.23,1,0.32,1)]`;
 		const baseClasses = `absolute inset-0 flex flex-col overflow-hidden ${transitionClass}`;
 
 		if (open) {
