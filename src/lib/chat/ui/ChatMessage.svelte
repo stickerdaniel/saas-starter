@@ -10,7 +10,6 @@
 	import { getChatUIContext } from './ChatContext.svelte.js';
 	import { getActiveStreamingReasoningIndex, getReasoningPartKey } from './reasoning-parts.js';
 	import { type DisplayMessage, type Attachment } from '../core/types.js';
-	import { summarizeOrderedParts } from './chat-debug-trace.svelte.js';
 
 	let {
 		message,
@@ -128,21 +127,6 @@
 	function handleReasoningOpenChange(open: boolean) {
 		ctx.setReasoningOpen(message.id, open);
 	}
-
-	$effect(() => {
-		if (!ctx.debugTrace || message.role !== 'assistant') return;
-
-		const openReasoningKeys = orderedParts
-			.filter((part) => part.kind === 'reasoning' && isReasoningPartOpen(part.key))
-			.map((part) => `${message.id}:${part.key}`);
-
-		ctx.debugTrace.recordSnapshot(
-			'render-message',
-			message.id,
-			message.threadId ?? null,
-			summarizeOrderedParts(message.id, message.status, orderedParts, openReasoningKeys)
-		);
-	});
 </script>
 
 <div

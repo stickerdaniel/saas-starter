@@ -94,8 +94,7 @@ describe('buildTransformContext', () => {
 		});
 
 		expect(context.streamingOrders.has(2)).toBe(true);
-		expect(context.streamTextMap.get(2)).toBe('Streaming response');
-		expect(context.streamReasoningMap.get(2)).toBe('Thinking');
+		expect(context.streamMessageMap.get(2)?.text).toBe('Streaming response');
 		expect(streamCache.updateStatusCache).toHaveBeenCalledWith(2, 'finished');
 		expect(streamCache.updateReasoningCache).toHaveBeenCalledWith(2, 'Thinking');
 	});

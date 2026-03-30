@@ -152,9 +152,7 @@ describe('transformToDisplayMessage', () => {
 		mockCache = createMockStreamCache();
 		baseContext = {
 			streamingOrders: new Set<number>(),
-			streamPartsMap: new Map(),
-			streamTextMap: new Map<number, string>(),
-			streamReasoningMap: new Map<number, string>(),
+			streamMessageMap: new Map(),
 			streamStatusMap: new Map<number, string>(),
 			streamCache: mockCache
 		};
@@ -228,8 +226,23 @@ describe('transformToDisplayMessage', () => {
 		const context: TransformContext = {
 			...baseContext,
 			streamingOrders: new Set([5]),
-			streamPartsMap: new Map(),
-			streamTextMap: new Map([[5, 'Full streaming response']]),
+			streamMessageMap: new Map([
+				[
+					5,
+					{
+						id: 'stream:5',
+						key: 'thread-1-5-0',
+						order: 5,
+						stepOrder: 0,
+						status: 'streaming',
+						agentName: 'assistant',
+						text: 'Full streaming response',
+						_creationTime: 1,
+						role: 'assistant',
+						parts: [{ type: 'text', text: 'Full streaming response' }]
+					}
+				]
+			]),
 			streamStatusMap: new Map([[5, 'streaming']])
 		};
 
@@ -247,8 +260,23 @@ describe('transformToDisplayMessage', () => {
 		const context: TransformContext = {
 			...baseContext,
 			streamingOrders: new Set([5]), // Only order 5 is streaming
-			streamPartsMap: new Map(),
-			streamTextMap: new Map([[5, 'Streaming content']]),
+			streamMessageMap: new Map([
+				[
+					5,
+					{
+						id: 'stream:5',
+						key: 'thread-1-5-0',
+						order: 5,
+						stepOrder: 0,
+						status: 'streaming',
+						agentName: 'assistant',
+						text: 'Streaming content',
+						_creationTime: 1,
+						role: 'assistant',
+						parts: [{ type: 'text', text: 'Streaming content' }]
+					}
+				]
+			]),
 			streamStatusMap: new Map([[5, 'streaming']])
 		};
 
@@ -264,8 +292,23 @@ describe('transformToDisplayMessage', () => {
 		const context: TransformContext = {
 			...baseContext,
 			streamingOrders: new Set([3]),
-			streamPartsMap: new Map(),
-			streamReasoningMap: new Map([[3, 'Thinking...']]),
+			streamMessageMap: new Map([
+				[
+					3,
+					{
+						id: 'stream:3',
+						key: 'thread-1-3-0',
+						order: 3,
+						stepOrder: 0,
+						status: 'streaming',
+						agentName: 'assistant',
+						text: '',
+						_creationTime: 1,
+						role: 'assistant',
+						parts: [{ type: 'reasoning', text: 'Thinking...' }]
+					}
+				]
+			]),
 			streamStatusMap: new Map([[3, 'streaming']])
 		};
 
