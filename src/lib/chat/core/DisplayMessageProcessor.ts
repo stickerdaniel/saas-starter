@@ -5,7 +5,7 @@
  * Handles streaming state, reasoning fallback, and text extraction.
  */
 
-import type { ChatMessage, DisplayMessage, MessagePart } from './types.js';
+import type { ChatMessage, DisplayMessage } from './types.js';
 import { extractReasoning, extractUserMessageText } from './message-extraction.js';
 import type { StreamCacheManager } from './stream-cache.js';
 import type { UIMessage } from '@convex-dev/agent';
@@ -17,8 +17,6 @@ import { mergeAssistantMessageParts } from './stream-materialization.js';
 export interface TransformContext {
 	/** Map of order -> latest grouped streaming UI message */
 	streamMessageMap: Map<number, UIMessage>;
-	/** Map of order -> stream status */
-	streamStatusMap: Map<number, string>;
 	/** Cache manager for reasoning persistence */
 	streamCache: StreamCacheManager;
 }
@@ -110,7 +108,7 @@ export function transformToDisplayMessage(
 	msg: ChatMessage,
 	context: TransformContext
 ): DisplayMessage {
-	const { streamMessageMap, streamStatusMap, streamCache } = context;
+	const { streamMessageMap, streamCache } = context;
 
 	// Assistant messages are grouped by order. Live stream overlays should match that grouped shape.
 	const isBeingStreamed = msg.role === 'assistant' && streamMessageMap.has(msg.order);
@@ -118,14 +116,12 @@ export function transformToDisplayMessage(
 	// Get streaming data only if this message is being streamed
 	const streamMessage = isBeingStreamed ? streamMessageMap.get(msg.order) : undefined;
 	const streamText = streamMessage?.text;
-	const streamReasoning = streamMessage
-		? extractReasoning(streamMessage.parts as MessagePart[])
-		: '';
-	const streamStatus = isBeingStreamed ? streamStatusMap.get(msg.order) : undefined;
+	const streamReasoning = extractReasoning(streamMessage?.parts);
+	const streamStatus = streamMessage?.status;
 	const streamParts = streamMessage?.parts;
 
 	const isStreaming = streamStatus === 'streaming';
-	const hasReasoningStream = isBeingStreamed && streamStatus !== undefined;
+	const hasReasoningStream = !!streamMessage;
 
 	const displayText = getDisplayText(msg, streamText);
 
@@ -159,27 +155,6 @@ export function transformToDisplayMessage(
 		displayReasoning: reasoningResult.displayReasoning,
 		isStreaming,
 		hasReasoningStream
-	};
-}
-
-/**
- * Transform messages without streaming context (simple path)
- *
- * Used when there are no active streams - provides a faster code path
- * that skips streaming-related lookups.
- *
- * @param msg - The chat message to transform
- * @returns Display message for non-streaming context
- */
-export function transformToDisplayMessageSimple(msg: ChatMessage): DisplayMessage {
-	const reasoning = msg.parts ? extractReasoning(msg.parts) : msg.reasoning || '';
-
-	return {
-		...msg,
-		displayText: getDisplayText(msg),
-		displayReasoning: reasoning,
-		isStreaming: false,
-		hasReasoningStream: !!reasoning
 	};
 }
 

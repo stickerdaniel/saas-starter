@@ -10,7 +10,6 @@ import {
 import {
 	dedupeDisplayMessagesForRender,
 	transformToDisplayMessage,
-	transformToDisplayMessageSimple,
 	type TransformContext
 } from '../core/DisplayMessageProcessor.js';
 import type { StreamCacheManager } from '../core/stream-cache.js';
@@ -67,7 +66,6 @@ export function buildTransformContext(args: {
 	streamCache: StreamCacheManager;
 }): TransformContext {
 	const streamMessageMap = new Map<number, UIMessage>();
-	const streamStatusMap = new Map<number, string>();
 
 	[...args.streamMessages]
 		.sort((a, b) => {
@@ -75,7 +73,6 @@ export function buildTransformContext(args: {
 			return a.stepOrder - b.stepOrder;
 		})
 		.forEach((streamMessage) => {
-			streamStatusMap.set(streamMessage.order, streamMessage.status);
 			args.streamCache.updateStatusCache(streamMessage.order, streamMessage.status);
 		});
 
@@ -89,7 +86,6 @@ export function buildTransformContext(args: {
 
 	return {
 		streamMessageMap,
-		streamStatusMap,
 		streamCache: args.streamCache
 	};
 }
@@ -100,10 +96,6 @@ export function buildDisplayMessages(args: {
 	streamingUIMessages: UIMessage[];
 	streamCache: StreamCacheManager;
 }): DisplayMessage[] {
-	if (args.streamMessages.length === 0) {
-		return args.allMessages.map((message) => transformToDisplayMessageSimple(message));
-	}
-
 	const context = buildTransformContext({
 		streamMessages: args.streamMessages,
 		streamingUIMessages: args.streamingUIMessages,

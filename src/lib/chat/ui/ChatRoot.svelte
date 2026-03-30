@@ -194,17 +194,16 @@
 		};
 	});
 
-	// Process streaming deltas to create display messages
-	const displayMessages = $derived.by((): DisplayMessage[] => {
-		return buildDisplayMessages({
-			allMessages,
-			streamMessages,
-			streamingUIMessages,
-			streamCache: core.streamCache
-		});
-	});
-
-	const renderDisplayMessages = $derived.by(() => dedupeChatDisplayMessages(displayMessages));
+	const renderDisplayMessages = $derived.by((): DisplayMessage[] =>
+		dedupeChatDisplayMessages(
+			buildDisplayMessages({
+				allMessages,
+				streamMessages,
+				streamingUIMessages,
+				streamCache: core.streamCache
+			})
+		)
+	);
 
 	// Update UI context with display messages
 	$effect(() => {
@@ -222,7 +221,7 @@
 	// Clear awaiting state when NEW streaming assistant message appears
 	// (not based on hasActiveStreams which includes old finished streams)
 	$effect(() => {
-		if (hasStreamingAssistantMessage(displayMessages) && core.isAwaitingStream) {
+		if (hasStreamingAssistantMessage(renderDisplayMessages) && core.isAwaitingStream) {
 			core.setAwaitingStream(false);
 		}
 	});
@@ -230,7 +229,7 @@
 	// Auto-manage reasoning accordion state for interleaved reasoning/tool/text parts.
 	// Only the last overall part can be considered the active streaming reasoning part.
 	$effect(() => {
-		syncReasoningAccordionState(displayMessages, uiContext);
+		syncReasoningAccordionState(renderDisplayMessages, uiContext);
 	});
 </script>
 

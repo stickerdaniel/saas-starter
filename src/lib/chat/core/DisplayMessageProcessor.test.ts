@@ -7,7 +7,6 @@ import {
 	resolveReasoning,
 	dedupeDisplayMessagesForRender,
 	transformToDisplayMessage,
-	transformToDisplayMessageSimple,
 	type TransformContext
 } from './DisplayMessageProcessor.js';
 import type { ChatMessage, MessagePart } from './types.js';
@@ -152,7 +151,6 @@ describe('transformToDisplayMessage', () => {
 		mockCache = createMockStreamCache();
 		baseContext = {
 			streamMessageMap: new Map(),
-			streamStatusMap: new Map<number, string>(),
 			streamCache: mockCache
 		};
 	});
@@ -232,16 +230,15 @@ describe('transformToDisplayMessage', () => {
 						key: 'thread-1-5-0',
 						order: 5,
 						stepOrder: 0,
-						status: 'streaming',
 						agentName: 'assistant',
 						text: 'Full streaming response',
 						_creationTime: 1,
 						role: 'assistant',
+						status: 'streaming',
 						parts: [{ type: 'text', text: 'Full streaming response' }]
 					}
 				]
-			]),
-			streamStatusMap: new Map([[5, 'streaming']])
+			])
 		};
 
 		const result = transformToDisplayMessage(msg, context);
@@ -265,16 +262,15 @@ describe('transformToDisplayMessage', () => {
 						key: 'thread-1-5-0',
 						order: 5,
 						stepOrder: 0,
-						status: 'streaming',
 						agentName: 'assistant',
 						text: 'Streaming content',
 						_creationTime: 1,
 						role: 'assistant',
+						status: 'streaming',
 						parts: [{ type: 'text', text: 'Streaming content' }]
 					}
 				]
-			]),
-			streamStatusMap: new Map([[5, 'streaming']])
+			])
 		};
 
 		const result = transformToDisplayMessage(otherMsg, context);
@@ -296,16 +292,15 @@ describe('transformToDisplayMessage', () => {
 						key: 'thread-1-3-0',
 						order: 3,
 						stepOrder: 0,
-						status: 'streaming',
 						agentName: 'assistant',
 						text: '',
 						_creationTime: 1,
 						role: 'assistant',
+						status: 'streaming',
 						parts: [{ type: 'reasoning', text: 'Thinking...' }]
 					}
 				]
-			]),
-			streamStatusMap: new Map([[3, 'streaming']])
+			])
 		};
 
 		transformToDisplayMessage(msg, context);
@@ -325,50 +320,16 @@ describe('transformToDisplayMessage', () => {
 	});
 });
 
-describe('transformToDisplayMessageSimple', () => {
-	it('transforms user message correctly', () => {
-		const msg = createMessage({
-			role: 'user',
-			text: 'Simple user message'
-		});
-
-		const result = transformToDisplayMessageSimple(msg);
-
-		expect(result.displayText).toBe('Simple user message');
-		expect(result.isStreaming).toBe(false);
-		expect(result.hasReasoningStream).toBe(false);
-	});
-
-	it('transforms assistant message with reasoning', () => {
-		const msg = createMessage({
-			role: 'assistant',
-			text: 'Response',
-			parts: [{ type: 'reasoning', text: 'My thought process' }] as MessagePart[]
-		});
-
-		const result = transformToDisplayMessageSimple(msg);
-
-		expect(result.displayText).toBe('Response');
-		expect(result.displayReasoning).toBe('My thought process');
-		expect(result.hasReasoningStream).toBe(true);
-	});
-
-	it('returns empty reasoning when none exists', () => {
-		const msg = createMessage({ text: 'No reasoning here' });
-
-		const result = transformToDisplayMessageSimple(msg);
-
-		expect(result.displayReasoning).toBe('');
-		expect(result.hasReasoningStream).toBe(false);
-	});
-});
-
 describe('dedupeDisplayMessagesForRender', () => {
 	it('keeps the last occurrence of duplicate message ids while preserving order', () => {
+		const context: TransformContext = {
+			streamMessageMap: new Map(),
+			streamCache: createMockStreamCache()
+		};
 		const messages = [
-			transformToDisplayMessageSimple(createMessage({ id: 'msg-1', text: 'first' })),
-			transformToDisplayMessageSimple(createMessage({ id: 'msg-2', text: 'middle' })),
-			transformToDisplayMessageSimple(createMessage({ id: 'msg-1', text: 'last' }))
+			transformToDisplayMessage(createMessage({ id: 'msg-1', text: 'first' }), context),
+			transformToDisplayMessage(createMessage({ id: 'msg-2', text: 'middle' }), context),
+			transformToDisplayMessage(createMessage({ id: 'msg-1', text: 'last' }), context)
 		];
 
 		expect(dedupeDisplayMessagesForRender(messages)).toMatchObject([

@@ -50,6 +50,7 @@
 			(message.metadata?.providerMetadata as { admin?: { isAdminMessage?: boolean } })?.admin
 				?.isAdminMessage === true
 	);
+	const usesFilledBubble = $derived(isUser || isAdminMessage);
 	const align = $derived(ctx.getAlignment(message.role));
 	function isReasoningPartOpen(partKey: string): boolean {
 		return ctx.isReasoningOpen(`${message.id}:${partKey}`);
@@ -140,12 +141,7 @@
 		</div>
 	{/if}
 	<Message class="flex w-full flex-col gap-2 {align === 'right' ? 'items-end' : 'items-start'}">
-		{#if isUser}
-			<MessageBubble {align} variant="filled" hasTopAttachment={attachments.length > 0}>
-				{message.displayText}
-			</MessageBubble>
-		{:else if isAdminMessage}
-			<!-- Admin messages: filled bubble style like user messages -->
+		{#if usesFilledBubble}
 			<MessageBubble {align} variant="filled" hasTopAttachment={attachments.length > 0}>
 				{message.displayText}
 			</MessageBubble>

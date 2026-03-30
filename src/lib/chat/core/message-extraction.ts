@@ -1,20 +1,22 @@
-import type { ChatMessage, MessagePart, ReasoningUIPart } from './types.js';
+import type { ChatMessage } from './types.js';
 
 /**
  * Safely extract textual reasoning from a reasoning part.
  *
  * AI SDK part shapes can include reasoning entries without a textual payload yet.
  */
-function getReasoningText(part: MessagePart): string {
+function getReasoningText(part: { type: string; text?: unknown }): string {
 	if (part.type !== 'reasoning') return '';
-	const text = (part as ReasoningUIPart).text;
+	const text = part.text;
 	return typeof text === 'string' ? text : '';
 }
 
 /**
  * Extract reasoning content from message parts
  */
-export function extractReasoning(parts: MessagePart[] | undefined): string {
+export function extractReasoning(
+	parts: Array<{ type: string; text?: unknown }> | undefined
+): string {
 	if (!parts) return '';
 	return parts.map((part) => getReasoningText(part)).join('');
 }
