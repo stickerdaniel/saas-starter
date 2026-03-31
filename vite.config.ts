@@ -302,7 +302,12 @@ export default defineConfig(async ({ mode }) => {
 			include: ['svelte-konva', 'konva']
 		},
 		ssr: {
-			noExternal: ['svelte-konva']
+			noExternal: ['svelte-konva', '@tolgee/web'],
+			...(mode === 'production' && {
+				resolve: {
+					conditions: ['production', 'import', 'module', 'default']
+				}
+			})
 		}
 	};
 });
