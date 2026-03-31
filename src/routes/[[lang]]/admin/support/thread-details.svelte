@@ -258,7 +258,8 @@
 
 							<!-- Notes List -->
 							{#if notesQuery.data?.page && notesQuery.data.page.length > 0}
-								<div class="mt-4 animate-enter-blur-up space-y-2">
+								<!-- data-tolgee-restricted: notes may contain ZWNJ/ZWJ (tolgee/tolgee-js#3475) -->
+								<div data-tolgee-restricted class="mt-4 animate-enter-blur-up space-y-2">
 									{#each notesQuery.data.page as note (note._id)}
 										<div class="rounded-md bg-muted p-3">
 											<div class="mb-1 flex items-center justify-between">

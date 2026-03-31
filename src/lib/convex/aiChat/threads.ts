@@ -8,14 +8,6 @@ import { requireAiChatThreadRecord } from './ownership';
 // aiChatThreads is the feature registry for AI chat access and sidebar state.
 // agent:threads remains generic conversation storage/runtime shared across features.
 
-// Strip \u200C (ZWNJ) and \u200D (ZWJ) from preview text.
-// Tolgee's InvisibleObserver uses these exact chars for key encoding.
-// When AI output contains them, the observer enters an infinite loop
-// stripping/re-rendering the text (tolgee/tolgee-js#3475).
-function sanitizePreview(text: string): string {
-	return text.replace(/[\u200C\u200D]/g, '');
-}
-
 /**
  * List AI chat threads for the current user
  *
@@ -47,7 +39,7 @@ export const listThreads = authedQuery({
 			threads: validThreads.slice(0, limit).map((r) => ({
 				_id: r.threadId,
 				title: r.title,
-				lastMessage: r.lastMessage ? sanitizePreview(r.lastMessage) : undefined,
+				lastMessage: r.lastMessage ?? undefined,
 				lastMessageAt: r.lastMessageAt ?? r.createdAt
 			})),
 			hasMore: validThreads.length > limit
@@ -208,7 +200,7 @@ export const updateThreadMetadata = internalMutation({
 		if (!record) return;
 
 		const patch: Record<string, unknown> = {};
-		if (args.lastMessage !== undefined) patch.lastMessage = sanitizePreview(args.lastMessage);
+		if (args.lastMessage !== undefined) patch.lastMessage = args.lastMessage;
 		if (args.lastMessageAt !== undefined) patch.lastMessageAt = args.lastMessageAt;
 		if (args.title !== undefined) patch.title = args.title;
 
@@ -247,9 +239,7 @@ export const backfillThreadMetadata = internalMutation({
 			if (lastMsg?.text) {
 				await ctx.db.patch(record._id, {
 					title: agentThread?.title,
-					lastMessage: sanitizePreview(
-						lastMsg.text.length > 100 ? lastMsg.text.slice(0, 100) : lastMsg.text
-					),
+					lastMessage: lastMsg.text.length > 100 ? lastMsg.text.slice(0, 100) : lastMsg.text,
 					lastMessageAt: lastMsg._creationTime
 				});
 				updated++;
