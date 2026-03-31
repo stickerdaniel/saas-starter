@@ -161,8 +161,29 @@ export type CoercedEnvSchema = {
   VERCEL_GIT_COMMIT_REF?: string;
   
   /**
+   * **WORKERS_CI**  
+   * Set to "1" by CF Workers Builds (injected by CF, read by deploy script)  
+   * ![icon](data:image/svg+xml;utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2220%22%20height%3D%2220%22%20viewBox%3D%220%200%2032%2032%22%3E%3Cpath%20fill%3D%22%23808080%22%20d%3D%22M29%2022h-5a2.003%202.003%200%200%201-2-2v-6a2%202%200%200%201%202-2h5v2h-5v6h5ZM18%2012h-4V8h-2v14h6a2.003%202.003%200%200%200%202-2v-6a2%202%200%200%200-2-2m-4%208v-6h4v6Zm-6-8H3v2h5v2H4a2%202%200%200%200-2%202v2a2%202%200%200%200%202%202h6v-8a2%202%200%200%200-2-2m0%208H4v-2h4Z%22%2F%3E%3C%2Fsvg%3E)   
+   */
+  WORKERS_CI?: string;
+  
+  /**
+   * **WORKERS_CI_BRANCH**  
+   * Git branch (injected by CF Workers Builds, read by deploy script)  
+   * ![icon](data:image/svg+xml;utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2220%22%20height%3D%2220%22%20viewBox%3D%220%200%2032%2032%22%3E%3Cpath%20fill%3D%22%23808080%22%20d%3D%22M29%2022h-5a2.003%202.003%200%200%201-2-2v-6a2%202%200%200%201%202-2h5v2h-5v6h5ZM18%2012h-4V8h-2v14h6a2.003%202.003%200%200%200%202-2v-6a2%202%200%200%200-2-2m-4%208v-6h4v6Zm-6-8H3v2h5v2H4a2%202%200%200%200-2%202v2a2%202%200%200%200%202%202h6v-8a2%202%200%200%200-2-2m0%208H4v-2h4Z%22%2F%3E%3C%2Fsvg%3E)   
+   */
+  WORKERS_CI_BRANCH?: string;
+  
+  /**
+   * **WORKERS_CI_COMMIT_SHA**  
+   * Commit SHA (injected by CF Workers Builds)  
+   * ![icon](data:image/svg+xml;utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2220%22%20height%3D%2220%22%20viewBox%3D%220%200%2032%2032%22%3E%3Cpath%20fill%3D%22%23808080%22%20d%3D%22M29%2022h-5a2.003%202.003%200%200%201-2-2v-6a2%202%200%200%201%202-2h5v2h-5v6h5ZM18%2012h-4V8h-2v14h6a2.003%202.003%200%200%200%202-2v-6a2%202%200%200%200-2-2m-4%208v-6h4v6Zm-6-8H3v2h5v2H4a2%202%200%200%200-2%202v2a2%202%200%200%200%202%202h6v-8a2%202%200%200%200-2-2m0%208H4v-2h4Z%22%2F%3E%3C%2Fsvg%3E)   
+   */
+  WORKERS_CI_COMMIT_SHA?: string;
+  
+  /**
    * **CF_PAGES**  
-   * Set to "1" by Cloudflare Pages (injected by CF, read by deploy script)  
+   * Set to "1" by CF Pages (legacy, injected by CF, read by deploy script)  
    * ![icon](data:image/svg+xml;utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2220%22%20height%3D%2220%22%20viewBox%3D%220%200%2032%2032%22%3E%3Cpath%20fill%3D%22%23808080%22%20d%3D%22M29%2022h-5a2.003%202.003%200%200%201-2-2v-6a2%202%200%200%201%202-2h5v2h-5v6h5ZM18%2012h-4V8h-2v14h6a2.003%202.003%200%200%200%202-2v-6a2%202%200%200%200-2-2m-4%208v-6h4v6Zm-6-8H3v2h5v2H4a2%202%200%200%200-2%202v2a2%202%200%200%200%202%202h6v-8a2%202%200%200%200-2-2m0%208H4v-2h4Z%22%2F%3E%3C%2Fsvg%3E)   
    */
   CF_PAGES?: string;
@@ -183,7 +204,7 @@ export type CoercedEnvSchema = {
   
   /**
    * **PRODUCTION_BRANCH**  
-   * Production branch name for CF Pages (defaults to "main")  
+   * Production branch name (defaults to "main")  
    * ![icon](data:image/svg+xml;utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2220%22%20height%3D%2220%22%20viewBox%3D%220%200%2032%2032%22%3E%3Cpath%20fill%3D%22%23808080%22%20d%3D%22M29%2022h-5a2.003%202.003%200%200%201-2-2v-6a2%202%200%200%201%202-2h5v2h-5v6h5ZM18%2012h-4V8h-2v14h6a2.003%202.003%200%200%200%202-2v-6a2%202%200%200%200-2-2m-4%208v-6h4v6Zm-6-8H3v2h5v2H4a2%202%200%200%200-2%202v2a2%202%200%200%200%202%202h6v-8a2%202%200%200%200-2-2m0%208H4v-2h4Z%22%2F%3E%3C%2Fsvg%3E)   
    */
   PRODUCTION_BRANCH?: string;
@@ -215,7 +236,7 @@ export type CoercedEnvSchema = {
 
 declare module 'varlock/env' {
   export interface TypedEnvSchema extends Readonly<CoercedEnvSchema> {}
-  export interface PublicTypedEnvSchema extends Readonly<Pick<CoercedEnvSchema, 'VARLOCK_ENV' | 'PUBLIC_CONVEX_URL' | 'PUBLIC_CONVEX_SITE_URL' | 'VITE_TOLGEE_API_URL' | 'VITE_TOLGEE_API_KEY' | 'PUBLIC_POSTHOG_API_KEY' | 'PUBLIC_POSTHOG_HOST' | 'PUBLIC_POSTHOG_PROXY_HOST' | 'PUBLIC_SNAPDOM_PROXY_URL' | 'PUBLIC_SITE_URL' | 'VERCEL_ENV' | 'VERCEL_URL' | 'VERCEL_GIT_COMMIT_REF' | 'CF_PAGES' | 'CF_PAGES_URL' | 'CF_PAGES_BRANCH' | 'PRODUCTION_BRANCH' | 'CI'>> {}
+  export interface PublicTypedEnvSchema extends Readonly<Pick<CoercedEnvSchema, 'VARLOCK_ENV' | 'PUBLIC_CONVEX_URL' | 'PUBLIC_CONVEX_SITE_URL' | 'VITE_TOLGEE_API_URL' | 'VITE_TOLGEE_API_KEY' | 'PUBLIC_POSTHOG_API_KEY' | 'PUBLIC_POSTHOG_HOST' | 'PUBLIC_POSTHOG_PROXY_HOST' | 'PUBLIC_SNAPDOM_PROXY_URL' | 'PUBLIC_SITE_URL' | 'VERCEL_ENV' | 'VERCEL_URL' | 'VERCEL_GIT_COMMIT_REF' | 'WORKERS_CI' | 'WORKERS_CI_BRANCH' | 'WORKERS_CI_COMMIT_SHA' | 'CF_PAGES' | 'CF_PAGES_URL' | 'CF_PAGES_BRANCH' | 'PRODUCTION_BRANCH' | 'CI'>> {}
 }
 
 
