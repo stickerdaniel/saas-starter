@@ -297,7 +297,7 @@ function buildTrustedOrigins(): string[] {
 		try {
 			origins.push(new URL(siteUrl).origin);
 		} catch {
-			// invalid SITE_URL, skip
+			throw new Error(`Invalid SITE_URL: "${siteUrl}". Expected a valid URL.`);
 		}
 	}
 	const custom = process.env.TRUSTED_ORIGINS;
