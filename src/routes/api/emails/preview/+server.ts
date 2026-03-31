@@ -20,7 +20,7 @@ const MOCK_DATA = {
 };
 
 export const GET: RequestHandler = async ({ url }) => {
-	if (!import.meta.env.DEV) return httpError(404, 'Not available in production');
+	if (!import.meta.env.DEV) httpError(404, 'Not available in production');
 
 	const { getEmailComponent } = await import('better-svelte-email/preview');
 	const { renderer } = await import('$lib/emails/renderer');

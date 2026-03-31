@@ -21,14 +21,14 @@ function convertMarkersToTemplate(html: string): string {
 }
 
 export const GET: RequestHandler = async () => {
-	if (!import.meta.env.DEV) return error(404, 'Not available in production');
+	if (!import.meta.env.DEV) error(404, 'Not available in production');
 
 	const { getTemplatesForRendering } = await import('$lib/emails/templates/registry');
 	return json({ templates: getTemplatesForRendering() });
 };
 
 export const POST: RequestHandler = async ({ request }) => {
-	if (!import.meta.env.DEV) return error(404, 'Not available in production');
+	if (!import.meta.env.DEV) error(404, 'Not available in production');
 
 	const { renderer } = await import('$lib/emails/renderer');
 	const { getEmailComponent } = await import('better-svelte-email/preview');

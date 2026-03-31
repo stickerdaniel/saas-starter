@@ -6,7 +6,7 @@ const emailFiles = import.meta.env.DEV
 	: [];
 
 export const load: PageServerLoad = async () => {
-	if (!import.meta.env.DEV) return error(404, 'Not available in production');
+	if (!import.meta.env.DEV) error(404, 'Not available in production');
 
 	const files = emailFiles.map((path) => {
 		return path.split('/').pop()?.replace('.svelte', '') || '';
