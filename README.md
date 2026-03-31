@@ -106,7 +106,7 @@ Set the required platform and Convex production variables listed in the [environ
 vercel --prod
 ```
 
-**Cloudflare Workers:** Push to your production branch (default: `main`). Workers Builds deploys automatically, or deploy manually with `npx wrangler deploy`.
+**Cloudflare Workers:** Push to your production branch (default: `main`). Workers Builds deploys automatically, or deploy manually with `bunx wrangler deploy`.
 
 ### First Admin
 

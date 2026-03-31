@@ -12,13 +12,14 @@ export interface PlatformContext {
  * Rules: lowercase letters, numbers, dashes only. Must start with a letter.
  */
 export function sanitizeBranchAlias(branch: string): string {
-	return branch
+	const sanitized = branch
 		.toLowerCase()
 		.replace(/[^a-z0-9-]/g, '-')
 		.replace(/-+/g, '-')
 		.replace(/^-|-$/g, '')
 		.replace(/^[0-9]/, 'b-$&')
 		.slice(0, 40);
+	return sanitized || 'branch';
 }
 
 export function detectPlatform(): PlatformContext {
@@ -55,21 +56,25 @@ export function detectPlatform(): PlatformContext {
 		if (deployUrl) {
 			// Pages: URL provided directly
 			siteUrl = deployUrl;
-		} else if (process.env.SITE_URL) {
-			// Explicit SITE_URL (custom domain) takes priority
-			siteUrl = process.env.SITE_URL;
 		} else if (process.env.WORKERS_CI) {
 			// Workers: construct from worker name + subdomain
+			// For previews, always use constructed URL (SITE_URL is the production domain
+			// and Workers Builds doesn't scope build variables by environment)
 			const workerName = process.env.WORKERS_NAME;
 			const subdomain = process.env.WORKERS_SUBDOMAIN;
-			if (workerName && subdomain) {
-				if (isPreview && branch) {
-					const alias = sanitizeBranchAlias(branch);
-					siteUrl = `https://${alias}-${workerName}.${subdomain}.workers.dev`;
-				} else {
-					siteUrl = `https://${workerName}.${subdomain}.workers.dev`;
-				}
+			if (isPreview && branch && workerName && subdomain) {
+				const alias = sanitizeBranchAlias(branch);
+				siteUrl = `https://${alias}-${workerName}.${subdomain}.workers.dev`;
+			} else if (process.env.SITE_URL) {
+				// Production: prefer explicit SITE_URL (custom domain)
+				siteUrl = process.env.SITE_URL;
+			} else if (workerName && subdomain) {
+				// Production fallback: construct from worker name
+				siteUrl = `https://${workerName}.${subdomain}.workers.dev`;
 			}
+		} else if (process.env.SITE_URL) {
+			// Pages fallback
+			siteUrl = process.env.SITE_URL;
 		}
 
 		return {
