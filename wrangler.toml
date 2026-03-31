@@ -1,5 +1,5 @@
 #:schema node_modules/wrangler/config-schema.json
-name = "my-saas-project" # TEMPLATE: rename to your CF Workers project name
+name = "saas-starter" # TEMPLATE: rename to your CF Workers project name
 main = ".svelte-kit/cloudflare/_worker.js"
 compatibility_date = "2026-03-31"
 compatibility_flags = ["nodejs_compat"]
