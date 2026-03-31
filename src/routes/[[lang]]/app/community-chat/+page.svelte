@@ -229,7 +229,7 @@
 											class="relative max-w-[85%] rounded-2xl bg-primary/15 px-4 py-2.5 break-words text-foreground md:max-w-[75%]"
 										>
 											<span class="whitespace-pre-wrap">{message.body}</span>
-											<span class="invisible ml-2 text-xs">
+											<span class="invisible ml-2 text-xs" aria-hidden="true">
 												{formatTime(message._creationTime)}
 											</span>
 											<span
