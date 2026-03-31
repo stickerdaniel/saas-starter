@@ -128,28 +128,27 @@
 						{:else}
 							<!-- Standard nav item -->
 							<Sidebar.MenuItem>
-								<Button
-									variant="ghost"
-									href={resolve(item.url)}
+								<Sidebar.MenuButton
+									isActive={item.isActive}
+									class="!transition-transform"
 									onclick={() => haptic.trigger('light')}
-									class="group/menu-button peer/menu-button w-full justify-start gap-2 !transition-transform {item.isActive
-										? 'bg-muted font-medium text-foreground hover:bg-muted dark:hover:bg-muted'
-										: ''}"
-									data-active={item.isActive || undefined}
-									data-size="default"
 								>
-									{#if item.icon}
-										<item.icon />
-									{/if}
-									<span><T keyName={item.translationKey} /></span>
-									{#if item.kbd}
-										<Kbd.Group class="ml-auto opacity-0 group-hover/menu-button:opacity-50">
-											{#each item.kbd as key (key)}
-												<Kbd.Root>{key}</Kbd.Root>
-											{/each}
-										</Kbd.Group>
-									{/if}
-								</Button>
+									{#snippet child({ props })}
+										<a href={resolve(item.url)} {...props}>
+											{#if item.icon}
+												<item.icon />
+											{/if}
+											<span><T keyName={item.translationKey} /></span>
+											{#if item.kbd}
+												<Kbd.Group class="ml-auto opacity-0 group-hover/menu-button:opacity-50">
+													{#each item.kbd as key (key)}
+														<Kbd.Root>{key}</Kbd.Root>
+													{/each}
+												</Kbd.Group>
+											{/if}
+										</a>
+									{/snippet}
+								</Sidebar.MenuButton>
 								{#if item.badge && item.badge > 0}
 									<Sidebar.MenuBadge>{item.badge >= 100 ? '99+' : item.badge}</Sidebar.MenuBadge>
 								{/if}
@@ -173,22 +172,24 @@
 				{#each config.footerLinks as link (link.translationKey)}
 					{#if link.condition !== false}
 						<Sidebar.MenuItem>
-							<Button
-								variant="ghost"
-								href={resolve(link.url)}
+							<Sidebar.MenuButton
+								class="!transition-transform"
 								onclick={() => haptic.trigger('light')}
-								class="group/menu-button w-full justify-start gap-2 !transition-transform"
 							>
-								<link.icon />
-								<span><T keyName={link.translationKey} /></span>
-								{#if link.kbd}
-									<Kbd.Group class="ml-auto opacity-0 group-hover/menu-button:opacity-50">
-										{#each link.kbd as key (key)}
-											<Kbd.Root>{key}</Kbd.Root>
-										{/each}
-									</Kbd.Group>
-								{/if}
-							</Button>
+								{#snippet child({ props })}
+									<a href={resolve(link.url)} {...props}>
+										<link.icon />
+										<span><T keyName={link.translationKey} /></span>
+										{#if link.kbd}
+											<Kbd.Group class="ml-auto opacity-0 group-hover/menu-button:opacity-50">
+												{#each link.kbd as key (key)}
+													<Kbd.Root>{key}</Kbd.Root>
+												{/each}
+											</Kbd.Group>
+										{/if}
+									</a>
+								{/snippet}
+							</Sidebar.MenuButton>
 						</Sidebar.MenuItem>
 					{/if}
 				{/each}
