@@ -172,7 +172,12 @@
 				{/if}
 			{:else}
 				<!-- Messages list with fade-in animation on first load -->
-				<div class="mx-auto w-full max-w-3xl px-8 py-20 {ctx.messagesFade.animationClass}">
+				<!-- data-tolgee-restricted: user/AI text contains ZWNJ/ZWJ (Arabic, Hindi, etc.)
+				     which triggers Tolgee InvisibleObserver infinite loops (tolgee/tolgee-js#3475) -->
+				<div
+					data-tolgee-restricted
+					class="mx-auto w-full max-w-3xl px-8 py-20 {ctx.messagesFade.animationClass}"
+				>
 					{#each ctx.displayMessages as message, index (message.id)}
 						<ChatMessage
 							{message}

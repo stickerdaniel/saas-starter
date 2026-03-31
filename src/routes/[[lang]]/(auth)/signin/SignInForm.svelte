@@ -7,6 +7,7 @@
 	import * as Field from '$lib/components/ui/field/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { LoadingBar } from '$lib/components/ui/loading-bar/index.js';
+	import * as Password from '$lib/components/ui/password';
 	import { translateFormError, translateValidationErrors } from '$lib/utils/validation-i18n.js';
 	import OAuthButtons from './OAuthButtons.svelte';
 	import type { LastAuthMethod, PendingOAuthProvider } from '$lib/hooks/last-auth-method.svelte';
@@ -138,15 +139,18 @@
 						<T keyName="auth.signin.forgot_password" />
 					</a>
 				</div>
-				<Input
-					id="password-{id}"
-					name="password"
-					data-testid="password-input"
-					type="password"
-					autocomplete="current-password"
-					disabled={isFormDisabled}
-					bind:value={signInData.password}
-				/>
+				<Password.Root>
+					<Password.Input
+						id="password-{id}"
+						name="password"
+						data-testid="password-input"
+						autocomplete="current-password"
+						disabled={isFormDisabled}
+						bind:value={signInData.password}
+					>
+						<Password.ToggleVisibility />
+					</Password.Input>
+				</Password.Root>
 				<Field.Error errors={translateValidationErrors(signInErrors.password, $t)} />
 			</Field.Field>
 			<Field.Error errors={translateFormError(formError, $t)} data-testid="auth-error" />
