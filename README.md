@@ -76,14 +76,16 @@ Push a branch and Vercel creates a preview deployment with its own Convex previe
 Deploy via [Cloudflare Workers](https://developers.cloudflare.com/workers/) with Workers Builds:
 
 1. Rename `name` in `wrangler.toml` to match your Worker name
-2. Create the Worker: `npx wrangler deploy` (first deploy creates it)
+2. Create the Worker: `bunx wrangler deploy` (first deploy creates it)
 3. Connect your repo via Workers Builds in the CF dashboard
-4. Set build command: `bun install && bunx varlock run -- bun scripts/deploy.ts`
-5. Set deploy command: `npx wrangler deploy` (production) / `npx wrangler versions upload` (preview)
-6. Add `BUN_VERSION` and `CONVEX_DEPLOY_KEY` as build secrets
-7. Enable non-production branch builds for preview deployments
+4. Set build command: `bunx varlock run -- bun scripts/deploy.ts`
+5. Set deploy command: `bunx wrangler deploy` (production)
+6. Set non-production deploy command: `bunx wrangler versions upload --preview-alias $WORKERS_CI_BRANCH`
+7. Add build secrets: `CONVEX_DEPLOY_KEY`, `WORKERS_NAME` (matches wrangler.toml name), `WORKERS_SUBDOMAIN` (your account's workers.dev subdomain, e.g., `daniel-ce4`)
+8. Set `SITE_URL` build variable for production (your custom domain or workers.dev URL)
+9. Enable non-production branch builds for preview deployments
 
-Push a branch and Workers Builds creates a preview deployment with its own Convex preview backend.
+Push a branch and Workers Builds creates a preview deployment with a stable per-branch URL.
 
 </details>
 

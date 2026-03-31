@@ -144,15 +144,10 @@ export async function setupPreviewEnv(
 	}
 
 	if (!platform.siteUrl) {
-		console.warn(
-			`${colors.yellow}Warning: Site URL is not available. Skipping SITE_URL setup for preview.${colors.reset}`
+		console.error(
+			`${colors.red}Error: Site URL is not available. Cannot set SITE_URL for preview.${colors.reset}`
 		);
-		console.warn(
-			`${colors.yellow}  On CF Workers, set SITE_URL as a build variable in the dashboard.${colors.reset}`
-		);
-		// Still validate env vars and seed admin if possible
-		validateConvexEnv(platform, deployment);
-		return;
+		process.exit(1);
 	}
 
 	const previewSiteUrl = platform.siteUrl;

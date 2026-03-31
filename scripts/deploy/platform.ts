@@ -7,6 +7,20 @@ export interface PlatformContext {
 	siteUrl: string | null;
 }
 
+/**
+ * Sanitize a git branch name into a valid CF Workers preview alias.
+ * Rules: lowercase letters, numbers, dashes only. Must start with a letter.
+ */
+export function sanitizeBranchAlias(branch: string): string {
+	return branch
+		.toLowerCase()
+		.replace(/[^a-z0-9-]/g, '-')
+		.replace(/-+/g, '-')
+		.replace(/^-|-$/g, '')
+		.replace(/^[0-9]/, 'b-$&')
+		.slice(0, 40);
+}
+
 export function detectPlatform(): PlatformContext {
 	// Vercel: VERCEL is set to "1" by the platform
 	if (process.env.VERCEL) {
@@ -31,10 +45,32 @@ export function detectPlatform(): PlatformContext {
 		const productionBranch = process.env.PRODUCTION_BRANCH || 'main';
 		const isPreview = branch !== null && branch !== productionBranch;
 		const environment = isPreview ? 'preview' : 'production';
-		// CF_PAGES_URL is a full URL with https:// (Workers has no equivalent)
+
+		// CF_PAGES_URL is a full URL with https:// (Pages only)
 		const deployUrl = process.env.CF_PAGES_URL ?? null;
-		// For Workers, SITE_URL must be set as a build variable in the dashboard
-		const siteUrl = deployUrl ?? process.env.SITE_URL ?? null;
+
+		// Compute siteUrl based on platform variant
+		let siteUrl: string | null = null;
+
+		if (deployUrl) {
+			// Pages: URL provided directly
+			siteUrl = deployUrl;
+		} else if (process.env.SITE_URL) {
+			// Explicit SITE_URL (custom domain) takes priority
+			siteUrl = process.env.SITE_URL;
+		} else if (process.env.WORKERS_CI) {
+			// Workers: construct from worker name + subdomain
+			const workerName = process.env.WORKERS_NAME;
+			const subdomain = process.env.WORKERS_SUBDOMAIN;
+			if (workerName && subdomain) {
+				if (isPreview && branch) {
+					const alias = sanitizeBranchAlias(branch);
+					siteUrl = `https://${alias}-${workerName}.${subdomain}.workers.dev`;
+				} else {
+					siteUrl = `https://${workerName}.${subdomain}.workers.dev`;
+				}
+			}
+		}
 
 		return {
 			platform: 'cloudflare',
