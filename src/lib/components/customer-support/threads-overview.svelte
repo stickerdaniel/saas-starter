@@ -279,7 +279,8 @@
 			</div>
 		{:else}
 			<!-- Thread list with fade-in animation on first load -->
-			<div class={threadsFade.animationClass}>
+			<!-- data-tolgee-restricted: thread previews may contain ZWNJ/ZWJ (tolgee/tolgee-js#3475) -->
+			<div data-tolgee-restricted class={threadsFade.animationClass}>
 				{#each threads as thread (thread._id)}
 					{@const isSelected = thread._id === ctx.threadId}
 					{@const showAdminAvatar = thread.isHandedOff && thread.assignedAdmin}

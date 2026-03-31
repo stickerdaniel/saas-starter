@@ -199,7 +199,11 @@
 				{/each}
 			</div>
 		{:else if threads && threads.length > 0}
-			<div class="scrollbar-thin absolute inset-0 overflow-x-hidden overflow-y-auto">
+			<!-- data-tolgee-restricted: thread previews may contain ZWNJ/ZWJ (tolgee/tolgee-js#3475) -->
+			<div
+				data-tolgee-restricted
+				class="scrollbar-thin absolute inset-0 overflow-x-hidden overflow-y-auto"
+			>
 				<InfiniteLoader
 					{loaderState}
 					{triggerLoad}
