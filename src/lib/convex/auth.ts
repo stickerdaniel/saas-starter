@@ -291,9 +291,13 @@ export const authComponent = createClient<DataModel, typeof authSchema>(componen
 export const { onCreate, onUpdate, onDelete } = authComponent.triggersApi();
 
 function buildTrustedOrigins(): string[] {
-	const custom = process.env.TRUSTED_ORIGINS;
-	if (custom) return custom.split(',').map((s) => s.trim());
-	return ['https://*.vercel.app', 'https://*.pages.dev'];
+	const siteUrl = process.env.SITE_URL;
+	if (!siteUrl) return [];
+	try {
+		return [new URL(siteUrl).origin];
+	} catch {
+		throw new Error(`Invalid SITE_URL: "${siteUrl}". Expected a valid URL.`);
+	}
 }
 
 // Creates Better Auth options object (used by adapter and betterAuth CLI)
