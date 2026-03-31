@@ -36,8 +36,12 @@
 	let { data } = $props();
 
 	const client = useConvexClient();
-	const viewer = useQuery(api.users.viewer, {}, () => ({ initialData: data.viewer }));
-	const messages = useQuery(api.messages.list, {}, () => ({ initialData: data.messages }));
+	const viewerQuery = useQuery(api.users.viewer, {}, () => ({ initialData: data.viewer }));
+	const messagesQuery = useQuery(api.messages.list, {}, () => ({ initialData: data.messages }));
+
+	// Fall back to server-loaded data for SSR (useQuery.data is undefined until hydration)
+	const viewer = $derived({ data: viewerQuery.data ?? data.viewer });
+	const messages = $derived({ data: messagesQuery.data ?? data.messages });
 
 	// Billing
 	const autumn = useCustomer();
@@ -104,12 +108,11 @@
 	}
 
 	function getInitials(name: string) {
-		return name
-			.split(' ')
-			.map((n) => n[0])
-			.join('')
-			.toUpperCase()
-			.slice(0, 2);
+		return (name.trim()[0] ?? '').toUpperCase();
+	}
+
+	function getDisplayName(name: string) {
+		return name.trim().split(/\s+/)[0] ?? name;
 	}
 
 	function formatTime(timestamp: number) {
@@ -187,7 +190,11 @@
 			<ChatContainerRoot ctx={chatCtx} class="h-full">
 				<ChatContainerContent class="!h-full">
 					{#if messages.data && messages.data.length > 0}
-						<div class="mx-auto w-full max-w-3xl px-8 py-20 {messagesFade.animationClass}">
+						<!-- data-tolgee-restricted: user text may contain ZWNJ/ZWJ (tolgee/tolgee-js#3475) -->
+						<div
+							data-tolgee-restricted
+							class="mx-auto w-full max-w-3xl px-8 py-20 {messagesFade.animationClass}"
+						>
 							{#each messages.data as message, index (message._id)}
 								{@const own = isOwnMessage(message.userId)}
 								{@const firstInGroup = isFirstInGroup(index)}
@@ -210,25 +217,26 @@
 										</div>
 									{/if}
 
-									<div class="flex min-w-0 flex-col gap-0.5 {own ? 'items-end' : 'items-start'}">
+									<div
+										class="flex min-w-0 flex-1 flex-col gap-0.5 {own ? 'items-end' : 'items-start'}"
+									>
 										{#if !own && firstInGroup}
 											<span class="px-2 text-xs text-muted-foreground">
-												{message.author}
+												{getDisplayName(message.author)}
 											</span>
 										{/if}
 										<div
-											class="max-w-[85%] min-w-28 overflow-hidden rounded-2xl bg-primary/15 px-4 py-2.5 break-words text-foreground md:max-w-[75%]"
+											class="relative max-w-[85%] rounded-2xl bg-primary/15 px-4 py-2.5 break-words text-foreground md:max-w-[75%]"
 										>
-											<div class="flex items-end gap-3">
-												<p class="min-w-0 break-words whitespace-pre-wrap">
-													{message.body}
-												</p>
-												<span
-													class="ml-auto shrink-0 text-xs whitespace-nowrap text-muted-foreground/60"
-												>
-													{formatTime(message._creationTime)}
-												</span>
-											</div>
+											<span class="whitespace-pre-wrap">{message.body}</span>
+											<span class="invisible ml-2 text-xs" aria-hidden="true">
+												{formatTime(message._creationTime)}
+											</span>
+											<span
+												class="absolute right-3 bottom-2 text-xs whitespace-nowrap text-muted-foreground/60"
+											>
+												{formatTime(message._creationTime)}
+											</span>
 										</div>
 									</div>
 								</div>

@@ -44,7 +44,12 @@
 	});
 </script>
 
-<Sidebar.MenuSub bind:ref={listRef} class="no-scrollbar max-h-[calc(100svh-18rem)] overflow-y-auto">
+<!-- data-tolgee-restricted: thread previews may contain ZWNJ/ZWJ (tolgee/tolgee-js#3475) -->
+<Sidebar.MenuSub
+	bind:ref={listRef}
+	data-tolgee-restricted
+	class="no-scrollbar max-h-[calc(100svh-18rem)] overflow-y-auto"
+>
 	{#each visibleItems as sub (sub.id)}
 		<Sidebar.MenuSubItem>
 			<Sidebar.MenuSubButton isActive={sub.isActive} onclick={() => haptic.trigger('light')}>
