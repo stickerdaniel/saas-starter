@@ -142,7 +142,6 @@
 		lastValidSignUpSubmission = signUpSubmissionToken;
 
 		isLoading = true;
-		formError = '';
 
 		try {
 			let failed = false;
@@ -161,6 +160,7 @@
 						haptic.trigger('success');
 						clearLastSuccessfulAuthMethod();
 						clearPendingOAuthProvider();
+						formError = '';
 						verificationStep = { email: signUpData.email };
 					},
 					onError: (ctx) => {
