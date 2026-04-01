@@ -42,13 +42,13 @@ NEVER use the `EnterWorktree` tool. Always use `bun run worktree` instead and ad
 
 - `bun run build` - Build for production
 - `bun run dev` - Start Vite with an embedded local Convex backend (default)
-- `bun run dev:cloud` - Start Vite + cloud Convex backend (requires `CONVEX_DEPLOYMENT` in `.env.local`)
+- `bun run dev:cloud` - Start Vite + cloud Convex backend
 
 NEVER use `bun run dev` to start the development server, its already running in a separate terminal.
 
 Local dev notes (`bun run dev`):
 
-- Auto-detected: runs local backend unless `CONVEX_DEPLOYMENT` is set in `.env.local`.
+- Always runs the local embedded backend (ignores `CONVEX_DEPLOYMENT` in `.env.local`).
 - Seeds a verified local admin automatically after startup.
 - Local seeded admin credentials: `admin@local.dev` / `LocalDevAdmin123!`
 - Convex backend env vars are loaded from `.env.convex.local` (optional services like email, OAuth, billing, AI).
@@ -80,7 +80,7 @@ Local dev notes (`bun run dev`):
 
 **Running functions (cloud vs local):**
 
-- **Cloud:** `bun convex run module:functionName '{"arg": "value"}'` — requires `CONVEX_DEPLOYMENT` in `.env.local`
+- **Cloud:** `bun convex run module:functionName '{"arg": "value"}'`
 - **Local dev:** Use the HTTP API directly (the Convex MCP and CLI don't support local backends):
   ```bash
   # Admin key and port are printed in dev server startup logs
