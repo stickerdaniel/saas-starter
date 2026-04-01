@@ -169,8 +169,8 @@ export default defineConfig(async ({ mode }) => {
 	const loadedEnv = loadEnv(mode, cwd, '');
 	// Local Convex backend only during `bun run dev` (not CI, builds, postinstall, or scripts).
 	// build:emails uses createServer() which re-enters this config -- lifecycle check prevents that.
-	const useLocalConvex =
-		process.env.npm_lifecycle_event === 'dev' && !loadedEnv.CONVEX_DEPLOYMENT && !process.env.CI;
+	// dev:cloud runs via dev:frontend (lifecycle = "dev:frontend"), so it's excluded naturally.
+	const useLocalConvex = process.env.npm_lifecycle_event === 'dev' && !process.env.CI;
 	const plugins: PluginOption[] = [];
 
 	if (useLocalConvex) {
