@@ -160,6 +160,7 @@
 						haptic.trigger('success');
 						clearLastSuccessfulAuthMethod();
 						clearPendingOAuthProvider();
+						formError = '';
 						verificationStep = { email: signUpData.email };
 					},
 					onError: (ctx) => {
