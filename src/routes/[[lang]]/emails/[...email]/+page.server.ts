@@ -1,18 +1,14 @@
-import { renderer } from '$lib/emails/renderer';
+import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
-import { createEmail, sendEmail } from 'better-svelte-email/preview';
-import { env } from '$env/dynamic/private';
 
-// Get list of all email templates using import.meta.glob
-const emailFiles = Object.keys(
-	import.meta.glob('/src/lib/emails/templates/*.svelte', { eager: false })
-);
+const emailFiles = import.meta.env.DEV
+	? Object.keys(import.meta.glob('/src/lib/emails/templates/*.svelte', { eager: false }))
+	: [];
 
 export const load: PageServerLoad = async () => {
-	// Convert file paths to simple names for the preview UI
+	if (!import.meta.env.DEV) error(404, 'Not available in production');
+
 	const files = emailFiles.map((path) => {
-		// Extract just the filename without path and extension
-		// e.g., "/src/lib/emails/templates/VerificationEmail.svelte" -> "VerificationEmail"
 		return path.split('/').pop()?.replace('.svelte', '') || '';
 	});
 
@@ -24,15 +20,21 @@ export const load: PageServerLoad = async () => {
 	};
 };
 
-// Use the library's createEmail helper with our custom renderer
-// sendEmail is only available when RESEND_API_KEY is configured
-export const actions = {
-	...createEmail({ renderer }),
-	...(env.RESEND_API_KEY
-		? sendEmail({
-				renderer,
-				resendApiKey: env.RESEND_API_KEY,
-				from: 'Email Preview <noreply@daniel.sticker.name>'
-			})
-		: {})
-};
+async function buildActions() {
+	if (!import.meta.env.DEV) return {};
+	const { renderer } = await import('$lib/emails/renderer');
+	const { createEmail, sendEmail } = await import('better-svelte-email/preview');
+	const { env } = await import('$env/dynamic/private');
+	return {
+		...createEmail({ renderer }),
+		...(env.RESEND_API_KEY
+			? sendEmail({
+					renderer,
+					resendApiKey: env.RESEND_API_KEY,
+					from: 'Email Preview <noreply@daniel.sticker.name>'
+				})
+			: {})
+	};
+}
+
+export const actions = await buildActions();
