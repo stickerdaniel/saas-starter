@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { slide } from 'svelte/transition';
+	import { slide, fade } from 'svelte/transition';
 	import { cn, type WithElementRef } from '$lib/utils.js';
 	import type { HTMLAttributes } from 'svelte/elements';
 	import type { Snippet } from 'svelte';
@@ -33,11 +33,22 @@
 		{#if children}
 			{@render children()}
 		{:else}
-			<ul class={errorMessages.length > 1 ? 'ml-4 list-disc space-y-1' : 'list-none'}>
-				{#each errorMessages as message (message)}
-					<li transition:slide={{ duration: 150 }}>{message}</li>
-				{/each}
-			</ul>
+			<div class="grid">
+				{#key errorMessages.join('\x00')}
+					<ul
+						class={cn(
+							'col-start-1 row-start-1',
+							errorMessages.length > 1 ? 'ml-4 list-disc space-y-1' : 'list-none'
+						)}
+						in:fade={{ duration: 150, delay: 100 }}
+						out:fade={{ duration: 100 }}
+					>
+						{#each errorMessages as message (message)}
+							<li>{message}</li>
+						{/each}
+					</ul>
+				{/key}
+			</div>
 		{/if}
 	</div>
 {/if}
