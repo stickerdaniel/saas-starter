@@ -142,7 +142,6 @@
 		lastValidSignUpSubmission = signUpSubmissionToken;
 
 		isLoading = true;
-		formError = '';
 
 		try {
 			let failed = false;
