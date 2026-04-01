@@ -41,7 +41,7 @@ I'd recommend the local embedded backend for day-to-day work. Each git worktree 
 bunx convex init                              # creates a Convex project
 ```
 
-Add `CONVEX_DEPLOYMENT` to `.env.local` (printed by `convex init`), then:
+`convex init` prints a `CONVEX_DEPLOYMENT` value — add it to `.env.local`. `bun run dev` still uses the local embedded backend; the variable is only needed for `dev:cloud` and the Convex CLI.
 
 ```bash
 bun run dev:cloud                             # frontend + cloud Convex backend
