@@ -71,16 +71,21 @@ Push a branch and Vercel creates a preview deployment with its own Convex previe
 </details>
 
 <details>
-<summary><strong>Cloudflare Pages setup</strong></summary>
+<summary><strong>Cloudflare Workers setup</strong></summary>
 
-Connect your repo to [Cloudflare Pages](https://pages.cloudflare.com/). Configure the build:
+Deploy via [Cloudflare Workers](https://developers.cloudflare.com/workers/) with Workers Builds:
 
-1. Rename `name` in `wrangler.toml` to match your CF Pages project name
-2. Set the build command in CF Pages Settings > Builds & deployments: `bunx varlock run -- bun scripts/deploy.ts`
-3. Set `nodejs_compat` in CF Pages Settings > Functions > Compatibility flags (or it's already in `wrangler.toml`)
-4. Set the required environment variables in CF Pages Settings > Environment Variables
+1. Rename `name` in `wrangler.toml` to match your Worker name
+2. Create the Worker: `bunx wrangler deploy` (first deploy creates it)
+3. Connect your repo via Workers Builds in the CF dashboard
+4. Set build command: `bunx varlock run -- bun scripts/deploy.ts`
+5. Set deploy command: `bunx wrangler deploy` (production)
+6. Set non-production deploy command: `bunx wrangler versions upload --preview-alias $WORKERS_CI_BRANCH`
+7. Add build secrets: `CONVEX_DEPLOY_KEY`, `WORKERS_NAME` (matches wrangler.toml name), `WORKERS_SUBDOMAIN` (your account's workers.dev subdomain, e.g., `daniel-ce4`)
+8. Set `SITE_URL` build variable for production (your custom domain or workers.dev URL)
+9. Enable non-production branch builds for preview deployments
 
-Push a branch and CF Pages creates a preview deployment with its own Convex preview backend.
+Push a branch and Workers Builds creates a preview deployment with a stable per-branch URL.
 
 </details>
 
@@ -90,7 +95,7 @@ Convex cleans up preview deployments after 5 days (14 days on Professional).
 
 Set the required platform and Convex production variables listed in the [environment variable matrix](#environment-variables) below.
 
-- Platform: Project Settings > Environment Variables (Vercel or CF Pages)
+- Platform: Project Settings > Environment Variables (Vercel or CF Workers)
 - Convex: Select your Prod deployment > Settings > Environment Variables > Add
 
 ### Deploy
@@ -101,7 +106,7 @@ Set the required platform and Convex production variables listed in the [environ
 vercel --prod
 ```
 
-**Cloudflare Pages:** Push to your production branch (default: `main`). CF Pages deploys automatically.
+**Cloudflare Workers:** Push to your production branch (default: `main`). Workers Builds deploys automatically, or deploy manually with `bunx wrangler deploy`.
 
 ### First Admin
 

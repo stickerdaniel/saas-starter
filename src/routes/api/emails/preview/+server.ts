@@ -1,6 +1,4 @@
-import { json } from '@sveltejs/kit';
-import { getEmailComponent } from 'better-svelte-email/preview';
-import { renderer } from '$lib/emails/renderer';
+import { json, error as httpError } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
 const TEMPLATES_PATH = '/src/lib/emails/templates';
@@ -22,22 +20,18 @@ const MOCK_DATA = {
 };
 
 export const GET: RequestHandler = async ({ url }) => {
+	if (!import.meta.env.DEV) httpError(404, 'Not available in production');
+
+	const { getEmailComponent } = await import('better-svelte-email/preview');
+	const { renderer } = await import('$lib/emails/renderer');
+
 	const templateName = url.searchParams.get('template') || 'VerificationEmail';
 
 	try {
-		// Get template component
 		const component = await getEmailComponent(TEMPLATES_PATH, templateName);
-
-		// Get mock props for this template
 		const props = MOCK_DATA[templateName as keyof typeof MOCK_DATA] || {};
-
-		// Render with current base URL (for preview)
 		const baseUrl = url.origin;
-		const html = await renderer.render(component, {
-			props: { ...props }
-		});
-
-		// Replace __BASEURL__ placeholder with actual URL for preview
+		const html = await renderer.render(component, { props: { ...props } });
 		const htmlWithBaseUrl = html.replace(/__BASEURL__/g, baseUrl);
 
 		return json({ html: htmlWithBaseUrl, templateName });

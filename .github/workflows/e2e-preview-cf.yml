@@ -7,11 +7,11 @@ jobs:
   e2e-tests:
     name: E2E Tests
     runs-on: ubicloud-standard-2
-    # Only run on successful CF Pages preview deployments
+    # Only run on successful CF Workers/Pages preview deployments
     if: |
       github.event.deployment_status.state == 'success' &&
       github.event.deployment_status.environment != 'production' &&
-      contains(github.event.deployment_status.environment_url, '.pages.dev')
+      (contains(github.event.deployment_status.environment_url, '.workers.dev') || contains(github.event.deployment_status.environment_url, '.pages.dev'))
     env:
       NODE_OPTIONS: --max-old-space-size=4096
       AUTH_E2E_TEST_SECRET: ${{ secrets.AUTH_E2E_TEST_SECRET }}

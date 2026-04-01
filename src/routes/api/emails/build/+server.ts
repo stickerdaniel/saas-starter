@@ -1,8 +1,10 @@
 /**
- * API endpoint to render email templates
+ * API endpoint to render email templates (dev-only)
  *
  * This endpoint is called during build to pre-render email templates.
  * It uses the same renderer and infrastructure as the email preview UI.
+ * Heavy deps (prettier, tailwindcss, postcss) are excluded from production
+ * bundles via dynamic imports gated on import.meta.env.DEV.
  *
  * POST /api/emails/build
  * Body: { templates: [{ name: string, props: object }] }
@@ -11,33 +13,31 @@
 
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { renderer } from '$lib/emails/renderer';
-import { getEmailComponent } from 'better-svelte-email/preview';
-import { toPlainText } from 'better-svelte-email/render';
-import { getTemplatesForRendering } from '$lib/emails/templates/registry';
 
 const TEMPLATES_PATH = '/src/lib/emails/templates';
 
-/**
- * Convert __ETA_xxx__ markers to {{xxx}} template syntax
- * Also converts __BASEURL__ to {{baseUrl}}
- */
 function convertMarkersToTemplate(html: string): string {
 	return html.replace(/__ETA_(\w+)__/g, '{{$1}}').replace(/__BASEURL__/g, '{{baseUrl}}');
 }
 
 export const GET: RequestHandler = async () => {
-	// Return the list of available templates and their placeholder configs
-	return json({
-		templates: getTemplatesForRendering()
-	});
+	if (!import.meta.env.DEV) error(404, 'Not available in production');
+
+	const { getTemplatesForRendering } = await import('$lib/emails/templates/registry');
+	return json({ templates: getTemplatesForRendering() });
 };
 
 export const POST: RequestHandler = async ({ request }) => {
+	if (!import.meta.env.DEV) error(404, 'Not available in production');
+
+	const { renderer } = await import('$lib/emails/renderer');
+	const { getEmailComponent } = await import('better-svelte-email/preview');
+	const { toPlainText } = await import('better-svelte-email/render');
+	const { getTemplatesForRendering } = await import('$lib/emails/templates/registry');
+
 	try {
 		const { templates: requestedTemplates } = await request.json();
 
-		// If no specific templates requested, render all
 		const templatesToRender =
 			requestedTemplates && Array.isArray(requestedTemplates)
 				? requestedTemplates
@@ -47,23 +47,13 @@ export const POST: RequestHandler = async ({ request }) => {
 
 		for (const { name, props } of templatesToRender) {
 			try {
-				// Get the template component (don't add .svelte - getEmailComponent does that)
 				const component = await getEmailComponent(TEMPLATES_PATH, name);
-
-				// Render with marker props
 				const rawHtml = await renderer.render(component, { props });
 				const rawText = toPlainText(rawHtml);
-
-				// Convert markers to template syntax
 				const html = convertMarkersToTemplate(rawHtml);
 				const text = convertMarkersToTemplate(rawText);
 
-				results.push({
-					name,
-					html,
-					text,
-					success: true
-				});
+				results.push({ name, html, text, success: true });
 			} catch (err) {
 				results.push({
 					name,
