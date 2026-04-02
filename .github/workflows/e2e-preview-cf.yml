@@ -1,29 +1,42 @@
 name: E2E Tests (CF Preview)
 
 on:
-  deployment_status:
+  check_run:
+    types: [completed]
 
 jobs:
   e2e-tests:
     name: E2E Tests
     runs-on: ubicloud-standard-2
-    # Only run on successful CF Workers/Pages preview deployments
+    # Only run on successful CF Workers preview builds
     if: |
-      github.event.deployment_status.state == 'success' &&
-      github.event.deployment_status.environment != 'production' &&
-      (contains(github.event.deployment_status.environment_url, '.workers.dev') || contains(github.event.deployment_status.environment_url, '.pages.dev'))
+      github.event.check_run.app.slug == 'cloudflare-workers-and-pages' &&
+      github.event.check_run.conclusion == 'success' &&
+      github.event.check_run.check_suite.head_branch != 'main'
     env:
       NODE_OPTIONS: --max-old-space-size=4096
       AUTH_E2E_TEST_SECRET: ${{ secrets.AUTH_E2E_TEST_SECRET }}
       CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
       CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
-      PREVIEW_URL: ${{ github.event.deployment_status.environment_url }}
+      # Public values — use repo variables or defaults
+      WORKERS_NAME: ${{ vars.CF_WORKERS_NAME || 'saas-starter' }}
+      WORKERS_SUBDOMAIN: ${{ vars.CF_WORKERS_SUBDOMAIN || 'daniel-ce4' }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
-          ref: ${{ github.event.deployment.sha }}
+          ref: ${{ github.event.check_run.head_sha }}
+
+      # Replicate sanitizeBranchAlias() from scripts/deploy/platform.ts
+      - name: Compute preview URL
+        run: |
+          BRANCH="${{ github.event.check_run.check_suite.head_branch }}"
+          ALIAS=$(echo "$BRANCH" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g' | sed 's/-\+/-/g' | sed 's/^-//;s/-$//' | sed 's/^[0-9]/b-&/' | cut -c1-40)
+          [ -z "$ALIAS" ] && ALIAS="branch"
+          PREVIEW_URL="https://${ALIAS}-${WORKERS_NAME}.${WORKERS_SUBDOMAIN}.workers.dev"
+          echo "PREVIEW_URL=${PREVIEW_URL}" >> "$GITHUB_ENV"
+          echo "Preview URL: ${PREVIEW_URL}"
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
@@ -43,22 +56,14 @@ jobs:
             HEADERS="-H CF-Access-Client-Id:$CF_ACCESS_CLIENT_ID -H CF-Access-Client-Secret:$CF_ACCESS_CLIENT_SECRET"
           fi
 
-          for i in {1..5}; do
-            if CONFIG=$(curl -sf $HEADERS "${PREVIEW_URL}/.well-known/e2e-config.json"); then
-              echo "Config fetched successfully"
-              echo "$CONFIG" | jq .
+          CONFIG=$(curl -sf $HEADERS "${PREVIEW_URL}/.well-known/e2e-config.json")
 
-              echo "PUBLIC_CONVEX_URL=$(echo "$CONFIG" | jq -r '.convexUrl')" >> "$GITHUB_ENV"
-              echo "PUBLIC_CONVEX_SITE_URL=$(echo "$CONFIG" | jq -r '.convexSiteUrl')" >> "$GITHUB_ENV"
-              echo "PUBLIC_SITE_URL=${PREVIEW_URL}" >> "$GITHUB_ENV"
-              exit 0
-            fi
-            echo "Attempt $i failed, retrying in 10s..."
-            sleep 10
-          done
+          echo "Config fetched successfully"
+          echo "$CONFIG" | jq .
 
-          echo "::error::Failed to fetch E2E config after 5 attempts"
-          exit 1
+          echo "PUBLIC_CONVEX_URL=$(echo "$CONFIG" | jq -r '.convexUrl')" >> "$GITHUB_ENV"
+          echo "PUBLIC_CONVEX_SITE_URL=$(echo "$CONFIG" | jq -r '.convexSiteUrl')" >> "$GITHUB_ENV"
+          echo "PUBLIC_SITE_URL=${PREVIEW_URL}" >> "$GITHUB_ENV"
 
       - name: Log test configuration
         run: |
