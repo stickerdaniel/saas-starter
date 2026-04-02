@@ -22,6 +22,7 @@
 			src="/animations/spring-demo.riv"
 			stateMachine="Motion"
 			defer
+			desktopOnly
 			class="absolute -bottom-1/5 h-[550px] w-[550px] lg:-bottom-1/6 lg:left-[45%] lg:h-[700px] lg:w-[700px] xl:left-[52%]"
 		/>
 

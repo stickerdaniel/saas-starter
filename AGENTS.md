@@ -360,6 +360,113 @@ When adding ESLint plugins that export legacy `.eslintrc`-style configs (objects
 - Use Convex's `useMutation` for data modifications
 - Use Convex's `useAction` for server-side actions
 
+### Rendering & Data Strategy
+
+#### Route rendering modes
+
+Decision tree for new routes:
+
+1. **Is the page public, static content (no per-user data in HTML)?**
+   - Yes → `export const prerender = true` in route's `+layout.ts` or `+page.ts`
+   - Add explicit `entries` in `svelte.config.js` for `[[lang]]` variants
+   - Examples: marketing pages (home, about, terms, privacy, impressum)
+   - Exception: if the page displays billing-dependent UI (`useCustomer()`), do NOT prerender — Autumn state doesn't recover on prerendered pages (`page.data.autumnState` is frozen at build time)
+   - Exception: pricing page uses `useCustomer()` for plan badges/buttons → `export const prerender = false`
+
+2. **Is the page behind authentication but has no real-time needs?**
+   - Yes → Standard SSR (default). Server load fetches user data, client hydrates.
+   - Examples: settings, email-verified
+
+3. **Is the page behind authentication WITH real-time data?**
+   - Yes → SSR + `useQuery` with `initialData` pattern (see below)
+   - Examples: community-chat, ai-chat, admin dashboard, admin support
+
+4. **Is the page an API endpoint or static file?**
+   - Yes → `+server.ts` with custom Response
+   - Examples: `/api/auth/[...all]`, `/llms.txt`, `/robots.txt`, `/sitemap.xml`
+
+#### Data-fetching patterns (decision tree)
+
+For each data need in a new route, pick the right pattern:
+
+1. **Auth-dependent data needed in SSR HTML?**
+   → `+page.server.ts` with `createConvexHttpClient({ token: event.locals.token })`
+   → Pass result to component as `data` prop
+   → Wrap in try-catch for resilience
+
+2. **Real-time data that should show instantly on load?**
+   → Fetch in `+page.server.ts` AND subscribe client-side:
+
+   ```ts
+   // +page.server.ts
+   const messages = await client.query(api.messages.list, {});
+   return { messages };
+
+   // +page.svelte
+   const messagesQuery = useQuery(api.messages.list, {}, () => ({ initialData: data.messages }));
+   const messages = $derived(messagesQuery.data ?? data.messages);
+   ```
+
+   This gives instant SSR content + live updates after hydration.
+
+3. **Real-time data that can show a loading state?**
+   → Skip server fetch, use `useQuery` directly (no `initialData`):
+
+   ```ts
+   const metrics = useQuery(api.admin.queries.getDashboardMetrics, {});
+   ```
+
+   Shows skeleton/loading state until data arrives. Use for admin panels, secondary data.
+
+4. **Billing/subscription checks?**
+   → `useCustomer()` from `@stickerdaniel/convex-autumn-svelte/sveltekit`
+   → Access `customer.products`, `customer.features` for gates
+   → Call `autumn.refetch()` after mutations that affect billing
+   → Note: Autumn state comes from `page.data.autumnState` (set in root `+layout.server.ts`). Does NOT auto-recover on prerendered pages.
+
+5. **Auth state checks?**
+   → `useAuth()` from `@mmailaender/convex-better-auth-svelte/svelte`
+   → Recovers independently via session cookies (safe on prerendered pages)
+   → Only exposes `isLoading`, `isAuthenticated`, `fetchAccessToken` — NOT user profile data
+   → For user profile data (email, name, id): use `authClient.useSession()` which returns `{ user: { email, name, id } }` and also recovers via cookies
+
+6. **Write operations (mutations)?**
+   → `useConvexClient()` + `client.mutation(api.path, args)`
+   → For instant feedback: add `optimisticUpdate` callback
+   → For billing-affecting mutations: call `autumn.refetch()` after
+
+7. **Paginated data with filters?**
+   → `usePaginatedQuery()` from `convex-svelte`
+   → Combine with `useSearchParams()` from `runed/kit` for URL state
+   → Use `keepPreviousData: true` to prevent UI flicker
+
+#### Deferred loading pattern
+
+For heavyweight non-critical JS (analytics, search, support widgets), use the `requestIdleCallback` + interaction listener pattern. Current deferred components: PostHog (3s), GlobalSearchShell (3.5s), LazyCustomerSupport (3s), RiveBackground (idle). See `AppPostHogBootstrap` for the canonical implementation.
+
+#### Prerendering constraints
+
+When prerendering pages, these data sources are frozen at build time:
+
+- `page.data.autumnState` — billing data (no client recovery)
+- `page.data.viewer` — user profile (no client recovery via `page.data`, but recoverable via `authClient.useSession()`)
+
+These recover independently after hydration:
+
+- Auth state — `AppAuthProvider` checks session cookies
+- Convex `useQuery` subscriptions — auto-resubscribe
+- `authClient.useSession()` — returns `{ user: { email, name, id } }` from cookies
+
+Components that need user data on prerendered pages must use `authClient.useSession()` instead of `page.data.viewer`.
+
+#### Cache-control for SSR pages
+
+Marketing routes that are NOT prerendered get edge caching via `handleCacheControl` hook in `hooks.server.ts`:
+
+- Condition: unauthenticated + matches `matchPublicMarketingRoute()`
+- Headers: `Cache-Control: public, s-maxage=3600, stale-while-revalidate=86400`
+- Placed AFTER `handleMarketingMarkdown` in `sequence()` to preserve markdown's own 5-minute TTL
+
 ### Library Conventions and Key Patterns
 
 #### Import Conventions

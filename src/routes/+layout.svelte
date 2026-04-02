@@ -33,22 +33,23 @@
 	setGlobalSearchContext();
 
 	// Intentionally capture initial language; watch() syncs route changes below.
+	const tolgeeBuilder = Tolgee().use(FormatIcu());
+	if (import.meta.env.DEV) {
+		tolgeeBuilder.use(DevTools());
+	}
 	// svelte-ignore state_referenced_locally
-	const tolgee = Tolgee()
-		.use(DevTools())
-		.use(FormatIcu())
-		.init({
-			language: currentLang,
+	const tolgee = tolgeeBuilder.init({
+		language: currentLang,
 
-			staticData: translations,
+		staticData: translations,
 
-			availableLanguages: ['en', 'de', 'es', 'fr'],
-			defaultLanguage: 'en',
-			fallbackLanguage: 'en',
+		availableLanguages: ['en', 'de', 'es', 'fr'],
+		defaultLanguage: 'en',
+		fallbackLanguage: 'en',
 
-			apiUrl: import.meta.env.VITE_TOLGEE_API_URL,
-			apiKey: import.meta.env.VITE_TOLGEE_API_KEY
-		});
+		apiUrl: import.meta.env.VITE_TOLGEE_API_URL,
+		apiKey: import.meta.env.VITE_TOLGEE_API_KEY
+	});
 
 	if (browser) {
 		watch(

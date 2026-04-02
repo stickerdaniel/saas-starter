@@ -264,6 +264,15 @@ export default defineConfig(async ({ mode }) => {
 		);
 	}
 
+	// Ensure PUBLIC_CONVEX_URL is set for production builds so prerendering can
+	// initialize the auth/Convex providers (they validate the URL at import time).
+	// The actual value doesn't matter for prerendered pages — they render as
+	// unauthenticated and the Convex client is never used. In CI, the real URL
+	// is provided as a build secret.
+	if (mode === 'production' && !process.env.PUBLIC_CONVEX_URL) {
+		process.env.PUBLIC_CONVEX_URL = 'https://prerender-placeholder.convex.cloud';
+	}
+
 	plugins.push(
 		varlockVitePlugin({ ssrInjectMode: 'resolved-env' }),
 		tailwindcss(),

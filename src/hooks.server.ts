@@ -147,8 +147,14 @@ const handleLanguage: Handle = async function handleLanguage({ event, resolve })
 
 		// Redirect to language-prefixed URL, preserving query params
 		const basePath = pathname === '/' ? `/${preferredLang}` : `/${preferredLang}${pathname}`;
-		const newPath = `${basePath}${event.url.search}`;
-		redirect(307, newPath);
+		// Use try-catch for url.search — inaccessible during prerendering
+		let search = '';
+		try {
+			search = event.url.search;
+		} catch {
+			// During prerendering, url.search throws
+		}
+		redirect(307, `${basePath}${search}`);
 	}
 
 	return resolve(event);
@@ -160,25 +166,38 @@ const handleLanguage: Handle = async function handleLanguage({ event, resolve })
 const authFirstPattern: Handle = async function authFirstPattern({ event, resolve }) {
 	const authenticated = !!event.locals.token;
 	const pathname = event.url.pathname;
-	const redirectToParam = event.url.searchParams.get('redirectTo');
 
 	// Extract language from path (e.g., /en/signin -> en)
 	const langMatch = pathname.match(/^\/([a-z]{2})\//);
 	const lang = langMatch ? langMatch[1] : DEFAULT_LANGUAGE;
 
 	if (isAuthPage(pathname) && authenticated) {
+		// Defer searchParams access to avoid errors during prerendering
+		const redirectToParam = event.url.searchParams.get('redirectTo');
 		const destination = safeRedirectPath(redirectToParam ?? '', `/${lang}/app`);
 		redirect(307, destination);
 	}
 	if (isProtectedRoute(pathname) && !authenticated) {
-		const destination = `/${lang}/signin?redirectTo=${encodeURIComponent(event.url.pathname + event.url.search)}`;
+		let search = '';
+		try {
+			search = event.url.search;
+		} catch {
+			// During prerendering, url.search throws
+		}
+		const destination = `/${lang}/signin?redirectTo=${encodeURIComponent(event.url.pathname + search)}`;
 		redirect(307, destination);
 	}
 
 	// Admin routes require authentication AND admin role
 	if (isAdminRoute(pathname)) {
 		if (!authenticated) {
-			const destination = `/${lang}/signin?redirectTo=${encodeURIComponent(event.url.pathname + event.url.search)}`;
+			let search = '';
+			try {
+				search = event.url.search;
+			} catch {
+				// During prerendering, url.search throws
+			}
+			const destination = `/${lang}/signin?redirectTo=${encodeURIComponent(event.url.pathname + search)}`;
 			redirect(307, destination);
 		}
 		// Check admin role from JWT payload (fast, no Convex query needed)
@@ -189,6 +208,22 @@ const authFirstPattern: Handle = async function authFirstPattern({ event, resolv
 	}
 
 	return resolve(event);
+};
+
+/**
+ * Set edge cache headers for unauthenticated marketing pages.
+ * Placed AFTER handleMarketingMarkdown — markdown requests return early
+ * (no resolve() call) so this hook is skipped for them, preserving
+ * the existing markdown 5-minute TTL.
+ */
+const handleCacheControl: Handle = async function handleCacheControl({ event, resolve }) {
+	const response = await resolve(event);
+
+	if (!event.locals.token && matchPublicMarketingRoute(event.url.pathname)) {
+		response.headers.set('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
+	}
+
+	return response;
 };
 
 /**
@@ -211,5 +246,6 @@ export const handle = sequence(
 	handleMarketingMarkdown,
 	handleLanguage,
 	authFirstPattern,
+	handleCacheControl,
 	handleSecurityHeaders
 );
