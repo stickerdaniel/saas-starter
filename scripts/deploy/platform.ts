@@ -10,6 +10,7 @@ export interface PlatformContext {
 /**
  * Sanitize a git branch name into a valid CF Workers preview alias.
  * Rules: lowercase letters, numbers, dashes only. Must start with a letter.
+ * NOTE: Duplicated in shell in .github/workflows/e2e-preview-cf.yml — keep in sync.
  */
 export function sanitizeBranchAlias(branch: string): string {
 	const sanitized = branch
