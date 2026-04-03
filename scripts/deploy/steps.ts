@@ -85,12 +85,13 @@ export function validateConvexEnv(platform: PlatformContext, deployment?: Convex
  */
 export function deployConvex(platform: PlatformContext): ConvexDeployment {
 	const args = ['convex', 'deploy'];
-	const env: Record<string, string | undefined> = { ...process.env };
 
 	if (platform.isPreview) {
 		const previewKey = process.env.CONVEX_PREVIEW_DEPLOY_KEY;
 		if (previewKey) {
-			env.CONVEX_DEPLOY_KEY = previewKey;
+			// Set on process.env so all subsequent Convex CLI commands
+			// (env set, run) in setupPreviewEnv() also use the preview key
+			process.env.CONVEX_DEPLOY_KEY = previewKey;
 			console.log('Using Convex preview deploy key');
 		}
 		// CF Workers Builds isn't in Convex's auto-detection list for --preview-create,
@@ -101,7 +102,7 @@ export function deployConvex(platform: PlatformContext): ConvexDeployment {
 	}
 
 	console.log('Deploying Convex functions...');
-	const result = runCommandCapture('bunx', args, env);
+	const result = runCommandCapture('bunx', args);
 
 	if (result.stdout) console.log(result.stdout);
 	if (result.stderr) console.error(result.stderr);
