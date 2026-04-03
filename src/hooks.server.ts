@@ -221,6 +221,8 @@ const handleCacheControl: Handle = async function handleCacheControl({ event, re
 
 	if (!event.locals.token && matchPublicMarketingRoute(event.url.pathname)) {
 		response.headers.set('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
+		// These URLs also serve markdown via Accept header — Vary prevents cache cross-contamination
+		response.headers.set('Vary', 'Accept');
 	}
 
 	return response;

@@ -32,13 +32,15 @@ const original = fs.readFileSync(WORKER_PATH, 'utf-8');
 //
 // We need to add: && !wantsMarkdown  to skip static serving for markdown requests.
 
-// Match the condition that gates static asset / prerendered serving.
-// The pattern is: if (is_static_asset || prerendered.has(pathname) ...
-const PATTERN = /(if\s*\()(is_static_asset\s*\|\|\s*prerendered\.has\(pathname\))/;
+// Match the entire if-condition that gates static asset / prerendered serving.
+// Captures everything between `if (` and the closing `)` before `{` or newline.
+// The condition includes: is_static_asset || prerendered.has(pathname) || pathname === version_file || pathname.startsWith(immutable)
+// We must wrap ALL disjuncts, not just the first two, to avoid `(!md && (A||B)) || C` precedence bugs.
+const PATTERN = /(if\s*\()(is_static_asset\s*\|\|[^)]+prerendered\.has\(pathname\)[^)]*)\)/;
 
 if (!PATTERN.test(original)) {
 	console.error(
-		'[patch-cf-worker] Could not find the prerendered check pattern in the worker. ' +
+		'[patch-cf-worker] Could not find the static-serving condition in the worker. ' +
 			'The adapter-cloudflare output may have changed. Skipping patch.'
 	);
 	process.exit(1);
@@ -46,7 +48,7 @@ if (!PATTERN.test(original)) {
 
 const patched = original.replace(
 	PATTERN,
-	`const __wantsMarkdown = /\\btext\\/markdown\\b/i.test(req.headers.get("accept") || "");\n$1!__wantsMarkdown && ($2)`
+	`const __wantsMarkdown = /\\btext\\/markdown\\b/i.test(req.headers.get("accept") || "");\n$1!__wantsMarkdown && ($2))`
 );
 
 if (patched === original) {
