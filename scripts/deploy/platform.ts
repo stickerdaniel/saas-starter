@@ -19,7 +19,8 @@ export function sanitizeBranchAlias(branch: string): string {
 		.replace(/-+/g, '-')
 		.replace(/^-|-$/g, '')
 		.replace(/^[0-9]/, 'b-$&')
-		.slice(0, 40);
+		.slice(0, 50) // DNS-aware: 63 - 1 (dash) - 12 (saas-starter) = 50
+		.replace(/-$/, ''); // trim trailing dash that truncation may introduce
 	return sanitized || 'branch';
 }
 

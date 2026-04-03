@@ -1,5 +1,5 @@
 import fs from 'fs';
-import type { PlatformContext } from './platform';
+import { sanitizeBranchAlias, type PlatformContext } from './platform';
 import { colors, runCommand, runCommandCapture, runCommandWithRetry, stripAnsi } from './utils';
 
 export interface ConvexDeployment {
@@ -103,6 +103,12 @@ export function deployConvex(platform: PlatformContext): ConvexDeployment {
 		// so pass the branch name explicitly
 		if (platform.gitRef) {
 			args.push('--preview-create', platform.gitRef);
+			// Write alias for the deploy command to pass as --preview-alias to wrangler.
+			// CF Workers skips alias creation for branches starting with digits,
+			// so we force our sanitized alias to ensure the preview URL exists.
+			const alias = sanitizeBranchAlias(platform.gitRef);
+			fs.writeFileSync('.preview-alias', alias);
+			console.log(`Preview alias: ${alias}`);
 		}
 	}
 
