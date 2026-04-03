@@ -12,6 +12,7 @@
 		"postinstall": "bun svelte-kit sync && varlock typegen && varlock typegen --path .env-convex.schema && bun run build:emails",
 		"prebuild": "bun run build:emails",
 		"build": "vite build",
+		"postbuild": "bun scripts/patch-cf-worker.ts",
 		"generate:logos": "bun scripts/generate-logos.ts",
 		"build:emails": "bun run generate:logos && tsx scripts/build-emails.ts",
 		"preview": "vite preview",
