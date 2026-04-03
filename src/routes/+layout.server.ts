@@ -64,31 +64,31 @@ export const load: LayoutServerLoad = async (event) => {
 	const authState = { isAuthenticated };
 	const fallbackViewer = getViewerFromJwt(event.locals.token);
 
-	const client = createConvexHttpClient({ token: event.locals.token });
+	// Only create Convex/Autumn clients when authenticated (avoids invalid URL during prerendering)
+	let customer = null;
+	let viewer = null;
 
-	// Autumn handlers for billing/subscription data
-	const { getCustomer } = createAutumnHandlers({
-		convexApi: (api as any).autumn,
-		createClient: () => client
-	});
+	if (isAuthenticated) {
+		const client = createConvexHttpClient({ token: event.locals.token });
 
-	// Fetch customer and viewer in PARALLEL for faster initial load
-	// Wrap getCustomer in try-catch to handle Autumn failures gracefully (e.g., in CI)
-	const [customer, viewer] = isAuthenticated
-		? await Promise.all([
-				getCustomer(event).catch((e) => {
-					console.error('[+layout.server.ts] Autumn getCustomer failed:', e);
-					return null;
-				}),
-				client.query(api.auth.getCurrentUser, {}).catch((e) => {
-					console.error(
-						'[+layout.server.ts] Viewer lookup failed, falling back to JWT payload:',
-						e
-					);
-					return fallbackViewer;
-				})
-			])
-		: [null, null];
+		const { getCustomer } = createAutumnHandlers({
+			convexApi: (api as any).autumn,
+			createClient: () => client
+		});
+
+		// Fetch customer and viewer in PARALLEL for faster initial load
+		// Wrap in try-catch to handle failures gracefully (e.g., in CI)
+		[customer, viewer] = await Promise.all([
+			getCustomer(event).catch((e) => {
+				console.error('[+layout.server.ts] Autumn getCustomer failed:', e);
+				return null;
+			}),
+			client.query(api.auth.getCurrentUser, {}).catch((e) => {
+				console.error('[+layout.server.ts] Viewer lookup failed, falling back to JWT payload:', e);
+				return fallbackViewer;
+			})
+		]);
+	}
 
 	return {
 		authState,

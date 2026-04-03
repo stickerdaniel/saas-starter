@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
-	import { page } from '$app/state';
+	import { authClient } from '$lib/auth-client';
 	import { onMount } from 'svelte';
 	import { getPosthog, onPosthogReady } from '$lib/analytics/posthog';
 
@@ -8,35 +8,43 @@
 	const isAuthenticated = $derived(auth.isAuthenticated);
 	let posthogReady = $state(false);
 
-	function markPosthogReady(): void {
-		posthogReady = true;
-	}
+	// Session user data recovers independently via cookies (works on prerendered pages)
+	let sessionUser = $state<{ id: string; email: string; name: string } | null>(null);
 
-	onMount(function onMountPosthogReady() {
+	onMount(function onMountPosthogIdentify() {
+		let unsubPosthog: (() => void) | undefined;
 		if (getPosthog()) {
-			markPosthogReady();
-			return;
+			posthogReady = true;
+		} else {
+			unsubPosthog = onPosthogReady(() => {
+				posthogReady = true;
+			});
 		}
 
-		return onPosthogReady(markPosthogReady);
+		const unsubSession = authClient.useSession().subscribe((s) => {
+			sessionUser = s.data?.user ?? null;
+		});
+
+		return () => {
+			unsubPosthog?.();
+			unsubSession();
+		};
 	});
 
 	function syncPosthogIdentify(): void {
-		const viewer = page.data.viewer;
-
 		if (!posthogReady) return;
 		const posthog = getPosthog();
 		if (!posthog) return;
 
-		if (isAuthenticated && viewer?.email) {
+		if (isAuthenticated && sessionUser?.email) {
 			const properties: Record<string, string> = {
-				email: viewer.email
+				email: sessionUser.email
 			};
 
-			if (viewer.name) properties.name = viewer.name;
-			if (viewer._id) properties.userId = viewer._id;
+			if (sessionUser.name) properties.name = sessionUser.name;
+			if (sessionUser.id) properties.userId = sessionUser.id;
 
-			posthog.identify(viewer.email, properties);
+			posthog.identify(sessionUser.email, properties);
 			return;
 		}
 
