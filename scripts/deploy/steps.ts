@@ -93,6 +93,11 @@ export function deployConvex(platform: PlatformContext): ConvexDeployment {
 			// (env set, run) in setupPreviewEnv() also use the preview key
 			process.env.CONVEX_DEPLOY_KEY = previewKey;
 			console.log('Using Convex preview deploy key');
+		} else if (process.env.CONVEX_DEPLOY_KEY) {
+			console.error(
+				`${colors.red}CONVEX_PREVIEW_DEPLOY_KEY not set for preview build — would deploy to production. Aborting.${colors.reset}`
+			);
+			process.exit(1);
 		}
 		// CF Workers Builds isn't in Convex's auto-detection list for --preview-create,
 		// so pass the branch name explicitly
