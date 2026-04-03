@@ -1,11 +1,11 @@
 /**
  * Platform-aware deployment script
  *
- * Supports Vercel, Cloudflare Pages, and unknown platforms.
+ * Supports Vercel, Cloudflare Workers/Pages, and unknown platforms.
  * Platform is auto-detected from environment variables.
  *
  * Handles:
- * - Platform detection (Vercel, Cloudflare Pages, unknown)
+ * - Platform detection (Vercel, Cloudflare Workers/Pages, unknown)
  * - Tolgee translation tagging and pulling (optional, skipped without TOLGEE_API_KEY)
  * - Convex environment variable validation (production and preview)
  * - Convex deployment
@@ -41,7 +41,7 @@ async function main(): Promise<void> {
 	}
 
 	// 3. Deploy Convex functions
-	const deployment = deployConvex();
+	const deployment = deployConvex(platform);
 
 	// 4. Preview: set SITE_URL, validate, seed admin
 	if (platform.isPreview) {
