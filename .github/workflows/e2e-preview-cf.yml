@@ -8,6 +8,9 @@ jobs:
   e2e-tests:
     name: E2E Tests
     runs-on: ubicloud-standard-2
+    permissions:
+      statuses: write
+      contents: read
     # Only run on successful CF Workers preview builds
     if: |
       github.event.check_run.app.slug == 'cloudflare-workers-and-pages' &&
@@ -32,7 +35,7 @@ jobs:
       - name: Compute preview URL
         run: |
           BRANCH="${{ github.event.check_run.check_suite.head_branch }}"
-          ALIAS=$(echo "$BRANCH" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g' | sed 's/-\+/-/g' | sed 's/^-//;s/-$//' | sed 's/^[0-9]/b-&/' | cut -c1-40)
+          ALIAS=$(echo "$BRANCH" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g' | sed 's/-\+/-/g' | sed 's/^-//;s/-$//' | sed 's/^[0-9]/b-&/' | cut -c1-50 | sed 's/-$//')
           [ -z "$ALIAS" ] && ALIAS="branch"
           PREVIEW_URL="https://${ALIAS}-${WORKERS_NAME}.${WORKERS_SUBDOMAIN}.workers.dev"
           echo "PREVIEW_URL=${PREVIEW_URL}" >> "$GITHUB_ENV"
