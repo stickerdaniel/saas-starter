@@ -467,6 +467,90 @@ Marketing routes that are NOT prerendered get edge caching via `handleCacheContr
 - Headers: `Cache-Control: public, s-maxage=3600, stale-while-revalidate=86400`
 - Placed AFTER `handleMarketingMarkdown` in `sequence()` to preserve markdown's own 5-minute TTL
 
+### Regression Guard Decision Tree
+
+When implementing a feature or fixing a bug, choose the right automated guard to prevent future regressions. Go through this decision tree **before marking work as done**.
+
+#### "Two separate data sources must agree"
+
+Examples: language lists in `svelte.config.js` vs `languages.ts`, env schema vs generated types.
+
+→ **Unit test** asserting equality between the two sources. Use when the sources live in different files/formats that lint can't cross-reference.
+Pattern: `scripts/prerender-sync.test.ts` asserts `svelte.config.js` languages match `languages.ts`.
+
+#### "This file must be registered / have a required sibling"
+
+Examples: marketing pages must be registered in `public-routes.ts`, marketing pages must have `page.md.ts` sibling.
+
+→ **ESLint custom rule** that checks filesystem or reads a registry file. Use when the check is "the file I'm editing is missing something" — fires immediately in the editor and on save.
+Pattern: `eslint/rules/require-marketing-route-registration.js`, `eslint/rules/require-marketing-markdown.js`.
+How to add: create rule in `eslint/rules/`, register in `eslint.config.js`, add test in `eslint/rules/<name>.test.ts`.
+
+#### "This pattern must never appear in code"
+
+Examples: hardcoded aria-labels, barrel icon imports, deprecated Tailwind tokens, bare `animate-spin`.
+
+→ **ESLint custom rule** (for AST-level patterns) or **banned pattern** in `scripts/static-checks.ts` (for simple string matching).
+Pattern: `eslint/rules/no-hardcoded-aria-label.js`, banned patterns list in `static-checks.ts`.
+
+#### "This build output must have specific properties"
+
+Examples: worker patch must wrap all disjuncts, prerendered pages must exist in output.
+
+→ **Unit test** on the build script/transform function.
+Pattern: `scripts/patch-cf-worker.test.ts` tests the patch against a realistic worker fixture.
+
+#### "User input must be validated"
+
+Examples: chat message length, email format, required fields.
+
+→ **Convex validator** (`v.*`) on the mutation/action args + client-side constraint (maxlength, pattern).
+Always validate at both layers.
+
+#### "This route requires authentication/authorization"
+
+Examples: `/app/*` requires login, `/admin/*` requires admin role.
+
+→ **Server hook** in `hooks.server.ts` (fast JWT check, no DB query).
+Pattern: `authFirstPattern` hook decodes JWT payload for role checks.
+E2E test for the redirect behavior.
+
+#### "This env var must be set / must not leak"
+
+Examples: API keys, auth secrets, billing keys.
+
+→ **Varlock schema** (`.env.schema` or `.env-convex.schema`) with `@sensitive` / `@optional` / `@public` directives.
+Pre-commit hook runs `varlock scan --staged` to catch leaks.
+
+#### "This user flow must keep working"
+
+Examples: login, signup, checkout, admin user management.
+
+→ **Playwright E2E test** in `e2e/`.
+Runs automatically on Vercel and CF preview deployments.
+
+#### "This utility function must handle edge cases"
+
+Examples: URL parsing, stream processing, optimistic updates.
+
+→ **Vitest unit test** co-located with the source file (`foo.test.ts` next to `foo.ts`).
+
+#### "This security header / policy must be present"
+
+Examples: CSP, HSTS, X-Frame-Options on all responses including static assets.
+
+→ **`_headers` file** (project root) for static assets + **server hook** for SSR responses.
+Both are needed — static assets bypass hooks.
+
+#### Guard execution timeline
+
+| When            | What runs                                                          | Catches                         |
+| --------------- | ------------------------------------------------------------------ | ------------------------------- |
+| **Pre-commit**  | varlock scan, static-checks (format, lint, types, banned patterns) | Secrets, style, types, patterns |
+| **CI (on PR)**  | Same as pre-commit + unit tests                                    | Everything above + logic errors |
+| **Post-deploy** | E2E tests on preview URL                                           | User flow regressions           |
+| **Runtime**     | Hooks, validators, rate limits                                     | Auth, input, abuse              |
+
 ### Library Conventions and Key Patterns
 
 #### Import Conventions
