@@ -80,11 +80,29 @@ export function validateConvexEnv(platform: PlatformContext, deployment?: Convex
 }
 
 /**
- * Deploy Convex functions and parse the deployment URL from output
+ * Deploy Convex functions and parse the deployment URL from output.
+ * For preview builds, swaps to a preview deploy key if CONVEX_PREVIEW_DEPLOY_KEY is set.
  */
-export function deployConvex(): ConvexDeployment {
+export function deployConvex(platform: PlatformContext): ConvexDeployment {
+	const args = ['convex', 'deploy'];
+
+	if (platform.isPreview) {
+		const previewKey = process.env.CONVEX_PREVIEW_DEPLOY_KEY;
+		if (previewKey) {
+			// Set on process.env so all subsequent Convex CLI commands
+			// (env set, run) in setupPreviewEnv() also use the preview key
+			process.env.CONVEX_DEPLOY_KEY = previewKey;
+			console.log('Using Convex preview deploy key');
+		}
+		// CF Workers Builds isn't in Convex's auto-detection list for --preview-create,
+		// so pass the branch name explicitly
+		if (platform.gitRef) {
+			args.push('--preview-create', platform.gitRef);
+		}
+	}
+
 	console.log('Deploying Convex functions...');
-	const result = runCommandCapture('bunx', ['convex', 'deploy']);
+	const result = runCommandCapture('bunx', args);
 
 	if (result.stdout) console.log(result.stdout);
 	if (result.stderr) console.error(result.stderr);
@@ -246,7 +264,7 @@ export async function setupPreviewEnv(
 
 			if (seedResult.success) {
 				console.log(`${colors.green}=== Preview Admin Seeded ===${colors.reset}`);
-				console.log(`  Email:    admin@preview.local`);
+				console.log(`  Email:    admin@preview.dev`);
 				console.log(`  Password: (set via PREVIEW_ADMIN_PASSWORD)`);
 				console.log(`${colors.green}============================${colors.reset}`);
 				if (seedResult.stdout) console.log(`  Result: ${seedResult.stdout}`);
