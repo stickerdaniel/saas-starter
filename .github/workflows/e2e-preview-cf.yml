@@ -81,3 +81,14 @@ jobs:
         with:
           name: playwright-report
           path: playwright-report/
+
+      - name: Report status to PR
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api repos/${{ github.repository }}/statuses/${{ github.event.check_run.head_sha }} \
+            -f state=${{ job.status == 'success' && 'success' || 'failure' }} \
+            -f context="E2E Tests" \
+            -f description="E2E Tests (CF Preview)" \
+            -f target_url="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
