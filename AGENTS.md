@@ -162,7 +162,7 @@ These commands use `varlock run` to load env vars from `.env.schema` + `.env.loc
 
 - `bun run i18n:cleanup` - Find every key that used to be in production but is now missing from the code; mark it as deprecated and stop calling it a production key.
 
-  Tags automatically set by the `scripts/vercel-deploy.ts` script:
+  Tags automatically set by the `scripts/deploy.ts` script:
 
 - `preview` - Automatically set for preview deployment keys
 - `production` - Automatically set for production deployment keys

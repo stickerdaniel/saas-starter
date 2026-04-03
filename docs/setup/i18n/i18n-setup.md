@@ -53,7 +53,7 @@ Self-hosting gives you unlimited keys and full control. The easiest way is using
 
 5. **Update Vercel environment variables** with the new `TOLGEE_API_KEY`
 
-That's it! The deploy script (`scripts/vercel-deploy.ts`) automatically reads from `.tolgeerc`, so no code changes needed.
+That's it! The deploy script (`scripts/deploy.ts`) automatically reads from `.tolgeerc`, so no code changes needed.
 
 ## Quick Start
 
