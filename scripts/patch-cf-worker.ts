@@ -9,8 +9,8 @@
  * This script patches the worker to check the Accept header and fall through to
  * server.respond() for markdown requests, preserving same-URL content negotiation.
  *
- * Only runs when WORKERS_CI is set (i.e., Cloudflare Workers builds).
- * On Vercel (adapter-auto), server.respond() always runs — no patch needed.
+ * Runs as postbuild for all builds. Skips gracefully when no worker file exists
+ * (e.g., Vercel via adapter-auto where server.respond() always runs).
  */
 
 import * as fs from 'node:fs';
@@ -41,7 +41,8 @@ const PATTERN = /(if\s*\()(is_static_asset\s*\|\|[^)]+prerendered\.has\(pathname
 if (!PATTERN.test(original)) {
 	console.error(
 		'[patch-cf-worker] Could not find the static-serving condition in the worker. ' +
-			'The adapter-cloudflare output may have changed. Skipping patch.'
+			'The adapter-cloudflare output may have changed. ' +
+			'Without this patch, prerendered marketing pages lose Accept: text/markdown support.'
 	);
 	process.exit(1);
 }

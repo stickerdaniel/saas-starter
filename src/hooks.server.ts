@@ -58,6 +58,17 @@ function isShadcnDemoRoute(pathname: string): boolean {
 	return /^\/[a-z]{2}\/shadcn-demo(\/|$)/.test(pathname);
 }
 
+/**
+ * Safely access event.url.search — throws during prerendering
+ */
+function safeUrlSearch(url: URL): string {
+	try {
+		return url.search;
+	} catch {
+		return '';
+	}
+}
+
 export function shouldBypassLanguageRedirect(pathname: string): boolean {
 	if (pathname.startsWith('/api')) {
 		return true;
@@ -147,14 +158,7 @@ const handleLanguage: Handle = async function handleLanguage({ event, resolve })
 
 		// Redirect to language-prefixed URL, preserving query params
 		const basePath = pathname === '/' ? `/${preferredLang}` : `/${preferredLang}${pathname}`;
-		// Use try-catch for url.search — inaccessible during prerendering
-		let search = '';
-		try {
-			search = event.url.search;
-		} catch {
-			// During prerendering, url.search throws
-		}
-		redirect(307, `${basePath}${search}`);
+		redirect(307, `${basePath}${safeUrlSearch(event.url)}`);
 	}
 
 	return resolve(event);
@@ -178,26 +182,14 @@ const authFirstPattern: Handle = async function authFirstPattern({ event, resolv
 		redirect(307, destination);
 	}
 	if (isProtectedRoute(pathname) && !authenticated) {
-		let search = '';
-		try {
-			search = event.url.search;
-		} catch {
-			// During prerendering, url.search throws
-		}
-		const destination = `/${lang}/signin?redirectTo=${encodeURIComponent(event.url.pathname + search)}`;
+		const destination = `/${lang}/signin?redirectTo=${encodeURIComponent(event.url.pathname + safeUrlSearch(event.url))}`;
 		redirect(307, destination);
 	}
 
 	// Admin routes require authentication AND admin role
 	if (isAdminRoute(pathname)) {
 		if (!authenticated) {
-			let search = '';
-			try {
-				search = event.url.search;
-			} catch {
-				// During prerendering, url.search throws
-			}
-			const destination = `/${lang}/signin?redirectTo=${encodeURIComponent(event.url.pathname + search)}`;
+			const destination = `/${lang}/signin?redirectTo=${encodeURIComponent(event.url.pathname + safeUrlSearch(event.url))}`;
 			redirect(307, destination);
 		}
 		// Check admin role from JWT payload (fast, no Convex query needed)
@@ -219,7 +211,11 @@ const authFirstPattern: Handle = async function authFirstPattern({ event, resolv
 const handleCacheControl: Handle = async function handleCacheControl({ event, resolve }) {
 	const response = await resolve(event);
 
-	if (!event.locals.token && matchPublicMarketingRoute(event.url.pathname)) {
+	if (
+		response.status === 200 &&
+		!event.locals.token &&
+		matchPublicMarketingRoute(event.url.pathname)
+	) {
 		response.headers.set('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
 		// These URLs also serve markdown via Accept header — Vary prevents cache cross-contamination
 		response.headers.set('Vary', 'Accept');
