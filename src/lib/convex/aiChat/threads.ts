@@ -1,5 +1,7 @@
 import { v } from 'convex/values';
-import { internalMutation, internalQuery } from '../_generated/server';
+import { internalMutation } from '../_generated/server';
+
+const THREAD_PREVIEW_LENGTH = 100;
 import { authedQuery, authedMutation } from '../functions';
 import { aiChatAgent } from './agent';
 import { components } from '../_generated/api';
@@ -29,14 +31,14 @@ export const listThreads = authedQuery({
 			.query('aiChatThreads')
 			.withIndex('by_user', (q) => q.eq('userId', userId))
 			.order('desc')
-			.collect();
+			.take(limit);
 
 		const validThreads = records
 			.filter((r) => !r.isWarm && r.lastMessage)
 			.sort((a, b) => (b.lastMessageAt ?? 0) - (a.lastMessageAt ?? 0));
 
 		return {
-			threads: validThreads.slice(0, limit).map((r) => ({
+			threads: validThreads.map((r) => ({
 				_id: r.threadId,
 				title: r.title,
 				lastMessage: r.lastMessage ?? undefined,
@@ -239,7 +241,10 @@ export const backfillThreadMetadata = internalMutation({
 			if (lastMsg?.text) {
 				await ctx.db.patch(record._id, {
 					title: agentThread?.title,
-					lastMessage: lastMsg.text.length > 100 ? lastMsg.text.slice(0, 100) : lastMsg.text,
+					lastMessage:
+						lastMsg.text.length > THREAD_PREVIEW_LENGTH
+							? lastMsg.text.slice(0, THREAD_PREVIEW_LENGTH)
+							: lastMsg.text,
 					lastMessageAt: lastMsg._creationTime
 				});
 				updated++;
@@ -247,27 +252,5 @@ export const backfillThreadMetadata = internalMutation({
 		}
 
 		return { updated, total: records.length };
-	}
-});
-
-/**
- * Internal query to verify thread ownership (used by actions that can't access ctx.db)
- */
-export const verifyOwnership = internalQuery({
-	args: {
-		threadId: v.string(),
-		userId: v.string()
-	},
-	handler: async (ctx, args) => {
-		const record = await ctx.db
-			.query('aiChatThreads')
-			.withIndex('by_thread', (q) => q.eq('threadId', args.threadId))
-			.first();
-
-		if (!record || record.userId !== args.userId) {
-			return null;
-		}
-
-		return { threadId: record.threadId };
 	}
 });

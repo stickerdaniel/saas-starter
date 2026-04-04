@@ -1,5 +1,7 @@
 import { internalAction, query } from '../_generated/server';
 import { v, ConvexError } from 'convex/values';
+
+const THREAD_PREVIEW_LENGTH = 100;
 import { internal } from '../_generated/api';
 import { aiChatAgent } from './agent';
 import { paginationOptsValidator } from 'convex/server';
@@ -82,7 +84,10 @@ export const sendMessage = authedMutation({
 
 		// Denormalize: update lastMessage on the thread record for sidebar display
 		await ctx.db.patch(record._id, {
-			lastMessage: args.prompt.length > 100 ? args.prompt.slice(0, 100) : args.prompt,
+			lastMessage:
+				args.prompt.length > THREAD_PREVIEW_LENGTH
+					? args.prompt.slice(0, THREAD_PREVIEW_LENGTH)
+					: args.prompt,
 			lastMessageAt: Date.now()
 		});
 
@@ -143,7 +148,10 @@ export const createAIResponse = internalAction({
 		if (responseText) {
 			await ctx.runMutation(internal.aiChat.threads.updateThreadMetadata, {
 				threadId: args.threadId,
-				lastMessage: responseText.length > 100 ? responseText.slice(0, 100) : responseText,
+				lastMessage:
+					responseText.length > THREAD_PREVIEW_LENGTH
+						? responseText.slice(0, THREAD_PREVIEW_LENGTH)
+						: responseText,
 				lastMessageAt: Date.now()
 			});
 		}

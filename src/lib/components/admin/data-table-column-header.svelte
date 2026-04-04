@@ -4,11 +4,10 @@
 	import ArrowDownIcon from '@tabler/icons-svelte/icons/arrow-down';
 	import ArrowsVerticalIcon from '@tabler/icons-svelte/icons/arrows-sort';
 	import { Button } from '$lib/components/ui/button/index.js';
-	import type { AdminUserData } from '$lib/convex/admin/types';
 	import { T } from '@tolgee/svelte';
 
 	type Props = {
-		column?: Column<AdminUserData, unknown>;
+		column?: Column<any, unknown>;
 		titleKey: string;
 		class?: string;
 		testId?: string;

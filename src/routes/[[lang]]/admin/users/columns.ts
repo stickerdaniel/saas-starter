@@ -2,7 +2,7 @@ import type { ColumnDef } from '@tanstack/table-core';
 import { createRawSnippet } from 'svelte';
 import { renderComponent, renderSnippet } from '$lib/components/ui/data-table/index.js';
 import DataTableCheckbox from '$lib/components/data-table-checkbox.svelte';
-import DataTableColumnHeader from './data-table-column-header.svelte';
+import DataTableColumnHeader from '$lib/components/admin/data-table-column-header.svelte';
 import DataTableActions from './data-table-actions.svelte';
 import type { AdminUserData } from '$lib/convex/admin/types';
 import StatusBadge from './status-badge.svelte';

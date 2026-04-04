@@ -3,7 +3,7 @@ import { createRawSnippet } from 'svelte';
 import { renderComponent, renderSnippet } from '$lib/components/ui/data-table/index.js';
 import type { NotificationRecipient } from '$lib/convex/admin/notificationPreferences/queries';
 import DataTableCheckbox from '$lib/components/data-table-checkbox.svelte';
-import DataTableColumnHeader from './data-table-column-header.svelte';
+import DataTableColumnHeader from '$lib/components/admin/data-table-column-header.svelte';
 import RecipientsActions from './recipients-actions.svelte';
 import RecipientsToggle from './recipients-toggle.svelte';
 import TypeBadge from './type-badge.svelte';
