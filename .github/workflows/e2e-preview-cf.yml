@@ -11,19 +11,16 @@ jobs:
     permissions:
       statuses: write
       contents: read
-    # Only run on successful CF Workers preview builds
+    # Only run on successful CF Workers preview builds (production builds lack Preview Alias URL)
     if: |
       github.event.check_run.app.slug == 'cloudflare-workers-and-pages' &&
       github.event.check_run.conclusion == 'success' &&
-      github.event.check_run.check_suite.head_branch != 'main'
+      contains(github.event.check_run.output.summary || '', 'Preview Alias URL')
     env:
       NODE_OPTIONS: --max-old-space-size=4096
       AUTH_E2E_TEST_SECRET: ${{ secrets.AUTH_E2E_TEST_SECRET }}
       CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
       CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
-      # Public values — use repo variables or defaults
-      WORKERS_NAME: ${{ vars.CF_WORKERS_NAME || 'saas-starter' }}
-      WORKERS_SUBDOMAIN: ${{ vars.CF_WORKERS_SUBDOMAIN || 'daniel-ce4' }}
 
     steps:
       - name: Checkout
@@ -31,13 +28,14 @@ jobs:
         with:
           ref: ${{ github.event.check_run.head_sha }}
 
-      # Replicate sanitizeBranchAlias() from scripts/deploy/platform.ts
-      - name: Compute preview URL
+      - name: Extract preview URL
         run: |
-          BRANCH="${{ github.event.check_run.check_suite.head_branch }}"
-          ALIAS=$(echo "$BRANCH" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g' | sed 's/-\+/-/g' | sed 's/^-//;s/-$//' | sed 's/^[0-9]/b-&/' | cut -c1-50 | sed 's/-$//')
-          [ -z "$ALIAS" ] && ALIAS="branch"
-          PREVIEW_URL="https://${ALIAS}-${WORKERS_NAME}.${WORKERS_SUBDOMAIN}.workers.dev"
+          SUMMARY="${{ github.event.check_run.output.summary }}"
+          PREVIEW_URL=$(echo "$SUMMARY" | grep 'Preview Alias URL:' | sed 's/.*Preview Alias URL: //' | tr -d '[:space:]')
+          if [ -z "$PREVIEW_URL" ]; then
+            echo "::error::No Preview Alias URL found in check_run output"
+            exit 1
+          fi
           echo "PREVIEW_URL=${PREVIEW_URL}" >> "$GITHUB_ENV"
           echo "Preview URL: ${PREVIEW_URL}"
 
