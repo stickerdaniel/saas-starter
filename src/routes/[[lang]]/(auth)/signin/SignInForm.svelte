@@ -90,6 +90,13 @@
 		event.preventDefault();
 		void onSubmit(event);
 	}
+
+	// Debug: override loading bar state for testing the state machine
+	let debugActive = $state(false);
+	let debugValue = $state(0);
+	let debugIndeterminate = $state(false);
+	const barValue = $derived(debugActive ? debugValue : signInProgress);
+	const barIndeterminate = $derived(debugActive ? debugIndeterminate : isLoading);
 </script>
 
 <form
@@ -99,7 +106,7 @@
 	novalidate
 	class="min-h-96"
 >
-	<LoadingBar value={signInProgress} indeterminate={isLoading} class="h-1 rounded-none" />
+	<LoadingBar value={barValue} indeterminate={barIndeterminate} class="h-1 rounded-none" />
 	<div class="p-6 md:p-8">
 		<Field.Group>
 			<div class="flex flex-col items-center gap-2 text-center">
@@ -197,3 +204,39 @@
 		</Field.Group>
 	</div>
 </form>
+
+<!-- Debug: LoadingBar state machine test controls -->
+<div class="fixed bottom-4 right-4 z-50 flex gap-2 rounded-lg border bg-card p-2 shadow-lg">
+	<button
+		class="rounded bg-primary px-3 py-1 text-xs text-primary-foreground"
+		onclick={() => {
+			debugActive = true;
+			debugIndeterminate = true;
+			debugValue = 0;
+		}}>Loading</button
+	>
+	<button
+		class="rounded bg-muted px-3 py-1 text-xs"
+		onclick={() => {
+			debugActive = true;
+			debugIndeterminate = false;
+			debugValue = 0;
+		}}>0%</button
+	>
+	<button
+		class="rounded bg-muted px-3 py-1 text-xs"
+		onclick={() => {
+			debugActive = true;
+			debugIndeterminate = false;
+			debugValue = 50;
+		}}>50%</button
+	>
+	<button
+		class="rounded bg-muted px-3 py-1 text-xs"
+		onclick={() => {
+			debugActive = true;
+			debugIndeterminate = false;
+			debugValue = 100;
+		}}>100%</button
+	>
+</div>

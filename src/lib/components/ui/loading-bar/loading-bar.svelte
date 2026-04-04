@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Progress as ProgressPrimitive } from 'bits-ui';
 	import { onMount } from 'svelte';
-	import { useMotionValue, useSpring, animate, useReducedMotion } from 'motion-sv';
+	import { useMotionValue, animate, useReducedMotion } from 'motion-sv';
 	import { getTranslate } from '@tolgee/svelte';
 	import { cn, type WithoutChildrenOrChild } from '$lib/utils.js';
 
@@ -40,8 +40,7 @@
 	// Initial values captured intentionally; $effect handles subsequent updates
 	const initialWidth = widthPercent;
 	const initialBlend = indeterminate ? 1 : 0;
-	const targetWidth = useMotionValue(initialWidth);
-	const springWidth = useSpring(targetWidth, { stiffness: 300, damping: 28 });
+	const springWidth = useMotionValue(initialWidth);
 
 	// Blend factor: 0 = deterministic, 1 = indeterminate
 	const blendFactor = useMotionValue(initialBlend);
@@ -50,14 +49,15 @@
 	let shimmerPhase = 0;
 	let pendingExit = false; // waiting for shimmer cycle to complete before blending back
 
-	// High-water mark: bar only moves forward; resets when value drops to 0
-	let highWaterMark = 0;
+	// Tracks whether the spring has settled at its target (prevents premature loop exit)
+	let springReachedTarget = false;
 
 	// The computed inline style, updated each frame
 	let backgroundStyle = $state('');
 	let rafId: number | null = null;
 	let lastFrameTime = 0;
 	let prevSpringWidth = 0;
+	let lastLogTime = 0; // debug: throttle render loop logs
 
 	const SHIMMER_PERIOD = 2; // seconds, base cycle duration
 	const SHIMMER_EXIT_MAX_SPEED = 2.5; // peak multiplier during exit ramp
@@ -73,16 +73,19 @@
 		return 1 - (1 - t) * (1 - t);
 	}
 
-	// Sync spring target when widthPercent changes (forward-only)
+	// Sync spring toward widthPercent with an explicit spring animation
+	let springAnim: ReturnType<typeof animate> | null = null;
 	$effect(() => {
-		if (widthPercent <= 0) {
-			// Reset: new form cycle
-			highWaterMark = 0;
-			targetWidth.set(0);
-		} else {
-			highWaterMark = Math.max(highWaterMark, widthPercent);
-			targetWidth.set(highWaterMark);
-		}
+		console.log(
+			`[LoadingBar ${performance.now().toFixed(0)}ms] effect: widthPercent=${widthPercent}, springWidth.current=${springWidth.get().toFixed(1)}`
+		);
+		springAnim?.cancel();
+		springAnim = animate(springWidth, widthPercent, {
+			type: 'spring',
+			stiffness: 300,
+			damping: 28
+		});
+		springReachedTarget = false;
 	});
 
 	function blendTowardsDeterministic() {
@@ -106,6 +109,17 @@
 		if (indeterminate) {
 			pendingExit = false;
 
+			// Sync shimmer phase so strips start at/ahead of current bar position (no backward sweep)
+			// strip1 covers phase 0–0.66, maps via easeOut to position -150..250
+			// Invert: find phase where strip1Pos ≥ current bar left edge
+			const currentLeft = startPercent + springWidth.get();
+			// strip1Pos = lerp(-150, 250, easeOut(phase / 0.66))
+			// Solve for phase: easeOut(p/0.66) = (currentLeft - (-150)) / (250 - (-150))
+			const normalizedPos = Math.min(Math.max((currentLeft + 150) / 400, 0), 1);
+			// Invert easeOut (1-(1-t)^2): t = 1 - sqrt(1 - normalizedPos)
+			const rawT = 1 - Math.sqrt(Math.max(1 - normalizedPos, 0));
+			shimmerPhase = Math.min(rawT * 0.66, 0.65); // keep in strip1 range
+
 			const durationSec = Math.max(0, transitionMs) / 1000;
 			if (reducedMotion.current) {
 				blendFactor.set(1);
@@ -128,7 +142,7 @@
 		lastFrameTime = now;
 
 		const blend = blendFactor.get();
-		const barW = springWidth.get();
+		const barW = Math.max(0, springWidth.get());
 		const startP = startPercent;
 
 		// Advance shimmer phase when blend > 0 (keeps strips moving forward during blend-back)
@@ -183,11 +197,25 @@
 				` no-repeat linear-gradient(color-mix(in srgb, var(--primary) ${s2Alpha}%, transparent) 0 0) ${strip2Pos}% 0 / 60% 100%;`;
 		}
 
-		// Stop loop when fully idle (blend settled at 0 and spring stopped moving)
-		const springSettled = blend < 0.001 && Math.abs(barW - prevSpringWidth) < 0.01;
+		// Stop loop when fully idle (blend settled at 0 and spring reached its target)
+		if (!springReachedTarget && Math.abs(barW - prevSpringWidth) < 0.01) {
+			springReachedTarget = Math.abs(barW - widthPercent) < 0.1;
+		}
+		const springSettled = blend < 0.001 && springReachedTarget;
 		prevSpringWidth = barW;
 
+		// Debug: throttled logging
+		if (now - lastLogTime > 500) {
+			console.log(
+				`[LoadingBar ${now.toFixed(0)}ms] frame: barW=${barW.toFixed(1)}, blend=${blend.toFixed(3)}, settled=${springSettled}, reached=${springReachedTarget}, widthPercent=${widthPercent}`
+			);
+			lastLogTime = now;
+		}
+
 		if (springSettled && !pendingExit) {
+			console.log(
+				`[LoadingBar ${now.toFixed(0)}ms] loop STOPPED: springReached=${springReachedTarget}, blend=${blend.toFixed(3)}, barW=${barW.toFixed(1)}`
+			);
 			rafId = null;
 			lastFrameTime = 0;
 		} else {
