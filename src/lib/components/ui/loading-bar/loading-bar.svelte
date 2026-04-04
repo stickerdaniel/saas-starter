@@ -48,7 +48,6 @@
 
 	// Shimmer phase (0..1), advanced procedurally in the render loop
 	let shimmerPhase = 0;
-	let shimmerFrozen = false;
 	let pendingExit = false; // waiting for shimmer cycle to complete before blending back
 
 	// High-water mark: bar only moves forward; resets when value drops to 0
@@ -97,7 +96,8 @@
 				ease: [0.23, 1, 0.32, 1]
 			});
 		}
-		shimmerFrozen = true;
+		// Don't freeze shimmer — strips continue forward during blend-back
+		// so they converge on deterministic position from the left (no backward sweep)
 	}
 
 	// Animate blendFactor when indeterminate changes
@@ -105,7 +105,6 @@
 	$effect(() => {
 		if (indeterminate) {
 			pendingExit = false;
-			shimmerFrozen = false;
 
 			const durationSec = Math.max(0, transitionMs) / 1000;
 			if (reducedMotion.current) {
@@ -132,8 +131,8 @@
 		const barW = springWidth.get();
 		const startP = startPercent;
 
-		// Advance shimmer phase only when not frozen and blend > 0
-		if (blend > 0 && !shimmerFrozen && !reducedMotion.current) {
+		// Advance shimmer phase when blend > 0 (keeps strips moving forward during blend-back)
+		if (blend > 0 && !reducedMotion.current) {
 			const prevPhase = shimmerPhase;
 			// When exit is pending, gradually ramp speed (ease-in: starts gentle, builds up)
 			let speed = 1;
@@ -142,16 +141,12 @@
 				const eased = rampT * rampT; // quadratic ease-in
 				speed = 1 + (SHIMMER_EXIT_MAX_SPEED - 1) * eased;
 			}
-			const nextPhase = (shimmerPhase + (dt * speed) / SHIMMER_PERIOD) % 1;
+			shimmerPhase = (shimmerPhase + (dt * speed) / SHIMMER_PERIOD) % 1;
 
-			// Detect cycle completion (phase wraps around)
-			if (pendingExit && nextPhase < prevPhase) {
-				// Freeze at end-of-cycle (both strips offscreen right) — don't start a new sweep
-				shimmerPhase = 0.999;
+			// Detect cycle completion (phase wraps around) — start blend-back
+			if (pendingExit && shimmerPhase < prevPhase) {
 				pendingExit = false;
 				blendTowardsDeterministic();
-			} else {
-				shimmerPhase = nextPhase;
 			}
 		} else if (pendingExit && reducedMotion.current) {
 			// Reduced motion: don't wait for cycle, exit immediately
