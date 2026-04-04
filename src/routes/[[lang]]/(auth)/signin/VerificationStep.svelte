@@ -17,7 +17,7 @@
 </script>
 
 <div class="min-h-96">
-	<LoadingBar value={100} class="h-1 rounded-none" />
+	<LoadingBar value={100} mode="progress" class="h-1 rounded-none" />
 	<div class="flex h-full flex-col justify-center p-6 md:p-8">
 		<Field.Group>
 			<div class="flex flex-col items-center gap-2 text-center">
