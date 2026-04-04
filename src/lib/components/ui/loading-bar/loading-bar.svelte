@@ -47,7 +47,7 @@
 
 	// Shimmer phase (0..1), advanced procedurally in the render loop
 	let shimmerPhase = 0;
-	let pendingExit = false; // waiting for shimmer cycle to complete before blending back
+	let exitStartTime = 0; // timestamp when blend-back started (0 = not exiting)
 
 	// Tracks whether the spring has settled at its target (prevents premature loop exit)
 	let springReachedTarget = false;
@@ -57,12 +57,10 @@
 	let rafId: number | null = null;
 	let lastFrameTime = 0;
 	let prevSpringWidth = 0;
-	let lastLogTime = 0; // debug: throttle render loop logs
 
 	const SHIMMER_PERIOD = 2; // seconds, base cycle duration
 	const SHIMMER_EXIT_MAX_SPEED = 2.5; // peak multiplier during exit ramp
 	const SHIMMER_EXIT_RAMP = 0.6; // seconds to reach peak speed (ease-in)
-	let exitStartTime = 0; // timestamp when pendingExit was set
 
 	function lerp(a: number, b: number, t: number): number {
 		return a + (b - a) * t;
@@ -76,9 +74,6 @@
 	// Sync spring toward widthPercent with an explicit spring animation
 	let springAnim: ReturnType<typeof animate> | null = null;
 	$effect(() => {
-		console.log(
-			`[LoadingBar ${performance.now().toFixed(0)}ms] effect: widthPercent=${widthPercent}, springWidth.current=${springWidth.get().toFixed(1)}`
-		);
 		springAnim?.cancel();
 		springAnim = animate(springWidth, widthPercent, {
 			type: 'spring',
@@ -107,8 +102,7 @@
 	// Asymmetric: entering indeterminate is slower (system working), exiting is snappy (result arrived)
 	$effect(() => {
 		if (indeterminate) {
-			pendingExit = false;
-
+			exitStartTime = 0; // cancel any exit ramp
 			// Sync shimmer phase so strips start at/ahead of current bar position (no backward sweep)
 			// strip1 covers phase 0–0.66, maps via easeOut to position -150..250
 			// Invert: find phase where strip1Pos ≥ current bar left edge
@@ -131,9 +125,9 @@
 				});
 			}
 		} else if (blendFactor.get() > 0.001) {
-			// Exiting: wait for shimmer cycle to complete (gradually accelerated) before blending back
-			pendingExit = true;
+			// Immediately blend back — strips continue forward with gradual speed ramp
 			exitStartTime = performance.now();
+			blendTowardsDeterministic();
 		}
 	});
 
@@ -147,25 +141,16 @@
 
 		// Advance shimmer phase when blend > 0 (keeps strips moving forward during blend-back)
 		if (blend > 0 && !reducedMotion.current) {
-			const prevPhase = shimmerPhase;
-			// When exit is pending, gradually ramp speed (ease-in: starts gentle, builds up)
+			// Gradually ramp speed during exit (ease-in: starts gentle, builds up)
 			let speed = 1;
-			if (pendingExit) {
+			if (exitStartTime > 0) {
 				const rampT = Math.min((now - exitStartTime) / (SHIMMER_EXIT_RAMP * 1000), 1);
 				const eased = rampT * rampT; // quadratic ease-in
 				speed = 1 + (SHIMMER_EXIT_MAX_SPEED - 1) * eased;
 			}
 			shimmerPhase = (shimmerPhase + (dt * speed) / SHIMMER_PERIOD) % 1;
-
-			// Detect cycle completion (phase wraps around) — start blend-back
-			if (pendingExit && shimmerPhase < prevPhase) {
-				pendingExit = false;
-				blendTowardsDeterministic();
-			}
-		} else if (pendingExit && reducedMotion.current) {
-			// Reduced motion: don't wait for cycle, exit immediately
-			pendingExit = false;
-			blendTowardsDeterministic();
+		} else {
+			exitStartTime = 0; // blend fully settled, clear exit state
 		}
 
 		// Compute shimmer strip positions from phase (ease-out per sweep for organic feel)
@@ -204,18 +189,7 @@
 		const springSettled = blend < 0.001 && springReachedTarget;
 		prevSpringWidth = barW;
 
-		// Debug: throttled logging
-		if (now - lastLogTime > 500) {
-			console.log(
-				`[LoadingBar ${now.toFixed(0)}ms] frame: barW=${barW.toFixed(1)}, blend=${blend.toFixed(3)}, settled=${springSettled}, reached=${springReachedTarget}, widthPercent=${widthPercent}`
-			);
-			lastLogTime = now;
-		}
-
-		if (springSettled && !pendingExit) {
-			console.log(
-				`[LoadingBar ${now.toFixed(0)}ms] loop STOPPED: springReached=${springReachedTarget}, blend=${blend.toFixed(3)}, barW=${barW.toFixed(1)}`
-			);
+		if (springSettled) {
 			rafId = null;
 			lastFrameTime = 0;
 		} else {
