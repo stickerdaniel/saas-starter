@@ -466,6 +466,16 @@ Marketing routes that are NOT prerendered get edge caching via `handleCacheContr
 - Condition: unauthenticated + matches `matchPublicMarketingRoute()`
 - Headers: `Cache-Control: public, s-maxage=3600, stale-while-revalidate=86400`
 - Placed AFTER `handleMarketingMarkdown` in `sequence()` to preserve markdown's own 5-minute TTL
+- **Disabled on CF Workers preview deployments** — preview hostnames (`ALIAS-saas-starter.*.workers.dev`) skip `s-maxage` to prevent stale cached HTML from breaking `Accept: text/markdown` content negotiation.
+
+#### Cache purging (production)
+
+When a custom domain is added to CF Workers, add cache purging to the deploy flow (`scripts/cf-deploy.ts`) to prevent stale responses after production deploys:
+
+- CF API: `POST /zones/{zone_id}/purge_cache` with `{ "purge_everything": true }`
+- Docs: https://developers.cloudflare.com/api/resources/cache/methods/purge/
+- Requires: Zone ID + API token with `Cache Purge` permission
+- Not available for `.workers.dev` subdomains — only works with custom domains
 
 ### Regression Guard Decision Tree
 
