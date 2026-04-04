@@ -5,6 +5,7 @@
 	import ChatRoot from '$lib/chat/ui/ChatRoot.svelte';
 	import ChatMessages from '$lib/chat/ui/ChatMessages.svelte';
 	import ChatInput from '$lib/chat/ui/ChatInput.svelte';
+	import { PromptSuggestion } from '$lib/components/prompt-kit/prompt-suggestion';
 	import { ChatUIContext, type UploadConfig } from '$lib/chat/ui/ChatContext.svelte';
 	import { ChatCore } from '$lib/chat/core/ChatCore.svelte';
 	import { Button } from '$lib/components/ui/button';
@@ -102,6 +103,24 @@
 		</div>
 
 		<div class="relative z-20 mx-auto w-full max-w-3xl -translate-y-4">
+			{#if (chatCore.isNewConversation || chatUIContext.messagesReady) && chatUIContext.displayMessages.length === 0 && !chatUIContext.inputValue.trim() && hasMessagesAvailable && suggestions.length > 0}
+				<div class="mx-4 pb-2">
+					{#key chatCore.threadGeneration}
+						<div class="flex flex-wrap gap-2">
+							{#each suggestions as suggestion, i (suggestion.text)}
+								<div
+									class="motion-safe:animate-[chip-in_375ms_ease-out_both]"
+									style="animation-delay: {i * 50}ms"
+								>
+									<PromptSuggestion onclick={() => chatUIContext.setInputValue(suggestion.text)}>
+										{suggestion.label}
+									</PromptSuggestion>
+								</div>
+							{/each}
+						</div>
+					{/key}
+				</div>
+			{/if}
 			{#if !hasMessagesAvailable && !isPro}
 				<!-- Free user, out of messages: upgrade banner -->
 				<div
@@ -145,7 +164,7 @@
 			<ChatInput
 				class="mx-4"
 				placeholder={$t('ai_chat.input.placeholder')}
-				suggestions={hasMessagesAvailable ? suggestions : []}
+				suggestions={[]}
 				showFileButton={hasMessagesAvailable}
 				showHandoffButton={false}
 				isRateLimited={!hasMessagesAvailable}
