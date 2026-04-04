@@ -142,12 +142,16 @@
 				const eased = rampT * rampT; // quadratic ease-in
 				speed = 1 + (SHIMMER_EXIT_MAX_SPEED - 1) * eased;
 			}
-			shimmerPhase = (shimmerPhase + (dt * speed) / SHIMMER_PERIOD) % 1;
+			const nextPhase = (shimmerPhase + (dt * speed) / SHIMMER_PERIOD) % 1;
 
 			// Detect cycle completion (phase wraps around)
-			if (pendingExit && shimmerPhase < prevPhase) {
+			if (pendingExit && nextPhase < prevPhase) {
+				// Freeze at end-of-cycle (both strips offscreen right) — don't start a new sweep
+				shimmerPhase = 0.999;
 				pendingExit = false;
 				blendTowardsDeterministic();
+			} else {
+				shimmerPhase = nextPhase;
 			}
 		} else if (pendingExit && reducedMotion.current) {
 			// Reduced motion: don't wait for cycle, exit immediately
