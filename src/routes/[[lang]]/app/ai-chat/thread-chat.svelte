@@ -112,7 +112,14 @@
 									class="motion-safe:animate-[chip-in_375ms_ease-out_both]"
 									style="animation-delay: {i * 50}ms"
 								>
-									<PromptSuggestion onclick={() => chatUIContext.setInputValue(suggestion.text)}>
+									<PromptSuggestion
+										onclick={() => {
+											chatUIContext.setInputValue(suggestion.text);
+											tick().then(() => {
+												chatContainer?.querySelector<HTMLTextAreaElement>('textarea')?.focus();
+											});
+										}}
+									>
 										{suggestion.label}
 									</PromptSuggestion>
 								</div>
