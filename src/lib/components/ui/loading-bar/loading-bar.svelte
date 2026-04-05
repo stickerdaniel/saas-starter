@@ -1,16 +1,23 @@
 <script lang="ts">
 	import { Progress as ProgressPrimitive } from 'bits-ui';
-	import { watch } from 'runed';
+	import { onMount, untrack } from 'svelte';
+	import { useMotionValue, animate, useReducedMotion } from 'motion-sv';
 	import { getTranslate } from '@tolgee/svelte';
 	import { cn, type WithoutChildrenOrChild } from '$lib/utils.js';
+	import {
+		ENTER_LOADING_MS,
+		EXIT_LOADING_MS,
+		advanceLoopingPhase,
+		advanceRampedPhase,
+		getStripGeometry,
+		syncPhaseToProgress
+	} from './loading-bar-motion';
 
 	const { t } = getTranslate();
 
 	type LoadingBarProps = WithoutChildrenOrChild<ProgressPrimitive.RootProps> & {
-		start?: number;
+		mode: 'progress' | 'loading';
 		showBackground?: boolean;
-		indeterminate?: boolean;
-		transitionMs?: number;
 	};
 
 	let {
@@ -18,77 +25,139 @@
 		class: className,
 		max = 100,
 		value,
-		start = 0,
+		mode,
 		showBackground = true,
-		indeterminate = false,
-		transitionMs = 180,
 		...restProps
 	}: LoadingBarProps = $props();
 
 	const safeMax = $derived(Math.max(max ?? 100, 1));
-	const clampedStart = $derived(Math.min(Math.max(start, 0), safeMax));
 	const clampedValue = $derived(Math.min(Math.max(value ?? 0, 0), safeMax));
-	const startPercent = $derived((clampedStart / safeMax) * 100);
-	const widthPercent = $derived((Math.max(clampedValue - clampedStart, 0) / safeMax) * 100);
+	const progressPercent = $derived((clampedValue / safeMax) * 100);
 
-	let showDeterministic = $state(false);
-	let showIndeterminate = $state(false);
-	let deterministicOpacity = $state(0);
-	let indeterminateOpacity = $state(0);
-	let transitionTimer = $state<ReturnType<typeof setTimeout> | null>(null);
+	const reducedMotion = useReducedMotion();
 
-	function clearTransitionTimer() {
-		if (!transitionTimer) return;
-		clearTimeout(transitionTimer);
-		transitionTimer = null;
-	}
+	const initialWidth = untrack(() => progressPercent);
+	const initialBlend = untrack(() => (mode === 'loading' ? 1 : 0));
+	const springWidth = useMotionValue(initialWidth);
+	const blendFactor = useMotionValue(initialBlend);
 
-	function syncWithoutTransition(nextIndeterminate: boolean) {
-		showDeterministic = !nextIndeterminate;
-		showIndeterminate = nextIndeterminate;
-		deterministicOpacity = nextIndeterminate ? 0 : 1;
-		indeterminateOpacity = nextIndeterminate ? 1 : 0;
-	}
+	let shimmerPhase = 0;
+	let exitStartTime = 0;
+	let lastRequestedMode: 'progress' | 'loading' = untrack(() => mode);
+	let springReachedTarget = false;
 
-	function transitionBetweenModes(nextIndeterminate: boolean) {
-		clearTransitionTimer();
-		const fadeMs = Math.max(0, transitionMs);
+	let backgroundStyle = $state('');
+	let rafId: number | null = null;
+	let lastFrameTime = 0;
+	let prevSpringWidth = 0;
 
-		// Keep both layers mounted during the fade between deterministic and indeterminate states.
-		showDeterministic = true;
-		showIndeterminate = true;
+	// Sync spring toward progressPercent with an explicit spring animation
+	let springAnim: ReturnType<typeof animate> | null = null;
+	$effect(() => {
+		springAnim?.cancel();
+		springAnim = animate(springWidth, progressPercent, {
+			type: 'spring',
+			stiffness: 300,
+			damping: 28
+		});
+		springReachedTarget = false;
+	});
 
-		if (nextIndeterminate) {
-			deterministicOpacity = 0;
-			indeterminateOpacity = 1;
-			transitionTimer = setTimeout(() => {
-				showDeterministic = false;
-				transitionTimer = null;
-			}, fadeMs);
+	function animateBlendTo(target: number, durationMs: number) {
+		if (reducedMotion.current) {
+			blendFactor.set(target);
 			return;
 		}
 
-		deterministicOpacity = 1;
-		indeterminateOpacity = 0;
-		transitionTimer = setTimeout(() => {
-			showIndeterminate = false;
-			transitionTimer = null;
-		}, fadeMs);
+		animate(blendFactor, target, {
+			type: 'tween',
+			duration: durationMs / 1000,
+			ease: [0.23, 1, 0.32, 1]
+		});
 	}
 
-	// First call (prev === undefined) → init without transition; subsequent calls → animate
-	watch(
-		() => indeterminate,
-		(curr, prev) => {
-			if (prev === undefined) {
-				syncWithoutTransition(curr);
-			} else {
-				transitionBetweenModes(curr);
-			}
+	function startLoop() {
+		if (rafId !== null) return;
+		rafId = requestAnimationFrame(renderLoop);
+	}
 
-			return () => clearTransitionTimer();
+	// Handle mode transitions
+	$effect(() => {
+		if (mode === lastRequestedMode) return;
+
+		lastRequestedMode = mode;
+		lastFrameTime = 0;
+
+		if (mode === 'loading') {
+			exitStartTime = 0;
+			shimmerPhase = syncPhaseToProgress(springWidth.get());
+			animateBlendTo(1, ENTER_LOADING_MS);
+			startLoop();
+			return;
 		}
-	);
+
+		// Exit: immediately blend back with gradual speed ramp
+		if (reducedMotion.current || blendFactor.get() <= 0.001) {
+			exitStartTime = 0;
+		} else {
+			exitStartTime = performance.now();
+		}
+		animateBlendTo(0, EXIT_LOADING_MS);
+		startLoop();
+	});
+
+	function renderLoop(now: number) {
+		const dt = lastFrameTime ? (now - lastFrameTime) / 1000 : 0.016;
+		lastFrameTime = now;
+
+		const blend = blendFactor.get();
+		const progressWidth = Math.max(0, springWidth.get());
+
+		// Advance shimmer phase when blend > 0
+		if (blend > 0.001 && !reducedMotion.current) {
+			if (exitStartTime > 0) {
+				shimmerPhase = advanceRampedPhase(shimmerPhase, dt, now - exitStartTime);
+			} else {
+				shimmerPhase = advanceLoopingPhase(shimmerPhase, dt);
+			}
+		} else {
+			exitStartTime = 0;
+		}
+
+		if (reducedMotion.current && blend >= 0.5) {
+			backgroundStyle = `left: 0%; width: 100%; background: var(--primary);`;
+		} else {
+			const geometry = getStripGeometry(progressWidth, blend, shimmerPhase);
+			backgroundStyle = `left: ${geometry.left}%; width: ${geometry.width}%; background: var(--primary);`;
+		}
+
+		// Stop loop when fully idle
+		if (!springReachedTarget && Math.abs(progressWidth - prevSpringWidth) < 0.01) {
+			springReachedTarget = Math.abs(progressWidth - progressPercent) < 0.1;
+		}
+		const settled = blend < 0.001 && springReachedTarget && mode === 'progress';
+		prevSpringWidth = progressWidth;
+
+		if (settled) {
+			rafId = null;
+			lastFrameTime = 0;
+		} else {
+			rafId = requestAnimationFrame(renderLoop);
+		}
+	}
+
+	$effect(() => {
+		void progressPercent;
+		void mode;
+		startLoop();
+	});
+
+	onMount(() => {
+		startLoop();
+		return () => {
+			if (rafId !== null) cancelAnimationFrame(rafId);
+		};
+	});
 </script>
 
 <ProgressPrimitive.Root
@@ -104,64 +173,5 @@
 	{max}
 	{...restProps}
 >
-	{#if showIndeterminate}
-		<div
-			data-slot="progress-indicator"
-			class="loading-bar-indeterminate loading-bar-layer absolute inset-0"
-			style="opacity: {indeterminateOpacity}; --loading-bar-fade-ms: {Math.max(0, transitionMs)}ms;"
-		></div>
-	{/if}
-
-	{#if showDeterministic}
-		<div
-			class="loading-bar-layer absolute inset-0"
-			style="opacity: {deterministicOpacity}; --loading-bar-fade-ms: {Math.max(0, transitionMs)}ms;"
-		>
-			<div
-				data-slot="progress-indicator"
-				class="absolute inset-y-0 bg-primary transition-[left,width] duration-500"
-				style="left: {startPercent}%; width: {widthPercent}%;"
-			></div>
-		</div>
-	{/if}
+	<div data-slot="progress-indicator" class="absolute inset-y-0" style={backgroundStyle}></div>
 </ProgressPrimitive.Root>
-
-<style>
-	.loading-bar-layer {
-		transition-property: opacity;
-		transition-duration: var(--loading-bar-fade-ms, 180ms);
-		transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-	}
-
-	.loading-bar-indeterminate {
-		--loading-bar-color: no-repeat linear-gradient(var(--primary) 0 0);
-		background: var(--loading-bar-color), var(--loading-bar-color), transparent;
-		background-size: 60% 100%;
-		animation: loading-bar-indeterminate 3s infinite;
-	}
-
-	@media (prefers-reduced-motion: reduce) {
-		.loading-bar-indeterminate {
-			animation: none;
-			background-size: 100% 100%;
-		}
-	}
-
-	@keyframes loading-bar-indeterminate {
-		0% {
-			background-position:
-				-150% 0,
-				-150% 0;
-		}
-		66% {
-			background-position:
-				250% 0,
-				-150% 0;
-		}
-		100% {
-			background-position:
-				250% 0,
-				250% 0;
-		}
-	}
-</style>

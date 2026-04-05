@@ -64,7 +64,7 @@
 		<Card.Root class="overflow-hidden p-0">
 			<Card.Content class="grid p-0 md:grid-cols-2">
 				<div class="min-h-96">
-					<LoadingBar indeterminate class="h-1 rounded-none" />
+					<LoadingBar mode="loading" class="h-1 rounded-none" />
 					<div class="flex h-full flex-col justify-center p-6 md:p-8">
 						<div class="flex flex-col items-center gap-2 text-center">
 							<h1 class="text-2xl font-bold">
