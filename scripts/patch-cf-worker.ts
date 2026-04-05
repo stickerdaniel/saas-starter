@@ -1,13 +1,19 @@
 /**
  * Post-build patch for the Cloudflare Worker entry point.
  *
- * adapter-cloudflare's generated worker serves prerendered pages as static files
- * BEFORE calling server.respond(), which bypasses SvelteKit hooks. This breaks
- * the Accept: text/markdown content negotiation for marketing routes (used by
- * /llms.txt and AI agents).
+ * Two issues with adapter-cloudflare's generated worker:
  *
- * This script patches the worker to check the Accept header and fall through to
- * server.respond() for markdown requests, preserving same-URL content negotiation.
+ * 1. Prerendered pages are served as static files BEFORE calling server.respond(),
+ *    bypassing SvelteKit hooks. This breaks Accept: text/markdown negotiation.
+ *
+ * 2. The worktop cache layer ignores the Vary header (CF Cache API limitation),
+ *    so a cached HTML response is served for markdown requests on non-prerendered
+ *    pages like /en/pricing.
+ *
+ * This script patches the worker to:
+ * a) Detect markdown requests early (before cache lookup)
+ * b) Skip the worktop cache for markdown requests
+ * c) Skip static asset serving for markdown requests
  *
  * Runs as postbuild for all builds. Skips gracefully when no worker file exists
  * (e.g., Vercel via adapter-auto where server.respond() always runs).
@@ -22,6 +28,12 @@ import * as path from 'node:path';
 export const STATIC_SERVING_PATTERN =
 	/(if\s*\()(is_static_asset\s*\|\|[^)]+prerendered\.has\(pathname\)[^)]*)\)/;
 
+// Match the worktop cache lookup: `let res = !pragma.includes("no-cache") && await r2(req);`
+// We inject the __wantsMarkdown check here so markdown requests bypass the cache entirely.
+// CF Cache API ignores Vary headers, so cached HTML would be served for markdown requests.
+export const CACHE_LOOKUP_PATTERN =
+	/(let res = )(!pragma\.includes\("no-cache"\) && await \w+\(req\))/;
+
 /**
  * Apply the markdown passthrough patch to a worker source string.
  * Returns the patched source, or null if the pattern wasn't found.
@@ -31,10 +43,25 @@ export function applyMarkdownPatch(source: string): string | null {
 		return null;
 	}
 
-	const patched = source.replace(
-		STATIC_SERVING_PATTERN,
-		`const __wantsMarkdown = /\\btext\\/markdown\\b/i.test(req.headers.get("accept") || "");\n$1!__wantsMarkdown && ($2))`
-	);
+	// Step 1: Inject __wantsMarkdown detection before the cache lookup and skip cache
+	let patched = source;
+
+	if (CACHE_LOOKUP_PATTERN.test(patched)) {
+		patched = patched.replace(
+			CACHE_LOOKUP_PATTERN,
+			`const __wantsMarkdown = /\\btext\\/markdown\\b/i.test(req.headers.get("accept") || "");\n$1!__wantsMarkdown && $2`
+		);
+	} else {
+		// Fallback: inject before static serving (less ideal but still functional)
+		patched = patched.replace(
+			STATIC_SERVING_PATTERN,
+			`const __wantsMarkdown = /\\btext\\/markdown\\b/i.test(req.headers.get("accept") || "");\n$1!__wantsMarkdown && ($2))`
+		);
+		return patched === source ? null : patched;
+	}
+
+	// Step 2: Also skip static asset serving for markdown requests
+	patched = patched.replace(STATIC_SERVING_PATTERN, `$1!__wantsMarkdown && ($2))`);
 
 	return patched === source ? null : patched;
 }
