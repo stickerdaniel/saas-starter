@@ -1,7 +1,6 @@
 # SaaS Starter
 
 [![Static Checks](https://github.com/stickerdaniel/saas-starter/actions/workflows/static-checks.yml/badge.svg)](https://github.com/stickerdaniel/saas-starter/actions/workflows/static-checks.yml)
-[![E2E Tests (Vercel)](https://github.com/stickerdaniel/saas-starter/actions/workflows/e2e-preview-vercel.yml/badge.svg)](https://github.com/stickerdaniel/saas-starter/actions/workflows/e2e-preview-vercel.yml)
 [![E2E Tests (CF)](https://github.com/stickerdaniel/saas-starter/actions/workflows/e2e-preview-cf.yml/badge.svg)](https://github.com/stickerdaniel/saas-starter/actions/workflows/e2e-preview-cf.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-%233fb950)](https://opensource.org/licenses/MIT)
 
@@ -52,23 +51,11 @@ bunx convex env set KEY value                 # set backend env vars (see .env-c
 
 ## 2. Preview Deployments
 
-Each PR gets its own preview deployment with an isolated Convex preview backend. Supports both Vercel and Cloudflare Pages.
+Each PR gets its own preview deployment with an isolated Convex preview backend. Supports both Cloudflare Workers and Vercel.
 
 Create a Convex project at [dashboard.convex.dev](https://dashboard.convex.dev) and connect your repo to your hosting platform.
 
-The deploy script (`scripts/deploy.ts`) auto-detects the platform from environment variables (`VERCEL` or `CF_PAGES`), tags and pulls translations, runs `bunx convex deploy` to create a preview backend named after the branch, auto-computes `PUBLIC_CONVEX_URL` and `PUBLIC_CONVEX_SITE_URL` from the deploy output, and sets `SITE_URL` on the Convex instance to match the preview URL. When `PREVIEW_ADMIN_PASSWORD` is set, it also seeds an admin user.
-
-<details>
-<summary><strong>Vercel setup</strong></summary>
-
-Connect your repo to [Vercel](https://vercel.com). Set the required Vercel and Convex preview variables listed in the [environment variable matrix](#environment-variables) below.
-
-- Vercel: Project Settings > Environment Variables
-- Convex: Project settings > Default Environment Variables > Add with ✓ Production
-
-Push a branch and Vercel creates a preview deployment with its own Convex preview backend.
-
-</details>
+The deploy script (`scripts/deploy.ts`) auto-detects the platform from environment variables (`WORKERS_CI`, `CF_PAGES`, or `VERCEL`), tags and pulls translations, runs `bunx convex deploy` to create a preview backend named after the branch, auto-computes `PUBLIC_CONVEX_URL` and `PUBLIC_CONVEX_SITE_URL` from the deploy output, and sets `SITE_URL` on the Convex instance to match the preview URL. When `PREVIEW_ADMIN_PASSWORD` is set, it also seeds an admin user.
 
 <details>
 <summary><strong>Cloudflare Workers setup</strong></summary>
@@ -89,24 +76,36 @@ Push a branch and Workers Builds creates a preview deployment with a stable per-
 
 </details>
 
+<details>
+<summary><strong>Vercel setup</strong></summary>
+
+Connect your repo to [Vercel](https://vercel.com). Set the required Vercel and Convex preview variables listed in the [environment variable matrix](#environment-variables) below.
+
+- Vercel: Project Settings > Environment Variables
+- Convex: Project settings > Default Environment Variables > Add with ✓ Production
+
+Push a branch and Vercel creates a preview deployment with its own Convex preview backend.
+
+</details>
+
 Convex cleans up preview deployments after 5 days (14 days on Professional).
 
 ## 3. Production Deployment
 
 Set the required platform and Convex production variables listed in the [environment variable matrix](#environment-variables) below.
 
-- Platform: Project Settings > Environment Variables (Vercel or CF Workers)
+- Platform: Project Settings > Environment Variables (CF Workers or Vercel)
 - Convex: Select your Prod deployment > Settings > Environment Variables > Add
 
 ### Deploy
+
+**Cloudflare Workers:** Push to your production branch (default: `main`). Workers Builds deploys automatically, or deploy manually with `bunx wrangler deploy`.
 
 **Vercel:**
 
 ```bash
 vercel --prod
 ```
-
-**Cloudflare Workers:** Push to your production branch (default: `main`). Workers Builds deploys automatically, or deploy manually with `bunx wrangler deploy`.
 
 ### First Admin
 
@@ -115,6 +114,38 @@ Sign up on the site, then either set the user's role to `admin` in the Convex da
 ```bash
 bunx convex run admin/mutations:seedFirstAdmin '{"email":"you@example.com"}' --prod
 ```
+
+<details>
+<summary><strong>Custom domain without Cloudflare DNS (CF for SaaS)</strong></summary>
+
+CF Workers custom domains require the domain's DNS zone to be on Cloudflare. If your domain uses external DNS (e.g., registrar-managed DNS, Route 53), use [Cloudflare for SaaS](https://developers.cloudflare.com/cloudflare-for-platforms/cloudflare-for-saas/) (Custom Hostnames) on a CF-managed zone you control.
+
+**Prerequisites:**
+
+- A Cloudflare-managed zone (e.g., `proxy-zone.com` with DNS on CF)
+- Your external domain (e.g., `app.yourdomain.com` on non-CF DNS)
+
+**Steps:**
+
+1. In your CF zone's DNS, add an originless record for the fallback origin:
+   - Type: `AAAA`, Name: `saas-fallback`, Value: `100::`, Proxy: enabled
+
+2. In **SSL/TLS > Custom Hostnames**, set the fallback origin to `saas-fallback.proxy-zone.com`
+
+3. Add a wildcard Workers Route on the zone: `*/*` pointing to your Worker
+
+4. Add `app.yourdomain.com` as a Custom Hostname (certificate auto-provisions via HTTP validation)
+
+5. On your external DNS, add a CNAME: `app.yourdomain.com` pointing to `saas-fallback.proxy-zone.com`
+
+6. For automatic cert renewal, add a DCV delegation CNAME on your external DNS:
+   `_acme-challenge.app.yourdomain.com` pointing to `<token>.dcv.cloudflare.com` (shown in the Custom Hostnames dashboard)
+
+7. Set `SITE_URL` on your Convex production deployment to `https://app.yourdomain.com`
+
+The originless `100::` record tells Cloudflare there is no real origin server. The wildcard Workers Route catches all traffic entering the zone (including Custom Hostname traffic) and routes it to your Worker.
+
+</details>
 
 ---
 
@@ -145,7 +176,7 @@ Two runtimes, two schemas, both managed by [varlock](https://github.com/nickrees
 | `SUPPORT_EMAIL`          | Support contact email                     |   ○   |    ○    |  ○   |
 | `PREVIEW_ADMIN_PASSWORD` | Password for auto-seeded preview admin    |       |    ·    |      |
 
-**Hosting platform** (Vercel project settings or CF Pages environment variables):
+**Hosting platform** (CF Workers build settings or Vercel project settings):
 
 | Variable                 |                                                                  | Preview | Prod |
 | ------------------------ | ---------------------------------------------------------------- | :-----: | :--: |
@@ -154,7 +185,7 @@ Two runtimes, two schemas, both managed by [varlock](https://github.com/nickrees
 | `PREVIEW_ADMIN_PASSWORD` | Preview admin password                                           |    ○    |      |
 | `PUBLIC_POSTHOG_API_KEY` | PostHog analytics API key                                        |         |  ○   |
 | `PUBLIC_POSTHOG_HOST`    | PostHog analytics host                                           |         |  ○   |
-| `PRODUCTION_BRANCH`      | CF Pages only: production branch name (default: `main`)          |    ○    |  ○   |
+| `PRODUCTION_BRANCH`      | Cloudflare only: production branch name (default: `main`)        |    ○    |  ○   |
 
 </details>
 
