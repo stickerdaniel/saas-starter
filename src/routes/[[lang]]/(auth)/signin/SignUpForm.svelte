@@ -77,7 +77,11 @@
 	novalidate
 	class="min-h-96"
 >
-	<LoadingBar value={signUpProgress} indeterminate={isLoading} class="h-1 rounded-none" />
+	<LoadingBar
+		value={signUpProgress}
+		mode={isLoading ? 'loading' : 'progress'}
+		class="h-1 rounded-none"
+	/>
 	<div class="p-6 md:p-8">
 		<Field.Group>
 			<div class="flex flex-col items-center gap-2 text-center">

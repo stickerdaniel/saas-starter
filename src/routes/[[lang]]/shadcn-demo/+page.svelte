@@ -10,6 +10,7 @@
 	import { Separator } from '$lib/components/ui/separator';
 	import * as Avatar from '$lib/components/ui/avatar';
 	import { Progress } from '$lib/components/ui/progress';
+	import { LoadingBar } from '$lib/components/ui/loading-bar';
 	import CircleCheckIcon from '@lucide/svelte/icons/circle-check';
 
 	// Demo data
@@ -18,11 +19,58 @@
 	const userName = 'User';
 	const userAvatar = 'https://github.com/shadcn.png';
 	const { t } = getTranslate();
+
+	type LoadingBarDebugState =
+		| { mode: 'progress'; value: number; label: string }
+		| { mode: 'loading'; label: string };
+
+	let loadingBarDebugState = $state<LoadingBarDebugState>({
+		mode: 'progress',
+		value: 0,
+		label: 'Progress 0%'
+	});
+
+	function showEmptyProgress() {
+		loadingBarDebugState = { mode: 'progress', value: 0, label: 'Progress 0%' };
+	}
+
+	function showMidProgress() {
+		loadingBarDebugState = { mode: 'progress', value: 66, label: 'Progress 66%' };
+	}
+
+	function showLoading() {
+		loadingBarDebugState = { mode: 'loading', label: 'Loading sweep' };
+	}
 </script>
 
 <SEOHead title={$t('meta.shadcn_demo.title')} description={$t('meta.shadcn_demo.description')} />
 
 <div class="mx-auto max-w-[600px] py-10">
+	<Card.Root class="mb-8">
+		<Card.Header>
+			<Card.Title>Loading Bar Debug</Card.Title>
+			<Card.Description>
+				Temporary harness for switching between determinate progress and loading mode.
+			</Card.Description>
+		</Card.Header>
+
+		<Card.Content class="flex flex-col gap-4">
+			<LoadingBar
+				mode={loadingBarDebugState.mode}
+				value={loadingBarDebugState.mode === 'progress' ? loadingBarDebugState.value : undefined}
+				class="h-1 rounded-none"
+			/>
+
+			<div class="flex flex-wrap gap-2">
+				<Button onclick={showEmptyProgress} variant="outline">Progress 0%</Button>
+				<Button onclick={showMidProgress} variant="outline">Progress 66%</Button>
+				<Button onclick={showLoading}>Loading</Button>
+			</div>
+
+			<p class="text-sm text-muted-foreground">Current state: {loadingBarDebugState.label}</p>
+		</Card.Content>
+	</Card.Root>
+
 	<Card.Root>
 		<Card.Header>
 			<Card.Title>CardTitle</Card.Title>
