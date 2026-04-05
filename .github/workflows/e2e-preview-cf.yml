@@ -66,6 +66,9 @@ jobs:
           echo "PUBLIC_CONVEX_SITE_URL=$(echo "$CONFIG" | jq -r '.convexSiteUrl')" >> "$GITHUB_ENV"
           echo "PUBLIC_SITE_URL=${PREVIEW_URL}" >> "$GITHUB_ENV"
 
+      - name: Wait for Convex backend readiness
+        run: sleep 30
+
       - name: Log test configuration
         run: |
           echo "Testing against CF preview deployment:"
