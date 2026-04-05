@@ -208,7 +208,7 @@
 									.notificationEmail}?subject=Re: Your support request&body=Hi,%0A%0AThank you for reaching out!%0A%0A"
 								target="_blank"
 								rel="noopener noreferrer"
-								class="flex items-center gap-2 text-sm text-primary hover:underline"
+								class="flex items-center gap-2 text-sm text-primary hover:underline active:translate-y-px"
 							>
 								<span class="truncate">{thread.supportMetadata.notificationEmail}</span>
 								<ExternalLinkIcon class="size-3 shrink-0" />
@@ -225,7 +225,7 @@
 								href={thread.supportMetadata.pageUrl}
 								target="_blank"
 								rel="noopener noreferrer"
-								class="flex items-center gap-2 text-sm text-primary hover:underline"
+								class="flex items-center gap-2 text-sm text-primary hover:underline active:translate-y-px"
 							>
 								<span class="truncate">{thread.supportMetadata.pageUrl}</span>
 								<ExternalLinkIcon class="size-3 shrink-0" />
