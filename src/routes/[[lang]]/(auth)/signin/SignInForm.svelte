@@ -138,7 +138,7 @@
 						href={resolve(localizedHref('/forgot-password'))}
 						tabindex="-1"
 						onkeydown={handleForgotPasswordKeydown}
-						class="ms-auto text-sm text-muted-foreground underline-offset-2 hover:underline"
+						class="ms-auto text-sm text-muted-foreground underline-offset-2 hover:underline active:translate-y-px"
 					>
 						<T keyName="auth.signin.forgot_password" />
 					</a>
@@ -193,7 +193,7 @@
 							(redirectTo ? `?redirectTo=${encodeURIComponent(redirectTo)}` : '')
 					)}
 					onkeydown={handleSignUpLinkKeydown}
-					class="underline underline-offset-4"
+					class="underline underline-offset-4 active:translate-y-px"
 				>
 					<T keyName="auth.signin.link_signup" defaultValue="Sign up" />
 				</a>
