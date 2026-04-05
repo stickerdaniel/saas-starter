@@ -71,7 +71,7 @@ export class UseClipboard {
 	}
 }
 
-export async function copyText(text: string): Promise<'success' | 'failure'> {
+async function copyText(text: string): Promise<'success' | 'failure'> {
 	try {
 		if (navigator.clipboard && window.isSecureContext) {
 			await navigator.clipboard.writeText(text);

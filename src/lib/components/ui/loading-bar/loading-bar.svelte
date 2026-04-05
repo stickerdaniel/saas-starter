@@ -46,7 +46,11 @@
 	let lastRequestedMode: 'progress' | 'loading' = untrack(() => mode);
 	let springReachedTarget = false;
 
-	let backgroundStyle = $state('');
+	// Initialize with deterministic geometry to avoid flash before first rAF frame
+	const initialGeometry = getStripGeometry(initialWidth, initialBlend, 0);
+	let backgroundStyle = $state(
+		`left: ${initialGeometry.left}%; width: ${initialGeometry.width}%; background: var(--primary);`
+	);
 	let rafId: number | null = null;
 	let lastFrameTime = 0;
 	let prevSpringWidth = 0;
@@ -61,6 +65,7 @@
 			damping: 28
 		});
 		springReachedTarget = false;
+		return () => springAnim?.cancel();
 	});
 
 	function animateBlendTo(target: number, durationMs: number) {
@@ -135,7 +140,10 @@
 		if (!springReachedTarget && Math.abs(progressWidth - prevSpringWidth) < 0.01) {
 			springReachedTarget = Math.abs(progressWidth - progressPercent) < 0.1;
 		}
-		const settled = blend < 0.001 && springReachedTarget && mode === 'progress';
+		// Reduced motion: static bar, no animation needed — stop immediately
+		const reducedMotionSettled = reducedMotion.current && mode === 'loading';
+		const settled =
+			reducedMotionSettled || (blend < 0.001 && springReachedTarget && mode === 'progress');
 		prevSpringWidth = progressWidth;
 
 		if (settled) {
