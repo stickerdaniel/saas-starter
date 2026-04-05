@@ -1,5 +1,7 @@
 # CLAUDE/AGENTS.md
 
+> `CLAUDE.md` is a symlink to this file. Edit `AGENTS.md`, not the symlink.
+
 This project is a saas template built with SvelteKit, Convex, Typescript and modern web technologies.
 
 ### Cross-Platform Scripts
@@ -477,6 +479,11 @@ When a custom domain is added to CF Workers, add cache purging to the deploy flo
 - Requires: Zone ID + API token with `Cache Purge` permission
 - Not available for `.workers.dev` subdomains — only works with custom domains
 
+### Cloudflare Platform Gotchas
+
+- **CF Cache API ignores `Vary`.** Never rely on `Vary`-based content negotiation inside the worker. Bypass the worktop cache before it runs for any header-dependent response. See `scripts/patch-cf-worker.ts`.
+- **Prerendered pages bypass SvelteKit hooks.** Patch the worker to fall through to `server.respond()` for any hook-dependent behavior on prerendered routes. See `scripts/patch-cf-worker.ts`.
+
 ### Regression Guard Decision Tree
 
 When implementing a feature or fixing a bug, choose the right automated guard to prevent future regressions. Go through this decision tree **before marking work as done**.
@@ -516,6 +523,13 @@ Examples: chat message length, email format, required fields.
 
 → **Convex validator** (`v.*`) on the mutation/action args + client-side constraint (maxlength, pattern).
 Always validate at both layers.
+
+#### "This URL serves different content based on request headers"
+
+Examples: marketing pages return markdown or HTML depending on `Accept`.
+
+→ **Postbuild worker patch** (`scripts/patch-cf-worker.ts`) + **unit test** + E2E (`e2e/public-agent-surface.spec.ts`).
+Bypass both worktop cache and static asset serving for negotiated requests.
 
 #### "This route requires authentication/authorization"
 
