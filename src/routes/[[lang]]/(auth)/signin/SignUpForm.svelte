@@ -176,7 +176,7 @@
 						localizedHref('/signin') +
 							(redirectTo ? `?redirectTo=${encodeURIComponent(redirectTo)}` : '')
 					)}
-					class="underline underline-offset-4"
+					class="underline underline-offset-4 active:translate-y-px"
 				>
 					<T keyName="auth.signup.link_signin" defaultValue="Sign in" />
 				</a>
