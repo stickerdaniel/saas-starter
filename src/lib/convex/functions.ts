@@ -7,6 +7,7 @@
  * @see https://stack.convex.dev/custom-functions
  */
 import { customQuery, customMutation, customCtx } from 'convex-helpers/server/customFunctions';
+import { ConvexError } from 'convex/values';
 import { query, mutation } from './_generated/server';
 import { authComponent } from './auth';
 import type { BetterAuthUser } from './admin/types';
@@ -29,7 +30,7 @@ export const authedQuery = customQuery(
 	customCtx(async (ctx) => {
 		const user = (await authComponent.getAuthUser(ctx)) as BetterAuthUser | null;
 		if (!user) {
-			throw new Error('Authentication required');
+			throw new ConvexError('Authentication required');
 		}
 		return { user };
 	})
@@ -43,7 +44,7 @@ export const authedMutation = customMutation(
 	customCtx(async (ctx) => {
 		const user = (await authComponent.getAuthUser(ctx)) as BetterAuthUser | null;
 		if (!user) {
-			throw new Error('Authentication required');
+			throw new ConvexError('Authentication required');
 		}
 		return { user };
 	})
@@ -67,7 +68,7 @@ export const adminQuery = customQuery(
 	customCtx(async (ctx) => {
 		const user = (await authComponent.getAuthUser(ctx)) as BetterAuthUser | null;
 		if (!user || user.role !== 'admin') {
-			throw new Error('Unauthorized: Admin access required');
+			throw new ConvexError('Unauthorized: Admin access required');
 		}
 		return { user };
 	})
@@ -81,7 +82,7 @@ export const adminMutation = customMutation(
 	customCtx(async (ctx) => {
 		const user = (await authComponent.getAuthUser(ctx)) as BetterAuthUser | null;
 		if (!user || user.role !== 'admin') {
-			throw new Error('Unauthorized: Admin access required');
+			throw new ConvexError('Unauthorized: Admin access required');
 		}
 		return { user };
 	})

@@ -25,14 +25,11 @@ export default {
 		'src/lib/components/prompt-kit/**',
 		'src/lib/components/prompt-kit-blocks/**',
 		// shadcn UI components — installed via CLI, available for use
-		'src/lib/components/ui/chart/**',
 		'src/lib/components/ui/collapsible/**',
 		'src/lib/components/ui/command/**',
-		'src/lib/components/ui/form/**',
 		'src/lib/components/ui/FollowingPointer/**',
 		'src/lib/components/ui/light-switch/**',
 		'src/lib/components/ui/popover/**',
-		'src/lib/components/ui/toggle-group/**',
 		// Knip can't trace Svelte dynamic imports ({#await import(...)})
 		'src/lib/components/customer-support/**',
 		'src/lib/chat/**',
@@ -45,18 +42,11 @@ export default {
 		'@tailwindcss/forms',
 		'@tailwindcss/typography',
 		'tw-animate-css',
-		// Used by chart components (scaffolded, ignored above)
-		'd3-scale',
-		'd3-shape',
-		'layerchart',
 		// Used via @convex-dev/resend component internally
 		'resend',
 		// ESLint legacy compat — referenced in eslint.config.js as string
 		'@typescript-eslint/eslint-plugin',
 		'@typescript-eslint/parser',
-		// Form libraries — used in scaffolded form components (ignored above)
-		'formsnap',
-		'sveltekit-superforms',
 		// Used by customer-support screenshot editor (dynamic import, ignored above)
 		'@zumer/snapdom',
 		// Used via Svelte dynamic imports or runtime-only
@@ -72,9 +62,6 @@ export default {
 		'@useautumn/convex',
 		// Used by Better Auth internally
 		'@oslojs/crypto',
-		// Type definitions for d3 (used by chart scaffolding)
-		'@types/d3-scale',
-		'@types/d3-shape',
 		// Re-exported by @tolgee/svelte
 		'@tolgee/web'
 	],

@@ -39,6 +39,6 @@ describe('loading-bar motion helpers', () => {
 		expect(syncPhaseToProgress(50)).toBeGreaterThan(0);
 		expect(syncPhaseToProgress(100)).toBeGreaterThan(syncPhaseToProgress(50));
 		// Phase should always be in [0, 1)
-		expect(syncPhaseToProgress(160)).toBeLessThanOrEqual(1);
+		expect(syncPhaseToProgress(160)).toBeLessThan(1);
 	});
 });

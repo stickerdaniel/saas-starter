@@ -1,3 +1,5 @@
+const SUPPORT_PREVIEW_LENGTH = 500;
+
 export type SupportSearchFields = {
 	title?: string;
 	summary?: string;
@@ -35,7 +37,7 @@ export function buildSupportMessageDenormalization(args: {
 	userEmail?: string;
 	latestMessage?: SupportLatestThreadMessage;
 }) {
-	const lastMessage = args.latestMessage?.text?.slice(0, 500);
+	const lastMessage = args.latestMessage?.text?.slice(0, SUPPORT_PREVIEW_LENGTH);
 
 	return {
 		lastMessage,

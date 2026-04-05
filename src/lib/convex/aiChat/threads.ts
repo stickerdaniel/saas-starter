@@ -1,5 +1,5 @@
 import { v } from 'convex/values';
-import { internalMutation, internalQuery } from '../_generated/server';
+import { internalMutation } from '../_generated/server';
 import { authedQuery, authedMutation } from '../functions';
 import { aiChatAgent } from './agent';
 import { components } from '../_generated/api';
@@ -7,6 +7,8 @@ import { requireAiChatThreadRecord } from './ownership';
 
 // aiChatThreads is the feature registry for AI chat access and sidebar state.
 // agent:threads remains generic conversation storage/runtime shared across features.
+
+const THREAD_PREVIEW_LENGTH = 100;
 
 /**
  * List AI chat threads for the current user
@@ -25,11 +27,13 @@ export const listThreads = authedQuery({
 		const userId = ctx.user._id;
 		const limit = args.limit ?? 20;
 
+		// Fetch extra to account for warm/empty threads filtered out below
+		const fetchLimit = limit + 20;
 		const records = await ctx.db
 			.query('aiChatThreads')
 			.withIndex('by_user', (q) => q.eq('userId', userId))
 			.order('desc')
-			.collect();
+			.take(fetchLimit);
 
 		const validThreads = records
 			.filter((r) => !r.isWarm && r.lastMessage)
@@ -239,7 +243,10 @@ export const backfillThreadMetadata = internalMutation({
 			if (lastMsg?.text) {
 				await ctx.db.patch(record._id, {
 					title: agentThread?.title,
-					lastMessage: lastMsg.text.length > 100 ? lastMsg.text.slice(0, 100) : lastMsg.text,
+					lastMessage:
+						lastMsg.text.length > THREAD_PREVIEW_LENGTH
+							? lastMsg.text.slice(0, THREAD_PREVIEW_LENGTH)
+							: lastMsg.text,
 					lastMessageAt: lastMsg._creationTime
 				});
 				updated++;
@@ -247,27 +254,5 @@ export const backfillThreadMetadata = internalMutation({
 		}
 
 		return { updated, total: records.length };
-	}
-});
-
-/**
- * Internal query to verify thread ownership (used by actions that can't access ctx.db)
- */
-export const verifyOwnership = internalQuery({
-	args: {
-		threadId: v.string(),
-		userId: v.string()
-	},
-	handler: async (ctx, args) => {
-		const record = await ctx.db
-			.query('aiChatThreads')
-			.withIndex('by_thread', (q) => q.eq('threadId', args.threadId))
-			.first();
-
-		if (!record || record.userId !== args.userId) {
-			return null;
-		}
-
-		return { threadId: record.threadId };
 	}
 });

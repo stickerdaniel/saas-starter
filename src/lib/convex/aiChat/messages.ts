@@ -14,6 +14,8 @@ import { authComponent } from '../auth';
 import { getAutumnSdk } from '../autumn';
 import { requireAiChatThreadRecord } from './ownership';
 
+const THREAD_PREVIEW_LENGTH = 100;
+
 /**
  * Send a user message and get AI response with streaming.
  *
@@ -82,7 +84,10 @@ export const sendMessage = authedMutation({
 
 		// Denormalize: update lastMessage on the thread record for sidebar display
 		await ctx.db.patch(record._id, {
-			lastMessage: args.prompt.length > 100 ? args.prompt.slice(0, 100) : args.prompt,
+			lastMessage:
+				args.prompt.length > THREAD_PREVIEW_LENGTH
+					? args.prompt.slice(0, THREAD_PREVIEW_LENGTH)
+					: args.prompt,
 			lastMessageAt: Date.now()
 		});
 
@@ -143,7 +148,10 @@ export const createAIResponse = internalAction({
 		if (responseText) {
 			await ctx.runMutation(internal.aiChat.threads.updateThreadMetadata, {
 				threadId: args.threadId,
-				lastMessage: responseText.length > 100 ? responseText.slice(0, 100) : responseText,
+				lastMessage:
+					responseText.length > THREAD_PREVIEW_LENGTH
+						? responseText.slice(0, THREAD_PREVIEW_LENGTH)
+						: responseText,
 				lastMessageAt: Date.now()
 			});
 		}
