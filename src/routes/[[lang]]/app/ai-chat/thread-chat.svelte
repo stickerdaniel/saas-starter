@@ -142,7 +142,7 @@
 					</Button>
 				</div>
 			{:else if !hasMessagesAvailable && isPro}
-				<!-- Pro user, out of messages: no upgrade CTA -->
+				<!-- Pro user, out of messages -->
 				<div
 					class="mx-4 mb-2 flex items-center justify-between rounded-lg border border-border/50 bg-muted/50 px-4 py-3 backdrop-blur-sm"
 				>
@@ -151,8 +151,27 @@
 						<span><T keyName="ai_chat.alerts.limit_reached_pro" /></span>
 					</div>
 				</div>
-			{:else if totalMessages > 0 && remainingMessages > 0 && remainingMessages / totalMessages <= 1 / 3}
-				<!-- Pro user, low messages warning -->
+			{:else if !isPro && totalMessages > 0 && remainingMessages > 0 && remainingMessages / totalMessages <= 1 / 3}
+				<!-- Free user, low messages: upgrade nudge -->
+				<div
+					class="mx-4 mb-2 flex items-center justify-between rounded-lg border border-border/50 bg-muted/50 px-4 py-3 backdrop-blur-sm"
+				>
+					<div class="flex items-center gap-2 text-sm text-muted-foreground">
+						<span>
+							<T
+								keyName={remainingMessages !== 1
+									? 'ai_chat.alerts.low_messages_plural'
+									: 'ai_chat.alerts.low_messages'}
+								params={{ remaining: remainingMessages, total: totalMessages }}
+							/>
+						</span>
+					</div>
+					<Button size="sm" variant="outline" onclick={onUpgrade} disabled={isUpgrading}>
+						{isUpgrading ? $t('chat.buttons.processing') : $t('chat.buttons.upgrade')}
+					</Button>
+				</div>
+			{:else if isPro && totalMessages > 0 && remainingMessages > 0 && remainingMessages / totalMessages <= 1 / 3}
+				<!-- Pro user, low messages -->
 				<div
 					class="mx-4 mb-2 flex items-center justify-between rounded-lg border border-border/50 bg-muted/50 px-4 py-3 backdrop-blur-sm"
 				>
