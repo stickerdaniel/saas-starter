@@ -49,13 +49,19 @@ describe('patch-cf-worker', () => {
 		expect(result).toContain('!__wantsMarkdown && !pragma.includes("no-cache") && await r2(req)');
 	});
 
-	it('wraps ALL static-serving disjuncts', () => {
+	it('wraps ALL static-serving disjuncts without extra parens', () => {
 		const result = applyMarkdownPatch(WORKER_FIXTURE)!;
 
 		// The patched condition must be: !__wantsMarkdown && (A || B || C || D)
 		expect(result).toContain(
 			'!__wantsMarkdown && (is_static_asset || prerendered.has(pathname) || pathname === version_file || pathname.startsWith(immutable))'
 		);
+
+		// Verify correct paren nesting: if(!md && (...startsWith(immutable))) {
+		// Three closing parens is correct: startsWith() + wrapping group + if()
+		expect(result).toContain('pathname.startsWith(immutable))) {');
+		// But no quadruple parens (would indicate a regex bug)
+		expect(result).not.toContain('))))');
 	});
 
 	it('preserves the else branches unchanged', () => {
