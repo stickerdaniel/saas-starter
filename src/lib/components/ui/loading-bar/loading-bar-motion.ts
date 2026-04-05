@@ -59,5 +59,6 @@ export function advanceRampedPhase(phase: number, dt: number, elapsedMs: number)
  */
 export function syncPhaseToProgress(progressWidth: number): number {
 	const target = clamp01(progressWidth / (LOADING_SWEEP_END - LOADING_SWEEP_START));
-	return 1 - Math.sqrt(Math.max(1 - target, 0));
+	const phase = 1 - Math.sqrt(Math.max(1 - target, 0));
+	return Math.min(phase, 0.999); // keep in [0, 1) to avoid wrap discontinuity
 }
