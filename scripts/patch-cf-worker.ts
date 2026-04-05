@@ -22,11 +22,10 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
-// Match the entire if-condition that gates static asset / prerendered serving.
-// The condition includes: is_static_asset || prerendered.has(pathname) || pathname === version_file || pathname.startsWith(immutable)
-// We must wrap ALL disjuncts to avoid `(!md && (A||B)) || C` precedence bugs.
-export const STATIC_SERVING_PATTERN =
-	/(if\s*\()(is_static_asset\s*\|\|[^)]+prerendered\.has\(pathname\)[^)]*)\)/;
+// Match the entire if-condition body that gates static asset / prerendered serving.
+// The condition includes nested parens (e.g., prerendered.has(pathname), pathname.startsWith(immutable)),
+// so we match from `if (` up to the `) {` that closes the if-condition.
+export const STATIC_SERVING_PATTERN = /(if\s*\()(is_static_asset\b.+?\.startsWith\(immutable\))\)/;
 
 // Match the worktop cache lookup: `let res = !pragma.includes("no-cache") && await r2(req);`
 // We inject the __wantsMarkdown check here so markdown requests bypass the cache entirely.
@@ -52,7 +51,15 @@ export function applyMarkdownPatch(source: string): string | null {
 			`const __wantsMarkdown = /\\btext\\/markdown\\b/i.test(req.headers.get("accept") || "");\n$1!__wantsMarkdown && $2`
 		);
 	} else {
-		// Fallback: inject before static serving (less ideal but still functional)
+		// Warn if cache-like code exists but didn't match (pattern drift)
+		if (/await \w+\(req\)/.test(patched)) {
+			console.warn(
+				'[patch-cf-worker] WARNING: Detected a cache lookup but CACHE_LOOKUP_PATTERN did not match. ' +
+					'The worktop cache will NOT be bypassed for markdown requests. ' +
+					'Update CACHE_LOOKUP_PATTERN to match the new adapter output.'
+			);
+		}
+		// Fallback: inject before static serving (prerendered pages still fixed, cache bypass skipped)
 		patched = patched.replace(
 			STATIC_SERVING_PATTERN,
 			`const __wantsMarkdown = /\\btext\\/markdown\\b/i.test(req.headers.get("accept") || "");\n$1!__wantsMarkdown && ($2))`
