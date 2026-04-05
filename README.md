@@ -185,7 +185,7 @@ Two runtimes, two schemas, both managed by [varlock](https://github.com/nickrees
 | `PREVIEW_ADMIN_PASSWORD` | Preview admin password                                           |    ○    |      |
 | `PUBLIC_POSTHOG_API_KEY` | PostHog analytics API key                                        |         |  ○   |
 | `PUBLIC_POSTHOG_HOST`    | PostHog analytics host                                           |         |  ○   |
-| `PRODUCTION_BRANCH`      | CF Workers only: production branch name (default: `main`)        |    ○    |  ○   |
+| `PRODUCTION_BRANCH`      | Cloudflare only: production branch name (default: `main`)        |    ○    |  ○   |
 
 </details>
 
