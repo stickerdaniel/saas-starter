@@ -67,7 +67,18 @@ jobs:
           echo "PUBLIC_SITE_URL=${PREVIEW_URL}" >> "$GITHUB_ENV"
 
       - name: Wait for Convex backend readiness
-        run: sleep 30
+        run: |
+          echo "Waiting for Convex backend at: ${PUBLIC_CONVEX_SITE_URL}"
+          for i in $(seq 1 12); do
+            if curl -sf "${PUBLIC_CONVEX_SITE_URL}" > /dev/null; then
+              echo "Convex backend is ready (attempt $i)"
+              exit 0
+            fi
+            echo "Not ready yet (attempt $i/12), waiting 5s..."
+            sleep 5
+          done
+          echo "::error::Convex backend not ready after 60s: ${PUBLIC_CONVEX_SITE_URL}"
+          exit 1
 
       - name: Log test configuration
         run: |
