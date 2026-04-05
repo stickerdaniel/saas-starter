@@ -1,7 +1,5 @@
 import { internalAction, query } from '../_generated/server';
 import { v, ConvexError } from 'convex/values';
-
-const THREAD_PREVIEW_LENGTH = 100;
 import { internal } from '../_generated/api';
 import { aiChatAgent } from './agent';
 import { paginationOptsValidator } from 'convex/server';
@@ -15,6 +13,8 @@ import { authedMutation } from '../functions';
 import { authComponent } from '../auth';
 import { getAutumnSdk } from '../autumn';
 import { requireAiChatThreadRecord } from './ownership';
+
+const THREAD_PREVIEW_LENGTH = 100;
 
 /**
  * Send a user message and get AI response with streaming.

@@ -1,7 +1,5 @@
 import { v } from 'convex/values';
 import { internalMutation } from '../_generated/server';
-
-const THREAD_PREVIEW_LENGTH = 100;
 import { authedQuery, authedMutation } from '../functions';
 import { aiChatAgent } from './agent';
 import { components } from '../_generated/api';
@@ -9,6 +7,8 @@ import { requireAiChatThreadRecord } from './ownership';
 
 // aiChatThreads is the feature registry for AI chat access and sidebar state.
 // agent:threads remains generic conversation storage/runtime shared across features.
+
+const THREAD_PREVIEW_LENGTH = 100;
 
 /**
  * List AI chat threads for the current user
@@ -27,18 +27,20 @@ export const listThreads = authedQuery({
 		const userId = ctx.user._id;
 		const limit = args.limit ?? 20;
 
+		// Fetch extra to account for warm/empty threads filtered out below
+		const fetchLimit = limit + 20;
 		const records = await ctx.db
 			.query('aiChatThreads')
 			.withIndex('by_user', (q) => q.eq('userId', userId))
 			.order('desc')
-			.take(limit);
+			.take(fetchLimit);
 
 		const validThreads = records
 			.filter((r) => !r.isWarm && r.lastMessage)
 			.sort((a, b) => (b.lastMessageAt ?? 0) - (a.lastMessageAt ?? 0));
 
 		return {
-			threads: validThreads.map((r) => ({
+			threads: validThreads.slice(0, limit).map((r) => ({
 				_id: r.threadId,
 				title: r.title,
 				lastMessage: r.lastMessage ?? undefined,

@@ -46,7 +46,7 @@
 <SEOHead title={$t('meta.shadcn_demo.title')} description={$t('meta.shadcn_demo.description')} />
 
 <div class="mx-auto max-w-[600px] py-10">
-	<Card.Root class="mb-8">
+	<Card.Root class="mb-8" lang="en">
 		<Card.Header>
 			<Card.Title>Loading Bar Debug</Card.Title>
 			<Card.Description>

@@ -46,7 +46,11 @@
 	let lastRequestedMode: 'progress' | 'loading' = untrack(() => mode);
 	let springReachedTarget = false;
 
-	let backgroundStyle = $state('');
+	// Initialize with deterministic geometry to avoid flash before first rAF frame
+	const initialGeometry = getStripGeometry(initialWidth, initialBlend, 0);
+	let backgroundStyle = $state(
+		`left: ${initialGeometry.left}%; width: ${initialGeometry.width}%; background: var(--primary);`
+	);
 	let rafId: number | null = null;
 	let lastFrameTime = 0;
 	let prevSpringWidth = 0;
@@ -61,6 +65,7 @@
 			damping: 28
 		});
 		springReachedTarget = false;
+		return () => springAnim?.cancel();
 	});
 
 	function animateBlendTo(target: number, durationMs: number) {
