@@ -92,7 +92,10 @@
 			</InputGroup.Root>
 			<Empty.Description>
 				{translations.error_page.need_help}
-				<a href={resolve(homeHref)} class="text-primary underline-offset-4 hover:underline">
+				<a
+					href={resolve(homeHref)}
+					class="text-primary underline-offset-4 hover:underline active:translate-y-px"
+				>
 					{translations.error_page.back_home}
 				</a>
 			</Empty.Description>
