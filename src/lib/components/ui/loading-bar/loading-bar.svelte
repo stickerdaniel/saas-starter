@@ -1,12 +1,9 @@
 <script lang="ts">
 	import { Progress as ProgressPrimitive } from 'bits-ui';
 	import { onMount, untrack } from 'svelte';
-	import { useMotionValue, animate, useReducedMotion } from 'motion-sv';
+	import { useMotionValue, animate } from 'motion-sv';
 	import { getTranslate } from '@tolgee/svelte';
 	import { cn, type WithoutChildrenOrChild } from '$lib/utils.js';
-
-	const ENTER_LOADING_MS = 250;
-	const EXIT_LOADING_MS = 180;
 
 	const { t } = getTranslate();
 
@@ -29,8 +26,6 @@
 	const clampedValue = $derived(Math.min(Math.max(value ?? 0, 0), safeMax));
 	const progressPercent = $derived((clampedValue / safeMax) * 100);
 
-	const reducedMotion = useReducedMotion();
-
 	const initialWidth = untrack(() => progressPercent);
 	const springWidth = useMotionValue(initialWidth);
 
@@ -40,7 +35,6 @@
 
 	let progressStyle = $state(`width: ${initialWidth}%; background: var(--primary);`);
 	let rafId: number | null = null;
-	let lastFrameTime = 0;
 	let prevSpringWidth = 0;
 
 	// Sync spring toward progressPercent — tween at boundaries to prevent overshoot
@@ -86,15 +80,9 @@
 		startLoop();
 	});
 
-	function renderLoop(now: number) {
-		lastFrameTime = now;
+	function renderLoop() {
 		const progressWidth = Math.max(0, springWidth.get());
-
-		if (reducedMotion.current && isLoading) {
-			progressStyle = `width: 100%; background: var(--primary);`;
-		} else {
-			progressStyle = `width: ${progressWidth}%; background: var(--primary);`;
-		}
+		progressStyle = `width: ${progressWidth}%; background: var(--primary);`;
 
 		// Stop loop when spring has settled
 		if (!springReachedTarget && Math.abs(progressWidth - prevSpringWidth) < 0.01) {
@@ -104,7 +92,6 @@
 
 		if (springReachedTarget && !isLoading) {
 			rafId = null;
-			lastFrameTime = 0;
 		} else {
 			rafId = requestAnimationFrame(renderLoop);
 		}
