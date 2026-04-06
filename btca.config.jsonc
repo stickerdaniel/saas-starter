@@ -380,6 +380,27 @@
 		},
 		{
 			"type": "git",
+			"name": "adapterNode",
+			"url": "https://github.com/sveltejs/kit",
+			"branch": "main",
+			"specialNotes": "@sveltejs/adapter-node. Focus on packages/adapter-node for config options, output structure, environment variables (HOST, PORT, ORIGIN, BODY_SIZE_LIMIT), and deployment patterns."
+		},
+		{
+			"type": "git",
+			"name": "coolify",
+			"url": "https://github.com/coollabsio/coolify",
+			"branch": "v4.x",
+			"specialNotes": "Coolify self-hosting platform. Focus on app deployment configuration, build/start commands, environment variables, Docker/Nixpacks behavior, and production runtime setup."
+		},
+		{
+			"type": "git",
+			"name": "nixpacks",
+			"url": "https://github.com/railwayapp/nixpacks",
+			"branch": "main",
+			"specialNotes": "Nixpacks buildpacks. Focus on detected start commands, nixpacks.toml behavior, Node/Bun build configuration, and environment variable handling."
+		},
+		{
+			"type": "git",
 			"name": "varlock",
 			"url": "https://github.com/dmno-dev/varlock",
 			"branch": "main",
