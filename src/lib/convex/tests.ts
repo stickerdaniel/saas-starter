@@ -3,6 +3,7 @@ import { mutation, internalQuery } from './_generated/server';
 import { v } from 'convex/values';
 import { supportAgent } from './support/agent';
 import { isAnonymousUser } from './utils/anonymousUser';
+import { incrementCounter, recalculateCounters } from './admin/counters';
 
 /**
  * Verify the e2e test secret. Throws if missing or mismatched.
@@ -420,9 +421,23 @@ export const cleanupAllTestUsers = mutation({
 			await ctx.runMutation(components.betterAuth.adapter.deleteOne, {
 				input: { model: 'user', where: [{ field: 'email', value: user.email }] }
 			});
+			// Decrement counter to stay in sync (bypasses auth onDelete trigger)
+			await incrementCounter(ctx, 'totalUsers', -1);
 			deleted++;
 		}
 
 		return { success: true, found: e2eUsers.length, deleted };
+	}
+});
+
+/**
+ * Recalculate dashboard counters from actual user data.
+ * Use after bulk operations that bypassed auth triggers.
+ */
+export const recalculateDashboardCounters = mutation({
+	args: { secret: v.string() },
+	handler: async (ctx, { secret }) => {
+		requireTestSecret(secret);
+		return await recalculateCounters(ctx);
 	}
 });
