@@ -1,11 +1,12 @@
 <script lang="ts">
 	import { Progress as ProgressPrimitive } from 'bits-ui';
 	import { onMount, untrack } from 'svelte';
-	import { useMotionValue, animate } from 'motion-sv';
+	import { useMotionValue, animate, useReducedMotion } from 'motion-sv';
 	import { getTranslate } from '@tolgee/svelte';
 	import { cn, type WithoutChildrenOrChild } from '$lib/utils.js';
 
 	const { t } = getTranslate();
+	const reducedMotion = useReducedMotion();
 
 	type LoadingBarProps = WithoutChildrenOrChild<ProgressPrimitive.RootProps> & {
 		mode: 'progress' | 'loading';
@@ -41,6 +42,12 @@
 	let springAnim: ReturnType<typeof animate> | null = null;
 	$effect(() => {
 		springAnim?.stop();
+		if (reducedMotion.current) {
+			springWidth.set(progressPercent);
+			springReachedTarget = true;
+			progressStyle = `width: ${progressPercent}%; background: var(--primary);`;
+			return;
+		}
 		const atBoundary = progressPercent <= 0 || progressPercent >= 100;
 		if (atBoundary) {
 			springAnim = animate(springWidth, progressPercent, {
@@ -56,7 +63,7 @@
 			});
 		}
 		springReachedTarget = false;
-		startLoop();
+		if (!isLoading) startLoop();
 		return () => springAnim?.stop();
 	});
 
@@ -72,6 +79,10 @@
 
 		if (mode === 'loading') {
 			isLoading = true;
+			if (rafId !== null) {
+				cancelAnimationFrame(rafId);
+				rafId = null;
+			}
 			return;
 		}
 
@@ -98,7 +109,7 @@
 	}
 
 	onMount(() => {
-		startLoop();
+		if (!isLoading) startLoop();
 		return () => {
 			if (rafId !== null) cancelAnimationFrame(rafId);
 		};
