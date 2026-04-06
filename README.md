@@ -220,6 +220,7 @@ Two runtimes, two schemas, both managed by [varlock](https://github.com/nickrees
 | ------------------------ | ---------------------------------------------------------------- | :-----: | :--: |
 | `CONVEX_DEPLOY_KEY`      | Convex deploy key                                                |    ✓    |  ✓   |
 | `NODE_ADAPTER`           | Set to `1` to build with adapter-node for self-hosted production |         |  ○   |
+| `CONVEX_INTERNAL_URL`    | Internal Convex URL for Docker-network routing (self-hosted)     |         |  ○   |
 | `TOLGEE_API_KEY`         | Tolgee CLI key for deploy-time sync (optional, skips when unset) |    ○    |  ○   |
 | `PREVIEW_ADMIN_PASSWORD` | Preview admin password                                           |    ○    |      |
 | `PUBLIC_POSTHOG_API_KEY` | PostHog analytics API key                                        |         |  ○   |

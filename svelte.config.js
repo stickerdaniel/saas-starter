@@ -5,7 +5,12 @@ import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 
 // Workers Builds sets WORKERS_CI but adapter-auto only checks CF_PAGES.
 // Use adapter-cloudflare explicitly when WORKERS_CI is detected.
-const adapter = process.env.WORKERS_CI ? cloudflare() : process.env.NODE_ADAPTER ? node() : auto();
+// NODE_ADAPTER=1 opts into adapter-node for self-hosted (Coolify/Nixpacks) builds.
+const adapter = process.env.WORKERS_CI
+	? cloudflare()
+	: process.env.NODE_ADAPTER === '1'
+		? node()
+		: auto();
 
 // Prerenderable marketing pages (pricing excluded — uses useCustomer() for billing UI)
 const PRERENDER_MARKETING_PAGES = ['', '/about', '/privacy', '/terms', '/impressum'];

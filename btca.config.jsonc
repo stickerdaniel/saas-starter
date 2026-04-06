@@ -380,6 +380,13 @@
 		},
 		{
 			"type": "git",
+			"name": "adapterNode",
+			"url": "https://github.com/sveltejs/kit",
+			"branch": "main",
+			"specialNotes": "@sveltejs/adapter-node. Focus on packages/adapter-node for config options, output structure, environment variables (HOST, PORT, ORIGIN, BODY_SIZE_LIMIT), and deployment patterns."
+		},
+		{
+			"type": "git",
 			"name": "coolify",
 			"url": "https://github.com/coollabsio/coolify",
 			"branch": "v4.x",
