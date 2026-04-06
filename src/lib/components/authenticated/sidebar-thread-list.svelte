@@ -44,39 +44,41 @@
 	});
 </script>
 
-<!-- data-tolgee-restricted: thread previews may contain ZWNJ/ZWJ (tolgee/tolgee-js#3475) -->
-<Sidebar.MenuSub
-	bind:ref={listRef}
-	data-tolgee-restricted
-	class="no-scrollbar max-h-[calc(100svh-18rem)] overflow-y-auto"
->
-	{#each visibleItems as sub (sub.id)}
-		<Sidebar.MenuSubItem>
-			<Sidebar.MenuSubButton isActive={sub.isActive} onclick={() => haptic.trigger('light')}>
-				{#snippet child({ props })}
-					<a href={resolve(sub.url)} {...props} class="{props.class} flex items-center gap-1">
-						<span class="min-w-0 truncate">{sub.label}</span>
-						{#if sub.timestamp}
-							<span class="ml-auto shrink-0 text-[11px] text-muted-foreground/50">
-								{timeAgo(sub.timestamp)}
-							</span>
-						{/if}
-					</a>
-				{/snippet}
-			</Sidebar.MenuSubButton>
-		</Sidebar.MenuSubItem>
-	{/each}
-	{#if hasMore}
-		<Sidebar.MenuSubItem>
-			<button
-				class="w-full px-2 py-1 text-left text-xs text-muted-foreground hover:text-foreground active:translate-y-px"
-				onclick={() => {
-					haptic.trigger('light');
-					displayLimit += THREAD_LOAD_MORE_STEP;
-				}}
-			>
-				{$t('app.sidebar.show_more')}
-			</button>
-		</Sidebar.MenuSubItem>
-	{/if}
-</Sidebar.MenuSub>
+{#if items.length > 0}
+	<!-- data-tolgee-restricted: thread previews may contain ZWNJ/ZWJ (tolgee/tolgee-js#3475) -->
+	<Sidebar.MenuSub
+		bind:ref={listRef}
+		data-tolgee-restricted
+		class="no-scrollbar max-h-[calc(100svh-18rem)] overflow-y-auto"
+	>
+		{#each visibleItems as sub (sub.id)}
+			<Sidebar.MenuSubItem>
+				<Sidebar.MenuSubButton isActive={sub.isActive} onclick={() => haptic.trigger('light')}>
+					{#snippet child({ props })}
+						<a href={resolve(sub.url)} {...props} class="{props.class} flex items-center gap-1">
+							<span class="min-w-0 truncate">{sub.label}</span>
+							{#if sub.timestamp}
+								<span class="ml-auto shrink-0 text-[11px] text-muted-foreground/50">
+									{timeAgo(sub.timestamp)}
+								</span>
+							{/if}
+						</a>
+					{/snippet}
+				</Sidebar.MenuSubButton>
+			</Sidebar.MenuSubItem>
+		{/each}
+		{#if hasMore}
+			<Sidebar.MenuSubItem>
+				<button
+					class="w-full px-2 py-1 text-left text-xs text-muted-foreground hover:text-foreground active:translate-y-px"
+					onclick={() => {
+						haptic.trigger('light');
+						displayLimit += THREAD_LOAD_MORE_STEP;
+					}}
+				>
+					{$t('app.sidebar.show_more')}
+				</button>
+			</Sidebar.MenuSubItem>
+		{/if}
+	</Sidebar.MenuSub>
+{/if}
