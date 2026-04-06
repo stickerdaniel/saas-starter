@@ -107,6 +107,44 @@ Set the required platform and Convex production variables listed in the [environ
 vercel --prod
 ```
 
+<details>
+<summary><strong>Self-hosted production with Coolify</strong></summary>
+
+Use the existing Cloudflare Workers or Vercel setup for preview deployments, and run production on Coolify when you want a self-hosted Node app with the same Convex cloud backend.
+
+**Architecture:**
+
+- **Previews:** Cloudflare Workers or Vercel, using the existing preview deploy flow above
+- **Production app hosting:** Coolify
+- **Backend/data/auth:** Convex cloud production deployment
+
+**Coolify setup:**
+
+1. Add the repo as an application in Coolify and use the Nixpacks build pack
+2. Set the build command to:
+
+```bash
+bunx varlock run -- bun scripts/deploy.ts
+```
+
+3. Set the start command to:
+
+```bash
+node build
+```
+
+4. Set app-level environment variables in Coolify:
+   - `NODE_ADAPTER=1`
+   - `CONVEX_DEPLOY_KEY`
+   - `TOLGEE_API_KEY` (optional)
+   - `CONVEX_INTERNAL_URL` (optional, only if the app container can reach Convex through a private Docker network URL)
+5. Set the required Convex production environment variables in the Convex dashboard
+6. Set `SITE_URL` on the Convex production deployment to your public production domain
+
+The build command intentionally reuses `scripts/deploy.ts` so production stays aligned with the existing deploy flow: Tolgee sync remains optional, Convex is deployed during the build, and `PUBLIC_CONVEX_URL` / `PUBLIC_CONVEX_SITE_URL` are computed automatically from the deploy output instead of being copied into Coolify by hand.
+
+</details>
+
 ### First Admin
 
 Sign up on the site, then either set the user's role to `admin` in the Convex dashboard or run (with the email you signed up with):
@@ -181,6 +219,7 @@ Two runtimes, two schemas, both managed by [varlock](https://github.com/nickrees
 | Variable                 |                                                                  | Preview | Prod |
 | ------------------------ | ---------------------------------------------------------------- | :-----: | :--: |
 | `CONVEX_DEPLOY_KEY`      | Convex deploy key                                                |    ✓    |  ✓   |
+| `NODE_ADAPTER`           | Set to `1` to build with adapter-node for self-hosted production |         |  ○   |
 | `TOLGEE_API_KEY`         | Tolgee CLI key for deploy-time sync (optional, skips when unset) |    ○    |  ○   |
 | `PREVIEW_ADMIN_PASSWORD` | Preview admin password                                           |    ○    |      |
 | `PUBLIC_POSTHOG_API_KEY` | PostHog analytics API key                                        |         |  ○   |
