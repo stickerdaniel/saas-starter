@@ -1,5 +1,5 @@
 import { localizedHref } from '$lib/utils/i18n';
-import { cmdOrCtrl } from '$lib/hooks/is-mac.svelte';
+import { cmdOrCtrl, ctrlSymbol } from '$lib/hooks/is-mac.svelte';
 import MessagesSquareIcon from '@lucide/svelte/icons/messages-square';
 import BotMessageSquareIcon from '@lucide/svelte/icons/bot-message-square';
 import ServerCogIcon from '@lucide/svelte/icons/server-cog';
@@ -60,7 +60,7 @@ export function getAppSidebarConfig(
 				url: localizedHref('/app/community-chat'),
 				icon: MessagesSquareIcon,
 				isActive: pathname === `/${lang}/app/community-chat`,
-				kbd: [cmdOrCtrl, '⇧', '1']
+				kbd: [ctrlSymbol, '⇧', '1']
 			},
 			{
 				translationKey: 'app.sidebar.ai_chat',
@@ -69,7 +69,7 @@ export function getAppSidebarConfig(
 				isActive: pathname.startsWith(`/${lang}/app/ai-chat`),
 				collapsible: true,
 				subItems: aiChatSubItems,
-				kbd: [cmdOrCtrl, '⇧', '2'],
+				kbd: [ctrlSymbol, '⇧', '2'],
 				// Disable nav when already on the warm thread (already "new chat")
 				disableNav: !!activeThreadId && activeThreadId === warmThreadId
 			}
