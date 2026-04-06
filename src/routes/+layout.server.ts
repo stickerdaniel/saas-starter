@@ -1,7 +1,7 @@
 import type { LayoutServerLoad } from './$types';
 import { api } from '$lib/convex/_generated/api';
-import { createConvexHttpClient } from '@mmailaender/convex-better-auth-svelte/sveltekit';
 import { createAutumnHandlers } from '@stickerdaniel/convex-autumn-svelte/sveltekit/server';
+import { createServerConvexHttpClient } from '$lib/server/convex-http';
 
 type JwtViewer = {
 	_id: string;
@@ -74,7 +74,7 @@ export const load: LayoutServerLoad = async (event) => {
 	let viewer = null;
 
 	if (isAuthenticated) {
-		const client = createConvexHttpClient({ token: event.locals.token });
+		const client = createServerConvexHttpClient({ token: event.locals.token });
 
 		const { getCustomer } = createAutumnHandlers({
 			convexApi: (api as any).autumn,

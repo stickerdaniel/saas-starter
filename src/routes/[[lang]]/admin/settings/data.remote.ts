@@ -1,7 +1,7 @@
 import { form, getRequestEvent } from '$app/server';
 import { invalid } from '@sveltejs/kit';
-import { createConvexHttpClient } from '@mmailaender/convex-better-auth-svelte/sveltekit';
 import { api } from '$lib/convex/_generated/api';
+import { createServerConvexHttpClient } from '$lib/server/convex-http';
 import { emailSchema } from './email-schema';
 
 /**
@@ -12,7 +12,7 @@ import { emailSchema } from './email-schema';
  */
 export const addEmailForm = form(emailSchema, async ({ email }, issue) => {
 	const event = getRequestEvent();
-	const client = createConvexHttpClient({ token: event.locals.token });
+	const client = createServerConvexHttpClient({ token: event.locals.token });
 
 	const normalizedEmail = email.trim().toLowerCase();
 
