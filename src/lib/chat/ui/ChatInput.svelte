@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Snippet } from 'svelte';
+	import { tick, type Snippet } from 'svelte';
 	import { toast } from 'svelte-sonner';
 	import { getTranslate } from '@tolgee/svelte';
 	import {
@@ -73,6 +73,8 @@
 
 	const ctx = getChatUIContext();
 
+	let containerEl: HTMLDivElement;
+
 	// Use centralized isProcessing from context (single source of truth)
 	// When handed off to human support, don't block - use fire-and-forget pattern
 	const canSend = $derived(ctx.canSend && (!ctx.isProcessing || isHandedOff) && !isRateLimited);
@@ -142,6 +144,9 @@
 
 	function handleSuggestionClick(text: string) {
 		ctx.setInputValue(text);
+		tick().then(() => {
+			containerEl?.querySelector<HTMLTextAreaElement>('textarea')?.focus();
+		});
 	}
 
 	function handlePaste(event: ClipboardEvent) {
@@ -185,7 +190,7 @@
 	}
 </script>
 
-<div class={className}>
+<div bind:this={containerEl} class={className}>
 	<!-- Suggestion chips - shown when starting new conversation or after messages loaded and empty -->
 	<!-- isNewConversation: show immediately for draft threads (eager creation) -->
 	<!-- messagesReady: wait for query to resolve for existing threads (prevents flash) -->
