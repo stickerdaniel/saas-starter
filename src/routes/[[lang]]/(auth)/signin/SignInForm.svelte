@@ -209,7 +209,7 @@
 
 {#if import.meta.env.DEV}
 	<!-- Debug: LoadingBar state machine test controls -->
-	<div class="fixed bottom-4 right-4 z-50 flex gap-2 rounded-lg border bg-card p-2 shadow-lg">
+	<div class="fixed right-4 bottom-4 z-50 flex gap-2 rounded-lg border bg-card p-2 shadow-lg">
 		<button
 			class="rounded bg-primary px-3 py-1 text-xs text-primary-foreground"
 			onclick={() => {
