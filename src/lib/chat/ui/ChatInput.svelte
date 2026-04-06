@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Snippet } from 'svelte';
+	import { tick, type Snippet } from 'svelte';
 	import { toast } from 'svelte-sonner';
 	import { getTranslate } from '@tolgee/svelte';
 	import {
@@ -73,6 +73,8 @@
 
 	const ctx = getChatUIContext();
 
+	let containerEl: HTMLDivElement;
+
 	// Use centralized isProcessing from context (single source of truth)
 	// When handed off to human support, don't block - use fire-and-forget pattern
 	const canSend = $derived(ctx.canSend && (!ctx.isProcessing || isHandedOff) && !isRateLimited);
@@ -142,6 +144,9 @@
 
 	function handleSuggestionClick(text: string) {
 		ctx.setInputValue(text);
+		tick().then(() => {
+			containerEl?.querySelector<HTMLTextAreaElement>('textarea')?.focus();
+		});
 	}
 
 	function handlePaste(event: ClipboardEvent) {
@@ -185,140 +190,142 @@
 	}
 </script>
 
-<!-- Suggestion chips - shown when starting new conversation or after messages loaded and empty -->
-<!-- isNewConversation: show immediately for draft threads (eager creation) -->
-<!-- messagesReady: wait for query to resolve for existing threads (prevents flash) -->
-{#if (ctx.core.isNewConversation || ctx.messagesReady) && ctx.displayMessages.length === 0 && !ctx.inputValue.trim() && suggestions.length > 0}
-	<div class="pb-2">
-		{#key ctx.core.threadGeneration}
-			<div class="flex flex-wrap gap-2">
-				{#each suggestions as suggestion, i (suggestion.text)}
-					<div
-						class="motion-safe:animate-[chip-in_375ms_ease-out_both]"
-						style="animation-delay: {i * 50}ms"
-					>
-						<PromptSuggestion onclick={() => handleSuggestionClick(suggestion.text)}>
-							{suggestion.label}
-						</PromptSuggestion>
-					</div>
-				{/each}
-			</div>
-		{/key}
-	</div>
-{/if}
-<PromptInput
-	class="relative z-20 bg-popover p-0 {className}"
-	value={ctx.inputValue}
-	isLoading={ctx.core.isSending}
-	onValueChange={handleValueChange}
-	onSubmit={handleSend}
->
-	<div class="flex flex-col">
-		{#if ctx.attachments.length > 0}
-			<ChatAttachments
-				class="mx-3 mt-3"
-				attachments={ctx.attachments}
-				onRemove={handleRemoveAttachment}
-				columns={2}
-			/>
-		{/if}
-
-		<PromptInputTextarea
-			{placeholder}
-			class="min-h-[44px] pt-3 pl-4 text-base leading-[1.3]"
-			onpaste={handlePaste}
-			maxlength={2000}
-		/>
-
-		<PromptInputActions class="mt-5 flex w-full items-center justify-between gap-2 px-3 pb-3">
-			<div class="flex items-center gap-2">
-				{#if actionsLeft}
-					{@render actionsLeft()}
-				{:else}
-					{#if showCameraButton}
-						<PromptInputAction>
-							{#snippet tooltip()}
-								<p>{$t('chat.tooltip.mark_bug')}</p>
-							{/snippet}
-							{#snippet children(props)}
-								<Button
-									{...props}
-									variant="outline"
-									size="icon"
-									class="size-9 rounded-full"
-									onclick={handleCameraClick}
-									aria-label={$t('chat.tooltip.mark_bug')}
-								>
-									<CameraIcon class="h-[18px] w-[18px]" />
-								</Button>
-							{/snippet}
-						</PromptInputAction>
-					{/if}
-					{#if showFileButton}
-						<FileUpload
-							onFilesAdded={handleFilesAdded}
-							multiple={true}
-							accept={ALLOWED_FILE_EXTENSIONS}
-						>
-							<PromptInputAction>
-								{#snippet tooltip()}
-									<p>{$t('chat.tooltip.attach_files')}</p>
-								{/snippet}
-								{#snippet children(props)}
-									<FileUploadTrigger asChild={true}>
-										<Button
-											{...props}
-											variant="outline"
-											size="icon"
-											class="size-9 rounded-full"
-											aria-label={$t('chat.tooltip.attach_files')}
-										>
-											<PaperclipIcon class="h-[18px] w-[18px]" />
-										</Button>
-									</FileUploadTrigger>
-								{/snippet}
-							</PromptInputAction>
-						</FileUpload>
-					{/if}
-				{/if}
-			</div>
-
-			{#if actionsRight}
-				{@render actionsRight()}
-			{:else}
-				<div class="flex min-w-0 items-center gap-2">
-					{#if showHandoffButton}
-						{@const isVisible =
-							ctx.core.threadId !== null &&
-							ctx.displayMessages.length > 1 &&
-							!isHandedOff &&
-							hasShownHandoffButton}
+<div bind:this={containerEl} class={className}>
+	<!-- Suggestion chips - shown when starting new conversation or after messages loaded and empty -->
+	<!-- isNewConversation: show immediately for draft threads (eager creation) -->
+	<!-- messagesReady: wait for query to resolve for existing threads (prevents flash) -->
+	{#if (ctx.core.isNewConversation || ctx.messagesReady) && ctx.displayMessages.length === 0 && !ctx.inputValue.trim() && suggestions.length > 0}
+		<div class="pb-2">
+			{#key ctx.core.threadGeneration}
+				<div class="flex flex-wrap gap-2">
+					{#each suggestions as suggestion, i (suggestion.text)}
 						<div
-							class="min-w-0 transition-opacity duration-200 {isVisible
-								? 'opacity-100'
-								: 'pointer-events-none opacity-0'}"
-							inert={!isVisible ? true : undefined}
+							class="motion-safe:animate-[chip-in_375ms_ease-out_both]"
+							style="animation-delay: {i * 50}ms"
 						>
-							<PromptSuggestion class="max-w-full" onclick={() => onRequestHandoff?.()}>
-								<span class="block truncate">{$t('chat.action.talk_to_human')}</span>
+							<PromptSuggestion onclick={() => handleSuggestionClick(suggestion.text)}>
+								{suggestion.label}
 							</PromptSuggestion>
 						</div>
-					{/if}
-					<Button
-						size="icon"
-						disabled={!canSend}
-						onclick={handleSend}
-						class="size-9 shrink-0 rounded-full"
-						aria-label={$t('chat.aria.send')}
-					>
-						{#if ctx.isProcessing && !isHandedOff}
-							<LoaderCircleIcon class="h-[18px] w-[18px] motion-safe:animate-spin" />
-						{:else}
-							<ArrowUpIcon class="h-[18px] w-[18px]" />
-						{/if}
-					</Button>
+					{/each}
 				</div>
+			{/key}
+		</div>
+	{/if}
+	<PromptInput
+		class="relative z-20 bg-popover p-0"
+		value={ctx.inputValue}
+		isLoading={ctx.core.isSending}
+		onValueChange={handleValueChange}
+		onSubmit={handleSend}
+	>
+		<div class="flex flex-col">
+			{#if ctx.attachments.length > 0}
+				<ChatAttachments
+					class="mx-3 mt-3"
+					attachments={ctx.attachments}
+					onRemove={handleRemoveAttachment}
+					columns={2}
+				/>
 			{/if}
-		</PromptInputActions>
-	</div>
-</PromptInput>
+
+			<PromptInputTextarea
+				{placeholder}
+				class="min-h-[44px] pt-3 pl-4 text-base leading-[1.3]"
+				onpaste={handlePaste}
+				maxlength={2000}
+			/>
+
+			<PromptInputActions class="mt-5 flex w-full items-center justify-between gap-2 px-3 pb-3">
+				<div class="flex items-center gap-2">
+					{#if actionsLeft}
+						{@render actionsLeft()}
+					{:else}
+						{#if showCameraButton}
+							<PromptInputAction>
+								{#snippet tooltip()}
+									<p>{$t('chat.tooltip.mark_bug')}</p>
+								{/snippet}
+								{#snippet children(props)}
+									<Button
+										{...props}
+										variant="outline"
+										size="icon"
+										class="size-9 rounded-full"
+										onclick={handleCameraClick}
+										aria-label={$t('chat.tooltip.mark_bug')}
+									>
+										<CameraIcon class="h-[18px] w-[18px]" />
+									</Button>
+								{/snippet}
+							</PromptInputAction>
+						{/if}
+						{#if showFileButton}
+							<FileUpload
+								onFilesAdded={handleFilesAdded}
+								multiple={true}
+								accept={ALLOWED_FILE_EXTENSIONS}
+							>
+								<PromptInputAction>
+									{#snippet tooltip()}
+										<p>{$t('chat.tooltip.attach_files')}</p>
+									{/snippet}
+									{#snippet children(props)}
+										<FileUploadTrigger asChild={true}>
+											<Button
+												{...props}
+												variant="outline"
+												size="icon"
+												class="size-9 rounded-full"
+												aria-label={$t('chat.tooltip.attach_files')}
+											>
+												<PaperclipIcon class="h-[18px] w-[18px]" />
+											</Button>
+										</FileUploadTrigger>
+									{/snippet}
+								</PromptInputAction>
+							</FileUpload>
+						{/if}
+					{/if}
+				</div>
+
+				{#if actionsRight}
+					{@render actionsRight()}
+				{:else}
+					<div class="flex min-w-0 items-center gap-2">
+						{#if showHandoffButton}
+							{@const isVisible =
+								ctx.core.threadId !== null &&
+								ctx.displayMessages.length > 1 &&
+								!isHandedOff &&
+								hasShownHandoffButton}
+							<div
+								class="min-w-0 transition-opacity duration-200 {isVisible
+									? 'opacity-100'
+									: 'pointer-events-none opacity-0'}"
+								inert={!isVisible ? true : undefined}
+							>
+								<PromptSuggestion class="max-w-full" onclick={() => onRequestHandoff?.()}>
+									<span class="block truncate">{$t('chat.action.talk_to_human')}</span>
+								</PromptSuggestion>
+							</div>
+						{/if}
+						<Button
+							size="icon"
+							disabled={!canSend}
+							onclick={handleSend}
+							class="size-9 shrink-0 rounded-full"
+							aria-label={$t('chat.aria.send')}
+						>
+							{#if ctx.isProcessing && !isHandedOff}
+								<LoaderCircleIcon class="h-[18px] w-[18px] motion-safe:animate-spin" />
+							{:else}
+								<ArrowUpIcon class="h-[18px] w-[18px]" />
+							{/if}
+						</Button>
+					</div>
+				{/if}
+			</PromptInputActions>
+		</div>
+	</PromptInput>
+</div>
