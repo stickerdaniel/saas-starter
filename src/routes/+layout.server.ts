@@ -58,6 +58,11 @@ function getViewerFromJwt(token: string | undefined): JwtViewer | null {
 export const load: LayoutServerLoad = async (event) => {
 	// Enables targeted invalidation via invalidate('autumn:customer') to refetch only customer data
 	event.depends('autumn:customer');
+	// Enables targeted invalidation when client-side auth state diverges from server state.
+	// Prerendered pages bake authState.isAuthenticated: false at build time — when the client
+	// recovers a session from cookies, AppAuthProvider detects the mismatch and calls
+	// invalidate('app:auth') to re-run this load with fresh cookies.
+	event.depends('app:auth');
 
 	// Check if JWT token exists (set by handleAuth in hooks.server.ts)
 	const isAuthenticated = !!event.locals.token;
