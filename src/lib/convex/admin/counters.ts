@@ -58,29 +58,25 @@ export async function recalculateCounters(ctx: MutationCtx): Promise<{
 	adminCount: number;
 	bannedCount: number;
 }> {
-	// Fetch all users from the BetterAuth component
-	const allUsers: BetterAuthUser[] = [];
+	// Compute counters incrementally while paging (no full-array allocation)
+	const computed = { totalUsers: 0, adminCount: 0, bannedCount: 0 };
 	let cursor: string | null = null;
-	let hasMore = true;
 
-	while (hasMore) {
+	for (let page = 0; page < 500; page++) {
 		const result: { page: Record<string, unknown>[]; isDone: boolean; continueCursor: string } =
 			await ctx.runQuery(components.betterAuth.adapter.findMany, {
 				model: 'user',
 				paginationOpts: { cursor, numItems: 200 }
 			});
-		for (const user of result.page) {
-			allUsers.push(user as unknown as BetterAuthUser);
+		for (const raw of result.page) {
+			const user = raw as unknown as BetterAuthUser;
+			computed.totalUsers++;
+			if (user.role === 'admin') computed.adminCount++;
+			if (user.banned === true) computed.bannedCount++;
 		}
-		hasMore = !result.isDone;
+		if (result.isDone || !result.continueCursor) break;
 		cursor = result.continueCursor;
 	}
-
-	const computed = {
-		totalUsers: allUsers.length,
-		adminCount: allUsers.filter((u) => u.role === 'admin').length,
-		bannedCount: allUsers.filter((u) => u.banned === true).length
-	};
 
 	const doc = await ctx.db.query('dashboardCounters').first();
 	if (doc) {
