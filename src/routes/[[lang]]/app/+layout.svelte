@@ -52,21 +52,21 @@
 		page.url.pathname.includes('/app/ai-chat') || page.url.pathname.includes('/app/community-chat')
 	);
 
-	// Keyboard shortcuts for sidebar navigation (⌘⇧1-2, ⌘;, ⌘,)
+	// Keyboard shortcuts for sidebar navigation (⌃⇧1-2, ⌘., ⌘,)
 	function handleKeydown(e: KeyboardEvent) {
-		if (!(e.metaKey || e.ctrlKey)) return;
 		const target = e.target as HTMLElement;
 		if (target.closest('input, textarea, [contenteditable]')) return;
 
 		let url: string | undefined;
 
-		if (e.shiftKey && !e.altKey) {
+		// Ctrl+Shift+number for sidebar nav (avoids macOS ⌘⇧3/4 screenshot conflict)
+		if (e.ctrlKey && e.shiftKey && !e.altKey && !e.metaKey) {
 			const shiftRoutes: Record<string, string> = {
 				Digit1: localizedHref('/app/community-chat'),
 				Digit2: localizedHref(warmThreadId ? `/app/ai-chat?thread=${warmThreadId}` : '/app/ai-chat')
 			};
 			url = shiftRoutes[e.code];
-		} else if (!e.shiftKey && !e.altKey) {
+		} else if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey) {
 			const plainRoutes: Record<string, string> = {
 				'.': localizedHref('/admin'),
 				',': localizedHref('/app/settings')

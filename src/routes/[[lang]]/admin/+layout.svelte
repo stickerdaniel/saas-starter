@@ -42,15 +42,15 @@
 	// svelte-ignore state_referenced_locally
 	setContext('currentUserId', viewer?._id);
 
-	// Keyboard shortcuts for admin sidebar navigation (⌘⇧1-4, ⌘;)
+	// Keyboard shortcuts for admin sidebar navigation (⌃⇧1-4, ⌘.)
 	function handleKeydown(e: KeyboardEvent) {
-		if (!(e.metaKey || e.ctrlKey)) return;
 		const target = e.target as HTMLElement;
 		if (target.closest('input, textarea, [contenteditable]')) return;
 
 		let url: string | undefined;
 
-		if (e.shiftKey && !e.altKey) {
+		// Ctrl+Shift+number for sidebar nav (avoids macOS ⌘⇧3/4 screenshot conflict)
+		if (e.ctrlKey && e.shiftKey && !e.altKey && !e.metaKey) {
 			const shiftRoutes: Record<string, string> = {
 				Digit1: localizedHref('/admin/dashboard'),
 				Digit2: localizedHref('/admin/users'),
@@ -58,7 +58,7 @@
 				Digit4: localizedHref('/admin/settings')
 			};
 			url = shiftRoutes[e.code];
-		} else if (!e.shiftKey && !e.altKey && e.key === '.') {
+		} else if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.key === '.') {
 			url = localizedHref('/app');
 		}
 
