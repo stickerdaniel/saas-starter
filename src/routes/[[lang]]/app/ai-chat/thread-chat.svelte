@@ -151,7 +151,7 @@
 						<span><T keyName="ai_chat.alerts.limit_reached_pro" /></span>
 					</div>
 				</div>
-			{:else if !isPro && totalMessages > 0 && remainingMessages > 0 && remainingMessages / totalMessages <= 1 / 3}
+			{:else if !isPro && Number.isFinite(totalMessages) && totalMessages > 0 && remainingMessages > 0 && remainingMessages / totalMessages <= 1 / 3}
 				<!-- Free user, low messages: upgrade nudge -->
 				<div
 					class="mx-4 mb-2 flex items-center justify-between rounded-lg border border-border/50 bg-muted/50 px-4 py-3 backdrop-blur-sm"
@@ -170,7 +170,7 @@
 						{isUpgrading ? $t('chat.buttons.processing') : $t('chat.buttons.upgrade')}
 					</Button>
 				</div>
-			{:else if isPro && totalMessages > 0 && remainingMessages > 0 && remainingMessages / totalMessages <= 1 / 3}
+			{:else if isPro && Number.isFinite(totalMessages) && totalMessages > 0 && remainingMessages > 0 && remainingMessages / totalMessages <= 1 / 3}
 				<!-- Pro user, low messages -->
 				<div
 					class="mx-4 mb-2 flex items-center justify-between rounded-lg border border-border/50 bg-muted/50 px-4 py-3 backdrop-blur-sm"
