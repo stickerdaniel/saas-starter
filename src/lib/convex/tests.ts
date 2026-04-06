@@ -3,6 +3,7 @@ import { mutation, internalQuery } from './_generated/server';
 import { v } from 'convex/values';
 import { supportAgent } from './support/agent';
 import { isAnonymousUser } from './utils/anonymousUser';
+import { recalculateCounters } from './admin/counters';
 
 /**
  * Verify the e2e test secret. Throws if missing or mismatched.
@@ -423,6 +424,23 @@ export const cleanupAllTestUsers = mutation({
 			deleted++;
 		}
 
+		// Resync all dashboard counters after bulk deletes (bypasses auth onDelete triggers)
+		if (deleted > 0) {
+			await recalculateCounters(ctx);
+		}
+
 		return { success: true, found: e2eUsers.length, deleted };
+	}
+});
+
+/**
+ * Recalculate dashboard counters from actual user data.
+ * Use after bulk operations that bypassed auth triggers.
+ */
+export const recalculateDashboardCounters = mutation({
+	args: { secret: v.string() },
+	handler: async (ctx, { secret }) => {
+		requireTestSecret(secret);
+		return await recalculateCounters(ctx);
 	}
 });
