@@ -6,6 +6,11 @@ import {
 	matchPublicMarketingRoute
 } from './public-routes';
 import { marketingMarkdown as aboutMarketingMarkdown } from '../../routes/[[lang]]/(marketing)/about/page.md';
+import { marketingMarkdown as brandMarketingMarkdown } from '../../routes/[[lang]]/(marketing)/brand/page.md';
+import { marketingMarkdown as brandMotionMarketingMarkdown } from '../../routes/[[lang]]/(marketing)/brand/motion/page.md';
+import { marketingMarkdown as brandResourcesMarketingMarkdown } from '../../routes/[[lang]]/(marketing)/brand/resources/page.md';
+import { marketingMarkdown as brandVisualIdentityMarketingMarkdown } from '../../routes/[[lang]]/(marketing)/brand/visual-identity/page.md';
+import { marketingMarkdown as brandVoiceAndToneMarketingMarkdown } from '../../routes/[[lang]]/(marketing)/brand/voice-and-tone/page.md';
 import { marketingMarkdown as homeMarketingMarkdown } from '../../routes/[[lang]]/(marketing)/page.md';
 import { marketingMarkdown as impressumMarketingMarkdown } from '../../routes/[[lang]]/(marketing)/impressum/page.md';
 import { marketingMarkdown as pricingMarketingMarkdown } from '../../routes/[[lang]]/(marketing)/pricing/page.md';
@@ -20,7 +25,12 @@ describe('public marketing route registry', () => {
 			{ key: 'pricing', pathSuffix: '/pricing' },
 			{ key: 'privacy', pathSuffix: '/privacy' },
 			{ key: 'terms', pathSuffix: '/terms' },
-			{ key: 'impressum', pathSuffix: '/impressum' }
+			{ key: 'impressum', pathSuffix: '/impressum' },
+			{ key: 'brand', pathSuffix: '/brand' },
+			{ key: 'brand/visual-identity', pathSuffix: '/brand/visual-identity' },
+			{ key: 'brand/voice-and-tone', pathSuffix: '/brand/voice-and-tone' },
+			{ key: 'brand/motion', pathSuffix: '/brand/motion' },
+			{ key: 'brand/resources', pathSuffix: '/brand/resources' }
 		]);
 	});
 
@@ -42,6 +52,23 @@ describe('public marketing route registry', () => {
 			lang: 'fr',
 			routeKey: 'impressum'
 		});
+		expect(matchPublicMarketingRoute('/en/brand')).toEqual({ lang: 'en', routeKey: 'brand' });
+		expect(matchPublicMarketingRoute('/en/brand/visual-identity')).toEqual({
+			lang: 'en',
+			routeKey: 'brand/visual-identity'
+		});
+		expect(matchPublicMarketingRoute('/de/brand/voice-and-tone')).toEqual({
+			lang: 'de',
+			routeKey: 'brand/voice-and-tone'
+		});
+		expect(matchPublicMarketingRoute('/es/brand/motion')).toEqual({
+			lang: 'es',
+			routeKey: 'brand/motion'
+		});
+		expect(matchPublicMarketingRoute('/fr/brand/resources')).toEqual({
+			lang: 'fr',
+			routeKey: 'brand/resources'
+		});
 	});
 
 	it('rejects non-marketing or non-localized paths', () => {
@@ -51,6 +78,7 @@ describe('public marketing route registry', () => {
 		expect(matchPublicMarketingRoute('/en/app')).toBeNull();
 		expect(matchPublicMarketingRoute('/en/admin')).toBeNull();
 		expect(matchPublicMarketingRoute('/it')).toBeNull();
+		expect(matchPublicMarketingRoute('/en/brand/unknown')).toBeNull();
 	});
 
 	it('returns the correct colocated markdown document for each route key', () => {
@@ -60,6 +88,15 @@ describe('public marketing route registry', () => {
 		expect(getMarketingMarkdownDocument('privacy')).toBe(privacyMarketingMarkdown);
 		expect(getMarketingMarkdownDocument('terms')).toBe(termsMarketingMarkdown);
 		expect(getMarketingMarkdownDocument('impressum')).toBe(impressumMarketingMarkdown);
+		expect(getMarketingMarkdownDocument('brand')).toBe(brandMarketingMarkdown);
+		expect(getMarketingMarkdownDocument('brand/visual-identity')).toBe(
+			brandVisualIdentityMarketingMarkdown
+		);
+		expect(getMarketingMarkdownDocument('brand/voice-and-tone')).toBe(
+			brandVoiceAndToneMarketingMarkdown
+		);
+		expect(getMarketingMarkdownDocument('brand/motion')).toBe(brandMotionMarketingMarkdown);
+		expect(getMarketingMarkdownDocument('brand/resources')).toBe(brandResourcesMarketingMarkdown);
 	});
 
 	it('generates the expected localized public marketing URLs', () => {
@@ -70,24 +107,44 @@ describe('public marketing route registry', () => {
 			'https://example.com/en/privacy',
 			'https://example.com/en/terms',
 			'https://example.com/en/impressum',
+			'https://example.com/en/brand',
+			'https://example.com/en/brand/visual-identity',
+			'https://example.com/en/brand/voice-and-tone',
+			'https://example.com/en/brand/motion',
+			'https://example.com/en/brand/resources',
 			'https://example.com/de',
 			'https://example.com/de/about',
 			'https://example.com/de/pricing',
 			'https://example.com/de/privacy',
 			'https://example.com/de/terms',
 			'https://example.com/de/impressum',
+			'https://example.com/de/brand',
+			'https://example.com/de/brand/visual-identity',
+			'https://example.com/de/brand/voice-and-tone',
+			'https://example.com/de/brand/motion',
+			'https://example.com/de/brand/resources',
 			'https://example.com/es',
 			'https://example.com/es/about',
 			'https://example.com/es/pricing',
 			'https://example.com/es/privacy',
 			'https://example.com/es/terms',
 			'https://example.com/es/impressum',
+			'https://example.com/es/brand',
+			'https://example.com/es/brand/visual-identity',
+			'https://example.com/es/brand/voice-and-tone',
+			'https://example.com/es/brand/motion',
+			'https://example.com/es/brand/resources',
 			'https://example.com/fr',
 			'https://example.com/fr/about',
 			'https://example.com/fr/pricing',
 			'https://example.com/fr/privacy',
 			'https://example.com/fr/terms',
-			'https://example.com/fr/impressum'
+			'https://example.com/fr/impressum',
+			'https://example.com/fr/brand',
+			'https://example.com/fr/brand/visual-identity',
+			'https://example.com/fr/brand/voice-and-tone',
+			'https://example.com/fr/brand/motion',
+			'https://example.com/fr/brand/resources'
 		]);
 	});
 });

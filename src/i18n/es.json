@@ -771,6 +771,7 @@
 	},
 	"aria": {
 		"actions": "Acciones",
+		"brand_nav": "Secciones de marca",
 		"breadcrumb": "migas de pan",
 		"change_language": "Cambiar idioma",
 		"close": "Cerrar",
@@ -1243,6 +1244,26 @@
 				"description": "Crea una cuenta nueva para empezar.",
 				"title": "Registrarse"
 			}
+		},
+		"brand": {
+			"title": "Marca",
+			"description": "La marca Cadenza. Una herramienta de prospección de LinkedIn que lee la sala antes de escribir una palabra — basada en Bourdieu, Carnegie, Cialdini, Castiglione y Ogilvy."
+		},
+		"brand_motion": {
+			"title": "Movimiento",
+			"description": "Principios de movimiento de Cadenza: intencional, contenido, físico, silencioso. El movimiento debe sentirse ganado, no decorativo."
+		},
+		"brand_resources": {
+			"title": "Recursos de marca",
+			"description": "Recursos de marca Cadenza listos para copiar: tokens de color, tokens tipográficos, fuentes e instrucciones de logotipo."
+		},
+		"brand_visual_identity": {
+			"title": "Identidad visual",
+			"description": "La identidad visual de Cadenza — logotipo, sistema de color y tipografía. Fraunces es la voz; Geist Sans es la sala; terracota es la puntuación."
+		},
+		"brand_voice_and_tone": {
+			"title": "Voz y tono",
+			"description": "La voz de Cadenza: contenida, observadora, específica. Seis reglas, un vocabulario que la marca usa y un espectro de tono que se ajusta sin cambiar la voz."
 		},
 		"emails": {
 			"preview": {

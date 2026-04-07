@@ -13,7 +13,18 @@ const adapter = process.env.WORKERS_CI
 		: auto();
 
 // Prerenderable marketing pages (pricing excluded — uses useCustomer() for billing UI)
-const PRERENDER_MARKETING_PAGES = ['', '/about', '/privacy', '/terms', '/impressum'];
+const PRERENDER_MARKETING_PAGES = [
+	'',
+	'/about',
+	'/privacy',
+	'/terms',
+	'/impressum',
+	'/brand',
+	'/brand/visual-identity',
+	'/brand/voice-and-tone',
+	'/brand/motion',
+	'/brand/resources'
+];
 const LANGUAGES = ['en', 'de', 'es', 'fr'];
 const prerenderEntries = LANGUAGES.flatMap((lang) =>
 	PRERENDER_MARKETING_PAGES.map((page) => `/${lang}${page}`)

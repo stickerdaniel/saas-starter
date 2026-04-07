@@ -771,6 +771,7 @@
 	},
 	"aria": {
 		"actions": "Actions",
+		"brand_nav": "Brand sections",
 		"breadcrumb": "breadcrumb",
 		"change_language": "Change language",
 		"close": "Close",
@@ -1243,6 +1244,26 @@
 				"description": "Create a new account to get started.",
 				"title": "Sign Up"
 			}
+		},
+		"brand": {
+			"title": "Brand",
+			"description": "The Cadenza brand. A LinkedIn outreach tool that reads the room before it writes a word — built on Bourdieu, Carnegie, Cialdini, Castiglione, and Ogilvy."
+		},
+		"brand_motion": {
+			"title": "Motion",
+			"description": "Cadenza motion principles: purposeful, restrained, physical, quiet. Motion should feel earned, not decorative."
+		},
+		"brand_resources": {
+			"title": "Brand Resources",
+			"description": "Copy-pasteable Cadenza brand resources: color tokens, type tokens, fonts, and logo instructions."
+		},
+		"brand_visual_identity": {
+			"title": "Visual Identity",
+			"description": "The Cadenza visual identity — logo, color system, and typography. Fraunces is the voice; Geist Sans is the room; terracotta is the punctuation."
+		},
+		"brand_voice_and_tone": {
+			"title": "Voice & Tone",
+			"description": "The Cadenza voice: restrained, observant, specific. Six rules, a vocabulary the brand uses, and a tone spectrum that flexes without changing the voice."
 		},
 		"emails": {
 			"preview": {

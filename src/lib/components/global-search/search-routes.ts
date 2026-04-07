@@ -94,6 +94,41 @@ export const SEARCH_ROUTES: SearchRouteEntry[] = [
 		group: 'admin',
 		titleKey: 'admin.sidebar.settings',
 		keywords: ['admin settings']
+	},
+	{
+		href: '/brand',
+		access: 'admin',
+		group: 'admin',
+		titleKey: 'meta.brand.title',
+		keywords: ['brand', 'cadenza', 'identity', 'story']
+	},
+	{
+		href: '/brand/visual-identity',
+		access: 'admin',
+		group: 'admin',
+		titleKey: 'meta.brand_visual_identity.title',
+		keywords: ['brand', 'visual identity', 'logo', 'color', 'typography']
+	},
+	{
+		href: '/brand/voice-and-tone',
+		access: 'admin',
+		group: 'admin',
+		titleKey: 'meta.brand_voice_and_tone.title',
+		keywords: ['brand', 'voice', 'tone', 'copy', 'writing']
+	},
+	{
+		href: '/brand/motion',
+		access: 'admin',
+		group: 'admin',
+		titleKey: 'meta.brand_motion.title',
+		keywords: ['brand', 'motion', 'animation', 'shader']
+	},
+	{
+		href: '/brand/resources',
+		access: 'admin',
+		group: 'admin',
+		titleKey: 'meta.brand_resources.title',
+		keywords: ['brand', 'resources', 'download', 'tokens']
 	}
 ];
 

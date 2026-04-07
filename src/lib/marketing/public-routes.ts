@@ -1,5 +1,10 @@
 import { SUPPORTED_LANGUAGES, isSupportedLanguage } from '$lib/i18n/languages';
 import { marketingMarkdown as aboutMarketingMarkdown } from '../../routes/[[lang]]/(marketing)/about/page.md';
+import { marketingMarkdown as brandMarketingMarkdown } from '../../routes/[[lang]]/(marketing)/brand/page.md';
+import { marketingMarkdown as brandMotionMarketingMarkdown } from '../../routes/[[lang]]/(marketing)/brand/motion/page.md';
+import { marketingMarkdown as brandResourcesMarketingMarkdown } from '../../routes/[[lang]]/(marketing)/brand/resources/page.md';
+import { marketingMarkdown as brandVisualIdentityMarketingMarkdown } from '../../routes/[[lang]]/(marketing)/brand/visual-identity/page.md';
+import { marketingMarkdown as brandVoiceAndToneMarketingMarkdown } from '../../routes/[[lang]]/(marketing)/brand/voice-and-tone/page.md';
 import { marketingMarkdown as homeMarketingMarkdown } from '../../routes/[[lang]]/(marketing)/page.md';
 import { marketingMarkdown as impressumMarketingMarkdown } from '../../routes/[[lang]]/(marketing)/impressum/page.md';
 import { marketingMarkdown as pricingMarketingMarkdown } from '../../routes/[[lang]]/(marketing)/pricing/page.md';
@@ -12,11 +17,27 @@ export type PublicMarketingRouteKey =
 	| 'pricing'
 	| 'privacy'
 	| 'terms'
-	| 'impressum';
+	| 'impressum'
+	| 'brand'
+	| 'brand/visual-identity'
+	| 'brand/voice-and-tone'
+	| 'brand/motion'
+	| 'brand/resources';
 
 export interface PublicMarketingRouteDefinition {
 	key: PublicMarketingRouteKey;
-	pathSuffix: '' | '/about' | '/pricing' | '/privacy' | '/terms' | '/impressum';
+	pathSuffix:
+		| ''
+		| '/about'
+		| '/pricing'
+		| '/privacy'
+		| '/terms'
+		| '/impressum'
+		| '/brand'
+		| '/brand/visual-identity'
+		| '/brand/voice-and-tone'
+		| '/brand/motion'
+		| '/brand/resources';
 }
 
 export interface MatchedPublicMarketingRoute {
@@ -30,7 +51,12 @@ export const PUBLIC_MARKETING_ROUTES: PublicMarketingRouteDefinition[] = [
 	{ key: 'pricing', pathSuffix: '/pricing' },
 	{ key: 'privacy', pathSuffix: '/privacy' },
 	{ key: 'terms', pathSuffix: '/terms' },
-	{ key: 'impressum', pathSuffix: '/impressum' }
+	{ key: 'impressum', pathSuffix: '/impressum' },
+	{ key: 'brand', pathSuffix: '/brand' },
+	{ key: 'brand/visual-identity', pathSuffix: '/brand/visual-identity' },
+	{ key: 'brand/voice-and-tone', pathSuffix: '/brand/voice-and-tone' },
+	{ key: 'brand/motion', pathSuffix: '/brand/motion' },
+	{ key: 'brand/resources', pathSuffix: '/brand/resources' }
 ];
 
 const MARKETING_DOCUMENTS = {
@@ -39,13 +65,18 @@ const MARKETING_DOCUMENTS = {
 	pricing: pricingMarketingMarkdown,
 	privacy: privacyMarketingMarkdown,
 	terms: termsMarketingMarkdown,
-	impressum: impressumMarketingMarkdown
+	impressum: impressumMarketingMarkdown,
+	brand: brandMarketingMarkdown,
+	'brand/visual-identity': brandVisualIdentityMarketingMarkdown,
+	'brand/voice-and-tone': brandVoiceAndToneMarketingMarkdown,
+	'brand/motion': brandMotionMarketingMarkdown,
+	'brand/resources': brandResourcesMarketingMarkdown
 } as const;
 
 export function matchPublicMarketingRoute(pathname: string): MatchedPublicMarketingRoute | null {
 	const normalizedPath = pathname !== '/' ? pathname.replace(/\/+$/, '') : pathname;
 	const match = normalizedPath.match(
-		/^\/([a-z]{2})(?:\/(about|pricing|privacy|terms|impressum))?$/
+		/^\/([a-z]{2})(?:\/(about|pricing|privacy|terms|impressum|brand(?:\/(?:visual-identity|voice-and-tone|motion|resources))?))?$/
 	);
 
 	if (!match) {

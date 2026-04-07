@@ -35,6 +35,48 @@
 	src: url('/fonts/outfit-v15-latin-600.woff2') format('woff2');
 }
 
+/* Cadenza brand — Fraunces (the voice) */
+@font-face {
+	font-family: 'Fraunces';
+	font-style: italic;
+	font-weight: 400;
+	font-display: swap;
+	src: url('/fonts/fraunces-latin-400-italic.woff2') format('woff2');
+}
+
+@font-face {
+	font-family: 'Fraunces';
+	font-style: italic;
+	font-weight: 700;
+	font-display: swap;
+	src: url('/fonts/fraunces-latin-700-italic.woff2') format('woff2');
+}
+
+/* Cadenza brand — Geist Sans (the room) */
+@font-face {
+	font-family: 'Geist Sans';
+	font-style: normal;
+	font-weight: 400;
+	font-display: swap;
+	src: url('/fonts/geist-sans-latin-400-normal.woff2') format('woff2');
+}
+
+@font-face {
+	font-family: 'Geist Sans';
+	font-style: normal;
+	font-weight: 500;
+	font-display: swap;
+	src: url('/fonts/geist-sans-latin-500-normal.woff2') format('woff2');
+}
+
+@font-face {
+	font-family: 'Geist Sans';
+	font-style: normal;
+	font-weight: 600;
+	font-display: swap;
+	src: url('/fonts/geist-sans-latin-600-normal.woff2') format('woff2');
+}
+
 @custom-variant dark (&:is(.dark *));
 
 :root {
@@ -123,6 +165,14 @@
 	--font-sans:
 		'Outfit', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
 		'Segoe UI Symbol', 'Noto Color Emoji';
+	--font-brand-serif: 'Fraunces', ui-serif, Georgia, serif;
+	--font-brand-sans:
+		'Geist Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
+	--color-brand-ink: oklch(0.18 0.005 270);
+	--color-brand-terracotta: oklch(0.58 0.15 38);
+	--color-brand-amber: oklch(0.71 0.13 70);
+	--color-brand-cream: oklch(0.88 0.05 60);
+	--color-brand-warm-white: oklch(0.97 0.008 75);
 	--radius-sm: calc(var(--radius) - 4px);
 	--radius-md: calc(var(--radius) - 2px);
 	--radius-lg: var(--radius);
@@ -411,6 +461,27 @@
 
 .dark .marketing-shell-panel {
 	border-color: rgb(255 255 255 / 0.06);
+}
+
+/* Cadenza brand pages — scoped theme override. Applied via class on brand/+layout.svelte. */
+.brand-page {
+	--background: var(--color-brand-warm-white);
+	--foreground: var(--color-brand-ink);
+	--primary: var(--color-brand-terracotta);
+	--primary-foreground: var(--color-brand-warm-white);
+	--accent: var(--color-brand-cream);
+	--accent-foreground: var(--color-brand-ink);
+	--border: color-mix(in oklch, var(--color-brand-ink) 12%, transparent);
+	--ring: var(--color-brand-terracotta);
+	background-color: var(--color-brand-warm-white);
+	color: var(--color-brand-ink);
+	font-family: var(--font-brand-sans);
+}
+
+.brand-page .font-serif,
+.brand-page .brand-display {
+	font-family: var(--font-brand-serif);
+	font-style: italic;
 }
 
 @utility animate-fade-in {
