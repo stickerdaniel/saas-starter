@@ -82,7 +82,6 @@
 	// When handed off to human support, don't block - use fire-and-forget pattern
 	const canSend = $derived(ctx.canSend && (!ctx.isProcessing || isHandedOff) && !isRateLimited);
 
-	// Check if last assistant message is complete (for handoff button visibility)
 	const showSuggestions = $derived(
 		(ctx.core.isNewConversation || ctx.messagesReady) &&
 			ctx.displayMessages.length === 0 &&
@@ -94,6 +93,7 @@
 		showSuggestions ? placeholder : (placeholderNoSuggestions ?? placeholder)
 	);
 
+	// Check if last assistant message is complete (for handoff button visibility)
 	const lastAssistantComplete = $derived.by(() => {
 		const last = ctx.displayMessages.findLast((m) => m.role === 'assistant');
 		return last?.status === 'success' || last?.status === 'failed';
