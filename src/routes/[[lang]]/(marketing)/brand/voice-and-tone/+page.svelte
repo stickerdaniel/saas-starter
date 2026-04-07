@@ -14,18 +14,18 @@
 />
 
 <header class="pb-12">
-	<p class="text-primary mb-4 text-xs tracking-[0.2em] uppercase">Voice & tone</p>
+	<p class="mb-4 text-xs tracking-[0.2em] text-primary uppercase">Voice & tone</p>
 	<h1 class="brand-display text-5xl leading-[1.05] lg:text-6xl">One voice. Four dial positions.</h1>
 </header>
 
 <BrandSection id="voice-rules" eyebrow="The voice" title="Six rules for every line we write.">
 	<ol class="space-y-6">
 		{#each VOICE_RULES as rule (rule.number)}
-			<li class="border-border/60 flex gap-5 border-t pt-6 first:border-t-0 first:pt-0">
-				<span class="text-primary brand-display w-10 text-3xl leading-none">{rule.number}</span>
+			<li class="flex gap-5 border-t border-border/60 pt-6 first:border-t-0 first:pt-0">
+				<span class="brand-display w-10 text-3xl leading-none text-primary">{rule.number}</span>
 				<div>
 					<p class="mb-2 text-lg font-semibold">{rule.rule}</p>
-					<p class="text-foreground/75 text-base leading-relaxed">{rule.body}</p>
+					<p class="text-base leading-relaxed text-foreground/75">{rule.body}</p>
 				</div>
 			</li>
 		{/each}
@@ -33,9 +33,9 @@
 </BrandSection>
 
 <BrandSection id="vocabulary" eyebrow="Vocabulary" title="The words we use. The words we don’t.">
-	<div class="border-border/60 bg-background overflow-hidden rounded-2xl border">
+	<div class="overflow-hidden rounded-2xl border border-border/60 bg-background">
 		<table class="w-full text-left">
-			<thead class="text-muted-foreground border-border/60 border-b text-xs uppercase">
+			<thead class="border-b border-border/60 text-xs text-muted-foreground uppercase">
 				<tr>
 					<th class="px-5 py-3 font-medium">We say</th>
 					<th class="px-5 py-3 font-medium">We don’t say</th>
@@ -43,9 +43,9 @@
 			</thead>
 			<tbody>
 				{#each VOCABULARY as pair (pair.say)}
-					<tr class="border-border/40 border-b last:border-b-0">
+					<tr class="border-b border-border/40 last:border-b-0">
 						<td class="px-5 py-4 text-sm font-medium">{pair.say}</td>
-						<td class="text-muted-foreground px-5 py-4 text-sm line-through decoration-1">
+						<td class="px-5 py-4 text-sm text-muted-foreground line-through decoration-1">
 							{pair.dontSay}
 						</td>
 					</tr>
@@ -63,14 +63,14 @@
 >
 	<div class="space-y-5">
 		{#each TONE_SPECTRUM as register (register.context)}
-			<article class="border-border/60 bg-background rounded-2xl border p-6 lg:p-8">
+			<article class="rounded-2xl border border-border/60 bg-background p-6 lg:p-8">
 				<div class="mb-4 flex flex-wrap items-baseline justify-between gap-2">
 					<h3 class="text-lg font-semibold">{register.context}</h3>
-					<p class="text-muted-foreground text-xs tracking-wider uppercase">
+					<p class="text-xs tracking-wider text-muted-foreground uppercase">
 						{register.dialPosition}
 					</p>
 				</div>
-				<p class="brand-display text-foreground text-xl leading-snug lg:text-2xl">
+				<p class="brand-display text-xl leading-snug text-foreground lg:text-2xl">
 					“{register.example}”
 				</p>
 			</article>

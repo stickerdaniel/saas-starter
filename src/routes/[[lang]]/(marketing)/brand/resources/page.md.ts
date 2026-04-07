@@ -8,7 +8,7 @@ export const marketingMarkdown: MarketingMarkdownDocument = {
 		{
 			heading: 'Color tokens',
 			paragraphs: [
-				'All five brand colors are shipped as CSS custom properties on the .brand-page scope: --brand-ink, --brand-terracotta, --brand-amber, --brand-cream, --brand-warm-white.'
+				'All five brand colors are shipped globally via Tailwind v4 @theme inline in layout.css: --color-brand-ink, --color-brand-terracotta, --color-brand-amber, --color-brand-cream, --color-brand-warm-white. The .brand-page class consumes them to override shadcn theme variables on brand routes only, leaving the app shell untouched.'
 			]
 		},
 		{

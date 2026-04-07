@@ -17,13 +17,13 @@
 />
 
 <header class="pb-12">
-	<p class="text-primary mb-4 text-xs tracking-[0.2em] uppercase">Visual identity</p>
+	<p class="mb-4 text-xs tracking-[0.2em] text-primary uppercase">Visual identity</p>
 	<h1 class="brand-display text-5xl leading-[1.05] lg:text-6xl">Logo, color, type.</h1>
 </header>
 
 <BrandSection id="logo" eyebrow="Logo" title="A lowercase italic c, earned in one glance.">
 	<div
-		class="border-border/60 bg-background mb-6 flex aspect-[16/9] items-center justify-center rounded-2xl border"
+		class="mb-6 flex aspect-[16/9] items-center justify-center rounded-2xl border border-border/60 bg-background"
 	>
 		<div class="flex items-baseline gap-3">
 			<span
@@ -35,7 +35,7 @@
 			<span class="brand-display text-5xl leading-none lg:text-6xl">adenza</span>
 		</div>
 	</div>
-	<ul class="text-foreground/80 space-y-2 text-sm">
+	<ul class="space-y-2 text-sm text-foreground/80">
 		<li>— Mark: lowercase italic <em>c</em> in Fraunces on an ink → terracotta gradient (135°).</li>
 		<li>
 			— Wordmark: <em>cadenza</em>, lowercase, Fraunces italic. Never caps. Never another font.
@@ -79,7 +79,7 @@
 >
 	<ColorPalette />
 	<ul
-		class="border-border/60 text-foreground/80 mt-10 space-y-2 border-t pt-8 text-sm leading-relaxed"
+		class="mt-10 space-y-2 border-t border-border/60 pt-8 text-sm leading-relaxed text-foreground/80"
 	>
 		{#each BRAND_COLOR_USAGE_RULES as rule (rule)}
 			<li>— {rule}</li>
@@ -100,9 +100,9 @@
 	</div>
 
 	<h3 class="brand-display mb-6 text-2xl lg:text-3xl">Type scale</h3>
-	<div class="border-border/60 bg-background overflow-hidden rounded-2xl border">
+	<div class="overflow-hidden rounded-2xl border border-border/60 bg-background">
 		<table class="w-full text-left text-sm">
-			<thead class="text-muted-foreground border-border/60 border-b text-xs uppercase">
+			<thead class="border-b border-border/60 text-xs text-muted-foreground uppercase">
 				<tr>
 					<th class="px-5 py-3 font-medium">Token</th>
 					<th class="px-5 py-3 font-medium">Size</th>
@@ -112,18 +112,18 @@
 			</thead>
 			<tbody>
 				{#each TYPE_SCALE as token (token.token)}
-					<tr class="border-border/40 border-b last:border-b-0">
+					<tr class="border-b border-border/40 last:border-b-0">
 						<td class="px-5 py-4"><code class="text-xs">{token.token}</code></td>
 						<td class="px-5 py-4">{token.px}px</td>
 						<td class="px-5 py-4">{token.font}</td>
-						<td class="text-muted-foreground hidden px-5 py-4 md:table-cell">{token.use}</td>
+						<td class="hidden px-5 py-4 text-muted-foreground md:table-cell">{token.use}</td>
 					</tr>
 				{/each}
 			</tbody>
 		</table>
 	</div>
 
-	<ul class="text-muted-foreground mt-6 space-y-1 text-sm">
+	<ul class="mt-6 space-y-1 text-sm text-muted-foreground">
 		{#each TYPE_RULES as rule (rule)}
 			<li>— {rule}</li>
 		{/each}

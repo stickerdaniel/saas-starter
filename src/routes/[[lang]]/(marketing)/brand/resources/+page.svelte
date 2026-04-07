@@ -9,9 +9,11 @@
 	const { t } = getTranslate();
 
 	const cssTokens = $derived(
-		[':root {', ...BRAND_COLORS.map((c) => `\t${c.token}: ${c.oklch}; /* ${c.name} */`), '}'].join(
-			'\n'
-		)
+		[
+			'@theme inline {',
+			...BRAND_COLORS.map((c) => `\t${c.token}: ${c.oklch}; /* ${c.name} */`),
+			'}'
+		].join('\n')
 	);
 
 	const typeCss = $derived(
@@ -35,27 +37,27 @@
 />
 
 <header class="pb-12">
-	<p class="text-primary mb-4 text-xs tracking-[0.2em] uppercase">Resources</p>
+	<p class="mb-4 text-xs tracking-[0.2em] text-primary uppercase">Resources</p>
 	<h1 class="brand-display text-5xl leading-[1.05] lg:text-6xl">Everything, copy-pasteable.</h1>
 </header>
 
 <BrandSection id="color-tokens" eyebrow="Color tokens" title="CSS custom properties.">
-	<div class="border-border/60 bg-background relative overflow-hidden rounded-2xl border">
+	<div class="relative overflow-hidden rounded-2xl border border-border/60 bg-background">
 		<div class="absolute top-4 right-4">
 			<CopyButton text={cssTokens} variant="outline" size="icon" class="size-8" />
 		</div>
-		<pre class="text-foreground/90 overflow-x-auto p-5 pr-14 text-xs leading-relaxed"><code
+		<pre class="overflow-x-auto p-5 pr-14 text-xs leading-relaxed text-foreground/90"><code
 				>{cssTokens}</code
 			></pre>
 	</div>
 </BrandSection>
 
 <BrandSection id="type-tokens" eyebrow="Type tokens" title="Type scale as CSS variables.">
-	<div class="border-border/60 bg-background relative overflow-hidden rounded-2xl border">
+	<div class="relative overflow-hidden rounded-2xl border border-border/60 bg-background">
 		<div class="absolute top-4 right-4">
 			<CopyButton text={typeCss} variant="outline" size="icon" class="size-8" />
 		</div>
-		<pre class="text-foreground/90 overflow-x-auto p-5 pr-14 text-xs leading-relaxed"><code
+		<pre class="overflow-x-auto p-5 pr-14 text-xs leading-relaxed text-foreground/90"><code
 				>{typeCss}</code
 			></pre>
 	</div>
@@ -68,16 +70,16 @@
 	intro="All five files are shipped with the project and served from /fonts/. Click to download."
 >
 	<ul
-		class="border-border/60 bg-background divide-border/60 divide-y overflow-hidden rounded-2xl border"
+		class="divide-y divide-border/60 overflow-hidden rounded-2xl border border-border/60 bg-background"
 	>
 		{#each fontFiles as file (file.path)}
 			<li class="flex items-center justify-between gap-4 px-5 py-4">
 				<div>
 					<p class="text-sm font-medium">{file.label}</p>
-					<code class="text-muted-foreground text-xs">{file.path}</code>
+					<code class="text-xs text-muted-foreground">{file.path}</code>
 				</div>
 				<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- static asset download, not route navigation -->
-				<a href={file.path} download class="text-primary hover:text-primary/80 text-sm font-medium">
+				<a href={file.path} download class="text-sm font-medium text-primary hover:text-primary/80">
 					Download
 				</a>
 			</li>
@@ -86,22 +88,22 @@
 </BrandSection>
 
 <BrandSection id="logo-kit" eyebrow="Logo" title="Rendered, not downloaded.">
-	<p class="text-foreground/80 mb-4 text-base leading-relaxed">
+	<p class="mb-4 text-base leading-relaxed text-foreground/80">
 		The Cadenza wordmark is rendered live from Fraunces italic — there is no bitmap. To use it:
 	</p>
-	<ol class="text-foreground/80 list-inside list-decimal space-y-2 text-sm">
+	<ol class="list-inside list-decimal space-y-2 text-sm text-foreground/80">
 		<li>Install Fraunces (italic, 400 weight) from Google Fonts or fontsource.</li>
 		<li>
-			Set the wordmark as lowercase text: <code class="bg-muted/50 rounded px-1.5 py-0.5 text-xs"
+			Set the wordmark as lowercase text: <code class="rounded bg-muted/50 px-1.5 py-0.5 text-xs"
 				>cadenza</code
 			>.
 		</li>
 		<li>Font family Fraunces, style italic, weight 400.</li>
 		<li>
 			For the gradient mark, apply a 135° linear gradient from <code
-				class="bg-muted/50 rounded px-1.5 py-0.5 text-xs">#1A1A1A</code
+				class="rounded bg-muted/50 px-1.5 py-0.5 text-xs">#1A1A1A</code
 			>
-			to <code class="bg-muted/50 rounded px-1.5 py-0.5 text-xs">#C75B39</code> with background-clip:
+			to <code class="rounded bg-muted/50 px-1.5 py-0.5 text-xs">#C75B39</code> with background-clip:
 			text.
 		</li>
 	</ol>

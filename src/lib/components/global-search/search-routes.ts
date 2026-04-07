@@ -95,6 +95,10 @@ export const SEARCH_ROUTES: SearchRouteEntry[] = [
 		titleKey: 'admin.sidebar.settings',
 		keywords: ['admin settings']
 	},
+	// Brand pages are public (prerendered, in PUBLIC_MARKETING_ROUTES, indexed by
+	// llms.txt and sitemap) but intentionally NOT advertised in the cmd-k palette
+	// to non-admin users. They are internal design docs that happen to be
+	// reachable by URL. Direct visits work for everyone; discovery is admin-only.
 	{
 		href: '/brand',
 		access: 'admin',

@@ -32,7 +32,7 @@
 <SEOHead title={$t('meta.brand_motion.title')} description={$t('meta.brand_motion.description')} />
 
 <header class="pb-12">
-	<p class="text-primary mb-4 text-xs tracking-[0.2em] uppercase">Motion</p>
+	<p class="mb-4 text-xs tracking-[0.2em] text-primary uppercase">Motion</p>
 	<h1 class="brand-display text-5xl leading-[1.05] lg:text-6xl">
 		{MOTION_PULLQUOTE}
 	</h1>
@@ -41,13 +41,13 @@
 <BrandSection id="principles" eyebrow="Principles" title="Animate rarely. Mean it when you do.">
 	<ol class="space-y-6">
 		{#each MOTION_PRINCIPLES as principle (principle.number)}
-			<li class="border-border/60 flex gap-5 border-t pt-6 first:border-t-0 first:pt-0">
-				<span class="text-primary brand-display w-10 text-3xl leading-none">
+			<li class="flex gap-5 border-t border-border/60 pt-6 first:border-t-0 first:pt-0">
+				<span class="brand-display w-10 text-3xl leading-none text-primary">
 					{principle.number}
 				</span>
 				<div>
 					<p class="mb-2 text-lg font-semibold">{principle.title}</p>
-					<p class="text-foreground/75 text-base leading-relaxed">{principle.body}</p>
+					<p class="text-base leading-relaxed text-foreground/75">{principle.body}</p>
 				</div>
 			</li>
 		{/each}
@@ -62,7 +62,7 @@
 >
 	<div class="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
 		{#each SHADER_COLLECTIONS as shader, i (shader.name)}
-			<article class="border-border/60 bg-background overflow-hidden rounded-2xl border">
+			<article class="overflow-hidden rounded-2xl border border-border/60 bg-background">
 				<div
 					class="aspect-[4/3] w-full"
 					style={[
@@ -81,21 +81,21 @@
 				></div>
 				<div class="p-5">
 					<h3 class="mb-2 text-lg font-semibold">{shader.name}</h3>
-					<p class="text-muted-foreground text-sm leading-relaxed">{shader.use}</p>
+					<p class="text-sm leading-relaxed text-muted-foreground">{shader.use}</p>
 				</div>
 			</article>
 		{/each}
 	</div>
-	<p class="text-muted-foreground mt-6 text-sm">
+	<p class="mt-6 text-sm text-muted-foreground">
 		Live shader implementations live in the Cadenza shader collection (webdocs). The previews above
 		use the static brand-gradient fallbacks.
 	</p>
 </BrandSection>
 
 <BrandSection id="timing" eyebrow="Timing tokens" title="Four durations. One easing curve.">
-	<div class="border-border/60 bg-background overflow-hidden rounded-2xl border">
+	<div class="overflow-hidden rounded-2xl border border-border/60 bg-background">
 		<table class="w-full text-left text-sm">
-			<thead class="text-muted-foreground border-border/60 border-b text-xs uppercase">
+			<thead class="border-b border-border/60 text-xs text-muted-foreground uppercase">
 				<tr>
 					<th class="px-5 py-3 font-medium">Token</th>
 					<th class="px-5 py-3 font-medium">Duration</th>
@@ -105,12 +105,12 @@
 			</thead>
 			<tbody>
 				{#each TIMING_TOKENS as token (token.token)}
-					<tr class="border-border/40 border-b last:border-b-0">
+					<tr class="border-b border-border/40 last:border-b-0">
 						<td class="px-5 py-4"><code class="text-xs">{token.token}</code></td>
 						<td class="px-5 py-4">{token.duration}</td>
 						<td class="hidden px-5 py-4 md:table-cell"><code class="text-xs">{token.ease}</code></td
 						>
-						<td class="text-muted-foreground hidden px-5 py-4 md:table-cell">{token.use}</td>
+						<td class="hidden px-5 py-4 text-muted-foreground md:table-cell">{token.use}</td>
 					</tr>
 				{/each}
 			</tbody>

@@ -11,10 +11,10 @@
 	let { label, doText, dontText }: Props = $props();
 </script>
 
-<article class="border-border/60 overflow-hidden rounded-2xl border" data-testid="brand-do-dont">
+<article class="overflow-hidden rounded-2xl border border-border/60" data-testid="brand-do-dont">
 	{#if label}
 		<p
-			class="border-border/60 text-muted-foreground border-b px-6 py-3 text-xs tracking-wider uppercase"
+			class="border-b border-border/60 px-6 py-3 text-xs tracking-wider text-muted-foreground uppercase"
 		>
 			{label}
 		</p>
@@ -22,21 +22,21 @@
 	<div class="grid grid-cols-1 md:grid-cols-2">
 		<div class="flex items-start gap-3 p-6">
 			<span
-				class="bg-primary/10 text-primary mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full"
+				class="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary"
 				aria-hidden="true"
 			>
 				<Check class="size-3.5" />
 			</span>
 			<p class="text-base leading-relaxed">{doText}</p>
 		</div>
-		<div class="border-border/60 flex items-start gap-3 border-t p-6 md:border-t-0 md:border-l">
+		<div class="flex items-start gap-3 border-t border-border/60 p-6 md:border-t-0 md:border-l">
 			<span
-				class="text-muted-foreground bg-muted/50 mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full"
+				class="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-muted/50 text-muted-foreground"
 				aria-hidden="true"
 			>
 				<X class="size-3.5" />
 			</span>
-			<p class="text-muted-foreground text-base leading-relaxed line-through decoration-1">
+			<p class="text-base leading-relaxed text-muted-foreground line-through decoration-1">
 				{dontText}
 			</p>
 		</div>
