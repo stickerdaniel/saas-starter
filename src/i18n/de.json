@@ -15,6 +15,8 @@
 			"email_service": "E-Mail-Zustelldienst",
 			"external_services": "Externe Dienste",
 			"hosting_deployment": "Hosting & Deployment",
+			"no_framework_activity": "Es wurden noch keine Framework-Aktionen aufgezeichnet.",
+			"recent_framework_activity": "Letzte Framework-Aktivität",
 			"resource_overview": "Ressourcenübersicht",
 			"resource_records": "{count} Einträge",
 			"title": "Admin Dashboard"
@@ -80,8 +82,59 @@
 				"replicate": "Replicate",
 				"restore": "Restore",
 				"select_exactly_one": "Bitte wählen Sie genau einen Datensatz aus.",
+				"status_completed": "Abgeschlossen",
+				"status_failed": "Fehlgeschlagen",
+				"status_pending": "Ausstehend",
+				"status_running": "Laufend",
 				"update_resource": "{resource} aktualisieren",
 				"view": "View"
+			},
+			"actions_column": "Aktionen",
+			"activity": {
+				"audit_trail": "Audit-Protokoll",
+				"no_actions": "Für diesen Eintrag wurden noch keine Aktionen ausgeführt.",
+				"no_audit_events": "Für diesen Eintrag wurden noch keine Audit-Ereignisse aufgezeichnet.",
+				"recent_actions": "Letzte Aktionen"
+			},
+			"admin_audit_logs": {
+				"columns": {
+					"action": "Aktion",
+					"admin_user_id": "Admin-Benutzer",
+					"metadata": "Metadaten",
+					"target_user_id": "Zielbenutzer",
+					"timestamp": "Eingetreten am"
+				},
+				"dashboard_description": "Legacy-Operator-Audit-Trail",
+				"empty_description": "Keine Audit-Log-Einträge entsprechen der aktuellen Suche oder dem Filter.",
+				"empty_title": "Keine Audit-Log-Einträge",
+				"fields": {
+					"action": "Aktion",
+					"admin_user_id": "Admin-Benutzer",
+					"metadata_json": "Metadaten-JSON",
+					"target_user_id": "Zielbenutzer",
+					"timestamp": "Eingetreten am"
+				},
+				"filters": {
+					"action": "Aktion",
+					"all_actions": "Alle Aktionen"
+				},
+				"lenses": {
+					"all": "Alle Aktivitäten",
+					"bans": "Sperraktionen",
+					"impersonation": "Identitätswechsel",
+					"role_changes": "Rollenänderungen"
+				},
+				"options": {
+					"ban_user": "Benutzer sperren",
+					"impersonate": "Identität übernehmen",
+					"revoke_sessions": "Sitzungen widerrufen",
+					"set_role": "Rolle setzen",
+					"stop_impersonation": "Identitätswechsel beenden",
+					"unban_user": "Benutzersperre aufheben"
+				},
+				"plural_label": "Admin-Audit-Logs",
+				"search_placeholder": "Audit-Logs durchsuchen...",
+				"singular_label": "Admin-Audit-Log"
 			},
 			"aria": {
 				"select_all": "Select all rows",
@@ -153,6 +206,34 @@
 					"tag_trending": "Trending"
 				}
 			},
+			"auth_users": {
+				"dashboard_description": "Better-Auth-basiertes Admin-Benutzerverzeichnis",
+				"empty_description": "Keine verwalteten Benutzer entsprechen der aktuellen Suche oder den Filtern.",
+				"empty_title": "Keine verwalteten Benutzer",
+				"fields": {
+					"ban_reason": "Sperrgrund"
+				},
+				"filters": {
+					"provider": "Anbieter",
+					"role": "Rolle",
+					"status": "Status"
+				},
+				"lenses": {
+					"admins": "Admins",
+					"all": "Alle Benutzer",
+					"banned": "Gesperrte Benutzer",
+					"recent": "Neue Registrierungen"
+				},
+				"metrics": {
+					"admins": "Admins",
+					"banned": "Gesperrte Benutzer",
+					"total": "Benutzer insgesamt",
+					"unverified": "Nicht verifiziert"
+				},
+				"plural_label": "Verwaltete Benutzer",
+				"search_placeholder": "Verwaltete Benutzer durchsuchen...",
+				"singular_label": "Verwalteter Benutzer"
+			},
 			"bulk": {
 				"action_cancelled": "Abgebrochen. {processed} von {total} verarbeitet.",
 				"action_partial_failure": "{failed} von {total} fehlgeschlagen.",
@@ -219,6 +300,31 @@
 				"copied_tooltip": "Kopiert!",
 				"tooltip": "In Zwischenablage kopieren"
 			},
+			"detail_missing_description": "Dieser Eintrag existiert nicht mehr oder ist für die aktuelle Admin-Sitzung nicht sichtbar.",
+			"detail_missing_title": "Eintrag nicht gefunden",
+			"email_events": {
+				"columns": {
+					"email_id": "E-Mail-ID",
+					"event_type": "Ereignis",
+					"payload": "Payload-Vorschau",
+					"timestamp": "Eingetreten am"
+				},
+				"dashboard_description": "Resend-Webhook-Zustellungsstream",
+				"detail_missing_description": "Dieses Ereignis existiert nicht mehr oder ist für die aktuelle Admin-Sitzung nicht sichtbar.",
+				"detail_missing_title": "E-Mail-Ereignis nicht gefunden",
+				"empty_description": "Keine E-Mail-Ereignisse entsprechen der aktuellen Suche.",
+				"empty_title": "Keine E-Mail-Ereignisse",
+				"fields": {
+					"created_at": "Gespeichert am",
+					"email_id": "E-Mail-ID",
+					"event_type": "Ereignistyp",
+					"payload_json": "Payload-JSON",
+					"timestamp": "Eingetreten am"
+				},
+				"plural_label": "E-Mail-Ereignisse",
+				"search_placeholder": "E-Mail-Ereignisse durchsuchen...",
+				"singular_label": "E-Mail-Ereignis"
+			},
 			"empty": "No records found.",
 			"export": {
 				"csv": "CSV exportieren",
@@ -247,6 +353,7 @@
 				"hide_content": "Inhalt ausblenden",
 				"invalid": "Invalid field value",
 				"key_placeholder": "Schlüssel",
+				"local_override_notice": "Sie haben dieses Feld lokal geändert. Eingehende Live-Updates überschreiben es nicht.",
 				"markdown_placeholder": "## Markdown-Inhalt",
 				"maxlength_exceeded": "Maximale Zeichenanzahl von {limit} überschritten",
 				"no_relation_options": "No options available",
@@ -260,20 +367,145 @@
 				"upload": "Datei hochladen",
 				"value_placeholder": "Wert"
 			},
+			"framework_activity": {
+				"dashboard_description": "Aktuelle V2-Aktionen und Audit-Feed",
+				"empty_description": "Keine Framework-Aktivität entspricht der aktuellen Suche oder den Filtern.",
+				"empty_title": "Keine Framework-Aktivität",
+				"fields": {
+					"actor": "Akteur",
+					"created_at": "Erstellt am",
+					"detail": "Detail",
+					"label": "Bezeichnung",
+					"record": "Datensatz",
+					"resource": "Ressource",
+					"source": "Quelle",
+					"status": "Status",
+					"summary": "Zusammenfassung"
+				},
+				"filters": {
+					"all_resources": "Alle Ressourcen",
+					"all_sources": "Alle Quellen",
+					"resource": "Ressource",
+					"source": "Quelle"
+				},
+				"lenses": {
+					"actions": "Aktionen",
+					"all": "Alle Aktivitäten",
+					"audits": "Audits",
+					"failed": "Fehlgeschlagene Aktionen"
+				},
+				"metrics": {
+					"actions": "Aktionsläufe",
+					"audits": "Audit-Ereignisse",
+					"failed_actions": "Fehlgeschlagene Aktionen",
+					"total": "Aktivität insgesamt"
+				},
+				"options": {
+					"action": "Aktion",
+					"audit": "Audit"
+				},
+				"plural_label": "Framework-Aktivität",
+				"search_placeholder": "Framework-Aktivität durchsuchen...",
+				"singular_label": "Framework-Aktivitätseintrag"
+			},
 			"groups": {
+				"access": "Zugriff",
 				"assignment": "Zuweisung",
 				"content": "Inhalt",
+				"context": "Kontext",
 				"demo_data": "Demo Resources",
+				"detail": "Details",
+				"event": "Ereignis",
+				"identity": "Identität",
 				"main": "Hauptbereich",
+				"metadata": "Metadaten",
+				"notifications": "Benachrichtigungen",
 				"other": "Weitere",
 				"overview": "Übersicht",
+				"payload": "Payload",
+				"recipient": "Empfänger",
+				"related": "Verknüpft",
 				"relations": "Beziehungen",
-				"system": "System"
+				"system": "System",
+				"timestamps": "Zeitstempel"
+			},
+			"internal_user_notes": {
+				"dashboard_description": "Operator-Notizen zu verwalteten Benutzern",
+				"empty_description": "Keine internen Notizen entsprechen der aktuellen Suche.",
+				"empty_title": "Keine internen Notizen",
+				"fields": {
+					"admin_user": "Admin-Autor",
+					"content": "Notiz",
+					"user_id": "Verwalteter Benutzer"
+				},
+				"plural_label": "Interne Benutzernotizen",
+				"search_placeholder": "Interne Notizen durchsuchen...",
+				"singular_label": "Interne Benutzernotiz"
 			},
 			"lenses": {
 				"all": "All Lenses"
 			},
 			"loading": "Loading resources...",
+			"notification_recipients": {
+				"actions": {
+					"delete_custom": "Benutzerdefinierten Empfänger löschen",
+					"delete_selected_custom": "Ausgewählte benutzerdefinierte Empfänger löschen",
+					"disable_all": "Alle Benachrichtigungen deaktivieren",
+					"disable_selected": "Ausgewählte Benachrichtigungen deaktivieren",
+					"enable_all": "Alle Benachrichtigungen aktivieren",
+					"enable_selected": "Ausgewählte Benachrichtigungen aktivieren",
+					"sync_admins": "Admin-Empfänger synchronisieren"
+				},
+				"columns": {
+					"email": "E-Mail",
+					"name": "Name",
+					"new_signups": "Neue Registrierungen",
+					"new_tickets": "Neue Tickets",
+					"type": "Typ",
+					"user_replies": "Nutzerantworten"
+				},
+				"dashboard_description": "Admin-Benachrichtigungsrouting-Einträge",
+				"delete_description": "{email} aus der Liste der benutzerdefinierten Benachrichtigungsempfänger löschen?",
+				"delete_selected_description": "{count} ausgewählte benutzerdefinierte Benachrichtigungsempfänger löschen?",
+				"delete_selected_title": "Ausgewählte Benachrichtigungsempfänger löschen",
+				"delete_title": "Benachrichtigungsempfänger löschen",
+				"empty_description": "Keine Benachrichtigungsempfänger entsprechen der aktuellen Suche.",
+				"empty_title": "Keine Benachrichtigungsempfänger",
+				"fields": {
+					"email": "E-Mail",
+					"name": "Name",
+					"new_signups": "Neue Registrierungen",
+					"new_tickets": "Neue Tickets",
+					"type": "Typ",
+					"user_replies": "Nutzerantworten"
+				},
+				"metrics": {
+					"admin": "Admin-Empfänger",
+					"custom": "Benutzerdefinierte Empfänger",
+					"fully_enabled": "Vollständig aktiviert",
+					"total": "Empfänger gesamt"
+				},
+				"options": {
+					"admin": "Admin",
+					"custom": "Benutzerdefiniert",
+					"disabled": "Deaktiviert",
+					"enabled": "Aktiviert",
+					"off": "Aus",
+					"on": "An"
+				},
+				"plural_label": "Benachrichtigungsempfänger",
+				"search_placeholder": "Benachrichtigungsempfänger durchsuchen...",
+				"singular_label": "Benachrichtigungsempfänger",
+				"toasts": {
+					"deleted": "Benachrichtigungsempfänger gelöscht",
+					"disable_all": "Alle Benachrichtigungsschalter deaktiviert",
+					"enable_all": "Alle Benachrichtigungsschalter aktiviert",
+					"sync_started": "Synchronisierung der Admin-Empfänger gestartet"
+				},
+				"validation": {
+					"email_locked": "E-Mail-Adressen von adminverwalteten Empfängern können nicht geändert werden."
+				}
+			},
 			"peek": {
 				"empty": "Keine Daten zum Anzeigen.",
 				"loading": "Laden..."
@@ -288,9 +520,22 @@
 					"purge_cancel_btn": "Abbrechen",
 					"purge_confirm": "Die ausgewählten Projekte und alle zugehörigen Daten werden dauerhaft gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.",
 					"purge_confirm_btn": "Ja, löschen",
+					"restore_archived": "Archivierte Projekte wiederherstellen",
 					"seed_data": "Testdaten anlegen"
 				},
+				"dashboard_description": "Parity-Spielwiese für reichere admin-v2-Ressourcenabläufe.",
+				"empty_active_description": "Archiviere Projekte oder lege Demodaten an, um die Linse für aktive Projekte zu prüfen.",
+				"empty_active_title": "Keine aktiven Projekte",
+				"empty_archived_description": "Archiviere ein Projekt oder lege Demodaten an, um archivierte Wiederherstellungsabläufe zu prüfen.",
+				"empty_archived_title": "Keine archivierten Projekte",
+				"empty_description": "Lege Testdaten an oder passe die Filter an, um Projekte zu sehen.",
+				"empty_featured_description": "Markiere ein Projekt als hervorgehoben oder lege Demodaten an, um die Linse für hervorgehobene Projekte zu prüfen.",
+				"empty_featured_title": "Keine hervorgehobenen Projekte",
+				"empty_title": "Keine Projekte gefunden",
 				"fields": {
+					"brand_color": "Markenfarbe",
+					"brand_color_help": "Primäre Akzentfarbe für Vorschauen und die Operator-QA.",
+					"brand_color_placeholder": "#6586E5",
 					"budget": "Budget",
 					"code_snippet": "Code-Snippet",
 					"cover_image": "Cover-Bild-URL",
@@ -342,6 +587,16 @@
 					"status_active": "Active",
 					"status_archived": "Archived",
 					"status_draft": "Draft"
+				},
+				"plural_label": "Demo-Projekte",
+				"search_placeholder": "Demo-Projekte durchsuchen...",
+				"search_placeholder_active": "Aktive Projekte durchsuchen...",
+				"search_placeholder_archived": "Archivierte Projekte durchsuchen...",
+				"search_placeholder_featured": "Hervorgehobene Projekte durchsuchen...",
+				"singular_label": "Demo-Projekt",
+				"validation": {
+					"invalid_brand_color": "Die Markenfarbe muss ein gültiger Hex-Farbwert sein.",
+					"invalid_json": "Das Einstellungs-JSON muss gültiges JSON sein."
 				}
 			},
 			"queued_actions": {
@@ -356,6 +611,23 @@
 				"status_pending": "Ausstehend",
 				"status_running": "Laufend",
 				"will_run_in_background": "Diese Aktion wird im Hintergrund ausgeführt"
+			},
+			"relations": {
+				"actor_user": "Akteur-Benutzer",
+				"actor_user_description": "Verwalteter Benutzer, der aus dem Akteur dieses Framework-Eintrags aufgelöst wurde.",
+				"admin_actor": "Admin-Akteur",
+				"admin_actor_description": "Admin-Benutzer, der mit diesem Audit- oder Notizeintrag verknüpft ist.",
+				"internal_notes": "Interne Notizen",
+				"internal_notes_description": "Von Operatoren verfasste Notizen, die mit diesem verwalteten Benutzer verknüpft sind.",
+				"managed_user": "Verwalteter Benutzer",
+				"managed_user_description": "Verwalteter Benutzer, der mit diesem Benachrichtigungsempfänger verknüpft ist.",
+				"related_record": "Verknüpfter Datensatz",
+				"related_record_description": "Framework-Datensatz, auf den dieser Aktivitätseintrag verweist.",
+				"related_record_unavailable": "Der verknüpfte Datensatz ist derzeit nicht verfügbar.",
+				"related_user": "Verknüpfter Benutzer",
+				"related_user_description": "Verwalteter Benutzer, der mit dieser Notiz verknüpft ist.",
+				"target_user": "Zielbenutzer",
+				"target_user_description": "Verwalteter Benutzer, auf den sich dieses Audit-Ereignis bezieht."
 			},
 			"rows_per_page": "Rows per page",
 			"search_placeholder": "Search resources...",
@@ -551,6 +823,12 @@
 		"sidebar": {
 			"back_to_app": "Zurück zur App",
 			"dashboard": "Dashboard",
+			"sections": {
+				"communications": "Kommunikation",
+				"framework": "Framework",
+				"identity": "Identität",
+				"security": "Sicherheit"
+			},
 			"settings": "Einstellungen",
 			"support": "Support",
 			"users": "Benutzer"
@@ -587,7 +865,7 @@
 			},
 			"filter": {
 				"all": "Alle",
-				"my_inbox": "Mein Posteingang",
+				"my_inbox": "Posteingang",
 				"unassigned": "Nicht zugewiesen"
 			},
 			"filter_showing_completed": "Zeigt abgeschlossene Threads, klicken um offene anzuzeigen",
@@ -706,6 +984,7 @@
 	},
 	"ai_chat": {
 		"alerts": {
+			"limit_reached": "Sie haben alle Ihre KI-Chat-Nachrichten diesen Monat aufgebraucht. Upgraden Sie auf Pro für mehr.",
 			"limit_reached_free": "Upgraden Sie auf Pro für mehr KI-Chat-Nachrichten pro Monat.",
 			"limit_reached_pro": "Sie haben alle Ihre KI-Chat-Nachrichten diesen Monat aufgebraucht. Sie werden nächsten Monat zurückgesetzt.",
 			"low_messages": "{remaining} von {total} KI-Chat-Nachricht verbleibend diesen Monat.",
@@ -1551,7 +1830,8 @@
 				"with_team": "Ihre Anfrage ist bei unserem Team"
 			},
 			"input": {
-				"placeholder": "Nachricht eingeben oder Vorschlag anklicken..."
+				"placeholder": "Nachricht eingeben oder Vorschlag anklicken...",
+				"placeholder_no_suggestions": "Nachricht eingeben..."
 			}
 		}
 	},

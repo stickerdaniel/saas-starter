@@ -31,6 +31,7 @@
 	let {
 		suggestions = [],
 		placeholder = 'Type a message...',
+		placeholderNoSuggestions,
 		showCameraButton = false,
 		showFileButton = true,
 		showHandoffButton = false,
@@ -47,6 +48,8 @@
 		suggestions?: Array<{ text: string; label: string }>;
 		/** Input placeholder text */
 		placeholder?: string;
+		/** Placeholder text when suggestions are not visible */
+		placeholderNoSuggestions?: string;
 		/** Whether to show camera/screenshot button */
 		showCameraButton?: boolean;
 		/** Whether to show file upload button */
@@ -78,6 +81,17 @@
 	// Use centralized isProcessing from context (single source of truth)
 	// When handed off to human support, don't block - use fire-and-forget pattern
 	const canSend = $derived(ctx.canSend && (!ctx.isProcessing || isHandedOff) && !isRateLimited);
+
+	const showSuggestions = $derived(
+		(ctx.core.isNewConversation || ctx.messagesReady) &&
+			ctx.displayMessages.length === 0 &&
+			!ctx.inputValue.trim() &&
+			suggestions.length > 0
+	);
+
+	const activePlaceholder = $derived(
+		showSuggestions ? placeholder : (placeholderNoSuggestions ?? placeholder)
+	);
 
 	// Check if last assistant message is complete (for handoff button visibility)
 	const lastAssistantComplete = $derived.by(() => {
@@ -194,7 +208,7 @@
 	<!-- Suggestion chips - shown when starting new conversation or after messages loaded and empty -->
 	<!-- isNewConversation: show immediately for draft threads (eager creation) -->
 	<!-- messagesReady: wait for query to resolve for existing threads (prevents flash) -->
-	{#if (ctx.core.isNewConversation || ctx.messagesReady) && ctx.displayMessages.length === 0 && !ctx.inputValue.trim() && suggestions.length > 0}
+	{#if showSuggestions}
 		<div class="pb-2">
 			{#key ctx.core.threadGeneration}
 				<div class="flex flex-wrap gap-2">
@@ -230,7 +244,7 @@
 			{/if}
 
 			<PromptInputTextarea
-				{placeholder}
+				placeholder={activePlaceholder}
 				class="min-h-[44px] pt-3 pl-4 text-base leading-[1.3]"
 				onpaste={handlePaste}
 				maxlength={2000}
