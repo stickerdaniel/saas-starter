@@ -263,6 +263,7 @@
 					class="mx-4 -translate-y-4 p-0"
 					{suggestions}
 					placeholder={$t('support.widget.input.placeholder')}
+					placeholderNoSuggestions={$t('support.widget.input.placeholder_no_suggestions')}
 					showCameraButton={true}
 					showFileButton={true}
 					showHandoffButton={true}

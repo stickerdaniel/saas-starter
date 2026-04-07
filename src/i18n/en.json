@@ -15,6 +15,8 @@
 			"email_service": "Email delivery service",
 			"external_services": "External Services",
 			"hosting_deployment": "Hosting & deployment",
+			"no_framework_activity": "No framework actions have been recorded yet.",
+			"recent_framework_activity": "Recent Framework Activity",
 			"resource_overview": "Resource Overview",
 			"resource_records": "{count} records",
 			"title": "Admin Dashboard"
@@ -80,8 +82,59 @@
 				"replicate": "Replicate",
 				"restore": "Restore",
 				"select_exactly_one": "Please select exactly one record.",
+				"status_completed": "Completed",
+				"status_failed": "Failed",
+				"status_pending": "Pending",
+				"status_running": "Running",
 				"update_resource": "Update {resource}",
 				"view": "View"
+			},
+			"actions_column": "Actions",
+			"activity": {
+				"audit_trail": "Audit Trail",
+				"no_actions": "No actions have run for this record yet.",
+				"no_audit_events": "No audit events have been recorded for this record yet.",
+				"recent_actions": "Recent Actions"
+			},
+			"admin_audit_logs": {
+				"columns": {
+					"action": "Action",
+					"admin_user_id": "Admin User",
+					"metadata": "Metadata",
+					"target_user_id": "Target User",
+					"timestamp": "Occurred At"
+				},
+				"dashboard_description": "Legacy operator audit trail",
+				"empty_description": "No audit log entries match the current search or filter.",
+				"empty_title": "No audit log entries",
+				"fields": {
+					"action": "Action",
+					"admin_user_id": "Admin User",
+					"metadata_json": "Metadata JSON",
+					"target_user_id": "Target User",
+					"timestamp": "Occurred At"
+				},
+				"filters": {
+					"action": "Action",
+					"all_actions": "All actions"
+				},
+				"lenses": {
+					"all": "All Activity",
+					"bans": "Ban Actions",
+					"impersonation": "Impersonation",
+					"role_changes": "Role Changes"
+				},
+				"options": {
+					"ban_user": "Ban User",
+					"impersonate": "Impersonate",
+					"revoke_sessions": "Revoke Sessions",
+					"set_role": "Set Role",
+					"stop_impersonation": "Stop Impersonation",
+					"unban_user": "Unban User"
+				},
+				"plural_label": "Admin Audit Logs",
+				"search_placeholder": "Search audit logs...",
+				"singular_label": "Admin Audit Log"
 			},
 			"aria": {
 				"select_all": "Select all rows",
@@ -153,6 +206,34 @@
 					"tag_trending": "Trending"
 				}
 			},
+			"auth_users": {
+				"dashboard_description": "Better Auth-backed admin user directory",
+				"empty_description": "No managed users match the current search or filters.",
+				"empty_title": "No managed users",
+				"fields": {
+					"ban_reason": "Ban Reason"
+				},
+				"filters": {
+					"provider": "Provider",
+					"role": "Role",
+					"status": "Status"
+				},
+				"lenses": {
+					"admins": "Admins",
+					"all": "All Users",
+					"banned": "Banned Users",
+					"recent": "Recent Signups"
+				},
+				"metrics": {
+					"admins": "Admins",
+					"banned": "Banned Users",
+					"total": "Total Users",
+					"unverified": "Unverified"
+				},
+				"plural_label": "Managed Users",
+				"search_placeholder": "Search managed users...",
+				"singular_label": "Managed User"
+			},
 			"bulk": {
 				"action_cancelled": "Cancelled. {processed} of {total} processed.",
 				"action_partial_failure": "{failed} of {total} failed.",
@@ -219,6 +300,31 @@
 				"copied_tooltip": "Copied!",
 				"tooltip": "Copy to clipboard"
 			},
+			"detail_missing_description": "This record no longer exists or is not visible to the current admin session.",
+			"detail_missing_title": "Record not found",
+			"email_events": {
+				"columns": {
+					"email_id": "Email ID",
+					"event_type": "Event",
+					"payload": "Payload Preview",
+					"timestamp": "Occurred At"
+				},
+				"dashboard_description": "Resend webhook delivery stream",
+				"detail_missing_description": "This event no longer exists or is not visible to the current admin session.",
+				"detail_missing_title": "Email event not found",
+				"empty_description": "No email events match the current search.",
+				"empty_title": "No email events",
+				"fields": {
+					"created_at": "Stored At",
+					"email_id": "Email ID",
+					"event_type": "Event Type",
+					"payload_json": "Payload JSON",
+					"timestamp": "Occurred At"
+				},
+				"plural_label": "Email Events",
+				"search_placeholder": "Search email events...",
+				"singular_label": "Email Event"
+			},
 			"empty": "No records found.",
 			"export": {
 				"csv": "Export CSV",
@@ -247,6 +353,7 @@
 				"hide_content": "Hide content",
 				"invalid": "Invalid field value",
 				"key_placeholder": "Key",
+				"local_override_notice": "You changed this field locally. Incoming live updates will not overwrite it.",
 				"markdown_placeholder": "## Markdown content",
 				"maxlength_exceeded": "Exceeds maximum length of {limit} characters",
 				"no_relation_options": "No options available",
@@ -260,20 +367,145 @@
 				"upload": "Upload file",
 				"value_placeholder": "Value"
 			},
+			"framework_activity": {
+				"dashboard_description": "Recent V2 action and audit feed",
+				"empty_description": "No framework activity matches the current search or filters.",
+				"empty_title": "No framework activity",
+				"fields": {
+					"actor": "Actor",
+					"created_at": "Created At",
+					"detail": "Detail",
+					"label": "Label",
+					"record": "Record",
+					"resource": "Resource",
+					"source": "Source",
+					"status": "Status",
+					"summary": "Summary"
+				},
+				"filters": {
+					"all_resources": "All Resources",
+					"all_sources": "All Sources",
+					"resource": "Resource",
+					"source": "Source"
+				},
+				"lenses": {
+					"actions": "Actions",
+					"all": "All Activity",
+					"audits": "Audits",
+					"failed": "Failed Actions"
+				},
+				"metrics": {
+					"actions": "Action Runs",
+					"audits": "Audit Events",
+					"failed_actions": "Failed Actions",
+					"total": "Total Activity"
+				},
+				"options": {
+					"action": "Action",
+					"audit": "Audit"
+				},
+				"plural_label": "Framework Activity",
+				"search_placeholder": "Search framework activity...",
+				"singular_label": "Framework Activity Entry"
+			},
 			"groups": {
+				"access": "Access",
 				"assignment": "Assignment",
 				"content": "Content",
+				"context": "Context",
 				"demo_data": "Demo Resources",
+				"detail": "Detail",
+				"event": "Event",
+				"identity": "Identity",
 				"main": "Main",
+				"metadata": "Metadata",
+				"notifications": "Notifications",
 				"other": "Other",
 				"overview": "Overview",
+				"payload": "Payload",
+				"recipient": "Recipient",
+				"related": "Related",
 				"relations": "Relations",
-				"system": "System"
+				"system": "System",
+				"timestamps": "Timestamps"
+			},
+			"internal_user_notes": {
+				"dashboard_description": "Operator-authored notes tied to managed users",
+				"empty_description": "No internal notes match the current search.",
+				"empty_title": "No internal notes",
+				"fields": {
+					"admin_user": "Admin Author",
+					"content": "Note",
+					"user_id": "Managed User"
+				},
+				"plural_label": "Internal User Notes",
+				"search_placeholder": "Search internal notes...",
+				"singular_label": "Internal User Note"
 			},
 			"lenses": {
 				"all": "All Lenses"
 			},
 			"loading": "Loading resources...",
+			"notification_recipients": {
+				"actions": {
+					"delete_custom": "Delete Custom Recipient",
+					"delete_selected_custom": "Delete Selected Custom Recipients",
+					"disable_all": "Disable All Notifications",
+					"disable_selected": "Disable Selected Notifications",
+					"enable_all": "Enable All Notifications",
+					"enable_selected": "Enable Selected Notifications",
+					"sync_admins": "Sync Admin Recipients"
+				},
+				"columns": {
+					"email": "Email",
+					"name": "Name",
+					"new_signups": "New Signups",
+					"new_tickets": "New Tickets",
+					"type": "Type",
+					"user_replies": "User Replies"
+				},
+				"dashboard_description": "Admin notification routing records",
+				"delete_description": "Delete {email} from the custom notification recipient list?",
+				"delete_selected_description": "Delete {count} selected custom notification recipients?",
+				"delete_selected_title": "Delete Selected Notification Recipients",
+				"delete_title": "Delete Notification Recipient",
+				"empty_description": "No notification recipients match the current search.",
+				"empty_title": "No notification recipients",
+				"fields": {
+					"email": "Email",
+					"name": "Name",
+					"new_signups": "New Signups",
+					"new_tickets": "New Tickets",
+					"type": "Type",
+					"user_replies": "User Replies"
+				},
+				"metrics": {
+					"admin": "Admin Recipients",
+					"custom": "Custom Recipients",
+					"fully_enabled": "Fully Enabled",
+					"total": "Total Recipients"
+				},
+				"options": {
+					"admin": "Admin",
+					"custom": "Custom",
+					"disabled": "Disabled",
+					"enabled": "Enabled",
+					"off": "Off",
+					"on": "On"
+				},
+				"plural_label": "Notification Recipients",
+				"search_placeholder": "Search notification recipients...",
+				"singular_label": "Notification Recipient",
+				"toasts": {
+					"deleted": "Notification recipient deleted",
+					"disable_all": "All notification toggles disabled",
+					"enable_all": "All notification toggles enabled",
+					"sync_started": "Admin recipient sync started"
+				},
+				"validation": {
+					"email_locked": "Admin-managed recipient emails cannot be changed."
+				}
+			},
 			"peek": {
 				"empty": "Nothing to show here.",
 				"loading": "Loading..."
@@ -288,9 +520,22 @@
 					"purge_cancel_btn": "Cancel",
 					"purge_confirm": "This will permanently delete the selected projects and all related data. This action cannot be undone.",
 					"purge_confirm_btn": "Yes, Purge",
+					"restore_archived": "Restore Archived Projects",
 					"seed_data": "Seed Data"
 				},
+				"dashboard_description": "Parity playground for richer admin-v2 resource workflows.",
+				"empty_active_description": "Archive or seed projects to verify the active-project lens.",
+				"empty_active_title": "No active projects",
+				"empty_archived_description": "Archive a project or seed demo data to verify archived recovery flows.",
+				"empty_archived_title": "No archived projects",
+				"empty_description": "Seed demo data or adjust filters to see project records.",
+				"empty_featured_description": "Mark a project as featured or seed demo data to verify featured-project flows.",
+				"empty_featured_title": "No featured projects",
+				"empty_title": "No projects found",
 				"fields": {
+					"brand_color": "Brand Color",
+					"brand_color_help": "Primary accent color used across previews and operator QA.",
+					"brand_color_placeholder": "#6586E5",
 					"budget": "Budget",
 					"code_snippet": "Code Snippet",
 					"cover_image": "Cover Image URL",
@@ -342,6 +587,16 @@
 					"status_active": "Active",
 					"status_archived": "Archived",
 					"status_draft": "Draft"
+				},
+				"plural_label": "Demo Projects",
+				"search_placeholder": "Search demo projects...",
+				"search_placeholder_active": "Search active projects...",
+				"search_placeholder_archived": "Search archived projects...",
+				"search_placeholder_featured": "Search featured projects...",
+				"singular_label": "Demo Project",
+				"validation": {
+					"invalid_brand_color": "Brand color must be a valid hex color.",
+					"invalid_json": "Settings JSON must be valid JSON."
 				}
 			},
 			"queued_actions": {
@@ -356,6 +611,23 @@
 				"status_pending": "Pending",
 				"status_running": "Running",
 				"will_run_in_background": "This action will run in the background"
+			},
+			"relations": {
+				"actor_user": "Actor User",
+				"actor_user_description": "Managed user resolved from the actor attached to this framework event.",
+				"admin_actor": "Admin Actor",
+				"admin_actor_description": "Admin user associated with this audit or note entry.",
+				"internal_notes": "Internal Notes",
+				"internal_notes_description": "Operator-authored notes connected to this managed user.",
+				"managed_user": "Managed User",
+				"managed_user_description": "Managed user linked to this notification recipient.",
+				"related_record": "Related Record",
+				"related_record_description": "Framework record referenced by this activity entry.",
+				"related_record_unavailable": "The related record is not currently available.",
+				"related_user": "Related User",
+				"related_user_description": "Managed user linked to this note.",
+				"target_user": "Target User",
+				"target_user_description": "Managed user targeted by this audit event."
 			},
 			"rows_per_page": "Rows per page",
 			"search_placeholder": "Search resources...",
@@ -551,6 +823,12 @@
 		"sidebar": {
 			"back_to_app": "Back to App",
 			"dashboard": "Dashboard",
+			"sections": {
+				"communications": "Communications",
+				"framework": "Framework",
+				"identity": "Identity",
+				"security": "Security"
+			},
 			"settings": "Settings",
 			"support": "Support",
 			"users": "Users"
@@ -587,7 +865,7 @@
 			},
 			"filter": {
 				"all": "All",
-				"my_inbox": "My Inbox",
+				"my_inbox": "Inbox",
 				"unassigned": "Unassigned"
 			},
 			"filter_showing_completed": "Showing completed threads, click to show open",
@@ -706,6 +984,7 @@
 	},
 	"ai_chat": {
 		"alerts": {
+			"limit_reached": "You've used all your AI chat messages this month. Upgrade to Pro for more.",
 			"limit_reached_free": "Upgrade to Pro for more AI chat messages per month.",
 			"limit_reached_pro": "You've used all your AI chat messages this month. They reset next month.",
 			"low_messages": "{remaining} of {total} AI chat message remaining this month.",
@@ -1551,7 +1830,8 @@
 				"with_team": "Your request is with our team"
 			},
 			"input": {
-				"placeholder": "Type a message or click a suggestion..."
+				"placeholder": "Type a message or click a suggestion...",
+				"placeholder_no_suggestions": "Type a message..."
 			}
 		}
 	},
