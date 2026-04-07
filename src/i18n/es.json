@@ -15,6 +15,8 @@
 			"email_service": "Servicio de entrega de correo",
 			"external_services": "Servicios Externos",
 			"hosting_deployment": "Hosting y despliegue",
+			"no_framework_activity": "Todavía no se han registrado acciones del framework.",
+			"recent_framework_activity": "Actividad reciente del framework",
 			"resource_overview": "Resumen de Recursos",
 			"resource_records": "{count} registros",
 			"title": "Panel de Administración"
@@ -80,8 +82,59 @@
 				"replicate": "Replicate",
 				"restore": "Restore",
 				"select_exactly_one": "Seleccione exactamente un registro.",
+				"status_completed": "Completado",
+				"status_failed": "Fallido",
+				"status_pending": "Pendiente",
+				"status_running": "Ejecutando",
 				"update_resource": "Actualizar {resource}",
 				"view": "View"
+			},
+			"actions_column": "Acciones",
+			"activity": {
+				"audit_trail": "Registro de auditoría",
+				"no_actions": "Aún no se han ejecutado acciones para este registro.",
+				"no_audit_events": "Aún no se han registrado eventos de auditoría para este registro.",
+				"recent_actions": "Acciones recientes"
+			},
+			"admin_audit_logs": {
+				"columns": {
+					"action": "Acción",
+					"admin_user_id": "Usuario administrador",
+					"metadata": "Metadatos",
+					"target_user_id": "Usuario objetivo",
+					"timestamp": "Ocurrió en"
+				},
+				"dashboard_description": "Registro de auditoría de operadores heredado",
+				"empty_description": "Ninguna entrada del registro de auditoría coincide con la búsqueda o el filtro actual.",
+				"empty_title": "Sin entradas de auditoría",
+				"fields": {
+					"action": "Acción",
+					"admin_user_id": "Usuario administrador",
+					"metadata_json": "JSON de metadatos",
+					"target_user_id": "Usuario objetivo",
+					"timestamp": "Ocurrió en"
+				},
+				"filters": {
+					"action": "Acción",
+					"all_actions": "Todas las acciones"
+				},
+				"lenses": {
+					"all": "Toda la actividad",
+					"bans": "Acciones de bloqueo",
+					"impersonation": "Suplantación",
+					"role_changes": "Cambios de rol"
+				},
+				"options": {
+					"ban_user": "Bloquear usuario",
+					"impersonate": "Suplantar",
+					"revoke_sessions": "Revocar sesiones",
+					"set_role": "Asignar rol",
+					"stop_impersonation": "Detener suplantación",
+					"unban_user": "Desbloquear usuario"
+				},
+				"plural_label": "Registros de auditoría admin",
+				"search_placeholder": "Buscar registros de auditoría...",
+				"singular_label": "Registro de auditoría admin"
 			},
 			"aria": {
 				"select_all": "Select all rows",
@@ -153,6 +206,34 @@
 					"tag_trending": "Tendencia"
 				}
 			},
+			"auth_users": {
+				"dashboard_description": "Directorio de usuarios admin con Better Auth",
+				"empty_description": "Ningún usuario gestionado coincide con la búsqueda o los filtros actuales.",
+				"empty_title": "Sin usuarios gestionados",
+				"fields": {
+					"ban_reason": "Motivo del bloqueo"
+				},
+				"filters": {
+					"provider": "Proveedor",
+					"role": "Rol",
+					"status": "Estado"
+				},
+				"lenses": {
+					"admins": "Admins",
+					"all": "Todos los usuarios",
+					"banned": "Usuarios bloqueados",
+					"recent": "Registros recientes"
+				},
+				"metrics": {
+					"admins": "Admins",
+					"banned": "Usuarios bloqueados",
+					"total": "Usuarios totales",
+					"unverified": "No verificados"
+				},
+				"plural_label": "Usuarios gestionados",
+				"search_placeholder": "Buscar usuarios gestionados...",
+				"singular_label": "Usuario gestionado"
+			},
 			"bulk": {
 				"action_cancelled": "Cancelado. {processed} de {total} procesados.",
 				"action_partial_failure": "{failed} de {total} fallaron.",
@@ -219,6 +300,31 @@
 				"copied_tooltip": "¡Copiado!",
 				"tooltip": "Copiar al portapapeles"
 			},
+			"detail_missing_description": "Este registro ya no existe o no es visible para la sesión de administración actual.",
+			"detail_missing_title": "Registro no encontrado",
+			"email_events": {
+				"columns": {
+					"email_id": "ID del correo",
+					"event_type": "Evento",
+					"payload": "Vista previa del payload",
+					"timestamp": "Ocurrió en"
+				},
+				"dashboard_description": "Flujo de entrega de webhooks de Resend",
+				"detail_missing_description": "Este evento ya no existe o no es visible para la sesión de administración actual.",
+				"detail_missing_title": "Evento de correo no encontrado",
+				"empty_description": "Ningún evento de correo coincide con la búsqueda actual.",
+				"empty_title": "Sin eventos de correo",
+				"fields": {
+					"created_at": "Guardado en",
+					"email_id": "ID del correo",
+					"event_type": "Tipo de evento",
+					"payload_json": "JSON del payload",
+					"timestamp": "Ocurrió en"
+				},
+				"plural_label": "Eventos de correo",
+				"search_placeholder": "Buscar eventos de correo...",
+				"singular_label": "Evento de correo"
+			},
 			"empty": "No records found.",
 			"export": {
 				"csv": "Exportar CSV",
@@ -247,6 +353,7 @@
 				"hide_content": "Ocultar contenido",
 				"invalid": "Invalid field value",
 				"key_placeholder": "Clave",
+				"local_override_notice": "Has cambiado este campo localmente. Las actualizaciones en vivo entrantes no lo sobrescribirán.",
 				"markdown_placeholder": "## Contenido Markdown",
 				"maxlength_exceeded": "Excede la longitud máxima de {limit} caracteres",
 				"no_relation_options": "No options available",
@@ -260,20 +367,145 @@
 				"upload": "Subir archivo",
 				"value_placeholder": "Valor"
 			},
+			"framework_activity": {
+				"dashboard_description": "Feed reciente de acciones y auditoría V2",
+				"empty_description": "Ninguna actividad del framework coincide con la búsqueda o los filtros actuales.",
+				"empty_title": "Sin actividad del framework",
+				"fields": {
+					"actor": "Actor",
+					"created_at": "Creado",
+					"detail": "Detalle",
+					"label": "Etiqueta",
+					"record": "Registro",
+					"resource": "Recurso",
+					"source": "Origen",
+					"status": "Estado",
+					"summary": "Resumen"
+				},
+				"filters": {
+					"all_resources": "Todos los recursos",
+					"all_sources": "Todos los orígenes",
+					"resource": "Recurso",
+					"source": "Origen"
+				},
+				"lenses": {
+					"actions": "Acciones",
+					"all": "Toda la actividad",
+					"audits": "Auditorías",
+					"failed": "Acciones fallidas"
+				},
+				"metrics": {
+					"actions": "Ejecuciones de acciones",
+					"audits": "Eventos de auditoría",
+					"failed_actions": "Acciones fallidas",
+					"total": "Actividad total"
+				},
+				"options": {
+					"action": "Acción",
+					"audit": "Auditoría"
+				},
+				"plural_label": "Actividad del framework",
+				"search_placeholder": "Buscar actividad del framework...",
+				"singular_label": "Entrada de actividad del framework"
+			},
 			"groups": {
+				"access": "Acceso",
 				"assignment": "Asignación",
 				"content": "Contenido",
+				"context": "Contexto",
 				"demo_data": "Demo Resources",
+				"detail": "Detalle",
+				"event": "Evento",
+				"identity": "Identidad",
 				"main": "Principal",
+				"metadata": "Metadatos",
+				"notifications": "Notificaciones",
 				"other": "Otros",
 				"overview": "Resumen",
+				"payload": "Payload",
+				"recipient": "Destinatario",
+				"related": "Relacionado",
 				"relations": "Relaciones",
-				"system": "Sistema"
+				"system": "Sistema",
+				"timestamps": "Marcas de tiempo"
+			},
+			"internal_user_notes": {
+				"dashboard_description": "Notas de operador vinculadas a usuarios gestionados",
+				"empty_description": "Ninguna nota interna coincide con la búsqueda actual.",
+				"empty_title": "Sin notas internas",
+				"fields": {
+					"admin_user": "Autor administrador",
+					"content": "Nota",
+					"user_id": "Usuario gestionado"
+				},
+				"plural_label": "Notas internas de usuario",
+				"search_placeholder": "Buscar notas internas...",
+				"singular_label": "Nota interna de usuario"
 			},
 			"lenses": {
 				"all": "All Lenses"
 			},
 			"loading": "Loading resources...",
+			"notification_recipients": {
+				"actions": {
+					"delete_custom": "Eliminar destinatario personalizado",
+					"delete_selected_custom": "Eliminar destinatarios personalizados seleccionados",
+					"disable_all": "Desactivar todas las notificaciones",
+					"disable_selected": "Desactivar notificaciones seleccionadas",
+					"enable_all": "Activar todas las notificaciones",
+					"enable_selected": "Activar notificaciones seleccionadas",
+					"sync_admins": "Sincronizar destinatarios administradores"
+				},
+				"columns": {
+					"email": "Correo",
+					"name": "Nombre",
+					"new_signups": "Nuevos registros",
+					"new_tickets": "Nuevos tickets",
+					"type": "Tipo",
+					"user_replies": "Respuestas de usuarios"
+				},
+				"dashboard_description": "Registros de enrutamiento de notificaciones de administración",
+				"delete_description": "¿Eliminar {email} de la lista de destinatarios de notificaciones personalizados?",
+				"delete_selected_description": "¿Eliminar {count} destinatarios de notificaciones personalizados seleccionados?",
+				"delete_selected_title": "Eliminar destinatarios de notificaciones seleccionados",
+				"delete_title": "Eliminar destinatario de notificaciones",
+				"empty_description": "Ningún destinatario de notificaciones coincide con la búsqueda actual.",
+				"empty_title": "Sin destinatarios de notificaciones",
+				"fields": {
+					"email": "Correo",
+					"name": "Nombre",
+					"new_signups": "Nuevos registros",
+					"new_tickets": "Nuevos tickets",
+					"type": "Tipo",
+					"user_replies": "Respuestas de usuarios"
+				},
+				"metrics": {
+					"admin": "Destinatarios admin",
+					"custom": "Destinatarios personalizados",
+					"fully_enabled": "Totalmente activados",
+					"total": "Destinatarios totales"
+				},
+				"options": {
+					"admin": "Admin",
+					"custom": "Personalizado",
+					"disabled": "Desactivado",
+					"enabled": "Activado",
+					"off": "Off",
+					"on": "On"
+				},
+				"plural_label": "Destinatarios de notificaciones",
+				"search_placeholder": "Buscar destinatarios de notificaciones...",
+				"singular_label": "Destinatario de notificaciones",
+				"toasts": {
+					"deleted": "Destinatario de notificaciones eliminado",
+					"disable_all": "Todas las notificaciones se desactivaron",
+					"enable_all": "Todas las notificaciones se activaron",
+					"sync_started": "Se inició la sincronización de destinatarios administradores"
+				},
+				"validation": {
+					"email_locked": "No se puede cambiar el correo de un destinatario gestionado por admin."
+				}
+			},
 			"peek": {
 				"empty": "No hay datos para mostrar.",
 				"loading": "Cargando..."
@@ -288,9 +520,22 @@
 					"purge_cancel_btn": "Cancelar",
 					"purge_confirm": "Esto eliminará permanentemente los proyectos seleccionados y todos los datos relacionados. Esta acción no se puede deshacer.",
 					"purge_confirm_btn": "Sí, purgar",
+					"restore_archived": "Restaurar proyectos archivados",
 					"seed_data": "Generar datos"
 				},
+				"dashboard_description": "Entorno de paridad para flujos de recursos admin-v2 más ricos.",
+				"empty_active_description": "Archiva proyectos o genera datos de demostración para verificar la lente de proyectos activos.",
+				"empty_active_title": "No hay proyectos activos",
+				"empty_archived_description": "Archiva un proyecto o genera datos de demostración para verificar los flujos de recuperación archivados.",
+				"empty_archived_title": "No hay proyectos archivados",
+				"empty_description": "Genera datos de prueba o ajusta los filtros para ver proyectos.",
+				"empty_featured_description": "Marca un proyecto como destacado o genera datos de demostración para verificar la lente de destacados.",
+				"empty_featured_title": "No hay proyectos destacados",
+				"empty_title": "No se encontraron proyectos",
 				"fields": {
+					"brand_color": "Color de marca",
+					"brand_color_help": "Color de acento principal usado en vistas previas y QA operativa.",
+					"brand_color_placeholder": "#6586E5",
 					"budget": "Budget",
 					"code_snippet": "Fragmento de código",
 					"cover_image": "URL de imagen de portada",
@@ -342,6 +587,16 @@
 					"status_active": "Active",
 					"status_archived": "Archived",
 					"status_draft": "Draft"
+				},
+				"plural_label": "Proyectos de demostración",
+				"search_placeholder": "Buscar proyectos de demostración...",
+				"search_placeholder_active": "Buscar proyectos activos...",
+				"search_placeholder_archived": "Buscar proyectos archivados...",
+				"search_placeholder_featured": "Buscar proyectos destacados...",
+				"singular_label": "Proyecto de demostración",
+				"validation": {
+					"invalid_brand_color": "El color de marca debe ser un color hexadecimal válido.",
+					"invalid_json": "La configuración JSON debe ser JSON válido."
 				}
 			},
 			"queued_actions": {
@@ -356,6 +611,23 @@
 				"status_pending": "Pendiente",
 				"status_running": "Ejecutando",
 				"will_run_in_background": "Esta acción se ejecutará en segundo plano"
+			},
+			"relations": {
+				"actor_user": "Usuario actor",
+				"actor_user_description": "Usuario gestionado resuelto a partir del actor vinculado a este evento del framework.",
+				"admin_actor": "Actor administrador",
+				"admin_actor_description": "Usuario administrador asociado con esta auditoría o nota.",
+				"internal_notes": "Notas internas",
+				"internal_notes_description": "Notas escritas por operadores conectadas a este usuario gestionado.",
+				"managed_user": "Usuario gestionado",
+				"managed_user_description": "Usuario gestionado vinculado a este destinatario de notificaciones.",
+				"related_record": "Registro relacionado",
+				"related_record_description": "Registro del framework referenciado por esta entrada de actividad.",
+				"related_record_unavailable": "El registro relacionado no está disponible actualmente.",
+				"related_user": "Usuario relacionado",
+				"related_user_description": "Usuario gestionado vinculado a esta nota.",
+				"target_user": "Usuario objetivo",
+				"target_user_description": "Usuario gestionado objetivo de este evento de auditoría."
 			},
 			"rows_per_page": "Rows per page",
 			"search_placeholder": "Search resources...",
@@ -551,6 +823,12 @@
 		"sidebar": {
 			"back_to_app": "Volver a la App",
 			"dashboard": "Panel",
+			"sections": {
+				"communications": "Comunicaciones",
+				"framework": "Framework",
+				"identity": "Identidad",
+				"security": "Seguridad"
+			},
 			"settings": "Configuración",
 			"support": "Soporte",
 			"users": "Usuarios"
@@ -587,7 +865,7 @@
 			},
 			"filter": {
 				"all": "Todos",
-				"my_inbox": "Mi bandeja de entrada",
+				"my_inbox": "bandeja",
 				"unassigned": "Sin asignar"
 			},
 			"filter_showing_completed": "Mostrando hilos completados, haga clic para ver los abiertos",
@@ -706,6 +984,7 @@
 	},
 	"ai_chat": {
 		"alerts": {
+			"limit_reached": "Has usado todos tus mensajes de chat con IA este mes. Actualiza a Pro para obtener más.",
 			"limit_reached_free": "Actualiza a Pro para más mensajes de chat con IA al mes.",
 			"limit_reached_pro": "Has usado todos tus mensajes de chat con IA este mes. Se reinician el mes que viene.",
 			"low_messages": "{remaining} de {total} mensaje de chat con IA restante este mes.",
@@ -1551,7 +1830,8 @@
 				"with_team": "Tu solicitud está con nuestro equipo"
 			},
 			"input": {
-				"placeholder": "Escribe un mensaje o haz clic en una sugerencia..."
+				"placeholder": "Escribe un mensaje o haz clic en una sugerencia...",
+				"placeholder_no_suggestions": "Escribe un mensaje..."
 			}
 		}
 	},
