@@ -1372,7 +1372,7 @@
 		"companies_text": "Vertrauen der besten Teams",
 		"cta": "Jetzt starten",
 		"cta_demo": "Demo anfordern",
-		"description": "Erwecke dein SaaS zum Leben in Minuten, nicht in Monaten. Open-Source Template mit einem Tech-Stack, der dich schnell shippen lässt.",
+		"description": "Die kostenlose SaaS-Grundlage. Open Source, sofort einsatzbereit.",
 		"section_label": "Start",
 		"tagline": "Mit Produktfokus\nschneller zum Ziel",
 		"title": "SaaS-Starter-Vorlage"
@@ -1530,7 +1530,7 @@
 			}
 		},
 		"home": {
-			"description": "SaaS-Starter für SvelteKit mit Auth, Billing, E-Mail und Analytics.",
+			"description": "Kostenloser Open-Source SaaS-Starter mit SvelteKit. Auth, Billing, E-Mail und Analytics inklusive. Kostenlos auf Free-Tiers hosten.",
 			"title": "Schneller entwickeln und veröffentlichen"
 		},
 		"impressum": {
