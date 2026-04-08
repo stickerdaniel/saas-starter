@@ -9,7 +9,7 @@
 
 import { spawnSync } from 'child_process';
 import { chmodSync, existsSync, copyFileSync, mkdirSync, readdirSync, statSync } from 'fs';
-import { dirname, join } from 'path';
+import { join } from 'path';
 import { parseArgs } from 'util';
 
 // ANSI colors for terminal output
@@ -83,15 +83,25 @@ function runCommandInherit(command: string, args: string[], cwd?: string): boole
 }
 
 /**
- * Get root worktree path (where .git directory is)
+ * Get main repo path (where .git directory is).
+ * Uses `git worktree list --porcelain` so this returns the main repo root
+ * even when invoked from inside an auxiliary worktree.
  */
 function getRootWorktree(): string {
-	const result = runCommand('git', ['rev-parse', '--show-toplevel'], { silent: true });
-	if (!result.success) {
+	const result = runCommand('git', ['worktree', 'list', '--porcelain'], { silent: true });
+	if (!result.success || !result.stdout) {
 		console.error(`${colors.red}Error: Not in a git repository${colors.reset}`);
 		process.exit(1);
 	}
-	return result.stdout;
+	// First line of --porcelain output is always "worktree <path>" for the
+	// main worktree, regardless of which worktree the script is invoked from.
+	const firstLine = result.stdout.split('\n')[0];
+	const mainRepoPath = firstLine.replace(/^worktree /, '');
+	if (!mainRepoPath) {
+		console.error(`${colors.red}Error: Could not determine main repo path${colors.reset}`);
+		process.exit(1);
+	}
+	return mainRepoPath;
 }
 
 /**
@@ -295,8 +305,14 @@ function main(): void {
 	const rootPath = getRootWorktree();
 	console.log(`Root worktree: ${rootPath}`);
 
-	// Determine target worktree path
-	const worktreePath = join(dirname(rootPath), branchName);
+	// Determine target worktree path.
+	// Worktrees live in <repo>.worktrees/ (sibling of main repo) with slashes
+	// flattened to dashes. The git branch name keeps its original slashes;
+	// only the on-disk folder name is flattened.
+	const worktreesDir = `${rootPath}.worktrees`;
+	const folderName = branchName.replace(/\//g, '-');
+	const worktreePath = join(worktreesDir, folderName);
+	mkdirSync(worktreesDir, { recursive: true });
 	console.log(`Target worktree: ${worktreePath}`);
 	console.log('');
 
@@ -304,6 +320,25 @@ function main(): void {
 	if (existsSync(worktreePath)) {
 		console.error(
 			`${colors.red}Error: Worktree directory already exists: ${worktreePath}${colors.reset}`
+		);
+		console.log('');
+		// Explain the flattening rule unconditionally. The collision can come
+		// from either direction (new branch has /, or existing branch had /),
+		// and the user can't tell which from the error alone.
+		console.log(
+			`${colors.yellow}Note: worktree folder names flatten slashes to dashes.${colors.reset}`
+		);
+		console.log(
+			`${colors.yellow}Branch "${branchName}" maps to folder "${folderName}".${colors.reset}`
+		);
+		console.log(
+			`${colors.yellow}This can collide when a sibling branch exists on the other side of the mapping${colors.reset}`
+		);
+		console.log(
+			`${colors.yellow}(e.g. "feat/sentry" and "feat-sentry" both map to "feat-sentry").${colors.reset}`
+		);
+		console.log(
+			`${colors.yellow}Run "git worktree list" to see which branch currently owns this folder.${colors.reset}`
 		);
 		console.log('');
 		console.log('Options:');
