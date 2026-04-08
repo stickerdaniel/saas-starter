@@ -4,6 +4,15 @@
 
 This project is a saas template built with SvelteKit, Convex, Typescript and modern web technologies.
 
+### SaaS Starter Template Bugs
+
+<!-- DO NOT rename or remove this section when rebranding a fork. These links point to the upstream template repo. -->
+
+If a project forked from this repo discovers a bug or weird behavior that originates from the template itself:
+
+1. Search the [saas-starter issues](https://github.com/stickerdaniel/saas-starter/issues) for an existing report first.
+2. If none exists, file a new issue describing the template bug/unexpected behavior.
+
 ### Cross-Platform Scripts
 
 All npm scripts must work on macOS, Linux, and Windows. Avoid `sh -c` or bash-specific syntax. Use TypeScript scripts with `bun` for complex logic and `bun-tasks` for parallel execution. Bun's built-in cross-platform shell handles `VAR=$OTHER_VAR command` syntax in package.json scripts (see `_tolgee:*` scripts for the pattern).
