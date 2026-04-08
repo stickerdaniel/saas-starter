@@ -225,7 +225,7 @@
 		</div>
 
 		<ChatInput
-			class="mx-4 -translate-y-4"
+			class="relative z-20 mx-4 -translate-y-4"
 			placeholder={$t('admin.support.chat.placeholder')}
 			showFileButton={true}
 			onSend={async (prompt) => {
