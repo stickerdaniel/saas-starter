@@ -4,7 +4,7 @@
 [![E2E Tests (CF)](https://github.com/stickerdaniel/saas-starter/actions/workflows/e2e-preview-cf.yml/badge.svg)](https://github.com/stickerdaniel/saas-starter/actions/workflows/e2e-preview-cf.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-%233fb950)](https://opensource.org/licenses/MIT)
 
-Agents write better code when they have good examples to work from. This starter ships with auth, billing, admin, AI chat, email, i18n, and more, all implemented end-to-end so your agents have real patterns to reference when building new features. It also includes the DX tools and guardrails to make sure what ships stays secure, performant, and maintainable.
+A free, open-source SaaS foundation you can deploy for $0. Ships with auth, billing, admin, AI chat, email, i18n, and more — all implemented end-to-end so you (and your AI agents) have real patterns to build on.
 
 > See a live demo of the user-facing side at **[saas.daniel.sticker.name](https://saas.daniel.sticker.name)**. Admin features like the admin panel, support dashboard, and user management are not accessible there. To explore everything, follow the steps below.
 
