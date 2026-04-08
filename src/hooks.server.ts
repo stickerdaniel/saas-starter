@@ -1,22 +1,24 @@
 import { sequence } from '@sveltejs/kit/hooks';
 import { redirect, type Handle, type Cookies } from '@sveltejs/kit';
 import { dev } from '$app/environment';
-import { PUBLIC_SENTRY_DSN } from '$env/static/public';
+import { env } from '$env/dynamic/public';
 import * as Sentry from '@sentry/sveltekit';
 import { isSupportedLanguage, DEFAULT_LANGUAGE } from '$lib/i18n/languages';
-
-if (PUBLIC_SENTRY_DSN) {
-	Sentry.init({
-		dsn: PUBLIC_SENTRY_DSN,
-		tracesSampleRate: 0.1
-	});
-}
 import {
 	getMarketingMarkdownDocument,
 	matchPublicMarketingRoute
 } from '$lib/marketing/public-routes';
 import { createMarketingMarkdownResponse, isMarkdownRequest } from '$lib/markdown/marketing';
 import { safeRedirectPath } from '$lib/utils/url';
+
+const SENTRY_DSN = env.PUBLIC_SENTRY_DSN;
+
+if (SENTRY_DSN) {
+	Sentry.init({
+		dsn: SENTRY_DSN,
+		tracesSampleRate: 0.1
+	});
+}
 
 /**
  * Get JWT token directly from cookies (no createAuth needed)
@@ -248,7 +250,7 @@ const handleSecurityHeaders: Handle = async function handleSecurityHeaders({ eve
 };
 
 export const handle = sequence(
-	...(PUBLIC_SENTRY_DSN ? [Sentry.sentryHandle()] : []),
+	...(SENTRY_DSN ? [Sentry.sentryHandle()] : []),
 	handleDevOnlyRoutes,
 	handleAuth,
 	handleMarketingMarkdown,
@@ -258,4 +260,4 @@ export const handle = sequence(
 	handleSecurityHeaders
 );
 
-export const handleError = PUBLIC_SENTRY_DSN ? Sentry.handleErrorWithSentry() : undefined;
+export const handleError = SENTRY_DSN ? Sentry.handleErrorWithSentry() : undefined;
