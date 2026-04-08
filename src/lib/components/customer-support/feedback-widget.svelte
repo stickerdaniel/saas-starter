@@ -260,7 +260,7 @@
 
 				<!-- Input area -->
 				<ChatInput
-					class="mx-4 -translate-y-4 p-0"
+					class="relative z-20 mx-4 -translate-y-4 p-0"
 					{suggestions}
 					placeholder={$t('support.widget.input.placeholder')}
 					placeholderNoSuggestions={$t('support.widget.input.placeholder_no_suggestions')}
