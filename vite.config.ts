@@ -294,7 +294,7 @@ export default defineConfig(async ({ mode }) => {
 	}
 
 	plugins.push(
-		varlockVitePlugin({ ssrInjectMode: 'resolved-env' }),
+		varlockVitePlugin(mode === 'production' ? { ssrInjectMode: 'resolved-env' } : {}),
 		tailwindcss(),
 		sveltekit(),
 		devtoolsJson(),
