@@ -1372,7 +1372,7 @@
 		"companies_text": "Powering the best teams",
 		"cta": "Start Building",
 		"cta_demo": "Request a demo",
-		"description": "SaaS starter with SvelteKit, auth, billing, and analytics.",
+		"description": "The free SaaS foundation. Open source, ready to deploy.",
 		"section_label": "Home",
 		"tagline": "Focus on your product.\nShip faster.",
 		"title": "SaaS Starter Template"
@@ -1530,7 +1530,7 @@
 			}
 		},
 		"home": {
-			"description": "SaaS starter for SvelteKit with auth, billing, email, and analytics.",
+			"description": "Free, open-source SaaS starter built with SvelteKit. Auth, billing, email, and analytics included. Host on free tiers.",
 			"title": "Build & Ship Your Product Faster"
 		},
 		"impressum": {

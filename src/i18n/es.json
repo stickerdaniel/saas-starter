@@ -1372,7 +1372,7 @@
 		"companies_text": "Impulsando a los mejores equipos",
 		"cta": "Comenzar ahora",
 		"cta_demo": "Solicitar una demo",
-		"description": "Dale vida a tu SaaS en minutos, no en meses. Plantilla open-source cargada con la tecnología que te hace lanzar rápido.",
+		"description": "La base SaaS gratuita. Open source, lista para desplegar.",
 		"section_label": "Inicio",
 		"tagline": "Foco en tu producto.\nLanzamiento más rápido.",
 		"title": "Plantilla SaaS Starter"
@@ -1530,7 +1530,7 @@
 			}
 		},
 		"home": {
-			"description": "Starter SaaS para SvelteKit con auth, pagos, email y analítica.",
+			"description": "Starter SaaS gratuito y open source con SvelteKit. Auth, pagos, email y analítica incluidos. Aloja gratis con planes gratuitos.",
 			"title": "Construye y lanza tu producto más rápido"
 		},
 		"impressum": {

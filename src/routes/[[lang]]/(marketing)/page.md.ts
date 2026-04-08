@@ -3,7 +3,7 @@ import type { MarketingMarkdownDocument } from '$lib/markdown/types';
 export const marketingMarkdown: MarketingMarkdownDocument = {
 	title: 'Build & Ship Your Product Faster',
 	description:
-		'An open-source SaaS starter for teams who want to launch with a modern SvelteKit stack instead of assembling the foundation from scratch.',
+		'The free SaaS foundation. An open-source SvelteKit starter with auth, billing, email, and analytics. Deploy on free tiers, own every line.',
 	sections: [
 		{
 			heading: 'What this starter is',
