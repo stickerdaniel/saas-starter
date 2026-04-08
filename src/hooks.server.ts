@@ -1,7 +1,7 @@
 import { sequence } from '@sveltejs/kit/hooks';
 import { redirect, type Handle, type Cookies } from '@sveltejs/kit';
 import { dev } from '$app/environment';
-import { env } from '$env/dynamic/public';
+import { PUBLIC_SENTRY_DSN } from '$env/static/public';
 import * as Sentry from '@sentry/sveltekit';
 import { isSupportedLanguage, DEFAULT_LANGUAGE } from '$lib/i18n/languages';
 import {
@@ -11,11 +11,9 @@ import {
 import { createMarketingMarkdownResponse, isMarkdownRequest } from '$lib/markdown/marketing';
 import { safeRedirectPath } from '$lib/utils/url';
 
-const SENTRY_DSN = env.PUBLIC_SENTRY_DSN;
-
-if (SENTRY_DSN) {
+if (PUBLIC_SENTRY_DSN) {
 	Sentry.init({
-		dsn: SENTRY_DSN,
+		dsn: PUBLIC_SENTRY_DSN,
 		tracesSampleRate: 0.1
 	});
 }
@@ -250,7 +248,7 @@ const handleSecurityHeaders: Handle = async function handleSecurityHeaders({ eve
 };
 
 export const handle = sequence(
-	...(SENTRY_DSN ? [Sentry.sentryHandle()] : []),
+	...(PUBLIC_SENTRY_DSN ? [Sentry.sentryHandle()] : []),
 	handleDevOnlyRoutes,
 	handleAuth,
 	handleMarketingMarkdown,
@@ -260,4 +258,4 @@ export const handle = sequence(
 	handleSecurityHeaders
 );
 
-export const handleError = SENTRY_DSN ? Sentry.handleErrorWithSentry() : undefined;
+export const handleError = PUBLIC_SENTRY_DSN ? Sentry.handleErrorWithSentry() : undefined;
