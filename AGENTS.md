@@ -34,9 +34,11 @@ btca ask -r svelte -r convex -q "How do I integrate Convex with SvelteKit?"
 
 When starting work that needs its own branch/PR, always create a worktree first with `bun run worktree <type/short-description>` (e.g. `feature/dark-mode`, `fix/422-password-reset`, `chore/upgrade-svelte-5`, `hotfix/rate-limit-bypass`, `docs/api-reference`).
 
+Worktrees live in a sibling directory next to the main repo at `<repo>.worktrees/<folder-name>/`. The folder name flattens branch slashes to dashes: `feat/dark-mode` creates `saas-starter.worktrees/feat-dark-mode/`. The git branch name keeps its original slashes; only the on-disk folder name is flattened. Edge case: branches like `feat/sentry` and `feat-sentry` map to the same folder — the script catches this as a loud error before touching git state.
+
 NEVER use the `EnterWorktree` tool. Always use `bun run worktree` instead and add the worktree path before all consecutive actions. You must do this, the cwd is reset after each action and theres currently no better way to do this.
 
-**Before committing:** Always check `git branch` first. If you're in a worktree, the branch already exists and was created by `bun run worktree` (which runs `gt create` internally). Use `git commit` to add commits, not `gt create`. Only use `gt create` when you need a new stacked branch on top of the current one.
+**Before committing:** Always check `git branch` first. If you're in a worktree, the branch already exists and was created by `bun run worktree` (which runs `git worktree add -b` and then `gt track` + `gt sync` when Graphite is installed). Use `git commit` to add commits, not `gt create`. Only use `gt create` when you need a new stacked branch on top of the current one.
 
 ## Development Commands
 
