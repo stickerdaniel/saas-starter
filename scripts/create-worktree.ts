@@ -95,7 +95,8 @@ function getRootWorktree(): string {
 	}
 	// First line of --porcelain output is always "worktree <path>" for the
 	// main worktree, regardless of which worktree the script is invoked from.
-	const firstLine = result.stdout.split('\n')[0];
+	// Trim to strip trailing \r on Windows (CRLF line endings).
+	const firstLine = result.stdout.split('\n')[0].trim();
 	const mainRepoPath = firstLine.replace(/^worktree /, '');
 	if (!mainRepoPath) {
 		console.error(`${colors.red}Error: Could not determine main repo path${colors.reset}`);
