@@ -6,6 +6,7 @@ import * as path from 'node:path';
 import { varlockLoadedEnv, varlockVitePlugin } from '@varlock/vite-integration';
 import { convexLocal } from 'convex-vite-plugin';
 import { resetRedactionMap } from 'varlock/env';
+import { sentrySvelteKit } from '@sentry/sveltekit';
 import devtoolsJson from 'vite-plugin-devtools-json';
 import tailwindcss from '@tailwindcss/vite';
 import { sveltekit } from '@sveltejs/kit/vite';
@@ -277,6 +278,19 @@ export default defineConfig(async ({ mode }) => {
 			);
 		}
 		process.env.PUBLIC_CONVEX_URL = 'https://prerender-placeholder.convex.cloud';
+	}
+
+	// Sentry source map upload + auto-instrumentation (no-op when DSN is absent)
+	if (loadedEnv.PUBLIC_SENTRY_DSN) {
+		plugins.push(
+			...(await sentrySvelteKit({
+				autoUploadSourceMaps: !!(
+					loadedEnv.SENTRY_AUTH_TOKEN &&
+					loadedEnv.SENTRY_ORG &&
+					loadedEnv.SENTRY_PROJECT
+				)
+			}))
+		);
 	}
 
 	plugins.push(
