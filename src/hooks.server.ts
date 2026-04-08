@@ -1,6 +1,8 @@
 import { sequence } from '@sveltejs/kit/hooks';
 import { redirect, type Handle, type Cookies } from '@sveltejs/kit';
 import { dev } from '$app/environment';
+import { env } from '$env/dynamic/public';
+import * as Sentry from '@sentry/sveltekit';
 import { isSupportedLanguage, DEFAULT_LANGUAGE } from '$lib/i18n/languages';
 import {
 	getMarketingMarkdownDocument,
@@ -8,6 +10,15 @@ import {
 } from '$lib/marketing/public-routes';
 import { createMarketingMarkdownResponse, isMarkdownRequest } from '$lib/markdown/marketing';
 import { safeRedirectPath } from '$lib/utils/url';
+
+const SENTRY_DSN = env.PUBLIC_SENTRY_DSN;
+
+if (SENTRY_DSN) {
+	Sentry.init({
+		dsn: SENTRY_DSN,
+		tracesSampleRate: 0.1
+	});
+}
 
 /**
  * Get JWT token directly from cookies (no createAuth needed)
@@ -239,6 +250,7 @@ const handleSecurityHeaders: Handle = async function handleSecurityHeaders({ eve
 };
 
 export const handle = sequence(
+	...(SENTRY_DSN ? [Sentry.sentryHandle()] : []),
 	handleDevOnlyRoutes,
 	handleAuth,
 	handleMarketingMarkdown,
@@ -247,3 +259,5 @@ export const handle = sequence(
 	handleCacheControl,
 	handleSecurityHeaders
 );
+
+export const handleError = SENTRY_DSN ? Sentry.handleErrorWithSentry() : undefined;
