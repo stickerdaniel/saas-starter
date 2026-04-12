@@ -39,8 +39,10 @@
 		"_tolgee:push": "TOLGEE_API_KEY=$VITE_TOLGEE_API_KEY tolgee push",
 		"_tolgee:cleanup": "TOLGEE_API_KEY=$VITE_TOLGEE_API_KEY tolgee tag --filter-not-extracted --filter-tag production --tag deprecated --untag production",
 		"worktree": "bun scripts/create-worktree.ts",
-		"worktree:setup": "bun scripts/create-worktree.ts --setup-only"
+		"worktree:setup": "bun scripts/create-worktree.ts --setup-only",
+		"setup": "bun scripts/template-setup.ts"
 	},
+	"packageManager": "bun@1.3.9",
 	"dependencies": {
 		"@better-auth/passkey": "^1.4.10",
 		"@convex-dev/agent": "^0.3.0",
