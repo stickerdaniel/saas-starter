@@ -203,6 +203,10 @@ Runtime files:
 - `varlock scan` — scan for leaked secrets in codebase
 - `VITE_*` vars exposed to browser must be marked `@public` in schema
 
+#### `$env/static/public` vs `$env/dynamic/public`
+
+**Always use `$env/static/public` for `PUBLIC_*` vars.** This project builds per-environment (CF Workers Builds + Vercel), so all values are known at build time. Static gives build-time validation, dead-code elimination (optional integrations like PostHog are stripped when unconfigured), and avoids the `/_app/env.js` waterfall on prerendered pages. Only use `$env/dynamic/private` for server-only values genuinely set at runtime (e.g., `CONVEX_INTERNAL_URL`).
+
 ## Architecture Overview
 
 ### Tech Stack
