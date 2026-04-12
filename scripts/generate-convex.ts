@@ -233,12 +233,15 @@ async function main() {
 
 	// --- Path 4: Offline fallback ---
 
+	let offlineFailed = false;
+
 	if (fs.existsSync(GENERATED_API)) {
 		console.log('No Convex backend available. Validating existing generated types...');
 		const { code, output } = runCommand('bun', ['run', 'check:convex']);
 		if (code !== 0) {
 			console.warn('Type check produced errors against existing generated types:');
 			console.warn(output);
+			offlineFailed = true;
 		} else {
 			console.log('Existing generated types are valid.');
 		}
@@ -249,6 +252,7 @@ async function main() {
 		if (code !== 0) {
 			console.warn('Bootstrap codegen failed:');
 			console.warn(output);
+			offlineFailed = true;
 		} else {
 			console.log(
 				'Bootstrap complete. Note: component types are missing until you run `bun run dev`.'
@@ -258,6 +262,10 @@ async function main() {
 
 	console.log('');
 	console.log('Start the dev server with `bun run dev` to generate up-to-date types.');
+
+	if (offlineFailed) {
+		process.exit(1);
+	}
 }
 
 main().catch((err) => {

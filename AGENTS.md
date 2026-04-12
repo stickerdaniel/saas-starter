@@ -100,7 +100,7 @@ Local dev notes (`bun run dev`):
 
 **IMPORTANT:** When any task involves Convex backend code — writing, reviewing, or modifying queries, mutations, actions, schema, HTTP endpoints, auth, file storage, or crons — you MUST read the `convex-guidelines` skill (`skills/convex-guidelines/SKILL.md`) first. It contains the canonical Convex coding patterns for this project.
 
-- `bun run generate` - Regenerate Convex type definitions (`_generated/`). Auto-detects the environment: uses cloud/self-hosted deployment if configured, local embedded backend if `bun run dev` is running, or validates existing types offline. Safe to run in any environment.
+- `bun run generate` - Regenerate Convex type definitions (`_generated/`). Auto-detects environment in priority order: cloud/self-hosted deployment (if configured) > local embedded backend (if `bun run dev` is running) > offline validation of existing types. Safe to run in any environment.
 - `bun run check:convex` - Run the Convex TypeScript project check. Run this whenever you change `src/lib/convex/**` or shared code imported by Convex.
 
 - `bun convex env set KEY value` - Set Convex environment variables (cloud)
