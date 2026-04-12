@@ -139,10 +139,13 @@ async function main() {
 
 	if (hasSelfHosted && hasCloud) {
 		printError('Conflicting Convex configuration', [
-			'Both CONVEX_DEPLOYMENT and CONVEX_SELF_HOSTED_URL are set.',
-			'The Convex CLI treats these as mutually exclusive.',
+			'Both CONVEX_DEPLOYMENT and self-hosted vars are set.',
+			`  CONVEX_DEPLOYMENT:             ${convexDeployment ? 'set' : 'not set'}`,
+			`  CONVEX_SELF_HOSTED_URL:        ${selfHostedUrl ? 'set' : 'not set'}`,
+			`  CONVEX_SELF_HOSTED_ADMIN_KEY:  ${selfHostedKey ? 'set' : 'not set'}`,
 			'',
-			'Remove one from .env.local to resolve the conflict.'
+			'The Convex CLI treats these as mutually exclusive.',
+			'Remove one group from .env.local to resolve the conflict.'
 		]);
 		process.exit(1);
 	}
@@ -184,7 +187,7 @@ async function main() {
 			printError('Cloud codegen failed', [
 				output,
 				'Make sure you are logged in: bunx convex login',
-				'Or start the local dev server: bun run dev'
+				'Or unset CONVEX_DEPLOYMENT in .env.local and use `bun run dev` for local codegen.'
 			]);
 			process.exit(1);
 		}
