@@ -83,7 +83,8 @@ export {
 	updateProgress,
 	FileUploadManager,
 	ChatCore,
-	createChatCore
+	createChatCore,
+	ChatDraftManager
 } from './core/index.js';
 
 // UI exports
