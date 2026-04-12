@@ -62,17 +62,50 @@ The deploy script (`scripts/deploy.ts`) auto-detects the platform from environme
 
 Deploy via [Cloudflare Workers](https://developers.cloudflare.com/workers/) with Workers Builds:
 
-1. Rename `name` in `wrangler.toml` to match your Worker name
-2. Create the Worker: `bunx wrangler deploy` (first deploy creates it)
-3. Connect your repo via Workers Builds in the CF dashboard
-4. Set build command: `bunx varlock run -- bun scripts/deploy.ts`
-5. Set deploy command: `bunx wrangler deploy` (production)
-6. Set non-production deploy command: `bunx wrangler versions upload --preview-alias $WORKERS_CI_BRANCH`
-7. Add build secrets: `CONVEX_DEPLOY_KEY`, `WORKERS_NAME` (matches wrangler.toml name), `WORKERS_SUBDOMAIN` (your account's workers.dev subdomain, e.g., `daniel-ce4`)
-8. Set `SITE_URL` build variable for production (your custom domain or workers.dev URL)
-9. Enable non-production branch builds for preview deployments
+**1. Create Worker**
 
-Push a branch and Workers Builds creates a preview deployment with a stable per-branch URL.
+- Rename `name` in `wrangler.toml` to your project name
+- Run `bunx wrangler deploy` (first deploy creates the Worker)
+
+**2. Connect repo**
+
+- CF dashboard > Workers & Pages > select Worker > Builds > Connect
+- If the repo isn't visible: GitHub Settings > Applications > Cloudflare Workers and Pages > Configure > grant repo access
+
+**3. Configure build commands**
+
+| Field                                | Value                                       |
+| ------------------------------------ | ------------------------------------------- |
+| Build command                        | `bunx varlock run -- bun scripts/deploy.ts` |
+| Deploy command                       | `bunx wrangler deploy`                      |
+| Non-production branch deploy command | `bun scripts/cf-deploy.ts`                  |
+
+**4. Add build variables** (plain text, visible in logs)
+
+| Variable            | Value                                  | Notes                                                                                                                                                       |
+| ------------------- | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `WORKERS_NAME`      | Name from `wrangler.toml`              | Required for preview URL construction                                                                                                                       |
+| `WORKERS_SUBDOMAIN` | Account subdomain (e.g., `daniel-ce4`) | Visible at Workers & Pages overview as `*.workers.dev`                                                                                                      |
+| `SITE_URL`          | `https://your-domain.com`              | Production custom domain. Ignored for previews (URL is auto-constructed from `WORKERS_NAME`/`WORKERS_SUBDOMAIN`). Falls back to `workers.dev` URL if unset. |
+
+**5. Add build secrets** (encrypted, hidden from logs)
+
+| Secret                      | Where to find it                                             |
+| --------------------------- | ------------------------------------------------------------ |
+| `CONVEX_DEPLOY_KEY`         | Convex dashboard > Project Settings > Production Deploy Keys |
+| `CONVEX_PREVIEW_DEPLOY_KEY` | Convex dashboard > Project Settings > Preview Deploy Keys    |
+
+**6. Set Convex default env vars for previews**
+
+Each preview Convex deployment starts with no env vars. Set defaults in Convex dashboard > Project Settings > Default Environment Variables with only Preview/Development checked (not Production):
+
+`BETTER_AUTH_SECRET`, `RESEND_API_KEY`, `AUTH_EMAIL`, `EMAIL_ASSET_URL`, `AUTUMN_SECRET_KEY`, `OPENROUTER_API_KEY`
+
+Optionally add `AUTH_E2E_TEST_SECRET` for E2E tests on previews.
+
+**7. Enable branch builds**
+
+Enable non-production branch builds for preview deployments. Push a branch and Workers Builds creates a preview deployment with a stable per-branch URL.
 
 </details>
 
@@ -154,6 +187,27 @@ bunx convex run admin/mutations:seedFirstAdmin '{"email":"you@example.com"}' --p
 ```
 
 <details>
+<summary><strong>Resend webhook (optional)</strong></summary>
+
+For email event tracking (delivery, bounce, open, click):
+
+1. Resend dashboard > Webhooks > Add Endpoint
+2. URL: `https://<your-deployment>.convex.site/resend-webhook`
+3. Select events: `email.delivered`, `email.bounced`, `email.complained`, `email.opened`, `email.clicked`
+4. Copy the signing secret and set it on Convex: `bunx convex env set RESEND_WEBHOOK_SECRET <secret> --prod`
+
+</details>
+
+<details>
+<summary><strong>Custom domain (Cloudflare Workers)</strong></summary>
+
+If your domain's DNS is on Cloudflare: CF dashboard > Workers & Pages > select Worker > Settings > Domains & Routes > Add > Custom Domain. CF creates DNS records and provisions SSL automatically. Set `SITE_URL` on your Convex production deployment to match.
+
+If your domain uses external DNS, use the CF for SaaS method below.
+
+</details>
+
+<details>
 <summary><strong>Custom domain without Cloudflare DNS (CF for SaaS)</strong></summary>
 
 CF Workers custom domains require the domain's DNS zone to be on Cloudflare. If your domain uses external DNS (e.g., registrar-managed DNS, Route 53), use [Cloudflare for SaaS](https://developers.cloudflare.com/cloudflare-for-platforms/cloudflare-for-saas/) (Custom Hostnames) on a CF-managed zone you control.
@@ -216,16 +270,19 @@ Two runtimes, two schemas, both managed by [varlock](https://github.com/nickrees
 
 **Hosting platform** (CF Workers build settings or Vercel project settings):
 
-| Variable                 |                                                                  | Preview | Prod |
-| ------------------------ | ---------------------------------------------------------------- | :-----: | :--: |
-| `CONVEX_DEPLOY_KEY`      | Convex deploy key                                                |    ✓    |  ✓   |
-| `NODE_ADAPTER`           | Set to `1` to build with adapter-node for self-hosted production |         |  ○   |
-| `CONVEX_INTERNAL_URL`    | Internal Convex URL for Docker-network routing (self-hosted)     |         |  ○   |
-| `TOLGEE_API_KEY`         | Tolgee CLI key for deploy-time sync (optional, skips when unset) |    ○    |  ○   |
-| `PREVIEW_ADMIN_PASSWORD` | Preview admin password                                           |    ○    |      |
-| `PUBLIC_POSTHOG_API_KEY` | PostHog analytics API key                                        |         |  ○   |
-| `PUBLIC_POSTHOG_HOST`    | PostHog analytics host                                           |         |  ○   |
-| `PRODUCTION_BRANCH`      | Cloudflare only: production branch name (default: `main`)        |    ○    |  ○   |
+| Variable                    |                                                                  | Preview | Prod |
+| --------------------------- | ---------------------------------------------------------------- | :-----: | :--: |
+| `CONVEX_DEPLOY_KEY`         | Convex production deploy key                                     |    ✓    |  ✓   |
+| `CONVEX_PREVIEW_DEPLOY_KEY` | Convex preview deploy key                                        |    ✓    |      |
+| `WORKERS_NAME`              | CF Workers only: worker name (matches `wrangler.toml`)           |    ✓    |  ○   |
+| `WORKERS_SUBDOMAIN`         | CF Workers only: account's `workers.dev` subdomain               |    ✓    |  ○   |
+| `NODE_ADAPTER`              | Set to `1` to build with adapter-node for self-hosted production |         |  ○   |
+| `CONVEX_INTERNAL_URL`       | Internal Convex URL for Docker-network routing (self-hosted)     |         |  ○   |
+| `TOLGEE_API_KEY`            | Tolgee CLI key for deploy-time sync (optional, skips when unset) |    ○    |  ○   |
+| `PREVIEW_ADMIN_PASSWORD`    | Preview admin password                                           |    ○    |      |
+| `PUBLIC_POSTHOG_API_KEY`    | PostHog analytics API key                                        |         |  ○   |
+| `PUBLIC_POSTHOG_HOST`       | PostHog analytics host                                           |         |  ○   |
+| `PRODUCTION_BRANCH`         | Cloudflare only: production branch name (default: `main`)        |    ○    |  ○   |
 
 </details>
 
