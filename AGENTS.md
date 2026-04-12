@@ -37,7 +37,7 @@ btca ask -r svelte -r convex -q "How do I integrate Convex with SvelteKit?"
 
 **Branch config:** When adding a new resource, verify the repo's default branch (`gh api repos/OWNER/REPO --jq '.default_branch'`). btca assumes `main` and fails silently on repos using `master`, `dev`, etc. Always set the `branch` field explicitly.
 
-**New dependencies:** When adding a new dependency or devDependency, always add its repo to btca and verify with a simple test question (`btca ask -r <name> -q "<test>"`). This keeps btca comprehensive across all project deps.
+**New dependencies:** When adding a new dependency or devDependency, always add its repo to btca and verify with a simple test question (`btca ask -r <name> -q "<test>"`). If the query fails or returns irrelevant results, check that the `branch` field matches the repo's default branch and that the model config is correct. This keeps btca comprehensive across all project deps.
 
 ## Workflow
 
