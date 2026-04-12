@@ -1,5 +1,8 @@
+diff --git a/node_modules/oxlint-plugin-convex/.bun-tag-c2a66dab253f6d5a b/.bun-tag-c2a66dab253f6d5a
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
 diff --git a/dist/index.mjs b/dist/index.mjs
-index 197f48d7c6739cd772d131ab8074b4f32bd18731..372d1bf351904262c82ed6339d744b7bdc00bbc7 100644
+index 197f48d7c6739cd772d131ab8074b4f32bd18731..634557341c136241bba32b8d55127dc1de988afa 100644
 --- a/dist/index.mjs
 +++ b/dist/index.mjs
 @@ -126,7 +126,9 @@ const DEFAULT_EXTENSIONS = [
@@ -13,3 +16,95 @@ index 197f48d7c6739cd772d131ab8074b4f32bd18731..372d1bf351904262c82ed6339d744b7b
  ];
  const DEFAULT_SKIP_DIRS = [
  	"node_modules",
+@@ -280,14 +282,87 @@ const noUnusedFunctionsRule = defineRule({
+ 	}
+ });
+ /**
++* Cache for verifying which /convex/ directories are actual Convex backend roots.
++* A Convex backend directory contains _generated/, schema.ts, or convex.config.ts.
++*/
++const convexRootCache = /* @__PURE__ */ new Map();
++function isConvexBackendRoot(dirPath) {
++	if (convexRootCache.has(dirPath)) return convexRootCache.get(dirPath);
++	try {
++		const entries = readdirSync(dirPath).map((e) => typeof e === "string" ? e : e.name);
++		const result = entries.includes("_generated") || entries.includes("schema.ts") || entries.includes("convex.config.ts");
++		convexRootCache.set(dirPath, result);
++		return result;
++	} catch {
++		convexRootCache.set(dirPath, false);
++		return false;
++	}
++}
++/**
++* Rule that checks Convex module filenames for invalid path components.
++* Mirrors the Convex backend validator in sync_types/src/path.rs.
++* Each path component must contain only [A-Za-z0-9_.] and at least one alphanumeric character.
++*/
++const noInvalidModulePathRule = defineRule({
++	meta: {
++		type: "problem",
++		docs: {
++			description: "Disallow invalid Convex module path components",
++			recommended: true
++		},
++		schema: [],
++		messages: {
++			invalidChar: "Convex module path component '{{component}}' contains invalid characters. Only alphanumeric, underscore, and period are allowed.",
++			noAlphanumeric: "Convex module path component '{{component}}' must contain at least one alphanumeric character."
++		}
++	},
++	createOnce(context) {
++		let violation = null;
++		return {
++			before() {
++				violation = null;
++				const normalized = normalizePath(context.filename);
++				if (normalized.includes("node_modules")) return false;
++				if (normalized.includes("/convex/_generated/")) return false;
++				if (normalized.endsWith(".d.ts")) return false;
++				const convexIdx = normalized.lastIndexOf("/convex/");
++				if (convexIdx === -1) return false;
++				const convexRoot = normalized.slice(0, convexIdx + "/convex".length);
++				if (!isConvexBackendRoot(convexRoot)) return false;
++				const relativePath = normalized.slice(convexIdx + "/convex/".length);
++				const components = relativePath.split("/");
++				for (const component of components) {
++					if (!/^[A-Za-z0-9_.]+$/.test(component)) {
++						violation = { messageId: "invalidChar", data: { component } };
++						return true;
++					}
++					if (!/[A-Za-z0-9]/.test(component)) {
++						violation = { messageId: "noAlphanumeric", data: { component } };
++						return true;
++					}
++				}
++				return false;
++			},
++			Program(node) {
++				if (violation) {
++					context.report({ node, ...violation });
++				}
++			}
++		};
++	}
++});
++/**
+ * The oxlint plugin for Convex.
+-* Contains the `no-unused-functions` rule to detect unused Convex functions.
++* Contains rules for Convex module validation.
+ */
+ var src_default = definePlugin({
+ 	meta: { name: "eslint-plugin-convex" },
+-	rules: { "no-unused-functions": noUnusedFunctionsRule }
++	rules: {
++		"no-unused-functions": noUnusedFunctionsRule,
++		"no-invalid-module-path": noInvalidModulePathRule
++	}
+ });
+ 
+ //#endregion
+-export { src_default as default, noUnusedFunctionsRule };
++export { src_default as default, noUnusedFunctionsRule, noInvalidModulePathRule };
+ //# sourceMappingURL=index.mjs.map
+\ No newline at end of file

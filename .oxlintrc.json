@@ -9,6 +9,7 @@
 				"ignorePatterns": ["tests.*", "localDev.*"],
 				"ignoreUsageFiles": ["**/*.test.ts", "e2e/**"]
 			}
-		]
+		],
+		"convex/no-invalid-module-path": "error"
 	}
 }
