@@ -8,6 +8,23 @@ A free, open-source SaaS foundation you can deploy for $0. Ships with auth, bill
 
 > See a live demo of the user-facing side at **[saas.daniel.sticker.name](https://saas.daniel.sticker.name)**. Admin features like the admin panel, support dashboard, and user management are not accessible there. To explore everything, follow the steps below.
 
+## Using This Template
+
+Click **"Use this template"** on GitHub, then:
+
+```bash
+cd your-new-repo
+bun install
+bun run setup
+```
+
+The setup script replaces the project name, GitHub links, and brand name. After running it:
+
+1. Update brand name in translation files (`src/i18n/{en,de,es,fr}.json`) — search for "SaaS Starter"
+2. Update legal/privacy content in `src/lib/content/` and `src/lib/config/legal.ts` (address, email, operator)
+3. Replace `static/logo.svg` with your logo, then run `bun run build:emails`
+4. Continue with **Local Development** below
+
 ## 1. Local Development
 
 ```bash
