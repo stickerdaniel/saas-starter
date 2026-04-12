@@ -1,4 +1,8 @@
-import { env } from '$env/dynamic/public';
+import {
+	PUBLIC_POSTHOG_API_KEY,
+	PUBLIC_POSTHOG_HOST,
+	PUBLIC_POSTHOG_PROXY_HOST
+} from '$env/static/public';
 
 const READY_EVENT = 'posthog:ready';
 const ADBLOCK_DETECT_TIMEOUT_MS = 3000;
@@ -37,18 +41,16 @@ export async function initPosthog(): Promise<PostHogClient | null> {
 	if (initPromise) return initPromise;
 
 	initPromise = (async () => {
-		const apiKey = env.PUBLIC_POSTHOG_API_KEY;
-		const host = env.PUBLIC_POSTHOG_HOST;
-
-		if (!apiKey || !host) return null;
+		if (!PUBLIC_POSTHOG_API_KEY || !PUBLIC_POSTHOG_HOST) return null;
 
 		try {
 			const posthog = (await import('posthog-js')).default;
-			const proxyHost = env.PUBLIC_POSTHOG_PROXY_HOST;
-			const isBlocked = await detectAdBlock(host);
-			const apiHost = isBlocked ? proxyHost || host : host;
+			const isBlocked = await detectAdBlock(PUBLIC_POSTHOG_HOST);
+			const apiHost = isBlocked
+				? PUBLIC_POSTHOG_PROXY_HOST || PUBLIC_POSTHOG_HOST
+				: PUBLIC_POSTHOG_HOST;
 
-			posthog.init(apiKey, {
+			posthog.init(PUBLIC_POSTHOG_API_KEY, {
 				api_host: apiHost,
 				ui_host: 'https://eu.posthog.com',
 				person_profiles: 'identified_only'

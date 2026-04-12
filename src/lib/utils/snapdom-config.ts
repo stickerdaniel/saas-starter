@@ -11,7 +11,7 @@
  */
 
 import { dev } from '$app/environment';
-import { env } from '$env/dynamic/public';
+import { PUBLIC_SNAPDOM_PROXY_URL } from '$env/static/public';
 
 /**
  * Get the CORS proxy URL for snapDOM
@@ -30,7 +30,7 @@ export function getSnapDOMProxyUrl(): string | undefined {
 
 	// Production: Use custom Cloudflare Worker proxy if provided
 	// Falls back to no proxy if not configured (external images may fail with CORS)
-	return env.PUBLIC_SNAPDOM_PROXY_URL || undefined;
+	return PUBLIC_SNAPDOM_PROXY_URL || undefined;
 }
 
 /**
