@@ -65,3 +65,6 @@ export {
 export type { ChatCoreAPI, ChatCoreOptions, CreateThreadResult } from './ChatCore.svelte.js';
 
 export { ChatCore, createChatCore } from './ChatCore.svelte.js';
+
+// Draft persistence
+export { ChatDraftManager } from './ChatDraftManager.svelte.js';

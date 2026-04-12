@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { useConvexClient } from 'convex-svelte';
 	import { toast } from 'svelte-sonner';
+	import { watch } from 'runed';
 	import { api } from '$lib/convex/_generated/api';
 	import ChatRoot from '$lib/chat/ui/ChatRoot.svelte';
 	import ChatMessages from '$lib/chat/ui/ChatMessages.svelte';
@@ -8,6 +9,7 @@
 	import { PromptSuggestion } from '$lib/components/prompt-kit/prompt-suggestion';
 	import { ChatUIContext, type UploadConfig } from '$lib/chat/ui/ChatContext.svelte';
 	import { ChatCore } from '$lib/chat/core/ChatCore.svelte';
+	import { ChatDraftManager } from '$lib/chat/core/ChatDraftManager.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import LockIcon from '@lucide/svelte/icons/lock';
 	import { T, getTranslate } from '@tolgee/svelte';
@@ -69,6 +71,28 @@
 	});
 
 	const chatUIContext = new ChatUIContext(chatCore, client, uploadConfig, 'right');
+
+	// Draft persistence across thread switches and page refreshes
+	const draftManager = new ChatDraftManager('drafts:ai-chat');
+	let sending = $state(false);
+
+	// Save draft on leave, restore on enter
+	watch(
+		() => threadId,
+		(current, previous) => {
+			if (previous && chatUIContext.inputValue.trim()) {
+				draftManager.setDraft(previous, chatUIContext.inputValue);
+			}
+			chatUIContext.setInputValue(draftManager.getDraft(current));
+		}
+	);
+
+	// Continuous save for refresh persistence
+	$effect(() => {
+		// Don't persist the empty string caused by clearInput() during send
+		if (sending && !chatUIContext.inputValue.trim()) return;
+		draftManager.setDraft(threadId, chatUIContext.inputValue);
+	});
 
 	// Auto-focus input when thread changes
 	let chatContainer: HTMLDivElement | undefined = $state();
@@ -196,17 +220,21 @@
 				isRateLimited={!hasMessagesAvailable}
 				onSend={async (prompt) => {
 					if (!hasMessagesAvailable || !prompt?.trim()) return;
-
+					sending = true;
 					try {
 						await chatCore.sendMessage(client, prompt, {
 							fileIds: chatUIContext.uploadedFileIds,
 							attachments: chatUIContext.attachments
 						});
 						chatUIContext.clearAttachments();
+						draftManager.clearDraft(threadId);
 						onMessageSent?.();
 					} catch (error) {
 						console.error('[AI Chat sendMessage] Error:', error);
+						chatUIContext.setInputValue(prompt);
 						toast.error($t('chat.messages.send_failed'));
+					} finally {
+						sending = false;
 					}
 				}}
 			/>

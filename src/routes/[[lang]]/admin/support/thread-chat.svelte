@@ -7,6 +7,7 @@
 	import ChatInput from '$lib/chat/ui/ChatInput.svelte';
 	import { ChatUIContext, type UploadConfig } from '$lib/chat/ui/ChatContext.svelte';
 	import { ChatCore } from '$lib/chat/core/ChatCore.svelte';
+	import type { ChatDraftManager } from '$lib/chat/core/ChatDraftManager.svelte';
 	import { createOptimisticUpdate, type ListMessagesArgs } from '$lib/chat/core/optimistic';
 	import { Button } from '$lib/components/ui/button';
 	import { Skeleton } from '$lib/components/ui/skeleton';
@@ -25,7 +26,8 @@
 	let {
 		threadId,
 		initialThread,
-		onBackClick
+		onBackClick,
+		draftManager
 	}: {
 		threadId: string;
 		initialThread?: {
@@ -35,6 +37,7 @@
 			lastMessageAt?: number;
 		};
 		onBackClick?: () => void;
+		draftManager?: ChatDraftManager;
 	} = $props();
 
 	const media = useMedia();
@@ -66,6 +69,22 @@
 
 	// Create ChatUIContext with upload support (userAlignment 'left' for admin view)
 	const chatUIContext = new ChatUIContext(chatCore, client, uploadConfig, 'left');
+
+	// Draft persistence — load saved draft on mount, save continuously
+	let sending = $state(false);
+
+	// Load saved draft on mount (threadId is constant per {#key} instance)
+	if (draftManager) {
+		const draft = draftManager.getDraft(threadId);
+		if (draft) chatUIContext.setInputValue(draft);
+	}
+
+	$effect(() => {
+		if (!draftManager) return;
+		// Don't persist the empty string caused by clearInput() during send
+		if (sending && !chatUIContext.inputValue.trim()) return;
+		draftManager.setDraft(threadId, chatUIContext.inputValue);
+	});
 
 	// Query thread details to show header info
 	const threadQuery = useQuery(api.admin.support.queries.getThreadForAdmin, () => ({
@@ -243,6 +262,7 @@
 				};
 
 				// Fire-and-forget: no blocking, optimistic update provides instant feedback
+				sending = true;
 				try {
 					await client.mutation(
 						api.admin.support.mutations.sendAdminReply,
@@ -265,11 +285,16 @@
 						}
 					);
 
-					// Clear attachments after successful send
+					// Clear attachments and draft after successful send
 					chatUIContext.clearAttachments();
+					draftManager?.clearDraft(threadId);
 				} catch (error) {
 					console.error('[Admin sendAdminReply] Error:', error);
+					// Restore prompt so user can retry and $effect re-persists draft
+					chatUIContext.setInputValue(prompt);
 					toast.error($t('admin.support.chat.error.send_failed'));
+				} finally {
+					sending = false;
 				}
 			}}
 		/>

@@ -19,9 +19,13 @@
 	import ThreadDetails from './thread-details.svelte';
 	import { adminSupportUI } from '$lib/hooks/admin-support-ui.svelte';
 	import { adminCache } from '$lib/hooks/admin-cache.svelte';
+	import { ChatDraftManager } from '$lib/chat';
 	import { browser } from '$app/environment';
 
 	const { t } = getTranslate();
+
+	// Draft persistence — lives outside {#key threadId} so drafts survive thread switches
+	const draftManager = new ChatDraftManager('drafts:admin-support');
 
 	// Filter state schema (thread managed separately to avoid reload on selection)
 	const filterSchema = v.object({
@@ -168,7 +172,7 @@
 			<Pane defaultSize={50} minSize={30}>
 				{#if threadId}
 					{#key threadId}
-						<ThreadChat {threadId} initialThread={selectedThread} />
+						<ThreadChat {threadId} initialThread={selectedThread} {draftManager} />
 					{/key}
 				{:else}
 					<div
@@ -224,7 +228,7 @@
 			<Pane defaultSize={70} minSize={50}>
 				{#if threadId}
 					{#key threadId}
-						<ThreadChat {threadId} initialThread={selectedThread} />
+						<ThreadChat {threadId} initialThread={selectedThread} {draftManager} />
 					{/key}
 				{:else}
 					<div
@@ -260,7 +264,12 @@
 			<SlidingPanel open={!!threadId} class="bg-background">
 				{#if threadId}
 					{#key threadId}
-						<ThreadChat {threadId} initialThread={selectedThread} onBackClick={clearThread} />
+						<ThreadChat
+							{threadId}
+							initialThread={selectedThread}
+							onBackClick={clearThread}
+							{draftManager}
+						/>
 					{/key}
 				{/if}
 			</SlidingPanel>
