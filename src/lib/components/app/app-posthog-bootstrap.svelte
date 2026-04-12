@@ -1,11 +1,9 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { env } from '$env/dynamic/public';
+	import { PUBLIC_POSTHOG_API_KEY, PUBLIC_POSTHOG_HOST } from '$env/static/public';
 	import { initPosthog } from '$lib/analytics/posthog';
 
 	onMount(function onMountPosthogInit() {
-		const PUBLIC_POSTHOG_API_KEY = env.PUBLIC_POSTHOG_API_KEY;
-		const PUBLIC_POSTHOG_HOST = env.PUBLIC_POSTHOG_HOST;
 		if (!PUBLIC_POSTHOG_API_KEY || !PUBLIC_POSTHOG_HOST) return;
 
 		let initialized = false;

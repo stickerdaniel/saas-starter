@@ -124,6 +124,11 @@ export default defineConfig(
 						{
 							name: '$lib/utils/utils.js',
 							message: 'Import from $lib/utils.js instead (canonical location).'
+						},
+						{
+							name: '$env/dynamic/public',
+							message:
+								'Use $env/static/public instead. All PUBLIC_* vars are known at build time in this project.'
 						}
 					]
 				}
