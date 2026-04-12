@@ -8,6 +8,14 @@ import { parseBetterAuthUsers, betterAuthUserSchema } from '../types';
 import { isAnonymousUser } from '../../utils/anonymousUser';
 import { vStreamArgs } from '@convex-dev/agent/validators';
 import { listMessagesForThread } from '../../support/messageListing';
+import { supportThreadFields } from '../../support/supportThreadFields';
+
+/** Return validator for supportThreads documents (schema fields + system fields). */
+const vSupportMetadata = v.object({
+	_id: v.string(),
+	_creationTime: v.number(),
+	...supportThreadFields
+});
 
 /**
  * List threads with admin filters
@@ -41,39 +49,7 @@ export const listThreadsForAdmin = adminQuery({
 				title: v.optional(v.string()),
 				summary: v.optional(v.string()),
 				status: v.union(v.literal('active'), v.literal('archived')),
-				supportMetadata: v.object({
-					_id: v.string(),
-					_creationTime: v.number(),
-					threadId: v.string(),
-					userId: v.optional(v.string()),
-					status: v.union(v.literal('open'), v.literal('done')),
-					assignedTo: v.optional(v.string()),
-					isHandedOff: v.optional(v.boolean()),
-					awaitingAdminResponse: v.optional(v.boolean()),
-					priority: v.optional(v.union(v.literal('low'), v.literal('medium'), v.literal('high'))),
-					pageUrl: v.optional(v.string()),
-					notificationEmail: v.optional(v.string()),
-					notificationSentAt: v.optional(v.number()),
-					createdAt: v.number(),
-					updatedAt: v.number(),
-					// Denormalized search fields
-					searchText: v.optional(v.string()),
-					title: v.optional(v.string()),
-					summary: v.optional(v.string()),
-					lastMessage: v.optional(v.string()),
-					lastMessageAt: v.optional(v.number()),
-					lastMessageRole: v.optional(
-						v.union(
-							v.literal('user'),
-							v.literal('assistant'),
-							v.literal('tool'),
-							v.literal('system')
-						)
-					),
-					lastAgentName: v.optional(v.string()),
-					userName: v.optional(v.string()),
-					userEmail: v.optional(v.string())
-				}),
+				supportMetadata: vSupportMetadata,
 				lastMessage: v.optional(v.string()),
 				lastMessageAt: v.optional(v.number()),
 				userName: v.optional(v.string()),
@@ -270,34 +246,7 @@ export const getThreadForAdmin = adminQuery({
 		title: v.optional(v.string()),
 		summary: v.optional(v.string()),
 		status: v.union(v.literal('active'), v.literal('archived')),
-		supportMetadata: v.object({
-			_id: v.string(),
-			_creationTime: v.number(),
-			threadId: v.string(),
-			userId: v.optional(v.string()),
-			status: v.union(v.literal('open'), v.literal('done')),
-			assignedTo: v.optional(v.string()),
-			isHandedOff: v.optional(v.boolean()),
-			awaitingAdminResponse: v.optional(v.boolean()),
-			priority: v.optional(v.union(v.literal('low'), v.literal('medium'), v.literal('high'))),
-			pageUrl: v.optional(v.string()),
-			notificationEmail: v.optional(v.string()),
-			notificationSentAt: v.optional(v.number()),
-			createdAt: v.number(),
-			updatedAt: v.number(),
-			// Denormalized search fields
-			searchText: v.optional(v.string()),
-			title: v.optional(v.string()),
-			summary: v.optional(v.string()),
-			lastMessage: v.optional(v.string()),
-			lastMessageAt: v.optional(v.number()),
-			lastMessageRole: v.optional(
-				v.union(v.literal('user'), v.literal('assistant'), v.literal('tool'), v.literal('system'))
-			),
-			lastAgentName: v.optional(v.string()),
-			userName: v.optional(v.string()),
-			userEmail: v.optional(v.string())
-		}),
+		supportMetadata: vSupportMetadata,
 		assignedAdmin: v.optional(
 			v.object({
 				id: v.string(),
