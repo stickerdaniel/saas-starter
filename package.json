@@ -8,7 +8,7 @@
 		"dev:frontend": "vite dev",
 		"dev:backend:cloud": "convex dev",
 		"dev:cloud": "bun-tasks dev:frontend ::: dev:backend:cloud",
-		"generate": "bun run convex codegen",
+		"generate": "bun scripts/generate-convex.ts",
 		"postinstall": "bun svelte-kit sync && varlock typegen && varlock typegen --path .env-convex.schema && bun run build:emails",
 		"prebuild": "bun run build:emails",
 		"build": "vite build",
