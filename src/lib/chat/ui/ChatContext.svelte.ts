@@ -57,6 +57,9 @@ export class ChatUIContext {
 	/** Tracks messages that have been auto-opened (for auto-close logic) */
 	autoOpenedMessages = $state(new SvelteSet<string>());
 
+	/** Tracks reasoning blocks the user has manually toggled (user owns the state) */
+	userDismissedMessages = $state(new SvelteSet<string>());
+
 	/** Processed messages with display fields (set by ChatMessages) */
 	displayMessages = $state<DisplayMessage[]>([]);
 
@@ -149,6 +152,31 @@ export class ChatUIContext {
 
 	getAutoOpenedKeys(): Iterable<string> {
 		return this.autoOpenedMessages.keys();
+	}
+
+	/**
+	 * Mark a reasoning block as user-dismissed (user manually toggled it)
+	 */
+	markUserDismissed(messageId: string): void {
+		this.userDismissedMessages.add(messageId);
+	}
+
+	/**
+	 * Check if a reasoning block was user-dismissed
+	 */
+	wasUserDismissed(messageId: string): boolean {
+		return this.userDismissedMessages.has(messageId);
+	}
+
+	/**
+	 * Clear user-dismissed tracking for a reasoning block
+	 */
+	clearUserDismissed(messageId: string): void {
+		this.userDismissedMessages.delete(messageId);
+	}
+
+	getUserDismissedKeys(): Iterable<string> {
+		return this.userDismissedMessages.keys();
 	}
 
 	/**

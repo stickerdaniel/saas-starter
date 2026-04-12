@@ -57,7 +57,9 @@
 	}
 
 	function handleReasoningPartOpenChange(partKey: string, open: boolean) {
-		ctx.setReasoningOpen(`${message.id}:${partKey}`, open);
+		const fullKey = `${message.id}:${partKey}`;
+		ctx.setReasoningOpen(fullKey, open);
+		ctx.markUserDismissed(fullKey);
 	}
 
 	// Fallback: single reasoning open state for messages without parts
@@ -127,6 +129,7 @@
 
 	function handleReasoningOpenChange(open: boolean) {
 		ctx.setReasoningOpen(message.id, open);
+		ctx.markUserDismissed(message.id);
 	}
 </script>
 
