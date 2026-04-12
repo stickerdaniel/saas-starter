@@ -49,6 +49,20 @@ NEVER use the `EnterWorktree` tool. Always use `bun run worktree` instead and ad
 
 **Before committing:** Always check `git branch` first. If you're in a worktree, the branch already exists and was created by `bun run worktree` (which runs `git worktree add -b` and then `gt track` + `gt sync` when Graphite is installed). Use `git commit` to add commits, not `gt create`. Only use `gt create` when you need a new stacked branch on top of the current one.
 
+### Commit Message Format
+
+```
+<type>(scope)[!]: <subject>
+```
+
+- Scope is required unless no meaningful scope can be defined
+- Imperative mood, capitalize first letter, no period, max 50 chars
+- `!` after scope = breaking change
+- Body (optional): explain _what_ and _why_, wrap at 72 chars
+- Link issues: `Resolves: #123` or `See also: #456`
+
+Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`, `perf`, `ci`
+
 ## Development Commands
 
 ### Core Development
