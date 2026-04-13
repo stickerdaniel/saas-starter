@@ -92,7 +92,7 @@
 	"devDependencies": {
 		"@axe-core/playwright": "4.11.1",
 		"@convex-dev/eslint-plugin": "1.2.1",
-		"@eslint/compat": "2.0.3",
+		"@eslint/compat": "2.0.5",
 		"@eslint/js": "9.39.4",
 		"@fontsource-variable/outfit": "^5.2.8",
 		"@internationalized/date": "3.12.0",
