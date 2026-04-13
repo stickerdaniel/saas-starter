@@ -57,6 +57,9 @@ export class ChatUIContext {
 	/** Tracks messages that have been auto-opened (for auto-close logic) */
 	autoOpenedMessages = $state(new SvelteSet<string>());
 
+	/** Tracks reasoning blocks the user has manually toggled (auto-sync should not override) */
+	userToggledMessages = $state(new SvelteSet<string>());
+
 	/** Processed messages with display fields (set by ChatMessages) */
 	displayMessages = $state<DisplayMessage[]>([]);
 
@@ -149,6 +152,31 @@ export class ChatUIContext {
 
 	getAutoOpenedKeys(): Iterable<string> {
 		return this.autoOpenedMessages.keys();
+	}
+
+	/**
+	 * Mark a reasoning block as user-toggled (auto-sync should not override)
+	 */
+	markUserToggled(messageId: string): void {
+		this.userToggledMessages.add(messageId);
+	}
+
+	/**
+	 * Check if a reasoning block was user-toggled
+	 */
+	wasUserToggled(messageId: string): boolean {
+		return this.userToggledMessages.has(messageId);
+	}
+
+	/**
+	 * Clear user-toggled tracking for a reasoning block
+	 */
+	clearUserToggled(messageId: string): void {
+		this.userToggledMessages.delete(messageId);
+	}
+
+	getUserToggledKeys(): Iterable<string> {
+		return this.userToggledMessages.keys();
 	}
 
 	/**
