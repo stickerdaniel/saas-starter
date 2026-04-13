@@ -8,9 +8,9 @@ export interface ReasoningAccordionController {
 	markAutoOpened(messageId: string): void;
 	clearAutoOpened(messageId: string): void;
 	getAutoOpenedKeys(): Iterable<string>;
-	wasUserDismissed(messageId: string): boolean;
-	clearUserDismissed(messageId: string): void;
-	getUserDismissedKeys(): Iterable<string>;
+	wasUserToggled(messageId: string): boolean;
+	clearUserToggled(messageId: string): void;
+	getUserToggledKeys(): Iterable<string>;
 }
 
 export function syncReasoningAccordionState(
@@ -32,18 +32,18 @@ export function syncReasoningAccordionState(
 				validReasoningKeys.add(partKey);
 
 				if (index === activeReasoningIndex) {
-					if (!controller.wasUserDismissed(partKey)) {
+					if (!controller.wasUserToggled(partKey)) {
 						if (!controller.isReasoningOpen(partKey)) {
 							controller.setReasoningOpen(partKey, true);
 							controller.markAutoOpened(partKey);
 						}
 					}
 				} else if (controller.wasAutoOpened(partKey)) {
-					if (!controller.wasUserDismissed(partKey)) {
+					if (!controller.wasUserToggled(partKey)) {
 						controller.setReasoningOpen(partKey, false);
 					}
 					controller.clearAutoOpened(partKey);
-					controller.clearUserDismissed(partKey);
+					controller.clearUserToggled(partKey);
 				}
 			});
 			return;
@@ -54,19 +54,19 @@ export function syncReasoningAccordionState(
 
 		if (hasReasoning && !hasResponse) {
 			validReasoningKeys.add(message.id);
-			if (!controller.wasUserDismissed(message.id)) {
-				if (!controller.isReasoningOpen(message.id) && !controller.wasAutoOpened(message.id)) {
+			if (!controller.wasUserToggled(message.id)) {
+				if (!controller.isReasoningOpen(message.id)) {
 					controller.setReasoningOpen(message.id, true);
 					controller.markAutoOpened(message.id);
 				}
 			}
 		} else if (hasResponse && controller.wasAutoOpened(message.id)) {
 			validReasoningKeys.add(message.id);
-			if (!controller.wasUserDismissed(message.id)) {
+			if (!controller.wasUserToggled(message.id)) {
 				controller.setReasoningOpen(message.id, false);
 			}
 			controller.clearAutoOpened(message.id);
-			controller.clearUserDismissed(message.id);
+			controller.clearUserToggled(message.id);
 		}
 	});
 
@@ -76,8 +76,8 @@ export function syncReasoningAccordionState(
 		controller.clearAutoOpened(autoOpenedKey);
 	}
 
-	for (const dismissedKey of controller.getUserDismissedKeys()) {
-		if (validReasoningKeys.has(dismissedKey)) continue;
-		controller.clearUserDismissed(dismissedKey);
+	for (const toggledKey of controller.getUserToggledKeys()) {
+		if (validReasoningKeys.has(toggledKey)) continue;
+		controller.clearUserToggled(toggledKey);
 	}
 }

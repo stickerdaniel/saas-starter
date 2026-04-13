@@ -57,8 +57,8 @@ export class ChatUIContext {
 	/** Tracks messages that have been auto-opened (for auto-close logic) */
 	autoOpenedMessages = $state(new SvelteSet<string>());
 
-	/** Tracks reasoning blocks the user has manually toggled (user owns the state) */
-	userDismissedMessages = $state(new SvelteSet<string>());
+	/** Tracks reasoning blocks the user has manually toggled (auto-sync should not override) */
+	userToggledMessages = $state(new SvelteSet<string>());
 
 	/** Processed messages with display fields (set by ChatMessages) */
 	displayMessages = $state<DisplayMessage[]>([]);
@@ -155,28 +155,28 @@ export class ChatUIContext {
 	}
 
 	/**
-	 * Mark a reasoning block as user-dismissed (user manually toggled it)
+	 * Mark a reasoning block as user-toggled (auto-sync should not override)
 	 */
-	markUserDismissed(messageId: string): void {
-		this.userDismissedMessages.add(messageId);
+	markUserToggled(messageId: string): void {
+		this.userToggledMessages.add(messageId);
 	}
 
 	/**
-	 * Check if a reasoning block was user-dismissed
+	 * Check if a reasoning block was user-toggled
 	 */
-	wasUserDismissed(messageId: string): boolean {
-		return this.userDismissedMessages.has(messageId);
+	wasUserToggled(messageId: string): boolean {
+		return this.userToggledMessages.has(messageId);
 	}
 
 	/**
-	 * Clear user-dismissed tracking for a reasoning block
+	 * Clear user-toggled tracking for a reasoning block
 	 */
-	clearUserDismissed(messageId: string): void {
-		this.userDismissedMessages.delete(messageId);
+	clearUserToggled(messageId: string): void {
+		this.userToggledMessages.delete(messageId);
 	}
 
-	getUserDismissedKeys(): Iterable<string> {
-		return this.userDismissedMessages.keys();
+	getUserToggledKeys(): Iterable<string> {
+		return this.userToggledMessages.keys();
 	}
 
 	/**

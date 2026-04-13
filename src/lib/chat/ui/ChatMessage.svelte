@@ -59,7 +59,7 @@
 	function handleReasoningPartOpenChange(partKey: string, open: boolean) {
 		const fullKey = `${message.id}:${partKey}`;
 		ctx.setReasoningOpen(fullKey, open);
-		ctx.markUserDismissed(fullKey);
+		ctx.markUserToggled(fullKey);
 	}
 
 	// Fallback: single reasoning open state for messages without parts
@@ -129,7 +129,7 @@
 
 	function handleReasoningOpenChange(open: boolean) {
 		ctx.setReasoningOpen(message.id, open);
-		ctx.markUserDismissed(message.id);
+		ctx.markUserToggled(message.id);
 	}
 </script>
 

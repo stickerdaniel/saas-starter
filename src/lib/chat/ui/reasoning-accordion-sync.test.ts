@@ -8,11 +8,11 @@ import {
 function createController(
 	initiallyOpen: string[] = [],
 	initiallyAutoOpened: string[] = [],
-	initiallyUserDismissed: string[] = []
+	initiallyUserToggled: string[] = []
 ) {
 	const openState = new Set(initiallyOpen);
 	const autoOpened = new Set(initiallyAutoOpened);
-	const userDismissed = new Set(initiallyUserDismissed);
+	const userToggled = new Set(initiallyUserToggled);
 
 	const controller: ReasoningAccordionController = {
 		isReasoningOpen: (messageId) => openState.has(messageId),
@@ -31,14 +31,14 @@ function createController(
 			autoOpened.delete(messageId);
 		},
 		getAutoOpenedKeys: () => autoOpened.values(),
-		wasUserDismissed: (messageId) => userDismissed.has(messageId),
-		clearUserDismissed: (messageId) => {
-			userDismissed.delete(messageId);
+		wasUserToggled: (messageId) => userToggled.has(messageId),
+		clearUserToggled: (messageId) => {
+			userToggled.delete(messageId);
 		},
-		getUserDismissedKeys: () => userDismissed.values()
+		getUserToggledKeys: () => userToggled.values()
 	};
 
-	return { controller, openState, autoOpened, userDismissed };
+	return { controller, openState, autoOpened, userToggled };
 }
 
 function createDisplayMessage(overrides: Partial<DisplayMessage> = {}): DisplayMessage {
@@ -226,7 +226,7 @@ describe('syncReasoningAccordionState', () => {
 		syncReasoningAccordionState([streamingMsg], controller);
 		expect(openState.has('msg-1:reasoning-reason-1')).toBe(true);
 
-		// Step 2: simulate user close (setReasoningOpen + markUserDismissed from ChatMessage handler)
+		// Step 2: simulate user close (setReasoningOpen + markUserToggled from ChatMessage handler)
 		// Recreate controller with the post-user-close state: closed, auto-opened, user-dismissed
 		const { controller: c2, openState: os2 } = createController(
 			[],
@@ -240,8 +240,8 @@ describe('syncReasoningAccordionState', () => {
 	});
 
 	it('respects user reopen during streaming — does not auto-close on completion', () => {
-		// User closed then reopened — userDismissed is set, accordion is open
-		const { controller, openState, autoOpened, userDismissed } = createController(
+		// User closed then reopened — userToggled is set, accordion is open
+		const { controller, openState, autoOpened, userToggled } = createController(
 			['msg-1:reasoning-reason-1'],
 			['msg-1:reasoning-reason-1'],
 			['msg-1:reasoning-reason-1']
@@ -265,7 +265,7 @@ describe('syncReasoningAccordionState', () => {
 		expect(openState.has('msg-1:reasoning-reason-1')).toBe(true);
 		// But tracking flags should be cleaned up
 		expect(autoOpened.has('msg-1:reasoning-reason-1')).toBe(false);
-		expect(userDismissed.has('msg-1:reasoning-reason-1')).toBe(false);
+		expect(userToggled.has('msg-1:reasoning-reason-1')).toBe(false);
 	});
 
 	it('does not reopen a legacy fallback the user closed during streaming', () => {
@@ -329,8 +329,8 @@ describe('syncReasoningAccordionState', () => {
 		expect(openState.has('msg-1:reasoning-reason-2')).toBe(true);
 	});
 
-	it('removes stale userDismissed keys when reasoning parts disappear', () => {
-		const { controller, userDismissed } = createController(
+	it('removes stale userToggled keys when reasoning parts disappear', () => {
+		const { controller, userToggled } = createController(
 			[],
 			['msg-1:reasoning-ghost'],
 			['msg-1:reasoning-ghost']
@@ -346,6 +346,6 @@ describe('syncReasoningAccordionState', () => {
 			controller
 		);
 
-		expect(userDismissed.has('msg-1:reasoning-ghost')).toBe(false);
+		expect(userToggled.has('msg-1:reasoning-ghost')).toBe(false);
 	});
 });
