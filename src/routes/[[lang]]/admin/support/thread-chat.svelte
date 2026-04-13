@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { useConvexClient, useQuery } from 'convex-svelte';
 	import { toast } from 'svelte-sonner';
+	import { watch } from 'runed';
 	import { api } from '$lib/convex/_generated/api';
 	import ChatRoot from '$lib/chat/ui/ChatRoot.svelte';
 	import ChatMessages from '$lib/chat/ui/ChatMessages.svelte';
@@ -79,12 +80,16 @@
 		if (draft) chatUIContext.setInputValue(draft);
 	}
 
-	$effect(() => {
-		if (!draftManager) return;
-		// Don't persist the empty string caused by clearInput() during send
-		if (sending && !chatUIContext.inputValue.trim()) return;
-		draftManager.setDraft(threadId, chatUIContext.inputValue);
-	});
+	// Continuous save — watch untracks the callback, avoiding a reactive loop
+	// with PersistedState's Proxy set trap
+	watch(
+		() => [chatUIContext.inputValue, threadId, sending, draftManager] as const,
+		([value, id, isSending, dm]) => {
+			if (!dm) return;
+			if (isSending && !value.trim()) return;
+			dm.setDraft(id, value);
+		}
+	);
 
 	// Query thread details to show header info
 	const threadQuery = useQuery(api.admin.support.queries.getThreadForAdmin, () => ({

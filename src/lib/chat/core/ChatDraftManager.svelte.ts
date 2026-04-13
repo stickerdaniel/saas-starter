@@ -22,12 +22,16 @@ export class ChatDraftManager {
 		if (text.trim()) {
 			this.drafts.current[threadId] = text;
 		} else {
-			delete this.drafts.current[threadId];
+			// Rest spread instead of delete: PersistedState's Proxy has no deleteProperty trap,
+			// so `delete` silently skips localStorage serialization
+			const { [threadId]: _, ...rest } = this.drafts.current;
+			this.drafts.current = rest;
 		}
 	}
 
 	clearDraft(threadId: string | null): void {
 		if (!threadId) return;
-		delete this.drafts.current[threadId];
+		const { [threadId]: _, ...rest } = this.drafts.current;
+		this.drafts.current = rest;
 	}
 }
