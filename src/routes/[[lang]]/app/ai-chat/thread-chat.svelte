@@ -87,12 +87,15 @@
 		}
 	);
 
-	// Continuous save for refresh persistence
-	$effect(() => {
-		// Don't persist the empty string caused by clearInput() during send
-		if (sending && !chatUIContext.inputValue.trim()) return;
-		draftManager.setDraft(threadId, chatUIContext.inputValue);
-	});
+	// Continuous save for refresh persistence — watch untracks the callback,
+	// avoiding a reactive loop with PersistedState's Proxy set trap
+	watch(
+		() => [chatUIContext.inputValue, threadId, sending] as const,
+		([value, id, isSending]) => {
+			if (isSending && !value.trim()) return;
+			draftManager.setDraft(id, value);
+		}
+	);
 
 	// Auto-focus input when thread changes
 	let chatContainer: HTMLDivElement | undefined = $state();
