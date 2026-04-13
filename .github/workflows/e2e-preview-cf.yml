@@ -102,8 +102,15 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh api repos/${{ github.repository }}/statuses/${{ github.event.check_run.head_sha }} \
-            -f state=${{ job.status == 'success' && 'success' || 'failure' }} \
-            -f context="E2E Tests" \
-            -f description="E2E Tests (CF Preview)" \
-            -f target_url="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          for i in 1 2 3; do
+            gh api repos/${{ github.repository }}/statuses/${{ github.event.check_run.head_sha }} \
+              -f state=${{ job.status == 'success' && 'success' || 'failure' }} \
+              -f context="E2E Tests" \
+              -f description="E2E Tests (CF Preview)" \
+              -f target_url="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+              && exit 0
+            echo "Attempt $i failed, retrying in 5s..."
+            sleep 5
+          done
+          echo "::warning::Failed to report status after 3 attempts"
+          exit 1
