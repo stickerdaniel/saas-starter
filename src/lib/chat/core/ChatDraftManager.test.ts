@@ -1,6 +1,9 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
-// Provide a proper Web Storage API for PersistedState
+// Mock esm-env so runed's PersistedState uses the window/localStorage
+vi.mock('esm-env', () => ({ BROWSER: true, DEV: true }));
+
+// Provide a proper Web Storage API (jsdom's localStorage lacks standard methods)
 const storage = new Map<string, string>();
 const localStorageMock: Storage = {
 	getItem: (key: string) => storage.get(key) ?? null,
@@ -12,15 +15,19 @@ const localStorageMock: Storage = {
 	},
 	key: (index: number) => [...storage.keys()][index] ?? null
 };
-Object.defineProperty(globalThis, 'localStorage', { value: localStorageMock, writable: true });
-
-// Mock esm-env so runed's PersistedState uses the window/localStorage above
-vi.mock('esm-env', () => ({ BROWSER: true, DEV: true }));
 
 import { ChatDraftManager } from './ChatDraftManager.svelte';
 
 describe('ChatDraftManager', () => {
 	let manager: ChatDraftManager;
+
+	beforeAll(() => {
+		vi.stubGlobal('localStorage', localStorageMock);
+	});
+
+	afterAll(() => {
+		vi.unstubAllGlobals();
+	});
 
 	beforeEach(() => {
 		storage.clear();
