@@ -34,6 +34,23 @@ jobs:
       - run: bun install
       - run: bun scripts/static-checks.ts --ci --scope types
 
+  e2e-pending:
+    name: E2E Pending Status
+    runs-on: ubicloud-standard-2
+    if: github.event_name == 'pull_request'
+    continue-on-error: true
+    permissions:
+      statuses: write
+    steps:
+      - name: Set pending E2E status
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api repos/${{ github.repository }}/statuses/${{ github.event.pull_request.head.sha }} \
+            -f state=pending \
+            -f context="E2E Tests" \
+            -f description="Waiting for CF Workers preview deployment..."
+
   unit-tests:
     name: Unit Tests
     runs-on: ubicloud-standard-2
