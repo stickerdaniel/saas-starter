@@ -1546,6 +1546,10 @@
 			}
 		}
 	},
+	"billing": {
+		"checkout_failed": "Checkout failed. Please try again.",
+		"portal_failed": "Could not open billing portal. Please try again."
+	},
 	"chat": {
 		"action": {
 			"talk_to_human": "Talk to a human"

@@ -1545,6 +1545,10 @@
 			}
 		}
 	},
+	"billing": {
+		"checkout_failed": "Bezahlvorgang fehlgeschlagen. Bitte versuchen Sie es erneut.",
+		"portal_failed": "Abrechnungsportal konnte nicht geöffnet werden. Bitte versuchen Sie es erneut."
+	},
 	"chat": {
 		"action": {
 			"talk_to_human": "Mit Experte sprechen"

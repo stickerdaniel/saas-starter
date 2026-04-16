@@ -7,6 +7,7 @@
 	import { api } from '$lib/convex/_generated/api';
 	import { useCustomer, useAutumnOperation } from '@stickerdaniel/convex-autumn-svelte/sveltekit';
 	import { getTranslate } from '@tolgee/svelte';
+	import { toast } from 'svelte-sonner';
 	import { haptic } from '$lib/hooks/use-haptic.svelte';
 	import ThreadChat from './thread-chat.svelte';
 
@@ -71,6 +72,10 @@
 		});
 		if (result?.url) {
 			window.location.href = result.url;
+		} else if (upgradeOperation.error) {
+			haptic.trigger('error');
+			toast.error($t('billing.checkout_failed'));
+			console.error('Checkout failed:', upgradeOperation.error);
 		}
 	}
 </script>

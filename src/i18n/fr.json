@@ -1545,6 +1545,10 @@
 			}
 		}
 	},
+	"billing": {
+		"checkout_failed": "Échec du paiement. Veuillez réessayer.",
+		"portal_failed": "Impossible d'ouvrir le portail de facturation. Veuillez réessayer."
+	},
 	"chat": {
 		"action": {
 			"talk_to_human": "Parler à un humain"

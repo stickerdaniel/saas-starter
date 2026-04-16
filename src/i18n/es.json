@@ -1545,6 +1545,10 @@
 			}
 		}
 	},
+	"billing": {
+		"checkout_failed": "Error en el pago. Por favor, inténtalo de nuevo.",
+		"portal_failed": "No se pudo abrir el portal de facturación. Por favor, inténtalo de nuevo."
+	},
 	"chat": {
 		"action": {
 			"talk_to_human": "Hablar con una persona"
