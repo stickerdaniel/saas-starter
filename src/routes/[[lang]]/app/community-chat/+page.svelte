@@ -174,6 +174,10 @@
 		});
 		if (result?.url) {
 			window.location.href = result.url;
+		} else if (upgradeOperation.error) {
+			haptic.trigger('error');
+			toast.error($t('billing.checkout_failed'));
+			console.error('Checkout failed:', upgradeOperation.error);
 		}
 	}
 </script>
