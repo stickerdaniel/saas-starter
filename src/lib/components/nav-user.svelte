@@ -57,12 +57,21 @@
 		});
 		if (result?.url) {
 			window.location.href = result.url;
+		} else if (upgradeOperation.error) {
+			haptic.trigger('error');
+			toast.error($t('billing.checkout_failed'));
+			console.error('Checkout failed:', upgradeOperation.error);
 		}
 	}
 
 	async function handleBilling() {
 		haptic.trigger('light');
 		await portalOperation.execute({});
+		if (portalOperation.error) {
+			haptic.trigger('error');
+			toast.error($t('billing.portal_failed'));
+			console.error('Billing portal failed:', portalOperation.error);
+		}
 	}
 
 	async function signOut() {

@@ -14,9 +14,11 @@
 	import { useSearchParams } from 'runed/kit';
 	import { pricingParamsSchema } from '$lib/schemas/pricing-params';
 	import { T, getTranslate } from '@tolgee/svelte';
+	import { toast } from 'svelte-sonner';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
+	import { haptic } from '$lib/hooks/use-haptic.svelte';
 
 	const { customer, checkout, openBillingPortal } = useCustomer();
 	const upgradeOperation = useAutumnOperation(checkout);
@@ -75,6 +77,19 @@
 
 		if (result?.url) {
 			window.location.href = result.url;
+		} else if (upgradeOperation.error) {
+			haptic.trigger('error');
+			toast.error($t('billing.checkout_failed'));
+			console.error('Checkout failed:', upgradeOperation.error);
+		}
+	}
+
+	async function handleManageBilling() {
+		await portalOperation.execute({});
+		if (portalOperation.error) {
+			haptic.trigger('error');
+			toast.error($t('billing.portal_failed'));
+			console.error('Billing portal failed:', portalOperation.error);
 		}
 	}
 
@@ -168,9 +183,10 @@
 
 					{#if isPro}
 						<Button
+							data-testid="pricing-manage-pro"
 							variant="outline"
 							class="mt-4 w-full"
-							onclick={() => portalOperation.execute({})}
+							onclick={handleManageBilling}
 							disabled={portalOperation.isLoading}
 						>
 							{#if portalOperation.isLoading}
@@ -181,6 +197,7 @@
 						</Button>
 					{:else}
 						<Button
+							data-testid="pricing-checkout-pro"
 							class="mt-4 w-full"
 							onclick={() => handleCheckout('pro')}
 							disabled={upgradeOperation.isLoading}
