@@ -68,7 +68,14 @@ test('pricing checkout failure surfaces an error toast instead of failing silent
 	// Pin the locale to English. `/pricing` without a prefix is redirected by
 	// src/hooks.server.ts based on Accept-Language, which would randomize the
 	// toast copy on non-English machines.
-	await page.goto('/en/pricing');
+	//
+	// The cache-buster query param avoids a CF Cache API quirk on preview
+	// deployments: CF Cache ignores the Vary: Accept header, so an earlier
+	// request for `/en/pricing` with Accept: text/markdown (exercised by
+	// e2e/public-agent-surface.spec.ts) can poison the cache and return the
+	// markdown body to a subsequent HTML request. Unique `cb` per run forces
+	// a fresh origin fetch.
+	await page.goto(`/en/pricing?cb=${Date.now()}`);
 
 	// Wait for the network to settle so client-side hydration has run and
 	// useAuth()/useCustomer() have resolved. Without this, handleCheckout
@@ -90,8 +97,8 @@ test('pricing checkout failure surfaces an error toast instead of failing silent
 	});
 	await expect(toast).toBeVisible({ timeout: 10000 });
 
-	// No navigation to a checkout URL occurred.
-	await expect(page).toHaveURL(/\/en\/pricing$/);
+	// No navigation to a checkout URL occurred (cache-buster query param kept).
+	await expect(page).toHaveURL(/\/en\/pricing\?/);
 
 	// Button returned to idle state (no longer disabled by isLoading).
 	await expect(checkoutButton).toBeEnabled();
