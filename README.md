@@ -12,33 +12,18 @@ A free, open-source SaaS foundation you can deploy for $0. Ships with auth, bill
 
 I wanted a quick way to build with my favorite tools, and an environment with the guardrails an agent needs to verify its work. The project is fully open source and runs on free tiers. While building features I found myself pointing at code from previous projects, so it also contains good patterns you can point an agent to, like a streaming AI chat with tool calling and file uploads, a support chat that triages with AI and hands off to human admins, and the reactive Convex pagination and search patterns behind the admin dashboard.
 
-## Using This Template
+## Quick Start
 
-Click **"Use this template"** on GitHub, then:
-
-```bash
-cd your-new-repo
-bun install
-bun run setup
-```
-
-The setup script replaces the project name, GitHub links, and brand name. After running it:
-
-1. Update brand name in translation files (`src/i18n/{en,de,es,fr}.json`) — search for "SaaS Starter"
-2. Update legal/privacy content in `src/lib/content/` and `src/lib/config/legal.ts` (address, email, operator)
-3. Replace `static/logo.svg` with your logo, then run `bun run build:emails`
-4. Continue with **Local Development** below
-
-## 1. Local Development
+Four commands to a running app with a local Convex backend and seeded admin:
 
 ```bash
-git clone https://github.com/stickerdaniel/saas-starter.git
-cd saas-starter
+gh repo create my-saas-product --template stickerdaniel/saas-starter --clone
+cd my-saas-product
 bun install
 bun run dev
 ```
 
-A local Convex backend starts automatically with a seeded admin:
+Visit `http://localhost:5173` and sign in:
 
 ```text
 admin@local.dev
@@ -48,9 +33,7 @@ admin@local.dev
 LocalDevAdmin123!
 ```
 
-Visit `http://localhost:5173` and sign in. No external services needed.
-
-To activate all features locally, create `.env.convex.local` and add the keys you need. See the [environment variable matrix](#environment-variables) below for which keys to set and where.
+No external services required. To activate optional features (email, OAuth, billing, AI), add keys to `.env.convex.local`. See the [environment variable matrix](#environment-variables) below.
 
 <details>
 <summary><strong>What about the Convex cloud dev deployment?</strong></summary>
@@ -70,7 +53,21 @@ bunx convex env set KEY value                 # set backend env vars (see .env-c
 
 </details>
 
-## 2. Preview Deployments
+### Rebrand the template
+
+Once the app runs, rebrand it:
+
+```bash
+bun run setup
+```
+
+The setup script replaces the project name, GitHub links, and brand name. After running it:
+
+1. Update brand name in translation files (`src/i18n/{en,de,es,fr}.json`), search for "SaaS Starter"
+2. Update legal/privacy content in `src/lib/content/` and `src/lib/config/legal.ts` (address, email, operator)
+3. Replace `static/logo.svg` with your logo, then run `bun run build:emails`
+
+## Preview Deployments
 
 Each PR gets its own preview deployment with an isolated Convex preview backend. Supports both Cloudflare Workers and Vercel.
 
@@ -144,7 +141,7 @@ Push a branch and Vercel creates a preview deployment with its own Convex previe
 
 Convex cleans up preview deployments after 5 days (14 days on Professional).
 
-## 3. Production Deployment
+## Production Deployment
 
 Set the required platform and Convex production variables listed in the [environment variable matrix](#environment-variables) below.
 
