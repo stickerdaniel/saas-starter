@@ -16,6 +16,8 @@
 			"external_services": "External Services",
 			"hosting_deployment": "Hosting & deployment",
 			"no_framework_activity": "No framework actions have been recorded yet.",
+			"playground": "QA Playground",
+			"playground_description": "Open the deterministic demo playground and reset the admin-v2 showcase to a known baseline.",
 			"recent_framework_activity": "Recent Framework Activity",
 			"resource_overview": "Resource Overview",
 			"resource_records": "{count} records",
@@ -73,9 +75,13 @@
 		},
 		"resources": {
 			"actions": {
+				"associate": "Associate",
+				"attach": "Attach",
 				"create": "Create",
 				"create_resource": "Create {resource}",
 				"delete": "Delete",
+				"detach": "Detach",
+				"dissociate": "Dissociate",
 				"edit": "Edit",
 				"force_delete": "Force Delete",
 				"preview": "Preview",
@@ -300,6 +306,65 @@
 				"copied_tooltip": "Copied!",
 				"tooltip": "Copy to clipboard"
 			},
+			"demo_assets": {
+				"actions": {
+					"delete_description": "Delete the demo asset “{name}”? Uploaded files will be removed as well.",
+					"delete_title": "Delete Demo Asset",
+					"seed_data": "Seed Demo Assets"
+				},
+				"dashboard_description": "Media and rich-field showcase for uploads, markdown, code, and JSON.",
+				"empty_description": "Create a demo asset or seed the showcase data to verify rich field rendering.",
+				"empty_title": "No demo assets",
+				"fields": {
+					"attachment": "Attachment",
+					"attachment_help": "Upload a downloadable file to verify generic file lifecycle handling.",
+					"code_snippet": "Code Snippet",
+					"content_summary": "Content Summary",
+					"content_summary_help": "Computed preview of the current markdown and upload coverage.",
+					"coverage": "Coverage",
+					"hero_image": "Hero Image",
+					"hero_image_help": "Upload an image to verify preview rendering and asset persistence.",
+					"markdown_body": "Markdown Body",
+					"name": "Name",
+					"price": "Price (USD)",
+					"published_at": "Published At",
+					"release_date": "Release Date",
+					"settings_json": "Settings JSON",
+					"slug": "Slug",
+					"slug_help": "Lowercase letters, numbers, and hyphens only."
+				},
+				"groups": {
+					"content": "Content",
+					"media": "Media"
+				},
+				"metrics": {
+					"total": "Total Assets",
+					"total_desc": "All demo asset records",
+					"with_attachments": "With Attachments",
+					"with_attachments_desc": "Assets that include a downloadable file",
+					"with_images": "With Images",
+					"with_images_desc": "Assets that include a hero image"
+				},
+				"plural_label": "Demo Assets",
+				"search_placeholder": "Search demo assets...",
+				"singular_label": "Demo Asset",
+				"toasts": {
+					"deleted": "Demo asset deleted",
+					"seeded": "Demo assets seeded"
+				},
+				"validation": {
+					"invalid_json": "Settings JSON must be valid JSON.",
+					"invalid_price": "Price must be zero or greater.",
+					"invalid_published_at": "Published at must be a valid date and time.",
+					"invalid_release_date": "Release date must be a valid date.",
+					"invalid_slug": "Slug must use lowercase letters, numbers, and hyphens."
+				},
+				"values": {
+					"coverage_missing": "Missing uploads",
+					"coverage_partial": "Partially ready",
+					"coverage_ready": "Ready"
+				}
+			},
 			"detail_missing_description": "This record no longer exists or is not visible to the current admin session.",
 			"detail_missing_title": "Record not found",
 			"email_events": {
@@ -351,10 +416,12 @@
 				"characters_count": "{count} / {limit}",
 				"fix_errors": "Please fix the highlighted fields.",
 				"hide_content": "Hide content",
+				"image_required": "Please upload an image file.",
 				"invalid": "Invalid field value",
 				"key_placeholder": "Key",
 				"local_override_notice": "You changed this field locally. Incoming live updates will not overwrite it.",
 				"markdown_placeholder": "## Markdown content",
+				"max_file_size": "File exceeds the maximum size of {size} MB.",
 				"maxlength_exceeded": "Exceeds maximum length of {limit} characters",
 				"no_relation_options": "No options available",
 				"no_suggestions": "No suggestions",
@@ -365,6 +432,8 @@
 				"suggestions_input": "Type to search suggestions",
 				"suggestions_loading": "Loading suggestions…",
 				"upload": "Upload file",
+				"upload_ready": "Upload complete",
+				"uploading_progress": "Uploading… {progress}%",
 				"value_placeholder": "Value"
 			},
 			"framework_activity": {
@@ -418,6 +487,7 @@
 				"event": "Event",
 				"identity": "Identity",
 				"main": "Main",
+				"media": "Media",
 				"metadata": "Metadata",
 				"notifications": "Notifications",
 				"other": "Other",
@@ -510,21 +580,85 @@
 				"empty": "Nothing to show here.",
 				"loading": "Loading..."
 			},
+			"project_members": {
+				"associate_project_description": "Associate this pivot record with a demo project.",
+				"associate_project_empty_description": "Seed demo data or refine the search to find a project to associate.",
+				"associate_project_empty_title": "No projects available",
+				"associate_project_search_placeholder": "Search projects...",
+				"associate_user_description": "Associate this pivot record with a managed user.",
+				"associate_user_empty_description": "Refine the search to find a managed user to associate.",
+				"associate_user_empty_title": "No managed users available",
+				"associate_user_search_placeholder": "Search managed users...",
+				"dashboard_description": "Pivot-style membership records used to verify associate and dissociate workflows.",
+				"delete_description": "Delete this project member record with role {role}?",
+				"delete_title": "Delete Project Member",
+				"dissociate_project_description": "Remove {name} from this project member record?",
+				"dissociate_project_title": "Dissociate Project",
+				"dissociate_user_description": "Remove {name} from this project member record?",
+				"dissociate_user_title": "Dissociate User",
+				"empty_description": "Create a demo project member or adjust the search to view pivot records.",
+				"empty_title": "No project members",
+				"fields": {
+					"allocation_percent": "Allocation",
+					"allocation_percent_help": "Percentage of this member's effort allocated to the associated project.",
+					"joined_at": "Joined At",
+					"project": "Project",
+					"role": "Role",
+					"user": "Managed User",
+					"user_email": "User Email"
+				},
+				"groups": {
+					"assignment": "Assignment",
+					"membership": "Membership"
+				},
+				"metrics": {
+					"total": "Total Members",
+					"total_desc": "All pivot records",
+					"with_project": "Linked Projects",
+					"with_project_desc": "Records already associated with a project",
+					"with_user": "Linked Users",
+					"with_user_desc": "Records already associated with a managed user"
+				},
+				"options": {
+					"role_contributor": "Contributor",
+					"role_lead": "Lead",
+					"role_reviewer": "Reviewer"
+				},
+				"plural_label": "Demo Project Members",
+				"search_placeholder": "Search demo project members...",
+				"singular_label": "Demo Project Member",
+				"toasts": {
+					"deleted": "Project member deleted",
+					"project_associated": "Project associated",
+					"project_dissociated": "Project dissociated",
+					"user_associated": "Managed user associated",
+					"user_dissociated": "Managed user dissociated"
+				},
+				"validation": {
+					"invalid_allocation_percent": "Allocation must be between 0 and 100."
+				},
+				"values": {
+					"unassigned": "Unassigned"
+				}
+			},
 			"projects": {
 				"actions": {
 					"archive": "Archive",
 					"attach_tag": "Attach Tag",
 					"export_csv": "Export CSV",
 					"feature": "Mark Featured",
+					"force_delete": "Force Delete",
 					"purge": "Purge",
 					"purge_cancel_btn": "Cancel",
 					"purge_confirm": "This will permanently delete the selected projects and all related data. This action cannot be undone.",
 					"purge_confirm_btn": "Yes, Purge",
 					"restore_archived": "Restore Archived Projects",
-					"seed_data": "Seed Data"
+					"restore_trashed": "Restore Trashed Projects",
+					"seed_data": "Seed Data",
+					"soft_delete": "Move to Trash"
 				},
 				"dashboard_description": "Parity playground for richer admin-v2 resource workflows.",
-				"empty_active_description": "Archive or seed projects to verify the active-project lens.",
+				"empty_active_description": "Restore a trashed project or seed projects to verify the active-project lens.",
 				"empty_active_title": "No active projects",
 				"empty_archived_description": "Archive a project or seed demo data to verify archived recovery flows.",
 				"empty_archived_title": "No archived projects",
@@ -532,6 +666,8 @@
 				"empty_featured_description": "Mark a project as featured or seed demo data to verify featured-project flows.",
 				"empty_featured_title": "No featured projects",
 				"empty_title": "No projects found",
+				"empty_trashed_description": "Move a project to trash or seed demo data to verify trashed recovery flows.",
+				"empty_trashed_title": "No trashed projects",
 				"fields": {
 					"brand_color": "Brand Color",
 					"brand_color_help": "Primary accent color used across previews and operator QA.",
@@ -539,6 +675,7 @@
 					"budget": "Budget",
 					"code_snippet": "Code Snippet",
 					"cover_image": "Cover Image URL",
+					"deleted_at": "Deleted At",
 					"description": "Description",
 					"description_help": "Supports Markdown formatting.",
 					"featured": "Featured",
@@ -559,12 +696,14 @@
 					"owner_1": "Owner 1",
 					"owner_2": "Owner 2",
 					"regular_only": "Regular Only",
-					"status": "Status"
+					"status": "Status",
+					"trashed": "Trashed"
 				},
 				"lenses": {
 					"active": "Active Projects",
 					"archived": "Archived Projects",
-					"featured": "Featured Projects"
+					"featured": "Featured Projects",
+					"trashed": "Trashed Projects"
 				},
 				"metrics": {
 					"active": "Active Projects",
@@ -586,13 +725,15 @@
 				"options": {
 					"status_active": "Active",
 					"status_archived": "Archived",
-					"status_draft": "Draft"
+					"status_draft": "Draft",
+					"status_trashed": "Trashed"
 				},
 				"plural_label": "Demo Projects",
 				"search_placeholder": "Search demo projects...",
 				"search_placeholder_active": "Search active projects...",
 				"search_placeholder_archived": "Search archived projects...",
 				"search_placeholder_featured": "Search featured projects...",
+				"search_placeholder_trashed": "Search trashed projects...",
 				"singular_label": "Demo Project",
 				"validation": {
 					"invalid_brand_color": "Brand color must be a valid hex color.",
@@ -602,6 +743,12 @@
 			"queued_actions": {
 				"cancel_job": "Cancel",
 				"enqueued": "Action queued for background processing",
+				"fields": {
+					"action": "Action",
+					"status": "Status",
+					"summary": "Summary",
+					"updated": "Updated"
+				},
 				"no_active_jobs": "No active background jobs",
 				"panel_title": "Background Jobs",
 				"progress": "{processed} of {total} processed",
@@ -617,10 +764,19 @@
 				"actor_user_description": "Managed user resolved from the actor attached to this framework event.",
 				"admin_actor": "Admin Actor",
 				"admin_actor_description": "Admin user associated with this audit or note entry.",
+				"associated_project": "Associated Project",
+				"associated_project_description": "Demo project currently linked to this pivot record.",
+				"associated_user": "Associated User",
+				"associated_user_description": "Managed user currently linked to this pivot record.",
+				"duplicates_allowed": "Duplicates are allowed for this relation. Reusing the same record will create another assignment instead of replacing the existing one.",
 				"internal_notes": "Internal Notes",
 				"internal_notes_description": "Operator-authored notes connected to this managed user.",
 				"managed_user": "Managed User",
 				"managed_user_description": "Managed user linked to this notification recipient.",
+				"project_tags": "Project Tags",
+				"project_tags_description": "Reusable demo tags attached to this project through the generic relation workflow.",
+				"project_tasks": "Project Tasks",
+				"project_tasks_description": "Collapsible task relation used to QA inline create, row actions, and contextual task workflows.",
 				"related_record": "Related Record",
 				"related_record_description": "Framework record referenced by this activity entry.",
 				"related_record_unavailable": "The related record is not currently available.",
@@ -637,36 +793,81 @@
 			},
 			"selected": "{selected} of {total} selected",
 			"tags": {
+				"attach_description": "Attach an existing demo tag to this project.",
+				"attach_empty_description": "Create a new tag or refine the search to find attachable tags.",
+				"attach_empty_title": "No attachable tags",
+				"attach_search_placeholder": "Search attachable tags...",
+				"dashboard_description": "Reusable demo tags for relation attach and detach QA.",
+				"delete_description": "Delete the tag “{name}”? Tags attached to projects cannot be deleted.",
+				"delete_title": "Delete Demo Tag",
+				"empty_description": "No demo tags match the current search.",
+				"empty_relation_description": "Attach an existing tag or create a new one from this panel.",
+				"empty_relation_title": "No tags attached",
+				"empty_title": "No demo tags",
 				"fields": {
 					"color": "Color",
-					"name": "Name"
+					"name": "Name",
+					"usage_count": "Usage Count"
 				},
 				"metrics": {
 					"total": "Total Tags",
 					"total_desc": "All available tags",
 					"total_subtitle": "Tag library"
 				},
-				"nav_title": "Demo Tags"
+				"nav_title": "Demo Tags",
+				"plural_label": "Demo Tags",
+				"search_placeholder": "Search demo tags...",
+				"singular_label": "Demo Tag",
+				"toasts": {
+					"attached": "Tag attached",
+					"detached": "Tag detached"
+				},
+				"validation": {
+					"invalid_color": "Tag color must be a valid hex color."
+				}
 			},
 			"tasks": {
 				"actions": {
 					"assign_to_me": "Assign to Me",
+					"inline_create": "Add Task Inline",
 					"mark_done": "Mark Done",
 					"mark_in_progress": "Mark In Progress",
 					"queued_bulk_process": "Queued Bulk Process",
-					"quick_done": "Quick Done"
+					"quick_done": "Quick Done",
+					"seed_data": "Seed Demo Tasks",
+					"update_status": "Update Status"
 				},
+				"dashboard_description": "Action-form, queued-job, preview-route, and inline-create showcase tasks.",
+				"delete_description": "Permanently remove {title} from the demo task surface?",
+				"delete_title": "Delete Demo Task",
+				"empty_completed_description": "No completed demo tasks match the current search.",
+				"empty_completed_title": "No completed demo tasks",
+				"empty_description": "No demo tasks match the current search.",
+				"empty_due_description": "No upcoming demo tasks are due soon.",
+				"empty_due_title": "No tasks due soon",
+				"empty_relation_description": "Create a task inline from the project detail page or open the full task resource.",
+				"empty_relation_title": "No tasks linked yet",
+				"empty_title": "No demo tasks",
 				"fields": {
 					"assignee_email": "Assignee Email",
+					"due_at": "Due At",
 					"estimate_hours": "Estimate Hours",
+					"note": "Operator Note",
 					"priority": "Priority",
 					"project": "Project",
 					"status": "Status",
-					"title": "Title"
+					"title": "Title",
+					"workload": "Workload"
 				},
 				"filters": {
+					"all_priorities": "All priorities",
+					"all_statuses": "All statuses",
 					"priority": "Priority",
 					"status": "Status"
+				},
+				"groups": {
+					"delivery": "Delivery",
+					"schedule": "Schedule"
 				},
 				"lenses": {
 					"completed": "Completed Tasks",
@@ -690,7 +891,9 @@
 					"status_trend": "Status Trend",
 					"todo": "Todo",
 					"todo_desc": "Tasks awaiting start",
-					"todo_subtitle": "Backlog items"
+					"todo_subtitle": "Backlog items",
+					"total": "Total Tasks",
+					"total_desc": "All demo tasks in the showcase set"
 				},
 				"nav_title": "Demo Tasks",
 				"options": {
@@ -700,6 +903,23 @@
 					"low": "Low",
 					"medium": "Medium",
 					"todo": "Todo"
+				},
+				"plural_label": "Demo Tasks",
+				"search_placeholder": "Search demo tasks...",
+				"search_placeholder_completed": "Search completed tasks...",
+				"search_placeholder_due": "Search due tasks...",
+				"singular_label": "Demo Task",
+				"toasts": {
+					"bulk_started": "Queued bulk task update started"
+				},
+				"tools": {
+					"open_project": "Open Project",
+					"review_due": "Review Due Tasks"
+				},
+				"values": {
+					"workload_heavy": "Heavy",
+					"workload_light": "Light",
+					"workload_medium": "Medium"
 				}
 			},
 			"toasts": {
@@ -722,6 +942,7 @@
 				"enabled": "Enabled",
 				"masked": "••••••••",
 				"no": "No",
+				"none": "None",
 				"pairs_count": "{count} pairs",
 				"selected_count": "{count} selected",
 				"yes": "Yes"
@@ -820,6 +1041,87 @@
 			"type_admin": "Admin",
 			"type_custom": "Custom"
 		},
+		"showcase": {
+			"badges": {
+				"baseline_incomplete": "Needs reset",
+				"baseline_ready": "Baseline ready",
+				"demo_available": "Demo available",
+				"managed_by_reset": "Reset-managed",
+				"reference_surface": "Reference surface",
+				"tool_only": "Tool only"
+			},
+			"controls": {
+				"clear_demo_data": "Clear demo data",
+				"clear_help": "This removes the reset-managed showcase data and any queued showcase jobs. Use it to verify empty states.",
+				"description": "These controls only touch the deterministic admin-v2 showcase dataset. They do not modify bespoke support/settings data.",
+				"queue_help": "{count} queued showcase jobs are currently active.",
+				"reset_baseline": "Reset to baseline",
+				"reset_help": "Start manual QA by resetting to the known baseline. This reseeds projects, tags, members, assets, and tasks.",
+				"title": "Data Controls"
+			},
+			"description": "One place to manually QA every Nova-like admin-v2 feature family against deterministic data and explicit route coverage.",
+			"features": {
+				"audit": "Audit trails",
+				"auth_managed": "Auth-managed resources",
+				"batch_actions": "Batch actions",
+				"crud": "Generic CRUD",
+				"derived": "Derived resources",
+				"file_fields": "File and image fields",
+				"filters": "Filters",
+				"lenses": "First-class lenses",
+				"metrics": "Metrics",
+				"pivot_fields": "Pivot metadata",
+				"preview": "Preview routes",
+				"queued_actions": "Queued actions",
+				"relations": "Relation workflows",
+				"replicate": "Replicate",
+				"rich_fields": "Markdown, code, and JSON",
+				"row_actions": "Row actions",
+				"soft_delete": "Soft delete and restore"
+			},
+			"flow": {
+				"step_1": "Reset the showcase to the baseline dataset.",
+				"step_2": "Verify the resource cards below all show the expected seeded counts.",
+				"step_3": "Use the feature matrix to jump to the exact surface you want to inspect.",
+				"step_4": "Use the bespoke tool links only for workflows that intentionally stay outside the generic framework."
+			},
+			"links": {
+				"archived_lens": "Archived Lens",
+				"trashed_lens": "Trashed Lens"
+			},
+			"non_demo": {
+				"dashboard_description": "The dashboard remains a composed operator surface. The playground links into it, but the dashboard itself is not a generic resource demo.",
+				"dashboard_title": "Dashboard composition",
+				"settings_description": "Settings stays a curated admin tool. Notification Recipients is the generic resource-backed slice to QA instead.",
+				"settings_title": "Settings curation",
+				"support_description": "Support uses a custom multi-pane operator workflow and intentionally does not collapse into a generic resource.",
+				"support_title": "Support workflow",
+				"users_description": "The legacy users table still exists, but auth-managed parity is verified on Managed Users.",
+				"users_title": "Legacy users table"
+			},
+			"sections": {
+				"feature_matrix": "Feature Coverage",
+				"no_dedicated_demo": "No Dedicated Generic Demo",
+				"no_dedicated_demo_desc": "These surfaces are still important, but they stay bespoke or legacy by design.",
+				"recommended_flow": "Recommended QA Flow",
+				"resources": "Demo Surfaces"
+			},
+			"summary": {
+				"baseline_state": "Baseline State",
+				"baseline_state_desc": "Whether the reset-managed showcase resources are back at their seeded baseline.",
+				"relation_records": "Relation Records",
+				"relation_records_desc": "Tags and project-membership rows proving attach/detach and pivot workflows.",
+				"seeded_resources": "Seeded Resources",
+				"seeded_resources_desc": "Reset-managed showcase resources currently present.",
+				"uploads": "Assets With Uploads",
+				"uploads_desc": "Demo assets currently storing file or image uploads."
+			},
+			"title": "Admin-v2 Showcase",
+			"toasts": {
+				"clear_complete": "Cleared the admin-v2 showcase data.",
+				"reset_complete": "Reset the admin-v2 showcase to the baseline dataset."
+			}
+		},
 		"sidebar": {
 			"back_to_app": "Back to App",
 			"dashboard": "Dashboard",
@@ -830,6 +1132,7 @@
 				"security": "Security"
 			},
 			"settings": "Settings",
+			"showcase": "Showcase",
 			"support": "Support",
 			"users": "Users"
 		},
@@ -1372,7 +1675,7 @@
 		"companies_text": "Powering the best teams",
 		"cta": "Start Building",
 		"cta_demo": "Request a demo",
-		"description": "The free SaaS foundation. Open source, ready to deploy.",
+		"description": "SaaS starter with SvelteKit, auth, billing, and analytics.",
 		"section_label": "Home",
 		"tagline": "Focus on your product.\nShip faster.",
 		"title": "SaaS Starter Template"
@@ -1470,6 +1773,10 @@
 				"description": "Configure admin notification recipients and preferences.",
 				"title": "Admin Settings"
 			},
+			"showcase": {
+				"description": "Manually QA the complete admin-v2 demo playground and resettable baseline data.",
+				"title": "Admin-v2 Showcase"
+			},
 			"support": {
 				"description": "Review and respond to customer support threads.",
 				"title": "Support Inbox"
@@ -1530,7 +1837,7 @@
 			}
 		},
 		"home": {
-			"description": "Free, open-source SaaS starter built with SvelteKit. Auth, billing, email, and analytics included. Host on free tiers.",
+			"description": "SaaS starter for SvelteKit with auth, billing, email, and analytics.",
 			"title": "Build & Ship Your Product Faster"
 		},
 		"impressum": {

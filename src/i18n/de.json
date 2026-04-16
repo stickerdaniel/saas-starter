@@ -16,6 +16,8 @@
 			"external_services": "Externe Dienste",
 			"hosting_deployment": "Hosting & Deployment",
 			"no_framework_activity": "Es wurden noch keine Framework-Aktionen aufgezeichnet.",
+			"playground": "QA-Spielplatz",
+			"playground_description": "Öffnet den deterministischen Demo-Spielplatz und setzt das Admin-v2-Showcase auf einen bekannten Ausgangszustand zurück.",
 			"recent_framework_activity": "Letzte Framework-Aktivität",
 			"resource_overview": "Ressourcenübersicht",
 			"resource_records": "{count} Einträge",
@@ -73,21 +75,25 @@
 		},
 		"resources": {
 			"actions": {
-				"create": "Create",
-				"create_resource": "Create {resource}",
-				"delete": "Delete",
-				"edit": "Edit",
-				"force_delete": "Force Delete",
+				"associate": "Zuordnen",
+				"attach": "Anhängen",
+				"create": "Erstellen",
+				"create_resource": "{resource} erstellen",
+				"delete": "Löschen",
+				"detach": "Trennen",
+				"dissociate": "Trennen",
+				"edit": "Bearbeiten",
+				"force_delete": "Endgültig löschen",
 				"preview": "Vorschau",
-				"replicate": "Replicate",
-				"restore": "Restore",
+				"replicate": "Duplizieren",
+				"restore": "Wiederherstellen",
 				"select_exactly_one": "Bitte wählen Sie genau einen Datensatz aus.",
 				"status_completed": "Abgeschlossen",
 				"status_failed": "Fehlgeschlagen",
 				"status_pending": "Ausstehend",
 				"status_running": "Laufend",
 				"update_resource": "{resource} aktualisieren",
-				"view": "View"
+				"view": "Ansehen"
 			},
 			"actions_column": "Aktionen",
 			"activity": {
@@ -300,6 +306,65 @@
 				"copied_tooltip": "Kopiert!",
 				"tooltip": "In Zwischenablage kopieren"
 			},
+			"demo_assets": {
+				"actions": {
+					"delete_description": "Demo-Asset „{name}“ löschen? Hochgeladene Dateien werden ebenfalls entfernt.",
+					"delete_title": "Demo-Asset löschen",
+					"seed_data": "Demo-Assets befüllen"
+				},
+				"dashboard_description": "Medien- und Rich-Field-Showcase für Uploads, Markdown, Code und JSON.",
+				"empty_description": "Erstellen Sie ein Demo-Asset oder befüllen Sie die Showcase-Daten, um die Rich-Field-Darstellung zu prüfen.",
+				"empty_title": "Keine Demo-Assets",
+				"fields": {
+					"attachment": "Anhang",
+					"attachment_help": "Laden Sie eine herunterladbare Datei hoch, um den generischen Datei-Lebenszyklus zu prüfen.",
+					"code_snippet": "Code-Snippet",
+					"content_summary": "Inhaltsübersicht",
+					"content_summary_help": "Berechnete Vorschau des aktuellen Markdown-Inhalts und der Upload-Abdeckung.",
+					"coverage": "Abdeckung",
+					"hero_image": "Hero-Bild",
+					"hero_image_help": "Laden Sie ein Bild hoch, um Vorschau-Darstellung und Asset-Speicherung zu prüfen.",
+					"markdown_body": "Markdown-Inhalt",
+					"name": "Name",
+					"price": "Preis (USD)",
+					"published_at": "Veröffentlicht am",
+					"release_date": "Release-Datum",
+					"settings_json": "Settings-JSON",
+					"slug": "Slug",
+					"slug_help": "Nur Kleinbuchstaben, Zahlen und Bindestriche."
+				},
+				"groups": {
+					"content": "Inhalt",
+					"media": "Medien"
+				},
+				"metrics": {
+					"total": "Assets gesamt",
+					"total_desc": "Alle Demo-Asset-Einträge",
+					"with_attachments": "Mit Anhängen",
+					"with_attachments_desc": "Assets mit herunterladbarer Datei",
+					"with_images": "Mit Bildern",
+					"with_images_desc": "Assets mit Hero-Bild"
+				},
+				"plural_label": "Demo-Assets",
+				"search_placeholder": "Demo-Assets durchsuchen...",
+				"singular_label": "Demo-Asset",
+				"toasts": {
+					"deleted": "Demo-Asset gelöscht",
+					"seeded": "Demo-Assets befüllt"
+				},
+				"validation": {
+					"invalid_json": "Settings-JSON muss gültiges JSON sein.",
+					"invalid_price": "Der Preis muss null oder größer sein.",
+					"invalid_published_at": "„Veröffentlicht am“ muss ein gültiges Datum mit Uhrzeit sein.",
+					"invalid_release_date": "Das Release-Datum muss ein gültiges Datum sein.",
+					"invalid_slug": "Der Slug darf nur Kleinbuchstaben, Zahlen und Bindestriche enthalten."
+				},
+				"values": {
+					"coverage_missing": "Uploads fehlen",
+					"coverage_partial": "Teilweise bereit",
+					"coverage_ready": "Bereit"
+				}
+			},
 			"detail_missing_description": "Dieser Eintrag existiert nicht mehr oder ist für die aktuelle Admin-Sitzung nicht sichtbar.",
 			"detail_missing_title": "Eintrag nicht gefunden",
 			"email_events": {
@@ -351,10 +416,12 @@
 				"characters_count": "{count} / {limit}",
 				"fix_errors": "Bitte korrigiere die markierten Felder.",
 				"hide_content": "Inhalt ausblenden",
+				"image_required": "Bitte laden Sie eine Bilddatei hoch.",
 				"invalid": "Invalid field value",
 				"key_placeholder": "Schlüssel",
 				"local_override_notice": "Sie haben dieses Feld lokal geändert. Eingehende Live-Updates überschreiben es nicht.",
 				"markdown_placeholder": "## Markdown-Inhalt",
+				"max_file_size": "Die Datei überschreitet die maximale Größe von {size} MB.",
 				"maxlength_exceeded": "Maximale Zeichenanzahl von {limit} überschritten",
 				"no_relation_options": "No options available",
 				"no_suggestions": "Keine Vorschläge",
@@ -365,6 +432,8 @@
 				"suggestions_input": "Tippen, um Vorschläge zu suchen",
 				"suggestions_loading": "Vorschläge werden geladen…",
 				"upload": "Datei hochladen",
+				"upload_ready": "Upload abgeschlossen",
+				"uploading_progress": "Wird hochgeladen… {progress}%",
 				"value_placeholder": "Wert"
 			},
 			"framework_activity": {
@@ -418,6 +487,7 @@
 				"event": "Ereignis",
 				"identity": "Identität",
 				"main": "Hauptbereich",
+				"media": "Medien",
 				"metadata": "Metadaten",
 				"notifications": "Benachrichtigungen",
 				"other": "Weitere",
@@ -510,21 +580,84 @@
 				"empty": "Keine Daten zum Anzeigen.",
 				"loading": "Laden..."
 			},
+			"project_members": {
+				"associate_project_description": "Diesen Pivot-Eintrag einem Demo-Projekt zuordnen.",
+				"associate_project_empty_description": "Demo-Daten laden oder die Suche verfeinern, um ein Projekt zu finden.",
+				"associate_project_empty_title": "Keine Projekte verfügbar",
+				"associate_project_search_placeholder": "Projekte durchsuchen...",
+				"associate_user_description": "Diesen Pivot-Eintrag einem verwalteten Benutzer zuordnen.",
+				"associate_user_empty_description": "Die Suche verfeinern, um einen verwalteten Benutzer zu finden.",
+				"associate_user_empty_title": "Keine verwalteten Benutzer verfügbar",
+				"associate_user_search_placeholder": "Verwaltete Benutzer durchsuchen...",
+				"dashboard_description": "Pivot-artige Mitgliedschaftseinträge zum Prüfen von Zuordnen- und Trennen-Workflows.",
+				"delete_description": "Diesen Projektmitglied-Eintrag mit der Rolle {role} löschen?",
+				"delete_title": "Projektmitglied löschen",
+				"dissociate_project_description": "{name} von diesem Projektmitglied-Eintrag trennen?",
+				"dissociate_project_title": "Projekt trennen",
+				"dissociate_user_description": "{name} von diesem Projektmitglied-Eintrag trennen?",
+				"dissociate_user_title": "Benutzer trennen",
+				"empty_description": "Ein Demo-Projektmitglied erstellen oder die Suche anpassen, um Pivot-Einträge zu sehen.",
+				"empty_title": "Keine Projektmitglieder",
+				"fields": {
+					"allocation_percent": "Auslastung",
+					"allocation_percent_help": "Prozentualer Aufwand dieses Mitglieds für das zugeordnete Projekt.",
+					"joined_at": "Beigetreten am",
+					"project": "Projekt",
+					"role": "Rolle",
+					"user": "Verwalteter Benutzer",
+					"user_email": "Benutzer-E-Mail"
+				},
+				"groups": {
+					"assignment": "Zuordnung",
+					"membership": "Mitgliedschaft"
+				},
+				"metrics": {
+					"total": "Mitglieder gesamt",
+					"total_desc": "Alle Pivot-Einträge",
+					"with_project": "Verknüpfte Projekte",
+					"with_project_desc": "Einträge mit Projektzuordnung",
+					"with_user": "Verknüpfte Benutzer",
+					"with_user_desc": "Einträge mit Benutzerzuordnung"
+				},
+				"options": {
+					"role_contributor": "Mitwirkend",
+					"role_lead": "Lead",
+					"role_reviewer": "Reviewer"
+				},
+				"plural_label": "Demo-Projektmitglieder",
+				"search_placeholder": "Demo-Projektmitglieder durchsuchen...",
+				"singular_label": "Demo-Projektmitglied",
+				"toasts": {
+					"deleted": "Projektmitglied gelöscht",
+					"project_associated": "Projekt zugeordnet",
+					"project_dissociated": "Projekt getrennt",
+					"user_associated": "Verwalteter Benutzer zugeordnet",
+					"user_dissociated": "Verwalteter Benutzer getrennt"
+				},
+				"validation": {
+					"invalid_allocation_percent": "Die Auslastung muss zwischen 0 und 100 liegen."
+				},
+				"values": {
+					"unassigned": "Nicht zugewiesen"
+				}
+			},
 			"projects": {
 				"actions": {
 					"archive": "Archive",
-					"attach_tag": "Attach Tag",
+					"attach_tag": "Tag anhängen",
 					"export_csv": "CSV exportieren",
-					"feature": "Mark Featured",
+					"feature": "Als hervorgehoben markieren",
+					"force_delete": "Endgültig löschen",
 					"purge": "Endgültig löschen",
 					"purge_cancel_btn": "Abbrechen",
 					"purge_confirm": "Die ausgewählten Projekte und alle zugehörigen Daten werden dauerhaft gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.",
 					"purge_confirm_btn": "Ja, löschen",
 					"restore_archived": "Archivierte Projekte wiederherstellen",
+					"restore_trashed": "Papierkorb-Projekte wiederherstellen",
 					"seed_data": "Testdaten anlegen"
 				},
 				"dashboard_description": "Parity-Spielwiese für reichere admin-v2-Ressourcenabläufe.",
-				"empty_active_description": "Archiviere Projekte oder lege Demodaten an, um die Linse für aktive Projekte zu prüfen.",
+				"empty_active_description": "Stelle ein Papierkorb-Projekt wieder her oder lege Demodaten an, um die Linse für aktive Projekte zu prüfen.",
 				"empty_active_title": "Keine aktiven Projekte",
 				"empty_archived_description": "Archiviere ein Projekt oder lege Demodaten an, um archivierte Wiederherstellungsabläufe zu prüfen.",
 				"empty_archived_title": "Keine archivierten Projekte",
@@ -532,6 +665,8 @@
 				"empty_featured_description": "Markiere ein Projekt als hervorgehoben oder lege Demodaten an, um die Linse für hervorgehobene Projekte zu prüfen.",
 				"empty_featured_title": "Keine hervorgehobenen Projekte",
 				"empty_title": "Keine Projekte gefunden",
+				"empty_trashed_description": "Verschiebe ein Projekt in den Papierkorb oder lege Demodaten an, um Wiederherstellungsabläufe zu prüfen.",
+				"empty_trashed_title": "Keine Papierkorb-Projekte",
 				"fields": {
 					"brand_color": "Markenfarbe",
 					"brand_color_help": "Primäre Akzentfarbe für Vorschauen und die Operator-QA.",
@@ -539,11 +674,12 @@
 					"budget": "Budget",
 					"code_snippet": "Code-Snippet",
 					"cover_image": "Cover-Bild-URL",
-					"description": "Description",
+					"deleted_at": "Gelöscht am",
+					"description": "Beschreibung",
 					"description_help": "Unterstützt Markdown-Formatierung.",
-					"featured": "Featured",
+					"featured": "Hervorgehoben",
 					"name": "Name",
-					"owner_email": "Owner Email",
+					"owner_email": "Owner-E-Mail",
 					"owner_email_placeholder": "inhaber@beispiel.de",
 					"settings_json": "Einstellungen JSON",
 					"slug": "Slug",
@@ -558,13 +694,15 @@
 					"featured_only": "Featured Only",
 					"owner_1": "Eigentümer 1",
 					"owner_2": "Eigentümer 2",
-					"regular_only": "Regular Only",
-					"status": "Status"
+					"regular_only": "Nur reguläre",
+					"status": "Status",
+					"trashed": "Papierkorb"
 				},
 				"lenses": {
-					"active": "Active Projects",
+					"active": "Aktive Projekte",
 					"archived": "Archived Projects",
-					"featured": "Featured Projects"
+					"featured": "Hervorgehobene Projekte",
+					"trashed": "Papierkorb-Projekte"
 				},
 				"metrics": {
 					"active": "Aktive Projekte",
@@ -582,17 +720,19 @@
 					"total_desc": "Alle registrierten Projekte",
 					"total_subtitle": "Projektportfolio"
 				},
-				"nav_title": "Demo Projects",
+				"nav_title": "Demo-Projekte",
 				"options": {
-					"status_active": "Active",
+					"status_active": "Aktiv",
 					"status_archived": "Archived",
-					"status_draft": "Draft"
+					"status_draft": "Entwurf",
+					"status_trashed": "Papierkorb"
 				},
 				"plural_label": "Demo-Projekte",
 				"search_placeholder": "Demo-Projekte durchsuchen...",
 				"search_placeholder_active": "Aktive Projekte durchsuchen...",
 				"search_placeholder_archived": "Archivierte Projekte durchsuchen...",
 				"search_placeholder_featured": "Hervorgehobene Projekte durchsuchen...",
+				"search_placeholder_trashed": "Papierkorb-Projekte durchsuchen...",
 				"singular_label": "Demo-Projekt",
 				"validation": {
 					"invalid_brand_color": "Die Markenfarbe muss ein gültiger Hex-Farbwert sein.",
@@ -602,6 +742,12 @@
 			"queued_actions": {
 				"cancel_job": "Abbrechen",
 				"enqueued": "Aktion zur Hintergrundverarbeitung eingereiht",
+				"fields": {
+					"action": "Aktion",
+					"status": "Status",
+					"summary": "Zusammenfassung",
+					"updated": "Aktualisiert"
+				},
 				"no_active_jobs": "Keine aktiven Hintergrundaufgaben",
 				"panel_title": "Hintergrundaufgaben",
 				"progress": "{processed} von {total} verarbeitet",
@@ -617,10 +763,19 @@
 				"actor_user_description": "Verwalteter Benutzer, der aus dem Akteur dieses Framework-Eintrags aufgelöst wurde.",
 				"admin_actor": "Admin-Akteur",
 				"admin_actor_description": "Admin-Benutzer, der mit diesem Audit- oder Notizeintrag verknüpft ist.",
+				"associated_project": "Zugeordnetes Projekt",
+				"associated_project_description": "Demo-Projekt, das aktuell mit diesem Pivot-Eintrag verknüpft ist.",
+				"associated_user": "Zugeordneter Benutzer",
+				"associated_user_description": "Verwalteter Benutzer, der aktuell mit diesem Pivot-Eintrag verknüpft ist.",
+				"duplicates_allowed": "Duplikate sind für diese Relation erlaubt. Wenn derselbe Datensatz erneut gewählt wird, entsteht eine weitere Zuordnung statt einer Ersetzung.",
 				"internal_notes": "Interne Notizen",
 				"internal_notes_description": "Von Operatoren verfasste Notizen, die mit diesem verwalteten Benutzer verknüpft sind.",
 				"managed_user": "Verwalteter Benutzer",
 				"managed_user_description": "Verwalteter Benutzer, der mit diesem Benachrichtigungsempfänger verknüpft ist.",
+				"project_tags": "Projekt-Tags",
+				"project_tags_description": "Wiederverwendbare Demo-Tags, die über den generischen Relations-Workflow mit diesem Projekt verbunden sind.",
+				"project_tasks": "Projektaufgaben",
+				"project_tasks_description": "Einklappbare Aufgaben-Relation zum QAen von Inline-Erstellung, Zeilenaktionen und kontextbezogenen Task-Workflows.",
 				"related_record": "Verknüpfter Datensatz",
 				"related_record_description": "Framework-Datensatz, auf den dieser Aktivitätseintrag verweist.",
 				"related_record_unavailable": "Der verknüpfte Datensatz ist derzeit nicht verfügbar.",
@@ -637,40 +792,85 @@
 			},
 			"selected": "{selected} of {total} selected",
 			"tags": {
+				"attach_description": "Hängen Sie ein vorhandenes Demo-Tag an dieses Projekt an.",
+				"attach_empty_description": "Erstellen Sie ein neues Tag oder verfeinern Sie die Suche, um anhängbare Tags zu finden.",
+				"attach_empty_title": "Keine anhängbaren Tags",
+				"attach_search_placeholder": "Anhängbare Tags suchen...",
+				"dashboard_description": "Wiederverwendbare Demo-Tags für QA von Relations-Anhängen und -Trennungen.",
+				"delete_description": "Tag „{name}“ löschen? An Projekte angehängte Tags können nicht gelöscht werden.",
+				"delete_title": "Demo-Tag löschen",
+				"empty_description": "Keine Demo-Tags entsprechen der aktuellen Suche.",
+				"empty_relation_description": "Hängen Sie ein vorhandenes Tag an oder erstellen Sie von diesem Panel aus ein neues.",
+				"empty_relation_title": "Keine Tags angehängt",
+				"empty_title": "Keine Demo-Tags",
 				"fields": {
-					"color": "Color",
-					"name": "Name"
+					"color": "Farbe",
+					"name": "Name",
+					"usage_count": "Nutzungsanzahl"
 				},
 				"metrics": {
 					"total": "Tags gesamt",
 					"total_desc": "Alle verfügbaren Tags",
 					"total_subtitle": "Tag-Bibliothek"
 				},
-				"nav_title": "Demo Tags"
+				"nav_title": "Demo-Tags",
+				"plural_label": "Demo-Tags",
+				"search_placeholder": "Demo-Tags suchen...",
+				"singular_label": "Demo-Tag",
+				"toasts": {
+					"attached": "Tag angehängt",
+					"detached": "Tag getrennt"
+				},
+				"validation": {
+					"invalid_color": "Die Tag-Farbe muss eine gültige Hex-Farbe sein."
+				}
 			},
 			"tasks": {
 				"actions": {
 					"assign_to_me": "Mir zuweisen",
-					"mark_done": "Mark Done",
-					"mark_in_progress": "Mark In Progress",
-					"queued_bulk_process": "Massen-Hintergrundverarbeitung",
-					"quick_done": "Schnell erledigen"
+					"inline_create": "Aufgabe inline anlegen",
+					"mark_done": "Als erledigt markieren",
+					"mark_in_progress": "In Bearbeitung setzen",
+					"queued_bulk_process": "Massenaktualisierung in Warteschlange",
+					"quick_done": "Schnell erledigen",
+					"seed_data": "Demo-Aufgaben erzeugen",
+					"update_status": "Status aktualisieren"
 				},
+				"dashboard_description": "Showcase-Aufgaben für Aktionsformulare, Warteschlangen-Jobs, Preview-Route und Inline-Erstellung.",
+				"delete_description": "{title} dauerhaft aus der Demo-Aufgabenfläche entfernen?",
+				"delete_title": "Demo-Aufgabe löschen",
+				"empty_completed_description": "Keine abgeschlossenen Demo-Aufgaben entsprechen der aktuellen Suche.",
+				"empty_completed_title": "Keine abgeschlossenen Demo-Aufgaben",
+				"empty_description": "Keine Demo-Aufgaben entsprechen der aktuellen Suche.",
+				"empty_due_description": "Derzeit sind keine bevorstehenden Demo-Aufgaben bald fällig.",
+				"empty_due_title": "Keine bald fälligen Aufgaben",
+				"empty_relation_description": "Erstelle eine Aufgabe direkt in der Projektansicht oder öffne die vollständige Aufgabenressource.",
+				"empty_relation_title": "Noch keine verknüpften Aufgaben",
+				"empty_title": "Keine Demo-Aufgaben",
 				"fields": {
-					"assignee_email": "Assignee Email",
-					"estimate_hours": "Estimate Hours",
-					"priority": "Priority",
-					"project": "Project",
+					"assignee_email": "Zugewiesene E-Mail",
+					"due_at": "Fällig am",
+					"estimate_hours": "Geschätzte Stunden",
+					"note": "Operator-Notiz",
+					"priority": "Priorität",
+					"project": "Projekt",
 					"status": "Status",
-					"title": "Title"
+					"title": "Titel",
+					"workload": "Auslastung"
 				},
 				"filters": {
-					"priority": "Priority",
+					"all_priorities": "Alle Prioritäten",
+					"all_statuses": "Alle Status",
+					"priority": "Priorität",
 					"status": "Status"
 				},
+				"groups": {
+					"delivery": "Lieferung",
+					"schedule": "Planung"
+				},
 				"lenses": {
-					"completed": "Completed Tasks",
-					"due": "Due Tasks"
+					"completed": "Abgeschlossene Aufgaben",
+					"due": "Fällige Aufgaben"
 				},
 				"metrics": {
 					"completion_rate": "Fertigstellungsrate",
@@ -690,16 +890,35 @@
 					"status_trend": "Status-Trend",
 					"todo": "Zu erledigen",
 					"todo_desc": "Aufgaben, die noch nicht begonnen wurden",
-					"todo_subtitle": "Backlog-Elemente"
+					"todo_subtitle": "Backlog-Elemente",
+					"total": "Aufgaben gesamt",
+					"total_desc": "Alle Demo-Aufgaben im Showcase"
 				},
-				"nav_title": "Demo Tasks",
+				"nav_title": "Demo-Aufgaben",
 				"options": {
-					"done": "Done",
-					"high": "High",
-					"in_progress": "In Progress",
-					"low": "Low",
-					"medium": "Medium",
-					"todo": "Todo"
+					"done": "Erledigt",
+					"high": "Hoch",
+					"in_progress": "In Bearbeitung",
+					"low": "Niedrig",
+					"medium": "Mittel",
+					"todo": "Zu erledigen"
+				},
+				"plural_label": "Demo-Aufgaben",
+				"search_placeholder": "Demo-Aufgaben durchsuchen...",
+				"search_placeholder_completed": "Abgeschlossene Aufgaben durchsuchen...",
+				"search_placeholder_due": "Fällige Aufgaben durchsuchen...",
+				"singular_label": "Demo-Aufgabe",
+				"toasts": {
+					"bulk_started": "Massenaktualisierung der Aufgaben wurde gestartet"
+				},
+				"tools": {
+					"open_project": "Projekt öffnen",
+					"review_due": "Fällige Aufgaben prüfen"
+				},
+				"values": {
+					"workload_heavy": "Hoch",
+					"workload_light": "Leicht",
+					"workload_medium": "Mittel"
 				}
 			},
 			"toasts": {
@@ -722,6 +941,7 @@
 				"enabled": "Enabled",
 				"masked": "••••••••",
 				"no": "No",
+				"none": "Keine",
 				"pairs_count": "{count} Paare",
 				"selected_count": "{count} ausgewählt",
 				"yes": "Yes"
@@ -820,6 +1040,87 @@
 			"type_admin": "Admin",
 			"type_custom": "Benutzerdefiniert"
 		},
+		"showcase": {
+			"badges": {
+				"baseline_incomplete": "Reset nötig",
+				"baseline_ready": "Baseline bereit",
+				"demo_available": "Demo vorhanden",
+				"managed_by_reset": "Per Reset verwaltet",
+				"reference_surface": "Referenzoberfläche",
+				"tool_only": "Nur Tool"
+			},
+			"controls": {
+				"clear_demo_data": "Demo-Daten leeren",
+				"clear_help": "Entfernt die reset-verwalteten Showcase-Daten und alle laufenden Showcase-Jobs. Verwenden Sie dies, um Empty States zu prüfen.",
+				"description": "Diese Steuerelemente betreffen nur den deterministischen Admin-v2-Showcase-Datensatz. Bestehende Support- oder Einstellungsdaten bleiben unberührt.",
+				"queue_help": "{count} Showcase-Hintergrundjobs sind derzeit aktiv.",
+				"reset_baseline": "Auf Baseline zurücksetzen",
+				"reset_help": "Starten Sie die manuelle QA immer mit der bekannten Baseline. Dabei werden Projekte, Tags, Mitglieder, Assets und Tasks neu angelegt.",
+				"title": "Datensteuerung"
+			},
+			"description": "Ein zentraler Ort, um jede Nova-ähnliche Admin-v2-Funktionsfamilie mit deterministischen Daten und klaren Routen manuell zu prüfen.",
+			"features": {
+				"audit": "Audit-Verläufe",
+				"auth_managed": "Auth-verwaltete Ressourcen",
+				"batch_actions": "Batch-Aktionen",
+				"crud": "Generisches CRUD",
+				"derived": "Abgeleitete Ressourcen",
+				"file_fields": "Datei- und Bildfelder",
+				"filters": "Filter",
+				"lenses": "Erstklassige Lenses",
+				"metrics": "Metriken",
+				"pivot_fields": "Pivot-Metadaten",
+				"preview": "Vorschaurouten",
+				"queued_actions": "Queue-Aktionen",
+				"relations": "Relations-Workflows",
+				"replicate": "Duplizieren",
+				"rich_fields": "Markdown, Code und JSON",
+				"row_actions": "Zeilenaktionen",
+				"soft_delete": "Soft Delete und Wiederherstellung"
+			},
+			"flow": {
+				"step_1": "Setzen Sie das Showcase auf den Baseline-Datensatz zurück.",
+				"step_2": "Prüfen Sie, dass die Ressourcenkarten unten die erwarteten Seed-Zahlen anzeigen.",
+				"step_3": "Verwenden Sie die Feature-Matrix, um direkt zur gewünschten Oberfläche zu springen.",
+				"step_4": "Nutzen Sie die Tool-Links nur für Workflows, die bewusst außerhalb des generischen Frameworks bleiben."
+			},
+			"links": {
+				"archived_lens": "Archiv-Lens",
+				"trashed_lens": "Papierkorb-Lens"
+			},
+			"non_demo": {
+				"dashboard_description": "Das Dashboard bleibt eine zusammengesetzte Operator-Oberfläche. Das Showcase verlinkt hinein, aber das Dashboard selbst ist keine generische Ressourcendemo.",
+				"dashboard_title": "Dashboard-Komposition",
+				"settings_description": "Einstellungen bleiben ein kuratiertes Admin-Tool. Die generische Ressourcenseite dafür ist Benachrichtigungsempfänger.",
+				"settings_title": "Kuratiere Einstellungen",
+				"support_description": "Support verwendet bewusst einen benutzerdefinierten Multi-Panel-Workflow und wird nicht in eine generische Ressource gepresst.",
+				"support_title": "Support-Workflow",
+				"users_description": "Die alte Benutzertabelle existiert noch, aber die Auth-Managed-Parität wird auf Verwaltete Benutzer geprüft.",
+				"users_title": "Legacy-Benutzertabelle"
+			},
+			"sections": {
+				"feature_matrix": "Feature-Abdeckung",
+				"no_dedicated_demo": "Keine eigene generische Demo",
+				"no_dedicated_demo_desc": "Diese Oberflächen sind weiterhin wichtig, bleiben aber bewusst bespoke oder legacy.",
+				"recommended_flow": "Empfohlener QA-Ablauf",
+				"resources": "Demo-Oberflächen"
+			},
+			"summary": {
+				"baseline_state": "Baseline-Status",
+				"baseline_state_desc": "Ob die reset-verwalteten Showcase-Ressourcen wieder auf ihrer Seed-Baseline sind.",
+				"relation_records": "Relations-Datensätze",
+				"relation_records_desc": "Tags und Projektmitgliedschaften zum Prüfen von Attach/Detach- und Pivot-Workflows.",
+				"seeded_resources": "Seed-Ressourcen",
+				"seeded_resources_desc": "Aktuell vorhandene, per Reset verwaltete Showcase-Ressourcen.",
+				"uploads": "Assets mit Uploads",
+				"uploads_desc": "Demo-Assets, die derzeit Datei- oder Bild-Uploads enthalten."
+			},
+			"title": "Admin-v2-Showcase",
+			"toasts": {
+				"clear_complete": "Die Admin-v2-Showcase-Daten wurden geleert.",
+				"reset_complete": "Das Admin-v2-Showcase wurde auf den Baseline-Datensatz zurückgesetzt."
+			}
+		},
 		"sidebar": {
 			"back_to_app": "Zurück zur App",
 			"dashboard": "Dashboard",
@@ -830,6 +1131,7 @@
 				"security": "Sicherheit"
 			},
 			"settings": "Einstellungen",
+			"showcase": "Showcase",
 			"support": "Support",
 			"users": "Benutzer"
 		},
@@ -1372,7 +1674,7 @@
 		"companies_text": "Vertrauen der besten Teams",
 		"cta": "Jetzt starten",
 		"cta_demo": "Demo anfordern",
-		"description": "Die kostenlose SaaS-Grundlage. Open Source, sofort einsatzbereit.",
+		"description": "Erwecke dein SaaS zum Leben in Minuten, nicht in Monaten. Open-Source Template mit einem Tech-Stack, der dich schnell shippen lässt.",
 		"section_label": "Start",
 		"tagline": "Mit Produktfokus\nschneller zum Ziel",
 		"title": "SaaS-Starter-Vorlage"
@@ -1470,6 +1772,10 @@
 				"description": "Konfigurieren Sie Admin-Benachrichtigungen und Einstellungen.",
 				"title": "Admin-Einstellungen"
 			},
+			"showcase": {
+				"description": "Prüfen Sie den vollständigen Admin-v2-Demo-Spielplatz mit rücksetzbaren Baseline-Daten manuell.",
+				"title": "Admin-v2-Showcase"
+			},
 			"support": {
 				"description": "Prüfen und beantworten Sie Support-Anfragen von Nutzern.",
 				"title": "Support-Postfach"
@@ -1530,7 +1836,7 @@
 			}
 		},
 		"home": {
-			"description": "Kostenloser Open-Source SaaS-Starter mit SvelteKit. Auth, Billing, E-Mail und Analytics inklusive. Kostenlos auf Free-Tiers hosten.",
+			"description": "SaaS-Starter für SvelteKit mit Auth, Billing, E-Mail und Analytics.",
 			"title": "Schneller entwickeln und veröffentlichen"
 		},
 		"impressum": {

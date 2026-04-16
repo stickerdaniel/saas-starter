@@ -16,6 +16,8 @@
 			"external_services": "Services Externes",
 			"hosting_deployment": "Hébergement & déploiement",
 			"no_framework_activity": "Aucune action du framework n’a encore été enregistrée.",
+			"playground": "Playground QA",
+			"playground_description": "Ouvre le playground de démonstration déterministe et réinitialise le showcase admin-v2 vers une base connue.",
 			"recent_framework_activity": "Activité récente du framework",
 			"resource_overview": "Vue des Ressources",
 			"resource_records": "{count} enregistrements",
@@ -73,21 +75,25 @@
 		},
 		"resources": {
 			"actions": {
-				"create": "Create",
-				"create_resource": "Create {resource}",
-				"delete": "Delete",
-				"edit": "Edit",
-				"force_delete": "Force Delete",
+				"associate": "Associer",
+				"attach": "Attacher",
+				"create": "Créer",
+				"create_resource": "Créer {resource}",
+				"delete": "Supprimer",
+				"detach": "Détacher",
+				"dissociate": "Dissocier",
+				"edit": "Modifier",
+				"force_delete": "Supprimer définitivement",
 				"preview": "Aperçu",
-				"replicate": "Replicate",
-				"restore": "Restore",
+				"replicate": "Dupliquer",
+				"restore": "Restaurer",
 				"select_exactly_one": "Veuillez sélectionner exactement un enregistrement.",
 				"status_completed": "Terminé",
 				"status_failed": "Échoué",
 				"status_pending": "En attente",
 				"status_running": "En cours",
 				"update_resource": "Mettre à jour {resource}",
-				"view": "View"
+				"view": "Voir"
 			},
 			"actions_column": "Actions",
 			"activity": {
@@ -300,6 +306,65 @@
 				"copied_tooltip": "Copié !",
 				"tooltip": "Copier dans le presse-papiers"
 			},
+			"demo_assets": {
+				"actions": {
+					"delete_description": "Supprimer la ressource de démonstration « {name} » ? Les fichiers téléversés seront également supprimés.",
+					"delete_title": "Supprimer la ressource de démonstration",
+					"seed_data": "Initialiser les ressources de démonstration"
+				},
+				"dashboard_description": "Showcase médias et champs enrichis pour les téléversements, le markdown, le code et le JSON.",
+				"empty_description": "Créez une ressource de démonstration ou initialisez les données du showcase pour vérifier le rendu des champs enrichis.",
+				"empty_title": "Aucune ressource de démonstration",
+				"fields": {
+					"attachment": "Pièce jointe",
+					"attachment_help": "Téléversez un fichier téléchargeable pour vérifier le cycle de vie générique des fichiers.",
+					"code_snippet": "Extrait de code",
+					"content_summary": "Résumé du contenu",
+					"content_summary_help": "Aperçu calculé du markdown actuel et de la couverture des téléversements.",
+					"coverage": "Couverture",
+					"hero_image": "Image principale",
+					"hero_image_help": "Téléversez une image pour vérifier l’aperçu et la persistance de la ressource.",
+					"markdown_body": "Contenu Markdown",
+					"name": "Nom",
+					"price": "Prix (USD)",
+					"published_at": "Publié le",
+					"release_date": "Date de sortie",
+					"settings_json": "JSON de configuration",
+					"slug": "Slug",
+					"slug_help": "Lettres minuscules, chiffres et tirets uniquement."
+				},
+				"groups": {
+					"content": "Contenu",
+					"media": "Médias"
+				},
+				"metrics": {
+					"total": "Total des ressources",
+					"total_desc": "Tous les enregistrements de ressources de démonstration",
+					"with_attachments": "Avec pièces jointes",
+					"with_attachments_desc": "Ressources incluant un fichier téléchargeable",
+					"with_images": "Avec images",
+					"with_images_desc": "Ressources incluant une image principale"
+				},
+				"plural_label": "Ressources de démonstration",
+				"search_placeholder": "Rechercher des ressources de démonstration...",
+				"singular_label": "Ressource de démonstration",
+				"toasts": {
+					"deleted": "Ressource de démonstration supprimée",
+					"seeded": "Ressources de démonstration initialisées"
+				},
+				"validation": {
+					"invalid_json": "Le JSON de configuration doit être valide.",
+					"invalid_price": "Le prix doit être supérieur ou égal à zéro.",
+					"invalid_published_at": "La date et l’heure de publication doivent être valides.",
+					"invalid_release_date": "La date de sortie doit être valide.",
+					"invalid_slug": "Le slug doit utiliser uniquement des lettres minuscules, des chiffres et des tirets."
+				},
+				"values": {
+					"coverage_missing": "Téléversements manquants",
+					"coverage_partial": "Partiellement prêt",
+					"coverage_ready": "Prêt"
+				}
+			},
 			"detail_missing_description": "Cet enregistrement n’existe plus ou n’est pas visible pour la session admin actuelle.",
 			"detail_missing_title": "Enregistrement introuvable",
 			"email_events": {
@@ -351,10 +416,12 @@
 				"characters_count": "{count} / {limit}",
 				"fix_errors": "Veuillez corriger les champs en surbrillance.",
 				"hide_content": "Masquer le contenu",
+				"image_required": "Veuillez téléverser un fichier image.",
 				"invalid": "Invalid field value",
 				"key_placeholder": "Clé",
 				"local_override_notice": "Vous avez modifié ce champ localement. Les mises à jour en direct entrantes ne l’écraseront pas.",
 				"markdown_placeholder": "## Contenu Markdown",
+				"max_file_size": "Le fichier dépasse la taille maximale de {size} Mo.",
 				"maxlength_exceeded": "Dépasse la longueur maximale de {limit} caractères",
 				"no_relation_options": "No options available",
 				"no_suggestions": "Aucune suggestion",
@@ -365,6 +432,8 @@
 				"suggestions_input": "Tapez pour rechercher des suggestions",
 				"suggestions_loading": "Chargement des suggestions…",
 				"upload": "Téléverser un fichier",
+				"upload_ready": "Téléversement terminé",
+				"uploading_progress": "Téléversement… {progress}%",
 				"value_placeholder": "Valeur"
 			},
 			"framework_activity": {
@@ -418,6 +487,7 @@
 				"event": "Événement",
 				"identity": "Identité",
 				"main": "Principal",
+				"media": "Médias",
 				"metadata": "Métadonnées",
 				"notifications": "Notifications",
 				"other": "Autres",
@@ -510,21 +580,84 @@
 				"empty": "Rien à afficher ici.",
 				"loading": "Chargement..."
 			},
+			"project_members": {
+				"associate_project_description": "Associer cet enregistrement pivot à un projet de démonstration.",
+				"associate_project_empty_description": "Chargez les données de démonstration ou affinez la recherche pour trouver un projet.",
+				"associate_project_empty_title": "Aucun projet disponible",
+				"associate_project_search_placeholder": "Rechercher des projets...",
+				"associate_user_description": "Associer cet enregistrement pivot à un utilisateur géré.",
+				"associate_user_empty_description": "Affinez la recherche pour trouver un utilisateur géré.",
+				"associate_user_empty_title": "Aucun utilisateur géré disponible",
+				"associate_user_search_placeholder": "Rechercher des utilisateurs gérés...",
+				"dashboard_description": "Enregistrements d’adhésion de type pivot pour vérifier les workflows d’association et de dissociation.",
+				"delete_description": "Supprimer cet enregistrement de membre du projet avec le rôle {role} ?",
+				"delete_title": "Supprimer le membre du projet",
+				"dissociate_project_description": "Retirer {name} de cet enregistrement de membre du projet ?",
+				"dissociate_project_title": "Dissocier le projet",
+				"dissociate_user_description": "Retirer {name} de cet enregistrement de membre du projet ?",
+				"dissociate_user_title": "Dissocier l’utilisateur",
+				"empty_description": "Créez un membre de projet de démonstration ou ajustez la recherche pour afficher les enregistrements pivot.",
+				"empty_title": "Aucun membre du projet",
+				"fields": {
+					"allocation_percent": "Allocation",
+					"allocation_percent_help": "Pourcentage de l’effort de ce membre alloué au projet associé.",
+					"joined_at": "A rejoint le",
+					"project": "Projet",
+					"role": "Rôle",
+					"user": "Utilisateur géré",
+					"user_email": "E-mail de l’utilisateur"
+				},
+				"groups": {
+					"assignment": "Affectation",
+					"membership": "Adhésion"
+				},
+				"metrics": {
+					"total": "Membres au total",
+					"total_desc": "Tous les enregistrements pivot",
+					"with_project": "Avec projet",
+					"with_project_desc": "Enregistrements déjà associés à un projet",
+					"with_user": "Avec utilisateur",
+					"with_user_desc": "Enregistrements déjà associés à un utilisateur géré"
+				},
+				"options": {
+					"role_contributor": "Contributeur",
+					"role_lead": "Responsable",
+					"role_reviewer": "Relecteur"
+				},
+				"plural_label": "Membres de projet de démonstration",
+				"search_placeholder": "Rechercher des membres de projet de démonstration...",
+				"singular_label": "Membre de projet de démonstration",
+				"toasts": {
+					"deleted": "Membre du projet supprimé",
+					"project_associated": "Projet associé",
+					"project_dissociated": "Projet dissocié",
+					"user_associated": "Utilisateur géré associé",
+					"user_dissociated": "Utilisateur géré dissocié"
+				},
+				"validation": {
+					"invalid_allocation_percent": "L’allocation doit être comprise entre 0 et 100."
+				},
+				"values": {
+					"unassigned": "Non attribué"
+				}
+			},
 			"projects": {
 				"actions": {
 					"archive": "Archive",
-					"attach_tag": "Attach Tag",
+					"attach_tag": "Attacher une étiquette",
 					"export_csv": "Exporter CSV",
-					"feature": "Mark Featured",
+					"feature": "Marquer en vedette",
+					"force_delete": "Supprimer définitivement",
 					"purge": "Purger",
 					"purge_cancel_btn": "Annuler",
 					"purge_confirm": "Cela supprimera définitivement les projets sélectionnés et toutes les données associées. Cette action est irréversible.",
 					"purge_confirm_btn": "Oui, purger",
 					"restore_archived": "Restaurer les projets archivés",
+					"restore_trashed": "Restaurer les projets de la corbeille",
 					"seed_data": "Générer des données"
 				},
 				"dashboard_description": "Terrain de parité pour des workflows de ressources admin-v2 plus riches.",
-				"empty_active_description": "Archivez des projets ou générez des données de démonstration pour vérifier la vue des projets actifs.",
+				"empty_active_description": "Restaurez un projet de la corbeille ou générez des données de démonstration pour vérifier la vue des projets actifs.",
 				"empty_active_title": "Aucun projet actif",
 				"empty_archived_description": "Archivez un projet ou générez des données de démonstration pour vérifier les flux de récupération archivés.",
 				"empty_archived_title": "Aucun projet archivé",
@@ -532,6 +665,8 @@
 				"empty_featured_description": "Mettez un projet en avant ou générez des données de démonstration pour vérifier la vue des projets en vedette.",
 				"empty_featured_title": "Aucun projet en vedette",
 				"empty_title": "Aucun projet trouvé",
+				"empty_trashed_description": "Envoyez un projet dans la corbeille ou générez des données de démonstration pour vérifier les flux de restauration.",
+				"empty_trashed_title": "Aucun projet dans la corbeille",
 				"fields": {
 					"brand_color": "Couleur de marque",
 					"brand_color_help": "Couleur d’accent principale utilisée pour les aperçus et la QA opérateur.",
@@ -539,11 +674,12 @@
 					"budget": "Budget",
 					"code_snippet": "Extrait de code",
 					"cover_image": "URL de l'image de couverture",
+					"deleted_at": "Supprimé le",
 					"description": "Description",
 					"description_help": "Prend en charge le formatage Markdown.",
-					"featured": "Featured",
-					"name": "Name",
-					"owner_email": "Owner Email",
+					"featured": "En vedette",
+					"name": "Nom",
+					"owner_email": "E-mail du responsable",
 					"owner_email_placeholder": "proprietaire@exemple.fr",
 					"settings_json": "Paramètres JSON",
 					"slug": "Slug",
@@ -558,13 +694,15 @@
 					"featured_only": "Featured Only",
 					"owner_1": "Propriétaire 1",
 					"owner_2": "Propriétaire 2",
-					"regular_only": "Regular Only",
-					"status": "Status"
+					"regular_only": "Seulement réguliers",
+					"status": "Statut",
+					"trashed": "Corbeille"
 				},
 				"lenses": {
-					"active": "Active Projects",
+					"active": "Projets actifs",
 					"archived": "Archived Projects",
-					"featured": "Featured Projects"
+					"featured": "Projets en vedette",
+					"trashed": "Projets de la corbeille"
 				},
 				"metrics": {
 					"active": "Projets actifs",
@@ -582,17 +720,19 @@
 					"total_desc": "Tous les projets enregistrés",
 					"total_subtitle": "Portefeuille de projets"
 				},
-				"nav_title": "Demo Projects",
+				"nav_title": "Projets de démonstration",
 				"options": {
-					"status_active": "Active",
+					"status_active": "Actif",
 					"status_archived": "Archived",
-					"status_draft": "Draft"
+					"status_draft": "Brouillon",
+					"status_trashed": "Corbeille"
 				},
 				"plural_label": "Projets de démonstration",
 				"search_placeholder": "Rechercher des projets de démonstration...",
 				"search_placeholder_active": "Rechercher des projets actifs...",
 				"search_placeholder_archived": "Rechercher des projets archivés...",
 				"search_placeholder_featured": "Rechercher des projets en vedette...",
+				"search_placeholder_trashed": "Rechercher des projets de la corbeille...",
 				"singular_label": "Projet de démonstration",
 				"validation": {
 					"invalid_brand_color": "La couleur de marque doit être une couleur hexadécimale valide.",
@@ -602,6 +742,12 @@
 			"queued_actions": {
 				"cancel_job": "Annuler",
 				"enqueued": "Action mise en file d'attente pour traitement en arrière-plan",
+				"fields": {
+					"action": "Action",
+					"status": "Statut",
+					"summary": "Résumé",
+					"updated": "Mis à jour"
+				},
 				"no_active_jobs": "Aucune tâche active",
 				"panel_title": "Tâches en arrière-plan",
 				"progress": "{processed} sur {total} traités",
@@ -617,10 +763,19 @@
 				"actor_user_description": "Utilisateur géré résolu à partir de l’acteur attaché à cet événement du framework.",
 				"admin_actor": "Acteur admin",
 				"admin_actor_description": "Utilisateur admin associé à cette entrée d’audit ou de note.",
+				"associated_project": "Projet associé",
+				"associated_project_description": "Projet de démonstration actuellement lié à cet enregistrement pivot.",
+				"associated_user": "Utilisateur associé",
+				"associated_user_description": "Utilisateur géré actuellement lié à cet enregistrement pivot.",
+				"duplicates_allowed": "Les doublons sont autorisés pour cette relation. Réutiliser le même enregistrement créera une attribution supplémentaire au lieu de remplacer l’existante.",
 				"internal_notes": "Notes internes",
 				"internal_notes_description": "Notes rédigées par les opérateurs et liées à cet utilisateur géré.",
 				"managed_user": "Utilisateur géré",
 				"managed_user_description": "Utilisateur géré lié à ce destinataire de notifications.",
+				"project_tags": "Tags du projet",
+				"project_tags_description": "Tags de démonstration réutilisables attachés à ce projet via le flux générique de relations.",
+				"project_tasks": "Tâches du projet",
+				"project_tasks_description": "Relation de tâches repliable pour valider la création inline, les actions de ligne et les flux contextuels autour des tâches.",
 				"related_record": "Enregistrement associé",
 				"related_record_description": "Enregistrement du framework référencé par cette entrée d’activité.",
 				"related_record_unavailable": "L’enregistrement associé n’est pas disponible actuellement.",
@@ -637,40 +792,85 @@
 			},
 			"selected": "{selected} of {total} selected",
 			"tags": {
+				"attach_description": "Attachez un tag de démonstration existant à ce projet.",
+				"attach_empty_description": "Créez un nouveau tag ou affinez la recherche pour trouver des tags attachables.",
+				"attach_empty_title": "Aucun tag attachable",
+				"attach_search_placeholder": "Rechercher des tags attachables...",
+				"dashboard_description": "Tags de démonstration réutilisables pour la QA des flux d’attache et de détache des relations.",
+				"delete_description": "Supprimer le tag « {name} » ? Les tags attachés à des projets ne peuvent pas être supprimés.",
+				"delete_title": "Supprimer le tag de démonstration",
+				"empty_description": "Aucun tag de démonstration ne correspond à la recherche actuelle.",
+				"empty_relation_description": "Attachez un tag existant ou créez-en un nouveau depuis ce panneau.",
+				"empty_relation_title": "Aucun tag attaché",
+				"empty_title": "Aucun tag de démonstration",
 				"fields": {
-					"color": "Color",
-					"name": "Name"
+					"color": "Couleur",
+					"name": "Nom",
+					"usage_count": "Nombre d’utilisations"
 				},
 				"metrics": {
 					"total": "Étiquettes au total",
 					"total_desc": "Toutes les étiquettes disponibles",
 					"total_subtitle": "Bibliothèque d'étiquettes"
 				},
-				"nav_title": "Demo Tags"
+				"nav_title": "Tags de démonstration",
+				"plural_label": "Tags de démonstration",
+				"search_placeholder": "Rechercher des tags de démonstration...",
+				"singular_label": "Tag de démonstration",
+				"toasts": {
+					"attached": "Tag attaché",
+					"detached": "Tag détaché"
+				},
+				"validation": {
+					"invalid_color": "La couleur du tag doit être une couleur hexadécimale valide."
+				}
 			},
 			"tasks": {
 				"actions": {
-					"assign_to_me": "M'assigner",
-					"mark_done": "Mark Done",
-					"mark_in_progress": "Mark In Progress",
-					"queued_bulk_process": "Traitement en masse en file d'attente",
-					"quick_done": "Terminé rapide"
+					"assign_to_me": "M’assigner",
+					"inline_create": "Créer la tâche en ligne",
+					"mark_done": "Marquer comme terminée",
+					"mark_in_progress": "Passer en cours",
+					"queued_bulk_process": "Traitement groupé en file",
+					"quick_done": "Terminer rapidement",
+					"seed_data": "Créer les tâches de démo",
+					"update_status": "Mettre à jour le statut"
 				},
+				"dashboard_description": "Tâches vitrine pour les formulaires d’action, les jobs en file, la route de prévisualisation et la création inline.",
+				"delete_description": "Supprimer définitivement {title} de la surface de démo des tâches ?",
+				"delete_title": "Supprimer la tâche de démo",
+				"empty_completed_description": "Aucune tâche de démo terminée ne correspond à la recherche actuelle.",
+				"empty_completed_title": "Aucune tâche de démo terminée",
+				"empty_description": "Aucune tâche de démo ne correspond à la recherche actuelle.",
+				"empty_due_description": "Aucune tâche de démo à venir n’est bientôt due.",
+				"empty_due_title": "Aucune tâche bientôt due",
+				"empty_relation_description": "Créez une tâche en ligne depuis la page du projet ou ouvrez la ressource complète des tâches.",
+				"empty_relation_title": "Aucune tâche liée pour le moment",
+				"empty_title": "Aucune tâche de démo",
 				"fields": {
-					"assignee_email": "Assignee Email",
-					"estimate_hours": "Estimate Hours",
-					"priority": "Priority",
-					"project": "Project",
-					"status": "Status",
-					"title": "Title"
+					"assignee_email": "E-mail du responsable",
+					"due_at": "Échéance",
+					"estimate_hours": "Heures estimées",
+					"note": "Note opérateur",
+					"priority": "Priorité",
+					"project": "Projet",
+					"status": "Statut",
+					"title": "Titre",
+					"workload": "Charge"
 				},
 				"filters": {
-					"priority": "Priority",
-					"status": "Status"
+					"all_priorities": "Toutes les priorités",
+					"all_statuses": "Tous les statuts",
+					"priority": "Priorité",
+					"status": "Statut"
+				},
+				"groups": {
+					"delivery": "Livraison",
+					"schedule": "Planification"
 				},
 				"lenses": {
-					"completed": "Completed Tasks",
-					"due": "Due Tasks"
+					"completed": "Tâches terminées",
+					"due": "Tâches à échéance proche"
 				},
 				"metrics": {
 					"completion_rate": "Taux d'achèvement",
@@ -690,16 +890,35 @@
 					"status_trend": "Tendance du statut",
 					"todo": "À faire",
 					"todo_desc": "Tâches en attente de démarrage",
-					"todo_subtitle": "Éléments du backlog"
+					"todo_subtitle": "Éléments du backlog",
+					"total": "Tâches totales",
+					"total_desc": "Toutes les tâches de démo de la vitrine"
 				},
-				"nav_title": "Demo Tasks",
+				"nav_title": "Tâches de démo",
 				"options": {
-					"done": "Done",
-					"high": "High",
-					"in_progress": "In Progress",
-					"low": "Low",
-					"medium": "Medium",
-					"todo": "Todo"
+					"done": "Terminé",
+					"high": "Haute",
+					"in_progress": "En cours",
+					"low": "Basse",
+					"medium": "Moyenne",
+					"todo": "À faire"
+				},
+				"plural_label": "Tâches de démo",
+				"search_placeholder": "Rechercher des tâches de démo...",
+				"search_placeholder_completed": "Rechercher les tâches terminées...",
+				"search_placeholder_due": "Rechercher les tâches à échéance proche...",
+				"singular_label": "Tâche de démo",
+				"toasts": {
+					"bulk_started": "La mise à jour groupée des tâches a démarré"
+				},
+				"tools": {
+					"open_project": "Ouvrir le projet",
+					"review_due": "Vérifier les tâches dues"
+				},
+				"values": {
+					"workload_heavy": "Élevée",
+					"workload_light": "Légère",
+					"workload_medium": "Moyenne"
 				}
 			},
 			"toasts": {
@@ -722,6 +941,7 @@
 				"enabled": "Enabled",
 				"masked": "••••••••",
 				"no": "No",
+				"none": "Aucun",
 				"pairs_count": "{count} paires",
 				"selected_count": "{count} sélectionnés",
 				"yes": "Yes"
@@ -820,6 +1040,87 @@
 			"type_admin": "Admin",
 			"type_custom": "Personnalisé"
 		},
+		"showcase": {
+			"badges": {
+				"baseline_incomplete": "Réinitialisation requise",
+				"baseline_ready": "Base prête",
+				"demo_available": "Démo disponible",
+				"managed_by_reset": "Géré par réinitialisation",
+				"reference_surface": "Surface de référence",
+				"tool_only": "Outil uniquement"
+			},
+			"controls": {
+				"clear_demo_data": "Vider les données démo",
+				"clear_help": "Supprime les données showcase gérées par réinitialisation ainsi que les tâches showcase en file d’attente. Utilisez-le pour vérifier les états vides.",
+				"description": "Ces contrôles ne touchent qu’au jeu de données déterministe du showcase admin-v2. Ils ne modifient pas les données personnalisées de support ou de paramètres.",
+				"queue_help": "{count} tâches showcase en file d’attente sont actuellement actives.",
+				"reset_baseline": "Réinitialiser la base",
+				"reset_help": "Commencez la QA manuelle à partir de la base connue. Cela réamorce projets, tags, membres, assets et tâches.",
+				"title": "Contrôles des données"
+			},
+			"description": "Un seul endroit pour vérifier manuellement chaque famille de fonctionnalités admin-v2 de style Nova avec des données déterministes et une couverture explicite des routes.",
+			"features": {
+				"audit": "Pistes d’audit",
+				"auth_managed": "Ressources gérées par auth",
+				"batch_actions": "Actions en lot",
+				"crud": "CRUD générique",
+				"derived": "Ressources dérivées",
+				"file_fields": "Champs fichier et image",
+				"filters": "Filtres",
+				"lenses": "Lenses de première classe",
+				"metrics": "Métriques",
+				"pivot_fields": "Métadonnées pivot",
+				"preview": "Routes de prévisualisation",
+				"queued_actions": "Actions en file d’attente",
+				"relations": "Workflows de relation",
+				"replicate": "Dupliquer",
+				"rich_fields": "Markdown, code et JSON",
+				"row_actions": "Actions de ligne",
+				"soft_delete": "Suppression douce et restauration"
+			},
+			"flow": {
+				"step_1": "Réinitialisez le showcase vers le jeu de données de base.",
+				"step_2": "Vérifiez que les cartes de ressources ci-dessous affichent les comptes attendus.",
+				"step_3": "Utilisez la matrice des fonctionnalités pour ouvrir directement la surface à inspecter.",
+				"step_4": "N’utilisez les liens vers les outils personnalisés que pour les workflows qui restent volontairement hors du framework générique."
+			},
+			"links": {
+				"archived_lens": "Lens archivée",
+				"trashed_lens": "Lens corbeille"
+			},
+			"non_demo": {
+				"dashboard_description": "Le dashboard reste une surface opérateur composée. Le playground y mène, mais le dashboard lui-même n’est pas une démo de ressource générique.",
+				"dashboard_title": "Composition du dashboard",
+				"settings_description": "Les paramètres restent un outil admin curé. La partie générique à vérifier est Destinataires des Notifications.",
+				"settings_title": "Curation des paramètres",
+				"support_description": "Le support utilise un workflow opérateur multi-panneaux personnalisé et ne doit pas être forcé dans une ressource générique.",
+				"support_title": "Workflow support",
+				"users_description": "L’ancienne table utilisateurs existe encore, mais la parité auth-managed se vérifie sur Utilisateurs gérés.",
+				"users_title": "Table utilisateurs historique"
+			},
+			"sections": {
+				"feature_matrix": "Couverture des fonctionnalités",
+				"no_dedicated_demo": "Pas de démo générique dédiée",
+				"no_dedicated_demo_desc": "Ces surfaces restent importantes, mais elles demeurent volontairement spécifiques ou héritées.",
+				"recommended_flow": "Flux QA recommandé",
+				"resources": "Surfaces de démo"
+			},
+			"summary": {
+				"baseline_state": "État de base",
+				"baseline_state_desc": "Indique si les ressources showcase gérées par réinitialisation sont revenues à leur état initial.",
+				"relation_records": "Enregistrements relationnels",
+				"relation_records_desc": "Tags et lignes de membres de projet pour valider attach/detach et les workflows pivot.",
+				"seeded_resources": "Ressources amorcées",
+				"seeded_resources_desc": "Ressources showcase gérées par réinitialisation actuellement présentes.",
+				"uploads": "Assets avec uploads",
+				"uploads_desc": "Assets de démonstration qui stockent actuellement des fichiers ou images téléversés."
+			},
+			"title": "Showcase admin-v2",
+			"toasts": {
+				"clear_complete": "Les données du showcase admin-v2 ont été vidées.",
+				"reset_complete": "Le showcase admin-v2 a été réinitialisé sur le jeu de données de base."
+			}
+		},
 		"sidebar": {
 			"back_to_app": "Retour à l'App",
 			"dashboard": "Tableau de bord",
@@ -830,6 +1131,7 @@
 				"security": "Sécurité"
 			},
 			"settings": "Paramètres",
+			"showcase": "Showcase",
 			"support": "Support",
 			"users": "Utilisateurs"
 		},
@@ -1372,7 +1674,7 @@
 		"companies_text": "Propulsant les meilleures équipes",
 		"cta": "Commencer maintenant",
 		"cta_demo": "Demander une démo",
-		"description": "La fondation SaaS gratuite. Open source, prête à déployer.",
+		"description": "Donne vie à ton SaaS en quelques minutes, pas en mois. Template open-source bourré de tech qui te fait shipper direct.",
 		"section_label": "Accueil",
 		"tagline": "Focus sur ton produit.\nLancement plus rapide.",
 		"title": "Modèle SaaS Starter"
@@ -1470,6 +1772,10 @@
 				"description": "Configurez les destinataires et préférences de notifications admin.",
 				"title": "Paramètres Admin"
 			},
+			"showcase": {
+				"description": "Vérifiez manuellement le playground complet admin-v2 avec des données de base réinitialisables.",
+				"title": "Showcase admin-v2"
+			},
 			"support": {
 				"description": "Consultez et répondez aux conversations de support client.",
 				"title": "Boîte de support"
@@ -1530,7 +1836,7 @@
 			}
 		},
 		"home": {
-			"description": "Starter SaaS gratuit et open source avec SvelteKit. Auth, paiements, email et analytics inclus. Hébergez gratuitement.",
+			"description": "Starter SaaS pour SvelteKit avec auth, paiements, email et analytics.",
 			"title": "Construisez et lancez votre produit plus rapidement"
 		},
 		"impressum": {
