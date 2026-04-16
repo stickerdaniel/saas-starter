@@ -8,6 +8,10 @@ A free, open-source SaaS foundation you can deploy for $0. Ships with auth, bill
 
 > See a live demo of the user-facing side at **[saas.daniel.sticker.name](https://saas.daniel.sticker.name)**. Admin features like the admin panel, support dashboard, and user management are not accessible there. To explore everything, follow the steps below.
 
+## Why This Exists
+
+I wanted a quick way to build with my favorite tools, and an environment with the guardrails an agent needs to verify its work. The project is fully open source and runs on free tiers. While building features I found myself pointing at code from previous projects, so it also contains good patterns you can point an agent to, like a streaming AI chat with tool calling and file uploads, a support chat that triages with AI and hands off to human admins, and the reactive Convex pagination and search patterns behind the admin dashboard.
+
 ## Using This Template
 
 Click **"Use this template"** on GitHub, then:
