@@ -21,7 +21,11 @@ import { test, expect } from '@playwright/test';
 test('pricing checkout failure surfaces an error toast instead of failing silently', async ({
 	page
 }) => {
-	await page.routeWebSocket(/convex\.cloud/, (ws) => {
+	// Match Convex's WS path (`<origin>/api/<version>/sync`) on any origin.
+	// Pinning to `convex.cloud` would miss local embedded-backend runs where
+	// PUBLIC_CONVEX_URL resolves to http://localhost:PORT via
+	// e2e/utils/convex-url.ts + .convex/.backend-url.
+	await page.routeWebSocket(/\/api\/[^/]+\/sync/, (ws) => {
 		const server = ws.connectToServer();
 
 		ws.onMessage((raw) => {
@@ -78,10 +82,11 @@ test('pricing checkout failure surfaces an error toast instead of failing silent
 
 	await checkoutButton.click();
 
-	// Sonner renders toasts with data-sonner-toast. Assert on the English
-	// billing.checkout_failed copy.
+	// Sonner renders toasts with data-sonner-toast. Match on a stable
+	// substring of the billing.checkout_failed copy so minor Tolgee tweaks
+	// don't break the regression guard.
 	const toast = page.locator('[data-sonner-toast]').filter({
-		hasText: 'Checkout failed. Please try again.'
+		hasText: /Checkout failed/i
 	});
 	await expect(toast).toBeVisible({ timeout: 10000 });
 
