@@ -141,6 +141,28 @@ Push a branch and Vercel creates a preview deployment with its own Convex previe
 
 Convex cleans up preview deployments after 5 days (14 days on Professional).
 
+<details>
+<summary><strong>Hitting <code>DeploymentQuotaReached</code>? (optional self-healing fallback)</strong></summary>
+
+Convex enforces a team-wide deployment quota (40 on free, higher on paid) that counts _all_ deployments across every project in the team — dev, preview, and production. Busy repos with many open PRs, or teams running several projects at once, can blow through it, at which point every in-flight build fails with:
+
+```
+✖ DeploymentQuotaReached: Your team's deployment quota of 40 has been reached.
+```
+
+The deploy script ships an opt-in recovery path that, on quota hit, prunes the oldest eligible preview via the Convex management API and retries the deploy (up to 3 adaptive rounds). Safe-by-default: never deletes the current branch's preview, never deletes the newest preview (protects racing concurrent builds), only runs on previews (production never enters this path).
+
+Opt in by setting two build variables on your platform:
+
+| Variable                  | Type   | Where to get it                                                                                                                                                                         |
+| ------------------------- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CONVEX_MANAGEMENT_TOKEN` | secret | `dashboard.convex.dev` > Team Settings > Generate a **Team Token**                                                                                                                      |
+| `CONVEX_PROJECT_ID`       | text   | `curl -H "Authorization: Bearer $TOKEN" https://api.convex.dev/v1/token_details` returns `teamId`, then `.../v1/teams/{teamId}/list_projects` returns the numeric `id` for this project |
+
+When both are unset, the script logs `Prune fallback not configured` and exits with the original error — no behaviour change. When set, the next quota hit self-heals inside the same build.
+
+</details>
+
 ## Production Deployment
 
 Set the required platform and Convex production variables listed in the [environment variable matrix](#environment-variables) below.
