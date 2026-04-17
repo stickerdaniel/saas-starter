@@ -1,5 +1,6 @@
 import fs from 'fs';
 import type { PlatformContext } from './platform';
+import { pruneOldestPreview } from './prune-previews';
 import { colors, runCommand, runCommandCapture, runCommandWithRetry, stripAnsi } from './utils';
 
 export interface ConvexDeployment {
@@ -83,7 +84,7 @@ export function validateConvexEnv(platform: PlatformContext, deployment?: Convex
  * Deploy Convex functions and parse the deployment URL from output.
  * For preview builds, swaps to a preview deploy key if CONVEX_PREVIEW_DEPLOY_KEY is set.
  */
-export function deployConvex(platform: PlatformContext): ConvexDeployment {
+export async function deployConvex(platform: PlatformContext): Promise<ConvexDeployment> {
 	const args = ['convex', 'deploy'];
 
 	if (platform.isPreview) {
@@ -107,14 +108,26 @@ export function deployConvex(platform: PlatformContext): ConvexDeployment {
 	}
 
 	console.log('Deploying Convex functions...');
-	const result = runCommandCapture('bunx', args);
+	let result = runCommandCapture('bunx', args);
 
 	if (result.stdout) console.log(result.stdout);
 	if (result.stderr) console.error(result.stderr);
 
 	if (!result.success) {
-		console.error(`${colors.red}Convex deployment failed${colors.reset}`);
-		process.exit(1);
+		const combined = stripAnsi(result.stdout + '\n' + result.stderr);
+		const quotaHit = platform.isPreview && /DeploymentQuotaReached/.test(combined);
+
+		if (quotaHit) {
+			const retried = await tryRecoverFromQuota(platform, args);
+			if (retried) {
+				result = retried;
+			}
+		}
+
+		if (!result.success) {
+			console.error(`${colors.red}Convex deployment failed${colors.reset}`);
+			process.exit(1);
+		}
 	}
 
 	// Extract deployment URL from output
@@ -139,6 +152,53 @@ export function deployConvex(platform: PlatformContext): ConvexDeployment {
 	}
 
 	return { urlSlug, name };
+}
+
+/**
+ * On DeploymentQuotaReached: prune the oldest eligible preview via the
+ * Convex management API and retry `convex deploy` once. Opt-in via
+ * CONVEX_MANAGEMENT_TOKEN + CONVEX_PROJECT_ID. If either is unset or the
+ * prune can't find a safe target, returns null so the caller exits with
+ * the original error.
+ */
+async function tryRecoverFromQuota(
+	platform: PlatformContext,
+	args: string[]
+): Promise<{ success: boolean; stdout: string; stderr: string } | null> {
+	const token = process.env.CONVEX_MANAGEMENT_TOKEN;
+	const projectId = process.env.CONVEX_PROJECT_ID;
+
+	if (!token || !projectId) {
+		console.error(
+			`${colors.yellow}Prune fallback not configured (CONVEX_MANAGEMENT_TOKEN / CONVEX_PROJECT_ID unset)${colors.reset}`
+		);
+		return null;
+	}
+
+	console.log(
+		`${colors.yellow}DeploymentQuotaReached detected. Attempting to prune oldest eligible preview...${colors.reset}`
+	);
+
+	const pruneResult = await pruneOldestPreview({
+		token,
+		projectId,
+		currentBranch: platform.gitRef ?? null
+	});
+
+	if (pruneResult.pruned === null) {
+		console.error(
+			`${colors.red}Prune fallback could not free a slot: ${pruneResult.reason}${colors.reset}`
+		);
+		return null;
+	}
+
+	console.log(
+		`${colors.green}Pruned preview: ${pruneResult.pruned}. Retrying deploy...${colors.reset}`
+	);
+	const retryResult = runCommandCapture('bunx', args);
+	if (retryResult.stdout) console.log(retryResult.stdout);
+	if (retryResult.stderr) console.error(retryResult.stderr);
+	return retryResult;
 }
 
 /**
