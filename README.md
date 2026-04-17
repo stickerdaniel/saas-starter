@@ -139,29 +139,7 @@ Push a branch and Vercel creates a preview deployment with its own Convex previe
 
 </details>
 
-Convex cleans up preview deployments after 5 days (14 days on Professional).
-
-<details>
-<summary><strong>Hitting <code>DeploymentQuotaReached</code>? (optional self-healing fallback)</strong></summary>
-
-Convex enforces a team-wide deployment quota (40 on free, higher on paid) that counts _all_ deployments across every project in the team — dev, preview, and production. Busy repos with many open PRs, or teams running several projects at once, can blow through it, at which point every in-flight build fails with:
-
-```
-✖ DeploymentQuotaReached: Your team's deployment quota of 40 has been reached.
-```
-
-The deploy script ships an opt-in recovery path that, on quota hit, prunes the oldest eligible preview via the Convex management API and retries the deploy (up to 3 adaptive rounds). Safe-by-default: never deletes the current branch's preview, never deletes the newest preview (protects racing concurrent builds), only runs on previews (production never enters this path).
-
-Opt in by setting two build variables on your platform:
-
-| Variable                  | Type   | Where to get it                                                                                                                                                                         |
-| ------------------------- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `CONVEX_MANAGEMENT_TOKEN` | secret | `dashboard.convex.dev` > Team Settings > Generate a **Team Token**                                                                                                                      |
-| `CONVEX_PROJECT_ID`       | text   | `curl -H "Authorization: Bearer $TOKEN" https://api.convex.dev/v1/token_details` returns `teamId`, then `.../v1/teams/{teamId}/list_projects` returns the numeric `id` for this project |
-
-When both are unset, the script logs `Prune fallback not configured` and exits with the original error — no behaviour change. When set, the next quota hit self-heals inside the same build.
-
-</details>
+Convex cleans up preview deployments after 5 days (14 days on Professional). If you hit `DeploymentQuotaReached` anyway (team quota is 40, counted across all projects), the deploy script can self-heal by pruning the oldest eligible preview — opt in by setting `CONVEX_MANAGEMENT_TOKEN` and `CONVEX_PROJECT_ID` (see the [env matrix](#environment-variables)).
 
 ## Production Deployment
 
@@ -310,19 +288,21 @@ Two runtimes, two schemas, both managed by [varlock](https://github.com/nickrees
 
 **Hosting platform** (CF Workers build settings or Vercel project settings):
 
-| Variable                    |                                                                  | Preview | Prod |
-| --------------------------- | ---------------------------------------------------------------- | :-----: | :--: |
-| `CONVEX_DEPLOY_KEY`         | Convex production deploy key                                     |    ✓    |  ✓   |
-| `CONVEX_PREVIEW_DEPLOY_KEY` | Convex preview deploy key                                        |    ✓    |      |
-| `WORKERS_NAME`              | CF Workers only: worker name (matches `wrangler.toml`)           |    ✓    |  ○   |
-| `WORKERS_SUBDOMAIN`         | CF Workers only: account's `workers.dev` subdomain               |    ✓    |  ○   |
-| `NODE_ADAPTER`              | Set to `1` to build with adapter-node for self-hosted production |         |  ○   |
-| `CONVEX_INTERNAL_URL`       | Internal Convex URL for Docker-network routing (self-hosted)     |         |  ○   |
-| `TOLGEE_API_KEY`            | Tolgee CLI key for deploy-time sync (optional, skips when unset) |    ○    |  ○   |
-| `PREVIEW_ADMIN_PASSWORD`    | Preview admin password                                           |    ○    |      |
-| `PUBLIC_POSTHOG_API_KEY`    | PostHog analytics API key                                        |         |  ○   |
-| `PUBLIC_POSTHOG_HOST`       | PostHog analytics host                                           |         |  ○   |
-| `PRODUCTION_BRANCH`         | Cloudflare only: production branch name (default: `main`)        |    ○    |  ○   |
+| Variable                    |                                                                                                                                          | Preview | Prod |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | :-----: | :--: |
+| `CONVEX_DEPLOY_KEY`         | Convex production deploy key                                                                                                             |    ✓    |  ✓   |
+| `CONVEX_PREVIEW_DEPLOY_KEY` | Convex preview deploy key                                                                                                                |    ✓    |      |
+| `CONVEX_MANAGEMENT_TOKEN`   | Convex Team Token for quota self-heal (mint at Team Settings > Access Tokens, Team ID shown on the same page)                            |    ○    |      |
+| `CONVEX_PROJECT_ID`         | Numeric project id for quota self-heal (`curl -H "Authorization: Bearer $TOKEN" https://api.convex.dev/v1/teams/{teamId}/list_projects`) |    ○    |      |
+| `WORKERS_NAME`              | CF Workers only: worker name (matches `wrangler.toml`)                                                                                   |    ✓    |  ○   |
+| `WORKERS_SUBDOMAIN`         | CF Workers only: account's `workers.dev` subdomain                                                                                       |    ✓    |  ○   |
+| `NODE_ADAPTER`              | Set to `1` to build with adapter-node for self-hosted production                                                                         |         |  ○   |
+| `CONVEX_INTERNAL_URL`       | Internal Convex URL for Docker-network routing (self-hosted)                                                                             |         |  ○   |
+| `TOLGEE_API_KEY`            | Tolgee CLI key for deploy-time sync (optional, skips when unset)                                                                         |    ○    |  ○   |
+| `PREVIEW_ADMIN_PASSWORD`    | Preview admin password                                                                                                                   |    ○    |      |
+| `PUBLIC_POSTHOG_API_KEY`    | PostHog analytics API key                                                                                                                |         |  ○   |
+| `PUBLIC_POSTHOG_HOST`       | PostHog analytics host                                                                                                                   |         |  ○   |
+| `PRODUCTION_BRANCH`         | Cloudflare only: production branch name (default: `main`)                                                                                |    ○    |  ○   |
 
 </details>
 
