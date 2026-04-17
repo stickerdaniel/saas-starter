@@ -41,7 +41,7 @@ async function main(): Promise<void> {
 	}
 
 	// 3. Deploy Convex functions
-	const deployment = deployConvex(platform);
+	const deployment = await deployConvex(platform);
 
 	// 4. Preview: set SITE_URL, validate, seed admin
 	if (platform.isPreview) {
