@@ -150,7 +150,13 @@ Set the required platform and Convex production variables listed in the [environ
 
 ### Deploy
 
-**Cloudflare Workers:** Push to your production branch (default: `main`). Workers Builds deploys automatically, or deploy manually with `bunx wrangler deploy`.
+Push to your production branch (default: `main`) and the connected platform deploys automatically, or trigger a manual deploy:
+
+**Cloudflare Workers:**
+
+```bash
+bunx wrangler deploy
+```
 
 **Vercel:**
 
