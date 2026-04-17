@@ -1,7 +1,14 @@
 import fs from 'fs';
 import type { PlatformContext } from './platform';
 import { pruneOldestPreview } from './prune-previews';
-import { colors, runCommand, runCommandCapture, runCommandWithRetry, stripAnsi } from './utils';
+import {
+	colors,
+	runCommand,
+	runCommandCapture,
+	runCommandWithRetry,
+	sleep,
+	stripAnsi
+} from './utils';
 
 export interface ConvexDeployment {
 	/** Full URL subdomain including region (e.g., "curious-lark-703.eu-west-1") */
@@ -154,12 +161,22 @@ export async function deployConvex(platform: PlatformContext): Promise<ConvexDep
 	return { urlSlug, name };
 }
 
+// Number of previews to prune per quota hit. Convex's team quota covers all
+// deployment types (dev + preview + prod), and the `claim_preview_deployment`
+// quota check appears to be eventually-consistent with deletes, so a single
+// prune sometimes leaves the retry still racing the ceiling. 3 prunes gives
+// enough headroom without being reckless.
+const PRUNE_COUNT = 3;
+// Post-prune delay before retry — gives Convex time to propagate the delete
+// into the quota counter.
+const POST_PRUNE_DELAY_MS = 10_000;
+
 /**
- * On DeploymentQuotaReached: prune the oldest eligible preview via the
- * Convex management API and retry `convex deploy` once. Opt-in via
- * CONVEX_MANAGEMENT_TOKEN + CONVEX_PROJECT_ID. If either is unset or the
- * prune can't find a safe target, returns null so the caller exits with
- * the original error.
+ * On DeploymentQuotaReached: prune up to PRUNE_COUNT eligible previews via the
+ * Convex management API, wait for quota propagation, then retry `convex deploy`
+ * once. Opt-in via CONVEX_MANAGEMENT_TOKEN + CONVEX_PROJECT_ID. If either is
+ * unset or no preview can be pruned, returns null so the caller exits with the
+ * original error.
  */
 async function tryRecoverFromQuota(
 	platform: PlatformContext,
@@ -176,25 +193,39 @@ async function tryRecoverFromQuota(
 	}
 
 	console.log(
-		`${colors.yellow}DeploymentQuotaReached detected. Attempting to prune oldest eligible preview...${colors.reset}`
+		`${colors.yellow}DeploymentQuotaReached detected. Attempting to prune up to ${PRUNE_COUNT} eligible previews...${colors.reset}`
 	);
 
-	const pruneResult = await pruneOldestPreview({
-		token,
-		projectId,
-		currentBranch: platform.gitRef ?? null
-	});
+	const pruned: string[] = [];
+	for (let i = 0; i < PRUNE_COUNT; i++) {
+		const pruneResult = await pruneOldestPreview({
+			token,
+			projectId,
+			currentBranch: platform.gitRef ?? null
+		});
+		if (pruneResult.pruned === null) {
+			// No more eligible candidates — stop pruning, but still try the retry
+			// if we got at least one.
+			console.log(`${colors.yellow}Prune stopped: ${pruneResult.reason}${colors.reset}`);
+			break;
+		}
+		pruned.push(pruneResult.pruned);
+		console.log(
+			`${colors.green}Pruned preview [${i + 1}/${PRUNE_COUNT}]: ${pruneResult.pruned}${colors.reset}`
+		);
+	}
 
-	if (pruneResult.pruned === null) {
+	if (pruned.length === 0) {
 		console.error(
-			`${colors.red}Prune fallback could not free a slot: ${pruneResult.reason}${colors.reset}`
+			`${colors.red}Prune fallback freed no slots. Exiting with original error.${colors.reset}`
 		);
 		return null;
 	}
 
-	console.log(
-		`${colors.green}Pruned preview: ${pruneResult.pruned}. Retrying deploy...${colors.reset}`
-	);
+	console.log(`Waiting ${POST_PRUNE_DELAY_MS / 1000}s for Convex quota propagation...`);
+	await sleep(POST_PRUNE_DELAY_MS);
+
+	console.log(`${colors.green}Retrying deploy...${colors.reset}`);
 	const retryResult = runCommandCapture('bunx', args);
 	if (retryResult.stdout) console.log(retryResult.stdout);
 	if (retryResult.stderr) console.error(retryResult.stderr);
