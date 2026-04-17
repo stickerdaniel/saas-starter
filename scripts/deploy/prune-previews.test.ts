@@ -86,6 +86,35 @@ describe('selectPrunable', () => {
 	it('returns null on empty input', () => {
 		expect(selectPrunable([], 'any', NOW)).toBeNull();
 	});
+
+	it('returns null when currentBranch is null (fail-safe: never prune blindly)', () => {
+		const previews = [
+			preview({ id: 'a', ageMin: 200 }),
+			preview({ id: 'b', ageMin: 100 }),
+			preview({ id: 'c', ageMin: 10 })
+		];
+		expect(selectPrunable(previews, null, NOW)).toBeNull();
+	});
+
+	it('returns null when currentBranch is an empty string', () => {
+		const previews = [preview({ id: 'a', ageMin: 200 }), preview({ id: 'b', ageMin: 100 })];
+		expect(selectPrunable(previews, '', NOW)).toBeNull();
+	});
+
+	it('returns null when currentBranch normalizes to empty (e.g. all punctuation)', () => {
+		const previews = [preview({ id: 'a', ageMin: 200 })];
+		expect(selectPrunable(previews, '///', NOW)).toBeNull();
+	});
+
+	it('prunes the older preview when current branch IS the absolute newest', () => {
+		// Copilot-review regression: previously the "exclude newest" filter was
+		// applied to the post-current-branch-filter set, so if the current
+		// branch was the absolute newest, we erroneously excluded a second
+		// preview and could not prune at all when previews were scarce.
+		const previews = [preview({ id: 'stale', ageMin: 200 }), preview({ id: 'current', ageMin: 1 })];
+		const target = selectPrunable(previews, 'current', NOW);
+		expect(target?.previewIdentifier).toBe('stale');
+	});
 });
 
 describe('pruneOldestPreview', () => {

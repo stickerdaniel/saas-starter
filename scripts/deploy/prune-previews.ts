@@ -61,15 +61,23 @@ export function selectPrunable(
 	now: number
 ): Preview | null {
 	if (previews.length === 0) return null;
+	// Without a current branch we cannot honour the "never prune current branch"
+	// safety guard. Fail safe rather than pruning blindly.
+	if (!currentBranch) return null;
 
-	const normalizedBranch = currentBranch ? normalizeIdentifier(currentBranch) : '';
-	const notCurrentBranch = previews.filter(
-		(p) => !normalizedBranch || normalizeIdentifier(p.previewIdentifier) !== normalizedBranch
-	);
-	if (notCurrentBranch.length === 0) return null;
+	const normalizedBranch = normalizeIdentifier(currentBranch);
+	// If normalization collapses to an empty string, treat it as missing.
+	if (!normalizedBranch) return null;
 
-	const newest = notCurrentBranch.reduce((a, b) => (a.createTime >= b.createTime ? a : b));
-	const candidates = notCurrentBranch.filter((p) => p.name !== newest.name);
+	// Compute the absolute newest from the full set so a current-branch
+	// preview that is also the newest doesn't cause us to exclude a second
+	// preview unnecessarily.
+	const absoluteNewest = previews.reduce((a, b) => (a.createTime >= b.createTime ? a : b));
+	const candidates = previews.filter((p) => {
+		const isCurrentBranch = normalizeIdentifier(p.previewIdentifier) === normalizedBranch;
+		const isAbsoluteNewest = p.name === absoluteNewest.name;
+		return !isCurrentBranch && !isAbsoluteNewest;
+	});
 	if (candidates.length === 0) return null;
 
 	const sorted = [...candidates].sort((a, b) => a.createTime - b.createTime);
