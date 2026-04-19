@@ -1,6 +1,14 @@
 import fs from 'fs';
 import type { PlatformContext } from './platform';
-import { colors, runCommand, runCommandCapture, runCommandWithRetry, stripAnsi } from './utils';
+import { pruneOldestPreview } from './prune-previews';
+import {
+	colors,
+	runCommand,
+	runCommandCapture,
+	runCommandWithRetry,
+	sleep,
+	stripAnsi
+} from './utils';
 
 export interface ConvexDeployment {
 	/** Full URL subdomain including region (e.g., "curious-lark-703.eu-west-1") */
@@ -83,7 +91,7 @@ export function validateConvexEnv(platform: PlatformContext, deployment?: Convex
  * Deploy Convex functions and parse the deployment URL from output.
  * For preview builds, swaps to a preview deploy key if CONVEX_PREVIEW_DEPLOY_KEY is set.
  */
-export function deployConvex(platform: PlatformContext): ConvexDeployment {
+export async function deployConvex(platform: PlatformContext): Promise<ConvexDeployment> {
 	const args = ['convex', 'deploy'];
 
 	if (platform.isPreview) {
@@ -107,14 +115,26 @@ export function deployConvex(platform: PlatformContext): ConvexDeployment {
 	}
 
 	console.log('Deploying Convex functions...');
-	const result = runCommandCapture('bunx', args);
+	let result = runCommandCapture('bunx', args);
 
 	if (result.stdout) console.log(result.stdout);
 	if (result.stderr) console.error(result.stderr);
 
 	if (!result.success) {
-		console.error(`${colors.red}Convex deployment failed${colors.reset}`);
-		process.exit(1);
+		const combined = stripAnsi(result.stdout + '\n' + result.stderr);
+		const quotaHit = platform.isPreview && /DeploymentQuotaReached/.test(combined);
+
+		if (quotaHit) {
+			const retried = await tryRecoverFromQuota(platform, args);
+			if (retried) {
+				result = retried;
+			}
+		}
+
+		if (!result.success) {
+			console.error(`${colors.red}Convex deployment failed${colors.reset}`);
+			process.exit(1);
+		}
 	}
 
 	// Extract deployment URL from output
@@ -139,6 +159,91 @@ export function deployConvex(platform: PlatformContext): ConvexDeployment {
 	}
 
 	return { urlSlug, name };
+}
+
+// Adaptive recovery parameters. Convex's team quota covers all deployment
+// types (dev + preview + prod), and the `claim_preview_deployment` quota
+// check is eventually consistent with deletes. So we prune one preview,
+// wait for propagation, retry, and only prune again if the retry still
+// hits the same quota error — not on any other failure.
+const MAX_RECOVERY_ATTEMPTS = 3;
+const POST_PRUNE_DELAY_MS = 10_000;
+
+/**
+ * On DeploymentQuotaReached: adaptively prune one eligible preview per
+ * attempt, wait for quota propagation, and retry `convex deploy`. Stops
+ * early if one prune is enough. Bounded at MAX_RECOVERY_ATTEMPTS deletes
+ * and retries. Opt-in via CONVEX_MANAGEMENT_TOKEN + CONVEX_PROJECT_ID —
+ * if either is unset, returns null so the caller exits with the original
+ * error.
+ */
+async function tryRecoverFromQuota(
+	platform: PlatformContext,
+	args: string[]
+): Promise<{ success: boolean; stdout: string; stderr: string } | null> {
+	const token = process.env.CONVEX_MANAGEMENT_TOKEN;
+	const projectId = process.env.CONVEX_PROJECT_ID;
+
+	if (!token || !projectId) {
+		console.error(
+			`${colors.yellow}Prune fallback not configured (CONVEX_MANAGEMENT_TOKEN / CONVEX_PROJECT_ID unset)${colors.reset}`
+		);
+		return null;
+	}
+
+	console.log(
+		`${colors.yellow}DeploymentQuotaReached detected. Adaptive recovery (up to ${MAX_RECOVERY_ATTEMPTS} prune+retry rounds)...${colors.reset}`
+	);
+
+	let lastResult: { success: boolean; stdout: string; stderr: string } | null = null;
+
+	for (let attempt = 1; attempt <= MAX_RECOVERY_ATTEMPTS; attempt++) {
+		const pruneResult = await pruneOldestPreview({
+			token,
+			projectId,
+			currentBranch: platform.gitRef ?? null
+		});
+		if (pruneResult.pruned === null) {
+			console.error(
+				`${colors.red}Prune fallback ran out of candidates on attempt ${attempt}: ${pruneResult.reason}${colors.reset}`
+			);
+			return lastResult;
+		}
+		console.log(
+			`${colors.green}[${attempt}/${MAX_RECOVERY_ATTEMPTS}] Pruned preview: ${pruneResult.pruned}${colors.reset}`
+		);
+
+		console.log(`  Waiting ${POST_PRUNE_DELAY_MS / 1000}s for Convex quota propagation...`);
+		await sleep(POST_PRUNE_DELAY_MS);
+
+		console.log(`  Retrying deploy...`);
+		lastResult = runCommandCapture('bunx', args);
+		if (lastResult.stdout) console.log(lastResult.stdout);
+		if (lastResult.stderr) console.error(lastResult.stderr);
+
+		if (lastResult.success) {
+			console.log(`${colors.green}Recovery succeeded after ${attempt} prune(s)${colors.reset}`);
+			return lastResult;
+		}
+
+		const combined = stripAnsi(lastResult.stdout + '\n' + lastResult.stderr);
+		const stillQuota = /DeploymentQuotaReached/.test(combined);
+		if (!stillQuota) {
+			// Different error — stop looping, let caller report the real failure.
+			console.error(
+				`${colors.red}Retry failed with non-quota error; aborting recovery.${colors.reset}`
+			);
+			return lastResult;
+		}
+		console.log(
+			`${colors.yellow}  Retry still hit quota (likely race with concurrent build). Pruning again...${colors.reset}`
+		);
+	}
+
+	console.error(
+		`${colors.red}Prune fallback exhausted ${MAX_RECOVERY_ATTEMPTS} attempts without success.${colors.reset}`
+	);
+	return lastResult;
 }
 
 /**
