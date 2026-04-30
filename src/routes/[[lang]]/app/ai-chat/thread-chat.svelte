@@ -136,10 +136,13 @@
 						<div class="flex flex-wrap gap-2">
 							{#each suggestions as suggestion, i (suggestion.text)}
 								<div
-									class="motion-safe:animate-[chip-in_375ms_ease-out_both]"
+									class="max-w-full min-w-0 motion-safe:animate-[chip-in_375ms_ease-out_both] sm:max-w-[14rem]"
 									style="animation-delay: {i * 50}ms"
+									title={suggestion.text}
 								>
 									<PromptSuggestion
+										class="w-full"
+										truncate
 										onclick={() => {
 											chatUIContext.setInputValue(suggestion.text);
 											tick().then(() => {

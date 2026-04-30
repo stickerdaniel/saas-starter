@@ -13,6 +13,7 @@
 		onclick?: (event: MouseEvent) => void;
 		disabled?: boolean;
 		type?: 'button' | 'submit' | 'reset';
+		truncate?: boolean;
 	};
 </script>
 
@@ -28,7 +29,8 @@
 		ref = $bindable(null),
 		onclick,
 		disabled,
-		type = 'button'
+		type = 'button',
+		truncate = false
 	}: PromptSuggestionProps = $props();
 
 	const isHighlightMode = $derived(highlight !== undefined && highlight.trim() !== '');
@@ -84,12 +86,18 @@
 		bind:ref
 		variant={variant || 'outline'}
 		size={size || 'lg'}
-		class={cn('rounded-full px-4', className)}
+		class={cn('min-w-0 rounded-lg px-4', className)}
 		{onclick}
 		{disabled}
 		{type}
 	>
-		{@render children?.()}
+		{#if truncate}
+			<span class="block min-w-0 truncate">
+				{@render children?.()}
+			</span>
+		{:else}
+			{@render children?.()}
+		{/if}
 	</Button>
 {:else if !content}
 	<Button
