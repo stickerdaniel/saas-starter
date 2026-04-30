@@ -20,6 +20,7 @@
 
 import { spawnSync, type SpawnSyncOptions } from 'child_process';
 import { parseArgs } from 'util';
+import { getStagedFiles, isUnderPreCommit, sanitizedGitEnv } from './git-context';
 
 // Configuration (matches CI static-checks.yml exclusions)
 const CONFIG = {
@@ -94,22 +95,6 @@ function runCommand(command: string, args: string[], options?: SpawnSyncOptions)
 		console.error(`${colors.red}Command failed: ${command} ${args.join(' ')}${colors.reset}`);
 		process.exit(result.status ?? 1);
 	}
-}
-
-/**
- * Get list of staged files from git
- */
-function getStagedFiles(): string[] {
-	const result = spawnSync('git', ['diff', '--cached', '--name-only', '--diff-filter=ACMR'], {
-		encoding: 'utf-8'
-	});
-
-	if (result.status !== 0) {
-		console.error('Failed to get staged files');
-		process.exit(1);
-	}
-
-	return result.stdout.trim().split('\n').filter(Boolean);
 }
 
 /**
@@ -359,10 +344,19 @@ async function main(): Promise<void> {
 		console.log('\n');
 	}
 
-	// Re-stage files if they were modified during --staged checks
+	// Re-stage files if they were modified during --staged checks.
+	// Sanitized env ensures `git add` writes into the correct index even when
+	// a parent process (e.g. the pre-commit framework) set GIT_DIR/GIT_WORK_TREE.
 	if (mode === 'staged' && !ciMode) {
 		console.log('Re-staging modified files...');
-		runCommand('git', ['add', ...allFiles]);
+		if (isUnderPreCommit()) {
+			console.log(
+				'  (note: pre-commit framework detected. It will report "files were modified ' +
+					'by this hook" and abort the commit. Run `git commit` again with no further ' +
+					'changes to land the auto-fixes.)'
+			);
+		}
+		runCommand('git', ['add', ...allFiles], { env: sanitizedGitEnv() });
 		console.log('');
 	}
 
