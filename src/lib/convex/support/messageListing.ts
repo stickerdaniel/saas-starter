@@ -90,17 +90,27 @@ export async function listMessagesForThread(
 		return { ...paginated, page: enrichedPage, streams };
 	}
 
-	const materializedPage = await mergeRecentStreamsIntoPage(ctx, {
-		threadId: args.threadId,
-		page: enrichedPage,
-		streamMessages: streams.messages ?? []
-	});
+	// Only materialize ACTIVE streams over the historical page. Once a stream
+	// is finished/aborted, the persisted MessageDoc rows are authoritative
+	// (toUIMessages already sets state='output-available' for completed tool
+	// calls). Materializing finished streams was clobbering that with the
+	// in-flight stream snapshot, leaving renderUI stuck at input-streaming
+	// even though the result was saved.
+	const activeStreamMessages = (streams.messages ?? []).filter(
+		(streamMessage) => streamMessage.status === 'streaming'
+	);
+	const materializedPage =
+		activeStreamMessages.length === 0
+			? enrichedPage
+			: await mergeRecentStreamsIntoPage(ctx, {
+					threadId: args.threadId,
+					page: enrichedPage,
+					streamMessages: activeStreamMessages
+				});
 
 	const liveStreams = {
 		kind: 'list' as const,
-		messages: (streams.messages ?? []).filter(
-			(streamMessage) => streamMessage.status === 'streaming'
-		)
+		messages: activeStreamMessages
 	};
 
 	return { ...paginated, page: materializedPage, streams: liveStreams };
