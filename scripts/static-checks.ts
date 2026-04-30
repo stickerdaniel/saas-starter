@@ -293,6 +293,8 @@ async function main(): Promise<void> {
 					formatFlag,
 					'--plugin',
 					'prettier-plugin-svelte',
+					'--plugin',
+					'prettier-plugin-tailwindcss',
 					...formattableFiles
 				]);
 			} else if (!scopedMode) {
