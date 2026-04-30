@@ -216,11 +216,11 @@
 						<div
 							class="max-w-full min-w-0 motion-safe:animate-[chip-in_375ms_ease-out_both] sm:max-w-[14rem]"
 							style="animation-delay: {i * 50}ms"
-							title={suggestion.text}
 						>
 							<PromptSuggestion
 								class="w-full"
 								truncate
+								title={suggestion.text}
 								onclick={() => handleSuggestionClick(suggestion.text)}
 							>
 								{suggestion.label}
