@@ -20,7 +20,7 @@
 
 import { spawnSync, type SpawnSyncOptions } from 'child_process';
 import { parseArgs } from 'util';
-import { getStagedFiles, hasExternalGitContext, sanitizedGitEnv } from './git-context';
+import { getStagedFiles, isUnderPreCommit, sanitizedGitEnv } from './git-context';
 
 // Configuration (matches CI static-checks.yml exclusions)
 const CONFIG = {
@@ -349,11 +349,11 @@ async function main(): Promise<void> {
 	// a parent process (e.g. the pre-commit framework) set GIT_DIR/GIT_WORK_TREE.
 	if (mode === 'staged' && !ciMode) {
 		console.log('Re-staging modified files...');
-		if (hasExternalGitContext()) {
+		if (isUnderPreCommit()) {
 			console.log(
-				'  (note: external git context detected — likely the pre-commit framework. ' +
-					'It will report "files were modified by this hook" and abort the commit. ' +
-					'Run `git commit` again with no further changes to land the auto-fixes.)'
+				'  (note: pre-commit framework detected. It will report "files were modified ' +
+					'by this hook" and abort the commit. Run `git commit` again with no further ' +
+					'changes to land the auto-fixes.)'
 			);
 		}
 		runCommand('git', ['add', ...allFiles], { env: sanitizedGitEnv() });

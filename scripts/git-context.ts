@@ -23,12 +23,15 @@ export function sanitizedGitEnv(): NodeJS.ProcessEnv {
 }
 
 /**
- * True if a parent process supplied git context via env vars. Most commonly
- * the pre-commit framework, but also any `GIT_DIR=… cmd` invocation. Used
- * only for diagnostics — does NOT change behavior.
+ * True if the Python `pre-commit` framework is dispatching this hook
+ * (detected via its `PRE_COMMIT*` env vars). Used only for diagnostics —
+ * does NOT change behavior.
+ *
+ * Note: `GIT_DIR` is intentionally NOT checked. Git sets `GIT_DIR` for
+ * every hook invocation (Husky, native, anything), so it's not a useful
+ * signal for "pre-commit framework specifically."
  */
-export function hasExternalGitContext(): boolean {
-	if (process.env['GIT_DIR']) return true;
+export function isUnderPreCommit(): boolean {
 	return Object.keys(process.env).some((k) => k.startsWith('PRE_COMMIT'));
 }
 

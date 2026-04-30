@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { hasExternalGitContext, sanitizedGitEnv } from './git-context';
+import { isUnderPreCommit, sanitizedGitEnv } from './git-context';
 
 const SCRUBBED = ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE', 'GIT_OBJECT_DIRECTORY'] as const;
 const PRE_COMMIT_KEYS = [
@@ -48,7 +48,7 @@ describe('sanitizedGitEnv', () => {
 	});
 });
 
-describe('hasExternalGitContext', () => {
+describe('isUnderPreCommit', () => {
 	const saved = new Map<string, string | undefined>();
 
 	beforeEach(() => {
@@ -65,21 +65,21 @@ describe('hasExternalGitContext', () => {
 	});
 
 	it('returns false when no relevant env vars are set', () => {
-		expect(hasExternalGitContext()).toBe(false);
+		expect(isUnderPreCommit()).toBe(false);
 	});
 
-	it('returns true when GIT_DIR is set', () => {
+	it('returns false when only GIT_DIR is set (git itself sets this for every hook)', () => {
 		process.env['GIT_DIR'] = '/parent/.git';
-		expect(hasExternalGitContext()).toBe(true);
+		expect(isUnderPreCommit()).toBe(false);
 	});
 
 	it('returns true when PRE_COMMIT is set', () => {
 		process.env['PRE_COMMIT'] = '1';
-		expect(hasExternalGitContext()).toBe(true);
+		expect(isUnderPreCommit()).toBe(true);
 	});
 
 	it('returns true when any PRE_COMMIT_* var is set', () => {
 		process.env['PRE_COMMIT_FROM_REF'] = 'abc123';
-		expect(hasExternalGitContext()).toBe(true);
+		expect(isUnderPreCommit()).toBe(true);
 	});
 });
