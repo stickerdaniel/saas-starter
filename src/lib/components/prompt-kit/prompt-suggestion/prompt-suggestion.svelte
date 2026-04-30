@@ -2,8 +2,12 @@
 	import type { ButtonVariant, ButtonSize } from '$lib/components/ui/button/index.js';
 	import { cn } from '$lib/utils';
 	import type { Snippet } from 'svelte';
+	import type { HTMLAnchorAttributes, HTMLButtonAttributes } from 'svelte/elements';
 
-	export type PromptSuggestionProps = {
+	export type PromptSuggestionProps = Omit<
+		HTMLButtonAttributes & HTMLAnchorAttributes,
+		'class' | 'onclick' | 'disabled' | 'type' | 'children'
+	> & {
 		children?: Snippet;
 		variant?: ButtonVariant;
 		size?: ButtonSize;
@@ -13,6 +17,7 @@
 		onclick?: (event: MouseEvent) => void;
 		disabled?: boolean;
 		type?: 'button' | 'submit' | 'reset';
+		/** Wrap children in a truncating span. Non-highlight mode only — ignored when `highlight` is set. */
 		truncate?: boolean;
 	};
 </script>
@@ -30,7 +35,8 @@
 		onclick,
 		disabled,
 		type = 'button',
-		truncate = false
+		truncate = false,
+		...rest
 	}: PromptSuggestionProps = $props();
 
 	const isHighlightMode = $derived(highlight !== undefined && highlight.trim() !== '');
@@ -90,6 +96,7 @@
 		{onclick}
 		{disabled}
 		{type}
+		{...rest}
 	>
 		{#if truncate}
 			<span class="block min-w-0 truncate">
@@ -108,6 +115,7 @@
 		{onclick}
 		{disabled}
 		{type}
+		{...rest}
 	>
 		{@render children?.()}
 	</Button>
@@ -124,6 +132,7 @@
 		{onclick}
 		{disabled}
 		{type}
+		{...rest}
 	>
 		{#if highlightedContent?.hasMatch}
 			{#if highlightedContent.before}
