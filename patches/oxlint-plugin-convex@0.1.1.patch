@@ -1,10 +1,21 @@
+diff --git a/node_modules/oxlint-plugin-convex/.bun-tag-b39e141e68745619 b/.bun-tag-b39e141e68745619
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
 diff --git a/node_modules/oxlint-plugin-convex/.bun-tag-c2a66dab253f6d5a b/.bun-tag-c2a66dab253f6d5a
 new file mode 100644
 index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
 diff --git a/dist/index.mjs b/dist/index.mjs
-index 197f48d7c6739cd772d131ab8074b4f32bd18731..634557341c136241bba32b8d55127dc1de988afa 100644
+index 197f48d7c6739cd772d131ab8074b4f32bd18731..c9d163837ca8a39f2521ca27cc6f00cd38ebd655 100644
 --- a/dist/index.mjs
 +++ b/dist/index.mjs
+@@ -1,6 +1,6 @@
+ import { readFileSync, readdirSync } from "node:fs";
+ import { extname, join, relative } from "node:path";
+-import { definePlugin, defineRule } from "oxlint";
++import { definePlugin, defineRule } from "@oxlint/plugins";
+ 
+ //#region src/utils.ts
+ /**
 @@ -126,7 +126,9 @@ const DEFAULT_EXTENSIONS = [
  	".ts",
  	".tsx",
