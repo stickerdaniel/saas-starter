@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { T } from '@tolgee/svelte';
-	import { resolve } from '$app/paths';
 	import memberOne from './avatars/member-one.webp';
 	import memberTwo from './avatars/member-two.webp';
 	import memberThree from './avatars/member-three.webp';
@@ -12,38 +11,32 @@
 		{
 			name: 'Liam Brown',
 			roleKey: 'team.roles.founder_ceo',
-			avatar: memberOne,
-			link: '#'
+			avatar: memberOne
 		},
 		{
 			name: 'Elijah Jones',
 			roleKey: 'team.roles.cofounder_cto',
-			avatar: memberTwo,
-			link: '#'
+			avatar: memberTwo
 		},
 		{
 			name: 'Isabella Garcia',
 			roleKey: 'team.roles.sales_manager',
-			avatar: memberThree,
-			link: '#'
+			avatar: memberThree
 		},
 		{
 			name: 'Henry Lee',
 			roleKey: 'team.roles.ux_engineer',
-			avatar: memberFour,
-			link: '#'
+			avatar: memberFour
 		},
 		{
 			name: 'Ava Williams',
 			roleKey: 'team.roles.interaction_designer',
-			avatar: memberFive,
-			link: '#'
+			avatar: memberFive
 		},
 		{
 			name: 'Olivia Miller',
 			roleKey: 'team.roles.visual_designer',
-			avatar: memberSix,
-			link: '#'
+			avatar: memberSix
 		}
 	];
 </script>
@@ -92,7 +85,7 @@
 									<T keyName={member.roleKey} />
 								</span>
 								<a
-									href={resolve(member.link)}
+									href="#"
 									draggable={false}
 									class="inline-block text-sm tracking-wide no-drag group-hover:translate-y-0 group-hover:text-primary group-hover:opacity-100 hover:underline active:translate-y-px motion-safe:translate-y-8 motion-safe:opacity-0 motion-safe:transition-all motion-safe:duration-300"
 								>

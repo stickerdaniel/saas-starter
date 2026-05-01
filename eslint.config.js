@@ -25,9 +25,9 @@ const localPlugin = {
 
 export default defineConfig(
 	includeIgnoreFile(gitignorePath),
-	// Ignore auto-generated Convex files
+	// Ignore auto-generated files
 	{
-		ignores: ['**/_generated/**']
+		ignores: ['**/_generated/**', 'src/env.d.ts', 'src/lib/convex/convex-env.d.ts']
 	},
 	js.configs.recommended,
 	...ts.configs.recommended,
