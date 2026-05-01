@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Html, Head, Body, Preview, Container } from 'better-svelte-email/components';
+	import { Html, Head, Body, Preview, Container } from '@better-svelte-email/components';
 	import {
 		Alert,
 		Avatar,

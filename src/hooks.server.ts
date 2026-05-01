@@ -55,14 +55,6 @@ function isAdminRoute(pathname: string): boolean {
 	return /^\/[a-z]{2}\/admin(\/|$)/.test(pathname);
 }
 
-function isEmailsRoute(pathname: string): boolean {
-	return /^\/[a-z]{2}\/emails(\/|$)/.test(pathname);
-}
-
-function isEmailsApiRoute(pathname: string): boolean {
-	return /^\/api\/emails(\/|$)/.test(pathname);
-}
-
 function isShadcnDemoRoute(pathname: string): boolean {
 	return /^\/[a-z]{2}\/shadcn-demo(\/|$)/.test(pathname);
 }
@@ -91,12 +83,7 @@ export function shouldBypassLanguageRedirect(pathname: string): boolean {
  * Block access to dev-only routes in production
  */
 const handleDevOnlyRoutes: Handle = async function handleDevOnlyRoutes({ event, resolve }) {
-	if (
-		!dev &&
-		(isEmailsRoute(event.url.pathname) ||
-			isEmailsApiRoute(event.url.pathname) ||
-			isShadcnDemoRoute(event.url.pathname))
-	) {
+	if (!dev && isShadcnDemoRoute(event.url.pathname)) {
 		return new Response('Not found', { status: 404 });
 	}
 	return resolve(event);
