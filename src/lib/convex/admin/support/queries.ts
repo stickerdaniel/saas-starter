@@ -108,6 +108,8 @@ export const listThreadsForAdmin = adminQuery({
 							.eq('status', statusFilter)
 							.eq('assignedTo', isUnassigned ? undefined : assignedToFilter)
 					)
+					// Intentional: indexed prefix above; adding isHandedOff to every compound index would bloat schema
+					// eslint-disable-next-line @convex-dev/no-filter-in-query
 					.filter((q) => q.eq(q.field('isHandedOff'), true))
 					.order('desc')
 					.paginate(paginationOpts);
@@ -125,6 +127,8 @@ export const listThreadsForAdmin = adminQuery({
 				supportThreads = await ctx.db
 					.query('supportThreads')
 					.withIndex('by_assigned', (q) => q.eq('assignedTo', undefined))
+					// Intentional: indexed prefix above; adding isHandedOff to every compound index would bloat schema
+					// eslint-disable-next-line @convex-dev/no-filter-in-query
 					.filter((q) => q.eq(q.field('isHandedOff'), true))
 					.order('desc')
 					.paginate(paginationOpts);
@@ -133,6 +137,8 @@ export const listThreadsForAdmin = adminQuery({
 				supportThreads = await ctx.db
 					.query('supportThreads')
 					.withIndex('by_assigned', (q) => q.eq('assignedTo', assignedToFilter))
+					// Intentional: indexed prefix above; adding isHandedOff to every compound index would bloat schema
+					// eslint-disable-next-line @convex-dev/no-filter-in-query
 					.filter((q) => q.eq(q.field('isHandedOff'), true))
 					.order('desc')
 					.paginate(paginationOpts);
