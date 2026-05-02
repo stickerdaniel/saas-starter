@@ -765,6 +765,8 @@ export const deleteEmptyThreads = internalMutation({
 		const oldThreads = await ctx.db
 			.query('supportThreads')
 			.withIndex('by_creation_time')
+			// Intentional: indexed scan + filter for cron-driven cleanup; take(100) bounds the batch
+			// eslint-disable-next-line @convex-dev/no-filter-in-query
 			.filter((q) => q.lt(q.field('_creationTime'), cutoffTime))
 			.take(100); // Batch to avoid timeout
 

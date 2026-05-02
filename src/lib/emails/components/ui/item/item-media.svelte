@@ -21,7 +21,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import type { HTMLAttributes } from 'svelte/elements';
-	import { Column } from 'better-svelte-email/components';
+	import { Column } from '@better-svelte-email/components';
 	import { cn } from '$lib/utils.js';
 
 	let {

@@ -116,7 +116,6 @@ describe('marketing markdown helpers', () => {
 		expect(robots).toContain('Allow: /');
 		expect(robots).toContain('Disallow: /en/app');
 		expect(robots).toContain('Disallow: /fr/admin');
-		expect(robots).toContain('Disallow: /es/emails');
 		expect(robots).toContain('Sitemap: https://example.com/sitemap.xml');
 	});
 

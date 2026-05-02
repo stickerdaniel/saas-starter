@@ -1,6 +1,6 @@
 import prettier from 'eslint-config-prettier';
 import path from 'node:path';
-import { fixupConfigRules, includeIgnoreFile } from '@eslint/compat';
+import { includeIgnoreFile } from '@eslint/compat';
 import js from '@eslint/js';
 import convexPlugin from '@convex-dev/eslint-plugin';
 import svelte from 'eslint-plugin-svelte';
@@ -163,8 +163,8 @@ export default defineConfig(
 			'local/no-hardcoded-sr-only': 'error'
 		}
 	},
-	// Convex best-practice rules (legacy plugin config converted via fixupConfigRules)
-	...fixupConfigRules(convexPlugin.configs.recommended).map((config) => ({
+	// Convex best-practice rules — v2 ships ESLint 9 flat config natively
+	...convexPlugin.configs.recommended.map((config) => ({
 		...config,
 		files: ['**/src/lib/convex/**/*.ts']
 	}))
