@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Html, Head, Body, Preview, Container } from 'better-svelte-email/components';
+	import { Html, Head, Body, Preview, Container } from '@better-svelte-email/components';
 	// Real shadcn-svelte components (not email-safe)
 	import * as Alert from '$lib/components/ui/alert/index.js';
 	import * as Avatar from '$lib/components/ui/avatar/index.js';

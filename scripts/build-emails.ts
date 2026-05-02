@@ -61,8 +61,7 @@ async function createViteServer(): Promise<ViteDevServer> {
 		appType: 'custom',
 		logLevel: 'warn',
 		ssr: {
-			// Bundle better-svelte-email to handle CJS/ESM interop
-			noExternal: ['better-svelte-email', 'prettier']
+			noExternal: ['@better-svelte-email/server', '@better-svelte-email/components', 'prettier']
 		}
 	});
 }
@@ -85,10 +84,7 @@ async function buildEmails() {
 		const { renderer } = (await vite.ssrLoadModule('/src/lib/emails/renderer.ts')) as {
 			renderer: { render: (component: unknown, options: { props: unknown }) => Promise<string> };
 		};
-		const { getEmailComponent } = (await vite.ssrLoadModule('better-svelte-email/preview')) as {
-			getEmailComponent: (path: string, name: string) => Promise<unknown>;
-		};
-		const { toPlainText } = (await vite.ssrLoadModule('better-svelte-email/render')) as {
+		const { toPlainText } = (await vite.ssrLoadModule('@better-svelte-email/server')) as {
 			toPlainText: (html: string) => string;
 		};
 
@@ -101,8 +97,13 @@ async function buildEmails() {
 			try {
 				console.log(`  Rendering ${name}...`);
 
-				// Get the template component
-				const component = await getEmailComponent(TEMPLATES_PATH, name);
+				// Load the template component directly — replaces better-svelte-email's
+				// getEmailComponent helper, which is gone in v2 (and lived in the now
+				// deprecated /preview subpath in v1).
+				const componentModule = (await vite.ssrLoadModule(`${TEMPLATES_PATH}/${name}.svelte`)) as {
+					default: unknown;
+				};
+				const component = componentModule.default;
 
 				// Render with marker props
 				const rawHtml = await renderer.render(component, { props });

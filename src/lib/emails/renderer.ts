@@ -1,4 +1,4 @@
-import Renderer from 'better-svelte-email/render';
+import { Renderer } from '@better-svelte-email/server';
 import layoutStyles from '../../routes/layout.css?raw';
 import preflightCss from 'tailwindcss/preflight.css?raw';
 

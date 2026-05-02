@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Section, Row, Column, Img, Text } from 'better-svelte-email/components';
+	import { Section, Row, Column, Img, Text } from '@better-svelte-email/components';
 	import { cn } from '$lib/utils.js';
 
 	let {

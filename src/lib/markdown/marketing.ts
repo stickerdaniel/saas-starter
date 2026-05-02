@@ -174,8 +174,7 @@ export function renderRobotsTxt(origin: string): string {
 	const baseOrigin = origin.replace(/\/$/, '');
 	const disallowLines = SUPPORTED_LANGUAGES.flatMap((language) => [
 		`Disallow: /${language.code}/app`,
-		`Disallow: /${language.code}/admin`,
-		`Disallow: /${language.code}/emails`
+		`Disallow: /${language.code}/admin`
 	]);
 
 	return [
