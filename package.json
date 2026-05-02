@@ -88,7 +88,8 @@
 		"svelte-toolbelt": "^0.10.6",
 		"valibot": "^1.2.0",
 		"varlock": "^0.9.0",
-		"web-haptics": "^0.0.6"
+		"web-haptics": "^0.0.6",
+		"zod": "^4.3.5"
 	},
 	"devDependencies": {
 		"@axe-core/playwright": "4.11.2",
