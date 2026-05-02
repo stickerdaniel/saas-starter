@@ -2,7 +2,7 @@ import { Context } from 'runed';
 import { ChatDraftManager } from '$lib/chat/core/ChatDraftManager.svelte';
 import type { ConvexClient } from 'convex/browser';
 import type { UIMessagePart, UIDataTypes, UITools } from 'ai';
-import { isToolOrDynamicToolUIPart } from 'ai';
+import { isToolUIPart } from 'ai';
 import { api } from '$lib/convex/_generated/api';
 import type { Attachment, ChatMessage } from '$lib/chat';
 import { StreamCacheManager } from '$lib/chat/core/stream-cache.js';
@@ -190,7 +190,7 @@ export class SupportThreadContext {
 				// Cast needed: MessagePart's catch-all { type: string; [key: string]: unknown }
 				// is structurally compatible but not assignable to UIMessagePart union
 				const part = p as UIMessagePart<UIDataTypes, UITools>;
-				return isToolOrDynamicToolUIPart(part) && part.state === 'input-available' && !part.output;
+				return isToolUIPart(part) && part.state === 'input-available' && !part.output;
 			})
 		);
 	}
