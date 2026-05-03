@@ -331,7 +331,17 @@ export default defineConfig(async ({ mode }) => {
 			include: ['svelte-konva', 'konva']
 		},
 		ssr: {
-			noExternal: ['svelte-konva', '@tolgee/web'],
+			noExternal: [
+				'svelte-konva',
+				'@tolgee/web',
+				// Bundle Svelte-based packages with the same svelte instance as compiled .svelte
+				// files. Without this, they import svelte/server fresh at runtime, get a
+				// separate `ssr_context` variable, and `setContext` throws
+				// `lifecycle_outside_component` even though we ARE in a component init.
+				'@mmailaender/convex-svelte',
+				'@mmailaender/convex-better-auth-svelte',
+				'@stickerdaniel/convex-autumn-svelte'
+			],
 			...(mode === 'production' && {
 				resolve: {
 					conditions: ['production', 'import', 'module', 'default']
