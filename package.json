@@ -162,6 +162,7 @@
 		"oxlint-plugin-convex@0.1.1": "patches/oxlint-plugin-convex@0.1.1.patch"
 	},
 	"overrides": {
-		"zod": "$zod"
+		"zod": "$zod",
+		"@peculiar/asn1-schema": "^2.7.0"
 	}
 }
