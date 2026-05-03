@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { useQuery, useConvexClient } from '@mmailaender/convex-svelte';
+	import { useQuery, useConvexClient } from 'convex-svelte';
 	import type { Snippet } from 'svelte';
 	import type { UIMessage } from '@convex-dev/agent';
 	import { ChatCore, type ChatCoreAPI } from '../core/ChatCore.svelte.js';

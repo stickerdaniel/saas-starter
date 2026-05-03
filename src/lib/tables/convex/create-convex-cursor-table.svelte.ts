@@ -1,6 +1,6 @@
 import { Debounced, watch } from 'runed';
 import { useSearchParams } from 'runed/kit';
-import { useConvexClient, useQuery } from '@mmailaender/convex-svelte';
+import { useConvexClient, useQuery } from 'convex-svelte';
 import { untrack } from 'svelte';
 import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server';
 import type { GenericSchema } from 'valibot';

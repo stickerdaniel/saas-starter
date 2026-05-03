@@ -8,7 +8,7 @@
 	import ActivityIcon from '@lucide/svelte/icons/activity';
 	import UserPlusIcon from '@lucide/svelte/icons/user-plus';
 	import { T, getTranslate } from '@tolgee/svelte';
-	import { useQuery } from '@mmailaender/convex-svelte';
+	import { useQuery } from 'convex-svelte';
 	import { api } from '$lib/convex/_generated/api.js';
 	import { getContext } from 'svelte';
 

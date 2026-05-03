@@ -9,7 +9,7 @@
 	import type { LayoutData } from './$types';
 	import type { Snippet } from 'svelte';
 	import { setContext } from 'svelte';
-	import { useQuery } from '@mmailaender/convex-svelte';
+	import { useQuery } from 'convex-svelte';
 	import { api } from '$lib/convex/_generated/api';
 
 	interface Props {

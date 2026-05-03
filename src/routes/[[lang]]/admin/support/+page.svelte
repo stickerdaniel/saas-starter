@@ -6,7 +6,7 @@
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { useQuery, usePaginatedQuery } from '@mmailaender/convex-svelte';
+	import { useQuery, usePaginatedQuery } from 'convex-svelte';
 	import { api } from '$lib/convex/_generated/api';
 	import { useMedia } from '$lib/hooks/use-media.svelte';
 	import { T, getTranslate } from '@tolgee/svelte';

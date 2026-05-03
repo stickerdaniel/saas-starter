@@ -7,7 +7,7 @@
 	import { resolve } from '$app/paths';
 	import { tick } from 'svelte';
 	import { localizedHref } from '$lib/utils/i18n';
-	import { useQuery, useConvexClient } from '@mmailaender/convex-svelte';
+	import { useQuery, useConvexClient } from 'convex-svelte';
 	import { api } from '$lib/convex/_generated/api';
 	import { getTranslate } from '@tolgee/svelte';
 	import type { LayoutData } from './$types';

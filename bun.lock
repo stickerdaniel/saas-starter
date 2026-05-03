@@ -15,7 +15,7 @@
         "@formkit/auto-animate": "^0.9.0",
         "@gilhrpenner/convex-files-control": "^0.5.1",
         "@humanspeak/svelte-markdown": "^1.0.4",
-        "@mmailaender/convex-better-auth-svelte": "^0.7.3",
+        "@mmailaender/convex-better-auth-svelte": "^0.5.3",
         "@openrouter/ai-sdk-provider": "^2.9.0",
         "@oslojs/crypto": "^1.0.1",
         "@rive-app/canvas": "^2.32.0",
@@ -60,7 +60,6 @@
         "@fontsource-variable/outfit": "5.2.8",
         "@internationalized/date": "3.12.1",
         "@lucide/svelte": "1.12.0",
-        "@mmailaender/convex-svelte": "^0.18.0",
         "@oxlint/plugins": "1.62.0",
         "@playwright/test": "1.59.1",
         "@resvg/resvg-js": "2.6.2",
@@ -86,6 +85,7 @@
         "bun-tasks": "0.1.2",
         "clsx": "2.1.1",
         "convex": "1.36.1",
+        "convex-svelte": "npm:@mmailaender/convex-svelte@0.18.0",
         "convex-vite-plugin": "0.4.0",
         "d3-scale": "4.0.2",
         "d3-shape": "3.2.0",
@@ -589,9 +589,7 @@
 
     "@mishieck/ink-titled-box": ["@mishieck/ink-titled-box@0.3.0", "", { "peerDependencies": { "ink": "^6.0.0", "react": "^19.1.0", "typescript": "^5" } }, "sha512-ugzVH9hixp3hwKfQ8On/qnsrdAxS3y9rTu/aGOFed4zVUvtZyGZNIR4rxAwXult8HKI4vJEh0OM8wib9NPrwUg=="],
 
-    "@mmailaender/convex-better-auth-svelte": ["@mmailaender/convex-better-auth-svelte@0.7.3", "", { "dependencies": { "is-network-error": "^1.3.0" }, "peerDependencies": { "@convex-dev/better-auth": ">=0.10.10", "@mmailaender/convex-svelte": ">=0.15.0", "better-auth": "^1.4.9", "convex": "^1.31.0", "svelte": "^5.0.0" } }, "sha512-wRT1B1etTPWanZSDkXeUGU467+Ux0KF8gvVC/YDqSwzcswxYe3Jkb+1rcsfoQcIrLiW/1lnMRMAJZa9aPd8plQ=="],
-
-    "@mmailaender/convex-svelte": ["@mmailaender/convex-svelte@0.18.0", "", { "dependencies": { "esm-env": "^1.2.2", "runed": "^0.37.1" }, "peerDependencies": { "convex": ">1.10.0", "svelte": ">=5.36.0" } }, "sha512-2dv4cQjThk2Hs9BRrvKv8xc/Z6GqZP428uV9OTzVYBHih65uTF+/r3cqnEnDJv34H2Rr7TOHrfpCu/9aXP2yUg=="],
+    "@mmailaender/convex-better-auth-svelte": ["@mmailaender/convex-better-auth-svelte@0.5.3", "", { "dependencies": { "is-network-error": "^1.3.0" }, "peerDependencies": { "@convex-dev/better-auth": ">=0.10.10", "better-auth": "^1.4.9", "convex": "^1.31.0", "convex-svelte": ">=0.0.12", "svelte": "^5.0.0" } }, "sha512-UEEx1spB2SkhFtx1Is04qzfsXlRxLZtc+71n135LU4WySeyZaLLPUOOqE7KQha22NUNgCJTH9epaWq9srhxVdw=="],
 
     "@napi-rs/wasm-runtime": ["@napi-rs/wasm-runtime@1.1.4", "", { "dependencies": { "@tybys/wasm-util": "^0.10.1" }, "peerDependencies": { "@emnapi/core": "^1.7.1", "@emnapi/runtime": "^1.7.1" } }, "sha512-3NQNNgA1YSlJb/kMH1ildASP9HW7/7kYnRI2szWJaofaS1hWmbGI4H+d3+22aGzXXN9IJ+n+GiFVcGipJP18ow=="],
 
