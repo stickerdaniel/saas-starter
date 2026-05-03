@@ -339,7 +339,7 @@ async function main(): Promise<void> {
 		console.log('\n');
 
 		// Autumn billing config validation (no auth needed, runs locally)
-		printHeader(step++, 'Autumn config');
+		printHeader(step, 'Autumn config');
 		runCommand('bun', ['atmn', 'preview']);
 		console.log('\n');
 	}
