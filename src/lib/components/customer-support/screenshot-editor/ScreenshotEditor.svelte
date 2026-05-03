@@ -3,6 +3,7 @@
 	import { snapdom } from '@zumer/snapdom';
 	import { getTranslate } from '@tolgee/svelte';
 	import { getSnapDOMConfig } from '$lib/utils/snapdom-config';
+	import { processImage } from '$lib/media/process-image';
 	import {
 		ScreenshotEditorState,
 		screenshotEditorContext
@@ -106,17 +107,14 @@
 				canvas.height // Destination height
 			);
 
-			// Export final composite canvas as PNG (lossless, sharp text, LLM compatible)
-			const dataUrl = canvas.toDataURL('image/png');
-
-			// Convert dataURL to Blob
-			const response = await fetch(dataUrl);
-			const blob = await response.blob();
-			const filename = `screenshot-${timestamp}.png`;
-			const dimensions = { width: canvas.width, height: canvas.height };
+			// Resize + WebP encode on a worker (passthrough fallback if WASM init fails).
+			const processed = await processImage(canvas);
+			const ext = processed.mimeType === 'image/webp' ? 'webp' : 'png';
+			const filename = `screenshot-${timestamp}.${ext}`;
+			const dimensions = { width: processed.width, height: processed.height };
 
 			// Pass screenshot to parent via callback
-			onScreenshotSaved?.(blob, filename, dimensions);
+			onScreenshotSaved?.(processed.blob, filename, dimensions);
 
 			// Keep download code for debugging purposes (commented out)
 			// const downloadLink = document.createElement('a');

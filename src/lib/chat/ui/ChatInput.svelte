@@ -18,6 +18,7 @@
 	import ChatAttachments from './ChatAttachments.svelte';
 	import { haptic } from '$lib/hooks/use-haptic.svelte';
 	import { getChatUIContext } from './ChatContext.svelte.js';
+	import { processImage } from '$lib/media/process-image';
 	import {
 		ALLOWED_FILE_EXTENSIONS,
 		ALLOWED_FILE_TYPES,
@@ -127,6 +128,25 @@
 		onScreenshot?.();
 	}
 
+	/**
+	 * Route image-typed files through processImage (resize + WebP encode on a
+	 * worker) before handing them to the upload context. Non-image files pass
+	 * through unchanged. processImage falls back to passthrough on decode/encode
+	 * failure so this never throws for callers.
+	 */
+	async function attachFile(file: File | Blob, filename: string) {
+		let upload: File | Blob = file;
+		let name = filename;
+		if (file.type?.startsWith('image/')) {
+			const processed = await processImage(file);
+			upload = processed.blob;
+			if (!processed.passthrough) {
+				name = name.replace(/\.[^.]+$/, '') + '.webp';
+			}
+		}
+		ctx.uploadFile(upload, name);
+	}
+
 	async function handleFilesAdded(files: File[]) {
 		// Upload files through context (with duplicate detection and size validation)
 		for (const file of files) {
@@ -136,7 +156,8 @@
 				toast.error($t('chat.error.max_attachments', { max: MAX_ATTACHMENTS }));
 				break;
 			}
-			// Check file size
+			// Check file size BEFORE processing — keeps the existing UX contract
+			// and avoids spending CPU on encodes we'd reject afterwards.
 			if (file.size > MAX_FILE_SIZE) {
 				haptic.trigger('error');
 				toast.error($t('chat.error.file_too_large', { filename: file.name }), {
@@ -147,7 +168,7 @@
 			if (!ctx.hasFile(file.name, file.size)) {
 				haptic.trigger('medium');
 				// Fire and forget - context manages progress
-				ctx.uploadFile(file);
+				attachFile(file, file.name);
 			}
 		}
 	}
@@ -198,7 +219,7 @@
 
 			// Check for duplicates (unlikely for pasted files, but consistent with file upload)
 			if (!ctx.hasFile(filename, file.size)) {
-				ctx.uploadFile(file, filename);
+				attachFile(file, filename);
 			}
 		}
 	}
