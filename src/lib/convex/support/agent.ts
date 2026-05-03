@@ -15,7 +15,11 @@ export const supportAgent = new Agent(components.agent, {
 	name: 'Kai',
 
 	// Language model configuration
-	languageModel: openrouter('qwen/qwen3-vl-30b-a3b-thinking'),
+	languageModel: openrouter('google/gemma-4-31b-it', {
+		extraBody: {
+			reasoning: { effort: 'low' }
+		}
+	}),
 
 	// System instructions defining agent behavior
 	instructions: `You are a helpful customer support agent for SaaS Starter, a modern SaaS application template built with SvelteKit, Convex, and Tailwind CSS. Your answers are brief and in WhatsApp style.

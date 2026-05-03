@@ -12,7 +12,11 @@ import { getGeocoding, getWeather } from './tools/weather';
 export const aiChatAgent = new Agent(components.agent, {
 	name: 'Assistant',
 
-	languageModel: openrouter('qwen/qwen3-vl-30b-a3b-thinking'),
+	languageModel: openrouter('google/gemma-4-31b-it', {
+		extraBody: {
+			reasoning: { enabled: true }
+		}
+	}),
 
 	tools: {
 		getGeocoding,
