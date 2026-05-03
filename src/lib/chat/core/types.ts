@@ -244,4 +244,14 @@ export const ALLOWED_FILE_TYPES = [
 export const ALLOWED_FILE_EXTENSIONS = '.png,.jpg,.jpeg,.webp,.gif,.pdf';
 export const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 export const MAX_FILE_SIZE_LABEL = '5MB';
+/**
+ * Absurdity ceiling for image inputs before client-side preprocessing.
+ *
+ * Distinct from MAX_FILE_SIZE: images always shrink through processImage
+ * (resize to MAX_IMAGE_WIDTH + WebP encode), so the only reason to reject
+ * large image inputs is to prevent OOM in createImageBitmap on low-memory
+ * devices. 50MB matches roughly where iPhone Safari decode starts to fail.
+ */
+export const MAX_INPUT_IMAGE_SIZE = 50 * 1024 * 1024; // 50MB
+export const MAX_INPUT_IMAGE_SIZE_LABEL = '50MB';
 export const MAX_ATTACHMENTS = 6;

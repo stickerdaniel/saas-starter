@@ -1594,6 +1594,8 @@
 		"error": {
 			"file_max_size": "Tamaño máximo es {maxSize}",
 			"file_too_large": "Archivo muy grande: \"{filename}\"",
+			"file_type_not_allowed": "Tipo de archivo no permitido: \"{filename}\"",
+			"image_compression_exceeded": "No se pudo comprimir la imagen por debajo de {maxSize}",
 			"max_attachments": "Máximo {max} adjuntos permitidos",
 			"pasted_file_too_large": "Archivo pegado muy grande"
 		},

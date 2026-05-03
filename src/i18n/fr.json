@@ -1594,6 +1594,8 @@
 		"error": {
 			"file_max_size": "Taille maximale : {maxSize}",
 			"file_too_large": "Fichier trop volumineux : \"{filename}\"",
+			"file_type_not_allowed": "Type de fichier non autorisé : \"{filename}\"",
+			"image_compression_exceeded": "L'image n'a pas pu être compressée en dessous de {maxSize}",
 			"max_attachments": "Maximum {max} pièces jointes autorisées",
 			"pasted_file_too_large": "Fichier collé trop volumineux"
 		},

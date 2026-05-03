@@ -24,7 +24,9 @@
 		ALLOWED_FILE_TYPES,
 		MAX_ATTACHMENTS,
 		MAX_FILE_SIZE,
-		MAX_FILE_SIZE_LABEL
+		MAX_FILE_SIZE_LABEL,
+		MAX_INPUT_IMAGE_SIZE,
+		MAX_INPUT_IMAGE_SIZE_LABEL
 	} from '../core/types.js';
 
 	const { t } = getTranslate();
@@ -129,6 +131,59 @@
 	}
 
 	/**
+	 * Map of allowed extension -> canonical MIME type. Used to (a) accept
+	 * drag/drop files when the browser doesn't supply a `File.type` (common
+	 * on macOS Finder) and (b) wrap such a File with a real `type` so the
+	 * image-routing branch below sees an `image/*` mime instead of `''`.
+	 */
+	const EXT_TO_MIME: Record<string, string> = {
+		'.png': 'image/png',
+		'.jpg': 'image/jpeg',
+		'.jpeg': 'image/jpeg',
+		'.webp': 'image/webp',
+		'.gif': 'image/gif',
+		'.pdf': 'application/pdf'
+	};
+
+	/**
+	 * Browser-supplied MIMEs that don't tell us anything specific. For these
+	 * we fall back to the file extension. Any *non*-generic MIME is trusted
+	 * as-is — a file with type `image/heic` named `photo.jpg` must be
+	 * rejected, not silently accepted via the .jpg fallback.
+	 */
+	const GENERIC_MIMES = new Set(['', 'application/octet-stream']);
+
+	function getExt(name: string): string | null {
+		const dot = name.lastIndexOf('.');
+		return dot >= 0 ? name.slice(dot).toLowerCase() : null;
+	}
+
+	function isAllowedKind(file: File): boolean {
+		if (GENERIC_MIMES.has(file.type)) {
+			const ext = getExt(file.name);
+			return ext != null && ext in EXT_TO_MIME;
+		}
+		return ALLOWED_FILE_TYPES.includes(file.type);
+	}
+
+	/**
+	 * When the browser left `File.type` empty or generic, infer it from the
+	 * extension before handing the file to the rest of the pipeline. This is
+	 * the difference between an HEIC drag landing as `image/heic` (rejected)
+	 * vs. a legitimate Finder-dragged `.png` landing as `''` (skipped from
+	 * processImage and uploaded as `application/octet-stream`, then rejected
+	 * server-side). Same generic-only rule as `isAllowedKind` so the two
+	 * helpers stay consistent.
+	 */
+	function normalizeMime(file: File): File {
+		if (!GENERIC_MIMES.has(file.type)) return file;
+		const ext = getExt(file.name);
+		const mime = ext ? EXT_TO_MIME[ext] : undefined;
+		if (!mime) return file;
+		return new File([file], file.name, { type: mime, lastModified: file.lastModified });
+	}
+
+	/**
 	 * Route image-typed files through processImage (resize + WebP encode on a
 	 * worker) before handing them to the upload context. The preprocess
 	 * callback runs INSIDE ctx.uploadFile, after the placeholder attachment
@@ -144,9 +199,21 @@
 					// than the source for screenshots and large photos, but pathological
 					// inputs (already heavily compressed JPEGs, small high-detail tiles)
 					// can re-encode larger. The server enforces MAX_FILE_SIZE on the
-					// stored blob — if the processed bytes exceed that cap, fall back
-					// to the original which already passed the pre-upload size check.
+					// stored blob, so:
+					//   - if both the encoded output AND the original exceed
+					//     MAX_FILE_SIZE, throw — server would reject either, and
+					//     the input cap allows up to MAX_INPUT_IMAGE_SIZE so the
+					//     original may be too big.
+					//   - otherwise fall back to the smaller-than-cap original,
+					//     since the server will accept it as-is.
 					if (processed.blob.size > MAX_FILE_SIZE) {
+						if (input.size > MAX_FILE_SIZE) {
+							throw new Error(
+								$t('chat.error.image_compression_exceeded', {
+									maxSize: MAX_FILE_SIZE_LABEL
+								})
+							);
+						}
 						return {
 							blob: input,
 							mimeType: input.type,
@@ -178,22 +245,39 @@
 
 	async function handleFilesAdded(files: File[]) {
 		// Upload files through context (with duplicate detection and size validation)
-		for (const file of files) {
+		for (const raw of files) {
 			// Check attachment limit
 			if (ctx.attachments.length >= MAX_ATTACHMENTS) {
 				haptic.trigger('error');
 				toast.error($t('chat.error.max_attachments', { max: MAX_ATTACHMENTS }));
 				break;
 			}
-			// Check file size BEFORE processing — keeps the existing UX contract
-			// and avoids spending CPU on encodes we'd reject afterwards.
-			if (file.size > MAX_FILE_SIZE) {
+
+			// MIME allowlist gate (drag/drop bypasses the file picker's
+			// `accept` filter, so HEIC/TIFF/etc. would otherwise slip through
+			// to processImage and waste an upload before the server rejects).
+			if (!isAllowedKind(raw)) {
+				haptic.trigger('error');
+				toast.error($t('chat.error.file_type_not_allowed', { filename: raw.name }));
+				continue;
+			}
+
+			// Normalise BEFORE size/branch checks so attachFile sees a real
+			// MIME type and routes images through processImage.
+			const file = normalizeMime(raw);
+
+			const isImage = file.type.startsWith('image/');
+			const cap = isImage ? MAX_INPUT_IMAGE_SIZE : MAX_FILE_SIZE;
+			const label = isImage ? MAX_INPUT_IMAGE_SIZE_LABEL : MAX_FILE_SIZE_LABEL;
+
+			if (file.size > cap) {
 				haptic.trigger('error');
 				toast.error($t('chat.error.file_too_large', { filename: file.name }), {
-					description: $t('chat.error.file_max_size', { maxSize: MAX_FILE_SIZE_LABEL })
+					description: $t('chat.error.file_max_size', { maxSize: label })
 				});
 				continue;
 			}
+
 			if (!ctx.hasFile(file.name, file.size)) {
 				haptic.trigger('medium');
 				// Fire and forget - context manages progress
@@ -233,10 +317,17 @@
 			const file = item.getAsFile();
 			if (!file) continue;
 
-			// Validate file size
-			if (file.size > MAX_FILE_SIZE) {
+			// Type-aware size cap — images go through processImage which
+			// shrinks them before upload, so we only enforce the absurdity
+			// ceiling on the input. Non-image files upload as-is, so the
+			// 5 MB server cap applies to the input directly.
+			const isImage = file.type.startsWith('image/');
+			const cap = isImage ? MAX_INPUT_IMAGE_SIZE : MAX_FILE_SIZE;
+			const label = isImage ? MAX_INPUT_IMAGE_SIZE_LABEL : MAX_FILE_SIZE_LABEL;
+
+			if (file.size > cap) {
 				toast.error($t('chat.error.pasted_file_too_large'), {
-					description: $t('chat.error.file_max_size', { maxSize: MAX_FILE_SIZE_LABEL })
+					description: $t('chat.error.file_max_size', { maxSize: label })
 				});
 				continue;
 			}
