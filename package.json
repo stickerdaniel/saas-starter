@@ -63,7 +63,7 @@
 		"@svelte-put/lockscroll": "^2.0.1",
 		"@tolgee/format-icu": "^7.0.0",
 		"@tolgee/svelte": "^7.0.0",
-		"@varlock/vite-integration": "^0.2.3",
+		"@varlock/vite-integration": "^1.1.0",
 		"@zumer/snapdom": "^2.0.0",
 		"@zxcvbn-ts/core": "^3.0.4",
 		"@zxcvbn-ts/language-common": "^3.0.4",
@@ -87,7 +87,7 @@
 		"svelte-streamdown": "^3.0.0",
 		"svelte-toolbelt": "^0.10.6",
 		"valibot": "^1.2.0",
-		"varlock": "^0.9.0",
+		"varlock": "^1.1.0",
 		"web-haptics": "^0.0.6",
 		"zod": "^4.4.2"
 	},
