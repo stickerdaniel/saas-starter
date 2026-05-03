@@ -340,7 +340,12 @@ export default defineConfig(async ({ mode }) => {
 				// `lifecycle_outside_component` even though we ARE in a component init.
 				'@mmailaender/convex-svelte',
 				'@mmailaender/convex-better-auth-svelte',
-				'@stickerdaniel/convex-autumn-svelte'
+				'@stickerdaniel/convex-autumn-svelte',
+				// WASM image codec used by the image-processing worker. Bundling avoids
+				// SSR-time `import 'svelte'`-style hazards if the package adds main-thread
+				// surfaces in the future; the worker chunk still keeps the WASM payload out
+				// of the client entry.
+				'@jsquash/webp'
 			],
 			...(mode === 'production' && {
 				resolve: {

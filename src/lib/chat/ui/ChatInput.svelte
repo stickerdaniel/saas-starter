@@ -18,6 +18,7 @@
 	import ChatAttachments from './ChatAttachments.svelte';
 	import { haptic } from '$lib/hooks/use-haptic.svelte';
 	import { getChatUIContext } from './ChatContext.svelte.js';
+	import { processImage } from '$lib/media/process-image';
 	import {
 		ALLOWED_FILE_EXTENSIONS,
 		ALLOWED_FILE_TYPES,
@@ -127,6 +128,54 @@
 		onScreenshot?.();
 	}
 
+	/**
+	 * Route image-typed files through processImage (resize + WebP encode on a
+	 * worker) before handing them to the upload context. The preprocess
+	 * callback runs INSIDE ctx.uploadFile, after the placeholder attachment
+	 * is inserted, so canSend / hasFile / MAX_ATTACHMENTS guards see the
+	 * in-progress attachment during the encode window.
+	 */
+	function attachFile(file: File | Blob, filename: string) {
+		if (file.type?.startsWith('image/')) {
+			ctx.uploadFile(file, filename, {
+				preprocess: async (input) => {
+					const processed = await processImage(input);
+					// Post-process size guard. WebP at q=85 is almost always smaller
+					// than the source for screenshots and large photos, but pathological
+					// inputs (already heavily compressed JPEGs, small high-detail tiles)
+					// can re-encode larger. The server enforces MAX_FILE_SIZE on the
+					// stored blob — if the processed bytes exceed that cap, fall back
+					// to the original which already passed the pre-upload size check.
+					if (processed.blob.size > MAX_FILE_SIZE) {
+						return {
+							blob: input,
+							mimeType: input.type,
+							filename
+							// Skip width/height; ctx.uploadFile will read them off the
+							// original blob.
+						};
+					}
+					return {
+						blob: processed.blob,
+						mimeType: processed.mimeType,
+						// Derive the upload filename from the actual mime type rather
+						// than the passthrough flag; the main-thread fallback also
+						// transforms to WebP, and we never want WebP bytes under a
+						// .png/.jpg name.
+						filename:
+							processed.mimeType === 'image/webp'
+								? filename.replace(/\.[^.]+$/, '') + '.webp'
+								: filename,
+						width: processed.width,
+						height: processed.height
+					};
+				}
+			});
+			return;
+		}
+		ctx.uploadFile(file, filename);
+	}
+
 	async function handleFilesAdded(files: File[]) {
 		// Upload files through context (with duplicate detection and size validation)
 		for (const file of files) {
@@ -136,7 +185,8 @@
 				toast.error($t('chat.error.max_attachments', { max: MAX_ATTACHMENTS }));
 				break;
 			}
-			// Check file size
+			// Check file size BEFORE processing — keeps the existing UX contract
+			// and avoids spending CPU on encodes we'd reject afterwards.
 			if (file.size > MAX_FILE_SIZE) {
 				haptic.trigger('error');
 				toast.error($t('chat.error.file_too_large', { filename: file.name }), {
@@ -147,7 +197,7 @@
 			if (!ctx.hasFile(file.name, file.size)) {
 				haptic.trigger('medium');
 				// Fire and forget - context manages progress
-				ctx.uploadFile(file);
+				attachFile(file, file.name);
 			}
 		}
 	}
@@ -198,7 +248,7 @@
 
 			// Check for duplicates (unlikely for pasted files, but consistent with file upload)
 			if (!ctx.hasFile(filename, file.size)) {
-				ctx.uploadFile(file, filename);
+				attachFile(file, filename);
 			}
 		}
 	}

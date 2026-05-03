@@ -72,13 +72,10 @@ export class ChatUIContext {
 	/** Current input value */
 	inputValue = $state('');
 
-	/** Attachments for current message - keyed by unique ID for progress updates */
+	/** Attachments for current message. Each entry's `key` is the stable id
+	 * used by upload methods to apply progress/success/error updates by value
+	 * rather than by array index. */
 	attachments = $state<Attachment[]>([]);
-
-	/** Internal map for tracking attachment keys (for progress updates) - not reactive, internal only */
-	// eslint-disable-next-line svelte/prefer-svelte-reactivity -- internal tracking map, not reactive state
-	private attachmentKeys = new Map<number, string>();
-	private nextAttachmentIndex = 0;
 
 	/** Tracks if we've ever displayed messages in this session */
 	private _hasEverDisplayedMessages = false;
@@ -254,16 +251,20 @@ export class ChatUIContext {
 	 */
 	clearAttachments(): void {
 		this.attachments = [];
-		this.attachmentKeys.clear();
-		this.nextAttachmentIndex = 0;
 	}
 
 	/**
 	 * Check if a file with the same name and size already exists
 	 */
 	hasFile(name: string, size: number): boolean {
+		// Match either current name+size OR the pre-preprocessing source values.
+		// Without the second branch, image attachments would lose dedup after
+		// they're renamed to .webp on upload — the user could re-paste the same
+		// source image and get duplicate uploads.
 		return this.attachments.some(
-			(a) => (a.type === 'file' || a.type === 'screenshot') && a.name === name && a.size === size
+			(a) =>
+				(a.type === 'file' || a.type === 'screenshot') &&
+				((a.name === name && a.size === size) || (a.sourceName === name && a.sourceSize === size))
 		);
 	}
 
@@ -290,54 +291,106 @@ export class ChatUIContext {
 	 * Progress is tracked automatically
 	 * Images are uploaded as-is (the model supports all allowed formats natively).
 	 */
-	async uploadFile(file: File | Blob, filename?: string): Promise<void> {
+	async uploadFile(
+		file: File | Blob,
+		filename?: string,
+		options?: {
+			/**
+			 * Optional async transform applied between placeholder insertion and the
+			 * actual upload. Used by ChatInput to route image attachments through
+			 * the WebP encoder. The placeholder is inserted synchronously so
+			 * `hasFile`, `MAX_ATTACHMENTS`, and `canSend` see the in-progress
+			 * attachment for the entire preprocess + upload window.
+			 */
+			preprocess?: (input: File | Blob) => Promise<{
+				blob: Blob;
+				mimeType: string;
+				filename?: string;
+				width?: number;
+				height?: number;
+			}>;
+		}
+	): Promise<void> {
 		if (!this.uploadConfig) {
 			throw new Error('Upload config not provided to ChatUIContext');
 		}
 
-		const name = filename ?? (file instanceof File ? file.name : 'file');
-		const attachmentIndex = this.nextAttachmentIndex++;
+		const initialName = filename ?? (file instanceof File ? file.name : 'file');
+		// Stable identity used to update/remove this attachment by value rather
+		// than by array index. User removals or other concurrent uploads shift
+		// the index, so a captured `currentIndex` would target the wrong row.
 		const key = crypto.randomUUID();
-		this.attachmentKeys.set(attachmentIndex, key);
 
-		let width: number | undefined;
-		let height: number | undefined;
-		const mimeType = file.type;
-
-		// Get dimensions for image metadata (used for dialog sizing)
-		if (file.type.startsWith('image/')) {
-			const dims = await this.getImageDimensions(file);
-			if (dims.width > 0 && dims.height > 0) {
-				width = dims.width;
-				height = dims.height;
-			}
-		}
-
-		// Add optimistic attachment with uploading state
-		const newAttachment: Attachment = {
+		// Synchronously insert the placeholder BEFORE any await so concurrent
+		// callers (e.g. handleFilesAdded looping over a batch) see the limit
+		// and dedup state immediately.
+		const initialPreview = file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined;
+		const placeholder: Attachment = {
 			type: 'file',
-			name,
+			key,
+			name: initialName,
 			size: file.size,
-			mimeType,
-			preview: mimeType.startsWith('image/') ? URL.createObjectURL(file) : undefined,
+			mimeType: file.type,
+			preview: initialPreview,
 			uploadState: { status: 'uploading', progress: 0 },
-			width,
-			height
+			// Source metadata persists across the rename in preprocess so dedup
+			// still matches when the user re-pastes the same image.
+			sourceName: initialName,
+			sourceSize: file.size
 		};
-
-		this.attachments = [...this.attachments, newAttachment];
-		const currentIndex = this.attachments.length - 1;
+		this.attachments = [...this.attachments, placeholder];
 
 		try {
+			let uploadBlob: File | Blob = file;
+			let uploadName = initialName;
+			let uploadMime = file.type;
+			let width: number | undefined;
+			let height: number | undefined;
+
+			if (options?.preprocess) {
+				const processed = await options.preprocess(file);
+				uploadBlob = processed.blob;
+				uploadMime = processed.mimeType;
+				if (processed.filename) uploadName = processed.filename;
+				width = processed.width;
+				height = processed.height;
+				// Reflect post-process metadata on the placeholder so the UI shows
+				// the final size and name during the actual upload.
+				this.attachments = this.attachments.map((a) =>
+					'key' in a && a.key === key
+						? { ...a, name: uploadName, mimeType: uploadMime, size: uploadBlob.size }
+						: a
+				);
+			}
+
+			// Read dimensions only when preprocess didn't supply them. Image-typed
+			// files paths from preprocess always do; SVG/animated-GIF passthrough
+			// reports valid dims too. This is the legacy fallback.
+			if (uploadMime.startsWith('image/') && (width === undefined || height === undefined)) {
+				const dims = await this.getImageDimensions(uploadBlob);
+				if (dims.width > 0 && dims.height > 0) {
+					width = dims.width;
+					height = dims.height;
+				}
+			}
+			if (width && height) {
+				this.attachments = this.attachments.map((a) =>
+					'key' in a && a.key === key ? { ...a, width, height } : a
+				);
+			}
+
 			const accessKey = this.uploadConfig?.getAccessKey?.();
 			const result = await uploadFileWithProgress(
 				this.client,
-				file,
-				name,
+				uploadBlob,
+				uploadName,
 				(progress) => {
-					// Update progress for this specific attachment
-					this.attachments = this.attachments.map((a, i) =>
-						i === currentIndex && (a.type === 'file' || a.type === 'screenshot') && a.uploadState
+					// Update progress for this specific attachment by stable key
+					this.attachments = this.attachments.map((a) =>
+						'key' in a &&
+						a.key === key &&
+						(a.type === 'file' || a.type === 'screenshot') &&
+						a.uploadState
 							? { ...a, uploadState: { ...a.uploadState, progress } }
 							: a
 					);
@@ -348,8 +401,8 @@ export class ChatUIContext {
 			);
 
 			// Mark as success
-			this.attachments = this.attachments.map((a, i) =>
-				i === currentIndex
+			this.attachments = this.attachments.map((a) =>
+				'key' in a && a.key === key
 					? {
 							...a,
 							url: result.url,
@@ -358,9 +411,9 @@ export class ChatUIContext {
 					: a
 			);
 		} catch (error) {
-			// Remove failed attachment and show toast
-			this.attachments = this.attachments.filter((_, i) => i !== currentIndex);
-			toast.error(`Failed to upload "${name}"`, {
+			// Remove failed attachment by key (not stale index) and show toast
+			this.attachments = this.attachments.filter((a) => !('key' in a) || a.key !== key);
+			toast.error(`Failed to upload "${initialName}"`, {
 				description: error instanceof Error ? error.message : 'Upload failed'
 			});
 		}
@@ -378,13 +431,12 @@ export class ChatUIContext {
 			throw new Error('Upload config not provided to ChatUIContext');
 		}
 
-		const attachmentIndex = this.nextAttachmentIndex++;
 		const key = crypto.randomUUID();
-		this.attachmentKeys.set(attachmentIndex, key);
 
 		// Add optimistic attachment with uploading state
 		const newAttachment: Attachment = {
 			type: 'screenshot',
+			key,
 			name: filename,
 			size: blob.size,
 			mimeType: blob.type,
@@ -395,7 +447,6 @@ export class ChatUIContext {
 		};
 
 		this.attachments = [...this.attachments, newAttachment];
-		const currentIndex = this.attachments.length - 1;
 
 		try {
 			const accessKey = this.uploadConfig?.getAccessKey?.();
@@ -404,8 +455,11 @@ export class ChatUIContext {
 				blob,
 				filename,
 				(progress) => {
-					this.attachments = this.attachments.map((a, i) =>
-						i === currentIndex && (a.type === 'file' || a.type === 'screenshot') && a.uploadState
+					this.attachments = this.attachments.map((a) =>
+						'key' in a &&
+						a.key === key &&
+						(a.type === 'file' || a.type === 'screenshot') &&
+						a.uploadState
 							? { ...a, uploadState: { ...a.uploadState, progress } }
 							: a
 					);
@@ -416,8 +470,8 @@ export class ChatUIContext {
 			);
 
 			// Mark as success
-			this.attachments = this.attachments.map((a, i) =>
-				i === currentIndex
+			this.attachments = this.attachments.map((a) =>
+				'key' in a && a.key === key
 					? {
 							...a,
 							url: result.url,
@@ -426,8 +480,8 @@ export class ChatUIContext {
 					: a
 			);
 		} catch (error) {
-			// Remove failed attachment and show toast
-			this.attachments = this.attachments.filter((_, i) => i !== currentIndex);
+			// Remove failed attachment by key and show toast
+			this.attachments = this.attachments.filter((a) => !('key' in a) || a.key !== key);
 			toast.error(`Failed to upload "${filename}"`, {
 				description: error instanceof Error ? error.message : 'Upload failed'
 			});

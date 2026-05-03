@@ -23,6 +23,9 @@ export type UploadState = {
 export type Attachment =
 	| {
 			type: 'file';
+			/** Stable identity used by ChatUIContext to update/remove this entry while
+			 * concurrent uploads or user removals shift array indices. */
+			key?: string;
 			name: string;
 			size: number;
 			mimeType: string;
@@ -32,9 +35,14 @@ export type Attachment =
 			uploadState?: UploadState;
 			width?: number;
 			height?: number;
+			/** Original filename before client-side preprocessing (e.g. WebP encode). Used for dedup. */
+			sourceName?: string;
+			/** Original byte size before client-side preprocessing. Used for dedup. */
+			sourceSize?: number;
 	  }
 	| {
 			type: 'screenshot';
+			key?: string;
 			name: string;
 			size: number;
 			mimeType: string;
@@ -44,6 +52,8 @@ export type Attachment =
 			uploadState?: UploadState;
 			width?: number;
 			height?: number;
+			sourceName?: string;
+			sourceSize?: number;
 	  }
 	| { type: 'image'; url: string; filename?: string; width?: number; height?: number }
 	| {
