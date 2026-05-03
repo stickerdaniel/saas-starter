@@ -211,7 +211,7 @@ async function createUser(
 			if (msg.includes('ECONNREFUSED')) {
 				console.error('[Setup] Error: Could not connect to the server.');
 				console.error('[Setup] The dev server should be started by Playwright automatically.');
-				throw new Error('Server connection failed');
+				throw new Error('Server connection failed', { cause: error });
 			}
 		}
 		throw error;

@@ -51,6 +51,13 @@ export default defineConfig(
 				parser: ts.parser,
 				svelteConfig
 			}
+		},
+		rules: {
+			// $bindable() / $props() destructuring patterns trip ESLint v10's
+			// `no-useless-assignment` because the rule doesn't understand runes.
+			// Default values like `ref = $bindable(null)` are real defaults that
+			// the Svelte compiler uses when the prop isn't passed.
+			'no-useless-assignment': 'off'
 		}
 	},
 	// Project-specific TypeScript rule overrides
