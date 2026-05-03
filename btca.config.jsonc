@@ -413,6 +413,13 @@
 			"branch": "develop",
 			"searchPath": "packages/sveltekit",
 			"specialNotes": "Sentry SvelteKit SDK. Error monitoring, performance tracing, source maps, hooks integration."
+		},
+		{
+			"type": "git",
+			"name": "jsquash",
+			"url": "https://github.com/jamsinclair/jSquash",
+			"branch": "main",
+			"specialNotes": "WASM image codecs (WebP/AVIF/JPEG/PNG/JXL/OXIPNG/QOI). Used for client-side encode in workers. Each codec is a separate package under packages/ — @jsquash/webp at packages/webp."
 		}
 	],
 	"model": "gpt-5.4-mini",

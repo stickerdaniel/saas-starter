@@ -54,6 +54,7 @@
 		"@formkit/auto-animate": "^0.9.0",
 		"@gilhrpenner/convex-files-control": "^0.5.1",
 		"@humanspeak/svelte-markdown": "^1.0.4",
+		"@jsquash/webp": "^1.5.0",
 		"@mmailaender/convex-better-auth-svelte": "^0.7.3",
 		"@openrouter/ai-sdk-provider": "^2.9.0",
 		"@oslojs/crypto": "^1.0.1",
