@@ -231,21 +231,24 @@ export async function processImage(
 		//    encode on the main thread so the output respects the same upload
 		//    cap as the happy path; without this, a passthrough of a 4K
 		//    screenshot exceeds the 5 MB server-side limit and the upload fails.
+		//    Note: `passthrough` is `false` here because the bytes have been
+		//    transformed (resize + WebP/PNG re-encode); the field marks
+		//    "untransformed", not "fell off the worker path".
 		console.warn('processImage falling back to main-thread encode:', err);
 		try {
 			if (input instanceof HTMLCanvasElement) {
 				const out = await fallbackResizeAndEncode(input, input.width, input.height, maxWidth);
-				return { ...out, passthrough: true };
+				return { ...out, passthrough: false };
 			}
 			if (typeof ImageBitmap !== 'undefined' && input instanceof ImageBitmap) {
 				const out = await fallbackResizeAndEncode(input, input.width, input.height, maxWidth);
-				return { ...out, passthrough: true };
+				return { ...out, passthrough: false };
 			}
 			if (input instanceof Blob) {
 				const bitmap = await createImageBitmap(input);
 				const out = await fallbackResizeAndEncode(bitmap, bitmap.width, bitmap.height, maxWidth);
 				bitmap.close();
-				return { ...out, passthrough: true };
+				return { ...out, passthrough: false };
 			}
 		} catch (fallbackErr) {
 			console.warn('processImage main-thread fallback also failed:', fallbackErr);

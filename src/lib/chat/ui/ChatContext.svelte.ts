@@ -72,13 +72,10 @@ export class ChatUIContext {
 	/** Current input value */
 	inputValue = $state('');
 
-	/** Attachments for current message - keyed by unique ID for progress updates */
+	/** Attachments for current message. Each entry's `key` is the stable id
+	 * used by upload methods to apply progress/success/error updates by value
+	 * rather than by array index. */
 	attachments = $state<Attachment[]>([]);
-
-	/** Internal map for tracking attachment keys (for progress updates) - not reactive, internal only */
-	// eslint-disable-next-line svelte/prefer-svelte-reactivity -- internal tracking map, not reactive state
-	private attachmentKeys = new Map<number, string>();
-	private nextAttachmentIndex = 0;
 
 	/** Tracks if we've ever displayed messages in this session */
 	private _hasEverDisplayedMessages = false;
@@ -254,8 +251,6 @@ export class ChatUIContext {
 	 */
 	clearAttachments(): void {
 		this.attachments = [];
-		this.attachmentKeys.clear();
-		this.nextAttachmentIndex = 0;
 	}
 
 	/**
@@ -321,9 +316,10 @@ export class ChatUIContext {
 		}
 
 		const initialName = filename ?? (file instanceof File ? file.name : 'file');
-		const attachmentIndex = this.nextAttachmentIndex++;
+		// Stable identity used to update/remove this attachment by value rather
+		// than by array index. User removals or other concurrent uploads shift
+		// the index, so a captured `currentIndex` would target the wrong row.
 		const key = crypto.randomUUID();
-		this.attachmentKeys.set(attachmentIndex, key);
 
 		// Synchronously insert the placeholder BEFORE any await so concurrent
 		// callers (e.g. handleFilesAdded looping over a batch) see the limit
@@ -331,6 +327,7 @@ export class ChatUIContext {
 		const initialPreview = file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined;
 		const placeholder: Attachment = {
 			type: 'file',
+			key,
 			name: initialName,
 			size: file.size,
 			mimeType: file.type,
@@ -342,7 +339,6 @@ export class ChatUIContext {
 			sourceSize: file.size
 		};
 		this.attachments = [...this.attachments, placeholder];
-		const currentIndex = this.attachments.length - 1;
 
 		try {
 			let uploadBlob: File | Blob = file;
@@ -360,8 +356,8 @@ export class ChatUIContext {
 				height = processed.height;
 				// Reflect post-process metadata on the placeholder so the UI shows
 				// the final size and name during the actual upload.
-				this.attachments = this.attachments.map((a, i) =>
-					i === currentIndex
+				this.attachments = this.attachments.map((a) =>
+					'key' in a && a.key === key
 						? { ...a, name: uploadName, mimeType: uploadMime, size: uploadBlob.size }
 						: a
 				);
@@ -378,8 +374,8 @@ export class ChatUIContext {
 				}
 			}
 			if (width && height) {
-				this.attachments = this.attachments.map((a, i) =>
-					i === currentIndex ? { ...a, width, height } : a
+				this.attachments = this.attachments.map((a) =>
+					'key' in a && a.key === key ? { ...a, width, height } : a
 				);
 			}
 
@@ -389,9 +385,12 @@ export class ChatUIContext {
 				uploadBlob,
 				uploadName,
 				(progress) => {
-					// Update progress for this specific attachment
-					this.attachments = this.attachments.map((a, i) =>
-						i === currentIndex && (a.type === 'file' || a.type === 'screenshot') && a.uploadState
+					// Update progress for this specific attachment by stable key
+					this.attachments = this.attachments.map((a) =>
+						'key' in a &&
+						a.key === key &&
+						(a.type === 'file' || a.type === 'screenshot') &&
+						a.uploadState
 							? { ...a, uploadState: { ...a.uploadState, progress } }
 							: a
 					);
@@ -402,8 +401,8 @@ export class ChatUIContext {
 			);
 
 			// Mark as success
-			this.attachments = this.attachments.map((a, i) =>
-				i === currentIndex
+			this.attachments = this.attachments.map((a) =>
+				'key' in a && a.key === key
 					? {
 							...a,
 							url: result.url,
@@ -412,8 +411,8 @@ export class ChatUIContext {
 					: a
 			);
 		} catch (error) {
-			// Remove failed attachment and show toast
-			this.attachments = this.attachments.filter((_, i) => i !== currentIndex);
+			// Remove failed attachment by key (not stale index) and show toast
+			this.attachments = this.attachments.filter((a) => !('key' in a) || a.key !== key);
 			toast.error(`Failed to upload "${initialName}"`, {
 				description: error instanceof Error ? error.message : 'Upload failed'
 			});
@@ -432,13 +431,12 @@ export class ChatUIContext {
 			throw new Error('Upload config not provided to ChatUIContext');
 		}
 
-		const attachmentIndex = this.nextAttachmentIndex++;
 		const key = crypto.randomUUID();
-		this.attachmentKeys.set(attachmentIndex, key);
 
 		// Add optimistic attachment with uploading state
 		const newAttachment: Attachment = {
 			type: 'screenshot',
+			key,
 			name: filename,
 			size: blob.size,
 			mimeType: blob.type,
@@ -449,7 +447,6 @@ export class ChatUIContext {
 		};
 
 		this.attachments = [...this.attachments, newAttachment];
-		const currentIndex = this.attachments.length - 1;
 
 		try {
 			const accessKey = this.uploadConfig?.getAccessKey?.();
@@ -458,8 +455,11 @@ export class ChatUIContext {
 				blob,
 				filename,
 				(progress) => {
-					this.attachments = this.attachments.map((a, i) =>
-						i === currentIndex && (a.type === 'file' || a.type === 'screenshot') && a.uploadState
+					this.attachments = this.attachments.map((a) =>
+						'key' in a &&
+						a.key === key &&
+						(a.type === 'file' || a.type === 'screenshot') &&
+						a.uploadState
 							? { ...a, uploadState: { ...a.uploadState, progress } }
 							: a
 					);
@@ -470,8 +470,8 @@ export class ChatUIContext {
 			);
 
 			// Mark as success
-			this.attachments = this.attachments.map((a, i) =>
-				i === currentIndex
+			this.attachments = this.attachments.map((a) =>
+				'key' in a && a.key === key
 					? {
 							...a,
 							url: result.url,
@@ -480,8 +480,8 @@ export class ChatUIContext {
 					: a
 			);
 		} catch (error) {
-			// Remove failed attachment and show toast
-			this.attachments = this.attachments.filter((_, i) => i !== currentIndex);
+			// Remove failed attachment by key and show toast
+			this.attachments = this.attachments.filter((a) => !('key' in a) || a.key !== key);
 			toast.error(`Failed to upload "${filename}"`, {
 				description: error instanceof Error ? error.message : 'Upload failed'
 			});

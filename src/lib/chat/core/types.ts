@@ -23,6 +23,9 @@ export type UploadState = {
 export type Attachment =
 	| {
 			type: 'file';
+			/** Stable identity used by ChatUIContext to update/remove this entry while
+			 * concurrent uploads or user removals shift array indices. */
+			key?: string;
 			name: string;
 			size: number;
 			mimeType: string;
@@ -39,6 +42,7 @@ export type Attachment =
 	  }
 	| {
 			type: 'screenshot';
+			key?: string;
 			name: string;
 			size: number;
 			mimeType: string;

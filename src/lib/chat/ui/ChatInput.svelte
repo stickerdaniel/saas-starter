@@ -143,7 +143,14 @@
 					return {
 						blob: processed.blob,
 						mimeType: processed.mimeType,
-						filename: processed.passthrough ? filename : filename.replace(/\.[^.]+$/, '') + '.webp',
+						// Derive the upload filename from the actual mime type rather
+						// than the passthrough flag; the main-thread fallback also
+						// transforms to WebP, and we never want WebP bytes under a
+						// .png/.jpg name.
+						filename:
+							processed.mimeType === 'image/webp'
+								? filename.replace(/\.[^.]+$/, '') + '.webp'
+								: filename,
 						width: processed.width,
 						height: processed.height
 					};
