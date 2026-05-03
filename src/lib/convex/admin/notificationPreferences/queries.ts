@@ -118,7 +118,7 @@ function sortNotificationRecipients(
 	const direction = sortBy.direction === 'asc' ? 1 : -1;
 	const sorted = [...recipients];
 	sorted.sort((a, b) => {
-		let result = 0;
+		let result: number;
 
 		if (sortBy.field === 'email') {
 			result = a.email.localeCompare(b.email);
