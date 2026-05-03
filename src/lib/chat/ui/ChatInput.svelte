@@ -130,21 +130,28 @@
 
 	/**
 	 * Route image-typed files through processImage (resize + WebP encode on a
-	 * worker) before handing them to the upload context. Non-image files pass
-	 * through unchanged. processImage falls back to passthrough on decode/encode
-	 * failure so this never throws for callers.
+	 * worker) before handing them to the upload context. The preprocess
+	 * callback runs INSIDE ctx.uploadFile, after the placeholder attachment
+	 * is inserted, so canSend / hasFile / MAX_ATTACHMENTS guards see the
+	 * in-progress attachment during the encode window.
 	 */
-	async function attachFile(file: File | Blob, filename: string) {
-		let upload: File | Blob = file;
-		let name = filename;
+	function attachFile(file: File | Blob, filename: string) {
 		if (file.type?.startsWith('image/')) {
-			const processed = await processImage(file);
-			upload = processed.blob;
-			if (!processed.passthrough) {
-				name = name.replace(/\.[^.]+$/, '') + '.webp';
-			}
+			ctx.uploadFile(file, filename, {
+				preprocess: async (input) => {
+					const processed = await processImage(input);
+					return {
+						blob: processed.blob,
+						mimeType: processed.mimeType,
+						filename: processed.passthrough ? filename : filename.replace(/\.[^.]+$/, '') + '.webp',
+						width: processed.width,
+						height: processed.height
+					};
+				}
+			});
+			return;
 		}
-		ctx.uploadFile(upload, name);
+		ctx.uploadFile(file, filename);
 	}
 
 	async function handleFilesAdded(files: File[]) {

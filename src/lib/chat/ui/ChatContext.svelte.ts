@@ -290,50 +290,94 @@ export class ChatUIContext {
 	 * Progress is tracked automatically
 	 * Images are uploaded as-is (the model supports all allowed formats natively).
 	 */
-	async uploadFile(file: File | Blob, filename?: string): Promise<void> {
+	async uploadFile(
+		file: File | Blob,
+		filename?: string,
+		options?: {
+			/**
+			 * Optional async transform applied between placeholder insertion and the
+			 * actual upload. Used by ChatInput to route image attachments through
+			 * the WebP encoder. The placeholder is inserted synchronously so
+			 * `hasFile`, `MAX_ATTACHMENTS`, and `canSend` see the in-progress
+			 * attachment for the entire preprocess + upload window.
+			 */
+			preprocess?: (input: File | Blob) => Promise<{
+				blob: Blob;
+				mimeType: string;
+				filename?: string;
+				width?: number;
+				height?: number;
+			}>;
+		}
+	): Promise<void> {
 		if (!this.uploadConfig) {
 			throw new Error('Upload config not provided to ChatUIContext');
 		}
 
-		const name = filename ?? (file instanceof File ? file.name : 'file');
+		const initialName = filename ?? (file instanceof File ? file.name : 'file');
 		const attachmentIndex = this.nextAttachmentIndex++;
 		const key = crypto.randomUUID();
 		this.attachmentKeys.set(attachmentIndex, key);
 
-		let width: number | undefined;
-		let height: number | undefined;
-		const mimeType = file.type;
-
-		// Get dimensions for image metadata (used for dialog sizing)
-		if (file.type.startsWith('image/')) {
-			const dims = await this.getImageDimensions(file);
-			if (dims.width > 0 && dims.height > 0) {
-				width = dims.width;
-				height = dims.height;
-			}
-		}
-
-		// Add optimistic attachment with uploading state
-		const newAttachment: Attachment = {
+		// Synchronously insert the placeholder BEFORE any await so concurrent
+		// callers (e.g. handleFilesAdded looping over a batch) see the limit
+		// and dedup state immediately.
+		const initialPreview = file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined;
+		const placeholder: Attachment = {
 			type: 'file',
-			name,
+			name: initialName,
 			size: file.size,
-			mimeType,
-			preview: mimeType.startsWith('image/') ? URL.createObjectURL(file) : undefined,
-			uploadState: { status: 'uploading', progress: 0 },
-			width,
-			height
+			mimeType: file.type,
+			preview: initialPreview,
+			uploadState: { status: 'uploading', progress: 0 }
 		};
-
-		this.attachments = [...this.attachments, newAttachment];
+		this.attachments = [...this.attachments, placeholder];
 		const currentIndex = this.attachments.length - 1;
 
 		try {
+			let uploadBlob: File | Blob = file;
+			let uploadName = initialName;
+			let uploadMime = file.type;
+			let width: number | undefined;
+			let height: number | undefined;
+
+			if (options?.preprocess) {
+				const processed = await options.preprocess(file);
+				uploadBlob = processed.blob;
+				uploadMime = processed.mimeType;
+				if (processed.filename) uploadName = processed.filename;
+				width = processed.width;
+				height = processed.height;
+				// Reflect post-process metadata on the placeholder so the UI shows
+				// the final size and name during the actual upload.
+				this.attachments = this.attachments.map((a, i) =>
+					i === currentIndex
+						? { ...a, name: uploadName, mimeType: uploadMime, size: uploadBlob.size }
+						: a
+				);
+			}
+
+			// Read dimensions only when preprocess didn't supply them. Image-typed
+			// files paths from preprocess always do; SVG/animated-GIF passthrough
+			// reports valid dims too. This is the legacy fallback.
+			if (uploadMime.startsWith('image/') && (width === undefined || height === undefined)) {
+				const dims = await this.getImageDimensions(uploadBlob);
+				if (dims.width > 0 && dims.height > 0) {
+					width = dims.width;
+					height = dims.height;
+				}
+			}
+			if (width && height) {
+				this.attachments = this.attachments.map((a, i) =>
+					i === currentIndex ? { ...a, width, height } : a
+				);
+			}
+
 			const accessKey = this.uploadConfig?.getAccessKey?.();
 			const result = await uploadFileWithProgress(
 				this.client,
-				file,
-				name,
+				uploadBlob,
+				uploadName,
 				(progress) => {
 					// Update progress for this specific attachment
 					this.attachments = this.attachments.map((a, i) =>
@@ -360,7 +404,7 @@ export class ChatUIContext {
 		} catch (error) {
 			// Remove failed attachment and show toast
 			this.attachments = this.attachments.filter((_, i) => i !== currentIndex);
-			toast.error(`Failed to upload "${name}"`, {
+			toast.error(`Failed to upload "${initialName}"`, {
 				description: error instanceof Error ? error.message : 'Upload failed'
 			});
 		}

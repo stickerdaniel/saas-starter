@@ -44,6 +44,20 @@ let workerInstance: Worker | null = null;
 let nextRequestId = 1;
 const pending = new Map<number, PendingRequest>();
 
+function destroyWorker(reason: Error) {
+	const worker = workerInstance;
+	workerInstance = null;
+	for (const entry of pending.values()) entry.reject(reason);
+	pending.clear();
+	if (worker) {
+		try {
+			worker.terminate();
+		} catch {
+			// best-effort cleanup
+		}
+	}
+}
+
 function getWorker(): Worker {
 	if (workerInstance) return workerInstance;
 	const worker = new Worker(new URL('./process-image.worker.ts', import.meta.url), {
@@ -64,11 +78,15 @@ function getWorker(): Worker {
 		}
 		entry.resolve({ buffer: msg.buffer, width: msg.width, height: msg.height });
 	});
+	// Worker-level fatal errors (script load failure, uncaught throw, OOM) and
+	// structured-clone failures both leave the worker unusable. Reject in-flight
+	// requests, terminate the worker, and null the singleton so the next
+	// processImage() call can spawn a fresh one.
 	worker.addEventListener('error', (e) => {
-		// Reject every in-flight request so callers fall back to passthrough.
-		const error = new Error(e.message || 'Image worker crashed');
-		for (const entry of pending.values()) entry.reject(error);
-		pending.clear();
+		destroyWorker(new Error(e.message || 'Image worker crashed'));
+	});
+	worker.addEventListener('messageerror', () => {
+		destroyWorker(new Error('Image worker received an undeserializable message'));
 	});
 	workerInstance = worker;
 	return worker;
