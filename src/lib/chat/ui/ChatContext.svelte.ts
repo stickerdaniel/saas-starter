@@ -262,8 +262,14 @@ export class ChatUIContext {
 	 * Check if a file with the same name and size already exists
 	 */
 	hasFile(name: string, size: number): boolean {
+		// Match either current name+size OR the pre-preprocessing source values.
+		// Without the second branch, image attachments would lose dedup after
+		// they're renamed to .webp on upload — the user could re-paste the same
+		// source image and get duplicate uploads.
 		return this.attachments.some(
-			(a) => (a.type === 'file' || a.type === 'screenshot') && a.name === name && a.size === size
+			(a) =>
+				(a.type === 'file' || a.type === 'screenshot') &&
+				((a.name === name && a.size === size) || (a.sourceName === name && a.sourceSize === size))
 		);
 	}
 
@@ -329,7 +335,11 @@ export class ChatUIContext {
 			size: file.size,
 			mimeType: file.type,
 			preview: initialPreview,
-			uploadState: { status: 'uploading', progress: 0 }
+			uploadState: { status: 'uploading', progress: 0 },
+			// Source metadata persists across the rename in preprocess so dedup
+			// still matches when the user re-pastes the same image.
+			sourceName: initialName,
+			sourceSize: file.size
 		};
 		this.attachments = [...this.attachments, placeholder];
 		const currentIndex = this.attachments.length - 1;

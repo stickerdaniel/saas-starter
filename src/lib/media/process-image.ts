@@ -96,13 +96,45 @@ async function canvasToBitmap(canvas: HTMLCanvasElement): Promise<ImageBitmap> {
 	return await createImageBitmap(canvas);
 }
 
-async function blobFromCanvas(canvas: HTMLCanvasElement): Promise<Blob> {
-	return await new Promise<Blob>((resolve, reject) => {
-		canvas.toBlob(
-			(b) => (b ? resolve(b) : reject(new Error('canvas.toBlob returned null'))),
-			'image/png'
-		);
-	});
+/**
+ * Main-thread resize + encode used as a fallback when the worker / WASM init
+ * fails. This still gives us the most important property of the pipeline —
+ * the output fits the server-side 5 MB cap even for large screenshots — by
+ * resizing to `maxWidth` on a regular canvas and encoding via the browser's
+ * native `canvas.toBlob`.
+ *
+ * Native `canvas.toBlob('image/webp', q)` is materially lower fidelity than
+ * `@jsquash/webp.encode`, especially on text-heavy screenshots, but it's
+ * still vastly smaller than a raw PNG and keeps uploads working.
+ */
+async function fallbackResizeAndEncode(
+	source: HTMLCanvasElement | ImageBitmap,
+	sourceW: number,
+	sourceH: number,
+	maxWidth: number
+): Promise<{ blob: Blob; mimeType: string; width: number; height: number }> {
+	const longest = Math.max(sourceW, sourceH);
+	const scale = longest > maxWidth ? maxWidth / longest : 1;
+	const targetW = Math.max(1, Math.round(sourceW * scale));
+	const targetH = Math.max(1, Math.round(sourceH * scale));
+
+	const canvas = document.createElement('canvas');
+	canvas.width = targetW;
+	canvas.height = targetH;
+	const ctx = canvas.getContext('2d');
+	if (!ctx) throw new Error('2D context unavailable on fallback canvas');
+	ctx.drawImage(source, 0, 0, targetW, targetH);
+
+	// Try WebP first; fall back to PNG if the browser refused (returned null).
+	const webp = await new Promise<Blob | null>((resolve) =>
+		canvas.toBlob((b) => resolve(b), 'image/webp', 0.85)
+	);
+	if (webp) return { blob: webp, mimeType: 'image/webp', width: targetW, height: targetH };
+	const png = await new Promise<Blob | null>((resolve) =>
+		canvas.toBlob((b) => resolve(b), 'image/png')
+	);
+	if (!png) throw new Error('canvas.toBlob returned null for both webp and png');
+	return { blob: png, mimeType: 'image/png', width: targetW, height: targetH };
 }
 
 function postProcess(input: {
@@ -118,17 +150,25 @@ function postProcess(input: {
 		pending.set(id, { resolve, reject, onStatus: input.onStatus });
 		const transfer: Transferable[] = [];
 		if (input.bitmap) transfer.push(input.bitmap);
-		worker.postMessage(
-			{
-				type: 'process',
-				id,
-				bitmap: input.bitmap,
-				blob: input.blob,
-				maxWidth: input.maxWidth,
-				quality: input.quality
-			},
-			transfer
-		);
+		try {
+			worker.postMessage(
+				{
+					type: 'process',
+					id,
+					bitmap: input.bitmap,
+					blob: input.blob,
+					maxWidth: input.maxWidth,
+					quality: input.quality
+				},
+				transfer
+			);
+		} catch (err) {
+			// postMessage can throw on structured-clone failures (rare but possible
+			// for exotic Blob/ImageBitmap states). Drop the pending entry so the
+			// map doesn't leak across the session.
+			pending.delete(id);
+			reject(err instanceof Error ? err : new Error(String(err)));
+		}
 	});
 }
 
@@ -187,9 +227,32 @@ export async function processImage(
 			passthrough: false
 		};
 	} catch (err) {
-		// 3. Fallback: hand back the original bytes (or a PNG snapshot of the canvas)
-		//    so the upload still succeeds. Log so we can see WASM/worker failures.
-		console.warn('processImage falling back to passthrough:', err);
+		// 3. Fallback path — worker/WASM init or encode failed. Still resize and
+		//    encode on the main thread so the output respects the same upload
+		//    cap as the happy path; without this, a passthrough of a 4K
+		//    screenshot exceeds the 5 MB server-side limit and the upload fails.
+		console.warn('processImage falling back to main-thread encode:', err);
+		try {
+			if (input instanceof HTMLCanvasElement) {
+				const out = await fallbackResizeAndEncode(input, input.width, input.height, maxWidth);
+				return { ...out, passthrough: true };
+			}
+			if (typeof ImageBitmap !== 'undefined' && input instanceof ImageBitmap) {
+				const out = await fallbackResizeAndEncode(input, input.width, input.height, maxWidth);
+				return { ...out, passthrough: true };
+			}
+			if (input instanceof Blob) {
+				const bitmap = await createImageBitmap(input);
+				const out = await fallbackResizeAndEncode(bitmap, bitmap.width, bitmap.height, maxWidth);
+				bitmap.close();
+				return { ...out, passthrough: true };
+			}
+		} catch (fallbackErr) {
+			console.warn('processImage main-thread fallback also failed:', fallbackErr);
+		}
+
+		// 4. Last resort — hand back the original bytes unchanged. Acceptable
+		//    only for blob inputs where the original is already a valid file.
 		if (input instanceof Blob) {
 			const dims = await getMediaDimensions(input).catch(() => ({ width: 0, height: 0 }));
 			return {
@@ -200,28 +263,6 @@ export async function processImage(
 				passthrough: true
 			};
 		}
-		if (input instanceof HTMLCanvasElement) {
-			const blob = await blobFromCanvas(input);
-			return {
-				blob,
-				width: input.width,
-				height: input.height,
-				mimeType: 'image/png',
-				passthrough: true
-			};
-		}
-		// ImageBitmap fallback: encode to a PNG via OffscreenCanvas on the main thread.
-		const c = new OffscreenCanvas(input.width, input.height);
-		const ctx = c.getContext('2d');
-		if (!ctx) throw err;
-		ctx.drawImage(input, 0, 0);
-		const blob = await c.convertToBlob({ type: 'image/png' });
-		return {
-			blob,
-			width: input.width,
-			height: input.height,
-			mimeType: 'image/png',
-			passthrough: true
-		};
+		throw err;
 	}
 }

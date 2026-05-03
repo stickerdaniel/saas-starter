@@ -39,8 +39,10 @@ async function handleProcess(req: ProcessRequest) {
 
 		const longest = Math.max(bitmap.width, bitmap.height);
 		const scale = longest > req.maxWidth ? req.maxWidth / longest : 1;
-		const targetW = Math.round(bitmap.width * scale);
-		const targetH = Math.round(bitmap.height * scale);
+		// Clamp to at least 1 px on either axis. Without this, very thin sources
+		// (e.g. 1×10000) round to 0 on the short side and OffscreenCanvas throws.
+		const targetW = Math.max(1, Math.round(bitmap.width * scale));
+		const targetH = Math.max(1, Math.round(bitmap.height * scale));
 
 		postStatus(req.id, 'Resizing');
 		const canvas = new OffscreenCanvas(targetW, targetH);

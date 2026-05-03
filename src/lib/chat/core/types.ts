@@ -32,6 +32,10 @@ export type Attachment =
 			uploadState?: UploadState;
 			width?: number;
 			height?: number;
+			/** Original filename before client-side preprocessing (e.g. WebP encode). Used for dedup. */
+			sourceName?: string;
+			/** Original byte size before client-side preprocessing. Used for dedup. */
+			sourceSize?: number;
 	  }
 	| {
 			type: 'screenshot';
@@ -44,6 +48,8 @@ export type Attachment =
 			uploadState?: UploadState;
 			width?: number;
 			height?: number;
+			sourceName?: string;
+			sourceSize?: number;
 	  }
 	| { type: 'image'; url: string; filename?: string; width?: number; height?: number }
 	| {
