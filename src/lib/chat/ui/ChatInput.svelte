@@ -20,6 +20,7 @@
 	import { getChatUIContext } from './ChatContext.svelte.js';
 	import { processImage } from '$lib/media/process-image';
 	import {
+		ALLOWED_FILE_EXT_MIME,
 		ALLOWED_FILE_EXTENSIONS,
 		ALLOWED_FILE_TYPES,
 		MAX_ATTACHMENTS,
@@ -131,21 +132,6 @@
 	}
 
 	/**
-	 * Map of allowed extension -> canonical MIME type. Used to (a) accept
-	 * drag/drop files when the browser doesn't supply a `File.type` (common
-	 * on macOS Finder) and (b) wrap such a File with a real `type` so the
-	 * image-routing branch below sees an `image/*` mime instead of `''`.
-	 */
-	const EXT_TO_MIME: Record<string, string> = {
-		'.png': 'image/png',
-		'.jpg': 'image/jpeg',
-		'.jpeg': 'image/jpeg',
-		'.webp': 'image/webp',
-		'.gif': 'image/gif',
-		'.pdf': 'application/pdf'
-	};
-
-	/**
 	 * Browser-supplied MIMEs that don't tell us anything specific. For these
 	 * we fall back to the file extension. Any *non*-generic MIME is trusted
 	 * as-is — a file with type `image/heic` named `photo.jpg` must be
@@ -161,7 +147,7 @@
 	function isAllowedKind(file: File): boolean {
 		if (GENERIC_MIMES.has(file.type)) {
 			const ext = getExt(file.name);
-			return ext != null && ext in EXT_TO_MIME;
+			return ext != null && ext in ALLOWED_FILE_EXT_MIME;
 		}
 		return ALLOWED_FILE_TYPES.includes(file.type);
 	}
@@ -178,7 +164,7 @@
 	function normalizeMime(file: File): File {
 		if (!GENERIC_MIMES.has(file.type)) return file;
 		const ext = getExt(file.name);
-		const mime = ext ? EXT_TO_MIME[ext] : undefined;
+		const mime = ext ? ALLOWED_FILE_EXT_MIME[ext] : undefined;
 		if (!mime) return file;
 		return new File([file], file.name, { type: mime, lastModified: file.lastModified });
 	}

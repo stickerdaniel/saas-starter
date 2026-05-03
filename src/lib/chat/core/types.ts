@@ -233,15 +233,23 @@ export const DEFAULT_CHAT_CONFIG: Required<ChatConfig> = {
 
 /**
  * File upload constraints
+ *
+ * `ALLOWED_FILE_EXT_MIME` is the single source of truth for what the chat
+ * surface accepts. `ALLOWED_FILE_TYPES` (used by paste/MIME gate) and
+ * `ALLOWED_FILE_EXTENSIONS` (used by the file-picker `accept` attribute
+ * and the empty-`File.type` extension fallback in ChatInput) are derived
+ * from it so adding/removing a format only needs one edit.
  */
-export const ALLOWED_FILE_TYPES = [
-	'image/png',
-	'image/jpeg',
-	'image/webp',
-	'image/gif',
-	'application/pdf'
-];
-export const ALLOWED_FILE_EXTENSIONS = '.png,.jpg,.jpeg,.webp,.gif,.pdf';
+export const ALLOWED_FILE_EXT_MIME: Readonly<Record<string, string>> = {
+	'.png': 'image/png',
+	'.jpg': 'image/jpeg',
+	'.jpeg': 'image/jpeg',
+	'.webp': 'image/webp',
+	'.gif': 'image/gif',
+	'.pdf': 'application/pdf'
+};
+export const ALLOWED_FILE_EXTENSIONS = Object.keys(ALLOWED_FILE_EXT_MIME).join(',');
+export const ALLOWED_FILE_TYPES = Array.from(new Set(Object.values(ALLOWED_FILE_EXT_MIME)));
 export const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 export const MAX_FILE_SIZE_LABEL = '5MB';
 /**
