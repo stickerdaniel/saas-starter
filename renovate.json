@@ -107,6 +107,11 @@
 			"matchPackageNames": ["eslint", "@eslint/compat", "@eslint/js"],
 			"matchUpdateTypes": ["major"],
 			"enabled": false
+		},
+		{
+			"description": "Suppress abandonment warnings for packages we keep intentionally. clsx and husky are stable/feature-complete, date-fns still ships fixes (last commits 2025-09), vaul-svelte is stuck on 1.0.0-next.7 but has no viable Svelte 5 alternative.",
+			"matchPackageNames": ["clsx", "date-fns", "husky", "vaul-svelte"],
+			"abandonmentThreshold": "10 years"
 		}
 	]
 }
