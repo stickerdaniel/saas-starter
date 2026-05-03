@@ -140,6 +140,21 @@
 			ctx.uploadFile(file, filename, {
 				preprocess: async (input) => {
 					const processed = await processImage(input);
+					// Post-process size guard. WebP at q=85 is almost always smaller
+					// than the source for screenshots and large photos, but pathological
+					// inputs (already heavily compressed JPEGs, small high-detail tiles)
+					// can re-encode larger. The server enforces MAX_FILE_SIZE on the
+					// stored blob — if the processed bytes exceed that cap, fall back
+					// to the original which already passed the pre-upload size check.
+					if (processed.blob.size > MAX_FILE_SIZE) {
+						return {
+							blob: input,
+							mimeType: input.type,
+							filename
+							// Skip width/height; ctx.uploadFile will read them off the
+							// original blob.
+						};
+					}
 					return {
 						blob: processed.blob,
 						mimeType: processed.mimeType,
