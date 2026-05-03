@@ -7,7 +7,7 @@
 	import { Checkbox } from '$lib/components/ui/checkbox/index.js';
 
 	import { getTranslate, T } from '@tolgee/svelte';
-	import { useConvexClient } from 'convex-svelte';
+	import { useConvexClient } from '@mmailaender/convex-svelte';
 	import { api } from '$lib/convex/_generated/api.js';
 	import { setContext } from 'svelte';
 	import { createSvelteTable, FlexRender } from '$lib/components/ui/data-table/index.js';

@@ -3,7 +3,7 @@
 	import { onMount } from 'svelte';
 	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
 	import { authClient } from '$lib/auth-client';
-	import { useConvexClient } from 'convex-svelte';
+	import { useConvexClient } from '@mmailaender/convex-svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { api } from '$lib/convex/_generated/api';
 	import { isAnonymousUser } from '$lib/convex/utils/anonymousUser';

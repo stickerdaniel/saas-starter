@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { api } from '$lib/convex/_generated/api';
 	import SEOHead from '$lib/components/SEOHead.svelte';
-	import { useQuery, useConvexClient } from 'convex-svelte';
+	import { useQuery, useConvexClient } from '@mmailaender/convex-svelte';
 	import { useCustomer, useAutumnOperation } from '@stickerdaniel/convex-autumn-svelte/sveltekit';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import {

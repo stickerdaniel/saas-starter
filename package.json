@@ -44,17 +44,17 @@
 	},
 	"packageManager": "bun@1.3.9",
 	"dependencies": {
-		"@better-auth/passkey": "^1.4.10",
+		"@better-auth/passkey": "~1.6.9",
 		"@better-svelte-email/components": "2.0.0",
 		"@better-svelte-email/server": "2.0.0",
 		"@convex-dev/agent": "^0.6.1",
-		"@convex-dev/better-auth": "^0.10.0",
+		"@convex-dev/better-auth": "^0.12.1",
 		"@convex-dev/rate-limiter": "^0.3.2",
 		"@convex-dev/resend": "^0.2.0",
 		"@formkit/auto-animate": "^0.9.0",
 		"@gilhrpenner/convex-files-control": "^0.5.1",
 		"@humanspeak/svelte-markdown": "^1.0.4",
-		"@mmailaender/convex-better-auth-svelte": "^0.5.0",
+		"@mmailaender/convex-better-auth-svelte": "^0.7.3",
 		"@openrouter/ai-sdk-provider": "^2.9.0",
 		"@oslojs/crypto": "^1.0.1",
 		"@rive-app/canvas": "^2.32.0",
@@ -71,7 +71,7 @@
 		"ai": "^6.0.174",
 		"atmn": "^1.0.0",
 		"autumn-js": "^0.1.43",
-		"better-auth": "1.4.17",
+		"better-auth": "~1.6.9",
 		"convex-helpers": "^0.1.108",
 		"date-fns": "^4.1.0",
 		"isomorphic-dompurify": "^3.0.0",
@@ -89,7 +89,7 @@
 		"valibot": "^1.2.0",
 		"varlock": "^0.9.0",
 		"web-haptics": "^0.0.6",
-		"zod": "^4.3.5"
+		"zod": "^4.4.2"
 	},
 	"devDependencies": {
 		"@axe-core/playwright": "4.11.2",
@@ -99,6 +99,7 @@
 		"@fontsource-variable/outfit": "5.2.8",
 		"@internationalized/date": "3.12.1",
 		"@lucide/svelte": "1.12.0",
+		"@mmailaender/convex-svelte": "^0.18.0",
 		"@oxlint/plugins": "1.62.0",
 		"@playwright/test": "1.59.1",
 		"@resvg/resvg-js": "2.6.2",
@@ -124,7 +125,6 @@
 		"bun-tasks": "0.1.2",
 		"clsx": "2.1.1",
 		"convex": "1.36.1",
-		"convex-svelte": "npm:@mmailaender/convex-svelte@0.18.0",
 		"convex-vite-plugin": "0.4.0",
 		"d3-scale": "4.0.2",
 		"d3-shape": "3.2.0",
@@ -160,5 +160,8 @@
 	},
 	"patchedDependencies": {
 		"oxlint-plugin-convex@0.1.1": "patches/oxlint-plugin-convex@0.1.1.patch"
+	},
+	"overrides": {
+		"zod": "$zod"
 	}
 }

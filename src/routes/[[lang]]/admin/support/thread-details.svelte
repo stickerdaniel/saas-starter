@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { fade } from 'svelte/transition';
-	import { useQuery, useConvexClient } from 'convex-svelte';
+	import { useQuery, useConvexClient } from '@mmailaender/convex-svelte';
 	import { api } from '$lib/convex/_generated/api';
 	import {
 		INTERNAL_NOTES_PAGE_SIZE,
