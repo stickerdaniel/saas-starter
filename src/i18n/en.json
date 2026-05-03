@@ -1595,6 +1595,8 @@
 		"error": {
 			"file_max_size": "Maximum size is {maxSize}",
 			"file_too_large": "File too large: \"{filename}\"",
+			"file_type_not_allowed": "File type not allowed: \"{filename}\"",
+			"image_compression_exceeded": "Image could not be compressed below {maxSize}",
 			"max_attachments": "Maximum {max} attachments allowed",
 			"pasted_file_too_large": "Pasted file too large"
 		},
