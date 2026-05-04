@@ -1,6 +1,7 @@
 import { Agent } from '@convex-dev/agent';
 import { components } from '../_generated/api';
 import { openrouter } from '@openrouter/ai-sdk-provider';
+import { CHAT_MODEL_ID } from '../utils/chatModel';
 
 /**
  * Customer Support AI Agent
@@ -15,7 +16,7 @@ export const supportAgent = new Agent(components.agent, {
 	name: 'Kai',
 
 	// Language model configuration
-	languageModel: openrouter('google/gemma-4-31b-it', {
+	languageModel: openrouter(CHAT_MODEL_ID, {
 		extraBody: {
 			reasoning: { effort: 'low' }
 		}
