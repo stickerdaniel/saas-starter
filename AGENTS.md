@@ -313,10 +313,18 @@ This project uses **PostHog** for product analytics with an optional **Cloudflar
 
 - Located in `e2e/` directory
 - Test users are automatically created with unique emails each run (via globalSetup) and deleted after tests (via globalTeardown)
-- Requires `.env.test` with: AUTH_E2E_TEST_SECRET (must match Convex backend) and PUBLIC_CONVEX_URL
+- Requires `.env.test` with `AUTH_E2E_TEST_SECRET` only. The Convex backend URL is auto-resolved from `.convex/.test-backend-url`; no `PUBLIC_CONVEX_URL` needed locally.
 - `AuthenticatedLayout` sets `data-hydrated` on `<html>` in `onMount`; `waitForAuthenticated` in `e2e/utils/auth.ts` waits for it so clicks happen after Svelte hydration, not on inert SSR markup.
 - See `.env.schema` for all available env vars with types and descriptions
 - **CI E2E timing (CF Workers):** E2E tests only start after the CF Workers Build preview deployment completes (~2-3 min). The `e2e-preview-cf.yml` workflow triggers on the CF `check_run` event, extracts the preview URL, then runs Playwright against it. Results are posted as a commit status, not a check run. Total time from push to E2E result is ~7-8 min.
+
+#### Local e2e isolation
+
+- `bun run test:e2e` spawns an isolated test stack via `bun run dev:test`: separate vite port (`:5174`), separate local Convex backend (different port + state dir under `.convex/<branch>...e2e-<hash>/`), and a separate BetterAuth secret file. Safe to run alongside `bun run dev` on `:5173`.
+- `AUTH_E2E_TEST_SECRET` is sourced from `.env.test` and **auto-propagated into the test Convex backend** by `vite.config.ts`. You no longer need to mirror it into `.env.convex.local`.
+- Local test mode forces `baseURL` and `SITE_URL` to `http://localhost:5174` regardless of what `.env.test` contains, so a stale gitignored `PUBLIC_SITE_URL` can't silently misroute signups. The wrapper `scripts/dev-test.ts` warns loudly if leftover `PUBLIC_CONVEX_URL` / `PUBLIC_SITE_URL` are still set.
+- `globalSetup` polls `api.tests.health` before the first signup, so a cold backend boot doesn't surface as a flaky 500.
+- `RESET_LOCAL_BACKEND=true bun run test:e2e` resets only the test state dir; dev's BetterAuth secret and DB are untouched.
 
 #### `data-testid` convention
 

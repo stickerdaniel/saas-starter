@@ -6,10 +6,12 @@ import { defineConfig, devices } from '@playwright/test';
  */
 import 'varlock/auto-load';
 import { getPreviewBypass } from './e2e/utils/preview-bypass';
+import { resolveSiteUrl } from './e2e/utils/site-url';
 
-// In CI, tests run against actual preview deployment (PUBLIC_SITE_URL set by workflow)
-// Locally, tests run against dev server on localhost
-const baseURL = process.env.PUBLIC_SITE_URL || 'http://localhost:5173';
+// CI: tests run against actual preview deployment (PUBLIC_SITE_URL set by workflow).
+// Local: forced to http://localhost:5174 (the test vite port spawned by `bun run dev:test`).
+// See e2e/utils/site-url.ts for why PUBLIC_SITE_URL is deliberately ignored locally.
+const baseURL = resolveSiteUrl();
 const isCI = !!process.env.CI;
 
 // Preview bypass headers for protected preview deployments (Vercel or Cloudflare Access)
@@ -108,14 +110,16 @@ export default defineConfig({
 		}
 	],
 
-	// Only start local dev server when not in CI
-	// In CI, we test against the actual preview deployment
+	// Local: spawn an isolated dev:test stack (separate vite port + Convex backend +
+	// state dir). reuseExistingServer is false so we never inherit a backend whose
+	// state we don't own. Cold backend boot can take ~60s, hence 90s timeout.
+	// CI: test against the actual preview deployment (no local server).
 	webServer: isCI
 		? undefined
 		: {
-				command: 'bun run dev:frontend',
-				port: 5173,
-				reuseExistingServer: true,
-				timeout: 60000
+				command: 'bun run dev:test',
+				port: 5174,
+				reuseExistingServer: false,
+				timeout: 90000
 			}
 });

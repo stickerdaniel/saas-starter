@@ -1,5 +1,5 @@
 import { components } from './_generated/api';
-import { mutation, internalQuery } from './_generated/server';
+import { query, mutation, internalQuery } from './_generated/server';
 import { v } from 'convex/values';
 import { supportAgent } from './support/agent';
 import { isAnonymousUser } from './utils/anonymousUser';
@@ -15,6 +15,25 @@ function requireTestSecret(secret: string): void {
 		throw new Error('Unauthorized: Invalid test secret');
 	}
 }
+
+/**
+ * Health probe used by e2e/global-setup.ts to gate the first signup HTTP call
+ * on actual Convex backend readiness. The convex-vite-plugin starts backend
+ * deploy asynchronously after vite begins serving, so a cold backend can 500
+ * even though Playwright's webServer port-check has already succeeded.
+ *
+ * Gated by AUTH_E2E_TEST_SECRET so it doubles as a propagation check: if the
+ * secret didn't reach the backend (vite.config.ts envVars wiring), this
+ * returns Unauthorized and globalSetup fails fast with a clear error.
+ */
+export const health = query({
+	args: { secret: v.string() },
+	returns: v.object({ ok: v.boolean() }),
+	handler: async (_ctx, { secret }) => {
+		requireTestSecret(secret);
+		return { ok: true };
+	}
+});
 
 function buildSearchText(fields: {
 	title?: string;
