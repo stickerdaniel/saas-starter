@@ -60,8 +60,6 @@ export default {
 		'atmn',
 		// Sub-package of autumn-js, imported directly in Convex files
 		'@useautumn/convex',
-		// Used by Better Auth internally
-		'@oslojs/crypto',
 		// Re-exported by @tolgee/svelte
 		'@tolgee/web'
 	],
