@@ -1,6 +1,7 @@
 import { Agent } from '@convex-dev/agent';
 import { components } from '../_generated/api';
 import { openrouter } from '@openrouter/ai-sdk-provider';
+import { CHAT_MODEL_ID } from '../utils/chatModel';
 
 /**
  * Customer Support AI Agent
@@ -15,7 +16,11 @@ export const supportAgent = new Agent(components.agent, {
 	name: 'Kai',
 
 	// Language model configuration
-	languageModel: openrouter('qwen/qwen3-vl-30b-a3b-thinking'),
+	languageModel: openrouter(CHAT_MODEL_ID, {
+		extraBody: {
+			reasoning: { effort: 'low' }
+		}
+	}),
 
 	// System instructions defining agent behavior
 	instructions: `You are a helpful customer support agent for SaaS Starter, a modern SaaS application template built with SvelteKit, Convex, and Tailwind CSS. Your answers are brief and in WhatsApp style.
