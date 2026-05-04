@@ -9,16 +9,18 @@
 
 import { ConvexHttpClient } from 'convex/browser';
 import { api } from '../src/lib/convex/_generated/api';
+import { setTimeout as sleep } from 'node:timers/promises';
 import 'varlock/auto-load';
 import fs from 'fs';
 import path from 'path';
 
-const SITE_URL = process.env.PUBLIC_SITE_URL || 'http://localhost:5173';
+const SITE_URL = resolveSiteUrl();
 const TEST_PASSWORD = 'TestPassword123!';
 const SETUP_RETRY_ATTEMPTS = 3;
 
 import type { TestCredentials } from './utils/types';
 import { resolveConvexUrl } from './utils/convex-url';
+import { resolveSiteUrl } from './utils/site-url';
 import { getPreviewBypass, fetchVercelBypassCookie } from './utils/preview-bypass';
 
 function isTransientSetupError(error: unknown): boolean {
@@ -57,6 +59,56 @@ async function retrySetupStep<T>(label: string, run: () => Promise<T>): Promise<
 	throw new Error(`[Setup] Unexpected retry fallthrough for ${label}`);
 }
 
+/**
+ * Wait until the Convex backend reports ready via api.tests.health.
+ *
+ * The convex-vite-plugin starts backend deploy asynchronously after vite begins
+ * serving (node_modules/convex-vite-plugin/src/index.ts:302), so Playwright's
+ * webServer port-check on :5174 succeeds well before Convex is reachable. Without
+ * this gate, the first signup HTTP call can hit a 500 from a not-yet-ready
+ * backend and globalSetup's existing retry only covers transient network errors.
+ *
+ * The probe also doubles as a propagation check: if AUTH_E2E_TEST_SECRET didn't
+ * reach the backend (vite.config.ts envVars wiring), the call returns
+ * Unauthorized and we fail fast with a clear error.
+ */
+async function waitForBackendReady(client: ConvexHttpClient, secret: string): Promise<void> {
+	const TIMEOUT_MS = 90_000;
+	const POLL_INTERVAL_MS = 1000;
+	const start = Date.now();
+	let lastError: unknown;
+	console.log('[Setup] Waiting for Convex backend readiness (api.tests.health)...');
+	while (true) {
+		try {
+			const r = await client.query(api.tests.health, { secret });
+			if (r?.ok) {
+				console.log(`[Setup] Backend ready after ${Date.now() - start}ms`);
+				return;
+			}
+		} catch (err) {
+			// Distinguish auth failure (config bug, fail fast) from cold-boot/network errors (retry).
+			// A backend that returns "Unauthorized" is already serving — polling won't fix it.
+			const message = err instanceof Error ? err.message : String(err);
+			if (message.includes('Unauthorized: Invalid test secret')) {
+				throw new Error(
+					'Test backend rejected AUTH_E2E_TEST_SECRET. The secret in .env.test does not ' +
+						'match what the backend received from vite.config.ts envVars. Check that ' +
+						'`bun run dev:test` is running and that AUTH_E2E_TEST_SECRET is set in .env.test.',
+					{ cause: err }
+				);
+			}
+			lastError = err;
+		}
+		if (Date.now() - start > TIMEOUT_MS) {
+			console.error('[Setup] Last error from health probe:', lastError);
+			throw new Error(
+				`Test backend never reported ready (api.tests.health) within ${TIMEOUT_MS}ms`
+			);
+		}
+		await sleep(POLL_INTERVAL_MS);
+	}
+}
+
 async function globalSetup() {
 	const testSecret = process.env.AUTH_E2E_TEST_SECRET;
 	const convexUrl = resolveConvexUrl();
@@ -78,6 +130,10 @@ async function globalSetup() {
 	}
 
 	const client = new ConvexHttpClient(convexUrl);
+
+	// Gate user creation on real backend readiness (not just the vite port being open).
+	await waitForBackendReady(client, testSecret);
+
 	const timestamp = Date.now();
 
 	// Generate unique emails for this test run

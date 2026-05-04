@@ -8,9 +8,10 @@ import {
 	getTableQueryParam
 } from './utils/convex-table-url-assertions';
 import { resolveConvexUrl } from './utils/convex-url';
+import { resolveSiteUrl } from './utils/site-url';
 import { getPreviewBypass } from './utils/preview-bypass';
 
-const SITE_URL = process.env.PUBLIC_SITE_URL || 'http://localhost:5173';
+const SITE_URL = resolveSiteUrl();
 const TEST_PASSWORD = 'TestPassword123!';
 const bypass = getPreviewBypass();
 
