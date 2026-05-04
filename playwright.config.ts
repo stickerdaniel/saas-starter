@@ -6,13 +6,16 @@ import { defineConfig, devices } from '@playwright/test';
  */
 import 'varlock/auto-load';
 import { getPreviewBypass } from './e2e/utils/preview-bypass';
-import { resolveSiteUrl } from './e2e/utils/site-url';
+import { resolveSiteUrl, TEST_VITE_PORT } from './e2e/utils/site-url';
 
 // CI: tests run against actual preview deployment (PUBLIC_SITE_URL set by workflow).
-// Local: forced to http://localhost:5174 (the test vite port spawned by `bun run dev:test`).
+// Local default: forced to the test vite port spawned by `bun run dev:test`.
+// E2E_OVERRIDE_SITE_URL: explicit escape hatch — point tests at a developer-managed
+// deployment (CF preview, staging, etc.) and skip the local dev:test webServer.
 // See e2e/utils/site-url.ts for why PUBLIC_SITE_URL is deliberately ignored locally.
 const baseURL = resolveSiteUrl();
 const isCI = !!process.env.CI;
+const hasOverrideUrl = !!process.env.E2E_OVERRIDE_SITE_URL;
 
 // Preview bypass headers for protected preview deployments (Vercel or Cloudflare Access)
 const bypass = getPreviewBypass();
@@ -110,16 +113,17 @@ export default defineConfig({
 		}
 	],
 
-	// Local: spawn an isolated dev:test stack (separate vite port + Convex backend +
-	// state dir). reuseExistingServer is false so we never inherit a backend whose
-	// state we don't own. Cold backend boot can take ~60s, hence 90s timeout.
-	// CI: test against the actual preview deployment (no local server).
-	webServer: isCI
-		? undefined
-		: {
-				command: 'bun run dev:test',
-				port: 5174,
-				reuseExistingServer: false,
-				timeout: 90000
-			}
+	// Local default: spawn an isolated dev:test stack (separate vite port + Convex backend
+	// + state dir). reuseExistingServer is false so we never inherit a backend whose state
+	// we don't own. Cold backend boot can take ~60s, hence 90s timeout.
+	// CI or E2E_OVERRIDE_SITE_URL: skip — caller manages the deployment under test.
+	webServer:
+		isCI || hasOverrideUrl
+			? undefined
+			: {
+					command: 'bun run dev:test',
+					port: TEST_VITE_PORT,
+					reuseExistingServer: false,
+					timeout: 90000
+				}
 });

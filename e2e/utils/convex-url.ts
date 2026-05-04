@@ -18,7 +18,11 @@ import path from 'path';
  *   2. `.convex/.backend-url` file written by vite.config.ts
  */
 export function resolveConvexUrl(): string | undefined {
-	const isLocalTest = process.env.VARLOCK_ENV === 'test' && !process.env.CI;
+	// E2E_OVERRIDE_SITE_URL signals the caller is targeting a developer-managed deployment;
+	// in that mode we want PUBLIC_CONVEX_URL (set alongside the override) to win, NOT a
+	// stale local .test-backend-url file from a previous dev:test run.
+	const isLocalTest =
+		process.env.VARLOCK_ENV === 'test' && !process.env.CI && !process.env.E2E_OVERRIDE_SITE_URL;
 	const testBackendFile = path.join(process.cwd(), '.convex', '.test-backend-url');
 	const devBackendFile = path.join(process.cwd(), '.convex', '.backend-url');
 

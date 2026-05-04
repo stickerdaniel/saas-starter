@@ -86,6 +86,17 @@ async function waitForBackendReady(client: ConvexHttpClient, secret: string): Pr
 				return;
 			}
 		} catch (err) {
+			// Distinguish auth failure (config bug, fail fast) from cold-boot/network errors (retry).
+			// A backend that returns "Unauthorized" is already serving — polling won't fix it.
+			const message = err instanceof Error ? err.message : String(err);
+			if (message.includes('Unauthorized: Invalid test secret')) {
+				throw new Error(
+					'Test backend rejected AUTH_E2E_TEST_SECRET. The secret in .env.test does not ' +
+						'match what the backend received from vite.config.ts envVars. Check that ' +
+						'`bun run dev:test` is running and that AUTH_E2E_TEST_SECRET is set in .env.test.',
+					{ cause: err }
+				);
+			}
 			lastError = err;
 		}
 		if (Date.now() - start > TIMEOUT_MS) {
