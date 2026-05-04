@@ -1,37 +1,28 @@
 # Run the e2e tests
 
-## The mostly automated way
-
-After an `bun install`, run `bun test`.
-This tests against the most recently published official binary.
-
-## The more manual way
-
-The following instructions require some pre-work, but once you've done the first couple steps once
-you can skip to running the test command at the end.
-
-1. Clone [convex-backend](https://github.com/get-convex/convex-backend)
-
-1. Follow the instructions in its [README](https://github.com/get-convex/convex-backend/blob/main/README.md) to get it building
-
-1. From the `test-sveltekit` directory, run:
+## Default — isolated local stack
 
 ```
-CONVEX_LOCAL_BACKEND_PATH=/path/to/your/convex-backend bun run test
+bun run test:e2e
 ```
 
-## The most manual way
+Spawns `bun run dev:test`, which boots an isolated local Convex backend on a separate
+state dir (`.convex/<branch>...e2e-<hash>/`) and a separate vite port (`:5174`). Safe to
+run alongside `bun run dev`. Requires `AUTH_E2E_TEST_SECRET` in `.env.test`. See
+`AGENTS.md` → Testing Guidelines → "Local e2e isolation".
 
-You'll need manage your own Convex deployment to follow these instructions.
+## Targeting a developer-managed deployment
 
-1. Set up your Convex deployment for auth ([instructions](https://labs.convex.dev/auth/setup/manual))
+To point the suite at a CF preview, staging environment, or your own remote Convex
+deployment instead of the isolated local stack:
 
-1. Create a test user
+```
+E2E_OVERRIDE_SITE_URL=https://your-preview.example.com \
+PUBLIC_CONVEX_URL=https://your-deployment.convex.cloud \
+bun run test:e2e
+```
 
-   `bunx convex run tests:init`
-
-1. Set up the secret on a Convex backend matching the one in `.env.test`:
-
-   `bunx convex env set AUTH_E2E_TEST_SECRET <something>`
-
-1. Run `playwright test`
+When `E2E_OVERRIDE_SITE_URL` is set, playwright skips the local `dev:test` webServer,
+`baseURL`/`SITE_URL` use the override, and the Convex resolver falls through to
+`PUBLIC_CONVEX_URL` (the local `.test-backend-url` file is ignored). Make sure
+`AUTH_E2E_TEST_SECRET` in `.env.test` matches the secret on the target backend.

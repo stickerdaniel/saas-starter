@@ -60,8 +60,12 @@ function computeLocalConvexStateId(projectDir: string, suffix?: string): string 
 	return `${sanitizedBranch}${sanitizedSuffix}-${hash}`;
 }
 
-function getPersistentBetterAuthSecret(projectDir: string, reset: boolean): string {
-	const stateId = computeLocalConvexStateId(projectDir);
+function getPersistentBetterAuthSecret(
+	projectDir: string,
+	reset: boolean,
+	suffix?: string
+): string {
+	const stateId = computeLocalConvexStateId(projectDir, suffix);
 	const stateDir = path.join(projectDir, '.convex', stateId);
 	const secretPath = path.join(stateDir, 'better-auth-secret');
 
@@ -168,10 +172,13 @@ function parseSensitiveVarNames(schemaPath: string): Set<string> {
 export default defineConfig(async ({ mode }) => {
 	const cwd = process.cwd();
 	const loadedEnv = loadEnv(mode, cwd, '');
-	// Local Convex backend only during `bun run dev` (not CI, builds, postinstall, or scripts).
+	// Local Convex backend during `bun run dev` and `bun run dev:test` (not CI, builds, postinstall, or scripts).
 	// build:emails uses createServer() which re-enters this config -- lifecycle check prevents that.
 	// dev:cloud runs via dev:frontend (lifecycle = "dev:frontend"), so it's excluded naturally.
-	const useLocalConvex = process.env.npm_lifecycle_event === 'dev' && !process.env.CI;
+	const lifecycle = process.env.npm_lifecycle_event;
+	const useLocalConvex = (lifecycle === 'dev' || lifecycle === 'dev:test') && !process.env.CI;
+	const isTestMode = lifecycle === 'dev:test';
+	const stateIdSuffix = isTestMode ? 'e2e' : undefined;
 	const plugins: PluginOption[] = [];
 
 	if (useLocalConvex) {
@@ -181,12 +188,16 @@ export default defineConfig(async ({ mode }) => {
 		const siteProxyUrl = `http://localhost:${siteProxyPort}`;
 		const resetLocalBackend = process.env.RESET_LOCAL_BACKEND === 'true';
 
-		// Write backend URL so E2E tests (Playwright) can discover it
+		// Write backend URL so E2E tests (Playwright) can discover it.
+		// Test mode writes to a separate file so dev's .backend-url isn't clobbered when
+		// `bun run dev` and `bun run dev:test` run concurrently.
 		const convexStateDir = path.join(cwd, '.convex');
 		fs.mkdirSync(convexStateDir, { recursive: true });
-		fs.writeFileSync(path.join(convexStateDir, '.backend-url'), backendUrl);
+		const backendUrlFile = isTestMode ? '.test-backend-url' : '.backend-url';
+		fs.writeFileSync(path.join(convexStateDir, backendUrlFile), backendUrl);
 		const betterAuthSecret =
-			loadedEnv.BETTER_AUTH_SECRET?.trim() || getPersistentBetterAuthSecret(cwd, resetLocalBackend);
+			loadedEnv.BETTER_AUTH_SECRET?.trim() ||
+			getPersistentBetterAuthSecret(cwd, resetLocalBackend, stateIdSuffix);
 
 		// Load Convex backend env vars from .env.convex.local
 		const convexLocalEnv = parseEnvFile(path.join(cwd, '.env.convex.local'));
@@ -196,6 +207,7 @@ export default defineConfig(async ({ mode }) => {
 		// the Convex backend values marked @sensitive in .env-convex.schema.
 		const convexSensitiveNames = parseSensitiveVarNames(path.join(cwd, '.env-convex.schema'));
 		convexSensitiveNames.add('BETTER_AUTH_SECRET');
+		convexSensitiveNames.add('AUTH_E2E_TEST_SECRET');
 
 		const mergedConfig: Record<string, { value: any; isSensitive: boolean }> = {
 			...varlockLoadedEnv?.config
@@ -204,7 +216,10 @@ export default defineConfig(async ({ mode }) => {
 		const allConvexEnvVars: Record<string, string> = {
 			BETTER_AUTH_SECRET: betterAuthSecret,
 			LOCAL_SEEDED_ADMIN_PASSWORD: 'LocalDevAdmin123!',
-			...convexLocalEnv
+			...convexLocalEnv,
+			...(isTestMode && process.env.AUTH_E2E_TEST_SECRET
+				? { AUTH_E2E_TEST_SECRET: process.env.AUTH_E2E_TEST_SECRET }
+				: {})
 		};
 
 		for (const [key, value] of Object.entries(allConvexEnvVars)) {
@@ -245,6 +260,7 @@ export default defineConfig(async ({ mode }) => {
 				convexDir: 'src/lib/convex',
 				port: backendPort,
 				siteProxyPort,
+				stateIdSuffix,
 				reset: resetLocalBackend,
 				onReady: [{ name: 'localDev:ensureSeededAdmin' }],
 				envVars: ({ vitePort, resolvedUrls }) => {
@@ -258,7 +274,12 @@ export default defineConfig(async ({ mode }) => {
 						LOCAL_SEEDED_ADMIN_PASSWORD: 'LocalDevAdmin123!',
 						LOCAL_SEEDED_ADMIN_NAME: 'Local Admin',
 						// User overrides from .env.convex.local (takes precedence)
-						...convexLocalEnv
+						...convexLocalEnv,
+						// Test mode: forward AUTH_E2E_TEST_SECRET so api.tests.* mutations
+						// authorize correctly. Source: process.env loaded from .env.test by varlock.
+						...(isTestMode && process.env.AUTH_E2E_TEST_SECRET
+							? { AUTH_E2E_TEST_SECRET: process.env.AUTH_E2E_TEST_SECRET }
+							: {})
 					};
 				}
 			})
