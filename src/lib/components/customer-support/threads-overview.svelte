@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
-	import { useQuery } from 'convex-svelte';
+	import { useQuery } from '@mmailaender/convex-svelte';
 	import { getTranslate } from '@tolgee/svelte';
 	import { api } from '$lib/convex/_generated/api';
 	import { Button } from '$lib/components/ui/button';
