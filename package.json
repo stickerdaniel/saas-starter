@@ -56,7 +56,7 @@
 		"@gilhrpenner/convex-files-control": "^0.5.1",
 		"@humanspeak/svelte-markdown": "^1.0.4",
 		"@jsquash/webp": "^1.5.0",
-		"@mmailaender/convex-better-auth-svelte": "^0.7.3",
+		"@mmailaender/convex-better-auth-svelte": "^0.7.4",
 		"@openrouter/ai-sdk-provider": "^2.9.0",
 		"@rive-app/canvas": "^2.32.0",
 		"@sentry/sveltekit": "^10.47.0",
