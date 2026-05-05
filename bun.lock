@@ -16,7 +16,7 @@
         "@gilhrpenner/convex-files-control": "^0.5.1",
         "@humanspeak/svelte-markdown": "^1.0.4",
         "@jsquash/webp": "^1.5.0",
-        "@mmailaender/convex-better-auth-svelte": "^0.7.3",
+        "@mmailaender/convex-better-auth-svelte": "^0.7.4",
         "@openrouter/ai-sdk-provider": "^2.9.0",
         "@rive-app/canvas": "^2.32.0",
         "@sentry/sveltekit": "^10.47.0",
@@ -585,7 +585,7 @@
 
     "@mishieck/ink-titled-box": ["@mishieck/ink-titled-box@0.3.0", "", { "peerDependencies": { "ink": "^6.0.0", "react": "^19.1.0", "typescript": "^5" } }, "sha512-ugzVH9hixp3hwKfQ8On/qnsrdAxS3y9rTu/aGOFed4zVUvtZyGZNIR4rxAwXult8HKI4vJEh0OM8wib9NPrwUg=="],
 
-    "@mmailaender/convex-better-auth-svelte": ["@mmailaender/convex-better-auth-svelte@0.7.3", "", { "dependencies": { "is-network-error": "^1.3.0" }, "peerDependencies": { "@convex-dev/better-auth": ">=0.10.10", "@mmailaender/convex-svelte": ">=0.15.0", "better-auth": "^1.4.9", "convex": "^1.31.0", "svelte": "^5.0.0" } }, "sha512-wRT1B1etTPWanZSDkXeUGU467+Ux0KF8gvVC/YDqSwzcswxYe3Jkb+1rcsfoQcIrLiW/1lnMRMAJZa9aPd8plQ=="],
+    "@mmailaender/convex-better-auth-svelte": ["@mmailaender/convex-better-auth-svelte@0.7.4", "", { "dependencies": { "is-network-error": "^1.3.0" }, "peerDependencies": { "@convex-dev/better-auth": ">=0.10.10", "@mmailaender/convex-svelte": ">=0.15.0", "better-auth": "^1.4.9", "convex": "^1.31.0", "svelte": "^5.0.0" } }, "sha512-FySN4W53X6+jb1jNaDHRvqtqpAqeY5ZE0bStEcszuTVOu731VPIu6cu4aL9vzYcpYhDVv6PCnF6N2u3MVd2aUA=="],
 
     "@mmailaender/convex-svelte": ["@mmailaender/convex-svelte@0.18.0", "", { "dependencies": { "esm-env": "^1.2.2", "runed": "^0.37.1" }, "peerDependencies": { "convex": ">1.10.0", "svelte": ">=5.36.0" } }, "sha512-2dv4cQjThk2Hs9BRrvKv8xc/Z6GqZP428uV9OTzVYBHih65uTF+/r3cqnEnDJv34H2Rr7TOHrfpCu/9aXP2yUg=="],
 

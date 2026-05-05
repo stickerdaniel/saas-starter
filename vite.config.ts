@@ -359,8 +359,9 @@ export default defineConfig(async ({ mode }) => {
 				// files. Without this, they import svelte/server fresh at runtime, get a
 				// separate `ssr_context` variable, and `setContext` throws
 				// `lifecycle_outside_component` even though we ARE in a component init.
+				// @mmailaender/convex-better-auth-svelte (>=0.7.4) ships a top-level `"svelte"`
+				// field, so SvelteKit auto-bundles it without needing it here.
 				'@mmailaender/convex-svelte',
-				'@mmailaender/convex-better-auth-svelte',
 				'@stickerdaniel/convex-autumn-svelte',
 				// WASM image codec used by the image-processing worker. Bundling avoids
 				// SSR-time `import 'svelte'`-style hazards if the package adds main-thread
