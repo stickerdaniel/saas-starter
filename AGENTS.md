@@ -477,7 +477,7 @@ For each data need in a new route, pick the right pattern:
    → For billing-affecting mutations: call `autumn.refetch()` after
 
 7. **Paginated data with filters?**
-   → `usePaginatedQuery()` from `convex-svelte`
+   → `usePaginatedQuery()` from `@mmailaender/convex-svelte`
    → Combine with `useSearchParams()` from `runed/kit` for URL state
    → Use `keepPreviousData: true` to prevent UI flicker
 

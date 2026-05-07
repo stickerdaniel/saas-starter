@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { T, getTranslate } from '@tolgee/svelte';
-	import { useQuery, useConvexClient } from 'convex-svelte';
+	import { useQuery, useConvexClient } from '@mmailaender/convex-svelte';
 	import { api } from '$lib/convex/_generated/api.js';
 	import * as Item from '$lib/components/ui/item/index.js';
 	import * as AlertDialog from '$lib/components/ui/alert-dialog/index.js';
