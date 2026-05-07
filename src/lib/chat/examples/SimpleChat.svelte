@@ -12,7 +12,7 @@
 	import memberFive from '$blocks/team/avatars/member-five.webp';
 
 	import type { ChatCoreAPI } from '$lib/chat';
-	import type { useQuery } from 'convex-svelte';
+	import type { useQuery } from '@mmailaender/convex-svelte';
 
 	type ChatAPI = ChatCoreAPI & {
 		listMessages: Parameters<typeof useQuery>[0];

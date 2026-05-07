@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { useConvexClient, useQuery } from 'convex-svelte';
+	import { useConvexClient, useQuery } from '@mmailaender/convex-svelte';
 	import { page } from '$app/state';
 	import { watch } from 'runed';
 	import { api } from '$lib/convex/_generated/api';
