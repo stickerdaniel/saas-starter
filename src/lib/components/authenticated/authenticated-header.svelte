@@ -7,7 +7,7 @@
 	import LanguageSwitcher from '$lib/components/LanguageSwitcher.svelte';
 	import LightSwitch from '$lib/components/ui/light-switch/light-switch.svelte';
 	import CommandTrigger from '$lib/components/global-search/command-trigger.svelte';
-	import { localizedHref } from '$lib/utils/i18n';
+	import { buildBreadcrumbs } from './breadcrumbs';
 	import { getTranslate } from '@tolgee/svelte';
 
 	const { t } = getTranslate();
@@ -19,44 +19,9 @@
 
 	let { routePrefix, rootLabel }: Props = $props();
 
-	// Create breadcrumb items based on current route
-	const breadcrumbs = $derived.by(() => {
-		const pathname = page.url.pathname;
-		const segments = pathname.split('/').filter(Boolean);
-
-		if (segments.length === 0) return [];
-
-		const items: { label: string; href: string; isLast: boolean }[] = [];
-
-		// Check if current route matches the prefix
-		const first = segments[0]!;
-		if (first === routePrefix || (first.length === 2 && segments[1] === routePrefix)) {
-			items.push({
-				label: rootLabel,
-				href: localizedHref(`/${routePrefix}`),
-				isLast: segments.length === 1 || (first.length === 2 && segments.length === 2)
-			});
-
-			// Add subsequent segments (skip language segment if present)
-			const prefixSegmentIndex = first === routePrefix ? 0 : 1;
-			if (segments.length > prefixSegmentIndex + 1) {
-				const lastSegment = segments[segments.length - 1]!;
-				// Format the segment name (e.g., "community-chat" -> "Community Chat")
-				const formattedLabel = lastSegment
-					.split('-')
-					.map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-					.join(' ');
-
-				items.push({
-					label: formattedLabel,
-					href: pathname,
-					isLast: true
-				});
-			}
-		}
-
-		return items;
-	});
+	const breadcrumbs = $derived(
+		buildBreadcrumbs(page.url.pathname, routePrefix, rootLabel, page.params.lang)
+	);
 </script>
 
 <header
