@@ -23,6 +23,7 @@
         "@sentry/sveltekit": "^10.47.0",
         "@stickerdaniel/convex-autumn-svelte": "^0.2.0",
         "@svelte-put/lockscroll": "^2.0.1",
+        "@tanstack/svelte-table": "^8.21.3",
         "@tolgee/format-icu": "^7.0.0",
         "@tolgee/svelte": "^7.0.0",
         "@varlock/vite-integration": "^1.1.0",
@@ -1254,6 +1255,8 @@
     "@tanstack/query-core": ["@tanstack/query-core@5.90.20", "", {}, "sha512-OMD2HLpNouXEfZJWcKeVKUgQ5n+n3A2JFmBaScpNDUqSrQSjiveC7dKMe53uJUg1nDG16ttFPz2xfilz6i2uVg=="],
 
     "@tanstack/react-query": ["@tanstack/react-query@5.90.21", "", { "dependencies": { "@tanstack/query-core": "5.90.20" }, "peerDependencies": { "react": "^18 || ^19" } }, "sha512-0Lu6y5t+tvlTJMTO7oh5NSpJfpg/5D41LlThfepTixPYkJ0sE2Jj0m0f6yYqujBwIXlId87e234+MxG3D3g7kg=="],
+
+    "@tanstack/svelte-table": ["@tanstack/svelte-table@8.21.3", "", { "dependencies": { "@tanstack/table-core": "8.21.3" }, "peerDependencies": { "svelte": "^4.0.0 || ^3.49.0" } }, "sha512-VwLt2xfsYHdchdYdFfcl9bxlJts1I6JK50xqhH+KMB9co98rnIyL4pRhTMSDfuB448yQR9E7d6oBLjx8r69cVg=="],
 
     "@tanstack/table-core": ["@tanstack/table-core@8.21.3", "", {}, "sha512-ldZXEhOBb8Is7xLs01fR3YEc3DERiz5silj8tnGkFZytt1abEvl/GhUmCE0PMLaMPTa3Jk4HbKmRlHmu+gCftg=="],
 
