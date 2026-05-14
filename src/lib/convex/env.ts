@@ -29,23 +29,37 @@ const ANALYSIS_PLACEHOLDERS: Partial<Record<string, string>> = {
 	AUTUMN_SECRET_KEY: 'placeholder-key-for-analysis'
 };
 
+export type RequireEnvOptions = {
+	/** Human-readable feature name this env var gates (e.g., "billing & checkout"). */
+	feature?: string;
+	/** Reference doc or example file path. Defaults to `.env.convex.example`. */
+	docs?: string;
+};
+
 /**
  * Get a required env var or throw with a helpful message.
  * Only accepts keys marked `@required` in `.env-convex.schema`.
  *
  * Falls back to analysis placeholders for vars that are read at module load
  * time (before Convex sets env vars). All other missing vars throw immediately.
+ *
+ * Pass `opts.feature` to make the error message name the gated feature, which
+ * surfaces a useful breadcrumb in Convex logs when an end-user flow trips it.
  */
-export function requireEnv<K extends RequiredKeys>(name: K): string {
+export function requireEnv<K extends RequiredKeys>(name: K, opts?: RequireEnvOptions): string {
 	const value = process.env[name as string];
 	if (value) return value;
 
 	const placeholder = ANALYSIS_PLACEHOLDERS[name as string];
 	if (placeholder) return placeholder;
 
+	const feature = opts?.feature ? ` (needed for: ${opts.feature})` : '';
+	const docs = opts?.docs ?? '.env.convex.example';
+
 	throw new Error(
-		`Missing required environment variable: ${name}\n` +
-			`Set via: bunx convex env set ${name} <value>`
+		`[env] Missing ${name}${feature}\n` +
+			`  Fix: bunx convex env set ${name} <value>\n` +
+			`  See: ${docs}`
 	);
 }
 

@@ -303,9 +303,9 @@ function buildTrustedOrigins(): string[] {
 // Creates Better Auth options object (used by adapter and betterAuth CLI)
 export const createAuthOptions = (ctx: GenericCtx<DataModel>): BetterAuthOptions => {
 	return {
-		baseURL: requireEnv('SITE_URL'),
+		baseURL: requireEnv('SITE_URL', { feature: 'Better Auth base URL' }),
 		trustedOrigins: buildTrustedOrigins(),
-		secret: requireEnv('BETTER_AUTH_SECRET'),
+		secret: requireEnv('BETTER_AUTH_SECRET', { feature: 'Better Auth session signing' }),
 		database: authComponent.adapter(ctx),
 		user: {
 			additionalFields: {
