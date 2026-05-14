@@ -13,6 +13,7 @@ import authConfig from './auth.config';
 import { requireEnv, googleOAuth, githubOAuth } from './env';
 import { getFounderWelcomeDelay } from './emails/helpers';
 import { incrementCounter } from './admin/counters';
+import { devNotice } from '../dev/notice';
 
 // Required for triggers to work - references internal auth functions
 const authFunctions: AuthFunctions = internal.auth;
@@ -389,8 +390,24 @@ export const getCurrentUser = query({
 /** Returns which OAuth providers are configured and available */
 export const getAvailableOAuthProviders = query({
 	args: {},
-	handler: async () => ({
-		google: googleOAuth.enabled,
-		github: githubOAuth.enabled
-	})
+	handler: async () => {
+		if (!googleOAuth.enabled) {
+			devNotice({
+				feature: 'Google sign-in',
+				missing: ['AUTH_GOOGLE_ID', 'AUTH_GOOGLE_SECRET'],
+				scope: 'convex'
+			});
+		}
+		if (!githubOAuth.enabled) {
+			devNotice({
+				feature: 'GitHub sign-in',
+				missing: ['AUTH_GITHUB_ID', 'AUTH_GITHUB_SECRET'],
+				scope: 'convex'
+			});
+		}
+		return {
+			google: googleOAuth.enabled,
+			github: githubOAuth.enabled
+		};
+	}
 });

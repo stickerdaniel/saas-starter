@@ -1,6 +1,7 @@
 import { components, internal } from '../_generated/api';
 import { Resend } from '@convex-dev/resend';
 import { requireEnv } from '../env';
+import { devNotice } from '../../dev/notice';
 
 /**
  * Resend email client configured for the application.
@@ -20,6 +21,18 @@ import { requireEnv } from '../env';
  * - RESEND_API_KEY: Your Resend API key (required)
  * - RESEND_WEBHOOK_SECRET: Webhook signing secret (optional)
  */
+// Module-load notice (no-op outside local dev): RESEND_WEBHOOK_SECRET gates
+// webhook signature verification. Without it the component throws inside
+// handleResendEventWebhook, so Resend retries 5xx forever and the dev gets
+// no useful signal until they look at component internals.
+if (!process.env.RESEND_WEBHOOK_SECRET) {
+	devNotice({
+		feature: 'Resend webhook signature verification',
+		missing: ['RESEND_WEBHOOK_SECRET'],
+		scope: 'convex'
+	});
+}
+
 export const resend: Resend = new Resend(components.resend, {
 	// Enable test mode in development to prevent accidental sends
 	// In test mode, emails can only be sent to: delivered@resend.dev, bounced@resend.dev, complained@resend.dev
