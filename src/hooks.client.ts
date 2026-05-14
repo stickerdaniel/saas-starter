@@ -1,14 +1,23 @@
 import { dev, browser } from '$app/environment';
 import { PUBLIC_SENTRY_DSN } from '$env/static/public';
 import { getPosthog } from '$lib/analytics/posthog';
+import { devNotice } from '$lib/dev/notice';
 import * as Sentry from '@sentry/sveltekit';
 import type { HandleClientError } from '@sveltejs/kit';
 
-if (browser && PUBLIC_SENTRY_DSN) {
-	Sentry.init({
-		dsn: PUBLIC_SENTRY_DSN,
-		tracesSampleRate: 0.1
-	});
+if (browser) {
+	if (PUBLIC_SENTRY_DSN) {
+		Sentry.init({
+			dsn: PUBLIC_SENTRY_DSN,
+			tracesSampleRate: 0.1
+		});
+	} else {
+		devNotice({
+			feature: 'Error monitoring (Sentry)',
+			missing: ['PUBLIC_SENTRY_DSN'],
+			scope: 'vite-public'
+		});
+	}
 }
 
 const customHandleError: HandleClientError = ({ error, status }) => {

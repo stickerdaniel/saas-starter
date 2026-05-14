@@ -9,12 +9,19 @@ import {
 	matchPublicMarketingRoute
 } from '$lib/marketing/public-routes';
 import { createMarketingMarkdownResponse, isMarkdownRequest } from '$lib/markdown/marketing';
+import { devNotice } from '$lib/dev/notice';
 import { safeRedirectPath } from '$lib/utils/url';
 
 if (PUBLIC_SENTRY_DSN) {
 	Sentry.init({
 		dsn: PUBLIC_SENTRY_DSN,
 		tracesSampleRate: 0.1
+	});
+} else {
+	devNotice({
+		feature: 'Error monitoring (Sentry)',
+		missing: ['PUBLIC_SENTRY_DSN'],
+		scope: 'vite-public'
 	});
 }
 

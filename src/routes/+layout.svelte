@@ -17,6 +17,7 @@
 	import { Toaster } from '$lib/components/ui/sonner';
 	import * as Tooltip from '$lib/components/ui/tooltip/index.js';
 	import { watch } from 'runed';
+	import { devNotice } from '$lib/dev/notice';
 	import de from '../i18n/de.json';
 	import en from '../i18n/en.json';
 	import es from '../i18n/es.json';
@@ -36,6 +37,13 @@
 	const tolgeeBuilder = Tolgee().use(FormatIcu());
 	if (import.meta.env.DEV) {
 		tolgeeBuilder.use(DevTools());
+		if (!import.meta.env.VITE_TOLGEE_API_KEY) {
+			devNotice({
+				feature: 'Tolgee in-context translation editing',
+				missing: ['VITE_TOLGEE_API_KEY'],
+				scope: 'vite-public'
+			});
+		}
 	}
 	// svelte-ignore state_referenced_locally
 	const tolgee = tolgeeBuilder.init({
