@@ -80,6 +80,7 @@ Local dev notes (`bun run dev`):
 - Local seeded admin credentials: `admin@local.dev` / `LocalDevAdmin123!`
 - Convex backend env vars are loaded from `.env.convex.local` (optional services like email, OAuth, billing, AI).
 - `RESEND_API_KEY` and `AUTH_EMAIL` in `.env.convex.local` are only needed for real signup, verification, and password reset email flows.
+- `SITE_URL` in `.env.convex.local` must point to your local dev origin (`http://localhost:5173`). The default in `.env.convex.example` is already set for this. A production URL here breaks the admin sign-in via Better Auth.
 - Local Convex state is isolated per branch/worktree under `.convex/`.
 - `RESET_LOCAL_BACKEND=true bun run dev` clears the existing local Convex state before startup and restores the default seeded admin credentials.
 
