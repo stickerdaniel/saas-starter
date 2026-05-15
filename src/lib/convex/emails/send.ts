@@ -237,9 +237,6 @@ export const sendNewUserSignupNotification = internalMutation({
 		const { userName, userEmail, signupMethod, signupTime } = args;
 
 		if (shouldSkipTestEmail('sendNewUserSignupNotification', userEmail)) return;
-		assertResendApiKey();
-
-		const siteUrl = requireEnv('SITE_URL', { feature: 'email deep links' });
 
 		// Get recipients who have new signup notifications enabled
 		const recipients = await ctx.runQuery(
@@ -251,6 +248,13 @@ export const sendNewUserSignupNotification = internalMutation({
 			console.log('[sendNewUserSignupNotification] No recipients configured, skipping');
 			return;
 		}
+
+		// Only require Resend once we know we'll actually send; with no recipients
+		// configured (common in fresh local-dev installs) the function short-circuits
+		// above and must not demand the API key.
+		assertResendApiKey();
+
+		const siteUrl = requireEnv('SITE_URL', { feature: 'email deep links' });
 
 		// Build admin dashboard link with search for this user
 		const adminDashboardLink = `${siteUrl}/admin/users?search=${encodeURIComponent(userEmail)}`;
