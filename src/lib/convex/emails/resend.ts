@@ -1,5 +1,6 @@
 import { components, internal } from '../_generated/api';
 import { Resend } from '@convex-dev/resend';
+import { requireEnv } from '../env';
 
 /**
  * Resend email client configured for the application.
@@ -37,18 +38,13 @@ export const resend: Resend = new Resend(components.resend, {
  * email ever arrives. Calling this at the top of every email-sending handler
  * converts that silent hang into an immediate, named failure in Convex logs.
  *
- * AUTH_EMAIL presence is already covered by `requireEnv('AUTH_EMAIL', ...)` in
- * each handler's `from` argument; this helper only guards the API key.
+ * Delegates to `requireEnv` so the error format and docs path stay in one
+ * place. AUTH_EMAIL presence is covered separately by `requireEnv('AUTH_EMAIL',
+ * ...)` in each handler's `from` argument.
  */
 export function assertResendApiKey(): void {
-	if (process.env.RESEND_API_KEY) return;
 	// E2E test runs propagate AUTH_E2E_TEST_SECRET into the Convex backend
 	// (vite.config.ts) and intentionally do not configure Resend. Stay quiet there.
 	if (process.env.AUTH_E2E_TEST_SECRET) return;
-
-	throw new Error(
-		`[env] Missing RESEND_API_KEY (needed for: email delivery)\n` +
-			`  Fix: bunx convex env set RESEND_API_KEY <value>\n` +
-			`  See: .env.convex.example`
-	);
+	requireEnv('RESEND_API_KEY', { feature: 'email delivery' });
 }
