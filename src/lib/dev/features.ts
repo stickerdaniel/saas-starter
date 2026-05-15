@@ -1,16 +1,15 @@
 /**
  * Catalog of optional features and the env keys that gate them.
  *
- * Single source of truth for dev-time diagnostics:
- *   - The `devNotice` helper consumes this to format consistent warnings
- *     when a gated feature degrades silently in local dev.
- *   - The startup banner in `vite.config.ts` consumes this to render the
- *     boot-time status table.
+ * Used by `devNotice` to format consistent dev-time warnings when a gated
+ * feature degrades silently in local dev. The catalog is also designed to
+ * be reusable by future boot-time diagnostics (banners, doctor scripts) —
+ * keep this file free of runtime side effects so it can be imported from
+ * any context, including the Vite config loader.
  *
  * **Constraints (important):**
- * This module is imported by the Vite config loader, so it must stay
- * primitive: no imports from `$env/*`, no Convex `_generated/*`, no Svelte
- * runtime imports. Plain TypeScript and string constants only.
+ * No imports from `$env/*`, no Convex `_generated/*`, no Svelte runtime
+ * imports. Plain TypeScript and string constants only.
  */
 
 export type DevFeatureScope = 'convex' | 'sveltekit' | 'vite-public';
@@ -21,7 +20,7 @@ export type DevFeature = {
 	/** Where the env vars live. Determines the fix command we suggest. */
 	scope: DevFeatureScope;
 	/** Env var names that gate the feature (must all be set to enable it). */
-	missing: string[];
+	missing: readonly string[];
 	/** Reference doc / example file to point developers at. */
 	docs?: string;
 };
