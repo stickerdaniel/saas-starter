@@ -3,6 +3,7 @@ import {
 	PUBLIC_POSTHOG_HOST,
 	PUBLIC_POSTHOG_PROXY_HOST
 } from '$env/static/public';
+import { devNotice } from '$lib/dev/notice';
 
 const READY_EVENT = 'posthog:ready';
 const ADBLOCK_DETECT_TIMEOUT_MS = 3000;
@@ -41,7 +42,17 @@ export async function initPosthog(): Promise<PostHogClient | null> {
 	if (initPromise) return initPromise;
 
 	initPromise = (async () => {
-		if (!PUBLIC_POSTHOG_API_KEY || !PUBLIC_POSTHOG_HOST) return null;
+		if (!PUBLIC_POSTHOG_API_KEY || !PUBLIC_POSTHOG_HOST) {
+			const missing: string[] = [];
+			if (!PUBLIC_POSTHOG_API_KEY) missing.push('PUBLIC_POSTHOG_API_KEY');
+			if (!PUBLIC_POSTHOG_HOST) missing.push('PUBLIC_POSTHOG_HOST');
+			devNotice({
+				feature: 'Product analytics (PostHog)',
+				missing,
+				scope: 'vite-public'
+			});
+			return null;
+		}
 
 		try {
 			const posthog = (await import('posthog-js')).default;
