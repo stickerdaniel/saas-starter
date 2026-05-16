@@ -1,7 +1,7 @@
 import { internalMutation } from '../_generated/server';
 import { v } from 'convex/values';
 import { components, internal } from '../_generated/api';
-import { resend } from './resend';
+import { resend, assertResendApiKey } from './resend';
 import {
 	renderVerificationEmail,
 	renderPasswordResetEmail,
@@ -50,12 +50,13 @@ export const sendVerificationEmail = internalMutation({
 		const { email, verificationUrl, expiryMinutes = 20 } = args;
 
 		if (shouldSkipTestEmail('sendVerificationEmail', email)) return;
+		assertResendApiKey();
 
 		const locale = await getLocaleForEmail(ctx, email);
 		const { html, text } = renderVerificationEmail(verificationUrl, expiryMinutes);
 
 		await resend.sendEmail(ctx, {
-			from: requireEnv('AUTH_EMAIL'),
+			from: requireEnv('AUTH_EMAIL', { feature: 'email delivery' }),
 			to: email,
 			subject: t(locale, 'email.subject.verify'),
 			html,
@@ -85,12 +86,13 @@ export const sendResetPasswordEmail = internalMutation({
 		const { email, resetUrl, userName } = args;
 
 		if (shouldSkipTestEmail('sendResetPasswordEmail', email)) return;
+		assertResendApiKey();
 
 		const locale = await getLocaleForEmail(ctx, email);
 		const { html, text } = renderPasswordResetEmail(resetUrl, userName);
 
 		await resend.sendEmail(ctx, {
-			from: requireEnv('AUTH_EMAIL'),
+			from: requireEnv('AUTH_EMAIL', { feature: 'email delivery' }),
 			to: email,
 			subject: t(locale, 'email.subject.reset_password'),
 			html,
@@ -123,9 +125,10 @@ export const sendAdminReplyNotification = internalMutation({
 		const { email, adminName, messagePreview, threadId, pageUrl } = args;
 
 		if (shouldSkipTestEmail('sendAdminReplyNotification', email)) return;
+		assertResendApiKey();
 
 		const locale = await getLocaleForEmail(ctx, email);
-		const siteUrl = requireEnv('SITE_URL');
+		const siteUrl = requireEnv('SITE_URL', { feature: 'email deep links' });
 
 		// Build deep link that opens the support widget to this thread
 		// Strip any existing support/thread params to avoid duplicates
@@ -139,7 +142,7 @@ export const sendAdminReplyNotification = internalMutation({
 		const { html, text } = renderAdminReplyNotificationEmail(adminName, messagePreview, deepLink);
 
 		await resend.sendEmail(ctx, {
-			from: requireEnv('AUTH_EMAIL'),
+			from: requireEnv('AUTH_EMAIL', { feature: 'email delivery' }),
 			to: email,
 			subject: t(locale, 'email.subject.support_reply'),
 			html,
@@ -178,7 +181,8 @@ export const sendNewTicketAdminNotification = internalMutation({
 	},
 	handler: async (ctx, args) => {
 		const { email, isReopen, userName, messages, threadId } = args;
-		const siteUrl = requireEnv('SITE_URL');
+		assertResendApiKey();
+		const siteUrl = requireEnv('SITE_URL', { feature: 'email deep links' });
 		const locale = await getLocaleForEmail(ctx, email);
 
 		// Build admin dashboard link for this thread
@@ -199,7 +203,7 @@ export const sendNewTicketAdminNotification = internalMutation({
 			: t(locale, 'email.subject.ticket_new', { userName });
 
 		await resend.sendEmail(ctx, {
-			from: requireEnv('AUTH_EMAIL'),
+			from: requireEnv('AUTH_EMAIL', { feature: 'email delivery' }),
 			to: email,
 			subject,
 			html,
@@ -234,8 +238,6 @@ export const sendNewUserSignupNotification = internalMutation({
 
 		if (shouldSkipTestEmail('sendNewUserSignupNotification', userEmail)) return;
 
-		const siteUrl = requireEnv('SITE_URL');
-
 		// Get recipients who have new signup notifications enabled
 		const recipients = await ctx.runQuery(
 			internal.admin.notificationPreferences.queries.getRecipientsForNotificationType,
@@ -246,6 +248,13 @@ export const sendNewUserSignupNotification = internalMutation({
 			console.log('[sendNewUserSignupNotification] No recipients configured, skipping');
 			return;
 		}
+
+		// Only require Resend once we know we'll actually send; with no recipients
+		// configured (common in fresh local-dev installs) the function short-circuits
+		// above and must not demand the API key.
+		assertResendApiKey();
+
+		const siteUrl = requireEnv('SITE_URL', { feature: 'email deep links' });
 
 		// Build admin dashboard link with search for this user
 		const adminDashboardLink = `${siteUrl}/admin/users?search=${encodeURIComponent(userEmail)}`;
@@ -265,7 +274,7 @@ export const sendNewUserSignupNotification = internalMutation({
 		for (const email of recipients) {
 			try {
 				await resend.sendEmail(ctx, {
-					from: requireEnv('AUTH_EMAIL'),
+					from: requireEnv('AUTH_EMAIL', { feature: 'email delivery' }),
 					to: email,
 					subject: `New user signup: ${userEmail}`,
 					html,
@@ -376,6 +385,8 @@ export const sendFounderWelcomeEmail = internalMutation({
 			return null;
 		}
 
+		assertResendApiKey();
+
 		// Render plain text with {{placeholder}} interpolation
 		const parts = (name?.trim() || 'there').split(/\s+/);
 		const templateVars: Record<string, string> = {
@@ -392,7 +403,7 @@ export const sendFounderWelcomeEmail = internalMutation({
 		const subject = renderTemplate(config.subject);
 
 		await resend.sendEmail(ctx, {
-			from: `${config.name} <${requireEnv('AUTH_EMAIL')}>`,
+			from: `${config.name} <${requireEnv('AUTH_EMAIL', { feature: 'email delivery' })}>`,
 			replyTo: config.replyTo ? [config.replyTo] : undefined,
 			to: email,
 			subject,

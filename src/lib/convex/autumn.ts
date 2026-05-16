@@ -3,7 +3,7 @@ import { components } from './_generated/api';
 import { authComponent } from './auth';
 import { requireEnv } from './env';
 
-const secretKey = requireEnv('AUTUMN_SECRET_KEY');
+const secretKey = requireEnv('AUTUMN_SECRET_KEY', { feature: 'billing & checkout' });
 
 export const autumn = new Autumn(components.autumn, {
 	secretKey,
