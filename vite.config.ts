@@ -6,6 +6,7 @@ import * as path from 'node:path';
 import { varlockLoadedEnv, varlockVitePlugin } from '@varlock/vite-integration';
 import { convexLocal } from 'convex-vite-plugin';
 import { resetRedactionMap } from 'varlock/env';
+import { DEV_FEATURES, type DevFeature } from './src/lib/dev/features';
 import { sentrySvelteKit } from '@sentry/sveltekit';
 import devtoolsJson from 'vite-plugin-devtools-json';
 import tailwindcss from '@tailwindcss/vite';
@@ -169,6 +170,43 @@ function parseSensitiveVarNames(schemaPath: string): Set<string> {
 	return sensitiveNames;
 }
 
+/**
+ * Print a boot-time banner showing which optional features are active vs
+ * gated by missing env vars. Source of truth is `src/lib/dev/features.ts`
+ * (also consumed by the in-context devNotice helper).
+ *
+ * Skipped in CI, on build, and during E2E (callers gate this).
+ */
+function printOptionalFeatureBanner(opts: {
+	convexEnv: Record<string, string>;
+	viteEnv: Record<string, string>;
+}): void {
+	const isSet = (feature: DevFeature) => {
+		const source = feature.scope === 'convex' ? opts.convexEnv : opts.viteEnv;
+		return feature.missing.every((key) => source[key]?.trim());
+	};
+
+	const rows = DEV_FEATURES.map((feature) => {
+		const active = isSet(feature);
+		const status = active ? '✓' : '⚠';
+		const hint = active ? feature.missing.join(', ') : `set ${feature.missing.join(', ')}`;
+		return { status, name: feature.name, hint };
+	});
+
+	const nameWidth = Math.max(...rows.map((r) => r.name.length));
+
+	const lines: string[] = [];
+	lines.push('');
+	lines.push('  Optional features (local dev)');
+	for (const row of rows) {
+		lines.push(`    ${row.status}  ${row.name.padEnd(nameWidth)}  ${row.hint}`);
+	}
+	lines.push('');
+	lines.push('  Reference: .env.convex.example, .env.schema');
+	lines.push('');
+	console.warn(lines.join('\n'));
+}
+
 export default defineConfig(async ({ mode }) => {
 	const cwd = process.cwd();
 	const loadedEnv = loadEnv(mode, cwd, '');
@@ -236,15 +274,11 @@ export default defineConfig(async ({ mode }) => {
 			config: mergedConfig
 		});
 
-		const missingEmailEnv = ['RESEND_API_KEY', 'AUTH_EMAIL'].filter(
-			(key) => !convexLocalEnv[key]?.trim()
-		);
-
-		if (missingEmailEnv.length > 0) {
-			console.warn(
-				`[dev] Missing ${missingEmailEnv.join(', ')} in .env.convex.local. ` +
-					'Local boot will use the seeded admin account, but manual signup, verification, and password reset emails will not work until these are configured.'
-			);
+		if (!isTestMode && !process.env.WORKERS_CI) {
+			printOptionalFeatureBanner({
+				convexEnv: convexLocalEnv,
+				viteEnv: loadedEnv
+			});
 		}
 
 		process.env.PUBLIC_CONVEX_URL = backendUrl;
