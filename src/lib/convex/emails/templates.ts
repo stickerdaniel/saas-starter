@@ -64,7 +64,7 @@ function escapeHtml(str: string): string {
  * Uses EMAIL_ASSET_URL env var - should point to publicly accessible URL
  */
 function getBaseUrl(): string {
-	return requireEnv('EMAIL_ASSET_URL');
+	return requireEnv('EMAIL_ASSET_URL', { feature: 'email asset URLs (logo, etc.)' });
 }
 
 /**
