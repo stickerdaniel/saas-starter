@@ -125,8 +125,22 @@
 			"type": "git",
 			"name": "convexSvelte",
 			"url": "https://github.com/mmailaender/convex-svelte",
-			"branch": "feat/pagination",
+			"branch": "main",
 			"specialNotes": "Convex Svelte bindings with pagination support."
+		},
+		{
+			"type": "git",
+			"name": "convexBetterAuth",
+			"url": "https://github.com/get-convex/better-auth",
+			"branch": "main",
+			"specialNotes": "Convex Better Auth component. Local install, schema generation, auth component APIs, version migration notes."
+		},
+		{
+			"type": "git",
+			"name": "convexBetterAuthSvelte",
+			"url": "https://github.com/mmailaender/convex-better-auth-svelte",
+			"branch": "main",
+			"specialNotes": "SvelteKit bindings for @convex-dev/better-auth. Handler, client provider, auth state helpers, migration notes."
 		},
 		{
 			"type": "git",
@@ -374,9 +388,9 @@
 		{
 			"type": "git",
 			"name": "autumnJs",
-			"url": "https://github.com/useautumn/autumn-js",
-			"branch": "main",
-			"specialNotes": "Autumn billing SDK and Convex component (@useautumn/convex). Check, track, checkout, attach. Convex component uses identify callback for auth context."
+			"url": "https://github.com/useautumn/autumn",
+			"branch": "dev",
+			"specialNotes": "Autumn billing SDK and integrations. Package autumn-js current npm repository is useautumn/autumn; default branch dev. Check SDK constructor, Convex integration, check/track/checkout/attach, and migration notes."
 		},
 		{
 			"type": "git",
