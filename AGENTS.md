@@ -11,7 +11,8 @@ This project is a saas template built with SvelteKit, Convex, Typescript and mod
 If a project forked from this repo discovers a bug or weird behavior that originates from the template itself:
 
 1. Search the [saas-starter issues](https://github.com/stickerdaniel/saas-starter/issues) for an existing report first.
-2. If none exists, file a new issue describing the template bug/unexpected behavior.
+2. If none exists, fetch the issue template from the upstream repo first (`gh api repos/stickerdaniel/saas-starter/contents/.github/ISSUE_TEMPLATE` and read the relevant template) so the new issue follows the expected format.
+3. File a new issue describing the template bug/unexpected behavior using that template.
 
 ### Cross-Platform Scripts
 
