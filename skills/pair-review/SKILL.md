@@ -32,15 +32,16 @@ ls -t ~/.claude/plans/*.md | head -1
 
 Setup hat bereits clean slate gemacht (`rm -rf workdir`), kein extra cleanup hier nötig.
 
-Codex-Call mit `timeout`-Wrapper UND `< /dev/null`:
-
-- **`< /dev/null`**: ab codex CLI v0.130.0 wartet codex auf stdin-Input trotz prompt-Argument und hängt unendlich, wenn stdin nicht geschlossen ist (lsof: FD 0 = unix pipe, stderr: "Reading additional input from stdin...", keine Network-Connection). Explizites Closen via `< /dev/null` fixt es.
-- **`timeout 5m`**: bei Rate-Limit/Auth-Errors exit'et codex-CLI nicht graceful, Prozess hängt. `timeout` kill't nach 5min, Failure-Detection läuft auf die teilweise geschriebene `iter-0.ndjson`.
+Codex-Call: Prompt via stdin-heredoc mit `-` als arg-marker (upstream-supported pattern, siehe t3code `CodexTextGeneration.ts`). Konsistent mit Resume-Step unten. Plus `timeout`-Wrapper gegen CLI-Hangs bei Rate-Limit/Auth-Errors:
 
 ```bash
 timeout 5m codex exec --cd "$(cat /tmp/pair-review/$CLAUDE_CODE_SESSION_ID/caller_cwd)" --skip-git-repo-check --json \
   -o /tmp/pair-review/$CLAUDE_CODE_SESSION_ID/iter-0.md \
-  "Review the plan at <plan-path>. Read it carefully and read any files it references in the codebase. Output format:
+  - \
+  > /tmp/pair-review/$CLAUDE_CODE_SESSION_ID/iter-0.ndjson \
+  2> /tmp/pair-review/$CLAUDE_CODE_SESSION_ID/iter-0.err \
+  <<'PROMPT_EOF'
+Review the plan at <plan-path>. Read it carefully and read any files it references in the codebase. Output format:
 
 First line: VERDICT: <PASS|FAIL|PARTIAL>
 Second line: SUMMARY: <one sentence>
@@ -50,11 +51,11 @@ Then for each finding, a block in this exact form:
 <description, can span multiple lines>
 Suggested: <action>
 
-No prose outside finding blocks. Empty findings list = no '## F' blocks at all." \
-  > /tmp/pair-review/$CLAUDE_CODE_SESSION_ID/iter-0.ndjson \
-  2> /tmp/pair-review/$CLAUDE_CODE_SESSION_ID/iter-0.err \
-  < /dev/null
+No prose outside finding blocks. Empty findings list = no '## F' blocks at all.
+PROMPT_EOF
 ```
+
+Single-quoted `'PROMPT_EOF'` verhindert Variable-Expansion im Heredoc-Body. Claude muss `<plan-path>` durch den echten Plan-Pfad ersetzen.
 
 **Failure-Detection** (Codex kann mit exit 0 fertig sein nach `turn.failed`-Event, z.B. bei Rate-Limit). `if`-Block gegen invertierte Exit-Codes von `jq -e`:
 
