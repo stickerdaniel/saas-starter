@@ -72,7 +72,7 @@
 		"@zxcvbn-ts/language-en": "^3.0.2",
 		"ai": "^6.0.174",
 		"atmn": "^1.0.0",
-		"autumn-js": "^0.1.43",
+		"autumn-js": "^1.0.0",
 		"better-auth": "~1.6.9",
 		"convex-helpers": "^0.1.108",
 		"date-fns": "^4.1.0",
@@ -150,7 +150,7 @@
 		"typescript": "6.0.3",
 		"typescript-eslint": "8.59.1",
 		"vaul-svelte": "1.0.0-next.7",
-		"vercel": "53.1.1",
+		"vercel": "54.0.0",
 		"vite": "8.0.10",
 		"vite-plugin-devtools-json": "1.0.0",
 		"vitest": "4.1.5"
