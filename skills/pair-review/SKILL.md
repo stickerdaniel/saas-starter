@@ -32,7 +32,10 @@ ls -t ~/.claude/plans/*.md | head -1
 
 Setup hat bereits clean slate gemacht (`rm -rf workdir`), kein extra cleanup hier nötig.
 
-Codex-Call mit `timeout`-Wrapper (Codex-CLI exit'et bei Rate-Limit/Auth-Errors nicht graceful — Prozess hängt auf "Reading additional input from stdin". `timeout` kill't nach 5min, danach läuft Failure-Detection auf die teilweise geschriebene `iter-0.ndjson`):
+Codex-Call mit `timeout`-Wrapper UND `< /dev/null`:
+
+- **`< /dev/null`**: ab codex CLI v0.130.0 wartet codex auf stdin-Input trotz prompt-Argument und hängt unendlich, wenn stdin nicht geschlossen ist (lsof: FD 0 = unix pipe, stderr: "Reading additional input from stdin...", keine Network-Connection). Explizites Closen via `< /dev/null` fixt es.
+- **`timeout 5m`**: bei Rate-Limit/Auth-Errors exit'et codex-CLI nicht graceful, Prozess hängt. `timeout` kill't nach 5min, Failure-Detection läuft auf die teilweise geschriebene `iter-0.ndjson`.
 
 ```bash
 timeout 5m codex exec --cd "$(cat /tmp/pair-review/$CLAUDE_CODE_SESSION_ID/caller_cwd)" --skip-git-repo-check --json \
@@ -49,7 +52,8 @@ Suggested: <action>
 
 No prose outside finding blocks. Empty findings list = no '## F' blocks at all." \
   > /tmp/pair-review/$CLAUDE_CODE_SESSION_ID/iter-0.ndjson \
-  2> /tmp/pair-review/$CLAUDE_CODE_SESSION_ID/iter-0.err
+  2> /tmp/pair-review/$CLAUDE_CODE_SESSION_ID/iter-0.err \
+  < /dev/null
 ```
 
 **Failure-Detection** (Codex kann mit exit 0 fertig sein nach `turn.failed`-Event, z.B. bei Rate-Limit). `if`-Block gegen invertierte Exit-Codes von `jq -e`:
