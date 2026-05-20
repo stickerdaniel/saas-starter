@@ -57,7 +57,11 @@
 				anonymousUserId: anonymousId
 			})
 			.then(function onMigrationSuccess() {
+				// Update in-memory state via PersistedState (keeps reactive readers consistent),
+				// then drop the storage entry — PersistedState.current = null serializes to the
+				// 'null' literal which would leave litter in localStorage forever.
 				supportUserId.current = null;
+				localStorage.removeItem('supportUserId');
 			})
 			.catch(function onMigrationError(err: unknown) {
 				console.error('Failed to migrate anonymous tickets:', err);
