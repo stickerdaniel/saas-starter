@@ -2,6 +2,7 @@
 	import PostHogIdentify from '$lib/components/analytics/PostHogIdentify.svelte';
 	import SupportTicketMigrationBootstrap from '$lib/components/customer-support/support-ticket-migration-bootstrap.svelte';
 	import { AuthenticatedLayout, getAppSidebarConfig } from '$lib/components/authenticated';
+	import type { NavSubItem } from '$lib/components/authenticated/types';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
@@ -95,7 +96,7 @@
 
 	// Thread sub-items passed as separate prop to avoid snippet re-render
 	// destroying autoAnimate DOM nodes (see authenticated-sidebar.svelte)
-	const threadSubItems: Array<import('$lib/components/authenticated/types').NavSubItem> = $derived(
+	const threadSubItems: NavSubItem[] = $derived(
 		sidebarConfig.navItems.find((i) => i.collapsible)?.subItems ?? []
 	);
 </script>
