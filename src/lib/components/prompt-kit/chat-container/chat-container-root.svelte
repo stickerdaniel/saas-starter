@@ -5,6 +5,7 @@
 		type ResizeMode,
 		type InitialMode
 	} from './chat-container-context.svelte';
+	import type { Snippet } from 'svelte';
 	import { cn } from '$lib/utils';
 	import { watch } from 'runed';
 	import { untrack } from 'svelte';
@@ -18,7 +19,7 @@
 		ctx,
 		...restProps
 	}: {
-		children?: import('svelte').Snippet;
+		children?: Snippet;
 		class?: string;
 		resize?: ResizeMode;
 		initial?: InitialMode;

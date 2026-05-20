@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { cn } from '$lib/utils';
+	import type { Snippet } from 'svelte';
 	import { getTranslate } from '@tolgee/svelte';
 	import * as Accordion from '$lib/components/ui/accordion/index.js';
 	import BotIcon from '@lucide/svelte/icons/bot';
@@ -12,7 +13,7 @@
 		isStreaming?: boolean;
 		hasContent?: boolean;
 		duration?: number;
-		children?: import('svelte').Snippet;
+		children?: Snippet;
 	}
 
 	let {

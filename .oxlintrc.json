@@ -11,6 +11,7 @@
 			}
 		],
 		"convex/no-invalid-module-path": "error",
-		"typescript/array-type": ["error", { "default": "array-simple" }]
+		"typescript/array-type": ["error", { "default": "array-simple" }],
+		"typescript/consistent-type-imports": ["error", { "disallowTypeAnnotations": true }]
 	}
 }

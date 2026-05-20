@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { cn } from '$lib/utils';
+	import type { Snippet } from 'svelte';
 	import * as Accordion from '$lib/components/ui/accordion/index.js';
 
 	interface Props {
@@ -7,7 +8,7 @@
 		open?: boolean;
 		defaultOpen?: boolean;
 		onOpenChange?: (open: boolean) => void;
-		children?: import('svelte').Snippet;
+		children?: Snippet;
 	}
 
 	let {

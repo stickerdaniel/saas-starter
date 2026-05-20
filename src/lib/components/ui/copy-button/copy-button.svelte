@@ -8,6 +8,7 @@
 	import CopyIcon from '@lucide/svelte/icons/copy';
 	import XIcon from '@lucide/svelte/icons/x';
 	import { scale } from 'svelte/transition';
+	import type { HTMLButtonAttributes } from 'svelte/elements';
 	import type { CopyButtonProps } from './types';
 
 	const { t } = getTranslate();
@@ -27,9 +28,7 @@
 	}: CopyButtonProps = $props();
 
 	const resolvedSize = $derived(sizeProp === 'icon' && children ? 'default' : sizeProp);
-	const buttonProps = $derived(
-		rest as Omit<import('svelte/elements').HTMLButtonAttributes, 'type'>
-	);
+	const buttonProps = $derived(rest as Omit<HTMLButtonAttributes, 'type'>);
 
 	const clipboard = new UseClipboard();
 </script>
