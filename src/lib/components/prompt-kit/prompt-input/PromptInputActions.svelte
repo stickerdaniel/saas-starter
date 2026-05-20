@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { cn } from '$lib/utils';
+	import type { Snippet } from 'svelte';
 	import type { HTMLAttributes } from 'svelte/elements';
 
 	let {
@@ -7,7 +8,7 @@
 		children,
 		...restProps
 	}: HTMLAttributes<HTMLDivElement> & {
-		children: import('svelte').Snippet;
+		children: Snippet;
 	} = $props();
 </script>
 

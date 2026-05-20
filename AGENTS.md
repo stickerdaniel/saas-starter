@@ -397,6 +397,8 @@ Prop names must match the parent's passed prop name exactly.
 
 When adding ESLint plugins that export legacy `.eslintrc`-style configs (objects with `overrides`), use `fixupConfigRules()` from `@eslint/compat` to convert. See the Convex plugin block in `eslint.config.js` for the pattern.
 
+Adding a top-level dir with `.svelte`/`.ts` files outside the tsconfig `include` (e.g. `archive/`, `scratch/`)? `projectService: true` will refuse to parse it and pre-commit fails with a cryptic "not found by the project service" error. Either add the dir to `tsconfig.json` `include` or to `eslint.config.js` `ignores`.
+
 ### Real-time Features
 
 - Use Convex's `useQuery` for reactive data — **never inside `$derived()`**, use the `'skip'` pattern instead

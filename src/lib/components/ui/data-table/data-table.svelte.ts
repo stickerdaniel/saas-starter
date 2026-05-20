@@ -88,7 +88,7 @@ type Intersection<T extends readonly unknown[]> = (T extends [infer H, ...infer 
  * Proxy-based to avoid known WebKit recursion issue.
  */
 
-export function mergeObjects<Sources extends readonly MaybeThunk<any>[]>(
+export function mergeObjects<Sources extends ReadonlyArray<MaybeThunk<any>>>(
 	...sources: Sources
 ): Intersection<{ [K in keyof Sources]: Sources[K] }> {
 	const resolve = <T extends object>(src: MaybeThunk<T>): T | undefined =>
@@ -113,13 +113,13 @@ export function mergeObjects<Sources extends readonly MaybeThunk<any>[]>(
 			return !!findSourceWithKey(key);
 		},
 
-		ownKeys(): (string | symbol)[] {
+		ownKeys(): Array<string | symbol> {
 			// eslint-disable-next-line svelte/prefer-svelte-reactivity
 			const all = new Set<string | symbol>();
 			for (const s of sources) {
 				const obj = resolve(s);
 				if (obj) {
-					for (const k of Reflect.ownKeys(obj) as (string | symbol)[]) {
+					for (const k of Reflect.ownKeys(obj) as Array<string | symbol>) {
 						all.add(k);
 					}
 				}

@@ -1,11 +1,12 @@
 <script lang="ts">
 	import { cn } from '$lib/utils';
+	import type { Snippet } from 'svelte';
 	import { ElementSize } from 'runed';
 	import { attachmentsContext, type FileWithId } from './attachments-context.svelte.js';
 
 	interface Props {
 		class?: string;
-		children?: import('svelte').Snippet<[FileWithId]>;
+		children?: Snippet<[FileWithId]>;
 	}
 
 	let { class: className, children, ...props }: Props = $props();

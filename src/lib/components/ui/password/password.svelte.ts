@@ -1,8 +1,8 @@
 import { Context, watch } from 'runed';
 import type { ReadableBoxedValues, WritableBoxedValues } from 'svelte-toolbelt';
-import type { ZxcvbnResult } from '@zxcvbn-ts/core';
+import type { zxcvbn, ZxcvbnResult } from '@zxcvbn-ts/core';
 
-type ZxcvbnRunner = (typeof import('@zxcvbn-ts/core'))['zxcvbn'];
+type ZxcvbnRunner = typeof zxcvbn;
 
 /** Tracks whether zxcvbn is ready. Reactive via $state. */
 let dictionariesLoaded = $state(false);

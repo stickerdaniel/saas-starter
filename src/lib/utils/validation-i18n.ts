@@ -36,7 +36,7 @@ export function translateValidationErrors(
 	errors: string[] | undefined,
 	t: TolgeeFn,
 	params?: Record<string, TolgeeParams>
-): { message: string }[] | undefined {
+): Array<{ message: string }> | undefined {
 	if (!errors || errors.length === 0) return undefined;
 	return errors.map((key) => ({
 		message: params?.[key] ? t(key, params[key]) : t(key)
@@ -72,7 +72,7 @@ export function translateFormError(
 	error: string | undefined,
 	t: TolgeeFn,
 	params?: TolgeeParams
-): { message: string }[] | undefined {
+): Array<{ message: string }> | undefined {
 	if (!error) return undefined;
 	return [{ message: params ? t(error, params) : t(error) }];
 }

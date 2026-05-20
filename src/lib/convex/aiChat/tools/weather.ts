@@ -13,11 +13,11 @@ export const getGeocoding = tool({
 			throw new Error(`Geocoding API error: ${response.status} ${response.statusText}`);
 		}
 		const data = (await response.json()) as {
-			results?: {
+			results?: Array<{
 				latitude: number;
 				longitude: number;
 				name: string;
-			}[];
+			}>;
 		};
 
 		if (!data.results?.[0]) {

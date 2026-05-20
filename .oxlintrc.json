@@ -10,6 +10,8 @@
 				"ignoreUsageFiles": ["**/*.test.ts", "e2e/**"]
 			}
 		],
-		"convex/no-invalid-module-path": "error"
+		"convex/no-invalid-module-path": "error",
+		"typescript/array-type": ["error", { "default": "array-simple" }],
+		"typescript/consistent-type-imports": ["error", { "disallowTypeAnnotations": true }]
 	}
 }

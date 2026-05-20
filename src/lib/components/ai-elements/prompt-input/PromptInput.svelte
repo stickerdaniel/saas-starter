@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { cn } from '$lib/utils';
+	import type { Snippet } from 'svelte';
 	import { watch } from 'runed';
 	import { onMount } from 'svelte';
 	import {
@@ -19,7 +20,7 @@
 		maxFileSize?: number; // bytes
 		onError?: (err: { code: 'max_files' | 'max_file_size' | 'accept'; message: string }) => void;
 		onSubmit: (message: PromptInputMessage, event: SubmitEvent) => void | Promise<void>;
-		children?: import('svelte').Snippet;
+		children?: Snippet;
 	}
 
 	let {

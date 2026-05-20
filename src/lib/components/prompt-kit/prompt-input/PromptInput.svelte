@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { cn } from '$lib/utils';
+	import type { Snippet } from 'svelte';
 	import { Tooltip as TooltipPrimitive } from 'bits-ui';
 	import {
 		PromptInputClass,
@@ -17,7 +18,7 @@
 		children
 	}: PromptInputSchema & {
 		class?: string;
-		children: import('svelte').Snippet;
+		children: Snippet;
 	} = $props();
 
 	// Intentionally capture initial values; $effect() syncs updates below.

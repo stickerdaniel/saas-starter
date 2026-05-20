@@ -91,7 +91,7 @@ async function buildEmails() {
 		console.log('  Vite ready.\n');
 
 		const templatesToRender = getTemplatesForRendering();
-		const results: { name: string; success: boolean; error?: string }[] = [];
+		const results: Array<{ name: string; success: boolean; error?: string }> = [];
 
 		for (const { name, props } of templatesToRender) {
 			try {

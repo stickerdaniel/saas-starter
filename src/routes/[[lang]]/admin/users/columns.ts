@@ -20,7 +20,7 @@ function getStatusSortValue(user: AdminUserData): number {
 	return 0;
 }
 
-export const columns: ColumnDef<AdminUserData>[] = [
+export const columns: Array<ColumnDef<AdminUserData>> = [
 	{
 		id: 'select',
 		size: 40,

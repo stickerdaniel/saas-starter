@@ -4,11 +4,12 @@
 		promptInputProviderContext
 	} from './attachments-context.svelte.js';
 
+	import type { Snippet } from 'svelte';
 	interface Props {
 		initialInput?: string;
 		accept?: string;
 		multiple?: boolean;
-		children?: import('svelte').Snippet;
+		children?: Snippet;
 	}
 
 	const { initialInput = '', accept, multiple = true, children }: Props = $props();
