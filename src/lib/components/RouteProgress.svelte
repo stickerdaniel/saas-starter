@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { tick, untrack } from 'svelte';
+	import { tick, untrack, onDestroy } from 'svelte';
 	import { navigating } from '$app/state';
 
 	const SUPPRESSED_QUERY_KEYS = new Set(['sort', 'page', 'page_size', 'cursor', 'search']);
@@ -71,6 +71,8 @@
 			fadeTimer = null;
 		}
 	}
+
+	onDestroy(clearTimers);
 
 	function inc(): void {
 		let amount: number;
