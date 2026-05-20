@@ -95,7 +95,7 @@
 
 	// Thread sub-items passed as separate prop to avoid snippet re-render
 	// destroying autoAnimate DOM nodes (see authenticated-sidebar.svelte)
-	const threadSubItems: import('$lib/components/authenticated/types').NavSubItem[] = $derived(
+	const threadSubItems: Array<import('$lib/components/authenticated/types').NavSubItem> = $derived(
 		sidebarConfig.navItems.find((i) => i.collapsible)?.subItems ?? []
 	);
 </script>

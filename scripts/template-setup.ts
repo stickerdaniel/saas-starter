@@ -26,7 +26,7 @@ function write(rel: string, content: string): void {
 	writeFileSync(join(ROOT, rel), content, 'utf-8');
 }
 
-function replace(rel: string, pairs: [string | RegExp, string][]): void {
+function replace(rel: string, pairs: Array<[string | RegExp, string]>): void {
 	let content = read(rel);
 	for (const [search, replacement] of pairs) {
 		if (typeof search === 'string') {

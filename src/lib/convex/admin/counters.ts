@@ -63,11 +63,14 @@ export async function recalculateCounters(ctx: MutationCtx): Promise<{
 	let cursor: string | null = null;
 
 	for (let page = 0; page < 500; page++) {
-		const result: { page: Record<string, unknown>[]; isDone: boolean; continueCursor: string } =
-			await ctx.runQuery(components.betterAuth.adapter.findMany, {
-				model: 'user',
-				paginationOpts: { cursor, numItems: 200 }
-			});
+		const result: {
+			page: Array<Record<string, unknown>>;
+			isDone: boolean;
+			continueCursor: string;
+		} = await ctx.runQuery(components.betterAuth.adapter.findMany, {
+			model: 'user',
+			paginationOpts: { cursor, numItems: 200 }
+		});
 		for (const raw of result.page) {
 			const user = raw as unknown as BetterAuthUser;
 			computed.totalUsers++;

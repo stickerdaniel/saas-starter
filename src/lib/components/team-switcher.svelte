@@ -7,7 +7,7 @@
 
 	// This should be `Component` after @lucide/svelte updates types
 
-	let { teams }: { teams: { name: string; logo: any; plan: string }[] } = $props();
+	let { teams }: { teams: Array<{ name: string; logo: any; plan: string }> } = $props();
 	const sidebar = useSidebar();
 
 	// svelte-ignore state_referenced_locally

@@ -18,7 +18,7 @@
 		config: SidebarConfig;
 		user?: User;
 		/** Thread sub-items passed separately to avoid snippet re-render destroying DOM nodes */
-		threadSubItems?: import('./types').NavSubItem[];
+		threadSubItems?: Array<import('./types').NavSubItem>;
 	}
 
 	let { config, user, threadSubItems, ...restProps }: Props = $props();

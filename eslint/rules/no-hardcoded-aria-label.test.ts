@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import parser from 'svelte-eslint-parser';
 import rule from './no-hardcoded-aria-label.js';
 
-function lint(template: string): { messageId: string }[] {
-	const reports: { messageId: string }[] = [];
+function lint(template: string): Array<{ messageId: string }> {
+	const reports: Array<{ messageId: string }> = [];
 	const ast = parser.parseForESLint(template, {});
 
 	const context = {

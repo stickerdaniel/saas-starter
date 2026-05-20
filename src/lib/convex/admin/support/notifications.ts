@@ -478,7 +478,7 @@ export const getMessageContents = internalQuery({
 		// Fetch all messages in batch using getMessagesByIds
 		// Note: messageIds are stored as strings but the agent component expects typed IDs
 		const messagesResult = await ctx.runQuery(components.agent.messages.getMessagesByIds, {
-			messageIds: args.messageIds as Id<'messages'>[]
+			messageIds: args.messageIds as Array<Id<'messages'>>
 		});
 
 		for (const message of messagesResult) {

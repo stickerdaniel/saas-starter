@@ -11,13 +11,13 @@
 	let {
 		projects
 	}: {
-		projects: {
+		projects: Array<{
 			name: string;
 			url: string;
 			// This should be `Component` after @lucide/svelte updates types
 
 			icon: any;
-		}[];
+		}>;
 	} = $props();
 
 	const sidebar = useSidebar();
