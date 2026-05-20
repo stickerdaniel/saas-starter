@@ -28,7 +28,7 @@
 >
 	<span class="hidden lg:inline-flex">{$t('search.command.trigger_desktop')}</span>
 	<span class="inline-flex lg:hidden">{$t('search.command.trigger_mobile')}</span>
-	<div class="absolute end-1.5 top-1.5 hidden gap-1 sm:flex">
+	<div class="absolute inset-y-0 end-1.5 hidden items-center gap-1 sm:flex">
 		<Kbd.Group>
 			<Kbd.Root class="border">{cmdOrCtrl}</Kbd.Root>
 			<Kbd.Root class="border">K</Kbd.Root>

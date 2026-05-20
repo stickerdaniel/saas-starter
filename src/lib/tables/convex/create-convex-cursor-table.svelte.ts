@@ -69,10 +69,10 @@ export function hasQueryIdentityChanged<TFilterKeys extends string, TSortField e
 }
 
 export function buildNextPageCursors(
-	existing: (string | null)[],
+	existing: Array<string | null>,
 	nextIndex: number,
 	nextCursor: string
-): (string | null)[] {
+): Array<string | null> {
 	const next = existing.slice(0, nextIndex);
 	next[nextIndex] = nextCursor;
 	return next;
@@ -123,7 +123,7 @@ export function getNextPrefetchCandidate<TItem>(args: {
 
 export function getPreviousPrefetchCandidate<TItem>(args: {
 	pageIndex: number;
-	pageCursors: (string | null)[];
+	pageCursors: Array<string | null>;
 	cache: Record<number, CursorListResult<TItem>>;
 }) {
 	const index = args.pageIndex - 1;
@@ -283,7 +283,7 @@ export function createConvexCursorTable<
 		return next;
 	});
 
-	let pageCursors = $state<(string | null)[]>([null]);
+	let pageCursors = $state<Array<string | null>>([null]);
 	let pageCache = $state<Record<number, CursorListResult<TItem>>>({});
 	let isJumpingToLastPage = $state(false);
 	let isResolvingPreviousPage = $state(false);
@@ -332,7 +332,7 @@ export function createConvexCursorTable<
 		targetPageIndex: number,
 		identitySnapshot: string
 	): Promise<{
-		cursors: (string | null)[];
+		cursors: Array<string | null>;
 		cache: Record<number, CursorListResult<TItem>>;
 	} | null> {
 		if (targetPageIndex <= 0) {
@@ -422,7 +422,7 @@ export function createConvexCursorTable<
 		}
 		pageCache = nextCache;
 
-		const nextCursors: (string | null)[] = [null];
+		const nextCursors: Array<string | null> = [null];
 		if (pageIndex > 0) {
 			const cursor = currentCursor ?? parseCursorParam(urlState.cursor);
 			if (cursor) {

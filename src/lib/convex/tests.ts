@@ -406,11 +406,14 @@ export const cleanupAllTestUsers = mutation({
 		let hasMore = true;
 
 		while (hasMore) {
-			const result: { page: Record<string, unknown>[]; isDone: boolean; continueCursor: string } =
-				await ctx.runQuery(components.betterAuth.adapter.findMany, {
-					model: 'user',
-					paginationOpts: { cursor, numItems: 200 }
-				});
+			const result: {
+				page: Array<Record<string, unknown>>;
+				isDone: boolean;
+				continueCursor: string;
+			} = await ctx.runQuery(components.betterAuth.adapter.findMany, {
+				model: 'user',
+				paginationOpts: { cursor, numItems: 200 }
+			});
 			for (const user of result.page) {
 				const u = user as { _id: string; email?: string };
 				if (u.email?.endsWith('@e2e.example.com')) {

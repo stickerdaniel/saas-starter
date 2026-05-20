@@ -1,12 +1,13 @@
 <script lang="ts">
 	import { cn } from '$lib/utils';
 
+	import type { Snippet } from 'svelte';
 	let {
 		children,
 		class: className,
 		...restProps
 	}: {
-		children?: import('svelte').Snippet;
+		children?: Snippet;
 		class?: string;
 		[key: string]: any;
 	} = $props();

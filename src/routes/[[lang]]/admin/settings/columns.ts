@@ -8,7 +8,7 @@ import RecipientsActions from './recipients-actions.svelte';
 import RecipientsToggle from './recipients-toggle.svelte';
 import TypeBadge from './type-badge.svelte';
 
-export const columns: ColumnDef<NotificationRecipient>[] = [
+export const columns: Array<ColumnDef<NotificationRecipient>> = [
 	// Temporary checkbox column for layout testing
 	{
 		id: 'select',

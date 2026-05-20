@@ -7,7 +7,7 @@
 	import { resolve } from '$app/paths';
 	import type { ComponentProps } from 'svelte';
 	import { T } from '@tolgee/svelte';
-	import type { SidebarConfig, User } from './types';
+	import type { NavSubItem, SidebarConfig, User } from './types';
 	import { haptic } from '$lib/hooks/use-haptic.svelte';
 	import { PersistedState } from 'runed';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
@@ -18,7 +18,7 @@
 		config: SidebarConfig;
 		user?: User;
 		/** Thread sub-items passed separately to avoid snippet re-render destroying DOM nodes */
-		threadSubItems?: import('./types').NavSubItem[];
+		threadSubItems?: NavSubItem[];
 	}
 
 	let { config, user, threadSubItems, ...restProps }: Props = $props();

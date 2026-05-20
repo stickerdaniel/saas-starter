@@ -166,7 +166,7 @@ export const sendAdminReply = adminMutation({
 
 		if (args.fileIds && args.fileIds.length > 0) {
 			// Build multimodal message content (assistant role accepts text + file parts)
-			const content: (TextPart | FilePart)[] = [];
+			const content: Array<TextPart | FilePart> = [];
 
 			// Add text part if present
 			if (args.prompt.trim()) {

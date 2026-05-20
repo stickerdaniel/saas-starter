@@ -77,7 +77,11 @@ export default defineConfig(
 			'@typescript-eslint/ban-ts-comment': 'error',
 
 			// Off globally: ~26 legitimate usages in UI-kit/vendor code (shadcn, Konva, Rive, TanStack)
-			'@typescript-eslint/no-explicit-any': 'off'
+			'@typescript-eslint/no-explicit-any': 'off',
+
+			// Mirrors oxlint typescript/consistent-type-imports — needed here because oxlint
+			// does not yet parse <script lang="ts"> blocks inside .svelte files
+			'@typescript-eslint/consistent-type-imports': ['error', { disallowTypeAnnotations: true }]
 		}
 	},
 	// Convex-specific: suppress type-checked rules that don't apply to Convex handler patterns

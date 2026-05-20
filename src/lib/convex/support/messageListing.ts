@@ -46,7 +46,7 @@ export async function listMessagesForThread(
 		paginationOpts: args.paginationOpts
 	});
 
-	let rawMessages: { page: Array<RawMessageRow> } = {
+	let rawMessages: { page: RawMessageRow[] } = {
 		page: []
 	};
 	if (args.paginationOpts.numItems > 0) {
@@ -120,10 +120,10 @@ async function mergeRecentStreamsIntoPage(
 	ctx: QueryCtx,
 	args: {
 		threadId: string;
-		page: Array<ChatMessage>;
+		page: ChatMessage[];
 		streamMessages: StreamMessage[];
 	}
-): Promise<Array<ChatMessage>> {
+): Promise<ChatMessage[]> {
 	if (args.streamMessages.length === 0) {
 		return args.page;
 	}
@@ -143,9 +143,9 @@ async function mergeRecentStreamsIntoPage(
 }
 
 export function mergeMaterializedStreamsIntoPage(
-	page: Array<ChatMessage>,
-	materializedStreams: Array<UIMessage>
-): Array<ChatMessage> {
+	page: ChatMessage[],
+	materializedStreams: UIMessage[]
+): ChatMessage[] {
 	const streamedByOrder = new Map(materializedStreams.map((message) => [message.order, message]));
 
 	return page.map((message) => {

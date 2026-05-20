@@ -12,7 +12,7 @@
 		...restProps
 	}: WithElementRef<HTMLAttributes<HTMLDivElement>> & {
 		children?: Snippet;
-		errors?: { message?: string }[];
+		errors?: Array<{ message?: string }>;
 	} = $props();
 
 	const errorMessages = $derived(

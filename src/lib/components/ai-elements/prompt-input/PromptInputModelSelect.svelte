@@ -1,10 +1,11 @@
 <script lang="ts">
 	import * as Select from '$lib/components/ui/select/index.js';
 
+	import type { Snippet } from 'svelte';
 	interface Props {
 		value?: string;
 		onValueChange?: (value: string | undefined) => void;
-		children?: import('svelte').Snippet;
+		children?: Snippet;
 	}
 
 	let { value = $bindable(''), onValueChange, children, ...props }: Props = $props();

@@ -3,6 +3,7 @@ import {
 	PUBLIC_POSTHOG_HOST,
 	PUBLIC_POSTHOG_PROXY_HOST
 } from '$env/static/public';
+import type PostHog from 'posthog-js';
 import { devNotice } from '$lib/dev/notice';
 
 const READY_EVENT = 'posthog:ready';
@@ -11,7 +12,7 @@ const ADBLOCK_DETECT_TIMEOUT_MS = 3000;
 let initPromise: Promise<PostHogClient | null> | null = null;
 let client: PostHogClient | null = null;
 
-type PostHogClient = typeof import('posthog-js').default;
+type PostHogClient = typeof PostHog;
 
 function isBrowser(): boolean {
 	return typeof window !== 'undefined';

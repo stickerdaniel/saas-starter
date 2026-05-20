@@ -7,18 +7,18 @@
 	let {
 		items
 	}: {
-		items: {
+		items: Array<{
 			title: string;
 			url: string;
 			// this should be `Component` after @lucide/svelte updates types
 
 			icon?: any;
 			isActive?: boolean;
-			items?: {
+			items?: Array<{
 				title: string;
 				url: string;
-			}[];
-		}[];
+			}>;
+		}>;
 	} = $props();
 </script>
 
