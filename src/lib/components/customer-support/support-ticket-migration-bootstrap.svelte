@@ -7,6 +7,7 @@
 	import { SvelteSet } from 'svelte/reactivity';
 	import { api } from '$lib/convex/_generated/api';
 	import { isAnonymousUser } from '$lib/convex/utils/anonymousUser';
+	import { supportUserId } from './support-user-id.svelte';
 
 	const auth = useAuth();
 	const convexClient = useConvexClient();
@@ -43,7 +44,7 @@
 
 		if (auth.isLoading || !auth.isAuthenticated || !sessionUserId) return;
 
-		const anonymousId = localStorage.getItem('supportUserId');
+		const anonymousId = supportUserId.current;
 		if (!anonymousId || !isAnonymousUser(anonymousId)) return;
 
 		const sessionKey = `${sessionUserId}:${anonymousId}`;
@@ -56,7 +57,7 @@
 				anonymousUserId: anonymousId
 			})
 			.then(function onMigrationSuccess() {
-				localStorage.removeItem('supportUserId');
+				supportUserId.current = null;
 			})
 			.catch(function onMigrationError(err: unknown) {
 				console.error('Failed to migrate anonymous tickets:', err);
