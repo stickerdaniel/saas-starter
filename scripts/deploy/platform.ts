@@ -7,21 +7,31 @@ export interface PlatformContext {
 	siteUrl: string | null;
 }
 
+const FALLBACK_ALIAS = 'branch';
+
 /**
  * Sanitize a git branch name into a valid CF Workers preview alias.
  * Rules: lowercase letters, numbers, dashes only. Must start with a letter.
- * NOTE: Duplicated in shell in .github/workflows/e2e-preview-cf.yml — keep in sync.
+ * Slice length is computed from the worker name so the preview hostname label
+ * `${alias}-${workerName}.${subdomain}.workers.dev` stays within the 63-char DNS limit.
+ * NOTE: Duplicated in shell in .github/workflows/e2e-preview-cf.yml, keep in sync.
  */
-export function sanitizeBranchAlias(branch: string): string {
+export function sanitizeBranchAlias(branch: string, workerName: string): string {
+	const maxAliasLen = 63 - 1 - workerName.length;
+	if (maxAliasLen < FALLBACK_ALIAS.length) {
+		throw new Error(
+			`Worker name "${workerName}" (${workerName.length} chars) leaves only ${maxAliasLen} chars for the preview alias; need at least ${FALLBACK_ALIAS.length}. Rename the worker or shorten it.`
+		);
+	}
 	const sanitized = branch
 		.toLowerCase()
 		.replace(/[^a-z0-9-]/g, '-')
 		.replace(/-+/g, '-')
 		.replace(/^-|-$/g, '')
 		.replace(/^[0-9]/, 'b-$&')
-		.slice(0, 50) // DNS-aware: 63 - 1 (dash) - 12 (saas-starter) = 50
+		.slice(0, maxAliasLen)
 		.replace(/-$/, ''); // trim trailing dash that truncation may introduce
-	return sanitized || 'branch';
+	return sanitized || FALLBACK_ALIAS;
 }
 
 export function detectPlatform(): PlatformContext {
@@ -65,7 +75,7 @@ export function detectPlatform(): PlatformContext {
 			const workerName = process.env.WORKERS_NAME;
 			const subdomain = process.env.WORKERS_SUBDOMAIN;
 			if (isPreview && branch && workerName && subdomain) {
-				const alias = sanitizeBranchAlias(branch);
+				const alias = sanitizeBranchAlias(branch, workerName);
 				siteUrl = `https://${alias}-${workerName}.${subdomain}.workers.dev`;
 			} else if (process.env.SITE_URL) {
 				// Production: prefer explicit SITE_URL (custom domain)
