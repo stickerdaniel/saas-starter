@@ -5,6 +5,7 @@ import type {
 } from './types';
 import { getLocalizedMarketingUrls } from '$lib/marketing/public-routes';
 import { SUPPORTED_LANGUAGES } from '$lib/i18n/languages';
+import { LEGAL_CONFIG } from '$lib/config/legal';
 
 const MARKDOWN_CONTENT_TYPE = 'text/markdown; charset=utf-8';
 const TEXT_CONTENT_TYPE = 'text/plain; charset=utf-8';
@@ -131,13 +132,13 @@ export function renderLlmsTxt(origin: string): string {
 		getLocalizedMarketingUrls(baseOrigin).filter((url) => url.startsWith(`${baseOrigin}/en`));
 
 	return [
-		'# SaaS Starter',
+		`# ${LEGAL_CONFIG.brandName}`,
 		'',
-		'> Public marketing content for the SaaS Starter SvelteKit template.',
+		`> Public marketing content for the ${LEGAL_CONFIG.brandName} SvelteKit template.`,
 		'',
 		'## Overview',
 		'',
-		'SaaS Starter is a full-stack starter built with SvelteKit, Convex, Better Auth, Tolgee, and modern SaaS infrastructure. This file only describes the public marketing pages.',
+		`${LEGAL_CONFIG.brandName} is a full-stack starter built with SvelteKit, Convex, Better Auth, Tolgee, and modern SaaS infrastructure. This file only describes the public marketing pages.`,
 		'',
 		'## Canonical Pages',
 		'',

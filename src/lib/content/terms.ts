@@ -1,10 +1,12 @@
-# Terms of Service
+import { LEGAL_CONFIG } from '$lib/config/legal';
+
+export const termsMarkdown = `# Terms of Service
 
 Last Updated: March 18, 2026
 
 ---
 
-Daniel Sticker ("we", "us", "our"), provides the SaaS Starter service (described below) to you through the website and its related services (collectively, such services, including any new features and applications, the "Service"), subject to the following Terms of Service (as amended from time to time, the "Terms of Service"). We reserve the right, at our sole discretion, to change or modify portions of these Terms of Service at any time. If we do this, we will post the changes on this page and will indicate at the top of this page the date these terms were last revised. Your continued use of the Service after the date any such changes become effective constitutes your acceptance of the new Terms of Service.
+${LEGAL_CONFIG.operatorName} ("we", "us", "our"), provides the ${LEGAL_CONFIG.brandName} service (described below) to you through the website and its related services (collectively, such services, including any new features and applications, the "Service"), subject to the following Terms of Service (as amended from time to time, the "Terms of Service"). We reserve the right, at our sole discretion, to change or modify portions of these Terms of Service at any time. If we do this, we will post the changes on this page and will indicate at the top of this page the date these terms were last revised. Your continued use of the Service after the date any such changes become effective constitutes your acceptance of the new Terms of Service.
 
 By using the Service or by clicking to accept the Terms of Service when this option is made available to you, you accept and agree to be bound and abide by these Terms of Service and our [Privacy Policy](privacy). If you do not want to agree to these Terms of Service or the Privacy Policy, you must not access or use the Service.
 
@@ -53,3 +55,4 @@ We process personal data in accordance with our [Privacy Policy](privacy) and ap
 These Terms of Service shall be governed by and interpreted in accordance with the laws of the Federal Republic of Germany. Any disputes shall be subject to the jurisdiction of the courts in Germany. If you are a consumer and habitually reside in the European Union, the laws of the territory in which you reside will apply to any claim that you have against us arising out of or relating to these Terms of Service, and you may resolve your claim in any competent court in that territory.
 
 ## Questions?
+`;

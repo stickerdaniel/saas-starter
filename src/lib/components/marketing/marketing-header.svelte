@@ -14,6 +14,7 @@
 	import { authClient } from '$lib/auth-client';
 	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
 	import { T, getTranslate } from '@tolgee/svelte';
+	import { LEGAL_CONFIG } from '$lib/config/legal';
 
 	const { t } = getTranslate();
 	const auth = useAuth();
@@ -103,7 +104,7 @@
 					class="-ml-3.5 flex items-center gap-2 px-3 font-semibold"
 				>
 					<Logo class="size-5" />
-					SaaS Starter
+					{LEGAL_CONFIG.brandName}
 				</Button>
 
 				<!-- Desktop Navigation -->

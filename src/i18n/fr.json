@@ -1325,7 +1325,6 @@
 			"subtitle": "Voici votre base. Les métriques en temps réel et l'activité apparaîtront ici au fur et à mesure que vous développez votre application.",
 			"title": "Bienvenue sur votre tableau de bord"
 		},
-		"name": "SaaS Starter",
 		"sidebar": {
 			"admin_panel": "Panneau Admin",
 			"ai_chat": "Chat IA",
@@ -1671,7 +1670,7 @@
 		"search_placeholder": "Essayez de rechercher des pages..."
 	},
 	"footer": {
-		"copyright": "© {year} SaaS Starter",
+		"copyright": "© {year} {brand}",
 		"impressum": "Mentions légales",
 		"privacy": "Confidentialité",
 		"terms": "Conditions d'utilisation"

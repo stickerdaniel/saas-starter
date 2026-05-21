@@ -1326,7 +1326,6 @@
 			"subtitle": "This is your home base. Real-time metrics and activity will appear here as you build out your app.",
 			"title": "Welcome to your dashboard"
 		},
-		"name": "SaaS Starter",
 		"sidebar": {
 			"admin_panel": "Admin Panel",
 			"ai_chat": "AI Chat",
@@ -1672,7 +1671,7 @@
 		"search_placeholder": "Try searching for pages..."
 	},
 	"footer": {
-		"copyright": "© {year} SaaS Starter",
+		"copyright": "© {year} {brand}",
 		"impressum": "Legal Notice",
 		"privacy": "Privacy Policy",
 		"terms": "Terms of Service"

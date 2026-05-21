@@ -1325,7 +1325,6 @@
 			"subtitle": "Este es tu centro de control. Las métricas en tiempo real y la actividad aparecerán aquí a medida que desarrolles tu aplicación.",
 			"title": "Bienvenido a tu panel"
 		},
-		"name": "SaaS Starter",
 		"sidebar": {
 			"admin_panel": "Panel de Admin",
 			"ai_chat": "Chat IA",
@@ -1671,7 +1670,7 @@
 		"search_placeholder": "Prueba a buscar páginas..."
 	},
 	"footer": {
-		"copyright": "© {year} SaaS Starter",
+		"copyright": "© {year} {brand}",
 		"impressum": "Aviso legal",
 		"privacy": "Privacidad",
 		"terms": "Condiciones de uso"

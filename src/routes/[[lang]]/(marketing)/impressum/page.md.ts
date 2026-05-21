@@ -3,7 +3,7 @@ import type { MarketingMarkdownDocument } from '$lib/markdown/types';
 
 export const marketingMarkdown: MarketingMarkdownDocument = {
 	title: 'Impressum',
-	description: 'Provider identification and contact details for SaaS Starter.',
+	description: `Provider identification and contact details for ${LEGAL_CONFIG.brandName}.`,
 	sections: [
 		{
 			heading: 'Impressum',

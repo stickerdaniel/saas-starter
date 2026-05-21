@@ -1325,7 +1325,6 @@
 			"subtitle": "Dies ist Ihre Zentrale. Echtzeit-Metriken und Aktivitäten werden hier angezeigt, während Sie Ihre App aufbauen.",
 			"title": "Willkommen in Ihrem Dashboard"
 		},
-		"name": "SaaS Starter",
 		"sidebar": {
 			"admin_panel": "Admin-Bereich",
 			"ai_chat": "KI-Chat",
@@ -1671,7 +1670,7 @@
 		"search_placeholder": "Versuchen Sie, nach Seiten zu suchen..."
 	},
 	"footer": {
-		"copyright": "© {year} SaaS Starter",
+		"copyright": "© {year} {brand}",
 		"impressum": "Impressum",
 		"privacy": "Datenschutz",
 		"terms": "Nutzungsbedingungen"
