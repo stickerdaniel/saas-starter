@@ -41,7 +41,11 @@
 								>
 									<config.header.icon class="!size-5" />
 									<span class="text-base font-semibold">
-										<T keyName={config.header.titleKey} />
+										{#if config.header.title !== undefined}
+											{config.header.title}
+										{:else}
+											<T keyName={config.header.titleKey} />
+										{/if}
 									</span>
 								</Button>
 							{/snippet}
@@ -65,7 +69,11 @@
 					>
 						<config.header.icon class="!size-5" />
 						<span class="text-base font-semibold">
-							<T keyName={config.header.titleKey} />
+							{#if config.header.title !== undefined}
+								{config.header.title}
+							{:else}
+								<T keyName={config.header.titleKey} />
+							{/if}
 						</span>
 					</Button>
 				{/if}
