@@ -9,9 +9,13 @@ const serializer = {
 	serialize: JSON.stringify,
 	deserialize: (raw: string): string | null | undefined => {
 		try {
-			return JSON.parse(raw) as string | null | undefined;
+			const parsed: unknown = JSON.parse(raw);
+			if (parsed === null || typeof parsed === 'string') return parsed;
+			// Valid JSON but unexpected type (number, boolean, array, object).
+			// Treat as cleared so callers like isAnonymousUser don't crash on .startsWith.
+			return null;
 		} catch {
-			return raw;
+			return raw; // legacy raw-string format
 		}
 	}
 };
