@@ -1,10 +1,12 @@
-# Privacy Policy
+import { LEGAL_CONFIG } from '$lib/config/legal';
+
+export const privacyMarkdown = `# Privacy Policy
 
 Last Updated: March 18, 2026
 
 ---
 
-Daniel Sticker ("we", "us", "our") operates the SaaS Starter service (the "Service") as a personal project. This Privacy Policy explains how we collect, use, and protect your personal data in accordance with the General Data Protection Regulation (GDPR) and applicable German data protection law.
+${LEGAL_CONFIG.operatorName} ("we", "us", "our") operates the ${LEGAL_CONFIG.brandName} service (the "Service") as a personal project. This Privacy Policy explains how we collect, use, and protect your personal data in accordance with the General Data Protection Regulation (GDPR) and applicable German data protection law.
 
 ## I. Information We Collect.
 
@@ -39,3 +41,4 @@ Under the GDPR, you have the right to access your personal data (Art. 15), recti
 We may update this Privacy Policy from time to time. If we do this, we will post the changes on this page and will indicate the date these terms were last revised. Your continued use of the Service after the date any such changes become effective constitutes your acceptance of the updated Privacy Policy.
 
 ## Questions?
+`;
