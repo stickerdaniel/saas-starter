@@ -48,6 +48,15 @@ In interactive mode, missing flags are prompted with current values as defaults.
 	process.exit(0);
 }
 
+function normalizeFlag(v: unknown): string | undefined {
+	if (typeof v !== 'string') return undefined;
+	const t = v.trim();
+	return t === '' ? undefined : t;
+}
+const slugFlag = normalizeFlag(values.slug);
+const repoFlag = normalizeFlag(values.repo);
+const brandFlag = normalizeFlag(values.brand);
+
 const interactive = !!process.stdin.isTTY;
 let rl: Interface | undefined;
 function ensureReadline(): Interface {
@@ -93,7 +102,7 @@ async function resolveValue(
 	question: string,
 	fallback: string
 ): Promise<string> {
-	if (flag !== undefined && flag !== '') return flag;
+	if (flag) return flag;
 	return prompt(question, fallback);
 }
 
@@ -134,9 +143,9 @@ async function main() {
 
 	if (!interactive) {
 		const missing: string[] = [];
-		if (values.slug === undefined || values.slug === '') missing.push('--slug');
-		if (values.repo === undefined || values.repo === '') missing.push('--repo');
-		if (values.brand === undefined || values.brand === '') missing.push('--brand');
+		if (!slugFlag) missing.push('--slug');
+		if (!repoFlag) missing.push('--repo');
+		if (!brandFlag) missing.push('--brand');
 		if (missing.length > 0) {
 			console.error(
 				`Error: bun run setup needs --slug, --repo, --brand in non-interactive mode.\nMissing: ${missing.join(', ')}\nExample: bun run setup --slug my-app --repo owner/my-app --brand "My App"`
@@ -145,21 +154,13 @@ async function main() {
 		}
 	}
 
-	const slug = await resolveValue(
-		values.slug as string | undefined,
-		'Project slug (lowercase, no spaces)',
-		currentSlug()
-	);
+	const slug = await resolveValue(slugFlag, 'Project slug (lowercase, no spaces)', currentSlug());
 	if (!/^[a-z0-9-]+$/.test(slug)) {
 		console.error('Error: slug must match ^[a-z0-9-]+$ (lowercase letters, numbers, hyphens)');
 		process.exit(1);
 	}
 
-	const repo = await resolveValue(
-		values.repo as string | undefined,
-		'GitHub repo (owner/name)',
-		currentRepo()
-	);
+	const repo = await resolveValue(repoFlag, 'GitHub repo (owner/name)', currentRepo());
 	if (!/^[^/]+\/[^/]+$/.test(repo)) {
 		console.error('Error: repo must be in owner/name format');
 		process.exit(1);
@@ -167,7 +168,7 @@ async function main() {
 	const repoBasename = repo.split('/')[1];
 
 	const brand = await resolveValue(
-		values.brand as string | undefined,
+		brandFlag,
 		'Brand name (display name)',
 		currentBrand() === 'SaaS Starter' ? titleCase(slug) : currentBrand()
 	);
