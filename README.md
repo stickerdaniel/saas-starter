@@ -61,11 +61,12 @@ Once the app runs, rebrand it:
 bun run setup
 ```
 
-The setup script replaces the project name, GitHub links, and brand name. After running it:
+The setup script replaces the project name, GitHub links, and prompts for brand, company, operator, address, and contact email — all written to `src/lib/config/legal.ts`. After running it:
 
-1. Update brand name in translation files (`src/i18n/{en,de,es,fr}.json`), search for "SaaS Starter"
-2. Update legal/privacy content in `src/lib/content/` and `src/lib/config/legal.ts` (address, email, operator)
-3. Replace `static/logo.svg` with your logo, then run `bun run build:emails`
+1. Replace `static/logo.svg` with your logo, then run `bun run build:emails`
+2. Refresh email snapshots: `bun run test:unit -- email-snapshots.test.ts -u`
+3. Update editorial brand mentions in `src/i18n/{en,de,es,fr}.json` (FAQ, hero copy, pricing tier names)
+4. Update legal copy in `src/lib/content/privacy.ts` and `src/lib/content/terms.ts` if needed
 
 ## Preview Deployments
 
