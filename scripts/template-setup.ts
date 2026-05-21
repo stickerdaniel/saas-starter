@@ -309,7 +309,9 @@ async function main() {
 	console.log(
 		'  3. Update editorial brand mentions in src/i18n/*.json (FAQ, hero, marketing prose, pricing tier names)'
 	);
-	console.log('  4. Update src/lib/content/privacy.ts and terms.ts if you want different legal copy');
+	console.log(
+		'  4. Update src/lib/content/privacy.ts and terms.ts if you want different legal copy'
+	);
 	console.log('');
 	rl?.close();
 }
