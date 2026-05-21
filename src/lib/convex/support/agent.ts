@@ -2,12 +2,13 @@ import { Agent } from '@convex-dev/agent';
 import { components } from '../_generated/api';
 import { openrouter } from '@openrouter/ai-sdk-provider';
 import { CHAT_MODEL_ID } from '../utils/chatModel';
+import { LEGAL_CONFIG } from '../../config/legal';
 
 /**
  * Customer Support AI Agent
  *
  * This agent handles customer support conversations with the following capabilities:
- * - Answer questions about the SaaS Starter product
+ * - Answer product questions
  * - Help with feature requests and bug reports
  * - Provide guidance on setup and configuration
  * - Maintain conversation context across messages
@@ -23,7 +24,7 @@ export const supportAgent = new Agent(components.agent, {
 	}),
 
 	// System instructions defining agent behavior
-	instructions: `You are a helpful customer support agent for SaaS Starter, a modern SaaS application template built with SvelteKit, Convex, and Tailwind CSS. Your answers are brief and in WhatsApp style.
+	instructions: `You are a helpful customer support agent for ${LEGAL_CONFIG.brandName}, a modern SaaS application template built with SvelteKit, Convex, and Tailwind CSS. Your answers are brief and in WhatsApp style.
 
 Your responsibilities:
 - Answer questions about features and capabilities

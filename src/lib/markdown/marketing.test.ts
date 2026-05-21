@@ -13,6 +13,7 @@ import {
 } from './marketing';
 import type { MarketingMarkdownDocument } from './types';
 import { marketingMarkdown as homeMarketingMarkdown } from '../../routes/[[lang]]/(marketing)/page.md';
+import { LEGAL_CONFIG } from '$lib/config/legal';
 
 const sampleDocument: MarketingMarkdownDocument = {
 	title: 'Sample Page',
@@ -94,7 +95,7 @@ describe('marketing markdown helpers', () => {
 	it('renders llms discovery content with canonical marketing links', () => {
 		const llms = renderLlmsTxt('https://example.com');
 
-		expect(llms).toContain('# SaaS Starter');
+		expect(llms).toContain(`# ${LEGAL_CONFIG.brandName}`);
 		expect(llms).toContain('https://example.com/en/about');
 		expect(llms).toContain('https://example.com/en/privacy');
 		expect(llms).toContain('https://example.com/en/terms');

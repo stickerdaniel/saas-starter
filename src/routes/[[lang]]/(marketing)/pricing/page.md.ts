@@ -1,9 +1,9 @@
 import type { MarketingMarkdownDocument } from '$lib/markdown/types';
+import { LEGAL_CONFIG } from '$lib/config/legal';
 
 export const marketingMarkdown: MarketingMarkdownDocument = {
 	title: 'Pricing',
-	description:
-		'Review the public pricing structure for the SaaS Starter template, including the free, pro, and enterprise tiers shown on the marketing site.',
+	description: `Review the public pricing structure for the ${LEGAL_CONFIG.brandName} template, including the free, pro, and enterprise tiers shown on the marketing site.`,
 	sections: [
 		{
 			heading: 'Pricing summary',

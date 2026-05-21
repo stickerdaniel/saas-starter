@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE } from '$lib/i18n/languages';
+	import { LEGAL_CONFIG } from '$lib/config/legal';
 
 	interface Props {
 		/** Page title (without site name suffix) */
@@ -49,7 +50,7 @@
 
 <svelte:head>
 	{#if title}
-		<title>{title} | SaaS Starter</title>
+		<title>{title} | {LEGAL_CONFIG.brandName}</title>
 		<meta property="og:title" content={title} />
 		<meta name="twitter:title" content={title} />
 	{/if}

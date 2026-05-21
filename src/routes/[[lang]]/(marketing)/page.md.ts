@@ -1,4 +1,5 @@
 import type { MarketingMarkdownDocument } from '$lib/markdown/types';
+import { LEGAL_CONFIG } from '$lib/config/legal';
 
 export const marketingMarkdown: MarketingMarkdownDocument = {
 	title: 'Build & Ship Your Product Faster',
@@ -8,7 +9,7 @@ export const marketingMarkdown: MarketingMarkdownDocument = {
 		{
 			heading: 'What this starter is',
 			paragraphs: [
-				'SaaS Starter packages the core infrastructure needed to launch a production-ready SaaS product with SvelteKit, Convex, Better Auth, Tolgee, and modern billing, email, and analytics tooling.',
+				`${LEGAL_CONFIG.brandName} packages the core infrastructure needed to launch a production-ready SaaS product with SvelteKit, Convex, Better Auth, Tolgee, and modern billing, email, and analytics tooling.`,
 				'It is designed for founders and product teams who want to focus on product differentiation rather than rebuilding authentication, billing, localization, and operational plumbing.'
 			]
 		},

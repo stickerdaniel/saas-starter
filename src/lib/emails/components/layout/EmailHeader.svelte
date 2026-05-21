@@ -1,9 +1,10 @@
 <script lang="ts">
 	import { Section, Row, Column, Img, Text } from '@better-svelte-email/components';
 	import { cn } from '$lib/utils.js';
+	import { LEGAL_CONFIG } from '$lib/config/legal';
 
 	let {
-		appName = 'SaaS Starter',
+		appName = LEGAL_CONFIG.brandName,
 		class: className
 	}: {
 		appName?: string;
@@ -18,7 +19,7 @@
 				src="__BASEURL__/logo-email.png"
 				width="28"
 				height="28"
-				alt="SaaS Starter Logo"
+				alt={`${appName} Logo`}
 				class="my-0 mr-2 inline-block align-middle"
 			/>
 			<Text class="my-0 inline-block align-middle text-[20px] font-bold text-black">
