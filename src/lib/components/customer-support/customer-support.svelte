@@ -9,6 +9,7 @@
 	import { ChatUIContext, type UploadConfig } from '$lib/chat';
 	import { browser } from '$app/environment';
 	import { generateAnonymousUserId, isAnonymousUser } from '$lib/convex/utils/anonymousUser';
+	import { supportUserId } from './support-user-id.svelte';
 	import { useSupportUrlState } from './use-support-url-state.svelte';
 
 	// URL state for shareable links
@@ -80,12 +81,10 @@
 	function getAnonymousId(): string {
 		if (!browser) return '';
 
-		let id = localStorage.getItem('supportUserId');
-		if (!id) {
-			id = generateAnonymousUserId();
-			localStorage.setItem('supportUserId', id);
+		if (!supportUserId.current) {
+			supportUserId.current = generateAnonymousUserId();
 		}
-		return id;
+		return supportUserId.current;
 	}
 
 	/**

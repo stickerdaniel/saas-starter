@@ -43,7 +43,7 @@
 </script>
 
 {#if !isScreenshotMode}
-	<div class="fixed right-5 bottom-5 z-200 flex flex-col items-end justify-end gap-3">
+	<div class="fixed right-5 bottom-5 z-40 flex flex-col items-end justify-end gap-3">
 		{#if isFeedbackOpen}
 			<FeedbackWidget onClose={closeWidget} bind:isScreenshotMode {chatUIContext} />
 		{/if}

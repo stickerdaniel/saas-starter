@@ -91,7 +91,7 @@
 {#if CustomerSupport}
 	<CustomerSupport />
 {:else}
-	<div class="fixed right-5 bottom-5 z-200 flex items-end justify-end">
+	<div class="fixed right-5 bottom-5 z-40 flex items-end justify-end">
 		<Button
 			variant="default"
 			size="icon"

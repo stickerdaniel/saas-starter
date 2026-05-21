@@ -7,6 +7,7 @@
 	import { SvelteSet } from 'svelte/reactivity';
 	import { api } from '$lib/convex/_generated/api';
 	import { isAnonymousUser } from '$lib/convex/utils/anonymousUser';
+	import { supportUserId } from './support-user-id.svelte';
 
 	const auth = useAuth();
 	const convexClient = useConvexClient();
@@ -43,7 +44,7 @@
 
 		if (auth.isLoading || !auth.isAuthenticated || !sessionUserId) return;
 
-		const anonymousId = localStorage.getItem('supportUserId');
+		const anonymousId = supportUserId.current;
 		if (!anonymousId || !isAnonymousUser(anonymousId)) return;
 
 		const sessionKey = `${sessionUserId}:${anonymousId}`;
@@ -56,6 +57,10 @@
 				anonymousUserId: anonymousId
 			})
 			.then(function onMigrationSuccess() {
+				// Update in-memory state via PersistedState (keeps reactive readers consistent),
+				// then drop the storage entry — PersistedState.current = null serializes to the
+				// 'null' literal which would leave litter in localStorage forever.
+				supportUserId.current = null;
 				localStorage.removeItem('supportUserId');
 			})
 			.catch(function onMigrationError(err: unknown) {

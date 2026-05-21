@@ -17,7 +17,12 @@ const isPreview = branch !== undefined && branch !== productionBranch;
 const args = ['wrangler', 'versions', 'upload'];
 
 if (isPreview && branch) {
-	const alias = sanitizeBranchAlias(branch);
+	const workerName = process.env.WORKERS_NAME;
+	if (!workerName) {
+		console.error('WORKERS_NAME is required to compute the preview alias slice limit.');
+		process.exit(1);
+	}
+	const alias = sanitizeBranchAlias(branch, workerName);
 	args.push('--preview-alias', alias);
 	console.log(`Preview alias: ${alias}`);
 }
