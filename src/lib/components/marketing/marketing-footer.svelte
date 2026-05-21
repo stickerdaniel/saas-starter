@@ -3,6 +3,7 @@
 	import { localizedHref } from '$lib/utils/i18n';
 	import { resolve } from '$app/paths';
 	import Button from '$lib/components/ui/button/button.svelte';
+	import { LEGAL_CONFIG } from '$lib/config/legal';
 </script>
 
 <footer class="mt-auto pt-24">
@@ -12,7 +13,13 @@
 		>
 			<div class="flex items-start justify-between sm:items-center">
 				<p class="text-xs text-muted-foreground">
-					<T keyName="footer.copyright" params={{ year: new Date().getFullYear().toString() }} />
+					<T
+						keyName="footer.copyright"
+						params={{
+							year: new Date().getFullYear().toString(),
+							brand: LEGAL_CONFIG.brandName
+						}}
+					/>
 				</p>
 				<nav
 					class="flex flex-col items-end gap-0 text-xs text-muted-foreground sm:flex-row sm:items-center sm:gap-1"

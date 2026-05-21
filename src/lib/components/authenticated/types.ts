@@ -35,12 +35,11 @@ export interface HeaderDropdownItem {
 	icon: LucideIcon;
 }
 
-export interface HeaderConfig {
+export type HeaderConfig = {
 	icon: LucideIcon;
-	titleKey: string;
 	href: string;
 	dropdownItems?: HeaderDropdownItem[];
-}
+} & ({ title: string; titleKey?: never } | { titleKey: string; title?: never });
 
 export interface FooterLink {
 	translationKey: string;

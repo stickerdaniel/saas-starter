@@ -8,7 +8,9 @@
  *   bun run setup
  *   bun run setup --slug my-app --repo owner/my-app --brand "My App"
  *
- * Non-interactive mode (piped stdin, CI, agents) requires all three flags.
+ * Non-interactive mode (piped stdin, CI, agents) requires --slug, --repo, --brand.
+ * Identity fields (company, operator, address, email) preserve current legal.ts
+ * values when no flag is given; pass --company/--operator/--address/--email to override.
  */
 
 import { readFileSync, writeFileSync } from 'fs';
@@ -24,6 +26,10 @@ const { values } = parseArgs({
 		slug: { type: 'string' },
 		repo: { type: 'string' },
 		brand: { type: 'string' },
+		company: { type: 'string' },
+		operator: { type: 'string' },
+		address: { type: 'string' },
+		email: { type: 'string' },
 		help: { type: 'boolean', short: 'h', default: false }
 	},
 	strict: false,
@@ -35,15 +41,20 @@ if (values.help) {
 
 Usage:
   bun run setup                                          (interactive)
-  bun run setup --slug <s> --repo <owner/name> --brand <s>
+  bun run setup --slug <s> --repo <owner/name> --brand <s> [--company <s>] [--operator <s>] [--address <s>] [--email <user@domain.tld>]
 
 Flags:
-  --slug    Project slug (lowercase, hyphens; matches ^[a-z0-9-]+$)
-  --repo    GitHub repo in owner/name format
-  --brand   Brand display name
+  --slug      Project slug (lowercase, hyphens; matches ^[a-z0-9-]+$)
+  --repo      GitHub repo in owner/name format
+  --brand     Brand display name
+  --company   Company name (legal entity)
+  --operator  Operator name (person or org running the service)
+  --address   Address used in Impressum and email footer
+  --email     Contact email in user@domain.tld form
   -h, --help  Show this help
 
-In non-interactive mode (piped stdin, CI), all three flags are required.
+In non-interactive mode (piped stdin, CI), --slug, --repo, --brand are required.
+Identity fields without flags preserve current legal.ts values.
 In interactive mode, missing flags are prompted with current values as defaults.`);
 	process.exit(0);
 }
@@ -56,6 +67,10 @@ function normalizeFlag(v: unknown): string | undefined {
 const slugFlag = normalizeFlag(values.slug);
 const repoFlag = normalizeFlag(values.repo);
 const brandFlag = normalizeFlag(values.brand);
+const companyFlag = normalizeFlag(values.company);
+const operatorFlag = normalizeFlag(values.operator);
+const addressFlag = normalizeFlag(values.address);
+const emailFlag = normalizeFlag(values.email);
 
 const interactive = !!process.stdin.isTTY;
 let rl: Interface | undefined;
@@ -103,6 +118,7 @@ async function resolveValue(
 	fallback: string
 ): Promise<string> {
 	if (flag) return flag;
+	if (!interactive) return fallback;
 	return prompt(question, fallback);
 }
 
@@ -128,10 +144,40 @@ function currentRepo(): string {
 	return match?.[1]?.replace(/\.git$/, '') ?? 'user/my-saas';
 }
 
+function readLegalField(field: 'brandName' | 'companyName' | 'operatorName' | 'address'): string {
+	const src = read('src/lib/config/legal.ts');
+	const m = src.match(new RegExp(`${field}:\\s*'([^']*)'`));
+	return m?.[1] ?? '';
+}
+
+function readLegalEmailParts(): { user: string; domain: string; tld: string } {
+	const src = read('src/lib/config/legal.ts');
+	const user = src.match(/user:\s*'([^']*)'/)?.[1] ?? '';
+	const domain = src.match(/domain:\s*'([^']*)'/)?.[1] ?? '';
+	const tld = src.match(/tld:\s*'([^']*)'/)?.[1] ?? '';
+	return { user, domain, tld };
+}
+
 function currentBrand(): string {
-	const seo = read('src/lib/components/SEOHead.svelte');
-	const match = seo.match(/\| (.+)<\/title>/);
-	return match?.[1]?.trim() ?? 'SaaS Starter';
+	return readLegalField('brandName') || 'SaaS Starter';
+}
+
+function currentCompany(): string {
+	return readLegalField('companyName') || `${currentBrand()} Inc.`;
+}
+
+function currentOperator(): string {
+	return readLegalField('operatorName');
+}
+
+function currentAddress(): string {
+	return readLegalField('address');
+}
+
+function currentEmail(): string {
+	const { user, domain, tld } = readLegalEmailParts();
+	if (!user || !domain || !tld) return '';
+	return `${user}@${domain}.${tld}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -167,23 +213,54 @@ async function main() {
 	}
 	const repoBasename = repo.split('/')[1];
 
+	const oldBrand = currentBrand();
 	const brand = await resolveValue(
 		brandFlag,
 		'Brand name (display name)',
-		currentBrand() === 'SaaS Starter' ? titleCase(slug) : currentBrand()
+		oldBrand === 'SaaS Starter' ? titleCase(slug) : oldBrand
 	);
+
+	const oldCompany = currentCompany();
+	const company = await resolveValue(
+		companyFlag,
+		'Company name (legal entity)',
+		oldCompany || `${brand} Inc.`
+	);
+
+	const oldOperator = currentOperator();
+	const operator = await resolveValue(
+		operatorFlag,
+		'Operator name (person or org running the service)',
+		oldOperator
+	);
+
+	const oldAddress = currentAddress();
+	const address = await resolveValue(
+		addressFlag,
+		'Address (for Impressum and email footer)',
+		oldAddress
+	);
+
+	const oldEmail = currentEmail();
+	const email = await resolveValue(emailFlag, 'Contact email (user@domain.tld)', oldEmail);
+	const emailMatch = email.match(/^([^@]+)@([^.]+)\.(.+)$/);
+	if (!emailMatch) {
+		console.error(`Error: email must match user@domain.tld pattern, got: ${email}`);
+		process.exit(1);
+	}
+	const [, emailUser, emailDomain, emailTld] = emailMatch;
 
 	const oldSlug = currentSlug();
 	const oldRepo = currentRepo();
-	const oldBrand = currentBrand();
 	const githubUrl = `https://github.com/${repo}`;
 	const oldGithubUrl = `https://github.com/${oldRepo}`;
 
 	console.log(`\nApplying: slug=${slug}, repo=${repo}, brand="${brand}"\n`);
 
-	// package.json — name field only
+	// package.json — name and author
 	const pkg = JSON.parse(read('package.json'));
 	pkg.name = slug;
+	pkg.author = operator;
 	write('package.json', JSON.stringify(pkg, null, '\t') + '\n');
 	console.log('  ✓ package.json');
 
@@ -193,7 +270,7 @@ async function main() {
 
 	// README.md
 	replace('README.md', [
-		[`# ${oldBrand === 'SaaS Starter' ? 'SaaS Starter' : oldBrand}`, `# ${brand}`],
+		[`# ${oldBrand}`, `# ${brand}`],
 		[oldGithubUrl, githubUrl],
 		[`cd ${oldSlug === 'saas-starter' ? 'saas-starter' : repoBasename}`, `cd ${repoBasename}`],
 		// Remove demo link line (matches the > See a live demo... line)
@@ -201,16 +278,8 @@ async function main() {
 	]);
 	console.log('  ✓ README.md');
 
-	// SEOHead.svelte
-	replace('src/lib/components/SEOHead.svelte', [[`| ${oldBrand}</title>`, `| ${brand}</title>`]]);
-	console.log('  ✓ SEOHead.svelte');
-
-	// Marketing header
-	replace('src/lib/components/marketing/marketing-header.svelte', [
-		[oldGithubUrl, githubUrl],
-		// Brand text between Logo component and closing Button
-		[/(<Logo class="size-5" \/>)\n\t+.+/m, `$1\n\t\t\t\t\t${brand}`]
-	]);
+	// Marketing header — keep the GitHub URL rewrite; the brand text reads from LEGAL_CONFIG now
+	replace('src/lib/components/marketing/marketing-header.svelte', [[oldGithubUrl, githubUrl]]);
 	console.log('  ✓ marketing-header.svelte');
 
 	// Authenticated header
@@ -219,30 +288,30 @@ async function main() {
 	]);
 	console.log('  ✓ authenticated-header.svelte');
 
-	// Legal config
+	// Legal config — single source of truth for brand identity
+	const oldUser = readLegalEmailParts().user;
+	const oldDomain = readLegalEmailParts().domain;
+	const oldTld = readLegalEmailParts().tld;
+	const oldEmailBlock = `user: '${oldUser}',\n\t\tdomain: '${oldDomain}',\n\t\ttld: '${oldTld}'`;
+	const newEmailBlock = `user: '${emailUser}',\n\t\tdomain: '${emailDomain}',\n\t\ttld: '${emailTld}'`;
 	replace('src/lib/config/legal.ts', [
 		[`brandName: '${oldBrand}'`, `brandName: '${brand}'`],
-		[`companyName: '${oldBrand} Inc.'`, `companyName: '${brand}'`]
+		[`companyName: '${oldCompany}'`, `companyName: '${company}'`],
+		[`operatorName: '${oldOperator}'`, `operatorName: '${operator}'`],
+		[`address: '${oldAddress}'`, `address: '${address}'`],
+		[oldEmailBlock, newEmailBlock]
 	]);
 	console.log('  ✓ legal.ts');
 
-	// Email header
-	replace('src/lib/emails/components/layout/EmailHeader.svelte', [
-		[`appName = '${oldBrand}'`, `appName = '${brand}'`],
-		[`alt="${oldBrand} Logo"`, `alt="${brand} Logo"`]
-	]);
-	console.log('  ✓ EmailHeader.svelte');
-
-	// Support agent instructions
-	replace('src/lib/convex/support/agent.ts', [[oldBrand, brand]]);
-	console.log('  ✓ support/agent.ts');
-
 	console.log('\n✅ Done! Next steps:');
+	console.log('  1. Replace static/logo.svg with your logo, then run: bun run build:emails');
+	console.log('  2. Refresh email snapshots: bun run test:unit -- email-snapshots.test.ts -u');
 	console.log(
-		'  1. Update brand in translation files (src/i18n/*.json) — search for "SaaS Starter"'
+		'  3. Update editorial brand mentions in src/i18n/*.json (FAQ, hero, marketing prose, pricing tier names)'
 	);
-	console.log('  2. Update legal/privacy content in src/lib/content/ and src/lib/config/legal.ts');
-	console.log('  3. Replace static/logo.svg with your logo, then run: bun run build:emails');
+	console.log(
+		'  4. Update src/lib/content/privacy.ts and terms.ts if you want different legal copy'
+	);
 	console.log('');
 	rl?.close();
 }
