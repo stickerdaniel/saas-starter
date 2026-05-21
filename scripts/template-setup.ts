@@ -4,15 +4,65 @@
  *
  * Safe to re-run: prompts with current values as defaults.
  *
- * Usage: bun run setup
+ * Usage:
+ *   bun run setup
+ *   bun run setup --slug my-app --repo owner/my-app --brand "My App"
+ *
+ * Non-interactive mode (piped stdin, CI, agents) requires all three flags.
  */
 
 import { readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
-import { createInterface } from 'readline';
+import { createInterface, type Interface } from 'readline';
+import { parseArgs } from 'util';
 
 const ROOT = join(import.meta.dirname, '..');
-const rl = createInterface({ input: process.stdin, output: process.stdout });
+
+const { values } = parseArgs({
+	args: Bun.argv.slice(2),
+	options: {
+		slug: { type: 'string' },
+		repo: { type: 'string' },
+		brand: { type: 'string' },
+		help: { type: 'boolean', short: 'h', default: false }
+	},
+	strict: false,
+	allowPositionals: false
+});
+
+if (values.help) {
+	console.log(`Template Setup
+
+Usage:
+  bun run setup                                          (interactive)
+  bun run setup --slug <s> --repo <owner/name> --brand <s>
+
+Flags:
+  --slug    Project slug (lowercase, hyphens; matches ^[a-z0-9-]+$)
+  --repo    GitHub repo in owner/name format
+  --brand   Brand display name
+  -h, --help  Show this help
+
+In non-interactive mode (piped stdin, CI), all three flags are required.
+In interactive mode, missing flags are prompted with current values as defaults.`);
+	process.exit(0);
+}
+
+function normalizeFlag(v: unknown): string | undefined {
+	if (typeof v !== 'string') return undefined;
+	const t = v.trim();
+	return t === '' ? undefined : t;
+}
+const slugFlag = normalizeFlag(values.slug);
+const repoFlag = normalizeFlag(values.repo);
+const brandFlag = normalizeFlag(values.brand);
+
+const interactive = !!process.stdin.isTTY;
+let rl: Interface | undefined;
+function ensureReadline(): Interface {
+	if (!rl) rl = createInterface({ input: process.stdin, output: process.stdout });
+	return rl;
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -39,11 +89,21 @@ function replace(rel: string, pairs: Array<[string | RegExp, string]>): void {
 }
 
 function prompt(question: string, fallback: string): Promise<string> {
+	const iface = ensureReadline();
 	return new Promise((resolve) => {
-		rl.question(`${question} [${fallback}]: `, (answer) => {
+		iface.question(`${question} [${fallback}]: `, (answer) => {
 			resolve(answer.trim() || fallback);
 		});
 	});
+}
+
+async function resolveValue(
+	flag: string | undefined,
+	question: string,
+	fallback: string
+): Promise<string> {
+	if (flag) return flag;
+	return prompt(question, fallback);
 }
 
 function titleCase(slug: string): string {
@@ -81,20 +141,34 @@ function currentBrand(): string {
 async function main() {
 	console.log('\n📦 Template Setup\n');
 
-	const slug = await prompt('Project slug (lowercase, no spaces)', currentSlug());
+	if (!interactive) {
+		const missing: string[] = [];
+		if (!slugFlag) missing.push('--slug');
+		if (!repoFlag) missing.push('--repo');
+		if (!brandFlag) missing.push('--brand');
+		if (missing.length > 0) {
+			console.error(
+				`Error: bun run setup needs --slug, --repo, --brand in non-interactive mode.\nMissing: ${missing.join(', ')}\nExample: bun run setup --slug my-app --repo owner/my-app --brand "My App"`
+			);
+			process.exit(1);
+		}
+	}
+
+	const slug = await resolveValue(slugFlag, 'Project slug (lowercase, no spaces)', currentSlug());
 	if (!/^[a-z0-9-]+$/.test(slug)) {
 		console.error('Error: slug must match ^[a-z0-9-]+$ (lowercase letters, numbers, hyphens)');
 		process.exit(1);
 	}
 
-	const repo = await prompt('GitHub repo (owner/name)', currentRepo());
+	const repo = await resolveValue(repoFlag, 'GitHub repo (owner/name)', currentRepo());
 	if (!/^[^/]+\/[^/]+$/.test(repo)) {
 		console.error('Error: repo must be in owner/name format');
 		process.exit(1);
 	}
 	const repoBasename = repo.split('/')[1];
 
-	const brand = await prompt(
+	const brand = await resolveValue(
+		brandFlag,
 		'Brand name (display name)',
 		currentBrand() === 'SaaS Starter' ? titleCase(slug) : currentBrand()
 	);
@@ -170,7 +244,7 @@ async function main() {
 	console.log('  2. Update legal/privacy content in src/lib/content/ and src/lib/config/legal.ts');
 	console.log('  3. Replace static/logo.svg with your logo, then run: bun run build:emails');
 	console.log('');
-	rl.close();
+	rl?.close();
 }
 
 main();
