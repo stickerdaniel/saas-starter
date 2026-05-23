@@ -1665,7 +1665,9 @@
 	},
 	"error_page": {
 		"back_home": "Zurück zur Startseite",
-		"generic_description": "Beim Laden dieser Seite ist ein unerwarteter Fehler aufgetreten.",
+		"bug_report_body": "Hallo,\n\nbeim Verwenden von SaaS Starter ist ein Fehler aufgetreten.\n\nURL: {url}\nStatus: {status}\n\nWas ich gerade gemacht habe:\n\n\nDanke!",
+		"bug_report_subject": "Fehlerbericht: Fehler {status} in SaaS Starter",
+		"generic_description": "Beim Laden dieser Seite ist ein unerwarteter Fehler aufgetreten. Falls das Problem weiterhin besteht, melden Sie es bitte an {email}.",
 		"generic_title": "Etwas ist schiefgelaufen",
 		"need_help": "Brauchen Sie Hilfe?",
 		"not_found_description": "Die gesuchte Seite existiert nicht. Versuchen Sie unten nach dem zu suchen, was Sie brauchen.",

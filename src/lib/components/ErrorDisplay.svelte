@@ -5,6 +5,7 @@
 	import * as Empty from '$lib/components/ui/empty/index.js';
 	import * as InputGroup from '$lib/components/ui/input-group/index.js';
 	import * as Kbd from '$lib/components/ui/kbd/index.js';
+	import { getLegalEmailAddress } from '$lib/config/legal';
 	import { getLanguage } from '$lib/i18n/languages';
 	import SearchIcon from '@lucide/svelte/icons/search';
 	import de from '../../i18n/de.json';
@@ -15,6 +16,8 @@
 	type ErrorPageTranslations = {
 		error_page: {
 			back_home: string;
+			bug_report_body: string;
+			bug_report_subject: string;
 			generic_description: string;
 			generic_title: string;
 			need_help: string;
@@ -42,11 +45,20 @@
 			? translations.error_page.not_found_title
 			: `${page.status} - ${translations.error_page.generic_title}`
 	);
-	const description = $derived(
-		isNotFound
-			? translations.error_page.not_found_description
-			: translations.error_page.generic_description
-	);
+	const email = getLegalEmailAddress();
+	const descriptionParts = $derived.by(() => {
+		if (isNotFound) return null;
+		const [prefix, suffix = ''] = translations.error_page.generic_description.split('{email}');
+		return { prefix, suffix };
+	});
+	const mailtoHref = $derived.by(() => {
+		const status = String(page.status);
+		const subject = translations.error_page.bug_report_subject.replace('{status}', status);
+		const body = translations.error_page.bug_report_body
+			.replace('{url}', page.url.toString())
+			.replace('{status}', status);
+		return `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+	});
 
 	let globalSearch: ReturnType<typeof useGlobalSearchContext> | null = null;
 
@@ -72,7 +84,16 @@
 	<Empty.Root class="w-full max-w-xl bg-background/60">
 		<Empty.Header>
 			<Empty.Title>{title}</Empty.Title>
-			<Empty.Description>{description}</Empty.Description>
+			<Empty.Description>
+				{#if isNotFound}
+					{translations.error_page.not_found_description}
+				{:else if descriptionParts}
+					{descriptionParts.prefix}<!-- eslint-disable-next-line svelte/no-navigation-without-resolve --><a
+						href={mailtoHref}
+						class="hover:!text-current">{email}</a
+					>{descriptionParts.suffix}
+				{/if}
+			</Empty.Description>
 		</Empty.Header>
 		<Empty.Content>
 			<InputGroup.Root class="sm:w-3/4" onclick={openGlobalSearch}>

@@ -1665,7 +1665,9 @@
 	},
 	"error_page": {
 		"back_home": "Volver al inicio",
-		"generic_description": "Ocurrió un error inesperado al cargar esta página.",
+		"bug_report_body": "Hola,\n\nEncontré un error mientras usaba SaaS Starter.\n\nURL: {url}\nEstado: {status}\n\nLo que estaba haciendo:\n\n\n¡Gracias!",
+		"bug_report_subject": "Informe de error: error {status} en SaaS Starter",
+		"generic_description": "Ocurrió un error inesperado al cargar esta página. Si esto sigue ocurriendo, repórtalo a {email}.",
 		"generic_title": "Algo salió mal",
 		"need_help": "¿Necesitas ayuda?",
 		"not_found_description": "La página que buscas no existe. Prueba a buscar lo que necesitas abajo.",
