@@ -12,9 +12,9 @@
  * No persistence — that's intentional, otherwise the notice never fires
  * again after a one-time observation.
  *
- * **Active only in dev** (Vite DEV flag in the browser, `LOCAL_CONVEX_DEV`
- * on the Convex backend). The helper is a no-op in production builds and
- * on cloud deployments.
+ * **Active only in dev** (`NODE_ENV === 'development'` under SvelteKit and
+ * in the browser, `LOCAL_CONVEX_DEV` on the Convex backend). The helper is
+ * a no-op in production builds and on cloud deployments.
  */
 
 import { fixHintFor, type DevFeatureScope } from './features';
@@ -25,11 +25,12 @@ function isDev(scope: DevFeatureScope): boolean {
 	if (scope === 'convex') {
 		return typeof process !== 'undefined' && process.env?.LOCAL_CONVEX_DEV === 'true';
 	}
-	// SvelteKit and browser code run under Vite. The cast keeps this module
-	// usable from the Convex tsconfig (no Vite types) without relying on
-	// // @ts-expect-error directives.
-	const meta = import.meta as unknown as { env?: { DEV?: boolean } };
-	return meta.env?.DEV === true;
+	// SvelteKit SSR reads NODE_ENV from Node; the browser gets it via Vite's
+	// static define replacement at build time. Avoids the dynamic
+	// `import.meta.env` access that Vite's module-runner rejects, and
+	// type-checks under both the Vite tsconfig and the Convex tsconfig
+	// (which has @types/node but not Vite's import.meta augmentations).
+	return typeof process !== 'undefined' && process.env?.NODE_ENV === 'development';
 }
 
 export type DevNoticeOptions = {

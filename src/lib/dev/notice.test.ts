@@ -3,10 +3,12 @@ import { _resetDevNoticeDedupeForTests, devNotice } from './notice';
 
 describe('devNotice', () => {
 	const originalLocalConvexDev = process.env.LOCAL_CONVEX_DEV;
+	const originalNodeEnv = process.env.NODE_ENV;
 	let warnSpy: ReturnType<typeof vi.spyOn>;
 
 	beforeEach(() => {
 		_resetDevNoticeDedupeForTests();
+		process.env.NODE_ENV = 'development';
 		warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 	});
 
@@ -16,6 +18,11 @@ describe('devNotice', () => {
 			delete (process.env as Record<string, string | undefined>).LOCAL_CONVEX_DEV;
 		} else {
 			process.env.LOCAL_CONVEX_DEV = originalLocalConvexDev;
+		}
+		if (originalNodeEnv === undefined) {
+			delete (process.env as Record<string, string | undefined>).NODE_ENV;
+		} else {
+			process.env.NODE_ENV = originalNodeEnv;
 		}
 	});
 
@@ -37,7 +44,7 @@ describe('devNotice', () => {
 	});
 
 	it('logs a vite-public feature with the .env.local fix hint', () => {
-		// Vite test runner exposes import.meta.env.DEV by default.
+		// `beforeEach` set NODE_ENV='development' to mimic SvelteKit dev runtime.
 		devNotice({
 			feature: 'Product analytics (PostHog)',
 			missing: ['PUBLIC_POSTHOG_API_KEY', 'PUBLIC_POSTHOG_HOST'],
