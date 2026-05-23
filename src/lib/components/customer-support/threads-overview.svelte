@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
+	import { useDebounce } from 'runed';
 	import { useQuery } from '@mmailaender/convex-svelte';
 	import { getTranslate } from '@tolgee/svelte';
 	import { api } from '$lib/convex/_generated/api';
@@ -161,14 +162,20 @@
 
 	// Fallback: Force animations if images take too long to load
 	const ANIMATION_TIMEOUT = 3000;
+	const forceLoadImages = useDebounce(() => {
+		imageUrlsToLoad.forEach((url) => preloadedUrls.add(url));
+	}, ANIMATION_TIMEOUT);
+
 	$effect(() => {
 		if (allImagesLoaded || !isAdminDataLoaded) return;
 
-		const timer = setTimeout(() => {
-			imageUrlsToLoad.forEach((url) => preloadedUrls.add(url));
-		}, ANIMATION_TIMEOUT);
+		// useDebounce returns a promise that rejects with "Cancelled" when cancel() is called;
+		// we don't await the result, so swallow the rejection to avoid console noise.
+		forceLoadImages().catch(() => {});
 
-		return () => clearTimeout(timer);
+		return () => {
+			forceLoadImages.cancel();
+		};
 	});
 
 	// Fade animation state - triggers only on first successful load
