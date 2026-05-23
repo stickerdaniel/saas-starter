@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { useConvexClient, useQuery } from '@mmailaender/convex-svelte';
 	import { page } from '$app/state';
-	import { watch } from 'runed';
+	import { useDebounce, watch } from 'runed';
 	import { api } from '$lib/convex/_generated/api';
 	import { supportThreadContext } from './support-thread-context.svelte';
 	import { lockscroll } from '@svelte-put/lockscroll';
@@ -177,21 +177,29 @@
 		{ text: $t('support.suggestion.help_text'), label: $t('support.suggestion.help_label') }
 	]);
 
-	// Auto-clear rate limit when it expires
+	// Auto-clear rate limit when it expires.
+	// The wait getter is evaluated when scheduleClearRateLimit() is called, which happens
+	// on every effect re-run (rateLimitedUntil change), so the timer uses the latest delay.
+	const scheduleClearRateLimit = useDebounce(
+		() => threadContext.clearRateLimit(),
+		() => Math.max(0, (threadContext.rateLimitedUntil ?? 0) - Date.now())
+	);
+
 	$effect(() => {
 		if (!threadContext.rateLimitedUntil) return;
 
-		const timeUntilExpiry = threadContext.rateLimitedUntil - Date.now();
-		if (timeUntilExpiry <= 0) {
+		if (threadContext.rateLimitedUntil <= Date.now()) {
 			threadContext.clearRateLimit();
 			return;
 		}
 
-		const timeout = setTimeout(() => {
-			threadContext.clearRateLimit();
-		}, timeUntilExpiry);
+		// useDebounce returns a promise that rejects with "Cancelled" when cancel() is called;
+		// we don't await the result, so swallow the rejection to avoid console noise.
+		scheduleClearRateLimit().catch(() => {});
 
-		return () => clearTimeout(timeout);
+		return () => {
+			scheduleClearRateLimit.cancel();
+		};
 	});
 
 	// Derive title icon based on handoff state
