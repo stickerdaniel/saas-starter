@@ -90,6 +90,8 @@
 				{:else if descriptionParts}
 					{descriptionParts.prefix}<!-- eslint-disable-next-line svelte/no-navigation-without-resolve --><a
 						href={mailtoHref}
+						target="_blank"
+						rel="noopener noreferrer"
 						class="hover:!text-current">{email}</a
 					>{descriptionParts.suffix}
 				{/if}
