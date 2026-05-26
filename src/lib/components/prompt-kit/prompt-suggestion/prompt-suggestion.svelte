@@ -92,7 +92,7 @@
 		bind:ref
 		variant={variant || 'outline'}
 		size={size || 'lg'}
-		class={cn('min-w-0 rounded-lg px-4', className)}
+		class={cn('min-w-0 rounded-chip px-4', className)}
 		{onclick}
 		{disabled}
 		{type}
