@@ -4,7 +4,9 @@
 	import { Separator } from '$lib/components/ui/separator/index.js';
 	import * as Tabs from '$lib/components/ui/tabs/index.js';
 	import { T, getTranslate } from '@tolgee/svelte';
-	import { useSearchParams } from 'runed/kit';
+	import { page } from '$app/state';
+	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import * as v from 'valibot';
 	import AccountSettings from './account-settings.svelte';
 	import PasswordSettings from './password-settings.svelte';
@@ -22,27 +24,21 @@
 	const SETTINGS_TABS = ['account', 'password', 'email', 'security'] as const;
 	type SettingsTab = (typeof SETTINGS_TABS)[number];
 	const DEFAULT_SETTINGS_TAB: SettingsTab = 'account';
-	const tabSchema = v.object({
-		tab: v.optional(
-			v.fallback(v.picklist(SETTINGS_TABS), DEFAULT_SETTINGS_TAB),
-			DEFAULT_SETTINGS_TAB
-		)
-	});
-
-	function isSettingsTab(value: string): value is SettingsTab {
-		return SETTINGS_TABS.includes(value as SettingsTab);
-	}
-
-	const searchParams = useSearchParams(tabSchema, {
-		showDefaults: true,
-		pushHistory: true,
-		noScroll: true
-	});
-	let activeTab = $derived(searchParams.tab);
+	// Read the active tab from page.url, which SvelteKit populates during SSR, so
+	// the right tab renders on first paint with no hydration flash; write with
+	// goto. useSearchParams reads the URL client-only and would flash the account
+	// tab on a deep link. See AGENTS.md "Client-set view state".
+	const tabFallback = v.fallback(v.picklist(SETTINGS_TABS), DEFAULT_SETTINGS_TAB);
+	const activeTab = $derived(
+		v.parse(tabFallback, page.url.searchParams.get('tab') ?? DEFAULT_SETTINGS_TAB)
+	);
 
 	function updateTab(value: string) {
-		if (!isSettingsTab(value) || value === searchParams.tab) return;
-		searchParams.tab = value;
+		if (value === activeTab) return;
+		const url = new URL(page.url);
+		if (value === DEFAULT_SETTINGS_TAB) url.searchParams.delete('tab');
+		else url.searchParams.set('tab', value);
+		goto(resolve(url.pathname + url.search), { keepFocus: true, noScroll: true });
 	}
 </script>
 
