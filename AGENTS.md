@@ -548,10 +548,11 @@ How to add: create rule in `eslint/rules/`, register in `eslint.config.js`, add 
 
 #### "This pattern must never appear in code"
 
-Examples: hardcoded aria-labels, barrel icon imports, deprecated Tailwind tokens, bare `animate-spin`.
+Examples: hardcoded aria-labels, barrel icon imports, deprecated Tailwind tokens, bare `animate-spin`, calling a runed `useDebounce()` result inside a `$effect`/`$derived` rune (loops with `effect_update_depth_exceeded`).
 
 → **ESLint custom rule** (for AST-level patterns) or **banned pattern** in `scripts/static-checks.ts` (for simple string matching).
-Pattern: `eslint/rules/no-hardcoded-aria-label.js`, banned patterns list in `static-checks.ts`.
+Pattern: `eslint/rules/no-hardcoded-aria-label.js`, `eslint/rules/no-debounce-in-rune.js`, banned patterns list in `static-checks.ts`.
+Note: these AST guards live in ESLint (not oxlint) because oxlint JS plugins do not support Svelte files yet ("Not supported yet", alpha — https://oxc.rs/docs/guide/usage/linter/js-plugins). Port them to a local oxlint JS plugin once oxlint adds Svelte support.
 
 #### "This build output must have specific properties"
 

@@ -12,6 +12,7 @@ import requireMarketingMarkdownRule from './eslint/rules/require-marketing-markd
 import requireMarketingRouteRegistrationRule from './eslint/rules/require-marketing-route-registration.js';
 import noHardcodedAriaLabelRule from './eslint/rules/no-hardcoded-aria-label.js';
 import noHardcodedSrOnlyRule from './eslint/rules/no-hardcoded-sr-only.js';
+import noDebounceInRuneRule from './eslint/rules/no-debounce-in-rune.js';
 
 const gitignorePath = path.resolve(import.meta.dirname, '.gitignore');
 const localPlugin = {
@@ -19,7 +20,8 @@ const localPlugin = {
 		'require-marketing-markdown': requireMarketingMarkdownRule,
 		'require-marketing-route-registration': requireMarketingRouteRegistrationRule,
 		'no-hardcoded-aria-label': noHardcodedAriaLabelRule,
-		'no-hardcoded-sr-only': noHardcodedSrOnlyRule
+		'no-hardcoded-sr-only': noHardcodedSrOnlyRule,
+		'no-debounce-in-rune': noDebounceInRuneRule
 	}
 };
 
@@ -172,6 +174,18 @@ export default defineConfig(
 		rules: {
 			'local/no-hardcoded-aria-label': 'error',
 			'local/no-hardcoded-sr-only': 'error'
+		}
+	},
+	{
+		// Runes (`$effect`/`$derived`) and `useDebounce` appear in both components and
+		// `.svelte.ts` rune modules. oxlint JS plugins do not support Svelte yet, so this
+		// guard lives in ESLint (see eslint/rules/no-debounce-in-rune.js).
+		files: ['src/**/*.svelte', 'src/**/*.svelte.ts'],
+		plugins: {
+			local: localPlugin
+		},
+		rules: {
+			'local/no-debounce-in-rune': 'error'
 		}
 	},
 	// Convex best-practice rules — v2 ships ESLint 9 flat config natively
