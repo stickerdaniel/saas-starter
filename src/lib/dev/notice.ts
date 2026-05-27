@@ -25,11 +25,13 @@ function isDev(scope: DevFeatureScope): boolean {
 	if (scope === 'convex') {
 		return typeof process !== 'undefined' && process.env?.LOCAL_CONVEX_DEV === 'true';
 	}
-	// SvelteKit and browser code run under Vite. The cast keeps this module
-	// usable from the Convex tsconfig (no Vite types) without relying on
-	// // @ts-expect-error directives.
-	const meta = import.meta as unknown as { env?: { DEV?: boolean } };
-	return meta.env?.DEV === true;
+	// SvelteKit and browser code run under Vite, which statically replaces the
+	// `import.meta.env.DEV` member expression at build time. Vite 8 rejects a
+	// *dynamic* read (e.g. via an intermediate variable), so the expression must
+	// stay a direct member access. The inline cast keeps it usable from the
+	// Convex tsconfig (no Vite ambient types); the convex scope returns above, so
+	// this line only ever runs in the Vite-built app/browser.
+	return (import.meta as unknown as { env: { DEV: boolean } }).env.DEV === true;
 }
 
 export type DevNoticeOptions = {
