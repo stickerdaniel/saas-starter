@@ -80,70 +80,56 @@
 				<div class="relative py-6 md:w-[calc(100%-11rem)]">
 					<Marquee fade={false} duration={16}>
 						<div class="flex items-center gap-12 pr-12">
-							<div class="flex">
-								<img
-									class="mx-auto h-5 w-fit dark:invert"
-									src={nvidiaLogo}
-									alt="Nvidia Logo"
-									height="20"
-								/>
-							</div>
-							<div class="flex">
-								<img
-									class="mx-auto h-4 w-fit dark:invert"
-									src={columnLogo}
-									alt="Column Logo"
-									height="16"
-								/>
-							</div>
-							<div class="flex">
-								<img
-									class="mx-auto h-4 w-fit dark:invert"
-									src={githubLogo}
-									alt="GitHub Logo"
-									height="16"
-								/>
-							</div>
-							<div class="flex">
-								<img
-									class="mx-auto h-5 w-fit dark:invert"
-									src={nikeLogo}
-									alt="Nike Logo"
-									height="20"
-								/>
-							</div>
-							<div class="flex">
-								<img
-									class="mx-auto h-5 w-fit dark:invert"
-									src={lemonsqueezyLogo}
-									alt="Lemon Squeezy Logo"
-									height="20"
-								/>
-							</div>
-							<div class="flex">
-								<img
-									class="mx-auto h-4 w-fit dark:invert"
-									src={laravelLogo}
-									alt="Laravel Logo"
-									height="16"
-								/>
-							</div>
-							<div class="flex">
-								<img
-									class="mx-auto h-7 w-fit dark:invert"
-									src={lillyLogo}
-									alt="Lilly Logo"
-									height="28"
-								/>
-							</div>
-							<div class="flex">
-								<img
-									class="mx-auto h-6 w-fit dark:invert"
-									src={openaiLogo}
-									alt="OpenAI Logo"
-									height="24"
-								/>
-							</div>
+							<img
+								class="h-5 dark:invert"
+								src={nvidiaLogo}
+								alt="Nvidia Logo"
+								width="106"
+								height="20"
+							/>
+							<img
+								class="h-4 dark:invert"
+								src={columnLogo}
+								alt="Column Logo"
+								width="73"
+								height="16"
+							/>
+							<img
+								class="h-4 dark:invert"
+								src={githubLogo}
+								alt="GitHub Logo"
+								width="60"
+								height="16"
+							/>
+							<img class="h-5 dark:invert" src={nikeLogo} alt="Nike Logo" width="56" height="20" />
+							<img
+								class="h-5 dark:invert"
+								src={lemonsqueezyLogo}
+								alt="Lemon Squeezy Logo"
+								width="153"
+								height="20"
+							/>
+							<img
+								class="h-4 dark:invert"
+								src={laravelLogo}
+								alt="Laravel Logo"
+								width="65"
+								height="16"
+							/>
+							<img
+								class="h-7 dark:invert"
+								src={lillyLogo}
+								alt="Lilly Logo"
+								width="53"
+								height="28"
+							/>
+							<img
+								class="h-6 dark:invert"
+								src={openaiLogo}
+								alt="OpenAI Logo"
+								width="84"
+								height="24"
+							/>
 						</div>
 					</Marquee>
 
