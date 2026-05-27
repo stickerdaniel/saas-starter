@@ -9,4 +9,4 @@
  * support surface) and that divergence should remain visible at the agent
  * definition rather than hidden behind a default.
  */
-export const CHAT_MODEL_ID = 'google/gemma-4-31b-it';
+export const CHAT_MODEL_ID = 'google/gemma-4-26b-a4b-it';
