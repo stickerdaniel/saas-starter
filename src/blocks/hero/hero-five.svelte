@@ -1,7 +1,7 @@
 <script>
 	import { T } from '@tolgee/svelte';
 	import { localizedHref } from '$lib/utils/i18n';
-	import Marquee from '../magic/Marquee.svelte';
+	import { Marquee } from '$lib/components/spell/marquee';
 	import ProgressiveBlur from '../magic/ProgressiveBlur.svelte';
 	import Button from '$lib/components/ui/button/button.svelte';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
@@ -78,70 +78,72 @@
 				<!-- Checkout Logo Cloud Three  -->
 				<!-- I have provided progressive blur snippet code & Marquee code -->
 				<div class="relative py-6 md:w-[calc(100%-11rem)]">
-					<Marquee>
-						<div class="flex">
-							<img
-								class="mx-auto h-5 w-fit dark:invert"
-								src={nvidiaLogo}
-								alt="Nvidia Logo"
-								height="20"
-							/>
-						</div>
-						<div class="flex">
-							<img
-								class="mx-auto h-4 w-fit dark:invert"
-								src={columnLogo}
-								alt="Column Logo"
-								height="16"
-							/>
-						</div>
-						<div class="flex">
-							<img
-								class="mx-auto h-4 w-fit dark:invert"
-								src={githubLogo}
-								alt="GitHub Logo"
-								height="16"
-							/>
-						</div>
-						<div class="flex">
-							<img
-								class="mx-auto h-5 w-fit dark:invert"
-								src={nikeLogo}
-								alt="Nike Logo"
-								height="20"
-							/>
-						</div>
-						<div class="flex">
-							<img
-								class="mx-auto h-5 w-fit dark:invert"
-								src={lemonsqueezyLogo}
-								alt="Lemon Squeezy Logo"
-								height="20"
-							/>
-						</div>
-						<div class="flex">
-							<img
-								class="mx-auto h-4 w-fit dark:invert"
-								src={laravelLogo}
-								alt="Laravel Logo"
-								height="16"
-							/>
-						</div>
-						<div class="flex">
-							<img
-								class="mx-auto h-7 w-fit dark:invert"
-								src={lillyLogo}
-								alt="Lilly Logo"
-								height="28"
-							/>
-						</div>
-						<div class="flex">
-							<img
-								class="mx-auto h-6 w-fit dark:invert"
-								src={openaiLogo}
-								alt="OpenAI Logo"
-								height="24"
-							/>
+					<Marquee fade={false} duration={16}>
+						<div class="flex items-center gap-12 pr-12">
+							<div class="flex">
+								<img
+									class="mx-auto h-5 w-fit dark:invert"
+									src={nvidiaLogo}
+									alt="Nvidia Logo"
+									height="20"
+								/>
+							</div>
+							<div class="flex">
+								<img
+									class="mx-auto h-4 w-fit dark:invert"
+									src={columnLogo}
+									alt="Column Logo"
+									height="16"
+								/>
+							</div>
+							<div class="flex">
+								<img
+									class="mx-auto h-4 w-fit dark:invert"
+									src={githubLogo}
+									alt="GitHub Logo"
+									height="16"
+								/>
+							</div>
+							<div class="flex">
+								<img
+									class="mx-auto h-5 w-fit dark:invert"
+									src={nikeLogo}
+									alt="Nike Logo"
+									height="20"
+								/>
+							</div>
+							<div class="flex">
+								<img
+									class="mx-auto h-5 w-fit dark:invert"
+									src={lemonsqueezyLogo}
+									alt="Lemon Squeezy Logo"
+									height="20"
+								/>
+							</div>
+							<div class="flex">
+								<img
+									class="mx-auto h-4 w-fit dark:invert"
+									src={laravelLogo}
+									alt="Laravel Logo"
+									height="16"
+								/>
+							</div>
+							<div class="flex">
+								<img
+									class="mx-auto h-7 w-fit dark:invert"
+									src={lillyLogo}
+									alt="Lilly Logo"
+									height="28"
+								/>
+							</div>
+							<div class="flex">
+								<img
+									class="mx-auto h-6 w-fit dark:invert"
+									src={openaiLogo}
+									alt="OpenAI Logo"
+									height="24"
+								/>
+							</div>
 						</div>
 					</Marquee>
 
