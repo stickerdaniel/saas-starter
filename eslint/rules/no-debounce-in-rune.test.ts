@@ -52,9 +52,9 @@ describe('no-debounce-in-rune', () => {
 				});
 			`)
 		);
-		// one for forceLoad(), one for forceLoad.cancel()
-		expect(reports.length).toBeGreaterThanOrEqual(1);
-		expect(reports[0].messageId).toBe('debounceInRune');
+		// both the call and the cleanup cancel must be flagged
+		expect(reports).toHaveLength(2);
+		expect(reports.every((r) => r.messageId === 'debounceInRune')).toBe(true);
 	});
 
 	it('flags .cancel() in an $effect cleanup', () => {
