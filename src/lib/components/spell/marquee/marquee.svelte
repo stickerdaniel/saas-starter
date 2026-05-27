@@ -28,8 +28,10 @@
 	}: MarqueeProps = $props();
 
 	const isVertical = $derived(direction === 'up' || direction === 'down');
-	const safeDuration = $derived(Math.max(duration, 0.01));
-	const clampedFadeAmount = $derived(Math.min(Math.max(fadeAmount, 0), 50));
+	const safeDuration = $derived(Number.isFinite(duration) ? Math.max(duration, 0.01) : 20);
+	const clampedFadeAmount = $derived(
+		Number.isFinite(fadeAmount) ? Math.min(Math.max(fadeAmount, 0), 50) : 10
+	);
 
 	const maskImage = $derived.by(() => {
 		if (!fade) {
@@ -85,8 +87,9 @@
 
 		<div
 			aria-hidden="true"
+			inert
 			class={cn(
-				'spell-marquee__segment',
+				'spell-marquee__segment spell-marquee__segment--duplicate',
 				isVertical ? 'spell-marquee__segment--vertical' : 'spell-marquee__segment--horizontal'
 			)}
 		>
@@ -139,7 +142,6 @@
 	.spell-marquee__scroller {
 		display: flex;
 		flex-shrink: 0;
-		width: max-content;
 		animation-duration: var(--spell-marquee-duration);
 		animation-timing-function: linear;
 		animation-iteration-count: infinite;
@@ -148,10 +150,12 @@
 
 	.spell-marquee__scroller--horizontal {
 		flex-direction: row;
+		width: max-content;
 	}
 
 	.spell-marquee__scroller--vertical {
 		flex-direction: column;
+		width: 100%;
 		height: max-content;
 	}
 
@@ -193,6 +197,10 @@
 	@media (prefers-reduced-motion: reduce) {
 		.spell-marquee__scroller {
 			animation: none;
+		}
+
+		.spell-marquee__segment--duplicate {
+			display: none;
 		}
 	}
 </style>
