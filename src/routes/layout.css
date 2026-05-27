@@ -385,14 +385,6 @@
 	-webkit-user-drag: none;
 }
 
-/* Pill-shaped by default, collapsing to sharp corners when the active theme
-   sets --radius: 0 (fully squared-off themes). sign() returns 0 for a zero
-   radius and 1 otherwise. Falls back to a pill on engines without sign(). */
-@utility rounded-chip {
-	border-radius: 9999px;
-	border-radius: calc(9999px * sign(var(--radius)));
-}
-
 @utility ease-sidebar {
 	transition-timing-function: cubic-bezier(0.23, 1, 0.32, 1);
 }
