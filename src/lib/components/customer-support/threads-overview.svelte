@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
-	import { useDebounce } from 'runed';
 	import { useQuery } from '@mmailaender/convex-svelte';
 	import { getTranslate } from '@tolgee/svelte';
 	import { api } from '$lib/convex/_generated/api';
@@ -160,22 +159,22 @@
 		return () => controller.abort();
 	});
 
-	// Fallback: Force animations if images take too long to load
+	// Fallback: force animations if images take too long to load.
+	// Uses a plain setTimeout (not runed's useDebounce): calling a useDebounce
+	// function inside an $effect makes the effect track the debouncer's internal
+	// reactive state, so it re-runs, cancels itself in cleanup, reschedules, and
+	// loops until `effect_update_depth_exceeded` (the debounced callback never
+	// fires, so allImagesLoaded never settles). See #402 regression.
 	const ANIMATION_TIMEOUT = 3000;
-	const forceLoadImages = useDebounce(() => {
-		imageUrlsToLoad.forEach((url) => preloadedUrls.add(url));
-	}, ANIMATION_TIMEOUT);
 
 	$effect(() => {
 		if (allImagesLoaded || !isAdminDataLoaded) return;
 
-		// useDebounce returns a promise that rejects with "Cancelled" when cancel() is called;
-		// we don't await the result, so swallow the rejection to avoid console noise.
-		forceLoadImages().catch(() => {});
+		const timer = setTimeout(() => {
+			imageUrlsToLoad.forEach((url) => preloadedUrls.add(url));
+		}, ANIMATION_TIMEOUT);
 
-		return () => {
-			forceLoadImages.cancel();
-		};
+		return () => clearTimeout(timer);
 	});
 
 	// Fade animation state - triggers only on first successful load
