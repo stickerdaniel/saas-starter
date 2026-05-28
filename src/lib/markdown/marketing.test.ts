@@ -76,7 +76,10 @@ describe('marketing markdown helpers', () => {
 		expect(response.status).toBe(200);
 		expect(response.headers.get('content-type')).toBe('text/markdown; charset=utf-8');
 		expect(response.headers.get('vary')).toBe('Accept');
-		expect(response.headers.get('cache-control')).toContain('s-maxage=300');
+		// Markdown must stay out of shared caches: CF Edge (and most CDNs) ignore Vary,
+		// so any edge-cacheable markdown would poison subsequent HTML requests on the same URL.
+		expect(response.headers.get('cache-control')).toContain('private');
+		expect(response.headers.get('cache-control')).not.toContain('s-maxage');
 
 		const body = await response.text();
 		expect(body).toContain('# Build & Ship Your Product Faster');
