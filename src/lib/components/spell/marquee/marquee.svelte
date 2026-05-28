@@ -27,7 +27,11 @@
 		 * Total rendered copies of `children` = `2 * repeat` (every segment
 		 * is rendered twice for the loop), so keep this as low as needed.
 		 * Defaults to `1`, which is correct when one copy already spans the
-		 * container.
+		 * container. Values are clamped to the range `[1, 100]`.
+		 *
+		 * Only the first rendered copy is exposed to assistive tech; the
+		 * remaining copies are hidden via `aria-hidden` and `inert` so
+		 * screen readers and keyboard navigation see the content once.
 		 *
 		 * @example
 		 * // short pills in a wide row: 1 copy is ~120px, container ~900px
@@ -59,7 +63,10 @@
 	const clampedFadeAmount = $derived(
 		Number.isFinite(fadeAmount) ? Math.min(Math.max(fadeAmount, 0), 50) : 10
 	);
-	const safeRepeat = $derived(Number.isFinite(repeat) ? Math.max(1, Math.floor(repeat)) : 1);
+	const MAX_REPEAT = 100;
+	const safeRepeat = $derived(
+		Number.isFinite(repeat) ? Math.min(MAX_REPEAT, Math.max(1, Math.floor(repeat))) : 1
+	);
 
 	const maskImage = $derived.by(() => {
 		if (!fade) {
@@ -111,7 +118,16 @@
 			)}
 		>
 			{#each Array(safeRepeat) as _, i (i)}
-				{@render children()}
+				{#if i === 0}
+					{@render children()}
+				{:else}
+					<!-- Repeated copies fill the segment visually but must stay
+					     invisible to assistive tech and unreachable by keyboard.
+					     display:contents keeps the flex layout identical to copy 0. -->
+					<div style="display: contents" aria-hidden="true" inert>
+						{@render children()}
+					</div>
+				{/if}
 			{/each}
 		</div>
 
