@@ -510,8 +510,9 @@ Marketing routes that are NOT prerendered get edge caching via `handleCacheContr
 
 - Condition: unauthenticated + matches `matchPublicMarketingRoute()`
 - Headers: `Cache-Control: public, s-maxage=3600, stale-while-revalidate=86400`
-- Placed AFTER `handleMarketingMarkdown` in `sequence()` to preserve markdown's own 5-minute TTL
-- **Disabled on CF Workers preview deployments** — preview hostnames (`ALIAS-saas-starter.*.workers.dev`) skip `s-maxage` to prevent stale cached HTML from breaking `Accept: text/markdown` content negotiation.
+- Placed AFTER `handleMarketingMarkdown` in `sequence()` to preserve markdown's own TTL
+
+Markdown responses on the same URLs use `Cache-Control: private` to stay out of shared caches: CF Edge ignores `Vary: Accept`, so any edge-cacheable markdown would poison subsequent HTML requests on the same URL.
 
 #### Cache purging (production)
 
