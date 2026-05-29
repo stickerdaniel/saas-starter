@@ -198,7 +198,7 @@
 							(redirectTo ? `?redirectTo=${encodeURIComponent(redirectTo)}` : '')
 					)}
 					onkeydown={handleSignUpLinkKeydown}
-					class="underline underline-offset-4 active:translate-y-px"
+					class="underline underline-offset-4"
 				>
 					<T keyName="auth.signin.link_signup" defaultValue="Sign up" />
 				</a>

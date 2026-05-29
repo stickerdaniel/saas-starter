@@ -11,6 +11,14 @@
 	import { generateAnonymousUserId, isAnonymousUser } from '$lib/convex/utils/anonymousUser';
 	import { supportUserId } from './support-user-id.svelte';
 	import { useSupportUrlState } from './use-support-url-state.svelte';
+	import { getTranslate } from '@tolgee/svelte';
+	import * as Sentry from '@sentry/sveltekit';
+	import { PUBLIC_SENTRY_DSN } from '$env/static/public';
+	import * as AlertDialog from '$lib/components/ui/alert-dialog';
+	import { Button } from '$lib/components/ui/button';
+	import { getLegalEmailAddress } from '$lib/config/legal';
+
+	const { t } = getTranslate();
 
 	// URL state for shareable links
 	const urlState = useSupportUrlState();
@@ -160,6 +168,34 @@
 		// Upload screenshot via ChatUIContext (adds to ctx.attachments)
 		await chatUIContext.uploadScreenshot(blob, filename, dimensions);
 	}
+
+	// Recoverable capture-failure flow: the editor reports the error, we tear the
+	// overlay down and offer retry / contact support instead of a native alert().
+	let captureErrorOpen = $state(false);
+	let captureEventId = $state<string | undefined>(undefined);
+
+	function handleScreenshotCaptureError(error: unknown) {
+		isScreenshotMode = false;
+		captureEventId = browser && PUBLIC_SENTRY_DSN ? Sentry.captureException(error) : undefined;
+		captureErrorOpen = true;
+	}
+
+	function retryScreenshotCapture() {
+		captureErrorOpen = false;
+		isScreenshotMode = true;
+	}
+
+	function contactSupportAboutCapture() {
+		const subject = $t('support.screenshot.error.email_subject');
+		let body = $t('support.screenshot.error.email_body', { url: page.url.href });
+		if (captureEventId) {
+			body += `\n\n${$t('support.screenshot.error.email_reference', { id: captureEventId })}`;
+		}
+		// Plain location assignment, not an <a href>, so SvelteKit's client router
+		// doesn't intercept the mailto and silently no-op the click.
+		window.location.href = `mailto:${getLegalEmailAddress()}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+		captureErrorOpen = false;
+	}
 </script>
 
 <AIChatbar isFeedbackOpen={!shouldShowAIChatbar} />
@@ -167,6 +203,37 @@
 
 {#if isScreenshotMode}
 	{#await import('./screenshot-editor/ScreenshotEditor.svelte') then { default: ScreenshotEditor }}
-		<ScreenshotEditor onCancel={handleScreenshotCancel} onScreenshotSaved={handleScreenshotSaved} />
+		<ScreenshotEditor
+			onCancel={handleScreenshotCancel}
+			onScreenshotSaved={handleScreenshotSaved}
+			onCaptureError={handleScreenshotCaptureError}
+		/>
 	{/await}
 {/if}
+
+<AlertDialog.Root bind:open={captureErrorOpen}>
+	<AlertDialog.Content>
+		<AlertDialog.Header>
+			<AlertDialog.Title>{$t('support.screenshot.error.title')}</AlertDialog.Title>
+			<AlertDialog.Description>
+				{$t('support.screenshot.error.description')}
+			</AlertDialog.Description>
+		</AlertDialog.Header>
+		{#if captureEventId}
+			<p class="rounded-md bg-muted px-2 py-1.5 font-mono text-xs break-all text-muted-foreground">
+				{$t('support.screenshot.error.event_id', { id: captureEventId })}
+			</p>
+		{/if}
+		<AlertDialog.Footer>
+			<AlertDialog.Cancel onclick={() => (captureErrorOpen = false)}>
+				{$t('support.screenshot.error.cancel')}
+			</AlertDialog.Cancel>
+			<Button variant="outline" onclick={contactSupportAboutCapture}>
+				{$t('support.screenshot.error.contact')}
+			</Button>
+			<AlertDialog.Action onclick={retryScreenshotCapture}>
+				{$t('support.screenshot.error.retry')}
+			</AlertDialog.Action>
+		</AlertDialog.Footer>
+	</AlertDialog.Content>
+</AlertDialog.Root>
