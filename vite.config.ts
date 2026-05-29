@@ -42,9 +42,13 @@ const BAD_FETCH_PORTS = new Set([
 ]);
 
 async function findAvailablePort(startPort: number, maxAttempts = 100): Promise<number> {
-	for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-		const port = startPort + attempt;
+	// Blocked ports don't count toward maxAttempts, so the limit always reflects
+	// how many connectable ports were actually probed.
+	let checked = 0;
+	for (let offset = 0; checked < maxAttempts; offset += 1) {
+		const port = startPort + offset;
 		if (BAD_FETCH_PORTS.has(port)) continue;
+		checked += 1;
 		if (await isPortAvailable(port)) {
 			return port;
 		}
