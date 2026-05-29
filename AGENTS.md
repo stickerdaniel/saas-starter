@@ -485,6 +485,13 @@ For each data need in a new route, pick the right pattern:
    → Combine with `useSearchParams()` from `runed/kit` for URL state
    → Use `keepPreviousData: true` to prevent UI flicker
 
+8. **Client-set view state (search, sort, active tab, sidebar collapse)?**
+   Pick by how the state reaches the server, because that decides first-paint correctness. URL and cookies both ride the request (server sees them → flash-free SSR); localStorage does not (server renders the default, client corrects after hydration → flash).
+   → **Shareable / linkable view** (search, sort, active tab) → URL. Read with `page.url.searchParams` in a `$derived` (SvelteKit populates `page.url` on the server, so SSR renders the right view → flash-free); write with `goto(url, { keepFocus: true, noScroll: true })`, omitting defaults from the URL. Default `replaceState: false` pushes a history entry per view switch, matching `admin/support` thread selection (canonical) and the settings tabs fix. `pushState` / `replaceState` from `$app/navigation` are not a substitute — they update `page.state`, not `page.url`, so SSR via `page.url.searchParams` would not see the change. `goto` to the same route does not re-run server loads that do not track the changed param (SvelteKit's dependency tracking handles this); only call out `replaceState: true` when you specifically want to overwrite the current history entry. **Do not use `useSearchParams` (`runed/kit`) for SSR-visible view selection** — it reads the URL client-only (BROWSER-gated init) and renders the default on the server, so the view flashes on first paint. Fine only where the flash is invisible (e.g. a table behind a loading skeleton).
+   → **Per-user preference that must be right on first paint but does not belong in the address** (sidebar collapse) → cookie + SSR read. Write client-side (`document.cookie`), read in `hooks.server.ts` into `event.locals` (NOT a layout-load `cookies.get`, see Prerendering constraints), thread as a prop. See #404.
+   → **Preference where a hydration flash is fine, or state too large / private to send on every request** (chat drafts, mic settings) → `PersistedState` (localStorage).
+   Three flash-free reads, all because the value is available before first paint: URL via `page.url`, cookie via `event.locals`, or a blocking inline `<head>` script that reads localStorage and sets a single `<html>` class/attribute (e.g. theme via ModeWatcher in `app.html`). `PersistedState` read in component script always flashes.
+
 #### Deferred loading pattern
 
 For heavyweight non-critical JS (analytics, search, support widgets), use the `requestIdleCallback` + interaction listener pattern. Current deferred components: PostHog (3s), GlobalSearchShell (3.5s), LazyCustomerSupport (3s), RiveBackground (idle). See `AppPostHogBootstrap` for the canonical implementation.
@@ -503,6 +510,8 @@ These recover independently after hydration:
 - `authClient.useSession()` — returns `{ user: { email, name, id } }` from cookies
 
 Components that need user data on prerendered pages must use `authClient.useSession()` instead of `page.data.viewer`.
+
+Request-time values needed for an SSR render that shares a layout with prerendered routes (e.g. a `sidebar_state` cookie) must be read in `hooks.server.ts` into `event.locals`, not via `event.cookies.get` in a `+layout.server.ts` load. A cookie read in the shared root layout load breaks prerendering of the marketing pages; the JWT token flows through the same `locals` channel.
 
 #### Cache-control for SSR pages
 
