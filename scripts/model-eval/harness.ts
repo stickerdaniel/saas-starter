@@ -26,7 +26,7 @@ export type ProbeResult = {
 	ms: number;
 };
 
-async function runInner(model: string, probe: Probe): Promise<ProbeResult> {
+async function runInner(model: string, probe: Probe, signal: AbortSignal): Promise<ProbeResult> {
 	const t0 = performance.now();
 	const parts: Array<TextStreamPart<ToolSet>> = [];
 
@@ -35,11 +35,16 @@ async function runInner(model: string, probe: Probe): Promise<ProbeResult> {
 		model: openrouter(model, { extraBody: { reasoning: { enabled: true } } }),
 		system: SYSTEM,
 		messages: probe.messages,
-		temperature: 0.7,
+		// Greedy decoding: a capability check asks "can the model do this", so we
+		// want its best-shot, reproducible behaviour, not the app's creative 0.7
+		// sampling (which makes tool calling flaky run-to-run).
+		temperature: 0,
 		maxOutputTokens: MAX_OUTPUT_TOKENS,
 		tools: probe.withTools ? { getGeocoding, getWeather } : undefined,
 		// AI SDK v6: multi-step is driven by stopWhen, not maxSteps.
-		stopWhen: stepCountIs(probe.withTools ? MAX_STEPS : 1)
+		stopWhen: stepCountIs(probe.withTools ? MAX_STEPS : 1),
+		// Lets the timeout actually cancel the request instead of leaking a stream.
+		abortSignal: signal
 	});
 
 	for await (const part of result.fullStream) {
@@ -56,10 +61,16 @@ export async function runProbe(
 	probe: Probe,
 	timeoutMs: number
 ): Promise<ProbeResult> {
-	return Promise.race([
-		runInner(model, probe),
-		new Promise<ProbeResult>((_, reject) =>
-			setTimeout(() => reject(new Error(`timed out after ${timeoutMs}ms`)), timeoutMs)
-		)
-	]);
+	const controller = new AbortController();
+	const timer = setTimeout(() => controller.abort(), timeoutMs);
+	try {
+		return await runInner(model, probe, controller.signal);
+	} catch (err) {
+		// Aborting surfaces as a stream error; report it as the timeout it is.
+		if (controller.signal.aborted)
+			throw new Error(`timed out after ${timeoutMs}ms`, { cause: err });
+		throw err;
+	} finally {
+		clearTimeout(timer);
+	}
 }

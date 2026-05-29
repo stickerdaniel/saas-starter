@@ -117,22 +117,35 @@ export function checkPdf(
 }
 
 export function checkTools(mat: MaterializedAssistant, ms: number): Verdict {
+	const toolParts = mat.parts.filter(
+		(p) => typeof p.type === 'string' && p.type.startsWith('tool-')
+	);
+	if (toolParts.length === 0) {
+		return { capability: 'tools', status: 'fail', notes: ['model did not call any tool'], ms };
+	}
+	const completed = toolParts.filter((p) => (p as { state?: string }).state === 'output-available');
+	if (completed.length === 0) {
+		const states = toolParts.map((p) => (p as { state?: string }).state ?? 'unknown').join(', ');
+		return {
+			capability: 'tools',
+			status: 'fail',
+			notes: [`tool called but never returned a result (states: ${states})`],
+			ms
+		};
+	}
+	// Capability proven: a tool was called and its output was consumed. The app's
+	// weather flow chains getGeocoding -> getWeather, so note (warn, not fail) when
+	// the model stops short of the full chain — that's model competence, not a
+	// missing capability.
+	const names = new Set(toolParts.map((p) => p.type));
 	const notes: string[] = [];
-	const toolTypes = mat.parts.map((p) => p.type).filter((t) => t.startsWith('tool-'));
-	if (!toolTypes.includes('tool-getGeocoding')) notes.push('missing tool-getGeocoding call');
-	if (!toolTypes.includes('tool-getWeather')) notes.push('missing tool-getWeather call');
-	for (const p of mat.parts) {
-		if (typeof p.type === 'string' && p.type.startsWith('tool-')) {
-			const state = (p as { state?: string }).state;
-			if (state !== 'output-available') {
-				notes.push(`${p.type} state=${state ?? 'unknown'} (want output-available)`);
-			}
-		}
+	if (!names.has('tool-getGeocoding') || !names.has('tool-getWeather')) {
+		notes.push('did not complete the full getGeocoding -> getWeather chain');
 	}
 	if (
 		!/(weather|temperature|°|celsius|fahrenheit|clear|cloud|rain|wind|sunny)/i.test(answerText(mat))
 	) {
-		notes.push('final answer does not mention weather');
+		notes.push('final answer did not mention weather');
 	}
-	return { capability: 'tools', status: notes.length === 0 ? 'pass' : 'fail', notes, ms };
+	return { capability: 'tools', status: notes.length > 0 ? 'warn' : 'pass', notes, ms };
 }
