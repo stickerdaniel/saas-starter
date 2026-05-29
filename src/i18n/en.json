@@ -2097,7 +2097,6 @@
 				"undo": "Undo (Ctrl+Z)"
 			},
 			"aria_label": "Screenshot editor",
-			"capture_failed": "Failed to capture screenshot. Check console for details.",
 			"capturing": "Capturing...",
 			"next": "Bug Marked",
 			"tool": {
@@ -2106,6 +2105,17 @@
 				"color": "Change Color",
 				"pen": "Pen (P)",
 				"rectangle": "Rectangle (R)"
+			},
+			"error": {
+				"title": "Couldn't capture the screenshot",
+				"description": "Something went wrong while capturing. You can try again, or contact support if it keeps happening.",
+				"event_id": "Reference this ID when you contact support: {id}",
+				"retry": "Try again",
+				"contact": "Contact support",
+				"cancel": "Cancel",
+				"email_subject": "Screenshot capture failed",
+				"email_body": "I ran into an error while capturing a screenshot on {url}.",
+				"email_reference": "Reference: {id}"
 			}
 		},
 		"suggestion": {
