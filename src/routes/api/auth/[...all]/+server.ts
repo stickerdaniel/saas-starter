@@ -11,5 +11,27 @@ function normalizeResponse(response: Response): Response {
 	});
 }
 
-export const GET: RequestHandler = async (event) => normalizeResponse(await rawGet(event));
-export const POST: RequestHandler = async (event) => normalizeResponse(await rawPost(event));
+function isAbortError(err: unknown): boolean {
+	if (!(err instanceof Error)) return false;
+	if (err.name === 'AbortError') return true;
+	const cause = (err as { cause?: unknown }).cause;
+	return cause instanceof Error && cause.name === 'AbortError';
+}
+
+async function safeProxy(
+	handler: RequestHandler,
+	event: Parameters<RequestHandler>[0]
+): Promise<Response> {
+	try {
+		return normalizeResponse(await handler(event));
+	} catch (err) {
+		if (isAbortError(err) || event.request.signal.aborted) {
+			return new Response(null, { status: 499 });
+		}
+		console.error('[auth-proxy]', event.request.method, new URL(event.request.url).pathname, err);
+		throw err;
+	}
+}
+
+export const GET: RequestHandler = (event) => safeProxy(rawGet, event);
+export const POST: RequestHandler = (event) => safeProxy(rawPost, event);
