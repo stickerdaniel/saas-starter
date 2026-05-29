@@ -31,6 +31,14 @@ function isDev(scope: DevFeatureScope): boolean {
 	// stay a direct member access. The inline cast keeps it usable from the
 	// Convex tsconfig (no Vite ambient types); the convex scope returns above, so
 	// this line only ever runs in the Vite-built app/browser.
+	//
+	// The obvious alternative `process.env.NODE_ENV === 'development'` looks
+	// cleaner but silently no-ops in the client bundle: Vite replaces the literal
+	// `process.env.NODE_ENV`, but does not shim the `process` global, so the
+	// required `typeof process !== 'undefined'` guard returns false at runtime in
+	// the browser. devNotice is called from hooks.client.ts and posthog.ts, so
+	// going that route would drop browser dev warnings. `import.meta.env.DEV` is
+	// the only form Vite statically replaces in both targets.
 	return (import.meta as unknown as { env: { DEV: boolean } }).env.DEV === true;
 }
 
