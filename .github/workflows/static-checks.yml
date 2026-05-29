@@ -37,8 +37,10 @@ jobs:
   e2e-pending:
     name: E2E Pending Status
     runs-on: ubicloud-standard-2
-    if: github.event_name == 'pull_request'
-    continue-on-error: true
+    # Skip on fork PRs: the pull_request token is read-only for forks, so
+    # writing a commit status returns 403. Fork E2E status is set by the
+    # gated preview workflow instead.
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
     permissions:
       statuses: write
     steps:
