@@ -28,9 +28,23 @@ async function isPortAvailable(port: number): Promise<boolean> {
 	});
 }
 
+// WHATWG fetch "bad port" list. Node's fetch (undici) refuses to connect to
+// these, so a Convex backend or site proxy that binds one is unreachable: the
+// SvelteKit -> Convex proxy fails with `TypeError: fetch failed` / cause
+// `bad port` even though the port was free to bind. Skip them here.
+// https://fetch.spec.whatwg.org/#port-blocking
+const BAD_FETCH_PORTS = new Set([
+	1, 7, 9, 11, 13, 15, 17, 19, 20, 21, 22, 23, 25, 37, 42, 43, 53, 69, 77, 79, 87, 95, 101, 102,
+	103, 104, 109, 110, 111, 113, 115, 117, 119, 123, 135, 137, 139, 143, 161, 179, 389, 427, 465,
+	512, 513, 514, 515, 526, 530, 531, 532, 540, 548, 554, 556, 563, 587, 601, 636, 989, 990, 993,
+	995, 1719, 1720, 1723, 2049, 3659, 4045, 4190, 5060, 5061, 6000, 6566, 6665, 6666, 6667, 6668,
+	6669, 6679, 6697, 10080
+]);
+
 async function findAvailablePort(startPort: number, maxAttempts = 100): Promise<number> {
 	for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
 		const port = startPort + attempt;
+		if (BAD_FETCH_PORTS.has(port)) continue;
 		if (await isPortAvailable(port)) {
 			return port;
 		}
