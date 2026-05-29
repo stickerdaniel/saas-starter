@@ -16,7 +16,8 @@
 
 	let {
 		onCancel,
-		onScreenshotSaved
+		onScreenshotSaved,
+		onCaptureError
 	}: {
 		onCancel?: () => void;
 		onScreenshotSaved?: (
@@ -24,6 +25,7 @@
 			filename: string,
 			dimensions: { width: number; height: number }
 		) => void;
+		onCaptureError?: (error: unknown) => void;
 	} = $props();
 
 	// Initialize editor context immediately (no screenshot capture needed)
@@ -128,7 +130,9 @@
 			onCancel?.();
 		} catch (error) {
 			console.error('Failed to capture screenshot:', error);
-			alert($t('support.screenshot.capture_failed'));
+			// Hand the failure to the parent, which tears down this overlay and
+			// surfaces a recoverable error dialog (retry / contact support).
+			onCaptureError?.(error);
 		} finally {
 			editorContext.isSaving = false;
 		}

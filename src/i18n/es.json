@@ -2096,7 +2096,6 @@
 				"undo": "Deshacer (Ctrl+Z)"
 			},
 			"aria_label": "Editor de captura de pantalla",
-			"capture_failed": "Error al capturar pantalla. Revisa la consola para más detalles.",
 			"capturing": "Capturando...",
 			"next": "Bug Marcado",
 			"tool": {
@@ -2105,6 +2104,17 @@
 				"color": "Cambiar color",
 				"pen": "Lápiz (P)",
 				"rectangle": "Rectángulo (R)"
+			},
+			"error": {
+				"title": "No se pudo realizar la captura de pantalla",
+				"description": "Algo salió mal al capturar. Puedes intentarlo de nuevo o contactar con soporte si sigue ocurriendo.",
+				"event_id": "Indica este ID al contactar con soporte: {id}",
+				"retry": "Intentar de nuevo",
+				"contact": "Contactar con soporte",
+				"cancel": "Cancelar",
+				"email_subject": "Error al capturar la pantalla",
+				"email_body": "Tuve un error al capturar una captura de pantalla en {url}.",
+				"email_reference": "Referencia: {id}"
 			}
 		},
 		"suggestion": {
