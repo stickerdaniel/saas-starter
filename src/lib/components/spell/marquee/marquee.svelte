@@ -59,14 +59,19 @@
 	}: MarqueeProps = $props();
 
 	const isVertical = $derived(direction === 'up' || direction === 'down');
-	const safeDuration = $derived(Number.isFinite(duration) ? Math.max(duration, 0.01) : 20);
-	const clampedFadeAmount = $derived(
-		Number.isFinite(fadeAmount) ? Math.min(Math.max(fadeAmount, 0), 50) : 10
-	);
+	const safeDuration = $derived.by(() => {
+		const n = Number(duration);
+		return Number.isFinite(n) ? Math.max(n, 0.01) : 20;
+	});
+	const clampedFadeAmount = $derived.by(() => {
+		const n = Number(fadeAmount);
+		return Number.isFinite(n) ? Math.min(Math.max(n, 0), 50) : 10;
+	});
 	const MAX_REPEAT = 100;
-	const safeRepeat = $derived(
-		Number.isFinite(repeat) ? Math.min(MAX_REPEAT, Math.max(1, Math.floor(repeat))) : 1
-	);
+	const safeRepeat = $derived.by(() => {
+		const n = Number(repeat);
+		return Number.isFinite(n) ? Math.min(MAX_REPEAT, Math.max(1, Math.floor(n))) : 1;
+	});
 
 	const maskImage = $derived.by(() => {
 		if (!fade) {
@@ -117,7 +122,7 @@
 				isVertical ? 'spell-marquee__segment--vertical' : 'spell-marquee__segment--horizontal'
 			)}
 		>
-			{#each Array(safeRepeat) as _, i (i)}
+			{#each { length: safeRepeat } as _, i (i)}
 				{#if i === 0}
 					{@render children()}
 				{:else}
@@ -139,7 +144,7 @@
 				isVertical ? 'spell-marquee__segment--vertical' : 'spell-marquee__segment--horizontal'
 			)}
 		>
-			{#each Array(safeRepeat) as _, i (i)}
+			{#each { length: safeRepeat } as _, i (i)}
 				{@render children()}
 			{/each}
 		</div>
@@ -223,7 +228,8 @@
 		animation-name: spell-marquee-scroll-y-reverse;
 	}
 
-	.group:hover .spell-marquee__scroller--pause-on-hover {
+	.group:hover .spell-marquee__scroller--pause-on-hover,
+	.group:focus-within .spell-marquee__scroller--pause-on-hover {
 		animation-play-state: paused;
 	}
 
