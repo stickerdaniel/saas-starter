@@ -2096,7 +2096,6 @@
 				"undo": "Rückgängig (Strg+Z)"
 			},
 			"aria_label": "Screenshot-Editor",
-			"capture_failed": "Screenshot fehlgeschlagen. Überprüfen Sie die Konsole für Details.",
 			"capturing": "Wird aufgenommen...",
 			"next": "Bug Markiert",
 			"tool": {
@@ -2105,6 +2104,17 @@
 				"color": "Farbe ändern",
 				"pen": "Stift (P)",
 				"rectangle": "Rechteck (R)"
+			},
+			"error": {
+				"title": "Screenshot konnte nicht erstellt werden",
+				"description": "Beim Erstellen ist etwas schiefgelaufen. Du kannst es erneut versuchen oder den Support kontaktieren, wenn es weiterhin auftritt.",
+				"event_id": "Gib diese ID an, wenn du den Support kontaktierst: {id}",
+				"retry": "Erneut versuchen",
+				"contact": "Support kontaktieren",
+				"cancel": "Abbrechen",
+				"email_subject": "Screenshot-Aufnahme fehlgeschlagen",
+				"email_body": "Beim Erstellen eines Screenshots auf {url} ist ein Fehler aufgetreten.",
+				"email_reference": "Referenz: {id}"
 			}
 		},
 		"suggestion": {

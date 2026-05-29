@@ -2096,7 +2096,6 @@
 				"undo": "Annuler (Ctrl+Z)"
 			},
 			"aria_label": "Éditeur de capture d'écran",
-			"capture_failed": "Échec de la capture d'écran. Consultez la console pour plus de détails.",
 			"capturing": "Capture en cours...",
 			"next": "Bug Marqué",
 			"tool": {
@@ -2105,6 +2104,17 @@
 				"color": "Changer la couleur",
 				"pen": "Stylo (P)",
 				"rectangle": "Rectangle (R)"
+			},
+			"error": {
+				"title": "Impossible de réaliser la capture d'écran",
+				"description": "Une erreur s'est produite lors de la capture. Vous pouvez réessayer ou contacter le support si le problème persiste.",
+				"event_id": "Indiquez cet identifiant lorsque vous contactez le support : {id}",
+				"retry": "Réessayer",
+				"contact": "Contacter le support",
+				"cancel": "Annuler",
+				"email_subject": "Échec de la capture d'écran",
+				"email_body": "J'ai rencontré une erreur lors de la capture d'écran sur {url}.",
+				"email_reference": "Référence : {id}"
 			}
 		},
 		"suggestion": {
