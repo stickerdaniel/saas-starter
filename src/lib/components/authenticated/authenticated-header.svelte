@@ -36,7 +36,7 @@
 					{#if index > 0}
 						<Breadcrumb.Separator class="hidden md:block" />
 					{/if}
-					<Breadcrumb.Item class={index === 0 ? 'hidden md:block' : ''}>
+					<Breadcrumb.Item class={index === 0 ? 'hidden md:inline-flex' : ''}>
 						{#if item.isLast}
 							<Breadcrumb.Page>{item.label}</Breadcrumb.Page>
 						{:else}

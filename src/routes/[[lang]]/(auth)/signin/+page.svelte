@@ -255,18 +255,14 @@
 			<a
 				bind:this={termsLink}
 				href={resolve(localizedHref('/terms'))}
-				class="underline underline-offset-4 active:translate-y-px"
+				class="underline underline-offset-4"
 				><T keyName="auth.terms.terms_of_service" defaultValue="Terms of Service" /></a
 			>
 			<T keyName="auth.terms.and" defaultValue="and" />
-			<a
-				href={resolve(localizedHref('/privacy'))}
-				class="underline underline-offset-4 active:translate-y-px"
+			<a href={resolve(localizedHref('/privacy'))} class="underline underline-offset-4"
 				><T keyName="auth.terms.privacy_policy" defaultValue="Privacy Policy" /></a
 			>.
-			<a
-				href={resolve(localizedHref('/'))}
-				class="underline underline-offset-4 active:translate-y-px"
+			<a href={resolve(localizedHref('/'))} class="underline underline-offset-4"
 				><T keyName="auth.back_to_home" defaultValue="Back to home" /></a
 			>
 		</Field.Description>
