@@ -97,6 +97,7 @@ Local dev notes (`bun run dev`):
 - `bun run test` - Run all tests (E2E + unit)
 - `bun run test:e2e` - Run Playwright E2E tests. Always run this after modifying E2E tests!
 - `bun run test:unit` - Run Vitest unit tests
+- `bun run model:eval` - Check whether an OpenRouter chat model supports everything the app needs (streaming text, reasoning traces, image input, PDF input, tool calling). Verifies each capability through the app's own message-materialization pipeline and prints a pass/fail matrix. Not CI; needs `OPENROUTER_API_KEY` (env or `.env.convex.local`). Defaults to the model in use (`CHAT_MODEL_ID`); pass `--model <id>` (repeatable) to check candidates.
 
 ### Convex Backend
 
