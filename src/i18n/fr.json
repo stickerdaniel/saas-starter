@@ -1704,7 +1704,7 @@
 			},
 			"convex": {
 				"button": "Visiter Convex",
-				"description": "L'alternative open source à Firebase. Basé sur PostgreSQL - la base de données relationnelle la plus avancée au monde.",
+				"description": "La base de données réactive open source pour les développeurs d'applications. Les requêtes TypeScript s'exécutent sur le serveur et mettent à jour chaque client en temps réel.",
 				"title": "Convex"
 			},
 			"posthog": {
