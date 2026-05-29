@@ -17,6 +17,8 @@
 		fullControl?: boolean;
 		/** Thread sub-items passed separately to preserve DOM nodes in autoAnimate */
 		threadSubItems?: NavSubItem[];
+		/** Persisted sidebar open/collapsed state, read server-side for a flash-free first paint */
+		sidebarOpen?: boolean;
 	}
 
 	let {
@@ -26,7 +28,8 @@
 		routePrefix,
 		rootLabel,
 		fullControl = false,
-		threadSubItems
+		threadSubItems,
+		sidebarOpen
 	}: Props = $props();
 
 	$effect(() => {
@@ -49,6 +52,7 @@
 
 {#if user}
 	<Sidebar.Provider
+		open={sidebarOpen}
 		style="--sidebar-width: calc(var(--spacing) * 72); --header-height: calc(var(--spacing) * 12);"
 		class="h-svh overflow-hidden"
 	>

@@ -87,6 +87,7 @@
 		: undefined}
 	routePrefix="admin"
 	rootLabel="Admin"
+	sidebarOpen={data.sidebarOpen}
 >
 	{@render children?.()}
 </AuthenticatedLayout>

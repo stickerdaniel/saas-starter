@@ -5,6 +5,7 @@ declare global {
 		// interface Error {}
 		interface Locals {
 			token: string | undefined;
+			sidebarOpen: boolean;
 		}
 		// interface PageData {}
 		// interface PageState {}
