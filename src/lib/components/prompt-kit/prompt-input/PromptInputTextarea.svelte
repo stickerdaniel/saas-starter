@@ -17,19 +17,34 @@
 
 	const context = promptInputContext.get();
 
-	// Auto-resize functionality using watch from runed
-	watch([() => context.value, () => context.maxHeight, () => disableAutosize], () => {
+	// Auto-resize. Always reset to `auto` before measuring so the textarea can
+	// shrink as well as grow: the earlier `scrollTop === 0` guard skipped the
+	// reset while the field was scrolled, which left it stuck at a tall height.
+	function resize() {
 		if (disableAutosize) return;
-		if (!context.textareaRef) return;
-
-		if (context.textareaRef.scrollTop === 0) {
-			context.textareaRef.style.height = 'auto';
-		}
-
-		context.textareaRef.style.height =
+		const ta = context.textareaRef;
+		if (!ta) return;
+		ta.style.height = 'auto';
+		ta.style.height =
 			typeof context.maxHeight === 'number'
-				? `${Math.min(context.textareaRef.scrollHeight, context.maxHeight)}px`
-				: `min(${context.textareaRef.scrollHeight}px, ${context.maxHeight})`;
+				? `${Math.min(ta.scrollHeight, context.maxHeight)}px`
+				: `min(${ta.scrollHeight}px, ${context.maxHeight})`;
+	}
+
+	// Re-measure on value/maxHeight changes...
+	watch([() => context.value, () => context.maxHeight, () => disableAutosize], resize);
+
+	// ...and on width changes. scrollHeight is width-dependent, so a height
+	// measured while the field was narrow (e.g. the empty placeholder wrapping in
+	// a resizable pane) is a fixed pixel value that would otherwise never recover
+	// when the field widens again. A ResizeObserver re-runs the measurement so the
+	// height tracks the current width instead of latching.
+	$effect(() => {
+		const ta = context.textareaRef;
+		if (!ta || disableAutosize || typeof ResizeObserver === 'undefined') return;
+		const observer = new ResizeObserver(() => resize());
+		observer.observe(ta);
+		return () => observer.disconnect();
 	});
 
 	function handleKeyDown(e: KeyboardEvent & { currentTarget: HTMLTextAreaElement }) {
