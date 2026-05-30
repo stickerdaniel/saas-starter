@@ -1571,7 +1571,10 @@
 			"dialog_title": "Pièce jointe",
 			"file_fallback": "Fichier",
 			"generic_fallback": "Pièce jointe",
-			"image_fallback": "Image"
+			"image_fallback": "Image",
+			"preview_error": "Impossible de charger l'aperçu",
+			"preview_loading": "Chargement de l'aperçu…",
+			"preview_truncated": "Aperçu tronqué à {size}"
 		},
 		"avatar": {
 			"team_member": "Membre de l'équipe"

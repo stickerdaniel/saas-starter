@@ -24,5 +24,14 @@ export const aiChatRateLimiter = new RateLimiter(components.rateLimiter, {
 		rate: 10,
 		period: HOUR,
 		capacity: 10
+	},
+
+	// Per-user text-attachment preview reads (getAttachmentText)
+	// Generous: previews are cheap and the file URL is already public.
+	aiChatFilePreview: {
+		kind: 'token bucket',
+		rate: 120,
+		period: HOUR,
+		capacity: 30
 	}
 });

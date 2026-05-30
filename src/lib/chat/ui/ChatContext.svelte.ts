@@ -31,6 +31,13 @@ export interface UploadConfig {
 	getAccessKey?: () => string | undefined;
 	/** Provider for extra args to pass to generateUploadUrl (e.g., anonymousUserId for rate limiting) */
 	getGenerateUploadUrlArgs?: () => Record<string, unknown>;
+	/**
+	 * Optional action that returns the text of a stored attachment for the
+	 * preview dialog. Required to render markdown/text/code previews of
+	 * already-sent attachments (no local blob); without it the preview falls
+	 * back to the raw iframe. Receives `{ url, locale, ...getGenerateUploadUrlArgs() }`.
+	 */
+	getAttachmentText?: Parameters<ConvexClient['action']>[0];
 }
 
 /**
@@ -324,7 +331,8 @@ export class ChatUIContext {
 		// Synchronously insert the placeholder BEFORE any await so concurrent
 		// callers (e.g. handleFilesAdded looping over a batch) see the limit
 		// and dedup state immediately.
-		const initialPreview = file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined;
+		const isImageType = file.type.startsWith('image/');
+		const initialPreview = isImageType ? URL.createObjectURL(file) : undefined;
 		const placeholder: Attachment = {
 			type: 'file',
 			key,
@@ -332,6 +340,11 @@ export class ChatUIContext {
 			size: file.size,
 			mimeType: file.type,
 			preview: initialPreview,
+			// Retain the original blob for non-image files (bounded by the 5MB
+			// upload cap) so the attachment preview can read their text locally,
+			// with no round-trip. Images are omitted: they are re-encoded on
+			// upload and never use the text preview.
+			file: !isImageType && file instanceof File ? file : undefined,
 			uploadState: { status: 'uploading', progress: 0 },
 			// Source metadata persists across the rename in preprocess so dedup
 			// still matches when the user re-pastes the same image.

@@ -43,6 +43,7 @@
 	const uploadConfig: UploadConfig = {
 		generateUploadUrl: api.aiChat.files.generateUploadUrl,
 		saveUploadedFile: api.aiChat.files.saveUploadedFile,
+		getAttachmentText: api.aiChat.files.getAttachmentText,
 		locale: page.data.lang,
 		getAccessKey: () => threadId || 'ai-chat'
 	};
