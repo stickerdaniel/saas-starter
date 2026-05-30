@@ -101,6 +101,10 @@ export const load: LayoutServerLoad = async (event) => {
 			customer,
 			_timeFetched: Date.now()
 		},
-		viewer
+		viewer,
+		// Persisted sidebar state (set by handleSidebarState in hooks.server.ts).
+		// Forwarded to Sidebar.Provider so the authenticated shell renders the
+		// correct open/collapsed state on first paint.
+		sidebarOpen: event.locals.sidebarOpen
 	};
 };
