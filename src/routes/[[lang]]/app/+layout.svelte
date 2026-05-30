@@ -120,6 +120,7 @@
 	rootLabel="App"
 	{fullControl}
 	{threadSubItems}
+	sidebarOpen={data.sidebarOpen}
 >
 	{@render children?.()}
 </AuthenticatedLayout>

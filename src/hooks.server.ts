@@ -11,6 +11,7 @@ import {
 import { createMarketingMarkdownResponse, isMarkdownRequest } from '$lib/markdown/marketing';
 import { devNotice } from '$lib/dev/notice';
 import { safeRedirectPath } from '$lib/utils/url';
+import { SIDEBAR_COOKIE_NAME } from '$lib/components/ui/sidebar/constants.js';
 
 if (PUBLIC_SENTRY_DSN) {
 	Sentry.init({
@@ -101,6 +102,18 @@ const handleDevOnlyRoutes: Handle = async function handleDevOnlyRoutes({ event, 
  */
 const handleAuth: Handle = async function handleAuth({ event, resolve }) {
 	event.locals.token = getJwtToken(event.cookies, event.request);
+	return resolve(event);
+};
+
+/**
+ * Read persisted sidebar open/collapsed state so SSR renders the correct first
+ * paint and the authenticated shell does not flash a full-width content reflow
+ * on reload. Read here (not in a +layout.server.ts load) so prerendered
+ * marketing pages stay buildable — the same reason the JWT token flows through
+ * locals. Defaults to open when the cookie is absent.
+ */
+const handleSidebarState: Handle = async function handleSidebarState({ event, resolve }) {
+	event.locals.sidebarOpen = event.cookies.get(SIDEBAR_COOKIE_NAME) !== 'false';
 	return resolve(event);
 };
 
@@ -245,6 +258,7 @@ export const handle = sequence(
 	...(PUBLIC_SENTRY_DSN ? [Sentry.sentryHandle()] : []),
 	handleDevOnlyRoutes,
 	handleAuth,
+	handleSidebarState,
 	handleMarketingMarkdown,
 	handleLanguage,
 	authFirstPattern,
