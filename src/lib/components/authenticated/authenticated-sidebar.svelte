@@ -30,14 +30,26 @@
 	{#if item.icon}
 		<item.icon />
 	{/if}
-	<span><T keyName={item.translationKey} /></span>
+	<span class="min-w-0 truncate"><T keyName={item.translationKey} /></span>
 	{#if item.kbd}
-		<Kbd.Group class="ml-auto opacity-0 group-hover/menu-button:opacity-50">
-			{#each item.kbd as key (key)}
+		{@render shortcutHint(item.kbd)}
+	{/if}
+{/snippet}
+
+<!-- Shortcut hint, revealed on hover. Absolutely placed so it never steals width
+	 from the label when hidden; the left gradient (in the button's hover/active
+	 accent colour) fades a long label out underneath it as the keys appear. -->
+{#snippet shortcutHint(keys: string[])}
+	<span
+		class="pointer-events-none absolute inset-y-0 right-2 flex opacity-0 group-hover/menu-button:opacity-100"
+	>
+		<span class="w-8 bg-linear-to-l from-sidebar-accent to-transparent"></span>
+		<Kbd.Group class="bg-sidebar-accent pl-1">
+			{#each keys as key (key)}
 				<Kbd.Root>{key}</Kbd.Root>
 			{/each}
 		</Kbd.Group>
-	{/if}
+	</span>
 {/snippet}
 
 <Sidebar.Root collapsible="offcanvas" {...restProps}>
@@ -111,7 +123,7 @@
 									<Sidebar.MenuItem {...props}>
 										<Sidebar.MenuButton
 											isActive={item.isActive}
-											class="!transition-transform"
+											class="relative !transition-transform"
 											onclick={() => haptic.trigger('light')}
 										>
 											{#snippet child({ props })}
@@ -142,7 +154,7 @@
 							<Sidebar.MenuItem>
 								<Sidebar.MenuButton
 									isActive={item.isActive}
-									class="!transition-transform"
+									class="relative !transition-transform"
 									onclick={() => {
 										haptic.trigger('light');
 										item.onSelect?.();
@@ -184,19 +196,15 @@
 					{#if link.condition !== false}
 						<Sidebar.MenuItem>
 							<Sidebar.MenuButton
-								class="!transition-transform"
+								class="relative !transition-transform"
 								onclick={() => haptic.trigger('light')}
 							>
 								{#snippet child({ props })}
 									<a href={resolve(link.url)} {...props}>
 										<link.icon />
-										<span><T keyName={link.translationKey} /></span>
+										<span class="min-w-0 truncate"><T keyName={link.translationKey} /></span>
 										{#if link.kbd}
-											<Kbd.Group class="ml-auto opacity-0 group-hover/menu-button:opacity-50">
-												{#each link.kbd as key (key)}
-													<Kbd.Root>{key}</Kbd.Root>
-												{/each}
-											</Kbd.Group>
+											{@render shortcutHint(link.kbd)}
 										{/if}
 									</a>
 								{/snippet}
