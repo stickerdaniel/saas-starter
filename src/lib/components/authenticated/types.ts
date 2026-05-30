@@ -15,7 +15,13 @@ export interface NavSubItem {
 
 export interface NavItem {
 	translationKey: string;
-	url: string;
+	/** Navigates to this path (renders an anchor). Omit when using `onSelect`. */
+	url?: string;
+	/**
+	 * Runs an action instead of navigating (renders a `<button type="button">`).
+	 * Used when the item has no `url`, e.g. opening a dialog or command palette.
+	 */
+	onSelect?: () => void;
 	icon?: LucideIcon;
 	isActive?: boolean;
 	badge?: number;
