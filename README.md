@@ -10,7 +10,7 @@ A free, open-source SaaS template built with SvelteKit, Convex, Better Auth, Tol
 
 ## Why This Exists
 
-I wanted a quick way to build with my favorite tools, and an environment with the guardrails an agent needs to verify its work. The project is fully open source and runs on free tiers. While building features I found myself pointing at code from previous projects, so it also contains good patterns you can point an agent to, like a streaming AI chat with tool calling and file uploads, a support chat that triages with AI and hands off to human admins, and the reactive Convex pagination and search patterns behind the admin dashboard.
+I kept rebuilding the same stack and pointing my agent at old repos for patterns I'd already nailed, so I baked the good ones in: a streaming AI chat with tool calling and file uploads, and a support chat that triages with AI then hands off to a human admin. I also wired in guardrails so an agent can check its own work, because it will happily tell you it's done when it isn't. Static checks and E2E on every preview catch that. Open source, free to run.
 
 ## Quick Start
 
