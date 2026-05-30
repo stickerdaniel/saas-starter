@@ -1,6 +1,7 @@
 <script lang="ts">
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
 	import { haptic } from '$lib/hooks/use-haptic.svelte';
 	import autoAnimate from '@formkit/auto-animate';
 	import { getTranslate } from '@tolgee/svelte';
@@ -17,15 +18,17 @@
 
 	let { items }: Props = $props();
 
-	function timeAgo(timestamp: number): string {
-		const diff = Date.now() - timestamp;
-		const minutes = Math.floor(diff / 60_000);
-		if (minutes < 1) return 'now';
-		if (minutes < 60) return `${minutes}m`;
-		const hours = Math.floor(minutes / 60);
-		if (hours < 24) return `${hours}h`;
-		return `${Math.floor(hours / 24)}d`;
-	}
+	// Locale-aware compact timestamp ("05/30, 02:35 PM" / "30.05., 14:35"),
+	// revealed on row hover. Reactive on the route language so switching locales
+	// reformats live.
+	const dateFormatter = $derived(
+		new Intl.DateTimeFormat(page.params.lang ?? 'en', {
+			day: '2-digit',
+			month: '2-digit',
+			hour: '2-digit',
+			minute: '2-digit'
+		})
+	);
 
 	// Client-side display limit (same pattern as t3code's THREAD_PREVIEW_LIMIT).
 	// "Show more" only changes this local state — no server re-fetch, no parent
@@ -57,14 +60,23 @@
 					{#snippet child({ props })}
 						<a href={resolve(sub.url)} {...props} class="{props.class} flex items-center gap-1">
 							<span class="min-w-0 truncate">{sub.label}</span>
-							{#if sub.timestamp}
-								<span class="ml-auto shrink-0 text-[11px] text-muted-foreground/50">
-									{timeAgo(sub.timestamp)}
-								</span>
-							{/if}
 						</a>
 					{/snippet}
 				</Sidebar.MenuSubButton>
+				<!-- Last-activity timestamp, revealed on row hover. Absolutely placed so
+				     it never steals width from the title when hidden; the left gradient
+				     (in the row's hover/active accent colour) fades a long title out
+				     underneath it. pointer-events-none keeps the row link clickable. -->
+				{#if sub.timestamp}
+					<span
+						class="pointer-events-none absolute inset-y-0 right-2 flex text-xs opacity-0 group-hover/menu-sub-item:opacity-100"
+					>
+						<span class="w-8 bg-linear-to-l from-sidebar-accent to-transparent"></span>
+						<span class="flex items-center bg-sidebar-accent pl-1 text-muted-foreground">
+							{dateFormatter.format(sub.timestamp)}
+						</span>
+					</span>
+				{/if}
 			</Sidebar.MenuSubItem>
 		{/each}
 		{#if hasMore}
