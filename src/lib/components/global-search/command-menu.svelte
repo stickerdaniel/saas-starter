@@ -191,7 +191,7 @@
 <Dialog.Root open={globalSearch.open} onOpenChange={globalSearch.setOpen}>
 	<Dialog.Content
 		showCloseButton={false}
-		class="rounded-xl border-none bg-clip-padding p-2 pb-11 shadow-2xl ring-4 ring-zinc-200/80 dark:bg-zinc-900 dark:ring-zinc-800"
+		class="rounded-xl border-none bg-popover bg-clip-padding p-2 pb-11 shadow-2xl ring-4 ring-foreground/5 dark:ring-foreground/10"
 	>
 		<Dialog.Header class="sr-only">
 			<Dialog.Title>{$t('search.command.dialog_title')}</Dialog.Title>
@@ -227,7 +227,7 @@
 			</Command.List>
 		</Command.Root>
 		<div
-			class="absolute inset-x-0 bottom-0 z-20 flex h-10 items-center gap-2 rounded-b-xl border-t border-t-zinc-100 bg-zinc-50 px-4 text-xs font-medium text-muted-foreground dark:border-t-zinc-700 dark:bg-zinc-800"
+			class="absolute inset-x-0 bottom-0 z-20 flex h-10 items-center gap-2 rounded-b-xl border-t border-border bg-muted/50 px-4 text-xs font-medium text-muted-foreground"
 		>
 			<div class="flex items-center gap-2">
 				<Kbd.Root class="border bg-background"><CornerDownLeftIcon /></Kbd.Root>
