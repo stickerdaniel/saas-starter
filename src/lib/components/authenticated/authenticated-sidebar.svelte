@@ -7,7 +7,7 @@
 	import { resolve } from '$app/paths';
 	import type { ComponentProps } from 'svelte';
 	import { T } from '@tolgee/svelte';
-	import type { NavSubItem, SidebarConfig, User } from './types';
+	import type { NavItem, NavSubItem, SidebarConfig, User } from './types';
 	import { haptic } from '$lib/hooks/use-haptic.svelte';
 	import { PersistedState } from 'runed';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
@@ -25,6 +25,20 @@
 
 	const aiChatOpen = new PersistedState('ai-chat-threads-open', true);
 </script>
+
+{#snippet navItemBody(item: NavItem)}
+	{#if item.icon}
+		<item.icon />
+	{/if}
+	<span><T keyName={item.translationKey} /></span>
+	{#if item.kbd}
+		<Kbd.Group class="ml-auto opacity-0 group-hover/menu-button:opacity-50">
+			{#each item.kbd as key (key)}
+				<Kbd.Root>{key}</Kbd.Root>
+			{/each}
+		</Kbd.Group>
+	{/if}
+{/snippet}
 
 <Sidebar.Root collapsible="offcanvas" {...restProps}>
 	<Sidebar.Header>
@@ -102,21 +116,11 @@
 										>
 											{#snippet child({ props })}
 												<a
-													href={resolve(item.url)}
+													href={item.url ? resolve(item.url) : undefined}
 													{...props}
 													onclick={item.disableNav ? (e) => e.preventDefault() : undefined}
 												>
-													{#if item.icon}
-														<item.icon />
-													{/if}
-													<span><T keyName={item.translationKey} /></span>
-													{#if item.kbd}
-														<Kbd.Group class="ml-auto opacity-0 group-hover/menu-button:opacity-50">
-															{#each item.kbd as key (key)}
-																<Kbd.Root>{key}</Kbd.Root>
-															{/each}
-														</Kbd.Group>
-													{/if}
+													{@render navItemBody(item)}
 												</a>
 											{/snippet}
 										</Sidebar.MenuButton>
@@ -134,27 +138,26 @@
 								{/snippet}
 							</Collapsible.Root>
 						{:else}
-							<!-- Standard nav item -->
+							<!-- Standard nav item: anchor when it has a url, button when it triggers an action -->
 							<Sidebar.MenuItem>
 								<Sidebar.MenuButton
 									isActive={item.isActive}
 									class="!transition-transform"
-									onclick={() => haptic.trigger('light')}
+									onclick={() => {
+										haptic.trigger('light');
+										item.onSelect?.();
+									}}
 								>
 									{#snippet child({ props })}
-										<a href={resolve(item.url)} {...props}>
-											{#if item.icon}
-												<item.icon />
-											{/if}
-											<span><T keyName={item.translationKey} /></span>
-											{#if item.kbd}
-												<Kbd.Group class="ml-auto opacity-0 group-hover/menu-button:opacity-50">
-													{#each item.kbd as key (key)}
-														<Kbd.Root>{key}</Kbd.Root>
-													{/each}
-												</Kbd.Group>
-											{/if}
-										</a>
+										{#if item.url}
+											<a href={resolve(item.url)} {...props}>
+												{@render navItemBody(item)}
+											</a>
+										{:else}
+											<button type="button" {...props}>
+												{@render navItemBody(item)}
+											</button>
+										{/if}
 									{/snippet}
 								</Sidebar.MenuButton>
 								{#if item.badge && item.badge > 0}
