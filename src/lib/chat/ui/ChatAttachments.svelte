@@ -7,6 +7,8 @@
 	import { haptic } from '$lib/hooks/use-haptic.svelte';
 	import Progress from '$lib/components/ui/progress/progress.svelte';
 	import * as Dialog from '$lib/components/ui/dialog';
+	import AttachmentTextPreview from './AttachmentTextPreview.svelte';
+	import { isTextPreviewable } from '../core/attachmentPreview.js';
 	import type { Attachment, UploadState } from '../core/types.js';
 	import type { ChatAlignment } from './ChatContext.svelte.js';
 
@@ -94,6 +96,26 @@
 	}
 
 	/**
+	 * MIME type for a non-image attachment (drives the text-preview decision).
+	 */
+	function getMimeType(attachment: Attachment): string | undefined {
+		if (attachment.type === 'file') return attachment.mimeType;
+		if (attachment.type === 'screenshot') return attachment.mimeType;
+		if (attachment.type === 'remote-file') return attachment.contentType;
+		return undefined;
+	}
+
+	/**
+	 * In-memory blob for a freshly attached file, so the preview can read text
+	 * locally without a network round-trip. null for already-sent (remote) ones.
+	 */
+	function getLocalBlob(attachment: Attachment): Blob | null {
+		if (attachment.type === 'file') return attachment.file ?? null;
+		if (attachment.type === 'screenshot') return attachment.blob ?? null;
+		return null;
+	}
+
+	/**
 	 * Check if attachment is a screenshot
 	 */
 	function isScreenshot(attachment: Attachment): boolean {
@@ -173,11 +195,21 @@
 			{@const openUrl = getOpenUrl(selectedAttachment)}
 			{@const isImage = isImageAttachment(selectedAttachment)}
 			{#if openUrl && !isImage}
-				<iframe
-					src={openUrl}
-					title={getFilename(selectedAttachment)}
-					class="h-[70vh] w-full rounded-md"
-				></iframe>
+				{@const mimeType = getMimeType(selectedAttachment)}
+				{#if isTextPreviewable(mimeType, getFilename(selectedAttachment))}
+					<AttachmentTextPreview
+						url={openUrl}
+						{mimeType}
+						filename={getFilename(selectedAttachment)}
+						blob={getLocalBlob(selectedAttachment)}
+					/>
+				{:else}
+					<iframe
+						src={openUrl}
+						title={getFilename(selectedAttachment)}
+						class="h-[70vh] w-full rounded-md"
+					></iframe>
+				{/if}
 			{:else if openUrl && isImage}
 				{#if displayDimensions}
 					<div
@@ -219,6 +251,7 @@
 			<!-- tabindex and role are set together: when isClickable, role="button" makes this interactive -->
 			<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 			<div
+				data-testid="attachment-chip"
 				class="relative flex items-center justify-between gap-2 overflow-hidden rounded-lg px-2 py-2 transition-transform {isClickable
 					? 'cursor-pointer active:translate-y-px'
 					: ''} {readonly ? 'border text-foreground transition-colors' : 'bg-secondary/50'}"

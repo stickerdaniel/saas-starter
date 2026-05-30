@@ -1572,7 +1572,10 @@
 			"dialog_title": "Attachment",
 			"file_fallback": "File",
 			"generic_fallback": "Attachment",
-			"image_fallback": "Image"
+			"image_fallback": "Image",
+			"preview_error": "Couldn't load preview",
+			"preview_loading": "Loading preview…",
+			"preview_truncated": "Preview truncated to {size}"
 		},
 		"avatar": {
 			"team_member": "Team member"

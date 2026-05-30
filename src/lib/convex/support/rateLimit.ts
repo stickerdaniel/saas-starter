@@ -53,6 +53,23 @@ export const supportRateLimiter = new RateLimiter(components.rateLimiter, {
 		capacity: 10
 	},
 
+	// Authenticated text-attachment preview reads (getAttachmentText)
+	// Generous: previews are cheap and the file URL is already public.
+	supportFilePreview: {
+		kind: 'token bucket',
+		rate: 120,
+		period: HOUR,
+		capacity: 30
+	},
+
+	// Anonymous preview reads — GLOBAL shared bucket (spoofable client IDs)
+	supportFilePreviewAnon: {
+		kind: 'token bucket',
+		rate: 120,
+		period: HOUR,
+		capacity: 30
+	},
+
 	// Global LLM call limit (cost protection)
 	// Soft-fails when exceeded - saves explanatory message for user
 	// Sharded for high throughput across all users

@@ -1571,7 +1571,10 @@
 			"dialog_title": "Anhang",
 			"file_fallback": "Datei",
 			"generic_fallback": "Anhang",
-			"image_fallback": "Bild"
+			"image_fallback": "Bild",
+			"preview_error": "Vorschau konnte nicht geladen werden",
+			"preview_loading": "Vorschau wird geladen…",
+			"preview_truncated": "Vorschau auf {size} gekürzt"
 		},
 		"avatar": {
 			"team_member": "Teammitglied"

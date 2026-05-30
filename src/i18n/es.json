@@ -1571,7 +1571,10 @@
 			"dialog_title": "Adjunto",
 			"file_fallback": "Archivo",
 			"generic_fallback": "Adjunto",
-			"image_fallback": "Imagen"
+			"image_fallback": "Imagen",
+			"preview_error": "No se pudo cargar la vista previa",
+			"preview_loading": "Cargando vista previa…",
+			"preview_truncated": "Vista previa truncada a {size}"
 		},
 		"avatar": {
 			"team_member": "Miembro del equipo"
