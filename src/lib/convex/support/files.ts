@@ -6,6 +6,7 @@ import { t } from '../i18n/translations';
 import { supportRateLimiter } from './rateLimit';
 import { createRateLimitError } from './types';
 import { getSupportOwnerIdentity } from './ownership';
+import { fetchAttachmentText } from '../files/attachmentText';
 
 /**
  * Maximum file size for support uploads (5MB)
@@ -20,7 +21,9 @@ const ALLOWED_MIME_TYPES = [
 	'image/jpeg',
 	'image/webp',
 	'image/gif',
-	'application/pdf'
+	'application/pdf',
+	'text/markdown',
+	'text/plain'
 ];
 
 /**
@@ -77,7 +80,7 @@ export const generateUploadUrl = mutation({
  * @param args.width - Optional image width for metadata storage
  * @param args.height - Optional image height for metadata storage
  * @returns Object containing fileId, storageId, url, filename, and isImage flag
- * @throws {Error} When file type is not allowed (only PNG, JPEG, WebP, GIF, PDF supported)
+ * @throws {Error} When file type is not allowed (PNG, JPEG, WebP, GIF, PDF, Markdown, plain text)
  * @throws {Error} When download grant cannot be created or consumed
  * @throws {Error} When file fetch fails
  */
@@ -155,11 +158,13 @@ export const saveUploadedFile = action({
 			}
 
 			// Validate MIME type against the actual blob — not the client-supplied args.mimeType
-			// which is untrusted input and could be spoofed.
-			if (!ALLOWED_MIME_TYPES.includes(blob.type)) {
+			// which is untrusted input and could be spoofed. Compare the essence only:
+			// text/* often comes back with a charset suffix (e.g. "text/plain; charset=utf-8").
+			const mimeEssence = blob.type.split(';')[0]!.trim().toLowerCase();
+			if (!ALLOWED_MIME_TYPES.includes(mimeEssence)) {
 				throw new ConvexError(t(args.locale, 'backend.files.type_not_allowed'));
 			}
-			verifiedMimeType = blob.type;
+			verifiedMimeType = mimeEssence;
 
 			// Register with agent component
 			const result = await storeFile(ctx, components.agent, blob, {
@@ -234,5 +239,55 @@ export const storeFileMetadata = internalMutation({
 			height: args.height,
 			createdAt: Date.now()
 		});
+	}
+});
+
+/**
+ * Gate a preview read: resolve owner (auth or anonymous) and rate-limit. Runs
+ * in a mutation ctx so it can read auth and write to the rate limiter; the
+ * action below calls it via runMutation.
+ *
+ * @security Anonymous access mirrors the upload flow: support previews are
+ * available to unauthenticated users, anonymous callers share a global bucket.
+ */
+export const checkPreviewAccess = internalMutation({
+	args: { anonymousUserId: v.optional(v.string()) },
+	handler: async (ctx, args) => {
+		const owner = await getSupportOwnerIdentity(ctx, args.anonymousUserId);
+		const isAnon = !owner || owner.isAnonymous;
+		const limitName = isAnon ? 'supportFilePreviewAnon' : 'supportFilePreview';
+		const userKey = isAnon ? 'anonymous-global' : owner.ownerId;
+
+		const rateLimitStatus = await supportRateLimiter.limit(ctx, limitName, { key: userKey });
+		if (!rateLimitStatus.ok) {
+			throw createRateLimitError(
+				rateLimitStatus.retryAfter,
+				'Too many preview requests. Please try again later.'
+			);
+		}
+	}
+});
+
+/**
+ * Read a text attachment's content for the in-app preview dialog.
+ *
+ * Used by the shared preview component when an attachment has no local blob
+ * (e.g. an admin viewing a user-uploaded file, or a message reloaded from
+ * history). Server-side fetch sidesteps the lack of CORS headers on Convex
+ * storage URLs; see fetchAttachmentText for the SSRF guard and size cap.
+ *
+ * @security Anonymous access: available to unauthenticated support users.
+ */
+export const getAttachmentText = action({
+	args: {
+		url: v.string(),
+		anonymousUserId: v.optional(v.string()),
+		locale: v.optional(v.string())
+	},
+	handler: async (ctx, args): Promise<{ text: string; truncated: boolean }> => {
+		await ctx.runMutation(internal.support.files.checkPreviewAccess, {
+			anonymousUserId: args.anonymousUserId
+		});
+		return await fetchAttachmentText(args.url, args.locale);
 	}
 });

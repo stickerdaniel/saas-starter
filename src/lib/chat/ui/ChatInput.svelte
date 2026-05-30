@@ -288,10 +288,18 @@
 		if (!items) return;
 
 		for (const item of items) {
-			// Only process allowed file types
-			if (!ALLOWED_FILE_TYPES.includes(item.type)) {
-				continue;
-			}
+			// Only file items become attachments; string items (e.g. pasted
+			// text, which now matches text/plain in the allowlist) fall through
+			// to the textarea's default paste handling.
+			if (item.kind !== 'file') continue;
+
+			const raw = item.getAsFile();
+			if (!raw) continue;
+
+			// Extension-aware allowlist gate: a pasted file's clipboard type is
+			// often empty/generic (notably .md/.txt), so check the extension
+			// fallback like handleFilesAdded rather than the bare item.type.
+			if (!isAllowedKind(raw)) continue;
 
 			// Check attachment limit
 			if (ctx.attachments.length >= MAX_ATTACHMENTS) {
@@ -300,8 +308,10 @@
 				break;
 			}
 
-			const file = item.getAsFile();
-			if (!file) continue;
+			// Coerce empty/generic MIME from the extension before branching, so
+			// attachFile routes images through processImage and the upload sends
+			// the correct Content-Type for text files.
+			const file = normalizeMime(raw);
 
 			// Type-aware size cap — images go through processImage which
 			// shrinks them before upload, so we only enforce the absurdity

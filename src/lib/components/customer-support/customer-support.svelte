@@ -70,6 +70,7 @@
 	const uploadConfig: UploadConfig = {
 		generateUploadUrl: api.support.files.generateUploadUrl,
 		saveUploadedFile: api.support.files.saveUploadedFile,
+		getAttachmentText: api.support.files.getAttachmentText,
 		locale: page.data.lang,
 		getAccessKey: () => threadContext.threadId ?? threadContext.userId ?? 'support',
 		getGenerateUploadUrlArgs: () => {

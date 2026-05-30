@@ -1,10 +1,11 @@
 import { v, ConvexError } from 'convex/values';
 import { storeFile } from '@convex-dev/agent';
-import { action, mutation } from '../_generated/server';
+import { action, internalMutation, mutation } from '../_generated/server';
 import { components, internal } from '../_generated/api';
 import { t } from '../i18n/translations';
 import { aiChatRateLimiter } from './rateLimit';
 import { authComponent } from '../auth';
+import { fetchAttachmentText } from '../files/attachmentText';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
@@ -13,7 +14,9 @@ const ALLOWED_MIME_TYPES = [
 	'image/jpeg',
 	'image/webp',
 	'image/gif',
-	'application/pdf'
+	'application/pdf',
+	'text/markdown',
+	'text/plain'
 ];
 
 /**
@@ -117,10 +120,13 @@ export const saveUploadedFile = action({
 				);
 			}
 
-			if (!ALLOWED_MIME_TYPES.includes(blob.type)) {
+			// Compare the essence only: text/* often comes back with a charset suffix
+			// (e.g. "text/plain; charset=utf-8").
+			const mimeEssence = blob.type.split(';')[0]!.trim().toLowerCase();
+			if (!ALLOWED_MIME_TYPES.includes(mimeEssence)) {
 				throw new ConvexError(t(args.locale, 'backend.files.type_not_allowed'));
 			}
-			verifiedMimeType = blob.type;
+			verifiedMimeType = mimeEssence;
 
 			const result = await storeFile(ctx, components.agent, blob, {
 				filename: args.filename
@@ -151,5 +157,42 @@ export const saveUploadedFile = action({
 			filename: file.filename,
 			isImage: verifiedMimeType.startsWith('image/')
 		};
+	}
+});
+
+/**
+ * Gate a preview read: require auth and rate-limit. Runs in a mutation ctx so
+ * it can resolve the authenticated user and write to the rate limiter; the
+ * action below calls it via runMutation.
+ */
+export const checkPreviewAccess = internalMutation({
+	args: {},
+	handler: async (ctx) => {
+		const user = await authComponent.getAuthUser(ctx);
+		if (!user) {
+			throw new ConvexError('Authentication required');
+		}
+		const rateLimitStatus = await aiChatRateLimiter.limit(ctx, 'aiChatFilePreview', {
+			key: user._id
+		});
+		if (!rateLimitStatus.ok) {
+			throw new ConvexError('Too many preview requests. Please try again later.');
+		}
+	}
+});
+
+/**
+ * Read a text attachment's content for the in-app preview dialog.
+ *
+ * Used by the shared preview component when an attachment has no local blob
+ * (e.g. a message reloaded from history). Server-side fetch sidesteps the lack
+ * of CORS headers on Convex storage URLs; see fetchAttachmentText for the SSRF
+ * guard and size cap.
+ */
+export const getAttachmentText = action({
+	args: { url: v.string(), locale: v.optional(v.string()) },
+	handler: async (ctx, args): Promise<{ text: string; truncated: boolean }> => {
+		await ctx.runMutation(internal.aiChat.files.checkPreviewAccess, {});
+		return await fetchAttachmentText(args.url, args.locale);
 	}
 });

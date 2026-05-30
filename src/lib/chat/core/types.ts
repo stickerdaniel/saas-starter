@@ -246,7 +246,9 @@ export const ALLOWED_FILE_EXT_MIME: Readonly<Record<string, string>> = {
 	'.jpeg': 'image/jpeg',
 	'.webp': 'image/webp',
 	'.gif': 'image/gif',
-	'.pdf': 'application/pdf'
+	'.pdf': 'application/pdf',
+	'.md': 'text/markdown',
+	'.txt': 'text/plain'
 };
 export const ALLOWED_FILE_EXTENSIONS = Object.keys(ALLOWED_FILE_EXT_MIME).join(',');
 export const ALLOWED_FILE_TYPES = Array.from(new Set(Object.values(ALLOWED_FILE_EXT_MIME)));
