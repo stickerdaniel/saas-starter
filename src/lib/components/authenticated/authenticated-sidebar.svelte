@@ -45,7 +45,7 @@
 	 menu-action chevron. -->
 {#snippet shortcutHint(keys: string[])}
 	<span
-		class="pointer-events-none absolute inset-y-0 -right-2 flex items-center justify-end overflow-hidden rounded-r-md bg-sidebar-accent-hover [mask-image:linear-gradient(to_right,transparent,#000_2rem)] pr-3 pl-8 opacity-0 transition-opacity duration-150 ease-out group-hover/menu-button:opacity-100 group-has-data-[sidebar=menu-action]/menu-item:pr-8 group-data-[active=true]/menu-button:bg-sidebar-accent"
+		class="pointer-events-none absolute inset-y-0 -right-2 flex items-center justify-end overflow-hidden rounded-r-md bg-sidebar-accent-hover [mask-image:linear-gradient(to_right,transparent,#000_2rem)] pr-3 pl-8 opacity-0 group-hover/menu-button:opacity-100 group-has-data-[sidebar=menu-action]/menu-item:pr-8 group-data-[active=true]/menu-button:bg-sidebar-accent"
 	>
 		<Kbd.Group>
 			{#each keys as key (key)}
