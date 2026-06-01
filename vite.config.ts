@@ -137,9 +137,10 @@ function parseEnvFile(filePath: string): Record<string, string> {
 }
 
 /**
- * Parse a varlock .env schema and return var names marked @sensitive.
- * Also handles @defaultSensitive=inferFromPrefix(PREFIX_) — vars without
- * the prefix are treated as sensitive by default.
+ * Parse a varlock .env schema and return var names treated as sensitive.
+ * Handles @defaultSensitive=inferFromPrefix(PREFIX_): vars without the prefix
+ * are sensitive by default. An explicit @public comment opts a var back out,
+ * matching varlock's own classification.
  */
 function parseSensitiveVarNames(schemaPath: string): Set<string> {
 	if (!fs.existsSync(schemaPath)) return new Set();
@@ -162,6 +163,7 @@ function parseSensitiveVarNames(schemaPath: string): Set<string> {
 		const trimmed = line.trim();
 		if (trimmed.startsWith('#')) {
 			if (trimmed.includes('@sensitive')) nextIsSensitive = true;
+			else if (trimmed.includes('@public')) nextIsSensitive = false;
 			continue;
 		}
 
