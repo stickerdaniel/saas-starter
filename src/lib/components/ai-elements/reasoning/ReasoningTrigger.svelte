@@ -48,12 +48,12 @@
 		{@render children()}
 	{:else}
 		<BotIcon class="size-4" />
-		{#if !hasContent}
-			<!-- State 1: Connecting - waiting for first reasoning content -->
-			<ReasoningShimmerLoader text={$t('chat.reasoning.connecting')} />
-		{:else if isStreaming}
-			<!-- State 2: Thinking - receiving reasoning data -->
-			<ReasoningShimmerLoader text={$t('chat.reasoning.thinking')} />
+		{#if !hasContent || isStreaming}
+			<!-- States 1 & 2: Connecting (no content yet) then Thinking (receiving data).
+			     One shimmer instance keeps the animation from restarting across the transition. -->
+			<ReasoningShimmerLoader
+				text={!hasContent ? $t('chat.reasoning.connecting') : $t('chat.reasoning.thinking')}
+			/>
 		{:else}
 			<!-- State 3: Finished - show duration -->
 			<p>{durationMessage}</p>

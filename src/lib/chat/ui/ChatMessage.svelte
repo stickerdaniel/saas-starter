@@ -2,13 +2,12 @@
 	import { Message } from '$lib/components/prompt-kit/message';
 	import { Response } from '$lib/components/ai-elements/response';
 	import { ToolComposed } from '$lib/components/prompt-kit/tool';
-	import type { ToolPart } from '$lib/components/prompt-kit/tool/types.js';
 	import ChatAttachments from './ChatAttachments.svelte';
 	import ChatReasoning from './ChatReasoning.svelte';
 	import MessageBubble from './MessageBubble.svelte';
 	import InlineEmailPrompt from './InlineEmailPrompt.svelte';
 	import { getChatUIContext } from './ChatContext.svelte.js';
-	import { getActiveStreamingReasoningIndex, getReasoningPartKey } from './reasoning-parts.js';
+	import { deriveOrderedParts, LEADING_REASONING_KEY, type OrderedPart } from './ordered-parts.js';
 	import { type DisplayMessage, type Attachment } from '../core/types.js';
 
 	let {
@@ -52,23 +51,12 @@
 	);
 	const usesFilledBubble = $derived(isUser || isAdminMessage);
 	const align = $derived(ctx.getAlignment(message.role));
-	function isReasoningPartOpen(partKey: string): boolean {
-		return ctx.isReasoningOpen(`${message.id}:${partKey}`);
+	function handleReasoningOpenChange(stateKey: string, open: boolean) {
+		ctx.setReasoningOpen(stateKey, open);
+		ctx.markUserToggled(stateKey);
 	}
 
-	function handleReasoningPartOpenChange(partKey: string, open: boolean) {
-		const fullKey = `${message.id}:${partKey}`;
-		ctx.setReasoningOpen(fullKey, open);
-		ctx.markUserToggled(fullKey);
-	}
-
-	// Fallback: single reasoning open state for messages without parts
-	const isReasoningOpen = $derived(ctx.isReasoningOpen(message.id));
-
-	// Whether this message has interleaved parts (reasoning/tool/text in order)
-	const hasParts = $derived(!!(message.parts && message.parts.length > 0));
-
-	// Fallback deriveds for messages without parts (pending state, old messages)
+	// Fallback deriveds for messages without renderable parts (pending state, old messages)
 	const showReasoningFallback = $derived(
 		message.displayReasoning ||
 			message.hasReasoningStream ||
@@ -76,61 +64,57 @@
 	);
 	const shimmerFallback = $derived(!!message.displayReasoning && !message.displayText);
 
-	type OrderedPart =
-		| { kind: 'reasoning'; text: string; isStreaming: boolean; hasContent: boolean; key: string }
-		| { kind: 'tool'; toolPart: ToolPart; key: string }
-		| { kind: 'text'; text: string; key: string };
+	// Renderable parts in chronological order (step-start etc. are dropped)
+	const orderedParts = $derived(deriveOrderedParts(message.parts, message.status));
 
-	// Derive ordered parts for chronological rendering
-	const orderedParts: OrderedPart[] = $derived.by(() => {
-		const parts = message.parts ?? [];
-		const isMessageInProgress = message.status === 'pending' || message.status === 'streaming';
-		const activeReasoningIndex = getActiveStreamingReasoningIndex(parts, isMessageInProgress);
-		return parts
-			.map((p, idx): OrderedPart | null => {
-				if (p.type === 'reasoning') {
-					const text = (p as { text?: string }).text ?? '';
-					return {
-						kind: 'reasoning',
-						text,
-						isStreaming: idx === activeReasoningIndex,
-						hasContent: !!text,
-						key: getReasoningPartKey(p, idx)
-					};
-				}
-				if (p.type === 'text') {
-					return {
-						kind: 'text',
-						text: (p as { text?: string }).text ?? '',
-						key: `text-${idx}`
-					};
-				}
-				if (typeof p.type === 'string' && p.type.startsWith('tool-') && 'state' in p) {
-					return {
-						kind: 'tool',
-						toolPart: {
-							type: p.type,
-							state: (p as { state: ToolPart['state'] }).state,
-							input: (p as { input?: Record<string, unknown> }).input,
-							output: (p as { output?: unknown }).output as Record<string, unknown> | undefined,
-							toolCallId: (p as { toolCallId?: string }).toolCallId,
-							errorText: (p as { errorText?: string }).errorText
-						},
-						key:
-							(p as { toolCallId?: string }).toolCallId ??
-							(p as { streamId?: string }).streamId ??
-							`tool-${idx}`
-					};
-				}
-				return null;
-			})
-			.filter((p): p is OrderedPart => p !== null);
+	// Reasoning items carry a resolved accordion open-state key. The leading reasoning and
+	// its connecting placeholder share a stable Svelte key (LEADING_REASONING_KEY), so the
+	// component instance survives the connecting -> thinking transition without remounting.
+	type RenderItem =
+		| {
+				kind: 'reasoning';
+				text: string;
+				isStreaming: boolean;
+				hasContent: boolean;
+				key: string;
+				stateKey: string;
+		  }
+		| Exclude<OrderedPart, { kind: 'reasoning' }>;
+
+	const renderItems: RenderItem[] = $derived.by(() => {
+		if (orderedParts.length > 0) {
+			return orderedParts.map(
+				(part): RenderItem =>
+					part.kind === 'reasoning'
+						? {
+								kind: 'reasoning',
+								text: part.text,
+								isStreaming: part.isStreaming,
+								hasContent: part.hasContent,
+								key: part.key,
+								stateKey: `${message.id}:${part.partKey}`
+							}
+						: part
+			);
+		}
+
+		// No renderable parts yet: keep a single connecting indicator mounted, plus legacy text.
+		const items: RenderItem[] = [];
+		if (showReasoningFallback) {
+			items.push({
+				kind: 'reasoning',
+				text: message.displayReasoning,
+				isStreaming: shimmerFallback,
+				hasContent: !!message.displayReasoning,
+				key: LEADING_REASONING_KEY,
+				stateKey: message.id
+			});
+		}
+		if (message.displayText) {
+			items.push({ kind: 'text', text: message.displayText, key: 'text-0' });
+		}
+		return items;
 	});
-
-	function handleReasoningOpenChange(open: boolean) {
-		ctx.setReasoningOpen(message.id, open);
-		ctx.markUserToggled(message.id);
-	}
 </script>
 
 <div
@@ -151,37 +135,21 @@
 		{:else}
 			<!-- AI messages: ghost/prose style with interleaved reasoning/tools/text -->
 			<MessageBubble {align} variant="ghost">
-				{#if hasParts}
-					{#each orderedParts as part (part.key)}
-						{#if part.kind === 'reasoning'}
-							<ChatReasoning
-								open={isReasoningPartOpen(part.key)}
-								onOpenChange={(open) => handleReasoningPartOpenChange(part.key, open)}
-								isStreaming={part.isStreaming}
-								hasContent={part.hasContent}
-								content={part.text}
-							/>
-						{:else if part.kind === 'tool'}
-							<ToolComposed toolPart={part.toolPart} />
-						{:else if part.kind === 'text'}
-							<Response content={part.text} animation={{ enabled: true }} />
-						{/if}
-					{/each}
-				{:else}
-					<!-- Fallback for messages without parts (pending, old messages) -->
-					{#if showReasoningFallback}
+				{#each renderItems as item (item.key)}
+					{#if item.kind === 'reasoning'}
 						<ChatReasoning
-							open={isReasoningOpen}
-							onOpenChange={handleReasoningOpenChange}
-							isStreaming={shimmerFallback}
-							hasContent={!!message.displayReasoning}
-							content={message.displayReasoning}
+							open={ctx.isReasoningOpen(item.stateKey)}
+							onOpenChange={(open) => handleReasoningOpenChange(item.stateKey, open)}
+							isStreaming={item.isStreaming}
+							hasContent={item.hasContent}
+							content={item.text}
 						/>
+					{:else if item.kind === 'tool'}
+						<ToolComposed toolPart={item.toolPart} />
+					{:else if item.kind === 'text'}
+						<Response content={item.text} animation={{ enabled: true }} />
 					{/if}
-					{#if message.displayText}
-						<Response content={message.displayText} animation={{ enabled: true }} />
-					{/if}
-				{/if}
+				{/each}
 				{#if isHandoffMessage && showEmailPrompt && onSubmitEmail}
 					<InlineEmailPrompt {currentEmail} {isEmailPending} {defaultEmail} {onSubmitEmail} />
 				{/if}
