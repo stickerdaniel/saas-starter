@@ -92,7 +92,7 @@
 								isStreaming: part.isStreaming,
 								hasContent: part.hasContent,
 								key: part.key,
-								stateKey: `${message.id}:${part.partKey}`
+								stateKey: `${message.id}:${part.key}`
 							}
 						: part
 			);
@@ -107,7 +107,7 @@
 				isStreaming: shimmerFallback,
 				hasContent: !!message.displayReasoning,
 				key: LEADING_REASONING_KEY,
-				stateKey: message.id
+				stateKey: `${message.id}:${LEADING_REASONING_KEY}`
 			});
 		}
 		if (message.displayText) {

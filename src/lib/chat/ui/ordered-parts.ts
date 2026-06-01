@@ -1,33 +1,24 @@
 import type { ToolPart } from '$lib/components/prompt-kit/tool/types.js';
 import type { MessagePart, MessageStatus } from '../core/types.js';
-import { getActiveStreamingReasoningIndex, getReasoningPartKey } from './reasoning-parts.js';
+import {
+	getActiveStreamingReasoningIndex,
+	getReasoningKey,
+	LEADING_REASONING_KEY
+} from './reasoning-parts.js';
 
-/**
- * Stable Svelte `{#each}` key for the leading reasoning block (the first reasoning
- * part of a message) and its "Connecting…" placeholder. Decoupling DOM identity from
- * the accordion open/close key (which still uses the real part key) keeps a single
- * reasoning component instance mounted across the connecting → thinking transition,
- * so the indicator never blinks out or restarts its shimmer.
- */
-export const LEADING_REASONING_KEY = 'reasoning-lead';
+export { LEADING_REASONING_KEY };
 
 /**
  * A renderable message part in chronological order.
  *
- * `key` is the Svelte `{#each}` identity. `partKey` (reasoning only) is the unprefixed
- * accordion part key (`${message.id}:${partKey}` is the open-state key consumed by
- * `reasoning-accordion-sync.ts`). For the leading reasoning block `key` is stabilised to
- * `LEADING_REASONING_KEY` while `partKey` stays the real part key.
+ * `key` is both the Svelte `{#each}` identity and the suffix of the accordion open-state
+ * key (`${message.id}:${key}`). The leading reasoning block keys to
+ * {@link LEADING_REASONING_KEY} (see `getReasoningKey`), so it stays mounted and keeps its
+ * open-state across the connecting → thinking transition; later reasoning blocks keep their
+ * per-part key.
  */
 export type OrderedPart =
-	| {
-			kind: 'reasoning';
-			text: string;
-			isStreaming: boolean;
-			hasContent: boolean;
-			key: string;
-			partKey: string;
-	  }
+	| { kind: 'reasoning'; text: string; isStreaming: boolean; hasContent: boolean; key: string }
 	| { kind: 'tool'; toolPart: ToolPart; key: string }
 	| { kind: 'text'; text: string; key: string };
 
@@ -45,21 +36,17 @@ export function deriveOrderedParts(
 	const messageParts = parts ?? [];
 	const isMessageInProgress = status === 'pending' || status === 'streaming';
 	const activeReasoningIndex = getActiveStreamingReasoningIndex(messageParts, isMessageInProgress);
-	const firstReasoningIndex = messageParts.findIndex((p) => p.type === 'reasoning');
 
 	return messageParts
 		.map((p, idx): OrderedPart | null => {
 			if (p.type === 'reasoning') {
 				const text = (p as { text?: string }).text ?? '';
-				const partKey = getReasoningPartKey(p, idx);
 				return {
 					kind: 'reasoning',
 					text,
 					isStreaming: idx === activeReasoningIndex,
 					hasContent: !!text,
-					// Leading reasoning keeps a stable DOM identity for instance continuity.
-					key: idx === firstReasoningIndex ? LEADING_REASONING_KEY : partKey,
-					partKey
+					key: getReasoningKey(messageParts, idx)
 				};
 			}
 			if (p.type === 'text') {

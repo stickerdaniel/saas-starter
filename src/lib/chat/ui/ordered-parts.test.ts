@@ -23,8 +23,7 @@ describe('deriveOrderedParts', () => {
 			kind: 'reasoning',
 			text: 'Hi',
 			hasContent: true,
-			key: LEADING_REASONING_KEY,
-			partKey: 'reasoning-r1'
+			key: LEADING_REASONING_KEY
 		});
 	});
 
@@ -33,7 +32,7 @@ describe('deriveOrderedParts', () => {
 			[{ type: 'reasoning', text: 'thinking', streamPartId: 'r1' }] as MessagePart[],
 			'streaming'
 		);
-		expect(result[0]).toMatchObject({ key: LEADING_REASONING_KEY, partKey: 'reasoning-r1' });
+		expect(result[0]).toMatchObject({ key: LEADING_REASONING_KEY });
 	});
 
 	it('keeps the real part key for a non-leading reasoning block', () => {
@@ -46,8 +45,8 @@ describe('deriveOrderedParts', () => {
 			'streaming'
 		);
 		const reasoning = result.filter((p) => p.kind === 'reasoning');
-		expect(reasoning[0]).toMatchObject({ key: LEADING_REASONING_KEY, partKey: 'reasoning-r1' });
-		expect(reasoning[1]).toMatchObject({ key: 'reasoning-r2', partKey: 'reasoning-r2' });
+		expect(reasoning[0]).toMatchObject({ key: LEADING_REASONING_KEY });
+		expect(reasoning[1]).toMatchObject({ key: 'reasoning-r2' });
 	});
 
 	it('marks the trailing reasoning part as streaming only while in progress', () => {
