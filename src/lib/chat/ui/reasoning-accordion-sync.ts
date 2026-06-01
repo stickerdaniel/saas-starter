@@ -1,5 +1,9 @@
 import type { DisplayMessage } from '../core/types.js';
-import { getActiveStreamingReasoningIndex, getReasoningPartKey } from './reasoning-parts.js';
+import {
+	getActiveStreamingReasoningIndex,
+	getReasoningKey,
+	LEADING_REASONING_KEY
+} from './reasoning-parts.js';
 
 export interface ReasoningAccordionController {
 	isReasoningOpen(messageId: string): boolean;
@@ -28,7 +32,7 @@ export function syncReasoningAccordionState(
 
 			parts.forEach((part, index) => {
 				if (part.type !== 'reasoning') return;
-				const partKey = `${message.id}:${getReasoningPartKey(part, index)}`;
+				const partKey = `${message.id}:${getReasoningKey(parts, index)}`;
 				validReasoningKeys.add(partKey);
 
 				if (index === activeReasoningIndex) {
@@ -49,24 +53,27 @@ export function syncReasoningAccordionState(
 			return;
 		}
 
+		// No renderable parts yet: the connecting fallback / cached reasoning shares the leading
+		// reasoning key, so a user toggle here carries over once the real reasoning part arrives.
+		const legacyKey = `${message.id}:${LEADING_REASONING_KEY}`;
 		const hasReasoning = !!message.displayReasoning;
 		const hasResponse = !!message.displayText;
 
 		if (hasReasoning && !hasResponse) {
-			validReasoningKeys.add(message.id);
-			if (!controller.wasUserToggled(message.id)) {
-				if (!controller.isReasoningOpen(message.id)) {
-					controller.setReasoningOpen(message.id, true);
-					controller.markAutoOpened(message.id);
+			validReasoningKeys.add(legacyKey);
+			if (!controller.wasUserToggled(legacyKey)) {
+				if (!controller.isReasoningOpen(legacyKey)) {
+					controller.setReasoningOpen(legacyKey, true);
+					controller.markAutoOpened(legacyKey);
 				}
 			}
-		} else if (hasResponse && controller.wasAutoOpened(message.id)) {
-			validReasoningKeys.add(message.id);
-			if (!controller.wasUserToggled(message.id)) {
-				controller.setReasoningOpen(message.id, false);
+		} else if (hasResponse && controller.wasAutoOpened(legacyKey)) {
+			validReasoningKeys.add(legacyKey);
+			if (!controller.wasUserToggled(legacyKey)) {
+				controller.setReasoningOpen(legacyKey, false);
 			}
-			controller.clearAutoOpened(message.id);
-			controller.clearUserToggled(message.id);
+			controller.clearAutoOpened(legacyKey);
+			controller.clearUserToggled(legacyKey);
 		}
 	});
 
