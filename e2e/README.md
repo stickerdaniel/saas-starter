@@ -7,8 +7,9 @@ bun run test:e2e
 ```
 
 Spawns `bun run dev:test`, which boots an isolated local Convex backend on a separate
-state dir (`.convex/<branch>...e2e-<hash>/`) and a separate vite port (`:5174`). Safe to
-run alongside `bun run dev`. Requires `AUTH_E2E_TEST_SECRET` in `.env.test`. See
+state dir (`.convex/<branch>...e2e-<hash>/`) and a deterministic per-project vite test
+port (see `scripts/dev-ports.ts`). Safe to run alongside `bun run dev`. Requires
+`AUTH_E2E_TEST_SECRET` in `.env.test`. See
 `AGENTS.md` → Testing Guidelines → "Local e2e isolation".
 
 ## Targeting a developer-managed deployment

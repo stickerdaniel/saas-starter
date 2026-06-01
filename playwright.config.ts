@@ -7,6 +7,7 @@ import { defineConfig, devices } from '@playwright/test';
 import 'varlock/auto-load';
 import { getPreviewBypass } from './e2e/utils/preview-bypass';
 import { resolveSiteUrl, TEST_VITE_PORT } from './e2e/utils/site-url';
+import { portlessOwnsPort } from './scripts/dev-ports';
 
 // CI: tests run against actual preview deployment (PUBLIC_SITE_URL set by workflow).
 // Local default: forced to the test vite port spawned by `bun run dev:test`.
@@ -122,7 +123,9 @@ export default defineConfig({
 			? undefined
 			: {
 					command: 'bun run dev:test',
-					port: TEST_VITE_PORT,
+					// When portless fronts vite, poll the named URL (vite sits behind portless
+					// on an internal port); otherwise poll the computed per-project test port.
+					...(portlessOwnsPort() ? { url: baseURL } : { port: TEST_VITE_PORT }),
 					reuseExistingServer: false,
 					timeout: 90000
 				}

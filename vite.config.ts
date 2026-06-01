@@ -1,12 +1,12 @@
 import * as childProcess from 'node:child_process';
 import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
-import * as net from 'node:net';
 import * as path from 'node:path';
 import { varlockLoadedEnv, varlockVitePlugin } from '@varlock/vite-integration';
 import { convexLocal } from 'convex-vite-plugin';
 import { resetRedactionMap } from 'varlock/env';
 import { DEV_FEATURES, type DevFeature } from './src/lib/dev/features';
+import { findAvailablePort, portlessOwnsPort } from './scripts/dev-ports';
 import { sentrySvelteKit } from '@sentry/sveltekit';
 import devtoolsJson from 'vite-plugin-devtools-json';
 import tailwindcss from '@tailwindcss/vite';
@@ -14,48 +14,6 @@ import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vitest/config';
 import { visualizer } from 'rollup-plugin-visualizer';
 import { loadEnv, type PluginOption } from 'vite';
-
-async function isPortAvailable(port: number): Promise<boolean> {
-	return await new Promise((resolve) => {
-		const server = net.createServer();
-		server.unref();
-		server.once('error', () => {
-			resolve(false);
-		});
-		server.listen(port, '127.0.0.1', () => {
-			server.close(() => resolve(true));
-		});
-	});
-}
-
-// WHATWG fetch "bad port" list. Node's fetch (undici) refuses to connect to
-// these, so a Convex backend or site proxy that binds one is unreachable: the
-// SvelteKit -> Convex proxy fails with `TypeError: fetch failed` / cause
-// `bad port` even though the port was free to bind. Skip them here.
-// https://fetch.spec.whatwg.org/#port-blocking
-const BAD_FETCH_PORTS = new Set([
-	1, 7, 9, 11, 13, 15, 17, 19, 20, 21, 22, 23, 25, 37, 42, 43, 53, 69, 77, 79, 87, 95, 101, 102,
-	103, 104, 109, 110, 111, 113, 115, 117, 119, 123, 135, 137, 139, 143, 161, 179, 389, 427, 465,
-	512, 513, 514, 515, 526, 530, 531, 532, 540, 548, 554, 556, 563, 587, 601, 636, 989, 990, 993,
-	995, 1719, 1720, 1723, 2049, 3659, 4045, 4190, 5060, 5061, 6000, 6566, 6665, 6666, 6667, 6668,
-	6669, 6679, 6697, 10080
-]);
-
-async function findAvailablePort(startPort: number, maxAttempts = 100): Promise<number> {
-	// Blocked ports don't count toward maxAttempts, so the limit always reflects
-	// how many connectable ports were actually probed.
-	let checked = 0;
-	for (let offset = 0; checked < maxAttempts; offset += 1) {
-		const port = startPort + offset;
-		if (BAD_FETCH_PORTS.has(port)) continue;
-		checked += 1;
-		if (await isPortAvailable(port)) {
-			return port;
-		}
-	}
-
-	throw new Error(`Could not find an available port after ${maxAttempts} attempts`);
-}
 
 function computeLocalConvexStateId(projectDir: string, suffix?: string): string {
 	let gitBranch = 'unknown';
@@ -318,7 +276,13 @@ export default defineConfig(async ({ mode }) => {
 				reset: resetLocalBackend,
 				onReady: [{ name: 'localDev:ensureSeededAdmin' }],
 				envVars: ({ vitePort, resolvedUrls }) => {
-					const siteUrl = resolvedUrls?.local[0] ?? `http://localhost:${vitePort}`;
+					// When portless fronts vite, resolvedUrls.local[0] is vite's own
+					// localhost URL, not the .localhost named origin -- so the trustedOrigin
+					// would mismatch. Use the SAME predicate as the dev/test wrappers so the
+					// wrapper-bound port, Playwright baseURL, and Convex SITE_URL always agree.
+					const siteUrl = portlessOwnsPort()
+						? process.env.PORTLESS_SITE_URL!
+						: (resolvedUrls?.local[0] ?? `http://localhost:${vitePort}`);
 					return {
 						// Auto-generated defaults for local dev
 						BETTER_AUTH_SECRET: betterAuthSecret,
