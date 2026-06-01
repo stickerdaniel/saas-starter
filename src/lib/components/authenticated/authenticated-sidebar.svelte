@@ -30,14 +30,29 @@
 	{#if item.icon}
 		<item.icon />
 	{/if}
-	<span><T keyName={item.translationKey} /></span>
+	<span class="min-w-0 truncate"><T keyName={item.translationKey} /></span>
 	{#if item.kbd}
-		<Kbd.Group class="ml-auto opacity-0 group-hover/menu-button:opacity-50">
-			{#each item.kbd as key (key)}
+		{@render shortcutHint(item.kbd)}
+	{/if}
+{/snippet}
+
+<!-- Shortcut hint, revealed on hover. Absolutely placed so it never steals width
+	 from the label when hidden. The background is the opaque match for the row's
+	 hover colour (sidebar-accent-hover), switching to sidebar-accent only once the
+	 row is the active route. Pressing keeps the hover colour to match the row, which
+	 stays on its hover background until release. A left mask fades that edge into the
+	 label, pure alpha so it never muddies the colour. pr-8 makes room for the
+	 menu-action chevron. -->
+{#snippet shortcutHint(keys: string[])}
+	<span
+		class="pointer-events-none absolute inset-y-0 -right-2 flex items-center justify-end overflow-hidden rounded-r-md bg-sidebar-accent-hover [mask-image:linear-gradient(to_right,transparent,#000_2rem)] pr-3 pl-8 opacity-0 transition-opacity duration-150 ease-out group-hover/menu-button:opacity-100 group-has-data-[sidebar=menu-action]/menu-item:pr-8 group-data-[active=true]/menu-button:bg-sidebar-accent"
+	>
+		<Kbd.Group>
+			{#each keys as key (key)}
 				<Kbd.Root>{key}</Kbd.Root>
 			{/each}
 		</Kbd.Group>
-	{/if}
+	</span>
 {/snippet}
 
 <Sidebar.Root collapsible="offcanvas" {...restProps}>
@@ -111,7 +126,7 @@
 									<Sidebar.MenuItem {...props}>
 										<Sidebar.MenuButton
 											isActive={item.isActive}
-											class="!transition-transform"
+											class="relative !transition-transform"
 											onclick={() => haptic.trigger('light')}
 										>
 											{#snippet child({ props })}
@@ -142,7 +157,7 @@
 							<Sidebar.MenuItem>
 								<Sidebar.MenuButton
 									isActive={item.isActive}
-									class="!transition-transform"
+									class="relative !transition-transform"
 									onclick={() => {
 										haptic.trigger('light');
 										item.onSelect?.();
@@ -184,19 +199,15 @@
 					{#if link.condition !== false}
 						<Sidebar.MenuItem>
 							<Sidebar.MenuButton
-								class="!transition-transform"
+								class="relative !transition-transform"
 								onclick={() => haptic.trigger('light')}
 							>
 								{#snippet child({ props })}
 									<a href={resolve(link.url)} {...props}>
 										<link.icon />
-										<span><T keyName={link.translationKey} /></span>
+										<span class="min-w-0 truncate"><T keyName={link.translationKey} /></span>
 										{#if link.kbd}
-											<Kbd.Group class="ml-auto opacity-0 group-hover/menu-button:opacity-50">
-												{#each link.kbd as key (key)}
-													<Kbd.Root>{key}</Kbd.Root>
-												{/each}
-											</Kbd.Group>
+											{@render shortcutHint(link.kbd)}
 										{/if}
 									</a>
 								{/snippet}

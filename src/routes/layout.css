@@ -69,6 +69,9 @@
 	--sidebar-primary-foreground: oklch(0.985 0 0);
 	--sidebar-accent: oklch(0.967 0.001 286.375);
 	--sidebar-accent-foreground: oklch(0.21 0.006 285.885);
+	/* Opaque match for the row hover background, used by the shortcut/timestamp
+	   reveal overlay. Light hover is already the opaque accent. */
+	--sidebar-accent-hover: var(--sidebar-accent);
 	--sidebar-border: oklch(0.92 0.004 286.32);
 	--sidebar-ring: oklch(0.705 0.015 286.067);
 	--success: oklch(0.723 0.191 149.579);
@@ -109,6 +112,10 @@
 	--sidebar-primary-foreground: oklch(0.985 0 0);
 	--sidebar-accent: oklch(0.274 0.006 286.033);
 	--sidebar-accent-foreground: oklch(0.985 0 0);
+	/* Dark hover is bg-sidebar-accent/50 over the sidebar; flatten it to an opaque
+	   colour in srgb (the space the browser composites the /50 layer in) so the
+	   reveal overlay matches the row exactly. */
+	--sidebar-accent-hover: color-mix(in srgb, var(--sidebar-accent) 50%, var(--sidebar));
 	--sidebar-border: oklch(1 0 0 / 10%);
 	--sidebar-ring: oklch(0.552 0.016 285.938);
 	--success: oklch(0.723 0.191 149.579);
@@ -155,6 +162,7 @@
 	--color-sidebar-primary: var(--sidebar-primary);
 	--color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
 	--color-sidebar-accent: var(--sidebar-accent);
+	--color-sidebar-accent-hover: var(--sidebar-accent-hover);
 	--color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
 	--color-sidebar-border: var(--sidebar-border);
 	--color-sidebar-ring: var(--sidebar-ring);
