@@ -14,8 +14,9 @@ export type CoercedEnvSchema = {
   VARLOCK_ENV?: "development" | "preview" | "production" | "test";
   
   /**
-   * **CONVEX_DEPLOYMENT** 🔐 _sensitive_  
+   * **CONVEX_DEPLOYMENT**  
    * Local dev deployment identifier, auto-set by `bunx convex dev`  
+   * Not secret: the deployment slug is also embedded in PUBLIC_CONVEX_URL.  
    * ![icon](data:image/svg+xml;utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2220%22%20height%3D%2220%22%20viewBox%3D%220%200%2032%2032%22%3E%3Cpath%20fill%3D%22%23808080%22%20d%3D%22M29%2022h-5a2.003%202.003%200%200%201-2-2v-6a2%202%200%200%201%202-2h5v2h-5v6h5ZM18%2012h-4V8h-2v14h6a2.003%202.003%200%200%200%202-2v-6a2%202%200%200%200-2-2m-4%208v-6h4v6Zm-6-8H3v2h5v2H4a2%202%200%200%200-2%202v2a2%202%200%200%200%202%202h6v-8a2%202%200%200%200-2-2m0%208H4v-2h4Z%22%2F%3E%3C%2Fsvg%3E)   
    */
   CONVEX_DEPLOYMENT?: string;
@@ -174,11 +175,12 @@ export type CoercedEnvSchema = {
   CONVEX_MANAGEMENT_TOKEN?: string;
   
   /**
-   * **CONVEX_PROJECT_ID** 🔐 _sensitive_  
+   * **CONVEX_PROJECT_ID**  
    * Convex project id for the preview quota fallback. Derive team id via  
    * `curl -H "Authorization: Bearer $CONVEX_MANAGEMENT_TOKEN" \  
    * https://api.convex.dev/v1/token_details`, then find the project id via  
    * `curl ... /v1/teams/{team_id}/list_projects`.  
+   * Identifier, not a secret (the secret is CONVEX_MANAGEMENT_TOKEN).  
    * ![icon](data:image/svg+xml;utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2220%22%20height%3D%2220%22%20viewBox%3D%220%200%2032%2032%22%3E%3Cpath%20fill%3D%22%23808080%22%20d%3D%22M29%2022h-5a2.003%202.003%200%200%201-2-2v-6a2%202%200%200%201%202-2h5v2h-5v6h5ZM18%2012h-4V8h-2v14h6a2.003%202.003%200%200%200%202-2v-6a2%202%200%200%200-2-2m-4%208v-6h4v6Zm-6-8H3v2h5v2H4a2%202%200%200%200-2%202v2a2%202%200%200%200%202%202h6v-8a2%202%200%200%200-2-2m0%208H4v-2h4Z%22%2F%3E%3C%2Fsvg%3E)   
    */
   CONVEX_PROJECT_ID?: string;
@@ -323,7 +325,7 @@ type _CoercedEnvSchema_8eb0ae17 = CoercedEnvSchema;
 
 declare module 'varlock/env' {
   export interface TypedEnvSchema extends Readonly<_CoercedEnvSchema_8eb0ae17> {}
-  export interface PublicTypedEnvSchema extends Readonly<Pick<_CoercedEnvSchema_8eb0ae17, 'VARLOCK_ENV' | 'PUBLIC_CONVEX_URL' | 'PUBLIC_CONVEX_SITE_URL' | 'VITE_TOLGEE_API_URL' | 'VITE_TOLGEE_API_KEY' | 'PUBLIC_POSTHOG_API_KEY' | 'PUBLIC_POSTHOG_HOST' | 'PUBLIC_POSTHOG_PROXY_HOST' | 'PUBLIC_SENTRY_DSN' | 'PUBLIC_SNAPDOM_PROXY_URL' | 'PUBLIC_SITE_URL' | 'NODE_ADAPTER' | 'VERCEL_ENV' | 'VERCEL_URL' | 'VERCEL_GIT_COMMIT_REF' | 'WORKERS_CI' | 'WORKERS_CI_BRANCH' | 'WORKERS_CI_COMMIT_SHA' | 'WORKERS_NAME' | 'WORKERS_SUBDOMAIN' | 'CF_PAGES' | 'CF_PAGES_URL' | 'CF_PAGES_BRANCH' | 'PRODUCTION_BRANCH' | 'CI'>> {}
+  export interface PublicTypedEnvSchema extends Readonly<Pick<_CoercedEnvSchema_8eb0ae17, 'VARLOCK_ENV' | 'CONVEX_DEPLOYMENT' | 'PUBLIC_CONVEX_URL' | 'PUBLIC_CONVEX_SITE_URL' | 'VITE_TOLGEE_API_URL' | 'VITE_TOLGEE_API_KEY' | 'PUBLIC_POSTHOG_API_KEY' | 'PUBLIC_POSTHOG_HOST' | 'PUBLIC_POSTHOG_PROXY_HOST' | 'PUBLIC_SENTRY_DSN' | 'PUBLIC_SNAPDOM_PROXY_URL' | 'PUBLIC_SITE_URL' | 'CONVEX_PROJECT_ID' | 'NODE_ADAPTER' | 'VERCEL_ENV' | 'VERCEL_URL' | 'VERCEL_GIT_COMMIT_REF' | 'WORKERS_CI' | 'WORKERS_CI_BRANCH' | 'WORKERS_CI_COMMIT_SHA' | 'WORKERS_NAME' | 'WORKERS_SUBDOMAIN' | 'CF_PAGES' | 'CF_PAGES_URL' | 'CF_PAGES_BRANCH' | 'PRODUCTION_BRANCH' | 'CI'>> {}
 }
 
 
