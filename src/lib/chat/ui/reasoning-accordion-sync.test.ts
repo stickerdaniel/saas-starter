@@ -74,14 +74,14 @@ describe('syncReasoningAccordionState', () => {
 			controller
 		);
 
-		expect(openState.has('msg-1:reasoning-reason-1')).toBe(true);
-		expect(autoOpened.has('msg-1:reasoning-reason-1')).toBe(true);
+		expect(openState.has('msg-1:reasoning-lead')).toBe(true);
+		expect(autoOpened.has('msg-1:reasoning-lead')).toBe(true);
 	});
 
 	it('closes previously auto-opened reasoning parts once a later part appears', () => {
 		const { controller, openState, autoOpened } = createController(
-			['msg-1:reasoning-reason-1'],
-			['msg-1:reasoning-reason-1']
+			['msg-1:reasoning-lead'],
+			['msg-1:reasoning-lead']
 		);
 
 		syncReasoningAccordionState(
@@ -97,8 +97,8 @@ describe('syncReasoningAccordionState', () => {
 			controller
 		);
 
-		expect(openState.has('msg-1:reasoning-reason-1')).toBe(false);
-		expect(autoOpened.has('msg-1:reasoning-reason-1')).toBe(false);
+		expect(openState.has('msg-1:reasoning-lead')).toBe(false);
+		expect(autoOpened.has('msg-1:reasoning-lead')).toBe(false);
 	});
 
 	it('opens only the latest reasoning block across multiple reasoning and tool phases', () => {
@@ -112,7 +112,7 @@ describe('syncReasoningAccordionState', () => {
 			],
 			controller
 		);
-		expect(openState.has('msg-1:reasoning-reason-1')).toBe(true);
+		expect(openState.has('msg-1:reasoning-lead')).toBe(true);
 
 		syncReasoningAccordionState(
 			[
@@ -126,7 +126,7 @@ describe('syncReasoningAccordionState', () => {
 			],
 			controller
 		);
-		expect(openState.has('msg-1:reasoning-reason-1')).toBe(false);
+		expect(openState.has('msg-1:reasoning-lead')).toBe(false);
 
 		syncReasoningAccordionState(
 			[
@@ -140,7 +140,7 @@ describe('syncReasoningAccordionState', () => {
 			],
 			controller
 		);
-		expect(openState.has('msg-1:reasoning-reason-1')).toBe(false);
+		expect(openState.has('msg-1:reasoning-lead')).toBe(false);
 		expect(openState.has('msg-1:reasoning-reason-2')).toBe(true);
 
 		syncReasoningAccordionState(
@@ -173,7 +173,7 @@ describe('syncReasoningAccordionState', () => {
 			],
 			controller
 		);
-		expect(openState.has('msg-1:reasoning-reason-1')).toBe(false);
+		expect(openState.has('msg-1:reasoning-lead')).toBe(false);
 		expect(openState.has('msg-1:reasoning-reason-2')).toBe(false);
 		expect(openState.has('msg-1:reasoning-reason-3')).toBe(true);
 	});
@@ -193,7 +193,7 @@ describe('syncReasoningAccordionState', () => {
 			controller
 		);
 
-		expect(openState.has('msg-legacy')).toBe(true);
+		expect(openState.has('msg-legacy:reasoning-lead')).toBe(true);
 	});
 
 	it('removes stale auto-opened keys that are no longer present in the current message parts', () => {
@@ -224,27 +224,27 @@ describe('syncReasoningAccordionState', () => {
 		});
 
 		syncReasoningAccordionState([streamingMsg], controller);
-		expect(openState.has('msg-1:reasoning-reason-1')).toBe(true);
+		expect(openState.has('msg-1:reasoning-lead')).toBe(true);
 
 		// Step 2: simulate user close (setReasoningOpen + markUserToggled from ChatMessage handler)
 		// Recreate controller with the post-user-close state: closed, auto-opened, user-dismissed
 		const { controller: c2, openState: os2 } = createController(
 			[],
-			['msg-1:reasoning-reason-1'],
-			['msg-1:reasoning-reason-1']
+			['msg-1:reasoning-lead'],
+			['msg-1:reasoning-lead']
 		);
 
 		// Step 3: next stream update — should NOT reopen
 		syncReasoningAccordionState([streamingMsg], c2);
-		expect(os2.has('msg-1:reasoning-reason-1')).toBe(false);
+		expect(os2.has('msg-1:reasoning-lead')).toBe(false);
 	});
 
 	it('respects user reopen during streaming — does not auto-close on completion', () => {
 		// User closed then reopened — userToggled is set, accordion is open
 		const { controller, openState, autoOpened, userToggled } = createController(
-			['msg-1:reasoning-reason-1'],
-			['msg-1:reasoning-reason-1'],
-			['msg-1:reasoning-reason-1']
+			['msg-1:reasoning-lead'],
+			['msg-1:reasoning-lead'],
+			['msg-1:reasoning-lead']
 		);
 
 		// Streaming ends: reasoning is no longer the active part
@@ -262,10 +262,10 @@ describe('syncReasoningAccordionState', () => {
 		);
 
 		// User-dismissed blocks should not be auto-closed
-		expect(openState.has('msg-1:reasoning-reason-1')).toBe(true);
+		expect(openState.has('msg-1:reasoning-lead')).toBe(true);
 		// But tracking flags should be cleaned up
-		expect(autoOpened.has('msg-1:reasoning-reason-1')).toBe(false);
-		expect(userToggled.has('msg-1:reasoning-reason-1')).toBe(false);
+		expect(autoOpened.has('msg-1:reasoning-lead')).toBe(false);
+		expect(userToggled.has('msg-1:reasoning-lead')).toBe(false);
 	});
 
 	it('does not reopen a legacy fallback the user closed during streaming', () => {
@@ -282,10 +282,14 @@ describe('syncReasoningAccordionState', () => {
 			],
 			controller
 		);
-		expect(openState.has('msg-legacy')).toBe(true);
+		expect(openState.has('msg-legacy:reasoning-lead')).toBe(true);
 
 		// Step 2: user closes, simulate with dismissed state
-		const { controller: c2, openState: os2 } = createController([], ['msg-legacy'], ['msg-legacy']);
+		const { controller: c2, openState: os2 } = createController(
+			[],
+			['msg-legacy:reasoning-lead'],
+			['msg-legacy:reasoning-lead']
+		);
 
 		// Step 3: next sync — should NOT reopen
 		syncReasoningAccordionState(
@@ -299,15 +303,15 @@ describe('syncReasoningAccordionState', () => {
 			],
 			c2
 		);
-		expect(os2.has('msg-legacy')).toBe(false);
+		expect(os2.has('msg-legacy:reasoning-lead')).toBe(false);
 	});
 
 	it('opens a new reasoning block even after user closed a previous one', () => {
 		// reason-1 was auto-opened then user-dismissed
 		const { controller, openState } = createController(
 			[],
-			['msg-1:reasoning-reason-1'],
-			['msg-1:reasoning-reason-1']
+			['msg-1:reasoning-lead'],
+			['msg-1:reasoning-lead']
 		);
 
 		// New streaming message with reason-1 (done) + tool + reason-2 (active)
@@ -325,7 +329,7 @@ describe('syncReasoningAccordionState', () => {
 		);
 
 		// reason-1 should stay as user left it (closed), reason-2 should auto-open
-		expect(openState.has('msg-1:reasoning-reason-1')).toBe(false);
+		expect(openState.has('msg-1:reasoning-lead')).toBe(false);
 		expect(openState.has('msg-1:reasoning-reason-2')).toBe(true);
 	});
 
