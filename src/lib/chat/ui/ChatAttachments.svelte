@@ -181,7 +181,7 @@
 
 <Dialog.Root bind:open={isDialogOpen}>
 	<Dialog.Content
-		class={displayDimensions ? '!max-w-none' : ''}
+		class={displayDimensions ? '!max-w-none' : 'sm:max-w-md'}
 		style={displayDimensions ? `width: ${displayDimensions.width + 48}px;` : ''}
 	>
 		<Dialog.Header>
