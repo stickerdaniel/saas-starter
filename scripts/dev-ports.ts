@@ -31,17 +31,26 @@ export const BAD_FETCH_PORTS = new Set([
 	6669, 6679, 6697, 10080
 ]);
 
-export async function isPortAvailable(port: number): Promise<boolean> {
-	return await new Promise((resolve) => {
+type PortProbe = 'free' | 'in-use' | 'unsupported';
+
+// Probe a single address family. Distinguishes a real collision (EADDRINUSE)
+// from a family that simply isn't bindable on this host (e.g. ::1 on an
+// IPv6-disabled box), which must NOT be treated as a collision.
+function probePortFamily(port: number, host: string): Promise<PortProbe> {
+	return new Promise((resolve) => {
 		const server = net.createServer();
 		server.unref();
-		server.once('error', () => {
-			resolve(false);
+		server.once('error', (err: NodeJS.ErrnoException) => {
+			resolve(err.code === 'EADDRINUSE' ? 'in-use' : 'unsupported');
 		});
-		server.listen(port, '127.0.0.1', () => {
-			server.close(() => resolve(true));
+		server.listen(port, host, () => {
+			server.close(() => resolve('free'));
 		});
 	});
+}
+
+export async function isPortAvailable(port: number, host = '127.0.0.1'): Promise<boolean> {
+	return (await probePortFamily(port, host)) !== 'in-use';
 }
 
 export async function findAvailablePort(startPort: number, maxAttempts = 100): Promise<number> {
@@ -137,7 +146,15 @@ export function portlessOwnsPort(): boolean {
  * EADDRINUSE stack from Vite.
  */
 export async function preflightOrExit(port: number, label: 'dev' | 'dev:test'): Promise<void> {
-	if (await isPortAvailable(port)) return;
+	// The wrappers run vite without --host, so it binds its default `localhost`,
+	// which resolves to ::1 and/or 127.0.0.1 depending on the platform (and Node
+	// version). Probe both loopback families so a sibling vite is caught whichever
+	// one it grabbed; a family that can't be bound at all is not a collision.
+	const [v4, v6] = await Promise.all([
+		probePortFamily(port, '127.0.0.1'),
+		probePortFamily(port, '::1')
+	]);
+	if (v4 !== 'in-use' && v6 !== 'in-use') return;
 	const overrideVar = label === 'dev:test' ? 'TEST_VITE_PORT' : 'DEV_VITE_PORT';
 	const runCmd = label === 'dev:test' ? 'bun run test:e2e' : 'bun run dev';
 	console.error(

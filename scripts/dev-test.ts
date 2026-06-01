@@ -11,10 +11,13 @@ if (process.env.PUBLIC_CONVEX_URL) {
 			`Remove PUBLIC_CONVEX_URL from .env.test to silence this warning.`
 	);
 }
-if (process.env.PUBLIC_SITE_URL && process.env.PUBLIC_SITE_URL !== TEST_BASE_URL) {
+// In portless mode the forced origin is the named .localhost URL, not the local
+// port, so name the URL the suite will actually use.
+const forcedSiteUrl = portlessOwnsPort() ? process.env.PORTLESS_SITE_URL! : TEST_BASE_URL;
+if (process.env.PUBLIC_SITE_URL && process.env.PUBLIC_SITE_URL !== forcedSiteUrl) {
 	console.warn(
 		`[dev:test] WARNING: PUBLIC_SITE_URL=${process.env.PUBLIC_SITE_URL} is set. ` +
-			`Local test mode forces ${TEST_BASE_URL} — see e2e/utils/site-url.ts.`
+			`Local test mode forces ${forcedSiteUrl} — see e2e/utils/site-url.ts.`
 	);
 }
 
