@@ -36,7 +36,7 @@ const ALLOWED_DOMAINS = [
 const ALLOWED_ORIGINS = [
 	'https://yourdomain.com', // Your production domain
 	'https://www.yourdomain.com', // Your www domain
-	'http://localhost:5173', // Local development (remove in production)
+	'http://localhost:5173', // Local dev. Your dev port is now per-project (see scripts/dev-ports.ts); add the URL 'bun run dev' prints. Remove in production.
 	'http://localhost:4173' // Local preview (remove in production)
 ];
 

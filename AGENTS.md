@@ -81,7 +81,8 @@ Local dev notes (`bun run dev`):
 - Local seeded admin credentials: `admin@local.dev` / `LocalDevAdmin123!`
 - Convex backend env vars are loaded from `.env.convex.local` (optional services like email, OAuth, billing, AI).
 - `RESEND_API_KEY` and `AUTH_EMAIL` in `.env.convex.local` are only needed for real signup, verification, and password reset email flows.
-- `SITE_URL` in `.env.convex.local` must point to your local dev origin (`http://localhost:5173`). The default in `.env.convex.example` is already set for this. A production URL here breaks the admin sign-in via Better Auth.
+- `SITE_URL` is auto-derived locally from the running Vite port (per-project, see `scripts/dev-ports.ts`); leave it unset in `.env.convex.local` for local dev and only set it for cloud/prod. A hardcoded or production URL here breaks the admin sign-in via Better Auth.
+- Dev and test Vite ports are deterministic per project/worktree (separate ranges in `scripts/dev-ports.ts`, so dev can't creep into the test port). Override with `DEV_VITE_PORT` / `TEST_VITE_PORT`, or set `PORTLESS_SITE_URL` to front the local stack with vercel-labs/portless.
 - Local Convex state is isolated per branch/worktree under `.convex/`.
 - `RESET_LOCAL_BACKEND=true bun run dev` clears the existing local Convex state before startup and restores the default seeded admin credentials.
 
@@ -323,9 +324,9 @@ This project uses **PostHog** for product analytics with an optional **Cloudflar
 
 #### Local e2e isolation
 
-- `bun run test:e2e` spawns an isolated test stack via `bun run dev:test`: separate vite port (`:5174`), separate local Convex backend (different port + state dir under `.convex/<branch>...e2e-<hash>/`), and a separate BetterAuth secret file. Safe to run alongside `bun run dev` on `:5173`.
+- `bun run test:e2e` spawns an isolated test stack via `bun run dev:test`: a deterministic per-project vite test port (see `scripts/dev-ports.ts`), a separate local Convex backend (different port + state dir under `.convex/<branch>...e2e-<hash>/`), and a separate BetterAuth secret file. Safe to run alongside `bun run dev` (dev and test ports live in separate ranges).
 - `AUTH_E2E_TEST_SECRET` is sourced from `.env.test` and **auto-propagated into the test Convex backend** by `vite.config.ts`. You no longer need to mirror it into `.env.convex.local`.
-- Local test mode forces `baseURL` and `SITE_URL` to `http://localhost:5174` regardless of what `.env.test` contains, so a stale gitignored `PUBLIC_SITE_URL` can't silently misroute signups. The wrapper `scripts/dev-test.ts` warns loudly if leftover `PUBLIC_CONVEX_URL` / `PUBLIC_SITE_URL` are still set.
+- Local test mode forces `baseURL` and `SITE_URL` to the computed per-project test URL (`http://localhost:<testPort>`) regardless of what `.env.test` contains, so a stale gitignored `PUBLIC_SITE_URL` can't silently misroute signups. The wrapper `scripts/dev-test.ts` warns loudly if leftover `PUBLIC_CONVEX_URL` / `PUBLIC_SITE_URL` are still set.
 - `globalSetup` polls `api.tests.health` before the first signup, so a cold backend boot doesn't surface as a flaky 500.
 - `RESET_LOCAL_BACKEND=true bun run test:e2e` resets only the test state dir; dev's BetterAuth secret and DB are untouched.
 

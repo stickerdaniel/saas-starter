@@ -23,7 +23,7 @@ bun install
 bun run dev
 ```
 
-Visit `http://localhost:5173` and sign in:
+Visit the URL printed by `bun run dev` (a stable per-project port) and sign in:
 
 ```text
 admin@local.dev
@@ -50,6 +50,24 @@ bunx convex init                              # creates a Convex project
 bun run dev:cloud                             # frontend + cloud Convex backend
 bunx convex env set KEY value                 # set backend env vars (see .env-convex.schema / env matrix below)
 ```
+
+</details>
+
+<details>
+<summary><strong>Optional: stable named URLs with portless</strong></summary>
+
+`bun run dev` and `bun run test:e2e` already pick stable per-project ports (derived from the project path in `scripts/dev-ports.ts`), so several projects or worktrees run at once without clashing. If you'd rather use names than remember ports, [vercel-labs/portless](https://github.com/vercel-labs/portless) fronts the dev server with a `.localhost` URL and gives each git worktree its own branch subdomain.
+
+Run portless with `--no-tls` so everything stays on HTTP. The Convex backend reaches the browser over a WebSocket on its own local port; an HTTPS frontend would block that as mixed content, plain HTTP does not.
+
+Point the harness at the named URL with `PORTLESS_SITE_URL`. The dev/test wrappers then hand port control to portless, and the same URL flows into the Convex `SITE_URL`/trusted origin and Playwright's base URL:
+
+```bash
+PORTLESS_SITE_URL=http://myapp.localhost bun run dev
+PORTLESS_SITE_URL=http://myapp.localhost bun run test:e2e
+```
+
+This stays optional: a plain clone needs nothing extra and never has to install portless or grant it the privileged ports it binds.
 
 </details>
 

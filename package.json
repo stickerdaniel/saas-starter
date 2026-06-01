@@ -4,8 +4,8 @@
 	"license": "MIT",
 	"type": "module",
 	"scripts": {
-		"dev": "vite dev",
-		"dev:frontend": "vite dev",
+		"dev": "bun scripts/dev.ts",
+		"dev:frontend": "bun scripts/dev.ts",
 		"dev:backend:cloud": "convex dev",
 		"dev:cloud": "bun-tasks dev:frontend ::: dev:backend:cloud",
 		"dev:test": "VARLOCK_ENV=test bun scripts/dev-test.ts",
