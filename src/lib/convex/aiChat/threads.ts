@@ -4,6 +4,7 @@ import { authedQuery, authedMutation } from '../functions';
 import { aiChatAgent } from './agent';
 import { components } from '../_generated/api';
 import { requireAiChatThreadRecord } from './ownership';
+import { isVisibleAiChatThread } from './visibility';
 
 // aiChatThreads is the feature registry for AI chat access and sidebar state.
 // agent:threads remains generic conversation storage/runtime shared across features.
@@ -36,7 +37,7 @@ export const listThreads = authedQuery({
 			.take(fetchLimit);
 
 		const validThreads = records
-			.filter((r) => !r.isWarm && r.lastMessage)
+			.filter(isVisibleAiChatThread)
 			.sort((a, b) => (b.lastMessageAt ?? 0) - (a.lastMessageAt ?? 0));
 
 		return {

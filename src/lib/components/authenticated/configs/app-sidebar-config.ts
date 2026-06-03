@@ -5,6 +5,7 @@ import BotMessageSquareIcon from '@lucide/svelte/icons/bot-message-square';
 import ServerCogIcon from '@lucide/svelte/icons/server-cog';
 import Logo from '$lib/components/icons/logo.svelte';
 import { LEGAL_CONFIG } from '$lib/config/legal';
+import { aiChatThreadLabel } from './ai-chat-thread-label';
 import type { SidebarConfig, NavSubItem } from '../types';
 
 interface PageState {
@@ -33,26 +34,13 @@ export function getAppSidebarConfig(
 		? new URLSearchParams(search).get('thread')
 		: null;
 
-	const aiChatSubItems: NavSubItem[] = (aiChatThreads ?? []).map((thread) => {
-		// Prefer the LLM-generated title; the rendering span CSS-truncates it.
-		// Fall back to a truncated last-message preview, then the empty label.
-		const title = thread.title?.trim();
-		const label = title
-			? title
-			: thread.lastMessage
-				? thread.lastMessage.length > 30
-					? thread.lastMessage.slice(0, 30) + '...'
-					: thread.lastMessage
-				: newConversationLabel || 'New conversation';
-
-		return {
-			id: thread._id,
-			label,
-			url: localizedHref(`/app/ai-chat?thread=${thread._id}`),
-			isActive: activeThreadId === thread._id,
-			timestamp: thread.lastMessageAt
-		};
-	});
+	const aiChatSubItems: NavSubItem[] = (aiChatThreads ?? []).map((thread) => ({
+		id: thread._id,
+		label: aiChatThreadLabel(thread, newConversationLabel),
+		url: localizedHref(`/app/ai-chat?thread=${thread._id}`),
+		isActive: activeThreadId === thread._id,
+		timestamp: thread.lastMessageAt
+	}));
 
 	// Point "AI Chat" to the pre-warmed thread when available
 	const aiChatUrl = warmThreadId

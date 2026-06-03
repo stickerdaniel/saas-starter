@@ -88,12 +88,12 @@ export const sendMessage = authedMutation({
 			messageId = result.messageId;
 		}
 
-		// Denormalize: update lastMessage on the thread record for sidebar display
+		// Denormalize for the sidebar. lastMessageAt is the "thread has been used"
+		// signal (drives visibility + first-send); lastMessage is a display-only
+		// preview, so skip it for a file-only send rather than persisting ''.
+		const preview = args.prompt.trim().slice(0, THREAD_PREVIEW_LENGTH);
 		await ctx.db.patch(record._id, {
-			lastMessage:
-				args.prompt.length > THREAD_PREVIEW_LENGTH
-					? args.prompt.slice(0, THREAD_PREVIEW_LENGTH)
-					: args.prompt,
+			...(preview ? { lastMessage: preview } : {}),
 			lastMessageAt: Date.now()
 		});
 
@@ -159,15 +159,15 @@ export const createAIResponse = internalAction({
 
 		await result.consumeStream();
 
-		// Denormalize: update thread sidebar metadata with the AI's response
+		// Denormalize: update thread sidebar metadata with the AI's response.
+		// Trim and skip an empty preview so a whitespace-only response never lands
+		// as the sidebar label (mirrors the user-message path in sendMessage).
 		const responseText = await result.text;
-		if (responseText) {
+		const responsePreview = responseText.trim().slice(0, THREAD_PREVIEW_LENGTH);
+		if (responsePreview) {
 			await ctx.runMutation(internal.aiChat.threads.updateThreadMetadata, {
 				threadId: args.threadId,
-				lastMessage:
-					responseText.length > THREAD_PREVIEW_LENGTH
-						? responseText.slice(0, THREAD_PREVIEW_LENGTH)
-						: responseText,
+				lastMessage: responsePreview,
 				lastMessageAt: Date.now()
 			});
 		}
