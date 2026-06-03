@@ -2,6 +2,9 @@
 	Installed from @ieedan/shadcn-svelte-extras
 */
 
+import { untrack } from 'svelte';
+import { useEventListener, useMutationObserver } from 'runed';
+
 /** Use this on a vertically scrollable container to ensure that it automatically scrolls to the bottom of the content.
  *
  * ## Usage
@@ -33,42 +36,51 @@ export class UseAutoScroll {
 	private lastScrollHeight = 0;
 
 	constructor() {
-		// $effect watches #ref — teardown runs automatically before re-run and on destroy
+		// Position the container when the ref binds or rebinds
 		$effect(() => {
 			const el = this.#ref;
 			if (!el) return;
 
-			this.lastScrollHeight = el.scrollHeight;
+			untrack(() => {
+				this.lastScrollHeight = el.scrollHeight;
+				el.scrollTo(0, this.#scrollY ? this.#scrollY : el.scrollHeight);
+			});
+		});
 
-			// start from bottom or start position
-			el.scrollTo(0, this.#scrollY ? this.#scrollY : el.scrollHeight);
+		useEventListener(
+			() => this.#ref,
+			'scroll',
+			() => {
+				if (!this.#ref) return;
 
-			const onScroll = () => {
-				this.#scrollY = el.scrollTop;
+				this.#scrollY = this.#ref.scrollTop;
+
 				this.disableAutoScroll();
-			};
-			el.addEventListener('scroll', onScroll);
+			}
+		);
 
-			const onResize = () => {
+		useEventListener(
+			() => (this.#ref ? window : null),
+			'resize',
+			() => {
 				this.scrollToBottom(true);
-			};
-			window.addEventListener('resize', onResize);
+			}
+		);
 
-			// should detect when something changed that effected the scroll height
-			const observer = new MutationObserver(() => {
-				if (el.scrollHeight !== this.lastScrollHeight) {
+		// should detect when something changed that effected the scroll height
+		useMutationObserver(
+			() => this.#ref,
+			() => {
+				if (!this.#ref) return;
+
+				if (this.#ref.scrollHeight !== this.lastScrollHeight) {
 					this.scrollToBottom(true);
 				}
-				this.lastScrollHeight = el.scrollHeight;
-			});
-			observer.observe(el, { childList: true, subtree: true });
 
-			return () => {
-				el.removeEventListener('scroll', onScroll);
-				window.removeEventListener('resize', onResize);
-				observer.disconnect();
-			};
-		});
+				this.lastScrollHeight = this.#ref.scrollHeight;
+			},
+			{ childList: true, subtree: true }
+		);
 	}
 
 	set ref(ref: HTMLElement | undefined) {
