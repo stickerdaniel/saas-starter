@@ -4,6 +4,7 @@ import { internal } from '../_generated/api';
 import { generateText } from 'ai';
 import { openrouter } from '@openrouter/ai-sdk-provider';
 import { CHAT_MODEL_ID } from '../utils/chatModel';
+import { getAutumnSdk } from '../autumn';
 
 // Clamp the stored title; the sidebar span also CSS-truncates for display.
 const MAX_TITLE_LENGTH = 60;
@@ -16,19 +17,36 @@ const MAX_PROMPT_CHARS = 500;
  * Scheduled (fire-and-forget) from `sendMessage` on the first message of a
  * thread. Runs a single non-reasoning LLM call (no reasoning extraBody, unlike
  * the chat agent) and writes the result to `aiChatThreads.title` via
- * `updateThreadMetadata`. The sidebar prefers this title over the last-message
- * preview. On any failure we keep no title and the UI falls back gracefully, so
- * errors are swallowed (logged only).
+ * `setThreadTitleIfEmpty` (first-write-wins, so a late/duplicate run can never
+ * overwrite an existing title). The sidebar prefers this title over the
+ * last-message preview. On any failure we keep no title and the UI falls back
+ * gracefully, so errors are swallowed (logged only).
+ *
+ * Gated by the same Autumn `ai_chat_messages` allowance as the AI response, so a
+ * client bypassing the frontend billing check can't trigger unmetered title LLM
+ * calls. We only check (never track) — the response path tracks the usage unit.
  */
 export const generateThreadTitle = internalAction({
 	args: {
 		threadId: v.string(),
-		prompt: v.string()
+		prompt: v.string(),
+		userId: v.optional(v.string())
 	},
 	returns: v.null(),
 	handler: async (ctx, args) => {
 		const source = args.prompt.trim().slice(0, MAX_PROMPT_CHARS);
 		if (!source) return null;
+
+		// Billing gate (check only): skip when the user is out of AI chat
+		// allowance, matching createAIResponse. Autumn fails open on 5xx/network.
+		if (args.userId) {
+			const sdk = await getAutumnSdk();
+			const checkResult = await sdk.check({
+				customer_id: args.userId,
+				feature_id: 'ai_chat_messages'
+			});
+			if (checkResult.data && !checkResult.data.allowed) return null;
+		}
 
 		let raw: string;
 		try {
@@ -53,7 +71,7 @@ export const generateThreadTitle = internalAction({
 			title = title.slice(0, MAX_TITLE_LENGTH).trim();
 		}
 
-		await ctx.runMutation(internal.aiChat.threads.updateThreadMetadata, {
+		await ctx.runMutation(internal.aiChat.threads.setThreadTitleIfEmpty, {
 			threadId: args.threadId,
 			title
 		});

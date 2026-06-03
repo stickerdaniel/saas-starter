@@ -195,8 +195,7 @@ export const updateThreadMetadata = internalMutation({
 	args: {
 		threadId: v.string(),
 		lastMessage: v.optional(v.string()),
-		lastMessageAt: v.optional(v.number()),
-		title: v.optional(v.string())
+		lastMessageAt: v.optional(v.number())
 	},
 	handler: async (ctx, args) => {
 		const record = await ctx.db
@@ -208,11 +207,34 @@ export const updateThreadMetadata = internalMutation({
 		const patch: Record<string, unknown> = {};
 		if (args.lastMessage !== undefined) patch.lastMessage = args.lastMessage;
 		if (args.lastMessageAt !== undefined) patch.lastMessageAt = args.lastMessageAt;
-		if (args.title !== undefined) patch.title = args.title;
 
 		if (Object.keys(patch).length > 0) {
 			await ctx.db.patch(record._id, patch);
 		}
+	}
+});
+
+/**
+ * Set the thread title only if one is not already stored (first-write-wins).
+ *
+ * Used by generateThreadTitle so a duplicate or late title generation can never
+ * overwrite an existing title.
+ */
+export const setThreadTitleIfEmpty = internalMutation({
+	args: {
+		threadId: v.string(),
+		title: v.string()
+	},
+	returns: v.null(),
+	handler: async (ctx, args) => {
+		const record = await ctx.db
+			.query('aiChatThreads')
+			.withIndex('by_thread', (q) => q.eq('threadId', args.threadId))
+			.first();
+		if (!record || record.title) return null;
+
+		await ctx.db.patch(record._id, { title: args.title });
+		return null;
 	}
 });
 
