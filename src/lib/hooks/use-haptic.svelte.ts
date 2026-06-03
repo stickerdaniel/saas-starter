@@ -1,4 +1,5 @@
 import { browser } from '$app/environment';
+import { useDebounce } from 'runed';
 import { MediaQuery } from 'svelte/reactivity';
 import type { ActionReturn } from 'svelte/action';
 import type { defaultPatterns, HapticInput as WebHapticsInput, WebHaptics } from 'web-haptics';
@@ -18,7 +19,14 @@ export class UseHaptic {
 	#isActive = $state(false);
 	#engine: WebHaptics | null = null;
 	#reducedMotion: MediaQuery | null = null;
-	#activeTimeout: ReturnType<typeof setTimeout> | undefined;
+	// Reactive so useDebounce's wait getter picks up the per-trigger duration
+	#lastDuration = $state(100);
+	#resetActive = useDebounce(
+		() => {
+			this.#isActive = false;
+		},
+		() => this.#lastDuration
+	);
 
 	constructor(options?: { debug?: boolean }) {
 		this.#debug = options?.debug ?? false;
@@ -54,20 +62,18 @@ export class UseHaptic {
 		const engine = this.#ensureEngine();
 		if (!engine) return;
 
-		if (this.#activeTimeout) clearTimeout(this.#activeTimeout);
+		this.#resetActive.cancel();
 		this.#isActive = true;
 
-		const duration = this.#estimateDuration(input);
-		this.#activeTimeout = setTimeout(() => {
-			this.#isActive = false;
-		}, duration);
+		this.#lastDuration = this.#estimateDuration(input);
+		void this.#resetActive().catch(() => {});
 
 		engine.trigger(input as WebHapticsInput);
 	}
 
 	cancel(): void {
 		this.#engine?.cancel();
-		if (this.#activeTimeout) clearTimeout(this.#activeTimeout);
+		this.#resetActive.cancel();
 		this.#isActive = false;
 	}
 
