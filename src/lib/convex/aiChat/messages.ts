@@ -41,6 +41,10 @@ export const sendMessage = authedMutation({
 			userId
 		});
 
+		// First message in this thread (no denormalized lastMessage yet) → derive
+		// a descriptive title from it. Captured before we patch lastMessage below.
+		const isFirstMessage = !record.lastMessage;
+
 		// Consume warm thread on first message (backend-driven, no client coordination needed)
 		if (record.isWarm) {
 			await ctx.db.patch(record._id, { isWarm: false });
@@ -97,6 +101,15 @@ export const sendMessage = authedMutation({
 			promptMessageId: messageId,
 			userId
 		});
+
+		// Generate a descriptive thread title from the first user message (LLM,
+		// fire-and-forget). Skipped for file-only first messages with no text.
+		if (isFirstMessage && args.prompt.trim().length > 0) {
+			await ctx.scheduler.runAfter(0, internal.aiChat.titles.generateThreadTitle, {
+				threadId: args.threadId,
+				prompt: args.prompt
+			});
+		}
 
 		return { messageId };
 	}
