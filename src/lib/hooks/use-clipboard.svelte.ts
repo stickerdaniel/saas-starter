@@ -1,3 +1,5 @@
+import { useDebounce } from 'runed';
+
 type Options = {
 	/** The time before the copied status is reset. */
 	delay: number;
@@ -28,7 +30,12 @@ type Options = {
 export class UseClipboard {
 	#copiedStatus = $state<'success' | 'failure'>();
 	private delay: number;
-	private timeout: ReturnType<typeof setTimeout> | undefined = undefined;
+	#resetStatus = useDebounce(
+		() => {
+			this.#copiedStatus = undefined;
+		},
+		() => this.delay
+	);
 
 	constructor({ delay = 500 }: Partial<Options> = {}) {
 		this.delay = delay;
@@ -45,16 +52,16 @@ export class UseClipboard {
 	 * @returns
 	 */
 	async copy(text: string) {
-		if (this.timeout) {
+		// Re-copy while a reset is pending: clear the badge first so the
+		// success/failure transition re-fires, like the old clearTimeout path
+		if (this.#resetStatus.pending) {
 			this.#copiedStatus = undefined;
-			clearTimeout(this.timeout);
 		}
+		this.#resetStatus.cancel();
 
 		this.#copiedStatus = await copyText(text);
 
-		this.timeout = setTimeout(() => {
-			this.#copiedStatus = undefined;
-		}, this.delay);
+		void this.#resetStatus().catch(() => {});
 
 		return this.#copiedStatus;
 	}
