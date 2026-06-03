@@ -41,6 +41,12 @@ export const sendMessage = authedMutation({
 			userId
 		});
 
+		// First send in this thread → derive a descriptive title from it. Uses
+		// lastMessageAt (written on every send, never an empty string) rather than
+		// lastMessage, which can be '' for a file-only first message and would
+		// misidentify later sends as the first. Captured before the patch below.
+		const isFirstMessage = record.lastMessageAt === undefined;
+
 		// Consume warm thread on first message (backend-driven, no client coordination needed)
 		if (record.isWarm) {
 			await ctx.db.patch(record._id, { isWarm: false });
@@ -82,12 +88,12 @@ export const sendMessage = authedMutation({
 			messageId = result.messageId;
 		}
 
-		// Denormalize: update lastMessage on the thread record for sidebar display
+		// Denormalize for the sidebar. lastMessageAt is the "thread has been used"
+		// signal (drives visibility + first-send); lastMessage is a display-only
+		// preview, so skip it for a file-only send rather than persisting ''.
+		const preview = args.prompt.trim().slice(0, THREAD_PREVIEW_LENGTH);
 		await ctx.db.patch(record._id, {
-			lastMessage:
-				args.prompt.length > THREAD_PREVIEW_LENGTH
-					? args.prompt.slice(0, THREAD_PREVIEW_LENGTH)
-					: args.prompt,
+			...(preview ? { lastMessage: preview } : {}),
 			lastMessageAt: Date.now()
 		});
 
@@ -97,6 +103,16 @@ export const sendMessage = authedMutation({
 			promptMessageId: messageId,
 			userId
 		});
+
+		// Generate a descriptive thread title from the first user message (LLM,
+		// fire-and-forget). Skipped for file-only first messages with no text.
+		if (isFirstMessage && args.prompt.trim().length > 0) {
+			await ctx.scheduler.runAfter(0, internal.aiChat.titles.generateThreadTitle, {
+				threadId: args.threadId,
+				prompt: args.prompt,
+				userId
+			});
+		}
 
 		return { messageId };
 	}
@@ -143,15 +159,15 @@ export const createAIResponse = internalAction({
 
 		await result.consumeStream();
 
-		// Denormalize: update thread sidebar metadata with the AI's response
+		// Denormalize: update thread sidebar metadata with the AI's response.
+		// Trim and skip an empty preview so a whitespace-only response never lands
+		// as the sidebar label (mirrors the user-message path in sendMessage).
 		const responseText = await result.text;
-		if (responseText) {
+		const responsePreview = responseText.trim().slice(0, THREAD_PREVIEW_LENGTH);
+		if (responsePreview) {
 			await ctx.runMutation(internal.aiChat.threads.updateThreadMetadata, {
 				threadId: args.threadId,
-				lastMessage:
-					responseText.length > THREAD_PREVIEW_LENGTH
-						? responseText.slice(0, THREAD_PREVIEW_LENGTH)
-						: responseText,
+				lastMessage: responsePreview,
 				lastMessageAt: Date.now()
 			});
 		}

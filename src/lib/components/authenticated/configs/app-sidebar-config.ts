@@ -5,6 +5,7 @@ import BotMessageSquareIcon from '@lucide/svelte/icons/bot-message-square';
 import ServerCogIcon from '@lucide/svelte/icons/server-cog';
 import Logo from '$lib/components/icons/logo.svelte';
 import { LEGAL_CONFIG } from '$lib/config/legal';
+import { aiChatThreadLabel } from './ai-chat-thread-label';
 import type { SidebarConfig, NavSubItem } from '../types';
 
 interface PageState {
@@ -15,6 +16,7 @@ interface PageState {
 
 interface AiChatThread {
 	_id: string;
+	title?: string;
 	lastMessage?: string;
 	lastMessageAt?: number;
 }
@@ -34,11 +36,7 @@ export function getAppSidebarConfig(
 
 	const aiChatSubItems: NavSubItem[] = (aiChatThreads ?? []).map((thread) => ({
 		id: thread._id,
-		label: thread.lastMessage
-			? thread.lastMessage.length > 30
-				? thread.lastMessage.slice(0, 30) + '...'
-				: thread.lastMessage
-			: newConversationLabel || 'New conversation',
+		label: aiChatThreadLabel(thread, newConversationLabel),
 		url: localizedHref(`/app/ai-chat?thread=${thread._id}`),
 		isActive: activeThreadId === thread._id,
 		timestamp: thread.lastMessageAt
