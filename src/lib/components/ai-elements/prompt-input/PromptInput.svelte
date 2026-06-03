@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { cn } from '$lib/utils';
 	import type { Snippet } from 'svelte';
-	import { watch } from 'runed';
+	import { useEventListener, watch } from 'runed';
 	import { onMount } from 'svelte';
 	import {
 		AttachmentsContext,
@@ -53,67 +53,29 @@
 		}
 	});
 
-	// Attach drop handlers on nearest form
-	watch(
-		() => formRef,
-		(formRef) => {
-			if (!formRef) return;
-
-			let onDragOver = (e: DragEvent) => {
-				if (e.dataTransfer?.types?.includes('Files')) {
-					e.preventDefault();
-				}
-			};
-
-			let onDrop = (e: DragEvent) => {
-				if (e.dataTransfer?.types?.includes('Files')) {
-					e.preventDefault();
-				}
-				if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
-					attachments.add(e.dataTransfer.files);
-				}
-			};
-
-			formRef.addEventListener('dragover', onDragOver);
-			formRef.addEventListener('drop', onDrop);
-
-			return () => {
-				formRef?.removeEventListener('dragover', onDragOver);
-				formRef?.removeEventListener('drop', onDrop);
-			};
+	// Files-only drag & drop handlers, shared between form-scoped and global drop
+	const onDragOver = (e: DragEvent) => {
+		if (e.dataTransfer?.types?.includes('Files')) {
+			e.preventDefault();
 		}
-	);
+	};
 
-	// Global drop handlers
-	watch(
-		() => globalDrop,
-		(globalDrop) => {
-			if (!globalDrop) return;
-
-			let onDragOver = (e: DragEvent) => {
-				if (e.dataTransfer?.types?.includes('Files')) {
-					e.preventDefault();
-				}
-			};
-
-			let onDrop = (e: DragEvent) => {
-				if (e.dataTransfer?.types?.includes('Files')) {
-					e.preventDefault();
-				}
-				if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
-					attachments.add(e.dataTransfer.files);
-				}
-			};
-
-			document.addEventListener('dragover', onDragOver);
-			document.addEventListener('drop', onDrop);
-
-			return () => {
-				document.removeEventListener('dragover', onDragOver);
-				document.removeEventListener('drop', onDrop);
-			};
+	const onDrop = (e: DragEvent) => {
+		if (e.dataTransfer?.types?.includes('Files')) {
+			e.preventDefault();
 		}
-	);
+		if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
+			attachments.add(e.dataTransfer.files);
+		}
+	};
+
+	// Scope drop handlers to the nearest form; null target until onMount finds it
+	useEventListener(() => formRef, 'dragover', onDragOver);
+	useEventListener(() => formRef, 'drop', onDrop);
+
+	// Global drop handlers, only while enabled
+	useEventListener(() => (globalDrop ? document : null), 'dragover', onDragOver);
+	useEventListener(() => (globalDrop ? document : null), 'drop', onDrop);
 
 	// Note: File input cannot be programmatically set for security reasons
 	// The syncHiddenInput prop is no longer functional
