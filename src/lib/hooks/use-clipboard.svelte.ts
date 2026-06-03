@@ -29,16 +29,18 @@ type Options = {
  */
 export class UseClipboard {
 	#copiedStatus = $state<'success' | 'failure'>();
-	private delay: number;
+	// Reactive so useDebounce's $derived wait getter is never read before the
+	// constructor assigns it, and stays correct if the delay ever changes
+	#delay = $state(500);
 	#resetStatus = useDebounce(
 		() => {
 			this.#copiedStatus = undefined;
 		},
-		() => this.delay
+		() => this.#delay
 	);
 
 	constructor({ delay = 500 }: Partial<Options> = {}) {
-		this.delay = delay;
+		this.#delay = delay;
 	}
 
 	/** Copies the given text to the users clipboard.
