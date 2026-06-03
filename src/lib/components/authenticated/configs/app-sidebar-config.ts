@@ -15,6 +15,7 @@ interface PageState {
 
 interface AiChatThread {
 	_id: string;
+	title?: string;
 	lastMessage?: string;
 	lastMessageAt?: number;
 }
@@ -32,17 +33,26 @@ export function getAppSidebarConfig(
 		? new URLSearchParams(search).get('thread')
 		: null;
 
-	const aiChatSubItems: NavSubItem[] = (aiChatThreads ?? []).map((thread) => ({
-		id: thread._id,
-		label: thread.lastMessage
-			? thread.lastMessage.length > 30
-				? thread.lastMessage.slice(0, 30) + '...'
-				: thread.lastMessage
-			: newConversationLabel || 'New conversation',
-		url: localizedHref(`/app/ai-chat?thread=${thread._id}`),
-		isActive: activeThreadId === thread._id,
-		timestamp: thread.lastMessageAt
-	}));
+	const aiChatSubItems: NavSubItem[] = (aiChatThreads ?? []).map((thread) => {
+		// Prefer the LLM-generated title; the rendering span CSS-truncates it.
+		// Fall back to a truncated last-message preview, then the empty label.
+		const title = thread.title?.trim();
+		const label = title
+			? title
+			: thread.lastMessage
+				? thread.lastMessage.length > 30
+					? thread.lastMessage.slice(0, 30) + '...'
+					: thread.lastMessage
+				: newConversationLabel || 'New conversation';
+
+		return {
+			id: thread._id,
+			label,
+			url: localizedHref(`/app/ai-chat?thread=${thread._id}`),
+			isActive: activeThreadId === thread._id,
+			timestamp: thread.lastMessageAt
+		};
+	});
 
 	// Point "AI Chat" to the pre-warmed thread when available
 	const aiChatUrl = warmThreadId
