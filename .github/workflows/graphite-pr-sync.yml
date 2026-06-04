@@ -7,6 +7,10 @@ on:
 
 jobs:
   sync-pr-to-graphite:
+    # Fork PRs: head branch doesn't exist in this repo and secrets are
+    # unavailable, so the sync can't work (and Graphite only tracks
+    # base-repo branches anyway).
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubicloud-standard-2
     permissions:
       contents: write
