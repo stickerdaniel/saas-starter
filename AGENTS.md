@@ -565,7 +565,7 @@ Examples: hardcoded aria-labels, barrel icon imports, deprecated Tailwind tokens
 
 → **ESLint custom rule** (for AST-level patterns) or **banned pattern** in `scripts/static-checks.ts` (for simple string matching).
 Pattern: `eslint/rules/no-hardcoded-aria-label.js`, `eslint/rules/no-debounce-in-rune.js`, banned patterns list in `static-checks.ts`.
-Note: these AST guards live in ESLint (not oxlint) because oxlint JS plugins do not support Svelte files yet ("Not supported yet", alpha — https://oxc.rs/docs/guide/usage/linter/js-plugins). Port them to a local oxlint JS plugin once oxlint adds Svelte support.
+Note: these AST guards live in ESLint (not oxlint) because oxlint JS plugins do not support Svelte files yet ("Not supported yet", alpha — https://oxc.rs/docs/guide/usage/linter/js-plugins). Svelte/Vue template syntax support is tracked in oxlint JS Plugins Milestone 3 (https://github.com/oxc-project/oxc/issues/19918, "Framework plugins" section). Port them to a local oxlint JS plugin once that lands.
 
 #### "This build output must have specific properties"
 
