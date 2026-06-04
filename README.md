@@ -92,7 +92,11 @@ Each PR gets its own preview deployment with an isolated Convex preview backend.
 
 Create a Convex project at [dashboard.convex.dev](https://dashboard.convex.dev) and connect your repo to your hosting platform.
 
-The deploy script (`scripts/deploy.ts`) auto-detects the platform from environment variables (`WORKERS_CI`, `CF_PAGES`, or `VERCEL`), tags and pulls translations, runs `bunx convex deploy` to create a preview backend named after the branch, auto-computes `PUBLIC_CONVEX_URL` and `PUBLIC_CONVEX_SITE_URL` from the deploy output, and sets `SITE_URL` on the Convex instance to match the preview URL. When `PREVIEW_ADMIN_PASSWORD` is set, it also seeds an admin user.
+The deploy script (`scripts/deploy.ts`) auto-detects the platform from environment variables (`WORKERS_CI`, `CF_PAGES`, or `VERCEL`), tags and pulls translations, runs `bunx convex deploy` to create a preview backend named after the branch, auto-computes `PUBLIC_CONVEX_URL` and `PUBLIC_CONVEX_SITE_URL` from the deploy output, and sets `SITE_URL` on the Convex instance to match the preview URL. It also seeds an admin user (`admin@preview.dev`) on every preview. Set the password once as a Convex preview default env var, every new preview deployment inherits it regardless of which CI builds it:
+
+```sh
+bunx convex env default set --type preview PREVIEW_ADMIN_PASSWORD '<password>'
+```
 
 <details>
 <summary><strong>Cloudflare Workers setup</strong></summary>
@@ -309,7 +313,9 @@ Two runtimes, two schemas, both managed by [varlock](https://github.com/nickrees
 | `AUTH_GITHUB_SECRET`     | GitHub OAuth client secret                |   ○   |    ○    |  ○   |
 | `RESEND_WEBHOOK_SECRET`  | Resend webhook signing secret             |   ○   |    ○    |  ○   |
 | `SUPPORT_EMAIL`          | Support contact email                     |   ○   |    ○    |  ○   |
-| `PREVIEW_ADMIN_PASSWORD` | Password for auto-seeded preview admin    |       |    ·    |      |
+| `PREVIEW_ADMIN_PASSWORD` | Password for auto-seeded preview admin    |       |    ✓    |      |
+
+Set `PREVIEW_ADMIN_PASSWORD` once as a preview default (`bunx convex env default set --type preview PREVIEW_ADMIN_PASSWORD '<password>'`), new preview deployments inherit it automatically. The other preview values are set per deployment by `scripts/deploy.ts`.
 
 **Hosting platform** (CF Workers build settings or Vercel project settings):
 
@@ -324,7 +330,7 @@ Two runtimes, two schemas, both managed by [varlock](https://github.com/nickrees
 | `NODE_ADAPTER`              | Set to `1` to build with adapter-node for self-hosted production                                                                         |         |  ○   |
 | `CONVEX_INTERNAL_URL`       | Internal Convex URL for Docker-network routing (self-hosted)                                                                             |         |  ○   |
 | `TOLGEE_API_KEY`            | Tolgee CLI key for deploy-time sync (optional, skips when unset)                                                                         |    ○    |  ○   |
-| `PREVIEW_ADMIN_PASSWORD`    | Preview admin password                                                                                                                   |    ○    |      |
+| `PREVIEW_ADMIN_PASSWORD`    | Preview admin password override (canonical place is the Convex preview default env var, see above)                                       |    ○    |      |
 | `PUBLIC_POSTHOG_API_KEY`    | PostHog analytics API key                                                                                                                |         |  ○   |
 | `PUBLIC_POSTHOG_HOST`       | PostHog analytics host                                                                                                                   |         |  ○   |
 | `PRODUCTION_BRANCH`         | Cloudflare only: production branch name (default: `main`)                                                                                |    ○    |  ○   |

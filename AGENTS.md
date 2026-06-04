@@ -109,6 +109,7 @@ Local dev notes (`bun run dev`):
 
 - `bun convex env set KEY value` - Set Convex environment variables (cloud)
 - `bun convex env set KEY value --prod` - Set production environment variables (cloud)
+- `bun convex env default set --type preview KEY value` - Set project-level default env vars inherited by every NEW preview deployment (existing deployments are not updated; `--preview-create` in `scripts/deploy.ts` recreates per build, so the next build picks defaults up). Canonical place for `PREVIEW_ADMIN_PASSWORD` (auto-seeded `admin@preview.dev`), part of initial project setup.
 
 **Running functions (cloud vs local):**
 
