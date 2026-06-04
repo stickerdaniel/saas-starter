@@ -339,12 +339,12 @@ export async function setupPreviewEnv(
 	// Validate preview env vars
 	validateConvexEnv(platform, deployment);
 
-	// Seed preview admin (optional)
+	// Seed preview admin. The mutation reads PREVIEW_ADMIN_PASSWORD from the
+	// Convex deployment env, which new preview deployments inherit from the
+	// project's preview default env vars. A build-env PREVIEW_ADMIN_PASSWORD
+	// acts as an optional override.
 	const previewAdminPassword = process.env.PREVIEW_ADMIN_PASSWORD;
 	if (previewAdminPassword) {
-		console.log('');
-		console.log('Seeding preview admin user...');
-
 		const setPwResult = await runCommandWithRetry(
 			'bunx',
 			[
@@ -361,35 +361,33 @@ export async function setupPreviewEnv(
 
 		if (!setPwResult.success) {
 			console.warn(
-				`${colors.yellow}Warning: Failed to set PREVIEW_ADMIN_PASSWORD, skipping admin seed${colors.reset}`
+				`${colors.yellow}Warning: Failed to set PREVIEW_ADMIN_PASSWORD from build env${colors.reset}`
 			);
-		} else {
-			const seedResult = runCommandCapture('bunx', [
-				'convex',
-				'run',
-				'--deployment-name',
-				deployment.name,
-				'previewDev:ensurePreviewAdmin'
-			]);
-
-			if (seedResult.success) {
-				console.log(`${colors.green}=== Preview Admin Seeded ===${colors.reset}`);
-				console.log(`  Email:    admin@preview.dev`);
-				console.log(`  Password: (set via PREVIEW_ADMIN_PASSWORD)`);
-				console.log(`${colors.green}============================${colors.reset}`);
-				if (seedResult.stdout) console.log(`  Result: ${seedResult.stdout}`);
-			} else {
-				console.warn(
-					`${colors.yellow}Warning: Preview admin seeding failed (non-blocking)${colors.reset}`
-				);
-				if (seedResult.stdout) console.log(`  stdout: ${seedResult.stdout}`);
-				if (seedResult.stderr) console.log(`  stderr: ${seedResult.stderr}`);
-			}
 		}
+	}
+
+	console.log('');
+	console.log('Seeding preview admin user...');
+	const seedResult = runCommandCapture('bunx', [
+		'convex',
+		'run',
+		'--deployment-name',
+		deployment.name,
+		'previewDev:ensurePreviewAdmin'
+	]);
+
+	if (seedResult.success) {
+		console.log(`${colors.green}=== Preview Admin Seeded ===${colors.reset}`);
+		console.log(`  Email:    admin@preview.dev`);
+		console.log(`  Password: (PREVIEW_ADMIN_PASSWORD)`);
+		console.log(`${colors.green}============================${colors.reset}`);
+		if (seedResult.stdout) console.log(`  Result: ${seedResult.stdout}`);
 	} else {
-		console.log(
-			`${colors.yellow}PREVIEW_ADMIN_PASSWORD not set, skipping preview admin seed${colors.reset}`
+		console.warn(
+			`${colors.yellow}Warning: Preview admin seeding failed (non-blocking). Set PREVIEW_ADMIN_PASSWORD as a Convex preview default env var (bunx convex env default set --type preview) or in the build env.${colors.reset}`
 		);
+		if (seedResult.stdout) console.log(`  stdout: ${seedResult.stdout}`);
+		if (seedResult.stderr) console.log(`  stderr: ${seedResult.stderr}`);
 	}
 }
 
