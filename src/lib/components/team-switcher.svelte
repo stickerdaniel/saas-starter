@@ -5,7 +5,6 @@
 	import { useSidebar } from '$lib/components/ui/sidebar/index.js';
 	import ChevronsUpDownIcon from '@lucide/svelte/icons/chevrons-up-down';
 	import PlusIcon from '@lucide/svelte/icons/plus';
-	import { onMount } from 'svelte';
 
 	// This should be `Component` after @lucide/svelte updates types
 
@@ -14,11 +13,6 @@
 
 	// svelte-ignore state_referenced_locally
 	let activeTeam = $state(teams[0]!);
-	let shortcutModifier = $state('');
-
-	onMount(() => {
-		shortcutModifier = cmdOrCtrl;
-	});
 </script>
 
 <Sidebar.Menu>
@@ -59,7 +53,7 @@
 							<team.logo class="size-3.5 shrink-0" />
 						</div>
 						{team.name}
-						<DropdownMenu.Shortcut>{shortcutModifier}{index + 1}</DropdownMenu.Shortcut>
+						<DropdownMenu.Shortcut>{cmdOrCtrl}{index + 1}</DropdownMenu.Shortcut>
 					</DropdownMenu.Item>
 				{/each}
 				<DropdownMenu.Separator />
