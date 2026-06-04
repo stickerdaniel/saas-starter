@@ -33,6 +33,7 @@ jobs:
     permissions:
       contents: read
       statuses: write
+      pull-requests: write
     env:
       # CF Workers Builds mimicry (so scripts/deploy.ts detects a preview build)
       WORKERS_CI: '1'
@@ -83,6 +84,31 @@ jobs:
           PREVIEW_URL="https://${ALIAS}-${WORKERS_NAME}.${WORKERS_SUBDOMAIN}.workers.dev"
           echo "PREVIEW_URL=${PREVIEW_URL}" >> "$GITHUB_ENV"
           echo "Preview URL: ${PREVIEW_URL}"
+
+      # Same-repo PRs get a preview-URL comment from the Cloudflare app; fork
+      # PRs are deployed by this job, so post the equivalent comment ourselves.
+      # Sticky: later pushes update the existing comment instead of adding one.
+      # Only trusted values reach the body (PR number, hex SHA, run id, and a
+      # PREVIEW_URL derived from repo vars + PR number).
+      - name: Comment preview URL on PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          MARKER='<!-- fork-preview-url -->'
+          UPDATED=$(date -u '+%b %d %Y, %H:%M UTC')
+          BODY=$(printf '%s\n## Fork preview deployment\nBuilt and deployed by the [Fork Preview E2E workflow](%s).\n\n| Status | Commit | Preview URL | Updated (UTC) |\n| - | - | - | - |\n| ✅ Deployment successful | %s | %s | %s |\n' \
+            "$MARKER" "$RUN_URL" "${HEAD_SHA:0:7}" "$PREVIEW_URL" "$UPDATED")
+          COMMENT_ID=$(gh api "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" --paginate \
+            --jq "[.[] | select(.body | startswith(\"$MARKER\"))][0].id // empty")
+          if [ -n "$COMMENT_ID" ]; then
+            gh api -X PATCH "repos/${{ github.repository }}/issues/comments/${COMMENT_ID}" -f body="$BODY" > /dev/null
+          else
+            gh api -X POST "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" -f body="$BODY" > /dev/null
+          fi
 
       - name: Fetch E2E config from preview
         run: |
