@@ -1,6 +1,7 @@
 <script lang="ts">
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
+	import { cmdOrCtrl } from '$lib/hooks/is-mac.svelte';
 	import { useSidebar } from '$lib/components/ui/sidebar/index.js';
 	import ChevronsUpDownIcon from '@lucide/svelte/icons/chevrons-up-down';
 	import PlusIcon from '@lucide/svelte/icons/plus';
@@ -52,7 +53,7 @@
 							<team.logo class="size-3.5 shrink-0" />
 						</div>
 						{team.name}
-						<DropdownMenu.Shortcut>⌘{index + 1}</DropdownMenu.Shortcut>
+						<DropdownMenu.Shortcut>{cmdOrCtrl}{index + 1}</DropdownMenu.Shortcut>
 					</DropdownMenu.Item>
 				{/each}
 				<DropdownMenu.Separator />
