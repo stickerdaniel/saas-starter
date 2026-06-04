@@ -13,6 +13,7 @@ import requireMarketingRouteRegistrationRule from './eslint/rules/require-market
 import noHardcodedAriaLabelRule from './eslint/rules/no-hardcoded-aria-label.js';
 import noHardcodedSrOnlyRule from './eslint/rules/no-hardcoded-sr-only.js';
 import noDebounceInRuneRule from './eslint/rules/no-debounce-in-rune.js';
+import noHardcodedModifierKeysRule from './eslint/rules/no-hardcoded-modifier-keys.js';
 
 const gitignorePath = path.resolve(import.meta.dirname, '.gitignore');
 const localPlugin = {
@@ -21,7 +22,8 @@ const localPlugin = {
 		'require-marketing-route-registration': requireMarketingRouteRegistrationRule,
 		'no-hardcoded-aria-label': noHardcodedAriaLabelRule,
 		'no-hardcoded-sr-only': noHardcodedSrOnlyRule,
-		'no-debounce-in-rune': noDebounceInRuneRule
+		'no-debounce-in-rune': noDebounceInRuneRule,
+		'no-hardcoded-modifier-keys': noHardcodedModifierKeysRule
 	}
 };
 
@@ -186,6 +188,19 @@ export default defineConfig(
 		},
 		rules: {
 			'local/no-debounce-in-rune': 'error'
+		}
+	},
+	{
+		// Platform modifier labels (⌘ ⌃ ⌥) must come from $lib/hooks/is-mac.svelte
+		// (cmdOrCtrl/ctrlSymbol/optionOrAlt) so non-mac users see the right modifier.
+		// The hook itself is the only place allowed to define them.
+		files: ['src/**/*.svelte', 'src/**/*.ts'],
+		ignores: ['src/lib/hooks/is-mac.svelte.ts'],
+		plugins: {
+			local: localPlugin
+		},
+		rules: {
+			'local/no-hardcoded-modifier-keys': 'error'
 		}
 	},
 	// Convex best-practice rules — v2 ships ESLint 9 flat config natively
