@@ -12,15 +12,6 @@ export type RateLimitErrorData = {
 };
 
 /**
- * Type guard to check if an error is a rate limit error
- */
-export function isRateLimitError(error: unknown): error is ConvexError<RateLimitErrorData> {
-	if (!(error instanceof ConvexError)) return false;
-	const data = error.data as { code?: string } | undefined;
-	return data?.code === 'RATE_LIMITED';
-}
-
-/**
  * Create a rate limit ConvexError with consistent structure
  *
  * @param retryAfter - Time in milliseconds until the rate limit resets

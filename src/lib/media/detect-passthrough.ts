@@ -78,10 +78,6 @@ function skipSubBlocks(bytes: Uint8Array, offset: number): number {
 	return -1;
 }
 
-export function isSvg(blob: Blob): boolean {
-	return blob.type === 'image/svg+xml';
-}
-
 /** True if the blob should bypass the WebP encode pipeline. */
 export async function shouldPassthrough(blob: Blob): Promise<boolean> {
 	if (PASSTHROUGH_MIMES.has(blob.type)) return true;

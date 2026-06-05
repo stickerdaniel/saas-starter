@@ -44,23 +44,6 @@ export function translateValidationErrors(
 }
 
 /**
- * Translates a single error message (e.g., formError) using Tolgee.
- *
- * @param error - Translation key or undefined
- * @param t - Tolgee translate function
- * @param params - Optional parameters for the translation
- * @returns Translated message or undefined
- */
-export function translateError(
-	error: string | undefined,
-	t: TolgeeFn,
-	params?: TolgeeParams
-): string | undefined {
-	if (!error) return undefined;
-	return params ? t(error, params) : t(error);
-}
-
-/**
  * Converts a single translated error to Field.Error format.
  *
  * @param error - Translation key or undefined

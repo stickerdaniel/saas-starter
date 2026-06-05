@@ -112,17 +112,6 @@ export function createMarkdownNotAcceptableResponse(): Response {
 	});
 }
 
-export function createMarketingMarkdownErrorResponse(): Response {
-	return new Response('Failed to render marketing markdown.', {
-		status: 500,
-		headers: {
-			'Content-Type': TEXT_CONTENT_TYPE,
-			'Cache-Control': 'no-store',
-			Vary: 'Accept'
-		}
-	});
-}
-
 function xmlEscape(value: string): string {
 	return value
 		.replaceAll('&', '&amp;')
