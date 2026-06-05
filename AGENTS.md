@@ -620,6 +620,13 @@ Examples: CSP, HSTS, X-Frame-Options on all responses including static assets.
 → **`_headers` file** (project root) for static assets + **server hook** for SSR responses.
 Both are needed — static assets bypass hooks.
 
+#### "This export is intentionally unused (template knob for forks)"
+
+Examples: `optionOrAlt` (keyboard shortcut convention sibling of `cmdOrCtrl`), `getLegalEmailAddress` (raw mailto variant of the obfuscated default).
+
+→ **JSDoc `@public` tag** on the export with a one-line reason, never a bare tag. Knip stops reporting it as unused and emits a tag hint once the export gains a real consumer, so the tag can be removed again.
+For intentionally kept **files**, use a `knip.config.ts` `ignore` entry with a why-comment instead, and remove entries that go stale when files are deleted. Anything regenerable from upstream (shadcn demos, cnblocks, prompt-kit examples) has no keep-value as dead code — delete it and re-fetch on demand.
+
 #### Guard execution timeline
 
 | When            | What runs                                                          | Catches                         |

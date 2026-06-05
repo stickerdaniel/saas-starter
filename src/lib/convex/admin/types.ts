@@ -156,15 +156,6 @@ export function parseBetterAuthSessions(data: unknown[]): BetterAuthSession[] {
 }
 
 /**
- * Parse and validate a single user record using Valibot.
- * Returns the parsed user or null if invalid.
- */
-export function parseUserRecord(obj: unknown): BetterAuthUser | null {
-	const result = val.safeParse(betterAuthUserSchema, obj);
-	return result.success ? result.output : null;
-}
-
-/**
  * User data returned from admin queries (formatted for UI).
  */
 export interface AdminUserData {

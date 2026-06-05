@@ -20,12 +20,9 @@ export default {
 		// Email templates — built by scripts/build-emails.ts, not imported directly
 		'src/lib/emails/**',
 		// Scaffolded UI component libraries — installed for future use
-		'src/blocks/**',
 		'src/lib/components/ai-elements/**',
 		'src/lib/components/prompt-kit/**',
-		'src/lib/components/prompt-kit-blocks/**',
 		// shadcn UI components — installed via CLI, available for use
-		'src/lib/components/ui/collapsible/**',
 		'src/lib/components/ui/command/**',
 		'src/lib/components/ui/FollowingPointer/**',
 		'src/lib/components/ui/light-switch/**',

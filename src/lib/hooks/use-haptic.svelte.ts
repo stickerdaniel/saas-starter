@@ -1,7 +1,6 @@
 import { browser } from '$app/environment';
 import { useDebounce } from 'runed';
 import { MediaQuery } from 'svelte/reactivity';
-import type { ActionReturn } from 'svelte/action';
 import type { defaultPatterns, HapticInput as WebHapticsInput, WebHaptics } from 'web-haptics';
 
 export type HapticPreset = keyof typeof defaultPatterns;
@@ -99,38 +98,3 @@ export class UseHaptic {
 }
 
 export const haptic = new UseHaptic();
-
-export function hapticAction(
-	node: HTMLElement,
-	param: HapticPreset | { pattern: HapticPreset; event?: string }
-): ActionReturn<HapticPreset | { pattern: HapticPreset; event?: string }> {
-	let pattern: HapticPreset = typeof param === 'string' ? param : param.pattern;
-	let eventName: string = typeof param === 'string' ? 'click' : (param.event ?? 'click');
-
-	function resolve(p: typeof param) {
-		if (typeof p === 'string') {
-			pattern = p;
-			eventName = 'click';
-		} else {
-			pattern = p.pattern;
-			eventName = p.event ?? 'click';
-		}
-	}
-
-	function handler() {
-		haptic.trigger(pattern);
-	}
-
-	node.addEventListener(eventName, handler);
-
-	return {
-		update(newParam) {
-			node.removeEventListener(eventName, handler);
-			resolve(newParam);
-			node.addEventListener(eventName, handler);
-		},
-		destroy() {
-			node.removeEventListener(eventName, handler);
-		}
-	};
-}

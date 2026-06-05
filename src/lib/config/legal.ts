@@ -10,6 +10,7 @@ export const LEGAL_CONFIG = {
 	}
 } as const;
 
+/** @public Kept for forks: raw address for mailto links (see #398); pages render the obfuscated variant. */
 export function getLegalEmailAddress(): string {
 	return `${LEGAL_CONFIG.email.user}@${LEGAL_CONFIG.email.domain}.${LEGAL_CONFIG.email.tld}`;
 }

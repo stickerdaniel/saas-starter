@@ -76,19 +76,9 @@ export const EMAIL_TEMPLATES: Record<string, TemplateConfig> = {
 	}
 };
 
-/** Get all template names (component names) */
-export function getTemplateNames(): string[] {
-	return Object.keys(EMAIL_TEMPLATES);
-}
-
 /** Get the output filename for a template */
 export function getOutputFileName(templateName: string): string {
 	return EMAIL_TEMPLATES[templateName]?.outputName ?? templateName.toLowerCase();
-}
-
-/** Get the placeholder props for a template */
-export function getTemplateProps(templateName: string): Record<string, string | number> {
-	return EMAIL_TEMPLATES[templateName]?.props ?? {};
 }
 
 /** Get all templates with their props (for rendering) */
