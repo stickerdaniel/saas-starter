@@ -233,7 +233,7 @@ Runtime files:
 
 - **Frontend**: SvelteKit, Svelte 5 (runes syntax!), Tailwind CSS v4, Shadcn Svelte
 - **Backend**: Convex (real-time database + serverless functions)
-- **Authentication**: Better Auth Svelte Convex Component @convex-dev/better-auth-svelte. We use the local install to get full better auth feature access like passkeys, admin, etc. See <https://labs.convex.dev/better-auth/features/local-install> for authentication documentation.
+- **Authentication**: Better Auth Svelte Convex Component `@mmailaender/convex-better-auth-svelte` (backed by the `@convex-dev/better-auth` component). We use the local install to get full better auth feature access like passkeys, admin, etc. See <https://labs.convex.dev/better-auth/features/local-install> for authentication documentation.
 - **Internationalization**: Tolgee (open source / cloud-hosted translation management with URL-based localization and in-context editing)
 - **Testing**: Playwright (E2E), Vitest (unit)
 - **Package Manager**: Bun. ALWAYS use bun instead of npm to run commands.
@@ -269,7 +269,7 @@ Runtime files:
 
 - Every new `+page.svelte` route must include `SEOHead`.
 - For localized routes under `src/routes/[[lang]]/`, `SEOHead` title and description must use translated `meta.*` keys in all 4 locale files (`en`, `de`, `es`, `fr`).
-- `meta.*.title` values must be page-title only and must NOT include the site suffix or brand name. `SEOHead` appends `| SaaS Starter` automatically (use `"Settings"`, not `"Settings - SaaS Starter"`).
+- `meta.*.title` values must be page-title only and must NOT include the site suffix or brand name. `SEOHead` appends `| ${LEGAL_CONFIG.brandName}` automatically (default `"SaaS Starter"`, configured in `src/lib/config/legal.ts`; use `"Settings"`, not `"Settings - SaaS Starter"`).
 - Public marketing routes under `src/routes/[[lang]]/(marketing)/` can expose agent-facing markdown from the same URL via `Accept: text/markdown`. Keep the markdown source in a sibling `page.md.ts` file, not a `+page.*` file, and keep it in sync with the marketing page content. `/llms.txt` is the discovery entrypoint, and v1 markdown content is English-only.
 - If a marketing/legal page obfuscates contact email in HTML, keep the agent-facing `page.md.ts` variant obfuscated too. Do not expose the raw email address only via `Accept: text/markdown`.
 
@@ -281,11 +281,13 @@ Use the @convex-dev/resend email system for production-ready email delivery. Use
 
 ```text
 src/lib/convex/emails/
+├── __tests__/             # Unit tests for the send helpers
+├── _generated/            # Build output of `bun run build:emails` (gitignored)
 ├── resend.ts              # Resend client configuration
 ├── events.ts              # Webhook event handlers
 ├── send.ts                # Email sending mutations
-├── queries.ts             # Email status queries
-└── mutations.ts           # Email management (cancel, status)
+├── helpers.ts             # Shared send helpers (test-email skip, founder welcome delay)
+└── templates.ts           # Renders templates from _generated/ ({{var}} interpolation)
 ```
 
 Emails are sent via internal mutations using the Resend component.
@@ -300,13 +302,7 @@ Email events are automatically stored in the `emailEvents` table:
 - `email.opened` - Email opened (requires tracking enabled in Resend)
 - `email.clicked` - Link clicked (requires tracking enabled in Resend)
 
-Query email events using:
-
-```typescript
-const events = await ctx.runQuery(api.emails.queries.getEmailEvents, {
-	emailId: 'email-id'
-});
-```
+There is currently no query over `emailEvents`; inspect events via the Convex dashboard, or add a query on the `by_email_id` index when needed.
 
 ### PostHog Analytics
 
