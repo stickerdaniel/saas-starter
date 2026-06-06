@@ -147,7 +147,7 @@
 								_creationTime: Date.now(),
 								userId: viewer.data!._id,
 								body: bodyToSend,
-								author: viewer.data!.name ?? 'You',
+								author: viewer.data!.name ?? $t('common.you'),
 								authorImage: viewer.data!.image ?? undefined
 							}
 						]);

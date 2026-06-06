@@ -637,7 +637,10 @@
 		"adding": "Ajout en cours...",
 		"cancel": "Annuler",
 		"confirm": "Confirmer",
-		"save": "Enregistrer"
+		"confirm_input_placeholder": "Saisissez \"{text}\" pour confirmer.",
+		"delete": "Supprimer",
+		"save": "Enregistrer",
+		"you": "Vous"
 	},
 	"email": {
 		"body": {
