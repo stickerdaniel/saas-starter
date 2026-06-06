@@ -44,6 +44,34 @@ export function translateValidationErrors(
 }
 
 /**
+ * Translates SvelteKit remote-form validation issues using Tolgee.
+ *
+ * Remote forms (`form(schema, handler)`) expose `field.issues()` as
+ * `{ message, path }[]` where `message` holds the translation key from the
+ * Valibot schema (or from `invalid(issue.field(key))` in the handler).
+ *
+ * @param issues - Issues from `field.issues()` on a remote form
+ * @param t - Tolgee translate function ($t from getTranslate())
+ * @param params - Optional per-key parameters for parameterized translations
+ * @returns Array of { message: string } objects for Field.Error component, or undefined
+ *
+ * @example
+ * ```svelte
+ * <Field.Error errors={translateRemoteFormIssues(addEmailForm.fields.email.issues(), $t)} />
+ * ```
+ */
+export function translateRemoteFormIssues(
+	issues: ReadonlyArray<{ message: string }> | undefined,
+	t: TolgeeFn,
+	params?: Record<string, TolgeeParams>
+): Array<{ message: string }> | undefined {
+	if (!issues || issues.length === 0) return undefined;
+	return issues.map(({ message }) => ({
+		message: params?.[message] ? t(message, params[message]) : t(message)
+	}));
+}
+
+/**
  * Converts a single translated error to Field.Error format.
  *
  * @param error - Translation key or undefined
