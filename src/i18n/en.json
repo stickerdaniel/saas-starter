@@ -131,6 +131,7 @@
 			"preference_enabling": "Enabling {field}...",
 			"preference_update_failed": "Failed to update preference",
 			"recipient_count": "{count, plural, one {# recipient} other {# recipients}}",
+			"recipients_search_placeholder": "Search notification recipients...",
 			"save": "Save Settings",
 			"saved": "Settings saved",
 			"saving": "Saving...",
@@ -255,20 +256,12 @@
 			"menu_open": "Open menu",
 			"name": "Name",
 			"no_results": "No results.",
-			"page_indicator": "Page {current} of {total}",
-			"pagination": {
-				"first": "Go to first page",
-				"last": "Go to last page",
-				"next": "Go to next page",
-				"previous": "Go to previous page"
-			},
 			"provider": "Provider",
 			"provider_email": "Email",
 			"provider_github": "GitHub",
 			"provider_google": "Google",
 			"provider_passkey": "Passkey",
 			"role": "Role",
-			"rows_per_page": "Rows per page",
 			"search_placeholder": "Search users...",
 			"select_all": "Select all",
 			"select_row": "Select row",
@@ -1133,6 +1126,16 @@
 				"placeholder_no_suggestions": "Type a message..."
 			}
 		}
+	},
+	"table": {
+		"page_indicator": "Page {current} of {total}",
+		"pagination": {
+			"first": "Go to first page",
+			"last": "Go to last page",
+			"next": "Go to next page",
+			"previous": "Go to previous page"
+		},
+		"rows_per_page": "Rows per page"
 	},
 	"team": {
 		"description": "During the working process, we perform regular fitting with the client because he is the only person who can feel whether a new suit fits or not.",

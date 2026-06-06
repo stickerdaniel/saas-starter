@@ -517,7 +517,6 @@
 			onNextPage={usersTable.goNext}
 			onLastPage={usersTable.goLast}
 			onPageSizeChange={usersTable.setPageSize}
-			rowsPerPageLabel={$t('admin.users.rows_per_page')}
 			selectionText={$t('admin.users.selected', {
 				selected: Object.keys(rowSelection).length,
 				total: usersTable.hasLoadedCount
