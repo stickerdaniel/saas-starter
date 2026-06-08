@@ -605,6 +605,7 @@
 			"upgrade_tooltip": "Auf Pro upgraden für unbegrenzte Nachrichten"
 		},
 		"messages": {
+			"rate_limited": "Sie senden zu schnell Nachrichten. Versuchen Sie es in {seconds}s erneut.",
 			"send_failed": "Nachricht konnte nicht gesendet werden",
 			"sent_success": "Nachricht gesendet!"
 		},

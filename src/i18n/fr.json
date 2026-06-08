@@ -605,6 +605,7 @@
 			"upgrade_tooltip": "Passez à Pro pour des messages illimités"
 		},
 		"messages": {
+			"rate_limited": "Vous envoyez des messages trop vite. Réessayez dans {seconds}s.",
 			"send_failed": "Échec de l'envoi du message",
 			"sent_success": "Message envoyé !"
 		},
