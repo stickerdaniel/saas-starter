@@ -313,10 +313,6 @@
 			"placeholder": "Nachricht eingeben..."
 		},
 		"new_chat": "Neuer Chat",
-		"pro_required": {
-			"description": "Upgraden Sie auf Pro für 30 KI-Chat-Nachrichten pro Monat. Testen Sie kostenlos mit der Testkarte 4242 4242 4242 4242.",
-			"title": "Pro-Funktion"
-		},
 		"select_chat": "Wählen Sie eine Unterhaltung oder starten Sie einen neuen Chat",
 		"suggestion": {
 			"explain": "Erkläre etwas",
@@ -866,32 +862,18 @@
 				"2": "SLA-Garantien",
 				"3": "Erweiterte Sicherheitsfunktionen"
 			},
-			"enterprise[0]": "Individuelle Nachrichtenlimits",
-			"enterprise[1]": "Dedizierter Account Manager",
-			"enterprise[2]": "SLA-Garantien",
-			"enterprise[3]": "Erweiterte Sicherheitsfunktionen",
-			"enterprise[4]": "Benutzerdefinierte Integrationen",
-			"enterprise[5]": "White-Label-Optionen",
 			"free": {
 				"0": "3 Nachrichten pro Monat",
 				"1": "Vollständiger Quellcode-Zugriff",
 				"2": "Alle Funktionen enthalten",
 				"3": "MIT-Lizenz"
 			},
-			"free[0]": "10 Nachrichten pro Monat",
-			"free[1]": "Vollständiger Quellcode-Zugriff",
-			"free[2]": "Alle Funktionen enthalten",
-			"free[3]": "MIT-Lizenz",
 			"pro": {
 				"0": "Unbegrenzte Nachrichten",
 				"1": "Vollständiger Quellcode-Zugriff",
 				"2": "Alle Funktionen enthalten",
 				"3": "Priority-Support"
-			},
-			"pro[0]": "Unbegrenzte Nachrichten",
-			"pro[1]": "Vollständiger Quellcode-Zugriff",
-			"pro[2]": "Alle Funktionen enthalten",
-			"pro[3]": "Priority-Support"
+			}
 		},
 		"popular_badge": "Beliebt",
 		"section_label": "Preise",
