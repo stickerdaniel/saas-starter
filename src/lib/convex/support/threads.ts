@@ -23,6 +23,28 @@ import {
 	buildSupportSearchText,
 	type SupportLatestThreadMessage
 } from './denormalization';
+import { supportRateLimiter } from './rateLimit';
+import { createRateLimitError } from './types';
+
+/**
+ * Rate-limit a support thread-creation path. Anonymous callers share a
+ * global bucket because their IDs are client-generated and spoofable.
+ */
+async function limitSupportThreadCreate(
+	ctx: MutationCtx,
+	owner: { ownerId: string; isAnonymous: boolean },
+	pageUrl?: string
+) {
+	const limitName = owner.isAnonymous ? 'supportThreadCreateAnon' : 'supportThreadCreate';
+	const key = owner.isAnonymous ? 'anonymous-global' : owner.ownerId;
+	const status = await supportRateLimiter.limit(ctx, limitName, { key });
+	if (!status.ok) {
+		throw createRateLimitError(
+			status.retryAfter,
+			t(extractLocaleFromUrl(pageUrl), 'backend.support.rate_limit.user')
+		);
+	}
+}
 
 // supportThreads is the source of truth for support thread membership and list rendering.
 // agent:threads remains shared runtime/storage used only for generic conversation metadata.
@@ -148,6 +170,7 @@ export const createThread = mutation({
 	}),
 	handler: async (ctx, args) => {
 		const owner = await requireSupportOwnerIdentity(ctx, args.anonymousUserId);
+		await limitSupportThreadCreate(ctx, owner, args.pageUrl);
 		return await createSupportThreadRecord(ctx, {
 			resolvedUserId: owner.ownerId,
 			isAnonymous: owner.isAnonymous,
@@ -195,6 +218,9 @@ export const getOrCreateWarmThread = mutation({
 				notificationEmail: existingWarm.notificationEmail
 			};
 		}
+
+		// Only the creation branch consumes a token; the idempotent read above doesn't
+		await limitSupportThreadCreate(ctx, owner, args.pageUrl);
 
 		return await createSupportThreadRecord(ctx, {
 			resolvedUserId: owner.ownerId,

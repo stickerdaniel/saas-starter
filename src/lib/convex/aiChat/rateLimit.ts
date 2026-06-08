@@ -33,5 +33,14 @@ export const aiChatRateLimiter = new RateLimiter(components.rateLimiter, {
 		rate: 120,
 		period: HOUR,
 		capacity: 30
+	},
+
+	// Per-user thread creation (createThread + getOrCreateWarmThread)
+	// Token bucket: 10-thread burst, sustained 10/hour
+	aiChatThreadCreate: {
+		kind: 'token bucket',
+		rate: 10,
+		period: HOUR,
+		capacity: 10
 	}
 });

@@ -12,6 +12,12 @@ vi.mock('../agent', () => ({
 	}
 }));
 
+vi.mock('../rateLimit', () => ({
+	supportRateLimiter: {
+		limit: vi.fn().mockResolvedValue({ ok: true, retryAfter: 0 })
+	}
+}));
+
 vi.mock('../../_generated/api', () => ({
 	components: {
 		betterAuth: {

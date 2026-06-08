@@ -78,5 +78,23 @@ export const supportRateLimiter = new RateLimiter(components.rateLimiter, {
 		rate: 500,
 		period: MINUTE,
 		shards: 5
+	},
+
+	// Authenticated thread creation (createThread + getOrCreateWarmThread)
+	// Token bucket: 5-thread burst, sustained 10/hour
+	supportThreadCreate: {
+		kind: 'token bucket',
+		rate: 10,
+		period: HOUR,
+		capacity: 5
+	},
+
+	// Anonymous thread creation — GLOBAL shared bucket (spoofable client IDs)
+	// Token bucket: 10-thread burst, sustained 20/hour
+	supportThreadCreateAnon: {
+		kind: 'token bucket',
+		rate: 20,
+		period: HOUR,
+		capacity: 10
 	}
 });
