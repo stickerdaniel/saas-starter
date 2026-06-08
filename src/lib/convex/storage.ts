@@ -3,6 +3,7 @@ import { v, ConvexError } from 'convex/values';
 import { PROFILE_IMAGE_ALLOWED_TYPES, PROFILE_IMAGE_MAX_SIZE } from './constants';
 import { authComponent } from './auth';
 import { components } from './_generated/api';
+import { appRateLimiter } from './rateLimit';
 
 /**
  * Generate an upload URL for file uploads
@@ -19,6 +20,10 @@ export const generateUploadUrl = mutation({
 		const user = await authComponent.getAuthUser(ctx);
 		if (!user) {
 			throw new ConvexError('Unauthorized');
+		}
+		const status = await appRateLimiter.limit(ctx, 'profileImageUpload', { key: user._id });
+		if (!status.ok) {
+			throw new ConvexError('Too many upload requests. Please try again later.');
 		}
 		return await ctx.runMutation(components.convexFilesControl.upload.generateUploadUrl, {
 			provider: 'convex'
@@ -48,6 +53,13 @@ export const updateProfileImage = mutation({
 			// Clean up orphaned storage before rejecting
 			await ctx.storage.delete(args.storageId);
 			throw new ConvexError('Unauthorized');
+		}
+
+		const status = await appRateLimiter.limit(ctx, 'profileImageUpdate', { key: user._id });
+		if (!status.ok) {
+			// Clean up orphaned storage before rejecting
+			await ctx.storage.delete(args.storageId);
+			throw new ConvexError('Too many upload requests. Please try again later.');
 		}
 
 		const metadata = await ctx.db.system.get(args.storageId);
