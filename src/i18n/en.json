@@ -873,7 +873,7 @@
 			"enterprise[4]": "Custom integrations",
 			"enterprise[5]": "White-label options",
 			"free": {
-				"0": "10 messages per month",
+				"0": "3 messages per month",
 				"1": "Full source code access",
 				"2": "All features included",
 				"3": "MIT License"

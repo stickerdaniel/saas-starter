@@ -16,7 +16,7 @@ export const marketingMarkdown: MarketingMarkdownDocument = {
 			heading: 'Free tier',
 			bullets: [
 				'Price: $0 per month',
-				'10 messages per month',
+				'3 messages per month',
 				'Full source code access',
 				'All features included',
 				'MIT License'

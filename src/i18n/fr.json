@@ -873,7 +873,7 @@
 			"enterprise[4]": "Intégrations personnalisées",
 			"enterprise[5]": "Options de marque blanche",
 			"free": {
-				"0": "10 messages par mois",
+				"0": "3 messages par mois",
 				"1": "Accès complet au code source",
 				"2": "Toutes les fonctionnalités incluses",
 				"3": "Licence MIT"
