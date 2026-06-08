@@ -131,6 +131,7 @@
 			"preference_enabling": "Activation de {field}...",
 			"preference_update_failed": "Échec de la mise à jour de la préférence",
 			"recipient_count": "{count, plural, one {# destinataire} other {# destinataires}}",
+			"recipients_search_placeholder": "Rechercher des destinataires de notification...",
 			"save": "Enregistrer les Paramètres",
 			"saved": "Paramètres enregistrés",
 			"saving": "Enregistrement...",
@@ -255,20 +256,12 @@
 			"menu_open": "Ouvrir le menu",
 			"name": "Nom",
 			"no_results": "Aucun résultat.",
-			"page_indicator": "Page {current} sur {total}",
-			"pagination": {
-				"first": "Aller à la première page",
-				"last": "Aller à la dernière page",
-				"next": "Aller à la page suivante",
-				"previous": "Aller à la page précédente"
-			},
 			"provider": "Fournisseur",
 			"provider_email": "E-mail",
 			"provider_github": "GitHub",
 			"provider_google": "Google",
 			"provider_passkey": "Clé d'accès",
 			"role": "Rôle",
-			"rows_per_page": "Lignes par page",
 			"search_placeholder": "Rechercher des utilisateurs...",
 			"select_all": "Tout sélectionner",
 			"select_row": "Sélectionner la ligne",
@@ -644,7 +637,10 @@
 		"adding": "Ajout en cours...",
 		"cancel": "Annuler",
 		"confirm": "Confirmer",
-		"save": "Enregistrer"
+		"confirm_input_placeholder": "Saisissez \"{text}\" pour confirmer.",
+		"delete": "Supprimer",
+		"save": "Enregistrer",
+		"you": "Vous"
 	},
 	"email": {
 		"body": {
@@ -1133,6 +1129,16 @@
 				"placeholder_no_suggestions": "Tapez un message..."
 			}
 		}
+	},
+	"table": {
+		"page_indicator": "Page {current} sur {total}",
+		"pagination": {
+			"first": "Aller à la première page",
+			"last": "Aller à la dernière page",
+			"next": "Aller à la page suivante",
+			"previous": "Aller à la page précédente"
+		},
+		"rows_per_page": "Lignes par page"
 	},
 	"team": {
 		"description": "Pendant le processus de travail, nous effectuons des ajustements réguliers avec le client car il est la seule personne qui peut sentir si un nouveau costume lui va bien ou non.",

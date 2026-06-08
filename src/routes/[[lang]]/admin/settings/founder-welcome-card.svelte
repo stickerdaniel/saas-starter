@@ -11,6 +11,9 @@
 	import * as Field from '$lib/components/ui/field/index.js';
 	import { toast } from 'svelte-sonner';
 	import { tick } from 'svelte';
+	import { safeParse } from 'valibot';
+	import { emailSchema } from '$lib/schemas/auth';
+	import { translateFormError } from '$lib/utils/validation-i18n';
 	import { FOUNDER_WELCOME_DEFAULTS } from '$lib/convex/emails/helpers.js';
 
 	const { t } = getTranslate();
@@ -37,11 +40,19 @@
 		config?.enabled && config.contactUser.id !== viewer.data?._id
 	);
 
+	// Reply-to is optional: empty is valid, anything else must be a valid email
+	const replyToError = $derived.by(() => {
+		const value = editReplyTo.trim();
+		if (!value) return undefined;
+		return safeParse(emailSchema, value).success ? undefined : 'validation.email.invalid';
+	});
+
 	const canSave = $derived(
 		editName.trim() !== '' &&
 			editTitle.trim() !== '' &&
 			editSubject.trim() !== '' &&
-			editBody.trim() !== ''
+			editBody.trim() !== '' &&
+			!replyToError
 	);
 
 	// Live preview with sample data
@@ -79,7 +90,7 @@
 			await client.mutation(api.admin.founderWelcome.mutations.updateConfig, {
 				name: editName,
 				title: editTitle,
-				replyTo: editReplyTo || undefined,
+				replyTo: editReplyTo.trim() || undefined,
 				subject: editSubject,
 				body: editBody
 			});
@@ -180,6 +191,7 @@
 					placeholder={$t('admin.settings.founder_welcome.config_reply_to_placeholder')}
 					bind:value={editReplyTo}
 				/>
+				<Field.Error errors={translateFormError(replyToError, $t)} />
 			</Field.Field>
 			<Field.Field>
 				<Field.Label for="config-subject">

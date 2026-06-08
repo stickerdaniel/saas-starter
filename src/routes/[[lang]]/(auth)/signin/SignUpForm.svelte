@@ -101,7 +101,7 @@
 					name="name"
 					type="text"
 					autocomplete="name"
-					placeholder="Your name"
+					placeholder={$t('settings.account.name.placeholder')}
 					disabled={isFormDisabled}
 					bind:value={signUpData.name}
 				/>

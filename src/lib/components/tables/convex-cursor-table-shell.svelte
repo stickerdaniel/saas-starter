@@ -60,7 +60,7 @@
 		onNextPage,
 		onLastPage,
 		onPageSizeChange,
-		rowsPerPageLabel = 'Rows per page',
+		rowsPerPageLabel,
 		selectionText,
 		showRowsPerPage = true,
 		showSearch = true,
@@ -113,7 +113,7 @@
 		<div class="flex w-full items-center gap-8 lg:w-fit">
 			{#if showRowsPerPage}
 				<div class="hidden items-center gap-2 lg:flex">
-					<span class="text-sm font-medium">{rowsPerPageLabel}</span>
+					<span class="text-sm font-medium">{rowsPerPageLabel ?? $t('table.rows_per_page')}</span>
 					<Select.Root
 						type="single"
 						value={`${pageSize}`}
@@ -138,7 +138,7 @@
 				class="flex w-fit items-center justify-center text-sm font-medium"
 				data-testid={pageIndicatorTestId}
 			>
-				{$t('admin.users.page_indicator', { current: pageIndex + 1, total: pageCount })}
+				{$t('table.page_indicator', { current: pageIndex + 1, total: pageCount })}
 			</div>
 
 			<div class="ml-auto flex items-center gap-2 lg:ml-0">
@@ -151,7 +151,7 @@
 					}}
 					disabled={!canPreviousPage}
 				>
-					<span class="sr-only">{$t('admin.users.pagination.first')}</span>
+					<span class="sr-only">{$t('table.pagination.first')}</span>
 					<ChevronsLeftIcon />
 				</Button>
 				<Button
@@ -165,7 +165,7 @@
 					disabled={!canPreviousPage}
 					data-testid={paginationPrevTestId}
 				>
-					<span class="sr-only">{$t('admin.users.pagination.previous')}</span>
+					<span class="sr-only">{$t('table.pagination.previous')}</span>
 					<ChevronLeftIcon />
 				</Button>
 				<Button
@@ -179,7 +179,7 @@
 					disabled={!canNextPage}
 					data-testid={paginationNextTestId}
 				>
-					<span class="sr-only">{$t('admin.users.pagination.next')}</span>
+					<span class="sr-only">{$t('table.pagination.next')}</span>
 					<ChevronRightIcon />
 				</Button>
 				<Button
@@ -192,7 +192,7 @@
 					disabled={!canNextPage}
 					data-testid={paginationLastTestId}
 				>
-					<span class="sr-only">{$t('admin.users.pagination.last')}</span>
+					<span class="sr-only">{$t('table.pagination.last')}</span>
 					<ChevronsRightIcon />
 				</Button>
 			</div>

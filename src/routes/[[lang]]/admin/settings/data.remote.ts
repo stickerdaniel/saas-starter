@@ -23,8 +23,9 @@ export const addEmailForm = form(emailSchema, async ({ email }, issue) => {
 		return { success: true };
 	} catch (err) {
 		if (err instanceof Error && err.message.includes('already exists')) {
-			// Return validation error - don't re-throw
-			return invalid(issue.email('This email already exists'));
+			// Return validation error - don't re-throw. The translation key is
+			// resolved client-side via translateRemoteFormIssues.
+			return invalid(issue.email('admin.settings.email_exists'));
 		}
 		throw err;
 	}

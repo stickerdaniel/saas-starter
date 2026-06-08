@@ -115,7 +115,9 @@
 					<Input
 						id="confirm-delete-input"
 						bind:value={dialogState.inputText}
-						placeholder={`Enter "${dialogState.options.input.confirmationText}" to confirm.`}
+						placeholder={$t('common.confirm_input_placeholder', {
+							text: dialogState.options.input.confirmationText
+						})}
 						onkeydown={(e) => {
 							if (e.key === 'Enter') {
 								// Prevent Enter from triggering native form submit before custom confirm flow
@@ -135,7 +137,7 @@
 					}}
 					data-testid="confirm-delete-cancel"
 				>
-					{dialogState.options?.cancel?.text ?? 'Cancel'}
+					{dialogState.options?.cancel?.text ?? $t('common.cancel')}
 				</AlertDialog.Cancel>
 				<AlertDialog.Action
 					type="submit"
@@ -147,7 +149,7 @@
 					{#if dialogState.loading}
 						<LoaderCircleIcon class="size-4 motion-safe:animate-spin" />
 					{/if}
-					{dialogState.options?.confirm?.text ?? 'Delete'}
+					{dialogState.options?.confirm?.text ?? $t('common.delete')}
 				</AlertDialog.Action>
 			</AlertDialog.Footer>
 		</form>

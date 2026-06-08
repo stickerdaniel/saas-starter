@@ -6,5 +6,9 @@ import * as v from 'valibot';
  * client-side preflight validation in add-email-dialog.svelte
  */
 export const emailSchema = v.object({
-	email: v.pipe(v.string(), v.email('Please enter a valid email address'))
+	email: v.pipe(
+		v.string(),
+		v.nonEmpty('validation.email.required'),
+		v.email('validation.email.invalid')
+	)
 });

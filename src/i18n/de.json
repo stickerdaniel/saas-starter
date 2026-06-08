@@ -131,6 +131,7 @@
 			"preference_enabling": "{field} wird aktiviert...",
 			"preference_update_failed": "Einstellung konnte nicht aktualisiert werden",
 			"recipient_count": "{count, plural, other {# Empfänger}}",
+			"recipients_search_placeholder": "Benachrichtigungsempfänger durchsuchen...",
 			"save": "Einstellungen speichern",
 			"saved": "Einstellungen gespeichert",
 			"saving": "Speichern...",
@@ -255,20 +256,12 @@
 			"menu_open": "Menü öffnen",
 			"name": "Name",
 			"no_results": "Keine Ergebnisse.",
-			"page_indicator": "Seite {current} von {total}",
-			"pagination": {
-				"first": "Zur ersten Seite",
-				"last": "Zur letzten Seite",
-				"next": "Zur nächsten Seite",
-				"previous": "Zur vorherigen Seite"
-			},
 			"provider": "Anbieter",
 			"provider_email": "E-Mail",
 			"provider_github": "GitHub",
 			"provider_google": "Google",
 			"provider_passkey": "Passkey",
 			"role": "Rolle",
-			"rows_per_page": "Zeilen pro Seite",
 			"search_placeholder": "Benutzer suchen...",
 			"select_all": "Alle auswählen",
 			"select_row": "Zeile auswählen",
@@ -644,7 +637,10 @@
 		"adding": "Wird hinzugefügt...",
 		"cancel": "Abbrechen",
 		"confirm": "Bestätigen",
-		"save": "Speichern"
+		"confirm_input_placeholder": "Geben Sie \"{text}\" ein, um zu bestätigen.",
+		"delete": "Löschen",
+		"save": "Speichern",
+		"you": "Sie"
 	},
 	"email": {
 		"body": {
@@ -1133,6 +1129,16 @@
 				"placeholder_no_suggestions": "Nachricht eingeben..."
 			}
 		}
+	},
+	"table": {
+		"page_indicator": "Seite {current} von {total}",
+		"pagination": {
+			"first": "Zur ersten Seite",
+			"last": "Zur letzten Seite",
+			"next": "Zur nächsten Seite",
+			"previous": "Zur vorherigen Seite"
+		},
+		"rows_per_page": "Zeilen pro Seite"
 	},
 	"team": {
 		"description": "Während des Arbeitsprozesses führen wir regelmäßige Anpassungen mit dem Kunden durch, denn er ist die einzige Person, die spüren kann, ob ein neuer Anzug passt oder nicht.",

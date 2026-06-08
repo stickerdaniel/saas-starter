@@ -9,6 +9,7 @@
 	import { toast } from 'svelte-sonner';
 	import { addEmailForm } from './data.remote';
 	import { emailSchema } from './email-schema';
+	import { translateRemoteFormIssues } from '$lib/utils/validation-i18n';
 
 	const { t } = getTranslate();
 
@@ -70,7 +71,10 @@
 						placeholder={$t('admin.settings.add_email_placeholder')}
 						data-testid="add-email-input"
 					/>
-					<Field.Error errors={addEmailForm.fields.email.issues()} data-testid="add-email-error" />
+					<Field.Error
+						errors={translateRemoteFormIssues(addEmailForm.fields.email.issues(), $t)}
+						data-testid="add-email-error"
+					/>
 				</Field.Field>
 			</Field.Group>
 			<Dialog.Footer>

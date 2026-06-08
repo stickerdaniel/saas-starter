@@ -255,7 +255,7 @@
 		testIdPrefix="admin-settings"
 		tableTestId="recipients-table"
 		searchValue={tableParams.search}
-		searchPlaceholder={$t('admin.users.search_placeholder')}
+		searchPlaceholder={$t('admin.settings.recipients_search_placeholder')}
 		onSearchChange={recipientsTable.setSearch}
 		pageIndex={recipientsTable.pageIndex}
 		pageCount={effectivePageCount}
@@ -268,7 +268,6 @@
 		onNextPage={recipientsTable.goNext}
 		onLastPage={recipientsTable.goLast}
 		onPageSizeChange={recipientsTable.setPageSize}
-		rowsPerPageLabel={$t('admin.users.rows_per_page')}
 		selectionText={$t('admin.settings.selected', {
 			selected: Object.keys(rowSelection).length,
 			total: totalCount
