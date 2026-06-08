@@ -348,7 +348,7 @@ Sign in with email/password, Google, GitHub, or passkeys. Powered by [Better Aut
 
 ### Billing
 
-[Autumn](https://docs.useautumn.com/welcome) sits on top of Stripe and lets you define pricing tiers and usage gates without writing webhook handlers. Configure your products in `autumn.config.ts` or generate a starter config at [app.useautumn.com/sandbox/quickstart](https://app.useautumn.com/sandbox/quickstart). Ships with a Free tier (10 messages/month) and a Pro tier ($10/month, unlimited). The community chat enforces quotas, warns users when they are running low, and offers an upgrade flow.
+[Autumn](https://docs.useautumn.com/welcome) sits on top of Stripe and lets you define pricing tiers and usage gates without writing webhook handlers. Configure your products in `autumn.config.ts` or generate a starter config at [app.useautumn.com/sandbox/quickstart](https://app.useautumn.com/sandbox/quickstart). Ships with a Free tier (3 messages/month) and a Pro tier ($10/month, unlimited). The community chat enforces quotas, warns users when they are running low, and offers an upgrade flow.
 
 ### Admin Panel
 

@@ -313,10 +313,6 @@
 			"placeholder": "Escribe un mensaje..."
 		},
 		"new_chat": "Nuevo chat",
-		"pro_required": {
-			"description": "Actualiza a Pro para 30 mensajes de Chat IA al mes. Prueba gratis con la tarjeta de prueba 4242 4242 4242 4242.",
-			"title": "Función Pro"
-		},
 		"select_chat": "Selecciona una conversación o inicia un nuevo chat",
 		"suggestion": {
 			"explain": "Explica algo",
@@ -866,32 +862,18 @@
 				"2": "Garantías de SLA",
 				"3": "Funciones de seguridad avanzadas"
 			},
-			"enterprise[0]": "Límites de mensajes personalizados",
-			"enterprise[1]": "Gestor de cuenta dedicado",
-			"enterprise[2]": "Garantías de SLA",
-			"enterprise[3]": "Funciones de seguridad avanzadas",
-			"enterprise[4]": "Integraciones personalizadas",
-			"enterprise[5]": "Opciones de marca blanca",
 			"free": {
-				"0": "10 mensajes por mes",
+				"0": "3 mensajes por mes",
 				"1": "Acceso completo al código fuente",
 				"2": "Todas las funciones incluidas",
 				"3": "Licencia MIT"
 			},
-			"free[0]": "10 mensajes por mes",
-			"free[1]": "Acceso completo al código fuente",
-			"free[2]": "Todas las funciones incluidas",
-			"free[3]": "Licencia MIT",
 			"pro": {
 				"0": "Mensajes ilimitados",
 				"1": "Acceso completo al código fuente",
 				"2": "Todas las funciones incluidas",
 				"3": "Soporte prioritario"
-			},
-			"pro[0]": "Mensajes ilimitados",
-			"pro[1]": "Acceso completo al código fuente",
-			"pro[2]": "Todas las funciones incluidas",
-			"pro[3]": "Soporte prioritario"
+			}
 		},
 		"popular_badge": "Popular",
 		"section_label": "Precios",

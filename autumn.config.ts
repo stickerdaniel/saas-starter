@@ -43,7 +43,7 @@ export const free = plan({
 });
 
 /**
- * Pro tier with unlimited community chat and 200 AI chat messages/month.
+ * Pro tier with unlimited community chat and 500 AI chat messages/month.
  */
 export const pro = plan({
 	id: 'pro',

@@ -70,9 +70,11 @@
 		}
 
 		// Proceed with checkout for authenticated users
+		const successUrl = new URL(localizedHref('/app/community-chat'), page.url.origin);
+		successUrl.searchParams.set('upgraded', 'true');
 		const result = await upgradeOperation.execute({
 			productId,
-			successUrl: page.url.origin + '/app/community-chat?upgraded=true'
+			successUrl: successUrl.href
 		});
 
 		if (result?.url) {

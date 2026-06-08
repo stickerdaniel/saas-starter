@@ -313,10 +313,6 @@
 			"placeholder": "Tapez un message..."
 		},
 		"new_chat": "Nouveau chat",
-		"pro_required": {
-			"description": "Passez à Pro pour 30 messages Chat IA par mois. Essayez gratuitement avec la carte test 4242 4242 4242 4242.",
-			"title": "Fonction Pro"
-		},
 		"select_chat": "Sélectionnez une conversation ou démarrez un nouveau chat",
 		"suggestion": {
 			"explain": "Explique quelque chose",
@@ -866,32 +862,18 @@
 				"2": "Garanties SLA",
 				"3": "Fonctionnalités de sécurité avancées"
 			},
-			"enterprise[0]": "Limites de messages personnalisées",
-			"enterprise[1]": "Gestionnaire de compte dédié",
-			"enterprise[2]": "Garanties SLA",
-			"enterprise[3]": "Fonctionnalités de sécurité avancées",
-			"enterprise[4]": "Intégrations personnalisées",
-			"enterprise[5]": "Options de marque blanche",
 			"free": {
-				"0": "10 messages par mois",
+				"0": "3 messages par mois",
 				"1": "Accès complet au code source",
 				"2": "Toutes les fonctionnalités incluses",
 				"3": "Licence MIT"
 			},
-			"free[0]": "10 messages par mois",
-			"free[1]": "Accès complet au code source",
-			"free[2]": "Toutes les fonctionnalités incluses",
-			"free[3]": "Licence MIT",
 			"pro": {
 				"0": "Messages illimités",
 				"1": "Accès complet au code source",
 				"2": "Toutes les fonctionnalités incluses",
 				"3": "Support prioritaire"
-			},
-			"pro[0]": "Messages illimités",
-			"pro[1]": "Accès complet au code source",
-			"pro[2]": "Toutes les fonctionnalités incluses",
-			"pro[3]": "Support prioritaire"
+			}
 		},
 		"popular_badge": "Populaire",
 		"section_label": "Tarifs",

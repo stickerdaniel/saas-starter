@@ -313,10 +313,6 @@
 			"placeholder": "Type a message..."
 		},
 		"new_chat": "New Chat",
-		"pro_required": {
-			"description": "Upgrade to Pro for 30 AI chat messages per month. Try it free with test card 4242 4242 4242 4242.",
-			"title": "Pro Feature"
-		},
 		"select_chat": "Select a conversation or start a new chat",
 		"suggestion": {
 			"explain": "Explain something",
@@ -866,32 +862,18 @@
 				"2": "SLA guarantees",
 				"3": "Advanced security features"
 			},
-			"enterprise[0]": "Custom message limits",
-			"enterprise[1]": "Dedicated account manager",
-			"enterprise[2]": "SLA guarantees",
-			"enterprise[3]": "Advanced security features",
-			"enterprise[4]": "Custom integrations",
-			"enterprise[5]": "White-label options",
 			"free": {
-				"0": "10 messages per month",
+				"0": "3 messages per month",
 				"1": "Full source code access",
 				"2": "All features included",
 				"3": "MIT License"
 			},
-			"free[0]": "10 messages per month",
-			"free[1]": "Full source code access",
-			"free[2]": "All features included",
-			"free[3]": "MIT License",
 			"pro": {
 				"0": "Unlimited messages",
 				"1": "Full source code access",
 				"2": "All features included",
 				"3": "Priority support"
-			},
-			"pro[0]": "Unlimited messages",
-			"pro[1]": "Full source code access",
-			"pro[2]": "All features included",
-			"pro[3]": "Priority support"
+			}
 		},
 		"popular_badge": "Popular",
 		"section_label": "Pricing",
