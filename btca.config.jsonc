@@ -1,6 +1,7 @@
 {
-	"$schema": "https://btca.dev/btca.schema.json",
-	"providerTimeoutMs": 300000,
+	// Resource manifest for the btca-local skill: repos pre-cloned into
+	// ~/.btca/agent/sandbox/<name>. The skill defaults to main, so non-main
+	// default branches must be pinned here.
 	"resources": [
 		{
 			"type": "git",
@@ -181,7 +182,7 @@
 			"type": "git",
 			"name": "convexStripe",
 			"url": "https://github.com/get-convex/stripe",
-			"branch": "master",
+			"branch": "main",
 			"specialNotes": "Stripe payments. Subscriptions, checkout, webhooks, customer portal."
 		},
 		{
@@ -435,7 +436,5 @@
 			"branch": "main",
 			"specialNotes": "WASM image codecs (WebP/AVIF/JPEG/PNG/JXL/OXIPNG/QOI). Used for client-side encode in workers. Each codec is a separate package under packages/ — @jsquash/webp at packages/webp."
 		}
-	],
-	"model": "gpt-5.4-mini",
-	"provider": "openai"
+	]
 }

@@ -20,25 +20,9 @@ All npm scripts must work on macOS, Linux, and Windows. Avoid `sh -c` or bash-sp
 
 ## btca
 
-When you need up-to-date information about technologies used in this project, use btca to query source repositories directly.
+When you need up-to-date information about technologies used in this project, use the `btca-local` skill to search the actual source repos. `btca.config.jsonc` is the resource registry; every resource is pre-cloned at `~/.btca/agent/sandbox/<resourceName>`. "Use btca with `<resource>` resource" means: search that clone.
 
-Run `btca resources` to get the full list of all configured resources.
-
-### Usage
-
-```bash
-btca ask -r <resource> -q "<question>"
-```
-
-Use multiple `-r` flags to query multiple resources at once:
-
-```bash
-btca ask -r svelte -r convex -q "How do I integrate Convex with SvelteKit?"
-```
-
-**Branch config:** When adding a new resource, verify the repo's default branch (`gh api repos/OWNER/REPO --jq '.default_branch'`). btca assumes `main` and fails silently on repos using `master`, `dev`, etc. Always set the `branch` field explicitly.
-
-**New dependencies:** When adding a new dependency or devDependency, always add its repo to btca and verify with a simple test question (`btca ask -r <name> -q "<test>"`). If the query fails or returns irrelevant results, check that the `branch` field matches the repo's default branch and that the model config is correct. This keeps btca comprehensive across all project deps.
+**New dependencies:** When adding a new dependency or devDependency, always add its repo to `btca.config.jsonc` (verify the default branch first: `gh api repos/OWNER/REPO --jq '.default_branch'`) and clone it into the sandbox. This keeps btca comprehensive across all project deps.
 
 ## Workflow
 
