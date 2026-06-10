@@ -9,6 +9,7 @@
 	import { T, getTranslate } from '@tolgee/svelte';
 	import { useConvexClient } from '@mmailaender/convex-svelte';
 	import { api } from '$lib/convex/_generated/api.js';
+	import { ConvexError } from 'convex/values';
 	import { PROFILE_IMAGE_MAX_SIZE, PROFILE_IMAGE_MAX_SIZE_LABEL } from '$lib/convex/constants.js';
 
 	const { t } = getTranslate();
@@ -84,10 +85,20 @@
 			haptic.trigger('success');
 			toast.success($t('settings.account.avatar.ready'));
 		} catch (error) {
-			const message =
-				error instanceof Error ? error.message : $t('settings.account.avatar.upload_failed');
 			haptic.trigger('error');
-			toast.error(message);
+			if (
+				error instanceof ConvexError &&
+				(error.data as { code?: string })?.code === 'RATE_LIMITED'
+			) {
+				const retryAfter = (error.data as { retryAfter?: number }).retryAfter ?? 60000;
+				toast.error(
+					$t('settings.account.avatar.rate_limited', { seconds: Math.ceil(retryAfter / 1000) })
+				);
+			} else {
+				const message =
+					error instanceof Error ? error.message : $t('settings.account.avatar.upload_failed');
+				toast.error(message);
+			}
 			target.value = '';
 		} finally {
 			isUploading = false;

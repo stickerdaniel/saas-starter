@@ -928,6 +928,7 @@
 		"account": {
 			"avatar": {
 				"alt": "Vista previa del perfil",
+				"rate_limited": "Demasiados intentos de subida. Vuelve a intentarlo en {seconds}s.",
 				"ready": "Imagen lista para guardar",
 				"removed": "Imagen eliminada - haz clic en Guardar para confirmar",
 				"select_error": "Por favor selecciona un archivo de imagen",

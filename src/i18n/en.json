@@ -928,6 +928,7 @@
 		"account": {
 			"avatar": {
 				"alt": "Profile preview",
+				"rate_limited": "Too many upload attempts. Try again in {seconds}s.",
 				"ready": "Image ready to save",
 				"removed": "Image removed - click Save to confirm",
 				"select_error": "Please select an image file",
