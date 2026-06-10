@@ -6,7 +6,7 @@
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { tick } from 'svelte';
+	import { tick, onDestroy } from 'svelte';
 	import { localizedHref } from '$lib/utils/i18n';
 	import { useQuery, useConvexClient } from '@mmailaender/convex-svelte';
 	import { api } from '$lib/convex/_generated/api';
@@ -40,6 +40,7 @@
 
 	let ensureWarmInFlight = $state(false);
 	let ensureWarmBlocked = $state(false);
+	let ensureWarmUnblockTimer: ReturnType<typeof setTimeout> | undefined;
 
 	$effect(() => {
 		if (warmThreadQuery.data === null && !ensureWarmInFlight && !ensureWarmBlocked && viewer) {
@@ -56,7 +57,7 @@
 						error instanceof ConvexError
 							? ((error.data as { retryAfter?: number })?.retryAfter ?? 60000)
 							: 60000;
-					setTimeout(() => {
+					ensureWarmUnblockTimer = setTimeout(() => {
 						ensureWarmBlocked = false;
 					}, retryAfter);
 				})
@@ -65,6 +66,8 @@
 				});
 		}
 	});
+
+	onDestroy(() => clearTimeout(ensureWarmUnblockTimer));
 
 	// Chat pages need fullControl (manage own scroll containers)
 	const fullControl = $derived(

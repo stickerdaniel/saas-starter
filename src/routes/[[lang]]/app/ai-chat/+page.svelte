@@ -1,5 +1,6 @@
 <script lang="ts">
 	import SEOHead from '$lib/components/SEOHead.svelte';
+	import { onDestroy } from 'svelte';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
@@ -43,6 +44,7 @@
 	// The common path (sidebar click) already includes ?thread=warmId, so this rarely fires.
 	let resolvingThread = $state(false);
 	let resolveThreadBlocked = $state(false);
+	let resolveThreadUnblockTimer: ReturnType<typeof setTimeout> | undefined;
 
 	$effect(() => {
 		if (!threadId && !resolvingThread && !resolveThreadBlocked && viewer.data) {
@@ -64,7 +66,7 @@
 						err instanceof ConvexError
 							? ((err.data as { retryAfter?: number })?.retryAfter ?? 60000)
 							: 60000;
-					setTimeout(() => {
+					resolveThreadUnblockTimer = setTimeout(() => {
 						resolveThreadBlocked = false;
 					}, retryAfter);
 				})
@@ -73,6 +75,8 @@
 				});
 		}
 	});
+
+	onDestroy(() => clearTimeout(resolveThreadUnblockTimer));
 
 	async function handleUpgrade() {
 		haptic.trigger('light');
