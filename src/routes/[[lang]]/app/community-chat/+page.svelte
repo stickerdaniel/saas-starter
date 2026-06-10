@@ -159,6 +159,8 @@
 		} catch (error) {
 			console.error('Failed to send message:', error);
 			haptic.trigger('error');
+			// Restore the draft so the user can retry without retyping
+			if (!inputValue) inputValue = bodyToSend;
 			if (
 				error instanceof ConvexError &&
 				(error.data as { code?: string })?.code === 'RATE_LIMITED'
