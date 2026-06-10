@@ -11,7 +11,7 @@ import { aiChatRateLimiter } from './rateLimit';
 import { listMessagesForThread } from '../support/messageListing';
 import { authedMutation } from '../functions';
 import { authComponent } from '../auth';
-import { getAutumnSdk } from '../autumn';
+import { checkAndCountUsage, refundUsage } from '../autumn';
 import { requireAiChatThreadRecord } from './ownership';
 
 const THREAD_PREVIEW_LENGTH = 100;
@@ -121,8 +121,12 @@ export const sendMessage = authedMutation({
 /**
  * Internal action to generate AI response with streaming.
  *
- * Checks Autumn billing before generating (action can make HTTP calls).
- * Tracks usage after successful response.
+ * Counts the AI chat message in one atomic Autumn call before
+ * generating (see `checkAndCountUsage` for the concurrency semantics;
+ * a separate check-before plus track-after pair would let concurrent
+ * sends race past the limit during the multi-second stream). If
+ * generation fails after the unit was counted, the unit is refunded
+ * so a failed response never costs a message.
  */
 export const createAIResponse = internalAction({
 	args: {
@@ -131,33 +135,48 @@ export const createAIResponse = internalAction({
 		userId: v.optional(v.string())
 	},
 	handler: async (ctx, args) => {
-		// Check AI chat message allowance via direct SDK (no auth context in internalAction).
-		// See: https://github.com/useautumn/autumn-js/issues/51
+		// Direct SDK path with explicit customer_id (no auth context in
+		// internalAction). See: https://github.com/useautumn/autumn-js/issues/51
+		let usageCounted = false;
 		if (args.userId) {
-			const sdk = await getAutumnSdk();
-			const checkResult = await sdk.check({
-				customer_id: args.userId,
-				feature_id: 'ai_chat_messages'
+			const outcome = await checkAndCountUsage({
+				customerId: args.userId,
+				featureId: 'ai_chat_messages'
 			});
-			if (checkResult.data && !checkResult.data.allowed) {
+			if (outcome === 'denied') {
 				console.warn(`[createAIResponse] AI chat limit reached for user ${args.userId}`);
 				return;
 			}
+			// 'unavailable' fails open: generate uncounted rather than blocking
+			// a legitimate user on a billing outage
+			usageCounted = outcome === 'counted';
 		}
 
-		const result = await aiChatAgent.streamText(
-			ctx,
-			{ threadId: args.threadId, userId: args.userId },
-			{ promptMessageId: args.promptMessageId },
-			{
-				saveStreamDeltas: {
-					chunking: 'line',
-					throttleMs: 100
+		let result;
+		try {
+			result = await aiChatAgent.streamText(
+				ctx,
+				{ threadId: args.threadId, userId: args.userId },
+				{ promptMessageId: args.promptMessageId },
+				{
+					saveStreamDeltas: {
+						chunking: 'line',
+						throttleMs: 100
+					}
 				}
-			}
-		);
+			);
 
-		await result.consumeStream();
+			await result.consumeStream();
+		} catch (error) {
+			// The unit was counted up front; a failed generation must not cost
+			// a message. The refund window ends here: once the stream is
+			// consumed the response is saved, so later denormalization errors
+			// don't refund a delivered message.
+			if (args.userId && usageCounted) {
+				await refundUsage({ customerId: args.userId, featureId: 'ai_chat_messages' });
+			}
+			throw error;
+		}
 
 		// Denormalize: update thread sidebar metadata with the AI's response.
 		// Trim and skip an empty preview so a whitespace-only response never lands
@@ -169,16 +188,6 @@ export const createAIResponse = internalAction({
 				threadId: args.threadId,
 				lastMessage: responsePreview,
 				lastMessageAt: Date.now()
-			});
-		}
-
-		// Track usage after successful AI response
-		if (args.userId) {
-			const sdk = await getAutumnSdk();
-			await sdk.track({
-				customer_id: args.userId,
-				feature_id: 'ai_chat_messages',
-				value: 1
 			});
 		}
 	}
