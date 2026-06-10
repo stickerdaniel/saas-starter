@@ -2,7 +2,7 @@ import { internalAction, internalMutation } from './_generated/server';
 import { v, ConvexError } from 'convex/values';
 import { components, internal } from './_generated/api';
 import { authedQuery, authedMutation } from './functions';
-import { getAutumnSdk } from './autumn';
+import { checkAndCountUsage } from './autumn';
 import { appRateLimiter } from './rateLimit';
 import { createRateLimitError } from './support/types';
 
@@ -60,13 +60,13 @@ export const list = authedQuery({
  *
  * Mutation (not action) so Convex optimistic updates work. The Autumn
  * entitlement check needs an action context, so the message-quota
- * backstop runs in the scheduled follow-up: it removes the inserted
- * message when the sender is over their limit. That path is reached
- * by direct API calls and by legitimate sends right at the quota
- * boundary (the client guard reads a balance that only updates after
- * the scheduled track lands), in which case the message briefly
- * appears and is then removed. A per-user rate limiter caps send
- * frequency here in the mutation.
+ * backstop runs in the scheduled follow-up: it atomically counts the
+ * message and removes it when the sender is over their limit. That
+ * path is reached by direct API calls and by legitimate sends right
+ * at the quota boundary (the client guard reads a balance that only
+ * updates after the scheduled enforcement lands), in which case the
+ * message briefly appears and is then removed. A per-user rate
+ * limiter caps send frequency here in the mutation.
  */
 export const send = authedMutation({
 	args: { body: v.string() },
@@ -111,37 +111,25 @@ export const removeMessage = internalMutation({
 });
 
 /**
- * Enforce the community chat message quota and track usage via Autumn.
+ * Enforce the community chat message quota and count the usage.
+ *
  * Scheduled from the send mutation. The entitlement check needs an
  * action (HTTP), so enforcement happens here rather than in the
- * mutation: over-limit messages are removed, allowed ones are tracked.
+ * mutation. Counting and deciding happen in one atomic Autumn call
+ * (see `checkAndCountUsage` for the concurrency semantics):
+ * - 'counted': the message was within quota and is now recorded.
+ * - 'denied': nothing was deducted, remove the over-limit message.
+ * - 'unavailable': nothing was deducted, keep the message uncounted.
+ *   Never delete a legitimate message on a transient billing fault.
  */
 export const enforceAndTrackMessageUsage = internalAction({
 	args: { userId: v.string(), messageId: v.id('messages') },
 	returns: v.null(),
 	handler: async (ctx, { userId, messageId }) => {
-		const sdk = await getAutumnSdk();
-
-		let allowed = true;
-		try {
-			const result = await sdk.check({ customer_id: userId, feature_id: 'messages' });
-			// Only a definitive not-allowed response removes the message. A
-			// missing `data` (HTTP error) or a thrown network error keeps the
-			// message — never delete a legitimate message on a transient fault.
-			if (result.data && !result.data.allowed) {
-				allowed = false;
-			}
-		} catch (error) {
-			console.warn('[enforceAndTrackMessageUsage] Autumn check failed, keeping message:', error);
-			return null;
-		}
-
-		if (!allowed) {
+		const outcome = await checkAndCountUsage({ customerId: userId, featureId: 'messages' });
+		if (outcome === 'denied') {
 			await ctx.runMutation(internal.messages.removeMessage, { messageId });
-			return null;
 		}
-
-		await sdk.track({ customer_id: userId, feature_id: 'messages', value: 1 });
 		return null;
 	}
 });
