@@ -36,10 +36,12 @@ vi.mock('../../_generated/api', () => ({
 
 import { authComponent } from '../../auth';
 import { supportAgent } from '../agent';
+import { supportRateLimiter } from '../rateLimit';
 import { getOrCreateWarmThread } from '../threads';
 
 const safeGetAuthUserMock = authComponent.safeGetAuthUser as unknown as ReturnType<typeof vi.fn>;
 const createThreadMock = supportAgent.createThread as unknown as ReturnType<typeof vi.fn>;
+const limitMock = supportRateLimiter.limit as unknown as ReturnType<typeof vi.fn>;
 
 type MutationHandler<TArgs, TResult> = {
 	_handler: (ctx: unknown, args: TArgs) => Promise<TResult>;
@@ -87,6 +89,9 @@ describe('support warm thread acquisition', () => {
 			notificationEmail: undefined
 		});
 		expect(createThreadMock).not.toHaveBeenCalled();
+		// The reuse branch must not consume a rate-limit token, otherwise
+		// warm-thread polling would drain the thread-creation bucket
+		expect(limitMock).not.toHaveBeenCalled();
 		expect(patch).toHaveBeenCalledWith('support_doc_1', {
 			pageUrl: 'https://example.com/new',
 			updatedAt: expect.any(Number)
@@ -122,6 +127,10 @@ describe('support warm thread acquisition', () => {
 			userId: 'anon_456',
 			title: 'Customer Support',
 			summary: 'New support conversation'
+		});
+		// The creation branch is rate limited; anonymous callers share a global bucket
+		expect(limitMock).toHaveBeenCalledWith(ctx, 'supportThreadCreateAnon', {
+			key: 'anonymous-global'
 		});
 		expect(insert).toHaveBeenCalledWith(
 			'supportThreads',

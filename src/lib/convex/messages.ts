@@ -61,9 +61,12 @@ export const list = authedQuery({
  * Mutation (not action) so Convex optimistic updates work. The Autumn
  * entitlement check needs an action context, so the message-quota
  * backstop runs in the scheduled follow-up: it removes the inserted
- * message when the sender is over their limit (only reachable by a
- * direct API call that bypasses the client guard). A per-user rate
- * limiter caps send frequency here in the mutation.
+ * message when the sender is over their limit. That path is reached
+ * by direct API calls and by legitimate sends right at the quota
+ * boundary (the client guard reads a balance that only updates after
+ * the scheduled track lands), in which case the message briefly
+ * appears and is then removed. A per-user rate limiter caps send
+ * frequency here in the mutation.
  */
 export const send = authedMutation({
 	args: { body: v.string() },
