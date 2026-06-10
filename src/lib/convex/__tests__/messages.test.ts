@@ -8,7 +8,7 @@ vi.mock('../auth', () => ({
 }));
 
 vi.mock('../autumn', () => ({
-	getAutumnSdk: vi.fn()
+	checkAndCountUsage: vi.fn()
 }));
 
 vi.mock('../rateLimit', () => ({
@@ -28,12 +28,12 @@ vi.mock('../_generated/api', () => ({
 }));
 
 import { authComponent } from '../auth';
-import { getAutumnSdk } from '../autumn';
+import { checkAndCountUsage } from '../autumn';
 import { appRateLimiter } from '../rateLimit';
 import { enforceAndTrackMessageUsage, removeMessage, send } from '../messages';
 
 const getAuthUserMock = authComponent.getAuthUser as unknown as ReturnType<typeof vi.fn>;
-const getAutumnSdkMock = getAutumnSdk as unknown as ReturnType<typeof vi.fn>;
+const checkAndCountUsageMock = checkAndCountUsage as unknown as ReturnType<typeof vi.fn>;
 const limitMock = appRateLimiter.limit as unknown as ReturnType<typeof vi.fn>;
 
 type RegisteredFunction<TArgs, TResult> = {
@@ -49,63 +49,49 @@ const sendHandler = send as unknown as RegisteredFunction<{ body: string }, { me
 
 // The quota backstop deletes user messages in a silent at-most-once scheduled
 // action, so its keep/remove decision must never regress: only a definitive
-// not-allowed response from Autumn may remove a message. Missing data (HTTP
-// error) or a thrown network error must keep it.
+// 'denied' outcome may remove a message. 'unavailable' (Autumn outage) must
+// keep it. The outcome mapping itself is covered in __tests__/autumn.test.ts;
+// usage is counted by the atomic check, so no separate track call exists.
 describe('enforceAndTrackMessageUsage', () => {
-	let check: ReturnType<typeof vi.fn>;
-	let track: ReturnType<typeof vi.fn>;
 	let runMutation: ReturnType<typeof vi.fn>;
 	let ctx: { runMutation: ReturnType<typeof vi.fn> };
 
 	beforeEach(() => {
 		vi.clearAllMocks();
-		check = vi.fn();
-		track = vi.fn().mockResolvedValue(undefined);
 		runMutation = vi.fn().mockResolvedValue(null);
 		ctx = { runMutation };
-		getAutumnSdkMock.mockResolvedValue({ check, track });
 	});
 
-	it('tracks usage when the check allows the message', async () => {
-		check.mockResolvedValue({ data: { allowed: true } });
+	it('keeps a counted message without any follow-up call', async () => {
+		checkAndCountUsageMock.mockResolvedValue('counted');
 
 		await enforceHandler._handler(ctx, { userId: 'user_1', messageId: 'msg_1' });
 
-		expect(track).toHaveBeenCalledWith({ customer_id: 'user_1', feature_id: 'messages', value: 1 });
+		expect(checkAndCountUsageMock).toHaveBeenCalledWith({
+			customerId: 'user_1',
+			featureId: 'messages'
+		});
 		expect(runMutation).not.toHaveBeenCalled();
 	});
 
-	it('removes the message only on a definitive not-allowed response', async () => {
-		check.mockResolvedValue({ data: { allowed: false } });
+	it('removes the message only on a definitive denial', async () => {
+		checkAndCountUsageMock.mockResolvedValue('denied');
 
 		await enforceHandler._handler(ctx, { userId: 'user_1', messageId: 'msg_1' });
 
 		expect(runMutation).toHaveBeenCalledWith('internal.messages.removeMessage', {
 			messageId: 'msg_1'
 		});
-		expect(track).not.toHaveBeenCalled();
 	});
 
-	it('keeps and tracks the message when the check returns no data (HTTP error)', async () => {
-		check.mockResolvedValue({ data: null });
-
-		await enforceHandler._handler(ctx, { userId: 'user_1', messageId: 'msg_1' });
-
-		expect(runMutation).not.toHaveBeenCalled();
-		expect(track).toHaveBeenCalledWith({ customer_id: 'user_1', feature_id: 'messages', value: 1 });
-	});
-
-	it('keeps the message and skips tracking when the check throws (network error)', async () => {
-		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-		check.mockRejectedValue(new Error('network down'));
+	it('keeps the message uncounted when Autumn is unavailable', async () => {
+		checkAndCountUsageMock.mockResolvedValue('unavailable');
 
 		await expect(
 			enforceHandler._handler(ctx, { userId: 'user_1', messageId: 'msg_1' })
 		).resolves.toBeNull();
 
 		expect(runMutation).not.toHaveBeenCalled();
-		expect(track).not.toHaveBeenCalled();
-		warn.mockRestore();
 	});
 });
 
