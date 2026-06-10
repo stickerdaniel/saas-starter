@@ -1,4 +1,4 @@
-import { v, ConvexError } from 'convex/values';
+import { v } from 'convex/values';
 import { internalMutation } from '../_generated/server';
 import { authedQuery, authedMutation } from '../functions';
 import { aiChatAgent } from './agent';
@@ -6,6 +6,7 @@ import { components } from '../_generated/api';
 import { requireAiChatThreadRecord } from './ownership';
 import { isVisibleAiChatThread } from './visibility';
 import { aiChatRateLimiter } from './rateLimit';
+import { createRateLimitError } from '../support/types';
 
 // aiChatThreads is the feature registry for AI chat access and sidebar state.
 // agent:threads remains generic conversation storage/runtime shared across features.
@@ -65,7 +66,7 @@ export const createThread = authedMutation({
 
 		const status = await aiChatRateLimiter.limit(ctx, 'aiChatThreadCreate', { key: userId });
 		if (!status.ok) {
-			throw new ConvexError('Too many new chats. Please wait a moment.');
+			throw createRateLimitError(status.retryAfter, 'Too many new chats. Please wait a moment.');
 		}
 
 		const { threadId } = await aiChatAgent.createThread(ctx, {
@@ -148,7 +149,7 @@ export const getOrCreateWarmThread = authedMutation({
 		// Only the creation branch consumes a token; idempotent reads above don't
 		const status = await aiChatRateLimiter.limit(ctx, 'aiChatThreadCreate', { key: userId });
 		if (!status.ok) {
-			throw new ConvexError('Too many new chats. Please wait a moment.');
+			throw createRateLimitError(status.retryAfter, 'Too many new chats. Please wait a moment.');
 		}
 
 		// No warm thread exists — create one

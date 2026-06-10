@@ -10,6 +10,7 @@
 	import { localizedHref } from '$lib/utils/i18n';
 	import { useQuery, useConvexClient } from '@mmailaender/convex-svelte';
 	import { api } from '$lib/convex/_generated/api';
+	import { ConvexError } from 'convex/values';
 	import { getTranslate } from '@tolgee/svelte';
 	import type { LayoutData } from './$types';
 	import type { Snippet } from 'svelte';
@@ -38,13 +39,30 @@
 	const warmThreadId = $derived(warmThreadQuery.data?.threadId ?? null);
 
 	let ensureWarmInFlight = $state(false);
+	let ensureWarmBlocked = $state(false);
 
 	$effect(() => {
-		if (warmThreadQuery.data === null && !ensureWarmInFlight && viewer) {
+		if (warmThreadQuery.data === null && !ensureWarmInFlight && !ensureWarmBlocked && viewer) {
 			ensureWarmInFlight = true;
-			client.mutation(api.aiChat.threads.getOrCreateWarmThread, {}).finally(() => {
-				ensureWarmInFlight = false;
-			});
+			client
+				.mutation(api.aiChat.threads.getOrCreateWarmThread, {})
+				.catch((error) => {
+					// Back off instead of retrying at network pace: the effect re-runs
+					// when ensureWarmInFlight resets while data is still null, so a
+					// deterministic failure (e.g. thread-create rate limit) would loop.
+					console.error('[app] Failed to ensure warm thread:', error);
+					ensureWarmBlocked = true;
+					const retryAfter =
+						error instanceof ConvexError
+							? ((error.data as { retryAfter?: number })?.retryAfter ?? 60000)
+							: 60000;
+					setTimeout(() => {
+						ensureWarmBlocked = false;
+					}, retryAfter);
+				})
+				.finally(() => {
+					ensureWarmInFlight = false;
+				});
 		}
 	});
 
