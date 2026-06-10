@@ -39,10 +39,12 @@ async function limitSupportThreadCreate(
 	const key = owner.isAnonymous ? 'anonymous-global' : owner.ownerId;
 	const status = await supportRateLimiter.limit(ctx, limitName, { key });
 	if (!status.ok) {
-		throw createRateLimitError(
-			status.retryAfter,
-			t(extractLocaleFromUrl(pageUrl), 'backend.support.rate_limit.user')
-		);
+		// Anonymous callers share a global bucket, so exhaustion is high demand,
+		// not the visitor's own message rate — use the global message for them.
+		const messageKey = owner.isAnonymous
+			? 'backend.support.rate_limit.global'
+			: 'backend.support.rate_limit.user';
+		throw createRateLimitError(status.retryAfter, t(extractLocaleFromUrl(pageUrl), messageKey));
 	}
 }
 

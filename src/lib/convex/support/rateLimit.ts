@@ -89,12 +89,16 @@ export const supportRateLimiter = new RateLimiter(components.rateLimiter, {
 		capacity: 5
 	},
 
-	// Anonymous thread creation — GLOBAL shared bucket (spoofable client IDs)
-	// Token bucket: 10-thread burst, sustained 20/hour
+	// Anonymous thread creation — GLOBAL shared bucket (spoofable client IDs).
+	// Sized for legitimate traffic: the marketing-page chatbar creates a warm
+	// thread on the first keystroke of every NEW anonymous visitor, so this
+	// gates the anon support entry point, not a rare secondary action. Thread
+	// creation is a cheap DB insert; LLM cost is capped separately (globalLLM).
+	// Token bucket: 30-thread burst, sustained 100/hour
 	supportThreadCreateAnon: {
 		kind: 'token bucket',
-		rate: 20,
+		rate: 100,
 		period: HOUR,
-		capacity: 10
+		capacity: 30
 	}
 });
