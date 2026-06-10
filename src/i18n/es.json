@@ -605,6 +605,7 @@
 			"upgrade_tooltip": "Actualiza a Pro para mensajes ilimitados"
 		},
 		"messages": {
+			"rate_limited": "Estás enviando mensajes demasiado rápido. Vuelve a intentarlo en {seconds}s.",
 			"send_failed": "Error al enviar mensaje",
 			"sent_success": "¡Mensaje enviado!"
 		},
@@ -927,6 +928,7 @@
 		"account": {
 			"avatar": {
 				"alt": "Vista previa del perfil",
+				"rate_limited": "Demasiados intentos de subida. Vuelve a intentarlo en {seconds}s.",
 				"ready": "Imagen lista para guardar",
 				"removed": "Imagen eliminada - haz clic en Guardar para confirmar",
 				"select_error": "Por favor selecciona un archivo de imagen",

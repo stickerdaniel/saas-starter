@@ -1,8 +1,10 @@
-import { internalAction } from './_generated/server';
+import { internalAction, internalMutation } from './_generated/server';
 import { v, ConvexError } from 'convex/values';
 import { components, internal } from './_generated/api';
 import { authedQuery, authedMutation } from './functions';
 import { getAutumnSdk } from './autumn';
+import { appRateLimiter } from './rateLimit';
+import { createRateLimitError } from './support/types';
 
 export const list = authedQuery({
 	args: {},
@@ -56,9 +58,15 @@ export const list = authedQuery({
 /**
  * Send a community chat message.
  *
- * Mutation (not action) so Convex optimistic updates work.
- * Billing is enforced client-side via Autumn customer balance;
- * usage tracking is scheduled as a fire-and-forget internalAction.
+ * Mutation (not action) so Convex optimistic updates work. The Autumn
+ * entitlement check needs an action context, so the message-quota
+ * backstop runs in the scheduled follow-up: it removes the inserted
+ * message when the sender is over their limit. That path is reached
+ * by direct API calls and by legitimate sends right at the quota
+ * boundary (the client guard reads a balance that only updates after
+ * the scheduled track lands), in which case the message briefly
+ * appears and is then removed. A per-user rate limiter caps send
+ * frequency here in the mutation.
  */
 export const send = authedMutation({
 	args: { body: v.string() },
@@ -67,13 +75,19 @@ export const send = authedMutation({
 			throw new ConvexError('Message is too long (max 2000 characters)');
 		}
 
+		const status = await appRateLimiter.limit(ctx, 'communityMessage', { key: ctx.user._id });
+		if (!status.ok) {
+			throw createRateLimitError(status.retryAfter, 'Too many messages. Please wait a moment.');
+		}
+
 		const messageId = await ctx.db.insert('messages', {
 			body,
 			userId: ctx.user._id
 		});
 
-		await ctx.scheduler.runAfter(0, internal.messages.trackMessageUsage, {
-			userId: ctx.user._id
+		await ctx.scheduler.runAfter(0, internal.messages.enforceAndTrackMessageUsage, {
+			userId: ctx.user._id,
+			messageId
 		});
 
 		return { messageId };
@@ -81,17 +95,53 @@ export const send = authedMutation({
 });
 
 /**
- * Track community chat message usage via Autumn SDK.
- * Scheduled from the send mutation (fire-and-forget).
+ * Delete a community chat message. Internal only, used by the quota
+ * backstop to roll back an over-limit message.
  */
-export const trackMessageUsage = internalAction({
-	args: { userId: v.string() },
-	handler: async (_ctx, { userId }) => {
+export const removeMessage = internalMutation({
+	args: { messageId: v.id('messages') },
+	returns: v.null(),
+	handler: async (ctx, { messageId }) => {
+		const message = await ctx.db.get(messageId);
+		if (message) {
+			await ctx.db.delete(messageId);
+		}
+		return null;
+	}
+});
+
+/**
+ * Enforce the community chat message quota and track usage via Autumn.
+ * Scheduled from the send mutation. The entitlement check needs an
+ * action (HTTP), so enforcement happens here rather than in the
+ * mutation: over-limit messages are removed, allowed ones are tracked.
+ */
+export const enforceAndTrackMessageUsage = internalAction({
+	args: { userId: v.string(), messageId: v.id('messages') },
+	returns: v.null(),
+	handler: async (ctx, { userId, messageId }) => {
 		const sdk = await getAutumnSdk();
-		await sdk.track({
-			customer_id: userId,
-			feature_id: 'messages',
-			value: 1
-		});
+
+		let allowed = true;
+		try {
+			const result = await sdk.check({ customer_id: userId, feature_id: 'messages' });
+			// Only a definitive not-allowed response removes the message. A
+			// missing `data` (HTTP error) or a thrown network error keeps the
+			// message — never delete a legitimate message on a transient fault.
+			if (result.data && !result.data.allowed) {
+				allowed = false;
+			}
+		} catch (error) {
+			console.warn('[enforceAndTrackMessageUsage] Autumn check failed, keeping message:', error);
+			return null;
+		}
+
+		if (!allowed) {
+			await ctx.runMutation(internal.messages.removeMessage, { messageId });
+			return null;
+		}
+
+		await sdk.track({ customer_id: userId, feature_id: 'messages', value: 1 });
+		return null;
 	}
 });

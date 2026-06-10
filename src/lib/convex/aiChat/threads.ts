@@ -5,6 +5,8 @@ import { aiChatAgent } from './agent';
 import { components } from '../_generated/api';
 import { requireAiChatThreadRecord } from './ownership';
 import { isVisibleAiChatThread } from './visibility';
+import { aiChatRateLimiter } from './rateLimit';
+import { createRateLimitError } from '../support/types';
 
 // aiChatThreads is the feature registry for AI chat access and sidebar state.
 // agent:threads remains generic conversation storage/runtime shared across features.
@@ -61,6 +63,11 @@ export const createThread = authedMutation({
 	args: {},
 	handler: async (ctx) => {
 		const userId = ctx.user._id;
+
+		const status = await aiChatRateLimiter.limit(ctx, 'aiChatThreadCreate', { key: userId });
+		if (!status.ok) {
+			throw createRateLimitError(status.retryAfter, 'Too many new chats. Please wait a moment.');
+		}
 
 		const { threadId } = await aiChatAgent.createThread(ctx, {
 			userId,
@@ -137,6 +144,12 @@ export const getOrCreateWarmThread = authedMutation({
 
 		if (existingWarm) {
 			return { threadId: existingWarm.threadId };
+		}
+
+		// Only the creation branch consumes a token; idempotent reads above don't
+		const status = await aiChatRateLimiter.limit(ctx, 'aiChatThreadCreate', { key: userId });
+		if (!status.ok) {
+			throw createRateLimitError(status.retryAfter, 'Too many new chats. Please wait a moment.');
 		}
 
 		// No warm thread exists — create one

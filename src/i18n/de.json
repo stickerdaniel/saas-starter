@@ -605,6 +605,7 @@
 			"upgrade_tooltip": "Auf Pro upgraden für unbegrenzte Nachrichten"
 		},
 		"messages": {
+			"rate_limited": "Sie senden zu schnell Nachrichten. Versuchen Sie es in {seconds}s erneut.",
 			"send_failed": "Nachricht konnte nicht gesendet werden",
 			"sent_success": "Nachricht gesendet!"
 		},
@@ -927,6 +928,7 @@
 		"account": {
 			"avatar": {
 				"alt": "Profilvorschau",
+				"rate_limited": "Zu viele Upload-Versuche. Versuchen Sie es in {seconds}s erneut.",
 				"ready": "Bild bereit zum Speichern",
 				"removed": "Bild entfernt - klicken Sie auf Speichern zur Bestätigung",
 				"select_error": "Bitte wählen Sie eine Bilddatei aus",

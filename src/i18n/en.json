@@ -605,6 +605,7 @@
 			"upgrade_tooltip": "Upgrade to Pro for unlimited messages"
 		},
 		"messages": {
+			"rate_limited": "You're sending messages too fast. Try again in {seconds}s.",
 			"send_failed": "Failed to send message",
 			"sent_success": "Message sent!"
 		},
@@ -927,6 +928,7 @@
 		"account": {
 			"avatar": {
 				"alt": "Profile preview",
+				"rate_limited": "Too many upload attempts. Try again in {seconds}s.",
 				"ready": "Image ready to save",
 				"removed": "Image removed - click Save to confirm",
 				"select_error": "Please select an image file",

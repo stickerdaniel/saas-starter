@@ -29,6 +29,7 @@
 	import { page } from '$app/state';
 	import { T, getTranslate } from '@tolgee/svelte';
 	import type { OptimisticLocalStore } from 'convex/browser';
+	import { ConvexError } from 'convex/values';
 	import type { Id } from '$lib/convex/_generated/dataModel';
 
 	const { t } = getTranslate();
@@ -158,7 +159,17 @@
 		} catch (error) {
 			console.error('Failed to send message:', error);
 			haptic.trigger('error');
-			toast.error($t('chat.messages.send_failed'));
+			// Restore the draft so the user can retry without retyping
+			if (!inputValue) inputValue = bodyToSend;
+			if (
+				error instanceof ConvexError &&
+				(error.data as { code?: string })?.code === 'RATE_LIMITED'
+			) {
+				const retryAfter = (error.data as { retryAfter?: number }).retryAfter ?? 60000;
+				toast.error($t('chat.messages.rate_limited', { seconds: Math.ceil(retryAfter / 1000) }));
+			} else {
+				toast.error($t('chat.messages.send_failed'));
+			}
 		} finally {
 			isSending = false;
 		}

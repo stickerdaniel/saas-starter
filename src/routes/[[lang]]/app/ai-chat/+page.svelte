@@ -1,10 +1,12 @@
 <script lang="ts">
 	import SEOHead from '$lib/components/SEOHead.svelte';
+	import { onDestroy } from 'svelte';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { useQuery, useConvexClient } from '@mmailaender/convex-svelte';
 	import { api } from '$lib/convex/_generated/api';
+	import { ConvexError } from 'convex/values';
 	import { useCustomer, useAutumnOperation } from '@stickerdaniel/convex-autumn-svelte/sveltekit';
 	import { getTranslate } from '@tolgee/svelte';
 	import { toast } from 'svelte-sonner';
@@ -41,9 +43,11 @@
 	// Fallback: if navigated to /ai-chat without ?thread= (e.g. direct URL), get warm thread.
 	// The common path (sidebar click) already includes ?thread=warmId, so this rarely fires.
 	let resolvingThread = $state(false);
+	let resolveThreadBlocked = $state(false);
+	let resolveThreadUnblockTimer: ReturnType<typeof setTimeout> | undefined;
 
 	$effect(() => {
-		if (!threadId && !resolvingThread && viewer.data) {
+		if (!threadId && !resolvingThread && !resolveThreadBlocked && viewer.data) {
 			resolvingThread = true;
 			client
 				.mutation(api.aiChat.threads.getOrCreateWarmThread, {})
@@ -53,13 +57,26 @@
 					goto(resolve(url.pathname + url.search), { noScroll: true, replaceState: true });
 				})
 				.catch((err) => {
+					// Back off instead of retrying at network pace: the effect re-runs
+					// when resolvingThread resets while threadId is still empty, so a
+					// deterministic failure (e.g. thread-create rate limit) would loop.
 					console.error('[ai-chat] Failed to resolve warm thread:', err);
+					resolveThreadBlocked = true;
+					const retryAfter =
+						err instanceof ConvexError
+							? ((err.data as { retryAfter?: number })?.retryAfter ?? 60000)
+							: 60000;
+					resolveThreadUnblockTimer = setTimeout(() => {
+						resolveThreadBlocked = false;
+					}, retryAfter);
 				})
 				.finally(() => {
 					resolvingThread = false;
 				});
 		}
 	});
+
+	onDestroy(() => clearTimeout(resolveThreadUnblockTimer));
 
 	async function handleUpgrade() {
 		haptic.trigger('light');
