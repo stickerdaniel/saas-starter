@@ -38,6 +38,9 @@
 	// A warm support thread is acquired on first keystroke and reused until submit.
 	let pendingThreadId = $state<string | null>(null);
 	let threadCreationPromise: Promise<string> | null = null;
+	// After a failed creation (e.g. rate limited), passive keystroke retries
+	// are suppressed until this timestamp; an explicit submit always retries.
+	let threadCreationBlockedUntil = 0;
 
 	// Query subscription for pre-warming cache (enables optimistic updates)
 	// The onUpdate return type is a function that can be called to unsubscribe
@@ -54,8 +57,10 @@
 		threadContext.requestWidgetOpen();
 
 		try {
-			// Wait for pending thread if still creating
-			const threadId = pendingThreadId || (await threadCreationPromise!);
+			// Wait for pending thread if still creating; if the first-keystroke
+			// attempt failed earlier, retry creation now instead of re-awaiting
+			// a cached rejection
+			const threadId = pendingThreadId ?? (await (threadCreationPromise ?? createWarmThread()));
 
 			// Update shared context (selectThread sets view='chat' + URL sync)
 			threadContext.selectThread(threadId);
@@ -80,6 +85,9 @@
 		} catch (error) {
 			console.error('[AI Chatbar] handleSubmit Error:', error);
 
+			// Restore the cleared input so the visitor's message is not lost
+			if (!input) input = trimmedPrompt;
+
 			// Handle rate limit errors with user-friendly toast
 			if (error instanceof ConvexError) {
 				const data = error.data as { code?: string; retryAfter?: number } | undefined;
@@ -97,41 +105,60 @@
 		}
 	}
 
+	function createWarmThread(): Promise<string> {
+		threadCreationPromise = client
+			.mutation(api.support.threads.getOrCreateWarmThread, {
+				anonymousUserId,
+				pageUrl: typeof window !== 'undefined' ? window.location.href : undefined
+			})
+			.then((result) => {
+				pendingThreadId = result.threadId;
+
+				// Pre-subscribe to messages query so it's cached by submit time
+				// This ensures optimistic update finds the query in cache
+				const preSubscribeArgs = {
+					threadId: result.threadId,
+					...(anonymousUserId ? { anonymousUserId } : {}),
+					paginationOpts: { numItems: 50, cursor: null },
+					streamArgs: { kind: 'list' as const, startOrder: 0 }
+				};
+				queryUnsubscribe = client.onUpdate(
+					api.support.messages.listMessages,
+					preSubscribeArgs,
+					() => {
+						// Query cache warmed
+					}
+				);
+
+				return result.threadId;
+			})
+			.catch((error) => {
+				console.error('[AI Chatbar] Thread creation failed:', error);
+				// Don't cache the rejection: clear the promise so a later submit or
+				// keystroke (after the cooldown) can retry instead of re-awaiting it
+				threadCreationPromise = null;
+				const data =
+					error instanceof ConvexError
+						? (error.data as { retryAfter?: number } | undefined)
+						: undefined;
+				threadCreationBlockedUntil = Date.now() + (data?.retryAfter ?? 30000);
+				throw error;
+			});
+		return threadCreationPromise;
+	}
+
 	function handleValueChange(value: string) {
 		input = value;
 
 		// Acquire a warm thread on first keystroke (or reuse the existing pending one)
-		if (value.trim() && !pendingThreadId && !threadCreationPromise) {
-			threadCreationPromise = client
-				.mutation(api.support.threads.getOrCreateWarmThread, {
-					anonymousUserId,
-					pageUrl: typeof window !== 'undefined' ? window.location.href : undefined
-				})
-				.then((result) => {
-					pendingThreadId = result.threadId;
-
-					// Pre-subscribe to messages query so it's cached by submit time
-					// This ensures optimistic update finds the query in cache
-					const preSubscribeArgs = {
-						threadId: result.threadId,
-						...(anonymousUserId ? { anonymousUserId } : {}),
-						paginationOpts: { numItems: 50, cursor: null },
-						streamArgs: { kind: 'list' as const, startOrder: 0 }
-					};
-					queryUnsubscribe = client.onUpdate(
-						api.support.messages.listMessages,
-						preSubscribeArgs,
-						() => {
-							// Query cache warmed
-						}
-					);
-
-					return result.threadId;
-				})
-				.catch((error) => {
-					console.error('[AI Chatbar] Thread creation failed:', error);
-					throw error;
-				});
+		if (
+			value.trim() &&
+			!pendingThreadId &&
+			!threadCreationPromise &&
+			Date.now() >= threadCreationBlockedUntil
+		) {
+			// Keystroke-time failure is non-fatal: submit retries and surfaces errors
+			createWarmThread().catch(() => {});
 		}
 	}
 
