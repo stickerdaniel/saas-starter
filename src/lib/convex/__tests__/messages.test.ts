@@ -27,10 +27,14 @@ vi.mock('../_generated/api', () => ({
 	}
 }));
 
+import { authComponent } from '../auth';
 import { getAutumnSdk } from '../autumn';
-import { enforceAndTrackMessageUsage, removeMessage } from '../messages';
+import { appRateLimiter } from '../rateLimit';
+import { enforceAndTrackMessageUsage, removeMessage, send } from '../messages';
 
+const getAuthUserMock = authComponent.getAuthUser as unknown as ReturnType<typeof vi.fn>;
 const getAutumnSdkMock = getAutumnSdk as unknown as ReturnType<typeof vi.fn>;
+const limitMock = appRateLimiter.limit as unknown as ReturnType<typeof vi.fn>;
 
 type RegisteredFunction<TArgs, TResult> = {
 	_handler: (ctx: unknown, args: TArgs) => Promise<TResult>;
@@ -41,6 +45,7 @@ const enforceHandler = enforceAndTrackMessageUsage as unknown as RegisteredFunct
 	null
 >;
 const removeHandler = removeMessage as unknown as RegisteredFunction<{ messageId: string }, null>;
+const sendHandler = send as unknown as RegisteredFunction<{ body: string }, { messageId: string }>;
 
 // The quota backstop deletes user messages in a silent at-most-once scheduled
 // action, so its keep/remove decision must never regress: only a definitive
@@ -125,5 +130,43 @@ describe('removeMessage', () => {
 		await removeHandler._handler(ctx, { messageId: 'msg_1' });
 
 		expect(del).not.toHaveBeenCalled();
+	});
+});
+
+describe('send', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		getAuthUserMock.mockResolvedValue({ _id: 'user_1' });
+		limitMock.mockResolvedValue({ ok: true, retryAfter: 0 });
+	});
+
+	it('rejects with a structured error when the rate limit is exhausted', async () => {
+		limitMock.mockResolvedValue({ ok: false, retryAfter: 12000 });
+		const insert = vi.fn();
+		const runAfter = vi.fn();
+		const ctx = { db: { insert }, scheduler: { runAfter } };
+
+		await expect(sendHandler._handler(ctx, { body: 'hello' })).rejects.toMatchObject({
+			data: { code: 'RATE_LIMITED', retryAfter: 12000 }
+		});
+		expect(insert).not.toHaveBeenCalled();
+		expect(runAfter).not.toHaveBeenCalled();
+	});
+
+	it('inserts the message and schedules the quota backstop with its id', async () => {
+		const insert = vi.fn().mockResolvedValue('msg_1');
+		const runAfter = vi.fn().mockResolvedValue(undefined);
+		const ctx = { db: { insert }, scheduler: { runAfter } };
+
+		const result = await sendHandler._handler(ctx, { body: 'hello' });
+
+		expect(result).toEqual({ messageId: 'msg_1' });
+		expect(limitMock).toHaveBeenCalledWith(expect.anything(), 'communityMessage', {
+			key: 'user_1'
+		});
+		expect(runAfter).toHaveBeenCalledWith(0, 'internal.messages.enforceAndTrackMessageUsage', {
+			userId: 'user_1',
+			messageId: 'msg_1'
+		});
 	});
 });
