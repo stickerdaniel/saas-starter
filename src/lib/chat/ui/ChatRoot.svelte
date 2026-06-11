@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { useQuery, useConvexClient } from '@mmailaender/convex-svelte';
-	import type { Snippet } from 'svelte';
+	import { onDestroy, type Snippet } from 'svelte';
 	import type { UIMessage } from '@convex-dev/agent';
 	import { ChatCore, type ChatCoreAPI } from '../core/ChatCore.svelte.js';
 	import { CHAT_PAGE_SIZE, type DisplayMessage } from '../core/types.js';
@@ -96,6 +96,12 @@
 	const uiContext =
 		externalUIContext ?? new ChatUIContext(core, client, uploadConfig, userAlignment);
 	setChatUIContext(uiContext);
+
+	// Dispose the internally created context on unmount (revokes blob preview
+	// URLs of unsent attachments). External contexts are owned by their creator.
+	onDestroy(() => {
+		if (!externalUIContext) uiContext.dispose();
+	});
 
 	// Update core threadId when prop changes (only for internal core)
 	$effect(() => {

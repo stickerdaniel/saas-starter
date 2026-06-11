@@ -2,7 +2,7 @@
 	import { cn } from '$lib/utils';
 	import type { Snippet } from 'svelte';
 	import { useEventListener, watch } from 'runed';
-	import { onMount } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import {
 		AttachmentsContext,
 		attachmentsContext,
@@ -44,6 +44,10 @@
 	$effect(() => {
 		attachments.configure({ accept, multiple, maxFiles, maxFileSize, onError });
 	});
+
+	// Revoke object URLs of attachments still pending when the host unmounts;
+	// clear() only runs on successful submit otherwise
+	onDestroy(() => attachments.clear());
 
 	// Find nearest form to scope drag & drop
 	onMount(() => {

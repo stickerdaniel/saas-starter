@@ -230,6 +230,45 @@ describe('createOptimisticUpdate', () => {
 		);
 	});
 
+	it('strips blob preview URLs from file and screenshot attachments', () => {
+		const attachments = [
+			{
+				type: 'file' as const,
+				name: 'photo.webp',
+				size: 2048,
+				mimeType: 'image/webp',
+				preview: 'blob:http://localhost/file-preview',
+				url: 'https://example.com/photo.webp'
+			},
+			{
+				type: 'screenshot' as const,
+				name: 'shot.png',
+				size: 4096,
+				mimeType: 'image/png',
+				preview: 'blob:http://localhost/screenshot-preview',
+				url: 'https://example.com/shot.png'
+			}
+		];
+		getQueryMock.mockReturnValue({
+			page: [],
+			isDone: true,
+			continueCursor: null
+		});
+
+		const updateFn = createOptimisticUpdate(mockQuery, queryArgs, 'user', 'With previews', {
+			attachments
+		});
+		updateFn(mockStore);
+
+		const optimisticMessage = setQueryMock.mock.calls[0]![2].page[0];
+		// Previews are revoked when the composer clears its attachments, so the
+		// optimistic clone must render from the uploaded url instead
+		expect(optimisticMessage.localAttachments[0]).not.toHaveProperty('preview');
+		expect(optimisticMessage.localAttachments[1]).not.toHaveProperty('preview');
+		expect(optimisticMessage.localAttachments[0].url).toBe('https://example.com/photo.webp');
+		expect(optimisticMessage.localAttachments[1].url).toBe('https://example.com/shot.png');
+	});
+
 	it('passes metadata through to optimistic message', () => {
 		getQueryMock.mockReturnValue({
 			page: [],

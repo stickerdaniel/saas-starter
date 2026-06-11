@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
 	import { useConvexClient, useQuery } from '@mmailaender/convex-svelte';
 	import { toast } from 'svelte-sonner';
 	import { watch } from 'runed';
@@ -73,6 +74,9 @@
 
 	// Create ChatUIContext with upload support (userAlignment 'left' for admin view)
 	const chatUIContext = new ChatUIContext(chatCore, client, uploadConfig, 'left');
+
+	// Revoke blob preview URLs of unsent attachments when this thread view unmounts
+	onDestroy(() => chatUIContext.dispose());
 
 	// Draft persistence — load saved draft on mount, save continuously
 	let sending = $state(false);
