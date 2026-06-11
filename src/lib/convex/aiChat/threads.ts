@@ -26,6 +26,17 @@ export const listThreads = authedQuery({
 	args: {
 		limit: v.optional(v.number())
 	},
+	returns: v.object({
+		threads: v.array(
+			v.object({
+				_id: v.string(),
+				title: v.optional(v.string()),
+				lastMessage: v.optional(v.string()),
+				lastMessageAt: v.number()
+			})
+		),
+		hasMore: v.boolean()
+	}),
 	handler: async (ctx, args) => {
 		const userId = ctx.user._id;
 		const limit = args.limit ?? 20;
@@ -61,6 +72,7 @@ export const listThreads = authedQuery({
  */
 export const createThread = authedMutation({
 	args: {},
+	returns: v.object({ threadId: v.string() }),
 	handler: async (ctx) => {
 		const userId = ctx.user._id;
 
@@ -94,6 +106,7 @@ export const deleteThread = authedMutation({
 	args: {
 		threadId: v.string()
 	},
+	returns: v.null(),
 	handler: async (ctx, args) => {
 		const userId = ctx.user._id;
 
@@ -103,6 +116,7 @@ export const deleteThread = authedMutation({
 		});
 
 		await ctx.db.delete(record._id);
+		return null;
 	}
 });
 
@@ -113,6 +127,7 @@ export const deleteThread = authedMutation({
  */
 export const getWarmThread = authedQuery({
 	args: {},
+	returns: v.union(v.object({ threadId: v.string() }), v.null()),
 	handler: async (ctx) => {
 		const userId = ctx.user._id;
 
@@ -133,6 +148,7 @@ export const getWarmThread = authedQuery({
  */
 export const getOrCreateWarmThread = authedMutation({
 	args: {},
+	returns: v.object({ threadId: v.string() }),
 	handler: async (ctx) => {
 		const userId = ctx.user._id;
 
@@ -211,12 +227,13 @@ export const updateThreadMetadata = internalMutation({
 		lastMessage: v.optional(v.string()),
 		lastMessageAt: v.optional(v.number())
 	},
+	returns: v.null(),
 	handler: async (ctx, args) => {
 		const record = await ctx.db
 			.query('aiChatThreads')
 			.withIndex('by_thread', (q) => q.eq('threadId', args.threadId))
 			.first();
-		if (!record) return;
+		if (!record) return null;
 
 		const patch: Record<string, unknown> = {};
 		if (args.lastMessage !== undefined) patch.lastMessage = args.lastMessage;
@@ -225,6 +242,7 @@ export const updateThreadMetadata = internalMutation({
 		if (Object.keys(patch).length > 0) {
 			await ctx.db.patch(record._id, patch);
 		}
+		return null;
 	}
 });
 
@@ -258,6 +276,7 @@ export const setThreadTitleIfEmpty = internalMutation({
  */
 export const backfillThreadMetadata = internalMutation({
 	args: {},
+	returns: v.object({ updated: v.number(), total: v.number() }),
 	handler: async (ctx) => {
 		const records = await ctx.db.query('aiChatThreads').collect();
 		let updated = 0;

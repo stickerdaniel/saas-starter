@@ -643,6 +643,7 @@ export const updateThreadMetadata = internalMutation({
 		title: v.optional(v.string()),
 		summary: v.optional(v.string())
 	},
+	returns: v.null(),
 	handler: async (ctx, args) => {
 		const supportThread = await ctx.db
 			.query('supportThreads')
@@ -651,7 +652,7 @@ export const updateThreadMetadata = internalMutation({
 
 		if (!supportThread) {
 			console.log(`[syncThreadMetadata] No supportThread found for: ${args.threadId}`);
-			return;
+			return null;
 		}
 
 		// Merge new values with existing
@@ -673,6 +674,7 @@ export const updateThreadMetadata = internalMutation({
 			searchText,
 			updatedAt: Date.now()
 		});
+		return null;
 	}
 });
 
@@ -684,6 +686,7 @@ export const updateLastMessage = internalMutation({
 	args: {
 		threadId: v.string()
 	},
+	returns: v.null(),
 	handler: async (ctx, args) => {
 		const supportThread = await ctx.db
 			.query('supportThreads')
@@ -692,7 +695,7 @@ export const updateLastMessage = internalMutation({
 
 		if (!supportThread) {
 			console.log(`[syncLastMessage] No supportThread found for: ${args.threadId}`);
-			return;
+			return null;
 		}
 
 		const latestMessage = await getLatestCompletedThreadMessage(ctx, args.threadId);
@@ -708,6 +711,7 @@ export const updateLastMessage = internalMutation({
 			...patch,
 			updatedAt: Date.now()
 		});
+		return null;
 	}
 });
 

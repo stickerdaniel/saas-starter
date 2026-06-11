@@ -5,6 +5,7 @@ import { authComponent } from './auth';
 import { components } from './_generated/api';
 import { appRateLimiter } from './rateLimit';
 import { createRateLimitError } from './support/types';
+import { vGenerateUploadUrlResult } from './files/validators';
 
 /**
  * Generate an upload URL for file uploads
@@ -17,6 +18,7 @@ import { createRateLimitError } from './support/types';
  */
 export const generateUploadUrl = mutation({
 	args: {},
+	returns: vGenerateUploadUrlResult,
 	handler: async (ctx) => {
 		const user = await authComponent.getAuthUser(ctx);
 		if (!user) {
@@ -51,6 +53,7 @@ export const generateUploadUrl = mutation({
  */
 export const updateProfileImage = mutation({
 	args: { storageId: v.id('_storage'), uploadToken: v.string() },
+	returns: v.union(v.string(), v.null()),
 	handler: async (ctx, args) => {
 		const user = await authComponent.getAuthUser(ctx);
 		if (!user) {

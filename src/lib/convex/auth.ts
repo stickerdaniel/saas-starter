@@ -4,6 +4,7 @@ import { convex } from '@convex-dev/better-auth/plugins';
 import { components, internal } from './_generated/api';
 import { type DataModel } from './_generated/dataModel';
 import { query } from './_generated/server';
+import { v } from 'convex/values';
 import type { GenericMutationCtx } from 'convex/server';
 import { passkey } from '@better-auth/passkey';
 import { admin } from 'better-auth/plugins/admin';
@@ -382,6 +383,8 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
 // Get current authenticated user
 export const getCurrentUser = query({
 	args: {},
+	// v.any(): user doc shape is owned by the Better Auth component, not this app
+	returns: v.any(),
 	handler: async (ctx) => {
 		return authComponent.getAuthUser(ctx);
 	}
@@ -390,6 +393,7 @@ export const getCurrentUser = query({
 /** Returns which OAuth providers are configured and available */
 export const getAvailableOAuthProviders = query({
 	args: {},
+	returns: v.object({ google: v.boolean(), github: v.boolean() }),
 	handler: async () => {
 		if (!googleOAuth.enabled) {
 			devNotice({

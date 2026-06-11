@@ -55,6 +55,7 @@ export const createAuditLog = adminMutation({
 		targetUserId: v.string(),
 		metadata: auditMetadataValidator
 	},
+	returns: v.null(),
 	handler: async (ctx, args) => {
 		await ctx.db.insert('adminAuditLogs', {
 			adminUserId: ctx.user._id,
@@ -63,6 +64,7 @@ export const createAuditLog = adminMutation({
 			metadata: args.metadata,
 			timestamp: Date.now()
 		});
+		return null;
 	}
 });
 
@@ -84,6 +86,7 @@ export const setUserRole = adminMutation({
 		userId: v.string(),
 		role: roleValidator
 	},
+	returns: v.object({ success: v.boolean() }),
 	handler: async (ctx, args) => {
 		// Prevent admin from changing their own role
 		if (ctx.user._id === args.userId) {
@@ -147,6 +150,7 @@ export const seedFirstAdmin = internalMutation({
 	args: {
 		email: v.string()
 	},
+	returns: v.object({ success: v.boolean(), message: v.optional(v.string()) }),
 	handler: async (ctx, args) => {
 		const user = await findUserByEmail(ctx, args.email);
 

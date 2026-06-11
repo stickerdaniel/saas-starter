@@ -20,6 +20,7 @@ export const updateThreadAssignment = adminMutation({
 		threadId: v.string(),
 		adminUserId: v.optional(v.string()) // undefined to unassign
 	},
+	returns: v.null(),
 	handler: async (ctx, args) => {
 		// Find supportThread by threadId
 		const supportThread = await ctx.db
@@ -45,6 +46,7 @@ export const updateThreadAssignment = adminMutation({
 				{ threadId: args.threadId }
 			);
 		}
+		return null;
 	}
 });
 
@@ -63,6 +65,7 @@ export const updateThreadStatus = adminMutation({
 		threadId: v.string(),
 		status: v.union(v.literal('open'), v.literal('done'))
 	},
+	returns: v.null(),
 	handler: async (ctx, args) => {
 		const supportThread = await ctx.db
 			.query('supportThreads')
@@ -86,6 +89,7 @@ export const updateThreadStatus = adminMutation({
 				{ threadId: args.threadId }
 			);
 		}
+		return null;
 	}
 });
 
@@ -104,6 +108,7 @@ export const updateThreadPriority = adminMutation({
 		threadId: v.string(),
 		priority: v.optional(v.union(v.literal('low'), v.literal('medium'), v.literal('high')))
 	},
+	returns: v.null(),
 	handler: async (ctx, args) => {
 		const supportThread = await ctx.db
 			.query('supportThreads')
@@ -118,6 +123,7 @@ export const updateThreadPriority = adminMutation({
 			priority: args.priority,
 			updatedAt: Date.now()
 		});
+		return null;
 	}
 });
 
@@ -141,6 +147,7 @@ export const sendAdminReply = adminMutation({
 		prompt: v.string(),
 		fileIds: v.optional(v.array(v.string()))
 	},
+	returns: v.null(),
 	handler: async (ctx, args) => {
 		// Validate content
 		if (!args.prompt.trim() && (!args.fileIds || args.fileIds.length === 0)) {
@@ -246,6 +253,7 @@ export const sendAdminReply = adminMutation({
 		await ctx.runMutation(internal.support.threads.updateLastMessage, {
 			threadId: args.threadId
 		});
+		return null;
 	}
 });
 
@@ -265,6 +273,7 @@ export const addInternalUserNote = adminMutation({
 		userId: v.string(), // Better Auth user ID or anon_*
 		content: v.string()
 	},
+	returns: v.null(),
 	handler: async (ctx, args) => {
 		// Validate content
 		if (!args.content.trim()) {
@@ -277,5 +286,6 @@ export const addInternalUserNote = adminMutation({
 			content: args.content.trim(),
 			createdAt: Date.now()
 		});
+		return null;
 	}
 });
