@@ -3,6 +3,7 @@
 	import { useConvexClient } from '@mmailaender/convex-svelte';
 	import { api } from '$lib/convex/_generated/api';
 	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
+	import { authClient } from '$lib/auth-client';
 	import { page } from '$app/state';
 	import AIChatbar from '$lib/components/customer-support/ai-chatbar.svelte';
 	import FeedbackButton from '$lib/components/customer-support/feedback-button.svelte';
@@ -67,6 +68,18 @@
 	// Get auth state for user identification
 	const auth = useAuth();
 
+	// Session user id recovers via cookies on prerendered pages, unlike
+	// page.data.viewer which is frozen at build time (prerendering
+	// constraints in AGENTS.md)
+	let sessionUserId = $state<string | null>(null);
+	let sessionPending = $state(true);
+	$effect(() => {
+		return authClient.useSession().subscribe((s) => {
+			sessionUserId = s.data?.user?.id ?? null;
+			sessionPending = s.isPending;
+		});
+	});
+
 	// Upload API configuration with locale for translated error messages
 	const uploadConfig: UploadConfig = {
 		generateUploadUrl: api.support.files.generateUploadUrl,
@@ -105,14 +118,16 @@
 	 */
 	function getUserId(): string {
 		// Use authenticated user ID if available, otherwise fall back to anonymous ID
-		const viewer = page.data.viewer;
-		return (auth.isAuthenticated && viewer?._id) || getAnonymousId();
+		return (auth.isAuthenticated && sessionUserId) || getAnonymousId();
 	}
 
 	// Initialize user ID when component mounts
 	// Threads are now loaded reactively via useQuery in threads-overview.svelte
 	$effect(() => {
 		if (!browser || auth.isLoading) return;
+		// Wait for the session of a signed-in user to resolve before falling
+		// back, so we never mint a fresh anonymous id for them
+		if (auth.isAuthenticated && sessionPending) return;
 		const userId = getUserId();
 		threadContext.setUserId(userId);
 	});
