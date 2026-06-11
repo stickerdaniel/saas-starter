@@ -290,6 +290,10 @@
 						} catch (error) {
 							console.error('[handleSend] Error:', error);
 
+							// Restore the cleared input so the visitor's message is not
+							// lost, unless they already started typing again
+							if (!chatUIContext.inputValue.trim()) chatUIContext.setInputValue(prompt);
+
 							// Handle rate limit errors with user-friendly toast
 							if (error instanceof ConvexError) {
 								const data = error.data as { code?: string; retryAfter?: number } | undefined;
@@ -307,6 +311,11 @@
 								haptic.trigger('error');
 								toast.error($t('support.widget.error.send_failed'));
 							}
+
+							// Rethrow so ChatInput's rollback restores the attachments.
+							// Its input-restore guard sees the value set above and skips
+							// the double restore.
+							throw error;
 						}
 					}}
 				/>
