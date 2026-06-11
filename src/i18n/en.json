@@ -398,6 +398,7 @@
 		"target": "Target",
 		"toggle_sidebar": "Toggle Sidebar",
 		"toggle_theme": "Toggle theme",
+		"toggle_threads": "Toggle conversation list",
 		"view": "View"
 	},
 	"auth": {
@@ -1057,6 +1058,14 @@
 			},
 			"aria_label": "Screenshot editor",
 			"capturing": "Capturing...",
+			"color": {
+				"black": "Black",
+				"blue": "Blue",
+				"green": "Green",
+				"purple": "Purple",
+				"red": "Red",
+				"yellow": "Yellow"
+			},
 			"next": "Bug Marked",
 			"tool": {
 				"arrow": "Arrow (A)",

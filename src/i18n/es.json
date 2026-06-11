@@ -398,6 +398,7 @@
 		"target": "Destino",
 		"toggle_sidebar": "Alternar barra lateral",
 		"toggle_theme": "Cambiar tema",
+		"toggle_threads": "Alternar lista de conversaciones",
 		"view": "Ver"
 	},
 	"auth": {
@@ -1057,6 +1058,14 @@
 			},
 			"aria_label": "Editor de captura de pantalla",
 			"capturing": "Capturando...",
+			"color": {
+				"black": "Negro",
+				"blue": "Azul",
+				"green": "Verde",
+				"purple": "Morado",
+				"red": "Rojo",
+				"yellow": "Amarillo"
+			},
 			"next": "Bug Marcado",
 			"tool": {
 				"arrow": "Flecha (A)",

@@ -398,6 +398,7 @@
 		"target": "Ziel",
 		"toggle_sidebar": "Seitenleiste umschalten",
 		"toggle_theme": "Design umschalten",
+		"toggle_threads": "Unterhaltungsliste umschalten",
 		"view": "Ansicht"
 	},
 	"auth": {
@@ -1057,6 +1058,14 @@
 			},
 			"aria_label": "Screenshot-Editor",
 			"capturing": "Wird aufgenommen...",
+			"color": {
+				"black": "Schwarz",
+				"blue": "Blau",
+				"green": "Grün",
+				"purple": "Lila",
+				"red": "Rot",
+				"yellow": "Gelb"
+			},
 			"next": "Bug Markiert",
 			"tool": {
 				"arrow": "Pfeil (A)",

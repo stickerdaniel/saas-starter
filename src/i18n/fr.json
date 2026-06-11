@@ -398,6 +398,7 @@
 		"target": "Cible",
 		"toggle_sidebar": "Basculer la barre latérale",
 		"toggle_theme": "Changer le thème",
+		"toggle_threads": "Basculer la liste des conversations",
 		"view": "Voir"
 	},
 	"auth": {
@@ -1057,6 +1058,14 @@
 			},
 			"aria_label": "Éditeur de capture d'écran",
 			"capturing": "Capture en cours...",
+			"color": {
+				"black": "Noir",
+				"blue": "Bleu",
+				"green": "Vert",
+				"purple": "Violet",
+				"red": "Rouge",
+				"yellow": "Jaune"
+			},
 			"next": "Bug Marqué",
 			"tool": {
 				"arrow": "Flèche (A)",
