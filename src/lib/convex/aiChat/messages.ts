@@ -28,6 +28,7 @@ export const sendMessage = authedMutation({
 		prompt: v.string(),
 		fileIds: v.optional(v.array(v.string()))
 	},
+	returns: v.object({ messageId: v.string() }),
 	handler: async (ctx, args) => {
 		if (args.prompt.length > 2000) {
 			throw new ConvexError('Message is too long (max 2000 characters)');
@@ -134,6 +135,7 @@ export const createAIResponse = internalAction({
 		promptMessageId: v.string(),
 		userId: v.optional(v.string())
 	},
+	returns: v.null(),
 	handler: async (ctx, args) => {
 		// Direct SDK path with explicit customer_id (no auth context in
 		// internalAction). See: https://github.com/useautumn/autumn-js/issues/51
@@ -145,7 +147,7 @@ export const createAIResponse = internalAction({
 			});
 			if (outcome === 'denied') {
 				console.warn(`[createAIResponse] AI chat limit reached for user ${args.userId}`);
-				return;
+				return null;
 			}
 			// 'unavailable' fails open: generate uncounted rather than blocking
 			// a legitimate user on a billing outage
@@ -190,6 +192,7 @@ export const createAIResponse = internalAction({
 				lastMessageAt: Date.now()
 			});
 		}
+		return null;
 	}
 });
 
@@ -202,6 +205,8 @@ export const listMessages = query({
 		paginationOpts: paginationOptsValidator,
 		streamArgs: vStreamArgs
 	},
+	// v.any(): paginated message + stream shape is owned by @convex-dev/agent
+	returns: v.any(),
 	handler: async (ctx, args): Promise<unknown> => {
 		// Auth check
 		const user = await authComponent.getAuthUser(ctx);
@@ -230,6 +235,10 @@ export const getFileMetadataBatch = query({
 	args: {
 		urls: v.array(v.string())
 	},
+	returns: v.record(
+		v.string(),
+		v.object({ width: v.optional(v.number()), height: v.optional(v.number()) })
+	),
 	handler: async (ctx, args): Promise<Record<string, { width?: number; height?: number }>> => {
 		const results: Record<string, { width?: number; height?: number }> = {};
 

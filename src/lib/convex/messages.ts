@@ -70,6 +70,7 @@ export const list = authedQuery({
  */
 export const send = authedMutation({
 	args: { body: v.string() },
+	returns: v.object({ messageId: v.id('messages') }),
 	handler: async (ctx, { body }) => {
 		if (body.length > 2000) {
 			throw new ConvexError('Message is too long (max 2000 characters)');
