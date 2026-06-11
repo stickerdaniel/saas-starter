@@ -74,10 +74,12 @@ export function t(
 	let text =
 		getNestedValue(langData, key) ?? getNestedValue(translations[DEFAULT_LOCALE], key) ?? key;
 
-	// Interpolate parameters using {paramName} syntax
+	// Interpolate parameters using {paramName} syntax.
+	// Replacer callback inserts the value literally; a plain replacement string
+	// would mangle values containing $&, $`, $' or $$.
 	if (params) {
 		Object.entries(params).forEach(([paramKey, value]) => {
-			text = text.replace(new RegExp(`\\{${paramKey}\\}`, 'g'), String(value));
+			text = text.replace(new RegExp(`\\{${paramKey}\\}`, 'g'), () => String(value));
 		});
 	}
 

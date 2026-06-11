@@ -13,7 +13,7 @@
 	import { supportUserId } from './support-user-id.svelte';
 	import { useSupportUrlState } from './use-support-url-state.svelte';
 	import { getTranslate } from '@tolgee/svelte';
-	import * as Sentry from '@sentry/sveltekit';
+	import { loadSentry } from '$lib/monitoring/sentry';
 	import { PUBLIC_SENTRY_DSN } from '$env/static/public';
 	import * as AlertDialog from '$lib/components/ui/alert-dialog';
 	import { Button } from '$lib/components/ui/button';
@@ -181,8 +181,15 @@
 
 	function handleScreenshotCaptureError(error: unknown) {
 		isScreenshotMode = false;
-		captureEventId = browser && PUBLIC_SENTRY_DSN ? Sentry.captureException(error) : undefined;
+		// Open the dialog immediately; the Sentry event id streams in once the
+		// lazily loaded SDK (see $lib/monitoring/sentry) resolves.
+		captureEventId = undefined;
 		captureErrorOpen = true;
+		if (browser && PUBLIC_SENTRY_DSN) {
+			void loadSentry().then((sentry) => {
+				captureEventId = sentry?.captureException(error);
+			});
+		}
 	}
 
 	function retryScreenshotCapture() {

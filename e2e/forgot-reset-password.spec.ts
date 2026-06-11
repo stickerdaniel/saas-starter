@@ -1,7 +1,23 @@
 import { test, expect } from '@playwright/test';
+import 'varlock/auto-load';
+import { ConvexHttpClient } from 'convex/browser';
+import { api } from '../src/lib/convex/_generated/api';
+import { resolveConvexUrl } from './utils/convex-url';
+import { resolveSiteUrl } from './utils/site-url';
+import { getPreviewBypass } from './utils/preview-bypass';
 
 // This test runs without auth state - tests unauthenticated behavior
 test.use({ storageState: { cookies: [], origins: [] } });
+
+const testSecret = process.env.AUTH_E2E_TEST_SECRET!;
+
+const getConvexClient = () => {
+	const convexUrl = resolveConvexUrl();
+	if (!convexUrl) {
+		throw new Error('Convex URL not configured (set PUBLIC_CONVEX_URL or start local dev server)');
+	}
+	return new ConvexHttpClient(convexUrl);
+};
 
 test.describe('Forgot Password', () => {
 	test('shows validation error for invalid email', async ({ page }) => {
@@ -135,5 +151,79 @@ test.describe('Reset Password', () => {
 
 		// Should navigate to signin
 		await expect(page).toHaveURL(/signin/);
+	});
+
+	test('resetting the password revokes other active sessions', async ({ page, playwright }) => {
+		const client = getConvexClient();
+		const siteUrl = resolveSiteUrl();
+		const bypass = getPreviewBypass();
+
+		// Dedicated user: resetting the shared test user's password would break other specs
+		const email = `test-reset-revoke-${Date.now()}@e2e.example.com`;
+		const password = 'OldPassword123!';
+		const newPassword = 'NewPassword456!';
+
+		// Separate cookie jar simulating another device's session that the reset must revoke
+		const otherSession = await playwright.request.newContext({
+			baseURL: siteUrl,
+			extraHTTPHeaders: { Origin: siteUrl, ...bypass.headers }
+		});
+
+		try {
+			const signUp = await otherSession.post('/api/auth/sign-up/email', {
+				data: { email, password, name: 'E2E Reset Revoke' }
+			});
+			expect(signUp.ok()).toBeTruthy();
+
+			const verifyResult = await client.mutation(api.tests.verifyTestUserEmail, {
+				email,
+				secret: testSecret
+			});
+			expect(verifyResult.success).toBeTruthy();
+
+			// Establish the session that should be revoked by the password reset
+			const signIn = await otherSession.post('/api/auth/sign-in/email', {
+				data: { email, password }
+			});
+			expect(signIn.ok()).toBeTruthy();
+
+			const sessionBefore = await otherSession.get('/api/auth/get-session');
+			expect(await sessionBefore.json()).not.toBeNull();
+
+			// Request a reset token. Delivery is skipped for @e2e.example.com addresses,
+			// so the token is read from the backend's verification model instead.
+			const resetRequest = await otherSession.post('/api/auth/request-password-reset', {
+				data: { email, redirectTo: '/reset-password' }
+			});
+			expect(resetRequest.ok()).toBeTruthy();
+
+			const { token } = await client.mutation(api.tests.getPasswordResetToken, {
+				email,
+				secret: testSecret
+			});
+			expect(token).toBeTruthy();
+
+			// Complete the reset through the UI in a fresh browser session
+			await page.goto(`/reset-password?token=${token}`);
+			await page.waitForLoadState('domcontentloaded');
+			await expect(page.getByTestId('reset-password-password-input')).toBeEnabled({
+				timeout: 30000
+			});
+			await page.getByTestId('reset-password-password-input').fill(newPassword);
+			await page.getByTestId('reset-password-confirm-input').fill(newPassword);
+			await page.getByTestId('reset-password-submit-button').click();
+			await expect(page.getByTestId('reset-password-success-message')).toBeVisible({
+				timeout: 10000
+			});
+
+			// revokeSessionsOnPasswordReset must have invalidated the other session
+			const sessionAfter = await otherSession.get('/api/auth/get-session');
+			expect(await sessionAfter.json()).toBeNull();
+		} finally {
+			await otherSession.dispose();
+			await client
+				.mutation(api.tests.deleteTestUser, { email, secret: testSecret })
+				.catch(() => {});
+		}
 	});
 });

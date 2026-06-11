@@ -146,6 +146,7 @@
 													class="transition-transform duration-200 active:translate-y-px data-[state=open]:rotate-90"
 												>
 													<ChevronRightIcon />
+													<span class="sr-only"><T keyName="aria.toggle_threads" /></span>
 												</Sidebar.MenuAction>
 											{/snippet}
 										</Collapsible.Trigger>
