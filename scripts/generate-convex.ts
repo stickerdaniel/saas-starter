@@ -205,6 +205,7 @@ async function main() {
 			const stateId = computeLocalConvexStateId(PROJECT_DIR);
 			const keysPath = path.join(CONVEX_STATE_DIR, stateId, 'keys.json');
 
+			let keys: { adminKey: string } | null = null;
 			if (!fs.existsSync(keysPath)) {
 				console.warn(
 					`Warning: Local backend is running but no keys found at .convex/${stateId}/keys.json.`
@@ -213,7 +214,19 @@ async function main() {
 					'This can happen after switching branches. Falling back to offline validation.'
 				);
 			} else {
-				const keys = JSON.parse(fs.readFileSync(keysPath, 'utf-8'));
+				try {
+					keys = JSON.parse(fs.readFileSync(keysPath, 'utf-8'));
+				} catch {
+					console.warn(
+						`Warning: Could not parse .convex/${stateId}/keys.json (corrupt or truncated).`
+					);
+					console.warn(
+						'This can happen if the dev server was killed mid-write. Falling back to offline validation.'
+					);
+				}
+			}
+
+			if (keys) {
 				const { code, output } = runCommand('bunx', [
 					'convex',
 					'codegen',
