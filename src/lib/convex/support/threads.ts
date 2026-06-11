@@ -488,9 +488,7 @@ export const updateThreadHandoff = mutation({
 		});
 
 		// Sync last message for search
-		await ctx.runMutation(internal.support.threads.updateLastMessage, {
-			threadId: args.threadId
-		});
+		await syncSupportLastMessage(ctx, args.threadId);
 
 		// Get recent user messages and schedule admin notification immediately
 		// This starts the 2-minute debounce as soon as "Talk to human" is pressed
@@ -680,35 +678,46 @@ export const updateThreadMetadata = internalMutation({
 /**
  * Sync last message to denormalized search fields.
  * Called after a message is sent (user or admin).
+ *
+ * Mutation-context callers use this helper directly; the `updateLastMessage`
+ * internalMutation below wraps it for action-context callers.
+ */
+export async function syncSupportLastMessage(ctx: MutationCtx, threadId: string): Promise<void> {
+	const supportThread = await ctx.db
+		.query('supportThreads')
+		.withIndex('by_thread', (q) => q.eq('threadId', threadId))
+		.first();
+
+	if (!supportThread) {
+		console.log(`[syncLastMessage] No supportThread found for: ${threadId}`);
+		return;
+	}
+
+	const latestMessage = await getLatestCompletedThreadMessage(ctx, threadId);
+	const patch = buildSupportMessageDenormalization({
+		title: supportThread.title,
+		summary: supportThread.summary,
+		userName: supportThread.userName,
+		userEmail: supportThread.userEmail,
+		latestMessage
+	});
+
+	await ctx.db.patch(supportThread._id, {
+		...patch,
+		updatedAt: Date.now()
+	});
+}
+
+/**
+ * Action-context wrapper around syncSupportLastMessage.
+ * Used by createAIResponse after streaming completes.
  */
 export const updateLastMessage = internalMutation({
 	args: {
 		threadId: v.string()
 	},
 	handler: async (ctx, args) => {
-		const supportThread = await ctx.db
-			.query('supportThreads')
-			.withIndex('by_thread', (q) => q.eq('threadId', args.threadId))
-			.first();
-
-		if (!supportThread) {
-			console.log(`[syncLastMessage] No supportThread found for: ${args.threadId}`);
-			return;
-		}
-
-		const latestMessage = await getLatestCompletedThreadMessage(ctx, args.threadId);
-		const patch = buildSupportMessageDenormalization({
-			title: supportThread.title,
-			summary: supportThread.summary,
-			userName: supportThread.userName,
-			userEmail: supportThread.userEmail,
-			latestMessage
-		});
-
-		await ctx.db.patch(supportThread._id, {
-			...patch,
-			updatedAt: Date.now()
-		});
+		await syncSupportLastMessage(ctx, args.threadId);
 	}
 });
 

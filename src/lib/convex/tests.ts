@@ -225,6 +225,7 @@ export const getSupportThreadsByUserId = mutation({
 	handler: async (ctx, { secret, userId }) => {
 		requireTestSecret(secret);
 
+		// Bounded: per-user index scan over test-created support threads (test-only, small dataset)
 		const threads = await ctx.db
 			.query('supportThreads')
 			.withIndex('by_user', (q) => q.eq('userId', userId))

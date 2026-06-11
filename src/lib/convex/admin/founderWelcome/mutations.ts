@@ -7,7 +7,7 @@ async function upsertSetting(ctx: MutationCtx, key: string, value: string, admin
 	const existing = await ctx.db
 		.query('adminSettings')
 		.withIndex('by_key', (q) => q.eq('key', key))
-		.first();
+		.unique();
 
 	if (existing) {
 		await ctx.db.patch(existing._id, {
@@ -30,7 +30,7 @@ async function deleteSetting(ctx: MutationCtx, key: string) {
 	const existing = await ctx.db
 		.query('adminSettings')
 		.withIndex('by_key', (q) => q.eq('key', key))
-		.first();
+		.unique();
 
 	if (existing) {
 		await ctx.db.delete(existing._id);
