@@ -80,6 +80,7 @@
 	const allThreads = $derived(threadsQuery.results);
 	const isLoading = $derived(threadsQuery.isLoading);
 	const isDone = $derived(threadsQuery.status === 'Exhausted');
+	const loadError = $derived(threadsQuery.error);
 
 	// Selected thread from already-loaded list (for instant header display)
 	const selectedThread = $derived(allThreads.find((t) => t._id === threadId));
@@ -158,6 +159,7 @@
 					threads={allThreads}
 					selectedThreadId={threadId}
 					{isLoading}
+					error={loadError}
 					{isDone}
 					cachedCount={cachedThreadCount}
 					onFilterChange={(mode) => (filters.mode = mode)}
@@ -214,6 +216,7 @@
 					threads={allThreads}
 					selectedThreadId={threadId}
 					{isLoading}
+					error={loadError}
 					{isDone}
 					cachedCount={cachedThreadCount}
 					onFilterChange={(mode) => (filters.mode = mode)}
@@ -254,6 +257,7 @@
 				threads={allThreads}
 				selectedThreadId={threadId}
 				{isLoading}
+				error={loadError}
 				{isDone}
 				cachedCount={cachedThreadCount}
 				onFilterChange={(mode) => (filters.mode = mode)}
