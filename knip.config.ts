@@ -36,7 +36,6 @@ export default {
 	],
 	ignoreDependencies: [
 		// Tailwind v4 plugins — referenced via CSS @plugin, not JS imports
-		'@tailwindcss/forms',
 		'@tailwindcss/typography',
 		'tw-animate-css',
 		// Used via @convex-dev/resend component internally
@@ -48,8 +47,6 @@ export default {
 		'@zumer/snapdom',
 		// Used via Svelte dynamic imports or runtime-only
 		'@svelte-put/lockscroll',
-		'isomorphic-dompurify',
-		'marked',
 		'konva',
 		'svelte-konva',
 		// Used by autumn integration in Convex

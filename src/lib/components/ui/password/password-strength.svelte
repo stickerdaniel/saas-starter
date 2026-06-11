@@ -19,11 +19,11 @@
 		base: '',
 		variants: {
 			score: {
-				0: 'bg-red-500',
-				1: 'bg-red-500',
-				2: 'bg-yellow-500',
-				3: 'bg-yellow-500',
-				4: 'bg-green-500'
+				0: 'bg-destructive',
+				1: 'bg-destructive',
+				2: 'bg-warning',
+				3: 'bg-warning',
+				4: 'bg-success'
 			}
 		}
 	});

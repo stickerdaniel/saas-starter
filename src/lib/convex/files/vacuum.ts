@@ -22,6 +22,18 @@ export const deleteUnusedFiles = internalMutation({
 			console.debug(`Deleting ${toDelete.length} files...`);
 		}
 		await Promise.all(toDelete.map((f) => ctx.storage.delete(f.storageId as Id<'_storage'>)));
+		// Cascade-delete fileMetadata rows (image dimensions) for the vacuumed files.
+		// The vacuum is the cascade point on purpose: agent files are hash-deduped and
+		// refcounted, and thread deletion only decrements refcounts, so metadata must
+		// outlive any single thread and die with the file itself.
+		// Bounded: <=100 files per batch, fileMetadata is deduped by URL (~1 row per file)
+		for (const f of toDelete) {
+			const metadataRows = await ctx.db
+				.query('fileMetadata')
+				.withIndex('by_storageId', (q) => q.eq('storageId', f.storageId))
+				.collect();
+			await Promise.all(metadataRows.map((row) => ctx.db.delete(row._id)));
+		}
 		// Also mark them as deleted in the component.
 		// This is in a transaction (mutation), so there's no races.
 		await ctx.runMutation(components.agent.files.deleteFiles, {

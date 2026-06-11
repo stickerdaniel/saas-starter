@@ -225,6 +225,7 @@ export const getSupportThreadsByUserId = mutation({
 	handler: async (ctx, { secret, userId }) => {
 		requireTestSecret(secret);
 
+		// Bounded: per-user index scan over test-created support threads (test-only, small dataset)
 		const threads = await ctx.db
 			.query('supportThreads')
 			.withIndex('by_user', (q) => q.eq('userId', userId))
@@ -259,6 +260,49 @@ export const getAuthUserIdByEmail = mutation({
 		}
 
 		return { userId: user._id };
+	}
+});
+
+// Get the most recent password reset token for a test user
+// Note: This mutation requires AUTH_E2E_TEST_SECRET for security
+// Reset emails are skipped for @e2e.example.com addresses (emails/helpers.ts),
+// so E2E tests read the token Better Auth stored in the verification model.
+export const getPasswordResetToken = mutation({
+	args: { email: v.string(), secret: v.string() },
+	returns: v.object({ token: v.union(v.string(), v.null()) }),
+	handler: async (ctx, { email, secret }) => {
+		requireTestSecret(secret);
+
+		const user = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+			model: 'user',
+			where: [{ field: 'email', value: email }]
+		});
+
+		if (!user) {
+			return { token: null };
+		}
+
+		const RESET_PREFIX = 'reset-password:';
+
+		// Unindexed scan over the verification model (test-only, table stays tiny on e2e backends)
+		const result = await ctx.runQuery(components.betterAuth.adapter.findMany, {
+			model: 'verification',
+			where: [
+				{ field: 'value', value: user._id },
+				{ field: 'identifier', operator: 'starts_with', value: RESET_PREFIX }
+			],
+			paginationOpts: { numItems: 100, cursor: null }
+		});
+
+		const latest = (result.page as Array<{ identifier?: string; _creationTime?: number }>).sort(
+			(a, b) => (b._creationTime ?? 0) - (a._creationTime ?? 0)
+		)[0];
+
+		const token = latest?.identifier?.startsWith(RESET_PREFIX)
+			? latest.identifier.slice(RESET_PREFIX.length)
+			: null;
+
+		return { token };
 	}
 });
 

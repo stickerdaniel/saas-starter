@@ -132,6 +132,7 @@
 											{#snippet child({ props })}
 												<a
 													href={item.url ? resolve(item.url) : undefined}
+													data-testid={item.testId}
 													{...props}
 													onclick={item.disableNav ? (e) => e.preventDefault() : undefined}
 												>
@@ -146,6 +147,7 @@
 													class="transition-transform duration-200 active:translate-y-px data-[state=open]:rotate-90"
 												>
 													<ChevronRightIcon />
+													<span class="sr-only"><T keyName="aria.toggle_threads" /></span>
 												</Sidebar.MenuAction>
 											{/snippet}
 										</Collapsible.Trigger>
@@ -165,7 +167,7 @@
 								>
 									{#snippet child({ props })}
 										{#if item.url}
-											<a href={resolve(item.url)} {...props}>
+											<a href={resolve(item.url)} data-testid={item.testId} {...props}>
 												{@render navItemBody(item)}
 											</a>
 										{:else}

@@ -394,7 +394,8 @@ export class SupportThreadContext {
 				threadId = result.threadId;
 				threadCreated = true;
 
-				// Update context state (don't call setThread which clears messages)
+				// Update context state directly (setThread would reset isHandedOff,
+				// assignedAdmin, and the pagination cursors)
 				this.threadId = threadId;
 				this.notificationEmail = result.notificationEmail ?? null;
 				this.currentView = 'chat';

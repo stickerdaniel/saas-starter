@@ -51,10 +51,8 @@
 
 	{#if state === 'output-error' && errorText}
 		<div>
-			<h4 class="mb-2 text-sm font-medium text-red-500">Error</h4>
-			<div
-				class="rounded border border-red-200 bg-background p-2 text-sm dark:border-red-950 dark:bg-red-900/20"
-			>
+			<h4 class="mb-2 text-sm font-medium text-destructive">Error</h4>
+			<div class="rounded border border-destructive/20 bg-destructive/10 p-2 text-sm">
 				{errorText}
 			</div>
 		</div>
@@ -65,7 +63,7 @@
 	{/if}
 
 	{#if toolCallId}
-		<div class="border-t border-blue-200 pt-2 text-xs text-muted-foreground">
+		<div class="border-t pt-2 text-xs text-muted-foreground">
 			<span class="font-mono">Call ID: {toolCallId}</span>
 		</div>
 	{/if}
