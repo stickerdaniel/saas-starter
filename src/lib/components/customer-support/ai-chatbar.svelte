@@ -50,10 +50,15 @@
 	// Pending post-submit cleanup timeout, cleared on unmount
 	let cleanupTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
+	// Set on destroy so the thread-creation continuation doesn't subscribe
+	// after cleanup already ran (mutation still in flight during unmount)
+	let destroyed = false;
+
 	// The pre-warm subscription lives on the module-level ConvexClient singleton,
 	// so it must not outlive this component (user types, then navigates away
 	// before submitting)
 	onDestroy(() => {
+		destroyed = true;
 		if (cleanupTimeoutId !== null) {
 			clearTimeout(cleanupTimeoutId);
 			cleanupTimeoutId = null;
@@ -132,20 +137,24 @@
 				pendingThreadId = result.threadId;
 
 				// Pre-subscribe to messages query so it's cached by submit time
-				// This ensures optimistic update finds the query in cache
-				const preSubscribeArgs = {
-					threadId: result.threadId,
-					...(anonymousUserId ? { anonymousUserId } : {}),
-					paginationOpts: { numItems: CHAT_PAGE_SIZE, cursor: null },
-					streamArgs: { kind: 'list' as const, startOrder: 0 }
-				};
-				queryUnsubscribe = client.onUpdate(
-					api.support.messages.listMessages,
-					preSubscribeArgs,
-					() => {
-						// Query cache warmed
-					}
-				);
+				// This ensures optimistic update finds the query in cache.
+				// Skip if the component was destroyed while the mutation was in
+				// flight: onDestroy already ran, so nothing would unsubscribe it.
+				if (!destroyed) {
+					const preSubscribeArgs = {
+						threadId: result.threadId,
+						...(anonymousUserId ? { anonymousUserId } : {}),
+						paginationOpts: { numItems: CHAT_PAGE_SIZE, cursor: null },
+						streamArgs: { kind: 'list' as const, startOrder: 0 }
+					};
+					queryUnsubscribe = client.onUpdate(
+						api.support.messages.listMessages,
+						preSubscribeArgs,
+						() => {
+							// Query cache warmed
+						}
+					);
+				}
 
 				return result.threadId;
 			})

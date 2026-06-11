@@ -7,6 +7,7 @@ import { supportRateLimiter } from './rateLimit';
 import { createRateLimitError } from './types';
 import { getSupportOwnerIdentity } from './ownership';
 import { fetchAttachmentText } from '../files/attachmentText';
+import { vGenerateUploadUrlResult } from '../files/validators';
 
 /**
  * Maximum file size for support uploads (5MB)
@@ -40,6 +41,7 @@ export const generateUploadUrl = mutation({
 	args: {
 		anonymousUserId: v.optional(v.string())
 	},
+	returns: vGenerateUploadUrlResult,
 	handler: async (ctx, args) => {
 		const owner = await getSupportOwnerIdentity(ctx, args.anonymousUserId);
 
@@ -95,6 +97,13 @@ export const saveUploadedFile = action({
 		width: v.optional(v.number()),
 		height: v.optional(v.number())
 	},
+	returns: v.object({
+		fileId: v.string(),
+		storageId: v.string(),
+		url: v.string(),
+		filename: v.optional(v.string()),
+		isImage: v.boolean()
+	}),
 	handler: async (
 		ctx,
 		args
@@ -214,6 +223,7 @@ export const storeFileMetadata = internalMutation({
 		width: v.number(),
 		height: v.number()
 	},
+	returns: v.id('fileMetadata'),
 	handler: async (ctx, args) => {
 		// Check if metadata already exists by URL (avoid duplicates)
 		const existing = await ctx.db
@@ -252,6 +262,7 @@ export const storeFileMetadata = internalMutation({
  */
 export const checkPreviewAccess = internalMutation({
 	args: { anonymousUserId: v.optional(v.string()) },
+	returns: v.null(),
 	handler: async (ctx, args) => {
 		const owner = await getSupportOwnerIdentity(ctx, args.anonymousUserId);
 		const isAnon = !owner || owner.isAnonymous;
@@ -265,6 +276,7 @@ export const checkPreviewAccess = internalMutation({
 				'Too many preview requests. Please try again later.'
 			);
 		}
+		return null;
 	}
 });
 
@@ -284,6 +296,7 @@ export const getAttachmentText = action({
 		anonymousUserId: v.optional(v.string()),
 		locale: v.optional(v.string())
 	},
+	returns: v.object({ text: v.string(), truncated: v.boolean() }),
 	handler: async (ctx, args): Promise<{ text: string; truncated: boolean }> => {
 		await ctx.runMutation(internal.support.files.checkPreviewAccess, {
 			anonymousUserId: args.anonymousUserId
