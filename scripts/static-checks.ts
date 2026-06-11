@@ -342,8 +342,10 @@ async function main(): Promise<void> {
 		// `atmn preview` only renders plans from the local autumn.config.ts; it never
 		// diffs against or pushes to the live deployment. After any config edit,
 		// `bunx atmn push` (sandbox) / `bunx atmn push -p` (prod) is a required manual
-		// step that no automated check covers (the CLI has no read-only diff primitive
-		// to build a drift guard from, and auto-pushing from CI would be worse).
+		// step that no automated check covers (the CLI's only diff is the hidden
+		// debug-only `test-diff`, which requires auth, always exits 0, and prints
+		// human-readable output, so there is no stable primitive to build a drift
+		// guard from; auto-pushing from CI would be worse).
 		printHeader(step, 'Autumn config');
 		runCommand('bun', ['atmn', 'preview']);
 		console.log('\n');
