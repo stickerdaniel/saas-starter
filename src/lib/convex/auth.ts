@@ -210,9 +210,11 @@ export const authComponent = createClient<DataModel, typeof authSchema>(componen
 			 * Called when a user is updated
 			 * - Sends signup notification when email becomes verified
 			 * - Detects admin role changes and syncs notification preferences
+			 * - Re-syncs denormalized support thread identity on name/email change
 			 *
 			 * Notification scheduling is intentionally unwrapped (see onCreate).
-			 * Preference sync IS wrapped to prevent blocking user updates.
+			 * Preference and support thread syncs ARE wrapped to prevent blocking
+			 * user updates.
 			 */
 			onUpdate: async (ctx, newUser, oldUser) => {
 				const becameVerified = oldUser.emailVerified !== true && newUser.emailVerified === true;
@@ -282,6 +284,20 @@ export const authComponent = createClient<DataModel, typeof authSchema>(componen
 					}
 				} catch (error) {
 					console.error('Failed to sync admin preferences on user update:', error);
+				}
+
+				// Support threads denormalize userName/userEmail into searchText;
+				// re-sync them so the admin support list reflects the new identity.
+				if (oldUser.name !== newUser.name || oldUser.email !== newUser.email) {
+					try {
+						await ctx.runMutation(internal.support.threads.syncUserProfile, {
+							userId: newUser._id,
+							userName: newUser.name ?? undefined,
+							userEmail: newUser.email
+						});
+					} catch (error) {
+						console.error('Failed to sync support thread profile on user update:', error);
+					}
 				}
 			}
 		}
