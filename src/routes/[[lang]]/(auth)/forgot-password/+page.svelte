@@ -16,7 +16,7 @@
 	import { forgotPasswordSchema } from './schema.js';
 	import { slide } from 'svelte/transition';
 	import { prefersReducedMotion } from 'svelte/motion';
-	import { authFlow } from '$lib/hooks/auth-flow.svelte';
+	import { authFlowContext } from '$lib/hooks/auth-flow.svelte';
 	import { getAuthErrorKey } from '$lib/utils/auth-messages';
 	import { translateValidationErrors } from '$lib/utils/validation-i18n.js';
 
@@ -31,8 +31,9 @@
 
 	const id = $props.id();
 
-	// Form data
-	let formData = $state({ email: '' });
+	const authFlow = authFlowContext.get();
+	// Form data, initialized once from the shared auth-flow email
+	let formData = $state({ email: authFlow.email });
 	const isFormDisabled = $derived(isLoading || !hydrated);
 
 	// Field errors
@@ -61,14 +62,7 @@
 		hydrated = true;
 	});
 
-	// Initialize email from global state
-	$effect(() => {
-		if (authFlow.email && !formData.email) {
-			formData.email = authFlow.email;
-		}
-	});
-
-	// Sync email changes back to global state
+	// Sync email changes back to the shared auth-flow state
 	$effect(() => {
 		if (formData.email) {
 			authFlow.email = formData.email;
@@ -181,7 +175,7 @@
 								<div
 									data-testid="forgot-password-success-message"
 									transition:slide={{ duration: prefersReducedMotion.current ? 0 : 200 }}
-									class="rounded-md bg-green-500/10 p-3 text-sm text-green-600 dark:text-green-400"
+									class="rounded-md bg-success/10 p-3 text-sm text-success"
 								>
 									<T keyName={message} />
 								</div>

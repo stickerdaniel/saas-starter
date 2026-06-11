@@ -33,8 +33,8 @@
  * });
  *
  * // Access reactive state
- * core.messages
- * core.isStreaming
+ * core.isSending
+ * core.error
  * core.sendMessage(client, 'Hello!')
  * ```
  */

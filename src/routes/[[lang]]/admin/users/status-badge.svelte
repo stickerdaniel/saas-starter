@@ -19,7 +19,7 @@
 	</span>
 {:else if emailVerified}
 	<span
-		class="inline-flex items-center rounded-md border border-green-600 px-2 py-1 text-xs font-medium text-green-600 ring-1 ring-green-600/20 ring-inset"
+		class="inline-flex items-center rounded-md border border-success px-2 py-1 text-xs font-medium text-success ring-1 ring-success/20 ring-inset"
 		data-testid={testId}
 	>
 		<T keyName="admin.users.verified" />

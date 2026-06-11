@@ -8,7 +8,6 @@
 import type { ConvexClient } from 'convex/browser';
 import type { FunctionReference } from 'convex/server';
 import type {
-	ChatMessage,
 	SendMessageOptions,
 	SendMessageResult,
 	ChatConfig,
@@ -66,9 +65,6 @@ export class ChatCore {
 	 *  Used as a {#key} to replay chip entrance animations. */
 	threadGeneration = $state(0);
 
-	// Messages state
-	messages = $state<ChatMessage[]>([]);
-
 	// Loading states
 	isLoading = $state(false);
 	isSending = $state(false);
@@ -105,21 +101,12 @@ export class ChatCore {
 		return this.threadId !== null;
 	}
 
-	get streamingMessages(): ChatMessage[] {
-		return this.messages.filter((m) => m.status === 'pending' || m.status === 'streaming');
-	}
-
-	get isStreaming(): boolean {
-		return this.streamingMessages.length > 0;
-	}
-
 	/**
 	 * Initialize or load a thread
 	 */
 	setThread(threadId: string | null): void {
 		this.threadId = threadId;
 		this.isNewConversation = threadId === null;
-		this.messages = [];
 		this.hasMore = false;
 		this.continueCursor = null;
 		this.error = null;
@@ -226,7 +213,8 @@ export class ChatCore {
 				threadId = result.threadId;
 				threadCreated = result;
 
-				// Update threadId without clearing messages (for optimistic updates)
+				// Update threadId directly (setThread would clear streamCache, error,
+				// and the pagination cursors)
 				this.threadId = threadId;
 				this.isNewConversation = false;
 			}
@@ -315,7 +303,6 @@ export class ChatCore {
 	reset(): void {
 		this.threadId = null;
 		this.isNewConversation = false;
-		this.messages = [];
 		this.isLoading = false;
 		this.isSending = false;
 		this.error = null;

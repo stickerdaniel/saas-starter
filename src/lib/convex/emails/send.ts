@@ -38,7 +38,7 @@ async function getLocaleForEmail(
  * Send verification email with verification link
  *
  * Uses pre-rendered HTML templates with template placeholders for dynamic content.
- * Looks up user's locale preference for translated subject.
+ * Looks up user's locale preference for translated subject and body.
  */
 export const sendVerificationEmail = internalMutation({
 	args: {
@@ -53,7 +53,7 @@ export const sendVerificationEmail = internalMutation({
 		assertResendApiKey();
 
 		const locale = await getLocaleForEmail(ctx, email);
-		const { html, text } = renderVerificationEmail(verificationUrl, expiryMinutes);
+		const { html, text } = renderVerificationEmail(verificationUrl, expiryMinutes, locale);
 
 		await resend.sendEmail(ctx, {
 			from: requireEnv('AUTH_EMAIL', { feature: 'email delivery' }),
@@ -74,7 +74,7 @@ export const sendVerificationEmail = internalMutation({
  * Send password reset email with reset link
  *
  * Uses pre-rendered HTML templates with template placeholders for dynamic content.
- * Looks up user's locale preference for translated subject.
+ * Looks up user's locale preference for translated subject and body.
  */
 export const sendResetPasswordEmail = internalMutation({
 	args: {
@@ -89,7 +89,7 @@ export const sendResetPasswordEmail = internalMutation({
 		assertResendApiKey();
 
 		const locale = await getLocaleForEmail(ctx, email);
-		const { html, text } = renderPasswordResetEmail(resetUrl, userName);
+		const { html, text } = renderPasswordResetEmail(resetUrl, userName, locale);
 
 		await resend.sendEmail(ctx, {
 			from: requireEnv('AUTH_EMAIL', { feature: 'email delivery' }),
@@ -111,7 +111,7 @@ export const sendResetPasswordEmail = internalMutation({
  *
  * Called when an admin responds to a user's support request.
  * Uses pre-rendered HTML templates with template placeholders for dynamic content.
- * Looks up user's locale preference for translated subject.
+ * Looks up user's locale preference for translated subject and body.
  */
 export const sendAdminReplyNotification = internalMutation({
 	args: {
@@ -139,7 +139,12 @@ export const sendAdminReplyNotification = internalMutation({
 		url.searchParams.set('thread', threadId);
 		const deepLink = url.toString();
 
-		const { html, text } = renderAdminReplyNotificationEmail(adminName, messagePreview, deepLink);
+		const { html, text } = renderAdminReplyNotificationEmail(
+			adminName,
+			messagePreview,
+			deepLink,
+			locale
+		);
 
 		await resend.sendEmail(ctx, {
 			from: requireEnv('AUTH_EMAIL', { feature: 'email delivery' }),
@@ -164,7 +169,7 @@ export const sendAdminReplyNotification = internalMutation({
  * or sends a message to a previously closed ticket.
  *
  * Uses pre-rendered HTML templates with template placeholders for dynamic content.
- * Looks up admin's locale preference for translated subject.
+ * Looks up admin's locale preference for translated subject and body.
  */
 export const sendNewTicketAdminNotification = internalMutation({
 	args: {
@@ -225,6 +230,7 @@ export const sendNewTicketAdminNotification = internalMutation({
  * Sends to all recipients with new signup notifications enabled (admins + custom emails).
  *
  * Uses pre-rendered HTML templates with template placeholders for dynamic content.
+ * Looks up each recipient's locale preference for translated subject and body.
  */
 export const sendNewUserSignupNotification = internalMutation({
 	args: {
@@ -259,24 +265,32 @@ export const sendNewUserSignupNotification = internalMutation({
 		// Build admin dashboard link with search for this user
 		const adminDashboardLink = `${siteUrl}/admin/users?search=${encodeURIComponent(userEmail)}`;
 
-		const { html, text } = renderNewUserSignupNotificationEmail({
-			userName: userName || 'New User',
-			userEmail,
-			signupMethod,
-			signupTime,
-			adminDashboardLink
-		});
-
 		// Send to each recipient
-		// Note: The Resend component handles retries internally via workpool (5 retries, 30s backoff)
-		// and uses idempotency keys for exactly-once delivery
+		// Note: The Resend component retries transient failures internally via workpool
+		// (5 retries, 30s backoff). Its idempotency key is the per-enqueue email record id,
+		// so it only dedupes retries of an already-enqueued email. Duplicate-send safety
+		// across re-runs of this loop comes from Convex's exactly-once scheduled-mutation
+		// execution (scheduled from the auth onCreate/onUpdate triggers, auth.ts).
 		let sentCount = 0;
 		for (const email of recipients) {
 			try {
+				// Per-recipient locale lookup and render: recipient list is small
+				// (admins + custom notification emails, typically <10 rows)
+				const locale = await getLocaleForEmail(ctx, email);
+				const { html, text } = renderNewUserSignupNotificationEmail(
+					{
+						userName: userName || 'New User',
+						userEmail,
+						signupMethod,
+						signupTime,
+						adminDashboardLink
+					},
+					locale
+				);
 				await resend.sendEmail(ctx, {
 					from: requireEnv('AUTH_EMAIL', { feature: 'email delivery' }),
 					to: email,
-					subject: `New user signup: ${userEmail}`,
+					subject: t(locale, 'email.subject.new_signup', { userEmail }),
 					html,
 					text,
 					headers: [

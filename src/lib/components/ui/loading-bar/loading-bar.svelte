@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Progress as ProgressPrimitive } from 'bits-ui';
-	import { onMount, untrack } from 'svelte';
+	import { untrack } from 'svelte';
+	import { AnimationFrames, watch } from 'runed';
 	import { useMotionValue, animate, useReducedMotion } from 'motion-sv';
 	import { getTranslate } from '@tolgee/svelte';
 	import { cn, type WithoutChildrenOrChild } from '$lib/utils.js';
@@ -27,16 +28,23 @@
 	const clampedValue = $derived(Math.min(Math.max(value ?? 0, 0), safeMax));
 	const progressPercent = $derived((clampedValue / safeMax) * 100);
 
+	// Intentional one-time capture: the spring's start position is the width at mount,
+	// later progressPercent changes flow through the spring-sync $effect below
 	const initialWidth = untrack(() => progressPercent);
 	const springWidth = useMotionValue(initialWidth);
 
-	let isLoading = $state(untrack(() => mode === 'loading'));
-	let lastRequestedMode: 'progress' | 'loading' = untrack(() => mode);
+	const isLoading = $derived(mode === 'loading');
 	let springReachedTarget = false;
 
-	let progressStyle = $state(`width: ${initialWidth}%; background: var(--primary);`);
-	let rafId: number | null = null;
+	let displayWidth = $state(initialWidth);
 	let prevSpringWidth = 0;
+
+	const progressStyle = $derived(
+		`width: ${reducedMotion.current ? progressPercent : Math.max(0, displayWidth)}%; background: var(--primary);`
+	);
+
+	// Internal $effect auto-stops the loop on destroy; must be created at component init
+	const frames = new AnimationFrames(renderLoop, { immediate: false });
 
 	// Sync spring toward progressPercent — tween at boundaries to prevent overshoot
 	let springAnim: ReturnType<typeof animate> | null = null;
@@ -45,7 +53,6 @@
 		if (reducedMotion.current) {
 			springWidth.set(progressPercent);
 			springReachedTarget = true;
-			progressStyle = `width: ${progressPercent}%; background: var(--primary);`;
 			return;
 		}
 		const atBoundary = progressPercent <= 0 || progressPercent >= 100;
@@ -68,32 +75,25 @@
 	});
 
 	function startLoop() {
-		if (rafId !== null) return;
-		rafId = requestAnimationFrame(renderLoop);
+		// AnimationFrames.start() has no double-call guard; skip when already running.
+		// untrack: the spring-sync $effect calls this, and frames.running is reactive
+		// state. Tracking it would re-run that effect on every loop start/stop.
+		if (untrack(() => frames.running)) return;
+		frames.start();
 	}
 
-	// Handle mode transitions
-	$effect(() => {
-		if (mode === lastRequestedMode) return;
-		lastRequestedMode = mode;
-
-		if (mode === 'loading') {
-			isLoading = true;
-			if (rafId !== null) {
-				cancelAnimationFrame(rafId);
-				rafId = null;
-			}
-			return;
+	// Handle mode transitions: CSS animations own the loading state, the rAF loop owns progress
+	watch(
+		() => isLoading,
+		(loading) => {
+			if (loading) frames.stop();
+			else startLoop();
 		}
-
-		// Exit loading: CSS animations stop, progress bar takes over
-		isLoading = false;
-		startLoop();
-	});
+	);
 
 	function renderLoop() {
 		const progressWidth = Math.max(0, springWidth.get());
-		progressStyle = `width: ${progressWidth}%; background: var(--primary);`;
+		displayWidth = progressWidth;
 
 		// Stop loop when spring has settled
 		if (!springReachedTarget && Math.abs(progressWidth - prevSpringWidth) < 0.01) {
@@ -102,18 +102,9 @@
 		prevSpringWidth = progressWidth;
 
 		if (springReachedTarget && !isLoading) {
-			rafId = null;
-		} else {
-			rafId = requestAnimationFrame(renderLoop);
+			frames.stop();
 		}
 	}
-
-	onMount(() => {
-		if (!isLoading) startLoop();
-		return () => {
-			if (rafId !== null) cancelAnimationFrame(rafId);
-		};
-	});
 </script>
 
 <ProgressPrimitive.Root

@@ -259,6 +259,7 @@ export const setThreadTitleIfEmpty = internalMutation({
 export const backfillThreadMetadata = internalMutation({
 	args: {},
 	handler: async (ctx) => {
+		// One-time backfill for pre-release data; aiChatThreads volume is bounded in this repo.
 		const records = await ctx.db.query('aiChatThreads').collect();
 		let updated = 0;
 
