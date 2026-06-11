@@ -8,7 +8,7 @@ import {
 	dedupeDisplayMessagesForRender,
 	transformToDisplayMessage,
 	type TransformContext
-} from './DisplayMessageProcessor.js';
+} from './display-message-processor.js';
 import type { ChatMessage, MessagePart } from './types.js';
 import type { StreamCacheManager } from './stream-cache.js';
 

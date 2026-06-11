@@ -9,9 +9,9 @@ import { getContext, setContext, untrack } from 'svelte';
 import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 import { toast } from 'svelte-sonner';
 import type { ConvexClient } from 'convex/browser';
-import type { ChatCore } from '../core/ChatCore.svelte.js';
+import type { ChatCore } from '../core/chat-core.svelte.js';
 import type { DisplayMessage, Attachment, MessageRole } from '../core/types.js';
-import { uploadFileWithProgress } from '../core/FileUploader.js';
+import { uploadFileWithProgress } from '../core/file-uploader.js';
 import { FadeOnLoad } from '$lib/utils/fade-on-load.svelte.js';
 
 /**

@@ -16,7 +16,7 @@ const localStorageMock: Storage = {
 	key: (index: number) => [...storage.keys()][index] ?? null
 };
 
-import { ChatDraftManager } from './ChatDraftManager.svelte';
+import { ChatDraftManager } from './chat-draft-manager.svelte';
 
 describe('ChatDraftManager', () => {
 	let manager: ChatDraftManager;

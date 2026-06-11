@@ -1,5 +1,5 @@
 import { Context } from 'runed';
-import { ChatDraftManager } from '$lib/chat/core/ChatDraftManager.svelte';
+import { ChatDraftManager } from '$lib/chat/core/chat-draft-manager.svelte';
 import type { ConvexClient } from 'convex/browser';
 import { api } from '$lib/convex/_generated/api';
 import type { Attachment } from '$lib/chat';

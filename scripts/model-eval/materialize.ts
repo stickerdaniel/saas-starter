@@ -2,7 +2,7 @@ import type { TextStreamPart, ToolSet } from 'ai';
 import type { StreamDelta } from '@convex-dev/agent/validators';
 import type { UIMessage } from '@convex-dev/agent';
 import { deriveUIMessagesFromTextStreamParts } from '../../src/lib/chat/core/stream-materialization.ts';
-import { transformToDisplayMessage } from '../../src/lib/chat/core/DisplayMessageProcessor.ts';
+import { transformToDisplayMessage } from '../../src/lib/chat/core/display-message-processor.ts';
 import { StreamCacheManager } from '../../src/lib/chat/core/stream-cache.ts';
 import type { ChatMessage } from '../../src/lib/chat/core/types.ts';
 import type { MaterializedAssistant } from './types.ts';

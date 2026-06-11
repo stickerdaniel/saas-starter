@@ -17,7 +17,7 @@
 	import PaperclipIcon from '@lucide/svelte/icons/paperclip';
 	import ChatAttachments from './ChatAttachments.svelte';
 	import { haptic } from '$lib/hooks/use-haptic.svelte';
-	import { getChatUIContext } from './ChatContext.svelte.js';
+	import { getChatUIContext } from './chat-context.svelte.js';
 	import { processImage } from '$lib/media/process-image';
 	import {
 		ALLOWED_FILE_EXT_MIME,
