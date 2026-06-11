@@ -38,6 +38,12 @@
 				.then(() => {
 					this.open = false;
 				})
+				.catch((error) => {
+					// Dialog intentionally stays open on failure so the user can
+					// retry; callers surface their own toast and rethrow (see
+					// recipients-actions.svelte).
+					console.error('[confirm-delete-dialog] onConfirm failed:', error);
+				})
 				.finally(() => {
 					this.loading = false;
 				});
@@ -70,7 +76,9 @@
 
 	export function confirmDelete(options: ConfirmDeleteOptions) {
 		if (options.skipConfirmation) {
-			options.onConfirm();
+			options.onConfirm().catch((error) => {
+				console.error('[confirm-delete-dialog] onConfirm failed:', error);
+			});
 			return;
 		}
 
