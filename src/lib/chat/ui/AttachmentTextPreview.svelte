@@ -5,7 +5,7 @@
 	import { mode } from 'mode-watcher';
 	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
 	import { getTranslate } from '@tolgee/svelte';
-	import { tryGetChatUIContext } from './ChatContext.svelte.js';
+	import { tryGetChatUIContext } from './chat-context.svelte.js';
 	import { getPreviewKind, buildCodeMarkdown, capPreviewText } from '../core/attachmentPreview.js';
 
 	const { t } = getTranslate();

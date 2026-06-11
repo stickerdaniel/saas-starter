@@ -7,9 +7,9 @@
 	import ChatMessages from '$lib/chat/ui/ChatMessages.svelte';
 	import ChatInput from '$lib/chat/ui/ChatInput.svelte';
 	import { PromptSuggestion } from '$lib/components/prompt-kit/prompt-suggestion';
-	import { ChatUIContext, type UploadConfig } from '$lib/chat/ui/ChatContext.svelte';
-	import { ChatCore } from '$lib/chat/core/ChatCore.svelte';
-	import { ChatDraftManager } from '$lib/chat/core/ChatDraftManager.svelte';
+	import { ChatUIContext, type UploadConfig } from '$lib/chat/ui/chat-context.svelte';
+	import { ChatCore } from '$lib/chat/core/chat-core.svelte';
+	import { ChatDraftManager } from '$lib/chat/core/chat-draft-manager.svelte';
 	import MessageQuotaBanner from '$lib/components/message-quota-banner.svelte';
 	import { getTranslate } from '@tolgee/svelte';
 	import { page } from '$app/state';

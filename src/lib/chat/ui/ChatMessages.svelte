@@ -9,7 +9,7 @@
 	} from '$lib/components/prompt-kit/chat-container';
 	import { ScrollButton } from '$lib/components/prompt-kit/scroll-button';
 	import ProgressiveBlur from '$blocks/magic/ProgressiveBlur.svelte';
-	import { getChatUIContext } from './ChatContext.svelte.js';
+	import { getChatUIContext } from './chat-context.svelte.js';
 	import ChatMessage from './ChatMessage.svelte';
 	import type { DisplayMessage, Attachment } from '../core/types.js';
 	import { mode } from 'mode-watcher';

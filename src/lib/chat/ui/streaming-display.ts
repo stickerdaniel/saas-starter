@@ -11,7 +11,7 @@ import {
 	dedupeDisplayMessagesForRender,
 	transformToDisplayMessage,
 	type TransformContext
-} from '../core/DisplayMessageProcessor.js';
+} from '../core/display-message-processor.js';
 import type { StreamCacheManager } from '../core/stream-cache.js';
 
 export type MessagesQueryResponse = PaginationResult<ChatMessage> & {

@@ -10,7 +10,7 @@
 	import AttachmentTextPreview from './AttachmentTextPreview.svelte';
 	import { isTextPreviewable } from '../core/attachmentPreview.js';
 	import type { Attachment, UploadState } from '../core/types.js';
-	import type { ChatAlignment } from './ChatContext.svelte.js';
+	import type { ChatAlignment } from './chat-context.svelte.js';
 
 	const { t } = getTranslate();
 

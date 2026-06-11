@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { cn } from '$lib/utils';
 	import type { Snippet } from 'svelte';
-	import type { ChatAlignment } from './ChatContext.svelte.js';
+	import type { ChatAlignment } from './chat-context.svelte.js';
 
 	let {
 		align,

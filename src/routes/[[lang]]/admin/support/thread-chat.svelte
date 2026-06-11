@@ -7,9 +7,9 @@
 	import ChatRoot from '$lib/chat/ui/ChatRoot.svelte';
 	import ChatMessages from '$lib/chat/ui/ChatMessages.svelte';
 	import ChatInput from '$lib/chat/ui/ChatInput.svelte';
-	import { ChatUIContext, type UploadConfig } from '$lib/chat/ui/ChatContext.svelte';
-	import { ChatCore } from '$lib/chat/core/ChatCore.svelte';
-	import type { ChatDraftManager } from '$lib/chat/core/ChatDraftManager.svelte';
+	import { ChatUIContext, type UploadConfig } from '$lib/chat/ui/chat-context.svelte';
+	import { ChatCore } from '$lib/chat/core/chat-core.svelte';
+	import type { ChatDraftManager } from '$lib/chat/core/chat-draft-manager.svelte';
 	import { createOptimisticUpdate, type ListMessagesArgs } from '$lib/chat/core/optimistic';
 	import { CHAT_PAGE_SIZE } from '$lib/chat/core/types';
 	import { Button } from '$lib/components/ui/button';
