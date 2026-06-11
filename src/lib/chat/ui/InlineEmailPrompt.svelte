@@ -128,6 +128,7 @@
 						size="icon"
 						onclick={handleUnsubscribe}
 						disabled={isSubmitting}
+						aria-label={$t('chat.email.unsubscribe_tooltip')}
 					>
 						<BellOffIcon class="h-4 w-4" />
 					</Button>

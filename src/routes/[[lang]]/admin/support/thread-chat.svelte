@@ -131,6 +131,7 @@
 						size="icon"
 						class="h-10 w-10 rounded-full hover:!bg-muted-foreground/10"
 						onclick={onBackClick}
+						aria-label={$t('aria.go_back')}
 					>
 						<ChevronLeft class="size-5" />
 					</Button>
