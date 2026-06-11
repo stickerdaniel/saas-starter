@@ -74,7 +74,7 @@ export const updateConfig = adminMutation({
 		// Upsert per-user profile (name, title, replyTo)
 		const existingProfile = await ctx.db
 			.query('adminProfiles')
-			.withIndex('by_userId', (q) => q.eq('userId', adminUserId))
+			.withIndex('by_user', (q) => q.eq('userId', adminUserId))
 			.unique();
 
 		if (existingProfile) {

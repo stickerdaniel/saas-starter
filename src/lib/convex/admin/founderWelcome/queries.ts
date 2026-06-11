@@ -63,7 +63,7 @@ async function readFounderWelcomeConfig(ctx: QueryCtx): Promise<FounderWelcomeCo
 	// Read per-user profile for contact person
 	const profile = await ctx.db
 		.query('adminProfiles')
-		.withIndex('by_userId', (q) => q.eq('userId', contactUserId))
+		.withIndex('by_user', (q) => q.eq('userId', contactUserId))
 		.unique();
 
 	// Read global email config
@@ -110,7 +110,7 @@ export const getFounderWelcomeConfig = adminQuery({
 		// Read viewer's own profile for form pre-fill
 		const viewerProfile = await ctx.db
 			.query('adminProfiles')
-			.withIndex('by_userId', (q) => q.eq('userId', ctx.user._id))
+			.withIndex('by_user', (q) => q.eq('userId', ctx.user._id))
 			.unique();
 
 		const viewerUser = await ctx.runQuery(components.betterAuth.adapter.findOne, {
