@@ -14,15 +14,15 @@ export default defineSchema({
 	}).index('by_user', ['userId']),
 
 	// Email event tracking - stores webhook events from Resend
+	// Intentionally write-only for now: inspect events via the Convex dashboard.
+	// by_email_id is the documented read path (AGENTS.md Email Event Tracking);
+	// add a query on it when needed.
 	emailEvents: defineTable({
 		emailId: v.string(), // Resend email ID
 		eventType: v.string(), // 'email.delivered', 'email.bounced', etc.
 		timestamp: v.number(), // When the event occurred
 		data: vEmailEvent // Full event payload from Resend
-	})
-		.index('by_email_id', ['emailId'])
-		.index('by_event_type', ['eventType'])
-		.index('by_timestamp', ['timestamp']),
+	}).index('by_email_id', ['emailId']),
 
 	// Admin audit logs - tracks admin actions for accountability
 	adminAuditLogs: defineTable({
