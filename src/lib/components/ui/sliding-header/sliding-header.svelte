@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Component, Snippet } from 'svelte';
 	import { fly } from 'svelte/transition';
+	import { prefersReducedMotion } from 'svelte/motion';
 	import { cubicOut, backOut } from 'svelte/easing';
 	import { Button } from '$lib/components/ui/button';
 	import NavigationButton from '$lib/components/customer-support/navigation-button.svelte';
@@ -55,6 +56,10 @@
 		skipTransition = false,
 		actions
 	}: Props = $props();
+
+	// Zero the fly offsets for reduced-motion users (crossfade only); deep links
+	// (skipTransition) additionally zero the duration so the swap is instant.
+	const noMotion = $derived(skipTransition || prefersReducedMotion.current);
 </script>
 
 <header class="flex shrink-0 items-center gap-2 border-b border-border/50 p-4 {className}">
@@ -63,8 +68,8 @@
 		<!-- Default icon (visible when NOT in back view) -->
 		{#if !isBackView}
 			<div
-				in:fly={{ x: 20, duration: skipTransition ? 0 : 200, easing: backOut }}
-				out:fly={{ x: -20, duration: skipTransition ? 0 : 200, easing: cubicOut }}
+				in:fly={{ x: noMotion ? 0 : 20, duration: skipTransition ? 0 : 200, easing: backOut }}
+				out:fly={{ x: noMotion ? 0 : -20, duration: skipTransition ? 0 : 200, easing: cubicOut }}
 				class="absolute inset-0 flex items-center justify-center"
 			>
 				<DefaultIcon class="size-5 text-muted-foreground" />
@@ -74,8 +79,8 @@
 		<!-- Back button (visible when in back view) -->
 		{#if isBackView}
 			<div
-				in:fly={{ x: 20, duration: skipTransition ? 0 : 200, easing: backOut }}
-				out:fly={{ x: -20, duration: skipTransition ? 0 : 200, easing: cubicOut }}
+				in:fly={{ x: noMotion ? 0 : 20, duration: skipTransition ? 0 : 200, easing: backOut }}
+				out:fly={{ x: noMotion ? 0 : -20, duration: skipTransition ? 0 : 200, easing: cubicOut }}
 				class="absolute inset-0 flex items-center justify-center"
 			>
 				<Button
@@ -99,8 +104,8 @@
 		<!-- Default title -->
 		{#if !isBackView}
 			<div
-				in:fly={{ y: -40, duration: skipTransition ? 0 : 300, easing: backOut }}
-				out:fly={{ y: 40, duration: skipTransition ? 0 : 300, easing: cubicOut }}
+				in:fly={{ y: noMotion ? 0 : -40, duration: skipTransition ? 0 : 300, easing: backOut }}
+				out:fly={{ y: noMotion ? 0 : 40, duration: skipTransition ? 0 : 300, easing: cubicOut }}
 				class="col-start-1 row-start-1 flex h-10 items-center"
 			>
 				<h2 class="text-xl leading-none font-semibold">{defaultTitle}</h2>
@@ -110,8 +115,8 @@
 		<!-- Back view title -->
 		{#if isBackView}
 			<div
-				in:fly={{ y: -40, duration: skipTransition ? 0 : 300, easing: backOut }}
-				out:fly={{ y: 40, duration: skipTransition ? 0 : 300, easing: cubicOut }}
+				in:fly={{ y: noMotion ? 0 : -40, duration: skipTransition ? 0 : 300, easing: backOut }}
+				out:fly={{ y: noMotion ? 0 : 40, duration: skipTransition ? 0 : 300, easing: cubicOut }}
 				class="col-start-1 row-start-1 flex h-10 items-center"
 			>
 				<AvatarHeading

@@ -15,6 +15,7 @@
 	import { haptic } from '$lib/hooks/use-haptic.svelte';
 	import { forgotPasswordSchema } from './schema.js';
 	import { slide } from 'svelte/transition';
+	import { prefersReducedMotion } from 'svelte/motion';
 	import { authFlowContext } from '$lib/hooks/auth-flow.svelte';
 	import { getAuthErrorKey } from '$lib/utils/auth-messages';
 	import { translateValidationErrors } from '$lib/utils/validation-i18n.js';
@@ -164,7 +165,7 @@
 							{#if formError}
 								<div
 									data-testid="forgot-password-form-error"
-									transition:slide={{ duration: 200 }}
+									transition:slide={{ duration: prefersReducedMotion.current ? 0 : 200 }}
 									class="rounded-md bg-destructive/10 p-3 text-sm text-destructive"
 								>
 									<T keyName={formError} />
@@ -173,7 +174,7 @@
 							{#if message}
 								<div
 									data-testid="forgot-password-success-message"
-									transition:slide={{ duration: 200 }}
+									transition:slide={{ duration: prefersReducedMotion.current ? 0 : 200 }}
 									class="rounded-md bg-success/10 p-3 text-sm text-success"
 								>
 									<T keyName={message} />
