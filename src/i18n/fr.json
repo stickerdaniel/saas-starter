@@ -1665,7 +1665,7 @@
 	},
 	"error_page": {
 		"back_home": "Retour à l'accueil",
-		"bug_report_body": "Bonjour,\n\nj'ai rencontré une erreur en utilisant SaaS Starter.\n\nURL : {url}\nStatut : {status}\n\nCe que je faisais :\n\n\nMerci !",
+		"bug_report_body": "Bonjour,\n\nJ'ai rencontré une erreur en utilisant SaaS Starter.\n\nURL : {url}\nStatut : {status}\n\nCe que je faisais :\n\n\nMerci !",
 		"bug_report_subject": "Rapport de bug : erreur {status} sur SaaS Starter",
 		"generic_description": "Une erreur inattendue s'est produite lors du chargement de cette page. Si cela se reproduit, merci de le signaler à {email}.",
 		"generic_title": "Un problème est survenu",
