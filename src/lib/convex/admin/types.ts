@@ -172,3 +172,22 @@ export interface AdminUserData {
 	createdAt?: number;
 	updatedAt?: number;
 }
+
+/**
+ * Convex return validator mirroring {@link AdminUserData}.
+ * Keep both in sync when adding fields.
+ */
+export const adminUserDataValidator = v.object({
+	id: v.string(),
+	name: v.optional(v.string()),
+	email: v.string(),
+	emailVerified: v.optional(v.boolean()),
+	image: v.optional(v.union(v.string(), v.null())),
+	role: roleValidator,
+	banned: v.boolean(),
+	banReason: v.optional(v.union(v.string(), v.null())),
+	banExpires: v.optional(v.union(v.number(), v.null())),
+	providers: v.array(v.string()),
+	createdAt: v.optional(v.number()),
+	updatedAt: v.optional(v.number())
+});

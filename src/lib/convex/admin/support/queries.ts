@@ -351,6 +351,8 @@ export const listMessagesForAdmin = adminQuery({
 		paginationOpts: paginationOptsValidator,
 		streamArgs: vStreamArgs
 	},
+	// v.any(): paginated message + stream shape is owned by @convex-dev/agent
+	returns: v.any(),
 	handler: async (ctx, args): Promise<unknown> => {
 		const supportThread = await ctx.db
 			.query('supportThreads')

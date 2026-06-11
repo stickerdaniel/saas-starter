@@ -14,6 +14,7 @@ import noHardcodedAriaLabelRule from './eslint/rules/no-hardcoded-aria-label.js'
 import noHardcodedSrOnlyRule from './eslint/rules/no-hardcoded-sr-only.js';
 import noDebounceInRuneRule from './eslint/rules/no-debounce-in-rune.js';
 import noHardcodedModifierKeysRule from './eslint/rules/no-hardcoded-modifier-keys.js';
+import requireReturnsValidatorRule from './eslint/rules/require-returns-validator.js';
 
 const gitignorePath = path.resolve(import.meta.dirname, '.gitignore');
 const localPlugin = {
@@ -23,7 +24,8 @@ const localPlugin = {
 		'no-hardcoded-aria-label': noHardcodedAriaLabelRule,
 		'no-hardcoded-sr-only': noHardcodedSrOnlyRule,
 		'no-debounce-in-rune': noDebounceInRuneRule,
-		'no-hardcoded-modifier-keys': noHardcodedModifierKeysRule
+		'no-hardcoded-modifier-keys': noHardcodedModifierKeysRule,
+		'require-returns-validator': requireReturnsValidatorRule
 	}
 };
 
@@ -201,6 +203,17 @@ export default defineConfig(
 		},
 		rules: {
 			'local/no-hardcoded-modifier-keys': 'error'
+		}
+	},
+	{
+		// Every Convex function registration must declare a `returns` validator
+		// (convex-guidelines). See eslint/rules/require-returns-validator.js.
+		files: ['src/lib/convex/**/*.ts'],
+		plugins: {
+			local: localPlugin
+		},
+		rules: {
+			'local/require-returns-validator': 'error'
 		}
 	},
 	// Convex best-practice rules — v2 ships ESLint 9 flat config natively

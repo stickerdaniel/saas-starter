@@ -29,6 +29,7 @@ export const sendMessage = mutation({
 		anonymousUserId: v.optional(v.string()),
 		fileIds: v.optional(v.array(v.string()))
 	},
+	returns: v.object({ messageId: v.string() }),
 	handler: async (ctx, args) => {
 		if (args.prompt.length > 2000) {
 			throw new ConvexError('Message is too long (max 2000 characters)');
@@ -165,6 +166,7 @@ export const createAIResponse = internalAction({
 		promptMessageId: v.string(),
 		userId: v.optional(v.string())
 	},
+	returns: v.null(),
 	handler: async (ctx, args) => {
 		// Global rate limit check for cost protection
 		// This MUST fail the request to protect against runaway costs
@@ -186,7 +188,7 @@ export const createAIResponse = internalAction({
 			});
 
 			// Don't throw - message saved explains the situation
-			return;
+			return null;
 		}
 
 		// Stream the AI response with tool execution support
@@ -213,6 +215,7 @@ export const createAIResponse = internalAction({
 		await ctx.runMutation(internal.support.threads.updateLastMessage, {
 			threadId: args.threadId
 		});
+		return null;
 	}
 });
 
@@ -233,6 +236,8 @@ export const listMessages = query({
 		paginationOpts: paginationOptsValidator,
 		streamArgs: vStreamArgs
 	},
+	// v.any(): paginated message + stream shape is owned by @convex-dev/agent
+	returns: v.any(),
 	handler: async (ctx, args): Promise<unknown> => {
 		await requireSupportThreadAccess(ctx, {
 			threadId: args.threadId,
@@ -257,6 +262,8 @@ export const createAssistantMessage = internalMutation({
 		threadId: v.string(),
 		text: v.string()
 	},
+	// v.any(): saveMessage result shape (messageId + message doc) is owned by @convex-dev/agent
+	returns: v.any(),
 	handler: async (ctx, args) => {
 		return await supportAgent.saveMessage(ctx, {
 			threadId: args.threadId,
@@ -282,6 +289,10 @@ export const getFileMetadataBatch = query({
 	args: {
 		urls: v.array(v.string())
 	},
+	returns: v.record(
+		v.string(),
+		v.object({ width: v.optional(v.number()), height: v.optional(v.number()) })
+	),
 	handler: async (ctx, args): Promise<Record<string, { width?: number; height?: number }>> => {
 		const results: Record<string, { width?: number; height?: number }> = {};
 

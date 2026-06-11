@@ -2,7 +2,7 @@ import { type QueryCtx } from '../_generated/server';
 import { components } from '../_generated/api';
 import { v } from 'convex/values';
 import type { AdminUserData, BetterAuthUser, BetterAuthSession } from './types';
-import { parseBetterAuthUsers, parseBetterAuthSessions } from './types';
+import { adminUserDataValidator, parseBetterAuthUsers, parseBetterAuthSessions } from './types';
 import { adminQuery } from '../functions';
 import { getCounters } from './counters';
 
@@ -294,6 +294,11 @@ export const listUsers = adminQuery({
 			})
 		)
 	},
+	returns: v.object({
+		users: v.array(adminUserDataValidator),
+		continueCursor: v.union(v.string(), v.null()),
+		isDone: v.boolean()
+	}),
 	handler: async (ctx, args) => {
 		const whereConditions = buildUserWhereConditions({
 			roleFilter: args.roleFilter,
@@ -402,6 +407,7 @@ export const getUserCount = adminQuery({
 			)
 		)
 	},
+	returns: v.number(),
 	handler: async (ctx, args) => {
 		const whereConditions = buildUserWhereConditions({
 			roleFilter: args.roleFilter,
@@ -554,6 +560,13 @@ export const resolveUsersLastPage = adminQuery({
  */
 export const getDashboardMetrics = adminQuery({
 	args: {},
+	returns: v.object({
+		totalUsers: v.number(),
+		adminCount: v.number(),
+		bannedCount: v.number(),
+		activeIn24h: v.number(),
+		recentSignups: v.number()
+	}),
 	handler: async (ctx) => {
 		// Static counts from materialized singleton (avoids loading all users)
 		const counters = await getCounters(ctx);

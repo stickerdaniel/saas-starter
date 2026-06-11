@@ -4,6 +4,7 @@ import { convex } from '@convex-dev/better-auth/plugins';
 import { components, internal } from './_generated/api';
 import { type DataModel } from './_generated/dataModel';
 import { query } from './_generated/server';
+import { v } from 'convex/values';
 import type { GenericMutationCtx } from 'convex/server';
 import { passkey } from '@better-auth/passkey';
 import { admin } from 'better-auth/plugins/admin';
@@ -394,6 +395,7 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
 /** Returns which OAuth providers are configured and available */
 export const getAvailableOAuthProviders = query({
 	args: {},
+	returns: v.object({ google: v.boolean(), github: v.boolean() }),
 	handler: async () => {
 		if (!googleOAuth.enabled) {
 			devNotice({
