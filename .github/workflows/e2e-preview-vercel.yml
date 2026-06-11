@@ -3,6 +3,11 @@ name: E2E Tests (Vercel Preview)
 on:
   deployment_status:
 
+# Least-privilege default; jobs that post commit statuses override with
+# statuses: write at the job level.
+permissions:
+  contents: read
+
 jobs:
   e2e-tests:
     name: E2E Tests
