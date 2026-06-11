@@ -640,19 +640,70 @@
 		"you": "Tú"
 	},
 	"email": {
+		"admin_reply": {
+			"button": "Ver conversación",
+			"description": "{adminName} ha respondido a tu conversación de soporte",
+			"footer": "Recibes este email porque tienes una solicitud de soporte abierta.",
+			"preview": "{adminName} ha respondido a tu solicitud de soporte",
+			"title": "Nueva respuesta a tu solicitud"
+		},
+		"badge": {
+			"auth": "Autenticación",
+			"stats": "Estadísticas",
+			"support": "Soporte"
+		},
 		"body": {
 			"no_messages": "Sin mensajes",
+			"ticket_footer": "Recibes este email porque estás asignado a este ticket o configurado para recibir notificaciones de soporte.",
 			"ticket_message": "{userName} ha enviado un nuevo mensaje a un ticket previamente cerrado",
 			"ticket_new": "Nuevo ticket de soporte",
 			"ticket_reopened": "Ticket de soporte reabierto",
-			"ticket_started": "{userName} ha iniciado una nueva conversación de soporte"
+			"ticket_started": "{userName} ha iniciado una nueva conversación de soporte",
+			"view_admin_dashboard": "Ver en el panel de administración"
+		},
+		"new_signup": {
+			"description": "Un nuevo usuario se ha registrado en tu plataforma",
+			"footer": "Recibes este email porque tienes activadas las notificaciones de nuevos registros.",
+			"label_email": "Email:",
+			"label_method": "Método:",
+			"label_name": "Nombre:",
+			"label_time": "Fecha:",
+			"preview": "Nuevo usuario: {userEmail}",
+			"title": "Nuevo usuario registrado"
+		},
+		"reset_password": {
+			"body": "Hemos recibido una solicitud para restablecer tu contraseña. Haz clic en el botón de abajo para establecer una nueva contraseña:",
+			"button": "Restablecer contraseña",
+			"disclaimer": "Si no lo solicitaste, puedes ignorar este email. Tu contraseña no cambiará.",
+			"expiry": "Este enlace caducará en 1 hora por motivos de seguridad.",
+			"greeting": "Hola {userName},",
+			"greeting_fallback": "Hola,",
+			"preview": "Restablecer tu contraseña",
+			"title": "Restablece tu contraseña"
 		},
 		"subject": {
+			"new_signup": "Nuevo registro de usuario: {userEmail}",
 			"reset_password": "Restablecer tu contraseña",
 			"support_reply": "Nueva respuesta a tu solicitud de soporte",
 			"ticket_new": "Nuevo ticket de soporte de {userName}",
 			"ticket_reopened": "Ticket de soporte reabierto por {userName}",
 			"verify": "Verifica tu email"
+		},
+		"verification": {
+			"button": "Verificar email",
+			"description": "Haz clic en el botón de abajo para verificar tu dirección de email",
+			"disclaimer": "Si no creaste una cuenta, ignora este email.",
+			"expiry": "Este enlace caducará en {expiryMinutes} minutos.",
+			"intro": "¡Gracias por registrarte! Verifica tu dirección de email para completar tu registro.",
+			"preview": "Verifica tu dirección de email",
+			"title": "Verifica tu email"
+		},
+		"verification_code": {
+			"description": "Introduce este código para completar tu verificación",
+			"disclaimer": "Si no solicitaste este código, ignora este email.",
+			"expiry": "Este código caducará en {expiryMinutes} minutos.",
+			"preview": "Tu código de verificación es {code}",
+			"title": "Verifica tu email"
 		}
 	},
 	"error_page": {

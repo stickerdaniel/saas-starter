@@ -3,18 +3,27 @@
 	import { Badge, Button, Card } from '$lib/emails/components/ui/index.js';
 	import { EmailHeader, EmailFooter } from '$lib/emails/components/layout/index.js';
 
+	// All user-facing copy is passed in as props so the caller can resolve
+	// translated strings (see src/lib/convex/emails/templates.ts). English
+	// defaults keep the build-time preview rendering.
 	let {
 		titleText = 'New support ticket',
 		descriptionText = 'A user has started a new support conversation',
 		previewText = 'New support ticket',
 		messagesHtml = '<p>No messages</p>',
-		adminDashboardLink = 'https://example.com/admin/support'
+		adminDashboardLink = 'https://example.com/admin/support',
+		badgeText = 'Support',
+		buttonText = 'View in Admin Dashboard',
+		footerText = "You're receiving this email because you are assigned to this ticket or are configured to receive support notifications."
 	}: {
 		titleText?: string;
 		descriptionText?: string;
 		previewText?: string;
 		messagesHtml?: string;
 		adminDashboardLink?: string;
+		badgeText?: string;
+		buttonText?: string;
+		footerText?: string;
 	} = $props();
 </script>
 
@@ -26,7 +35,7 @@
 			<Card.Root>
 				<EmailHeader />
 				<Card.Header>
-					<Badge variant="destructive" class="mb-2">Support</Badge>
+					<Badge variant="destructive" class="mb-2">{badgeText}</Badge>
 					<Card.Title>{titleText}</Card.Title>
 					<Card.Description>{descriptionText}</Card.Description>
 				</Card.Header>
@@ -35,11 +44,10 @@
 					<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 					{@html messagesHtml}
 
-					<Button class="mt-4 mb-4" href={adminDashboardLink}>View in Admin Dashboard</Button>
+					<Button class="mt-4 mb-4" href={adminDashboardLink}>{buttonText}</Button>
 
 					<p class="text-xs text-muted-foreground">
-						You're receiving this email because you are assigned to this ticket or are configured to
-						receive support notifications.
+						{footerText}
 					</p>
 				</Card.Content>
 

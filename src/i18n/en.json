@@ -640,19 +640,70 @@
 		"you": "You"
 	},
 	"email": {
+		"admin_reply": {
+			"button": "View Conversation",
+			"description": "{adminName} has responded to your support thread",
+			"footer": "You're receiving this email because you have an open support request.",
+			"preview": "{adminName} has replied to your support request",
+			"title": "New reply to your request"
+		},
+		"badge": {
+			"auth": "Auth",
+			"stats": "Stats",
+			"support": "Support"
+		},
 		"body": {
 			"no_messages": "No messages",
+			"ticket_footer": "You're receiving this email because you are assigned to this ticket or are configured to receive support notifications.",
 			"ticket_message": "{userName} has sent a new message to a previously closed ticket",
 			"ticket_new": "New support ticket",
 			"ticket_reopened": "Support ticket reopened",
-			"ticket_started": "{userName} has started a new support conversation"
+			"ticket_started": "{userName} has started a new support conversation",
+			"view_admin_dashboard": "View in Admin Dashboard"
+		},
+		"new_signup": {
+			"description": "A new user has registered on your platform",
+			"footer": "You're receiving this email because you have new signup notifications enabled.",
+			"label_email": "Email:",
+			"label_method": "Method:",
+			"label_name": "Name:",
+			"label_time": "Time:",
+			"preview": "New user: {userEmail}",
+			"title": "New user signed up"
+		},
+		"reset_password": {
+			"body": "We received a request to reset your password. Click the button below to set a new password:",
+			"button": "Reset Password",
+			"disclaimer": "If you didn't request this, you can safely ignore this email. Your password will remain unchanged.",
+			"expiry": "This link will expire in 1 hour for security reasons.",
+			"greeting": "Hey {userName},",
+			"greeting_fallback": "Hey there,",
+			"preview": "Reset your password",
+			"title": "Reset your password"
 		},
 		"subject": {
+			"new_signup": "New user signup: {userEmail}",
 			"reset_password": "Reset your password",
 			"support_reply": "New reply to your support request",
 			"ticket_new": "New support ticket from {userName}",
 			"ticket_reopened": "Support ticket reopened by {userName}",
 			"verify": "Verify your email"
+		},
+		"verification": {
+			"button": "Verify Email",
+			"description": "Click the button below to verify your email address",
+			"disclaimer": "If you didn't create an account, please ignore this email.",
+			"expiry": "This link will expire in {expiryMinutes} minutes.",
+			"intro": "Thanks for signing up! Please verify your email address to complete your registration.",
+			"preview": "Verify your email address",
+			"title": "Verify your email"
+		},
+		"verification_code": {
+			"description": "Enter this code to complete your verification",
+			"disclaimer": "If you didn't request this code, please ignore this email.",
+			"expiry": "This code will expire in {expiryMinutes} minutes.",
+			"preview": "Your verification code is {code}",
+			"title": "Verify your email"
 		}
 	},
 	"error_page": {

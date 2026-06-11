@@ -71,20 +71,33 @@ function getBaseUrl(): string {
  * Render verification email with magic link
  * @param verificationUrl - URL to verify email
  * @param expiryMinutes - Minutes until link expires
+ * @param locale - Locale for translated strings (optional, defaults to DEFAULT_LOCALE)
  * @returns Rendered HTML and plain text email
  */
 export function renderVerificationEmail(
 	verificationUrl: VerificationEmailData['verificationUrl'],
-	expiryMinutes: VerificationEmailData['expiryMinutes']
+	expiryMinutes: VerificationEmailData['expiryMinutes'],
+	locale: string = DEFAULT_LOCALE
 ): RenderedEmail {
 	const baseUrl = getBaseUrl();
 
+	const texts = {
+		badgeText: t(locale, 'email.badge.auth'),
+		titleText: t(locale, 'email.verification.title'),
+		descriptionText: t(locale, 'email.verification.description'),
+		previewText: t(locale, 'email.verification.preview'),
+		introText: t(locale, 'email.verification.intro'),
+		buttonText: t(locale, 'email.verification.button'),
+		expiryText: t(locale, 'email.verification.expiry', { expiryMinutes }),
+		disclaimerText: t(locale, 'email.verification.disclaimer')
+	};
+
 	const data = {
 		verificationUrl: escapeHtml(verificationUrl),
-		expiryMinutes: expiryMinutes,
-		baseUrl: escapeHtml(baseUrl)
+		baseUrl: escapeHtml(baseUrl),
+		...Object.fromEntries(Object.entries(texts).map(([k, v]) => [k, escapeHtml(v)]))
 	};
-	const textData = { verificationUrl, expiryMinutes, baseUrl };
+	const textData = { verificationUrl, baseUrl, ...texts };
 
 	return {
 		html: renderTemplate(VERIFICATION_HTML, data),
@@ -100,20 +113,31 @@ export function renderVerificationEmail(
  *
  * @param code - 8-digit verification code
  * @param expiryMinutes - Minutes until code expires
+ * @param locale - Locale for translated strings (optional, defaults to DEFAULT_LOCALE)
  * @returns Rendered HTML and plain text email
  */
 export function renderVerificationCodeEmail(
 	code: VerificationCodeEmailData['code'],
-	expiryMinutes: VerificationCodeEmailData['expiryMinutes']
+	expiryMinutes: VerificationCodeEmailData['expiryMinutes'],
+	locale: string = DEFAULT_LOCALE
 ): RenderedEmail {
 	const baseUrl = getBaseUrl();
 
+	const texts = {
+		badgeText: t(locale, 'email.badge.auth'),
+		titleText: t(locale, 'email.verification_code.title'),
+		descriptionText: t(locale, 'email.verification_code.description'),
+		previewText: t(locale, 'email.verification_code.preview', { code }),
+		expiryText: t(locale, 'email.verification_code.expiry', { expiryMinutes }),
+		disclaimerText: t(locale, 'email.verification_code.disclaimer')
+	};
+
 	const data = {
 		code: escapeHtml(code),
-		expiryMinutes: expiryMinutes,
-		baseUrl: escapeHtml(baseUrl)
+		baseUrl: escapeHtml(baseUrl),
+		...Object.fromEntries(Object.entries(texts).map(([k, v]) => [k, escapeHtml(v)]))
 	};
-	const textData = { code, expiryMinutes, baseUrl };
+	const textData = { code, baseUrl, ...texts };
 
 	return {
 		html: renderTemplate(VERIFICATIONCODE_HTML, data),
@@ -124,25 +148,36 @@ export function renderVerificationCodeEmail(
 /**
  * Render password reset email with reset link
  * @param resetUrl - URL to reset password page with token
- * @param userName - User's name for personalization (optional, defaults to "there")
+ * @param userName - User's name for personalization (optional, falls back to a generic greeting)
+ * @param locale - Locale for translated strings (optional, defaults to DEFAULT_LOCALE)
  * @returns Rendered HTML and plain text email
  */
 export function renderPasswordResetEmail(
 	resetUrl: PasswordResetEmailData['resetUrl'],
-	userName?: PasswordResetEmailData['userName']
+	userName?: PasswordResetEmailData['userName'],
+	locale: string = DEFAULT_LOCALE
 ): RenderedEmail {
 	const baseUrl = getBaseUrl();
 
+	const texts = {
+		badgeText: t(locale, 'email.badge.auth'),
+		titleText: t(locale, 'email.reset_password.title'),
+		greetingText: userName
+			? t(locale, 'email.reset_password.greeting', { userName })
+			: t(locale, 'email.reset_password.greeting_fallback'),
+		previewText: t(locale, 'email.reset_password.preview'),
+		bodyText: t(locale, 'email.reset_password.body'),
+		buttonText: t(locale, 'email.reset_password.button'),
+		expiryText: t(locale, 'email.reset_password.expiry'),
+		disclaimerText: t(locale, 'email.reset_password.disclaimer')
+	};
+
 	const data = {
 		resetUrl: escapeHtml(resetUrl),
-		userName: userName ? escapeHtml(userName) : 'there',
-		baseUrl: escapeHtml(baseUrl)
+		baseUrl: escapeHtml(baseUrl),
+		...Object.fromEntries(Object.entries(texts).map(([k, v]) => [k, escapeHtml(v)]))
 	};
-	const textData = {
-		resetUrl,
-		userName: userName || 'there',
-		baseUrl
-	};
+	const textData = { resetUrl, baseUrl, ...texts };
 
 	return {
 		html: renderTemplate(PASSWORDRESET_HTML, data),
@@ -155,22 +190,33 @@ export function renderPasswordResetEmail(
  * @param adminName - Name of the admin who replied
  * @param messagePreview - Preview text of the admin's message
  * @param deepLink - URL to view the full conversation
+ * @param locale - Locale for translated strings (optional, defaults to DEFAULT_LOCALE)
  * @returns Rendered HTML and plain text email
  */
 export function renderAdminReplyNotificationEmail(
 	adminName: AdminReplyNotificationEmailData['adminName'],
 	messagePreview: AdminReplyNotificationEmailData['messagePreview'],
-	deepLink: AdminReplyNotificationEmailData['deepLink']
+	deepLink: AdminReplyNotificationEmailData['deepLink'],
+	locale: string = DEFAULT_LOCALE
 ): RenderedEmail {
 	const baseUrl = getBaseUrl();
 
+	const texts = {
+		badgeText: t(locale, 'email.badge.support'),
+		titleText: t(locale, 'email.admin_reply.title'),
+		descriptionText: t(locale, 'email.admin_reply.description', { adminName }),
+		previewText: t(locale, 'email.admin_reply.preview', { adminName }),
+		buttonText: t(locale, 'email.admin_reply.button'),
+		footerText: t(locale, 'email.admin_reply.footer')
+	};
+
 	const data = {
-		adminName: escapeHtml(adminName),
 		messagePreview: escapeHtml(messagePreview),
 		deepLink: escapeHtml(deepLink),
-		baseUrl: escapeHtml(baseUrl)
+		baseUrl: escapeHtml(baseUrl),
+		...Object.fromEntries(Object.entries(texts).map(([k, v]) => [k, escapeHtml(v)]))
 	};
-	const textData = { adminName, messagePreview, deepLink, baseUrl };
+	const textData = { messagePreview, deepLink, baseUrl, ...texts };
 
 	return {
 		html: renderTemplate(ADMINREPLYNOTIFICATION_HTML, data),
@@ -220,13 +266,19 @@ export function renderNewTicketAdminNotificationEmail(
 		.join('');
 
 	const noMessagesText = t(locale, 'email.body.no_messages');
+	const badgeText = t(locale, 'email.badge.support');
+	const buttonText = t(locale, 'email.body.view_admin_dashboard');
+	const footerText = t(locale, 'email.body.ticket_footer');
 	const templateData = {
 		titleText: escapeHtml(titleText),
 		descriptionText: escapeHtml(descriptionText),
 		previewText: escapeHtml(previewText),
 		messagesHtml: messagesHtml || `<p style="color: #71717a;">${escapeHtml(noMessagesText)}</p>`,
 		adminDashboardLink: escapeHtml(data.adminDashboardLink),
-		baseUrl: escapeHtml(baseUrl)
+		baseUrl: escapeHtml(baseUrl),
+		badgeText: escapeHtml(badgeText),
+		buttonText: escapeHtml(buttonText),
+		footerText: escapeHtml(footerText)
 	};
 
 	// For plain text version (only show timestamp for first message)
@@ -239,7 +291,10 @@ export function renderNewTicketAdminNotificationEmail(
 		previewText,
 		messagesHtml: messagesText || noMessagesText,
 		adminDashboardLink: data.adminDashboardLink,
-		baseUrl
+		baseUrl,
+		badgeText,
+		buttonText,
+		footerText
 	};
 
 	return {
@@ -254,12 +309,27 @@ export function renderNewTicketAdminNotificationEmail(
  * Sent to admins when a new user registers on the platform.
  *
  * @param data - Email data including user info and admin dashboard link
+ * @param locale - Locale for translated strings (optional, defaults to DEFAULT_LOCALE)
  * @returns Rendered HTML and plain text email
  */
 export function renderNewUserSignupNotificationEmail(
-	data: NewUserSignupNotificationEmailData
+	data: NewUserSignupNotificationEmailData,
+	locale: string = DEFAULT_LOCALE
 ): RenderedEmail {
 	const baseUrl = getBaseUrl();
+
+	const texts = {
+		badgeText: t(locale, 'email.badge.stats'),
+		titleText: t(locale, 'email.new_signup.title'),
+		descriptionText: t(locale, 'email.new_signup.description'),
+		previewText: t(locale, 'email.new_signup.preview', { userEmail: data.userEmail }),
+		nameLabel: t(locale, 'email.new_signup.label_name'),
+		emailLabel: t(locale, 'email.new_signup.label_email'),
+		methodLabel: t(locale, 'email.new_signup.label_method'),
+		timeLabel: t(locale, 'email.new_signup.label_time'),
+		buttonText: t(locale, 'email.body.view_admin_dashboard'),
+		footerText: t(locale, 'email.new_signup.footer')
+	};
 
 	const templateData = {
 		userName: escapeHtml(data.userName || 'New User'),
@@ -267,7 +337,8 @@ export function renderNewUserSignupNotificationEmail(
 		signupMethod: escapeHtml(data.signupMethod),
 		signupTime: escapeHtml(data.signupTime),
 		adminDashboardLink: escapeHtml(data.adminDashboardLink),
-		baseUrl: escapeHtml(baseUrl)
+		baseUrl: escapeHtml(baseUrl),
+		...Object.fromEntries(Object.entries(texts).map(([k, v]) => [k, escapeHtml(v)]))
 	};
 
 	const textData = {
@@ -276,7 +347,8 @@ export function renderNewUserSignupNotificationEmail(
 		signupMethod: data.signupMethod,
 		signupTime: data.signupTime,
 		adminDashboardLink: data.adminDashboardLink,
-		baseUrl
+		baseUrl,
+		...texts
 	};
 
 	return {

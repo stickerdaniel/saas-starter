@@ -3,26 +3,39 @@
 	import { Alert, Badge, Card } from '$lib/emails/components/ui/index.js';
 	import { EmailHeader, EmailFooter } from '$lib/emails/components/layout/index.js';
 
+	// All user-facing copy is passed in as props so the caller can resolve
+	// translated strings (see src/lib/convex/emails/templates.ts). English
+	// defaults keep the build-time preview rendering.
 	let {
 		code = '12345678',
-		expiryMinutes = 20
+		badgeText = 'Auth',
+		titleText = 'Verify your email',
+		descriptionText = 'Enter this code to complete your verification',
+		previewText = 'Your verification code is 12345678',
+		expiryText = 'This code will expire in 20 minutes.',
+		disclaimerText = "If you didn't request this code, please ignore this email."
 	}: {
 		code?: string;
-		expiryMinutes?: number;
+		badgeText?: string;
+		titleText?: string;
+		descriptionText?: string;
+		previewText?: string;
+		expiryText?: string;
+		disclaimerText?: string;
 	} = $props();
 </script>
 
 <Html>
 	<Head />
 	<Body class="mx-auto my-auto bg-white px-2 font-sans">
-		<Preview preview="Your verification code is {code}" />
+		<Preview preview={previewText} />
 		<Container class="mx-auto my-10 max-w-md p-5">
 			<Card.Root>
 				<EmailHeader />
 				<Card.Header>
-					<Badge variant="secondary" class="mb-2">Auth</Badge>
-					<Card.Title>Verify your email</Card.Title>
-					<Card.Description>Enter this code to complete your verification</Card.Description>
+					<Badge variant="secondary" class="mb-2">{badgeText}</Badge>
+					<Card.Title>{titleText}</Card.Title>
+					<Card.Description>{descriptionText}</Card.Description>
 				</Card.Header>
 
 				<Card.Content>
@@ -32,12 +45,12 @@
 
 					<Alert.Root class="mb-4">
 						<Alert.Description>
-							This code will expire in {expiryMinutes} minutes.
+							{expiryText}
 						</Alert.Description>
 					</Alert.Root>
 
 					<p class="text-sm text-muted-foreground">
-						If you didn't request this code, please ignore this email.
+						{disclaimerText}
 					</p>
 				</Card.Content>
 

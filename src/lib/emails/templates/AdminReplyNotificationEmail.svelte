@@ -3,28 +3,41 @@
 	import { Alert, Badge, Button, Card } from '$lib/emails/components/ui/index.js';
 	import { EmailHeader, EmailFooter } from '$lib/emails/components/layout/index.js';
 
+	// All user-facing copy is passed in as props so the caller can resolve
+	// translated strings (see src/lib/convex/emails/templates.ts). English
+	// defaults keep the build-time preview rendering.
 	let {
-		adminName = 'Support Team',
 		messagePreview = 'Thank you for reaching out...',
-		deepLink = 'https://example.com?support=open&thread=123'
+		deepLink = 'https://example.com?support=open&thread=123',
+		badgeText = 'Support',
+		titleText = 'New reply to your request',
+		descriptionText = 'Support Team has responded to your support thread',
+		previewText = 'Support Team has replied to your support request',
+		buttonText = 'View Conversation',
+		footerText = "You're receiving this email because you have an open support request."
 	}: {
-		adminName?: string;
 		messagePreview?: string;
 		deepLink?: string;
+		badgeText?: string;
+		titleText?: string;
+		descriptionText?: string;
+		previewText?: string;
+		buttonText?: string;
+		footerText?: string;
 	} = $props();
 </script>
 
 <Html>
 	<Head />
 	<Body class="mx-auto my-auto bg-white px-2 font-sans">
-		<Preview preview="{adminName} has replied to your support request" />
+		<Preview preview={previewText} />
 		<Container class="mx-auto my-10 max-w-md p-5">
 			<Card.Root>
 				<EmailHeader />
 				<Card.Header>
-					<Badge variant="secondary" class="mb-2">Support</Badge>
-					<Card.Title>New reply to your request</Card.Title>
-					<Card.Description>{adminName} has responded to your support thread</Card.Description>
+					<Badge variant="secondary" class="mb-2">{badgeText}</Badge>
+					<Card.Title>{titleText}</Card.Title>
+					<Card.Description>{descriptionText}</Card.Description>
 				</Card.Header>
 
 				<Card.Content>
@@ -32,10 +45,10 @@
 						<Alert.Description>"{messagePreview}"</Alert.Description>
 					</Alert.Root>
 
-					<Button class="mb-4" href={deepLink}>View Conversation</Button>
+					<Button class="mb-4" href={deepLink}>{buttonText}</Button>
 
 					<p class="text-xs text-muted-foreground">
-						You're receiving this email because you have an open support request.
+						{footerText}
 					</p>
 				</Card.Content>
 

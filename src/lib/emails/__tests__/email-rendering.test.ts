@@ -17,7 +17,9 @@ import {
 	renderVerificationEmail,
 	renderVerificationCodeEmail,
 	renderPasswordResetEmail,
-	renderAdminReplyNotificationEmail
+	renderAdminReplyNotificationEmail,
+	renderNewTicketAdminNotificationEmail,
+	renderNewUserSignupNotificationEmail
 } from '$lib/convex/emails/templates';
 
 describe('Email Template Rendering', () => {
@@ -154,6 +156,83 @@ describe('Email Template Rendering', () => {
 			const result = renderPasswordResetEmail('https://example.com', '');
 			expect(result.html).toContain('there');
 			expect(result.text).toContain('there');
+		});
+	});
+
+	describe('Localization', () => {
+		it('renders English strings by default', () => {
+			const result = renderVerificationEmail('https://example.com', 30);
+			expect(result.html).toContain('Verify your email');
+			expect(result.text).toContain('This link will expire in 30 minutes.');
+		});
+
+		it('renders German verification email', () => {
+			const result = renderVerificationEmail('https://example.com', 30, 'de');
+			expect(result.html).toContain('E-Mail-Adresse bestätigen');
+			expect(result.text).toContain('Dieser Link läuft in 30 Minuten ab.');
+		});
+
+		it('renders Spanish verification code email with interpolated code', () => {
+			const result = renderVerificationCodeEmail('12345678', 30, 'es');
+			expect(result.html).toContain('Tu código de verificación es 12345678');
+			expect(result.text).toContain('Este código caducará en 30 minutos.');
+		});
+
+		it('renders German password reset greeting with userName', () => {
+			const result = renderPasswordResetEmail('https://example.com', 'Max', 'de');
+			expect(result.html).toContain('Hallo Max,');
+			expect(result.text).toContain('Passwort zurücksetzen');
+		});
+
+		it('renders German password reset fallback greeting without userName', () => {
+			const result = renderPasswordResetEmail('https://example.com', undefined, 'de');
+			expect(result.html).toContain('Hallo,');
+		});
+
+		it('renders French admin reply notification with interpolated adminName', () => {
+			const result = renderAdminReplyNotificationEmail(
+				'Alice',
+				'Bonjour',
+				'https://example.com',
+				'fr'
+			);
+			expect(result.html).toContain('Alice a répondu à votre conversation de support');
+			expect(result.text).toContain('Voir la conversation');
+		});
+
+		it('renders German new ticket notification button and footer', () => {
+			const result = renderNewTicketAdminNotificationEmail(
+				{
+					isReopen: false,
+					userName: 'Max',
+					messages: [{ text: 'Hi', timestamp: 'Jan 15, 10:30 AM' }],
+					adminDashboardLink: 'https://example.com/admin/support'
+				},
+				'de'
+			);
+			expect(result.html).toContain('Im Admin-Dashboard ansehen');
+			expect(result.text).toContain('Sie erhalten diese E-Mail');
+		});
+
+		it('renders Spanish new user signup notification', () => {
+			const result = renderNewUserSignupNotificationEmail(
+				{
+					userName: 'Max',
+					userEmail: 'max@example.com',
+					signupMethod: 'Email',
+					signupTime: 'Jan 15, 2026 at 3:45 PM',
+					adminDashboardLink: 'https://example.com/admin/users'
+				},
+				'es'
+			);
+			expect(result.html).toContain('Nuevo usuario registrado');
+			expect(result.html).toContain('Método:');
+			expect(result.text).toContain('Ver en el panel de administración');
+		});
+
+		it('falls back to English for unsupported locales', () => {
+			const result = renderVerificationEmail('https://example.com', 30, 'xx');
+			expect(result.html).toContain('Verify your email');
 		});
 	});
 
