@@ -14,7 +14,7 @@
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
 	import { Checkbox } from '$lib/components/ui/checkbox/index.js';
-	import DotsVerticalIcon from '@tabler/icons-svelte/icons/dots-vertical';
+	import DotsVerticalIcon from '@lucide/svelte/icons/ellipsis-vertical';
 	import { T, getTranslate } from '@tolgee/svelte';
 
 	const { t } = getTranslate();
