@@ -2,7 +2,7 @@ import { v, ConvexError } from 'convex/values';
 import { internal, components } from '../../_generated/api';
 import { saveMessage, getFile } from '@convex-dev/agent';
 import { adminMutation } from '../../functions';
-import { shouldSendNotification } from '../../support/threads';
+import { shouldSendNotification, syncSupportLastMessage } from '../../support/threads';
 import type { AssistantContent, TextPart, FilePart } from 'ai';
 
 /**
@@ -243,9 +243,7 @@ export const sendAdminReply = adminMutation({
 		);
 
 		// Sync denormalized search fields
-		await ctx.runMutation(internal.support.threads.updateLastMessage, {
-			threadId: args.threadId
-		});
+		await syncSupportLastMessage(ctx, args.threadId);
 	}
 });
 

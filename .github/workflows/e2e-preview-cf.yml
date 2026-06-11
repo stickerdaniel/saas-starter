@@ -26,6 +26,40 @@ jobs:
             -f context="E2E Tests" \
             -f description="Skipped (production build, no preview)"
 
+  # Resolve the required E2E status when the CF preview build does not succeed.
+  # Without this, the pending status set by static-checks.yml would stay
+  # pending forever and block merging on this SHA.
+  e2e-build-failed:
+    name: E2E Build Failed Status
+    runs-on: ubicloud-standard-2
+    permissions:
+      statuses: write
+    # conclusion is always terminal here because the trigger is check_run: [completed]
+    if: |
+      github.event.check_run.app.slug == 'cloudflare-workers-and-pages' &&
+      github.event.check_run.conclusion != 'success' &&
+      github.event.check_run.pull_requests[0]
+    steps:
+      - name: Report build failure to PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.check_run.head_sha }}
+          CONCLUSION: ${{ github.event.check_run.conclusion }}
+          TARGET_URL: ${{ github.event.check_run.html_url }}
+        run: |
+          for i in 1 2 3; do
+            gh api "repos/${{ github.repository }}/statuses/${HEAD_SHA}" \
+              -f state=failure \
+              -f context="E2E Tests" \
+              -f description="CF preview build ${CONCLUSION}, E2E skipped" \
+              -f target_url="$TARGET_URL" \
+              && exit 0
+            echo "Attempt $i failed, retrying in 5s..."
+            sleep 5
+          done
+          echo "::warning::Failed to report status after 3 attempts"
+          exit 1
+
   e2e-tests:
     name: E2E Tests
     runs-on: ubicloud-standard-2
@@ -50,8 +84,9 @@ jobs:
           ref: ${{ github.event.check_run.head_sha }}
 
       - name: Extract preview URL
+        env:
+          SUMMARY: ${{ github.event.check_run.output.summary }}
         run: |
-          SUMMARY="${{ github.event.check_run.output.summary }}"
           PREVIEW_URL=$(echo "$SUMMARY" | grep 'Preview Alias URL:' | sed 's/.*Preview Alias URL: //' | tr -d '[:space:]')
           if [ -z "$PREVIEW_URL" ]; then
             echo "::error::No Preview Alias URL found in check_run output"

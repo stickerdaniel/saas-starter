@@ -21,6 +21,7 @@ export type ConvexCursorTableState<TItem, TSortField extends string, TFilterKeys
 	readonly urlState: TableUrlState<TFilterKeys>;
 	readonly rows: TItem[];
 	readonly isLoading: boolean;
+	readonly error: Error | undefined;
 	readonly totalCount: number;
 	readonly hasLoadedCount: boolean;
 	readonly pageCount: number;
@@ -400,6 +401,13 @@ export function createConvexCursorTable<
 			isResolvingPreviousPage ||
 			(currentPageData === undefined && listQuery.isLoading)
 	);
+	// Reactive query error: when set, isLoading is false. On a first-load failure
+	// rows is empty, so consumers must render an error branch or the empty state
+	// swallows it. After a successful load, rows can stay non-empty from pageCache
+	// while the live subscription errors; consumers rendering the error ahead of
+	// those stale rows is intentional and transient.
+	// Self-heals: the Convex subscription stays live and clears the error on recovery.
+	const error = $derived(listQuery.error ?? countQuery.error);
 
 	function cachePage(index: number, data: CursorListResult<TItem> | undefined) {
 		if (!data) return;
@@ -669,6 +677,9 @@ export function createConvexCursorTable<
 		},
 		get isLoading() {
 			return isLoading;
+		},
+		get error() {
+			return error;
 		},
 		get totalCount() {
 			return totalCount;

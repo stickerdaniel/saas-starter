@@ -135,7 +135,11 @@
 		</Item.Description>
 	</Item.Content>
 	<Item.Footer>
-		{#if !result.data}
+		{#if result.error}
+			<p class="text-sm text-destructive" data-testid="founder-welcome-error">
+				<T keyName="common.load_error" />
+			</p>
+		{:else if !result.data}
 			<Button size="sm" variant="outline" class="invisible">&nbsp;</Button>
 		{:else if !isEnabled}
 			<Button size="sm" onclick={openDialog}>

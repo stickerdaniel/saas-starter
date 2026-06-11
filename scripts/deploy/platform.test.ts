@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { sanitizeBranchAlias } from './platform';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { detectPlatform, sanitizeBranchAlias } from './platform';
 
 describe('sanitizeBranchAlias', () => {
 	it('uses the full alias budget for short worker names', () => {
@@ -50,5 +50,62 @@ describe('sanitizeBranchAlias', () => {
 		const branch = 'a'.repeat(56) + '-tail';
 		const alias = sanitizeBranchAlias(branch, workerName);
 		expect(alias.endsWith('-')).toBe(false);
+	});
+});
+
+describe('detectPlatform (Vercel)', () => {
+	// detectPlatform reads process.env, so isolate the vars it touches
+	const vars = [
+		'VERCEL',
+		'VERCEL_ENV',
+		'VERCEL_URL',
+		'VERCEL_PROJECT_PRODUCTION_URL',
+		'VERCEL_GIT_COMMIT_REF'
+	] as const;
+	const saved: Record<string, string | undefined> = {};
+
+	beforeEach(() => {
+		for (const key of vars) {
+			saved[key] = process.env[key];
+			delete process.env[key];
+		}
+		process.env.VERCEL = '1';
+		process.env.VERCEL_URL = 'myapp-abc123xyz.vercel.app';
+	});
+
+	afterEach(() => {
+		for (const key of vars) {
+			if (saved[key] === undefined) delete process.env[key];
+			else process.env[key] = saved[key];
+		}
+	});
+
+	it('prefers the production domain over the deployment URL for production builds', () => {
+		process.env.VERCEL_ENV = 'production';
+		process.env.VERCEL_PROJECT_PRODUCTION_URL = 'myapp.vercel.app';
+		const platform = detectPlatform();
+		expect(platform.siteUrl).toBe('https://myapp.vercel.app');
+		expect(platform.deployUrl).toBe('myapp-abc123xyz.vercel.app');
+	});
+
+	it('falls back to the deployment URL for production when no production domain is set', () => {
+		process.env.VERCEL_ENV = 'production';
+		const platform = detectPlatform();
+		expect(platform.siteUrl).toBe('https://myapp-abc123xyz.vercel.app');
+	});
+
+	it('uses the deployment URL for previews even when a production domain is set', () => {
+		process.env.VERCEL_ENV = 'preview';
+		process.env.VERCEL_PROJECT_PRODUCTION_URL = 'myapp.vercel.app';
+		const platform = detectPlatform();
+		expect(platform.siteUrl).toBe('https://myapp-abc123xyz.vercel.app');
+		expect(platform.isPreview).toBe(true);
+	});
+
+	it('returns null siteUrl when no Vercel URL is available', () => {
+		process.env.VERCEL_ENV = 'production';
+		delete process.env.VERCEL_URL;
+		const platform = detectPlatform();
+		expect(platform.siteUrl).toBeNull();
 	});
 });

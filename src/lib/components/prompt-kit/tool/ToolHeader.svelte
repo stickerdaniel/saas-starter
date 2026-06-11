@@ -35,13 +35,13 @@
 	function getStateIconClass(): string {
 		switch (toolPart.state) {
 			case 'input-streaming':
-				return 'h-4 w-4 motion-safe:animate-spin text-blue-500';
+				return 'h-4 w-4 motion-safe:animate-spin text-info';
 			case 'input-available':
-				return 'h-4 w-4 text-orange-500';
+				return 'h-4 w-4 text-warning';
 			case 'output-available':
-				return 'h-4 w-4 text-green-500';
+				return 'h-4 w-4 text-success';
 			case 'output-error':
-				return 'h-4 w-4 text-red-500';
+				return 'h-4 w-4 text-destructive';
 			default:
 				return 'text-muted-foreground h-4 w-4';
 		}

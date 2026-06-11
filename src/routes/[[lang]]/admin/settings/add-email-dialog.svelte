@@ -3,7 +3,7 @@
 	import * as Field from '$lib/components/ui/field/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
-	import PlusIcon from '@tabler/icons-svelte/icons/plus';
+	import PlusIcon from '@lucide/svelte/icons/plus';
 	import { T, getTranslate } from '@tolgee/svelte';
 	import { haptic } from '$lib/hooks/use-haptic.svelte';
 	import { toast } from 'svelte-sonner';

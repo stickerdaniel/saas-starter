@@ -40,6 +40,9 @@
 	// Filter out threads with no messages (e.g., eagerly created but never used threads)
 	const threads = $derived((threadsQuery.data?.page ?? []).filter((t) => t.lastMessage));
 	const isLoading = $derived(!ctx.userId ? true : threadsQuery.isLoading);
+	// Query error: without this branch the greeting/empty state would swallow it
+	// (self-heals when the live Convex subscription recovers)
+	const loadError = $derived(threadsQuery.error);
 
 	// Query admin avatars for the welcome screen
 	const adminAvatarsQuery = useQuery(api.support.threads.getAdminAvatars, {});
@@ -216,7 +219,14 @@
 <div class="flex h-full flex-col" inert={ctx.currentView !== 'overview' ? true : undefined}>
 	<!-- Thread List -->
 	<div class="min-h-0 flex-1 overflow-y-auto">
-		{#if !isLoading && threads.length === 0}
+		{#if loadError}
+			<div
+				class="flex h-full items-center justify-center p-8 text-center text-balance text-destructive"
+				data-testid="support-threads-error"
+			>
+				{$t('support.thread.load_error')}
+			</div>
+		{:else if !isLoading && threads.length === 0}
 			<!-- Empty state with greeting (only shown after query completes) -->
 			<div class="flex h-full flex-col justify-start">
 				<div class="m-10 flex flex-col items-start">

@@ -40,6 +40,13 @@ export function detectPlatform(): PlatformContext {
 		const env = process.env.VERCEL_ENV as 'production' | 'preview' | 'development' | undefined;
 		const environment = env ?? 'development';
 		const vercelUrl = process.env.VERCEL_URL ?? null;
+		// VERCEL_URL is the per-deployment generated host (changes every deploy).
+		// For production builds prefer VERCEL_PROJECT_PRODUCTION_URL, the stable
+		// production domain, so baked canonical/og URLs don't point at an
+		// ephemeral deployment host.
+		const productionUrl =
+			environment === 'production' ? (process.env.VERCEL_PROJECT_PRODUCTION_URL ?? null) : null;
+		const siteHost = productionUrl ?? vercelUrl;
 
 		return {
 			platform: 'vercel',
@@ -47,8 +54,8 @@ export function detectPlatform(): PlatformContext {
 			deployUrl: vercelUrl,
 			gitRef: process.env.VERCEL_GIT_COMMIT_REF ?? null,
 			isPreview: environment === 'preview',
-			// Vercel provides hostname only (no protocol)
-			siteUrl: vercelUrl ? `https://${vercelUrl}` : null
+			// Vercel provides hostnames only (no protocol)
+			siteUrl: siteHost ? `https://${siteHost}` : null
 		};
 	}
 
