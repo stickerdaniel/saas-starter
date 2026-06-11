@@ -3,7 +3,7 @@
 	import type { Snippet } from 'svelte';
 	import type { UIMessage } from '@convex-dev/agent';
 	import { ChatCore, type ChatCoreAPI } from '../core/ChatCore.svelte.js';
-	import type { ChatMessage, DisplayMessage } from '../core/types.js';
+	import type { DisplayMessage } from '../core/types.js';
 	import {
 		ChatUIContext,
 		setChatUIContext,
@@ -31,7 +31,6 @@
 	 */
 	export interface ExternalCoreAdapter {
 		threadId: string | null;
-		messages: ChatMessage[];
 		isLoading: boolean;
 		isSending: boolean;
 		error: string | null;

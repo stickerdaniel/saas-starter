@@ -1,7 +1,14 @@
 <script lang="ts">
 	import { page } from '$app/state';
+	import { PUBLIC_SITE_URL } from '$env/static/public';
 	import { SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE } from '$lib/i18n/languages';
 	import { LEGAL_CONFIG } from '$lib/config/legal';
+
+	// During prerendering page.url.origin is SvelteKit's placeholder
+	// http://sveltekit-prerender, so absolute SEO URLs must come from the
+	// configured site origin when available. Trailing slash is stripped to
+	// avoid double slashes in `${origin}${image}` and `${origin}/${lang}`.
+	const configuredOrigin = PUBLIC_SITE_URL.replace(/\/$/, '');
 
 	interface Props {
 		/** Page title (without site name suffix) */
@@ -29,7 +36,7 @@
 	// Get current language and path
 	let currentLang = $derived(page.params.lang || DEFAULT_LANGUAGE);
 	let currentPath = $derived(page.url.pathname);
-	let origin = $derived(page.url.origin);
+	let origin = $derived(configuredOrigin || page.url.origin);
 
 	// Generate path without language prefix for alternate links
 	let pathWithoutLang = $derived.by(() => {

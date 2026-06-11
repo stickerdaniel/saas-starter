@@ -14,6 +14,7 @@ const adapter = process.env.WORKERS_CI
 
 // Prerenderable marketing pages (pricing excluded — uses useCustomer() for billing UI)
 const PRERENDER_MARKETING_PAGES = ['', '/about', '/privacy', '/terms', '/impressum'];
+// Mirrors SUPPORTED_LANGUAGES in src/lib/i18n/languages.ts, kept in sync by scripts/prerender-sync.test.ts
 const LANGUAGES = ['en', 'de', 'es', 'fr'];
 const prerenderEntries = LANGUAGES.flatMap((lang) =>
 	PRERENDER_MARKETING_PAGES.map((page) => `/${lang}${page}`)

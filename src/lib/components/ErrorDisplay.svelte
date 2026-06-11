@@ -5,7 +5,9 @@
 	import * as Empty from '$lib/components/ui/empty/index.js';
 	import * as InputGroup from '$lib/components/ui/input-group/index.js';
 	import * as Kbd from '$lib/components/ui/kbd/index.js';
+	import { getLegalEmailAddress } from '$lib/config/legal';
 	import { getLanguage } from '$lib/i18n/languages';
+	import { buildBugReportMailto } from '$lib/utils/mailto';
 	import SearchIcon from '@lucide/svelte/icons/search';
 	import de from '../../i18n/de.json';
 	import en from '../../i18n/en.json';
@@ -15,6 +17,8 @@
 	type ErrorPageTranslations = {
 		error_page: {
 			back_home: string;
+			bug_report_body: string;
+			bug_report_subject: string;
 			generic_description: string;
 			generic_title: string;
 			need_help: string;
@@ -42,10 +46,20 @@
 			? translations.error_page.not_found_title
 			: `${page.status} - ${translations.error_page.generic_title}`
 	);
-	const description = $derived(
-		isNotFound
-			? translations.error_page.not_found_description
-			: translations.error_page.generic_description
+	const email = getLegalEmailAddress();
+	const descriptionParts = $derived.by(() => {
+		if (isNotFound) return null;
+		const [prefix, suffix = ''] = translations.error_page.generic_description.split('{email}');
+		return { prefix, suffix };
+	});
+	const mailtoHref = $derived(
+		buildBugReportMailto({
+			email,
+			subjectTemplate: translations.error_page.bug_report_subject,
+			bodyTemplate: translations.error_page.bug_report_body,
+			url: page.url.toString(),
+			status: page.status
+		})
 	);
 
 	let globalSearch: ReturnType<typeof useGlobalSearchContext> | null = null;
@@ -54,6 +68,13 @@
 		globalSearch = useGlobalSearchContext();
 	} catch {
 		globalSearch = null;
+	}
+
+	// Assign location directly so the OS mail handler opens in the current tab.
+	// target="_blank" would spawn an empty about:blank tab for the mailto.
+	function openMailto(event: MouseEvent): void {
+		event.preventDefault();
+		window.location.href = mailtoHref;
 	}
 
 	function openGlobalSearch(): void {
@@ -72,7 +93,17 @@
 	<Empty.Root class="w-full max-w-xl bg-background/60">
 		<Empty.Header>
 			<Empty.Title>{title}</Empty.Title>
-			<Empty.Description>{description}</Empty.Description>
+			<Empty.Description>
+				{#if isNotFound}
+					{translations.error_page.not_found_description}
+				{:else if descriptionParts}
+					{descriptionParts.prefix}<!-- eslint-disable-next-line svelte/no-navigation-without-resolve --><a
+						href={mailtoHref}
+						onclick={openMailto}
+						class="hover:!text-current">{email}</a
+					>{descriptionParts.suffix}
+				{/if}
+			</Empty.Description>
 		</Empty.Header>
 		<Empty.Content>
 			<InputGroup.Root class="sm:w-3/4" onclick={openGlobalSearch}>

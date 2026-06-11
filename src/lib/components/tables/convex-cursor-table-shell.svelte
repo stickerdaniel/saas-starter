@@ -1,9 +1,9 @@
 <script lang="ts">
-	import SearchIcon from '@tabler/icons-svelte/icons/search';
-	import ChevronsLeftIcon from '@tabler/icons-svelte/icons/chevrons-left';
-	import ChevronsRightIcon from '@tabler/icons-svelte/icons/chevrons-right';
-	import ChevronLeftIcon from '@tabler/icons-svelte/icons/chevron-left';
-	import ChevronRightIcon from '@tabler/icons-svelte/icons/chevron-right';
+	import SearchIcon from '@lucide/svelte/icons/search';
+	import ChevronsLeftIcon from '@lucide/svelte/icons/chevrons-left';
+	import ChevronsRightIcon from '@lucide/svelte/icons/chevrons-right';
+	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
+	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import { haptic } from '$lib/hooks/use-haptic.svelte';
 	import { getTranslate } from '@tolgee/svelte';
 	import type { Snippet } from 'svelte';

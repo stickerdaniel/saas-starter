@@ -58,4 +58,7 @@ async function main(): Promise<void> {
 	console.log(`${colors.green}Deployment complete!${colors.reset}`);
 }
 
-main();
+main().catch((err) => {
+	console.error(err);
+	process.exit(1);
+});

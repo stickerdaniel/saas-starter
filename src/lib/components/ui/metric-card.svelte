@@ -69,7 +69,7 @@
 					variant="outline"
 					class={cn(
 						trend.direction === 'down' && 'text-destructive',
-						trend.direction === 'up' && 'text-emerald-600 dark:text-emerald-500'
+						trend.direction === 'up' && 'text-success'
 					)}
 				>
 					{#if trend.direction === 'up'}

@@ -1,9 +1,13 @@
 import { internalMutation, type MutationCtx } from '../_generated/server';
-import { components, internal } from '../_generated/api';
+import { components } from '../_generated/api';
 import { v, ConvexError } from 'convex/values';
 import type { BetterAuthUser } from './types';
 import { roleValidator, adminActionValidator, auditMetadataValidator } from './types';
 import { adminMutation } from '../functions';
+import {
+	syncAdminPreferences,
+	deactivateAdminPreferencesHelper
+} from './notificationPreferences/helpers';
 
 /**
  * Helper to fetch all users from the BetterAuth component
@@ -113,16 +117,10 @@ export const setUserRole = adminMutation({
 		// even if triggers fail or when editing via Convex Dashboard
 		if (!wasAdmin && isAdmin) {
 			// Promoted to admin → activate/create preferences
-			await ctx.runMutation(
-				internal.admin.notificationPreferences.mutations.upsertAdminPreferences,
-				{ userId: args.userId, email: user.email }
-			);
+			await syncAdminPreferences(ctx, { userId: args.userId, email: user.email });
 		} else if (wasAdmin && !isAdmin) {
 			// Demoted from admin → deactivate preferences (keep dormant)
-			await ctx.runMutation(
-				internal.admin.notificationPreferences.mutations.deactivateAdminPreferences,
-				{ userId: args.userId }
-			);
+			await deactivateAdminPreferencesHelper(ctx, args.userId);
 		}
 
 		// Log the action
@@ -172,10 +170,7 @@ export const seedFirstAdmin = internalMutation({
 		});
 
 		// Create notification preferences for the new admin
-		await ctx.runMutation(internal.admin.notificationPreferences.mutations.upsertAdminPreferences, {
-			userId: user._id,
-			email: user.email
-		});
+		await syncAdminPreferences(ctx, { userId: user._id, email: user.email });
 
 		console.log(`User ${args.email} has been set as admin`);
 		return { success: true };

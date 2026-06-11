@@ -295,13 +295,6 @@
 		}
 	},
 	"ai_chat": {
-		"alerts": {
-			"limit_reached": "Vous avez utilisé tous vos messages de chat IA ce mois-ci. Passez à Pro pour en obtenir plus.",
-			"limit_reached_free": "Passez à Pro pour plus de messages de chat IA par mois.",
-			"limit_reached_pro": "Vous avez utilisé tous vos messages de chat IA ce mois-ci. Ils seront réinitialisés le mois prochain.",
-			"low_messages": "{remaining} sur {total} message de chat IA restant ce mois-ci.",
-			"low_messages_plural": "{remaining} sur {total} messages de chat IA restants ce mois-ci."
-		},
 		"delete_thread": "Supprimer la conversation",
 		"delete_thread_confirm": "Êtes-vous sûr de vouloir supprimer cette conversation ?",
 		"description": "Discutez avec notre assistant IA",
@@ -398,6 +391,7 @@
 		"target": "Cible",
 		"toggle_sidebar": "Basculer la barre latérale",
 		"toggle_theme": "Changer le thème",
+		"toggle_threads": "Basculer la liste des conversations",
 		"view": "Voir"
 	},
 	"auth": {
@@ -541,15 +535,10 @@
 			"talk_to_human": "Parler à un humain"
 		},
 		"alerts": {
-			"limit_reached": {
-				"description": "Vous avez utilisé tous vos {total} messages gratuits de ce mois.",
-				"title": "Limite de Messages Atteinte"
-			},
-			"low_messages": {
-				"description": "Il vous reste {remaining} message sur {total} pour ce mois.",
-				"description_plural": "Il vous reste {remaining} messages sur {total} pour ce mois.",
-				"title": "Peu de Messages"
-			}
+			"limit_reached_free": "Passez à Pro pour plus de messages par mois.",
+			"limit_reached_pro": "Vous avez utilisé tous vos messages ce mois-ci. Ils seront réinitialisés le mois prochain.",
+			"low_messages": "{remaining} sur {total} message restant ce mois-ci.",
+			"low_messages_plural": "{remaining} sur {total} messages restants ce mois-ci."
 		},
 		"aria": {
 			"remove_attachment": "Supprimer {filename}",
@@ -636,28 +625,82 @@
 		"confirm": "Confirmer",
 		"confirm_input_placeholder": "Saisissez \"{text}\" pour confirmer.",
 		"delete": "Supprimer",
+		"load_error": "Échec du chargement des données. Veuillez réessayer plus tard.",
 		"save": "Enregistrer",
 		"you": "Vous"
 	},
 	"email": {
+		"admin_reply": {
+			"button": "Voir la conversation",
+			"description": "{adminName} a répondu à votre conversation de support",
+			"footer": "Vous recevez cet email car vous avez une demande de support en cours.",
+			"preview": "{adminName} a répondu à votre demande de support",
+			"title": "Nouvelle réponse à votre demande"
+		},
+		"badge": {
+			"auth": "Authentification",
+			"stats": "Statistiques",
+			"support": "Support"
+		},
 		"body": {
 			"no_messages": "Aucun message",
+			"ticket_footer": "Vous recevez cet email car vous êtes assigné à ce ticket ou configuré pour recevoir les notifications de support.",
 			"ticket_message": "{userName} a envoyé un nouveau message sur un ticket précédemment fermé",
 			"ticket_new": "Nouveau ticket de support",
 			"ticket_reopened": "Ticket de support rouvert",
-			"ticket_started": "{userName} a démarré une nouvelle conversation de support"
+			"ticket_started": "{userName} a démarré une nouvelle conversation de support",
+			"view_admin_dashboard": "Voir dans le tableau de bord admin"
+		},
+		"new_signup": {
+			"description": "Un nouvel utilisateur s'est inscrit sur votre plateforme",
+			"footer": "Vous recevez cet email car les notifications de nouvelles inscriptions sont activées.",
+			"label_email": "Email :",
+			"label_method": "Méthode :",
+			"label_name": "Nom :",
+			"label_time": "Date :",
+			"preview": "Nouvel utilisateur : {userEmail}",
+			"title": "Nouvel utilisateur inscrit"
+		},
+		"reset_password": {
+			"body": "Nous avons reçu une demande de réinitialisation de votre mot de passe. Cliquez sur le bouton ci-dessous pour définir un nouveau mot de passe :",
+			"button": "Réinitialiser le mot de passe",
+			"disclaimer": "Si vous n'êtes pas à l'origine de cette demande, vous pouvez ignorer cet email. Votre mot de passe restera inchangé.",
+			"expiry": "Ce lien expirera dans 1 heure pour des raisons de sécurité.",
+			"greeting": "Bonjour {userName},",
+			"greeting_fallback": "Bonjour,",
+			"preview": "Réinitialisez votre mot de passe",
+			"title": "Réinitialisez votre mot de passe"
 		},
 		"subject": {
+			"new_signup": "Nouvelle inscription : {userEmail}",
 			"reset_password": "Réinitialisez votre mot de passe",
 			"support_reply": "Nouvelle réponse à votre demande de support",
 			"ticket_new": "Nouveau ticket de support de {userName}",
 			"ticket_reopened": "Ticket de support rouvert par {userName}",
 			"verify": "Vérifiez votre email"
+		},
+		"verification": {
+			"button": "Vérifier l'email",
+			"description": "Cliquez sur le bouton ci-dessous pour vérifier votre adresse email",
+			"disclaimer": "Si vous n'avez pas créé de compte, ignorez simplement cet email.",
+			"expiry": "Ce lien expirera dans {expiryMinutes} minutes.",
+			"intro": "Merci de votre inscription ! Veuillez vérifier votre adresse email pour finaliser votre inscription.",
+			"preview": "Vérifiez votre adresse email",
+			"title": "Vérifiez votre email"
+		},
+		"verification_code": {
+			"description": "Saisissez ce code pour finaliser votre vérification",
+			"disclaimer": "Si vous n'avez pas demandé ce code, ignorez simplement cet email.",
+			"expiry": "Ce code expirera dans {expiryMinutes} minutes.",
+			"preview": "Votre code de vérification est {code}",
+			"title": "Vérifiez votre email"
 		}
 	},
 	"error_page": {
 		"back_home": "Retour à l'accueil",
-		"generic_description": "Une erreur inattendue s'est produite lors du chargement de cette page.",
+		"bug_report_body": "Bonjour,\n\nJ'ai rencontré une erreur en utilisant SaaS Starter.\n\nURL : {url}\nStatut : {status}\n\nCe que je faisais :\n\n\nMerci !",
+		"bug_report_subject": "Rapport de bug : erreur {status} sur SaaS Starter",
+		"generic_description": "Une erreur inattendue s'est produite lors du chargement de cette page. Si cela se reproduit, merci de le signaler à {email}.",
 		"generic_title": "Un problème est survenu",
 		"need_help": "Besoin d'aide ?",
 		"not_found_description": "La page que vous cherchez n'existe pas. Essayez de rechercher ce dont vous avez besoin ci-dessous.",
@@ -1055,6 +1098,14 @@
 			},
 			"aria_label": "Éditeur de capture d'écran",
 			"capturing": "Capture en cours...",
+			"color": {
+				"black": "Noir",
+				"blue": "Bleu",
+				"green": "Vert",
+				"purple": "Violet",
+				"red": "Rouge",
+				"yellow": "Jaune"
+			},
 			"next": "Bug Marqué",
 			"tool": {
 				"arrow": "Flèche (A)",
@@ -1086,6 +1137,7 @@
 			"question_text": "Pourquoi SaaS Starter ?"
 		},
 		"thread": {
+			"load_error": "Échec du chargement des conversations. Veuillez réessayer plus tard.",
 			"new_conversation": "Nouvelle conversation"
 		},
 		"time": {
