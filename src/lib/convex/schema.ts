@@ -137,6 +137,7 @@ export default defineSchema({
 		createdAt: v.number()
 	})
 		.index('by_url', ['url'])
+		// Used by the hourly file vacuum to delete metadata of purged files
 		.index('by_storageId', ['storageId']),
 
 	// Dashboard counters - singleton for materialized user metrics
