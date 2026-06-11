@@ -59,7 +59,8 @@ export function getAppSidebarConfig(
 				url: localizedHref('/app/community-chat'),
 				icon: MessagesSquareIcon,
 				isActive: pathname === `/${lang}/app/community-chat`,
-				kbd: [ctrlSymbol, '⇧', '1']
+				kbd: [ctrlSymbol, '⇧', '1'],
+				testId: 'sidebar-nav-community-chat'
 			},
 			{
 				translationKey: 'app.sidebar.ai_chat',
@@ -70,7 +71,8 @@ export function getAppSidebarConfig(
 				subItems: aiChatSubItems,
 				kbd: [ctrlSymbol, '⇧', '2'],
 				// Disable nav when already on the warm thread (already "new chat")
-				disableNav: !!activeThreadId && activeThreadId === warmThreadId
+				disableNav: !!activeThreadId && activeThreadId === warmThreadId,
+				testId: 'sidebar-nav-ai-chat'
 			}
 		],
 		footerLinks:

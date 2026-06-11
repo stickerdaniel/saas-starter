@@ -15,9 +15,6 @@ test.describe('Admin Settings Page', () => {
 	});
 
 	test('displays recipients table', async ({ page }) => {
-		// Debug: take screenshot
-		await page.screenshot({ path: 'test-results/admin-settings-debug.png' });
-
 		// Verify page loads
 		await expect(page.getByTestId('admin-settings-page')).toBeVisible();
 		await expect(page.getByTestId('recipients-table')).toBeVisible();

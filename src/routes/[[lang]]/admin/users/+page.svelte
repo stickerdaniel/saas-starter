@@ -664,6 +664,7 @@
 							<Field.Field>
 								<Input
 									placeholder={$t('admin.dialog.ban_reason_placeholder')}
+									data-testid="admin-users-ban-reason-input"
 									bind:value={banReason}
 								/>
 							</Field.Field>
@@ -677,8 +678,11 @@
 			</Dialog.Description>
 		</Dialog.Header>
 		<Dialog.Footer>
-			<Button variant="outline" onclick={closeDialog} disabled={isActionLoading}
-				><T keyName="common.cancel" /></Button
+			<Button
+				variant="outline"
+				onclick={closeDialog}
+				disabled={isActionLoading}
+				data-testid="admin-users-dialog-cancel"><T keyName="common.cancel" /></Button
 			>
 			<Button
 				onclick={() => {
@@ -688,6 +692,7 @@
 				}}
 				variant={actionType === 'ban' ? 'destructive' : 'default'}
 				disabled={isActionLoading}
+				data-testid="admin-users-dialog-confirm"
 			>
 				<T keyName="common.confirm" />
 			</Button>
@@ -713,7 +718,11 @@
 			<Button variant="outline" onclick={closeRoleDialog} disabled={isActionLoading}
 				><T keyName="common.cancel" /></Button
 			>
-			<Button onclick={setUserRole} disabled={isActionLoading}>
+			<Button
+				onclick={setUserRole}
+				disabled={isActionLoading}
+				data-testid="admin-users-role-dialog-confirm"
+			>
 				<T keyName="common.confirm" />
 			</Button>
 		</Dialog.Footer>

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { slide, fade } from 'svelte/transition';
+	import { prefersReducedMotion } from 'svelte/motion';
 	import { cn, type WithElementRef } from '$lib/utils.js';
 	import type { HTMLAttributes } from 'svelte/elements';
 	import type { Snippet } from 'svelte';
@@ -26,7 +27,7 @@
 		bind:this={ref}
 		role="alert"
 		data-slot="field-error"
-		transition:slide={{ duration: 200 }}
+		transition:slide={{ duration: prefersReducedMotion.current ? 0 : 200 }}
 		class={cn('text-sm font-normal text-destructive', className)}
 		{...restProps}
 	>

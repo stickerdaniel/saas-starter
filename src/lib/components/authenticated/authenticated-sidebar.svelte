@@ -132,6 +132,7 @@
 											{#snippet child({ props })}
 												<a
 													href={item.url ? resolve(item.url) : undefined}
+													data-testid={item.testId}
 													{...props}
 													onclick={item.disableNav ? (e) => e.preventDefault() : undefined}
 												>
@@ -166,7 +167,7 @@
 								>
 									{#snippet child({ props })}
 										{#if item.url}
-											<a href={resolve(item.url)} {...props}>
+											<a href={resolve(item.url)} data-testid={item.testId} {...props}>
 												{@render navItemBody(item)}
 											</a>
 										{:else}
