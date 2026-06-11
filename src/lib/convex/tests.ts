@@ -51,6 +51,8 @@ function buildSearchText(fields: {
 
 export const getTestUser = internalQuery({
 	args: { email: v.string() },
+	// v.any(): user doc shape is owned by the Better Auth component, not this app
+	returns: v.any(),
 	handler: async (ctx, { email }) => {
 		// Use Better Auth adapter to find user by email
 		const user = await ctx.runQuery(components.betterAuth.adapter.findOne, {
@@ -66,6 +68,11 @@ export const getTestUser = internalQuery({
 // Only use for test accounts - it bypasses the normal email verification flow
 export const verifyTestUserEmail = mutation({
 	args: { email: v.string(), secret: v.string() },
+	returns: v.object({
+		success: v.boolean(),
+		error: v.optional(v.string()),
+		alreadyVerified: v.optional(v.boolean())
+	}),
 	handler: async (ctx, { email, secret }) => {
 		requireTestSecret(secret);
 
@@ -102,6 +109,14 @@ export const verifyTestUserEmail = mutation({
 // User must already exist (created via signup) - sets role to admin AND verifies email
 export const createTestAdminUser = mutation({
 	args: { email: v.string(), secret: v.string() },
+	returns: v.object({
+		success: v.boolean(),
+		error: v.optional(v.string()),
+		alreadyAdmin: v.optional(v.boolean()),
+		alreadyVerified: v.optional(v.boolean()),
+		wasAdmin: v.optional(v.boolean()),
+		wasVerified: v.optional(v.boolean())
+	}),
 	handler: async (ctx, { email, secret }) => {
 		requireTestSecret(secret);
 
@@ -167,6 +182,7 @@ export const createAnonymousSupportThread = mutation({
 		pageUrl: v.optional(v.string()),
 		count: v.optional(v.number())
 	},
+	returns: v.object({ threadIds: v.array(v.string()), anonymousUserId: v.string() }),
 	handler: async (ctx, { secret, anonymousUserId, title, pageUrl, count = 1 }) => {
 		requireTestSecret(secret);
 
@@ -222,6 +238,14 @@ export const getSupportThreadsByUserId = mutation({
 		secret: v.string(),
 		userId: v.string()
 	},
+	returns: v.array(
+		v.object({
+			threadId: v.string(),
+			userId: v.optional(v.string()),
+			userName: v.optional(v.string()),
+			userEmail: v.optional(v.string())
+		})
+	),
 	handler: async (ctx, { secret, userId }) => {
 		requireTestSecret(secret);
 
@@ -247,6 +271,7 @@ export const getAuthUserIdByEmail = mutation({
 		secret: v.string(),
 		email: v.string()
 	},
+	returns: v.object({ userId: v.union(v.string(), v.null()) }),
 	handler: async (ctx, { secret, email }) => {
 		requireTestSecret(secret);
 
@@ -313,6 +338,11 @@ export const cleanupAnonymousSupportThreads = mutation({
 		secret: v.string(),
 		threadIds: v.array(v.string())
 	},
+	returns: v.object({
+		success: v.boolean(),
+		deletedSupportThreads: v.number(),
+		deletedAgentThreads: v.number()
+	}),
 	handler: async (ctx, { secret, threadIds }) => {
 		requireTestSecret(secret);
 
@@ -353,6 +383,13 @@ export const cleanupAnonymousSupportThreads = mutation({
 // Used by globalTeardown to clean up fresh test users created each run
 export const deleteTestUser = mutation({
 	args: { email: v.string(), secret: v.string() },
+	returns: v.object({
+		success: v.boolean(),
+		error: v.optional(v.string()),
+		deletedEmail: v.optional(v.string()),
+		accountsDeleted: v.optional(v.number()),
+		sessionsDeleted: v.optional(v.number())
+	}),
 	handler: async (ctx, { email, secret }) => {
 		requireTestSecret(secret);
 
@@ -413,6 +450,11 @@ export const deleteTestUser = mutation({
 // Note: Does NOT delete test user accounts - only test artifacts
 export const cleanupTestData = mutation({
 	args: { secret: v.string() },
+	returns: v.object({
+		success: v.boolean(),
+		deletedCount: v.number(),
+		message: v.string()
+	}),
 	handler: async (ctx, { secret }) => {
 		requireTestSecret(secret);
 
@@ -441,6 +483,7 @@ export const cleanupTestData = mutation({
 // Finds all users matching the pattern and deletes them + accounts + sessions
 export const cleanupAllTestUsers = mutation({
 	args: { secret: v.string() },
+	returns: v.object({ success: v.boolean(), found: v.number(), deleted: v.number() }),
 	handler: async (ctx, { secret }) => {
 		requireTestSecret(secret);
 
@@ -505,6 +548,11 @@ export const cleanupAllTestUsers = mutation({
  */
 export const recalculateDashboardCounters = mutation({
 	args: { secret: v.string() },
+	returns: v.object({
+		totalUsers: v.number(),
+		adminCount: v.number(),
+		bannedCount: v.number()
+	}),
 	handler: async (ctx, { secret }) => {
 		requireTestSecret(secret);
 		return await recalculateCounters(ctx);

@@ -642,6 +642,7 @@ export const updateThreadMetadata = internalMutation({
 		title: v.optional(v.string()),
 		summary: v.optional(v.string())
 	},
+	returns: v.null(),
 	handler: async (ctx, args) => {
 		const supportThread = await ctx.db
 			.query('supportThreads')
@@ -650,7 +651,7 @@ export const updateThreadMetadata = internalMutation({
 
 		if (!supportThread) {
 			console.log(`[syncThreadMetadata] No supportThread found for: ${args.threadId}`);
-			return;
+			return null;
 		}
 
 		// Merge new values with existing
@@ -672,6 +673,7 @@ export const updateThreadMetadata = internalMutation({
 			searchText,
 			updatedAt: Date.now()
 		});
+		return null;
 	}
 });
 

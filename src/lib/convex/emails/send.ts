@@ -46,10 +46,11 @@ export const sendVerificationEmail = internalMutation({
 		verificationUrl: v.string(),
 		expiryMinutes: v.optional(v.number())
 	},
+	returns: v.null(),
 	handler: async (ctx, args) => {
 		const { email, verificationUrl, expiryMinutes = 20 } = args;
 
-		if (shouldSkipTestEmail('sendVerificationEmail', email)) return;
+		if (shouldSkipTestEmail('sendVerificationEmail', email)) return null;
 		assertResendApiKey();
 
 		const locale = await getLocaleForEmail(ctx, email);
@@ -67,6 +68,7 @@ export const sendVerificationEmail = internalMutation({
 				{ name: 'X-Email-Template', value: 'verification' }
 			]
 		});
+		return null;
 	}
 });
 
@@ -82,10 +84,11 @@ export const sendResetPasswordEmail = internalMutation({
 		resetUrl: v.string(),
 		userName: v.optional(v.string())
 	},
+	returns: v.null(),
 	handler: async (ctx, args) => {
 		const { email, resetUrl, userName } = args;
 
-		if (shouldSkipTestEmail('sendResetPasswordEmail', email)) return;
+		if (shouldSkipTestEmail('sendResetPasswordEmail', email)) return null;
 		assertResendApiKey();
 
 		const locale = await getLocaleForEmail(ctx, email);
@@ -103,6 +106,7 @@ export const sendResetPasswordEmail = internalMutation({
 				{ name: 'X-Email-Template', value: 'password-reset' }
 			]
 		});
+		return null;
 	}
 });
 
@@ -121,10 +125,11 @@ export const sendAdminReplyNotification = internalMutation({
 		threadId: v.string(),
 		pageUrl: v.optional(v.string())
 	},
+	returns: v.null(),
 	handler: async (ctx, args) => {
 		const { email, adminName, messagePreview, threadId, pageUrl } = args;
 
-		if (shouldSkipTestEmail('sendAdminReplyNotification', email)) return;
+		if (shouldSkipTestEmail('sendAdminReplyNotification', email)) return null;
 		assertResendApiKey();
 
 		const locale = await getLocaleForEmail(ctx, email);
@@ -159,6 +164,7 @@ export const sendAdminReplyNotification = internalMutation({
 				{ name: 'X-Thread-ID', value: threadId }
 			]
 		});
+		return null;
 	}
 });
 
@@ -184,6 +190,7 @@ export const sendNewTicketAdminNotification = internalMutation({
 		),
 		threadId: v.string()
 	},
+	returns: v.null(),
 	handler: async (ctx, args) => {
 		const { email, isReopen, userName, messages, threadId } = args;
 		assertResendApiKey();
@@ -220,6 +227,7 @@ export const sendNewTicketAdminNotification = internalMutation({
 				{ name: 'X-Thread-ID', value: threadId }
 			]
 		});
+		return null;
 	}
 });
 
@@ -239,10 +247,11 @@ export const sendNewUserSignupNotification = internalMutation({
 		signupMethod: v.union(v.literal('Email'), v.literal('Google'), v.literal('GitHub')),
 		signupTime: v.string()
 	},
+	returns: v.null(),
 	handler: async (ctx, args) => {
 		const { userName, userEmail, signupMethod, signupTime } = args;
 
-		if (shouldSkipTestEmail('sendNewUserSignupNotification', userEmail)) return;
+		if (shouldSkipTestEmail('sendNewUserSignupNotification', userEmail)) return null;
 
 		// Get recipients who have new signup notifications enabled
 		const recipients = await ctx.runQuery(
@@ -252,7 +261,7 @@ export const sendNewUserSignupNotification = internalMutation({
 
 		if (recipients.length === 0) {
 			console.log('[sendNewUserSignupNotification] No recipients configured, skipping');
-			return;
+			return null;
 		}
 
 		// Only require Resend once we know we'll actually send; with no recipients
@@ -319,6 +328,7 @@ export const sendNewUserSignupNotification = internalMutation({
 				`[sendNewUserSignupNotification] All ${recipients.length} email sends failed for new user ${userEmail}`
 			);
 		}
+		return null;
 	}
 });
 

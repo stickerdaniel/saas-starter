@@ -6,6 +6,7 @@ import { t } from '../i18n/translations';
 import { aiChatRateLimiter } from './rateLimit';
 import { authComponent } from '../auth';
 import { fetchAttachmentText } from '../files/attachmentText';
+import { vGenerateUploadUrlResult } from '../files/validators';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
@@ -26,6 +27,7 @@ const ALLOWED_MIME_TYPES = [
  */
 export const generateUploadUrl = mutation({
 	args: {},
+	returns: vGenerateUploadUrlResult,
 	handler: async (ctx) => {
 		const user = await authComponent.getAuthUser(ctx);
 		if (!user) {
@@ -61,6 +63,13 @@ export const saveUploadedFile = action({
 		width: v.optional(v.number()),
 		height: v.optional(v.number())
 	},
+	returns: v.object({
+		fileId: v.string(),
+		storageId: v.string(),
+		url: v.string(),
+		filename: v.optional(v.string()),
+		isImage: v.boolean()
+	}),
 	handler: async (
 		ctx,
 		args
@@ -167,6 +176,7 @@ export const saveUploadedFile = action({
  */
 export const checkPreviewAccess = internalMutation({
 	args: {},
+	returns: v.null(),
 	handler: async (ctx) => {
 		const user = await authComponent.getAuthUser(ctx);
 		if (!user) {
@@ -178,6 +188,7 @@ export const checkPreviewAccess = internalMutation({
 		if (!rateLimitStatus.ok) {
 			throw new ConvexError('Too many preview requests. Please try again later.');
 		}
+		return null;
 	}
 });
 
@@ -191,6 +202,7 @@ export const checkPreviewAccess = internalMutation({
  */
 export const getAttachmentText = action({
 	args: { url: v.string(), locale: v.optional(v.string()) },
+	returns: v.object({ text: v.string(), truncated: v.boolean() }),
 	handler: async (ctx, args): Promise<{ text: string; truncated: boolean }> => {
 		await ctx.runMutation(internal.aiChat.files.checkPreviewAccess, {});
 		return await fetchAttachmentText(args.url, args.locale);

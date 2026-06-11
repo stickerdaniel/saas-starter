@@ -1,4 +1,5 @@
 import { internalMutation } from '../_generated/server';
+import { v } from 'convex/values';
 import { vEmailId, vEmailEvent } from '@convex-dev/resend';
 
 /**
@@ -20,6 +21,7 @@ export const handleEmailEvent = internalMutation({
 		id: vEmailId,
 		event: vEmailEvent
 	},
+	returns: v.null(),
 	handler: async (ctx, args) => {
 		// Log the event for monitoring and debugging
 		console.log('Email event received:', {
@@ -64,5 +66,6 @@ export const handleEmailEvent = internalMutation({
 			default:
 				console.log(`Unknown email event type: ${args.event.type}`);
 		}
+		return null;
 	}
 });

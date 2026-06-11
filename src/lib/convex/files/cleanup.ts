@@ -4,6 +4,7 @@ import { components, internal } from '../_generated/api';
 
 export const cleanupExpiredFiles = internalMutation({
 	args: { limit: v.optional(v.number()) },
+	returns: v.object({ deletedCount: v.number(), hasMore: v.boolean() }),
 	handler: async (ctx, args) => {
 		const result = await ctx.runMutation(components.convexFilesControl.cleanUp.cleanupExpired, {
 			limit: args.limit
