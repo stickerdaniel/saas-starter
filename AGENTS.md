@@ -162,7 +162,7 @@ After modifying `autumn.config.ts`, ALWAYS push changes to Autumn:
 - `bunx atmn push` — Push config to sandbox
 - `bunx atmn push -p` — Push config to production
 
-Without pushing, the config change only exists locally and has no effect.
+Without pushing, the config change only exists locally and has no effect. Pre-commit/static-checks only runs `atmn preview` (a local render that never diffs against or pushes to the live deployment), so no automated check covers pushing; it stays a manual step.
 
 ### Tolgee CLI
 
