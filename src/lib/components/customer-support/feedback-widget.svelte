@@ -311,6 +311,11 @@
 								haptic.trigger('error');
 								toast.error($t('support.widget.error.send_failed'));
 							}
+
+							// Rethrow so ChatInput's rollback restores the attachments.
+							// Its input-restore guard sees the value set above and skips
+							// the double restore.
+							throw error;
 						}
 					}}
 				/>
