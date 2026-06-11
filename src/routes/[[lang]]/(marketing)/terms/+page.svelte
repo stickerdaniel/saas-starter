@@ -1,5 +1,5 @@
 <script lang="ts">
-	import SvelteMarkdown from '@humanspeak/svelte-markdown';
+	import LegalMarkdown from '$lib/components/legal-markdown.svelte';
 	import ObfuscatedEmail from '$lib/components/obfuscated-email.svelte';
 	import SEOHead from '$lib/components/SEOHead.svelte';
 	import { getTranslate } from '@tolgee/svelte';
@@ -13,7 +13,7 @@
 
 <!-- Legal text is intentionally English-only, the English version is the governed version. -->
 <div lang="en" class="mx-auto prose prose-sm max-w-3xl px-6 pt-40 pb-24 lg:px-12 dark:prose-invert">
-	<SvelteMarkdown {source} />
+	<LegalMarkdown content={source} />
 	<p>
 		To report any violations of these Terms of Service or to pose any questions, please contact us
 		at <ObfuscatedEmail
