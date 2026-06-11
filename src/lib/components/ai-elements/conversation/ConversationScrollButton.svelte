@@ -18,6 +18,7 @@
 	import ArrowDown from '@lucide/svelte/icons/arrow-down';
 	import { stickToBottomContext } from './stick-to-bottom-context.svelte.js';
 	import { fly } from 'svelte/transition';
+	import { prefersReducedMotion } from 'svelte/motion';
 	import { backOut } from 'svelte/easing';
 
 	let { class: className, onclick, ...restProps }: ConversationScrollButtonProps = $props();
@@ -41,12 +42,12 @@
 	<div
 		in:fly={{
 			duration: 300,
-			y: 10,
+			y: prefersReducedMotion.current ? 0 : 10,
 			easing: backOut
 		}}
 		out:fly={{
 			duration: 200,
-			y: 10,
+			y: prefersReducedMotion.current ? 0 : 10,
 			easing: backOut
 		}}
 		class="absolute bottom-4 left-[50%] translate-x-[-50%]"

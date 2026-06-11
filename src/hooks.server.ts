@@ -9,6 +9,7 @@ import {
 } from '$lib/marketing/public-routes';
 import { createMarketingMarkdownResponse, isMarkdownRequest } from '$lib/markdown/marketing';
 import { devNotice } from '$lib/dev/notice';
+import { decodeJwtPayload } from '$lib/server/jwt';
 import { loadSentry } from '$lib/monitoring/sentry';
 import { safeRedirectPath } from '$lib/utils/url';
 import { SIDEBAR_COOKIE_NAME } from '$lib/components/ui/sidebar/constants.js';
@@ -29,20 +30,6 @@ function getJwtToken(cookies: Cookies, request: Request): string | undefined {
 	const isSecure = new URL(request.url).protocol === 'https:';
 	const cookieName = isSecure ? '__Secure-better-auth.convex_jwt' : 'better-auth.convex_jwt';
 	return cookies.get(cookieName);
-}
-
-/**
- * Decode JWT payload without verification (cookie is already trusted)
- * Used for quick role checks in hooks without waiting for Convex queries
- */
-function decodeJwtPayload(token: string): { role?: string } | null {
-	try {
-		const payload = token.split('.')[1];
-		if (!payload) return null;
-		return JSON.parse(Buffer.from(payload, 'base64url').toString('utf-8'));
-	} catch {
-		return null;
-	}
 }
 
 // Route matchers
@@ -204,7 +191,7 @@ const authFirstPattern: Handle = async function authFirstPattern({ event, resolv
 			redirect(307, destination);
 		}
 		// Check admin role from JWT payload (fast, no Convex query needed)
-		const payload = decodeJwtPayload(event.locals.token!);
+		const payload = decodeJwtPayload(event.locals.token);
 		if (payload?.role !== 'admin') {
 			redirect(307, `/${lang}/app`);
 		}
