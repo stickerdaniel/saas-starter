@@ -7,6 +7,9 @@ jobs:
   e2e-tests:
     name: E2E Tests
     runs-on: ubicloud-standard-2
+    permissions:
+      statuses: write
+      contents: read
     # Only run on successful Vercel preview deployments
     if: |
       github.event.deployment_status.state == 'success' &&
@@ -82,3 +85,56 @@ jobs:
         with:
           name: playwright-report
           path: playwright-report/
+
+      - name: Report status to PR
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.deployment.sha }}
+        run: |
+          for i in 1 2 3; do
+            gh api "repos/${{ github.repository }}/statuses/${HEAD_SHA}" \
+              -f state=${{ job.status == 'success' && 'success' || 'failure' }} \
+              -f context="E2E Tests" \
+              -f description="E2E Tests (Vercel Preview)" \
+              -f target_url="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+              && exit 0
+            echo "Attempt $i failed, retrying in 5s..."
+            sleep 5
+          done
+          echo "::warning::Failed to report status after 3 attempts"
+          exit 1
+
+  # Resolve the required E2E status when the Vercel preview deployment fails.
+  # Without this, the pending status set by static-checks.yml would stay
+  # pending forever and block merging on this SHA.
+  e2e-deploy-failed:
+    name: E2E Deploy Failed Status
+    runs-on: ubicloud-standard-2
+    permissions:
+      statuses: write
+    # deployment_status also fires for pending/in_progress/queued, so gate on
+    # explicit terminal failure states only
+    if: |
+      github.event.deployment_status.environment == 'Preview' &&
+      (github.event.deployment_status.state == 'failure' || github.event.deployment_status.state == 'error')
+    steps:
+      - name: Report deploy failure to PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.deployment.sha }}
+          DEPLOY_STATE: ${{ github.event.deployment_status.state }}
+          TARGET_URL: ${{ github.event.deployment_status.target_url || format('https://github.com/{0}/actions/runs/{1}', github.repository, github.run_id) }}
+        run: |
+          for i in 1 2 3; do
+            gh api "repos/${{ github.repository }}/statuses/${HEAD_SHA}" \
+              -f state=failure \
+              -f context="E2E Tests" \
+              -f description="Vercel preview deploy ${DEPLOY_STATE}, E2E skipped" \
+              -f target_url="$TARGET_URL" \
+              && exit 0
+            echo "Attempt $i failed, retrying in 5s..."
+            sleep 5
+          done
+          echo "::warning::Failed to report status after 3 attempts"
+          exit 1
