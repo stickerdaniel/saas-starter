@@ -657,7 +657,9 @@
 	},
 	"error_page": {
 		"back_home": "Take me home",
-		"generic_description": "An unexpected error occurred while loading this page.",
+		"bug_report_body": "Hi,\n\nI hit an error while using SaaS Starter.\n\nURL: {url}\nStatus: {status}\n\nWhat I was doing:\n\n\nThanks!",
+		"bug_report_subject": "Bug report: error {status} on SaaS Starter",
+		"generic_description": "An unexpected error occurred while loading this page. If this keeps happening, please report it to {email}.",
 		"generic_title": "Something went wrong",
 		"need_help": "Need help?",
 		"not_found_description": "The page you're looking for doesn't exist. Try searching for what you need below.",
