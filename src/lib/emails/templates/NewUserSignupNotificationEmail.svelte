@@ -7,6 +7,7 @@
 	// translated strings (see src/lib/convex/emails/templates.ts). English
 	// defaults keep the build-time preview rendering.
 	let {
+		lang = 'en',
 		userName = 'New User',
 		userEmail = 'user@example.com',
 		signupMethod = 'Email',
@@ -23,6 +24,7 @@
 		buttonText = 'View in Admin Dashboard',
 		footerText = "You're receiving this email because you have new signup notifications enabled."
 	}: {
+		lang?: string;
 		userName?: string;
 		userEmail?: string;
 		signupMethod?: string;
@@ -41,7 +43,7 @@
 	} = $props();
 </script>
 
-<Html>
+<Html {lang}>
 	<Head />
 	<Body class="mx-auto my-auto bg-white px-2 font-sans">
 		<Preview preview={previewText} />

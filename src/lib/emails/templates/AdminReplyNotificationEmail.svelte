@@ -7,6 +7,7 @@
 	// translated strings (see src/lib/convex/emails/templates.ts). English
 	// defaults keep the build-time preview rendering.
 	let {
+		lang = 'en',
 		messagePreview = 'Thank you for reaching out...',
 		deepLink = 'https://example.com?support=open&thread=123',
 		badgeText = 'Support',
@@ -16,6 +17,7 @@
 		buttonText = 'View Conversation',
 		footerText = "You're receiving this email because you have an open support request."
 	}: {
+		lang?: string;
 		messagePreview?: string;
 		deepLink?: string;
 		badgeText?: string;
@@ -27,7 +29,7 @@
 	} = $props();
 </script>
 
-<Html>
+<Html {lang}>
 	<Head />
 	<Body class="mx-auto my-auto bg-white px-2 font-sans">
 		<Preview preview={previewText} />

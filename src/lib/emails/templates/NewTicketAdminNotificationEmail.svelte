@@ -7,6 +7,7 @@
 	// translated strings (see src/lib/convex/emails/templates.ts). English
 	// defaults keep the build-time preview rendering.
 	let {
+		lang = 'en',
 		titleText = 'New support ticket',
 		descriptionText = 'A user has started a new support conversation',
 		previewText = 'New support ticket',
@@ -16,6 +17,7 @@
 		buttonText = 'View in Admin Dashboard',
 		footerText = "You're receiving this email because you are assigned to this ticket or are configured to receive support notifications."
 	}: {
+		lang?: string;
 		titleText?: string;
 		descriptionText?: string;
 		previewText?: string;
@@ -27,7 +29,7 @@
 	} = $props();
 </script>
 
-<Html>
+<Html {lang}>
 	<Head />
 	<Body class="mx-auto my-auto bg-white px-2 font-sans">
 		<Preview preview={previewText} />

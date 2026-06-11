@@ -234,6 +234,25 @@ describe('Email Template Rendering', () => {
 			const result = renderVerificationEmail('https://example.com', 30, 'xx');
 			expect(result.html).toContain('Verify your email');
 		});
+
+		it('sets the html lang attribute from the locale', () => {
+			expect(renderVerificationEmail('https://example.com', 30, 'de').html).toContain('lang="de"');
+			expect(renderVerificationCodeEmail('12345678', 30, 'es').html).toContain('lang="es"');
+			expect(renderPasswordResetEmail('https://example.com', 'Max', 'fr').html).toContain(
+				'lang="fr"'
+			);
+			expect(
+				renderAdminReplyNotificationEmail('Admin', 'Hi', 'https://example.com', 'de').html
+			).toContain('lang="de"');
+		});
+
+		it('defaults the html lang attribute to en', () => {
+			expect(renderVerificationEmail('https://example.com', 30).html).toContain('lang="en"');
+		});
+
+		it('falls back to lang="en" for unsupported locales', () => {
+			expect(renderVerificationEmail('https://example.com', 30, 'xx').html).toContain('lang="en"');
+		});
 	});
 
 	describe('Edge cases', () => {

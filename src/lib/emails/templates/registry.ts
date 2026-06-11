@@ -28,6 +28,7 @@ export const EMAIL_TEMPLATES: Record<string, TemplateConfig> = {
 	VerificationEmail: {
 		outputName: 'verification',
 		props: {
+			lang: '__ETA_lang__',
 			verificationUrl: '__ETA_verificationUrl__',
 			badgeText: '__ETA_badgeText__',
 			titleText: '__ETA_titleText__',
@@ -42,6 +43,7 @@ export const EMAIL_TEMPLATES: Record<string, TemplateConfig> = {
 	VerificationCodeEmail: {
 		outputName: 'verificationCode',
 		props: {
+			lang: '__ETA_lang__',
 			code: '__ETA_code__',
 			badgeText: '__ETA_badgeText__',
 			titleText: '__ETA_titleText__',
@@ -54,6 +56,7 @@ export const EMAIL_TEMPLATES: Record<string, TemplateConfig> = {
 	PasswordResetEmail: {
 		outputName: 'passwordReset',
 		props: {
+			lang: '__ETA_lang__',
 			resetUrl: '__ETA_resetUrl__',
 			badgeText: '__ETA_badgeText__',
 			titleText: '__ETA_titleText__',
@@ -68,6 +71,7 @@ export const EMAIL_TEMPLATES: Record<string, TemplateConfig> = {
 	AdminReplyNotificationEmail: {
 		outputName: 'adminReplyNotification',
 		props: {
+			lang: '__ETA_lang__',
 			messagePreview: '__ETA_messagePreview__',
 			deepLink: '__ETA_deepLink__',
 			badgeText: '__ETA_badgeText__',
@@ -81,6 +85,7 @@ export const EMAIL_TEMPLATES: Record<string, TemplateConfig> = {
 	NewTicketAdminNotificationEmail: {
 		outputName: 'newTicketAdminNotification',
 		props: {
+			lang: '__ETA_lang__',
 			titleText: '__ETA_titleText__',
 			descriptionText: '__ETA_descriptionText__',
 			previewText: '__ETA_previewText__',
@@ -94,6 +99,7 @@ export const EMAIL_TEMPLATES: Record<string, TemplateConfig> = {
 	NewUserSignupNotificationEmail: {
 		outputName: 'newUserSignupNotification',
 		props: {
+			lang: '__ETA_lang__',
 			userName: '__ETA_userName__',
 			userEmail: '__ETA_userEmail__',
 			signupMethod: '__ETA_signupMethod__',

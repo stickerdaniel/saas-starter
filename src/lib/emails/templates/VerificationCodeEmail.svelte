@@ -7,6 +7,7 @@
 	// translated strings (see src/lib/convex/emails/templates.ts). English
 	// defaults keep the build-time preview rendering.
 	let {
+		lang = 'en',
 		code = '12345678',
 		badgeText = 'Auth',
 		titleText = 'Verify your email',
@@ -15,6 +16,7 @@
 		expiryText = 'This code will expire in 20 minutes.',
 		disclaimerText = "If you didn't request this code, please ignore this email."
 	}: {
+		lang?: string;
 		code?: string;
 		badgeText?: string;
 		titleText?: string;
@@ -25,7 +27,7 @@
 	} = $props();
 </script>
 
-<Html>
+<Html {lang}>
 	<Head />
 	<Body class="mx-auto my-auto bg-white px-2 font-sans">
 		<Preview preview={previewText} />

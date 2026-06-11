@@ -29,7 +29,7 @@ import {
 	NEWUSERSIGNUPNOTIFICATION_TEXT
 } from './_generated/index.js';
 import { requireEnv } from '../env';
-import { t, DEFAULT_LOCALE } from '../i18n/translations';
+import { t, DEFAULT_LOCALE, getValidLocale } from '../i18n/translations';
 
 /**
  * Simple template renderer that replaces {{varName}} patterns with values.
@@ -93,6 +93,7 @@ export function renderVerificationEmail(
 	};
 
 	const data = {
+		lang: getValidLocale(locale),
 		verificationUrl: escapeHtml(verificationUrl),
 		baseUrl: escapeHtml(baseUrl),
 		...Object.fromEntries(Object.entries(texts).map(([k, v]) => [k, escapeHtml(v)]))
@@ -133,6 +134,7 @@ export function renderVerificationCodeEmail(
 	};
 
 	const data = {
+		lang: getValidLocale(locale),
 		code: escapeHtml(code),
 		baseUrl: escapeHtml(baseUrl),
 		...Object.fromEntries(Object.entries(texts).map(([k, v]) => [k, escapeHtml(v)]))
@@ -173,6 +175,7 @@ export function renderPasswordResetEmail(
 	};
 
 	const data = {
+		lang: getValidLocale(locale),
 		resetUrl: escapeHtml(resetUrl),
 		baseUrl: escapeHtml(baseUrl),
 		...Object.fromEntries(Object.entries(texts).map(([k, v]) => [k, escapeHtml(v)]))
@@ -211,6 +214,7 @@ export function renderAdminReplyNotificationEmail(
 	};
 
 	const data = {
+		lang: getValidLocale(locale),
 		messagePreview: escapeHtml(messagePreview),
 		deepLink: escapeHtml(deepLink),
 		baseUrl: escapeHtml(baseUrl),
@@ -270,6 +274,7 @@ export function renderNewTicketAdminNotificationEmail(
 	const buttonText = t(locale, 'email.body.view_admin_dashboard');
 	const footerText = t(locale, 'email.body.ticket_footer');
 	const templateData = {
+		lang: getValidLocale(locale),
 		titleText: escapeHtml(titleText),
 		descriptionText: escapeHtml(descriptionText),
 		previewText: escapeHtml(previewText),
@@ -332,6 +337,7 @@ export function renderNewUserSignupNotificationEmail(
 	};
 
 	const templateData = {
+		lang: getValidLocale(locale),
 		userName: escapeHtml(data.userName || 'New User'),
 		userEmail: escapeHtml(data.userEmail),
 		signupMethod: escapeHtml(data.signupMethod),
