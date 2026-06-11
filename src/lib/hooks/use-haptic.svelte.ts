@@ -97,8 +97,10 @@ export class UseHaptic {
 	}
 }
 
-// Intentional module-scope singleton: SSR-safe because every $state write is
-// browser-guarded and no field is rendered into SSR HTML, so nothing can leak
-// across requests. Kept as a singleton (instead of context) for ergonomic
-// imports across its many call sites.
+// Intentional module-scope singleton: SSR-safe because every write of
+// caller-controlled data (trigger) is browser-guarded; the remaining writes
+// (constructor default, debug setter, cancel) set constants with no
+// per-request data, and no field is rendered into SSR HTML, so nothing can
+// leak across requests. Kept as a singleton (instead of context) for
+// ergonomic imports across its many call sites.
 export const haptic = new UseHaptic();
