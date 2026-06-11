@@ -295,13 +295,6 @@
 		}
 	},
 	"ai_chat": {
-		"alerts": {
-			"limit_reached": "You've used all your AI chat messages this month. Upgrade to Pro for more.",
-			"limit_reached_free": "Upgrade to Pro for more AI chat messages per month.",
-			"limit_reached_pro": "You've used all your AI chat messages this month. They reset next month.",
-			"low_messages": "{remaining} of {total} AI chat message remaining this month.",
-			"low_messages_plural": "{remaining} of {total} AI chat messages remaining this month."
-		},
 		"delete_thread": "Delete conversation",
 		"delete_thread_confirm": "Are you sure you want to delete this conversation?",
 		"description": "Chat with our AI assistant",
@@ -398,6 +391,7 @@
 		"target": "Target",
 		"toggle_sidebar": "Toggle Sidebar",
 		"toggle_theme": "Toggle theme",
+		"toggle_threads": "Toggle conversation list",
 		"view": "View"
 	},
 	"auth": {
@@ -541,15 +535,10 @@
 			"talk_to_human": "Talk to a human"
 		},
 		"alerts": {
-			"limit_reached": {
-				"description": "You've used all {total} of your free messages this month.",
-				"title": "Message Limit Reached"
-			},
-			"low_messages": {
-				"description": "You have {remaining} of {total} message remaining this month.",
-				"description_plural": "You have {remaining} of {total} messages remaining this month.",
-				"title": "Low on Messages"
-			}
+			"limit_reached_free": "Upgrade to Pro for more messages per month.",
+			"limit_reached_pro": "You've used all your messages this month. They reset next month.",
+			"low_messages": "{remaining} of {total} message remaining this month.",
+			"low_messages_plural": "{remaining} of {total} messages remaining this month."
 		},
 		"aria": {
 			"remove_attachment": "Remove {filename}",
@@ -636,28 +625,82 @@
 		"confirm": "Confirm",
 		"confirm_input_placeholder": "Enter \"{text}\" to confirm.",
 		"delete": "Delete",
+		"load_error": "Failed to load data. Please try again later.",
 		"save": "Save",
 		"you": "You"
 	},
 	"email": {
+		"admin_reply": {
+			"button": "View Conversation",
+			"description": "{adminName} has responded to your support thread",
+			"footer": "You're receiving this email because you have an open support request.",
+			"preview": "{adminName} has replied to your support request",
+			"title": "New reply to your request"
+		},
+		"badge": {
+			"auth": "Auth",
+			"stats": "Stats",
+			"support": "Support"
+		},
 		"body": {
 			"no_messages": "No messages",
+			"ticket_footer": "You're receiving this email because you are assigned to this ticket or are configured to receive support notifications.",
 			"ticket_message": "{userName} has sent a new message to a previously closed ticket",
 			"ticket_new": "New support ticket",
 			"ticket_reopened": "Support ticket reopened",
-			"ticket_started": "{userName} has started a new support conversation"
+			"ticket_started": "{userName} has started a new support conversation",
+			"view_admin_dashboard": "View in Admin Dashboard"
+		},
+		"new_signup": {
+			"description": "A new user has registered on your platform",
+			"footer": "You're receiving this email because you have new signup notifications enabled.",
+			"label_email": "Email:",
+			"label_method": "Method:",
+			"label_name": "Name:",
+			"label_time": "Time:",
+			"preview": "New user: {userEmail}",
+			"title": "New user signed up"
+		},
+		"reset_password": {
+			"body": "We received a request to reset your password. Click the button below to set a new password:",
+			"button": "Reset Password",
+			"disclaimer": "If you didn't request this, you can safely ignore this email. Your password will remain unchanged.",
+			"expiry": "This link will expire in 1 hour for security reasons.",
+			"greeting": "Hey {userName},",
+			"greeting_fallback": "Hey there,",
+			"preview": "Reset your password",
+			"title": "Reset your password"
 		},
 		"subject": {
+			"new_signup": "New user signup: {userEmail}",
 			"reset_password": "Reset your password",
 			"support_reply": "New reply to your support request",
 			"ticket_new": "New support ticket from {userName}",
 			"ticket_reopened": "Support ticket reopened by {userName}",
 			"verify": "Verify your email"
+		},
+		"verification": {
+			"button": "Verify Email",
+			"description": "Click the button below to verify your email address",
+			"disclaimer": "If you didn't create an account, please ignore this email.",
+			"expiry": "This link will expire in {expiryMinutes} minutes.",
+			"intro": "Thanks for signing up! Please verify your email address to complete your registration.",
+			"preview": "Verify your email address",
+			"title": "Verify your email"
+		},
+		"verification_code": {
+			"description": "Enter this code to complete your verification",
+			"disclaimer": "If you didn't request this code, please ignore this email.",
+			"expiry": "This code will expire in {expiryMinutes} minutes.",
+			"preview": "Your verification code is {code}",
+			"title": "Verify your email"
 		}
 	},
 	"error_page": {
 		"back_home": "Take me home",
-		"generic_description": "An unexpected error occurred while loading this page.",
+		"bug_report_body": "Hi,\n\nI hit an error while using SaaS Starter.\n\nURL: {url}\nStatus: {status}\n\nWhat I was doing:\n\n\nThanks!",
+		"bug_report_subject": "Bug report: error {status} on SaaS Starter",
+		"generic_description": "An unexpected error occurred while loading this page. If this keeps happening, please report it to {email}.",
 		"generic_title": "Something went wrong",
 		"need_help": "Need help?",
 		"not_found_description": "The page you're looking for doesn't exist. Try searching for what you need below.",
@@ -1055,6 +1098,14 @@
 			},
 			"aria_label": "Screenshot editor",
 			"capturing": "Capturing...",
+			"color": {
+				"black": "Black",
+				"blue": "Blue",
+				"green": "Green",
+				"purple": "Purple",
+				"red": "Red",
+				"yellow": "Yellow"
+			},
 			"next": "Bug Marked",
 			"tool": {
 				"arrow": "Arrow (A)",
@@ -1086,6 +1137,7 @@
 			"question_text": "Why SaaS Starter?"
 		},
 		"thread": {
+			"load_error": "Failed to load conversations. Please try again later.",
 			"new_conversation": "New conversation"
 		},
 		"time": {

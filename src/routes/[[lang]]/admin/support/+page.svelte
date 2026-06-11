@@ -17,12 +17,15 @@
 	import ThreadList from './thread-list.svelte';
 	import ThreadChat from './thread-chat.svelte';
 	import ThreadDetails from './thread-details.svelte';
-	import { adminSupportUI } from '$lib/hooks/admin-support-ui.svelte';
+	import { AdminSupportUIManager, adminSupportUIContext } from '$lib/hooks/admin-support-ui.svelte';
 	import { adminCache } from '$lib/hooks/admin-cache.svelte';
 	import { ChatDraftManager } from '$lib/chat';
 	import { browser } from '$app/environment';
 
 	const { t } = getTranslate();
+
+	// Per-request overlay state shared with thread-chat via context
+	const adminSupportUI = adminSupportUIContext.set(new AdminSupportUIManager());
 
 	// Draft persistence — lives outside {#key threadId} so drafts survive thread switches
 	const draftManager = new ChatDraftManager('drafts:admin-support');
@@ -77,6 +80,7 @@
 	const allThreads = $derived(threadsQuery.results);
 	const isLoading = $derived(threadsQuery.isLoading);
 	const isDone = $derived(threadsQuery.status === 'Exhausted');
+	const loadError = $derived(threadsQuery.error);
 
 	// Selected thread from already-loaded list (for instant header display)
 	const selectedThread = $derived(allThreads.find((t) => t._id === threadId));
@@ -155,6 +159,7 @@
 					threads={allThreads}
 					selectedThreadId={threadId}
 					{isLoading}
+					error={loadError}
 					{isDone}
 					cachedCount={cachedThreadCount}
 					onFilterChange={(mode) => (filters.mode = mode)}
@@ -211,6 +216,7 @@
 					threads={allThreads}
 					selectedThreadId={threadId}
 					{isLoading}
+					error={loadError}
 					{isDone}
 					cachedCount={cachedThreadCount}
 					onFilterChange={(mode) => (filters.mode = mode)}
@@ -251,6 +257,7 @@
 				threads={allThreads}
 				selectedThreadId={threadId}
 				{isLoading}
+				error={loadError}
 				{isDone}
 				cachedCount={cachedThreadCount}
 				onFilterChange={(mode) => (filters.mode = mode)}

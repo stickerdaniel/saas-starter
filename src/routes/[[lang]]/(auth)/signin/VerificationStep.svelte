@@ -16,7 +16,7 @@
 	const { t } = getTranslate();
 </script>
 
-<div class="min-h-96">
+<div class="min-h-96" data-testid="signup-verification-step">
 	<LoadingBar value={100} mode="progress" class="h-1 rounded-none" />
 	<div class="flex h-full flex-col justify-center p-6 md:p-8">
 		<Field.Group>

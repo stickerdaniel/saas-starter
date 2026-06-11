@@ -32,7 +32,9 @@ jobs:
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Authenticate with Graphite
-        run: gt auth --token ${{ secrets.GRAPHITE_TOKEN }}
+        env:
+          GRAPHITE_TOKEN: ${{ secrets.GRAPHITE_TOKEN }}
+        run: gt auth --token "$GRAPHITE_TOKEN"
 
       - name: Create local main branch
         run: git branch main origin/main

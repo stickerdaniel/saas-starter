@@ -10,9 +10,8 @@
 	import { ChatUIContext, type UploadConfig } from '$lib/chat/ui/ChatContext.svelte';
 	import { ChatCore } from '$lib/chat/core/ChatCore.svelte';
 	import { ChatDraftManager } from '$lib/chat/core/ChatDraftManager.svelte';
-	import { Button } from '$lib/components/ui/button';
-	import LockIcon from '@lucide/svelte/icons/lock';
-	import { T, getTranslate } from '@tolgee/svelte';
+	import MessageQuotaBanner from '$lib/components/message-quota-banner.svelte';
+	import { getTranslate } from '@tolgee/svelte';
 	import { page } from '$app/state';
 	import { onDestroy, tick } from 'svelte';
 
@@ -162,65 +161,14 @@
 					{/key}
 				</div>
 			{/if}
-			{#if !hasMessagesAvailable && !isPro}
-				<!-- Free user, out of messages: upgrade banner -->
-				<div
-					class="mx-4 mb-2 flex items-center justify-between rounded-lg border border-border/50 bg-muted/50 px-4 py-3 backdrop-blur-sm"
-				>
-					<div class="flex items-center gap-2 text-sm text-muted-foreground">
-						<LockIcon class="size-4 shrink-0" />
-						<span><T keyName="ai_chat.alerts.limit_reached_free" /></span>
-					</div>
-					<Button size="sm" variant="default" onclick={onUpgrade} disabled={isUpgrading}>
-						{isUpgrading ? $t('chat.buttons.processing') : $t('chat.buttons.upgrade')}
-					</Button>
-				</div>
-			{:else if !hasMessagesAvailable && isPro}
-				<!-- Pro user, out of messages -->
-				<div
-					class="mx-4 mb-2 flex items-center justify-between rounded-lg border border-border/50 bg-muted/50 px-4 py-3 backdrop-blur-sm"
-				>
-					<div class="flex items-center gap-2 text-sm text-muted-foreground">
-						<LockIcon class="size-4 shrink-0" />
-						<span><T keyName="ai_chat.alerts.limit_reached_pro" /></span>
-					</div>
-				</div>
-			{:else if !isPro && Number.isFinite(totalMessages) && totalMessages > 0 && remainingMessages > 0 && remainingMessages / totalMessages <= 1 / 3}
-				<!-- Free user, low messages: upgrade nudge -->
-				<div
-					class="mx-4 mb-2 flex items-center justify-between rounded-lg border border-border/50 bg-muted/50 px-4 py-3 backdrop-blur-sm"
-				>
-					<div class="flex items-center gap-2 text-sm text-muted-foreground">
-						<span>
-							<T
-								keyName={remainingMessages !== 1
-									? 'ai_chat.alerts.low_messages_plural'
-									: 'ai_chat.alerts.low_messages'}
-								params={{ remaining: remainingMessages, total: totalMessages }}
-							/>
-						</span>
-					</div>
-					<Button size="sm" variant="outline" onclick={onUpgrade} disabled={isUpgrading}>
-						{isUpgrading ? $t('chat.buttons.processing') : $t('chat.buttons.upgrade')}
-					</Button>
-				</div>
-			{:else if isPro && Number.isFinite(totalMessages) && totalMessages > 0 && remainingMessages > 0 && remainingMessages / totalMessages <= 1 / 3}
-				<!-- Pro user, low messages -->
-				<div
-					class="mx-4 mb-2 flex items-center justify-between rounded-lg border border-border/50 bg-muted/50 px-4 py-3 backdrop-blur-sm"
-				>
-					<div class="flex items-center gap-2 text-sm text-muted-foreground">
-						<span>
-							<T
-								keyName={remainingMessages !== 1
-									? 'ai_chat.alerts.low_messages_plural'
-									: 'ai_chat.alerts.low_messages'}
-								params={{ remaining: remainingMessages, total: totalMessages }}
-							/>
-						</span>
-					</div>
-				</div>
-			{/if}
+			<MessageQuotaBanner
+				{isPro}
+				{hasMessagesAvailable}
+				remaining={remainingMessages}
+				total={totalMessages}
+				{onUpgrade}
+				{isUpgrading}
+			/>
 			<ChatInput
 				class="mx-4"
 				placeholder={$t('ai_chat.input.placeholder')}

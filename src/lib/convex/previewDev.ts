@@ -1,7 +1,8 @@
 import { v } from 'convex/values';
-import { components, internal } from './_generated/api';
+import { components } from './_generated/api';
 import { internalMutation, type MutationCtx } from './_generated/server';
 import { createAuth } from './auth';
+import { syncAdminPreferences } from './admin/notificationPreferences/helpers';
 
 const PREVIEW_ADMIN_EMAIL = 'admin@preview.dev';
 const PREVIEW_ADMIN_NAME = 'Preview Admin';
@@ -93,10 +94,7 @@ export const ensurePreviewAdmin = internalMutation({
 			});
 		}
 
-		await ctx.runMutation(internal.admin.notificationPreferences.mutations.upsertAdminPreferences, {
-			userId: user._id,
-			email
-		});
+		await syncAdminPreferences(ctx, { userId: user._id, email });
 
 		return {
 			created,
