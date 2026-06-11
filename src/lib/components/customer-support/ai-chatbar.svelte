@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { tick } from 'svelte';
+	import { onDestroy, tick } from 'svelte';
 	import { useConvexClient } from '@mmailaender/convex-svelte';
 	import { ConvexError } from 'convex/values';
 	import { toast } from 'svelte-sonner';
@@ -47,6 +47,21 @@
 	// The onUpdate return type is a function that can be called to unsubscribe
 	let queryUnsubscribe: (() => void) | null = null;
 
+	// Pending post-submit cleanup timeout, cleared on unmount
+	let cleanupTimeoutId: ReturnType<typeof setTimeout> | null = null;
+
+	// The pre-warm subscription lives on the module-level ConvexClient singleton,
+	// so it must not outlive this component (user types, then navigates away
+	// before submitting)
+	onDestroy(() => {
+		if (cleanupTimeoutId !== null) {
+			clearTimeout(cleanupTimeoutId);
+			cleanupTimeoutId = null;
+		}
+		queryUnsubscribe?.();
+		queryUnsubscribe = null;
+	});
+
 	async function handleSubmit() {
 		if (!input.trim() || threadContext.isSending) return;
 
@@ -77,7 +92,8 @@
 			threadCreationPromise = null;
 
 			// Cleanup query subscription after ChatRoot takes over
-			setTimeout(() => {
+			cleanupTimeoutId = setTimeout(() => {
+				cleanupTimeoutId = null;
 				if (queryUnsubscribe) {
 					queryUnsubscribe();
 					queryUnsubscribe = null;

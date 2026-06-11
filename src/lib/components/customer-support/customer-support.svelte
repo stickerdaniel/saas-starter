@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
 	import { useConvexClient } from '@mmailaender/convex-svelte';
 	import { api } from '$lib/convex/_generated/api';
 	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
@@ -83,6 +84,9 @@
 	// Create ChatUIContext at this level so we can handle screenshot uploads
 	// Cast threadContext to ChatCore since it implements the required interface
 	const chatUIContext = new ChatUIContext(threadContext as any, client, uploadConfig);
+
+	// Revoke blob preview URLs of unsent attachments when the widget unmounts
+	onDestroy(() => chatUIContext.dispose());
 
 	/**
 	 * Get or create an anonymous user ID stored in localStorage

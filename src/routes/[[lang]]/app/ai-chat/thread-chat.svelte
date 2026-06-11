@@ -14,7 +14,7 @@
 	import LockIcon from '@lucide/svelte/icons/lock';
 	import { T, getTranslate } from '@tolgee/svelte';
 	import { page } from '$app/state';
-	import { tick } from 'svelte';
+	import { onDestroy, tick } from 'svelte';
 
 	const { t } = getTranslate();
 
@@ -72,6 +72,9 @@
 	});
 
 	const chatUIContext = new ChatUIContext(chatCore, client, uploadConfig, 'right');
+
+	// Revoke blob preview URLs of unsent attachments when this thread view unmounts
+	onDestroy(() => chatUIContext.dispose());
 
 	// Draft persistence across thread switches and page refreshes
 	const draftManager = new ChatDraftManager('drafts:ai-chat');

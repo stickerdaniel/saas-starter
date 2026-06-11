@@ -60,12 +60,13 @@ function sanitizeAttachmentsForClone(attachments?: Attachment[]): Attachment[] |
 	// First, extract only serializable fields from each attachment
 	const serializableAttachments = attachments.map((att) => {
 		if (att.type === 'file') {
-			// Omit 'file' (File object)
-			const { file: _file, ...rest } = att;
+			// Omit 'file' (File object) and 'preview' (blob: URL that the composer
+			// revokes on clear; the optimistic clone renders from the uploaded 'url')
+			const { file: _file, preview: _preview, ...rest } = att;
 			return rest;
 		} else if (att.type === 'screenshot') {
-			// Omit 'blob' (Blob object)
-			const { blob: _blob, ...rest } = att;
+			// Omit 'blob' (Blob object) and 'preview' (revoked blob: URL, see above)
+			const { blob: _blob, preview: _preview, ...rest } = att;
 			return rest;
 		}
 		return att;

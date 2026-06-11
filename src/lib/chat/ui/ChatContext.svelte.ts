@@ -247,9 +247,23 @@ export class ChatUIContext {
 	}
 
 	/**
+	 * Revoke an attachment's blob preview URL (no-op for non-blob previews).
+	 * Optimistic clones strip `preview` (see `sanitizeAttachmentsForClone`),
+	 * so revoking when an attachment leaves the composer cannot break the
+	 * optimistic message render, which falls back to the uploaded `url`.
+	 */
+	private revokePreview(attachment: Attachment): void {
+		if ('preview' in attachment && attachment.preview?.startsWith('blob:')) {
+			URL.revokeObjectURL(attachment.preview);
+		}
+	}
+
+	/**
 	 * Remove attachment at index
 	 */
 	removeAttachment(index: number): void {
+		const removed = this.attachments[index];
+		if (removed) this.revokePreview(removed);
 		this.attachments = this.attachments.filter((_, i) => i !== index);
 	}
 
@@ -257,7 +271,19 @@ export class ChatUIContext {
 	 * Clear all attachments
 	 */
 	clearAttachments(): void {
+		for (const attachment of this.attachments) {
+			this.revokePreview(attachment);
+		}
 		this.attachments = [];
+	}
+
+	/**
+	 * Release resources held by this context. Call on unmount of the owning
+	 * component so blob preview URLs of unsent attachments do not leak until
+	 * the document unloads.
+	 */
+	dispose(): void {
+		this.clearAttachments();
 	}
 
 	/**
@@ -425,6 +451,8 @@ export class ChatUIContext {
 			);
 		} catch (error) {
 			// Remove failed attachment by key (not stale index) and show toast
+			const failed = this.attachments.find((a) => 'key' in a && a.key === key);
+			if (failed) this.revokePreview(failed);
 			this.attachments = this.attachments.filter((a) => !('key' in a) || a.key !== key);
 			toast.error(`Failed to upload "${initialName}"`, {
 				description: error instanceof Error ? error.message : 'Upload failed'
@@ -494,6 +522,8 @@ export class ChatUIContext {
 			);
 		} catch (error) {
 			// Remove failed attachment by key and show toast
+			const failed = this.attachments.find((a) => 'key' in a && a.key === key);
+			if (failed) this.revokePreview(failed);
 			this.attachments = this.attachments.filter((a) => !('key' in a) || a.key !== key);
 			toast.error(`Failed to upload "${filename}"`, {
 				description: error instanceof Error ? error.message : 'Upload failed'
