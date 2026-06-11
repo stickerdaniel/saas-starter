@@ -1152,6 +1152,7 @@
 		},
 		"widget": {
 			"error": {
+				"handoff_failed": "Weiterleitung an den Support fehlgeschlagen. Bitte versuchen Sie es erneut.",
 				"rate_limit": "Langsamer! Bitte warten Sie {seconds}s, bevor Sie eine weitere Nachricht senden.",
 				"send_failed": "Nachricht konnte nicht gesendet werden. Bitte versuchen Sie es erneut."
 			},

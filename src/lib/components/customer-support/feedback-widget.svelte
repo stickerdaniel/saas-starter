@@ -111,7 +111,11 @@
 
 	// Handle handoff request
 	async function handleRequestHandoff() {
-		await threadContext.requestHandoff(client);
+		const success = await threadContext.requestHandoff(client);
+		if (!success) {
+			haptic.trigger('error');
+			toast.error($t('support.widget.error.handoff_failed'));
+		}
 	}
 
 	// Handle email notification submission

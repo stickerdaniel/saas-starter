@@ -6,8 +6,10 @@
 	import CircleCheckIcon from '@lucide/svelte/icons/circle-check';
 	import BellOffIcon from '@lucide/svelte/icons/bell-off';
 	import { watch } from 'runed';
+	import { toast } from 'svelte-sonner';
 	import { emailSchema } from '$lib/schemas/auth';
 	import { getTranslate } from '@tolgee/svelte';
+	import { haptic } from '$lib/hooks/use-haptic.svelte';
 
 	const { t } = getTranslate();
 
@@ -75,8 +77,11 @@
 		try {
 			await onSubmitEmail(email.trim());
 		} catch {
-			// Rollback optimistic state on error
+			// Rollback optimistic state and tell the user; a silent revert
+			// looks like the subscription just undid itself
 			optimisticSubscribed = null;
+			haptic.trigger('error');
+			toast.error($t('chat.email.save_failed'));
 		} finally {
 			isSubmitting = false;
 		}
@@ -93,9 +98,11 @@
 		try {
 			await onSubmitEmail('');
 		} catch {
-			// Rollback optimistic state on error
+			// Rollback optimistic state and tell the user the unsubscribe failed
 			optimisticSubscribed = null;
 			email = currentEmail || '';
+			haptic.trigger('error');
+			toast.error($t('chat.email.unsubscribe_failed'));
 		} finally {
 			isSubmitting = false;
 		}
