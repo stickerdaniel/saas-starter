@@ -4,6 +4,11 @@ import { createServerConvexHttpClient } from '$lib/server/convex-http';
 
 export const load = (async () => {
 	const client = createServerConvexHttpClient({});
-	const oauthProviders = await client.query(api.auth.getAvailableOAuthProviders, {});
+	// Degrade gracefully on transient backend failure; the client useQuery
+	// subscription recovers the real provider availability after hydration.
+	const oauthProviders = await client.query(api.auth.getAvailableOAuthProviders, {}).catch((e) => {
+		console.error('[signin/+page.server.ts] OAuth provider lookup failed:', e);
+		return { google: false, github: false };
+	});
 	return { oauthProviders };
 }) satisfies PageServerLoad;
