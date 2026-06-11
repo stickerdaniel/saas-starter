@@ -392,16 +392,6 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
 	return betterAuth(createAuthOptions(ctx));
 };
 
-// Get current authenticated user
-export const getCurrentUser = query({
-	args: {},
-	// v.any(): user doc shape is owned by the Better Auth component, not this app
-	returns: v.any(),
-	handler: async (ctx) => {
-		return authComponent.getAuthUser(ctx);
-	}
-});
-
 /** Returns which OAuth providers are configured and available */
 export const getAvailableOAuthProviders = query({
 	args: {},

@@ -99,6 +99,7 @@
 				<Input
 					id="name-{id}"
 					name="name"
+					data-testid="signup-name-input"
 					type="text"
 					autocomplete="name"
 					placeholder={$t('settings.account.name.placeholder')}
@@ -114,6 +115,7 @@
 				<Input
 					id="signup-email-{id}"
 					name="username"
+					data-testid="signup-email-input"
 					type="email"
 					autocomplete="username"
 					placeholder="m@example.com"
@@ -130,6 +132,7 @@
 					<Password.Input
 						id="signup-password-{id}"
 						name="password"
+						data-testid="signup-password-input"
 						autocomplete="new-password"
 						disabled={isFormDisabled}
 						bind:value={signUpData.password}

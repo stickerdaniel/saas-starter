@@ -150,7 +150,7 @@ export function createOptimisticMessage(
  *   {
  *     optimisticUpdate: createOptimisticUpdate(
  *       api.support.messages.listMessages,
- *       { threadId, paginationOpts: { numItems: 50, cursor: null }, streamArgs: { kind: 'list', startOrder: 0 } },
+ *       { threadId, paginationOpts: { numItems: CHAT_PAGE_SIZE, cursor: null }, streamArgs: { kind: 'list', startOrder: 0 } },
  *       'user',
  *       prompt,
  *       { attachments }
