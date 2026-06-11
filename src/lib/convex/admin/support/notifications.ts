@@ -20,6 +20,7 @@ import { v } from 'convex/values';
 import type { Id } from '../../_generated/dataModel';
 import { internalMutation, internalAction, internalQuery } from '../../_generated/server';
 import { internal, components } from '../../_generated/api';
+import { supportThreadFields } from '../../support/supportThreadFields';
 
 /** Delay before sending notification (2 minutes) */
 const NOTIFICATION_DELAY_MS = 2 * 60 * 1000;
@@ -148,6 +149,7 @@ export const sendPendingAdminNotification = internalAction({
 	args: {
 		notificationId: v.id('pendingAdminNotifications')
 	},
+	returns: v.null(),
 	handler: async (ctx, args) => {
 		// Claim ownership atomically before doing any work
 		// This follows the "claim-then-act" pattern - the idiomatic Convex approach
@@ -164,7 +166,7 @@ export const sendPendingAdminNotification = internalAction({
 			console.log(
 				`[sendPendingAdminNotification] Notification ${args.notificationId} not claimable (already claimed or rescheduled), skipping`
 			);
-			return;
+			return null;
 		}
 
 		// Get support thread data
@@ -183,7 +185,7 @@ export const sendPendingAdminNotification = internalAction({
 			await ctx.runMutation(internal.admin.support.notifications.deletePendingNotification, {
 				notificationId: args.notificationId
 			});
-			return;
+			return null;
 		}
 
 		// Determine target emails based on stored notification type
@@ -203,7 +205,7 @@ export const sendPendingAdminNotification = internalAction({
 			await ctx.runMutation(internal.admin.support.notifications.deletePendingNotification, {
 				notificationId: args.notificationId
 			});
-			return;
+			return null;
 		}
 
 		// Fetch message contents
@@ -242,7 +244,7 @@ export const sendPendingAdminNotification = internalAction({
 				await ctx.runMutation(internal.admin.support.notifications.deletePendingNotification, {
 					notificationId: args.notificationId
 				});
-				return;
+				return null;
 			}
 
 			console.error(
@@ -253,7 +255,7 @@ export const sendPendingAdminNotification = internalAction({
 				notificationId: args.notificationId,
 				delayMs: 60_000 // 1 minute retry delay
 			});
-			return;
+			return null;
 		}
 
 		// Clean up the pending notification
@@ -265,6 +267,7 @@ export const sendPendingAdminNotification = internalAction({
 		console.log(
 			`[sendPendingAdminNotification] Sent ${notification.isReopen ? 'reopen' : 'new ticket'} notification for thread ${notification.threadId} to ${sentCount}/${targetEmails.length} recipient(s)`
 		);
+		return null;
 	}
 });
 
@@ -329,6 +332,14 @@ export const getSupportThread = internalQuery({
 	args: {
 		threadId: v.string()
 	},
+	returns: v.union(
+		v.object({
+			_id: v.id('supportThreads'),
+			_creationTime: v.number(),
+			...supportThreadFields
+		}),
+		v.null()
+	),
 	handler: async (ctx, args) => {
 		return await ctx.db
 			.query('supportThreads')
