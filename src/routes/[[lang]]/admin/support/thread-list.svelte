@@ -57,6 +57,7 @@
 		threads = [],
 		selectedThreadId,
 		isLoading = false,
+		error,
 		isDone = false,
 		cachedCount,
 		onFilterChange,
@@ -71,6 +72,7 @@
 		threads?: Thread[];
 		selectedThreadId: string | null | undefined;
 		isLoading?: boolean;
+		error?: Error | undefined;
 		isDone?: boolean;
 		cachedCount?: number;
 		onFilterChange: (mode: 'all' | 'unassigned' | 'my-inbox') => void;
@@ -170,7 +172,15 @@
 
 	<!-- Thread List -->
 	<div class="relative flex-1">
-		{#if isLoading}
+		{#if error && threads.length === 0}
+			<!-- Query error with nothing loaded (load-more errors are handled by InfiniteLoader's error snippet) -->
+			<div
+				class="absolute inset-0 flex items-center justify-center p-8 text-center text-destructive"
+				data-testid="admin-support-threads-error"
+			>
+				<T keyName="common.load_error" />
+			</div>
+		{:else if isLoading}
 			<!-- Loading skeletons -->
 			<div class="scrollbar-thin absolute inset-0 overflow-y-auto">
 				{#each Array(skeletonCount) as _, i (i)}

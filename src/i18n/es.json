@@ -636,6 +636,7 @@
 		"confirm": "Confirmar",
 		"confirm_input_placeholder": "Escribe \"{text}\" para confirmar.",
 		"delete": "Eliminar",
+		"load_error": "No se pudieron cargar los datos. Por favor, inténtalo de nuevo más tarde.",
 		"save": "Guardar",
 		"you": "Tú"
 	},
@@ -1086,6 +1087,7 @@
 			"question_text": "¿Por qué SaaS Starter?"
 		},
 		"thread": {
+			"load_error": "No se pudieron cargar las conversaciones. Por favor, inténtalo de nuevo más tarde.",
 			"new_conversation": "Nueva conversación"
 		},
 		"time": {

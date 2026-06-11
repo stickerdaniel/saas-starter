@@ -98,8 +98,11 @@
 	}));
 	const thread = $derived(threadQuery.data);
 
-	// Loading state: true when no initial data and query hasn't resolved yet
-	const isLoading = $derived(!initialThread && !thread);
+	// Loading state: true when no initial data and query hasn't resolved or failed yet
+	const isLoading = $derived(!initialThread && !thread && !threadQuery.error);
+	// Error state: query threw and there is no data to fall back to (self-heals
+	// when the live Convex subscription recovers)
+	const showLoadError = $derived(!initialThread && !thread && !!threadQuery.error);
 
 	// Derived display values: prefer initialThread (instant), fallback to query data
 	const displayName = $derived(
@@ -159,6 +162,27 @@
 					</span>
 				</Button>
 			</header>
+		{:else if showLoadError}
+			<!-- Error header (back button stays functional) -->
+			<header class="flex shrink-0 items-center gap-2 border-b border-border/50 p-4">
+				<div class="relative flex size-10 items-center justify-center">
+					<Button
+						variant="ghost"
+						size="icon"
+						class="h-10 w-10 rounded-full hover:!bg-muted-foreground/10"
+						onclick={onBackClick}
+					>
+						<ChevronLeft class="size-5" />
+					</Button>
+				</div>
+				<div class="min-w-0 flex-1 py-1">
+					<div class="flex h-10 items-center">
+						<p class="text-sm text-destructive" data-testid="thread-chat-error">
+							{$t('common.load_error')}
+						</p>
+					</div>
+				</div>
+			</header>
 		{:else}
 			<SlidingHeader
 				isBackView={true}
@@ -208,6 +232,11 @@
 								<Skeleton class="h-3.5 w-40" />
 							</div>
 						</div>
+					{:else if showLoadError}
+						<!-- Error state -->
+						<p class="text-sm text-destructive" data-testid="thread-chat-error">
+							{$t('common.load_error')}
+						</p>
 					{:else}
 						<!-- Resolved state -->
 						<AvatarHeading image={userImage} title={displayName} subtitle={displayEmail} />

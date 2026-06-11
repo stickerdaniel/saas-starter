@@ -636,6 +636,7 @@
 		"confirm": "Confirm",
 		"confirm_input_placeholder": "Enter \"{text}\" to confirm.",
 		"delete": "Delete",
+		"load_error": "Failed to load data. Please try again later.",
 		"save": "Save",
 		"you": "You"
 	},
@@ -1086,6 +1087,7 @@
 			"question_text": "Why SaaS Starter?"
 		},
 		"thread": {
+			"load_error": "Failed to load conversations. Please try again later.",
 			"new_conversation": "New conversation"
 		},
 		"time": {

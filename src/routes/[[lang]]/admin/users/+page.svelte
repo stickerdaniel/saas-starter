@@ -188,6 +188,7 @@
 			: (usersTable.filters.provider as ProviderFilter)
 	);
 	const isLoading = $derived(usersTable.isLoading);
+	const loadError = $derived(usersTable.error);
 
 	// TanStack Table state (only client-side concerns remain)
 	let rowSelection = $state<RowSelectionState>({});
@@ -602,6 +603,16 @@
 									</Table.Cell>
 								</Table.Row>
 							{/each}
+						{:else if loadError}
+							<Table.Row class="hover:!bg-transparent">
+								<Table.Cell
+									colspan={columns.length}
+									class="h-24 text-center text-destructive"
+									data-testid="admin-users-error"
+								>
+									<T keyName="common.load_error" />
+								</Table.Cell>
+							</Table.Row>
 						{:else if table.getRowModel().rows.length === 0 || (isLoading && skeletonCount === 0)}
 							<Table.Row class="hover:!bg-transparent">
 								<Table.Cell

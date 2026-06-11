@@ -110,6 +110,7 @@
 	const pageIndex = $derived(recipientsTable.pageIndex);
 	const pageSize = $derived(recipientsTable.pageSize);
 	const isLoading = $derived(recipientsTable.isLoading);
+	const loadError = $derived(recipientsTable.error);
 	const typeFilter = $derived(recipientsTable.filters.type as RecipientTypeFilter);
 	const sorting = $derived.by<SortingState>(() => {
 		const sortBy = recipientsTable.sortBy;
@@ -341,6 +342,15 @@
 								</Table.Cell>
 							</Table.Row>
 						{/each}
+					{:else if loadError}
+						<Table.Row data-testid="recipients-error">
+							<Table.Cell
+								colspan={columns.length}
+								class="h-24 text-center text-destructive hover:!bg-transparent"
+							>
+								<T keyName="common.load_error" />
+							</Table.Cell>
+						</Table.Row>
 					{:else if table.getRowModel().rows.length === 0 || (isLoading && skeletonCount === 0)}
 						<Table.Row data-testid="recipients-empty">
 							<Table.Cell
