@@ -18,7 +18,7 @@
 	import ChevronLeft from '@lucide/svelte/icons/chevron-left';
 	import { useMedia } from '$lib/hooks/use-media.svelte';
 	import { SlidingHeader } from '$lib/components/ui/sliding-header';
-	import { adminSupportUI } from '$lib/hooks/admin-support-ui.svelte';
+	import { adminSupportUIContext } from '$lib/hooks/admin-support-ui.svelte';
 	import { getTranslate } from '@tolgee/svelte';
 	import { page } from '$app/state';
 
@@ -43,6 +43,7 @@
 
 	const media = useMedia();
 	const client = useConvexClient();
+	const adminSupportUI = adminSupportUIContext.get();
 
 	// Upload configuration for file attachments with locale for translated error messages
 	const uploadConfig: UploadConfig = {
