@@ -5,6 +5,11 @@ on:
     branches: [main]
   pull_request:
 
+# Least-privilege default for all jobs; e2e-pending overrides with
+# statuses: write at the job level.
+permissions:
+  contents: read
+
 jobs:
   lint:
     name: Lint & Format

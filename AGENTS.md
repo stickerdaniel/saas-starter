@@ -162,7 +162,7 @@ After modifying `autumn.config.ts`, ALWAYS push changes to Autumn:
 - `bunx atmn push` — Push config to sandbox
 - `bunx atmn push -p` — Push config to production
 
-Without pushing, the config change only exists locally and has no effect.
+Without pushing, the config change only exists locally and has no effect. Pre-commit/static-checks only runs `atmn preview` (a local render that never diffs against or pushes to the live deployment), so no automated check covers pushing; it stays a manual step.
 
 ### Tolgee CLI
 
@@ -428,7 +428,9 @@ For each data need in a new route, pick the right pattern:
 
    ```ts
    // +page.server.ts
-   const messages = await client.query(api.messages.list, {});
+   // .catch fallback so a transient backend failure degrades instead of
+   // 500ing the page; the client subscription recovers after hydration
+   const messages = await client.query(api.messages.list, {}).catch(() => []);
    return { messages };
 
    // +page.svelte
@@ -441,11 +443,21 @@ For each data need in a new route, pick the right pattern:
 3. **Real-time data that can show a loading state?**
    → Skip server fetch, use `useQuery` directly (no `initialData`):
 
-   ```ts
-   const metrics = useQuery(api.admin.queries.getDashboardMetrics, {});
+   ```svelte
+   <script lang="ts">
+   	const metrics = useQuery(api.admin.queries.getDashboardMetrics, {});
+   	const isLoading = $derived(metrics.isLoading);
+   </script>
+
+   {#if metrics.error}
+   	<p class="text-destructive"><T keyName="common.load_error" /></p>
+   {:else}
+   	<!-- skeleton while isLoading, data when resolved -->
+   {/if}
    ```
 
    Shows skeleton/loading state until data arrives. Use for admin panels, secondary data.
+   Always render an error branch from `metrics.error` (localized via Tolgee) and derive loading from `isLoading`, never from `!metrics.data`: on a query throw `data` stays `undefined` forever, so a `!data` loading state shows infinite skeletons. No retry plumbing needed, the Convex subscription stays live and the error state self-heals when the query recovers.
 
 4. **Billing/subscription checks?**
    → `useCustomer()` from `@stickerdaniel/convex-autumn-svelte/sveltekit`

@@ -35,6 +35,7 @@
 			class="size-9 "
 			onclick={() => handleToolClick('rect')}
 			title={$t('support.screenshot.tool.rectangle')}
+			aria-label={$t('support.screenshot.tool.rectangle')}
 		>
 			<SquareIcon class="size-4" />
 		</Button>
@@ -46,6 +47,7 @@
 			class="size-9 "
 			onclick={() => handleToolClick('circle')}
 			title={$t('support.screenshot.tool.circle')}
+			aria-label={$t('support.screenshot.tool.circle')}
 		>
 			<CircleIcon class="size-4" />
 		</Button>
@@ -57,6 +59,7 @@
 			class="size-9 "
 			onclick={() => handleToolClick('arrow')}
 			title={$t('support.screenshot.tool.arrow')}
+			aria-label={$t('support.screenshot.tool.arrow')}
 		>
 			<ArrowRightIcon class="size-4" />
 		</Button>
@@ -68,6 +71,7 @@
 			class="size-9 "
 			onclick={() => handleToolClick('pen')}
 			title={$t('support.screenshot.tool.pen')}
+			aria-label={$t('support.screenshot.tool.pen')}
 		>
 			<PencilIcon class="size-4" />
 		</Button>
@@ -86,12 +90,13 @@
 						class="size-6 rounded-full border-2 border-background ring-2 ring-border"
 						style="background-color: {editor.strokeColor};"
 						title={$t('support.screenshot.tool.color')}
+						aria-label={$t('support.screenshot.tool.color')}
 					></Button>
 				{/snippet}
 			</Popover.Trigger>
 			<Popover.Content class="z-[120] w-auto p-2">
 				<div class="grid grid-cols-3 gap-1.5">
-					{#each DEFAULT_COLORS as { name, value } (value)}
+					{#each DEFAULT_COLORS as { nameKey, value } (value)}
 						<Button
 							variant="ghost"
 							size="icon"
@@ -103,8 +108,8 @@
 							)}
 							style="background-color: {value};"
 							onclick={() => (editor.strokeColor = value)}
-							title={name}
-							aria-label={name}
+							title={$t(nameKey)}
+							aria-label={$t(nameKey)}
 						/>
 					{/each}
 				</div>
@@ -122,6 +127,7 @@
 			onclick={() => editor.history.undo()}
 			disabled={!editor.history.canUndo}
 			title={$t('support.screenshot.action.undo')}
+			aria-label={$t('support.screenshot.action.undo')}
 		>
 			<Undo2Icon class="size-4" />
 		</Button>
@@ -134,6 +140,7 @@
 			onclick={() => editor.history.redo()}
 			disabled={!editor.history.canRedo}
 			title={$t('support.screenshot.action.redo')}
+			aria-label={$t('support.screenshot.action.redo')}
 		>
 			<Redo2Icon class="size-4" />
 		</Button>
@@ -150,6 +157,7 @@
 			onclick={editor.handleSave}
 			disabled={editor.isSaving || !editor.hasShapes}
 			title={$t('support.screenshot.next')}
+			aria-label={$t('support.screenshot.next')}
 		>
 			<CheckIcon class="size-4" />
 		</Button>
@@ -170,6 +178,7 @@
 			class="-order-4 size-9 sm:order-none"
 			onclick={editor.handleCancel}
 			title={$t('support.screenshot.action.cancel')}
+			aria-label={$t('support.screenshot.action.cancel')}
 		>
 			<XIcon class="size-4" />
 		</Button>

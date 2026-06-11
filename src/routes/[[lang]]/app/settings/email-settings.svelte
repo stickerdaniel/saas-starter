@@ -128,7 +128,7 @@
 						<InputGroup.Input id="currentEmail" value={currentEmail} disabled />
 						<InputGroup.Addon align="inline-end">
 							{#if isEmailVerified}
-								<div class="flex items-center gap-1 text-green-600">
+								<div class="flex items-center gap-1 text-success">
 									<CircleCheckIcon class="h-3 w-3" />
 									<InputGroup.Text>
 										<T keyName="settings.email.verified_badge" />

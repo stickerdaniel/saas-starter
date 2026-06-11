@@ -26,15 +26,11 @@
 
 	const convexClient = useConvexClient();
 
-	let name = $state('');
-	let image = $state('');
+	// Writable deriveds: editable via bind:value/assignments, re-synced when user changes
+	let name = $derived(user?.name ?? '');
+	let image = $derived(user?.image ?? '');
 	let isUploading = $state(false);
 	let isSaving = $state(false);
-	// Update reactive values when user changes
-	$effect(() => {
-		name = user?.name ?? '';
-		image = user?.image ?? '';
-	});
 
 	async function handleFileSelect(e: Event) {
 		const target = e.target as HTMLInputElement;
