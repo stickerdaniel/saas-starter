@@ -17,9 +17,10 @@
  * instead of --preview-name, as --preview-name uses a separate namespace.
  */
 
-import { execSync } from 'child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+
+import { runCommandCapture } from './deploy/utils';
 
 /**
  * Parse `.env-convex.schema` to extract required var names.
@@ -76,30 +77,28 @@ const previewNameIndex = process.argv.indexOf('--preview-name');
 const previewName = previewNameIndex !== -1 ? process.argv[previewNameIndex + 1] : null;
 
 // Priority: --deployment-name > --prod > --preview-name > default (local dev)
-const deploymentFlag = deploymentName
-	? ` --deployment-name ${deploymentName}`
+const deploymentArgs = deploymentName
+	? ['--deployment-name', deploymentName]
 	: isProd
-		? ' --prod'
+		? ['--prod']
 		: previewName
-			? ` --preview-name ${previewName}`
-			: '';
-const cmd = `bunx convex env list${deploymentFlag}`;
+			? ['--preview-name', previewName]
+			: [];
 
 if (deploymentName) {
 	console.log(`Using --deployment-name ${deploymentName}`);
 }
 
-let output: string;
-try {
-	output = execSync(cmd, { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] });
-} catch (error) {
-	console.error('Failed to list Convex env vars:', (error as Error).message);
+const result = runCommandCapture('bunx', ['convex', 'env', 'list', ...deploymentArgs]);
+if (!result.success) {
+	console.error('Failed to list Convex env vars:');
+	if (result.stderr) console.error(result.stderr);
 	process.exit(1);
 }
 
 // Parse "NAME=value" lines
 const existingVars = new Set(
-	output
+	result.stdout
 		.split('\n')
 		.map((line) => line.match(/^(\w+)=/)?.[1])
 		.filter(Boolean)
@@ -118,8 +117,9 @@ if (missingVars.length > 0) {
 		console.error(`  - ${name}`);
 	}
 	console.error('');
+	const deploymentHint = deploymentArgs.length > 0 ? ` ${deploymentArgs.join(' ')}` : '';
 	console.error('Set them via CLI:');
-	console.error(`  bunx convex env set VARIABLE_NAME value${deploymentFlag}`);
+	console.error(`  bunx convex env set VARIABLE_NAME value${deploymentHint}`);
 	console.error('');
 	console.error('Or set in Convex Dashboard:');
 	console.error('  https://dashboard.convex.dev → Your Project → Settings → Environment Variables');

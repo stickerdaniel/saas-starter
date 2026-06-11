@@ -295,13 +295,6 @@
 		}
 	},
 	"ai_chat": {
-		"alerts": {
-			"limit_reached": "Sie haben alle Ihre KI-Chat-Nachrichten diesen Monat aufgebraucht. Upgraden Sie auf Pro für mehr.",
-			"limit_reached_free": "Upgraden Sie auf Pro für mehr KI-Chat-Nachrichten pro Monat.",
-			"limit_reached_pro": "Sie haben alle Ihre KI-Chat-Nachrichten diesen Monat aufgebraucht. Sie werden nächsten Monat zurückgesetzt.",
-			"low_messages": "{remaining} von {total} KI-Chat-Nachricht verbleibend diesen Monat.",
-			"low_messages_plural": "{remaining} von {total} KI-Chat-Nachrichten verbleibend diesen Monat."
-		},
 		"delete_thread": "Unterhaltung löschen",
 		"delete_thread_confirm": "Sind Sie sicher, dass Sie diese Unterhaltung löschen möchten?",
 		"description": "Chatten Sie mit unserem KI-Assistenten",
@@ -398,6 +391,7 @@
 		"target": "Ziel",
 		"toggle_sidebar": "Seitenleiste umschalten",
 		"toggle_theme": "Design umschalten",
+		"toggle_threads": "Unterhaltungsliste umschalten",
 		"view": "Ansicht"
 	},
 	"auth": {
@@ -541,15 +535,10 @@
 			"talk_to_human": "Mit Experte sprechen"
 		},
 		"alerts": {
-			"limit_reached": {
-				"description": "Sie haben alle {total} kostenlosen Nachrichten für diesen Monat verbraucht.",
-				"title": "Nachrichtenlimit erreicht"
-			},
-			"low_messages": {
-				"description": "Sie haben noch {remaining} von {total} Nachricht für diesen Monat.",
-				"description_plural": "Sie haben noch {remaining} von {total} Nachrichten für diesen Monat.",
-				"title": "Wenig Nachrichten übrig"
-			}
+			"limit_reached_free": "Upgraden Sie auf Pro für mehr Nachrichten pro Monat.",
+			"limit_reached_pro": "Sie haben alle Ihre Nachrichten für diesen Monat aufgebraucht. Sie werden nächsten Monat zurückgesetzt.",
+			"low_messages": "{remaining} von {total} Nachricht verbleibend diesen Monat.",
+			"low_messages_plural": "{remaining} von {total} Nachrichten verbleibend diesen Monat."
 		},
 		"aria": {
 			"remove_attachment": "{filename} entfernen",
@@ -636,28 +625,82 @@
 		"confirm": "Bestätigen",
 		"confirm_input_placeholder": "Geben Sie \"{text}\" ein, um zu bestätigen.",
 		"delete": "Löschen",
+		"load_error": "Daten konnten nicht geladen werden. Bitte versuchen Sie es später erneut.",
 		"save": "Speichern",
 		"you": "Sie"
 	},
 	"email": {
+		"admin_reply": {
+			"button": "Unterhaltung ansehen",
+			"description": "{adminName} hat auf Ihren Support-Thread geantwortet",
+			"footer": "Sie erhalten diese E-Mail, weil Sie eine offene Support-Anfrage haben.",
+			"preview": "{adminName} hat auf Ihre Support-Anfrage geantwortet",
+			"title": "Neue Antwort auf Ihre Anfrage"
+		},
+		"badge": {
+			"auth": "Authentifizierung",
+			"stats": "Statistiken",
+			"support": "Support"
+		},
 		"body": {
 			"no_messages": "Keine Nachrichten",
+			"ticket_footer": "Sie erhalten diese E-Mail, weil Sie diesem Ticket zugewiesen sind oder Support-Benachrichtigungen erhalten.",
 			"ticket_message": "{userName} hat eine neue Nachricht zu einem zuvor geschlossenen Ticket gesendet",
 			"ticket_new": "Neues Support-Ticket",
 			"ticket_reopened": "Support-Ticket wiedereröffnet",
-			"ticket_started": "{userName} hat ein neues Support-Gespräch gestartet"
+			"ticket_started": "{userName} hat ein neues Support-Gespräch gestartet",
+			"view_admin_dashboard": "Im Admin-Dashboard ansehen"
+		},
+		"new_signup": {
+			"description": "Ein neuer Benutzer hat sich auf Ihrer Plattform registriert",
+			"footer": "Sie erhalten diese E-Mail, weil Sie Benachrichtigungen über neue Registrierungen aktiviert haben.",
+			"label_email": "E-Mail:",
+			"label_method": "Methode:",
+			"label_name": "Name:",
+			"label_time": "Zeitpunkt:",
+			"preview": "Neuer Benutzer: {userEmail}",
+			"title": "Neuer Benutzer registriert"
+		},
+		"reset_password": {
+			"body": "Wir haben eine Anfrage zum Zurücksetzen Ihres Passworts erhalten. Klicken Sie auf den Button unten, um ein neues Passwort festzulegen:",
+			"button": "Passwort zurücksetzen",
+			"disclaimer": "Falls Sie dies nicht angefordert haben, können Sie diese E-Mail ignorieren. Ihr Passwort bleibt unverändert.",
+			"expiry": "Dieser Link läuft aus Sicherheitsgründen in 1 Stunde ab.",
+			"greeting": "Hallo {userName},",
+			"greeting_fallback": "Hallo,",
+			"preview": "Passwort zurücksetzen",
+			"title": "Passwort zurücksetzen"
 		},
 		"subject": {
+			"new_signup": "Neue Benutzerregistrierung: {userEmail}",
 			"reset_password": "Passwort zurücksetzen",
 			"support_reply": "Neue Antwort auf Ihre Support-Anfrage",
 			"ticket_new": "Neues Support-Ticket von {userName}",
 			"ticket_reopened": "Support-Ticket wiedereröffnet von {userName}",
 			"verify": "E-Mail-Adresse bestätigen"
+		},
+		"verification": {
+			"button": "E-Mail bestätigen",
+			"description": "Klicken Sie auf den Button unten, um Ihre E-Mail-Adresse zu bestätigen",
+			"disclaimer": "Falls Sie kein Konto erstellt haben, ignorieren Sie diese E-Mail einfach.",
+			"expiry": "Dieser Link läuft in {expiryMinutes} Minuten ab.",
+			"intro": "Danke für Ihre Registrierung! Bitte bestätigen Sie Ihre E-Mail-Adresse, um die Registrierung abzuschließen.",
+			"preview": "Bestätigen Sie Ihre E-Mail-Adresse",
+			"title": "E-Mail-Adresse bestätigen"
+		},
+		"verification_code": {
+			"description": "Geben Sie diesen Code ein, um die Bestätigung abzuschließen",
+			"disclaimer": "Falls Sie diesen Code nicht angefordert haben, ignorieren Sie diese E-Mail einfach.",
+			"expiry": "Dieser Code läuft in {expiryMinutes} Minuten ab.",
+			"preview": "Ihr Bestätigungscode lautet {code}",
+			"title": "E-Mail-Adresse bestätigen"
 		}
 	},
 	"error_page": {
 		"back_home": "Zurück zur Startseite",
-		"generic_description": "Beim Laden dieser Seite ist ein unerwarteter Fehler aufgetreten.",
+		"bug_report_body": "Hallo,\n\nbeim Verwenden von SaaS Starter ist ein Fehler aufgetreten.\n\nURL: {url}\nStatus: {status}\n\nWas ich gerade gemacht habe:\n\n\nDanke!",
+		"bug_report_subject": "Fehlerbericht: Fehler {status} in SaaS Starter",
+		"generic_description": "Beim Laden dieser Seite ist ein unerwarteter Fehler aufgetreten. Falls das Problem weiterhin besteht, melden Sie es bitte an {email}.",
 		"generic_title": "Etwas ist schiefgelaufen",
 		"need_help": "Brauchen Sie Hilfe?",
 		"not_found_description": "Die gesuchte Seite existiert nicht. Versuchen Sie unten nach dem zu suchen, was Sie brauchen.",
@@ -1055,6 +1098,14 @@
 			},
 			"aria_label": "Screenshot-Editor",
 			"capturing": "Wird aufgenommen...",
+			"color": {
+				"black": "Schwarz",
+				"blue": "Blau",
+				"green": "Grün",
+				"purple": "Lila",
+				"red": "Rot",
+				"yellow": "Gelb"
+			},
 			"next": "Bug Markiert",
 			"tool": {
 				"arrow": "Pfeil (A)",
@@ -1086,6 +1137,7 @@
 			"question_text": "Warum SaaS Starter?"
 		},
 		"thread": {
+			"load_error": "Unterhaltungen konnten nicht geladen werden. Bitte versuchen Sie es später erneut.",
 			"new_conversation": "Neue Unterhaltung"
 		},
 		"time": {

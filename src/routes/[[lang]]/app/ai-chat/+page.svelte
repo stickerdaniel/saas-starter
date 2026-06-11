@@ -20,7 +20,7 @@
 	const client = useConvexClient();
 
 	// Auth
-	const viewer = useQuery(api.users.viewer, {}, () => ({ initialData: data.viewer }));
+	const viewer = useQuery(api.users.viewer, {}, () => ({ initialData: data.viewer ?? undefined }));
 
 	// Pro check
 	const autumn = useCustomer();

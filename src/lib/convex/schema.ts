@@ -14,15 +14,15 @@ export default defineSchema({
 	}).index('by_user', ['userId']),
 
 	// Email event tracking - stores webhook events from Resend
+	// Intentionally write-only for now: inspect events via the Convex dashboard.
+	// by_email_id is the documented read path (AGENTS.md Email Event Tracking);
+	// add a query on it when needed.
 	emailEvents: defineTable({
 		emailId: v.string(), // Resend email ID
 		eventType: v.string(), // 'email.delivered', 'email.bounced', etc.
 		timestamp: v.number(), // When the event occurred
 		data: vEmailEvent // Full event payload from Resend
-	})
-		.index('by_email_id', ['emailId'])
-		.index('by_event_type', ['eventType'])
-		.index('by_timestamp', ['timestamp']),
+	}).index('by_email_id', ['emailId']),
 
 	// Admin audit logs - tracks admin actions for accountability
 	adminAuditLogs: defineTable({
@@ -58,10 +58,7 @@ export default defineSchema({
 		adminUserId: v.string(), // Admin who created the note
 		content: v.string(), // Note content
 		createdAt: v.number() // Timestamp when note was created
-	})
-		.index('by_user', ['userId'])
-		.index('by_admin', ['adminUserId'])
-		.index('by_created', ['createdAt']),
+	}).index('by_user', ['userId']),
 
 	// Support feature registry.
 	// Source of truth for support thread membership, access, and denormalized list/search data.
@@ -71,10 +68,8 @@ export default defineSchema({
 		.index('by_user', ['userId'])
 		.index('by_user_warm', ['userId', 'isWarm'])
 		.index('by_user_and_updated', ['userId', 'updatedAt'])
-		.index('by_status', ['status'])
 		.index('by_assigned', ['assignedTo'])
 		.index('by_status_and_assigned', ['status', 'assignedTo'])
-		.index('by_created', ['createdAt'])
 		.index('by_handed_off_and_status', ['isHandedOff', 'status'])
 		.index('by_needs_response', ['isHandedOff', 'status', 'awaitingAdminResponse'])
 		.searchIndex('search_all', {
@@ -129,7 +124,7 @@ export default defineSchema({
 		founderWelcomeName: v.optional(v.string()),
 		founderWelcomeTitle: v.optional(v.string()),
 		founderWelcomeReplyTo: v.optional(v.string())
-	}).index('by_userId', ['userId']),
+	}).index('by_user', ['userId']),
 
 	// File metadata - stores image dimensions for proper dialog sizing
 	// (agent component strips unknown fields from file parts, so we store dimensions separately)
@@ -141,9 +136,9 @@ export default defineSchema({
 		height: v.optional(v.number()),
 		createdAt: v.number()
 	})
-		.index('by_fileId', ['fileId'])
-		.index('by_storageId', ['storageId'])
-		.index('by_url', ['url']),
+		.index('by_url', ['url'])
+		// Used by the file vacuum to cascade-delete metadata rows by storage ID
+		.index('by_storageId', ['storageId']),
 
 	// Dashboard counters - singleton for materialized user metrics
 	// Updated atomically via auth triggers (onCreate, onUpdate) to avoid

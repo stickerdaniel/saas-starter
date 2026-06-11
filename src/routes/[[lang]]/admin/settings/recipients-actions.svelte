@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button/index.js';
-	import TrashIcon from '@tabler/icons-svelte/icons/trash';
+	import TrashIcon from '@lucide/svelte/icons/trash-2';
 	import { T, getTranslate } from '@tolgee/svelte';
 	import { getContext } from 'svelte';
 	import { confirmDelete } from '$lib/components/ui/confirm-delete-dialog';

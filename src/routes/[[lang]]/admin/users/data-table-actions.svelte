@@ -12,12 +12,12 @@
 <script lang="ts">
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
-	import DotsVerticalIcon from '@tabler/icons-svelte/icons/dots-vertical';
-	import UserCheckIcon from '@tabler/icons-svelte/icons/user-check';
-	import UserOffIcon from '@tabler/icons-svelte/icons/user-off';
-	import LogoutIcon from '@tabler/icons-svelte/icons/logout';
-	import ShieldIcon from '@tabler/icons-svelte/icons/shield';
-	import CheckIcon from '@tabler/icons-svelte/icons/check';
+	import DotsVerticalIcon from '@lucide/svelte/icons/ellipsis-vertical';
+	import UserCheckIcon from '@lucide/svelte/icons/user-check';
+	import UserOffIcon from '@lucide/svelte/icons/user-x';
+	import LogoutIcon from '@lucide/svelte/icons/log-out';
+	import ShieldIcon from '@lucide/svelte/icons/shield';
+	import CheckIcon from '@lucide/svelte/icons/check';
 	import { haptic } from '$lib/hooks/use-haptic.svelte';
 	import { T } from '@tolgee/svelte';
 	import { USER_ROLES } from '$lib/convex/admin/types';

@@ -22,8 +22,9 @@
 	// Fetch dashboard metrics
 	const metrics = useQuery(api.admin.queries.getDashboardMetrics, {});
 
-	// Derive loading state
-	let isLoading = $derived(!metrics.data);
+	// Derive loading state from isLoading, not !data: on a query throw data
+	// stays undefined while isLoading turns false, which would freeze skeletons
+	let isLoading = $derived(metrics.isLoading);
 
 	// Update user count context when metrics load
 	$effect(() => {
@@ -40,45 +41,56 @@
 
 <div class="flex flex-col gap-6">
 	<!-- Metrics Cards -->
-	<div
-		class="grid grid-cols-1 gap-4 px-4 *:data-[slot=card]:bg-linear-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card *:data-[slot=card]:shadow-xs lg:px-6 @xl/main:grid-cols-2 @5xl/main:grid-cols-4 dark:*:data-[slot=card]:bg-card"
-	>
-		<MetricCard
-			label={$t('admin.metrics.total_users')}
-			value={metrics.data?.totalUsers ?? 0}
-			description={$t('admin.metrics.total_users_desc')}
-			subtitle={$t('admin.metrics.registered_users')}
-			icon={UsersIcon}
-			loading={isLoading}
-		/>
+	{#if metrics.error}
+		<div class="px-4 lg:px-6">
+			<p
+				class="rounded-md border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive"
+				data-testid="admin-dashboard-error"
+			>
+				<T keyName="common.load_error" />
+			</p>
+		</div>
+	{:else}
+		<div
+			class="grid grid-cols-1 gap-4 px-4 *:data-[slot=card]:bg-linear-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card *:data-[slot=card]:shadow-xs lg:px-6 @xl/main:grid-cols-2 @5xl/main:grid-cols-4 dark:*:data-[slot=card]:bg-card"
+		>
+			<MetricCard
+				label={$t('admin.metrics.total_users')}
+				value={metrics.data?.totalUsers ?? 0}
+				description={$t('admin.metrics.total_users_desc')}
+				subtitle={$t('admin.metrics.registered_users')}
+				icon={UsersIcon}
+				loading={isLoading}
+			/>
 
-		<MetricCard
-			label={$t('admin.metrics.active_sessions')}
-			value={metrics.data?.activeIn24h ?? 0}
-			description={$t('admin.metrics.active_sessions_desc')}
-			subtitle={$t('admin.metrics.currently_active')}
-			icon={ActivityIcon}
-			loading={isLoading}
-		/>
+			<MetricCard
+				label={$t('admin.metrics.active_sessions')}
+				value={metrics.data?.activeIn24h ?? 0}
+				description={$t('admin.metrics.active_sessions_desc')}
+				subtitle={$t('admin.metrics.currently_active')}
+				icon={ActivityIcon}
+				loading={isLoading}
+			/>
 
-		<MetricCard
-			label={$t('admin.metrics.recent_signups')}
-			value={metrics.data?.recentSignups ?? 0}
-			description={$t('admin.metrics.recent_signups_desc')}
-			subtitle={$t('admin.metrics.last_7_days')}
-			icon={UserPlusIcon}
-			loading={isLoading}
-		/>
+			<MetricCard
+				label={$t('admin.metrics.recent_signups')}
+				value={metrics.data?.recentSignups ?? 0}
+				description={$t('admin.metrics.recent_signups_desc')}
+				subtitle={$t('admin.metrics.last_7_days')}
+				icon={UserPlusIcon}
+				loading={isLoading}
+			/>
 
-		<MetricCard
-			label={$t('admin.metrics.admins')}
-			value={metrics.data?.adminCount ?? 0}
-			description={$t('admin.metrics.admins_desc')}
-			subtitle={$t('admin.metrics.admin_users')}
-			icon={ShieldCheckIcon}
-			loading={isLoading}
-		/>
-	</div>
+			<MetricCard
+				label={$t('admin.metrics.admins')}
+				value={metrics.data?.adminCount ?? 0}
+				description={$t('admin.metrics.admins_desc')}
+				subtitle={$t('admin.metrics.admin_users')}
+				icon={ShieldCheckIcon}
+				loading={isLoading}
+			/>
+		</div>
+	{/if}
 
 	<!-- External Service Links -->
 	<div class="flex flex-col gap-4 px-4 lg:px-6">

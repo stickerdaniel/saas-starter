@@ -1,40 +1,86 @@
-import { watch, Context } from 'runed';
+import {
+	watch,
+	Context,
+	useEventListener,
+	useIntersectionObserver,
+	useMutationObserver,
+	useResizeObserver
+} from 'runed';
 
 export class StickToBottomContext {
 	#element: HTMLElement | null = $state(null);
 	#isAtBottom = $state(true);
-	#resizeObserver: ResizeObserver | null = null;
-	#mutationObserver: MutationObserver | null = null;
-	#intersectionObserver: IntersectionObserver | null = null;
-	#sentinel: HTMLElement | null = null;
+	#sentinel: HTMLElement | null = $state(null);
 	#userHasScrolled = $state(false);
 
 	isAtBottom = $derived(this.#isAtBottom);
 
-	// Debug method to help troubleshoot
-	get debugInfo() {
-		if (!this.#element) return null;
-		const { scrollTop, scrollHeight, clientHeight } = this.#element;
-		return {
-			scrollTop,
-			scrollHeight,
-			clientHeight,
-			isAtBottom: this.#isAtBottom,
-			userHasScrolled: this.#userHasScrolled,
-			hasElement: !!this.#element,
-			hasSentinel: !!this.#sentinel
-		};
-	}
-
 	constructor() {
+		// Sentinel lifecycle. Declared before the observers below so the initial
+		// append happens before the MutationObserver starts watching.
 		watch(
 			() => this.#element,
+			(element) => {
+				if (!element) return;
+
+				this.#sentinel = this.#createSentinel(element);
+
+				// Check initial state
+				this.#checkScrollPosition();
+
+				return () => {
+					if (this.#sentinel && element.contains(this.#sentinel)) {
+						element.removeChild(this.#sentinel);
+					}
+					this.#sentinel = null;
+				};
+			}
+		);
+
+		// Detect user scrolling
+		useEventListener(() => this.#element, 'scroll', this.#handleScroll, { passive: true });
+
+		// Re-stick to bottom when the container resizes
+		useResizeObserver(
+			() => this.#element,
 			() => {
-				if (this.#element) {
-					this.#setupObservers();
-					return () => this.#cleanup();
+				this.#checkScrollPosition();
+				if (this.#isAtBottom && !this.#userHasScrolled) {
+					this.scrollToBottom('auto');
 				}
 			}
+		);
+
+		// Re-stick to bottom when content changes
+		useMutationObserver(
+			() => this.#element,
+			() => {
+				// Small delay to ensure DOM has updated
+				requestAnimationFrame(() => {
+					// Only auto-scroll if user was at bottom and hasn't manually scrolled
+					const shouldAutoScroll = this.#isAtBottom && !this.#userHasScrolled;
+					this.#checkScrollPosition();
+
+					if (shouldAutoScroll) {
+						this.scrollToBottom('smooth');
+					}
+				});
+			},
+			{ childList: true, subtree: true, characterData: true }
+		);
+
+		// Backup bottom detection: a visible sentinel always counts as at-bottom
+		useIntersectionObserver(
+			() => this.#sentinel,
+			(entries) => {
+				const entry = entries[0]!;
+				if (entry.isIntersecting) {
+					this.#isAtBottom = true;
+					this.#userHasScrolled = false;
+				}
+			},
+			// Explicit threshold: 0 to keep the previous observer's behavior (runed defaults to 0.1)
+			{ threshold: 0, root: () => this.#element }
 		);
 	}
 
@@ -71,88 +117,17 @@ export class StickToBottomContext {
 		}
 	};
 
-	#setupObservers() {
-		if (!this.#element) return;
-
-		// Create and position sentinel element
-		this.#createSentinel();
-
-		// Setup intersection observer to detect if we're at bottom
-		this.#intersectionObserver = new IntersectionObserver(
-			(entries) => {
-				const entry = entries[0]!;
-				// Use intersection observer as a backup, but prioritize scroll-based detection
-				if (entry.isIntersecting) {
-					this.#isAtBottom = true;
-					this.#userHasScrolled = false;
-				}
-			},
-			{
-				threshold: 0,
-				root: this.#element
-			}
-		);
-
-		if (this.#sentinel) {
-			this.#intersectionObserver.observe(this.#sentinel);
-		}
-
-		// Add scroll event listener to detect user scrolling
-		this.#element.addEventListener('scroll', this.#handleScroll, {
-			passive: true
-		});
-
-		// Setup resize observer for smooth scrolling on resize
-		this.#resizeObserver = new ResizeObserver(() => {
-			// Check position after resize
-			this.#checkScrollPosition();
-			if (this.#isAtBottom && !this.#userHasScrolled) {
-				this.scrollToBottom('auto');
-			}
-		});
-
-		this.#resizeObserver.observe(this.#element);
-
-		// Setup mutation observer for smooth scrolling on content changes
-		this.#mutationObserver = new MutationObserver(() => {
-			// Small delay to ensure DOM has updated
-			requestAnimationFrame(() => {
-				// Check if we should auto-scroll BEFORE updating the position
-				// Only auto-scroll if user was at bottom and hasn't manually scrolled
-				const shouldAutoScroll = this.#isAtBottom && !this.#userHasScrolled;
-
-				// Now update the scroll position after content changes
-				this.#checkScrollPosition();
-
-				// Auto-scroll if conditions were met
-				if (shouldAutoScroll) {
-					this.scrollToBottom('smooth');
-				}
-			});
-		});
-
-		this.#mutationObserver.observe(this.#element, {
-			childList: true,
-			subtree: true,
-			characterData: true
-		});
-
-		// Check initial state
-		this.#checkScrollPosition();
-	}
-
-	#createSentinel() {
-		if (!this.#element) return;
-
-		this.#sentinel = document.createElement('div');
-		this.#sentinel.style.height = '1px';
-		this.#sentinel.style.width = '100%';
-		this.#sentinel.style.pointerEvents = 'none';
-		this.#sentinel.style.opacity = '0';
-		this.#sentinel.setAttribute('data-stick-to-bottom-sentinel', '');
+	#createSentinel(element: HTMLElement): HTMLElement {
+		const sentinel = document.createElement('div');
+		sentinel.style.height = '1px';
+		sentinel.style.width = '100%';
+		sentinel.style.pointerEvents = 'none';
+		sentinel.style.opacity = '0';
+		sentinel.setAttribute('data-stick-to-bottom-sentinel', '');
 
 		// Append to the end of the scrollable content, not positioned absolutely
-		this.#element.appendChild(this.#sentinel);
+		element.appendChild(sentinel);
+		return sentinel;
 	}
 
 	#checkScrollPosition() {
@@ -163,26 +138,6 @@ export class StickToBottomContext {
 		const isAtBottom = scrollTop + clientHeight >= scrollHeight - threshold;
 
 		this.#isAtBottom = isAtBottom;
-	}
-
-	#cleanup() {
-		this.#resizeObserver?.disconnect();
-		this.#mutationObserver?.disconnect();
-		this.#intersectionObserver?.disconnect();
-
-		// Remove scroll event listener
-		if (this.#element) {
-			this.#element.removeEventListener('scroll', this.#handleScroll);
-		}
-
-		if (this.#sentinel && this.#element?.contains(this.#sentinel)) {
-			this.#element.removeChild(this.#sentinel);
-		}
-
-		this.#resizeObserver = null;
-		this.#mutationObserver = null;
-		this.#intersectionObserver = null;
-		this.#sentinel = null;
 	}
 }
 
