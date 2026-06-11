@@ -25,6 +25,7 @@ import {
 } from './denormalization';
 import { supportRateLimiter } from './rateLimit';
 import { createRateLimitError } from './types';
+import { isAnonymousUser } from '../utils/anonymousUser';
 
 /**
  * Rate-limit a support thread-creation path. Anonymous callers share a
@@ -255,7 +256,7 @@ export const listThreads = query({
 			v.object({
 				_id: v.string(),
 				_creationTime: v.number(),
-				userId: v.optional(v.string()),
+				userId: v.string(),
 				title: v.optional(v.string()),
 				summary: v.optional(v.string()),
 				status: v.union(v.literal('active'), v.literal('archived')),
@@ -340,7 +341,7 @@ export const listThreads = query({
 				return {
 					_id: supportThread.threadId,
 					_creationTime: supportThread.createdAt,
-					userId: supportThread.userId ?? thread.userId,
+					userId: supportThread.userId,
 					title: supportThread.title,
 					summary: supportThread.summary,
 					status: thread.status,
@@ -487,9 +488,7 @@ export const updateThreadHandoff = mutation({
 		});
 
 		// Sync last message for search
-		await ctx.runMutation(internal.support.threads.updateLastMessage, {
-			threadId: args.threadId
-		});
+		await syncSupportLastMessage(ctx, args.threadId);
 
 		// Get recent user messages and schedule admin notification immediately
 		// This starts the 2-minute debounce as soon as "Talk to human" is pressed
@@ -681,6 +680,39 @@ export const updateThreadMetadata = internalMutation({
 /**
  * Sync last message to denormalized search fields.
  * Called after a message is sent (user or admin).
+ *
+ * Mutation-context callers use this helper directly; the `updateLastMessage`
+ * internalMutation below wraps it for action-context callers.
+ */
+export async function syncSupportLastMessage(ctx: MutationCtx, threadId: string): Promise<void> {
+	const supportThread = await ctx.db
+		.query('supportThreads')
+		.withIndex('by_thread', (q) => q.eq('threadId', threadId))
+		.first();
+
+	if (!supportThread) {
+		console.log(`[syncLastMessage] No supportThread found for: ${threadId}`);
+		return;
+	}
+
+	const latestMessage = await getLatestCompletedThreadMessage(ctx, threadId);
+	const patch = buildSupportMessageDenormalization({
+		title: supportThread.title,
+		summary: supportThread.summary,
+		userName: supportThread.userName,
+		userEmail: supportThread.userEmail,
+		latestMessage
+	});
+
+	await ctx.db.patch(supportThread._id, {
+		...patch,
+		updatedAt: Date.now()
+	});
+}
+
+/**
+ * Action-context wrapper around syncSupportLastMessage.
+ * Used by createAIResponse after streaming completes.
  */
 export const updateLastMessage = internalMutation({
 	args: {
@@ -688,29 +720,47 @@ export const updateLastMessage = internalMutation({
 	},
 	returns: v.null(),
 	handler: async (ctx, args) => {
-		const supportThread = await ctx.db
-			.query('supportThreads')
-			.withIndex('by_thread', (q) => q.eq('threadId', args.threadId))
-			.first();
+		await syncSupportLastMessage(ctx, args.threadId);
+		return null;
+	}
+});
 
-		if (!supportThread) {
-			console.log(`[syncLastMessage] No supportThread found for: ${args.threadId}`);
-			return null;
+/**
+ * Sync denormalized user profile fields across all of a user's support threads.
+ * Called from the Better Auth onUpdate trigger when name or email changes.
+ *
+ * Leaves notificationEmail untouched (explicit opt-in that may intentionally
+ * differ from the account email) and does not bump updatedAt (a profile edit
+ * is not thread activity and must not reorder by_user_and_updated listings).
+ */
+export const syncUserProfile = internalMutation({
+	args: {
+		userId: v.string(),
+		userName: v.optional(v.string()),
+		userEmail: v.optional(v.string())
+	},
+	returns: v.null(),
+	handler: async (ctx, args) => {
+		// Bounded: per-user index scan, a single user's support threads are few
+		const supportThreads = await ctx.db
+			.query('supportThreads')
+			.withIndex('by_user', (q) => q.eq('userId', args.userId))
+			.collect();
+
+		for (const supportThread of supportThreads) {
+			await ctx.db.patch(supportThread._id, {
+				userName: args.userName,
+				userEmail: args.userEmail,
+				searchText: buildSupportSearchText({
+					title: supportThread.title,
+					summary: supportThread.summary,
+					lastMessage: supportThread.lastMessage,
+					userName: args.userName,
+					userEmail: args.userEmail
+				})
+			});
 		}
 
-		const latestMessage = await getLatestCompletedThreadMessage(ctx, args.threadId);
-		const patch = buildSupportMessageDenormalization({
-			title: supportThread.title,
-			summary: supportThread.summary,
-			userName: supportThread.userName,
-			userEmail: supportThread.userEmail,
-			latestMessage
-		});
-
-		await ctx.db.patch(supportThread._id, {
-			...patch,
-			updatedAt: Date.now()
-		});
 		return null;
 	}
 });
@@ -739,14 +789,24 @@ export const backfillThreadMetadata = internalMutation({
 
 			if (!agentThread) continue;
 
+			// Re-fetch the live profile so a manual backfill repairs drifted
+			// userName/userEmail instead of re-propagating the stale values.
+			const { userName, userEmail } = await getSupportOwnerProfile(
+				ctx,
+				supportThread.userId,
+				isAnonymousUser(supportThread.userId)
+			);
+
 			const patch = {
 				title: agentThread.title,
 				summary: agentThread.summary,
+				userName,
+				userEmail,
 				...buildSupportMessageDenormalization({
 					title: agentThread.title,
 					summary: agentThread.summary,
-					userName: supportThread.userName,
-					userEmail: supportThread.userEmail,
+					userName,
+					userEmail,
 					latestMessage: await getLatestCompletedThreadMessage(ctx, supportThread.threadId)
 				})
 			};

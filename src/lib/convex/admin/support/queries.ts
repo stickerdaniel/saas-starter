@@ -45,7 +45,7 @@ export const listThreadsForAdmin = adminQuery({
 			v.object({
 				_id: v.string(),
 				_creationTime: v.number(),
-				userId: v.optional(v.string()),
+				userId: v.string(),
 				title: v.optional(v.string()),
 				summary: v.optional(v.string()),
 				status: v.union(v.literal('active'), v.literal('archived')),
@@ -248,7 +248,7 @@ export const getThreadForAdmin = adminQuery({
 	returns: v.object({
 		_id: v.string(),
 		_creationTime: v.number(),
-		userId: v.optional(v.string()),
+		userId: v.string(),
 		title: v.optional(v.string()),
 		summary: v.optional(v.string()),
 		status: v.union(v.literal('active'), v.literal('archived')),

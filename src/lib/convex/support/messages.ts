@@ -12,6 +12,7 @@ import { createRateLimitError } from './types';
 import { t, extractLocaleFromUrl } from '../i18n/translations';
 import { requireSupportThreadAccess } from './ownership';
 import { listMessagesForThread } from './messageListing';
+import { syncSupportLastMessage } from './threads';
 
 /**
  * Send a user message and get AI response with streaming
@@ -108,9 +109,7 @@ export const sendMessage = mutation({
 		}
 
 		// Sync denormalized search fields with user's message
-		await ctx.runMutation(internal.support.threads.updateLastMessage, {
-			threadId: args.threadId
-		});
+		await syncSupportLastMessage(ctx, args.threadId);
 
 		// Check if thread is handed off to human support
 		// When handed off, skip AI response - only humans respond

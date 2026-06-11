@@ -1,4 +1,11 @@
-import { watch, Context } from 'runed';
+import {
+	watch,
+	Context,
+	useEventListener,
+	useIntersectionObserver,
+	useMutationObserver,
+	useResizeObserver
+} from 'runed';
 
 type ResizeMode = 'smooth' | 'instant';
 type InitialMode = 'smooth' | 'instant';
@@ -6,10 +13,7 @@ type InitialMode = 'smooth' | 'instant';
 export class ChatContainerContext {
 	#element: HTMLElement | null = $state(null);
 	#isAtBottom = $state(true);
-	#resizeObserver: ResizeObserver | null = null;
-	#mutationObserver: MutationObserver | null = null;
-	#intersectionObserver: IntersectionObserver | null = null;
-	#sentinel: HTMLElement | null = null;
+	#sentinel: HTMLElement | null = $state(null);
 	#userHasScrolled = $state(false);
 	#resizeMode: ResizeMode = 'smooth';
 	#initialMode: InitialMode = 'instant';
@@ -21,14 +25,68 @@ export class ChatContainerContext {
 		this.#resizeMode = resizeMode;
 		this.#initialMode = initialMode;
 
+		// Sentinel lifecycle. Declared before the observers below so the initial
+		// append happens before the MutationObserver starts watching.
 		watch(
 			() => this.#element,
+			(element) => {
+				if (!element) return;
+
+				this.#sentinel = this.#createSentinel(element);
+
+				// Initial scroll to bottom
+				requestAnimationFrame(() => {
+					this.#checkScrollPosition();
+					this.scrollToBottom();
+				});
+
+				return () => {
+					if (this.#sentinel && element.contains(this.#sentinel)) {
+						element.removeChild(this.#sentinel);
+					}
+					this.#sentinel = null;
+				};
+			}
+		);
+
+		useEventListener(() => this.#element, 'scroll', this.#handleScroll, { passive: true });
+
+		useResizeObserver(
+			() => this.#element,
 			() => {
-				if (this.#element) {
-					this.#setupObservers();
-					return () => this.#cleanup();
+				this.#checkScrollPosition();
+				if (this.#isAtBottom && !this.#userHasScrolled) {
+					const behavior = this.#resizeMode === 'smooth' ? 'smooth' : 'instant';
+					this.scrollToBottom(behavior);
 				}
 			}
+		);
+
+		useMutationObserver(
+			() => this.#element,
+			() => {
+				requestAnimationFrame(() => {
+					const shouldAutoScroll = this.#isAtBottom && !this.#userHasScrolled;
+					this.#checkScrollPosition();
+
+					if (shouldAutoScroll) {
+						this.scrollToBottom('smooth');
+					}
+				});
+			},
+			{ childList: true, subtree: true, characterData: true }
+		);
+
+		useIntersectionObserver(
+			() => this.#sentinel,
+			(entries) => {
+				const entry = entries[0]!;
+				if (entry.isIntersecting && !this.#userHasScrolled) {
+					this.#isAtBottom = true;
+				}
+			},
+			// Explicit threshold: 0 to keep the previous observer's behavior (runed defaults to 0.1)
+			{ threshold: 0, root: () => this.#element }
 		);
 	}
 
@@ -76,77 +134,16 @@ export class ChatContainerContext {
 		}
 	};
 
-	#setupObservers() {
-		if (!this.#element) return;
+	#createSentinel(element: HTMLElement): HTMLElement {
+		const sentinel = document.createElement('div');
+		sentinel.style.height = '1px';
+		sentinel.style.width = '100%';
+		sentinel.style.pointerEvents = 'none';
+		sentinel.style.opacity = '0';
+		sentinel.setAttribute('data-chat-container-sentinel', '');
 
-		this.#createSentinel();
-
-		this.#intersectionObserver = new IntersectionObserver(
-			(entries) => {
-				const entry = entries[0]!;
-				if (entry.isIntersecting && !this.#userHasScrolled) {
-					this.#isAtBottom = true;
-				}
-			},
-			{
-				threshold: 0,
-				root: this.#element
-			}
-		);
-
-		if (this.#sentinel) {
-			this.#intersectionObserver.observe(this.#sentinel);
-		}
-
-		this.#element.addEventListener('scroll', this.#handleScroll, {
-			passive: true
-		});
-
-		this.#resizeObserver = new ResizeObserver(() => {
-			this.#checkScrollPosition();
-			if (this.#isAtBottom && !this.#userHasScrolled) {
-				const behavior = this.#resizeMode === 'smooth' ? 'smooth' : 'instant';
-				this.scrollToBottom(behavior);
-			}
-		});
-
-		this.#resizeObserver.observe(this.#element);
-
-		this.#mutationObserver = new MutationObserver(() => {
-			requestAnimationFrame(() => {
-				const shouldAutoScroll = this.#isAtBottom && !this.#userHasScrolled;
-				this.#checkScrollPosition();
-
-				if (shouldAutoScroll) {
-					this.scrollToBottom('smooth');
-				}
-			});
-		});
-
-		this.#mutationObserver.observe(this.#element, {
-			childList: true,
-			subtree: true,
-			characterData: true
-		});
-
-		// Initial scroll to bottom
-		requestAnimationFrame(() => {
-			this.#checkScrollPosition();
-			this.scrollToBottom();
-		});
-	}
-
-	#createSentinel() {
-		if (!this.#element) return;
-
-		this.#sentinel = document.createElement('div');
-		this.#sentinel.style.height = '1px';
-		this.#sentinel.style.width = '100%';
-		this.#sentinel.style.pointerEvents = 'none';
-		this.#sentinel.style.opacity = '0';
-		this.#sentinel.setAttribute('data-chat-container-sentinel', '');
-
-		this.#element.appendChild(this.#sentinel);
+		element.appendChild(sentinel);
+		return sentinel;
 	}
 
 	#checkScrollPosition() {
@@ -157,25 +154,6 @@ export class ChatContainerContext {
 		const isAtBottom = scrollTop + clientHeight >= scrollHeight - threshold;
 
 		this.#isAtBottom = isAtBottom;
-	}
-
-	#cleanup() {
-		this.#resizeObserver?.disconnect();
-		this.#mutationObserver?.disconnect();
-		this.#intersectionObserver?.disconnect();
-
-		if (this.#element) {
-			this.#element.removeEventListener('scroll', this.#handleScroll);
-		}
-
-		if (this.#sentinel && this.#element?.contains(this.#sentinel)) {
-			this.#element.removeChild(this.#sentinel);
-		}
-
-		this.#resizeObserver = null;
-		this.#mutationObserver = null;
-		this.#intersectionObserver = null;
-		this.#sentinel = null;
 	}
 }
 

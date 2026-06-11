@@ -289,6 +289,13 @@
 					{/if}
 				</Field.Group>
 			</div>
+		{:else if threadQuery.error}
+			<div
+				class="flex h-full items-center justify-center text-center text-balance text-destructive"
+				data-testid="thread-details-error"
+			>
+				<T keyName="common.load_error" />
+			</div>
 		{/if}
 	</div>
 </div>

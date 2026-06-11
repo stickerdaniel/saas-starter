@@ -36,6 +36,8 @@ export const CACHE_LOOKUP_PATTERN =
 /**
  * Apply the markdown passthrough patch to a worker source string.
  * Returns the patched source, or null if the pattern wasn't found.
+ * Throws when a cache-like lookup exists but CACHE_LOOKUP_PATTERN no longer
+ * matches it (pattern drift), so a build with lost cache-bypass fails loud.
  */
 export function applyMarkdownPatch(source: string): string | null {
 	if (!STATIC_SERVING_PATTERN.test(source)) {
@@ -51,15 +53,18 @@ export function applyMarkdownPatch(source: string): string | null {
 			`const __wantsMarkdown = /\\btext\\/markdown\\b/i.test(req.headers.get("accept") || "");\n$1!__wantsMarkdown && $2`
 		);
 	} else {
-		// Warn if cache-like code exists but didn't match (pattern drift)
-		if (/await \w+\(req\)/.test(patched)) {
-			console.warn(
-				'[patch-cf-worker] WARNING: Detected a cache lookup but CACHE_LOOKUP_PATTERN did not match. ' +
-					'The worktop cache will NOT be bypassed for markdown requests. ' +
+		// Fail loud if cache-like code exists but didn't match (pattern drift).
+		// \w+ excludes dotted calls like server.respond(req, ...), so this only
+		// fires for worktop-style cache lookups (e.g. `await r2(req, opts)`).
+		if (/await \w+\(req\b/.test(patched)) {
+			throw new Error(
+				'Detected a worktop cache lookup but CACHE_LOOKUP_PATTERN did not match. ' +
+					'Without the cache bypass, cached HTML is served for Accept: text/markdown ' +
+					'requests on non-prerendered pages. ' +
 					'Update CACHE_LOOKUP_PATTERN to match the new adapter output.'
 			);
 		}
-		// Fallback: inject before static serving (prerendered pages still fixed, cache bypass skipped)
+		// Fallback: inject before static serving (prerendered pages still fixed, no cache layer to bypass)
 		patched = patched.replace(
 			STATIC_SERVING_PATTERN,
 			`const __wantsMarkdown = /\\btext\\/markdown\\b/i.test(req.headers.get("accept") || "");\n$1!__wantsMarkdown && ($2))`
@@ -83,7 +88,13 @@ if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(import.met
 	}
 
 	const original = fs.readFileSync(WORKER_PATH, 'utf-8');
-	const patched = applyMarkdownPatch(original);
+	let patched: string | null;
+	try {
+		patched = applyMarkdownPatch(original);
+	} catch (err) {
+		console.error(`[patch-cf-worker] ${err instanceof Error ? err.message : String(err)}`);
+		process.exit(1);
+	}
 
 	if (patched === null) {
 		console.error(

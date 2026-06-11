@@ -30,6 +30,18 @@ const WORKER_FIXTURE_NO_CACHE = `
     }
 `;
 
+// Fixture where the worktop cache call drifted to take extra args, so
+// CACHE_LOOKUP_PATTERN no longer matches but a cache lookup clearly exists
+const WORKER_FIXTURE_DRIFTED_CACHE = `
+    let pragma = req.headers.get("cache-control") || "";
+    let res = !pragma.includes("no-cache") && await r2(req, opts);
+    if (res) return res;
+    let is_static_asset = false;
+    if (is_static_asset || prerendered.has(pathname) || pathname === version_file || pathname.startsWith(immutable)) {
+      res = await env2.ASSETS.fetch(req);
+    }
+`;
+
 describe('patch-cf-worker', () => {
 	it('patches both cache lookup and static-serving condition', () => {
 		const result = applyMarkdownPatch(WORKER_FIXTURE);
@@ -86,5 +98,11 @@ describe('patch-cf-worker', () => {
 		expect(result).not.toBeNull();
 		expect(result).toContain('__wantsMarkdown');
 		expect(result).toContain('!__wantsMarkdown && (is_static_asset');
+	});
+
+	it('throws when a cache lookup exists but the pattern drifted', () => {
+		expect(() => applyMarkdownPatch(WORKER_FIXTURE_DRIFTED_CACHE)).toThrow(
+			/CACHE_LOOKUP_PATTERN did not match/
+		);
 	});
 });

@@ -277,11 +277,7 @@
 						if (!prompt?.trim()) return;
 						// In AI mode, block while processing (sending, awaiting stream, or streaming)
 						// In handed-off mode, allow fire-and-forget like admin view
-						const isProcessing =
-							threadContext.isSending ||
-							threadContext.isAwaitingStream ||
-							threadContext.isStreaming;
-						if (!threadContext.isHandedOff && isProcessing) return;
+						if (!threadContext.isHandedOff && chatUIContext.isProcessing) return;
 
 						try {
 							await threadContext.sendMessage(client, prompt, {
