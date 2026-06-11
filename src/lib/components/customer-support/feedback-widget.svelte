@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { useConvexClient, useQuery } from '@mmailaender/convex-svelte';
-	import { page } from '$app/state';
+	import { authClient } from '$lib/auth-client';
 	import { watch } from 'runed';
 	import { api } from '$lib/convex/_generated/api';
 	import { supportThreadContext } from './support-thread-context.svelte';
@@ -34,6 +34,16 @@
 		chatUIContext: ChatUIContext;
 		onClose?: () => void;
 	} = $props();
+
+	// Session email recovers via cookies on prerendered pages, unlike
+	// page.data.viewer which is frozen at build time (prerendering
+	// constraints in AGENTS.md)
+	let sessionEmail = $state('');
+	$effect(() => {
+		return authClient.useSession().subscribe((s) => {
+			sessionEmail = s.data?.user?.email ?? '';
+		});
+	});
 
 	// Get thread context
 	const threadContext = supportThreadContext.get();
@@ -259,7 +269,7 @@
 						showEmailPrompt={threadContext.isHandedOff}
 						currentEmail={threadContext.notificationEmail ?? ''}
 						isEmailPending={threadContext.isEmailPending}
-						defaultEmail={page.data.viewer?.email ?? ''}
+						defaultEmail={sessionEmail}
 						onSubmitEmail={handleSubmitEmail}
 					/>
 				</div>
