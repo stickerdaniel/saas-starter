@@ -468,4 +468,88 @@ test.describe('Admin Users Table', () => {
 		});
 		await expectTableQueryParamMissing(page, 'cursor');
 	});
+
+	test('row actions change role, ban, unban, and revoke sessions', async ({ page }) => {
+		// Dedicated throwaway so write actions never mutate the shared seed users.
+		// Distinct prefix keeps it out of the seedPrefix searches above; afterAll
+		// cleans it up via createdSeedEmails.
+		const writeTargetEmail = `write-target-${Date.now()}@e2e.example.com`;
+		await createAuthUser({
+			email: writeTargetEmail,
+			name: 'Write Target User',
+			role: 'user',
+			verification: 'verified'
+		});
+		createdSeedEmails.push(writeTargetEmail);
+		await client.mutation(api.tests.verifyTestUserEmail, {
+			email: writeTargetEmail,
+			secret: testSecret!
+		});
+
+		await page.getByTestId('admin-users-search').fill(writeTargetEmail);
+		await expect(
+			page.getByTestId('admin-users-email-cell').filter({ hasText: writeTargetEmail })
+		).toHaveCount(1, { timeout: 10000 });
+		await expect(page.getByTestId('admin-users-row-actions')).toHaveCount(1);
+
+		// Role change: user -> admin
+		await page.getByTestId('admin-users-row-actions').click();
+		await page.getByTestId('admin-users-action-set-role').click();
+		await page.getByTestId('admin-users-action-role-admin').click();
+		await page.getByTestId('admin-users-role-dialog-confirm').click();
+		// Dialog only closes after the mutation succeeds
+		await expect(page.getByTestId('admin-users-role-dialog-confirm')).toHaveCount(0, {
+			timeout: 10000
+		});
+		await expect
+			.poll(
+				async () =>
+					(await page.getByTestId('admin-users-role-badge').textContent())?.trim().toLowerCase(),
+				{ timeout: 10000 }
+			)
+			.toBe('admin');
+
+		// Ban with a reason
+		await page.getByTestId('admin-users-row-actions').click();
+		await page.getByTestId('admin-users-action-ban').click();
+		await page.getByTestId('admin-users-ban-reason-input').fill('E2E write-path ban');
+		await page.getByTestId('admin-users-dialog-confirm').click();
+		await expect(page.getByTestId('admin-users-dialog-confirm')).toHaveCount(0, {
+			timeout: 10000
+		});
+		await expect
+			.poll(
+				async () =>
+					(await page.getByTestId('admin-users-status-badge').textContent())?.trim().toLowerCase(),
+				{ timeout: 10000 }
+			)
+			.toBe('banned');
+
+		// Unban restores the verified status
+		await page.getByTestId('admin-users-row-actions').click();
+		await page.getByTestId('admin-users-action-unban').click();
+		await page.getByTestId('admin-users-dialog-confirm').click();
+		await expect(page.getByTestId('admin-users-dialog-confirm')).toHaveCount(0, {
+			timeout: 10000
+		});
+		await expect
+			.poll(
+				async () =>
+					(await page.getByTestId('admin-users-status-badge').textContent())?.trim().toLowerCase(),
+				{ timeout: 10000 }
+			)
+			.toBe('verified');
+
+		// Revoke sessions: dialog closes and the success toast appears
+		await page.getByTestId('admin-users-row-actions').click();
+		await page.getByTestId('admin-users-action-revoke-sessions').click();
+		await page.getByTestId('admin-users-dialog-confirm').click();
+		const revokeToast = page.locator('[data-sonner-toast]').filter({
+			hasText: /sessions have been revoked/i
+		});
+		await expect(revokeToast).toBeVisible({ timeout: 10000 });
+		await expect(page.getByTestId('admin-users-dialog-confirm')).toHaveCount(0, {
+			timeout: 10000
+		});
+	});
 });
