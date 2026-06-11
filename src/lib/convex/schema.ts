@@ -58,10 +58,7 @@ export default defineSchema({
 		adminUserId: v.string(), // Admin who created the note
 		content: v.string(), // Note content
 		createdAt: v.number() // Timestamp when note was created
-	})
-		.index('by_user', ['userId'])
-		.index('by_admin', ['adminUserId'])
-		.index('by_created', ['createdAt']),
+	}).index('by_user', ['userId']),
 
 	// Support feature registry.
 	// Source of truth for support thread membership, access, and denormalized list/search data.
@@ -71,10 +68,8 @@ export default defineSchema({
 		.index('by_user', ['userId'])
 		.index('by_user_warm', ['userId', 'isWarm'])
 		.index('by_user_and_updated', ['userId', 'updatedAt'])
-		.index('by_status', ['status'])
 		.index('by_assigned', ['assignedTo'])
 		.index('by_status_and_assigned', ['status', 'assignedTo'])
-		.index('by_created', ['createdAt'])
 		.index('by_handed_off_and_status', ['isHandedOff', 'status'])
 		.index('by_needs_response', ['isHandedOff', 'status', 'awaitingAdminResponse'])
 		.searchIndex('search_all', {
@@ -140,10 +135,7 @@ export default defineSchema({
 		width: v.optional(v.number()),
 		height: v.optional(v.number()),
 		createdAt: v.number()
-	})
-		.index('by_fileId', ['fileId'])
-		.index('by_storageId', ['storageId'])
-		.index('by_url', ['url']),
+	}).index('by_url', ['url']),
 
 	// Dashboard counters - singleton for materialized user metrics
 	// Updated atomically via auth triggers (onCreate, onUpdate) to avoid
