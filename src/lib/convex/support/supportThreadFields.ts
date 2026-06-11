@@ -8,7 +8,7 @@ import { v } from 'convex/values';
  */
 export const supportThreadFields = {
 	threadId: v.string(), // Reference to agent:threads
-	userId: v.optional(v.string()), // Denormalized for quick lookups
+	userId: v.string(), // Denormalized for quick lookups; every write path sets it (auth or anon_* owner)
 	isWarm: v.optional(v.boolean()), // true = pre-warmed empty support thread awaiting first message
 	status: v.union(v.literal('open'), v.literal('done')),
 	isHandedOff: v.optional(v.boolean()), // true = human-only mode, undefined/false = AI responds

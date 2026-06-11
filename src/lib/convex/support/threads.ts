@@ -255,7 +255,7 @@ export const listThreads = query({
 			v.object({
 				_id: v.string(),
 				_creationTime: v.number(),
-				userId: v.optional(v.string()),
+				userId: v.string(),
 				title: v.optional(v.string()),
 				summary: v.optional(v.string()),
 				status: v.union(v.literal('active'), v.literal('archived')),
@@ -340,7 +340,7 @@ export const listThreads = query({
 				return {
 					_id: supportThread.threadId,
 					_creationTime: supportThread.createdAt,
-					userId: supportThread.userId ?? thread.userId,
+					userId: supportThread.userId,
 					title: supportThread.title,
 					summary: supportThread.summary,
 					status: thread.status,
