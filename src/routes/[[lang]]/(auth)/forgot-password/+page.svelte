@@ -180,7 +180,7 @@
 								<div
 									data-testid="forgot-password-success-message"
 									transition:slide={{ duration: 200 }}
-									class="rounded-md bg-green-500/10 p-3 text-sm text-green-600 dark:text-green-400"
+									class="rounded-md bg-success/10 p-3 text-sm text-success"
 								>
 									<T keyName={message} />
 								</div>
