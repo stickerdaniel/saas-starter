@@ -1,10 +1,8 @@
 import { Context } from 'runed';
 import { ChatDraftManager } from '$lib/chat/core/ChatDraftManager.svelte';
 import type { ConvexClient } from 'convex/browser';
-import type { UIMessagePart, UIDataTypes, UITools } from 'ai';
-import { isToolUIPart } from 'ai';
 import { api } from '$lib/convex/_generated/api';
-import type { Attachment, ChatMessage } from '$lib/chat';
+import type { Attachment } from '$lib/chat';
 import { StreamCacheManager } from '$lib/chat/core/stream-cache.js';
 import { createOptimisticUpdate, type ListMessagesArgs } from '$lib/chat/core/optimistic.js';
 import { isAnonymousUser } from '$lib/convex/utils/anonymousUser';
@@ -61,7 +59,6 @@ export class SupportThreadContext {
 	assignedAdmin = $state<{ name?: string; image: string | null } | undefined>(undefined);
 	notificationEmail = $state<string | null>(null); // Email for admin reply notifications
 	isEmailPending = $state(false); // True while email mutation is in flight (green check hidden)
-	messages = $state<ChatMessage[]>([]);
 	isLoading = $state(false);
 	isSending = $state(false);
 	error = $state<string | null>(null);
@@ -169,30 +166,8 @@ export class SupportThreadContext {
 		return this.threadId !== null;
 	}
 
-	get streamingMessages() {
-		return this.messages.filter((m) => m.status === 'pending');
-	}
-
-	get isStreaming() {
-		return this.streamingMessages.length > 0;
-	}
-
 	get currentAgentName(): string | undefined {
 		return this.threadAgentName;
-	}
-
-	/**
-	 * Check if any message has pending tool calls awaiting user response
-	 */
-	get hasPendingToolCalls(): boolean {
-		return this.messages.some((msg) =>
-			msg.parts?.some((p) => {
-				// Cast needed: MessagePart's catch-all { type: string; [key: string]: unknown }
-				// is structurally compatible but not assignable to UIMessagePart union
-				const part = p as UIMessagePart<UIDataTypes, UITools>;
-				return isToolUIPart(part) && part.state === 'input-available' && !part.output;
-			})
-		);
 	}
 
 	/**
@@ -217,7 +192,6 @@ export class SupportThreadContext {
 		this.isHandedOff = isHandedOff ?? false;
 		this.assignedAdmin = assignedAdmin;
 		this.notificationEmail = notificationEmail ?? null;
-		this.messages = [];
 		this.hasMore = false;
 		this.continueCursor = null;
 	}
@@ -385,7 +359,7 @@ export class SupportThreadContext {
 
 		// In AI mode (not handed off), block multiple sends until AI responds
 		// In handed-off mode, allow fire-and-forget like admin view
-		if (!this.isHandedOff && (this.isSending || this.isAwaitingStream || this.isStreaming)) {
+		if (!this.isHandedOff && (this.isSending || this.isAwaitingStream)) {
 			throw new Error('Cannot send message: waiting for AI response');
 		}
 
@@ -616,7 +590,6 @@ export class SupportThreadContext {
 		this.assignedAdmin = undefined;
 		this.notificationEmail = null;
 		this.isEmailPending = false;
-		this.messages = [];
 		this.isLoading = false;
 		this.isSending = false;
 		this.error = null;
@@ -640,7 +613,7 @@ export class SupportThreadContext {
  *   const thread = supportThreadContext.get();
  *
  *   // Access thread state
- *   const { threadId, messages, isStreaming } = $derived(thread);
+ *   const { threadId, isSending } = $derived(thread);
  * </script>
  * ```
  */
