@@ -20,14 +20,14 @@
 	import ProgressiveBlur from '$blocks/magic/ProgressiveBlur.svelte';
 	import { FadeOnLoad } from '$lib/utils/fade-on-load.svelte.js';
 	import ArrowUpIcon from '@lucide/svelte/icons/arrow-up';
-	import LockIcon from '@lucide/svelte/icons/lock';
+	import MessageQuotaBanner from '$lib/components/message-quota-banner.svelte';
 	import { haptic } from '$lib/hooks/use-haptic.svelte';
 	import { toast } from 'svelte-sonner';
 	import { mode } from 'mode-watcher';
 	import { tick, onMount } from 'svelte';
 
 	import { page } from '$app/state';
-	import { T, getTranslate } from '@tolgee/svelte';
+	import { getTranslate } from '@tolgee/svelte';
 	import type { OptimisticLocalStore } from 'convex/browser';
 	import { ConvexError } from 'convex/values';
 	import type { Id } from '$lib/convex/_generated/dataModel';
@@ -292,51 +292,16 @@
 
 		<!-- Input area -->
 		<div class="relative z-20 mx-auto w-full max-w-3xl -translate-y-4">
-			{#if !isPro && !hasMessagesAvailable}
-				<div
-					class="mx-4 mb-2 flex items-center justify-between rounded-lg border border-border/50 bg-muted/50 px-4 py-3 backdrop-blur-sm"
-				>
-					<div class="flex items-center gap-2 text-sm text-muted-foreground">
-						<LockIcon class="size-4 shrink-0" />
-						<span><T keyName="chat.alerts.limit_reached.title" /></span>
-					</div>
-					<Button
-						size="sm"
-						variant="default"
-						onclick={handleUpgrade}
-						disabled={upgradeOperation.isLoading}
-					>
-						{upgradeOperation.isLoading
-							? $t('chat.buttons.processing')
-							: $t('chat.buttons.upgrade')}
-					</Button>
-				</div>
-			{:else if !isPro && remainingMessages <= 3 && remainingMessages > 0}
-				<div
-					class="mx-4 mb-2 flex items-center justify-between rounded-lg border border-border/50 bg-muted/50 px-4 py-3 backdrop-blur-sm"
-				>
-					<div class="flex items-center gap-2 text-sm text-muted-foreground">
-						<span>
-							<T
-								keyName={remainingMessages !== 1
-									? 'chat.alerts.low_messages.description_plural'
-									: 'chat.alerts.low_messages.description'}
-								params={{ remaining: remainingMessages, total: totalMessages }}
-							/>
-						</span>
-					</div>
-					<Button
-						size="sm"
-						variant="outline"
-						onclick={handleUpgrade}
-						disabled={upgradeOperation.isLoading}
-					>
-						{upgradeOperation.isLoading
-							? $t('chat.buttons.processing')
-							: $t('chat.buttons.upgrade')}
-					</Button>
-				</div>
-			{/if}
+			<!-- Pro community chat is unlimited (hasMessagesAvailable is always true and
+			     total is Infinity), so the banner's Pro branches never fire here -->
+			<MessageQuotaBanner
+				{isPro}
+				{hasMessagesAvailable}
+				remaining={remainingMessages}
+				total={totalMessages}
+				onUpgrade={handleUpgrade}
+				isUpgrading={upgradeOperation.isLoading}
+			/>
 
 			<PromptInput
 				class="mx-4 bg-popover p-0"

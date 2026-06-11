@@ -295,13 +295,6 @@
 		}
 	},
 	"ai_chat": {
-		"alerts": {
-			"limit_reached": "Vous avez utilisé tous vos messages de chat IA ce mois-ci. Passez à Pro pour en obtenir plus.",
-			"limit_reached_free": "Passez à Pro pour plus de messages de chat IA par mois.",
-			"limit_reached_pro": "Vous avez utilisé tous vos messages de chat IA ce mois-ci. Ils seront réinitialisés le mois prochain.",
-			"low_messages": "{remaining} sur {total} message de chat IA restant ce mois-ci.",
-			"low_messages_plural": "{remaining} sur {total} messages de chat IA restants ce mois-ci."
-		},
 		"delete_thread": "Supprimer la conversation",
 		"delete_thread_confirm": "Êtes-vous sûr de vouloir supprimer cette conversation ?",
 		"description": "Discutez avec notre assistant IA",
@@ -542,15 +535,10 @@
 			"talk_to_human": "Parler à un humain"
 		},
 		"alerts": {
-			"limit_reached": {
-				"description": "Vous avez utilisé tous vos {total} messages gratuits de ce mois.",
-				"title": "Limite de Messages Atteinte"
-			},
-			"low_messages": {
-				"description": "Il vous reste {remaining} message sur {total} pour ce mois.",
-				"description_plural": "Il vous reste {remaining} messages sur {total} pour ce mois.",
-				"title": "Peu de Messages"
-			}
+			"limit_reached_free": "Passez à Pro pour plus de messages par mois.",
+			"limit_reached_pro": "Vous avez utilisé tous vos messages ce mois-ci. Ils seront réinitialisés le mois prochain.",
+			"low_messages": "{remaining} sur {total} message restant ce mois-ci.",
+			"low_messages_plural": "{remaining} sur {total} messages restants ce mois-ci."
 		},
 		"aria": {
 			"remove_attachment": "Supprimer {filename}",
