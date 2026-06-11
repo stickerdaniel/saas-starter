@@ -716,8 +716,10 @@ export const updateLastMessage = internalMutation({
 	args: {
 		threadId: v.string()
 	},
+	returns: v.null(),
 	handler: async (ctx, args) => {
 		await syncSupportLastMessage(ctx, args.threadId);
+		return null;
 	}
 });
 
