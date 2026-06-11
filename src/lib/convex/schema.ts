@@ -136,9 +136,9 @@ export default defineSchema({
 		height: v.optional(v.number()),
 		createdAt: v.number()
 	})
-		// Used by files/vacuum.ts to cascade-delete metadata rows for vacuumed files
-		.index('by_storageId', ['storageId'])
-		.index('by_url', ['url']),
+		.index('by_url', ['url'])
+		// Used by the hourly file vacuum to delete metadata of purged files
+		.index('by_storageId', ['storageId']),
 
 	// Dashboard counters - singleton for materialized user metrics
 	// Updated atomically via auth triggers (onCreate, onUpdate) to avoid
