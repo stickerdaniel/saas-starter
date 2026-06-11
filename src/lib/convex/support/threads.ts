@@ -764,46 +764,6 @@ export const syncUserProfile = internalMutation({
 });
 
 /**
- * Sync denormalized user profile fields across all of a user's support threads.
- * Called from the Better Auth onUpdate trigger when name or email changes.
- *
- * Leaves notificationEmail untouched (explicit opt-in that may intentionally
- * differ from the account email) and does not bump updatedAt (a profile edit
- * is not thread activity and must not reorder by_user_and_updated listings).
- */
-export const syncUserProfile = internalMutation({
-	args: {
-		userId: v.string(),
-		userName: v.optional(v.string()),
-		userEmail: v.optional(v.string())
-	},
-	returns: v.null(),
-	handler: async (ctx, args) => {
-		// Bounded: per-user index scan, a single user's support threads are few
-		const supportThreads = await ctx.db
-			.query('supportThreads')
-			.withIndex('by_user', (q) => q.eq('userId', args.userId))
-			.collect();
-
-		for (const supportThread of supportThreads) {
-			await ctx.db.patch(supportThread._id, {
-				userName: args.userName,
-				userEmail: args.userEmail,
-				searchText: buildSupportSearchText({
-					title: supportThread.title,
-					summary: supportThread.summary,
-					lastMessage: supportThread.lastMessage,
-					userName: args.userName,
-					userEmail: args.userEmail
-				})
-			});
-		}
-
-		return null;
-	}
-});
-
-/**
  * Backfill support denormalized fields from existing supportThreads + agent data.
  * Run manually before removing any historical compatibility code.
  */
