@@ -272,7 +272,7 @@ export const sendNewUserSignupNotification = internalMutation({
 		// (5 retries, 30s backoff). Its idempotency key is the per-enqueue email record id,
 		// so it only dedupes retries of an already-enqueued email. Duplicate-send safety
 		// across re-runs of this loop comes from Convex's exactly-once scheduled-mutation
-		// execution (scheduled from the auth onCreate trigger, auth.ts).
+		// execution (scheduled from the auth onCreate/onUpdate triggers, auth.ts).
 		let sentCount = 0;
 		for (const email of recipients) {
 			try {
