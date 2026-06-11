@@ -7,6 +7,7 @@
 	import * as Kbd from '$lib/components/ui/kbd/index.js';
 	import { getLegalEmailAddress } from '$lib/config/legal';
 	import { getLanguage } from '$lib/i18n/languages';
+	import { buildBugReportMailto } from '$lib/utils/mailto';
 	import SearchIcon from '@lucide/svelte/icons/search';
 	import de from '../../i18n/de.json';
 	import en from '../../i18n/en.json';
@@ -51,14 +52,15 @@
 		const [prefix, suffix = ''] = translations.error_page.generic_description.split('{email}');
 		return { prefix, suffix };
 	});
-	const mailtoHref = $derived.by(() => {
-		const status = String(page.status);
-		const subject = translations.error_page.bug_report_subject.replace('{status}', status);
-		const body = translations.error_page.bug_report_body
-			.replace('{url}', page.url.toString())
-			.replace('{status}', status);
-		return `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-	});
+	const mailtoHref = $derived(
+		buildBugReportMailto({
+			email,
+			subjectTemplate: translations.error_page.bug_report_subject,
+			bodyTemplate: translations.error_page.bug_report_body,
+			url: page.url.toString(),
+			status: page.status
+		})
+	);
 
 	let globalSearch: ReturnType<typeof useGlobalSearchContext> | null = null;
 
@@ -66,6 +68,13 @@
 		globalSearch = useGlobalSearchContext();
 	} catch {
 		globalSearch = null;
+	}
+
+	// Assign location directly so the OS mail handler opens in the current tab.
+	// target="_blank" would spawn an empty about:blank tab for the mailto.
+	function openMailto(event: MouseEvent): void {
+		event.preventDefault();
+		window.location.href = mailtoHref;
 	}
 
 	function openGlobalSearch(): void {
@@ -90,8 +99,7 @@
 				{:else if descriptionParts}
 					{descriptionParts.prefix}<!-- eslint-disable-next-line svelte/no-navigation-without-resolve --><a
 						href={mailtoHref}
-						target="_blank"
-						rel="noopener noreferrer"
+						onclick={openMailto}
 						class="hover:!text-current">{email}</a
 					>{descriptionParts.suffix}
 				{/if}
