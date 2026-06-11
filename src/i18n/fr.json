@@ -1100,6 +1100,7 @@
 		},
 		"widget": {
 			"error": {
+				"handoff_failed": "Échec de la demande de support humain. Veuillez réessayer.",
 				"rate_limit": "Doucement ! Veuillez attendre {seconds}s avant d'envoyer un autre message.",
 				"send_failed": "Échec de l'envoi du message. Veuillez réessayer."
 			},

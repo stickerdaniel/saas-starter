@@ -1100,6 +1100,7 @@
 		},
 		"widget": {
 			"error": {
+				"handoff_failed": "Failed to request human support. Please try again.",
 				"rate_limit": "Slow down! Please wait {seconds}s before sending another message.",
 				"send_failed": "Failed to send message. Please try again."
 			},

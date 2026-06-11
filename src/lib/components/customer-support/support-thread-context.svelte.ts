@@ -62,6 +62,7 @@ export class SupportThreadContext {
 	isEmailPending = $state(false); // True while email mutation is in flight (green check hidden)
 	isLoading = $state(false);
 	isSending = $state(false);
+	// Diagnostic only (not rendered); failures surface as localized toasts at the call sites
 	error = $state<string | null>(null);
 	shouldOpenWidget = $state(false);
 	skipAnimation = $state(false);
@@ -248,6 +249,7 @@ export class SupportThreadContext {
 					)
 				}
 			);
+			this.clearError();
 			return true;
 		} catch (error) {
 			// Rollback on error
@@ -313,6 +315,7 @@ export class SupportThreadContext {
 
 			// Mutation succeeded - update local state (query subscription will also update)
 			this.notificationEmail = normalizedEmail || null;
+			this.clearError();
 			return true;
 		} catch (error) {
 			console.error('[setNotificationEmail] Failed:', error);
