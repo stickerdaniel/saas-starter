@@ -8,7 +8,8 @@
 import { v, ConvexError } from 'convex/values';
 import { adminMutation } from '../../functions';
 import { internalMutation } from '../../_generated/server';
-import { components, internal } from '../../_generated/api';
+import { components } from '../../_generated/api';
+import { syncAdminPreferences } from './helpers';
 
 /**
  * Update a notification preference toggle
@@ -136,116 +137,10 @@ export const removeCustomEmail = adminMutation({
 });
 
 /**
- * Upsert admin notification preferences
- *
- * Called by auth triggers and admin role management utilities when:
- * - User is promoted to admin (setUserRole, seedFirstAdmin)
- * - Admin's email changes
- * - User signs up as admin (rare)
- *
- * If preference exists: updates isAdminUser=true and email
- * If not exists: creates with all toggles ON
- *
- * @internal Called by auth triggers and admin role management
- */
-export const upsertAdminPreferences = internalMutation({
-	args: {
-		userId: v.string(),
-		email: v.string()
-	},
-	returns: v.null(),
-	handler: async (ctx, args) => {
-		const now = Date.now();
-
-		// Check if preference already exists for this user
-		const existing = await ctx.db
-			.query('adminNotificationPreferences')
-			.withIndex('by_user', (q) => q.eq('userId', args.userId))
-			.first();
-
-		if (existing) {
-			// Reactivate and update email if changed
-			await ctx.db.patch(existing._id, {
-				email: args.email.toLowerCase().trim(),
-				isAdminUser: true,
-				updatedAt: now
-			});
-		} else {
-			// Check if there's a custom email entry with same email
-			const existingByEmail = await ctx.db
-				.query('adminNotificationPreferences')
-				.withIndex('by_email', (q) => q.eq('email', args.email.toLowerCase().trim()))
-				.first();
-
-			if (existingByEmail && existingByEmail.userId === undefined) {
-				// Convert custom email to admin user preference
-				await ctx.db.patch(existingByEmail._id, {
-					userId: args.userId,
-					isAdminUser: true,
-					updatedAt: now
-				});
-			} else if (!existingByEmail) {
-				// Create new preference with all notifications enabled
-				await ctx.db.insert('adminNotificationPreferences', {
-					email: args.email.toLowerCase().trim(),
-					userId: args.userId,
-					isAdminUser: true,
-					notifyNewSupportTickets: true,
-					notifyUserReplies: true,
-					notifyNewSignups: true,
-					createdAt: now,
-					updatedAt: now
-				});
-			} else {
-				// existingByEmail exists with a different userId - data integrity issue
-				// Log warning but don't throw to avoid blocking auth flow
-				console.warn(
-					`[upsertAdminPreferences] Email collision detected: ` +
-						`email=${args.email} already belongs to userId=${existingByEmail.userId} ` +
-						`but attempting to assign to userId=${args.userId}. Skipping update.`
-				);
-			}
-		}
-
-		return null;
-	}
-});
-
-/**
- * Deactivate admin notification preferences
- *
- * Called by auth trigger when admin is demoted.
- * Sets isAdminUser=false but keeps the record for potential re-promotion.
- *
- * @internal Called by auth triggers only
- */
-export const deactivateAdminPreferences = internalMutation({
-	args: {
-		userId: v.string()
-	},
-	returns: v.null(),
-	handler: async (ctx, args) => {
-		const existing = await ctx.db
-			.query('adminNotificationPreferences')
-			.withIndex('by_user', (q) => q.eq('userId', args.userId))
-			.first();
-
-		if (existing) {
-			await ctx.db.patch(existing._id, {
-				isAdminUser: false,
-				updatedAt: Date.now()
-			});
-		}
-
-		return null;
-	}
-});
-
-/**
  * Sync all existing admin users to notification preferences
  *
  * One-time migration for existing admins created before the auth trigger.
- * Safe to run multiple times - upsertAdminPreferences handles duplicates.
+ * Safe to run multiple times - syncAdminPreferences handles duplicates.
  *
  * @internal Run via: bunx convex run admin/notificationPreferences/mutations:syncAllAdminPreferences
  */
@@ -275,13 +170,7 @@ export const syncAllAdminPreferences = internalMutation({
 				continue;
 			}
 
-			await ctx.runMutation(
-				internal.admin.notificationPreferences.mutations.upsertAdminPreferences,
-				{
-					userId: admin._id,
-					email: admin.email
-				}
-			);
+			await syncAdminPreferences(ctx, { userId: admin._id, email: admin.email });
 			synced++;
 		}
 

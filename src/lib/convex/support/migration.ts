@@ -37,6 +37,7 @@ export const migrateAnonymousTickets = mutation({
 			throw new ConvexError('Invalid anonymous user ID');
 		}
 
+		// Bounded: per-user index scan, a single anonymous user's support threads are few
 		const supportThreads = await ctx.db
 			.query('supportThreads')
 			.withIndex('by_user', (q) => q.eq('userId', args.anonymousUserId))
