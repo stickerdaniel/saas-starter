@@ -5,6 +5,7 @@ import { api } from '$lib/convex/_generated/api';
 import type { Attachment } from '$lib/chat';
 import { StreamCacheManager } from '$lib/chat/core/stream-cache.js';
 import { createOptimisticUpdate, type ListMessagesArgs } from '$lib/chat/core/optimistic.js';
+import { CHAT_PAGE_SIZE } from '$lib/chat/core/types.js';
 import { isAnonymousUser } from '$lib/convex/utils/anonymousUser';
 
 /**
@@ -84,7 +85,7 @@ export class SupportThreadContext {
 	rateLimitedUntil = $state<number | null>(null);
 
 	// Draft storage — delegates to ChatDraftManager (single source of delete-safe logic)
-	private readonly draftManager = new ChatDraftManager('support-drafts');
+	private readonly draftManager = new ChatDraftManager('drafts:support');
 
 	getDraft(threadId: string | null): string {
 		return this.draftManager.getDraft(threadId);
@@ -227,7 +228,7 @@ export class SupportThreadContext {
 			const queryArgs: ListMessagesArgs = {
 				threadId,
 				...(anonymousUserId ? { anonymousUserId } : {}),
-				paginationOpts: { numItems: 50, cursor: null },
+				paginationOpts: { numItems: CHAT_PAGE_SIZE, cursor: null },
 				streamArgs: { kind: 'list' as const, startOrder: 0 }
 			};
 
@@ -405,7 +406,7 @@ export class SupportThreadContext {
 			const queryArgs: ListMessagesArgs = {
 				threadId,
 				...(anonymousUserId ? { anonymousUserId } : {}),
-				paginationOpts: { numItems: 50, cursor: null },
+				paginationOpts: { numItems: CHAT_PAGE_SIZE, cursor: null },
 				streamArgs: { kind: 'list' as const, startOrder: 0 }
 			};
 

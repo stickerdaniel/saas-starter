@@ -224,10 +224,20 @@ export interface ChatConfig {
 }
 
 /**
+ * Messages fetched per page.
+ *
+ * Single source of truth for the chat page size. Optimistic updates must
+ * target the exact query args of the active `listMessages` subscription, so
+ * every hand-rolled `createOptimisticUpdate` site and ChatRoot's query must
+ * use this constant instead of repeating the literal.
+ */
+export const CHAT_PAGE_SIZE = 50;
+
+/**
  * Default chat configuration
  */
 export const DEFAULT_CHAT_CONFIG: Required<ChatConfig> = {
-	pageSize: 50,
+	pageSize: CHAT_PAGE_SIZE,
 	streamThrottleMs: 100
 };
 

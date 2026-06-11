@@ -10,6 +10,7 @@
 	import { ChatCore } from '$lib/chat/core/ChatCore.svelte';
 	import type { ChatDraftManager } from '$lib/chat/core/ChatDraftManager.svelte';
 	import { createOptimisticUpdate, type ListMessagesArgs } from '$lib/chat/core/optimistic';
+	import { CHAT_PAGE_SIZE } from '$lib/chat/core/types';
 	import { Button } from '$lib/components/ui/button';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import AvatarHeading from '$lib/components/customer-support/avatar-heading.svelte';
@@ -263,7 +264,7 @@
 				// Build query args for optimistic update (must match ChatRoot's query)
 				const queryArgs: ListMessagesArgs = {
 					threadId,
-					paginationOpts: { numItems: 50, cursor: null },
+					paginationOpts: { numItems: CHAT_PAGE_SIZE, cursor: null },
 					streamArgs: { kind: 'list' as const, startOrder: 0 }
 				};
 
