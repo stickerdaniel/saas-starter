@@ -301,6 +301,7 @@ This project uses **PostHog** for product analytics with an optional **Cloudflar
 - Requires `.env.test` with `AUTH_E2E_TEST_SECRET` only. The Convex backend URL is auto-resolved from `.convex/.test-backend-url`; no `PUBLIC_CONVEX_URL` needed locally.
 - `AuthenticatedLayout` sets `data-hydrated` on `<html>` in `onMount`; `waitForAuthenticated` in `e2e/utils/auth.ts` waits for it so clicks happen after Svelte hydration, not on inert SSR markup.
 - See `.env.schema` for all available env vars with types and descriptions
+- **Never `test.skip()` to dodge a timing race.** Make tests deterministic with auto-waiting assertions (`expect(locator).toBeVisible()`, `expect.poll`) instead of one-shot `count()`/`isVisible()` snapshots followed by a skip. `test.skip()` is only for genuinely unsupported environments (a feature switched off, an external dependency absent), always with a reason string (good example: `e2e/signin-last-used-badge.spec.ts` gating on `hasGoogleOAuth`).
 - **CI E2E timing (CF Workers):** E2E tests only start after the CF Workers Build preview deployment completes (~2-3 min). The `e2e-preview-cf.yml` workflow triggers on the CF `check_run` event, extracts the preview URL, then runs Playwright against it. Results are posted as a commit status, not a check run. Total time from push to E2E result is ~7-8 min.
 
 #### Local e2e isolation
