@@ -226,6 +226,7 @@
 									<Password.Strength />
 								</Password.Root>
 								<Field.Error
+									data-testid="reset-password-password-error"
 									errors={translateValidationErrors(errors.password, $t, passwordParams)}
 								/>
 							</Field.Field>
@@ -246,7 +247,10 @@
 									disabled={isFormDisabled}
 									bind:value={formData.confirmPassword}
 								/>
-								<Field.Error errors={translateValidationErrors(errors.confirmPassword, $t)} />
+								<Field.Error
+									data-testid="reset-password-confirm-error"
+									errors={translateValidationErrors(errors.confirmPassword, $t)}
+								/>
 							</Field.Field>
 							<Field.Field>
 								<Button

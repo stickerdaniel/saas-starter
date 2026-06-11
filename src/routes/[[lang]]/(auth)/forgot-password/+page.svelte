@@ -199,7 +199,10 @@
 									disabled={isFormDisabled}
 									bind:value={formData.email}
 								/>
-								<Field.Error errors={translateValidationErrors(errors.email, $t)} />
+								<Field.Error
+									data-testid="forgot-password-email-error"
+									errors={translateValidationErrors(errors.email, $t)}
+								/>
 							</Field.Field>
 							<Field.Field>
 								<Button

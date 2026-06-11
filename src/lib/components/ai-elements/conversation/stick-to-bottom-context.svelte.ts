@@ -11,21 +11,6 @@ export class StickToBottomContext {
 
 	isAtBottom = $derived(this.#isAtBottom);
 
-	// Debug method to help troubleshoot
-	get debugInfo() {
-		if (!this.#element) return null;
-		const { scrollTop, scrollHeight, clientHeight } = this.#element;
-		return {
-			scrollTop,
-			scrollHeight,
-			clientHeight,
-			isAtBottom: this.#isAtBottom,
-			userHasScrolled: this.#userHasScrolled,
-			hasElement: !!this.#element,
-			hasSentinel: !!this.#sentinel
-		};
-	}
-
 	constructor() {
 		watch(
 			() => this.#element,
