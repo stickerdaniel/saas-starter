@@ -25,6 +25,7 @@ export type {
 } from './types.js';
 
 export {
+	CHAT_PAGE_SIZE,
 	DEFAULT_CHAT_CONFIG,
 	ALLOWED_FILE_EXT_MIME,
 	ALLOWED_FILE_TYPES,

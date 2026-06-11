@@ -3,7 +3,7 @@
 	import type { Snippet } from 'svelte';
 	import type { UIMessage } from '@convex-dev/agent';
 	import { ChatCore, type ChatCoreAPI } from '../core/ChatCore.svelte.js';
-	import type { DisplayMessage } from '../core/types.js';
+	import { CHAT_PAGE_SIZE, type DisplayMessage } from '../core/types.js';
 	import {
 		ChatUIContext,
 		setChatUIContext,
@@ -47,7 +47,7 @@
 		uploadConfig,
 		listMessagesArgs,
 		userAlignment = 'right',
-		pageSize = 50,
+		pageSize = CHAT_PAGE_SIZE,
 		children
 	}: {
 		/** Thread ID (required for loading messages) */

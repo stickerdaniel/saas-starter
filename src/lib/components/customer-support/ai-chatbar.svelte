@@ -10,6 +10,7 @@
 	import ArrowUpIcon from '@lucide/svelte/icons/arrow-up';
 	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
 	import { supportThreadContext } from './support-thread-context.svelte';
+	import { CHAT_PAGE_SIZE } from '$lib/chat/core/types';
 	import { getTranslate } from '@tolgee/svelte';
 	import { isAnonymousUser } from '$lib/convex/utils/anonymousUser';
 
@@ -119,7 +120,7 @@
 				const preSubscribeArgs = {
 					threadId: result.threadId,
 					...(anonymousUserId ? { anonymousUserId } : {}),
-					paginationOpts: { numItems: 50, cursor: null },
+					paginationOpts: { numItems: CHAT_PAGE_SIZE, cursor: null },
 					streamArgs: { kind: 'list' as const, startOrder: 0 }
 				};
 				queryUnsubscribe = client.onUpdate(
