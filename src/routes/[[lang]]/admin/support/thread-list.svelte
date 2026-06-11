@@ -241,10 +241,10 @@
 										<Badge
 											variant="outline"
 											class="text-xs capitalize {thread.supportMetadata.priority === 'low'
-												? 'border-green-500 bg-green-500/10 text-green-700 dark:text-green-400'
+												? 'border-success bg-success/10 text-success'
 												: thread.supportMetadata.priority === 'medium'
-													? 'border-yellow-500 bg-yellow-500/10 text-yellow-700 dark:text-yellow-400'
-													: 'border-red-500 bg-red-500/10 text-red-700 dark:text-red-400'}"
+													? 'border-warning bg-warning/10 text-warning'
+													: 'border-destructive bg-destructive/10 text-destructive'}"
 										>
 											{thread.supportMetadata.priority}
 										</Badge>
