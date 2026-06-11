@@ -379,14 +379,6 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
 	return betterAuth(createAuthOptions(ctx));
 };
 
-// Get current authenticated user
-export const getCurrentUser = query({
-	args: {},
-	handler: async (ctx) => {
-		return authComponent.getAuthUser(ctx);
-	}
-});
-
 /** Returns which OAuth providers are configured and available */
 export const getAvailableOAuthProviders = query({
 	args: {},

@@ -2,6 +2,7 @@ import type { LayoutServerLoad } from './$types';
 import { api } from '$lib/convex/_generated/api';
 import { createAutumnHandlers } from '@stickerdaniel/convex-autumn-svelte/sveltekit/server';
 import { createServerConvexHttpClient } from '$lib/server/convex-http';
+import { decodeJwtPayload } from '$lib/server/jwt';
 
 type JwtViewer = {
 	_id: string;
@@ -17,42 +18,21 @@ type JwtViewer = {
 };
 
 function getViewerFromJwt(token: string | undefined): JwtViewer | null {
-	if (!token) return null;
+	const decoded = decodeJwtPayload(token);
+	if (!decoded) return null;
 
-	try {
-		const payload = token.split('.')[1];
-		if (!payload) return null;
-
-		const decoded = JSON.parse(Buffer.from(payload, 'base64url').toString('utf-8')) as {
-			sub?: string;
-			name?: string;
-			email?: string;
-			image?: string | null;
-			role?: string;
-			emailVerified?: boolean;
-			createdAt?: number;
-			updatedAt?: number;
-			banned?: boolean;
-			locale?: string;
-		};
-
-		if (!decoded.sub) return null;
-
-		return {
-			_id: decoded.sub,
-			name: decoded.name ?? null,
-			email: decoded.email ?? null,
-			image: decoded.image ?? null,
-			role: decoded.role,
-			emailVerified: decoded.emailVerified,
-			createdAt: decoded.createdAt,
-			updatedAt: decoded.updatedAt,
-			banned: decoded.banned,
-			locale: decoded.locale
-		};
-	} catch {
-		return null;
-	}
+	return {
+		_id: decoded.sub,
+		name: decoded.name ?? null,
+		email: decoded.email ?? null,
+		image: decoded.image ?? null,
+		role: decoded.role,
+		emailVerified: decoded.emailVerified,
+		createdAt: decoded.createdAt,
+		updatedAt: decoded.updatedAt,
+		banned: decoded.banned,
+		locale: decoded.locale
+	};
 }
 
 export const load: LayoutServerLoad = async (event) => {
@@ -88,7 +68,7 @@ export const load: LayoutServerLoad = async (event) => {
 				console.error('[+layout.server.ts] Autumn getCustomer failed:', e);
 				return null;
 			}),
-			client.query(api.auth.getCurrentUser, {}).catch((e) => {
+			client.query(api.users.viewer, {}).catch((e) => {
 				console.error('[+layout.server.ts] Viewer lookup failed, falling back to JWT payload:', e);
 				return fallbackViewer;
 			})
