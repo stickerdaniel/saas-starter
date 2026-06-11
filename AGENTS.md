@@ -427,7 +427,9 @@ For each data need in a new route, pick the right pattern:
 
    ```ts
    // +page.server.ts
-   const messages = await client.query(api.messages.list, {});
+   // .catch fallback so a transient backend failure degrades instead of
+   // 500ing the page; the client subscription recovers after hydration
+   const messages = await client.query(api.messages.list, {}).catch(() => []);
    return { messages };
 
    // +page.svelte

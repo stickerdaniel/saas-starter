@@ -37,7 +37,9 @@
 	let { data } = $props();
 
 	const client = useConvexClient();
-	const viewerQuery = useQuery(api.users.viewer, {}, () => ({ initialData: data.viewer }));
+	const viewerQuery = useQuery(api.users.viewer, {}, () => ({
+		initialData: data.viewer ?? undefined
+	}));
 	const messagesQuery = useQuery(api.messages.list, {}, () => ({ initialData: data.messages }));
 
 	// Fall back to server-loaded data for SSR (useQuery.data is undefined until hydration)
