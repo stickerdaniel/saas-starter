@@ -460,6 +460,15 @@ export function computeBuildEnv(
 		console.log(`SITE_URL (for SvelteKit build): ${buildEnv.SITE_URL}`);
 	}
 
+	// Bake the real site origin into prerendered SEO tags (canonical, hreflang,
+	// og:url, og:image). Without it, SvelteKit prerenders absolute URLs with the
+	// http://sveltekit-prerender placeholder. An explicitly set PUBLIC_SITE_URL
+	// (e.g. a custom domain) always wins over the platform-derived URL.
+	if (!buildEnv.PUBLIC_SITE_URL && platform.siteUrl) {
+		buildEnv.PUBLIC_SITE_URL = platform.siteUrl;
+		console.log(`PUBLIC_SITE_URL (for SvelteKit build): ${buildEnv.PUBLIC_SITE_URL}`);
+	}
+
 	return buildEnv;
 }
 

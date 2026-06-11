@@ -26,9 +26,15 @@ describe('Generated Email Templates', () => {
 			expect(content).toContain('{{verificationUrl}}');
 		});
 
-		it('includes placeholders for expiryMinutes', () => {
+		it('includes placeholders for localized text props', () => {
 			const content = readFileSync(join(generatedDir, 'verification.ts'), 'utf-8');
-			expect(content).toContain('{{expiryMinutes}}');
+			expect(content).toContain('lang="{{lang}}"');
+			expect(content).toContain('{{titleText}}');
+			expect(content).toContain('{{descriptionText}}');
+			expect(content).toContain('{{introText}}');
+			expect(content).toContain('{{buttonText}}');
+			expect(content).toContain('{{expiryText}}');
+			expect(content).toContain('{{disclaimerText}}');
 		});
 
 		it('includes placeholders for baseUrl', () => {
@@ -63,9 +69,15 @@ describe('Generated Email Templates', () => {
 			expect(content).toContain('{{resetUrl}}');
 		});
 
-		it('includes placeholders for userName', () => {
+		it('includes placeholders for localized text props', () => {
 			const content = readFileSync(join(generatedDir, 'passwordReset.ts'), 'utf-8');
-			expect(content).toContain('{{userName}}');
+			expect(content).toContain('lang="{{lang}}"');
+			expect(content).toContain('{{titleText}}');
+			expect(content).toContain('{{greetingText}}');
+			expect(content).toContain('{{bodyText}}');
+			expect(content).toContain('{{buttonText}}');
+			expect(content).toContain('{{expiryText}}');
+			expect(content).toContain('{{disclaimerText}}');
 		});
 
 		it('includes placeholders for baseUrl', () => {
@@ -95,9 +107,13 @@ describe('Generated Email Templates', () => {
 			expect(content).toContain('export const ADMINREPLYNOTIFICATION_TEXT');
 		});
 
-		it('includes placeholders for adminName', () => {
+		it('includes placeholders for localized text props', () => {
 			const content = readFileSync(join(generatedDir, 'adminReplyNotification.ts'), 'utf-8');
-			expect(content).toContain('{{adminName}}');
+			expect(content).toContain('lang="{{lang}}"');
+			expect(content).toContain('{{titleText}}');
+			expect(content).toContain('{{descriptionText}}');
+			expect(content).toContain('{{buttonText}}');
+			expect(content).toContain('{{footerText}}');
 		});
 
 		it('includes placeholders for messagePreview', () => {

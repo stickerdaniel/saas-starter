@@ -213,7 +213,8 @@ export class ChatCore {
 				threadId = result.threadId;
 				threadCreated = result;
 
-				// Update threadId without clearing messages (for optimistic updates)
+				// Update threadId directly (setThread would clear streamCache, error,
+				// and the pagination cursors)
 				this.threadId = threadId;
 				this.isNewConversation = false;
 			}

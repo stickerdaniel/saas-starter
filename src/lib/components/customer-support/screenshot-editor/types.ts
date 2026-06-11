@@ -74,7 +74,8 @@ export type Shape = LineShape | RectShape | CircleShape | ArrowShape;
  * Color preset for quick selection
  */
 export type ColorPreset = {
-	name: string;
+	/** Tolgee key for the localized color name */
+	nameKey: string;
 	value: string;
 };
 
@@ -82,12 +83,12 @@ export type ColorPreset = {
  * Default color palette
  */
 export const DEFAULT_COLORS: ColorPreset[] = [
-	{ name: 'Red', value: 'oklch(63.7% 0.237 25.331)' },
-	{ name: 'Yellow', value: 'oklch(85.2% 0.199 91.936)' },
-	{ name: 'Green', value: 'oklch(72.3% 0.219 149.579)' },
-	{ name: 'Blue', value: 'oklch(58.5% 0.233 277.117)' },
-	{ name: 'Purple', value: 'oklch(51.8% 0.253 323.949)' },
-	{ name: 'Black', value: 'oklch(13% 0.028 261.692)' }
+	{ nameKey: 'support.screenshot.color.red', value: 'oklch(63.7% 0.237 25.331)' },
+	{ nameKey: 'support.screenshot.color.yellow', value: 'oklch(85.2% 0.199 91.936)' },
+	{ nameKey: 'support.screenshot.color.green', value: 'oklch(72.3% 0.219 149.579)' },
+	{ nameKey: 'support.screenshot.color.blue', value: 'oklch(58.5% 0.233 277.117)' },
+	{ nameKey: 'support.screenshot.color.purple', value: 'oklch(51.8% 0.253 323.949)' },
+	{ nameKey: 'support.screenshot.color.black', value: 'oklch(13% 0.028 261.692)' }
 ];
 
 /**

@@ -28,50 +28,93 @@ export const EMAIL_TEMPLATES: Record<string, TemplateConfig> = {
 	VerificationEmail: {
 		outputName: 'verification',
 		props: {
+			lang: '__ETA_lang__',
 			verificationUrl: '__ETA_verificationUrl__',
-			expiryMinutes: '__ETA_expiryMinutes__'
+			badgeText: '__ETA_badgeText__',
+			titleText: '__ETA_titleText__',
+			descriptionText: '__ETA_descriptionText__',
+			previewText: '__ETA_previewText__',
+			introText: '__ETA_introText__',
+			buttonText: '__ETA_buttonText__',
+			expiryText: '__ETA_expiryText__',
+			disclaimerText: '__ETA_disclaimerText__'
 		}
 	},
 	VerificationCodeEmail: {
 		outputName: 'verificationCode',
 		props: {
+			lang: '__ETA_lang__',
 			code: '__ETA_code__',
-			expiryMinutes: '__ETA_expiryMinutes__'
+			badgeText: '__ETA_badgeText__',
+			titleText: '__ETA_titleText__',
+			descriptionText: '__ETA_descriptionText__',
+			previewText: '__ETA_previewText__',
+			expiryText: '__ETA_expiryText__',
+			disclaimerText: '__ETA_disclaimerText__'
 		}
 	},
 	PasswordResetEmail: {
 		outputName: 'passwordReset',
 		props: {
+			lang: '__ETA_lang__',
 			resetUrl: '__ETA_resetUrl__',
-			userName: '__ETA_userName__'
+			badgeText: '__ETA_badgeText__',
+			titleText: '__ETA_titleText__',
+			greetingText: '__ETA_greetingText__',
+			previewText: '__ETA_previewText__',
+			bodyText: '__ETA_bodyText__',
+			buttonText: '__ETA_buttonText__',
+			expiryText: '__ETA_expiryText__',
+			disclaimerText: '__ETA_disclaimerText__'
 		}
 	},
 	AdminReplyNotificationEmail: {
 		outputName: 'adminReplyNotification',
 		props: {
-			adminName: '__ETA_adminName__',
+			lang: '__ETA_lang__',
 			messagePreview: '__ETA_messagePreview__',
-			deepLink: '__ETA_deepLink__'
+			deepLink: '__ETA_deepLink__',
+			badgeText: '__ETA_badgeText__',
+			titleText: '__ETA_titleText__',
+			descriptionText: '__ETA_descriptionText__',
+			previewText: '__ETA_previewText__',
+			buttonText: '__ETA_buttonText__',
+			footerText: '__ETA_footerText__'
 		}
 	},
 	NewTicketAdminNotificationEmail: {
 		outputName: 'newTicketAdminNotification',
 		props: {
+			lang: '__ETA_lang__',
 			titleText: '__ETA_titleText__',
 			descriptionText: '__ETA_descriptionText__',
 			previewText: '__ETA_previewText__',
 			messagesHtml: '__ETA_messagesHtml__',
-			adminDashboardLink: '__ETA_adminDashboardLink__'
+			adminDashboardLink: '__ETA_adminDashboardLink__',
+			badgeText: '__ETA_badgeText__',
+			buttonText: '__ETA_buttonText__',
+			footerText: '__ETA_footerText__'
 		}
 	},
 	NewUserSignupNotificationEmail: {
 		outputName: 'newUserSignupNotification',
 		props: {
+			lang: '__ETA_lang__',
 			userName: '__ETA_userName__',
 			userEmail: '__ETA_userEmail__',
 			signupMethod: '__ETA_signupMethod__',
 			signupTime: '__ETA_signupTime__',
-			adminDashboardLink: '__ETA_adminDashboardLink__'
+			adminDashboardLink: '__ETA_adminDashboardLink__',
+			badgeText: '__ETA_badgeText__',
+			titleText: '__ETA_titleText__',
+			descriptionText: '__ETA_descriptionText__',
+			previewText: '__ETA_previewText__',
+			nameLabel: '__ETA_nameLabel__',
+			emailLabel: '__ETA_emailLabel__',
+			methodLabel: '__ETA_methodLabel__',
+			timeLabel: '__ETA_timeLabel__',
+			buttonText: '__ETA_buttonText__',
+			footerText: '__ETA_footerText__'
 		}
 	}
 };

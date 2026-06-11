@@ -1,8 +1,7 @@
 import { sequence } from '@sveltejs/kit/hooks';
-import { redirect, type Handle, type Cookies } from '@sveltejs/kit';
+import { redirect, type Handle, type HandleServerError, type Cookies } from '@sveltejs/kit';
 import { dev } from '$app/environment';
 import { PUBLIC_SENTRY_DSN } from '$env/static/public';
-import * as Sentry from '@sentry/sveltekit';
 import { isSupportedLanguage, DEFAULT_LANGUAGE } from '$lib/i18n/languages';
 import {
 	getMarketingMarkdownDocument,
@@ -10,15 +9,11 @@ import {
 } from '$lib/marketing/public-routes';
 import { createMarketingMarkdownResponse, isMarkdownRequest } from '$lib/markdown/marketing';
 import { devNotice } from '$lib/dev/notice';
+import { loadSentry } from '$lib/monitoring/sentry';
 import { safeRedirectPath } from '$lib/utils/url';
 import { SIDEBAR_COOKIE_NAME } from '$lib/components/ui/sidebar/constants.js';
 
-if (PUBLIC_SENTRY_DSN) {
-	Sentry.init({
-		dsn: PUBLIC_SENTRY_DSN,
-		tracesSampleRate: 0.1
-	});
-} else {
+if (!PUBLIC_SENTRY_DSN) {
 	devNotice({
 		feature: 'Error monitoring (Sentry)',
 		missing: ['PUBLIC_SENTRY_DSN'],
@@ -241,6 +236,29 @@ const handleCacheControl: Handle = async function handleCacheControl({ event, re
 };
 
 /**
+ * Forward requests through Sentry's request handler, loading the SDK lazily
+ * (see $lib/monitoring/sentry) so it stays out of the server bundle and cold
+ * start when PUBLIC_SENTRY_DSN is unset. The DSN is statically replaced at
+ * build time, so the unset case reduces this hook to a plain pass-through.
+ * The sentryHandle() instance is memoized per server process.
+ */
+let sentryRequestHandle: Handle | null = null;
+
+const handleSentry: Handle = async function handleSentry({ event, resolve }) {
+	if (!PUBLIC_SENTRY_DSN) {
+		return resolve(event);
+	}
+	if (!sentryRequestHandle) {
+		const sentry = await loadSentry();
+		if (!sentry) {
+			return resolve(event);
+		}
+		sentryRequestHandle = sentry.sentryHandle();
+	}
+	return sentryRequestHandle({ event, resolve });
+};
+
+/**
  * Add security headers to all responses
  */
 const handleSecurityHeaders: Handle = async function handleSecurityHeaders({ event, resolve }) {
@@ -255,7 +273,7 @@ const handleSecurityHeaders: Handle = async function handleSecurityHeaders({ eve
 };
 
 export const handle = sequence(
-	...(PUBLIC_SENTRY_DSN ? [Sentry.sentryHandle()] : []),
+	handleSentry,
 	handleDevOnlyRoutes,
 	handleAuth,
 	handleSidebarState,
@@ -266,4 +284,17 @@ export const handle = sequence(
 	handleSecurityHeaders
 );
 
-export const handleError = PUBLIC_SENTRY_DSN ? Sentry.handleErrorWithSentry() : undefined;
+// Memoized Sentry error handler, created on first error so the SDK import
+// stays lazy. When the DSN is unset the export is undefined, same as before.
+let sentryHandleError: HandleServerError | null = null;
+
+export const handleError: HandleServerError | undefined = PUBLIC_SENTRY_DSN
+	? async (input) => {
+			if (!sentryHandleError) {
+				const sentry = await loadSentry();
+				if (!sentry) return;
+				sentryHandleError = sentry.handleErrorWithSentry<HandleServerError>();
+			}
+			return sentryHandleError(input);
+		}
+	: undefined;

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import SvelteMarkdown from '@humanspeak/svelte-markdown';
+	import LegalMarkdown from '$lib/components/legal-markdown.svelte';
 	import ObfuscatedEmail from '$lib/components/obfuscated-email.svelte';
 	import SEOHead from '$lib/components/SEOHead.svelte';
 	import { LEGAL_CONFIG } from '$lib/config/legal';
@@ -26,7 +26,7 @@ ${LEGAL_CONFIG.address}`;
 
 <!-- Impressum content is intentionally English-only. -->
 <div lang="en" class="mx-auto prose prose-sm max-w-3xl px-6 pt-40 pb-24 lg:px-12 dark:prose-invert">
-	<SvelteMarkdown {source} />
+	<LegalMarkdown content={source} />
 	<p>
 		Email:
 		<ObfuscatedEmail
