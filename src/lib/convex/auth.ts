@@ -321,6 +321,10 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>): BetterAuthOptions
 		emailAndPassword: {
 			enabled: true,
 			minPasswordLength: 10,
+			// Raise Better Auth's default 128 cap to allow long passphrases
+			maxPasswordLength: 256,
+			// Invalidate all other sessions after a password reset (e.g. account recovery after takeover)
+			revokeSessionsOnPasswordReset: true,
 			requireEmailVerification: true,
 			// Password reset email
 			sendResetPassword: async ({ user, url }: SendResetPasswordArgs) => {
