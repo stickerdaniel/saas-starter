@@ -40,7 +40,14 @@ const CONFIG = {
 		deprecated:
 			/ring-offset-background|ring-offset-foreground|text-destructive-foreground|flex-shrink-0|bg-gradient-to-/,
 		/** animate-spin without motion-safe: prefix (WCAG 2.3.3) */
-		bareAnimateSpin: /(?<!motion-safe:)animate-spin/
+		bareAnimateSpin: /(?<!motion-safe:)animate-spin/,
+		/**
+		 * Static value imports/re-exports of the Sentry SDK under src/. They defeat
+		 * dead-code elimination when PUBLIC_SENTRY_DSN is unset and ship the SDK to
+		 * first paint. Lazy-load via $lib/monitoring/sentry instead; `import type`
+		 * stays allowed (erased at build time).
+		 */
+		staticSentryImport: /(?:import|export)\s+(?!type[\s{])[^'"]*from\s*['"]@sentry\/sveltekit['"]/
 	}
 };
 
@@ -231,7 +238,7 @@ async function main(): Promise<void> {
 		}
 		console.log('\n');
 
-		// Banned patterns (deprecated tokens, bare animate-spin)
+		// Banned patterns (deprecated tokens, bare animate-spin, static Sentry imports)
 		printHeader(step++, 'Banned patterns');
 		{
 			const filesToScan = scopedMode
@@ -254,6 +261,11 @@ async function main(): Promise<void> {
 					if (CONFIG.bannedPatterns.bareAnimateSpin.test(line)) {
 						violations.push(
 							`${file}:${i + 1}: bare animate-spin (use motion-safe:animate-spin): ${line.trim()}`
+						);
+					}
+					if (CONFIG.bannedPatterns.staticSentryImport.test(line)) {
+						violations.push(
+							`${file}:${i + 1}: static @sentry/sveltekit import (lazy-load via $lib/monitoring/sentry; import type is allowed): ${line.trim()}`
 						);
 					}
 				}
