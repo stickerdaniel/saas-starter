@@ -295,13 +295,6 @@
 		}
 	},
 	"ai_chat": {
-		"alerts": {
-			"limit_reached": "You've used all your AI chat messages this month. Upgrade to Pro for more.",
-			"limit_reached_free": "Upgrade to Pro for more AI chat messages per month.",
-			"limit_reached_pro": "You've used all your AI chat messages this month. They reset next month.",
-			"low_messages": "{remaining} of {total} AI chat message remaining this month.",
-			"low_messages_plural": "{remaining} of {total} AI chat messages remaining this month."
-		},
 		"delete_thread": "Delete conversation",
 		"delete_thread_confirm": "Are you sure you want to delete this conversation?",
 		"description": "Chat with our AI assistant",
@@ -541,15 +534,10 @@
 			"talk_to_human": "Talk to a human"
 		},
 		"alerts": {
-			"limit_reached": {
-				"description": "You've used all {total} of your free messages this month.",
-				"title": "Message Limit Reached"
-			},
-			"low_messages": {
-				"description": "You have {remaining} of {total} message remaining this month.",
-				"description_plural": "You have {remaining} of {total} messages remaining this month.",
-				"title": "Low on Messages"
-			}
+			"limit_reached_free": "Upgrade to Pro for more messages per month.",
+			"limit_reached_pro": "You've used all your messages this month. They reset next month.",
+			"low_messages": "{remaining} of {total} message remaining this month.",
+			"low_messages_plural": "{remaining} of {total} messages remaining this month."
 		},
 		"aria": {
 			"remove_attachment": "Remove {filename}",

@@ -295,13 +295,6 @@
 		}
 	},
 	"ai_chat": {
-		"alerts": {
-			"limit_reached": "Sie haben alle Ihre KI-Chat-Nachrichten diesen Monat aufgebraucht. Upgraden Sie auf Pro für mehr.",
-			"limit_reached_free": "Upgraden Sie auf Pro für mehr KI-Chat-Nachrichten pro Monat.",
-			"limit_reached_pro": "Sie haben alle Ihre KI-Chat-Nachrichten diesen Monat aufgebraucht. Sie werden nächsten Monat zurückgesetzt.",
-			"low_messages": "{remaining} von {total} KI-Chat-Nachricht verbleibend diesen Monat.",
-			"low_messages_plural": "{remaining} von {total} KI-Chat-Nachrichten verbleibend diesen Monat."
-		},
 		"delete_thread": "Unterhaltung löschen",
 		"delete_thread_confirm": "Sind Sie sicher, dass Sie diese Unterhaltung löschen möchten?",
 		"description": "Chatten Sie mit unserem KI-Assistenten",
@@ -541,15 +534,10 @@
 			"talk_to_human": "Mit Experte sprechen"
 		},
 		"alerts": {
-			"limit_reached": {
-				"description": "Sie haben alle {total} kostenlosen Nachrichten für diesen Monat verbraucht.",
-				"title": "Nachrichtenlimit erreicht"
-			},
-			"low_messages": {
-				"description": "Sie haben noch {remaining} von {total} Nachricht für diesen Monat.",
-				"description_plural": "Sie haben noch {remaining} von {total} Nachrichten für diesen Monat.",
-				"title": "Wenig Nachrichten übrig"
-			}
+			"limit_reached_free": "Upgraden Sie auf Pro für mehr Nachrichten pro Monat.",
+			"limit_reached_pro": "Sie haben alle Ihre Nachrichten für diesen Monat aufgebraucht. Sie werden nächsten Monat zurückgesetzt.",
+			"low_messages": "{remaining} von {total} Nachricht verbleibend diesen Monat.",
+			"low_messages_plural": "{remaining} von {total} Nachrichten verbleibend diesen Monat."
 		},
 		"aria": {
 			"remove_attachment": "{filename} entfernen",
