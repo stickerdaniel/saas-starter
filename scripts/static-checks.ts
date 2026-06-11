@@ -338,7 +338,14 @@ async function main(): Promise<void> {
 		}
 		console.log('\n');
 
-		// Autumn billing config validation (no auth needed, runs locally)
+		// Autumn billing config validation (no auth needed, runs locally).
+		// `atmn preview` only renders plans from the local autumn.config.ts; it never
+		// diffs against or pushes to the live deployment. After any config edit,
+		// `bunx atmn push` (sandbox) / `bunx atmn push -p` (prod) is a required manual
+		// step that no automated check covers (the CLI's only diff is the hidden
+		// debug-only `test-diff`, which requires auth, always exits 0, and prints
+		// human-readable output, so there is no stable primitive to build a drift
+		// guard from; auto-pushing from CI would be worse).
 		printHeader(step, 'Autumn config');
 		runCommand('bun', ['atmn', 'preview']);
 		console.log('\n');
