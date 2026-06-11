@@ -45,7 +45,7 @@
 
 	const globalSearch = useGlobalSearchContext();
 	const auth = useAuth();
-	const viewer = useQuery(api.auth.getCurrentUser, {});
+	const viewer = useQuery(api.users.viewer, {});
 
 	let lastStableAuth = $state<EffectiveAuthState>({
 		isAuthenticated: auth.isAuthenticated,

@@ -120,7 +120,7 @@
 		/>
 		{#if showConfirmed}
 			<InputGroup.Addon align="inline-end">
-				<CircleCheckIcon class="h-4 w-4 text-green-600" />
+				<CircleCheckIcon class="h-4 w-4 text-success" />
 			</InputGroup.Addon>
 		{/if}
 	</InputGroup.Root>
@@ -135,6 +135,7 @@
 						size="icon"
 						onclick={handleUnsubscribe}
 						disabled={isSubmitting}
+						aria-label={$t('chat.email.unsubscribe_tooltip')}
 					>
 						<BellOffIcon class="h-4 w-4" />
 					</Button>

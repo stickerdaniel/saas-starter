@@ -15,9 +15,6 @@ test.describe('Admin Settings Page', () => {
 	});
 
 	test('displays recipients table', async ({ page }) => {
-		// Debug: take screenshot
-		await page.screenshot({ path: 'test-results/admin-settings-debug.png' });
-
 		// Verify page loads
 		await expect(page.getByTestId('admin-settings-page')).toBeVisible();
 		await expect(page.getByTestId('recipients-table')).toBeVisible();
@@ -113,15 +110,9 @@ test.describe('Admin Settings Page', () => {
 		// Wait for table to load
 		await expect.poll(async () => page.getByTestId('recipients-loading').count()).toBe(0);
 
-		// Get initial row count
+		// Auto-wait for at least one recipient row (the admin user always exists)
 		const allRows = page.locator('[data-testid^="recipient-row-"]');
-		const initialCount = await allRows.count();
-
-		// Skip if not enough data to test filtering
-		if (initialCount < 1) {
-			test.skip();
-			return;
-		}
+		await expect(allRows.first()).toBeVisible();
 
 		// Open filter dropdown
 		await page.getByTestId('admin-settings-type-filter-trigger').click();
@@ -147,22 +138,14 @@ test.describe('Admin Settings Page', () => {
 		const firstRow = page.locator('[data-testid^="recipient-row-"]').first();
 		await expect(firstRow).toBeVisible();
 
-		// Get the email from the row's data-testid
+		// Get the email from the row's data-testid (row is visible, so the testid must exist)
 		const rowTestId = await firstRow.getAttribute('data-testid');
 		const email = rowTestId?.replace('recipient-row-', '');
+		expect(email).toBeTruthy();
 
-		if (!email) {
-			test.skip();
-			return;
-		}
-
-		// Find a toggle checkbox for this recipient
+		// Find a toggle checkbox for this recipient (the toggle column renders unconditionally)
 		const toggle = page.getByTestId(`toggle-notifyNewSupportTickets-${email}`);
-
-		if (!(await toggle.isVisible())) {
-			test.skip();
-			return;
-		}
+		await expect(toggle).toBeVisible();
 
 		// Get initial state
 		const initialChecked = await toggle.isChecked();

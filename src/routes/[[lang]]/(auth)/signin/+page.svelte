@@ -13,7 +13,7 @@
 	import { resolve } from '$app/paths';
 	import { T, getTranslate } from '@tolgee/svelte';
 	import { haptic } from '$lib/hooks/use-haptic.svelte';
-	import { authFlow } from '$lib/hooks/auth-flow.svelte';
+	import { authFlowContext } from '$lib/hooks/auth-flow.svelte';
 	import {
 		type LastAuthMethod,
 		type PendingOAuthProvider,
@@ -53,7 +53,9 @@
 
 	const id = $props.id();
 
-	let signInData = $state({ email: '', password: '' });
+	const authFlow = authFlowContext.get();
+	// Initialize once from the shared auth-flow email; the input owns it afterward
+	let signInData = $state({ email: authFlow.email, password: '' });
 	let signInErrors = $state<Record<string, string[]>>({});
 
 	function isLastUsedAuthMethod(method: LastAuthMethod): boolean {
@@ -86,14 +88,7 @@
 	);
 	const signInProgress = $derived((signInCompletedSteps / signInTotalSteps) * 100);
 
-	// Initialize email from global state
-	$effect(() => {
-		if (authFlow.email) {
-			signInData.email = authFlow.email;
-		}
-	});
-
-	// Sync email changes to global state
+	// Sync email changes to the shared auth-flow state
 	$effect(() => {
 		if (signInData.email) {
 			authFlow.email = signInData.email;

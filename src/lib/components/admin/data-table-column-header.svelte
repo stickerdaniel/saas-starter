@@ -1,8 +1,8 @@
 <script lang="ts">
 	import type { Column } from '@tanstack/table-core';
-	import ArrowUpIcon from '@tabler/icons-svelte/icons/arrow-up';
-	import ArrowDownIcon from '@tabler/icons-svelte/icons/arrow-down';
-	import ArrowsVerticalIcon from '@tabler/icons-svelte/icons/arrows-sort';
+	import ArrowUpIcon from '@lucide/svelte/icons/arrow-up';
+	import ArrowDownIcon from '@lucide/svelte/icons/arrow-down';
+	import ArrowsVerticalIcon from '@lucide/svelte/icons/arrow-up-down';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { T } from '@tolgee/svelte';
 

@@ -14,7 +14,7 @@
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
 	import { Checkbox } from '$lib/components/ui/checkbox/index.js';
-	import DotsVerticalIcon from '@tabler/icons-svelte/icons/dots-vertical';
+	import DotsVerticalIcon from '@lucide/svelte/icons/ellipsis-vertical';
 	import { T, getTranslate } from '@tolgee/svelte';
 
 	const { t } = getTranslate();
@@ -188,6 +188,7 @@
 			: (usersTable.filters.provider as ProviderFilter)
 	);
 	const isLoading = $derived(usersTable.isLoading);
+	const loadError = $derived(usersTable.error);
 
 	// TanStack Table state (only client-side concerns remain)
 	let rowSelection = $state<RowSelectionState>({});
@@ -602,6 +603,16 @@
 									</Table.Cell>
 								</Table.Row>
 							{/each}
+						{:else if loadError}
+							<Table.Row class="hover:!bg-transparent">
+								<Table.Cell
+									colspan={columns.length}
+									class="h-24 text-center text-destructive"
+									data-testid="admin-users-error"
+								>
+									<T keyName="common.load_error" />
+								</Table.Cell>
+							</Table.Row>
 						{:else if table.getRowModel().rows.length === 0 || (isLoading && skeletonCount === 0)}
 							<Table.Row class="hover:!bg-transparent">
 								<Table.Cell
@@ -653,6 +664,7 @@
 							<Field.Field>
 								<Input
 									placeholder={$t('admin.dialog.ban_reason_placeholder')}
+									data-testid="admin-users-ban-reason-input"
 									bind:value={banReason}
 								/>
 							</Field.Field>
@@ -666,8 +678,11 @@
 			</Dialog.Description>
 		</Dialog.Header>
 		<Dialog.Footer>
-			<Button variant="outline" onclick={closeDialog} disabled={isActionLoading}
-				><T keyName="common.cancel" /></Button
+			<Button
+				variant="outline"
+				onclick={closeDialog}
+				disabled={isActionLoading}
+				data-testid="admin-users-dialog-cancel"><T keyName="common.cancel" /></Button
 			>
 			<Button
 				onclick={() => {
@@ -677,6 +692,7 @@
 				}}
 				variant={actionType === 'ban' ? 'destructive' : 'default'}
 				disabled={isActionLoading}
+				data-testid="admin-users-dialog-confirm"
 			>
 				<T keyName="common.confirm" />
 			</Button>
@@ -702,7 +718,11 @@
 			<Button variant="outline" onclick={closeRoleDialog} disabled={isActionLoading}
 				><T keyName="common.cancel" /></Button
 			>
-			<Button onclick={setUserRole} disabled={isActionLoading}>
+			<Button
+				onclick={setUserRole}
+				disabled={isActionLoading}
+				data-testid="admin-users-role-dialog-confirm"
+			>
 				<T keyName="common.confirm" />
 			</Button>
 		</Dialog.Footer>

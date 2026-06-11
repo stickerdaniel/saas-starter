@@ -48,7 +48,6 @@ test.describe('Admin Settings Table', () => {
 
 	test('syncs search/filter/sort to URL', async ({ page }) => {
 		await page.getByTestId('admin-settings-search').fill('admin');
-		await page.waitForTimeout(400);
 		await expectTableQueryParams(page, { search: 'admin' });
 
 		await page.getByTestId('admin-settings-type-filter-trigger').click();

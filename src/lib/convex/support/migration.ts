@@ -3,6 +3,7 @@ import { v, ConvexError } from 'convex/values';
 import { authComponent } from '../auth';
 import { isAnonymousUser } from '../utils/anonymousUser';
 import { supportAgent } from './agent';
+import { buildSupportSearchText } from './denormalization';
 
 /**
  * Migrate anonymous support tickets to an authenticated user account.
@@ -36,6 +37,7 @@ export const migrateAnonymousTickets = mutation({
 			throw new ConvexError('Invalid anonymous user ID');
 		}
 
+		// Bounded: per-user index scan, a single anonymous user's support threads are few
 		const supportThreads = await ctx.db
 			.query('supportThreads')
 			.withIndex('by_user', (q) => q.eq('userId', args.anonymousUserId))
@@ -71,11 +73,19 @@ export const migrateAnonymousTickets = mutation({
 				patch: { userId: authUserId }
 			});
 
-			// Update supportThreads.userId and enrich with user data
+			// Update supportThreads.userId and enrich with user data.
+			// Rebuild searchText so the migrated thread is searchable by the new identity.
 			await ctx.db.patch(supportThread._id, {
 				userId: authUserId,
 				userName: authUserName,
 				userEmail: authUserEmail,
+				searchText: buildSupportSearchText({
+					title: supportThread.title,
+					summary: supportThread.summary,
+					lastMessage: supportThread.lastMessage,
+					userName: authUserName,
+					userEmail: authUserEmail
+				}),
 				// Keep existing notification email if set, otherwise use account email
 				notificationEmail: supportThread.notificationEmail || authUserEmail,
 				updatedAt: Date.now()
