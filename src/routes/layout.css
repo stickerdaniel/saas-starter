@@ -74,11 +74,14 @@
 	--sidebar-accent-hover: var(--sidebar-accent);
 	--sidebar-border: oklch(0.92 0.004 286.32);
 	--sidebar-ring: oklch(0.705 0.015 286.067);
-	--success: oklch(0.723 0.191 149.579);
+	/* Status tokens are mode-aware like --destructive: dark 600/700 shades here keep
+	   text-success/warning/info readable on light backgrounds; .dark uses the
+	   brighter 500 shades. */
+	--success: oklch(0.527 0.154 150.069);
 	--success-foreground: oklch(1 0 0);
-	--warning: oklch(0.795 0.184 86.047);
-	--warning-foreground: oklch(0.21 0.006 285.885);
-	--info: oklch(0.623 0.214 259.815);
+	--warning: oklch(0.554 0.135 66.442);
+	--warning-foreground: oklch(1 0 0);
+	--info: oklch(0.546 0.245 262.881);
 	--info-foreground: oklch(1 0 0);
 }
 
