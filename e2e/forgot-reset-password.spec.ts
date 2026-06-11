@@ -9,6 +9,11 @@ import { getPreviewBypass } from './utils/preview-bypass';
 // This test runs without auth state - tests unauthenticated behavior
 test.use({ storageState: { cookies: [], origins: [] } });
 
+// All gotos pin the locale to English: unprefixed paths are redirected by
+// src/hooks.server.ts based on Accept-Language (see the precedent in
+// e2e/upgrade-checkout-failure.spec.ts), which would serve translated copy
+// on non-English runners.
+
 const testSecret = process.env.AUTH_E2E_TEST_SECRET!;
 
 const getConvexClient = () => {
@@ -21,7 +26,7 @@ const getConvexClient = () => {
 
 test.describe('Forgot Password', () => {
 	test('shows validation error for invalid email', async ({ page }) => {
-		await page.goto('/forgot-password');
+		await page.goto('/en/forgot-password');
 		await page.waitForLoadState('domcontentloaded');
 		await expect(page.getByTestId('forgot-password-email-input')).toBeEnabled({ timeout: 30000 });
 		await expect(page.getByTestId('forgot-password-submit-button')).toBeEnabled({
@@ -33,14 +38,14 @@ test.describe('Forgot Password', () => {
 		await page.getByTestId('forgot-password-submit-button').click();
 
 		// Should show our styled validation error
-		await expect(page.getByText(/valid email/i).first()).toBeVisible({ timeout: 5000 });
+		await expect(page.getByTestId('forgot-password-email-error')).toBeVisible({ timeout: 5000 });
 
 		// Should still be on forgot-password page
 		await expect(page).toHaveURL(/forgot-password/);
 	});
 
 	test('shows success message after valid email submission', async ({ page }) => {
-		await page.goto('/forgot-password');
+		await page.goto('/en/forgot-password');
 		await page.waitForLoadState('domcontentloaded');
 		await expect(page.getByTestId('forgot-password-email-input')).toBeEnabled({ timeout: 30000 });
 		await expect(page.getByTestId('forgot-password-submit-button')).toBeEnabled({
@@ -58,7 +63,7 @@ test.describe('Forgot Password', () => {
 	});
 
 	test('navigates back to signin', async ({ page }) => {
-		await page.goto('/forgot-password');
+		await page.goto('/en/forgot-password');
 		await page.waitForLoadState('domcontentloaded');
 
 		// Click back to sign in link
@@ -71,7 +76,7 @@ test.describe('Forgot Password', () => {
 
 test.describe('Reset Password', () => {
 	test('shows error when token is missing', async ({ page }) => {
-		await page.goto('/reset-password');
+		await page.goto('/en/reset-password');
 		await page.waitForLoadState('domcontentloaded');
 		await expect(page.getByTestId('reset-password-password-input')).toBeEnabled({
 			timeout: 30000
@@ -94,7 +99,7 @@ test.describe('Reset Password', () => {
 
 	test('shows validation error for password mismatch', async ({ page }) => {
 		// Navigate with a dummy token (will fail on submit, but we can test client validation)
-		await page.goto('/reset-password?token=dummy-token');
+		await page.goto('/en/reset-password?token=dummy-token');
 		await page.waitForLoadState('domcontentloaded');
 		await expect(page.getByTestId('reset-password-password-input')).toBeEnabled({
 			timeout: 30000
@@ -110,14 +115,14 @@ test.describe('Reset Password', () => {
 		// Submit
 		await page.getByTestId('reset-password-submit-button').click();
 
-		// Should show mismatch error (translation key or default text)
-		await expect(page.getByText(/match/i).first()).toBeVisible({
+		// Should show mismatch error on the confirm field
+		await expect(page.getByTestId('reset-password-confirm-error')).toBeVisible({
 			timeout: 5000
 		});
 	});
 
 	test('shows validation error for weak password', async ({ page }) => {
-		await page.goto('/reset-password?token=dummy-token');
+		await page.goto('/en/reset-password?token=dummy-token');
 		await page.waitForLoadState('domcontentloaded');
 		await expect(page.getByTestId('reset-password-password-input')).toBeEnabled({
 			timeout: 30000
@@ -133,17 +138,14 @@ test.describe('Reset Password', () => {
 		// Submit
 		await page.getByTestId('reset-password-submit-button').click();
 
-		// Should show password requirement errors
-		await expect(
-			page
-				.getByText(/uppercase/i)
-				.or(page.getByText(/character/i))
-				.first()
-		).toBeVisible({ timeout: 5000 });
+		// Should show password requirement errors on the password field
+		await expect(page.getByTestId('reset-password-password-error')).toBeVisible({
+			timeout: 5000
+		});
 	});
 
 	test('navigates back to signin', async ({ page }) => {
-		await page.goto('/reset-password?token=dummy');
+		await page.goto('/en/reset-password?token=dummy');
 		await page.waitForLoadState('domcontentloaded');
 
 		// Click back to sign in link
@@ -204,7 +206,7 @@ test.describe('Reset Password', () => {
 			expect(token).toBeTruthy();
 
 			// Complete the reset through the UI in a fresh browser session
-			await page.goto(`/reset-password?token=${token}`);
+			await page.goto(`/en/reset-password?token=${token}`);
 			await page.waitForLoadState('domcontentloaded');
 			await expect(page.getByTestId('reset-password-password-input')).toBeEnabled({
 				timeout: 30000

@@ -33,6 +33,8 @@ export interface NavItem {
 	kbd?: string[];
 	/** When true, clicking the main button does nothing (e.g. already on empty thread) */
 	disableNav?: boolean;
+	/** Stable selector for E2E tests (e.g. "sidebar-nav-ai-chat") */
+	testId?: string;
 }
 
 export interface HeaderDropdownItem {

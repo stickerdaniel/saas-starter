@@ -59,7 +59,6 @@ async function waitForUsersTableReady(page: Page) {
 
 async function applySeedSearch(page: Page, seedPrefix: string) {
 	await page.getByTestId('admin-users-search').fill(seedPrefix);
-	await page.waitForTimeout(400);
 	await expect.poll(async () => page.getByTestId('admin-users-loading').count()).toBe(0);
 	await expect
 		.poll(
