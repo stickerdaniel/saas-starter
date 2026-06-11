@@ -401,8 +401,11 @@ export function createConvexCursorTable<
 			isResolvingPreviousPage ||
 			(currentPageData === undefined && listQuery.isLoading)
 	);
-	// Reactive query error: when set, isLoading is false and rows is empty, so
-	// consumers must render an error branch or the empty state swallows it.
+	// Reactive query error: when set, isLoading is false. On a first-load failure
+	// rows is empty, so consumers must render an error branch or the empty state
+	// swallows it. After a successful load, rows can stay non-empty from pageCache
+	// while the live subscription errors; consumers rendering the error ahead of
+	// those stale rows is intentional and transient.
 	// Self-heals: the Convex subscription stays live and clears the error on recovery.
 	const error = $derived(listQuery.error ?? countQuery.error);
 
