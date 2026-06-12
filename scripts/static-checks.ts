@@ -47,7 +47,14 @@ const CONFIG = {
 		 * first paint. Lazy-load via $lib/monitoring/sentry instead; `import type`
 		 * stays allowed (erased at build time).
 		 */
-		staticSentryImport: /(?:import|export)\s+(?!type[\s{])[^'"]*from\s*['"]@sentry\/sveltekit['"]/
+		staticSentryImport: /(?:import|export)\s+(?!type[\s{])[^'"]*from\s*['"]@sentry\/sveltekit['"]/,
+		/**
+		 * Shell-string spawning. Removed in #473/#514; build argument arrays and use
+		 * spawn-style helpers instead (see runCommandCapture in scripts/deploy/utils.ts).
+		 * Scope: this scanner only covers .svelte/.ts files under src/ (full runs glob
+		 * that set; --staged/file-args runs filter the given files down to it).
+		 */
+		execSync: /\bexecSync\s*\(/
 	}
 };
 
@@ -238,7 +245,7 @@ async function main(): Promise<void> {
 		}
 		console.log('\n');
 
-		// Banned patterns (deprecated tokens, bare animate-spin, static Sentry imports)
+		// Banned patterns (deprecated tokens, bare animate-spin, static Sentry imports, execSync)
 		printHeader(step++, 'Banned patterns');
 		{
 			const filesToScan = scopedMode
@@ -266,6 +273,11 @@ async function main(): Promise<void> {
 					if (CONFIG.bannedPatterns.staticSentryImport.test(line)) {
 						violations.push(
 							`${file}:${i + 1}: static @sentry/sveltekit import (lazy-load via $lib/monitoring/sentry; import type is allowed): ${line.trim()}`
+						);
+					}
+					if (CONFIG.bannedPatterns.execSync.test(line)) {
+						violations.push(
+							`${file}:${i + 1}: execSync (use spawn-style argument arrays, see runCommandCapture in scripts/deploy/utils.ts): ${line.trim()}`
 						);
 					}
 				}

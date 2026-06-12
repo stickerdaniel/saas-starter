@@ -65,7 +65,7 @@ Local dev notes (`bun run dev`):
 - Local seeded admin credentials: `admin@local.dev` / `LocalDevAdmin123!`
 - Convex backend env vars are loaded from `.env.convex.local` (optional services like email, OAuth, billing, AI).
 - `RESEND_API_KEY` and `AUTH_EMAIL` in `.env.convex.local` are only needed for real signup, verification, and password reset email flows.
-- `SITE_URL` is auto-derived locally from the running Vite port (per-project, see `scripts/dev-ports.ts`); leave it unset in `.env.convex.local` for local dev and only set it for cloud/prod. A hardcoded or production URL here breaks the admin sign-in via Better Auth.
+- `SITE_URL` is auto-derived locally from the running Vite port (per-project, see `scripts/dev-ports.ts`) and only needs to be set for cloud/prod. A `SITE_URL` in `.env.convex.local` is ignored with a loud warning (`vite.config.ts` strips it), because a static value would pin Better Auth's trusted origin to the wrong origin and break the admin sign-in.
 - Dev and test Vite ports are deterministic per project/worktree (separate ranges in `scripts/dev-ports.ts`, so dev can't creep into the test port). Override with `DEV_VITE_PORT` / `TEST_VITE_PORT`, or set `PORTLESS_SITE_URL` to front the local stack with vercel-labs/portless.
 - Local Convex state is isolated per branch/worktree under `.convex/`.
 - `RESET_LOCAL_BACKEND=true bun run dev` clears the existing local Convex state before startup and restores the default seeded admin credentials.
@@ -90,6 +90,7 @@ Local dev notes (`bun run dev`):
 
 - `bun run check:convex` - Convex TypeScript project check. **Required after any change** to `src/lib/convex/**` or shared code imported by Convex.
 - `bun run generate` - Regenerate `_generated/` from a Convex deployment. Rarely needed manually — the convex-vite-plugin keeps it in sync while `bun run dev` is running. Auto-detects: cloud/self-hosted (if configured) > local embedded backend > offline. **Caution**: from a worktree without `bun run dev`, this falls through to cloud and can produce surprising diffs.
+- Local dev/test backends regenerate `src/lib/convex/_generated/**` and `src/lib/convex/betterAuth/_generated/**` as a side effect. Revert that churn (`git checkout -- <paths>`) before committing unless the regeneration is the intended change.
 
 - `bun convex env set KEY value` - Set Convex environment variables (cloud)
 - `bun convex env set KEY value --prod` - Set production environment variables (cloud)
@@ -536,7 +537,13 @@ When a custom domain is added to CF Workers, add cache purging to the deploy flo
 
 ### Regression Guard Decision Tree
 
-When implementing a feature or fixing a bug, choose the right automated guard to prevent future regressions. Go through this decision tree **before marking work as done**.
+**The decision is mandatory for every bug fix; the guard is not.** Before marking work done, decide whether the bug is an instance of a recurring class and record the outcome as a single `Regression guard:` line in the PR body, directly above the verification line. Exactly one of three verdicts:
+
+- `Regression guard: added <name>` (the test/rule/banned pattern this PR adds)
+- `Regression guard: covered by <name>` (an existing guard already fails on this bug class; name it, do not duplicate it)
+- `Regression guard: not warranted, <one-line reason>` (one-off; the expected verdict for singular logic errors)
+
+Add a guard ONLY when the bug is a recurring class: the same pattern already exists at other sites (the issue found multiple occurrences), it is part of a convention agents keep writing (copy-paste surface, template forks inherit it), or it fails silently past review (i18n, SSR, a11y). A singular logic error fixed at its only call site gets `not warranted`; a guard there freezes implementation details and adds CI cost for a class of one. Guards must be cheap and precise: prefer ONE structural invariant over many instance tests, extend existing guard files (banned patterns list, sibling sync tests) over new CI surface, and treat false positives as a cost that can exceed the bug. CI enforces the verdict line on `fix`-titled PRs (`.github/workflows/require-regression-guard.yml`).
 
 #### "Two separate data sources must agree"
 
@@ -623,6 +630,14 @@ Examples: `optionOrAlt` (keyboard shortcut convention sibling of `cmdOrCtrl`), `
 
 → **JSDoc `@public` tag** on the export with a one-line reason, never a bare tag. Knip stops reporting it as unused and emits a tag hint once the export gains a real consumer, so the tag can be removed again.
 For intentionally kept **files**, use a `knip.config.ts` `ignore` entry with a why-comment instead, and remove entries that go stale when files are deleted. Anything regenerable from upstream (shadcn demos, cnblocks, prompt-kit examples) has no keep-value as dead code — delete it and re-fetch on demand.
+
+#### "Two PRs are green in isolation but conflict semantically on main"
+
+Examples: one PR removed a schema index another PR's new code queried; two PRs each introduced the same function (every PR green, main broken; hotfix #550).
+
+→ **Required up-to-date branches** (`required_status_checks.strict` on main, enabled 2026-06-12). With strict off, branch protection ran required checks per branch only, so batch-merging sibling PRs could break main even though every PR was green. Strict on means a PR behind main cannot merge until updated and re-validated, which deterministically prevents this class. GitHub merge queue is unavailable for user-owned repos (rulesets API rejects the `merge_queue` rule type).
+Consequence: after every merge, remaining open PRs need a branch update (Update-branch button, `gt sync`, or Renovate auto-rebase) plus a fresh CI cycle; batch merges are sequential by design.
+Defense in depth: after merging, still verify pulled main with `bun run check:convex` and `bun run test:unit`.
 
 #### Guard execution timeline
 
