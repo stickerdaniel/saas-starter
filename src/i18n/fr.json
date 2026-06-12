@@ -478,12 +478,13 @@
 			"test_secret_placeholder": "valeur secrète",
 			"title": "Bon retour"
 		},
-		"signup": "S'inscrire",
-		"signup.description": "Entrez vos informations pour commencer",
-		"signup.has_account": "Déjà un compte ?",
-		"signup.link_signin": "Se connecter",
-		"signup.password_hint": "Minimum 10 caractères avec majuscules, minuscules et chiffre",
-		"signup.title": "Créer un compte",
+		"signup": {
+			"description": "Entrez vos informations pour commencer",
+			"has_account": "Déjà un compte ?",
+			"link_signin": "Se connecter",
+			"password_hint": "Minimum 10 caractères avec majuscules, minuscules et chiffre",
+			"title": "Créer un compte"
+		},
 		"terms": {
 			"agreement": "En continuant, vous acceptez nos",
 			"and": "et notre",

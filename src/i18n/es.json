@@ -478,12 +478,13 @@
 			"test_secret_placeholder": "valor secreto",
 			"title": "Bienvenido de nuevo"
 		},
-		"signup": "Registrarse",
-		"signup.description": "Ingresa tus datos para comenzar",
-		"signup.has_account": "¿Ya tienes una cuenta?",
-		"signup.link_signin": "Inicia sesión",
-		"signup.password_hint": "Mínimo 10 caracteres con mayúsculas, minúsculas y número",
-		"signup.title": "Crear una cuenta",
+		"signup": {
+			"description": "Ingresa tus datos para comenzar",
+			"has_account": "¿Ya tienes una cuenta?",
+			"link_signin": "Inicia sesión",
+			"password_hint": "Mínimo 10 caracteres con mayúsculas, minúsculas y número",
+			"title": "Crear una cuenta"
+		},
 		"terms": {
 			"agreement": "Al continuar, aceptas nuestros",
 			"and": "y",

@@ -478,12 +478,13 @@
 			"test_secret_placeholder": "Geheimnis-Wert",
 			"title": "Willkommen zurück"
 		},
-		"signup": "Registrieren",
-		"signup.description": "Geben Sie Ihre Daten ein, um loszulegen",
-		"signup.has_account": "Bereits ein Konto?",
-		"signup.link_signin": "Anmelden",
-		"signup.password_hint": "Mindestens 10 Zeichen mit Groß-, Kleinbuchstaben und Zahl",
-		"signup.title": "Konto erstellen",
+		"signup": {
+			"description": "Geben Sie Ihre Daten ein, um loszulegen",
+			"has_account": "Bereits ein Konto?",
+			"link_signin": "Anmelden",
+			"password_hint": "Mindestens 10 Zeichen mit Groß-, Kleinbuchstaben und Zahl",
+			"title": "Konto erstellen"
+		},
 		"terms": {
 			"agreement": "Mit dem Fortfahren akzeptieren Sie unsere",
 			"and": "und",
