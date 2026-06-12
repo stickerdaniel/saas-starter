@@ -1,0 +1,30 @@
+name: Actionlint
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/**'
+      - '.github/actionlint.yaml'
+  pull_request:
+    paths:
+      - '.github/workflows/**'
+      - '.github/actionlint.yaml'
+
+permissions:
+  contents: read
+
+jobs:
+  actionlint:
+    name: Lint Workflows
+    runs-on: ubicloud-standard-2
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: reviewdog/action-actionlint@6fb7acc99f4a1008869fa8a0f09cfca740837d9d # v1.72.0
+        with:
+          # Log-only reporter: needs no write permissions and works on both
+          # pull_request and push events. fail_level makes findings fail the job
+          # instead of only annotating.
+          reporter: github-annotations
+          filter_mode: nofilter
+          fail_level: error

@@ -113,14 +113,18 @@ jobs:
             HEADERS="-H CF-Access-Client-Id:$CF_ACCESS_CLIENT_ID -H CF-Access-Client-Secret:$CF_ACCESS_CLIENT_SECRET"
           fi
 
+          # Intentional word splitting for optional -H args
+          # shellcheck disable=SC2086
           CONFIG=$(curl -sf $HEADERS "${PREVIEW_URL}/.well-known/e2e-config.json")
 
           echo "Config fetched successfully"
           echo "$CONFIG" | jq .
 
-          echo "PUBLIC_CONVEX_URL=$(echo "$CONFIG" | jq -r '.convexUrl')" >> "$GITHUB_ENV"
-          echo "PUBLIC_CONVEX_SITE_URL=$(echo "$CONFIG" | jq -r '.convexSiteUrl')" >> "$GITHUB_ENV"
-          echo "PUBLIC_SITE_URL=${PREVIEW_URL}" >> "$GITHUB_ENV"
+          {
+            echo "PUBLIC_CONVEX_URL=$(echo "$CONFIG" | jq -r '.convexUrl')"
+            echo "PUBLIC_CONVEX_SITE_URL=$(echo "$CONFIG" | jq -r '.convexSiteUrl')"
+            echo "PUBLIC_SITE_URL=${PREVIEW_URL}"
+          } >> "$GITHUB_ENV"
 
       - name: Wait for Convex backend readiness
         run: |
