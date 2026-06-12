@@ -23,6 +23,7 @@ const serializer = {
 // Initial value is `undefined` (not `null`) so PersistedState does not eagerly write to storage
 // on import. The constructor writes the initial value when the key is absent, and #serialize
 // is a no-op for `undefined`.
+// eslint-disable-next-line local/no-module-state-singleton -- PersistedState is browser-written only (localStorage), no per-request SSR state
 export const supportUserId = new PersistedState<string | null | undefined>(
 	'supportUserId',
 	undefined,

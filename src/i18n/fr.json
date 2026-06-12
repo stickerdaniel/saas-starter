@@ -466,6 +466,7 @@
 			"no_account": "Pas encore de compte ?",
 			"oauth_github": "GitHub",
 			"oauth_google": "Google",
+			"oauth_last_used": "Utilisé en dernier",
 			"or_continue_with": "Ou continuer avec",
 			"passkey_button": "Se connecter avec Passkey",
 			"password_label": "Mot de passe",
@@ -626,6 +627,7 @@
 		"confirm": "Confirmer",
 		"confirm_input_placeholder": "Saisissez \"{text}\" pour confirmer.",
 		"delete": "Supprimer",
+		"error": "Une erreur est survenue. Veuillez réessayer.",
 		"load_error": "Échec du chargement des données. Veuillez réessayer plus tard.",
 		"save": "Enregistrer",
 		"you": "Vous"
