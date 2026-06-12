@@ -90,6 +90,7 @@ Local dev notes (`bun run dev`):
 
 - `bun run check:convex` - Convex TypeScript project check. **Required after any change** to `src/lib/convex/**` or shared code imported by Convex.
 - `bun run generate` - Regenerate `_generated/` from a Convex deployment. Rarely needed manually — the convex-vite-plugin keeps it in sync while `bun run dev` is running. Auto-detects: cloud/self-hosted (if configured) > local embedded backend > offline. **Caution**: from a worktree without `bun run dev`, this falls through to cloud and can produce surprising diffs.
+- Local dev/test backends regenerate `src/lib/convex/_generated/**` and `src/lib/convex/betterAuth/_generated/**` as a side effect. Revert that churn (`git checkout -- <paths>`) before committing unless the regeneration is the intended change.
 
 - `bun convex env set KEY value` - Set Convex environment variables (cloud)
 - `bun convex env set KEY value --prod` - Set production environment variables (cloud)
@@ -623,6 +624,14 @@ Examples: `optionOrAlt` (keyboard shortcut convention sibling of `cmdOrCtrl`), `
 
 → **JSDoc `@public` tag** on the export with a one-line reason, never a bare tag. Knip stops reporting it as unused and emits a tag hint once the export gains a real consumer, so the tag can be removed again.
 For intentionally kept **files**, use a `knip.config.ts` `ignore` entry with a why-comment instead, and remove entries that go stale when files are deleted. Anything regenerable from upstream (shadcn demos, cnblocks, prompt-kit examples) has no keep-value as dead code — delete it and re-fetch on demand.
+
+#### "Two PRs are green in isolation but conflict semantically on main"
+
+Examples: one PR removed a schema index another PR's new code queried; two PRs each introduced the same function (every PR green, main broken; hotfix #550).
+
+→ **Required up-to-date branches** (`required_status_checks.strict` on main, enabled 2026-06-12). With strict off, branch protection ran required checks per branch only, so batch-merging sibling PRs could break main even though every PR was green. Strict on means a PR behind main cannot merge until updated and re-validated, which deterministically prevents this class. GitHub merge queue is unavailable for user-owned repos (rulesets API rejects the `merge_queue` rule type).
+Consequence: after every merge, remaining open PRs need a branch update (Update-branch button, `gt sync`, or Renovate auto-rebase) plus a fresh CI cycle; batch merges are sequential by design.
+Defense in depth: after merging, still verify pulled main with `bun run check:convex` and `bun run test:unit`.
 
 #### Guard execution timeline
 

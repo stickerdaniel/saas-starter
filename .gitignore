@@ -56,3 +56,6 @@ references/
 
 # local convex dev deployment
 .convex
+
+# Orchestration marker files written by worktree provisioning; must never be committed
+.worktree-ready
