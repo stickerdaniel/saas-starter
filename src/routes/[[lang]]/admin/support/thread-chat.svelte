@@ -334,7 +334,7 @@
 					console.error('[Admin sendAdminReply] Error:', error);
 					// Restore prompt so user can retry and $effect re-persists draft
 					chatUIContext.setInputValue(prompt);
-					toast.error($t('admin.support.chat.error.send_failed'));
+					toast.error($t('admin.support.chat.send_error'));
 				} finally {
 					sending = false;
 				}

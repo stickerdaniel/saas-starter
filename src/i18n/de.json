@@ -466,6 +466,7 @@
 			"no_account": "Noch kein Konto?",
 			"oauth_github": "GitHub",
 			"oauth_google": "Google",
+			"oauth_last_used": "Zuletzt verwendet",
 			"or_continue_with": "Oder fortfahren mit",
 			"passkey_button": "Mit Passkey anmelden",
 			"password_label": "Passwort",
@@ -625,6 +626,7 @@
 		"confirm": "Bestätigen",
 		"confirm_input_placeholder": "Geben Sie \"{text}\" ein, um zu bestätigen.",
 		"delete": "Löschen",
+		"error": "Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut.",
 		"load_error": "Daten konnten nicht geladen werden. Bitte versuchen Sie es später erneut.",
 		"save": "Speichern",
 		"you": "Sie"
