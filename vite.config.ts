@@ -215,8 +215,15 @@ export default defineConfig(async ({ mode }) => {
 			loadedEnv.BETTER_AUTH_SECRET?.trim() ||
 			getPersistentBetterAuthSecret(cwd, resetLocalBackend, stateIdSuffix);
 
-		// Load Convex backend env vars from .env.convex.local
-		const convexLocalEnv = parseEnvFile(path.join(cwd, '.env.convex.local'));
+		// Load Convex backend env vars from .env.convex.local.
+		// SITE_URL is stripped: locally it must always track the running dev server
+		// (or PORTLESS_SITE_URL), and a static value copied into the file would pin
+		// Better Auth's trusted origin to the wrong origin and silently break
+		// sign-in. The envVars callback below derives it and warns when a stripped
+		// value differed.
+		const { SITE_URL: ignoredLocalSiteUrl, ...convexLocalEnv } = parseEnvFile(
+			path.join(cwd, '.env.convex.local')
+		);
 		// Register Convex backend env values with varlock's redaction map so that
 		// convex-vite-plugin's env-var logging is automatically redacted.
 		// varlockLoadedEnv already contains .env.schema values; we merge in
@@ -283,6 +290,13 @@ export default defineConfig(async ({ mode }) => {
 					const siteUrl = portlessOwnsPort()
 						? process.env.PORTLESS_SITE_URL!
 						: (resolvedUrls?.local[0] ?? `http://localhost:${vitePort}`);
+					if (ignoredLocalSiteUrl && ignoredLocalSiteUrl !== siteUrl) {
+						console.warn(
+							`[convex] Ignoring SITE_URL=${ignoredLocalSiteUrl} from .env.convex.local; ` +
+								`using ${siteUrl} (derived from the running dev server) so local sign-in keeps working. ` +
+								`Remove SITE_URL from .env.convex.local to silence this warning.`
+						);
+					}
 					return {
 						// Auto-generated defaults for local dev
 						BETTER_AUTH_SECRET: betterAuthSecret,

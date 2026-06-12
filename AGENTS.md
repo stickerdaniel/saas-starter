@@ -65,7 +65,7 @@ Local dev notes (`bun run dev`):
 - Local seeded admin credentials: `admin@local.dev` / `LocalDevAdmin123!`
 - Convex backend env vars are loaded from `.env.convex.local` (optional services like email, OAuth, billing, AI).
 - `RESEND_API_KEY` and `AUTH_EMAIL` in `.env.convex.local` are only needed for real signup, verification, and password reset email flows.
-- `SITE_URL` is auto-derived locally from the running Vite port (per-project, see `scripts/dev-ports.ts`); leave it unset in `.env.convex.local` for local dev and only set it for cloud/prod. A hardcoded or production URL here breaks the admin sign-in via Better Auth.
+- `SITE_URL` is auto-derived locally from the running Vite port (per-project, see `scripts/dev-ports.ts`) and only needs to be set for cloud/prod. A `SITE_URL` in `.env.convex.local` is ignored with a loud warning (`vite.config.ts` strips it), because a static value would pin Better Auth's trusted origin to the wrong origin and break the admin sign-in.
 - Dev and test Vite ports are deterministic per project/worktree (separate ranges in `scripts/dev-ports.ts`, so dev can't creep into the test port). Override with `DEV_VITE_PORT` / `TEST_VITE_PORT`, or set `PORTLESS_SITE_URL` to front the local stack with vercel-labs/portless.
 - Local Convex state is isolated per branch/worktree under `.convex/`.
 - `RESET_LOCAL_BACKEND=true bun run dev` clears the existing local Convex state before startup and restores the default seeded admin credentials.
