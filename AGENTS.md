@@ -537,13 +537,13 @@ When a custom domain is added to CF Workers, add cache purging to the deploy flo
 
 ### Regression Guard Decision Tree
 
-**Mandatory for every bug fix and issue resolution.** Walking this tree is part of the fix itself, never a separate task someone has to request: before marking work done, classify the bug, pick the guard type below, and record the outcome as a single `Regression guard:` line in the PR body, directly above the verification line. Exactly one of three verdicts:
+**The decision is mandatory for every bug fix; the guard is not.** Before marking work done, decide whether the bug is an instance of a recurring class and record the outcome as a single `Regression guard:` line in the PR body, directly above the verification line. Exactly one of three verdicts:
 
-- `Regression guard: added <name>` (the test/rule/banned pattern this PR adds; most fixes land here)
+- `Regression guard: added <name>` (the test/rule/banned pattern this PR adds)
 - `Regression guard: covered by <name>` (an existing guard already fails on this bug class; name it, do not duplicate it)
-- `Regression guard: none feasible, <one-line reason>` (the class is not deterministically detectable; say why, e.g. cross-file semantic drift or product judgment)
+- `Regression guard: not warranted, <one-line reason>` (one-off; the expected verdict for singular logic errors)
 
-A fix PR without this line is incomplete. CI enforces the line on `fix`-titled PRs (`.github/workflows/require-regression-guard.yml`). The bar for "none feasible" is high: prefer a narrow guard with an escape hatch (eslint-disable with reason) over no guard.
+Add a guard ONLY when the bug is a recurring class: the same pattern already exists at other sites (the issue found multiple occurrences), it is part of a convention agents keep writing (copy-paste surface, template forks inherit it), or it fails silently past review (i18n, SSR, a11y). A singular logic error fixed at its only call site gets `not warranted`; a guard there freezes implementation details and adds CI cost for a class of one. Guards must be cheap and precise: prefer ONE structural invariant over many instance tests, extend existing guard files (banned patterns list, sibling sync tests) over new CI surface, and treat false positives as a cost that can exceed the bug. CI enforces the verdict line on `fix`-titled PRs (`.github/workflows/require-regression-guard.yml`).
 
 #### "Two separate data sources must agree"
 

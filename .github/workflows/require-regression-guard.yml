@@ -22,14 +22,14 @@ jobs:
         env:
           PR_BODY: ${{ github.event.pull_request.body }}
         run: |
-          if printf '%s\n' "$PR_BODY" | grep -qiE '^Regression guard: (added|covered by|none feasible)'; then
+          if printf '%s\n' "$PR_BODY" | grep -qiE '^Regression guard: (added|covered by|not warranted)'; then
             echo "Regression guard verdict found."
           else
             echo "::error::Fix PRs must state their regression-guard verdict in the body."
             echo "Add one line directly above the verification line:"
             echo "  Regression guard: added <name>"
             echo "  Regression guard: covered by <name>"
-            echo "  Regression guard: none feasible, <one-line reason>"
+            echo "  Regression guard: not warranted, <one-line reason>"
             echo "See AGENTS.md, section Regression Guard Decision Tree."
             exit 1
           fi
