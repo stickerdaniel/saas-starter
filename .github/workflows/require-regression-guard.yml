@@ -1,0 +1,35 @@
+# Enforces the Regression Guard Decision Tree contract from AGENTS.md:
+# every fix PR must state its regression-guard verdict in the body
+# (added <name> / covered by <name> / none feasible, <reason>).
+name: Require Regression Guard
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+
+permissions: {}
+
+jobs:
+  check:
+    name: Regression Guard Verdict
+    runs-on: ubicloud-standard-2
+    # Only fix PRs by humans; bots (Renovate "fix(deps)") are exempt
+    if: |
+      !endsWith(github.actor, '[bot]') &&
+      startsWith(github.event.pull_request.title, 'fix')
+    steps:
+      - name: Check PR body for verdict line
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          if printf '%s\n' "$PR_BODY" | grep -qiE '^Regression guard: (added|covered by|none feasible)'; then
+            echo "Regression guard verdict found."
+          else
+            echo "::error::Fix PRs must state their regression-guard verdict in the body."
+            echo "Add one line directly above the verification line:"
+            echo "  Regression guard: added <name>"
+            echo "  Regression guard: covered by <name>"
+            echo "  Regression guard: none feasible, <one-line reason>"
+            echo "See AGENTS.md, section Regression Guard Decision Tree."
+            exit 1
+          fi

@@ -537,7 +537,13 @@ When a custom domain is added to CF Workers, add cache purging to the deploy flo
 
 ### Regression Guard Decision Tree
 
-When implementing a feature or fixing a bug, choose the right automated guard to prevent future regressions. Go through this decision tree **before marking work as done**.
+**Mandatory for every bug fix and issue resolution.** Walking this tree is part of the fix itself, never a separate task someone has to request: before marking work done, classify the bug, pick the guard type below, and record the outcome as a single `Regression guard:` line in the PR body, directly above the verification line. Exactly one of three verdicts:
+
+- `Regression guard: added <name>` (the test/rule/banned pattern this PR adds; most fixes land here)
+- `Regression guard: covered by <name>` (an existing guard already fails on this bug class; name it, do not duplicate it)
+- `Regression guard: none feasible, <one-line reason>` (the class is not deterministically detectable; say why, e.g. cross-file semantic drift or product judgment)
+
+A fix PR without this line is incomplete. CI enforces the line on `fix`-titled PRs (`.github/workflows/require-regression-guard.yml`). The bar for "none feasible" is high: prefer a narrow guard with an escape hatch (eslint-disable with reason) over no guard.
 
 #### "Two separate data sources must agree"
 
