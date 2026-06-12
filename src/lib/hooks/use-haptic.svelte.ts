@@ -103,4 +103,5 @@ export class UseHaptic {
 // per-request data, and no field is rendered into SSR HTML, so nothing can
 // leak across requests. Kept as a singleton (instead of context) for
 // ergonomic imports across its many call sites.
+// eslint-disable-next-line local/no-module-state-singleton -- SSR-safe: browser-guarded writes, see rationale above
 export const haptic = new UseHaptic();

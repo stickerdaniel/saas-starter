@@ -15,6 +15,9 @@ import noHardcodedSrOnlyRule from './eslint/rules/no-hardcoded-sr-only.js';
 import noDebounceInRuneRule from './eslint/rules/no-debounce-in-rune.js';
 import noHardcodedModifierKeysRule from './eslint/rules/no-hardcoded-modifier-keys.js';
 import requireReturnsValidatorRule from './eslint/rules/require-returns-validator.js';
+import noBareTestSkipRule from './eslint/rules/no-bare-test-skip.js';
+import noModuleStateSingletonRule from './eslint/rules/no-module-state-singleton.js';
+import requireMotionGuardTransitionRule from './eslint/rules/require-motion-guard-transition.js';
 
 const gitignorePath = path.resolve(import.meta.dirname, '.gitignore');
 const localPlugin = {
@@ -25,7 +28,10 @@ const localPlugin = {
 		'no-hardcoded-sr-only': noHardcodedSrOnlyRule,
 		'no-debounce-in-rune': noDebounceInRuneRule,
 		'no-hardcoded-modifier-keys': noHardcodedModifierKeysRule,
-		'require-returns-validator': requireReturnsValidatorRule
+		'require-returns-validator': requireReturnsValidatorRule,
+		'no-bare-test-skip': noBareTestSkipRule,
+		'no-module-state-singleton': noModuleStateSingletonRule,
+		'require-motion-guard-transition': requireMotionGuardTransitionRule
 	}
 };
 
@@ -214,6 +220,39 @@ export default defineConfig(
 		},
 		rules: {
 			'local/require-returns-validator': 'error'
+		}
+	},
+	{
+		// Bare runtime test.skip() dodges timing races instead of fixing them
+		// (#508). See eslint/rules/no-bare-test-skip.js.
+		files: ['e2e/**/*.spec.ts'],
+		plugins: {
+			local: localPlugin
+		},
+		rules: {
+			'local/no-bare-test-skip': 'error'
+		}
+	},
+	{
+		// Module-scope class instances in .svelte.ts are shared across SSR
+		// requests (#500). See eslint/rules/no-module-state-singleton.js.
+		files: ['**/*.svelte.ts'],
+		plugins: {
+			local: localPlugin
+		},
+		rules: {
+			'local/no-module-state-singleton': 'error'
+		}
+	},
+	{
+		// fly/slide transitions must be gated on prefers-reduced-motion (#475).
+		// See eslint/rules/require-motion-guard-transition.js.
+		files: ['**/*.svelte'],
+		plugins: {
+			local: localPlugin
+		},
+		rules: {
+			'local/require-motion-guard-transition': 'error'
 		}
 	},
 	// Convex best-practice rules — v2 ships ESLint 9 flat config natively
