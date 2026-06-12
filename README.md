@@ -330,7 +330,6 @@ Set `PREVIEW_ADMIN_PASSWORD` once as a preview default (`bunx convex env default
 | `NODE_ADAPTER`              | Set to `1` to build with adapter-node for self-hosted production                                                                         |         |  ○   |
 | `CONVEX_INTERNAL_URL`       | Internal Convex URL for Docker-network routing (self-hosted)                                                                             |         |  ○   |
 | `TOLGEE_API_KEY`            | Tolgee CLI key for deploy-time sync (optional, skips when unset)                                                                         |    ○    |  ○   |
-| `PREVIEW_ADMIN_PASSWORD`    | Preview admin password override (canonical place is the Convex preview default env var, see above)                                       |    ○    |      |
 | `PUBLIC_POSTHOG_API_KEY`    | PostHog analytics API key                                                                                                                |         |  ○   |
 | `PUBLIC_POSTHOG_HOST`       | PostHog analytics host                                                                                                                   |         |  ○   |
 | `PRODUCTION_BRANCH`         | Cloudflare only: production branch name (default: `main`)                                                                                |    ○    |  ○   |
