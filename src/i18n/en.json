@@ -477,12 +477,13 @@
 			"test_secret_placeholder": "secret value",
 			"title": "Welcome back"
 		},
-		"signup": "Sign Up",
-		"signup.description": "Enter your details to get started",
-		"signup.has_account": "Already have an account?",
-		"signup.link_signin": "Sign in",
-		"signup.password_hint": "Minimum 10 characters with uppercase, lowercase, and number",
-		"signup.title": "Create an account",
+		"signup": {
+			"description": "Enter your details to get started",
+			"has_account": "Already have an account?",
+			"link_signin": "Sign in",
+			"password_hint": "Minimum 10 characters with uppercase, lowercase, and number",
+			"title": "Create an account"
+		},
 		"terms": {
 			"agreement": "By clicking continue, you agree to our",
 			"and": "and",

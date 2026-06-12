@@ -170,6 +170,7 @@ These commands use `varlock run` to load env vars from `.env.schema` + `.env.loc
 
 - `bun run i18n:pull` - Download latest translations from Tolgee Cloud. Run this ALWAYS before making any changes to the `src/i18n/*` json translation files.
 - When adding new translation keys, ALWAYS add translations for ALL languages in the `src/i18n/*` json translation files.
+- Key names never contain literal dots; nesting is the only structure. A dotted leaf means a key in Tolgee is both a string leaf and a namespace prefix; resolve the collision in Tolgee instead of committing the dotted fallback (enforced by `scripts/locale-parity.test.ts`).
 - `bun run i18n:push` - Upload local translations. ALWAYS run this after making any changes to the `src/i18n/*` json translation files. Otherwise, your changes wont be pushed to the cloud! Run with `-- --tag-new-keys draft` to tag new keys as e.g. 'draft'
 
   Use tags to organize translation keys:
