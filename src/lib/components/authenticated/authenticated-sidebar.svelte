@@ -31,27 +31,42 @@
 		<item.icon />
 	{/if}
 	<span class="min-w-0 truncate"><T keyName={item.translationKey} /></span>
-	{#if item.kbd}
-		{@render shortcutHint(item.kbd)}
+	{#if item.kbd || (item.badge ?? 0) > 0}
+		{@render trailingOverlay(item.kbd, item.badge)}
 	{/if}
 {/snippet}
 
-<!-- Shortcut hint, revealed on hover. Absolutely placed so it never steals width
-	 from the label when hidden. The background is the opaque match for the row's
-	 hover colour (sidebar-accent-hover), switching to sidebar-accent only once the
-	 row is the active route. Pressing keeps the hover colour to match the row, which
-	 stays on its hover background until release. A left mask fades that edge into the
-	 label, pure alpha so it never muddies the colour. pr-8 makes room for the
+<!-- Right-edge overlay holding the optional count badge and the shortcut hint that is
+	 revealed on hover. Absolutely placed so it never steals width from the label when
+	 hidden. The badge sits at the strip's right end in normal flow, so a visible badge
+	 pushes the shortcut hint left by exactly its own width, and both live inside the
+	 menu button so they ride its pressed-state translation. The hover background lives
+	 on a ::before layer (kept below the content by the stacking context the mask
+	 creates) so it can fade in without hiding the badge: the opaque match for the
+	 row's hover colour (sidebar-accent-hover), switching to sidebar-accent only once
+	 the row is the active route. Pressing keeps the hover colour to match the row,
+	 which stays on its hover background until release. A left mask fades that edge
+	 into the label, pure alpha so it never muddies the colour. pr-8 makes room for the
 	 menu-action chevron. -->
-{#snippet shortcutHint(keys: string[])}
+{#snippet trailingOverlay(keys: string[] | undefined, badge: number | undefined)}
 	<span
-		class="pointer-events-none absolute inset-y-0 -right-2 flex items-center justify-end overflow-hidden rounded-r-md bg-sidebar-accent-hover [mask-image:linear-gradient(to_right,transparent,#000_2rem)] pr-3 pl-8 opacity-0 group-hover/menu-button:opacity-100 group-has-data-[sidebar=menu-action]/menu-item:pr-8 group-data-[active=true]/menu-button:bg-sidebar-accent"
+		class="pointer-events-none absolute inset-y-0 -right-2 flex items-center justify-end gap-2 overflow-hidden rounded-r-md [mask-image:linear-gradient(to_right,transparent,#000_2rem)] pr-3 pl-8 group-has-data-[sidebar=menu-action]/menu-item:pr-8 before:absolute before:inset-0 before:-z-10 before:rounded-r-md before:bg-sidebar-accent-hover before:opacity-0 group-hover/menu-button:before:opacity-100 group-data-[active=true]/menu-button:before:bg-sidebar-accent"
 	>
-		<Kbd.Group>
-			{#each keys as key (key)}
-				<Kbd.Root>{key}</Kbd.Root>
-			{/each}
-		</Kbd.Group>
+		{#if keys}
+			<Kbd.Group class="opacity-0 group-hover/menu-button:opacity-100">
+				{#each keys as key (key)}
+					<Kbd.Root>{key}</Kbd.Root>
+				{/each}
+			</Kbd.Group>
+		{/if}
+		{#if (badge ?? 0) > 0}
+			<span
+				data-sidebar="menu-badge"
+				class="flex h-5 min-w-5 items-center justify-center rounded-md px-1 text-xs font-medium tabular-nums select-none"
+			>
+				{(badge ?? 0) >= 100 ? '99+' : badge}
+			</span>
+		{/if}
 	</span>
 {/snippet}
 
@@ -177,9 +192,6 @@
 										{/if}
 									{/snippet}
 								</Sidebar.MenuButton>
-								{#if item.badge && item.badge > 0}
-									<Sidebar.MenuBadge>{item.badge >= 100 ? '99+' : item.badge}</Sidebar.MenuBadge>
-								{/if}
 							</Sidebar.MenuItem>
 						{/if}
 					{/each}
@@ -209,7 +221,7 @@
 										<link.icon />
 										<span class="min-w-0 truncate"><T keyName={link.translationKey} /></span>
 										{#if link.kbd}
-											{@render shortcutHint(link.kbd)}
+											{@render trailingOverlay(link.kbd, undefined)}
 										{/if}
 									</a>
 								{/snippet}
