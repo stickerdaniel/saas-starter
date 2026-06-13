@@ -37,21 +37,19 @@ const TOLGEE_T = /\$t\(\s*(?:'([^'\n]*)'|"([^"\n]*)")/g;
 const CONVEX_T =
 	/(?<![\w$.])t\(\s*(?:['"][a-z]{2}['"]|[\w.$]+(?:\([^()]*\))?)\s*,\s*(?:'([^'\n]*)'|"([^"\n]*)")/g;
 
-// Two resolution semantics, mirroring the two runtimes:
-// - 'tolgee' (<T keyName>, $t): Tolgee flattens structured JSON by joining
-//   nested object keys with dots, so mixed flat/nested entries both resolve.
-//   en.json contains flat dotted keys (e.g. "signup.title" inside "auth",
-//   forced by "auth.signup" also existing as a string leaf) that are valid
-//   full keys at runtime.
-// - 'convex' (t(locale, key)): getNestedValue() in translations.ts resolves
-//   strictly by nested path, so flat dotted keys would NOT resolve there.
-type Semantics = 'tolgee' | 'convex';
+// One resolution rule for both runtimes: a key resolves only when its dot-path
+// walks step by step to a string leaf. Tolgee (<T keyName>, $t) flattens nested
+// JSON by joining keys with dots and the Convex t() helper walks the path
+// directly; the two diverge only on flat dotted key names (e.g. "signup.title"
+// living beside an "auth" object), which Tolgee flattens to the same string but
+// the Convex walker would miss. locale-parity.test.ts forbids dotted key names
+// at every depth, so en.json is purely nested and both runtimes agree — a
+// single nested-leaf check covers every reference.
 
 interface KeyRef {
 	key: string;
 	file: string;
 	line: number;
-	semantics: Semantics;
 }
 
 function isScannable(file: string): boolean {
@@ -86,19 +84,15 @@ function lineOfIndex(content: string, index: number): number {
 	return line;
 }
 
-function extractRefs(
-	content: string,
-	file: string,
-	patterns: Array<[RegExp, Semantics]>
-): KeyRef[] {
+function extractRefs(content: string, file: string, patterns: RegExp[]): KeyRef[] {
 	const refs: KeyRef[] = [];
-	for (const [pattern, semantics] of patterns) {
+	for (const pattern of patterns) {
 		for (const match of content.matchAll(pattern)) {
 			const key = match.slice(1).find((group) => group !== undefined);
 			if (key === undefined || key === '') continue;
 			// Svelte attribute interpolation (keyName="a.{key}") is dynamic.
 			if (key.includes('{') || key.includes('}')) continue;
-			refs.push({ key, file, line: lineOfIndex(content, match.index), semantics });
+			refs.push({ key, file, line: lineOfIndex(content, match.index) });
 		}
 	}
 	return refs;
@@ -108,18 +102,16 @@ function collectKeyRefs(): KeyRef[] {
 	const refs: KeyRef[] = [];
 	for (const file of walk(SCAN_ROOT)) {
 		const content = fs.readFileSync(file, 'utf-8');
-		const patterns: Array<[RegExp, Semantics]> = [
-			[KEYNAME_ATTR, 'tolgee'],
-			[TOLGEE_T, 'tolgee']
-		];
-		if (file.startsWith(CONVEX_ROOT + path.sep)) patterns.push([CONVEX_T, 'convex']);
+		const patterns: RegExp[] = [KEYNAME_ATTR, TOLGEE_T];
+		if (file.startsWith(CONVEX_ROOT + path.sep)) patterns.push(CONVEX_T);
 		refs.push(...extractRefs(content, path.relative(process.cwd(), file), patterns));
 	}
 	return refs;
 }
 
-// All full key names a Tolgee runtime can resolve: nested object keys joined
-// with dots, leaves must be strings. Flat dotted keys flatten identically.
+// Every full key name that resolves to a string leaf: nested object keys joined
+// with dots, leaves must be strings. A path that ends on a nested object is as
+// broken as a missing one.
 function flattenLeafKeys(value: unknown, prefix: string, out: Set<string>): Set<string> {
 	if (typeof value === 'string') {
 		out.add(prefix);
@@ -129,19 +121,6 @@ function flattenLeafKeys(value: unknown, prefix: string, out: Set<string>): Set<
 		}
 	}
 	return out;
-}
-
-// Mirrors getNestedValue() in src/lib/convex/i18n/translations.ts: a key only
-// renders a translation when its dot-path resolves step by step to a string
-// leaf. A path that ends on a nested object is as broken as a missing one.
-function resolvesToStringLeaf(obj: Record<string, unknown>, key: string): boolean {
-	const result = key.split('.').reduce<unknown>((current, part) => {
-		if (current && typeof current === 'object' && part in current) {
-			return (current as Record<string, unknown>)[part];
-		}
-		return undefined;
-	}, obj);
-	return typeof result === 'string';
 }
 
 describe('i18n used keys', () => {
@@ -155,10 +134,8 @@ describe('i18n used keys', () => {
 	});
 
 	it('every literal key reference resolves to a string leaf in en.json', () => {
-		const tolgeeKeys = flattenLeafKeys(en, '', new Set<string>());
-		const missing = refs.filter((ref) =>
-			ref.semantics === 'tolgee' ? !tolgeeKeys.has(ref.key) : !resolvesToStringLeaf(en, ref.key)
-		);
+		const validKeys = flattenLeafKeys(en, '', new Set<string>());
+		const missing = refs.filter((ref) => !validKeys.has(ref.key));
 		const report = missing.map((ref) => `${ref.key} (${ref.file}:${ref.line})`).join('\n');
 		expect(missing.length, `Keys referenced in code but missing from en.json:\n${report}`).toBe(0);
 	});
