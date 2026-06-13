@@ -341,31 +341,8 @@ export async function setupPreviewEnv(
 
 	// Seed preview admin. The mutation reads PREVIEW_ADMIN_PASSWORD from the
 	// Convex deployment env, which new preview deployments inherit from the
-	// project's preview default env vars. A build-env PREVIEW_ADMIN_PASSWORD
-	// acts as an optional override.
-	const previewAdminPassword = process.env.PREVIEW_ADMIN_PASSWORD;
-	if (previewAdminPassword) {
-		const setPwResult = await runCommandWithRetry(
-			'bunx',
-			[
-				'convex',
-				'env',
-				'set',
-				'--deployment-name',
-				deployment.name,
-				'PREVIEW_ADMIN_PASSWORD',
-				previewAdminPassword
-			],
-			{ maxRetries: 3, delayMs: 3000, description: 'convex env set PREVIEW_ADMIN_PASSWORD' }
-		);
-
-		if (!setPwResult.success) {
-			console.warn(
-				`${colors.yellow}Warning: Failed to set PREVIEW_ADMIN_PASSWORD from build env${colors.reset}`
-			);
-		}
-	}
-
+	// project's preview default env vars (bunx convex env default set --type preview).
+	// Intentionally no build-env override: Convex runtime values live in Convex only.
 	console.log('');
 	console.log('Seeding preview admin user...');
 	const seedResult = runCommandCapture('bunx', [
@@ -384,7 +361,7 @@ export async function setupPreviewEnv(
 		if (seedResult.stdout) console.log(`  Result: ${seedResult.stdout}`);
 	} else {
 		console.warn(
-			`${colors.yellow}Warning: Preview admin seeding failed (non-blocking). Set PREVIEW_ADMIN_PASSWORD as a Convex preview default env var (bunx convex env default set --type preview) or in the build env.${colors.reset}`
+			`${colors.yellow}Warning: Preview admin seeding failed (non-blocking). Set PREVIEW_ADMIN_PASSWORD as a Convex preview default env var (bunx convex env default set --type preview).${colors.reset}`
 		);
 		if (seedResult.stdout) console.log(`  stdout: ${seedResult.stdout}`);
 		if (seedResult.stderr) console.log(`  stderr: ${seedResult.stderr}`);
