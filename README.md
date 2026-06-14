@@ -118,7 +118,7 @@ Deploy via [Cloudflare Workers](https://developers.cloudflare.com/workers/) with
 | Field                                | Value                                       |
 | ------------------------------------ | ------------------------------------------- |
 | Build command                        | `bunx varlock run -- bun scripts/deploy.ts` |
-| Deploy command                       | `bunx wrangler deploy`                      |
+| Deploy command                       | `bun scripts/cf-prod-deploy.ts`             |
 | Non-production branch deploy command | `bun scripts/cf-deploy.ts`                  |
 
 **4. Add build variables** (plain text, visible in logs)
@@ -250,6 +250,8 @@ For email event tracking (delivery, bounce, open, click):
 
 If your domain's DNS is on Cloudflare: CF dashboard > Workers & Pages > select Worker > Settings > Domains & Routes > Add > Custom Domain. CF creates DNS records and provisions SSL automatically. Set `SITE_URL` on your Convex production deployment to match.
 
+Once a custom domain is live, marketing pages are edge-cached (`s-maxage`), so a production deploy would otherwise serve stale HTML for up to an hour. The production deploy command `scripts/cf-prod-deploy.ts` purges the edge cache after each deploy when you set two values in CF Workers Builds: `CF_ZONE_ID` (build variable, the zone id from the domain's CF Overview page) and `CF_PURGE_TOKEN` (build secret, an API token with the `Zone > Cache Purge` permission). Without them the purge is skipped.
+
 If your domain uses external DNS, use the CF for SaaS method below.
 
 </details>
@@ -327,6 +329,8 @@ Set `PREVIEW_ADMIN_PASSWORD` once as a preview default (`bunx convex env default
 | `CONVEX_PROJECT_ID`         | Numeric project id for quota self-heal (`curl -H "Authorization: Bearer $TOKEN" https://api.convex.dev/v1/teams/{teamId}/list_projects`) |    ○    |      |
 | `WORKERS_NAME`              | CF Workers only: worker name (matches `wrangler.toml`)                                                                                   |    ✓    |  ○   |
 | `WORKERS_SUBDOMAIN`         | CF Workers only: account's `workers.dev` subdomain                                                                                       |    ✓    |  ○   |
+| `CF_ZONE_ID`                | CF Workers only: zone id of the custom domain, for post-deploy edge cache purge (skipped when unset)                                     |         |  ○   |
+| `CF_PURGE_TOKEN`            | CF Workers only: API token with `Cache Purge`, for post-deploy edge cache purge (skipped when unset)                                     |         |  ○   |
 | `NODE_ADAPTER`              | Set to `1` to build with adapter-node for self-hosted production                                                                         |         |  ○   |
 | `CONVEX_INTERNAL_URL`       | Internal Convex URL for Docker-network routing (self-hosted)                                                                             |         |  ○   |
 | `TOLGEE_API_KEY`            | Tolgee CLI key for deploy-time sync (optional, skips when unset)                                                                         |    ○    |  ○   |
