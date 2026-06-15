@@ -524,11 +524,11 @@ Markdown responses on the same URLs use `Cache-Control: private` to stay out of 
 
 #### Cache purging (production)
 
-`scripts/cf-prod-deploy.ts` is the production deploy command: it runs `wrangler deploy` and then purges the edge cache, so a new deploy is served immediately instead of stale cached HTML. The purge is a no-op unless both `CF_PURGE_TOKEN` and `CF_ZONE_ID` are set, so forks without a custom domain keep plain `wrangler deploy` behaviour.
+`scripts/cf-prod-deploy.ts` is the production deploy command: it runs `wrangler deploy` and then purges the edge cache, so a new deploy is served immediately instead of stale cached HTML. The purge is a no-op unless both `CF_PURGE_TOKEN` and `CF_ZONE_ID` are set, so forks without a custom domain keep plain `wrangler deploy` behavior.
 
 - CF API: `POST /zones/{zone_id}/purge_cache` with `{ "purge_everything": true }`
 - Docs: https://developers.cloudflare.com/api/resources/cache/methods/purge/
-- `CF_PURGE_TOKEN`: API token with `Cache Purge` permission; `CF_ZONE_ID`: the zone id of the custom domain. Set both as CF Workers Builds variables/secrets.
+- `CF_PURGE_TOKEN`: API token with `Cache Purge` permission; `CF_ZONE_ID`: the zone id of the custom domain. Set `CF_ZONE_ID` as a build variable and `CF_PURGE_TOKEN` as a build secret in CF Workers Builds.
 - Not available for `.workers.dev` subdomains — only works with custom domains
 
 ### Cloudflare Platform Gotchas

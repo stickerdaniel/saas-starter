@@ -178,7 +178,7 @@ Push to your production branch (default: `main`) and the connected platform depl
 **Cloudflare Workers:**
 
 ```bash
-bunx wrangler deploy
+bun scripts/cf-prod-deploy.ts
 ```
 
 **Vercel:**
