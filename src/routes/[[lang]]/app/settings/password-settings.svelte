@@ -112,7 +112,7 @@
 		<Card.Description><T keyName="settings.password.description" /></Card.Description>
 	</Card.Header>
 	<Card.Content>
-		<form onsubmit={handleSubmit} class="space-y-4">
+		<form onsubmit={handleSubmit} novalidate class="space-y-4">
 			{#if formError}
 				<Alert.Root variant="destructive">
 					<InfoIcon class="h-4 w-4" />
