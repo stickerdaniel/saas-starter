@@ -82,6 +82,7 @@ export function parseCursorParam(cursor: string): string | null {
 	}
 }
 
+/** @public Table-kit utility kept for forks: strips default URL params from table state before serializing. */
 export function omitDefaultTableUrlState<TFilterKeys extends string>(
 	state: TableUrlState<TFilterKeys>,
 	defaults: TableUrlState<TFilterKeys>
