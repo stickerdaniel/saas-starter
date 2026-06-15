@@ -455,8 +455,8 @@
 			"name": "zxcvbnTs",
 			"url": "https://github.com/zxcvbn-ts/zxcvbn",
 			"branch": "master",
-			"searchPath": "packages/core",
-			"specialNotes": "@zxcvbn-ts/core package (monorepo). Password strength estimation. Powers the password meter. Core scoring lives in packages/core."
+			"searchPath": "packages/libraries/main",
+			"specialNotes": "@zxcvbn-ts/core package (monorepo). Password strength estimation. Powers the password meter. Core scoring lives in packages/libraries/main; language packs are under packages/languages/*."
 		},
 		{
 			"type": "git",
