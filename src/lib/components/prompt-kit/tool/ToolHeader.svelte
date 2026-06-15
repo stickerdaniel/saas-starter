@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { cn } from '$lib/utils';
 	import CheckCircle2 from '@lucide/svelte/icons/check-circle-2';
-	import Loader2 from '@lucide/svelte/icons/loader-2';
+	import LoaderCircle from '@lucide/svelte/icons/loader-circle';
 	import Settings from '@lucide/svelte/icons/settings';
 	import XCircle from '@lucide/svelte/icons/x-circle';
 	import { Button } from '$lib/components/ui/button/index.js';
@@ -20,7 +20,7 @@
 	function getStateIcon(): Component {
 		switch (toolPart.state) {
 			case 'input-streaming':
-				return Loader2;
+				return LoaderCircle;
 			case 'input-available':
 				return Settings;
 			case 'output-available':
