@@ -16,13 +16,12 @@
 	import { T, getTranslate } from '@tolgee/svelte';
 
 	import { formatDistanceToNow } from 'date-fns';
-	import { type Locale, de, es, fr } from 'date-fns/locale';
 	import { page } from '$app/state';
+	import { getDateFnsLocale } from '$lib/utils/i18n';
 
 	const { t } = getTranslate();
 
-	const dateFnsLocaleMap: Record<string, Locale> = { de, es, fr };
-	const dateFnsLocale = $derived(dateFnsLocaleMap[page.data.lang] ?? undefined);
+	const dateFnsLocale = $derived(getDateFnsLocale(page.data.lang));
 
 	let {
 		threadId
