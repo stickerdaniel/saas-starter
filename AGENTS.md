@@ -70,6 +70,11 @@ Local dev notes (`bun run dev`):
 - Local Convex state is isolated per branch/worktree under `.convex/`.
 - `RESET_LOCAL_BACKEND=true bun run dev` clears the existing local Convex state before startup and restores the default seeded admin credentials.
 
+### Deployment
+
+- Deploy is push-driven: `main` → production, any branch → preview, built by CI (CF Workers Builds + Vercel run `scripts/deploy.ts`). Command table in README.
+- Never deploy from local (`convex deploy`, `wrangler deploy`, bare `deploy.ts`): it needs CI-only env (varlock, `CONVEX_DEPLOY_KEY`, `WORKERS_CI`) and otherwise fails or targets the wrong deployment. Just push.
+
 ### Logo Generation
 
 - `bun run generate:logos` — Regenerate `static/logo-email.png` from `static/logo.svg`
