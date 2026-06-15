@@ -338,6 +338,7 @@ Set `PREVIEW_ADMIN_PASSWORD` once as a preview default (`bunx convex env default
 | `TOLGEE_API_KEY`            | Tolgee CLI key for deploy-time sync (optional, skips when unset)                                                                         |    ○    |  ○   |
 | `PUBLIC_POSTHOG_API_KEY`    | PostHog analytics API key                                                                                                                |         |  ○   |
 | `PUBLIC_POSTHOG_HOST`       | PostHog analytics host                                                                                                                   |         |  ○   |
+| `PUBLIC_POSTHOG_PROXY_HOST` | CF Worker proxy host for ad-blocker bypass (falls back to `PUBLIC_POSTHOG_HOST` when unset)                                              |         |  ○   |
 | `PRODUCTION_BRANCH`         | Cloudflare only: production branch name (default: `main`)                                                                                |    ○    |  ○   |
 
 `PUBLIC_CONVEX_URL` and `PUBLIC_CONVEX_SITE_URL` are intentionally not in this table. The build (`scripts/deploy.ts`) derives both from `CONVEX_DEPLOY_KEY` and overwrites any value you set on the hosting platform, so setting them there has no effect. To point production at a different Convex deployment, change the deploy key, not the URL.
@@ -365,7 +366,7 @@ An AI agent built on [Convex Agent](https://www.convex.dev/components/agent) and
 
 ### Email System
 
-Transactional email delivered through [Resend](https://www.convex.dev/components/resend) with automatic retries, idempotency, and delivery tracking. Templates are written as Svelte components using a shadcn-style email component library (same `tv()` variants, same design tokens) and compiled to inline HTML at build time. Your logo is converted to an email-safe PNG automatically. During development, preview every template in the browser at `/emails` and optionally send a real test email when a Resend key is configured.
+Transactional email delivered through [Resend](https://www.convex.dev/components/resend) with automatic retries, idempotency, and delivery tracking. Templates are written as Svelte components using a shadcn-style email component library (same `tv()` variants, same design tokens) and compiled to inline HTML at build time. Your logo is converted to an email-safe PNG automatically. `bun run build:emails` renders every template into `src/lib/convex/emails/_generated/`, and a snapshot test (`src/lib/emails/__tests__/email-snapshots.test.ts`) flags any unintended markup change.
 
 ### Internationalization
 
@@ -379,7 +380,7 @@ Transactional email delivered through [Resend](https://www.convex.dev/components
 
 ### AI Readiness
 
-Marketing pages return structured markdown when an AI agent sends `Accept: text/markdown`, complete with YAML frontmatter and `Vary: Accept` headers for correct CDN caching. A `/llms.txt` endpoint lists available pages and explains how to request them. Sitemap and robots.txt are generated dynamically across all 4 languages.
+Marketing pages return structured markdown when an AI agent sends `Accept: text/markdown`, complete with YAML frontmatter. The markdown variant still sets `Vary: Accept`, but since CF Edge and most shared caches ignore `Vary`, it is served `Cache-Control: private` so a shared cache cannot key one variant under the URL and poison the HTML response with markdown (or vice versa). A `/llms.txt` endpoint lists available pages and explains how to request them. Sitemap and robots.txt are generated dynamically across all 4 languages.
 
 ### SEO
 
@@ -436,7 +437,7 @@ Renovate groups non-major updates into a single PR and creates separate PRs for 
 
 ### Email Development
 
-Email templates are Svelte components compiled to inline HTML on `postinstall` and during builds. Preview every template in the browser at `/emails` with mock data, and optionally send a real test email when a Resend key is configured.
+Email templates are Svelte components compiled to inline HTML on `postinstall` and during builds. `bun run build:emails` renders each template with mock data into `src/lib/convex/emails/_generated/`, and the snapshot test `src/lib/emails/__tests__/email-snapshots.test.ts` catches any unexpected markup change.
 
 </details>
 

@@ -1,6 +1,9 @@
 <script>
-	import { T } from '@tolgee/svelte';
+	import { T, getTranslate } from '@tolgee/svelte';
 	import { localizedHref } from '$lib/utils/i18n';
+
+	const { t } = getTranslate();
+
 	import { Marquee } from '$lib/components/spell/marquee';
 	import ProgressiveBlur from '../magic/ProgressiveBlur.svelte';
 	import Button from '$lib/components/ui/button/button.svelte';
@@ -83,50 +86,56 @@
 							<img
 								class="h-5 dark:invert"
 								src={nvidiaLogo}
-								alt="Nvidia Logo"
+								alt={$t('hero.logo_alt', { name: 'Nvidia' })}
 								width="106"
 								height="20"
 							/>
 							<img
 								class="h-4 dark:invert"
 								src={columnLogo}
-								alt="Column Logo"
+								alt={$t('hero.logo_alt', { name: 'Column' })}
 								width="73"
 								height="16"
 							/>
 							<img
 								class="h-4 dark:invert"
 								src={githubLogo}
-								alt="GitHub Logo"
+								alt={$t('hero.logo_alt', { name: 'GitHub' })}
 								width="60"
 								height="16"
 							/>
-							<img class="h-5 dark:invert" src={nikeLogo} alt="Nike Logo" width="56" height="20" />
+							<img
+								class="h-5 dark:invert"
+								src={nikeLogo}
+								alt={$t('hero.logo_alt', { name: 'Nike' })}
+								width="56"
+								height="20"
+							/>
 							<img
 								class="h-5 dark:invert"
 								src={lemonsqueezyLogo}
-								alt="Lemon Squeezy Logo"
+								alt={$t('hero.logo_alt', { name: 'Lemon Squeezy' })}
 								width="153"
 								height="20"
 							/>
 							<img
 								class="h-4 dark:invert"
 								src={laravelLogo}
-								alt="Laravel Logo"
+								alt={$t('hero.logo_alt', { name: 'Laravel' })}
 								width="65"
 								height="16"
 							/>
 							<img
 								class="h-7 dark:invert"
 								src={lillyLogo}
-								alt="Lilly Logo"
+								alt={$t('hero.logo_alt', { name: 'Lilly' })}
 								width="53"
 								height="28"
 							/>
 							<img
 								class="h-6 dark:invert"
 								src={openaiLogo}
-								alt="OpenAI Logo"
+								alt={$t('hero.logo_alt', { name: 'OpenAI' })}
 								width="84"
 								height="24"
 							/>

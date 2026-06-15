@@ -34,6 +34,7 @@
 		greeting?: string;
 	} = $props();
 
+	// Intentionally English-only: this is a copy-and-customize example, not shipped UI.
 	const suggestions = [
 		{ text: 'I have a question about...', label: 'Ask a question' },
 		{ text: 'I found an issue with...', label: 'Report an issue' },

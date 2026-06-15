@@ -112,11 +112,11 @@
 		});
 	});
 
-	const suggestions = [
+	const suggestions = $derived([
 		{ text: $t('ai_chat.suggestion.weather'), label: $t('ai_chat.suggestion.weather') },
 		{ text: $t('ai_chat.suggestion.explain'), label: $t('ai_chat.suggestion.explain') },
 		{ text: $t('ai_chat.suggestion.help'), label: $t('ai_chat.suggestion.help') }
-	];
+	]);
 </script>
 
 <div bind:this={chatContainer} class="flex h-full flex-col">

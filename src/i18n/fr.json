@@ -18,6 +18,7 @@
 		},
 		"dialog": {
 			"ban_description": "Êtes-vous sûr de vouloir bannir {email} ? L'accès à l'app sera bloqué.",
+			"ban_reason_label": "Motif du bannissement",
 			"ban_reason_placeholder": "Motif du bannissement (optionnel)",
 			"ban_title": "Bannir l'Utilisateur",
 			"impersonation_active_description": "Veuillez recharger la page pour vous connecter en tant qu'utilisateur usurpé.",
@@ -488,6 +489,13 @@
 			"thought_for_seconds": "A réfléchi pendant {duration} seconde",
 			"thought_for_seconds_plural": "A réfléchi pendant {duration} secondes"
 		},
+		"tool": {
+			"call_id": "ID d'appel : {toolCallId}",
+			"error": "Erreur",
+			"input": "Entrée",
+			"output": "Sortie",
+			"processing": "Traitement de l'appel d'outil..."
+		},
 		"tooltip": {
 			"attach_files": "Joindre des fichiers",
 			"mark_bug": "Marquer le bug"
@@ -592,6 +600,7 @@
 		"cta": "Commencer maintenant",
 		"cta_demo": "Demander une démo",
 		"description": "Donne vie à ton SaaS en quelques minutes, pas en mois. Template open-source bourré de tech qui te fait shipper direct.",
+		"logo_alt": "Logo {name}",
 		"tagline": "Focus sur ton produit.\nLancement plus rapide."
 	},
 	"integrations": {

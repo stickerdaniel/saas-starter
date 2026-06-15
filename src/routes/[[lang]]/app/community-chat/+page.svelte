@@ -89,7 +89,7 @@
 	$effect(() => {
 		if (!wrapperEl) return;
 		void mode.current;
-		requestAnimationFrame(() => {
+		const rafId = requestAnimationFrame(() => {
 			let el: HTMLElement | null = wrapperEl!;
 			while (el) {
 				const bg = getComputedStyle(el).backgroundColor;
@@ -100,6 +100,7 @@
 				el = el.parentElement;
 			}
 		});
+		return () => cancelAnimationFrame(rafId);
 	});
 
 	function isOwnMessage(userId: string): boolean {

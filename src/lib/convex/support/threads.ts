@@ -300,19 +300,21 @@ export const listThreads = query({
 		}
 
 		const adminMap = new Map<string, { name?: string; image: string | null }>();
-		for (const adminId of adminIds) {
-			try {
-				const admin = await ctx.runQuery(components.betterAuth.adapter.findOne, {
-					model: 'user',
-					where: [{ field: '_id', operator: 'eq', value: adminId }]
-				});
-				if (admin) {
-					adminMap.set(adminId, { name: admin.name, image: admin.image ?? null });
+		await Promise.all(
+			[...adminIds].map(async (adminId) => {
+				try {
+					const admin = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+						model: 'user',
+						where: [{ field: '_id', operator: 'eq', value: adminId }]
+					});
+					if (admin) {
+						adminMap.set(adminId, { name: admin.name, image: admin.image ?? null });
+					}
+				} catch (error) {
+					console.log(`[listThreads] Failed to fetch admin ${adminId}:`, error);
 				}
-			} catch (error) {
-				console.log(`[listThreads] Failed to fetch admin ${adminId}:`, error);
-			}
-		}
+			})
+		);
 
 		// For each thread, get the last message and combine with support data
 		const threadsWithLastMessage = await Promise.all(

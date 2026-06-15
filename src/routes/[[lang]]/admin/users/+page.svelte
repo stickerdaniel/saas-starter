@@ -662,7 +662,11 @@
 					<div class="mt-4">
 						<Field.Group>
 							<Field.Field>
+								<Field.Label class="sr-only" for="admin-users-ban-reason">
+									<T keyName="admin.dialog.ban_reason_label" />
+								</Field.Label>
 								<Input
+									id="admin-users-ban-reason"
 									placeholder={$t('admin.dialog.ban_reason_placeholder')}
 									data-testid="admin-users-ban-reason-input"
 									bind:value={banReason}

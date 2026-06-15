@@ -105,7 +105,11 @@
 {:else if status === 'error'}
 	{#if url}
 		<!-- Fall back to the raw browser view when text could not be loaded. -->
-		<iframe src={url} title={filename ?? ''} class="h-[70vh] w-full rounded-md"></iframe>
+		<iframe
+			src={url}
+			title={filename ?? $t('chat.attachment.file_fallback')}
+			class="h-[70vh] w-full rounded-md"
+		></iframe>
 	{:else}
 		<div
 			class="flex h-[70vh] w-full items-center justify-center text-sm text-muted-foreground"

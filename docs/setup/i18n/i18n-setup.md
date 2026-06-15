@@ -307,12 +307,37 @@ import ja from '../i18n/ja.json';
 const translations: TolgeeStaticData = { en, de, es, fr, ja };
 ```
 
-4. Add translations for the new language (in Tolgee Cloud, or by editing `src/i18n/ja.json` directly)
+4. Add the code to the `LANGUAGES` array in `svelte.config.js` (drives prerendering of `[[lang]]` routes):
+
+```javascript
+const LANGUAGES = ['en', 'de', 'es', 'fr', 'ja'];
+```
+
+5. Add the code to `SUPPORTED_LOCALES` in `src/lib/convex/i18n/translations.ts`:
+
+```typescript
+export const SUPPORTED_LOCALES = ['en', 'de', 'es', 'fr', 'ja'] as const;
+```
+
+6. Add both the bare prefix and the wildcard to `run_worker_first` in `wrangler.toml` (so markdown content negotiation covers `/ja` and every page under it):
+
+```toml
+run_worker_first = ["/en", "/en/*", "/de", "/de/*", "/es", "/es/*", "/fr", "/fr/*", "/ja", "/ja/*"]
+```
+
+7. Add translations for the new language (in Tolgee Cloud, or by editing `src/i18n/ja.json` directly)
+
+`scripts/prerender-sync.test.ts` checks `svelte.config.js`, `SUPPORTED_LOCALES`, the `+layout.svelte` `translations` map, and `wrangler.toml` against `SUPPORTED_LANGUAGES`, so `bun run test:unit` fails if any one is missing the code.
 
 ### To Remove a Language
 
 1. Remove from `SUPPORTED_LANGUAGES` in `src/lib/i18n/languages.ts`
 2. Remove from `availableLanguages` and the `translations` map in the root `src/routes/+layout.svelte`
+3. Remove from the `LANGUAGES` array in `svelte.config.js`
+4. Remove from `SUPPORTED_LOCALES` in `src/lib/convex/i18n/translations.ts`
+5. Remove both the bare prefix and the wildcard (`/<code>` and `/<code>/*`) from `run_worker_first` in `wrangler.toml`
+
+Keep all five sources in sync, otherwise `scripts/prerender-sync.test.ts` fails `bun run test:unit`.
 
 ## SEO Features
 
