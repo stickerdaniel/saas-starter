@@ -155,7 +155,6 @@ See [official docs](https://docs.convex.dev/scheduling/scheduled-functions) for 
 **Components with Built-in Durability:**
 
 - `@convex-dev/resend`: Idempotency keys guarantee exactly-once email delivery, durable execution via workpools (default: 5 retries, 30s initial backoff). Catching errors from `resend.sendEmail()` is valid - they indicate permanent failures (invalid config), not transient network issues. See [component docs](https://www.convex.dev/components/resend).
-- `@convex-dev/workpool`: Configurable retry with backoff/jitter, `onComplete` callbacks, parallelism control.
 
 - `@useautumn/convex`: SDK has built-in fail-open (returns `allowed: true` on 5xx/network errors). No manual fail-open logic needed in `autumn.check()` calls.
 
@@ -233,6 +232,7 @@ Runtime files:
 
 - `src/lib/convex/` - Convex backend functions, schema, and auth config
 - `src/lib/components/` - UI components
+- `src/i18n/` - Translation JSON files (`en`, `de`, `es`, `fr`)
 - `src/lib/i18n/` - Internationalization configuration
 - `src/routes/[[lang]]/` - SvelteKit routes with language parameter
 - `src/hooks.server.ts` - Server hooks for auth and language middleware
@@ -351,6 +351,8 @@ This project uses **PostHog** for product analytics with an optional **Cloudflar
   - keep route-specific row/cell IDs for assertions (for example `recipient-row-*`, `admin-users-email-cell`).
 
 ### Vitest Unit Tests
+
+- Co-locate unit tests as `*.test.ts` next to the source file. Run via `bun run test:unit`.
 
 ## Development
 
@@ -632,7 +634,7 @@ Both are needed — static assets bypass hooks.
 
 #### "This export is intentionally unused (template knob for forks)"
 
-Examples: `optionOrAlt` (keyboard shortcut convention sibling of `cmdOrCtrl`), `getLegalEmailAddress` (raw mailto variant of the obfuscated default).
+Examples: `optionOrAlt` (keyboard shortcut convention sibling of `cmdOrCtrl`).
 
 → **JSDoc `@public` tag** on the export with a one-line reason, never a bare tag. Knip stops reporting it as unused and emits a tag hint once the export gains a real consumer, so the tag can be removed again.
 For intentionally kept **files**, use a `knip.config.ts` `ignore` entry with a why-comment instead, and remove entries that go stale when files are deleted. Anything regenerable from upstream (shadcn demos, cnblocks, prompt-kit examples) has no keep-value as dead code — delete it and re-fetch on demand.

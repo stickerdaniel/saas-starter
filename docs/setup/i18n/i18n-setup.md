@@ -80,7 +80,7 @@ VITE_TOLGEE_API_KEY=your_api_key_here
 bun run dev
 ```
 
-Visit [http://localhost:5173](http://localhost:5173) and you'll be redirected to `/en` (or your browser's preferred language).
+Open the local URL printed in the dev server output (the port is deterministic per project/worktree, see `scripts/dev-ports.ts`) and you'll be redirected to `/en` (or your browser's preferred language).
 
 ## How It Works
 
@@ -238,25 +238,10 @@ bunx tolgee sync
 
 The CLI is already installed and configured with:
 
-- **File:** `.tolgee.json` (contains your API key and project configuration)
+- **Config:** `.tolgeerc` (committed, holds `apiUrl`, format, and push/pull paths, no secrets)
 - **Translations:** `src/i18n/{language}.json` files
 
-**⚠️ Important:** `.tolgee.json` contains your API key and is excluded from git via `.gitignore`.
-
-### Configuration
-
-Before using CLI commands, update your **Project ID** in `.tolgee.json`:
-
-1. Go to https://app.tolgee.io
-2. Open your project
-3. Go to **Settings** → find your **Project ID**
-4. Update `.tolgee.json`:
-   ```json
-   {
-     "projectId": YOUR_PROJECT_ID_HERE,
-     ...
-   }
-   ```
+The API key is never stored in the config file. The `i18n:*` package scripts pass it from the `VITE_TOLGEE_API_KEY` env var (loaded by varlock), so set that in `.env.local` before running any CLI command.
 
 ### Workflow Options
 
@@ -308,18 +293,26 @@ export const SUPPORTED_LANGUAGES: Language[] = [
 ];
 ```
 
-2. Update `src/routes/[[lang]]/+layout.svelte`:
+2. Update `availableLanguages` in the root `src/routes/+layout.svelte` (already set to `['en', 'de', 'es', 'fr']`):
 
 ```typescript
 availableLanguages: ['en', 'de', 'es', 'fr', 'ja'],
 ```
 
-3. Add translations in Tolgee Cloud for the new language
+3. Import the new locale file and add it to the `translations` static-data map in the same file:
+
+```typescript
+import ja from '../i18n/ja.json';
+
+const translations: TolgeeStaticData = { en, de, es, fr, ja };
+```
+
+4. Add translations for the new language (in Tolgee Cloud, or by editing `src/i18n/ja.json` directly)
 
 ### To Remove a Language
 
 1. Remove from `SUPPORTED_LANGUAGES` in `src/lib/i18n/languages.ts`
-2. Remove from `availableLanguages` in `src/routes/[[lang]]/+layout.svelte`
+2. Remove from `availableLanguages` and the `translations` map in the root `src/routes/+layout.svelte`
 
 ## SEO Features
 
@@ -346,38 +339,34 @@ The `SEOHead` component automatically adds:
 
 For production, use one of these methods:
 
-### Option 1: Static Translation Export (Recommended)
+### Option 1: Static Translation Export (Recommended, already wired up)
 
-1. Install Tolgee CLI:
+The root `src/routes/+layout.svelte` already imports the committed JSON files and passes them to Tolgee as `staticData`, so production builds ship translations bundled, with no API key required at runtime:
 
-   ```bash
-   bun add -g @tolgee/cli
-   ```
+```typescript
+import de from '../i18n/de.json';
+import en from '../i18n/en.json';
+import es from '../i18n/es.json';
+import fr from '../i18n/fr.json';
 
-2. Export translations:
+const translations: TolgeeStaticData = { en, de, es, fr };
 
-   ```bash
-   bunx tolgee pull
-   ```
+const tolgee = Tolgee()
+	.use(FormatIcu())
+	.init({
+		language: currentLang,
+		staticData: translations,
+		availableLanguages: ['en', 'de', 'es', 'fr'],
+		defaultLanguage: 'en',
+		fallbackLanguage: 'en'
+	});
+```
 
-3. Update `src/routes/[[lang]]/+layout.svelte` to use static data:
+The `apiUrl`/`apiKey` options are only read in development for in-context editing, so to keep these files current, pull the latest translations before building:
 
-   ```typescript
-   import enTranslations from './i18n/en.json';
-   import deTranslations from './i18n/de.json';
-   // ...
-
-   const tolgee = Tolgee()
-   	.use(FormatSimple())
-   	.init({
-   		language: data.lang,
-   		staticData: {
-   			en: enTranslations,
-   			de: deTranslations
-   			// ...
-   		}
-   	});
-   ```
+```bash
+bun run i18n:pull
+```
 
 ### Option 2: Tolgee Content Delivery (CDN)
 
@@ -411,7 +400,7 @@ Example:
 
 - DevTools only work in development mode
 - Make sure `VITE_TOLGEE_API_KEY` is set
-- DevTools component is automatically added in `[[lang]]/+layout.svelte`
+- DevTools are automatically enabled in the root `src/routes/+layout.svelte`
 
 ### 404 on Language Routes
 
@@ -432,11 +421,11 @@ src/
 ├── routes/
 │   ├── [[lang]]/                     # All localized routes
 │   │   ├── +layout.ts                # Language validation
-│   │   ├── +layout.svelte            # TolgeeProvider setup
+│   │   ├── +layout.svelte            # OAuth bootstrap
 │   │   ├── (auth)/
 │   │   ├── (marketing)/
 │   │   └── app/
-│   └── +layout.svelte                # Root layout with SEO
+│   └── +layout.svelte                # Root layout: TolgeeProvider, static data, SEO
 └── hooks.server.ts                   # Language detection & redirects
 ```
 

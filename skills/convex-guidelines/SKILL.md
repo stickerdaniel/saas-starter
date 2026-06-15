@@ -121,7 +121,7 @@ This section applies to projects using `@convex-dev/better-auth` with a local in
 ### Server-side (Convex Backend)
 
 - Auth is configured via `createAuth()` and `createAuthOptions()`.
-- Use `authComponent.getAuthUser(ctx)` to get the current authenticated user in any query, mutation, or action. Returns `null` if unauthenticated.
+- Use `authComponent.getAuthUser(ctx)` to get the current authenticated user in any query, mutation, or action. It throws `ConvexError('Unauthenticated')` if there is no authenticated user, and otherwise returns the user (never `null`), so no `if (!user)` guard is needed after it. When unauthenticated should be a valid, non-throwing case, use `authComponent.safeGetAuthUser(ctx)`, which returns `undefined` instead of throwing.
 - NEVER accept a `userId` or any user identifier as a function argument for authorization. Always derive identity server-side via `authComponent.getAuthUser(ctx)`.
 - HTTP auth routes are registered via `authComponent.registerRoutes(http, createAuth)` in `convex/http.ts`.
 - Auth tables (`user`, `session`, `account`, `verification`, `jwks`, `passkey`) are managed by the Better Auth component.
