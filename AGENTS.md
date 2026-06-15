@@ -369,7 +369,7 @@ Derived: let doubled = $derived(count \* 2);
 Props: <script lang="ts">let { name = 'World' } = $props(); </script> `<p>Hello, {name}!</p>`
 Binding: `<script lang="ts">let { value = $bindable() } = $props(); </script> <input bind:value={value} />`
 Snippets: `<div>{@render header()}</div> with <Child>{#snippet header()}<h1>Header</h1>{/snippet}</Child>`
-Class Store: class Counter { count = $state(0); increment() { this.count += 1; } } export const counter = new Counter();
+Class Store: class Counter { count = $state(0); increment() { this.count += 1; } } export const counter = new Counter(); but this module-singleton pattern is banned in `.svelte.ts` rune modules (`local/no-module-state-singleton`, SSR cross-request leak #500); share per-request state via a runed `Context` instead.
 Notes:
 Type $derived explicitly (e.g., let items: Item[] = $derived(...)) for arrays in TypeScript.
 Default to new syntax for Svelte 5 benefits.
@@ -627,7 +627,7 @@ Examples: URL parsing, stream processing, optimistic updates.
 
 #### "This security header / policy must be present"
 
-Examples: CSP, HSTS, X-Frame-Options on all responses including static assets.
+Examples: HSTS, X-Frame-Options on all responses including static assets (no CSP is currently set).
 
 → **`_headers` file** (project root) for static assets + **server hook** for SSR responses.
 Both are needed — static assets bypass hooks.

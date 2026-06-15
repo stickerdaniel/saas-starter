@@ -109,7 +109,7 @@ This guide walks you through setting up a Cloudflare Worker to proxy external im
 
 **5-Minute Setup:**
 
-1. Copy worker code from `docs/screenshot-proxy-worker.js`
+1. Copy worker code from `./screenshot-proxy-worker.js`
 2. Create Cloudflare Worker at https://workers.cloudflare.com
 3. Update `ALLOWED_DOMAINS` and `ALLOWED_ORIGINS` in worker code
 4. Deploy worker
@@ -133,7 +133,7 @@ This guide walks you through setting up a Cloudflare Worker to proxy external im
 
 ### 3. Configure Worker Code
 
-1. Open `docs/screenshot-proxy-worker.js` in your project
+1. Open `./screenshot-proxy-worker.js` in your project
 2. Update the configuration section:
 
 ```javascript
@@ -485,7 +485,7 @@ Before deploying to production:
 - **Cloudflare Workers Docs:** https://developers.cloudflare.com/workers/
 - **SnapDOM Documentation:** https://github.com/zumerlab/snapdom
 - **CORS Explained:** https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS
-- **Project PostHog Proxy:** `docs/analytics/posthog-proxy-setup.md` (similar pattern)
+- **Project PostHog Proxy:** `docs/setup/analytics/posthog-proxy-setup.md` (similar pattern)
 
 ## Support
 

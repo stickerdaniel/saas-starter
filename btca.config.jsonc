@@ -435,6 +435,42 @@
 			"url": "https://github.com/jamsinclair/jSquash",
 			"branch": "main",
 			"specialNotes": "WASM image codecs (WebP/AVIF/JPEG/PNG/JXL/OXIPNG/QOI). Used for client-side encode in workers. Each codec is a separate package under packages/ — @jsquash/webp at packages/webp."
+		},
+		{
+			"type": "git",
+			"name": "svelteStreamdown",
+			"url": "https://github.com/beynar/svelte-streamdown",
+			"branch": "master",
+			"specialNotes": "svelte-streamdown package. Streaming-aware Markdown renderer for Svelte. Used for chat attachment text previews and legal markdown."
+		},
+		{
+			"type": "git",
+			"name": "openrouterAiSdkProvider",
+			"url": "https://github.com/OpenRouterTeam/ai-sdk-provider",
+			"branch": "main",
+			"specialNotes": "@openrouter/ai-sdk-provider package. OpenRouter provider for the Vercel AI SDK. Model ids, provider options, reasoning/tool support. Used by the Convex AI chat agent."
+		},
+		{
+			"type": "git",
+			"name": "zxcvbnTs",
+			"url": "https://github.com/zxcvbn-ts/zxcvbn",
+			"branch": "master",
+			"searchPath": "packages/core",
+			"specialNotes": "@zxcvbn-ts/core package (monorepo). Password strength estimation. Powers the password meter. Core scoring lives in packages/core."
+		},
+		{
+			"type": "git",
+			"name": "riveWasm",
+			"url": "https://github.com/rive-app/rive-wasm",
+			"branch": "master",
+			"specialNotes": "@rive-app/canvas package (monorepo). Rive runtime for canvas. Used by RiveBackground.svelte for animated backgrounds."
+		},
+		{
+			"type": "git",
+			"name": "posthogJs",
+			"url": "https://github.com/PostHog/posthog-js",
+			"branch": "main",
+			"specialNotes": "posthog-js package. PostHog browser SDK. init options, person_profiles, proxy/api_host config. Used by the lazy analytics bootstrap."
 		}
 	]
 }
