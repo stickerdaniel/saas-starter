@@ -10,9 +10,11 @@ import type { UserContent } from 'ai';
 import { supportRateLimiter } from './rateLimit';
 import { createRateLimitError } from './types';
 import { t, extractLocaleFromUrl } from '../i18n/translations';
+import { MAX_MESSAGE_LENGTH } from '../constants';
 import { requireSupportThreadAccess } from './ownership';
 import { listMessagesForThread } from './messageListing';
 import { syncSupportLastMessage } from './threads';
+import { getFileMetadataByUrls } from '../files/metadata';
 
 /**
  * Send a user message and get AI response with streaming
@@ -31,8 +33,10 @@ export const sendMessage = mutation({
 	},
 	returns: v.object({ messageId: v.string() }),
 	handler: async (ctx, args) => {
-		if (args.prompt.length > 2000) {
-			throw new ConvexError('Message is too long (max 2000 characters)');
+		if (args.prompt.length > MAX_MESSAGE_LENGTH) {
+			throw new ConvexError(
+				t(undefined, 'backend.support.message_too_long', { max: MAX_MESSAGE_LENGTH })
+			);
 		}
 
 		const { owner, supportThread } = await requireSupportThreadAccess(ctx, {
@@ -294,19 +298,6 @@ export const getFileMetadataBatch = query({
 		v.object({ width: v.optional(v.number()), height: v.optional(v.number()) })
 	),
 	handler: async (ctx, args): Promise<Record<string, { width?: number; height?: number }>> => {
-		const results: Record<string, { width?: number; height?: number }> = {};
-
-		for (const url of args.urls) {
-			const meta = await ctx.db
-				.query('fileMetadata')
-				.withIndex('by_url', (q) => q.eq('url', url))
-				.first();
-
-			if (meta && (meta.width || meta.height)) {
-				results[url] = { width: meta.width, height: meta.height };
-			}
-		}
-
-		return results;
+		return await getFileMetadataByUrls(ctx, args.urls);
 	}
 });

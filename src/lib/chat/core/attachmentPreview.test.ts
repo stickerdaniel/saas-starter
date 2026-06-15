@@ -12,6 +12,7 @@ import {
 } from './attachmentPreview.js';
 import { ALLOWED_FILE_EXT_MIME, ALLOWED_FILE_TYPES } from './types.js';
 import { isAllowedStorageUrl } from '../../convex/files/attachmentText.js';
+import { ALLOWED_MIME_TYPES } from '../../convex/files/upload.js';
 
 describe('getExtension', () => {
 	it('returns the lowercased extension with dot', () => {
@@ -124,24 +125,23 @@ describe('isAllowedStorageUrl (SSRF guard)', () => {
 
 describe('client / server MIME allowlist parity', () => {
 	// Guard: every MIME the client offers for upload must also be accepted by the
-	// server validators, or uploads of that type get rejected after the round-trip.
-	const serverList = (relativePath: string): string[] => {
-		const path = fileURLToPath(new URL(relativePath, import.meta.url));
-		const source = readFileSync(path, 'utf8');
-		const match = source.match(/const ALLOWED_MIME_TYPES = \[([\s\S]*?)\]/);
-		if (!match) throw new Error(`ALLOWED_MIME_TYPES not found in ${relativePath}`);
-		return [...match[1]!.matchAll(/'([^']+)'/g)].map((m) => m[1]!);
-	};
-
+	// server validator, or uploads of that type get rejected after the round-trip.
 	const clientMimes = [...new Set(Object.values(ALLOWED_FILE_EXT_MIME))];
 
+	it('the shared server allowlist accepts every client-offered MIME', () => {
+		for (const mime of clientMimes) {
+			expect(ALLOWED_MIME_TYPES).toContain(mime);
+		}
+	});
+
+	// Both upload features must validate through the single shared allowlist; if
+	// a file route stops importing it, this guard's value is lost.
 	it.each([['../../convex/support/files.ts'], ['../../convex/aiChat/files.ts']])(
-		'%s accepts every client-offered MIME',
+		'%s validates uploads through the shared files/upload allowlist',
 		(relativePath) => {
-			const allowed = serverList(relativePath);
-			for (const mime of clientMimes) {
-				expect(allowed).toContain(mime);
-			}
+			const path = fileURLToPath(new URL(relativePath, import.meta.url));
+			const source = readFileSync(path, 'utf8');
+			expect(source).toMatch(/import \{[^}]*validateUploadBlob[^}]*\} from '\.\.\/files\/upload'/);
 		}
 	);
 
