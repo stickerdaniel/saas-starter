@@ -18,6 +18,7 @@
 		},
 		"dialog": {
 			"ban_description": "¿Estás seguro de que quieres bloquear a {email}? No podrá acceder a la app.",
+			"ban_reason_label": "Motivo del bloqueo",
 			"ban_reason_placeholder": "Motivo del bloqueo (opcional)",
 			"ban_title": "Bloquear Usuario",
 			"impersonation_active_description": "Por favor, recarga la página para iniciar sesión como el usuario suplantado.",
@@ -488,6 +489,13 @@
 			"thought_for_seconds": "Pensó durante {duration} segundo",
 			"thought_for_seconds_plural": "Pensó durante {duration} segundos"
 		},
+		"tool": {
+			"call_id": "ID de llamada: {toolCallId}",
+			"error": "Error",
+			"input": "Entrada",
+			"output": "Salida",
+			"processing": "Procesando llamada a la herramienta..."
+		},
 		"tooltip": {
 			"attach_files": "Adjuntar archivos",
 			"mark_bug": "Marcar el error"
@@ -592,6 +600,7 @@
 		"cta": "Comenzar ahora",
 		"cta_demo": "Solicitar una demo",
 		"description": "Dale vida a tu SaaS en minutos, no en meses. Plantilla open-source cargada con la tecnología que te hace lanzar rápido.",
+		"logo_alt": "Logo de {name}",
 		"tagline": "Foco en tu producto.\nLanzamiento más rápido."
 	},
 	"integrations": {

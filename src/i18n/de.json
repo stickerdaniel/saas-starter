@@ -18,6 +18,7 @@
 		},
 		"dialog": {
 			"ban_description": "Möchten Sie {email} wirklich sperren? Der Zugriff auf die App wird blockiert.",
+			"ban_reason_label": "Sperrgrund",
 			"ban_reason_placeholder": "Sperrgrund (optional)",
 			"ban_title": "Benutzer sperren",
 			"impersonation_active_description": "Bitte laden Sie die Seite neu, um als der andere Benutzer angemeldet zu werden.",
@@ -488,6 +489,13 @@
 			"thought_for_seconds": "Nachgedacht für {duration} Sekunde",
 			"thought_for_seconds_plural": "Nachgedacht für {duration} Sekunden"
 		},
+		"tool": {
+			"call_id": "Aufruf-ID: {toolCallId}",
+			"error": "Fehler",
+			"input": "Eingabe",
+			"output": "Ausgabe",
+			"processing": "Tool-Aufruf wird verarbeitet..."
+		},
 		"tooltip": {
 			"attach_files": "Dateien anhängen",
 			"mark_bug": "Fehler markieren"
@@ -592,6 +600,7 @@
 		"cta": "Jetzt starten",
 		"cta_demo": "Demo anfordern",
 		"description": "Erwecke dein SaaS zum Leben in Minuten, nicht in Monaten. Open-Source Template mit einem Tech-Stack, der dich schnell shippen lässt.",
+		"logo_alt": "{name}-Logo",
 		"tagline": "Mit Produktfokus\nschneller zum Ziel"
 	},
 	"integrations": {

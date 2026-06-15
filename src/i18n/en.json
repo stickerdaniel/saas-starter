@@ -18,6 +18,7 @@
 		},
 		"dialog": {
 			"ban_description": "Are you sure you want to ban {email}? They will be unable to access the app.",
+			"ban_reason_label": "Ban reason",
 			"ban_reason_placeholder": "Ban reason (optional)",
 			"ban_title": "Ban User",
 			"impersonation_active_description": "Please reload the page to be logged in as the impersonated user.",
@@ -488,6 +489,13 @@
 			"thought_for_seconds": "Thought for {duration} second",
 			"thought_for_seconds_plural": "Thought for {duration} seconds"
 		},
+		"tool": {
+			"call_id": "Call ID: {toolCallId}",
+			"error": "Error",
+			"input": "Input",
+			"output": "Output",
+			"processing": "Processing tool call..."
+		},
 		"tooltip": {
 			"attach_files": "Attach files",
 			"mark_bug": "Mark the bug"
@@ -592,6 +600,7 @@
 		"cta": "Start Building",
 		"cta_demo": "Request a demo",
 		"description": "SaaS starter with SvelteKit, auth, billing, and analytics.",
+		"logo_alt": "{name} Logo",
 		"tagline": "Focus on your product.\nShip faster."
 	},
 	"integrations": {
