@@ -22,7 +22,12 @@ for (const theme of ['light', 'dark'] as const) {
 				await page.addInitScript((t) => {
 					localStorage.setItem('mode-watcher-mode', t);
 				}, theme);
-				await page.goto(path);
+				// Cache-buster: CF Cache API ignores Vary: Accept, so a stale prior-deploy
+				// HTML build (or a markdown body cached for the same URL by
+				// public-agent-surface.spec.ts) can be served to this HTML navigation.
+				// A unique cb per run forces a fresh origin fetch so axe audits the
+				// current build.
+				await page.goto(`${path}?cb=${Date.now()}`);
 				const results = await makeAxeBuilder().analyze();
 				expect(results.violations).toEqual([]);
 			});
