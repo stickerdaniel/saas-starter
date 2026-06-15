@@ -30,12 +30,14 @@
 	import ConvexCursorTableShell from '$lib/components/tables/convex-cursor-table-shell.svelte';
 	import { createConvexCursorTable } from '$lib/tables/convex/create-convex-cursor-table.svelte';
 	import type { CursorListResult } from '$lib/tables/convex/contract';
-	import { columns } from './columns.js';
+	import { createColumns } from './columns.js';
 	import DataTableFilters from './data-table-filters.svelte';
 	import type { ActionEvent } from './data-table-actions.svelte';
 	import { browser } from '$app/environment';
 
-	let { data: _data }: { data: PageData } = $props();
+	let { data }: { data: PageData } = $props();
+
+	const columns = $derived(createColumns(data.lang ?? 'en'));
 
 	const client = useConvexClient();
 
@@ -242,7 +244,9 @@
 		get data() {
 			return usersTable.rows;
 		},
-		columns,
+		get columns() {
+			return columns;
+		},
 		state: {
 			get pagination() {
 				return { pageIndex, pageSize };
