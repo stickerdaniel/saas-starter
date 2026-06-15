@@ -4,13 +4,17 @@
 [![E2E Tests (CF)](https://github.com/stickerdaniel/saas-starter/actions/workflows/e2e-preview-cf.yml/badge.svg)](https://github.com/stickerdaniel/saas-starter/actions/workflows/e2e-preview-cf.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-%233fb950)](https://opensource.org/licenses/MIT)
 
-A free, open-source SaaS template built with SvelteKit, Convex, Better Auth, Tolgee, and Tailwind. Auth, billing, admin, AI chat, email, and i18n are all implemented end-to-end so you and your AI agents have real patterns to build on. Deploy on Cloudflare Workers or Vercel for $0.
+A free, open-source SaaS template built with SvelteKit, Convex, Better Auth, Tolgee, and Tailwind, made for AI coding agents to work in. Auth, billing, admin, AI chat, email, and i18n are implemented end-to-end, so you and your agents reuse real patterns instead of inventing them. Every recurring class of mistake becomes a rule the codebase enforces on its own, so it gets harder to break the longer it lives. Deploy on Cloudflare Workers or Vercel for $0.
 
 > See a live demo of the user-facing side at **[saas.daniel.sticker.name](https://saas.daniel.sticker.name)**. Admin features like the admin panel, support dashboard, and user management are not accessible there. To explore everything, follow the steps below.
 
 ## Why This Exists
 
-I kept rebuilding the same stack and pointing my agent at old repos for patterns I'd already nailed, so I baked the good ones in: a streaming AI chat with tool calling and file uploads, and a support chat that triages with AI then hands off to a human admin. I also wired in guardrails so an agent can check its own work, because it will happily tell you it's done when it isn't. Static checks and E2E on every preview catch that. Open source, free to run.
+I kept rebuilding the same stack for every project, and pointing my agent at old repos to copy patterns I had already settled on. This template collects those patterns in one place: a streaming AI chat with tool calling and file uploads, a support chat that triages with AI and hands off to a human admin, and auth, billing, admin, and i18n built the same way. Real, working features your agent can read and reuse.
+
+Agents have a failure mode: they report a task as done when it isn't, and they reintroduce defects that were already fixed. The codebase handles that itself. Every bug runs through one question: is this a one-off, or a class of mistake an agent (or I) will repeat? When it is a class, the fix makes the mistake impossible to reproduce, through a custom ESLint rule, a banned-pattern scan in the static checks, a unit or E2E test, a Convex validator, a server hook, or a sharper instruction in AGENTS.md. CI enforces it: every fix PR states a `Regression guard:` verdict (`added`, `covered by`, or `not warranted`). This compounds. The more agents work on the project, the harder it becomes for any of them to ship the same defect twice, because the code enforces the rules instead of relying on anyone to remember them.
+
+None of this works without strong opinions. The guards have something to enforce because the stack, the file layout, and the conventions are deliberate. Rich Harris makes the same case in [Frameworks for humans in the age of machines](https://www.youtube.com/watch?v=SmHgtyym6OA&t=2388s): a stack runs more smoothly when it is opinionated about the pieces every app needs, with smart defaults for auth, persistence, i18n, and UI that fit together. This template assembles that combination, and opinionated defaults mean you and your agent never relitigate the basics. Static checks and E2E run on every preview, so each verdict is checked on a real deployment. Open source, free to run.
 
 ## Quick Start
 
