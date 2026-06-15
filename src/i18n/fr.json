@@ -507,6 +507,12 @@
 		}
 	},
 	"backend": {
+		"aiChat": {
+			"message_too_long": "Le message est trop long (max. {max} caractères)"
+		},
+		"community": {
+			"message_too_long": "Le message est trop long (max. {max} caractères)"
+		},
 		"files": {
 			"fetch_failed": "Impossible de récupérer le fichier téléchargé. Veuillez réessayer.",
 			"file_too_large": "Fichier trop volumineux : {size} dépasse le maximum de {max}",
@@ -516,6 +522,7 @@
 			"handoff": {
 				"response": "Bien sûr ! Je vous connecte maintenant. Veuillez entrer votre email ci-dessous et nous vous notifierons quand notre équipe de support aura répondu. En attendant, n'hésitez pas à ajouter des détails supplémentaires qui pourraient nous aider."
 			},
+			"message_too_long": "Le message est trop long (max. {max} caractères)",
 			"rate_limit": {
 				"global": "Je suis actuellement très sollicité. Veuillez réessayer d'envoyer votre message dans un instant.",
 				"user": "Trop de messages. Veuillez patienter avant d'en envoyer un autre."
@@ -578,7 +585,9 @@
 			"file_type_not_allowed": "Type de fichier non autorisé : \"{filename}\"",
 			"image_compression_exceeded": "L'image n'a pas pu être compressée en dessous de {maxSize}",
 			"max_attachments": "Maximum {max} pièces jointes autorisées",
-			"pasted_file_too_large": "Fichier collé trop volumineux"
+			"pasted_file_too_large": "Fichier collé trop volumineux",
+			"upload_failed": "Échec du téléversement de « {filename} »",
+			"upload_failed_description": "Échec du téléversement"
 		},
 		"greeting": "Comment pouvons-nous vous aider ?",
 		"greeting_hi": "Bonjour",
@@ -815,10 +824,6 @@
 			"community_chat": {
 				"description": "Discutez avec la communauté en temps réel.",
 				"title": "Chat communautaire"
-			},
-			"dashboard": {
-				"description": "Consultez les métriques clés et l'activité récente.",
-				"title": "Tableau de bord"
 			},
 			"home": {
 				"description": "Redirection vers le tableau de bord de votre espace de travail.",
@@ -1183,6 +1188,7 @@
 	"team": {
 		"description": "Pendant le processus de travail, nous effectuons des ajustements réguliers avec le client car il est la seule personne qui peut sentir si un nouveau costume lui va bien ou non.",
 		"linktree": "Linktree",
+		"member_alt": "Photo de {name}",
 		"roles": {
 			"cofounder_cto": "Co-fondateur - CTO",
 			"founder_ceo": "Fondateur - PDG",

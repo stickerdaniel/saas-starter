@@ -295,7 +295,7 @@ export const listUsers = adminQuery({
 		)
 	},
 	returns: v.object({
-		users: v.array(adminUserDataValidator),
+		items: v.array(adminUserDataValidator),
 		continueCursor: v.union(v.string(), v.null()),
 		isDone: v.boolean()
 	}),
@@ -349,7 +349,7 @@ export const listUsers = adminQuery({
 			);
 
 			return {
-				users: usersPage.map((u) => mapAdminUser(u, providerMap.get(u._id) ?? [])),
+				items: usersPage.map((u) => mapAdminUser(u, providerMap.get(u._id) ?? [])),
 				continueCursor: isDone ? null : String(pageEnd),
 				isDone
 			};
@@ -373,7 +373,7 @@ export const listUsers = adminQuery({
 		);
 
 		return {
-			users: users.map((u) => mapAdminUser(u, providerMap.get(u._id) ?? [])),
+			items: users.map((u) => mapAdminUser(u, providerMap.get(u._id) ?? [])),
 			continueCursor: result.continueCursor,
 			isDone: result.isDone
 		};

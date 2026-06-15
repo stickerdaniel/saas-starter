@@ -50,7 +50,7 @@ Ad blockers and privacy tools often block analytics services like PostHog by dom
 
 **Why This Works:**
 
-The client-side code attempts a HEAD request to `eu.i.posthog.com` before initializing PostHog. If successful, it uses direct connection. If blocked (typically 5-10% of users with ad blockers), it automatically switches to your Cloudflare Worker.
+Before initializing PostHog, the client-side code attempts to fetch `eu.i.posthog.com/static/array.js`. If successful, it uses direct connection. If blocked (typically 5-10% of users with ad blockers), it automatically switches to your Cloudflare Worker.
 
 ## Setup Instructions
 
@@ -69,7 +69,7 @@ The client-side code attempts a HEAD request to `eu.i.posthog.com` before initia
 
 1. Click **Edit code** (or **Quick edit** if already on the worker page)
 2. **Delete all existing code** in the editor
-3. Copy the entire contents of [`docs/posthog-proxy-worker.js`](./posthog-proxy-worker.js)
+3. Copy the entire contents of [`docs/setup/analytics/posthog-proxy-worker.js`](./posthog-proxy-worker.js)
 4. Paste into the Cloudflare Worker editor
 5. Click **Deploy** to save
 
@@ -170,21 +170,37 @@ graph TD
 
 ### Implementation Details
 
-**1. Direct Access Check (`src/routes/+layout.ts`)**
+**1. Ad Block Detection (`src/lib/analytics/posthog.ts`)**
+
+`detectAdBlock` runs inside `initPosthog`, which `app-posthog-bootstrap.svelte` triggers lazily after the page loads. It attempts to fetch PostHog's `array.js` with an `AbortController` timeout; if the request throws (blocked or timed out), it falls back to the proxy host.
 
 ```typescript
-try {
-	// Attempt to reach PostHog directly
-	await fetch(PUBLIC_POSTHOG_HOST, { method: 'HEAD', mode: 'no-cors' });
-	apiHost = PUBLIC_POSTHOG_HOST; // Direct access works
-} catch (error) {
-	apiHost = PUBLIC_POSTHOG_PROXY_HOST; // Fallback to proxy
+async function detectAdBlock(host: string): Promise<boolean> {
+	try {
+		const controller = new AbortController();
+		const timeoutId = setTimeout(() => controller.abort(), ADBLOCK_DETECT_TIMEOUT_MS);
+
+		await fetch(`${host}/static/array.js`, {
+			method: 'GET',
+			mode: 'no-cors',
+			cache: 'no-store',
+			signal: controller.signal
+		});
+
+		clearTimeout(timeoutId);
+		return false; // Direct access works
+	} catch {
+		return true; // Blocked, fall back to proxy
+	}
 }
 ```
 
 **2. PostHog Initialization**
 
 ```typescript
+const isBlocked = await detectAdBlock(PUBLIC_POSTHOG_HOST);
+const apiHost = isBlocked ? PUBLIC_POSTHOG_PROXY_HOST || PUBLIC_POSTHOG_HOST : PUBLIC_POSTHOG_HOST;
+
 posthog.init(PUBLIC_POSTHOG_API_KEY, {
 	api_host: apiHost, // Either direct or proxy
 	ui_host: 'https://eu.posthog.com' // Always use actual PostHog UI
@@ -237,8 +253,8 @@ Set up Cloudflare Worker usage alerts:
 **Solutions:**
 
 1. Check `PUBLIC_POSTHOG_HOST` is set to `https://eu.i.posthog.com`
-2. Verify the fallback logic in `src/routes/+layout.ts`
-3. Check browser console for errors during HEAD request
+2. Verify the fallback logic in `detectAdBlock` (`src/lib/analytics/posthog.ts`)
+3. Check browser console for errors during the `array.js` detection fetch
 4. Ensure `mode: 'no-cors'` is present in the fetch options
 
 ### Issue: No events appearing in PostHog
@@ -262,7 +278,7 @@ Set up Cloudflare Worker usage alerts:
    ```javascript
    originHeaders.set('X-Forwarded-For', ip);
    ```
-2. Check Cloudflare Worker code matches [`docs/posthog-proxy-worker.js`](./posthog-proxy-worker.js)
+2. Check Cloudflare Worker code matches [`docs/setup/analytics/posthog-proxy-worker.js`](./posthog-proxy-worker.js)
 3. Redeploy worker if code was modified
 
 ### Issue: CORS errors in browser console

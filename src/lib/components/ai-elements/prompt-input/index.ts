@@ -31,15 +31,15 @@ export { default as PromptInputModelSelectItem } from './PromptInputModelSelectI
 export { default as PromptInputModelSelectValue } from './PromptInputModelSelectValue.svelte';
 
 // Icon components
-export { default as ImageIcon } from './ImageIcon.svelte';
-export { default as Loader2Icon } from './Loader2Icon.svelte';
-export { default as PaperclipIcon } from './PaperclipIcon.svelte';
-export { default as PlusIcon } from './PlusIcon.svelte';
-export { default as SendIcon } from './SendIcon.svelte';
-export { default as SquareIcon } from './SquareIcon.svelte';
-export { default as XIcon } from './XIcon.svelte';
-export { default as GlobeIcon } from './GlobeIcon.svelte';
-export { default as MicIcon } from './MicIcon.svelte';
+export { default as ImageIcon } from '@lucide/svelte/icons/image';
+export { default as Loader2Icon } from '@lucide/svelte/icons/loader-circle';
+export { default as PaperclipIcon } from '@lucide/svelte/icons/paperclip';
+export { default as PlusIcon } from '@lucide/svelte/icons/plus';
+export { default as SendIcon } from '@lucide/svelte/icons/send';
+export { default as SquareIcon } from '@lucide/svelte/icons/square';
+export { default as XIcon } from '@lucide/svelte/icons/x';
+export { default as GlobeIcon } from '@lucide/svelte/icons/globe';
+export { default as MicIcon } from '@lucide/svelte/icons/mic';
 
 // Context and types
 export {

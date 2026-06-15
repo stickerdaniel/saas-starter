@@ -49,6 +49,8 @@ import type * as emails_templates from "../emails/templates.js";
 import type * as env from "../env.js";
 import type * as files_attachmentText from "../files/attachmentText.js";
 import type * as files_cleanup from "../files/cleanup.js";
+import type * as files_metadata from "../files/metadata.js";
+import type * as files_upload from "../files/upload.js";
 import type * as files_vacuum from "../files/vacuum.js";
 import type * as functions from "../functions.js";
 import type * as http from "../http.js";
@@ -121,6 +123,8 @@ declare const fullApi: ApiFromModules<{
   env: typeof env;
   "files/attachmentText": typeof files_attachmentText;
   "files/cleanup": typeof files_cleanup;
+  "files/metadata": typeof files_metadata;
+  "files/upload": typeof files_upload;
   "files/vacuum": typeof files_vacuum;
   functions: typeof functions;
   http: typeof http;

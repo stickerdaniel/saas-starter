@@ -28,10 +28,8 @@ import type { BetterAuthUser } from './admin/types';
 export const authedQuery = customQuery(
 	query,
 	customCtx(async (ctx) => {
-		const user = (await authComponent.getAuthUser(ctx)) as BetterAuthUser | null;
-		if (!user) {
-			throw new ConvexError('Authentication required');
-		}
+		// getAuthUser throws ConvexError('Unauthenticated') when there is no user
+		const user = (await authComponent.getAuthUser(ctx)) as BetterAuthUser;
 		return { user };
 	})
 );
@@ -42,10 +40,8 @@ export const authedQuery = customQuery(
 export const authedMutation = customMutation(
 	mutation,
 	customCtx(async (ctx) => {
-		const user = (await authComponent.getAuthUser(ctx)) as BetterAuthUser | null;
-		if (!user) {
-			throw new ConvexError('Authentication required');
-		}
+		// getAuthUser throws ConvexError('Unauthenticated') when there is no user
+		const user = (await authComponent.getAuthUser(ctx)) as BetterAuthUser;
 		return { user };
 	})
 );
@@ -66,8 +62,9 @@ export const authedMutation = customMutation(
 export const adminQuery = customQuery(
 	query,
 	customCtx(async (ctx) => {
-		const user = (await authComponent.getAuthUser(ctx)) as BetterAuthUser | null;
-		if (!user || user.role !== 'admin') {
+		// getAuthUser throws ConvexError('Unauthenticated') when there is no user
+		const user = (await authComponent.getAuthUser(ctx)) as BetterAuthUser;
+		if (user.role !== 'admin') {
 			throw new ConvexError('Unauthorized: Admin access required');
 		}
 		return { user };
@@ -80,8 +77,9 @@ export const adminQuery = customQuery(
 export const adminMutation = customMutation(
 	mutation,
 	customCtx(async (ctx) => {
-		const user = (await authComponent.getAuthUser(ctx)) as BetterAuthUser | null;
-		if (!user || user.role !== 'admin') {
+		// getAuthUser throws ConvexError('Unauthenticated') when there is no user
+		const user = (await authComponent.getAuthUser(ctx)) as BetterAuthUser;
+		if (user.role !== 'admin') {
 			throw new ConvexError('Unauthorized: Admin access required');
 		}
 		return { user };

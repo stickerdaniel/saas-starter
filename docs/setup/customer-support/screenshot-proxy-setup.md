@@ -114,7 +114,7 @@ This guide walks you through setting up a Cloudflare Worker to proxy external im
 3. Update `ALLOWED_DOMAINS` and `ALLOWED_ORIGINS` in worker code
 4. Deploy worker
 5. Add custom domain (e.g., `img-proxy.yourdomain.com`)
-6. Set `PUBLIC_SNAPDOM_PROXY_URL` in Vercel environment variables
+6. Set `PUBLIC_SNAPDOM_PROXY_URL` in your hosting platform's environment variables (CF Workers or Vercel)
 7. Test and deploy!
 
 ## Step-by-Step Instructions
@@ -199,18 +199,33 @@ curl "https://img-proxy.yourdomain.com/?url=https://html.tailus.io/blocks/custom
 
 Development automatically uses public proxy - **no configuration needed**.
 
-#### Production (Vercel Dashboard)
+#### Production (CF Workers or Vercel)
+
+Set `PUBLIC_SNAPDOM_PROXY_URL` in your hosting platform. Pick the section for your platform below.
+
+**Important:** The URL must end with `?url=` - snapDOM will append the target URL to this.
+
+##### Cloudflare Workers
+
+1. Go to the [Cloudflare Dashboard](https://dash.cloudflare.com) → **Workers & Pages** → your app's Worker
+2. Navigate to **Settings → Variables and Secrets**
+3. Add a variable:
+   - **Name:** `PUBLIC_SNAPDOM_PROXY_URL`
+   - **Value:** `https://img-proxy.yourdomain.com/?url=`
+4. Click **Deploy** to save
+
+Because this project builds per-environment, the value is read at build time via `$env/static/public`. Set it as a **build variable** in **Workers Builds** so production and preview builds pick it up, and redeploy.
+
+##### Vercel
 
 1. Go to your Vercel project
 2. Navigate to **Settings → Environment Variables**
-3. Add new variable:
+3. Add a new variable:
    - **Name:** `PUBLIC_SNAPDOM_PROXY_URL`
    - **Value:** `https://img-proxy.yourdomain.com/?url=`
    - **Environment:** Production, Preview
 4. Click **Save**
 5. Redeploy your application
-
-**Important:** The URL must end with `?url=` - snapDOM will append the target URL to this.
 
 ## Environment Configuration
 
@@ -224,7 +239,7 @@ Development automatically uses public proxy - **no configuration needed**.
 ### Production
 
 ```env
-# Vercel Environment Variables
+# Hosting platform environment variables (CF Workers or Vercel)
 PUBLIC_SNAPDOM_PROXY_URL=https://img-proxy.yourdomain.com/?url=
 ```
 
@@ -459,7 +474,7 @@ Before deploying to production:
 - [ ] Update `ALLOWED_ORIGINS` with production domain only
 - [ ] Remove localhost entries from `ALLOWED_ORIGINS`
 - [ ] Add custom domain to worker
-- [ ] Set `PUBLIC_SNAPDOM_PROXY_URL` in Vercel
+- [ ] Set `PUBLIC_SNAPDOM_PROXY_URL` in your hosting platform (CF Workers or Vercel)
 - [ ] Test proxy with curl
 - [ ] Test screenshot capture in production
 - [ ] Monitor Cloudflare analytics for first week

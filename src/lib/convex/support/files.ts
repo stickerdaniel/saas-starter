@@ -8,24 +8,7 @@ import { createRateLimitError } from './types';
 import { getSupportOwnerIdentity } from './ownership';
 import { fetchAttachmentText } from '../files/attachmentText';
 import { vGenerateUploadUrlResult } from '../files/validators';
-
-/**
- * Maximum file size for support uploads (5MB)
- */
-const MAX_SUPPORT_FILE_SIZE = 5 * 1024 * 1024; // 5MB
-
-/**
- * Allowed file types for upload
- */
-const ALLOWED_MIME_TYPES = [
-	'image/png',
-	'image/jpeg',
-	'image/webp',
-	'image/gif',
-	'application/pdf',
-	'text/markdown',
-	'text/plain'
-];
+import { validateUploadBlob } from '../files/upload';
 
 /**
  * Generate a URL and token for uploading files directly to Convex storage
@@ -156,24 +139,9 @@ export const saveUploadedFile = action({
 			}
 			const blob = await response.blob();
 
-			if (blob.size > MAX_SUPPORT_FILE_SIZE) {
-				const maxMB = Math.round(MAX_SUPPORT_FILE_SIZE / 1024 / 1024);
-				throw new ConvexError(
-					t(args.locale, 'backend.files.file_too_large', {
-						size: `${(blob.size / 1024 / 1024).toFixed(1)}MB`,
-						max: `${maxMB}MB`
-					})
-				);
-			}
-
-			// Validate MIME type against the actual blob — not the client-supplied args.mimeType
-			// which is untrusted input and could be spoofed. Compare the essence only:
-			// text/* often comes back with a charset suffix (e.g. "text/plain; charset=utf-8").
-			const mimeEssence = blob.type.split(';')[0]!.trim().toLowerCase();
-			if (!ALLOWED_MIME_TYPES.includes(mimeEssence)) {
-				throw new ConvexError(t(args.locale, 'backend.files.type_not_allowed'));
-			}
-			verifiedMimeType = mimeEssence;
+			// Validate size and MIME type against the actual blob (not the
+			// client-supplied args.mimeType, which is untrusted).
+			verifiedMimeType = validateUploadBlob(blob, args.locale);
 
 			// Register with agent component
 			const result = await storeFile(ctx, components.agent, blob, {
@@ -190,7 +158,7 @@ export const saveUploadedFile = action({
 		// Store dimensions in fileMetadata table for proper dialog sizing
 		// (agent component strips unknown fields from file parts)
 		if (args.width && args.height && verifiedMimeType.startsWith('image/')) {
-			await ctx.runMutation(internal.support.files.storeFileMetadata, {
+			await ctx.runMutation(internal.files.metadata.storeFileMetadata, {
 				fileId: file.fileId,
 				storageId: file.storageId,
 				url: file.url, // Store URL for message matching
@@ -206,49 +174,6 @@ export const saveUploadedFile = action({
 			filename: file.filename,
 			isImage: verifiedMimeType.startsWith('image/')
 		};
-	}
-});
-
-/**
- * Store file metadata (dimensions) for proper dialog sizing
- *
- * Called internally after uploading an image. Stores dimensions separately
- * because the agent component's file parts schema doesn't preserve custom fields.
- */
-export const storeFileMetadata = internalMutation({
-	args: {
-		fileId: v.string(),
-		storageId: v.string(),
-		url: v.string(),
-		width: v.number(),
-		height: v.number()
-	},
-	returns: v.id('fileMetadata'),
-	handler: async (ctx, args) => {
-		// Check if metadata already exists by URL (avoid duplicates)
-		const existing = await ctx.db
-			.query('fileMetadata')
-			.withIndex('by_url', (q) => q.eq('url', args.url))
-			.first();
-
-		if (existing) {
-			// Update existing metadata
-			await ctx.db.patch(existing._id, {
-				width: args.width,
-				height: args.height
-			});
-			return existing._id;
-		}
-
-		// Insert new metadata
-		return await ctx.db.insert('fileMetadata', {
-			fileId: args.fileId,
-			storageId: args.storageId,
-			url: args.url,
-			width: args.width,
-			height: args.height,
-			createdAt: Date.now()
-		});
 	}
 });
 

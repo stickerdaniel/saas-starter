@@ -1,7 +1,6 @@
-import { mutation } from './_generated/server';
 import { v, ConvexError } from 'convex/values';
 import { PROFILE_IMAGE_ALLOWED_TYPES, PROFILE_IMAGE_MAX_SIZE } from './constants';
-import { authComponent } from './auth';
+import { authedMutation } from './functions';
 import { components } from './_generated/api';
 import { appRateLimiter } from './rateLimit';
 import { createRateLimitError } from './support/types';
@@ -16,15 +15,11 @@ import { vGenerateUploadUrlResult } from './files/validators';
  * @returns Temporary upload URL + token
  * @throws {Error} When user is not authenticated
  */
-export const generateUploadUrl = mutation({
+export const generateUploadUrl = authedMutation({
 	args: {},
 	returns: vGenerateUploadUrlResult,
 	handler: async (ctx) => {
-		const user = await authComponent.getAuthUser(ctx);
-		if (!user) {
-			throw new ConvexError('Unauthorized');
-		}
-		const status = await appRateLimiter.limit(ctx, 'profileImageUpload', { key: user._id });
+		const status = await appRateLimiter.limit(ctx, 'profileImageUpload', { key: ctx.user._id });
 		if (!status.ok) {
 			throw createRateLimitError(
 				status.retryAfter,
@@ -51,20 +46,15 @@ export const generateUploadUrl = mutation({
  * @throws {Error} When file type is not allowed (invalid MIME type)
  * @throws {Error} When file exceeds maximum size limit
  */
-export const updateProfileImage = mutation({
+export const updateProfileImage = authedMutation({
 	args: { storageId: v.id('_storage'), uploadToken: v.string() },
 	returns: v.union(v.string(), v.null()),
 	handler: async (ctx, args) => {
-		const user = await authComponent.getAuthUser(ctx);
-		if (!user) {
-			// Clean up orphaned storage before rejecting
-			await ctx.storage.delete(args.storageId);
-			throw new ConvexError('Unauthorized');
-		}
-
-		// No storage cleanup here: the throw aborts the transaction, so a delete
-		// would be rolled back anyway. The blob stays orphaned like any abandoned upload.
-		const status = await appRateLimiter.limit(ctx, 'profileImageUpdate', { key: user._id });
+		// Auth is enforced by the authedMutation wrapper before the handler runs.
+		// On the auth-failure path the transaction aborts before any storage write,
+		// so no manual cleanup is needed: the blob stays orphaned like any abandoned
+		// upload, which a later sweep can reclaim.
+		const status = await appRateLimiter.limit(ctx, 'profileImageUpdate', { key: ctx.user._id });
 		if (!status.ok) {
 			throw createRateLimitError(
 				status.retryAfter,
@@ -98,7 +88,7 @@ export const updateProfileImage = mutation({
 			await ctx.runMutation(components.convexFilesControl.upload.finalizeUpload, {
 				uploadToken: args.uploadToken,
 				storageId: args.storageId,
-				accessKeys: [user._id],
+				accessKeys: [ctx.user._id],
 				expiresAt: null
 			});
 		} catch (error) {

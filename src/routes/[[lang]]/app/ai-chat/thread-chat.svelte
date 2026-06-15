@@ -44,6 +44,7 @@
 		saveUploadedFile: api.aiChat.files.saveUploadedFile,
 		getAttachmentText: api.aiChat.files.getAttachmentText,
 		locale: page.data.lang,
+		translate: (key, params) => $t(key, params),
 		getAccessKey: () => threadId || 'ai-chat'
 	};
 

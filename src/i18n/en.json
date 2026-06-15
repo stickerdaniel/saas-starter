@@ -507,6 +507,12 @@
 		}
 	},
 	"backend": {
+		"aiChat": {
+			"message_too_long": "Message is too long (max {max} characters)"
+		},
+		"community": {
+			"message_too_long": "Message is too long (max {max} characters)"
+		},
 		"files": {
 			"fetch_failed": "Failed to retrieve uploaded file. Please try uploading again.",
 			"file_too_large": "File too large: {size} exceeds maximum of {max}",
@@ -516,6 +522,7 @@
 			"handoff": {
 				"response": "Sure! I will connect you now. Please enter your email below and we'll notify you when our support team has responded. In the meantime, feel free to add any additional details that might help us assist you better."
 			},
+			"message_too_long": "Message is too long (max {max} characters)",
 			"rate_limit": {
 				"global": "I'm currently experiencing high demand. Please try sending your message again in a moment.",
 				"user": "Too many messages. Please wait before sending another."
@@ -578,7 +585,9 @@
 			"file_type_not_allowed": "File type not allowed: \"{filename}\"",
 			"image_compression_exceeded": "Image could not be compressed below {maxSize}",
 			"max_attachments": "Maximum {max} attachments allowed",
-			"pasted_file_too_large": "Pasted file too large"
+			"pasted_file_too_large": "Pasted file too large",
+			"upload_failed": "Failed to upload \"{filename}\"",
+			"upload_failed_description": "Upload failed"
 		},
 		"greeting": "How can we help?",
 		"greeting_hi": "Hi",
@@ -815,10 +824,6 @@
 			"community_chat": {
 				"description": "Chat with the community in real time.",
 				"title": "Community Chat"
-			},
-			"dashboard": {
-				"description": "View key metrics and recent activity.",
-				"title": "Dashboard"
 			},
 			"home": {
 				"description": "Redirecting to your workspace dashboard.",
@@ -1183,6 +1188,7 @@
 	"team": {
 		"description": "During the working process, we perform regular fitting with the client because he is the only person who can feel whether a new suit fits or not.",
 		"linktree": "Linktree",
+		"member_alt": "Photo of {name}",
 		"roles": {
 			"cofounder_cto": "Co-Founder - CTO",
 			"founder_ceo": "Founder - CEO",

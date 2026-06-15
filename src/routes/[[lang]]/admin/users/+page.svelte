@@ -157,7 +157,7 @@
 		},
 		toListResult: (result) =>
 			({
-				items: result.users,
+				items: result.items,
 				continueCursor: result.continueCursor,
 				isDone: result.isDone
 			}) as CursorListResult<AdminUserData>,
