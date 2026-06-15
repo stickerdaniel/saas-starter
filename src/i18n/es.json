@@ -507,6 +507,12 @@
 		}
 	},
 	"backend": {
+		"aiChat": {
+			"message_too_long": "El mensaje es demasiado largo (máx. {max} caracteres)"
+		},
+		"community": {
+			"message_too_long": "El mensaje es demasiado largo (máx. {max} caracteres)"
+		},
 		"files": {
 			"fetch_failed": "No se pudo recuperar el archivo subido. Por favor intenta subirlo de nuevo.",
 			"file_too_large": "Archivo demasiado grande: {size} supera el máximo de {max}",
@@ -516,6 +522,7 @@
 			"handoff": {
 				"response": "¡Claro! Te conecto ahora. Por favor ingresa tu email abajo y te notificaremos cuando nuestro equipo de soporte haya respondido. Mientras tanto, puedes agregar detalles adicionales que nos ayuden a asistirte mejor."
 			},
+			"message_too_long": "El mensaje es demasiado largo (máx. {max} caracteres)",
 			"rate_limit": {
 				"global": "Estoy experimentando alta demanda. Por favor intenta enviar tu mensaje de nuevo en un momento.",
 				"user": "Demasiados mensajes. Por favor espera antes de enviar otro."
@@ -578,7 +585,9 @@
 			"file_type_not_allowed": "Tipo de archivo no permitido: \"{filename}\"",
 			"image_compression_exceeded": "No se pudo comprimir la imagen por debajo de {maxSize}",
 			"max_attachments": "Máximo {max} adjuntos permitidos",
-			"pasted_file_too_large": "Archivo pegado muy grande"
+			"pasted_file_too_large": "Archivo pegado muy grande",
+			"upload_failed": "No se pudo subir \"{filename}\"",
+			"upload_failed_description": "Error al subir"
 		},
 		"greeting": "¿Cómo podemos ayudarte?",
 		"greeting_hi": "Hola",
@@ -815,10 +824,6 @@
 			"community_chat": {
 				"description": "Chatea con la comunidad en tiempo real.",
 				"title": "Chat de la Comunidad"
-			},
-			"dashboard": {
-				"description": "Consulta métricas clave y actividad reciente.",
-				"title": "Panel"
 			},
 			"home": {
 				"description": "Redirigiendo al panel principal de tu espacio de trabajo.",
@@ -1183,6 +1188,7 @@
 	"team": {
 		"description": "Durante el proceso de trabajo, realizamos ajustes regulares con el cliente porque él es la única persona que puede sentir si un traje nuevo le queda bien o no.",
 		"linktree": "Linktree",
+		"member_alt": "Foto de {name}",
 		"roles": {
 			"cofounder_cto": "Cofundador - CTO",
 			"founder_ceo": "Fundador - CEO",

@@ -21,6 +21,7 @@
 	import { FadeOnLoad } from '$lib/utils/fade-on-load.svelte.js';
 	import ArrowUpIcon from '@lucide/svelte/icons/arrow-up';
 	import MessageQuotaBanner from '$lib/components/message-quota-banner.svelte';
+	import { MAX_MESSAGE_LENGTH } from '$lib/chat/core/types';
 	import { haptic } from '$lib/hooks/use-haptic.svelte';
 	import { toast } from 'svelte-sonner';
 	import { mode } from 'mode-watcher';
@@ -317,7 +318,7 @@
 							? $t('chat.input.placeholder')
 							: $t('chat.input.placeholder_disabled')}
 						class="min-h-[44px] pt-3 pl-4 text-base leading-[1.3]"
-						maxlength={2000}
+						maxlength={MAX_MESSAGE_LENGTH}
 						disabled={!hasMessagesAvailable}
 					/>
 

@@ -275,3 +275,5 @@ export const MAX_FILE_SIZE_LABEL = '5MB';
 export const MAX_INPUT_IMAGE_SIZE = 50 * 1024 * 1024; // 50MB
 export const MAX_INPUT_IMAGE_SIZE_LABEL = '50MB';
 export const MAX_ATTACHMENTS = 6;
+/** Maximum characters allowed in a single chat message. */
+export const MAX_MESSAGE_LENGTH = 2000;

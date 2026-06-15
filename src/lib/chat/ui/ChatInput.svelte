@@ -27,7 +27,8 @@
 		MAX_FILE_SIZE,
 		MAX_FILE_SIZE_LABEL,
 		MAX_INPUT_IMAGE_SIZE,
-		MAX_INPUT_IMAGE_SIZE_LABEL
+		MAX_INPUT_IMAGE_SIZE_LABEL,
+		MAX_MESSAGE_LENGTH
 	} from '../core/types.js';
 
 	const { t } = getTranslate();
@@ -410,7 +411,7 @@
 				placeholder={activePlaceholder}
 				class="min-h-[44px] pt-3 pl-4 text-base leading-[1.3]"
 				onpaste={handlePaste}
-				maxlength={2000}
+				maxlength={MAX_MESSAGE_LENGTH}
 			/>
 
 			<PromptInputActions class="mt-5 flex w-full items-center justify-between gap-2 px-3 pb-3">

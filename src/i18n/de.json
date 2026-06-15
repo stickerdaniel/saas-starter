@@ -507,6 +507,12 @@
 		}
 	},
 	"backend": {
+		"aiChat": {
+			"message_too_long": "Nachricht ist zu lang (max. {max} Zeichen)"
+		},
+		"community": {
+			"message_too_long": "Nachricht ist zu lang (max. {max} Zeichen)"
+		},
 		"files": {
 			"fetch_failed": "Die hochgeladene Datei konnte nicht abgerufen werden. Bitte versuchen Sie es erneut.",
 			"file_too_large": "Datei zu groß: {size} überschreitet das Maximum von {max}",
@@ -516,6 +522,7 @@
 			"handoff": {
 				"response": "Natürlich! Ich verbinde Sie jetzt. Bitte geben Sie unten Ihre E-Mail-Adresse ein und wir benachrichtigen Sie, wenn unser Support-Team geantwortet hat. In der Zwischenzeit können Sie gerne weitere Details hinzufügen, die uns helfen könnten."
 			},
+			"message_too_long": "Nachricht ist zu lang (max. {max} Zeichen)",
 			"rate_limit": {
 				"global": "Ich habe gerade eine hohe Auslastung. Bitte versuchen Sie es in einem Moment erneut.",
 				"user": "Zu viele Nachrichten. Bitte warten Sie, bevor Sie eine weitere senden."
@@ -578,7 +585,9 @@
 			"file_type_not_allowed": "Dateityp nicht erlaubt: \"{filename}\"",
 			"image_compression_exceeded": "Bild konnte nicht unter {maxSize} komprimiert werden",
 			"max_attachments": "Maximal {max} Anhänge erlaubt",
-			"pasted_file_too_large": "Eingefügte Datei zu groß"
+			"pasted_file_too_large": "Eingefügte Datei zu groß",
+			"upload_failed": "Hochladen von \"{filename}\" fehlgeschlagen",
+			"upload_failed_description": "Hochladen fehlgeschlagen"
 		},
 		"greeting": "Wie können wir helfen?",
 		"greeting_hi": "Hallo",
@@ -815,10 +824,6 @@
 			"community_chat": {
 				"description": "Chatten Sie in Echtzeit mit der Community.",
 				"title": "Community-Chat"
-			},
-			"dashboard": {
-				"description": "Sehen Sie wichtige Kennzahlen und aktuelle Aktivitäten.",
-				"title": "Dashboard"
 			},
 			"home": {
 				"description": "Weiterleitung zu Ihrem Workspace-Dashboard.",
@@ -1183,6 +1188,7 @@
 	"team": {
 		"description": "Während des Arbeitsprozesses führen wir regelmäßige Anpassungen mit dem Kunden durch, denn er ist die einzige Person, die spüren kann, ob ein neuer Anzug passt oder nicht.",
 		"linktree": "Linktree",
+		"member_alt": "Foto von {name}",
 		"roles": {
 			"cofounder_cto": "Mitgründer - CTO",
 			"founder_ceo": "Gründer - CEO",

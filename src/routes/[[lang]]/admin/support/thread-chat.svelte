@@ -53,6 +53,7 @@
 		saveUploadedFile: api.support.files.saveUploadedFile,
 		getAttachmentText: api.support.files.getAttachmentText,
 		locale: page.data.lang,
+		translate: (key, params) => $t(key, params),
 		getAccessKey: () => threadId || 'support-admin'
 	};
 

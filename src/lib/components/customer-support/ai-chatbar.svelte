@@ -10,7 +10,7 @@
 	import ArrowUpIcon from '@lucide/svelte/icons/arrow-up';
 	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
 	import { supportThreadContext } from './support-thread-context.svelte';
-	import { CHAT_PAGE_SIZE } from '$lib/chat/core/types';
+	import { CHAT_PAGE_SIZE, MAX_MESSAGE_LENGTH } from '$lib/chat/core/types';
 	import { getTranslate } from '@tolgee/svelte';
 	import { isAnonymousUser } from '$lib/convex/utils/anonymousUser';
 
@@ -231,7 +231,7 @@
 					placeholder={$t('support.chatbar.placeholder')}
 					onfocus={handleFocus}
 					onblur={handleBlur}
-					maxlength={2000}
+					maxlength={MAX_MESSAGE_LENGTH}
 				/>
 
 				<Button
