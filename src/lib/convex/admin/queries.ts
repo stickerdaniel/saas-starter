@@ -572,13 +572,12 @@ export const getDashboardMetrics = adminQuery({
 		const counters = await getCounters(ctx);
 
 		// Time-windowed metrics — bounded by recency, so full-scan is acceptable
-		const sessions = await fetchAllSessions(ctx);
+		const [sessions, users] = await Promise.all([fetchAllSessions(ctx), fetchAllUsers(ctx)]);
 		const now = Date.now();
 		const oneDayAgo = now - 24 * 60 * 60 * 1000;
 		const activeIn24h = sessions.filter((s) => s.updatedAt && s.updatedAt > oneDayAgo);
 		const uniqueActiveUsers = new Set(activeIn24h.map((s) => s.userId));
 
-		const users = await fetchAllUsers(ctx);
 		const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
 		const recentSignups = users.filter((u) => u.createdAt && u.createdAt > sevenDaysAgo).length;
 
