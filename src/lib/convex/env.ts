@@ -1,27 +1,34 @@
 /**
  * Typed Convex Environment Variable Access
  *
- * Type source of truth: .env-convex.schema (varlock)
- * Generated types: ./convex-env.d.ts (via `varlock typegen --path .env-convex.schema`)
- * Build-time validation: scripts/validate-convex-env.ts
+ * Declared in: ./convex.config.ts (`defineApp` `env` block). Convex validates
+ * presence and validators at push time and emits the typed `env` object below.
+ * `env` is a plain alias of `process.env` (see `_generated/server`), so the
+ * required/optional split comes for free: required vars type as `string`,
+ * optional vars as `string | undefined`.
+ *
+ * varlock (.env-convex.schema) stays canonical for log redaction, leak
+ * scanning, `@type=url`/`@type=boolean` coercion, and the SvelteKit runtime
+ * side; `scripts/env-schema-parity.test.ts` keeps the two declarations in sync.
  */
 
-import type { CoercedEnvSchema } from './convex-env';
+import { env } from './_generated/server';
 
-// Extract keys whose type is `string` (required) vs `string | undefined` (optional)
+// Required keys type as `string`; optional keys as `string | undefined`.
 type RequiredKeys = {
-	[K in keyof CoercedEnvSchema]-?: undefined extends CoercedEnvSchema[K] ? never : K;
-}[keyof CoercedEnvSchema];
+	[K in keyof typeof env]-?: undefined extends (typeof env)[K] ? never : K;
+}[keyof typeof env];
 
 /**
  * Placeholders for vars accessed at module-analysis time.
  *
- * Convex bundles and statically analyzes modules before env vars are available.
- * `createApi()` in adapter.ts calls `createAuthOptions()` at load time to
- * extract the Better Auth schema, and `new Autumn()` in autumn.ts runs at
- * top level, so these vars must return something during analysis.
- * Placeholders are never used at runtime -- build-time validation
- * (validate-convex-env.ts) ensures the real values are set before deploy.
+ * Convex bundles and statically analyzes modules before env vars are available,
+ * and `env` is just `process.env`, so a top-level read returns `undefined`
+ * during that pass. `createApi()` in adapter.ts calls `createAuthOptions()` at
+ * load time to extract the Better Auth schema, and `new Autumn()` in autumn.ts
+ * runs at top level, so these vars must return something during analysis.
+ * Placeholders are never used at runtime -- the declared `env` block makes
+ * Convex reject a deploy that is missing the real values.
  */
 const ANALYSIS_PLACEHOLDERS: Partial<Record<string, string>> = {
 	BETTER_AUTH_SECRET: 'placeholder-secret-for-analysis',
@@ -47,7 +54,7 @@ export type RequireEnvOptions = {
  * surfaces a useful breadcrumb in Convex logs when an end-user flow trips it.
  */
 export function requireEnv<K extends RequiredKeys>(name: K, opts?: RequireEnvOptions): string {
-	const value = process.env[name as string];
+	const value = env[name];
 	if (value) return value;
 
 	const placeholder = ANALYSIS_PLACEHOLDERS[name as string];
@@ -69,14 +76,14 @@ export function requireEnv<K extends RequiredKeys>(name: K, opts?: RequireEnvOpt
 
 /** Google OAuth - disabled if not configured */
 export const googleOAuth = {
-	enabled: !!(process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET),
-	clientId: process.env.AUTH_GOOGLE_ID,
-	clientSecret: process.env.AUTH_GOOGLE_SECRET
+	enabled: !!(env.AUTH_GOOGLE_ID && env.AUTH_GOOGLE_SECRET),
+	clientId: env.AUTH_GOOGLE_ID,
+	clientSecret: env.AUTH_GOOGLE_SECRET
 };
 
 /** GitHub OAuth - disabled if not configured */
 export const githubOAuth = {
-	enabled: !!(process.env.AUTH_GITHUB_ID && process.env.AUTH_GITHUB_SECRET),
-	clientId: process.env.AUTH_GITHUB_ID,
-	clientSecret: process.env.AUTH_GITHUB_SECRET
+	enabled: !!(env.AUTH_GITHUB_ID && env.AUTH_GITHUB_SECRET),
+	clientId: env.AUTH_GITHUB_ID,
+	clientSecret: env.AUTH_GITHUB_SECRET
 };

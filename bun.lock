@@ -79,7 +79,7 @@
         "bits-ui": "2.18.0",
         "bun-tasks": "0.1.2",
         "clsx": "2.1.1",
-        "convex": "1.37.0",
+        "convex": "1.40.0",
         "convex-vite-plugin": "0.4.0",
         "eslint": "10.4.1",
         "eslint-config-prettier": "10.1.8",
@@ -1669,7 +1669,7 @@
 
     "convert-to-spaces": ["convert-to-spaces@2.0.1", "", {}, "sha512-rcQ1bsQO9799wq24uE5AM2tAILy4gXGIK/njFWcVQkGNZ96edlpY+A7bjwvzjYvLDyzmG1MmMLZhpcsb+klNMQ=="],
 
-    "convex": ["convex@1.37.0", "", { "dependencies": { "esbuild": "0.27.0", "prettier": "^3.0.0", "ws": "8.18.0" }, "peerDependencies": { "@auth0/auth0-react": "^2.0.1", "@clerk/clerk-react": "^4.12.8 || ^5.0.0", "@clerk/react": "^6.4.3", "react": "^18.0.0 || ^19.0.0-0 || ^19.0.0" }, "optionalPeers": ["@auth0/auth0-react", "@clerk/clerk-react", "@clerk/react", "react"], "bin": { "convex": "bin/main.js" } }, "sha512-xGSx5edIsXCEex3OU2U2N0oyB/cOa9qGwKiImF9yOWqjqZgOkx39idtpdlwNBTBSt4S30oAvs4yeXY5xxPIX3A=="],
+    "convex": ["convex@1.40.0", "", { "dependencies": { "esbuild": "0.27.0", "prettier": "^3.0.0", "ws": "8.20.1" }, "peerDependencies": { "@auth0/auth0-react": "^2.0.1", "@clerk/clerk-react": "^4.12.8 || ^5.0.0", "@clerk/react": "^6.4.3", "react": "^18.0.0 || ^19.0.0-0 || ^19.0.0" }, "optionalPeers": ["@auth0/auth0-react", "@clerk/clerk-react", "@clerk/react", "react"], "bin": { "convex": "bin/main.js" } }, "sha512-jChWEB45q+9Ibryc7hg0l6hB1xA4zwE2y6ZhkhGP6oJkqYeiURkMagA2ZQZYMy1/T8PZ9ztoVJJtbL/+Ob851Q=="],
 
     "convex-helpers": ["convex-helpers@0.1.108", "", { "peerDependencies": { "@standard-schema/spec": "^1.0.0", "convex": "^1.25.4", "hono": "^4.0.5", "react": "^17.0.2 || ^18.0.0 || ^19.0.0", "typescript": "^5.5", "zod": "^3.25.0 || ^4.0.0" }, "optionalPeers": ["@standard-schema/spec", "hono", "react", "typescript", "zod"], "bin": { "convex-helpers": "bin.cjs" } }, "sha512-5dHYX4Dy/qnBuvP5CI9ZKEwYtSlyQKK2MiIdGTVV8WUON5mWr/St8IeBxsJTBNh/vuBrlX0XPAZ1arbk4KQUdg=="],
 
@@ -3189,7 +3189,7 @@
 
     "convex/esbuild": ["esbuild@0.27.0", "", { "optionalDependencies": { "@esbuild/aix-ppc64": "0.27.0", "@esbuild/android-arm": "0.27.0", "@esbuild/android-arm64": "0.27.0", "@esbuild/android-x64": "0.27.0", "@esbuild/darwin-arm64": "0.27.0", "@esbuild/darwin-x64": "0.27.0", "@esbuild/freebsd-arm64": "0.27.0", "@esbuild/freebsd-x64": "0.27.0", "@esbuild/linux-arm": "0.27.0", "@esbuild/linux-arm64": "0.27.0", "@esbuild/linux-ia32": "0.27.0", "@esbuild/linux-loong64": "0.27.0", "@esbuild/linux-mips64el": "0.27.0", "@esbuild/linux-ppc64": "0.27.0", "@esbuild/linux-riscv64": "0.27.0", "@esbuild/linux-s390x": "0.27.0", "@esbuild/linux-x64": "0.27.0", "@esbuild/netbsd-arm64": "0.27.0", "@esbuild/netbsd-x64": "0.27.0", "@esbuild/openbsd-arm64": "0.27.0", "@esbuild/openbsd-x64": "0.27.0", "@esbuild/openharmony-arm64": "0.27.0", "@esbuild/sunos-x64": "0.27.0", "@esbuild/win32-arm64": "0.27.0", "@esbuild/win32-ia32": "0.27.0", "@esbuild/win32-x64": "0.27.0" }, "bin": { "esbuild": "bin/esbuild" } }, "sha512-jd0f4NHbD6cALCyGElNpGAOtWxSq46l9X/sWB0Nzd5er4Kz2YTm+Vl0qKFT9KUJvD8+fiO8AvoHhFvEatfVixA=="],
 
-    "convex/ws": ["ws@8.18.0", "", { "peerDependencies": { "bufferutil": "^4.0.1", "utf-8-validate": ">=5.0.2" }, "optionalPeers": ["bufferutil", "utf-8-validate"] }, "sha512-8VbfWfHLbbwu3+N6OKsOMpBdT4kXPDDB9cJk2bJ6mh9ucxdlnNvH1e+roYkKmN9Nxw2yjz7VzeO9oOz2zJ04Pw=="],
+    "convex/ws": ["ws@8.20.1", "", { "peerDependencies": { "bufferutil": "^4.0.1", "utf-8-validate": ">=5.0.2" }, "optionalPeers": ["bufferutil", "utf-8-validate"] }, "sha512-It4dO0K5v//JtTXuPkfEOaI3uUN87iYPnqo/ZzqCoG3g8uhA66QUMs/SrM0YK7/NAu+r4LMh/9dq2A7k+rHs+w=="],
 
     "crypto-random-string/type-fest": ["type-fest@1.4.0", "", {}, "sha512-yGSza74xk0UG8k+pLh5oeoYirvIiWo5t0/o3zHHAO2tRDiZcxWP7fywNlXhqb6/r6sWvwi+RsyQMWhVLe4BVuA=="],
 
