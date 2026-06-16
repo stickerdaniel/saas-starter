@@ -8,7 +8,7 @@
 	import { haptic } from '$lib/hooks/use-haptic.svelte';
 	import { toast } from 'svelte-sonner';
 	import { addEmailForm } from './data.remote';
-	import { emailSchema } from './email-schema';
+	import { addEmailSchema } from './email-schema';
 	import { translateRemoteFormIssues } from '$lib/utils/validation-i18n';
 
 	const { t } = getTranslate();
@@ -43,7 +43,7 @@
 			</Dialog.Description>
 		</Dialog.Header>
 		<form
-			{...addEmailForm.preflight(emailSchema).enhance(async ({ submit, form: formEl }) => {
+			{...addEmailForm.preflight(addEmailSchema).enhance(async ({ submit, form: formEl }) => {
 				try {
 					await submit();
 					// Check if server returned validation errors (e.g., duplicate email)
