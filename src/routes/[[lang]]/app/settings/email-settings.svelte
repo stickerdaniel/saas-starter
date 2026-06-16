@@ -40,6 +40,7 @@
 
 	// Field errors
 	let errors = $state<Record<string, string[]>>({});
+	const hasNewEmailError = $derived((errors.newEmail?.length ?? 0) > 0);
 
 	function validate(): boolean {
 		const result = v.safeParse(changeEmailSchema, formData);
@@ -153,9 +154,14 @@
 						name="newEmail"
 						placeholder={$t('settings.email.placeholder')}
 						autocomplete="email"
+						aria-invalid={hasNewEmailError ? 'true' : undefined}
+						aria-describedby={hasNewEmailError ? 'newEmail-error' : undefined}
 						bind:value={formData.newEmail}
 					/>
-					<Field.Error errors={translateValidationErrors(errors.newEmail, $t)} />
+					<Field.Error
+						id="newEmail-error"
+						errors={translateValidationErrors(errors.newEmail, $t)}
+					/>
 				</Field.Field>
 			</Field.Group>
 

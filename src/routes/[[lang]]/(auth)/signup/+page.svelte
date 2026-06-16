@@ -204,10 +204,14 @@
 	}
 </script>
 
-<SEOHead title={$t('meta.auth.signup.title')} description={$t('meta.auth.signup.description')} />
+<SEOHead
+	title={$t('meta.auth.signup.title')}
+	description={$t('meta.auth.signup.description')}
+	noindex
+/>
 
 <noscript>
-	<div class="fixed inset-x-0 top-0 z-50 bg-yellow-100 p-4 text-center text-yellow-800">
+	<div lang="en" class="fixed inset-x-0 top-0 z-50 bg-yellow-100 p-4 text-center text-yellow-800">
 		JavaScript is required for authentication. Please enable JavaScript to sign up.
 	</div>
 </noscript>

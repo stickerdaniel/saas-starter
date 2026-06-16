@@ -3,9 +3,13 @@ import type {
 	MarketingMarkdownRenderContext,
 	MarketingMarkdownSection
 } from './types';
-import { getLocalizedMarketingUrls } from '$lib/marketing/public-routes';
-import { SUPPORTED_LANGUAGES } from '$lib/i18n/languages';
+import { getLocalizedMarketingUrls, PUBLIC_MARKETING_ROUTES } from '$lib/marketing/public-routes';
+import { DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES } from '$lib/i18n/languages';
 import { LEGAL_CONFIG } from '$lib/config/legal';
+
+// Captured once at module load so the prerendered sitemap stamps a single
+// build date across all URLs, instead of a per-request timestamp.
+const BUILD_DATE = new Date().toISOString().slice(0, 10);
 
 const MARKDOWN_CONTENT_TYPE = 'text/markdown; charset=utf-8';
 const TEXT_CONTENT_TYPE = 'text/plain; charset=utf-8';
@@ -168,17 +172,11 @@ export function createLlmsTxtResponse(origin: string): Response {
 
 export function renderRobotsTxt(origin: string): string {
 	const baseOrigin = origin.replace(/\/$/, '');
-	const disallowLines = SUPPORTED_LANGUAGES.flatMap((language) => [
-		`Disallow: /${language.code}/app`,
-		`Disallow: /${language.code}/admin`
-	]);
-
 	return [
 		'User-agent: *',
 		'Allow: /',
 		'',
 		'Disallow: /api/',
-		...disallowLines,
 		'',
 		`Sitemap: ${baseOrigin}/sitemap.xml`,
 		''
@@ -195,15 +193,36 @@ export function createRobotsTxtResponse(origin: string): Response {
 	});
 }
 
+function localizedMarketingUrl(baseOrigin: string, langCode: string, pathSuffix: string): string {
+	return pathSuffix ? `${baseOrigin}/${langCode}${pathSuffix}` : `${baseOrigin}/${langCode}`;
+}
+
 export function renderSitemapXml(origin: string): string {
-	const urls = getLocalizedMarketingUrls(origin);
-	const urlEntries = urls
-		.map((url) => `  <url>\n    <loc>${xmlEscape(url)}</loc>\n  </url>`)
-		.join('\n');
+	const baseOrigin = origin.replace(/\/$/, '');
+
+	const urlEntries = PUBLIC_MARKETING_ROUTES.flatMap(({ pathSuffix }) => {
+		// hreflang alternates for this route, shared by every localized <url> below.
+		const alternates = [
+			...SUPPORTED_LANGUAGES.map(
+				(language) =>
+					`    <xhtml:link rel="alternate" hreflang="${language.code}" href="${xmlEscape(
+						localizedMarketingUrl(baseOrigin, language.code, pathSuffix)
+					)}"/>`
+			),
+			`    <xhtml:link rel="alternate" hreflang="x-default" href="${xmlEscape(
+				localizedMarketingUrl(baseOrigin, DEFAULT_LANGUAGE, pathSuffix)
+			)}"/>`
+		].join('\n');
+
+		return SUPPORTED_LANGUAGES.map((language) => {
+			const loc = xmlEscape(localizedMarketingUrl(baseOrigin, language.code, pathSuffix));
+			return `  <url>\n    <loc>${loc}</loc>\n    <lastmod>${BUILD_DATE}</lastmod>\n${alternates}\n  </url>`;
+		});
+	}).join('\n');
 
 	return [
 		'<?xml version="1.0" encoding="UTF-8"?>',
-		'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+		'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">',
 		urlEntries,
 		'</urlset>',
 		''

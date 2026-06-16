@@ -28,13 +28,7 @@
 <DropdownMenu.Root>
 	<DropdownMenu.Trigger>
 		{#snippet child({ props })}
-			<Button
-				{variant}
-				size="icon"
-				class={className}
-				aria-label={$t('aria.change_language')}
-				{...props}
-			>
+			<Button {variant} size="icon" class={className} {...props}>
 				<GlobeIcon class="size-4" />
 				<span class="sr-only">{$t('aria.change_language')}</span>
 			</Button>

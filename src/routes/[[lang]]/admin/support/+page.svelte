@@ -143,6 +143,7 @@
 <SEOHead
 	title={$t('meta.admin.support.title')}
 	description={$t('meta.admin.support.description')}
+	noindex
 />
 
 <div class="flex h-full flex-col">

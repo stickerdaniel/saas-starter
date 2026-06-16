@@ -40,6 +40,7 @@
 
 	// Field errors
 	let errors = $state<Record<string, string[]>>({});
+	const hasNameError = $derived((errors.name?.length ?? 0) > 0);
 
 	async function handleFileSelect(e: Event) {
 		const target = e.target as HTMLInputElement;
@@ -171,8 +172,10 @@
 						type="text"
 						bind:value={name}
 						placeholder={$t('settings.account.name.placeholder')}
+						aria-invalid={hasNameError ? 'true' : undefined}
+						aria-describedby={hasNameError ? 'name-error' : undefined}
 					/>
-					<Field.Error errors={translateValidationErrors(errors.name, $t)} />
+					<Field.Error id="name-error" errors={translateValidationErrors(errors.name, $t)} />
 					<Field.Description>
 						<T keyName="settings.account.name_helper" />
 					</Field.Description>

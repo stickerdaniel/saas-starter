@@ -204,6 +204,8 @@
 					<button
 						onclick={() => (menuState = !menuState)}
 						aria-label={menuState ? $t('aria.menu_close') : $t('aria.menu_open')}
+						aria-expanded={menuState}
+						aria-controls="marketing-mobile-menu"
 						class="relative z-20 -m-2.5 -mr-4 block cursor-pointer p-2.5 pl-4"
 					>
 						<Menu
@@ -224,6 +226,7 @@
 	<!-- Mobile Menu Dropdown -->
 	{#if menuState}
 		<div
+			id="marketing-mobile-menu"
 			class="fixed top-24 right-4 left-4 z-30 rounded-2xl border border-white/[0.06] bg-background/95 p-6 backdrop-blur-xl lg:hidden"
 		>
 			<ul class="space-y-1 text-base">

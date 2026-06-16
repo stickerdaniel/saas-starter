@@ -2,7 +2,7 @@ import { sequence } from '@sveltejs/kit/hooks';
 import { redirect, type Handle, type HandleServerError, type Cookies } from '@sveltejs/kit';
 import { dev } from '$app/environment';
 import { PUBLIC_SENTRY_DSN } from '$env/static/public';
-import { isSupportedLanguage, DEFAULT_LANGUAGE } from '$lib/i18n/languages';
+import { isSupportedLanguage, DEFAULT_LANGUAGE, LANGUAGE_COOKIE_NAME } from '$lib/i18n/languages';
 import {
 	getMarketingMarkdownDocument,
 	matchPublicMarketingRoute
@@ -67,6 +67,28 @@ export function shouldBypassLanguageRedirect(pathname: string): boolean {
 
 	const normalizedPath = pathname !== '/' ? pathname.replace(/\/+$/, '') : pathname;
 	return ['/llms.txt', '/robots.txt', '/sitemap.xml'].includes(normalizedPath);
+}
+
+/**
+ * Resolve the language for a bare/prefixless path. Precedence:
+ *   1. an explicit choice in the lang_pref cookie (only if supported),
+ *   2. the first supported Accept-Language tag,
+ *   3. DEFAULT_LANGUAGE.
+ * Exported for the unit guard. The cookie value is untrusted, so it is validated.
+ */
+export function resolveBarePathLanguage(
+	cookieValue: string | undefined,
+	acceptLanguage: string | null
+): string {
+	if (isSupportedLanguage(cookieValue)) {
+		return cookieValue;
+	}
+	if (acceptLanguage) {
+		const tags = acceptLanguage.split(',').map((lang) => lang.split(';')[0]!.trim().split('-')[0]!);
+		const supported = tags.find((lang) => isSupportedLanguage(lang));
+		if (supported) return supported;
+	}
+	return DEFAULT_LANGUAGE;
 }
 
 /**
@@ -135,31 +157,36 @@ const handleLanguage: Handle = async function handleLanguage({ event, resolve })
 	const langMatch = pathname.match(/^\/([a-z]{2})(\/|$)/);
 	const hasLangPrefix = langMatch ? isSupportedLanguage(langMatch[1]) : false;
 
-	// If no language prefix, redirect to add one
+	// If no language prefix, redirect to add one. An explicit lang_pref cookie
+	// choice wins; Accept-Language is the fallback.
 	if (!hasLangPrefix) {
-		// Detect preferred language from Accept-Language header
-		const acceptLanguage = event.request.headers.get('accept-language');
-		let preferredLang = DEFAULT_LANGUAGE;
-
-		if (acceptLanguage) {
-			// Parse Accept-Language header (e.g., "en-US,en;q=0.9,de;q=0.8")
-			const languages = acceptLanguage
-				.split(',')
-				.map((lang) => lang.split(';')[0]!.trim().split('-')[0]!);
-
-			// Find first supported language
-			const supported = languages.find((lang) => isSupportedLanguage(lang));
-			if (supported) {
-				preferredLang = supported;
-			}
-		}
-
-		// Redirect to language-prefixed URL, preserving query params
+		const preferredLang = resolveBarePathLanguage(
+			event.cookies.get(LANGUAGE_COOKIE_NAME),
+			event.request.headers.get('accept-language')
+		);
 		const basePath = pathname === '/' ? `/${preferredLang}` : `/${preferredLang}${pathname}`;
 		redirect(307, `${basePath}${safeUrlSearch(event.url)}`);
 	}
 
 	return resolve(event);
+};
+
+/**
+ * Substitute the %lang% placeholder in app.html with the request's language so
+ * SSR and prerendered HTML ship the correct <html lang> on first paint for
+ * non-JS crawlers and screen readers. Derives lang from the pathname the same
+ * way handleLanguage does; defaults to DEFAULT_LANGUAGE for any unprefixed or
+ * unsupported path (handleLanguage already 307-redirects those before render).
+ * The client-side watch in +layout.svelte keeps lang in sync across SPA
+ * navigations. Reading event.url.pathname is prerender-safe (handleLanguage
+ * reads it unconditionally); only url.search/searchParams throw during prerender.
+ */
+const handleHtmlLang: Handle = async function handleHtmlLang({ event, resolve }) {
+	const langMatch = event.url.pathname.match(/^\/([a-z]{2})(\/|$)/);
+	const lang = langMatch && isSupportedLanguage(langMatch[1]) ? langMatch[1] : DEFAULT_LANGUAGE;
+	return resolve(event, {
+		transformPageChunk: ({ html }) => html.replace('%lang%', lang)
+	});
 };
 
 /**
@@ -215,7 +242,9 @@ const handleCacheControl: Handle = async function handleCacheControl({ event, re
 		matchPublicMarketingRoute(event.url.pathname)
 	) {
 		response.headers.set('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
-		// These URLs also serve markdown via Accept header — Vary prevents cache cross-contamination
+		// These URLs also serve markdown via Accept header. CF edge ignores Vary, so
+		// this is safe only because every route reaching this branch is non-prerendered
+		// and the markdown variant is private (kept out of shared caches).
 		response.headers.set('Vary', 'Accept');
 	}
 
@@ -253,9 +282,18 @@ const handleSecurityHeaders: Handle = async function handleSecurityHeaders({ eve
 	response.headers.set('X-Content-Type-Options', 'nosniff');
 	response.headers.set('X-Frame-Options', 'DENY');
 	response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
-	response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+	response.headers.set(
+		'Permissions-Policy',
+		'camera=(), microphone=(), geolocation=(), browsing-topics=(), payment=(), usb=(), serial=()'
+	);
 	response.headers.set('X-DNS-Prefetch-Control', 'off');
 	response.headers.set('Strict-Transport-Security', 'max-age=63072000; includeSubDomains');
+	response.headers.set(
+		'Content-Security-Policy',
+		"object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
+	);
+	response.headers.set('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
+	response.headers.set('Cross-Origin-Resource-Policy', 'same-origin');
 	return response;
 };
 
@@ -266,6 +304,7 @@ export const handle = sequence(
 	handleSidebarState,
 	handleMarketingMarkdown,
 	handleLanguage,
+	handleHtmlLang,
 	authFirstPattern,
 	handleCacheControl,
 	handleSecurityHeaders

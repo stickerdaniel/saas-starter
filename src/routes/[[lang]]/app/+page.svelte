@@ -5,4 +5,4 @@
 	const { t } = getTranslate();
 </script>
 
-<SEOHead title={$t('meta.app.home.title')} description={$t('meta.app.home.description')} />
+<SEOHead title={$t('meta.app.home.title')} description={$t('meta.app.home.description')} noindex />

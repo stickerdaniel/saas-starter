@@ -519,15 +519,16 @@ Components that need user data on prerendered pages must use `authClient.useSess
 
 Request-time values needed for an SSR render that shares a layout with prerendered routes (e.g. a `sidebar_state` cookie) must be read in `hooks.server.ts` into `event.locals`, not via `event.cookies.get` in a `+layout.server.ts` load. A cookie read in the shared root layout load breaks prerendering of the marketing pages; the JWT token flows through the same `locals` channel.
 
-#### Cache-control for SSR pages
+#### Cache-control for marketing pages
 
-Marketing routes that are NOT prerendered get edge caching via `handleCacheControl` hook in `hooks.server.ts`:
+Marketing HTML gets the same `Cache-Control: public, s-maxage=3600, stale-while-revalidate=86400` policy through two different edge-cache paths, because prerendered and SSR routes are served differently on CF:
 
-- Condition: unauthenticated + matches `matchPublicMarketingRoute()`
-- Headers: `Cache-Control: public, s-maxage=3600, stale-while-revalidate=86400`
-- Placed AFTER `handleMarketingMarkdown` in `sequence()` to preserve markdown's own TTL
+- **Non-prerendered routes (e.g. `/pricing`)** go through `server.respond()`, so the `handleCacheControl` hook in `hooks.server.ts` sets the header.
+  - Condition: unauthenticated + matches `matchPublicMarketingRoute()`
+  - Placed AFTER `handleMarketingMarkdown` in `sequence()` to preserve markdown's own TTL
+- **Prerendered routes (home, about, privacy, terms, impressum)** are served as static assets and bypass SvelteKit hooks, so they ship with no Cache-Control. The worker postbuild patch (`scripts/patch-cf-worker.ts`) injects the same header right after the `ASSETS.fetch` call, gated on `!__wantsMarkdown` + `prerendered.has(pathname)` + a marketing-route regex (`pricing` is intentionally excluded — it is SSR, not prerendered).
 
-Markdown responses on the same URLs use `Cache-Control: private` to stay out of shared caches: CF Edge ignores `Vary: Accept`, so any edge-cacheable markdown would poison subsequent HTML requests on the same URL.
+Markdown responses on the same URLs use `Cache-Control: private` to stay out of shared caches: CF Edge ignores `Vary: Accept`, so any edge-cacheable markdown would poison subsequent HTML requests on the same URL. The worker patch leaves the markdown variant private by reusing the same `__wantsMarkdown` negotiation check.
 
 #### Cache purging (production)
 
@@ -541,7 +542,7 @@ Markdown responses on the same URLs use `Cache-Control: private` to stay out of 
 ### Cloudflare Platform Gotchas
 
 - **CF Cache API ignores `Vary`.** Never rely on `Vary`-based content negotiation inside the worker. Bypass the worktop cache before it runs for any header-dependent response. See `scripts/patch-cf-worker.ts`.
-- **Prerendered pages bypass SvelteKit hooks.** Patch the worker to fall through to `server.respond()` for any hook-dependent behavior on prerendered routes. See `scripts/patch-cf-worker.ts`.
+- **Prerendered pages bypass SvelteKit hooks.** Patch the worker to fall through to `server.respond()` for any hook-dependent behavior on prerendered routes. The same patch also injects the marketing edge-cache header (`Cache-Control: public, s-maxage=3600, ...`) onto prerendered marketing HTML, since the `handleCacheControl` hook never runs for them. See `scripts/patch-cf-worker.ts`.
 
 ### Regression Guard Decision Tree
 

@@ -200,6 +200,7 @@
 <SEOHead
 	title={$t('meta.app.community_chat.title')}
 	description={$t('meta.app.community_chat.description')}
+	noindex
 />
 
 {#if viewer.data}

@@ -38,6 +38,7 @@
 
 	// Field errors
 	let errors = $state<Record<string, string[]>>({});
+	const hasEmailError = $derived((errors.email?.length ?? 0) > 0);
 	const totalSteps = 2;
 	const validation = $derived.by(() => {
 		const result = v.safeParse(forgotPasswordSchema, formData);
@@ -131,10 +132,11 @@
 <SEOHead
 	title={$t('meta.auth.forgot_password.title')}
 	description={$t('meta.auth.forgot_password.description')}
+	noindex
 />
 
 <noscript>
-	<div class="fixed inset-x-0 top-0 z-50 bg-yellow-100 p-4 text-center text-yellow-800">
+	<div lang="en" class="fixed inset-x-0 top-0 z-50 bg-yellow-100 p-4 text-center text-yellow-800">
 		JavaScript is required for authentication. Please enable JavaScript to continue.
 	</div>
 </noscript>
@@ -192,9 +194,12 @@
 									autocomplete="username"
 									placeholder="m@example.com"
 									disabled={isFormDisabled}
+									aria-invalid={hasEmailError ? 'true' : undefined}
+									aria-describedby={hasEmailError ? `email-${id}-error` : undefined}
 									bind:value={formData.email}
 								/>
 								<Field.Error
+									id="email-{id}-error"
 									data-testid="forgot-password-email-error"
 									errors={translateValidationErrors(errors.email, $t)}
 								/>
