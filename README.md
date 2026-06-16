@@ -43,10 +43,10 @@ No external services required. To activate optional features (email, OAuth, bill
 I'd recommend the local embedded backend for day-to-day work. Each git worktree gets its own isolated Convex instance, you can develop multiple features in parallel without conflicts.
 
 ```bash
-bunx convex init                              # creates a Convex project
+bunx convex dev --configure                   # creates/links a Convex project
 ```
 
-`convex init` prints a `CONVEX_DEPLOYMENT` value — add it to `.env.local`. `bun run dev` still uses the local embedded backend; the variable is only needed for `dev:cloud` and the Convex CLI.
+`convex dev` prints a `CONVEX_DEPLOYMENT` value, add it to `.env.local`. `bun run dev` still uses the local embedded backend; the variable is only needed for `dev:cloud` and the Convex CLI.
 
 ```bash
 bun run dev:cloud                             # frontend + cloud Convex backend
@@ -81,7 +81,7 @@ Once the app runs, rebrand it:
 bun run setup
 ```
 
-The setup script replaces the project name, GitHub links, and prompts for brand, company, operator, address, and contact email — all written to `src/lib/config/legal.ts`. After running it:
+The setup script replaces the project name, GitHub links, and prompts for brand, company, operator, address, and contact email, all written to `src/lib/config/legal.ts`. After running it:
 
 1. Replace `static/logo.svg` with your logo, then run `bun run build:emails`
 2. Refresh email snapshots: `bun run test:unit -- email-snapshots.test.ts -u`
@@ -164,7 +164,7 @@ Push a branch and Vercel creates a preview deployment with its own Convex previe
 
 </details>
 
-Convex cleans up preview deployments after 5 days (14 days on Professional). If you hit `DeploymentQuotaReached` anyway (team quota is 40, counted across all projects), the deploy script can self-heal by pruning the oldest eligible preview — opt in by setting `CONVEX_MANAGEMENT_TOKEN` and `CONVEX_PROJECT_ID` (see the [env matrix](#environment-variables)).
+Convex cleans up preview deployments after 5 days (14 days on Professional). If you hit `DeploymentQuotaReached` anyway (team quota is 40, counted across all projects), the deploy script can self-heal by pruning the oldest eligible preview, opt in by setting `CONVEX_MANAGEMENT_TOKEN` and `CONVEX_PROJECT_ID` (see the [env matrix](#environment-variables)).
 
 ## Production Deployment
 
@@ -409,7 +409,7 @@ Every component supports light and dark mode via `mode-watcher`. Interactive ele
 
 ### Worktrees
 
-Each worktree gets its own isolated Convex backend, port, and auth secret via [convex-vite-plugin](https://github.com/juliusmarminge/convex-vite-plugin). Run `bun run worktree feature/dark-mode --open-editor cursor` (or `code`) to create one with all local env vars copied over, or use the VS Code task. Work on multiple features in parallel without stepping on each other.
+Each worktree gets its own isolated Convex backend, port, and auth secret via [convex-vite-plugin](https://github.com/juliusmarminge/agent-tools/tree/main/packages/convex-vite-plugin). Run `bun run worktree feature/dark-mode --open-editor cursor` (or `code`) to create one with all local env vars copied over, or use the VS Code task. Work on multiple features in parallel without stepping on each other.
 
 ### Type-Safe Environment Variables
 

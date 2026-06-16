@@ -395,6 +395,13 @@
 		},
 		{
 			"type": "git",
+			"name": "convexAutumnSvelte",
+			"url": "https://github.com/stickerdaniel/convex-autumn-svelte",
+			"branch": "main",
+			"specialNotes": "@stickerdaniel/convex-autumn-svelte. SvelteKit/Convex binding for Autumn billing. Reactive useCustomer() (customer.products/features), autumn.refetch() after billing-affecting mutations, and the /sveltekit + /sveltekit/server entrypoints. Autumn state flows through page.data.autumnState set in the root +layout.server.ts."
+		},
+		{
+			"type": "git",
 			"name": "adapterNode",
 			"url": "https://github.com/sveltejs/kit",
 			"branch": "main",
