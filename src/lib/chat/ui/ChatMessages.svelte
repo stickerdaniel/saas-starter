@@ -65,7 +65,7 @@
 		// Re-run when the color mode changes so the gradient matches the new theme background
 		void mode.current;
 		// Defer style read until the browser has applied the new theme class
-		requestAnimationFrame(() => {
+		const rafId = requestAnimationFrame(() => {
 			// Walk up to find the first ancestor with a non-transparent background
 			let el: HTMLElement | null = wrapperEl!;
 			while (el) {
@@ -77,6 +77,7 @@
 				el = el.parentElement;
 			}
 		});
+		return () => cancelAnimationFrame(rafId);
 	});
 
 	// Handoff message text to detect - use the same translation as backend

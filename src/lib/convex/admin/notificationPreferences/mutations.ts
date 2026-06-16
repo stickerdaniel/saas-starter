@@ -6,6 +6,7 @@
  */
 
 import { v, ConvexError } from 'convex/values';
+import * as val from 'valibot';
 import { adminMutation } from '../../functions';
 import { internalMutation } from '../../_generated/server';
 import { components } from '../../_generated/api';
@@ -68,9 +69,8 @@ export const addCustomEmail = adminMutation({
 	handler: async (ctx, args) => {
 		const email = args.email.toLowerCase().trim();
 
-		// Validate email format (basic check)
-		const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-		if (!emailRegex.test(email)) {
+		// Validate email format
+		if (!val.safeParse(val.pipe(val.string(), val.email()), email).success) {
 			throw new ConvexError('Invalid email address');
 		}
 

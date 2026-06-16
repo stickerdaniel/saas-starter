@@ -5,6 +5,7 @@ import DataTableCheckbox from '$lib/components/data-table-checkbox.svelte';
 import DataTableColumnHeader from '$lib/components/admin/data-table-column-header.svelte';
 import DataTableActions from './data-table-actions.svelte';
 import type { AdminUserData } from '$lib/convex/admin/types';
+import { DEFAULT_LANGUAGE } from '$lib/i18n/languages';
 import StatusBadge from './status-badge.svelte';
 import RoleBadge from './role-badge.svelte';
 import ProviderBadge from './provider-badge.svelte';
@@ -164,7 +165,9 @@ export function createColumns(lang: string): Array<ColumnDef<AdminUserData>> {
 			cell: ({ row }) => {
 				const dateSnippet = createRawSnippet<[{ createdAt?: number }]>((getData) => {
 					const { createdAt } = getData();
-					const formatted = createdAt ? new Date(createdAt).toLocaleDateString(lang || 'en') : '-';
+					const formatted = createdAt
+						? new Date(createdAt).toLocaleDateString(lang || DEFAULT_LANGUAGE)
+						: '-';
 					return {
 						render: () => `<div>${formatted}</div>`
 					};

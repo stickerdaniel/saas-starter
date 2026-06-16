@@ -388,7 +388,7 @@ Prop names must match the parent's passed prop name exactly.
 
 ### ESLint & Legacy Plugins
 
-When adding ESLint plugins that export legacy `.eslintrc`-style configs (objects with `overrides`), use `fixupConfigRules()` from `@eslint/compat` to convert. See the Convex plugin block in `eslint.config.js` for the pattern.
+When adding ESLint plugins that export legacy `.eslintrc`-style configs (objects with `overrides`), use `fixupConfigRules()` from `@eslint/compat` to convert.
 
 Adding a top-level dir with `.svelte`/`.ts` files outside the tsconfig `include` (e.g. `archive/`, `scratch/`)? `projectService: true` will refuse to parse it and pre-commit fails with a cryptic "not found by the project service" error. Either add the dir to `tsconfig.json` `include` or to `eslint.config.js` `ignores`.
 
@@ -428,7 +428,7 @@ Decision tree for new routes:
 For each data need in a new route, pick the right pattern:
 
 1. **Auth-dependent data needed in SSR HTML?**
-   → `+page.server.ts` with `createConvexHttpClient({ token: event.locals.token })`
+   → `+page.server.ts` with `createServerConvexHttpClient({ token: event.locals.token })` from `$lib/server/convex-http`
    → Pass result to component as `data` prop
    → Wrap in try-catch for resilience
 
@@ -496,7 +496,7 @@ For each data need in a new route, pick the right pattern:
    → **Shareable / linkable view** (search, sort, active tab) → URL. Read with `page.url.searchParams` in a `$derived` (SvelteKit populates `page.url` on the server, so SSR renders the right view → flash-free); write with `goto(url, { keepFocus: true, noScroll: true })`, omitting defaults from the URL. Default `replaceState: false` pushes a history entry per view switch, matching `admin/support` thread selection (canonical) and the settings tabs fix. `pushState` / `replaceState` from `$app/navigation` are not a substitute — they update `page.state`, not `page.url`, so SSR via `page.url.searchParams` would not see the change. `goto` to the same route does not re-run server loads that do not track the changed param (SvelteKit's dependency tracking handles this); only call out `replaceState: true` when you specifically want to overwrite the current history entry. **Do not use `useSearchParams` (`runed/kit`) for SSR-visible view selection** — it reads the URL client-only (BROWSER-gated init) and renders the default on the server, so the view flashes on first paint. Fine only where the flash is invisible (e.g. a table behind a loading skeleton).
    → **Per-user preference that must be right on first paint but does not belong in the address** (sidebar collapse) → cookie + SSR read. Write client-side (`document.cookie`), read in `hooks.server.ts` into `event.locals` (NOT a layout-load `cookies.get`, see Prerendering constraints), thread as a prop. See #404.
    → **Preference where a hydration flash is fine, or state too large / private to send on every request** (chat drafts, mic settings) → `PersistedState` (localStorage).
-   Three flash-free reads, all because the value is available before first paint: URL via `page.url`, cookie via `event.locals`, or a blocking inline `<head>` script that reads localStorage and sets a single `<html>` class/attribute (e.g. theme via ModeWatcher in `app.html`). `PersistedState` read in component script always flashes.
+   Three flash-free reads, all because the value is available before first paint: URL via `page.url`, cookie via `event.locals`, or a blocking inline `<head>` script that reads localStorage and sets a single `<html>` class/attribute (e.g. theme via the `<ModeWatcher />` component in `+layout.svelte`, which injects a blocking head script). `PersistedState` read in component script always flashes.
 
 #### Deferred loading pattern
 
@@ -693,7 +693,7 @@ For general animation craft (easing, duration, when to animate, performance, acc
 
 - Simple animations should be implemented with plain CSS whenever possible.
 - Before implementing any custom animation, check if sv-animate has a prebuilt component that can be used. Use btca with `svAnimate` resource.
-- For custom animations, use Svelte's built-in animations, or motion-svelte (Framer Motion for Svelte). Use btca with `motionSvelte` resource.
+- For custom animations, use Svelte's built-in animations, or motion-sv (Framer Motion for Svelte). Use btca with `motionSvelte` resource.
 - For Tailwind, use `motion-safe:` / `motion-reduce:` prefixes (e.g., `motion-safe:animate-fade-in`, `motion-reduce:animate-none`).
 - For page transitions and state changes, use the View Transitions API with SvelteKit's `onNavigate`:
 
@@ -760,7 +760,7 @@ Use `svelte-infinite` with convex-svelte pagination for huge lists to automatica
 
 Before creating our own utilities, research the runed library to see if the utility you need already exists. Use btca with `runed` resource.
 
-- For URL/query state, prefer Runed `useSearchParams` over manual `$page.url` + `goto` wiring.
+- For client-only or flash-invisible URL/query state, prefer Runed `useSearchParams` over manual `page.url` + `goto` wiring. For SSR-visible view selection, use `page.url.searchParams` + `goto` instead (see the data-fetching decision tree above: `useSearchParams` reads the URL client-only, so the view flashes on first paint).
 - Exception: in high-frequency selection UIs where query-param writes would cause unwanted Convex refetches (for example `src/routes/[[lang]]/admin/support/+page.svelte` thread selection), manual URL handling is acceptable.
   Here is a list of the utilities available:
 

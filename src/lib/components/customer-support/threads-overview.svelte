@@ -19,6 +19,7 @@
 	import { SvelteSet } from 'svelte/reactivity';
 	import { isAnonymousUser } from '$lib/convex/utils/anonymousUser';
 	import { page } from '$app/state';
+	import { DEFAULT_LANGUAGE } from '$lib/i18n/languages';
 
 	const { t } = getTranslate();
 
@@ -217,7 +218,7 @@
 		if (days === 1) return $t('support.time.yesterday');
 		if (days < 7) return $t('support.time.days_ago', { days });
 
-		return new Date(timestamp).toLocaleDateString(page.data.lang ?? 'en');
+		return new Date(timestamp).toLocaleDateString(page.data.lang ?? DEFAULT_LANGUAGE);
 	}
 </script>
 

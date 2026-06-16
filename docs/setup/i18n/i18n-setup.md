@@ -4,7 +4,7 @@ This project uses **Tolgee** for cloud-hosted translation management with SEO-fr
 
 ## Tolgee Cloud is Optional
 
-This template includes **many translation keys that exceed Tolgee Cloud's free tier** (500 keys on the free plan, this project has ~1,100). You have three options:
+This template includes **many translation keys that exceed Tolgee Cloud's free tier** (500 keys on the free plan, this project has ~740). You have three options:
 
 ### Option 1: Skip Tolgee Entirely (Easiest)
 
