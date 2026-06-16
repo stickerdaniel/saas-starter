@@ -57,6 +57,7 @@
 <SEOHead
 	title={$t('meta.auth.email_verified.title')}
 	description={$t('meta.auth.email_verified.description')}
+	noindex
 />
 
 <div class="flex min-h-svh flex-col items-center justify-center p-6 md:p-10">

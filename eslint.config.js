@@ -18,6 +18,7 @@ import requireReturnsValidatorRule from './eslint/rules/require-returns-validato
 import noBareTestSkipRule from './eslint/rules/no-bare-test-skip.js';
 import noModuleStateSingletonRule from './eslint/rules/no-module-state-singleton.js';
 import requireMotionGuardTransitionRule from './eslint/rules/require-motion-guard-transition.js';
+import requireFieldErrorAssociationRule from './eslint/rules/require-field-error-association.js';
 
 const gitignorePath = path.resolve(import.meta.dirname, '.gitignore');
 const localPlugin = {
@@ -31,7 +32,8 @@ const localPlugin = {
 		'require-returns-validator': requireReturnsValidatorRule,
 		'no-bare-test-skip': noBareTestSkipRule,
 		'no-module-state-singleton': noModuleStateSingletonRule,
-		'require-motion-guard-transition': requireMotionGuardTransitionRule
+		'require-motion-guard-transition': requireMotionGuardTransitionRule,
+		'require-field-error-association': requireFieldErrorAssociationRule
 	}
 };
 
@@ -183,7 +185,8 @@ export default defineConfig(
 		},
 		rules: {
 			'local/no-hardcoded-aria-label': 'error',
-			'local/no-hardcoded-sr-only': 'error'
+			'local/no-hardcoded-sr-only': 'error',
+			'local/require-field-error-association': 'error'
 		}
 	},
 	{

@@ -58,6 +58,9 @@
 
 	const { t } = getTranslate();
 
+	const hasEmailError = $derived((signInErrors.email?.length ?? 0) > 0);
+	const hasPasswordError = $derived((signInErrors.password?.length ?? 0) > 0);
+
 	let hydrated = $state(false);
 	let forgotPasswordLink = $state<HTMLAnchorElement | null>(null);
 	let signUpLink = $state<HTMLAnchorElement | null>(null);
@@ -124,9 +127,14 @@
 					autocomplete="username"
 					placeholder="m@example.com"
 					disabled={isFormDisabled}
+					aria-invalid={hasEmailError ? 'true' : undefined}
+					aria-describedby={hasEmailError ? `email-${id}-error` : undefined}
 					bind:value={signInData.email}
 				/>
-				<Field.Error errors={translateValidationErrors(signInErrors.email, $t)} />
+				<Field.Error
+					id="email-{id}-error"
+					errors={translateValidationErrors(signInErrors.email, $t)}
+				/>
 			</Field.Field>
 			<Field.Field>
 				<div class="flex items-center">
@@ -150,12 +158,17 @@
 						data-testid="password-input"
 						autocomplete="current-password"
 						disabled={isFormDisabled}
+						invalid={hasPasswordError}
+						aria-describedby={hasPasswordError ? `password-${id}-error` : undefined}
 						bind:value={signInData.password}
 					>
 						<Password.ToggleVisibility />
 					</Password.Input>
 				</Password.Root>
-				<Field.Error errors={translateValidationErrors(signInErrors.password, $t)} />
+				<Field.Error
+					id="password-{id}-error"
+					errors={translateValidationErrors(signInErrors.password, $t)}
+				/>
 			</Field.Field>
 			<Field.Error errors={translateFormError(formError, $t)} data-testid="auth-error" />
 			<Field.Field>

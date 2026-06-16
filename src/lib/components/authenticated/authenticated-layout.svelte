@@ -57,7 +57,7 @@
 		class="h-svh overflow-hidden"
 	>
 		<AuthenticatedSidebar variant="inset" config={sidebarConfig} {user} {threadSubItems} />
-		<Sidebar.Inset class={fullControl ? 'flex flex-col overflow-hidden' : ''}>
+		<Sidebar.Inset id="main-content" class={fullControl ? 'flex flex-col overflow-hidden' : ''}>
 			<AuthenticatedHeader {routePrefix} {rootLabel} />
 
 			{#if fullControl}

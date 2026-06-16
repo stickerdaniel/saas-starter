@@ -37,6 +37,7 @@
 <SEOHead
 	title={$t('meta.admin.dashboard.title')}
 	description={$t('meta.admin.dashboard.description')}
+	noindex
 />
 
 <div class="flex flex-col gap-6">

@@ -194,8 +194,10 @@
 					type="email"
 					placeholder={$t('admin.settings.founder_welcome.config_reply_to_placeholder')}
 					bind:value={editReplyTo}
+					aria-invalid={replyToError ? 'true' : undefined}
+					aria-describedby={replyToError ? 'config-reply-to-error' : undefined}
 				/>
-				<Field.Error errors={translateFormError(replyToError, $t)} />
+				<Field.Error id="config-reply-to-error" errors={translateFormError(replyToError, $t)} />
 			</Field.Field>
 			<Field.Field>
 				<Field.Label for="config-subject">

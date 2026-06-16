@@ -1,5 +1,9 @@
 import { expect, test } from '@playwright/test';
 
+const isCloudflarePreview =
+	(process.env.PLAYWRIGHT_BASE_URL ?? process.env.BASE_URL ?? '').includes('workers.dev') ||
+	process.env.E2E_TARGET === 'cf';
+
 // Cache-buster: CF Cache API ignores Vary: Accept, so HTML and markdown variants
 // of the same URL share one cache key. A unique cb per request keeps each variant
 // on a distinct key (markdown can't poison HTML) and forces a fresh origin fetch
@@ -52,5 +56,24 @@ test.describe('public agent surface', () => {
 			expect(new URL(response.url()).pathname, path).toBe(path);
 			expect(response.headers()['content-type'], path).toContain(contentType);
 		}
+	});
+
+	test('prerendered marketing HTML is edge-cacheable, markdown variant is not', async ({
+		request
+	}) => {
+		test.skip(!isCloudflarePreview, 'worker patch is CF-only; not present in local test stack');
+		const html = await request.get(`/en/about?cb=${Date.now()}`, {
+			headers: { Accept: 'text/html' }
+		});
+		expect(html.status()).toBe(200);
+		expect(html.headers()['cache-control']).toContain('public');
+		expect(html.headers()['cache-control']).toContain('s-maxage=3600');
+
+		const md = await request.get(`/en/about?cb=${Date.now()}`, {
+			headers: { Accept: 'text/markdown' }
+		});
+		expect(md.status()).toBe(200);
+		expect(md.headers()['content-type']).toContain('text/markdown');
+		expect(md.headers()['cache-control']).toContain('private');
 	});
 });

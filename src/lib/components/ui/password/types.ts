@@ -29,6 +29,9 @@ export type PasswordRootProps = WithoutChildren<HTMLAttributes<HTMLDivElement>> 
 export type PasswordInputPropsWithoutHTML = WithChildren<{
 	ref?: HTMLInputElement | null;
 	value?: string;
+	/** Externally-driven invalid state, OR-merged with the computed strength validity.
+	 * Callers must use this instead of `aria-invalid` (which is omitted from the HTML props). */
+	invalid?: boolean;
 }>;
 
 export type PasswordInputProps = Omit<

@@ -42,7 +42,11 @@
 	}
 </script>
 
-<SEOHead title={$t('meta.app.settings.title')} description={$t('meta.app.settings.description')} />
+<SEOHead
+	title={$t('meta.app.settings.title')}
+	description={$t('meta.app.settings.description')}
+	noindex
+/>
 
 <div class="flex flex-1 flex-col px-4 lg:px-6">
 	<div class="mx-auto w-full max-w-3xl flex-1 space-y-6">

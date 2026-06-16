@@ -10,6 +10,7 @@
 <SEOHead
 	title={$t('meta.admin.settings.title')}
 	description={$t('meta.admin.settings.description')}
+	noindex
 />
 
 <div class="flex flex-col gap-6 px-4 lg:px-6 xl:px-8 2xl:px-16" data-testid="admin-settings-page">

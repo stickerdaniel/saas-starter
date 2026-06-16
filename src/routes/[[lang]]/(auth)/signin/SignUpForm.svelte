@@ -56,6 +56,10 @@
 	let hydrated = $state(false);
 	const isFormDisabled = $derived(isLoading || !hydrated);
 
+	const hasNameError = $derived((signUpErrors.name?.length ?? 0) > 0);
+	const hasEmailError = $derived((signUpErrors.email?.length ?? 0) > 0);
+	const hasPasswordError = $derived((signUpErrors.password?.length ?? 0) > 0);
+
 	const passwordParams = {
 		'validation.password.min_length': { count: PASSWORD_MIN_LENGTH }
 	};
@@ -104,9 +108,14 @@
 					autocomplete="name"
 					placeholder={$t('settings.account.name.placeholder')}
 					disabled={isFormDisabled}
+					aria-invalid={hasNameError ? 'true' : undefined}
+					aria-describedby={hasNameError ? `name-${id}-error` : undefined}
 					bind:value={signUpData.name}
 				/>
-				<Field.Error errors={translateValidationErrors(signUpErrors.name, $t)} />
+				<Field.Error
+					id="name-{id}-error"
+					errors={translateValidationErrors(signUpErrors.name, $t)}
+				/>
 			</Field.Field>
 			<Field.Field>
 				<Field.Label for="signup-email-{id}">
@@ -120,9 +129,14 @@
 					autocomplete="username"
 					placeholder="m@example.com"
 					disabled={isFormDisabled}
+					aria-invalid={hasEmailError ? 'true' : undefined}
+					aria-describedby={hasEmailError ? `signup-email-${id}-error` : undefined}
 					bind:value={signUpData.email}
 				/>
-				<Field.Error errors={translateValidationErrors(signUpErrors.email, $t)} />
+				<Field.Error
+					id="signup-email-{id}-error"
+					errors={translateValidationErrors(signUpErrors.email, $t)}
+				/>
 			</Field.Field>
 			<Field.Field>
 				<Field.Label for="signup-password-{id}">
@@ -135,6 +149,8 @@
 						data-testid="signup-password-input"
 						autocomplete="new-password"
 						disabled={isFormDisabled}
+						invalid={hasPasswordError}
+						aria-describedby={hasPasswordError ? `signup-password-${id}-error` : undefined}
 						bind:value={signUpData.password}
 					>
 						<Password.ToggleVisibility />
@@ -142,6 +158,8 @@
 					<Password.Strength />
 				</Password.Root>
 				<Field.Error
+					id="signup-password-{id}-error"
+					data-testid="signup-password-error"
 					errors={translateValidationErrors(signUpErrors.password, $t, passwordParams)}
 				/>
 			</Field.Field>

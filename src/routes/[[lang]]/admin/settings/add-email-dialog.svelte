@@ -19,6 +19,8 @@
 
 	let { open = $bindable(false) }: Props = $props();
 
+	const hasEmailError = $derived((addEmailForm.fields.email.issues()?.length ?? 0) > 0);
+
 	function handleOpenChange(isOpen: boolean) {
 		open = isOpen;
 	}
@@ -69,9 +71,11 @@
 						inputmode="email"
 						autocomplete="email"
 						placeholder={$t('admin.settings.add_email_placeholder')}
+						aria-describedby={hasEmailError ? 'email-error' : undefined}
 						data-testid="add-email-input"
 					/>
 					<Field.Error
+						id="email-error"
 						errors={translateRemoteFormIssues(addEmailForm.fields.email.issues(), $t)}
 						data-testid="add-email-error"
 					/>

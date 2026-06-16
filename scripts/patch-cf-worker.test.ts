@@ -105,4 +105,26 @@ describe('patch-cf-worker', () => {
 			/CACHE_LOOKUP_PATTERN did not match/
 		);
 	});
+
+	it('adds s-maxage edge cache to prerendered marketing HTML', () => {
+		const result = applyMarkdownPatch(WORKER_FIXTURE)!;
+		expect(result).toContain('s-maxage=3600, stale-while-revalidate=86400');
+		expect(result).toMatch(/!__wantsMarkdown && prerendered\.has\(pathname\)/);
+		expect(result).toContain('res = new Response(res.body, res)');
+		expect(result.match(/s-maxage=3600/g)?.length).toBe(1);
+		expect(result.match(/const __wantsMarkdown =/g)?.length).toBe(1);
+	});
+
+	it('does not add a public cache header to the server.respond branch', () => {
+		const result = applyMarkdownPatch(WORKER_FIXTURE)!;
+		const elseIdx = result.indexOf('res = await server.respond(req');
+		expect(result.slice(elseIdx)).not.toContain('s-maxage');
+	});
+
+	it('injects the marketing edge-cache on the no-cache fallback path', () => {
+		const result = applyMarkdownPatch(WORKER_FIXTURE_NO_CACHE)!;
+		expect(result).toContain('s-maxage=3600, stale-while-revalidate=86400');
+		expect(result).toContain('res = new Response(res.body, res)');
+		expect(result.match(/s-maxage=3600/g)?.length).toBe(1);
+	});
 });

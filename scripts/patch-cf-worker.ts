@@ -14,6 +14,10 @@
  * a) Detect markdown requests early (before cache lookup)
  * b) Skip the worktop cache for markdown requests
  * c) Skip static asset serving for markdown requests
+ * d) Inject an s-maxage edge-cache header for prerendered marketing HTML.
+ *    Those pages are served as static assets and bypass SvelteKit hooks, so
+ *    they ship with no Cache-Control. This mirrors the handleCacheControl hook
+ *    that caches the SSR /pricing route, leaving the markdown variant private.
  *
  * Runs as postbuild for all builds. Skips gracefully when no worker file exists
  * (e.g., Vercel via adapter-auto where server.respond() always runs).
@@ -32,6 +36,26 @@ export const STATIC_SERVING_PATTERN = /(if\s*\()(is_static_asset\b.+?\.startsWit
 // CF Cache API ignores Vary headers, so cached HTML would be served for markdown requests.
 export const CACHE_LOOKUP_PATTERN =
 	/(let res = )(!pragma\.includes\("no-cache"\) && await \w+\(req\))/;
+
+// Match the static-asset serving call: `res = await env2.ASSETS.fetch(req);`
+// We append the marketing edge-cache injection right after it, capturing the
+// minified env binding (e.g. `env2`) so the replacement references the real name.
+export const ASSET_SERVE_PATTERN = /res = await (\w+)\.ASSETS\.fetch\(req\);?/;
+
+// Injection appended after the ASSETS.fetch call. `$1` is replaced with the
+// captured env binding. Double-gated on the same __wantsMarkdown const used by
+// the markdown passthrough so the markdown variant stays private, plus the
+// prerendered set and a marketing-route regex (pricing is intentionally absent,
+// it is SSR via handleCacheControl, not prerendered).
+const MARKETING_HTML_CACHE_INJECTION = `res = await $1.ASSETS.fetch(req);
+        if (!__wantsMarkdown && prerendered.has(pathname) && /^\\/[a-z]{2}(\\/(about|privacy|terms|impressum))?$/.test(pathname)) {
+          // Prerendered marketing HTML bypasses SvelteKit hooks on CF, so it ships
+          // with no Cache-Control. Apply the same s-maxage policy handleCacheControl
+          // gives the SSR /pricing route. ASSETS responses have immutable headers —
+          // reconstruct to mutate.
+          res = new Response(res.body, res);
+          res.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-revalidate=86400");
+        }`;
 
 /**
  * Apply the markdown passthrough patch to a worker source string.
@@ -52,6 +76,8 @@ export function applyMarkdownPatch(source: string): string | null {
 			CACHE_LOOKUP_PATTERN,
 			`const __wantsMarkdown = /\\btext\\/markdown\\b/i.test(req.headers.get("accept") || "");\n$1!__wantsMarkdown && $2`
 		);
+		// Step 2: Also skip static asset serving for markdown requests
+		patched = patched.replace(STATIC_SERVING_PATTERN, `$1!__wantsMarkdown && ($2))`);
 	} else {
 		// Fail loud if cache-like code exists but didn't match (pattern drift).
 		// \w+ excludes dotted calls like server.respond(req, ...), so this only
@@ -69,11 +95,22 @@ export function applyMarkdownPatch(source: string): string | null {
 			STATIC_SERVING_PATTERN,
 			`const __wantsMarkdown = /\\btext\\/markdown\\b/i.test(req.headers.get("accept") || "");\n$1!__wantsMarkdown && ($2))`
 		);
-		return patched === source ? null : patched;
 	}
 
-	// Step 2: Also skip static asset serving for markdown requests
-	patched = patched.replace(STATIC_SERVING_PATTERN, `$1!__wantsMarkdown && ($2))`);
+	// Step 3: Inject an s-maxage edge-cache header for prerendered marketing HTML.
+	// Runs in both the cache and no-cache paths (single tail return). Reuses the
+	// same __wantsMarkdown const so the markdown variant stays private.
+	if (ASSET_SERVE_PATTERN.test(patched)) {
+		const before = patched;
+		patched = patched.replace(ASSET_SERVE_PATTERN, (_m, envName) =>
+			MARKETING_HTML_CACHE_INJECTION.replace('$1', envName)
+		);
+		if (patched === before) {
+			throw new Error(
+				'ASSET_SERVE_PATTERN matched but the marketing edge-cache injection did not apply.'
+			);
+		}
+	}
 
 	return patched === source ? null : patched;
 }

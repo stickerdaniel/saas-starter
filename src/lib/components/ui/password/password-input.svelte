@@ -9,6 +9,7 @@
 		ref = $bindable(null),
 		value = $bindable(''),
 		class: className,
+		invalid = false,
 		children,
 		...rest
 	}: PasswordInputProps = $props();
@@ -18,7 +19,8 @@
 			() => value,
 			(v) => (value = v)
 		),
-		ref: box.with(() => ref)
+		ref: box.with(() => ref),
+		invalid: box.with(() => invalid)
 	});
 
 	const mergedProps = $derived(mergeProps(rest, state.props));

@@ -7,4 +7,8 @@
 	// This page redirects to /admin/dashboard via +page.server.ts
 </script>
 
-<SEOHead title={$t('meta.admin.home.title')} description={$t('meta.admin.home.description')} />
+<SEOHead
+	title={$t('meta.admin.home.title')}
+	description={$t('meta.admin.home.description')}
+	noindex
+/>

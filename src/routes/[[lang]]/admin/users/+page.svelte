@@ -497,7 +497,11 @@
 	}
 </script>
 
-<SEOHead title={$t('meta.admin.users.title')} description={$t('meta.admin.users.description')} />
+<SEOHead
+	title={$t('meta.admin.users.title')}
+	description={$t('meta.admin.users.description')}
+	noindex
+/>
 
 <div class="flex flex-col gap-6 px-4 lg:px-6 xl:px-8 2xl:px-16" data-testid="admin-users-page">
 	<!-- Header -->
