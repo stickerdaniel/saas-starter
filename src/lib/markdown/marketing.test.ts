@@ -118,8 +118,10 @@ describe('marketing markdown helpers', () => {
 
 		expect(robots).toContain('User-agent: *');
 		expect(robots).toContain('Allow: /');
-		expect(robots).toContain('Disallow: /en/app');
-		expect(robots).toContain('Disallow: /fr/admin');
+		expect(robots).toContain('Disallow: /api/');
+		// Private app/admin routes are kept out via per-page noindex, not robots.txt
+		expect(robots).not.toContain('Disallow: /en/app');
+		expect(robots).not.toContain('Disallow: /en/admin');
 		expect(robots).toContain('Sitemap: https://example.com/sitemap.xml');
 	});
 
@@ -143,6 +145,49 @@ describe('marketing markdown helpers', () => {
 		expect(sitemap).toContain('<loc>https://example.com/en/impressum</loc>');
 		expect(sitemap).not.toContain('/en/app');
 		expect(sitemap).not.toContain('/en/admin');
+	});
+
+	it('declares the xhtml namespace for hreflang alternates', () => {
+		const sitemap = renderSitemapXml('https://example.com');
+
+		expect(sitemap).toContain('xmlns:xhtml="http://www.w3.org/1999/xhtml"');
+	});
+
+	it('emits a full hreflang alternate group with x-default per route', () => {
+		const sitemap = renderSitemapXml('https://example.com');
+
+		// One alternate per supported language plus x-default, all pointing at the
+		// pricing route variants.
+		expect(sitemap).toContain(
+			'<xhtml:link rel="alternate" hreflang="en" href="https://example.com/en/pricing"/>'
+		);
+		expect(sitemap).toContain(
+			'<xhtml:link rel="alternate" hreflang="de" href="https://example.com/de/pricing"/>'
+		);
+		expect(sitemap).toContain(
+			'<xhtml:link rel="alternate" hreflang="es" href="https://example.com/es/pricing"/>'
+		);
+		expect(sitemap).toContain(
+			'<xhtml:link rel="alternate" hreflang="fr" href="https://example.com/fr/pricing"/>'
+		);
+		expect(sitemap).toContain(
+			'<xhtml:link rel="alternate" hreflang="x-default" href="https://example.com/en/pricing"/>'
+		);
+
+		// x-default points at the home route's default-language URL too.
+		expect(sitemap).toContain(
+			'<xhtml:link rel="alternate" hreflang="x-default" href="https://example.com/en"/>'
+		);
+	});
+
+	it('stamps every url with an ISO lastmod date', () => {
+		const sitemap = renderSitemapXml('https://example.com');
+
+		const lastmodMatches = sitemap.match(/<lastmod>\d{4}-\d{2}-\d{2}<\/lastmod>/g) ?? [];
+		const urlCount = (sitemap.match(/<url>/g) ?? []).length;
+
+		expect(urlCount).toBeGreaterThan(0);
+		expect(lastmodMatches).toHaveLength(urlCount);
 	});
 
 	it('returns sitemap responses as xml', () => {

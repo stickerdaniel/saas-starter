@@ -19,6 +19,7 @@
 	import * as AlertDialog from '$lib/components/ui/alert-dialog';
 	import { Button } from '$lib/components/ui/button';
 	import { getLegalEmailAddress } from '$lib/config/legal';
+	import { buildMailto } from '$lib/utils/mailto';
 
 	const { t } = getTranslate();
 
@@ -86,6 +87,7 @@
 		saveUploadedFile: api.support.files.saveUploadedFile,
 		getAttachmentText: api.support.files.getAttachmentText,
 		locale: page.data.lang,
+		translate: (key, params) => $t(key, params),
 		getAccessKey: () => threadContext.threadId ?? threadContext.userId ?? 'support',
 		getGenerateUploadUrlArgs: () => {
 			const userId = threadContext.userId;
@@ -220,7 +222,7 @@
 		}
 		// Plain location assignment, not an <a href>, so SvelteKit's client router
 		// doesn't intercept the mailto and silently no-op the click.
-		window.location.href = `mailto:${getLegalEmailAddress()}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+		window.location.href = buildMailto({ email: getLegalEmailAddress(), subject, body });
 		captureErrorOpen = false;
 	}
 </script>

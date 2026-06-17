@@ -30,12 +30,14 @@
 	import ConvexCursorTableShell from '$lib/components/tables/convex-cursor-table-shell.svelte';
 	import { createConvexCursorTable } from '$lib/tables/convex/create-convex-cursor-table.svelte';
 	import type { CursorListResult } from '$lib/tables/convex/contract';
-	import { columns } from './columns.js';
+	import { createColumns } from './columns.js';
 	import DataTableFilters from './data-table-filters.svelte';
 	import type { ActionEvent } from './data-table-actions.svelte';
 	import { browser } from '$app/environment';
 
-	let { data: _data }: { data: PageData } = $props();
+	let { data }: { data: PageData } = $props();
+
+	const columns = $derived(createColumns(data.lang ?? 'en'));
 
 	const client = useConvexClient();
 
@@ -157,7 +159,7 @@
 		},
 		toListResult: (result) =>
 			({
-				items: result.users,
+				items: result.items,
 				continueCursor: result.continueCursor,
 				isDone: result.isDone
 			}) as CursorListResult<AdminUserData>,
@@ -242,7 +244,9 @@
 		get data() {
 			return usersTable.rows;
 		},
-		columns,
+		get columns() {
+			return columns;
+		},
 		state: {
 			get pagination() {
 				return { pageIndex, pageSize };
@@ -493,7 +497,11 @@
 	}
 </script>
 
-<SEOHead title={$t('meta.admin.users.title')} description={$t('meta.admin.users.description')} />
+<SEOHead
+	title={$t('meta.admin.users.title')}
+	description={$t('meta.admin.users.description')}
+	noindex
+/>
 
 <div class="flex flex-col gap-6 px-4 lg:px-6 xl:px-8 2xl:px-16" data-testid="admin-users-page">
 	<!-- Header -->
@@ -662,7 +670,11 @@
 					<div class="mt-4">
 						<Field.Group>
 							<Field.Field>
+								<Field.Label class="sr-only" for="admin-users-ban-reason">
+									<T keyName="admin.dialog.ban_reason_label" />
+								</Field.Label>
 								<Input
+									id="admin-users-ban-reason"
 									placeholder={$t('admin.dialog.ban_reason_placeholder')}
 									data-testid="admin-users-ban-reason-input"
 									bind:value={banReason}

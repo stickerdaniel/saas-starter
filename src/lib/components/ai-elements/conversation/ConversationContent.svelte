@@ -20,13 +20,12 @@
 	}: ConversationContentProps = $props();
 
 	const context = stickToBottomContext.get();
-	let element: HTMLDivElement; // assigned by Svelte bind:this
 
 	watch(
-		() => element,
+		() => ref,
 		() => {
-			if (element) {
-				context.setElement(element);
+			if (ref) {
+				context.setElement(ref);
 				// Initial scroll to bottom
 				context.scrollToBottom('smooth');
 			}
@@ -34,11 +33,6 @@
 	);
 </script>
 
-<div
-	bind:this={element}
-	bind:this={ref}
-	class={cn('flex-1 overflow-y-auto p-4', className)}
-	{...restProps}
->
+<div bind:this={ref} class={cn('flex-1 overflow-y-auto p-4', className)} {...restProps}>
 	{@render children?.()}
 </div>

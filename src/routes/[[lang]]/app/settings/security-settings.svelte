@@ -9,6 +9,8 @@
 	import { haptic } from '$lib/hooks/use-haptic.svelte';
 	import { toast } from 'svelte-sonner';
 	import { T, getTranslate } from '@tolgee/svelte';
+	import { page } from '$app/state';
+	import { DEFAULT_LANGUAGE } from '$lib/i18n/languages';
 	import KeyIcon from '@lucide/svelte/icons/key-round';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
@@ -113,7 +115,7 @@
 	}
 
 	function formatDate(date: Date): string {
-		return new Date(date).toLocaleDateString(undefined, {
+		return new Date(date).toLocaleDateString(page.data.lang ?? DEFAULT_LANGUAGE, {
 			year: 'numeric',
 			month: 'short',
 			day: 'numeric'

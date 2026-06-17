@@ -32,6 +32,9 @@
 
 	// Field errors
 	let errors = $state<Record<string, string[]>>({});
+	const hasCurrentPasswordError = $derived((errors.currentPassword?.length ?? 0) > 0);
+	const hasNewPasswordError = $derived((errors.newPassword?.length ?? 0) > 0);
+	const hasConfirmPasswordError = $derived((errors.confirmPassword?.length ?? 0) > 0);
 
 	// Translation params for password min_length validation
 	const passwordParams = {
@@ -112,7 +115,7 @@
 		<Card.Description><T keyName="settings.password.description" /></Card.Description>
 	</Card.Header>
 	<Card.Content>
-		<form onsubmit={handleSubmit} class="space-y-4">
+		<form onsubmit={handleSubmit} novalidate class="space-y-4">
 			{#if formError}
 				<Alert.Root variant="destructive">
 					<InfoIcon class="h-4 w-4" />
@@ -134,9 +137,14 @@
 						name="currentPassword"
 						placeholder={$t('settings.password.placeholder.current')}
 						autocomplete="current-password"
+						aria-invalid={hasCurrentPasswordError ? 'true' : undefined}
+						aria-describedby={hasCurrentPasswordError ? 'currentPassword-error' : undefined}
 						bind:value={formData.currentPassword}
 					/>
-					<Field.Error errors={translateValidationErrors(errors.currentPassword, $t)} />
+					<Field.Error
+						id="currentPassword-error"
+						errors={translateValidationErrors(errors.currentPassword, $t)}
+					/>
 				</Field.Field>
 
 				<Field.Field>
@@ -149,13 +157,18 @@
 							name="newPassword"
 							placeholder={$t('settings.password.placeholder.new')}
 							autocomplete="new-password"
+							invalid={hasNewPasswordError}
+							aria-describedby={hasNewPasswordError ? 'newPassword-error' : undefined}
 							bind:value={formData.newPassword}
 						>
 							<Password.ToggleVisibility />
 						</Password.Input>
 						<Password.Strength />
 					</Password.Root>
-					<Field.Error errors={translateValidationErrors(errors.newPassword, $t, passwordParams)} />
+					<Field.Error
+						id="newPassword-error"
+						errors={translateValidationErrors(errors.newPassword, $t, passwordParams)}
+					/>
 				</Field.Field>
 
 				<Field.Field>
@@ -168,9 +181,14 @@
 						name="confirmPassword"
 						placeholder={$t('settings.password.placeholder.confirm')}
 						autocomplete="new-password"
+						aria-invalid={hasConfirmPasswordError ? 'true' : undefined}
+						aria-describedby={hasConfirmPasswordError ? 'confirmPassword-error' : undefined}
 						bind:value={formData.confirmPassword}
 					/>
-					<Field.Error errors={translateValidationErrors(errors.confirmPassword, $t)} />
+					<Field.Error
+						id="confirmPassword-error"
+						errors={translateValidationErrors(errors.confirmPassword, $t)}
+					/>
 				</Field.Field>
 			</Field.Group>
 

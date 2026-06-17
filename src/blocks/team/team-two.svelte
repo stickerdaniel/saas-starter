@@ -1,11 +1,13 @@
 <script lang="ts">
-	import { T } from '@tolgee/svelte';
+	import { T, getTranslate } from '@tolgee/svelte';
 	import memberOne from './avatars/member-one.webp';
 	import memberTwo from './avatars/member-two.webp';
 	import memberThree from './avatars/member-three.webp';
 	import memberFour from './avatars/member-four.webp';
 	import memberFive from './avatars/member-five.webp';
 	import memberSix from './avatars/member-six.webp';
+
+	const { t } = getTranslate();
 
 	const members = [
 		{
@@ -62,7 +64,7 @@
 						<img
 							class="h-96 w-full rounded-md object-cover object-top grayscale no-drag group-hover:h-[22.5rem] group-hover:rounded-xl hover:grayscale-0 motion-safe:transition-all motion-safe:duration-300"
 							src={member.avatar}
-							alt="team member"
+							alt={$t('team.member_alt', { name: member.name })}
 							width="826"
 							height="1239"
 							draggable={false}

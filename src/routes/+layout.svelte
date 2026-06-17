@@ -13,7 +13,6 @@
 	import { languageContext } from '$lib/i18n/context';
 	import { getLanguage } from '$lib/i18n/languages';
 	import RouteProgress from '$lib/components/RouteProgress.svelte';
-	import SEOHead from '$lib/components/SEOHead.svelte';
 	import { Toaster } from '$lib/components/ui/sonner';
 	import * as Tooltip from '$lib/components/ui/tooltip/index.js';
 	import { watch } from 'runed';
@@ -79,7 +78,6 @@
 </script>
 
 <ModeWatcher />
-<SEOHead />
 <AppPostHogBootstrap />
 
 <AppAuthProvider>

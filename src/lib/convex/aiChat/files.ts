@@ -1,41 +1,26 @@
 import { v, ConvexError } from 'convex/values';
 import { storeFile } from '@convex-dev/agent';
-import { action, internalMutation, mutation } from '../_generated/server';
+import { action, internalMutation } from '../_generated/server';
 import { components, internal } from '../_generated/api';
 import { t } from '../i18n/translations';
 import { aiChatRateLimiter } from './rateLimit';
 import { authComponent } from '../auth';
+import { authedMutation } from '../functions';
 import { fetchAttachmentText } from '../files/attachmentText';
 import { vGenerateUploadUrlResult } from '../files/validators';
-
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
-
-const ALLOWED_MIME_TYPES = [
-	'image/png',
-	'image/jpeg',
-	'image/webp',
-	'image/gif',
-	'application/pdf',
-	'text/markdown',
-	'text/plain'
-];
+import { validateUploadBlob } from '../files/upload';
 
 /**
  * Generate a URL for uploading files to Convex storage
  *
  * Rate limited per authenticated user.
  */
-export const generateUploadUrl = mutation({
+export const generateUploadUrl = authedMutation({
 	args: {},
 	returns: vGenerateUploadUrlResult,
 	handler: async (ctx) => {
-		const user = await authComponent.getAuthUser(ctx);
-		if (!user) {
-			throw new ConvexError('Authentication required');
-		}
-
 		const rateLimitStatus = await aiChatRateLimiter.limit(ctx, 'aiChatFileUpload', {
-			key: user._id
+			key: ctx.user._id
 		});
 		if (!rateLimitStatus.ok) {
 			throw new ConvexError('Too many file uploads. Please try again later.');
@@ -119,23 +104,9 @@ export const saveUploadedFile = action({
 			}
 			const blob = await response.blob();
 
-			if (blob.size > MAX_FILE_SIZE) {
-				const maxMB = Math.round(MAX_FILE_SIZE / 1024 / 1024);
-				throw new ConvexError(
-					t(args.locale, 'backend.files.file_too_large', {
-						size: `${(blob.size / 1024 / 1024).toFixed(1)}MB`,
-						max: `${maxMB}MB`
-					})
-				);
-			}
-
-			// Compare the essence only: text/* often comes back with a charset suffix
-			// (e.g. "text/plain; charset=utf-8").
-			const mimeEssence = blob.type.split(';')[0]!.trim().toLowerCase();
-			if (!ALLOWED_MIME_TYPES.includes(mimeEssence)) {
-				throw new ConvexError(t(args.locale, 'backend.files.type_not_allowed'));
-			}
-			verifiedMimeType = mimeEssence;
+			// Validate size and MIME type against the actual blob (not the
+			// client-supplied args.mimeType, which is untrusted).
+			verifiedMimeType = validateUploadBlob(blob, args.locale);
 
 			const result = await storeFile(ctx, components.agent, blob, {
 				filename: args.filename
@@ -150,7 +121,7 @@ export const saveUploadedFile = action({
 
 		// Store image dimensions in fileMetadata table
 		if (args.width && args.height && verifiedMimeType.startsWith('image/')) {
-			await ctx.runMutation(internal.support.files.storeFileMetadata, {
+			await ctx.runMutation(internal.files.metadata.storeFileMetadata, {
 				fileId: file.fileId,
 				storageId: file.storageId,
 				url: file.url,
@@ -178,10 +149,8 @@ export const checkPreviewAccess = internalMutation({
 	args: {},
 	returns: v.null(),
 	handler: async (ctx) => {
+		// getAuthUser throws ConvexError('Unauthenticated') when there is no user
 		const user = await authComponent.getAuthUser(ctx);
-		if (!user) {
-			throw new ConvexError('Authentication required');
-		}
 		const rateLimitStatus = await aiChatRateLimiter.limit(ctx, 'aiChatFilePreview', {
 			key: user._id
 		});

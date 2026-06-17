@@ -18,6 +18,8 @@
 	import { motion } from 'motion-sv';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { isAnonymousUser } from '$lib/convex/utils/anonymousUser';
+	import { page } from '$app/state';
+	import { DEFAULT_LANGUAGE } from '$lib/i18n/languages';
 
 	const { t } = getTranslate();
 
@@ -192,6 +194,10 @@
 
 	/**
 	 * Format a timestamp as relative time (e.g., "a few seconds ago", "3 minutes ago")
+	 *
+	 * The customer-facing widget intentionally uses bespoke Tolgee phrasing for
+	 * relative time, distinct from the admin path (thread-list/thread-details),
+	 * which renders date-fns formatDistanceToNow. Keep this hand-rolled wording.
 	 */
 	function formatRelativeTime(timestamp?: number): string {
 		if (!timestamp) return '';
@@ -212,7 +218,7 @@
 		if (days === 1) return $t('support.time.yesterday');
 		if (days < 7) return $t('support.time.days_ago', { days });
 
-		return new Date(timestamp).toLocaleDateString();
+		return new Date(timestamp).toLocaleDateString(page.data.lang ?? DEFAULT_LANGUAGE);
 	}
 </script>
 

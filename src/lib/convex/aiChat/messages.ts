@@ -9,10 +9,12 @@ import { components } from '../_generated/api';
 import type { UserContent } from 'ai';
 import { aiChatRateLimiter } from './rateLimit';
 import { listMessagesForThread } from '../support/messageListing';
-import { authedMutation } from '../functions';
-import { authComponent } from '../auth';
+import { authedMutation, authedQuery } from '../functions';
+import { getFileMetadataByUrls } from '../files/metadata';
 import { checkAndCountUsage, refundUsage } from '../autumn';
 import { requireAiChatThreadRecord } from './ownership';
+import { t } from '../i18n/translations';
+import { MAX_MESSAGE_LENGTH } from '../constants';
 
 const THREAD_PREVIEW_LENGTH = 100;
 
@@ -30,8 +32,10 @@ export const sendMessage = authedMutation({
 	},
 	returns: v.object({ messageId: v.string() }),
 	handler: async (ctx, args) => {
-		if (args.prompt.length > 2000) {
-			throw new ConvexError('Message is too long (max 2000 characters)');
+		if (args.prompt.length > MAX_MESSAGE_LENGTH) {
+			throw new ConvexError(
+				t(undefined, 'backend.aiChat.message_too_long', { max: MAX_MESSAGE_LENGTH })
+			);
 		}
 
 		const userId = ctx.user._id;
@@ -199,7 +203,7 @@ export const createAIResponse = internalAction({
 /**
  * List messages in a thread with streaming support
  */
-export const listMessages = query({
+export const listMessages = authedQuery({
 	args: {
 		threadId: v.string(),
 		paginationOpts: paginationOptsValidator,
@@ -208,16 +212,10 @@ export const listMessages = query({
 	// v.any(): paginated message + stream shape is owned by @convex-dev/agent
 	returns: v.any(),
 	handler: async (ctx, args): Promise<unknown> => {
-		// Auth check
-		const user = await authComponent.getAuthUser(ctx);
-		if (!user) {
-			throw new ConvexError('Authentication required');
-		}
-
 		// Verify ownership
 		await requireAiChatThreadRecord(ctx, {
 			threadId: args.threadId,
-			userId: user._id
+			userId: ctx.user._id
 		});
 
 		return await listMessagesForThread(ctx, {
@@ -240,19 +238,6 @@ export const getFileMetadataBatch = query({
 		v.object({ width: v.optional(v.number()), height: v.optional(v.number()) })
 	),
 	handler: async (ctx, args): Promise<Record<string, { width?: number; height?: number }>> => {
-		const results: Record<string, { width?: number; height?: number }> = {};
-
-		for (const url of args.urls) {
-			const meta = await ctx.db
-				.query('fileMetadata')
-				.withIndex('by_url', (q) => q.eq('url', url))
-				.first();
-
-			if (meta && (meta.width || meta.height)) {
-				results[url] = { width: meta.width, height: meta.height };
-			}
-		}
-
-		return results;
+		return await getFileMetadataByUrls(ctx, args.urls);
 	}
 });

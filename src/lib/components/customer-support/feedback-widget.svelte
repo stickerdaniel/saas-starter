@@ -53,7 +53,7 @@
 	});
 
 	// Derive agent name from context with fallback
-	let agentName = $derived(threadContext.currentAgentName || 'Kai');
+	const agentName = $derived(threadContext.currentAgentName || 'Kai');
 
 	// Derive chat panel open state
 	const isChatOpen = $derived(threadContext.currentView !== 'overview');

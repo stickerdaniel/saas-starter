@@ -41,6 +41,8 @@
 
 	// Field errors
 	let errors = $state<Record<string, string[]>>({});
+	const hasPasswordError = $derived((errors.password?.length ?? 0) > 0);
+	const hasConfirmPasswordError = $derived((errors.confirmPassword?.length ?? 0) > 0);
 	const totalSteps = 3;
 	const validation = $derived.by(() => {
 		const result = v.safeParse(resetPasswordSchema, {
@@ -156,10 +158,11 @@
 <SEOHead
 	title={$t('meta.auth.reset_password.title')}
 	description={$t('meta.auth.reset_password.description')}
+	noindex
 />
 
 <noscript>
-	<div class="fixed inset-x-0 top-0 z-50 bg-yellow-100 p-4 text-center text-yellow-800">
+	<div lang="en" class="fixed inset-x-0 top-0 z-50 bg-yellow-100 p-4 text-center text-yellow-800">
 		JavaScript is required for authentication. Please enable JavaScript to continue.
 	</div>
 </noscript>
@@ -220,6 +223,8 @@
 										autocomplete="new-password"
 										placeholder="••••••••"
 										disabled={isFormDisabled}
+										invalid={hasPasswordError}
+										aria-describedby={hasPasswordError ? `password-${id}-error` : undefined}
 										bind:value={formData.password}
 									>
 										<Password.ToggleVisibility />
@@ -227,6 +232,7 @@
 									<Password.Strength />
 								</Password.Root>
 								<Field.Error
+									id="password-{id}-error"
 									data-testid="reset-password-password-error"
 									errors={translateValidationErrors(errors.password, $t, passwordParams)}
 								/>
@@ -243,12 +249,17 @@
 									name="confirmPassword"
 									data-testid="reset-password-confirm-input"
 									type="password"
+									aria-invalid={hasConfirmPasswordError ? 'true' : undefined}
+									aria-describedby={hasConfirmPasswordError
+										? `confirm-password-${id}-error`
+										: undefined}
 									autocomplete="new-password"
 									placeholder="••••••••"
 									disabled={isFormDisabled}
 									bind:value={formData.confirmPassword}
 								/>
 								<Field.Error
+									id="confirm-password-{id}-error"
 									data-testid="reset-password-confirm-error"
 									errors={translateValidationErrors(errors.confirmPassword, $t)}
 								/>

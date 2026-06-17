@@ -5,7 +5,7 @@ import * as v from 'valibot';
  * Used for both server-side validation in data.remote.ts and
  * client-side preflight validation in add-email-dialog.svelte
  */
-export const emailSchema = v.object({
+export const addEmailSchema = v.object({
 	email: v.pipe(
 		v.string(),
 		v.nonEmpty('validation.email.required'),

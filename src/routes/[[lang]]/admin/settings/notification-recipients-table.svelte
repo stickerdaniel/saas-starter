@@ -150,7 +150,6 @@
 		if (recipientsTable.hasLoadedCount) return recipientsTable.totalCount;
 		return adminCache.recipientCount.current ?? 0;
 	});
-	const effectivePageCount = $derived.by(() => Math.max(1, Math.ceil(totalCount / pageSize)));
 
 	async function togglePreference(
 		email: string,
@@ -215,7 +214,7 @@
 		manualFiltering: true,
 		manualSorting: true,
 		get pageCount() {
-			return effectivePageCount;
+			return recipientsTable.pageCount;
 		},
 		getRowId: (row) => row.email,
 		getCoreRowModel: getCoreRowModel(),
@@ -259,7 +258,7 @@
 		searchPlaceholder={$t('admin.settings.recipients_search_placeholder')}
 		onSearchChange={recipientsTable.setSearch}
 		pageIndex={recipientsTable.pageIndex}
-		pageCount={effectivePageCount}
+		pageCount={recipientsTable.pageCount}
 		pageSize={recipientsTable.pageSize}
 		pageSizeOptions={PAGE_SIZE_NUM_OPTIONS}
 		canPreviousPage={recipientsTable.canPreviousPage}

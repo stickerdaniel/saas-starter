@@ -8,7 +8,7 @@
 	import { haptic } from '$lib/hooks/use-haptic.svelte';
 	import { toast } from 'svelte-sonner';
 	import { addEmailForm } from './data.remote';
-	import { emailSchema } from './email-schema';
+	import { addEmailSchema } from './email-schema';
 	import { translateRemoteFormIssues } from '$lib/utils/validation-i18n';
 
 	const { t } = getTranslate();
@@ -18,6 +18,8 @@
 	}
 
 	let { open = $bindable(false) }: Props = $props();
+
+	const hasEmailError = $derived((addEmailForm.fields.email.issues()?.length ?? 0) > 0);
 
 	function handleOpenChange(isOpen: boolean) {
 		open = isOpen;
@@ -41,7 +43,7 @@
 			</Dialog.Description>
 		</Dialog.Header>
 		<form
-			{...addEmailForm.preflight(emailSchema).enhance(async ({ submit, form: formEl }) => {
+			{...addEmailForm.preflight(addEmailSchema).enhance(async ({ submit, form: formEl }) => {
 				try {
 					await submit();
 					// Check if server returned validation errors (e.g., duplicate email)
@@ -69,9 +71,11 @@
 						inputmode="email"
 						autocomplete="email"
 						placeholder={$t('admin.settings.add_email_placeholder')}
+						aria-describedby={hasEmailError ? 'email-error' : undefined}
 						data-testid="add-email-input"
 					/>
 					<Field.Error
+						id="email-error"
 						errors={translateRemoteFormIssues(addEmailForm.fields.email.issues(), $t)}
 						data-testid="add-email-error"
 					/>

@@ -2,7 +2,7 @@ import { form, getRequestEvent } from '$app/server';
 import { invalid } from '@sveltejs/kit';
 import { api } from '$lib/convex/_generated/api';
 import { createServerConvexHttpClient } from '$lib/server/convex-http';
-import { emailSchema } from './email-schema';
+import { addEmailSchema } from './email-schema';
 
 /**
  * Remote form for adding a custom email recipient
@@ -10,7 +10,7 @@ import { emailSchema } from './email-schema';
  * Uses SvelteKit remote functions with Valibot validation.
  * Calls Convex mutation server-side with proper authentication.
  */
-export const addEmailForm = form(emailSchema, async ({ email }, issue) => {
+export const addEmailForm = form(addEmailSchema, async ({ email }, issue) => {
 	const event = getRequestEvent();
 	const client = createServerConvexHttpClient({ token: event.locals.token });
 

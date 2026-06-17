@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { Html, Head, Body, Preview, Container } from '@better-svelte-email/components';
+	import { Html, Body, Preview, Container } from '@better-svelte-email/components';
 	import { Badge, Button, Card } from '$lib/emails/components/ui/index.js';
-	import { EmailHeader, EmailFooter } from '$lib/emails/components/layout/index.js';
+	import { EmailHead, EmailHeader, EmailFooter } from '$lib/emails/components/layout/index.js';
 
 	// All user-facing copy is passed in as props so the caller can resolve
 	// translated strings (see src/lib/convex/emails/templates.ts). English
@@ -44,7 +44,7 @@
 </script>
 
 <Html {lang}>
-	<Head />
+	<EmailHead />
 	<Body class="mx-auto my-auto bg-white px-2 font-sans">
 		<Preview preview={previewText} />
 		<Container class="mx-auto my-10 max-w-md p-5">

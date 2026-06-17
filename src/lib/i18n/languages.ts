@@ -11,6 +11,8 @@ export interface Language {
 	nameEn: string;
 	/** Flag emoji */
 	flag: string;
+	/** Open Graph locale in language_TERRITORY format (e.g. "en_US") */
+	ogLocale: string;
 }
 
 export const SUPPORTED_LANGUAGES: Language[] = [
@@ -18,30 +20,39 @@ export const SUPPORTED_LANGUAGES: Language[] = [
 		code: 'en',
 		name: 'English',
 		nameEn: 'English',
-		flag: '🇺🇸'
+		flag: '🇺🇸',
+		ogLocale: 'en_US'
 	},
 	{
 		code: 'de',
 		name: 'Deutsch',
 		nameEn: 'German',
-		flag: '🇩🇪'
+		flag: '🇩🇪',
+		ogLocale: 'de_DE'
 	},
 	{
 		code: 'es',
 		name: 'Español',
 		nameEn: 'Spanish',
-		flag: '🇪🇸'
+		flag: '🇪🇸',
+		ogLocale: 'es_ES'
 	},
 	{
 		code: 'fr',
 		name: 'Français',
 		nameEn: 'French',
-		flag: '🇫🇷'
+		flag: '🇫🇷',
+		ogLocale: 'fr_FR'
 	}
 ];
 
 /** Default language code */
 export const DEFAULT_LANGUAGE = 'en';
+
+/** Cookie that remembers an explicit language choice for bare/prefixless paths */
+export const LANGUAGE_COOKIE_NAME = 'lang_pref';
+/** Language preference cookie lifetime (~1 year) */
+export const LANGUAGE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 
 /** Map of language codes for quick lookup */
 export const LANGUAGE_CODES = new Set(SUPPORTED_LANGUAGES.map((lang) => lang.code));

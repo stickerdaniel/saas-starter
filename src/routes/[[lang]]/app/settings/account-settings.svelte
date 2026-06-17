@@ -1,4 +1,5 @@
 <script lang="ts">
+	import * as v from 'valibot';
 	import { authClient } from '$lib/auth-client.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
@@ -11,8 +12,13 @@
 	import { api } from '$lib/convex/_generated/api.js';
 	import { ConvexError } from 'convex/values';
 	import { PROFILE_IMAGE_MAX_SIZE, PROFILE_IMAGE_MAX_SIZE_LABEL } from '$lib/convex/constants.js';
+	import { translateValidationErrors } from '$lib/utils/validation-i18n.js';
 
 	const { t } = getTranslate();
+
+	const nameSchema = v.object({
+		name: v.pipe(v.string(), v.trim(), v.nonEmpty('validation.name.required'))
+	});
 
 	interface Props {
 		user: {
@@ -31,6 +37,10 @@
 	let image = $derived(user?.image ?? '');
 	let isUploading = $state(false);
 	let isSaving = $state(false);
+
+	// Field errors
+	let errors = $state<Record<string, string[]>>({});
+	const hasNameError = $derived((errors.name?.length ?? 0) > 0);
 
 	async function handleFileSelect(e: Event) {
 		const target = e.target as HTMLInputElement;
@@ -107,13 +117,31 @@
 		toast.success($t('settings.account.avatar.removed'));
 	}
 
+	function validate(): boolean {
+		const result = v.safeParse(nameSchema, { name });
+		if (!result.success) {
+			const fieldErrors: Record<string, string[]> = {};
+			for (const issue of result.issues) {
+				const path = (issue.path?.[0]?.key as string) || 'name';
+				// Keep the first issue per field so inline errors stay focused and predictable.
+				if (!fieldErrors[path]) fieldErrors[path] = [issue.message];
+			}
+			errors = fieldErrors;
+			return false;
+		}
+		errors = {};
+		return true;
+	}
+
 	async function handleUpdateProfile(e: Event) {
 		e.preventDefault();
+		if (!validate()) return;
+
 		isSaving = true;
 
 		try {
 			await authClient.updateUser({
-				name,
+				name: name.trim(),
 				image: image || null
 			});
 
@@ -135,7 +163,7 @@
 		<Card.Description><T keyName="settings.account.description" /></Card.Description>
 	</Card.Header>
 	<Card.Content>
-		<form onsubmit={handleUpdateProfile} class="space-y-4">
+		<form onsubmit={handleUpdateProfile} novalidate class="space-y-4">
 			<Field.Group>
 				<Field.Field>
 					<Field.Label for="name"><T keyName="settings.account.name_label" /></Field.Label>
@@ -144,8 +172,10 @@
 						type="text"
 						bind:value={name}
 						placeholder={$t('settings.account.name.placeholder')}
-						required
+						aria-invalid={hasNameError ? 'true' : undefined}
+						aria-describedby={hasNameError ? 'name-error' : undefined}
 					/>
+					<Field.Error id="name-error" errors={translateValidationErrors(errors.name, $t)} />
 					<Field.Description>
 						<T keyName="settings.account.name_helper" />
 					</Field.Description>

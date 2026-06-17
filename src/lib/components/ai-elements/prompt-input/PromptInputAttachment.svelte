@@ -4,8 +4,8 @@
 	import { Button } from '$lib/components/ui/button';
 	import * as Tooltip from '$lib/components/ui/tooltip/index.js';
 	import { attachmentsContext, type FileWithId } from './attachments-context.svelte.js';
-	import PaperclipIcon from './PaperclipIcon.svelte';
-	import XIcon from './XIcon.svelte';
+	import PaperclipIcon from '@lucide/svelte/icons/paperclip';
+	import XIcon from '@lucide/svelte/icons/x';
 
 	interface Props {
 		data: FileWithId;

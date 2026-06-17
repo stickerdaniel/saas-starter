@@ -14,16 +14,15 @@
 			"database_backend": "Datenbank & Backend",
 			"email_service": "E-Mail-Zustelldienst",
 			"external_services": "Externe Dienste",
-			"hosting_deployment": "Hosting & Deployment",
-			"title": "Admin Dashboard"
+			"hosting_deployment": "Hosting & Deployment"
 		},
 		"dialog": {
 			"ban_description": "Möchten Sie {email} wirklich sperren? Der Zugriff auf die App wird blockiert.",
+			"ban_reason_label": "Sperrgrund",
 			"ban_reason_placeholder": "Sperrgrund (optional)",
 			"ban_title": "Benutzer sperren",
 			"impersonation_active_description": "Bitte laden Sie die Seite neu, um als der andere Benutzer angemeldet zu werden.",
 			"impersonation_active_title": "Identitätswechsel aktiv",
-			"reload_page": "Seite neu laden",
 			"revoke_description": "Möchten Sie wirklich alle Sitzungen für {email} widerrufen? Die Person wird überall abgemeldet.",
 			"revoke_title": "Sitzungen widerrufen",
 			"set_role_description": "Möchten Sie die Rolle von {email} wirklich auf {role} ändern?",
@@ -37,16 +36,13 @@
 			"admin_users": "Plattformverwaltung",
 			"admins": "Admins",
 			"admins_desc": "Benutzer mit Admin-Rechten",
-			"banned_users": "Gesperrte Benutzer",
-			"banned_users_desc": "Zugriff eingeschränkt",
 			"currently_active": "Tägliche Aktivität",
 			"last_7_days": "Letzte 7 Tage",
 			"recent_signups": "Neuanmeldungen",
 			"recent_signups_desc": "Neue Benutzer",
 			"registered_users": "Plattform-Nutzerbasis",
 			"total_users": "Benutzer gesamt",
-			"total_users_desc": "Alle registrierten Konten",
-			"users_banned": "Konten zur Überprüfung"
+			"total_users_desc": "Alle registrierten Konten"
 		},
 		"navigation": {
 			"app": "App",
@@ -63,18 +59,12 @@
 			"column_new_tickets": "Neue Tickets",
 			"column_type": "Typ",
 			"column_user_replies": "Benutzerantworten",
-			"default_support_email": "Standard-Support-E-Mail",
-			"default_support_email_help": "Leer lassen, um Benachrichtigungen an alle Admin-Benutzer zu senden.",
-			"default_support_email_placeholder": "support@example.com",
 			"delete_email": "Entfernen",
-			"delete_email_confirm": "{email} aus den Benachrichtigungsempfängern entfernen?",
 			"delete_email_description": "{email} aus den Benachrichtigungsempfängern entfernen?",
 			"delete_email_title": "E-Mail entfernen",
-			"description": "Admin-Panel-Einstellungen und Benachrichtigungen konfigurieren.",
 			"email_add_failed": "E-Mail konnte nicht hinzugefügt werden",
 			"email_added": "E-Mail hinzugefügt",
 			"email_exists": "Diese E-Mail existiert bereits",
-			"email_removed": "E-Mail entfernt",
 			"field_new_signups": "Benachrichtigungen für neue Anmeldungen",
 			"field_new_tickets": "Benachrichtigungen für neue Tickets",
 			"field_user_replies": "Benachrichtigungen für Benutzerantworten",
@@ -85,63 +75,34 @@
 				"custom_only": "Nur Benutzerdefiniert"
 			},
 			"founder_welcome": {
-				"became_contact": "Sie sind jetzt der Ansprechpartner für Willkommens-E-Mails",
 				"cancel": "Abbrechen",
-				"click_to_edit": "Klicken zum Bearbeiten",
 				"config_body_label": "E-Mail-Text",
 				"config_name_label": "Ihr Name",
-				"config_reply_to_description": "Wohin Antworten gehen. Standardmäßig Ihre Konto-E-Mail, wenn leer.",
 				"config_reply_to_label": "Antwort-E-Mail",
 				"config_reply_to_placeholder": "z.B. hallo@ihrfirma.de",
 				"config_subject_label": "E-Mail-Betreff",
 				"config_title_label": "Ihr Titel",
-				"config_variables_hint": "Verfügbare Variablen: '{{userFirstName}}', '{{userLastName}}', '{{founderName}}', '{{founderTitle}}'",
-				"contact_person": "Ansprechpartner",
-				"contact_person_info": "{name} ({email})",
 				"description": "Automatisch eine persönliche Willkommens-E-Mail von einem Teammitglied an neue Nutzer nach der Registrierung senden. Wird als reiner Text für Authentizität gesendet.",
 				"edit_button": "Bearbeiten",
-				"email_legend": "E-Mail-Inhalt",
 				"error": "Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut.",
-				"not_configured": "Kein Ansprechpartner konfiguriert. Richten Sie ein Teammitglied ein, das Willkommens-E-Mails an neue Nutzer sendet.",
-				"preview_subject": "Betreff",
-				"preview_title": "Vorschau",
 				"save": "Änderungen speichern",
 				"saved": "Willkommens-E-Mail-Konfiguration gespeichert",
-				"sender_legend": "Absender-Info",
 				"setup_button": "Ansprechpartner werden",
-				"setup_confirm": "Einrichten",
-				"setup_title_label": "Ihr Titel",
 				"setup_title_placeholder": "z.B. Gründer von SaaS Starter",
 				"step_down": "Zurücktreten",
 				"step_down_confirm": "Als Ansprechpartner zurücktreten? Willkommens-E-Mails werden nicht mehr gesendet.",
 				"stepped_down": "Sie sind nicht mehr der Ansprechpartner",
-				"take_over": "Übernehmen",
-				"take_over_confirm": "Als Ansprechpartner übernehmen? Die bestehende E-Mail-Vorlage bleibt erhalten.",
 				"title": "Gründer-Willkommens-E-Mail",
-				"took_over": "Sie haben als Ansprechpartner übernommen",
 				"variables_label": "Variablen:"
 			},
-			"invalid_email": "Ungültige E-Mail-Adresse",
 			"no_recipients": "Keine Benachrichtigungsempfänger konfiguriert",
-			"notification_recipients": "Benachrichtigungsempfänger",
-			"notification_recipients_desc": "Konfigurieren Sie, wer Admin-Benachrichtigungen erhält. Admin-Benutzer werden automatisch einbezogen.",
 			"preference_disabled": "{field} deaktiviert",
 			"preference_disabling": "{field} wird deaktiviert...",
 			"preference_enabled": "{field} aktiviert",
 			"preference_enabling": "{field} wird aktiviert...",
 			"preference_update_failed": "Einstellung konnte nicht aktualisiert werden",
-			"recipient_count": "{count, plural, other {# Empfänger}}",
 			"recipients_search_placeholder": "Benachrichtigungsempfänger durchsuchen...",
-			"save": "Einstellungen speichern",
-			"saved": "Einstellungen gespeichert",
-			"saving": "Speichern...",
 			"selected": "{selected} von {total} ausgewählt",
-			"support_notifications": "Support-Benachrichtigungen",
-			"support_notifications_desc": "E-Mail-Benachrichtigungen für neue und nicht zugewiesene wiedereröffnete Support-Tickets konfigurieren.",
-			"tabs": {
-				"notifications": "Benachrichtigungen",
-				"recipients": "Empfänger"
-			},
 			"title": "Admin-Einstellungen",
 			"type_admin": "Admin",
 			"type_custom": "Benutzerdefiniert"
@@ -154,7 +115,6 @@
 			"users": "Benutzer"
 		},
 		"support": {
-			"all_statuses": "Alle Status",
 			"anonymous": "Anonym",
 			"assignee": {
 				"not_assigned": "Nicht zugewiesen",
@@ -172,9 +132,7 @@
 				"page_url": "Seiten-URL",
 				"priority": "Priorität",
 				"status": "Status",
-				"title": "Details",
-				"user_notes": "Benutzernotizen",
-				"user_notes_description": "Notizen werden auf Benutzerebene gespeichert und erscheinen in allen Support-Threads des Benutzers"
+				"user_notes": "Benutzernotizen"
 			},
 			"email": {
 				"label": "Benachrichtigungs-E-Mail"
@@ -190,7 +148,6 @@
 			},
 			"filter_showing_completed": "Zeigt abgeschlossene Threads, klicken um offene anzuzeigen",
 			"filter_showing_open": "Zeigt offene Threads, klicken um abgeschlossene anzuzeigen",
-			"no_chats": "Keine Chats gefunden",
 			"no_done_chats": "Keine abgeschlossenen Chats",
 			"no_email": "Keine E-Mail",
 			"no_open_chats": "Keine offenen Chats",
@@ -212,9 +169,7 @@
 			"select_chat_for_details": "Wählen Sie einen Chat, um Details anzuzeigen",
 			"status": {
 				"done": "Erledigt",
-				"in_progress": "In Bearbeitung",
-				"open": "Offen",
-				"resolved": "Gelöst"
+				"open": "Offen"
 			},
 			"thread": {
 				"badge": {
@@ -225,12 +180,10 @@
 				"no_messages": "Keine Nachrichten",
 				"retry": "Erneut versuchen"
 			},
-			"threads_title": "Support-Threads",
-			"title": "Support-Chats"
+			"threads_title": "Support-Threads"
 		},
 		"title": "Admin-Bereich",
 		"users": {
-			"actions_column": "Aktionen",
 			"ban_reason": {
 				"default": "Verstoß gegen die Nutzungsbedingungen"
 			},
@@ -274,7 +227,6 @@
 				"ban_failed": "Benutzer konnte nicht gesperrt werden: {message}",
 				"banned": "Benutzer wurde gesperrt",
 				"impersonate_failed": "Identitätswechsel fehlgeschlagen: {message}",
-				"impersonation_started": "Identitätswechsel gestartet",
 				"note_added": "Notiz hinzugefügt",
 				"note_failed": "Notiz konnte nicht hinzugefügt werden: {message}",
 				"priority_failed": "Priorität konnte nicht aktualisiert werden: {message}",
@@ -288,60 +240,36 @@
 				"unban_failed": "Sperre konnte nicht aufgehoben werden: {message}",
 				"unbanned": "Benutzersperre wurde aufgehoben"
 			},
-			"total": "Benutzer",
-			"unnamed": "Unbenannt",
 			"unverified": "Nicht verifiziert",
 			"verified": "Verifiziert"
 		}
 	},
 	"ai_chat": {
-		"delete_thread": "Unterhaltung löschen",
-		"delete_thread_confirm": "Sind Sie sicher, dass Sie diese Unterhaltung löschen möchten?",
-		"description": "Chatten Sie mit unserem KI-Assistenten",
-		"empty": {
-			"description": "Stellen Sie eine Frage und erhalten Sie sofort KI-gestützte Antworten.",
-			"title": "Unterhaltung starten"
-		},
 		"input": {
 			"placeholder": "Nachricht eingeben..."
 		},
-		"new_chat": "Neuer Chat",
-		"select_chat": "Wählen Sie eine Unterhaltung oder starten Sie einen neuen Chat",
 		"suggestion": {
 			"explain": "Erkläre etwas",
 			"help": "Hilfe erhalten",
-			"understand": "Hilf mir zu verstehen",
 			"weather": "Wie ist das Wetter in Tokio?"
 		},
 		"thread": {
-			"loading": "Wird geladen...",
 			"no_messages": "Neue Unterhaltung"
-		},
-		"title": "KI-Chat"
+		}
 	},
 	"app": {
-		"dashboard": {
-			"subtitle": "Dies ist Ihre Zentrale. Echtzeit-Metriken und Aktivitäten werden hier angezeigt, während Sie Ihre App aufbauen.",
-			"title": "Willkommen in Ihrem Dashboard"
-		},
 		"sidebar": {
 			"admin_panel": "Admin-Bereich",
 			"ai_chat": "KI-Chat",
 			"community_chat": "Community-Chat",
-			"dashboard": "Dashboard",
-			"docs": "Dokumentation",
-			"home": "Start",
-			"show_less": "Weniger anzeigen",
 			"show_more": "Mehr anzeigen"
 		},
 		"user_menu": {
-			"account": "Konto",
 			"billing": "Abrechnung",
 			"impersonating_banner": "Sie agieren als dieser Benutzer",
 			"impersonation_stop_failed": "Identitätswechsel konnte nicht beendet werden",
 			"impersonation_stopped": "Identitätswechsel beendet",
 			"logout": "Abmelden",
-			"notifications": "Benachrichtigungen",
 			"pro_badge": "Pro",
 			"settings": "Einstellungen",
 			"stop_impersonating": "Identitätswechsel beenden",
@@ -357,42 +285,26 @@
 		"copied": "Kopiert",
 		"copy": "Kopieren",
 		"copy_failed": "Kopieren fehlgeschlagen",
-		"drag_to_reorder": "Zum Neuanordnen ziehen",
 		"feedback_close": "Feedback schließen",
 		"feedback_open": "Feedback öffnen",
 		"github_repository": "GitHub-Repository",
 		"go_back": "Zurück",
 		"hide_password": "Passwort ausblenden",
-		"home": "Startseite",
 		"interactive_pointer_tracking_area": "Interaktiver Bereich zur Zeigerverfolgung",
-		"limit": "Limit",
 		"loading": "Wird geladen",
-		"login_with_apple": "Mit Apple anmelden",
-		"login_with_google": "Mit Google anmelden",
-		"login_with_meta": "Mit Meta anmelden",
 		"logout": "Abmelden",
 		"menu_close": "Menü schließen",
 		"menu_open": "Menü öffnen",
 		"mobile_sidebar_description": "Zeigt die mobile Seitenleiste an.",
 		"more": "Mehr",
 		"notification_toggle_for_email": "{field} für {email}",
-		"pagination_first": "Erste Seite",
-		"pagination_last": "Letzte Seite",
-		"pagination_next": "Nächste Seite",
-		"pagination_previous": "Vorherige Seite",
 		"remove_attachment": "Anhang entfernen",
-		"reviewer": "Prüfer",
 		"scroll_to_bottom": "Nach unten scrollen",
-		"select_all": "Alle auswählen",
-		"select_row": "Zeile auswählen",
-		"select_value": "Wert auswählen",
 		"show_password": "Passwort anzeigen",
 		"sidebar": "Seitenleiste",
-		"target": "Ziel",
 		"toggle_sidebar": "Seitenleiste umschalten",
 		"toggle_theme": "Design umschalten",
-		"toggle_threads": "Unterhaltungsliste umschalten",
-		"view": "Ansicht"
+		"toggle_threads": "Unterhaltungsliste umschalten"
 	},
 	"auth": {
 		"back_to_home": "Zurück zur Startseite",
@@ -403,8 +315,6 @@
 			"description": "Wir senden Ihnen einen Link zum Zurücksetzen",
 			"title": "Passwort vergessen"
 		},
-		"login": "Anmelden",
-		"logout": "Abmelden",
 		"messages": {
 			"auth_cancelled": "Authentifizierung abgebrochen",
 			"credential_account_not_found": "Kein Passwortkonto gefunden. Versuchen Sie die Anmeldung mit Ihrem sozialen Anbieter.",
@@ -448,7 +358,6 @@
 			"description": "Geben Sie Ihr neues Passwort ein",
 			"new_password_label": "Neues Passwort",
 			"sign_in_link": "Anmelden",
-			"success": "Ihr Passwort wurde zurückgesetzt.",
 			"title": "Passwort zurücksetzen"
 		},
 		"signin": {
@@ -456,10 +365,8 @@
 			"button_signin_loading": "Wird angemeldet...",
 			"button_signup": "Registrieren",
 			"button_signup_loading": "Konto wird erstellt...",
-			"cancel": "Abbrechen",
 			"description": "Melden Sie sich bei Ihrem Konto an oder erstellen Sie ein neues",
 			"email_label": "E-Mail",
-			"email_placeholder": "du@beispiel.de",
 			"forgot_password": "Passwort vergessen?",
 			"link_signup": "Registrieren",
 			"name_label": "Name",
@@ -470,19 +377,13 @@
 			"or_continue_with": "Oder fortfahren mit",
 			"passkey_button": "Mit Passkey anmelden",
 			"password_label": "Passwort",
-			"password_placeholder": "••••••••",
 			"tab_signin": "Anmelden",
-			"tab_signup": "Registrieren",
-			"test_secret_button": "Mit Geheimnis anmelden",
-			"test_secret_label": "Nur Test: Mit Geheimnis anmelden",
-			"test_secret_placeholder": "Geheimnis-Wert",
 			"title": "Willkommen zurück"
 		},
 		"signup": {
 			"description": "Geben Sie Ihre Daten ein, um loszulegen",
 			"has_account": "Bereits ein Konto?",
 			"link_signin": "Anmelden",
-			"password_hint": "Mindestens 10 Zeichen mit Groß-, Kleinbuchstaben und Zahl",
 			"title": "Konto erstellen"
 		},
 		"terms": {
@@ -493,12 +394,7 @@
 		},
 		"verification": {
 			"button_back": "Zurück zur Anmeldung",
-			"button_cancel": "Abbrechen",
-			"button_verify": "E-Mail verifizieren",
-			"button_verify_loading": "Wird verifiziert...",
 			"check_email": "Bitte überprüfen Sie Ihre E-Mail und klicken Sie auf den Verifizierungslink, um Ihre Registrierung abzuschließen.",
-			"code_label": "Verifizierungscode",
-			"code_placeholder": "12345678",
 			"description": "Wir haben Ihnen einen Verifizierungslink gesendet",
 			"sent_to": "Wir haben eine Verifizierungs-E-Mail an",
 			"title": "E-Mail-Verifizierung",
@@ -507,6 +403,12 @@
 		}
 	},
 	"backend": {
+		"aiChat": {
+			"message_too_long": "Nachricht ist zu lang (max. {max} Zeichen)"
+		},
+		"community": {
+			"message_too_long": "Nachricht ist zu lang (max. {max} Zeichen)"
+		},
 		"files": {
 			"fetch_failed": "Die hochgeladene Datei konnte nicht abgerufen werden. Bitte versuchen Sie es erneut.",
 			"file_too_large": "Datei zu groß: {size} überschreitet das Maximum von {max}",
@@ -516,15 +418,10 @@
 			"handoff": {
 				"response": "Natürlich! Ich verbinde Sie jetzt. Bitte geben Sie unten Ihre E-Mail-Adresse ein und wir benachrichtigen Sie, wenn unser Support-Team geantwortet hat. In der Zwischenzeit können Sie gerne weitere Details hinzufügen, die uns helfen könnten."
 			},
+			"message_too_long": "Nachricht ist zu lang (max. {max} Zeichen)",
 			"rate_limit": {
 				"global": "Ich habe gerade eine hohe Auslastung. Bitte versuchen Sie es in einem Moment erneut.",
 				"user": "Zu viele Nachrichten. Bitte warten Sie, bevor Sie eine weitere senden."
-			},
-			"summary": {
-				"default": "Neues Support-Gespräch"
-			},
-			"title": {
-				"default": "Kundensupport"
 			}
 		}
 	},
@@ -555,22 +452,16 @@
 			"preview_loading": "Vorschau wird geladen…",
 			"preview_truncated": "Vorschau auf {size} gekürzt"
 		},
-		"avatar": {
-			"team_member": "Teammitglied"
-		},
 		"buttons": {
 			"processing": "Wird verarbeitet...",
 			"upgrade": "Auf Pro upgraden"
 		},
-		"description": "Öffnen Sie diese App in mehreren Browser-Fenstern, um die Echtzeit-Datenbank in Aktion zu sehen",
 		"email": {
 			"placeholder": "Email",
 			"save_failed": "E-Mail konnte nicht gespeichert werden. Bitte versuchen Sie es erneut.",
-			"saved_success": "E-Mail gespeichert! Wir benachrichtigen Sie, wenn wir antworten.",
 			"subscribe_button": "Abonnieren",
 			"unsubscribe_failed": "Abmeldung fehlgeschlagen. Bitte versuchen Sie es erneut.",
-			"unsubscribe_tooltip": "Abbestellen",
-			"unsubscribed": "E-Mail-Benachrichtigungen abbestellt."
+			"unsubscribe_tooltip": "Abbestellen"
 		},
 		"error": {
 			"file_max_size": "Maximale Größe ist {maxSize}",
@@ -578,27 +469,18 @@
 			"file_type_not_allowed": "Dateityp nicht erlaubt: \"{filename}\"",
 			"image_compression_exceeded": "Bild konnte nicht unter {maxSize} komprimiert werden",
 			"max_attachments": "Maximal {max} Anhänge erlaubt",
-			"pasted_file_too_large": "Eingefügte Datei zu groß"
-		},
-		"greeting": "Wie können wir helfen?",
-		"greeting_hi": "Hallo",
-		"header": {
-			"messages_left": "({remaining}/{total} Nachricht übrig)",
-			"messages_left_plural": "({remaining}/{total} Nachrichten übrig)",
-			"pro_unlimited": "(Pro - Unbegrenzt)",
-			"subtitle": "Echtzeit-Chat",
-			"title": "Chat"
+			"pasted_file_too_large": "Eingefügte Datei zu groß",
+			"upload_failed": "Hochladen von \"{filename}\" fehlgeschlagen",
+			"upload_failed_description": "Hochladen fehlgeschlagen"
 		},
 		"input": {
 			"placeholder": "Nachricht eingeben...",
 			"placeholder_disabled": "Nachrichtenlimit erreicht",
-			"send_tooltip": "Nachricht senden",
-			"upgrade_tooltip": "Auf Pro upgraden für unbegrenzte Nachrichten"
+			"send_tooltip": "Nachricht senden"
 		},
 		"messages": {
 			"rate_limited": "Sie senden zu schnell Nachrichten. Versuchen Sie es in {seconds}s erneut.",
-			"send_failed": "Nachricht konnte nicht gesendet werden",
-			"sent_success": "Nachricht gesendet!"
+			"send_failed": "Nachricht konnte nicht gesendet werden"
 		},
 		"reasoning": {
 			"connecting": "Verbinde...",
@@ -607,15 +489,13 @@
 			"thought_for_seconds": "Nachgedacht für {duration} Sekunde",
 			"thought_for_seconds_plural": "Nachgedacht für {duration} Sekunden"
 		},
-		"suggestion": {
-			"help_label": "Hilfe erhalten",
-			"help_text": "Können Sie mir helfen mit...",
-			"issue_label": "Problem melden",
-			"issue_text": "Ich habe ein Problem gefunden mit...",
-			"question_label": "Frage stellen",
-			"question_text": "Ich habe eine Frage zu..."
+		"tool": {
+			"call_id": "Aufruf-ID: {toolCallId}",
+			"error": "Fehler",
+			"input": "Eingabe",
+			"output": "Ausgabe",
+			"processing": "Tool-Aufruf wird verarbeitet..."
 		},
-		"title": "Community Chat",
 		"tooltip": {
 			"attach_files": "Dateien anhängen",
 			"mark_bug": "Fehler markieren"
@@ -629,7 +509,6 @@
 		"delete": "Löschen",
 		"error": "Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut.",
 		"load_error": "Daten konnten nicht geladen werden. Bitte versuchen Sie es später erneut.",
-		"save": "Speichern",
 		"you": "Sie"
 	},
 	"email": {
@@ -721,9 +600,8 @@
 		"cta": "Jetzt starten",
 		"cta_demo": "Demo anfordern",
 		"description": "Erwecke dein SaaS zum Leben in Minuten, nicht in Monaten. Open-Source Template mit einem Tech-Stack, der dich schnell shippen lässt.",
-		"section_label": "Start",
-		"tagline": "Mit Produktfokus\nschneller zum Ziel",
-		"title": "SaaS-Starter-Vorlage"
+		"logo_alt": "{name}-Logo",
+		"tagline": "Mit Produktfokus\nschneller zum Ziel"
 	},
 	"integrations": {
 		"cards": {
@@ -783,7 +661,7 @@
 	"meta": {
 		"about": {
 			"description": "Lernen Sie das talentierte Team hinter unserem Produkt kennen",
-			"title": "Über uns - Lernen Sie unser Team kennen"
+			"title": "Über uns"
 		},
 		"admin": {
 			"dashboard": {
@@ -816,10 +694,6 @@
 				"description": "Chatten Sie in Echtzeit mit der Community.",
 				"title": "Community-Chat"
 			},
-			"dashboard": {
-				"description": "Sehen Sie wichtige Kennzahlen und aktuelle Aktivitäten.",
-				"title": "Dashboard"
-			},
 			"home": {
 				"description": "Weiterleitung zu Ihrem Workspace-Dashboard.",
 				"title": "App-Start"
@@ -851,12 +725,6 @@
 				"title": "Registrieren"
 			}
 		},
-		"emails": {
-			"preview": {
-				"description": "Vorschau von E-Mail-Templates und gerendertem Inhalt.",
-				"title": "E-Mail-Vorschau"
-			}
-		},
 		"home": {
 			"description": "SaaS-Starter für SvelteKit mit Auth, Billing, E-Mail und Analytics.",
 			"title": "Schneller entwickeln und veröffentlichen"
@@ -885,23 +753,18 @@
 	"nav": {
 		"about": "Über uns",
 		"dashboard": "Dashboard",
-		"features": "Funktionen",
 		"get_started": "Jetzt starten",
 		"home": "Start",
 		"login": "Anmelden",
 		"pricing": "Pläne",
-		"signup": "Registrieren",
-		"solution": "Lösung"
+		"signup": "Registrieren"
 	},
 	"pricing": {
 		"buttons": {
-			"loading": "Lädt...",
-			"manage_subscription": "Abonnement verwalten"
+			"loading": "Lädt..."
 		},
-		"current_plan": "Aktueller Plan",
 		"current_plan_badge": "(Aktueller Plan)",
 		"description": "Diese SaaS-Starter-Vorlage ist vollständig kostenlos und Open Source. Testen Sie den Zahlungsablauf mit der Testkartennummer 4242 4242 4242 4242 und einem beliebigen zukünftigen Ablaufdatum.",
-		"description_autumn": "Testen Sie das integrierte Zahlungssystem powered by Autumn - eine Open-Source-Abrechnungsplattform, die Abonnements, Nutzungslimits und Stripe-Webhooks automatisch verwaltet.",
 		"features": {
 			"enterprise": {
 				"0": "Individuelle Nachrichtenlimits",
@@ -923,7 +786,6 @@
 			}
 		},
 		"popular_badge": "Beliebt",
-		"section_label": "Preise",
 		"tiers": {
 			"enterprise": {
 				"button": "Vertrieb kontaktieren",
@@ -933,7 +795,6 @@
 			},
 			"free": {
 				"button": "Für immer kostenlos",
-				"button_manage": "Abonnement verwalten",
 				"description": "Perfekt für den Einstieg",
 				"name": "Kostenlos",
 				"price": "0€ / Monat"
@@ -954,8 +815,7 @@
 			"dialog_description": "Suche nach einer Seite, zu der du navigieren möchtest.",
 			"dialog_title": "Seiten suchen",
 			"footer": {
-				"go_to_page": "Zur Seite wechseln",
-				"open_new_tab": "Klick, um in neuem Tab zu öffnen"
+				"go_to_page": "Zur Seite wechseln"
 			},
 			"groups": {
 				"admin": "Admin",
@@ -1026,7 +886,6 @@
 			"description": "Aktualisieren Sie Ihr Passwort, um Ihr Konto sicher zu halten.",
 			"error_title": "Fehler",
 			"new_password_label": "Neues Passwort",
-			"password_helper": "Muss mindestens 8 Zeichen lang sein.",
 			"placeholder": {
 				"confirm": "Neues Passwort bestätigen",
 				"current": "Aktuelles Passwort eingeben",
@@ -1054,8 +913,6 @@
 				"placeholder": "Passkey-Name",
 				"unnamed": "Unbenannter Passkey"
 			},
-			"passkey_delete_failed": "Passkey konnte nicht gelöscht werden",
-			"passkey_deleted": "Passkey entfernt",
 			"passkey_info_description": "Passkeys sind eine sichere, passwortlose Anmeldemethode. Sie verwenden Biometrie oder Geräte-PIN und werden sicher auf Ihren Geräten gespeichert.",
 			"passkey_info_title": "Was sind Passkeys?",
 			"passkey_name_label": "Passkey-Name",
@@ -1183,6 +1040,7 @@
 	"team": {
 		"description": "Während des Arbeitsprozesses führen wir regelmäßige Anpassungen mit dem Kunden durch, denn er ist die einzige Person, die spüren kann, ob ein neuer Anzug passt oder nicht.",
 		"linktree": "Linktree",
+		"member_alt": "Foto von {name}",
 		"roles": {
 			"cofounder_cto": "Mitgründer - CTO",
 			"founder_ceo": "Gründer - CEO",
@@ -1191,7 +1049,6 @@
 			"ux_engineer": "UX Engineer",
 			"visual_designer": "Visual Designer"
 		},
-		"section_label": "Team",
 		"title": "Unser Traumteam"
 	},
 	"validation": {

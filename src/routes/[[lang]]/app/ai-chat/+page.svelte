@@ -97,7 +97,11 @@
 	}
 </script>
 
-<SEOHead title={$t('meta.app.ai_chat.title')} description={$t('meta.app.ai_chat.description')} />
+<SEOHead
+	title={$t('meta.app.ai_chat.title')}
+	description={$t('meta.app.ai_chat.description')}
+	noindex
+/>
 
 {#if viewer.data}
 	<div class="flex h-full flex-col">

@@ -70,8 +70,8 @@
 	--sidebar-accent: oklch(0.967 0.001 286.375);
 	--sidebar-accent-foreground: oklch(0.21 0.006 285.885);
 	/* Opaque match for the row hover background, used by the shortcut/timestamp
-	   reveal overlay. Light hover is already the opaque accent. */
-	--sidebar-accent-hover: var(--sidebar-accent);
+	   reveal overlay. Flatten the /65 hover to an opaque colour so the overlay matches the row. */
+	--sidebar-accent-hover: color-mix(in srgb, var(--sidebar-accent) 65%, var(--sidebar));
 	--sidebar-border: oklch(0.92 0.004 286.32);
 	--sidebar-ring: oklch(0.705 0.015 286.067);
 	/* Status tokens are mode-aware like --destructive: dark 600/700 shades here keep
@@ -115,10 +115,10 @@
 	--sidebar-primary-foreground: oklch(0.985 0 0);
 	--sidebar-accent: oklch(0.274 0.006 286.033);
 	--sidebar-accent-foreground: oklch(0.985 0 0);
-	/* Dark hover is bg-sidebar-accent/50 over the sidebar; flatten it to an opaque
+	/* Dark hover is bg-sidebar-accent/65 over the sidebar; flatten it to an opaque
 	   colour in srgb (the space the browser composites the /50 layer in) so the
 	   reveal overlay matches the row exactly. */
-	--sidebar-accent-hover: color-mix(in srgb, var(--sidebar-accent) 50%, var(--sidebar));
+	--sidebar-accent-hover: color-mix(in srgb, var(--sidebar-accent) 65%, var(--sidebar));
 	--sidebar-border: oklch(1 0 0 / 10%);
 	--sidebar-ring: oklch(0.552 0.016 285.938);
 	--success: oklch(0.723 0.191 149.579);

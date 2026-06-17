@@ -14,16 +14,15 @@
 			"database_backend": "Base de données & backend",
 			"email_service": "Service d'envoi d'e-mails",
 			"external_services": "Services Externes",
-			"hosting_deployment": "Hébergement & déploiement",
-			"title": "Tableau de bord Admin"
+			"hosting_deployment": "Hébergement & déploiement"
 		},
 		"dialog": {
 			"ban_description": "Êtes-vous sûr de vouloir bannir {email} ? L'accès à l'app sera bloqué.",
+			"ban_reason_label": "Motif du bannissement",
 			"ban_reason_placeholder": "Motif du bannissement (optionnel)",
 			"ban_title": "Bannir l'Utilisateur",
 			"impersonation_active_description": "Veuillez recharger la page pour vous connecter en tant qu'utilisateur usurpé.",
 			"impersonation_active_title": "Usurpation active",
-			"reload_page": "Recharger la page",
 			"revoke_description": "Êtes-vous sûr de vouloir révoquer toutes les sessions de {email} ? La déconnexion sera effectuée partout.",
 			"revoke_title": "Révoquer les Sessions",
 			"set_role_description": "Êtes-vous sûr de vouloir changer le rôle de {email} en {role} ?",
@@ -37,16 +36,13 @@
 			"admin_users": "Gestion de la plateforme",
 			"admins": "Admins",
 			"admins_desc": "Utilisateurs avec privilèges admin",
-			"banned_users": "Utilisateurs Bannis",
-			"banned_users_desc": "Accès restreint",
 			"currently_active": "Activité quotidienne",
 			"last_7_days": "7 derniers jours",
 			"recent_signups": "Inscriptions Récentes",
 			"recent_signups_desc": "Croissance des utilisateurs",
 			"registered_users": "Base d'utilisateurs",
 			"total_users": "Utilisateurs Totaux",
-			"total_users_desc": "Tous les comptes enregistrés",
-			"users_banned": "Comptes à vérifier"
+			"total_users_desc": "Tous les comptes enregistrés"
 		},
 		"navigation": {
 			"app": "App",
@@ -63,18 +59,12 @@
 			"column_new_tickets": "Nouveaux Tickets",
 			"column_type": "Type",
 			"column_user_replies": "Réponses Utilisateur",
-			"default_support_email": "Email de Support par Défaut",
-			"default_support_email_help": "Laisser vide pour envoyer les notifications à tous les administrateurs.",
-			"default_support_email_placeholder": "support@example.com",
 			"delete_email": "Supprimer",
-			"delete_email_confirm": "Supprimer {email} des destinataires de notifications ?",
 			"delete_email_description": "Supprimer {email} des destinataires de notifications ?",
 			"delete_email_title": "Supprimer l'Email",
-			"description": "Configurez les paramètres du panneau d'administration et les notifications.",
 			"email_add_failed": "Impossible d'ajouter l'email",
 			"email_added": "Email ajouté",
 			"email_exists": "Cet email existe déjà",
-			"email_removed": "Email supprimé",
 			"field_new_signups": "Notifications de nouvelles inscriptions",
 			"field_new_tickets": "Notifications de nouveaux tickets",
 			"field_user_replies": "Notifications de réponses utilisateur",
@@ -85,63 +75,34 @@
 				"custom_only": "Personnalisés Uniquement"
 			},
 			"founder_welcome": {
-				"became_contact": "Vous êtes maintenant la personne de contact pour les emails de bienvenue",
 				"cancel": "Annuler",
-				"click_to_edit": "Cliquez pour modifier",
 				"config_body_label": "Corps de l'email",
 				"config_name_label": "Votre nom",
-				"config_reply_to_description": "Où vont les réponses. Utilise votre email de compte si laissé vide.",
 				"config_reply_to_label": "Email de réponse",
 				"config_reply_to_placeholder": "ex. bonjour@votreentreprise.com",
 				"config_subject_label": "Objet de l'email",
 				"config_title_label": "Votre titre",
-				"config_variables_hint": "Variables disponibles : '{{userFirstName}}', '{{userLastName}}', '{{founderName}}', '{{founderTitle}}'",
-				"contact_person": "Personne de contact",
-				"contact_person_info": "{name} ({email})",
 				"description": "Envoie automatiquement un email personnel de bienvenue d'un membre de l'équipe aux nouveaux utilisateurs après l'inscription. Envoyé en texte brut pour plus d'authenticité.",
 				"edit_button": "Modifier",
-				"email_legend": "Contenu de l'email",
 				"error": "Une erreur est survenue. Veuillez réessayer.",
-				"not_configured": "Aucune personne de contact configurée. Configurez un membre de l'équipe pour envoyer des emails de bienvenue aux nouveaux utilisateurs.",
-				"preview_subject": "Objet",
-				"preview_title": "Aperçu",
 				"save": "Enregistrer les modifications",
 				"saved": "Configuration de l'email de bienvenue enregistrée",
-				"sender_legend": "Informations de l'expéditeur",
 				"setup_button": "Devenir personne de contact",
-				"setup_confirm": "Configurer",
-				"setup_title_label": "Votre titre",
 				"setup_title_placeholder": "ex. Fondateur de SaaS Starter",
 				"step_down": "Se retirer",
 				"step_down_confirm": "Se retirer en tant que personne de contact ? Les emails de bienvenue ne seront plus envoyés.",
 				"stepped_down": "Vous n'êtes plus la personne de contact",
-				"take_over": "Reprendre le rôle",
-				"take_over_confirm": "Reprendre en tant que personne de contact ? Le modèle d'email existant sera conservé.",
 				"title": "Email de bienvenue du fondateur",
-				"took_over": "Vous avez repris le rôle de personne de contact",
 				"variables_label": "Variables :"
 			},
-			"invalid_email": "Adresse email invalide",
 			"no_recipients": "Aucun destinataire de notifications configuré",
-			"notification_recipients": "Destinataires des Notifications",
-			"notification_recipients_desc": "Configurez qui reçoit les notifications admin. Les utilisateurs admin sont automatiquement inclus.",
 			"preference_disabled": "{field} désactivées",
 			"preference_disabling": "Désactivation de {field}...",
 			"preference_enabled": "{field} activées",
 			"preference_enabling": "Activation de {field}...",
 			"preference_update_failed": "Échec de la mise à jour de la préférence",
-			"recipient_count": "{count, plural, one {# destinataire} other {# destinataires}}",
 			"recipients_search_placeholder": "Rechercher des destinataires de notification...",
-			"save": "Enregistrer les Paramètres",
-			"saved": "Paramètres enregistrés",
-			"saving": "Enregistrement...",
 			"selected": "{selected} sur {total} sélectionnés",
-			"support_notifications": "Notifications de Support",
-			"support_notifications_desc": "Configurez les notifications par email pour les tickets de support nouveaux et rouverts non assignés.",
-			"tabs": {
-				"notifications": "Notifications",
-				"recipients": "Destinataires"
-			},
 			"title": "Paramètres Admin",
 			"type_admin": "Admin",
 			"type_custom": "Personnalisé"
@@ -154,7 +115,6 @@
 			"users": "Utilisateurs"
 		},
 		"support": {
-			"all_statuses": "Tous les statuts",
 			"anonymous": "Anonyme",
 			"assignee": {
 				"not_assigned": "Non assigné",
@@ -172,9 +132,7 @@
 				"page_url": "URL de la page",
 				"priority": "Priorité",
 				"status": "Statut",
-				"title": "Détails",
-				"user_notes": "Notes Utilisateur",
-				"user_notes_description": "Les notes sont enregistrées au niveau de l utilisateur et apparaissent dans tous leurs fils de support"
+				"user_notes": "Notes Utilisateur"
 			},
 			"email": {
 				"label": "Email de notification"
@@ -190,7 +148,6 @@
 			},
 			"filter_showing_completed": "Affiche les fils terminés, cliquer pour afficher les ouverts",
 			"filter_showing_open": "Affiche les fils ouverts, cliquer pour afficher les terminés",
-			"no_chats": "Aucun chat trouvé",
 			"no_done_chats": "Aucun chat terminé",
 			"no_email": "Pas d'e-mail",
 			"no_open_chats": "Aucun chat ouvert",
@@ -212,9 +169,7 @@
 			"select_chat_for_details": "Sélectionnez un chat pour voir les détails",
 			"status": {
 				"done": "Terminé",
-				"in_progress": "En cours",
-				"open": "Ouvert",
-				"resolved": "Résolu"
+				"open": "Ouvert"
 			},
 			"thread": {
 				"badge": {
@@ -225,12 +180,10 @@
 				"no_messages": "Aucun message",
 				"retry": "Réessayer"
 			},
-			"threads_title": "Fils de Support",
-			"title": "Chats de Support"
+			"threads_title": "Fils de Support"
 		},
 		"title": "Panneau Admin",
 		"users": {
-			"actions_column": "Actions",
 			"ban_reason": {
 				"default": "Violation des conditions d'utilisation"
 			},
@@ -274,7 +227,6 @@
 				"ban_failed": "Échec du bannissement : {message}",
 				"banned": "Utilisateur banni",
 				"impersonate_failed": "Échec de l'usurpation : {message}",
-				"impersonation_started": "Usurpation d'identité démarrée",
 				"note_added": "Note ajoutée",
 				"note_failed": "Échec de l'ajout de la note : {message}",
 				"priority_failed": "Échec de la mise à jour de la priorité : {message}",
@@ -288,60 +240,36 @@
 				"unban_failed": "Échec du débannissement : {message}",
 				"unbanned": "Utilisateur débanni"
 			},
-			"total": "utilisateurs",
-			"unnamed": "Sans nom",
 			"unverified": "Non vérifié",
 			"verified": "Vérifié"
 		}
 	},
 	"ai_chat": {
-		"delete_thread": "Supprimer la conversation",
-		"delete_thread_confirm": "Êtes-vous sûr de vouloir supprimer cette conversation ?",
-		"description": "Discutez avec notre assistant IA",
-		"empty": {
-			"description": "Posez n'importe quelle question et obtenez des réponses instantanées par IA.",
-			"title": "Démarrer une conversation"
-		},
 		"input": {
 			"placeholder": "Tapez un message..."
 		},
-		"new_chat": "Nouveau chat",
-		"select_chat": "Sélectionnez une conversation ou démarrez un nouveau chat",
 		"suggestion": {
 			"explain": "Explique quelque chose",
 			"help": "Obtenir de l'aide",
-			"understand": "Aide-moi à comprendre",
 			"weather": "Quel temps fait-il à Tokyo ?"
 		},
 		"thread": {
-			"loading": "Chargement...",
 			"no_messages": "Nouvelle conversation"
-		},
-		"title": "Chat IA"
+		}
 	},
 	"app": {
-		"dashboard": {
-			"subtitle": "Voici votre base. Les métriques en temps réel et l'activité apparaîtront ici au fur et à mesure que vous développez votre application.",
-			"title": "Bienvenue sur votre tableau de bord"
-		},
 		"sidebar": {
 			"admin_panel": "Panneau Admin",
 			"ai_chat": "Chat IA",
 			"community_chat": "Chat communautaire",
-			"dashboard": "Tableau de bord",
-			"docs": "Documentation",
-			"home": "Accueil",
-			"show_less": "Afficher moins",
 			"show_more": "Afficher plus"
 		},
 		"user_menu": {
-			"account": "Compte",
 			"billing": "Facturation",
 			"impersonating_banner": "Vous usurpez l'identité de cet utilisateur",
 			"impersonation_stop_failed": "Échec de l'arrêt de l'usurpation",
 			"impersonation_stopped": "Usurpation arrêtée",
 			"logout": "Se déconnecter",
-			"notifications": "Notifications",
 			"pro_badge": "Pro",
 			"settings": "Paramètres",
 			"stop_impersonating": "Arrêter l'usurpation",
@@ -357,42 +285,26 @@
 		"copied": "Copié",
 		"copy": "Copier",
 		"copy_failed": "Échec de la copie",
-		"drag_to_reorder": "Glisser pour réorganiser",
 		"feedback_close": "Fermer les commentaires",
 		"feedback_open": "Ouvrir les commentaires",
 		"github_repository": "Dépôt GitHub",
 		"go_back": "Retour",
 		"hide_password": "Masquer le mot de passe",
-		"home": "accueil",
 		"interactive_pointer_tracking_area": "Zone interactive de suivi du pointeur",
-		"limit": "Limite",
 		"loading": "Chargement",
-		"login_with_apple": "Se connecter avec Apple",
-		"login_with_google": "Se connecter avec Google",
-		"login_with_meta": "Se connecter avec Meta",
 		"logout": "Se déconnecter",
 		"menu_close": "Fermer le menu",
 		"menu_open": "Ouvrir le menu",
 		"mobile_sidebar_description": "Affiche la barre latérale mobile.",
 		"more": "Plus",
 		"notification_toggle_for_email": "{field} pour {email}",
-		"pagination_first": "Première page",
-		"pagination_last": "Dernière page",
-		"pagination_next": "Page suivante",
-		"pagination_previous": "Page précédente",
 		"remove_attachment": "Supprimer la pièce jointe",
-		"reviewer": "Réviseur",
 		"scroll_to_bottom": "Faire défiler vers le bas",
-		"select_all": "Tout sélectionner",
-		"select_row": "Sélectionner la ligne",
-		"select_value": "Sélectionner une valeur",
 		"show_password": "Afficher le mot de passe",
 		"sidebar": "Barre latérale",
-		"target": "Cible",
 		"toggle_sidebar": "Basculer la barre latérale",
 		"toggle_theme": "Changer le thème",
-		"toggle_threads": "Basculer la liste des conversations",
-		"view": "Voir"
+		"toggle_threads": "Basculer la liste des conversations"
 	},
 	"auth": {
 		"back_to_home": "Retour à l'accueil",
@@ -403,8 +315,6 @@
 			"description": "Nous vous enverrons un lien de réinitialisation",
 			"title": "Mot de passe oublié"
 		},
-		"login": "Connexion",
-		"logout": "Déconnexion",
 		"messages": {
 			"auth_cancelled": "L'authentification a été annulée",
 			"credential_account_not_found": "Aucun compte avec mot de passe trouvé. Essayez de vous connecter avec votre fournisseur social.",
@@ -448,7 +358,6 @@
 			"description": "Entrez votre nouveau mot de passe",
 			"new_password_label": "Nouveau mot de passe",
 			"sign_in_link": "Se connecter",
-			"success": "Votre mot de passe a été réinitialisé.",
 			"title": "Réinitialiser le mot de passe"
 		},
 		"signin": {
@@ -456,10 +365,8 @@
 			"button_signin_loading": "Connexion en cours...",
 			"button_signup": "S'inscrire",
 			"button_signup_loading": "Création du compte...",
-			"cancel": "Annuler",
 			"description": "Connectez-vous à votre compte ou créez-en un nouveau",
 			"email_label": "E-mail",
-			"email_placeholder": "vous@exemple.fr",
 			"forgot_password": "Mot de passe oublié ?",
 			"link_signup": "S'inscrire",
 			"name_label": "Nom",
@@ -470,19 +377,13 @@
 			"or_continue_with": "Ou continuer avec",
 			"passkey_button": "Se connecter avec Passkey",
 			"password_label": "Mot de passe",
-			"password_placeholder": "••••••••",
 			"tab_signin": "Connexion",
-			"tab_signup": "S'inscrire",
-			"test_secret_button": "Se connecter avec un secret",
-			"test_secret_label": "Test uniquement : Se connecter avec un secret",
-			"test_secret_placeholder": "valeur secrète",
 			"title": "Bon retour"
 		},
 		"signup": {
 			"description": "Entrez vos informations pour commencer",
 			"has_account": "Déjà un compte ?",
 			"link_signin": "Se connecter",
-			"password_hint": "Minimum 10 caractères avec majuscules, minuscules et chiffre",
 			"title": "Créer un compte"
 		},
 		"terms": {
@@ -493,12 +394,7 @@
 		},
 		"verification": {
 			"button_back": "Retour à la connexion",
-			"button_cancel": "Annuler",
-			"button_verify": "Vérifier l'e-mail",
-			"button_verify_loading": "Vérification en cours...",
 			"check_email": "Veuillez vérifier votre e-mail et cliquer sur le lien de vérification pour finaliser votre inscription.",
-			"code_label": "Code de vérification",
-			"code_placeholder": "12345678",
 			"description": "Nous vous avons envoyé un lien de vérification",
 			"sent_to": "Nous avons envoyé un e-mail de vérification à",
 			"title": "Vérification de l'e-mail",
@@ -507,6 +403,12 @@
 		}
 	},
 	"backend": {
+		"aiChat": {
+			"message_too_long": "Le message est trop long (max. {max} caractères)"
+		},
+		"community": {
+			"message_too_long": "Le message est trop long (max. {max} caractères)"
+		},
 		"files": {
 			"fetch_failed": "Impossible de récupérer le fichier téléchargé. Veuillez réessayer.",
 			"file_too_large": "Fichier trop volumineux : {size} dépasse le maximum de {max}",
@@ -516,15 +418,10 @@
 			"handoff": {
 				"response": "Bien sûr ! Je vous connecte maintenant. Veuillez entrer votre email ci-dessous et nous vous notifierons quand notre équipe de support aura répondu. En attendant, n'hésitez pas à ajouter des détails supplémentaires qui pourraient nous aider."
 			},
+			"message_too_long": "Le message est trop long (max. {max} caractères)",
 			"rate_limit": {
 				"global": "Je suis actuellement très sollicité. Veuillez réessayer d'envoyer votre message dans un instant.",
 				"user": "Trop de messages. Veuillez patienter avant d'en envoyer un autre."
-			},
-			"summary": {
-				"default": "Nouvelle conversation de support"
-			},
-			"title": {
-				"default": "Support Client"
 			}
 		}
 	},
@@ -555,22 +452,16 @@
 			"preview_loading": "Chargement de l'aperçu…",
 			"preview_truncated": "Aperçu tronqué à {size}"
 		},
-		"avatar": {
-			"team_member": "Membre de l'équipe"
-		},
 		"buttons": {
 			"processing": "Traitement...",
 			"upgrade": "Passer à Pro"
 		},
-		"description": "Ouvrez cette application dans plusieurs fenêtres de navigateur pour voir la base de données en temps réel en action",
 		"email": {
 			"placeholder": "Email",
 			"save_failed": "Échec de l'enregistrement de l'email. Veuillez réessayer.",
-			"saved_success": "Email enregistré ! Nous vous notifierons lorsque nous répondrons.",
 			"subscribe_button": "S'abonner",
 			"unsubscribe_failed": "Échec du désabonnement. Veuillez réessayer.",
-			"unsubscribe_tooltip": "Se désabonner",
-			"unsubscribed": "Désabonné des notifications par email."
+			"unsubscribe_tooltip": "Se désabonner"
 		},
 		"error": {
 			"file_max_size": "Taille maximale : {maxSize}",
@@ -578,27 +469,18 @@
 			"file_type_not_allowed": "Type de fichier non autorisé : \"{filename}\"",
 			"image_compression_exceeded": "L'image n'a pas pu être compressée en dessous de {maxSize}",
 			"max_attachments": "Maximum {max} pièces jointes autorisées",
-			"pasted_file_too_large": "Fichier collé trop volumineux"
-		},
-		"greeting": "Comment pouvons-nous vous aider ?",
-		"greeting_hi": "Bonjour",
-		"header": {
-			"messages_left": "({remaining}/{total} message restant)",
-			"messages_left_plural": "({remaining}/{total} messages restants)",
-			"pro_unlimited": "(Pro - Illimité)",
-			"subtitle": "Chat en temps réel",
-			"title": "Chat"
+			"pasted_file_too_large": "Fichier collé trop volumineux",
+			"upload_failed": "Échec du téléversement de « {filename} »",
+			"upload_failed_description": "Échec du téléversement"
 		},
 		"input": {
 			"placeholder": "Tapez un message...",
 			"placeholder_disabled": "Limite de messages atteinte",
-			"send_tooltip": "Envoyer le message",
-			"upgrade_tooltip": "Passez à Pro pour des messages illimités"
+			"send_tooltip": "Envoyer le message"
 		},
 		"messages": {
 			"rate_limited": "Vous envoyez des messages trop vite. Réessayez dans {seconds}s.",
-			"send_failed": "Échec de l'envoi du message",
-			"sent_success": "Message envoyé !"
+			"send_failed": "Échec de l'envoi du message"
 		},
 		"reasoning": {
 			"connecting": "Connexion...",
@@ -607,15 +489,13 @@
 			"thought_for_seconds": "A réfléchi pendant {duration} seconde",
 			"thought_for_seconds_plural": "A réfléchi pendant {duration} secondes"
 		},
-		"suggestion": {
-			"help_label": "Obtenir de l'aide",
-			"help_text": "Pouvez-vous m'aider avec...",
-			"issue_label": "Signaler un problème",
-			"issue_text": "J'ai trouvé un problème avec...",
-			"question_label": "Poser une question",
-			"question_text": "J'ai une question sur..."
+		"tool": {
+			"call_id": "ID d'appel : {toolCallId}",
+			"error": "Erreur",
+			"input": "Entrée",
+			"output": "Sortie",
+			"processing": "Traitement de l'appel d'outil..."
 		},
-		"title": "Chat Communautaire",
 		"tooltip": {
 			"attach_files": "Joindre des fichiers",
 			"mark_bug": "Marquer le bug"
@@ -629,7 +509,6 @@
 		"delete": "Supprimer",
 		"error": "Une erreur est survenue. Veuillez réessayer.",
 		"load_error": "Échec du chargement des données. Veuillez réessayer plus tard.",
-		"save": "Enregistrer",
 		"you": "Vous"
 	},
 	"email": {
@@ -721,9 +600,8 @@
 		"cta": "Commencer maintenant",
 		"cta_demo": "Demander une démo",
 		"description": "Donne vie à ton SaaS en quelques minutes, pas en mois. Template open-source bourré de tech qui te fait shipper direct.",
-		"section_label": "Accueil",
-		"tagline": "Focus sur ton produit.\nLancement plus rapide.",
-		"title": "Modèle SaaS Starter"
+		"logo_alt": "Logo {name}",
+		"tagline": "Focus sur ton produit.\nLancement plus rapide."
 	},
 	"integrations": {
 		"cards": {
@@ -783,7 +661,7 @@
 	"meta": {
 		"about": {
 			"description": "Rencontrez l'équipe talentueuse derrière notre produit",
-			"title": "À propos de nous - Rencontrez notre équipe"
+			"title": "À propos"
 		},
 		"admin": {
 			"dashboard": {
@@ -816,10 +694,6 @@
 				"description": "Discutez avec la communauté en temps réel.",
 				"title": "Chat communautaire"
 			},
-			"dashboard": {
-				"description": "Consultez les métriques clés et l'activité récente.",
-				"title": "Tableau de bord"
-			},
 			"home": {
 				"description": "Redirection vers le tableau de bord de votre espace de travail.",
 				"title": "Accueil App"
@@ -851,12 +725,6 @@
 				"title": "Inscription"
 			}
 		},
-		"emails": {
-			"preview": {
-				"description": "Prévisualisez les modèles d'e-mails et leur rendu.",
-				"title": "Aperçu des e-mails"
-			}
-		},
 		"home": {
 			"description": "Starter SaaS pour SvelteKit avec auth, paiements, email et analytics.",
 			"title": "Construisez et lancez votre produit plus rapidement"
@@ -885,23 +753,18 @@
 	"nav": {
 		"about": "À propos",
 		"dashboard": "Tableau de bord",
-		"features": "Fonctionnalités",
 		"get_started": "Commencer",
 		"home": "Accueil",
 		"login": "Connexion",
 		"pricing": "Tarifs",
-		"signup": "S'inscrire",
-		"solution": "Solution"
+		"signup": "S'inscrire"
 	},
 	"pricing": {
 		"buttons": {
-			"loading": "Chargement...",
-			"manage_subscription": "Gérer l'Abonnement"
+			"loading": "Chargement..."
 		},
-		"current_plan": "Plan Actuel",
 		"current_plan_badge": "(Plan Actuel)",
 		"description": "Ce modèle SaaS starter est complètement gratuit et open source. Testez le flux de paiement en utilisant le numéro de carte de test 4242 4242 4242 4242 avec n'importe quelle date d'expiration future.",
-		"description_autumn": "Testez le système de paiement intégré powered by Autumn - une plateforme de facturation open source qui gère automatiquement les abonnements, les limites d'utilisation et les webhooks Stripe.",
 		"features": {
 			"enterprise": {
 				"0": "Limites de messages personnalisées",
@@ -923,7 +786,6 @@
 			}
 		},
 		"popular_badge": "Populaire",
-		"section_label": "Tarifs",
 		"tiers": {
 			"enterprise": {
 				"button": "Contacter les Ventes",
@@ -933,7 +795,6 @@
 			},
 			"free": {
 				"button": "Gratuit à vie",
-				"button_manage": "Gérer l'Abonnement",
 				"description": "Parfait pour commencer",
 				"name": "Gratuit",
 				"price": "0€ / mois"
@@ -954,8 +815,7 @@
 			"dialog_description": "Recherchez une page vers laquelle naviguer.",
 			"dialog_title": "Rechercher des pages",
 			"footer": {
-				"go_to_page": "Aller à la page",
-				"open_new_tab": "Cliquer pour ouvrir dans un nouvel onglet"
+				"go_to_page": "Aller à la page"
 			},
 			"groups": {
 				"admin": "Admin",
@@ -1026,7 +886,6 @@
 			"description": "Mettez à jour votre mot de passe pour sécuriser votre compte.",
 			"error_title": "Erreur",
 			"new_password_label": "Nouveau mot de passe",
-			"password_helper": "Doit contenir au moins 8 caractères.",
 			"placeholder": {
 				"confirm": "Confirmez le nouveau mot de passe",
 				"current": "Entrez le mot de passe actuel",
@@ -1054,8 +913,6 @@
 				"placeholder": "Nom du passkey",
 				"unnamed": "Passkey sans nom"
 			},
-			"passkey_delete_failed": "Impossible de supprimer la passkey",
-			"passkey_deleted": "Passkey supprimée",
 			"passkey_info_description": "Les passkeys sont un moyen sécurisé de se connecter sans mot de passe. Ils utilisent la biométrie ou le code PIN de l'appareil et sont stockés en toute sécurité sur vos appareils.",
 			"passkey_info_title": "Que sont les Passkeys ?",
 			"passkey_name_label": "Nom du passkey",
@@ -1183,6 +1040,7 @@
 	"team": {
 		"description": "Pendant le processus de travail, nous effectuons des ajustements réguliers avec le client car il est la seule personne qui peut sentir si un nouveau costume lui va bien ou non.",
 		"linktree": "Linktree",
+		"member_alt": "Photo de {name}",
 		"roles": {
 			"cofounder_cto": "Co-fondateur - CTO",
 			"founder_ceo": "Fondateur - PDG",
@@ -1191,7 +1049,6 @@
 			"ux_engineer": "Ingénieur UX",
 			"visual_designer": "Designer Visuel"
 		},
-		"section_label": "Équipe",
 		"title": "Notre équipe de rêve"
 	},
 	"validation": {

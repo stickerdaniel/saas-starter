@@ -10,15 +10,14 @@
 	import ArchiveIcon from '@lucide/svelte/icons/archive';
 	import Loader2Icon from '@lucide/svelte/icons/loader-2';
 	import { formatDistanceToNow } from 'date-fns';
-	import { type Locale, de, es, fr } from 'date-fns/locale';
 	import { watch } from 'runed';
 	import { haptic } from '$lib/hooks/use-haptic.svelte';
 	import { T, getTranslate } from '@tolgee/svelte';
 	import { InfiniteLoader, LoaderState } from 'svelte-infinite';
 	import { page } from '$app/state';
+	import { getDateFnsLocale } from '$lib/utils/i18n';
 
-	const dateFnsLocaleMap: Record<string, Locale> = { de, es, fr };
-	const dateFnsLocale = $derived(dateFnsLocaleMap[page.data.lang] ?? undefined);
+	const dateFnsLocale = $derived(getDateFnsLocale(page.data.lang));
 
 	const { t } = getTranslate();
 

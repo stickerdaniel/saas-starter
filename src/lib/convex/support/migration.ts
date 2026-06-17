@@ -26,11 +26,9 @@ export const migrateAnonymousTickets = mutation({
 	args: { anonymousUserId: v.string() },
 	returns: v.object({ migratedCount: v.number() }),
 	handler: async (ctx, args) => {
-		// 1. Verify caller is authenticated
+		// 1. Verify caller is authenticated.
+		// getAuthUser throws ConvexError('Unauthenticated') when there is no user
 		const authUser = await authComponent.getAuthUser(ctx);
-		if (!authUser) {
-			throw new ConvexError('Authentication required');
-		}
 
 		// 2. Validate anonymous ID format
 		if (!isAnonymousUser(args.anonymousUserId)) {

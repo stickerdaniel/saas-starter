@@ -3,6 +3,7 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { haptic } from '$lib/hooks/use-haptic.svelte';
+	import { DEFAULT_LANGUAGE } from '$lib/i18n/languages';
 	import autoAnimate from '@formkit/auto-animate';
 	import { getTranslate } from '@tolgee/svelte';
 	import type { NavSubItem } from './types';
@@ -22,7 +23,7 @@
 	// revealed on row hover. Reactive on the route language so switching locales
 	// reformats live.
 	const dateFormatter = $derived(
-		new Intl.DateTimeFormat(page.params.lang ?? 'en', {
+		new Intl.DateTimeFormat(page.data.lang ?? DEFAULT_LANGUAGE, {
 			day: '2-digit',
 			month: '2-digit',
 			hour: '2-digit',

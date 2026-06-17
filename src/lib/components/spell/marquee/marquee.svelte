@@ -198,7 +198,14 @@
 		animation-duration: var(--spell-marquee-duration);
 		animation-timing-function: linear;
 		animation-iteration-count: infinite;
-		will-change: transform;
+	}
+
+	/* Compositor hint only while the animation can run, so it never lingers
+	   as an orphaned hint for reduced-motion users (animation is none there). */
+	@media (prefers-reduced-motion: no-preference) {
+		.spell-marquee__scroller {
+			will-change: transform;
+		}
 	}
 
 	.spell-marquee__scroller--horizontal {

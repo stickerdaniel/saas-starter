@@ -101,6 +101,7 @@ type PasswordInputStateProps = WritableBoxedValues<{
 }> &
 	ReadableBoxedValues<{
 		ref: HTMLInputElement | null;
+		invalid: boolean;
 	}>;
 
 class PasswordInputState {
@@ -133,12 +134,15 @@ class PasswordInputState {
 		});
 	}
 
-	props = $derived.by(() => ({
-		'aria-invalid':
+	props = $derived.by(() => {
+		const strengthInvalid =
 			this.root.strength.score < this.root.opts.minScore.current &&
 			this.root.passwordState.tainted &&
-			this.root.passwordState.strengthMounted
-	}));
+			this.root.passwordState.strengthMounted;
+		return {
+			'aria-invalid': strengthInvalid || this.opts.invalid.current ? ('true' as const) : undefined
+		};
+	});
 }
 
 class PasswordToggleVisibilityState {

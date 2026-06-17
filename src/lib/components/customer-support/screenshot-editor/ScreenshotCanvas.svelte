@@ -10,8 +10,8 @@
 	const height = typeof window !== 'undefined' ? window.innerHeight : 1080;
 
 	// Konva Stage/Layer ref binding (assigned by Svelte bind:this at runtime)
-	let stageComponent: any;
-	let layerComponent: any;
+	let stageComponent = $state<any>(null);
+	let layerComponent = $state<any>(null);
 
 	// Bind refs to context when mounted
 	$effect(() => {

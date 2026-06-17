@@ -70,6 +70,11 @@ Local dev notes (`bun run dev`):
 - Local Convex state is isolated per branch/worktree under `.convex/`.
 - `RESET_LOCAL_BACKEND=true bun run dev` clears the existing local Convex state before startup and restores the default seeded admin credentials.
 
+### Deployment
+
+- Deploy is push-driven: `main` → production, any branch → preview, built by CI (CF Workers Builds + Vercel run `scripts/deploy.ts`). Command table in README.
+- Never deploy from local (`convex deploy`, `wrangler deploy`, bare `deploy.ts`): it needs CI-only env (varlock, `CONVEX_DEPLOY_KEY`, `WORKERS_CI`) and otherwise fails or targets the wrong deployment. Just push.
+
 ### Logo Generation
 
 - `bun run generate:logos` — Regenerate `static/logo-email.png` from `static/logo.svg`
@@ -150,7 +155,6 @@ See [official docs](https://docs.convex.dev/scheduling/scheduled-functions) for 
 **Components with Built-in Durability:**
 
 - `@convex-dev/resend`: Idempotency keys guarantee exactly-once email delivery, durable execution via workpools (default: 5 retries, 30s initial backoff). Catching errors from `resend.sendEmail()` is valid - they indicate permanent failures (invalid config), not transient network issues. See [component docs](https://www.convex.dev/components/resend).
-- `@convex-dev/workpool`: Configurable retry with backoff/jitter, `onComplete` callbacks, parallelism control.
 
 - `@useautumn/convex`: SDK has built-in fail-open (returns `allowed: true` on 5xx/network errors). No manual fail-open logic needed in `autumn.check()` calls.
 
@@ -228,6 +232,7 @@ Runtime files:
 
 - `src/lib/convex/` - Convex backend functions, schema, and auth config
 - `src/lib/components/` - UI components
+- `src/i18n/` - Translation JSON files (`en`, `de`, `es`, `fr`)
 - `src/lib/i18n/` - Internationalization configuration
 - `src/routes/[[lang]]/` - SvelteKit routes with language parameter
 - `src/hooks.server.ts` - Server hooks for auth and language middleware
@@ -347,6 +352,8 @@ This project uses **PostHog** for product analytics with an optional **Cloudflar
 
 ### Vitest Unit Tests
 
+- Co-locate unit tests as `*.test.ts` next to the source file. Run via `bun run test:unit`.
+
 ## Development
 
 <important_info>
@@ -362,7 +369,7 @@ Derived: let doubled = $derived(count \* 2);
 Props: <script lang="ts">let { name = 'World' } = $props(); </script> `<p>Hello, {name}!</p>`
 Binding: `<script lang="ts">let { value = $bindable() } = $props(); </script> <input bind:value={value} />`
 Snippets: `<div>{@render header()}</div> with <Child>{#snippet header()}<h1>Header</h1>{/snippet}</Child>`
-Class Store: class Counter { count = $state(0); increment() { this.count += 1; } } export const counter = new Counter();
+Class Store: class Counter { count = $state(0); increment() { this.count += 1; } } export const counter = new Counter(); but this module-singleton pattern is banned in `.svelte.ts` rune modules (`local/no-module-state-singleton`, SSR cross-request leak #500); share per-request state via a runed `Context` instead.
 Notes:
 Type $derived explicitly (e.g., let items: Item[] = $derived(...)) for arrays in TypeScript.
 Default to new syntax for Svelte 5 benefits.
@@ -381,7 +388,7 @@ Prop names must match the parent's passed prop name exactly.
 
 ### ESLint & Legacy Plugins
 
-When adding ESLint plugins that export legacy `.eslintrc`-style configs (objects with `overrides`), use `fixupConfigRules()` from `@eslint/compat` to convert. See the Convex plugin block in `eslint.config.js` for the pattern.
+When adding ESLint plugins that export legacy `.eslintrc`-style configs (objects with `overrides`), use `fixupConfigRules()` from `@eslint/compat` to convert.
 
 Adding a top-level dir with `.svelte`/`.ts` files outside the tsconfig `include` (e.g. `archive/`, `scratch/`)? `projectService: true` will refuse to parse it and pre-commit fails with a cryptic "not found by the project service" error. Either add the dir to `tsconfig.json` `include` or to `eslint.config.js` `ignores`.
 
@@ -421,7 +428,7 @@ Decision tree for new routes:
 For each data need in a new route, pick the right pattern:
 
 1. **Auth-dependent data needed in SSR HTML?**
-   → `+page.server.ts` with `createConvexHttpClient({ token: event.locals.token })`
+   → `+page.server.ts` with `createServerConvexHttpClient({ token: event.locals.token })` from `$lib/server/convex-http`
    → Pass result to component as `data` prop
    → Wrap in try-catch for resilience
 
@@ -489,7 +496,7 @@ For each data need in a new route, pick the right pattern:
    → **Shareable / linkable view** (search, sort, active tab) → URL. Read with `page.url.searchParams` in a `$derived` (SvelteKit populates `page.url` on the server, so SSR renders the right view → flash-free); write with `goto(url, { keepFocus: true, noScroll: true })`, omitting defaults from the URL. Default `replaceState: false` pushes a history entry per view switch, matching `admin/support` thread selection (canonical) and the settings tabs fix. `pushState` / `replaceState` from `$app/navigation` are not a substitute — they update `page.state`, not `page.url`, so SSR via `page.url.searchParams` would not see the change. `goto` to the same route does not re-run server loads that do not track the changed param (SvelteKit's dependency tracking handles this); only call out `replaceState: true` when you specifically want to overwrite the current history entry. **Do not use `useSearchParams` (`runed/kit`) for SSR-visible view selection** — it reads the URL client-only (BROWSER-gated init) and renders the default on the server, so the view flashes on first paint. Fine only where the flash is invisible (e.g. a table behind a loading skeleton).
    → **Per-user preference that must be right on first paint but does not belong in the address** (sidebar collapse) → cookie + SSR read. Write client-side (`document.cookie`), read in `hooks.server.ts` into `event.locals` (NOT a layout-load `cookies.get`, see Prerendering constraints), thread as a prop. See #404.
    → **Preference where a hydration flash is fine, or state too large / private to send on every request** (chat drafts, mic settings) → `PersistedState` (localStorage).
-   Three flash-free reads, all because the value is available before first paint: URL via `page.url`, cookie via `event.locals`, or a blocking inline `<head>` script that reads localStorage and sets a single `<html>` class/attribute (e.g. theme via ModeWatcher in `app.html`). `PersistedState` read in component script always flashes.
+   Three flash-free reads, all because the value is available before first paint: URL via `page.url`, cookie via `event.locals`, or a blocking inline `<head>` script that reads localStorage and sets a single `<html>` class/attribute (e.g. theme via the `<ModeWatcher />` component in `+layout.svelte`, which injects a blocking head script). `PersistedState` read in component script always flashes.
 
 #### Deferred loading pattern
 
@@ -512,15 +519,16 @@ Components that need user data on prerendered pages must use `authClient.useSess
 
 Request-time values needed for an SSR render that shares a layout with prerendered routes (e.g. a `sidebar_state` cookie) must be read in `hooks.server.ts` into `event.locals`, not via `event.cookies.get` in a `+layout.server.ts` load. A cookie read in the shared root layout load breaks prerendering of the marketing pages; the JWT token flows through the same `locals` channel.
 
-#### Cache-control for SSR pages
+#### Cache-control for marketing pages
 
-Marketing routes that are NOT prerendered get edge caching via `handleCacheControl` hook in `hooks.server.ts`:
+Marketing HTML gets the same `Cache-Control: public, s-maxage=3600, stale-while-revalidate=86400` policy through two different edge-cache paths, because prerendered and SSR routes are served differently on CF:
 
-- Condition: unauthenticated + matches `matchPublicMarketingRoute()`
-- Headers: `Cache-Control: public, s-maxage=3600, stale-while-revalidate=86400`
-- Placed AFTER `handleMarketingMarkdown` in `sequence()` to preserve markdown's own TTL
+- **Non-prerendered routes (e.g. `/pricing`)** go through `server.respond()`, so the `handleCacheControl` hook in `hooks.server.ts` sets the header.
+  - Condition: unauthenticated + matches `matchPublicMarketingRoute()`
+  - Placed AFTER `handleMarketingMarkdown` in `sequence()` to preserve markdown's own TTL
+- **Prerendered routes (home, about, privacy, terms, impressum)** are served as static assets and bypass SvelteKit hooks, so they ship with no Cache-Control. The worker postbuild patch (`scripts/patch-cf-worker.ts`) injects the same header right after the `ASSETS.fetch` call, gated on `!__wantsMarkdown` + `prerendered.has(pathname)` + a marketing-route regex (`pricing` is intentionally excluded — it is SSR, not prerendered).
 
-Markdown responses on the same URLs use `Cache-Control: private` to stay out of shared caches: CF Edge ignores `Vary: Accept`, so any edge-cacheable markdown would poison subsequent HTML requests on the same URL.
+Markdown responses on the same URLs use `Cache-Control: private` to stay out of shared caches: CF Edge ignores `Vary: Accept`, so any edge-cacheable markdown would poison subsequent HTML requests on the same URL. The worker patch leaves the markdown variant private by reusing the same `__wantsMarkdown` negotiation check.
 
 #### Cache purging (production)
 
@@ -534,7 +542,7 @@ Markdown responses on the same URLs use `Cache-Control: private` to stay out of 
 ### Cloudflare Platform Gotchas
 
 - **CF Cache API ignores `Vary`.** Never rely on `Vary`-based content negotiation inside the worker. Bypass the worktop cache before it runs for any header-dependent response. See `scripts/patch-cf-worker.ts`.
-- **Prerendered pages bypass SvelteKit hooks.** Patch the worker to fall through to `server.respond()` for any hook-dependent behavior on prerendered routes. See `scripts/patch-cf-worker.ts`.
+- **Prerendered pages bypass SvelteKit hooks.** Patch the worker to fall through to `server.respond()` for any hook-dependent behavior on prerendered routes. The same patch also injects the marketing edge-cache header (`Cache-Control: public, s-maxage=3600, ...`) onto prerendered marketing HTML, since the `handleCacheControl` hook never runs for them. See `scripts/patch-cf-worker.ts`.
 
 ### Regression Guard Decision Tree
 
@@ -620,14 +628,14 @@ Examples: URL parsing, stream processing, optimistic updates.
 
 #### "This security header / policy must be present"
 
-Examples: CSP, HSTS, X-Frame-Options on all responses including static assets.
+Examples: HSTS, X-Frame-Options on all responses including static assets (no CSP is currently set).
 
 → **`_headers` file** (project root) for static assets + **server hook** for SSR responses.
 Both are needed — static assets bypass hooks.
 
 #### "This export is intentionally unused (template knob for forks)"
 
-Examples: `optionOrAlt` (keyboard shortcut convention sibling of `cmdOrCtrl`), `getLegalEmailAddress` (raw mailto variant of the obfuscated default).
+Examples: `optionOrAlt` (keyboard shortcut convention sibling of `cmdOrCtrl`).
 
 → **JSDoc `@public` tag** on the export with a one-line reason, never a bare tag. Knip stops reporting it as unused and emits a tag hint once the export gains a real consumer, so the tag can be removed again.
 For intentionally kept **files**, use a `knip.config.ts` `ignore` entry with a why-comment instead, and remove entries that go stale when files are deleted. Anything regenerable from upstream (shadcn demos, cnblocks, prompt-kit examples) has no keep-value as dead code — delete it and re-fetch on demand.
@@ -685,7 +693,7 @@ For general animation craft (easing, duration, when to animate, performance, acc
 
 - Simple animations should be implemented with plain CSS whenever possible.
 - Before implementing any custom animation, check if sv-animate has a prebuilt component that can be used. Use btca with `svAnimate` resource.
-- For custom animations, use Svelte's built-in animations, or motion-svelte (Framer Motion for Svelte). Use btca with `motionSvelte` resource.
+- For custom animations, use Svelte's built-in animations, or motion-sv (Framer Motion for Svelte). Use btca with `motionSvelte` resource.
 - For Tailwind, use `motion-safe:` / `motion-reduce:` prefixes (e.g., `motion-safe:animate-fade-in`, `motion-reduce:animate-none`).
 - For page transitions and state changes, use the View Transitions API with SvelteKit's `onNavigate`:
 
@@ -752,7 +760,7 @@ Use `svelte-infinite` with convex-svelte pagination for huge lists to automatica
 
 Before creating our own utilities, research the runed library to see if the utility you need already exists. Use btca with `runed` resource.
 
-- For URL/query state, prefer Runed `useSearchParams` over manual `$page.url` + `goto` wiring.
+- For client-only or flash-invisible URL/query state, prefer Runed `useSearchParams` over manual `page.url` + `goto` wiring. For SSR-visible view selection, use `page.url.searchParams` + `goto` instead (see the data-fetching decision tree above: `useSearchParams` reads the URL client-only, so the view flashes on first paint).
 - Exception: in high-frequency selection UIs where query-param writes would cause unwanted Convex refetches (for example `src/routes/[[lang]]/admin/support/+page.svelte` thread selection), manual URL handling is acceptable.
   Here is a list of the utilities available:
 

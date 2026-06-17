@@ -27,6 +27,13 @@ export interface UploadConfig {
 	saveUploadedFile: Parameters<ConvexClient['action']>[0];
 	/** Locale for translated error messages */
 	locale?: string;
+	/**
+	 * Tolgee translate function supplied by the parent Svelte component (this
+	 * is a `.svelte.ts` class with no `$t` rune). Used to localize upload error
+	 * toasts; falls back to English when not provided. The param value type
+	 * matches Tolgee's `DefaultParamType` so the wrapper passes through to `$t`.
+	 */
+	translate?: (key: string, params?: Record<string, string | number | bigint | Date>) => string;
 	/** Optional access key provider for file control */
 	getAccessKey?: () => string | undefined;
 	/** Provider for extra args to pass to generateUploadUrl (e.g., anonymousUserId for rate limiting) */
@@ -454,9 +461,17 @@ export class ChatUIContext {
 			const failed = this.attachments.find((a) => 'key' in a && a.key === key);
 			if (failed) this.revokePreview(failed);
 			this.attachments = this.attachments.filter((a) => !('key' in a) || a.key !== key);
-			toast.error(`Failed to upload "${initialName}"`, {
-				description: error instanceof Error ? error.message : 'Upload failed'
-			});
+			const translate = this.uploadConfig?.translate;
+			toast.error(
+				translate?.('chat.error.upload_failed', { filename: initialName }) ??
+					`Failed to upload "${initialName}"`,
+				{
+					description:
+						error instanceof Error
+							? error.message
+							: (translate?.('chat.error.upload_failed_description') ?? 'Upload failed')
+				}
+			);
 		}
 	}
 
@@ -525,9 +540,16 @@ export class ChatUIContext {
 			const failed = this.attachments.find((a) => 'key' in a && a.key === key);
 			if (failed) this.revokePreview(failed);
 			this.attachments = this.attachments.filter((a) => !('key' in a) || a.key !== key);
-			toast.error(`Failed to upload "${filename}"`, {
-				description: error instanceof Error ? error.message : 'Upload failed'
-			});
+			const translate = this.uploadConfig?.translate;
+			toast.error(
+				translate?.('chat.error.upload_failed', { filename }) ?? `Failed to upload "${filename}"`,
+				{
+					description:
+						error instanceof Error
+							? error.message
+							: (translate?.('chat.error.upload_failed_description') ?? 'Upload failed')
+				}
+			);
 		}
 	}
 

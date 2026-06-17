@@ -3,6 +3,8 @@ import { internal, components } from '../../_generated/api';
 import { saveMessage, getFile } from '@convex-dev/agent';
 import { adminMutation } from '../../functions';
 import { shouldSendNotification, syncSupportLastMessage } from '../../support/threads';
+import { MAX_MESSAGE_LENGTH } from '../../constants';
+import { t } from '../../i18n/translations';
 import type { AssistantContent, TextPart, FilePart } from 'ai';
 
 /**
@@ -139,6 +141,7 @@ export const updateThreadPriority = adminMutation({
  * @param args.fileIds - Optional array of file IDs to attach to the message
  * @returns void
  * @throws {Error} When message content is empty (no text and no files)
+ * @throws {Error} When message exceeds the maximum allowed length
  * @throws {Error} When support thread is not found
  */
 export const sendAdminReply = adminMutation({
@@ -152,6 +155,12 @@ export const sendAdminReply = adminMutation({
 		// Validate content
 		if (!args.prompt.trim() && (!args.fileIds || args.fileIds.length === 0)) {
 			throw new ConvexError('Message content cannot be empty');
+		}
+
+		if (args.prompt.length > MAX_MESSAGE_LENGTH) {
+			throw new ConvexError(
+				t(undefined, 'backend.support.message_too_long', { max: MAX_MESSAGE_LENGTH })
+			);
 		}
 
 		// Get support thread for auto-assign and read status

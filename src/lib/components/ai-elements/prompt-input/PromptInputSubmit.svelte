@@ -5,10 +5,10 @@
 	import type { HTMLButtonAttributes } from 'svelte/elements';
 	import type { WithChildren, WithoutChildren } from 'bits-ui';
 	import type { ChatStatus } from './attachments-context.svelte.js';
-	import SendIcon from './SendIcon.svelte';
-	import Loader2Icon from './Loader2Icon.svelte';
-	import SquareIcon from './SquareIcon.svelte';
-	import XIcon from './XIcon.svelte';
+	import SendIcon from '@lucide/svelte/icons/send';
+	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
+	import SquareIcon from '@lucide/svelte/icons/square';
+	import XIcon from '@lucide/svelte/icons/x';
 
 	type PromptSubmitAttrs = WithoutChildren<Omit<HTMLButtonAttributes, 'type'>>;
 
@@ -31,7 +31,7 @@
 
 	let Icon = $derived.by(() => {
 		if (status === 'submitted') {
-			return Loader2Icon;
+			return LoaderCircleIcon;
 		} else if (status === 'streaming') {
 			return SquareIcon;
 		} else if (status === 'error') {
@@ -56,7 +56,6 @@
 	{#if children}
 		{@render children()}
 	{:else}
-		<!-- <svelte:component this={Icon} class={iconClass} /> -->
 		<Icon class={iconClass} />
 	{/if}
 </button>

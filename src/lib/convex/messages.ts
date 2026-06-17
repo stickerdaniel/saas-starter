@@ -5,6 +5,8 @@ import { authedQuery, authedMutation } from './functions';
 import { checkAndCountUsage } from './autumn';
 import { appRateLimiter } from './rateLimit';
 import { createRateLimitError } from './support/types';
+import { t } from './i18n/translations';
+import { MAX_MESSAGE_LENGTH } from './constants';
 
 export const list = authedQuery({
 	args: {},
@@ -72,8 +74,10 @@ export const send = authedMutation({
 	args: { body: v.string() },
 	returns: v.object({ messageId: v.id('messages') }),
 	handler: async (ctx, { body }) => {
-		if (body.length > 2000) {
-			throw new ConvexError('Message is too long (max 2000 characters)');
+		if (body.length > MAX_MESSAGE_LENGTH) {
+			throw new ConvexError(
+				t(undefined, 'backend.community.message_too_long', { max: MAX_MESSAGE_LENGTH })
+			);
 		}
 
 		const status = await appRateLimiter.limit(ctx, 'communityMessage', { key: ctx.user._id });
