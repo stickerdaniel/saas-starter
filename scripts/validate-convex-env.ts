@@ -91,8 +91,26 @@ if (deploymentName) {
 
 const result = runCommandCapture('bunx', ['convex', 'env', 'list', ...deploymentArgs]);
 if (!result.success) {
+	const detail = `${result.stderr}\n${result.stdout}`;
+
+	// Convex deploy keys can deploy but are denied ViewEnvironmentVariables, so
+	// `convex env list` fails in CI when authenticated with a deploy key. Skip the
+	// pre-flight check on a permission error instead of failing the build; the deploy
+	// still runs and any genuinely missing required var is rejected by the Convex
+	// backend at push time (convex.config.ts declares them, so `convex deploy` fails
+	// with MissingEnvironmentVariables).
+	if (/ViewEnvironmentVariables|do not have permission/i.test(detail)) {
+		console.warn(
+			'⚠️  Skipping Convex env validation: the deploy key cannot list env vars. ' +
+				`Ensure these are set on the deployment: ${REQUIRED_VAR_NAMES.join(', ')}. ` +
+				'A missing required var still fails the deploy via backend env validation.'
+		);
+		process.exit(0);
+	}
+
 	console.error('Failed to list Convex env vars:');
 	if (result.stderr) console.error(result.stderr);
+	if (result.stdout) console.error(result.stdout);
 	process.exit(1);
 }
 
