@@ -153,15 +153,33 @@ function main() {
 	const mark = values['mark-synced'] as string | boolean | undefined;
 	if (mark !== undefined) {
 		const newLastSynced = typeof mark === 'string' && mark ? mark : upstreamHead;
+		// Reject anything that is not a real upstream commit — a bogus lastSynced would
+		// silently break the next sync's `<lastSynced>..upstream/main` range.
+		const resolved = git(['rev-parse', '--verify', '--quiet', `${newLastSynced}^{commit}`], true);
+		if (!resolved) {
+			console.error(`--mark-synced: "${newLastSynced}" is not a valid commit.`);
+			process.exit(1);
+		}
+		// `merge-base --is-ancestor` signals via exit code (no stdout), so check by throw.
+		let reachable = true;
+		try {
+			execFileSync('git', ['merge-base', '--is-ancestor', resolved, 'upstream/main'], {
+				env: gitEnv()
+			});
+		} catch {
+			reachable = false;
+		}
+		if (!reachable) {
+			console.error(`--mark-synced: ${resolved.slice(0, 8)} is not reachable from upstream/main.`);
+			process.exit(1);
+		}
 		const written = {
 			...suggestedMarker,
-			lastSynced: newLastSynced,
+			lastSynced: resolved,
 			syncedAt: new Date().toISOString()
 		};
 		writeFileSync(join(root, MARKER), JSON.stringify(written, null, '\t') + '\n', 'utf-8');
-		console.error(
-			`Wrote ${MARKER}: lastSynced=${newLastSynced.slice(0, 8)}. Review and commit it.`
-		);
+		console.error(`Wrote ${MARKER}: lastSynced=${resolved.slice(0, 8)}. Review and commit it.`);
 		return;
 	}
 

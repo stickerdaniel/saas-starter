@@ -56,12 +56,22 @@ bun run worktree chore/upstream-sync --base main
 Do not assume; detect from the diff against the fork point. Categories: branding/legal
 config, theme/design tokens, env/deploy config, i18n content, fork-owned features. See
 [reference/divergence-categories.md](reference/divergence-categories.md). A commit
-touching any diverged file needs **adaptation, not blind apply**.
+touching a diverged file needs extra care: re-apply the upstream _intent_ onto the
+fork's values. A commit that touches no diverged area is **not** a free pass — it still
+gets the full Step 4 verdict. Divergence categories change how much adaptation a commit
+needs, never whether you review it.
 
 ## Step 4 — Review and classify every commit
 
+The priority tag and divergence categories from Step 1 are **hints only** — for
+ordering and for how much adaptation a commit needs. They are never a gate or a
+substitute for review. Read **every** commit's actual diff and give it an explicit
+verdict; never integrate, skip, or exclude a commit from its label alone, and never
+blind-apply an untagged or unlabeled commit. "Security first" is about apply order, not
+about which commits to look at — you look at all of them.
+
 Process oldest-first (dependency order). Apply security and bug fixes first, then
-features/refactors/chores, but review all. For each commit decide:
+features/refactors/chores. For each commit, from its diff, decide:
 
 - **Integrate** — applies to this fork (possibly adapted).
 - **Already present** — the fork already has equivalent code (grep / `git log` the fork). Skip.

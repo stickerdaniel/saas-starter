@@ -13,6 +13,11 @@ fixes first, then features/refactors/chores — but review all of them, not just
 
 ## Verdict per commit
 
+Reach the verdict from the commit's **actual diff**, not from its priority tag or
+category labels. Those are hints (ordering + how much adaptation), never a gate: an
+untagged or unlabeled commit still gets read and given a verdict, and is never
+blind-applied.
+
 - **integrate** — applies to this fork. May need adaptation (see divergence-categories.md).
 - **already-present** — the fork already has equivalent behavior. Verify before skipping:
   grep the fork for the symbol/string/file the commit adds; check `git log` for an

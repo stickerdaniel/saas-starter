@@ -48,7 +48,7 @@ function git(args: string[], allowFail = false): string {
 // Generic shapes, not fork specifics — used to flag commits that need adaptation.
 const CATEGORY_RULES: Array<[string, RegExp]> = [
 	['i18n', /^src\/i18n\/|\bmessages?\/|\.ftl$/],
-	['theme', /layout\.css$|app\.css$|tailwind|theme|tokens|design/i],
+	['theme', /layout\.css$|app\.css$|tailwind|theme|design-?tokens|design-?system/i],
 	[
 		'env/deploy',
 		/^\.env|wrangler|vercel|fly\.|dockerfile|^scripts\/deploy|convex\.config|\.github\/workflows\//i
@@ -172,7 +172,10 @@ function main() {
 				.join('  ')
 	);
 	console.log(
-		'Review every one — integrate, mark already-present, or exclude with a reason. Security first to apply, then fix, then the rest.'
+		'Review EVERY commit by reading its diff — integrate, mark already-present, or exclude with a reason.'
+	);
+	console.log(
+		'Tags/categories are hints only (ordering + how much adaptation), never a gate: do not skip, integrate, or exclude a commit from its label.'
 	);
 	console.log('');
 	for (const c of view) {
@@ -185,7 +188,10 @@ function main() {
 	}
 	console.log('');
 	console.log(
-		'Categories flag fork-divergence areas a commit touches → adapt, do not blind-apply.'
+		'A category flags a fork-divergence area to adapt carefully. NO category is not a free pass —'
+	);
+	console.log(
+		'still read the diff and give that commit a verdict; never blind-apply an untagged one.'
 	);
 	console.log('Oversized commit? Triage within it by file/hunk, not by pre-squash branch commits.');
 }
