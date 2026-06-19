@@ -6,6 +6,8 @@
  *   immune to email-client dark-mode color inversion.
  * - static/apple-touch-icon.png, static/icon-192.png, static/icon-512.png,
  *   static/icon-512-maskable.png — PWA / home-screen icons.
+ * - static/favicon.svg, static/favicon-96x96.png, static/favicon.ico —
+ *   browser-tab favicons (dark-mode vector + raster + multi-size ICO).
  *
  * Usage: bun scripts/generate-logos.ts
  */
@@ -142,14 +144,16 @@ function buildWrapperSvg(source: string, o: RenderOpts): string {
 </svg>`;
 }
 
+/** Core resvg render: wrapper SVG -> PNG Buffer. Shared by every PNG output. */
+function renderToBuffer(source: string, o: RenderOpts): Buffer {
+	const wrapperSvg = buildWrapperSvg(source, o);
+	const resvg = new Resvg(wrapperSvg, { fitTo: { mode: 'width', value: o.size } });
+	return Buffer.from(resvg.render().asPng());
+}
+
 function renderPng(source: string, out: string, o: RenderOpts): void {
 	try {
-		const wrapperSvg = buildWrapperSvg(source, o);
-		const resvg = new Resvg(wrapperSvg, {
-			fitTo: { mode: 'width', value: o.size }
-		});
-		const png = resvg.render().asPng();
-		writeFileSync(join(ROOT, 'static', out), png);
+		writeFileSync(join(ROOT, 'static', out), renderToBuffer(source, o));
 		console.log(`Generated static/${out} (${o.size}x${o.size})`);
 	} catch (err) {
 		// Keep any already-committed PNG so a render failure (e.g. postinstall on
@@ -163,6 +167,71 @@ function renderPng(source: string, out: string, o: RenderOpts): void {
 			throw err;
 		}
 	}
+}
+
+/**
+ * Build the browser-tab favicon SVG from the same source as every other icon.
+ * Single fixed stroke color (light tabs) plus a dark-mode @media override, so
+ * the vector favicon tracks logo.svg automatically and never drifts.
+ */
+function buildFaviconSvg(source: string, light: string, dark: string): string {
+	const { namespaceAttrs, presentationAttrs, viewBox, width, height, innerContent } =
+		parseRootAttributes(source);
+
+	const vb = viewBox ?? (width && height ? `0 0 ${width} ${height}` : '0 0 24 24');
+	const nsAttrs = Object.entries(namespaceAttrs)
+		.map(([k, v]) => `${k}="${v}"`)
+		.join(' ');
+	// Pin presentation attrs (stroke-width, linecap, fill=none, ...) onto the root,
+	// swapping the source's currentColor stroke for the fixed light-tab color.
+	const presAttrs = Object.entries(presentationAttrs)
+		.map(([k, v]) => `${k}="${v.replace(/currentColor/g, light)}"`)
+		.join(' ');
+	// Only currentColor is swapped here; path `d=` values pass through byte-for-byte.
+	// pwa-manifest.test.ts asserts every logo.svg path appears verbatim in
+	// favicon.svg, so any future normalization step here must keep `d=` untouched.
+	const inner = innerContent.replace(/currentColor/g, light).trim();
+
+	return `<svg ${nsAttrs} viewBox="${vb}" ${presAttrs}>
+  <style>
+    /* Brand mark: ${light} on light tabs, ${dark} on dark tabs */
+    @media (prefers-color-scheme: dark) {
+      path { stroke: ${dark}; }
+    }
+  </style>
+  ${inner}
+</svg>
+`;
+}
+
+/**
+ * Assemble a PNG-in-ICO container (no external dependency).
+ * Layout: ICONDIR (6B) + N * ICONDIRENTRY (16B) + concatenated PNG payloads.
+ * Each entry stores a whole PNG, supported by all current browsers and OSes.
+ */
+function buildIco(entries: Array<{ size: number; png: Buffer }>): Buffer {
+	const count = entries.length;
+	const header = Buffer.alloc(6);
+	header.writeUInt16LE(0, 0); // reserved
+	header.writeUInt16LE(1, 2); // type 1 = icon
+	header.writeUInt16LE(count, 4); // image count
+
+	const dir = Buffer.alloc(16 * count);
+	let offset = 6 + 16 * count; // payloads start after the full directory
+	entries.forEach(({ size, png }, i) => {
+		const e = dir.subarray(i * 16, i * 16 + 16);
+		e.writeUInt8(size >= 256 ? 0 : size, 0); // width (0 means 256)
+		e.writeUInt8(size >= 256 ? 0 : size, 1); // height (0 means 256)
+		e.writeUInt8(0, 2); // color count (0 for truecolor)
+		e.writeUInt8(0, 3); // reserved
+		e.writeUInt16LE(1, 4); // color planes
+		e.writeUInt16LE(32, 6); // bits per pixel
+		e.writeUInt32LE(png.length, 8); // bytes in resource
+		e.writeUInt32LE(offset, 12); // absolute offset of this PNG
+		offset += png.length;
+	});
+
+	return Buffer.concat([header, dir, ...entries.map((e) => e.png)]);
 }
 
 // --- Main ---
@@ -200,6 +269,7 @@ try {
 
 // PWA / home-screen icons: brand-colored logo on a white background.
 const BRAND = '#09090b';
+const BRAND_DARK = '#e4e4e7'; // zinc-200 — favicon.svg stroke on dark browser tabs
 const ICONS: Array<{ out: string } & RenderOpts> = [
 	{
 		out: 'apple-touch-icon.png',
@@ -238,3 +308,63 @@ const ICONS: Array<{ out: string } & RenderOpts> = [
 for (const { out, ...opts } of ICONS) {
 	renderPng(svgSource, out, opts);
 }
+
+// Browser-tab favicons: vector + multi-size ICO + a 96px PNG fallback, all on a
+// transparent ground and derived from logo.svg so they can never drift from it.
+const FAVICON_PADDING_RATIO = 0.06; // ~6% breathing room around the glyph
+
+// 1. Vector favicon (dark-mode adaptive; modern browsers prefer this).
+try {
+	writeFileSync(join(ROOT, 'static/favicon.svg'), buildFaviconSvg(svgSource, BRAND, BRAND_DARK));
+	console.log('Generated static/favicon.svg');
+} catch (err) {
+	if (existsSync(join(ROOT, 'static/favicon.svg'))) {
+		console.warn(
+			`⚠️  Could not regenerate static/favicon.svg (${err instanceof Error ? err.message : err})`
+		);
+		console.warn('   Using existing committed file.');
+	} else {
+		throw err;
+	}
+}
+
+// 2. 96x96 PNG fallback for non-SVG, non-ICO consumers.
+renderPng(svgSource, 'favicon-96x96.png', {
+	size: 96,
+	padding: Math.round(96 * FAVICON_PADDING_RATIO),
+	cornerRadius: 0,
+	background: null,
+	color: BRAND
+});
+
+// 3. Multi-size ICO (16/32/48) for the bare /favicon.ico request and legacy UAs.
+try {
+	const icoSizes = [16, 32, 48];
+	const ico = buildIco(
+		icoSizes.map((size) => ({
+			size,
+			png: renderToBuffer(svgSource, {
+				size,
+				padding: Math.max(1, Math.round(size * FAVICON_PADDING_RATIO)),
+				cornerRadius: 0,
+				background: null,
+				color: BRAND
+			})
+		}))
+	);
+	writeFileSync(join(ROOT, 'static/favicon.ico'), ico);
+	console.log(`Generated static/favicon.ico (${icoSizes.join('/')})`);
+} catch (err) {
+	if (existsSync(join(ROOT, 'static/favicon.ico'))) {
+		console.warn(
+			`⚠️  Could not regenerate static/favicon.ico (${err instanceof Error ? err.message : err})`
+		);
+		console.warn('   Using existing committed file.');
+	} else {
+		throw err;
+	}
+}
+
+console.log(
+	'\n→ After a brand change, validate at https://realfavicongenerator.net/favicon-checker'
+);

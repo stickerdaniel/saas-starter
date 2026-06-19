@@ -51,3 +51,50 @@ describe('PWA manifest', () => {
 		expect(fs.existsSync(path.join(STATIC_DIR, 'apple-touch-icon.png'))).toBe(true);
 	});
 });
+
+describe('favicon set', () => {
+	const appHtml = fs.readFileSync(path.resolve('src/app.html'), 'utf-8');
+
+	it('ships the modern favicon files under static/', () => {
+		for (const f of ['favicon.svg', 'favicon-96x96.png', 'favicon.ico']) {
+			expect(fs.existsSync(path.join(STATIC_DIR, f)), `${f} missing`).toBe(true);
+		}
+	});
+
+	it('app.html references the modern favicon set', () => {
+		expect(appHtml).toContain('href="%sveltekit.assets%/favicon.ico"');
+		expect(appHtml).toContain('href="%sveltekit.assets%/favicon.svg"');
+		expect(appHtml).toContain('href="%sveltekit.assets%/favicon-96x96.png"');
+		expect(appHtml).toContain('sizes="180x180"');
+		expect(appHtml).toContain('name="apple-mobile-web-app-title"');
+		// the home-screen app title is a literal in app.html (no LEGAL_CONFIG access
+		// there), so guard it against drifting from the configured brand name.
+		expect(appHtml).toContain(`content="${LEGAL_CONFIG.brandName}"`);
+	});
+
+	it('no longer references the legacy favicon.png', () => {
+		expect(appHtml).not.toContain('favicon.png');
+		expect(fs.existsSync(path.join(STATIC_DIR, 'favicon.png'))).toBe(false);
+	});
+
+	// Anti-drift: the vector favicon is generated from logo.svg, so every logo
+	// path must appear verbatim in favicon.svg. Catches a logo change that forgets
+	// to regenerate (or a hand-edit that desyncs them). Scoped to <path d="..."> so
+	// data-*/aria-* attributes ending in `d` can never feed junk into the assert.
+	it('favicon.svg contains every path from logo.svg', () => {
+		const logo = fs.readFileSync(path.join(STATIC_DIR, 'logo.svg'), 'utf-8');
+		const favicon = fs.readFileSync(path.join(STATIC_DIR, 'favicon.svg'), 'utf-8');
+		const paths = [...logo.matchAll(/<path[^>]*\bd="([^"]+)"/g)].map((m) => m[1]);
+		expect(paths.length).toBeGreaterThan(0);
+		for (const d of paths) {
+			expect(favicon, `favicon.svg missing logo path ${d.slice(0, 24)}…`).toContain(d);
+		}
+	});
+
+	it('favicon.ico is a valid multi-size ICO', () => {
+		const ico = fs.readFileSync(path.join(STATIC_DIR, 'favicon.ico'));
+		expect(ico.readUInt16LE(0)).toBe(0); // reserved
+		expect(ico.readUInt16LE(2)).toBe(1); // image type = icon
+		expect(ico.readUInt16LE(4)).toBeGreaterThanOrEqual(3); // 16/32/48 frames
+	});
+});
