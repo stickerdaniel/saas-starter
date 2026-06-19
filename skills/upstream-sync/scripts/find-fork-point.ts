@@ -16,7 +16,7 @@
  *   bun skills/upstream-sync/scripts/find-fork-point.ts [--upstream <git-url>] [--json]
  */
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parseArgs } from 'node:util';
 
@@ -54,7 +54,14 @@ function readMarker(root: string): Record<string, unknown> | null {
 function main() {
 	const { values } = parseArgs({
 		args: Bun.argv.slice(2),
-		options: { upstream: { type: 'string' }, json: { type: 'boolean', default: false } },
+		options: {
+			upstream: { type: 'string' },
+			json: { type: 'boolean', default: false },
+			// Persist the marker after a successful sync: --mark-synced <upstreamSha>
+			// (omit the value to use the current upstream HEAD). This is the only
+			// write path; without it the script is strictly read-only.
+			'mark-synced': { type: 'string' }
+		},
 		strict: false
 	});
 
@@ -142,6 +149,22 @@ function main() {
 		excluded: (marker?.excluded as unknown[]) || []
 	};
 
+	// Write path (opt-in): persist the marker after a successful sync.
+	const mark = values['mark-synced'] as string | boolean | undefined;
+	if (mark !== undefined) {
+		const newLastSynced = typeof mark === 'string' && mark ? mark : upstreamHead;
+		const written = {
+			...suggestedMarker,
+			lastSynced: newLastSynced,
+			syncedAt: new Date().toISOString()
+		};
+		writeFileSync(join(root, MARKER), JSON.stringify(written, null, '\t') + '\n', 'utf-8');
+		console.error(
+			`Wrote ${MARKER}: lastSynced=${newLastSynced.slice(0, 8)}. Review and commit it.`
+		);
+		return;
+	}
+
 	if (values.json) {
 		console.log(
 			JSON.stringify(
@@ -173,8 +196,8 @@ function main() {
 	console.log('');
 	console.log(`Next: bun skills/upstream-sync/scripts/list-upstream-changes.ts`);
 	console.log('');
-	console.log(`Suggested ${MARKER} (commit after a successful sync):`);
+	console.log(`Suggested ${MARKER} (or run --mark-synced after a successful sync):`);
 	console.log(JSON.stringify(suggestedMarker, null, '\t'));
 }
 
-main();
+if (import.meta.main) main();

@@ -39,7 +39,9 @@ The list scopes from `.upstream-sync.json`'s `lastSynced` (falls back to the for
 point on the first sync). Each row shows a priority tag, the divergence categories
 it touches, and the file count. Oldest-first is the integration/dependency order.
 `--json` gives machine output; `--type` / `--tag` narrow the view (review-all stays
-the default).
+the default). The upstream defaults to the template this skill shipped from; if this
+fork was forked from another fork, pass `--upstream <url>` (or set `upstreamUrl` in the
+marker) to point at the right template.
 
 ## Step 2 — Isolated worktree off main
 
@@ -97,8 +99,10 @@ readable history but applied in dependency order. Do NOT stack PRs (deleting a s
 base closes its child; rebasing a stack onto a moving main re-conflicts on i18n). List
 excluded SHAs + reasons in the PR body. Confirm with the human before opening it; merge
 only once the **required** checks are green (a non-required check may stay UNSTABLE).
-After merge, update `.upstream-sync.json`: set `lastSynced` to upstream HEAD, `syncedAt`
-to now, and append any new `excluded` entries.
+After merge, persist the marker:
+`bun skills/upstream-sync/scripts/find-fork-point.ts --mark-synced <upstreamHEAD>`
+(updates `lastSynced` + `syncedAt`), then add any `excluded` entries you recorded and
+commit `.upstream-sync.json`.
 
 ## Large syncs (many commits): fan out per-commit, not per-category
 

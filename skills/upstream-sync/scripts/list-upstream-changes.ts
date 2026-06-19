@@ -61,30 +61,29 @@ const CATEGORY_RULES: Array<[string, RegExp]> = [
 		/package\.json$|tsconfig|eslint|oxlint|\.prettier|knip|components\.json$|svelte\.config/i
 	]
 ];
-function categoriesFor(files: string[]): string[] {
+export function categoriesFor(files: string[]): string[] {
 	const hit = new Set<string>();
 	for (const f of files) for (const [cat, re] of CATEGORY_RULES) if (re.test(f)) hit.add(cat);
 	return [...hit];
 }
 
-function classify(subject: string, author: string): { priority: string; type: string } {
+// Security signals. Lean toward catching (this is a review-all tool, so a missed
+// tag is worse than an early look): keep secret/credential handling. Only "injection"
+// is qualified, because bare "injection" matches the common phrase "dependency
+// injection" and would mis-tag ordinary refactors.
+const SECURITY_RE =
+	/\b(cve-\d+|vulnerab(?:le|ility)|\brce\b|\bxss\b|\bcsrf\b|\bssrf\b|auth(?:n|z)?[ -]?bypass|(?:sql|code|command|html|ldap|xpath|template|header|prompt)[ -]?injection|sanitiz(?:e|ation|ing)|secret|credential|exfiltrat)\b/;
+
+export function classify(subject: string, author: string): { priority: string; type: string } {
 	const s = subject.toLowerCase();
 	const security =
-		/\[security\]/.test(s) ||
-		/\b(cve-\d|vulnerab|\brce\b|\bxss\b|csrf|ssrf|auth(?:n|z)?[ -]?bypass|sanitiz|injection|secret|exfil)\b/.test(
-			s
-		) ||
-		/^(fix|chore|sec)\((auth|security)\)/.test(s);
+		/\[security\]/.test(s) || SECURITY_RE.test(s) || /^(fix|chore|sec)\((auth|security)\)/.test(s);
 	const m = subject.match(/^(\w+)(\([^)]*\))?!?:/);
 	const type = m ? m[1].toLowerCase() : 'other';
 	const isBot = /(renovate|dependabot)\[bot\]/i.test(author);
-	const priority = security
-		? 'security'
-		: type === 'fix'
-			? 'fix'
-			: isBot || type === 'chore'
-				? 'chore'
-				: type;
+	// Bot dependency bumps are routine chores even when typed fix(deps); only a real
+	// security signal lifts them above chore.
+	const priority = security ? 'security' : isBot ? 'chore' : type === 'fix' ? 'fix' : type;
 	return { priority, type };
 }
 
@@ -152,7 +151,7 @@ function main() {
 
 	let view = commits;
 	if (values.type) view = view.filter((c) => c.type === values.type);
-	if (values.tag) view = view.filter((c) => c.priority === values.tag);
+	if (values.tag) view = view.filter((c) => c.priority === values.tag || c.type === values.tag);
 
 	if (values.json) {
 		console.log(JSON.stringify({ base, count: view.length, commits: view }, null, 2));
@@ -191,4 +190,6 @@ function main() {
 	console.log('Oversized commit? Triage within it by file/hunk, not by pre-squash branch commits.');
 }
 
-main();
+// Only run when invoked directly, so importing this module (e.g. from tests) does
+// not trigger the git fetch / network side effects in main().
+if (import.meta.main) main();
