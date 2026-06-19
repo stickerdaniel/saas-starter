@@ -375,7 +375,10 @@ export default defineConfig(async ({ mode }) => {
 				'.{idea,git,cache,output,temp}/**',
 				'docs/**',
 				'.opencode/**',
-				'references/**'
+				'references/**',
+				// Skills are symlinked into .claude/skills/; exclude the symlinked path so
+				// skill tests under skills/ are not discovered and run twice.
+				'.claude/skills/**'
 			],
 			passWithNoTests: true,
 			environment: 'jsdom'

@@ -14,6 +14,12 @@ If a project forked from this repo discovers a bug or weird behavior that origin
 2. If none exists, fetch the issue template from the upstream repo first (`gh api repos/stickerdaniel/saas-starter/contents/.github/ISSUE_TEMPLATE` and read the relevant template) so the new issue follows the expected format.
 3. File a new issue describing the template bug/unexpected behavior using that template.
 
+### Pulling Upstream Template Changes
+
+<!-- DO NOT rename or remove this section when rebranding a fork. Fixes flow down from the template here; bug reports flow up via the section above. -->
+
+To pull later template changes (fixes, features, security patches) into a fork, use the `upstream-sync` skill (`skills/upstream-sync/SKILL.md`). Forks are content-copies with no shared git ancestor, so `git merge`/`rebase`/`gh repo sync` do not apply; the skill finds the fork point by tree-SHA, lists every upstream commit to review, and guides integrating each one while respecting the fork's divergences. Start with `bun run upstream:sync`.
+
 ### Cross-Platform Scripts
 
 All npm scripts must work on macOS, Linux, and Windows. Avoid `sh -c` or bash-specific syntax. Use TypeScript scripts with `bun` for complex logic and `bun-tasks` for parallel execution. Bun's built-in cross-platform shell handles `VAR=$OTHER_VAR command` syntax in package.json scripts (see `_tolgee:*` scripts for the pattern).
