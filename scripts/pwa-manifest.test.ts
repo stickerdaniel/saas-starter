@@ -67,6 +67,9 @@ describe('favicon set', () => {
 		expect(appHtml).toContain('href="%sveltekit.assets%/favicon-96x96.png"');
 		expect(appHtml).toContain('sizes="180x180"');
 		expect(appHtml).toContain('name="apple-mobile-web-app-title"');
+		// the home-screen app title is a literal in app.html (no LEGAL_CONFIG access
+		// there), so guard it against drifting from the configured brand name.
+		expect(appHtml).toContain(`content="${LEGAL_CONFIG.brandName}"`);
 	});
 
 	it('no longer references the legacy favicon.png', () => {
@@ -86,5 +89,12 @@ describe('favicon set', () => {
 		for (const d of paths) {
 			expect(favicon, `favicon.svg missing logo path ${d.slice(0, 24)}…`).toContain(d);
 		}
+	});
+
+	it('favicon.ico is a valid multi-size ICO', () => {
+		const ico = fs.readFileSync(path.join(STATIC_DIR, 'favicon.ico'));
+		expect(ico.readUInt16LE(0)).toBe(0); // reserved
+		expect(ico.readUInt16LE(2)).toBe(1); // image type = icon
+		expect(ico.readUInt16LE(4)).toBeGreaterThanOrEqual(3); // 16/32/48 frames
 	});
 });

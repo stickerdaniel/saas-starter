@@ -6,6 +6,8 @@
  *   immune to email-client dark-mode color inversion.
  * - static/apple-touch-icon.png, static/icon-192.png, static/icon-512.png,
  *   static/icon-512-maskable.png — PWA / home-screen icons.
+ * - static/favicon.svg, static/favicon-96x96.png, static/favicon.ico —
+ *   browser-tab favicons (dark-mode vector + raster + multi-size ICO).
  *
  * Usage: bun scripts/generate-logos.ts
  */
