@@ -679,6 +679,7 @@ No barrel imports from icon libraries — use individual imports (`@lucide/svelt
 - When implementing a new component, follow the existing shadcn-svelte component api and patterns in `src/lib/components/ui/`
 - Use Tailwind CSS classes for layout and styling in general. Do not add additional styling classes to the shadcn svelte components. They look good by default.
 - Prefer reusable Tailwind utilities (defined globally with `@utility` in `src/routes/layout.css`) over component-local `<style>` blocks for shared styling patterns (for example `no-drag`).
+- Elevated surfaces (anything with a `shadow-*`) get a semi-transparent ring, never a solid `border`: use `ring-1 ring-foreground/10`. A solid grey `border` next to a shadow reads muddy; the transparent ring blends with the shadow. Plain `border`/`border-transparent` is fine on shadow-less containers, directional dividers, inputs (border on focus), and email templates (no `ring` support).
 - Accessibility localization rule (all UI):
   - Never hardcode human-facing `aria-label` or `.sr-only` text in English.
   - Always localize screen-reader labels via Tolgee keys (not only tables, applies to all UI controls and navigation).
