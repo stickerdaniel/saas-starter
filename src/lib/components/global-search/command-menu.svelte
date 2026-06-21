@@ -191,7 +191,7 @@
 <Dialog.Root open={globalSearch.open} onOpenChange={globalSearch.setOpen}>
 	<Dialog.Content
 		showCloseButton={false}
-		class="rounded-xl border-none bg-popover bg-clip-padding p-2 pb-11 shadow-2xl ring-4 ring-foreground/5 dark:ring-foreground/10"
+		class="rounded-xl border-none bg-sidebar-accent bg-clip-padding p-2 pb-11 shadow-2xl ring-4 ring-foreground/5 dark:ring-foreground/10"
 	>
 		<Dialog.Header class="sr-only">
 			<Dialog.Title>{$t('search.command.dialog_title')}</Dialog.Title>
