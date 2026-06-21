@@ -20,7 +20,7 @@
 <Button
 	variant="secondary"
 	class={cn(
-		'relative h-8 w-full justify-start bg-card pl-3 font-medium text-foreground shadow-none md:w-48 lg:w-56 xl:w-64',
+		'relative h-8 w-full justify-start bg-sidebar-accent-hover pl-3 font-medium text-foreground shadow-none md:w-48 lg:w-56 xl:w-64',
 		className
 	)}
 	onclick={() => globalSearch.openMenu()}
