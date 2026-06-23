@@ -19,6 +19,7 @@ import noBareTestSkipRule from './eslint/rules/no-bare-test-skip.js';
 import noModuleStateSingletonRule from './eslint/rules/no-module-state-singleton.js';
 import requireMotionGuardTransitionRule from './eslint/rules/require-motion-guard-transition.js';
 import requireFieldErrorAssociationRule from './eslint/rules/require-field-error-association.js';
+import requireGuardedServerConvexClientRule from './eslint/rules/require-guarded-server-convex-client.js';
 
 const gitignorePath = path.resolve(import.meta.dirname, '.gitignore');
 const localPlugin = {
@@ -33,7 +34,8 @@ const localPlugin = {
 		'no-bare-test-skip': noBareTestSkipRule,
 		'no-module-state-singleton': noModuleStateSingletonRule,
 		'require-motion-guard-transition': requireMotionGuardTransitionRule,
-		'require-field-error-association': requireFieldErrorAssociationRule
+		'require-field-error-association': requireFieldErrorAssociationRule,
+		'require-guarded-server-convex-client': requireGuardedServerConvexClientRule
 	}
 };
 
@@ -256,6 +258,19 @@ export default defineConfig(
 		},
 		rules: {
 			'local/require-motion-guard-transition': 'error'
+		}
+	},
+	{
+		// The server Convex client throws synchronously on an unresolved Convex
+		// URL (cold preview before env propagates); a per-query .catch does not
+		// cover the construction line, so it must sit inside a try (#594).
+		// See eslint/rules/require-guarded-server-convex-client.js.
+		files: ['src/routes/**/+page.server.ts', 'src/routes/**/+layout.server.ts'],
+		plugins: {
+			local: localPlugin
+		},
+		rules: {
+			'local/require-guarded-server-convex-client': 'error'
 		}
 	},
 	// Convex best-practice rules — v2 ships ESLint 9 flat config natively
