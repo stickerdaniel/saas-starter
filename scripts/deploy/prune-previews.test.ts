@@ -115,6 +115,53 @@ describe('selectPrunable', () => {
 		const target = selectPrunable(previews, 'current', NOW);
 		expect(target?.previewIdentifier).toBe('stale');
 	});
+
+	it('never prunes a live branch even when it is the absolute oldest', () => {
+		const previews = [
+			preview({ id: 'open-pr', ageMin: 500 }),
+			preview({ id: 'abandoned', ageMin: 100 }),
+			preview({ id: 'newest', ageMin: 1 })
+		];
+		const liveBranches = new Set(['open-pr']);
+		const target = selectPrunable(previews, 'unrelated', NOW, liveBranches);
+		// 'open-pr' is the oldest but live, so the oldest non-live candidate wins.
+		expect(target?.previewIdentifier).toBe('abandoned');
+	});
+
+	it('matches live branches via normalized identifier', () => {
+		const previews = [
+			preview({ id: 'Feature/Foo-Bar', ageMin: 500 }),
+			preview({ id: 'abandoned', ageMin: 100 }),
+			preview({ id: 'newest', ageMin: 1 })
+		];
+		// liveBranches is expected to already be normalized by the caller.
+		const liveBranches = new Set([normalizeIdentifier('Feature/Foo-Bar')]);
+		const target = selectPrunable(previews, 'unrelated', NOW, liveBranches);
+		expect(target?.previewIdentifier).toBe('abandoned');
+	});
+
+	it('returns null when every non-current/non-newest candidate is live', () => {
+		const previews = [
+			preview({ id: 'current', ageMin: 300 }),
+			preview({ id: 'live-a', ageMin: 200 }),
+			preview({ id: 'live-b', ageMin: 100 }),
+			preview({ id: 'newest', ageMin: 1 })
+		];
+		const liveBranches = new Set(['live-a', 'live-b']);
+		expect(selectPrunable(previews, 'current', NOW, liveBranches)).toBeNull();
+	});
+
+	it('back-compat: omitting liveBranches behaves exactly as before', () => {
+		const previews = [
+			preview({ id: 'oldest', ageMin: 200 }),
+			preview({ id: 'middle', ageMin: 100 }),
+			preview({ id: 'newest', ageMin: 1 })
+		];
+		// Identical to the bare-call result with no live set.
+		expect(selectPrunable(previews, 'unrelated', NOW)?.previewIdentifier).toBe('oldest');
+		expect(selectPrunable(previews, 'unrelated', NOW, undefined)?.previewIdentifier).toBe('oldest');
+		expect(selectPrunable(previews, 'unrelated', NOW, new Set())?.previewIdentifier).toBe('oldest');
+	});
 });
 
 describe('pruneOldestPreview', () => {

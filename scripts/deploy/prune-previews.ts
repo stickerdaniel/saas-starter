@@ -58,7 +58,8 @@ export function normalizeIdentifier(value: string): string {
 export function selectPrunable(
 	previews: Preview[],
 	currentBranch: string | null,
-	now: number
+	now: number,
+	liveBranches?: Set<string>
 ): Preview | null {
 	if (previews.length === 0) return null;
 	// Without a current branch we cannot honour the "never prune current branch"
@@ -74,9 +75,15 @@ export function selectPrunable(
 	// preview unnecessarily.
 	const absoluteNewest = previews.reduce((a, b) => (a.createTime >= b.createTime ? a : b));
 	const candidates = previews.filter((p) => {
-		const isCurrentBranch = normalizeIdentifier(p.previewIdentifier) === normalizedBranch;
+		const normalizedId = normalizeIdentifier(p.previewIdentifier);
+		const isCurrentBranch = normalizedId === normalizedBranch;
 		const isAbsoluteNewest = p.name === absoluteNewest.name;
-		return !isCurrentBranch && !isAbsoluteNewest;
+		// Never prune a preview whose branch still exists on the remote: that
+		// branch may have an open PR or running E2E that depends on its backend.
+		// liveBranches holds normalized branch names; an undefined/empty set
+		// degrades to the original age-based behaviour.
+		const isLiveBranch = liveBranches?.has(normalizedId) ?? false;
+		return !isCurrentBranch && !isAbsoluteNewest && !isLiveBranch;
 	});
 	if (candidates.length === 0) return null;
 
@@ -96,6 +103,7 @@ export async function pruneOldestPreview(args: {
 	currentBranch: string | null;
 	now?: number;
 	deps?: PruneDeps;
+	liveBranches?: Set<string>;
 }): Promise<PruneResult> {
 	const deps = args.deps ?? defaultDeps;
 	const now = args.now ?? Date.now();
@@ -107,7 +115,7 @@ export async function pruneOldestPreview(args: {
 		return { pruned: null, reason: `list failed: ${errMessage(err)}` };
 	}
 
-	const target = selectPrunable(previews, args.currentBranch, now);
+	const target = selectPrunable(previews, args.currentBranch, now, args.liveBranches);
 	if (!target) {
 		return { pruned: null, reason: 'no candidates' };
 	}
