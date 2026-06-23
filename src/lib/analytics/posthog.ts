@@ -65,7 +65,12 @@ export async function initPosthog(): Promise<PostHogClient | null> {
 			posthog.init(PUBLIC_POSTHOG_API_KEY, {
 				api_host: apiHost,
 				ui_host: 'https://eu.posthog.com',
-				person_profiles: 'identified_only'
+				person_profiles: 'identified_only',
+				// Cookieless: store nothing in cookies/localStorage so the privacy
+				// policy's "essential cookies only, no consent banner" claim holds
+				// (GDPR/§25 TDDDG). Autocapture, pageview, and identify keep working;
+				// only cross-reload anonymous attribution degrades.
+				persistence: 'memory'
 			});
 
 			client = posthog;
