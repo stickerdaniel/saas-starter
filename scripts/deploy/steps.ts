@@ -1,6 +1,6 @@
 import fs from 'fs';
 import type { PlatformContext } from './platform';
-import { pruneOldestPreview } from './prune-previews';
+import { normalizeIdentifier, pruneOldestPreview } from './prune-previews';
 import {
 	colors,
 	runCommand,
@@ -170,6 +170,51 @@ const MAX_RECOVERY_ATTEMPTS = 3;
 const POST_PRUNE_DELAY_MS = 10_000;
 
 /**
+ * Fetch the set of branches that still exist on the remote, normalized so
+ * they join against a preview's normalized previewIdentifier (the branch
+ * Convex was given via --preview-create). Host-agnostic: uses only
+ * `git ls-remote`, never a GitHub/GitLab API. Fail-safe: any failure or
+ * unparseable output yields an empty set, so recovery degrades to the
+ * original age-based prune instead of hard-failing the deploy.
+ */
+function fetchLiveBranches(): Set<string> {
+	const live = new Set<string>();
+	let result: { success: boolean; stdout: string; stderr: string };
+	try {
+		result = runCommandCapture('git', ['ls-remote', '--heads', 'origin']);
+	} catch (err) {
+		const message = err instanceof Error ? err.message : String(err);
+		console.warn(
+			`${colors.yellow}Could not list remote branches (git ls-remote threw: ${message}); pruning by age only${colors.reset}`
+		);
+		return live;
+	}
+
+	if (!result.success || !result.stdout) {
+		console.warn(
+			`${colors.yellow}Could not list remote branches (git ls-remote failed or returned nothing); pruning by age only${colors.reset}`
+		);
+		return live;
+	}
+
+	for (const line of result.stdout.split('\n')) {
+		// Lines look like: "<sha>\trefs/heads/<branch>"
+		const match = line.match(/^[0-9a-f]+\s+refs\/heads\/(.+)$/);
+		if (!match) continue;
+		const normalized = normalizeIdentifier(match[1]);
+		if (normalized) live.add(normalized);
+	}
+
+	if (live.size === 0) {
+		console.warn(
+			`${colors.yellow}No remote branches parsed from git ls-remote output; pruning by age only${colors.reset}`
+		);
+	}
+
+	return live;
+}
+
+/**
  * On DeploymentQuotaReached: adaptively prune one eligible preview per
  * attempt, wait for quota propagation, and retry `convex deploy`. Stops
  * early if one prune is enough. Bounded at MAX_RECOVERY_ATTEMPTS deletes
@@ -195,13 +240,21 @@ async function tryRecoverFromQuota(
 		`${colors.yellow}DeploymentQuotaReached detected. Adaptive recovery (up to ${MAX_RECOVERY_ATTEMPTS} prune+retry rounds)...${colors.reset}`
 	);
 
+	// Branches that still exist on the remote keep their preview backend; a
+	// concurrent build's open PR / running E2E depends on it. Never prune those.
+	const liveBranches = fetchLiveBranches();
+	if (liveBranches.size > 0) {
+		console.log(`  Protecting ${liveBranches.size} live remote branch(es) from pruning`);
+	}
+
 	let lastResult: { success: boolean; stdout: string; stderr: string } | null = null;
 
 	for (let attempt = 1; attempt <= MAX_RECOVERY_ATTEMPTS; attempt++) {
 		const pruneResult = await pruneOldestPreview({
 			token,
 			projectId,
-			currentBranch: platform.gitRef ?? null
+			currentBranch: platform.gitRef ?? null,
+			liveBranches
 		});
 		if (pruneResult.pruned === null) {
 			console.error(
