@@ -188,6 +188,25 @@ function printOptionalFeatureBanner(opts: {
 export default defineConfig(async ({ mode }) => {
 	const cwd = process.cwd();
 	const loadedEnv = loadEnv(mode, cwd, '');
+
+	// Sentry is production-only. CF Workers Builds shares build env vars across the
+	// production and preview triggers, so PUBLIC_SENTRY_DSN would otherwise bake into
+	// preview/PR deploys: it loads the SDK on every public page (which destabilizes the
+	// public E2E run) and reports PR errors into the prod Sentry project. Blank the
+	// Sentry vars for any non-production build. Blank, not delete: PUBLIC_SENTRY_DSN is
+	// imported from $env/static/public, which only exports vars present at build time,
+	// so deleting it breaks that import (MISSING_EXPORT). An empty string keeps the
+	// export but reads as falsy, so the SDK is still dead-code-eliminated. Mirrors the
+	// prod/preview check in scripts/cf-deploy.ts (WORKERS_CI_BRANCH).
+	const ciBranch = process.env.WORKERS_CI_BRANCH;
+	const isProductionDeploy = !ciBranch || ciBranch === (process.env.PRODUCTION_BRANCH || 'main');
+	if (!isProductionDeploy) {
+		for (const key of ['PUBLIC_SENTRY_DSN', 'SENTRY_AUTH_TOKEN', 'SENTRY_ORG', 'SENTRY_PROJECT']) {
+			process.env[key] = '';
+			loadedEnv[key] = '';
+		}
+	}
+
 	// Local Convex backend during `bun run dev` and `bun run dev:test` (not CI, builds, postinstall, or scripts).
 	// build:emails uses createServer() which re-enters this config -- lifecycle check prevents that.
 	// dev:cloud runs via dev:frontend (lifecycle = "dev:frontend"), so it's excluded naturally.

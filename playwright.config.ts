@@ -33,8 +33,16 @@ export default defineConfig({
 	forbidOnly: isCI,
 	/* Retry on CI only */
 	retries: isCI ? 2 : 0,
-	/* CI: auto-detect workers based on CPU cores; locally: single worker prevents dev server overload in headed mode */
-	workers: isCI ? undefined : 1,
+	/* Single worker everywhere: the suite shares one preview Convex backend and the
+	 * admin specs mutate shared rows (notification recipients, users), so running
+	 * specs concurrently would cause intra-project data races. Reliability over
+	 * speed: the serial run is slow but deterministic. */
+	workers: 1,
+	/* CI runs against an ephemeral CF preview whose cold start + Convex WebSocket
+	 * boot can make a page take >10s to hydrate. Give each test generous headroom
+	 * so a slow-but-functional preview does not cascade into auth-setup timeouts. */
+	timeout: isCI ? 90_000 : 30_000,
+	expect: { timeout: isCI ? 15_000 : 5_000 },
 	/* Reporter to use - auto-open after tests complete */
 	reporter: [['html', { open: 'always' }]],
 	/* Shared settings for all the projects below */
