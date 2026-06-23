@@ -54,25 +54,38 @@ export const load: LayoutServerLoad = async (event) => {
 	let viewer = null;
 
 	if (isAuthenticated) {
-		const client = createServerConvexHttpClient({ token: event.locals.token });
+		// The whole block is guarded: client construction (a missing
+		// CONVEX_INTERNAL_URL/PUBLIC_CONVEX_URL throws here) and the autumn
+		// handler setup run before the per-query .catch, so an unguarded failure
+		// here would 500 every authenticated SSR page. Fall back to the JWT
+		// viewer + null customer; the client subscriptions recover after hydration.
+		try {
+			const client = createServerConvexHttpClient({ token: event.locals.token });
 
-		const { getCustomer } = createAutumnHandlers({
-			convexApi: (api as any).autumn,
-			createClient: () => client
-		});
+			const { getCustomer } = createAutumnHandlers({
+				convexApi: (api as any).autumn,
+				createClient: () => client
+			});
 
-		// Fetch customer and viewer in PARALLEL for faster initial load
-		// Wrap in try-catch to handle failures gracefully (e.g., in CI)
-		[customer, viewer] = await Promise.all([
-			getCustomer(event).catch((e) => {
-				console.error('[+layout.server.ts] Autumn getCustomer failed:', e);
-				return null;
-			}),
-			client.query(api.users.viewer, {}).catch((e) => {
-				console.error('[+layout.server.ts] Viewer lookup failed, falling back to JWT payload:', e);
-				return fallbackViewer;
-			})
-		]);
+			// Fetch customer and viewer in PARALLEL for faster initial load
+			[customer, viewer] = await Promise.all([
+				getCustomer(event).catch((e) => {
+					console.error('[+layout.server.ts] Autumn getCustomer failed:', e);
+					return null;
+				}),
+				client.query(api.users.viewer, {}).catch((e) => {
+					console.error(
+						'[+layout.server.ts] Viewer lookup failed, falling back to JWT payload:',
+						e
+					);
+					return fallbackViewer;
+				})
+			]);
+		} catch (e) {
+			console.error('[+layout.server.ts] Convex client unavailable, using JWT fallback:', e);
+			customer = null;
+			viewer = fallbackViewer;
+		}
 	}
 
 	return {
