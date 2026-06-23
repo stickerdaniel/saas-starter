@@ -36,15 +36,15 @@
 		const posthog = getPosthog();
 		if (!posthog) return;
 
-		if (isAuthenticated && sessionUser?.email) {
-			const properties: Record<string, string> = {
-				email: sessionUser.email
-			};
+		if (isAuthenticated && sessionUser?.id) {
+			// Identify by the stable user id, not email: email can change, and the
+			// id is the join key for any server-side events keyed by user id.
+			const properties: Record<string, string> = {};
 
+			if (sessionUser.email) properties.email = sessionUser.email;
 			if (sessionUser.name) properties.name = sessionUser.name;
-			if (sessionUser.id) properties.userId = sessionUser.id;
 
-			posthog.identify(sessionUser.email, properties);
+			posthog.identify(sessionUser.id, properties);
 			return;
 		}
 
