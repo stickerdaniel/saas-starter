@@ -115,15 +115,18 @@ export type CoercedEnvSchema = {
   SENTRY_AUTH_TOKEN?: string;
   
   /**
-   * **SENTRY_ORG** 🔐 _sensitive_  
-   * Sentry organization slug (build-time only)  
+   * **SENTRY_ORG**  
+   * Sentry organization slug (build-time only). Public slug, not a secret (it is  
+   * part of the public DSN). Marked @public so varlock does not flag it as a  
+   * leaked secret: when SENTRY_PROJECT equals the deployed worker name it  
+   * legitimately appears in preview-build URLs and tripped the leak scanner.  
    * ![icon](data:image/svg+xml;utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2220%22%20height%3D%2220%22%20viewBox%3D%220%200%2032%2032%22%3E%3Cpath%20fill%3D%22%23808080%22%20d%3D%22M29%2022h-5a2.003%202.003%200%200%201-2-2v-6a2%202%200%200%201%202-2h5v2h-5v6h5ZM18%2012h-4V8h-2v14h6a2.003%202.003%200%200%200%202-2v-6a2%202%200%200%200-2-2m-4%208v-6h4v6Zm-6-8H3v2h5v2H4a2%202%200%200%200-2%202v2a2%202%200%200%200%202%202h6v-8a2%202%200%200%200-2-2m0%208H4v-2h4Z%22%2F%3E%3C%2Fsvg%3E)   
    */
   SENTRY_ORG?: string;
   
   /**
-   * **SENTRY_PROJECT** 🔐 _sensitive_  
-   * Sentry project slug (build-time only)  
+   * **SENTRY_PROJECT**  
+   * Sentry project slug (build-time only). Public slug, not a secret. See SENTRY_ORG.  
    * ![icon](data:image/svg+xml;utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2220%22%20height%3D%2220%22%20viewBox%3D%220%200%2032%2032%22%3E%3Cpath%20fill%3D%22%23808080%22%20d%3D%22M29%2022h-5a2.003%202.003%200%200%201-2-2v-6a2%202%200%200%201%202-2h5v2h-5v6h5ZM18%2012h-4V8h-2v14h6a2.003%202.003%200%200%200%202-2v-6a2%202%200%200%200-2-2m-4%208v-6h4v6Zm-6-8H3v2h5v2H4a2%202%200%200%200-2%202v2a2%202%200%200%200%202%202h6v-8a2%202%200%200%200-2-2m0%208H4v-2h4Z%22%2F%3E%3C%2Fsvg%3E)   
    */
   SENTRY_PROJECT?: string;
@@ -344,7 +347,7 @@ type _CoercedEnvSchema_c7dffe3e = CoercedEnvSchema;
 
 declare module 'varlock/env' {
   export interface TypedEnvSchema extends Readonly<_CoercedEnvSchema_c7dffe3e> {}
-  export interface PublicTypedEnvSchema extends Readonly<Pick<_CoercedEnvSchema_c7dffe3e, 'VARLOCK_ENV' | 'CONVEX_DEPLOYMENT' | 'PUBLIC_CONVEX_URL' | 'PUBLIC_CONVEX_SITE_URL' | 'VITE_TOLGEE_API_URL' | 'VITE_TOLGEE_API_KEY' | 'PUBLIC_POSTHOG_API_KEY' | 'PUBLIC_POSTHOG_HOST' | 'PUBLIC_POSTHOG_PROXY_HOST' | 'PUBLIC_SENTRY_DSN' | 'PUBLIC_SNAPDOM_PROXY_URL' | 'PUBLIC_SITE_URL' | 'CONVEX_PROJECT_ID' | 'NODE_ADAPTER' | 'VERCEL_ENV' | 'VERCEL_URL' | 'VERCEL_GIT_COMMIT_REF' | 'WORKERS_CI' | 'WORKERS_CI_BRANCH' | 'WORKERS_CI_COMMIT_SHA' | 'WORKERS_NAME' | 'WORKERS_SUBDOMAIN' | 'CF_PAGES' | 'CF_PAGES_URL' | 'CF_PAGES_BRANCH' | 'PRODUCTION_BRANCH' | 'CF_ZONE_ID' | 'CI'>> {}
+  export interface PublicTypedEnvSchema extends Readonly<Pick<_CoercedEnvSchema_c7dffe3e, 'VARLOCK_ENV' | 'CONVEX_DEPLOYMENT' | 'PUBLIC_CONVEX_URL' | 'PUBLIC_CONVEX_SITE_URL' | 'VITE_TOLGEE_API_URL' | 'VITE_TOLGEE_API_KEY' | 'PUBLIC_POSTHOG_API_KEY' | 'PUBLIC_POSTHOG_HOST' | 'PUBLIC_POSTHOG_PROXY_HOST' | 'PUBLIC_SENTRY_DSN' | 'SENTRY_ORG' | 'SENTRY_PROJECT' | 'PUBLIC_SNAPDOM_PROXY_URL' | 'PUBLIC_SITE_URL' | 'CONVEX_PROJECT_ID' | 'NODE_ADAPTER' | 'VERCEL_ENV' | 'VERCEL_URL' | 'VERCEL_GIT_COMMIT_REF' | 'WORKERS_CI' | 'WORKERS_CI_BRANCH' | 'WORKERS_CI_COMMIT_SHA' | 'WORKERS_NAME' | 'WORKERS_SUBDOMAIN' | 'CF_PAGES' | 'CF_PAGES_URL' | 'CF_PAGES_BRANCH' | 'PRODUCTION_BRANCH' | 'CF_ZONE_ID' | 'CI'>> {}
 }
 
 
