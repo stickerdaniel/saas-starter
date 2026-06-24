@@ -7,6 +7,7 @@ import { convexLocal } from 'convex-vite-plugin';
 import { resetRedactionMap } from 'varlock/env';
 import { DEV_FEATURES, type DevFeature } from './src/lib/dev/features';
 import { findAvailablePort, portlessOwnsPort } from './scripts/dev-ports';
+import { TEST_ONLY_ENV_PLACEHOLDERS } from './scripts/local-convex-env';
 import { sentrySvelteKit } from '@sentry/sveltekit';
 import devtoolsJson from 'vite-plugin-devtools-json';
 import tailwindcss from '@tailwindcss/vite';
@@ -324,6 +325,11 @@ export default defineConfig(async ({ mode }) => {
 						LOCAL_SEEDED_ADMIN_EMAIL: 'admin@local.dev',
 						LOCAL_SEEDED_ADMIN_PASSWORD: 'LocalDevAdmin123!',
 						LOCAL_SEEDED_ADMIN_NAME: 'Local Admin',
+						// Test mode: inert placeholders for the deploy-required secrets the
+						// e2e suite never exercises, so a fresh test backend passes Convex's
+						// push-time env validation with no real secret. See local-convex-env.ts;
+						// real values in .env.convex.local override them (spread below).
+						...(isTestMode ? TEST_ONLY_ENV_PLACEHOLDERS : {}),
 						// User overrides from .env.convex.local (takes precedence)
 						...convexLocalEnv,
 						// Test mode: forward AUTH_E2E_TEST_SECRET so api.tests.* mutations
