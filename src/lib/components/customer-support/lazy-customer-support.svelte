@@ -3,7 +3,7 @@
 	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
 	import { Button } from '$lib/components/ui/button/index.js';
-	import MessageSquareIcon from '@lucide/svelte/icons/message-square';
+	import LauncherIcon from './launcher-icon.svelte';
 	import { getTranslate } from '@tolgee/svelte';
 	import type { Component } from 'svelte';
 
@@ -100,9 +100,7 @@
 			aria-label={$t('aria.feedback_open')}
 			class="h-12 w-12 rounded-xl transition-[color,background-color,border-color,transform] duration-200 ease-out hover:scale-105 hover:bg-primary active:scale-[0.97]"
 		>
-			<div class="-scale-x-100">
-				<MessageSquareIcon class="size-6 fill-current" />
-			</div>
+			<LauncherIcon />
 		</Button>
 	</div>
 {/if}
