@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 describe('Generated Email Templates', () => {
@@ -199,6 +199,19 @@ describe('Generated Email Templates', () => {
 				expect(content).toContain('<head');
 				expect(content).toContain('<body');
 			});
+		});
+
+		it('never leaks the web-only Fontaine fallback family into emails', () => {
+			// Fontaine appends an "Outfit fallback" family to the web app's font
+			// usages for CLS. Emails build from the same shared font tokens, so a
+			// regression that wires that fallback into the --font-* tokens would leak
+			// a font family no email client can resolve. Guard the boundary.
+			for (const file of readdirSync(generatedDir).filter((f) => f.endsWith('.ts'))) {
+				const content = readFileSync(join(generatedDir, file), 'utf-8');
+				expect(content, `${file} leaked the web-only fallback family`).not.toMatch(
+					/Outfit fallback/
+				);
+			}
 		});
 	});
 });
