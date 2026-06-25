@@ -14,6 +14,7 @@ import tailwindcss from '@tailwindcss/vite';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vitest/config';
 import { visualizer } from 'rollup-plugin-visualizer';
+import { FontaineTransform } from 'fontaine';
 import { loadEnv, type PluginOption } from 'vite';
 
 function computeLocalConvexStateId(projectDir: string, suffix?: string): string {
@@ -376,6 +377,15 @@ export default defineConfig(async ({ mode }) => {
 		tailwindcss(),
 		sveltekit(),
 		devtoolsJson(),
+		// Metric-matched fallback faces for the self-hosted Outfit, so the swap from
+		// the system fallback to the real face shifts layout near zero. Fontaine
+		// appends the fallback family to the web app's own font usages here; it must
+		// never be written into the --font-* tokens, since the email renderer shares
+		// those tokens verbatim and would otherwise carry a family no client resolves.
+		FontaineTransform.vite({
+			fallbacks: { Outfit: ['Arial', 'sans-serif'] },
+			resolvePath: (id) => 'file://' + path.join(process.cwd(), 'static', id)
+		}),
 		// Bundle analyzer
 		...(process.env.ANALYZE === 'true'
 			? [
