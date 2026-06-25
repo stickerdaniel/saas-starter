@@ -75,6 +75,10 @@
 </script>
 
 <svelte:head>
+	<!-- The brand is appended here, so the `title` prop and every meta.*.title in
+	     src/i18n must be page-name only. A title that already ends in the brand
+	     renders it twice ("Pricing | Brand | Brand"). The meta-title unit test
+	     guards the i18n side. -->
 	{#if title}
 		<title>{title} | {LEGAL_CONFIG.brandName}</title>
 		<meta property="og:title" content={title} />
