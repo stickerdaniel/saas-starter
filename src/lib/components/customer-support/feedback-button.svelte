@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button/index.js';
-	import MessageSquareIcon from '@lucide/svelte/icons/message-square';
+	import LauncherIcon from './launcher-icon.svelte';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import FeedbackWidget from './feedback-widget.svelte';
 	import { on } from 'svelte/events';
@@ -60,13 +60,11 @@
 						? 'blur-0 scale-100 opacity-100'
 						: 'scale-75 opacity-0 blur-sm'}"
 				/>
-				<div class="-scale-x-100">
-					<MessageSquareIcon
-						class="absolute inset-0 size-6 fill-current transition-[transform,opacity,filter] duration-200 ease-out {isFeedbackOpen
-							? 'scale-75 opacity-0 blur-sm'
-							: 'blur-0 scale-100 opacity-100'}"
-					/>
-				</div>
+				<LauncherIcon
+					class="absolute inset-0 transition-[transform,opacity,filter] duration-200 ease-out {isFeedbackOpen
+						? 'scale-75 opacity-0 blur-sm'
+						: 'blur-0 scale-100 opacity-100'}"
+				/>
 			</div>
 		</Button>
 	</div>
