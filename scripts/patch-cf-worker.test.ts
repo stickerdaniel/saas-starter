@@ -115,6 +115,15 @@ describe('patch-cf-worker', () => {
 		expect(result.match(/const __wantsMarkdown =/g)?.length).toBe(1);
 	});
 
+	it('forces browser revalidation of prerendered marketing HTML', () => {
+		const result = applyMarkdownPatch(WORKER_FIXTURE)!;
+		// Browser must revalidate the shell so it never boots a stale version
+		// referencing deleted chunk hashes after a deploy.
+		expect(result).toContain(
+			'public, max-age=0, must-revalidate, s-maxage=3600, stale-while-revalidate=86400'
+		);
+	});
+
 	it('does not add a public cache header to the server.respond branch', () => {
 		const result = applyMarkdownPatch(WORKER_FIXTURE)!;
 		const elseIdx = result.indexOf('res = await server.respond(req');
@@ -123,7 +132,9 @@ describe('patch-cf-worker', () => {
 
 	it('injects the marketing edge-cache on the no-cache fallback path', () => {
 		const result = applyMarkdownPatch(WORKER_FIXTURE_NO_CACHE)!;
-		expect(result).toContain('s-maxage=3600, stale-while-revalidate=86400');
+		expect(result).toContain(
+			'public, max-age=0, must-revalidate, s-maxage=3600, stale-while-revalidate=86400'
+		);
 		expect(result).toContain('res = new Response(res.body, res)');
 		expect(result.match(/s-maxage=3600/g)?.length).toBe(1);
 	});
