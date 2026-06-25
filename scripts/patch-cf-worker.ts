@@ -50,11 +50,19 @@ export const ASSET_SERVE_PATTERN = /res = await (\w+)\.ASSETS\.fetch\(req\);?/;
 const MARKETING_HTML_CACHE_INJECTION = `res = await $1.ASSETS.fetch(req);
         if (!__wantsMarkdown && prerendered.has(pathname) && /^\\/[a-z]{2}(\\/(about|privacy|terms|impressum))?$/.test(pathname)) {
           // Prerendered marketing HTML bypasses SvelteKit hooks on CF, so it ships
-          // with no Cache-Control. Apply the same s-maxage policy handleCacheControl
-          // gives the SSR /pricing route. ASSETS responses have immutable headers —
-          // reconstruct to mutate.
+          // with no Cache-Control. Apply the same policy handleCacheControl gives the
+          // SSR /pricing route. ASSETS responses have immutable headers, so
+          // reconstruct to mutate. max-age=0, must-revalidate asks the browser to
+          // revalidate the shell so the location.href recovery in the root layout
+          // fetches a fresh one instead of a stale shell with dead chunk hashes.
+          // Necessary but not sufficient: a fixed zone Browser Cache TTL (default 4h)
+          // is a floor that CF uses to rewrite the browser-facing max-age back up to
+          // 14400 while the response stays edge-cacheable. The zone must set Browser
+          // Cache TTL to "Respect Existing Headers" (or a Cache Rule on the marketing
+          // HTML paths) for max-age=0 to survive. This string must stay identical to
+          // handleCacheControl in src/hooks.server.ts.
           res = new Response(res.body, res);
-          res.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-revalidate=86400");
+          res.headers.set("Cache-Control", "public, max-age=0, must-revalidate, s-maxage=3600, stale-while-revalidate=86400");
         }`;
 
 /**

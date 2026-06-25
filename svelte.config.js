@@ -1,3 +1,4 @@
+import { execSync } from 'node:child_process';
 import auto from '@sveltejs/adapter-auto';
 import cloudflare from '@sveltejs/adapter-cloudflare';
 import node from '@sveltejs/adapter-node';
@@ -20,6 +21,22 @@ const prerenderEntries = LANGUAGES.flatMap((lang) =>
 	PRERENDER_MARKETING_PAGES.map((page) => `/${lang}${page}`)
 );
 
+// A deterministic, per-commit app version so the client can detect a new
+// deploy and recover from dead chunk hashes. The default build timestamp is
+// non-deterministic across the two CI build steps within one deploy, which
+// breaks the failed-import safety net. Prefer the commit SHA injected by the
+// build host (Workers Builds, then Vercel), fall back to a local git rev, and
+// finally to 'dev' so non-git build hosts still get a stable name.
+function appVersion() {
+	const sha = process.env.WORKERS_CI_COMMIT_SHA || process.env.VERCEL_GIT_COMMIT_SHA;
+	if (sha) return sha;
+	try {
+		return execSync('git rev-parse HEAD').toString().trim();
+	} catch {
+		return 'dev';
+	}
+}
+
 /** @type {import('@sveltejs/kit').Config} */
 const config = {
 	// Consult https://svelte.dev/docs/kit/integrations
@@ -37,6 +54,13 @@ const config = {
 		prerender: {
 			entries: prerenderEntries,
 			handleMissingId: 'warn'
+		},
+		version: {
+			name: appVersion(),
+			// Poll /_app/version.json in the background so updated.current flips to
+			// true after a new deploy, letting the beforeNavigate guard in the root
+			// layout force a full document load before importing a dead chunk hash.
+			pollInterval: 300000
 		}
 	}
 };

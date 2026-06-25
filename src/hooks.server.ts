@@ -241,7 +241,27 @@ const handleCacheControl: Handle = async function handleCacheControl({ event, re
 		!event.locals.token &&
 		matchPublicMarketingRoute(event.url.pathname)
 	) {
-		response.headers.set('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
+		// max-age=0, must-revalidate asks the browser to revalidate the HTML shell on
+		// every navigation (a 304 keeps it cheap) so the location.href recovery in the
+		// root layout fetches a fresh shell instead of re-reading a stale one that
+		// references deleted chunk hashes. s-maxage keeps the shared edge cache.
+		//
+		// Necessary but not sufficient on Cloudflare. A fixed zone Browser Cache TTL
+		// (default 4h) acts as a floor: CF rewrites the browser-facing max-age back up
+		// to 14400 whenever the origin value is lower, and this response stays
+		// edge-cacheable (public + s-maxage), so max-age=0 is overridden until the zone
+		// is reconfigured. See developers.cloudflare.com/cache/how-to/edge-browser-cache-ttl/.
+		// Required CF change (zone-level, not expressible from origin headers): set
+		// Browser Cache TTL to "Respect Existing Headers", or add a Cache Rule scoped to
+		// the marketing HTML paths that does the same. Verify after deploy: the live
+		// Cache-Control on /en must NOT carry an injected max-age=14400.
+		//
+		// This string must stay in sync with the prerendered marketing HTML header in
+		// scripts/patch-cf-worker.ts.
+		response.headers.set(
+			'Cache-Control',
+			'public, max-age=0, must-revalidate, s-maxage=3600, stale-while-revalidate=86400'
+		);
 		// These URLs also serve markdown via Accept header. CF edge ignores Vary, so
 		// this is safe only because every route reaching this branch is non-prerendered
 		// and the markdown variant is private (kept out of shared caches).

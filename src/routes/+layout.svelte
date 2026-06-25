@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
-	import { page } from '$app/state';
+	import { beforeNavigate } from '$app/navigation';
+	import { page, updated } from '$app/state';
 	import { T, Tolgee, DevTools, TolgeeProvider } from '@tolgee/svelte';
 	import type { TolgeeStaticData } from '@tolgee/svelte';
 	import { FormatIcu } from '@tolgee/format-icu';
@@ -26,6 +27,28 @@
 	const translations: TolgeeStaticData = { en, de, es, fr };
 
 	let { children } = $props();
+
+	// After a new deploy is detected (version.json poll flips updated.current),
+	// turn the next client navigation into a full document load so fresh chunk
+	// hashes are fetched instead of importing a now-deleted hash and blanking
+	// the page. Covers goto() and back/forward, unlike data-sveltekit-reload.
+	beforeNavigate(({ willUnload, to }) => {
+		if (updated.current && !willUnload && to?.url) {
+			location.href = to.url.href;
+		}
+	});
+
+	// Reactive backstop for the window between a deploy and the next version poll:
+	// when a dynamic import 404s because its chunk hash was replaced, Vite fires
+	// vite:preloadError. Hard reload once to pull the new shell. The sessionStorage
+	// flag prevents a reload loop if the shell itself is still served stale.
+	if (browser) {
+		window.addEventListener('vite:preloadError', () => {
+			if (sessionStorage.getItem('sk:preload-reloaded')) return;
+			sessionStorage.setItem('sk:preload-reloaded', '1');
+			location.reload();
+		});
+	}
 
 	const currentLang = $derived(getLanguage(page.params.lang).code);
 
