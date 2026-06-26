@@ -227,6 +227,21 @@ The build command intentionally reuses `scripts/deploy.ts` so production stays a
 
 </details>
 
+### Custom domain (Cloudflare)
+
+When you serve the app from a custom domain on a Cloudflare zone (not the default `*.workers.dev`), set the zone's **Browser Cache TTL** to **Respect Existing Headers** (Caching > Configuration), or add a Cache Rule on the marketing HTML paths that does the same.
+
+The app sends `Cache-Control: public, max-age=0, must-revalidate, ...` on the HTML shell so a returning visitor always revalidates and never boots a stale shell that points at chunk hashes a new deploy has replaced (which would render a blank page until a hard refresh). Cloudflare's default Browser Cache TTL (4 hours) overrides a lower origin `max-age`, so without this change the shell is force-cached for 4 hours and the recovery cannot run.
+
+After deploying, verify the live header carries no injected `max-age`:
+
+```bash
+curl -sI https://your-domain.example/en | grep -i cache-control
+# expect: public, max-age=0, must-revalidate, s-maxage=3600, stale-while-revalidate=86400
+```
+
+`*.workers.dev` deployments are unaffected: the Browser Cache TTL setting applies only to zones you control, and workers.dev passes the origin header through unchanged.
+
 ### First Admin
 
 Sign up on the site, then either set the user's role to `admin` in the Convex dashboard or run (with the email you signed up with):
