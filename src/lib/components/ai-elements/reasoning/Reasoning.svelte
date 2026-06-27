@@ -49,14 +49,20 @@
 	};
 </script>
 
+<!--
+	Reasoning is an inline, chromeless accordion: no card border, radius, or open
+	fill. Some shadcn accordion variants ship a card style (rounded-2xl border +
+	data-open:bg-muted/50); we opt out here rather than relying on the base style,
+	so a future `shadcn add accordion` (theme update) can't re-add the outline.
+-->
 <Accordion.Root
 	type="single"
-	class={cn('not-prose mb-4', className)}
+	class={cn('not-prose mb-4 rounded-none border-0', className)}
 	value={accordionValue}
 	onValueChange={handleValueChange}
 	{...props}
 >
-	<Accordion.Item value={ITEM_VALUE} class="border-0">
+	<Accordion.Item value={ITEM_VALUE} class="border-0 data-open:bg-transparent">
 		{@render children?.()}
 	</Accordion.Item>
 </Accordion.Root>
