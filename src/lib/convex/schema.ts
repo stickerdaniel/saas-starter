@@ -181,7 +181,46 @@ export default defineSchema({
 	})
 		.index('by_user', ['userId'])
 		.index('by_thread', ['threadId'])
-		.index('by_user_warm', ['userId', 'isWarm'])
+		.index('by_user_warm', ['userId', 'isWarm']),
+
+	// Per-LLM-operation usage + cost. One row per call (single-shot) or per
+	// assistant turn (agent). costUsd is authoritative and stamped at write time
+	// (never recomputed at query time). Write-only like emailEvents until a
+	// billing/admin query is added on by_user_at.
+	aiUsage: defineTable({
+		userId: v.optional(v.string()), // Better Auth _id, anon_* id, or absent
+		feature: v.union(v.literal('ai_chat'), v.literal('ai_chat_title'), v.literal('support_chat')),
+		threadId: v.optional(v.string()),
+		status: v.union(v.literal('ok'), v.literal('partial'), v.literal('error')),
+		models: v.array(
+			v.object({
+				model: v.string(),
+				provider: v.optional(v.string()),
+				inputTokens: v.number(),
+				outputTokens: v.number(),
+				totalTokens: v.number(),
+				reasoningTokens: v.optional(v.number()),
+				cachedInputTokens: v.optional(v.number()),
+				costUsd: v.number(),
+				costSource: v.union(v.literal('native'), v.literal('computed'), v.literal('unknown'))
+			})
+		),
+		inputTokens: v.number(),
+		outputTokens: v.number(),
+		totalTokens: v.number(),
+		reasoningTokens: v.optional(v.number()),
+		cachedInputTokens: v.optional(v.number()),
+		costUsd: v.number(),
+		costSource: v.union(
+			v.literal('native'),
+			v.literal('computed'),
+			v.literal('mixed'),
+			v.literal('unknown')
+		),
+		at: v.number()
+	})
+		.index('by_user_at', ['userId', 'at'])
+		.index('by_feature_at', ['feature', 'at'])
 
 	// Note: The agent component automatically creates the following tables:
 	// - agent:threads - Conversation threads for customer support

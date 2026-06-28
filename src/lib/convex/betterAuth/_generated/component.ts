@@ -1268,20 +1268,4 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         Name
       >;
     };
-    passkeyQueries: {
-      findByCredentialID: FunctionReference<
-        "query",
-        "internal",
-        { credentialID: string },
-        any,
-        Name
-      >;
-      listByUserId: FunctionReference<
-        "query",
-        "internal",
-        { userId: string },
-        any,
-        Name
-      >;
-    };
   };
