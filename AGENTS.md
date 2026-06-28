@@ -427,7 +427,7 @@ Decision tree for new routes:
 
 4. **Is the page an API endpoint or static file?**
    - Yes → `+server.ts` with custom Response
-   - Examples: `/api/auth/[...all]`, `/llms.txt`, `/robots.txt`, `/sitemap.xml`
+   - Examples: `/api/auth/[...all]`, `/llms.txt`, `/robots.txt`, `/sitemap.xml`, `/api/time` (runtime JSON, `prerender = false`, `cache-control: no-store` — server wall-clock for client clock-skew detection)
 
 #### Data-fetching patterns (decision tree)
 
