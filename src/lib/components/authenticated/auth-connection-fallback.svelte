@@ -2,6 +2,7 @@
 	import { T } from '@tolgee/svelte';
 	import { onMount } from 'svelte';
 	import { clockSkewContext } from '$lib/hooks/clock-skew.svelte';
+	import * as Empty from '$lib/components/ui/empty/index.js';
 	import { Button } from '$lib/components/ui/button';
 	import LoaderIcon from '@lucide/svelte/icons/loader-circle';
 	import ClockIcon from '@lucide/svelte/icons/clock';
@@ -26,34 +27,51 @@
 	}
 </script>
 
-<div
-	class="flex min-h-svh flex-col items-center justify-center gap-4 p-6 text-center"
+<main
+	id="main-content"
+	class="grid min-h-[100dvh] w-full place-items-center px-4 py-8"
 	data-testid="auth-connection-fallback"
 >
-	{#if !timedOut && !skewed}
-		<LoaderIcon class="size-6 text-muted-foreground motion-safe:animate-spin" />
-		<p class="text-sm text-muted-foreground"><T keyName="connection.fallback.connecting" /></p>
-	{:else}
-		<div class="flex max-w-md flex-col items-center gap-3">
-			{#if skewed}
-				<ClockIcon class="size-8 text-warning" />
-				<h1 class="text-lg font-medium"><T keyName="connection.fallback.clock_title" /></h1>
-				<p class="text-sm text-muted-foreground">
-					<T
-						keyName="connection.fallback.clock_description"
-						params={{ offset: skew?.magnitude ?? '' }}
-					/>
-				</p>
-			{:else}
-				<WifiOffIcon class="size-8 text-muted-foreground" />
-				<h1 class="text-lg font-medium"><T keyName="connection.fallback.offline_title" /></h1>
-				<p class="text-sm text-muted-foreground">
-					<T keyName="connection.fallback.offline_description" />
-				</p>
-			{/if}
-			<Button variant="outline" onclick={retry} data-testid="auth-connection-retry">
-				<T keyName="connection.fallback.retry" />
-			</Button>
-		</div>
-	{/if}
-</div>
+	<Empty.Root class="w-full max-w-xl">
+		{#if !timedOut && !skewed}
+			<Empty.Header>
+				<Empty.Media>
+					<LoaderIcon class="size-6 text-muted-foreground motion-safe:animate-spin" />
+				</Empty.Media>
+				<Empty.Title><T keyName="connection.fallback.connecting" /></Empty.Title>
+			</Empty.Header>
+		{:else}
+			<Empty.Header>
+				<Empty.Media variant="icon">
+					{#if skewed}
+						<ClockIcon class="text-warning" />
+					{:else}
+						<WifiOffIcon class="text-muted-foreground" />
+					{/if}
+				</Empty.Media>
+				<Empty.Title>
+					{#if skewed}
+						<T keyName="connection.fallback.clock_title" />
+					{:else}
+						<T keyName="connection.fallback.offline_title" />
+					{/if}
+				</Empty.Title>
+				<Empty.Description>
+					{#if skewed}
+						<T
+							keyName="connection.fallback.clock_description"
+							params={{ offset: skew?.magnitude ?? '' }}
+						/>
+					{:else}
+						<T keyName="connection.fallback.offline_description" />
+					{/if}
+				</Empty.Description>
+			</Empty.Header>
+			<Empty.Content>
+				<Button variant="outline" onclick={retry} data-testid="auth-connection-retry">
+					<T keyName="connection.fallback.retry" />
+				</Button>
+			</Empty.Content>
+		{/if}
+	</Empty.Root>
+</main>
