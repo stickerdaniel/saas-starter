@@ -3,6 +3,7 @@
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import AuthenticatedSidebar from './authenticated-sidebar.svelte';
 	import AuthenticatedHeader from './authenticated-header.svelte';
+	import AuthConnectionFallback from './auth-connection-fallback.svelte';
 	import { ScrollArea } from '$lib/components/ui/scroll-area';
 	import type { Snippet } from 'svelte';
 	import type { NavSubItem, SidebarConfig, User } from './types';
@@ -79,4 +80,10 @@
 			{/if}
 		</Sidebar.Inset>
 	</Sidebar.Provider>
+{:else}
+	<!-- No server-resolved user: render a recover/retry state instead of a blank
+	     page. Happens when SSR could not authenticate (e.g. a wrong device clock
+	     made the browser drop the short-lived auth cookie), where a plain reload
+	     would otherwise show nothing. -->
+	<AuthConnectionFallback />
 {/if}

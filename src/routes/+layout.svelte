@@ -9,6 +9,8 @@
 	import AppAuthProvider from '$lib/components/app/app-auth-provider.svelte';
 	import AppAutumnProvider from '$lib/components/app/app-autumn-provider.svelte';
 	import AppPostHogBootstrap from '$lib/components/app/app-posthog-bootstrap.svelte';
+	import ClockSkewBanner from '$lib/components/clock-skew-banner.svelte';
+	import { ClockSkewState, clockSkewContext } from '$lib/hooks/clock-skew.svelte';
 	import { setGlobalSearchContext } from '$lib/components/global-search/context.svelte';
 	import GlobalSearchShell from '$lib/components/global-search/global-search-shell.svelte';
 	import { languageContext } from '$lib/i18n/context';
@@ -48,6 +50,22 @@
 			sessionStorage.setItem('sk:preload-reloaded', '1');
 			location.reload();
 		});
+	}
+
+	// Detect a misconfigured device clock, which silently breaks cookie-based auth
+	// (the browser drops freshly minted short-TTL auth cookies it thinks are
+	// already expired). Shared via context so the banner and the authenticated
+	// connection fallback can both explain it. Measured once, deferred after
+	// hydration so it never blocks first paint.
+	const clockSkew = new ClockSkewState();
+	clockSkewContext.set(clockSkew);
+	if (browser) {
+		const measure = () => void clockSkew.measure();
+		if ('requestIdleCallback' in window) {
+			requestIdleCallback(measure, { timeout: 3000 });
+		} else {
+			setTimeout(measure, 1500);
+		}
 	}
 
 	const currentLang = $derived(getLanguage(page.params.lang).code);
@@ -116,6 +134,7 @@
 				>
 					<T keyName="a11y.skip_to_content" />
 				</a>
+				<ClockSkewBanner />
 				<GlobalSearchShell />
 				{@render children()}
 			</TolgeeProvider>

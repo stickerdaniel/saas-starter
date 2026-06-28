@@ -511,6 +511,22 @@
 		"load_error": "Failed to load data. Please try again later.",
 		"you": "You"
 	},
+	"connection": {
+		"clock_skew": {
+			"message": "Your device clock is off by about {offset}, which can block sign-in and live updates.",
+			"action": "Set your date and time to automatic, then reload.",
+			"reload": "Reload",
+			"dismiss": "Dismiss"
+		},
+		"fallback": {
+			"connecting": "Connecting…",
+			"offline_title": "Can't reach the server",
+			"offline_description": "We couldn't load your workspace. Check your connection and try again.",
+			"clock_title": "Your device clock is blocking the connection",
+			"clock_description": "Your clock is off by about {offset}, so the secure session keeps getting rejected. Set your date and time to automatic, then retry.",
+			"retry": "Retry"
+		}
+	},
 	"email": {
 		"admin_reply": {
 			"button": "View Conversation",
