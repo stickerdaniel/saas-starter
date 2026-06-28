@@ -1,6 +1,6 @@
 import { Agent } from '@convex-dev/agent';
 import { components } from '../_generated/api';
-import { openrouter } from '@openrouter/ai-sdk-provider';
+import { orModel } from '../aiUsage/capture';
 import { CHAT_MODEL_ID } from '../utils/chatModel';
 import { getGeocoding, getWeather } from './tools/weather';
 
@@ -13,7 +13,7 @@ import { getGeocoding, getWeather } from './tools/weather';
 export const aiChatAgent = new Agent(components.agent, {
 	name: 'Assistant',
 
-	languageModel: openrouter(CHAT_MODEL_ID, {
+	languageModel: orModel(CHAT_MODEL_ID, {
 		extraBody: {
 			reasoning: { enabled: true }
 		}

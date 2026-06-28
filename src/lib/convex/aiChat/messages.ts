@@ -15,6 +15,8 @@ import { checkAndCountUsage, refundUsage } from '../autumn';
 import { requireAiChatThreadRecord } from './ownership';
 import { t } from '../i18n/translations';
 import { MAX_MESSAGE_LENGTH } from '../constants';
+import { makeAgentUsageSink } from '../aiUsage/agentUsage';
+import { recordAiUsage } from '../aiUsage/record';
 
 const THREAD_PREVIEW_LENGTH = 100;
 
@@ -158,6 +160,7 @@ export const createAIResponse = internalAction({
 			usageCounted = outcome === 'counted';
 		}
 
+		const sink = makeAgentUsageSink();
 		let result;
 		try {
 			result = await aiChatAgent.streamText(
@@ -168,11 +171,20 @@ export const createAIResponse = internalAction({
 					saveStreamDeltas: {
 						chunking: 'line',
 						throttleMs: 100
-					}
+					},
+					usageHandler: sink.usageHandler
 				}
 			);
 
 			await result.consumeStream();
+
+			await recordAiUsage(ctx, {
+				feature: 'ai_chat',
+				userId: args.userId,
+				threadId: args.threadId,
+				status: 'ok',
+				models: sink.collect()
+			});
 		} catch (error) {
 			// The unit was counted up front; a failed generation must not cost
 			// a message. The refund window ends here: once the stream is
@@ -180,6 +192,18 @@ export const createAIResponse = internalAction({
 			// don't refund a delivered message.
 			if (args.userId && usageCounted) {
 				await refundUsage({ customerId: args.userId, featureId: 'ai_chat_messages' });
+			}
+			// Record any usage the model already produced before the failure so a
+			// failed turn is still attributed (status: error), not silently dropped.
+			const models = sink.collect();
+			if (models.length > 0) {
+				await recordAiUsage(ctx, {
+					feature: 'ai_chat',
+					userId: args.userId,
+					threadId: args.threadId,
+					status: 'error',
+					models
+				});
 			}
 			throw error;
 		}

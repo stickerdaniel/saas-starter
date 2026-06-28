@@ -15,6 +15,8 @@ import { requireSupportThreadAccess } from './ownership';
 import { listMessagesForThread } from './messageListing';
 import { syncSupportLastMessage } from './threads';
 import { getFileMetadataByUrls } from '../files/metadata';
+import { makeAgentUsageSink } from '../aiUsage/agentUsage';
+import { recordAiUsage } from '../aiUsage/record';
 
 /**
  * Send a user message and get AI response with streaming
@@ -195,25 +197,52 @@ export const createAIResponse = internalAction({
 			return null;
 		}
 
-		// Stream the AI response with tool execution support
-		// maxSteps is configured at the agent level (agent.ts) for multi-step tool execution
-		const result = await supportAgent.streamText(
-			ctx,
-			{ threadId: args.threadId, userId: args.userId },
-			{
-				promptMessageId: args.promptMessageId
-			},
-			{
-				// Save streaming deltas to database for real-time updates
-				saveStreamDeltas: {
-					chunking: 'line',
-					throttleMs: 100
-				}
-			}
-		);
+		// Capture per-model token usage from every LLM step in this turn
+		const sink = makeAgentUsageSink();
 
-		// Consume the stream to process all tool calls and responses
-		await result.consumeStream();
+		try {
+			// Stream the AI response with tool execution support
+			// maxSteps is configured at the agent level (agent.ts) for multi-step tool execution
+			const result = await supportAgent.streamText(
+				ctx,
+				{ threadId: args.threadId, userId: args.userId },
+				{
+					promptMessageId: args.promptMessageId
+				},
+				{
+					usageHandler: sink.usageHandler,
+					// Save streaming deltas to database for real-time updates
+					saveStreamDeltas: {
+						chunking: 'line',
+						throttleMs: 100
+					}
+				}
+			);
+
+			// Consume the stream to process all tool calls and responses
+			await result.consumeStream();
+
+			// args.userId may be an anon_* id for anonymous support; store as-is
+			await recordAiUsage(ctx, {
+				feature: 'support_chat',
+				userId: args.userId,
+				threadId: args.threadId,
+				status: 'ok',
+				models: sink.collect()
+			});
+		} catch (error) {
+			const models = sink.collect();
+			if (models.length > 0) {
+				await recordAiUsage(ctx, {
+					feature: 'support_chat',
+					userId: args.userId,
+					threadId: args.threadId,
+					status: 'error',
+					models
+				});
+			}
+			throw error;
+		}
 
 		// Sync denormalized search fields with AI response
 		await ctx.runMutation(internal.support.threads.updateLastMessage, {

@@ -1,30 +1,16 @@
 import { Agent } from '@convex-dev/agent';
 import { components } from '../_generated/api';
-import { openrouter } from '@openrouter/ai-sdk-provider';
+import { orModel } from '../aiUsage/capture';
 import { CHAT_MODEL_ID } from '../utils/chatModel';
 import { LEGAL_CONFIG } from '../../config/legal';
 
 /**
- * Customer Support AI Agent
+ * System instructions for the support agent.
  *
- * This agent handles customer support conversations with the following capabilities:
- * - Answer product questions
- * - Help with feature requests and bug reports
- * - Provide guidance on setup and configuration
- * - Maintain conversation context across messages
+ * Exported separately so prompt-optimization tooling can override the prompt
+ * without touching the Agent wiring.
  */
-export const supportAgent = new Agent(components.agent, {
-	name: 'Kai',
-
-	// Language model configuration
-	languageModel: openrouter(CHAT_MODEL_ID, {
-		extraBody: {
-			reasoning: { effort: 'low' }
-		}
-	}),
-
-	// System instructions defining agent behavior
-	instructions: `You are a helpful customer support agent for ${LEGAL_CONFIG.brandName}, a modern SaaS application template built with SvelteKit, Convex, and Tailwind CSS. Your answers are brief and in WhatsApp style.
+export const SUPPORT_AGENT_INSTRUCTIONS = `You are a helpful customer support agent for ${LEGAL_CONFIG.brandName}, a modern SaaS application template built with SvelteKit, Convex, and Tailwind CSS. Your answers are brief and in WhatsApp style.
 
 Your responsibilities:
 - Answer questions about features and capabilities
@@ -52,7 +38,29 @@ Communication style:
 - Provide step-by-step guidance when appropriate
 - Reference documentation or next steps when relevant
 
-If you're unsure about something, be honest and let the user know you'll look into it.`,
+If you're unsure about something, be honest and let the user know you'll look into it.`;
+
+/**
+ * Customer Support AI Agent
+ *
+ * This agent handles customer support conversations with the following capabilities:
+ * - Answer product questions
+ * - Help with feature requests and bug reports
+ * - Provide guidance on setup and configuration
+ * - Maintain conversation context across messages
+ */
+export const supportAgent = new Agent(components.agent, {
+	name: 'Kai',
+
+	// Language model configuration
+	languageModel: orModel(CHAT_MODEL_ID, {
+		extraBody: {
+			reasoning: { effort: 'low' }
+		}
+	}),
+
+	// System instructions defining agent behavior
+	instructions: SUPPORT_AGENT_INSTRUCTIONS,
 
 	// Call settings for the language model
 	callSettings: {
