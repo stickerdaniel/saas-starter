@@ -46,7 +46,8 @@ const config = {
 	kit: {
 		adapter,
 		alias: {
-			$blocks: 'src/blocks'
+			$blocks: 'src/blocks',
+			$static: 'static'
 		},
 		experimental: {
 			remoteFunctions: true
