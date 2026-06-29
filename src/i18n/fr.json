@@ -511,6 +511,22 @@
 		"load_error": "Échec du chargement des données. Veuillez réessayer plus tard.",
 		"you": "Vous"
 	},
+	"connection": {
+		"clock_skew": {
+			"message": "L'horloge de ton appareil est décalée d'environ {offset}, ce qui peut bloquer la connexion et les mises à jour en direct.",
+			"action": "Règle la date et l'heure sur automatique, puis recharge la page.",
+			"reload": "Recharger",
+			"dismiss": "Ignorer"
+		},
+		"fallback": {
+			"connecting": "Connexion…",
+			"offline_title": "Serveur injoignable",
+			"offline_description": "Impossible de charger ton espace de travail. Vérifie ta connexion et réessaie.",
+			"clock_title": "L'horloge de ton appareil bloque la connexion",
+			"clock_description": "Ton horloge est décalée d'environ {offset}, la session sécurisée est donc refusée à chaque fois. Règle la date et l'heure sur automatique, puis réessaie.",
+			"retry": "Réessayer"
+		}
+	},
 	"email": {
 		"admin_reply": {
 			"button": "Voir la conversation",

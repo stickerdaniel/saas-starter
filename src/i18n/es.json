@@ -511,6 +511,22 @@
 		"load_error": "No se pudieron cargar los datos. Por favor, inténtalo de nuevo más tarde.",
 		"you": "Tú"
 	},
+	"connection": {
+		"clock_skew": {
+			"message": "El reloj de tu dispositivo está desviado unos {offset}, lo que puede bloquear el inicio de sesión y las actualizaciones en vivo.",
+			"action": "Pon la fecha y la hora en automático y vuelve a cargar la página.",
+			"reload": "Recargar",
+			"dismiss": "Descartar"
+		},
+		"fallback": {
+			"connecting": "Conectando…",
+			"offline_title": "No se puede conectar con el servidor",
+			"offline_description": "No pudimos cargar tu espacio de trabajo. Revisa tu conexión e inténtalo de nuevo.",
+			"clock_title": "El reloj de tu dispositivo bloquea la conexión",
+			"clock_description": "Tu reloj está desviado unos {offset}, por eso la sesión segura se rechaza una y otra vez. Pon la fecha y la hora en automático e inténtalo de nuevo.",
+			"retry": "Reintentar"
+		}
+	},
 	"email": {
 		"admin_reply": {
 			"button": "Ver conversación",
