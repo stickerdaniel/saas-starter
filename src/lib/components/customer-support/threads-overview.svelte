@@ -108,8 +108,13 @@
 		}
 	});
 
-	// Track which specific image URLs have been preloaded (reactive Set)
-	let preloadedUrls = new SvelteSet<string>();
+	// Track which avatar image URLs have actually finished loading in the DOM.
+	// Populated by each <Avatar>'s onLoadingStatusChange below, so the gate
+	// reflects the *displayed* image. bits-ui runs its own internal load and
+	// keeps the <img> at display:none until it settles; gating on a separate
+	// preload let the stack animate in while the rendered image was still hidden
+	// (showing a transparent circle). Keyed by URL, so it survives the shuffle.
+	let loadedAvatarUrls = new SvelteSet<string>();
 
 	// Get the image URLs we need to load (only after admin data is ready)
 	// This ensures we wait for the actual admin images, not placeholders shown before data loads
@@ -118,53 +123,18 @@
 		return displayAvatars.map((a) => a.src).filter((url): url is string => !!url);
 	});
 
-	// All images are ready when every required URL is preloaded
+	// All images are ready when every displayed avatar has settled (loaded or errored)
 	const allImagesLoaded = $derived(
-		imageUrlsToLoad.length > 0 && imageUrlsToLoad.every((url) => preloadedUrls.has(url))
+		imageUrlsToLoad.length > 0 && imageUrlsToLoad.every((url) => loadedAvatarUrls.has(url))
 	);
 
-	// Preload images when URLs change (with proper cleanup)
-	$effect(() => {
-		const urls = imageUrlsToLoad; // sync read = tracked dependency
-		if (urls.length === 0) return;
+	// Mark an avatar URL as settled once bits-ui finishes its load. Errors still
+	// unblock the entrance so one broken image can't stall the whole greeting.
+	function markAvatarSettled(url: string | undefined, status: 'loading' | 'loaded' | 'error') {
+		if (url && status !== 'loading') loadedAvatarUrls.add(url);
+	}
 
-		const controller = new AbortController();
-
-		urls.forEach((url) => {
-			if (preloadedUrls.has(url)) return; // already loaded
-
-			const img = new Image();
-
-			controller.signal.addEventListener(
-				'abort',
-				() => {
-					img.src = ''; // cancel loading
-				},
-				{ once: true }
-			);
-
-			img.onload = async () => {
-				if (controller.signal.aborted) return;
-				try {
-					await img.decode(); // ensure fully decoded for rendering
-				} catch {
-					/* ignore decode errors */
-				}
-				preloadedUrls.add(url); // SvelteSet is reactive
-			};
-
-			img.onerror = () => {
-				if (controller.signal.aborted) return;
-				preloadedUrls.add(url); // mark as "loaded" to not block animation
-			};
-
-			img.src = url;
-		});
-
-		return () => controller.abort();
-	});
-
-	// Fallback: force animations if images take too long to load.
+	// Fallback: force the entrance animation if an image takes too long to load.
 	// Uses a plain setTimeout (not runed's useDebounce): calling a useDebounce
 	// function inside an $effect makes the effect track the debouncer's internal
 	// reactive state, so it re-runs, cancels itself in cleanup, reschedules, and
@@ -176,7 +146,7 @@
 		if (allImagesLoaded || !isAdminDataLoaded) return;
 
 		const timer = setTimeout(() => {
-			imageUrlsToLoad.forEach((url) => preloadedUrls.add(url));
+			imageUrlsToLoad.forEach((url) => loadedAvatarUrls.add(url));
 		}, ANIMATION_TIMEOUT);
 
 		return () => clearTimeout(timer);
@@ -267,21 +237,40 @@
 									y: { type: 'spring', stiffness: 260, damping: 12, mass: 0.8, delay }
 								}}
 							>
-								<Avatar class="size-12 outline outline-4 outline-secondary">
+								<Avatar
+									class="size-12 outline outline-4 outline-secondary"
+									onLoadingStatusChange={(status) => markAvatarSettled(avatar.src, status)}
+								>
 									<AvatarImage
 										src={avatar.src}
 										alt={avatar.alt}
 										class={avatar.isPlaceholder ? 'object-cover grayscale' : 'object-cover'}
 									/>
+									<!-- Never transparent while loading: neutral circle for placeholders,
+									     the admin's initial otherwise (also the timeout-path safety net). -->
+									<AvatarFallback
+										class={avatar.isPlaceholder
+											? 'bg-muted text-muted-foreground'
+											: 'bg-primary text-primary-foreground'}
+									>
+										{#if avatar.isPlaceholder}
+											<UsersRoundIcon class="size-6" />
+										{:else}
+											<span class="text-lg font-medium">{avatar.alt.charAt(0).toUpperCase()}</span>
+										{/if}
+									</AvatarFallback>
 								</Avatar>
 							</motion.div>
 						{/each}
 					</div>
 
-					<!-- Greeting -->
+					<!-- Greeting (gated on allImagesLoaded so the whole entrance plays as one
+					     sequence once the avatars are ready, instead of text-then-avatars) -->
 					<motion.h2
 						initial={{ opacity: 0, y: 6, filter: 'blur(6px)' }}
-						animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+						animate={allImagesLoaded
+							? { opacity: 1, y: 0, filter: 'blur(0px)' }
+							: { opacity: 0, y: 6, filter: 'blur(6px)' }}
 						transition={{ duration: 0.4, delay: 0.25, ease: 'easeOut' }}
 						class="mb-4 text-5xl font-semibold text-muted-foreground"
 					>
@@ -291,7 +280,9 @@
 					<!-- Main heading -->
 					<motion.h3
 						initial={{ opacity: 0, y: 6, filter: 'blur(6px)' }}
-						animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+						animate={allImagesLoaded
+							? { opacity: 1, y: 0, filter: 'blur(0px)' }
+							: { opacity: 0, y: 6, filter: 'blur(6px)' }}
 						transition={{ duration: 0.4, delay: 0.5, ease: 'easeOut' }}
 						class="text-3xl font-bold"
 					>
