@@ -511,6 +511,22 @@
 		"load_error": "Daten konnten nicht geladen werden. Bitte versuchen Sie es später erneut.",
 		"you": "Sie"
 	},
+	"connection": {
+		"clock_skew": {
+			"message": "Deine Systemuhr geht etwa {offset} falsch. Das kann Anmeldung und Live-Updates blockieren.",
+			"action": "Stell Datum und Uhrzeit auf automatisch und lade die Seite neu.",
+			"reload": "Neu laden",
+			"dismiss": "Ausblenden"
+		},
+		"fallback": {
+			"connecting": "Verbindung wird hergestellt…",
+			"offline_title": "Server nicht erreichbar",
+			"offline_description": "Dein Arbeitsbereich konnte nicht geladen werden. Prüf deine Verbindung und versuch es erneut.",
+			"clock_title": "Deine Systemuhr blockiert die Verbindung",
+			"clock_description": "Deine Uhr geht etwa {offset} falsch, deshalb wird die sichere Sitzung immer wieder abgewiesen. Stell Datum und Uhrzeit auf automatisch und versuch es erneut.",
+			"retry": "Erneut versuchen"
+		}
+	},
 	"email": {
 		"admin_reply": {
 			"button": "Unterhaltung ansehen",
