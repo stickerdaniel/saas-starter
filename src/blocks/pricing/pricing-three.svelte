@@ -87,7 +87,9 @@
 	}
 
 	async function handleManageBilling() {
-		await portalOperation.execute({});
+		// Return the user to the current page after the portal; without returnUrl
+		// Autumn falls back to its org success_url, which defaults to useautumn.com.
+		await portalOperation.execute({ returnUrl: window.location.href });
 		if (portalOperation.error) {
 			haptic.trigger('error');
 			toast.error($t('billing.portal_failed'));

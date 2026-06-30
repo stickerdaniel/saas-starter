@@ -68,7 +68,8 @@
 
 	async function handleBilling() {
 		haptic.trigger('light');
-		await portalOperation.execute({});
+		// Return here after the portal; without returnUrl Autumn defaults to useautumn.com.
+		await portalOperation.execute({ returnUrl: window.location.href });
 		if (portalOperation.error) {
 			haptic.trigger('error');
 			toast.error($t('billing.portal_failed'));
