@@ -1,5 +1,5 @@
 /**
- * Worktree management with Graphite integration (cross-platform TypeScript version)
+ * Worktree management (cross-platform TypeScript version)
  *
  * Usage:
  *   bun scripts/create-worktree.ts feature/dark-mode           # Full mode: create + setup
@@ -37,13 +37,6 @@ const { values, positionals } = parseArgs({
 const setupOnly = values['setup-only'] ?? false;
 const openEditor = values['open-editor'];
 const branchName = positionals[0];
-
-/**
- * Check if a command exists on the system (uses Bun.which for cross-platform support)
- */
-function commandExists(command: string): boolean {
-	return Bun.which(command) !== null;
-}
 
 /**
  * Run a command and return the result
@@ -106,7 +99,7 @@ function getRootWorktree(): string {
 }
 
 /**
- * Setup worktree (copies files, installs deps, tracks with Graphite)
+ * Setup worktree (copies files and installs deps)
  */
 function setupWorktree(rootPath: string): void {
 	console.log('');
@@ -185,41 +178,6 @@ function setupWorktree(rootPath: string): void {
 		console.log('');
 	}
 
-	const hasGt = commandExists('gt');
-	let gtReady = false;
-
-	if (hasGt) {
-		console.log('Tracking branch with Graphite...');
-		const tracked = runCommandInherit('gt', ['track']);
-		if (!tracked) {
-			console.log(
-				`${colors.yellow}Warning: gt track failed (non-fatal, worktree is still usable)${colors.reset}`
-			);
-		} else {
-			console.log(`${colors.green}Branch tracked${colors.reset}`);
-		}
-		console.log('');
-
-		console.log('Syncing with trunk...');
-		const synced = runCommandInherit('gt', ['sync']);
-		if (!synced) {
-			console.log(
-				`${colors.yellow}Warning: gt sync failed (non-fatal, worktree is still usable)${colors.reset}`
-			);
-		} else {
-			console.log(`${colors.green}Synced with trunk${colors.reset}`);
-		}
-		console.log('');
-
-		gtReady = tracked && synced;
-	} else {
-		console.log(
-			`${colors.yellow}Graphite CLI (gt) not found — skipping gt track/sync.${colors.reset}`
-		);
-		console.log('Install: https://graphite.dev/docs/graphite-cli/quickstart');
-		console.log('');
-	}
-
 	console.log('======================================================');
 	console.log(`${colors.green}Worktree setup complete!${colors.reset}`);
 	console.log('======================================================');
@@ -228,21 +186,13 @@ function setupWorktree(rootPath: string): void {
 	console.log('  1. Make your changes');
 	console.log('  2. Stage them: git add .');
 	console.log('  3. Commit changes: git commit -m "feat: your feature"');
-	if (gtReady) {
-		console.log('  4. Submit PR: gt submit');
-	} else {
-		console.log('  4. Push & open PR: git push -u origin HEAD && gh pr create');
-	}
+	console.log('  4. Push & open PR: git push -u origin HEAD && gh pr create');
 	console.log('');
 	console.log('To iterate (CI fixes, review feedback):');
 	console.log('  1. Make changes');
 	console.log('  2. git add .');
 	console.log('  3. git commit -m "fix: address review feedback"');
-	if (gtReady) {
-		console.log('  4. gt submit');
-	} else {
-		console.log('  4. git push');
-	}
+	console.log('  4. git push');
 	console.log('');
 }
 

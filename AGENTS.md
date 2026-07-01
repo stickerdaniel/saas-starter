@@ -38,7 +38,7 @@ Worktrees live in a sibling directory next to the main repo at `<repo>.worktrees
 
 NEVER use the `EnterWorktree` tool. Always use `bun run worktree` instead and add the worktree path before all consecutive actions. You must do this, the cwd is reset after each action and theres currently no better way to do this.
 
-**Before committing:** Always check `git branch` first. If you're in a worktree, the branch already exists and was created by `bun run worktree` (which runs `git worktree add -b` and then `gt track` + `gt sync` when Graphite is installed). Use `git commit` to add commits, not `gt create`. Only use `gt create` when you need a new stacked branch on top of the current one.
+**Before committing:** Always check `git branch` first. If you're in a worktree, the branch already exists and was created by `bun run worktree`. Use `git commit` to add commits.
 
 ### Commit Message Format
 
@@ -651,7 +651,7 @@ For intentionally kept **files**, use a `knip.config.ts` `ignore` entry with a w
 Examples: one PR removed a schema index another PR's new code queried; two PRs each introduced the same function (every PR green, main broken; hotfix #550).
 
 → **Required up-to-date branches** (`required_status_checks.strict` on main, enabled 2026-06-12). With strict off, branch protection ran required checks per branch only, so batch-merging sibling PRs could break main even though every PR was green. Strict on means a PR behind main cannot merge until updated and re-validated, which deterministically prevents this class. GitHub merge queue is unavailable for user-owned repos (rulesets API rejects the `merge_queue` rule type).
-Consequence: after every merge, remaining open PRs need a branch update (Update-branch button, `gt sync`, or Renovate auto-rebase) plus a fresh CI cycle; batch merges are sequential by design.
+Consequence: after every merge, remaining open PRs need a branch update (Update-branch button or Renovate auto-rebase) plus a fresh CI cycle; batch merges are sequential by design.
 Defense in depth: after merging, still verify pulled main with `bun run check:convex` and `bun run test:unit`.
 
 #### Guard execution timeline

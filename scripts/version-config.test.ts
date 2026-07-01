@@ -34,10 +34,10 @@ describe('kit.version config', () => {
 	});
 
 	it('registers a vite:preloadError backstop that reloads once', () => {
-		const layout = fs.readFileSync(path.resolve('src/routes/+layout.svelte'), 'utf-8');
-		expect(layout).toContain("addEventListener('vite:preloadError'");
-		expect(layout).toContain('location.reload()');
+		const appHtml = fs.readFileSync(path.resolve('src/app.html'), 'utf-8');
+		expect(appHtml).toContain("addEventListener('vite:preloadError'");
+		expect(appHtml).toContain('location.reload()');
 		// A sessionStorage guard must gate the reload so a stale shell cannot loop.
-		expect(layout).toMatch(/sessionStorage\.getItem\(['"]sk:preload-reloaded['"]\)/);
+		expect(appHtml).toMatch(/sessionStorage\.getItem\(['"]sk:preload-reloaded['"]\)/);
 	});
 });

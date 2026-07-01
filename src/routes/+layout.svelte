@@ -40,18 +40,6 @@
 		}
 	});
 
-	// Reactive backstop for the window between a deploy and the next version poll:
-	// when a dynamic import 404s because its chunk hash was replaced, Vite fires
-	// vite:preloadError. Hard reload once to pull the new shell. The sessionStorage
-	// flag prevents a reload loop if the shell itself is still served stale.
-	if (browser) {
-		window.addEventListener('vite:preloadError', () => {
-			if (sessionStorage.getItem('sk:preload-reloaded')) return;
-			sessionStorage.setItem('sk:preload-reloaded', '1');
-			location.reload();
-		});
-	}
-
 	// Detect a misconfigured device clock, which silently breaks cookie-based auth
 	// (the browser drops freshly minted short-TTL auth cookies it thinks are
 	// already expired). Shared via context so the banner and the authenticated
