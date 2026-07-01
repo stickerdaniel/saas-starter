@@ -18,7 +18,7 @@
 	import { T, getTranslate } from '@tolgee/svelte';
 
 	const { t } = getTranslate();
-	import { useConvexClient } from '@mmailaender/convex-svelte';
+	import { useConvexClient, useQuery } from '@mmailaender/convex-svelte';
 	import { api } from '$lib/convex/_generated/api.js';
 	import { authClient } from '$lib/auth-client.js';
 	import { toast } from 'svelte-sonner';
@@ -40,6 +40,9 @@
 	const columns = $derived(createColumns(data.lang ?? 'en'));
 
 	const client = useConvexClient();
+	const oauthProviders = useQuery(api.auth.getAvailableOAuthProviders, {}, () => ({
+		initialData: data.oauthProviders
+	}));
 
 	type UserStatusFilter = 'verified' | 'unverified' | 'banned';
 	type SortQueryField = 'created_at' | 'email' | 'name' | 'role' | 'provider';
@@ -538,6 +541,7 @@
 					{roleFilter}
 					{statusFilter}
 					{providerFilter}
+					availableOAuthProviders={oauthProviders.data}
 					onFilterChange={handleFilterChange}
 				/>
 			{/snippet}

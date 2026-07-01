@@ -99,7 +99,7 @@
 			"args": ["run", "worktree", "${input:branchName}", "--open-editor", "${input:editorChoice}"],
 			"group": "none",
 			"problemMatcher": [],
-			"detail": "Create a new git worktree with Graphite tracking and environment setup",
+			"detail": "Create a new git worktree with environment setup",
 			"presentation": {
 				"echo": true,
 				"reveal": "always",

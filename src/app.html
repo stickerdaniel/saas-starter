@@ -12,6 +12,18 @@
 		<meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff" />
 		<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#09090b" />
 		<link rel="manifest" href="%sveltekit.assets%/manifest.webmanifest" />
+		<script>
+			(() => {
+				window.addEventListener('vite:preloadError', () => {
+					if (sessionStorage.getItem('sk:preload-reloaded')) return;
+					sessionStorage.setItem('sk:preload-reloaded', '1');
+					location.reload();
+				});
+				// Expose that the deploy-recovery backstop is wired so E2E can
+				// observe readiness before simulating a stale chunk load.
+				window.__deployReloadArmed = true;
+			})();
+		</script>
 		<!-- Preload critical fonts -->
 		<link
 			rel="preload"
