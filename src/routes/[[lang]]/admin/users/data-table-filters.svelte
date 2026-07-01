@@ -13,6 +13,7 @@
 		roleFilter: string | undefined;
 		statusFilter: 'verified' | 'unverified' | 'banned' | undefined;
 		providerFilter: ProviderFilter | undefined;
+		availableOAuthProviders: { google?: boolean; github?: boolean } | undefined;
 		onFilterChange: (filters: {
 			role: string | undefined;
 			status: 'verified' | 'unverified' | 'banned' | undefined;
@@ -20,7 +21,8 @@
 		}) => void;
 	};
 
-	let { roleFilter, statusFilter, providerFilter, onFilterChange }: Props = $props();
+	let { roleFilter, statusFilter, providerFilter, availableOAuthProviders, onFilterChange }: Props =
+		$props();
 
 	// Convert undefined to 'all' for display
 	const roleValue = $derived(roleFilter ?? 'all');
@@ -80,13 +82,23 @@
 		{ value: 'banned', label: $t('admin.users.filter.status_banned') }
 	]);
 
-	const providerOptions = $derived([
-		{ value: 'all', label: $t('admin.users.filter.all_providers') },
-		{ value: 'credential', label: $t('admin.users.filter.provider_email') },
-		{ value: 'google', label: $t('admin.users.filter.provider_google') },
-		{ value: 'github', label: $t('admin.users.filter.provider_github') },
-		{ value: 'passkey', label: $t('admin.users.filter.provider_passkey') }
-	]);
+	const providerOptions = $derived.by(() => {
+		const options = [
+			{ value: 'all', label: $t('admin.users.filter.all_providers') },
+			{ value: 'credential', label: $t('admin.users.filter.provider_email') }
+		];
+
+		if (availableOAuthProviders?.google) {
+			options.push({ value: 'google', label: $t('admin.users.filter.provider_google') });
+		}
+
+		if (availableOAuthProviders?.github) {
+			options.push({ value: 'github', label: $t('admin.users.filter.provider_github') });
+		}
+
+		options.push({ value: 'passkey', label: $t('admin.users.filter.provider_passkey') });
+		return options;
+	});
 </script>
 
 <div class="flex items-center gap-2">
