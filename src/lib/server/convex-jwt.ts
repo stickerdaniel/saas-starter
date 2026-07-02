@@ -59,18 +59,20 @@ async function mintConvexToken(
 
 		// Mirror the cookie Better Auth would set so subsequent requests in the
 		// same window skip the extra roundtrip. maxAge derives from the JWT's own
-		// exp claim; without a readable exp the cookie lives for the browser
-		// session, which is at most as long as Better Auth would allow.
+		// exp claim; a token without a readable exp is still returned for this
+		// request but not mirrored, since a session-scoped cookie could outlive
+		// the JWT and pin an expired token on every following request (the read
+		// path prefers an existing cookie and never re-mints while it is set).
 		const exp = decodeJwtPayload(token)?.exp;
-		const nowSeconds = Math.floor(Date.now() / 1000);
-		const maxAge = typeof exp === 'number' ? Math.max(0, exp - nowSeconds) : undefined;
-		event.cookies.set(cookieName(JWT_COOKIE_BASE, isSecure), token, {
-			path: '/',
-			httpOnly: true,
-			sameSite: 'lax',
-			secure: isSecure,
-			...(maxAge !== undefined ? { maxAge } : {})
-		});
+		if (typeof exp === 'number') {
+			event.cookies.set(cookieName(JWT_COOKIE_BASE, isSecure), token, {
+				path: '/',
+				httpOnly: true,
+				sameSite: 'lax',
+				secure: isSecure,
+				maxAge: Math.max(0, exp - Math.floor(Date.now() / 1000))
+			});
+		}
 
 		return token;
 	} catch {

@@ -113,6 +113,18 @@ describe('resolveConvexToken', () => {
 		expect(setCookie.mock.calls[0]![2]).toMatchObject({ secure: true });
 	});
 
+	it('returns a token without readable exp for this request but does not mirror it', async () => {
+		// A session-scoped cookie (no maxAge) could outlive the JWT and pin an
+		// expired token, because the read path prefers an existing cookie.
+		const token = fakeJwt({ sub: 'user_1' });
+		const { event, setCookie } = fakeEvent({
+			cookies: { 'better-auth.session_token': 'session-alive' },
+			tokenResponse: { ok: true, token }
+		});
+		await expect(resolveConvexToken(event)).resolves.toBe(token);
+		expect(setCookie).not.toHaveBeenCalled();
+	});
+
 	it('never mints on /api/auth requests (the token endpoint runs through this hook)', async () => {
 		const { event, fetch } = fakeEvent({
 			url: 'http://localhost:5173/api/auth/convex/token',
