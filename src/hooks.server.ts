@@ -1,5 +1,5 @@
 import { sequence } from '@sveltejs/kit/hooks';
-import { redirect, type Handle, type HandleServerError, type Cookies } from '@sveltejs/kit';
+import { redirect, type Handle, type HandleServerError } from '@sveltejs/kit';
 import { dev } from '$app/environment';
 import { PUBLIC_SENTRY_DSN } from '$env/static/public';
 import { isSupportedLanguage, DEFAULT_LANGUAGE, LANGUAGE_COOKIE_NAME } from '$lib/i18n/languages';
@@ -10,6 +10,7 @@ import {
 import { createMarketingMarkdownResponse, isMarkdownRequest } from '$lib/markdown/marketing';
 import { devNotice } from '$lib/dev/notice';
 import { decodeJwtPayload } from '$lib/server/jwt';
+import { resolveConvexToken } from '$lib/server/convex-jwt';
 import { loadSentry } from '$lib/monitoring/sentry';
 import { safeRedirectPath } from '$lib/utils/url';
 import { SIDEBAR_COOKIE_NAME } from '$lib/components/ui/sidebar/constants.js';
@@ -20,16 +21,6 @@ if (!PUBLIC_SENTRY_DSN) {
 		missing: ['PUBLIC_SENTRY_DSN'],
 		scope: 'vite-public'
 	});
-}
-
-/**
- * Get JWT token directly from cookies (no createAuth needed)
- * Cookie name depends on whether we're on HTTPS or HTTP
- */
-function getJwtToken(cookies: Cookies, request: Request): string | undefined {
-	const isSecure = new URL(request.url).protocol === 'https:';
-	const cookieName = isSecure ? '__Secure-better-auth.convex_jwt' : 'better-auth.convex_jwt';
-	return cookies.get(cookieName);
 }
 
 // Route matchers
@@ -102,10 +93,14 @@ const handleDevOnlyRoutes: Handle = async function handleDevOnlyRoutes({ event, 
 };
 
 /**
- * Extract authentication token from cookies
+ * Resolve the Convex JWT for SSR: from the short-lived JWT cookie when it is
+ * still alive, otherwise re-minted from the Better Auth session cookie (see
+ * $lib/server/convex-jwt). Without the re-mint, a tab idle past the JWT TTL
+ * gets bounced to /signin on the next full load even though the session is
+ * still valid.
  */
 const handleAuth: Handle = async function handleAuth({ event, resolve }) {
-	event.locals.token = getJwtToken(event.cookies, event.request);
+	event.locals.token = await resolveConvexToken(event);
 	return resolve(event);
 };
 
