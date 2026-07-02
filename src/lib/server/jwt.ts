@@ -11,6 +11,8 @@
 /** Claims Better Auth puts into the Convex JWT that this app reads. */
 export type ConvexJwtPayload = {
 	sub: string;
+	/** Expiry as unix seconds; used to derive the re-minted cookie lifetime. */
+	exp?: number;
 	name?: string;
 	email?: string;
 	image?: string | null;
