@@ -53,7 +53,11 @@ export function mergeByModel(steps: CapturedModelUsage[]): CapturedModelUsage[] 
 		const key = `${s.model} ${s.nativeCostUsd !== undefined ? 'native' : 'tokens'}`;
 		const prev = byModel.get(key);
 		if (!prev) {
-			byModel.set(key, { ...s });
+			// Approximate a missing totalTokens on insert too, not just on merge:
+			// otherwise a first step without totalTokens contributes 0 to the
+			// merged total and the persisted row undercounts. Same fallback the
+			// recorder applies (record.ts).
+			byModel.set(key, { ...s, totalTokens: s.totalTokens ?? s.inputTokens + s.outputTokens });
 			continue;
 		}
 		prev.inputTokens += s.inputTokens;

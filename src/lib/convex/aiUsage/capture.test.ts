@@ -43,6 +43,23 @@ describe('mergeByModel', () => {
 		expect(out[0]).toMatchObject({ inputTokens: 500, outputTokens: 50 });
 		expect(out[0]!.nativeCostUsd).toBeUndefined();
 	});
+
+	it('counts the first step in totalTokens when it lacks totalTokens', () => {
+		// Providers may omit totalTokens. The first captured step used to be
+		// inserted with totalTokens undefined, so a later merge started the sum
+		// at 0 and the first step's tokens vanished from the persisted total.
+		const out = mergeByModel([
+			u({ model: 'qwen', inputTokens: 100, outputTokens: 50 }),
+			u({ model: 'qwen', inputTokens: 20, outputTokens: 10 })
+		]);
+		expect(out).toHaveLength(1);
+		expect(out[0]!.totalTokens).toBe(180);
+	});
+
+	it('approximates totalTokens for a single step without one', () => {
+		const out = mergeByModel([u({ model: 'qwen', inputTokens: 100, outputTokens: 50 })]);
+		expect(out[0]!.totalTokens).toBe(150);
+	});
 });
 
 describe('readOpenRouterCost', () => {
