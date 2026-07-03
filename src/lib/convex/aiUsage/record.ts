@@ -150,5 +150,12 @@ export async function recordAiUsage(
 	}
 ): Promise<void> {
 	if (args.models.length === 0) return;
-	await ctx.runMutation(internal.aiUsage.record.insert, args);
+	try {
+		await ctx.runMutation(internal.aiUsage.record.insert, args);
+	} catch (error) {
+		// Metering must never fail the feature call that produced the usage:
+		// callers invoke this after a successful stream/generation, so a
+		// throwing insert would surface a metering problem as an LLM failure.
+		console.error('[aiUsage] Failed to record usage', error);
+	}
 }
