@@ -39,20 +39,14 @@ function computeLocalConvexStateId(projectDir: string, suffix?: string): string 
 	return `${sanitizedBranch}${sanitizedSuffix}-${hash}`;
 }
 
-function getPersistentBetterAuthSecret(
-	projectDir: string,
-	reset: boolean,
-	suffix?: string
-): string {
+function getPersistentBetterAuthSecret(projectDir: string, suffix?: string): string {
 	const stateId = computeLocalConvexStateId(projectDir, suffix);
 	const stateDir = path.join(projectDir, '.convex', stateId);
 	const secretPath = path.join(stateDir, 'better-auth-secret');
 
-	if (!reset) {
-		const existing = fs.existsSync(secretPath) ? fs.readFileSync(secretPath, 'utf-8').trim() : '';
-		if (existing) {
-			return existing;
-		}
+	const existing = fs.existsSync(secretPath) ? fs.readFileSync(secretPath, 'utf-8').trim() : '';
+	if (existing) {
+		return existing;
 	}
 
 	const secret = crypto.randomBytes(32).toString('hex');
@@ -225,6 +219,20 @@ export default defineConfig(async ({ mode }) => {
 		const siteProxyUrl = `http://localhost:${siteProxyPort}`;
 		const resetLocalBackend = process.env.RESET_LOCAL_BACKEND === 'true';
 
+		// Wipe the state dir HERE, not via the plugin's reset option: the plugin
+		// rm's the whole dir at boot, i.e. AFTER getPersistentBetterAuthSecret
+		// below has written the fresh secret file into it. The reset run itself
+		// stays green (the backend keeps the secret in memory), but every
+		// following run then re-rolls the secret against this run's surviving
+		// JWKS rows and /api/auth/convex/token 500s with "Failed to decrypt
+		// private key" until the next reset.
+		if (resetLocalBackend) {
+			fs.rmSync(path.join(cwd, '.convex', computeLocalConvexStateId(cwd, stateIdSuffix)), {
+				recursive: true,
+				force: true
+			});
+		}
+
 		// Write backend URL so E2E tests (Playwright) can discover it.
 		// Test mode writes to a separate file so dev's .backend-url isn't clobbered when
 		// `bun run dev` and `bun run dev:test` run concurrently.
@@ -233,8 +241,7 @@ export default defineConfig(async ({ mode }) => {
 		const backendUrlFile = isTestMode ? '.test-backend-url' : '.backend-url';
 		fs.writeFileSync(path.join(convexStateDir, backendUrlFile), backendUrl);
 		const betterAuthSecret =
-			loadedEnv.BETTER_AUTH_SECRET?.trim() ||
-			getPersistentBetterAuthSecret(cwd, resetLocalBackend, stateIdSuffix);
+			loadedEnv.BETTER_AUTH_SECRET?.trim() || getPersistentBetterAuthSecret(cwd, stateIdSuffix);
 
 		// Load Convex backend env vars from .env.convex.local.
 		// SITE_URL is stripped: locally it must always track the running dev server
@@ -301,7 +308,9 @@ export default defineConfig(async ({ mode }) => {
 				port: backendPort,
 				siteProxyPort,
 				stateIdSuffix,
-				reset: resetLocalBackend,
+				// Never let the plugin wipe the state dir itself: the reset already
+				// happened above, BEFORE the better-auth secret file was written.
+				reset: false,
 				onReady: [{ name: 'localDev:ensureSeededAdmin' }],
 				envVars: ({ vitePort, resolvedUrls }) => {
 					// When portless fronts vite, resolvedUrls.local[0] is vite's own
