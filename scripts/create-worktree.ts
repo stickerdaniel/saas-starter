@@ -21,22 +21,44 @@ const colors = {
 	red: '\x1b[31m'
 };
 
-// Parse command line arguments
-const { values, positionals } = parseArgs({
-	args: Bun.argv.slice(2),
-	options: {
-		'setup-only': { type: 'boolean', default: false },
-		'open-editor': { type: 'string' },
-		base: { type: 'string', short: 'b' },
-		help: { type: 'boolean', short: 'h', default: false }
-	},
-	strict: false,
-	allowPositionals: true
-});
+// Parse command line arguments. strict mode rejects mistyped flags
+// (e.g. --bse main) instead of silently swallowing them.
+function parseCliArgs() {
+	try {
+		return parseArgs({
+			args: Bun.argv.slice(2),
+			options: {
+				'setup-only': { type: 'boolean', default: false },
+				'open-editor': { type: 'string' },
+				base: { type: 'string', short: 'b' },
+				help: { type: 'boolean', short: 'h', default: false }
+			},
+			strict: true,
+			allowPositionals: true
+		});
+	} catch (error) {
+		console.error(`\x1b[31m${error instanceof Error ? error.message : String(error)}\x1b[0m`);
+		console.log('');
+		console.log('Run with --help for usage.');
+		process.exit(1);
+	}
+}
+const { values, positionals } = parseCliArgs();
 
 const setupOnly = values['setup-only'] ?? false;
 const openEditor = values['open-editor'];
 const branchName = positionals[0];
+
+// A second positional is always a mistake (usually an attempted base branch);
+// dropping it silently would branch off the CURRENT branch instead.
+if (positionals.length > 1) {
+	console.error(
+		`${'\x1b[31m'}Error: Unexpected extra argument(s): ${positionals.slice(1).join(' ')}${'\x1b[0m'}`
+	);
+	console.log('');
+	console.log('To choose the base branch, pass it as a flag: --base <branch> (e.g. --base main)');
+	process.exit(1);
+}
 
 /**
  * Run a command and return the result
@@ -315,6 +337,24 @@ function main(): void {
 		baseBranch = result.stdout;
 	}
 	console.log(`Base branch: ${baseBranch}`);
+
+	// Warn when the implicit base is not the trunk: the default is the CURRENT
+	// branch, so invoking from a feature branch silently stacks the new worktree
+	// on it, and a later gt submit then submits that whole stack.
+	if (!baseArg) {
+		const trunkResult = runCommand('git', ['symbolic-ref', '--short', 'refs/remotes/origin/HEAD'], {
+			silent: true
+		});
+		const trunk = trunkResult.success ? trunkResult.stdout.replace(/^origin\//, '') : 'main';
+		if (baseBranch !== trunk) {
+			console.log(
+				`${colors.yellow}Warning: branching off "${baseBranch}" (current branch), not "${trunk}".${colors.reset}`
+			);
+			console.log(
+				`${colors.yellow}Pass --base ${trunk} if this branch should be independent of ${baseBranch}.${colors.reset}`
+			);
+		}
+	}
 
 	// Create worktree
 	console.log('Creating git worktree...');
