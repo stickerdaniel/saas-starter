@@ -322,7 +322,12 @@ function main(): void {
 	}
 
 	// Determine base branch: current branch by default, or --base override
-	const baseArg = values['base'] as string | undefined;
+	const baseArgRaw = values['base'] as string | undefined;
+	const baseArg = baseArgRaw?.trim();
+	if (baseArgRaw !== undefined && !baseArg) {
+		console.error(`${colors.red}Error: --base requires a non-empty branch name${colors.reset}`);
+		process.exit(1);
+	}
 	let baseBranch: string;
 	if (baseArg) {
 		baseBranch = baseArg;
