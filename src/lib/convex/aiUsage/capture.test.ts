@@ -1,10 +1,55 @@
 import { describe, it, expect } from 'vitest';
-import { mergeByModel, readOpenRouterCost, type CapturedModelUsage } from './capture';
+import type { LanguageModelUsage } from 'ai';
+import {
+	captureDirect,
+	mergeByModel,
+	readOpenRouterCost,
+	type CapturedModelUsage
+} from './capture';
 
 const u = (p: Partial<CapturedModelUsage> & { model: string }): CapturedModelUsage => ({
 	inputTokens: 0,
 	outputTokens: 0,
+	...p,
+	// Mirrors captureDirect's normalization so merge inputs are realistic.
+	totalTokens: p.totalTokens ?? (p.inputTokens ?? 0) + (p.outputTokens ?? 0)
+});
+
+const sdkUsage = (p: Partial<LanguageModelUsage>): LanguageModelUsage => ({
+	inputTokens: undefined,
+	outputTokens: undefined,
+	totalTokens: undefined,
+	inputTokenDetails: {
+		noCacheTokens: undefined,
+		cacheReadTokens: undefined,
+		cacheWriteTokens: undefined
+	},
+	outputTokenDetails: { textTokens: undefined, reasoningTokens: undefined },
 	...p
+});
+
+describe('captureDirect', () => {
+	it('approximates a missing totalTokens from input + output', () => {
+		// Providers may omit totalTokens; captureDirect is the single place that
+		// normalizes it, so merged/persisted totals never silently drop a step.
+		const out = captureDirect(sdkUsage({ inputTokens: 100, outputTokens: 50 }), undefined, 'qwen');
+		expect(out.totalTokens).toBe(150);
+	});
+
+	it('passes reported totals, provider, and native cost through', () => {
+		const out = captureDirect(
+			sdkUsage({ inputTokens: 1, outputTokens: 2, totalTokens: 7 }),
+			{ openrouter: { usage: { cost: 0.5 } } },
+			'qwen',
+			'openrouter'
+		);
+		expect(out).toMatchObject({
+			model: 'qwen',
+			provider: 'openrouter',
+			totalTokens: 7,
+			nativeCostUsd: 0.5
+		});
+	});
 });
 
 describe('mergeByModel', () => {
@@ -44,21 +89,15 @@ describe('mergeByModel', () => {
 		expect(out[0]!.nativeCostUsd).toBeUndefined();
 	});
 
-	it('counts the first step in totalTokens when it lacks totalTokens', () => {
-		// Providers may omit totalTokens. The first captured step used to be
-		// inserted with totalTokens undefined, so a later merge started the sum
-		// at 0 and the first step's tokens vanished from the persisted total.
+	it('sums totalTokens across merged steps, reported and approximated alike', () => {
+		// First step reports its own total (160 > input + output), second step's
+		// total was approximated at capture time (30). Both must survive the merge.
 		const out = mergeByModel([
-			u({ model: 'qwen', inputTokens: 100, outputTokens: 50 }),
+			u({ model: 'qwen', inputTokens: 100, outputTokens: 50, totalTokens: 160 }),
 			u({ model: 'qwen', inputTokens: 20, outputTokens: 10 })
 		]);
 		expect(out).toHaveLength(1);
-		expect(out[0]!.totalTokens).toBe(180);
-	});
-
-	it('approximates totalTokens for a single step without one', () => {
-		const out = mergeByModel([u({ model: 'qwen', inputTokens: 100, outputTokens: 50 })]);
-		expect(out[0]!.totalTokens).toBe(150);
+		expect(out[0]!.totalTokens).toBe(190);
 	});
 
 	it('keeps reasoning/cached undefined when no step reported them', () => {
