@@ -129,8 +129,8 @@ export const insert = internalMutation({
 
 /**
  * Fire-and-forget recorder for action call sites. No-ops when nothing was used,
- * otherwise hands the captured per-model usage to the `record` mutation, which
- * resolves cost and persists the row.
+ * otherwise schedules the `insert` mutation, which resolves cost and persists
+ * the row.
  */
 export async function recordAiUsage(
 	ctx: ActionCtx,
@@ -144,11 +144,14 @@ export async function recordAiUsage(
 ): Promise<void> {
 	if (args.models.length === 0) return;
 	try {
-		await ctx.runMutation(internal.aiUsage.record.insert, args);
+		// Scheduled mutations run exactly-once with automatic retry on internal
+		// errors, so a transient backend failure can't silently drop the usage
+		// row the way an awaited runMutation from this action could.
+		await ctx.scheduler.runAfter(0, internal.aiUsage.record.insert, args);
 	} catch (error) {
 		// Metering must never fail the feature call that produced the usage:
 		// callers invoke this after a successful stream/generation, so a
-		// throwing insert would surface a metering problem as an LLM failure.
+		// throwing schedule would surface a metering problem as an LLM failure.
 		console.error('[aiUsage] Failed to record usage', error);
 	}
 }
