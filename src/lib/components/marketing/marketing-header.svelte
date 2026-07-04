@@ -157,7 +157,11 @@
 								)}
 							>
 								{#if isAuthenticated}
-									<Button size="sm" href={localizedHref('/app')}>
+									<Button
+										size="sm"
+										href={localizedHref('/app')}
+										data-testid="marketing-nav-dashboard"
+									>
 										<T keyName="nav.dashboard" />
 									</Button>
 									<Button
@@ -252,7 +256,12 @@
 						)}
 					>
 						{#if isAuthenticated}
-							<Button size="sm" href={localizedHref('/app')} class="w-full">
+							<Button
+								size="sm"
+								href={localizedHref('/app')}
+								class="w-full"
+								data-testid="marketing-nav-dashboard-mobile"
+							>
 								<T keyName="nav.dashboard" />
 							</Button>
 						{:else if isAtTop}
