@@ -199,8 +199,10 @@
 						{#if isUploading}
 							<div
 								class="flex h-16 w-16 items-center justify-center rounded-full border-2 border-border"
+								role="status"
 							>
 								<LoaderCircleIcon class="size-5 text-muted-foreground motion-safe:animate-spin" />
+								<span class="sr-only"><T keyName="settings.account.avatar.uploading" /></span>
 							</div>
 						{:else if image}
 							<img
