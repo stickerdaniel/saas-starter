@@ -7,7 +7,7 @@ export type CapturedModelUsage = {
 	provider?: string;
 	inputTokens: number;
 	outputTokens: number;
-	totalTokens?: number;
+	totalTokens: number;
 	reasoningTokens?: number;
 	cachedInputTokens?: number;
 	nativeCostUsd?: number;
@@ -26,16 +26,29 @@ export function orModel(modelId: string, opts?: Record<string, unknown>): Langua
 	return openrouter(modelId, { usage: { include: true }, ...opts });
 }
 
+// Sum two optional counters, staying undefined when neither side reported one,
+// so merged/aggregated rows don't persist a spurious 0 (the recorder only
+// stores these fields when present).
+export function sumOptional(a: number | undefined, b: number | undefined): number | undefined {
+	return a === undefined && b === undefined ? undefined : (a ?? 0) + (b ?? 0);
+}
+
 export function captureDirect(
 	usage: LanguageModelUsage,
 	pm: unknown,
-	model: string
+	model: string,
+	provider?: string
 ): CapturedModelUsage {
+	const inputTokens = usage.inputTokens ?? 0;
+	const outputTokens = usage.outputTokens ?? 0;
 	return {
 		model,
-		inputTokens: usage.inputTokens ?? 0,
-		outputTokens: usage.outputTokens ?? 0,
-		totalTokens: usage.totalTokens,
+		...(provider !== undefined ? { provider } : {}),
+		inputTokens,
+		outputTokens,
+		// Providers may omit totalTokens; approximate it once here so every
+		// downstream consumer (merge, recorder) can rely on it being present.
+		totalTokens: usage.totalTokens ?? inputTokens + outputTokens,
 		reasoningTokens: usage.reasoningTokens,
 		cachedInputTokens: usage.cachedInputTokens,
 		nativeCostUsd: readOpenRouterCost(pm)
@@ -58,9 +71,9 @@ export function mergeByModel(steps: CapturedModelUsage[]): CapturedModelUsage[] 
 		}
 		prev.inputTokens += s.inputTokens;
 		prev.outputTokens += s.outputTokens;
-		prev.totalTokens = (prev.totalTokens ?? 0) + (s.totalTokens ?? s.inputTokens + s.outputTokens);
-		prev.reasoningTokens = (prev.reasoningTokens ?? 0) + (s.reasoningTokens ?? 0);
-		prev.cachedInputTokens = (prev.cachedInputTokens ?? 0) + (s.cachedInputTokens ?? 0);
+		prev.totalTokens += s.totalTokens;
+		prev.reasoningTokens = sumOptional(prev.reasoningTokens, s.reasoningTokens);
+		prev.cachedInputTokens = sumOptional(prev.cachedInputTokens, s.cachedInputTokens);
 		if (s.nativeCostUsd !== undefined)
 			prev.nativeCostUsd = (prev.nativeCostUsd ?? 0) + s.nativeCostUsd;
 	}

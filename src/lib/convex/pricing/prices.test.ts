@@ -13,15 +13,36 @@ describe('costOf', () => {
 	});
 
 	it('splits fresh vs cached input and falls reasoning back to the output rate', () => {
-		// Model 'm' has no cachedIn/reasoning rate, so cached input bills at the input
-		// rate and reasoning bills at the output rate. With in=1, out=2 ($/Mtok):
-		// fresh 600*1 + cached 400*1 + out 500*2 + reasoning 200*2 = 2400 micro-$
+		// Reasoning (200) and cached input (400) are subsets of output (500) and
+		// input (1000). Model 'm' has no cachedIn/reasoning rate, so both subsets
+		// bill at their parent rate. With in=1, out=2 ($/Mtok):
+		// fresh 600*1 + cached 400*1 + text 300*2 + reasoning 200*2 = 2000 micro-$
 		const usd = costOf(
 			'm',
 			{ input: 1000, output: 500, reasoning: 200, cachedInput: 400 },
 			{ m: { in: 1, out: 2 } }
 		);
-		expect(usd).toBeCloseTo(0.0024, 12);
+		expect(usd).toBeCloseTo(0.002, 12);
+	});
+
+	it('does not double-bill reasoning tokens without a separate reasoning rate', () => {
+		// outputTokens already includes reasoning tokens (AI SDK usage semantics),
+		// so reporting reasoning must not change the cost when it bills at the
+		// output rate anyway.
+		const table = { m: { in: 1, out: 2 } };
+		const withReasoning = costOf('m', { input: 0, output: 500, reasoning: 200 }, table);
+		const withoutReasoning = costOf('m', { input: 0, output: 500 }, table);
+		expect(withReasoning).toBe(withoutReasoning);
+	});
+
+	it('bills only the reasoning subset at a separate reasoning rate', () => {
+		// text 300*2 + reasoning 200*4 = 1400 micro-$
+		const usd = costOf(
+			'm',
+			{ input: 0, output: 500, reasoning: 200 },
+			{ m: { in: 1, out: 2, reasoning: 4 } }
+		);
+		expect(usd).toBeCloseTo(0.0014, 12);
 	});
 
 	it('returns null for an unpriced model', () => {

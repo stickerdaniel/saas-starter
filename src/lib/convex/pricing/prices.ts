@@ -18,10 +18,16 @@ export function costOf(
 	if (!p) return null;
 	const cachedIn = t.cachedInput ?? 0;
 	const freshIn = Math.max(0, t.input - cachedIn);
+	// Reasoning tokens are a subset of output tokens (AI SDK usage semantics:
+	// outputTokens = text + reasoning), so split them out like cached input —
+	// pricing the full output AND adding reasoning on top would bill the
+	// reasoning tokens twice.
+	const reasoning = t.reasoning ?? 0;
+	const textOut = Math.max(0, t.output - reasoning);
 	const usd =
 		freshIn * p.in +
 		cachedIn * (p.cachedIn ?? p.in) +
-		t.output * p.out +
-		(t.reasoning ?? 0) * (p.reasoning ?? p.out);
+		textOut * p.out +
+		reasoning * (p.reasoning ?? p.out);
 	return usd * PER_TOKEN;
 }
