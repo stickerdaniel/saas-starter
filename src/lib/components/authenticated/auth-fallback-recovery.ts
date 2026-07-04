@@ -20,3 +20,38 @@ export interface AutoReloadState {
 export function shouldAutoReload(state: AutoReloadState): boolean {
 	return state.isAuthenticated && !state.isSkewed && !state.alreadyReloaded;
 }
+
+/** sessionStorage key marking that the automatic reload already happened. */
+const RELOAD_GUARD_KEY = 'auth-fallback-reloaded';
+
+/**
+ * Whether the once-per-session reload guard is set.
+ *
+ * Storage access can throw (Web Storage disabled, hardened webviews), and the
+ * caller runs inside the fallback's timeout callback where an uncaught throw
+ * would kill the escalation to the manual error state and strand the user on
+ * the spinner. Unreadable storage reports true (treated as already reloaded):
+ * without a persistable guard an automatic reload could loop forever.
+ */
+export function hasReloadGuard(): boolean {
+	try {
+		return sessionStorage.getItem(RELOAD_GUARD_KEY) !== null;
+	} catch {
+		return true;
+	}
+}
+
+/**
+ * Persists the reload guard before the automatic reload. Returns false when it
+ * cannot be persisted (e.g. Safari private-mode quota, where reads work but
+ * writes throw) so the caller skips the reload instead of reloading without a
+ * loop guard.
+ */
+export function armReloadGuard(): boolean {
+	try {
+		sessionStorage.setItem(RELOAD_GUARD_KEY, '1');
+		return true;
+	} catch {
+		return false;
+	}
+}

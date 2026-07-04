@@ -196,9 +196,14 @@ export default defineConfig(
 	{
 		// Marketing pages prerender, freezing page.data auth/billing at build time
 		// (saas-starter #452). The rule internally narrows to the marketing surface
-		// (marketing routes/components + the customer-support widget) and covers both
-		// .svelte and .ts files. See eslint/rules/no-frozen-auth-page-data.js.
-		files: ['src/routes/**/*.{svelte,ts}', 'src/lib/components/**/*.{svelte,ts}'],
+		// (marketing routes/components, the customer-support widget, and the
+		// src/blocks marketing blocks) and covers both .svelte and .ts files.
+		// See eslint/rules/no-frozen-auth-page-data.js.
+		files: [
+			'src/routes/**/*.{svelte,ts}',
+			'src/lib/components/**/*.{svelte,ts}',
+			'src/blocks/**/*.{svelte,ts}'
+		],
 		plugins: {
 			local: localPlugin
 		},
