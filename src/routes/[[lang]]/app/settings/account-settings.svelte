@@ -5,6 +5,9 @@
 	import { Input } from '$lib/components/ui/input/index.js';
 	import * as Field from '$lib/components/ui/field/index.js';
 	import * as Card from '$lib/components/ui/card/index.js';
+	import { Progress } from '$lib/components/ui/progress/index.js';
+	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
+	import { uploadToStorage } from '$lib/chat';
 	import { haptic } from '$lib/hooks/use-haptic.svelte';
 	import { toast } from 'svelte-sonner';
 	import { T, getTranslate } from '@tolgee/svelte';
@@ -36,6 +39,7 @@
 	let name = $derived(user?.name ?? '');
 	let image = $derived(user?.image ?? '');
 	let isUploading = $state(false);
+	let uploadProgress = $state(0);
 	let isSaving = $state(false);
 
 	// Field errors
@@ -66,19 +70,18 @@
 
 		// Auto-upload to Convex storage
 		isUploading = true;
+		uploadProgress = 0;
 		try {
 			const { uploadUrl, uploadToken } = await convexClient.mutation(
 				api.storage.generateUploadUrl,
 				{}
 			);
 
-			const result = await fetch(uploadUrl, {
-				method: 'POST',
-				headers: { 'Content-Type': file.type },
-				body: file
+			// XHR transport for progress events, so the avatar shows live
+			// upload feedback instead of a silently disabled input.
+			const storageId = await uploadToStorage(uploadUrl, file, (progress) => {
+				uploadProgress = progress;
 			});
-
-			const { storageId } = await result.json();
 
 			const imageUrl = await convexClient.mutation(api.storage.updateProfileImage, {
 				storageId,
@@ -193,7 +196,13 @@
 						</p>
 					</div>
 					<div class="flex items-center gap-3">
-						{#if image}
+						{#if isUploading}
+							<div
+								class="flex h-16 w-16 items-center justify-center rounded-full border-2 border-border"
+							>
+								<LoaderCircleIcon class="size-5 text-muted-foreground motion-safe:animate-spin" />
+							</div>
+						{:else if image}
 							<img
 								src={image}
 								alt={$t('settings.account.avatar.alt')}
@@ -239,6 +248,9 @@
 								disabled={isUploading}
 								aria-describedby="file-helper"
 							/>
+							{#if isUploading}
+								<Progress value={uploadProgress} max={100} class="h-1" />
+							{/if}
 							<Field.Description id="file-helper">
 								<T keyName="settings.account.file_helper" />
 							</Field.Description>
