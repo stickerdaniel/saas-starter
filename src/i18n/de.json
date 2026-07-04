@@ -853,6 +853,7 @@
 				"rate_limited": "Zu viele Upload-Versuche. Versuchen Sie es in {seconds}s erneut.",
 				"ready": "Bild bereit zum Speichern",
 				"removed": "Bild entfernt - klicken Sie auf Speichern zur Bestätigung",
+				"uploading": "Bild wird hochgeladen…",
 				"select_error": "Bitte wählen Sie eine Bilddatei aus",
 				"size_error": "Bild muss kleiner als {size} sein",
 				"upload_failed": "Bild konnte nicht hochgeladen werden"

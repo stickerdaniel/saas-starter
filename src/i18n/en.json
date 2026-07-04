@@ -853,6 +853,7 @@
 				"rate_limited": "Too many upload attempts. Try again in {seconds}s.",
 				"ready": "Image ready to save",
 				"removed": "Image removed - click Save to confirm",
+				"uploading": "Uploading image…",
 				"select_error": "Please select an image file",
 				"size_error": "Image must be less than {size}",
 				"upload_failed": "Failed to upload image"
