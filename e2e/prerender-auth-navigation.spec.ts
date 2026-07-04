@@ -38,39 +38,54 @@ async function gotoStable(page: Page, url: string) {
 
 test.describe('prerendered marketing to app navigation', () => {
 	test('logged-in user reaches the app via SPA navigation from home', async ({ page }) => {
-		// Local-only warmup: warm the dev server's on-demand compilation for the
-		// heavy authenticated tree (AuthenticatedLayout + the community-chat landing)
-		// and the marketing home before the timed SPA assertion, so the SPA
-		// navigation below imports already-built chunks instead of racing a cold
-		// compile. CF preview/production serve prebuilt assets, so this is a no-op
-		// there and does not weaken the assertion (the SPA load chain still runs
-		// fresh below).
-		test.setTimeout(120000);
-		await gotoStable(page, '/en/app');
-		await expect(page.locator('#user-menu-trigger')).toBeVisible({ timeout: 60000 });
+		test.setTimeout(180000);
 
 		// Land on the (prerendered) marketing home with authenticated cookies.
 		await gotoStable(page, '/en');
 
 		// Wait for the client to recover the session from cookies: the header
 		// swaps its CTAs for the Dashboard button once useAuth() reports
-		// authenticated. This visibility is also the hydration signal — the button
+		// authenticated. This visibility is also the hydration signal, the button
 		// renders only when the client-side useAuth() store flips to authenticated,
-		// which cannot happen before the app has hydrated and is running client JS.
-		// So once it is visible, the SvelteKit client router is active and will
-		// intercept the click as a real client-side navigation (the path the fix
-		// targets), with no separate network-settle wait needed. At this point the
-		// AppAuthProvider divergence effect has also fired (and, pre-fix, consumed
-		// its one invalidation against the frozen prerendered data). On a
-		// prerendered deploy the pre-fix bug reproduces regardless of timing (the
-		// root __data.json is a frozen static file that invalidate can never clear).
+		// which cannot happen before the app has hydrated and is running client JS,
+		// so once it is visible the SvelteKit client router is active and the click
+		// below is a real client-side navigation (the path the fix targets). At
+		// this point the AppAuthProvider divergence effect has also fired (and,
+		// pre-fix, consumed its one invalidation against the frozen prerendered
+		// data). On a prerendered deploy the pre-fix bug reproduces regardless of
+		// timing (the root __data.json is a frozen static file that invalidate can
+		// never clear).
+		// Generous timeout: the fork's client auth recovery (session fetch ->
+		// /convex/token -> Convex WebSocket confirm) can take a while against a
+		// cold preview Convex deployment before isAuthenticated flips.
 		const dashboardLink = page.getByTestId('marketing-nav-dashboard');
-		await expect(dashboardLink).toBeVisible({ timeout: 30000 });
+		await expect(dashboardLink).toBeVisible({ timeout: 60000 });
 
-		// SPA-navigate into the app (SvelteKit intercepts the link click; no
-		// full document load, which is exactly the broken path).
-		await dashboardLink.click();
-		await page.waitForURL(/\/en\/app/, { timeout: 30000 });
+		// Ensure the client router has hydrated before clicking. On the dev server
+		// the link is SSR-rendered (authenticated SSR), so it is visible before
+		// hydration; a click mid-hydration gets hijacked and the navigation is
+		// lost, leaving the page on home. Wait for the network to settle as the
+		// hydration signal, bounded because Tolgee's dev translation polling can
+		// keep the network busy indefinitely; the cap still elapses well after
+		// hydration completes.
+		await page.waitForLoadState('networkidle', { timeout: 20000 }).catch(() => {});
+
+		// SPA-navigate into the app. Retry once if the dev server aborts the
+		// in-flight navigation while optimizing the (heavier) authenticated route
+		// tree on first visit; prebuilt CF/production assets never abort.
+		for (let attempt = 0; ; attempt++) {
+			try {
+				await dashboardLink.click();
+				// Generous: a cold dev server compiles the heavier authenticated
+				// route tree on first entry; prebuilt CF/production navigates fast.
+				await page.waitForURL(/\/en\/app/, { timeout: 90000 });
+				break;
+			} catch (error) {
+				if (attempt >= 1 || !String(error).includes('ERR_ABORTED')) throw error;
+				await gotoStable(page, '/en');
+				await expect(dashboardLink).toBeVisible({ timeout: 30000 });
+			}
+		}
 
 		// The authenticated shell must render from the /app layout's fresh server
 		// data. #user-menu-trigger is the shell's user menu, rendered only when the
