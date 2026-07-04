@@ -20,6 +20,7 @@ import noModuleStateSingletonRule from './eslint/rules/no-module-state-singleton
 import requireMotionGuardTransitionRule from './eslint/rules/require-motion-guard-transition.js';
 import requireFieldErrorAssociationRule from './eslint/rules/require-field-error-association.js';
 import requireGuardedServerConvexClientRule from './eslint/rules/require-guarded-server-convex-client.js';
+import noFrozenAuthPageDataRule from './eslint/rules/no-frozen-auth-page-data.js';
 
 const gitignorePath = path.resolve(import.meta.dirname, '.gitignore');
 const localPlugin = {
@@ -35,7 +36,8 @@ const localPlugin = {
 		'no-module-state-singleton': noModuleStateSingletonRule,
 		'require-motion-guard-transition': requireMotionGuardTransitionRule,
 		'require-field-error-association': requireFieldErrorAssociationRule,
-		'require-guarded-server-convex-client': requireGuardedServerConvexClientRule
+		'require-guarded-server-convex-client': requireGuardedServerConvexClientRule,
+		'no-frozen-auth-page-data': noFrozenAuthPageDataRule
 	}
 };
 
@@ -189,6 +191,19 @@ export default defineConfig(
 			'local/no-hardcoded-aria-label': 'error',
 			'local/no-hardcoded-sr-only': 'error',
 			'local/require-field-error-association': 'error'
+		}
+	},
+	{
+		// Marketing pages prerender, freezing page.data auth/billing at build time
+		// (saas-starter #452). The rule internally narrows to the marketing surface
+		// (marketing routes/components + the customer-support widget) and covers both
+		// .svelte and .ts files. See eslint/rules/no-frozen-auth-page-data.js.
+		files: ['src/routes/**/*.{svelte,ts}', 'src/lib/components/**/*.{svelte,ts}'],
+		plugins: {
+			local: localPlugin
+		},
+		rules: {
+			'local/no-frozen-auth-page-data': 'error'
 		}
 	},
 	{
