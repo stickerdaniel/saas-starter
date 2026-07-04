@@ -4,7 +4,7 @@
 	import { invalidate } from '$app/navigation';
 	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
 	import { clockSkewContext } from '$lib/hooks/clock-skew.svelte';
-	import { shouldAutoReload } from './auth-fallback-recovery';
+	import { armReloadGuard, hasReloadGuard, shouldAutoReload } from './auth-fallback-recovery';
 	import * as Empty from '$lib/components/ui/empty/index.js';
 	import { Button } from '$lib/components/ui/button';
 	import LoaderIcon from '@lucide/svelte/icons/loader-circle';
@@ -27,7 +27,6 @@
 	//    error state instead of reload-looping. sessionStorage (not localStorage)
 	//    means a brand-new tab starts fresh, so the guard never permanently suppresses
 	//    a legitimately needed future reload.
-	const RELOAD_GUARD_KEY = 'auth-fallback-reloaded';
 
 	const skew = clockSkewContext.getOr(undefined);
 	const auth = useAuth();
@@ -43,15 +42,19 @@
 		}
 
 		const id = setTimeout(() => {
-			// Stage 2: stage 1 did not recover within the grace window.
+			// Stage 2: stage 1 did not recover within the grace window. The guard
+			// helpers never throw (a storage throw here would kill the callback
+			// before timedOut and strand the user on the spinner); when the guard
+			// cannot be read or persisted they skip the reload, so the fallback
+			// degrades to the manual error state instead of reload-looping.
 			if (
 				shouldAutoReload({
 					isAuthenticated: auth.isAuthenticated,
 					isSkewed: !!skew?.isSkewed,
-					alreadyReloaded: sessionStorage.getItem(RELOAD_GUARD_KEY) !== null
-				})
+					alreadyReloaded: hasReloadGuard()
+				}) &&
+				armReloadGuard()
 			) {
-				sessionStorage.setItem(RELOAD_GUARD_KEY, '1');
 				location.reload();
 				return;
 			}
