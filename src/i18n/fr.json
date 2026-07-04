@@ -853,6 +853,7 @@
 				"rate_limited": "Trop de tentatives d'envoi. Réessayez dans {seconds}s.",
 				"ready": "Image prête à enregistrer",
 				"removed": "Image supprimée - cliquez sur Enregistrer pour confirmer",
+				"uploading": "Téléversement de l'image…",
 				"select_error": "Veuillez sélectionner un fichier image",
 				"size_error": "L'image doit être inférieure à {size}",
 				"upload_failed": "Échec du téléchargement de l'image"

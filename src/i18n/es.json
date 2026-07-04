@@ -853,6 +853,7 @@
 				"rate_limited": "Demasiados intentos de subida. Vuelve a intentarlo en {seconds}s.",
 				"ready": "Imagen lista para guardar",
 				"removed": "Imagen eliminada - haz clic en Guardar para confirmar",
+				"uploading": "Subiendo imagen…",
 				"select_error": "Por favor selecciona un archivo de imagen",
 				"size_error": "La imagen debe ser menor de {size}",
 				"upload_failed": "Error al subir la imagen"
