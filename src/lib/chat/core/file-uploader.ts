@@ -83,14 +83,27 @@ export async function uploadFileWithProgress(
 
 /**
  * Upload file to storage URL with progress tracking via XHR
+ *
+ * Exported for upload flows that presign/commit through their own mutations
+ * (e.g. profile images or app-specific file surfaces) but still want
+ * progress events and cancelation.
  */
-async function uploadToStorage(
+export async function uploadToStorage(
 	uploadUrl: string,
 	file: File | Blob,
-	onProgress: ProgressCallback
+	onProgress: ProgressCallback,
+	signal?: AbortSignal
 ): Promise<string> {
 	return new Promise<string>((resolve, reject) => {
 		const xhr = new XMLHttpRequest();
+
+		if (signal) {
+			if (signal.aborted) {
+				reject(new DOMException('Upload canceled', 'AbortError'));
+				return;
+			}
+			signal.addEventListener('abort', () => xhr.abort(), { once: true });
+		}
 
 		// Track upload progress
 		xhr.upload.addEventListener('progress', (e) => {
@@ -116,7 +129,7 @@ async function uploadToStorage(
 
 		// Handle errors
 		xhr.addEventListener('error', () => reject(new Error('Network error during upload')));
-		xhr.addEventListener('abort', () => reject(new Error('Upload canceled')));
+		xhr.addEventListener('abort', () => reject(new DOMException('Upload canceled', 'AbortError')));
 
 		// Start upload
 		xhr.open('POST', uploadUrl);
