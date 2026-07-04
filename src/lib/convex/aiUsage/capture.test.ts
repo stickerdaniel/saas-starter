@@ -60,6 +60,26 @@ describe('mergeByModel', () => {
 		const out = mergeByModel([u({ model: 'qwen', inputTokens: 100, outputTokens: 50 })]);
 		expect(out[0]!.totalTokens).toBe(150);
 	});
+
+	it('keeps reasoning/cached undefined when no step reported them', () => {
+		// Merging used to coerce absent reasoning/cached to 0, so non-reasoning
+		// models persisted a spurious reasoningTokens: 0 on multi-step rows.
+		const out = mergeByModel([
+			u({ model: 'qwen', inputTokens: 100, outputTokens: 50 }),
+			u({ model: 'qwen', inputTokens: 20, outputTokens: 10 })
+		]);
+		expect(out[0]!.reasoningTokens).toBeUndefined();
+		expect(out[0]!.cachedInputTokens).toBeUndefined();
+	});
+
+	it('sums reasoning/cached when at least one step reports them', () => {
+		const out = mergeByModel([
+			u({ model: 'qwen', inputTokens: 100, outputTokens: 50, reasoningTokens: 30 }),
+			u({ model: 'qwen', inputTokens: 20, outputTokens: 10, cachedInputTokens: 5 })
+		]);
+		expect(out[0]!.reasoningTokens).toBe(30);
+		expect(out[0]!.cachedInputTokens).toBe(5);
+	});
 });
 
 describe('readOpenRouterCost', () => {

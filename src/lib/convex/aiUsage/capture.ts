@@ -63,8 +63,15 @@ export function mergeByModel(steps: CapturedModelUsage[]): CapturedModelUsage[] 
 		prev.inputTokens += s.inputTokens;
 		prev.outputTokens += s.outputTokens;
 		prev.totalTokens = (prev.totalTokens ?? 0) + (s.totalTokens ?? s.inputTokens + s.outputTokens);
-		prev.reasoningTokens = (prev.reasoningTokens ?? 0) + (s.reasoningTokens ?? 0);
-		prev.cachedInputTokens = (prev.cachedInputTokens ?? 0) + (s.cachedInputTokens ?? 0);
+		// Keep reasoning/cached undefined when no step reported them, so merged
+		// rows of non-reasoning models don't persist a spurious 0 (the recorder
+		// only stores these fields when present).
+		if (prev.reasoningTokens !== undefined || s.reasoningTokens !== undefined) {
+			prev.reasoningTokens = (prev.reasoningTokens ?? 0) + (s.reasoningTokens ?? 0);
+		}
+		if (prev.cachedInputTokens !== undefined || s.cachedInputTokens !== undefined) {
+			prev.cachedInputTokens = (prev.cachedInputTokens ?? 0) + (s.cachedInputTokens ?? 0);
+		}
 		if (s.nativeCostUsd !== undefined)
 			prev.nativeCostUsd = (prev.nativeCostUsd ?? 0) + s.nativeCostUsd;
 	}
