@@ -56,15 +56,7 @@ export { StreamCacheManager } from './stream-cache.js';
 // File upload
 export type { UploadResult, ProgressCallback } from './file-uploader.js';
 
-export {
-	uploadFileWithProgress,
-	uploadToStorage,
-	createUploadState,
-	createSuccessState,
-	createErrorState,
-	updateProgress,
-	FileUploadManager
-} from './file-uploader.js';
+export { uploadFileWithProgress, uploadToStorage } from './file-uploader.js';
 
 // Chat core
 export type { ChatCoreAPI, ChatCoreOptions, CreateThreadResult } from './chat-core.svelte.js';
