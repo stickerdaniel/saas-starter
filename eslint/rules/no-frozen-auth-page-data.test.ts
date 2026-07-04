@@ -5,6 +5,7 @@ import rule from './no-frozen-auth-page-data.js';
 const MARKETING_FILE = '/repo/src/lib/components/marketing/marketing-header.svelte';
 const MARKETING_ROUTE_FILE = '/repo/src/routes/[[lang]]/(marketing)/+page.svelte';
 const SUPPORT_FILE = '/repo/src/lib/components/customer-support/customer-support.svelte';
+const BLOCKS_FILE = '/repo/src/blocks/pricing/pricing-three.svelte';
 const APP_FILE = '/repo/src/routes/[[lang]]/app/+page.svelte';
 
 function lint(template: string, filename: string): Array<{ messageId: string; data?: unknown }> {
@@ -50,6 +51,15 @@ describe('no-frozen-auth-page-data', () => {
 		const reports = lint(
 			'<script>const p = page.data.autumnState?.products;</script>',
 			MARKETING_ROUTE_FILE
+		);
+		expect(reports).toHaveLength(1);
+		expect((reports[0].data as { field: string }).field).toBe('autumnState');
+	});
+
+	it('flags page.data.autumnState in a src/blocks marketing block', () => {
+		const reports = lint(
+			'<script>const c = page.data.autumnState?.customer;</script>',
+			BLOCKS_FILE
 		);
 		expect(reports).toHaveLength(1);
 		expect((reports[0].data as { field: string }).field).toBe('autumnState');

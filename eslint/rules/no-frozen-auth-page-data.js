@@ -42,11 +42,14 @@ const FROZEN_FIELDS = {
 const PAGE_OBJECT_NAMES = new Set(['page', '$page']);
 
 // Marketing-surface path fragments (forward-slash normalized). The customer-support
-// widget renders on marketing pages, so it is included.
+// widget renders on marketing pages, so it is included, as is src/blocks: the
+// hero/pricing/cta/faq marketing blocks render on the prerendered home page
+// (pricing-three is the canonical frozen-billing case this rule exists for).
 const MARKETING_SURFACE_FRAGMENTS = [
 	'src/routes/[[lang]]/(marketing)/',
 	'src/lib/components/marketing/',
-	'src/lib/components/customer-support/'
+	'src/lib/components/customer-support/',
+	'src/blocks/'
 ];
 
 /** Resolves the accessed property name for both `a.b` and `a['b']`, else null. */
