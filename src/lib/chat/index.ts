@@ -80,6 +80,7 @@ export {
 	combineStreamingUIMessages,
 	StreamCacheManager,
 	uploadFileWithProgress,
+	uploadToStorage,
 	createUploadState,
 	createSuccessState,
 	createErrorState,

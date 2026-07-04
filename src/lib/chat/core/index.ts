@@ -58,6 +58,7 @@ export type { UploadResult, ProgressCallback } from './file-uploader.js';
 
 export {
 	uploadFileWithProgress,
+	uploadToStorage,
 	createUploadState,
 	createSuccessState,
 	createErrorState,
