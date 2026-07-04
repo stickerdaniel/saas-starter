@@ -80,11 +80,7 @@ export {
 	combineStreamingUIMessages,
 	StreamCacheManager,
 	uploadFileWithProgress,
-	createUploadState,
-	createSuccessState,
-	createErrorState,
-	updateProgress,
-	FileUploadManager,
+	uploadToStorage,
 	ChatCore,
 	createChatCore,
 	ChatDraftManager
