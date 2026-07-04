@@ -523,6 +523,8 @@ These recover independently after hydration:
 
 Components that need user data on prerendered pages must use `authClient.useSession()` instead of `page.data.viewer`.
 
+Note (2026-07-04): this frozen-data caveat applies to `page.data` read on a prerendered marketing page. Inside the `/app` and `/admin` subtrees it does not. Each has its own `+layout.server.ts` that re-resolves the auth block (`authState`, `viewer`, `autumnState`) fresh via `resolveAuthLayoutData` (`$lib/server/auth-layout-data`) on a client-side navigation, guarded on `event.isDataRequest` (a full document load defers to the root, which already ran with the cookie). Their returned keys override the frozen root snapshot in the merged `page.data`, so reading `page.data.viewer`, `page.data.authState`, or `page.data.autumnState` is safe within `/app` and `/admin`. Marketing pages still keep the client primitives above (`authClient.useSession()`), since they have no such override.
+
 Request-time values needed for an SSR render that shares a layout with prerendered routes (e.g. a `sidebar_state` cookie) must be read in `hooks.server.ts` into `event.locals`, not via `event.cookies.get` in a `+layout.server.ts` load. A cookie read in the shared root layout load breaks prerendering of the marketing pages; the JWT token flows through the same `locals` channel.
 
 #### Cache-control for marketing pages
@@ -574,6 +576,7 @@ Examples: marketing pages must be registered in `public-routes.ts`, marketing pa
 → **ESLint custom rule** that checks filesystem or reads a registry file. Use when the check is "the file I'm editing is missing something" — fires immediately in the editor and on save.
 Pattern: `eslint/rules/require-marketing-route-registration.js`, `eslint/rules/require-marketing-markdown.js`.
 How to add: create rule in `eslint/rules/`, register in `eslint.config.js`, add test in `eslint/rules/<name>.test.ts`.
+Sibling-invariant variant enforced as a unit test instead of ESLint, because it asserts a route-tree invariant across files rather than a single-file miss: `scripts/authenticated-subtree-layouts.test.ts` requires every authenticated subtree (`/app`, `/admin`) to have a `+layout.server.ts` that calls `resolveAuthLayoutData`, or a client-side navigation into it from a prerendered marketing page renders the frozen unauthenticated root data.
 
 #### "This pattern must never appear in code"
 
