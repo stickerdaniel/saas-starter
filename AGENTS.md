@@ -62,7 +62,7 @@ Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`, `perf`, `ci`
 - `bun run dev` - Start Vite with an embedded local Convex backend (default)
 - `bun run dev:cloud` - Start Vite + cloud Convex backend
 
-NEVER use `bun run dev` to start the development server, its already running in a separate terminal.
+Check whether a dev server is already running (it usually runs in a separate terminal on `:5173`) before starting one. If nothing is up, start it yourself with `bun run dev`.
 
 Local dev notes (`bun run dev`):
 
