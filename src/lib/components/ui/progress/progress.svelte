@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Progress as ProgressPrimitive } from 'bits-ui';
 	import { cn, type WithoutChildrenOrChild } from '$lib/utils.js';
+	import { clamp } from '$lib/utils/math';
 
 	let {
 		ref = $bindable(null),
@@ -11,7 +12,7 @@
 	}: WithoutChildrenOrChild<ProgressPrimitive.RootProps> = $props();
 
 	const safeMax = $derived(Math.max(max ?? 100, 1));
-	const clampedValue = $derived(Math.min(Math.max(value ?? 0, 0), safeMax));
+	const clampedValue = $derived(clamp(value ?? 0, 0, safeMax));
 	const progressPercent = $derived((clampedValue / safeMax) * 100);
 </script>
 

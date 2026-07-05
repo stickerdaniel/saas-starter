@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Progress as ProgressPrimitive } from 'bits-ui';
 	import { untrack } from 'svelte';
+	import { clamp } from '$lib/utils/math';
 	import { AnimationFrames, watch } from 'runed';
 	import { useMotionValue, animate, useReducedMotion } from 'motion-sv';
 	import { getTranslate } from '@tolgee/svelte';
@@ -25,7 +26,7 @@
 	}: LoadingBarProps = $props();
 
 	const safeMax = $derived(Math.max(max ?? 100, 1));
-	const clampedValue = $derived(Math.min(Math.max(value ?? 0, 0), safeMax));
+	const clampedValue = $derived(clamp(value ?? 0, 0, safeMax));
 	const progressPercent = $derived((clampedValue / safeMax) * 100);
 
 	// Intentional one-time capture: the spring's start position is the width at mount,

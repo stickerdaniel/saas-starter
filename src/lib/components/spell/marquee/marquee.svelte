@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { cn } from '$lib/utils.js';
+	import { clamp } from '$lib/utils/math';
 	import type { Snippet } from 'svelte';
 	import type { HTMLAttributes } from 'svelte/elements';
 
@@ -65,7 +66,7 @@
 	});
 	const clampedFadeAmount = $derived.by(() => {
 		const n = Number(fadeAmount);
-		return Number.isFinite(n) ? Math.min(Math.max(n, 0), 50) : 10;
+		return Number.isFinite(n) ? clamp(n, 0, 50) : 10;
 	});
 	const MAX_REPEAT = 100;
 	const safeRepeat = $derived.by(() => {

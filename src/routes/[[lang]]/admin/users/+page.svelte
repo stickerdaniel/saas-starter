@@ -1,6 +1,7 @@
 <script lang="ts">
 	import SEOHead from '$lib/components/SEOHead.svelte';
 	import * as v from 'valibot';
+	import { clamp } from '$lib/utils/math';
 	import {
 		type RowSelectionState,
 		type SortingState,
@@ -216,7 +217,7 @@
 	const skeletonCount = $derived.by(() => {
 		if (adminCache.userCount.current !== null) {
 			const remaining = adminCache.userCount.current - pageIndex * pageSize;
-			return Math.min(Math.max(remaining, 0), pageSize);
+			return clamp(remaining, 0, pageSize);
 		}
 		return pageSize;
 	});
