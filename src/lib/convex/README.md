@@ -7,7 +7,7 @@ Before writing or reviewing any code in this directory, read the
 canonical patterns for this project (validators, function registration,
 pagination, indexes, Better Auth integration).
 
-The frontend consumes these functions via `@mmailaender/convex-svelte`
+The frontend consumes these functions via `convex-svelte`
 (`useQuery`), see "Rendering & Data Strategy" in `AGENTS.md`.
 
 Convex docs: https://docs.convex.dev/functions

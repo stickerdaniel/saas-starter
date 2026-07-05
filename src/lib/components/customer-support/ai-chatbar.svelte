@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onDestroy, tick } from 'svelte';
-	import { useConvexClient } from '@mmailaender/convex-svelte';
+	import { useConvexClient } from 'convex-svelte';
 	import { ConvexError } from 'convex/values';
 	import { toast } from 'svelte-sonner';
 	import { IsMounted } from 'runed';

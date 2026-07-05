@@ -9,7 +9,7 @@
 	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
 	import { watch } from 'runed';
 	import { getTranslate } from '@tolgee/svelte';
-	import { useQuery } from '@mmailaender/convex-svelte';
+	import { useQuery } from 'convex-svelte';
 	import ArrowRightIcon from '@lucide/svelte/icons/arrow-right';
 	import CornerDownLeftIcon from '@lucide/svelte/icons/corner-down-left';
 	import CommandMenuItem from './command-menu-item.svelte';
