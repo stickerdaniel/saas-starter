@@ -80,7 +80,7 @@ Local dev notes (`bun run dev`):
 
 - Deploy is push-driven: `main` → production, any branch → preview, built by CI (CF Workers Builds + Vercel run `scripts/deploy.ts`). Command table in README.
 - Never deploy from local (`convex deploy`, `wrangler deploy`, bare `deploy.ts`): it needs CI-only env (varlock, `CONVEX_DEPLOY_KEY`, `WORKERS_CI`) and otherwise fails or targets the wrong deployment. Just push.
-- Forks self-hosting `convex-backend` (Docker): if logs show `TooMuchMemoryCarryOver` isolate restarts (every UDF then pays a full bundle re-import), set `ISOLATE_MAX_HEAP_EXTRA_SIZE=134217728`. That knob is the carry-over allowance (default 32 MiB) the restart check actually uses — raising `ISOLATE_MAX_USER_HEAP_SIZE` alone does not raise it, and the Better Auth local-install bundle keeps ~50 MiB resident between requests. The local embedded backend inherits the dev shell env, so the same env var applies there.
+- Forks self-hosting `convex-backend` (Docker): if logs show `TooMuchMemoryCarryOver` isolate restarts (every UDF then pays a full bundle re-import), set `ISOLATE_MAX_HEAP_EXTRA_SIZE=134217728`. That knob is the carry-over allowance (default 32 MiB) the restart check actually uses — raising `ISOLATE_MAX_USER_HEAP_SIZE` alone does not raise it, and the Better Auth local-install bundle keeps ~50 MiB resident between requests. The local embedded backend is already covered: `vite.config.ts` sets both isolate knobs before spawning it (overridable via shell env).
 
 ### Logo Generation
 

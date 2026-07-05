@@ -297,10 +297,15 @@ export default defineConfig(async ({ mode }) => {
 		process.env.PUBLIC_CONVEX_URL = backendUrl;
 		process.env.PUBLIC_CONVEX_SITE_URL = siteProxyUrl;
 
-		// Raise V8 isolate heap limit to 128 MiB (default 64 MiB).
-		// Better Auth's bundle uses ~50 MiB, leaving too little room at the default.
-		// https://github.com/get-convex/convex-backend/issues/312
+		// Isolate heap knobs for the spawned local backend (inherits this env).
+		// Better Auth's bundle keeps ~50 MiB resident between requests.
+		// USER_HEAP (default 64 MiB) sizes the working heap and prevents OOMs;
+		// EXTRA (default 32 MiB) is the carry-over allowance the restart check
+		// actually uses. Without EXTRA the backend recycles the isolate after
+		// nearly every UDF (TooMuchMemoryCarryOver) and each request re-imports
+		// the bundle. https://github.com/get-convex/convex-backend/issues/312
 		process.env.ISOLATE_MAX_USER_HEAP_SIZE ??= '134217728';
+		process.env.ISOLATE_MAX_HEAP_EXTRA_SIZE ??= '134217728';
 
 		plugins.push(
 			convexLocal({
