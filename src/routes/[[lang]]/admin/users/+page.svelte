@@ -18,7 +18,7 @@
 	import { T, getTranslate } from '@tolgee/svelte';
 
 	const { t } = getTranslate();
-	import { useConvexClient, useQuery } from '@mmailaender/convex-svelte';
+	import { useConvexClient, useQuery } from 'convex-svelte';
 	import { api } from '$lib/convex/_generated/api.js';
 	import { authClient } from '$lib/auth-client.js';
 	import { toast } from 'svelte-sonner';

@@ -8,7 +8,7 @@
 	import { resolve } from '$app/paths';
 	import { tick, onDestroy } from 'svelte';
 	import { localizedHref } from '$lib/utils/i18n';
-	import { useQuery, useConvexClient } from '@mmailaender/convex-svelte';
+	import { useQuery, useConvexClient } from 'convex-svelte';
 	import { api } from '$lib/convex/_generated/api';
 	import { ConvexError } from 'convex/values';
 	import { getTranslate } from '@tolgee/svelte';

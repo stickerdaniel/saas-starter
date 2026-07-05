@@ -125,9 +125,9 @@
 		{
 			"type": "git",
 			"name": "convexSvelte",
-			"url": "https://github.com/mmailaender/convex-svelte",
+			"url": "https://github.com/get-convex/convex-svelte",
 			"branch": "main",
-			"specialNotes": "Convex Svelte bindings with pagination support."
+			"specialNotes": "Official Convex Svelte bindings with pagination support (the mmailaender fork was merged back upstream)."
 		},
 		{
 			"type": "git",

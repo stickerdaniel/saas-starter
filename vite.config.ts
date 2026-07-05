@@ -434,8 +434,8 @@ export default defineConfig(async ({ mode }) => {
 			noExternal: [
 				'svelte-konva',
 				'@tolgee/web',
-				// @mmailaender/convex-svelte (>=0.18.0), @mmailaender/convex-better-auth-svelte
-				// (>=0.7.4), and @stickerdaniel/convex-autumn-svelte (>=0.2.0) all ship a
+				// convex-svelte (>=0.14.0), @mmailaender/convex-better-auth-svelte
+				// (>=0.8.1), and @stickerdaniel/convex-autumn-svelte (>=0.3.0) all ship a
 				// top-level `"svelte"` field, so SvelteKit auto-bundles them.
 				// WASM image codec used by the image-processing worker. Bundling avoids
 				// SSR-time `import 'svelte'`-style hazards if the package adds main-thread
