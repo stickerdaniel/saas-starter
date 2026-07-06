@@ -34,11 +34,15 @@ When you need up-to-date information about technologies used in this project, us
 
 When starting work that needs its own branch/PR, always create a worktree first with `bun run worktree <type/short-description>` (e.g. `feature/dark-mode`, `fix/422-password-reset`, `chore/upgrade-svelte-5`, `hotfix/rate-limit-bypass`, `docs/api-reference`).
 
+The script fetches and branches from `origin/<trunk>` by default, so a new worktree always starts from current remote `main` even when your local `main` lags behind (which it routinely does, since the main checkout carries uncommitted work). No `reset --hard origin/main` afterwards is needed. Pass `--base <branch>` to stack intentionally on another branch, or `--no-fetch` to branch from local refs offline.
+
 Worktrees live in a sibling directory next to the main repo at `<repo>.worktrees/<folder-name>/`. The folder name flattens branch slashes to dashes: `feat/dark-mode` creates `saas-starter.worktrees/feat-dark-mode/`. The git branch name keeps its original slashes; only the on-disk folder name is flattened. Edge case: branches like `feat/sentry` and `feat-sentry` map to the same folder — the script catches this as a loud error before touching git state.
 
 NEVER use the `EnterWorktree` tool. Always use `bun run worktree` instead and add the worktree path before all consecutive actions. You must do this, the cwd is reset after each action and theres currently no better way to do this.
 
 **Before committing:** Always check `git branch` first. If you're in a worktree, the branch already exists and was created by `bun run worktree`. Use `git commit` to add commits.
+
+**After merging a PR:** run `bun run worktree:prune`. This is the moment to pull local `main` forward, and the one command that does the whole cleanup: for each local branch whose remote was deleted, it confirms the merge (a merged GitHub PR, or the branch being an ancestor of trunk) so it never deletes unmerged work, removes that worktree + branch, prunes stale worktree metadata, and fast-forwards local `main` when the main checkout is clean and hasn't diverged. `--dry-run` previews; `--force` also discards uncommitted changes in a confirmed-merged worktree. Do it promptly: a leftover branch keeps its Convex preview deployment alive, eating the deployment quota and breaking other PRs' preview deploys. It never resets or stashes an uncommitted main checkout, just skips the fast-forward and leaves your work alone; a lagging local `main` is only cosmetic anyway, since new worktrees branch off `origin/main` regardless.
 
 ### Commit Message Format
 
