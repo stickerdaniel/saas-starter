@@ -15,6 +15,7 @@
 # shows a broken-image glyph. Detach CORP for this one public asset so it loads.
 # CF joins duplicate header values with a comma, so a plain override would yield
 # "same-origin, cross-origin"; the "!" removal is the only way to drop it.
+# vercel.json carries the same carve-out (as an override) for Vercel deploys.
 /logo-email.png
   ! Cross-Origin-Resource-Policy
 
