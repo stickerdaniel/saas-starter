@@ -396,7 +396,7 @@
 			"button_back": "Back to login",
 			"check_email": "Please check your email and click the verification link to complete your registration.",
 			"description": "We've sent you a verification link",
-			"sent_to": "We've sent a verification email to",
+			"sent_to": "We've sent a verification email to {email}.",
 			"title": "Email Verification",
 			"verified_description": "Your email has been verified. Signing you in...",
 			"verified_title": "Email Verified"

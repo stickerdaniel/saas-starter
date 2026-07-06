@@ -396,7 +396,7 @@
 			"button_back": "Volver al inicio de sesión",
 			"check_email": "Por favor revisa tu correo electrónico y haz clic en el enlace de verificación para completar tu registro.",
 			"description": "Te hemos enviado un enlace de verificación",
-			"sent_to": "Hemos enviado un correo de verificación a",
+			"sent_to": "Hemos enviado un correo de verificación a {email}.",
 			"title": "Verificación de correo electrónico",
 			"verified_description": "Tu correo ha sido verificado. Iniciando sesión...",
 			"verified_title": "Correo verificado"

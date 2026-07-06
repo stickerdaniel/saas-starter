@@ -396,7 +396,7 @@
 			"button_back": "Retour à la connexion",
 			"check_email": "Veuillez vérifier votre e-mail et cliquer sur le lien de vérification pour finaliser votre inscription.",
 			"description": "Nous vous avons envoyé un lien de vérification",
-			"sent_to": "Nous avons envoyé un e-mail de vérification à",
+			"sent_to": "Nous avons envoyé un e-mail de vérification à {email}.",
 			"title": "Vérification de l'e-mail",
 			"verified_description": "Votre e-mail a été vérifié. Connexion en cours...",
 			"verified_title": "E-mail vérifié"
