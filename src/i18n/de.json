@@ -396,7 +396,7 @@
 			"button_back": "Zurück zur Anmeldung",
 			"check_email": "Bitte überprüfen Sie Ihre E-Mail und klicken Sie auf den Verifizierungslink, um Ihre Registrierung abzuschließen.",
 			"description": "Wir haben Ihnen einen Verifizierungslink gesendet",
-			"sent_to": "Wir haben eine Verifizierungs-E-Mail an",
+			"sent_to": "Wir haben eine Verifizierungs-E-Mail an {email} gesendet.",
 			"title": "E-Mail-Verifizierung",
 			"verified_description": "Ihre E-Mail wurde verifiziert. Sie werden angemeldet...",
 			"verified_title": "E-Mail verifiziert"
