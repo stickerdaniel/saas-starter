@@ -26,6 +26,16 @@ describe('safeRedirectPath', () => {
 		expect(safeRedirectPath('javascript:alert(1)', '/')).toBe('/');
 	});
 
+	it('rejects the backslash authority bypass (/\\evil.com resolves cross-origin)', () => {
+		// A leading slash-backslash forms an authority in the URL parser, so it
+		// slips a naive `//` prefix check yet resolves to https://evil.com.
+		expect(safeRedirectPath('/\\evil.com', '/')).toBe('/');
+	});
+
+	it('rejects a mixed slash-backslash bypass', () => {
+		expect(safeRedirectPath('/\\/evil.com', '/')).toBe('/');
+	});
+
 	it('rejects an empty string', () => {
 		expect(safeRedirectPath('', '/')).toBe('/');
 	});
