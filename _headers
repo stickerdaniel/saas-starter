@@ -9,6 +9,15 @@
   Cross-Origin-Opener-Policy: same-origin-allow-popups
   Cross-Origin-Resource-Policy: same-origin
 
+# The email logo is embedded cross-origin. Email clients that render HTML in a
+# browser context (new Outlook for macOS, Outlook mobile webview) enforce CORP
+# on <img> subresources, so the global same-origin value blocks the logo and it
+# shows a broken-image glyph. Detach CORP for this one public asset so it loads.
+# CF joins duplicate header values with a comma, so a plain override would yield
+# "same-origin, cross-origin"; the "!" removal is the only way to drop it.
+/logo-email.png
+  ! Cross-Origin-Resource-Policy
+
 /fonts/*
   Cache-Control: public, max-age=31536000, immutable
 
