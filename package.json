@@ -42,6 +42,7 @@
 		"_tolgee:cleanup": "TOLGEE_API_KEY=$VITE_TOLGEE_API_KEY tolgee tag --filter-not-extracted --filter-tag production --tag deprecated --untag production",
 		"worktree": "bun scripts/create-worktree.ts",
 		"worktree:setup": "bun scripts/create-worktree.ts --setup-only",
+		"worktree:prune": "bun scripts/prune-worktrees.ts",
 		"setup": "bun scripts/template-setup.ts",
 		"upstream:sync": "bun skills/upstream-sync/scripts/find-fork-point.ts"
 	},
