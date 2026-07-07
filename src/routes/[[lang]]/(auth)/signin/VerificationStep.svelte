@@ -30,8 +30,7 @@
 			</div>
 			<Field.Field>
 				<p class="text-sm text-muted-foreground">
-					<T keyName="auth.verification.sent_to" />
-					<span class="font-medium">{email}</span>
+					<T keyName="auth.verification.sent_to" params={{ email }} />
 				</p>
 			</Field.Field>
 			<Field.Field>

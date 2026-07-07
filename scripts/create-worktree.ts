@@ -1,6 +1,10 @@
 /**
  * Worktree management (cross-platform TypeScript version)
  *
+ * New worktrees branch from a freshly fetched origin/<trunk> by default, so a
+ * stale local main can never seed one with old code. Pass --base to override or
+ * --no-fetch to skip the fetch.
+ *
  * Usage:
  *   bun scripts/create-worktree.ts feature/dark-mode           # Full mode: create + setup
  *   bun scripts/create-worktree.ts --setup-only               # Setup mode: setup only (for Cursor)
@@ -31,6 +35,7 @@ function parseCliArgs() {
 				'setup-only': { type: 'boolean', default: false },
 				'open-editor': { type: 'string' },
 				base: { type: 'string', short: 'b' },
+				'no-fetch': { type: 'boolean', default: false },
 				help: { type: 'boolean', short: 'h', default: false }
 			},
 			strict: true,
@@ -50,7 +55,7 @@ const openEditor = values['open-editor'];
 const branchName = positionals[0];
 
 // A second positional is always a mistake (usually an attempted base branch);
-// dropping it silently would branch off the CURRENT branch instead.
+// dropping it silently would branch off the default base instead.
 if (positionals.length > 1) {
 	console.error(
 		`${'\x1b[31m'}Error: Unexpected extra argument(s): ${positionals.slice(1).join(' ')}${'\x1b[0m'}`
@@ -118,6 +123,18 @@ function getRootWorktree(): string {
 		process.exit(1);
 	}
 	return mainRepoPath;
+}
+
+/**
+ * Resolve the trunk branch name (the default base for new worktrees) from
+ * origin's HEAD. Falls back to "main" when origin/HEAD is unset (e.g. a brand
+ * new clone that never ran `git remote set-head`).
+ */
+function getTrunk(): string {
+	const result = runCommand('git', ['symbolic-ref', '--short', 'refs/remotes/origin/HEAD'], {
+		silent: true
+	});
+	return result.success && result.stdout ? result.stdout.replace(/^origin\//, '') : 'main';
 }
 
 /**
@@ -234,7 +251,10 @@ function showHelp(): void {
 	);
 	console.log('');
 	console.log('Options:');
-	console.log('  -b, --base <branch>            Base branch (default: current branch)');
+	console.log(
+		'  -b, --base <branch>            Base branch (default: origin/<trunk>, fetched fresh)'
+	);
+	console.log('  --no-fetch                      Skip the pre-branch git fetch (use local refs)');
 	console.log('  --open-editor code|cursor       Open the worktree in VS Code or Cursor');
 	console.log('');
 	console.log('Example:');
@@ -321,44 +341,40 @@ function main(): void {
 		process.exit(1);
 	}
 
-	// Determine base branch: current branch by default, or --base override
+	// Determine base branch. Default is the REMOTE trunk (origin/<trunk>), NOT
+	// the current local branch: branching off origin keeps a new worktree
+	// independent of whatever stale state the local checkout is in, so a
+	// forgotten `git pull` on main can no longer seed a worktree with old code.
+	// Pass --base <branch> to stack intentionally (e.g. on another feature branch).
 	const baseArgRaw = values['base'] as string | undefined;
 	const baseArg = baseArgRaw?.trim();
 	if (baseArgRaw !== undefined && !baseArg) {
 		console.error(`${colors.red}Error: --base requires a non-empty branch name${colors.reset}`);
 		process.exit(1);
 	}
-	let baseBranch: string;
-	if (baseArg) {
-		baseBranch = baseArg;
-	} else {
-		const result = runCommand('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { silent: true });
-		if (!result.success || !result.stdout) {
-			console.error(
-				`${colors.red}Error: Cannot determine current branch. Use --base <branch> explicitly.${colors.reset}`
-			);
-			process.exit(1);
-		}
-		baseBranch = result.stdout;
-	}
-	console.log(`Base branch: ${baseBranch}`);
+	const trunk = getTrunk();
 
-	// Warn when the implicit base is not the trunk: the default is the CURRENT
-	// branch, so invoking from a feature branch silently stacks the new worktree
-	// on it, and a later gt submit then submits that whole stack.
-	if (!baseArg) {
-		const trunkResult = runCommand('git', ['symbolic-ref', '--short', 'refs/remotes/origin/HEAD'], {
-			silent: true
-		});
-		const trunk = trunkResult.success ? trunkResult.stdout.replace(/^origin\//, '') : 'main';
-		if (baseBranch !== trunk) {
+	// Refresh the base from the remote before branching (unless --no-fetch). This
+	// is what makes "forgot to pull main" harmless: the worktree always starts
+	// from the current origin/<trunk>, not the local ref, which routinely lags.
+	const noFetch = values['no-fetch'] ?? false;
+	if (!noFetch) {
+		console.log(baseArg ? 'Fetching origin...' : `Fetching origin/${trunk}...`);
+		const fetchArgs = baseArg ? ['fetch', 'origin'] : ['fetch', 'origin', trunk];
+		const fetched = runCommand('git', fetchArgs, { silent: true });
+		if (!fetched.success) {
 			console.log(
-				`${colors.yellow}Warning: branching off "${baseBranch}" (current branch), not "${trunk}".${colors.reset}`
-			);
-			console.log(
-				`${colors.yellow}Pass --base ${trunk} if this branch should be independent of ${baseBranch}.${colors.reset}`
+				`${colors.yellow}Warning: git fetch failed; branching from last-known refs.${colors.reset}`
 			);
 		}
+	}
+
+	const baseBranch = baseArg ?? `origin/${trunk}`;
+	console.log(`Base branch: ${baseBranch}`);
+	if (baseArg && baseArg !== trunk && baseArg !== `origin/${trunk}`) {
+		console.log(
+			`${colors.yellow}Note: stacking this worktree on "${baseArg}", not ${trunk}.${colors.reset}`
+		);
 	}
 
 	// Create worktree
@@ -368,6 +384,23 @@ function main(): void {
 		process.exit(1);
 	}
 	console.log(`${colors.green}Worktree created${colors.reset}`);
+
+	// Branching off a remote-tracking ref (origin/<trunk>) makes git auto-set the
+	// new branch's upstream to the trunk (branch.autoSetupMerge). Unset it so
+	// `git status` doesn't compare against the trunk and the first
+	// `git push -u origin HEAD` sets the correct upstream.
+	const unset = runCommand('git', ['-C', worktreePath, 'branch', '--unset-upstream'], {
+		silent: true
+	});
+	// With an origin/<trunk> base an upstream definitely existed, so a failed
+	// unset (e.g. a config.lock race with a parallel create) left the wrong
+	// upstream set — warn so it gets fixed before the first push. A local --base
+	// has no upstream, making the failure an expected no-op we ignore.
+	if (!unset.success && baseBranch.startsWith('origin/')) {
+		console.log(
+			`${colors.yellow}Warning: could not unset the auto-configured upstream; run \`git branch --unset-upstream\` in the worktree before pushing.${colors.reset}`
+		);
+	}
 
 	// Change to new worktree and run setup
 	process.chdir(worktreePath);

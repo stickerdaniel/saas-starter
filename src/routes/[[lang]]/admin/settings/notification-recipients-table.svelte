@@ -1,5 +1,6 @@
 <script lang="ts">
 	import * as v from 'valibot';
+	import { clamp } from '$lib/utils/math';
 	import { getCoreRowModel, type RowSelectionState, type SortingState } from '@tanstack/table-core';
 	import { SvelteMap } from 'svelte/reactivity';
 	import * as Table from '$lib/components/ui/table/index.js';
@@ -141,7 +142,7 @@
 	const skeletonCount = $derived.by(() => {
 		if (adminCache.recipientCount.current !== null) {
 			const remaining = adminCache.recipientCount.current - pageIndex * pageSize;
-			return Math.min(Math.max(remaining, 0), pageSize);
+			return clamp(remaining, 0, pageSize);
 		}
 		return pageSize;
 	});
