@@ -1,5 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import { fly } from 'svelte/transition';
+	import { prefersReducedMotion } from 'svelte/motion';
 	import { getTranslate } from '@tolgee/svelte';
 	import {
 		ChatContainerRoot,
@@ -161,6 +163,27 @@
 			? (msg: DisplayMessage) => extractAttachments(msg, fileMetadata)
 			: (msg: DisplayMessage) => defaultExtractAttachments(msg, fileMetadata)
 	);
+
+	// Arm per-message enter animations one frame after the initial batch has
+	// rendered, so loading a thread's history doesn't replay an intro for
+	// every message. messagesFade resets on thread navigation, which re-arms.
+	let animateNewMessages = $state(false);
+	$effect(() => {
+		if (!ctx.messagesFade.hasLoadedOnce) {
+			animateNewMessages = false;
+			return;
+		}
+		const raf = requestAnimationFrame(() => (animateNewMessages = true));
+		return () => cancelAnimationFrame(raf);
+	});
+
+	function messageEnterDuration(message: DisplayMessage): number {
+		if (!animateNewMessages || prefersReducedMotion.current) return 0;
+		// A confirmed row replaces its optimistic twin under a new key; skip
+		// that remount so an own send animates once, on the optimistic append.
+		if (message.role === 'user' && !message.metadata?.optimistic) return 0;
+		return 200;
+	}
 </script>
 
 <div bind:this={wrapperEl} class="relative h-full {className}">
@@ -180,17 +203,19 @@
 					class="mx-auto w-full max-w-3xl px-8 py-20 {ctx.messagesFade.animationClass}"
 				>
 					{#each ctx.displayMessages as message, index (message.id)}
-						<ChatMessage
-							{message}
-							attachments={getAttachments(message)}
-							isFirstInGroup={isFirstInGroup(index, ctx.displayMessages)}
-							isHandoffMessage={message.displayText?.startsWith(HANDOFF_MESSAGE)}
-							{showEmailPrompt}
-							{currentEmail}
-							{isEmailPending}
-							{defaultEmail}
-							{onSubmitEmail}
-						/>
+						<div in:fly={{ y: 8, duration: messageEnterDuration(message) }}>
+							<ChatMessage
+								{message}
+								attachments={getAttachments(message)}
+								isFirstInGroup={isFirstInGroup(index, ctx.displayMessages)}
+								isHandoffMessage={message.displayText?.startsWith(HANDOFF_MESSAGE)}
+								{showEmailPrompt}
+								{currentEmail}
+								{isEmailPending}
+								{defaultEmail}
+								{onSubmitEmail}
+							/>
+						</div>
 					{/each}
 				</div>
 			{/if}
