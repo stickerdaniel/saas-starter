@@ -218,7 +218,7 @@
 
 <div class="flex min-h-svh flex-col items-center justify-center p-6 md:p-10">
 	<div class="flex w-full max-w-sm flex-col gap-6 md:max-w-3xl">
-		<Card.Root class="overflow-hidden p-0">
+		<Card.Root class="overflow-hidden p-0 [view-transition-name:auth-card]">
 			<Card.Content class="grid p-0 md:grid-cols-2">
 				{#if verificationStep}
 					<VerificationStep
