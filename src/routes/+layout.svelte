@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
-	import { beforeNavigate } from '$app/navigation';
+	import { beforeNavigate, onNavigate } from '$app/navigation';
 	import { page, updated } from '$app/state';
 	import { T, Tolgee, DevTools, TolgeeProvider } from '@tolgee/svelte';
 	import type { TolgeeStaticData } from '@tolgee/svelte';
@@ -38,6 +38,30 @@
 		if (updated.current && !willUnload && to?.url) {
 			location.href = to.url.href;
 		}
+	});
+
+	// Fade page navigations via the View Transitions API (see layout.css).
+	// Same-path navigations (table sort/pagination/search param churn) and
+	// reduced motion stay instant. Rendering is frozen on the old snapshot
+	// while the transition waits for the navigation, which would hide
+	// RouteProgress on slow loads - so slow navigations bail out of the
+	// transition and fall back to the progress bar.
+	onNavigate((navigation) => {
+		if (!document.startViewTransition) return;
+		if (navigation.to?.url.pathname === navigation.from?.url.pathname) return;
+		if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+		return new Promise((resolve) => {
+			let completed = false;
+			const transition = document.startViewTransition(async () => {
+				resolve();
+				await navigation.complete;
+				completed = true;
+			});
+			setTimeout(() => {
+				if (!completed) transition.skipTransition();
+			}, 250);
+		});
 	});
 
 	// Detect a misconfigured device clock, which silently breaks cookie-based auth

@@ -350,26 +350,65 @@
 	}
 }
 
+/* Motion tokens - shared duration/easing scale for UI transitions */
+:root {
+	--motion-duration-fast: 120ms;
+	--motion-duration-base: 200ms;
+	--motion-duration-slow: 350ms;
+	--motion-ease-out: cubic-bezier(0.25, 1, 0.5, 1);
+	--motion-ease-in-out: cubic-bezier(0.45, 0, 0.55, 1);
+}
+
 /* View Transitions - Theme toggle circular reveal */
 :root {
 	--view-transition-x: 50%;
 	--view-transition-y: 50%;
 }
 
+/* View Transitions - page navigation fade (onNavigate in +layout.svelte).
+   The old snapshot stays frozen while the new page fades in on top, avoiding
+   the mid-fade opacity dip of a naive crossfade. The theme toggle marks the
+   root with data-theme-transition and keeps its own reveal below. */
+:root:not([data-theme-transition])::view-transition-old(root) {
+	animation: none;
+	mix-blend-mode: normal;
+}
+
+:root:not([data-theme-transition])::view-transition-new(root) {
+	animation: vt-page-in var(--motion-duration-base) var(--motion-ease-out) both;
+	mix-blend-mode: normal;
+	z-index: 1;
+}
+
+@keyframes vt-page-in {
+	from {
+		opacity: 0;
+	}
+}
+
+/* Shared-element morph between the signin and signup card shells. The 100%
+   sizing overrides the default aspect-ratio-preserving snapshot scaling so
+   the differing card heights morph cleanly. */
+::view-transition-old(auth-card),
+::view-transition-new(auth-card) {
+	width: 100%;
+	height: 100%;
+}
+
 @media (prefers-reduced-motion: no-preference) and (min-width: 768px) {
-	::view-transition-old(root) {
+	:root[data-theme-transition]::view-transition-old(root) {
 		animation: none;
 		z-index: 1;
 		mix-blend-mode: normal;
 	}
 
-	::view-transition-new(root) {
+	:root[data-theme-transition]::view-transition-new(root) {
 		animation: reveal-circular 0.7s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 		z-index: 2;
 		mix-blend-mode: normal;
 	}
 
-	::view-transition-image-pair(root) {
+	:root[data-theme-transition]::view-transition-image-pair(root) {
 		isolation: isolate;
 	}
 

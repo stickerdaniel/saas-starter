@@ -25,8 +25,14 @@
 			return;
 		}
 
-		document.startViewTransition(() => {
+		// Mark the root so layout.css scopes the circular reveal to the theme
+		// toggle instead of the page-navigation fade.
+		document.documentElement.setAttribute('data-theme-transition', '');
+		const transition = document.startViewTransition(() => {
 			toggleMode();
+		});
+		transition.finished.finally(() => {
+			document.documentElement.removeAttribute('data-theme-transition');
 		});
 	}
 </script>
