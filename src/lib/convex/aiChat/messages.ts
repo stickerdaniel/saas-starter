@@ -1,4 +1,4 @@
-import { internalAction, query } from '../_generated/server';
+import { internalAction } from '../_generated/server';
 import { v, ConvexError } from 'convex/values';
 import { internal } from '../_generated/api';
 import { aiChatAgent } from './agent';
@@ -252,8 +252,11 @@ export const listMessages = authedQuery({
 
 /**
  * Get file metadata (dimensions) for multiple files by URL
+ *
+ * Authenticated because AI chat attachment metadata belongs to the signed-in app
+ * surface, unlike support attachments which may be submitted anonymously.
  */
-export const getFileMetadataBatch = query({
+export const getFileMetadataBatch = authedQuery({
 	args: {
 		urls: v.array(v.string())
 	},

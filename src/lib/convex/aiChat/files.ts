@@ -33,9 +33,24 @@ export const generateUploadUrl = authedMutation({
 });
 
 /**
+ * Actions cannot use the custom authedMutation wrapper directly. This internal
+ * mutation gives aiChat actions the same authenticated boundary before they
+ * touch storage.
+ */
+export const requireFileAccess = internalMutation({
+	args: {},
+	returns: v.null(),
+	handler: async (ctx) => {
+		await authComponent.getAuthUser(ctx);
+		return null;
+	}
+});
+
+/**
  * Register uploaded file with agent component
  *
  * Validates file type/size, creates download grant, registers with agent.
+ * Requires an authenticated user before the upload token is finalized.
  */
 export const saveUploadedFile = action({
 	args: {
@@ -65,6 +80,8 @@ export const saveUploadedFile = action({
 		filename: string | undefined;
 		isImage: boolean;
 	}> => {
+		await ctx.runMutation(internal.aiChat.files.requireFileAccess, {});
+
 		const accessKey = args.accessKey?.trim() || 'ai-chat';
 		await ctx.runMutation(components.convexFilesControl.upload.finalizeUpload, {
 			uploadToken: args.uploadToken,

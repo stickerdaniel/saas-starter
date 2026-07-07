@@ -13,8 +13,8 @@ import type { QueryCtx } from '../_generated/server';
  * Look up image dimensions for a batch of file URLs.
  *
  * Shared by `aiChat.messages.getFileMetadataBatch` and
- * `support.messages.getFileMetadataBatch`, which both expose this over their
- * own public query for the frontend.
+ * `support.messages.getFileMetadataBatch`; each wrapper applies that surface's
+ * access policy before exposing the lookup to the frontend.
  */
 export async function getFileMetadataByUrls(
 	ctx: QueryCtx,

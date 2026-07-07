@@ -1,4 +1,8 @@
 import { test, expect, type Page } from '@playwright/test';
+import fs from 'fs';
+import path from 'path';
+import { waitForAuthenticated } from './utils/auth';
+import type { TestCredentials } from './utils/types';
 
 // Regression guard for the prerendered-marketing -> /app navigation dead end
 // (third regression in the app:auth invalidation series, #289 -> #575 -> this
@@ -36,9 +40,39 @@ async function gotoStable(page: Page, url: string) {
 	}
 }
 
+async function signInRegularUser(page: Page) {
+	const credentialsPath = path.join(process.cwd(), 'e2e', '.auth', 'test-credentials.json');
+
+	if (!fs.existsSync(credentialsPath)) {
+		throw new Error('test-credentials.json not found. globalSetup may have failed.');
+	}
+
+	const credentials: TestCredentials = JSON.parse(fs.readFileSync(credentialsPath, 'utf-8'));
+	const { email, password } = credentials.user;
+
+	await page.context().clearCookies();
+	await gotoStable(page, '/signin');
+
+	if (/\/[a-z]{2}\/app/.test(new URL(page.url()).pathname)) {
+		await waitForAuthenticated(page);
+		return;
+	}
+
+	await expect(page.locator('[data-testid="email-input"]')).toBeVisible({ timeout: 30000 });
+	await page.fill('[data-testid="email-input"]', email);
+	await page.fill('[data-testid="password-input"]', password);
+	await page.click('[data-testid="signin-button"]');
+	await waitForAuthenticated(page);
+}
+
 test.describe('prerendered marketing to app navigation', () => {
 	test('logged-in user reaches the app via SPA navigation from home', async ({ page }) => {
 		test.setTimeout(180000);
+
+		// Own this spec's session instead of inheriting shared storageState from
+		// earlier authenticated specs. The regression it guards needs a valid
+		// session before landing on the prerendered marketing page.
+		await signInRegularUser(page);
 
 		// Land on the (prerendered) marketing home with authenticated cookies.
 		await gotoStable(page, '/en');
