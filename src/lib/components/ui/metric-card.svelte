@@ -55,11 +55,13 @@
 			<span class="relative inline-block">
 				<!-- Invisible placeholder to reserve space -->
 				<span class="invisible">{value}</span>
-				<!-- Animated value positioned on top -->
+				<!-- Animated value positioned on top; keyed so live updates replay the reveal -->
 				{#if !loading}
-					<span style="--enter-delay: 40ms;" class="absolute inset-0 animate-enter-blur-up">
-						{value}
-					</span>
+					{#key value}
+						<span style="--enter-delay: 40ms;" class="absolute inset-0 animate-enter-blur-up">
+							{value}
+						</span>
+					{/key}
 				{/if}
 			</span>
 		</Card.Title>
