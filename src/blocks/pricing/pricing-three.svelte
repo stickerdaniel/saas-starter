@@ -19,6 +19,7 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { haptic } from '$lib/hooks/use-haptic.svelte';
+	import { scrollReveal } from '$lib/utils/scroll-reveal';
 
 	const { customer, checkout, openBillingPortal } = useCustomer();
 	const upgradeOperation = useAutumnOperation(checkout);
@@ -122,7 +123,7 @@
 			</div>
 		</div>
 
-		<div class="mt-12 grid gap-6 md:mt-24 md:grid-cols-2 lg:grid-cols-3">
+		<div use:scrollReveal class="mt-12 grid gap-6 md:mt-24 md:grid-cols-2 lg:grid-cols-3">
 			<Card>
 				<CardHeader>
 					<CardTitle class="font-medium">
