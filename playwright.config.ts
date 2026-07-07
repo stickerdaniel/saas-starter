@@ -51,10 +51,21 @@ export default defineConfig({
 		baseURL,
 		/* Collect trace when retrying the failed test */
 		trace: 'on-first-retry',
-		/* Preview bypass headers for protected deployments */
-		...(Object.keys(bypass.headers).length > 0 && {
-			extraHTTPHeaders: bypass.headers
-		})
+		/* Preview bypass headers for protected deployments, plus a cache bypass:
+		 * the CF worker's worktop cache layer serves prerendered marketing HTML
+		 * per colo for up to s-maxage=3600. The branch alias URL is stable across
+		 * pushes, so after a re-deploy a colo can keep serving the PREVIOUS
+		 * build's HTML whose immutable chunk hashes now 404 — the page never
+		 * hydrates and auth-dependent UI (e.g. marketing-nav-dashboard in
+		 * prerender-auth-navigation.spec.ts) never appears, failing all retries
+		 * identically. A `cache-control: no-cache` REQUEST header takes worktop's
+		 * built-in lookup bypass, so E2E always tests the freshly deployed build.
+		 * Response headers are untouched (public-agent-surface.spec.ts asserts
+		 * them), and the response is still saved to the cache afterwards. */
+		extraHTTPHeaders: {
+			...bypass.headers,
+			'cache-control': 'no-cache'
+		}
 	},
 
 	/* Configure projects */
