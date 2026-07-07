@@ -50,6 +50,7 @@ async function signInRegularUser(page: Page) {
 	const credentials: TestCredentials = JSON.parse(fs.readFileSync(credentialsPath, 'utf-8'));
 	const { email, password } = credentials.user;
 
+	await page.context().clearCookies();
 	await gotoStable(page, '/signin');
 
 	if (/\/[a-z]{2}\/app/.test(new URL(page.url()).pathname)) {
@@ -67,6 +68,11 @@ async function signInRegularUser(page: Page) {
 test.describe('prerendered marketing to app navigation', () => {
 	test('logged-in user reaches the app via SPA navigation from home', async ({ page }) => {
 		test.setTimeout(180000);
+
+		// Own this spec's session instead of inheriting shared storageState from
+		// earlier authenticated specs. The regression it guards needs a valid
+		// session before landing on the prerendered marketing page.
+		await signInRegularUser(page);
 
 		// Land on the (prerendered) marketing home with authenticated cookies.
 		await gotoStable(page, '/en');
@@ -87,16 +93,7 @@ test.describe('prerendered marketing to app navigation', () => {
 		// /convex/token -> Convex WebSocket confirm) can take a while against a
 		// cold preview Convex deployment before isAuthenticated flips.
 		const dashboardLink = page.getByTestId('marketing-nav-dashboard');
-		try {
-			await expect(dashboardLink).toBeVisible({ timeout: 60000 });
-		} catch {
-			// Some earlier authenticated specs can invalidate the shared storageState
-			// session. Re-establish it here so this regression guard owns its auth
-			// precondition and still enters /app from the prerendered marketing page.
-			await signInRegularUser(page);
-			await gotoStable(page, '/en');
-			await expect(dashboardLink).toBeVisible({ timeout: 60000 });
-		}
+		await expect(dashboardLink).toBeVisible({ timeout: 60000 });
 
 		// Ensure the client router has hydrated before clicking. On the dev server
 		// the link is SSR-rendered (authenticated SSR), so it is visible before
