@@ -1,4 +1,8 @@
 import { test, expect, type Page } from '@playwright/test';
+import fs from 'fs';
+import path from 'path';
+import { waitForAuthenticated } from './utils/auth';
+import type { TestCredentials } from './utils/types';
 
 // Regression guard for the prerendered-marketing -> /app navigation dead end
 // (third regression in the app:auth invalidation series, #289 -> #575 -> this
@@ -36,6 +40,24 @@ async function gotoStable(page: Page, url: string) {
 	}
 }
 
+async function signInRegularUser(page: Page) {
+	const credentialsPath = path.join(process.cwd(), 'e2e', '.auth', 'test-credentials.json');
+
+	if (!fs.existsSync(credentialsPath)) {
+		throw new Error('test-credentials.json not found. globalSetup may have failed.');
+	}
+
+	const credentials: TestCredentials = JSON.parse(fs.readFileSync(credentialsPath, 'utf-8'));
+	const { email, password } = credentials.user;
+
+	await gotoStable(page, '/signin');
+	await expect(page.locator('[data-testid="email-input"]')).toBeVisible({ timeout: 30000 });
+	await page.fill('[data-testid="email-input"]', email);
+	await page.fill('[data-testid="password-input"]', password);
+	await page.click('[data-testid="signin-button"]');
+	await waitForAuthenticated(page);
+}
+
 test.describe('prerendered marketing to app navigation', () => {
 	test('logged-in user reaches the app via SPA navigation from home', async ({ page }) => {
 		test.setTimeout(180000);
@@ -59,7 +81,16 @@ test.describe('prerendered marketing to app navigation', () => {
 		// /convex/token -> Convex WebSocket confirm) can take a while against a
 		// cold preview Convex deployment before isAuthenticated flips.
 		const dashboardLink = page.getByTestId('marketing-nav-dashboard');
-		await expect(dashboardLink).toBeVisible({ timeout: 60000 });
+		try {
+			await expect(dashboardLink).toBeVisible({ timeout: 60000 });
+		} catch {
+			// Some earlier authenticated specs can invalidate the shared storageState
+			// session. Re-establish it here so this regression guard owns its auth
+			// precondition and still enters /app from the prerendered marketing page.
+			await signInRegularUser(page);
+			await gotoStable(page, '/en');
+			await expect(dashboardLink).toBeVisible({ timeout: 60000 });
+		}
 
 		// Ensure the client router has hydrated before clicking. On the dev server
 		// the link is SSR-rendered (authenticated SSR), so it is visible before
