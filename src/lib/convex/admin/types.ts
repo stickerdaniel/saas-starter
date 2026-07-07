@@ -16,52 +16,6 @@ export type UserRole = (typeof USER_ROLES)[number];
 export const roleValidator = v.union(v.literal('user'), v.literal('admin'));
 
 /**
- * Admin action types for audit logging.
- */
-export const ADMIN_ACTIONS = [
-	'impersonate',
-	'stop_impersonation',
-	'ban_user',
-	'unban_user',
-	'revoke_sessions',
-	'set_role'
-] as const;
-export type AdminAction = (typeof ADMIN_ACTIONS)[number];
-
-/**
- * Convex validator for admin actions.
- */
-export const adminActionValidator = v.union(
-	v.literal('impersonate'),
-	v.literal('stop_impersonation'),
-	v.literal('ban_user'),
-	v.literal('unban_user'),
-	v.literal('revoke_sessions'),
-	v.literal('set_role')
-);
-
-/**
- * Typed metadata for audit logs.
- * Each action type has its own metadata shape.
- */
-export type AuditMetadata =
-	| { reason: string } // ban_user, unban_user
-	| { newRole: UserRole; previousRole: UserRole } // set_role
-	| Record<string, never>; // other actions (empty object)
-
-/**
- * Convex validator for audit metadata.
- * Accepts typed metadata shapes or empty object.
- */
-export const auditMetadataValidator = v.optional(
-	v.union(
-		v.object({ reason: v.string() }), // ban_user, unban_user
-		v.object({ newRole: roleValidator, previousRole: roleValidator }), // set_role
-		v.object({}) // other actions
-	)
-);
-
-/**
  * Better Auth user type (managed by the BetterAuth component).
  * Consolidated from multiple duplicate definitions.
  */
