@@ -193,9 +193,12 @@ export const setUserRole = adminMutation({
 		const wasAdmin = user.role === 'admin';
 		const isAdmin = args.role === 'admin';
 
-		// Last-admin protection: demoting the only remaining admin would lock
-		// everyone out of the admin area. Counted via the role index instead of
-		// the dashboard adminCount counter, which can drift.
+		// Last-admin protection, as defense in depth: while the self-role guard
+		// above holds, actor and target are two distinct admins in this
+		// snapshot, so this cannot fire. It only bites if that guard is ever
+		// removed or relaxed, keeping the deployment from going admin-less.
+		// Counted via the role index instead of the dashboard adminCount
+		// counter, which can drift.
 		if (wasAdmin && !isAdmin) {
 			const admins = await ctx.runQuery(components.betterAuth.adapter.findMany, {
 				model: 'user',
