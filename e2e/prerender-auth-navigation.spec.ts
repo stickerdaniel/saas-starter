@@ -51,6 +51,12 @@ async function signInRegularUser(page: Page) {
 	const { email, password } = credentials.user;
 
 	await gotoStable(page, '/signin');
+
+	if (/\/[a-z]{2}\/app/.test(new URL(page.url()).pathname)) {
+		await waitForAuthenticated(page);
+		return;
+	}
+
 	await expect(page.locator('[data-testid="email-input"]')).toBeVisible({ timeout: 30000 });
 	await page.fill('[data-testid="email-input"]', email);
 	await page.fill('[data-testid="password-input"]', password);
