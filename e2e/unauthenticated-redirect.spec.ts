@@ -11,11 +11,13 @@ import { test, expect } from '@playwright/test';
  * dev:test stack and remote preview deployments.
  *
  * Deliberately NOT tested here: a forged JWT cookie (valid structure, wrong
- * signature). The server gate is presence-only by design — decodeJwtPayload
- * decodes without verification for fast first-paint decisions, and the
- * authoritative signature check happens in Convex (see src/lib/server/jwt.ts).
- * A forged cookie therefore renders the app shell but every Convex query is
- * rejected; there is no server-side redirect to assert.
+ * signature). decodeJwtPayload decodes without signature verification for
+ * fast first-paint decisions; the authoritative check happens in Convex (see
+ * src/lib/server/jwt.ts). The /app gate is presence-only, so a forged cookie
+ * renders the app shell with every Convex query rejected — there is no
+ * redirect to assert. The /admin gate additionally routes on the unverified
+ * role claim (tokens without role admin 307 to /{lang}/app), re-checked
+ * authoritatively in Convex for every admin query.
  */
 
 test('unauthenticated visit to /app redirects to signin', async ({ page }) => {
