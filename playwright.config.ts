@@ -78,9 +78,9 @@ export default defineConfig({
 				storageState: 'e2e/.auth/user.json'
 			},
 			dependencies: ['setup'],
-			// Don't run invalid-auth, admin, or signout tests (signout runs last in its own project)
+			// Don't run unauthenticated-redirect, admin, or signout tests (signout runs last in its own project)
 			testIgnore: [
-				/invalid-auth\.spec\.ts/,
+				/unauthenticated-redirect\.spec\.ts/,
 				/admin-.*\.spec\.ts/,
 				/signout\.spec\.ts/,
 				/public-.*\.spec\.ts/
@@ -118,7 +118,7 @@ export default defineConfig({
 		{
 			name: 'chromium-no-auth',
 			use: { ...devices['Desktop Chrome'] },
-			testMatch: /invalid-auth\.spec\.ts/
+			testMatch: /unauthenticated-redirect\.spec\.ts/
 		}
 	],
 
