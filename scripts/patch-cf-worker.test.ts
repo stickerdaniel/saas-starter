@@ -1,8 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { applyMarkdownPatch } from './patch-cf-worker';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { createRequire } from 'node:module';
+import {
+	applyMarkdownPatch,
+	applyVersionedCacheKeyPatch,
+	findVersionFile
+} from './patch-cf-worker';
 
 // Realistic worker snippet matching adapter-cloudflare@7.2.8 output
-// Includes both the worktop cache lookup AND the static-serving condition
+// Includes the worktop cache lookup, the static-serving condition, AND the
+// tail return that saves the response to the edge cache
 const WORKER_FIXTURE = `
     let pragma = req.headers.get("cache-control") || "";
     let res = !pragma.includes("no-cache") && await r2(req);
@@ -20,6 +29,8 @@ const WORKER_FIXTURE = `
     } else {
       res = await server.respond(req, { platform: { env: env2, ctx } });
     }
+    pragma = res.headers.get("cache-control") || "";
+    return pragma && res.status < 400 ? c(req, res, ctx) : res;
 `;
 
 // Fixture without the cache lookup (fallback path)
@@ -137,5 +148,124 @@ describe('patch-cf-worker', () => {
 		);
 		expect(result).toContain('res = new Response(res.body, res)');
 		expect(result.match(/s-maxage=3600/g)?.length).toBe(1);
+	});
+});
+
+describe('applyVersionedCacheKeyPatch', () => {
+	it('salts both lookup and save with the same versioned key', () => {
+		const result = applyVersionedCacheKeyPatch(WORKER_FIXTURE, 'abc123')!;
+
+		expect(result).toContain('!pragma.includes("no-cache") && await r2(__cacheKey)');
+		expect(result).toContain('? c(__cacheKey, res, ctx) : res;');
+		// The bare-req call sites must be gone, or lookup and save diverge
+		expect(result).not.toContain('await r2(req)');
+		expect(result).not.toContain('c(req, res, ctx)');
+	});
+
+	it('embeds the deployment version in the key', () => {
+		const result = applyVersionedCacheKeyPatch(WORKER_FIXTURE, 'abc123')!;
+		// append, not set: a client-supplied __v param must not collapse into the
+		// clean URL's cache entry
+		expect(result).toContain('__cacheKeyUrl.searchParams.append("__v", "abc123")');
+	});
+
+	it('throws on a missing or empty version instead of salting with "undefined"', () => {
+		expect(() =>
+			applyVersionedCacheKeyPatch(WORKER_FIXTURE, undefined as unknown as string)
+		).toThrow(/non-empty version/);
+		expect(() => applyVersionedCacheKeyPatch(WORKER_FIXTURE, '')).toThrow(/non-empty version/);
+	});
+
+	it('declares the key before the lookup so both call sites share it', () => {
+		const result = applyVersionedCacheKeyPatch(WORKER_FIXTURE, 'abc123')!;
+		const declIdx = result.indexOf('const __cacheKey = new Request(__cacheKeyUrl, req);');
+		const lookupIdx = result.indexOf('await r2(__cacheKey)');
+		const saveIdx = result.indexOf('c(__cacheKey, res, ctx)');
+		expect(declIdx).toBeGreaterThan(-1);
+		expect(declIdx).toBeLessThan(lookupIdx);
+		expect(lookupIdx).toBeLessThan(saveIdx);
+	});
+
+	it('composes with applyMarkdownPatch (markdown first, the CLI order)', () => {
+		const md = applyMarkdownPatch(WORKER_FIXTURE)!;
+		const result = applyVersionedCacheKeyPatch(md, 'abc123')!;
+
+		expect(result).toContain(
+			'!__wantsMarkdown && !pragma.includes("no-cache") && await r2(__cacheKey)'
+		);
+		expect(result).toContain('? c(__cacheKey, res, ctx) : res;');
+		expect(result.match(/const __cacheKey =/g)?.length).toBe(1);
+	});
+
+	it('returns null when the worker has no worktop cache layer', () => {
+		expect(applyVersionedCacheKeyPatch(WORKER_FIXTURE_NO_CACHE, 'abc123')).toBeNull();
+	});
+
+	it('throws when only one of lookup/save matches (half-salted cache)', () => {
+		const lookupOnly = WORKER_FIXTURE.replace('? c(req, res, ctx) : res;', '? res : res;');
+		expect(() => applyVersionedCacheKeyPatch(lookupOnly, 'abc123')).toThrow(/half-salted/i);
+
+		const saveOnly = WORKER_FIXTURE.replace(
+			'!pragma.includes("no-cache") && await r2(req)',
+			'await r2(req, opts)'
+		);
+		expect(() => applyVersionedCacheKeyPatch(saveOnly, 'abc123')).toThrow(/half-salted/i);
+	});
+
+	it('does not touch ASSETS.fetch or server.respond call sites', () => {
+		const result = applyVersionedCacheKeyPatch(WORKER_FIXTURE, 'abc123')!;
+		expect(result).toContain('res = await env2.ASSETS.fetch(req);');
+		expect(result).toContain('res = await server.respond(req');
+	});
+
+	it('applies cleanly to the real adapter worker template', () => {
+		// Guard against adapter upgrades drifting the patterns: patch the actual
+		// template the installed adapter bundles into _worker.js. Fails here in
+		// unit tests instead of failing the CI build (or worse, silently
+		// disabling the edge cache).
+		const require = createRequire(import.meta.url);
+		const templatePath = require
+			.resolve('@sveltejs/adapter-cloudflare/package.json')
+			.replace(/package\.json$/, 'files/worker.js');
+		const template = fs.readFileSync(templatePath, 'utf-8');
+
+		const md = applyMarkdownPatch(template);
+		expect(md).not.toBeNull();
+
+		const result = applyVersionedCacheKeyPatch(md!, 'abc123');
+		expect(result).not.toBeNull();
+		expect(result).toContain('await r2(__cacheKey)');
+		expect(result).toContain('? c(__cacheKey, res, ctx) : res;');
+		expect(result).toContain('__cacheKeyUrl.searchParams.append("__v", "abc123")');
+	});
+});
+
+describe('findVersionFile', () => {
+	it('locates version.json under a non-default appDir and skips decoys', () => {
+		const outDir = fs.mkdtempSync(path.join(os.tmpdir(), 'patch-cf-worker-'));
+		try {
+			// Decoy: a user-provided static/version.json copied to the output root
+			// (no immutable/ sibling)
+			fs.writeFileSync(path.join(outDir, 'version.json'), '{"version":"decoy"}');
+			// Decoy: prerendered page directory
+			fs.mkdirSync(path.join(outDir, 'en'));
+			fs.writeFileSync(path.join(outDir, 'en', 'index.html'), '<html></html>');
+			// The real app dir, renamed via kit.appDir
+			fs.mkdirSync(path.join(outDir, 'custom-app', 'immutable'), { recursive: true });
+			fs.writeFileSync(path.join(outDir, 'custom-app', 'version.json'), '{"version":"abc"}');
+
+			expect(findVersionFile(outDir)).toBe(path.join(outDir, 'custom-app', 'version.json'));
+		} finally {
+			fs.rmSync(outDir, { recursive: true, force: true });
+		}
+	});
+
+	it('returns null when no app dir exists', () => {
+		const outDir = fs.mkdtempSync(path.join(os.tmpdir(), 'patch-cf-worker-'));
+		try {
+			expect(findVersionFile(outDir)).toBeNull();
+		} finally {
+			fs.rmSync(outDir, { recursive: true, force: true });
+		}
 	});
 });
