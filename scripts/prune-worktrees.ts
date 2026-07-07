@@ -11,6 +11,12 @@
  * stale worktree metadata, and finally fast-forwards the trunk in the main
  * checkout when that checkout is clean and has not diverged.
  *
+ * Contribution branches are cleaned up too: `bun run worktree --push-remote <r>`
+ * stamps `branch.<name>.pushRemote`, and branches carrying that marker are
+ * confirmed against a merged PR on that remote (head SHA must equal the local
+ * tip) instead of origin. Without such markers the cross-remote path is
+ * skipped entirely, so single-remote clones behave exactly as before.
+ *
  * Usage:
  *   bun scripts/prune-worktrees.ts            # remove merged worktrees + branches, ff trunk
  *   bun scripts/prune-worktrees.ts --dry-run  # show what would be removed, change nothing
@@ -49,6 +55,8 @@ export interface BranchInfo {
 	name: string;
 	/** `git`'s upstream track marker, e.g. '[gone]', '[behind 2]', '[ahead 1]', ''. */
 	track: string;
+	/** Explicit `branch.<name>.pushRemote` config value, '' when unset. */
+	pushRemote?: string;
 }
 
 /**
@@ -65,6 +73,43 @@ export function selectGoneBranches(
 		.filter((b) => b.track === '[gone]')
 		.filter((b) => b.name !== opts.trunk && b.name !== opts.currentBranch)
 		.map((b) => b.name);
+}
+
+/**
+ * Select branches created to contribute to another remote (e.g. a template
+ * repo added as `upstream`). Only the explicit `branch.<name>.pushRemote`
+ * marker stamped by `bun run worktree --push-remote <r>` puts a branch in this
+ * set — branches without it (including fresh worktree branches, which carry no
+ * tracking at all) are never candidates. On a plain single-origin clone this
+ * returns [], and the whole cross-remote probe is skipped.
+ */
+export function selectContributionBranches(
+	branches: BranchInfo[],
+	opts: { originRemote: string; trunk: string; currentBranch: string | null }
+): string[] {
+	return branches
+		.filter((b) => b.pushRemote && b.pushRemote !== opts.originRemote)
+		.filter((b) => b.name !== opts.trunk && b.name !== opts.currentBranch)
+		.map((b) => b.name);
+}
+
+/**
+ * Extract the GitHub `owner/repo` slug from a remote URL so `gh` can be pinned
+ * to the right repository with `--repo` — with several remotes configured, gh's
+ * own resolution depends on ambient state like `gh repo set-default`. Returns
+ * null for non-GitHub remotes; callers treat that as "cannot confirm".
+ */
+export function parseRemoteSlug(url: string): string | null {
+	const trimmed = url.trim();
+	const match =
+		trimmed.match(/^https:\/\/github\.com\/([^/]+\/[^/]+?)(?:\.git)?\/?$/) ??
+		trimmed.match(/^(?:ssh:\/\/)?git@github\.com[:/]([^/]+\/[^/]+?)(?:\.git)?\/?$/);
+	return match ? match[1] : null;
+}
+
+/** True iff a merged PR's recorded head SHA byte-equals the local branch tip. */
+export function matchMergedPrBySha(prs: Array<{ headRefOid?: string }>, localTip: string): boolean {
+	return Boolean(localTip) && prs.some((pr) => pr.headRefOid === localTip);
 }
 
 /**
@@ -101,12 +146,36 @@ function getRootWorktree(): string {
 		.replace(/^worktree /, '');
 }
 
-/** Resolve the trunk branch name from origin's HEAD, falling back to "main". */
-function getTrunk(): string {
-	const result = runCommand('git', ['symbolic-ref', '--short', 'refs/remotes/origin/HEAD'], {
+/** Resolve a remote's trunk branch name from its HEAD, falling back to "main". */
+function getTrunk(remote = 'origin'): string {
+	const result = runCommand('git', ['symbolic-ref', '--short', `refs/remotes/${remote}/HEAD`], {
 		silent: true
 	});
-	return result.success && result.stdout ? result.stdout.replace(/^origin\//, '') : 'main';
+	return result.success && result.stdout.startsWith(`${remote}/`)
+		? result.stdout.slice(remote.length + 1)
+		: 'main';
+}
+
+/**
+ * Read every explicit `branch.<name>.pushRemote` key in one subprocess. Read
+ * from config rather than for-each-ref's `%(push:remotename)`, which also
+ * reflects an ambient `remote.pushDefault` and would drag unrelated branches
+ * into the contribution set.
+ */
+function getPushRemotes(): Map<string, string> {
+	const result = runCommand('git', ['config', '--get-regexp', '^branch\\..*\\.pushremote$'], {
+		silent: true
+	});
+	const map = new Map<string, string>();
+	// git exits 1 when no key matches; that simply means no contribution branches.
+	if (!result.success) return map;
+	for (const line of result.stdout.split('\n')) {
+		// Keys print with the variable name lowercased ("pushremote"); the branch
+		// name keeps its case and may itself contain dots or slashes.
+		const match = line.match(/^branch\.(.+)\.pushremote\s+(\S+)$/i);
+		if (match) map.set(match[1], match[2]);
+	}
+	return map;
 }
 
 export type MergeVerdict = 'merged' | 'not-merged' | 'unknown';
@@ -120,36 +189,84 @@ export type MergeVerdict = 'merged' | 'not-merged' | 'unknown';
  * git ancestry ranks first: if the branch tip is already an ancestor of trunk,
  * its content is provably in trunk and deleting it can't lose work, regardless
  * of gh. It catches real merges/rebases but never squash-merges (the squash
- * commit is not the branch tip). gh then covers squash-merges: a merged PR head
- * is authoritative. If neither can confirm (offline, gh missing), stay 'unknown'
- * and the caller leaves the branch alone.
+ * commit is not the branch tip). gh then covers squash-merges, but only when a
+ * merged PR's recorded head SHA is exactly the local branch tip: a name-only
+ * match would also delete commits added locally after the merged push. If
+ * neither can confirm (offline, gh missing), stay 'unknown' and the caller
+ * leaves the branch alone.
  */
 export function classifyMerge(input: {
 	ghSucceeded: boolean;
-	ghFoundMergedPr: boolean;
+	ghShaMatchedMergedPr: boolean;
 	gitAncestor: boolean;
 }): MergeVerdict {
 	if (input.gitAncestor) return 'merged';
-	if (input.ghSucceeded) return input.ghFoundMergedPr ? 'merged' : 'not-merged';
+	if (input.ghSucceeded) return input.ghShaMatchedMergedPr ? 'merged' : 'not-merged';
 	return 'unknown';
 }
 
-/** Probe gh + git to decide whether a [gone] branch's content is really in trunk. */
-function confirmMerged(branch: string, trunk: string): MergeVerdict {
-	const pr = runCommand(
-		'gh',
-		['pr', 'list', '--head', branch, '--state', 'merged', '--json', 'number', '--limit', '1'],
-		{ silent: true }
-	);
-	// exit 0 iff the branch tip is already an ancestor of origin/<trunk>.
-	const ancestor = runCommand('git', ['merge-base', '--is-ancestor', branch, `origin/${trunk}`], {
-		silent: true
-	});
-	return classifyMerge({
-		ghSucceeded: pr.success,
-		ghFoundMergedPr: pr.success && pr.stdout !== '' && pr.stdout !== '[]',
-		gitAncestor: ancestor.success
-	});
+/**
+ * Probe gh + git to decide whether a branch's content is really merged on the
+ * given remote. The gh probe is pinned to that remote's GitHub repo and
+ * requires the merged PR's head SHA to byte-equal the local tip (see
+ * classifyMerge).
+ *
+ * Contribution branches accept ONLY the SHA-matched merged PR, and the PR must
+ * target the remote's trunk. Ancestry is no proof there: a fresh contribution
+ * worktree with no commits of its own has tip == <remote>/<trunk>, and
+ * `merge-base --is-ancestor X X` exits 0, so the ancestry shortcut would call
+ * a just-created scaffold "merged" and delete it. The origin [gone] path keeps
+ * ancestry because [gone] proves the branch was published and then deleted,
+ * which a fresh scaffold never is.
+ */
+function confirmMerged(
+	branch: string,
+	opts: { remote: string; trunk: string; contribution?: boolean }
+): MergeVerdict {
+	const tip = runCommand('git', ['rev-parse', `refs/heads/${branch}`], { silent: true });
+	const url = runCommand('git', ['remote', 'get-url', opts.remote], { silent: true });
+	const slug = url.success ? parseRemoteSlug(url.stdout) : null;
+	let ghSucceeded = false;
+	let ghShaMatchedMergedPr = false;
+	if (tip.success && slug) {
+		const args = [
+			'pr',
+			'list',
+			'--repo',
+			slug,
+			'--head',
+			branch,
+			'--state',
+			'merged',
+			'--json',
+			'number,headRefOid',
+			// A reused head branch name can have several merged PRs; the SHA gate
+			// picks the right one out of the recent few.
+			'--limit',
+			'10'
+		];
+		if (opts.contribution) args.push('--base', opts.trunk);
+		const pr = runCommand('gh', args, { silent: true });
+		if (pr.success) {
+			try {
+				ghShaMatchedMergedPr = matchMergedPrBySha(JSON.parse(pr.stdout || '[]'), tip.stdout);
+				ghSucceeded = true;
+			} catch {
+				// Unparseable gh output: treat as "gh could not answer", not as a no.
+				ghSucceeded = false;
+			}
+		}
+	}
+	// exit 0 iff the branch tip is already an ancestor of <remote>/<trunk>.
+	// Never consulted for contribution branches (see doc comment above).
+	const ancestor = opts.contribution
+		? { success: false }
+		: runCommand(
+				'git',
+				['merge-base', '--is-ancestor', `refs/heads/${branch}`, `${opts.remote}/${opts.trunk}`],
+				{ silent: true }
+			);
+	return classifyMerge({ ghSucceeded, ghShaMatchedMergedPr, gitAncestor: ancestor.success });
 }
 
 /**
@@ -211,6 +328,68 @@ function fastForwardTrunk(rootPath: string, trunk: string, dryRun: boolean): voi
 	}
 }
 
+/**
+ * Remove a confirmed-merged branch's worktree and delete the branch, or print
+ * why it is being kept. Shared by the origin [gone] path and the contribution
+ * path — deletion policy (dirty-tree skip, --force, dry-run, reflog anchor) is
+ * identical for both.
+ */
+function pruneBranch(
+	branch: string,
+	verdict: MergeVerdict,
+	notMergedReason: string,
+	worktrees: Map<string, string>,
+	opts: { dryRun: boolean; force: boolean }
+): void {
+	if (verdict !== 'merged') {
+		const reason =
+			verdict === 'not-merged' ? notMergedReason : 'cannot confirm the merge (gh unavailable)';
+		console.log(
+			`${colors.yellow}  skip ${branch}: ${reason}. Delete manually with \`git branch -D ${branch}\` if intended.${colors.reset}`
+		);
+		return;
+	}
+
+	const path = worktrees.get(branch);
+	if (path) {
+		const dirty = runCommand('git', ['-C', path, 'status', '--porcelain'], { silent: true });
+		if (dirty.stdout && !opts.force) {
+			console.log(
+				`${colors.yellow}  skip ${branch}: merged, but its worktree has uncommitted changes (use --force to discard).${colors.reset}`
+			);
+			console.log(`       ${path}`);
+			return;
+		}
+		if (opts.dryRun) {
+			console.log(`  [dry-run] would remove worktree ${path} and branch ${branch} (merged)`);
+			return;
+		}
+		const removeArgs = ['worktree', 'remove', path];
+		if (opts.force) removeArgs.push('--force');
+		const removed = runCommand('git', removeArgs);
+		if (!removed.success) {
+			console.log(
+				`${colors.yellow}  could not remove worktree ${path}; leaving branch ${branch} in place.${colors.reset}`
+			);
+			return;
+		}
+		console.log(`${colors.green}  removed worktree ${path}${colors.reset}`);
+	}
+	if (opts.dryRun) {
+		if (!path) console.log(`  [dry-run] would delete branch ${branch} (merged)`);
+		return;
+	}
+	const deleted = runCommand('git', ['branch', '-D', branch], { silent: true });
+	if (deleted.success) {
+		// git prints "Deleted branch X (was <sha>)"; surface the sha as a
+		// reflog anchor in case a deletion ever needs undoing.
+		const wasSha = deleted.stdout.match(/\(was [0-9a-f]+\)/)?.[0] ?? '';
+		console.log(`${colors.green}  deleted branch ${branch} ${wasSha}${colors.reset}`);
+	} else {
+		console.log(`${colors.yellow}  could not delete branch ${branch}${colors.reset}`);
+	}
+}
+
 function main(): void {
 	const { values } = parseArgs({
 		args: Bun.argv.slice(2),
@@ -267,15 +446,26 @@ function main(): void {
 		['for-each-ref', '--format=%(refname:short)|%(upstream:track)', 'refs/heads/'],
 		{ silent: true }
 	);
+	const pushRemotes = getPushRemotes();
 	const branches: BranchInfo[] = refList.stdout
 		.split('\n')
 		.filter(Boolean)
 		.map((line) => {
 			const [name, track = ''] = line.split('|');
-			return { name, track };
+			return { name, track, pushRemote: pushRemotes.get(name) ?? '' };
 		});
 
-	const gone = selectGoneBranches(branches, { trunk, currentBranch });
+	const contribution = selectContributionBranches(branches, {
+		originRemote: 'origin',
+		trunk,
+		currentBranch
+	});
+	const contributionSet = new Set(contribution);
+	// A branch with an explicit non-origin pushRemote lives on that remote, so
+	// probe it there even if a stale origin tracking ref also reads [gone].
+	const gone = selectGoneBranches(branches, { trunk, currentBranch }).filter(
+		(b) => !contributionSet.has(b)
+	);
 	const worktrees = parseWorktreePorcelain(
 		runCommand('git', ['worktree', 'list', '--porcelain'], { silent: true }).stdout
 	);
@@ -291,56 +481,38 @@ function main(): void {
 			// [gone] is only a prefilter. Never delete without a confirmed merge:
 			// a closed-unmerged PR or a hand-deleted remote is also [gone], and
 			// `branch -D` would be unrecoverable loss of committed work.
-			const verdict = confirmMerged(branch, trunk);
-			if (verdict !== 'merged') {
-				const reason =
-					verdict === 'not-merged'
-						? 'remote deleted without a merged PR'
-						: 'cannot confirm the merge (gh unavailable)';
-				console.log(
-					`${colors.yellow}  skip ${branch}: ${reason}. Delete manually with \`git branch -D ${branch}\` if intended.${colors.reset}`
-				);
-				continue;
-			}
+			const verdict = confirmMerged(branch, { remote: 'origin', trunk });
+			pruneBranch(
+				branch,
+				verdict,
+				'remote deleted without a merged PR matching the local tip',
+				worktrees,
+				{
+					dryRun,
+					force
+				}
+			);
+		}
+	}
 
-			const path = worktrees.get(branch);
-			if (path) {
-				const dirty = runCommand('git', ['-C', path, 'status', '--porcelain'], { silent: true });
-				if (dirty.stdout && !force) {
-					console.log(
-						`${colors.yellow}  skip ${branch}: merged, but its worktree has uncommitted changes (use --force to discard).${colors.reset}`
-					);
-					console.log(`       ${path}`);
-					continue;
-				}
-				if (dryRun) {
-					console.log(`  [dry-run] would remove worktree ${path} and branch ${branch} (merged)`);
-					continue;
-				}
-				const removeArgs = ['worktree', 'remove', path];
-				if (force) removeArgs.push('--force');
-				const removed = runCommand('git', removeArgs);
-				if (!removed.success) {
-					console.log(
-						`${colors.yellow}  could not remove worktree ${path}; leaving branch ${branch} in place.${colors.reset}`
-					);
-					continue;
-				}
-				console.log(`${colors.green}  removed worktree ${path}${colors.reset}`);
-			}
-			if (dryRun) {
-				if (!path) console.log(`  [dry-run] would delete branch ${branch} (merged)`);
-				continue;
-			}
-			const deleted = runCommand('git', ['branch', '-D', branch], { silent: true });
-			if (deleted.success) {
-				// git prints "Deleted branch X (was <sha>)"; surface the sha as a
-				// reflog anchor in case a deletion ever needs undoing.
-				const wasSha = deleted.stdout.match(/\(was [0-9a-f]+\)/)?.[0] ?? '';
-				console.log(`${colors.green}  deleted branch ${branch} ${wasSha}${colors.reset}`);
-			} else {
-				console.log(`${colors.yellow}  could not delete branch ${branch}${colors.reset}`);
-			}
+	if (contribution.length > 0) {
+		console.log('');
+		console.log(
+			`Found ${contribution.length} contribution branch(es) with a non-origin push remote; verifying merge status:`
+		);
+		console.log('');
+		for (const branch of contribution) {
+			const remote = pushRemotes.get(branch);
+			if (!remote) continue;
+			const verdict = confirmMerged(branch, {
+				remote,
+				trunk: getTrunk(remote),
+				contribution: true
+			});
+			pruneBranch(branch, verdict, `no merged PR on ${remote} matching the local tip`, worktrees, {
+				dryRun,
+				force
+			});
 		}
 	}
 

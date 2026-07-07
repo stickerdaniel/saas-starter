@@ -5,16 +5,24 @@
  * stale local main can never seed one with old code. Pass --base to override or
  * --no-fetch to skip the fetch.
  *
+ * Contribution mode: --push-remote <remote> targets another configured remote
+ * (e.g. a template repo added as `upstream`) instead of origin. The worktree
+ * branches off that remote's trunk and the branch gets git's own
+ * `branch.<name>.pushRemote` key, so a bare `git push` goes to that remote and
+ * `worktree:prune` knows where to confirm the merged PR for cleanup.
+ *
  * Usage:
  *   bun scripts/create-worktree.ts feature/dark-mode           # Full mode: create + setup
  *   bun scripts/create-worktree.ts --setup-only               # Setup mode: setup only (for Cursor)
  *   bun scripts/create-worktree.ts feature/dark-mode --open-editor cursor
+ *   bun scripts/create-worktree.ts fix/typo --push-remote upstream
  */
 
 import { spawnSync } from 'child_process';
 import { chmodSync, existsSync, copyFileSync, mkdirSync, readdirSync, statSync } from 'fs';
 import { join } from 'path';
 import { parseArgs } from 'util';
+import { parseRemoteSlug } from './prune-worktrees';
 
 // ANSI colors for terminal output
 const colors = {
@@ -36,6 +44,7 @@ function parseCliArgs() {
 				'open-editor': { type: 'string' },
 				base: { type: 'string', short: 'b' },
 				'no-fetch': { type: 'boolean', default: false },
+				'push-remote': { type: 'string' },
 				help: { type: 'boolean', short: 'h', default: false }
 			},
 			strict: true,
@@ -126,21 +135,34 @@ function getRootWorktree(): string {
 }
 
 /**
- * Resolve the trunk branch name (the default base for new worktrees) from
- * origin's HEAD. Falls back to "main" when origin/HEAD is unset (e.g. a brand
- * new clone that never ran `git remote set-head`).
+ * Resolve a remote's HEAD branch name, or null when the remote's HEAD ref is
+ * unset locally (e.g. a brand new clone that never ran `git remote set-head`,
+ * or a hand-added remote, where it is never set automatically).
  */
-function getTrunk(): string {
-	const result = runCommand('git', ['symbolic-ref', '--short', 'refs/remotes/origin/HEAD'], {
+function getRemoteHead(remote: string): string | null {
+	const result = runCommand('git', ['symbolic-ref', '--short', `refs/remotes/${remote}/HEAD`], {
 		silent: true
 	});
-	return result.success && result.stdout ? result.stdout.replace(/^origin\//, '') : 'main';
+	return result.success && result.stdout.startsWith(`${remote}/`)
+		? result.stdout.slice(remote.length + 1)
+		: null;
+}
+
+/**
+ * Resolve the trunk branch name (the default base for new worktrees) from the
+ * remote's HEAD, falling back to "main".
+ */
+function getTrunk(remote = 'origin'): string {
+	return getRemoteHead(remote) ?? 'main';
 }
 
 /**
  * Setup worktree (copies files and installs deps)
  */
-function setupWorktree(rootPath: string): void {
+function setupWorktree(
+	rootPath: string,
+	contribution?: { remote: string; slug: string | null }
+): void {
 	console.log('');
 	console.log('======================================================');
 	console.log('Setting up worktree');
@@ -225,7 +247,15 @@ function setupWorktree(rootPath: string): void {
 	console.log('  1. Make your changes');
 	console.log('  2. Stage them: git add .');
 	console.log('  3. Commit changes: git commit -m "feat: your feature"');
-	console.log('  4. Push & open PR: git push -u origin HEAD && gh pr create');
+	if (contribution) {
+		const repoFlag = contribution.slug ? ` --repo ${contribution.slug}` : '';
+		console.log(`  4. Push & open PR: git push && gh pr create${repoFlag} --draft`);
+		console.log(
+			`     (a bare \`git push\` targets ${contribution.remote} via branch.<name>.pushRemote)`
+		);
+	} else {
+		console.log('  4. Push & open PR: git push -u origin HEAD && gh pr create');
+	}
 	console.log('');
 	console.log('To iterate (CI fixes, review feedback):');
 	console.log('  1. Make changes');
@@ -256,6 +286,12 @@ function showHelp(): void {
 	);
 	console.log('  --no-fetch                      Skip the pre-branch git fetch (use local refs)');
 	console.log('  --open-editor code|cursor       Open the worktree in VS Code or Cursor');
+	console.log(
+		'  --push-remote <remote>          Contribute to another remote: base off its trunk,'
+	);
+	console.log(
+		'                                  route `git push` there, let worktree:prune clean up'
+	);
 	console.log('');
 	console.log('Example:');
 	console.log('  bun scripts/create-worktree.ts feature-auth');
@@ -286,6 +322,31 @@ function main(): void {
 		console.log('Usage: bun scripts/create-worktree.ts <branch-name>');
 		console.log('Example: bun scripts/create-worktree.ts feature-auth');
 		process.exit(1);
+	}
+
+	// Contribution mode: validate the target remote before touching git state.
+	const pushRemoteRaw = values['push-remote'] as string | undefined;
+	const pushRemote = pushRemoteRaw?.trim();
+	if (pushRemoteRaw !== undefined && !pushRemote) {
+		console.error(
+			`${colors.red}Error: --push-remote requires a non-empty remote name${colors.reset}`
+		);
+		process.exit(1);
+	}
+	let pushRemoteSlug: string | null = null;
+	if (pushRemote) {
+		const remoteUrl = runCommand('git', ['remote', 'get-url', pushRemote], { silent: true });
+		if (!remoteUrl.success) {
+			console.error(`${colors.red}Error: remote "${pushRemote}" is not configured${colors.reset}`);
+			console.log('');
+			console.log(`Add it first: git remote add ${pushRemote} <url>`);
+			const remotes = runCommand('git', ['remote'], { silent: true });
+			if (remotes.stdout)
+				console.log(`Configured remotes: ${remotes.stdout.split('\n').join(', ')}`);
+			process.exit(1);
+		}
+		// Used for the `gh pr create --repo` hint; null for non-GitHub remotes.
+		pushRemoteSlug = parseRemoteSlug(remoteUrl.stdout);
 	}
 
 	console.log('');
@@ -341,26 +402,33 @@ function main(): void {
 		process.exit(1);
 	}
 
-	// Determine base branch. Default is the REMOTE trunk (origin/<trunk>), NOT
-	// the current local branch: branching off origin keeps a new worktree
-	// independent of whatever stale state the local checkout is in, so a
-	// forgotten `git pull` on main can no longer seed a worktree with old code.
-	// Pass --base <branch> to stack intentionally (e.g. on another feature branch).
+	// Determine base branch. Default is the REMOTE trunk (origin/<trunk>, or the
+	// --push-remote's trunk in contribution mode), NOT the current local branch:
+	// branching off the remote keeps a new worktree independent of whatever
+	// stale state the local checkout is in, so a forgotten `git pull` on main
+	// can no longer seed a worktree with old code. Pass --base <branch> to stack
+	// intentionally (e.g. on another feature branch).
 	const baseArgRaw = values['base'] as string | undefined;
 	const baseArg = baseArgRaw?.trim();
 	if (baseArgRaw !== undefined && !baseArg) {
 		console.error(`${colors.red}Error: --base requires a non-empty branch name${colors.reset}`);
 		process.exit(1);
 	}
-	const trunk = getTrunk();
+	const baseRemote = pushRemote ?? 'origin';
+	const trunk = getTrunk(baseRemote);
+	if (pushRemote && !getRemoteHead(pushRemote)) {
+		console.log(
+			`${colors.yellow}Note: ${pushRemote}/HEAD is unset; assuming trunk "${trunk}" (set it with \`git remote set-head ${pushRemote} --auto\`).${colors.reset}`
+		);
+	}
 
 	// Refresh the base from the remote before branching (unless --no-fetch). This
 	// is what makes "forgot to pull main" harmless: the worktree always starts
-	// from the current origin/<trunk>, not the local ref, which routinely lags.
+	// from the current remote trunk, not the local ref, which routinely lags.
 	const noFetch = values['no-fetch'] ?? false;
 	if (!noFetch) {
-		console.log(baseArg ? 'Fetching origin...' : `Fetching origin/${trunk}...`);
-		const fetchArgs = baseArg ? ['fetch', 'origin'] : ['fetch', 'origin', trunk];
+		console.log(baseArg ? `Fetching ${baseRemote}...` : `Fetching ${baseRemote}/${trunk}...`);
+		const fetchArgs = baseArg ? ['fetch', baseRemote] : ['fetch', baseRemote, trunk];
 		const fetched = runCommand('git', fetchArgs, { silent: true });
 		if (!fetched.success) {
 			console.log(
@@ -369,9 +437,9 @@ function main(): void {
 		}
 	}
 
-	const baseBranch = baseArg ?? `origin/${trunk}`;
+	const baseBranch = baseArg ?? `${baseRemote}/${trunk}`;
 	console.log(`Base branch: ${baseBranch}`);
-	if (baseArg && baseArg !== trunk && baseArg !== `origin/${trunk}`) {
+	if (baseArg && baseArg !== trunk && baseArg !== `${baseRemote}/${trunk}`) {
 		console.log(
 			`${colors.yellow}Note: stacking this worktree on "${baseArg}", not ${trunk}.${colors.reset}`
 		);
@@ -385,26 +453,48 @@ function main(): void {
 	}
 	console.log(`${colors.green}Worktree created${colors.reset}`);
 
-	// Branching off a remote-tracking ref (origin/<trunk>) makes git auto-set the
-	// new branch's upstream to the trunk (branch.autoSetupMerge). Unset it so
+	// Branching off a remote-tracking ref (<remote>/<trunk>) makes git auto-set
+	// the new branch's upstream to the trunk (branch.autoSetupMerge). Unset it so
 	// `git status` doesn't compare against the trunk and the first
 	// `git push -u origin HEAD` sets the correct upstream.
 	const unset = runCommand('git', ['-C', worktreePath, 'branch', '--unset-upstream'], {
 		silent: true
 	});
-	// With an origin/<trunk> base an upstream definitely existed, so a failed
+	// With a <remote>/<trunk> base an upstream definitely existed, so a failed
 	// unset (e.g. a config.lock race with a parallel create) left the wrong
 	// upstream set — warn so it gets fixed before the first push. A local --base
 	// has no upstream, making the failure an expected no-op we ignore.
-	if (!unset.success && baseBranch.startsWith('origin/')) {
+	if (!unset.success && baseBranch.startsWith(`${baseRemote}/`)) {
 		console.log(
 			`${colors.yellow}Warning: could not unset the auto-configured upstream; run \`git branch --unset-upstream\` in the worktree before pushing.${colors.reset}`
 		);
 	}
 
+	// Contribution mode: stamp git's own pushRemote key. It routes a bare
+	// `git push` to the contribution remote (verified with push.default=simple
+	// and no upstream set) and doubles as the durable marker worktree:prune
+	// reads to know where this branch's PR lives. Branch config is shared
+	// repo-wide, so prune sees it from the main checkout too.
+	if (pushRemote) {
+		const stamped = runCommand(
+			'git',
+			['-C', worktreePath, 'config', `branch.${branchName}.pushRemote`, pushRemote],
+			{ silent: true }
+		);
+		if (stamped.success) {
+			console.log(
+				`${colors.green}Push remote set: \`git push\` targets ${pushRemote}/${branchName}${colors.reset}`
+			);
+		} else {
+			console.log(
+				`${colors.yellow}Warning: could not set branch.${branchName}.pushRemote; set it manually: git config branch.${branchName}.pushRemote ${pushRemote}${colors.reset}`
+			);
+		}
+	}
+
 	// Change to new worktree and run setup
 	process.chdir(worktreePath);
-	setupWorktree(rootPath);
+	setupWorktree(rootPath, pushRemote ? { remote: pushRemote, slug: pushRemoteSlug } : undefined);
 
 	console.log(`Worktree location: ${worktreePath}`);
 	console.log('');
