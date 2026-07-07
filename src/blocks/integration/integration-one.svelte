@@ -14,6 +14,7 @@
 	import Shadcn from '../logos/Shadcn.svelte';
 	import Stripe from '../logos/Stripe.svelte';
 	import { T, getTranslate } from '@tolgee/svelte';
+	import { scrollReveal } from '$lib/utils/scroll-reveal';
 
 	const { t } = getTranslate();
 </script>
@@ -21,7 +22,7 @@
 <section>
 	<div class="py-30">
 		<div class="mx-auto flex max-w-6xl flex-col px-6 lg:block lg:px-12">
-			<div class="text-center lg:text-left">
+			<div use:scrollReveal class="text-center lg:text-left">
 				<h2 class="text-3xl font-semibold text-balance md:text-4xl">
 					<T keyName="integrations.title" params={{ year: new Date().getFullYear() }} />
 				</h2>
@@ -29,7 +30,7 @@
 					<T keyName="integrations.description" />
 				</p>
 			</div>
-			<div class="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+			<div use:scrollReveal={{ delay: 100 }} class="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
 				<IntegrationCard
 					title={$t('integrations.cards.svelte.title')}
 					description={$t('integrations.cards.svelte.description')}
