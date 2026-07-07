@@ -50,6 +50,7 @@ export const requireFileAccess = internalMutation({
  * Register uploaded file with agent component
  *
  * Validates file type/size, creates download grant, registers with agent.
+ * Requires an authenticated user before the upload token is finalized.
  */
 export const saveUploadedFile = action({
 	args: {

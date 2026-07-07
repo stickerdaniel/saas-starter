@@ -252,6 +252,9 @@ export const listMessages = authedQuery({
 
 /**
  * Get file metadata (dimensions) for multiple files by URL
+ *
+ * Authenticated because AI chat attachment metadata belongs to the signed-in app
+ * surface, unlike support attachments which may be submitted anonymously.
  */
 export const getFileMetadataBatch = authedQuery({
 	args: {
