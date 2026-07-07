@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as admin_adminHttpPaths from "../admin/adminHttpPaths.js";
 import type * as admin_counters from "../admin/counters.js";
 import type * as admin_founderWelcome_mutations from "../admin/founderWelcome/mutations.js";
 import type * as admin_founderWelcome_queries from "../admin/founderWelcome/queries.js";
@@ -89,6 +90,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  "admin/adminHttpPaths": typeof admin_adminHttpPaths;
   "admin/counters": typeof admin_counters;
   "admin/founderWelcome/mutations": typeof admin_founderWelcome_mutations;
   "admin/founderWelcome/queries": typeof admin_founderWelcome_queries;

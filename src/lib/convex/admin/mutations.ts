@@ -2,8 +2,9 @@ import { internalMutation, type MutationCtx } from '../_generated/server';
 import { components } from '../_generated/api';
 import { v, ConvexError } from 'convex/values';
 import type { BetterAuthUser } from './types';
-import { roleValidator, adminActionValidator, auditMetadataValidator } from './types';
+import { roleValidator } from './types';
 import { adminMutation } from '../functions';
+import { authComponent, createAuth } from '../auth';
 import {
 	syncAdminPreferences,
 	deactivateAdminPreferencesHelper
@@ -43,32 +44,118 @@ async function findUserById(ctx: MutationCtx, userId: string): Promise<BetterAut
 }
 
 /**
- * Log an admin action for audit trail
- *
- * Records admin actions in the audit log for compliance and tracking.
- * This is called from the client after BetterAuth admin actions.
- *
- * @param args.action - The type of action performed (e.g., 'ban_user', 'set_role')
- * @param args.targetUserId - The ID of the user affected by the action
- * @param args.metadata - Additional context about the action (previous/new values)
- * @returns void
+ * Run a Better Auth admin API call, mapping its APIError to a ConvexError
+ * so the client sees the actual failure message (e.g. "You cannot ban
+ * yourself") instead of a generic server error.
  */
-export const createAuditLog = adminMutation({
+async function runAdminAuthApi(call: () => Promise<unknown>, fallback: string): Promise<void> {
+	try {
+		await call();
+	} catch (error) {
+		throw new ConvexError(error instanceof Error && error.message ? error.message : fallback);
+	}
+}
+
+/**
+ * Ban a user
+ *
+ * Calls the Better Auth admin API in-process (which also revokes the
+ * target's sessions) and writes the audit log entry in the same
+ * transaction, so the action and its audit trail are atomic and the
+ * audit fields are derived from server context.
+ *
+ * @param args.userId - The ID of the user to ban
+ * @param args.reason - Ban reason shown to the user and stored in the audit log
+ * @returns Object with success: true on completion
+ */
+export const banUser = adminMutation({
 	args: {
-		action: adminActionValidator,
-		targetUserId: v.string(),
-		metadata: auditMetadataValidator
+		userId: v.string(),
+		reason: v.string()
 	},
-	returns: v.null(),
+	returns: v.object({ success: v.boolean() }),
 	handler: async (ctx, args) => {
+		const { auth, headers } = await authComponent.getAuth(createAuth, ctx);
+		await runAdminAuthApi(
+			() => auth.api.banUser({ body: { userId: args.userId, banReason: args.reason }, headers }),
+			'Failed to ban user'
+		);
+
 		await ctx.db.insert('adminAuditLogs', {
 			adminUserId: ctx.user._id,
-			action: args.action,
-			targetUserId: args.targetUserId,
-			metadata: args.metadata,
+			action: 'ban_user',
+			targetUserId: args.userId,
+			metadata: { reason: args.reason },
 			timestamp: Date.now()
 		});
-		return null;
+
+		return { success: true };
+	}
+});
+
+/**
+ * Unban a user
+ *
+ * Calls the Better Auth admin API in-process and writes the audit log
+ * entry in the same transaction.
+ *
+ * @param args.userId - The ID of the user to unban
+ * @returns Object with success: true on completion
+ */
+export const unbanUser = adminMutation({
+	args: {
+		userId: v.string()
+	},
+	returns: v.object({ success: v.boolean() }),
+	handler: async (ctx, args) => {
+		const { auth, headers } = await authComponent.getAuth(createAuth, ctx);
+		await runAdminAuthApi(
+			() => auth.api.unbanUser({ body: { userId: args.userId }, headers }),
+			'Failed to unban user'
+		);
+
+		await ctx.db.insert('adminAuditLogs', {
+			adminUserId: ctx.user._id,
+			action: 'unban_user',
+			targetUserId: args.userId,
+			metadata: {},
+			timestamp: Date.now()
+		});
+
+		return { success: true };
+	}
+});
+
+/**
+ * Revoke all sessions of a user
+ *
+ * Calls the Better Auth admin API in-process and writes the audit log
+ * entry in the same transaction.
+ *
+ * @param args.userId - The ID of the user whose sessions to revoke
+ * @returns Object with success: true on completion
+ */
+export const revokeUserSessions = adminMutation({
+	args: {
+		userId: v.string()
+	},
+	returns: v.object({ success: v.boolean() }),
+	handler: async (ctx, args) => {
+		const { auth, headers } = await authComponent.getAuth(createAuth, ctx);
+		await runAdminAuthApi(
+			() => auth.api.revokeUserSessions({ body: { userId: args.userId }, headers }),
+			'Failed to revoke sessions'
+		);
+
+		await ctx.db.insert('adminAuditLogs', {
+			adminUserId: ctx.user._id,
+			action: 'revoke_sessions',
+			targetUserId: args.userId,
+			metadata: {},
+			timestamp: Date.now()
+		});
+
+		return { success: true };
 	}
 });
 
@@ -105,6 +192,20 @@ export const setUserRole = adminMutation({
 
 		const wasAdmin = user.role === 'admin';
 		const isAdmin = args.role === 'admin';
+
+		// Last-admin protection: demoting the only remaining admin would lock
+		// everyone out of the admin area. Counted via the role index instead of
+		// the dashboard adminCount counter, which can drift.
+		if (wasAdmin && !isAdmin) {
+			const admins = await ctx.runQuery(components.betterAuth.adapter.findMany, {
+				model: 'user',
+				where: [{ field: 'role', operator: 'eq', value: 'admin' }],
+				paginationOpts: { cursor: null, numItems: 2 }
+			});
+			if (admins.page.length < 2) {
+				throw new ConvexError('Cannot demote the last admin');
+			}
+		}
 
 		// Update user role using the component adapter (now includes role field in schema)
 		await ctx.runMutation(components.betterAuth.adapter.updateOne, {

@@ -14,6 +14,7 @@ import authConfig from './auth.config';
 import { requireEnv, googleOAuth, githubOAuth } from './env';
 import { getFounderWelcomeDelay } from './emails/helpers';
 import { incrementCounter } from './admin/counters';
+import { DISABLED_ADMIN_PATHS } from './admin/adminHttpPaths';
 import {
 	syncAdminPreferences,
 	deactivateAdminPreferencesHelper
@@ -293,6 +294,40 @@ export const authComponent = createClient<DataModel, typeof authSchema>(componen
 					}
 				}
 			}
+		},
+		session: {
+			/**
+			 * Impersonation audit trail. The impersonate/stop-impersonating
+			 * endpoints mint session cookies in the HTTP response and therefore
+			 * cannot be wrapped in Convex mutations like the other admin actions,
+			 * so their audit rows are written here, atomically with the session
+			 * write itself. The admin plugin stamps `impersonatedBy` on every
+			 * impersonation session, which also carries the acting admin.
+			 */
+			onCreate: async (ctx, session) => {
+				if (session.impersonatedBy) {
+					await ctx.db.insert('adminAuditLogs', {
+						adminUserId: session.impersonatedBy,
+						action: 'impersonate',
+						targetUserId: session.userId,
+						metadata: {},
+						timestamp: Date.now()
+					});
+				}
+			},
+			// Fires on explicit stop-impersonating and on cleanup of an expired
+			// impersonation session; both mean the impersonation ended.
+			onDelete: async (ctx, session) => {
+				if (session.impersonatedBy) {
+					await ctx.db.insert('adminAuditLogs', {
+						adminUserId: session.impersonatedBy,
+						action: 'stop_impersonation',
+						targetUserId: session.userId,
+						metadata: {},
+						timestamp: Date.now()
+					});
+				}
+			}
 		}
 	}
 });
@@ -310,12 +345,20 @@ function buildTrustedOrigins(): string[] {
 	}
 }
 
-// Creates Better Auth options object (used by adapter and betterAuth CLI)
-export const createAuthOptions = (ctx: GenericCtx<DataModel>): BetterAuthOptions => {
+// Creates Better Auth options object (used by adapter and betterAuth CLI).
+// Typed via `satisfies` (not a return annotation) so the concrete plugin
+// types survive into createAuth — admin/mutations.ts calls plugin endpoints
+// like auth.api.banUser in-process, which a plain BetterAuthOptions erases.
+export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
 	return {
 		baseURL: requireEnv('SITE_URL', { feature: 'Better Auth base URL' }),
 		trustedOrigins: buildTrustedOrigins(),
 		secret: requireEnv('BETTER_AUTH_SECRET', { feature: 'Better Auth session signing' }),
+		// Admin actions must go through the custom mutations in
+		// admin/mutations.ts (atomic audit log + guards). Disabling the raw
+		// HTTP endpoints closes the unguarded path; in-process auth.api calls
+		// from those mutations are unaffected. See admin/adminHttpPaths.ts.
+		disabledPaths: [...DISABLED_ADMIN_PATHS],
 		database: authComponent.adapter(ctx),
 		user: {
 			additionalFields: {
@@ -384,7 +427,7 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>): BetterAuthOptions
 				adminRoles: ['admin']
 			})
 		]
-	};
+	} satisfies BetterAuthOptions;
 };
 
 // Creates Better Auth instance (used in http.ts for routes)

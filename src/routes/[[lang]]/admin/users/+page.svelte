@@ -328,25 +328,10 @@
 		}
 	}
 
-	async function logAdminAction(
-		action:
-			| 'impersonate'
-			| 'stop_impersonation'
-			| 'ban_user'
-			| 'unban_user'
-			| 'revoke_sessions'
-			| 'set_role',
-		targetUserId: string,
-		metadata?:
-			| { reason: string }
-			| { newRole: UserRole; previousRole: UserRole }
-			| Record<string, never>
-	) {
-		await client.mutation(api.admin.mutations.createAuditLog, { action, targetUserId, metadata });
-	}
-
 	async function impersonateUser(userId: string) {
 		try {
+			// Impersonation stays on the Better Auth client (it mints session
+			// cookies); its audit entries are written by session triggers.
 			const result = await authClient.admin.impersonateUser({ userId });
 			if (result.error) {
 				const message = result.error.message || 'Unknown error';
@@ -355,7 +340,6 @@
 				return;
 			}
 
-			await logAdminAction('impersonate', userId, {});
 			impersonationDialogOpen = true;
 		} catch (error) {
 			const message = error instanceof Error ? error.message : 'Unknown error';
@@ -370,19 +354,8 @@
 		isActionLoading = true;
 		const defaultBanReason = $t('admin.users.ban_reason.default');
 		try {
-			const result = await authClient.admin.banUser({
+			await client.mutation(api.admin.mutations.banUser, {
 				userId: selectedUser.id,
-				banReason: banReason || defaultBanReason
-			});
-
-			if (result.error) {
-				const message = result.error.message || 'Unknown error';
-				toast.error($t('admin.users.toast.ban_failed', { message }));
-				console.error('Ban error:', result.error);
-				return;
-			}
-
-			await logAdminAction('ban_user', selectedUser.id, {
 				reason: banReason || defaultBanReason
 			});
 
@@ -402,18 +375,10 @@
 
 		isActionLoading = true;
 		try {
-			const result = await authClient.admin.unbanUser({
+			await client.mutation(api.admin.mutations.unbanUser, {
 				userId: selectedUser.id
 			});
 
-			if (result.error) {
-				const message = result.error.message || 'Unknown error';
-				toast.error($t('admin.users.toast.unban_failed', { message }));
-				console.error('Unban error:', result.error);
-				return;
-			}
-
-			await logAdminAction('unban_user', selectedUser.id, {});
 			toast.success($t('admin.users.toast.unbanned'));
 			closeDialog();
 		} catch (error) {
@@ -430,18 +395,10 @@
 
 		isActionLoading = true;
 		try {
-			const result = await authClient.admin.revokeUserSessions({
+			await client.mutation(api.admin.mutations.revokeUserSessions, {
 				userId: selectedUser.id
 			});
 
-			if (result.error) {
-				const message = result.error.message || 'Unknown error';
-				toast.error($t('admin.users.toast.revoke_failed', { message }));
-				console.error('Revoke sessions error:', result.error);
-				return;
-			}
-
-			await logAdminAction('revoke_sessions', selectedUser.id, {});
 			toast.success($t('admin.users.toast.revoked'));
 			closeDialog();
 		} catch (error) {
