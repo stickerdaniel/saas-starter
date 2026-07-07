@@ -26,6 +26,8 @@
 	import { toast } from 'svelte-sonner';
 	import { mode } from 'mode-watcher';
 	import { tick, onMount } from 'svelte';
+	import { fly } from 'svelte/transition';
+	import { prefersReducedMotion } from 'svelte/motion';
 
 	import { page } from '$app/state';
 	import { getTranslate } from '@tolgee/svelte';
@@ -81,6 +83,23 @@
 			messagesFade.markLoaded();
 		}
 	});
+
+	// Arm per-message enter animations one frame after the initial batch has
+	// rendered, so the loaded history doesn't replay an intro per message.
+	let animateNewMessages = $state(false);
+	$effect(() => {
+		if (!messagesFade.hasLoadedOnce) return;
+		const raf = requestAnimationFrame(() => (animateNewMessages = true));
+		return () => cancelAnimationFrame(raf);
+	});
+
+	function messageEnterDuration(message: { _id: string; userId: string }): number {
+		if (!animateNewMessages || prefersReducedMotion.current) return 0;
+		// The confirmed row replaces its optimistic twin under a new _id; skip
+		// that remount so an own send animates once, on the optimistic append.
+		if (isOwnMessage(message.userId) && !message._id.startsWith('temp_')) return 0;
+		return 200;
+	}
 
 	// Resolve background color for bottom gradient
 	let wrapperEl: HTMLDivElement | undefined = $state();
@@ -219,6 +238,7 @@
 								{@const own = isOwnMessage(message.userId)}
 								{@const firstInGroup = isFirstInGroup(index)}
 								<div
+									in:fly={{ y: 8, duration: messageEnterDuration(message) }}
 									class="flex w-full gap-2 {own ? 'flex-row-reverse' : 'flex-row'} {firstInGroup
 										? 'mt-6'
 										: 'mt-1'}"
