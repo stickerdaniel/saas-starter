@@ -1,4 +1,4 @@
-import { internalAction, query } from '../_generated/server';
+import { internalAction } from '../_generated/server';
 import { v, ConvexError } from 'convex/values';
 import { internal } from '../_generated/api';
 import { aiChatAgent } from './agent';
@@ -253,7 +253,7 @@ export const listMessages = authedQuery({
 /**
  * Get file metadata (dimensions) for multiple files by URL
  */
-export const getFileMetadataBatch = query({
+export const getFileMetadataBatch = authedQuery({
 	args: {
 		urls: v.array(v.string())
 	},
