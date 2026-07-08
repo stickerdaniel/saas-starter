@@ -14,10 +14,12 @@ export function createColumns(lang: string): Array<ColumnDef<AuditLogItem>> {
 			accessorKey: 'timestamp',
 			size: 170,
 			minSize: 150,
-			enableSorting: false,
-			header: () =>
+			enableSorting: true,
+			header: ({ column }) =>
 				renderComponent(DataTableColumnHeader, {
-					titleKey: 'admin.audit_log.column.time'
+					column,
+					titleKey: 'admin.audit_log.column.time',
+					testId: 'admin-audit-log-sort-time'
 				}),
 			cell: ({ row }) => {
 				const timeSnippet = createRawSnippet<[{ timestamp: number }]>((getData) => {

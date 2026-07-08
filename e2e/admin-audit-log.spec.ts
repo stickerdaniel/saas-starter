@@ -189,5 +189,37 @@ test.describe('Admin Audit Log', () => {
 		await expect(page.getByTestId('admin-audit-log-filter-clear')).toHaveCount(0);
 		await expect.poll(() => new URL(page.url()).searchParams.get('action')).toBeNull();
 		await expect(page.getByTestId('audit-log-row').first()).toBeVisible({ timeout: 10000 });
+
+		// The footer reports the unfiltered entry count (at least the ban + unban
+		// pair created above).
+		await expect(page.getByTestId('admin-audit-log-selection-text')).toHaveText(
+			/[1-9]\d*\s+entries/,
+			{ timeout: 10000 }
+		);
+
+		// The Time column header sorts. The default view is newest-first, so flipping
+		// to ascending (oldest-first) must change which entry leads the table.
+		const newestAction = (
+			await page.getByTestId('audit-log-action-badge').first().textContent()
+		)?.trim();
+
+		await page.getByTestId('admin-audit-log-sort-time').click();
+		await expect
+			.poll(() => new URL(page.url()).searchParams.get('sort'))
+			.toMatch(/^timestamp\.(asc|desc)$/);
+		await expect.poll(async () => page.getByTestId('admin-audit-log-loading').count()).toBe(0);
+
+		// A first toggle can land on desc (same visual order); click once more for asc.
+		if (new URL(page.url()).searchParams.get('sort') !== 'timestamp.asc') {
+			await page.getByTestId('admin-audit-log-sort-time').click();
+			await expect.poll(() => new URL(page.url()).searchParams.get('sort')).toBe('timestamp.asc');
+			await expect.poll(async () => page.getByTestId('admin-audit-log-loading').count()).toBe(0);
+		}
+
+		await expect(page.getByTestId('audit-log-row').first()).toBeVisible({ timeout: 10000 });
+		const oldestAction = (
+			await page.getByTestId('audit-log-action-badge').first().textContent()
+		)?.trim();
+		expect(oldestAction).not.toBe(newestAction);
 	});
 });

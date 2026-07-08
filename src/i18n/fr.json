@@ -36,7 +36,8 @@
 				"clear": "Effacer"
 			},
 			"loading": "Chargement du journal d'audit…",
-			"title": "Journal d'audit"
+			"title": "Journal d'audit",
+			"total_entries": "{count} entrées"
 		},
 		"dashboard": {
 			"database_backend": "Base de données & backend",
