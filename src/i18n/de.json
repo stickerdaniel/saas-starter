@@ -10,6 +10,34 @@
 			"set_role": "Rolle ändern",
 			"unban": "Sperre aufheben"
 		},
+		"audit_log": {
+			"action": {
+				"ban_user": "Benutzer sperren",
+				"impersonate": "Identität annehmen",
+				"revoke_sessions": "Sitzungen widerrufen",
+				"set_role": "Rolle festlegen",
+				"stop_impersonation": "Identität verlassen",
+				"unban_user": "Sperre aufheben"
+			},
+			"column": {
+				"action": "Aktion",
+				"admin": "Admin",
+				"details": "Details",
+				"target": "Ziel",
+				"time": "Zeit"
+			},
+			"deleted_user": "Gelöschter Benutzer",
+			"details": {
+				"role_change": "{previousRole} → {newRole}"
+			},
+			"empty": "Noch keine Audit-Log-Einträge.",
+			"filter": {
+				"all_actions": "Alle Aktionen",
+				"clear": "Zurücksetzen"
+			},
+			"loading": "Audit-Log wird geladen …",
+			"title": "Audit-Log"
+		},
 		"dashboard": {
 			"database_backend": "Datenbank & Backend",
 			"email_service": "E-Mail-Zustelldienst",
@@ -108,6 +136,7 @@
 			"type_custom": "Benutzerdefiniert"
 		},
 		"sidebar": {
+			"audit_log": "Audit-Log",
 			"back_to_app": "Zurück zur App",
 			"dashboard": "Dashboard",
 			"settings": "Einstellungen",
@@ -680,6 +709,10 @@
 			"title": "Über uns"
 		},
 		"admin": {
+			"audit_log": {
+				"description": "Admin-Aktionen auf der Plattform überprüfen.",
+				"title": "Audit-Log"
+			},
 			"dashboard": {
 				"description": "Überwachen Sie Plattformmetriken und externe Dienste.",
 				"title": "Admin-Dashboard"
