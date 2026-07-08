@@ -10,6 +10,34 @@
 			"set_role": "Cambiar Rol",
 			"unban": "Desbloquear Usuario"
 		},
+		"audit_log": {
+			"action": {
+				"ban_user": "Bloquear usuario",
+				"impersonate": "Suplantar",
+				"revoke_sessions": "Revocar sesiones",
+				"set_role": "Asignar rol",
+				"stop_impersonation": "Detener suplantación",
+				"unban_user": "Desbloquear usuario"
+			},
+			"column": {
+				"action": "Acción",
+				"admin": "Administrador",
+				"details": "Detalles",
+				"target": "Objetivo",
+				"time": "Hora"
+			},
+			"deleted_user": "Usuario eliminado",
+			"details": {
+				"role_change": "{previousRole} → {newRole}"
+			},
+			"empty": "Aún no hay entradas en el registro de auditoría.",
+			"filter": {
+				"all_actions": "Todas las acciones",
+				"clear": "Limpiar"
+			},
+			"loading": "Cargando registro de auditoría…",
+			"title": "Registro de auditoría"
+		},
 		"dashboard": {
 			"database_backend": "Base de datos y backend",
 			"email_service": "Servicio de entrega de correo",
@@ -108,6 +136,7 @@
 			"type_custom": "Personalizado"
 		},
 		"sidebar": {
+			"audit_log": "Auditoría",
 			"back_to_app": "Volver a la App",
 			"dashboard": "Panel",
 			"settings": "Configuración",
@@ -680,6 +709,10 @@
 			"title": "Acerca de nosotros"
 		},
 		"admin": {
+			"audit_log": {
+				"description": "Revisa las acciones de administración en la plataforma.",
+				"title": "Registro de auditoría"
+			},
 			"dashboard": {
 				"description": "Supervisa métricas de la plataforma y servicios externos.",
 				"title": "Panel de Admin"

@@ -10,6 +10,34 @@
 			"set_role": "Changer le Rôle",
 			"unban": "Débannir l'Utilisateur"
 		},
+		"audit_log": {
+			"action": {
+				"ban_user": "Bannir l'utilisateur",
+				"impersonate": "Usurper l'identité",
+				"revoke_sessions": "Révoquer les sessions",
+				"set_role": "Définir le rôle",
+				"stop_impersonation": "Arrêter l'usurpation",
+				"unban_user": "Réintégrer l'utilisateur"
+			},
+			"column": {
+				"action": "Action",
+				"admin": "Admin",
+				"details": "Détails",
+				"target": "Cible",
+				"time": "Heure"
+			},
+			"deleted_user": "Utilisateur supprimé",
+			"details": {
+				"role_change": "{previousRole} → {newRole}"
+			},
+			"empty": "Aucune entrée dans le journal d'audit pour le moment.",
+			"filter": {
+				"all_actions": "Toutes les actions",
+				"clear": "Effacer"
+			},
+			"loading": "Chargement du journal d'audit…",
+			"title": "Journal d'audit"
+		},
 		"dashboard": {
 			"database_backend": "Base de données & backend",
 			"email_service": "Service d'envoi d'e-mails",
@@ -108,6 +136,7 @@
 			"type_custom": "Personnalisé"
 		},
 		"sidebar": {
+			"audit_log": "Journal d'audit",
 			"back_to_app": "Retour à l'App",
 			"dashboard": "Tableau de bord",
 			"settings": "Paramètres",
@@ -680,6 +709,10 @@
 			"title": "À propos"
 		},
 		"admin": {
+			"audit_log": {
+				"description": "Consultez les actions d'administration sur la plateforme.",
+				"title": "Journal d'audit"
+			},
 			"dashboard": {
 				"description": "Surveillez les métriques de la plateforme et les services externes.",
 				"title": "Tableau de bord Admin"

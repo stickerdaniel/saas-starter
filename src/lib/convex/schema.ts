@@ -48,6 +48,7 @@ export default defineSchema({
 	})
 		.index('by_admin', ['adminUserId'])
 		.index('by_target', ['targetUserId'])
+		.index('by_action', ['action'])
 		.index('by_timestamp', ['timestamp']),
 
 	// Internal notes for users - visible only to admins, not to users

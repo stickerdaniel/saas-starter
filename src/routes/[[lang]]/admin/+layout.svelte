@@ -42,7 +42,7 @@
 	// svelte-ignore state_referenced_locally
 	setContext('currentUserId', viewer?._id);
 
-	// Keyboard shortcuts for admin sidebar navigation (⌃⇧1-4, ⌘.)
+	// Keyboard shortcuts for admin sidebar navigation (⌃⇧1-5, ⌘.)
 	function handleKeydown(e: KeyboardEvent) {
 		const target = e.target as HTMLElement;
 		if (target.closest('input, textarea, [contenteditable]')) return;
@@ -55,7 +55,8 @@
 				Digit1: localizedHref('/admin/dashboard'),
 				Digit2: localizedHref('/admin/users'),
 				Digit3: localizedHref('/admin/support'),
-				Digit4: localizedHref('/admin/settings')
+				Digit4: localizedHref('/admin/settings'),
+				Digit5: localizedHref('/admin/audit-log')
 			};
 			url = shiftRoutes[e.code];
 		} else if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.key === '.') {

@@ -10,6 +10,34 @@
 			"set_role": "Set Role",
 			"unban": "Unban User"
 		},
+		"audit_log": {
+			"action": {
+				"ban_user": "Ban user",
+				"impersonate": "Impersonate",
+				"revoke_sessions": "Revoke sessions",
+				"set_role": "Set role",
+				"stop_impersonation": "Stop impersonation",
+				"unban_user": "Unban user"
+			},
+			"column": {
+				"action": "Action",
+				"admin": "Admin",
+				"details": "Details",
+				"target": "Target",
+				"time": "Time"
+			},
+			"deleted_user": "Deleted user",
+			"details": {
+				"role_change": "{previousRole} → {newRole}"
+			},
+			"empty": "No audit log entries yet.",
+			"filter": {
+				"all_actions": "All actions",
+				"clear": "Clear"
+			},
+			"loading": "Loading audit log…",
+			"title": "Audit Log"
+		},
 		"dashboard": {
 			"database_backend": "Database & backend",
 			"email_service": "Email delivery service",
@@ -108,6 +136,7 @@
 			"type_custom": "Custom"
 		},
 		"sidebar": {
+			"audit_log": "Audit Log",
 			"back_to_app": "Back to App",
 			"dashboard": "Dashboard",
 			"settings": "Settings",
@@ -680,6 +709,10 @@
 			"title": "About Us"
 		},
 		"admin": {
+			"audit_log": {
+				"description": "Review admin actions across the platform.",
+				"title": "Audit Log"
+			},
 			"dashboard": {
 				"description": "Monitor platform metrics and external services.",
 				"title": "Admin Dashboard"
