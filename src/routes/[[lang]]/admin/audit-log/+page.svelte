@@ -242,21 +242,31 @@
 							</Table.Row>
 							{#each Array(skeletonCount) as _, i (i)}
 								<Table.Row>
-									<Table.Cell class="align-top">
+									<Table.Cell>
 										<div class="flex h-5 items-center"><Skeleton class="h-4 w-32" /></div>
 									</Table.Cell>
-									<Table.Cell class="align-top">
+									<Table.Cell>
 										<Skeleton class="h-5 w-20 rounded-4xl" />
 									</Table.Cell>
-									<Table.Cell class="align-top">
-										<div class="flex h-5 items-center"><Skeleton class="h-4 w-24" /></div>
-										<div class="flex h-4 items-center"><Skeleton class="h-3 w-32" /></div>
+									<Table.Cell>
+										<div class="flex items-center gap-2">
+											<Skeleton class="size-8 shrink-0 rounded-full" />
+											<div class="min-w-0">
+												<div class="flex h-5 items-center"><Skeleton class="h-4 w-24" /></div>
+												<div class="flex h-4 items-center"><Skeleton class="h-3 w-32" /></div>
+											</div>
+										</div>
 									</Table.Cell>
-									<Table.Cell class="align-top">
-										<div class="flex h-5 items-center"><Skeleton class="h-4 w-24" /></div>
-										<div class="flex h-4 items-center"><Skeleton class="h-3 w-32" /></div>
+									<Table.Cell>
+										<div class="flex items-center gap-2">
+											<Skeleton class="size-8 shrink-0 rounded-full" />
+											<div class="min-w-0">
+												<div class="flex h-5 items-center"><Skeleton class="h-4 w-24" /></div>
+												<div class="flex h-4 items-center"><Skeleton class="h-3 w-32" /></div>
+											</div>
+										</div>
 									</Table.Cell>
-									<Table.Cell class="align-top">
+									<Table.Cell>
 										<div class="flex h-5 items-center"><Skeleton class="h-4 w-40" /></div>
 									</Table.Cell>
 								</Table.Row>
@@ -285,7 +295,7 @@
 							{#each table.getRowModel().rows as row (row.id)}
 								<Table.Row data-testid="audit-log-row">
 									{#each row.getVisibleCells() as cell (cell.id)}
-										<Table.Cell class="align-top">
+										<Table.Cell>
 											<FlexRender
 												content={cell.column.columnDef.cell}
 												context={cell.getContext()}

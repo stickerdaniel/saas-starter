@@ -31,7 +31,7 @@ const auditLogMetadataValidator = v.optional(
 
 /**
  * A resolved user reference for an audit log row. The raw Better Auth id is
- * always present; name/email are filled only while the user still exists.
+ * always present; name/email/image are filled only while the user still exists.
  * `exists: false` means the user was deleted after the action was logged, but
  * the id stays available so the UI can still reference the original actor/target.
  */
@@ -39,6 +39,7 @@ const auditLogUserRefValidator = v.object({
 	id: v.string(),
 	name: v.optional(v.string()),
 	email: v.optional(v.string()),
+	image: v.optional(v.string()),
 	exists: v.boolean()
 });
 
@@ -127,23 +128,23 @@ function queryAuditLogs(
 }
 
 /**
- * Resolve a set of Better Auth user ids to { name, email }. Deleted users are
- * simply absent from the returned map. Lookups are bounded by page size: a page
- * holds at most `2 * numItems` unique ids (admin + target), each resolved with
- * a single point read, so this never scans the user table.
+ * Resolve a set of Better Auth user ids to { name, email, image }. Deleted
+ * users are simply absent from the returned map. Lookups are bounded by page
+ * size: a page holds at most `2 * numItems` unique ids (admin + target), each
+ * resolved with a single point read, so this never scans the user table.
  */
 async function resolveUsers(
 	ctx: QueryCtx,
 	ids: Set<string>
-): Promise<Map<string, { name?: string; email?: string }>> {
-	const resolved = new Map<string, { name?: string; email?: string }>();
+): Promise<Map<string, { name?: string; email?: string; image?: string }>> {
+	const resolved = new Map<string, { name?: string; email?: string; image?: string }>();
 	for (const id of ids) {
 		const user = (await ctx.runQuery(components.betterAuth.adapter.findOne, {
 			model: 'user',
 			where: [{ field: '_id', operator: 'eq', value: id }]
 		})) as BetterAuthUser | null;
 		if (user) {
-			resolved.set(id, { name: user.name, email: user.email });
+			resolved.set(id, { name: user.name, email: user.email, image: user.image ?? undefined });
 		}
 	}
 	return resolved;
@@ -151,13 +152,13 @@ async function resolveUsers(
 
 function toUserRef(
 	id: string,
-	resolved: Map<string, { name?: string; email?: string }>
+	resolved: Map<string, { name?: string; email?: string; image?: string }>
 ): Infer<typeof auditLogUserRefValidator> {
 	const info = resolved.get(id);
 	if (!info) {
 		return { id, exists: false };
 	}
-	return { id, name: info.name, email: info.email, exists: true };
+	return { id, name: info.name, email: info.email, image: info.image, exists: true };
 }
 
 /**
