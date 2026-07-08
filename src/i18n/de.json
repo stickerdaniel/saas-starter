@@ -36,7 +36,8 @@
 				"clear": "Zurücksetzen"
 			},
 			"loading": "Audit-Log wird geladen …",
-			"title": "Audit-Log"
+			"title": "Audit-Log",
+			"total_entries": "{count} Einträge"
 		},
 		"dashboard": {
 			"database_backend": "Datenbank & Backend",

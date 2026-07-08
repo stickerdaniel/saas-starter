@@ -2,11 +2,12 @@
 	import SEOHead from '$lib/components/SEOHead.svelte';
 	import * as v from 'valibot';
 	import { clamp } from '$lib/utils/math';
-	import { getCoreRowModel } from '@tanstack/table-core';
+	import { type SortingState, getCoreRowModel } from '@tanstack/table-core';
 	import * as Table from '$lib/components/ui/table/index.js';
 	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
 	import { T, getTranslate } from '@tolgee/svelte';
 	import { useConvexClient } from 'convex-svelte';
+	import { adminCache } from '$lib/hooks/admin-cache.svelte';
 	import { api } from '$lib/convex/_generated/api.js';
 	import { createSvelteTable, FlexRender } from '$lib/components/ui/data-table/index.js';
 	import ConvexCursorTableShell from '$lib/components/tables/convex-cursor-table-shell.svelte';
@@ -57,7 +58,7 @@
 	const auditTable = createConvexCursorTable<
 		AuditLogItem,
 		'action',
-		never,
+		'timestamp',
 		typeof api.admin.auditLog.queries.listAuditLogs,
 		typeof api.admin.auditLog.queries.getAuditLogCount,
 		v.InferOutput<typeof auditLogTableParamsSchema>
@@ -68,19 +69,22 @@
 		defaultFilters: { action: 'all' },
 		pageSizeOptions: PAGE_SIZE_OPTIONS,
 		defaultPageSize: '20',
-		sortFields: [],
-		buildListArgs: ({ cursor, pageSize, filters }) => ({
+		sortFields: ['timestamp'],
+		buildListArgs: ({ cursor, pageSize, filters, sortBy }) => ({
 			cursor: cursor ?? undefined,
 			numItems: pageSize,
-			actionFilter: filters.action === 'all' ? undefined : (filters.action as AuditLogAction)
+			actionFilter: filters.action === 'all' ? undefined : (filters.action as AuditLogAction),
+			sortBy: sortBy ? { field: 'timestamp', direction: sortBy.direction } : undefined
 		}),
+		// Count is order-independent, so the sort direction is intentionally omitted.
 		buildCountArgs: ({ filters }) => ({
 			actionFilter: filters.action === 'all' ? undefined : (filters.action as AuditLogAction)
 		}),
-		resolveLastPage: async ({ pageSize, filters }) => {
+		resolveLastPage: async ({ pageSize, filters, sortBy }) => {
 			const result = await client.query(api.admin.auditLog.queries.resolveAuditLogLastPage, {
 				numItems: pageSize,
-				actionFilter: filters.action === 'all' ? undefined : (filters.action as AuditLogAction)
+				actionFilter: filters.action === 'all' ? undefined : (filters.action as AuditLogAction),
+				sortBy: sortBy ? { field: 'timestamp', direction: sortBy.direction } : undefined
 			});
 			return { page: result.page, cursor: result.cursor };
 		},
@@ -95,13 +99,36 @@
 	const actionFilter = $derived.by(() =>
 		auditTable.filters.action === 'all' ? undefined : (auditTable.filters.action as AuditLogAction)
 	);
+	const sorting = $derived.by<SortingState>(() => {
+		const sortBy = auditTable.sortBy;
+		if (!sortBy) return [];
+		return [{ id: 'timestamp', desc: sortBy.direction === 'desc' }];
+	});
 
+	// Total entry count for the footer: prefer the freshly loaded count, falling
+	// back to the persisted cache so it shows immediately on first paint. Renders
+	// "5000+" at the getAuditLogCount 5001-row cap.
+	const totalEntries = $derived(
+		auditTable.hasLoadedCount ? auditTable.totalCount : (adminCache.auditLogCount.current ?? 0)
+	);
+	const totalEntriesLabel = $derived(totalEntries >= 5001 ? '5000+' : `${totalEntries}`);
+
+	// Skeleton prediction: use the cached count so first paint renders only as
+	// many skeleton rows as the current page will actually hold (falls back to a
+	// full page when nothing is cached yet).
 	const skeletonCount = $derived.by(() => {
-		if (auditTable.hasLoadedCount) {
-			const remaining = auditTable.totalCount - pageIndex * pageSize;
+		if (adminCache.auditLogCount.current !== null) {
+			const remaining = adminCache.auditLogCount.current - pageIndex * pageSize;
 			return clamp(remaining, 0, pageSize);
 		}
 		return pageSize;
+	});
+
+	// Persist the audit log count once it loads so later visits predict skeletons.
+	$effect(() => {
+		if (auditTable.hasLoadedCount) {
+			adminCache.auditLogCount.current = auditTable.totalCount;
+		}
 	});
 
 	function handleFilterChange(action: AuditLogAction | undefined) {
@@ -118,6 +145,9 @@
 		state: {
 			get pagination() {
 				return { pageIndex, pageSize };
+			},
+			get sorting() {
+				return sorting;
 			}
 		},
 		manualPagination: true,
@@ -127,7 +157,23 @@
 			return auditTable.pageCount;
 		},
 		getRowId: (row) => row.id,
-		getCoreRowModel: getCoreRowModel()
+		getCoreRowModel: getCoreRowModel(),
+		onSortingChange: (updater) => {
+			const nextSorting = typeof updater === 'function' ? updater(sorting) : updater;
+			if (nextSorting.length === 0) {
+				auditTable.setSort(undefined);
+				return;
+			}
+			const primarySort = nextSorting[0]!;
+			if (primarySort.id !== 'timestamp') {
+				auditTable.setSort(undefined);
+				return;
+			}
+			auditTable.setSort({
+				field: 'timestamp',
+				direction: primarySort.desc ? 'desc' : 'asc'
+			});
+		}
 	});
 </script>
 
@@ -160,6 +206,7 @@
 			onNextPage={auditTable.goNext}
 			onLastPage={auditTable.goLast}
 			onPageSizeChange={auditTable.setPageSize}
+			selectionText={$t('admin.audit_log.total_entries', { count: totalEntriesLabel })}
 		>
 			{#snippet toolbarFilters()}
 				<DataTableFilters {actionFilter} onFilterChange={handleFilterChange} />
@@ -195,17 +242,23 @@
 							</Table.Row>
 							{#each Array(skeletonCount) as _, i (i)}
 								<Table.Row>
-									<Table.Cell><Skeleton class="h-4 w-32" /></Table.Cell>
-									<Table.Cell><Skeleton class="h-5 w-20 rounded-md" /></Table.Cell>
-									<Table.Cell>
-										<Skeleton class="h-4 w-24" />
-										<Skeleton class="mt-1 h-3 w-32" />
+									<Table.Cell class="align-top">
+										<div class="flex h-5 items-center"><Skeleton class="h-4 w-32" /></div>
 									</Table.Cell>
-									<Table.Cell>
-										<Skeleton class="h-4 w-24" />
-										<Skeleton class="mt-1 h-3 w-32" />
+									<Table.Cell class="align-top">
+										<Skeleton class="h-5 w-20 rounded-4xl" />
 									</Table.Cell>
-									<Table.Cell><Skeleton class="h-4 w-40" /></Table.Cell>
+									<Table.Cell class="align-top">
+										<div class="flex h-5 items-center"><Skeleton class="h-4 w-24" /></div>
+										<div class="flex h-4 items-center"><Skeleton class="h-3 w-32" /></div>
+									</Table.Cell>
+									<Table.Cell class="align-top">
+										<div class="flex h-5 items-center"><Skeleton class="h-4 w-24" /></div>
+										<div class="flex h-4 items-center"><Skeleton class="h-3 w-32" /></div>
+									</Table.Cell>
+									<Table.Cell class="align-top">
+										<div class="flex h-5 items-center"><Skeleton class="h-4 w-40" /></div>
+									</Table.Cell>
 								</Table.Row>
 							{/each}
 						{:else if loadError}

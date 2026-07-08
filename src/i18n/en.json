@@ -36,7 +36,8 @@
 				"clear": "Clear"
 			},
 			"loading": "Loading audit log…",
-			"title": "Audit Log"
+			"title": "Audit Log",
+			"total_entries": "{count} entries"
 		},
 		"dashboard": {
 			"database_backend": "Database & backend",

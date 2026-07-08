@@ -74,40 +74,56 @@ type AuditLogFilters = {
 };
 
 /**
+ * Sort configuration for the audit log table. Only the timestamp column is
+ * sortable; the UI flips between newest-first and oldest-first. Direction
+ * defaults to 'desc' (newest first) when the arg is omitted.
+ */
+export const auditLogSortByValidator = v.object({
+	field: v.literal('timestamp'),
+	direction: v.union(v.literal('asc'), v.literal('desc'))
+});
+
+type AuditLogDirection = 'asc' | 'desc';
+
+/**
  * Pick the single most selective index for the given filter and return the
- * newest-first ordered query.
+ * query ordered by `direction` (defaults to newest-first).
  *
  * Filters are treated as mutually exclusive: the UI sends at most one of
  * actionFilter, adminUserId, or targetUserId, so we choose exactly one index
  * and do NOT apply the remaining filters as extra conditions (v1). Priority if
  * several are somehow set: action -> admin -> target -> unfiltered
  * (by_timestamp). For the single-value index branches, ordering by the index
- * resolves to `_creationTime desc` within the pinned value, which matches the
+ * resolves to `_creationTime` within the pinned value, which matches the
  * `timestamp` insertion order used by the writers in admin/mutations.ts.
  */
-function queryAuditLogs(ctx: QueryCtx, filters: AuditLogFilters) {
+function queryAuditLogs(
+	ctx: QueryCtx,
+	filters: AuditLogFilters,
+	direction: AuditLogDirection = 'desc'
+) {
 	if (filters.actionFilter !== undefined) {
 		const action = filters.actionFilter;
 		return ctx.db
 			.query('adminAuditLogs')
 			.withIndex('by_action', (q) => q.eq('action', action))
-			.order('desc');
+			.order(direction);
 	}
 	if (filters.adminUserId !== undefined) {
 		const adminUserId = filters.adminUserId;
 		return ctx.db
 			.query('adminAuditLogs')
 			.withIndex('by_admin', (q) => q.eq('adminUserId', adminUserId))
-			.order('desc');
+			.order(direction);
 	}
 	if (filters.targetUserId !== undefined) {
 		const targetUserId = filters.targetUserId;
 		return ctx.db
 			.query('adminAuditLogs')
 			.withIndex('by_target', (q) => q.eq('targetUserId', targetUserId))
-			.order('desc');
+			.order(direction);
 	}
-	return ctx.db.query('adminAuditLogs').withIndex('by_timestamp').order('desc');
+	return ctx.db.query('adminAuditLogs').withIndex('by_timestamp').order(direction);
 }
 
 /**
@@ -156,6 +172,7 @@ export const listAuditLogs = adminQuery({
 	args: {
 		cursor: v.optional(v.string()),
 		numItems: v.number(),
+		sortBy: v.optional(auditLogSortByValidator),
 		...auditLogFilterArgs
 	},
 	returns: v.object({
@@ -164,7 +181,8 @@ export const listAuditLogs = adminQuery({
 		isDone: v.boolean()
 	}),
 	handler: async (ctx, args) => {
-		const result = await queryAuditLogs(ctx, args).paginate({
+		const direction = args.sortBy?.direction ?? 'desc';
+		const result = await queryAuditLogs(ctx, args, direction).paginate({
 			numItems: args.numItems,
 			cursor: args.cursor ?? null
 		});
@@ -228,6 +246,7 @@ export const getAuditLogCount = adminQuery({
 export const resolveAuditLogLastPage = adminQuery({
 	args: {
 		numItems: v.number(),
+		sortBy: v.optional(auditLogSortByValidator),
 		...auditLogFilterArgs
 	},
 	returns: v.object({
@@ -235,6 +254,7 @@ export const resolveAuditLogLastPage = adminQuery({
 		cursor: v.union(v.string(), v.null())
 	}),
 	handler: async (ctx, args): Promise<{ page: number; cursor: string | null }> => {
+		const direction = args.sortBy?.direction ?? 'desc';
 		const pageSize = Number.isFinite(args.numItems) && args.numItems > 0 ? args.numItems : 10;
 		const maxPages = Math.ceil(5001 / pageSize);
 
@@ -246,7 +266,10 @@ export const resolveAuditLogLastPage = adminQuery({
 		let found = false;
 
 		for (let step = 0; step < maxPages; step++) {
-			const result = await queryAuditLogs(ctx, args).paginate({ numItems: pageSize, cursor });
+			const result = await queryAuditLogs(ctx, args, direction).paginate({
+				numItems: pageSize,
+				cursor
+			});
 
 			if (result.page.length > 0) {
 				lastNonEmptyIndex = index;

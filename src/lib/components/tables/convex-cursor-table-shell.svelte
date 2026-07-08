@@ -35,6 +35,7 @@
 		showSearch?: boolean;
 		tableTestId?: string;
 		searchTestId?: string;
+		selectionTextTestId?: string;
 		pageIndicatorTestId?: string;
 		paginationPrevTestId?: string;
 		paginationNextTestId?: string;
@@ -66,6 +67,7 @@
 		showSearch = true,
 		tableTestId = `${testIdPrefix}-table`,
 		searchTestId = `${testIdPrefix}-search`,
+		selectionTextTestId = `${testIdPrefix}-selection-text`,
 		pageIndicatorTestId = `${testIdPrefix}-page-indicator`,
 		paginationPrevTestId = `${testIdPrefix}-pagination-prev`,
 		paginationNextTestId = `${testIdPrefix}-pagination-next`,
@@ -106,7 +108,10 @@
 	</div>
 
 	<div class="flex items-center justify-between px-2">
-		<div class="hidden flex-1 text-sm text-muted-foreground lg:flex">
+		<div
+			class="hidden flex-1 text-sm text-muted-foreground lg:flex"
+			data-testid={selectionTextTestId}
+		>
 			{selectionText}
 		</div>
 

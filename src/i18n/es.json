@@ -36,7 +36,8 @@
 				"clear": "Limpiar"
 			},
 			"loading": "Cargando registro de auditoría…",
-			"title": "Registro de auditoría"
+			"title": "Registro de auditoría",
+			"total_entries": "{count} entradas"
 		},
 		"dashboard": {
 			"database_backend": "Base de datos y backend",
