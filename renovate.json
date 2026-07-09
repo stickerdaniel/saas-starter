@@ -38,6 +38,7 @@
 			"matchPackageNames": [
 				"!better-auth",
 				"!ai",
+				"!autumn-js",
 				"!eslint",
 				"!@eslint/compat",
 				"!@eslint/js",
@@ -94,6 +95,12 @@
 				"/^@convex-dev/agent$/",
 				"/^@openrouter/ai-sdk-provider$/"
 			]
+		},
+		{
+			"description": "Disable autumn-js major updates until @useautumn/convex ships an autumn-js 1.x compatible release (#666)",
+			"matchUpdateTypes": ["major"],
+			"enabled": false,
+			"matchPackageNames": ["autumn-js"]
 		},
 		{
 			"description": "Group ESLint non-major updates for manual review",

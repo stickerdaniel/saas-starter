@@ -115,7 +115,7 @@
 		"@tailwindcss/vite": "4.3.2",
 		"@tanstack/table-core": "8.21.3",
 		"@tolgee/cli": "2.20.0",
-		"@types/node": "25.9.4",
+		"@types/node": "26.1.0",
 		"@typescript-eslint/eslint-plugin": "8.62.1",
 		"@typescript-eslint/parser": "8.62.1",
 		"bits-ui": "2.18.1",
