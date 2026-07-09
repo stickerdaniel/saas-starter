@@ -83,9 +83,9 @@
 		{
 			"type": "git",
 			"name": "svAnimate",
-			"url": "https://github.com/SikandarJODD/sv-animate",
+			"url": "https://github.com/SikandarJODD/animations",
 			"branch": "master",
-			"specialNotes": "Prebuilt animation components for Svelte."
+			"specialNotes": "Prebuilt animation components for Svelte 5 (Magic UI + Spell UI, sv-animations.vercel.app). Successor of the older sv-animate repo."
 		},
 		{
 			"type": "git",
