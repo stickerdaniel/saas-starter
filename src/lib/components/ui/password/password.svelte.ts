@@ -1,8 +1,8 @@
 import { Context, watch } from 'runed';
 import type { ReadableBoxedValues, WritableBoxedValues } from 'svelte-toolbelt';
-import type { zxcvbn, ZxcvbnResult } from '@zxcvbn-ts/core';
+import type { ZxcvbnFactory, ZxcvbnResult } from '@zxcvbn-ts/core';
 
-type ZxcvbnRunner = typeof zxcvbn;
+type ZxcvbnRunner = ZxcvbnFactory;
 
 /** Tracks whether zxcvbn is ready. Reactive via $state. */
 let dictionariesLoaded = $state(false);
@@ -17,7 +17,7 @@ function loadZxcvbn(): Promise<ZxcvbnRunner> {
 		import('@zxcvbn-ts/language-en')
 	])
 		.then(([core, common, en]) => {
-			core.zxcvbnOptions.setOptions({
+			zxcvbnRunner = new core.ZxcvbnFactory({
 				translations: en.translations,
 				graphs: common.adjacencyGraphs,
 				dictionary: {
@@ -25,9 +25,8 @@ function loadZxcvbn(): Promise<ZxcvbnRunner> {
 					...en.dictionary
 				}
 			});
-			zxcvbnRunner = core.zxcvbn;
 			dictionariesLoaded = true;
-			return core.zxcvbn;
+			return zxcvbnRunner;
 		})
 		.catch((error: unknown) => {
 			loadPromise = null; // allow retry on failure
@@ -38,17 +37,11 @@ function loadZxcvbn(): Promise<ZxcvbnRunner> {
 
 const EMPTY_RESULT: ZxcvbnResult = {
 	calcTime: 0,
-	crackTimesDisplay: {
-		offlineFastHashing1e10PerSecond: '',
-		offlineSlowHashing1e4PerSecond: '',
-		onlineNoThrottling10PerSecond: '',
-		onlineThrottling100PerHour: ''
-	},
-	crackTimesSeconds: {
-		offlineFastHashing1e10PerSecond: 0,
-		offlineSlowHashing1e4PerSecond: 0,
-		onlineNoThrottling10PerSecond: 0,
-		onlineThrottling100PerHour: 0
+	crackTimes: {
+		onlineThrottlingXPerHour: { base: null, seconds: 0, display: '' },
+		onlineNoThrottlingXPerSecond: { base: null, seconds: 0, display: '' },
+		offlineSlowHashingXPerSecond: { base: null, seconds: 0, display: '' },
+		offlineFastHashingXPerSecond: { base: null, seconds: 0, display: '' }
 	},
 	feedback: { warning: null, suggestions: [] },
 	guesses: 0,
@@ -92,7 +85,7 @@ class PasswordRootState {
 	// Re-runs when password changes OR when dictionariesLoaded flips to true
 	strength = $derived.by(() => {
 		if (!dictionariesLoaded || !zxcvbnRunner) return EMPTY_RESULT;
-		return zxcvbnRunner(this.passwordState.value);
+		return zxcvbnRunner.check(this.passwordState.value);
 	});
 }
 
