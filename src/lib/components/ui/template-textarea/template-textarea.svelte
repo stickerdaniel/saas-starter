@@ -58,6 +58,5 @@
 		{rows}
 		oninput={handleScroll}
 		onscroll={handleScroll}
-		{...restProps}
-	></textarea>
+		{...restProps}></textarea>
 </div>
