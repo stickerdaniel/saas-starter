@@ -25,9 +25,9 @@
         "@tolgee/svelte": "^7.0.0",
         "@varlock/vite-integration": "^1.1.0",
         "@zumer/snapdom": "^2.0.0",
-        "@zxcvbn-ts/core": "^3.0.4",
-        "@zxcvbn-ts/language-common": "^3.0.4",
-        "@zxcvbn-ts/language-en": "^3.0.2",
+        "@zxcvbn-ts/core": "^4",
+        "@zxcvbn-ts/language-common": "^4",
+        "@zxcvbn-ts/language-en": "^4",
         "ai": "^6.0.174",
         "atmn": "^1.0.0",
         "autumn-js": "^0.1.43",
@@ -1474,11 +1474,13 @@
 
     "@zumer/snapdom": ["@zumer/snapdom@2.0.1", "", {}, "sha512-78/qbYl2FTv4H6qaXcNfAujfIOSzdvs83NW63VbyC9QA3sqNPfPvhn4xYMO6Gy11hXwJUEhd0z65yKiNzDwy9w=="],
 
-    "@zxcvbn-ts/core": ["@zxcvbn-ts/core@3.0.4", "", { "dependencies": { "fastest-levenshtein": "1.0.16" } }, "sha512-aQeiT0F09FuJaAqNrxynlAwZ2mW/1MdXakKWNmGM1Qp/VaY6CnB/GfnMS2T8gB2231Esp1/maCWd8vTG4OuShw=="],
+    "@zxcvbn-ts/core": ["@zxcvbn-ts/core@4.1.2", "", { "dependencies": { "fastest-levenshtein": "1.0.16" } }, "sha512-RQmxWB3AMI+HGQErQdUv6Aq32aQhp6xOxrfgCP0+T9MsLZoP3xtLHuT8O8VojsUxdmQVZfJlYkYb1A0wOwIS+Q=="],
 
-    "@zxcvbn-ts/language-common": ["@zxcvbn-ts/language-common@3.0.4", "", {}, "sha512-viSNNnRYtc7ULXzxrQIVUNwHAPSXRtoIwy/Tq4XQQdIknBzw4vz36lQLF6mvhMlTIlpjoN/Z1GFu/fwiAlUSsw=="],
+    "@zxcvbn-ts/dictionary-compression": ["@zxcvbn-ts/dictionary-compression@3.0.1", "", {}, "sha512-p3KyPzxGc3vWSap5hHA6SllbUCmh7s+NtpGyC3qEWrxYJT9t9TUAzjPm48Okipo+UUyPQfDlIvTcs9JRShBFiQ=="],
 
-    "@zxcvbn-ts/language-en": ["@zxcvbn-ts/language-en@3.0.2", "", {}, "sha512-Zp+zL+I6Un2Bj0tRXNs6VUBq3Djt+hwTwUz4dkt2qgsQz47U0/XthZ4ULrT/RxjwJRl5LwiaKOOZeOtmixHnjg=="],
+    "@zxcvbn-ts/language-common": ["@zxcvbn-ts/language-common@4.1.2", "", { "dependencies": { "@zxcvbn-ts/dictionary-compression": "^3.0.1" } }, "sha512-uJlBzhC9/KjPImqdnc1/lPxmdn4xKbkruN5p1mASWkXA0gli+GZ5LrVL+dqscA8Pcf4OfudE56TtCWeHljJOvA=="],
+
+    "@zxcvbn-ts/language-en": ["@zxcvbn-ts/language-en@4.1.1", "", { "dependencies": { "@zxcvbn-ts/dictionary-compression": "^3.0.1" } }, "sha512-6UdzuBd3Uex8TKubohcn+uXRVAH34Zjs2eCfT4hQVo9zeTy7AkQRQfdV4OnHR5hQfW/XBrK/AGTZk7VBWh7wwQ=="],
 
     "abbrev": ["abbrev@3.0.1", "", {}, "sha512-AO2ac6pjRB3SJmGJo+v5/aK6Omggp6fsLrs6wN9bd35ulu4cCwaAU9+7ZhXjeqHVkaHThLuzH0nZr0YpCDhygg=="],
 
