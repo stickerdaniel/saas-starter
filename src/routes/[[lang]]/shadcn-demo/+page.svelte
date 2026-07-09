@@ -21,8 +21,7 @@
 	const { t } = getTranslate();
 
 	type LoadingBarDebugState =
-		| { mode: 'progress'; value: number; label: string }
-		| { mode: 'loading'; label: string };
+		{ mode: 'progress'; value: number; label: string } | { mode: 'loading'; label: string };
 
 	let loadingBarDebugState = $state<LoadingBarDebugState>({
 		mode: 'progress',

@@ -32,8 +32,13 @@
 			},
 			"empty": "Aucune entrée dans le journal d'audit pour le moment.",
 			"filter": {
+				"against": "contre",
 				"all_actions": "Toutes les actions",
-				"clear": "Effacer"
+				"aria_admin": "Filtrer les actions de {name}",
+				"aria_target": "Filtrer les actions contre {name}",
+				"by": "par",
+				"clear": "Effacer",
+				"remove_user": "Retirer le filtre utilisateur"
 			},
 			"loading": "Chargement du journal d'audit…",
 			"title": "Journal d'audit",

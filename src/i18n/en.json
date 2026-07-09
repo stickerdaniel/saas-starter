@@ -32,8 +32,13 @@
 			},
 			"empty": "No audit log entries yet.",
 			"filter": {
+				"against": "against",
 				"all_actions": "All actions",
-				"clear": "Clear"
+				"aria_admin": "Filter actions by {name}",
+				"aria_target": "Filter actions against {name}",
+				"by": "by",
+				"clear": "Clear",
+				"remove_user": "Remove user filter"
 			},
 			"loading": "Loading audit log…",
 			"title": "Audit Log",

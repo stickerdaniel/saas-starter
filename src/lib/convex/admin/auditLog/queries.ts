@@ -213,6 +213,22 @@ export const listAuditLogs = adminQuery({
 });
 
 /**
+ * Resolve a single Better Auth user id to the same {@link auditLogUserRefValidator}
+ * shape the table cells use. Powers the deep-linked filter chip: when the page
+ * loads with `?admin=<id>` / `?target=<id>` the name is not in any visible row,
+ * so the chip resolves it here. A single point read (see {@link resolveUsers}),
+ * `exists: false` (id echoed back) for a user deleted after the action was logged.
+ */
+export const resolveAuditLogUser = adminQuery({
+	args: { userId: v.string() },
+	returns: auditLogUserRefValidator,
+	handler: async (ctx, args) => {
+		const resolved = await resolveUsers(ctx, new Set([args.userId]));
+		return toUserRef(args.userId, resolved);
+	}
+});
+
+/**
  * Count audit log entries matching the same (mutually exclusive) filter as
  * {@link listAuditLogs}. Count half of the table-kit contract.
  *

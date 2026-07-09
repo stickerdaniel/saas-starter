@@ -83,18 +83,17 @@
 
 	const renderItems: RenderItem[] = $derived.by(() => {
 		if (orderedParts.length > 0) {
-			return orderedParts.map(
-				(part): RenderItem =>
-					part.kind === 'reasoning'
-						? {
-								kind: 'reasoning',
-								text: part.text,
-								isStreaming: part.isStreaming,
-								hasContent: part.hasContent,
-								key: part.key,
-								stateKey: `${message.id}:${part.key}`
-							}
-						: part
+			return orderedParts.map((part): RenderItem =>
+				part.kind === 'reasoning'
+					? {
+							kind: 'reasoning',
+							text: part.text,
+							isStreaming: part.isStreaming,
+							hasContent: part.hasContent,
+							key: part.key,
+							stateKey: `${message.id}:${part.key}`
+						}
+					: part
 			);
 		}
 

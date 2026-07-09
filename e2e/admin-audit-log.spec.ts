@@ -222,4 +222,45 @@ test.describe('Admin Audit Log', () => {
 		)?.trim();
 		expect(oldestAction).not.toBe(newestAction);
 	});
+
+	test('filters the log by clicking a target user cell', async ({ page }) => {
+		// Guarantee genuine audit entries for our target, independent of test order.
+		await banAndUnbanTarget(page, targetEmail);
+
+		await page.goto('/en/admin/audit-log');
+		await page.waitForLoadState('domcontentloaded');
+		await waitForAuditLogReady(page);
+
+		// Clicking a target cell that references our seeded user filters the log to
+		// "all actions against user X" and sets the canonical `target` URL param.
+		await page
+			.getByTestId('audit-log-target-cell')
+			.filter({ hasText: targetEmail })
+			.first()
+			.click();
+
+		await expect.poll(() => new URL(page.url()).searchParams.get('target')).not.toBeNull();
+		await expect.poll(async () => page.getByTestId('admin-audit-log-loading').count()).toBe(0);
+
+		// The removable chip resolves the id to the target's name.
+		const chip = page.getByTestId('audit-log-user-filter-chip');
+		await expect(chip).toBeVisible();
+		await expect(chip).toContainText('Audit Log Target', { timeout: 10000 });
+
+		// Every visible row now references our target.
+		const targetCells = page.getByTestId('audit-log-target-cell');
+		await expect(targetCells.first()).toBeVisible({ timeout: 10000 });
+		const count = await targetCells.count();
+		expect(count).toBeGreaterThan(0);
+		for (let i = 0; i < count; i++) {
+			await expect(targetCells.nth(i)).toContainText(targetEmail);
+		}
+
+		// Removing the chip drops the param and widens the log again.
+		await page.getByTestId('audit-log-user-filter-chip-remove').click();
+		await expect.poll(() => new URL(page.url()).searchParams.get('target')).toBeNull();
+		await expect(page.getByTestId('audit-log-user-filter-chip')).toHaveCount(0);
+		await expect.poll(async () => page.getByTestId('admin-audit-log-loading').count()).toBe(0);
+		await expect(page.getByTestId('audit-log-row').first()).toBeVisible({ timeout: 10000 });
+	});
 });

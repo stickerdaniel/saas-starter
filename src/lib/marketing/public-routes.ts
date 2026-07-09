@@ -7,12 +7,7 @@ import { marketingMarkdown as privacyMarketingMarkdown } from '../../routes/[[la
 import { marketingMarkdown as termsMarketingMarkdown } from '../../routes/[[lang]]/(marketing)/terms/page.md';
 
 export type PublicMarketingRouteKey =
-	| 'home'
-	| 'about'
-	| 'pricing'
-	| 'privacy'
-	| 'terms'
-	| 'impressum';
+	'home' | 'about' | 'pricing' | 'privacy' | 'terms' | 'impressum';
 
 export interface PublicMarketingRouteDefinition {
 	key: PublicMarketingRouteKey;
