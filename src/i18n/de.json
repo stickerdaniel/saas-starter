@@ -32,8 +32,13 @@
 			},
 			"empty": "Noch keine Audit-Log-Einträge.",
 			"filter": {
+				"against": "gegen",
 				"all_actions": "Alle Aktionen",
-				"clear": "Zurücksetzen"
+				"aria_admin": "Aktionen von {name} filtern",
+				"aria_target": "Aktionen gegen {name} filtern",
+				"by": "von",
+				"clear": "Zurücksetzen",
+				"remove_user": "Benutzerfilter entfernen"
 			},
 			"loading": "Audit-Log wird geladen …",
 			"title": "Audit-Log",

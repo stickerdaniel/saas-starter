@@ -8,7 +8,15 @@ import ActionBadge from './action-badge.svelte';
 import UserRefCell from './user-ref-cell.svelte';
 import DetailsCell from './details-cell.svelte';
 
-export function createColumns(lang: string): Array<ColumnDef<AuditLogItem>> {
+type CellFilterHandlers = {
+	onFilterAdmin: (userId: string) => void;
+	onFilterTarget: (userId: string) => void;
+};
+
+export function createColumns(
+	lang: string,
+	handlers: CellFilterHandlers
+): Array<ColumnDef<AuditLogItem>> {
 	return [
 		{
 			accessorKey: 'timestamp',
@@ -59,6 +67,8 @@ export function createColumns(lang: string): Array<ColumnDef<AuditLogItem>> {
 			cell: ({ row }) =>
 				renderComponent(UserRefCell, {
 					user: row.original.admin,
+					kind: 'admin',
+					onFilter: () => handlers.onFilterAdmin(row.original.admin.id),
 					testId: 'audit-log-admin-cell'
 				})
 		},
@@ -74,6 +84,8 @@ export function createColumns(lang: string): Array<ColumnDef<AuditLogItem>> {
 			cell: ({ row }) =>
 				renderComponent(UserRefCell, {
 					user: row.original.target,
+					kind: 'target',
+					onFilter: () => handlers.onFilterTarget(row.original.target.id),
 					testId: 'audit-log-target-cell'
 				})
 		},
