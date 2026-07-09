@@ -38,9 +38,7 @@ export const EXT_TO_SHIKI_LANG: Readonly<Record<string, string>> = {
 };
 
 export type PreviewKind =
-	| { kind: 'markdown' }
-	| { kind: 'plaintext' }
-	| { kind: 'code'; lang: string };
+	{ kind: 'markdown' } | { kind: 'plaintext' } | { kind: 'code'; lang: string };
 
 /** Lowercased file extension including the dot, or null. */
 export function getExtension(filename: string | undefined): string | null {

@@ -118,10 +118,7 @@ export interface DisplayMessage extends ChatMessage {
 
 export type ToolPartType = `tool-${string}`;
 export type ToolPartState =
-	| 'input-streaming'
-	| 'input-available'
-	| 'output-available'
-	| 'output-error';
+	'input-streaming' | 'input-available' | 'output-available' | 'output-error';
 
 /**
  * Tool UI part from agent messages
@@ -166,10 +163,7 @@ export type ReasoningUIPart = {
  * Extended message part types
  */
 export type MessagePart =
-	| TextUIPart
-	| ReasoningUIPart
-	| ToolCallPart
-	| { type: string; [key: string]: unknown };
+	TextUIPart | ReasoningUIPart | ToolCallPart | { type: string; [key: string]: unknown };
 
 /**
  * Pagination state

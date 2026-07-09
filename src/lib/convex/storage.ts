@@ -1,5 +1,4 @@
 import { v, ConvexError } from 'convex/values';
-import { buildDownloadUrl } from '@gilhrpenner/convex-files-control';
 import { PROFILE_IMAGE_ALLOWED_TYPES, PROFILE_IMAGE_MAX_SIZE } from './constants';
 import { authedMutation } from './functions';
 import { components } from './_generated/api';
@@ -43,8 +42,11 @@ export const generateUploadUrl = authedMutation({
  * against the profile image requirements (allowed MIME types and size limit),
  * deleting rejected files via the component.
  *
- * Returns a permanent shareable download-grant URL served by the component's
- * `/files/download` HTTP route (registered in `http.ts`). The URL is
+ * Returns a permanent shareable download-grant URL served by the
+ * `/files/inline` HTTP route (registered in `http.ts`), which 302-redirects
+ * to the storage URL so avatars render inline and browser-cacheable — the
+ * component's own `/files/download` route forces `no-store` + `attachment`
+ * and proxy-streams the body, which made every avatar render slow. The URL is
  * provider-agnostic: transferring the file to another storage provider
  * rewrites the grant's storageId, so stored avatar URLs keep working.
  *
@@ -123,9 +125,6 @@ export const updateProfileImage = authedMutation({
 			throw new ConvexError('File storage is not configured.');
 		}
 
-		return buildDownloadUrl({
-			baseUrl: siteUrl,
-			downloadToken: grant.downloadToken
-		});
+		return `${siteUrl}/files/inline?token=${grant.downloadToken}`;
 	}
 });
