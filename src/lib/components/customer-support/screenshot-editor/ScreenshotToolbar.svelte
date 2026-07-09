@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button';
-	import * as Popover from '$lib/components/ui/popover';
+	import { ColorSelector } from '$lib/components/ui/color-selector';
 	import SquareIcon from '@lucide/svelte/icons/square';
 	import PencilIcon from '@lucide/svelte/icons/pencil';
 	import Undo2Icon from '@lucide/svelte/icons/undo-2';
@@ -10,12 +10,16 @@
 	import ArrowRightIcon from '@lucide/svelte/icons/arrow-right';
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import { screenshotEditorContext } from './screenshot-editor-context.svelte';
-	import { cn } from '$lib/utils';
 	import { DEFAULT_COLORS } from './types';
 	import { getTranslate } from '@tolgee/svelte';
 
 	const { t } = getTranslate();
 	const editor = screenshotEditorContext.get();
+
+	const colorSwatches = DEFAULT_COLORS.map((c) => c.value);
+	const colorLabels = $derived(
+		Object.fromEntries(DEFAULT_COLORS.map((c) => [c.value, $t(c.nameKey)]))
+	);
 
 	function handleToolClick(tool: typeof editor.currentTool) {
 		editor.setTool(tool);
@@ -79,42 +83,16 @@
 		<!-- Divider -->
 		<div class="my-1 h-px w-6 bg-border sm:mx-1 sm:my-0 sm:h-6 sm:w-px"></div>
 
-		<!-- Color Picker -->
-		<Popover.Root>
-			<Popover.Trigger>
-				{#snippet child({ props })}
-					<Button
-						{...props}
-						variant="ghost"
-						size="icon"
-						class="size-6 rounded-full border-2 border-background ring-2 ring-border"
-						style="background-color: {editor.strokeColor};"
-						title={$t('support.screenshot.tool.color')}
-						aria-label={$t('support.screenshot.tool.color')}
-					></Button>
-				{/snippet}
-			</Popover.Trigger>
-			<Popover.Content class="z-[120] w-auto p-2">
-				<div class="grid grid-cols-3 gap-1.5">
-					{#each DEFAULT_COLORS as { nameKey, value } (value)}
-						<Button
-							variant="ghost"
-							size="icon"
-							class={cn(
-								'size-6 border-2 transition-all hover:scale-110',
-								editor.strokeColor === value
-									? 'border-background ring-2 ring-border'
-									: 'border-transparent'
-							)}
-							style="background-color: {value};"
-							onclick={() => (editor.strokeColor = value)}
-							title={$t(nameKey)}
-							aria-label={$t(nameKey)}
-						/>
-					{/each}
-				</div>
-			</Popover.Content>
-		</Popover.Root>
+		<!-- Color Selector -->
+		<ColorSelector
+			colors={colorSwatches}
+			size="lg"
+			bind:value={editor.strokeColor}
+			getColorLabel={(color) => colorLabels[color] ?? color}
+			aria-label={$t('support.screenshot.tool.color')}
+			class="flex-col items-center px-1 sm:flex-row sm:px-0"
+			data-testid="screenshot-color-selector"
+		/>
 
 		<!-- Divider -->
 		<div class="my-1 h-px w-6 bg-border sm:mx-1 sm:my-0 sm:h-6 sm:w-px"></div>

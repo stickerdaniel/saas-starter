@@ -3,6 +3,8 @@
  * Type definitions for the screenshot annotation editor
  */
 
+import type { ColorSelectorColor } from '$lib/components/ui/color-selector';
+
 export type DrawingTool = 'pen' | 'rect' | 'circle' | 'arrow';
 
 /**
@@ -76,7 +78,7 @@ export type Shape = LineShape | RectShape | CircleShape | ArrowShape;
 export type ColorPreset = {
 	/** Tolgee key for the localized color name */
 	nameKey: string;
-	value: string;
+	value: ColorSelectorColor;
 };
 
 /**
