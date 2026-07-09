@@ -27,8 +27,6 @@
 
 	const client = useConvexClient();
 
-	const columns = $derived(createColumns(data.lang ?? 'en'));
-
 	const PAGE_SIZE_OPTIONS = ['1', '10', '20', '30', '40', '50'] as const;
 	const PAGE_SIZE_NUM_OPTIONS = [1, 10, 20, 30, 40, 50] as const;
 
@@ -49,6 +47,8 @@
 			),
 			'all'
 		),
+		admin: v.optional(v.fallback(v.string(), ''), ''),
+		target: v.optional(v.fallback(v.string(), ''), ''),
 		sort: v.optional(v.fallback(v.string(), ''), ''),
 		page: v.optional(v.fallback(v.string(), '1'), '1'),
 		page_size: v.optional(v.fallback(v.picklist(PAGE_SIZE_OPTIONS), '20'), '20'),
@@ -57,7 +57,7 @@
 
 	const auditTable = createConvexCursorTable<
 		AuditLogItem,
-		'action',
+		'action' | 'admin' | 'target',
 		'timestamp',
 		typeof api.admin.auditLog.queries.listAuditLogs,
 		typeof api.admin.auditLog.queries.getAuditLogCount,
@@ -66,7 +66,7 @@
 		listQuery: api.admin.auditLog.queries.listAuditLogs,
 		countQuery: api.admin.auditLog.queries.getAuditLogCount,
 		urlSchema: auditLogTableParamsSchema,
-		defaultFilters: { action: 'all' },
+		defaultFilters: { action: 'all', admin: '', target: '' },
 		pageSizeOptions: PAGE_SIZE_OPTIONS,
 		defaultPageSize: '20',
 		sortFields: ['timestamp'],
@@ -74,16 +74,22 @@
 			cursor: cursor ?? undefined,
 			numItems: pageSize,
 			actionFilter: filters.action === 'all' ? undefined : (filters.action as AuditLogAction),
+			adminUserId: filters.admin || undefined,
+			targetUserId: filters.target || undefined,
 			sortBy: sortBy ? { field: 'timestamp', direction: sortBy.direction } : undefined
 		}),
 		// Count is order-independent, so the sort direction is intentionally omitted.
 		buildCountArgs: ({ filters }) => ({
-			actionFilter: filters.action === 'all' ? undefined : (filters.action as AuditLogAction)
+			actionFilter: filters.action === 'all' ? undefined : (filters.action as AuditLogAction),
+			adminUserId: filters.admin || undefined,
+			targetUserId: filters.target || undefined
 		}),
 		resolveLastPage: async ({ pageSize, filters, sortBy }) => {
 			const result = await client.query(api.admin.auditLog.queries.resolveAuditLogLastPage, {
 				numItems: pageSize,
 				actionFilter: filters.action === 'all' ? undefined : (filters.action as AuditLogAction),
+				adminUserId: filters.admin || undefined,
+				targetUserId: filters.target || undefined,
 				sortBy: sortBy ? { field: 'timestamp', direction: sortBy.direction } : undefined
 			});
 			return { page: result.page, cursor: result.cursor };
@@ -99,6 +105,8 @@
 	const actionFilter = $derived.by(() =>
 		auditTable.filters.action === 'all' ? undefined : (auditTable.filters.action as AuditLogAction)
 	);
+	const adminFilterId = $derived(auditTable.filters.admin || undefined);
+	const targetFilterId = $derived(auditTable.filters.target || undefined);
 	const sorting = $derived.by<SortingState>(() => {
 		const sortBy = auditTable.sortBy;
 		if (!sortBy) return [];
@@ -131,9 +139,39 @@
 		}
 	});
 
+	// The action, admin, and target filters are mutually exclusive: the backend
+	// applies a single index (action > admin > target), so setting one clears the
+	// others. This delivers issue #659's "all actions by/against user X" and keeps
+	// the chip honest instead of showing a user whose filter the backend dropped.
 	function handleFilterChange(action: AuditLogAction | undefined) {
+		auditTable.setFilter('admin', '');
+		auditTable.setFilter('target', '');
 		auditTable.setFilter('action', action ?? 'all');
 	}
+
+	function filterByAdmin(userId: string) {
+		auditTable.setFilter('action', 'all');
+		auditTable.setFilter('target', '');
+		auditTable.setFilter('admin', userId);
+	}
+
+	function filterByTarget(userId: string) {
+		auditTable.setFilter('action', 'all');
+		auditTable.setFilter('admin', '');
+		auditTable.setFilter('target', userId);
+	}
+
+	function clearUserFilter() {
+		auditTable.setFilter('admin', '');
+		auditTable.setFilter('target', '');
+	}
+
+	const columns = $derived(
+		createColumns(data.lang ?? 'en', {
+			onFilterAdmin: filterByAdmin,
+			onFilterTarget: filterByTarget
+		})
+	);
 
 	const table = createSvelteTable({
 		get data() {
@@ -209,7 +247,13 @@
 			selectionText={$t('admin.audit_log.total_entries', { count: totalEntriesLabel })}
 		>
 			{#snippet toolbarFilters()}
-				<DataTableFilters {actionFilter} onFilterChange={handleFilterChange} />
+				<DataTableFilters
+					{actionFilter}
+					adminUserId={adminFilterId}
+					targetUserId={targetFilterId}
+					onFilterChange={handleFilterChange}
+					onClearUserFilter={clearUserFilter}
+				/>
 			{/snippet}
 
 			{#snippet tableContent()}

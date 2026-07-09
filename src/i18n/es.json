@@ -32,8 +32,13 @@
 			},
 			"empty": "Aún no hay entradas en el registro de auditoría.",
 			"filter": {
+				"against": "contra",
 				"all_actions": "Todas las acciones",
-				"clear": "Limpiar"
+				"aria_admin": "Filtrar acciones de {name}",
+				"aria_target": "Filtrar acciones contra {name}",
+				"by": "por",
+				"clear": "Limpiar",
+				"remove_user": "Quitar filtro de usuario"
 			},
 			"loading": "Cargando registro de auditoría…",
 			"title": "Registro de auditoría",
