@@ -15,6 +15,7 @@
 	import { api } from '$lib/convex/_generated/api.js';
 	import { ConvexError } from 'convex/values';
 	import { PROFILE_IMAGE_MAX_SIZE, PROFILE_IMAGE_MAX_SIZE_LABEL } from '$lib/convex/constants.js';
+	import { downscaleImage } from '$lib/utils/downscale-image.js';
 	import { translateValidationErrors } from '$lib/utils/validation-i18n.js';
 
 	const { t } = getTranslate();
@@ -77,9 +78,14 @@
 				{}
 			);
 
+			// Avatars render at ≤48px; shrink oversized photos before upload so
+			// every later avatar load stays small (falls back to the original
+			// file on any decode/encode failure).
+			const upload = await downscaleImage(file);
+
 			// XHR transport for progress events, so the avatar shows live
 			// upload feedback instead of a silently disabled input.
-			const storageId = await uploadToStorage(uploadUrl, file, (progress) => {
+			const storageId = await uploadToStorage(uploadUrl, upload, (progress) => {
 				uploadProgress = progress;
 			});
 
