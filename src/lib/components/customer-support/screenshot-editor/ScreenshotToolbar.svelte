@@ -9,6 +9,7 @@
 	import CircleIcon from '@lucide/svelte/icons/circle';
 	import ArrowRightIcon from '@lucide/svelte/icons/arrow-right';
 	import CheckIcon from '@lucide/svelte/icons/check';
+	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
 	import { screenshotEditorContext } from './screenshot-editor-context.svelte';
 	import { DEFAULT_COLORS } from './types';
 	import { getTranslate } from '@tolgee/svelte';
@@ -134,10 +135,16 @@
 			class="size-9 sm:hidden"
 			onclick={editor.handleSave}
 			disabled={editor.isSaving || !editor.hasShapes}
-			title={$t('support.screenshot.next')}
-			aria-label={$t('support.screenshot.next')}
+			title={editor.isSaving ? $t('support.screenshot.capturing') : $t('support.screenshot.next')}
+			aria-label={editor.isSaving
+				? $t('support.screenshot.capturing')
+				: $t('support.screenshot.next')}
 		>
-			<CheckIcon class="size-4" />
+			{#if editor.isSaving}
+				<LoaderCircleIcon class="size-4 motion-safe:animate-spin" />
+			{:else}
+				<CheckIcon class="size-4" />
+			{/if}
 		</Button>
 
 		<!-- Next Button - Desktop: Text -->
