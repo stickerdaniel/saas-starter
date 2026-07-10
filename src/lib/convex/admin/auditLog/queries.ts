@@ -20,12 +20,15 @@ export const auditLogActionValidator = v.union(
 
 /**
  * Typed metadata per action, mirroring the schema's optional metadata union.
+ * Exported so `queries.test.ts` can assert it stays structurally in sync with
+ * the same union declared in schema.ts (the two must never drift apart).
  */
-const auditLogMetadataValidator = v.optional(
+export const auditLogMetadataValidator = v.optional(
 	v.union(
 		v.object({ reason: v.string() }), // ban_user, unban_user
 		v.object({ newRole: v.string(), previousRole: v.string() }), // set_role
-		v.object({}) // impersonate, stop_impersonation, revoke_sessions
+		v.object({ durationMs: v.number() }), // stop_impersonation
+		v.object({}) // impersonate, revoke_sessions
 	)
 );
 

@@ -306,6 +306,9 @@ export const authComponent = createClient<DataModel, typeof authSchema>(componen
 			 */
 			onCreate: async (ctx, session) => {
 				if (session.impersonatedBy) {
+					// The start row carries no duration on purpose: the impersonate
+					// and stop_impersonation rows read as a pair, where the start
+					// shows the time column and the stop shows the elapsed duration.
 					await ctx.db.insert('adminAuditLogs', {
 						adminUserId: session.impersonatedBy,
 						action: 'impersonate',
@@ -319,11 +322,15 @@ export const authComponent = createClient<DataModel, typeof authSchema>(componen
 			// impersonation session; both mean the impersonation ended.
 			onDelete: async (ctx, session) => {
 				if (session.impersonatedBy) {
+					// createdAt is typed as a number but can arrive as a Date from
+					// the adapter; new Date(...) normalizes both. Math.max guards
+					// against clock skew producing a negative duration.
+					const startedAt = new Date(session.createdAt).getTime();
 					await ctx.db.insert('adminAuditLogs', {
 						adminUserId: session.impersonatedBy,
 						action: 'stop_impersonation',
 						targetUserId: session.userId,
-						metadata: {},
+						metadata: { durationMs: Math.max(0, Date.now() - startedAt) },
 						timestamp: Date.now()
 					});
 				}
