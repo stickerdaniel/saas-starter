@@ -139,24 +139,22 @@
 		}
 	});
 
-	// The action, admin, and target filters are mutually exclusive: the backend
-	// applies a single index (action > admin > target), so setting one clears the
-	// others. This delivers issue #659's "all actions by/against user X" and keeps
-	// the chip honest instead of showing a user whose filter the backend dropped.
+	// The action filter combines with one user filter, served by the compound
+	// indexes by_admin_action / by_target_action. Setting an action leaves the
+	// active user filter in place; picking a user only clears the other user
+	// filter (admin and target stay mutually exclusive) while keeping the action.
+	// This delivers issue #659's "action X by/against user Y" without dropping a
+	// filter the user still expects to be applied.
 	function handleFilterChange(action: AuditLogAction | undefined) {
-		auditTable.setFilter('admin', '');
-		auditTable.setFilter('target', '');
 		auditTable.setFilter('action', action ?? 'all');
 	}
 
 	function filterByAdmin(userId: string) {
-		auditTable.setFilter('action', 'all');
 		auditTable.setFilter('target', '');
 		auditTable.setFilter('admin', userId);
 	}
 
 	function filterByTarget(userId: string) {
-		auditTable.setFilter('action', 'all');
 		auditTable.setFilter('admin', '');
 		auditTable.setFilter('target', userId);
 	}

@@ -263,4 +263,55 @@ test.describe('Admin Audit Log', () => {
 		await expect.poll(async () => page.getByTestId('admin-audit-log-loading').count()).toBe(0);
 		await expect(page.getByTestId('audit-log-row').first()).toBeVisible({ timeout: 10000 });
 	});
+
+	test('combines the action filter with a target user filter', async ({ page }) => {
+		// Guarantee genuine ban_user / unban_user entries for our target.
+		await banAndUnbanTarget(page, targetEmail);
+
+		await page.goto('/en/admin/audit-log');
+		await page.waitForLoadState('domcontentloaded');
+		await waitForAuditLogReady(page);
+
+		// Pin the action filter to ban_user first.
+		await selectActionFilter(page, 'ban_user');
+		await expect.poll(() => new URL(page.url()).searchParams.get('action')).toBe('ban_user');
+
+		// Then layer a target filter on top by clicking our target's cell. The action
+		// filter must stay in place (compound by_target_action), not get cleared.
+		await page
+			.getByTestId('audit-log-target-cell')
+			.filter({ hasText: targetEmail })
+			.first()
+			.click();
+
+		// The URL now carries BOTH the action and target params.
+		await expect.poll(() => new URL(page.url()).searchParams.get('action')).toBe('ban_user');
+		await expect.poll(() => new URL(page.url()).searchParams.get('target')).not.toBeNull();
+		await expect.poll(async () => page.getByTestId('admin-audit-log-loading').count()).toBe(0);
+
+		// The chip resolves and every visible row is a ban against our target.
+		await expect(page.getByTestId('audit-log-user-filter-chip')).toBeVisible();
+		await expect(page.getByTestId('audit-log-row').first()).toBeVisible({ timeout: 10000 });
+
+		const badges = (await page.getByTestId('audit-log-action-badge').allTextContents()).map(
+			(value) => value.trim()
+		);
+		expect(badges.length).toBeGreaterThan(0);
+		expect(badges.every((label) => label === 'Ban user')).toBe(true);
+
+		const targetCells = page.getByTestId('audit-log-target-cell');
+		const count = await targetCells.count();
+		expect(count).toBeGreaterThan(0);
+		for (let i = 0; i < count; i++) {
+			await expect(targetCells.nth(i)).toContainText(targetEmail);
+		}
+
+		// Removing the chip drops only the target param; the action filter stays.
+		await page.getByTestId('audit-log-user-filter-chip-remove').click();
+		await expect.poll(() => new URL(page.url()).searchParams.get('target')).toBeNull();
+		await expect.poll(() => new URL(page.url()).searchParams.get('action')).toBe('ban_user');
+		await expect(page.getByTestId('audit-log-user-filter-chip')).toHaveCount(0);
+		await expect.poll(async () => page.getByTestId('admin-audit-log-loading').count()).toBe(0);
+		await expect(page.getByTestId('audit-log-row').first()).toBeVisible({ timeout: 10000 });
+	});
 });
