@@ -121,9 +121,55 @@
 		return colors[0];
 	});
 
+	// Roving tabindex: only one swatch is a tab stop. The selected swatch owns it,
+	// falling back to the first swatch when nothing is selected.
+	let tabbableIndex = $derived.by(() => {
+		const index = colors.indexOf(selectedColor as ColorSelectorColor);
+		return index >= 0 ? index : 0;
+	});
+
+	let buttonRefs: HTMLButtonElement[] = $state([]);
+
 	function selectColor(color: ColorSelectorColor) {
 		value = color;
 		onColorSelect?.(color);
+	}
+
+	// Radiogroup convention: moving focus with the arrow keys also selects,
+	// like native radio buttons.
+	function focusSwatch(index: number) {
+		const target = buttonRefs[index];
+		const color = colors[index];
+		if (!target || color === undefined) return;
+		selectColor(color);
+		target.focus();
+	}
+
+	function handleKeydown(event: KeyboardEvent, index: number) {
+		let targetIndex: number;
+		switch (event.key) {
+			case 'ArrowRight':
+			case 'ArrowDown':
+				targetIndex = (index + 1) % colors.length;
+				break;
+			case 'ArrowLeft':
+			case 'ArrowUp':
+				targetIndex = (index - 1 + colors.length) % colors.length;
+				break;
+			case 'Home':
+				targetIndex = 0;
+				break;
+			case 'End':
+				targetIndex = colors.length - 1;
+				break;
+			default:
+				return;
+		}
+		// Stop the page from scrolling and keep the key from reaching ancestor
+		// keyboard handlers (e.g. the screenshot editor's global shortcuts).
+		event.preventDefault();
+		event.stopPropagation();
+		focusSwatch(targetIndex);
 	}
 </script>
 
@@ -138,13 +184,15 @@
 		<input type="hidden" {name} value={selectedColor ?? ''} />
 	{/if}
 
-	{#each colors as color (color)}
+	{#each colors as color, index (color)}
 		{@const colorValue = getColorValue(color)}
 		{@const isSelected = selectedColor === color}
 
 		<button
+			bind:this={buttonRefs[index]}
 			type="button"
 			role="radio"
+			tabindex={index === tabbableIndex ? 0 : -1}
 			class={cn(colorSelectorDotVariants({ size, selected: isSelected }))}
 			style:background-color={colorValue}
 			style:box-shadow={isSelected
@@ -153,6 +201,7 @@
 			aria-label={getColorLabel?.(color) ?? color}
 			aria-checked={isSelected}
 			onclick={() => selectColor(color)}
+			onkeydown={(event) => handleKeydown(event, index)}
 		></button>
 	{/each}
 </div>
