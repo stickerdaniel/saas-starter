@@ -1,7 +1,9 @@
 <script lang="ts">
+	import { tick } from 'svelte';
 	import { lockscroll } from '@svelte-put/lockscroll';
 	import { snapdom } from '@zumer/snapdom';
-	import { getTranslate } from '@tolgee/svelte';
+	import { getTranslate, T } from '@tolgee/svelte';
+	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
 	import { getSnapDOMConfig } from '$lib/utils/snapdom-config';
 	import { processImage } from '$lib/media/process-image';
 	import {
@@ -40,10 +42,16 @@
 
 	// Capture screenshot and pass to callback
 	async function handleSave() {
+		if (editorContext.isSaving) return; // re-entrancy guard for the pre-paint window
 		haptic.trigger('medium');
+		editorContext.isSaving = true;
+		await tick(); // flush the saving state into the DOM
+		// Double rAF guarantees the browser composites the capturing overlay before
+		// the synchronous snapdom clone below freezes the main thread.
+		await new Promise((resolve) =>
+			requestAnimationFrame(() => requestAnimationFrame(() => resolve(undefined)))
+		);
 		try {
-			editorContext.isSaving = true;
-
 			const dpr = window.devicePixelRatio || 1;
 			const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
 
@@ -159,6 +167,22 @@
 >
 	<ScreenshotToolbar />
 	<ScreenshotCanvas />
+
+	{#if editorContext.isSaving}
+		<!-- Capturing feedback. Kept inside [data-screenshot-editor] so snapdom's
+		     excludeMode:'remove' strips it from the capture with the rest of the
+		     editor chrome. z-index sits above the toolbar (z-[110]) and canvas. -->
+		<div
+			class="fixed inset-0 z-[120] flex items-center justify-center bg-background/95 backdrop-blur-sm"
+		>
+			<div
+				class="flex items-center gap-3 rounded-xl bg-background px-5 py-3 shadow-lg ring-1 ring-foreground/10"
+			>
+				<LoaderCircleIcon class="size-5 text-muted-foreground motion-safe:animate-spin" />
+				<span class="text-sm font-medium"><T keyName="support.screenshot.capturing" /></span>
+			</div>
+		</div>
+	{/if}
 
 	<!-- Instructions overlay (bottom center)
 	<div
