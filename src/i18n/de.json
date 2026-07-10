@@ -41,6 +41,7 @@
 				"remove_user": "Benutzerfilter entfernen"
 			},
 			"loading": "Audit-Log wird geladen …",
+			"search_placeholder": "Nach Admin oder Ziel suchen...",
 			"title": "Audit-Log",
 			"total_entries": "{count} Einträge"
 		},

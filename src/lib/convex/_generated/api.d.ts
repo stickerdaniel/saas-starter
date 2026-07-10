@@ -10,6 +10,7 @@
 
 import type * as admin_adminHttpPaths from "../admin/adminHttpPaths.js";
 import type * as admin_auditLog_queries from "../admin/auditLog/queries.js";
+import type * as admin_auditLog_search from "../admin/auditLog/search.js";
 import type * as admin_counters from "../admin/counters.js";
 import type * as admin_founderWelcome_mutations from "../admin/founderWelcome/mutations.js";
 import type * as admin_founderWelcome_queries from "../admin/founderWelcome/queries.js";
@@ -24,6 +25,7 @@ import type * as admin_support_mutations from "../admin/support/mutations.js";
 import type * as admin_support_notifications from "../admin/support/notifications.js";
 import type * as admin_support_queries from "../admin/support/queries.js";
 import type * as admin_types from "../admin/types.js";
+import type * as admin_userSearch from "../admin/userSearch.js";
 import type * as aiChat_agent from "../aiChat/agent.js";
 import type * as aiChat_files from "../aiChat/files.js";
 import type * as aiChat_messages from "../aiChat/messages.js";
@@ -93,6 +95,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   "admin/adminHttpPaths": typeof admin_adminHttpPaths;
   "admin/auditLog/queries": typeof admin_auditLog_queries;
+  "admin/auditLog/search": typeof admin_auditLog_search;
   "admin/counters": typeof admin_counters;
   "admin/founderWelcome/mutations": typeof admin_founderWelcome_mutations;
   "admin/founderWelcome/queries": typeof admin_founderWelcome_queries;
@@ -107,6 +110,7 @@ declare const fullApi: ApiFromModules<{
   "admin/support/notifications": typeof admin_support_notifications;
   "admin/support/queries": typeof admin_support_queries;
   "admin/types": typeof admin_types;
+  "admin/userSearch": typeof admin_userSearch;
   "aiChat/agent": typeof aiChat_agent;
   "aiChat/files": typeof aiChat_files;
   "aiChat/messages": typeof aiChat_messages;

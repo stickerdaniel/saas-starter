@@ -41,6 +41,7 @@
 				"remove_user": "Remove user filter"
 			},
 			"loading": "Loading audit log…",
+			"search_placeholder": "Search by admin or target...",
 			"title": "Audit Log",
 			"total_entries": "{count} entries"
 		},

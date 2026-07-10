@@ -5,42 +5,15 @@ import type { AdminUserData, BetterAuthUser, BetterAuthSession } from './types';
 import { adminUserDataValidator, parseBetterAuthUsers, parseBetterAuthSessions } from './types';
 import { adminQuery } from '../functions';
 import { getCounters } from './counters';
+import {
+	applyUserSearch,
+	fetchAllUsersWithFilters,
+	DEFAULT_USER_SORT,
+	type AdapterWhereCondition,
+	type AdapterFindManyResult
+} from './userSearch';
 
 type ProviderFilter = 'credential' | 'google' | 'github' | 'passkey';
-
-type AdapterWhereCondition = {
-	connector?: 'AND' | 'OR';
-	field: string;
-	operator?:
-		| 'lt'
-		| 'lte'
-		| 'gt'
-		| 'gte'
-		| 'eq'
-		| 'in'
-		| 'not_in'
-		| 'ne'
-		| 'contains'
-		| 'starts_with'
-		| 'ends_with';
-	value: string | number | boolean | string[] | number[] | null;
-};
-
-type UserSortBy = {
-	field: 'createdAt' | 'email' | 'name' | 'role' | 'provider';
-	direction: 'asc' | 'desc';
-};
-
-type AdapterFindManyResult = {
-	page: unknown[];
-	isDone: boolean;
-	continueCursor: string | null;
-};
-
-const DEFAULT_USER_SORT: UserSortBy = {
-	field: 'createdAt',
-	direction: 'desc'
-};
 
 function addAndCondition(
 	where: AdapterWhereCondition[],
@@ -105,48 +78,6 @@ function buildUserWhereConditions(args: {
 	}
 
 	return whereConditions;
-}
-
-function applyUserSearch(users: BetterAuthUser[], search: string | undefined) {
-	const trimmed = search?.trim();
-	if (!trimmed) return users;
-	const searchLower = trimmed.toLowerCase();
-	return users.filter(
-		(user) =>
-			user.email?.toLowerCase().includes(searchLower) ||
-			user.name?.toLowerCase().includes(searchLower)
-	);
-}
-
-async function fetchAllUsersWithFilters(
-	ctx: QueryCtx,
-	args: {
-		whereConditions: AdapterWhereCondition[];
-		sortBy: UserSortBy;
-	}
-) {
-	const users: BetterAuthUser[] = [];
-	let cursor: string | null = null;
-
-	// Fully enumerate matching users so search+pagination stay consistent.
-	for (let page = 0; page < 500; page++) {
-		const result = (await ctx.runQuery(components.betterAuth.adapter.findMany, {
-			model: 'user',
-			paginationOpts: { cursor, numItems: 200 },
-			sortBy: args.sortBy,
-			where: args.whereConditions.length > 0 ? args.whereConditions : undefined
-		})) as AdapterFindManyResult;
-
-		users.push(...parseBetterAuthUsers(result.page));
-
-		if (result.isDone || !result.continueCursor) {
-			break;
-		}
-
-		cursor = result.continueCursor;
-	}
-
-	return users;
 }
 
 async function fetchProvidersForUsers(
