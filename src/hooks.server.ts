@@ -261,6 +261,21 @@ const handleCacheControl: Handle = async function handleCacheControl({ event, re
 		// this is safe only because every route reaching this branch is non-prerendered
 		// and the markdown variant is private (kept out of shared caches).
 		response.headers.set('Vary', 'Accept');
+	} else if (
+		response.status === 200 &&
+		!event.locals.token &&
+		event.route.id?.includes('/(auth)/')
+	) {
+		// Auth-group HTML shells (signin, signup, forgot-password, ...) reference the
+		// same content-hashed chunks as the marketing shells but fell through the
+		// marketing matcher and shipped with no Cache-Control at all, leaving
+		// freshness to cache heuristics. Any reuse must revalidate so a shell never
+		// outlives its chunk set. Unlike the marketing branch there is no s-maxage:
+		// auth shells are not edge-cached, so the zone Browser Cache TTL floor
+		// documented above does not apply. No Vary: Accept either, these routes have
+		// no markdown variant. Matching on the route group keeps new auth pages
+		// covered automatically.
+		response.headers.set('Cache-Control', 'public, no-cache');
 	}
 
 	return response;
