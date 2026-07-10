@@ -59,8 +59,9 @@ export const auditLogItemValidator = v.object({
 export type AuditLogItem = Infer<typeof auditLogItemValidator>;
 
 /**
- * Shared filter args. The UI sends at most one filter at a time; see
- * {@link queryAuditLogs} for how a single index is chosen from them.
+ * Shared filter args. The action filter combines with one user filter (admin or
+ * target); the two user filters stay mutually exclusive. See {@link queryAuditLogs}
+ * for how an index is chosen from them.
  */
 const auditLogFilterArgs = {
 	actionFilter: v.optional(auditLogActionValidator),
@@ -87,22 +88,44 @@ export const auditLogSortByValidator = v.object({
 type AuditLogDirection = 'asc' | 'desc';
 
 /**
- * Pick the single most selective index for the given filter and return the
- * query ordered by `direction` (defaults to newest-first).
+ * Pick the most selective index for the given filter and return the query
+ * ordered by `direction` (defaults to newest-first).
  *
- * Filters are treated as mutually exclusive: the UI sends at most one of
- * actionFilter, adminUserId, or targetUserId, so we choose exactly one index
- * and do NOT apply the remaining filters as extra conditions (v1). Priority if
- * several are somehow set: action -> admin -> target -> unfiltered
- * (by_timestamp). For the single-value index branches, ordering by the index
- * resolves to `_creationTime` within the pinned value, which matches the
- * `timestamp` insertion order used by the writers in admin/mutations.ts.
+ * The action filter combines with one user filter: actionFilter can be paired
+ * with either adminUserId or targetUserId, served by the compound indexes
+ * by_admin_action / by_target_action. The two user filters stay mutually
+ * exclusive (the UI never sets both). Priority: admin+action -> target+action
+ * -> action -> admin -> target -> unfiltered (by_timestamp).
+ *
+ * The single-filter indexes by_admin / by_target must NOT be dropped in favor
+ * of the compound ones: with only one equality field pinned, a compound index
+ * orders by (action, _creationTime) instead of purely by time, so the log rows
+ * would sort by action first rather than newest-first. Within each branch,
+ * ordering by the chosen index resolves to `_creationTime` after the pinned
+ * fields, which matches the `timestamp` insertion order used by the writers in
+ * admin/mutations.ts.
  */
 function queryAuditLogs(
 	ctx: QueryCtx,
 	filters: AuditLogFilters,
 	direction: AuditLogDirection = 'desc'
 ) {
+	if (filters.adminUserId !== undefined && filters.actionFilter !== undefined) {
+		const adminUserId = filters.adminUserId;
+		const action = filters.actionFilter;
+		return ctx.db
+			.query('adminAuditLogs')
+			.withIndex('by_admin_action', (q) => q.eq('adminUserId', adminUserId).eq('action', action))
+			.order(direction);
+	}
+	if (filters.targetUserId !== undefined && filters.actionFilter !== undefined) {
+		const targetUserId = filters.targetUserId;
+		const action = filters.actionFilter;
+		return ctx.db
+			.query('adminAuditLogs')
+			.withIndex('by_target_action', (q) => q.eq('targetUserId', targetUserId).eq('action', action))
+			.order(direction);
+	}
 	if (filters.actionFilter !== undefined) {
 		const action = filters.actionFilter;
 		return ctx.db
@@ -229,8 +252,8 @@ export const resolveAuditLogUser = adminQuery({
 });
 
 /**
- * Count audit log entries matching the same (mutually exclusive) filter as
- * {@link listAuditLogs}. Count half of the table-kit contract.
+ * Count audit log entries matching the same filter as {@link listAuditLogs}.
+ * Count half of the table-kit contract.
  *
  * Capped at 5001 via .take() — this is a template-scale table, so we avoid an
  * unbounded .collect(). A returned 5001 means "5000+"; the UI can render a
@@ -248,8 +271,8 @@ export const getAuditLogCount = adminQuery({
 /**
  * Resolve the last page for the audit log table in one server call, so the
  * table-kit "jump to last page" action does not have to walk cursors from the
- * client. Same mutually-exclusive filter semantics as {@link listAuditLogs}
- * (reuses {@link queryAuditLogs}).
+ * client. Same filter semantics as {@link listAuditLogs} (reuses
+ * {@link queryAuditLogs}).
  *
  * Returns the 1-indexed last page and the cursor that fetches it (null for a
  * single-page result), matching the { page, cursor } contract of
