@@ -28,6 +28,7 @@
 			},
 			"deleted_user": "Deleted user",
 			"details": {
+				"impersonation_duration": "Lasted {duration}",
 				"role_change": "{previousRole} → {newRole}"
 			},
 			"empty": "No audit log entries yet.",

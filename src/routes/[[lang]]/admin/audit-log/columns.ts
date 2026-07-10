@@ -101,6 +101,7 @@ export function createColumns(
 			cell: ({ row }) =>
 				renderComponent(DetailsCell, {
 					metadata: row.original.metadata,
+					lang,
 					testId: 'audit-log-details-cell'
 				})
 		}
