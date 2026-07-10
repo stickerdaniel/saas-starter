@@ -107,8 +107,12 @@
 		defaultLanguage: 'en',
 		fallbackLanguage: 'en',
 
-		apiUrl: import.meta.env.VITE_TOLGEE_API_URL,
-		apiKey: import.meta.env.VITE_TOLGEE_API_KEY
+		// Live Tolgee (in-context editing) is dev-only. Production and preview
+		// builds fold import.meta.env.DEV to false, so apiUrl/apiKey and their
+		// inlined values are dead-code-eliminated: the shipped bundle runs purely
+		// from staticData and never talks to the Tolgee server.
+		apiUrl: import.meta.env.DEV ? import.meta.env.VITE_TOLGEE_API_URL : undefined,
+		apiKey: import.meta.env.DEV ? import.meta.env.VITE_TOLGEE_API_KEY : undefined
 	});
 
 	if (browser) {
