@@ -28,6 +28,7 @@
 			},
 			"deleted_user": "Usuario eliminado",
 			"details": {
+				"impersonation_duration": "Duró {duration}",
 				"role_change": "{previousRole} → {newRole}"
 			},
 			"empty": "Aún no hay entradas en el registro de auditoría.",

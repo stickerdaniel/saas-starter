@@ -28,6 +28,7 @@
 			},
 			"deleted_user": "Utilisateur supprimé",
 			"details": {
+				"impersonation_duration": "A duré {duration}",
 				"role_change": "{previousRole} → {newRole}"
 			},
 			"empty": "Aucune entrée dans le journal d'audit pour le moment.",

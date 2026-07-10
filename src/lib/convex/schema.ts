@@ -41,7 +41,8 @@ export default defineSchema({
 			v.union(
 				v.object({ reason: v.string() }), // ban_user, unban_user
 				v.object({ newRole: v.string(), previousRole: v.string() }), // set_role
-				v.object({}) // impersonate, stop_impersonation, revoke_sessions
+				v.object({ durationMs: v.number() }), // stop_impersonation
+				v.object({}) // impersonate, revoke_sessions
 			)
 		),
 		timestamp: v.number()
