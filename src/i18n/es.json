@@ -57,8 +57,6 @@
 			"ban_reason_label": "Motivo del bloqueo",
 			"ban_reason_placeholder": "Motivo del bloqueo (opcional)",
 			"ban_title": "Bloquear Usuario",
-			"impersonation_active_description": "Por favor, recarga la página para iniciar sesión como el usuario suplantado.",
-			"impersonation_active_title": "Suplantación activa",
 			"revoke_description": "¿Estás seguro de que quieres revocar todas las sesiones de {email}? Se cerrará sesión en todos los dispositivos.",
 			"revoke_title": "Revocar Sesiones",
 			"set_role_description": "¿Estás seguro de que quieres cambiar el rol de {email} a {role}?",

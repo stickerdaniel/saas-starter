@@ -57,8 +57,6 @@
 			"ban_reason_label": "Ban reason",
 			"ban_reason_placeholder": "Ban reason (optional)",
 			"ban_title": "Ban User",
-			"impersonation_active_description": "Please reload the page to be logged in as the impersonated user.",
-			"impersonation_active_title": "Impersonation Active",
 			"revoke_description": "Are you sure you want to revoke all sessions for {email}? They will be logged out everywhere.",
 			"revoke_title": "Revoke Sessions",
 			"set_role_description": "Are you sure you want to change the role of {email} to {role}?",

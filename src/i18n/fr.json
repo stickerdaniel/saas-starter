@@ -57,8 +57,6 @@
 			"ban_reason_label": "Motif du bannissement",
 			"ban_reason_placeholder": "Motif du bannissement (optionnel)",
 			"ban_title": "Bannir l'Utilisateur",
-			"impersonation_active_description": "Veuillez recharger la page pour vous connecter en tant qu'utilisateur usurpé.",
-			"impersonation_active_title": "Usurpation active",
 			"revoke_description": "Êtes-vous sûr de vouloir révoquer toutes les sessions de {email} ? La déconnexion sera effectuée partout.",
 			"revoke_title": "Révoquer les Sessions",
 			"set_role_description": "Êtes-vous sûr de vouloir changer le rôle de {email} en {role} ?",

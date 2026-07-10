@@ -26,11 +26,20 @@
 
 	interface Props {
 		user: { name: string; email: string; avatar: string };
-		isImpersonating?: boolean;
 	}
 
-	let { user, isImpersonating = false }: Props = $props();
+	let { user }: Props = $props();
 	const sidebar = useSidebar();
+
+	// Impersonation state comes from the live session, not a parent prop: while an
+	// admin impersonates a user the session carries impersonatedBy, so the app
+	// shell reads it directly to show the banner and the Stop control.
+	let isImpersonating = $state(false);
+	$effect(() => {
+		return authClient.useSession().subscribe((s) => {
+			isImpersonating = !!s.data?.session?.impersonatedBy;
+		});
+	});
 
 	// Autumn subscription state
 	const autumn = useCustomer();
@@ -97,7 +106,14 @@
 				return;
 			}
 			toast.success($t('app.user_menu.impersonation_stopped'));
-			goto(resolve(localizedHref('/admin/users')));
+			// Stopping restored the admin session cookie, but Better Auth's convex
+			// plugin does not re-mint the SSR JWT cookie on stop. Force a session read
+			// so the server issues a fresh convex_jwt for the admin before we navigate,
+			// otherwise SSR resolves the still-alive impersonated token.
+			await authClient.getSession({ query: { disableCookieCache: true } });
+			// Full document navigation, not a client-side goto: the app must boot with
+			// the fresh JWT and new Convex subscriptions bound to the admin identity.
+			window.location.assign(localizedHref('/admin/users'));
 		} catch {
 			toast.error($t('app.user_menu.impersonation_stop_failed'));
 		}
@@ -107,6 +123,7 @@
 {#if isImpersonating}
 	<div
 		class="mb-2 rounded-md border border-warning/20 bg-warning/10 px-3 py-2 text-xs font-medium text-warning"
+		data-testid="impersonation-banner"
 	>
 		<T keyName="app.user_menu.impersonating_banner" />
 	</div>
@@ -194,7 +211,11 @@
 				</DropdownMenu.Group>
 				{#if isImpersonating}
 					<DropdownMenu.Separator />
-					<DropdownMenu.Item onclick={() => stopImpersonating()} class="text-warning">
+					<DropdownMenu.Item
+						onclick={() => stopImpersonating()}
+						class="text-warning"
+						data-testid="app-user-menu-stop-impersonating"
+					>
 						<UserXIcon />
 						<T keyName="app.user_menu.stop_impersonating" />
 					</DropdownMenu.Item>
