@@ -314,4 +314,45 @@ test.describe('Admin Audit Log', () => {
 		await expect.poll(async () => page.getByTestId('admin-audit-log-loading').count()).toBe(0);
 		await expect(page.getByTestId('audit-log-row').first()).toBeVisible({ timeout: 10000 });
 	});
+
+	test('searches the log by target user', async ({ page }) => {
+		// Guarantee genuine ban_user / unban_user entries for our target.
+		await banAndUnbanTarget(page, targetEmail);
+
+		await page.goto('/en/admin/audit-log');
+		await page.waitForLoadState('domcontentloaded');
+		await waitForAuditLogReady(page);
+		await expect(page.getByTestId('admin-audit-log-search')).toBeVisible();
+
+		// Typing the target's email into the free-text search narrows the log to
+		// rows referencing that user (matched via the target column). The canonical
+		// `search` URL param carries the query.
+		await page.getByTestId('admin-audit-log-search').fill(targetEmail);
+		await expect.poll(() => new URL(page.url()).searchParams.get('search')).toBe(targetEmail);
+		await expect.poll(async () => page.getByTestId('admin-audit-log-loading').count()).toBe(0);
+
+		// Every visible row references our target.
+		const targetCells = page.getByTestId('audit-log-target-cell');
+		await expect(targetCells.first()).toBeVisible({ timeout: 10000 });
+		const count = await targetCells.count();
+		expect(count).toBeGreaterThan(0);
+		for (let i = 0; i < count; i++) {
+			await expect(targetCells.nth(i)).toContainText(targetEmail);
+		}
+
+		// A partial substring still matches: the backend does a case-insensitive
+		// substring match on email + name, mirroring the users table.
+		const partial = targetEmail.split('@')[0]!;
+		await page.getByTestId('admin-audit-log-search').fill(partial);
+		await expect.poll(async () => page.getByTestId('admin-audit-log-loading').count()).toBe(0);
+		await expect(
+			page.getByTestId('audit-log-target-cell').filter({ hasText: targetEmail }).first()
+		).toBeVisible({ timeout: 10000 });
+
+		// Clearing the search drops the param and widens the log again.
+		await page.getByTestId('admin-audit-log-search').fill('');
+		await expect.poll(() => new URL(page.url()).searchParams.get('search')).toBeNull();
+		await expect.poll(async () => page.getByTestId('admin-audit-log-loading').count()).toBe(0);
+		await expect(page.getByTestId('audit-log-row').first()).toBeVisible({ timeout: 10000 });
+	});
 });

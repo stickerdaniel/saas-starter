@@ -70,23 +70,26 @@
 		pageSizeOptions: PAGE_SIZE_OPTIONS,
 		defaultPageSize: '20',
 		sortFields: ['timestamp'],
-		buildListArgs: ({ cursor, pageSize, filters, sortBy }) => ({
+		buildListArgs: ({ cursor, pageSize, search, filters, sortBy }) => ({
 			cursor: cursor ?? undefined,
 			numItems: pageSize,
+			search,
 			actionFilter: filters.action === 'all' ? undefined : (filters.action as AuditLogAction),
 			adminUserId: filters.admin || undefined,
 			targetUserId: filters.target || undefined,
 			sortBy: sortBy ? { field: 'timestamp', direction: sortBy.direction } : undefined
 		}),
 		// Count is order-independent, so the sort direction is intentionally omitted.
-		buildCountArgs: ({ filters }) => ({
+		buildCountArgs: ({ search, filters }) => ({
+			search,
 			actionFilter: filters.action === 'all' ? undefined : (filters.action as AuditLogAction),
 			adminUserId: filters.admin || undefined,
 			targetUserId: filters.target || undefined
 		}),
-		resolveLastPage: async ({ pageSize, filters, sortBy }) => {
+		resolveLastPage: async ({ pageSize, search, filters, sortBy }) => {
 			const result = await client.query(api.admin.auditLog.queries.resolveAuditLogLastPage, {
 				numItems: pageSize,
+				search,
 				actionFilter: filters.action === 'all' ? undefined : (filters.action as AuditLogAction),
 				adminUserId: filters.admin || undefined,
 				targetUserId: filters.target || undefined,
@@ -98,6 +101,7 @@
 		toCount: (result) => result
 	});
 
+	const tableParams = $derived(auditTable.currentUrlState);
 	const pageIndex = $derived(auditTable.pageIndex);
 	const pageSize = $derived(auditTable.pageSize);
 	const isLoading = $derived(auditTable.isLoading);
@@ -149,12 +153,26 @@
 		auditTable.setFilter('action', action ?? 'all');
 	}
 
+	// Free-text search and a pinned user filter are mutually exclusive: the
+	// search already scans admin+target names/emails, and the backend serves it
+	// with an offset scan that ignores the admin/target index filters. Clearing
+	// the active user filter when a search begins keeps the two from contradicting.
+	function handleSearchChange(value: string) {
+		if (value && (auditTable.filters.admin || auditTable.filters.target)) {
+			auditTable.setFilter('admin', '');
+			auditTable.setFilter('target', '');
+		}
+		auditTable.setSearch(value);
+	}
+
 	function filterByAdmin(userId: string) {
+		auditTable.setSearch('');
 		auditTable.setFilter('target', '');
 		auditTable.setFilter('admin', userId);
 	}
 
 	function filterByTarget(userId: string) {
+		auditTable.setSearch('');
 		auditTable.setFilter('admin', '');
 		auditTable.setFilter('target', userId);
 	}
@@ -227,10 +245,9 @@
 	{#if browser}<ConvexCursorTableShell
 			testIdPrefix="admin-audit-log"
 			tableTestId="admin-audit-log-table"
-			showSearch={false}
-			searchValue=""
-			searchPlaceholder=""
-			onSearchChange={() => {}}
+			searchValue={tableParams.search}
+			searchPlaceholder={$t('admin.audit_log.search_placeholder')}
+			onSearchChange={handleSearchChange}
 			pageIndex={auditTable.pageIndex}
 			pageCount={auditTable.pageCount}
 			pageSize={auditTable.pageSize}

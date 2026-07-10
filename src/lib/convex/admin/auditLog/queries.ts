@@ -1,8 +1,11 @@
 import { v, type Infer } from 'convex/values';
 import { components } from '../../_generated/api';
+import type { Doc } from '../../_generated/dataModel';
 import type { QueryCtx } from '../../_generated/server';
 import { adminQuery } from '../../functions';
 import type { BetterAuthUser } from '../types';
+import { collectMatchingUserIds } from '../userSearch';
+import { filterAuditRowsByMatch, parseOffsetCursor, sliceAuditPage } from './search';
 
 /**
  * The six admin actions recorded in the adminAuditLogs table.
@@ -188,17 +191,76 @@ function toUserRef(
 }
 
 /**
+ * Resolve and shape a batch of audit rows into the {@link auditLogItemValidator}
+ * item shape returned to the client. Shared by both the cursor path and the
+ * search path so the row mapping stays in one place. Enrichment is bounded by
+ * batch size (see {@link resolveUsers}).
+ */
+async function enrichAuditRows(
+	ctx: QueryCtx,
+	rows: Array<Doc<'adminAuditLogs'>>
+): Promise<Array<Infer<typeof auditLogItemValidator>>> {
+	const ids = new Set<string>();
+	for (const row of rows) {
+		ids.add(row.adminUserId);
+		ids.add(row.targetUserId);
+	}
+	const resolved = await resolveUsers(ctx, ids);
+	return rows.map((row) => ({
+		id: row._id,
+		action: row.action,
+		timestamp: row.timestamp,
+		metadata: row.metadata,
+		admin: toUserRef(row.adminUserId, resolved),
+		target: toUserRef(row.targetUserId, resolved)
+	}));
+}
+
+/**
+ * Search path for the audit log: resolve the search string to a set of matching
+ * user ids (same semantics as the users table, see {@link collectMatchingUserIds}),
+ * then scan the log — respecting the action filter — and keep rows whose admin
+ * OR target user is in that set.
+ *
+ * Bounded scan: capped at 5001 rows via .take(), the same cap as
+ * {@link getAuditLogCount}, so the search path never runs an unbounded
+ * .collect() on a template-scale table (a full 5001 means "5000+"). List and
+ * count share this function so their totals stay consistent.
+ *
+ * The two user filters (adminUserId / targetUserId) are intentionally ignored
+ * here: the UI clears them whenever a search is active (they are mutually
+ * exclusive with search), so only the action filter can co-exist with it.
+ */
+async function scanMatchingAuditRows(
+	ctx: QueryCtx,
+	args: { search?: string; actionFilter?: Infer<typeof auditLogActionValidator> },
+	direction: AuditLogDirection = 'desc'
+): Promise<Array<Doc<'adminAuditLogs'>>> {
+	const matched = await collectMatchingUserIds(ctx, args.search);
+	if (matched.size === 0) return [];
+	const rows = await queryAuditLogs(ctx, { actionFilter: args.actionFilter }, direction).take(5001);
+	return filterAuditRowsByMatch(rows, matched);
+}
+
+/**
  * List admin audit log entries, newest first, with cursor pagination.
  *
  * Backend half of the project table-kit contract: returns
  * `{ items, continueCursor, isDone }` where `continueCursor` is null exactly
  * when `isDone` is true. Each page is enriched with the admin/target user
  * details (bounded by page size, see {@link resolveUsers}).
+ *
+ * A `search` string switches to the enumerate-and-offset path
+ * ({@link scanMatchingAuditRows}): the Better Auth component has no search index,
+ * so the log is scanned and filtered to rows whose admin/target matches, then
+ * sliced by an opaque numeric-offset cursor (String(pageEnd)) — the same
+ * mechanism the users table uses for its search.
  */
 export const listAuditLogs = adminQuery({
 	args: {
 		cursor: v.optional(v.string()),
 		numItems: v.number(),
+		search: v.optional(v.string()),
 		sortBy: v.optional(auditLogSortByValidator),
 		...auditLogFilterArgs
 	},
@@ -209,29 +271,28 @@ export const listAuditLogs = adminQuery({
 	}),
 	handler: async (ctx, args) => {
 		const direction = args.sortBy?.direction ?? 'desc';
+
+		if (args.search?.trim()) {
+			const matchingRows = await scanMatchingAuditRows(ctx, args, direction);
+			const { pageRows, continueCursor, isDone } = sliceAuditPage(
+				matchingRows,
+				parseOffsetCursor(args.cursor),
+				args.numItems
+			);
+			return {
+				items: await enrichAuditRows(ctx, pageRows),
+				continueCursor,
+				isDone
+			};
+		}
+
 		const result = await queryAuditLogs(ctx, args, direction).paginate({
 			numItems: args.numItems,
 			cursor: args.cursor ?? null
 		});
 
-		const ids = new Set<string>();
-		for (const row of result.page) {
-			ids.add(row.adminUserId);
-			ids.add(row.targetUserId);
-		}
-		const resolved = await resolveUsers(ctx, ids);
-
-		const items = result.page.map((row) => ({
-			id: row._id,
-			action: row.action,
-			timestamp: row.timestamp,
-			metadata: row.metadata,
-			admin: toUserRef(row.adminUserId, resolved),
-			target: toUserRef(row.targetUserId, resolved)
-		}));
-
 		return {
-			items,
+			items: await enrichAuditRows(ctx, result.page),
 			continueCursor: result.isDone ? null : result.continueCursor,
 			isDone: result.isDone
 		};
@@ -261,11 +322,22 @@ export const resolveAuditLogUser = adminQuery({
  * Capped at 5001 via .take() — this is a template-scale table, so we avoid an
  * unbounded .collect(). A returned 5001 means "5000+"; the UI can render a
  * "5000+" indicator if it ever reaches the cap.
+ *
+ * A `search` string counts via the same scan+filter as {@link listAuditLogs}
+ * (shared {@link scanMatchingAuditRows}), so the footer total stays consistent
+ * with the rows shown.
  */
 export const getAuditLogCount = adminQuery({
-	args: auditLogFilterArgs,
+	args: {
+		search: v.optional(v.string()),
+		...auditLogFilterArgs
+	},
 	returns: v.number(),
 	handler: async (ctx, args) => {
+		if (args.search?.trim()) {
+			const matchingRows = await scanMatchingAuditRows(ctx, args);
+			return matchingRows.length;
+		}
 		const rows = await queryAuditLogs(ctx, args).take(5001);
 		return rows.length;
 	}
@@ -285,10 +357,15 @@ export const getAuditLogCount = adminQuery({
  * cap in getAuditLogCount: on a table larger than that it lands on the capped
  * last page instead of scanning unbounded. Native Convex cursors are
  * position-based, so re-fetching a page with the recorded cursor is stable.
+ *
+ * A `search` string resolves the last page from the scanned-and-filtered row
+ * count directly (offset math, like resolveUsersLastPage), since the search
+ * path paginates by numeric offset rather than native cursors.
  */
 export const resolveAuditLogLastPage = adminQuery({
 	args: {
 		numItems: v.number(),
+		search: v.optional(v.string()),
 		sortBy: v.optional(auditLogSortByValidator),
 		...auditLogFilterArgs
 	},
@@ -299,6 +376,20 @@ export const resolveAuditLogLastPage = adminQuery({
 	handler: async (ctx, args): Promise<{ page: number; cursor: string | null }> => {
 		const direction = args.sortBy?.direction ?? 'desc';
 		const pageSize = Number.isFinite(args.numItems) && args.numItems > 0 ? args.numItems : 10;
+
+		if (args.search?.trim()) {
+			const total = (await scanMatchingAuditRows(ctx, args, direction)).length;
+			if (total <= 0) {
+				return { page: 1, cursor: null };
+			}
+			const lastPage = Math.max(1, Math.ceil(total / pageSize));
+			const targetOffset = (lastPage - 1) * pageSize;
+			if (targetOffset <= 0) {
+				return { page: 1, cursor: null };
+			}
+			return { page: lastPage, cursor: String(targetOffset) };
+		}
+
 		const maxPages = Math.ceil(5001 / pageSize);
 
 		// Cursor that fetches the page currently being read (null for page 0).

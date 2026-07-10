@@ -42,6 +42,7 @@
 				"remove_user": "Quitar filtro de usuario"
 			},
 			"loading": "Cargando registro de auditoría…",
+			"search_placeholder": "Buscar por administrador u objetivo...",
 			"title": "Registro de auditoría",
 			"total_entries": "{count} entradas"
 		},

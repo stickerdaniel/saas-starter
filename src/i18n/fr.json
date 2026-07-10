@@ -42,6 +42,7 @@
 				"remove_user": "Retirer le filtre utilisateur"
 			},
 			"loading": "Chargement du journal d'audit…",
+			"search_placeholder": "Rechercher par admin ou cible...",
 			"title": "Journal d'audit",
 			"total_entries": "{count} entrées"
 		},
