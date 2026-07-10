@@ -54,7 +54,17 @@ const CONFIG = {
 		 * Scope: this scanner only covers .svelte/.ts files under src/ (full runs glob
 		 * that set; --staged/file-args runs filter the given files down to it).
 		 */
-		execSync: /\bexecSync\s*\(/
+		execSync: /\bexecSync\s*\(/,
+		/**
+		 * Ungated Tolgee apiKey in the root layout. Passing the key straight to
+		 * tolgeeBuilder.init leaves it in place through DCE, so Vite inlines it into
+		 * the deployed client bundle and production/preview builds fetch translations
+		 * from the Tolgee server at runtime. Gate it behind import.meta.env.DEV (see
+		 * src/routes/+layout.svelte) so the key and its value are dead-code-eliminated
+		 * from non-dev builds. The gated form reads `import.meta.env.DEV ?` right after
+		 * the colon, so this pattern only matches the unguarded assignment.
+		 */
+		ungatedTolgeeApiKey: /apiKey:\s*import\.meta\.env\.VITE_TOLGEE_API_KEY/
 	}
 };
 
@@ -245,7 +255,7 @@ async function main(): Promise<void> {
 		}
 		console.log('\n');
 
-		// Banned patterns (deprecated tokens, bare animate-spin, static Sentry imports, execSync)
+		// Banned patterns (deprecated tokens, bare animate-spin, static Sentry imports, execSync, ungated Tolgee apiKey)
 		printHeader(step++, 'Banned patterns');
 		{
 			const filesToScan = scopedMode
@@ -278,6 +288,11 @@ async function main(): Promise<void> {
 					if (CONFIG.bannedPatterns.execSync.test(line)) {
 						violations.push(
 							`${file}:${i + 1}: execSync (use spawn-style argument arrays, see runCommandCapture in scripts/deploy/utils.ts): ${line.trim()}`
+						);
+					}
+					if (CONFIG.bannedPatterns.ungatedTolgeeApiKey.test(line)) {
+						violations.push(
+							`${file}:${i + 1}: ungated Tolgee apiKey (gate behind import.meta.env.DEV so it is stripped from production/preview bundles): ${line.trim()}`
 						);
 					}
 				}
