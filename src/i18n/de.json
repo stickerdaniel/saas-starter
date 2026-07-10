@@ -57,8 +57,6 @@
 			"ban_reason_label": "Sperrgrund",
 			"ban_reason_placeholder": "Sperrgrund (optional)",
 			"ban_title": "Benutzer sperren",
-			"impersonation_active_description": "Bitte laden Sie die Seite neu, um als der andere Benutzer angemeldet zu werden.",
-			"impersonation_active_title": "Identitätswechsel aktiv",
 			"revoke_description": "Möchten Sie wirklich alle Sitzungen für {email} widerrufen? Die Person wird überall abgemeldet.",
 			"revoke_title": "Sitzungen widerrufen",
 			"set_role_description": "Möchten Sie die Rolle von {email} wirklich auf {role} ändern?",
