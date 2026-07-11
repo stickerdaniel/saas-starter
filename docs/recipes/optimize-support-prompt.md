@@ -85,19 +85,41 @@ app.
 
 ## The override seam: where the optimized prompt lands
 
-The support agent reads its instructions from a named export, `SUPPORT_AGENT_INSTRUCTIONS`,
-instead of an inline literal. That export is the seam this recipe plugs into. Two ways to use
-it:
+The support agent reads its instructions from a named export, `SUPPORT_AGENT_INSTRUCTIONS`
+(`src/lib/convex/support/agent.ts`), instead of an inline literal, and at runtime
+`support/messages.ts` prefers a stored override over that seed. There are two ways to plug an
+optimized prompt in:
 
 - **Static**: have the optimizer print the winning prompt, then paste it in as the new value
-  of `SUPPORT_AGENT_INSTRUCTIONS` and ship it. Simplest, fully reviewable in a diff, no schema
-  change.
-- **Dynamic**: store the optimized prompt in a small table (one active row, plus history),
-  have the agent read the stored override and fall back to `SUPPORT_AGENT_INSTRUCTIONS` when
-  none is set, and let the action write a new row at the end of a run. This lets you re-tune
-  on a schedule as more tickets close, without a deploy.
+  of `SUPPORT_AGENT_INSTRUCTIONS` and ship it. Simplest, fully reviewable in a diff, no
+  database write.
+- **Dynamic**: write the prompt into the `supportAgentPrompts` table through
+  `support/promptStore`. `getActive` resolves the active row before every streamed reply and
+  passes it as the per-turn system override; when no row is active the agent falls back to
+  `SUPPORT_AGENT_INSTRUCTIONS`. This lets you re-tune as more tickets close, without a deploy.
 
-Start static. Move to dynamic only once you are re-running the optimization regularly.
+The dynamic seam already ships in the template, so you do not build the storage or the runtime
+lookup yourself. To hot-swap the prompt by hand, or from the end of an optimization run:
+
+```sh
+# Activate a new prompt (deactivates the previous active row for its locale)
+bunx convex run support/promptStore:savePrompt '{"systemPrompt": "You are ...", "note": "2026-07 optimization run"}'
+
+# Scope an override to one locale (getActive serves the locale-less default elsewhere)
+bunx convex run support/promptStore:savePrompt '{"systemPrompt": "Du bist ...", "locale": "de"}'
+
+# Roll back to the seed prompt without a deploy (deactivate the live row by id)
+bunx convex run support/promptStore:setActive '{"id": "<rowId>", "active": false}'
+```
+
+An optimization pipeline writes into this same seam. It builds a gold corpus from resolved
+tickets, scores candidate replies with the closeness-to-gold judge, runs an optimizer such as
+GEPA to rewrite the prompt, and calls `savePrompt` as its last step. Guard that step with the
+floor from earlier: never persist a prompt whose judged score is below the current seed, so a
+bad or empty run leaves the live prompt untouched and the seed stays the fallback. The
+template ships the seam, not the engine, so this stays a recipe you grow into.
+
+Start static. Move to dynamic once you are re-running the optimization regularly.
 
 ## Reference implementation
 
@@ -114,4 +136,6 @@ optimizer:
 
 Take the structure and the env-resolution wholesale. Swap the spot-the-AI jury for the
 closeness-to-gold judge described above, point the corpus at done `supportThreads` instead of
-LinkedIn turns, and write the result through `SUPPORT_AGENT_INSTRUCTIONS`.
+LinkedIn turns, and write the result through the override seam above: paste it into
+`SUPPORT_AGENT_INSTRUCTIONS` for the static path, or call `support/promptStore:savePrompt` for
+the dynamic one.
