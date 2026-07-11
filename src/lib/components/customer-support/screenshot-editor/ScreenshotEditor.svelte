@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { tick } from 'svelte';
+	import { fade } from 'svelte/transition';
+	import { prefersReducedMotion } from 'svelte/motion';
 	import { lockscroll } from '@svelte-put/lockscroll';
 	import { snapdom } from '@zumer/snapdom';
 	import { getTranslate, T } from '@tolgee/svelte';
@@ -141,7 +143,8 @@
 			// Hand the failure to the parent, which tears down this overlay and
 			// surfaces a recoverable error dialog (retry / contact support).
 			onCaptureError?.(error);
-		} finally {
+			// Reset only on failure. On success the parent unmounts the editor via
+			// onCancel above, and the scrim must stay up through the root fade-out.
 			editorContext.isSaving = false;
 		}
 	}
@@ -157,10 +160,13 @@
 <!-- Lock body scroll -->
 <svelte:body use:lockscroll={true} />
 
-<!-- Transparent overlay over live page -->
+<!-- Transparent overlay over live page. The global fade plays when the parent
+     tears the editor down (save, cancel, capture error), so the overlay melts
+     away instead of snapping off. -->
 <div
 	data-screenshot-editor
 	class="fixed inset-0 z-[100]"
+	out:fade|global={{ duration: prefersReducedMotion.current ? 0 : 150 }}
 	role="dialog"
 	aria-modal="true"
 	aria-label={$t('support.screenshot.aria_label')}
@@ -171,14 +177,17 @@
 	{#if editorContext.isSaving}
 		<!-- Capturing feedback. Kept inside [data-screenshot-editor] so snapdom's
 		     excludeMode:'remove' strips it from the capture with the rest of the
-		     editor chrome. z-index sits above the toolbar (z-[110]) and canvas. -->
+		     editor chrome. z-index sits above the toolbar (z-[110]) and canvas.
+		     The enter animation must be animate-in (compositor-driven keyframes on
+		     opacity/transform), like the spinner: it keeps playing while snapdom's
+		     synchronous clone blocks the main thread right after the first paint. -->
 		<div
-			class="fixed inset-0 z-[120] flex items-center justify-center bg-background/95 backdrop-blur-sm"
+			class="fixed inset-0 z-[120] flex items-center justify-center bg-background/60 backdrop-blur-sm ease-out motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-200"
 		>
 			<div
-				class="flex items-center gap-3 rounded-xl bg-background px-5 py-3 shadow-lg ring-1 ring-foreground/10"
+				class="flex items-center gap-2.5 rounded-full bg-background px-4 py-2.5 shadow-lg ring-1 ring-foreground/10 ease-out motion-safe:animate-in motion-safe:fade-in-0 motion-safe:zoom-in-95 motion-safe:duration-200"
 			>
-				<LoaderCircleIcon class="size-5 text-muted-foreground motion-safe:animate-spin" />
+				<LoaderCircleIcon class="size-4 text-muted-foreground motion-safe:animate-spin" />
 				<span class="text-sm font-medium"><T keyName="support.screenshot.capturing" /></span>
 			</div>
 		</div>
