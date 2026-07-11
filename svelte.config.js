@@ -3,6 +3,7 @@ import auto from '@sveltejs/adapter-auto';
 import cloudflare from '@sveltejs/adapter-cloudflare';
 import node from '@sveltejs/adapter-node';
 import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
+import { buildContentSecurityPolicy } from './src/lib/security/csp.js';
 
 // Workers Builds sets WORKERS_CI but adapter-auto only checks CF_PAGES.
 // Use adapter-cloudflare explicitly when WORKERS_CI is detected.
@@ -49,6 +50,12 @@ const config = {
 			$blocks: 'src/blocks',
 			$static: 'static'
 		},
+		// object-src/base-uri stay enforced (embedded as <meta> on prerendered
+		// pages, as a header on SSR pages). script-src runs report-only and is
+		// wired to Sentry only when PUBLIC_SENTRY_DSN is set at build time.
+		// frame-ancestors is not here — it cannot ride a <meta> tag, so it lives
+		// in hooks.server.ts / _headers / vercel.json. See src/lib/security/csp.js.
+		csp: buildContentSecurityPolicy({ sentryDsn: process.env.PUBLIC_SENTRY_DSN }),
 		experimental: {
 			remoteFunctions: true
 		},

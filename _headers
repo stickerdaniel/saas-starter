@@ -5,7 +5,10 @@
   Permissions-Policy: camera=(), microphone=(), geolocation=(), browsing-topics=(), payment=(), usb=(), serial=()
   X-DNS-Prefetch-Control: off
   Strict-Transport-Security: max-age=63072000; includeSubDomains
-  Content-Security-Policy: object-src 'none'; base-uri 'self'; frame-ancestors 'none'
+  # script-src/object-src/base-uri live in kit.csp (svelte.config.js): prerendered
+  # pages carry them in a <meta> tag. Only frame-ancestors, which a <meta> cannot
+  # express, is set here for static assets. Kept in sync with hooks.server.ts / vercel.json.
+  Content-Security-Policy: frame-ancestors 'none'
   Cross-Origin-Opener-Policy: same-origin-allow-popups
   Cross-Origin-Resource-Policy: same-origin
 

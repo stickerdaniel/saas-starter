@@ -318,9 +318,16 @@ const handleSecurityHeaders: Handle = async function handleSecurityHeaders({ eve
 	);
 	response.headers.set('X-DNS-Prefetch-Control', 'off');
 	response.headers.set('Strict-Transport-Security', 'max-age=63072000; includeSubDomains');
+	// script-src/object-src/base-uri now live in kit.csp (svelte.config.js): on SSR
+	// pages SvelteKit sets the Content-Security-Policy header, on prerendered pages a
+	// <meta>. frame-ancestors cannot ride a <meta> and SvelteKit can't set headers on
+	// prerendered static pages, so it stays a header here (SSR) and in _headers /
+	// vercel.json (prerendered). Append rather than overwrite: a plain headers.set
+	// would clobber the object-src/base-uri header SvelteKit already set on SSR pages.
+	const kitCsp = response.headers.get('Content-Security-Policy');
 	response.headers.set(
 		'Content-Security-Policy',
-		"object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
+		kitCsp ? `${kitCsp}; frame-ancestors 'none'` : "frame-ancestors 'none'"
 	);
 	response.headers.set('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
 	response.headers.set('Cross-Origin-Resource-Policy', 'same-origin');

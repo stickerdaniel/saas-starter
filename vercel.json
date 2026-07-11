@@ -16,7 +16,7 @@
 				{ "key": "Strict-Transport-Security", "value": "max-age=63072000; includeSubDomains" },
 				{
 					"key": "Content-Security-Policy",
-					"value": "object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
+					"value": "frame-ancestors 'none'"
 				},
 				{ "key": "Cross-Origin-Opener-Policy", "value": "same-origin-allow-popups" },
 				{ "key": "Cross-Origin-Resource-Policy", "value": "same-origin" }
