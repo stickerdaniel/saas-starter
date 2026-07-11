@@ -2,11 +2,12 @@
  * CF Workers production deploy command — wraps `wrangler deploy`, then purges the
  * Cloudflare edge cache.
  *
- * Marketing routes that aren't prerendered are edge-cached by the handleCacheControl
- * hook (`Cache-Control: public, s-maxage=3600, ...`). A plain `wrangler deploy` uploads
- * the new version but never invalidates that cache, so visitors keep getting the old HTML
- * until the TTL expires. Purging after a successful deploy makes the new version live
- * immediately.
+ * Older deploys allowed marketing HTML shells into the Cloudflare edge cache.
+ * A plain `wrangler deploy` uploads the new version but never invalidates those
+ * existing entries, so visitors could keep getting old HTML until the TTL expired.
+ * Purging after a successful deploy clears those legacy entries; current HTML
+ * responses are `Cache-Control: public, no-cache` so new shells do not persist
+ * across deploys.
  *
  * Set as the production deploy command in CF Workers Builds dashboard.
  * The purge is a no-op unless both CF_PURGE_TOKEN and CF_ZONE_ID are set, so forks
@@ -34,10 +35,10 @@ if (!token || !zoneId) {
 
 // The worker is already published at this point, so the purge is fail-open: any failure
 // (HTTP error or a network-level throw like DNS/connection refused/timeout) only means the
-// edge serves stale HTML until the TTL expires (the pre-existing behavior). Log loudly but
-// exit 0 so the build doesn't fail and trigger a confusing retry of an already-live deploy.
-// purge_everything is intentional: the zone only caches non-prerendered marketing HTML, so a
-// full purge is the simplest correct invalidation; a tag/prefix purge could miss stale paths.
+// edge may serve a legacy stale HTML entry until its TTL expires. Log loudly but exit 0
+// so the build doesn't fail and trigger a confusing retry of an already-live deploy.
+// purge_everything is intentional: a tag/prefix purge could miss stale paths, and the
+// app's immutable assets are content-hashed, so purging them costs one revalidation.
 try {
 	const res = await fetch(`https://api.cloudflare.com/client/v4/zones/${zoneId}/purge_cache`, {
 		method: 'POST',

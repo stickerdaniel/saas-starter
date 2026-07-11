@@ -60,7 +60,7 @@ describe('patch-cf-worker', () => {
 		expect(result).toContain('__wantsMarkdown');
 	});
 
-	it('skips worktop cache for markdown requests', () => {
+	it('skips worktop cache for markdown requests and marketing shells', () => {
 		const result = applyMarkdownPatch(WORKER_FIXTURE)!;
 
 		// __wantsMarkdown detection should appear before the cache lookup
@@ -68,8 +68,11 @@ describe('patch-cf-worker', () => {
 		const cacheIndex = result.indexOf('await r2(req)');
 		expect(mdIndex).toBeLessThan(cacheIndex);
 
-		// Cache lookup should be gated: !__wantsMarkdown && !pragma... && await r2(req)
-		expect(result).toContain('!__wantsMarkdown && !pragma.includes("no-cache") && await r2(req)');
+		// Cache lookup should be gated on both bypasses, so markdown requests and
+		// legacy marketing shell entries from older deploys are never served
+		expect(result).toContain(
+			'!__wantsMarkdown && !__isPublicMarketingHtml && !pragma.includes("no-cache") && await r2(req)'
+		);
 	});
 
 	it('wraps ALL static-serving disjuncts without extra parens', () => {
@@ -117,37 +120,55 @@ describe('patch-cf-worker', () => {
 		);
 	});
 
-	it('adds s-maxage edge cache to prerendered marketing HTML', () => {
+	it('forces no-cache revalidation for prerendered marketing HTML', () => {
 		const result = applyMarkdownPatch(WORKER_FIXTURE)!;
-		expect(result).toContain('s-maxage=3600, stale-while-revalidate=86400');
-		expect(result).toMatch(/!__wantsMarkdown && prerendered\.has\(pathname\)/);
-		expect(result).toContain('res = new Response(res.body, res)');
-		expect(result.match(/s-maxage=3600/g)?.length).toBe(1);
-		expect(result.match(/const __wantsMarkdown =/g)?.length).toBe(1);
-	});
-
-	it('forces browser revalidation of prerendered marketing HTML', () => {
-		const result = applyMarkdownPatch(WORKER_FIXTURE)!;
-		// Browser must revalidate the shell so it never boots a stale version
-		// referencing deleted chunk hashes after a deploy.
+		// The asset fetch itself must revalidate, and the response must carry
+		// no-cache so worktop's save helper refuses to store it: marketing shells
+		// can never outlive the asset deployment they came from.
+		expect(result).toContain('__assetHeaders.set("cache-control", "no-cache")');
 		expect(result).toContain(
-			'public, max-age=0, must-revalidate, s-maxage=3600, stale-while-revalidate=86400'
+			'res = await env2.ASSETS.fetch(new Request(req, { headers: __assetHeaders }))'
 		);
+		expect(result).toContain('res = await env2.ASSETS.fetch(req)');
+		expect(result).not.toContain('$1.ASSETS');
+		expect(result).toMatch(/__isPublicMarketingHtml && prerendered\.has\(pathname\)/);
+		expect(result).toContain('res = new Response(res.body, res)');
+		expect(result).toContain('res.headers.set("Cache-Control", "public, no-cache")');
+		expect(result).not.toContain('s-maxage');
+		expect(result.match(/const __wantsMarkdown =/g)?.length).toBe(1);
+		expect(result.match(/const __isPublicMarketingHtml =/g)?.length).toBe(1);
 	});
 
 	it('does not add a public cache header to the server.respond branch', () => {
 		const result = applyMarkdownPatch(WORKER_FIXTURE)!;
 		const elseIdx = result.indexOf('res = await server.respond(req');
-		expect(result.slice(elseIdx)).not.toContain('s-maxage');
+		expect(result.slice(elseIdx)).not.toContain('res.headers.set("Cache-Control"');
 	});
 
-	it('injects the marketing edge-cache on the no-cache fallback path', () => {
+	it('injects the marketing no-cache handling on the no-cache fallback path', () => {
 		const result = applyMarkdownPatch(WORKER_FIXTURE_NO_CACHE)!;
-		expect(result).toContain(
-			'public, max-age=0, must-revalidate, s-maxage=3600, stale-while-revalidate=86400'
-		);
+		expect(result).toContain('__assetHeaders.set("cache-control", "no-cache")');
+		expect(result).toContain('res.headers.set("Cache-Control", "public, no-cache")');
 		expect(result).toContain('res = new Response(res.body, res)');
-		expect(result.match(/s-maxage=3600/g)?.length).toBe(1);
+		expect(result).not.toContain('$1.ASSETS');
+	});
+
+	it('stays in sync with the handleCacheControl header in hooks.server.ts', () => {
+		// The injected worker header and the SSR hook header are the same policy
+		// declared in two places; if they drift, prerendered and SSR marketing
+		// pages silently diverge in cache behavior.
+		const result = applyMarkdownPatch(WORKER_FIXTURE)!;
+		const injected = result.match(/res\.headers\.set\("Cache-Control", "([^"]+)"\)/)?.[1];
+		expect(injected).toBeTruthy();
+
+		const hooksSource = fs.readFileSync(path.resolve('src/hooks.server.ts'), 'utf-8');
+		// Isolate the marketing branch (matchPublicMarketingRoute up to its Vary
+		// header) so the auth-group branch cannot mask a drifted marketing value.
+		const marketingBranch = hooksSource.slice(
+			hooksSource.indexOf('matchPublicMarketingRoute(event.url.pathname)'),
+			hooksSource.indexOf("response.headers.set('Vary', 'Accept')")
+		);
+		expect(marketingBranch).toContain(`'Cache-Control', '${injected}'`);
 	});
 });
 
@@ -191,7 +212,7 @@ describe('applyVersionedCacheKeyPatch', () => {
 		const result = applyVersionedCacheKeyPatch(md, 'abc123')!;
 
 		expect(result).toContain(
-			'!__wantsMarkdown && !pragma.includes("no-cache") && await r2(__cacheKey)'
+			'!__wantsMarkdown && !__isPublicMarketingHtml && !pragma.includes("no-cache") && await r2(__cacheKey)'
 		);
 		expect(result).toContain('? c(__cacheKey, res, ctx) : res;');
 		expect(result.match(/const __cacheKey =/g)?.length).toBe(1);

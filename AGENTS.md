@@ -534,18 +534,18 @@ Request-time values needed for an SSR render that shares a layout with prerender
 
 #### Cache-control for marketing pages
 
-Marketing HTML gets the same `Cache-Control: public, s-maxage=3600, stale-while-revalidate=86400` policy through two different edge-cache paths, because prerendered and SSR routes are served differently on CF:
+Marketing HTML gets `Cache-Control: public, no-cache` so browsers and shared caches revalidate the shell before every reuse. HTML references content-hashed JS chunks; a stale shell that outlives a deploy points at chunks that no longer exist and fails before Svelte hydrates. `no-cache` also keeps the response non-edge-cacheable, which matters on Cloudflare: a fixed zone Browser Cache TTL (default 4h) rewrites the browser-facing `max-age` of any edge-cacheable response back up to its floor, so a `max-age=0` + `s-maxage` combination does not survive to the browser.
 
 - **Non-prerendered routes (e.g. `/pricing`)** go through `server.respond()`, so the `handleCacheControl` hook in `hooks.server.ts` sets the header.
   - Condition: unauthenticated + matches `matchPublicMarketingRoute()`
   - Placed AFTER `handleMarketingMarkdown` in `sequence()` to preserve markdown's own TTL
-- **Prerendered routes (home, about, privacy, terms, impressum)** are served as static assets and bypass SvelteKit hooks, so they ship with no Cache-Control. The worker postbuild patch (`scripts/patch-cf-worker.ts`) injects the same header right after the `ASSETS.fetch` call, gated on `!__wantsMarkdown` + `prerendered.has(pathname)` + a marketing-route regex (`pricing` is intentionally excluded — it is SSR, not prerendered).
+- **Prerendered routes (home, about, privacy, terms, impressum)** are served as static assets and bypass SvelteKit hooks. The worker postbuild patch (`scripts/patch-cf-worker.ts`) bypasses worktop's Cache API lookup for these shells, fetches them from `ASSETS` with `cache-control: no-cache`, and sets the same `Cache-Control: public, no-cache` response header (`pricing` is intentionally excluded from the patch's route regex — it is SSR, not prerendered).
 
 Markdown responses on the same URLs use `Cache-Control: private` to stay out of shared caches: CF Edge ignores `Vary: Accept`, so any edge-cacheable markdown would poison subsequent HTML requests on the same URL. The worker patch leaves the markdown variant private by reusing the same `__wantsMarkdown` negotiation check.
 
 #### Cache purging (production)
 
-`scripts/cf-prod-deploy.ts` is the production deploy command: it runs `wrangler deploy` and then purges the edge cache, so a new deploy is served immediately instead of stale cached HTML. The purge is a no-op unless both `CF_PURGE_TOKEN` and `CF_ZONE_ID` are set, so forks without a custom domain keep plain `wrangler deploy` behavior.
+`scripts/cf-prod-deploy.ts` is the production deploy command: it runs `wrangler deploy` and then purges the edge cache. Current marketing HTML shells are `public, no-cache`, but the purge clears legacy cached shell entries from older deploys. The purge is a no-op unless both `CF_PURGE_TOKEN` and `CF_ZONE_ID` are set, so forks without a custom domain keep plain `wrangler deploy` behavior.
 
 - CF API: `POST /zones/{zone_id}/purge_cache` with `{ "purge_everything": true }`
 - Docs: https://developers.cloudflare.com/api/resources/cache/methods/purge/
@@ -555,7 +555,7 @@ Markdown responses on the same URLs use `Cache-Control: private` to stay out of 
 ### Cloudflare Platform Gotchas
 
 - **CF Cache API ignores `Vary`.** Never rely on `Vary`-based content negotiation inside the worker. Bypass the worktop cache before it runs for any header-dependent response. See `scripts/patch-cf-worker.ts`.
-- **Prerendered pages bypass SvelteKit hooks.** Patch the worker to fall through to `server.respond()` for any hook-dependent behavior on prerendered routes. The same patch also injects the marketing edge-cache header (`Cache-Control: public, s-maxage=3600, ...`) onto prerendered marketing HTML, since the `handleCacheControl` hook never runs for them. See `scripts/patch-cf-worker.ts`.
+- **Prerendered pages bypass SvelteKit hooks.** Patch the worker to fall through to `server.respond()` for hook-dependent behavior such as markdown negotiation. For prerendered marketing HTML, the same patch bypasses the worker cache and sets `Cache-Control: public, no-cache`, since the `handleCacheControl` hook never runs for those static shells. See `scripts/patch-cf-worker.ts`.
 
 ### Regression Guard Decision Tree
 

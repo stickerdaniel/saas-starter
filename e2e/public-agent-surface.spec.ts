@@ -58,7 +58,7 @@ test.describe('public agent surface', () => {
 		}
 	});
 
-	test('prerendered marketing HTML is edge-cacheable, markdown variant is not', async ({
+	test('prerendered marketing HTML revalidates, markdown variant stays private', async ({
 		request
 	}) => {
 		test.skip(!isCloudflarePreview, 'worker patch is CF-only; not present in local test stack');
@@ -66,8 +66,13 @@ test.describe('public agent surface', () => {
 			headers: { Accept: 'text/html' }
 		});
 		expect(html.status()).toBe(200);
+		// public, no-cache: shells must never outlive their deploy's chunk set,
+		// and staying non-edge-cacheable keeps a fixed zone Browser Cache TTL
+		// from rewriting the browser-facing max-age back up, which let stale
+		// shells 404 their chunk imports on client navigation after a deploy.
 		expect(html.headers()['cache-control']).toContain('public');
-		expect(html.headers()['cache-control']).toContain('s-maxage=3600');
+		expect(html.headers()['cache-control']).toContain('no-cache');
+		expect(html.headers()['cache-control']).not.toContain('s-maxage');
 
 		const md = await request.get(`/en/about?cb=${Date.now()}`, {
 			headers: { Accept: 'text/markdown' }
