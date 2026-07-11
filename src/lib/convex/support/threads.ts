@@ -499,18 +499,19 @@ export const updateThreadHandoff = mutation({
 			{ threadId: args.threadId }
 		);
 
-		if (recentMessageIds.length > 0) {
-			await ctx.scheduler.runAfter(
-				0,
-				internal.admin.support.notifications.scheduleAdminNotification,
-				{
-					threadId: args.threadId,
-					messageIds: recentMessageIds,
-					isReopen: false,
-					notificationType: 'newTickets' // Handoff from AI to human
-				}
-			);
-		}
+		// A handoff always notifies admins, even with no prior user messages (a bare
+		// "Talk to support" with nothing typed before it). Downstream the email
+		// renders a no-messages fallback line instead of message excerpts.
+		await ctx.scheduler.runAfter(
+			0,
+			internal.admin.support.notifications.scheduleAdminNotification,
+			{
+				threadId: args.threadId,
+				messageIds: recentMessageIds,
+				isReopen: false,
+				notificationType: 'newTickets' // Handoff from AI to human
+			}
+		);
 
 		return true;
 	}

@@ -269,7 +269,13 @@ export function renderNewTicketAdminNotificationEmail(
 		)
 		.join('');
 
-	const noMessagesText = t(locale, 'email.body.no_messages');
+	// A bare "Talk to a human" carries no message excerpts, so its empty-state line
+	// names the handoff. Every other empty case (a reopen or reply with no text)
+	// keeps the neutral wording shared with the rest of the admin ticket email.
+	const noMessagesText = t(
+		locale,
+		data.isBareHandoff ? 'email.body.handoff_no_messages' : 'email.body.no_messages'
+	);
 	const badgeText = t(locale, 'email.badge.support');
 	const buttonText = t(locale, 'email.body.view_admin_dashboard');
 	const footerText = t(locale, 'email.body.ticket_footer');

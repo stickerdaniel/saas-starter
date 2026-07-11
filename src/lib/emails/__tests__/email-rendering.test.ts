@@ -204,6 +204,7 @@ describe('Email Template Rendering', () => {
 			const result = renderNewTicketAdminNotificationEmail(
 				{
 					isReopen: false,
+					isBareHandoff: false,
 					userName: 'Max',
 					messages: [{ text: 'Hi', timestamp: 'Jan 15, 10:30 AM' }],
 					adminDashboardLink: 'https://example.com/admin/support'
@@ -212,6 +213,36 @@ describe('Email Template Rendering', () => {
 			);
 			expect(result.html).toContain('Im Admin-Dashboard ansehen');
 			expect(result.text).toContain('Sie erhalten diese E-Mail');
+		});
+
+		it('uses the handoff empty-state line for a bare handoff with no messages', () => {
+			const result = renderNewTicketAdminNotificationEmail(
+				{
+					isReopen: false,
+					isBareHandoff: true,
+					userName: 'Max',
+					messages: [],
+					adminDashboardLink: 'https://example.com/admin/support'
+				},
+				'en'
+			);
+			expect(result.html).toContain('The user asked to talk to a human.');
+			expect(result.text).toContain('The user asked to talk to a human.');
+		});
+
+		it('uses the neutral empty-state line when a non-handoff notification has no messages', () => {
+			const result = renderNewTicketAdminNotificationEmail(
+				{
+					isReopen: true,
+					isBareHandoff: false,
+					userName: 'Max',
+					messages: [],
+					adminDashboardLink: 'https://example.com/admin/support'
+				},
+				'en'
+			);
+			expect(result.html).toContain('No messages');
+			expect(result.html).not.toContain('The user asked to talk to a human.');
 		});
 
 		it('renders Spanish new user signup notification', () => {
