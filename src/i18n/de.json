@@ -451,7 +451,7 @@
 		},
 		"support": {
 			"handoff": {
-				"response": "Natürlich! Ich verbinde Sie jetzt. Bitte geben Sie unten Ihre E-Mail-Adresse ein und wir benachrichtigen Sie, wenn unser Support-Team geantwortet hat. In der Zwischenzeit können Sie gerne weitere Details hinzufügen, die uns helfen könnten."
+				"response": "Ich habe das Team dazugeholt. Es antwortet Ihnen direkt hier im Chat. Tragen Sie unten Ihre E-Mail-Adresse ein, dann sagen wir Ihnen Bescheid, sobald es geantwortet hat. Ergänzen Sie in der Zwischenzeit gern alles, was weiterhilft."
 			},
 			"message_too_long": "Nachricht ist zu lang (max. {max} Zeichen)",
 			"rate_limit": {
@@ -576,6 +576,7 @@
 			"support": "Support"
 		},
 		"body": {
+			"handoff_no_messages": "Der Nutzer möchte mit einem Menschen sprechen.",
 			"no_messages": "Keine Nachrichten",
 			"ticket_footer": "Sie erhalten diese E-Mail, weil Sie diesem Ticket zugewiesen sind oder Support-Benachrichtigungen erhalten.",
 			"ticket_message": "{userName} hat eine neue Nachricht zu einem zuvor geschlossenen Ticket gesendet",

@@ -91,12 +91,15 @@ export type NotificationMessage = {
  * - User reopens a closed ticket
  *
  * @property isReopen - Whether this is a reopened ticket (true) or new/handoff ticket (false)
+ * @property isBareHandoff - True when the user asked for a human with no prior messages,
+ *   so the empty-state line reads as a handoff rather than a neutral "no messages"
  * @property userName - User's name or "Anonymous" for anonymous users
  * @property messages - Array of messages to include in the notification
  * @property adminDashboardLink - Link to the admin dashboard for this thread
  */
 export type NewTicketAdminNotificationEmailData = {
 	isReopen: boolean;
+	isBareHandoff: boolean;
 	userName: string;
 	messages: NotificationMessage[];
 	adminDashboardLink: string;

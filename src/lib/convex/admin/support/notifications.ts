@@ -53,11 +53,9 @@ export const scheduleAdminNotification = internalMutation({
 	},
 	returns: v.null(),
 	handler: async (ctx, args) => {
-		// Skip if no messages to notify about
-		if (args.messageIds.length === 0) {
-			return null;
-		}
-
+		// A handoff with no prior user messages (a bare "Talk to a human") still
+		// notifies admins. Downstream the email renders a no-messages fallback line
+		// instead of message excerpts.
 		const now = Date.now();
 		const scheduledFor = now + NOTIFICATION_DELAY_MS;
 
@@ -220,6 +218,10 @@ export const sendPendingAdminNotification = internalAction({
 				await ctx.runMutation(internal.emails.send.sendNewTicketAdminNotification, {
 					email,
 					isReopen: notification.isReopen,
+					// A handoff with no accumulated messages is a bare "Talk to a human",
+					// so the email's empty-state line names the handoff instead of the
+					// neutral "no messages" shared with reopen/reply notifications.
+					isBareHandoff: notification.messageIds.length === 0,
 					userName: supportThread.userName || 'Anonymous',
 					messages,
 					threadId: notification.threadId

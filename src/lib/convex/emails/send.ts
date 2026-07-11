@@ -181,6 +181,7 @@ export const sendNewTicketAdminNotification = internalMutation({
 	args: {
 		email: v.string(),
 		isReopen: v.boolean(),
+		isBareHandoff: v.boolean(),
 		userName: v.string(),
 		messages: v.array(
 			v.object({
@@ -192,7 +193,7 @@ export const sendNewTicketAdminNotification = internalMutation({
 	},
 	returns: v.null(),
 	handler: async (ctx, args) => {
-		const { email, isReopen, userName, messages, threadId } = args;
+		const { email, isReopen, isBareHandoff, userName, messages, threadId } = args;
 		assertResendApiKey();
 		const siteUrl = requireEnv('SITE_URL', { feature: 'email deep links' });
 		const locale = await getLocaleForEmail(ctx, email);
@@ -203,6 +204,7 @@ export const sendNewTicketAdminNotification = internalMutation({
 		const { html, text } = renderNewTicketAdminNotificationEmail(
 			{
 				isReopen,
+				isBareHandoff,
 				userName,
 				messages: messages as NotificationMessage[],
 				adminDashboardLink

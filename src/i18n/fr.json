@@ -451,7 +451,7 @@
 		},
 		"support": {
 			"handoff": {
-				"response": "Bien sûr ! Je vous connecte maintenant. Veuillez entrer votre email ci-dessous et nous vous notifierons quand notre équipe de support aura répondu. En attendant, n'hésitez pas à ajouter des détails supplémentaires qui pourraient nous aider."
+				"response": "J'ai fait appel à l'équipe. Elle vous répondra directement ici dans ce chat. Laissez votre email ci-dessous et nous vous préviendrons dès qu'elle aura répondu. Ajoutez tout détail utile en attendant."
 			},
 			"message_too_long": "Le message est trop long (max. {max} caractères)",
 			"rate_limit": {
@@ -576,6 +576,7 @@
 			"support": "Support"
 		},
 		"body": {
+			"handoff_no_messages": "L'utilisateur souhaite parler à un humain.",
 			"no_messages": "Aucun message",
 			"ticket_footer": "Vous recevez cet email car vous êtes assigné à ce ticket ou configuré pour recevoir les notifications de support.",
 			"ticket_message": "{userName} a envoyé un nouveau message sur un ticket précédemment fermé",
