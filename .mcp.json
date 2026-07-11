@@ -6,7 +6,15 @@
 		},
 		"chrome-devtools": {
 			"command": "bunx",
-			"args": ["-y", "chrome-devtools-mcp@latest", "--no-usage-statistics"]
+			"args": [
+				"-y",
+				"chrome-devtools-mcp@latest",
+				"--no-usage-statistics"
+			]
+		},
+		"posthog": {
+			"type": "http",
+			"url": "https://mcp.posthog.com/mcp"
 		}
 	}
 }
