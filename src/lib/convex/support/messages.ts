@@ -201,13 +201,21 @@ export const createAIResponse = internalAction({
 		const sink = makeAgentUsageSink();
 
 		try {
+			// Load the active support prompt override, if any. null falls back to the
+			// agent's built-in SUPPORT_AGENT_INSTRUCTIONS (agent.ts). The seam already
+			// accepts a locale; we pass none here and serve the global default.
+			const systemOverride = await ctx.runQuery(internal.support.promptStore.getActive, {});
+
 			// Stream the AI response with tool execution support
 			// maxSteps is configured at the agent level (agent.ts) for multi-step tool execution
 			const result = await supportAgent.streamText(
 				ctx,
 				{ threadId: args.threadId, userId: args.userId },
 				{
-					promptMessageId: args.promptMessageId
+					promptMessageId: args.promptMessageId,
+					// AgentPrompt.system overrides the agent's instructions for this turn;
+					// undefined leaves SUPPORT_AGENT_INSTRUCTIONS in place.
+					system: systemOverride ?? undefined
 				},
 				{
 					usageHandler: sink.usageHandler,

@@ -6,10 +6,13 @@ import { LEGAL_CONFIG } from '../../config/legal';
 import { requestHandoff } from './tools/handoff';
 
 /**
- * System instructions for the support agent.
+ * System instructions for the support agent — the seed prompt.
  *
- * Exported separately so prompt-optimization tooling can override the prompt
- * without touching the Agent wiring.
+ * This is the fallback served when no stored override is active. At runtime
+ * support/messages.ts reads support/promptStore.getActive and, when a row is
+ * active, passes it as the per-turn system override in place of this text.
+ * Prompt-optimization tooling writes its result through that store, so it can
+ * ship a new prompt without editing this file.
  */
 export const SUPPORT_AGENT_INSTRUCTIONS = `You are a helpful customer support agent for ${LEGAL_CONFIG.brandName}, a modern SaaS application template built with SvelteKit, Convex, and Tailwind CSS. Your answers are brief and in WhatsApp style.
 
