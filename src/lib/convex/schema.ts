@@ -81,6 +81,20 @@ export default defineSchema({
 			filterFields: ['status', 'assignedTo', 'isHandedOff', 'awaitingAdminResponse']
 		}),
 
+	// Stored overrides for the support agent's system prompt. support/promptStore
+	// serves the active row at runtime (support/messages.ts) in place of the seed
+	// prompt in agent.ts (SUPPORT_AGENT_INSTRUCTIONS), which stays the fallback
+	// when no row is active. Lets you hot-swap the prompt from the database, or
+	// from a prompt-optimization run, without a deploy. At most one active row
+	// per locale (the by_active index keeps getActive off a full-table scan).
+	supportAgentPrompts: defineTable({
+		systemPrompt: v.string(), // Full prompt served in place of the seed
+		locale: v.optional(v.string()), // Scopes the override to one locale; absent = default for all
+		note: v.optional(v.string()), // Freeform: why this override exists / where it came from
+		active: v.boolean(), // Whether getActive may serve this row
+		createdAt: v.number()
+	}).index('by_active', ['active']),
+
 	// Admin settings - key-value store for app configuration
 	adminSettings: defineTable({
 		key: v.string(), // Setting key (e.g., 'defaultSupportEmail')

@@ -78,6 +78,7 @@ import type * as support_messageListing from "../support/messageListing.js";
 import type * as support_messages from "../support/messages.js";
 import type * as support_migration from "../support/migration.js";
 import type * as support_ownership from "../support/ownership.js";
+import type * as support_promptStore from "../support/promptStore.js";
 import type * as support_rateLimit from "../support/rateLimit.js";
 import type * as support_supportThreadFields from "../support/supportThreadFields.js";
 import type * as support_threads from "../support/threads.js";
@@ -165,6 +166,7 @@ declare const fullApi: ApiFromModules<{
   "support/messages": typeof support_messages;
   "support/migration": typeof support_migration;
   "support/ownership": typeof support_ownership;
+  "support/promptStore": typeof support_promptStore;
   "support/rateLimit": typeof support_rateLimit;
   "support/supportThreadFields": typeof support_supportThreadFields;
   "support/threads": typeof support_threads;
