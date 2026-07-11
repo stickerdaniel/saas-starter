@@ -310,6 +310,8 @@ There is currently no query over `emailEvents`; inspect events via the Convex da
 
 This project uses **PostHog** for product analytics with an optional **Cloudflare Worker proxy** to bypass ad blockers while minimizing costs.
 
+The official PostHog MCP is wired in `.mcp.json` (OAuth on first use, auto-routes to the account's US/EU region) — use it to inspect live insights, dashboards, and events, e.g. to verify a funnel still matches the event properties after renaming or removing one.
+
 ## Testing Guidelines
 
 ### E2E Playwright Tests
