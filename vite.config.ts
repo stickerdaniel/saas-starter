@@ -8,6 +8,7 @@ import { resetRedactionMap } from 'varlock/env';
 import { DEV_FEATURES, type DevFeature } from './src/lib/dev/features';
 import { findAvailablePort, portlessOwnsPort } from './scripts/dev-ports';
 import { TEST_ONLY_ENV_PLACEHOLDERS } from './scripts/local-convex-env';
+import { stripSensitiveManifestValues } from './scripts/strip-varlock-secrets';
 import { sentrySvelteKit } from '@sentry/sveltekit';
 import devtoolsJson from 'vite-plugin-devtools-json';
 import tailwindcss from '@tailwindcss/vite';
@@ -387,6 +388,20 @@ export default defineConfig(async ({ mode }) => {
 	}
 
 	plugins.push(
+		// Drop plaintext values of @sensitive vars from varlock's resolved-env manifest
+		// before varlockVitePlugin serializes it into the SSR bundle. Write-only platform
+		// secrets (Convex deploy/preview keys, management token) are otherwise readable in
+		// the deployed edge artifact even though nothing at runtime reads them. buildStart
+		// runs after varlock's config reload and before the manifest is serialized, and
+		// mutates the same live binding varlockVitePlugin serializes, so this is
+		// adapter-agnostic (Cloudflare, Vercel, adapter-node). See scripts/strip-varlock-secrets.ts.
+		{
+			name: 'strip-varlock-sensitive-manifest-values',
+			apply: 'build',
+			buildStart() {
+				if (mode === 'production') stripSensitiveManifestValues(varlockLoadedEnv);
+			}
+		},
 		varlockVitePlugin(mode === 'production' ? { ssrInjectMode: 'resolved-env' } : {}),
 		tailwindcss(),
 		sveltekit(),
