@@ -30,6 +30,7 @@
 import { spawnSync, type SpawnSyncOptions } from 'child_process';
 import { existsSync, readFileSync, realpathSync, statSync } from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import { parseArgs } from 'util';
 import { getStagedFiles, isUnderPreCommit, sanitizedGitEnv } from './git-context';
 
@@ -93,7 +94,9 @@ const colors = {
 // ===========================================================================
 
 /** Repo root, from this script's own location. Correct under worktrees and nesting. */
-const REPO_ROOT = realpathSync(path.resolve(import.meta.dir, '..'));
+// fileURLToPath, not Bun's import.meta.dir: the latter is undefined under vitest,
+// which imports this module for scripts/static-checks.test.ts.
+const REPO_ROOT = realpathSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'));
 
 const USAGE = '  Flags: --ci, --staged, --scope <lint|types>, --files-from <path|->';
 
@@ -134,7 +137,7 @@ function toPosix(p: string): string {
  * Normalizing here fixes (2) for every prefix gate at once, including the ones a fork
  * adds later, without touching a single gate.
  */
-function resolveInputs(raw: string[], origin: string): string[] {
+export function resolveInputs(raw: string[], origin: string): string[] {
 	const out = new Set<string>();
 
 	for (const arg of raw) {
@@ -209,7 +212,7 @@ function readFilesFrom(source: string): string[] {
  * derived, so a check can no longer disagree with the ledger about its own scope, and
  * a new check has to declare a route to be accounted for.
  */
-const ROUTES = {
+export const ROUTES = {
 	misspell: (f: string) => !CONFIG.misspell.ignore.some((i) => f.includes(i)),
 	'banned-patterns': (f: string) => /\.(svelte|ts)$/.test(f) && f.startsWith('src/'),
 	prettier: (f: string) => /\.(js|ts|svelte|html|css|md|json)$/.test(f),
@@ -729,7 +732,11 @@ async function main(): Promise<void> {
 // now exits non-zero instead of inheriting a green.
 process.exitCode = 2;
 
-main().catch((error: Error) => {
-	console.error(`${colors.red}Fatal error: ${error.message}${colors.reset}`);
-	process.exit(1);
-});
+// Guarded so static-checks.test.ts can import resolveInputs and ROUTES without
+// running the whole gate as a side effect of the import.
+if (import.meta.main) {
+	main().catch((error: Error) => {
+		console.error(`${colors.red}Fatal error: ${error.message}${colors.reset}`);
+		process.exit(1);
+	});
+}
