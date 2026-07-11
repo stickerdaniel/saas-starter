@@ -14,10 +14,13 @@
  * a) Detect markdown requests early (before cache lookup)
  * b) Skip the worktop cache for markdown requests
  * c) Skip static asset serving for markdown requests
- * d) Inject an s-maxage edge-cache header for prerendered marketing HTML.
+ * d) Force prerendered marketing HTML to revalidate instead of entering the
+ *    worker cache.
  *    Those pages are served as static assets and bypass SvelteKit hooks, so
- *    they ship with no Cache-Control. This mirrors the handleCacheControl hook
- *    that caches the SSR /pricing route, leaving the markdown variant private.
+ *    they ship with no Cache-Control. HTML shells reference content-hashed JS
+ *    chunks; caching them across deploys can leave the browser booting a shell
+ *    whose chunks no longer exist. This mirrors the handleCacheControl hook
+ *    for SSR marketing HTML, leaving the markdown variant private.
  *
  * Runs as postbuild for all builds. Skips gracefully when no worker file exists
  * (e.g., Vercel via adapter-auto where server.respond() always runs).
@@ -36,36 +39,41 @@ export const STATIC_SERVING_PATTERN = /(if\s*\()(is_static_asset\b.+?\.startsWit
 const WORKTOP_LOOKUP_CORE = /!pragma\.includes\("no-cache"\) && await /.source;
 
 // Match the worktop cache lookup: `let res = !pragma.includes("no-cache") && await r2(req);`
-// We inject the __wantsMarkdown check here so markdown requests bypass the cache entirely.
-// CF Cache API ignores Vary headers, so cached HTML would be served for markdown requests.
+// We inject cache-bypass checks here so markdown requests and marketing HTML shells
+// bypass the worker cache entirely. CF Cache API ignores Vary headers, and cached
+// HTML shells can reference chunk hashes removed by a later deploy.
 export const CACHE_LOOKUP_PATTERN = new RegExp(`(let res = )(${WORKTOP_LOOKUP_CORE}\\w+\\(req\\))`);
 
 // Match the static-asset serving call: `res = await env2.ASSETS.fetch(req);`
-// We append the marketing edge-cache injection right after it, capturing the
-// minified env binding (e.g. `env2`) so the replacement references the real name.
+// We replace it with a marketing-HTML-aware fetch, capturing the minified env
+// binding (e.g. `env2`) so the replacement references the real name.
 export const ASSET_SERVE_PATTERN = /res = await (\w+)\.ASSETS\.fetch\(req\);?/;
 
-// Injection appended after the ASSETS.fetch call. `$1` is replaced with the
-// captured env binding. Double-gated on the same __wantsMarkdown const used by
-// the markdown passthrough so the markdown variant stays private, plus the
-// prerendered set and a marketing-route regex (pricing is intentionally absent,
-// it is SSR via handleCacheControl, not prerendered).
-const MARKETING_HTML_CACHE_INJECTION = `res = await $1.ASSETS.fetch(req);
-        if (!__wantsMarkdown && prerendered.has(pathname) && /^\\/[a-z]{2}(\\/(about|privacy|terms|impressum))?$/.test(pathname)) {
-          // Prerendered marketing HTML bypasses SvelteKit hooks on CF, so it ships
-          // with no Cache-Control. Apply the same policy handleCacheControl gives the
-          // SSR /pricing route. ASSETS responses have immutable headers, so
-          // reconstruct to mutate. max-age=0, must-revalidate asks the browser to
-          // revalidate the shell so the location.href recovery in the root layout
-          // fetches a fresh one instead of a stale shell with dead chunk hashes.
-          // Necessary but not sufficient: a fixed zone Browser Cache TTL (default 4h)
-          // is a floor that CF uses to rewrite the browser-facing max-age back up to
-          // 14400 while the response stays edge-cacheable. The zone must set Browser
-          // Cache TTL to "Respect Existing Headers" (or a Cache Rule on the marketing
-          // HTML paths) for max-age=0 to survive. This string must stay identical to
-          // handleCacheControl in src/hooks.server.ts.
+// Marketing pathname predicate injected into the worker, shared by the cache
+// bypass and the ASSETS.fetch replacement so the two can never drift. The
+// homepage (/en) matches via the absent optional group; pricing is
+// intentionally absent, it is SSR via handleCacheControl, not prerendered.
+const MARKETING_ROUTE_PREDICATE = `const __isPublicMarketingHtml = /^\\/[a-z]{2}(\\/(about|privacy|terms|impressum))?\\/?$/.test(new URL(req.url).pathname);`;
+
+// Replacement for the ASSETS.fetch call. `$1` is replaced with the captured env
+// binding. Prerendered marketing HTML bypasses SvelteKit hooks, so force a
+// no-cache asset fetch and mark the response no-cache before the generated
+// worker decides whether to store it in the worktop cache (worktop's save
+// helper refuses responses carrying no-cache).
+const MARKETING_HTML_CACHE_INJECTION = `if (__isPublicMarketingHtml && prerendered.has(pathname)) {
+          const __assetHeaders = new Headers(req.headers);
+          __assetHeaders.set("cache-control", "no-cache");
+          res = await $1.ASSETS.fetch(new Request(req, { headers: __assetHeaders }));
+          // HTML shells reference immutable chunk hashes. A cached entry that
+          // survives a deploy points at chunks the new asset set no longer serves,
+          // preventing Svelte from hydrating and arming the client-side recovery
+          // backstop. Keep HTML revalidated; immutable assets remain long-cacheable.
+          // ASSETS responses have immutable headers, so reconstruct to mutate. This
+          // string must stay identical to handleCacheControl in src/hooks.server.ts.
           res = new Response(res.body, res);
-          res.headers.set("Cache-Control", "public, max-age=0, must-revalidate, s-maxage=3600, stale-while-revalidate=86400");
+          res.headers.set("Cache-Control", "public, no-cache");
+        } else {
+          res = await $1.ASSETS.fetch(req);
         }`;
 
 /**
@@ -79,13 +87,15 @@ export function applyMarkdownPatch(source: string): string | null {
 		return null;
 	}
 
-	// Step 1: Inject __wantsMarkdown detection before the cache lookup and skip cache
+	// Step 1: Inject __wantsMarkdown detection before the cache lookup, then skip
+	// the cache for markdown requests AND marketing HTML shells. The shell bypass
+	// also stops legacy cache entries from older deploys from ever being served.
 	let patched = source;
 
 	if (CACHE_LOOKUP_PATTERN.test(patched)) {
 		patched = patched.replace(
 			CACHE_LOOKUP_PATTERN,
-			`const __wantsMarkdown = /\\btext\\/markdown\\b/i.test(req.headers.get("accept") || "");\n$1!__wantsMarkdown && $2`
+			`const __wantsMarkdown = /\\btext\\/markdown\\b/i.test(req.headers.get("accept") || "");\n    ${MARKETING_ROUTE_PREDICATE}\n$1!__wantsMarkdown && !__isPublicMarketingHtml && $2`
 		);
 		// Step 2: Also skip static asset serving for markdown requests
 		patched = patched.replace(STATIC_SERVING_PATTERN, `$1!__wantsMarkdown && ($2))`);
@@ -104,21 +114,22 @@ export function applyMarkdownPatch(source: string): string | null {
 		// Fallback: inject before static serving (prerendered pages still fixed, no cache layer to bypass)
 		patched = patched.replace(
 			STATIC_SERVING_PATTERN,
-			`const __wantsMarkdown = /\\btext\\/markdown\\b/i.test(req.headers.get("accept") || "");\n$1!__wantsMarkdown && ($2))`
+			`const __wantsMarkdown = /\\btext\\/markdown\\b/i.test(req.headers.get("accept") || "");\n${MARKETING_ROUTE_PREDICATE}\n$1!__wantsMarkdown && ($2))`
 		);
 	}
 
-	// Step 3: Inject an s-maxage edge-cache header for prerendered marketing HTML.
+	// Step 3: Inject no-cache headers for prerendered marketing HTML.
 	// Runs in both the cache and no-cache paths (single tail return). Reuses the
-	// same __wantsMarkdown const so the markdown variant stays private.
+	// same marketing predicate that skips the worker cache above, and the same
+	// __wantsMarkdown const so the markdown variant stays private.
 	if (ASSET_SERVE_PATTERN.test(patched)) {
 		const before = patched;
 		patched = patched.replace(ASSET_SERVE_PATTERN, (_m, envName) =>
-			MARKETING_HTML_CACHE_INJECTION.replace('$1', envName)
+			MARKETING_HTML_CACHE_INJECTION.replaceAll('$1', envName)
 		);
 		if (patched === before) {
 			throw new Error(
-				'ASSET_SERVE_PATTERN matched but the marketing edge-cache injection did not apply.'
+				'ASSET_SERVE_PATTERN matched but the marketing no-cache injection did not apply.'
 			);
 		}
 	}
@@ -129,8 +140,9 @@ export function applyMarkdownPatch(source: string): string | null {
 // Match the worktop cache lookup call so its `req` argument can be swapped for
 // a versioned cache key. Anchored on the `!pragma.includes("no-cache") &&`
 // prefix so `env2.ASSETS.fetch(req)` and `server.respond(req, ...)` can never
-// match. Tolerates the `!__wantsMarkdown && ` prefix applyMarkdownPatch
-// prepends. Order matters: run applyMarkdownPatch FIRST (as the CLI does).
+// match. Tolerates the `!__wantsMarkdown && !__isPublicMarketingHtml && `
+// prefix applyMarkdownPatch prepends. Order matters: run applyMarkdownPatch
+// FIRST (as the CLI does).
 // Reversed, its patterns expect the bare `(req)` argument, miss the salted
 // call, and silently skip the markdown cache bypass.
 export const CACHE_KEY_LOOKUP_PATTERN = new RegExp(`(${WORKTOP_LOOKUP_CORE})(\\w+)\\(req\\)`);
@@ -143,11 +155,13 @@ export const CACHE_KEY_SAVE_PATTERN = /(\? )(\w+)\(req, (res, ctx\))/;
  *
  * The worktop layer caches responses per colo keyed on the bare URL. Branch
  * alias and workers.dev URLs stay constant across deploys, so after a push a
- * colo keeps serving the previous build's marketing HTML for up to
- * s-maxage=3600 while its immutable chunk hashes 404 on the new deployment:
- * the page never hydrates. workers.dev cannot purge, so the stale copy can
- * only age out. Keying lookup AND save on `?__v=<version>` gives every deploy
- * a cold cache namespace; old entries expire unreferenced.
+ * colo could keep serving a previous build's HTML while its immutable chunk
+ * hashes 404 on the new deployment: the page never hydrates. workers.dev
+ * cannot purge, so a stale copy can only age out. Marketing shells now bypass
+ * this cache entirely (public, no-cache via applyMarkdownPatch), but any
+ * other response shipping cacheable headers is still stored; keying lookup
+ * AND save on `?__v=<version>` gives every deploy a cold cache namespace,
+ * and old entries expire unreferenced.
  *
  * Returns the patched source, null when the worker has no worktop cache layer
  * (nothing to salt), and throws when only one of the two call sites matches:

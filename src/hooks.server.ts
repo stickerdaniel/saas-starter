@@ -223,7 +223,7 @@ const authFirstPattern: Handle = async function authFirstPattern({ event, resolv
 };
 
 /**
- * Set edge cache headers for unauthenticated marketing pages.
+ * Set revalidation cache headers for unauthenticated marketing pages.
  * Placed AFTER handleMarketingMarkdown — markdown requests return early
  * (no resolve() call) so this hook is skipped for them, preserving
  * the existing markdown 5-minute TTL.
@@ -236,27 +236,18 @@ const handleCacheControl: Handle = async function handleCacheControl({ event, re
 		!event.locals.token &&
 		matchPublicMarketingRoute(event.url.pathname)
 	) {
-		// max-age=0, must-revalidate asks the browser to revalidate the HTML shell on
-		// every navigation (a 304 keeps it cheap) so the location.href recovery in the
-		// root layout fetches a fresh shell instead of re-reading a stale one that
-		// references deleted chunk hashes. s-maxage keeps the shared edge cache.
-		//
-		// Necessary but not sufficient on Cloudflare. A fixed zone Browser Cache TTL
-		// (default 4h) acts as a floor: CF rewrites the browser-facing max-age back up
-		// to 14400 whenever the origin value is lower, and this response stays
-		// edge-cacheable (public + s-maxage), so max-age=0 is overridden until the zone
-		// is reconfigured. See developers.cloudflare.com/cache/how-to/edge-browser-cache-ttl/.
-		// Required CF change (zone-level, not expressible from origin headers): set
-		// Browser Cache TTL to "Respect Existing Headers", or add a Cache Rule scoped to
-		// the marketing HTML paths that does the same. Verify after deploy: the live
-		// Cache-Control on /en must NOT carry an injected max-age=14400.
-		//
-		// This string must stay in sync with the prerendered marketing HTML header in
-		// scripts/patch-cf-worker.ts.
-		response.headers.set(
-			'Cache-Control',
-			'public, max-age=0, must-revalidate, s-maxage=3600, stale-while-revalidate=86400'
-		);
+		// Marketing HTML shells reference content-hashed JS chunks. A cached shell
+		// that survives a deploy points at chunks the new asset set no longer
+		// serves, preventing hydration and arming the client-side recovery
+		// backstop. no-cache keeps every reuse conditional (a 304 keeps
+		// revalidation cheap) and, unlike the previous max-age=0 + s-maxage combo,
+		// leaves the response non-edge-cacheable — so a fixed zone Browser Cache
+		// TTL (default 4h) cannot rewrite the browser-facing max-age back up to
+		// 14400, which it does to any edge-cacheable response and which let stale
+		// shells sit in browsers for hours after a deploy. Immutable assets remain
+		// long-cacheable. This string must stay in sync with the prerendered
+		// marketing HTML header in scripts/patch-cf-worker.ts.
+		response.headers.set('Cache-Control', 'public, no-cache');
 		// These URLs also serve markdown via Accept header. CF edge ignores Vary, so
 		// this is safe only because every route reaching this branch is non-prerendered
 		// and the markdown variant is private (kept out of shared caches).
@@ -269,12 +260,10 @@ const handleCacheControl: Handle = async function handleCacheControl({ event, re
 		// Auth-group HTML shells (signin, signup, forgot-password, ...) reference the
 		// same content-hashed chunks as the marketing shells but fell through the
 		// marketing matcher and shipped with no Cache-Control at all, leaving
-		// freshness to cache heuristics. Any reuse must revalidate so a shell never
-		// outlives its chunk set. Unlike the marketing branch there is no s-maxage:
-		// auth shells are not edge-cached, so the zone Browser Cache TTL floor
-		// documented above does not apply. No Vary: Accept either, these routes have
-		// no markdown variant. Matching on the route group keeps new auth pages
-		// covered automatically.
+		// freshness to cache heuristics. Same policy as the marketing branch: any
+		// reuse must revalidate so a shell never outlives its chunk set. No
+		// Vary: Accept though, these routes have no markdown variant. Matching on
+		// the route group keeps new auth pages covered automatically.
 		response.headers.set('Cache-Control', 'public, no-cache');
 	}
 
