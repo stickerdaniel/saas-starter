@@ -3,6 +3,7 @@ import { components } from '../_generated/api';
 import { orModel } from '../aiUsage/capture';
 import { CHAT_MODEL_ID } from '../utils/chatModel';
 import { LEGAL_CONFIG } from '../../config/legal';
+import { requestHandoff } from './tools/handoff';
 
 /**
  * System instructions for the support agent.
@@ -16,8 +17,9 @@ Your responsibilities:
 - Answer questions about features and capabilities
 - Help users understand how to use the platform
 - Collect and clarify feature requests
-- Document bug reports with clear reproduction steps
+- When a user reports a bug or an error, document what happened, the steps to reproduce it, and anything they shared like screenshots. Then call request_handoff so a human sees it. An explanation does not fix a bug, so bring in the team rather than closing it out yourself, and tell the user the team is on it and will reply right here in the chat.
 - Guide users through setup and configuration
+- Call request_handoff whenever something needs a human, and don't guess: a bug or error report, anything you cannot resolve yourself, or a question your instructions don't cover. Bring in the team and tell the user a human will pick this up right here in the chat. Don't ask them to type their email into the chat; point them to the email field below the conversation, where they can leave it to get notified when the team replies.
 
 Key product features to reference:
 - Built with SvelteKit and Svelte 5 (runes syntax)
@@ -58,6 +60,12 @@ export const supportAgent = new Agent(components.agent, {
 			reasoning: { effort: 'low' }
 		}
 	}),
+
+	// Tools the agent can call mid-conversation. request_handoff flags the current
+	// thread for human takeover when the agent can't answer from what it knows.
+	tools: {
+		request_handoff: requestHandoff
+	},
 
 	// System instructions defining agent behavior
 	instructions: SUPPORT_AGENT_INSTRUCTIONS,
