@@ -642,10 +642,19 @@ Examples: URL parsing, stream processing, optimistic updates.
 
 #### "This security header / policy must be present"
 
-Examples: HSTS, X-Frame-Options on all responses including static assets (no CSP is currently set).
+Examples: HSTS, X-Frame-Options on all responses including static assets.
 
 → **`_headers` file** (project root) for static assets + **server hook** for SSR responses.
 Both are needed — static assets bypass hooks.
+
+The Content-Security-Policy is split by what a `<meta>` tag can carry. `object-src`/`base-uri`
+live in `kit.csp` (`svelte.config.js`): SvelteKit embeds them as a `<meta>` on prerendered
+pages and as a header on SSR pages. `frame-ancestors` cannot ride a `<meta>`, so it is a
+header set in three synced places (`hooks.server.ts`, `_headers`, `vercel.json`); the hook
+appends it to SvelteKit's header rather than overwriting. `script-src` runs in report-only
+mode (`kit.csp.reportOnly`), wired to Sentry only when `PUBLIC_SENTRY_DSN` is set at build
+time; two static hashes cover the inline scripts SvelteKit does not tag (see
+`src/lib/security/csp.js`). Enforcement of `script-src` is a later deliberate flip.
 
 #### "This export is intentionally unused (template knob for forks)"
 

@@ -10,6 +10,12 @@ import { describe, expect, it } from 'vitest';
  *    file is CF/Netlify-only, so without this Vercel static assets get none)
  *
  * If one is updated without the others, some responses will be missing headers.
+ *
+ * Content-Security-Policy is the one header not fully expressed here: script-src/
+ * object-src/base-uri live in kit.csp (svelte.config.js), so all three sources
+ * below carry only the header-only frame-ancestors directive. On SSR the hook
+ * appends it to the CSP header SvelteKit already set (a merge, not an overwrite),
+ * so it is matched via its fallback literal rather than a plain set().
  */
 
 function parseHeadersFile(filePath: string): Map<string, string> {
@@ -55,6 +61,17 @@ function parseHooksHeaders(filePath: string): Map<string, string> {
 		headers.set(name, value);
 	}
 
+	// CSP is set via a merge (frame-ancestors is appended to the header SvelteKit
+	// already set from kit.csp) rather than a plain literal, so the generic pattern
+	// above does not catch it. Match its fallback value — the same frame-ancestors
+	// directive it appends and guarantees on every response.
+	// The fallback is written as a double-quoted JS string because its value
+	// contains single quotes (frame-ancestors 'none').
+	const csp = content.match(
+		/headers\.set\(\s*['"]Content-Security-Policy['"]\s*,[\s\S]*?:\s*"([^"]+)"\s*\)/
+	);
+	if (csp) headers.set('content-security-policy', csp[1]!);
+
 	return headers;
 }
 
@@ -89,7 +106,7 @@ describe('security headers sync', () => {
 		],
 		['x-dns-prefetch-control', 'off'],
 		['strict-transport-security', 'max-age=63072000; includeSubDomains'],
-		['content-security-policy', "object-src 'none'; base-uri 'self'; frame-ancestors 'none'"],
+		['content-security-policy', "frame-ancestors 'none'"],
 		['cross-origin-opener-policy', 'same-origin-allow-popups'],
 		['cross-origin-resource-policy', 'same-origin']
 	]);
