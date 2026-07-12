@@ -23,8 +23,9 @@ const THREAD_PREVIEW_LENGTH = 100;
 /**
  * Send a user message and get AI response with streaming.
  *
- * Billing check happens in a separate action (checkAndTrackAiChat) called
- * by the frontend. Kept as a mutation for optimistic update support.
+ * Billing is counted inside `createAIResponse` via `checkAndCountUsage`
+ * (featureId `ai_chat_messages`) and refunded with `refundUsage` when the
+ * generation fails. It is not a separate action the frontend calls. Kept as a mutation for optimistic update support.
  */
 export const sendMessage = authedMutation({
 	args: {

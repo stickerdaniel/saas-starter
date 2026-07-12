@@ -14,7 +14,8 @@ const FALLBACK_ALIAS = 'branch';
  * Rules: lowercase letters, numbers, dashes only. Must start with a letter.
  * Slice length is computed from the worker name so the preview hostname label
  * `${alias}-${workerName}.${subdomain}.workers.dev` stays within the 63-char DNS limit.
- * NOTE: Duplicated in shell in .github/workflows/e2e-preview-cf.yml, keep in sync.
+ * NOTE: .github/workflows/e2e-fork-preview.yml imports this function (via `bun -e`)
+ * to compute the fork preview URL, so it stays the single source of truth.
  */
 export function sanitizeBranchAlias(branch: string, workerName: string): string {
 	const maxAliasLen = 63 - 1 - workerName.length;

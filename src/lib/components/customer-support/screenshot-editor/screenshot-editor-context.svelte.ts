@@ -18,7 +18,8 @@ import {
 
 export type ScreenshotEditorProps = {
 	/**
-	 * Callback when user saves the annotated screenshot (downloads directly)
+	 * Callback when the user saves the annotated screenshot. Receives the blob;
+	 * the parent decides what to do with it. It does not download.
 	 */
 	onSave?: () => void | Promise<void>;
 

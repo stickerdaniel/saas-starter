@@ -64,9 +64,9 @@ For every error handling location, ask:
 
 **Logging Quality:**
 
-- Is the error logged with appropriate severity (logError for production issues)?
+- Is the error reported, not just swallowed (see the reporting stack below)?
 - Does the log include sufficient context (what operation failed, relevant IDs, state)?
-- Is there an error ID from constants/errorIds.ts for Sentry tracking?
+- Does a production failure reach Sentry, rather than dying in a console.error?
 - Would this log help someone debug the issue 6 months from now?
 
 **User Feedback:**
@@ -158,8 +158,9 @@ You are thorough, skeptical, and uncompromising about error handling quality. Yo
 
 Be aware of project-specific patterns from CLAUDE.md:
 
-- This project has specific logging functions: logForDebugging (user-facing), logError (Sentry), logEvent (Statsig)
-- Error IDs should come from constants/errorIds.ts
+- Sentry is loaded lazily via `loadSentry()` from `$lib/monitoring/sentry`, so the SDK
+  stays out of the first-paint bundle when PUBLIC_SENTRY_DSN is unset. A static
+  `@sentry/sveltekit` import is a banned pattern (see scripts/static-checks.ts).
 - The project explicitly forbids silent failures in production code
 - Empty catch blocks are never acceptable
 - Tests should not be fixed by disabling them; errors should not be fixed by bypassing them

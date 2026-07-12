@@ -1,6 +1,6 @@
 type ErrorWithCode = { code?: string | null };
 
-// Maps Better Auth 1.4.17 error codes to i18n translation keys.
+// Maps Better Auth error codes to i18n translation keys.
 // Codes verified against @better-auth/core/src/error/codes.ts
 const ERROR_CODE_MAP: Record<string, string> = {
 	// Credential/auth

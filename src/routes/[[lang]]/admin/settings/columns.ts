@@ -9,7 +9,8 @@ import RecipientsToggle from './recipients-toggle.svelte';
 import TypeBadge from './type-badge.svelte';
 
 export const columns: Array<ColumnDef<NotificationRecipient>> = [
-	// Temporary checkbox column for layout testing
+	// Drives the bulk toggle: recipients-toggle.svelte reads the row selection
+	// from context and flips every selected row. Not scaffolding.
 	{
 		id: 'select',
 		size: 40,
