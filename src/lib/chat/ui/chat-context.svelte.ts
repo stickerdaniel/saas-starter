@@ -329,7 +329,8 @@ export class ChatUIContext {
 	/**
 	 * Upload a file and add it as an attachment
 	 * Progress is tracked automatically
-	 * Images are uploaded as-is (the model supports all allowed formats natively).
+	 * Images are re-encoded before upload when the caller passes `preprocess`
+	 * (ChatInput does: it resizes and converts to WebP). Non-images upload as-is.
 	 */
 	async uploadFile(
 		file: File | Blob,

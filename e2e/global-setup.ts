@@ -64,7 +64,8 @@ async function retrySetupStep<T>(label: string, run: () => Promise<T>): Promise<
  *
  * The convex-vite-plugin starts backend deploy asynchronously after vite begins
  * serving (node_modules/convex-vite-plugin/src/index.ts:302), so Playwright's
- * webServer port-check on :5174 succeeds well before Convex is reachable. Without
+ * webServer port-check on the test vite port (derived per project, see
+ * scripts/dev-ports.ts) succeeds well before Convex is reachable. Without
  * this gate, the first signup HTTP call can hit a 500 from a not-yet-ready
  * backend and globalSetup's existing retry only covers transient network errors.
  *

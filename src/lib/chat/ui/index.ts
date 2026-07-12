@@ -18,7 +18,8 @@ export {
 // Types
 /**
  * File metadata for dimension lookup
- * Map of fileId -> { width, height }
+ * Map of URL -> { width, height }. Keyed by URL because UIMessage file parts
+ * carry no fileId (see ChatMessages.defaultExtractAttachments).
  */
 export type FileMetadataMap = Record<string, { width?: number; height?: number }>;
 

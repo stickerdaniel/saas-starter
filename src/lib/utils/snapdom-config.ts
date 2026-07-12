@@ -7,7 +7,7 @@
  * - Development: Always use public proxy (corsproxy.io) for quick testing
  * - Production: Use custom Cloudflare Worker if provided via env var (optional)
  *
- * See docs/screenshot-proxy-setup.md for Cloudflare Worker setup instructions.
+ * See docs/setup/customer-support/screenshot-proxy-setup.md for Cloudflare Worker setup.
  */
 
 import { dev } from '$app/environment';
