@@ -83,6 +83,7 @@ export const sendMessage = authedMutation({
 			const result = await aiChatAgent.saveMessage(ctx, {
 				threadId: args.threadId,
 				message: { role: 'user', content },
+				metadata: { fileIds: args.fileIds },
 				skipEmbeddings: true
 			});
 			messageId = result.messageId;

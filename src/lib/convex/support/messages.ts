@@ -99,6 +99,7 @@ export const sendMessage = mutation({
 					role: 'user',
 					content
 				},
+				metadata: { fileIds: args.fileIds },
 				skipEmbeddings: true
 			});
 

@@ -65,15 +65,26 @@ vi.mock('../../_generated/api', () => ({
 	internal: {
 		support: {
 			promptStore: { getActive: 'internal.support.promptStore.getActive' },
-			threads: { updateLastMessage: 'internal.support.threads.updateLastMessage' }
+			threads: { updateLastMessage: 'internal.support.threads.updateLastMessage' },
+			messages: { createAIResponse: 'internal.support.messages.createAIResponse' }
+		},
+		admin: {
+			support: {
+				notifications: {
+					scheduleAdminNotification:
+						'internal.admin.support.notifications.scheduleAdminNotification'
+				}
+			}
 		}
 	}
 }));
 
 const GET_ACTIVE_REF = 'internal.support.promptStore.getActive';
 
+import { getFile } from '@convex-dev/agent';
 import { supportAgent } from '../agent';
-import { createAIResponse } from '../messages';
+import { requireSupportThreadAccess } from '../ownership';
+import { createAIResponse, sendMessage } from '../messages';
 
 const streamTextMock = supportAgent.streamText as unknown as ReturnType<typeof vi.fn>;
 
@@ -122,5 +133,68 @@ describe('createAIResponse prompt override wiring', () => {
 			promptMessageId: 'prompt_1',
 			system: undefined
 		});
+	});
+});
+
+// The component keeps a file alive only while a stored message references it via
+// message.fileIds; the vacuum deletes any file whose refcount is 0. sendMessage
+// therefore has to forward the attached fileIds as saveMessage metadata, and only
+// for the multimodal branch — a plain text message must not carry a fileIds key.
+describe('sendMessage attachment refcount metadata', () => {
+	const requireAccessMock = requireSupportThreadAccess as unknown as ReturnType<typeof vi.fn>;
+	const saveMessageMock = supportAgent.saveMessage as unknown as ReturnType<typeof vi.fn>;
+	const getFileMock = getFile as unknown as ReturnType<typeof vi.fn>;
+
+	const sendHandler = sendMessage as unknown as Fn<
+		{ threadId: string; prompt: string; fileIds?: string[] },
+		{ messageId: string }
+	>;
+
+	function makeSendCtx() {
+		return {
+			db: { patch: vi.fn() },
+			scheduler: { runAfter: vi.fn() }
+		};
+	}
+
+	beforeEach(() => {
+		vi.clearAllMocks();
+		requireAccessMock.mockResolvedValue({
+			owner: { ownerId: 'user_1', isAnonymous: false },
+			supportThread: {
+				_id: 'st_1',
+				status: 'open',
+				isWarm: false,
+				isHandedOff: false,
+				pageUrl: ''
+			}
+		});
+		saveMessageMock.mockResolvedValue({ messageId: 'm1' });
+		getFileMock.mockResolvedValue({
+			filePart: {
+				type: 'file',
+				data: new URL('https://files/f1'),
+				mediaType: 'image/png',
+				filename: 'f1.png'
+			}
+		});
+	});
+
+	it('forwards fileIds as saveMessage metadata for a multimodal message', async () => {
+		const ctx = makeSendCtx();
+
+		await sendHandler._handler(ctx, { threadId: 't1', prompt: 'hi', fileIds: ['file_1'] });
+
+		// Agent instance method signature is saveMessage(ctx, args), so the args
+		// object is the second positional argument.
+		expect(saveMessageMock.mock.calls[0][1].metadata).toEqual({ fileIds: ['file_1'] });
+	});
+
+	it('does not attach metadata for a text-only message', async () => {
+		const ctx = makeSendCtx();
+
+		await sendHandler._handler(ctx, { threadId: 't1', prompt: 'hi' });
+
+		expect(saveMessageMock.mock.calls[0][1].metadata).toBeUndefined();
 	});
 });
