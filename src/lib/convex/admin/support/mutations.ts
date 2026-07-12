@@ -217,7 +217,8 @@ export const sendAdminReply = adminMutation({
 						adminName,
 						adminEmail: ctx.user.email
 					}
-				}
+				},
+				...(args.fileIds?.length ? { fileIds: args.fileIds } : {})
 			}
 		});
 
