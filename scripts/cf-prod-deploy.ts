@@ -1,6 +1,11 @@
 /**
- * CF Workers production deploy command — wraps `wrangler deploy`, then purges the
+ * CF Workers production deploy command — wraps `varlock-wrangler deploy`, then purges the
  * Cloudflare edge cache.
+ *
+ * `varlock-wrangler` is a thin wrapper around `wrangler`: it resolves the env graph and
+ * uploads it to the worker (non-sensitive values as vars, sensitive ones as secrets, plus
+ * the __VARLOCK_ENV blob the runtime loader reads at boot). Without it the worker deploys
+ * with no env at all, since the Cloudflare build embeds no env in the SSR bundle.
  *
  * Older deploys allowed marketing HTML shells into the Cloudflare edge cache.
  * A plain `wrangler deploy` uploads the new version but never invalidates those
@@ -11,16 +16,17 @@
  *
  * Set as the production deploy command in CF Workers Builds dashboard.
  * The purge is a no-op unless both CF_PURGE_TOKEN and CF_ZONE_ID are set, so forks
- * without a custom domain keep plain `wrangler deploy` behavior.
+ * without a custom domain keep plain deploy behavior.
  *
- * Runs without varlock (like the other deploy commands), so CF_PURGE_TOKEN gets no
- * log redaction. It must never be written to any log/error string; it is only ever
- * sent in the Authorization header below.
+ * This script itself is not run under `varlock run`, so CF_PURGE_TOKEN gets no log
+ * redaction here (varlock-wrangler resolves the env graph in its own child process, which
+ * does not cover this process). CF_PURGE_TOKEN must never be written to any log/error
+ * string; it is only ever sent in the Authorization header below.
  */
 
 import { spawnSync } from 'child_process';
 
-const result = spawnSync('bunx', ['wrangler', 'deploy'], { stdio: 'inherit' });
+const result = spawnSync('bunx', ['varlock-wrangler', 'deploy'], { stdio: 'inherit' });
 if (result.status !== 0) {
 	process.exit(result.status ?? 1);
 }
