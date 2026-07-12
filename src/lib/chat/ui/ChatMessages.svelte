@@ -12,6 +12,7 @@
 	import { ScrollButton } from '$lib/components/prompt-kit/scroll-button';
 	import ProgressiveBlur from '$blocks/magic/ProgressiveBlur.svelte';
 	import { getChatUIContext } from './chat-context.svelte.js';
+	import { isHandoffAnchor } from './handoff-anchor.js';
 	import ChatMessage from './ChatMessage.svelte';
 	import type { DisplayMessage, Attachment } from '../core/types.js';
 	import { mode } from 'mode-watcher';
@@ -208,7 +209,7 @@
 								{message}
 								attachments={getAttachments(message)}
 								isFirstInGroup={isFirstInGroup(index, ctx.displayMessages)}
-								isHandoffMessage={message.displayText?.startsWith(HANDOFF_MESSAGE)}
+								isHandoffMessage={isHandoffAnchor(message, HANDOFF_MESSAGE)}
 								{showEmailPrompt}
 								{currentEmail}
 								{isEmailPending}
