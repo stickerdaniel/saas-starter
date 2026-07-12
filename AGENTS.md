@@ -92,6 +92,7 @@ Local dev notes (`bun run dev`):
 
 - Deploy is push-driven: `main` → production, any branch → preview, built by CI (CF Workers Builds + Vercel run `scripts/deploy.ts`). Command table in README.
 - Never deploy from local (`convex deploy`, `wrangler deploy`, bare `deploy.ts`): it needs CI-only env (varlock, `CONVEX_DEPLOY_KEY`, `WORKERS_CI`) and otherwise fails or targets the wrong deployment. Just push.
+- On Cloudflare, env reaches the Worker through `varlock-wrangler` (both deploy scripts wrap it), which uploads the resolved graph as Worker vars + secrets. The Cloudflare build embeds no env blob, so never set `ssrInjectMode: 'resolved-env'` on that path: it would bake `@sensitive` values into the Worker script as plaintext, and the script is API-readable and archived per version. Deploying with plain `wrangler` ships a Worker with no env. Vercel and adapter-node have no upload step, so they keep `resolved-env` plus the manifest strip (`scripts/strip-varlock-secrets.ts`).
 - Forks self-hosting `convex-backend` (Docker): if logs show `TooMuchMemoryCarryOver` isolate restarts (every UDF then pays a full bundle re-import), set `ISOLATE_MAX_HEAP_EXTRA_SIZE=134217728`. That knob is the carry-over allowance (default 32 MiB) the restart check actually uses — raising `ISOLATE_MAX_USER_HEAP_SIZE` alone does not raise it, and the Better Auth local-install bundle keeps ~50 MiB resident between requests. The local embedded backend is already covered: `vite.config.ts` sets both isolate knobs before spawning it (overridable via shell env).
 
 ### Logo Generation
@@ -555,7 +556,7 @@ Markdown responses on the same URLs use `Cache-Control: private` to stay out of 
 
 #### Cache purging (production)
 
-`scripts/cf-prod-deploy.ts` is the production deploy command: it runs `wrangler deploy` and then purges the edge cache. Current marketing HTML shells are `public, no-cache`, but the purge clears legacy cached shell entries from older deploys. The purge is a no-op unless both `CF_PURGE_TOKEN` and `CF_ZONE_ID` are set, so forks without a custom domain keep plain `wrangler deploy` behavior.
+`scripts/cf-prod-deploy.ts` is the production deploy command: it runs `varlock-wrangler deploy` and then purges the edge cache. Current marketing HTML shells are `public, no-cache`, but the purge clears legacy cached shell entries from older deploys. The purge is a no-op unless both `CF_PURGE_TOKEN` and `CF_ZONE_ID` are set, so forks without a custom domain keep plain deploy behavior.
 
 - CF API: `POST /zones/{zone_id}/purge_cache` with `{ "purge_everything": true }`
 - Docs: https://developers.cloudflare.com/api/resources/cache/methods/purge/

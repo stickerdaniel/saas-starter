@@ -108,7 +108,9 @@ Deploy via [Cloudflare Workers](https://developers.cloudflare.com/workers/) with
 **1. Create Worker**
 
 - Rename `name` in `wrangler.toml` to your project name
-- Run `bunx wrangler deploy` (first deploy creates the Worker)
+- Run `bunx varlock-wrangler deploy` (first deploy creates the Worker)
+
+`varlock-wrangler` is a thin wrapper around `wrangler` that resolves the env schema and uploads it to the Worker: non-sensitive values become Worker vars, `@sensitive` ones become Worker secrets, and a `__VARLOCK_ENV` secret carries the resolved graph that the SSR bundle reads at boot. The Cloudflare build embeds no env in the bundle, so resolved secrets never land in the Worker script (which is API-readable and archived per version). Deploying with plain `wrangler` would upload a Worker with no env at all. The other adapters (Vercel, adapter-node) have no upload step, so there the resolved env is still serialized into the bundle, with `@sensitive` values stripped out of it (`scripts/strip-varlock-secrets.ts`).
 
 **2. Connect repo**
 

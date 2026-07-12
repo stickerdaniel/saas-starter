@@ -387,22 +387,43 @@ export default defineConfig(async ({ mode }) => {
 		);
 	}
 
+	// On Cloudflare, varlock delivers env natively: `varlockVitePlugin()` detects
+	// @sveltejs/adapter-cloudflare (via `api.options.kit.adapter` on SvelteKit's setup plugin,
+	// exposed since kit 2.62) and injects the runtime loader that reads the __VARLOCK_ENV
+	// binding at worker boot. `varlock-wrangler` (both deploy scripts wrap it) uploads that
+	// binding at deploy time as worker vars + secrets. Nothing is embedded in the bundle, so
+	// no @sensitive value can reach the worker script, which Cloudflare serves over its API
+	// and archives per version.
+	//
+	// WORKERS_CI is the same signal svelte.config.js uses to pick adapter-cloudflare, so the
+	// build here knows whether the CF path applies. (Auto-detection itself keys off the
+	// resolved adapter, so the two always agree.)
+	const isCloudflareBuild = !!process.env.WORKERS_CI;
+
 	plugins.push(
-		// Drop plaintext values of @sensitive vars from varlock's resolved-env manifest
-		// before varlockVitePlugin serializes it into the SSR bundle. Write-only platform
-		// secrets (Convex deploy/preview keys, management token) are otherwise readable in
-		// the deployed edge artifact even though nothing at runtime reads them. buildStart
-		// runs after varlock's config reload and before the manifest is serialized, and
-		// mutates the same live binding varlockVitePlugin serializes, so this is
-		// adapter-agnostic (Cloudflare, Vercel, adapter-node). See scripts/strip-varlock-secrets.ts.
+		// The other adapters (Vercel, adapter-node) have no equivalent upload step, so there
+		// the resolved manifest IS still serialized into the SSR bundle (ssrInjectMode below)
+		// and the plaintext values of @sensitive vars have to be stripped out of it by hand.
+		// Write-only platform secrets (Convex deploy/preview keys, management token) would
+		// otherwise be readable in the deployed artifact even though nothing at runtime reads
+		// them. buildStart runs after varlock's config reload and before the manifest is
+		// serialized, and mutates the same live binding varlockVitePlugin serializes. See
+		// scripts/strip-varlock-secrets.ts.
 		{
 			name: 'strip-varlock-sensitive-manifest-values',
 			apply: 'build',
 			buildStart() {
-				if (mode === 'production') stripSensitiveManifestValues(varlockLoadedEnv);
+				if (mode === 'production' && !isCloudflareBuild) {
+					stripSensitiveManifestValues(varlockLoadedEnv);
+				}
 			}
 		},
-		varlockVitePlugin(mode === 'production' ? { ssrInjectMode: 'resolved-env' } : {}),
+		// Cloudflare: no options, so auto-detection injects the loader and no blob is embedded.
+		// Vercel/adapter-node production: embed the resolved-env blob (their only delivery
+		// channel), stripped above. Dev: init-only.
+		varlockVitePlugin(
+			isCloudflareBuild ? {} : mode === 'production' ? { ssrInjectMode: 'resolved-env' } : {}
+		),
 		tailwindcss(),
 		sveltekit(),
 		devtoolsJson(),
