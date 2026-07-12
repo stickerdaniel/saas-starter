@@ -1,6 +1,8 @@
-# Admin Framework Plan
+# The admin framework
 
-Building a declarative, resource-driven admin panel inspired by Laravel Nova — implemented in Svelte 5 + TypeScript + Convex.
+A declarative, resource-driven admin panel inspired by Laravel Nova, implemented in Svelte 5 + TypeScript + Convex.
+
+This is a guide to the framework as it is built (`src/lib/convex/admin/**`, `src/lib/components/authenticated/`), not a plan for building it. Read it to add a resource, a field type, or a filter.
 
 ---
 
@@ -602,73 +604,3 @@ export function getResourceGroups() {
 ```
 
 ---
-
-## What We Already Have vs. What to Build
-
-| Capability                         | Status   | Notes                                                          |
-| ---------------------------------- | -------- | -------------------------------------------------------------- |
-| Admin route protection             | Done     | Server hooks + JWT                                             |
-| `adminQuery` / `adminMutation`     | Done     | Convex function builders                                       |
-| Data table with sorting/pagination | Done     | `createConvexCursorTable` + `ConvexCursorTableShell`           |
-| Bulk actions UI                    | Done     | Checkbox selection on user table                               |
-| Filters (select, status)           | Done     | On user management page                                        |
-| URL state management               | Done     | Runed `useSearchParams` + Valibot schema                       |
-| Dashboard metrics                  | Done     | Cards on admin dashboard                                       |
-| Charts                             | Done     | LayerChart/D3 area charts                                      |
-| Global search                      | Done     | Command palette                                                |
-| Sidebar navigation                 | Done     | `AuthenticatedLayout` with config objects                      |
-| Audit logging                      | Done     | `adminAuditLogs` table                                         |
-| Toast notifications                | Done     | `svelte-sonner`                                                |
-| Inline editing (toggles)           | Done     | `SvelteMap` overlay pattern in settings                        |
-| Optimistic updates                 | Done     | Both `SvelteMap` and Convex `optimisticUpdate` patterns        |
-| `defineResource` builder           | To Build | Type-safe with `DocFields<TTable>` validation                  |
-| `defineField` builder              | To Build | Field type registry + component map                            |
-| `defineAction` builder             | To Build | Action config + modal form                                     |
-| `defineFilter` builder             | To Build | Filter config system                                           |
-| `defineMetric` builder             | To Build | Metric config + `@convex-dev/aggregate`                        |
-| Generic resource pages             | To Build | Index, Detail, Create, Edit using `[resource=resource]` routes |
-| Field component registry           | To Build | Per-type, per-context component map                            |
-| `ActionModal.svelte`               | To Build | Generic confirmation dialog with dynamic fields                |
-| `FieldRenderer.svelte`             | To Build | Context-aware rendering from component map                     |
-| `createDynamicForm`                | To Build | `$state`-based form with Valibot validation                    |
-| Dynamic sidebar from resources     | To Build | Auto-generate from registry `getResourceGroups()`              |
-| Relationship field handling        | To Build | `convex-helpers`: `getOneFrom`, `getManyFrom`, `getManyVia`    |
-| Shared resource query utilities    | To Build | `applyResourceQuery()`, `applyResourceMutation()`              |
-| Param matcher                      | To Build | `src/params/resource.ts` for `[resource=resource]`             |
-| Permission system                  | To Build | Better Auth `createAccessControl` + `permissionQuery` builder  |
-| Field-level authorization          | To Build | Server-side `canSee` in Convex queries                         |
-| Tab panels for detail/form         | To Build | shadcn-svelte Tabs + `FieldGroup[]` config                     |
-| Dependent fields                   | To Build | `dependsOn` + `$derived` visibility                            |
-| Validation error mapping           | To Build | `ConvexError` → field errors + `isValidationError()` guard     |
-
----
-
-## Migration Path
-
-### Strategy: Gradual Coexistence
-
-Existing pages (`/admin/users`, `/admin/support`, `/admin/settings`, `/admin/dashboard`) are the equivalent of Nova "tools" — fully custom pages. They keep their own routes and components. New resource-driven pages use `[resource=resource]/` dynamic routes. Both coexist naturally in the sidebar.
-
-**Migration order:**
-
-1. Build framework core (defineResource, FieldRenderer, ResourceIndex)
-2. Create a new resource using the framework (e.g., audit logs) as proof-of-concept
-3. Gradually port existing pages one at a time, keeping custom pages as fallbacks
-4. Some pages (support with PaneForge, dashboard) may stay custom permanently
-
-### Existing Convex Functions
-
-The generic resource system **wraps** existing functions, not replaces. Each resource's Convex file can call existing query/mutation functions internally while presenting the standard resource interface.
-
----
-
-## Implementation Priority
-
-1. **Phase 1 — Core framework**: `defineResource`, `defineField`, field component registry, `FieldRenderer`, `createDynamicForm`
-2. **Phase 2 — Resource Index**: `ResourceIndex.svelte` wrapping `ConvexCursorTableShell`, shared `applyResourceQuery()`, param matcher, resource registry, sidebar generation
-3. **Phase 3 — CRUD**: `ResourceDetail`, `ResourceCreate`, `ResourceEdit`, shared `applyResourceMutation()`, tab panels, dependent fields, validation error mapping
-4. **Phase 4 — Actions & Filters**: `defineAction`, `defineFilter`, `ActionModal`, `FilterPanel`, inline editing support
-5. **Phase 5 — Metrics**: `defineMetric`, metric components, `@convex-dev/aggregate` integration, dashboard integration
-6. **Phase 6 — Authorization**: `createAccessControl` setup, `permissionQuery` builder, resource/field `canSee`, action `canRun`
-7. **Phase 7 — Polish**: Global search integration, relation fields (`belongsTo`/`hasMany`), file/image fields, optimistic updates for CRUD
-8. **Phase 8 — Migration**: Convert existing admin pages to resource definitions where appropriate
