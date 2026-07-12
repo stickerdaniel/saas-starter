@@ -58,6 +58,14 @@ NEVER use the `EnterWorktree` tool. Always use `bun run worktree` instead and ad
 
 Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`, `perf`, `ci`
 
+### Where knowledge belongs
+
+- **A plan is a PR body. An audit finding is an issue. A convention is a lint rule. A fact about the code is a test. Only what none of those can hold gets a repo document**, which is three things: an alternative you rejected and the reason, a constraint you do not control (platform, provider, browser, law), and a runbook for a system outside this repo. Those three are a licence, not a grudging exception: if a PR learned one of them, the doc is part of the deliverable, and omitting it is a defect in the same way a missing regression guard is. Never commit a file that restates the code (a symbol, a signature, an enum, a current file list), because that is the only kind of doc that reliably rots. Never leave a plan or an audit as a repo file once its PR is merged or its issue is filed.
+  - Half rationale, half restatement: split it, never annotate it. The rationale keeps the file; the restating half is deleted in the same PR, and becomes a test if it was load-bearing.
+  - Surviving docs are historical. Append a dated note; never rewrite the original reasoning to agree with today's code, because what was believed and rejected at the time is the whole value of the record.
+
+Why the rule is this blunt: in a fork of this template, a sweep of every markdown file and every source comment found 106 claims that contradicted the code, and **every single one** was a claim the code could have answered for itself. A prune pass over the same 35 docs could then delete exactly one, because the rest held rejected alternatives and external constraints that no code can show. Docs that restate the code rot with certainty; docs that record a decision cannot rot at all, since they describe a moment rather than a state. A file that mixes the two is always partly wrong, and a reader cannot tell which half to trust.
+
 ## Development Commands
 
 ### Core Development
