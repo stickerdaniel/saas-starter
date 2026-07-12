@@ -57,7 +57,11 @@
 			{...props}
 			variant="ghost"
 			class={cn(
-				'h-auto w-full justify-between rounded-b-none bg-background px-3 py-2 font-normal',
+				// Pin the top corners to the container token (Tool.svelte is rounded-lg):
+				// the Button primitive's base radius is theme-owned, so a re-themed fork
+				// (e.g. a pill-shaped Button base) would otherwise curve far inside the
+				// clipped container.
+				'h-auto w-full justify-between rounded-t-lg rounded-b-none bg-background px-3 py-2 font-normal',
 				className
 			)}
 		>
