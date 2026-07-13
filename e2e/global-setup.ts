@@ -17,6 +17,8 @@ import path from 'path';
 const SITE_URL = resolveSiteUrl();
 const TEST_PASSWORD = 'TestPassword123!';
 const SETUP_RETRY_ATTEMPTS = 3;
+// Delays before the 2nd and 3rd attempt of an HTTP call (3 attempts total).
+const HTTP_RETRY_DELAYS_MS = [2000, 5000];
 
 import type { TestCredentials } from './utils/types';
 import { resolveConvexUrl } from './utils/convex-url';
@@ -57,6 +59,41 @@ async function retrySetupStep<T>(label: string, run: () => Promise<T>): Promise<
 	}
 
 	throw new Error(`[Setup] Unexpected retry fallthrough for ${label}`);
+}
+
+/**
+ * Fetch with retry on network errors and 5xx responses. A cold CF Workers
+ * preview can answer the first request with a non-JSON 5xx before the
+ * Better Auth handler has warmed up. A 4xx is a real failure (bad request,
+ * duplicate email, etc.) and is returned immediately without retrying.
+ */
+async function fetchWithRetry(url: string, init: RequestInit, label: string): Promise<Response> {
+	const totalAttempts = HTTP_RETRY_DELAYS_MS.length + 1;
+	for (let attempt = 1; ; attempt++) {
+		let response: Response;
+		try {
+			response = await fetch(url, init);
+		} catch (error) {
+			if (attempt >= totalAttempts) throw error;
+			const delayMs = HTTP_RETRY_DELAYS_MS[attempt - 1]!;
+			const message = error instanceof Error ? error.message : String(error);
+			console.warn(
+				`[Setup]   ${label} network error on attempt ${attempt}/${totalAttempts}, retrying in ${delayMs}ms: ${message}`
+			);
+			await sleep(delayMs);
+			continue;
+		}
+
+		if (response.status < 500 || attempt >= totalAttempts) {
+			return response;
+		}
+
+		const delayMs = HTTP_RETRY_DELAYS_MS[attempt - 1]!;
+		console.warn(
+			`[Setup]   ${label} got HTTP ${response.status} on attempt ${attempt}/${totalAttempts}, retrying in ${delayMs}ms`
+		);
+		await sleep(delayMs);
+	}
 }
 
 /**
@@ -205,19 +242,26 @@ async function createUser(
 
 	// Sign up the user
 	try {
-		const signUpResponse = await fetch(`${SITE_URL}/api/auth/sign-up/email`, {
-			method: 'POST',
-			headers: getHeaders(),
-			body: JSON.stringify({
-				email: user.email,
-				password: user.password,
-				name: user.name
-			})
-		});
+		const signUpResponse = await fetchWithRetry(
+			`${SITE_URL}/api/auth/sign-up/email`,
+			{
+				method: 'POST',
+				headers: getHeaders(),
+				body: JSON.stringify({
+					email: user.email,
+					password: user.password,
+					name: user.name
+				})
+			},
+			`${userType} signup`
+		);
 
 		if (!signUpResponse.ok) {
-			const errorData = await signUpResponse.json().catch(() => ({}));
-			console.error(`[Setup]   Error creating ${userType} user:`, errorData);
+			const bodyText = await signUpResponse.text().catch(() => '');
+			console.error(
+				`[Setup]   Error creating ${userType} user: HTTP ${signUpResponse.status} ${signUpResponse.statusText}`,
+				bodyText.slice(0, 300)
+			);
 			throw new Error(`Failed to create ${userType} test user`);
 		}
 
@@ -249,15 +293,22 @@ async function createUser(
 		}
 
 		// Verify credentials work
-		const signInResponse = await fetch(`${SITE_URL}/api/auth/sign-in/email`, {
-			method: 'POST',
-			headers: getHeaders(),
-			body: JSON.stringify({ email: user.email, password: user.password })
-		});
+		const signInResponse = await fetchWithRetry(
+			`${SITE_URL}/api/auth/sign-in/email`,
+			{
+				method: 'POST',
+				headers: getHeaders(),
+				body: JSON.stringify({ email: user.email, password: user.password })
+			},
+			`${userType} signin`
+		);
 
 		if (!signInResponse.ok) {
-			const errorData = await signInResponse.json().catch(() => ({}));
-			console.error(`[Setup]   Credential verification failed:`, errorData);
+			const bodyText = await signInResponse.text().catch(() => '');
+			console.error(
+				`[Setup]   Credential verification failed: HTTP ${signInResponse.status} ${signInResponse.statusText}`,
+				bodyText.slice(0, 300)
+			);
 			throw new Error('Credential verification failed');
 		}
 
