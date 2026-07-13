@@ -32,10 +32,15 @@ ls -t ~/.claude/plans/*.md | head -1
 
 Setup hat bereits clean slate gemacht (`rm -rf workdir`), kein extra cleanup hier nötig.
 
-Codex-Call: Prompt via stdin-heredoc mit `-` als arg-marker (upstream-supported pattern, siehe t3code `CodexTextGeneration.ts`). Konsistent mit Resume-Step unten. Plus `timeout`-Wrapper gegen CLI-Hangs bei Rate-Limit/Auth-Errors:
+Codex-Call: Prompt via stdin-heredoc mit `-` als arg-marker (upstream-supported pattern, siehe t3code `CodexTextGeneration.ts`). Konsistent mit Resume-Step unten. Plus `timeout`-Wrapper gegen CLI-Hangs bei Rate-Limit/Auth-Errors.
+
+**IMMER `run_in_background: true` beim Bash-Call verwenden und danach pollen** — ein Deep-Review dauert bei `high`/`xhigh` reasoning effort 10-15 min; ein Foreground-Bash-Call wird vom ~2-min-Default-Timeout des Bash-Tools mit exit 143 gekillt, lange bevor der `timeout`-Wrapper greift. Deshalb ist der Wrapper auf `18m` gesetzt (nicht `5m`, das reicht für einen gründlichen Plan-Review nicht). Poll-Loop bis `iter-N.md` non-empty ODER ein `turn.completed/turn.failed/error`-Event in der ndjson steht.
+
+Das Modell ist fest auf `gpt-5.6-sol` mit `model_reasoning_effort=xhigh` gepinnt (`-m`/`-c` in jedem Call), damit der Review nicht vom Codex-Config-Default abhängt. (`max` ist gründlicher, aber überzieht das 18m-Budget regelmäßig, daher `xhigh` als Default.)
 
 ```bash
-timeout 5m codex exec --cd "$(cat /tmp/pair-review/$CLAUDE_CODE_SESSION_ID/caller_cwd)" --skip-git-repo-check --json \
+timeout 18m codex exec --cd "$(cat /tmp/pair-review/$CLAUDE_CODE_SESSION_ID/caller_cwd)" --skip-git-repo-check --json \
+  -m gpt-5.6-sol -c model_reasoning_effort="xhigh" \
   -o /tmp/pair-review/$CLAUDE_CODE_SESSION_ID/iter-0.md \
   - \
   > /tmp/pair-review/$CLAUDE_CODE_SESSION_ID/iter-0.ndjson \
@@ -90,12 +95,13 @@ NIE patchen ohne Verification. NIE für Codex' Zufriedenheit nachgeben.
 
 ## 3. Resume
 
-Fülle `templates/verification-summary.md` mit aktuellen Iterations-Daten. `codex exec resume` kennt kein `--cd`, daher `cd && codex` (Compound-Permission greift). Vorher stale `iter-N.md` löschen (N = aktuelle Iteration, 1-basiert):
+Fülle `templates/verification-summary.md` mit aktuellen Iterations-Daten. `codex exec resume` kennt kein `--cd`, daher `cd && codex` (Compound-Permission greift). Auch hier `run_in_background: true` + pollen (siehe Init). Bei großem Verification-Summary den Prompt in eine `.prompt.md`-Datei schreiben und via `< file` per stdin füttern statt Heredoc, dann kollidieren Plan-Backticks nicht mit dem Delimiter. Vorher stale `iter-N.md` löschen (N = aktuelle Iteration, 1-basiert):
 
 ```bash
 rm -f /tmp/pair-review/$CLAUDE_CODE_SESSION_ID/iter-N.md && \
 cd "$(cat /tmp/pair-review/$CLAUDE_CODE_SESSION_ID/caller_cwd)" && \
-timeout 5m codex exec resume "$(cat /tmp/pair-review/$CLAUDE_CODE_SESSION_ID/thread_id)" --skip-git-repo-check --json \
+timeout 18m codex exec resume "$(cat /tmp/pair-review/$CLAUDE_CODE_SESSION_ID/thread_id)" --skip-git-repo-check --json \
+  -m gpt-5.6-sol -c model_reasoning_effort="xhigh" \
   -o /tmp/pair-review/$CLAUDE_CODE_SESSION_ID/iter-N.md \
   - <<'PAIR_REVIEW_EOF' \
   > /tmp/pair-review/$CLAUDE_CODE_SESSION_ID/iter-N.ndjson \
