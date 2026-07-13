@@ -1,5 +1,9 @@
 import { feature, item, plan } from 'atmn';
 
+// Coupons and promotion codes are NOT defined here. Autumn manages them as
+// Stripe-side rewards through the dashboard; `atmn push` neither creates nor
+// reads them, so a live discount never shows up in this config.
+
 /**
  * Community chat messages - metered per month.
  */
