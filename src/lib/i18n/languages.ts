@@ -15,7 +15,7 @@ export interface Language {
 	ogLocale: string;
 }
 
-export const SUPPORTED_LANGUAGES: Language[] = [
+export const SUPPORTED_LANGUAGES = [
 	{
 		code: 'en',
 		name: 'English',
@@ -44,10 +44,12 @@ export const SUPPORTED_LANGUAGES: Language[] = [
 		flag: '🇫🇷',
 		ogLocale: 'fr_FR'
 	}
-];
+] as const satisfies readonly Language[];
+
+export type LanguageCode = (typeof SUPPORTED_LANGUAGES)[number]['code'];
 
 /** Default language code */
-export const DEFAULT_LANGUAGE = 'en';
+export const DEFAULT_LANGUAGE = 'en' as const satisfies LanguageCode;
 
 /** Cookie that remembers an explicit language choice for bare/prefixless paths */
 export const LANGUAGE_COOKIE_NAME = 'lang_pref';
@@ -55,13 +57,13 @@ export const LANGUAGE_COOKIE_NAME = 'lang_pref';
 export const LANGUAGE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 
 /** Map of language codes for quick lookup */
-export const LANGUAGE_CODES = new Set(SUPPORTED_LANGUAGES.map((lang) => lang.code));
+export const LANGUAGE_CODES = new Set<LanguageCode>(SUPPORTED_LANGUAGES.map((lang) => lang.code));
 
 /**
  * Check if a language code is supported
  */
-export function isSupportedLanguage(code: string | undefined): code is string {
-	return code !== undefined && LANGUAGE_CODES.has(code);
+export function isSupportedLanguage(code: string | undefined): code is LanguageCode {
+	return code !== undefined && LANGUAGE_CODES.has(code as LanguageCode);
 }
 
 /**

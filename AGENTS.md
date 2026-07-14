@@ -2,867 +2,101 @@
 
 > `CLAUDE.md` is a symlink to this file. Edit `AGENTS.md`, not the symlink.
 
-This project is a saas template built with SvelteKit, Convex, Typescript and modern web technologies.
+This repository is a SaaS template built with SvelteKit, Svelte 5, Convex, Better Auth, Autumn, Tolgee, and Bun.
 
-### SaaS Starter Template Bugs
+## Scope map
+
+The nearest `AGENTS.md` owns task-specific guidance. Read the relevant file before editing that area:
+
+| Scope                                  | Guidance                                                 |
+| -------------------------------------- | -------------------------------------------------------- |
+| Application code                       | [`src/AGENTS.md`](./src/AGENTS.md)                       |
+| Routes, rendering, forms               | [`src/routes/AGENTS.md`](./src/routes/AGENTS.md)         |
+| Convex backend                         | [`src/lib/convex/AGENTS.md`](./src/lib/convex/AGENTS.md) |
+| E2E tests                              | [`e2e/AGENTS.md`](./e2e/AGENTS.md)                       |
+| Scripts, deployment, regression guards | [`scripts/AGENTS.md`](./scripts/AGENTS.md)               |
+| Repository documentation               | [`docs/AGENTS.md`](./docs/AGENTS.md)                     |
+
+Skills hold dependency and workflow tutorials. Use the applicable skill instead of copying its contents into an instruction file.
+
+## Template and fork workflow
+
+### SaaS Starter template bugs
 
 <!-- DO NOT rename or remove this section when rebranding a fork. These links point to the upstream template repo. -->
 
-If a project forked from this repo discovers a bug or weird behavior that originates from the template itself:
+If a fork discovers a bug or unexpected behavior that originates in the template:
 
-1. Search the [saas-starter issues](https://github.com/stickerdaniel/saas-starter/issues) for an existing report first.
-2. If none exists, fetch the issue template from the upstream repo first (`gh api repos/stickerdaniel/saas-starter/contents/.github/ISSUE_TEMPLATE` and read the relevant template) so the new issue follows the expected format.
-3. File a new issue describing the template bug/unexpected behavior using that template.
+1. Search [saas-starter issues](https://github.com/stickerdaniel/saas-starter/issues).
+2. If none exists, fetch the relevant upstream issue template with `gh api repos/stickerdaniel/saas-starter/contents/.github/ISSUE_TEMPLATE`.
+3. File the issue using that template.
 
-### Pulling Upstream Template Changes
+### Pulling upstream changes into a fork
 
-<!-- DO NOT rename or remove this section when rebranding a fork. Fixes flow down from the template here; bug reports flow up via the section above. -->
+<!-- DO NOT rename or remove this section when rebranding a fork. -->
 
-To pull later template changes (fixes, features, security patches) into a fork, use the `upstream-sync` skill (`skills/upstream-sync/SKILL.md`). Forks are content-copies with no shared git ancestor, so `git merge`/`rebase`/`gh repo sync` do not apply; the skill finds the fork point by tree-SHA, lists every upstream commit to review, and guides integrating each one while respecting the fork's divergences. Start with `bun run upstream:sync`.
+Use the `upstream-sync` skill (`skills/upstream-sync/SKILL.md`) and start with `bun run upstream:sync`. Forks are content copies without a shared Git ancestor, so ordinary merge/rebase/sync workflows do not apply.
 
-### Cross-Platform Scripts
+## Global rules
 
-All npm scripts must work on macOS, Linux, and Windows. Avoid `sh -c` or bash-specific syntax. Use TypeScript scripts with `bun` for complex logic and `bun-tasks` for parallel execution. Bun's built-in cross-platform shell handles `VAR=$OTHER_VAR command` syntax in package.json scripts (see `_tolgee:*` scripts for the pattern).
-
-## btca
-
-When you need up-to-date information about technologies used in this project, use the `btca-local` skill to search the actual source repos. `btca.config.jsonc` is the resource registry; every resource is pre-cloned at `~/.btca/agent/sandbox/<resourceName>`. "Use btca with `<resource>` resource" means: search that clone.
-
-**New dependencies:** When adding a new dependency or devDependency, always add its repo to `btca.config.jsonc` (verify the default branch first: `gh api repos/OWNER/REPO --jq '.default_branch'`) and clone it into the sandbox. This keeps btca comprehensive across all project deps.
+- English is the default for code, comments, docs, commits, PRs, and chat. User-facing copy is localized; English is the source locale.
+- Use Bun, never npm, for project commands.
+- Scripts must work on macOS, Linux, and Windows. Use TypeScript with Bun for complex scripts and `bun-tasks` for parallel execution; avoid Bash-specific wrappers.
+- For current dependency behavior, use the `btca-local` skill and the resource clones registered in `btca.config.jsonc`.
+- When adding a dependency, add its repository to `btca.config.jsonc` and clone it into the btca sandbox after verifying the default branch.
 
 ## Workflow
 
-When starting work that needs its own branch/PR, always create a worktree first with `bun run worktree <type/short-description>` (e.g. `feature/dark-mode`, `fix/422-password-reset`, `chore/upgrade-svelte-5`, `hotfix/rate-limit-bypass`, `docs/api-reference`).
+Create work that needs a branch or PR in an isolated worktree:
 
-The script fetches and branches from `origin/<trunk>` by default, so a new worktree always starts from current remote `main` even when your local `main` lags behind (which it routinely does, since the main checkout carries uncommitted work). No `reset --hard origin/main` afterwards is needed. Pass `--base <branch>` to stack intentionally on another branch, or `--no-fetch` to branch from local refs offline. To contribute a change to another configured remote (e.g. the template repo added as `upstream`), pass `--push-remote upstream`: the worktree branches off `upstream/<trunk>`, a bare `git push` targets that remote, and the printed next steps use `gh pr create --repo <owner/repo> --draft`.
-
-Worktrees live in a sibling directory next to the main repo at `<repo>.worktrees/<folder-name>/`. The folder name flattens branch slashes to dashes: `feat/dark-mode` creates `saas-starter.worktrees/feat-dark-mode/`. The git branch name keeps its original slashes; only the on-disk folder name is flattened. Edge case: branches like `feat/sentry` and `feat-sentry` map to the same folder — the script catches this as a loud error before touching git state.
-
-NEVER use the `EnterWorktree` tool. Always use `bun run worktree` instead and add the worktree path before all consecutive actions. You must do this, the cwd is reset after each action and theres currently no better way to do this.
-
-**Before committing:** Always check `git branch` first. If you're in a worktree, the branch already exists and was created by `bun run worktree`. Use `git commit` to add commits.
-
-**After merging a PR:** run `bun run worktree:prune`. This is the moment to pull local `main` forward, and the one command that does the whole cleanup: for each local branch whose remote was deleted, it confirms the merge (a merged GitHub PR, or the branch being an ancestor of trunk) so it never deletes unmerged work, removes that worktree + branch, prunes stale worktree metadata, and fast-forwards local `main` when the main checkout is clean and hasn't diverged. `--dry-run` previews; `--force` also discards uncommitted changes in a confirmed-merged worktree. Do it promptly: a leftover branch keeps its Convex preview deployment alive, eating the deployment quota and breaking other PRs' preview deploys. It never resets or stashes an uncommitted main checkout, just skips the fast-forward and leaves your work alone; a lagging local `main` is only cosmetic anyway, since new worktrees branch off `origin/main` regardless. Contribution branches created with `--push-remote` are cleaned up the same way: prune confirms the merged PR on that remote by matching its recorded head SHA against the local branch tip before removing anything.
-
-### Commit Message Format
-
+```bash
+bun run worktree <type/short-description>
 ```
+
+The command fetches and branches from remote trunk by default. Worktrees live beside the main checkout under `<repo>.worktrees/`; branch slashes are flattened only in the directory name. Use `--base` for intentional stacks, `--no-fetch` offline, and `--push-remote upstream` when contributing to another configured remote.
+
+Never use `EnterWorktree`. Prefix every later action with the absolute worktree path because command working directories do not persist. Before committing, run `git branch` and confirm the worktree branch. After a merge, run `bun run worktree:prune`; it safely removes confirmed-merged worktrees and branches and fast-forwards a clean local trunk.
+
+### Commit messages
+
+```text
 <type>(scope)[!]: <subject>
 ```
 
-- Scope is required unless no meaningful scope can be defined
-- Imperative mood, capitalize first letter, no period, max 50 chars
-- `!` after scope = breaking change
-- Body (optional): explain _what_ and _why_, wrap at 72 chars
-- Link issues: `Resolves: #123` or `See also: #456`
+Scope is required when meaningful. Use imperative mood, capitalize the subject, omit the period, and keep it at most 50 characters. Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`, `perf`, `ci`. Link issues with `Resolves: #123` or `See also: #456`.
 
-Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`, `perf`, `ci`
+## Where knowledge belongs
 
-### Where knowledge belongs
+A plan is a PR body. An audit finding is an issue. A convention is a lint rule. A fact or invariant about code is a test. Repository documents are for knowledge code cannot express: rejected alternatives and rationale, external constraints, external-system runbooks, stable domain/editorial vocabulary, and thin navigation maps.
 
-- **A plan is a PR body. An audit finding is an issue. A convention is a lint rule. A fact about the code is a test. Only what none of those can hold gets a repo document**, which is three things: an alternative you rejected and the reason, a constraint you do not control (platform, provider, browser, law), and a runbook for a system outside this repo. Those three are a licence, not a grudging exception: if a PR learned one of them, the doc is part of the deliverable, and omitting it is a defect in the same way a missing regression guard is. Never commit a file that restates the code (a symbol, a signature, an enum, a current file list), because that is the only kind of doc that reliably rots. Never leave a plan or an audit as a repo file once its PR is merged or its issue is filed.
-  - Half rationale, half restatement: split it, never annotate it. The rationale keeps the file; the restating half is deleted in the same PR, and becomes a test if it was load-bearing.
-  - Surviving docs are historical. Append a dated note; never rewrite the original reasoning to agree with today's code, because what was believed and rejected at the time is the whole value of the record.
+Never preserve current symbols, signatures, enums, file lists, or implementation steps “for reference.” Split mixed documents: keep the non-derivable rationale and move load-bearing implementation facts into tests. Historical decisions remain immutable; supersede them with a new dated record and an explicit link.
 
-Why the rule is this blunt: in a fork of this template, a sweep of every markdown file and every source comment found 106 claims that contradicted the code, and **every single one** was a claim the code could have answered for itself. A prune pass over the same 35 docs could then delete exactly one, because the rest held rejected alternatives and external constraints that no code can show. Docs that restate the code rot with certainty; docs that record a decision cannot rot at all, since they describe a moment rather than a state. A file that mixes the two is always partly wrong, and a reader cannot tell which half to trust.
+## Core commands
 
-## Development Commands
+- `bun run build` — production build
+- `bun run dev` — local Vite + embedded Convex backend
+- `bun run dev:cloud` — Vite + cloud Convex backend
+- `bun scripts/static-checks.ts <changed files...>` — required after implementation
+- `bun run test:unit` — Vitest suite
+- `bun run test:e2e` — Playwright suite; required after E2E changes
+- `bun run test` — complete test suite
+- `bun run check:convex` — required after Convex or Convex-imported shared-code changes
 
-### Core Development
+Check whether the development server is already running before starting another one.
 
-- `bun run build` - Build for production
-- `bun run dev` - Start Vite with an embedded local Convex backend (default)
-- `bun run dev:cloud` - Start Vite + cloud Convex backend
+## Deployment and environment safety
 
-Check whether a dev server is already running (it usually runs in a separate terminal on `:5173`) before starting one. If nothing is up, start it yourself with `bun run dev`.
+Deployment is push-driven. Never run `convex deploy`, `wrangler deploy`, or the bare deploy script locally; CI owns deployment credentials and targets.
 
-Local dev notes (`bun run dev`):
+Two Varlock schemas cover separate runtimes:
 
-- Always runs the local embedded backend (ignores `CONVEX_DEPLOYMENT` in `.env.local`).
-- Seeds a verified local admin automatically after startup.
-- Local seeded admin credentials: `admin@local.dev` / `LocalDevAdmin123!`
-- Convex backend env vars are loaded from `.env.convex.local` (optional services like email, OAuth, billing, AI).
-- `RESEND_API_KEY` and `AUTH_EMAIL` in `.env.convex.local` are only needed for real signup, verification, and password reset email flows.
-- `SITE_URL` is auto-derived locally from the running Vite port (per-project, see `scripts/dev-ports.ts`) and only needs to be set for cloud/prod. A `SITE_URL` in `.env.convex.local` is ignored with a loud warning (`vite.config.ts` strips it), because a static value would pin Better Auth's trusted origin to the wrong origin and break the admin sign-in.
-- Dev and test Vite ports are deterministic per project/worktree (separate ranges in `scripts/dev-ports.ts`, so dev can't creep into the test port). Override with `DEV_VITE_PORT` / `TEST_VITE_PORT`, or set `PORTLESS_SITE_URL` to front the local stack with vercel-labs/portless.
-- Local Convex state is isolated per branch/worktree under `.convex/`.
-- `RESET_LOCAL_BACKEND=true bun run dev` clears the existing local Convex state before startup and restores the default seeded admin credentials.
+| Schema               | Runtime                    | Generated types                  |
+| -------------------- | -------------------------- | -------------------------------- |
+| `.env.schema`        | SvelteKit / Worker / local | `src/env.d.ts`                   |
+| `.env-convex.schema` | Convex backend             | `src/lib/convex/convex-env.d.ts` |
 
-### Deployment
+Use `.env.local` for SvelteKit and `.env.convex.local` for the local Convex backend. Never reproduce secrets in docs, logs, commits, or chat. Public browser variables must be declared `@public`; application code uses `$env/static/public` for `PUBLIC_*` variables.
 
-- Deploy is push-driven: `main` → production, any branch → preview, built by CI (CF Workers Builds + Vercel run `scripts/deploy.ts`). Command table in README.
-- Never deploy from local (`convex deploy`, `wrangler deploy`, bare `deploy.ts`): it needs CI-only env (varlock, `CONVEX_DEPLOY_KEY`, `WORKERS_CI`) and otherwise fails or targets the wrong deployment. Just push.
-- On Cloudflare, env reaches the Worker through `varlock-wrangler` (both deploy scripts wrap it), which uploads the resolved graph as Worker vars + secrets. The Cloudflare build embeds no env blob, so never set `ssrInjectMode: 'resolved-env'` on that path: it would bake `@sensitive` values into the Worker script as plaintext, and the script is API-readable and archived per version. Deploying with plain `wrangler` ships a Worker with no env. Vercel and adapter-node have no upload step, so they keep `resolved-env` plus the manifest strip (`scripts/strip-varlock-secrets.ts`).
-- Forks self-hosting `convex-backend` (Docker): if logs show `TooMuchMemoryCarryOver` isolate restarts (every UDF then pays a full bundle re-import), set `ISOLATE_MAX_HEAP_EXTRA_SIZE=134217728`. That knob is the carry-over allowance (default 32 MiB) the restart check actually uses — raising `ISOLATE_MAX_USER_HEAP_SIZE` alone does not raise it, and the Better Auth local-install bundle keeps ~50 MiB resident between requests. The local embedded backend is already covered: `vite.config.ts` sets both isolate knobs before spawning it (overridable via shell env).
+## Plan mode
 
-### Logo Generation
-
-- `bun run generate:logos` — Regenerate `static/logo-email.png` from `static/logo.svg`
-- Runs automatically before `build:emails`. Always regenerates (no cache).
-- When the user changes the logo: replace `static/logo.svg`, then run `bun run build:emails`
-
-### Quality Checks & Testing
-
-- `bun scripts/static-checks.ts src/lib/foo.ts src/routes/bar.svelte` - ALWAYS run after implementation with the changed files. This is the main app/project validation command.
-- `bun run test` - Run all tests (E2E + unit)
-- `bun run test:e2e` - Run Playwright E2E tests. Always run this after modifying E2E tests!
-- `bun run test:unit` - Run Vitest unit tests
-- `bun run model:eval` - Check whether an OpenRouter chat model supports everything the app needs (streaming text, reasoning traces, image input, PDF input, tool calling). Verifies each capability through the app's own message-materialization pipeline and prints a pass/fail matrix. Not CI; needs `OPENROUTER_API_KEY` (env or `.env.convex.local`). Defaults to the model in use (`CHAT_MODEL_ID`); pass `--model <id>` (repeatable) to check candidates.
-
-### Convex Backend
-
-**IMPORTANT:** When any task involves Convex backend code — writing, reviewing, or modifying queries, mutations, actions, schema, HTTP endpoints, auth, file storage, or crons — you MUST read the `convex-guidelines` skill (`skills/convex-guidelines/SKILL.md`) first. It contains the canonical Convex coding patterns for this project.
-
-- `bun run check:convex` - Convex TypeScript project check. **Required after any change** to `src/lib/convex/**` or shared code imported by Convex.
-- `bun run generate` - Regenerate `_generated/` from a Convex deployment. Rarely needed manually — the convex-vite-plugin keeps it in sync while `bun run dev` is running. Auto-detects: cloud/self-hosted (if configured) > local embedded backend > offline. **Caution**: from a worktree without `bun run dev`, this falls through to cloud and can produce surprising diffs.
-- Local dev/test backends regenerate `src/lib/convex/_generated/**` and `src/lib/convex/betterAuth/_generated/**` as a side effect. Revert that churn (`git checkout -- <paths>`) before committing unless the regeneration is the intended change.
-
-- `bun convex env set KEY value` - Set Convex environment variables (cloud)
-- `bun convex env set KEY value --prod` - Set production environment variables (cloud)
-- `bun convex env default set --type preview KEY value` - Set project-level default env vars inherited by every NEW preview deployment (existing deployments are not updated; `--preview-create` in `scripts/deploy.ts` recreates per build, so the next build picks defaults up). Canonical place for `PREVIEW_ADMIN_PASSWORD` (auto-seeded `admin@preview.dev`), part of initial project setup.
-
-**Running functions (cloud vs local):**
-
-- **Cloud:** `bun convex run module:functionName '{"arg": "value"}'`
-- **Local dev:** Use the HTTP API directly (the Convex MCP and CLI don't support local backends):
-  ```bash
-  # Admin key and port are printed in dev server startup logs
-  # Backend URL is saved to .convex/.backend-url
-  curl http://localhost:PORT/api/mutation \
-    -H "Content-Type: application/json" \
-    -H "Authorization: Convex ADMIN_KEY" \
-    -d '{"path":"module:functionName","args":{},"format":"json"}'
-  ```
-  Replace `/api/mutation` with `/api/query` or `/api/action` as needed.
-
-**Local Convex dashboard (requires Docker):**
-
-```bash
-docker run -e 'NEXT_PUBLIC_DEPLOYMENT_URL=http://127.0.0.1:PORT' -p '6791:6791' 'ghcr.io/get-convex/convex-dashboard:latest'
-```
-
-Open `http://localhost:6791` and enter the admin key from the dev server logs. Safari blocks localhost — use Chrome/Firefox. Local Convex dashboard is not required for local development, but it's useful for debugging and monitoring the Convex backend.
-
-**E2E Test Security:** `src/lib/convex/tests.ts` contains public mutations (verify emails, promote to admin, delete users) gated by `AUTH_E2E_TEST_SECRET`. These are safe ONLY because the env var is NOT set in production. NEVER set `AUTH_E2E_TEST_SECRET` in the production Convex environment (`--prod`). If it's unset, all test endpoints are dead code.
-
-### Intentional Anti-Pattern Comments
-
-When using a pattern that would normally be flagged (e.g. unbounded `.collect()`, sequential deletes) but is acceptable in context, always add a short inline comment explaining why. This prevents future reviewers and agents from re-flagging it.
-
-```typescript
-// Bounded: adminNotificationPreferences table is small (admin users + custom emails, typically <100 rows)
-const allPrefs = await ctx.db.query('adminNotificationPreferences').collect();
-
-// Sequential deletes in test cleanup (test-only, small dataset)
-for (const pref of allPreferences) { ... }
-```
-
-### Convex Components Storage
-
-Convex components have isolated tables and storage namespaces. App code cannot use `ctx.storage.getUrl` to access a component's stored files. Use the component's APIs (e.g., download grants or HTTP routes) to fetch files/blobs instead.
-
-### Convex Platform Guarantees
-
-When reviewing Convex backend code, be aware of these platform guarantees.
-See [official docs](https://docs.convex.dev/scheduling/scheduled-functions) for details.
-
-**Scheduler Guarantees:**
-
-- Scheduling from mutations is atomic - if `ctx.scheduler.runAfter()` is called within a mutation, it's part of the transaction. Either the whole mutation succeeds (including the schedule), or it all rolls back.
-- Scheduled mutations are guaranteed exactly-once execution. Convex automatically retries internal errors, and only fails on developer errors.
-- Actions are different - scheduling from actions is NOT atomic, and actions execute at-most-once (no automatic retry due to potential side effects).
-
-**Components with Built-in Durability:**
-
-- `@convex-dev/resend`: Idempotency keys guarantee exactly-once email delivery, durable execution via workpools (default: 5 retries, 30s initial backoff). Catching errors from `resend.sendEmail()` is valid - they indicate permanent failures (invalid config), not transient network issues. See [component docs](https://www.convex.dev/components/resend).
-
-- `@useautumn/convex`: SDK has built-in fail-open (returns `allowed: true` on 5xx/network errors). No manual fail-open logic needed in `autumn.check()` calls.
-
-Note: Other components (`@convex-dev/better-auth`, `@convex-dev/rate-limiter`, `@convex-dev/agent`) do NOT have automatic retry for external API calls - standard error handling applies.
-
-### Autumn Billing Config
-
-After modifying `autumn.config.ts`, ALWAYS push changes to Autumn:
-
-- `bunx atmn push` — Push config to sandbox
-- `bunx atmn push -p` — Push config to production
-
-Without pushing, the config change only exists locally and has no effect. Pre-commit/static-checks only runs `atmn preview` (a local render that never diffs against or pushes to the live deployment), so no automated check covers pushing; it stays a manual step.
-
-### Tolgee CLI
-
-These commands use `varlock run` to load env vars from `.env.schema` + `.env.local`:
-
-- `bun run i18n:pull` - Download latest translations from Tolgee Cloud. Run this ALWAYS before making any changes to the `src/i18n/*` json translation files.
-- When adding new translation keys, ALWAYS add translations for ALL languages in the `src/i18n/*` json translation files.
-- Key names never contain literal dots; nesting is the only structure. A dotted leaf means a key in Tolgee is both a string leaf and a namespace prefix; resolve the collision in Tolgee instead of committing the dotted fallback (enforced by `scripts/locale-parity.test.ts`).
-- `bun run i18n:push` - Upload local translations. ALWAYS run this after making any changes to the `src/i18n/*` json translation files. Otherwise, your changes wont be pushed to the cloud! Run with `-- --tag-new-keys draft` to tag new keys as e.g. 'draft'
-
-  Use tags to organize translation keys:
-  - `draft` - New keys awaiting review
-  - `feature-*` - Keys for specific features (e.g., `feature-auth`, `feature-checkout`)
-  - `v*.*.*` - Keys added in specific versions (e.g., `v1.5.0`)
-
-- `bun run i18n:cleanup` - Find every key that used to be in production but is now missing from the code; mark it as deprecated and stop calling it a production key.
-
-  Tags automatically set by the `scripts/deploy.ts` script:
-
-- `preview` - Automatically set for preview deployment keys
-- `production` - Automatically set for production deployment keys
-- `deprecated` - Keys no longer in code (safe to delete after review)
-
-### Environment Variables
-
-Two separate runtimes, two varlock schemas:
-
-| File                 | Runtime                        | Types generated                  |
-| -------------------- | ------------------------------ | -------------------------------- |
-| `.env.schema`        | SvelteKit (Vercel / local)     | `src/env.d.ts`                   |
-| `.env-convex.schema` | Convex backend (cloud / local) | `src/lib/convex/convex-env.d.ts` |
-
-Runtime files:
-
-| File                | Purpose                                                        |
-| ------------------- | -------------------------------------------------------------- |
-| `.env.local`        | SvelteKit vars (Vite loads automatically)                      |
-| `.env.convex.local` | Convex backend vars for local dev (loaded by `vite.config.ts`) |
-
-- `varlock load` — validate env config and see resolved values
-- `varlock run -- <cmd>` — run command with validated env + log redaction
-- `varlock typegen --path .env-convex.schema` — regenerate `src/lib/convex/convex-env.d.ts`
-- `varlock scan` — scan for leaked secrets in codebase
-- `VITE_*` vars exposed to browser must be marked `@public` in schema
-
-#### `$env/static/public` vs `$env/dynamic/public`
-
-**Always use `$env/static/public` for `PUBLIC_*` vars.** This project builds per-environment (CF Workers Builds + Vercel), so all values are known at build time. Static gives build-time validation, dead-code elimination (optional integrations like PostHog are stripped when unconfigured), and avoids the `/_app/env.js` waterfall on prerendered pages. Only use `$env/dynamic/private` for server-only values genuinely set at runtime (e.g., `CONVEX_INTERNAL_URL`).
-
-## Architecture Overview
-
-### Tech Stack
-
-- **Frontend**: SvelteKit, Svelte 5 (runes syntax!), Tailwind CSS v4, Shadcn Svelte
-- **Backend**: Convex (real-time database + serverless functions)
-- **Authentication**: Better Auth Svelte Convex Component `@mmailaender/convex-better-auth-svelte` (backed by the `@convex-dev/better-auth` component). We use the local install to get full better auth feature access like passkeys, admin, etc. See <https://labs.convex.dev/better-auth/features/local-install> for authentication documentation.
-- **Internationalization**: Tolgee (open source / cloud-hosted translation management with URL-based localization and in-context editing)
-- **Testing**: Playwright (E2E), Vitest (unit)
-- **Package Manager**: Bun. ALWAYS use bun instead of npm to run commands.
-
-### Project Structure
-
-- `src/lib/convex/` - Convex backend functions, schema, and auth config
-- `src/lib/components/` - UI components
-- `src/i18n/` - Translation JSON files (`en`, `de`, `es`, `fr`)
-- `src/lib/i18n/` - Internationalization configuration
-- `src/routes/[[lang]]/` - SvelteKit routes with language parameter
-- `src/hooks.server.ts` - Server hooks for auth and language middleware
-
-**Using translations in components:**
-
-```svelte
-<script lang="ts">
-	import { T } from '@tolgee/svelte';
-</script>
-
-<T keyName="welcome_message" />
-<T keyName="greeting" params={{ name: 'John' }} />
-```
-
-**SEO meta tags:**
-
-```svelte
-<script lang="ts">
-	import SEOHead from '$lib/components/SEOHead.svelte';
-</script>
-
-<SEOHead title="About Us" description="Learn more" />
-```
-
-- Every new `+page.svelte` route must include `SEOHead`.
-- For localized routes under `src/routes/[[lang]]/`, `SEOHead` title and description must use translated `meta.*` keys in all 4 locale files (`en`, `de`, `es`, `fr`).
-- `meta.*.title` values must be page-title only and must NOT include the brand name. `SEOHead` appends ` | ${LEGAL_CONFIG.brandName}` automatically (default `"SaaS Starter"`, configured in `src/lib/config/legal.ts`; use `"Settings"`, not `"Settings | SaaS Starter"`, which would render `"Settings | SaaS Starter | SaaS Starter"`). A unit test (`src/lib/i18n/meta-titles.test.ts`) enforces this.
-- Public marketing routes under `src/routes/[[lang]]/(marketing)/` can expose agent-facing markdown from the same URL via `Accept: text/markdown`. Keep the markdown source in a sibling `page.md.ts` file, not a `+page.*` file, and keep it in sync with the marketing page content. `/llms.txt` is the discovery entrypoint, and v1 markdown content is English-only.
-- If a marketing/legal page obfuscates contact email in HTML, keep the agent-facing `page.md.ts` variant obfuscated too. Do not expose the raw email address only via `Accept: text/markdown`.
-
-### Email System
-
-Use the @convex-dev/resend email system for production-ready email delivery. Use btca with `convexResend` resource for component docs. For svelte email docs and templates, use btca with `betterSvelteEmail` resource.
-
-#### Email System Architecture
-
-```text
-src/lib/convex/emails/
-├── __tests__/             # Unit tests for the send helpers
-├── _generated/            # Build output of `bun run build:emails` (gitignored)
-├── resend.ts              # Resend client configuration
-├── events.ts              # Webhook event handlers
-├── send.ts                # Email sending mutations
-├── helpers.ts             # Shared send helpers (test-email skip, founder welcome delay)
-└── templates.ts           # Renders templates from _generated/ ({{var}} interpolation)
-```
-
-Emails are sent via internal mutations using the Resend component.
-
-#### Email Event Tracking
-
-Email events are automatically stored in the `emailEvents` table:
-
-- `email.delivered` - Successfully delivered
-- `email.bounced` - Hard or soft bounce
-- `email.complained` - Marked as spam
-- `email.opened` - Email opened (requires tracking enabled in Resend)
-- `email.clicked` - Link clicked (requires tracking enabled in Resend)
-
-There is currently no query over `emailEvents`; inspect events via the Convex dashboard, or add a query on the `by_email_id` index when needed.
-
-### PostHog Analytics
-
-This project uses **PostHog** for product analytics with an optional **Cloudflare Worker proxy** to bypass ad blockers while minimizing costs.
-
-The official PostHog MCP is wired in `.mcp.json` (OAuth on first use, auto-routes to the account's US/EU region) — use it to inspect live insights, dashboards, and events, e.g. to verify a funnel still matches the event properties after renaming or removing one.
-
-## Testing Guidelines
-
-### E2E Playwright Tests
-
-- Located in `e2e/` directory
-- Test users are automatically created with unique emails each run (via globalSetup) and deleted after tests (via globalTeardown)
-- Requires `.env.test` with `AUTH_E2E_TEST_SECRET` only. The Convex backend URL is auto-resolved from `.convex/.test-backend-url`; no `PUBLIC_CONVEX_URL` needed locally.
-- `AuthenticatedLayout` sets `data-hydrated` on `<html>` in `onMount`; `waitForAuthenticated` in `e2e/utils/auth.ts` waits for it so clicks happen after Svelte hydration, not on inert SSR markup.
-- See `.env.schema` for all available env vars with types and descriptions
-- **Never `test.skip()` to dodge a timing race.** Make tests deterministic with auto-waiting assertions (`expect(locator).toBeVisible()`, `expect.poll`) instead of one-shot `count()`/`isVisible()` snapshots followed by a skip. `test.skip()` is only for genuinely unsupported environments (a feature switched off, an external dependency absent), always with a reason string (good example: `e2e/signin-last-used-badge.spec.ts` gating on `hasGoogleOAuth`).
-- **CI E2E timing (CF Workers):** E2E tests only start after the CF Workers Build preview deployment completes (~2-3 min). The `e2e-preview-cf.yml` workflow triggers on the CF `check_run` event, extracts the preview URL, then runs Playwright against it. Results are posted as a commit status, not a check run. Total time from push to E2E result is ~7-8 min.
-
-#### Local e2e isolation
-
-- `bun run test:e2e` spawns an isolated test stack via `bun run dev:test`: a deterministic per-project vite test port (see `scripts/dev-ports.ts`), a separate local Convex backend (different port + state dir under `.convex/<branch>...e2e-<hash>/`), and a separate BetterAuth secret file. Safe to run alongside `bun run dev` (dev and test ports live in separate ranges).
-- `AUTH_E2E_TEST_SECRET` is sourced from `.env.test` and **auto-propagated into the test Convex backend** by `vite.config.ts`. You no longer need to mirror it into `.env.convex.local`.
-- Local test mode forces `baseURL` and `SITE_URL` to the computed per-project test URL (`http://localhost:<testPort>`) regardless of what `.env.test` contains, so a stale gitignored `PUBLIC_SITE_URL` can't silently misroute signups. The wrapper `scripts/dev-test.ts` warns loudly if leftover `PUBLIC_CONVEX_URL` / `PUBLIC_SITE_URL` are still set.
-- `globalSetup` polls `api.tests.health` before the first signup, so a cold backend boot doesn't surface as a flaky 500.
-- `RESET_LOCAL_BACKEND=true bun run test:e2e` resets only the test state dir; dev's BetterAuth secret and DB are untouched.
-
-#### `data-testid` convention
-
-- Prefer `data-testid` for all interactive controls and dynamic list/table content that E2E tests assert.
-- Use stable, feature-scoped kebab-case IDs: `<feature>-<element>-<action>` (example: `admin-users-pagination-next`).
-- Add test IDs on:
-  - page root container
-  - loading/empty states
-  - filters/search/sort controls
-  - pagination controls and page indicators
-  - repeatable row/cell primitives needed for assertions (for example role/status badges and email cells)
-- Avoid translated/user-generated strings in test IDs.
-- Keep IDs deterministic and never include runtime values unless the test explicitly needs entity-specific targeting.
-
-#### Convex table kit usage
-
-- Use `createConvexCursorTable(...)` for table state orchestration (URL params, cursor stack, search/filter/sort/page-size resets, and next/previous prefetching).
-- Use `ConvexCursorTableShell` for common chrome (search, toolbar slots, pagination controls, page indicator, rows-per-page).
-- Required backend contract:
-  - list query args: `cursor`, `numItems`, optional `search`, optional filters, optional `sortBy`
-  - list query return: `{ items, continueCursor, isDone }`
-  - count query args: same search/filter set (no cursor)
-  - count query return: `number`
-- Canonical URL keys for tables: `search`, `sort`, `page`, `page_size`, `cursor`, plus feature filter keys (for example `role`, `status`, `type`).
-- Canonical sort serialization: `field.dir`.
-- Default URL values must be omitted from links (`search=''`, `sort=''`, `page='1'`, `page_size` default, and default filter values).
-- Shell testid convention:
-  - search: `<prefix>-search`
-  - page indicator: `<prefix>-page-indicator`
-  - pagination: `<prefix>-pagination-prev` / `<prefix>-pagination-next` / `<prefix>-pagination-last` (first page button uses lg-only variant)
-  - keep route-specific row/cell IDs for assertions (for example `recipient-row-*`, `admin-users-email-cell`).
-
-### Vitest Unit Tests
-
-- Co-locate unit tests as `*.test.ts` next to the source file. Run via `bun run test:unit`.
-
-## Development
-
-<important_info>
-Use Svelte 5's new syntax with TypeScript for reactivity, props, events, and content passing. Prioritize this over Svelte 4 syntax.
-Key Changes:
-Reactivity: $state for reactive state, $derived for computed values, $effect for side effects.
-Props: Use $props() instead of export let.
-Events: Use HTML attributes (e.g., onclick) instead of on:.
-Content: Use {#snippet} and {@render} instead of slots.
-Quick Examples:
-State & Events: `<script lang="ts">let count = $state(0); </script> <button onclick={() => count += 1}>{count}</button>`
-Derived: let doubled = $derived(count \* 2);
-Props: <script lang="ts">let { name = 'World' } = $props(); </script> `<p>Hello, {name}!</p>`
-Binding: `<script lang="ts">let { value = $bindable() } = $props(); </script> <input bind:value={value} />`
-Snippets: `<div>{@render header()}</div> with <Child>{#snippet header()}<h1>Header</h1>{/snippet}</Child>`
-Class Store: class Counter { count = $state(0); increment() { this.count += 1; } } export const counter = new Counter(); but this module-singleton pattern is banned in `.svelte.ts` rune modules (`local/no-module-state-singleton`, SSR cross-request leak #500); share per-request state via a runed `Context` instead.
-Notes:
-Type $derived explicitly (e.g., let items: Item[] = $derived(...)) for arrays in TypeScript.
-Default to new syntax for Svelte 5 benefits.
-Avoid stores unless necessary for pub/sub.
-
-Rune pitfalls:
-
-- `$derived(() => { ... })` stores the **function**, not its return value. Use `$derived.by(() => { ... })` for multi-line computations. `$derived(expr)` is only for simple expressions.
-- `$derived` has **no cleanup mechanism**. Never create `URL.createObjectURL()` or subscriptions inside `$derived`. Use `$effect` with a cleanup return instead.
-- Never call `useQuery()` inside `$derived()`. Each call creates fresh `$state`/`$effect` internals without cleanup, causing ghost subscriptions. Use `useQuery(fn, () => condition ? args : 'skip')` for conditional queries.
-
-Use the Svelte MCPs Get Documentation tool to get up-to-date Svelte documentation (only call this with a subagent!) and check code with the MCPs autofixer for wrong patterns. Query the svelte repo with btca for new features like remote functions.
-
-Prop names must match the parent's passed prop name exactly.
-</important_info>
-
-### ESLint & Legacy Plugins
-
-When adding ESLint plugins that export legacy `.eslintrc`-style configs (objects with `overrides`), use `fixupConfigRules()` from `@eslint/compat` to convert.
-
-Adding a top-level dir with `.svelte`/`.ts` files outside the tsconfig `include` (e.g. `archive/`, `scratch/`)? `projectService: true` will refuse to parse it and pre-commit fails with a cryptic "not found by the project service" error. Either add the dir to `tsconfig.json` `include` or to `eslint.config.js` `ignores`.
-
-### Real-time Features
-
-- Use Convex's `useQuery` for reactive data — **never inside `$derived()`**, use the `'skip'` pattern instead
-- Use Convex's `useMutation` for data modifications
-- Use Convex's `useAction` for server-side actions
-
-### Rendering & Data Strategy
-
-#### Route rendering modes
-
-Decision tree for new routes:
-
-1. **Is the page public, static content (no per-user data in HTML)?**
-   - Yes → `export const prerender = true` in route's `+layout.ts` or `+page.ts`
-   - Add explicit `entries` in `svelte.config.js` for `[[lang]]` variants
-   - Examples: marketing pages (home, about, terms, privacy, impressum)
-   - Exception: if the page displays billing-dependent UI (`useCustomer()`), do NOT prerender — Autumn state doesn't recover on prerendered pages (`page.data.autumnState` is frozen at build time)
-   - Exception: pricing page uses `useCustomer()` for plan badges/buttons → `export const prerender = false`
-
-2. **Is the page behind authentication but has no real-time needs?**
-   - Yes → Standard SSR (default). Server load fetches user data, client hydrates.
-   - Examples: settings, email-verified
-
-3. **Is the page behind authentication WITH real-time data?**
-   - Yes → SSR + `useQuery` with `initialData` pattern (see below)
-   - Examples: community-chat, ai-chat, admin dashboard, admin support
-
-4. **Is the page an API endpoint or static file?**
-   - Yes → `+server.ts` with custom Response
-   - Examples: `/api/auth/[...all]`, `/llms.txt`, `/robots.txt`, `/sitemap.xml`, `/api/time` (runtime JSON, `prerender = false`, `cache-control: no-store` — server wall-clock for client clock-skew detection)
-
-#### Data-fetching patterns (decision tree)
-
-For each data need in a new route, pick the right pattern:
-
-1. **Auth-dependent data needed in SSR HTML?**
-   → `+page.server.ts` with `createServerConvexHttpClient({ token: event.locals.token })` from `$lib/server/convex-http`
-   → Pass result to component as `data` prop
-   → Wrap in try-catch for resilience
-
-2. **Real-time data that should show instantly on load?**
-   → Fetch in `+page.server.ts` AND subscribe client-side:
-
-   ```ts
-   // +page.server.ts
-   // .catch fallback so a transient backend failure degrades instead of
-   // 500ing the page; the client subscription recovers after hydration
-   const messages = await client.query(api.messages.list, {}).catch(() => []);
-   return { messages };
-
-   // +page.svelte
-   const messagesQuery = useQuery(api.messages.list, {}, () => ({ initialData: data.messages }));
-   const messages = $derived(messagesQuery.data ?? data.messages);
-   ```
-
-   This gives instant SSR content + live updates after hydration.
-
-3. **Real-time data that can show a loading state?**
-   → Skip server fetch, use `useQuery` directly (no `initialData`):
-
-   ```svelte
-   <script lang="ts">
-   	const metrics = useQuery(api.admin.queries.getDashboardMetrics, {});
-   	const isLoading = $derived(metrics.isLoading);
-   </script>
-
-   {#if metrics.error}
-   	<p class="text-destructive"><T keyName="common.load_error" /></p>
-   {:else}
-   	<!-- skeleton while isLoading, data when resolved -->
-   {/if}
-   ```
-
-   Shows skeleton/loading state until data arrives. Use for admin panels, secondary data.
-   Always render an error branch from `metrics.error` (localized via Tolgee) and derive loading from `isLoading`, never from `!metrics.data`: on a query throw `data` stays `undefined` forever, so a `!data` loading state shows infinite skeletons. No retry plumbing needed, the Convex subscription stays live and the error state self-heals when the query recovers.
-
-4. **Billing/subscription checks?**
-   → `useCustomer()` from `@stickerdaniel/convex-autumn-svelte/sveltekit`
-   → Access `customer.products`, `customer.features` for gates
-   → Call `autumn.refetch()` after mutations that affect billing
-   → Note: Autumn state comes from `page.data.autumnState` (set in root `+layout.server.ts`). Does NOT auto-recover on prerendered pages.
-
-5. **Auth state checks?**
-   → `useAuth()` from `@mmailaender/convex-better-auth-svelte/svelte`
-   → Recovers independently via session cookies (safe on prerendered pages)
-   → Only exposes `isLoading`, `isAuthenticated`, `fetchAccessToken` — NOT user profile data
-   → For user profile data (email, name, id): use `authClient.useSession()` which returns `{ user: { email, name, id } }` and also recovers via cookies
-
-6. **Write operations (mutations)?**
-   → `useConvexClient()` + `client.mutation(api.path, args)`
-   → For instant feedback: add `optimisticUpdate` callback
-   → For billing-affecting mutations: call `autumn.refetch()` after
-
-7. **Paginated data with filters?**
-   → `usePaginatedQuery()` from `convex-svelte`
-   → Combine with `useSearchParams()` from `runed/kit` for URL state
-   → Use `keepPreviousData: true` to prevent UI flicker
-
-8. **Client-set view state (search, sort, active tab, sidebar collapse)?**
-   **Quick rule:** shareable/linkable → URL. Per-user and must be correct on first paint → cookie + SSR read. Flash-OK, or too big/private to send on every request → `PersistedState` (localStorage).
-   Pick by how the state reaches the server, because that decides first-paint correctness. URL and cookies both ride the request (server sees them → flash-free SSR); localStorage does not (server renders the default, client corrects after hydration → flash).
-   → **Shareable / linkable view** (search, sort, active tab) → URL. Read with `page.url.searchParams` in a `$derived` (SvelteKit populates `page.url` on the server, so SSR renders the right view → flash-free); write with `goto(url, { keepFocus: true, noScroll: true })`, omitting defaults from the URL. Default `replaceState: false` pushes a history entry per view switch, matching `admin/support` thread selection (canonical) and the settings tabs fix. `pushState` / `replaceState` from `$app/navigation` are not a substitute — they update `page.state`, not `page.url`, so SSR via `page.url.searchParams` would not see the change. `goto` to the same route does not re-run server loads that do not track the changed param (SvelteKit's dependency tracking handles this); only call out `replaceState: true` when you specifically want to overwrite the current history entry. **Do not use `useSearchParams` (`runed/kit`) for SSR-visible view selection** — it reads the URL client-only (BROWSER-gated init) and renders the default on the server, so the view flashes on first paint. Fine only where the flash is invisible (e.g. a table behind a loading skeleton).
-   → **Per-user preference that must be right on first paint but does not belong in the address** (sidebar collapse) → cookie + SSR read. Write client-side (`document.cookie`), read in `hooks.server.ts` into `event.locals` (NOT a layout-load `cookies.get`, see Prerendering constraints), thread as a prop. See #404.
-   → **Preference where a hydration flash is fine, or state too large / private to send on every request** (chat drafts, mic settings) → `PersistedState` (localStorage).
-   Three flash-free reads, all because the value is available before first paint: URL via `page.url`, cookie via `event.locals`, or a blocking inline `<head>` script that reads localStorage and sets a single `<html>` class/attribute (e.g. theme via the `<ModeWatcher />` component in `+layout.svelte`, which injects a blocking head script). `PersistedState` read in component script always flashes.
-
-#### Deferred loading pattern
-
-For heavyweight non-critical JS (analytics, search, support widgets), use the `requestIdleCallback` + interaction listener pattern. Current deferred components: PostHog (3s), GlobalSearchShell (3.5s), LazyCustomerSupport (3s), RiveBackground (idle). See `AppPostHogBootstrap` for the canonical implementation.
-
-#### Prerendering constraints
-
-When prerendering pages, these data sources are frozen at build time:
-
-- `page.data.autumnState` — billing data (no client recovery)
-- `page.data.viewer` — user profile (no client recovery via `page.data`, but recoverable via `authClient.useSession()`)
-
-These recover independently after hydration:
-
-- Auth state — `AppAuthProvider` checks session cookies
-- Convex `useQuery` subscriptions — auto-resubscribe
-- `authClient.useSession()` — returns `{ user: { email, name, id } }` from cookies
-
-Components that need user data on prerendered pages must use `authClient.useSession()` instead of `page.data.viewer`.
-
-Note (2026-07-04): this frozen-data caveat applies to `page.data` read on a prerendered marketing page. Inside the `/app` and `/admin` subtrees it does not. Each re-exports the shared `authedSubtreeLayoutLoad` (`$lib/server/auth-layout-data`), which re-resolves the auth block (`authState`, `viewer`, `autumnState`) fresh on a client-side navigation, guarded on `event.isDataRequest` (a full document load defers to the root, which already ran with the cookie; a per-request memo keyed on `event.locals` keeps the block at one resolution per request even when `await parent()` force-runs the root load). Their returned keys override the frozen root snapshot in the merged `page.data`, so reading `page.data.viewer`, `page.data.authState`, or `page.data.autumnState` is safe within `/app` and `/admin`. Marketing pages still keep the client primitives above (`authClient.useSession()`), since they have no such override.
-
-Request-time values needed for an SSR render that shares a layout with prerendered routes (e.g. a `sidebar_state` cookie) must be read in `hooks.server.ts` into `event.locals`, not via `event.cookies.get` in a `+layout.server.ts` load. A cookie read in the shared root layout load breaks prerendering of the marketing pages; the JWT token flows through the same `locals` channel.
-
-#### Cache-control for marketing pages
-
-Marketing HTML gets `Cache-Control: public, no-cache` so browsers and shared caches revalidate the shell before every reuse. HTML references content-hashed JS chunks; a stale shell that outlives a deploy points at chunks that no longer exist and fails before Svelte hydrates. `no-cache` also keeps the response non-edge-cacheable, which matters on Cloudflare: a fixed zone Browser Cache TTL (default 4h) rewrites the browser-facing `max-age` of any edge-cacheable response back up to its floor, so a `max-age=0` + `s-maxage` combination does not survive to the browser.
-
-- **Non-prerendered routes (e.g. `/pricing`)** go through `server.respond()`, so the `handleCacheControl` hook in `hooks.server.ts` sets the header.
-  - Condition: unauthenticated + matches `matchPublicMarketingRoute()`
-  - Placed AFTER `handleMarketingMarkdown` in `sequence()` to preserve markdown's own TTL
-- **Prerendered routes (home, about, privacy, terms, impressum)** are served as static assets and bypass SvelteKit hooks. The worker postbuild patch (`scripts/patch-cf-worker.ts`) bypasses worktop's Cache API lookup for these shells, fetches them from `ASSETS` with `cache-control: no-cache`, and sets the same `Cache-Control: public, no-cache` response header (`pricing` is intentionally excluded from the patch's route regex — it is SSR, not prerendered).
-
-Markdown responses on the same URLs use `Cache-Control: private` to stay out of shared caches: CF Edge ignores `Vary: Accept`, so any edge-cacheable markdown would poison subsequent HTML requests on the same URL. The worker patch leaves the markdown variant private by reusing the same `__wantsMarkdown` negotiation check.
-
-#### Cache purging (production)
-
-`scripts/cf-prod-deploy.ts` is the production deploy command: it runs `varlock-wrangler deploy` and then purges the edge cache. Current marketing HTML shells are `public, no-cache`, but the purge clears legacy cached shell entries from older deploys. The purge is a no-op unless both `CF_PURGE_TOKEN` and `CF_ZONE_ID` are set, so forks without a custom domain keep plain deploy behavior.
-
-- CF API: `POST /zones/{zone_id}/purge_cache` with `{ "purge_everything": true }`
-- Docs: https://developers.cloudflare.com/api/resources/cache/methods/purge/
-- `CF_PURGE_TOKEN`: API token with `Cache Purge` permission; `CF_ZONE_ID`: the zone id of the custom domain. Set `CF_ZONE_ID` as a build variable and `CF_PURGE_TOKEN` as a build secret in CF Workers Builds.
-- Not available for `.workers.dev` subdomains — only works with custom domains
-
-### Cloudflare Platform Gotchas
-
-- **CF Cache API ignores `Vary`.** Never rely on `Vary`-based content negotiation inside the worker. Bypass the worktop cache before it runs for any header-dependent response. See `scripts/patch-cf-worker.ts`.
-- **Prerendered pages bypass SvelteKit hooks.** Patch the worker to fall through to `server.respond()` for hook-dependent behavior such as markdown negotiation. For prerendered marketing HTML, the same patch bypasses the worker cache and sets `Cache-Control: public, no-cache`, since the `handleCacheControl` hook never runs for those static shells. See `scripts/patch-cf-worker.ts`.
-
-### Regression Guard Decision Tree
-
-**The decision is mandatory for every bug fix; the guard is not.** Before marking work done, decide whether the bug is an instance of a recurring class and record the outcome as a single `Regression guard:` line in the PR body, directly above the verification line. Exactly one of three verdicts:
-
-- `Regression guard: added <name>` (the test/rule/banned pattern this PR adds)
-- `Regression guard: covered by <name>` (an existing guard already fails on this bug class; name it, do not duplicate it)
-- `Regression guard: not warranted, <one-line reason>` (one-off; the expected verdict for singular logic errors)
-
-Add a guard ONLY when the bug is a recurring class: the same pattern already exists at other sites (the issue found multiple occurrences), it is part of a convention agents keep writing (copy-paste surface, template forks inherit it), or it fails silently past review (i18n, SSR, a11y). A singular logic error fixed at its only call site gets `not warranted`; a guard there freezes implementation details and adds CI cost for a class of one. Guards must be cheap and precise: prefer ONE structural invariant over many instance tests, extend existing guard files (banned patterns list, sibling sync tests) over new CI surface, and treat false positives as a cost that can exceed the bug. CI enforces the verdict line on `fix`-titled PRs (`.github/workflows/require-regression-guard.yml`).
-
-#### "Two separate data sources must agree"
-
-Examples: language lists in `svelte.config.js` vs `languages.ts`, env schema vs generated types.
-
-→ **Unit test** asserting equality between the two sources. Use when the sources live in different files/formats that lint can't cross-reference.
-Pattern: `scripts/prerender-sync.test.ts` asserts `svelte.config.js` languages match `languages.ts`.
-
-#### "This file must be registered / have a required sibling"
-
-Examples: marketing pages must be registered in `public-routes.ts`, marketing pages must have `page.md.ts` sibling.
-
-→ **ESLint custom rule** that checks filesystem or reads a registry file. Use when the check is "the file I'm editing is missing something" — fires immediately in the editor and on save.
-Pattern: `eslint/rules/require-marketing-route-registration.js`, `eslint/rules/require-marketing-markdown.js`.
-How to add: create rule in `eslint/rules/`, register in `eslint.config.js`, add test in `eslint/rules/<name>.test.ts`.
-Sibling-invariant variant enforced as a unit test instead of ESLint, because it asserts a route-tree invariant across files rather than a single-file miss: `scripts/authenticated-subtree-layouts.test.ts` requires every authenticated subtree (`/app`, `/admin`) to have a `+layout.server.ts` that re-exports the shared `authedSubtreeLayoutLoad`, or a client-side navigation into it from a prerendered marketing page renders the frozen unauthenticated root data.
-
-#### "This pattern must never appear in code"
-
-Examples: hardcoded aria-labels, barrel icon imports, deprecated Tailwind tokens, bare `animate-spin`, calling a runed `useDebounce()` result inside a `$effect`/`$derived` rune (loops with `effect_update_depth_exceeded`).
-
-→ **ESLint custom rule** (for AST-level patterns) or **banned pattern** in `scripts/static-checks.ts` (for simple string matching).
-Pattern: `eslint/rules/no-hardcoded-aria-label.js`, `eslint/rules/no-debounce-in-rune.js`, banned patterns list in `static-checks.ts`.
-Note: these AST guards live in ESLint (not oxlint) because oxlint JS plugins do not support Svelte files yet ("Not supported yet", alpha — https://oxc.rs/docs/guide/usage/linter/js-plugins). Svelte/Vue template syntax support is tracked in oxlint JS Plugins Milestone 3 (https://github.com/oxc-project/oxc/issues/19918, "Framework plugins" section). Port them to a local oxlint JS plugin once that lands.
-
-#### "This build output must have specific properties"
-
-Examples: worker patch must wrap all disjuncts, prerendered pages must exist in output.
-
-→ **Unit test** on the build script/transform function.
-Pattern: `scripts/patch-cf-worker.test.ts` tests the patch against a realistic worker fixture.
-
-#### "User input must be validated"
-
-Examples: chat message length, email format, required fields.
-
-→ **Convex validator** (`v.*`) on the mutation/action args + client-side constraint (maxlength, pattern).
-Always validate at both layers.
-
-#### "This URL serves different content based on request headers"
-
-Examples: marketing pages return markdown or HTML depending on `Accept`.
-
-→ **Postbuild worker patch** (`scripts/patch-cf-worker.ts`) + **unit test** + E2E (`e2e/public-agent-surface.spec.ts`).
-Bypass both worktop cache and static asset serving for negotiated requests.
-
-#### "This route requires authentication/authorization"
-
-Examples: `/app/*` requires login, `/admin/*` requires admin role.
-
-→ **Server hook** in `hooks.server.ts` (fast JWT check, no DB query).
-Pattern: `authFirstPattern` hook decodes JWT payload for role checks.
-E2E test for the redirect behavior.
-
-#### "This env var must be set / must not leak"
-
-Examples: API keys, auth secrets, billing keys.
-
-→ **Varlock schema** (`.env.schema` or `.env-convex.schema`) with `@sensitive` / `@optional` / `@public` directives.
-Pre-commit hook runs `varlock scan --staged` to catch leaks.
-
-#### "This user flow must keep working"
-
-Examples: login, signup, checkout, admin user management.
-
-→ **Playwright E2E test** in `e2e/`.
-Runs automatically on Vercel and CF preview deployments.
-
-#### "This utility function must handle edge cases"
-
-Examples: URL parsing, stream processing, optimistic updates.
-
-→ **Vitest unit test** co-located with the source file (`foo.test.ts` next to `foo.ts`).
-
-#### "This security header / policy must be present"
-
-Examples: HSTS, X-Frame-Options on all responses including static assets.
-
-→ **`_headers` file** (project root) for static assets + **server hook** for SSR responses.
-Both are needed — static assets bypass hooks.
-
-The Content-Security-Policy is split by what a `<meta>` tag can carry. `object-src`/`base-uri`
-live in `kit.csp` (`svelte.config.js`): SvelteKit embeds them as a `<meta>` on prerendered
-pages and as a header on SSR pages. `frame-ancestors` cannot ride a `<meta>`, so it is a
-header set in three synced places (`hooks.server.ts`, `_headers`, `vercel.json`); the hook
-appends it to SvelteKit's header rather than overwriting. `script-src` runs in report-only
-mode (`kit.csp.reportOnly`), wired to Sentry only when `PUBLIC_SENTRY_DSN` is set at build
-time; two static hashes cover the inline scripts SvelteKit does not tag (see
-`src/lib/security/csp.js`). Enforcement of `script-src` is a later deliberate flip.
-
-#### "This export is intentionally unused (template knob for forks)"
-
-Examples: `optionOrAlt` (keyboard shortcut convention sibling of `cmdOrCtrl`).
-
-→ **JSDoc `@public` tag** on the export with a one-line reason, never a bare tag. Knip stops reporting it as unused and emits a tag hint once the export gains a real consumer, so the tag can be removed again.
-For intentionally kept **files**, use a `knip.config.ts` `ignore` entry with a why-comment instead, and remove entries that go stale when files are deleted. Anything regenerable from upstream (shadcn demos, cnblocks, prompt-kit examples) has no keep-value as dead code — delete it and re-fetch on demand.
-
-#### "Two PRs are green in isolation but conflict semantically on main"
-
-Examples: one PR removed a schema index another PR's new code queried; two PRs each introduced the same function (every PR green, main broken; hotfix #550).
-
-→ **Required up-to-date branches** (`required_status_checks.strict` on main, enabled 2026-06-12). With strict off, branch protection ran required checks per branch only, so batch-merging sibling PRs could break main even though every PR was green. Strict on means a PR behind main cannot merge until updated and re-validated, which deterministically prevents this class. GitHub merge queue is unavailable for user-owned repos (rulesets API rejects the `merge_queue` rule type).
-Consequence: after every merge, remaining open PRs need a branch update (Update-branch button or Renovate auto-rebase) plus a fresh CI cycle; batch merges are sequential by design.
-Defense in depth: after merging, still verify pulled main with `bun run check:convex` and `bun run test:unit`.
-
-#### Guard execution timeline
-
-| When            | What runs                                                          | Catches                         |
-| --------------- | ------------------------------------------------------------------ | ------------------------------- |
-| **Pre-commit**  | varlock scan, static-checks (format, lint, types, banned patterns) | Secrets, style, types, patterns |
-| **CI (on PR)**  | Same as pre-commit + unit tests                                    | Everything above + logic errors |
-| **Post-deploy** | E2E tests on preview URL                                           | User flow regressions           |
-| **Runtime**     | Hooks, validators, rate limits                                     | Auth, input, abuse              |
-
-### Library Conventions and Key Patterns
-
-#### Import Conventions
-
-No barrel imports from icon libraries — use individual imports (`@lucide/svelte/icons/icon-name`).
-
-#### UI Component Conventions
-
-- Always use shadcn-svelte for ui components first. Use btca with `shadcnSvelte` resource.
-- If a ui component doesn't exist in shadcn-svelte, check `@ieedan/shadcn-svelte-extras`. Use btca with `shadcnSvelteExtras` resource.
-- For AI related components, check if ai-elements has what you need. Use btca with `aiElements` resource.
-- Check cnblocks for well designed header, feature, pricing, footer and many more marketing blocks. Use btca with `cnblocks` resource. **When importing cnblocks components, verify they use project theme tokens** — cnblocks defines its own `--color-title`, `--color-primary-600` etc. that don't exist in this project's `@theme`. Replace with project tokens (`text-foreground`, `text-primary`). Also rename `className` prop to `class: className` to match project convention.
-- Only create a new component if it doesn't exist in any of the above libraries.
-- When implementing a new component, follow the existing shadcn-svelte component api and patterns in `src/lib/components/ui/`
-- Use Tailwind CSS classes for layout and styling in general. Do not add additional styling classes to the shadcn svelte components. They look good by default.
-- Prefer reusable Tailwind utilities (defined globally with `@utility` in `src/routes/layout.css`) over component-local `<style>` blocks for shared styling patterns (for example `no-drag`).
-- Elevated surfaces (anything with a `shadow-*`) get a semi-transparent ring, never a solid `border`: use `ring-1 ring-foreground/10`. A solid grey `border` next to a shadow reads muddy; the transparent ring blends with the shadow. Plain `border`/`border-transparent` is fine on shadow-less containers, directional dividers, inputs (border on focus), and email templates (no `ring` support).
-- Accessibility localization rule (all UI):
-  - Never hardcode human-facing `aria-label` or `.sr-only` text in English.
-  - Always localize screen-reader labels via Tolgee keys (not only tables, applies to all UI controls and navigation).
-  - Accessible naming convention: prefer localized `.sr-only` text for icon-only buttons, use localized `aria-label` when hidden text is not practical, and avoid redundant double-labeling. Exception: keep `aria-label` in shadcn-svelte components as-is (their upstream pattern) to minimize theme maintenance diff.
-  - Add `lang="en"` to content blocks that bypass Tolgee (e.g., legal pages rendered from raw English markdown).
-  - Never add ARIA labels to non-functional buttons (no click handler). Hide decorative buttons from the a11y tree with `aria-hidden="true"` + `tabindex="-1"`, or remove them.
-  - `<noscript>` content never needs `dark:` variants — dark mode requires JS (ModeWatcher). Noscript users always see light theme.
-
-#### Keyboard Shortcuts
-
-Never hardcode `⌘` or `Ctrl`. Use `cmdOrCtrl` / `optionOrAlt` from `$lib/hooks/is-mac.svelte` to show the correct modifier per platform.
-
-#### Animations
-
-For general animation craft (easing, duration, when to animate, performance, accessibility), follow the `emil-design-eng` skill (installed in `.agents/skills/`).
-
-**Project-specific rules:**
-
-- Simple animations should be implemented with plain CSS whenever possible.
-- Before implementing any custom animation, check if sv-animate has a prebuilt component that can be used. Use btca with `svAnimate` resource.
-- For custom animations, use Svelte's built-in animations, or motion-sv (Framer Motion for Svelte). Use btca with `motionSvelte` resource.
-- For Tailwind, use `motion-safe:` / `motion-reduce:` prefixes (e.g., `motion-safe:animate-fade-in`, `motion-reduce:animate-none`).
-- For page transitions and state changes, use the View Transitions API with SvelteKit's `onNavigate`:
-
-```svelte
-<script lang="ts">
-	import { onNavigate } from '$app/navigation';
-	onNavigate((navigation) => {
-		if (!document.startViewTransition) return;
-		return new Promise((resolve) => {
-			document.startViewTransition(async () => {
-				resolve();
-				await navigation.complete;
-			});
-		});
-	});
-</script>
-```
-
-- Give elements unique `view-transition-name` to animate them independently. For UI elements (buttons, cards), override aspect ratio with `width: 100%; height: 100%` on the `::view-transition-old`/`::view-transition-new` pseudo-elements.
-- Icon toggle pattern: 200ms `ease-in-out`, opacity + scale + `blur-sm` → `blur-0`.
-
-#### Forms
-
-Use this decision policy before implementing any form.
-
-**Field UI conventions (all forms):**
-
-- `import * as Field from '$lib/components/ui/field/index.js'`
-- Wrap grouped controls in `Field.Group`.
-- Do not add explicit spacing/layout utility classes to `Field.Group` (for example `gap-*`, `space-y-*`, `mt-*`, `mb-*`, `px-*`, `py-*`). Keep `Field.Group` spacing implicit.
-- Each control should be a `Field.Field` with label + input + optional description/error.
-- Keep `Field.Error` directly under its input inside the same `Field.Field` for field-level errors.
-- Form-level errors (e.g. banners) may be outside `Field.Field`.
-- Prefer one primary inline error message per field.
-
-**Remote functions decision tree:**
-
-1. Is this a Better Auth/session-sensitive flow (`signin`, `signup`, `forgot/reset`, `changeEmail`, `changePassword`)?
-   - Yes -> Use existing client-side `authClient` pattern.
-   - No -> Continue.
-2. Is this realtime/high-frequency/optimistic interaction (chat composers, inline table edits, streaming workflows)?
-   - Yes -> Use Convex client `useMutation` / `useAction` patterns.
-   - No -> Continue.
-3. Is this a one-shot server mutation with clear submit lifecycle and schema validation needs?
-   - Yes -> Use SvelteKit remote `form(schema, handler)` with Valibot.
-   - No -> Keep local/client form handling.
-4. Does it include file upload?
-   - If pre-upload/presigned-upload is already part of UX, keep upload client-side and only remote-submit final metadata if needed.
-
-**Current repo guidance:**
-
-- Good remote-form candidates: admin/settings-style one-shot forms (e.g. add-email dialog).
-- Not recommended: auth pages, account email/password settings auth mutations, community chat submit, generic UI-only/dialog wrapper forms.
-
-For remote-form implementation workflow only, read the `svelte-form-builder` skill (`skills/svelte-form-builder/SKILL.md`).
-
-#### Lists with a lot of items
-
----
-
-Use `svelte-infinite` with convex-svelte pagination for huge lists to automatically load more items as the user scrolls down the list. Use btca with `svelteInfinite` and `convexSvelte` resources. Before implementing this, research this codebase to see the pattern used in the existing code.
-
-#### Runed (collection of utilities for Svelte 5)
-
-Before creating our own utilities, research the runed library to see if the utility you need already exists. Use btca with `runed` resource.
-
-- For client-only or flash-invisible URL/query state, prefer Runed `useSearchParams` over manual `page.url` + `goto` wiring. For SSR-visible view selection, use `page.url.searchParams` + `goto` instead (see the data-fetching decision tree above: `useSearchParams` reads the URL client-only, so the view flashes on first paint).
-- Exception: in high-frequency selection UIs where query-param writes would cause unwanted Convex refetches (for example `src/routes/[[lang]]/admin/support/+page.svelte` thread selection), manual URL handling is acceptable.
-  Here is a list of the utilities available:
-
-<resource: Watches for changes and runs asynchronous data fetching, combining reactive state management with async operations.>
-<watch: Runs a callback whenever specified reactive sources change. Includes variants like watch.pre (uses $effect.pre) and watchOnce / watchOnce.pre (run only once).>
-<Context: A type-safe wrapper around Svelte's Context API for sharing data between components without prop drilling.>
-<Debounced: A simple wrapper over useDebounce that returns a debounced state, allowing cancellation or immediate updates.>
-<FiniteStateMachine: Defines a strongly-typed finite state machine for managing states and transitions based on events. Supports actions, lifecycle methods, wildcard handlers, and debouncing.>
-<PersistedState: A reactive state manager that persists and synchronizes state across browser sessions and tabs using Web Storage APIs (localStorage or sessionStorage).>
-<Previous: Tracks and provides reactive access to the previous value of a getter function.>
-<StateHistory: Tracks changes to a getter's value, logging them and providing undo/redo functionality.>
-<activeElement: Reactively tracks and provides access to the currently focused DOM element, searching through Shadow DOM boundaries.>
-<ElementRect: Reactively tracks an element's dimensions (width, height) and position (top, left, right, bottom, x, y), updating automatically.>
-<ElementSize: Reactively tracks only an element's dimensions (width, height), updating automatically.>
-<IsFocusWithin: Tracks whether any descendant element has focus within a specified container element.>
-<IsInViewport: Tracks if an element is visible within the current viewport, using useIntersectionObserver.>
-<useIntersectionObserver: Watches for intersection changes of a target element relative to an ancestor element or the viewport. Allows pausing, resuming, and stopping the observer.>
-<useMutationObserver: Observes changes (like attribute modifications) in a specified DOM element. Allows stopping the observer.>
-<useResizeObserver: Detects and reports changes in the size (contentRect) of an element. Allows stopping the observer.>
-<useEventListener: Attaches an event listener to a target (like document or an element reference) that is automatically disposed of when the component is destroyed or the target changes.>
-<IsIdle: Tracks user activity (mouse, keyboard, touch) to determine if the user is idle based on a configurable timeout. Provides the last active time.>
-<onClickOutside: Detects clicks outside a specified element and executes a callback. Useful for closing modals or dropdowns. Offers controls to start/stop the listener.>
-<PressedKeys: Tracks which keyboard keys are currently being pressed. Allows checking for specific keys or getting all pressed keys.>
-<useGeolocation: Provides reactive access to the browser's Geolocation API, including position coordinates, timestamp, error state, and support status. Allows pausing and resuming location tracking.>
-<AnimationFrames: A wrapper for requestAnimationFrame that includes FPS limiting and provides frame metrics like delta time and current FPS.>
-<useDebounce: Creates a debounced version of a callback function, delaying execution until after a specified period of inactivity. Allows forcing immediate execution or cancellation.>
-<IsMounted: A simple class that returns the mounted state (true or false) of the Svelte component it's instantiated in.>
-
-#### PaneForge
-
-Components that make it easy to create resizable panes in your Svelte apps. Use btca with `paneforge` resource.
-
-#### Threlte
-
-Build interactive 3D apps for the web. Use btca with `threlte` resource. <https://threlte.xyz/>
-
-#### Svelte Flow
-
-A customizable Svelte component for building node-based editors and interactive diagrams by the creators of React Flow. Use btca with `xyflow` resource. <https://svelteflow.dev/>
-
-### Vercel
-
-- `vercel` - Deploy to Vercel
-- `vercel --prod` - Deploy to production
-- `vercel env ls` - List environment variables
-- `printf "value" | vercel env add KEY environment` - Add environment variable (using printf avoids trailing newlines added when using heredoc)
-- `vercel env rm KEY environment` - Remove environment variable
-- `vercel logs` - View deployment logs
-- `vercel domains` - Manage custom domains
-
-## Plan Mode
-
-- Make the plan extremely concise. Sacrifice grammar for the sake of concision.
-- At the end of each plan, give me a list of unresolved questions to answer, if any, using the question tool.
-
-## esbuild/Vite Error: The service was stopped
-
-`bun i -f` should fix the issue.
-
-## Lighthouse
-
-### 1. Generate report
-
-`npx lighthouse URL --only-categories=accessibility --output=json --chrome-flags="--headless=new" 2>/dev/null > /tmp/lh.json`
-
-### 2. Query score + failing elements
-
-`cat /tmp/lh.json | jq '{score: (.categories.accessibility.score*100|floor), failures: [.audits|to_entries[]|select(.value.score==0 and .value.scoreDisplayMode=="binary")|{id:.key,elements:[.value.details.items[]?|{selector:.node.selector,snippet:.node.snippet}]}]}'`
-
-Swap accessibility for performance, seo, best-practices as needed.
+Keep plans concise. End with unresolved questions only when a user decision is genuinely required.

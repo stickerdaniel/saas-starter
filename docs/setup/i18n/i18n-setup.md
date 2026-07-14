@@ -279,7 +279,7 @@ Example files have been created in `src/i18n/`:
 
 ### To Add a Language
 
-1. Update `src/lib/i18n/languages.ts`:
+1. Add the language metadata to the canonical registry in `src/lib/i18n/languages.ts` and add its `src/i18n/<code>.json` translation file:
 
 ```typescript
 export const SUPPORTED_LANGUAGES: Language[] = [
@@ -293,51 +293,18 @@ export const SUPPORTED_LANGUAGES: Language[] = [
 ];
 ```
 
-2. Update `availableLanguages` in the root `src/routes/+layout.svelte` (already set to `['en', 'de', 'es', 'fr']`):
+2. Generate every derived registration and Cloudflare route:
 
-```typescript
-availableLanguages: ['en', 'de', 'es', 'fr', 'ja'],
+```bash
+bun run i18n:sync
 ```
 
-3. Import the new locale file and add it to the `translations` static-data map in the same file:
-
-```typescript
-import ja from '../i18n/ja.json';
-
-const translations: TolgeeStaticData = { en, de, es, fr, ja };
-```
-
-4. Add the code to the `LANGUAGES` array in `svelte.config.js` (drives prerendering of `[[lang]]` routes):
-
-```javascript
-const LANGUAGES = ['en', 'de', 'es', 'fr', 'ja'];
-```
-
-5. Add the code to `SUPPORTED_LOCALES` in `src/lib/convex/i18n/translations.ts`:
-
-```typescript
-export const SUPPORTED_LOCALES = ['en', 'de', 'es', 'fr', 'ja'] as const;
-```
-
-6. Add both the bare prefix and the wildcard to `run_worker_first` in `wrangler.toml` (so markdown content negotiation covers `/ja` and every page under it):
-
-```toml
-run_worker_first = ["/en", "/en/*", "/de", "/de/*", "/es", "/es/*", "/fr", "/fr/*", "/ja", "/ja/*"]
-```
-
-7. Add translations for the new language (in Tolgee Cloud, or by editing `src/i18n/ja.json` directly)
-
-`scripts/prerender-sync.test.ts` checks `svelte.config.js`, `SUPPORTED_LOCALES`, the `+layout.svelte` `translations` map, and `wrangler.toml` against `SUPPORTED_LANGUAGES`, so `bun run test:unit` fails if any one is missing the code.
+The application, SvelteKit prerendering, Tolgee, and Convex read the canonical registry/shared generated translations. `scripts/prerender-sync.test.ts` fails if the translation files or generated outputs drift.
 
 ### To Remove a Language
 
-1. Remove from `SUPPORTED_LANGUAGES` in `src/lib/i18n/languages.ts`
-2. Remove from `availableLanguages` and the `translations` map in the root `src/routes/+layout.svelte`
-3. Remove from the `LANGUAGES` array in `svelte.config.js`
-4. Remove from `SUPPORTED_LOCALES` in `src/lib/convex/i18n/translations.ts`
-5. Remove both the bare prefix and the wildcard (`/<code>` and `/<code>/*`) from `run_worker_first` in `wrangler.toml`
-
-Keep all five sources in sync, otherwise `scripts/prerender-sync.test.ts` fails `bun run test:unit`.
+1. Remove the language from `SUPPORTED_LANGUAGES` and delete its locale JSON file.
+2. Run `bun run i18n:sync`.
 
 ## SEO Features
 
