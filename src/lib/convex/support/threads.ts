@@ -1,13 +1,5 @@
-import {
-	mutation,
-	query,
-	internalMutation,
-	internalQuery,
-	type QueryCtx,
-	type MutationCtx
-} from '../_generated/server';
-import { v, ConvexError } from 'convex/values';
-import * as val from 'valibot';
+import { mutation, query, internalMutation, internalQuery } from '../_generated/server';
+import { v } from 'convex/values';
 import { supportAgent } from './agent';
 import { components, internal } from '../_generated/api';
 import { paginationOptsValidator } from 'convex/server';
@@ -19,138 +11,24 @@ import {
 	requireSupportOwnerIdentity
 } from './ownership';
 import {
-	buildSupportMessageDenormalization,
-	buildSupportSearchText,
-	type SupportLatestThreadMessage
-} from './denormalization';
-import { supportRateLimiter } from './rateLimit';
-import { createRateLimitError } from './types';
-import { isAnonymousUser } from '../utils/anonymousUser';
+	createSupportThreadRecord,
+	limitSupportThreadCreate,
+	syncSupportLastMessage
+} from './threadLifecycle';
+import {
+	backfillThreadMetadata as backfillThreadMetadataRecord,
+	deleteEmptyThreads as deleteEmptyThreadRecords,
+	getThreadLocale as getSupportThreadLocale,
+	syncUserProfile as syncSupportUserProfile,
+	updateThreadMetadata as updateSupportThreadMetadata
+} from './threadMaintenance';
+import { normalizeNotificationEmail } from './notificationPreferences';
 
-/**
- * Rate-limit a support thread-creation path. Anonymous callers share a
- * global bucket because their IDs are client-generated and spoofable.
- */
-async function limitSupportThreadCreate(
-	ctx: MutationCtx,
-	owner: { ownerId: string; isAnonymous: boolean },
-	pageUrl?: string
-) {
-	const limitName = owner.isAnonymous ? 'supportThreadCreateAnon' : 'supportThreadCreate';
-	const key = owner.isAnonymous ? 'anonymous-global' : owner.ownerId;
-	const status = await supportRateLimiter.limit(ctx, limitName, { key });
-	if (!status.ok) {
-		// Anonymous callers share a global bucket, so exhaustion is high demand,
-		// not the visitor's own message rate — use the global message for them.
-		const messageKey = owner.isAnonymous
-			? 'backend.support.rate_limit.global'
-			: 'backend.support.rate_limit.user';
-		throw createRateLimitError(status.retryAfter, t(extractLocaleFromUrl(pageUrl), messageKey));
-	}
-}
+export { shouldSendNotification } from './notificationPreferences';
+export { syncSupportLastMessage } from './threadLifecycle';
 
-// supportThreads is the source of truth for support thread membership and list rendering.
-// agent:threads remains shared runtime/storage used only for generic conversation metadata.
-
-async function getLatestCompletedThreadMessage(
-	ctx: QueryCtx,
-	threadId: string
-): Promise<SupportLatestThreadMessage | undefined> {
-	const messages = await ctx.runQuery(components.agent.messages.listMessagesByThreadId, {
-		threadId,
-		order: 'desc',
-		statuses: ['success'],
-		excludeToolMessages: true,
-		paginationOpts: { numItems: 1, cursor: null }
-	});
-
-	return messages.page[0] as SupportLatestThreadMessage | undefined;
-}
-
-async function getSupportOwnerProfile(
-	ctx: QueryCtx | MutationCtx,
-	resolvedUserId: string,
-	isAnonymous: boolean
-) {
-	if (isAnonymous) {
-		return { userName: undefined, userEmail: undefined };
-	}
-
-	try {
-		const user = await ctx.runQuery(components.betterAuth.adapter.findOne, {
-			model: 'user',
-			where: [{ field: '_id', operator: 'eq', value: resolvedUserId }]
-		});
-		if (user) {
-			return {
-				userName: user.name,
-				userEmail: user.email
-			};
-		}
-	} catch (error) {
-		console.log(`[supportThreads] Failed to fetch user ${resolvedUserId}:`, error);
-	}
-
-	return { userName: undefined, userEmail: undefined };
-}
-
-async function createSupportThreadRecord(
-	ctx: MutationCtx,
-	args: {
-		resolvedUserId: string;
-		isAnonymous: boolean;
-		title: string;
-		summary: string;
-		pageUrl?: string;
-		isWarm?: boolean;
-		awaitingAdminResponse: boolean;
-	}
-) {
-	const { threadId } = await supportAgent.createThread(ctx, {
-		userId: args.resolvedUserId,
-		title: args.title,
-		summary: args.summary
-	});
-
-	const { userName, userEmail } = await getSupportOwnerProfile(
-		ctx,
-		args.resolvedUserId,
-		args.isAnonymous
-	);
-	const searchText = buildSupportSearchText({
-		title: args.title,
-		summary: args.summary,
-		userName,
-		userEmail
-	});
-	const now = Date.now();
-
-	await ctx.db.insert('supportThreads', {
-		threadId,
-		userId: args.resolvedUserId,
-		isWarm: args.isWarm,
-		status: 'open',
-		isHandedOff: false,
-		awaitingAdminResponse: args.awaitingAdminResponse,
-		assignedTo: undefined,
-		priority: undefined,
-		pageUrl: args.pageUrl || undefined,
-		createdAt: now,
-		updatedAt: now,
-		notificationEmail: userEmail,
-		searchText,
-		title: args.title,
-		summary: args.summary,
-		lastMessage: undefined,
-		lastMessageAt: undefined,
-		lastMessageRole: undefined,
-		lastAgentName: undefined,
-		userName,
-		userEmail
-	});
-
-	return { threadId, notificationEmail: userEmail };
-}
+// supportThreads is the source of truth for membership and list rendering.
+// agent:threads owns only generic conversation runtime/storage.
 
 /**
  * Create a new support thread
@@ -568,27 +446,6 @@ export const getAdminAvatars = query({
 	}
 });
 
-// ============================================================================
-// Email Notification Helpers
-// ============================================================================
-
-const NOTIFICATION_COOLDOWN_MS = 30 * 60 * 1000; // 30 minutes
-
-/**
- * Check if a notification should be sent based on cooldown period.
- * Returns true if:
- * - notificationEmail is set AND
- * - Either no notification has been sent yet OR 30+ minutes have passed
- */
-export function shouldSendNotification(
-	notificationEmail: string | undefined,
-	notificationSentAt: number | undefined
-): boolean {
-	if (!notificationEmail) return false;
-	if (!notificationSentAt) return true; // First notification
-	return Date.now() - notificationSentAt >= NOTIFICATION_COOLDOWN_MS;
-}
-
 /**
  * Set notification email for a support thread
  *
@@ -605,25 +462,13 @@ export const updateNotificationEmail = mutation({
 	},
 	returns: v.boolean(),
 	handler: async (ctx, args) => {
-		// Normalize email (empty string = unsubscribe)
-		const normalizedEmail = args.email.trim().toLowerCase();
-
-		// Validate email format only if non-empty (empty = unsubscribe)
-		if (
-			normalizedEmail &&
-			!val.safeParse(val.pipe(val.string(), val.email()), normalizedEmail).success
-		) {
-			throw new ConvexError('Invalid email format');
-		}
-
 		const { supportThread } = await requireSupportThreadRecord(ctx, {
 			threadId: args.threadId,
 			anonymousUserId: args.anonymousUserId
 		});
 
-		// Update notification email (undefined to unsubscribe)
 		await ctx.db.patch(supportThread._id, {
-			notificationEmail: normalizedEmail || undefined,
+			notificationEmail: normalizeNotificationEmail(args.email),
 			updatedAt: Date.now()
 		});
 
@@ -647,35 +492,7 @@ export const updateThreadMetadata = internalMutation({
 	},
 	returns: v.null(),
 	handler: async (ctx, args) => {
-		const supportThread = await ctx.db
-			.query('supportThreads')
-			.withIndex('by_thread', (q) => q.eq('threadId', args.threadId))
-			.first();
-
-		if (!supportThread) {
-			console.log(`[syncThreadMetadata] No supportThread found for: ${args.threadId}`);
-			return null;
-		}
-
-		// Merge new values with existing
-		const title = args.title ?? supportThread.title;
-		const summary = args.summary ?? supportThread.summary;
-
-		// Rebuild searchText
-		const searchText = buildSupportSearchText({
-			title,
-			summary,
-			lastMessage: supportThread.lastMessage,
-			userName: supportThread.userName,
-			userEmail: supportThread.userEmail
-		});
-
-		await ctx.db.patch(supportThread._id, {
-			title,
-			summary,
-			searchText,
-			updatedAt: Date.now()
-		});
+		await updateSupportThreadMetadata(ctx, args);
 		return null;
 	}
 });
@@ -684,38 +501,8 @@ export const updateThreadMetadata = internalMutation({
  * Sync last message to denormalized search fields.
  * Called after a message is sent (user or admin).
  *
- * Mutation-context callers use this helper directly; the `updateLastMessage`
- * internalMutation below wraps it for action-context callers.
- */
-export async function syncSupportLastMessage(ctx: MutationCtx, threadId: string): Promise<void> {
-	const supportThread = await ctx.db
-		.query('supportThreads')
-		.withIndex('by_thread', (q) => q.eq('threadId', threadId))
-		.first();
-
-	if (!supportThread) {
-		console.log(`[syncLastMessage] No supportThread found for: ${threadId}`);
-		return;
-	}
-
-	const latestMessage = await getLatestCompletedThreadMessage(ctx, threadId);
-	const patch = buildSupportMessageDenormalization({
-		title: supportThread.title,
-		summary: supportThread.summary,
-		userName: supportThread.userName,
-		userEmail: supportThread.userEmail,
-		latestMessage
-	});
-
-	await ctx.db.patch(supportThread._id, {
-		...patch,
-		updatedAt: Date.now()
-	});
-}
-
-/**
- * Action-context wrapper around syncSupportLastMessage.
- * Used by createAIResponse after streaming completes.
+ * Mutation-context callers import the lifecycle helper directly; this facade
+ * preserves the existing Convex function path for action-context callers.
  */
 export const updateLastMessage = internalMutation({
 	args: {
@@ -744,26 +531,7 @@ export const syncUserProfile = internalMutation({
 	},
 	returns: v.null(),
 	handler: async (ctx, args) => {
-		// Bounded: per-user index scan, a single user's support threads are few
-		const supportThreads = await ctx.db
-			.query('supportThreads')
-			.withIndex('by_user', (q) => q.eq('userId', args.userId))
-			.collect();
-
-		for (const supportThread of supportThreads) {
-			await ctx.db.patch(supportThread._id, {
-				userName: args.userName,
-				userEmail: args.userEmail,
-				searchText: buildSupportSearchText({
-					title: supportThread.title,
-					summary: supportThread.summary,
-					lastMessage: supportThread.lastMessage,
-					userName: args.userName,
-					userEmail: args.userEmail
-				})
-			});
-		}
-
+		await syncSupportUserProfile(ctx, args);
 		return null;
 	}
 });
@@ -775,51 +543,7 @@ export const syncUserProfile = internalMutation({
 export const backfillThreadMetadata = internalMutation({
 	args: {},
 	returns: v.object({ updated: v.number(), total: v.number() }),
-	handler: async (ctx) => {
-		// One-time backfill for pre-release data; supportThreads volume is bounded in this repo.
-		const supportThreads = await ctx.db.query('supportThreads').collect();
-		let updated = 0;
-
-		for (const supportThread of supportThreads) {
-			let agentThread;
-			try {
-				agentThread = await ctx.runQuery(components.agent.threads.getThread, {
-					threadId: supportThread.threadId
-				});
-			} catch {
-				continue;
-			}
-
-			if (!agentThread) continue;
-
-			// Re-fetch the live profile so a manual backfill repairs drifted
-			// userName/userEmail instead of re-propagating the stale values.
-			const { userName, userEmail } = await getSupportOwnerProfile(
-				ctx,
-				supportThread.userId,
-				isAnonymousUser(supportThread.userId)
-			);
-
-			const patch = {
-				title: agentThread.title,
-				summary: agentThread.summary,
-				userName,
-				userEmail,
-				...buildSupportMessageDenormalization({
-					title: agentThread.title,
-					summary: agentThread.summary,
-					userName,
-					userEmail,
-					latestMessage: await getLatestCompletedThreadMessage(ctx, supportThread.threadId)
-				})
-			};
-
-			await ctx.db.patch(supportThread._id, patch);
-			updated++;
-		}
-
-		return { updated, total: supportThreads.length };
-	}
+	handler: async (ctx) => await backfillThreadMetadataRecord(ctx)
 });
 
 /**
@@ -832,14 +556,7 @@ export const getThreadLocale = internalQuery({
 		threadId: v.string()
 	},
 	returns: v.string(),
-	handler: async (ctx, args) => {
-		const supportThread = await ctx.db
-			.query('supportThreads')
-			.withIndex('by_thread', (q) => q.eq('threadId', args.threadId))
-			.first();
-
-		return extractLocaleFromUrl(supportThread?.pageUrl);
-	}
+	handler: async (ctx, args) => await getSupportThreadLocale(ctx, args.threadId)
 });
 
 /**
@@ -853,50 +570,5 @@ export const getThreadLocale = internalQuery({
 export const deleteEmptyThreads = internalMutation({
 	args: {},
 	returns: v.object({ deleted: v.number() }),
-	handler: async (ctx) => {
-		const cutoffTime = Date.now() - 24 * 60 * 60 * 1000; // 24 hours ago
-
-		// Find threads older than 24h
-		const oldThreads = await ctx.db
-			.query('supportThreads')
-			.withIndex('by_creation_time')
-			// Intentional: indexed scan + filter for cron-driven cleanup; take(100) bounds the batch
-			// eslint-disable-next-line @convex-dev/no-filter-in-query
-			.filter((q) => q.lt(q.field('_creationTime'), cutoffTime))
-			.take(100); // Batch to avoid timeout
-
-		let deletedCount = 0;
-
-		for (const supportThread of oldThreads) {
-			// Check if thread has any messages using agent's message API
-			const result = await ctx.runQuery(components.agent.messages.listMessagesByThreadId, {
-				threadId: supportThread.threadId,
-				order: 'asc',
-				paginationOpts: { numItems: 1, cursor: null }
-			});
-
-			if (result.page.length > 0) {
-				// Thread has messages - skip
-				continue;
-			}
-
-			// Delete agent thread first
-			try {
-				await supportAgent.deleteThreadAsync(ctx, { threadId: supportThread.threadId });
-			} catch (error) {
-				console.log(`[deleteEmptyThreads] Failed to delete agent thread: ${String(error)}`);
-				continue; // Skip supportThread deletion - retry next cron run
-			}
-
-			// Delete supportThread record
-			await ctx.db.delete(supportThread._id);
-			deletedCount++;
-		}
-
-		if (deletedCount > 0) {
-			console.log(`[deleteEmptyThreads] Deleted ${deletedCount} empty threads`);
-		}
-
-		return { deleted: deletedCount };
-	}
+	handler: async (ctx) => await deleteEmptyThreadRecords(ctx)
 });

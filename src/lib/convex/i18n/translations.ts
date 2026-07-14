@@ -15,25 +15,20 @@
  *   const locale = extractLocaleFromUrl('/de/app/settings'); // returns 'de'
  */
 
-import en from '../../../i18n/en.json';
-import de from '../../../i18n/de.json';
-import es from '../../../i18n/es.json';
-import fr from '../../../i18n/fr.json';
+import { DEFAULT_LANGUAGE } from '../../i18n/languages';
+import {
+	STATIC_TRANSLATIONS,
+	SUPPORTED_LOCALES,
+	type SupportedLocale
+} from '../../i18n/static-translations.generated';
 
-/** Supported locales */
-export const SUPPORTED_LOCALES = ['en', 'de', 'es', 'fr'] as const;
-export type SupportedLocale = (typeof SUPPORTED_LOCALES)[number];
+export { SUPPORTED_LOCALES, type SupportedLocale };
 
 /** Default locale used as fallback */
-export const DEFAULT_LOCALE: SupportedLocale = 'en';
+export const DEFAULT_LOCALE: SupportedLocale = DEFAULT_LANGUAGE;
 
 /** Translation data indexed by locale */
-const translations: Record<SupportedLocale, Record<string, unknown>> = {
-	en,
-	de,
-	es,
-	fr
-};
+const translations: Record<SupportedLocale, Record<string, unknown>> = STATIC_TRANSLATIONS;
 
 /**
  * Get a nested value from an object using dot notation path.

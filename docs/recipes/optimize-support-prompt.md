@@ -1,141 +1,52 @@
-# Recipe: Optimize the support agent's prompt from your resolved tickets
+# Recipe: optimize the support prompt from resolved tickets
 
-Kai, the support agent (`src/lib/convex/support/agent.ts`), ships with a hand-written
-system prompt. Once your fork has accumulated real support history, you can do better than
-hand-tuning: optimize that prompt against the tickets you actually resolved, so new replies
-look like the answers that closed threads.
+This is an optional extension for mature forks, not a built-in feature. Wait until the product has dozens of genuinely resolved support conversations; a tiny or noisy corpus teaches an optimizer little beyond the seed prompt.
 
-This is an extension path, not a built-in feature. The template deliberately does not carry
-`@ax-llm/ax` or any optimizer. This recipe is the lightweight alternative: copy a small,
-self-contained piece into your fork when you have the corpus for it.
+## Training corpus
 
-## When this is worth doing
+Build one example per resolved thread:
 
-You need an accumulated corpus first. This is not a day-one feature. It pays off once you
-have on the order of dozens to low hundreds of `supportThreads` with `status: 'done'`, each
-holding a real user question and a real resolution. With a handful of threads there is
-nothing to learn from, and the optimizer will just echo your seed prompt back. Wait until
-the history exists.
+- **Input:** the opening user question plus the minimum context needed to make it unambiguous.
+- **Gold answer:** the real response that resolved the thread.
 
-## The corpus: your resolved threads
+Exclude spam, duplicates, abandoned conversations, and threads closed without a useful answer. The current support storage and prompt-override seam live under [`src/lib/convex/support/`](../../src/lib/convex/support/); inspect those modules rather than copying symbol names from this recipe.
 
-The source of truth is already in your database. Query `supportThreads` where
-`status === 'done'` (the `by_status_and_assigned` index covers a status-prefixed scan), then
-read each thread's messages from the agent component the same way `support/messages.ts` does.
+## Objective
 
-From each done thread, build one training example:
+Optimize for closeness to the successful resolution, not human imitation. A useful judge scores:
 
-- **input** = the user's question (the opening user turn, plus enough following context to
-  make the ask unambiguous).
-- **gold** = the resolution that actually closed the thread. That is the assistant or admin
-  reply the user accepted before the thread went to `done`, not a synthetic ideal answer. The
-  whole point is to learn from replies that worked in production.
+- correctness — it reaches the same resolution without contradiction;
+- helpfulness — it answers the actual request and gives the right next step;
+- brand fit — it follows the fork's support tone.
 
-Drop threads that closed without a real answer (spam, duplicates, "nevermind", auto-closed
-stale threads). A noisy gold answer teaches the optimizer the wrong target.
+Fold the scores into one scalar and apply a floor: an incorrect or unhelpful answer must score near zero even when its wording overlaps the gold response. Lexical overlap can be a small independent signal, but an outcome-aware judge should carry most of the weight.
 
-## The metric: closeness to the gold resolution
+## Execution shape
 
-This is where support optimization differs from voice mimicry, and it is the one thing not to
-copy verbatim from the reference.
+Run optimization in a bounded Node action or an offline job:
 
-The voice optimizer scores a draft with an adversarial **spot-the-AI** discriminator: a jury
-tries to tell the model's draft apart from the human's real text, and indistinguishability is
-the reward. That metric fits human-voice mimicry. It is wrong for support. A support reply
-should be **correct, helpful, and on-brand**, and you do not care whether a reader can tell a
-human or the agent wrote it.
+1. Start from the current reviewed support instruction.
+2. Split resolved examples into train and validation sets.
+3. Generate candidate replies and score them against the gold answers.
+4. Let the optimizer revise the instruction from the judge's structured critique.
+5. Cap trials, model calls, concurrency, and wall-clock time.
+6. Compare the winner with the current instruction on the held-out set.
+7. Persist or print a candidate only when it clears the existing score.
 
-So replace the discriminator with a **closeness-to-gold judge**. For a candidate reply to the
-ticket's question, ask an LLM judge to score it against the gold resolution on:
+Use the application's existing model provider and usage-metering boundary. Never write ticket bodies, user identities, or model critiques into analytics. Treat the winning prompt as reviewed application behavior: retain an immediate rollback to the previous prompt or checked-in seed.
 
-- **correctness**: does it give the same answer / resolution as the gold, or contradict it?
-- **helpfulness**: does it actually resolve the user's ask, with the right next step?
-- **on-brand**: does it match the product's tone and the support style (concise, friendly,
-  the WhatsApp-style brevity Kai's instructions call for)?
+## Static versus dynamic rollout
 
-Fold those into one scalar the optimizer maximizes. Keep the floor idea from the reference:
-an off-brand or unhelpful reply should be damped to near-zero even if it happens to overlap
-the gold wording, so the optimizer is never rewarded for surface-matching a bad answer. A
-small lexical-overlap term against the gold is a cheap, judge-independent sanity signal, but
-the LLM judge carries the weight.
+- **Static:** print the winning instruction, review it, and ship it as code. This is the simplest starting point and gives a normal diff and rollback.
+- **Dynamic:** save versioned prompts through the existing support prompt store when repeated optimization justifies runtime switching. Keep the checked-in seed as the fallback.
 
-## The approach: a GEPA run in a `'use node'` action
-
-Wrap the optimization in a Convex `'use node'` action (it needs the Node runtime for
-`@ax-llm/ax` and `p-limit`). The shape mirrors `optimizeChannel` in the reference:
-
-1. Synthesize a seed instruction from a sample of resolved tickets (or just start from the
-   current `SUPPORT_AGENT_INSTRUCTIONS`).
-2. Declare an Ax program (`question -> reply`) and set the seed as its instruction.
-3. Run `AxGEPA` with a student model (drafts replies) and a teacher model (rewrites the
-   prompt from the judge's natural-language critique).
-4. The metric is the closeness-to-gold judge above. Feed its critique back as GEPA feedback
-   so the rewrite knows _why_ a draft missed.
-5. Bound the run with `maxMetricCalls` / `numTrials` so it stays inside Convex's 10-minute
-   action limit, and always finalize a usable prompt (fall back to the seed, never abort
-   empty).
-
-Resolve the model lineup from env exactly like the reference's `resolveLineup`: a generator
-model, one or more judge models, and a teacher model, each overridable by an env var with a
-sane default (for example `SUPPORT_OPT_GENERATOR_MODEL`, `SUPPORT_OPT_JUDGE_MODELS`,
-`SUPPORT_OPT_TEACHER_MODEL`). All of them run over OpenRouter with the existing
-`OPENROUTER_API_KEY`. Reuse `orModel` / `captureDirect` from `src/lib/convex/aiUsage/` so the
-optimizer's token spend is metered through the same cost-tracking pipeline as the rest of the
-app.
-
-## The override seam: where the optimized prompt lands
-
-The support agent reads its instructions from a named export, `SUPPORT_AGENT_INSTRUCTIONS`
-(`src/lib/convex/support/agent.ts`), instead of an inline literal, and at runtime
-`support/messages.ts` prefers a stored override over that seed. There are two ways to plug an
-optimized prompt in:
-
-- **Static**: have the optimizer print the winning prompt, then paste it in as the new value
-  of `SUPPORT_AGENT_INSTRUCTIONS` and ship it. Simplest, fully reviewable in a diff, no
-  database write.
-- **Dynamic**: write the prompt into the `supportAgentPrompts` table through
-  `support/promptStore`. `getActive` resolves the active row before every streamed reply and
-  passes it as the per-turn system override; when no row is active the agent falls back to
-  `SUPPORT_AGENT_INSTRUCTIONS`. This lets you re-tune as more tickets close, without a deploy.
-
-The dynamic seam already ships in the template, so you do not build the storage or the runtime
-lookup yourself. To hot-swap the prompt by hand, or from the end of an optimization run:
-
-```sh
-# Activate a new prompt (deactivates the previous active row for its locale)
-bunx convex run support/promptStore:savePrompt '{"systemPrompt": "You are ...", "note": "2026-07 optimization run"}'
-
-# Scope an override to one locale (getActive serves the locale-less default elsewhere)
-bunx convex run support/promptStore:savePrompt '{"systemPrompt": "Du bist ...", "locale": "de"}'
-
-# Roll back to the seed prompt without a deploy (deactivate the live row by id)
-bunx convex run support/promptStore:setActive '{"id": "<rowId>", "active": false}'
-```
-
-An optimization pipeline writes into this same seam. It builds a gold corpus from resolved
-tickets, scores candidate replies with the closeness-to-gold judge, runs an optimizer such as
-GEPA to rewrite the prompt, and calls `savePrompt` as its last step. Guard that step with the
-floor from earlier: never persist a prompt whose judged score is below the current seed, so a
-bad or empty run leaves the live prompt untouched and the seed stays the fallback. The
-template ships the seam, not the engine, so this stays a recipe you grow into.
-
-Start static. Move to dynamic once you are re-running the optimization regularly.
+Start static. Move to dynamic only after optimization is repeatable, evaluated, and operationally owned.
 
 ## Reference implementation
 
-Copy the Ax wiring and the model-lineup env resolution from Cadenza's per-channel voice
-optimizer:
+Cadenza's per-channel writing optimizer is a worked example of the execution structure, not a live dependency. The links are pinned so this recipe cannot silently change underneath a fork:
 
-- Repo: `stickerdaniel/cadenza-app`
-- Path: `src/lib/convex/voice/`
-  - `optimize.ts`: the `'use node'` GEPA action covering seed synthesis, the Ax program, the
-    `AxGEPA` student/teacher setup, metric-call bounding, usage metering via a proxied
-    `AxAIService`, and the seed fallback.
-  - `optimize.eval.ts`: `resolveLineup` (env-driven generator / jury / teacher / quality
-    models with defaults), the objective folding, and the floor/scalar scoring.
+- [`voice/optimize.ts`](https://github.com/stickerdaniel/cadenza-app/blob/b83533e38706255fd5814cae8fc2694000cf0279/src/lib/convex/voice/optimize.ts) — bounded optimization, model usage capture, and fallback behavior.
+- [`voice/optimize.eval.ts`](https://github.com/stickerdaniel/cadenza-app/blob/b83533e38706255fd5814cae8fc2694000cf0279/src/lib/convex/voice/optimize.eval.ts) — lineup resolution and objective folding.
 
-Take the structure and the env-resolution wholesale. Swap the spot-the-AI jury for the
-closeness-to-gold judge described above, point the corpus at done `supportThreads` instead of
-LinkedIn turns, and write the result through the override seam above: paste it into
-`SUPPORT_AGENT_INSTRUCTIONS` for the static path, or call `support/promptStore:savePrompt` for
-the dynamic one.
+Copy the architecture only after inspecting the current fork. Replace Cadenza's imitation-specific judge with the resolution objective above.

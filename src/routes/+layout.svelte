@@ -14,19 +14,16 @@
 	import { setGlobalSearchContext } from '$lib/components/global-search/context.svelte';
 	import GlobalSearchShell from '$lib/components/global-search/global-search-shell.svelte';
 	import { languageContext } from '$lib/i18n/context';
-	import { getLanguage } from '$lib/i18n/languages';
+	import { DEFAULT_LANGUAGE, getLanguage } from '$lib/i18n/languages';
+	import { STATIC_TRANSLATIONS, SUPPORTED_LOCALES } from '$lib/i18n/static-translations.generated';
 	import RouteProgress from '$lib/components/RouteProgress.svelte';
 	import { Toaster } from '$lib/components/ui/sonner';
 	import * as Tooltip from '$lib/components/ui/tooltip/index.js';
 	import { watch } from 'runed';
 	import { devNotice } from '$lib/dev/notice';
-	import de from '../i18n/de.json';
-	import en from '../i18n/en.json';
-	import es from '../i18n/es.json';
-	import fr from '../i18n/fr.json';
 	import './layout.css';
 
-	const translations: TolgeeStaticData = { en, de, es, fr };
+	const translations: TolgeeStaticData = STATIC_TRANSLATIONS;
 
 	let { children } = $props();
 
@@ -103,9 +100,9 @@
 
 		staticData: translations,
 
-		availableLanguages: ['en', 'de', 'es', 'fr'],
-		defaultLanguage: 'en',
-		fallbackLanguage: 'en',
+		availableLanguages: SUPPORTED_LOCALES,
+		defaultLanguage: DEFAULT_LANGUAGE,
+		fallbackLanguage: DEFAULT_LANGUAGE,
 
 		// Live Tolgee (in-context editing) is dev-only. Production and preview
 		// builds fold import.meta.env.DEV to false, so apiUrl/apiKey and their

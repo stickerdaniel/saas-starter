@@ -10,6 +10,6 @@ directory = ".svelte-kit/cloudflare"
 binding = "ASSETS"
 # Route marketing pages through the worker so Accept: text/markdown
 # content negotiation works on prerendered pages (see patch-cf-worker.ts).
-# Entries are derived from SUPPORTED_LANGUAGES in src/lib/i18n/languages.ts
-# and kept in sync by scripts/prerender-sync.test.ts.
+# Generated from SUPPORTED_LANGUAGES by `bun run i18n:sync` and guarded by
+# scripts/prerender-sync.test.ts.
 run_worker_first = ["/en", "/en/*", "/de", "/de/*", "/es", "/es/*", "/fr", "/fr/*"]
