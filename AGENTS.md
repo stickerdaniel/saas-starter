@@ -57,6 +57,8 @@ The command fetches and branches from remote trunk by default. Worktrees live be
 
 Never use `EnterWorktree`. Prefix every later action with the absolute worktree path because command working directories do not persist. Before committing, run `git branch` and confirm the worktree branch. After a merge, run `bun run worktree:prune`; it safely removes confirmed-merged worktrees and branches and fast-forwards a clean local trunk.
 
+Except for truly small UI-only or docs-only changes, monitor the branch through green required CI, guide failures to green without bypassing checks, merge it, and verify a green production deployment.
+
 ### Commit messages
 
 ```text

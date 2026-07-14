@@ -4,7 +4,8 @@ import cloudflare from '@sveltejs/adapter-cloudflare';
 import node from '@sveltejs/adapter-node';
 import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 import { buildContentSecurityPolicy } from './src/lib/security/csp.js';
-import { SUPPORTED_LANGUAGES } from './src/lib/i18n/languages.ts';
+// Postinstall loads this config through plain Node before TypeScript loaders are active.
+import { SUPPORTED_LANGUAGE_CODES } from './src/lib/i18n/language-codes.generated.js';
 
 // Workers Builds sets WORKERS_CI but adapter-auto only checks CF_PAGES.
 // Use adapter-cloudflare explicitly when WORKERS_CI is detected.
@@ -17,8 +18,7 @@ const adapter = process.env.WORKERS_CI
 
 // Prerenderable marketing pages (pricing excluded — uses useCustomer() for billing UI)
 const PRERENDER_MARKETING_PAGES = ['', '/about', '/privacy', '/terms', '/impressum'];
-const LANGUAGES = SUPPORTED_LANGUAGES.map((language) => language.code);
-const prerenderEntries = LANGUAGES.flatMap((lang) =>
+const prerenderEntries = SUPPORTED_LANGUAGE_CODES.flatMap((lang) =>
 	PRERENDER_MARKETING_PAGES.map((page) => `/${lang}${page}`)
 );
 
