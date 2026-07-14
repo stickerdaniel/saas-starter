@@ -57,7 +57,11 @@ The command fetches and branches from remote trunk by default. Worktrees live be
 
 Never use `EnterWorktree`. Prefix every later action with the absolute worktree path because command working directories do not persist. Before committing, run `git branch` and confirm the worktree branch. After a merge, run `bun run worktree:prune`; it safely removes confirmed-merged worktrees and branches and fast-forwards a clean local trunk.
 
-Except for truly small UI-only or docs-only changes, monitor the branch through green required CI, guide failures to green without bypassing checks, merge it, and verify a green production deployment.
+For reviews and audits, fetch and inspect `origin/main` rather than the shared main checkout, which may intentionally lag behind. Revalidate every finding against that baseline before reporting or changing code.
+
+Open PRs as drafts because ready PRs can auto-merge. Mark a PR ready only after all follow-up work is done, then run `gh pr merge <n> --squash --auto --delete-branch`.
+
+Except for truly small UI-only or docs-only changes, monitor the branch through green required CI, merge it, and verify a green production deployment. If a required check fails, read its provider logs and guide it to green; never override an unexplained failure.
 
 ### Commit messages
 
