@@ -1,2 +1,1 @@
-bunx varlock scan --staged
-bun run static-checks:staged
+bun run check:precommit
