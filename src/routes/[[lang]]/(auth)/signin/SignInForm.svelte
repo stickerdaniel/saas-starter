@@ -40,7 +40,7 @@
 
 	let {
 		id,
-		signInData,
+		signInData = $bindable(),
 		signInErrors,
 		formError,
 		isLoading,
