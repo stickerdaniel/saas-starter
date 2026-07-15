@@ -45,7 +45,7 @@
 
 	const globalSearch = useGlobalSearchContext();
 	const auth = useAuth();
-	const viewer = useQuery(api.users.viewer, {});
+	const viewer = useQuery(api.users.viewer, () => (auth.isAuthenticated ? {} : 'skip'));
 
 	let lastStableAuth = $state<EffectiveAuthState>({
 		isAuthenticated: auth.isAuthenticated,

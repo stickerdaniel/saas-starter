@@ -70,7 +70,8 @@ const detectSignupMethod = async (
 	const accountResult = await ctx.runQuery(components.betterAuth.adapter.findMany, {
 		model: 'account',
 		paginationOpts: { cursor: null, numItems: 1 },
-		where: [{ field: 'userId', operator: 'eq', value: userId }]
+		where: [{ field: 'userId', operator: 'eq', value: userId }],
+		select: ['providerId']
 	});
 	const account = accountResult.page[0] as { providerId?: string } | undefined;
 	return account?.providerId === 'google'

@@ -11,7 +11,8 @@
  * after diffing. The passkey table block here can be carried forward unchanged.
  *
  * Customizations preserved across regeneration:
- * - `.index('role', ['role'])` on the `user` table — generator drops it.
+ * - Admin-list indexes on the `user` table — generator drops them.
+ * - `.index('updatedAt', ['updatedAt'])` on `session` for activity metrics.
  *
  * Custom-index pattern: https://labs.convex.dev/better-auth/features/local-install#adding-custom-indexes.
  */
@@ -37,7 +38,11 @@ export const tables = {
 		.index('email_name', ['email', 'name'])
 		.index('name', ['name'])
 		.index('userId', ['userId'])
-		.index('role', ['role']),
+		.index('role', ['role'])
+		.index('banned', ['banned'])
+		.index('banned_role', ['banned', 'role'])
+		.index('banned_emailVerified', ['banned', 'emailVerified'])
+		.index('banned_emailVerified_role', ['banned', 'emailVerified', 'role']),
 	session: defineTable({
 		expiresAt: v.number(),
 		token: v.string(),
@@ -51,7 +56,8 @@ export const tables = {
 		.index('expiresAt', ['expiresAt'])
 		.index('expiresAt_userId', ['expiresAt', 'userId'])
 		.index('token', ['token'])
-		.index('userId', ['userId']),
+		.index('userId', ['userId'])
+		.index('updatedAt', ['updatedAt']),
 	account: defineTable({
 		accountId: v.string(),
 		providerId: v.string(),
