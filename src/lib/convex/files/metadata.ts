@@ -1,4 +1,4 @@
-import { v } from 'convex/values';
+import { ConvexError, v } from 'convex/values';
 import { internalMutation } from '../_generated/server';
 import type { QueryCtx } from '../_generated/server';
 
@@ -20,10 +20,15 @@ export async function getFileMetadataByUrls(
 	ctx: QueryCtx,
 	urls: string[]
 ): Promise<Record<string, { width?: number; height?: number }>> {
+	const uniqueUrls = [...new Set(urls)];
+	if (uniqueUrls.length > 100) {
+		throw new ConvexError('Too many file metadata URLs.');
+	}
+
 	const results: Record<string, { width?: number; height?: number }> = {};
 
 	await Promise.all(
-		urls.map(async (url) => {
+		uniqueUrls.map(async (url) => {
 			const meta = await ctx.db
 				.query('fileMetadata')
 				.withIndex('by_url', (q) => q.eq('url', url))

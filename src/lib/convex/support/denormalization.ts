@@ -17,6 +17,10 @@ export type SupportLatestThreadMessage = {
 	};
 };
 
+export function toAgentThreadStatus(status: 'open' | 'done'): 'active' | 'archived' {
+	return status === 'done' ? 'archived' : 'active';
+}
+
 /**
  * supportThreads is the feature registry for support access, search, and list rendering.
  * agent:messages provides the generic latest message, which we denormalize into supportThreads.
