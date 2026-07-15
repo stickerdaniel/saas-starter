@@ -23,6 +23,7 @@ import {
 	updateThreadMetadata as updateSupportThreadMetadata
 } from './threadMaintenance';
 import { normalizeNotificationEmail } from './notificationPreferences';
+import { toAgentThreadStatus } from './denormalization';
 
 export { shouldSendNotification } from './notificationPreferences';
 export { syncSupportLastMessage } from './threadLifecycle';
@@ -169,6 +170,7 @@ export const listThreads = query({
 			.withIndex('by_user_and_updated', (q) => q.eq('userId', owner.ownerId))
 			.order('desc')
 			.paginate(args.paginationOpts ?? { numItems: 20, cursor: null });
+		// Bounded: each owner has at most one pre-warmed thread.
 		const supportThreads = supportThreadsPage.page.filter((supportThread) => !supportThread.isWarm);
 
 		// Collect unique admin IDs and fetch their info
@@ -181,10 +183,11 @@ export const listThreads = query({
 		await Promise.all(
 			[...adminIds].map(async (adminId) => {
 				try {
-					const admin = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+					const admin = (await ctx.runQuery(components.betterAuth.adapter.findOne, {
 						model: 'user',
-						where: [{ field: '_id', operator: 'eq', value: adminId }]
-					});
+						where: [{ field: '_id', operator: 'eq', value: adminId }],
+						select: ['name', 'image']
+					})) as { name?: string; image?: string | null } | null;
 					if (admin) {
 						adminMap.set(adminId, { name: admin.name, image: admin.image ?? null });
 					}
@@ -194,56 +197,33 @@ export const listThreads = query({
 			})
 		);
 
-		// For each thread, get the last message and combine with support data
-		const threadsWithLastMessage = await Promise.all(
-			supportThreads.map(async (supportThread) => {
-				let thread;
-				try {
-					thread = await ctx.runQuery(components.agent.threads.getThread, {
-						threadId: supportThread.threadId
-					});
-				} catch (error) {
-					console.log(
-						`[listThreads] Failed to fetch agent thread ${supportThread.threadId}:`,
-						error
-					);
-					return null;
-				}
+		const threadsWithLastMessage = supportThreads.map((supportThread) => {
+			const assignedAdmin = supportThread.assignedTo
+				? adminMap.get(supportThread.assignedTo)
+				: undefined;
 
-				if (!thread) {
-					return null;
-				}
-
-				const assignedAdmin = supportThread.assignedTo
-					? adminMap.get(supportThread.assignedTo)
-					: undefined;
-
-				return {
-					_id: supportThread.threadId,
-					_creationTime: supportThread.createdAt,
-					userId: supportThread.userId,
-					title: supportThread.title,
-					summary: supportThread.summary,
-					status: thread.status,
-					lastAgentName: supportThread.lastAgentName,
-					lastMessageRole: supportThread.lastMessageRole,
-					lastMessage: supportThread.lastMessage,
-					lastMessageAt: supportThread.lastMessageAt,
-					isHandedOff: supportThread.isHandedOff ?? false,
-					notificationEmail: supportThread.notificationEmail,
-					assignedAdmin
-				};
-			})
-		);
+			return {
+				_id: supportThread.threadId,
+				_creationTime: supportThread.createdAt,
+				userId: supportThread.userId,
+				title: supportThread.title,
+				summary: supportThread.summary,
+				status: toAgentThreadStatus(supportThread.status),
+				lastAgentName: supportThread.lastAgentName,
+				lastMessageRole: supportThread.lastMessageRole,
+				lastMessage: supportThread.lastMessage,
+				lastMessageAt: supportThread.lastMessageAt,
+				isHandedOff: supportThread.isHandedOff ?? false,
+				notificationEmail: supportThread.notificationEmail,
+				assignedAdmin
+			};
+		});
 
 		// Sort by lastMessageAt in descending order (most recent first)
-		const validThreads = threadsWithLastMessage.filter(
-			(thread): thread is NonNullable<(typeof threadsWithLastMessage)[number]> => thread !== null
-		);
-		validThreads.sort((a, b) => (b.lastMessageAt ?? 0) - (a.lastMessageAt ?? 0));
+		threadsWithLastMessage.sort((a, b) => (b.lastMessageAt ?? 0) - (a.lastMessageAt ?? 0));
 
 		return {
-			page: validThreads,
+			page: threadsWithLastMessage,
 			isDone: supportThreadsPage.isDone,
 			continueCursor: supportThreadsPage.continueCursor
 		};
@@ -290,10 +270,11 @@ export const getThread = query({
 		let assignedAdmin: { name?: string; image: string | null } | undefined;
 		if (supportThread?.assignedTo) {
 			try {
-				const admin = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+				const admin = (await ctx.runQuery(components.betterAuth.adapter.findOne, {
 					model: 'user',
-					where: [{ field: '_id', operator: 'eq', value: supportThread.assignedTo }]
-				});
+					where: [{ field: '_id', operator: 'eq', value: supportThread.assignedTo }],
+					select: ['name', 'image']
+				})) as { name?: string; image?: string | null } | null;
 				if (admin) {
 					assignedAdmin = {
 						name: admin.name,
@@ -307,6 +288,7 @@ export const getThread = query({
 
 		return {
 			...thread,
+			status: toAgentThreadStatus(supportThread.status),
 			isHandedOff: supportThread?.isHandedOff ?? false,
 			notificationEmail: supportThread?.notificationEmail,
 			assignedAdmin
@@ -430,7 +412,8 @@ export const getAdminAvatars = query({
 		const result = await ctx.runQuery(components.betterAuth.adapter.findMany, {
 			model: 'user',
 			paginationOpts: { cursor: null, numItems: 100 },
-			where: [{ field: 'role', operator: 'eq', value: 'admin' }]
+			where: [{ field: 'role', operator: 'eq', value: 'admin' }],
+			select: ['name', 'image']
 		});
 
 		const admins = result.page as Array<{

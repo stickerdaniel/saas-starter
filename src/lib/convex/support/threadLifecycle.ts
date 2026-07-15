@@ -52,7 +52,8 @@ export async function getSupportOwnerProfile(
 	try {
 		const user = await ctx.runQuery(components.betterAuth.adapter.findOne, {
 			model: 'user',
-			where: [{ field: '_id', operator: 'eq', value: resolvedUserId }]
+			where: [{ field: '_id', operator: 'eq', value: resolvedUserId }],
+			select: ['name', 'email']
 		});
 		if (user) {
 			return { userName: user.name, userEmail: user.email };

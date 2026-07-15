@@ -159,7 +159,7 @@
 				}
 			}
 		}
-		return urls;
+		return [...new Set(urls)].slice(0, 100);
 	});
 
 	// Query file metadata for dimensions by URL (extracts storageId server-side)

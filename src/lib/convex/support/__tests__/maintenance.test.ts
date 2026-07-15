@@ -148,7 +148,8 @@ describe('support maintenance helpers', () => {
 		expect(profileLookups).toHaveLength(1);
 		expect(profileLookups[0][1]).toEqual({
 			model: 'user',
-			where: [{ field: '_id', operator: 'eq', value: 'user_1' }]
+			where: [{ field: '_id', operator: 'eq', value: 'user_1' }],
+			select: ['name', 'email']
 		});
 	});
 

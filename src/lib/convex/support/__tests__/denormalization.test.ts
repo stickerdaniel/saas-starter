@@ -1,7 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { buildSupportMessageDenormalization, buildSupportSearchText } from '../denormalization';
+import {
+	buildSupportMessageDenormalization,
+	buildSupportSearchText,
+	toAgentThreadStatus
+} from '../denormalization';
 
 describe('support denormalization helpers', () => {
+	it('maps canonical support status to the agent UI status', () => {
+		expect(toAgentThreadStatus('open')).toBe('active');
+		expect(toAgentThreadStatus('done')).toBe('archived');
+	});
+
 	it('builds support search text from the available denormalized fields', () => {
 		expect(
 			buildSupportSearchText({

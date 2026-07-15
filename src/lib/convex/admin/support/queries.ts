@@ -9,6 +9,7 @@ import { isAnonymousUser } from '../../utils/anonymousUser';
 import { vStreamArgs } from '@convex-dev/agent/validators';
 import { listMessagesForThread } from '../../support/messageListing';
 import { supportThreadFields } from '../../support/supportThreadFields';
+import { toAgentThreadStatus } from '../../support/denormalization';
 
 /** Return validator for supportThreads documents (schema fields + system fields). */
 const vSupportMetadata = v.object({
@@ -100,98 +101,67 @@ export const listThreadsForAdmin = adminQuery({
 			// NON-SEARCH PATH: Only show threads that have been handed off to human support
 			// All paths filter by isHandedOff === true
 			if (statusFilter && (isUnassigned || assignedToFilter)) {
-				// Combined: status + assignment (use compound index + filter for isHandedOff)
+				// Combined: status + assignment, ordered by recent activity.
 				supportThreads = await ctx.db
 					.query('supportThreads')
-					.withIndex('by_status_and_assigned', (q) =>
+					.withIndex('by_handed_off_status_assigned_updated', (q) =>
 						q
+							.eq('isHandedOff', true)
 							.eq('status', statusFilter)
 							.eq('assignedTo', isUnassigned ? undefined : assignedToFilter)
 					)
-					// Intentional: indexed prefix above; adding isHandedOff to every compound index would bloat schema
-					// eslint-disable-next-line @convex-dev/no-filter-in-query
-					.filter((q) => q.eq(q.field('isHandedOff'), true))
 					.order('desc')
 					.paginate(paginationOpts);
 			} else if (statusFilter) {
-				// Status only - use new compound index
+				// Status only.
 				supportThreads = await ctx.db
 					.query('supportThreads')
-					.withIndex('by_handed_off_and_status', (q) =>
+					.withIndex('by_handed_off_status_updated', (q) =>
 						q.eq('isHandedOff', true).eq('status', statusFilter)
 					)
 					.order('desc')
 					.paginate(paginationOpts);
 			} else if (isUnassigned) {
-				// Unassigned only (no status filter)
+				// Unassigned only (no status filter).
 				supportThreads = await ctx.db
 					.query('supportThreads')
-					.withIndex('by_assigned', (q) => q.eq('assignedTo', undefined))
-					// Intentional: indexed prefix above; adding isHandedOff to every compound index would bloat schema
-					// eslint-disable-next-line @convex-dev/no-filter-in-query
-					.filter((q) => q.eq(q.field('isHandedOff'), true))
+					.withIndex('by_handed_off_assigned_updated', (q) =>
+						q.eq('isHandedOff', true).eq('assignedTo', undefined)
+					)
 					.order('desc')
 					.paginate(paginationOpts);
 			} else if (assignedToFilter) {
-				// Specific admin only (no status filter)
+				// Specific admin only (no status filter).
 				supportThreads = await ctx.db
 					.query('supportThreads')
-					.withIndex('by_assigned', (q) => q.eq('assignedTo', assignedToFilter))
-					// Intentional: indexed prefix above; adding isHandedOff to every compound index would bloat schema
-					// eslint-disable-next-line @convex-dev/no-filter-in-query
-					.filter((q) => q.eq(q.field('isHandedOff'), true))
+					.withIndex('by_handed_off_assigned_updated', (q) =>
+						q.eq('isHandedOff', true).eq('assignedTo', assignedToFilter)
+					)
 					.order('desc')
 					.paginate(paginationOpts);
 			} else {
-				// No filters - use new index for isHandedOff only
+				// No filters.
 				supportThreads = await ctx.db
 					.query('supportThreads')
-					.withIndex('by_handed_off_and_status', (q) => q.eq('isHandedOff', true))
+					.withIndex('by_handed_off_updated', (q) => q.eq('isHandedOff', true))
 					.order('desc')
 					.paginate(paginationOpts);
 			}
 		}
 
-		// =========================================================================
-		// ENRICHMENT: Read generic agent-thread metadata after support registry selection
-		// =========================================================================
-		const threadsWithDetails = await Promise.all(
-			supportThreads.page.map(async (supportThread) => {
-				try {
-					const agentThread = await ctx.runQuery(components.agent.threads.getThread, {
-						threadId: supportThread.threadId
-					});
-
-					if (!agentThread) {
-						// Thread was deleted but supportThread still exists - skip it
-						return null;
-					}
-
-					return {
-						_id: supportThread.threadId,
-						_creationTime: supportThread.createdAt,
-						userId: supportThread.userId,
-						title: supportThread.title,
-						summary: supportThread.summary,
-						status: agentThread.status,
-						supportMetadata: supportThread,
-						lastMessage: supportThread.lastMessage,
-						lastMessageAt: supportThread.lastMessageAt,
-						userName: supportThread.userName,
-						userEmail: supportThread.userEmail
-					};
-				} catch (error) {
-					console.error(
-						`[listThreadsForAdmin] ❌ ERROR enriching thread ${supportThread.threadId}:`,
-						error
-					);
-					return null;
-				}
-			})
-		);
-
-		// Filter out null entries (deleted threads)
-		const validThreads = threadsWithDetails.filter((t): t is NonNullable<typeof t> => t !== null);
+		const validThreads = supportThreads.page.map((supportThread) => ({
+			_id: supportThread.threadId,
+			_creationTime: supportThread.createdAt,
+			userId: supportThread.userId,
+			title: supportThread.title,
+			summary: supportThread.summary,
+			status: toAgentThreadStatus(supportThread.status),
+			supportMetadata: supportThread,
+			lastMessage: supportThread.lastMessage,
+			lastMessageAt: supportThread.lastMessageAt,
+			userName: supportThread.userName,
+			userEmail: supportThread.userEmail
+		}));
 
 		// =========================================================================
 		// ENRICHMENT: Batch fetch user images from Better Auth
@@ -207,20 +177,21 @@ export const listThreadsForAdmin = adminQuery({
 		if (userIds.length > 0) {
 			// Fetch each user individually by ID to avoid fetching arbitrary first-N users
 			const userResults = await Promise.all(
-				userIds.map((userId) =>
-					ctx.runQuery(components.betterAuth.adapter.findOne, {
+				userIds.map(async (userId) => ({
+					userId,
+					user: (await ctx.runQuery(components.betterAuth.adapter.findOne, {
 						model: 'user',
-						where: [{ field: '_id', operator: 'eq', value: userId }]
-					})
-				)
+						where: [{ field: '_id', operator: 'eq', value: userId }],
+						select: ['image']
+					})) as { image?: string | null } | null
+				}))
 			);
 
 			// Build lookup map for user images
-			for (const user of userResults) {
+			for (const { userId, user } of userResults) {
 				if (!user) continue;
-				const parsed = val.safeParse(betterAuthUserSchema, user);
-				if (parsed.success && parsed.output.image) {
-					userImageMap.set(parsed.output._id, parsed.output.image);
+				if (user.image) {
+					userImageMap.set(userId, user.image);
 				}
 			}
 		}
@@ -280,21 +251,14 @@ export const getThreadForAdmin = adminQuery({
 			throw new Error(`Support thread not found for threadId: ${args.threadId}`);
 		}
 
-		const agentThread = await ctx.runQuery(components.agent.threads.getThread, {
-			threadId: args.threadId
-		});
-
-		if (!agentThread) {
-			throw new Error(`Agent thread not found for threadId: ${args.threadId}`);
-		}
-
 		// 4. Get assigned admin details
 		let assignedAdmin;
 		if (supportThread.assignedTo) {
-			const admin = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+			const admin = (await ctx.runQuery(components.betterAuth.adapter.findOne, {
 				model: 'user',
-				where: [{ field: '_id', operator: 'eq', value: supportThread.assignedTo }]
-			});
+				where: [{ field: '_id', operator: 'eq', value: supportThread.assignedTo }],
+				select: ['id', 'name', 'email', 'image']
+			})) as { _id: string; name?: string; email?: string; image?: string | null } | null;
 			if (admin) {
 				assignedAdmin = {
 					id: admin._id,
@@ -311,10 +275,11 @@ export const getThreadForAdmin = adminQuery({
 			if (!isAnonymousUser(supportThread.userId)) {
 				// Registered user - lookup in user table
 				try {
-					const userData = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+					const userData = (await ctx.runQuery(components.betterAuth.adapter.findOne, {
 						model: 'user',
-						where: [{ field: '_id', operator: 'eq', value: supportThread.userId }]
-					});
+						where: [{ field: '_id', operator: 'eq', value: supportThread.userId }],
+						select: ['id', 'name', 'email', 'image']
+					})) as { _id: string; name?: string; email?: string; image?: string | null } | null;
 					if (userData) {
 						user = {
 							id: userData._id,
@@ -337,7 +302,7 @@ export const getThreadForAdmin = adminQuery({
 			userId: supportThread.userId,
 			title: supportThread.title,
 			summary: supportThread.summary,
-			status: agentThread.status,
+			status: toAgentThreadStatus(supportThread.status),
 			supportMetadata: supportThread,
 			assignedAdmin,
 			user
