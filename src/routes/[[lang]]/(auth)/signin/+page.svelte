@@ -50,6 +50,7 @@
 	let formError = $state('');
 	let lastValidSignInSubmission = $state<string | null>(null);
 	let termsLink = $state<HTMLAnchorElement | null>(null);
+	let authRedirectStarted = false;
 
 	const id = $props.id();
 
@@ -95,11 +96,16 @@
 		}
 	});
 
+	function redirectAfterAuthentication() {
+		if (authRedirectStarted) return;
+		authRedirectStarted = true;
+		window.location.href = safeRedirectPath(params.redirectTo, localizedHref('/app'));
+	}
+
 	// Redirect when authenticated
 	$effect(() => {
 		if (auth.isAuthenticated) {
-			const destination = safeRedirectPath(params.redirectTo, localizedHref('/app'));
-			window.location.href = destination;
+			redirectAfterAuthentication();
 		}
 	});
 
@@ -151,7 +157,7 @@
 				haptic.trigger('success');
 				clearLastSuccessfulAuthMethod();
 				clearPendingOAuthProvider();
-				window.location.href = safeRedirectPath(params.redirectTo, localizedHref('/app'));
+				redirectAfterAuthentication();
 				return;
 			}
 		} catch (error) {
@@ -224,7 +230,7 @@
 			<Card.Content class="grid p-0 md:grid-cols-2">
 				<SignInForm
 					{id}
-					{signInData}
+					bind:signInData
 					{signInErrors}
 					{formError}
 					{isLoading}
