@@ -1,8 +1,8 @@
 import { type QueryCtx } from '../_generated/server';
 import { components } from '../_generated/api';
 import { v } from 'convex/values';
-import type { AdminUserData, BetterAuthUser, BetterAuthSession } from './types';
-import { adminUserDataValidator, parseBetterAuthUsers, parseBetterAuthSessions } from './types';
+import type { AdminUserData, BetterAuthUser } from './types';
+import { adminUserDataValidator, parseBetterAuthUsers } from './types';
 import { adminQuery } from '../functions';
 import { getCounters } from './counters';
 import {
@@ -97,7 +97,8 @@ async function fetchProvidersForUsers(
 			const result = (await ctx.runQuery(components.betterAuth.adapter.findMany, {
 				model: 'account',
 				paginationOpts: { cursor, numItems: 200 },
-				where: [{ field: 'userId', operator: 'in' as const, value: chunk }]
+				where: [{ field: 'userId', operator: 'in' as const, value: chunk }],
+				select: ['userId', 'providerId']
 			})) as AdapterFindManyResult;
 			for (const account of result.page) {
 				const a = account as { userId?: string; providerId?: string };
@@ -132,7 +133,8 @@ async function fetchUserIdsForProvider(
 		const result = (await ctx.runQuery(components.betterAuth.adapter.findMany, {
 			model: 'account',
 			paginationOpts: { cursor, numItems: 200 },
-			where: [{ field: 'providerId', operator: 'eq' as const, value: provider }]
+			where: [{ field: 'providerId', operator: 'eq' as const, value: provider }],
+			select: ['userId']
 		})) as AdapterFindManyResult;
 		accounts.push(...(result.page as Array<{ userId?: string }>));
 		if (result.isDone || !result.continueCursor) break;
@@ -158,26 +160,80 @@ function mapAdminUser(user: BetterAuthUser, providers: string[] = []): AdminUser
 	};
 }
 
-/**
- * Helper to fetch all users from the BetterAuth component
- */
-async function fetchAllUsers(ctx: QueryCtx): Promise<BetterAuthUser[]> {
-	const result = await ctx.runQuery(components.betterAuth.adapter.findMany, {
-		model: 'user',
-		paginationOpts: { cursor: null, numItems: 1000 }
-	});
-	return parseBetterAuthUsers(result.page);
+export async function countUsersWithFilters(
+	ctx: QueryCtx,
+	whereConditions: AdapterWhereCondition[]
+): Promise<number> {
+	if (whereConditions.length === 0) {
+		return (await getCounters(ctx)).totalUsers;
+	}
+
+	let count = 0;
+	let cursor: string | null = null;
+	for (let page = 0; page < 500; page++) {
+		const result = (await ctx.runQuery(components.betterAuth.adapter.findMany, {
+			model: 'user',
+			paginationOpts: { cursor, numItems: 1000 },
+			where: whereConditions,
+			select: ['id']
+		})) as AdapterFindManyResult;
+		count += result.page.length;
+		if (result.isDone || !result.continueCursor) break;
+		cursor = result.continueCursor;
+	}
+	return count;
 }
 
-/**
- * Helper to fetch all sessions from the BetterAuth component
- */
-async function fetchAllSessions(ctx: QueryCtx): Promise<BetterAuthSession[]> {
-	const result = await ctx.runQuery(components.betterAuth.adapter.findMany, {
-		model: 'session',
-		paginationOpts: { cursor: null, numItems: 1000 }
-	});
-	return parseBetterAuthSessions(result.page);
+export async function getRecentDashboardMetrics(
+	ctx: QueryCtx,
+	oneDayAgo: number,
+	sevenDaysAgo: number
+): Promise<{ activeIn24h: number; recentSignups: number }> {
+	const activeUsers = new Set<string>();
+	let recentSignups = 0;
+
+	await Promise.all([
+		(async () => {
+			let cursor: string | null = null;
+			for (let page = 0; page < 500; page++) {
+				const result = (await ctx.runQuery(components.betterAuth.adapter.findMany, {
+					model: 'session',
+					paginationOpts: { cursor, numItems: 1000 },
+					where: [{ field: 'updatedAt', operator: 'gt', value: oneDayAgo }],
+					select: ['userId']
+				})) as AdapterFindManyResult;
+				for (const row of result.page as Array<{ userId?: string }>) {
+					if (row.userId) activeUsers.add(row.userId);
+				}
+				if (result.isDone || !result.continueCursor) break;
+				cursor = result.continueCursor;
+			}
+		})(),
+		(async () => {
+			let cursor: string | null = null;
+			for (let page = 0; page < 500; page++) {
+				const result = (await ctx.runQuery(components.betterAuth.adapter.findMany, {
+					model: 'user',
+					paginationOpts: { cursor, numItems: 1000 },
+					sortBy: { field: 'createdAt', direction: 'desc' },
+					select: ['id', 'createdAt']
+				})) as AdapterFindManyResult;
+
+				let reachedCutoff = false;
+				for (const row of result.page as Array<{ createdAt?: number }>) {
+					if ((row.createdAt ?? 0) <= sevenDaysAgo) {
+						reachedCutoff = true;
+						break;
+					}
+					recentSignups += 1;
+				}
+				if (reachedCutoff || result.isDone || !result.continueCursor) break;
+				cursor = result.continueCursor;
+			}
+		})()
+	]);
+
+	return { activeIn24h: activeUsers.size, recentSignups };
 }
 
 /**
@@ -344,6 +400,9 @@ export const getUserCount = adminQuery({
 			roleFilter: args.roleFilter,
 			statusFilter: args.statusFilter
 		});
+		if (!args.search?.trim() && !args.providerFilter) {
+			return await countUsersWithFilters(ctx, whereConditions);
+		}
 		const allUsers = await fetchAllUsersWithFilters(ctx, {
 			whereConditions,
 			sortBy: DEFAULT_USER_SORT
@@ -410,15 +469,18 @@ export const resolveUsersLastPage = adminQuery({
 		const pageSize = Number.isFinite(args.numItems) && args.numItems > 0 ? args.numItems : 10;
 		const strideSize = Math.max(pageSize, 1000);
 
-		const allUsers = await fetchAllUsersWithFilters(ctx, { whereConditions, sortBy });
-		let filtered = applyUserSearch(allUsers, args.search);
-
-		if (args.providerFilter) {
-			const providerUserIds = await fetchUserIdsForProvider(ctx, args.providerFilter);
-			filtered = filtered.filter((u) => providerUserIds.has(u._id));
+		let total: number;
+		if (!args.search?.trim() && !args.providerFilter) {
+			total = await countUsersWithFilters(ctx, whereConditions);
+		} else {
+			const allUsers = await fetchAllUsersWithFilters(ctx, { whereConditions, sortBy });
+			let filtered = applyUserSearch(allUsers, args.search);
+			if (args.providerFilter) {
+				const providerUserIds = await fetchUserIdsForProvider(ctx, args.providerFilter);
+				filtered = filtered.filter((u) => providerUserIds.has(u._id));
+			}
+			total = filtered.length;
 		}
-
-		const total = filtered.length;
 		if (total <= 0) {
 			return { page: 1, cursor: null };
 		}
@@ -499,25 +561,20 @@ export const getDashboardMetrics = adminQuery({
 		recentSignups: v.number()
 	}),
 	handler: async (ctx) => {
-		// Static counts from materialized singleton (avoids loading all users)
-		const counters = await getCounters(ctx);
-
-		// Time-windowed metrics — bounded by recency, so full-scan is acceptable
-		const [sessions, users] = await Promise.all([fetchAllSessions(ctx), fetchAllUsers(ctx)]);
 		const now = Date.now();
 		const oneDayAgo = now - 24 * 60 * 60 * 1000;
-		const activeIn24h = sessions.filter((s) => s.updatedAt && s.updatedAt > oneDayAgo);
-		const uniqueActiveUsers = new Set(activeIn24h.map((s) => s.userId));
-
 		const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
-		const recentSignups = users.filter((u) => u.createdAt && u.createdAt > sevenDaysAgo).length;
+		const [counters, recent] = await Promise.all([
+			getCounters(ctx),
+			getRecentDashboardMetrics(ctx, oneDayAgo, sevenDaysAgo)
+		]);
 
 		return {
 			totalUsers: counters.totalUsers,
 			adminCount: counters.adminCount,
 			bannedCount: counters.bannedCount,
-			activeIn24h: uniqueActiveUsers.size,
-			recentSignups
+			activeIn24h: recent.activeIn24h,
+			recentSignups: recent.recentSignups
 		};
 	}
 });
