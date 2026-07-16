@@ -7,7 +7,7 @@
 			variant: {
 				default: 'border-transparent',
 				outline: 'border-border',
-				muted: 'bg-muted/50 border-transparent'
+				muted: 'bg-muted/50 border-transparent max-sm:flex-col max-sm:items-stretch'
 			},
 			size: {
 				default: 'gap-3.5 px-4 py-3.5',

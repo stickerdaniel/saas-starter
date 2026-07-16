@@ -40,6 +40,17 @@
 		else url.searchParams.set('tab', value);
 		goto(resolve(url.pathname + url.search), { keepFocus: true, noScroll: true });
 	}
+
+	// The tab bar can overflow its column on narrow viewports, so keep the active
+	// trigger in view on mount and whenever the URL-driven tab changes.
+	let tabsScroller = $state<HTMLElement | null>(null);
+	$effect(() => {
+		// Read activeTab so this re-runs on tab change (and on mount).
+		if (!tabsScroller || !activeTab) return;
+		tabsScroller
+			.querySelector<HTMLElement>('[data-state="active"]')
+			?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+	});
 </script>
 
 <SEOHead
@@ -62,20 +73,27 @@
 		<Separator />
 
 		<Tabs.Root value={activeTab} onValueChange={updateTab} class="space-y-6">
-			<Tabs.List>
-				<Tabs.Trigger value="account">
-					<T keyName="settings.tabs.account" />
-				</Tabs.Trigger>
-				<Tabs.Trigger value="password">
-					<T keyName="settings.tabs.password" />
-				</Tabs.Trigger>
-				<Tabs.Trigger value="email">
-					<T keyName="settings.tabs.email" />
-				</Tabs.Trigger>
-				<Tabs.Trigger value="security">
-					<T keyName="settings.tabs.security" />
-				</Tabs.Trigger>
-			</Tabs.List>
+			<!-- Bleed to the screen edge on mobile so the w-fit pill can scroll; align
+			     flush with the max-w-3xl column on lg (page wrapper has px-4 lg:px-6). -->
+			<div
+				bind:this={tabsScroller}
+				class="-mx-4 no-scrollbar scroll-px-4 overflow-x-auto px-4 lg:mx-0 lg:px-0"
+			>
+				<Tabs.List>
+					<Tabs.Trigger value="account">
+						<T keyName="settings.tabs.account" />
+					</Tabs.Trigger>
+					<Tabs.Trigger value="password">
+						<T keyName="settings.tabs.password" />
+					</Tabs.Trigger>
+					<Tabs.Trigger value="email">
+						<T keyName="settings.tabs.email" />
+					</Tabs.Trigger>
+					<Tabs.Trigger value="security">
+						<T keyName="settings.tabs.security" />
+					</Tabs.Trigger>
+				</Tabs.List>
+			</div>
 
 			<Tabs.Content value="account" class="space-y-6">
 				{#if user}

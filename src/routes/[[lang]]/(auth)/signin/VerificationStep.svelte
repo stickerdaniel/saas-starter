@@ -8,10 +8,10 @@
 	type Props = {
 		email: string;
 		formError: string;
-		onBack: () => void;
+		backHref: string;
 	};
 
-	let { email, formError, onBack }: Props = $props();
+	let { email, formError, backHref }: Props = $props();
 
 	const { t } = getTranslate();
 </script>
@@ -44,7 +44,7 @@
 				</Field.Field>
 			{/if}
 			<Field.Field>
-				<Button type="button" variant="ghost" class="w-full" onclick={onBack}>
+				<Button href={backHref} variant="ghost" class="w-full">
 					<T keyName="auth.verification.button_back" />
 				</Button>
 			</Field.Field>
