@@ -43,6 +43,10 @@
 	const hasOAuthAuth = $derived(
 		Boolean(oauthProviders.data?.google || oauthProviders.data?.github)
 	);
+	const signinLinkSearch = $derived(
+		params.redirectTo ? `?redirectTo=${encodeURIComponent(params.redirectTo)}` : ''
+	);
+	const signinHref = $derived(resolve(localizedHref('/signin') + signinLinkSearch));
 
 	let isLoading = $state(false);
 	let formError = $state('');
@@ -178,11 +182,6 @@
 		}
 	}
 
-	function cancelVerification() {
-		verificationStep = null;
-		formError = '';
-	}
-
 	async function handleOAuth(provider: PendingOAuthProvider) {
 		haptic.trigger('light');
 		isLoading = true;
@@ -221,11 +220,7 @@
 		<Card.Root class="overflow-hidden p-0 [view-transition-name:auth-card]">
 			<Card.Content class="grid p-0 md:grid-cols-2">
 				{#if verificationStep}
-					<VerificationStep
-						email={verificationStep.email}
-						{formError}
-						onBack={cancelVerification}
-					/>
+					<VerificationStep email={verificationStep.email} {formError} backHref={signinHref} />
 				{:else}
 					<SignUpForm
 						{id}

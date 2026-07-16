@@ -60,6 +60,12 @@ test.describe('Signup form', () => {
 		await expect(page.getByTestId('signup-verification-step')).toBeVisible({ timeout: 15000 });
 		await expect(page.getByTestId('auth-error')).toHaveCount(0);
 
+		// The account now exists, so the verification step returns to sign in rather
+		// than reopening a signup form that can only fail with a duplicate account.
+		await page.getByRole('link', { name: 'Back to login' }).click();
+		await expect(page).toHaveURL(/\/en\/signin$/);
+		await expect(page.getByTestId('email-input')).toHaveValue(signupEmail);
+
 		// Verify the email out of band (the real flow clicks a link in the verification email)
 		const result = await client.mutation(api.tests.verifyTestUserEmail, {
 			email: signupEmail,
@@ -68,11 +74,8 @@ test.describe('Signup form', () => {
 		expect(result.success).toBe(true);
 
 		// The account created through the form can sign in through the form
-		await page.goto('/signin');
-		await expect(page.getByTestId('email-input')).toBeEnabled({ timeout: 30000 });
 		await expect(page.getByTestId('signin-button')).toBeEnabled({ timeout: 30000 });
 
-		await page.getByTestId('email-input').fill(signupEmail);
 		await page.getByTestId('password-input').fill(TEST_PASSWORD);
 		await page.getByTestId('signin-button').click();
 
