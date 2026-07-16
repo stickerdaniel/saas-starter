@@ -517,6 +517,9 @@
 			"rate_limited": "Sie senden zu schnell Nachrichten. Versuchen Sie es in {seconds}s erneut.",
 			"send_failed": "Nachricht konnte nicht gesendet werden"
 		},
+		"notices": {
+			"limit_reached": "Du hast dein Nachrichtenlimit erreicht, deshalb konnte diese Antwort nicht erstellt werden."
+		},
 		"reasoning": {
 			"connecting": "Verbinde...",
 			"thinking": "Denke nach...",

@@ -1,11 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { UIMessage } from '@convex-dev/agent';
 import type { StreamMessage } from '@convex-dev/agent/validators';
-import type { ChatMessage } from '../core/types.js';
+import type { ChatMessage, DisplayMessage } from '../core/types.js';
 import {
 	buildDisplayMessages,
 	buildTransformContext,
 	getActiveStreamIds,
+	hasAssistantResponseStarted,
 	hasStreamingAssistantMessage
 } from './streaming-display.js';
 import type { StreamCacheManager } from '../core/stream-cache.js';
@@ -30,6 +31,17 @@ function createAssistantMessage(overrides: Partial<ChatMessage> = {}): ChatMessa
 		status: 'success',
 		order: 1,
 		text: 'Persisted response',
+		...overrides
+	};
+}
+
+function createDisplayMessage(overrides: Partial<DisplayMessage> = {}): DisplayMessage {
+	return {
+		...createAssistantMessage(),
+		displayText: 'Persisted response',
+		displayReasoning: '',
+		isStreaming: false,
+		hasReasoningStream: false,
 		...overrides
 	};
 }
@@ -267,5 +279,15 @@ describe('hasStreamingAssistantMessage', () => {
 				typeof buildDisplayMessages
 			>)
 		).toBe(false);
+	});
+});
+
+describe('hasAssistantResponseStarted', () => {
+	it('accepts a terminal assistant notice without mistaking an older reply for the current turn', () => {
+		const assistant = createDisplayMessage({ status: 'success' });
+		const user = { ...assistant, id: 'user-1', role: 'user' as const };
+
+		expect(hasAssistantResponseStarted([assistant])).toBe(true);
+		expect(hasAssistantResponseStarted([assistant, user])).toBe(false);
 	});
 });

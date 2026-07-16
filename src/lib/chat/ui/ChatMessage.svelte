@@ -9,6 +9,9 @@
 	import { getChatUIContext } from './chat-context.svelte.js';
 	import { deriveOrderedParts, LEADING_REASONING_KEY, type OrderedPart } from './ordered-parts.js';
 	import { type DisplayMessage, type Attachment } from '../core/types.js';
+	import { AI_CHAT_LIMIT_NOTICE } from '$lib/convex/constants';
+	import { T } from '@tolgee/svelte';
+	import LockIcon from '@lucide/svelte/icons/lock';
 
 	let {
 		message,
@@ -51,6 +54,10 @@
 	);
 	const usesFilledBubble = $derived(isUser || isAdminMessage);
 	const align = $derived(ctx.getAlignment(message.role));
+	const isLimitNotice = $derived(
+		(message.metadata?.providerMetadata as { system?: { notice?: string } })?.system?.notice ===
+			AI_CHAT_LIMIT_NOTICE
+	);
 	function handleReasoningOpenChange(stateKey: string, open: boolean) {
 		ctx.setReasoningOpen(stateKey, open);
 		ctx.markUserToggled(stateKey);
@@ -130,6 +137,13 @@
 		{#if usesFilledBubble}
 			<MessageBubble {align} variant="filled" hasTopAttachment={attachments.length > 0}>
 				{message.displayText}
+			</MessageBubble>
+		{:else if isLimitNotice}
+			<MessageBubble {align} variant="ghost">
+				<div class="flex items-center gap-2 text-sm text-muted-foreground">
+					<LockIcon class="size-4 shrink-0" aria-hidden="true" />
+					<span><T keyName="chat.notices.limit_reached" /></span>
+				</div>
 			</MessageBubble>
 		{:else}
 			<!-- AI messages: ghost/prose style with interleaved reasoning/tools/text -->

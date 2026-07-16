@@ -33,7 +33,8 @@ vi.mock('../../support/messageListing', () => ({
 }));
 
 vi.mock('@convex-dev/agent', () => ({
-	getFile: vi.fn()
+	getFile: vi.fn(),
+	saveMessage: vi.fn().mockResolvedValue({ messageId: 'notice_1' })
 }));
 
 vi.mock('@convex-dev/agent/validators', async () => {
@@ -42,7 +43,7 @@ vi.mock('@convex-dev/agent/validators', async () => {
 });
 
 vi.mock('../../_generated/api', () => ({
-	components: {},
+	components: { agent: {} },
 	internal: {
 		aiChat: {
 			threads: {
@@ -56,11 +57,13 @@ vi.mock('../../_generated/api', () => ({
 }));
 
 import { checkAndCountUsage, refundUsage } from '../../autumn';
+import { saveMessage } from '@convex-dev/agent';
 import { aiChatAgent } from '../agent';
 import { createAIResponse } from '../messages';
 
 const checkAndCountUsageMock = checkAndCountUsage as unknown as ReturnType<typeof vi.fn>;
 const refundUsageMock = refundUsage as unknown as ReturnType<typeof vi.fn>;
+const saveMessageMock = saveMessage as unknown as ReturnType<typeof vi.fn>;
 const streamTextMock = aiChatAgent.streamText as unknown as ReturnType<typeof vi.fn>;
 
 type RegisteredFunction<TArgs> = {
@@ -86,6 +89,7 @@ describe('createAIResponse', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		refundUsageMock.mockResolvedValue(undefined);
+		saveMessageMock.mockResolvedValue({ messageId: 'notice_1' });
 		runMutation = vi.fn().mockResolvedValue(null);
 		ctx = { runMutation };
 		streamTextMock.mockResolvedValue({
@@ -94,7 +98,7 @@ describe('createAIResponse', () => {
 		});
 	});
 
-	it('skips generation entirely when the quota is denied', async () => {
+	it('persists a terminal notice when the quota is denied', async () => {
 		checkAndCountUsageMock.mockResolvedValue('denied');
 		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
@@ -102,6 +106,15 @@ describe('createAIResponse', () => {
 
 		expect(streamTextMock).not.toHaveBeenCalled();
 		expect(refundUsageMock).not.toHaveBeenCalled();
+		expect(saveMessageMock).toHaveBeenCalledTimes(1);
+		expect(saveMessageMock.mock.calls[0][2]).toMatchObject({
+			threadId: 'thread_1',
+			message: { role: 'assistant' },
+			metadata: {
+				provider: 'system',
+				providerMetadata: { system: { notice: 'ai_chat_limit_reached' } }
+			}
+		});
 		warn.mockRestore();
 	});
 
