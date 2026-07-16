@@ -3,7 +3,7 @@ import { v, ConvexError } from 'convex/values';
 import { internal } from '../_generated/api';
 import { aiChatAgent } from './agent';
 import { paginationOptsValidator } from 'convex/server';
-import { getFile } from '@convex-dev/agent';
+import { getFile, saveMessage } from '@convex-dev/agent';
 import { vStreamArgs } from '@convex-dev/agent/validators';
 import { components } from '../_generated/api';
 import type { UserContent } from 'ai';
@@ -14,7 +14,7 @@ import { getFileMetadataByUrls } from '../files/metadata';
 import { checkAndCountUsage, refundUsage } from '../autumn';
 import { requireAiChatThreadRecord } from './ownership';
 import { t } from '../i18n/translations';
-import { MAX_MESSAGE_LENGTH } from '../constants';
+import { AI_CHAT_LIMIT_NOTICE, MAX_MESSAGE_LENGTH } from '../constants';
 import { makeAgentUsageSink } from '../aiUsage/agentUsage';
 import { recordAiUsage } from '../aiUsage/record';
 
@@ -155,6 +155,23 @@ export const createAIResponse = internalAction({
 			});
 			if (outcome === 'denied') {
 				console.warn(`[createAIResponse] AI chat limit reached for user ${args.userId}`);
+				// Returning without an assistant message strands the client in its
+				// awaiting-stream state. Persist a terminal notice so the turn resolves;
+				// providerMetadata lets the UI replace this fallback with localized copy.
+				await saveMessage(ctx, components.agent, {
+					threadId: args.threadId,
+					userId: args.userId,
+					message: {
+						role: 'assistant',
+						content: "You've reached your message limit, so this reply couldn't be generated."
+					},
+					metadata: {
+						provider: 'system',
+						providerMetadata: {
+							system: { notice: AI_CHAT_LIMIT_NOTICE }
+						}
+					}
+				});
 				return null;
 			}
 			// 'unavailable' fails open: generate uncounted rather than blocking

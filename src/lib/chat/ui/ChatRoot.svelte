@@ -18,7 +18,7 @@
 		getListStreamMessages,
 		getNormalizedMessages,
 		getStreamDeltas,
-		hasStreamingAssistantMessage,
+		hasAssistantResponseStarted,
 		type MessagesQueryResponse
 	} from './streaming-display.js';
 	import { syncReasoningAccordionState } from './reasoning-accordion-sync.js';
@@ -223,10 +223,11 @@
 		uiContext.setMessagesReady(messagesReady);
 	});
 
-	// Clear awaiting state when NEW streaming assistant message appears
-	// (not based on hasActiveStreams which includes old finished streams)
+	// Clear awaiting state once an assistant response becomes visible. The usual
+	// reply starts a stream, while terminal system notices arrive without one.
 	$effect(() => {
-		if (hasStreamingAssistantMessage(renderDisplayMessages) && core.isAwaitingStream) {
+		if (!core.isAwaitingStream) return;
+		if (hasAssistantResponseStarted(renderDisplayMessages)) {
 			core.setAwaitingStream(false);
 		}
 	});

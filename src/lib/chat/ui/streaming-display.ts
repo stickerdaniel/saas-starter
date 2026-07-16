@@ -147,3 +147,7 @@ export function hasStreamingAssistantMessage(messages: DisplayMessage[]): boolea
 			(message.status === 'pending' || message.status === 'streaming')
 	);
 }
+
+export function hasAssistantResponseStarted(messages: DisplayMessage[]): boolean {
+	return hasStreamingAssistantMessage(messages) || messages.at(-1)?.role === 'assistant';
+}

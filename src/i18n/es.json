@@ -517,6 +517,9 @@
 			"rate_limited": "Estás enviando mensajes demasiado rápido. Vuelve a intentarlo en {seconds}s.",
 			"send_failed": "Error al enviar mensaje"
 		},
+		"notices": {
+			"limit_reached": "Has alcanzado tu límite de mensajes, así que no se pudo generar esta respuesta."
+		},
 		"reasoning": {
 			"connecting": "Conectando...",
 			"thinking": "Pensando...",
