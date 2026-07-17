@@ -39,6 +39,7 @@
 				"!better-auth",
 				"!ai",
 				"!autumn-js",
+				"!typescript",
 				"!eslint",
 				"!@eslint/compat",
 				"!@eslint/js",
@@ -101,6 +102,12 @@
 			"matchUpdateTypes": ["major"],
 			"enabled": false,
 			"matchPackageNames": ["autumn-js"]
+		},
+		{
+			"description": "Disable TypeScript major updates until Svelte tooling supports the native compiler API",
+			"matchPackageNames": ["typescript"],
+			"matchUpdateTypes": ["major"],
+			"enabled": false
 		},
 		{
 			"description": "Group ESLint non-major updates for manual review",
