@@ -10,14 +10,15 @@
 
 	const { t } = getTranslate();
 
-	const THREAD_PREVIEW_LIMIT = 10;
-	const THREAD_LOAD_MORE_STEP = 5;
-
 	interface Props {
 		items: NavSubItem[];
+		/** Whether more threads exist server-side beyond the currently loaded items */
+		hasMore: boolean;
+		/** Requests a bigger thread page from the owning query */
+		onShowMore: () => void;
 	}
 
-	let { items }: Props = $props();
+	let { items, hasMore, onShowMore }: Props = $props();
 
 	// Locale-aware compact timestamp ("05/30, 02:35 PM" / "30.05., 14:35"),
 	// revealed on row hover. Reactive on the route language so switching locales
@@ -30,13 +31,6 @@
 			minute: '2-digit'
 		})
 	);
-
-	// Client-side display limit (same pattern as t3code's THREAD_PREVIEW_LIMIT).
-	// "Show more" only changes this local state — no server re-fetch, no parent
-	// re-render, so autoAnimate sees only newly appended DOM nodes.
-	let displayLimit = $state(THREAD_PREVIEW_LIMIT);
-	const visibleItems: NavSubItem[] = $derived(items.slice(0, displayLimit));
-	const hasMore = $derived(items.length > displayLimit);
 
 	let listRef = $state<HTMLElement | null>(null);
 	const animatedNodes = new WeakSet<HTMLElement>();
@@ -55,7 +49,7 @@
 		data-tolgee-restricted
 		class="no-scrollbar max-h-[calc(100svh-18rem)] overflow-y-auto"
 	>
-		{#each visibleItems as sub (sub.id)}
+		{#each items as sub (sub.id)}
 			<Sidebar.MenuSubItem>
 				<Sidebar.MenuSubButton isActive={sub.isActive} onclick={() => haptic.trigger('light')}>
 					{#snippet child({ props })}
@@ -86,7 +80,7 @@
 					class="w-full px-2 py-1 text-left text-xs text-muted-foreground hover:text-foreground active:translate-y-px"
 					onclick={() => {
 						haptic.trigger('light');
-						displayLimit += THREAD_LOAD_MORE_STEP;
+						onShowMore();
 					}}
 				>
 					{$t('app.sidebar.show_more')}
