@@ -12,6 +12,7 @@
 	import { toast } from 'svelte-sonner';
 	import { haptic } from '$lib/hooks/use-haptic.svelte';
 	import ThreadChat from './thread-chat.svelte';
+	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
 
 	const { t } = getTranslate();
 
@@ -40,23 +41,33 @@
 	// Thread from URL param
 	const threadId = $derived(page.url.searchParams.get('thread') ?? '');
 
-	// Fallback: if navigated to /ai-chat without ?thread= (e.g. direct URL), get warm thread.
-	// The common path (sidebar click) already includes ?thread=warmId, so this rarely fires.
+	// Fallback: if navigated to /ai-chat without ?thread= (e.g. direct URL, or the
+	// sidebar's unconditional link before a thread exists), get a warm thread.
+	// ThreadChat stays unmounted below while this is in flight, since ChatInput
+	// has no createThread configured and would otherwise let the user send before
+	// there is a thread to send into.
 	let resolvingThread = $state(false);
 	let resolveThreadBlocked = $state(false);
 	let resolveThreadUnblockTimer: ReturnType<typeof setTimeout> | undefined;
+	// Bumped on every resolution attempt so a stale .then/.catch from an attempt
+	// the user has since navigated away from (e.g. picked an existing thread from
+	// the sidebar while this was pending) cannot overwrite the newer thread param.
+	let resolveGeneration = 0;
 
 	$effect(() => {
 		if (!threadId && !resolvingThread && !resolveThreadBlocked && viewer.data) {
 			resolvingThread = true;
+			const generation = ++resolveGeneration;
 			client
 				.mutation(api.aiChat.threads.getOrCreateWarmThread, {})
 				.then((result) => {
+					if (generation !== resolveGeneration || threadId) return;
 					const url = new URL(page.url);
 					url.searchParams.set('thread', result.threadId);
 					goto(resolve(url.pathname + url.search), { noScroll: true, replaceState: true });
 				})
 				.catch((err) => {
+					if (generation !== resolveGeneration) return;
 					// Back off instead of retrying at network pace: the effect re-runs
 					// when resolvingThread resets while threadId is still empty, so a
 					// deterministic failure (e.g. thread-create rate limit) would loop.
@@ -71,7 +82,7 @@
 					}, retryAfter);
 				})
 				.finally(() => {
-					resolvingThread = false;
+					if (generation === resolveGeneration) resolvingThread = false;
 				});
 		}
 	});
@@ -105,15 +116,25 @@
 
 {#if viewer.data}
 	<div class="flex h-full flex-col">
-		<ThreadChat
-			{threadId}
-			{isPro}
-			{hasMessagesAvailable}
-			{remainingMessages}
-			{totalMessages}
-			onUpgrade={handleUpgrade}
-			isUpgrading={upgradeOperation.isLoading}
-			onMessageSent={() => autumn.refetch()}
-		/>
+		{#if threadId}
+			<ThreadChat
+				{threadId}
+				{isPro}
+				{hasMessagesAvailable}
+				{remainingMessages}
+				{totalMessages}
+				onUpgrade={handleUpgrade}
+				isUpgrading={upgradeOperation.isLoading}
+				onMessageSent={() => autumn.refetch()}
+			/>
+		{:else}
+			<!-- Direct navigation without ?thread=: resolving a warm thread above.
+			     ChatInput has no createThread configured, so it must not mount (and
+			     accept a send) until threadId exists. -->
+			<div class="flex h-full items-center justify-center" role="status">
+				<LoaderCircleIcon class="size-5 text-muted-foreground motion-safe:animate-spin" />
+				<span class="sr-only">{$t('aria.loading')}</span>
+			</div>
+		{/if}
 	</div>
 {/if}

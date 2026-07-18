@@ -25,7 +25,6 @@ export function getAppSidebarConfig(
 	pageState: PageState,
 	userRole?: string,
 	aiChatThreads?: AiChatThread[],
-	warmThreadId?: string | null,
 	newConversationLabel?: string
 ): SidebarConfig {
 	const { pathname, search, lang } = pageState;
@@ -41,11 +40,6 @@ export function getAppSidebarConfig(
 		isActive: activeThreadId === thread._id,
 		timestamp: thread.lastMessageAt
 	}));
-
-	// Point "AI Chat" to the pre-warmed thread when available
-	const aiChatUrl = warmThreadId
-		? localizedHref(`/app/ai-chat?thread=${warmThreadId}`)
-		: localizedHref('/app/ai-chat');
 
 	return {
 		header: {
@@ -64,14 +58,12 @@ export function getAppSidebarConfig(
 			},
 			{
 				translationKey: 'app.sidebar.ai_chat',
-				url: aiChatUrl,
+				url: localizedHref('/app/ai-chat'),
 				icon: BotMessageSquareIcon,
 				isActive: pathname.startsWith(`/${lang}/app/ai-chat`),
 				collapsible: true,
 				subItems: aiChatSubItems,
 				kbd: [ctrlSymbol, '⇧', '2'],
-				// Disable nav when already on the warm thread (already "new chat")
-				disableNav: !!activeThreadId && activeThreadId === warmThreadId,
 				testId: 'sidebar-nav-ai-chat'
 			}
 		],

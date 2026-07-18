@@ -18,6 +18,10 @@
 		fullControl?: boolean;
 		/** Thread sub-items passed separately to preserve DOM nodes in autoAnimate */
 		threadSubItems?: NavSubItem[];
+		/** Whether more threads exist beyond the currently loaded threadSubItems */
+		threadsHasMore?: boolean;
+		/** Requests a bigger thread page from the owning query */
+		onLoadMoreThreads?: () => void;
 		/** Persisted sidebar open/collapsed state, read server-side for a flash-free first paint */
 		sidebarOpen?: boolean;
 	}
@@ -30,6 +34,8 @@
 		rootLabel,
 		fullControl = false,
 		threadSubItems,
+		threadsHasMore = false,
+		onLoadMoreThreads,
 		sidebarOpen
 	}: Props = $props();
 
@@ -57,7 +63,14 @@
 		style="--sidebar-width: calc(var(--spacing) * 72); --header-height: calc(var(--spacing) * 12);"
 		class="h-svh overflow-hidden"
 	>
-		<AuthenticatedSidebar variant="inset" config={sidebarConfig} {user} {threadSubItems} />
+		<AuthenticatedSidebar
+			variant="inset"
+			config={sidebarConfig}
+			{user}
+			{threadSubItems}
+			{threadsHasMore}
+			{onLoadMoreThreads}
+		/>
 		<Sidebar.Inset id="main-content" class={fullControl ? 'flex flex-col overflow-hidden' : ''}>
 			<AuthenticatedHeader {routePrefix} {rootLabel} />
 

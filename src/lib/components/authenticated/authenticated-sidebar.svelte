@@ -19,9 +19,20 @@
 		user?: User;
 		/** Thread sub-items passed separately to avoid snippet re-render destroying DOM nodes */
 		threadSubItems?: NavSubItem[];
+		/** Whether more threads exist beyond the currently loaded threadSubItems */
+		threadsHasMore?: boolean;
+		/** Requests a bigger thread page from the owning query */
+		onLoadMoreThreads?: () => void;
 	}
 
-	let { config, user, threadSubItems, ...restProps }: Props = $props();
+	let {
+		config,
+		user,
+		threadSubItems,
+		threadsHasMore = false,
+		onLoadMoreThreads,
+		...restProps
+	}: Props = $props();
 
 	const aiChatOpen = new PersistedState('ai-chat-threads-open', true);
 </script>
@@ -197,11 +208,15 @@
 					{/each}
 				</Sidebar.Menu>
 			</Sidebar.GroupContent>
-			<!-- Thread list with client-side display limit (t3code pattern).
-				 "Show more" only changes local state inside SidebarThreadList,
-				 so no parent re-render and autoAnimate works correctly. -->
+			<!-- Thread list only renders the currently loaded page; hasMore/onLoadMoreThreads
+				 come from the owning listThreads query so "Show more" reflects the real
+				 backend count instead of a client-only slice. -->
 			{#if aiChatOpen.current}
-				<SidebarThreadList items={threadSubItems ?? []} />
+				<SidebarThreadList
+					items={threadSubItems ?? []}
+					hasMore={threadsHasMore}
+					onShowMore={onLoadMoreThreads ?? (() => {})}
+				/>
 			{/if}
 		</Sidebar.Group>
 	</Sidebar.Content>
