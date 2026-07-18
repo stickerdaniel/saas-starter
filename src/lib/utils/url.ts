@@ -1,20 +1,38 @@
 /**
- * Whitelist-validates a redirect URL: only same-origin relative paths are
- * allowed. Everything else returns the fallback.
+ * Whitelist-validates a redirect URL: only same-origin root-relative paths
+ * (starting with a single /) are allowed. Everything else returns the fallback,
+ * and the accepted value is re-emitted in canonical form so the string that
+ * passed validation is the string that gets navigated.
  *
- * Resolves the candidate against a sentinel origin and keeps it only if the
- * origin did not change. A prefix check ("starts with / but not //") is not
- * enough: browsers and the WHATWG URL parser treat a backslash as a path
- * separator, so `/\evil.com` slips past a `//` check yet resolves to
- * `https://evil.com`. Resolving catches that, protocol-relative `//host`,
- * absolute URLs, and `javascript:` URIs in one test.
+ * Prevents open redirect attacks by rejecting absolute and scheme-relative URLs
+ * (`//evil.com`, `http:evil.com`), backslash-authority variants (`/\evil.com`),
+ * embedded credentials, and control characters — both raw and once-decoded, so
+ * a later decode layer cannot resurrect a rejected vector.
  */
 export function safeRedirectPath(url: string, fallback: string): string {
-	if (!url) return fallback;
+	if (!url || !url.startsWith('/') || hasUnsafeUrlCharacters(url)) return fallback;
+
 	try {
-		const resolved = new URL(url, 'http://redirect.invalid');
-		return resolved.origin === 'http://redirect.invalid' ? url : fallback;
+		const decoded = decodeURIComponent(url);
+		if (decoded.startsWith('//') || decoded.startsWith('/\\') || hasControlCharacters(decoded))
+			return fallback;
+
+		const base = new URL('https://redirect.invalid');
+		const parsed = new URL(url, base);
+		if (parsed.origin !== base.origin || parsed.username || parsed.password) return fallback;
+		return `${parsed.pathname}${parsed.search}${parsed.hash}`;
 	} catch {
 		return fallback;
 	}
+}
+
+function hasUnsafeUrlCharacters(value: string): boolean {
+	return value.includes('\\') || hasControlCharacters(value);
+}
+
+function hasControlCharacters(value: string): boolean {
+	return [...value].some((character) => {
+		const code = character.charCodeAt(0);
+		return code <= 31 || code === 127;
+	});
 }
