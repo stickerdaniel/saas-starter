@@ -10,16 +10,19 @@ const posthogPath = path.resolve('src/lib/analytics/posthog.ts');
 const threadListPath = path.resolve('src/lib/components/authenticated/sidebar-thread-list.svelte');
 
 describe('app shell performance invariants', () => {
-	it('loads only the initially visible AI chat threads', () => {
+	it('preserves the visible thread list while loading more', () => {
 		const source = fs.readFileSync(appLayoutPath, 'utf8');
 
 		expect(source).toContain('api.aiChat.threads.listThreads');
-		// Initial page of 10, growable via the query so "Show more" reflects the
-		// real backend count instead of a client-only slice.
+		// Keep the initial query small without clearing the existing DOM while the
+		// next page loads, so AutoAnimate observes the appended thread rows.
 		expect(source).toContain('let threadListLimit = $state(10)');
 		expect(source).toMatch(/listThreads,[\s\S]*limit:\s*threadListLimit/);
 		expect(source).not.toMatch(/listThreads,[\s\S]*limit:\s*50/);
 		expect(source).toContain('threadsQuery.data?.hasMore');
+		expect(source).toMatch(
+			/listThreads,[\s\S]*limit:\s*threadListLimit[\s\S]*keepPreviousData:\s*true/
+		);
 	});
 
 	it('drives the sidebar Show more from the backend hasMore, not a client slice', () => {
