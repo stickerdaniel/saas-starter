@@ -6,10 +6,11 @@
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { tick } from 'svelte';
+	import { tick, onDestroy } from 'svelte';
 	import { localizedHref } from '$lib/utils/i18n';
-	import { useQuery } from 'convex-svelte';
+	import { useQuery, useConvexClient } from 'convex-svelte';
 	import { api } from '$lib/convex/_generated/api';
+	import { ConvexError } from 'convex/values';
 	import { getTranslate } from '@tolgee/svelte';
 	import type { LayoutData } from './$types';
 	import type { Snippet } from 'svelte';
@@ -23,11 +24,11 @@
 
 	let { children, data }: Props = $props();
 
+	const client = useConvexClient();
 	const viewer = $derived(data.viewer as typeof data.viewer & { role?: string });
 
 	// Match the sidebar's initial display count; "Show more" bumps this limit,
-	// which reactively re-runs the query for the rest. The chat route creates a
-	// warm thread only when the user opens AI Chat without a thread id.
+	// which reactively re-runs the query for the rest.
 	const THREAD_LOAD_MORE_STEP = 5;
 	let threadListLimit = $state(10);
 	const threadsQuery = useQuery(api.aiChat.threads.listThreads, () => ({
@@ -38,6 +39,40 @@
 	function loadMoreThreads(): void {
 		threadListLimit += THREAD_LOAD_MORE_STEP;
 	}
+
+	// Keep one empty thread ready so normal AI Chat navigation opens the
+	// composer immediately. The route still resolves direct URLs without a
+	// thread id as a fallback.
+	const warmThreadQuery = useQuery(api.aiChat.threads.getWarmThread, {});
+	const warmThreadId = $derived(warmThreadQuery.data?.threadId ?? null);
+
+	let ensureWarmInFlight = $state(false);
+	let ensureWarmBlocked = $state(false);
+	let ensureWarmUnblockTimer: ReturnType<typeof setTimeout> | undefined;
+
+	$effect(() => {
+		if (warmThreadQuery.data === null && !ensureWarmInFlight && !ensureWarmBlocked && viewer) {
+			ensureWarmInFlight = true;
+			client
+				.mutation(api.aiChat.threads.getOrCreateWarmThread, {})
+				.catch((error) => {
+					console.error('[app] Failed to ensure warm thread:', error);
+					ensureWarmBlocked = true;
+					const retryAfter =
+						error instanceof ConvexError
+							? ((error.data as { retryAfter?: number })?.retryAfter ?? 60000)
+							: 60000;
+					ensureWarmUnblockTimer = setTimeout(() => {
+						ensureWarmBlocked = false;
+					}, retryAfter);
+				})
+				.finally(() => {
+					ensureWarmInFlight = false;
+				});
+		}
+	});
+
+	onDestroy(() => clearTimeout(ensureWarmUnblockTimer));
 
 	// Chat pages need fullControl (manage own scroll containers)
 	const fullControl = $derived(
@@ -55,7 +90,7 @@
 		if (e.ctrlKey && e.shiftKey && !e.altKey && !e.metaKey) {
 			const shiftRoutes: Record<string, string> = {
 				Digit1: localizedHref('/app/community-chat'),
-				Digit2: localizedHref('/app/ai-chat')
+				Digit2: localizedHref(warmThreadId ? `/app/ai-chat?thread=${warmThreadId}` : '/app/ai-chat')
 			};
 			url = shiftRoutes[e.code];
 		} else if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey) {
@@ -80,6 +115,7 @@
 			{ pathname: page.url.pathname, search: page.url.search, lang: page.params.lang },
 			viewer?.role,
 			aiChatThreads,
+			warmThreadId,
 			$t('ai_chat.thread.no_messages')
 		)
 	);

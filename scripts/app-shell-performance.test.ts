@@ -29,15 +29,16 @@ describe('app shell performance invariants', () => {
 		expect(source).toContain('let { items, hasMore, onShowMore }');
 	});
 
-	it('defers warm-thread lookup and creation to the AI chat route', () => {
+	it('prewarms the normal AI Chat navigation path', () => {
 		const layout = fs.readFileSync(appLayoutPath, 'utf8');
 		const sidebar = fs.readFileSync(sidebarConfigPath, 'utf8');
 
-		expect(layout).not.toContain('getWarmThread');
-		expect(layout).not.toContain('getOrCreateWarmThread');
-		expect(layout).toContain("Digit2: localizedHref('/app/ai-chat')");
-		expect(sidebar).toContain("url: localizedHref('/app/ai-chat')");
-		expect(sidebar).not.toContain('warmThreadId');
+		expect(layout).toContain('api.aiChat.threads.getWarmThread');
+		expect(layout).toContain('api.aiChat.threads.getOrCreateWarmThread');
+		expect(layout).toContain('`/app/ai-chat?thread=${warmThreadId}`');
+		expect(sidebar).toContain('warmThreadId?: string | null');
+		expect(sidebar).toContain('url: aiChatUrl');
+		expect(sidebar).toContain('activeThreadId === warmThreadId');
 	});
 
 	it('disables unused PostHog survey code', () => {

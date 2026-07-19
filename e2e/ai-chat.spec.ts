@@ -5,30 +5,21 @@ import { waitForAuthenticated } from './utils/auth';
 // src/hooks.server.ts based on Accept-Language (see the precedent in
 // e2e/upgrade-checkout-failure.spec.ts), which would break selectors on
 // non-English runners.
-test.describe('AI Chat - Lazy Warm Thread', () => {
-	test('navigating to AI Chat resolves a thread on the chat route', async ({ page }) => {
+test.describe('AI Chat - Warm Thread', () => {
+	test('sidebar navigation opens the prewarmed composer without a loading state', async ({
+		page
+	}) => {
 		await page.goto('/en/app');
 		await waitForAuthenticated(page);
 
-		// Click the AI Chat sidebar item
 		const aiChatLink = page.getByTestId('sidebar-nav-ai-chat');
 		await expect(aiChatLink).toBeVisible();
-		await aiChatLink.click();
+		await expect(aiChatLink).toHaveAttribute('href', /\/en\/app\/ai-chat\?thread=.+/);
 
-		// The chat route creates or reuses a warm thread, then canonicalizes the URL.
+		await aiChatLink.click();
 		await page.waitForURL(/\/app\/ai-chat\?thread=/, { timeout: 10000 });
 
-		// The chat textarea should be visible (no loading screen)
 		await expect(page.locator('textarea')).toBeVisible({ timeout: 10000 });
-	});
-
-	test('sidebar AI Chat href points directly to the chat route', async ({ page }) => {
-		await page.goto('/en/app');
-		await waitForAuthenticated(page);
-
-		const aiChatAnchor = page.getByTestId('sidebar-nav-ai-chat');
-		await expect(aiChatAnchor).toBeVisible();
-		await expect(aiChatAnchor).toHaveAttribute('href', '/en/app/ai-chat');
 	});
 
 	test('direct navigation to /ai-chat without thread param redirects to warm thread', async ({
@@ -49,9 +40,12 @@ test.describe('AI Chat - Lazy Warm Thread', () => {
 		await waitForAuthenticated(page);
 
 		const aiChatLink = page.getByTestId('sidebar-nav-ai-chat');
+		await expect(aiChatLink).toHaveAttribute('href', /\/en\/app\/ai-chat\?thread=.+/);
+		const firstHref = await aiChatLink.getAttribute('href');
+		expect(firstHref).toBeTruthy();
+		const firstThreadId = new URL(firstHref!, page.url()).searchParams.get('thread');
 		await aiChatLink.click();
 		await page.waitForURL(/\/app\/ai-chat\?thread=/, { timeout: 10000 });
-		const firstThreadId = new URL(page.url()).searchParams.get('thread');
 		expect(firstThreadId).toBeTruthy();
 
 		// Leave the chat route entirely so the return click is a genuine navigation
@@ -60,6 +54,7 @@ test.describe('AI Chat - Lazy Warm Thread', () => {
 		await page.goto('/en/app');
 		await waitForAuthenticated(page);
 		await expect(aiChatLink).toBeVisible();
+		await expect(aiChatLink).toHaveAttribute('href', new RegExp(`\\?thread=${firstThreadId}$`));
 
 		await aiChatLink.click();
 		await page.waitForURL(/\/app\/ai-chat\?thread=/, { timeout: 10000 });
