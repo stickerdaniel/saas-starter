@@ -31,9 +31,11 @@
 	// which reactively re-runs the query for the rest.
 	const THREAD_LOAD_MORE_STEP = 5;
 	let threadListLimit = $state(10);
-	const threadsQuery = useQuery(api.aiChat.threads.listThreads, () => ({
-		limit: threadListLimit
-	}));
+	const threadsQuery = useQuery(
+		api.aiChat.threads.listThreads,
+		() => ({ limit: threadListLimit }),
+		{ keepPreviousData: true }
+	);
 	const aiChatThreads = $derived(threadsQuery.data?.threads ?? []);
 	const aiChatThreadsHasMore = $derived(threadsQuery.data?.hasMore ?? false);
 	function loadMoreThreads(): void {
