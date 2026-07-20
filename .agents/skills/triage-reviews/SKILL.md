@@ -33,7 +33,7 @@ For EVERY finding, verify against real code before accepting or rejecting:
 2. **Check if the issue still exists** — it may already be fixed in a later commit
 3. **Verify correctness** using:
    - Code analysis (read surrounding context, trace call paths)
-   - Run `btca resources` to see what's available, then `btca ask -r <resource> -q "..."` for library/framework questions
+   - Invoke the `btca-local` skill for library/framework questions, then inspect the relevant repository clones registered in `btca.config.jsonc`
    - Web search for API behavior, language semantics, or CVEs
 4. **Classify** each finding:
    - **Valid** — real bug, real gap, or real improvement needed
