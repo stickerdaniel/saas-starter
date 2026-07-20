@@ -31,6 +31,11 @@
 			"source": "stickerdaniel/linkedin-mcp-server",
 			"sourceType": "github",
 			"computedHash": "c148529762a856a8f08a4db4b08c1bf7409281347d545f022e04a8e301af6868"
+		},
+		"upstream-sync": {
+			"source": "/Users/daniel/Documents/development/svelte/saas-starter.worktrees/chore-register-upstream-sync/skills/upstream-sync",
+			"sourceType": "local",
+			"computedHash": "38b10bb7432b76649048ee4e9333255373164392c60607964de47d4009f3213f"
 		}
 	}
 }
