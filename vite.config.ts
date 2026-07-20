@@ -461,8 +461,8 @@ export default defineConfig(async ({ mode }) => {
 				'docs/**',
 				'.opencode/**',
 				'references/**',
-				// Skills are symlinked into .claude/skills/; exclude the symlinked path so
-				// skill tests under skills/ are not discovered and run twice.
+				// Skills live in .agents/skills/ and are symlinked into .claude/skills/;
+				// exclude the symlinked path so tests are not discovered and run twice.
 				'.claude/skills/**'
 			],
 			passWithNoTests: true,

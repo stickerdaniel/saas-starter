@@ -46,7 +46,7 @@
 		"worktree:setup": "bun scripts/create-worktree.ts --setup-only",
 		"worktree:prune": "bun scripts/prune-worktrees.ts",
 		"setup": "bun scripts/template-setup.ts",
-		"upstream:sync": "bun skills/upstream-sync/scripts/find-fork-point.ts"
+		"upstream:sync": "bun .agents/skills/upstream-sync/scripts/find-fork-point.ts"
 	},
 	"packageManager": "bun@1.3.9",
 	"dependencies": {
