@@ -13,7 +13,7 @@
  * `.upstream-sync.json` (this script prints a ready-to-commit block).
  *
  * Usage:
- *   bun skills/upstream-sync/scripts/find-fork-point.ts [--upstream <git-url>] [--json]
+ *   bun .agents/skills/upstream-sync/scripts/find-fork-point.ts [--upstream <git-url>] [--json]
  */
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
@@ -212,7 +212,7 @@ function main() {
 		`Candidate commits to review: ${ahead || '0'}  (git log --no-merges --first-parent ${lastSynced.slice(0, 8)}..upstream/main)`
 	);
 	console.log('');
-	console.log(`Next: bun skills/upstream-sync/scripts/list-upstream-changes.ts`);
+	console.log(`Next: bun .agents/skills/upstream-sync/scripts/list-upstream-changes.ts`);
 	console.log('');
 	console.log(`Suggested ${MARKER} (or run --mark-synced after a successful sync):`);
 	console.log(JSON.stringify(suggestedMarker, null, '\t'));

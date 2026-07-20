@@ -1,6 +1,6 @@
 # Convex backend guidance
 
-Read `skills/convex-guidelines/SKILL.md` before writing, reviewing, or modifying any Convex query, mutation, action, schema, HTTP endpoint, auth code, storage code, or cron.
+Read `.agents/skills/convex-guidelines/SKILL.md` before writing, reviewing, or modifying any Convex query, mutation, action, schema, HTTP endpoint, auth code, storage code, or cron.
 
 ## Required verification
 

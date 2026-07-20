@@ -31,8 +31,8 @@ manually-adapted port.
 ## Step 1 — Discover (read-only, never writes)
 
 ```bash
-bun skills/upstream-sync/scripts/find-fork-point.ts        # fork point via tree-SHA match
-bun skills/upstream-sync/scripts/list-upstream-changes.ts  # every commit since last sync, oldest-first
+bun .agents/skills/upstream-sync/scripts/find-fork-point.ts        # fork point via tree-SHA match
+bun .agents/skills/upstream-sync/scripts/list-upstream-changes.ts  # every commit since last sync, oldest-first
 ```
 
 The list scopes from `.upstream-sync.json`'s `lastSynced` (falls back to the fork
@@ -110,7 +110,7 @@ base closes its child; rebasing a stack onto a moving main re-conflicts on i18n)
 excluded SHAs + reasons in the PR body. Confirm with the human before opening it; merge
 only once the **required** checks are green (a non-required check may stay UNSTABLE).
 After merge, persist the marker:
-`bun skills/upstream-sync/scripts/find-fork-point.ts --mark-synced <upstreamHEAD>`
+`bun .agents/skills/upstream-sync/scripts/find-fork-point.ts --mark-synced <upstreamHEAD>`
 (updates `lastSynced` + `syncedAt`), then add any `excluded` entries you recorded and
 commit `.upstream-sync.json`.
 

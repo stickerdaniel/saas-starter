@@ -17,7 +17,7 @@
  * the dependency/integration order.
  *
  * Usage:
- *   bun skills/upstream-sync/scripts/list-upstream-changes.ts [--json] [--type <t>] [--tag security]
+ *   bun .agents/skills/upstream-sync/scripts/list-upstream-changes.ts [--json] [--type <t>] [--tag security]
  */
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';

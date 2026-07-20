@@ -35,7 +35,7 @@ If a fork discovers a bug or unexpected behavior that originates in the template
 
 <!-- DO NOT rename or remove this section when rebranding a fork. -->
 
-Use the `upstream-sync` skill (`skills/upstream-sync/SKILL.md`) and start with `bun run upstream:sync`. Forks are content copies without a shared Git ancestor, so ordinary merge/rebase/sync workflows do not apply.
+Use the `upstream-sync` skill (`.agents/skills/upstream-sync/SKILL.md`) and start with `bun run upstream:sync`. Forks are content copies without a shared Git ancestor, so ordinary merge/rebase/sync workflows do not apply.
 
 ## Global rules
 
