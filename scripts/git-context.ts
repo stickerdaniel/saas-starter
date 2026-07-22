@@ -35,23 +35,61 @@ export function isUnderPreCommit(): boolean {
 	return Object.keys(process.env).some((k) => k.startsWith('PRE_COMMIT'));
 }
 
+export interface GitChange {
+	status: 'A' | 'C' | 'D' | 'M' | 'R' | 'T';
+	path: string;
+	previousPath?: string;
+}
+
 /**
- * Staged files relative to the current working directory. `--relative`
+ * Staged changes relative to the current working directory. `--relative`
  * filters siblings outside cwd and strips the cwd prefix in one shot.
- * Sanitized env ensures the index is read against the correct worktree
- * even when a parent process set GIT_DIR / GIT_WORK_TREE.
+ * NUL-delimited name-status output preserves renames and unusual filenames.
  */
-export function getStagedFiles(): string[] {
+export function getStagedChanges(): GitChange[] {
 	const result = spawnSync(
 		'git',
-		['diff', '--cached', '--name-only', '--diff-filter=ACMR', '--relative'],
+		[
+			'diff',
+			'--cached',
+			'--name-status',
+			'-z',
+			'--find-renames',
+			'--find-copies',
+			'--diff-filter=ACDMRT',
+			'--relative'
+		],
 		{ encoding: 'utf-8', env: sanitizedGitEnv() }
 	);
 
 	if (result.status !== 0) {
-		console.error('Failed to get staged files');
+		console.error('Failed to get staged changes');
 		process.exit(1);
 	}
 
-	return result.stdout.trim().split('\n').filter(Boolean);
+	const fields = result.stdout.split('\0');
+	if (fields.at(-1) === '') fields.pop();
+	const changes: GitChange[] = [];
+	for (let index = 0; index < fields.length;) {
+		const statusField = fields[index++]!;
+		const status = statusField[0] as GitChange['status'];
+		if (status === 'R' || status === 'C') {
+			const previousPath = fields[index++];
+			const file = fields[index++];
+			if (!previousPath || !file) throw new Error(`Malformed staged ${status} record.`);
+			changes.push({ status, previousPath, path: file });
+		} else {
+			const file = fields[index++];
+			if (!file) throw new Error(`Malformed staged ${status} record.`);
+			changes.push({ status, path: file });
+		}
+	}
+	return changes;
+}
+
+/** Files still present in the final index, for file-scoped checks and re-staging. */
+export function getStagedFiles(): string[] {
+	return getStagedChanges()
+		.filter((change) => change.status !== 'D')
+		.map((change) => change.path);
 }

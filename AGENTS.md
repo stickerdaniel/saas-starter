@@ -79,6 +79,8 @@ A plan is a PR body. An audit finding is an issue. A convention is a lint rule. 
 
 Never preserve current symbols, signatures, enums, file lists, or implementation steps “for reference.” Split mixed documents: keep the non-derivable rationale and move load-bearing implementation facts into tests. Historical decisions remain immutable; supersede them with a new dated record and an explicit link.
 
+`knowledge-policy.config.ts` is the executable repository policy. The template default checks relative links and validates decision/runbook metadata when those directories are used, while allowing product forks to keep their own API guides, contribution documents, domain manuals, local READMEs, or stricter document classes. Change the configuration deliberately rather than bypassing the guard.
+
 ## Core commands
 
 - `bun run build` — production build

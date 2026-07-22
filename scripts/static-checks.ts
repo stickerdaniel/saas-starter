@@ -32,7 +32,10 @@ import { existsSync, readFileSync, realpathSync, statSync } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { parseArgs } from 'util';
-import { getStagedFiles, isUnderPreCommit, sanitizedGitEnv } from './git-context';
+import knowledgePolicy from '../knowledge-policy.config';
+import { getStagedChanges, getStagedFiles, isUnderPreCommit, sanitizedGitEnv } from './git-context';
+import { formatPolicyFinding, matchesKnowledgeCandidate } from './knowledge-policy/policy';
+import { runKnowledgePolicy } from './knowledge-policy/repository';
 
 // Configuration (matches CI static-checks.yml exclusions)
 const CONFIG = {
@@ -215,6 +218,7 @@ function readFilesFrom(source: string): string[] {
 export const ROUTES = {
 	misspell: (f: string) => !CONFIG.misspell.ignore.some((i) => f.includes(i)),
 	'banned-patterns': (f: string) => /\.(svelte|ts)$/.test(f) && f.startsWith('src/'),
+	'knowledge-placement': (f: string) => matchesKnowledgeCandidate(knowledgePolicy, f),
 	prettier: (f: string) => /\.(js|ts|svelte|html|css|md|json)$/.test(f),
 	eslint: (f: string) => /\.(js|ts|svelte)$/.test(f),
 	// The old gate was `jsTsSvelteFiles.length === 0 && svelteFiles.length === 0`;
@@ -225,7 +229,13 @@ export const ROUTES = {
 
 type CheckId = keyof typeof ROUTES;
 const CHECK_IDS = Object.keys(ROUTES) as CheckId[];
-const LINT_CHECKS: CheckId[] = ['misspell', 'banned-patterns', 'prettier', 'eslint'];
+const LINT_CHECKS: CheckId[] = [
+	'misspell',
+	'banned-patterns',
+	'knowledge-placement',
+	'prettier',
+	'eslint'
+];
 const TYPE_CHECKS: CheckId[] = ['svelte-check', 'convex'];
 
 type Mode = 'files' | 'staged' | 'full';
@@ -472,18 +482,15 @@ async function main(): Promise<void> {
 	process.chdir(REPO_ROOT);
 
 	if (mode === 'staged') {
-		// Safe to demand existence: getStagedFiles() passes --diff-filter=ACMR, so a
-		// deleted path never reaches here. A fork that drops that filter fails loudly.
-		// The index paths are kept verbatim for the re-stage below: resolveInputs
-		// realpaths, and re-staging a resolved symlink would `git add` its target,
-		// silently committing edits the developer never staged. This repo tracks
-		// CLAUDE.md -> AGENTS.md and the .claude/skills links, so it is not theoretical.
-		stagedIndexPaths = getStagedFiles();
-		inputs = resolveInputs(stagedIndexPaths, 'the git index');
-		if (inputs.length === 0) {
+		const stagedChanges = getStagedChanges();
+		if (stagedChanges.length === 0) {
 			console.log('No staged files to check');
 			process.exit(0);
 		}
+		// Keep the original index paths for re-staging. resolveInputs realpaths
+		// symlinks, and adding those resolved targets would commit the wrong files.
+		stagedIndexPaths = getStagedFiles();
+		inputs = stagedIndexPaths.length > 0 ? resolveInputs(stagedIndexPaths, 'the git index') : [];
 	}
 
 	const ledger = new Ledger(mode, inputs);
@@ -711,7 +718,7 @@ async function main(): Promise<void> {
 	// Re-stage files if they were modified during --staged checks.
 	// Sanitized env ensures `git add` writes into the correct index even when
 	// a parent process (e.g. the pre-commit framework) set GIT_DIR/GIT_WORK_TREE.
-	if (mode === 'staged' && !ciMode) {
+	if (mode === 'staged' && !ciMode && stagedIndexPaths.length > 0) {
 		console.log('Re-staging modified files...');
 		if (isUnderPreCommit()) {
 			console.log(
@@ -724,17 +731,43 @@ async function main(): Promise<void> {
 		console.log('');
 	}
 
+	if (shouldRunLint) {
+		printHeader(step, 'Knowledge placement');
+		const policyScope =
+			mode === 'staged'
+				? ({ kind: 'staged' } as const)
+				: mode === 'files'
+					? ({ kind: 'files', files: ledger.filesFor('knowledge-placement') } as const)
+					: ({ kind: 'full' } as const);
+		const result = runKnowledgePolicy({
+			root: REPO_ROOT,
+			policy: knowledgePolicy,
+			scope: policyScope
+		});
+		for (const policyFinding of result.findings) {
+			const line = formatPolicyFinding(policyFinding);
+			console[policyFinding.severity === 'error' ? 'error' : 'warn'](`  ${line}`);
+		}
+		const errors = result.findings.filter((item) => item.severity === 'error').length;
+		const warnings = result.findings.length - errors;
+		const scopeNote = result.escalatedFromFiles ? ' (files scope escalated to full)' : '';
+		console.log(
+			`Scanned ${result.filesEvaluated} knowledge-bearing files${scopeNote}: ` +
+				`${errors} error(s), ${warnings} warning(s)`
+		);
+		ledger.ran('knowledge-placement', result.filesEvaluated);
+		if (errors > 0) process.exit(1);
+		console.log('');
+	}
+
 	finish(ledger, scopeLabel);
 }
 
-// Default-deny: exit 0 is written in exactly one place (finish), after the ledger has
-// been asserted. A fall-through, an early return, or a refactor that drops the call
-// now exits non-zero instead of inheriting a green.
-process.exitCode = 2;
-
 // Guarded so static-checks.test.ts can import resolveInputs and ROUTES without
-// running the whole gate as a side effect of the import.
+// running the gate or changing the importing process's exit code.
 if (import.meta.main) {
+	// Default-deny: finish() is the only path that writes a zero exit code.
+	process.exitCode = 2;
 	main().catch((error: Error) => {
 		console.error(`${colors.red}Fatal error: ${error.message}${colors.reset}`);
 		process.exit(1);

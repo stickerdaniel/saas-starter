@@ -30,6 +30,13 @@ function run(...args: string[]): number {
 }
 
 describe('route predicates', () => {
+	it('routes knowledge files through repository policy candidates and ignores', () => {
+		expect(ROUTES['knowledge-placement']('README.md')).toBe(true);
+		expect(ROUTES['knowledge-placement']('src/example.ts')).toBe(true);
+		expect(ROUTES['knowledge-placement']('references/example.md')).toBe(false);
+		expect(ROUTES['knowledge-placement']('static/logo.svg')).toBe(false);
+	});
+
 	it('are blind to an absolute path, which is why normalization is load-bearing', () => {
 		const absolute = path.join(ROOT, 'src/lib/utils/auth-messages.ts');
 		const absoluteConvex = path.join(ROOT, 'src/lib/convex/schema.ts');
