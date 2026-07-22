@@ -28,7 +28,7 @@ export default {
 
 		return {
 			Program(node) {
-				// Extract route key from path: .../[[lang]]/(marketing)/about/+page.svelte → "about"
+				// Extract route key from path: .../[[lang]]/(marketing)/pricing/+page.svelte → "pricing"
 				// Root marketing page: .../[[lang]]/(marketing)/+page.svelte → "home"
 				const dir = path.dirname(filename);
 				const marketingIdx = dir.indexOf(MARKETING_ROUTE_SEGMENT);
@@ -53,7 +53,7 @@ export default {
 				const content = fs.readFileSync(publicRoutesPath, 'utf-8');
 
 				// Check for the route key in PUBLIC_MARKETING_ROUTES array
-				// Matches patterns like: key: 'about' or key: "about"
+				// Matches patterns like: key: 'pricing' or key: "pricing"
 				const keyPattern = new RegExp(`key:\\s*['"]${routeKey}['"]`);
 				if (!keyPattern.test(content)) {
 					context.report({

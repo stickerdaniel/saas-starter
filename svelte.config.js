@@ -17,7 +17,7 @@ const adapter = process.env.WORKERS_CI
 		: auto();
 
 // Prerenderable marketing pages (pricing excluded — uses useCustomer() for billing UI)
-const PRERENDER_MARKETING_PAGES = ['', '/about', '/privacy', '/terms', '/impressum'];
+const PRERENDER_MARKETING_PAGES = ['', '/privacy', '/terms', '/impressum'];
 const prerenderEntries = SUPPORTED_LANGUAGE_CODES.flatMap((lang) =>
 	PRERENDER_MARKETING_PAGES.map((page) => `/${lang}${page}`)
 );

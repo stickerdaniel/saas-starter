@@ -714,10 +714,6 @@
 		"title": "Experiencia de Desarrollo Real {year}"
 	},
 	"meta": {
-		"about": {
-			"description": "Conoce al talentoso equipo detrás de nuestro producto",
-			"title": "Acerca de nosotros"
-		},
 		"admin": {
 			"audit_log": {
 				"description": "Revisa las acciones de administración en la plataforma.",
@@ -810,7 +806,6 @@
 		}
 	},
 	"nav": {
-		"about": "Acerca de",
 		"dashboard": "Panel",
 		"get_started": "Comenzar",
 		"home": "Inicio",

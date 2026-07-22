@@ -4,7 +4,6 @@ const pages = [
 	{ name: 'marketing home', path: '/en' },
 	{ name: 'signin', path: '/en/signin' },
 	{ name: 'forgot password', path: '/en/forgot-password' },
-	{ name: 'about', path: '/en/about' },
 	{ name: 'pricing', path: '/en/pricing' },
 	{ name: 'terms', path: '/en/terms' },
 	{ name: 'privacy', path: '/en/privacy' }

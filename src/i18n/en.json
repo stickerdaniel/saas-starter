@@ -714,10 +714,6 @@
 		"title": "Real {year} Developer Experience"
 	},
 	"meta": {
-		"about": {
-			"description": "Meet the talented team behind our product",
-			"title": "About Us"
-		},
 		"admin": {
 			"audit_log": {
 				"description": "Review admin actions across the platform.",
@@ -810,7 +806,6 @@
 		}
 	},
 	"nav": {
-		"about": "About",
 		"dashboard": "Dashboard",
 		"get_started": "Get Started",
 		"home": "Home",

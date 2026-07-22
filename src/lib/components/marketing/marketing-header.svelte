@@ -61,8 +61,7 @@
 	// $derived menu items (href must update on lang switch)
 	let menuItems = $derived([
 		{ translationKey: 'nav.home', href: localizedHref('/') },
-		{ translationKey: 'nav.pricing', href: localizedHref('/pricing') },
-		{ translationKey: 'nav.about', href: localizedHref('/about') }
+		{ translationKey: 'nav.pricing', href: localizedHref('/pricing') }
 	]);
 
 	let menuState = $state(false);

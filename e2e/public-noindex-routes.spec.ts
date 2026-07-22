@@ -28,7 +28,7 @@ test.describe('private route noindex and robots.txt', () => {
 	});
 
 	test('marketing page keeps canonical and is not noindex', async ({ request }) => {
-		const response = await request.get('/en/about');
+		const response = await request.get('/en/privacy');
 
 		expect(response.status()).toBe(200);
 		const html = await response.text();

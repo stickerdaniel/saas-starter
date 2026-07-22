@@ -53,15 +53,15 @@ describe('marketing markdown helpers', () => {
 	it('renders frontmatter with requested route metadata', () => {
 		const markdown = renderMarketingMarkdown(sampleDocument, {
 			origin: 'https://example.com',
-			pathname: '/de/about',
+			pathname: '/de/pricing',
 			lang: 'de'
 		});
 
 		expect(markdown).toContain('title: "Sample Page"');
-		expect(markdown).toContain('route: "/de/about"');
+		expect(markdown).toContain('route: "/de/pricing"');
 		expect(markdown).toContain('lang_served: "de"');
 		expect(markdown).toContain('content_language: "en"');
-		expect(markdown).toContain('canonical: "https://example.com/de/about"');
+		expect(markdown).toContain('canonical: "https://example.com/de/pricing"');
 		expect(markdown).toContain('## Overview');
 		expect(markdown).toContain('- First bullet');
 	});
@@ -99,7 +99,6 @@ describe('marketing markdown helpers', () => {
 		const llms = renderLlmsTxt('https://example.com');
 
 		expect(llms).toContain(`# ${LEGAL_CONFIG.brandName}`);
-		expect(llms).toContain('https://example.com/en/about');
 		expect(llms).toContain('https://example.com/en/privacy');
 		expect(llms).toContain('https://example.com/en/terms');
 		expect(llms).toContain('https://example.com/en/impressum');
@@ -138,7 +137,6 @@ describe('marketing markdown helpers', () => {
 
 		expect(sitemap).toContain('<?xml version="1.0" encoding="UTF-8"?>');
 		expect(sitemap).toContain('<loc>https://example.com/en</loc>');
-		expect(sitemap).toContain('<loc>https://example.com/de/about</loc>');
 		expect(sitemap).toContain('<loc>https://example.com/fr/pricing</loc>');
 		expect(sitemap).toContain('<loc>https://example.com/en/privacy</loc>');
 		expect(sitemap).toContain('<loc>https://example.com/en/terms</loc>');

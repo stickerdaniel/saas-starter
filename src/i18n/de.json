@@ -714,10 +714,6 @@
 		"title": "Echte {year} Developer Experience"
 	},
 	"meta": {
-		"about": {
-			"description": "Lernen Sie das talentierte Team hinter unserem Produkt kennen",
-			"title": "Über uns"
-		},
 		"admin": {
 			"audit_log": {
 				"description": "Admin-Aktionen auf der Plattform überprüfen.",
@@ -810,7 +806,6 @@
 		}
 	},
 	"nav": {
-		"about": "Über uns",
 		"dashboard": "Dashboard",
 		"get_started": "Jetzt starten",
 		"home": "Start",

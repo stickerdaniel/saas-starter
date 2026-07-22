@@ -52,8 +52,8 @@ describe('require-marketing-route-registration rule', () => {
 		const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'marketing-route-rule-'));
 		tempDirs.push(tempDir);
 
-		writePublicRoutes(tempDir, ['home', 'pricing']);
-		const pagePath = writeMarketingPage(tempDir, ['about']);
+		writePublicRoutes(tempDir, ['home', 'privacy']);
+		const pagePath = writeMarketingPage(tempDir, ['pricing']);
 
 		const { context, report } = createContext(pagePath);
 		const listeners = rule.create(context);
@@ -61,14 +61,14 @@ describe('require-marketing-route-registration rule', () => {
 
 		expect(report).toHaveBeenCalledTimes(1);
 		expect(report.mock.calls[0][0].messageId).toBe('notRegistered');
-		expect(report.mock.calls[0][0].data.routeKey).toBe('about');
+		expect(report.mock.calls[0][0].data.routeKey).toBe('pricing');
 	});
 
 	it('passes when the marketing page is registered in public-routes.ts', () => {
 		const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'marketing-route-rule-'));
 		tempDirs.push(tempDir);
 
-		writePublicRoutes(tempDir, ['home', 'about', 'pricing']);
+		writePublicRoutes(tempDir, ['home', 'privacy', 'pricing']);
 		const pagePath = writeMarketingPage(tempDir, ['pricing']);
 
 		const { context, report } = createContext(pagePath);
@@ -96,7 +96,7 @@ describe('require-marketing-route-registration rule', () => {
 		const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'marketing-route-rule-'));
 		tempDirs.push(tempDir);
 
-		writePublicRoutes(tempDir, ['about']);
+		writePublicRoutes(tempDir, ['pricing']);
 		const pagePath = writeMarketingPage(tempDir, []);
 
 		const { context, report } = createContext(pagePath);
@@ -111,7 +111,7 @@ describe('require-marketing-route-registration rule', () => {
 		const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'marketing-route-rule-'));
 		tempDirs.push(tempDir);
 
-		const pagePath = writeMarketingPage(tempDir, ['about']);
+		const pagePath = writeMarketingPage(tempDir, ['pricing']);
 
 		const { context, report } = createContext(pagePath);
 		const listeners = rule.create(context);

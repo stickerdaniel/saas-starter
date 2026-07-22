@@ -1,17 +1,15 @@
 import { SUPPORTED_LANGUAGES, isSupportedLanguage } from '$lib/i18n/languages';
-import { marketingMarkdown as aboutMarketingMarkdown } from '../../routes/[[lang]]/(marketing)/about/page.md';
 import { marketingMarkdown as homeMarketingMarkdown } from '../../routes/[[lang]]/(marketing)/page.md';
 import { marketingMarkdown as impressumMarketingMarkdown } from '../../routes/[[lang]]/(marketing)/impressum/page.md';
 import { marketingMarkdown as pricingMarketingMarkdown } from '../../routes/[[lang]]/(marketing)/pricing/page.md';
 import { marketingMarkdown as privacyMarketingMarkdown } from '../../routes/[[lang]]/(marketing)/privacy/page.md';
 import { marketingMarkdown as termsMarketingMarkdown } from '../../routes/[[lang]]/(marketing)/terms/page.md';
 
-export type PublicMarketingRouteKey =
-	'home' | 'about' | 'pricing' | 'privacy' | 'terms' | 'impressum';
+export type PublicMarketingRouteKey = 'home' | 'pricing' | 'privacy' | 'terms' | 'impressum';
 
 export interface PublicMarketingRouteDefinition {
 	key: PublicMarketingRouteKey;
-	pathSuffix: '' | '/about' | '/pricing' | '/privacy' | '/terms' | '/impressum';
+	pathSuffix: '' | '/pricing' | '/privacy' | '/terms' | '/impressum';
 }
 
 export interface MatchedPublicMarketingRoute {
@@ -21,7 +19,6 @@ export interface MatchedPublicMarketingRoute {
 
 export const PUBLIC_MARKETING_ROUTES: PublicMarketingRouteDefinition[] = [
 	{ key: 'home', pathSuffix: '' },
-	{ key: 'about', pathSuffix: '/about' },
 	{ key: 'pricing', pathSuffix: '/pricing' },
 	{ key: 'privacy', pathSuffix: '/privacy' },
 	{ key: 'terms', pathSuffix: '/terms' },
@@ -30,7 +27,6 @@ export const PUBLIC_MARKETING_ROUTES: PublicMarketingRouteDefinition[] = [
 
 const MARKETING_DOCUMENTS = {
 	home: homeMarketingMarkdown,
-	about: aboutMarketingMarkdown,
 	pricing: pricingMarketingMarkdown,
 	privacy: privacyMarketingMarkdown,
 	terms: termsMarketingMarkdown,
@@ -39,9 +35,7 @@ const MARKETING_DOCUMENTS = {
 
 export function matchPublicMarketingRoute(pathname: string): MatchedPublicMarketingRoute | null {
 	const normalizedPath = pathname !== '/' ? pathname.replace(/\/+$/, '') : pathname;
-	const match = normalizedPath.match(
-		/^\/([a-z]{2})(?:\/(about|pricing|privacy|terms|impressum))?$/
-	);
+	const match = normalizedPath.match(/^\/([a-z]{2})(?:\/(pricing|privacy|terms|impressum))?$/);
 
 	if (!match) {
 		return null;

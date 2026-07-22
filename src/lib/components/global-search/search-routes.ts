@@ -26,13 +26,6 @@ export const SEARCH_ROUTES: SearchRouteEntry[] = [
 		keywords: ['pricing', 'plans', 'billing']
 	},
 	{
-		href: '/about',
-		access: 'public',
-		group: 'public',
-		titleKey: 'nav.about',
-		keywords: ['about', 'team']
-	},
-	{
 		href: '/signin',
 		access: 'public',
 		group: 'authentication',

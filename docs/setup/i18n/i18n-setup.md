@@ -322,7 +322,7 @@ The `SEOHead` component automatically adds:
 	import SEOHead from '$lib/components/SEOHead.svelte';
 </script>
 
-<SEOHead title="About Us" description="Learn more about our company" />
+<SEOHead title="Pricing" description="Choose the plan that fits your needs" />
 ```
 
 ## Production Setup
