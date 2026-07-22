@@ -53,7 +53,7 @@ export const ASSET_SERVE_PATTERN = /res = await (\w+)\.ASSETS\.fetch\(req\);?/;
 // bypass and the ASSETS.fetch replacement so the two can never drift. The
 // homepage (/en) matches via the absent optional group; pricing is
 // intentionally absent, it is SSR via handleCacheControl, not prerendered.
-const MARKETING_ROUTE_PREDICATE = `const __isPublicMarketingHtml = /^\\/[a-z]{2}(\\/(about|privacy|terms|impressum))?\\/?$/.test(new URL(req.url).pathname);`;
+const MARKETING_ROUTE_PREDICATE = `const __isPublicMarketingHtml = /^\\/[a-z]{2}(\\/(privacy|terms|impressum))?\\/?$/.test(new URL(req.url).pathname);`;
 
 // Replacement for the ASSETS.fetch call. `$1` is replaced with the captured env
 // binding. Prerendered marketing HTML bypasses SvelteKit hooks, so force a

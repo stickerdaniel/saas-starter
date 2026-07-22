@@ -36,12 +36,12 @@ describe('require-marketing-markdown rule', () => {
 			'routes',
 			'[[lang]]',
 			'(marketing)',
-			'about',
+			'privacy',
 			'+page.svelte'
 		);
 
 		fs.mkdirSync(path.dirname(pagePath), { recursive: true });
-		fs.writeFileSync(pagePath, '<h1>About</h1>');
+		fs.writeFileSync(pagePath, '<h1>Privacy</h1>');
 
 		const { context, report } = createContext(pagePath);
 		const listeners = rule.create(context);

@@ -714,10 +714,6 @@
 		"title": "Véritable Expérience Développeur {year}"
 	},
 	"meta": {
-		"about": {
-			"description": "Rencontrez l'équipe talentueuse derrière notre produit",
-			"title": "À propos"
-		},
 		"admin": {
 			"audit_log": {
 				"description": "Consultez les actions d'administration sur la plateforme.",
@@ -810,7 +806,6 @@
 		}
 	},
 	"nav": {
-		"about": "À propos",
 		"dashboard": "Tableau de bord",
 		"get_started": "Commencer",
 		"home": "Accueil",

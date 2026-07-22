@@ -28,7 +28,7 @@ test.describe('public agent surface', () => {
 	});
 
 	test('marketing pages still return markdown when explicitly requested', async ({ request }) => {
-		for (const path of ['/en', '/en/about', '/en/pricing']) {
+		for (const path of ['/en', '/en/pricing']) {
 			const response = await request.get(`${path}?cb=${Date.now()}`, {
 				headers: {
 					Accept: 'text/markdown'
@@ -62,7 +62,7 @@ test.describe('public agent surface', () => {
 		request
 	}) => {
 		test.skip(!isCloudflarePreview, 'worker patch is CF-only; not present in local test stack');
-		const html = await request.get(`/en/about?cb=${Date.now()}`, {
+		const html = await request.get(`/en/privacy?cb=${Date.now()}`, {
 			headers: { Accept: 'text/html' }
 		});
 		expect(html.status()).toBe(200);
@@ -74,7 +74,7 @@ test.describe('public agent surface', () => {
 		expect(html.headers()['cache-control']).toContain('no-cache');
 		expect(html.headers()['cache-control']).not.toContain('s-maxage');
 
-		const md = await request.get(`/en/about?cb=${Date.now()}`, {
+		const md = await request.get(`/en/privacy?cb=${Date.now()}`, {
 			headers: { Accept: 'text/markdown' }
 		});
 		expect(md.status()).toBe(200);

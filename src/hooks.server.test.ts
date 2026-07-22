@@ -10,7 +10,7 @@ describe('hooks.server', () => {
 		expect(shouldBypassLanguageRedirect('/sitemap.xml')).toBe(true);
 		expect(shouldBypassLanguageRedirect('/sitemap.xml/')).toBe(true);
 		expect(shouldBypassLanguageRedirect('/api/auth/session')).toBe(true);
-		expect(shouldBypassLanguageRedirect('/en/about')).toBe(false);
+		expect(shouldBypassLanguageRedirect('/en/pricing')).toBe(false);
 	});
 });
 

@@ -383,7 +383,7 @@ Transactional email delivered through [Resend](https://www.convex.dev/components
 
 ### Internationalization
 
-4 languages (EN, DE, ES, FR) with URL-based routing (`/de/pricing`, `/fr/about`) powered by [Tolgee](https://docs.tolgee.io/). Edit translations in context with Tolgee DevTools during development. Production builds tag and pull the latest translations automatically. A custom ESLint rule ensures every `aria-label` uses a translation key instead of a hardcoded string.
+4 languages (EN, DE, ES, FR) with URL-based routing (`/de/pricing`, `/fr/privacy`) powered by [Tolgee](https://docs.tolgee.io/). Edit translations in context with Tolgee DevTools during development. Production builds tag and pull the latest translations automatically. A custom ESLint rule ensures every `aria-label` uses a translation key instead of a hardcoded string.
 
 > This project has too many translation keys for Tolgee Cloud's free tier. A self-hosted instance deploys in one click via [Coolify](https://coolify.io/docs/services/tolgee).
 
