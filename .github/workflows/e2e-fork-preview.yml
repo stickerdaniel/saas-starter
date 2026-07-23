@@ -159,6 +159,10 @@ jobs:
         with:
           name: playwright-report
           path: playwright-report/
+          # Failure diagnostics are debugged within days; the repository default
+          # of 90 days only accumulates storage against the account quota.
+          retention-days: 7
+          if-no-files-found: ignore
 
       # Branch protection requires both "E2E Tests" and "Workers Builds: saas-starter".
       # This job performs the equivalent build+deploy, so on success it satisfies
