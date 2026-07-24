@@ -5,23 +5,21 @@
 	import type { HTMLTextareaAttributes } from 'svelte/elements';
 	import { watch } from 'runed';
 
-	let {
-		class: className,
-		onkeydown,
-		onpaste,
-		disableAutosize = false,
-		...restProps
-	}: HTMLTextareaAttributes & {
-		disableAutosize?: boolean;
-	} = $props();
+	let { class: className, onkeydown, onpaste, ...restProps }: HTMLTextareaAttributes = $props();
 
 	const context = promptInputContext.get();
 
-	// Auto-resize. Always reset to `auto` before measuring so the textarea can
-	// shrink as well as grow: the earlier `scrollTop === 0` guard skipped the
-	// reset while the field was scrolled, which left it stuck at a tall height.
+	// The base Textarea carries `field-sizing-content`, so engines that support
+	// it grow and shrink the field with its content — including re-wrapping on
+	// width changes — without any JS measurement. The context maxHeight becomes
+	// a plain CSS clamp below. Engines without field-sizing (Safari, Firefox)
+	// fall back to the previous JS autosize.
+	const supportsFieldSizing = typeof CSS !== 'undefined' && CSS.supports('field-sizing', 'content');
+
+	// Fallback auto-resize. Always reset to `auto` before measuring so the
+	// textarea can shrink as well as grow.
 	function resize() {
-		if (disableAutosize) return;
+		if (supportsFieldSizing) return;
 		const ta = context.textareaRef;
 		if (!ta) return;
 		ta.style.height = 'auto';
@@ -32,20 +30,22 @@
 	}
 
 	// Re-measure on value/maxHeight changes...
-	watch([() => context.value, () => context.maxHeight, () => disableAutosize], resize);
+	watch([() => context.value, () => context.maxHeight], resize);
 
 	// ...and on width changes. scrollHeight is width-dependent, so a height
-	// measured while the field was narrow (e.g. the empty placeholder wrapping in
-	// a resizable pane) is a fixed pixel value that would otherwise never recover
-	// when the field widens again. A ResizeObserver re-runs the measurement so the
-	// height tracks the current width instead of latching.
+	// measured while the field was narrow is a fixed pixel value that would
+	// otherwise never recover when the field widens again.
 	$effect(() => {
 		const ta = context.textareaRef;
-		if (!ta || disableAutosize || typeof ResizeObserver === 'undefined') return;
+		if (!ta || supportsFieldSizing || typeof ResizeObserver === 'undefined') return;
 		const observer = new ResizeObserver(() => resize());
 		observer.observe(ta);
 		return () => observer.disconnect();
 	});
+
+	const maxHeightStyle = $derived(
+		typeof context.maxHeight === 'number' ? `${context.maxHeight}px` : context.maxHeight
+	);
 
 	function handleKeyDown(e: KeyboardEvent & { currentTarget: HTMLTextAreaElement }) {
 		if (e.key === 'Enter' && !e.shiftKey) {
@@ -70,6 +70,7 @@
 		'min-h-[44px] w-full resize-none border-none !bg-transparent text-foreground shadow-none outline-none focus-visible:ring-0 focus-visible:ring-offset-0',
 		className
 	)}
+	style="max-height: {maxHeightStyle}"
 	rows={1}
 	disabled={context.disabled}
 	{...restProps}
