@@ -153,20 +153,20 @@ describe('patch-cf-worker', () => {
 		expect(result).not.toContain('$1.ASSETS');
 	});
 
-	it('stays in sync with the handleCacheControl header in hooks.server.ts', () => {
-		// The injected worker header and the SSR hook header are the same policy
+	it('stays in sync with the applyCacheControl header in cache-control.ts', () => {
+		// The injected worker header and the SSR policy header are the same policy
 		// declared in two places; if they drift, prerendered and SSR marketing
 		// pages silently diverge in cache behavior.
 		const result = applyMarkdownPatch(WORKER_FIXTURE)!;
 		const injected = result.match(/res\.headers\.set\("Cache-Control", "([^"]+)"\)/)?.[1];
 		expect(injected).toBeTruthy();
 
-		const hooksSource = fs.readFileSync(path.resolve('src/hooks.server.ts'), 'utf-8');
+		const policySource = fs.readFileSync(path.resolve('src/lib/server/cache-control.ts'), 'utf-8');
 		// Isolate the marketing branch (matchPublicMarketingRoute up to its Vary
 		// header) so the auth-group branch cannot mask a drifted marketing value.
-		const marketingBranch = hooksSource.slice(
-			hooksSource.indexOf('matchPublicMarketingRoute(event.url.pathname)'),
-			hooksSource.indexOf("response.headers.set('Vary', 'Accept')")
+		const marketingBranch = policySource.slice(
+			policySource.indexOf('matchPublicMarketingRoute(event.url.pathname)'),
+			policySource.indexOf("response.headers.set('Vary', 'Accept')")
 		);
 		expect(marketingBranch).toContain(`'Cache-Control', '${injected}'`);
 	});
