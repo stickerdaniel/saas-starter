@@ -172,6 +172,7 @@
 			/>
 			<ChatInput
 				class="mx-4"
+				compact
 				placeholder={$t('ai_chat.input.placeholder')}
 				suggestions={[]}
 				showFileButton={hasMessagesAvailable}
