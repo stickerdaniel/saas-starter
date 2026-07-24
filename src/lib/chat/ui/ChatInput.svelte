@@ -738,7 +738,7 @@
 	     put when the field grows — no radius jump between layouts. -->
 	<PromptInput
 		class={compact
-			? `relative z-20 rounded-[25px] bg-popover ${compactMultiline ? 'p-0' : 'p-1.5'}`
+			? `relative z-20 rounded-[25px] border-0 bg-popover shadow-none ${compactMultiline ? 'p-0' : 'p-1.5'}`
 			: 'relative z-20 bg-popover p-0'}
 		value={ctx.inputValue}
 		isLoading={ctx.core.isSending}
@@ -792,13 +792,10 @@
 						/>
 						{#if !ctx.inputValue}
 							<!-- Decorative rotating hint; the textarea carries the accessible name. -->
-							<div
-								class="pointer-events-none absolute inset-0 overflow-hidden px-1"
-								aria-hidden="true"
-							>
+							<div class="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
 								{#key visiblePlaceholder}
 									<span
-										class="absolute inset-0 flex items-center truncate text-base leading-5 text-muted-foreground"
+										class="absolute inset-0 flex items-center truncate px-1 text-base leading-5 text-muted-foreground"
 										in:fly={{
 											y: prefersReducedMotion.current ? 0 : 8,
 											duration: prefersReducedMotion.current ? 0 : 180
