@@ -125,8 +125,15 @@ jobs:
       - name: Wait for Convex backend readiness
         run: |
           echo "Waiting for Convex backend at: ${PUBLIC_CONVEX_URL}"
+          # A cold preview backend can take about a minute to boot (the
+          # Playwright config budgets 90s for auth setup for the same reason),
+          # so the wait window must comfortably exceed one cold boot: 24
+          # attempts with backoff capped at 10s ≈ 3.5 minutes. No 404
+          # self-heal here — the deploy ran moments ago in this same job, so
+          # persistent 404s mean the deploy itself is broken.
           missing=0
-          for i in $(seq 1 12); do
+          delay=3
+          for i in $(seq 1 24); do
             code=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 5 --max-time 10 "${PUBLIC_CONVEX_URL}" || true)
             if [ "$code" = "200" ]; then
               echo "Convex backend is ready (attempt $i)"
@@ -142,10 +149,11 @@ jobs:
             else
               missing=0
             fi
-            echo "Not ready yet (attempt $i/12, http=$code), waiting 5s..."
-            [ "$i" -lt 12 ] && sleep 5
+            echo "Not ready yet (attempt $i/24, http=$code), waiting ${delay}s..."
+            [ "$i" -lt 24 ] && sleep "$delay"
+            [ "$delay" -lt 10 ] && delay=$((delay + 1))
           done
-          echo "::error::Convex backend not ready after 60s (last http=$code): ${PUBLIC_CONVEX_URL}"
+          echo "::error::Convex backend not ready within the wait window (last http=$code): ${PUBLIC_CONVEX_URL}"
           exit 1
 
       - name: Run E2E tests
