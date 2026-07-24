@@ -31,7 +31,10 @@ async function findUserByEmail(ctx: MutationCtx, email: string): Promise<BetterA
 	return (user as BetterAuthUser | null) ?? null;
 }
 
-// Invoked by preview deploy script (scripts/deploy.ts)
+// Invoked by preview deploy script (scripts/deploy.ts). NOT for local dev:
+// `bun run dev` already seeds admin@local.dev via localDev:ensureSeededAdmin;
+// running this locally would create a second, pointless admin. The guard
+// below makes that mistake loud.
 export const ensurePreviewAdmin = internalMutation({
 	args: {},
 	returns: v.object({
@@ -41,6 +44,16 @@ export const ensurePreviewAdmin = internalMutation({
 		skipped: v.boolean()
 	}),
 	handler: async (ctx) => {
+		// Mirror of the localDev guard: each seeder refuses to run in the other's
+		// environment, so grabbing the wrong one fails with a pointer instead of
+		// silently minting an extra admin.
+		if (process.env.LOCAL_CONVEX_DEV === 'true') {
+			throw new Error(
+				'previewDev:ensurePreviewAdmin is for preview deployments only. ' +
+					'On a local dev backend the admin is already seeded by ' +
+					'localDev:ensureSeededAdmin — sign in as admin@local.dev.'
+			);
+		}
 		const password = process.env.PREVIEW_ADMIN_PASSWORD?.trim();
 		if (!password) {
 			throw new Error(
