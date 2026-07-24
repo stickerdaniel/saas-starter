@@ -61,7 +61,7 @@ The pre-commit hook intentionally runs fast staged lint only, so commit freely w
 
 For reviews and audits, fetch and inspect `origin/main` rather than the shared main checkout, which may intentionally lag behind. Revalidate every finding against that baseline before reporting or changing code.
 
-Open PRs as drafts because ready PRs can auto-merge. Mark a PR ready only after all follow-up work is done, then run `gh pr merge <n> --squash --auto --delete-branch`.
+Open PRs as drafts because ready PRs can auto-merge. Mark a PR ready only after all follow-up work is done, then run `gh pr merge <n> --squash --auto` without `--delete-branch`: the repository deletes merged branches itself, which lets GitHub retarget the next stacked PR onto the merged base. An explicit `--delete-branch` deletes the branch outside the merge flow and force-closes dependent stacked PRs instead. After each merge in a stack, rebase the retargeted PR onto the new base before merging it.
 
 Except for truly small UI-only or docs-only changes, monitor the branch through green required CI, merge it, and verify a green production deployment. If a required check fails, read its provider logs and guide it to green; never override an unexplained failure.
 
