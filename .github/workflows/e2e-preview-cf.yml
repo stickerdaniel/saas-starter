@@ -66,6 +66,7 @@ jobs:
     permissions:
       statuses: write
       contents: read
+      checks: write
     # Only run on successful CF Workers preview builds (production builds lack Preview Alias URL)
     if: |
       github.event.check_run.app.slug == 'cloudflare-workers-and-pages' &&
@@ -127,29 +128,64 @@ jobs:
           } >> "$GITHUB_ENV"
 
       - name: Wait for Convex backend readiness
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CHECK_RUN_ID: ${{ github.event.check_run.id }}
         run: |
           echo "Waiting for Convex backend at: ${PUBLIC_CONVEX_URL}"
-          missing=0
-          for i in $(seq 1 12); do
-            code=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 5 --max-time 10 "${PUBLIC_CONVEX_URL}" || true)
-            if [ "$code" = "200" ]; then
-              echo "Convex backend is ready (attempt $i)"
+
+          # A cold preview backend can take about a minute to boot (the
+          # Playwright config budgets 90s for auth setup for the same reason),
+          # so the wait window must comfortably exceed one cold boot.
+          # 24 attempts with backoff capped at 10s ≈ 3.5 minutes per round.
+          wait_for_ready() {
+            local missing=0 delay=3 code
+            for i in $(seq 1 24); do
+              code=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 5 --max-time 10 "${PUBLIC_CONVEX_URL}" || true)
+              if [ "$code" = "200" ]; then
+                echo "Convex backend is ready (attempt $i)"
+                return 0
+              fi
+              if [ "$code" = "404" ]; then
+                missing=$((missing + 1))
+                # Two consecutive 404s mean the preview deployment is gone
+                # (evicted), not still booting: no amount of waiting helps.
+                [ "$missing" -ge 2 ] && return 40
+              else
+                missing=0
+              fi
+              echo "Not ready yet (attempt $i/24, http=$code), waiting ${delay}s..."
+              [ "$i" -lt 24 ] && sleep "$delay"
+              [ "$delay" -lt 10 ] && delay=$((delay + 1))
+            done
+            return 1
+          }
+
+          rc=0
+          wait_for_ready || rc=$?
+          if [ "$rc" = "0" ]; then
+            exit 0
+          elif [ "$rc" = "40" ]; then
+            # Evicted backend: recreate it once ourselves by rerequesting the
+            # CF Workers check run (its build re-provisions the Convex
+            # preview), then wait again instead of asking a human to click.
+            echo "Convex preview backend is gone (HTTP 404). Rerequesting the Cloudflare Workers check to recreate it..."
+            if ! gh api -X POST "repos/${{ github.repository }}/check-runs/${CHECK_RUN_ID}/rerequest"; then
+              echo "::error::Convex preview backend is gone and the automatic rerequest failed."
+              echo "::error::Recreate it by rerunning the Cloudflare Workers check for this commit or pushing an empty commit."
+              exit 1
+            fi
+            # The rebuild takes a few minutes before the backend exists again;
+            # give it headroom before re-entering the readiness wait.
+            sleep 120
+            if wait_for_ready; then
               exit 0
             fi
-            if [ "$code" = "404" ]; then
-              missing=$((missing + 1))
-              if [ "$missing" -ge 2 ]; then
-                echo "::error::Convex preview backend is gone (HTTP 404 at ${PUBLIC_CONVEX_URL})."
-                echo "::error::Recreate it by rerunning the Cloudflare Workers check for this commit or pushing an empty commit."
-                exit 1
-              fi
-            else
-              missing=0
-            fi
-            echo "Not ready yet (attempt $i/12, http=$code), waiting 5s..."
-            [ "$i" -lt 12 ] && sleep 5
-          done
-          echo "::error::Convex backend not ready after 60s (last http=$code): ${PUBLIC_CONVEX_URL}"
+            echo "::error::Convex preview backend did not come back after an automatic recreate: ${PUBLIC_CONVEX_URL}"
+            echo "::error::Check the rerequested Cloudflare Workers build for this commit."
+            exit 1
+          fi
+          echo "::error::Convex backend not ready within the wait window: ${PUBLIC_CONVEX_URL}"
           exit 1
 
       - name: Log test configuration
