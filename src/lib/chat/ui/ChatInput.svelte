@@ -795,7 +795,7 @@
 							<div class="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
 								{#key visiblePlaceholder}
 									<span
-										class="absolute inset-0 flex items-center truncate px-1 text-base leading-5 text-muted-foreground"
+										class="absolute inset-0 flex items-center truncate px-1 text-base leading-5 text-muted-foreground md:text-sm"
 										in:fly={{
 											y: prefersReducedMotion.current ? 0 : 8,
 											duration: prefersReducedMotion.current ? 0 : 180
