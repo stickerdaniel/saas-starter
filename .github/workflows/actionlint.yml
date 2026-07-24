@@ -19,8 +19,8 @@ jobs:
     name: Lint Workflows
     runs-on: ubicloud-standard-2
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
-      - uses: reviewdog/action-actionlint@6fb7acc99f4a1008869fa8a0f09cfca740837d9d # v1.72.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: reviewdog/action-actionlint@50842263c20a7c46bd0065b9e624d3c569db061e # v1.73.0
         with:
           # Log-only reporter: needs no write permissions and works on both
           # pull_request and push events. fail_level makes findings fail the job
