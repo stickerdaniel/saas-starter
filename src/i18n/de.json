@@ -536,7 +536,8 @@
 		},
 		"tooltip": {
 			"attach_files": "Dateien anhängen",
-			"mark_bug": "Fehler markieren"
+			"mark_bug": "Fehler markieren",
+			"more_actions": "Weitere Aktionen"
 		}
 	},
 	"common": {

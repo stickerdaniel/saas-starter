@@ -91,6 +91,9 @@ export class ChatUIContext {
 	 * rather than by array index. */
 	attachments = $state<Attachment[]>([]);
 
+	/** The one composer mounted inside this ChatRoot. */
+	private composerFocus?: () => void;
+
 	/** Tracks if we've ever displayed messages in this session */
 	private _hasEverDisplayedMessages = false;
 
@@ -230,6 +233,18 @@ export class ChatUIContext {
 	 */
 	setMessagesReady(ready: boolean): void {
 		this.messagesReady = ready;
+	}
+
+	registerComposerFocus(handler: () => void): void {
+		this.composerFocus = handler;
+	}
+
+	unregisterComposerFocus(handler: () => void): void {
+		if (this.composerFocus === handler) this.composerFocus = undefined;
+	}
+
+	focusComposer(): void {
+		this.composerFocus?.();
 	}
 
 	/**
