@@ -1,7 +1,9 @@
 {
 	"extends": "./.svelte-kit/tsconfig.json",
 	"compilerOptions": {
-		"rewriteRelativeImportExtensions": true,
+		// This app type-checks with noEmit and builds through Vite, so explicit .ts specifiers
+		// must be allowed rather than rewritten; rewriting rejects aliases with TS2877.
+		"allowImportingTsExtensions": true,
 		"allowJs": true,
 		"checkJs": true,
 		"esModuleInterop": true,
