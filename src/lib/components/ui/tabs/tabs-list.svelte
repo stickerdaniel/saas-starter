@@ -57,14 +57,21 @@
 				return;
 			}
 
+			// offsetLeft/offsetWidth round to whole pixels while triggers have
+			// fractional widths; measure via rects so the thumb hugs the trigger
+			// exactly instead of drifting up to 1px horizontally.
+			const listRect = list.getBoundingClientRect();
+			const rect = active.getBoundingClientRect();
+			const left = rect.left - listRect.left;
+			const top = rect.top - listRect.top;
 			const write = () => {
 				if (isLine) {
-					thumb.style.transform = `translateX(${active.offsetLeft}px)`;
-					thumb.style.width = `${active.offsetWidth}px`;
+					thumb.style.transform = `translateX(${left}px)`;
+					thumb.style.width = `${rect.width}px`;
 				} else {
-					thumb.style.transform = `translate(${active.offsetLeft}px, ${active.offsetTop}px)`;
-					thumb.style.width = `${active.offsetWidth}px`;
-					thumb.style.height = `${active.offsetHeight}px`;
+					thumb.style.transform = `translate(${left}px, ${top}px)`;
+					thumb.style.width = `${rect.width}px`;
+					thumb.style.height = `${rect.height}px`;
 				}
 				thumb.style.opacity = '1';
 			};
