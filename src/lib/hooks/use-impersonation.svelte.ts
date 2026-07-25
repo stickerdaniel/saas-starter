@@ -19,6 +19,8 @@ import { toast } from 'svelte-sonner';
 export class ImpersonationState {
 	#impersonating = $state(false);
 	#resolved = $state(false);
+	// Plain field, not $state: a latch read inside the subscription, never rendered.
+	#stopConfirmed = false;
 
 	/** True once the session carries `impersonatedBy`. False while unresolved. */
 	get isImpersonating(): boolean {
@@ -49,7 +51,15 @@ export class ImpersonationState {
 	constructor() {
 		$effect(() => {
 			return authClient.useSession().subscribe((s) => {
-				this.#impersonating = !!s.data?.session?.impersonatedBy;
+				// Once the server has confirmed a stop, any session still carrying
+				// impersonatedBy is a stale in-flight read: Better Auth writes every
+				// completed refresh into the store unconditionally, with no generation
+				// check, so one started before the stop can land after it and revive a
+				// session that no longer exists. This instance cannot legitimately
+				// impersonate again, since a successful stop navigates away.
+				if (!this.#stopConfirmed) {
+					this.#impersonating = !!s.data?.session?.impersonatedBy;
+				}
 				// Stays true across refetches that already hold data, so a background
 				// session refresh never flickers the control back to its pending state.
 				this.#resolved = !s.isPending;
@@ -77,6 +87,7 @@ export class ImpersonationState {
 			// impersonated session. Leaving the flag set would leave Stop as the only
 			// control on a session that can no longer be stopped, and every further
 			// click would fail with "You are not impersonating anyone".
+			this.#stopConfirmed = true;
 			this.#impersonating = false;
 
 			// Better Auth's convex plugin does not re-mint the SSR JWT cookie on stop.
