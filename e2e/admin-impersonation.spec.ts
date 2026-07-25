@@ -133,8 +133,11 @@ test.describe('Admin Impersonation', () => {
 		await expect(page.locator('#user-menu-trigger')).toContainText(targetEmail);
 
 		// Stop impersonating from the user menu. This restores the admin session and
-		// navigates back to the users table.
+		// navigates back to the users table. Log out is hidden while impersonating: it
+		// would end the impersonated user's session and strand the admin logged out.
 		await page.locator('#user-menu-trigger').click();
+		await expect(page.getByTestId('app-user-menu-stop-impersonating')).toBeVisible();
+		await expect(page.getByTestId('logout-button')).toHaveCount(0);
 		await page.getByTestId('app-user-menu-stop-impersonating').click();
 
 		await page.waitForURL(/\/en\/admin\/users/, { timeout: 30000 });

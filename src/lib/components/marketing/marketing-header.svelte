@@ -10,8 +10,10 @@
 	import Menu from '@lucide/svelte/icons/menu';
 	import X from '@lucide/svelte/icons/x';
 	import LogOut from '@lucide/svelte/icons/log-out';
+	import UserXIcon from '@lucide/svelte/icons/user-x';
 	import Logo from '$lib/components/icons/logo.svelte';
 	import { authClient } from '$lib/auth-client';
+	import { ImpersonationState } from '$lib/hooks/use-impersonation.svelte.ts';
 	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
 	import { T, getTranslate } from '@tolgee/svelte';
 	import { LEGAL_CONFIG } from '$lib/config/legal';
@@ -20,6 +22,11 @@
 	const auth = useAuth();
 	let signingOut = $state(false);
 	const isAuthenticated = $derived(auth.isAuthenticated && !signingOut);
+
+	// The app shell links here from the sidebar logo, so an impersonating admin can
+	// reach this header. Signing out from here would end the impersonated session
+	// and strand the admin, so the control becomes Stop Impersonating instead.
+	const impersonation = new ImpersonationState();
 
 	// Capture once at mount: did the server have a valid JWT?
 	const ssrAuthenticated = auth.isAuthenticated;
@@ -163,15 +170,29 @@
 									>
 										<T keyName="nav.dashboard" />
 									</Button>
-									<Button
-										variant="outline"
-										size="icon"
-										class="size-8"
-										onclick={() => signOut()}
-										aria-label={$t('aria.logout')}
-									>
-										<LogOut class="size-4" />
-									</Button>
+									{#if impersonation.isImpersonating}
+										<Button
+											variant="outline"
+											size="icon"
+											class="size-8 text-warning hover:text-warning"
+											onclick={() => impersonation.stop($t)}
+											aria-label={$t('app.user_menu.stop_impersonating')}
+											data-testid="marketing-nav-stop-impersonating"
+										>
+											<UserXIcon class="size-4" />
+										</Button>
+									{:else}
+										<Button
+											variant="outline"
+											size="icon"
+											class="size-8"
+											onclick={() => signOut()}
+											aria-label={$t('aria.logout')}
+											data-testid="marketing-nav-logout"
+										>
+											<LogOut class="size-4" />
+										</Button>
+									{/if}
 								{:else if isAtTop}
 									<Button variant="ghost" size="sm" href={localizedHref('/signin')}>
 										<T keyName="nav.login" />
