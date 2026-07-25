@@ -8,7 +8,7 @@
 	import { resolve } from '$app/paths';
 	import { useQuery, usePaginatedQuery } from 'convex-svelte';
 	import { api } from '$lib/convex/_generated/api';
-	import { useMedia } from '$lib/hooks/use-media.svelte';
+	import { useMedia } from '$lib/hooks/use-media.svelte.ts';
 	import { T, getTranslate } from '@tolgee/svelte';
 	import * as Sheet from '$lib/components/ui/sheet';
 	import * as Drawer from '$lib/components/ui/drawer';
@@ -17,8 +17,11 @@
 	import ThreadList from './thread-list.svelte';
 	import ThreadChat from './thread-chat.svelte';
 	import ThreadDetails from './thread-details.svelte';
-	import { AdminSupportUIManager, adminSupportUIContext } from '$lib/hooks/admin-support-ui.svelte';
-	import { adminCache } from '$lib/hooks/admin-cache.svelte';
+	import {
+		AdminSupportUIManager,
+		adminSupportUIContext
+	} from '$lib/hooks/admin-support-ui.svelte.ts';
+	import { adminCache } from '$lib/hooks/admin-cache.svelte.ts';
 	import { ChatDraftManager } from '$lib/chat';
 	import { browser } from '$app/environment';
 

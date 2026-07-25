@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { cn } from '$lib/utils';
 	import { Textarea } from '$lib/components/ui/textarea/index.js';
-	import { attachmentsContext } from './attachments-context.svelte.js';
+	import { attachmentsContext } from './attachments-context.svelte.ts';
 
 	interface Props {
 		class?: string;

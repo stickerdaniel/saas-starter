@@ -4,4 +4,4 @@ export { default as MessageContent } from './MessageContent.svelte';
 export { default as MessageActions } from './MessageActions.svelte';
 export { default as MessageAction } from './MessageAction.svelte';
 
-export * from './message-context.svelte.js';
+export * from './message-context.svelte.ts';

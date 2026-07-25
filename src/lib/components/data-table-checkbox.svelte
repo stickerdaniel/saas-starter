@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Checkbox } from '$lib/components/ui/checkbox/index.js';
-	import { haptic } from '$lib/hooks/use-haptic.svelte';
+	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
 	import { getTranslate } from '@tolgee/svelte';
 	import type { ComponentProps } from 'svelte';
 

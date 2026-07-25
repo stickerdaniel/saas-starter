@@ -10,7 +10,7 @@
 	import { useCustomer, useAutumnOperation } from '@stickerdaniel/convex-autumn-svelte/sveltekit';
 	import { getTranslate } from '@tolgee/svelte';
 	import { toast } from 'svelte-sonner';
-	import { haptic } from '$lib/hooks/use-haptic.svelte';
+	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
 	import ThreadChat from './thread-chat.svelte';
 	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
 

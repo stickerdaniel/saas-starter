@@ -2,7 +2,7 @@
 	import { browser } from '$app/environment';
 	import { T } from '@tolgee/svelte';
 	import { PersistedState } from 'runed';
-	import { clockSkewContext } from '$lib/hooks/clock-skew.svelte';
+	import { clockSkewContext } from '$lib/hooks/clock-skew.svelte.ts';
 	import { Button } from '$lib/components/ui/button';
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
 

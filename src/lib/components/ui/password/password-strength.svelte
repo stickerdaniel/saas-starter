@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { tv } from 'tailwind-variants';
-	import { usePasswordStrength } from './password.svelte.js';
+	import { usePasswordStrength } from './password.svelte.ts';
 	import type { PasswordStrengthProps } from './types.js';
 	import { Meter } from 'bits-ui';
 	import { cn } from '$lib/utils.js';

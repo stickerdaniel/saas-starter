@@ -18,7 +18,7 @@
 	import UserXIcon from '@lucide/svelte/icons/user-x';
 	import { T, getTranslate } from '@tolgee/svelte';
 	import { localizedHref } from '$lib/utils/i18n';
-	import { haptic } from '$lib/hooks/use-haptic.svelte';
+	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
 	import { toast } from 'svelte-sonner';
 	import { useCustomer, useAutumnOperation } from '@stickerdaniel/convex-autumn-svelte/sveltekit';
 

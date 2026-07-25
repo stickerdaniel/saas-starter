@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import { useGlobalSearchContext } from '$lib/components/global-search/context.svelte';
+	import { useGlobalSearchContext } from '$lib/components/global-search/context.svelte.ts';
 	import * as Empty from '$lib/components/ui/empty/index.js';
 	import * as InputGroup from '$lib/components/ui/input-group/index.js';
 	import * as Kbd from '$lib/components/ui/kbd/index.js';

@@ -3,7 +3,7 @@
 	import MoonIcon from '@lucide/svelte/icons/moon';
 	import { getTranslate } from '@tolgee/svelte';
 	import { toggleMode } from 'mode-watcher';
-	import { haptic } from '$lib/hooks/use-haptic.svelte';
+	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import type { LightSwitchProps } from './types';
 

@@ -13,11 +13,11 @@
 	import { setContext } from 'svelte';
 	import { createSvelteTable, FlexRender } from '$lib/components/ui/data-table/index.js';
 	import ConvexCursorTableShell from '$lib/components/tables/convex-cursor-table-shell.svelte';
-	import { createConvexCursorTable } from '$lib/tables/convex/create-convex-cursor-table.svelte';
+	import { createConvexCursorTable } from '$lib/tables/convex/create-convex-cursor-table.svelte.ts';
 	import type { CursorListResult } from '$lib/tables/convex/contract';
 	import { columns } from './columns.js';
 	import type { NotificationRecipient } from '$lib/convex/admin/notificationPreferences/queries';
-	import { adminCache } from '$lib/hooks/admin-cache.svelte';
+	import { adminCache } from '$lib/hooks/admin-cache.svelte.ts';
 	import AddEmailDialog from './add-email-dialog.svelte';
 	import { browser } from '$app/environment';
 	import DataTableFilters from './data-table-filters.svelte';

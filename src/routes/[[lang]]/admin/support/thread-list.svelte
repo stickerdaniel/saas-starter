@@ -11,7 +11,7 @@
 	import Loader2Icon from '@lucide/svelte/icons/loader-2';
 	import { formatDistanceToNow } from 'date-fns';
 	import { watch } from 'runed';
-	import { haptic } from '$lib/hooks/use-haptic.svelte';
+	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
 	import { T, getTranslate } from '@tolgee/svelte';
 	import { InfiniteLoader, LoaderState } from 'svelte-infinite';
 	import { page } from '$app/state';

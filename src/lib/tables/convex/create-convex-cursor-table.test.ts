@@ -7,7 +7,7 @@ import {
 	hasPageBoundaryChanged,
 	hasTotalCountChanged,
 	hasQueryIdentityChanged
-} from './create-convex-cursor-table.svelte';
+} from './create-convex-cursor-table.svelte.ts';
 import type { CursorListResult } from './contract';
 
 function page(

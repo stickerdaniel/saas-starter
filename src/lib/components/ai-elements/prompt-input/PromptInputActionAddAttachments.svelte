@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { attachmentsContext } from './attachments-context.svelte.js';
+	import { attachmentsContext } from './attachments-context.svelte.ts';
 	import PromptInputActionMenuItem from './PromptInputActionMenuItem.svelte';
 	import ImageIcon from '@lucide/svelte/icons/image';
 

@@ -4,7 +4,7 @@
 	import type { ButtonVariant, ButtonSize } from '$lib/components/ui/button/index.js';
 	import type { HTMLButtonAttributes } from 'svelte/elements';
 	import type { WithChildren, WithoutChildren } from 'bits-ui';
-	import type { ChatStatus } from './attachments-context.svelte.js';
+	import type { ChatStatus } from './attachments-context.svelte.ts';
 	import SendIcon from '@lucide/svelte/icons/send';
 	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
 	import SquareIcon from '@lucide/svelte/icons/square';

@@ -4,7 +4,7 @@
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
 	import XIcon from '@lucide/svelte/icons/x';
-	import { haptic } from '$lib/hooks/use-haptic.svelte';
+	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
 	import { T, getTranslate } from '@tolgee/svelte';
 	import { useQuery } from 'convex-svelte';
 	import { api } from '$lib/convex/_generated/api.js';

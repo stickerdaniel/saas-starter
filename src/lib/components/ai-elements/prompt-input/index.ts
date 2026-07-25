@@ -52,4 +52,4 @@ export {
 	type FileWithId,
 	type PromptInputMessage,
 	type ChatStatus
-} from './attachments-context.svelte.js';
+} from './attachments-context.svelte.ts';

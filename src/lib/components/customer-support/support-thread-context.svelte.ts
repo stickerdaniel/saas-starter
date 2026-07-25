@@ -1,5 +1,5 @@
 import { Context } from 'runed';
-import { ChatDraftManager } from '$lib/chat/core/chat-draft-manager.svelte';
+import { ChatDraftManager } from '$lib/chat/core/chat-draft-manager.svelte.ts';
 import type { ConvexClient } from 'convex/browser';
 import { api } from '$lib/convex/_generated/api';
 import type { Attachment } from '$lib/chat';
@@ -613,7 +613,7 @@ export class SupportThreadContext {
  * @example
  * ```svelte
  * <script lang="ts">
- *   import { supportThreadContext } from './support-thread-context.svelte';
+ *   import { supportThreadContext } from './support-thread-context.svelte.ts';
  *
  *   const thread = supportThreadContext.get();
  *

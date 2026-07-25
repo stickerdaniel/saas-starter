@@ -18,11 +18,11 @@
 	import { ScrollButton } from '$lib/components/prompt-kit/scroll-button';
 	import * as Avatar from '$lib/components/ui/avatar/index.js';
 	import ProgressiveBlur from '$blocks/magic/ProgressiveBlur.svelte';
-	import { FadeOnLoad } from '$lib/utils/fade-on-load.svelte.js';
+	import { FadeOnLoad } from '$lib/utils/fade-on-load.svelte.ts';
 	import ArrowUpIcon from '@lucide/svelte/icons/arrow-up';
 	import MessageQuotaBanner from '$lib/components/message-quota-banner.svelte';
 	import { MAX_MESSAGE_LENGTH } from '$lib/chat/core/types';
-	import { haptic } from '$lib/hooks/use-haptic.svelte';
+	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
 	import { toast } from 'svelte-sonner';
 	import { mode } from 'mode-watcher';
 	import { tick, onMount } from 'svelte';

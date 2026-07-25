@@ -3,13 +3,13 @@
 	import { authClient } from '$lib/auth-client';
 	import { watch } from 'runed';
 	import { api } from '$lib/convex/_generated/api';
-	import { supportThreadContext } from './support-thread-context.svelte';
+	import { supportThreadContext } from './support-thread-context.svelte.ts';
 	import { lockscroll } from '@svelte-put/lockscroll';
-	import { IsMobile } from '$lib/hooks/is-mobile.svelte.js';
+	import { IsMobile } from '$lib/hooks/is-mobile.svelte.ts';
 	import { toast } from 'svelte-sonner';
 	import { ConvexError } from 'convex/values';
 	import { getTranslate } from '@tolgee/svelte';
-	import { haptic } from '$lib/hooks/use-haptic.svelte';
+	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
 	import { isAnonymousUser } from '$lib/convex/utils/anonymousUser';
 
 	// Import new chat components

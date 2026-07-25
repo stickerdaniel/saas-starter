@@ -11,9 +11,9 @@
 	import {
 		ScreenshotEditorState,
 		screenshotEditorContext
-	} from './screenshot-editor-context.svelte';
+	} from './screenshot-editor-context.svelte.ts';
 	import ScreenshotToolbar from './ScreenshotToolbar.svelte';
-	import { haptic } from '$lib/hooks/use-haptic.svelte';
+	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
 	import ScreenshotCanvas from './ScreenshotCanvas.svelte';
 
 	const { t } = getTranslate();

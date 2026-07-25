@@ -4,13 +4,13 @@
 	import ImageIcon from '@lucide/svelte/icons/image';
 	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
 	import { getTranslate } from '@tolgee/svelte';
-	import { haptic } from '$lib/hooks/use-haptic.svelte';
+	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
 	import Progress from '$lib/components/ui/progress/progress.svelte';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import AttachmentTextPreview from './AttachmentTextPreview.svelte';
 	import { isTextPreviewable } from '../core/attachmentPreview.js';
 	import type { Attachment, UploadState } from '../core/types.js';
-	import type { ChatAlignment } from './chat-context.svelte.js';
+	import type { ChatAlignment } from './chat-context.svelte.ts';
 
 	const { t } = getTranslate();
 

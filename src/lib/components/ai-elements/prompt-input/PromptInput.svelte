@@ -7,7 +7,7 @@
 		AttachmentsContext,
 		attachmentsContext,
 		type PromptInputMessage
-	} from './attachments-context.svelte.js';
+	} from './attachments-context.svelte.ts';
 
 	interface Props {
 		class?: string;

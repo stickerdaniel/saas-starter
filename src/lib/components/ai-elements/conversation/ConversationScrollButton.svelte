@@ -16,7 +16,7 @@
 <script lang="ts">
 	import { buttonVariants } from '$lib/components/ui/button';
 	import ArrowDown from '@lucide/svelte/icons/arrow-down';
-	import { stickToBottomContext } from './stick-to-bottom-context.svelte.js';
+	import { stickToBottomContext } from './stick-to-bottom-context.svelte.ts';
 	import { fly } from 'svelte/transition';
 	import { prefersReducedMotion } from 'svelte/motion';
 	import { backOut } from 'svelte/easing';

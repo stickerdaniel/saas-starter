@@ -2,7 +2,7 @@
 	import { cn } from '$lib/utils';
 	import type { Snippet } from 'svelte';
 	import { ElementSize } from 'runed';
-	import { attachmentsContext, type FileWithId } from './attachments-context.svelte.js';
+	import { attachmentsContext, type FileWithId } from './attachments-context.svelte.ts';
 
 	interface Props {
 		class?: string;

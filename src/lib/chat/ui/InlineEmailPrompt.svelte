@@ -9,7 +9,7 @@
 	import { toast } from 'svelte-sonner';
 	import { emailSchema } from '$lib/schemas/auth';
 	import { getTranslate } from '@tolgee/svelte';
-	import { haptic } from '$lib/hooks/use-haptic.svelte';
+	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
 
 	const { t } = getTranslate();
 

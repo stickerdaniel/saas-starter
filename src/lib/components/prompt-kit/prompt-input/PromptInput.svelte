@@ -6,7 +6,7 @@
 		PromptInputClass,
 		promptInputContext,
 		type PromptInputSchema
-	} from './prompt-input-context.svelte.js';
+	} from './prompt-input-context.svelte.ts';
 
 	let {
 		class: className,

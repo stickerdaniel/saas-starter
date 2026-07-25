@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { fileUploadContext } from './file-upload-context.svelte';
+	import { fileUploadContext } from './file-upload-context.svelte.ts';
 	import type { Snippet } from 'svelte';
 
 	type Props = {

@@ -18,7 +18,7 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import { haptic } from '$lib/hooks/use-haptic.svelte';
+	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
 
 	const { customer, checkout, openBillingPortal } = useCustomer();
 	const upgradeOperation = useAutumnOperation(checkout);

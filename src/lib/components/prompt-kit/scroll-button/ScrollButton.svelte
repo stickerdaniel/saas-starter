@@ -17,7 +17,7 @@
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { getTranslate } from '@tolgee/svelte';
 	import ChevronDown from '@lucide/svelte/icons/chevron-down';
-	import { chatContainerContext } from '../chat-container/chat-container-context.svelte.js';
+	import { chatContainerContext } from '../chat-container/chat-container-context.svelte.ts';
 	import { browser } from '$app/environment';
 
 	const { t } = getTranslate();

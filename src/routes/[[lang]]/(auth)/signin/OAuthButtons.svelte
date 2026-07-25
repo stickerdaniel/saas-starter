@@ -3,7 +3,7 @@
 	import KeyIcon from '@lucide/svelte/icons/key-round';
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
-	import type { LastAuthMethod, PendingOAuthProvider } from '$lib/hooks/last-auth-method.svelte';
+	import type { LastAuthMethod, PendingOAuthProvider } from '$lib/hooks/last-auth-method.svelte.ts';
 
 	type OAuthProviderAvailability = {
 		google?: boolean;

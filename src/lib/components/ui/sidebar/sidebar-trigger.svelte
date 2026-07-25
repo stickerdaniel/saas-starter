@@ -2,10 +2,10 @@
 	import { Button } from '$lib/components/ui/button/index.js';
 	import PanelLeftIcon from '@lucide/svelte/icons/panel-left';
 	import { getTranslate } from '@tolgee/svelte';
-	import { haptic } from '$lib/hooks/use-haptic.svelte';
+	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
 	import { cn } from '$lib/utils.js';
 	import type { ComponentProps } from 'svelte';
-	import { useSidebar } from './context.svelte.js';
+	import { useSidebar } from './context.svelte.ts';
 
 	const { t } = getTranslate();
 

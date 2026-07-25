@@ -10,7 +10,7 @@
 	import ArrowRightIcon from '@lucide/svelte/icons/arrow-right';
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
-	import { screenshotEditorContext } from './screenshot-editor-context.svelte';
+	import { screenshotEditorContext } from './screenshot-editor-context.svelte.ts';
 	import { DEFAULT_COLORS } from './types';
 	import { getTranslate } from '@tolgee/svelte';
 

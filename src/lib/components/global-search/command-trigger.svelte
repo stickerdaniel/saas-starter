@@ -3,8 +3,8 @@
 	import * as Kbd from '$lib/components/ui/kbd/index.js';
 	import { cn } from '$lib/utils.js';
 	import { getTranslate } from '@tolgee/svelte';
-	import { cmdOrCtrl } from '$lib/hooks/is-mac.svelte';
-	import { useGlobalSearchContext } from './context.svelte';
+	import { cmdOrCtrl } from '$lib/hooks/is-mac.svelte.ts';
+	import { useGlobalSearchContext } from './context.svelte.ts';
 
 	interface Props {
 		class?: string;

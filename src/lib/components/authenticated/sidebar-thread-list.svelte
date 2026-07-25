@@ -2,7 +2,7 @@
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import { haptic } from '$lib/hooks/use-haptic.svelte';
+	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
 	import { DEFAULT_LANGUAGE } from '$lib/i18n/languages';
 	import autoAnimate from '@formkit/auto-animate';
 	import { getTranslate } from '@tolgee/svelte';

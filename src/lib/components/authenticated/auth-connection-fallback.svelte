@@ -3,7 +3,7 @@
 	import { onMount } from 'svelte';
 	import { invalidate } from '$app/navigation';
 	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
-	import { clockSkewContext } from '$lib/hooks/clock-skew.svelte';
+	import { clockSkewContext } from '$lib/hooks/clock-skew.svelte.ts';
 	import { armReloadGuard, hasReloadGuard, shouldAutoReload } from './auth-fallback-recovery';
 	import * as Empty from '$lib/components/ui/empty/index.js';
 	import { Button } from '$lib/components/ui/button';

@@ -9,7 +9,7 @@
 	import { Button } from '$lib/components/ui/button/index.js';
 	import ArrowUpIcon from '@lucide/svelte/icons/arrow-up';
 	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
-	import { supportThreadContext } from './support-thread-context.svelte';
+	import { supportThreadContext } from './support-thread-context.svelte.ts';
 	import { CHAT_PAGE_SIZE, MAX_MESSAGE_LENGTH } from '$lib/chat/core/types';
 	import { getTranslate } from '@tolgee/svelte';
 	import { isAnonymousUser } from '$lib/convex/utils/anonymousUser';

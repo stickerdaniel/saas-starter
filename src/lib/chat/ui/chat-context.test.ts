@@ -6,8 +6,8 @@
  */
 
 import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from 'vitest';
-import { ChatUIContext } from './chat-context.svelte.js';
-import type { ChatCore } from '../core/chat-core.svelte.js';
+import { ChatUIContext } from './chat-context.svelte.ts';
+import type { ChatCore } from '../core/chat-core.svelte.ts';
 import type { ConvexClient } from 'convex/browser';
 import type { Attachment } from '../core/types.js';
 

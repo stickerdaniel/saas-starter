@@ -6,7 +6,7 @@
 	import ChatReasoning from './ChatReasoning.svelte';
 	import MessageBubble from './MessageBubble.svelte';
 	import InlineEmailPrompt from './InlineEmailPrompt.svelte';
-	import { getChatUIContext } from './chat-context.svelte.js';
+	import { getChatUIContext } from './chat-context.svelte.ts';
 	import { deriveOrderedParts, LEADING_REASONING_KEY, type OrderedPart } from './ordered-parts.js';
 	import { type DisplayMessage, type Attachment } from '../core/types.js';
 	import { AI_CHAT_LIMIT_NOTICE } from '$lib/convex/constants';

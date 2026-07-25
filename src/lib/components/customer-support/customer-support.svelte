@@ -7,12 +7,12 @@
 	import { page } from '$app/state';
 	import AIChatbar from '$lib/components/customer-support/ai-chatbar.svelte';
 	import FeedbackButton from '$lib/components/customer-support/feedback-button.svelte';
-	import { SupportThreadContext, supportThreadContext } from './support-thread-context.svelte';
+	import { SupportThreadContext, supportThreadContext } from './support-thread-context.svelte.ts';
 	import { ChatUIContext, type UploadConfig } from '$lib/chat';
 	import { browser } from '$app/environment';
 	import { generateAnonymousUserId, isAnonymousUser } from '$lib/convex/utils/anonymousUser';
-	import { supportUserId } from './support-user-id.svelte';
-	import { useSupportUrlState } from './use-support-url-state.svelte';
+	import { supportUserId } from './support-user-id.svelte.ts';
+	import { useSupportUrlState } from './use-support-url-state.svelte.ts';
 	import { getTranslate } from '@tolgee/svelte';
 	import { loadSentry } from '$lib/monitoring/sentry';
 	import { PUBLIC_SENTRY_DSN } from '$env/static/public';

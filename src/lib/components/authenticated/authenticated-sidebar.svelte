@@ -8,7 +8,7 @@
 	import type { ComponentProps } from 'svelte';
 	import { T } from '@tolgee/svelte';
 	import type { NavItem, NavSubItem, SidebarConfig, User } from './types';
-	import { haptic } from '$lib/hooks/use-haptic.svelte';
+	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
 	import { PersistedState } from 'runed';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import SidebarThreadList from './sidebar-thread-list.svelte';
