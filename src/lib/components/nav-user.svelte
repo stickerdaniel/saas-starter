@@ -185,7 +185,9 @@
 				</DropdownMenu.Group>
 				<DropdownMenu.Separator />
 				<!-- While impersonating, signing out would end the impersonated user's session
-				     and leave the admin logged out entirely, so only offer Stop Impersonating. -->
+				     and leave the admin logged out entirely, so only offer Stop Impersonating.
+				     Neither shows until the session resolves, so log out is never live on an
+				     unresolved session. -->
 				{#if impersonation.isImpersonating}
 					<DropdownMenu.Item
 						onclick={() => impersonation.stop($t)}
@@ -195,7 +197,7 @@
 						<UserXIcon />
 						<T keyName="app.user_menu.stop_impersonating" />
 					</DropdownMenu.Item>
-				{:else}
+				{:else if impersonation.canSignOut}
 					<DropdownMenu.Item onclick={() => signOut()} data-testid="logout-button">
 						<LogOutIcon />
 						<T keyName="app.user_menu.logout" />

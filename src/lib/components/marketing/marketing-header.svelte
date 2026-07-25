@@ -181,7 +181,7 @@
 										>
 											<UserXIcon class="size-4" />
 										</Button>
-									{:else}
+									{:else if impersonation.canSignOut}
 										<Button
 											variant="outline"
 											size="icon"
