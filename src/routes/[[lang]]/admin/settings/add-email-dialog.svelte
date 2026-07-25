@@ -5,7 +5,7 @@
 	import { Input } from '$lib/components/ui/input/index.js';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import { T, getTranslate } from '@tolgee/svelte';
-	import { haptic } from '$lib/hooks/use-haptic.svelte';
+	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
 	import { toast } from 'svelte-sonner';
 	import { addEmailForm } from './data.remote';
 	import { addEmailSchema } from './email-schema';

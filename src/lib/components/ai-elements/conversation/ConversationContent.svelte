@@ -9,7 +9,7 @@
 </script>
 
 <script lang="ts">
-	import { stickToBottomContext } from './stick-to-bottom-context.svelte.js';
+	import { stickToBottomContext } from './stick-to-bottom-context.svelte.ts';
 	import { watch } from 'runed';
 
 	let {

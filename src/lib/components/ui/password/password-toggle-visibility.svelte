@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { getTranslate } from '@tolgee/svelte';
 	import { Toggle } from '$lib/components/ui/toggle';
-	import { haptic } from '$lib/hooks/use-haptic.svelte';
+	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
 	import EyeIcon from '@lucide/svelte/icons/eye';
 	import EyeOffIcon from '@lucide/svelte/icons/eye-off';
-	import { usePasswordToggleVisibility } from './password.svelte.js';
+	import { usePasswordToggleVisibility } from './password.svelte.ts';
 	import type { PasswordToggleVisibilityProps } from './types.js';
 	import { cn } from '$lib/utils.js';
 

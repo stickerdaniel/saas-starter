@@ -9,7 +9,7 @@
 		SIDEBAR_WIDTH,
 		SIDEBAR_WIDTH_ICON
 	} from './constants.js';
-	import { setSidebar } from './context.svelte.js';
+	import { setSidebar } from './context.svelte.ts';
 
 	let {
 		ref = $bindable(null),

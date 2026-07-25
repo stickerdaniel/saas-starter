@@ -8,7 +8,7 @@
 	import { Progress } from '$lib/components/ui/progress/index.js';
 	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
 	import { uploadToStorage } from '$lib/chat';
-	import { haptic } from '$lib/hooks/use-haptic.svelte';
+	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
 	import { toast } from 'svelte-sonner';
 	import { T, getTranslate } from '@tolgee/svelte';
 	import { useConvexClient } from 'convex-svelte';

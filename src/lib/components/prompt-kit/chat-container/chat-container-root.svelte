@@ -4,7 +4,7 @@
 		chatContainerContext,
 		type ResizeMode,
 		type InitialMode
-	} from './chat-container-context.svelte';
+	} from './chat-container-context.svelte.ts';
 	import type { Snippet } from 'svelte';
 	import { cn } from '$lib/utils';
 	import { watch } from 'runed';

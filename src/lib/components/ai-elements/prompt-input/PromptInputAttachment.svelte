@@ -3,7 +3,7 @@
 	import { getTranslate } from '@tolgee/svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as Tooltip from '$lib/components/ui/tooltip/index.js';
-	import { attachmentsContext, type FileWithId } from './attachments-context.svelte.js';
+	import { attachmentsContext, type FileWithId } from './attachments-context.svelte.ts';
 	import PaperclipIcon from '@lucide/svelte/icons/paperclip';
 	import XIcon from '@lucide/svelte/icons/x';
 

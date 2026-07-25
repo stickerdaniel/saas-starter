@@ -2,14 +2,14 @@
 	import { useQuery, useConvexClient } from 'convex-svelte';
 	import { onDestroy, type Snippet } from 'svelte';
 	import type { UIMessage } from '@convex-dev/agent';
-	import { ChatCore, type ChatCoreAPI } from '../core/chat-core.svelte.js';
+	import { ChatCore, type ChatCoreAPI } from '../core/chat-core.svelte.ts';
 	import { CHAT_PAGE_SIZE, type DisplayMessage } from '../core/types.js';
 	import {
 		ChatUIContext,
 		setChatUIContext,
 		type UploadConfig,
 		type ChatAlignment
-	} from './chat-context.svelte.js';
+	} from './chat-context.svelte.ts';
 	import {
 		buildDisplayMessages,
 		dedupeChatDisplayMessages,

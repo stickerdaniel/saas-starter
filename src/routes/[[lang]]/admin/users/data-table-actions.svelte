@@ -18,7 +18,7 @@
 	import LogoutIcon from '@lucide/svelte/icons/log-out';
 	import ShieldIcon from '@lucide/svelte/icons/shield';
 	import CheckIcon from '@lucide/svelte/icons/check';
-	import { haptic } from '$lib/hooks/use-haptic.svelte';
+	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
 	import { T } from '@tolgee/svelte';
 	import { USER_ROLES } from '$lib/convex/admin/types';
 	import { getContext } from 'svelte';

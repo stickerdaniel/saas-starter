@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import { AuthFlowManager, authFlowContext } from '$lib/hooks/auth-flow.svelte';
+	import { AuthFlowManager, authFlowContext } from '$lib/hooks/auth-flow.svelte.ts';
 
 	interface Props {
 		children?: Snippet;

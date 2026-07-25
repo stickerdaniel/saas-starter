@@ -13,7 +13,7 @@
 	import { localizedHref } from '$lib/utils/i18n';
 	import { resolve } from '$app/paths';
 	import { T, getTranslate } from '@tolgee/svelte';
-	import { haptic } from '$lib/hooks/use-haptic.svelte';
+	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
 	import { PASSWORD_MIN_LENGTH, resetPasswordSchema } from './schema.js';
 	import { page } from '$app/state';
 	import { slide } from 'svelte/transition';

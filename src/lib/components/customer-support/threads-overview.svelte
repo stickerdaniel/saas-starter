@@ -9,9 +9,9 @@
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import UsersRoundIcon from '@lucide/svelte/icons/users-round';
-	import { supportThreadContext } from './support-thread-context.svelte';
+	import { supportThreadContext } from './support-thread-context.svelte.ts';
 	import AvatarHeading from './avatar-heading.svelte';
-	import { FadeOnLoad } from '$lib/utils/fade-on-load.svelte.js';
+	import { FadeOnLoad } from '$lib/utils/fade-on-load.svelte.ts';
 	import memberFour from '$blocks/team/avatars/member-four.webp';
 	import memberTwo from '$blocks/team/avatars/member-two.webp';
 	import memberFive from '$blocks/team/avatars/member-five.webp';

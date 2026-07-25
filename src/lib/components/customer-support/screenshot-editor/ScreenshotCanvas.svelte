@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Stage, Layer, Line, Rect, Ellipse, Arrow } from 'svelte-konva';
-	import { screenshotEditorContext } from './screenshot-editor-context.svelte';
+	import { screenshotEditorContext } from './screenshot-editor-context.svelte.ts';
 	import type { LineShape, RectShape, CircleShape, ArrowShape } from './types';
 
 	const editor = screenshotEditorContext.get();

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import { FileUploadContext, fileUploadContext } from './file-upload-context.svelte';
-	import { haptic } from '$lib/hooks/use-haptic.svelte';
+	import { FileUploadContext, fileUploadContext } from './file-upload-context.svelte.ts';
+	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
 
 	type Props = {
 		onFilesAdded: (files: File[]) => void;

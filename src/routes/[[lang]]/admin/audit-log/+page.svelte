@@ -7,11 +7,11 @@
 	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
 	import { T, getTranslate } from '@tolgee/svelte';
 	import { useConvexClient } from 'convex-svelte';
-	import { adminCache } from '$lib/hooks/admin-cache.svelte';
+	import { adminCache } from '$lib/hooks/admin-cache.svelte.ts';
 	import { api } from '$lib/convex/_generated/api.js';
 	import { createSvelteTable, FlexRender } from '$lib/components/ui/data-table/index.js';
 	import ConvexCursorTableShell from '$lib/components/tables/convex-cursor-table-shell.svelte';
-	import { createConvexCursorTable } from '$lib/tables/convex/create-convex-cursor-table.svelte';
+	import { createConvexCursorTable } from '$lib/tables/convex/create-convex-cursor-table.svelte.ts';
 	import type { CursorListResult } from '$lib/tables/convex/contract';
 	import type { AuditLogItem } from '$lib/convex/admin/auditLog/queries';
 	import { browser } from '$app/environment';

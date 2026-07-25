@@ -12,11 +12,11 @@
 	import { localizedHref } from '$lib/utils/i18n';
 	import { resolve } from '$app/paths';
 	import { T, getTranslate } from '@tolgee/svelte';
-	import { haptic } from '$lib/hooks/use-haptic.svelte';
+	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
 	import { forgotPasswordSchema } from './schema.js';
 	import { slide } from 'svelte/transition';
 	import { prefersReducedMotion } from 'svelte/motion';
-	import { authFlowContext } from '$lib/hooks/auth-flow.svelte';
+	import { authFlowContext } from '$lib/hooks/auth-flow.svelte.ts';
 	import { getAuthErrorKey } from '$lib/utils/auth-messages';
 	import { translateValidationErrors } from '$lib/utils/validation-i18n.js';
 

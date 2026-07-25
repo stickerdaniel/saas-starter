@@ -59,9 +59,9 @@ export type { UploadResult, ProgressCallback } from './file-uploader.js';
 export { uploadFileWithProgress, uploadToStorage } from './file-uploader.js';
 
 // Chat core
-export type { ChatCoreAPI, ChatCoreOptions, CreateThreadResult } from './chat-core.svelte.js';
+export type { ChatCoreAPI, ChatCoreOptions, CreateThreadResult } from './chat-core.svelte.ts';
 
-export { ChatCore, createChatCore } from './chat-core.svelte.js';
+export { ChatCore, createChatCore } from './chat-core.svelte.ts';
 
 // Draft persistence
-export { ChatDraftManager } from './chat-draft-manager.svelte.js';
+export { ChatDraftManager } from './chat-draft-manager.svelte.ts';

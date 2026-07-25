@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import { onMount, tick } from 'svelte';
-	import { useGlobalSearchContext } from './context.svelte';
+	import { useGlobalSearchContext } from './context.svelte.ts';
 
 	const globalSearch = useGlobalSearchContext();
 

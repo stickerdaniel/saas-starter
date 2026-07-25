@@ -6,14 +6,14 @@
  */
 
 // Context
-export type { UploadConfig } from './chat-context.svelte.js';
+export type { UploadConfig } from './chat-context.svelte.ts';
 
 export {
 	ChatUIContext,
 	setChatUIContext,
 	getChatUIContext,
 	tryGetChatUIContext
-} from './chat-context.svelte.js';
+} from './chat-context.svelte.ts';
 
 // Types
 /**

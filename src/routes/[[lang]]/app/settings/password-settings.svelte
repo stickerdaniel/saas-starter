@@ -9,7 +9,7 @@
 	import * as Item from '$lib/components/ui/item/index.js';
 	import * as Field from '$lib/components/ui/field/index.js';
 	import { Checkbox } from '$lib/components/ui/checkbox/index.js';
-	import { haptic } from '$lib/hooks/use-haptic.svelte';
+	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
 	import { toast } from 'svelte-sonner';
 	import { T, getTranslate } from '@tolgee/svelte';
 	import InfoIcon from '@lucide/svelte/icons/info';

@@ -19,8 +19,8 @@
 		type SearchRouteEntry,
 		type SearchRouteGroup
 	} from './search-routes';
-	import { haptic } from '$lib/hooks/use-haptic.svelte';
-	import { useGlobalSearchContext } from './context.svelte';
+	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
+	import { useGlobalSearchContext } from './context.svelte.ts';
 
 	type MenuRouteItem = SearchRouteEntry & {
 		id: string;

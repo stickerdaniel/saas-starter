@@ -12,8 +12,8 @@
 	import { localizedHref } from '$lib/utils/i18n';
 	import { resolve } from '$app/paths';
 	import { T, getTranslate } from '@tolgee/svelte';
-	import { haptic } from '$lib/hooks/use-haptic.svelte';
-	import { authFlowContext } from '$lib/hooks/auth-flow.svelte';
+	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
+	import { authFlowContext } from '$lib/hooks/auth-flow.svelte.ts';
 	import {
 		type LastAuthMethod,
 		type PendingOAuthProvider,
@@ -22,7 +22,7 @@
 		clearPendingOAuthProvider,
 		setLastSuccessfulAuthMethod,
 		clearLastSuccessfulAuthMethod
-	} from '$lib/hooks/last-auth-method.svelte';
+	} from '$lib/hooks/last-auth-method.svelte.ts';
 	import { getAuthErrorKey } from '$lib/utils/auth-messages';
 	import { safeRedirectPath } from '$lib/utils/url';
 	import SignInForm from './SignInForm.svelte';

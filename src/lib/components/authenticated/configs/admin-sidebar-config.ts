@@ -1,5 +1,5 @@
 import { localizedHref } from '$lib/utils/i18n';
-import { cmdOrCtrl, ctrlSymbol } from '$lib/hooks/is-mac.svelte';
+import { cmdOrCtrl, ctrlSymbol } from '$lib/hooks/is-mac.svelte.ts';
 import LayoutDashboardIcon from '@lucide/svelte/icons/layout-dashboard';
 import UsersIcon from '@lucide/svelte/icons/users';
 import MessagesSquareIcon from '@lucide/svelte/icons/messages-square';

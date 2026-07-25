@@ -21,8 +21,8 @@
 	import PaperclipIcon from '@lucide/svelte/icons/paperclip';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import ChatAttachments from './ChatAttachments.svelte';
-	import { haptic } from '$lib/hooks/use-haptic.svelte';
-	import { getChatUIContext } from './chat-context.svelte.js';
+	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
+	import { getChatUIContext } from './chat-context.svelte.ts';
 	import { processImage } from '$lib/media/process-image';
 	import {
 		ALLOWED_FILE_EXT_MIME,

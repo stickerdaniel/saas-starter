@@ -1,7 +1,7 @@
 <script lang="ts">
 	import * as Tooltip from '$lib/components/ui/tooltip/index.js';
 	import type { Snippet } from 'svelte';
-	import { promptInputContext } from './prompt-input-context.svelte.js';
+	import { promptInputContext } from './prompt-input-context.svelte.ts';
 
 	let {
 		tooltip,

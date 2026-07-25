@@ -2,7 +2,7 @@
 	import {
 		PromptInputController,
 		promptInputProviderContext
-	} from './attachments-context.svelte.js';
+	} from './attachments-context.svelte.ts';
 
 	import type { Snippet } from 'svelte';
 	interface Props {

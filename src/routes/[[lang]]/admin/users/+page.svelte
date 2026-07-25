@@ -26,12 +26,12 @@
 	import { authClient } from '$lib/auth-client.js';
 	import { toast } from 'svelte-sonner';
 	import { setContext } from 'svelte';
-	import { adminCache } from '$lib/hooks/admin-cache.svelte';
+	import { adminCache } from '$lib/hooks/admin-cache.svelte.ts';
 	import type { PageData } from './$types';
 	import { type UserRole, type AdminUserData } from '$lib/convex/admin/types';
 	import { createSvelteTable, FlexRender } from '$lib/components/ui/data-table/index.js';
 	import ConvexCursorTableShell from '$lib/components/tables/convex-cursor-table-shell.svelte';
-	import { createConvexCursorTable } from '$lib/tables/convex/create-convex-cursor-table.svelte';
+	import { createConvexCursorTable } from '$lib/tables/convex/create-convex-cursor-table.svelte.ts';
 	import type { CursorListResult } from '$lib/tables/convex/contract';
 	import { createColumns } from './columns.js';
 	import DataTableFilters from './data-table-filters.svelte';

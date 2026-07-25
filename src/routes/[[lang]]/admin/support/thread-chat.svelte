@@ -7,9 +7,9 @@
 	import ChatRoot from '$lib/chat/ui/ChatRoot.svelte';
 	import ChatMessages from '$lib/chat/ui/ChatMessages.svelte';
 	import ChatInput from '$lib/chat/ui/ChatInput.svelte';
-	import { ChatUIContext, type UploadConfig } from '$lib/chat/ui/chat-context.svelte';
-	import { ChatCore } from '$lib/chat/core/chat-core.svelte';
-	import type { ChatDraftManager } from '$lib/chat/core/chat-draft-manager.svelte';
+	import { ChatUIContext, type UploadConfig } from '$lib/chat/ui/chat-context.svelte.ts';
+	import { ChatCore } from '$lib/chat/core/chat-core.svelte.ts';
+	import type { ChatDraftManager } from '$lib/chat/core/chat-draft-manager.svelte.ts';
 	import { createOptimisticUpdate, type ListMessagesArgs } from '$lib/chat/core/optimistic';
 	import { CHAT_PAGE_SIZE } from '$lib/chat/core/types';
 	import { Button } from '$lib/components/ui/button';
@@ -18,9 +18,9 @@
 	import PanelRightIcon from '@lucide/svelte/icons/panel-right';
 	import PanelBottomOpen from '@lucide/svelte/icons/panel-bottom-open';
 	import ChevronLeft from '@lucide/svelte/icons/chevron-left';
-	import { useMedia } from '$lib/hooks/use-media.svelte';
+	import { useMedia } from '$lib/hooks/use-media.svelte.ts';
 	import { SlidingHeader } from '$lib/components/ui/sliding-header';
-	import { adminSupportUIContext } from '$lib/hooks/admin-support-ui.svelte';
+	import { adminSupportUIContext } from '$lib/hooks/admin-support-ui.svelte.ts';
 	import { getTranslate } from '@tolgee/svelte';
 	import { page } from '$app/state';
 

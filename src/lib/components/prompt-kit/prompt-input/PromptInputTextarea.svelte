@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { cn } from '$lib/utils';
 	import Textarea from '$lib/components/ui/textarea/textarea.svelte';
-	import { promptInputContext } from './prompt-input-context.svelte.js';
+	import { promptInputContext } from './prompt-input-context.svelte.ts';
 	import type { HTMLTextareaAttributes } from 'svelte/elements';
 	import { watch } from 'runed';
 

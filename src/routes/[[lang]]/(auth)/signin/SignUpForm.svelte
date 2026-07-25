@@ -11,7 +11,7 @@
 	import * as Password from '$lib/components/ui/password';
 	import { translateFormError, translateValidationErrors } from '$lib/utils/validation-i18n.js';
 	import OAuthButtons from './OAuthButtons.svelte';
-	import type { LastAuthMethod, PendingOAuthProvider } from '$lib/hooks/last-auth-method.svelte';
+	import type { LastAuthMethod, PendingOAuthProvider } from '$lib/hooks/last-auth-method.svelte.ts';
 
 	type Props = {
 		id: string;

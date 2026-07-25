@@ -21,6 +21,7 @@ import requireMotionGuardTransitionRule from './eslint/rules/require-motion-guar
 import requireFieldErrorAssociationRule from './eslint/rules/require-field-error-association.js';
 import requireGuardedServerConvexClientRule from './eslint/rules/require-guarded-server-convex-client.js';
 import noFrozenAuthPageDataRule from './eslint/rules/no-frozen-auth-page-data.js';
+import requireSvelteModuleExtensionRule from './eslint/rules/require-svelte-module-extension.js';
 
 const gitignorePath = path.resolve(import.meta.dirname, '.gitignore');
 const localPlugin = {
@@ -37,7 +38,8 @@ const localPlugin = {
 		'require-motion-guard-transition': requireMotionGuardTransitionRule,
 		'require-field-error-association': requireFieldErrorAssociationRule,
 		'require-guarded-server-convex-client': requireGuardedServerConvexClientRule,
-		'no-frozen-auth-page-data': noFrozenAuthPageDataRule
+		'no-frozen-auth-page-data': noFrozenAuthPageDataRule,
+		'require-svelte-module-extension': requireSvelteModuleExtensionRule
 	}
 };
 
@@ -119,7 +121,11 @@ export default defineConfig(
 	// Prevent barrel imports from large icon libraries (breaks tree-shaking)
 	{
 		files: ['src/**/*.{ts,js,svelte}'],
+		plugins: {
+			local: localPlugin
+		},
 		rules: {
+			'local/require-svelte-module-extension': 'error',
 			'@typescript-eslint/no-restricted-imports': [
 				'error',
 				{

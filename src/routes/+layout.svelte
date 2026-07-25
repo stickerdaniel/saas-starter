@@ -10,8 +10,8 @@
 	import AppAutumnProvider from '$lib/components/app/app-autumn-provider.svelte';
 	import AppPostHogBootstrap from '$lib/components/app/app-posthog-bootstrap.svelte';
 	import ClockSkewBanner from '$lib/components/clock-skew-banner.svelte';
-	import { ClockSkewState, clockSkewContext } from '$lib/hooks/clock-skew.svelte';
-	import { setGlobalSearchContext } from '$lib/components/global-search/context.svelte';
+	import { ClockSkewState, clockSkewContext } from '$lib/hooks/clock-skew.svelte.ts';
+	import { setGlobalSearchContext } from '$lib/components/global-search/context.svelte.ts';
 	import GlobalSearchShell from '$lib/components/global-search/global-search-shell.svelte';
 	import { languageContext } from '$lib/i18n/context';
 	import { DEFAULT_LANGUAGE, getLanguage } from '$lib/i18n/languages';

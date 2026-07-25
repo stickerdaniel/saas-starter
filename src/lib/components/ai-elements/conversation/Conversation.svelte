@@ -11,7 +11,7 @@
 </script>
 
 <script lang="ts">
-	import { StickToBottomContext, stickToBottomContext } from './stick-to-bottom-context.svelte.js';
+	import { StickToBottomContext, stickToBottomContext } from './stick-to-bottom-context.svelte.ts';
 
 	let {
 		class: className,

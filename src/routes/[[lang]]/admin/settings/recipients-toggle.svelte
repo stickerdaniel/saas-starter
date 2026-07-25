@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Checkbox } from '$lib/components/ui/checkbox/index.js';
 	import { getContext } from 'svelte';
-	import { haptic } from '$lib/hooks/use-haptic.svelte';
+	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
 	import { toast } from 'svelte-sonner';
 	import { getTranslate } from '@tolgee/svelte';
 	import type { RowSelectionState } from '@tanstack/table-core';

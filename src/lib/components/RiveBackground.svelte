@@ -19,7 +19,7 @@
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
 	import { useMutationObserver } from 'runed';
-	import { TAILWIND_BREAKPOINTS, useMedia } from '$lib/hooks/use-media.svelte';
+	import { TAILWIND_BREAKPOINTS, useMedia } from '$lib/hooks/use-media.svelte.ts';
 	import { Spotlight } from '$lib/components/ui/spotlight/index.js';
 	import type { Component } from 'svelte';
 
