@@ -70,12 +70,22 @@ export class ImpersonationState {
 				toast.error(t('app.user_menu.impersonation_stop_failed'));
 				return;
 			}
-			// Stopping restored the admin session cookie, but Better Auth's convex
-			// plugin does not re-mint the SSR JWT cookie on stop. Force a session read
-			// so the server issues a fresh convex_jwt for the admin before we navigate,
-			// otherwise SSR resolves the still-alive impersonated token. The fetch
-			// resolves errors as { error } instead of throwing, so the catch below
-			// would miss a failed refresh and navigate on the target's identity.
+			// The server has stopped the impersonation: the target's session is gone
+			// and the admin session cookie is live again. Record that before the
+			// refresh, because neither this call nor the refresh below matches Better
+			// Auth's session-signal listeners, so the store keeps serving the stale
+			// impersonated session. Leaving the flag set would leave Stop as the only
+			// control on a session that can no longer be stopped, and every further
+			// click would fail with "You are not impersonating anyone".
+			this.#impersonating = false;
+
+			// Better Auth's convex plugin does not re-mint the SSR JWT cookie on stop.
+			// Force a session read so the server issues a fresh convex_jwt for the
+			// admin before we navigate, otherwise SSR resolves the still-alive
+			// impersonated token. The fetch resolves errors as { error } instead of
+			// throwing, so the catch below would miss a failed refresh and navigate on
+			// the target's identity. Log out stays available as the exit here, and it
+			// is safe now: it ends the admin's own restored session, not the target's.
 			const refreshed = await authClient.getSession({ query: { disableCookieCache: true } });
 			if (refreshed.error || !refreshed.data) {
 				toast.error(t('app.user_menu.impersonation_stop_failed'));
