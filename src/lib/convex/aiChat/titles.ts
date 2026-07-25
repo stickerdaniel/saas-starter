@@ -2,7 +2,7 @@ import { internalAction } from '../_generated/server';
 import { v } from 'convex/values';
 import { internal } from '../_generated/api';
 import { generateText } from 'ai';
-import { CHAT_MODEL_ID } from '../utils/chatModel';
+import { TITLE_MODEL_ID } from '../utils/chatModel';
 import { getAutumnSdk } from '../autumn';
 import { orModel, captureDirect } from '../aiUsage/capture';
 import { recordAiUsage } from '../aiUsage/record';
@@ -52,7 +52,7 @@ export const generateThreadTitle = internalAction({
 		let raw: string;
 		try {
 			const { text, usage, providerMetadata } = await generateText({
-				model: orModel(CHAT_MODEL_ID),
+				model: orModel(TITLE_MODEL_ID),
 				temperature: 0.3,
 				prompt: `Summarize the following user message into a short, descriptive conversation title of 3 to 6 words. Use title case. Do not use quotation marks or trailing punctuation. Respond with the title only, nothing else.\n\nMessage:\n${source}`
 			});
@@ -60,7 +60,7 @@ export const generateThreadTitle = internalAction({
 			await recordAiUsage(ctx, {
 				feature: 'ai_chat_title',
 				userId: args.userId,
-				models: [captureDirect(usage, providerMetadata, CHAT_MODEL_ID)]
+				models: [captureDirect(usage, providerMetadata, TITLE_MODEL_ID)]
 			});
 		} catch (err) {
 			console.warn('[generateThreadTitle] LLM call failed', err);

@@ -1,7 +1,7 @@
 import { Agent } from '@convex-dev/agent';
 import { components } from '../_generated/api';
 import { orModel } from '../aiUsage/capture';
-import { CHAT_MODEL_ID } from '../utils/chatModel';
+import { AI_CHAT_MODEL_ID } from '../utils/chatModel';
 import { getGeocoding, getWeather } from './tools/weather';
 
 /**
@@ -50,7 +50,7 @@ Communication style:
 export const aiChatAgent = new Agent(components.agent, {
 	name: 'Assistant',
 
-	languageModel: orModel(CHAT_MODEL_ID, {
+	languageModel: orModel(AI_CHAT_MODEL_ID, {
 		extraBody: {
 			reasoning: { enabled: true }
 		}
