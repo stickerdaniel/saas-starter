@@ -132,8 +132,45 @@ test.describe('Admin Impersonation', () => {
 		await expect(page.getByTestId('impersonation-banner')).toBeVisible({ timeout: 15000 });
 		await expect(page.locator('#user-menu-trigger')).toContainText(targetEmail);
 
+		// Log out is hidden while impersonating: signing out would end the
+		// impersonated user's session and leave the admin stranded, because Better
+		// Auth never redeems the admin_session cookie on sign out.
+		await page.locator('#user-menu-trigger').click();
+		await expect(page.getByTestId('app-user-menu-stop-impersonating')).toBeVisible();
+		await expect(page.getByTestId('logout-button')).toHaveCount(0);
+		await page.keyboard.press('Escape');
+
+		// The same guard holds on the marketing header, which the app sidebar logo
+		// links to. Holding the session read open pins the pre-hydration state: the
+		// server renders an authenticated shell, so a guard keyed on "not
+		// impersonating" would serve a live log out button in this window.
+		let releaseSession = () => {};
+		const sessionHeld = new Promise<void>((resolve) => {
+			releaseSession = resolve;
+		});
+		await page.route('**/api/auth/get-session**', async (route) => {
+			await sessionHeld;
+			await route.continue();
+		});
+
+		await page.goto('/en/pricing');
+		await page.waitForLoadState('domcontentloaded');
+		await expect(page.getByTestId('marketing-nav-dashboard')).toBeVisible({ timeout: 15000 });
+		await expect(page.getByTestId('marketing-nav-logout')).toHaveCount(0);
+
+		releaseSession();
+		await expect(page.getByTestId('marketing-nav-stop-impersonating')).toBeVisible({
+			timeout: 15000
+		});
+		await expect(page.getByTestId('marketing-nav-logout')).toHaveCount(0);
+		await page.unroute('**/api/auth/get-session**');
+
 		// Stop impersonating from the user menu. This restores the admin session and
 		// navigates back to the users table.
+		await page.goto('/en/app/community-chat');
+		await page.waitForLoadState('domcontentloaded');
+		await waitForAuthenticated(page);
+		await expect(page.getByTestId('impersonation-banner')).toBeVisible({ timeout: 15000 });
 		await page.locator('#user-menu-trigger').click();
 		await page.getByTestId('app-user-menu-stop-impersonating').click();
 

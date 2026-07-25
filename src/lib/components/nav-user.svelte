@@ -19,6 +19,7 @@
 	import { T, getTranslate } from '@tolgee/svelte';
 	import { localizedHref } from '$lib/utils/i18n';
 	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
+	import { ImpersonationState } from '$lib/hooks/use-impersonation.svelte.ts';
 	import { toast } from 'svelte-sonner';
 	import { useCustomer, useAutumnOperation } from '@stickerdaniel/convex-autumn-svelte/sveltekit';
 
@@ -34,12 +35,7 @@
 	// Impersonation state comes from the live session, not a parent prop: while an
 	// admin impersonates a user the session carries impersonatedBy, so the app
 	// shell reads it directly to show the banner and the Stop control.
-	let isImpersonating = $state(false);
-	$effect(() => {
-		return authClient.useSession().subscribe((s) => {
-			isImpersonating = !!s.data?.session?.impersonatedBy;
-		});
-	});
+	const impersonation = new ImpersonationState();
 
 	// Autumn subscription state
 	const autumn = useCustomer();
@@ -96,31 +92,9 @@
 			await goto(resolve(localizedHref('/')));
 		}
 	}
-
-	async function stopImpersonating() {
-		haptic.trigger('warning');
-		try {
-			const result = await authClient.admin.stopImpersonating();
-			if (result.error) {
-				toast.error($t('app.user_menu.impersonation_stop_failed'));
-				return;
-			}
-			toast.success($t('app.user_menu.impersonation_stopped'));
-			// Stopping restored the admin session cookie, but Better Auth's convex
-			// plugin does not re-mint the SSR JWT cookie on stop. Force a session read
-			// so the server issues a fresh convex_jwt for the admin before we navigate,
-			// otherwise SSR resolves the still-alive impersonated token.
-			await authClient.getSession({ query: { disableCookieCache: true } });
-			// Full document navigation, not a client-side goto: the app must boot with
-			// the fresh JWT and new Convex subscriptions bound to the admin identity.
-			window.location.assign(localizedHref('/admin/users'));
-		} catch {
-			toast.error($t('app.user_menu.impersonation_stop_failed'));
-		}
-	}
 </script>
 
-{#if isImpersonating}
+{#if impersonation.isImpersonating}
 	<div
 		class="mb-2 rounded-md border border-warning/20 bg-warning/10 px-3 py-2 text-xs font-medium text-warning"
 		data-testid="impersonation-banner"
@@ -135,7 +109,7 @@
 				{#snippet child({ props })}
 					<Button
 						variant="ghost"
-						class="h-12 w-full justify-start gap-2 px-2 data-[state=open]:bg-muted {isImpersonating
+						class="h-12 w-full justify-start gap-2 px-2 data-[state=open]:bg-muted {impersonation.isImpersonating
 							? 'ring-2 ring-warning'
 							: ''}"
 						{...props}
@@ -209,22 +183,26 @@
 						<T keyName="app.user_menu.billing" />
 					</DropdownMenu.Item>
 				</DropdownMenu.Group>
-				{#if isImpersonating}
-					<DropdownMenu.Separator />
+				<DropdownMenu.Separator />
+				<!-- While impersonating, signing out would end the impersonated user's session
+				     and leave the admin logged out entirely, so only offer Stop Impersonating.
+				     Neither shows until the session resolves, so log out is never live on an
+				     unresolved session. -->
+				{#if impersonation.isImpersonating}
 					<DropdownMenu.Item
-						onclick={() => stopImpersonating()}
+						onclick={() => impersonation.stop($t)}
 						class="text-warning"
 						data-testid="app-user-menu-stop-impersonating"
 					>
 						<UserXIcon />
 						<T keyName="app.user_menu.stop_impersonating" />
 					</DropdownMenu.Item>
+				{:else if impersonation.canSignOut}
+					<DropdownMenu.Item onclick={() => signOut()} data-testid="logout-button">
+						<LogOutIcon />
+						<T keyName="app.user_menu.logout" />
+					</DropdownMenu.Item>
 				{/if}
-				<DropdownMenu.Separator />
-				<DropdownMenu.Item onclick={() => signOut()} data-testid="logout-button">
-					<LogOutIcon />
-					<T keyName="app.user_menu.logout" />
-				</DropdownMenu.Item>
 			</DropdownMenu.Content>
 		</DropdownMenu.Root>
 	</Sidebar.MenuItem>
