@@ -1,7 +1,7 @@
 import { Agent } from '@convex-dev/agent';
 import { components } from '../_generated/api';
 import { orModel } from '../aiUsage/capture';
-import { CHAT_MODEL_ID } from '../utils/chatModel';
+import { SUPPORT_MODEL_ID } from '../utils/chatModel';
 import { LEGAL_CONFIG } from '../../config/legal';
 import { requestHandoff } from './tools/handoff';
 
@@ -58,7 +58,7 @@ export const supportAgent = new Agent(components.agent, {
 	name: 'Kai',
 
 	// Language model configuration
-	languageModel: orModel(CHAT_MODEL_ID, {
+	languageModel: orModel(SUPPORT_MODEL_ID, {
 		extraBody: {
 			reasoning: { effort: 'low' }
 		}

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { PRICES, costOf } from './prices';
-import { CHAT_MODEL_ID } from '../utils/chatModel';
+import { AI_CHAT_MODEL_ID, SUPPORT_MODEL_ID, TITLE_MODEL_ID } from '../utils/chatModel';
 
 // One million input + one million output tokens, so the expected USD for a
 // model is exactly (in + out) dollars (1M tokens at $X/Mtok = $X).
@@ -49,10 +49,16 @@ describe('costOf', () => {
 		expect(costOf('unknown/model-x', SAMPLE)).toBeNull();
 	});
 
-	// Regression guard against PRICES/chatModel divergence: the chat model the app
-	// actually runs must always have a price row, or computed-cost fallback breaks.
-	it('keeps a price row for CHAT_MODEL_ID', () => {
-		expect(PRICES[CHAT_MODEL_ID]).toBeDefined();
-		expect(costOf(CHAT_MODEL_ID, SAMPLE)).not.toBeNull();
+	// Regression guard against PRICES/chatModel divergence: every model the app
+	// actually runs must have a price row, or computed-cost fallback breaks.
+	// Each workload is listed separately so raising one of them alone still
+	// trips this when its new model has no row.
+	it.each([
+		['AI_CHAT_MODEL_ID', AI_CHAT_MODEL_ID],
+		['SUPPORT_MODEL_ID', SUPPORT_MODEL_ID],
+		['TITLE_MODEL_ID', TITLE_MODEL_ID]
+	])('keeps a price row for %s', (_label, modelId) => {
+		expect(PRICES[modelId]).toBeDefined();
+		expect(costOf(modelId, SAMPLE)).not.toBeNull();
 	});
 });

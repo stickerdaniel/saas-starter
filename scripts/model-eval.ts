@@ -9,13 +9,13 @@
  * Not CI. Burns OpenRouter credits. Needs OPENROUTER_API_KEY (env or
  * .env.convex.local).
  *
- *   bun run model:eval                                 # check the model in use (CHAT_MODEL_ID)
+ *   bun run model:eval                                 # check the AI chat model in use
  *   bun run model:eval -- --model openai/gpt-5-mini    # check a candidate
  *   bun run model:eval -- --model a --model b          # compare several
  *   bun run model:eval -- --json /tmp/eval.json        # also write raw results
  */
 import { writeFileSync } from 'node:fs';
-import { CHAT_MODEL_ID } from '../src/lib/convex/utils/chatModel.ts';
+import { AI_CHAT_MODEL_ID } from '../src/lib/convex/utils/chatModel.ts';
 import {
 	checkCatalog,
 	checkImage,
@@ -39,7 +39,7 @@ function parseArgs(argv: string[]): { models: string[]; jsonPath: string | null 
 		if (argv[i] === '--model' && argv[i + 1]) models.push(argv[++i]!);
 		else if (argv[i] === '--json' && argv[i + 1]) jsonPath = argv[++i]!;
 	}
-	if (models.length === 0) models.push(CHAT_MODEL_ID);
+	if (models.length === 0) models.push(AI_CHAT_MODEL_ID);
 	return { models, jsonPath };
 }
 

@@ -1,9 +1,9 @@
 export type ModelPrice = { in: number; out: number; reasoning?: number; cachedIn?: number };
-// $ per 1M tokens. Seed = the app's chat model. Keep in sync with
-// utils/chatModel.ts (CHAT_MODEL_ID).
+// $ per 1M tokens. Seed = the app's chat models. Keep in sync with
+// utils/chatModel.ts; every model id used there needs a row.
 export const PRICES: Record<string, ModelPrice> = {
-	// CHAT_MODEL_ID placeholder zero-rate — fill in the real $/Mtok; native
-	// OpenRouter cost is used when present, this is the fallback.
+	// Placeholder zero-rate — fill in the real $/Mtok; native OpenRouter cost is
+	// used when present, this is the fallback.
 	'google/gemma-4-26b-a4b-it': { in: 0.0, out: 0.0 }
 };
 const PER_TOKEN = 1 / 1_000_000;
