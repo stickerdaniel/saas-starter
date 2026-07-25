@@ -16,11 +16,25 @@ import { toast } from 'svelte-sonner';
  * Instantiated per component — never a module-level singleton, which would leak
  * across SSR requests.
  */
+/**
+ * Whether the server has confirmed a stop during this document load.
+ *
+ * Module scope, not per instance: the stale session lives in Better Auth's
+ * global store, so an instance-local latch dies with the first client-side
+ * navigation. Leaving the app shell for the marketing shell would build a fresh
+ * state, read the same stale session, and put the dead Stop control back.
+ *
+ * A full document load resets this, which is exactly the intended lifetime: a
+ * new impersonation always starts with one (see the admin users table).
+ *
+ * Plain `let`, written only from `stop()` — a browser-only path — so no SSR
+ * request can ever observe another request's value.
+ */
+let stopConfirmedThisLoad = false;
+
 export class ImpersonationState {
 	#impersonating = $state(false);
 	#resolved = $state(false);
-	// Plain field, not $state: a latch read inside the subscription, never rendered.
-	#stopConfirmed = false;
 
 	/** True once the session carries `impersonatedBy`. False while unresolved. */
 	get isImpersonating(): boolean {
@@ -52,12 +66,11 @@ export class ImpersonationState {
 		$effect(() => {
 			return authClient.useSession().subscribe((s) => {
 				// Once the server has confirmed a stop, any session still carrying
-				// impersonatedBy is a stale in-flight read: Better Auth writes every
-				// completed refresh into the store unconditionally, with no generation
-				// check, so one started before the stop can land after it and revive a
-				// session that no longer exists. This instance cannot legitimately
-				// impersonate again, since a successful stop navigates away.
-				if (!this.#stopConfirmed) {
+				// impersonatedBy is stale: Better Auth writes every completed refresh
+				// into its store unconditionally, with no generation check, and neither
+				// the stop nor the refresh matches its session-signal listeners, so the
+				// store keeps serving a session the server already deleted.
+				if (!stopConfirmedThisLoad) {
 					this.#impersonating = !!s.data?.session?.impersonatedBy;
 				}
 				// Stays true across refetches that already hold data, so a background
@@ -87,7 +100,7 @@ export class ImpersonationState {
 			// impersonated session. Leaving the flag set would leave Stop as the only
 			// control on a session that can no longer be stopped, and every further
 			// click would fail with "You are not impersonating anyone".
-			this.#stopConfirmed = true;
+			stopConfirmedThisLoad = true;
 			this.#impersonating = false;
 
 			// Better Auth's convex plugin does not re-mint the SSR JWT cookie on stop.
