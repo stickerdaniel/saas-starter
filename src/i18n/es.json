@@ -992,7 +992,8 @@
 			"start_new_conversation": "Iniciar nueva conversación"
 		},
 		"chatbar": {
-			"placeholder": "Pregúntame lo que quieras..."
+			"placeholder": "Pregúntame lo que quieras...",
+			"disclosure": "La IA puede cometer errores. Comprueba la información importante."
 		},
 		"greeting": {
 			"hi": "Hola",

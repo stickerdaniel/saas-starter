@@ -992,7 +992,8 @@
 			"start_new_conversation": "Démarrer une nouvelle conversation"
 		},
 		"chatbar": {
-			"placeholder": "Posez-moi une question…"
+			"placeholder": "Posez-moi une question…",
+			"disclosure": "L'IA peut faire des erreurs. Vérifiez les informations importantes."
 		},
 		"greeting": {
 			"hi": "Salut",

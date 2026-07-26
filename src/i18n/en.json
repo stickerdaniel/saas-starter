@@ -992,7 +992,8 @@
 			"start_new_conversation": "Start a new conversation"
 		},
 		"chatbar": {
-			"placeholder": "Ask me anything..."
+			"placeholder": "Ask me anything...",
+			"disclosure": "AI can make mistakes. Check important info."
 		},
 		"greeting": {
 			"hi": "Hi",

@@ -201,7 +201,7 @@
 
 <!-- Glow container with group hover/focus behavior -->
 <div
-	class="ai-chatbar fixed bottom-5 left-1/2 z-40 w-full -translate-x-1/2 pr-19 pl-5 md:mb-0 md:p-0 {!mounted.current ||
+	class="ai-chatbar fixed bottom-10 left-1/2 z-40 w-full -translate-x-1/2 pr-19 pl-5 md:mb-0 md:p-0 {!mounted.current ||
 	delayedFeedbackOpen
 		? 'fade-out'
 		: ''}"
@@ -250,6 +250,18 @@
 				</Button>
 			</PromptInput>
 		</div>
+
+		<!-- EU AI Act Art. 50(1): disclose AI interaction at the latest at first
+			 interaction. Sits under the bar so it reads with the input, not the page. -->
+		<p
+			class="ai-chatbar-disclosure pointer-events-none absolute top-full right-0 left-0 mt-1.5 text-center"
+		>
+			<span
+				class="inline-block rounded-full bg-background/75 px-2 py-0.5 text-[11px] text-balance text-muted-foreground backdrop-blur-sm"
+			>
+				{$t('support.chatbar.disclosure')}
+			</span>
+		</p>
 	</div>
 </div>
 
@@ -331,7 +343,12 @@
 		transform: translateY(20px);
 		transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 	}
+	:global(.ai-chatbar-disclosure) {
+		opacity: 1;
+		transition: opacity 0.25s cubic-bezier(0.23, 1, 0.32, 1);
+	}
 	:global(.ai-chatbar.fade-out .ai-chatbar-content),
+	:global(.ai-chatbar.fade-out .ai-chatbar-disclosure),
 	:global(.ai-chatbar.fade-out .ai-pill-bg),
 	:global(.ai-chatbar.fade-out .ai-gradient-wrapper),
 	:global(.ai-chatbar.fade-out .ai-gradient-wrapper-glow) {
@@ -369,6 +386,7 @@
 			transition: none;
 		}
 		:global(.ai-chatbar.fade-out .ai-chatbar-content),
+		:global(.ai-chatbar.fade-out .ai-chatbar-disclosure),
 		:global(.ai-chatbar.fade-out .ai-pill-bg),
 		:global(.ai-chatbar.fade-out .ai-gradient-wrapper),
 		:global(.ai-chatbar.fade-out .ai-gradient-wrapper-glow) {

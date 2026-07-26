@@ -992,7 +992,8 @@
 			"start_new_conversation": "Neue Unterhaltung starten"
 		},
 		"chatbar": {
-			"placeholder": "Frag mich alles..."
+			"placeholder": "Frag mich alles...",
+			"disclosure": "KI kann Fehler machen. Prüfe wichtige Informationen."
 		},
 		"greeting": {
 			"hi": "Hey",
