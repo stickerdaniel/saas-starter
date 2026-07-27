@@ -71,7 +71,15 @@
 			{threadsHasMore}
 			{onLoadMoreThreads}
 		/>
-		<Sidebar.Inset id="main-content" class={fullControl ? 'flex flex-col overflow-hidden' : ''}>
+		<!-- Chat pages drop the inset's white so the sidebar tone carries the whole
+		     surface, header included. The composer pill is bg-popover (white), which
+		     on bg-background had no edge at all in light mode; against the sidebar
+		     tone it reads as its own surface. Dark mode keeps the inset, where
+		     sidebar and popover are the same value and only background differs. -->
+		<Sidebar.Inset
+			id="main-content"
+			class={fullControl ? 'flex flex-col overflow-hidden bg-sidebar dark:bg-background' : ''}
+		>
 			<AuthenticatedHeader {routePrefix} {rootLabel} />
 
 			{#if fullControl}
