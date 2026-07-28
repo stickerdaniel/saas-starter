@@ -506,7 +506,9 @@
 			"max_attachments": "Maximal {max} Anhänge erlaubt",
 			"pasted_file_too_large": "Eingefügte Datei zu groß",
 			"upload_failed": "Hochladen von \"{filename}\" fehlgeschlagen",
-			"upload_failed_description": "Hochladen fehlgeschlagen"
+			"upload_network": "Die Verbindung wurde unterbrochen. Die Datei wurde nicht gespeichert.",
+			"upload_retry": "Erneut versuchen",
+			"upload_server": "Das Hochladen konnte nicht abgeschlossen werden. Die Datei wurde nicht gespeichert."
 		},
 		"input": {
 			"placeholder": "Nachricht eingeben...",

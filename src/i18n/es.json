@@ -506,7 +506,9 @@
 			"max_attachments": "Máximo {max} adjuntos permitidos",
 			"pasted_file_too_large": "Archivo pegado muy grande",
 			"upload_failed": "No se pudo subir \"{filename}\"",
-			"upload_failed_description": "Error al subir"
+			"upload_network": "Se perdió la conexión. El archivo no se guardó.",
+			"upload_retry": "Reintentar",
+			"upload_server": "No se pudo completar la subida. El archivo no se guardó."
 		},
 		"input": {
 			"placeholder": "Escribe un mensaje...",

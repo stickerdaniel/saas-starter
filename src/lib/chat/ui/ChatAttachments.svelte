@@ -3,13 +3,17 @@
 	import FileIcon from '@lucide/svelte/icons/file';
 	import ImageIcon from '@lucide/svelte/icons/image';
 	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
+	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
 	import { getTranslate } from '@tolgee/svelte';
 	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
 	import Progress from '$lib/components/ui/progress/progress.svelte';
+	import { Button } from '$lib/components/ui/button';
+	import * as Alert from '$lib/components/ui/alert';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import AttachmentTextPreview from './AttachmentTextPreview.svelte';
 	import { isTextPreviewable } from '../core/attachmentPreview.js';
 	import type { Attachment, UploadState } from '../core/types.js';
+	import type { UploadErrorCode } from '../core/file-uploader.js';
 	import type { ChatAlignment } from './chat-context.svelte.ts';
 
 	const { t } = getTranslate();
@@ -17,6 +21,7 @@
 	let {
 		attachments = [],
 		onRemove,
+		onRetry,
 		columns: _columns = 2,
 		readonly = false,
 		align = 'right',
@@ -24,12 +29,36 @@
 	}: {
 		attachments?: Attachment[];
 		onRemove?: (index: number) => void;
+		/** Retry a failed upload. Without it, a failure offers only discard. */
+		onRetry?: (index: number) => void;
 		columns?: number;
 		readonly?: boolean;
 		/** Alignment - controls flex direction for readonly attachments */
 		align?: ChatAlignment;
 		class?: string;
 	} = $props();
+
+	/**
+	 * Translation key per failure cause. Written out in full so the orphan-key
+	 * check can see the references; a template-built key would look unused.
+	 * `parse` shares the server wording: a malformed response is a server fault,
+	 * and retrying is the only thing the user can do about either.
+	 */
+	const UPLOAD_ERROR_KEY: Record<UploadErrorCode, string> = {
+		network: 'chat.error.upload_network',
+		http: 'chat.error.upload_server',
+		parse: 'chat.error.upload_server',
+		server: 'chat.error.upload_server'
+	};
+
+	/** Composer-only: a sent message's attachments carry no actionable failure. */
+	const failedAttachments = $derived(
+		readonly
+			? []
+			: attachments
+					.map((attachment, index) => ({ attachment, index }))
+					.filter(({ attachment }) => getUploadState(attachment)?.status === 'error')
+	);
 
 	// Flex direction and wrap based on alignment and readonly state
 	const flexDirection = $derived(readonly ? (align === 'right' ? 'row-reverse' : 'row') : 'row');
@@ -244,7 +273,10 @@
 			{@const filename = getFilename(attachment)}
 			{@const uploadState = getUploadState(attachment)}
 			{@const isUploading = uploadState?.status === 'uploading'}
-			{@const isClickable = !isUploading && canOpen(attachment)}
+			{@const hasFailed = uploadState?.status === 'error'}
+			<!-- A failed image keeps its local preview, so canOpen() would still
+			     say yes; opening it would suggest the file exists somewhere. -->
+			{@const isClickable = !isUploading && !hasFailed && canOpen(attachment)}
 			{@const originalIndex =
 				readonly && align === 'right' ? attachments.length - 1 - index : index}
 
@@ -252,9 +284,14 @@
 			<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 			<div
 				data-testid="attachment-chip"
+				data-upload-failed={hasFailed ? '' : undefined}
 				class="relative flex items-center justify-between gap-2 overflow-hidden rounded-lg px-2 py-2 transition-transform {isClickable
 					? 'cursor-pointer active:translate-y-px'
-					: ''} {readonly ? 'border text-foreground transition-colors' : 'bg-secondary/50'}"
+					: ''} {hasFailed
+					? 'bg-destructive/5 ring-1 ring-destructive/40'
+					: readonly
+						? 'border text-foreground transition-colors'
+						: 'bg-secondary/50'}"
 				style="width: {attachments.length === 1 && readonly
 					? '100%'
 					: 'calc(50% - 0.25rem)'}; box-sizing: border-box;"
@@ -274,6 +311,8 @@
 					>
 						{#if uploadState?.status === 'uploading'}
 							<LoaderCircleIcon class="size-4 shrink-0 motion-safe:animate-spin" />
+						{:else if hasFailed}
+							<TriangleAlertIcon class="size-4 shrink-0 text-destructive" />
 						{:else if thumbnailUrl}
 							<img
 								src={thumbnailUrl}
@@ -316,3 +355,32 @@
 		{/each}
 	</div>
 {/if}
+
+<!-- Failures live beside the grid, not inside a tile: tiles are half-width and
+     cannot hold a readable message plus an action. Alert carries role="alert",
+     so appearing here is announced without extra wiring. -->
+{#each failedAttachments as { attachment, index } (getKey(attachment))}
+	{@const filename = getFilename(attachment)}
+	{@const code = getUploadState(attachment)?.error}
+	<Alert.Root variant="destructive" data-testid="attachment-upload-error" class="mt-2 {className}">
+		<TriangleAlertIcon />
+		<Alert.Title>{$t('chat.error.upload_failed', { filename })}</Alert.Title>
+		<Alert.Description>
+			{$t(code ? UPLOAD_ERROR_KEY[code] : 'chat.error.upload_server')}
+		</Alert.Description>
+		{#if onRetry}
+			<Alert.Action>
+				<Button
+					variant="outline"
+					size="sm"
+					onclick={() => {
+						haptic.trigger('light');
+						onRetry(index);
+					}}
+				>
+					{$t('chat.error.upload_retry')}
+				</Button>
+			</Alert.Action>
+		{/if}
+	</Alert.Root>
+{/each}

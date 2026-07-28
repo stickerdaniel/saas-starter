@@ -7,7 +7,7 @@
 	import * as Card from '$lib/components/ui/card/index.js';
 	import { Progress } from '$lib/components/ui/progress/index.js';
 	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
-	import { uploadToStorage } from '$lib/chat';
+	import { uploadToStorage, UploadError } from '$lib/chat';
 	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
 	import { toast } from 'svelte-sonner';
 	import { T, getTranslate } from '@tolgee/svelte';
@@ -109,6 +109,11 @@
 				toast.error(
 					$t('settings.account.avatar.rate_limited', { seconds: Math.ceil(retryAfter / 1000) })
 				);
+			} else if (error instanceof UploadError) {
+				// Its message is developer-facing English; the transport reports a
+				// code precisely so the UI can phrase the failure in the user's
+				// language.
+				toast.error($t('settings.account.avatar.upload_failed'));
 			} else {
 				const message =
 					error instanceof Error ? error.message : $t('settings.account.avatar.upload_failed');

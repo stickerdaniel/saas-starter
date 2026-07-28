@@ -506,7 +506,9 @@
 			"max_attachments": "Maximum {max} pièces jointes autorisées",
 			"pasted_file_too_large": "Fichier collé trop volumineux",
 			"upload_failed": "Échec du téléversement de « {filename} »",
-			"upload_failed_description": "Échec du téléversement"
+			"upload_network": "La connexion a été perdue. Le fichier n'a pas été enregistré.",
+			"upload_retry": "Réessayer",
+			"upload_server": "Le téléversement n'a pas pu aboutir. Le fichier n'a pas été enregistré."
 		},
 		"input": {
 			"placeholder": "Tapez un message...",

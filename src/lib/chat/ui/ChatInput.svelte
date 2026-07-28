@@ -492,6 +492,10 @@
 		ctx.removeAttachment(index);
 	}
 
+	function handleRetryAttachment(index: number) {
+		ctx.retryUpload(index);
+	}
+
 	function handleSuggestionClick(text: string) {
 		ctx.setInputValue(text);
 		tick().then(() => {
@@ -761,6 +765,7 @@
 						class="mx-1 mb-1"
 						attachments={ctx.attachments}
 						onRemove={handleRemoveAttachment}
+						onRetry={handleRetryAttachment}
 						columns={2}
 					/>
 				{/if}
@@ -833,6 +838,7 @@
 						class="mx-3 mt-3"
 						attachments={ctx.attachments}
 						onRemove={handleRemoveAttachment}
+						onRetry={handleRetryAttachment}
 						columns={2}
 					/>
 				{/if}
