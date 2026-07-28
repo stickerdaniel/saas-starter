@@ -10,14 +10,31 @@ import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 import { toast } from 'svelte-sonner';
 import type { ConvexClient } from 'convex/browser';
 import type { ChatCore } from '../core/chat-core.svelte.ts';
-import type { DisplayMessage, Attachment, MessageRole } from '../core/types.js';
-import { uploadFileWithProgress } from '../core/file-uploader.js';
+import type { DisplayMessage, Attachment, MessageRole, UploadState } from '../core/types.js';
+import { uploadFileWithProgress, UploadError } from '../core/file-uploader.js';
 import { FadeOnLoad } from '$lib/utils/fade-on-load.svelte.ts';
 
 /**
  * Message alignment - controls which side messages appear on
  */
 export type ChatAlignment = 'left' | 'right';
+
+/**
+ * A ready-to-send upload: what the transport receives after any client-side
+ * preprocessing. Retained per attachment so a retry repeats the same transfer
+ * instead of redoing the preprocessing, which is neither free nor idempotent
+ * (image re-encoding renames the file and changes its bytes).
+ */
+type UploadJob = {
+	blob: File | Blob;
+	filename: string;
+	dimensions?: { width: number; height: number };
+};
+
+/** A canceled upload, which the user caused and does not need to be told about. */
+function isAbortError(error: unknown): boolean {
+	return error instanceof DOMException && error.name === 'AbortError';
+}
 
 /**
  * Configuration for file uploads
@@ -90,6 +107,17 @@ export class ChatUIContext {
 	 * used by upload methods to apply progress/success/error updates by value
 	 * rather than by array index. */
 	attachments = $state<Attachment[]>([]);
+
+	/** Cancels the in-flight upload of an attachment, keyed by its stable `key`. */
+	private readonly uploadAborters = new SvelteMap<string, AbortController>();
+
+	/**
+	 * The exact payload each failed attachment would need to try again. Held
+	 * because retrying from the picked file is not equivalent: images are
+	 * re-encoded before upload, and screenshots never had a File to begin with.
+	 * Only kept while the attachment is present, so a discarded blob is freed.
+	 */
+	private readonly retryJobs = new SvelteMap<string, UploadJob>();
 
 	/** The one composer mounted inside this ChatRoot. */
 	private composerFocus?: () => void;
@@ -281,11 +309,27 @@ export class ChatUIContext {
 	}
 
 	/**
+	 * Cancel an attachment's in-flight upload and drop everything held for it.
+	 * Attachments handed in from outside may have no `key` and never started an
+	 * upload, so a missing entry is normal rather than an error.
+	 */
+	private releaseUpload(attachment: Attachment): void {
+		const key = 'key' in attachment ? attachment.key : undefined;
+		if (!key) return;
+		this.uploadAborters.get(key)?.abort();
+		this.uploadAborters.delete(key);
+		this.retryJobs.delete(key);
+	}
+
+	/**
 	 * Remove attachment at index
 	 */
 	removeAttachment(index: number): void {
 		const removed = this.attachments[index];
-		if (removed) this.revokePreview(removed);
+		if (removed) {
+			this.releaseUpload(removed);
+			this.revokePreview(removed);
+		}
 		this.attachments = this.attachments.filter((_, i) => i !== index);
 	}
 
@@ -294,6 +338,7 @@ export class ChatUIContext {
 	 */
 	clearAttachments(): void {
 		for (const attachment of this.attachments) {
+			this.releaseUpload(attachment);
 			this.revokePreview(attachment);
 		}
 		this.attachments = [];
@@ -441,54 +486,117 @@ export class ChatUIContext {
 				);
 			}
 
-			const accessKey = this.uploadConfig?.getAccessKey?.();
-			const result = await uploadFileWithProgress(
-				this.client,
-				uploadBlob,
-				uploadName,
-				(progress) => {
-					// Update progress for this specific attachment by stable key
-					this.attachments = this.attachments.map((a) =>
-						'key' in a &&
-						a.key === key &&
-						(a.type === 'file' || a.type === 'screenshot') &&
-						a.uploadState
-							? { ...a, uploadState: { ...a.uploadState, progress } }
-							: a
-					);
-				},
-				this.uploadConfig,
-				width && height ? { width, height } : undefined,
-				accessKey
-			);
-
-			// Mark as success
-			this.attachments = this.attachments.map((a) =>
-				'key' in a && a.key === key
-					? {
-							...a,
-							url: result.url,
-							uploadState: { status: 'success' as const, progress: 100, fileId: result.fileId }
-						}
-					: a
-			);
+			await this.runUpload(key, {
+				blob: uploadBlob,
+				filename: uploadName,
+				dimensions: width && height ? { width, height } : undefined
+			});
 		} catch (error) {
-			// Remove failed attachment by key (not stale index) and show toast
-			const failed = this.attachments.find((a) => 'key' in a && a.key === key);
-			if (failed) this.revokePreview(failed);
-			this.attachments = this.attachments.filter((a) => !('key' in a) || a.key !== key);
+			// A failure before the transfer (image preprocessing, dimension
+			// reading) leaves nothing to retry, and preprocessing already throws
+			// its own translated message. Those keep the old behavior: drop the
+			// attachment, say why once.
+			this.discardAttachment(key);
+			if (isAbortError(error)) return;
 			const translate = this.uploadConfig?.translate;
 			toast.error(
 				translate?.('chat.error.upload_failed', { filename: initialName }) ??
 					`Failed to upload "${initialName}"`,
-				{
-					description:
-						error instanceof Error
-							? error.message
-							: (translate?.('chat.error.upload_failed_description') ?? 'Upload failed')
-				}
+				{ description: error instanceof Error ? error.message : undefined }
 			);
 		}
+	}
+
+	/**
+	 * Run one upload attempt for an existing attachment and record the outcome
+	 * on it. Shared by the file path, the screenshot path, and retry, so all
+	 * three produce the same states.
+	 *
+	 * Never throws: a failure becomes a visible, retryable attachment state
+	 * rather than an exception the caller has to translate again.
+	 */
+	private async runUpload(key: string, job: UploadJob): Promise<void> {
+		if (!this.uploadConfig) return;
+
+		const aborter = new AbortController();
+		this.uploadAborters.set(key, aborter);
+		this.retryJobs.set(key, job);
+		this.patchAttachment(key, { uploadState: { status: 'uploading', progress: 0 } });
+
+		try {
+			const result = await uploadFileWithProgress(
+				this.client,
+				job.blob,
+				job.filename,
+				(progress) => {
+					this.patchUploadState(key, (state) => ({ ...state, progress }));
+				},
+				this.uploadConfig,
+				job.dimensions,
+				this.uploadConfig.getAccessKey?.(),
+				aborter.signal
+			);
+
+			this.patchAttachment(key, {
+				url: result.url,
+				uploadState: { status: 'success', progress: 100, fileId: result.fileId }
+			});
+			// The bytes are on the server now; holding them would pin memory for
+			// an attachment that can no longer fail.
+			this.retryJobs.delete(key);
+		} catch (error) {
+			// Cancelation is not a failure: removeAttachment/clearAttachments
+			// already took the attachment away, so there is no state to write.
+			if (isAbortError(error)) return;
+			this.patchAttachment(key, {
+				uploadState: {
+					status: 'error',
+					progress: 0,
+					error: error instanceof UploadError ? error.code : 'server'
+				}
+			});
+		} finally {
+			this.uploadAborters.delete(key);
+		}
+	}
+
+	/**
+	 * Try a failed upload again with the exact payload of the first attempt.
+	 * No-op when the attachment has no retained job, which is the case for
+	 * failures that happened before the transfer.
+	 */
+	retryUpload(index: number): void {
+		const attachment = this.attachments[index];
+		if (!attachment || !('key' in attachment) || !attachment.key) return;
+		const job = this.retryJobs.get(attachment.key);
+		if (!job) return;
+		void this.runUpload(attachment.key, job);
+	}
+
+	/** Apply a partial update to the attachment with this key. */
+	private patchAttachment(key: string, patch: Partial<Attachment>): void {
+		this.attachments = this.attachments.map((a) =>
+			'key' in a && a.key === key ? ({ ...a, ...patch } as Attachment) : a
+		);
+	}
+
+	/** Update the upload state of the attachment with this key, if it has one. */
+	private patchUploadState(key: string, next: (state: UploadState) => UploadState): void {
+		this.attachments = this.attachments.map((a) =>
+			'key' in a && a.key === key && (a.type === 'file' || a.type === 'screenshot') && a.uploadState
+				? { ...a, uploadState: next(a.uploadState) }
+				: a
+		);
+	}
+
+	/** Remove an attachment by key and release everything held for it. */
+	private discardAttachment(key: string): void {
+		const attachment = this.attachments.find((a) => 'key' in a && a.key === key);
+		if (attachment) {
+			this.releaseUpload(attachment);
+			this.revokePreview(attachment);
+		}
+		this.attachments = this.attachments.filter((a) => !('key' in a) || a.key !== key);
 	}
 
 	/**
@@ -520,53 +628,9 @@ export class ChatUIContext {
 
 		this.attachments = [...this.attachments, newAttachment];
 
-		try {
-			const accessKey = this.uploadConfig?.getAccessKey?.();
-			const result = await uploadFileWithProgress(
-				this.client,
-				blob,
-				filename,
-				(progress) => {
-					this.attachments = this.attachments.map((a) =>
-						'key' in a &&
-						a.key === key &&
-						(a.type === 'file' || a.type === 'screenshot') &&
-						a.uploadState
-							? { ...a, uploadState: { ...a.uploadState, progress } }
-							: a
-					);
-				},
-				this.uploadConfig,
-				dimensions,
-				accessKey
-			);
-
-			// Mark as success
-			this.attachments = this.attachments.map((a) =>
-				'key' in a && a.key === key
-					? {
-							...a,
-							url: result.url,
-							uploadState: { status: 'success' as const, progress: 100, fileId: result.fileId }
-						}
-					: a
-			);
-		} catch (error) {
-			// Remove failed attachment by key and show toast
-			const failed = this.attachments.find((a) => 'key' in a && a.key === key);
-			if (failed) this.revokePreview(failed);
-			this.attachments = this.attachments.filter((a) => !('key' in a) || a.key !== key);
-			const translate = this.uploadConfig?.translate;
-			toast.error(
-				translate?.('chat.error.upload_failed', { filename }) ?? `Failed to upload "${filename}"`,
-				{
-					description:
-						error instanceof Error
-							? error.message
-							: (translate?.('chat.error.upload_failed_description') ?? 'Upload failed')
-				}
-			);
-		}
+		// No preprocessing here: the blob and its dimensions are already what
+		// gets uploaded, so they double as the retry payload unchanged.
+		await this.runUpload(key, { blob, filename, dimensions });
 	}
 
 	/**
@@ -610,10 +674,24 @@ export class ChatUIContext {
 	}
 
 	/**
+	 * Whether any attachment failed to upload.
+	 *
+	 * Blocks sending, because only successful uploads reach the backend while
+	 * the whole attachment list is rendered optimistically: sending anyway would
+	 * show the user a file that was never stored. The inline error offers retry
+	 * and discard, so this is a prompt to decide, not a dead end.
+	 */
+	get hasFailedUploads(): boolean {
+		return this.attachments.some(
+			(a) => (a.type === 'file' || a.type === 'screenshot') && a.uploadState?.status === 'error'
+		);
+	}
+
+	/**
 	 * Check if message can be sent
 	 */
 	get canSend(): boolean {
-		return !this.hasUploadingFiles && !!this.inputValue.trim();
+		return !this.hasUploadingFiles && !this.hasFailedUploads && !!this.inputValue.trim();
 	}
 
 	/**
