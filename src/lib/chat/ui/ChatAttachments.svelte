@@ -163,12 +163,13 @@
 	}
 
 	/**
-	 * Key for the failure list. Uses the upload id rather than name+size,
-	 * which is not unique among failures: two images picked under different
+	 * Identity for keyed lists. Composer attachments carry an upload id; prefer
+	 * it, because name+size is not unique: two images picked under different
 	 * names (photo.jpg, photo.jpeg) pass dedup, then both get renamed to
-	 * photo.webp at the same encoded size, and one network outage fails both.
+	 * photo.webp at the same encoded size. Duplicate keys make Svelte throw.
+	 * Sent attachments have no id and fall back to the derived key.
 	 */
-	function failureKey(attachment: Attachment): string {
+	function attachmentKey(attachment: Attachment): string {
 		return ('key' in attachment && attachment.key) || getKey(attachment);
 	}
 
@@ -278,7 +279,7 @@
 		class="flex flex-wrap gap-2 {className}"
 		style="flex-direction: {flexDirection}; flex-wrap: {flexWrap}; justify-content: flex-start; align-content: flex-end;"
 	>
-		{#each readonly && align === 'right' ? [...attachments].reverse() : attachments as attachment, index (getKey(attachment))}
+		{#each readonly && align === 'right' ? [...attachments].reverse() : attachments as attachment, index (attachmentKey(attachment))}
 			{@const thumbnailUrl = getThumbnailUrl(attachment)}
 			{@const filename = getFilename(attachment)}
 			{@const uploadState = getUploadState(attachment)}
@@ -369,7 +370,7 @@
 <!-- Failures live beside the grid, not inside a tile: tiles are half-width and
      cannot hold a readable message plus an action. Alert carries role="alert",
      so appearing here is announced without extra wiring. -->
-{#each failedAttachments as { attachment, index } (failureKey(attachment))}
+{#each failedAttachments as { attachment, index } (attachmentKey(attachment))}
 	{@const filename = getFilename(attachment)}
 	{@const code = getUploadState(attachment)?.error}
 	<Alert.Root variant="destructive" data-testid="attachment-upload-error" class="mt-2 {className}">
