@@ -54,12 +54,19 @@ export class UploadError extends Error {
 	readonly code: UploadErrorCode;
 	/** HTTP status, present only for `code === 'http'`. */
 	readonly status?: number;
+	/**
+	 * The underlying failure, for logs. Declared here rather than relying on
+	 * `Error.cause`, which the lib version the Convex build targets does not
+	 * know about.
+	 */
+	readonly cause?: unknown;
 
 	constructor(code: UploadErrorCode, status?: number, options?: { cause?: unknown }) {
-		super(UPLOAD_ERROR_MESSAGE[code], options);
+		super(UPLOAD_ERROR_MESSAGE[code]);
 		this.name = 'UploadError';
 		this.code = code;
 		this.status = status;
+		this.cause = options?.cause;
 	}
 }
 

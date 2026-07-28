@@ -369,7 +369,11 @@
 			{$t(code ? UPLOAD_ERROR_KEY[code] : 'chat.error.upload_server')}
 		</Alert.Description>
 		{#if onRetry}
-			<Alert.Action>
+			<!-- In flow rather than Alert.Action: that slot is absolutely
+			     positioned with a fixed 4.5rem reservation, which a translated
+			     label outgrows — at 390px the German title ran underneath it.
+			     col-start-2 keeps it aligned with the text beside the icon. -->
+			<div class="col-start-2 mt-2">
 				<Button
 					variant="outline"
 					size="sm"
@@ -380,7 +384,7 @@
 				>
 					{$t('chat.error.upload_retry')}
 				</Button>
-			</Alert.Action>
+			</div>
 		{/if}
 	</Alert.Root>
 {/each}
