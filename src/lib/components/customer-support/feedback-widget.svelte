@@ -116,11 +116,6 @@
 			// Load draft for new thread (or empty for new conversation)
 			const draft = threadContext.getDraft(currentThreadId);
 			chatUIContext.setInputValue(draft);
-
-			// Only the text is per-thread; the widget reuses one chat context, so
-			// attachments would otherwise follow the visitor into the next thread
-			// and be sent there. Also cancels any transfer still in flight.
-			if (previousThreadId !== undefined) chatUIContext.clearAttachments();
 		}
 	);
 

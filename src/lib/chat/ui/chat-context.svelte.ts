@@ -237,6 +237,12 @@ export class ChatUIContext {
 		) {
 			this.messagesFade.reset();
 			this._hasEverDisplayedMessages = false;
+			// Attachments belong to the thread they were picked in. Every surface
+			// reuses one context across threads and swaps only the text draft, so
+			// without this a file follows the user and is sent in the wrong
+			// conversation — and a failed one blocks sending there. Also cancels
+			// any transfer still running for the thread being left.
+			this.clearAttachments();
 		}
 		this._lastThreadId = currentThreadId;
 

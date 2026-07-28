@@ -294,6 +294,35 @@ describe('ChatUIContext upload failures', () => {
 		expect(client.mutation).not.toHaveBeenCalled();
 	});
 
+	it('drops attachments when navigating between threads', () => {
+		// Every surface reuses one context across threads and swaps only the text
+		// draft, so an attachment would otherwise be sent in the wrong thread —
+		// and a failed one would block sending there.
+		const core = { threadId: 'thread-a' } as unknown as ChatCore;
+		const ctx = new ChatUIContext(core, succeedingClient(), uploadConfig);
+		ctx.setDisplayMessages([]);
+		ctx.addAttachments([fileAttachment(undefined)]);
+
+		(core as { threadId: string }).threadId = 'thread-b';
+		ctx.setDisplayMessages([]);
+
+		expect(ctx.attachments).toHaveLength(0);
+	});
+
+	it('keeps attachments when a new thread gets its id', () => {
+		// null -> id is this conversation being created, not a move to another
+		// one: a file attached while creation was in flight belongs here.
+		const core = { threadId: null } as unknown as ChatCore;
+		const ctx = new ChatUIContext(core, succeedingClient(), uploadConfig);
+		ctx.setDisplayMessages([]);
+		ctx.addAttachments([fileAttachment(undefined)]);
+
+		(core as { threadId: string | null }).threadId = 'thread-a';
+		ctx.setDisplayMessages([]);
+
+		expect(ctx.attachments).toHaveLength(1);
+	});
+
 	it('does nothing when retrying an attachment with no retained payload', () => {
 		const ctx = new ChatUIContext(mockCore, succeedingClient(), uploadConfig);
 		ctx.addAttachments([fileAttachment(undefined)]);
