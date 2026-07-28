@@ -266,6 +266,34 @@ describe('ChatUIContext upload failures', () => {
 		expect(ctx.hasFailedUploads).toBe(false);
 	});
 
+	it('does not upload when the attachment is removed during preprocessing', async () => {
+		// Preprocessing is awaited and cannot be canceled, so the composer may be
+		// empty by the time it resolves. Uploading anyway would store a file
+		// nothing references.
+		stubTransport();
+		const client = succeedingClient();
+		const ctx = new ChatUIContext(mockCore, client, uploadConfig);
+
+		let removeDuringPreprocess: (() => void) | undefined;
+		const preprocessing = new Promise<void>((resolve) => {
+			removeDuringPreprocess = resolve;
+		});
+		const upload = ctx.uploadFile(textFile(), 'notes.txt', {
+			preprocess: async (input) => {
+				await preprocessing;
+				return { blob: input, mimeType: 'text/plain', filename: 'notes.txt' };
+			}
+		});
+
+		await vi.waitFor(() => expect(ctx.attachments).toHaveLength(1));
+		ctx.removeAttachment(0);
+		removeDuringPreprocess?.();
+		await upload;
+
+		expect(ctx.attachments).toHaveLength(0);
+		expect(client.mutation).not.toHaveBeenCalled();
+	});
+
 	it('does nothing when retrying an attachment with no retained payload', () => {
 		const ctx = new ChatUIContext(mockCore, succeedingClient(), uploadConfig);
 		ctx.addAttachments([fileAttachment(undefined)]);

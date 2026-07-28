@@ -486,6 +486,15 @@ export class ChatUIContext {
 				);
 			}
 
+			// Preprocessing and dimension reading are awaited above and cannot be
+			// canceled, so the user may have discarded the attachment by now.
+			// Starting the transfer would upload a file nothing references and
+			// leave map entries behind for a key that is gone.
+			if (!this.attachments.some((a) => 'key' in a && a.key === key)) {
+				this.retryJobs.delete(key);
+				return;
+			}
+
 			await this.runUpload(key, {
 				blob: uploadBlob,
 				filename: uploadName,
