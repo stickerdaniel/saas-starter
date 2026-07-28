@@ -162,6 +162,16 @@
 		return `attachment-${Math.random()}`;
 	}
 
+	/**
+	 * Key for the failure list. Uses the upload id rather than name+size,
+	 * which is not unique among failures: two images picked under different
+	 * names (photo.jpg, photo.jpeg) pass dedup, then both get renamed to
+	 * photo.webp at the same encoded size, and one network outage fails both.
+	 */
+	function failureKey(attachment: Attachment): string {
+		return ('key' in attachment && attachment.key) || getKey(attachment);
+	}
+
 	function handleOpen(attachment: Attachment) {
 		const openUrl = getOpenUrl(attachment);
 		if (!openUrl) return;
@@ -359,7 +369,7 @@
 <!-- Failures live beside the grid, not inside a tile: tiles are half-width and
      cannot hold a readable message plus an action. Alert carries role="alert",
      so appearing here is announced without extra wiring. -->
-{#each failedAttachments as { attachment, index } (getKey(attachment))}
+{#each failedAttachments as { attachment, index } (failureKey(attachment))}
 	{@const filename = getFilename(attachment)}
 	{@const code = getUploadState(attachment)?.error}
 	<Alert.Root variant="destructive" data-testid="attachment-upload-error" class="mt-2 {className}">
