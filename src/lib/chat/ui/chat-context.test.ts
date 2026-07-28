@@ -6,10 +6,13 @@
  */
 
 import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from 'vitest';
+import { toast } from 'svelte-sonner';
 import { ChatUIContext } from './chat-context.svelte.ts';
 import type { ChatCore } from '../core/chat-core.svelte.ts';
 import type { ConvexClient } from 'convex/browser';
 import type { Attachment } from '../core/types.js';
+
+vi.mock('svelte-sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
 const mockCore = {} as ChatCore;
 const mockClient = {} as ConvexClient;
@@ -173,6 +176,10 @@ describe('ChatUIContext upload failures', () => {
 		return attachment.uploadState;
 	}
 
+	beforeEach(() => {
+		vi.mocked(toast.error).mockClear();
+	});
+
 	afterEach(() => {
 		vi.unstubAllGlobals();
 	});
@@ -321,6 +328,45 @@ describe('ChatUIContext upload failures', () => {
 		ctx.setDisplayMessages([]);
 
 		expect(ctx.attachments).toHaveLength(1);
+	});
+
+	it('stays quiet when preprocessing fails after the attachment was removed', async () => {
+		// Preprocessing cannot be canceled, so it can reject long after the chip
+		// was discarded. Reporting that failure would be noise about a file the
+		// user already dismissed.
+		const ctx = new ChatUIContext(mockCore, succeedingClient(), uploadConfig);
+
+		let failPreprocess: (() => void) | undefined;
+		const preprocessing = new Promise<void>((resolve) => {
+			failPreprocess = resolve;
+		});
+		const upload = ctx.uploadFile(textFile(), 'notes.txt', {
+			preprocess: async () => {
+				await preprocessing;
+				throw new Error('Image could not be compressed below 5 MB');
+			}
+		});
+
+		await vi.waitFor(() => expect(ctx.attachments).toHaveLength(1));
+		ctx.removeAttachment(0);
+		failPreprocess?.();
+		await upload;
+
+		expect(ctx.attachments).toHaveLength(0);
+		expect(toast.error).not.toHaveBeenCalled();
+	});
+
+	it('reports a preprocessing failure for an attachment still in the composer', async () => {
+		const ctx = new ChatUIContext(mockCore, succeedingClient(), uploadConfig);
+
+		await ctx.uploadFile(textFile(), 'notes.txt', {
+			preprocess: async () => {
+				throw new Error('Image could not be compressed below 5 MB');
+			}
+		});
+
+		expect(ctx.attachments).toHaveLength(0);
+		expect(toast.error).toHaveBeenCalled();
 	});
 
 	it('does nothing when retrying an attachment with no retained payload', () => {

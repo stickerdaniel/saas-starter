@@ -511,8 +511,13 @@ export class ChatUIContext {
 			// reading) leaves nothing to retry, and preprocessing already throws
 			// its own translated message. Those keep the old behavior: drop the
 			// attachment, say why once.
+			//
+			// Unless the user got there first: preprocessing cannot be canceled,
+			// so it may still reject long after the chip was discarded, and
+			// reporting a failure for a file nobody is waiting on is noise.
+			const stillPresent = this.attachments.some((a) => 'key' in a && a.key === key);
 			this.discardAttachment(key);
-			if (isAbortError(error)) return;
+			if (isAbortError(error) || !stillPresent) return;
 			const translate = this.uploadConfig?.translate;
 			toast.error(
 				translate?.('chat.error.upload_failed', { filename: initialName }) ??
