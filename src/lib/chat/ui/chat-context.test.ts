@@ -230,6 +230,42 @@ describe('ChatUIContext upload failures', () => {
 		expect(ctx.hasFailedUploads).toBe(false);
 	});
 
+	it('lets a second retry supersede a slow first one', async () => {
+		// Double-clicking retry must not leave the earlier attempt able to stamp
+		// its own outcome over the newer one.
+		stubTransport();
+		const client = succeedingClient();
+		let attempt = 0;
+		let releaseFirst: (() => void) | undefined;
+		client.mutation = vi.fn(async () => {
+			attempt++;
+			if (attempt === 1) throw new Error('Rate limit exceeded');
+			if (attempt === 2) {
+				// Hold the second attempt open until the third has settled.
+				await new Promise<void>((resolve) => {
+					releaseFirst = resolve;
+				});
+				throw new Error('Rate limit exceeded');
+			}
+			return { uploadUrl: 'https://storage.test', uploadToken: 't' };
+		}) as never;
+		const ctx = new ChatUIContext(mockCore, client, uploadConfig);
+		await ctx.uploadFile(textFile(), 'notes.txt');
+
+		ctx.retryUpload(0); // stalls
+		await vi.waitFor(() => expect(attempt).toBe(2));
+		ctx.retryUpload(0); // supersedes
+		await vi.waitFor(() => expect(soleUploadState(ctx)?.status).toBe('success'));
+
+		// Let the superseded attempt finish failing. Its outcome must be dropped,
+		// not written over the success that already landed.
+		releaseFirst?.();
+		await new Promise((resolve) => setTimeout(resolve, 20));
+
+		expect(soleUploadState(ctx)?.status).toBe('success');
+		expect(ctx.hasFailedUploads).toBe(false);
+	});
+
 	it('does nothing when retrying an attachment with no retained payload', () => {
 		const ctx = new ChatUIContext(mockCore, succeedingClient(), uploadConfig);
 		ctx.addAttachments([fileAttachment(undefined)]);

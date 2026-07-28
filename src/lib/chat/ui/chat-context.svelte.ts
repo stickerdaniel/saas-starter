@@ -518,10 +518,20 @@ export class ChatUIContext {
 	private async runUpload(key: string, job: UploadJob): Promise<void> {
 		if (!this.uploadConfig) return;
 
+		// Starting an attempt cancels any earlier one for the same attachment, so
+		// a double-click on retry cannot leave a request running unattended.
+		this.uploadAborters.get(key)?.abort();
 		const aborter = new AbortController();
 		this.uploadAborters.set(key, aborter);
 		this.retryJobs.set(key, job);
 		this.patchAttachment(key, { uploadState: { status: 'uploading', progress: 0 } });
+
+		/**
+		 * Whether this attempt is still the current one. A superseded attempt
+		 * must not write state or clear the live attempt's aborter; without this
+		 * a slow first try could stamp its failure over a newer success.
+		 */
+		const isCurrent = () => this.uploadAborters.get(key) === aborter;
 
 		try {
 			const result = await uploadFileWithProgress(
@@ -529,7 +539,7 @@ export class ChatUIContext {
 				job.blob,
 				job.filename,
 				(progress) => {
-					this.patchUploadState(key, (state) => ({ ...state, progress }));
+					if (isCurrent()) this.patchUploadState(key, (state) => ({ ...state, progress }));
 				},
 				this.uploadConfig,
 				job.dimensions,
@@ -537,6 +547,7 @@ export class ChatUIContext {
 				aborter.signal
 			);
 
+			if (!isCurrent()) return;
 			this.patchAttachment(key, {
 				url: result.url,
 				uploadState: { status: 'success', progress: 100, fileId: result.fileId }
@@ -547,7 +558,7 @@ export class ChatUIContext {
 		} catch (error) {
 			// Cancelation is not a failure: removeAttachment/clearAttachments
 			// already took the attachment away, so there is no state to write.
-			if (isAbortError(error)) return;
+			if (isAbortError(error) || !isCurrent()) return;
 			this.patchAttachment(key, {
 				uploadState: {
 					status: 'error',
@@ -556,7 +567,7 @@ export class ChatUIContext {
 				}
 			});
 		} finally {
-			this.uploadAborters.delete(key);
+			if (isCurrent()) this.uploadAborters.delete(key);
 		}
 	}
 
