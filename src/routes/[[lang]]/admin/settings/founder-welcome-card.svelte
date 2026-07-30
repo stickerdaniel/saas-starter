@@ -158,7 +158,9 @@
 </Item.Root>
 
 <Dialog.Root open={dialogOpen} onOpenChange={handleDialogOpenChange}>
-	<Dialog.Content class="sm:max-w-lg">
+	<Dialog.Content
+		class="flex max-h-[calc(100dvh-2rem)] min-h-0 flex-col overflow-hidden sm:max-w-lg"
+	>
 		<Dialog.Header>
 			<Dialog.Title><T keyName="admin.settings.founder_welcome.title" /></Dialog.Title>
 			<Dialog.Description>
@@ -166,89 +168,91 @@
 			</Dialog.Description>
 		</Dialog.Header>
 
-		<Field.Group>
-			<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+		<div class="-mx-1 min-h-0 overflow-y-auto px-1 pb-1">
+			<Field.Group>
+				<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+					<Field.Field>
+						<Field.Label for="config-name">
+							<T keyName="admin.settings.founder_welcome.config_name_label" />
+						</Field.Label>
+						<Input id="config-name" bind:value={editName} />
+					</Field.Field>
+					<Field.Field>
+						<Field.Label for="config-title">
+							<T keyName="admin.settings.founder_welcome.config_title_label" />
+						</Field.Label>
+						<Input
+							id="config-title"
+							placeholder={$t('admin.settings.founder_welcome.setup_title_placeholder')}
+							bind:value={editTitle}
+						/>
+					</Field.Field>
+				</div>
 				<Field.Field>
-					<Field.Label for="config-name">
-						<T keyName="admin.settings.founder_welcome.config_name_label" />
-					</Field.Label>
-					<Input id="config-name" bind:value={editName} />
-				</Field.Field>
-				<Field.Field>
-					<Field.Label for="config-title">
-						<T keyName="admin.settings.founder_welcome.config_title_label" />
+					<Field.Label for="config-reply-to">
+						<T keyName="admin.settings.founder_welcome.config_reply_to_label" />
 					</Field.Label>
 					<Input
-						id="config-title"
-						placeholder={$t('admin.settings.founder_welcome.setup_title_placeholder')}
-						bind:value={editTitle}
+						id="config-reply-to"
+						type="email"
+						placeholder={$t('admin.settings.founder_welcome.config_reply_to_placeholder')}
+						bind:value={editReplyTo}
+						aria-invalid={replyToError ? 'true' : undefined}
+						aria-describedby={replyToError ? 'config-reply-to-error' : undefined}
 					/>
+					<Field.Error id="config-reply-to-error" errors={translateFormError(replyToError, $t)} />
 				</Field.Field>
-			</div>
-			<Field.Field>
-				<Field.Label for="config-reply-to">
-					<T keyName="admin.settings.founder_welcome.config_reply_to_label" />
-				</Field.Label>
-				<Input
-					id="config-reply-to"
-					type="email"
-					placeholder={$t('admin.settings.founder_welcome.config_reply_to_placeholder')}
-					bind:value={editReplyTo}
-					aria-invalid={replyToError ? 'true' : undefined}
-					aria-describedby={replyToError ? 'config-reply-to-error' : undefined}
-				/>
-				<Field.Error id="config-reply-to-error" errors={translateFormError(replyToError, $t)} />
-			</Field.Field>
-			<Field.Field>
-				<Field.Label for="config-subject">
-					<T keyName="admin.settings.founder_welcome.config_subject_label" />
-				</Field.Label>
-				<Input id="config-subject" bind:value={editSubject} />
-			</Field.Field>
-			<Field.Field>
-				<Field.Label for="config-body">
-					<T keyName="admin.settings.founder_welcome.config_body_label" />
-				</Field.Label>
-				{#if editingBody || !editBody}
-					<TemplateTextarea
-						id="config-body"
-						rows={8}
-						variables={['userFirstName', 'userLastName', 'founderName', 'founderTitle']}
-						bind:value={editBody}
-						onfocus={() => {
-							editingBody = true;
-						}}
-						onblur={async () => {
-							if (!editBody) return;
-							editingBody = false;
-							await tick();
-							document.getElementById('config-body-preview')?.focus();
-						}}
-					/>
-					<Field.Description>
-						<T keyName="admin.settings.founder_welcome.variables_label" />
-						{' {{userFirstName}}, {{userLastName}}, {{founderName}}, {{founderTitle}}'}
-					</Field.Description>
-				{:else}
-					<button
-						id="config-body-preview"
-						type="button"
-						class="max-h-60 w-full cursor-text overflow-y-auto rounded-md border bg-muted/30 p-3 text-left text-sm"
-						onclick={async () => {
-							editingBody = true;
-							await tick();
-							const el = document.getElementById('config-body') as HTMLTextAreaElement | null;
-							el?.focus();
-						}}
-					>
-						<p class="whitespace-pre-wrap">{previewText}</p>
-					</button>
-				{/if}
-			</Field.Field>
-		</Field.Group>
+				<Field.Field>
+					<Field.Label for="config-subject">
+						<T keyName="admin.settings.founder_welcome.config_subject_label" />
+					</Field.Label>
+					<Input id="config-subject" bind:value={editSubject} />
+				</Field.Field>
+				<Field.Field>
+					<Field.Label for="config-body">
+						<T keyName="admin.settings.founder_welcome.config_body_label" />
+					</Field.Label>
+					{#if editingBody || !editBody}
+						<TemplateTextarea
+							id="config-body"
+							rows={8}
+							variables={['userFirstName', 'userLastName', 'founderName', 'founderTitle']}
+							bind:value={editBody}
+							onfocus={() => {
+								editingBody = true;
+							}}
+							onblur={async () => {
+								if (!editBody) return;
+								editingBody = false;
+								await tick();
+								document.getElementById('config-body-preview')?.focus();
+							}}
+						/>
+						<Field.Description>
+							<T keyName="admin.settings.founder_welcome.variables_label" />
+							{' {{userFirstName}}, {{userLastName}}, {{founderName}}, {{founderTitle}}'}
+						</Field.Description>
+					{:else}
+						<button
+							id="config-body-preview"
+							type="button"
+							class="max-h-60 w-full cursor-text overflow-y-auto rounded-md border bg-muted/30 p-3 text-left text-sm"
+							onclick={async () => {
+								editingBody = true;
+								await tick();
+								const el = document.getElementById('config-body') as HTMLTextAreaElement | null;
+								el?.focus();
+							}}
+						>
+							<p class="whitespace-pre-wrap">{previewText}</p>
+						</button>
+					{/if}
+				</Field.Field>
+			</Field.Group>
+		</div>
 
 		<Dialog.Footer
-			class="flex-col items-stretch gap-4 sm:flex-row sm:items-center sm:justify-between"
+			class="-mt-(--dialog-gap) flex-col items-stretch gap-4 sm:flex-row sm:items-center sm:justify-between"
 		>
 			<div>
 				{#if isContactPerson}

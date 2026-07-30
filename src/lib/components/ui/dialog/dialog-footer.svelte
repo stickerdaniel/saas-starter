@@ -18,11 +18,17 @@
 	} = $props();
 </script>
 
+<!--
+	Deviates from the shadcn-svelte registry default: this footer bleeds to the card
+	edge with a tinted bar instead of sitting inside the dialog padding. The negative
+	margins must cancel Dialog.Content's padding exactly, so both read --dialog-inset.
+	A `shadcn-svelte` update will overwrite this file; reapply the bleed afterwards.
+-->
 <div
 	bind:this={ref}
 	data-slot="dialog-footer"
 	class={cn(
-		'-mx-4 -mb-4 flex flex-col-reverse gap-2 rounded-b-xl border-t bg-muted/50 p-4 sm:flex-row sm:justify-end',
+		'-mx-(--dialog-inset) -mb-(--dialog-inset) flex flex-col-reverse gap-2 rounded-b-xl border-t bg-muted/50 px-(--dialog-inset) py-4 sm:flex-row sm:justify-end',
 		className
 	)}
 	{...restProps}

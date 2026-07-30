@@ -40,6 +40,11 @@
 :root {
 	--scrollbar-w: 3px;
 	--radius: 0.625rem;
+	/* Dialog padding and section spacing. The footer bleeds to the card edge with
+	   negative margins of exactly --dialog-inset, so both sides must read the same
+	   value. Change these here, never in the dialog components. */
+	--dialog-inset: 1rem;
+	--dialog-gap: 1rem;
 	--background: oklch(1 0 0);
 	--foreground: oklch(0.141 0.005 285.823);
 	--card: oklch(1 0 0);
