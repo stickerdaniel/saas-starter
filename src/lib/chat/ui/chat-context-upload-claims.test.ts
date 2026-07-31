@@ -184,3 +184,79 @@ describe('ChatUIContext upload claims, removal paths', () => {
 		expect(uploads.any).toBe(false);
 	});
 });
+
+describe('ChatUIContext upload claims, before the bytes move', () => {
+	beforeEach(() => {
+		uploadFileWithProgress.mockReset();
+	});
+
+	it('claims while an image is still being converted', async () => {
+		// The tile shows progress from the moment the file is picked, and the
+		// encoder can run for seconds on a large photo. Losing the page there
+		// loses the pick, transfer started or not.
+		const uploads = new ActiveUploads();
+		const ctx = context(uploads);
+
+		let finishEncoding!: () => void;
+		const encoded = new Promise<void>((resolve) => {
+			finishEncoding = resolve;
+		});
+		const transfer = pendingTransfer();
+
+		const upload = ctx.uploadFile(new Blob(['x'], { type: 'image/png' }), 'photo.png', {
+			preprocess: async (input) => {
+				await encoded;
+				// Dimensions supplied, so the transfer is the next thing to happen.
+				return {
+					blob: input,
+					mimeType: 'image/webp',
+					filename: 'photo.webp',
+					width: 10,
+					height: 10
+				};
+			}
+		});
+
+		// Nothing has been sent yet, and the guard already has to hold.
+		expect(uploads.any).toBe(true);
+		expect(uploadFileWithProgress).not.toHaveBeenCalled();
+
+		finishEncoding();
+		while (uploadFileWithProgress.mock.calls.length === 0) await Promise.resolve();
+
+		expect(uploads.any).toBe(true);
+		transfer.succeed();
+		await upload;
+		expect(uploads.any).toBe(false);
+	});
+
+	it('lets go when conversion fails before any transfer', async () => {
+		const uploads = new ActiveUploads();
+		const ctx = context(uploads);
+
+		const upload = ctx.uploadFile(new Blob(['x'], { type: 'image/png' }), 'photo.png', {
+			preprocess: async () => {
+				throw new Error('too large to compress');
+			}
+		});
+
+		expect(uploads.any).toBe(true);
+		await upload;
+		expect(uploads.any).toBe(false);
+	});
+
+	it('lets go the moment a discarded attachment is removed, not when its request unwinds', async () => {
+		// Aborting cannot stop a Convex mutation that is already out, so waiting
+		// for the attempt to unwind would keep asking about a discarded file for
+		// as long as that request hangs.
+		const uploads = new ActiveUploads();
+		const ctx = context(uploads);
+
+		pendingTransfer();
+		void ctx.uploadScreenshot(shot(), 'shot.png');
+		expect(uploads.any).toBe(true);
+
+		ctx.removeAttachment(0);
+		expect(uploads.any).toBe(false);
+	});
+});

@@ -121,15 +121,26 @@ export class ChatUIContext {
 	private readonly uploadAborters = new SvelteMap<string, AbortController>();
 
 	/**
-	 * Where to report a transfer in progress, so navigating away asks first.
+	 * Where to report work in progress, so navigating away asks first.
 	 *
 	 * Reported from here rather than watched from a component: this context
 	 * outlives the chat rendering it. Closing the support panel unmounts the chat
-	 * while the transfer keeps running, and the screenshot flow uploads through
-	 * this context with no chat mounted at all, so a component-scoped claim would
-	 * be given up, or never taken, while the file is on the wire.
+	 * while the work keeps running, and the screenshot flow uploads through this
+	 * context with no chat mounted at all, so a component-scoped claim would be
+	 * given up, or never taken, while the file is still going somewhere.
 	 */
 	private readonly activeUploads: ActiveUploadsRegistry | null;
+
+	/**
+	 * Attachments the user is still waiting on, by key.
+	 *
+	 * Wider than `uploadAborters`, which only covers the transfer. An image
+	 * spends a visible stretch in the WebP encoder first, with the tile already
+	 * showing progress, and losing the page there loses the pick just the same.
+	 * Also narrower where it matters: a discarded attachment leaves this set at
+	 * once, even though the request it started may take a while to unwind.
+	 */
+	private readonly pendingUploads = new SvelteSet<string>();
 
 	/**
 	 * The exact payload each failed attachment would need to try again. Held
@@ -347,6 +358,22 @@ export class ChatUIContext {
 		this.uploadAborters.get(key)?.abort();
 		this.uploadAborters.delete(key);
 		this.retryJobs.delete(key);
+		// Straight away, not when the aborted attempt unwinds: an abort cannot
+		// stop a Convex mutation already in flight, so waiting for it would keep
+		// asking about a file the user has already thrown away.
+		this.settlePending(key);
+	}
+
+	/** Start counting an attachment as work in progress. Idempotent. */
+	private markPending(key: string): void {
+		this.pendingUploads.add(key);
+		this.activeUploads?.claim(this);
+	}
+
+	/** Stop counting it, and let go once nothing is left. Idempotent. */
+	private settlePending(key: string): void {
+		this.pendingUploads.delete(key);
+		if (this.pendingUploads.size === 0) this.activeUploads?.release(this);
 	}
 
 	/**
@@ -379,8 +406,9 @@ export class ChatUIContext {
 	 */
 	dispose(): void {
 		this.clearAttachments();
-		// clearAttachments aborts the transfers, but their handlers run later; the
-		// context is going away, so it cannot be the thing that lets go.
+		// The surface is gone for good, so nothing is left that could report an
+		// outcome, whatever is still unwinding.
+		this.pendingUploads.clear();
 		this.activeUploads?.release(this);
 	}
 
@@ -477,6 +505,9 @@ export class ChatUIContext {
 			sourceSize: file.size
 		};
 		this.attachments = [...this.attachments, placeholder];
+		// Before the first await: the tile already shows progress, so leaving now
+		// costs the user the same file whether or not the transfer has started.
+		this.markPending(key);
 
 		try {
 			let uploadBlob: File | Blob = file;
@@ -549,6 +580,11 @@ export class ChatUIContext {
 					`Failed to upload "${initialName}"`,
 				{ description: error instanceof Error ? error.message : undefined }
 			);
+		} finally {
+			// Every exit above already settles this key one way or another; saying
+			// so here too keeps the claim from outliving the attempt if a path is
+			// ever added that forgets.
+			this.settlePending(key);
 		}
 	}
 
@@ -569,7 +605,8 @@ export class ChatUIContext {
 		const aborter = new AbortController();
 		this.uploadAborters.set(key, aborter);
 		this.retryJobs.set(key, job);
-		this.activeUploads?.claim(this);
+		// Also for a retry, which starts here rather than in uploadFile.
+		this.markPending(key);
 		this.patchAttachment(key, { uploadState: { status: 'uploading', progress: 0 } });
 
 		/**
@@ -617,10 +654,12 @@ export class ChatUIContext {
 				}
 			});
 		} finally {
-			if (isCurrent()) this.uploadAborters.delete(key);
-			// Unconditional: a superseded attempt still has to let go, and by now
-			// the map holds only whatever is genuinely still on the wire.
-			if (this.uploadAborters.size === 0) this.activeUploads?.release(this);
+			// Only the live attempt settles the attachment: a superseded one is
+			// finishing behind a newer transfer that is still running.
+			if (isCurrent()) {
+				this.uploadAborters.delete(key);
+				this.settlePending(key);
+			}
 		}
 	}
 

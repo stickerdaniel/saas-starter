@@ -182,7 +182,7 @@
 											variant="outline"
 											size="icon"
 											class="size-8 text-warning hover:text-warning"
-											onclick={() => impersonation.stop($t)}
+											onclick={() => impersonation.stop($t, activeUploads)}
 											aria-label={$t('app.user_menu.stop_impersonating')}
 											data-testid="marketing-nav-stop-impersonating"
 										>

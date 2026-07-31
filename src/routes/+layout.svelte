@@ -14,7 +14,8 @@
 	import {
 		ActiveUploads,
 		activeUploadsContext,
-		shouldBlockNavigation
+		shouldBlockNavigation,
+		deployReloadTarget
 	} from '$lib/hooks/active-uploads.svelte.ts';
 	import UploadGuardNotice from '$lib/components/upload-guard-notice.svelte';
 	import { setGlobalSearchContext } from '$lib/components/global-search/context.svelte.ts';
@@ -56,8 +57,9 @@
 			if (nav.to) activeUploads.noteBlocked();
 			return;
 		}
-		if (updated.current && !nav.willUnload && nav.to?.url) {
-			location.href = nav.to.url.href;
+		const reloadTarget = deployReloadTarget(nav, updated.current, activeUploads.any);
+		if (reloadTarget) {
+			location.href = reloadTarget.href;
 		}
 	});
 

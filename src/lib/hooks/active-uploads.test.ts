@@ -7,7 +7,11 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { ActiveUploads, shouldBlockNavigation } from './active-uploads.svelte.ts';
+import {
+	ActiveUploads,
+	deployReloadTarget,
+	shouldBlockNavigation
+} from './active-uploads.svelte.ts';
 
 function nav(from: string | null, to: string | null) {
 	return {
@@ -101,5 +105,29 @@ describe('shouldBlockNavigation', () => {
 
 	it('blocks a first navigation that has no origin', () => {
 		expect(shouldBlockNavigation(nav(null, '/app/settings'), true)).toBe(true);
+	});
+});
+
+describe('deployReloadTarget', () => {
+	const target = nav('/app/ai-chat?thread=a', '/app/ai-chat?thread=b');
+
+	it('reloads on the next navigation once a deploy is detected', () => {
+		expect(deployReloadTarget(target, true, false)?.pathname).toBe('/app/ai-chat');
+	});
+
+	it('stays put while nothing has been deployed', () => {
+		expect(deployReloadTarget(target, false, false)).toBeNull();
+	});
+
+	it('waits while a file is transferring', () => {
+		// The navigation itself is allowed through, because a search-param change
+		// keeps the document. Turning it into a full load would not, and SvelteKit
+		// runs no callback during a navigation, so nothing would ask first.
+		expect(shouldBlockNavigation(target, true)).toBe(false);
+		expect(deployReloadTarget(target, true, true)).toBeNull();
+	});
+
+	it('leaves a departure alone, since the document is going anyway', () => {
+		expect(deployReloadTarget({ ...nav('/app', null), willUnload: true }, true, false)).toBeNull();
 	});
 });

@@ -201,7 +201,7 @@
 				     unresolved session. -->
 				{#if impersonation.isImpersonating}
 					<DropdownMenu.Item
-						onclick={() => impersonation.stop($t)}
+						onclick={() => impersonation.stop($t, activeUploads)}
 						class="text-warning"
 						data-testid="app-user-menu-stop-impersonating"
 					>

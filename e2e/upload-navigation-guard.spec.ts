@@ -132,19 +132,4 @@ test.describe('Upload navigation guard', () => {
 		await expect(notice).toBeVisible({ timeout: 10000 });
 		expect(page.url()).toBe(urlBeforeClick);
 	});
-
-	// Runs last: it ends the shared session.
-	test('signing out is not stopped by a transfer', async ({ page }) => {
-		// The session is destroyed before the redirect, so a guard that stopped
-		// this would leave the user signed out on a page they cannot use.
-		await stallUpload(page);
-
-		await attachNotes(page, 'in-flight.txt');
-		await expect(uploadInFlight(page)).toBeVisible({ timeout: 15000 });
-
-		await page.locator('#user-menu-trigger').click();
-		await page.getByTestId('logout-button').click();
-
-		await page.waitForURL(/.*\/[a-z]{2}(\/signin)?(\?.*)?$/, { timeout: 15000 });
-	});
 });

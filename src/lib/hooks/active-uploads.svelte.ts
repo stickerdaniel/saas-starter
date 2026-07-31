@@ -1,10 +1,11 @@
 import { Context } from 'runed';
 import { SvelteSet } from 'svelte/reactivity';
 
-/** The parts of SvelteKit's `BeforeNavigate` the guard reads. */
+/** The parts of SvelteKit's `BeforeNavigate` the root layout reads. */
 export interface GuardedNavigation {
 	from: { url: URL } | null;
 	to: { url: URL } | null;
+	willUnload?: boolean;
 }
 
 /**
@@ -24,6 +25,25 @@ export function shouldBlockNavigation(nav: GuardedNavigation, hasActiveUploads: 
 	// call". A surface that drops its own upload on such a change owns that.
 	if (nav.to.url.pathname === nav.from?.url.pathname) return false;
 	return true;
+}
+
+/**
+ * Where to reload to when a detected deploy should be taken now, or null.
+ *
+ * The upload answer has to be part of this one, not a separate hook: a
+ * same-page navigation is let through above because it keeps the document, and
+ * this would turn that very navigation into a full load that does not. Nothing
+ * would ask either, because SvelteKit skips the callbacks while a navigation is
+ * already under way. The stale chunks survive one more click; the file would not.
+ */
+export function deployReloadTarget(
+	nav: GuardedNavigation,
+	deployDetected: boolean,
+	hasActiveUploads: boolean
+): URL | null {
+	if (!deployDetected || nav.willUnload || !nav.to) return null;
+	if (hasActiveUploads) return null;
+	return nav.to.url;
 }
 
 /**
