@@ -5,10 +5,10 @@ import { describe, expect, it } from 'vitest';
 const source = readFileSync(resolve('src/lib/chat/ui/ChatAttachments.svelte'), 'utf8');
 
 /**
- * Both keyed lists must identify composer attachments by their upload id.
- * Name and size are not unique: photo.jpg and photo.jpeg pass dedup as
- * different source names, then preprocessing renames both to photo.webp at the
- * same encoded size, and Svelte throws each_key_duplicate.
+ * Keyed lists must identify composer attachments by their upload id. Name and
+ * size are not unique: photo.jpg and photo.jpeg pass dedup as different source
+ * names, then preprocessing renames both to photo.webp at the same encoded
+ * size, and Svelte throws each_key_duplicate.
  *
  * Pinned in source because reproducing it in a browser test needs two images
  * that survive dedup and then encode to byte-identical sizes, which is fragile
@@ -21,7 +21,7 @@ describe('ChatAttachments keyed lists', () => {
 			(match) => match[1]
 		);
 
-		expect(keyExpressions.length).toBe(2);
+		expect(keyExpressions.length).toBeGreaterThan(0);
 		for (const expression of keyExpressions) {
 			expect(expression).toBe('attachmentKey(attachment)');
 		}

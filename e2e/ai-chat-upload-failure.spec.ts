@@ -40,18 +40,17 @@ test.describe('AI Chat - upload failure', () => {
 
 		await attachNotes(page, 'dropped.txt');
 
-		const alert = page.getByTestId('attachment-upload-error');
-		await expect(alert).toBeVisible({ timeout: 20000 });
-		await expect(alert).toContainText('dropped.txt');
+		const failedChip = page.locator('[data-upload-failed]');
+		await expect(failedChip).toBeVisible({ timeout: 20000 });
+		await expect(failedChip).toContainText('dropped.txt');
 
 		// The point of the fix: unlike a toast, it is still there later.
 		await page.waitForTimeout(6000);
-		await expect(alert).toBeVisible();
+		await expect(failedChip).toBeVisible();
 
 		// Sending would render an attachment the backend never received.
 		await page.locator('textarea').fill('Here are my notes');
-		await expect(page.getByTestId('attachment-upload-error')).toBeVisible();
-		await expect(page.locator('[data-upload-failed]')).toBeVisible();
+		await expect(failedChip).toBeVisible();
 	});
 
 	test('retry recovers the attachment once the connection is back', async ({ page }) => {
@@ -67,14 +66,15 @@ test.describe('AI Chat - upload failure', () => {
 
 		await attachNotes(page, 'recovered.txt');
 
-		const alert = page.getByTestId('attachment-upload-error');
-		await expect(alert).toBeVisible({ timeout: 20000 });
+		const failedChip = page.locator('[data-upload-failed]');
+		await expect(failedChip).toBeVisible({ timeout: 20000 });
 
-		await alert.getByRole('button').click();
+		// The tile itself is the retry control; there is no separate button.
+		await failedChip.click();
 
 		// Recovery is complete when the error is gone and the chip became
 		// openable, which only happens once the upload has committed.
-		await expect(alert).toBeHidden({ timeout: 20000 });
+		await expect(failedChip).toBeHidden({ timeout: 20000 });
 		await expect(page.getByTestId('attachment-chip').first()).toHaveAttribute('role', 'button', {
 			timeout: 20000
 		});

@@ -506,9 +506,10 @@
 			"max_attachments": "Maximum {max} attachments allowed",
 			"pasted_file_too_large": "Pasted file too large",
 			"upload_failed": "Failed to upload \"{filename}\"",
-			"upload_network": "The connection was lost. The file was not saved.",
-			"upload_retry": "Try again",
-			"upload_server": "The upload could not be completed. The file was not saved."
+			"upload_network": "Connection lost.",
+			"upload_readd_hint": "Add the file again.",
+			"upload_retry_hint": "Click to try again.",
+			"upload_server": "Upload rejected."
 		},
 		"input": {
 			"placeholder": "Type a message...",

@@ -7,8 +7,6 @@
 	import { getTranslate } from '@tolgee/svelte';
 	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
 	import Progress from '$lib/components/ui/progress/progress.svelte';
-	import { Button } from '$lib/components/ui/button';
-	import * as Alert from '$lib/components/ui/alert';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import AttachmentTextPreview from './AttachmentTextPreview.svelte';
 	import { isTextPreviewable } from '../core/attachmentPreview.js';
@@ -51,14 +49,21 @@
 		server: 'chat.error.upload_server'
 	};
 
-	/** Composer-only: a sent message's attachments carry no actionable failure. */
-	const failedAttachments = $derived(
-		readonly
-			? []
-			: attachments
-					.map((attachment, index) => ({ attachment, index }))
-					.filter(({ attachment }) => getUploadState(attachment)?.status === 'error')
-	);
+	/**
+	 * The one line a failed tile shows under the filename: what went wrong, and
+	 * the way out. There is no automatic retry, so the tile itself is the
+	 * control — without a retry handler the file has to be added again.
+	 */
+	function failureText(code: UploadErrorCode | undefined, retryable: boolean): string {
+		const cause = $t(code ? UPLOAD_ERROR_KEY[code] : 'chat.error.upload_server');
+		return `${cause} ${$t(retryable ? 'chat.error.upload_retry_hint' : 'chat.error.upload_readd_hint')}`;
+	}
+
+	// Tiles pair up two per row from sm upwards. Below that the row is too narrow
+	// for a filename plus a failure reason, so each takes the full width. A lone
+	// attachment also spans the row: halving it would truncate the reason while
+	// the other half sits empty.
+	const fullWidthTiles = $derived(attachments.length === 1);
 
 	// Flex direction and wrap based on alignment and readonly state
 	const flexDirection = $derived(readonly ? (align === 'right' ? 'row-reverse' : 'row') : 'row');
@@ -285,34 +290,43 @@
 			{@const uploadState = getUploadState(attachment)}
 			{@const isUploading = uploadState?.status === 'uploading'}
 			{@const hasFailed = uploadState?.status === 'error'}
-			<!-- A failed image keeps its local preview, so canOpen() would still
-			     say yes; opening it would suggest the file exists somewhere. -->
-			{@const isClickable = !isUploading && !hasFailed && canOpen(attachment)}
 			{@const originalIndex =
 				readonly && align === 'right' ? attachments.length - 1 - index : index}
+			<!-- A failed image keeps its local preview, so canOpen() would still
+			     say yes; opening it would suggest the file exists somewhere.
+			     A failed tile activates the retry instead. -->
+			{@const canRetry = hasFailed && !readonly && !!onRetry}
+			{@const isClickable = !isUploading && !hasFailed && canOpen(attachment)}
+			{@const isInteractive = isClickable || canRetry}
+			{@const activate = () => {
+				if (canRetry) {
+					haptic.trigger('light');
+					onRetry?.(originalIndex);
+				} else if (isClickable) {
+					handleOpen(attachment);
+				}
+			}}
 
-			<!-- tabindex and role are set together: when isClickable, role="button" makes this interactive -->
+			<!-- tabindex and role are set together: when interactive, role="button" makes this actionable -->
 			<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 			<div
 				data-testid="attachment-chip"
 				data-upload-failed={hasFailed ? '' : undefined}
-				class="relative flex items-center justify-between gap-2 overflow-hidden rounded-lg px-2 py-2 transition-transform {isClickable
+				class="relative flex w-full items-center justify-between gap-2 overflow-hidden rounded-lg px-2 py-2 transition-transform {fullWidthTiles
+					? ''
+					: 'sm:w-[calc(50%-0.25rem)]'} {isInteractive
 					? 'cursor-pointer active:translate-y-px'
-					: ''} {hasFailed
-					? 'bg-destructive/5 ring-1 ring-destructive/40'
-					: readonly
-						? 'border text-foreground transition-colors'
-						: 'bg-secondary/50'}"
-				style="width: {attachments.length === 1 && readonly
-					? '100%'
-					: 'calc(50% - 0.25rem)'}; box-sizing: border-box;"
-				role={isClickable ? 'button' : undefined}
-				tabindex={isClickable ? 0 : undefined}
-				onclick={() => isClickable && handleOpen(attachment)}
+					: ''} {readonly && !hasFailed
+					? 'border text-foreground transition-colors'
+					: 'bg-secondary/50'}"
+				style="box-sizing: border-box;"
+				role={isInteractive ? 'button' : undefined}
+				tabindex={isInteractive ? 0 : undefined}
+				onclick={activate}
 				onkeydown={(e) => {
-					if (isClickable && (e.key === 'Enter' || e.key === ' ')) {
+					if (isInteractive && (e.key === 'Enter' || e.key === ' ')) {
 						e.preventDefault();
-						handleOpen(attachment);
+						activate();
 					}
 				}}
 			>
@@ -338,8 +352,14 @@
 							<FileIcon class="size-4 shrink-0" />
 						{/if}
 					</div>
-					<div class="flex flex-1 flex-col gap-1 overflow-hidden">
+					<div class="flex flex-1 flex-col gap-0 overflow-hidden leading-tight">
 						<span class="truncate text-sm" title={filename}>{filename}</span>
+						{#if hasFailed}
+							{@const code = uploadState?.error}
+							<span class="truncate text-xs text-destructive" title={failureText(code, canRetry)}>
+								{failureText(code, canRetry)}
+							</span>
+						{/if}
 					</div>
 				</div>
 				{#if !readonly}
@@ -366,36 +386,3 @@
 		{/each}
 	</div>
 {/if}
-
-<!-- Failures live beside the grid, not inside a tile: tiles are half-width and
-     cannot hold a readable message plus an action. Alert carries role="alert",
-     so appearing here is announced without extra wiring. -->
-{#each failedAttachments as { attachment, index } (attachmentKey(attachment))}
-	{@const filename = getFilename(attachment)}
-	{@const code = getUploadState(attachment)?.error}
-	<Alert.Root variant="destructive" data-testid="attachment-upload-error" class="mt-2 {className}">
-		<TriangleAlertIcon />
-		<Alert.Title>{$t('chat.error.upload_failed', { filename })}</Alert.Title>
-		<Alert.Description>
-			{$t(code ? UPLOAD_ERROR_KEY[code] : 'chat.error.upload_server')}
-		</Alert.Description>
-		{#if onRetry}
-			<!-- In flow rather than Alert.Action: that slot is absolutely
-			     positioned with a fixed 4.5rem reservation, which a translated
-			     label outgrows — at 390px the German title ran underneath it.
-			     col-start-2 keeps it aligned with the text beside the icon. -->
-			<div class="col-start-2 mt-2">
-				<Button
-					variant="outline"
-					size="sm"
-					onclick={() => {
-						haptic.trigger('light');
-						onRetry(index);
-					}}
-				>
-					{$t('chat.error.upload_retry')}
-				</Button>
-			</div>
-		{/if}
-	</Alert.Root>
-{/each}
