@@ -45,3 +45,25 @@ test.describe('bare-path language redirect', () => {
 		expect(response.headers()['location']).not.toMatch(/\/zz\//);
 	});
 });
+
+// The served <html lang> needs both the %lang% placeholder in app.html and the
+// handleHtmlLang hook that fills it. Either one going missing fails silently:
+// without the placeholder the replace is a no-op and every locale ships the
+// hard-coded fallback, without the hook the raw token reaches the browser. So
+// this asserts the rendered response rather than unit-testing the hook. The
+// marketing root is prerendered and /pricing is not, which covers both the
+// build-time and the runtime substitution.
+test.describe('SSR html lang', () => {
+	for (const lang of ['en', 'de', 'es', 'fr'] as const) {
+		test(`serves lang="${lang}" on prerendered and runtime routes`, async ({ request }) => {
+			for (const path of [`/${lang}`, `/${lang}/pricing`]) {
+				const response = await request.get(path);
+				expect(response.ok(), `${path} should be reachable`).toBe(true);
+
+				const html = await response.text();
+				expect(html, `${path} should declare lang="${lang}"`).toContain(`<html lang="${lang}"`);
+				expect(html, `${path} should not leak the placeholder`).not.toContain('%lang%');
+			}
+		});
+	}
+});
