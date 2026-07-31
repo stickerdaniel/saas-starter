@@ -260,3 +260,111 @@ describe('ChatUIContext upload claims, before the bytes move', () => {
 		expect(uploads.any).toBe(false);
 	});
 });
+
+describe('ChatUIContext upload claims, adversarial sequences', () => {
+	beforeEach(() => {
+		uploadFileWithProgress.mockReset();
+	});
+
+	it('lets go when an attachment is discarded while its image is converting', async () => {
+		// Preprocessing cannot be cancelled, so it resolves into a context that no
+		// longer has the attachment. Nothing after that point settles the key, so
+		// the exit taken here has to.
+		const uploads = new ActiveUploads();
+		const ctx = context(uploads);
+
+		let finishEncoding!: () => void;
+		const encoded = new Promise<void>((resolve) => {
+			finishEncoding = resolve;
+		});
+
+		const upload = ctx.uploadFile(new Blob(['x'], { type: 'image/png' }), 'photo.png', {
+			preprocess: async (input) => {
+				await encoded;
+				return { blob: input, mimeType: 'image/webp', width: 10, height: 10 };
+			}
+		});
+		expect(uploads.any).toBe(true);
+
+		ctx.removeAttachment(0);
+		expect(uploads.any).toBe(false);
+
+		finishEncoding();
+		await upload;
+		expect(uploads.any).toBe(false);
+		expect(uploadFileWithProgress).not.toHaveBeenCalled();
+	});
+
+	it('holds on for the other attachment when one is discarded mid-encode', async () => {
+		const uploads = new ActiveUploads();
+		const ctx = context(uploads);
+
+		let finishEncoding!: () => void;
+		const encoded = new Promise<void>((resolve) => {
+			finishEncoding = resolve;
+		});
+		const encoding = ctx.uploadFile(new Blob(['x'], { type: 'image/png' }), 'photo.png', {
+			preprocess: async (input) => {
+				await encoded;
+				return { blob: input, mimeType: 'image/webp', width: 10, height: 10 };
+			}
+		});
+
+		const transfer = pendingTransfer();
+		const sending = ctx.uploadScreenshot(shot(), 'shot.png');
+
+		ctx.removeAttachment(0);
+		expect(uploads.any).toBe(true);
+
+		finishEncoding();
+		await encoding;
+		expect(uploads.any).toBe(true);
+
+		transfer.succeed();
+		await sending;
+		expect(uploads.any).toBe(false);
+	});
+
+	it('claims again when a failed attachment is retried', async () => {
+		const uploads = new ActiveUploads();
+		const ctx = context(uploads);
+
+		const failing = pendingTransfer();
+		const upload = ctx.uploadScreenshot(shot(), 'shot.png');
+		failing.reject(new Error('network'));
+		await upload;
+		expect(uploads.any).toBe(false);
+
+		const retry = pendingTransfer();
+		ctx.retryUpload(0);
+		expect(uploads.any).toBe(true);
+
+		retry.succeed();
+		while (uploads.any) await Promise.resolve();
+		expect(uploads.any).toBe(false);
+	});
+
+	it('lets go when the context is disposed while an image is converting', async () => {
+		const uploads = new ActiveUploads();
+		const ctx = context(uploads);
+
+		let finishEncoding!: () => void;
+		const encoded = new Promise<void>((resolve) => {
+			finishEncoding = resolve;
+		});
+		const upload = ctx.uploadFile(new Blob(['x'], { type: 'image/png' }), 'photo.png', {
+			preprocess: async (input) => {
+				await encoded;
+				return { blob: input, mimeType: 'image/webp', width: 10, height: 10 };
+			}
+		});
+		expect(uploads.any).toBe(true);
+
+		ctx.dispose();
+		expect(uploads.any).toBe(false);
+
+		finishEncoding();
+		await upload;
+		expect(uploads.any).toBe(false);
+	});
+});

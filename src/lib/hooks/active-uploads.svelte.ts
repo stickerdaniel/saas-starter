@@ -35,6 +35,11 @@ export function shouldBlockNavigation(nav: GuardedNavigation, hasActiveUploads: 
  * this would turn that very navigation into a full load that does not. Nothing
  * would ask either, because SvelteKit skips the callbacks while a navigation is
  * already under way. The stale chunks survive one more click; the file would not.
+ *
+ * Deferring is cheap here specifically: the navigations that reach this line
+ * while a file is going out are the same-page ones, which reuse the route that
+ * is already loaded rather than importing a chunk that a deploy may have
+ * deleted. The vite:preloadError backstop in app.html covers the rest.
  */
 export function deployReloadTarget(
 	nav: GuardedNavigation,
