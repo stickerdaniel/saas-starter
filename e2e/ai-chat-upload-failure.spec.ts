@@ -44,9 +44,15 @@ test.describe('AI Chat - upload failure', () => {
 		await expect(failedChip).toBeVisible({ timeout: 20000 });
 		await expect(failedChip).toContainText('dropped.txt');
 
-		// The point of the fix: unlike a toast, it is still there later.
-		await page.waitForTimeout(6000);
-		await expect(failedChip).toBeVisible();
+		// The point of the fix: a Sonner toast self-dismisses after 4s, so the
+		// message has to outlive that window. Asserted by holding the condition
+		// rather than sleeping: this fails the moment the chip disappears,
+		// instead of only noticing after a fixed wait.
+		const toastLifetimeMs = 4000;
+		const deadline = Date.now() + toastLifetimeMs * 1.5;
+		while (Date.now() < deadline) {
+			await expect(failedChip).toBeVisible({ timeout: 1000 });
+		}
 
 		// Sending would render an attachment the backend never received.
 		await page.locator('textarea').fill('Here are my notes');
