@@ -59,6 +59,7 @@ export type {
 	CreateThreadResult,
 	UploadResult,
 	ProgressCallback,
+	UploadErrorCode,
 	ChatCoreAPI,
 	ChatCoreOptions
 } from './core/index.js';
@@ -81,6 +82,7 @@ export {
 	StreamCacheManager,
 	uploadFileWithProgress,
 	uploadToStorage,
+	UploadError,
 	ChatCore,
 	createChatCore,
 	ChatDraftManager

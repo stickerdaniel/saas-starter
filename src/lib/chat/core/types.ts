@@ -6,6 +6,7 @@
  */
 
 import type { ProviderMetadata } from 'ai';
+import type { UploadErrorCode } from './file-uploader.js';
 
 /**
  * Upload state for tracking file upload progress
@@ -14,7 +15,12 @@ export type UploadState = {
 	status: 'uploading' | 'success' | 'error';
 	progress: number; // 0-100
 	fileId?: string; // Convex fileId after success
-	error?: string; // Error message if failed
+	/**
+	 * Why the upload failed, as a code rather than a message. Rendering
+	 * translates it, so the reason survives a language switch and no English
+	 * transport string can leak into the UI. Present only when status is 'error'.
+	 */
+	error?: UploadErrorCode;
 };
 
 /**

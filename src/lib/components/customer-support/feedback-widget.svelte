@@ -116,6 +116,17 @@
 			// Load draft for new thread (or empty for new conversation)
 			const draft = threadContext.getDraft(currentThreadId);
 			chatUIContext.setInputValue(draft);
+
+			// ChatUIContext drops attachments when the thread id changes, but it
+			// cannot tell an abandoned compose from a conversation receiving its
+			// warm id: both look like null -> id. Compose that is left without
+			// ever getting an id (back out, or creation fails) would otherwise
+			// carry its attachment into whichever thread is opened next.
+			// isNewConversation is the missing signal — selectThread clears it,
+			// warm-id assignment does not.
+			if (previousThreadId === null && !threadContext.isNewConversation) {
+				chatUIContext.clearAttachments();
+			}
 		}
 	);
 
