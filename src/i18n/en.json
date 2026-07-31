@@ -551,6 +551,7 @@
 		"delete": "Delete",
 		"error": "Something went wrong. Please try again.",
 		"load_error": "Failed to load data. Please try again later.",
+		"upload_in_progress": "Upload still in progress. Wait for it to finish.",
 		"you": "You"
 	},
 	"connection": {

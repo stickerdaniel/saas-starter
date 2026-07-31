@@ -14,6 +14,7 @@
 	import { getTranslate } from '@tolgee/svelte';
 	import { page } from '$app/state';
 	import { onDestroy, tick } from 'svelte';
+	import { activeUploadsContext } from '$lib/hooks/active-uploads.svelte.ts';
 
 	const { t } = getTranslate();
 
@@ -71,7 +72,16 @@
 		}
 	});
 
-	const chatUIContext = new ChatUIContext(chatCore, client, uploadConfig, 'right');
+	// Report transfers to the app so a navigation that would kill one asks first.
+	// Absent outside the app shell (isolated tests, the standalone example), where
+	// there is no layout to ask.
+	const chatUIContext = new ChatUIContext(
+		chatCore,
+		client,
+		uploadConfig,
+		'right',
+		activeUploadsContext.getOr(null)
+	);
 
 	// Revoke blob preview URLs of unsent attachments when this thread view unmounts
 	onDestroy(() => chatUIContext.dispose());

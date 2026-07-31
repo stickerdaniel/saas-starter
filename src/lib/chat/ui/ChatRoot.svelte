@@ -22,6 +22,7 @@
 		type MessagesQueryResponse
 	} from './streaming-display.js';
 	import { syncReasoningAccordionState } from './reasoning-accordion-sync.js';
+	import { activeUploadsContext } from '$lib/hooks/active-uploads.svelte.ts';
 
 	/**
 	 * External core adapter interface
@@ -94,7 +95,8 @@
 	// Context object is created once and placed in Svelte context.
 	// svelte-ignore state_referenced_locally
 	const uiContext =
-		externalUIContext ?? new ChatUIContext(core, client, uploadConfig, userAlignment);
+		externalUIContext ??
+		new ChatUIContext(core, client, uploadConfig, userAlignment, activeUploadsContext.getOr(null));
 	setChatUIContext(uiContext);
 
 	// Dispose the internally created context on unmount (revokes blob preview

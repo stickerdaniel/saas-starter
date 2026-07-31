@@ -9,6 +9,7 @@
 	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
 	import { uploadToStorage, UploadError } from '$lib/chat';
 	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
+	import { activeUploadsContext } from '$lib/hooks/active-uploads.svelte.ts';
 	import { toast } from 'svelte-sonner';
 	import { T, getTranslate } from '@tolgee/svelte';
 	import { useConvexClient } from 'convex-svelte';
@@ -46,6 +47,15 @@
 	// Field errors
 	let errors = $state<Record<string, string[]>>({});
 	const hasNameError = $derived((errors.name?.length ?? 0) > 0);
+
+	// Let the root layout warn before a page unload discards the transfer.
+	const activeUploads = activeUploadsContext.getOr(null);
+	const uploadOwner = {};
+	$effect(() => {
+		if (!activeUploads || !isUploading) return;
+		activeUploads.claim(uploadOwner);
+		return () => activeUploads.release(uploadOwner);
+	});
 
 	async function handleFileSelect(e: Event) {
 		const target = e.target as HTMLInputElement;

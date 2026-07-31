@@ -85,7 +85,15 @@ export class ImpersonationState {
 	 *
 	 * @param t - Tolgee translate function ($t from getTranslate())
 	 */
-	async stop(t: (key: string) => string): Promise<void> {
+	async stop(
+		t: (key: string) => string,
+		/**
+		 * Consulted immediately before the redirect. By then the session and the
+		 * JWT already belong to the admin again, so an upload that stopped this
+		 * would leave the target's page on screen under the admin's identity.
+		 */
+		activeUploads?: { suspendOnce(): void } | null
+	): Promise<void> {
 		haptic.trigger('warning');
 		try {
 			const result = await authClient.admin.stopImpersonating();
@@ -118,6 +126,7 @@ export class ImpersonationState {
 			toast.success(t('app.user_menu.impersonation_stopped'));
 			// Full document navigation, not a client-side goto: the app must boot with
 			// the fresh JWT and new Convex subscriptions bound to the admin identity.
+			activeUploads?.suspendOnce();
 			window.location.assign(localizedHref('/admin/users'));
 		} catch {
 			toast.error(t('app.user_menu.impersonation_stop_failed'));

@@ -551,6 +551,7 @@
 		"delete": "Löschen",
 		"error": "Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut.",
 		"load_error": "Daten konnten nicht geladen werden. Bitte versuchen Sie es später erneut.",
+		"upload_in_progress": "Upload läuft noch. Bitte warten, bis er fertig ist.",
 		"you": "Sie"
 	},
 	"connection": {

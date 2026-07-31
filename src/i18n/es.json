@@ -551,6 +551,7 @@
 		"delete": "Eliminar",
 		"error": "Algo salió mal. Por favor, inténtalo de nuevo.",
 		"load_error": "No se pudieron cargar los datos. Por favor, inténtalo de nuevo más tarde.",
+		"upload_in_progress": "La subida sigue en curso. Espera a que termine.",
 		"you": "Tú"
 	},
 	"connection": {

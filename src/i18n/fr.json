@@ -551,6 +551,7 @@
 		"delete": "Supprimer",
 		"error": "Une erreur est survenue. Veuillez réessayer.",
 		"load_error": "Échec du chargement des données. Veuillez réessayer plus tard.",
+		"upload_in_progress": "Le téléversement est toujours en cours. Attendez la fin.",
 		"you": "Vous"
 	},
 	"connection": {

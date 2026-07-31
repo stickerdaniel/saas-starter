@@ -11,6 +11,13 @@
 	import AppPostHogBootstrap from '$lib/components/app/app-posthog-bootstrap.svelte';
 	import ClockSkewBanner from '$lib/components/clock-skew-banner.svelte';
 	import { ClockSkewState, clockSkewContext } from '$lib/hooks/clock-skew.svelte.ts';
+	import {
+		ActiveUploads,
+		activeUploadsContext,
+		shouldBlockNavigation,
+		deployReloadTarget
+	} from '$lib/hooks/active-uploads.svelte.ts';
+	import UploadGuardNotice from '$lib/components/upload-guard-notice.svelte';
 	import { setGlobalSearchContext } from '$lib/components/global-search/context.svelte.ts';
 	import GlobalSearchShell from '$lib/components/global-search/global-search-shell.svelte';
 	import { languageContext } from '$lib/i18n/context';
@@ -27,13 +34,32 @@
 
 	let { children } = $props();
 
+	// A file still transferring dies with the page, and silently: the progress bar
+	// disappears and the user assumes it arrived. Ask first.
+	//
+	// This shares the deploy hook's callback on purpose. Cancelling a navigation
+	// does not stop the other beforeNavigate callbacks, so a separate hook would
+	// still let the reload below tear the upload down.
+	const activeUploads = new ActiveUploads();
+	activeUploadsContext.set(activeUploads);
+
 	// After a new deploy is detected (version.json poll flips updated.current),
 	// turn the next client navigation into a full document load so fresh chunk
 	// hashes are fetched instead of importing a now-deleted hash and blanking
 	// the page. Covers goto() and back/forward, unlike data-sveltekit-reload.
-	beforeNavigate(({ willUnload, to }) => {
-		if (updated.current && !willUnload && to?.url) {
-			location.href = to.url.href;
+	beforeNavigate((nav) => {
+		const exempt = activeUploads.consumeSuspension();
+		if (!exempt && shouldBlockNavigation(nav, activeUploads.any)) {
+			nav.cancel();
+			// Leaving the document: SvelteKit turns the cancel into the browser's own
+			// prompt, which says everything there is to say. Only a stopped in-app
+			// navigation needs explaining, because nothing visibly happened.
+			if (nav.to) activeUploads.noteBlocked();
+			return;
+		}
+		const reloadTarget = deployReloadTarget(nav, updated.current, activeUploads.any);
+		if (reloadTarget) {
+			location.href = reloadTarget.href;
 		}
 	});
 
@@ -148,6 +174,7 @@
 					<T keyName="a11y.skip_to_content" />
 				</a>
 				<ClockSkewBanner />
+				<UploadGuardNotice />
 				<GlobalSearchShell />
 				{@render children()}
 			</TolgeeProvider>

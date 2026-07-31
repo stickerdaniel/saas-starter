@@ -20,6 +20,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { getLegalEmailAddress } from '$lib/config/legal';
 	import { buildMailto } from '$lib/utils/mailto';
+	import { activeUploadsContext } from '$lib/hooks/active-uploads.svelte.ts';
 
 	const { t } = getTranslate();
 
@@ -98,7 +99,16 @@
 
 	// Create ChatUIContext at this level so we can handle screenshot uploads
 	// Cast threadContext to ChatCore since it implements the required interface
-	const chatUIContext = new ChatUIContext(threadContext as any, client, uploadConfig);
+	// Report transfers to the app so a navigation that would kill one asks first.
+	// Absent outside the app shell (isolated tests, the standalone example), where
+	// there is no layout to ask.
+	const chatUIContext = new ChatUIContext(
+		threadContext as any,
+		client,
+		uploadConfig,
+		'right',
+		activeUploadsContext.getOr(null)
+	);
 
 	// Revoke blob preview URLs of unsent attachments when the widget unmounts
 	onDestroy(() => chatUIContext.dispose());
@@ -230,15 +240,25 @@
 <AIChatbar isFeedbackOpen={!shouldShowAIChatbar} />
 <FeedbackButton {isFeedbackOpen} onToggle={setWidgetOpen} bind:isScreenshotMode {chatUIContext} />
 
-{#if isScreenshotMode}
-	{#await import('./screenshot-editor/ScreenshotEditor.svelte') then { default: ScreenshotEditor }}
-		<ScreenshotEditor
-			onCancel={handleScreenshotCancel}
-			onScreenshotSaved={handleScreenshotSaved}
-			onCaptureError={handleScreenshotCaptureError}
-		/>
-	{/await}
-{/if}
+<!--
+	The editor is loaded on demand, and an await block with no catch rethrows a
+	rejected import (svelte/src/internal/client/dom/blocks/await.js). A deploy can
+	delete the chunk under a page that is still open, and the reload that would
+	normally rescue it waits for confirmation while a file is uploading — so this
+	failure is reachable, and without a boundary it takes the whole page down.
+	Routed to the same place a failed capture goes: overlay down, retry offered.
+-->
+<svelte:boundary onerror={handleScreenshotCaptureError}>
+	{#if isScreenshotMode}
+		{#await import('./screenshot-editor/ScreenshotEditor.svelte') then { default: ScreenshotEditor }}
+			<ScreenshotEditor
+				onCancel={handleScreenshotCancel}
+				onScreenshotSaved={handleScreenshotSaved}
+				onCaptureError={handleScreenshotCaptureError}
+			/>
+		{/await}
+	{/if}
+</svelte:boundary>
 
 <AlertDialog.Root bind:open={captureErrorOpen}>
 	<AlertDialog.Content>

@@ -31,7 +31,11 @@ describe('kit.version config', () => {
 		// updated must come from $app/state, not the deprecated $app/stores.
 		expect(layout).toMatch(/import \{[^}]*\bupdated\b[^}]*\} from '\$app\/state'/);
 		expect(layout).toContain('updated.current');
-		expect(layout).toContain('location.href = to.url.href');
+		// The layout still hands the deploy signal to the decision and acts on the
+		// answer. Which navigations that answer covers is settled by
+		// deployReloadTarget's own tests, not by matching source text here.
+		expect(layout).toMatch(/deployReloadTarget\([^)]*updated\.current/);
+		expect(layout).toContain('location.href =');
 	});
 
 	it('registers a vite:preloadError backstop that reloads once', () => {
