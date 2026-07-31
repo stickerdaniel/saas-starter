@@ -579,6 +579,10 @@ export class ChatUIContext {
 			// Cancelation is not a failure: removeAttachment/clearAttachments
 			// already took the attachment away, so there is no state to write.
 			if (isAbortError(error) || !isCurrent()) return;
+			// The tile shows a translated cause; the specifics that identify the
+			// failure — HTTP status, and the Convex message kept in `cause` — have
+			// no place in the UI but are what makes a report actionable.
+			console.error('[ChatUIContext] Upload failed:', error);
 			this.patchAttachment(key, {
 				uploadState: {
 					status: 'error',
