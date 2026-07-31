@@ -240,15 +240,25 @@
 <AIChatbar isFeedbackOpen={!shouldShowAIChatbar} />
 <FeedbackButton {isFeedbackOpen} onToggle={setWidgetOpen} bind:isScreenshotMode {chatUIContext} />
 
-{#if isScreenshotMode}
-	{#await import('./screenshot-editor/ScreenshotEditor.svelte') then { default: ScreenshotEditor }}
-		<ScreenshotEditor
-			onCancel={handleScreenshotCancel}
-			onScreenshotSaved={handleScreenshotSaved}
-			onCaptureError={handleScreenshotCaptureError}
-		/>
-	{/await}
-{/if}
+<!--
+	The editor is loaded on demand, and an await block with no catch rethrows a
+	rejected import (svelte/src/internal/client/dom/blocks/await.js). A deploy can
+	delete the chunk under a page that is still open, and the reload that would
+	normally rescue it waits for confirmation while a file is uploading — so this
+	failure is reachable, and without a boundary it takes the whole page down.
+	Routed to the same place a failed capture goes: overlay down, retry offered.
+-->
+<svelte:boundary onerror={handleScreenshotCaptureError}>
+	{#if isScreenshotMode}
+		{#await import('./screenshot-editor/ScreenshotEditor.svelte') then { default: ScreenshotEditor }}
+			<ScreenshotEditor
+				onCancel={handleScreenshotCancel}
+				onScreenshotSaved={handleScreenshotSaved}
+				onCaptureError={handleScreenshotCaptureError}
+			/>
+		{/await}
+	{/if}
+</svelte:boundary>
 
 <AlertDialog.Root bind:open={captureErrorOpen}>
 	<AlertDialog.Content>
