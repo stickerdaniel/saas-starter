@@ -13,8 +13,13 @@
 	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
 	import ThreadChat from './thread-chat.svelte';
 	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
+	import { activeUploadsContext } from '$lib/hooks/active-uploads.svelte.ts';
 
 	const { t } = getTranslate();
+
+	// Consulted before navigations this component starts on the user's behalf,
+	// so an in-flight upload elsewhere on the page cannot stop them.
+	const activeUploads = activeUploadsContext.getOr(null);
 
 	let { data } = $props();
 
@@ -99,6 +104,8 @@
 			successUrl: successUrl.href
 		});
 		if (result?.url) {
+			// The checkout session already exists; see nav-user.svelte.
+			activeUploads?.suspendOnce();
 			window.location.href = result.url;
 		} else if (upgradeOperation.error) {
 			haptic.trigger('error');

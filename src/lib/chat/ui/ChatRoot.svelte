@@ -22,6 +22,7 @@
 		type MessagesQueryResponse
 	} from './streaming-display.js';
 	import { syncReasoningAccordionState } from './reasoning-accordion-sync.js';
+	import { activeUploadsContext } from '$lib/hooks/active-uploads.svelte.ts';
 
 	/**
 	 * External core adapter interface
@@ -101,6 +102,19 @@
 	// URLs of unsent attachments). External contexts are owned by their creator.
 	onDestroy(() => {
 		if (!externalUIContext) uiContext.dispose();
+	});
+
+	// Let the root layout warn before a page unload discards a transfer. Keyed on
+	// the UI context rather than this component: the support widget hands its own
+	// context in, so keying on the component would register one upload twice and
+	// leave a stale claim behind when either instance goes away.
+	// Absent outside the app shell (isolated component tests, the standalone
+	// example), where there is no layout to warn.
+	const activeUploads = activeUploadsContext.getOr(null);
+	$effect(() => {
+		if (!activeUploads || !uiContext.hasUploadingFiles) return;
+		activeUploads.claim(uiContext);
+		return () => activeUploads.release(uiContext);
 	});
 
 	// Update core threadId when prop changes (only for internal core)

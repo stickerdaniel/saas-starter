@@ -31,7 +31,9 @@ describe('kit.version config', () => {
 		// updated must come from $app/state, not the deprecated $app/stores.
 		expect(layout).toMatch(/import \{[^}]*\bupdated\b[^}]*\} from '\$app\/state'/);
 		expect(layout).toContain('updated.current');
-		expect(layout).toContain('location.href = to.url.href');
+		// Structural match so the callback can name its argument freely; the
+		// upload guard shares this callback and needs the whole navigation.
+		expect(layout).toMatch(/location\.href = (?:\w+\.)?to\.url\.href/);
 	});
 
 	it('registers a vite:preloadError backstop that reloads once', () => {

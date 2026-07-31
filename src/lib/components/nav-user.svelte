@@ -22,8 +22,13 @@
 	import { ImpersonationState } from '$lib/hooks/use-impersonation.svelte.ts';
 	import { toast } from 'svelte-sonner';
 	import { useCustomer, useAutumnOperation } from '@stickerdaniel/convex-autumn-svelte/sveltekit';
+	import { activeUploadsContext } from '$lib/hooks/active-uploads.svelte.ts';
 
 	const { t } = getTranslate();
+
+	// Consulted before navigations this component starts on the user's behalf,
+	// so an in-flight upload elsewhere on the page cannot stop them.
+	const activeUploads = activeUploadsContext.getOr(null);
 
 	interface Props {
 		user: { name: string; email: string; avatar: string };
@@ -63,6 +68,9 @@
 			successUrl: successUrl.href
 		});
 		if (result?.url) {
+			// The checkout session already exists; prompting about an upload here
+			// would only leave the user on a page waiting for a redirect.
+			activeUploads?.suspendOnce();
 			window.location.href = result.url;
 		} else if (upgradeOperation.error) {
 			haptic.trigger('error');
@@ -89,6 +97,9 @@
 			console.error('Sign out error:', result.error);
 			toast.error($t('common.error'));
 		} else {
+			// The session is already gone. Stopping this would strand the user on a
+			// signed-out page, so an upload does not get a say.
+			activeUploads?.suspendOnce();
 			await goto(resolve(localizedHref('/')));
 		}
 	}

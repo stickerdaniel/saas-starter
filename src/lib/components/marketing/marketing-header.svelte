@@ -17,8 +17,13 @@
 	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
 	import { T, getTranslate } from '@tolgee/svelte';
 	import { LEGAL_CONFIG } from '$lib/config/legal';
+	import { activeUploadsContext } from '$lib/hooks/active-uploads.svelte.ts';
 
 	const { t } = getTranslate();
+
+	// Consulted before navigations this component starts on the user's behalf,
+	// so an in-flight upload elsewhere on the page cannot stop them.
+	const activeUploads = activeUploadsContext.getOr(null);
 	const auth = useAuth();
 	let signingOut = $state(false);
 	const isAuthenticated = $derived(auth.isAuthenticated && !signingOut);
@@ -55,6 +60,8 @@
 		signingOut = true;
 		const result = await authClient.signOut();
 		if (!result.error) {
+			// The session is already gone; see nav-user.svelte.
+			activeUploads?.suspendOnce();
 			await goto(resolve(localizedHref('/')));
 		} else {
 			signingOut = false;
