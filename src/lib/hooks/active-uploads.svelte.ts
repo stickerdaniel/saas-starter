@@ -30,9 +30,10 @@ export function shouldBlockNavigation(nav: GuardedNavigation, hasActiveUploads: 
  * Which surfaces currently have a file in flight, shared via context.
  *
  * A transfer that dies with the document is invisible: the progress bar simply
- * disappears and the user assumes the file arrived. One shared answer is needed
- * because uploads run in several places at once — the page's chat, the floating
- * support chat, and the avatar picker are separate owners.
+ * disappears and the user assumes the file arrived. The root layout has to ask
+ * before that happens, and it cannot see into the surfaces that transfer files,
+ * so they report here instead: the page's chat, the support chat, the avatar
+ * picker.
  *
  * Instantiated per request in the root layout — never a module-level singleton,
  * which would leak across SSR requests.

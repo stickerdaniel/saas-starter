@@ -23,6 +23,7 @@
 	import { adminSupportUIContext } from '$lib/hooks/admin-support-ui.svelte.ts';
 	import { getTranslate } from '@tolgee/svelte';
 	import { page } from '$app/state';
+	import { activeUploadsContext } from '$lib/hooks/active-uploads.svelte.ts';
 
 	const { t } = getTranslate();
 
@@ -74,7 +75,16 @@
 	});
 
 	// Create ChatUIContext with upload support (userAlignment 'left' for admin view)
-	const chatUIContext = new ChatUIContext(chatCore, client, uploadConfig, 'left');
+	// Report transfers to the app so a navigation that would kill one asks first.
+	// Absent outside the app shell (isolated tests, the standalone example), where
+	// there is no layout to ask.
+	const chatUIContext = new ChatUIContext(
+		chatCore,
+		client,
+		uploadConfig,
+		'left',
+		activeUploadsContext.getOr(null)
+	);
 
 	// Revoke blob preview URLs of unsent attachments when this thread view unmounts
 	onDestroy(() => chatUIContext.dispose());

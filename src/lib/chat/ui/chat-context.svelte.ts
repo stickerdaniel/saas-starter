@@ -65,6 +65,15 @@ export interface UploadConfig {
 }
 
 /**
+ * The part of the app's in-flight upload registry this context reports to.
+ * Structural on purpose, so the chat module stays independent of the app hook.
+ */
+export interface ActiveUploadsRegistry {
+	claim(owner: object): void;
+	release(owner: object): void;
+}
+
+/**
  * Chat UI Context class
  *
  * Holds both the core state and UI-specific state like reasoning accordion states.
@@ -112,6 +121,17 @@ export class ChatUIContext {
 	private readonly uploadAborters = new SvelteMap<string, AbortController>();
 
 	/**
+	 * Where to report a transfer in progress, so navigating away asks first.
+	 *
+	 * Reported from here rather than watched from a component: this context
+	 * outlives the chat rendering it. Closing the support panel unmounts the chat
+	 * while the transfer keeps running, and the screenshot flow uploads through
+	 * this context with no chat mounted at all, so a component-scoped claim would
+	 * be given up, or never taken, while the file is on the wire.
+	 */
+	private readonly activeUploads: ActiveUploadsRegistry | null;
+
+	/**
 	 * The exact payload each failed attachment would need to try again. Held
 	 * because retrying from the picked file is not equivalent: images are
 	 * re-encoded before upload, and screenshots never had a File to begin with.
@@ -132,12 +152,14 @@ export class ChatUIContext {
 		core: ChatCore,
 		client: ConvexClient,
 		uploadConfig?: UploadConfig,
-		userAlignment: ChatAlignment = 'right'
+		userAlignment: ChatAlignment = 'right',
+		activeUploads: ActiveUploadsRegistry | null = null
 	) {
 		this.core = core;
 		this.client = client;
 		this.uploadConfig = uploadConfig;
 		this.userAlignment = userAlignment;
+		this.activeUploads = activeUploads;
 	}
 
 	/**
@@ -357,6 +379,9 @@ export class ChatUIContext {
 	 */
 	dispose(): void {
 		this.clearAttachments();
+		// clearAttachments aborts the transfers, but their handlers run later; the
+		// context is going away, so it cannot be the thing that lets go.
+		this.activeUploads?.release(this);
 	}
 
 	/**
@@ -544,6 +569,7 @@ export class ChatUIContext {
 		const aborter = new AbortController();
 		this.uploadAborters.set(key, aborter);
 		this.retryJobs.set(key, job);
+		this.activeUploads?.claim(this);
 		this.patchAttachment(key, { uploadState: { status: 'uploading', progress: 0 } });
 
 		/**
@@ -592,6 +618,9 @@ export class ChatUIContext {
 			});
 		} finally {
 			if (isCurrent()) this.uploadAborters.delete(key);
+			// Unconditional: a superseded attempt still has to let go, and by now
+			// the map holds only whatever is genuinely still on the wire.
+			if (this.uploadAborters.size === 0) this.activeUploads?.release(this);
 		}
 	}
 
