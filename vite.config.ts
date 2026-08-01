@@ -6,7 +6,7 @@ import { varlockLoadedEnv, varlockVitePlugin } from '@varlock/vite-integration';
 import { convexLocal } from 'convex-vite-plugin';
 import { DEV_FEATURES, type DevFeature } from './src/lib/dev/features';
 import { findAvailablePort, portlessOwnsPort } from './scripts/dev-ports';
-import { TEST_ONLY_ENV_PLACEHOLDERS } from './scripts/local-convex-env';
+import { TEST_ONLY_ENV_PLACEHOLDERS, logSafeOrigin } from './scripts/local-convex-env';
 import { stripSensitiveManifestValues } from './scripts/strip-varlock-secrets';
 import { sentrySvelteKit } from '@sentry/sveltekit';
 import devtoolsJson from 'vite-plugin-devtools-json';
@@ -245,7 +245,7 @@ export default defineConfig(async ({ mode }) => {
 						: (resolvedUrls?.local[0] ?? `http://localhost:${vitePort}`);
 					if (ignoredLocalSiteUrl && ignoredLocalSiteUrl !== siteUrl) {
 						console.warn(
-							`[convex] Ignoring SITE_URL=${ignoredLocalSiteUrl} from .env.convex.local; ` +
+							`[convex] Ignoring SITE_URL (${logSafeOrigin(ignoredLocalSiteUrl)}) from .env.convex.local; ` +
 								`using ${siteUrl} (derived from the running dev server) so local sign-in keeps working. ` +
 								`Remove SITE_URL from .env.convex.local to silence this warning.`
 						);

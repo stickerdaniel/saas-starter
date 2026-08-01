@@ -1,8 +1,24 @@
+diff --git a/node_modules/convex-vite-plugin/.bun-tag-3cb0ae79d7081430 b/.bun-tag-3cb0ae79d7081430
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/node_modules/convex-vite-plugin/.bun-tag-f7bcc5c18e81cda6 b/.bun-tag-f7bcc5c18e81cda6
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
 diff --git a/dist/backend-CgypcZjo.mjs b/dist/backend-CgypcZjo.mjs
-index a2446d37d147b021fb5315b9d3ffbd9e5f0e8ca0..62876c1ca5f1a10a3299e02777649aa35fb0a77b 100644
+index a2446d37d147b021fb5315b9d3ffbd9e5f0e8ca0..8c8db83dcd5c3aa93a3bdcc8544d8927691a66e4 100644
 --- a/dist/backend-CgypcZjo.mjs
 +++ b/dist/backend-CgypcZjo.mjs
-@@ -576,8 +576,8 @@ var ConvexBackend = class {
+@@ -565,6 +565,9 @@ var ConvexBackend = class {
+ 			cwd: backendDir,
+ 			stdio: this.stdio
+ 		});
++		this.process.on("error", (error) => {
++			this.logger.error(`Convex backend process failed to start: ${error instanceof Error ? error.message : String(error)}`, { timestamp: true });
++		});
+ 		if (!this.process.pid) throw new Error("Convex process failed to start - no PID assigned");
+ 		this.logger.info(`Backend spawned on port ${this.port} (waiting for ready...)`, { timestamp: true });
+ 	}
+@@ -576,8 +579,8 @@ var ConvexBackend = class {
  		await this.healthCheck();
  		this.logger.info("Backend ready", { timestamp: true });
  		this.logger.info(`  Instance name:   ${this.instanceName}`, { timestamp: true });
@@ -27,10 +43,29 @@ index 9fae259bd780fd2cb930f4c9f74eef80b3a73b88..0d377d80ae7648b9f12158dec1adce3d
  						}
  						deploy();
 diff --git a/src/backend.ts b/src/backend.ts
-index 27271554f6ed8c2c8aba185bbb62f8a16c7e8c7d..2909ebcf02ab245f3bd095a8d96f96e9cc686eb1 100644
+index 27271554f6ed8c2c8aba185bbb62f8a16c7e8c7d..15fedc76750edfbfb8960d2e7a398114dcb10ff6 100644
 --- a/src/backend.ts
 +++ b/src/backend.ts
-@@ -198,8 +198,8 @@ export class ConvexBackend {
+@@ -180,6 +180,18 @@ export class ConvexBackend {
+       },
+     );
+ 
++    // A failed exec leaves pid undefined, so the check below already rejects
++    // spawn() and reports the failure. What it does not stop is the 'error'
++    // event that lands afterwards: with no listener Node prints the whole error
++    // object, and its spawnargs carry --instance-secret. This listener exists
++    // only to keep that print sanitized.
++    this.process.on("error", (error) => {
++      this.logger.error(
++        `Convex backend process failed to start: ${error instanceof Error ? error.message : String(error)}`,
++        { timestamp: true },
++      );
++    });
++
+     if (!this.process.pid) {
+       throw new Error("Convex process failed to start - no PID assigned");
+     }
+@@ -198,8 +210,8 @@ export class ConvexBackend {
  
      this.logger.info("Backend ready", { timestamp: true });
      this.logger.info(`  Instance name:   ${this.instanceName}`, { timestamp: true });
