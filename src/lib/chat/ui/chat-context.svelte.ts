@@ -29,7 +29,21 @@ type UploadJob = {
 	blob: File | Blob;
 	filename: string;
 	dimensions?: { width: number; height: number };
+	/**
+	 * Who the stored file belongs to, read when the file was picked.
+	 *
+	 * Every surface derives this from the thread it is showing, and the transfer
+	 * can start long after the pick: an image spends its encoding time first, and
+	 * a retry happens whenever the user gets to it. Reading it at that point would
+	 * file the attachment under whatever thread is on screen by then.
+	 */
+	accessKey?: string;
 };
+
+/** Ranks for a transfer that is over, and one that has to start again, against
+ * the 0-100 progress of any still running. */
+const SETTLED_RANK = 101;
+const FAILED_RANK = -1;
 
 /** A canceled upload, which the user caused and does not need to be told about. */
 function isAbortError(error: unknown): boolean {
@@ -116,6 +130,16 @@ export class ChatUIContext {
 	 * used by upload methods to apply progress/success/error updates by value
 	 * rather than by array index. */
 	attachments = $state<Attachment[]>([]);
+
+	/**
+	 * Attachments of threads the user stepped away from, by thread id.
+	 *
+	 * Deliberately unbounded: evicting one would be the silent loss this exists
+	 * to prevent. What it can grow to is bounded by the user's own picking, one
+	 * file dialog at a time, and a retry payload is only retained while its
+	 * attachment can still fail. Everything here is released on dispose.
+	 */
+	private readonly parked = new SvelteMap<string, Attachment[]>();
 
 	/** Cancels the in-flight upload of an attachment, keyed by its stable `key`. */
 	private readonly uploadAborters = new SvelteMap<string, AbortController>();
@@ -263,19 +287,14 @@ export class ChatUIContext {
 
 		// Reset only on actual navigation between threads
 		// NOT on null → threadId (thread creation) or during brief empty states
-		if (
-			this._lastThreadId !== undefined &&
-			currentThreadId !== this._lastThreadId &&
-			this._lastThreadId !== null // Don't reset when creating new thread
-		) {
-			this.messagesFade.reset();
-			this._hasEverDisplayedMessages = false;
-			// Attachments belong to the thread they were picked in. Every surface
-			// reuses one context across threads and swaps only the text draft, so
-			// without this a file follows the user and is sent in the wrong
-			// conversation — and a failed one blocks sending there. Also cancels
-			// any transfer still running for the thread being left.
-			this.clearAttachments();
+		if (this._lastThreadId !== undefined && currentThreadId !== this._lastThreadId) {
+			if (this._lastThreadId === null) {
+				this.adoptParked(currentThreadId);
+			} else {
+				this.messagesFade.reset();
+				this._hasEverDisplayedMessages = false;
+				this.parkAttachments(this._lastThreadId, currentThreadId);
+			}
 		}
 		this._lastThreadId = currentThreadId;
 
@@ -400,11 +419,95 @@ export class ChatUIContext {
 	}
 
 	/**
+	 * Hand the composer over from one thread to another.
+	 *
+	 * Attachments belong to the thread they were picked in. Every surface reuses
+	 * one context across threads and swaps only the text draft, so a file left
+	 * in place would be sent in the wrong conversation, and a failed one would
+	 * block sending there. Set aside rather than thrown away: the transfer keeps
+	 * running, and the composer looks the same on the way back, so a switch mid
+	 * transfer no longer costs the file.
+	 */
+	private parkAttachments(leaving: string, entering: string | null): void {
+		if (this.attachments.length > 0) this.parked.set(leaving, this.attachments);
+		// A thread that has none is a thread with an empty composer, so the
+		// lookup miss is the answer rather than a case to handle. Threads with no
+		// id yet share the empty key, which no real thread can collide with.
+		const key = entering ?? '';
+		this.attachments = this.parked.get(key) ?? [];
+		this.parked.delete(key);
+	}
+
+	/**
+	 * Take back what was parked for a thread that is only now getting its id.
+	 *
+	 * Starting a conversation is not a move to another one, so the composer keeps
+	 * what it holds. It can still land on a thread with something parked: leaving
+	 * an unused warm thread parks under its id, and asking for a new conversation
+	 * hands the very same warm thread back out. Without this the attachment would
+	 * be stranded under an id the user is standing in, invisible and still
+	 * transferring.
+	 */
+	private adoptParked(threadId: string | null): void {
+		const key = threadId ?? '';
+		const parked = this.parked.get(key);
+		if (!parked) return;
+		this.parked.delete(key);
+
+		// The composer's own duplicate check could only see the live list while
+		// this was parked, so the same file can be in both. Whichever copy got
+		// further stays, because the loser costs the user a retry it did not need.
+		// Indices rather than identities: reading `attachments` hands out proxies,
+		// so comparing the objects would not reliably match.
+		const supersededLive = this.attachments.map(() => false);
+		const adopted: Attachment[] = [];
+		for (const candidate of parked) {
+			const rivalIndex = this.attachments.findIndex(
+				(live, index) => !supersededLive[index] && ChatUIContext.isSameFile(candidate, live)
+			);
+			const rival = rivalIndex === -1 ? undefined : this.attachments[rivalIndex];
+			if (!rival) {
+				adopted.push(candidate);
+				continue;
+			}
+			// Ties go to the parked copy, which has the head start on its transfer.
+			if (ChatUIContext.uploadProgressRank(candidate) >= ChatUIContext.uploadProgressRank(rival)) {
+				supersededLive[rivalIndex] = true;
+				this.releaseUpload(rival);
+				this.revokePreview(rival);
+				adopted.push(candidate);
+			} else {
+				this.releaseUpload(candidate);
+				this.revokePreview(candidate);
+			}
+		}
+
+		// Adopted first: they were picked before whatever is in the composer now.
+		// The result can sit above the pick-time attachment cap, which is the
+		// lesser evil. The cap keeps one pick reasonable; dropping a file the user
+		// picked, to hold a number they never see, is the loss this path exists to
+		// avoid. They are all destined for this thread, and any one can be removed.
+		this.attachments = [
+			...adopted,
+			...this.attachments.filter((_, index) => !supersededLive[index])
+		];
+	}
+
+	/**
 	 * Release resources held by this context. Call on unmount of the owning
 	 * component so blob preview URLs of unsent attachments do not leak until
 	 * the document unloads.
 	 */
 	dispose(): void {
+		// Parked attachments hold aborters and blob previews just like live ones,
+		// and no thread switch is coming to pick them up any more.
+		for (const attachments of this.parked.values()) {
+			for (const attachment of attachments) {
+				this.releaseUpload(attachment);
+				this.revokePreview(attachment);
+			}
+		}
+		this.parked.clear();
 		this.clearAttachments();
 		// The surface is gone for good, so nothing is left that could report an
 		// outcome, whatever is still unwinding.
@@ -413,18 +516,49 @@ export class ChatUIContext {
 	}
 
 	/**
+	 * How an attachment answers "is this the same file", as name and size.
+	 *
+	 * Two answers, because preprocessing renames an image to .webp and changes
+	 * its bytes: without the pre-preprocessing pair, re-pasting the same source
+	 * image would slip past dedup and upload twice.
+	 */
+	private static fileIdentity(attachment: Attachment): string[] {
+		if (attachment.type !== 'file' && attachment.type !== 'screenshot') return [];
+		const identities = [`${attachment.name}:${attachment.size}`];
+		if (attachment.sourceName !== undefined && attachment.sourceSize !== undefined) {
+			identities.push(`${attachment.sourceName}:${attachment.sourceSize}`);
+		}
+		return identities;
+	}
+
+	/** Whether two attachments are the same picked file. */
+	private static isSameFile(a: Attachment, b: Attachment): boolean {
+		const other = ChatUIContext.fileIdentity(b);
+		return ChatUIContext.fileIdentity(a).some((identity) => other.includes(identity));
+	}
+
+	/**
+	 * How far an attachment got, so the better of two copies of one file wins.
+	 *
+	 * A stored file beats one still moving, which beats a failure the user would
+	 * have to retry. Between two that are still moving the percentage decides:
+	 * ranking them equal would let a stalled transfer cancel one at 99%. An
+	 * attachment handed in from outside has no upload state and nothing pending,
+	 * so it counts as settled.
+	 */
+	private static uploadProgressRank(attachment: Attachment): number {
+		const state = 'uploadState' in attachment ? attachment.uploadState : undefined;
+		if (!state || state.status === 'success') return SETTLED_RANK;
+		if (state.status === 'error') return FAILED_RANK;
+		return state.progress;
+	}
+
+	/**
 	 * Check if a file with the same name and size already exists
 	 */
 	hasFile(name: string, size: number): boolean {
-		// Match either current name+size OR the pre-preprocessing source values.
-		// Without the second branch, image attachments would lose dedup after
-		// they're renamed to .webp on upload — the user could re-paste the same
-		// source image and get duplicate uploads.
-		return this.attachments.some(
-			(a) =>
-				(a.type === 'file' || a.type === 'screenshot') &&
-				((a.name === name && a.size === size) || (a.sourceName === name && a.sourceSize === size))
-		);
+		const picked = `${name}:${size}`;
+		return this.attachments.some((a) => ChatUIContext.fileIdentity(a).includes(picked));
 	}
 
 	/**
@@ -508,6 +642,9 @@ export class ChatUIContext {
 		// Before the first await: the tile already shows progress, so leaving now
 		// costs the user the same file whether or not the transfer has started.
 		this.markPending(key);
+		// Read here too, for the same reason: this is the thread the file was
+		// picked in, and encoding can outlast the user's stay in it.
+		const accessKey = this.uploadConfig.getAccessKey?.();
 
 		try {
 			let uploadBlob: File | Blob = file;
@@ -525,11 +662,11 @@ export class ChatUIContext {
 				height = processed.height;
 				// Reflect post-process metadata on the placeholder so the UI shows
 				// the final size and name during the actual upload.
-				this.attachments = this.attachments.map((a) =>
-					'key' in a && a.key === key
-						? { ...a, name: uploadName, mimeType: uploadMime, size: uploadBlob.size }
-						: a
-				);
+				this.patchAttachment(key, {
+					name: uploadName,
+					mimeType: uploadMime,
+					size: uploadBlob.size
+				});
 			}
 
 			// Read dimensions only when preprocess didn't supply them. Image-typed
@@ -543,16 +680,14 @@ export class ChatUIContext {
 				}
 			}
 			if (width && height) {
-				this.attachments = this.attachments.map((a) =>
-					'key' in a && a.key === key ? { ...a, width, height } : a
-				);
+				this.patchAttachment(key, { width, height });
 			}
 
 			// Preprocessing and dimension reading are awaited above and cannot be
 			// canceled, so the user may have discarded the attachment by now.
 			// Starting the transfer would upload a file nothing references and
 			// leave map entries behind for a key that is gone.
-			if (!this.attachments.some((a) => 'key' in a && a.key === key)) {
+			if (!this.findAttachment(key)) {
 				this.retryJobs.delete(key);
 				return;
 			}
@@ -560,7 +695,8 @@ export class ChatUIContext {
 			await this.runUpload(key, {
 				blob: uploadBlob,
 				filename: uploadName,
-				dimensions: width && height ? { width, height } : undefined
+				dimensions: width && height ? { width, height } : undefined,
+				accessKey
 			});
 		} catch (error) {
 			// A failure before the transfer (image preprocessing, dimension
@@ -571,7 +707,7 @@ export class ChatUIContext {
 			// Unless the user got there first: preprocessing cannot be canceled,
 			// so it may still reject long after the chip was discarded, and
 			// reporting a failure for a file nobody is waiting on is noise.
-			const stillPresent = this.attachments.some((a) => 'key' in a && a.key === key);
+			const stillPresent = this.findAttachment(key) !== undefined;
 			this.discardAttachment(key);
 			if (isAbortError(error) || !stillPresent) return;
 			const translate = this.uploadConfig?.translate;
@@ -626,7 +762,7 @@ export class ChatUIContext {
 				},
 				this.uploadConfig,
 				job.dimensions,
-				this.uploadConfig.getAccessKey?.(),
+				job.accessKey,
 				aborter.signal
 			);
 
@@ -676,30 +812,67 @@ export class ChatUIContext {
 		void this.runUpload(attachment.key, job);
 	}
 
+	/**
+	 * Rewrite every list holding this attachment, the live one and any parked.
+	 *
+	 * An upload outlives the composer showing it: switching threads parks its
+	 * attachment while the transfer keeps running. Writing only through the live
+	 * list would drop the outcome of a transfer that lands while its thread is
+	 * parked, leaving a tile loading forever for a file that is already stored.
+	 */
+	private rewriteLists(key: string, rewrite: (list: Attachment[]) => Attachment[]): void {
+		const holds = (list: Attachment[]) => list.some((a) => 'key' in a && a.key === key);
+		if (holds(this.attachments)) this.attachments = rewrite(this.attachments);
+		// Bounded by the threads the user stepped away from with something open.
+		for (const [threadId, list] of this.parked) {
+			if (!holds(list)) continue;
+			const next = rewrite(list);
+			if (next.length > 0) this.parked.set(threadId, next);
+			else this.parked.delete(threadId);
+		}
+	}
+
+	/** The attachment with this key, live or parked. */
+	private findAttachment(key: string): Attachment | undefined {
+		const match = (a: Attachment) => 'key' in a && a.key === key;
+		const live = this.attachments.find(match);
+		if (live) return live;
+		for (const list of this.parked.values()) {
+			const found = list.find(match);
+			if (found) return found;
+		}
+		return undefined;
+	}
+
 	/** Apply a partial update to the attachment with this key. */
 	private patchAttachment(key: string, patch: Partial<Attachment>): void {
-		this.attachments = this.attachments.map((a) =>
-			'key' in a && a.key === key ? ({ ...a, ...patch } as Attachment) : a
+		this.rewriteLists(key, (list) =>
+			list.map((a) => ('key' in a && a.key === key ? ({ ...a, ...patch } as Attachment) : a))
 		);
 	}
 
 	/** Update the upload state of the attachment with this key, if it has one. */
 	private patchUploadState(key: string, next: (state: UploadState) => UploadState): void {
-		this.attachments = this.attachments.map((a) =>
-			'key' in a && a.key === key && (a.type === 'file' || a.type === 'screenshot') && a.uploadState
-				? { ...a, uploadState: next(a.uploadState) }
-				: a
+		this.rewriteLists(key, (list) =>
+			list.map((a) =>
+				'key' in a &&
+				a.key === key &&
+				(a.type === 'file' || a.type === 'screenshot') &&
+				a.uploadState
+					? { ...a, uploadState: next(a.uploadState) }
+					: a
+			)
 		);
 	}
 
 	/** Remove an attachment by key and release everything held for it. */
 	private discardAttachment(key: string): void {
-		const attachment = this.attachments.find((a) => 'key' in a && a.key === key);
+		const attachment = this.findAttachment(key);
 		if (attachment) {
 			this.releaseUpload(attachment);
 			this.revokePreview(attachment);
 		}
-		this.attachments = this.attachments.filter((a) => !('key' in a) || a.key !== key);
+		this.rewriteLists(key, (list) => list.filter((a) => !('key' in a) || a.key !== key));
 	}
 
 	/**
@@ -733,7 +906,12 @@ export class ChatUIContext {
 
 		// No preprocessing here: the blob and its dimensions are already what
 		// gets uploaded, so they double as the retry payload unchanged.
-		await this.runUpload(key, { blob, filename, dimensions });
+		await this.runUpload(key, {
+			blob,
+			filename,
+			dimensions,
+			accessKey: this.uploadConfig.getAccessKey?.()
+		});
 	}
 
 	/**
