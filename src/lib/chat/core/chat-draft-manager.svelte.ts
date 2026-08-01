@@ -1,16 +1,24 @@
 import { PersistedState } from 'runed';
+import { DRAFT_STORAGE_PREFIX } from './chat-persisted-state.js';
 
 /**
  * Manages per-thread draft text persistence via localStorage.
  *
- * Each chat surface instantiates its own manager with a unique storage key
- * to avoid collisions (e.g. 'drafts:ai-chat', 'drafts:admin-support').
+ * Each chat surface gets its own manager, so their threads cannot collide.
  */
 export class ChatDraftManager {
 	readonly drafts: PersistedState<Record<string, string>>;
 
-	constructor(storageKey: string) {
-		this.drafts = new PersistedState<Record<string, string>>(storageKey, {});
+	/**
+	 * @param surface which chat this belongs to, e.g. `ai-chat`. The namespace
+	 * is added here so no caller can spell it differently, which is what lets
+	 * `clearPersistedChatState` find every surface.
+	 */
+	constructor(surface: string) {
+		this.drafts = new PersistedState<Record<string, string>>(
+			`${DRAFT_STORAGE_PREFIX}${surface}`,
+			{}
+		);
 	}
 
 	getDraft(threadId: string | null): string {

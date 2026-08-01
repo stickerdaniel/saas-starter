@@ -86,7 +86,7 @@ export class SupportThreadContext {
 	rateLimitedUntil = $state<number | null>(null);
 
 	// Draft storage — delegates to ChatDraftManager (single source of delete-safe logic)
-	private readonly draftManager = new ChatDraftManager('drafts:support');
+	private readonly draftManager = new ChatDraftManager('support');
 
 	getDraft(threadId: string | null): string {
 		return this.draftManager.getDraft(threadId);

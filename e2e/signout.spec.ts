@@ -27,6 +27,16 @@ test('signout works, and is not stopped by an upload in flight', async ({ page }
 		timeout: 15000
 	});
 
+	// A draft, so there is something of this person's in storage to leave behind.
+	await page.locator('textarea').fill('Half a sentence nobody else should read');
+	const chatKeys = () =>
+		page.evaluate(() =>
+			Object.keys(localStorage).filter(
+				(key) => key.startsWith('drafts:') || key.startsWith('attachments:')
+			)
+		);
+	await expect.poll(chatKeys).toContain('drafts:ai-chat');
+
 	// Click user menu and sign out
 	await page.locator('#user-menu-trigger').click();
 	await page.locator('[data-testid="logout-button"]').click();
@@ -34,4 +44,7 @@ test('signout works, and is not stopped by an upload in flight', async ({ page }
 	// Should redirect away from app after logout (to home or signin page)
 	// With i18n, this could be /en, /en/signin, etc.
 	await page.waitForURL(/.*\/[a-z]{2}(\/signin)?(\?.*)?$/, { timeout: 15000 });
+
+	// Nothing this person wrote greets whoever signs in next on this browser.
+	expect(await chatKeys()).toEqual([]);
 });

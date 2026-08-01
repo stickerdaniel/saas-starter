@@ -12,6 +12,10 @@ import type { ConvexClient } from 'convex/browser';
 import type { ChatCore } from '../core/chat-core.svelte.ts';
 import type { DisplayMessage, Attachment, MessageRole, UploadState } from '../core/types.js';
 import { uploadFileWithProgress, UploadError } from '../core/file-uploader.js';
+import type {
+	AttachmentsByThread,
+	ChatAttachmentStore
+} from '../core/chat-attachment-store.svelte.ts';
 import { FadeOnLoad } from '$lib/utils/fade-on-load.svelte.ts';
 
 /**
@@ -67,6 +71,14 @@ export interface UploadConfig {
 	translate?: (key: string, params?: Record<string, string | number | bigint | Date>) => string;
 	/** Optional access key provider for file control */
 	getAccessKey?: () => string | undefined;
+	/**
+	 * Where uploaded attachments are kept so a reload does not lose them.
+	 *
+	 * Carried here rather than as its own constructor argument because only a
+	 * configured upload can produce anything worth keeping: what survives is the
+	 * reference to a file that is already stored.
+	 */
+	attachmentStore?: ChatAttachmentStore;
 	/** Provider for extra args to pass to generateUploadUrl (e.g., anonymousUserId for rate limiting) */
 	getGenerateUploadUrlArgs?: () => Record<string, unknown>;
 	/**
@@ -183,6 +195,15 @@ export class ChatUIContext {
 	/** Last known thread ID for detecting navigation */
 	private _lastThreadId: string | null | undefined = undefined;
 
+	/**
+	 * Whether the surface this belongs to is gone.
+	 *
+	 * Read only by `persist`, so tearing the context down is not mistaken for
+	 * the user emptying their composer: `dispose` drops every attachment, and
+	 * saving that would erase exactly what a reload is supposed to bring back.
+	 */
+	private disposed = false;
+
 	constructor(
 		core: ChatCore,
 		client: ConvexClient,
@@ -195,6 +216,15 @@ export class ChatUIContext {
 		this.uploadConfig = uploadConfig;
 		this.userAlignment = userAlignment;
 		this.activeUploads = activeUploads;
+
+		// Composers a reload took away arrive parked, under the thread they were
+		// left in. From here on nothing knows the difference between one that came
+		// off disk and one the user stepped away from a moment ago: the thread
+		// being shown claims its own in `setDisplayMessages`, and every other stays
+		// put until it is walked back into.
+		for (const [threadId, attachments] of uploadConfig?.attachmentStore?.read() ?? []) {
+			this.parked.set(threadId, attachments);
+		}
 	}
 
 	/**
@@ -287,7 +317,12 @@ export class ChatUIContext {
 
 		// Reset only on actual navigation between threads
 		// NOT on null → threadId (thread creation) or during brief empty states
-		if (this._lastThreadId !== undefined && currentThreadId !== this._lastThreadId) {
+		if (this._lastThreadId === undefined) {
+			// First sight of any thread here. After a reload this thread's composer
+			// is parked, restored from storage by the constructor, and the live one
+			// is empty, so the same take-back that serves a warm thread serves this.
+			this.adoptParked(currentThreadId);
+		} else if (currentThreadId !== this._lastThreadId) {
 			if (this._lastThreadId === null) {
 				this.adoptParked(currentThreadId);
 			} else {
@@ -352,6 +387,25 @@ export class ChatUIContext {
 	 */
 	addAttachments(newAttachments: Attachment[]): void {
 		this.attachments = [...this.attachments, ...newAttachments];
+		this.persist();
+	}
+
+	/**
+	 * Write down what every composer is holding, so a reload can hand it back.
+	 *
+	 * Called from each method that changes either list. Only settled uploads
+	 * reach storage, so the progress of a running one passes through here
+	 * without producing a write.
+	 */
+	private persist(): void {
+		const store = this.uploadConfig?.attachmentStore;
+		if (!store || this.disposed) return;
+		// Handed straight to the store, never rendered.
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
+		const snapshot: AttachmentsByThread = new Map(this.parked);
+		// Same empty key the parked lists use for a conversation with no id yet.
+		snapshot.set(untrack(() => this.core.threadId) ?? '', this.attachments);
+		store.write(snapshot);
 	}
 
 	/**
@@ -405,6 +459,7 @@ export class ChatUIContext {
 			this.revokePreview(removed);
 		}
 		this.attachments = this.attachments.filter((_, i) => i !== index);
+		this.persist();
 	}
 
 	/**
@@ -416,6 +471,7 @@ export class ChatUIContext {
 			this.revokePreview(attachment);
 		}
 		this.attachments = [];
+		this.persist();
 	}
 
 	/**
@@ -431,11 +487,13 @@ export class ChatUIContext {
 	private parkAttachments(leaving: string, entering: string | null): void {
 		if (this.attachments.length > 0) this.parked.set(leaving, this.attachments);
 		// A thread that has none is a thread with an empty composer, so the
-		// lookup miss is the answer rather than a case to handle. Threads with no
-		// id yet share the empty key, which no real thread can collide with.
+		// lookup miss is the answer rather than a case to handle. A conversation
+		// with no id yet is filed under the empty key, which no real thread can
+		// collide with.
 		const key = entering ?? '';
 		this.attachments = this.parked.get(key) ?? [];
 		this.parked.delete(key);
+		this.persist();
 	}
 
 	/**
@@ -491,6 +549,7 @@ export class ChatUIContext {
 			...adopted,
 			...this.attachments.filter((_, index) => !supersededLive[index])
 		];
+		this.persist();
 	}
 
 	/**
@@ -499,6 +558,10 @@ export class ChatUIContext {
 	 * the document unloads.
 	 */
 	dispose(): void {
+		// Before anything is dropped. What follows empties both lists, and saving
+		// that would erase the composers this surface is supposed to hand back the
+		// next time it is built. Leaving is not the same as letting go.
+		this.disposed = true;
 		// Parked attachments hold aborters and blob previews just like live ones,
 		// and no thread switch is coming to pick them up any more.
 		for (const attachments of this.parked.values()) {
@@ -830,6 +893,7 @@ export class ChatUIContext {
 			if (next.length > 0) this.parked.set(threadId, next);
 			else this.parked.delete(threadId);
 		}
+		this.persist();
 	}
 
 	/** The attachment with this key, live or parked. */

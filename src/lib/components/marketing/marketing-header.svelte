@@ -18,6 +18,7 @@
 	import { T, getTranslate } from '@tolgee/svelte';
 	import { LEGAL_CONFIG } from '$lib/config/legal';
 	import { activeUploadsContext } from '$lib/hooks/active-uploads.svelte.ts';
+	import { clearPersistedChatState } from '$lib/chat/core/chat-persisted-state.ts';
 
 	const { t } = getTranslate();
 
@@ -62,6 +63,7 @@
 		if (!result.error) {
 			// The session is already gone; see nav-user.svelte.
 			activeUploads?.suspendOnce();
+			clearPersistedChatState();
 			await goto(resolve(localizedHref('/')));
 		} else {
 			signingOut = false;

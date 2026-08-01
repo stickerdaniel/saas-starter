@@ -63,5 +63,8 @@ export type { ChatCoreAPI, ChatCoreOptions, CreateThreadResult } from './chat-co
 
 export { ChatCore, createChatCore } from './chat-core.svelte.ts';
 
-// Draft persistence
+// Composer persistence
 export { ChatDraftManager } from './chat-draft-manager.svelte.ts';
+export { ChatAttachmentStore } from './chat-attachment-store.svelte.ts';
+export type { AttachmentsByThread } from './chat-attachment-store.svelte.ts';
+export { clearPersistedChatState } from './chat-persisted-state.ts';
