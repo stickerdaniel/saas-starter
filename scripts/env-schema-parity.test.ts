@@ -7,9 +7,10 @@ import { TEST_ONLY_ENV_PLACEHOLDERS } from './local-convex-env';
  * The Convex `env` block in `src/lib/convex/convex.config.ts` and the varlock
  * `.env-convex.schema` are two declarations of the same variable set. The env
  * block drives Convex's push-time validation and the generated typed `env`
- * object; the schema drives varlock typegen, deploy-time validation and the
- * `@type=url`/`@type=boolean` coercion. They must agree on which vars exist
- * and which are required, or one source silently drifts from the other.
+ * object; the schema drives varlock typegen and the deploy-time presence check.
+ * Its `@type=*` decorators coerce nothing on this path — no value here is loaded
+ * by varlock — so they are documentation. The two must still agree on which vars
+ * exist and which are required, or one source silently drifts from the other.
  *
  * Validator types intentionally differ (the schema's url/boolean vars are plain
  * strings in the env block, because Convex env values are always strings), so

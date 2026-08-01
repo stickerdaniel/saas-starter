@@ -13,8 +13,9 @@ import convexFilesControl from '@gilhrpenner/convex-files-control/convex.config'
  * Convex validates these at push time (missing required vars or values that
  * fail their validator reject the deploy) and emits a typed `env` object into
  * `_generated/server`. This mirrors `.env-convex.schema`, which stays the
- * canonical superset: varlock still owns log redaction, leak scanning, the
- * `@type=url`/`@type=boolean` coercion, and the SvelteKit runtime side.
+ * canonical superset for typegen and for the scripts that read variable names
+ * and requiredness. Its `@type=*` decorators do not coerce or validate anything
+ * here, and it drives no redaction: no value on this path is loaded by varlock.
  *
  * Env values are always strings, so only string-like validators are allowed
  * (`v.string()`, string `v.literal()`/`v.union()`, and `v.optional()`).
@@ -24,10 +25,10 @@ const app = defineApp({
 	env: {
 		// Required, string-like (deploy-time presence + value guard)
 		BETTER_AUTH_SECRET: v.string(),
-		SITE_URL: v.string(), // @type=url stays enforced by varlock
+		SITE_URL: v.string(), // @type=url in the schema documents intent only
 		RESEND_API_KEY: v.string(),
 		AUTH_EMAIL: v.string(),
-		EMAIL_ASSET_URL: v.string(), // @type=url stays enforced by varlock
+		EMAIL_ASSET_URL: v.string(), // @type=url in the schema documents intent only
 		AUTUMN_SECRET_KEY: v.string(),
 		OPENROUTER_API_KEY: v.string(),
 		// Optional
@@ -38,7 +39,7 @@ const app = defineApp({
 		AUTH_GITHUB_SECRET: v.optional(v.string()),
 		AUTH_E2E_TEST_SECRET: v.optional(v.string()),
 		PREVIEW_ADMIN_PASSWORD: v.optional(v.string()),
-		// @type=boolean cannot be expressed here; varlock keeps the boolean type,
+		// @type=boolean cannot be expressed here either, and nothing coerces it:
 		// runtime code compares the raw 'true' string.
 		LOCAL_CONVEX_DEV: v.optional(v.string()),
 		LOCAL_SEEDED_ADMIN_EMAIL: v.optional(v.string()),

@@ -7,11 +7,16 @@
  * required/optional split comes for free: required vars type as `string`,
  * optional vars as `string | undefined`.
  *
- * varlock (.env-convex.schema) stays canonical for typegen, deploy-time
- * validation, `@type=url`/`@type=boolean` coercion, and the SvelteKit runtime
- * side; `scripts/env-schema-parity.test.ts` keeps the two declarations in sync.
- * It does not drive redaction of the local dev server's own output — varlock
- * only redacts values it loaded itself, and these are the Convex backend's.
+ * varlock (.env-convex.schema) stays canonical for typegen and for the scripts
+ * that check which vars exist and which are required;
+ * `scripts/env-schema-parity.test.ts` keeps the two declarations in sync.
+ *
+ * What it does NOT do, despite what the decorators suggest: no value ever
+ * passes through varlock on this path. `.env.convex.local` is read by a
+ * hand-written parser in vite.config.ts and deployed values live in the Convex
+ * deployment, so `@type=url` and `@type=boolean` are documentation here, not
+ * validation. Redaction is likewise not driven from this schema — varlock only
+ * redacts values it loaded itself.
  */
 
 import { env } from './_generated/server';
