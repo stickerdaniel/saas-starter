@@ -247,6 +247,7 @@ export class ChatUIContext {
 	 * still mounted on whatever page the user lands on after signing out.
 	 */
 	forgetPersistedState(): void {
+		const abandoned = [...this.parked.keys()];
 		for (const attachments of this.parked.values()) {
 			for (const attachment of attachments) {
 				this.releaseUpload(attachment);
@@ -258,6 +259,10 @@ export class ChatUIContext {
 		// stopped here for the same reason sign-out does not wait for one.
 		this.clearAttachments();
 		this.inputValue = '';
+		// Named so they are struck from storage rather than merely dropped here.
+		// The sweep empties the whole key anyway; doing it from this side too
+		// means letting go stays complete on its own terms.
+		this.persist(...abandoned);
 	}
 
 	/**

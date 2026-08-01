@@ -236,6 +236,19 @@ describe('ChatUIContext persisted attachments', () => {
 		expect(chatAt('thread-a').ctx.attachments).toHaveLength(0);
 	});
 
+	it('strikes every thread it was holding, not just the one on screen', async () => {
+		const chat = chatAt('thread-a');
+		await uploadInto(chat.ctx, 'from-a.png', 'file-a');
+		chat.switchTo('thread-b');
+		await uploadInto(chat.ctx, 'from-b.png', 'file-b');
+
+		// Letting go has to reach what is set aside as well, rather than leaning
+		// on the sweep to empty the whole key afterwards.
+		chat.ctx.forgetPersistedState();
+
+		expect(chatAt('thread-a').ctx.attachments).toHaveLength(0);
+	});
+
 	it('leaves a thread it stepped out of to whichever page is in it now', async () => {
 		const seed = chatAt('thread-b');
 		await uploadInto(seed.ctx, 'from-b.png', 'file-b');
