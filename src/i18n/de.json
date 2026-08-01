@@ -462,7 +462,17 @@
 	},
 	"billing": {
 		"checkout_failed": "Bezahlvorgang fehlgeschlagen. Bitte versuchen Sie es erneut.",
-		"portal_failed": "Abrechnungsportal konnte nicht geöffnet werden. Bitte versuchen Sie es erneut."
+		"portal_failed": "Abrechnungsportal konnte nicht geöffnet werden. Bitte versuchen Sie es erneut.",
+		"attach_failed": "Kauf konnte nicht abgeschlossen werden. Bitte versuchen Sie es erneut.",
+		"confirmation": {
+			"title": "Kauf bestätigen",
+			"description": "Prüfen Sie die Kosten für {planName}, bevor Sie bestätigen.",
+			"product": "Tarif",
+			"quantity": "{featureId} enthalten",
+			"due_today": "Heute fällig",
+			"due_next_cycle": "Fällig am {date}",
+			"proration_details": "Der Betrag ist anteilig für den Rest des laufenden Abrechnungszeitraums berechnet."
+		}
 	},
 	"chat": {
 		"action": {

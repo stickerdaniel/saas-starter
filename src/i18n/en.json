@@ -462,7 +462,17 @@
 	},
 	"billing": {
 		"checkout_failed": "Checkout failed. Please try again.",
-		"portal_failed": "Could not open billing portal. Please try again."
+		"portal_failed": "Could not open billing portal. Please try again.",
+		"attach_failed": "Could not complete the purchase. Please try again.",
+		"confirmation": {
+			"title": "Confirm your purchase",
+			"description": "Review the charges for {planName} before confirming.",
+			"product": "Plan",
+			"quantity": "{featureId} included",
+			"due_today": "Due today",
+			"due_next_cycle": "Due on {date}",
+			"proration_details": "The amount is prorated for the rest of the current billing period."
+		}
 	},
 	"chat": {
 		"action": {

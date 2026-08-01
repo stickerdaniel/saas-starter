@@ -23,6 +23,7 @@
 	import { toast } from 'svelte-sonner';
 	import { useCustomer, useAutumnOperation } from '@stickerdaniel/convex-autumn-svelte/sveltekit';
 	import { activeUploadsContext } from '$lib/hooks/active-uploads.svelte.ts';
+	import { useBillingCheckout } from '$lib/components/billing';
 
 	const { t } = getTranslate();
 
@@ -44,7 +45,7 @@
 
 	// Autumn subscription state
 	const autumn = useCustomer();
-	const upgradeOperation = useAutumnOperation(autumn.checkout);
+	const billingCheckout = useBillingCheckout();
 	const portalOperation = useAutumnOperation(autumn.openBillingPortal);
 	const isPro = $derived(autumn.customer?.products?.some((p) => p.id === 'pro') ?? false);
 
@@ -63,20 +64,7 @@
 		haptic.trigger('light');
 		const successUrl = new URL(localizedHref('/app/community-chat'), page.url.origin);
 		successUrl.searchParams.set('upgraded', 'true');
-		const result = await upgradeOperation.execute({
-			productId: 'pro',
-			successUrl: successUrl.href
-		});
-		if (result?.url) {
-			// The checkout session already exists; prompting about an upload here
-			// would only leave the user on a page waiting for a redirect.
-			activeUploads?.suspendOnce();
-			window.location.href = result.url;
-		} else if (upgradeOperation.error) {
-			haptic.trigger('error');
-			toast.error($t('billing.checkout_failed'));
-			console.error('Checkout failed:', upgradeOperation.error);
-		}
+		await billingCheckout.start({ productId: 'pro', successUrl: successUrl.href });
 	}
 
 	async function handleBilling() {
@@ -167,8 +155,8 @@
 				<DropdownMenu.Separator />
 				{#if !isPro}
 					<DropdownMenu.Group>
-						<DropdownMenu.Item onclick={handleUpgrade} disabled={upgradeOperation.isLoading}>
-							{#if upgradeOperation.isLoading}
+						<DropdownMenu.Item onclick={handleUpgrade} disabled={billingCheckout.isLoading}>
+							{#if billingCheckout.isLoading}
 								<LoaderCircleIcon class="motion-safe:animate-spin" />
 							{:else}
 								<SparklesIcon />

@@ -462,7 +462,17 @@
 	},
 	"billing": {
 		"checkout_failed": "Error en el pago. Por favor, inténtalo de nuevo.",
-		"portal_failed": "No se pudo abrir el portal de facturación. Por favor, inténtalo de nuevo."
+		"portal_failed": "No se pudo abrir el portal de facturación. Por favor, inténtalo de nuevo.",
+		"attach_failed": "No se pudo completar la compra. Por favor, inténtalo de nuevo.",
+		"confirmation": {
+			"title": "Confirma tu compra",
+			"description": "Revisa los cargos de {planName} antes de confirmar.",
+			"product": "Plan",
+			"quantity": "{featureId} incluidos",
+			"due_today": "A pagar hoy",
+			"due_next_cycle": "A pagar el {date}",
+			"proration_details": "El importe se prorratea por el resto del periodo de facturación actual."
+		}
 	},
 	"chat": {
 		"action": {

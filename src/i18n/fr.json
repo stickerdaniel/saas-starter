@@ -462,7 +462,17 @@
 	},
 	"billing": {
 		"checkout_failed": "Échec du paiement. Veuillez réessayer.",
-		"portal_failed": "Impossible d'ouvrir le portail de facturation. Veuillez réessayer."
+		"portal_failed": "Impossible d'ouvrir le portail de facturation. Veuillez réessayer.",
+		"attach_failed": "Impossible de finaliser l'achat. Veuillez réessayer.",
+		"confirmation": {
+			"title": "Confirmez votre achat",
+			"description": "Vérifiez les frais pour {planName} avant de confirmer.",
+			"product": "Formule",
+			"quantity": "{featureId} inclus",
+			"due_today": "À payer aujourd'hui",
+			"due_next_cycle": "À payer le {date}",
+			"proration_details": "Le montant est calculé au prorata du reste de la période de facturation en cours."
+		}
 	},
 	"chat": {
 		"action": {
