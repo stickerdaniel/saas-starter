@@ -4,7 +4,6 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { varlockLoadedEnv, varlockVitePlugin } from '@varlock/vite-integration';
 import { convexLocal } from 'convex-vite-plugin';
-import { resetRedactionMap } from 'varlock/env';
 import { DEV_FEATURES, type DevFeature } from './src/lib/dev/features';
 import { findAvailablePort, portlessOwnsPort } from './scripts/dev-ports';
 import { TEST_ONLY_ENV_PLACEHOLDERS } from './scripts/local-convex-env';
@@ -89,60 +88,6 @@ function parseEnvFile(filePath: string): Record<string, string> {
 		}
 	}
 	return vars;
-}
-
-/**
- * Parse a varlock .env schema and return var names treated as sensitive.
- * Handles @defaultSensitive=inferFromPrefix(PREFIX_): vars without the prefix
- * are sensitive by default. An explicit @public comment opts a var back out,
- * matching varlock's own classification.
- */
-function parseSensitiveVarNames(schemaPath: string): Set<string> {
-	if (!fs.existsSync(schemaPath)) return new Set();
-	const lines = fs.readFileSync(schemaPath, 'utf-8').split('\n');
-
-	let publicPrefix: string | undefined;
-	for (const line of lines) {
-		const match = line.match(/^#\s*@defaultSensitive=inferFromPrefix\((\w+)\)/);
-		if (match?.[1]) {
-			publicPrefix = match[1];
-			break;
-		}
-		if (line.trim() === '# ---') break;
-	}
-
-	const sensitiveNames = new Set<string>();
-	let nextIsSensitive: boolean | undefined;
-
-	for (const line of lines) {
-		const trimmed = line.trim();
-		if (trimmed.startsWith('#')) {
-			if (trimmed.includes('@sensitive')) nextIsSensitive = true;
-			else if (trimmed.includes('@public')) nextIsSensitive = false;
-			continue;
-		}
-
-		const effective = trimmed.startsWith('export ') ? trimmed.slice(7).trim() : trimmed;
-		const eqIndex = effective.indexOf('=');
-		if (eqIndex === -1) {
-			nextIsSensitive = undefined;
-			continue;
-		}
-		const key = effective.slice(0, eqIndex).trim();
-		if (!key) {
-			nextIsSensitive = undefined;
-			continue;
-		}
-
-		if (nextIsSensitive === true) {
-			sensitiveNames.add(key);
-		} else if (nextIsSensitive === undefined && publicPrefix && !key.startsWith(publicPrefix)) {
-			sensitiveNames.add(key);
-		}
-		nextIsSensitive = undefined;
-	}
-
-	return sensitiveNames;
 }
 
 /**
@@ -253,41 +198,13 @@ export default defineConfig(async ({ mode }) => {
 		const { SITE_URL: ignoredLocalSiteUrl, ...convexLocalEnv } = parseEnvFile(
 			path.join(cwd, '.env.convex.local')
 		);
-		// Register Convex backend env values with varlock's redaction map so that
-		// convex-vite-plugin's env-var logging is automatically redacted.
-		// varlockLoadedEnv already contains .env.schema values; we merge in
-		// the Convex backend values marked @sensitive in .env-convex.schema.
-		const convexSensitiveNames = parseSensitiveVarNames(path.join(cwd, '.env-convex.schema'));
-		convexSensitiveNames.add('BETTER_AUTH_SECRET');
-		convexSensitiveNames.add('AUTH_E2E_TEST_SECRET');
-
-		const mergedConfig: Record<string, { value: any; isSensitive: boolean }> = {
-			...varlockLoadedEnv?.config
-		};
-
-		const allConvexEnvVars: Record<string, string> = {
-			BETTER_AUTH_SECRET: betterAuthSecret,
-			LOCAL_SEEDED_ADMIN_PASSWORD: 'LocalDevAdmin123!',
-			...convexLocalEnv,
-			...(isTestMode && process.env.AUTH_E2E_TEST_SECRET
-				? { AUTH_E2E_TEST_SECRET: process.env.AUTH_E2E_TEST_SECRET }
-				: {})
-		};
-
-		for (const [key, value] of Object.entries(allConvexEnvVars)) {
-			if (!value) continue;
-			const existing = mergedConfig[key];
-			if (!existing || !existing.value) {
-				mergedConfig[key] = { value, isSensitive: convexSensitiveNames.has(key) };
-			}
-		}
-
-		resetRedactionMap({
-			settings: { redactLogs: true },
-			sources: varlockLoadedEnv?.sources ?? [],
-			config: mergedConfig
-		});
-
+		// The Convex backend env values used to be merged into varlock's redaction
+		// map here so that convex-vite-plugin's startup logging was masked. That
+		// never worked: `resetRedactionMap` replaces the whole map rather than
+		// adding to it, and varlock's own vite integration calls it again from its
+		// `config` hook — which Vite runs after this factory returns — so every
+		// merged value was dropped before the plugin ever logged. The values are
+		// redacted at the sink instead (patches/convex-vite-plugin@0.4.0.patch).
 		if (!isTestMode && !process.env.WORKERS_CI) {
 			printOptionalFeatureBanner({
 				convexEnv: convexLocalEnv,

@@ -156,7 +156,8 @@
 		"vitest": "4.1.10"
 	},
 	"patchedDependencies": {
-		"oxlint-plugin-convex@0.1.1": "patches/oxlint-plugin-convex@0.1.1.patch"
+		"oxlint-plugin-convex@0.1.1": "patches/oxlint-plugin-convex@0.1.1.patch",
+		"convex-vite-plugin@0.4.0": "patches/convex-vite-plugin@0.4.0.patch"
 	},
 	"overrides": {
 		"zod": "$zod",

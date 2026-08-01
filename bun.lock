@@ -113,6 +113,7 @@
     },
   },
   "patchedDependencies": {
+    "convex-vite-plugin@0.4.0": "patches/convex-vite-plugin@0.4.0.patch",
     "oxlint-plugin-convex@0.1.1": "patches/oxlint-plugin-convex@0.1.1.patch",
   },
   "overrides": {
