@@ -152,17 +152,32 @@ export class ChatAttachmentStore {
 		for (const [threadId, items] of Object.entries(this.fresh(this.parse()))) {
 			restored.set(
 				threadId,
-				items.map((item) => {
-					const attachment = fromStored(item);
-					// The minted identity inherits the age the file already had, so a
-					// page that restores and saves does not start its clock over.
-					const transfer = ChatAttachmentStore.transferId(attachment);
-					if (transfer) this.stamps.set(transfer, item.savedAt);
-					return attachment;
-				})
+				items.map((item) => this.revive(item))
 			);
 		}
 		return restored;
+	}
+
+	/**
+	 * What one thread is holding right now.
+	 *
+	 * Separate from `read` because a page walking back into a thread has to see
+	 * what is there at that moment, the way the draft beside it does, rather
+	 * than the copy it took when it started.
+	 */
+	readThread(threadId: string | null): Attachment[] {
+		const items = this.fresh(this.parse())[threadId ?? ''] ?? [];
+		return items.map((item) => this.revive(item));
+	}
+
+	/** Rebuild one entry, remembering the age it arrived with. */
+	private revive(item: StoredAttachment): Attachment {
+		const attachment = fromStored(item);
+		// The minted identity inherits the age the file already had, so a page
+		// that restores and saves does not start its clock over.
+		const transfer = ChatAttachmentStore.transferId(attachment);
+		if (transfer) this.stamps.set(transfer, item.savedAt);
+		return attachment;
 	}
 
 	/**

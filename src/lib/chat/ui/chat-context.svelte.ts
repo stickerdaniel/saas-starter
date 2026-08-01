@@ -363,12 +363,17 @@ export class ChatUIContext {
 		} else if (currentThreadId !== this._lastThreadId) {
 			if (this._lastThreadId === null) {
 				// The conversation with no id is this thread now, and what its
-				// composer holds comes along in the live list. Nothing may be left
-				// behind under the empty key: sending would clear this thread's
-				// entry and not that one, and the next load with no id would offer
-				// back a file that has already gone out.
+				// composer holds comes along in the live list. Its own leavings may
+				// not stay behind under the empty key: sending would clear this
+				// thread's entry and not that one, and the next load with no id
+				// would offer back a file that has already gone out.
+				//
+				// Only its own. That key belongs to every conversation still waiting
+				// for an id, so another tab may be sitting on one, and its files are
+				// not this page's to strike.
 				this.parked.delete('');
 				this.adoptParked(currentThreadId);
+				this.parked.set('', this.strangersUnderEmptyKey());
 				this.persist('');
 			} else {
 				this.messagesFade.reset();
@@ -448,14 +453,32 @@ export class ChatUIContext {
 	 * same chat may have moved them on since. Sending this page's copy back
 	 * would undo whatever that tab did, and revive what it had removed.
 	 *
-	 * What that leaves is the last writer winning per thread, which is what a
-	 * shared key gets you and what the drafts beside it have always done. Two
-	 * tabs in the same thread, or two conversations that have no id yet and so
-	 * share the empty key, can still write over each other. Deliberately not
-	 * solved here: the losing tab still shows what it holds, only a reload
-	 * before its next save would notice, and the alternative is a version per
-	 * thread carried across tabs for a case the drafts do not bother with.
+	 * What is left is two tabs both standing in one thread and both changing it,
+	 * where the later save wins. The draft beside it settles that the same way.
+	 * Walking into a thread is not that case: entering reads what is filed there
+	 * now and merges it, so moving around cannot cost another tab its work.
 	 */
+	/**
+	 * What is filed under the empty key that this composer did not put there.
+	 *
+	 * Every conversation still waiting for an id shares that key, so a page that
+	 * has just been given one has to leave the rest alone. Told apart by file,
+	 * which is what a stored attachment is: anything this composer is holding is
+	 * its own, everything else belongs to a conversation somewhere else.
+	 */
+	private strangersUnderEmptyKey(): Attachment[] {
+		const stored = this.uploadConfig?.attachmentStore?.readThread(null) ?? [];
+		// Lives and dies inside this call.
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
+		const mine = new Set(this.attachments.map((a) => ChatUIContext.storedFileId(a)));
+		return stored.filter((a) => !mine.has(ChatUIContext.storedFileId(a)));
+	}
+
+	/** The file an attachment stands for, once its upload has landed. */
+	private static storedFileId(attachment: Attachment): string | undefined {
+		return 'uploadState' in attachment ? attachment.uploadState?.fileId : undefined;
+	}
+
 	private persist(...alsoChanged: Array<string | null>): void {
 		const store = this.uploadConfig?.attachmentStore;
 		if (!store || this.disposed) return;
@@ -560,6 +583,16 @@ export class ChatUIContext {
 		const key = entering ?? '';
 		this.attachments = this.parked.get(key) ?? [];
 		this.parked.delete(key);
+		// Whatever is filed under the thread being entered right now, which is not
+		// what this page took when it started: another tab on the same chat may
+		// have added to it since. Merged rather than ignored, or walking back in
+		// would write this page's older copy over theirs. Merged rather than taken
+		// whole, because a transfer still running exists only here.
+		const stored = this.uploadConfig?.attachmentStore?.readThread(entering) ?? [];
+		if (stored.length > 0) {
+			this.parked.set(key, stored);
+			this.adoptParked(entering);
+		}
 		this.persist(leaving);
 	}
 

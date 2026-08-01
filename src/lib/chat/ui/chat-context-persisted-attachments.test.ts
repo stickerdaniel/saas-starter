@@ -282,6 +282,39 @@ describe('ChatUIContext persisted attachments', () => {
 		expect(names(chatAt('thread-b').ctx).sort()).toEqual(['also-b.png', 'from-b.png']);
 	});
 
+	it('picks up what another tab added while it was away', async () => {
+		// Walking back into a thread reads what is filed there now, the way the
+		// draft beside it does. Taking the copy this page started with would
+		// write it over whatever happened there since.
+		const steppedOut = chatAt('thread-b');
+		await uploadInto(steppedOut.ctx, 'from-b.png', 'file-b');
+		steppedOut.switchTo('thread-a');
+
+		const stillThere = chatAt('thread-b');
+		await uploadInto(stillThere.ctx, 'also-b.png', 'file-b2');
+
+		steppedOut.switchTo('thread-b');
+		expect(names(steppedOut.ctx).sort()).toEqual(['also-b.png', 'from-b.png']);
+		expect(names(chatAt('thread-b').ctx).sort()).toEqual(['also-b.png', 'from-b.png']);
+	});
+
+	it('leaves another conversation waiting for its id alone', async () => {
+		// The empty key belongs to every conversation that has none yet. Being
+		// given an id clears what this composer had there, and only that: another
+		// tab may be waiting under the same key with files of its own.
+		const mine = chatAt(null);
+		await uploadInto(mine.ctx, 'mine.png', 'file-mine');
+
+		const otherTab = chatAt(null);
+		await uploadInto(otherTab.ctx, 'theirs.png', 'file-theirs');
+
+		mine.switchTo('thread-a');
+		expect(names(mine.ctx)).toEqual(['mine.png']);
+		mine.ctx.clearAttachments();
+
+		expect(names(chatAt(null).ctx)).toEqual(['theirs.png']);
+	});
+
 	it('moves the composer with the conversation when it gets its id', async () => {
 		const chat = chatAt(null);
 		await uploadInto(chat.ctx, 'shot.png', 'file-new');
