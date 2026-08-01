@@ -7,19 +7,14 @@
 	import { useQuery, useConvexClient } from 'convex-svelte';
 	import { api } from '$lib/convex/_generated/api';
 	import { ConvexError } from 'convex/values';
-	import { useCustomer, useAutumnOperation } from '@stickerdaniel/convex-autumn-svelte/sveltekit';
+	import { useCustomer } from '@stickerdaniel/convex-autumn-svelte/sveltekit';
 	import { getTranslate } from '@tolgee/svelte';
-	import { toast } from 'svelte-sonner';
 	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
 	import ThreadChat from './thread-chat.svelte';
 	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
-	import { activeUploadsContext } from '$lib/hooks/active-uploads.svelte.ts';
+	import { useBillingCheckout } from '$lib/components/billing';
 
 	const { t } = getTranslate();
-
-	// Consulted before navigations this component starts on the user's behalf,
-	// so an in-flight upload elsewhere on the page cannot stop them.
-	const activeUploads = activeUploadsContext.getOr(null);
 
 	let { data } = $props();
 
@@ -30,7 +25,7 @@
 
 	// Pro check
 	const autumn = useCustomer();
-	const upgradeOperation = useAutumnOperation(autumn.checkout);
+	const billingCheckout = useBillingCheckout();
 	const isPro = $derived(autumn.customer?.products?.some((p) => p.id === 'pro') ?? false);
 	const aiChatFeature = $derived(autumn.customer?.features?.ai_chat_messages);
 	const remainingMessages = $derived(aiChatFeature?.balance ?? 0);
@@ -99,19 +94,7 @@
 		const successUrl = new URL(page.url.href);
 		successUrl.searchParams.delete('thread');
 		successUrl.searchParams.set('upgraded', 'true');
-		const result = await upgradeOperation.execute({
-			productId: 'pro',
-			successUrl: successUrl.href
-		});
-		if (result?.url) {
-			// The checkout session already exists; see nav-user.svelte.
-			activeUploads?.suspendOnce();
-			window.location.href = result.url;
-		} else if (upgradeOperation.error) {
-			haptic.trigger('error');
-			toast.error($t('billing.checkout_failed'));
-			console.error('Checkout failed:', upgradeOperation.error);
-		}
+		await billingCheckout.start({ productId: 'pro', successUrl: successUrl.href });
 	}
 </script>
 
@@ -131,7 +114,7 @@
 				{remainingMessages}
 				{totalMessages}
 				onUpgrade={handleUpgrade}
-				isUpgrading={upgradeOperation.isLoading}
+				isUpgrading={billingCheckout.isLoading}
 				onMessageSent={() => autumn.refetch()}
 			/>
 		{:else}

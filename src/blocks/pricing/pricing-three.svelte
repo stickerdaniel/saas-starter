@@ -19,10 +19,10 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
-	import { activeUploadsContext } from '$lib/hooks/active-uploads.svelte.ts';
+	import { useBillingCheckout } from '$lib/components/billing';
 
-	const { customer, checkout, openBillingPortal } = useCustomer();
-	const upgradeOperation = useAutumnOperation(checkout);
+	const { customer, openBillingPortal } = useCustomer();
+	const billingCheckout = useBillingCheckout();
 	const portalOperation = useAutumnOperation(openBillingPortal);
 	const { isAuthenticated } = useAuth();
 
@@ -37,10 +37,6 @@
 
 	// Get translation function
 	const { t } = getTranslate();
-
-	// Consulted before navigations this component starts on the user's behalf,
-	// so an in-flight upload elsewhere on the page cannot stop them.
-	const activeUploads = activeUploadsContext.getOr(null);
 
 	// Helper function to get non-empty feature keys for a tier.
 	// Hard-coded indices are intentional: a dynamic loop (incrementing until empty)
@@ -77,20 +73,7 @@
 		// Proceed with checkout for authenticated users
 		const successUrl = new URL(localizedHref('/app/community-chat'), page.url.origin);
 		successUrl.searchParams.set('upgraded', 'true');
-		const result = await upgradeOperation.execute({
-			productId,
-			successUrl: successUrl.href
-		});
-
-		if (result?.url) {
-			// The checkout session already exists; see nav-user.svelte.
-			activeUploads?.suspendOnce();
-			window.location.href = result.url;
-		} else if (upgradeOperation.error) {
-			haptic.trigger('error');
-			toast.error($t('billing.checkout_failed'));
-			console.error('Checkout failed:', upgradeOperation.error);
-		}
+		await billingCheckout.start({ productId, successUrl: successUrl.href });
 	}
 
 	async function handleManageBilling() {
@@ -211,9 +194,9 @@
 							data-testid="pricing-checkout-pro"
 							class="mt-4 w-full"
 							onclick={() => handleCheckout('pro')}
-							disabled={upgradeOperation.isLoading}
+							disabled={billingCheckout.isLoading}
 						>
-							{#if upgradeOperation.isLoading}
+							{#if billingCheckout.isLoading}
 								<T keyName="pricing.tiers.pro.button_loading" />
 							{:else}
 								<T keyName="pricing.tiers.pro.button" />

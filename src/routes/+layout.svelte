@@ -18,6 +18,7 @@
 		deployReloadTarget
 	} from '$lib/hooks/active-uploads.svelte.ts';
 	import UploadGuardNotice from '$lib/components/upload-guard-notice.svelte';
+	import CheckoutProvider from '$lib/components/billing/checkout-provider.svelte';
 	import { setGlobalSearchContext } from '$lib/components/global-search/context.svelte.ts';
 	import GlobalSearchShell from '$lib/components/global-search/global-search-shell.svelte';
 	import { languageContext } from '$lib/i18n/context';
@@ -176,7 +177,9 @@
 				<ClockSkewBanner />
 				<UploadGuardNotice />
 				<GlobalSearchShell />
-				{@render children()}
+				<CheckoutProvider>
+					{@render children()}
+				</CheckoutProvider>
 			</TolgeeProvider>
 		</Tooltip.Provider>
 	</AppAutumnProvider>

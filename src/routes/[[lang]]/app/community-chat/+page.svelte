@@ -2,7 +2,7 @@
 	import { api } from '$lib/convex/_generated/api';
 	import SEOHead from '$lib/components/SEOHead.svelte';
 	import { useQuery, useConvexClient } from 'convex-svelte';
-	import { useCustomer, useAutumnOperation } from '@stickerdaniel/convex-autumn-svelte/sveltekit';
+	import { useCustomer } from '@stickerdaniel/convex-autumn-svelte/sveltekit';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import {
 		PromptInput,
@@ -34,13 +34,9 @@
 	import type { OptimisticLocalStore } from 'convex/browser';
 	import { ConvexError } from 'convex/values';
 	import type { Id } from '$lib/convex/_generated/dataModel';
-	import { activeUploadsContext } from '$lib/hooks/active-uploads.svelte.ts';
+	import { useBillingCheckout } from '$lib/components/billing';
 
 	const { t } = getTranslate();
-
-	// Consulted before navigations this component starts on the user's behalf,
-	// so an in-flight upload elsewhere on the page cannot stop them.
-	const activeUploads = activeUploadsContext.getOr(null);
 
 	let { data } = $props();
 
@@ -56,7 +52,7 @@
 
 	// Billing
 	const autumn = useCustomer();
-	const upgradeOperation = useAutumnOperation(autumn.checkout);
+	const billingCheckout = useBillingCheckout();
 	const isPro = $derived(autumn.customer?.products?.some((p) => p.id === 'pro') ?? false);
 	const messagesFeature = $derived(autumn.customer?.features?.messages);
 	const hasMessagesAvailable = $derived(isPro || (messagesFeature?.balance ?? 0) > 0);
@@ -207,19 +203,7 @@
 		haptic.trigger('light');
 		const successUrl = new URL(page.url.href);
 		successUrl.searchParams.set('upgraded', 'true');
-		const result = await upgradeOperation.execute({
-			productId: 'pro',
-			successUrl: successUrl.href
-		});
-		if (result?.url) {
-			// The checkout session already exists; see nav-user.svelte.
-			activeUploads?.suspendOnce();
-			window.location.href = result.url;
-		} else if (upgradeOperation.error) {
-			haptic.trigger('error');
-			toast.error($t('billing.checkout_failed'));
-			console.error('Checkout failed:', upgradeOperation.error);
-		}
+		await billingCheckout.start({ productId: 'pro', successUrl: successUrl.href });
 	}
 </script>
 
@@ -330,7 +314,7 @@
 				remaining={remainingMessages}
 				total={totalMessages}
 				onUpgrade={handleUpgrade}
-				isUpgrading={upgradeOperation.isLoading}
+				isUpgrading={billingCheckout.isLoading}
 			/>
 
 			<PromptInput
