@@ -85,7 +85,9 @@ export {
 	UploadError,
 	ChatCore,
 	createChatCore,
-	ChatDraftManager
+	ChatDraftManager,
+	ChatAttachmentStore,
+	clearPersistedChatState
 } from './core/index.js';
 
 // UI exports

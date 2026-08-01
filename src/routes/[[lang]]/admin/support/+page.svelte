@@ -31,7 +31,7 @@
 	const adminSupportUI = adminSupportUIContext.set(new AdminSupportUIManager());
 
 	// Draft persistence — lives outside {#key threadId} so drafts survive thread switches
-	const draftManager = new ChatDraftManager('drafts:admin-support');
+	const draftManager = new ChatDraftManager('admin-support');
 
 	// Filter state schema (thread managed separately to avoid reload on selection)
 	const filterSchema = v.object({

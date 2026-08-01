@@ -10,6 +10,7 @@
 	import { ChatUIContext, type UploadConfig } from '$lib/chat/ui/chat-context.svelte.ts';
 	import { ChatCore } from '$lib/chat/core/chat-core.svelte.ts';
 	import { ChatDraftManager } from '$lib/chat/core/chat-draft-manager.svelte.ts';
+	import { ChatAttachmentStore } from '$lib/chat/core/chat-attachment-store.svelte.ts';
 	import MessageQuotaBanner from '$lib/components/message-quota-banner.svelte';
 	import { getTranslate } from '@tolgee/svelte';
 	import { page } from '$app/state';
@@ -46,7 +47,8 @@
 		getAttachmentText: api.aiChat.files.getAttachmentText,
 		locale: page.data.lang,
 		translate: (key, params) => $t(key, params),
-		getAccessKey: () => threadId || 'ai-chat'
+		getAccessKey: () => threadId || 'ai-chat',
+		attachmentStore: new ChatAttachmentStore('ai-chat')
 	};
 
 	// Create ChatCore for this thread
@@ -87,7 +89,7 @@
 	onDestroy(() => chatUIContext.dispose());
 
 	// Draft persistence across thread switches and page refreshes
-	const draftManager = new ChatDraftManager('drafts:ai-chat');
+	const draftManager = new ChatDraftManager('ai-chat');
 	let sending = $state(false);
 
 	// Save draft on leave, restore on enter

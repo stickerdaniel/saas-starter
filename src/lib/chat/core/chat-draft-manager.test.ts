@@ -31,7 +31,7 @@ describe('ChatDraftManager', () => {
 
 	beforeEach(() => {
 		storage.clear();
-		manager = new ChatDraftManager('test-drafts-' + Math.random());
+		manager = new ChatDraftManager('test-' + Math.random());
 	});
 
 	it('stores and retrieves a draft', () => {

@@ -10,6 +10,7 @@
 	import { ChatUIContext, type UploadConfig } from '$lib/chat/ui/chat-context.svelte.ts';
 	import { ChatCore } from '$lib/chat/core/chat-core.svelte.ts';
 	import type { ChatDraftManager } from '$lib/chat/core/chat-draft-manager.svelte.ts';
+	import { ChatAttachmentStore } from '$lib/chat/core/chat-attachment-store.svelte.ts';
 	import { createOptimisticUpdate, type ListMessagesArgs } from '$lib/chat/core/optimistic';
 	import { CHAT_PAGE_SIZE } from '$lib/chat/core/types';
 	import { Button } from '$lib/components/ui/button';
@@ -55,7 +56,8 @@
 		getAttachmentText: api.support.files.getAttachmentText,
 		locale: page.data.lang,
 		translate: (key, params) => $t(key, params),
-		getAccessKey: () => threadId || 'support-admin'
+		getAccessKey: () => threadId || 'support-admin',
+		attachmentStore: new ChatAttachmentStore('admin-support')
 	};
 
 	// Create ChatCore for this thread (needed for ChatUIContext)

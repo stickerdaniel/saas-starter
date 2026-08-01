@@ -12,6 +12,11 @@ import type { ConvexClient } from 'convex/browser';
 import type { ChatCore } from '../core/chat-core.svelte.ts';
 import type { DisplayMessage, Attachment, MessageRole, UploadState } from '../core/types.js';
 import { uploadFileWithProgress, UploadError } from '../core/file-uploader.js';
+import type {
+	AttachmentsByThread,
+	ChatAttachmentStore
+} from '../core/chat-attachment-store.svelte.ts';
+import { registerPersistedChatHolder } from '../core/chat-persisted-state.ts';
 import { FadeOnLoad } from '$lib/utils/fade-on-load.svelte.ts';
 
 /**
@@ -67,6 +72,14 @@ export interface UploadConfig {
 	translate?: (key: string, params?: Record<string, string | number | bigint | Date>) => string;
 	/** Optional access key provider for file control */
 	getAccessKey?: () => string | undefined;
+	/**
+	 * Where uploaded attachments are kept so a reload does not lose them.
+	 *
+	 * Carried here rather than as its own constructor argument because only a
+	 * configured upload can produce anything worth keeping: what survives is the
+	 * reference to a file that is already stored.
+	 */
+	attachmentStore?: ChatAttachmentStore;
 	/** Provider for extra args to pass to generateUploadUrl (e.g., anonymousUserId for rate limiting) */
 	getGenerateUploadUrlArgs?: () => Record<string, unknown>;
 	/**
@@ -141,6 +154,9 @@ export class ChatUIContext {
 	 */
 	private readonly parked = new SvelteMap<string, Attachment[]>();
 
+	/** Takes this context back out of the register of mounted composers. */
+	private readonly unregister: () => void;
+
 	/** Cancels the in-flight upload of an attachment, keyed by its stable `key`. */
 	private readonly uploadAborters = new SvelteMap<string, AbortController>();
 
@@ -183,6 +199,15 @@ export class ChatUIContext {
 	/** Last known thread ID for detecting navigation */
 	private _lastThreadId: string | null | undefined = undefined;
 
+	/**
+	 * Whether the surface this belongs to is gone.
+	 *
+	 * Read only by `persist`, so tearing the context down is not mistaken for
+	 * the user emptying their composer: `dispose` drops every attachment, and
+	 * saving that would erase exactly what a reload is supposed to bring back.
+	 */
+	private disposed = false;
+
 	constructor(
 		core: ChatCore,
 		client: ConvexClient,
@@ -195,6 +220,49 @@ export class ChatUIContext {
 		this.uploadConfig = uploadConfig;
 		this.userAlignment = userAlignment;
 		this.activeUploads = activeUploads;
+
+		// Composers a reload took away arrive parked, under the thread they were
+		// left in. From here on nothing knows the difference between one that came
+		// off disk and one the user stepped away from a moment ago, and each waits
+		// to be walked back into.
+		for (const [threadId, attachments] of uploadConfig?.attachmentStore?.read() ?? []) {
+			this.parked.set(threadId, attachments);
+		}
+		// The thread already on screen claims its own here rather than waiting for
+		// the first render. Waiting would leave its own attachments parked under
+		// the id it is standing in, and a save before then writes the live list
+		// over them: the screenshot flow uploads through this context with no chat
+		// mounted at all, so that first render may never come.
+		this.adoptParked(untrack(() => core.threadId));
+		this.unregister = registerPersistedChatHolder(this);
+	}
+
+	/**
+	 * Let go of every composer this context is holding, because the session they
+	 * belong to has ended.
+	 *
+	 * Emptying storage is not enough on its own: this context keeps its own
+	 * copy and would write it back on its next save. The support widget makes
+	 * that certain rather than unlikely, since it belongs to the shell and is
+	 * still mounted on whatever page the user lands on after signing out.
+	 */
+	forgetPersistedState(): void {
+		const abandoned = [...this.parked.keys()];
+		for (const attachments of this.parked.values()) {
+			for (const attachment of attachments) {
+				this.releaseUpload(attachment);
+				this.revokePreview(attachment);
+			}
+		}
+		this.parked.clear();
+		// A transfer still running belongs to an identity that is gone, so it is
+		// stopped here for the same reason sign-out does not wait for one.
+		this.clearAttachments();
+		this.inputValue = '';
+		// Named so they are struck from storage rather than merely dropped here.
+		// The sweep empties the whole key anyway; doing it from this side too
+		// means letting go stays complete on its own terms.
+		this.persist(...abandoned);
 	}
 
 	/**
@@ -287,9 +355,26 @@ export class ChatUIContext {
 
 		// Reset only on actual navigation between threads
 		// NOT on null → threadId (thread creation) or during brief empty states
-		if (this._lastThreadId !== undefined && currentThreadId !== this._lastThreadId) {
+		if (this._lastThreadId === undefined) {
+			// First sight of any thread here. After a reload this thread's composer
+			// is parked, restored from storage by the constructor, and the live one
+			// is empty, so the same take-back that serves a warm thread serves this.
+			this.adoptParked(currentThreadId);
+		} else if (currentThreadId !== this._lastThreadId) {
 			if (this._lastThreadId === null) {
+				// The conversation with no id is this thread now, and what its
+				// composer holds comes along in the live list. Its own leavings may
+				// not stay behind under the empty key: sending would clear this
+				// thread's entry and not that one, and the next load with no id
+				// would offer back a file that has already gone out.
+				//
+				// Only its own. That key belongs to every conversation still waiting
+				// for an id, so another tab may be sitting on one, and its files are
+				// not this page's to strike.
+				this.parked.delete('');
 				this.adoptParked(currentThreadId);
+				this.parked.set('', this.strangersUnderEmptyKey());
+				this.persist('');
 			} else {
 				this.messagesFade.reset();
 				this._hasEverDisplayedMessages = false;
@@ -352,6 +437,62 @@ export class ChatUIContext {
 	 */
 	addAttachments(newAttachments: Attachment[]): void {
 		this.attachments = [...this.attachments, ...newAttachments];
+		this.persist();
+	}
+
+	/**
+	 * Write down what the composers this call changed are holding, so a reload
+	 * can hand them back.
+	 *
+	 * Called from each method that changes either list, naming the threads it
+	 * changed. Only settled uploads reach storage, so the progress of a running
+	 * one passes through here without producing a write.
+	 *
+	 * Nothing else goes into the save, not even the parked lists this page is
+	 * holding: they were written when they were parked, and another tab on the
+	 * same chat may have moved them on since. Sending this page's copy back
+	 * would undo whatever that tab did, and revive what it had removed.
+	 *
+	 * What is left is two tabs both standing in one thread and both changing it,
+	 * where the later save wins. The draft beside it settles that the same way.
+	 * Walking into a thread is not that case: entering takes storage as the
+	 * authority for everything it speaks for, so moving around cannot cost
+	 * another tab its work.
+	 */
+	/**
+	 * What is filed under the empty key that this composer did not put there.
+	 *
+	 * Every conversation still waiting for an id shares that key, so a page that
+	 * has just been given one has to leave the rest alone. Told apart by the
+	 * transfer that stored each one: anything this composer is carrying into its
+	 * thread is its own, and everything else belongs to a conversation elsewhere,
+	 * even where two of them uploaded the very same file.
+	 */
+	private strangersUnderEmptyKey(): Attachment[] {
+		const stored = this.uploadConfig?.attachmentStore?.readThread(null) ?? [];
+		// Lives and dies inside this call.
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
+		const mine = new Set(this.attachments.map((a) => ('key' in a ? a.key : undefined)));
+		return stored.filter((a) => !('key' in a) || !mine.has(a.key));
+	}
+
+	private persist(...alsoChanged: Array<string | null>): void {
+		const store = this.uploadConfig?.attachmentStore;
+		if (!store || this.disposed) return;
+		// Same empty key the parked lists use for a conversation with no id yet.
+		const liveKey = untrack(() => this.core.threadId) ?? '';
+
+		// Handed straight to the store, never rendered.
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
+		const snapshot: AttachmentsByThread = new Map();
+		for (const threadId of alsoChanged) {
+			const key = threadId ?? '';
+			// An empty list where the thread has nothing any more, which is how a
+			// composer that was emptied gets struck from storage rather than left.
+			if (key !== liveKey) snapshot.set(key, this.parked.get(key) ?? []);
+		}
+		snapshot.set(liveKey, this.attachments);
+		store.write(snapshot);
 	}
 
 	/**
@@ -405,6 +546,7 @@ export class ChatUIContext {
 			this.revokePreview(removed);
 		}
 		this.attachments = this.attachments.filter((_, i) => i !== index);
+		this.persist();
 	}
 
 	/**
@@ -416,6 +558,7 @@ export class ChatUIContext {
 			this.revokePreview(attachment);
 		}
 		this.attachments = [];
+		this.persist();
 	}
 
 	/**
@@ -431,11 +574,56 @@ export class ChatUIContext {
 	private parkAttachments(leaving: string, entering: string | null): void {
 		if (this.attachments.length > 0) this.parked.set(leaving, this.attachments);
 		// A thread that has none is a thread with an empty composer, so the
-		// lookup miss is the answer rather than a case to handle. Threads with no
-		// id yet share the empty key, which no real thread can collide with.
+		// lookup miss is the answer rather than a case to handle. A conversation
+		// with no id yet is filed under the empty key, which no real thread can
+		// collide with.
 		const key = entering ?? '';
-		this.attachments = this.parked.get(key) ?? [];
+		const store = this.uploadConfig?.attachmentStore;
+		const held = this.parked.get(key) ?? [];
+		// What this page is holding for the thread it is entering, minus anything
+		// storage speaks for. Another tab on the same chat may have added to that
+		// thread, or taken something out of it, since this page last looked, and
+		// on the way in storage is the one that knows. Where there is no storage
+		// this page is the only one that knows, and keeps all of it.
+		const carried: Attachment[] = [];
+		for (const attachment of held) {
+			if (store && ChatUIContext.isStored(attachment)) {
+				// Its copy off disk is the same file without the local preview, so
+				// the tile falls back to the uploaded url. The preview this one is
+				// holding has to go now: nothing else will ever see this object
+				// again, and an image kept this way outlives the page.
+				this.revokePreview(attachment);
+				continue;
+			}
+			carried.push(attachment);
+		}
+		this.attachments = carried;
 		this.parked.delete(key);
+		// What it says now, which is not what this page took when it started. Read
+		// on the way in for the same reason the draft beside it is, and merged
+		// rather than taken whole, because a transfer still running exists only
+		// here and storage has no way to know about it.
+		const stored = store?.readThread(entering) ?? [];
+		if (stored.length > 0) {
+			this.parked.set(key, stored);
+			this.adoptParked(entering);
+		}
+		this.persist(leaving);
+	}
+
+	/**
+	 * Whether storage is the authority on this attachment.
+	 *
+	 * The same three things the store writes down, and no fewer: an attachment
+	 * that looks settled but is missing either of the others is not in storage,
+	 * and handing it over to something that does not have it would lose it.
+	 * Everything else, a transfer still running or one that failed, exists only
+	 * in the page holding it and has to be carried by hand.
+	 */
+	private static isStored(attachment: Attachment): boolean {
+		if (!('uploadState' in attachment)) return false;
+		const state = attachment.uploadState;
+		return state?.status === 'success' && !!state.fileId && !!attachment.url;
 	}
 
 	/**
@@ -491,6 +679,7 @@ export class ChatUIContext {
 			...adopted,
 			...this.attachments.filter((_, index) => !supersededLive[index])
 		];
+		this.persist(threadId);
 	}
 
 	/**
@@ -499,6 +688,11 @@ export class ChatUIContext {
 	 * the document unloads.
 	 */
 	dispose(): void {
+		this.unregister();
+		// Before anything is dropped. What follows empties both lists, and saving
+		// that would erase the composers this surface is supposed to hand back the
+		// next time it is built. Leaving is not the same as letting go.
+		this.disposed = true;
 		// Parked attachments hold aborters and blob previews just like live ones,
 		// and no thread switch is coming to pick them up any more.
 		for (const attachments of this.parked.values()) {
@@ -824,12 +1018,15 @@ export class ChatUIContext {
 		const holds = (list: Attachment[]) => list.some((a) => 'key' in a && a.key === key);
 		if (holds(this.attachments)) this.attachments = rewrite(this.attachments);
 		// Bounded by the threads the user stepped away from with something open.
+		const rewritten: string[] = [];
 		for (const [threadId, list] of this.parked) {
 			if (!holds(list)) continue;
+			rewritten.push(threadId);
 			const next = rewrite(list);
 			if (next.length > 0) this.parked.set(threadId, next);
 			else this.parked.delete(threadId);
 		}
+		this.persist(...rewritten);
 	}
 
 	/** The attachment with this key, live or parked. */

@@ -1,6 +1,7 @@
 import { authClient } from '$lib/auth-client';
 import { localizedHref } from '$lib/utils/i18n';
 import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
+import { clearPersistedChatState } from '$lib/chat/core/chat-persisted-state.ts';
 import { toast } from 'svelte-sonner';
 
 /**
@@ -127,6 +128,9 @@ export class ImpersonationState {
 			// Full document navigation, not a client-side goto: the app must boot with
 			// the fresh JWT and new Convex subscriptions bound to the admin identity.
 			activeUploads?.suspendOnce();
+			// Whatever the admin wrote while signed in as someone else stays with
+			// that session rather than following them back to their own.
+			clearPersistedChatState();
 			window.location.assign(localizedHref('/admin/users'));
 		} catch {
 			toast.error(t('app.user_menu.impersonation_stop_failed'));

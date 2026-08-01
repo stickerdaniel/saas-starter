@@ -24,6 +24,7 @@
 	import { useCustomer, useAutumnOperation } from '@stickerdaniel/convex-autumn-svelte/sveltekit';
 	import { activeUploadsContext } from '$lib/hooks/active-uploads.svelte.ts';
 	import { useBillingCheckout } from '$lib/components/billing';
+	import { clearPersistedChatState } from '$lib/chat/core/chat-persisted-state.ts';
 
 	const { t } = getTranslate();
 
@@ -88,6 +89,9 @@
 			// The session is already gone. Stopping this would strand the user on a
 			// signed-out page, so an upload does not get a say.
 			activeUploads?.suspendOnce();
+			// Drafts and attachments belong to the person who wrote them, and this
+			// browser is about to belong to whoever signs in next.
+			clearPersistedChatState();
 			await goto(resolve(localizedHref('/')));
 		}
 	}
