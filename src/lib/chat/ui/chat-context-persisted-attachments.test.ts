@@ -236,6 +236,20 @@ describe('ChatUIContext persisted attachments', () => {
 		expect(chatAt('thread-a').ctx.attachments).toHaveLength(0);
 	});
 
+	it('lets go when the session ends in another tab', async () => {
+		// The register only knows the composers of its own page. A second tab
+		// carries its own copy and would save it back over what was just emptied,
+		// so it has to hear about it.
+		const chat = chatAt('thread-a');
+		await uploadInto(chat.ctx, 'shot.png', 'file-kept');
+
+		window.dispatchEvent(
+			new StorageEvent('storage', { key: 'chat:session-ended', newValue: '1-0.5' })
+		);
+
+		expect(chat.ctx.attachments).toHaveLength(0);
+	});
+
 	it('strikes every thread it was holding, not just the one on screen', async () => {
 		const chat = chatAt('thread-a');
 		await uploadInto(chat.ctx, 'from-a.png', 'file-a');

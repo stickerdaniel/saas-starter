@@ -26,8 +26,41 @@ export interface PersistedChatHolder {
  */
 const holders = new Set<PersistedChatHolder>();
 
+/**
+ * The one key here that is not a composer: word that a session has ended.
+ *
+ * A storage event only ever reaches other documents, which is exactly the reach
+ * the register does not have, since it knows the composers of its own page.
+ * Neither half covers the other, so both are here.
+ */
+const SESSION_END_KEY = 'chat:session-ended';
+
+let listening = false;
+
+/** Start hearing about sessions that ended in another tab. Runs once. */
+function listenForSessionEnd(): void {
+	if (listening || typeof window === 'undefined') return;
+	listening = true;
+	window.addEventListener('storage', (event) => {
+		if (event.key !== SESSION_END_KEY || event.newValue === null) return;
+		forgetEverything();
+	});
+}
+
+/** Ask every mounted composer to let go, tolerating one that will not. */
+function forgetEverything(): void {
+	for (const holder of holders) {
+		try {
+			holder.forgetPersistedState();
+		} catch (error) {
+			console.error('[chat] A composer would not let go of its state:', error);
+		}
+	}
+}
+
 /** Announce a composer, and take it back when it goes. */
 export function registerPersistedChatHolder(holder: PersistedChatHolder): () => void {
+	listenForSessionEnd();
 	holders.add(holder);
 	return () => holders.delete(holder);
 }
@@ -49,13 +82,7 @@ export function clearPersistedChatState(): void {
 	// One survives every sign-out: the support widget belongs to the shell, so
 	// it is still mounted on the page the user lands on afterwards, holding what
 	// the last person attached and about to save it again.
-	for (const holder of holders) {
-		try {
-			holder.forgetPersistedState();
-		} catch (error) {
-			console.error('[chat] A composer would not let go of its state:', error);
-		}
-	}
+	forgetEverything();
 	try {
 		if (typeof localStorage === 'undefined') return;
 		// Collected first, emptied after: writing during the walk is fine, but
@@ -72,6 +99,11 @@ export function clearPersistedChatState(): void {
 		// tabs outlive the document) would write the previous session's content
 		// back on its next save. An empty object is a value it accepts and adopts.
 		for (const key of doomed) localStorage.setItem(key, '{}');
+		// Word to the other tabs, whose composers this page cannot reach and
+		// which would otherwise save the ended session back over what was just
+		// emptied. A value that never repeats, because a storage event only
+		// fires when one actually changes.
+		localStorage.setItem(SESSION_END_KEY, `${Date.now()}-${Math.random()}`);
 	} catch (error) {
 		console.error('[chat] Could not clear persisted chat state:', error);
 	}

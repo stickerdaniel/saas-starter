@@ -447,6 +447,14 @@ export class ChatUIContext {
 	 * holding: they were written when they were parked, and another tab on the
 	 * same chat may have moved them on since. Sending this page's copy back
 	 * would undo whatever that tab did, and revive what it had removed.
+	 *
+	 * What that leaves is the last writer winning per thread, which is what a
+	 * shared key gets you and what the drafts beside it have always done. Two
+	 * tabs in the same thread, or two conversations that have no id yet and so
+	 * share the empty key, can still write over each other. Deliberately not
+	 * solved here: the losing tab still shows what it holds, only a reload
+	 * before its next save would notice, and the alternative is a version per
+	 * thread carried across tabs for a case the drafts do not bother with.
 	 */
 	private persist(...alsoChanged: Array<string | null>): void {
 		const store = this.uploadConfig?.attachmentStore;

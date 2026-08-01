@@ -14,6 +14,13 @@ const localStorageMock: Storage = {
 
 import { clearPersistedChatState } from './chat-persisted-state.ts';
 
+/** What the composers are keeping, without the signal that sits beside them. */
+function composerValues(): string[] {
+	return [...storage.entries()]
+		.filter(([key]) => key.startsWith('drafts:') || key.startsWith('attachments:'))
+		.map(([, value]) => value);
+}
+
 describe('clearPersistedChatState', () => {
 	beforeAll(() => {
 		vi.stubGlobal('localStorage', localStorageMock);
@@ -35,7 +42,7 @@ describe('clearPersistedChatState', () => {
 
 		clearPersistedChatState();
 
-		expect([...storage.values()]).toEqual(['{}', '{}', '{}', '{}']);
+		expect(composerValues()).toEqual(['{}', '{}', '{}', '{}']);
 	});
 
 	it('leaves storage that belongs to someone else', () => {
@@ -45,6 +52,8 @@ describe('clearPersistedChatState', () => {
 
 		clearPersistedChatState();
 
+		// The other tabs, which this page cannot reach directly, are told too.
+		expect(storage.get('chat:session-ended')).toBeTruthy();
 		expect(storage.get('supportUserId')).toBe('anon-42');
 		expect(storage.get('theme')).toBe('dark');
 		expect(storage.get('drafts:ai-chat')).toBe('{}');
@@ -55,7 +64,7 @@ describe('clearPersistedChatState', () => {
 
 		clearPersistedChatState();
 
-		expect([...storage.values()]).toEqual(['{}', '{}', '{}', '{}', '{}', '{}']);
+		expect(composerValues()).toEqual(['{}', '{}', '{}', '{}', '{}', '{}']);
 	});
 
 	it('does not throw when storage is unavailable', () => {
