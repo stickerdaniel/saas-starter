@@ -219,8 +219,8 @@ export class ChatUIContext {
 
 		// Composers a reload took away arrive parked, under the thread they were
 		// left in. From here on nothing knows the difference between one that came
-		// off disk and one the user stepped away from a moment ago: each stays put
-		// until it is walked back into.
+		// off disk and one the user stepped away from a moment ago, and each waits
+		// to be walked back into.
 		for (const [threadId, attachments] of uploadConfig?.attachmentStore?.read() ?? []) {
 			this.parked.set(threadId, attachments);
 		}
