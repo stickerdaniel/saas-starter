@@ -301,9 +301,9 @@ describe('ChatUIContext upload failures', () => {
 		expect(client.mutation).not.toHaveBeenCalled();
 	});
 
-	it('drops attachments when navigating between threads', () => {
+	it('takes attachments out of the composer when navigating between threads', () => {
 		// Every surface reuses one context across threads and swaps only the text
-		// draft, so an attachment would otherwise be sent in the wrong thread —
+		// draft, so an attachment left in place would be sent in the wrong thread —
 		// and a failed one would block sending there.
 		const core = { threadId: 'thread-a' } as unknown as ChatCore;
 		const ctx = new ChatUIContext(core, succeedingClient(), uploadConfig);
