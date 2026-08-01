@@ -37,9 +37,20 @@ function uploaded(overrides: Partial<Extract<Attachment, { type: 'file' }>> = {}
 	};
 }
 
-describe('ChatAttachmentStore', () => {
-	let surface: string;
+/**
+ * What actually landed in storage.
+ *
+ * The negative cases assert on this rather than on `read()`: an entry that is
+ * written but malformed is refused on the way back out too, so reading alone
+ * cannot tell "never stored" from "stored wrong".
+ */
+function written(): unknown {
+	return JSON.parse(storage.get(`attachments:${surface}`) ?? '{}');
+}
 
+let surface: string;
+
+describe('ChatAttachmentStore', () => {
 	beforeAll(() => {
 		vi.stubGlobal('localStorage', localStorageMock);
 	});
@@ -97,21 +108,21 @@ describe('ChatAttachmentStore', () => {
 		});
 		new ChatAttachmentStore(surface).write(new Map([['thread-1', [inFlight]]]));
 
-		expect(new ChatAttachmentStore(surface).read().size).toBe(0);
+		expect(written()).toEqual({});
 	});
 
 	it('does not store an upload that failed', () => {
 		const failed = uploaded({ uploadState: { status: 'error', progress: 0, error: 'network' } });
 		new ChatAttachmentStore(surface).write(new Map([['thread-1', [failed]]]));
 
-		expect(new ChatAttachmentStore(surface).read().size).toBe(0);
+		expect(written()).toEqual({});
 	});
 
 	it('does not store an attachment that belongs to a sent message', () => {
 		const sent: Attachment = { type: 'image', url: 'https://files.example/sent.png' };
 		new ChatAttachmentStore(surface).write(new Map([['thread-1', [sent]]]));
 
-		expect(new ChatAttachmentStore(surface).read().size).toBe(0);
+		expect(written()).toEqual({});
 	});
 
 	it('stops offering an attachment once the vacuum could have collected it', () => {
