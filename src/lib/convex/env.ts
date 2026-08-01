@@ -7,9 +7,11 @@
  * required/optional split comes for free: required vars type as `string`,
  * optional vars as `string | undefined`.
  *
- * varlock (.env-convex.schema) stays canonical for log redaction, leak
- * scanning, `@type=url`/`@type=boolean` coercion, and the SvelteKit runtime
+ * varlock (.env-convex.schema) stays canonical for typegen, deploy-time
+ * validation, `@type=url`/`@type=boolean` coercion, and the SvelteKit runtime
  * side; `scripts/env-schema-parity.test.ts` keeps the two declarations in sync.
+ * It does not drive redaction of the local dev server's own output — varlock
+ * only redacts values it loaded itself, and these are the Convex backend's.
  */
 
 import { env } from './_generated/server';

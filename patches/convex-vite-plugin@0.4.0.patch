@@ -1,0 +1,56 @@
+diff --git a/dist/backend-CgypcZjo.mjs b/dist/backend-CgypcZjo.mjs
+index a2446d37d147b021fb5315b9d3ffbd9e5f0e8ca0..62876c1ca5f1a10a3299e02777649aa35fb0a77b 100644
+--- a/dist/backend-CgypcZjo.mjs
++++ b/dist/backend-CgypcZjo.mjs
+@@ -576,8 +576,8 @@ var ConvexBackend = class {
+ 		await this.healthCheck();
+ 		this.logger.info("Backend ready", { timestamp: true });
+ 		this.logger.info(`  Instance name:   ${this.instanceName}`, { timestamp: true });
+-		this.logger.info(`  Instance secret: ${this.instanceSecret}`, { timestamp: true });
+-		this.logger.info(`  Admin key:       ${this.adminKey}`, { timestamp: true });
++		this.logger.info(`  Instance secret: [REDACTED]`, { timestamp: true });
++		this.logger.info(`  Admin key:       [REDACTED]`, { timestamp: true });
+ 		this.logger.info(`  Backend URL:     ${this.backendUrl}`, { timestamp: true });
+ 	}
+ 	/**
+diff --git a/dist/index.mjs b/dist/index.mjs
+index 9fae259bd780fd2cb930f4c9f74eef80b3a73b88..0d377d80ae7648b9f12158dec1adce3dd4b8f6f7 100644
+--- a/dist/index.mjs
++++ b/dist/index.mjs
+@@ -208,7 +208,7 @@ function convexLocal(options = {}) {
+ 							}) : options.envVars;
+ 							for (const [name, value] of Object.entries(envVars)) {
+ 								await backend.setEnv(name, value);
+-								logger.info(`Set environment variable: ${name} = ${value}`, { timestamp: true });
++								logger.info(`Set environment variable: ${name} = [REDACTED]`, { timestamp: true });
+ 							}
+ 						}
+ 						deploy();
+diff --git a/src/backend.ts b/src/backend.ts
+index 27271554f6ed8c2c8aba185bbb62f8a16c7e8c7d..2909ebcf02ab245f3bd095a8d96f96e9cc686eb1 100644
+--- a/src/backend.ts
++++ b/src/backend.ts
+@@ -198,8 +198,8 @@ export class ConvexBackend {
+ 
+     this.logger.info("Backend ready", { timestamp: true });
+     this.logger.info(`  Instance name:   ${this.instanceName}`, { timestamp: true });
+-    this.logger.info(`  Instance secret: ${this.instanceSecret}`, { timestamp: true });
+-    this.logger.info(`  Admin key:       ${this.adminKey}`, { timestamp: true });
++    this.logger.info(`  Instance secret: [REDACTED]`, { timestamp: true });
++    this.logger.info(`  Admin key:       [REDACTED]`, { timestamp: true });
+     this.logger.info(`  Backend URL:     ${this.backendUrl}`, { timestamp: true });
+   }
+ 
+diff --git a/src/index.ts b/src/index.ts
+index 9ed17e6d7512b75cce299b04e762380e6636a2d3..8a345bf32c34a86edef863a69fd576241b4e425e 100644
+--- a/src/index.ts
++++ b/src/index.ts
+@@ -382,7 +382,7 @@ export function convexLocal(options: ConvexLocalOptions = {}): Plugin {
+ 
+               for (const [name, value] of Object.entries(envVars)) {
+                 await backend.setEnv(name, value);
+-                logger.info(`Set environment variable: ${name} = ${value}`, { timestamp: true });
++                logger.info(`Set environment variable: ${name} = [REDACTED]`, { timestamp: true });
+               }
+             }
+ 
