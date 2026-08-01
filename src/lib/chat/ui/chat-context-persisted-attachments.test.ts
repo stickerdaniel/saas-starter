@@ -298,6 +298,26 @@ describe('ChatUIContext persisted attachments', () => {
 		expect(names(chatAt('thread-b').ctx).sort()).toEqual(['also-b.png', 'from-b.png']);
 	});
 
+	it('frees the preview of the copy it replaces on the way in', async () => {
+		// Entering hands the thread over to storage, and what comes back is the
+		// same file without the local preview. The object being dropped is the
+		// last reference to that preview, so it has to go here or the image
+		// stays in memory for the life of the page.
+		const revoked: string[] = [];
+		vi.spyOn(URL, 'revokeObjectURL').mockImplementation((url: string) => void revoked.push(url));
+
+		const chat = chatAt('thread-a');
+		await uploadInto(chat.ctx, 'shot.png', 'file-kept');
+		const preview = chat.ctx.attachments[0];
+		const previewUrl = preview && 'preview' in preview ? preview.preview : undefined;
+		expect(previewUrl).toMatch(/^blob:/);
+
+		chat.switchTo('thread-b');
+		chat.switchTo('thread-a');
+
+		expect(revoked).toContain(previewUrl);
+	});
+
 	it('lets go of what another tab took out while it was away', async () => {
 		// The other direction of the same read: absence is an answer too, or a
 		// page could put back what someone else deliberately removed.
@@ -318,16 +338,19 @@ describe('ChatUIContext persisted attachments', () => {
 		// given an id clears what this composer had there, and only that: another
 		// tab may be waiting under the same key with files of its own.
 		const mine = chatAt(null);
-		await uploadInto(mine.ctx, 'mine.png', 'file-mine');
-
 		const otherTab = chatAt(null);
-		await uploadInto(otherTab.ctx, 'theirs.png', 'file-theirs');
+
+		// The same bytes under the same name, which is one file as far as storage
+		// is concerned: it deduplicates by content and hands both the same id.
+		// Only the transfer that stored each one tells them apart.
+		await uploadInto(mine.ctx, 'shared.png', 'file-deduplicated');
+		await uploadInto(otherTab.ctx, 'shared.png', 'file-deduplicated');
 
 		mine.switchTo('thread-a');
-		expect(names(mine.ctx)).toEqual(['mine.png']);
+		expect(names(mine.ctx)).toEqual(['shared.png']);
 		mine.ctx.clearAttachments();
 
-		expect(names(chatAt(null).ctx)).toEqual(['theirs.png']);
+		expect(chatAt(null).ctx.attachments).toHaveLength(1);
 	});
 
 	it('moves the composer with the conversation when it gets its id', async () => {

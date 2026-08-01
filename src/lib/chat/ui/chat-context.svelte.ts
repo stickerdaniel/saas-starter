@@ -585,9 +585,19 @@ export class ChatUIContext {
 		// thread, or taken something out of it, since this page last looked, and
 		// on the way in storage is the one that knows. Where there is no storage
 		// this page is the only one that knows, and keeps all of it.
-		this.attachments = store
-			? held.filter((attachment) => !ChatUIContext.isStored(attachment))
-			: held;
+		const carried: Attachment[] = [];
+		for (const attachment of held) {
+			if (store && ChatUIContext.isStored(attachment)) {
+				// Its copy off disk is the same file without the local preview, so
+				// the tile falls back to the uploaded url. The preview this one is
+				// holding has to go now: nothing else will ever see this object
+				// again, and an image kept this way outlives the page.
+				this.revokePreview(attachment);
+				continue;
+			}
+			carried.push(attachment);
+		}
+		this.attachments = carried;
 		this.parked.delete(key);
 		// What it says now, which is not what this page took when it started. Read
 		// on the way in for the same reason the draft beside it is, and merged
