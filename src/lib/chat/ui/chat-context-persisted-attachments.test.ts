@@ -36,6 +36,7 @@ const localStorageMock: Storage = {
 
 const { ChatUIContext } = await import('./chat-context.svelte.ts');
 const { ChatAttachmentStore } = await import('../core/chat-attachment-store.svelte.ts');
+const { clearPersistedChatState } = await import('../core/chat-persisted-state.ts');
 
 let surface: string;
 
@@ -218,6 +219,53 @@ describe('ChatUIContext persisted attachments', () => {
 		await uploadInto(otherTab.ctx, 'from-a.png', 'file-a');
 
 		expect(names(chatAt('thread-b').ctx).sort()).toEqual(['also-b.png', 'from-b.png']);
+	});
+
+	it('lets go of what is on screen when the session ends', async () => {
+		// Emptying storage is not enough: this context holds its own copy and
+		// would save it again. The support widget guarantees one is still mounted
+		// after a sign-out, since it belongs to the shell rather than the route.
+		const chat = chatAt('thread-a');
+		await uploadInto(chat.ctx, 'shot.png', 'file-kept');
+
+		clearPersistedChatState();
+		expect(chat.ctx.attachments).toHaveLength(0);
+
+		// And its next save cannot bring it back for whoever signs in next.
+		chat.ctx.addAttachments([]);
+		expect(chatAt('thread-a').ctx.attachments).toHaveLength(0);
+	});
+
+	it('leaves a thread it stepped out of to whichever page is in it now', async () => {
+		const seed = chatAt('thread-b');
+		await uploadInto(seed.ctx, 'from-b.png', 'file-b');
+
+		// One tab was in thread-b and walked away, so it is holding a copy.
+		const steppedOut = chatAt('thread-b');
+		steppedOut.switchTo('thread-a');
+
+		// Another tab is in thread-b now and adds to it.
+		const stillThere = chatAt('thread-b');
+		await uploadInto(stillThere.ctx, 'also-b.png', 'file-b2');
+
+		// The first tab saves, in the thread it moved to. Its copy of thread-b is
+		// older than what just happened there and may not go back.
+		await uploadInto(steppedOut.ctx, 'from-a.png', 'file-a');
+
+		expect(names(chatAt('thread-b').ctx).sort()).toEqual(['also-b.png', 'from-b.png']);
+	});
+
+	it('moves the composer with the conversation when it gets its id', async () => {
+		const chat = chatAt(null);
+		await uploadInto(chat.ctx, 'shot.png', 'file-new');
+
+		chat.switchTo('thread-a');
+		expect(names(chat.ctx)).toEqual(['shot.png']);
+		// Sent, so this thread's composer is empty. Nothing may be left under the
+		// id it had before, or the next conversation would open holding it.
+		chat.ctx.clearAttachments();
+
+		expect(chatAt(null).ctx.attachments).toHaveLength(0);
 	});
 
 	it('does not double up when the same file is restored and picked again', async () => {

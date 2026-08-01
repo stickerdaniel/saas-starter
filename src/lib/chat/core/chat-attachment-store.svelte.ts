@@ -111,20 +111,30 @@ export class ChatAttachmentStore {
 	private readonly stored: PersistedState<StoredRecord>;
 
 	/**
-	 * When each file reached the server, by fileId, for as long as this document
-	 * lives.
+	 * When each attachment reached the server, by the identity of the transfer
+	 * that put it there, for as long as this document lives.
 	 *
 	 * Kept here rather than read back out of the record every time, because the
-	 * record can go and come back while the file itself does not: sending clears
-	 * the composer, and a send that fails puts the same attachments back
+	 * record can go and come back while the attachment does not: sending clears
+	 * the composer, and a send that fails puts the very same attachments back
 	 * (`ChatInput.handleSend`). Re-stamping them there would hand a file that is
 	 * hours old another twelve, past the point the vacuum collects it, and the
 	 * user would come back to a tile for nothing.
 	 *
-	 * Bounded by the files one page load touches.
+	 * By transfer and not by file, because the same bytes uploaded again are a
+	 * new file as far as its age is concerned: the agent component hands back
+	 * the fileId it already had and starts its clock over, so keying on that
+	 * would let the second upload inherit the first one's age and expire early.
+	 *
+	 * Bounded by the attachments one page load touches.
 	 */
 	// eslint-disable-next-line svelte/prefer-svelte-reactivity
 	private readonly stamps = new Map<string, number>();
+
+	/** How an attachment names the transfer that stored it. */
+	private static transferId(attachment: Attachment): string | undefined {
+		return 'key' in attachment ? attachment.key : undefined;
+	}
 
 	/**
 	 * @param surface which chat this belongs to, e.g. `ai-chat`. The namespace
@@ -140,7 +150,17 @@ export class ChatAttachmentStore {
 		// eslint-disable-next-line svelte/prefer-svelte-reactivity
 		const restored: AttachmentsByThread = new Map();
 		for (const [threadId, items] of Object.entries(this.fresh(this.parse()))) {
-			restored.set(threadId, items.map(fromStored));
+			restored.set(
+				threadId,
+				items.map((item) => {
+					const attachment = fromStored(item);
+					// The minted identity inherits the age the file already had, so a
+					// page that restores and saves does not start its clock over.
+					const transfer = ChatAttachmentStore.transferId(attachment);
+					if (transfer) this.stamps.set(transfer, item.savedAt);
+					return attachment;
+				})
+			);
 		}
 		return restored;
 	}
@@ -162,10 +182,10 @@ export class ChatAttachmentStore {
 		for (const [threadId, attachments] of snapshot) {
 			const items = attachments
 				.map((attachment) => {
-					const fileId = 'uploadState' in attachment ? attachment.uploadState?.fileId : undefined;
-					const stamped = fileId === undefined ? undefined : this.stamps.get(fileId);
+					const transfer = ChatAttachmentStore.transferId(attachment);
+					const stamped = transfer === undefined ? undefined : this.stamps.get(transfer);
 					const item = toStored(attachment, stamped ?? now);
-					if (item) this.stamps.set(item.fileId, item.savedAt);
+					if (item && transfer) this.stamps.set(transfer, item.savedAt);
 					return item;
 				})
 				.filter((item): item is StoredAttachment => item !== undefined);
@@ -179,16 +199,12 @@ export class ChatAttachmentStore {
 		this.stored.current = next;
 	}
 
-	/**
-	 * Drop what the vacuum may already have collected, and note when the rest
-	 * arrived so a record that goes and comes back does not look new.
-	 */
+	/** Drop what the vacuum may already have collected. */
 	private fresh(record: StoredRecord): StoredRecord {
 		const cutoff = Date.now() - MAX_AGE_MS;
 		const kept: StoredRecord = {};
 		for (const [threadId, items] of Object.entries(record)) {
 			const alive = items.filter((item) => item.savedAt > cutoff);
-			for (const item of alive) this.stamps.set(item.fileId, item.savedAt);
 			if (alive.length > 0) kept[threadId] = alive;
 		}
 		return kept;

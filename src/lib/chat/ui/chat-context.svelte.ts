@@ -16,6 +16,7 @@ import type {
 	AttachmentsByThread,
 	ChatAttachmentStore
 } from '../core/chat-attachment-store.svelte.ts';
+import { registerPersistedChatHolder } from '../core/chat-persisted-state.ts';
 import { FadeOnLoad } from '$lib/utils/fade-on-load.svelte.ts';
 
 /**
@@ -153,14 +154,8 @@ export class ChatUIContext {
 	 */
 	private readonly parked = new SvelteMap<string, Attachment[]>();
 
-	/**
-	 * Threads whose composer this page has actually changed, by id, with the
-	 * empty key standing for a conversation with no id yet.
-	 *
-	 * The line between what this page speaks for and what it merely read off
-	 * disk when it started. Only the former is written back.
-	 */
-	private readonly touchedThreads = new SvelteSet<string>();
+	/** Takes this context back out of the register of mounted composers. */
+	private readonly unregister: () => void;
 
 	/** Cancels the in-flight upload of an attachment, keyed by its stable `key`. */
 	private readonly uploadAborters = new SvelteMap<string, AbortController>();
@@ -239,6 +234,30 @@ export class ChatUIContext {
 		// over them: the screenshot flow uploads through this context with no chat
 		// mounted at all, so that first render may never come.
 		this.adoptParked(untrack(() => core.threadId));
+		this.unregister = registerPersistedChatHolder(this);
+	}
+
+	/**
+	 * Let go of every composer this context is holding, because the session they
+	 * belong to has ended.
+	 *
+	 * Emptying storage is not enough on its own: this context keeps its own
+	 * copy and would write it back on its next save. The support widget makes
+	 * that certain rather than unlikely, since it belongs to the shell and is
+	 * still mounted on whatever page the user lands on after signing out.
+	 */
+	forgetPersistedState(): void {
+		for (const attachments of this.parked.values()) {
+			for (const attachment of attachments) {
+				this.releaseUpload(attachment);
+				this.revokePreview(attachment);
+			}
+		}
+		this.parked.clear();
+		// A transfer still running belongs to an identity that is gone, so it is
+		// stopped here for the same reason sign-out does not wait for one.
+		this.clearAttachments();
+		this.inputValue = '';
 	}
 
 	/**
@@ -338,7 +357,14 @@ export class ChatUIContext {
 			this.adoptParked(currentThreadId);
 		} else if (currentThreadId !== this._lastThreadId) {
 			if (this._lastThreadId === null) {
+				// The conversation with no id is this thread now, and what its
+				// composer holds comes along in the live list. Nothing may be left
+				// behind under the empty key: sending would clear this thread's
+				// entry and not that one, and the next load with no id would offer
+				// back a file that has already gone out.
+				this.parked.delete('');
 				this.adoptParked(currentThreadId);
+				this.persist('');
 			} else {
 				this.messagesFade.reset();
 				this._hasEverDisplayedMessages = false;
@@ -405,31 +431,32 @@ export class ChatUIContext {
 	}
 
 	/**
-	 * Write down what the composers this page has changed are holding, so a
-	 * reload can hand them back.
+	 * Write down what the composers this call changed are holding, so a reload
+	 * can hand them back.
 	 *
-	 * Called from each method that changes either list, with the threads it
-	 * touched. Only settled uploads reach storage, so the progress of a running
+	 * Called from each method that changes either list, naming the threads it
+	 * changed. Only settled uploads reach storage, so the progress of a running
 	 * one passes through here without producing a write.
 	 *
-	 * Threads this page has only read stay out of the save. They came off disk
-	 * at construction and may have moved on since, in another tab on the same
-	 * chat: sending that stale copy back would undo whatever the other tab did
-	 * with them, and bring back attachments it had removed.
+	 * Nothing else goes into the save, not even the parked lists this page is
+	 * holding: they were written when they were parked, and another tab on the
+	 * same chat may have moved them on since. Sending this page's copy back
+	 * would undo whatever that tab did, and revive what it had removed.
 	 */
-	private persist(...alsoTouched: Array<string | null>): void {
+	private persist(...alsoChanged: Array<string | null>): void {
 		const store = this.uploadConfig?.attachmentStore;
 		if (!store || this.disposed) return;
 		// Same empty key the parked lists use for a conversation with no id yet.
 		const liveKey = untrack(() => this.core.threadId) ?? '';
-		this.touchedThreads.add(liveKey);
-		for (const threadId of alsoTouched) this.touchedThreads.add(threadId ?? '');
 
 		// Handed straight to the store, never rendered.
 		// eslint-disable-next-line svelte/prefer-svelte-reactivity
 		const snapshot: AttachmentsByThread = new Map();
-		for (const [threadId, attachments] of this.parked) {
-			if (this.touchedThreads.has(threadId)) snapshot.set(threadId, attachments);
+		for (const threadId of alsoChanged) {
+			const key = threadId ?? '';
+			// An empty list where the thread has nothing any more, which is how a
+			// composer that was emptied gets struck from storage rather than left.
+			if (key !== liveKey) snapshot.set(key, this.parked.get(key) ?? []);
 		}
 		snapshot.set(liveKey, this.attachments);
 		store.write(snapshot);
@@ -585,6 +612,7 @@ export class ChatUIContext {
 	 * the document unloads.
 	 */
 	dispose(): void {
+		this.unregister();
 		// Before anything is dropped. What follows empties both lists, and saving
 		// that would erase the composers this surface is supposed to hand back the
 		// next time it is built. Leaving is not the same as letting go.

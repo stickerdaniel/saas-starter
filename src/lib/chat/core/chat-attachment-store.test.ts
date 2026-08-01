@@ -199,14 +199,33 @@ describe('ChatAttachmentStore', () => {
 		vi.setSystemTime(new Date('2026-08-01T08:00:00Z'));
 		new ChatAttachmentStore(surface).write(new Map([['thread-1', [uploaded()]]]));
 
-		// A composer left open all day keeps saving. Were the stamp refreshed
-		// here, the entry would outlive the file it points at.
+		// A page that takes this back and saves again, which every load does.
+		// Were the stamp refreshed there, the entry would outlive the file it
+		// points at, and each further load would renew it again.
 		vi.setSystemTime(new Date('2026-08-01T19:00:00Z'));
 		const midday = new ChatAttachmentStore(surface);
-		midday.write(new Map([['thread-1', [uploaded()]]]));
+		const back = midday.read().get('thread-1') ?? [];
+		midday.write(new Map([['thread-1', back]]));
 
 		vi.setSystemTime(new Date('2026-08-01T21:00:00Z'));
 		expect(new ChatAttachmentStore(surface).read().size).toBe(0);
+	});
+
+	it('gives the same file uploaded a second time an age of its own', () => {
+		// Agent storage deduplicates by content, so picking the same bytes again
+		// hands back the fileId the first upload got, with its clock started over.
+		// Only the transfer tells the two apart.
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date('2026-08-01T08:00:00Z'));
+		const store = new ChatAttachmentStore(surface);
+		store.write(new Map([['thread-1', [uploaded()]]]));
+		store.write(new Map([['thread-1', []]]));
+
+		vi.setSystemTime(new Date('2026-08-01T19:00:00Z'));
+		store.write(new Map([['thread-1', [uploaded({ key: 'upload-2' })]]]));
+
+		vi.setSystemTime(new Date('2026-08-01T21:00:00Z'));
+		expect(new ChatAttachmentStore(surface).read().get('thread-1')).toHaveLength(1);
 	});
 
 	it('forgets a thread whose composer was emptied', () => {

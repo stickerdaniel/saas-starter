@@ -12,6 +12,26 @@ export const ATTACHMENT_STORAGE_PREFIX = 'attachments:';
 
 const PREFIXES = [DRAFT_STORAGE_PREFIX, ATTACHMENT_STORAGE_PREFIX];
 
+/** A composer that is on screen right now and holds more than storage does. */
+export interface PersistedChatHolder {
+	/** Let go of everything belonging to the session that is ending. */
+	forgetPersistedState(): void;
+}
+
+/**
+ * The composers currently mounted.
+ *
+ * Structural, and registered by the holder itself, so this module stays free of
+ * anything it would otherwise have to import back.
+ */
+const holders = new Set<PersistedChatHolder>();
+
+/** Announce a composer, and take it back when it goes. */
+export function registerPersistedChatHolder(holder: PersistedChatHolder): () => void {
+	holders.add(holder);
+	return () => holders.delete(holder);
+}
+
 /**
  * Drop every draft and every stored attachment.
  *
@@ -25,6 +45,17 @@ const PREFIXES = [DRAFT_STORAGE_PREFIX, ATTACHMENT_STORAGE_PREFIX];
  * on a page they have already signed out of.
  */
 export function clearPersistedChatState(): void {
+	// The composers on screen first, because storage is not where they keep it.
+	// One survives every sign-out: the support widget belongs to the shell, so
+	// it is still mounted on the page the user lands on afterwards, holding what
+	// the last person attached and about to save it again.
+	for (const holder of holders) {
+		try {
+			holder.forgetPersistedState();
+		} catch (error) {
+			console.error('[chat] A composer would not let go of its state:', error);
+		}
+	}
 	try {
 		if (typeof localStorage === 'undefined') return;
 		// Collected first, emptied after: writing during the walk is fine, but
