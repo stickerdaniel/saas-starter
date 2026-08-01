@@ -27,14 +27,20 @@ const PREFIXES = [DRAFT_STORAGE_PREFIX, ATTACHMENT_STORAGE_PREFIX];
 export function clearPersistedChatState(): void {
 	try {
 		if (typeof localStorage === 'undefined') return;
-		// Collected first, removed after: removing during the walk shifts every
-		// later index down and would skip half the keys.
+		// Collected first, emptied after: writing during the walk is fine, but
+		// this keeps the two halves separate and the loop honest about its bounds.
 		const doomed: string[] = [];
 		for (let index = 0; index < localStorage.length; index++) {
 			const key = localStorage.key(index);
 			if (key && PREFIXES.some((prefix) => key.startsWith(prefix))) doomed.push(key);
 		}
-		for (const key of doomed) localStorage.removeItem(key);
+		// Emptied rather than removed. Runed's PersistedState answers a read from
+		// the value it started with once the key is absent, and ignores a storage
+		// event that reports a deletion, so a store still alive anywhere (the
+		// support widget outlives the route the user signed out from, and other
+		// tabs outlive the document) would write the previous session's content
+		// back on its next save. An empty object is a value it accepts and adopts.
+		for (const key of doomed) localStorage.setItem(key, '{}');
 	} catch (error) {
 		console.error('[chat] Could not clear persisted chat state:', error);
 	}

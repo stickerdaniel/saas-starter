@@ -153,6 +153,15 @@ export class ChatUIContext {
 	 */
 	private readonly parked = new SvelteMap<string, Attachment[]>();
 
+	/**
+	 * Threads whose composer this page has actually changed, by id, with the
+	 * empty key standing for a conversation with no id yet.
+	 *
+	 * The line between what this page speaks for and what it merely read off
+	 * disk when it started. Only the former is written back.
+	 */
+	private readonly touchedThreads = new SvelteSet<string>();
+
 	/** Cancels the in-flight upload of an attachment, keyed by its stable `key`. */
 	private readonly uploadAborters = new SvelteMap<string, AbortController>();
 
@@ -396,20 +405,33 @@ export class ChatUIContext {
 	}
 
 	/**
-	 * Write down what every composer is holding, so a reload can hand it back.
+	 * Write down what the composers this page has changed are holding, so a
+	 * reload can hand them back.
 	 *
-	 * Called from each method that changes either list. Only settled uploads
-	 * reach storage, so the progress of a running one passes through here
-	 * without producing a write.
+	 * Called from each method that changes either list, with the threads it
+	 * touched. Only settled uploads reach storage, so the progress of a running
+	 * one passes through here without producing a write.
+	 *
+	 * Threads this page has only read stay out of the save. They came off disk
+	 * at construction and may have moved on since, in another tab on the same
+	 * chat: sending that stale copy back would undo whatever the other tab did
+	 * with them, and bring back attachments it had removed.
 	 */
-	private persist(): void {
+	private persist(...alsoTouched: Array<string | null>): void {
 		const store = this.uploadConfig?.attachmentStore;
 		if (!store || this.disposed) return;
+		// Same empty key the parked lists use for a conversation with no id yet.
+		const liveKey = untrack(() => this.core.threadId) ?? '';
+		this.touchedThreads.add(liveKey);
+		for (const threadId of alsoTouched) this.touchedThreads.add(threadId ?? '');
+
 		// Handed straight to the store, never rendered.
 		// eslint-disable-next-line svelte/prefer-svelte-reactivity
-		const snapshot: AttachmentsByThread = new Map(this.parked);
-		// Same empty key the parked lists use for a conversation with no id yet.
-		snapshot.set(untrack(() => this.core.threadId) ?? '', this.attachments);
+		const snapshot: AttachmentsByThread = new Map();
+		for (const [threadId, attachments] of this.parked) {
+			if (this.touchedThreads.has(threadId)) snapshot.set(threadId, attachments);
+		}
+		snapshot.set(liveKey, this.attachments);
 		store.write(snapshot);
 	}
 
@@ -498,7 +520,7 @@ export class ChatUIContext {
 		const key = entering ?? '';
 		this.attachments = this.parked.get(key) ?? [];
 		this.parked.delete(key);
-		this.persist();
+		this.persist(leaving);
 	}
 
 	/**
@@ -554,7 +576,7 @@ export class ChatUIContext {
 			...adopted,
 			...this.attachments.filter((_, index) => !supersededLive[index])
 		];
-		this.persist();
+		this.persist(threadId);
 	}
 
 	/**
@@ -892,13 +914,15 @@ export class ChatUIContext {
 		const holds = (list: Attachment[]) => list.some((a) => 'key' in a && a.key === key);
 		if (holds(this.attachments)) this.attachments = rewrite(this.attachments);
 		// Bounded by the threads the user stepped away from with something open.
+		const rewritten: string[] = [];
 		for (const [threadId, list] of this.parked) {
 			if (!holds(list)) continue;
+			rewritten.push(threadId);
 			const next = rewrite(list);
 			if (next.length > 0) this.parked.set(threadId, next);
 			else this.parked.delete(threadId);
 		}
-		this.persist();
+		this.persist(...rewritten);
 	}
 
 	/** The attachment with this key, live or parked. */

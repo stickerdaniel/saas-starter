@@ -27,35 +27,35 @@ describe('clearPersistedChatState', () => {
 		storage.clear();
 	});
 
-	it('drops every draft and every stored attachment', () => {
+	it('empties every draft and every stored attachment', () => {
 		storage.set('drafts:ai-chat', '{"thread-1":"half a sentence"}');
 		storage.set('drafts:support', '{}');
-		storage.set('attachments:ai-chat', '{"thread-1":[]}');
+		storage.set('attachments:ai-chat', '{"thread-1":[{"name":"secret.pdf"}]}');
 		storage.set('attachments:admin-support', '{}');
 
 		clearPersistedChatState();
 
-		expect(storage.size).toBe(0);
+		expect([...storage.values()]).toEqual(['{}', '{}', '{}', '{}']);
 	});
 
 	it('leaves storage that belongs to someone else', () => {
-		storage.set('drafts:ai-chat', '{}');
+		storage.set('drafts:ai-chat', '{"thread-1":"mine"}');
 		storage.set('supportUserId', 'anon-42');
 		storage.set('theme', 'dark');
 
 		clearPersistedChatState();
 
-		expect([...storage.keys()].sort()).toEqual(['supportUserId', 'theme']);
+		expect(storage.get('supportUserId')).toBe('anon-42');
+		expect(storage.get('theme')).toBe('dark');
+		expect(storage.get('drafts:ai-chat')).toBe('{}');
 	});
 
-	it('reaches keys behind the one it removes first', () => {
-		// Removing while walking the index would shift every later key down and
-		// skip half of them.
-		for (let i = 0; i < 6; i++) storage.set(`drafts:surface-${i}`, '{}');
+	it('reaches every key, not just the ones it walks past first', () => {
+		for (let i = 0; i < 6; i++) storage.set(`drafts:surface-${i}`, `{"t":"draft ${i}"}`);
 
 		clearPersistedChatState();
 
-		expect(storage.size).toBe(0);
+		expect([...storage.values()]).toEqual(['{}', '{}', '{}', '{}', '{}', '{}']);
 	});
 
 	it('does not throw when storage is unavailable', () => {

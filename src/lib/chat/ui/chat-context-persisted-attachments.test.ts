@@ -205,6 +205,21 @@ describe('ChatUIContext persisted attachments', () => {
 		expect(names(chatAt('thread-a').ctx).sort()).toEqual(['earlier.png', 'later.png']);
 	});
 
+	it('leaves a thread it only read to whichever page is standing in it', async () => {
+		const seed = chatAt('thread-b');
+		await uploadInto(seed.ctx, 'from-b.png', 'file-b');
+
+		// Two tabs on the same chat. Both take thread-b off disk at startup; only
+		// the second is in it. Writing the copy the first started with would undo
+		// what the second does there.
+		const otherTab = chatAt('thread-a');
+		const inThreadB = chatAt('thread-b');
+		await uploadInto(inThreadB.ctx, 'also-b.png', 'file-b2');
+		await uploadInto(otherTab.ctx, 'from-a.png', 'file-a');
+
+		expect(names(chatAt('thread-b').ctx).sort()).toEqual(['also-b.png', 'from-b.png']);
+	});
+
 	it('does not double up when the same file is restored and picked again', async () => {
 		const first = chatAt('thread-a');
 		await uploadInto(first.ctx, 'shot.png', 'file-kept');

@@ -22,6 +22,7 @@ const localStorageMock: Storage = {
 
 import type { Attachment } from './types.js';
 import { ChatAttachmentStore } from './chat-attachment-store.svelte.ts';
+import { clearPersistedChatState } from './chat-persisted-state.ts';
 
 /** A file whose upload finished, which is the only kind that is stored. */
 function uploaded(overrides: Partial<Extract<Attachment, { type: 'file' }>> = {}): Attachment {
@@ -94,11 +95,67 @@ describe('ChatAttachmentStore', () => {
 		});
 	});
 
-	it('drops the transfer identity, which no longer names anything', () => {
-		new ChatAttachmentStore(surface).write(new Map([['thread-1', [uploaded()]]]));
+	it('gives every restored attachment an identity of its own', () => {
+		// Two pictures that were re-encoded to the same name and size, which the
+		// composer would otherwise be unable to tell apart: it falls back to name
+		// and size when an attachment carries no key, and two tiles under one key
+		// take the list down.
+		const twin = (fileId: string) => uploaded({ url: `https://files.example/${fileId}` });
+		new ChatAttachmentStore(surface).write(
+			new Map([['thread-1', [twin('file-a'), twin('file-b')]]])
+		);
 
-		const restored = new ChatAttachmentStore(surface).read().get('thread-1')?.[0];
-		expect(restored && 'key' in restored ? restored.key : undefined).toBeUndefined();
+		const restored = new ChatAttachmentStore(surface).read().get('thread-1') ?? [];
+		const keys = restored.map((a) => ('key' in a ? a.key : undefined));
+		expect(keys.filter(Boolean)).toHaveLength(2);
+		expect(new Set(keys).size).toBe(2);
+	});
+
+	it('cannot be written back into by a store that outlived the sweep', () => {
+		// A signed-out session leaves stores alive: the support widget outlives the
+		// route it was signed out from, and other tabs outlive the document. Runed
+		// answers a read from the value it started with once the key is gone, so
+		// removing the key instead of emptying it would let one of them restore
+		// the previous person's files for whoever signs in next.
+		new ChatAttachmentStore(surface).write(new Map([['thread-1', [uploaded()]]]));
+		// Started up while that was already there, and holds it from then on.
+		const surviving = new ChatAttachmentStore(surface);
+
+		clearPersistedChatState();
+		surviving.write(new Map([['thread-2', [uploaded({ url: 'https://files.example/b' })]]]));
+
+		expect(new ChatAttachmentStore(surface).read().has('thread-1')).toBe(false);
+	});
+
+	it('clears out a thread nobody came back to', () => {
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date('2026-08-01T08:00:00Z'));
+		const store = new ChatAttachmentStore(surface);
+		store.write(new Map([['abandoned', [uploaded()]]]));
+
+		// Only ever filtering on the way out would leave this in storage for good:
+		// nothing hands it back, and every later save carries it along.
+		vi.setSystemTime(new Date('2026-08-02T08:00:00Z'));
+		store.write(new Map([['current', [uploaded({ url: 'https://files.example/b' })]]]));
+
+		expect(Object.keys(written() as object)).toEqual(['current']);
+	});
+
+	it('keeps an attachment its age when the composer is emptied and put back', () => {
+		// A failed send clears the composer and restores the same attachments
+		// (`ChatInput.handleSend`). The file on the server is no younger for it,
+		// so a fresh stamp would keep offering one the vacuum has collected.
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date('2026-08-01T08:00:00Z'));
+		const store = new ChatAttachmentStore(surface);
+		store.write(new Map([['thread-1', [uploaded()]]]));
+
+		vi.setSystemTime(new Date('2026-08-01T19:00:00Z'));
+		store.write(new Map([['thread-1', []]]));
+		store.write(new Map([['thread-1', [uploaded()]]]));
+
+		vi.setSystemTime(new Date('2026-08-01T21:00:00Z'));
+		expect(new ChatAttachmentStore(surface).read().size).toBe(0);
 	});
 
 	it('does not store an upload that is still running', () => {

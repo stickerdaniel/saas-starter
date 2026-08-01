@@ -28,14 +28,16 @@ test('signout works, and is not stopped by an upload in flight', async ({ page }
 	});
 
 	// A draft, so there is something of this person's in storage to leave behind.
-	await page.locator('textarea').fill('Half a sentence nobody else should read');
-	const chatKeys = () =>
+	const secret = 'Half a sentence nobody else should read';
+	await page.locator('textarea').fill(secret);
+	/** Everything the chat surfaces are keeping in this browser. */
+	const chatState = () =>
 		page.evaluate(() =>
-			Object.keys(localStorage).filter(
-				(key) => key.startsWith('drafts:') || key.startsWith('attachments:')
-			)
+			Object.keys(localStorage)
+				.filter((key) => key.startsWith('drafts:') || key.startsWith('attachments:'))
+				.map((key) => localStorage.getItem(key) ?? '')
 		);
-	await expect.poll(chatKeys).toContain('drafts:ai-chat');
+	await expect.poll(async () => (await chatState()).join('')).toContain(secret);
 
 	// Click user menu and sign out
 	await page.locator('#user-menu-trigger').click();
@@ -46,5 +48,8 @@ test('signout works, and is not stopped by an upload in flight', async ({ page }
 	await page.waitForURL(/.*\/[a-z]{2}(\/signin)?(\?.*)?$/, { timeout: 15000 });
 
 	// Nothing this person wrote greets whoever signs in next on this browser.
-	expect(await chatKeys()).toEqual([]);
+	// Emptied rather than removed, so a store still alive cannot put it back.
+	const remaining = await chatState();
+	expect(remaining.length).toBeGreaterThan(0);
+	expect(remaining.every((value) => value === '{}')).toBe(true);
 });
