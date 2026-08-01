@@ -31,6 +31,14 @@ const MAX_AGE_MS = 12 * 60 * 60 * 1000;
  * already being collected.
  */
 const storedAttachmentSchema = v.object({
+	/**
+	 * What tells one stored attachment from another, taken from the transfer
+	 * that put it there and kept from then on.
+	 *
+	 * Not the fileId: storage deduplicates by content, so two composers that
+	 * uploaded the same bytes hold the same one and could not be told apart.
+	 */
+	id: v.string(),
 	type: v.picklist(['file', 'screenshot']),
 	name: v.string(),
 	size: v.number(),
@@ -63,7 +71,10 @@ function toStored(attachment: Attachment, savedAt: number): StoredAttachment | u
 	if (attachment.type !== 'file' && attachment.type !== 'screenshot') return undefined;
 	const state = attachment.uploadState;
 	if (state?.status !== 'success' || !state.fileId || !attachment.url) return undefined;
+	// Every upload that reaches this point was keyed when it started.
+	if (!attachment.key) return undefined;
 	return {
+		id: attachment.key,
 		type: attachment.type,
 		name: attachment.name,
 		size: attachment.size,
@@ -82,11 +93,11 @@ function toStored(attachment: Attachment, savedAt: number): StoredAttachment | u
 function fromStored(stored: StoredAttachment): Attachment {
 	return {
 		type: stored.type,
-		// A fresh one, because the transfer this belonged to is gone. Minted
-		// rather than left off: the composer falls back to name and size to tell
-		// its tiles apart, and two files can reach the same name and size once
-		// they have both been re-encoded, which crashes the keyed list.
-		key: crypto.randomUUID(),
+		// The identity it was stored under, so it stays the same attachment across
+		// every load. Carried rather than left off: the composer falls back to name
+		// and size to tell its tiles apart, and two files can reach the same name
+		// and size once both have been re-encoded, which crashes the keyed list.
+		key: stored.id,
 		name: stored.name,
 		size: stored.size,
 		mimeType: stored.mimeType,
@@ -172,12 +183,9 @@ export class ChatAttachmentStore {
 
 	/** Rebuild one entry, remembering the age it arrived with. */
 	private revive(item: StoredAttachment): Attachment {
-		const attachment = fromStored(item);
-		// The minted identity inherits the age the file already had, so a page
-		// that restores and saves does not start its clock over.
-		const transfer = ChatAttachmentStore.transferId(attachment);
-		if (transfer) this.stamps.set(transfer, item.savedAt);
-		return attachment;
+		// So a page that restores and saves does not start its clock over.
+		this.stamps.set(item.id, item.savedAt);
+		return fromStored(item);
 	}
 
 	/**

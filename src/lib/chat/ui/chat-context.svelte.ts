@@ -455,28 +455,25 @@ export class ChatUIContext {
 	 *
 	 * What is left is two tabs both standing in one thread and both changing it,
 	 * where the later save wins. The draft beside it settles that the same way.
-	 * Walking into a thread is not that case: entering reads what is filed there
-	 * now and merges it, so moving around cannot cost another tab its work.
+	 * Walking into a thread is not that case: entering takes storage as the
+	 * authority for everything it speaks for, so moving around cannot cost
+	 * another tab its work.
 	 */
 	/**
 	 * What is filed under the empty key that this composer did not put there.
 	 *
 	 * Every conversation still waiting for an id shares that key, so a page that
-	 * has just been given one has to leave the rest alone. Told apart by file,
-	 * which is what a stored attachment is: anything this composer is holding is
-	 * its own, everything else belongs to a conversation somewhere else.
+	 * has just been given one has to leave the rest alone. Told apart by the
+	 * transfer that stored each one: anything this composer is carrying into its
+	 * thread is its own, and everything else belongs to a conversation elsewhere,
+	 * even where two of them uploaded the very same file.
 	 */
 	private strangersUnderEmptyKey(): Attachment[] {
 		const stored = this.uploadConfig?.attachmentStore?.readThread(null) ?? [];
 		// Lives and dies inside this call.
 		// eslint-disable-next-line svelte/prefer-svelte-reactivity
-		const mine = new Set(this.attachments.map((a) => ChatUIContext.storedFileId(a)));
-		return stored.filter((a) => !mine.has(ChatUIContext.storedFileId(a)));
-	}
-
-	/** The file an attachment stands for, once its upload has landed. */
-	private static storedFileId(attachment: Attachment): string | undefined {
-		return 'uploadState' in attachment ? attachment.uploadState?.fileId : undefined;
+		const mine = new Set(this.attachments.map((a) => ('key' in a ? a.key : undefined)));
+		return stored.filter((a) => !('key' in a) || !mine.has(a.key));
 	}
 
 	private persist(...alsoChanged: Array<string | null>): void {
@@ -581,23 +578,42 @@ export class ChatUIContext {
 		// with no id yet is filed under the empty key, which no real thread can
 		// collide with.
 		const key = entering ?? '';
-		this.attachments = this.parked.get(key) ?? [];
+		const store = this.uploadConfig?.attachmentStore;
+		const held = this.parked.get(key) ?? [];
+		// What this page is holding for the thread it is entering, minus anything
+		// storage speaks for. Another tab on the same chat may have added to that
+		// thread, or taken something out of it, since this page last looked, and
+		// on the way in storage is the one that knows. Where there is no storage
+		// this page is the only one that knows, and keeps all of it.
+		this.attachments = store
+			? held.filter((attachment) => !ChatUIContext.isStored(attachment))
+			: held;
 		this.parked.delete(key);
-		// Whatever is filed under the thread being entered right now, which is not
-		// what this page took when it started: another tab on the same chat may
-		// have added to it since. Merged rather than ignored, or walking back in
-		// would write this page's older copy over theirs. Merged rather than taken
-		// whole, because a transfer still running exists only here.
-		//
-		// A file the other tab removed comes back, then, since this page is still
-		// holding it. That direction on purpose: a file offered twice costs one
-		// click, and the other one costs the upload.
-		const stored = this.uploadConfig?.attachmentStore?.readThread(entering) ?? [];
+		// What it says now, which is not what this page took when it started. Read
+		// on the way in for the same reason the draft beside it is, and merged
+		// rather than taken whole, because a transfer still running exists only
+		// here and storage has no way to know about it.
+		const stored = store?.readThread(entering) ?? [];
 		if (stored.length > 0) {
 			this.parked.set(key, stored);
 			this.adoptParked(entering);
 		}
 		this.persist(leaving);
+	}
+
+	/**
+	 * Whether storage is the authority on this attachment.
+	 *
+	 * The same three things the store writes down, and no fewer: an attachment
+	 * that looks settled but is missing either of the others is not in storage,
+	 * and handing it over to something that does not have it would lose it.
+	 * Everything else, a transfer still running or one that failed, exists only
+	 * in the page holding it and has to be carried by hand.
+	 */
+	private static isStored(attachment: Attachment): boolean {
+		if (!('uploadState' in attachment)) return false;
+		const state = attachment.uploadState;
+		return state?.status === 'success' && !!state.fileId && !!attachment.url;
 	}
 
 	/**

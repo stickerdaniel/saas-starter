@@ -298,6 +298,21 @@ describe('ChatUIContext persisted attachments', () => {
 		expect(names(chatAt('thread-b').ctx).sort()).toEqual(['also-b.png', 'from-b.png']);
 	});
 
+	it('lets go of what another tab took out while it was away', async () => {
+		// The other direction of the same read: absence is an answer too, or a
+		// page could put back what someone else deliberately removed.
+		const steppedOut = chatAt('thread-b');
+		await uploadInto(steppedOut.ctx, 'from-b.png', 'file-b');
+		steppedOut.switchTo('thread-a');
+
+		const stillThere = chatAt('thread-b');
+		stillThere.ctx.removeAttachment(0);
+
+		steppedOut.switchTo('thread-b');
+		expect(steppedOut.ctx.attachments).toHaveLength(0);
+		expect(chatAt('thread-b').ctx.attachments).toHaveLength(0);
+	});
+
 	it('leaves another conversation waiting for its id alone', async () => {
 		// The empty key belongs to every conversation that has none yet. Being
 		// given an id clears what this composer had there, and only that: another

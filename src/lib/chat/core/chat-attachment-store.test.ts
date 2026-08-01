@@ -100,9 +100,10 @@ describe('ChatAttachmentStore', () => {
 		// composer would otherwise be unable to tell apart: it falls back to name
 		// and size when an attachment carries no key, and two tiles under one key
 		// take the list down.
-		const twin = (fileId: string) => uploaded({ url: `https://files.example/${fileId}` });
+		const twin = (transfer: string) =>
+			uploaded({ key: transfer, url: `https://files.example/${transfer}` });
 		new ChatAttachmentStore(surface).write(
-			new Map([['thread-1', [twin('file-a'), twin('file-b')]]])
+			new Map([['thread-1', [twin('upload-a'), twin('upload-b')]]])
 		);
 
 		const restored = new ChatAttachmentStore(surface).read().get('thread-1') ?? [];
