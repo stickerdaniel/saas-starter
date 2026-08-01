@@ -56,8 +56,14 @@ function pendingTransfer() {
 	};
 }
 
-/** A chat on the surface under test, reading and writing the shared storage. */
-function chatAt(threadId: string | null) {
+/**
+ * A chat on the surface under test, reading and writing the shared storage.
+ *
+ * `rendered: false` stands for a context whose chat was never mounted, which
+ * the screenshot flow produces: it uploads through the context with the panel
+ * closed, so `setDisplayMessages` may never run.
+ */
+function chatAt(threadId: string | null, { rendered = true } = {}) {
 	const core = { threadId } as unknown as ChatCore;
 	const uploadConfig = {
 		generateUploadUrl: 'storage:generateUploadUrl',
@@ -65,9 +71,8 @@ function chatAt(threadId: string | null) {
 		attachmentStore: new ChatAttachmentStore(surface)
 	} as unknown as ConstructorParameters<typeof ChatUIContext>[2];
 	const ctx = new ChatUIContext(core, {} as ConvexClient, uploadConfig, 'right', null);
-	// The first call is what gives the context a thread to compare against, and
-	// what lets it claim whatever was stored for that thread.
-	ctx.setDisplayMessages([]);
+	// The first call is what gives the context a thread to compare against.
+	if (rendered) ctx.setDisplayMessages([]);
 	return {
 		ctx,
 		switchTo(next: string | null) {
@@ -186,6 +191,18 @@ describe('ChatUIContext persisted attachments', () => {
 		await uploadInto(first.ctx, 'shot.png', 'file-new');
 
 		expect(names(chatAt(null).ctx)).toEqual(['shot.png']);
+	});
+
+	it('does not lose a stored composer to an upload that lands before the chat renders', async () => {
+		const first = chatAt('thread-a');
+		await uploadInto(first.ctx, 'earlier.png', 'file-earlier');
+
+		// Left parked under the thread it is standing in, the stored file would be
+		// written over by the very next save, and no render is coming to claim it.
+		const unrendered = chatAt('thread-a', { rendered: false });
+		await uploadInto(unrendered.ctx, 'later.png', 'file-later');
+
+		expect(names(chatAt('thread-a').ctx).sort()).toEqual(['earlier.png', 'later.png']);
 	});
 
 	it('does not double up when the same file is restored and picked again', async () => {

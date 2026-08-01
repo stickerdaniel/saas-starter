@@ -219,12 +219,17 @@ export class ChatUIContext {
 
 		// Composers a reload took away arrive parked, under the thread they were
 		// left in. From here on nothing knows the difference between one that came
-		// off disk and one the user stepped away from a moment ago: the thread
-		// being shown claims its own in `setDisplayMessages`, and every other stays
-		// put until it is walked back into.
+		// off disk and one the user stepped away from a moment ago: each stays put
+		// until it is walked back into.
 		for (const [threadId, attachments] of uploadConfig?.attachmentStore?.read() ?? []) {
 			this.parked.set(threadId, attachments);
 		}
+		// The thread already on screen claims its own here rather than waiting for
+		// the first render. Waiting would leave its own attachments parked under
+		// the id it is standing in, and a save before then writes the live list
+		// over them: the screenshot flow uploads through this context with no chat
+		// mounted at all, so that first render may never come.
+		this.adoptParked(untrack(() => core.threadId));
 	}
 
 	/**

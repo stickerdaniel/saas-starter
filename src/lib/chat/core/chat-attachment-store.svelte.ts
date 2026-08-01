@@ -146,7 +146,8 @@ export class ChatAttachmentStore {
 			const items = attachments
 				.map((attachment) => {
 					const fileId = 'uploadState' in attachment ? attachment.uploadState?.fileId : undefined;
-					return toStored(attachment, (fileId && stamps.get(fileId)) || now);
+					const stamped = fileId === undefined ? undefined : stamps.get(fileId);
+					return toStored(attachment, stamped ?? now);
 				})
 				.filter((item): item is StoredAttachment => item !== undefined);
 			if (items.length > 0) next[threadId] = items;
