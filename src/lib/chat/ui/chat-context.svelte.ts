@@ -588,6 +588,10 @@ export class ChatUIContext {
 		// have added to it since. Merged rather than ignored, or walking back in
 		// would write this page's older copy over theirs. Merged rather than taken
 		// whole, because a transfer still running exists only here.
+		//
+		// A file the other tab removed comes back, then, since this page is still
+		// holding it. That direction on purpose: a file offered twice costs one
+		// click, and the other one costs the upload.
 		const stored = this.uploadConfig?.attachmentStore?.readThread(entering) ?? [];
 		if (stored.length > 0) {
 			this.parked.set(key, stored);
