@@ -11,6 +11,9 @@
 	import { getTranslate } from '@tolgee/svelte';
 	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
 	import { isAnonymousUser } from '$lib/convex/utils/anonymousUser';
+	import { slide } from 'svelte/transition';
+	import { quintOut } from 'svelte/easing';
+	import { prefersReducedMotion } from 'svelte/motion';
 
 	// Import new chat components
 	import { ChatRoot, ChatMessages, ChatInput, type ChatUIContext } from '$lib/chat';
@@ -348,8 +351,13 @@
 				{#if !threadContext.isHandedOff}
 					<!-- EU AI Act Art. 50(1): the widget is the second entry point into
 						 the same AI thread, so it carries the same disclosure. Dropped
-						 once a human takes over the thread. -->
+						 once a human takes over the thread; the slide collapses its
+						 height so the composer settles instead of jumping. -->
 					<p
+						transition:slide={{
+							duration: prefersReducedMotion.current ? 0 : 200,
+							easing: quintOut
+						}}
 						class="pointer-events-none -mt-2 px-4 pb-2 text-center text-[11px] text-balance text-muted-foreground"
 					>
 						{$t('support.chatbar.disclosure')}
