@@ -201,21 +201,23 @@
 
 <!-- Glow container with group hover/focus behavior -->
 <div
-	class="ai-chatbar fixed bottom-10 left-1/2 z-40 w-full -translate-x-1/2 pr-19 pl-5 md:mb-0 md:p-0 {!mounted.current ||
+	class="ai-chatbar fixed bottom-5 left-1/2 z-40 w-full -translate-x-1/2 pr-19 pl-5 md:mb-0 md:p-0 {!mounted.current ||
 	delayedFeedbackOpen
 		? 'fade-out'
 		: ''}"
 >
+	<!-- Idle keeps the original bottom-5 offset; focus lifts the bar so the
+		 disclosure fades into the freed space below it. -->
 	<div
-		class="group relative mx-auto motion-safe:transition-[max-width] motion-safe:duration-300 motion-safe:ease-in-out {isFocused
+		class="group relative mx-auto focus-within:-translate-y-5 motion-safe:transition-[max-width,translate] motion-safe:duration-300 motion-safe:ease-in-out {isFocused
 			? 'max-w-[430px]'
 			: 'max-w-[280px]'}"
 	>
 		<!-- Gradient glow layers (behind) - not affected by fade animation -->
-		<div class="ai-gradient-wrapper-glow pointer-events-none rounded-3xl"></div>
-		<div class="ai-gradient-wrapper pointer-events-none rounded-3xl"></div>
+		<div class="ai-gradient-wrapper-glow pointer-events-none rounded-full"></div>
+		<div class="ai-gradient-wrapper pointer-events-none rounded-full"></div>
 		<!-- Pill background layer - outside content wrapper to stay aligned with gradients -->
-		<div class="ai-pill-bg pointer-events-none rounded-3xl"></div>
+		<div class="ai-pill-bg pointer-events-none rounded-full"></div>
 
 		<!-- Content wrapper with separate opacity animation -->
 		<div class="ai-chatbar-content">
@@ -227,7 +229,7 @@
 				class="relative z-[1] mb-1 flex w-full flex-row items-center border-0 bg-transparent !p-1 shadow-none"
 			>
 				<PromptInputTextarea
-					class="!h-auto !min-h-auto rounded-3xl bg-transparent !py-0 "
+					class="!h-auto !min-h-auto rounded-full bg-transparent !py-0 "
 					placeholder={$t('support.chatbar.placeholder')}
 					onfocus={handleFocus}
 					onblur={handleBlur}
@@ -274,8 +276,10 @@
 		position: absolute;
 		inset: -2px;
 		overflow: hidden;
+		/* Inset matches the group's 300ms width/lift transition so every
+			 focus-driven change settles together */
 		transition:
-			inset 0.2s ease-in-out,
+			inset 0.3s cubic-bezier(0.4, 0, 0.2, 1),
 			opacity 0.3s cubic-bezier(0.23, 1, 0.32, 1);
 	}
 	:global(.ai-gradient-wrapper-glow) {
@@ -346,9 +350,11 @@
 		transform: translateY(20px);
 		transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 	}
+	/* Fade duration and curve mirror the group's width/lift transition so the
+		 label lands exactly when the bar settles */
 	:global(.ai-chatbar-disclosure) {
 		opacity: 0;
-		transition: opacity 0.25s cubic-bezier(0.23, 1, 0.32, 1);
+		transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 	}
 	:global(.group:focus-within .ai-chatbar-disclosure) {
 		opacity: 1;
