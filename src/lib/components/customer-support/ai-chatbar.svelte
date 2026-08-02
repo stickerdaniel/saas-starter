@@ -17,7 +17,6 @@
 	const { t } = getTranslate();
 
 	let input = $state('');
-	let isFocused = $state(false);
 	const { isFeedbackOpen = false } = $props<{ isFeedbackOpen?: boolean }>();
 
 	// Get thread context
@@ -188,15 +187,9 @@
 		}
 	}
 
-	function handleFocus() {
-		isFocused = true;
-	}
-
-	function handleBlur() {
-		isFocused = false;
-		// Don't delete pending thread on blur - automatic cleanup handles unused threads
-		// Query subscription stays active for faster optimistic updates on re-focus
-	}
+	// On blur, the pending warm thread is intentionally kept - automatic cleanup
+	// handles unused threads, and the query subscription stays active for faster
+	// optimistic updates on re-focus.
 </script>
 
 <!-- Glow container with group hover/focus behavior -->
@@ -209,9 +202,7 @@
 	<!-- Idle keeps the original bottom-5 offset; focus lifts the bar so the
 		 disclosure fades into the freed space below it. -->
 	<div
-		class="group relative mx-auto focus-within:-translate-y-5 motion-safe:transition-[max-width,translate] motion-safe:duration-300 motion-safe:ease-in-out {isFocused
-			? 'max-w-[430px]'
-			: 'max-w-[280px]'}"
+		class="group relative mx-auto max-w-[280px] focus-within:max-w-[430px] focus-within:-translate-y-5 motion-safe:transition-[max-width,translate] motion-safe:duration-300 motion-safe:ease-in-out"
 	>
 		<!-- Gradient glow layers (behind) - not affected by fade animation -->
 		<div class="ai-gradient-wrapper-glow pointer-events-none rounded-full"></div>
@@ -231,8 +222,6 @@
 				<PromptInputTextarea
 					class="!h-auto !min-h-auto rounded-full bg-transparent !py-0 "
 					placeholder={$t('support.chatbar.placeholder')}
-					onfocus={handleFocus}
-					onblur={handleBlur}
 					maxlength={MAX_MESSAGE_LENGTH}
 				/>
 
