@@ -252,7 +252,10 @@
 		</div>
 
 		<!-- EU AI Act Art. 50(1): disclose AI interaction at the latest at first
-			 interaction. Sits under the bar so it reads with the input, not the page. -->
+			 interaction. Visually shown on focus, when the interaction starts, so
+			 the idle pill stays quiet; stays in the accessibility tree throughout
+			 because it is only opacity-hidden. Sits under the bar so it reads
+			 with the input, not the page. -->
 		<p
 			class="ai-chatbar-disclosure pointer-events-none absolute top-full right-0 left-0 mt-1.5 text-center"
 		>
@@ -344,8 +347,11 @@
 		transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 	}
 	:global(.ai-chatbar-disclosure) {
-		opacity: 1;
+		opacity: 0;
 		transition: opacity 0.25s cubic-bezier(0.23, 1, 0.32, 1);
+	}
+	:global(.group:focus-within .ai-chatbar-disclosure) {
+		opacity: 1;
 	}
 	:global(.ai-chatbar.fade-out .ai-chatbar-content),
 	:global(.ai-chatbar.fade-out .ai-chatbar-disclosure),
@@ -377,6 +383,9 @@
 			transition: none;
 		}
 		:global(.ai-chatbar-content) {
+			transition: none;
+		}
+		:global(.ai-chatbar-disclosure) {
 			transition: none;
 		}
 		:global(.ai-pill-bg) {
