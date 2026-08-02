@@ -344,6 +344,17 @@
 						}
 					}}
 				/>
+
+				{#if !threadContext.isHandedOff}
+					<!-- EU AI Act Art. 50(1): the widget is the second entry point into
+						 the same AI thread, so it carries the same disclosure. Dropped
+						 once a human takes over the thread. -->
+					<p
+						class="pointer-events-none -mt-2 px-4 pb-2 text-center text-[11px] text-balance text-muted-foreground"
+					>
+						{$t('support.chatbar.disclosure')}
+					</p>
+				{/if}
 			</ChatRoot>
 		</SlidingPanel>
 	</div>
