@@ -3,6 +3,7 @@
 	import { PUBLIC_SITE_URL } from '$env/static/public';
 	import { SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE, getLanguage } from '$lib/i18n/languages';
 	import { LEGAL_CONFIG } from '$lib/config/legal';
+	import { OG_IMAGE_URL } from './og-image-url.generated';
 
 	// During prerendering page.url.origin is SvelteKit's placeholder
 	// http://sveltekit-prerender, so absolute SEO URLs must come from the
@@ -21,7 +22,8 @@
 		ogType?: string;
 		/** OG/Twitter image path relative to static/ (e.g. "/og-image.png").
 		 * Will be converted to an absolute URL using the current origin.
-		 * Defaults to /og-image.png (1200x630). */
+		 * Defaults to the bundled og-image.png (1200x630), carrying the content
+		 * hash that busts the social platforms' image caches. */
 		image?: string;
 		/** OG image width in pixels (defaults to 1200 for the default image only) */
 		imageWidth?: number;
@@ -39,7 +41,7 @@
 		description,
 		canonicalUrl,
 		ogType = 'website',
-		image = '/og-image.png',
+		image = OG_IMAGE_URL,
 		imageWidth,
 		imageHeight,
 		imageAlt,
@@ -69,7 +71,7 @@
 
 	// Only the bundled default og-image has known dimensions (1200x630).
 	// Custom images keep dimensions undefined unless explicitly provided.
-	const isDefaultImage = $derived(image === '/og-image.png');
+	const isDefaultImage = $derived(image === OG_IMAGE_URL);
 	const ogImageWidth = $derived(imageWidth ?? (isDefaultImage ? 1200 : undefined));
 	const ogImageHeight = $derived(imageHeight ?? (isDefaultImage ? 630 : undefined));
 </script>

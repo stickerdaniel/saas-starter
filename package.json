@@ -16,6 +16,7 @@
 		"postbuild": "bun scripts/patch-cf-worker.ts",
 		"start": "node build",
 		"generate:logos": "bun scripts/generate-logos.ts",
+		"generate:og-image-url": "bun scripts/generate-og-image-url.ts",
 		"build:emails": "bun run generate:logos && bun scripts/build-emails.ts",
 		"preview": "vite preview",
 		"prepare": "husky",
