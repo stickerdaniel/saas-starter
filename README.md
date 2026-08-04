@@ -166,7 +166,18 @@ Push a branch and Vercel creates a preview deployment with its own Convex previe
 
 </details>
 
-Convex cleans up preview deployments after 5 days (14 days on Professional). If you hit `DeploymentQuotaReached` anyway (team quota is 40, counted across all projects), the deploy script can self-heal by pruning the oldest eligible preview, opt in by setting `CONVEX_MANAGEMENT_TOKEN` and `CONVEX_PROJECT_ID` (see the [env matrix](#environment-variables)).
+### Preview cleanup
+
+Convex expires preview deployments after 5 days (14 on Professional), and the team quota is 40 counted across all projects. An active repo reaches that ceiling well before the TTL frees anything, and once it does, creating a preview fails with `DeploymentQuotaReached`.
+
+Two optional mechanisms keep the count down:
+
+- **On PR close** (`.github/workflows/delete-convex-preview.yml`) deletes the branch's preview as soon as its PR is merged or closed, so a short-lived PR stops holding a slot for days. It resolves the deployment by the branch's canonical identifier, treats an already-deleted preview as success, and fails closed without deleting anything if two identifiers normalize to the same slug.
+- **On quota exhaustion** (`scripts/deploy/steps.ts`) prunes the oldest eligible preview and retries once when a build hits `DeploymentQuotaReached`. It never prunes the current branch, the newest preview, or a branch that still exists on the remote.
+
+Both read `CONVEX_MANAGEMENT_TOKEN` and `CONVEX_PROJECT_ID`, and they run in different environments, so the values have to be set in two places: GitHub Actions for the workflow, and the hosting platform's build settings for the deploy script (see the [env matrix](#environment-variables)). Configuring one leaves the other silently inactive, which is easy to miss because the deploy script only reports its half when a build is already failing.
+
+The token is team-scoped. Mint it on the team that owns this project: a token from another team you belong to is valid and authenticates fine, yet every call for this project returns `404` rather than an authorization error.
 
 ## Production Deployment
 
@@ -340,7 +351,7 @@ Set `PREVIEW_ADMIN_PASSWORD` once as a preview default (`bunx convex env default
 | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | :-----: | :--: |
 | `CONVEX_DEPLOY_KEY`         | Convex production deploy key                                                                                                             |    ✓    |  ✓   |
 | `CONVEX_PREVIEW_DEPLOY_KEY` | Convex preview deploy key                                                                                                                |    ✓    |      |
-| `CONVEX_MANAGEMENT_TOKEN`   | Convex Team Token for quota self-heal (mint at Team Settings > Access Tokens, Team ID shown on the same page)                            |    ○    |      |
+| `CONVEX_MANAGEMENT_TOKEN`   | Convex team token for quota self-heal (mint at Team Settings > Access Tokens, Team ID shown on the same page)                            |    ○    |      |
 | `CONVEX_PROJECT_ID`         | Numeric project id for quota self-heal (`curl -H "Authorization: Bearer $TOKEN" https://api.convex.dev/v1/teams/{teamId}/list_projects`) |    ○    |      |
 | `WORKERS_NAME`              | CF Workers only: worker name (matches `wrangler.toml`)                                                                                   |    ✓    |  ○   |
 | `WORKERS_SUBDOMAIN`         | CF Workers only: account's `workers.dev` subdomain                                                                                       |    ✓    |  ○   |
@@ -355,6 +366,15 @@ Set `PREVIEW_ADMIN_PASSWORD` once as a preview default (`bunx convex env default
 | `PRODUCTION_BRANCH`         | Cloudflare only: production branch name (default: `main`)                                                                                |    ○    |  ○   |
 
 `PUBLIC_CONVEX_URL` and `PUBLIC_CONVEX_SITE_URL` are intentionally not in this table. The build (`scripts/deploy.ts`) derives both from `CONVEX_DEPLOY_KEY` and overwrites any value you set on the hosting platform, so setting them there has no effect. To point production at a different Convex deployment, change the deploy key, not the URL.
+
+**GitHub Actions, preview cleanup** (repository Settings > Secrets and variables > Actions):
+
+| Variable                  |                                                                                   | Required |
+| ------------------------- | --------------------------------------------------------------------------------- | :------: |
+| `CONVEX_MANAGEMENT_TOKEN` | Secret. The same team token as above, used to delete a preview when its PR closes |    ○     |
+| `CONVEX_PROJECT_ID`       | Variable, not a secret. The same numeric project id                               |    ○     |
+
+These are the same two names the hosting platform needs, set a second time for CI. Without them the `Delete Convex Preview` workflow logs that it is skipping and exits successfully, which also keeps fork PRs green.
 
 </details>
 

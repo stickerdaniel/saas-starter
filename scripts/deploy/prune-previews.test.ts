@@ -1,9 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
+	deletePreviewForBranch,
 	normalizeIdentifier,
 	pruneOldestPreview,
 	selectPrunable,
-	type Preview
+	type Preview,
+	type PruneDeps
 } from './prune-previews';
 
 const NOW = 1_700_000_000_000;
@@ -235,5 +237,113 @@ describe('pruneOldestPreview', () => {
 			}
 		});
 		expect(result).toEqual({ pruned: null, reason: 'delete failed: 403 forbidden' });
+	});
+});
+
+describe('deletePreviewForBranch', () => {
+	function deps(previews: Preview[], remove = vi.fn(async () => {})): PruneDeps {
+		return { list: vi.fn(async () => previews), remove };
+	}
+
+	it('deletes exactly the preview whose identifier matches the branch', async () => {
+		const remove = vi.fn(async () => {});
+		const result = await deletePreviewForBranch({
+			token: 't',
+			projectId: 'p',
+			gitRef: 'Feature/Foo-Bar',
+			deps: deps(
+				[preview({ id: 'feature-foo-bar', ageMin: 5 }), preview({ id: 'other', ageMin: 5 })],
+				remove
+			)
+		});
+		expect(result).toEqual({ deleted: 'dep-feature-foo-bar' });
+		expect(remove).toHaveBeenCalledExactlyOnceWith('t', 'dep-feature-foo-bar');
+	});
+
+	it('never matches a prefix/suffix of another branch', async () => {
+		const remove = vi.fn(async () => {});
+		const result = await deletePreviewForBranch({
+			token: 't',
+			projectId: 'p',
+			gitRef: 'fix/auth',
+			deps: deps([preview({ id: 'fix-auth-2', ageMin: 5 })], remove)
+		});
+		expect(result).toEqual({ deleted: null, reason: 'not_found' });
+		expect(remove).not.toHaveBeenCalled();
+	});
+
+	it('is an idempotent no-op when the preview is already gone', async () => {
+		const remove = vi.fn(async () => {});
+		const result = await deletePreviewForBranch({
+			token: 't',
+			projectId: 'p',
+			gitRef: 'merged/branch',
+			deps: deps([preview({ id: 'still-open', ageMin: 5 })], remove)
+		});
+		expect(result).toEqual({ deleted: null, reason: 'not_found' });
+		expect(remove).not.toHaveBeenCalled();
+	});
+
+	it('rejects an empty/invalid branch without listing or deleting', async () => {
+		const remove = vi.fn(async () => {});
+		const list = vi.fn(async () => [] as Preview[]);
+		const result = await deletePreviewForBranch({
+			token: 't',
+			projectId: 'p',
+			gitRef: '///',
+			deps: { list, remove }
+		});
+		expect(result).toEqual({ deleted: null, reason: 'invalid_branch' });
+		expect(list).not.toHaveBeenCalled();
+		expect(remove).not.toHaveBeenCalled();
+	});
+
+	it('fails closed on a normalization collision without deleting', async () => {
+		const remove = vi.fn(async () => {});
+		const result = await deletePreviewForBranch({
+			token: 't',
+			projectId: 'p',
+			gitRef: 'fix/auth',
+			// Two distinct identifiers that normalize to the same slug.
+			deps: deps(
+				[
+					preview({ id: 'fix/auth', name: 'dep-a', ageMin: 5 }),
+					preview({ id: 'fix-auth', name: 'dep-b', ageMin: 5 })
+				],
+				remove
+			)
+		});
+		expect(result).toEqual({ deleted: null, reason: 'ambiguous' });
+		expect(remove).not.toHaveBeenCalled();
+	});
+
+	it('propagates a list failure', async () => {
+		const result = await deletePreviewForBranch({
+			token: 't',
+			projectId: 'p',
+			gitRef: 'feature/x',
+			deps: {
+				list: vi.fn(async () => {
+					throw new Error('500 boom');
+				}),
+				remove: vi.fn(async () => {})
+			}
+		});
+		expect(result).toEqual({ deleted: null, reason: 'list failed: 500 boom' });
+	});
+
+	it('propagates a delete failure', async () => {
+		const result = await deletePreviewForBranch({
+			token: 't',
+			projectId: 'p',
+			gitRef: 'feature/x',
+			deps: {
+				list: vi.fn(async () => [preview({ id: 'feature-x', ageMin: 5 })]),
+				remove: vi.fn(async () => {
+					throw new Error('403 forbidden');
+				})
+			}
+		});
+		expect(result).toEqual({ deleted: null, reason: 'delete failed: 403 forbidden' });
 	});
 });

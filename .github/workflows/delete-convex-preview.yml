@@ -1,0 +1,39 @@
+name: Delete Convex Preview
+
+# A Convex preview deployment is created per PR branch and otherwise lives until
+# the platform TTL (5 days, 14 on Professional), holding one of the team's 40
+# preview slots the whole time and running whatever crons the app schedules. This
+# deletes the preview as soon as the PR closes (merged or not), so a median
+# ~20-minute PR does not occupy a slot for days. Resolves the preview by the
+# branch's canonical identifier; idempotent if it is already gone.
+#
+# Optional: without CONVEX_MANAGEMENT_TOKEN the script exits 0 and the platform
+# TTL remains the only cleanup.
+
+on:
+  pull_request:
+    types: [closed]
+
+# Only read access is needed; the delete uses the Convex management token.
+permissions:
+  contents: read
+
+concurrency:
+  group: delete-convex-preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  delete-preview:
+    # Fork PRs never receive repository secrets; skip before any secret is referenced.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubicloud-standard-2
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+      - name: Delete the preview deployment for the PR branch
+        env:
+          CONVEX_MANAGEMENT_TOKEN: ${{ secrets.CONVEX_MANAGEMENT_TOKEN }}
+          CONVEX_PROJECT_ID: ${{ vars.CONVEX_PROJECT_ID }}
+          PREVIEW_BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: bun scripts/deploy/delete-preview.ts --branch "$PREVIEW_BRANCH"
