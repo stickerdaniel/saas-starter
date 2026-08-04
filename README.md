@@ -417,7 +417,7 @@ Marketing pages return structured markdown when an AI agent sends `Accept: text/
 
 ### SEO
 
-Every page includes a `<SEOHead>` component that outputs OpenGraph tags, Twitter Cards, canonical URLs, and `hreflang` alternates for all languages plus `x-default`. An OG image is included at `static/og-image.png` (1200x630).
+Every page includes a `<SEOHead>` component that outputs OpenGraph tags, Twitter Cards, canonical URLs, and `hreflang` alternates for all languages plus `x-default`. An OG image is included at `static/og-image.png` (1200x630). Replace it with your own and run `bun run generate:og-image-url`: the meta tags carry the image's content hash, which is what makes social platforms fetch the new card instead of the cached one for links that were already shared.
 
 ### Accessibility
 
