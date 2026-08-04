@@ -128,6 +128,65 @@ export async function pruneOldestPreview(args: {
 	return { pruned: target.name };
 }
 
+export type DeleteByBranchResult =
+	| { deleted: string }
+	| {
+			deleted: null;
+			reason: 'not_found' | 'ambiguous' | 'invalid_branch' | 'invalid_target' | string;
+	  };
+
+/**
+ * Delete the preview deployment that belongs to one git branch, resolved by its
+ * canonical (normalized) identifier. Used by the pull_request:closed workflow so
+ * a merged/closed PR's preview stops consuming a team quota slot within minutes
+ * instead of lingering to the platform TTL.
+ *
+ * Safety, in order:
+ *  - `list` only returns objects with a non-null previewIdentifier, so prod and
+ *    dev deployments can never enter the candidate set.
+ *  - Match is exact canonical equality, never prefix/substring, so a branch like
+ *    `fix/auth` cannot delete `fix/auth-2`.
+ *  - No match is a successful idempotent no-op (the preview already expired or
+ *    was deleted).
+ *  - Two matches after normalization is ambiguous and fails closed WITHOUT any
+ *    delete, so a collision never deletes the wrong backend.
+ */
+export async function deletePreviewForBranch(args: {
+	token: string;
+	projectId: string;
+	gitRef: string;
+	deps?: PruneDeps;
+}): Promise<DeleteByBranchResult> {
+	const deps = args.deps ?? defaultDeps;
+	const wanted = normalizeIdentifier(args.gitRef);
+	if (!wanted) return { deleted: null, reason: 'invalid_branch' };
+
+	let previews: Preview[];
+	try {
+		previews = await deps.list(args.token, args.projectId);
+	} catch (err) {
+		return { deleted: null, reason: `list failed: ${errMessage(err)}` };
+	}
+
+	const matches = previews.filter((p) => normalizeIdentifier(p.previewIdentifier) === wanted);
+	if (matches.length === 0) return { deleted: null, reason: 'not_found' };
+	if (matches.length > 1) return { deleted: null, reason: 'ambiguous' };
+
+	const target = matches[0];
+	// Re-assert the target came from the listed preview set and still carries a
+	// non-empty previewIdentifier immediately before the irreversible delete.
+	if (!target.previewIdentifier || !previews.some((p) => p.name === target.name)) {
+		return { deleted: null, reason: 'invalid_target' };
+	}
+
+	try {
+		await deps.remove(args.token, target.name);
+	} catch (err) {
+		return { deleted: null, reason: `delete failed: ${errMessage(err)}` };
+	}
+	return { deleted: target.name };
+}
+
 function errMessage(err: unknown): string {
 	return err instanceof Error ? err.message : String(err);
 }
