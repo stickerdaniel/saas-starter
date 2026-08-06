@@ -22,8 +22,20 @@ export function readOpenRouterCost(pm: unknown): number | undefined {
 
 // Uniformly enable native cost accounting on every OpenRouter model we build.
 // Without usage:{include:true}, @openrouter/ai-sdk-provider 2.9.0 returns NO cost.
+//
+// The file-parser plugin is pinned rather than inherited. Our chat models have
+// no `file` input modality, so OpenRouter parses attached PDFs on their behalf,
+// and its default engine is mistral-ocr at $2 per 1000 pages — a charge that
+// never reaches costOf(), which only knows token prices (#781). cloudflare-ai
+// is the documented free engine; it is outside the provider's PdfEngine union
+// (which still lists the deprecated pdf-text) but the union ends in
+// `string & {}`, so the documented value is what we pass.
 export function orModel(modelId: string, opts?: Record<string, unknown>): LanguageModelV3 {
-	return openrouter(modelId, { usage: { include: true }, ...opts });
+	return openrouter(modelId, {
+		usage: { include: true },
+		plugins: [{ id: 'file-parser', pdf: { engine: 'cloudflare-ai' } }],
+		...opts
+	});
 }
 
 // Sum two optional counters, staying undefined when neither side reported one,
