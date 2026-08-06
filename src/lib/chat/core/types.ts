@@ -6,6 +6,7 @@
  */
 
 import type { ProviderMetadata } from 'ai';
+import { acceptAttribute, allowedMimeTypes, UPLOAD_PROFILES } from '../../uploads/profiles';
 import type { UploadErrorCode } from './file-uploader.js';
 
 /**
@@ -242,28 +243,21 @@ export const DEFAULT_CHAT_CONFIG: Required<ChatConfig> = {
 };
 
 /**
- * File upload constraints
+ * File upload constraints, derived from the chat attachment profile.
  *
- * `ALLOWED_FILE_EXT_MIME` is the single source of truth for what the chat
- * surface accepts. `ALLOWED_FILE_TYPES` (used by paste/MIME gate) and
- * `ALLOWED_FILE_EXTENSIONS` (used by the file-picker `accept` attribute
- * and the empty-`File.type` extension fallback in ChatInput) are derived
- * from it so adding/removing a format only needs one edit.
+ * The profile in `$lib/uploads/profiles` is the source of truth, shared with
+ * the server validator so the picker and `validateUploadBlob` cannot drift
+ * apart. These names are kept because they are public API (`$lib/chat`) and
+ * because `ALLOWED_FILE_TYPES` (paste/MIME gate) and `ALLOWED_FILE_EXTENSIONS`
+ * (picker `accept` and the empty-`File.type` fallback in ChatInput) are used
+ * as-is throughout the chat UI.
  */
-export const ALLOWED_FILE_EXT_MIME: Readonly<Record<string, string>> = {
-	'.png': 'image/png',
-	'.jpg': 'image/jpeg',
-	'.jpeg': 'image/jpeg',
-	'.webp': 'image/webp',
-	'.gif': 'image/gif',
-	'.pdf': 'application/pdf',
-	'.md': 'text/markdown',
-	'.txt': 'text/plain'
-};
-export const ALLOWED_FILE_EXTENSIONS = Object.keys(ALLOWED_FILE_EXT_MIME).join(',');
-export const ALLOWED_FILE_TYPES = Array.from(new Set(Object.values(ALLOWED_FILE_EXT_MIME)));
-export const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
-export const MAX_FILE_SIZE_LABEL = '5MB';
+export const ALLOWED_FILE_EXT_MIME: Readonly<Record<string, string>> =
+	UPLOAD_PROFILES.chatAttachment.extensions;
+export const ALLOWED_FILE_EXTENSIONS = acceptAttribute(UPLOAD_PROFILES.chatAttachment);
+export const ALLOWED_FILE_TYPES = allowedMimeTypes(UPLOAD_PROFILES.chatAttachment);
+export const MAX_FILE_SIZE = UPLOAD_PROFILES.chatAttachment.maxBytes;
+export const MAX_FILE_SIZE_LABEL = UPLOAD_PROFILES.chatAttachment.maxBytesLabel;
 /**
  * Absurdity ceiling for image inputs before client-side preprocessing.
  *
@@ -274,6 +268,6 @@ export const MAX_FILE_SIZE_LABEL = '5MB';
  */
 export const MAX_INPUT_IMAGE_SIZE = 50 * 1024 * 1024; // 50MB
 export const MAX_INPUT_IMAGE_SIZE_LABEL = '50MB';
-export const MAX_ATTACHMENTS = 6;
+export const MAX_ATTACHMENTS = UPLOAD_PROFILES.chatAttachment.maxFiles;
 /** Maximum characters allowed in a single chat message. */
 export const MAX_MESSAGE_LENGTH = 2000;

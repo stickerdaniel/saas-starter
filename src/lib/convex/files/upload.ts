@@ -1,27 +1,25 @@
 import { ConvexError } from 'convex/values';
 import { t } from '../i18n/translations';
+import { acceptsMimeType, UPLOAD_PROFILES, type UploadProfile } from '../../uploads/profiles';
 
 /**
- * Shared upload constraints and validation for chat-style file attachments
- * (aiChat and support). Both features accept the same file types and size cap.
+ * Upload validation against a declared profile.
+ *
+ * The constraints themselves live in `$lib/uploads/profiles`, shared with the
+ * client so the picker and this validator cannot disagree about a format. They
+ * used to be a second hand-maintained copy of the client list (#782).
  */
 
 /** Maximum upload size for chat attachments (5MB). */
-export const MAX_FILE_SIZE = 5 * 1024 * 1024;
+export const MAX_FILE_SIZE = UPLOAD_PROFILES.chatAttachment.maxBytes;
 
 /** MIME types accepted for chat attachments. */
-export const ALLOWED_MIME_TYPES = [
-	'image/png',
-	'image/jpeg',
-	'image/webp',
-	'image/gif',
-	'application/pdf',
-	'text/markdown',
-	'text/plain'
-];
+export const ALLOWED_MIME_TYPES = Array.from(
+	new Set(Object.values(UPLOAD_PROFILES.chatAttachment.extensions))
+);
 
 /**
- * Validate a fetched upload blob against the shared size and MIME constraints.
+ * Validate a fetched upload blob against a profile's size and MIME constraints.
  *
  * Validates against the actual blob, not the client-supplied MIME type which is
  * untrusted input and could be spoofed. Compares the MIME essence only: text/*
@@ -30,9 +28,13 @@ export const ALLOWED_MIME_TYPES = [
  * @returns the verified MIME essence (lowercased, no parameters)
  * @throws {ConvexError} when the blob exceeds the size cap or its type is not allowed
  */
-export function validateUploadBlob(blob: Blob, locale: string | undefined): string {
-	if (blob.size > MAX_FILE_SIZE) {
-		const maxMB = Math.round(MAX_FILE_SIZE / 1024 / 1024);
+export function validateUploadBlob(
+	blob: Blob,
+	locale: string | undefined,
+	profile: UploadProfile = UPLOAD_PROFILES.chatAttachment
+): string {
+	if (blob.size > profile.maxBytes) {
+		const maxMB = Math.round(profile.maxBytes / 1024 / 1024);
 		throw new ConvexError(
 			t(locale, 'backend.files.file_too_large', {
 				size: `${(blob.size / 1024 / 1024).toFixed(1)}MB`,
@@ -42,7 +44,7 @@ export function validateUploadBlob(blob: Blob, locale: string | undefined): stri
 	}
 
 	const mimeEssence = blob.type.split(';')[0]!.trim().toLowerCase();
-	if (!ALLOWED_MIME_TYPES.includes(mimeEssence)) {
+	if (!acceptsMimeType(profile, mimeEssence)) {
 		throw new ConvexError(t(locale, 'backend.files.type_not_allowed'));
 	}
 
