@@ -16,6 +16,7 @@
 	import { api } from '$lib/convex/_generated/api.js';
 	import { ConvexError } from 'convex/values';
 	import { PROFILE_IMAGE_MAX_SIZE, PROFILE_IMAGE_MAX_SIZE_LABEL } from '$lib/convex/constants.js';
+	import { acceptAttribute, acceptsMimeType, UPLOAD_PROFILES } from '$lib/uploads/profiles.js';
 	import { downscaleImage } from '$lib/utils/downscale-image.js';
 	import { translateValidationErrors } from '$lib/utils/validation-i18n.js';
 
@@ -65,8 +66,11 @@
 
 		haptic.trigger('medium');
 
-		// Validate file type
-		if (!file.type.startsWith('image/')) {
+		// Validate against the same profile the server enforces. A broader
+		// `image/*` check would accept HEIC and SVG, which downscaleImage hands
+		// back untouched whenever the decode fails or the WebP re-encode is not
+		// smaller — so the file would reach a server that rejects it.
+		if (!acceptsMimeType(UPLOAD_PROFILES.profileImage, file.type)) {
 			toast.error($t('settings.account.avatar.select_error'));
 			target.value = '';
 			return;
@@ -266,7 +270,7 @@
 							<Input
 								id="file-upload"
 								type="file"
-								accept="image/*"
+								accept={acceptAttribute(UPLOAD_PROFILES.profileImage)}
 								onchange={handleFileSelect}
 								disabled={isUploading}
 								aria-describedby="file-helper"
