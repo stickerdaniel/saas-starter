@@ -3,13 +3,15 @@ import {
 	acceptAttribute,
 	acceptsMimeType,
 	allowedMimeTypes,
-	canConsume,
 	UPLOAD_PROFILES,
-	type Consumer
+	type UploadProfileName
 } from './profiles';
+import { canConsume, PROFILE_CONSUMERS, type Consumer } from './consumers';
 import { mediaCategoryOf, MODEL_INPUT_MODALITIES } from './model-capabilities';
 
-const PROFILES = Object.entries(UPLOAD_PROFILES);
+const PROFILES = Object.entries(UPLOAD_PROFILES) as Array<
+	[UploadProfileName, (typeof UPLOAD_PROFILES)[UploadProfileName]]
+>;
 
 describe('mediaCategoryOf', () => {
 	it('maps top-level types to modality names', () => {
@@ -56,7 +58,7 @@ describe('consumer capability', () => {
 	// input, or adding a format to a profile, fails here rather than in
 	// production — which is exactly how the silent PDF/OCR path (#781) got in.
 	it.each(PROFILES)('%s only accepts what every consumer handles', (name, profile) => {
-		for (const consumer of profile.consumers) {
+		for (const consumer of PROFILE_CONSUMERS[name]) {
 			for (const mimeType of allowedMimeTypes(profile)) {
 				const verdict = canConsume(consumer, mimeType);
 				expect(
