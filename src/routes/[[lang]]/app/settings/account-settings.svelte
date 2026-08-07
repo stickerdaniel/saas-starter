@@ -16,7 +16,12 @@
 	import { api } from '$lib/convex/_generated/api.js';
 	import { ConvexError } from 'convex/values';
 	import { PROFILE_IMAGE_MAX_SIZE, PROFILE_IMAGE_MAX_SIZE_LABEL } from '$lib/convex/constants.js';
-	import { acceptAttribute, acceptsMimeType, UPLOAD_PROFILES } from '$lib/uploads/profiles.js';
+	import {
+		acceptAttribute,
+		acceptsMimeType,
+		acceptsSource,
+		UPLOAD_PROFILES
+	} from '$lib/uploads/profiles.js';
 	import { downscaleImage } from '$lib/utils/downscale-image.js';
 	import { translateValidationErrors } from '$lib/utils/validation-i18n.js';
 
@@ -66,11 +71,12 @@
 
 		haptic.trigger('medium');
 
-		// Validate against the same profile the server enforces. A broader
-		// `image/*` check would accept HEIC and SVG, which downscaleImage hands
-		// back untouched whenever the decode fails or the WebP re-encode is not
-		// smaller — so the file would reach a server that rejects it.
-		if (!acceptsMimeType(UPLOAD_PROFILES.profileImage, file.type)) {
+		// Picked, not stored: the transcoder below turns most images into WebP, so
+		// an iPhone's HEIC is a fine input even though HEIC is never stored.
+		// Checking the picked file against the stored list would reject the iOS
+		// default before the transcoder ever ran. The result is checked instead,
+		// after downscaleImage.
+		if (!acceptsSource(UPLOAD_PROFILES.profileImage, file.type)) {
 			toast.error($t('settings.account.avatar.select_error'));
 			target.value = '';
 			return;
@@ -96,6 +102,16 @@
 			// every later avatar load stays small (falls back to the original
 			// file on any decode/encode failure).
 			const upload = await downscaleImage(file);
+
+			// downscaleImage is not total: it passes GIFs through, keeps the
+			// original when the re-encode is larger, and falls back to it on a
+			// decode failure. So the only reliable moment to check the type is
+			// here, on the bytes that are about to be sent.
+			if (!acceptsMimeType(UPLOAD_PROFILES.profileImage, upload.type)) {
+				toast.error($t('settings.account.avatar.select_error'));
+				target.value = '';
+				return;
+			}
 
 			// XHR transport for progress events, so the avatar shows live
 			// upload feedback instead of a silently disabled input.

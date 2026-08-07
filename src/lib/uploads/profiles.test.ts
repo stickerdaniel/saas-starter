@@ -2,16 +2,18 @@ import { describe, expect, it } from 'vitest';
 import {
 	acceptAttribute,
 	acceptsMimeType,
+	acceptsSource,
 	allowedMimeTypes,
 	UPLOAD_PROFILES,
+	type UploadProfile,
 	type UploadProfileName
 } from './profiles';
 import { canConsume, PROFILE_CONSUMERS, type Consumer } from './consumers';
 import { mediaCategoryOf, MODEL_INPUT_MODALITIES } from './model-capabilities';
 
-const PROFILES = Object.entries(UPLOAD_PROFILES) as Array<
-	[UploadProfileName, (typeof UPLOAD_PROFILES)[UploadProfileName]]
->;
+// Widened to UploadProfile so the loops can read optional fields like
+// sourceMimePrefixes, which the const assertion narrows away per profile.
+const PROFILES = Object.entries(UPLOAD_PROFILES) as Array<[UploadProfileName, UploadProfile]>;
 
 describe('mediaCategoryOf', () => {
 	it('maps top-level types to modality names', () => {
@@ -36,7 +38,12 @@ describe('profile derivations', () => {
 		const mimes = allowedMimeTypes(profile);
 		const entries = Object.entries(profile.extensions);
 
-		expect(acceptAttribute(profile).split(',')).toEqual(entries.map(([ext]) => ext));
+		// A transcoding surface offers its input families instead of extensions,
+		// because what may be picked is wider than what may be stored.
+		const expectedAccept = profile.sourceMimePrefixes?.length
+			? profile.sourceMimePrefixes.map((prefix) => `${prefix}*`)
+			: entries.map(([ext]) => ext);
+		expect(acceptAttribute(profile).split(',')).toEqual(expectedAccept);
 		expect(mimes.length).toBeGreaterThan(0);
 		// Every extension resolves to a listed mime type, so the picker and the
 		// server validator cannot disagree about a format.
@@ -49,6 +56,38 @@ describe('profile derivations', () => {
 		const profile = UPLOAD_PROFILES.chatAttachment;
 		expect(acceptsMimeType(profile, 'text/plain; charset=utf-8')).toBe(true);
 		expect(acceptsMimeType(profile, 'application/zip')).toBe(false);
+	});
+});
+
+describe('picking versus storing', () => {
+	// The regression this exists for: checking the PICKED file against the
+	// stored list rejected HEIC, which is the iOS camera default, before
+	// downscaleImage could turn it into the WebP the server does accept.
+	it('lets the avatar accept an input it will never store', () => {
+		const profile = UPLOAD_PROFILES.profileImage;
+		expect(acceptsSource(profile, 'image/heic')).toBe(true);
+		expect(acceptsMimeType(profile, 'image/heic')).toBe(false);
+	});
+
+	it('offers the input family to the picker, not the stored extensions', () => {
+		expect(acceptAttribute(UPLOAD_PROFILES.profileImage)).toBe('image/*');
+	});
+
+	// Everything the transcoder can hand back unchanged has to fail the storage
+	// check, or the drift this whole structure closes would reopen: GIF is passed
+	// through by design, and SVG survives whenever the decode fails.
+	it('still refuses to store what the transcoder passes through', () => {
+		const profile = UPLOAD_PROFILES.profileImage;
+		expect(acceptsSource(profile, 'image/svg+xml')).toBe(true);
+		expect(acceptsMimeType(profile, 'image/svg+xml')).toBe(false);
+	});
+
+	it('treats picking and storing alike where no transcoder sits in between', () => {
+		const profile: UploadProfile = UPLOAD_PROFILES.chatAttachment;
+		expect(profile.sourceMimePrefixes).toBeUndefined();
+		for (const mime of [...allowedMimeTypes(profile), 'application/zip', 'image/heic']) {
+			expect(acceptsSource(profile, mime)).toBe(acceptsMimeType(profile, mime));
+		}
 	});
 });
 
