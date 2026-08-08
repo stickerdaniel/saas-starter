@@ -48,7 +48,11 @@
 	function setWidgetOpen(open: boolean) {
 		urlState.support = open ? 'open' : '';
 		if (!open) {
-			urlState.thread = ''; // Clear thread when closing widget
+			// Leaves the chat view as well as the URL. A warm thread acquired for a
+			// conversation the visitor closed mid-creation resolves after this, and
+			// its guard is the view: still on 'chat', it would write the id back
+			// into the URL of a closed widget and reopen into an empty thread.
+			threadContext.goBack();
 		} else if (threadContext.threadId) {
 			urlState.thread = threadContext.threadId;
 		}
