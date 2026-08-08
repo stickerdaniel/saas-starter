@@ -88,7 +88,10 @@ import { getFile } from '@convex-dev/agent';
 import { supportAgent } from '../agent';
 import { requireSupportThreadAccess } from '../ownership';
 import { createAIResponse, sendMessage } from '../messages';
+import { syncSupportLastMessage } from '../threads';
 import { isSupportAiEnabled } from '../../../config/support';
+
+const syncMock = syncSupportLastMessage as unknown as ReturnType<typeof vi.fn>;
 
 const aiEnabledMock = isSupportAiEnabled as unknown as ReturnType<typeof vi.fn>;
 
@@ -131,8 +134,11 @@ describe('createAIResponse prompt override wiring', () => {
 
 		expect(streamTextMock).not.toHaveBeenCalled();
 		expect(ctx.runQuery).not.toHaveBeenCalled();
+		// acknowledge, because no model speaks in this turn: without it the visitor
+		// gets no reply at all, and an anonymous one gets no email prompt either.
 		expect(ctx.runMutation).toHaveBeenCalledWith('internal.support.handoff.internalSetHandoff', {
-			threadId: 'thread_1'
+			threadId: 'thread_1',
+			acknowledge: true
 		});
 	});
 
@@ -331,6 +337,22 @@ describe('sendMessage routing between the agent and the team', () => {
 			role: 'assistant',
 			content: 'translated'
 		});
+	});
+
+	// The denormalized fields drive the admin list preview and the search index
+	// built from it. This sentence is identical on every new ticket, so syncing
+	// it would leave the inbox a column of the same text with the report itself
+	// unsearchable.
+	it('leaves the report as the admin preview rather than the acknowledgement', async () => {
+		aiEnabledMock.mockReturnValue(false);
+		givenThread({ isWarm: true, isHandedOff: false });
+
+		await sendHandler._handler(makeCtx(), { threadId: 't1', prompt: 'the map is blank' });
+
+		const syncOrder = syncMock.mock.invocationCallOrder[0];
+		const ackOrder =
+			saveMessageMock.mock.invocationCallOrder[saveMessageMock.mock.calls.length - 1];
+		expect(syncOrder).toBeLessThan(ackOrder);
 	});
 
 	it('does not acknowledge again on a thread the team already holds', async () => {

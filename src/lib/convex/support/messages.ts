@@ -123,10 +123,18 @@ export const sendMessage = mutation({
 			messageId = result.messageId;
 		}
 
+		// Sync denormalized search fields with user's message
+		await syncSupportLastMessage(ctx, args.threadId);
+
 		// A thread arriving in the human inbox for the first time gets the same
 		// acknowledgement the handoff button writes. Without it an anonymous
 		// visitor sees no reply at all, and the widget's email prompt has
 		// nothing to render against: it hangs off exactly this message.
+		//
+		// Written after the sync on purpose. The denormalized fields feed the
+		// admin list preview and its search index, and this text is identical on
+		// every new ticket, so syncing it would leave the inbox a column of the
+		// same canned sentence with the report itself unsearchable.
 		if (isHumanOnly && !wasHandedOff) {
 			await supportAgent.saveMessage(ctx, {
 				threadId: args.threadId,
@@ -140,9 +148,6 @@ export const sendMessage = mutation({
 				skipEmbeddings: true
 			});
 		}
-
-		// Sync denormalized search fields with user's message
-		await syncSupportLastMessage(ctx, args.threadId);
 
 		// Only humans respond once a thread is human-only
 		if (!isHumanOnly) {
@@ -214,7 +219,11 @@ export const createAIResponse = internalAction({
 		// what switching the agent off asks for.
 		if (!isSupportAiEnabled()) {
 			await ctx.runMutation(internal.support.handoff.internalSetHandoff, {
-				threadId: args.threadId
+				threadId: args.threadId,
+				// No model is going to speak in this turn, so the acknowledgement has
+				// to come from the handoff itself: it is the visitor's only reply, and
+				// the widget's email prompt renders against exactly that message.
+				acknowledge: true
 			});
 			return null;
 		}
