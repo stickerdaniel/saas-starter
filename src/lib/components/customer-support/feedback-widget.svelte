@@ -301,7 +301,7 @@
 					showCameraButton={true}
 					showFileButton={true}
 					showHandoffButton={true}
-					isHandedOff={isHumanOnly}
+					{isHumanOnly}
 					isRateLimited={threadContext.isRateLimited}
 					onScreenshot={handleScreenshot}
 					onRequestHandoff={handleRequestHandoff}

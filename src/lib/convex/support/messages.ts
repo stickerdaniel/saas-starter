@@ -177,12 +177,24 @@ export const sendMessage = mutation({
 		// We only notify for those since AI-handled tickets don't need admin attention
 		// Note: scheduleAdminNotification handles both create and update cases internally
 		if (isHumanOnly) {
+			// A thread the agent used to answer reaches the team for the first time
+			// here, with its actual report somewhere above this message. Announcing
+			// only the newest one would hand them "still broken" and nothing to read
+			// it against, so the first announcement carries the conversation the way
+			// the handoff button's does. On a thread they already hold, this message
+			// is the reply and the rest is already on their ticket.
+			const announced = wasHandedOff
+				? []
+				: await ctx.runQuery(internal.admin.support.notifications.getRecentUserMessages, {
+						threadId: args.threadId
+					});
+
 			await ctx.scheduler.runAfter(
 				0,
 				internal.admin.support.notifications.scheduleAdminNotification,
 				{
 					threadId: args.threadId,
-					messageIds: [messageId],
+					messageIds: announced.length > 0 ? announced : [messageId],
 					isReopen: wasClosedBeforeThisMessage,
 					// The flag is the record of what the team has been told: it is only
 					// ever set once a thread has been announced to them, so a message

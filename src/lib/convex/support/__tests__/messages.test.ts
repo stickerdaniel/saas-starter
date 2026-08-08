@@ -74,6 +74,7 @@ vi.mock('../../_generated/api', () => ({
 		admin: {
 			support: {
 				notifications: {
+					getRecentUserMessages: 'internal.admin.support.notifications.getRecentUserMessages',
 					scheduleAdminNotification:
 						'internal.admin.support.notifications.scheduleAdminNotification'
 				}
@@ -242,6 +243,7 @@ describe('sendMessage routing between the agent and the team', () => {
 	const CREATE_AI_RESPONSE_REF = 'internal.support.messages.createAIResponse';
 	const SCHEDULE_NOTIFICATION_REF =
 		'internal.admin.support.notifications.scheduleAdminNotification';
+	const RECENT_USER_MESSAGES_REF = 'internal.admin.support.notifications.getRecentUserMessages';
 
 	beforeEach(() => {
 		vi.clearAllMocks();
@@ -252,9 +254,10 @@ describe('sendMessage routing between the agent and the team', () => {
 		aiEnabledMock.mockReturnValue(true);
 	});
 
-	function makeCtx() {
+	function makeCtx(recentUserMessages: string[] = []) {
 		return {
 			db: { patch: vi.fn() },
+			runQuery: vi.fn().mockResolvedValue(recentUserMessages),
 			runMutation: vi.fn().mockResolvedValue(null),
 			scheduler: { runAfter: vi.fn() }
 		};
@@ -321,6 +324,35 @@ describe('sendMessage routing between the agent and the team', () => {
 		// than as a reply on one they already hold.
 		expect(ctx.scheduler.runAfter.mock.calls[0][2]).toEqual(
 			expect.objectContaining({ notificationType: 'newTickets' })
+		);
+	});
+
+	// "still broken" on its own is not a ticket anyone can work: the report it
+	// refers to was written while the agent was still answering.
+	it('announces the conversation, not just the follow-up, on an agent-era thread', async () => {
+		aiEnabledMock.mockReturnValue(false);
+		givenThread({ isHandedOff: false });
+		const ctx = makeCtx(['msg_report', 'msg_details', 'msg_followup']);
+
+		await sendHandler._handler(ctx, { threadId: 't1', prompt: 'still broken' });
+
+		expect(ctx.runQuery).toHaveBeenCalledWith(RECENT_USER_MESSAGES_REF, { threadId: 't1' });
+		expect(ctx.scheduler.runAfter.mock.calls[0][2]).toEqual(
+			expect.objectContaining({ messageIds: ['msg_report', 'msg_details', 'msg_followup'] })
+		);
+	});
+
+	// The rest of the conversation is already on the ticket they hold, and asking
+	// for it again would re-announce messages they have read.
+	it('announces only the reply on a thread the team already holds', async () => {
+		givenThread({ isHandedOff: true });
+		const ctx = makeCtx(['msg_report']);
+
+		await sendHandler._handler(ctx, { threadId: 't1', prompt: 'any news?' });
+
+		expect(ctx.runQuery).not.toHaveBeenCalled();
+		expect(ctx.scheduler.runAfter.mock.calls[0][2]).toEqual(
+			expect.objectContaining({ messageIds: ['m1'] })
 		);
 	});
 
