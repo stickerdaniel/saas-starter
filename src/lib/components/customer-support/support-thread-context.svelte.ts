@@ -203,6 +203,14 @@ export class SupportThreadContext {
 		assignedAdmin?: { name?: string; image: string | null },
 		notificationEmail?: string | null
 	) {
+		// The send lock belongs to the conversation being left, so it goes with
+		// it. Carried over, a reply that never arrives for that thread cannot
+		// clear it and the next conversation's composer stays blocked. Kept when
+		// re-entering the same thread, whose reply may still be streaming.
+		if (threadId !== this.threadId) {
+			this.isSending = false;
+			this.isAwaitingStream = false;
+		}
 		this.threadId = threadId;
 		this.threadAgentName = agentName;
 		this.isHandedOff = isHandedOff ?? false;
@@ -210,11 +218,6 @@ export class SupportThreadContext {
 		this.notificationEmail = notificationEmail ?? null;
 		this.hasMore = false;
 		this.continueCursor = null;
-		// The send lock belongs to the conversation being left. Carried over, a
-		// reply that never arrives for the old thread cannot clear it, and the
-		// new one's composer stays blocked for the rest of the page's life.
-		this.isSending = false;
-		this.isAwaitingStream = false;
 	}
 
 	/**
