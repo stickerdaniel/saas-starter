@@ -13,9 +13,10 @@ import convexFilesControl from '@gilhrpenner/convex-files-control/convex.config'
  * Convex validates these at push time (missing required vars or values that
  * fail their validator reject the deploy) and emits a typed `env` object into
  * `_generated/server`. This mirrors `.env-convex.schema`, which stays the
- * canonical superset for typegen and for the scripts that read variable names
- * and requiredness. Its `@type=*` decorators do not coerce or validate anything
- * here, and it drives no redaction: no value on this path is loaded by varlock.
+ * canonical superset for code generation and for the scripts that read
+ * variable names and requiredness. Its `@type=*` decorators do not coerce or
+ * validate anything here, and it drives no redaction: no value on this path is
+ * loaded by varlock.
  *
  * Env values are always strings, so only string-like validators are allowed
  * (`v.string()`, string `v.literal()`/`v.union()`, and `v.optional()`).
