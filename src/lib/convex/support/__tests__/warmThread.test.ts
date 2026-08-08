@@ -160,34 +160,25 @@ describe('support warm thread acquisition', () => {
 		);
 	});
 
-	it('opens a thread in agent mode by default', async () => {
-		safeGetAuthUserMock.mockResolvedValue(undefined);
-		createThreadMock.mockResolvedValue({ threadId: 'thread_warm_3' });
-		const insert = vi.fn().mockResolvedValue('support_doc_3');
+	// The admin lists select on isHandedOff alone, so a thread carrying it
+	// before it has any message would show up as an empty ticket. The mode is
+	// latched on the first message instead, in either configuration.
+	it('never pre-flags a thread as handed off, whichever mode is set', async () => {
+		for (const [i, mode] of [undefined, 'false'].entries()) {
+			vi.unstubAllEnvs();
+			if (mode) vi.stubEnv('SUPPORT_AI_ENABLED', mode);
+			safeGetAuthUserMock.mockResolvedValue(undefined);
+			createThreadMock.mockResolvedValue({ threadId: `thread_warm_${i + 3}` });
+			const insert = vi.fn().mockResolvedValue(`support_doc_${i + 3}`);
 
-		await getOrCreateWarmThreadHandler._handler(makeCreatingCtx(insert), {
-			anonymousUserId: 'anon_789'
-		});
+			await getOrCreateWarmThreadHandler._handler(makeCreatingCtx(insert), {
+				anonymousUserId: `anon_${i}`
+			});
 
-		expect(insert).toHaveBeenCalledWith(
-			'supportThreads',
-			expect.objectContaining({ isHandedOff: false })
-		);
-	});
-
-	it('opens a thread handed off when the support AI is switched off', async () => {
-		vi.stubEnv('SUPPORT_AI_ENABLED', 'false');
-		safeGetAuthUserMock.mockResolvedValue(undefined);
-		createThreadMock.mockResolvedValue({ threadId: 'thread_warm_4' });
-		const insert = vi.fn().mockResolvedValue('support_doc_4');
-
-		await getOrCreateWarmThreadHandler._handler(makeCreatingCtx(insert), {
-			anonymousUserId: 'anon_012'
-		});
-
-		expect(insert).toHaveBeenCalledWith(
-			'supportThreads',
-			expect.objectContaining({ isHandedOff: true })
-		);
+			expect(insert).toHaveBeenCalledWith(
+				'supportThreads',
+				expect.objectContaining({ isHandedOff: false })
+			);
+		}
 	});
 });

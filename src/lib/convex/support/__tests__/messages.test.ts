@@ -64,6 +64,7 @@ vi.mock('../../_generated/api', () => ({
 	components: {},
 	internal: {
 		support: {
+			handoff: { internalSetHandoff: 'internal.support.handoff.internalSetHandoff' },
 			promptStore: { getActive: 'internal.support.promptStore.getActive' },
 			threads: { updateLastMessage: 'internal.support.threads.updateLastMessage' },
 			messages: { createAIResponse: 'internal.support.messages.createAIResponse' }
@@ -115,14 +116,19 @@ describe('createAIResponse prompt override wiring', () => {
 		vi.unstubAllEnvs();
 	});
 
-	it('refuses to stream a reply that was scheduled before the AI was switched off', async () => {
+	// Dropping the job outright would strand the message: nothing answers, and
+	// the thread is not handed off either, so it is absent from the admin lists.
+	it('hands a job scheduled before the switch to the team instead of dropping it', async () => {
 		vi.stubEnv('SUPPORT_AI_ENABLED', 'false');
-		const ctx = { runQuery: vi.fn(), runMutation: vi.fn() };
+		const ctx = { runQuery: vi.fn(), runMutation: vi.fn().mockResolvedValue(null) };
 
 		await handler._handler(ctx, args);
 
 		expect(streamTextMock).not.toHaveBeenCalled();
 		expect(ctx.runQuery).not.toHaveBeenCalled();
+		expect(ctx.runMutation).toHaveBeenCalledWith('internal.support.handoff.internalSetHandoff', {
+			threadId: 'thread_1'
+		});
 	});
 
 	it('passes the active stored prompt to streamText as the system override', async () => {
@@ -277,7 +283,7 @@ describe('sendMessage routing between the agent and the team', () => {
 
 	it('sends a first message straight to the team as a new ticket when the AI is off', async () => {
 		vi.stubEnv('SUPPORT_AI_ENABLED', 'false');
-		givenThread({ isWarm: true, isHandedOff: true });
+		givenThread({ isWarm: true, isHandedOff: false });
 		const ctx = makeCtx();
 
 		await sendHandler._handler(ctx, { threadId: 't1', prompt: 'the map is blank' });

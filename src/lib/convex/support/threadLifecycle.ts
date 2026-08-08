@@ -4,7 +4,6 @@ import { t, extractLocaleFromUrl } from '../i18n/translations';
 import { buildSupportMessageDenormalization, buildSupportSearchText } from './denormalization';
 import type { SupportLatestThreadMessage } from './denormalization';
 import { supportAgent } from './agent';
-import { isSupportAiEnabled } from './config';
 import { supportRateLimiter } from './rateLimit';
 import { createRateLimitError } from './types';
 
@@ -96,9 +95,10 @@ export async function createSupportThreadRecord(
 		userId: args.resolvedUserId,
 		isWarm: args.isWarm,
 		status: 'open',
-		// Without the agent there is nobody to hand off from, so the thread opens
-		// in the state the widget already renders as human-only.
-		isHandedOff: !isSupportAiEnabled(),
+		// A thread with no message yet is not a ticket. The mode is latched on
+		// the first message instead, so an abandoned draft never reaches the
+		// admin lists, which select on this flag alone.
+		isHandedOff: false,
 		awaitingAdminResponse: args.awaitingAdminResponse,
 		assignedTo: undefined,
 		priority: undefined,

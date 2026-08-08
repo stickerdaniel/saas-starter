@@ -161,17 +161,12 @@ export const sendMessage = mutation({
 					threadId: args.threadId,
 					messageIds: [messageId],
 					isReopen: wasClosedBeforeThisMessage,
-					// A ticket is new to the team when it is reopened or when it lands
-					// in the human inbox for the first time. With the agent disabled a
-					// thread is created already handed off, so there the flag does not
-					// mean anyone saw it and the first message is still a new ticket.
-					// That extra term stays behind `!aiEnabled`: with the agent on, a
-					// warm thread reaches this branch only after `updateThreadHandoff`,
-					// which already announced the ticket and leaves `isWarm` set.
+					// The flag is the record of what the team has been told: it is only
+					// ever set once a thread has been announced to them, so a message
+					// arriving before that opens a ticket and one arriving after is a
+					// reply on a ticket they hold. Reopening announces it again.
 					notificationType:
-						wasClosedBeforeThisMessage || !wasHandedOff || (!aiEnabled && wasWarmThread)
-							? 'newTickets'
-							: 'userReplies'
+						wasClosedBeforeThisMessage || !wasHandedOff ? 'newTickets' : 'userReplies'
 				}
 			);
 		}
@@ -194,10 +189,15 @@ export const createAIResponse = internalAction({
 	},
 	returns: v.null(),
 	handler: async (ctx, args) => {
-		// sendMessage already decides the mode, but a job scheduled before the
-		// agent was switched off would still stream an answer into a thread the
-		// team owns. This is the enforcement point for that.
+		// sendMessage decides the mode, but the agent can be switched off while a
+		// job it scheduled is still queued. Dropping that job would strand the
+		// message: nothing answers, and the thread is not handed off, so it is
+		// absent from the admin lists too. Hand it to the team instead, which is
+		// what switching the agent off asks for.
 		if (!isSupportAiEnabled()) {
+			await ctx.runMutation(internal.support.handoff.internalSetHandoff, {
+				threadId: args.threadId
+			});
 			return null;
 		}
 
