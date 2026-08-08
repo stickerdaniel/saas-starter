@@ -52,6 +52,7 @@ references/
 *.local*
 
 .opencode/plans
+.claude/workflows
 .eslintcache
 
 # local convex dev deployment
