@@ -183,11 +183,15 @@ export const sendMessage = mutation({
 			// it against, so the first announcement carries the conversation the way
 			// the handoff button's does. On a thread they already hold, this message
 			// is the reply and the rest is already on their ticket.
-			const announced = wasHandedOff
-				? []
-				: await ctx.runQuery(internal.admin.support.notifications.getRecentUserMessages, {
-						threadId: args.threadId
-					});
+			// A warm thread was created empty and is being used for the first time
+			// right now, so this message is the whole conversation and the history
+			// scan behind that query would find nothing else.
+			const announced =
+				wasHandedOff || wasWarmThread
+					? []
+					: await ctx.runQuery(internal.admin.support.notifications.getRecentUserMessages, {
+							threadId: args.threadId
+						});
 
 			await ctx.scheduler.runAfter(
 				0,

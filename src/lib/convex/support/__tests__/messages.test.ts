@@ -306,6 +306,12 @@ describe('sendMessage routing between the agent and the team', () => {
 		expect(ctx.scheduler.runAfter.mock.calls[0][2]).toEqual(
 			expect.objectContaining({ notificationType: 'newTickets', isReopen: false })
 		);
+		// A warm thread was created empty, so this message is the conversation and
+		// there is no history worth scanning for.
+		expect(ctx.runQuery).not.toHaveBeenCalled();
+		expect(ctx.scheduler.runAfter.mock.calls[0][2]).toEqual(
+			expect.objectContaining({ messageIds: ['m1'] })
+		);
 	});
 
 	it('latches a thread from the agent era onto the team on its next message', async () => {
@@ -381,10 +387,16 @@ describe('sendMessage routing between the agent and the team', () => {
 
 		await sendHandler._handler(makeCtx(), { threadId: 't1', prompt: 'the map is blank' });
 
-		const syncOrder = syncMock.mock.invocationCallOrder[0];
-		const ackOrder =
-			saveMessageMock.mock.invocationCallOrder[saveMessageMock.mock.calls.length - 1];
-		expect(syncOrder).toBeLessThan(ackOrder);
+		const ackIndex = saveMessageMock.mock.calls.findIndex(
+			(call) => call[1].message?.role === 'assistant'
+		);
+		expect(ackIndex).toBeGreaterThan(-1);
+		expect(syncMock.mock.invocationCallOrder[0]).toBeLessThan(
+			saveMessageMock.mock.invocationCallOrder[ackIndex]
+		);
+		// Syncing again afterwards would put the acknowledgement back into the
+		// preview, so ordering alone is not the whole guarantee.
+		expect(syncMock).toHaveBeenCalledTimes(1);
 	});
 
 	it('does not acknowledge again on a thread the team already holds', async () => {

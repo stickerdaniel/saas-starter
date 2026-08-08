@@ -131,11 +131,9 @@ describe('internalSetHandoff', () => {
 
 	it('acknowledges when asked, after the denormalization sync', async () => {
 		vi.clearAllMocks();
+		const ctx = makeCtx({ _id: 'st_1', threadId: 'thread_1', isHandedOff: false });
 
-		await internalSetHandoffH._handler(
-			makeCtx({ _id: 'st_1', threadId: 'thread_1', isHandedOff: false }),
-			{ threadId: 'thread_1', acknowledge: true }
-		);
+		await internalSetHandoffH._handler(ctx, { threadId: 'thread_1', acknowledge: true });
 
 		expect(saveMessageMock).toHaveBeenCalledTimes(1);
 		expect(saveMessageMock.mock.calls[0][1].message).toEqual({
@@ -143,9 +141,17 @@ describe('internalSetHandoff', () => {
 			content: 'translated'
 		});
 		// Syncing this canned sentence would replace the visitor's own message in
-		// the admin list preview and in the search index built from it.
+		// the admin list preview and in the search index built from it, so it has
+		// to come after the sync and there must be no second sync behind it.
 		expect(syncMock.mock.invocationCallOrder[0]).toBeLessThan(
 			saveMessageMock.mock.invocationCallOrder[0]
+		);
+		expect(syncMock).toHaveBeenCalledTimes(1);
+		// Acknowledging the visitor is half the job: the reason this path exists is
+		// that the thread has nobody answering it until the team is told.
+		expect(ctx.scheduler.runAfter).toHaveBeenCalledTimes(1);
+		expect(ctx.scheduler.runAfter.mock.calls[0][2]).toEqual(
+			expect.objectContaining({ notificationType: 'newTickets' })
 		);
 	});
 });
