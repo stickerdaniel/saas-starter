@@ -14,7 +14,6 @@
 	import { slide } from 'svelte/transition';
 	import { quintOut } from 'svelte/easing';
 	import { prefersReducedMotion } from 'svelte/motion';
-	import { isSupportAiEnabled } from '$lib/config/support';
 
 	// Import new chat components
 	import { ChatRoot, ChatMessages, ChatInput, type ChatUIContext } from '$lib/chat';
@@ -59,11 +58,11 @@
 	// Derive agent name from context with fallback
 	const agentName = $derived(threadContext.currentAgentName || 'Kai');
 
-	// A thread is flagged handed off once it has been announced to the team,
-	// which cannot happen before its first message. The build-time mode covers
-	// that gap, so an empty conversation never offers the agent affordances on
-	// a build that has no agent.
-	const isHumanOnly = $derived(threadContext.isHandedOff || !isSupportAiEnabled());
+	// Whether the team is the counterpart, which is exactly the inverse of the
+	// context's send lock. Taken from there rather than recomputed, because two
+	// spellings of the same condition are free to drift apart, and the composer
+	// then blocks a send the widget has already offered.
+	const isHumanOnly = $derived(!threadContext.awaitsAgentReply);
 
 	// Derive chat panel open state
 	const isChatOpen = $derived(threadContext.currentView !== 'overview');
