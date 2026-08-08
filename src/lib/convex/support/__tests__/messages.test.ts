@@ -318,6 +318,20 @@ describe('sendMessage routing between the agent and the team', () => {
 		);
 	});
 
+	// updateThreadHandoff flags a thread handed off without clearing isWarm and
+	// announces the ticket itself, so with the agent on the detail message that
+	// follows is a reply on a ticket the team already holds.
+	it('reports the message after an agent-era handoff as a user reply', async () => {
+		givenThread({ isWarm: true, isHandedOff: true });
+		const ctx = makeCtx();
+
+		await sendHandler._handler(ctx, { threadId: 't1', prompt: 'here are the steps' });
+
+		expect(ctx.scheduler.runAfter.mock.calls[0][2]).toEqual(
+			expect.objectContaining({ notificationType: 'userReplies' })
+		);
+	});
+
 	it('reports a reopened ticket as a new ticket', async () => {
 		givenThread({ isHandedOff: true, status: 'done' });
 		const ctx = makeCtx();

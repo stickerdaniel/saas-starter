@@ -53,7 +53,8 @@ export const sendMessage = mutation({
 		// false, so the mode has to be re-read per message: otherwise disabling
 		// the agent would leave those threads waiting for a reply nobody sends.
 		const wasHandedOff = supportThread.isHandedOff === true;
-		const isHumanOnly = wasHandedOff || !isSupportAiEnabled();
+		const aiEnabled = isSupportAiEnabled();
+		const isHumanOnly = wasHandedOff || !aiEnabled;
 
 		// Rate limit check - stricter limits for anonymous users
 		// Authenticated users: keyed by verified user ID
@@ -160,13 +161,15 @@ export const sendMessage = mutation({
 					threadId: args.threadId,
 					messageIds: [messageId],
 					isReopen: wasClosedBeforeThisMessage,
-					// A ticket is new to the team when it is reopened, when it lands in
-					// the human inbox for the first time, or when this is the thread's
-					// first message at all: with the agent disabled a thread is created
-					// already handed off, so that flag alone does not mean anyone saw
-					// it. Only a message on a thread they already hold is a reply.
+					// A ticket is new to the team when it is reopened or when it lands
+					// in the human inbox for the first time. With the agent disabled a
+					// thread is created already handed off, so there the flag does not
+					// mean anyone saw it and the first message is still a new ticket.
+					// That extra term stays behind `!aiEnabled`: with the agent on, a
+					// warm thread reaches this branch only after `updateThreadHandoff`,
+					// which already announced the ticket and leaves `isWarm` set.
 					notificationType:
-						wasClosedBeforeThisMessage || !wasHandedOff || wasWarmThread
+						wasClosedBeforeThisMessage || !wasHandedOff || (!aiEnabled && wasWarmThread)
 							? 'newTickets'
 							: 'userReplies'
 				}
