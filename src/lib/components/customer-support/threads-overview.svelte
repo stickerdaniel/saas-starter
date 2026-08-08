@@ -18,6 +18,7 @@
 	import { motion } from 'motion-sv';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { isAnonymousUser } from '$lib/convex/utils/anonymousUser';
+	import { isSupportAiEnabled } from '$lib/config/support';
 	import { page } from '$app/state';
 	import { DEFAULT_LANGUAGE } from '$lib/i18n/languages';
 
@@ -50,20 +51,13 @@
 	const adminAvatarsQuery = useQuery(api.support.threads.getAdminAvatars, {});
 	const adminUsers = $derived(adminAvatarsQuery.data ?? []);
 
-	// With the agent switched off nobody is behind the bot face, so it drops
-	// out of the lineup that promises who will answer.
-	const supportModeQuery = useQuery(api.support.threads.getSupportMode, {});
-	const isAiEnabled = $derived(supportModeQuery.data?.aiEnabled ?? true);
-
-	// The stack changes size with the mode, so the entrance waits for both
-	// answers rather than playing once and reshuffling underneath itself.
-	const isGreetingDataLoaded = $derived(
-		!adminAvatarsQuery.isLoading && !supportModeQuery.isLoading
-	);
+	const isAdminDataLoaded = $derived(!adminAvatarsQuery.isLoading);
 
 	// Placeholder avatars with grayscale filter when not enough admins
 	const placeholderAvatars = [memberFour, memberTwo, memberFive];
-	const showBotIcon = $derived(isAiEnabled && adminUsers.length < 3);
+	// With the agent switched off nobody is behind the bot face, so it drops
+	// out of the lineup that promises who will answer.
+	const showBotIcon = $derived(isSupportAiEnabled() && adminUsers.length < 3);
 
 	/**
 	 * The greeting shows a stack of three faces. The bot takes one of them when
@@ -105,7 +99,7 @@
 	// Get the image URLs we need to load (only after admin data is ready)
 	// This ensures we wait for the actual admin images, not placeholders shown before data loads
 	const imageUrlsToLoad = $derived.by(() => {
-		if (!isGreetingDataLoaded) return [];
+		if (!isAdminDataLoaded) return [];
 		return displayAvatars.map((a) => a.src).filter((url): url is string => !!url);
 	});
 
@@ -129,7 +123,7 @@
 	const ANIMATION_TIMEOUT = 3000;
 
 	$effect(() => {
-		if (allImagesLoaded || !isGreetingDataLoaded) return;
+		if (allImagesLoaded || !isAdminDataLoaded) return;
 
 		const timer = setTimeout(() => {
 			imageUrlsToLoad.forEach((url) => loadedAvatarUrls.add(url));

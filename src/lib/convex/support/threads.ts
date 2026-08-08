@@ -23,7 +23,6 @@ import {
 	updateThreadMetadata as updateSupportThreadMetadata
 } from './threadMaintenance';
 import { normalizeNotificationEmail } from './notificationPreferences';
-import { isSupportAiEnabled } from './config';
 import { toAgentThreadStatus } from './denormalization';
 
 export { shouldSendNotification } from './notificationPreferences';
@@ -400,19 +399,6 @@ export const updateThreadHandoff = mutation({
  *
  * Reviewed: 2024-12 | Decision: Acceptable for current use case
  */
-/**
- * Whether the support agent answers before a human takes over.
- *
- * The widget derives human-only mode from a thread's own `isHandedOff`, but
- * the empty greeting is rendered before any thread exists, so the lineup of
- * who will answer needs the mode on its own.
- */
-export const getSupportMode = query({
-	args: {},
-	returns: v.object({ aiEnabled: v.boolean() }),
-	handler: async () => ({ aiEnabled: isSupportAiEnabled() })
-});
-
 export const getAdminAvatars = query({
 	args: {},
 	returns: v.array(

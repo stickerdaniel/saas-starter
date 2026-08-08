@@ -71,7 +71,6 @@ import type * as pricing_prices from "../pricing/prices.js";
 import type * as rateLimit from "../rateLimit.js";
 import type * as storage from "../storage.js";
 import type * as support_agent from "../support/agent.js";
-import type * as support_config from "../support/config.js";
 import type * as support_denormalization from "../support/denormalization.js";
 import type * as support_files from "../support/files.js";
 import type * as support_handoff from "../support/handoff.js";
@@ -163,7 +162,6 @@ declare const fullApi: ApiFromModules<{
   rateLimit: typeof rateLimit;
   storage: typeof storage;
   "support/agent": typeof support_agent;
-  "support/config": typeof support_config;
   "support/denormalization": typeof support_denormalization;
   "support/files": typeof support_files;
   "support/handoff": typeof support_handoff;

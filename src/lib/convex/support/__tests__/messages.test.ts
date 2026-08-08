@@ -51,6 +51,8 @@ vi.mock('../../aiUsage/record', () => ({
 
 vi.mock('../../constants', () => ({ MAX_MESSAGE_LENGTH: 4000 }));
 
+vi.mock('../../../config/support', () => ({ isSupportAiEnabled: vi.fn(() => true) }));
+
 vi.mock('@convex-dev/agent', () => ({ getFile: vi.fn() }));
 
 vi.mock('@convex-dev/agent/validators', async () => {
@@ -86,6 +88,9 @@ import { getFile } from '@convex-dev/agent';
 import { supportAgent } from '../agent';
 import { requireSupportThreadAccess } from '../ownership';
 import { createAIResponse, sendMessage } from '../messages';
+import { isSupportAiEnabled } from '../../../config/support';
+
+const aiEnabledMock = isSupportAiEnabled as unknown as ReturnType<typeof vi.fn>;
 
 const streamTextMock = supportAgent.streamText as unknown as ReturnType<typeof vi.fn>;
 
@@ -113,13 +118,13 @@ describe('createAIResponse prompt override wiring', () => {
 	});
 
 	afterEach(() => {
-		vi.unstubAllEnvs();
+		aiEnabledMock.mockReturnValue(true);
 	});
 
 	// Dropping the job outright would strand the message: nothing answers, and
 	// the thread is not handed off either, so it is absent from the admin lists.
 	it('hands a job scheduled before the switch to the team instead of dropping it', async () => {
-		vi.stubEnv('SUPPORT_AI_ENABLED', 'false');
+		aiEnabledMock.mockReturnValue(false);
 		const ctx = { runQuery: vi.fn(), runMutation: vi.fn().mockResolvedValue(null) };
 
 		await handler._handler(ctx, args);
@@ -238,7 +243,7 @@ describe('sendMessage routing between the agent and the team', () => {
 	});
 
 	afterEach(() => {
-		vi.unstubAllEnvs();
+		aiEnabledMock.mockReturnValue(true);
 	});
 
 	function makeCtx() {
@@ -282,7 +287,7 @@ describe('sendMessage routing between the agent and the team', () => {
 	});
 
 	it('sends a first message straight to the team as a new ticket when the AI is off', async () => {
-		vi.stubEnv('SUPPORT_AI_ENABLED', 'false');
+		aiEnabledMock.mockReturnValue(false);
 		givenThread({ isWarm: true, isHandedOff: false });
 		const ctx = makeCtx();
 
@@ -295,7 +300,7 @@ describe('sendMessage routing between the agent and the team', () => {
 	});
 
 	it('latches a thread from the agent era onto the team on its next message', async () => {
-		vi.stubEnv('SUPPORT_AI_ENABLED', 'false');
+		aiEnabledMock.mockReturnValue(false);
 		givenThread({ isHandedOff: false });
 		const ctx = makeCtx();
 

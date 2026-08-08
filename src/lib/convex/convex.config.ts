@@ -32,9 +32,6 @@ const app = defineApp({
 		AUTUMN_SECRET_KEY: v.string(),
 		OPENROUTER_API_KEY: v.string(),
 		// Optional
-		// @type=boolean cannot be expressed here either: support/config.ts
-		// compares the raw 'false' string.
-		SUPPORT_AI_ENABLED: v.optional(v.string()),
 		RESEND_WEBHOOK_SECRET: v.optional(v.string()),
 		AUTH_GOOGLE_ID: v.optional(v.string()),
 		AUTH_GOOGLE_SECRET: v.optional(v.string()),

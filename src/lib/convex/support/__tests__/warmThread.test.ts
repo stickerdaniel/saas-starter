@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../auth', () => ({
 	authComponent: {
@@ -67,10 +67,6 @@ function makeCreatingCtx(insert: ReturnType<typeof vi.fn>) {
 describe('support warm thread acquisition', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
-	});
-
-	afterEach(() => {
-		vi.unstubAllEnvs();
 	});
 
 	it('reuses an existing warm thread for the same anonymous owner', async () => {
@@ -161,24 +157,20 @@ describe('support warm thread acquisition', () => {
 	});
 
 	// The admin lists select on isHandedOff alone, so a thread carrying it
-	// before it has any message would show up as an empty ticket. The mode is
-	// latched on the first message instead, in either configuration.
-	it('never pre-flags a thread as handed off, whichever mode is set', async () => {
-		for (const [i, mode] of [undefined, 'false'].entries()) {
-			vi.unstubAllEnvs();
-			if (mode) vi.stubEnv('SUPPORT_AI_ENABLED', mode);
-			safeGetAuthUserMock.mockResolvedValue(undefined);
-			createThreadMock.mockResolvedValue({ threadId: `thread_warm_${i + 3}` });
-			const insert = vi.fn().mockResolvedValue(`support_doc_${i + 3}`);
+	// before it has any message would show up as an empty ticket. Creation
+	// never sets it; the first message latches the mode instead.
+	it('never pre-flags a thread as handed off', async () => {
+		safeGetAuthUserMock.mockResolvedValue(undefined);
+		createThreadMock.mockResolvedValue({ threadId: 'thread_warm_3' });
+		const insert = vi.fn().mockResolvedValue('support_doc_3');
 
-			await getOrCreateWarmThreadHandler._handler(makeCreatingCtx(insert), {
-				anonymousUserId: `anon_${i}`
-			});
+		await getOrCreateWarmThreadHandler._handler(makeCreatingCtx(insert), {
+			anonymousUserId: 'anon_789'
+		});
 
-			expect(insert).toHaveBeenCalledWith(
-				'supportThreads',
-				expect.objectContaining({ isHandedOff: false })
-			);
-		}
+		expect(insert).toHaveBeenCalledWith(
+			'supportThreads',
+			expect.objectContaining({ isHandedOff: false })
+		);
 	});
 });

@@ -8,7 +8,7 @@ import { vStreamArgs } from '@convex-dev/agent/validators';
 import { components } from '../_generated/api';
 import type { UserContent } from 'ai';
 import { supportRateLimiter } from './rateLimit';
-import { isSupportAiEnabled } from './config';
+import { isSupportAiEnabled } from '../../config/support';
 import { createRateLimitError } from './types';
 import { t, extractLocaleFromUrl } from '../i18n/translations';
 import { MAX_MESSAGE_LENGTH } from '../constants';

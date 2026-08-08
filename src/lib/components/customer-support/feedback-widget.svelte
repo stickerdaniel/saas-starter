@@ -14,6 +14,7 @@
 	import { slide } from 'svelte/transition';
 	import { quintOut } from 'svelte/easing';
 	import { prefersReducedMotion } from 'svelte/motion';
+	import { isSupportAiEnabled } from '$lib/config/support';
 
 	// Import new chat components
 	import { ChatRoot, ChatMessages, ChatInput, type ChatUIContext } from '$lib/chat';
@@ -59,13 +60,10 @@
 	const agentName = $derived(threadContext.currentAgentName || 'Kai');
 
 	// A thread is flagged handed off once it has been announced to the team,
-	// which cannot happen before its first message. The deployment mode covers
+	// which cannot happen before its first message. The build-time mode covers
 	// that gap, so an empty conversation never offers the agent affordances on
-	// a deployment that has no agent.
-	const supportModeQuery = useQuery(api.support.threads.getSupportMode, {});
-	const isHumanOnly = $derived(
-		threadContext.isHandedOff || supportModeQuery.data?.aiEnabled === false
-	);
+	// a build that has no agent.
+	const isHumanOnly = $derived(threadContext.isHandedOff || !isSupportAiEnabled());
 
 	// Derive chat panel open state
 	const isChatOpen = $derived(threadContext.currentView !== 'overview');
