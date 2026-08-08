@@ -21,6 +21,7 @@
 	import { getLegalEmailAddress } from '$lib/config/legal';
 	import { buildMailto } from '$lib/utils/mailto';
 	import { activeUploadsContext } from '$lib/hooks/active-uploads.svelte.ts';
+	import { watch } from 'runed';
 
 	const { t } = getTranslate();
 
@@ -47,16 +48,24 @@
 	// URL state sync handlers
 	function setWidgetOpen(open: boolean) {
 		urlState.support = open ? 'open' : '';
-		if (!open) {
-			// Leaves the chat view as well as the URL. A warm thread acquired for a
-			// conversation the visitor closed mid-creation resolves after this, and
-			// its guard is the view: still on 'chat', it would write the id back
-			// into the URL of a closed widget and reopen into an empty thread.
-			threadContext.goBack();
-		} else if (threadContext.threadId) {
+		if (open && threadContext.threadId) {
 			urlState.thread = threadContext.threadId;
 		}
 	}
+
+	// Closing has to leave the chat view, not just the URL, and every way out
+	// writes this one param: the panel's own controls, the app header's
+	// launcher, and the browser's back button. Keyed off the param rather than
+	// repeated in each of them, because missing one is silent — a warm thread
+	// acquired for a conversation closed mid-creation resolves afterwards and
+	// its write-back guard is the view, so it would put the id back into the
+	// URL of a closed widget and reopen into the conversation just left.
+	watch(
+		() => isFeedbackOpen,
+		(open, wasOpen) => {
+			if (wasOpen && !open) threadContext.goBack();
+		}
+	);
 
 	function setThreadInUrl(threadId: string | null) {
 		urlState.thread = threadId ?? '';
