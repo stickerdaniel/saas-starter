@@ -43,6 +43,7 @@ type Env = {
   readonly RESEND_API_KEY: string;
   readonly RESEND_WEBHOOK_SECRET: string | undefined;
   readonly SITE_URL: string;
+  readonly SUPPORT_AI_ENABLED: string | undefined;
 };
 
 /**

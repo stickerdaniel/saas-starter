@@ -4,6 +4,7 @@ import { t, extractLocaleFromUrl } from '../i18n/translations';
 import { buildSupportMessageDenormalization, buildSupportSearchText } from './denormalization';
 import type { SupportLatestThreadMessage } from './denormalization';
 import { supportAgent } from './agent';
+import { isSupportAiEnabled } from './config';
 import { supportRateLimiter } from './rateLimit';
 import { createRateLimitError } from './types';
 
@@ -95,7 +96,9 @@ export async function createSupportThreadRecord(
 		userId: args.resolvedUserId,
 		isWarm: args.isWarm,
 		status: 'open',
-		isHandedOff: false,
+		// Without the agent there is nobody to hand off from, so the thread opens
+		// in the state the widget already renders as human-only.
+		isHandedOff: !isSupportAiEnabled(),
 		awaitingAdminResponse: args.awaitingAdminResponse,
 		assignedTo: undefined,
 		priority: undefined,

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // createAIResponse pulls in the whole support module graph at import. Stub the
 // heavy or env-dependent siblings so this stays a handler-level unit test that
@@ -111,6 +111,20 @@ describe('createAIResponse prompt override wiring', () => {
 		});
 	});
 
+	afterEach(() => {
+		vi.unstubAllEnvs();
+	});
+
+	it('refuses to stream a reply that was scheduled before the AI was switched off', async () => {
+		vi.stubEnv('SUPPORT_AI_ENABLED', 'false');
+		const ctx = { runQuery: vi.fn(), runMutation: vi.fn() };
+
+		await handler._handler(ctx, args);
+
+		expect(streamTextMock).not.toHaveBeenCalled();
+		expect(ctx.runQuery).not.toHaveBeenCalled();
+	});
+
 	it('passes the active stored prompt to streamText as the system override', async () => {
 		const ctx = makeCtx('stored override prompt');
 
@@ -196,5 +210,122 @@ describe('sendMessage attachment refcount metadata', () => {
 		await sendHandler._handler(ctx, { threadId: 't1', prompt: 'hi' });
 
 		expect(saveMessageMock.mock.calls[0][1].metadata).toBeUndefined();
+	});
+});
+
+describe('sendMessage routing between the agent and the team', () => {
+	const requireAccessMock = requireSupportThreadAccess as unknown as ReturnType<typeof vi.fn>;
+	const saveMessageMock = supportAgent.saveMessage as unknown as ReturnType<typeof vi.fn>;
+
+	const sendHandler = sendMessage as unknown as Fn<
+		{ threadId: string; prompt: string },
+		{ messageId: string }
+	>;
+
+	const CREATE_AI_RESPONSE_REF = 'internal.support.messages.createAIResponse';
+	const SCHEDULE_NOTIFICATION_REF =
+		'internal.admin.support.notifications.scheduleAdminNotification';
+
+	beforeEach(() => {
+		vi.clearAllMocks();
+		saveMessageMock.mockResolvedValue({ messageId: 'm1' });
+	});
+
+	afterEach(() => {
+		vi.unstubAllEnvs();
+	});
+
+	function makeCtx() {
+		return {
+			db: { patch: vi.fn() },
+			runMutation: vi.fn().mockResolvedValue(null),
+			scheduler: { runAfter: vi.fn() }
+		};
+	}
+
+	function givenThread(overrides: Record<string, unknown>) {
+		requireAccessMock.mockResolvedValue({
+			owner: { ownerId: 'user_1', isAnonymous: false },
+			supportThread: {
+				_id: 'st_1',
+				status: 'open',
+				isWarm: false,
+				isHandedOff: false,
+				pageUrl: '',
+				...overrides
+			}
+		});
+	}
+
+	/** The reference each scheduled job was queued under, in call order. */
+	function scheduledRefs(ctx: ReturnType<typeof makeCtx>): string[] {
+		return ctx.scheduler.runAfter.mock.calls.map((call) => call[1] as string);
+	}
+
+	it('answers with the agent and leaves the team alone by default', async () => {
+		givenThread({ isWarm: true });
+		const ctx = makeCtx();
+
+		await sendHandler._handler(ctx, { threadId: 't1', prompt: 'hi' });
+
+		expect(scheduledRefs(ctx)).toEqual([CREATE_AI_RESPONSE_REF]);
+		expect(ctx.db.patch).toHaveBeenCalledWith(
+			'st_1',
+			expect.objectContaining({ isHandedOff: false })
+		);
+	});
+
+	it('sends a first message straight to the team as a new ticket when the AI is off', async () => {
+		vi.stubEnv('SUPPORT_AI_ENABLED', 'false');
+		givenThread({ isWarm: true, isHandedOff: true });
+		const ctx = makeCtx();
+
+		await sendHandler._handler(ctx, { threadId: 't1', prompt: 'the map is blank' });
+
+		expect(scheduledRefs(ctx)).toEqual([SCHEDULE_NOTIFICATION_REF]);
+		expect(ctx.scheduler.runAfter.mock.calls[0][2]).toEqual(
+			expect.objectContaining({ notificationType: 'newTickets', isReopen: false })
+		);
+	});
+
+	it('latches a thread from the agent era onto the team on its next message', async () => {
+		vi.stubEnv('SUPPORT_AI_ENABLED', 'false');
+		givenThread({ isHandedOff: false });
+		const ctx = makeCtx();
+
+		await sendHandler._handler(ctx, { threadId: 't1', prompt: 'still broken' });
+
+		expect(scheduledRefs(ctx)).toEqual([SCHEDULE_NOTIFICATION_REF]);
+		expect(ctx.db.patch).toHaveBeenCalledWith(
+			'st_1',
+			expect.objectContaining({ isHandedOff: true })
+		);
+		// The team has never seen this thread, so it arrives as a ticket rather
+		// than as a reply on one they already hold.
+		expect(ctx.scheduler.runAfter.mock.calls[0][2]).toEqual(
+			expect.objectContaining({ notificationType: 'newTickets' })
+		);
+	});
+
+	it('reports a follow-up on a thread the team already holds as a user reply', async () => {
+		givenThread({ isHandedOff: true });
+		const ctx = makeCtx();
+
+		await sendHandler._handler(ctx, { threadId: 't1', prompt: 'any news?' });
+
+		expect(ctx.scheduler.runAfter.mock.calls[0][2]).toEqual(
+			expect.objectContaining({ notificationType: 'userReplies' })
+		);
+	});
+
+	it('reports a reopened ticket as a new ticket', async () => {
+		givenThread({ isHandedOff: true, status: 'done' });
+		const ctx = makeCtx();
+
+		await sendHandler._handler(ctx, { threadId: 't1', prompt: 'happening again' });
+
+		expect(ctx.scheduler.runAfter.mock.calls[0][2]).toEqual(
+			expect.objectContaining({ notificationType: 'newTickets', isReopen: true })
+		);
 	});
 });

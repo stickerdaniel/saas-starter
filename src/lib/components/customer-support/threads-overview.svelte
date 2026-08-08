@@ -49,63 +49,49 @@
 	// Query admin avatars for the welcome screen
 	const adminAvatarsQuery = useQuery(api.support.threads.getAdminAvatars, {});
 	const adminUsers = $derived(adminAvatarsQuery.data ?? []);
-	const isAdminDataLoaded = $derived(!adminAvatarsQuery.isLoading);
+
+	// With the agent switched off nobody is behind the bot face, so it drops
+	// out of the lineup that promises who will answer.
+	const supportModeQuery = useQuery(api.support.threads.getSupportMode, {});
+	const isAiEnabled = $derived(supportModeQuery.data?.aiEnabled ?? true);
+
+	// The stack changes size with the mode, so the entrance waits for both
+	// answers rather than playing once and reshuffling underneath itself.
+	const isGreetingDataLoaded = $derived(
+		!adminAvatarsQuery.isLoading && !supportModeQuery.isLoading
+	);
 
 	// Placeholder avatars with grayscale filter when not enough admins
 	const placeholderAvatars = [memberFour, memberTwo, memberFive];
-	const showBotIcon = $derived(adminUsers.length < 3);
+	const showBotIcon = $derived(isAiEnabled && adminUsers.length < 3);
 
 	/**
-	 * Select avatars to display based on admin count:
-	 * - If 3+ admins: Show 3 admin avatars (no bot icon)
-	 * - If 2 admins: Show 2 admin avatars (bot icon shown separately)
-	 * - If 1 admin: Show 1 admin + 1 grayscale placeholder (bot icon shown separately)
-	 * - If 0 admins: Show 2 grayscale placeholders (bot icon shown separately)
+	 * The greeting shows a stack of three faces. The bot takes one of them when
+	 * it answers, so the admins fill two slots then and three otherwise. Any slot
+	 * a real admin cannot fill falls back to a grayscale placeholder, which keeps
+	 * the stack the same size on a deployment with a small team.
 	 */
 	const displayAvatars = $derived.by(() => {
+		const slotCount = showBotIcon ? 2 : 3;
 		// Shuffle admins for randomness
 		const shuffledAdmins = [...adminUsers].sort(() => Math.random() - 0.5);
 		const teamMemberAlt = untrack(() => $t('support.avatar.team_member'));
 
-		if (shuffledAdmins.length >= 3) {
-			// Case 1: 3+ admins - show 3 random admin avatars (no bot icon)
-			return shuffledAdmins.slice(0, 3).map((admin, i) => ({
-				src: admin.image ?? placeholderAvatars[i],
-				alt: admin.name ?? teamMemberAlt,
-				isPlaceholder: false
-			}));
-		} else if (shuffledAdmins.length >= 2) {
-			// Case 2: 2 admins - show 2 admin avatars (bot icon shown separately)
-			return shuffledAdmins.slice(0, 2).map((admin, i) => ({
-				src: admin.image ?? placeholderAvatars[i],
-				alt: admin.name ?? teamMemberAlt,
-				isPlaceholder: false
-			}));
-		} else {
-			// Case 3 & 4: <2 admins - show admins + grayscale placeholders (bot icon shown separately)
-			const result = [];
+		const avatars = shuffledAdmins.slice(0, slotCount).map((admin, i) => ({
+			src: admin.image ?? placeholderAvatars[i],
+			alt: admin.name ?? teamMemberAlt,
+			isPlaceholder: false
+		}));
 
-			// Add all admin avatars (use different placeholders for fallback)
-			shuffledAdmins.forEach((admin, i) => {
-				result.push({
-					src: admin.image ?? placeholderAvatars[i],
-					alt: admin.name ?? teamMemberAlt,
-					isPlaceholder: false
-				});
+		for (let i = avatars.length; i < slotCount; i++) {
+			avatars.push({
+				src: placeholderAvatars[i],
+				alt: teamMemberAlt,
+				isPlaceholder: true
 			});
-
-			// Fill remaining slots with grayscale placeholders
-			const remaining = 2 - shuffledAdmins.length;
-			for (let i = 0; i < remaining; i++) {
-				result.push({
-					src: placeholderAvatars[shuffledAdmins.length + i],
-					alt: teamMemberAlt,
-					isPlaceholder: true
-				});
-			}
-
-			return result;
 		}
+
+		return avatars;
 	});
 
 	// Track which avatar image URLs have actually finished loading in the DOM.
@@ -119,7 +105,7 @@
 	// Get the image URLs we need to load (only after admin data is ready)
 	// This ensures we wait for the actual admin images, not placeholders shown before data loads
 	const imageUrlsToLoad = $derived.by(() => {
-		if (!isAdminDataLoaded) return [];
+		if (!isGreetingDataLoaded) return [];
 		return displayAvatars.map((a) => a.src).filter((url): url is string => !!url);
 	});
 
@@ -143,7 +129,7 @@
 	const ANIMATION_TIMEOUT = 3000;
 
 	$effect(() => {
-		if (allImagesLoaded || !isAdminDataLoaded) return;
+		if (allImagesLoaded || !isGreetingDataLoaded) return;
 
 		const timer = setTimeout(() => {
 			imageUrlsToLoad.forEach((url) => loadedAvatarUrls.add(url));
@@ -208,7 +194,7 @@
 				<div class="m-10 flex flex-col items-start">
 					<!-- Avatar stack: Conditional bot icon + admin avatars -->
 					<div class="mb-6 flex -space-x-3">
-						{#if adminUsers.length < 3}
+						{#if showBotIcon}
 							<!-- Avatar 1: Bot icon (only shown when <3 admins) -->
 							<motion.div
 								initial={{ opacity: 0, y: 20 }}

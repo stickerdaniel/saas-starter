@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../auth', () => ({
 	authComponent: {
@@ -52,9 +52,25 @@ const getOrCreateWarmThreadHandler = getOrCreateWarmThread as unknown as Mutatio
 	{ threadId: string; notificationEmail?: string }
 >;
 
+/** Minimal ctx whose warm-thread lookup misses, so creation runs. */
+function makeCreatingCtx(insert: ReturnType<typeof vi.fn>) {
+	return {
+		db: {
+			query: vi.fn(() => ({
+				withIndex: vi.fn(() => ({ first: vi.fn().mockResolvedValue(null) }))
+			})),
+			insert
+		}
+	};
+}
+
 describe('support warm thread acquisition', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+	});
+
+	afterEach(() => {
+		vi.unstubAllEnvs();
 	});
 
 	it('reuses an existing warm thread for the same anonymous owner', async () => {
@@ -141,6 +157,37 @@ describe('support warm thread acquisition', () => {
 				awaitingAdminResponse: false,
 				pageUrl: 'https://example.com/support'
 			})
+		);
+	});
+
+	it('opens a thread in agent mode by default', async () => {
+		safeGetAuthUserMock.mockResolvedValue(undefined);
+		createThreadMock.mockResolvedValue({ threadId: 'thread_warm_3' });
+		const insert = vi.fn().mockResolvedValue('support_doc_3');
+
+		await getOrCreateWarmThreadHandler._handler(makeCreatingCtx(insert), {
+			anonymousUserId: 'anon_789'
+		});
+
+		expect(insert).toHaveBeenCalledWith(
+			'supportThreads',
+			expect.objectContaining({ isHandedOff: false })
+		);
+	});
+
+	it('opens a thread handed off when the support AI is switched off', async () => {
+		vi.stubEnv('SUPPORT_AI_ENABLED', 'false');
+		safeGetAuthUserMock.mockResolvedValue(undefined);
+		createThreadMock.mockResolvedValue({ threadId: 'thread_warm_4' });
+		const insert = vi.fn().mockResolvedValue('support_doc_4');
+
+		await getOrCreateWarmThreadHandler._handler(makeCreatingCtx(insert), {
+			anonymousUserId: 'anon_012'
+		});
+
+		expect(insert).toHaveBeenCalledWith(
+			'supportThreads',
+			expect.objectContaining({ isHandedOff: true })
 		);
 	});
 });

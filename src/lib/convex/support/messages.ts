@@ -8,6 +8,7 @@ import { vStreamArgs } from '@convex-dev/agent/validators';
 import { components } from '../_generated/api';
 import type { UserContent } from 'ai';
 import { supportRateLimiter } from './rateLimit';
+import { isSupportAiEnabled } from './config';
 import { createRateLimitError } from './types';
 import { t, extractLocaleFromUrl } from '../i18n/translations';
 import { MAX_MESSAGE_LENGTH } from '../constants';
@@ -47,6 +48,12 @@ export const sendMessage = mutation({
 		});
 		const effectiveUserId = owner.ownerId;
 		const wasWarmThread = supportThread.isWarm === true;
+
+		// A thread created while the agent was still enabled keeps isHandedOff
+		// false, so the mode has to be re-read per message: otherwise disabling
+		// the agent would leave those threads waiting for a reply nobody sends.
+		const wasHandedOff = supportThread.isHandedOff === true;
+		const isHumanOnly = wasHandedOff || !isSupportAiEnabled();
 
 		// Rate limit check - stricter limits for anonymous users
 		// Authenticated users: keyed by verified user ID
@@ -118,9 +125,8 @@ export const sendMessage = mutation({
 		// Sync denormalized search fields with user's message
 		await syncSupportLastMessage(ctx, args.threadId);
 
-		// Check if thread is handed off to human support
-		// When handed off, skip AI response - only humans respond
-		if (!supportThread.isHandedOff) {
+		// Only humans respond once a thread is human-only
+		if (!isHumanOnly) {
 			// AI mode: Schedule async action to generate AI response with streaming
 			await ctx.scheduler.runAfter(0, internal.support.messages.createAIResponse, {
 				threadId: args.threadId,
@@ -136,14 +142,17 @@ export const sendMessage = mutation({
 		await ctx.db.patch(supportThread._id, {
 			isWarm: wasWarmThread ? false : supportThread.isWarm,
 			status: 'open',
+			// Latch the mode onto the record so the widget stops offering the AI
+			// affordances and the admin list shows the thread as human-only.
+			isHandedOff: isHumanOnly ? true : supportThread.isHandedOff,
 			awaitingAdminResponse: true,
 			updatedAt: Date.now()
 		});
 
-		// Schedule admin notification for handed-off tickets
-		// We only notify for handed-off tickets since AI-handled tickets don't need admin attention
+		// Schedule admin notification for human-only tickets
+		// We only notify for those since AI-handled tickets don't need admin attention
 		// Note: scheduleAdminNotification handles both create and update cases internally
-		if (supportThread.isHandedOff) {
+		if (isHumanOnly) {
 			await ctx.scheduler.runAfter(
 				0,
 				internal.admin.support.notifications.scheduleAdminNotification,
@@ -151,8 +160,15 @@ export const sendMessage = mutation({
 					threadId: args.threadId,
 					messageIds: [messageId],
 					isReopen: wasClosedBeforeThisMessage,
-					// Reopened tickets use 'newTickets' preference; follow-up messages use 'userReplies'
-					notificationType: wasClosedBeforeThisMessage ? 'newTickets' : 'userReplies'
+					// A ticket is new to the team when it is reopened, when it lands in
+					// the human inbox for the first time, or when this is the thread's
+					// first message at all: with the agent disabled a thread is created
+					// already handed off, so that flag alone does not mean anyone saw
+					// it. Only a message on a thread they already hold is a reply.
+					notificationType:
+						wasClosedBeforeThisMessage || !wasHandedOff || wasWarmThread
+							? 'newTickets'
+							: 'userReplies'
 				}
 			);
 		}
@@ -175,6 +191,13 @@ export const createAIResponse = internalAction({
 	},
 	returns: v.null(),
 	handler: async (ctx, args) => {
+		// sendMessage already decides the mode, but a job scheduled before the
+		// agent was switched off would still stream an answer into a thread the
+		// team owns. This is the enforcement point for that.
+		if (!isSupportAiEnabled()) {
+			return null;
+		}
+
 		// Global rate limit check for cost protection
 		// This MUST fail the request to protect against runaway costs
 		const globalStatus = await supportRateLimiter.limit(ctx, 'globalLLM');
