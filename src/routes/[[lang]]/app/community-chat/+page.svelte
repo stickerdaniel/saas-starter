@@ -290,7 +290,7 @@
 			<!-- Progressive blur at bottom -->
 			{#if messages.data && messages.data.length > 0}
 				<div
-					class="pointer-events-none absolute right-[calc(var(--scrollbar-w)+0.25rem)] bottom-0 left-0 z-10 h-20 md:right-[calc(var(--scrollbar-w)+0.75rem)]"
+					class="pointer-events-none absolute right-[calc(var(--scrollbar-w,0px)+0.25rem)] bottom-0 left-0 z-10 h-20 md:right-[calc(var(--scrollbar-w,0px)+0.75rem)]"
 				>
 					<ProgressiveBlur class="absolute inset-0" direction="bottom" blurIntensity={1} />
 					{#if resolvedBg}
