@@ -7,8 +7,8 @@
  * required/optional split comes for free: required vars type as `string`,
  * optional vars as `string | undefined`.
  *
- * varlock (.env-convex.schema) stays canonical for typegen and for the scripts
- * that check which vars exist and which are required;
+ * varlock (.env-convex.schema) stays canonical for code generation and for the
+ * scripts that check which vars exist and which are required;
  * `scripts/env-schema-parity.test.ts` keeps the two declarations in sync.
  *
  * What it does NOT do, despite what the decorators suggest: no value ever
