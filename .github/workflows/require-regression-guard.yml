@@ -1,6 +1,6 @@
-# Enforces the Regression Guard Decision Tree contract from AGENTS.md:
+# Enforces the regression-guard contract from scripts/AGENTS.md:
 # every fix PR must state its regression-guard verdict in the body
-# (added <name> / covered by <name> / none feasible, <reason>).
+# (added <name> / covered by <name> / not warranted, <reason>).
 name: Require Regression Guard
 
 on:
@@ -30,6 +30,6 @@ jobs:
             echo "  Regression guard: added <name>"
             echo "  Regression guard: covered by <name>"
             echo "  Regression guard: not warranted, <one-line reason>"
-            echo "See AGENTS.md, section Regression Guard Decision Tree."
+            echo "See scripts/AGENTS.md, section Validation."
             exit 1
           fi
