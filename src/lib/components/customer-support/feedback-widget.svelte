@@ -316,7 +316,11 @@
 								fileIds: chatUIContext.uploadedFileIds,
 								attachments: chatUIContext.attachments
 							});
-							chatUIContext.clearAttachments();
+							// The composer clears these itself, synchronously, before this
+							// await can yield. Clearing them again here reaches only what
+							// was attached afterwards, which a human-only thread invites:
+							// nothing blocks the composer while a send is in flight, so a
+							// second screenshot picked meanwhile would vanish.
 							// Clear draft after successful send
 							threadContext.clearDraft(threadContext.threadId);
 						} catch (error) {
