@@ -123,6 +123,24 @@ export const sendMessage = mutation({
 			messageId = result.messageId;
 		}
 
+		// A thread arriving in the human inbox for the first time gets the same
+		// acknowledgement the handoff button writes. Without it an anonymous
+		// visitor sees no reply at all, and the widget's email prompt has
+		// nothing to render against: it hangs off exactly this message.
+		if (isHumanOnly && !wasHandedOff) {
+			await supportAgent.saveMessage(ctx, {
+				threadId: args.threadId,
+				message: {
+					role: 'assistant',
+					content: t(
+						extractLocaleFromUrl(supportThread.pageUrl),
+						'backend.support.handoff.response'
+					)
+				},
+				skipEmbeddings: true
+			});
+		}
+
 		// Sync denormalized search fields with user's message
 		await syncSupportLastMessage(ctx, args.threadId);
 

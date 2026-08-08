@@ -58,17 +58,15 @@
 		}
 	}
 
-	// Closing has to leave the chat view, not just the URL, and every way out
-	// writes this one param: the panel's own controls, the app header's
-	// launcher, and the browser's back button. Keyed off the param rather than
-	// repeated in each of them, because missing one is silent — a warm thread
-	// acquired for a conversation closed mid-creation resolves afterwards and
-	// its write-back guard is the view, so it would put the id back into the
-	// URL of a closed widget and reopen into the conversation just left.
+	// A conversation still being acquired has no id yet, and the mutation that
+	// gives it one resolves after the close and adopts it unless the view has
+	// moved on — putting the id back into the URL of a closed widget. Only
+	// that case leaves the chat view: an established conversation stays put,
+	// so reopening resumes it rather than dropping the visitor on the list.
 	watch(
 		() => isFeedbackOpen,
 		(open, wasOpen) => {
-			if (wasOpen && !open) threadContext.goBack();
+			if (wasOpen && !open && !threadContext.threadId) threadContext.goBack();
 		}
 	);
 

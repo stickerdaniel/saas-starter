@@ -318,6 +318,30 @@ describe('sendMessage routing between the agent and the team', () => {
 		);
 	});
 
+	// The email prompt in the widget renders against this message, and without
+	// it an anonymous visitor gets no reply at all on their first report.
+	it('acknowledges the first message that reaches the team', async () => {
+		aiEnabledMock.mockReturnValue(false);
+		givenThread({ isWarm: true, isHandedOff: false });
+
+		await sendHandler._handler(makeCtx(), { threadId: 't1', prompt: 'the map is blank' });
+
+		const calls = saveMessageMock.mock.calls;
+		expect(calls[calls.length - 1][1].message).toEqual({
+			role: 'assistant',
+			content: 'translated'
+		});
+	});
+
+	it('does not acknowledge again on a thread the team already holds', async () => {
+		aiEnabledMock.mockReturnValue(false);
+		givenThread({ isHandedOff: true });
+
+		await sendHandler._handler(makeCtx(), { threadId: 't1', prompt: 'any news?' });
+
+		expect(saveMessageMock).toHaveBeenCalledTimes(1);
+	});
+
 	it('reports a follow-up on a thread the team already holds as a user reply', async () => {
 		givenThread({ isHandedOff: true });
 		const ctx = makeCtx();
