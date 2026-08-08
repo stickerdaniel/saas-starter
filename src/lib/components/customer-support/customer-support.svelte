@@ -48,7 +48,11 @@
 	// URL state sync handlers
 	function setWidgetOpen(open: boolean) {
 		urlState.support = open ? 'open' : '';
-		if (open && threadContext.threadId) {
+		// Only while that thread is the one on screen. A closed widget left the
+		// conversation but kept its id, so restoring the param on reopen would
+		// claim a selected thread under a view showing the overview, and a
+		// reload of that URL would open the conversation the visitor closed.
+		if (open && threadContext.threadId && threadContext.currentView !== 'overview') {
 			urlState.thread = threadContext.threadId;
 		}
 	}
