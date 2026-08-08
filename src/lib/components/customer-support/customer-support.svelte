@@ -22,6 +22,7 @@
 	import { buildMailto } from '$lib/utils/mailto';
 	import { activeUploadsContext } from '$lib/hooks/active-uploads.svelte.ts';
 	import { watch } from 'runed';
+	import { isSupportAiEnabled } from '$lib/config/support';
 
 	const { t } = getTranslate();
 
@@ -255,7 +256,13 @@
 	}
 </script>
 
-<AIChatbar isFeedbackOpen={!shouldShowAIChatbar} />
+<!-- The chatbar is the agent's own entry point: it offers to answer anything
+     and carries the AI disclosure. With no agent behind it, it would promise
+     a conversation partner that does not exist, so the widget is the only way
+     in on such a build. -->
+{#if isSupportAiEnabled()}
+	<AIChatbar isFeedbackOpen={!shouldShowAIChatbar} />
+{/if}
 <FeedbackButton {isFeedbackOpen} onToggle={setWidgetOpen} bind:isScreenshotMode {chatUIContext} />
 
 <!--

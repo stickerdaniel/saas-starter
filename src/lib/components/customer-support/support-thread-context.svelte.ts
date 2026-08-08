@@ -210,6 +210,11 @@ export class SupportThreadContext {
 		this.notificationEmail = notificationEmail ?? null;
 		this.hasMore = false;
 		this.continueCursor = null;
+		// The send lock belongs to the conversation being left. Carried over, a
+		// reply that never arrives for the old thread cannot clear it, and the
+		// new one's composer stays blocked for the rest of the page's life.
+		this.isSending = false;
+		this.isAwaitingStream = false;
 	}
 
 	/**
