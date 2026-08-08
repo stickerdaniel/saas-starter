@@ -27,8 +27,8 @@ Cloudflare environment values are uploaded through `varlock-wrangler`. Never emb
 
 - `varlock load` validates resolved configuration.
 - `varlock run -- <cmd>` executes with validation and redaction.
-- `varlock typegen` regenerates SvelteKit environment types.
-- `varlock typegen --path .env-convex.schema` regenerates Convex environment types.
+- `varlock codegen` regenerates SvelteKit environment types.
+- `varlock codegen --path .env-convex.schema` regenerates Convex environment types.
 - `varlock scan` checks for leaked values.
 
 ## Generated assets

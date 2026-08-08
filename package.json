@@ -10,7 +10,7 @@
 		"dev:cloud": "bun-tasks dev:frontend ::: dev:backend:cloud",
 		"dev:test": "VARLOCK_ENV=test bun scripts/dev-test.ts",
 		"generate": "bun scripts/generate-convex.ts",
-		"postinstall": "bun svelte-kit sync && varlock typegen && varlock typegen --path .env-convex.schema && bun run build:emails",
+		"postinstall": "bun svelte-kit sync && varlock codegen && varlock codegen --path .env-convex.schema && bun run build:emails",
 		"prebuild": "bun run build:emails",
 		"build": "vite build",
 		"postbuild": "bun scripts/patch-cf-worker.ts",
