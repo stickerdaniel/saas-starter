@@ -95,6 +95,9 @@ export async function createSupportThreadRecord(
 		userId: args.resolvedUserId,
 		isWarm: args.isWarm,
 		status: 'open',
+		// A thread with no message yet is not a ticket. The mode is latched on
+		// the first message instead, so an abandoned draft never reaches the
+		// admin lists, which select on this flag alone.
 		isHandedOff: false,
 		awaitingAdminResponse: args.awaitingAdminResponse,
 		assignedTo: undefined,

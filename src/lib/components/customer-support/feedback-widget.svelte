@@ -58,6 +58,12 @@
 	// Derive agent name from context with fallback
 	const agentName = $derived(threadContext.currentAgentName || 'Kai');
 
+	// Whether the team is the counterpart, which is exactly the inverse of the
+	// context's send lock. Taken from there rather than recomputed, because two
+	// spellings of the same condition are free to drift apart, and the composer
+	// then blocks a send the widget has already offered.
+	const isHumanOnly = $derived(!threadContext.awaitsAgentReply);
+
 	// Derive chat panel open state
 	const isChatOpen = $derived(threadContext.currentView !== 'overview');
 
@@ -226,7 +232,7 @@
 
 	// Derive title icon based on handoff state
 	const titleIcon = $derived.by(() => {
-		if (!threadContext.isHandedOff) return BotIcon;
+		if (!isHumanOnly) return BotIcon;
 		if (!assignedAdmin?.image) return UsersRoundIcon;
 		return undefined;
 	});
@@ -250,14 +256,12 @@
 		isBackView={threadContext.currentView !== 'overview'}
 		defaultIcon={MessagesSquareIcon}
 		defaultTitle={$t('support.widget.header.messages')}
-		backTitle={threadContext.isHandedOff
-			? assignedAdmin?.name || $t('support.header.support_team')
-			: agentName}
-		backSubtitle={threadContext.isHandedOff
+		backTitle={isHumanOnly ? assignedAdmin?.name || $t('support.header.support_team') : agentName}
+		backSubtitle={isHumanOnly
 			? $t('support.widget.header.with_team')
 			: $t('support.widget.header.bot_response')}
 		{titleIcon}
-		titleImage={threadContext.isHandedOff ? assignedAdmin?.image : undefined}
+		titleImage={isHumanOnly ? assignedAdmin?.image : undefined}
 		onBackClick={() => threadContext.goBack()}
 		onCloseClick={onClose}
 	/>
@@ -280,7 +284,7 @@
 				<div class="relative min-h-0 w-full flex-1">
 					<ChatMessages
 						{fileMetadata}
-						showEmailPrompt={threadContext.isHandedOff}
+						showEmailPrompt={isHumanOnly}
 						currentEmail={threadContext.notificationEmail ?? ''}
 						isEmailPending={threadContext.isEmailPending}
 						defaultEmail={sessionEmail}
@@ -297,7 +301,7 @@
 					showCameraButton={true}
 					showFileButton={true}
 					showHandoffButton={true}
-					isHandedOff={threadContext.isHandedOff}
+					isHandedOff={isHumanOnly}
 					isRateLimited={threadContext.isRateLimited}
 					onScreenshot={handleScreenshot}
 					onRequestHandoff={handleRequestHandoff}
@@ -305,7 +309,7 @@
 						if (!prompt?.trim()) return;
 						// In AI mode, block while processing (sending, awaiting stream, or streaming)
 						// In handed-off mode, allow fire-and-forget like admin view
-						if (!threadContext.isHandedOff && chatUIContext.isProcessing) return;
+						if (!isHumanOnly && chatUIContext.isProcessing) return;
 
 						try {
 							await threadContext.sendMessage(client, prompt, {
@@ -348,7 +352,7 @@
 					}}
 				/>
 
-				{#if !threadContext.isHandedOff}
+				{#if !isHumanOnly}
 					<!-- EU AI Act Art. 50(1): the widget is the second entry point into
 						 the same AI thread, so it carries the same disclosure. Dropped
 						 once a human takes over the thread; the slide collapses its

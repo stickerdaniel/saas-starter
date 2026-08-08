@@ -8,6 +8,7 @@ import { vStreamArgs } from '@convex-dev/agent/validators';
 import { components } from '../_generated/api';
 import type { UserContent } from 'ai';
 import { supportRateLimiter } from './rateLimit';
+import { isSupportAiEnabled } from '../../config/support';
 import { createRateLimitError } from './types';
 import { t, extractLocaleFromUrl } from '../i18n/translations';
 import { MAX_MESSAGE_LENGTH } from '../constants';
@@ -47,6 +48,13 @@ export const sendMessage = mutation({
 		});
 		const effectiveUserId = owner.ownerId;
 		const wasWarmThread = supportThread.isWarm === true;
+
+		// A thread created while the agent was still enabled keeps isHandedOff
+		// false, so the mode has to be re-read per message: otherwise disabling
+		// the agent would leave those threads waiting for a reply nobody sends.
+		const wasHandedOff = supportThread.isHandedOff === true;
+		const aiEnabled = isSupportAiEnabled();
+		const isHumanOnly = wasHandedOff || !aiEnabled;
 
 		// Rate limit check - stricter limits for anonymous users
 		// Authenticated users: keyed by verified user ID
@@ -115,12 +123,29 @@ export const sendMessage = mutation({
 			messageId = result.messageId;
 		}
 
+		// A thread arriving in the human inbox for the first time gets the same
+		// acknowledgement the handoff button writes. Without it an anonymous
+		// visitor sees no reply at all, and the widget's email prompt has
+		// nothing to render against: it hangs off exactly this message.
+		if (isHumanOnly && !wasHandedOff) {
+			await supportAgent.saveMessage(ctx, {
+				threadId: args.threadId,
+				message: {
+					role: 'assistant',
+					content: t(
+						extractLocaleFromUrl(supportThread.pageUrl),
+						'backend.support.handoff.response'
+					)
+				},
+				skipEmbeddings: true
+			});
+		}
+
 		// Sync denormalized search fields with user's message
 		await syncSupportLastMessage(ctx, args.threadId);
 
-		// Check if thread is handed off to human support
-		// When handed off, skip AI response - only humans respond
-		if (!supportThread.isHandedOff) {
+		// Only humans respond once a thread is human-only
+		if (!isHumanOnly) {
 			// AI mode: Schedule async action to generate AI response with streaming
 			await ctx.scheduler.runAfter(0, internal.support.messages.createAIResponse, {
 				threadId: args.threadId,
@@ -136,14 +161,17 @@ export const sendMessage = mutation({
 		await ctx.db.patch(supportThread._id, {
 			isWarm: wasWarmThread ? false : supportThread.isWarm,
 			status: 'open',
+			// Latch the mode onto the record so the widget stops offering the AI
+			// affordances and the admin list shows the thread as human-only.
+			isHandedOff: isHumanOnly ? true : supportThread.isHandedOff,
 			awaitingAdminResponse: true,
 			updatedAt: Date.now()
 		});
 
-		// Schedule admin notification for handed-off tickets
-		// We only notify for handed-off tickets since AI-handled tickets don't need admin attention
+		// Schedule admin notification for human-only tickets
+		// We only notify for those since AI-handled tickets don't need admin attention
 		// Note: scheduleAdminNotification handles both create and update cases internally
-		if (supportThread.isHandedOff) {
+		if (isHumanOnly) {
 			await ctx.scheduler.runAfter(
 				0,
 				internal.admin.support.notifications.scheduleAdminNotification,
@@ -151,8 +179,12 @@ export const sendMessage = mutation({
 					threadId: args.threadId,
 					messageIds: [messageId],
 					isReopen: wasClosedBeforeThisMessage,
-					// Reopened tickets use 'newTickets' preference; follow-up messages use 'userReplies'
-					notificationType: wasClosedBeforeThisMessage ? 'newTickets' : 'userReplies'
+					// The flag is the record of what the team has been told: it is only
+					// ever set once a thread has been announced to them, so a message
+					// arriving before that opens a ticket and one arriving after is a
+					// reply on a ticket they hold. Reopening announces it again.
+					notificationType:
+						wasClosedBeforeThisMessage || !wasHandedOff ? 'newTickets' : 'userReplies'
 				}
 			);
 		}
@@ -175,6 +207,18 @@ export const createAIResponse = internalAction({
 	},
 	returns: v.null(),
 	handler: async (ctx, args) => {
+		// sendMessage decides the mode, but the agent can be switched off while a
+		// job it scheduled is still queued. Dropping that job would strand the
+		// message: nothing answers, and the thread is not handed off, so it is
+		// absent from the admin lists too. Hand it to the team instead, which is
+		// what switching the agent off asks for.
+		if (!isSupportAiEnabled()) {
+			await ctx.runMutation(internal.support.handoff.internalSetHandoff, {
+				threadId: args.threadId
+			});
+			return null;
+		}
+
 		// Global rate limit check for cost protection
 		// This MUST fail the request to protect against runaway costs
 		const globalStatus = await supportRateLimiter.limit(ctx, 'globalLLM');
