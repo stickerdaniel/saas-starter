@@ -32,14 +32,13 @@ import { execFileSync } from 'node:child_process';
 import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
-import { ENTRY_EXTENSIONS, surfaceOf, type Surface, type Visibility } from './convex-surface';
+import { identifiersIn, type Reference } from './convex-references';
+import { ENTRY_EXTENSIONS, surfaceOf, type Surface } from './convex-surface';
 
 const CONVEX_ROOT = 'src/lib/convex';
 // Everything under src outside the Convex tree is deployed app code; the
 // Convex tree itself deploys atomically with the functions it references.
 const CONSUMER_ROOT = 'src';
-
-type Reference = { identifier: string; visibility: Visibility; file: string };
 
 function git(args: string[]): string {
 	// stderr captured, not inherited: a probing rev-parse is allowed to fail
@@ -115,23 +114,6 @@ function resolveBaseline(): Baseline {
 		return { commit: base };
 	}
 	return null;
-}
-
-/** `api.users.viewer` -> `users:viewer`. */
-function identifiersIn(source: string, file: string): Reference[] {
-	const found: Reference[] = [];
-	const pattern = /\b(api|internal)\.((?:[A-Za-z0-9_]+\.)+[A-Za-z0-9_]+)/g;
-	for (const match of source.matchAll(pattern)) {
-		const parts = match[2]!.split('.');
-		const fn = parts.pop()!;
-		if (parts.length === 0) continue;
-		found.push({
-			identifier: `${parts.join('/')}:${fn}`,
-			visibility: match[1] === 'api' ? 'public' : 'internal',
-			file
-		});
-	}
-	return found;
 }
 
 // Any deployed source can hold a reference, so this stays wide: declarations
