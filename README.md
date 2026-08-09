@@ -94,6 +94,8 @@ Each PR gets its own preview deployment with an isolated Convex preview backend.
 
 Create a Convex project at [dashboard.convex.dev](https://dashboard.convex.dev) and connect your repo to your hosting platform.
 
+Protect the production branch and require the `Lint & Format` check before merge. That job runs the Convex consumer-compatibility guard. Hosting builds start from a push, so the push-time copy of the check serves as an alarm after an unsupported direct or administrative push and cannot stop a build that already started.
+
 The deploy script (`scripts/deploy.ts`) auto-detects the platform from environment variables (`WORKERS_CI`, `CF_PAGES`, or `VERCEL`), tags and pulls translations, runs `bunx convex deploy` to create a preview backend named after the branch, auto-computes `PUBLIC_CONVEX_URL` and `PUBLIC_CONVEX_SITE_URL` from the deploy output, and sets `SITE_URL` on the Convex instance to match the preview URL. It also seeds an admin user (`admin@preview.dev`) on every preview. Set the password once as a Convex preview default env var, every new preview deployment inherits it regardless of which CI builds it:
 
 ```sh

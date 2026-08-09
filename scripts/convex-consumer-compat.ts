@@ -13,17 +13,20 @@
  * stale preview bundle points at a deleted deployment either way. See issue
  * https://github.com/stickerdaniel/saas-starter/issues/789.
  *
- * So a removal takes two releases: first ship the new name while keeping the
- * old one published exactly as it was (`export const old = newName` is
- * enough), then delete the alias once no deployed or rollback-restorable code
- * references it. This check enforces the first release: every function the
- * app referenced at the baseline commit must still be published with the same
- * name, kind and visibility. The baseline comes from git, which prevents the
- * commit that removes a function from blessing its own removal.
+ * First ship the new name while keeping the old one published exactly as it
+ * was (`export const old = newName` is enough). Server aliases can be removed
+ * once no running or rollback-restorable build references them. Browser aliases
+ * have no automatic expiry because a tab can stay open indefinitely; deleting
+ * one needs separate evidence that supported clients can no longer call it.
+ * This check enforces the compatibility release and does not supply that later
+ * evidence. Every function the app referenced at the baseline commit must still
+ * be published with the same name, kind and visibility. The baseline comes from
+ * git, which prevents the commit that removes a function from blessing its own
+ * removal.
  *
- * A floor, not a proof. The consumer side is read as text, so a reference
- * through a renamed import, bracket notation, or assembled from a variable
- * does not register. What it catches reliably is the case that actually
+ * The check is an incomplete lower bound. The consumer side is read as text, so
+ * a reference through a renamed import, bracket notation, or assembled from a
+ * variable does not register. What it catches reliably is the case that actually
  * happens: a rename done in one commit across both sides.
  */
 
@@ -277,6 +280,7 @@ console.error(
 	'\nConvex deploys before the app build, stale browser tabs outlive both, and a\n' +
 		'platform rollback restores old app code against the new backend. Keep the old\n' +
 		'name published exactly as it was. An alias to the new implementation is\n' +
-		'enough. Delete it in a later release. See https://github.com/stickerdaniel/saas-starter/issues/789.'
+		'enough. Remove it only after no supported client can call it. See\n' +
+		'https://github.com/stickerdaniel/saas-starter/issues/789.'
 );
 process.exit(1);

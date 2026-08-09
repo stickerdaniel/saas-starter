@@ -31,11 +31,12 @@ jobs:
       - run: bun install
       - run: bun scripts/static-checks.ts --ci --scope lint
       # Refuses to remove a Convex function that deployed app code still calls
-      # (see https://github.com/stickerdaniel/saas-starter/issues/789). On a trunk
-      # push the baseline is the push event's pre-push SHA: a push can carry
-      # several commits, and the default
-      # parent-of-HEAD would let the first of them bless a rename the deployed
-      # build never saw.
+      # (see https://github.com/stickerdaniel/saas-starter/issues/789). The PR run
+      # is preventative when branch protection requires this job. Hosting builds
+      # may already be running when the push copy reports an unsupported direct
+      # or administrative push. Its baseline is the pre-push SHA because a push
+      # can carry several commits, and the parent of HEAD would let the first one
+      # bless a rename the deployed build never saw.
       - run: bun run check:convex-compat
         env:
           CONVEX_COMPAT_BASE: ${{ github.event_name == 'push' && github.event.before || '' }}
