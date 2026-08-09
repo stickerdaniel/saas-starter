@@ -19,6 +19,10 @@ jobs:
       PUBLIC_CONVEX_SITE_URL: https://placeholder.convex.site
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          # convex-consumer-compat compares against a baseline commit, which a
+          # shallow checkout cannot resolve.
+          fetch-depth: 0
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
@@ -26,6 +30,14 @@ jobs:
       - run: go install github.com/client9/misspell/cmd/misspell@latest
       - run: bun install
       - run: bun scripts/static-checks.ts --ci --scope lint
+      # Refuses to remove a Convex function that deployed app code still calls
+      # (see issue #789). On a trunk push the baseline is the push event's
+      # pre-push SHA: a push can carry several commits, and the default
+      # parent-of-HEAD would let the first of them bless a rename the deployed
+      # build never saw.
+      - run: bun run check:convex-compat
+        env:
+          CONVEX_COMPAT_BASE: ${{ github.event_name == 'push' && github.event.before || '' }}
 
   typecheck:
     name: Type Check
