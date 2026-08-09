@@ -59,9 +59,9 @@ describe('surfaceOf', () => {
 		expect(surface.has('plain:impostor')).toBe(false);
 	});
 
-	// Whatever the reason a module is missing from the generated api — a
-	// component directory, a schema, a multi-dot name, a `.cjs` module whose
-	// named exports Convex never emits — it publishes nothing.
+	// The generated api can omit a module because of a component boundary, a
+	// schema, a multi-dot name, or a `.cjs` module whose named exports Convex does
+	// not emit. Every omitted module publishes nothing.
 	it('ignores a module the generated api does not list', () => {
 		expect(surface.has('unlisted/hidden:unreachable')).toBe(false);
 	});

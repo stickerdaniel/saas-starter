@@ -1,22 +1,22 @@
 /**
  * Enumerate the function surface a Convex tree publishes.
  *
- * Read off Convex's own generated `api` and `internal` types rather than
- * re-derived from the sources, because every re-derivation drifts. An earlier
- * version walked the tree and classified exports itself, and each review round
- * found another way it disagreed with Convex: component directories counted as
- * root api, a nested `_generated` skipped, `schema.ts` and multi-dot names
- * included, `.cjs` modules whose named exports Convex never emits, files whose
- * only module statements sit behind a comment, and marker-shaped objects that
- * Convex's conditional types reject. All of those are answered here for free.
+ * Read Convex's generated `api` and `internal` types directly because every
+ * source-level reimplementation drifts. An earlier version walked the tree and
+ * classified exports itself. Successive reviews found component boundaries,
+ * skipped files, module syntax, and marker-shaped values where it disagreed
+ * with Convex. The generated types already answer those questions.
  *
- * `_generated/api.d.ts` bakes in the module list, which is what the CLI decided
- * to bundle, so the entry-point rules are already applied. The function set is
- * computed from that list at type-check time through `ApiFromModules` and
- * `FilterApi`, so it always reflects the current sources: deleting an export
- * removes it here even if nobody re-ran codegen. Kind and visibility come out
- * of the `FunctionReference<kind, visibility, ...>` leaf, and `components`
- * stays outside `api` exactly as it does for a caller.
+ * `_generated/api.d.ts` contains the module list selected by the CLI. Its
+ * `ApiFromModules` and `FilterApi` types compute the callable function set from
+ * the current source exports. Kind and visibility come from each
+ * `FunctionReference<kind, visibility, ...>` leaf, while `components` stays
+ * outside `api` exactly as it does for a caller.
+ *
+ * A historical tree must execute this reader from a checkout with its own
+ * frozen install. Conditional types supplied by Convex or another package can
+ * change a registration's kind or remove it without producing `any` or a
+ * diagnostic.
  */
 
 import { existsSync } from 'node:fs';
@@ -197,4 +197,13 @@ export function surfaceOf(
 		throw new Error(`convex-surface: ${entry} published no functions, which cannot be right`);
 	}
 	return surface;
+}
+
+if (import.meta.main) {
+	const convexRoot = process.argv[2];
+	if (!convexRoot) throw new Error('convex-surface: expected the Convex root path');
+	const protectedIdentifiers = new Set<string>(
+		JSON.parse(process.env.CONVEX_SURFACE_PROTECTED_IDENTIFIERS ?? '[]') as string[]
+	);
+	process.stdout.write(JSON.stringify([...surfaceOf(convexRoot, protectedIdentifiers)]));
 }
