@@ -54,6 +54,18 @@ export const internalSetHandoff = internalMutation({
 		// Keep denormalized search fields in sync
 		await syncSupportLastMessage(ctx, args.threadId);
 
+		// Notify admins that a human needs to pick up this thread (same path as the
+		// widget handoff button). A handoff with no prior user messages still
+		// schedules the notification; the email renders a no-messages fallback.
+		//
+		// Read before any acknowledgement is written: the query keeps the newest
+		// 50 entries of any role and filters afterwards, so the canned sentence
+		// would take a slot and could push the oldest report out of the window.
+		const recentMessageIds = await ctx.runQuery(
+			internal.admin.support.notifications.getRecentUserMessages,
+			{ threadId: args.threadId }
+		);
+
 		// After the sync, so the admin list preview and its search index keep the
 		// visitor's own message rather than this canned sentence.
 		if (args.acknowledge) {
@@ -69,14 +81,6 @@ export const internalSetHandoff = internalMutation({
 				skipEmbeddings: true
 			});
 		}
-
-		// Notify admins that a human needs to pick up this thread (same path as the
-		// widget handoff button). A handoff with no prior user messages still
-		// schedules the notification; the email renders a no-messages fallback.
-		const recentMessageIds = await ctx.runQuery(
-			internal.admin.support.notifications.getRecentUserMessages,
-			{ threadId: args.threadId }
-		);
 
 		await ctx.scheduler.runAfter(
 			0,

@@ -245,9 +245,12 @@ describe('sendMessage routing between the agent and the team', () => {
 		'internal.admin.support.notifications.scheduleAdminNotification';
 	const RECENT_USER_MESSAGES_REF = 'internal.admin.support.notifications.getRecentUserMessages';
 
+	// A distinct id per save, so an assertion about which message the team was
+	// told about cannot be satisfied by the acknowledgement written after it.
 	beforeEach(() => {
 		vi.clearAllMocks();
-		saveMessageMock.mockResolvedValue({ messageId: 'm1' });
+		let saves = 0;
+		saveMessageMock.mockImplementation(async () => ({ messageId: `m${++saves}` }));
 	});
 
 	afterEach(() => {
@@ -293,6 +296,10 @@ describe('sendMessage routing between the agent and the team', () => {
 			'st_1',
 			expect.objectContaining({ isHandedOff: false })
 		);
+		// The visitor's message and nothing else. With the agent on, the model
+		// answers, and a canned acknowledgement alongside it would read as the
+		// assistant replying twice.
+		expect(saveMessageMock).toHaveBeenCalledTimes(1);
 	});
 
 	it('sends a first message straight to the team as a new ticket when the AI is off', async () => {
@@ -309,8 +316,30 @@ describe('sendMessage routing between the agent and the team', () => {
 		// A warm thread was created empty, so this message is the conversation and
 		// there is no history worth scanning for.
 		expect(ctx.runQuery).not.toHaveBeenCalled();
+		// m1 is the visitor's report; m2 is the acknowledgement saved after it.
+		// The team has to be pointed at the report.
+		expect(saveMessageMock).toHaveBeenCalledTimes(2);
 		expect(ctx.scheduler.runAfter.mock.calls[0][2]).toEqual(
 			expect.objectContaining({ messageIds: ['m1'] })
+		);
+	});
+
+	// The history query keeps the newest 50 entries of any role and filters to
+	// user ones afterwards, so an acknowledgement written first takes a slot and
+	// can push the oldest report out of exactly the window meant to carry it.
+	it('reads the history before writing the acknowledgement', async () => {
+		aiEnabledMock.mockReturnValue(false);
+		givenThread({ isHandedOff: false });
+		const ctx = makeCtx(['msg_report']);
+
+		await sendHandler._handler(ctx, { threadId: 't1', prompt: 'still broken' });
+
+		const ackIndex = saveMessageMock.mock.calls.findIndex(
+			(call) => call[1].message?.role === 'assistant'
+		);
+		expect(ackIndex).toBeGreaterThan(-1);
+		expect(ctx.runQuery.mock.invocationCallOrder[0]).toBeLessThan(
+			saveMessageMock.mock.invocationCallOrder[ackIndex]
 		);
 	});
 

@@ -126,6 +126,25 @@ export const sendMessage = mutation({
 		// Sync denormalized search fields with user's message
 		await syncSupportLastMessage(ctx, args.threadId);
 
+		// A thread the agent used to answer reaches the team for the first time
+		// here, with its actual report somewhere above this message. Announcing
+		// only the newest one would hand them "still broken" and nothing to read
+		// it against, so the first announcement carries the conversation the way
+		// the handoff button's does. On a thread they already hold, this message
+		// is the reply and the rest is already on their ticket; a warm thread was
+		// created empty, so this message is all there is.
+		//
+		// Read before the acknowledgement is written. That query keeps the newest
+		// 50 entries of any role and filters afterwards, so the canned sentence
+		// would take a slot and, on a long thread, push the report it exists to
+		// deliver out of the window.
+		const announced =
+			isHumanOnly && !wasHandedOff && !wasWarmThread
+				? await ctx.runQuery(internal.admin.support.notifications.getRecentUserMessages, {
+						threadId: args.threadId
+					})
+				: [];
+
 		// A thread arriving in the human inbox for the first time gets the same
 		// acknowledgement the handoff button writes. Without it an anonymous
 		// visitor sees no reply at all, and the widget's email prompt has
@@ -177,22 +196,6 @@ export const sendMessage = mutation({
 		// We only notify for those since AI-handled tickets don't need admin attention
 		// Note: scheduleAdminNotification handles both create and update cases internally
 		if (isHumanOnly) {
-			// A thread the agent used to answer reaches the team for the first time
-			// here, with its actual report somewhere above this message. Announcing
-			// only the newest one would hand them "still broken" and nothing to read
-			// it against, so the first announcement carries the conversation the way
-			// the handoff button's does. On a thread they already hold, this message
-			// is the reply and the rest is already on their ticket.
-			// A warm thread was created empty and is being used for the first time
-			// right now, so this message is the whole conversation and the history
-			// scan behind that query would find nothing else.
-			const announced =
-				wasHandedOff || wasWarmThread
-					? []
-					: await ctx.runQuery(internal.admin.support.notifications.getRecentUserMessages, {
-							threadId: args.threadId
-						});
-
 			await ctx.scheduler.runAfter(
 				0,
 				internal.admin.support.notifications.scheduleAdminNotification,
