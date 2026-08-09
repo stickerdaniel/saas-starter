@@ -29,7 +29,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { rmSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, rmSync } from 'node:fs';
 import path from 'node:path';
 
 import { ENTRY_EXTENSIONS, surfaceOf, type Surface, type Visibility } from './convex-surface';
@@ -134,10 +134,10 @@ function identifiersIn(source: string, file: string): Reference[] {
 	return found;
 }
 
-// Deliberately wider than the surface walk's entry filter: the bundler's rules
-// (no schema.ts, no multi-dot names) say what Convex publishes, while any
-// deployed source at all can hold a reference. Declarations and tests are out;
-// tests run against the working tree, not against production.
+// Any deployed source can hold a reference, so this stays wide: declarations
+// and tests are out (tests run against the working tree, not production).
+// Which of the referenced functions the backend actually published is the
+// surface's answer, not this filter's.
 function isConsumerSource(line: string): boolean {
 	if (/\.d\.[mc]?ts$/.test(line) || /\.(test|spec)\.[a-z]+$/.test(line)) return false;
 	return line.endsWith('.svelte') || ENTRY_EXTENSIONS.some((extension) => line.endsWith(extension));
@@ -155,6 +155,29 @@ function consumerReferencesAt(commit: string): Reference[] {
 }
 
 /**
+ * Give the baseline checkout the generated files git does not carry.
+ *
+ * A worktree checkout holds tracked files only, while parts of a Convex tree
+ * can be produced by build steps. Without them those imports do not resolve,
+ * and the surface refuses to be enumerated — correctly, since it cannot tell
+ * that kind of hole from a dependency that went away. They are scaffolding for
+ * type resolution and never part of the published surface, so the working
+ * tree's copies serve for both commits.
+ */
+function carryOverBuildArtifacts(dir: string): void {
+	const listed = (args: string[]): string[] =>
+		git(['ls-files', '--others', ...args, '--exclude-standard', '--', CONVEX_ROOT])
+			.split('\n')
+			.filter(Boolean);
+	for (const file of new Set([...listed([]), ...listed(['--ignored'])])) {
+		const target = path.join(dir, file);
+		if (existsSync(target)) continue;
+		mkdirSync(path.dirname(target), { recursive: true });
+		copyFileSync(file, target);
+	}
+}
+
+/**
  * The surface at the baseline commit, from a throwaway checkout.
  *
  * Enumerated the same way as the working tree instead of being approximated
@@ -166,6 +189,7 @@ function surfaceAt(commit: string): Surface {
 	const dir = path.join(process.cwd(), 'node_modules', '.cache', `convex-compat-${process.pid}`);
 	git(['worktree', 'add', '--detach', '--quiet', dir, commit]);
 	try {
+		carryOverBuildArtifacts(dir);
 		return surfaceOf(path.join(dir, CONVEX_ROOT));
 	} finally {
 		try {

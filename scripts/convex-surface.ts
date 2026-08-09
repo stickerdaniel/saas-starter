@@ -1,224 +1,152 @@
 /**
  * Enumerate the function surface a Convex tree publishes.
  *
- * Asked of the type checker rather than of the text, because the text lies in
- * both directions. A commented-out `export const old = mutation(` reads as a
- * live function and would wave a deletion through, and an alias
- * `export const old = newName` has no call to match at all. The checker sees
- * the registered type through aliases, re-exports and wrappers like
- * `authedMutation(...)`.
+ * Read off Convex's own generated `api` and `internal` types rather than
+ * re-derived from the sources, because every re-derivation drifts. An earlier
+ * version walked the tree and classified exports itself, and each review round
+ * found another way it disagreed with Convex: component directories counted as
+ * root api, a nested `_generated` skipped, `schema.ts` and multi-dot names
+ * included, `.cjs` modules whose named exports Convex never emits, files whose
+ * only module statements sit behind a comment, and marker-shaped objects that
+ * Convex's conditional types reject. All of those are answered here for free.
  *
- * The registration is read structurally, off the marker properties Convex
- * itself filters by (`isConvexFunction`, one of `isMutation`/`isQuery`/
- * `isAction`, and `isPublic` or `isInternal` — see convex/server's
- * registration types and the generated-API filter). Matching the printed type
- * name was tried first and lies in both directions too: a named type alias
- * prints as the alias and hid a real function, while an object that merely
- * contains a registered function printed the marker type and counted as one.
+ * `_generated/api.d.ts` bakes in the module list, which is what the CLI decided
+ * to bundle, so the entry-point rules are already applied. The function set is
+ * computed from that list at type-check time through `ApiFromModules` and
+ * `FilterApi`, so it always reflects the current sources: deleting an export
+ * removes it here even if nobody re-ran codegen. Kind and visibility come out
+ * of the `FunctionReference<kind, visibility, ...>` leaf, and `components`
+ * stays outside `api` exactly as it does for a caller.
  */
 
-import { existsSync, readdirSync, statSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import path from 'node:path';
 import ts from 'typescript';
 
 export type Visibility = 'public' | 'internal';
 export type Kind = 'mutation' | 'query' | 'action';
 export type Registration = { kind: Kind; visibility: Visibility };
-/** identifier -> how it is published, e.g. `daphne/processMaps:editPlan`. */
+/** identifier -> how it is published, e.g. `users:viewer`. */
 export type Surface = Map<string, Registration>;
 
-export function registrationOf(type: ts.Type, checker: ts.TypeChecker): Registration | null {
-	// A union publishes a function only if every constituent publishes the same
-	// one; `RegisteredMutation | { disabled: true }` is not callable by Convex,
-	// and neither is `RegisteredMutation | undefined` — under the Convex
-	// project's own strictness, ApiFromModules omits that export entirely.
-	if (type.isUnion()) {
-		const parts = type.types.map((part) => registrationOf(part, checker));
-		const first = parts[0];
-		if (!first) return null;
-		return parts.every(
-			(part) => part && part.kind === first.kind && part.visibility === first.visibility
-		)
-			? first
-			: null;
-	}
-	// A marker only counts when its type is the literal `true`, the same test
-	// Convex's generated-API filter applies (`extends true`). Mere presence
-	// would accept `{ isConvexFunction: false, ... }`, which is not callable.
-	// The markers ARE the whole structure of Registered* (no call signature to
-	// demand), so a hand-written marker-shaped object still counts here even
-	// though Convex's conditional types reject it. That over-approximation
-	// only errs conservatively: it can add a promise and block a deletion,
-	// never wave one through.
-	const marker = (name: string): boolean => {
-		const property = type.getProperty(name);
-		if (!property) return false;
-		return checker.typeToString(checker.getTypeOfSymbol(property)) === 'true';
-	};
-	if (!marker('isConvexFunction')) return null;
-	const kinds: Kind[] = [];
-	if (marker('isMutation')) kinds.push('mutation');
-	if (marker('isQuery')) kinds.push('query');
-	if (marker('isAction')) kinds.push('action');
-	if (kinds.length !== 1) return null;
-	const isPublic = marker('isPublic');
-	const isInternal = marker('isInternal');
-	if (isPublic === isInternal) return null;
-	return { kind: kinds[0]!, visibility: isPublic ? 'public' : 'internal' };
-}
-
-// The extension family Convex itself bundles as entry points; a mutation in a
-// `.mts` file is published like any other, and skipping it here would make its
-// later deletion pass vacuously.
+// The extension family Convex bundles as entry points. Only the consumer scan
+// needs it now: which of these files the backend publishes is api.d.ts's answer.
 export const ENTRY_EXTENSIONS = ['.ts', '.tsx', '.mts', '.cts', '.js', '.jsx', '.mjs', '.cjs'];
 
 /**
- * Mirrors the bundler's entryPoints() filter (convex/src/bundler/index.ts):
- * dotfiles, emacs tempfiles, `schema.ts`/`schema.js`, anything with more than
- * one dot (`auth.config.ts`, `convex.config.ts`, `*.test.ts`, `*.d.ts`), and
- * paths containing a space publish nothing.
+ * Diagnostics that can turn a live registration into `any` and drop it out of
+ * the surface unnoticed.
+ *
+ * The baseline tree is type-checked against the *current* `node_modules`, so a
+ * commit that upgrades a dependency past a builder it used to export would
+ * otherwise erase the promise that builder made, and the removal it ships in
+ * the same commit would pass. Narrowed to module resolution and export
+ * existence on purpose: an ordinary type error elsewhere still yields the
+ * declared registration type, and failing on all of them would make an old
+ * baseline unusable for reasons that cannot hide a deletion.
  */
-export function isEntryFile(name: string): boolean {
-	const base = path.basename(name);
-	if (base.startsWith('.') || base.startsWith('#')) return false;
-	if (base === 'schema.ts' || base === 'schema.js') return false;
-	if ((base.match(/\./g) ?? []).length > 1) return false;
-	if (name.includes(' ')) return false;
-	return ENTRY_EXTENSIONS.some((extension) => name.endsWith(extension));
-}
+const ERASING_DIAGNOSTICS = new Set([
+	2305, // Module '...' has no exported member '...'
+	2306, // File '...' is not a module
+	2307, // Cannot find module '...'
+	2614 // Module '...' has no exported member '...' (did you mean default?)
+]);
 
-function convexFiles(dir: string, root: string = dir): string[] {
-	const out: string[] = [];
-	for (const entry of readdirSync(dir)) {
-		// Only the root _generated is codegen output the bundler skips; a nested
-		// one (emails/_generated) is ordinary published code and stays in.
-		if (entry === '_generated' && dir === root) continue;
-		const full = path.join(dir, entry);
-		if (statSync(full).isDirectory()) {
-			// A nested directory with a convex.config.ts is a component: Convex
-			// deploys it into its own namespace and removes its functions from the
-			// root api, so counting them here would keep a promise the root never
-			// made. The root's own convex.config.ts (the app definition) does not
-			// end the walk, because the walk starts below it.
-			if (existsSync(path.join(full, 'convex.config.ts'))) continue;
-			out.push(...convexFiles(full, root));
-		} else if (isEntryFile(entry)) out.push(full);
-	}
-	return out;
-}
-
-/** Strip the entry extension, with forward slashes on every platform:
- *  `daphne/foo.mts` -> `daphne/foo`. */
-function moduleNameOf(convexRoot: string, file: string): string {
-	return path
-		.relative(convexRoot, file)
-		.split(path.sep)
-		.join('/')
-		.replace(/\.[a-z]+$/, '');
-}
-
-/**
- * The Convex tree's own tsconfig when it has one, so `types`, `jsx`, and
- * strictness match what `check:convex` compiles. The fallback keeps `strict`
- * on: without it, `Registered* | undefined` collapses to the bare registration
- * and a conditionally disabled export would read as still published.
- */
-function compilerOptionsFor(convexRoot: string): ts.CompilerOptions {
+function compilerOptions(convexRoot: string): ts.CompilerOptions {
 	const configPath = path.join(convexRoot, 'tsconfig.json');
-	if (existsSync(configPath)) {
-		const read = ts.readConfigFile(configPath, ts.sys.readFile);
-		if (!read.error) {
-			const parsed = ts.parseJsonConfigFileContent(read.config, ts.sys, convexRoot);
-			return { ...parsed.options, noEmit: true, skipLibCheck: true };
-		}
+	if (!existsSync(configPath)) {
+		throw new Error(`convex-surface: no tsconfig.json in ${convexRoot}`);
 	}
-	return {
-		allowJs: true,
-		noEmit: true,
-		skipLibCheck: true,
-		target: ts.ScriptTarget.ESNext,
-		module: ts.ModuleKind.ESNext,
-		moduleResolution: ts.ModuleResolutionKind.Bundler,
-		strict: true
-	};
-}
-
-/**
- * Every package import in the tree must resolve, or the surface is refused
- * outright.
- *
- * An unresolvable import types its bindings as `any`, and an `any`-typed
- * registration silently drops out of the surface. On a baseline checkout that
- * is exactly the dependency-migration hazard: a commit that removes the
- * package the old builders came from (resolution runs against the current
- * node_modules) would erase the promise those builders made, and the check
- * would pass vacuously. Checked by resolving specifiers directly instead of
- * asking for full semantic diagnostics, which would cost a second type-check
- * of the whole tree.
- *
- * Only bare specifiers are held to this. `node:` builtins resolve through the
- * ambient lib, not through module resolution, and a relative import may point
- * at a generated file (`./convex-env`, `./_generated/index.js`) that a git
- * checkout legitimately does not contain; neither is where a removed
- * dependency hides.
- */
-function assertPackageImportsResolve(
-	program: ts.Program,
-	files: string[],
-	options: ts.CompilerOptions
-): void {
-	const unresolved = new Set<string>();
-	for (const file of files) {
-		const source = program.getSourceFile(file);
-		if (!source) continue;
-		ts.forEachChild(source, (node) => {
-			const specifier =
-				(ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) &&
-				node.moduleSpecifier &&
-				ts.isStringLiteral(node.moduleSpecifier)
-					? node.moduleSpecifier.text
-					: null;
-			if (!specifier) return;
-			if (specifier.startsWith('.') || specifier.startsWith('node:')) return;
-			if (!ts.resolveModuleName(specifier, file, options, ts.sys).resolvedModule) {
-				unresolved.add(`${specifier} (from ${file})`);
-			}
-		});
-	}
-	if (unresolved.size > 0) {
+	const read = ts.readConfigFile(configPath, ts.sys.readFile);
+	if (read.error) {
 		throw new Error(
-			`convex-surface: unresolvable package imports, refusing to enumerate a surface with holes:\n  ${[...unresolved].join('\n  ')}`
+			`convex-surface: ${ts.flattenDiagnosticMessageText(read.error.messageText, ' ')}`
 		);
 	}
+	const parsed = ts.parseJsonConfigFileContent(read.config, ts.sys, convexRoot);
+	// A config that only half-parses would silently compile under defaults, and
+	// the surface it produced would be a guess.
+	if (parsed.errors.length > 0) {
+		throw new Error(
+			`convex-surface: ${configPath} did not parse:\n  ${parsed.errors
+				.map((error) => ts.flattenDiagnosticMessageText(error.messageText, ' '))
+				.join('\n  ')}`
+		);
+	}
+	return { ...parsed.options, noEmit: true, skipLibCheck: true };
+}
+
+/** `api.admin.queries.listUsers` -> `admin/queries:listUsers`. */
+function identifierOf(pathSegments: string[]): string | null {
+	if (pathSegments.length < 2) return null;
+	const fn = pathSegments[pathSegments.length - 1]!;
+	return `${pathSegments.slice(0, -1).join('/')}:${fn}`;
 }
 
 export function surfaceOf(convexRoot: string): Surface {
-	const files = convexFiles(convexRoot);
-	const options = compilerOptionsFor(convexRoot);
-	const program = ts.createProgram(files, options);
-	assertPackageImportsResolve(program, files, options);
+	const entry = path.join(convexRoot, '_generated/api.d.ts');
+	if (!existsSync(entry)) {
+		throw new Error(`convex-surface: ${entry} is missing, so nothing states what is published`);
+	}
+	const options = compilerOptions(convexRoot);
+	const program = ts.createProgram([entry], options);
+
+	const erasing = program
+		.getSemanticDiagnostics()
+		.filter((diagnostic) => ERASING_DIAGNOSTICS.has(diagnostic.code));
+	if (erasing.length > 0) {
+		const shown = erasing.slice(0, 10).map((diagnostic) => {
+			const where = diagnostic.file
+				? `${path.relative(convexRoot, diagnostic.file.fileName)}: `
+				: '';
+			return `${where}${ts.flattenDiagnosticMessageText(diagnostic.messageText, ' ')}`;
+		});
+		throw new Error(
+			`convex-surface: imports do not resolve, refusing to enumerate a surface with holes:\n  ${shown.join('\n  ')}${
+				erasing.length > shown.length ? `\n  (+${erasing.length - shown.length} more)` : ''
+			}`
+		);
+	}
+
 	const checker = program.getTypeChecker();
+	const source = program.getSourceFile(entry);
+	if (!source) throw new Error(`convex-surface: could not read ${entry}`);
+	const moduleSymbol = checker.getSymbolAtLocation(source);
+	if (!moduleSymbol) throw new Error(`convex-surface: ${entry} is not a module`);
+
 	const surface: Surface = new Map();
-	for (const file of files) {
-		const source = program.getSourceFile(file);
-		if (!source) continue;
-		const symbol = checker.getSymbolAtLocation(source);
-		if (!symbol) continue;
-		const moduleName = moduleNameOf(convexRoot, file);
-		for (const exportSymbol of checker.getExportsOfModule(symbol)) {
-			const resolved =
-				exportSymbol.flags & ts.SymbolFlags.Alias
-					? checker.getAliasedSymbol(exportSymbol)
-					: exportSymbol;
-			const declaration = resolved.valueDeclaration ?? resolved.declarations?.[0];
-			if (!declaration) continue;
-			const registration = registrationOf(
-				checker.getTypeOfSymbolAtLocation(resolved, declaration),
-				checker
-			);
-			if (!registration) continue;
-			surface.set(`${moduleName}:${exportSymbol.getName()}`, registration);
+	const leaf = /^FunctionReference<"(query|mutation|action)", "(public|internal)"/;
+
+	const walk = (type: ts.Type, segments: string[], depth: number): void => {
+		// Convex nests one level per directory; the real tree is three or four
+		// deep, and the bound keeps a recursive type from running away.
+		if (depth > 12) return;
+		const match = leaf.exec(checker.typeToString(type));
+		if (match) {
+			const identifier = identifierOf(segments);
+			if (identifier) {
+				surface.set(identifier, {
+					kind: match[1] as Kind,
+					visibility: match[2] as Visibility
+				});
+			}
+			return;
 		}
+		for (const property of checker.getPropertiesOfType(type)) {
+			walk(checker.getTypeOfSymbol(property), [...segments, property.getName()], depth + 1);
+		}
+	};
+
+	for (const exported of checker.getExportsOfModule(moduleSymbol)) {
+		// `components` is deliberately absent: a component's functions live in
+		// their own namespace and are not callable through `api`.
+		if (exported.getName() !== 'api' && exported.getName() !== 'internal') continue;
+		const declaration = exported.valueDeclaration ?? exported.declarations?.[0];
+		if (!declaration) continue;
+		walk(checker.getTypeOfSymbolAtLocation(exported, declaration), [], 0);
+	}
+	if (surface.size === 0) {
+		throw new Error(`convex-surface: ${entry} published no functions, which cannot be right`);
 	}
 	return surface;
 }

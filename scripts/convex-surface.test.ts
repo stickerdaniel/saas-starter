@@ -3,115 +3,55 @@ import { describe, expect, it } from 'vitest';
 
 import { surfaceOf } from './convex-surface';
 
-// One checker run over the fixture tree; the assertions below pin the
-// classifier the consumer-compat check stands on.
+// A miniature Convex tree with its own generated api.d.ts, shaped the way the
+// CLI writes one. What the walker reads is Convex's own FilterApi output, so
+// these assertions pin the reading, not a re-derivation of what it publishes.
 const surface = surfaceOf(path.join(__dirname, '__fixtures__/convex-surface'));
 
 describe('surfaceOf', () => {
-	it('counts direct registrations with kind and visibility', () => {
-		expect(surface.get('registrations:direct')).toEqual({
-			kind: 'mutation',
-			visibility: 'public'
-		});
-		expect(surface.get('registrations:directInternal')).toEqual({
-			kind: 'mutation',
-			visibility: 'internal'
-		});
-		expect(surface.get('registrations:directQuery')).toEqual({
-			kind: 'query',
-			visibility: 'public'
-		});
-		expect(surface.get('registrations:directAction')).toEqual({
-			kind: 'action',
-			visibility: 'public'
-		});
+	it('reads kind and visibility off the published reference', () => {
+		expect(surface.get('plain:rename')).toEqual({ kind: 'mutation', visibility: 'public' });
+		expect(surface.get('plain:read')).toEqual({ kind: 'query', visibility: 'public' });
 	});
 
-	it('counts an alias, a named type alias, and a re-export', () => {
-		expect(surface.get('registrations:aliased')).toEqual({
-			kind: 'mutation',
-			visibility: 'public'
-		});
-		// The printed type is the alias name; the structure still registers.
-		expect(surface.get('registrations:named')).toEqual({
-			kind: 'mutation',
-			visibility: 'public'
-		});
-		expect(surface.get('reexports:reexported')).toEqual({
-			kind: 'mutation',
-			visibility: 'public'
-		});
+	it('reaches functions in a nested module', () => {
+		expect(surface.get('area/nested:sweep')).toEqual({ kind: 'action', visibility: 'internal' });
 	});
 
-	it('counts a registration in every entry extension Convex bundles', () => {
-		expect(surface.get('module:fromMts')).toEqual({
-			kind: 'mutation',
-			visibility: 'public'
-		});
+	// `components` sits beside `api` in the generated file and is not callable
+	// through it, so a component's functions are not this tree's promise.
+	it('leaves the components namespace out', () => {
+		expect([...surface.keys()].some((key) => key.startsWith('some'))).toBe(false);
 	});
 
-	it('walks nested directories with forward-slash identifiers', () => {
-		expect(surface.get('nested/deep:fromNested')).toEqual({
-			kind: 'query',
-			visibility: 'public'
-		});
+	// Convex's own FilterApi rejects a value that only looks like a
+	// registration. A classifier matching the markers itself counted this, and
+	// on the current side that could satisfy a promise a real deletion broke.
+	it('does not count a marker-shaped impostor', () => {
+		expect(surface.has('plain:impostor')).toBe(false);
 	});
 
-	// Only the root _generated is codegen the bundler skips; a nested one is
-	// ordinary published code (the email templates ship one).
-	it('keeps a _generated directory below the root', () => {
-		expect(surface.get('nested/_generated/made:fromNestedGenerated')).toEqual({
-			kind: 'action',
-			visibility: 'internal'
-		});
+	// Whatever the reason a module is missing from the generated api — a
+	// component directory, a schema, a multi-dot name, a `.cjs` module whose
+	// named exports Convex never emits — it publishes nothing.
+	it('ignores a module the generated api does not list', () => {
+		expect(surface.has('unlisted/hidden:unreachable')).toBe(false);
 	});
 
-	// A nested convex.config.ts makes a component: Convex deploys it into its
-	// own namespace and the root api loses its functions, so counting them
-	// would keep a promise the root never made.
-	it('skips component directories', () => {
-		expect(surface.has('component/inside:hidden')).toBe(false);
+	it('found nothing else in the fixture', () => {
+		expect([...surface.keys()].sort()).toEqual(['area/nested:sweep', 'plain:read', 'plain:rename']);
 	});
 
-	// An unresolvable import types as `any` and would silently drop
-	// registrations; on a baseline checkout that erases the promise a removed
-	// dependency's builders made.
-	it('refuses a tree with unresolvable imports', () => {
-		expect(() => surfaceOf(path.join(__dirname, '__fixtures__/convex-surface-unresolved'))).toThrow(
-			/not-a-real-package-anywhere/
+	// An unresolvable import types its registrations as `any`, which would drop
+	// them out of the surface silently. On a baseline checkout that is how a
+	// dependency migration erases the promise the old code made.
+	it('refuses a tree whose imports do not resolve', () => {
+		expect(() => surfaceOf(path.join(__dirname, '__fixtures__/convex-surface-broken'))).toThrow(
+			/a-package-that-does-not-exist/
 		);
 	});
 
-	// The false passes the type-name matching allowed: values that mention a
-	// registered function without being one.
-	it('rejects containers, producers, mixed unions, and plain values', () => {
-		expect(surface.has('registrations:wrappedObject')).toBe(false);
-		expect(surface.has('registrations:inTuple')).toBe(false);
-		expect(surface.has('registrations:producer')).toBe(false);
-		expect(surface.has('registrations:mixedUnion')).toBe(false);
-		expect(surface.has('registrations:plainValue')).toBe(false);
-	});
-
-	// The false passes marker presence alone would allow: Convex's own filter
-	// demands markers that are literally true, and its strict compilation keeps
-	// `| undefined` a union the generated api omits.
-	it('rejects false-valued markers and a conditionally disabled export', () => {
-		expect(surface.has('registrations:falseMarkers')).toBe(false);
-		expect(surface.has('registrations:conditional')).toBe(false);
-	});
-
-	it('found nothing else in the fixtures', () => {
-		expect([...surface.keys()].sort()).toEqual([
-			'module:fromMts',
-			'nested/_generated/made:fromNestedGenerated',
-			'nested/deep:fromNested',
-			'reexports:reexported',
-			'registrations:aliased',
-			'registrations:direct',
-			'registrations:directAction',
-			'registrations:directInternal',
-			'registrations:directQuery',
-			'registrations:named'
-		]);
+	it('refuses a tree with no generated api', () => {
+		expect(() => surfaceOf(path.join(__dirname, '__fixtures__'))).toThrow(/api\.d\.ts/);
 	});
 });
