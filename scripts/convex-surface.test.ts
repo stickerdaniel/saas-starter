@@ -18,6 +18,20 @@ describe('surfaceOf', () => {
 		expect(surface.get('area/nested:sweep')).toEqual({ kind: 'action', visibility: 'internal' });
 	});
 
+	// A generated API node can be both a function and a namespace: foo.ts
+	// exports bar, while foo/bar.ts exports baz. Both promises must survive.
+	it('keeps walking when a function is also a namespace', () => {
+		expect(surface.get('foo:bar')).toEqual({ kind: 'query', visibility: 'public' });
+		expect(surface.get('foo/bar:baz')).toEqual({ kind: 'query', visibility: 'public' });
+	});
+
+	it('does not silently truncate a deeply nested module', () => {
+		expect(surface.get('a/b/c/d/e/f/g/h/i/j/k/l/m/deep:end')).toEqual({
+			kind: 'query',
+			visibility: 'public'
+		});
+	});
+
 	// `components` sits beside `api` in the generated file and is not callable
 	// through it, so a component's functions are not this tree's promise.
 	it('leaves the components namespace out', () => {
@@ -39,15 +53,40 @@ describe('surfaceOf', () => {
 	});
 
 	it('found nothing else in the fixture', () => {
-		expect([...surface.keys()].sort()).toEqual(['area/nested:sweep', 'plain:read', 'plain:rename']);
+		expect([...surface.keys()].sort()).toEqual([
+			'a/b/c/d/e/f/g/h/i/j/k/l/m/deep:end',
+			'area/nested:sweep',
+			'foo/bar:baz',
+			'foo:bar',
+			'plain:read',
+			'plain:rename'
+		]);
 	});
 
 	// An unresolvable import types its registrations as `any`, which would drop
 	// them out of the surface silently. On a baseline checkout that is how a
 	// dependency migration erases the promise the old code made.
-	it('refuses a tree whose imports do not resolve', () => {
-		expect(() => surfaceOf(path.join(__dirname, '__fixtures__/convex-surface-broken'))).toThrow(
-			/a-package-that-does-not-exist/
+	it('refuses a tree whose protected import does not resolve', () => {
+		expect(() =>
+			surfaceOf(
+				path.join(__dirname, '__fixtures__/convex-surface-broken'),
+				new Set(['broken:orphan'])
+			)
+		).toThrow(/broken:orphan|protected api branch/);
+	});
+
+	// TypeScript has many diagnostic codes that recover an invalid expression
+	// as any. Inspecting the value export catches the effect itself (TS2339 here)
+	// so a package API change cannot erase a baseline promise.
+	it('refuses a protected API-producing value export that became any', () => {
+		expect(() =>
+			surfaceOf(path.join(__dirname, '__fixtures__/convex-surface-any'), new Set(['broken:erased']))
+		).toThrow(/became any or unknown|protected api branch/);
+	});
+
+	it('does not make an unrelated any export fatal', () => {
+		expect(surfaceOf(path.join(__dirname, '__fixtures__/convex-surface-any'))).toEqual(
+			new Map([['broken:keep', { kind: 'query', visibility: 'public' }]])
 		);
 	});
 

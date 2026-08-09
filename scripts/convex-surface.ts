@@ -33,25 +33,6 @@ export type Surface = Map<string, Registration>;
 // needs it now: which of these files the backend publishes is api.d.ts's answer.
 export const ENTRY_EXTENSIONS = ['.ts', '.tsx', '.mts', '.cts', '.js', '.jsx', '.mjs', '.cjs'];
 
-/**
- * Diagnostics that can turn a live registration into `any` and drop it out of
- * the surface unnoticed.
- *
- * The baseline tree is type-checked against the *current* `node_modules`, so a
- * commit that upgrades a dependency past a builder it used to export would
- * otherwise erase the promise that builder made, and the removal it ships in
- * the same commit would pass. Narrowed to module resolution and export
- * existence on purpose: an ordinary type error elsewhere still yields the
- * declared registration type, and failing on all of them would make an old
- * baseline unusable for reasons that cannot hide a deletion.
- */
-const ERASING_DIAGNOSTICS = new Set([
-	2305, // Module '...' has no exported member '...'
-	2306, // File '...' is not a module
-	2307, // Cannot find module '...'
-	2614 // Module '...' has no exported member '...' (did you mean default?)
-]);
-
 function compilerOptions(convexRoot: string): ts.CompilerOptions {
 	const configPath = path.join(convexRoot, 'tsconfig.json');
 	if (!existsSync(configPath)) {
@@ -76,51 +57,107 @@ function compilerOptions(convexRoot: string): ts.CompilerOptions {
 	return { ...parsed.options, noEmit: true, skipLibCheck: true };
 }
 
-/** `api.admin.queries.listUsers` -> `admin/queries:listUsers`. */
+/** `api.daphne.processMaps.editPlan` -> `users:viewer`. */
 function identifierOf(pathSegments: string[]): string | null {
 	if (pathSegments.length < 2) return null;
 	const fn = pathSegments[pathSegments.length - 1]!;
 	return `${pathSegments.slice(0, -1).join('/')}:${fn}`;
 }
 
-export function surfaceOf(convexRoot: string): Surface {
+export function surfaceOf(
+	convexRoot: string,
+	protectedIdentifiers: ReadonlySet<string> = new Set()
+): Surface {
 	const entry = path.join(convexRoot, '_generated/api.d.ts');
 	if (!existsSync(entry)) {
 		throw new Error(`convex-surface: ${entry} is missing, so nothing states what is published`);
 	}
 	const options = compilerOptions(convexRoot);
 	const program = ts.createProgram([entry], options);
-
-	const erasing = program
-		.getSemanticDiagnostics()
-		.filter((diagnostic) => ERASING_DIAGNOSTICS.has(diagnostic.code));
-	if (erasing.length > 0) {
-		const shown = erasing.slice(0, 10).map((diagnostic) => {
-			const where = diagnostic.file
-				? `${path.relative(convexRoot, diagnostic.file.fileName)}: `
-				: '';
-			return `${where}${ts.flattenDiagnosticMessageText(diagnostic.messageText, ' ')}`;
-		});
-		throw new Error(
-			`convex-surface: imports do not resolve, refusing to enumerate a surface with holes:\n  ${shown.join('\n  ')}${
-				erasing.length > shown.length ? `\n  (+${erasing.length - shown.length} more)` : ''
-			}`
-		);
-	}
-
 	const checker = program.getTypeChecker();
 	const source = program.getSourceFile(entry);
 	if (!source) throw new Error(`convex-surface: could not read ${entry}`);
 	const moduleSymbol = checker.getSymbolAtLocation(source);
 	if (!moduleSymbol) throw new Error(`convex-surface: ${entry} is not a module`);
 
+	// TypeScript has many ways to recover an invalid registration as `any`
+	// (missing export, property, callable signature, or identifier). Inspect the
+	// value exports that correspond to functions the deployed consumer actually
+	// referenced and fail on the effect itself. Unrelated framework adapters may
+	// intentionally export any (Autumn does in the starter), so failing every any
+	// in the tree would turn a focused compatibility guard into a second global
+	// type-check.
+	const erasedPromises: string[] = [];
+	for (const statement of source.statements) {
+		if (!ts.isImportDeclaration(statement) || !statement.importClause?.namedBindings) continue;
+		if (!ts.isNamespaceImport(statement.importClause.namedBindings)) continue;
+		if (!ts.isStringLiteral(statement.moduleSpecifier)) continue;
+		const moduleName = statement.moduleSpecifier.text
+			.replace(/^\.\.\//, '')
+			.replace(/\.[^.]+$/, '');
+		const promisedHere = [...protectedIdentifiers].filter((identifier) =>
+			identifier.startsWith(`${moduleName}:`)
+		);
+		if (promisedHere.length === 0) continue;
+		const alias = checker.getSymbolAtLocation(statement.importClause.namedBindings.name);
+		if (!alias) {
+			erasedPromises.push(...promisedHere);
+			continue;
+		}
+		const imported = checker.getAliasedSymbol(alias);
+		const exports = checker.getExportsOfModule(imported);
+		for (const identifier of promisedHere) {
+			const exportName = identifier.slice(moduleName.length + 1);
+			const exported = exports.find((candidate) => candidate.getName() === exportName);
+			if (!exported?.valueDeclaration) continue;
+			const type = checker.getTypeOfSymbolAtLocation(exported, exported.valueDeclaration);
+			if (type.flags & (ts.TypeFlags.Any | ts.TypeFlags.Unknown)) {
+				erasedPromises.push(identifier);
+			}
+		}
+	}
+	if (erasedPromises.length > 0) {
+		throw new Error(
+			`convex-surface: protected value exports became any or unknown, refusing to let dependency drift erase them:\n  ${[
+				...new Set(erasedPromises)
+			].join('\n  ')}`
+		);
+	}
+
 	const surface: Surface = new Map();
 	const leaf = /^FunctionReference<"(query|mutation|action)", "(public|internal)"/;
+	const referenceFields = new Set([
+		'_type',
+		'_visibility',
+		'_args',
+		'_returnType',
+		'_componentPath'
+	]);
+
+	const protectsBelow = (segments: string[]): boolean => {
+		if (segments.length === 0) return protectedIdentifiers.size > 0;
+		const prefix = segments.join('/');
+		return [...protectedIdentifiers].some(
+			(identifier) => identifier.startsWith(`${prefix}/`) || identifier.startsWith(`${prefix}:`)
+		);
+	};
 
 	const walk = (type: ts.Type, segments: string[], depth: number): void => {
-		// Convex nests one level per directory; the real tree is three or four
-		// deep, and the bound keeps a recursive type from running away.
-		if (depth > 12) return;
+		// Convex has no module nesting limit. A bound remains as a cycle guard, but
+		// exceeding it is a hard failure: silently returning would erase a valid
+		// deep promise from the baseline.
+		if (depth > 100) {
+			throw new Error(`convex-surface: api type nesting exceeded 100 at ${segments.join('.')}`);
+		}
+		if (
+			protectsBelow(segments) &&
+			(type.flags & (ts.TypeFlags.Any | ts.TypeFlags.Unknown) ||
+				checker.getIndexInfoOfType(type, ts.IndexKind.String))
+		) {
+			throw new Error(
+				`convex-surface: protected api branch became any, unknown, or string-indexed at ${segments.join('.') || '<root>'}`
+			);
+		}
 		const match = leaf.exec(checker.typeToString(type));
 		if (match) {
 			const identifier = identifierOf(segments);
@@ -130,9 +167,12 @@ export function surfaceOf(convexRoot: string): Surface {
 					visibility: match[2] as Visibility
 				});
 			}
-			return;
+			// A node can be both a function and a namespace (`foo.ts` exports bar,
+			// `foo/bar.ts` exports baz). Record `foo:bar`, then keep walking the
+			// namespace properties while skipping FunctionReference's own fields.
 		}
 		for (const property of checker.getPropertiesOfType(type)) {
+			if (match && referenceFields.has(property.getName())) continue;
 			walk(checker.getTypeOfSymbol(property), [...segments, property.getName()], depth + 1);
 		}
 	};

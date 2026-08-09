@@ -27,7 +27,7 @@ import {
 	NEWTICKETADMINNOTIFICATION_TEXT,
 	NEWUSERSIGNUPNOTIFICATION_HTML,
 	NEWUSERSIGNUPNOTIFICATION_TEXT
-} from './_generated/index.js';
+} from '../../emails/generated/index.js';
 import { requireEnv } from '../env';
 import { t, DEFAULT_LOCALE, getValidLocale } from '../i18n/translations';
 

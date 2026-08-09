@@ -3,7 +3,14 @@ import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 describe('Generated Email Templates', () => {
-	const generatedDir = join(process.cwd(), 'src/lib/convex/emails/_generated');
+	const generatedDir = join(process.cwd(), 'src/lib/emails/generated');
+
+	// Convex treats nested source files as function entry-point candidates. Keep
+	// ignored build output out of that tree so every deployed module has a
+	// reconstructible git history.
+	it('keeps generated templates outside the Convex function root', () => {
+		expect(existsSync(join(process.cwd(), 'src/lib/convex/emails/_generated'))).toBe(false);
+	});
 
 	describe('VerificationEmail (Magic Link)', () => {
 		it('generates verification template files', () => {

@@ -18,7 +18,11 @@ import {
 } from '../src/lib/emails/templates/registry';
 
 const __scriptDir = dirname(fileURLToPath(import.meta.url));
-const GENERATED_DIR = join(__scriptDir, '../src/lib/convex/emails/_generated');
+// Keep generated template constants outside the Convex function root. Files
+// beneath src/lib/convex are entry-point candidates, so ignored generated
+// output there has no reconstructible historical surface for compatibility
+// checks and can silently change the deployed API between commits.
+const GENERATED_DIR = join(__scriptDir, '../src/lib/emails/generated');
 const TEMPLATES_PATH = '/src/lib/emails/templates';
 
 /**
