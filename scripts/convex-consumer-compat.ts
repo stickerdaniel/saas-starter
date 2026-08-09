@@ -2,13 +2,16 @@
  * Refuse to remove a Convex function that deployed app code still calls.
  *
  * `scripts/deploy.ts` pushes Convex functions before the SvelteKit build
- * exists, so every deploy has a window in which the previous app code runs
- * against the new backend, and browser tabs stretch that window indefinitely:
- * the version poll only reloads on the next navigation, so a tab that never
- * navigates keeps calling with its old bundle. A platform rollback widens it
- * further, because it restores old app code while Convex has no function
- * versioning, no aliases and no deployment rollback to restore the surface
- * that code was built against. See issue #789.
+ * exists, so on an existing deployment every deploy has a window in which the
+ * previous app code runs against the new backend, and browser tabs stretch
+ * that window indefinitely: the version poll only reloads on the next
+ * navigation, so a tab that never navigates keeps calling with its old
+ * bundle. A platform rollback widens it further, because it restores old app
+ * code while Convex has no function versioning, no aliases and no deployment
+ * rollback to restore the surface that code was built against. Previews are
+ * outside this reasoning: `--preview-create` recreates the backend, so a
+ * stale preview bundle points at a deleted deployment either way. See issue
+ * #789.
  *
  * So a removal takes two releases: first ship the new name while keeping the
  * old one published exactly as it was (`export const old = newName` is
@@ -29,7 +32,7 @@ import { execFileSync } from 'node:child_process';
 import { rmSync } from 'node:fs';
 import path from 'node:path';
 
-import { isEntryFile, surfaceOf, type Surface, type Visibility } from './convex-surface';
+import { ENTRY_EXTENSIONS, surfaceOf, type Surface, type Visibility } from './convex-surface';
 
 const CONVEX_ROOT = 'src/lib/convex';
 // Everything under src outside the Convex tree is deployed app code; the
@@ -131,13 +134,19 @@ function identifiersIn(source: string, file: string): Reference[] {
 	return found;
 }
 
+// Deliberately wider than the surface walk's entry filter: the bundler's rules
+// (no schema.ts, no multi-dot names) say what Convex publishes, while any
+// deployed source at all can hold a reference. Declarations and tests are out;
+// tests run against the working tree, not against production.
+function isConsumerSource(line: string): boolean {
+	if (/\.d\.[mc]?ts$/.test(line) || /\.(test|spec)\.[a-z]+$/.test(line)) return false;
+	return line.endsWith('.svelte') || ENTRY_EXTENSIONS.some((extension) => line.endsWith(extension));
+}
+
 function consumerReferencesAt(commit: string): Reference[] {
 	const files = git(['ls-tree', '-r', '--name-only', commit, '--', CONSUMER_ROOT])
 		.split('\n')
-		.filter(
-			(line) =>
-				(isEntryFile(line) || line.endsWith('.svelte')) && !line.startsWith(`${CONVEX_ROOT}/`)
-		);
+		.filter((line) => isConsumerSource(line) && !line.startsWith(`${CONVEX_ROOT}/`));
 	const refs: Reference[] = [];
 	for (const file of files) {
 		refs.push(...identifiersIn(git(['show', `${commit}:${file}`]), file));

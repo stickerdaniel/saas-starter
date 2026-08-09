@@ -50,6 +50,38 @@ describe('surfaceOf', () => {
 		});
 	});
 
+	it('walks nested directories with forward-slash identifiers', () => {
+		expect(surface.get('nested/deep:fromNested')).toEqual({
+			kind: 'query',
+			visibility: 'public'
+		});
+	});
+
+	// Only the root _generated is codegen the bundler skips; a nested one is
+	// ordinary published code (the email templates ship one).
+	it('keeps a _generated directory below the root', () => {
+		expect(surface.get('nested/_generated/made:fromNestedGenerated')).toEqual({
+			kind: 'action',
+			visibility: 'internal'
+		});
+	});
+
+	// A nested convex.config.ts makes a component: Convex deploys it into its
+	// own namespace and the root api loses its functions, so counting them
+	// would keep a promise the root never made.
+	it('skips component directories', () => {
+		expect(surface.has('component/inside:hidden')).toBe(false);
+	});
+
+	// An unresolvable import types as `any` and would silently drop
+	// registrations; on a baseline checkout that erases the promise a removed
+	// dependency's builders made.
+	it('refuses a tree with unresolvable imports', () => {
+		expect(() => surfaceOf(path.join(__dirname, '__fixtures__/convex-surface-unresolved'))).toThrow(
+			/not-a-real-package-anywhere/
+		);
+	});
+
 	// The false passes the type-name matching allowed: values that mention a
 	// registered function without being one.
 	it('rejects containers, producers, mixed unions, and plain values', () => {
@@ -71,6 +103,8 @@ describe('surfaceOf', () => {
 	it('found nothing else in the fixtures', () => {
 		expect([...surface.keys()].sort()).toEqual([
 			'module:fromMts',
+			'nested/_generated/made:fromNestedGenerated',
+			'nested/deep:fromNested',
 			'reexports:reexported',
 			'registrations:aliased',
 			'registrations:direct',
