@@ -32,6 +32,13 @@ describe('surfaceOf', () => {
 		});
 	});
 
+	// If a nested namespace exports functions named after all five reference
+	// markers, Convex's own FilterApi omits the entire branch. Direct `api.*`
+	// consumer syntax cannot address it, so it creates no promise for this guard.
+	it('matches FilterApi when all marker names collide', () => {
+		expect([...surface.keys()].some((key) => key.startsWith('markers'))).toBe(false);
+	});
+
 	it('does not silently truncate a deeply nested module', () => {
 		expect(surface.get('a/b/c/d/e/f/g/h/i/j/k/l/m/deep:end')).toEqual({
 			kind: 'query',
