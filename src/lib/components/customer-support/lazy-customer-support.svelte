@@ -6,8 +6,11 @@
 	import LauncherIcon from './launcher-icon.svelte';
 	import { getTranslate } from '@tolgee/svelte';
 	import type { Component } from 'svelte';
+	import SupportUnreadIndicator from './support-unread-indicator.svelte';
+	import { useSupportUnreadState } from './support-unread-state.svelte.ts';
 
 	const { t } = getTranslate();
+	const unread = useSupportUnreadState();
 
 	let isLoading = $state(false);
 	let CustomerSupport: Component | null = $state(null);
@@ -97,10 +100,13 @@
 			size="icon"
 			disabled={isLoading}
 			onclick={openSupport}
-			aria-label={$t('aria.feedback_open')}
-			class="h-12 w-12 rounded-xl transition-[color,background-color,border-color,transform] duration-200 ease-out hover:scale-105 hover:bg-primary active:scale-[0.97]"
+			aria-label={unread.hasUnread ? $t('aria.feedback_open_unread') : $t('aria.feedback_open')}
+			class="relative h-12 w-12 rounded-xl transition-[color,background-color,border-color,transform] duration-200 ease-out hover:scale-105 hover:bg-primary active:scale-[0.97]"
 		>
 			<LauncherIcon />
+			{#if unread.hasUnread}
+				<SupportUnreadIndicator class="absolute -top-1 -right-1" />
+			{/if}
 		</Button>
 	</div>
 {/if}

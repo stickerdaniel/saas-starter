@@ -166,7 +166,10 @@
 				"open_panel": "Open details panel",
 				"page_url": "Page URL",
 				"priority": "Priority",
+				"read_at": "Read {timestamp}",
+				"reply_status": "Latest reply",
 				"status": "Status",
+				"unread": "Not read yet",
 				"user_notes": "User Notes"
 			},
 			"email": {
@@ -322,6 +325,7 @@
 		"copy_failed": "Failed to copy",
 		"feedback_close": "Close feedback",
 		"feedback_open": "Open feedback",
+		"feedback_open_unread": "Open feedback, unread support reply",
 		"github_repository": "GitHub repository",
 		"go_back": "Go back",
 		"hide_password": "Hide password",
@@ -1069,7 +1073,8 @@
 		},
 		"thread": {
 			"load_error": "Failed to load conversations. Please try again later.",
-			"new_conversation": "New conversation"
+			"new_conversation": "New conversation",
+			"unread_reply": "Unread support reply"
 		},
 		"time": {
 			"days_ago": "{days} days ago",

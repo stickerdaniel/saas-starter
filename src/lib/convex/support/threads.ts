@@ -146,6 +146,7 @@ export const listThreads = query({
 				lastMessage: v.optional(v.string()),
 				lastMessageAt: v.optional(v.number()),
 				isHandedOff: v.boolean(),
+				hasUnreadAdminReply: v.boolean(),
 				notificationEmail: v.optional(v.string()),
 				assignedAdmin: v.optional(
 					v.object({
@@ -214,6 +215,7 @@ export const listThreads = query({
 				lastMessage: supportThread.lastMessage,
 				lastMessageAt: supportThread.lastMessageAt,
 				isHandedOff: supportThread.isHandedOff ?? false,
+				hasUnreadAdminReply: supportThread.hasUnreadAdminReply ?? false,
 				notificationEmail: supportThread.notificationEmail,
 				assignedAdmin
 			};
@@ -252,6 +254,9 @@ export const getThread = query({
 		summary: v.optional(v.string()),
 		status: v.union(v.literal('active'), v.literal('archived')),
 		isHandedOff: v.boolean(),
+		lastAdminReplyAt: v.optional(v.number()),
+		userReadAt: v.optional(v.number()),
+		hasUnreadAdminReply: v.boolean(),
 		notificationEmail: v.optional(v.string()),
 		assignedAdmin: v.optional(
 			v.object({
@@ -289,8 +294,11 @@ export const getThread = query({
 		return {
 			...thread,
 			status: toAgentThreadStatus(supportThread.status),
-			isHandedOff: supportThread?.isHandedOff ?? false,
-			notificationEmail: supportThread?.notificationEmail,
+			isHandedOff: supportThread.isHandedOff ?? false,
+			lastAdminReplyAt: supportThread.lastAdminReplyAt,
+			userReadAt: supportThread.userReadAt,
+			hasUnreadAdminReply: supportThread.hasUnreadAdminReply ?? false,
+			notificationEmail: supportThread.notificationEmail,
 			assignedAdmin
 		};
 	}

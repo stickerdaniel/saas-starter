@@ -173,6 +173,8 @@ export const sendAdminReply = adminMutation({
 			throw new ConvexError('Support thread not found');
 		}
 
+		const replyTimestamp = Date.now();
+
 		// Save admin message with role: "assistant" and human provider metadata
 		// Using standalone saveMessage to set custom agentName (Agent.saveMessage uses agent's name)
 		const adminName = ctx.user.name || ctx.user.email || 'Admin';
@@ -236,9 +238,11 @@ export const sendAdminReply = adminMutation({
 		// Convex OCC ensures concurrent mutations retry with fresh data, preventing duplicate emails
 		await ctx.db.patch(supportThread._id, {
 			awaitingAdminResponse: false, // Admin has responded, user is no longer waiting
-			updatedAt: Date.now(),
+			lastAdminReplyAt: replyTimestamp,
+			hasUnreadAdminReply: true,
+			updatedAt: replyTimestamp,
 			...(shouldAutoAssign && { assignedTo: ctx.user._id }),
-			...(shouldNotify && { notificationSentAt: Date.now() })
+			...(shouldNotify && { notificationSentAt: replyTimestamp })
 		});
 
 		// Schedule notification email (async - doesn't block response)

@@ -21,6 +21,7 @@
 	import { isSupportAiEnabled } from '$lib/config/support';
 	import { page } from '$app/state';
 	import { DEFAULT_LANGUAGE } from '$lib/i18n/languages';
+	import SupportUnreadIndicator from './support-unread-indicator.svelte';
 
 	const { t } = getTranslate();
 
@@ -304,6 +305,11 @@
 								? thread.assignedAdmin.name
 								: undefined}
 						/>
+
+						{#if thread.hasUnreadAdminReply}
+							<SupportUnreadIndicator />
+							<span class="sr-only">{$t('support.thread.unread_reply')}</span>
+						{/if}
 
 						<!-- Chevron -->
 						<ChevronRightIcon class="size-5 shrink-0 text-muted-foreground" />

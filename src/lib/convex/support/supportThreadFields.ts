@@ -33,6 +33,11 @@ export const supportThreadFields = {
 	userName: v.optional(v.string()), // From user table
 	userEmail: v.optional(v.string()), // From user table
 
+	// Human support read state
+	lastAdminReplyAt: v.optional(v.number()),
+	userReadAt: v.optional(v.number()),
+	hasUnreadAdminReply: v.optional(v.boolean()),
+
 	// Email notification settings
 	notificationEmail: v.optional(v.string()), // Email to notify on admin response
 	notificationSentAt: v.optional(v.number()) // Last notification timestamp (for 30-min cooldown)

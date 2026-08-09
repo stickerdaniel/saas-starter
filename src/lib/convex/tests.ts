@@ -231,6 +231,63 @@ export const createAnonymousSupportThread = mutation({
 	}
 });
 
+/** Create one anonymous ticket whose latest human reply has not been read. */
+export const createUnreadAnonymousSupportReply = mutation({
+	args: {
+		secret: v.string(),
+		anonymousUserId: v.string()
+	},
+	returns: v.object({ threadId: v.string(), reply: v.string() }),
+	handler: async (ctx, { secret, anonymousUserId }) => {
+		requireTestSecret(secret);
+		if (!isAnonymousUser(anonymousUserId)) throw new Error('Invalid anonymous user ID');
+
+		const title = 'E2E unread support reply';
+		const userMessage = 'E2E support request';
+		const reply = 'E2E support team reply';
+		const replyTimestamp = Date.now();
+		const { threadId } = await supportAgent.createThread(ctx, {
+			userId: anonymousUserId,
+			title,
+			summary: userMessage
+		});
+
+		await supportAgent.saveMessage(ctx, {
+			threadId,
+			prompt: userMessage,
+			skipEmbeddings: true
+		});
+		await supportAgent.saveMessage(ctx, {
+			threadId,
+			message: { role: 'assistant', content: reply },
+			metadata: { provider: 'human' },
+			skipEmbeddings: true
+		});
+
+		await ctx.db.insert('supportThreads', {
+			threadId,
+			userId: anonymousUserId,
+			status: 'open',
+			isHandedOff: true,
+			awaitingAdminResponse: false,
+			pageUrl: '/',
+			createdAt: replyTimestamp,
+			updatedAt: replyTimestamp,
+			searchText: `${title} | ${userMessage} | ${reply}`.toLowerCase(),
+			title,
+			summary: userMessage,
+			lastMessage: reply,
+			lastMessageAt: replyTimestamp,
+			lastMessageRole: 'assistant',
+			lastAgentName: 'Support Team',
+			lastAdminReplyAt: replyTimestamp,
+			hasUnreadAdminReply: true
+		});
+
+		return { threadId, reply };
+	}
+});
+
 // Get support threads by userId for E2E test verification
 // Note: This mutation requires AUTH_E2E_TEST_SECRET for security
 export const getSupportThreadsByUserId = mutation({

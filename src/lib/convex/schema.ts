@@ -72,6 +72,7 @@ export default defineSchema({
 		.index('by_user', ['userId'])
 		.index('by_user_warm', ['userId', 'isWarm'])
 		.index('by_user_and_updated', ['userId', 'updatedAt'])
+		.index('by_user_and_unread_admin_reply', ['userId', 'hasUnreadAdminReply'])
 		.index('by_handed_off_updated', ['isHandedOff', 'updatedAt'])
 		.index('by_handed_off_assigned_updated', ['isHandedOff', 'assignedTo', 'updatedAt'])
 		.index('by_handed_off_status_updated', ['isHandedOff', 'status', 'updatedAt'])

@@ -113,6 +113,65 @@
 		}
 	});
 
+	const hasLoadedLatestHumanReply = $derived.by(() => {
+		const lastAdminReplyAt = threadQuery.data?.lastAdminReplyAt;
+		if (lastAdminReplyAt === undefined) return false;
+
+		return chatUIContext.displayMessages.some(
+			(message) =>
+				message.role === 'assistant' &&
+				message.metadata?.provider === 'human' &&
+				message._creationTime >= lastAdminReplyAt
+		);
+	});
+
+	let markingReplyAt: number | null = null;
+
+	async function markVisibleReplyRead() {
+		const threadId = threadContext.threadId;
+		const lastAdminReplyAt = threadQuery.data?.lastAdminReplyAt;
+		const userReadAt = threadQuery.data?.userReadAt ?? 0;
+
+		if (
+			!isChatOpen ||
+			!hasLoadedLatestHumanReply ||
+			document.visibilityState !== 'visible' ||
+			!threadId ||
+			lastAdminReplyAt === undefined ||
+			userReadAt >= lastAdminReplyAt ||
+			threadQuery.data?.hasUnreadAdminReply !== true ||
+			markingReplyAt === lastAdminReplyAt
+		) {
+			return;
+		}
+
+		markingReplyAt = lastAdminReplyAt;
+		try {
+			await client.mutation(api.support.readState.markThreadRead, {
+				threadId,
+				anonymousUserId
+			});
+		} catch (error) {
+			console.warn('[customer-support] Failed to mark support reply read:', error);
+		} finally {
+			if (markingReplyAt === lastAdminReplyAt) markingReplyAt = null;
+		}
+	}
+
+	watch(
+		() =>
+			[
+				isChatOpen,
+				hasLoadedLatestHumanReply,
+				threadContext.threadId,
+				threadQuery.data?.lastAdminReplyAt,
+				threadQuery.data?.userReadAt,
+				threadQuery.data?.hasUnreadAdminReply,
+				anonymousUserId
+			] as const,
+		() => void markVisibleReplyRead()
+	);
+
 	// Sync drafts when thread changes
 	watch(
 		() => threadContext.threadId,
@@ -238,6 +297,7 @@
 	});
 </script>
 
+<svelte:document onvisibilitychange={markVisibleReplyRead} />
 <svelte:body use:lockscroll={isMobile.current} />
 
 <!-- Background bleed - extends below screen to cover iOS 26 Liquid Glass toolbar gaps -->
