@@ -109,8 +109,12 @@ export function surfaceOf(
 		for (const identifier of promisedHere) {
 			const exportName = identifier.slice(moduleName.length + 1);
 			const exported = exports.find((candidate) => candidate.getName() === exportName);
-			if (!exported?.valueDeclaration) continue;
-			const type = checker.getTypeOfSymbolAtLocation(exported, exported.valueDeclaration);
+			const declaration = exported?.valueDeclaration ?? exported?.declarations?.[0];
+			if (!exported || !declaration) continue;
+			// A named re-export has an ExportSpecifier declaration and no
+			// valueDeclaration. Reading only the latter skipped exactly the alias form
+			// expand-contract encourages when its upstream value drifted to any.
+			const type = checker.getTypeOfSymbolAtLocation(exported, declaration);
 			if (type.flags & (ts.TypeFlags.Any | ts.TypeFlags.Unknown)) {
 				erasedPromises.push(identifier);
 			}

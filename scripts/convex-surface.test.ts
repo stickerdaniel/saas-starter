@@ -99,6 +99,15 @@ describe('surfaceOf', () => {
 		).toThrow(/became any or unknown|protected api branch/);
 	});
 
+	it('refuses a protected named re-export that became any', () => {
+		expect(() =>
+			surfaceOf(
+				path.join(__dirname, '__fixtures__/convex-surface-any'),
+				new Set(['broken:renamed'])
+			)
+		).toThrow(/became any or unknown/);
+	});
+
 	it('does not make an unrelated any export fatal', () => {
 		expect(surfaceOf(path.join(__dirname, '__fixtures__/convex-surface-any'))).toEqual(
 			new Map([['broken:keep', { kind: 'query', visibility: 'public' }]])
