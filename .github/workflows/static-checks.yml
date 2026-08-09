@@ -31,8 +31,9 @@ jobs:
       - run: bun install
       - run: bun scripts/static-checks.ts --ci --scope lint
       # Refuses to remove a Convex function that deployed app code still calls
-      # (see issue #789). On a trunk push the baseline is the push event's
-      # pre-push SHA: a push can carry several commits, and the default
+      # (see https://github.com/stickerdaniel/saas-starter/issues/789). On a trunk
+      # push the baseline is the push event's pre-push SHA: a push can carry
+      # several commits, and the default
       # parent-of-HEAD would let the first of them bless a rename the deployed
       # build never saw.
       - run: bun run check:convex-compat

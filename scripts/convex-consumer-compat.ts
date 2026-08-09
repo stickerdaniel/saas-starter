@@ -11,7 +11,7 @@
  * rollback to restore the surface that code was built against. Previews are
  * outside this reasoning: `--preview-create` recreates the backend, so a
  * stale preview bundle points at a deleted deployment either way. See issue
- * #789.
+ * https://github.com/stickerdaniel/saas-starter/issues/789.
  *
  * So a removal takes two releases: first ship the new name while keeping the
  * old one published exactly as it was (`export const old = newName` is
@@ -292,6 +292,6 @@ console.error(
 	'\nConvex deploys before the app build, stale browser tabs outlive both, and a\n' +
 		'platform rollback restores old app code against the new backend. Keep the old\n' +
 		'name published exactly as it was — an alias to the new implementation is\n' +
-		'enough — and delete it in a later release. See issue #789.'
+		'enough — and delete it in a later release. See https://github.com/stickerdaniel/saas-starter/issues/789.'
 );
 process.exit(1);
