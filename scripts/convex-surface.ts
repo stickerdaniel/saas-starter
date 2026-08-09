@@ -126,13 +126,9 @@ export function surfaceOf(
 
 	const surface: Surface = new Map();
 	const leaf = /^FunctionReference<"(query|mutation|action)", "(public|internal)"/;
-	const referenceFields = new Set([
-		'_type',
-		'_visibility',
-		'_args',
-		'_returnType',
-		'_componentPath'
-	]);
+	const referenceFields = ['_type', '_visibility', '_args', '_returnType', '_componentPath'];
+	const isReferenceConstituent = (type: ts.Type): boolean =>
+		referenceFields.every((field) => checker.getPropertyOfType(type, field) !== undefined);
 
 	const protectsBelow = (segments: string[]): boolean => {
 		if (segments.length === 0) return protectedIdentifiers.size > 0;
@@ -168,11 +164,19 @@ export function surfaceOf(
 				});
 			}
 			// A node can be both a function and a namespace (`foo.ts` exports bar,
-			// `foo/bar.ts` exports baz). Record `foo:bar`, then keep walking the
-			// namespace properties while skipping FunctionReference's own fields.
+			// `foo/bar.ts` exports baz). Split the intersection and walk only its
+			// namespace constituents. Filtering marker *names* is unsafe: `_type`,
+			// `_args`, and the other markers are also valid Convex module segments.
+			if (type.isIntersection()) {
+				for (const constituent of type.types) {
+					if (!isReferenceConstituent(constituent)) {
+						walk(constituent, segments, depth + 1);
+					}
+				}
+			}
+			return;
 		}
 		for (const property of checker.getPropertiesOfType(type)) {
-			if (match && referenceFields.has(property.getName())) continue;
 			walk(checker.getTypeOfSymbol(property), [...segments, property.getName()], depth + 1);
 		}
 	};

@@ -25,6 +25,13 @@ describe('surfaceOf', () => {
 		expect(surface.get('foo/bar:baz')).toEqual({ kind: 'query', visibility: 'public' });
 	});
 
+	it('does not confuse a marker-named module with the reference marker', () => {
+		expect(surface.get('foo/bar/_type:deep')).toEqual({
+			kind: 'query',
+			visibility: 'public'
+		});
+	});
+
 	it('does not silently truncate a deeply nested module', () => {
 		expect(surface.get('a/b/c/d/e/f/g/h/i/j/k/l/m/deep:end')).toEqual({
 			kind: 'query',
@@ -56,6 +63,7 @@ describe('surfaceOf', () => {
 		expect([...surface.keys()].sort()).toEqual([
 			'a/b/c/d/e/f/g/h/i/j/k/l/m/deep:end',
 			'area/nested:sweep',
+			'foo/bar/_type:deep',
 			'foo/bar:baz',
 			'foo:bar',
 			'plain:read',
