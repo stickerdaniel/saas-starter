@@ -52,6 +52,18 @@ const getOrCreateWarmThreadHandler = getOrCreateWarmThread as unknown as Mutatio
 	{ threadId: string; notificationEmail?: string }
 >;
 
+/** Minimal ctx whose warm-thread lookup misses, so creation runs. */
+function makeCreatingCtx(insert: ReturnType<typeof vi.fn>) {
+	return {
+		db: {
+			query: vi.fn(() => ({
+				withIndex: vi.fn(() => ({ first: vi.fn().mockResolvedValue(null) }))
+			})),
+			insert
+		}
+	};
+}
+
 describe('support warm thread acquisition', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
@@ -141,6 +153,24 @@ describe('support warm thread acquisition', () => {
 				awaitingAdminResponse: false,
 				pageUrl: 'https://example.com/support'
 			})
+		);
+	});
+
+	// The admin lists select on isHandedOff alone, so a thread carrying it
+	// before it has any message would show up as an empty ticket. Creation
+	// never sets it; the first message latches the mode instead.
+	it('never pre-flags a thread as handed off', async () => {
+		safeGetAuthUserMock.mockResolvedValue(undefined);
+		createThreadMock.mockResolvedValue({ threadId: 'thread_warm_3' });
+		const insert = vi.fn().mockResolvedValue('support_doc_3');
+
+		await getOrCreateWarmThreadHandler._handler(makeCreatingCtx(insert), {
+			anonymousUserId: 'anon_789'
+		});
+
+		expect(insert).toHaveBeenCalledWith(
+			'supportThreads',
+			expect.objectContaining({ isHandedOff: false })
 		);
 	});
 });

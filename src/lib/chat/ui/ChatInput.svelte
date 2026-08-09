@@ -48,7 +48,7 @@
 		showFileButton = true,
 		showHandoffButton = false,
 		compact = false,
-		isHandedOff = false,
+		isHumanOnly = false,
 		isRateLimited = false,
 		onScreenshot,
 		onSend,
@@ -75,8 +75,13 @@
 		showHandoffButton?: boolean;
 		/** Whether to use the compact single-row composer */
 		compact?: boolean;
-		/** Whether thread is already handed off to humans */
-		isHandedOff?: boolean;
+		/**
+		 * Whether a human answers this thread, so nothing is waiting on a model.
+		 * True both for a thread handed off to the team and for one that never had
+		 * an agent in front of it. Do not read it as "handed off": a support build
+		 * with the agent switched off sets it on threads the team has not seen.
+		 */
+		isHumanOnly?: boolean;
 		/** Whether user is rate limited from sending messages */
 		isRateLimited?: boolean;
 		/** Callback when screenshot button clicked */
@@ -104,7 +109,7 @@
 
 	// Use centralized isProcessing from context (single source of truth)
 	// When handed off to human support, don't block - use fire-and-forget pattern
-	const canSend = $derived(ctx.canSend && (!ctx.isProcessing || isHandedOff) && !isRateLimited);
+	const canSend = $derived(ctx.canSend && (!ctx.isProcessing || isHumanOnly) && !isRateLimited);
 
 	const showSuggestions = $derived(
 		(ctx.core.isNewConversation || ctx.messagesReady) &&
@@ -679,7 +684,7 @@
 				{@const isVisible =
 					ctx.core.threadId !== null &&
 					ctx.displayMessages.length > 1 &&
-					!isHandedOff &&
+					!isHumanOnly &&
 					hasShownHandoffButton}
 				<div
 					class="min-w-0 transition-opacity duration-200 {isVisible
@@ -700,7 +705,7 @@
 				aria-label={$t('chat.aria.send')}
 				data-testid="chat-input-send"
 			>
-				{#if ctx.isProcessing && !isHandedOff}
+				{#if ctx.isProcessing && !isHumanOnly}
 					<LoaderCircleIcon class="h-[18px] w-[18px] motion-safe:animate-spin" />
 				{:else}
 					<ArrowUpIcon class="h-[18px] w-[18px]" />

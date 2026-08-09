@@ -2,6 +2,8 @@ import { internalMutation } from '../_generated/server';
 import { v } from 'convex/values';
 import { internal } from '../_generated/api';
 import { syncSupportLastMessage } from './threads';
+import { supportAgent } from './agent';
+import { extractLocaleFromUrl, t } from '../i18n/translations';
 
 /**
  * Internal handoff used by the support agent's request_handoff tool
@@ -18,7 +20,12 @@ import { syncSupportLastMessage } from './threads';
  */
 export const internalSetHandoff = internalMutation({
 	args: {
-		threadId: v.string()
+		threadId: v.string(),
+		// Set by a caller that has no model speaking for it. The agent tool leaves
+		// it off because the model answers in the same turn; a job the agent
+		// switch caught mid-flight has nobody to answer, so it asks for the canned
+		// acknowledgement instead and the visitor is not left without a reply.
+		acknowledge: v.optional(v.boolean())
 	},
 	returns: v.null(),
 	handler: async (ctx, args) => {
@@ -50,10 +57,30 @@ export const internalSetHandoff = internalMutation({
 		// Notify admins that a human needs to pick up this thread (same path as the
 		// widget handoff button). A handoff with no prior user messages still
 		// schedules the notification; the email renders a no-messages fallback.
+		//
+		// Read before any acknowledgement is written: the query keeps the newest
+		// 50 entries of any role and filters afterwards, so the canned sentence
+		// would take a slot and could push the oldest report out of the window.
 		const recentMessageIds = await ctx.runQuery(
 			internal.admin.support.notifications.getRecentUserMessages,
 			{ threadId: args.threadId }
 		);
+
+		// After the sync, so the admin list preview and its search index keep the
+		// visitor's own message rather than this canned sentence.
+		if (args.acknowledge) {
+			await supportAgent.saveMessage(ctx, {
+				threadId: args.threadId,
+				message: {
+					role: 'assistant',
+					content: t(
+						extractLocaleFromUrl(supportThread.pageUrl),
+						'backend.support.handoff.response'
+					)
+				},
+				skipEmbeddings: true
+			});
+		}
 
 		await ctx.scheduler.runAfter(
 			0,

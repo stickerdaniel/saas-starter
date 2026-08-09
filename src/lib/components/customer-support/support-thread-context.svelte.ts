@@ -7,6 +7,7 @@ import { StreamCacheManager } from '$lib/chat/core/stream-cache.js';
 import { createOptimisticUpdate, type ListMessagesArgs } from '$lib/chat/core/optimistic.js';
 import { CHAT_PAGE_SIZE } from '$lib/chat/core/types.js';
 import { isAnonymousUser } from '$lib/convex/utils/anonymousUser';
+import { isSupportAiEnabled } from '$lib/config/support';
 
 /**
  * View types for the support widget navigation
@@ -164,6 +165,19 @@ export class SupportThreadContext {
 	}
 
 	// Derived state
+
+	/**
+	 * Whether a model is going to answer this thread, which is what the send
+	 * lock and the awaiting-stream flag exist for.
+	 *
+	 * A thread is only flagged handed off once the team has been told about
+	 * it, which cannot happen before its first message, so the flag alone
+	 * would lock the composer on a build that has no agent at all.
+	 */
+	get awaitsAgentReply(): boolean {
+		return !this.isHandedOff && isSupportAiEnabled();
+	}
+
 	get hasThread() {
 		return this.threadId !== null;
 	}
@@ -189,6 +203,14 @@ export class SupportThreadContext {
 		assignedAdmin?: { name?: string; image: string | null },
 		notificationEmail?: string | null
 	) {
+		// The send lock belongs to the conversation being left, so it goes with
+		// it. Carried over, a reply that never arrives for that thread cannot
+		// clear it and the next conversation's composer stays blocked. Kept when
+		// re-entering the same thread, whose reply may still be streaming.
+		if (threadId !== this.threadId) {
+			this.isSending = false;
+			this.isAwaitingStream = false;
+		}
 		this.threadId = threadId;
 		this.threadAgentName = agentName;
 		this.isHandedOff = isHandedOff ?? false;
@@ -361,9 +383,9 @@ export class SupportThreadContext {
 			throw new Error('Cannot send message: empty prompt');
 		}
 
-		// In AI mode (not handed off), block multiple sends until AI responds
-		// In handed-off mode, allow fire-and-forget like admin view
-		if (!this.isHandedOff && (this.isSending || this.isAwaitingStream)) {
+		// While a model is going to answer, block further sends until it does.
+		// Once the team owns the thread, allow fire-and-forget like admin view.
+		if (this.awaitsAgentReply && (this.isSending || this.isAwaitingStream)) {
 			throw new Error('Cannot send message: waiting for AI response');
 		}
 
@@ -436,9 +458,9 @@ export class SupportThreadContext {
 				}
 			);
 
-			// In AI mode, mark as awaiting stream until AI starts responding
-			// This blocks further sends until the AI response finishes
-			if (!this.isHandedOff) {
+			// Mark as awaiting stream until the model starts responding, which
+			// blocks further sends until its answer finishes.
+			if (this.awaitsAgentReply) {
 				this.isAwaitingStream = true;
 			}
 

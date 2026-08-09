@@ -21,6 +21,8 @@
 	import { getLegalEmailAddress } from '$lib/config/legal';
 	import { buildMailto } from '$lib/utils/mailto';
 	import { activeUploadsContext } from '$lib/hooks/active-uploads.svelte.ts';
+	import { watch } from 'runed';
+	import { isSupportAiEnabled } from '$lib/config/support';
 
 	const { t } = getTranslate();
 
@@ -47,12 +49,26 @@
 	// URL state sync handlers
 	function setWidgetOpen(open: boolean) {
 		urlState.support = open ? 'open' : '';
-		if (!open) {
-			urlState.thread = ''; // Clear thread when closing widget
-		} else if (threadContext.threadId) {
+		// Only while that thread is the one on screen. A closed widget left the
+		// conversation but kept its id, so restoring the param on reopen would
+		// claim a selected thread under a view showing the overview, and a
+		// reload of that URL would open the conversation the visitor closed.
+		if (open && threadContext.threadId && threadContext.currentView !== 'overview') {
 			urlState.thread = threadContext.threadId;
 		}
 	}
+
+	// A conversation still being acquired has no id yet, and the mutation that
+	// gives it one resolves after the close and adopts it unless the view has
+	// moved on — putting the id back into the URL of a closed widget. Only
+	// that case leaves the chat view: an established conversation stays put,
+	// so reopening resumes it rather than dropping the visitor on the list.
+	watch(
+		() => isFeedbackOpen,
+		(open, wasOpen) => {
+			if (wasOpen && !open && !threadContext.threadId) threadContext.goBack();
+		}
+	);
 
 	function setThreadInUrl(threadId: string | null) {
 		urlState.thread = threadId ?? '';
@@ -238,7 +254,13 @@
 	}
 </script>
 
-<AIChatbar isFeedbackOpen={!shouldShowAIChatbar} />
+<!-- The chatbar is the agent's own entry point: it offers to answer anything
+     and carries the AI disclosure. With no agent behind it, it would promise
+     a conversation partner that does not exist, so the widget is the only way
+     in on such a build. -->
+{#if isSupportAiEnabled()}
+	<AIChatbar isFeedbackOpen={!shouldShowAIChatbar} />
+{/if}
 <FeedbackButton {isFeedbackOpen} onToggle={setWidgetOpen} bind:isScreenshotMode {chatUIContext} />
 
 <!--
