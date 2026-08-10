@@ -35,6 +35,51 @@ export type Registration = { kind: Kind; visibility: Visibility };
 /** identifier -> how it is published, e.g. `users:viewer`. */
 export type Surface = Map<string, Registration>;
 
+type SourceFingerprintProfile = {
+	version: string;
+	hashes: Readonly<Record<string, string>>;
+	modulePathSort: 'native' | 'compareModulePaths';
+};
+
+export function matchSourceFingerprintProfile(
+	version: string,
+	hashes: Readonly<Record<string, string>>,
+	profiles: readonly SourceFingerprintProfile[]
+): SourceFingerprintProfile | null {
+	const entries = Object.entries(hashes);
+	return (
+		profiles.find(
+			(profile) =>
+				profile.version === version &&
+				Object.keys(profile.hashes).length === entries.length &&
+				entries.every(([name, hash]) => profile.hashes[name] === hash)
+		) ?? null
+	);
+}
+
+const REVIEWED_SOURCE_PROFILES = [
+	{
+		version: '1.42.1',
+		modulePathSort: 'native',
+		hashes: {
+			walkDir: '4c919037c32317c308d7e80385b8a81e504057c4fc2a49ffebed64fa934b6bd7',
+			entryPoints: '5bf6676879e3cf0078f6a859a0477dff34ea9769da4d7800887b3e0872d4ee5e',
+			consistentPathSort: '9aa2d4e6c97438906e15cf9cf0587437db1e23842cf71d0f0dfa49cf80fc6e48',
+			doApiCodegen: 'dd5d416160b4894dbbb57aa52e7e0eca7501020e1d86aaabaeb512446b2ded3e'
+		}
+	},
+	{
+		version: '1.43.0',
+		modulePathSort: 'compareModulePaths',
+		hashes: {
+			walkDir: '4c919037c32317c308d7e80385b8a81e504057c4fc2a49ffebed64fa934b6bd7',
+			entryPoints: '5bf6676879e3cf0078f6a859a0477dff34ea9769da4d7800887b3e0872d4ee5e',
+			consistentPathSort: '9aa2d4e6c97438906e15cf9cf0587437db1e23842cf71d0f0dfa49cf80fc6e48',
+			doApiCodegen: 'f31f035af1ac43bfb380ef0661943436921ee43ac03522ba5780e853c59ca8b5'
+		}
+	}
+] as const satisfies readonly SourceFingerprintProfile[];
+
 // The extension family Convex bundles as entry points. Only the consumer scan
 // needs it now: which of these files the backend publishes is api.d.ts's answer.
 export const ENTRY_EXTENSIONS = ['.ts', '.tsx', '.mts', '.cts', '.js', '.jsx', '.mjs', '.cjs'];
@@ -279,30 +324,17 @@ export async function freshSurfaceOf(
 	const sourcePath = (relativePath: string): string =>
 		path.join(convexPackageRoot, 'src', relativePath);
 	const sourceUrl = (relativePath: string): string => pathToFileURL(sourcePath(relativePath)).href;
+	const version = (JSON.parse(readFileSync(convexPackageJson, 'utf8')) as { version?: string })
+		.version;
 	const bundlerPath = sourcePath('bundler/index.ts');
 	const bundlerSource = readFileSync(bundlerPath, 'utf8');
 	const reviewedSources = [
-		{
-			path: bundlerPath,
-			name: 'walkDir',
-			hash: '4c919037c32317c308d7e80385b8a81e504057c4fc2a49ffebed64fa934b6bd7'
-		},
-		{
-			path: bundlerPath,
-			name: 'entryPoints',
-			hash: '5bf6676879e3cf0078f6a859a0477dff34ea9769da4d7800887b3e0872d4ee5e'
-		},
-		{
-			path: sourcePath('bundler/fs.ts'),
-			name: 'consistentPathSort',
-			hash: '9aa2d4e6c97438906e15cf9cf0587437db1e23842cf71d0f0dfa49cf80fc6e48'
-		},
-		{
-			path: sourcePath('cli/lib/codegen.ts'),
-			name: 'doApiCodegen',
-			hash: 'dd5d416160b4894dbbb57aa52e7e0eca7501020e1d86aaabaeb512446b2ded3e'
-		}
+		{ path: bundlerPath, name: 'walkDir' },
+		{ path: bundlerPath, name: 'entryPoints' },
+		{ path: sourcePath('bundler/fs.ts'), name: 'consistentPathSort' },
+		{ path: sourcePath('cli/lib/codegen.ts'), name: 'doApiCodegen' }
 	];
+	const sourceHashes: Record<string, string> = {};
 	for (const reviewed of reviewedSources) {
 		const sourceText = readFileSync(reviewed.path, 'utf8');
 		const sourceFile = ts.createSourceFile(
@@ -319,16 +351,23 @@ export async function freshSurfaceOf(
 		if (!declaration) {
 			throw new Error(`convex-surface: Convex no longer defines ${reviewed.name}`);
 		}
-		const hash = createHash('sha256')
+		sourceHashes[reviewed.name] = createHash('sha256')
 			.update(declaration.getText(sourceFile).replaceAll('\r\n', '\n'))
 			.digest('hex');
-		if (hash !== reviewed.hash) {
-			const version = (JSON.parse(readFileSync(convexPackageJson, 'utf8')) as { version?: string })
-				.version;
-			throw new Error(
-				`convex-surface: Convex ${version ?? 'unknown'} ${reviewed.name} rules changed (${hash})`
-			);
-		}
+	}
+	const sourceProfile = matchSourceFingerprintProfile(
+		version ?? 'unknown',
+		sourceHashes,
+		REVIEWED_SOURCE_PROFILES
+	);
+	if (!sourceProfile) {
+		throw new Error(
+			`convex-surface: Convex ${version ?? 'unknown'} discovery rules changed (${Object.entries(
+				sourceHashes
+			)
+				.map(([name, hash]) => `${name}=${hash}`)
+				.join(', ')})`
+		);
 	}
 	const extensionBlock = /const ENTRY_POINT_EXTENSIONS = \[([\s\S]*?)\];/.exec(bundlerSource)?.[1];
 	const extensions = extensionBlock
@@ -372,7 +411,14 @@ export async function freshSurfaceOf(
 	const { apiCodegen } = (await import(sourceUrl('cli/codegen_templates/api.ts'))) as {
 		apiCodegen: (modulePaths: string[]) => { DTS?: string };
 	};
-	modulePaths.sort();
+	if (sourceProfile.modulePathSort === 'native') {
+		modulePaths.sort();
+	} else {
+		const { compareModulePaths } = (await import(sourceUrl('cli/codegen_templates/common.ts'))) as {
+			compareModulePaths: (left: string, right: string) => number;
+		};
+		modulePaths.sort(compareModulePaths);
+	}
 	const generated = apiCodegen(modulePaths).DTS;
 	if (!generated) throw new Error('convex-surface: Convex did not generate an api declaration');
 	const entry = path.join(

@@ -1,12 +1,35 @@
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-import { freshSurfaceOf, surfaceOf } from './convex-surface';
+import { freshSurfaceOf, matchSourceFingerprintProfile, surfaceOf } from './convex-surface';
 
 // A miniature Convex tree with its own generated api.d.ts, shaped the way the
 // CLI writes one. What the walker reads is Convex's own FilterApi output, so
 // these assertions pin the reading, not a re-derivation of what it publishes.
 const surface = surfaceOf(path.join(__dirname, '__fixtures__/convex-surface'));
+
+describe('source fingerprint profiles', () => {
+	const profiles = [
+		{ version: '1.0.0', modulePathSort: 'native', hashes: { traversal: 'a', codegen: 'b' } },
+		{
+			version: '2.0.0',
+			modulePathSort: 'compareModulePaths',
+			hashes: { traversal: 'a', codegen: 'c' }
+		}
+	] as const;
+
+	it('accepts one complete version profile without mixing fingerprints', () => {
+		expect(
+			matchSourceFingerprintProfile('2.0.0', { traversal: 'a', codegen: 'c' }, profiles)
+		).toMatchObject({ version: '2.0.0', modulePathSort: 'compareModulePaths' });
+		expect(
+			matchSourceFingerprintProfile('2.0.0', { traversal: 'a', codegen: 'b' }, profiles)
+		).toBeNull();
+		expect(
+			matchSourceFingerprintProfile('1.0.0', { traversal: 'a', codegen: 'b', extra: 'c' }, profiles)
+		).toBeNull();
+	});
+});
 
 describe('surfaceOf', () => {
 	it('reads kind and visibility off the published reference', () => {
