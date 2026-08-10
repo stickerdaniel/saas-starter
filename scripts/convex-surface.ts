@@ -80,13 +80,55 @@ export function surfaceOf(
 	const moduleSymbol = checker.getSymbolAtLocation(source);
 	if (!moduleSymbol) throw new Error(`convex-surface: ${entry} is not a module`);
 
+	const leaf = /^FunctionReference<"(query|mutation|action)", "(public|internal)"/;
+	const sourceLeaf = /^Registered(Query|Mutation|Action)<"(public|internal)"/;
+	const registrationOf = (type: ts.Type): Registration | null => {
+		const published = leaf.exec(checker.typeToString(type));
+		if (published) {
+			return { kind: published[1] as Kind, visibility: published[2] as Visibility };
+		}
+		const registered = sourceLeaf.exec(checker.typeToString(type));
+		if (!registered) return null;
+		return {
+			kind: registered[1]!.toLowerCase() as Kind,
+			visibility: registered[2] as Visibility
+		};
+	};
+
+	const assertedBindingRegistration = (
+		declaration: ts.Declaration,
+		exportName: string
+	): Registration | null => {
+		if (!ts.isBindingElement(declaration)) return null;
+		const pattern = declaration.parent;
+		if (!ts.isObjectBindingPattern(pattern) || !ts.isVariableDeclaration(pattern.parent))
+			return null;
+		let initializer = pattern.parent.initializer;
+		if (!initializer) return null;
+		while (
+			ts.isParenthesizedExpression(initializer) ||
+			ts.isAsExpression(initializer) ||
+			ts.isTypeAssertionExpression(initializer) ||
+			ts.isSatisfiesExpression(initializer)
+		) {
+			initializer = initializer.expression;
+		}
+		const objectType = checker.getTypeAtLocation(initializer);
+		const property = checker.getPropertyOfType(objectType, exportName);
+		if (!property) return null;
+		const location = property.valueDeclaration ?? property.declarations?.[0] ?? initializer;
+		return registrationOf(checker.getTypeOfSymbolAtLocation(property, location));
+	};
+
 	// TypeScript has many ways to recover an invalid registration as `any`
 	// (missing export, property, callable signature, or identifier). Inspect the
 	// value exports that correspond to functions the deployed consumer actually
-	// referenced and fail on the effect itself. Unrelated framework adapters may
-	// intentionally export any (Autumn does in the starter), so failing every any
-	// in the tree would turn a focused compatibility guard into a second global
-	// type-check.
+	// referenced and fail on the effect itself. An adapter may intentionally erase
+	// an object destructure after the dependency has produced real registrations.
+	// Recover that narrow case from the pre-assertion type; unrelated `any` exports
+	// stay outside this focused compatibility guard.
+	const recoveredSurface: Surface = new Map();
+	const recoveredModules = new Set<string>();
 	const erasedPromises: string[] = [];
 	for (const statement of source.statements) {
 		if (!ts.isImportDeclaration(statement) || !statement.importClause?.namedBindings) continue;
@@ -106,8 +148,19 @@ export function surfaceOf(
 		}
 		const imported = checker.getAliasedSymbol(alias);
 		const exports = checker.getExportsOfModule(imported);
-		for (const identifier of promisedHere) {
-			const exportName = identifier.slice(moduleName.length + 1);
+		const isValueExport = (candidate: ts.Symbol): boolean => {
+			const target =
+				candidate.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(candidate) : candidate;
+			return Boolean(target.flags & ts.SymbolFlags.Value);
+		};
+		const wildcard = promisedHere.includes(`${moduleName}:*`);
+		const exportNames = wildcard
+			? exports.filter(isValueExport).map((candidate) => candidate.getName())
+			: promisedHere.map((identifier) => identifier.slice(moduleName.length + 1));
+		let wildcardRecovered = false;
+		let wildcardFailed = false;
+		for (const exportName of exportNames) {
+			const identifier = `${moduleName}:${exportName}`;
 			const exported = exports.find((candidate) => candidate.getName() === exportName);
 			const declaration = exported?.valueDeclaration ?? exported?.declarations?.[0];
 			if (!exported || !declaration) continue;
@@ -115,10 +168,17 @@ export function surfaceOf(
 			// valueDeclaration. Reading only the latter skipped exactly the alias form
 			// expand-contract encourages when its upstream value drifted to any.
 			const type = checker.getTypeOfSymbolAtLocation(exported, declaration);
-			if (type.flags & (ts.TypeFlags.Any | ts.TypeFlags.Unknown)) {
-				erasedPromises.push(identifier);
+			if (!(type.flags & (ts.TypeFlags.Any | ts.TypeFlags.Unknown))) continue;
+			const recovered = assertedBindingRegistration(declaration, exportName);
+			if (recovered) {
+				recoveredSurface.set(identifier, recovered);
+				wildcardRecovered = true;
+				continue;
 			}
+			erasedPromises.push(identifier);
+			wildcardFailed = true;
 		}
+		if (wildcard && wildcardRecovered && !wildcardFailed) recoveredModules.add(moduleName);
 	}
 	if (erasedPromises.length > 0) {
 		throw new Error(
@@ -128,16 +188,15 @@ export function surfaceOf(
 		);
 	}
 
-	const surface: Surface = new Map();
-	const leaf = /^FunctionReference<"(query|mutation|action)", "(public|internal)"/;
+	const surface: Surface = new Map(recoveredSurface);
 	const referenceFields = ['_type', '_visibility', '_args', '_returnType', '_componentPath'];
 	const isReferenceConstituent = (type: ts.Type): boolean =>
 		referenceFields.every((field) => checker.getPropertyOfType(type, field) !== undefined);
 
-	const protectsBelow = (segments: string[]): boolean => {
-		if (segments.length === 0) return protectedIdentifiers.size > 0;
+	const protectedBelow = (segments: string[]): string[] => {
+		if (segments.length === 0) return [...protectedIdentifiers];
 		const prefix = segments.join('/');
-		return [...protectedIdentifiers].some(
+		return [...protectedIdentifiers].filter(
 			(identifier) => identifier.startsWith(`${prefix}/`) || identifier.startsWith(`${prefix}:`)
 		);
 	};
@@ -149,24 +208,26 @@ export function surfaceOf(
 		if (depth > 100) {
 			throw new Error(`convex-surface: api type nesting exceeded 100 at ${segments.join('.')}`);
 		}
-		if (
-			protectsBelow(segments) &&
-			(type.flags & (ts.TypeFlags.Any | ts.TypeFlags.Unknown) ||
-				checker.getIndexInfoOfType(type, ts.IndexKind.String))
-		) {
-			throw new Error(
-				`convex-surface: protected api branch became any, unknown, or string-indexed at ${segments.join('.') || '<root>'}`
-			);
-		}
-		const match = leaf.exec(checker.typeToString(type));
-		if (match) {
-			const identifier = identifierOf(segments);
-			if (identifier) {
-				surface.set(identifier, {
-					kind: match[1] as Kind,
-					visibility: match[2] as Visibility
-				});
+		const identifier = identifierOf(segments);
+		const erasedType = Boolean(type.flags & (ts.TypeFlags.Any | ts.TypeFlags.Unknown));
+		const stringIndexed = checker.getIndexInfoOfType(type, ts.IndexKind.String) !== undefined;
+		const promisedBelow = protectedBelow(segments);
+		if (promisedBelow.length > 0 && (erasedType || stringIndexed)) {
+			const recovered =
+				recoveredModules.has(segments.join('/')) ||
+				promisedBelow.every(
+					(promised) => promised !== `${segments.join('/')}:*` && surface.has(promised)
+				);
+			if (!recovered) {
+				throw new Error(
+					`convex-surface: protected api branch became any, unknown, or string-indexed at ${segments.join('.') || '<root>'}`
+				);
 			}
+			if (erasedType) return;
+		}
+		const registration = registrationOf(type);
+		if (registration) {
+			if (identifier) surface.set(identifier, registration);
 			// A node can be both a function and a namespace (`foo.ts` exports bar,
 			// `foo/bar.ts` exports baz). Split the intersection and walk only its
 			// namespace constituents. Filtering marker *names* is unsafe: `_type`,

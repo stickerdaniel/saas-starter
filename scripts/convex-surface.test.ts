@@ -108,6 +108,20 @@ describe('surfaceOf', () => {
 		).toThrow(/became any or unknown/);
 	});
 
+	it('recovers a protected registration erased by an adapter assertion', () => {
+		expect(
+			surfaceOf(
+				path.join(__dirname, '__fixtures__/convex-surface-any'),
+				new Set(['broken:adapted'])
+			)
+		).toEqual(
+			new Map([
+				['broken:adapted', { kind: 'query', visibility: 'public' }],
+				['broken:keep', { kind: 'query', visibility: 'public' }]
+			])
+		);
+	});
+
 	it('does not make an unrelated any export fatal', () => {
 		expect(surfaceOf(path.join(__dirname, '__fixtures__/convex-surface-any'))).toEqual(
 			new Map([['broken:keep', { kind: 'query', visibility: 'public' }]])

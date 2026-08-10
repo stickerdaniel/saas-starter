@@ -32,7 +32,8 @@ jobs:
       - run: bun scripts/static-checks.ts --ci --scope lint
       # Refuses to remove a Convex function that deployed app code still calls
       # (see https://github.com/stickerdaniel/saas-starter/issues/789). The PR run
-      # is preventative when branch protection requires this job. Hosting builds
+      # is preventative when branch protection requires this job and an up-to-date
+      # branch. Hosting builds
       # may already be running when the push copy reports an unsupported direct
       # or administrative push. Its baseline is the pre-push SHA because a push
       # can carry several commits, and the parent of HEAD would let the first one

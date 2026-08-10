@@ -24,16 +24,19 @@
  * git, which prevents the commit that removes a function from blessing its own
  * removal.
  *
- * The check is an incomplete lower bound. The consumer side is read as text, so
- * a reference through a renamed import, bracket notation, or assembled from a
- * variable does not register. What it catches reliably is the case that actually
- * happens: a rename done in one commit across both sides.
+ * The check is an incomplete lower bound. Direct app references and namespace
+ * adapters are read as text; persisted scheduler targets inside Convex use the
+ * TypeScript syntax tree. A reference through a renamed import, bracket notation,
+ * or a value assembled from a variable does not register. What it catches
+ * reliably is the case that actually happens: a rename done in one commit across
+ * both sides.
  */
 
 import { execFileSync } from 'node:child_process';
 import { copyFileSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import ts from 'typescript';
 
 import {
 	ENTRY_EXTENSIONS,
@@ -44,11 +47,14 @@ import {
 } from './convex-surface';
 
 const CONVEX_ROOT = 'src/lib/convex';
-// Everything under src outside the Convex tree is deployed app code; the
-// Convex tree itself deploys atomically with the functions it references.
+// App sources contribute direct and namespace-adapter references. Convex source
+// contributes scheduler targets because persisted runAfter/runAt jobs outlive
+// the deployment that created them.
 const CONSUMER_ROOT = 'src';
 
-type Reference = { identifier: string; visibility: Visibility; file: string };
+export type Reference = { identifier: string; visibility: Visibility; file: string };
+export type NamespaceReference = { prefix: string; visibility: Visibility; file: string };
+type ConsumerReferences = { references: Reference[]; namespaces: NamespaceReference[] };
 
 function git(args: string[]): string {
 	// stderr captured, not inherited: a probing rev-parse is allowed to fail
@@ -127,8 +133,11 @@ function resolveBaseline(): Baseline {
 }
 
 /** `api.users.viewer` -> `users:viewer`. */
-function identifiersIn(source: string, file: string): Reference[] {
+export function identifiersIn(source: string, file: string): Reference[] {
 	const found: Reference[] = [];
+	// Convex's backend validates function names and module path segments as ASCII
+	// alphanumerics plus underscores. Generated TypeScript types accept more names,
+	// but `$` and Unicode exports cannot reach a deployed surface.
 	const pattern = /\b(api|internal)\.((?:[A-Za-z0-9_]+\.)+[A-Za-z0-9_]+)/g;
 	for (const match of source.matchAll(pattern)) {
 		const parts = match[2]!.split('.');
@@ -143,6 +152,84 @@ function identifiersIn(source: string, file: string): Reference[] {
 	return found;
 }
 
+/** `(api as any).autumn` -> every function published below `autumn`. */
+export function namespaceReferencesIn(source: string, file: string): NamespaceReference[] {
+	const found: NamespaceReference[] = [];
+	const pattern = /\((api|internal)\s+as\s+any\)\.((?:[A-Za-z0-9_]+\.)*[A-Za-z0-9_]+)/g;
+	for (const match of source.matchAll(pattern)) {
+		found.push({
+			prefix: match[2]!.replaceAll('.', '/'),
+			visibility: match[1] === 'api' ? 'public' : 'internal',
+			file
+		});
+	}
+	return found;
+}
+
+function referenceFromExpression(expression: ts.Expression, file: string): Reference | null {
+	let current = expression;
+	while (
+		ts.isParenthesizedExpression(current) ||
+		ts.isAsExpression(current) ||
+		ts.isTypeAssertionExpression(current) ||
+		ts.isSatisfiesExpression(current)
+	) {
+		current = current.expression;
+	}
+	const segments: string[] = [];
+	while (ts.isPropertyAccessExpression(current)) {
+		segments.unshift(current.name.text);
+		current = current.expression;
+	}
+	if (!ts.isIdentifier(current) || (current.text !== 'api' && current.text !== 'internal')) {
+		return null;
+	}
+	const identifier =
+		segments.length < 2 ? null : `${segments.slice(0, -1).join('/')}:${segments.at(-1)}`;
+	if (!identifier) return null;
+	return { identifier, visibility: current.text === 'api' ? 'public' : 'internal', file };
+}
+
+export function scheduledIdentifiersIn(source: string, file: string): Reference[] {
+	const sourceFile = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true);
+	const found: Reference[] = [];
+	const visit = (node: ts.Node): void => {
+		if (
+			ts.isCallExpression(node) &&
+			ts.isPropertyAccessExpression(node.expression) &&
+			(node.expression.name.text === 'runAfter' || node.expression.name.text === 'runAt') &&
+			ts.isPropertyAccessExpression(node.expression.expression) &&
+			node.expression.expression.name.text === 'scheduler' &&
+			node.arguments[1]
+		) {
+			const reference = referenceFromExpression(node.arguments[1], file);
+			if (reference) found.push(reference);
+		}
+		ts.forEachChild(node, visit);
+	};
+	visit(sourceFile);
+	return found;
+}
+
+export function expandNamespaceReferences(
+	namespaces: NamespaceReference[],
+	surface: Surface
+): Reference[] {
+	const found: Reference[] = [];
+	for (const namespace of namespaces) {
+		for (const [identifier, registration] of surface) {
+			if (registration.visibility !== namespace.visibility) continue;
+			if (
+				identifier.startsWith(`${namespace.prefix}:`) ||
+				identifier.startsWith(`${namespace.prefix}/`)
+			) {
+				found.push({ identifier, visibility: namespace.visibility, file: namespace.file });
+			}
+		}
+	}
+	return found;
+}
+
 // Any deployed source can hold a reference, so this stays wide: declarations
 // and tests are out (tests run against the working tree, not production).
 // Which of the referenced functions the backend actually published is the
@@ -152,15 +239,22 @@ function isConsumerSource(line: string): boolean {
 	return line.endsWith('.svelte') || ENTRY_EXTENSIONS.some((extension) => line.endsWith(extension));
 }
 
-function consumerReferencesAt(commit: string): Reference[] {
+function consumerReferencesAt(commit: string): ConsumerReferences {
 	const files = git(['ls-tree', '-r', '--name-only', commit, '--', CONSUMER_ROOT])
 		.split('\n')
-		.filter((line) => isConsumerSource(line) && !line.startsWith(`${CONVEX_ROOT}/`));
-	const refs: Reference[] = [];
+		.filter(isConsumerSource);
+	const references: Reference[] = [];
+	const namespaces: NamespaceReference[] = [];
 	for (const file of files) {
-		refs.push(...identifiersIn(git(['show', `${commit}:${file}`]), file));
+		const source = git(['show', `${commit}:${file}`]);
+		if (file.startsWith(`${CONVEX_ROOT}/`)) {
+			references.push(...scheduledIdentifiersIn(source, file));
+			continue;
+		}
+		references.push(...identifiersIn(source, file));
+		namespaces.push(...namespaceReferencesIn(source, file));
 	}
-	return refs;
+	return { references, namespaces };
 }
 
 /**
@@ -218,69 +312,80 @@ function surfaceAt(commit: string, protectedIdentifiers: ReadonlySet<string>): S
 	}
 }
 
-const baseline = resolveBaseline();
-if (!baseline) {
-	const message =
-		'convex-consumer-compat: no trunk to compare against (looked for origin/main and main).';
-	if (process.env.CI) {
-		console.error(`${message} CI needs the full history for this check.`);
-		process.exit(1);
+export function main(): void {
+	const baseline = resolveBaseline();
+	if (!baseline) {
+		const message =
+			'convex-consumer-compat: no trunk to compare against (looked for origin/main and main).';
+		if (process.env.CI) {
+			console.error(`${message} CI needs the full history for this check.`);
+			process.exit(1);
+		}
+		console.warn(`${message} Skipping; CI will run it against the trunk.`);
+		process.exit(0);
 	}
-	console.warn(`${message} Skipping; CI will run it against the trunk.`);
-	process.exit(0);
-}
-if ('root' in baseline) {
-	console.log('convex-consumer-compat: root commit, nothing promised yet.');
-	process.exit(0);
-}
+	if ('root' in baseline) {
+		console.log('convex-consumer-compat: root commit, nothing promised yet.');
+		process.exit(0);
+	}
 
-const baselineReferences = consumerReferencesAt(baseline.commit);
-const baselineIdentifiers = new Set(baselineReferences.map((ref) => ref.identifier));
-const promised = surfaceAt(baseline.commit, baselineIdentifiers);
-// A reference only counts if the baseline actually delivered it the way the
-// consumer asked (public through `api.`, internal through `internal.`): one
-// that did not match was broken or noise already.
-const required = baselineReferences.filter(
-	(ref) => promised.get(ref.identifier)?.visibility === ref.visibility
-);
-const available = surfaceOf(CONVEX_ROOT, new Set(required.map((ref) => ref.identifier)));
-const broken = required.filter((ref) => {
-	const was = promised.get(ref.identifier)!;
-	const now = available.get(ref.identifier);
-	return !now || now.kind !== was.kind || now.visibility !== ref.visibility;
-});
-
-if (broken.length === 0) {
-	console.log(
-		`convex-consumer-compat: ${new Set(required.map((r) => r.identifier)).size} referenced functions still published unchanged.`
+	const baselineConsumers = consumerReferencesAt(baseline.commit);
+	const protectedIdentifiers = new Set([
+		...baselineConsumers.references.map((ref) => ref.identifier),
+		...baselineConsumers.namespaces.map((ref) => `${ref.prefix}:*`)
+	]);
+	const promised = surfaceAt(baseline.commit, protectedIdentifiers);
+	const baselineReferences = [
+		...baselineConsumers.references,
+		...expandNamespaceReferences(baselineConsumers.namespaces, promised)
+	];
+	// A reference only counts if the baseline actually delivered it the way the
+	// consumer asked (public through `api.`, internal through `internal.`): one
+	// that did not match was broken or noise already.
+	const required = baselineReferences.filter(
+		(ref) => promised.get(ref.identifier)?.visibility === ref.visibility
 	);
-	process.exit(0);
-}
+	const available = surfaceOf(CONVEX_ROOT, new Set(required.map((ref) => ref.identifier)));
+	const broken = required.filter((ref) => {
+		const was = promised.get(ref.identifier)!;
+		const now = available.get(ref.identifier);
+		return !now || now.kind !== was.kind || now.visibility !== ref.visibility;
+	});
 
-const byIdentifier = new Map<string, Reference[]>();
-for (const ref of broken) {
-	byIdentifier.set(ref.identifier, [...(byIdentifier.get(ref.identifier) ?? []), ref]);
-}
+	if (broken.length === 0) {
+		console.log(
+			`convex-consumer-compat: ${new Set(required.map((r) => r.identifier)).size} referenced functions still published unchanged.`
+		);
+		process.exit(0);
+	}
 
-console.error('convex-consumer-compat: deployed app code would lose these functions.\n');
-for (const [identifier, refs] of byIdentifier) {
-	const was = promised.get(identifier)!;
-	const now = available.get(identifier);
-	const fate = !now
-		? 'no longer exported'
-		: now.kind !== was.kind
-			? `now a ${now.kind}, was a ${was.kind}`
-			: `now ${now.visibility}, was ${refs[0]!.visibility}`;
-	console.error(`  ${identifier}: ${fate}`);
+	const byIdentifier = new Map<string, Reference[]>();
+	for (const ref of broken) {
+		byIdentifier.set(ref.identifier, [...(byIdentifier.get(ref.identifier) ?? []), ref]);
+	}
+
+	console.error('convex-consumer-compat: deployed app code would lose these functions.\n');
+	for (const [identifier, refs] of byIdentifier) {
+		const was = promised.get(identifier)!;
+		const now = available.get(identifier);
+		const fate = !now
+			? 'no longer exported'
+			: now.kind !== was.kind
+				? `now a ${now.kind}, was a ${was.kind}`
+				: `now ${now.visibility}, was ${refs[0]!.visibility}`;
+		console.error(`  ${identifier}: ${fate}`);
+		console.error(
+			`    referenced at ${baseline.commit.slice(0, 8)} from ${[...new Set(refs.map((r) => r.file))].join(', ')}`
+		);
+	}
 	console.error(
-		`    referenced at ${baseline.commit.slice(0, 8)} from ${[...new Set(refs.map((r) => r.file))].join(', ')}`
+		'\nConvex deploys before the app build, stale browser tabs outlive both, and a\n' +
+			'platform rollback restores old app code against the new backend. Keep the old\n' +
+			'name published exactly as it was. An alias to the new implementation is\n' +
+			'enough. Remove it only after no supported client can call it. See\n' +
+			'https://github.com/stickerdaniel/saas-starter/issues/789.'
 	);
+	process.exit(1);
 }
-console.error(
-	'\nConvex deploys before the app build, stale browser tabs outlive both, and a\n' +
-		'platform rollback restores old app code against the new backend. Keep the old\n' +
-		'name published exactly as it was. An alias to the new implementation is\n' +
-		'enough. Remove it only after no supported client can call it. See\n' +
-		'https://github.com/stickerdaniel/saas-starter/issues/789.'
-);
-process.exit(1);
+
+if (import.meta.main) main();
