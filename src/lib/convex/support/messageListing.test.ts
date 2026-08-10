@@ -1,7 +1,70 @@
-import { describe, expect, it } from 'vitest';
-import type { UIMessage } from '@convex-dev/agent';
+import { describe, expect, it, vi } from 'vitest';
+import { listUIMessages, syncStreams, type UIMessage } from '@convex-dev/agent';
 import type { ChatMessage } from '../../chat/core/types';
-import { mergeAssistantMessage, mergeMaterializedStreamsIntoPage } from './messageListing';
+import {
+	listMessagesForThread,
+	mergeAssistantMessage,
+	mergeMaterializedStreamsIntoPage
+} from './messageListing';
+
+vi.mock('@convex-dev/agent', async (importOriginal) => {
+	const actual = await importOriginal<Record<string, unknown>>();
+	return {
+		...actual,
+		listUIMessages: vi.fn(),
+		syncStreams: vi.fn()
+	};
+});
+
+describe('listMessagesForThread', () => {
+	it('keeps metadata aligned with the newest page after 51 raw messages', async () => {
+		const newestPage = Array.from({ length: 50 }, (_, index) => {
+			const number = 51 - index;
+			return {
+				id: `message-${number}`,
+				key: `thread-${number}-0`,
+				_creationTime: number,
+				role: 'assistant' as const,
+				status: 'success' as const,
+				order: number,
+				stepOrder: 0,
+				text: `Message ${number}`,
+				parts: []
+			};
+		});
+		vi.mocked(listUIMessages).mockResolvedValue({
+			page: newestPage,
+			isDone: false,
+			continueCursor: 'next'
+		});
+		vi.mocked(syncStreams).mockResolvedValue({ kind: 'list', messages: [] });
+
+		const runQuery = vi.fn((_reference, args: { order: 'asc' | 'desc' }) => {
+			const messageNumbers =
+				args.order === 'desc'
+					? Array.from({ length: 50 }, (_, index) => 51 - index)
+					: Array.from({ length: 50 }, (_, index) => index + 1);
+			return Promise.resolve({
+				page: messageNumbers.map((number) => ({
+					_id: `message-${number}`,
+					...(number === 51 ? { provider: 'human' } : {})
+				}))
+			});
+		});
+
+		const result = (await listMessagesForThread({ runQuery } as never, {
+			threadId: 'thread-1',
+			paginationOpts: { numItems: 50, cursor: null }
+		})) as { page: ChatMessage[] };
+
+		expect(runQuery).toHaveBeenCalledWith(
+			expect.anything(),
+			expect.objectContaining({ order: 'desc' })
+		);
+		expect(result.page[0]?.id).toBe('message-51');
+		expect(result.page[0]?.metadata).toMatchObject({ provider: 'human' });
+	});
+});
 
 describe('mergeAssistantMessage', () => {
 	it('replaces persisted assistant text and parts with materialized stream content', () => {
