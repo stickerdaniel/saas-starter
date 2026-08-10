@@ -149,7 +149,8 @@
 		try {
 			await client.mutation(api.support.readState.markThreadRead, {
 				threadId,
-				anonymousUserId
+				anonymousUserId,
+				readThrough: lastAdminReplyAt
 			});
 		} catch (error) {
 			console.warn('[customer-support] Failed to mark support reply read:', error);

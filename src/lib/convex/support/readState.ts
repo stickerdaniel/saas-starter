@@ -25,13 +25,19 @@ export const hasUnreadAdminReply = query({
 export const markThreadRead = mutation({
 	args: {
 		threadId: v.string(),
-		anonymousUserId: v.optional(v.string())
+		anonymousUserId: v.optional(v.string()),
+		readThrough: v.number()
 	},
 	returns: v.null(),
 	handler: async (ctx, args) => {
-		const { supportThread } = await requireSupportThreadRecord(ctx, args);
+		const { supportThread } = await requireSupportThreadRecord(ctx, {
+			threadId: args.threadId,
+			anonymousUserId: args.anonymousUserId
+		});
 		const lastAdminReplyAt = supportThread.lastAdminReplyAt;
-		if (lastAdminReplyAt === undefined) return null;
+		// A newer reply may commit while this mutation is in flight. Only clear the
+		// unread flag for the exact reply version the client rendered.
+		if (lastAdminReplyAt === undefined || lastAdminReplyAt !== args.readThrough) return null;
 
 		if (
 			supportThread.hasUnreadAdminReply !== true &&

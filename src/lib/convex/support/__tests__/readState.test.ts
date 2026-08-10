@@ -15,7 +15,7 @@ type Fn<A, R> = { _handler: (ctx: unknown, args: A) => Promise<R> };
 
 const unreadHandler = hasUnreadAdminReply as unknown as Fn<{ anonymousUserId?: string }, boolean>;
 const markReadHandler = markThreadRead as unknown as Fn<
-	{ threadId: string; anonymousUserId?: string },
+	{ threadId: string; anonymousUserId?: string; readThrough: number },
 	null
 >;
 
@@ -68,7 +68,8 @@ describe('support human-reply read state', () => {
 
 		await markReadHandler._handler(ctx, {
 			threadId: 'thread_1',
-			anonymousUserId: 'anon_owner'
+			anonymousUserId: 'anon_owner',
+			readThrough: Date.now() - 1000
 		});
 
 		expect(requireThreadMock).toHaveBeenCalledWith(ctx, {
@@ -82,6 +83,22 @@ describe('support human-reply read state', () => {
 		expect(ctx.db.patch.mock.calls[0][1]).not.toHaveProperty('updatedAt');
 	});
 
+	it('keeps a newer admin reply unread when the client only saw the previous reply', async () => {
+		requireThreadMock.mockResolvedValue({
+			supportThread: {
+				_id: 'support_1',
+				lastAdminReplyAt: 200,
+				hasUnreadAdminReply: true
+			}
+		});
+		const ctx = { db: { patch: vi.fn() } };
+
+		await expect(
+			markReadHandler._handler(ctx, { threadId: 'thread_1', readThrough: 100 })
+		).resolves.toBeNull();
+		expect(ctx.db.patch).not.toHaveBeenCalled();
+	});
+
 	it('does not rewrite a receipt that already covers the latest reply', async () => {
 		requireThreadMock.mockResolvedValue({
 			supportThread: {
@@ -93,7 +110,9 @@ describe('support human-reply read state', () => {
 		});
 		const ctx = { db: { patch: vi.fn() } };
 
-		await expect(markReadHandler._handler(ctx, { threadId: 'thread_1' })).resolves.toBeNull();
+		await expect(
+			markReadHandler._handler(ctx, { threadId: 'thread_1', readThrough: 100 })
+		).resolves.toBeNull();
 		expect(ctx.db.patch).not.toHaveBeenCalled();
 	});
 });
