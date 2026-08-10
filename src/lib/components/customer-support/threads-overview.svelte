@@ -1,12 +1,13 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
-	import { useQuery } from 'convex-svelte';
+	import { usePaginatedQuery, useQuery } from 'convex-svelte';
 	import { getTranslate } from '@tolgee/svelte';
 	import { api } from '$lib/convex/_generated/api';
 	import { Button } from '$lib/components/ui/button';
 	import { Avatar, AvatarImage, AvatarFallback } from '$lib/components/ui/avatar';
 	import BotIcon from '@lucide/svelte/icons/bot';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
+	import Loader2Icon from '@lucide/svelte/icons/loader-2';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import UsersRoundIcon from '@lucide/svelte/icons/users-round';
 	import { supportThreadContext } from './support-thread-context.svelte.ts';
@@ -22,6 +23,8 @@
 	import { page } from '$app/state';
 	import { DEFAULT_LANGUAGE } from '$lib/i18n/languages';
 	import SupportUnreadIndicator from './support-unread-indicator.svelte';
+	import { InfiniteLoader, LoaderState } from 'svelte-infinite';
+	import { watch } from 'runed';
 
 	const { t } = getTranslate();
 
@@ -31,22 +34,35 @@
 		return isAnonymousUser(userId) ? (userId ?? undefined) : undefined;
 	});
 
-	// Reactive query for threads - auto-updates when new threads are created
-	const threadsQuery = useQuery(api.support.threads.listThreads, () =>
-		ctx.userId
-			? {
-					anonymousUserId,
-					paginationOpts: { numItems: 20, cursor: null }
-				}
-			: 'skip'
+	// Reactive paginated query keeps every conversation reachable as the inbox grows.
+	const threadsQuery = usePaginatedQuery(
+		api.support.threads.listThreads,
+		() => ({ anonymousUserId }),
+		{ initialNumItems: 20 }
 	);
 
 	// Filter out threads with no messages (e.g., eagerly created but never used threads)
-	const threads = $derived((threadsQuery.data?.page ?? []).filter((t) => t.lastMessage));
+	const threads = $derived(threadsQuery.results.filter((thread) => thread.lastMessage));
 	const isLoading = $derived(!ctx.userId ? true : threadsQuery.isLoading);
+	const isDone = $derived(threadsQuery.status === 'Exhausted');
 	// Query error: without this branch the greeting/empty state would swallow it
 	// (self-heals when the live Convex subscription recovers)
 	const loadError = $derived(threadsQuery.error);
+	const loaderState = new LoaderState();
+
+	async function triggerLoad() {
+		const canLoadMore = threadsQuery.loadMore(20);
+		if (canLoadMore) loaderState.loaded();
+		else loaderState.complete();
+	}
+
+	watch(
+		() => isDone,
+		(done, wasDone) => {
+			if (wasDone && !done) loaderState.reset();
+		},
+		{ lazy: true }
+	);
 
 	// Query admin avatars for the welcome screen
 	const adminAvatarsQuery = useQuery(api.support.threads.getAdminAvatars, {});
@@ -175,7 +191,7 @@
 
 <div class="flex h-full flex-col" inert={ctx.currentView !== 'overview' ? true : undefined}>
 	<!-- Thread List -->
-	<div class="min-h-0 flex-1 overflow-y-auto">
+	<div class="min-h-0 flex-1 overflow-y-auto" data-testid="support-thread-list">
 		{#if loadError}
 			<div
 				class="flex h-full items-center justify-center p-8 text-center text-balance text-destructive"
@@ -275,46 +291,63 @@
 			<!-- Thread list with fade-in animation on first load -->
 			<!-- data-tolgee-restricted: thread previews may contain ZWNJ/ZWJ (tolgee/tolgee-js#3475) -->
 			<div data-tolgee-restricted class={threadsFade.animationClass}>
-				{#each threads as thread (thread._id)}
-					{@const isSelected = thread._id === ctx.threadId}
-					{@const showAdminAvatar = thread.isHandedOff && thread.assignedAdmin}
-					<button
-						class="flex w-full items-center gap-3 border-b border-border/30 p-4 px-5 text-left transition-colors duration-150 {isSelected
-							? 'bg-muted-foreground/[0.04]'
-							: 'hover:bg-muted-foreground/[0.06]'}"
-						onclick={() =>
-							ctx.selectThread(
-								thread._id,
-								thread.lastAgentName,
-								thread.isHandedOff,
-								thread.assignedAdmin,
-								thread.notificationEmail
-							)}
-					>
-						<AvatarHeading
-							icon={thread.isHandedOff
-								? thread.assignedAdmin?.image || thread.assignedAdmin?.name
-									? undefined
-									: UsersRoundIcon
-								: BotIcon}
-							image={showAdminAvatar ? thread.assignedAdmin?.image : undefined}
-							title={thread.lastMessage || thread.summary || $t('support.thread.new_conversation')}
-							subtitle={`${thread.lastMessageRole === 'user' ? $t('support.message.role_you') : showAdminAvatar ? thread.assignedAdmin?.name || $t('support.message.role_support') : thread.lastAgentName || $t('support.message.role_kai')}\u00A0\u00A0·\u00A0\u00A0${formatRelativeTime(thread.lastMessageAt)}`}
-							bold={false}
-							fallbackText={thread.isHandedOff && thread.assignedAdmin?.name
-								? thread.assignedAdmin.name
-								: undefined}
-						/>
+				<InfiniteLoader
+					{loaderState}
+					{triggerLoad}
+					intersectionOptions={{ rootMargin: '0px 0px 160px 0px' }}
+				>
+					{#each threads as thread (thread._id)}
+						{@const isSelected = thread._id === ctx.threadId}
+						{@const showAdminAvatar = thread.isHandedOff && thread.assignedAdmin}
+						<button
+							class="flex w-full items-center gap-3 border-b border-border/30 p-4 px-5 text-left transition-colors duration-150 {isSelected
+								? 'bg-muted-foreground/[0.04]'
+								: 'hover:bg-muted-foreground/[0.06]'}"
+							onclick={() =>
+								ctx.selectThread(
+									thread._id,
+									thread.lastAgentName,
+									thread.isHandedOff,
+									thread.assignedAdmin,
+									thread.notificationEmail
+								)}
+						>
+							<AvatarHeading
+								icon={thread.isHandedOff
+									? thread.assignedAdmin?.image || thread.assignedAdmin?.name
+										? undefined
+										: UsersRoundIcon
+									: BotIcon}
+								image={showAdminAvatar ? thread.assignedAdmin?.image : undefined}
+								title={thread.lastMessage ||
+									thread.summary ||
+									$t('support.thread.new_conversation')}
+								subtitle={`${thread.lastMessageRole === 'user' ? $t('support.message.role_you') : showAdminAvatar ? thread.assignedAdmin?.name || $t('support.message.role_support') : thread.lastAgentName || $t('support.message.role_kai')}\u00A0\u00A0·\u00A0\u00A0${formatRelativeTime(thread.lastMessageAt)}`}
+								bold={false}
+								fallbackText={thread.isHandedOff && thread.assignedAdmin?.name
+									? thread.assignedAdmin.name
+									: undefined}
+							/>
 
-						{#if thread.hasUnreadAdminReply}
-							<SupportUnreadIndicator />
-							<span class="sr-only">{$t('support.thread.unread_reply')}</span>
-						{/if}
+							{#if thread.hasUnreadAdminReply}
+								<SupportUnreadIndicator />
+								<span class="sr-only">{$t('support.thread.unread_reply')}</span>
+							{/if}
 
-						<!-- Chevron -->
-						<ChevronRightIcon class="size-5 shrink-0 text-muted-foreground" />
-					</button>
-				{/each}
+							<!-- Chevron -->
+							<ChevronRightIcon class="size-5 shrink-0 text-muted-foreground" />
+						</button>
+					{/each}
+
+					{#snippet loading()}
+						<div class="flex items-center justify-center p-4">
+							<Loader2Icon
+								class="size-4 text-muted-foreground motion-safe:animate-spin"
+								aria-hidden="true"
+							/>
+						</div>
+					{/snippet}
+				</InfiniteLoader>
 			</div>
 		{/if}
 	</div>

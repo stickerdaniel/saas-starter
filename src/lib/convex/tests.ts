@@ -235,12 +235,20 @@ export const createAnonymousSupportThread = mutation({
 export const createUnreadAnonymousSupportReply = mutation({
 	args: {
 		secret: v.string(),
-		anonymousUserId: v.string()
+		anonymousUserId: v.string(),
+		newerThreadCount: v.optional(v.number())
 	},
-	returns: v.object({ threadId: v.string(), reply: v.string() }),
-	handler: async (ctx, { secret, anonymousUserId }) => {
+	returns: v.object({
+		threadId: v.string(),
+		threadIds: v.array(v.string()),
+		reply: v.string()
+	}),
+	handler: async (ctx, { secret, anonymousUserId, newerThreadCount = 0 }) => {
 		requireTestSecret(secret);
 		if (!isAnonymousUser(anonymousUserId)) throw new Error('Invalid anonymous user ID');
+		if (!Number.isInteger(newerThreadCount) || newerThreadCount < 0 || newerThreadCount > 20) {
+			throw new Error('newerThreadCount must be an integer between 0 and 20');
+		}
 
 		const title = 'E2E unread support reply';
 		const userMessage = 'E2E support request';
@@ -285,7 +293,37 @@ export const createUnreadAnonymousSupportReply = mutation({
 			hasUnreadAdminReply: true
 		});
 
-		return { threadId, reply };
+		const threadIds = [threadId];
+		for (let index = 0; index < newerThreadCount; index++) {
+			const newerTitle = `E2E newer support thread ${index + 1}`;
+			const newerMessage = `E2E newer message ${index + 1}`;
+			const timestamp = replyTimestamp + index + 1;
+			const { threadId: newerThreadId } = await supportAgent.createThread(ctx, {
+				userId: anonymousUserId,
+				title: newerTitle,
+				summary: newerMessage
+			});
+
+			await ctx.db.insert('supportThreads', {
+				threadId: newerThreadId,
+				userId: anonymousUserId,
+				status: 'open',
+				isHandedOff: false,
+				awaitingAdminResponse: true,
+				pageUrl: '/',
+				createdAt: timestamp,
+				updatedAt: timestamp,
+				searchText: `${newerTitle} | ${newerMessage}`.toLowerCase(),
+				title: newerTitle,
+				summary: newerMessage,
+				lastMessage: newerMessage,
+				lastMessageAt: timestamp,
+				lastMessageRole: 'user'
+			});
+			threadIds.push(newerThreadId);
+		}
+
+		return { threadId, threadIds, reply };
 	}
 });
 

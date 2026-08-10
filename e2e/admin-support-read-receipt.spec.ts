@@ -17,10 +17,14 @@ test('shows an unread support reply and reports when the customer opens it', asy
 }) => {
 	const anonymousUserId = `anon_${crypto.randomUUID()}`;
 	const client = new ConvexHttpClient(convexUrl);
-	const { threadId, reply } = await client.mutation(api.tests.createUnreadAnonymousSupportReply, {
-		secret: testSecret,
-		anonymousUserId
-	});
+	const { threadId, threadIds, reply } = await client.mutation(
+		api.tests.createUnreadAnonymousSupportReply,
+		{
+			secret: testSecret,
+			anonymousUserId,
+			newerThreadCount: 20
+		}
+	);
 	const userContext = await browser.newContext({
 		baseURL: siteUrl,
 		extraHTTPHeaders: { ...bypass.headers, 'cache-control': 'no-cache' }
@@ -45,14 +49,23 @@ test('shows an unread support reply and reports when the customer opens it', asy
 
 		const closeLauncher = userPage.getByRole('button', { name: 'Close feedback' });
 		const unreadThread = userPage.getByRole('button', { name: new RegExp(reply) });
+		const threadList = userPage.getByTestId('support-thread-list');
+		async function revealUnreadThread() {
+			await expect(threadList).toBeVisible();
+			await threadList.evaluate((element) => element.scrollTo(0, element.scrollHeight));
+			await expect(unreadThread.getByTestId('support-unread-indicator')).toBeVisible();
+		}
+
 		await expect(closeLauncher.getByTestId('support-unread-indicator')).toHaveCount(0);
-		await expect(unreadThread.getByTestId('support-unread-indicator')).toBeVisible();
+		await expect(unreadThread).toHaveCount(0);
+		await revealUnreadThread();
 
 		await closeLauncher.click();
 		await expect(launcher.getByTestId('support-unread-indicator')).toBeVisible();
 		await expect(adminPage.getByTestId('support-user-read-status')).toHaveText('Not read yet');
 
 		await launcher.click();
+		await revealUnreadThread();
 		await unreadThread.click();
 		await expect(userPage.getByTestId('support-unread-indicator')).toHaveCount(0);
 
@@ -61,7 +74,7 @@ test('shows an unread support reply and reports when the customer opens it', asy
 		await userContext.close();
 		await client.mutation(api.tests.cleanupAnonymousSupportThreads, {
 			secret: testSecret,
-			threadIds: [threadId]
+			threadIds
 		});
 	}
 });
