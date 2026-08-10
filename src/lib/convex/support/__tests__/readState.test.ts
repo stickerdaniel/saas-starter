@@ -15,7 +15,7 @@ type Fn<A, R> = { _handler: (ctx: unknown, args: A) => Promise<R> };
 
 const unreadHandler = hasUnreadAdminReply as unknown as Fn<{ anonymousUserId?: string }, boolean>;
 const markReadHandler = markThreadRead as unknown as Fn<
-	{ threadId: string; anonymousUserId?: string; readThrough: number },
+	{ threadId: string; anonymousUserId?: string; readThroughMessageId: string },
 	null
 >;
 
@@ -61,6 +61,7 @@ describe('support human-reply read state', () => {
 			supportThread: {
 				_id: 'support_1',
 				lastAdminReplyAt: Date.now() - 1000,
+				lastAdminReplyMessageId: 'message_a',
 				hasUnreadAdminReply: true
 			}
 		});
@@ -69,7 +70,7 @@ describe('support human-reply read state', () => {
 		await markReadHandler._handler(ctx, {
 			threadId: 'thread_1',
 			anonymousUserId: 'anon_owner',
-			readThrough: Date.now() - 1000
+			readThroughMessageId: 'message_a'
 		});
 
 		expect(requireThreadMock).toHaveBeenCalledWith(ctx, {
@@ -83,18 +84,22 @@ describe('support human-reply read state', () => {
 		expect(ctx.db.patch.mock.calls[0][1]).not.toHaveProperty('updatedAt');
 	});
 
-	it('keeps a newer admin reply unread when the client only saw the previous reply', async () => {
+	it('keeps a same-millisecond newer reply unread when its message ID differs', async () => {
 		requireThreadMock.mockResolvedValue({
 			supportThread: {
 				_id: 'support_1',
-				lastAdminReplyAt: 200,
+				lastAdminReplyAt: 100,
+				lastAdminReplyMessageId: 'message_b',
 				hasUnreadAdminReply: true
 			}
 		});
 		const ctx = { db: { patch: vi.fn() } };
 
 		await expect(
-			markReadHandler._handler(ctx, { threadId: 'thread_1', readThrough: 100 })
+			markReadHandler._handler(ctx, {
+				threadId: 'thread_1',
+				readThroughMessageId: 'message_a'
+			})
 		).resolves.toBeNull();
 		expect(ctx.db.patch).not.toHaveBeenCalled();
 	});
@@ -104,6 +109,7 @@ describe('support human-reply read state', () => {
 			supportThread: {
 				_id: 'support_1',
 				lastAdminReplyAt: 100,
+				lastAdminReplyMessageId: 'message_a',
 				userReadAt: 101,
 				hasUnreadAdminReply: false
 			}
@@ -111,7 +117,10 @@ describe('support human-reply read state', () => {
 		const ctx = { db: { patch: vi.fn() } };
 
 		await expect(
-			markReadHandler._handler(ctx, { threadId: 'thread_1', readThrough: 100 })
+			markReadHandler._handler(ctx, {
+				threadId: 'thread_1',
+				readThroughMessageId: 'message_a'
+			})
 		).resolves.toBeNull();
 		expect(ctx.db.patch).not.toHaveBeenCalled();
 	});

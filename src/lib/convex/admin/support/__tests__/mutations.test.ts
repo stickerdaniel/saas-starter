@@ -140,7 +140,8 @@ describe('sendAdminReply attachment refcount metadata', () => {
 			expect.objectContaining({
 				awaitingAdminResponse: false,
 				hasUnreadAdminReply: true,
-				lastAdminReplyAt: expect.any(Number)
+				lastAdminReplyAt: expect.any(Number),
+				lastAdminReplyMessageId: 'm1'
 			})
 		);
 		const patch = ctx.db.patch.mock.calls[0][1];

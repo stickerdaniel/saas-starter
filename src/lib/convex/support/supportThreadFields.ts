@@ -35,6 +35,7 @@ export const supportThreadFields = {
 
 	// Human support read state
 	lastAdminReplyAt: v.optional(v.number()),
+	lastAdminReplyMessageId: v.optional(v.string()),
 	userReadAt: v.optional(v.number()),
 	hasUnreadAdminReply: v.optional(v.boolean()),
 

@@ -185,12 +185,12 @@
 							<Field.Label><T keyName="admin.support.details.reply_status" /></Field.Label>
 							<p
 								class="text-sm {thread.supportMetadata.userReadAt &&
-								thread.supportMetadata.userReadAt >= thread.supportMetadata.lastAdminReplyAt
+								thread.supportMetadata.hasUnreadAdminReply !== true
 									? 'text-muted-foreground'
 									: 'text-warning'}"
 								data-testid="support-user-read-status"
 							>
-								{#if thread.supportMetadata.userReadAt && thread.supportMetadata.userReadAt >= thread.supportMetadata.lastAdminReplyAt}
+								{#if thread.supportMetadata.userReadAt && thread.supportMetadata.hasUnreadAdminReply !== true}
 									{$t('admin.support.details.read_at', {
 										timestamp: formatReadTimestamp(thread.supportMetadata.userReadAt)
 									})}

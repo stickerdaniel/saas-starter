@@ -257,7 +257,7 @@ export const createUnreadAnonymousSupportReply = mutation({
 			prompt: userMessage,
 			skipEmbeddings: true
 		});
-		await supportAgent.saveMessage(ctx, {
+		const adminReply = await supportAgent.saveMessage(ctx, {
 			threadId,
 			message: { role: 'assistant', content: reply },
 			metadata: { provider: 'human' },
@@ -281,6 +281,7 @@ export const createUnreadAnonymousSupportReply = mutation({
 			lastMessageRole: 'assistant',
 			lastAgentName: 'Support Team',
 			lastAdminReplyAt: replyTimestamp,
+			lastAdminReplyMessageId: adminReply.messageId,
 			hasUnreadAdminReply: true
 		});
 

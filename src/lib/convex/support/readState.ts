@@ -26,7 +26,7 @@ export const markThreadRead = mutation({
 	args: {
 		threadId: v.string(),
 		anonymousUserId: v.optional(v.string()),
-		readThrough: v.number()
+		readThroughMessageId: v.string()
 	},
 	returns: v.null(),
 	handler: async (ctx, args) => {
@@ -34,14 +34,11 @@ export const markThreadRead = mutation({
 			threadId: args.threadId,
 			anonymousUserId: args.anonymousUserId
 		});
-		const lastAdminReplyAt = supportThread.lastAdminReplyAt;
 		// A newer reply may commit while this mutation is in flight. Only clear the
-		// unread flag for the exact reply version the client rendered.
-		if (lastAdminReplyAt === undefined || lastAdminReplyAt !== args.readThrough) return null;
-
+		// unread flag for the exact message the client rendered.
 		if (
-			supportThread.hasUnreadAdminReply !== true &&
-			(supportThread.userReadAt ?? 0) >= lastAdminReplyAt
+			supportThread.lastAdminReplyMessageId !== args.readThroughMessageId ||
+			supportThread.hasUnreadAdminReply !== true
 		) {
 			return null;
 		}

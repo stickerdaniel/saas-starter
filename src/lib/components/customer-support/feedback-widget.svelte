@@ -114,48 +114,46 @@
 	});
 
 	const hasLoadedLatestHumanReply = $derived.by(() => {
-		const lastAdminReplyAt = threadQuery.data?.lastAdminReplyAt;
-		if (lastAdminReplyAt === undefined) return false;
+		const messageId = threadQuery.data?.lastAdminReplyMessageId;
+		if (!messageId) return false;
 
 		return chatUIContext.displayMessages.some(
 			(message) =>
+				message.id === messageId &&
 				message.role === 'assistant' &&
-				message.metadata?.provider === 'human' &&
-				message._creationTime >= lastAdminReplyAt
+				message.metadata?.provider === 'human'
 		);
 	});
 
-	let markingReplyAt: number | null = null;
+	let markingReplyMessageId: string | null = null;
 
 	async function markVisibleReplyRead() {
 		const threadId = threadContext.threadId;
-		const lastAdminReplyAt = threadQuery.data?.lastAdminReplyAt;
-		const userReadAt = threadQuery.data?.userReadAt ?? 0;
+		const lastAdminReplyMessageId = threadQuery.data?.lastAdminReplyMessageId;
 
 		if (
 			!isChatOpen ||
 			!hasLoadedLatestHumanReply ||
 			document.visibilityState !== 'visible' ||
 			!threadId ||
-			lastAdminReplyAt === undefined ||
-			userReadAt >= lastAdminReplyAt ||
+			!lastAdminReplyMessageId ||
 			threadQuery.data?.hasUnreadAdminReply !== true ||
-			markingReplyAt === lastAdminReplyAt
+			markingReplyMessageId === lastAdminReplyMessageId
 		) {
 			return;
 		}
 
-		markingReplyAt = lastAdminReplyAt;
+		markingReplyMessageId = lastAdminReplyMessageId;
 		try {
 			await client.mutation(api.support.readState.markThreadRead, {
 				threadId,
 				anonymousUserId,
-				readThrough: lastAdminReplyAt
+				readThroughMessageId: lastAdminReplyMessageId
 			});
 		} catch (error) {
 			console.warn('[customer-support] Failed to mark support reply read:', error);
 		} finally {
-			if (markingReplyAt === lastAdminReplyAt) markingReplyAt = null;
+			if (markingReplyMessageId === lastAdminReplyMessageId) markingReplyMessageId = null;
 		}
 	}
 
@@ -165,8 +163,7 @@
 				isChatOpen,
 				hasLoadedLatestHumanReply,
 				threadContext.threadId,
-				threadQuery.data?.lastAdminReplyAt,
-				threadQuery.data?.userReadAt,
+				threadQuery.data?.lastAdminReplyMessageId,
 				threadQuery.data?.hasUnreadAdminReply,
 				anonymousUserId
 			] as const,

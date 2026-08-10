@@ -203,7 +203,7 @@ export const sendAdminReply = adminMutation({
 			messageContent = content;
 		}
 
-		const _result = await saveMessage(ctx, components.agent, {
+		const result = await saveMessage(ctx, components.agent, {
 			threadId: args.threadId,
 			agentName: adminName,
 			message: {
@@ -239,6 +239,7 @@ export const sendAdminReply = adminMutation({
 		await ctx.db.patch(supportThread._id, {
 			awaitingAdminResponse: false, // Admin has responded, user is no longer waiting
 			lastAdminReplyAt: replyTimestamp,
+			lastAdminReplyMessageId: result.messageId,
 			hasUnreadAdminReply: true,
 			updatedAt: replyTimestamp,
 			...(shouldAutoAssign && { assignedTo: ctx.user._id }),
