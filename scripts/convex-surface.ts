@@ -7,9 +7,11 @@
  * skipped files, module syntax, and marker-shaped values where it disagreed
  * with Convex. The generated types already answer those questions.
  *
- * `freshSurfaceOf` runs Convex's own `entryPoints` and `apiCodegen` over the
- * current tree, so an uncommitted or stale `_generated/api.d.ts` cannot hide a
- * module that deployment would publish. `ApiFromModules` and `FilterApi` compute
+ * `freshSurfaceOf` mirrors Convex's reviewed entry-point traversal and runs its
+ * `apiCodegen` over the current tree, so an uncommitted or stale
+ * `_generated/api.d.ts` cannot hide a module that deployment would publish.
+ * Source fingerprints stop the check when the mirrored Convex rules change.
+ * `ApiFromModules` and `FilterApi` compute
  * the callable function set from those modules. Kind and visibility come from
  * each `FunctionReference<kind, visibility, ...>` leaf, while `components` stays
  * outside `api` exactly as it does for a caller.
@@ -61,7 +63,7 @@ function compilerOptions(convexRoot: string): ts.CompilerOptions {
 	return { ...parsed.options, noEmit: true, skipLibCheck: true };
 }
 
-/** `api.daphne.processMaps.editPlan` -> `users:viewer`. */
+/** `api.users.viewer` -> `users:viewer`. */
 function identifierOf(pathSegments: string[]): string | null {
 	if (pathSegments.length < 2) return null;
 	const fn = pathSegments[pathSegments.length - 1]!;
@@ -274,36 +276,59 @@ export async function freshSurfaceOf(
 	const require = createRequire(path.join(convexRoot, 'tsconfig.json'));
 	const convexPackageJson = require.resolve('convex/package.json');
 	const convexPackageRoot = path.dirname(convexPackageJson);
-	const sourceUrl = (relativePath: string): string =>
-		pathToFileURL(path.join(convexPackageRoot, 'src', relativePath)).href;
-	const bundlerPath = path.join(convexPackageRoot, 'src/bundler/index.ts');
+	const sourcePath = (relativePath: string): string =>
+		path.join(convexPackageRoot, 'src', relativePath);
+	const sourceUrl = (relativePath: string): string => pathToFileURL(sourcePath(relativePath)).href;
+	const bundlerPath = sourcePath('bundler/index.ts');
 	const bundlerSource = readFileSync(bundlerPath, 'utf8');
-	const bundlerFile = ts.createSourceFile(
-		bundlerPath,
-		bundlerSource,
-		ts.ScriptTarget.Latest,
-		true,
-		ts.ScriptKind.TS
-	);
-	const entryPointsDeclaration = bundlerFile.statements.find(
-		(statement): statement is ts.FunctionDeclaration =>
-			ts.isFunctionDeclaration(statement) && statement.name?.text === 'entryPoints'
-	);
-	if (!entryPointsDeclaration) {
-		throw new Error('convex-surface: Convex no longer exports entryPoints');
-	}
-	const entryPointsHash = createHash('sha256')
-		.update(entryPointsDeclaration.getText(bundlerFile).replaceAll('\r\n', '\n'))
-		.digest('hex');
-	const reviewedEntryPointHashes = new Set([
-		'5bf6676879e3cf0078f6a859a0477dff34ea9769da4d7800887b3e0872d4ee5e'
-	]);
-	if (!reviewedEntryPointHashes.has(entryPointsHash)) {
-		const version = (JSON.parse(readFileSync(convexPackageJson, 'utf8')) as { version?: string })
-			.version;
-		throw new Error(
-			`convex-surface: Convex ${version ?? 'unknown'} entry-point rules changed (${entryPointsHash})`
+	const reviewedSources = [
+		{
+			path: bundlerPath,
+			name: 'walkDir',
+			hash: '4c919037c32317c308d7e80385b8a81e504057c4fc2a49ffebed64fa934b6bd7'
+		},
+		{
+			path: bundlerPath,
+			name: 'entryPoints',
+			hash: '5bf6676879e3cf0078f6a859a0477dff34ea9769da4d7800887b3e0872d4ee5e'
+		},
+		{
+			path: sourcePath('bundler/fs.ts'),
+			name: 'consistentPathSort',
+			hash: '9aa2d4e6c97438906e15cf9cf0587437db1e23842cf71d0f0dfa49cf80fc6e48'
+		},
+		{
+			path: sourcePath('cli/lib/codegen.ts'),
+			name: 'doApiCodegen',
+			hash: 'dd5d416160b4894dbbb57aa52e7e0eca7501020e1d86aaabaeb512446b2ded3e'
+		}
+	];
+	for (const reviewed of reviewedSources) {
+		const sourceText = readFileSync(reviewed.path, 'utf8');
+		const sourceFile = ts.createSourceFile(
+			reviewed.path,
+			sourceText,
+			ts.ScriptTarget.Latest,
+			true,
+			ts.ScriptKind.TS
 		);
+		const declaration = sourceFile.statements.find(
+			(statement): statement is ts.FunctionDeclaration =>
+				ts.isFunctionDeclaration(statement) && statement.name?.text === reviewed.name
+		);
+		if (!declaration) {
+			throw new Error(`convex-surface: Convex no longer defines ${reviewed.name}`);
+		}
+		const hash = createHash('sha256')
+			.update(declaration.getText(sourceFile).replaceAll('\r\n', '\n'))
+			.digest('hex');
+		if (hash !== reviewed.hash) {
+			const version = (JSON.parse(readFileSync(convexPackageJson, 'utf8')) as { version?: string })
+				.version;
+			throw new Error(
+				`convex-surface: Convex ${version ?? 'unknown'} ${reviewed.name} rules changed (${hash})`
+			);
+		}
 	}
 	const extensionBlock = /const ENTRY_POINT_EXTENSIONS = \[([\s\S]*?)\];/.exec(bundlerSource)?.[1];
 	const extensions = extensionBlock
@@ -315,7 +340,7 @@ export async function freshSurfaceOf(
 	const modulePaths: string[] = [];
 	const visit = (directory: string): void => {
 		for (const entry of readdirSync(directory, { withFileTypes: true }).sort((a, b) =>
-			a.name.localeCompare(b.name)
+			a.name < b.name ? -1 : a.name > b.name ? 1 : 0
 		)) {
 			const absolute = path.join(directory, entry.name);
 			if (entry.isDirectory()) {
@@ -344,14 +369,10 @@ export async function freshSurfaceOf(
 		}
 	};
 	visit(convexRoot);
-	const [{ apiCodegen }, { compareModulePaths }] = (await Promise.all([
-		import(sourceUrl('cli/codegen_templates/api.ts')),
-		import(sourceUrl('cli/codegen_templates/common.ts'))
-	])) as [
-		{ apiCodegen: (modulePaths: string[]) => { DTS?: string } },
-		{ compareModulePaths: (left: string, right: string) => number }
-	];
-	modulePaths.sort(compareModulePaths);
+	const { apiCodegen } = (await import(sourceUrl('cli/codegen_templates/api.ts'))) as {
+		apiCodegen: (modulePaths: string[]) => { DTS?: string };
+	};
+	modulePaths.sort();
 	const generated = apiCodegen(modulePaths).DTS;
 	if (!generated) throw new Error('convex-surface: Convex did not generate an api declaration');
 	const entry = path.join(
