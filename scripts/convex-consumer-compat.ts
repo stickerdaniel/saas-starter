@@ -227,6 +227,53 @@ function staticFunctionReferences(
 	return references;
 }
 
+function bindingNameContains(binding: ts.BindingName, name: string): boolean {
+	if (ts.isIdentifier(binding)) return binding.text === name;
+	return binding.elements.some(
+		(element) => !ts.isOmittedExpression(element) && bindingNameContains(element.name, name)
+	);
+}
+
+function shadowsStaticReference(target: ts.Identifier): boolean {
+	let ancestor: ts.Node | undefined = target.parent;
+	while (ancestor && !ts.isSourceFile(ancestor)) {
+		if (ts.isFunctionLike(ancestor)) {
+			if (
+				ancestor.parameters.some((parameter) => bindingNameContains(parameter.name, target.text))
+			) {
+				return true;
+			}
+			if (ancestor.name && ts.isIdentifier(ancestor.name) && ancestor.name.text === target.text) {
+				return true;
+			}
+			const body = ancestor.body;
+			if (body) {
+				let shadowed = false;
+				const visitBinding = (node: ts.Node): void => {
+					if (shadowed) return;
+					if (node !== body && ts.isFunctionLike(node)) {
+						if (ts.isFunctionDeclaration(node) && node.name?.text === target.text) shadowed = true;
+						return;
+					}
+					if (ts.isClassDeclaration(node)) {
+						if (node.name?.text === target.text) shadowed = true;
+						return;
+					}
+					if (ts.isVariableDeclaration(node) && bindingNameContains(node.name, target.text)) {
+						shadowed = true;
+						return;
+					}
+					ts.forEachChild(node, visitBinding);
+				};
+				ts.forEachChild(body, visitBinding);
+				if (shadowed) return true;
+			}
+		}
+		ancestor = ancestor.parent;
+	}
+	return false;
+}
+
 export function scheduledIdentifiersIn(source: string, file: string): Reference[] {
 	const sourceFile = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true);
 	const staticReferences = staticFunctionReferences(sourceFile, file);
@@ -243,7 +290,9 @@ export function scheduledIdentifiersIn(source: string, file: string): Reference[
 				const target = unwrapExpression(node.arguments[1]);
 				const reference = referenceFromExpression(target, file);
 				if (reference) found.push(reference);
-				else if (ts.isIdentifier(target)) found.push(...(staticReferences.get(target.text) ?? []));
+				else if (ts.isIdentifier(target) && !shadowsStaticReference(target)) {
+					found.push(...(staticReferences.get(target.text) ?? []));
+				}
 			}
 		}
 		ts.forEachChild(node, visit);

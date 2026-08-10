@@ -102,6 +102,17 @@ describe('Convex consumer references', () => {
 		]);
 	});
 
+	it('does not bind a shadowed target to a top-level reference', () => {
+		const source = `
+			const target = makeFunctionReference<'mutation'>('jobs:old');
+			async function schedule(ctx) {
+				const target = makeFunctionReference<'mutation'>('jobs:new');
+				await ctx.scheduler.runAfter(0, target, {});
+			}
+		`;
+		expect(scheduledIdentifiersIn(source, 'src/lib/convex/jobs.ts')).toEqual([]);
+	});
+
 	it('does not preserve an atomic direct call inside Convex', () => {
 		expect(
 			scheduledIdentifiersIn(
