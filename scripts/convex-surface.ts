@@ -7,10 +7,11 @@
  * skipped files, module syntax, and marker-shaped values where it disagreed
  * with Convex. The generated types already answer those questions.
  *
- * `_generated/api.d.ts` contains the module list selected by the CLI. Its
- * `ApiFromModules` and `FilterApi` types compute the callable function set from
- * the current source exports. Kind and visibility come from each
- * `FunctionReference<kind, visibility, ...>` leaf, while `components` stays
+ * `freshSurfaceOf` runs Convex's own `entryPoints` and `apiCodegen` over the
+ * current tree, so an uncommitted or stale `_generated/api.d.ts` cannot hide a
+ * module that deployment would publish. `ApiFromModules` and `FilterApi` compute
+ * the callable function set from those modules. Kind and visibility come from
+ * each `FunctionReference<kind, visibility, ...>` leaf, while `components` stays
  * outside `api` exactly as it does for a caller.
  *
  * A historical tree must execute this reader from a checkout with its own
@@ -19,8 +20,10 @@
  * diagnostic.
  */
 
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import ts from 'typescript';
 
 export type Visibility = 'public' | 'internal';
@@ -66,9 +69,9 @@ function identifierOf(pathSegments: string[]): string | null {
 
 export function surfaceOf(
 	convexRoot: string,
-	protectedIdentifiers: ReadonlySet<string> = new Set()
+	protectedIdentifiers: ReadonlySet<string> = new Set(),
+	entry = path.join(convexRoot, '_generated/api.d.ts')
 ): Surface {
-	const entry = path.join(convexRoot, '_generated/api.d.ts');
 	if (!existsSync(entry)) {
 		throw new Error(`convex-surface: ${entry} is missing, so nothing states what is published`);
 	}
@@ -260,11 +263,101 @@ export function surfaceOf(
 	return surface;
 }
 
+let freshEntryCounter = 0;
+
+export async function freshSurfaceOf(
+	convexRoot: string,
+	protectedIdentifiers: ReadonlySet<string> = new Set()
+): Promise<Surface> {
+	convexRoot = path.resolve(convexRoot);
+	const require = createRequire(path.join(convexRoot, 'tsconfig.json'));
+	const convexPackageRoot = path.dirname(require.resolve('convex/package.json'));
+	const sourceUrl = (relativePath: string): string =>
+		pathToFileURL(path.join(convexPackageRoot, 'src', relativePath)).href;
+	const bundlerSource = readFileSync(path.join(convexPackageRoot, 'src/bundler/index.ts'), 'utf8');
+	const requiredRules = [
+		'relPath.startsWith("_deps" + path.sep)',
+		'relPath.startsWith("_generated" + path.sep)',
+		'base.startsWith(".")',
+		'base.startsWith("#")',
+		'base === "schema.ts" || base === "schema.js"',
+		'(base.match(/\\./g) || []).length > 1',
+		'relPath.includes(" ")',
+		'/^\\s{0,100}(import|export)/m'
+	];
+	const missingRule = requiredRules.find((rule) => !bundlerSource.includes(rule));
+	if (missingRule) {
+		throw new Error(`convex-surface: Convex entry-point rules changed near ${missingRule}`);
+	}
+	const extensionBlock = /const ENTRY_POINT_EXTENSIONS = \[([\s\S]*?)\];/.exec(bundlerSource)?.[1];
+	const extensions = extensionBlock
+		? [...extensionBlock.matchAll(/["']([^"']+)["']/g)].map((match) => match[1]!)
+		: [];
+	if (extensions.length === 0) {
+		throw new Error('convex-surface: could not read Convex entry-point extensions');
+	}
+	const modulePaths: string[] = [];
+	const visit = (directory: string): void => {
+		for (const entry of readdirSync(directory, { withFileTypes: true }).sort((a, b) =>
+			a.name.localeCompare(b.name)
+		)) {
+			const absolute = path.join(directory, entry.name);
+			if (entry.isDirectory()) {
+				if (existsSync(path.join(absolute, 'convex.config.ts'))) continue;
+				visit(absolute);
+				continue;
+			}
+			if (!entry.isFile()) continue;
+			const relative = path.relative(convexRoot, absolute);
+			const base = path.basename(absolute);
+			const extension = path.extname(absolute).toLowerCase();
+			if (relative.startsWith(`_deps${path.sep}`)) {
+				throw new Error(`convex-surface: ${relative} uses Convex's reserved _deps directory`);
+			}
+			if (!extensions.some((candidate) => relative.endsWith(candidate))) continue;
+			if (relative.startsWith(`_generated${path.sep}`)) continue;
+			if (base.startsWith('.') || base.startsWith('#')) continue;
+			if (base === 'schema.ts' || base === 'schema.js') continue;
+			if ((base.match(/\./g) ?? []).length > 1 || relative.includes(' ')) continue;
+			if (
+				(extension === '.ts' || extension === '.tsx') &&
+				!/^\s{0,100}(import|export)/m.test(readFileSync(absolute, 'utf8'))
+			)
+				continue;
+			modulePaths.push(relative);
+		}
+	};
+	visit(convexRoot);
+	const [{ apiCodegen }, { compareModulePaths }] = (await Promise.all([
+		import(sourceUrl('cli/codegen_templates/api.ts')),
+		import(sourceUrl('cli/codegen_templates/common.ts'))
+	])) as [
+		{ apiCodegen: (modulePaths: string[]) => { DTS?: string } },
+		{ compareModulePaths: (left: string, right: string) => number }
+	];
+	modulePaths.sort(compareModulePaths);
+	const generated = apiCodegen(modulePaths).DTS;
+	if (!generated) throw new Error('convex-surface: Convex did not generate an api declaration');
+	const entry = path.join(
+		convexRoot,
+		'_generated',
+		`.convex-compat-api-${process.pid}-${freshEntryCounter++}.d.ts`
+	);
+	writeFileSync(entry, generated);
+	try {
+		return surfaceOf(convexRoot, protectedIdentifiers, entry);
+	} finally {
+		rmSync(entry, { force: true });
+	}
+}
+
 if (import.meta.main) {
 	const convexRoot = process.argv[2];
 	if (!convexRoot) throw new Error('convex-surface: expected the Convex root path');
 	const protectedIdentifiers = new Set<string>(
 		JSON.parse(process.env.CONVEX_SURFACE_PROTECTED_IDENTIFIERS ?? '[]') as string[]
 	);
-	process.stdout.write(JSON.stringify([...surfaceOf(convexRoot, protectedIdentifiers)]));
+	process.stdout.write(
+		JSON.stringify([...(await freshSurfaceOf(convexRoot, protectedIdentifiers))])
+	);
 }

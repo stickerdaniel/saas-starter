@@ -15,10 +15,12 @@
  *
  * First ship the new name while keeping the old one published exactly as it
  * was (`export const old = newName` is enough). Server aliases can be removed
- * once no running or rollback-restorable build references them. Browser aliases
- * have no automatic expiry because a tab can stay open indefinitely; deleting
- * one needs separate evidence that supported clients can no longer call it.
- * This check enforces the compatibility release and does not supply that later
+ * once no running or rollback-restorable build references them. A scheduled
+ * target must also remain until every pending job carrying its old path has run
+ * or been cancelled; `runAt` can make that horizon unbounded. Browser aliases
+ * have no automatic expiry because a tab can stay open indefinitely. Deleting
+ * either kind needs separate evidence that nothing supported can call it. This
+ * check enforces the compatibility release and does not supply that later
  * evidence. Every function the app referenced at the baseline commit must still
  * be published with the same name, kind and visibility. The baseline comes from
  * git, which prevents the commit that removes a function from blessing its own
@@ -40,7 +42,7 @@ import ts from 'typescript';
 
 import {
 	ENTRY_EXTENSIONS,
-	surfaceOf,
+	freshSurfaceOf,
 	type Registration,
 	type Surface,
 	type Visibility
@@ -312,7 +314,7 @@ function surfaceAt(commit: string, protectedIdentifiers: ReadonlySet<string>): S
 	}
 }
 
-export function main(): void {
+export async function main(): Promise<void> {
 	const baseline = resolveBaseline();
 	if (!baseline) {
 		const message =
@@ -345,7 +347,10 @@ export function main(): void {
 	const required = baselineReferences.filter(
 		(ref) => promised.get(ref.identifier)?.visibility === ref.visibility
 	);
-	const available = surfaceOf(CONVEX_ROOT, new Set(required.map((ref) => ref.identifier)));
+	const available = await freshSurfaceOf(
+		CONVEX_ROOT,
+		new Set(required.map((ref) => ref.identifier))
+	);
 	const broken = required.filter((ref) => {
 		const was = promised.get(ref.identifier)!;
 		const now = available.get(ref.identifier);
@@ -382,10 +387,11 @@ export function main(): void {
 		'\nConvex deploys before the app build, stale browser tabs outlive both, and a\n' +
 			'platform rollback restores old app code against the new backend. Keep the old\n' +
 			'name published exactly as it was. An alias to the new implementation is\n' +
-			'enough. Remove it only after no supported client can call it. See\n' +
+			'enough. Remove it only after no supported client or pending scheduled job can\n' +
+			'call it. See\n' +
 			'https://github.com/stickerdaniel/saas-starter/issues/789.'
 	);
 	process.exit(1);
 }
 
-if (import.meta.main) main();
+if (import.meta.main) await main();

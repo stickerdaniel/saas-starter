@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-import { surfaceOf } from './convex-surface';
+import { freshSurfaceOf, surfaceOf } from './convex-surface';
 
 // A miniature Convex tree with its own generated api.d.ts, shaped the way the
 // CLI writes one. What the walker reads is Convex's own FilterApi output, so
@@ -64,6 +64,14 @@ describe('surfaceOf', () => {
 	// not emit. Every omitted module publishes nothing.
 	it('ignores a module the generated api does not list', () => {
 		expect(surface.has('unlisted/hidden:unreachable')).toBe(false);
+	});
+
+	it('refreshes the module list with Convex entry-point discovery', async () => {
+		const fresh = await freshSurfaceOf(path.join(__dirname, '__fixtures__/convex-surface'));
+		expect(fresh.get('unlisted/hidden:unreachable')).toEqual({
+			kind: 'mutation',
+			visibility: 'public'
+		});
 	});
 
 	it('found nothing else in the fixture', () => {

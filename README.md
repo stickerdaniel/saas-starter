@@ -96,6 +96,8 @@ Create a Convex project at [dashboard.convex.dev](https://dashboard.convex.dev) 
 
 Protect the production branch, require the `Lint & Format` check, and enable **Require branches to be up to date before merging**. That job runs the Convex consumer-compatibility guard, and the up-to-date requirement makes its baseline include every change already merged to production. Hosting builds start from a push, so the push-time copy of the check serves as an alarm after an unsupported direct or administrative push and cannot stop a build that already started.
 
+The guard forces the compatibility release for a renamed function. Alias retirement still needs operational evidence: browser bundles can remain open indefinitely, and a scheduled target must remain until every pending `runAfter` or `runAt` job carrying its old path has run or been cancelled.
+
 The deploy script (`scripts/deploy.ts`) auto-detects the platform from environment variables (`WORKERS_CI`, `CF_PAGES`, or `VERCEL`), tags and pulls translations, runs `bunx convex deploy` to create a preview backend named after the branch, auto-computes `PUBLIC_CONVEX_URL` and `PUBLIC_CONVEX_SITE_URL` from the deploy output, and sets `SITE_URL` on the Convex instance to match the preview URL. It also seeds an admin user (`admin@preview.dev`) on every preview. Set the password once as a Convex preview default env var, every new preview deployment inherits it regardless of which CI builds it:
 
 ```sh
