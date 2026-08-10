@@ -168,7 +168,7 @@ export function namespaceReferencesIn(source: string, file: string): NamespaceRe
 	return found;
 }
 
-function referenceFromExpression(expression: ts.Expression, file: string): Reference | null {
+function unwrapExpression(expression: ts.Expression): ts.Expression {
 	let current = expression;
 	while (
 		ts.isParenthesizedExpression(current) ||
@@ -178,6 +178,11 @@ function referenceFromExpression(expression: ts.Expression, file: string): Refer
 	) {
 		current = current.expression;
 	}
+	return current;
+}
+
+function referenceFromExpression(expression: ts.Expression, file: string): Reference | null {
+	let current = unwrapExpression(expression);
 	const segments: string[] = [];
 	while (ts.isPropertyAccessExpression(current)) {
 		segments.unshift(current.name.text);
@@ -200,12 +205,13 @@ export function scheduledIdentifiersIn(source: string, file: string): Reference[
 			ts.isCallExpression(node) &&
 			ts.isPropertyAccessExpression(node.expression) &&
 			(node.expression.name.text === 'runAfter' || node.expression.name.text === 'runAt') &&
-			ts.isPropertyAccessExpression(node.expression.expression) &&
-			node.expression.expression.name.text === 'scheduler' &&
 			node.arguments[1]
 		) {
-			const reference = referenceFromExpression(node.arguments[1], file);
-			if (reference) found.push(reference);
+			const receiver = unwrapExpression(node.expression.expression);
+			if (ts.isPropertyAccessExpression(receiver) && receiver.name.text === 'scheduler') {
+				const reference = referenceFromExpression(node.arguments[1], file);
+				if (reference) found.push(reference);
+			}
 		}
 		ts.forEachChild(node, visit);
 	};
@@ -219,9 +225,13 @@ export function expandNamespaceReferences(
 ): Reference[] {
 	const found: Reference[] = [];
 	for (const namespace of namespaces) {
+		const parts = namespace.prefix.split('/');
+		const directIdentifier =
+			parts.length < 2 ? null : `${parts.slice(0, -1).join('/')}:${parts.at(-1)}`;
 		for (const [identifier, registration] of surface) {
 			if (registration.visibility !== namespace.visibility) continue;
 			if (
+				identifier === directIdentifier ||
 				identifier.startsWith(`${namespace.prefix}:`) ||
 				identifier.startsWith(`${namespace.prefix}/`)
 			) {

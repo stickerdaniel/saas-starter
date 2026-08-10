@@ -20,6 +20,7 @@
  * diagnostic.
  */
 
+import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
@@ -271,23 +272,38 @@ export async function freshSurfaceOf(
 ): Promise<Surface> {
 	convexRoot = path.resolve(convexRoot);
 	const require = createRequire(path.join(convexRoot, 'tsconfig.json'));
-	const convexPackageRoot = path.dirname(require.resolve('convex/package.json'));
+	const convexPackageJson = require.resolve('convex/package.json');
+	const convexPackageRoot = path.dirname(convexPackageJson);
 	const sourceUrl = (relativePath: string): string =>
 		pathToFileURL(path.join(convexPackageRoot, 'src', relativePath)).href;
-	const bundlerSource = readFileSync(path.join(convexPackageRoot, 'src/bundler/index.ts'), 'utf8');
-	const requiredRules = [
-		'relPath.startsWith("_deps" + path.sep)',
-		'relPath.startsWith("_generated" + path.sep)',
-		'base.startsWith(".")',
-		'base.startsWith("#")',
-		'base === "schema.ts" || base === "schema.js"',
-		'(base.match(/\\./g) || []).length > 1',
-		'relPath.includes(" ")',
-		'/^\\s{0,100}(import|export)/m'
-	];
-	const missingRule = requiredRules.find((rule) => !bundlerSource.includes(rule));
-	if (missingRule) {
-		throw new Error(`convex-surface: Convex entry-point rules changed near ${missingRule}`);
+	const bundlerPath = path.join(convexPackageRoot, 'src/bundler/index.ts');
+	const bundlerSource = readFileSync(bundlerPath, 'utf8');
+	const bundlerFile = ts.createSourceFile(
+		bundlerPath,
+		bundlerSource,
+		ts.ScriptTarget.Latest,
+		true,
+		ts.ScriptKind.TS
+	);
+	const entryPointsDeclaration = bundlerFile.statements.find(
+		(statement): statement is ts.FunctionDeclaration =>
+			ts.isFunctionDeclaration(statement) && statement.name?.text === 'entryPoints'
+	);
+	if (!entryPointsDeclaration) {
+		throw new Error('convex-surface: Convex no longer exports entryPoints');
+	}
+	const entryPointsHash = createHash('sha256')
+		.update(entryPointsDeclaration.getText(bundlerFile).replaceAll('\r\n', '\n'))
+		.digest('hex');
+	const reviewedEntryPointHashes = new Set([
+		'5bf6676879e3cf0078f6a859a0477dff34ea9769da4d7800887b3e0872d4ee5e'
+	]);
+	if (!reviewedEntryPointHashes.has(entryPointsHash)) {
+		const version = (JSON.parse(readFileSync(convexPackageJson, 'utf8')) as { version?: string })
+			.version;
+		throw new Error(
+			`convex-surface: Convex ${version ?? 'unknown'} entry-point rules changed (${entryPointsHash})`
+		);
 	}
 	const extensionBlock = /const ENTRY_POINT_EXTENSIONS = \[([\s\S]*?)\];/.exec(bundlerSource)?.[1];
 	const extensions = extensionBlock

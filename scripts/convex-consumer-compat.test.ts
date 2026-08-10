@@ -29,6 +29,18 @@ describe('Convex consumer references', () => {
 		]);
 	});
 
+	it('expands a direct function below an any cast', () => {
+		const surface: Surface = new Map([
+			['users:viewer', { kind: 'query', visibility: 'public' }],
+			['users/viewer:child', { kind: 'query', visibility: 'public' }]
+		]);
+		const cast = namespaceReferencesIn('client.query((api as any).users.viewer, {});', file);
+		expect(expandNamespaceReferences(cast, surface)).toEqual([
+			{ identifier: 'users:viewer', visibility: 'public', file },
+			{ identifier: 'users/viewer:child', visibility: 'public', file }
+		]);
+	});
+
 	it('expands a namespace to every matching published function', () => {
 		const surface: Surface = new Map([
 			['autumn:check', { kind: 'action', visibility: 'public' }],
@@ -46,12 +58,14 @@ describe('Convex consumer references', () => {
 
 	it('reads persisted runAfter and runAt targets', () => {
 		const source = `
-			await ctx.scheduler.runAfter(
-				60_000,
-				internal.emails.send.welcome,
-				{}
-			);
-			await ctx.scheduler.runAt(at, api.jobs.finish, {});
+			async function schedule(ctx) {
+				await ctx.scheduler.runAfter(
+					60_000,
+					internal.emails.send.welcome,
+					{}
+				);
+				await (ctx.scheduler).runAt(at, api.jobs.finish, {});
+			}
 		`;
 		expect(scheduledIdentifiersIn(source, 'src/lib/convex/jobs.ts')).toEqual([
 			{
