@@ -29,7 +29,7 @@
  * The check is an incomplete lower bound. Direct app references and namespace
  * adapters are read as text; persisted scheduler targets inside Convex use the
  * TypeScript syntax tree. A reference through a renamed import, bracket notation,
- * or a value assembled from a variable does not register. What it catches
+ * or a dynamically assembled value does not register. What it catches
  * reliably is the case that actually happens: a rename done in one commit across
  * both sides.
  */
@@ -197,8 +197,39 @@ function referenceFromExpression(expression: ts.Expression, file: string): Refer
 	return { identifier, visibility: current.text === 'api' ? 'public' : 'internal', file };
 }
 
+function staticFunctionReferences(
+	sourceFile: ts.SourceFile,
+	file: string
+): Map<string, Reference[]> {
+	const references = new Map<string, Reference[]>();
+	for (const statement of sourceFile.statements) {
+		if (!ts.isVariableStatement(statement)) continue;
+		for (const declaration of statement.declarationList.declarations) {
+			if (!ts.isIdentifier(declaration.name) || !declaration.initializer) continue;
+			const initializer = unwrapExpression(declaration.initializer);
+			if (
+				!ts.isCallExpression(initializer) ||
+				!ts.isIdentifier(initializer.expression) ||
+				initializer.expression.text !== 'makeFunctionReference'
+			)
+				continue;
+			const identifier = initializer.arguments[0];
+			if (!identifier || !ts.isStringLiteralLike(identifier)) continue;
+			if (!/^(?:[A-Za-z0-9_]+\/)*[A-Za-z0-9_]+:[A-Za-z0-9_]+$/.test(identifier.text)) continue;
+			// makeFunctionReference does not encode visibility at runtime. Preserve both
+			// candidates here; the baseline surface keeps only the one actually published.
+			references.set(declaration.name.text, [
+				{ identifier: identifier.text, visibility: 'public', file },
+				{ identifier: identifier.text, visibility: 'internal', file }
+			]);
+		}
+	}
+	return references;
+}
+
 export function scheduledIdentifiersIn(source: string, file: string): Reference[] {
 	const sourceFile = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true);
+	const staticReferences = staticFunctionReferences(sourceFile, file);
 	const found: Reference[] = [];
 	const visit = (node: ts.Node): void => {
 		if (
@@ -209,8 +240,10 @@ export function scheduledIdentifiersIn(source: string, file: string): Reference[
 		) {
 			const receiver = unwrapExpression(node.expression.expression);
 			if (ts.isPropertyAccessExpression(receiver) && receiver.name.text === 'scheduler') {
-				const reference = referenceFromExpression(node.arguments[1], file);
+				const target = unwrapExpression(node.arguments[1]);
+				const reference = referenceFromExpression(target, file);
 				if (reference) found.push(reference);
+				else if (ts.isIdentifier(target)) found.push(...(staticReferences.get(target.text) ?? []));
 			}
 		}
 		ts.forEachChild(node, visit);

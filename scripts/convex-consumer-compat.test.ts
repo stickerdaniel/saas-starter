@@ -81,6 +81,27 @@ describe('Convex consumer references', () => {
 		]);
 	});
 
+	it('reads a static makeFunctionReference scheduler target', () => {
+		const source = `
+			const insertUsage = makeFunctionReference<'mutation'>('usage/record:insert');
+			async function schedule(ctx) {
+				await ctx.scheduler.runAfter(0, insertUsage, {});
+			}
+		`;
+		expect(scheduledIdentifiersIn(source, 'src/lib/convex/usage/record.ts')).toEqual([
+			{
+				identifier: 'usage/record:insert',
+				visibility: 'public',
+				file: 'src/lib/convex/usage/record.ts'
+			},
+			{
+				identifier: 'usage/record:insert',
+				visibility: 'internal',
+				file: 'src/lib/convex/usage/record.ts'
+			}
+		]);
+	});
+
 	it('does not preserve an atomic direct call inside Convex', () => {
 		expect(
 			scheduledIdentifiersIn(
