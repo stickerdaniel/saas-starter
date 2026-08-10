@@ -68,7 +68,7 @@
 						: 'blur-0 scale-100 opacity-100'}"
 				/>
 			</div>
-			{#if unread.hasUnread}
+			{#if unread.hasUnread && !isFeedbackOpen}
 				<SupportUnreadIndicator class="absolute -top-1 -right-1" />
 			{/if}
 		</Button>

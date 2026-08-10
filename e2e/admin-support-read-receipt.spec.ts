@@ -43,7 +43,17 @@ test('shows an unread support reply and reports when the customer opens it', asy
 		await expect(launcher.getByTestId('support-unread-indicator')).toBeVisible();
 		await launcher.click();
 
-		await userPage.getByRole('button', { name: new RegExp(reply) }).click();
+		const closeLauncher = userPage.getByRole('button', { name: 'Close feedback' });
+		const unreadThread = userPage.getByRole('button', { name: new RegExp(reply) });
+		await expect(closeLauncher.getByTestId('support-unread-indicator')).toHaveCount(0);
+		await expect(unreadThread.getByTestId('support-unread-indicator')).toBeVisible();
+
+		await closeLauncher.click();
+		await expect(launcher.getByTestId('support-unread-indicator')).toBeVisible();
+		await expect(adminPage.getByTestId('support-user-read-status')).toHaveText('Not read yet');
+
+		await launcher.click();
+		await unreadThread.click();
 		await expect(userPage.getByTestId('support-unread-indicator')).toHaveCount(0);
 
 		await expect(adminPage.getByTestId('support-user-read-status')).toContainText('Read ');
