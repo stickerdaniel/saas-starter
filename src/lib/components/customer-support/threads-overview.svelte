@@ -357,49 +357,48 @@
 					</button>
 				{/each}
 
-				{#if footerState !== 'none'}
+				<!-- The region outlives every message it carries, including the one that
+				     follows a list with nothing left to load: a status container that
+				     appears already holding its text is not reliably read out, and the
+				     failure can arrive from any pagination status. It stays empty, and so
+				     invisible, whenever there is nothing to report. -->
+				<div role="status">
+					{#if footerState === 'error'}
+						<p class="p-4 text-center text-sm text-balance text-destructive">
+							{$t('support.thread.load_error')}
+						</p>
+					{/if}
+				</div>
+
+				<!-- A failed page leaves the query reporting whichever status it had and
+				     the hook exposes no reset, so nothing here can start another attempt:
+				     loadMore only acts while the status says more can load. Keeping the
+				     control visible would hand the visitor a button that does nothing, so
+				     the message above stands in its place; the control returns by itself
+				     once the subscription recovers.
+
+				     Replacing the control does drop focus to the document. Moving it onto
+				     the message and back was tried and removed: every version had to
+				     remember across renders whether it owed focus back, and a recovery
+				     that ends the pagination leaves no control to return it to, so the
+				     debt outlived the situation and was collected by an unrelated control
+				     later. The announcement carries the outcome. -->
+				{#if footerState === 'loading-more' || footerState === 'can-load-more'}
 					<div class="p-4">
-						<!-- A failed page leaves the query reporting whichever status it had
-						     and the hook exposes no reset, so nothing here can start another
-						     attempt: loadMore only acts while the status says more can load.
-						     Keeping the control visible would hand the visitor a button that
-						     does nothing, so the failure is reported instead; the control
-						     returns by itself once the subscription recovers.
-
-						     The region is always present so that the message is announced
-						     when it appears. Filling a live region that mounts in the same
-						     update is unreliable, and the failure replaces the control the
-						     visitor just pressed, so it has to speak for itself.
-
-						     Replacing the control does drop focus to the document. Moving it
-						     onto the message and back was tried and removed: every version
-						     had to remember across renders whether it owed focus back, and a
-						     recovery that ends the pagination leaves no control to return it
-						     to, so the debt outlived the situation and was collected by an
-						     unrelated control later. The announcement carries the outcome. -->
-						<div role="status">
-							{#if footerState === 'error'}
-								<p class="text-center text-sm text-balance text-destructive">
-									{$t('support.thread.load_error')}
-								</p>
+						<Button
+							variant="ghost"
+							class="w-full"
+							disabled={footerState === 'loading-more'}
+							onclick={() => threadsQuery.loadMore(20)}
+						>
+							{#if footerState === 'loading-more'}
+								<Loader2Icon
+									class="size-4 text-muted-foreground motion-safe:animate-spin"
+									aria-hidden="true"
+								/>
 							{/if}
-						</div>
-						{#if footerState !== 'error'}
-							<Button
-								variant="ghost"
-								class="w-full"
-								disabled={footerState === 'loading-more'}
-								onclick={() => threadsQuery.loadMore(20)}
-							>
-								{#if footerState === 'loading-more'}
-									<Loader2Icon
-										class="size-4 text-muted-foreground motion-safe:animate-spin"
-										aria-hidden="true"
-									/>
-								{/if}
-								{$t('support.button.show_older_conversations')}
-							</Button>
-						{/if}
+							{$t('support.button.show_older_conversations')}
+						</Button>
 					</div>
 				{/if}
 			</div>
