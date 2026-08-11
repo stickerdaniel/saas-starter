@@ -58,25 +58,6 @@
 	const canLoadMore = $derived(threadsQuery.status === 'CanLoadMore');
 	const isLoadingMore = $derived(threadsQuery.status === 'LoadingMore');
 
-	// Swapping the control for the message and back takes the focused element
-	// away with it each time, and the browser drops focus to the document. Both
-	// sides of the swap pick it up again, but only when it was actually lost, so
-	// a failure or a recovery that arrives on its own never pulls focus away
-	// from whatever the visitor was doing. A recovery that ends the pagination
-	// altogether has nothing left to hand focus to.
-	let messageTookFocus = false;
-
-	function claimLostFocus(node: HTMLElement) {
-		messageTookFocus = document.activeElement === document.body;
-		if (messageTookFocus) node.focus();
-	}
-
-	function returnLostFocus(node: HTMLElement) {
-		if (!messageTookFocus) return;
-		messageTookFocus = false;
-		if (document.activeElement === document.body) node.focus();
-	}
-
 	// Query admin avatars for the welcome screen
 	const adminAvatarsQuery = useQuery(api.support.threads.getAdminAvatars, {});
 	const adminUsers = $derived(adminAvatarsQuery.data ?? []);
@@ -357,14 +338,17 @@
 						     The region is always present so that the message is announced
 						     when it appears. Filling a live region that mounts in the same
 						     update is unreliable, and the failure replaces the control the
-						     visitor just pressed, so it has to speak for itself. -->
+						     visitor just pressed, so it has to speak for itself.
+
+						     Replacing the control does drop focus to the document. Moving it
+						     onto the message and back was tried and removed: every version
+						     had to remember across renders whether it owed focus back, and a
+						     recovery that ends the pagination leaves no control to return it
+						     to, so the debt outlived the situation and was collected by an
+						     unrelated control later. The announcement carries the outcome. -->
 						<div role="status" aria-live="polite">
 							{#if loadError}
-								<p
-									{@attach claimLostFocus}
-									tabindex="-1"
-									class="text-center text-sm text-balance text-destructive outline-none"
-								>
+								<p class="text-center text-sm text-balance text-destructive">
 									{$t('support.thread.load_error')}
 								</p>
 							{/if}
@@ -375,7 +359,6 @@
 								class="w-full"
 								disabled={isLoadingMore}
 								onclick={() => threadsQuery.loadMore(20)}
-								{@attach returnLostFocus}
 							>
 								{#if isLoadingMore}
 									<Loader2Icon
