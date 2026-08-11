@@ -33,9 +33,13 @@
 	});
 
 	// Reactive paginated query keeps every conversation reachable as the inbox grows.
+	// Skipped until the owner is known: an authenticated visitor carries the same
+	// (empty) argument before and after the session resolves, so a subscription
+	// opened too early answers "no conversations" for an owner nobody identified
+	// yet, and the greeting claims an empty inbox to someone who has threads.
 	const threadsQuery = usePaginatedQuery(
 		api.support.threads.listThreads,
-		() => ({ anonymousUserId }),
+		() => (ctx.userId ? { anonymousUserId } : 'skip'),
 		{ initialNumItems: 20 }
 	);
 
@@ -43,7 +47,9 @@
 	const threads = $derived(threadsQuery.results.filter((thread) => thread.lastMessage));
 	const isLoading = $derived(!ctx.userId ? true : threadsQuery.isLoading);
 	// Query error: without this branch the greeting/empty state would swallow it
-	// (self-heals when the live Convex subscription recovers)
+	// (self-heals when the live Convex subscription recovers). Only while nothing
+	// is on screen: a failed page keeps the results already delivered, and taking
+	// the whole list away would cost the visitor conversations they were reading.
 	const loadError = $derived(threadsQuery.error);
 	// An explicit control rather than infinite scroll: the widget's unread signal
 	// covers every conversation the owner has, so an older one carrying an unread
@@ -179,7 +185,7 @@
 <div class="flex h-full flex-col" inert={ctx.currentView !== 'overview' ? true : undefined}>
 	<!-- Thread List -->
 	<div class="min-h-0 flex-1 overflow-y-auto">
-		{#if loadError}
+		{#if loadError && threads.length === 0}
 			<div
 				class="flex h-full items-center justify-center p-8 text-center text-balance text-destructive"
 				data-testid="support-threads-error"
