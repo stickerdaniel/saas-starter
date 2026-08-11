@@ -58,6 +58,14 @@
 	const canLoadMore = $derived(threadsQuery.status === 'CanLoadMore');
 	const isLoadingMore = $derived(threadsQuery.status === 'LoadingMore');
 
+	// Removing the control takes the focused element away with it, and the
+	// browser drops focus to the document. Only then does the message take it,
+	// so a failure that arrives on its own never pulls focus away from whatever
+	// the visitor was doing.
+	function claimLostFocus(node: HTMLElement) {
+		if (document.activeElement === document.body) node.focus();
+	}
+
 	// Query admin avatars for the welcome screen
 	const adminAvatarsQuery = useQuery(api.support.threads.getAdminAvatars, {});
 	const adminUsers = $derived(adminAvatarsQuery.data ?? []);
@@ -333,12 +341,24 @@
 						     attempt: loadMore only acts while the status says more can load.
 						     Keeping the control visible would hand the visitor a button that
 						     does nothing, so the failure is reported instead; the control
-						     returns by itself once the subscription recovers. -->
-						{#if loadError}
-							<p class="text-center text-sm text-balance text-destructive">
-								{$t('support.thread.load_error')}
-							</p>
-						{:else}
+						     returns by itself once the subscription recovers.
+
+						     The region is always present so that the message is announced
+						     when it appears. Filling a live region that mounts in the same
+						     update is unreliable, and the failure replaces the control the
+						     visitor just pressed, so it has to speak for itself. -->
+						<div role="status" aria-live="polite">
+							{#if loadError}
+								<p
+									{@attach claimLostFocus}
+									tabindex="-1"
+									class="text-center text-sm text-balance text-destructive outline-none"
+								>
+									{$t('support.thread.load_error')}
+								</p>
+							{/if}
+						</div>
+						{#if !loadError}
 							<Button
 								variant="ghost"
 								class="w-full"
