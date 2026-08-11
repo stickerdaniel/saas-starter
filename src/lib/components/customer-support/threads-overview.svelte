@@ -47,24 +47,37 @@
 	// Filter out threads with no messages (e.g., eagerly created but never used threads)
 	const threads = $derived(threadsQuery.results.filter(hasConversationActivity));
 	const isLoading = $derived(!ctx.userId ? true : threadsQuery.isLoading);
-	// Query error: without this branch the greeting/empty state would swallow it
-	// (self-heals when the live Convex subscription recovers). Only while nothing
-	// is on screen: a failed page keeps the results already delivered, and taking
-	// the whole list away would cost the visitor conversations they were reading.
 	const loadError = $derived(threadsQuery.error);
-	// An explicit control rather than infinite scroll: the widget's unread signal
-	// covers every conversation the owner has, so an older one carrying an unread
-	// reply has to stay reachable without depending on scroll position.
-	const canLoadMore = $derived(threadsQuery.status === 'CanLoadMore');
-	const isLoadingMore = $derived(threadsQuery.status === 'LoadingMore');
-	const hasInitialError = $derived(Boolean(loadError) && threads.length === 0);
-	// Nothing to show is only an empty inbox once there is nothing left to fetch.
-	// A page can filter down to nothing on its own, and treating that as empty
-	// would show the greeting over conversations that are one page further back,
-	// with no control on that branch to reach them.
-	const showGreeting = $derived(
-		!isLoading && threads.length === 0 && !canLoadMore && !isLoadingMore
-	);
+
+	// One name per visible state, rather than conditions combined at each place
+	// that renders. Read as independent flags, the query's status, its error and
+	// the filtered count kept leaving a combination to no branch at all: a
+	// failure after the last page was already loaded belongs to no "there is
+	// more to fetch" condition, and went unreported.
+	//
+	// - waiting: the owner or the first page is still being resolved
+	// - initial-error: nothing was ever delivered, so the failure is the view
+	// - greeting: nothing to show and nothing left to fetch
+	// - list: anything is on screen, or another page could still bring some
+	const overviewState = $derived.by(() => {
+		if (loadError && threads.length === 0) return 'initial-error';
+		if (isLoading && threads.length === 0) return 'waiting';
+		if (threads.length === 0 && threadsQuery.status === 'Exhausted') return 'greeting';
+		return 'list';
+	});
+
+	// The list's footer, in precedence order. A failure comes first because it
+	// can arrive in any pagination status, including one that has nothing left
+	// to load. An explicit control rather than infinite scroll: the widget's
+	// unread signal covers every conversation the owner has, so an older one
+	// carrying an unread reply has to stay reachable without depending on
+	// scroll position.
+	const footerState = $derived.by(() => {
+		if (loadError) return 'error';
+		if (threadsQuery.status === 'LoadingMore') return 'loading-more';
+		if (threadsQuery.status === 'CanLoadMore') return 'can-load-more';
+		return 'none';
+	});
 
 	// Query admin avatars for the welcome screen
 	const adminAvatarsQuery = useQuery(api.support.threads.getAdminAvatars, {});
@@ -199,8 +212,8 @@
 		     would tell a screen reader that the conversations failed to load. The
 		     region has to outlive the message; a status container that appears
 		     already holding its text is not reliably read out. -->
-		<div role="status" class={hasInitialError ? 'h-full' : undefined}>
-			{#if hasInitialError}
+		<div role="status" class={overviewState === 'initial-error' ? 'h-full' : undefined}>
+			{#if overviewState === 'initial-error'}
 				<div
 					class="flex h-full items-center justify-center p-8 text-center text-balance text-destructive"
 					data-testid="support-threads-error"
@@ -209,9 +222,9 @@
 				</div>
 			{/if}
 		</div>
-		{#if hasInitialError}
+		{#if overviewState === 'initial-error'}
 			<!-- The message above stands in for the list. -->
-		{:else if showGreeting}
+		{:else if overviewState === 'greeting'}
 			<!-- Empty state with greeting (only shown after query completes) -->
 			<div class="flex h-full flex-col justify-start">
 				<div class="m-10 flex flex-col items-start">
@@ -344,9 +357,9 @@
 					</button>
 				{/each}
 
-				{#if canLoadMore || isLoadingMore}
+				{#if footerState !== 'none'}
 					<div class="p-4">
-						<!-- A failed page leaves the query reporting that it is still loading
+						<!-- A failed page leaves the query reporting whichever status it had
 						     and the hook exposes no reset, so nothing here can start another
 						     attempt: loadMore only acts while the status says more can load.
 						     Keeping the control visible would hand the visitor a button that
@@ -365,20 +378,20 @@
 						     to, so the debt outlived the situation and was collected by an
 						     unrelated control later. The announcement carries the outcome. -->
 						<div role="status">
-							{#if loadError}
+							{#if footerState === 'error'}
 								<p class="text-center text-sm text-balance text-destructive">
 									{$t('support.thread.load_error')}
 								</p>
 							{/if}
 						</div>
-						{#if !loadError}
+						{#if footerState !== 'error'}
 							<Button
 								variant="ghost"
 								class="w-full"
-								disabled={isLoadingMore}
+								disabled={footerState === 'loading-more'}
 								onclick={() => threadsQuery.loadMore(20)}
 							>
-								{#if isLoadingMore}
+								{#if footerState === 'loading-more'}
 									<Loader2Icon
 										class="size-4 text-muted-foreground motion-safe:animate-spin"
 										aria-hidden="true"
