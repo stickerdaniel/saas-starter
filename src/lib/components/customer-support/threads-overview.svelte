@@ -328,28 +328,32 @@
 
 				{#if canLoadMore || isLoadingMore}
 					<div class="p-4">
+						<!-- A failed page leaves the query reporting that it is still loading
+						     and the hook exposes no reset, so nothing here can start another
+						     attempt: loadMore only acts while the status says more can load.
+						     Keeping the control visible would hand the visitor a button that
+						     does nothing, so the failure is reported instead; the control
+						     returns by itself once the subscription recovers. -->
 						{#if loadError}
-							<p class="mb-2 text-center text-sm text-balance text-destructive">
+							<p class="text-center text-sm text-balance text-destructive">
 								{$t('support.thread.load_error')}
 							</p>
+						{:else}
+							<Button
+								variant="ghost"
+								class="w-full"
+								disabled={isLoadingMore}
+								onclick={() => threadsQuery.loadMore(20)}
+							>
+								{#if isLoadingMore}
+									<Loader2Icon
+										class="size-4 text-muted-foreground motion-safe:animate-spin"
+										aria-hidden="true"
+									/>
+								{/if}
+								{$t('support.button.show_older_conversations')}
+							</Button>
 						{/if}
-						<!-- A failed page leaves the query reporting that it is still loading,
-						     and the hook exposes no reset, so tying the disabled state to that
-						     alone would freeze the control on a spinner with no way back. -->
-						<Button
-							variant="ghost"
-							class="w-full"
-							disabled={isLoadingMore && !loadError}
-							onclick={() => threadsQuery.loadMore(20)}
-						>
-							{#if isLoadingMore && !loadError}
-								<Loader2Icon
-									class="size-4 text-muted-foreground motion-safe:animate-spin"
-									aria-hidden="true"
-								/>
-							{/if}
-							{$t('support.button.show_older_conversations')}
-						</Button>
 					</div>
 				{/if}
 			</div>
