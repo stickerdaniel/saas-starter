@@ -23,6 +23,7 @@
 	import { page } from '$app/state';
 	import { DEFAULT_LANGUAGE } from '$lib/i18n/languages';
 	import SupportUnreadIndicator from './support-unread-indicator.svelte';
+	import { hasConversationActivity } from './thread-activity';
 
 	const { t } = getTranslate();
 
@@ -44,7 +45,7 @@
 	);
 
 	// Filter out threads with no messages (e.g., eagerly created but never used threads)
-	const threads = $derived(threadsQuery.results.filter((thread) => thread.lastMessage));
+	const threads = $derived(threadsQuery.results.filter(hasConversationActivity));
 	const isLoading = $derived(!ctx.userId ? true : threadsQuery.isLoading);
 	// Query error: without this branch the greeting/empty state would swallow it
 	// (self-heals when the live Convex subscription recovers). Only while nothing
@@ -327,13 +328,21 @@
 
 				{#if canLoadMore || isLoadingMore}
 					<div class="p-4">
+						{#if loadError}
+							<p class="mb-2 text-center text-sm text-balance text-destructive">
+								{$t('support.thread.load_error')}
+							</p>
+						{/if}
+						<!-- A failed page leaves the query reporting that it is still loading,
+						     and the hook exposes no reset, so tying the disabled state to that
+						     alone would freeze the control on a spinner with no way back. -->
 						<Button
 							variant="ghost"
 							class="w-full"
-							disabled={isLoadingMore}
+							disabled={isLoadingMore && !loadError}
 							onclick={() => threadsQuery.loadMore(20)}
 						>
-							{#if isLoadingMore}
+							{#if isLoadingMore && !loadError}
 								<Loader2Icon
 									class="size-4 text-muted-foreground motion-safe:animate-spin"
 									aria-hidden="true"
