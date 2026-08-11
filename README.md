@@ -94,6 +94,10 @@ Each PR gets its own preview deployment with an isolated Convex preview backend.
 
 Create a Convex project at [dashboard.convex.dev](https://dashboard.convex.dev) and connect your repo to your hosting platform.
 
+Protect the production branch, require the `Lint & Format` check, and enable **Require branches to be up to date before merging**. That job runs the Convex consumer-compatibility guard, and the up-to-date requirement makes its baseline include every change already merged to production. Hosting builds start from a push, so the push-time copy of the check serves as an alarm after an unsupported direct or administrative push and cannot stop a build that already started.
+
+The guard forces the compatibility release for a renamed function. Alias retirement still needs operational evidence: browser bundles can remain open indefinitely, and a scheduled target must remain until every pending `runAfter` or `runAt` job carrying its old path has run or been cancelled.
+
 The deploy script (`scripts/deploy.ts`) auto-detects the platform from environment variables (`WORKERS_CI`, `CF_PAGES`, or `VERCEL`), tags and pulls translations, runs `bunx convex deploy` to create a preview backend named after the branch, auto-computes `PUBLIC_CONVEX_URL` and `PUBLIC_CONVEX_SITE_URL` from the deploy output, and sets `SITE_URL` on the Convex instance to match the preview URL. It also seeds an admin user (`admin@preview.dev`) on every preview. Set the password once as a Convex preview default env var, every new preview deployment inherits it regardless of which CI builds it:
 
 ```sh
@@ -399,7 +403,7 @@ An AI agent built on [Convex Agent](https://www.convex.dev/components/agent) and
 
 ### Email System
 
-Transactional email delivered through [Resend](https://www.convex.dev/components/resend) with automatic retries, idempotency, and delivery tracking. Templates are written as Svelte components using a shadcn-style email component library (same `tv()` variants, same design tokens) and compiled to inline HTML at build time. Your logo is converted to an email-safe PNG automatically. `bun run build:emails` renders every template into `src/lib/convex/emails/_generated/`, and a snapshot test (`src/lib/emails/__tests__/email-snapshots.test.ts`) flags any unintended markup change.
+Transactional email delivered through [Resend](https://www.convex.dev/components/resend) with automatic retries, idempotency, and delivery tracking. Templates are written as Svelte components using a shadcn-style email component library (same `tv()` variants, same design tokens) and compiled to inline HTML at build time. Your logo is converted to an email-safe PNG automatically. `bun run build:emails` renders every template, and a snapshot test (`src/lib/emails/__tests__/email-snapshots.test.ts`) flags any unintended markup change.
 
 ### Internationalization
 
@@ -470,7 +474,7 @@ Renovate groups non-major updates into a single PR and creates separate PRs for 
 
 ### Email Development
 
-Email templates are Svelte components compiled to inline HTML on `postinstall` and during builds. `bun run build:emails` renders each template with mock data into `src/lib/convex/emails/_generated/`, and the snapshot test `src/lib/emails/__tests__/email-snapshots.test.ts` catches any unexpected markup change.
+Email templates are Svelte components compiled to inline HTML on `postinstall` and during builds. `bun run build:emails` renders each template with mock data, and the snapshot test `src/lib/emails/__tests__/email-snapshots.test.ts` catches any unexpected markup change.
 
 </details>
 

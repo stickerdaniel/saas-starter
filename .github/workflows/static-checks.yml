@@ -19,6 +19,10 @@ jobs:
       PUBLIC_CONVEX_SITE_URL: https://placeholder.convex.site
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          # convex-consumer-compat compares against a baseline commit, which a
+          # shallow checkout cannot resolve.
+          fetch-depth: 0
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
@@ -26,6 +30,17 @@ jobs:
       - run: go install github.com/client9/misspell/cmd/misspell@latest
       - run: bun install
       - run: bun scripts/static-checks.ts --ci --scope lint
+      # Refuses to remove a Convex function that deployed app code still calls
+      # (see https://github.com/stickerdaniel/saas-starter/issues/789). The PR run
+      # is preventative when branch protection requires this job and an up-to-date
+      # branch. Hosting builds
+      # may already be running when the push copy reports an unsupported direct
+      # or administrative push. Its baseline is the pre-push SHA because a push
+      # can carry several commits, and the parent of HEAD would let the first one
+      # bless a rename the deployed build never saw.
+      - run: bun run check:convex-compat
+        env:
+          CONVEX_COMPAT_BASE: ${{ github.event_name == 'push' && github.event.before || '' }}
 
   typecheck:
     name: Type Check
