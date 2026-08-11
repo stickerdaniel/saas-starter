@@ -187,7 +187,11 @@
 	<!-- Thread List -->
 	<div class="min-h-0 flex-1 overflow-y-auto">
 		{#if loadError && threads.length === 0}
+			<!-- Announced for the same reason as the paging failure below: it arrives
+			     after the view is already open, without moving focus, so nothing else
+			     would tell a screen reader that the conversations failed to load. -->
 			<div
+				role="status"
 				class="flex h-full items-center justify-center p-8 text-center text-balance text-destructive"
 				data-testid="support-threads-error"
 			>
@@ -346,7 +350,7 @@
 						     recovery that ends the pagination leaves no control to return it
 						     to, so the debt outlived the situation and was collected by an
 						     unrelated control later. The announcement carries the outcome. -->
-						<div role="status" aria-live="polite">
+						<div role="status">
 							{#if loadError}
 								<p class="text-center text-sm text-balance text-destructive">
 									{$t('support.thread.load_error')}
