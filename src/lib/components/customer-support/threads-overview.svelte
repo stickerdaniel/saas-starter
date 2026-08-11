@@ -58,11 +58,22 @@
 	const canLoadMore = $derived(threadsQuery.status === 'CanLoadMore');
 	const isLoadingMore = $derived(threadsQuery.status === 'LoadingMore');
 
-	// Removing the control takes the focused element away with it, and the
-	// browser drops focus to the document. Only then does the message take it,
-	// so a failure that arrives on its own never pulls focus away from whatever
-	// the visitor was doing.
+	// Swapping the control for the message and back takes the focused element
+	// away with it each time, and the browser drops focus to the document. Both
+	// sides of the swap pick it up again, but only when it was actually lost, so
+	// a failure or a recovery that arrives on its own never pulls focus away
+	// from whatever the visitor was doing. A recovery that ends the pagination
+	// altogether has nothing left to hand focus to.
+	let messageTookFocus = false;
+
 	function claimLostFocus(node: HTMLElement) {
+		messageTookFocus = document.activeElement === document.body;
+		if (messageTookFocus) node.focus();
+	}
+
+	function returnLostFocus(node: HTMLElement) {
+		if (!messageTookFocus) return;
+		messageTookFocus = false;
 		if (document.activeElement === document.body) node.focus();
 	}
 
@@ -364,6 +375,7 @@
 								class="w-full"
 								disabled={isLoadingMore}
 								onclick={() => threadsQuery.loadMore(20)}
+								{@attach returnLostFocus}
 							>
 								{#if isLoadingMore}
 									<Loader2Icon
