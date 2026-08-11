@@ -53,7 +53,9 @@ export async function listMessagesForThread(
 		rawMessages = await ctx.runQuery(components.agent.messages.listMessagesByThreadId, {
 			threadId: args.threadId,
 			paginationOpts: args.paginationOpts,
-			order: 'asc'
+			// listUIMessages uses descending order; matching it keeps metadata on the
+			// same page after the thread grows beyond one pagination window.
+			order: 'desc'
 		});
 	}
 

@@ -15,13 +15,17 @@
 	import { toast } from 'svelte-sonner';
 	import { T, getTranslate } from '@tolgee/svelte';
 
-	import { formatDistanceToNow } from 'date-fns';
+	import { format, formatDistanceToNow } from 'date-fns';
 	import { page } from '$app/state';
 	import { getDateFnsLocale } from '$lib/utils/i18n';
 
 	const { t } = getTranslate();
 
 	const dateFnsLocale = $derived(getDateFnsLocale(page.data.lang));
+
+	function formatReadTimestamp(timestamp: number): string {
+		return format(new Date(timestamp), 'PPp', { locale: dateFnsLocale });
+	}
 
 	let {
 		threadId
@@ -175,6 +179,27 @@
 							</Select.Content>
 						</Select.Root>
 					</Field.Field>
+
+					{#if thread.supportMetadata.lastAdminReplyAt}
+						<Field.Field>
+							<Field.Label><T keyName="admin.support.details.reply_status" /></Field.Label>
+							<p
+								class="text-sm {thread.supportMetadata.userReadAt &&
+								thread.supportMetadata.hasUnreadAdminReply !== true
+									? 'text-muted-foreground'
+									: 'text-warning'}"
+								data-testid="support-user-read-status"
+							>
+								{#if thread.supportMetadata.userReadAt && thread.supportMetadata.hasUnreadAdminReply !== true}
+									{$t('admin.support.details.read_at', {
+										timestamp: formatReadTimestamp(thread.supportMetadata.userReadAt)
+									})}
+								{:else}
+									<T keyName="admin.support.details.unread" />
+								{/if}
+							</p>
+						</Field.Field>
+					{/if}
 
 					<!-- Priority -->
 					<Field.Field>

@@ -1,12 +1,13 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
-	import { useQuery } from 'convex-svelte';
+	import { usePaginatedQuery, useQuery } from 'convex-svelte';
 	import { getTranslate } from '@tolgee/svelte';
 	import { api } from '$lib/convex/_generated/api';
 	import { Button } from '$lib/components/ui/button';
 	import { Avatar, AvatarImage, AvatarFallback } from '$lib/components/ui/avatar';
 	import BotIcon from '@lucide/svelte/icons/bot';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
+	import Loader2Icon from '@lucide/svelte/icons/loader-2';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import UsersRoundIcon from '@lucide/svelte/icons/users-round';
 	import { supportThreadContext } from './support-thread-context.svelte.ts';
@@ -21,6 +22,7 @@
 	import { isSupportAiEnabled } from '$lib/config/support';
 	import { page } from '$app/state';
 	import { DEFAULT_LANGUAGE } from '$lib/i18n/languages';
+	import SupportUnreadIndicator from './support-unread-indicator.svelte';
 
 	const { t } = getTranslate();
 
@@ -30,22 +32,30 @@
 		return isAnonymousUser(userId) ? (userId ?? undefined) : undefined;
 	});
 
-	// Reactive query for threads - auto-updates when new threads are created
-	const threadsQuery = useQuery(api.support.threads.listThreads, () =>
-		ctx.userId
-			? {
-					anonymousUserId,
-					paginationOpts: { numItems: 20, cursor: null }
-				}
-			: 'skip'
+	// Reactive paginated query keeps every conversation reachable as the inbox grows.
+	// Skipped until the owner is known: an authenticated visitor carries the same
+	// (empty) argument before and after the session resolves, so a subscription
+	// opened too early answers "no conversations" for an owner nobody identified
+	// yet, and the greeting claims an empty inbox to someone who has threads.
+	const threadsQuery = usePaginatedQuery(
+		api.support.threads.listThreads,
+		() => (ctx.userId ? { anonymousUserId } : 'skip'),
+		{ initialNumItems: 20 }
 	);
 
 	// Filter out threads with no messages (e.g., eagerly created but never used threads)
-	const threads = $derived((threadsQuery.data?.page ?? []).filter((t) => t.lastMessage));
+	const threads = $derived(threadsQuery.results.filter((thread) => thread.lastMessage));
 	const isLoading = $derived(!ctx.userId ? true : threadsQuery.isLoading);
 	// Query error: without this branch the greeting/empty state would swallow it
-	// (self-heals when the live Convex subscription recovers)
+	// (self-heals when the live Convex subscription recovers). Only while nothing
+	// is on screen: a failed page keeps the results already delivered, and taking
+	// the whole list away would cost the visitor conversations they were reading.
 	const loadError = $derived(threadsQuery.error);
+	// An explicit control rather than infinite scroll: the widget's unread signal
+	// covers every conversation the owner has, so an older one carrying an unread
+	// reply has to stay reachable without depending on scroll position.
+	const canLoadMore = $derived(threadsQuery.status === 'CanLoadMore');
+	const isLoadingMore = $derived(threadsQuery.status === 'LoadingMore');
 
 	// Query admin avatars for the welcome screen
 	const adminAvatarsQuery = useQuery(api.support.threads.getAdminAvatars, {});
@@ -175,7 +185,7 @@
 <div class="flex h-full flex-col" inert={ctx.currentView !== 'overview' ? true : undefined}>
 	<!-- Thread List -->
 	<div class="min-h-0 flex-1 overflow-y-auto">
-		{#if loadError}
+		{#if loadError && threads.length === 0}
 			<div
 				class="flex h-full items-center justify-center p-8 text-center text-balance text-destructive"
 				data-testid="support-threads-error"
@@ -305,10 +315,34 @@
 								: undefined}
 						/>
 
+						{#if thread.hasUnreadAdminReply}
+							<SupportUnreadIndicator />
+							<span class="sr-only">{$t('support.thread.unread_reply')}</span>
+						{/if}
+
 						<!-- Chevron -->
 						<ChevronRightIcon class="size-5 shrink-0 text-muted-foreground" />
 					</button>
 				{/each}
+
+				{#if canLoadMore || isLoadingMore}
+					<div class="p-4">
+						<Button
+							variant="ghost"
+							class="w-full"
+							disabled={isLoadingMore}
+							onclick={() => threadsQuery.loadMore(20)}
+						>
+							{#if isLoadingMore}
+								<Loader2Icon
+									class="size-4 text-muted-foreground motion-safe:animate-spin"
+									aria-hidden="true"
+								/>
+							{/if}
+							{$t('support.button.show_older_conversations')}
+						</Button>
+					</div>
+				{/if}
 			</div>
 		{/if}
 	</div>

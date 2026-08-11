@@ -166,7 +166,10 @@
 				"open_panel": "Details-Panel öffnen",
 				"page_url": "Seiten-URL",
 				"priority": "Priorität",
+				"read_at": "Gelesen am {timestamp}",
+				"reply_status": "Letzte Antwort",
 				"status": "Status",
+				"unread": "Noch nicht gelesen",
 				"user_notes": "Benutzernotizen"
 			},
 			"email": {
@@ -322,6 +325,7 @@
 		"copy_failed": "Kopieren fehlgeschlagen",
 		"feedback_close": "Feedback schließen",
 		"feedback_open": "Feedback öffnen",
+		"feedback_open_unread": "Feedback öffnen, ungelesene Support-Antwort",
 		"github_repository": "GitHub-Repository",
 		"go_back": "Zurück",
 		"hide_password": "Passwort ausblenden",
@@ -1003,6 +1007,7 @@
 			"team_member": "Teammitglied"
 		},
 		"button": {
+			"show_older_conversations": "Ältere Unterhaltungen anzeigen",
 			"start_new_conversation": "Neue Unterhaltung starten"
 		},
 		"chatbar": {
@@ -1069,7 +1074,8 @@
 		},
 		"thread": {
 			"load_error": "Unterhaltungen konnten nicht geladen werden. Bitte versuchen Sie es später erneut.",
-			"new_conversation": "Neue Unterhaltung"
+			"new_conversation": "Neue Unterhaltung",
+			"unread_reply": "Ungelesene Support-Antwort"
 		},
 		"time": {
 			"days_ago": "vor {days} Tagen",

@@ -129,4 +129,22 @@ describe('sendAdminReply attachment refcount metadata', () => {
 		expect(metadata.providerMetadata.admin.isAdminMessage).toBe(true);
 		expect('fileIds' in metadata).toBe(false);
 	});
+
+	it('marks the human reply unread for the customer', async () => {
+		const ctx = makeCtx();
+
+		await replyHandler._handler(ctx, { threadId: 't1', prompt: 'hi' });
+
+		expect(ctx.db.patch).toHaveBeenCalledWith(
+			'st_1',
+			expect.objectContaining({
+				awaitingAdminResponse: false,
+				hasUnreadAdminReply: true,
+				lastAdminReplyAt: expect.any(Number),
+				lastAdminReplyMessageId: 'm1'
+			})
+		);
+		const patch = ctx.db.patch.mock.calls[0][1];
+		expect(patch.updatedAt).toBe(patch.lastAdminReplyAt);
+	});
 });

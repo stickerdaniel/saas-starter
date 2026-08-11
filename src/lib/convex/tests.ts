@@ -231,6 +231,102 @@ export const createAnonymousSupportThread = mutation({
 	}
 });
 
+/** Create one anonymous ticket whose latest human reply has not been read. */
+export const createUnreadAnonymousSupportReply = mutation({
+	args: {
+		secret: v.string(),
+		anonymousUserId: v.string(),
+		newerThreadCount: v.optional(v.number())
+	},
+	returns: v.object({
+		threadId: v.string(),
+		threadIds: v.array(v.string()),
+		reply: v.string()
+	}),
+	handler: async (ctx, { secret, anonymousUserId, newerThreadCount = 0 }) => {
+		requireTestSecret(secret);
+		if (!isAnonymousUser(anonymousUserId)) throw new Error('Invalid anonymous user ID');
+		if (!Number.isInteger(newerThreadCount) || newerThreadCount < 0 || newerThreadCount > 20) {
+			throw new Error('newerThreadCount must be an integer between 0 and 20');
+		}
+
+		const title = 'E2E unread support reply';
+		const userMessage = 'E2E support request';
+		const reply = 'E2E support team reply';
+		const replyTimestamp = Date.now();
+		const { threadId } = await supportAgent.createThread(ctx, {
+			userId: anonymousUserId,
+			title,
+			summary: userMessage
+		});
+
+		await supportAgent.saveMessage(ctx, {
+			threadId,
+			prompt: userMessage,
+			skipEmbeddings: true
+		});
+		const adminReply = await supportAgent.saveMessage(ctx, {
+			threadId,
+			message: { role: 'assistant', content: reply },
+			metadata: { provider: 'human' },
+			skipEmbeddings: true
+		});
+
+		await ctx.db.insert('supportThreads', {
+			threadId,
+			userId: anonymousUserId,
+			status: 'open',
+			isHandedOff: true,
+			awaitingAdminResponse: false,
+			pageUrl: '/',
+			createdAt: replyTimestamp,
+			updatedAt: replyTimestamp,
+			searchText: `${title} | ${userMessage} | ${reply}`.toLowerCase(),
+			title,
+			summary: userMessage,
+			lastMessage: reply,
+			lastMessageAt: replyTimestamp,
+			lastMessageRole: 'assistant',
+			lastAgentName: 'Support Team',
+			lastAdminReplyAt: replyTimestamp,
+			lastAdminReplyMessageId: adminReply.messageId,
+			hasUnreadAdminReply: true
+		});
+
+		const threadIds = [threadId];
+		for (let index = 0; index < newerThreadCount; index++) {
+			const newerTitle = `E2E newer support thread ${index + 1}`;
+			const newerMessage = `E2E newer message ${index + 1}`;
+			const timestamp = replyTimestamp + index + 1;
+			const { threadId: newerThreadId } = await supportAgent.createThread(ctx, {
+				userId: anonymousUserId,
+				title: newerTitle,
+				summary: newerMessage
+			});
+
+			await ctx.db.insert('supportThreads', {
+				threadId: newerThreadId,
+				userId: anonymousUserId,
+				status: 'open',
+				isHandedOff: false,
+				awaitingAdminResponse: true,
+				pageUrl: '/',
+				createdAt: timestamp,
+				updatedAt: timestamp,
+				searchText: `${newerTitle} | ${newerMessage}`.toLowerCase(),
+				title: newerTitle,
+				summary: newerMessage,
+				lastMessage: newerMessage,
+				lastMessageAt: timestamp,
+				lastMessageRole: 'user'
+			});
+			threadIds.push(newerThreadId);
+		}
+
+		return { threadId, threadIds, reply };
+	}
+});
+
 // Get support threads by userId for E2E test verification
 // Note: This mutation requires AUTH_E2E_TEST_SECRET for security
 export const getSupportThreadsByUserId = mutation({

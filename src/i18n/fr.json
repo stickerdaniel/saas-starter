@@ -166,7 +166,10 @@
 				"open_panel": "Ouvrir le panneau des détails",
 				"page_url": "URL de la page",
 				"priority": "Priorité",
+				"read_at": "Lue le {timestamp}",
+				"reply_status": "Dernière réponse",
 				"status": "Statut",
+				"unread": "Pas encore lue",
 				"user_notes": "Notes Utilisateur"
 			},
 			"email": {
@@ -322,6 +325,7 @@
 		"copy_failed": "Échec de la copie",
 		"feedback_close": "Fermer les commentaires",
 		"feedback_open": "Ouvrir les commentaires",
+		"feedback_open_unread": "Ouvrir les commentaires, réponse du support non lue",
 		"github_repository": "Dépôt GitHub",
 		"go_back": "Retour",
 		"hide_password": "Masquer le mot de passe",
@@ -1003,6 +1007,7 @@
 			"team_member": "Membre de l'équipe"
 		},
 		"button": {
+			"show_older_conversations": "Afficher les conversations plus anciennes",
 			"start_new_conversation": "Démarrer une nouvelle conversation"
 		},
 		"chatbar": {
@@ -1069,7 +1074,8 @@
 		},
 		"thread": {
 			"load_error": "Échec du chargement des conversations. Veuillez réessayer plus tard.",
-			"new_conversation": "Nouvelle conversation"
+			"new_conversation": "Nouvelle conversation",
+			"unread_reply": "Réponse du support non lue"
 		},
 		"time": {
 			"days_ago": "il y a {days} jours",

@@ -3,12 +3,14 @@
 	import LauncherIcon from './launcher-icon.svelte';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import FeedbackWidget from './feedback-widget.svelte';
-	import { on } from 'svelte/events';
 	import type { ChatUIContext } from '$lib/chat';
 	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
 	import { getTranslate } from '@tolgee/svelte';
+	import SupportUnreadIndicator from './support-unread-indicator.svelte';
+	import { useSupportUnreadState } from './support-unread-state.svelte.ts';
 
 	const { t } = getTranslate();
+	const unread = useSupportUnreadState();
 
 	let {
 		isFeedbackOpen = false,
@@ -31,16 +33,12 @@
 		onToggle?.(false);
 	}
 
-	$effect(() => {
-		if (!isFeedbackOpen) return;
-
-		return on(window, 'keydown', (event) => {
-			if (event.key === 'Escape') {
-				closeWidget();
-			}
-		});
-	});
+	function handleKeydown(event: KeyboardEvent) {
+		if (isFeedbackOpen && event.key === 'Escape') closeWidget();
+	}
 </script>
+
+<svelte:window onkeydown={handleKeydown} />
 
 {#if !isScreenshotMode}
 	<div class="fixed right-5 bottom-5 z-40 flex flex-col items-end justify-end gap-3">
@@ -51,8 +49,12 @@
 			variant="default"
 			size="icon"
 			onclick={toggleOpen}
-			aria-label={isFeedbackOpen ? $t('aria.feedback_close') : $t('aria.feedback_open')}
-			class="size-12 rounded-xl transition-transform duration-150 ease-out active:scale-[0.97]"
+			aria-label={isFeedbackOpen
+				? $t('aria.feedback_close')
+				: unread.hasUnread
+					? $t('aria.feedback_open_unread')
+					: $t('aria.feedback_open')}
+			class="relative size-12 rounded-xl transition-transform duration-150 ease-out active:scale-[0.97]"
 		>
 			<div class="relative size-6">
 				<ChevronDownIcon
@@ -66,6 +68,9 @@
 						: 'blur-0 scale-100 opacity-100'}"
 				/>
 			</div>
+			{#if unread.hasUnread && !isFeedbackOpen}
+				<SupportUnreadIndicator class="absolute -top-1 -right-1" />
+			{/if}
 		</Button>
 	</div>
 {/if}
