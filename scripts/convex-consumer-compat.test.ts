@@ -113,6 +113,22 @@ describe('Convex consumer references', () => {
 		expect(scheduledIdentifiersIn(source, 'src/lib/convex/jobs.ts')).toEqual([]);
 	});
 
+	it('keeps a target shadowed only inside a sibling block', () => {
+		const source = `
+			const target = makeFunctionReference<'mutation'>('jobs:old');
+			async function schedule(ctx) {
+				await ctx.scheduler.runAfter(0, target, {});
+				if (true) {
+					const target = makeFunctionReference<'mutation'>('jobs:new');
+				}
+			}
+		`;
+		expect(scheduledIdentifiersIn(source, 'src/lib/convex/jobs.ts')).toEqual([
+			{ identifier: 'jobs:old', visibility: 'public', file: 'src/lib/convex/jobs.ts' },
+			{ identifier: 'jobs:old', visibility: 'internal', file: 'src/lib/convex/jobs.ts' }
+		]);
+	});
+
 	it('does not preserve an atomic direct call inside Convex', () => {
 		expect(
 			scheduledIdentifiersIn(

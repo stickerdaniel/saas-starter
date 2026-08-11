@@ -234,9 +234,74 @@ function bindingNameContains(binding: ts.BindingName, name: string): boolean {
 	);
 }
 
+function statementsDeclareBlockBinding(statements: readonly ts.Statement[], name: string): boolean {
+	return statements.some((statement) => {
+		if (ts.isVariableStatement(statement)) {
+			return (
+				(statement.declarationList.flags & ts.NodeFlags.BlockScoped) !== 0 &&
+				statement.declarationList.declarations.some((declaration) =>
+					bindingNameContains(declaration.name, name)
+				)
+			);
+		}
+		return (
+			((ts.isFunctionDeclaration(statement) || ts.isClassDeclaration(statement)) &&
+				statement.name?.text === name) ??
+			false
+		);
+	});
+}
+
+function functionDeclaresVarBinding(body: ts.ConciseBody | undefined, name: string): boolean {
+	if (!body) return false;
+	let found = false;
+	const visit = (node: ts.Node): void => {
+		if (found || (node !== body && ts.isFunctionLike(node))) return;
+		if (
+			ts.isVariableDeclarationList(node) &&
+			(node.flags & ts.NodeFlags.BlockScoped) === 0 &&
+			node.declarations.some((declaration) => bindingNameContains(declaration.name, name))
+		) {
+			found = true;
+			return;
+		}
+		ts.forEachChild(node, visit);
+	};
+	visit(body);
+	return found;
+}
+
 function shadowsStaticReference(target: ts.Identifier): boolean {
 	let ancestor: ts.Node | undefined = target.parent;
 	while (ancestor && !ts.isSourceFile(ancestor)) {
+		if (ts.isBlock(ancestor) && statementsDeclareBlockBinding(ancestor.statements, target.text)) {
+			return true;
+		}
+		if (
+			ts.isCaseBlock(ancestor) &&
+			statementsDeclareBlockBinding(
+				ancestor.clauses.flatMap((clause) => clause.statements),
+				target.text
+			)
+		) {
+			return true;
+		}
+		if (ts.isCatchClause(ancestor) && ancestor.variableDeclaration) {
+			if (bindingNameContains(ancestor.variableDeclaration.name, target.text)) return true;
+		}
+		if (
+			(ts.isForStatement(ancestor) ||
+				ts.isForInStatement(ancestor) ||
+				ts.isForOfStatement(ancestor)) &&
+			ancestor.initializer &&
+			ts.isVariableDeclarationList(ancestor.initializer) &&
+			(ancestor.initializer.flags & ts.NodeFlags.BlockScoped) !== 0 &&
+			ancestor.initializer.declarations.some((declaration) =>
+				bindingNameContains(declaration.name, target.text)
+			)
+		) {
+			return true;
+		}
 		if (ts.isFunctionLike(ancestor)) {
 			if (
 				ancestor.parameters.some((parameter) => bindingNameContains(parameter.name, target.text))
@@ -246,28 +311,13 @@ function shadowsStaticReference(target: ts.Identifier): boolean {
 			if (ancestor.name && ts.isIdentifier(ancestor.name) && ancestor.name.text === target.text) {
 				return true;
 			}
-			const body = ancestor.body;
-			if (body) {
-				let shadowed = false;
-				const visitBinding = (node: ts.Node): void => {
-					if (shadowed) return;
-					if (node !== body && ts.isFunctionLike(node)) {
-						if (ts.isFunctionDeclaration(node) && node.name?.text === target.text) shadowed = true;
-						return;
-					}
-					if (ts.isClassDeclaration(node)) {
-						if (node.name?.text === target.text) shadowed = true;
-						return;
-					}
-					if (ts.isVariableDeclaration(node) && bindingNameContains(node.name, target.text)) {
-						shadowed = true;
-						return;
-					}
-					ts.forEachChild(node, visitBinding);
-				};
-				ts.forEachChild(body, visitBinding);
-				if (shadowed) return true;
-			}
+			if (functionDeclaresVarBinding(ancestor.body, target.text)) return true;
+		}
+		if (
+			(ts.isClassDeclaration(ancestor) || ts.isClassExpression(ancestor)) &&
+			ancestor.name?.text === target.text
+		) {
+			return true;
 		}
 		ancestor = ancestor.parent;
 	}
