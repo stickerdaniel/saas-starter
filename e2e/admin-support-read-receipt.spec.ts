@@ -49,10 +49,9 @@ test('shows an unread support reply and reports when the customer opens it', asy
 
 		const closeLauncher = userPage.getByRole('button', { name: 'Close feedback' });
 		const unreadThread = userPage.getByRole('button', { name: new RegExp(reply) });
-		const threadList = userPage.getByTestId('support-thread-list');
+		const showOlder = userPage.getByRole('button', { name: 'Show older conversations' });
 		async function revealUnreadThread() {
-			await expect(threadList).toBeVisible();
-			await threadList.evaluate((element) => element.scrollTo(0, element.scrollHeight));
+			await showOlder.click();
 			await expect(unreadThread.getByTestId('support-unread-indicator')).toBeVisible();
 		}
 

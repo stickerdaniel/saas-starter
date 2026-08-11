@@ -1007,6 +1007,7 @@
 			"team_member": "Team member"
 		},
 		"button": {
+			"show_older_conversations": "Show older conversations",
 			"start_new_conversation": "Start a new conversation"
 		},
 		"chatbar": {
