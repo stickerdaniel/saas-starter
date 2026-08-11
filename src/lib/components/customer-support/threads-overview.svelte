@@ -57,6 +57,14 @@
 	// reply has to stay reachable without depending on scroll position.
 	const canLoadMore = $derived(threadsQuery.status === 'CanLoadMore');
 	const isLoadingMore = $derived(threadsQuery.status === 'LoadingMore');
+	const hasInitialError = $derived(Boolean(loadError) && threads.length === 0);
+	// Nothing to show is only an empty inbox once there is nothing left to fetch.
+	// A page can filter down to nothing on its own, and treating that as empty
+	// would show the greeting over conversations that are one page further back,
+	// with no control on that branch to reach them.
+	const showGreeting = $derived(
+		!isLoading && threads.length === 0 && !canLoadMore && !isLoadingMore
+	);
 
 	// Query admin avatars for the welcome screen
 	const adminAvatarsQuery = useQuery(api.support.threads.getAdminAvatars, {});
@@ -186,18 +194,24 @@
 <div class="flex h-full flex-col" inert={ctx.currentView !== 'overview' ? true : undefined}>
 	<!-- Thread List -->
 	<div class="min-h-0 flex-1 overflow-y-auto">
-		{#if loadError && threads.length === 0}
-			<!-- Announced for the same reason as the paging failure below: it arrives
-			     after the view is already open, without moving focus, so nothing else
-			     would tell a screen reader that the conversations failed to load. -->
-			<div
-				role="status"
-				class="flex h-full items-center justify-center p-8 text-center text-balance text-destructive"
-				data-testid="support-threads-error"
-			>
-				{$t('support.thread.load_error')}
-			</div>
-		{:else if !isLoading && threads.length === 0}
+		<!-- Announced for the same reason as the paging failure below: it arrives
+		     after the view is already open, without moving focus, so nothing else
+		     would tell a screen reader that the conversations failed to load. The
+		     region has to outlive the message; a status container that appears
+		     already holding its text is not reliably read out. -->
+		<div role="status" class={hasInitialError ? 'h-full' : undefined}>
+			{#if hasInitialError}
+				<div
+					class="flex h-full items-center justify-center p-8 text-center text-balance text-destructive"
+					data-testid="support-threads-error"
+				>
+					{$t('support.thread.load_error')}
+				</div>
+			{/if}
+		</div>
+		{#if hasInitialError}
+			<!-- The message above stands in for the list. -->
+		{:else if showGreeting}
 			<!-- Empty state with greeting (only shown after query completes) -->
 			<div class="flex h-full flex-col justify-start">
 				<div class="m-10 flex flex-col items-start">
