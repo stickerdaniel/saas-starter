@@ -49,3 +49,24 @@ Reply anytime. I read every response.
 {{founderName}}
 {{founderTitle}}`
 } as const;
+
+/** Build a support link on the configured site while retaining the source page state. */
+export function buildSupportDeepLink(
+	pageUrl: string | undefined,
+	siteUrl: string,
+	threadId: string
+): string {
+	const target = new URL(siteUrl);
+	try {
+		const source = new URL(pageUrl || siteUrl);
+		target.pathname = source.pathname;
+		target.search = source.search;
+		target.hash = source.hash;
+	} catch {
+		// The configured site root is the safe fallback for malformed stored URLs.
+	}
+
+	target.searchParams.set('support', 'open');
+	target.searchParams.set('thread', threadId);
+	return target.toString();
+}

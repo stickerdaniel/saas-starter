@@ -13,6 +13,7 @@ vi.mock('$lib/convex/env', () => ({
 	}
 }));
 
+import { sanitizeEmailCss } from '../email-css';
 import {
 	renderVerificationEmail,
 	renderVerificationCodeEmail,
@@ -23,6 +24,18 @@ import {
 } from '$lib/convex/emails/templates';
 
 describe('Email Template Rendering', () => {
+	describe('Email CSS', () => {
+		it('removes custom cursor image declarations', () => {
+			expect(
+				sanitizeEmailCss("body { color: black; cursor: url('/cursor.svg') 4 2, default; }")
+			).toBe('body { color: black;  }');
+		});
+
+		it('retains ordinary cursor declarations', () => {
+			expect(sanitizeEmailCss('a { cursor: pointer; }')).toBe('a { cursor: pointer; }');
+		});
+	});
+
 	describe('HTML escaping', () => {
 		it('escapes < and > in userName', () => {
 			const result = renderPasswordResetEmail(

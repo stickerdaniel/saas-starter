@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { isTestEmail, shouldSkipTestEmail, getFounderWelcomeDelay } from '../helpers';
+import {
+	buildSupportDeepLink,
+	isTestEmail,
+	shouldSkipTestEmail,
+	getFounderWelcomeDelay
+} from '../helpers';
 
 /**
  * Tests for email send helper functions.
@@ -50,6 +55,36 @@ describe('shouldSkipTestEmail', () => {
 	it('returns false for regular emails', () => {
 		expect(shouldSkipTestEmail('sendVerificationEmail', 'user@example.com')).toBe(false);
 		expect(shouldSkipTestEmail('sendResetPasswordEmail', 'admin@company.com')).toBe(false);
+	});
+});
+
+describe('buildSupportDeepLink', () => {
+	it('keeps the source path and parameters on the configured site origin', () => {
+		expect(
+			buildSupportDeepLink(
+				'https://preview.example.com/de/app/project?layout=split#details',
+				'https://app.example.com',
+				'thread-123'
+			)
+		).toBe(
+			'https://app.example.com/de/app/project?layout=split&support=open&thread=thread-123#details'
+		);
+	});
+
+	it('overwrites existing support parameters without changing unrelated state', () => {
+		expect(
+			buildSupportDeepLink(
+				'https://preview.example.com/app?support=closed&thread=old&tab=files',
+				'https://app.example.com',
+				'new-thread'
+			)
+		).toBe('https://app.example.com/app?support=open&thread=new-thread&tab=files');
+	});
+
+	it('falls back to the configured site for a malformed source URL', () => {
+		expect(buildSupportDeepLink('not a URL', 'https://app.example.com', 'thread-123')).toBe(
+			'https://app.example.com/?support=open&thread=thread-123'
+		);
 	});
 });
 
