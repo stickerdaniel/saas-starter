@@ -168,7 +168,7 @@ export const listThreads = query({
 
 		const supportThreadsPage = await ctx.db
 			.query('supportThreads')
-			.withIndex('by_user_and_updated', (q) => q.eq('userId', owner.ownerId))
+			.withIndex('by_user_and_last_message', (q) => q.eq('userId', owner.ownerId))
 			.order('desc')
 			.paginate(args.paginationOpts ?? { numItems: 20, cursor: null });
 		// Bounded: each owner has at most one pre-warmed thread.
@@ -198,7 +198,7 @@ export const listThreads = query({
 			})
 		);
 
-		const threadsWithLastMessage = supportThreads.map((supportThread) => {
+		const threads = supportThreads.map((supportThread) => {
 			const assignedAdmin = supportThread.assignedTo
 				? adminMap.get(supportThread.assignedTo)
 				: undefined;
@@ -221,11 +221,8 @@ export const listThreads = query({
 			};
 		});
 
-		// Sort by lastMessageAt in descending order (most recent first)
-		threadsWithLastMessage.sort((a, b) => (b.lastMessageAt ?? 0) - (a.lastMessageAt ?? 0));
-
 		return {
-			page: threadsWithLastMessage,
+			page: threads,
 			isDone: supportThreadsPage.isDone,
 			continueCursor: supportThreadsPage.continueCursor
 		};
@@ -514,7 +511,7 @@ export const updateLastMessage = internalMutation({
  *
  * Leaves notificationEmail untouched (explicit opt-in that may intentionally
  * differ from the account email) and does not bump updatedAt (a profile edit
- * is not thread activity and must not reorder by_user_and_updated listings).
+ * is not thread activity and must not reorder the admin inbox).
  */
 export const syncUserProfile = internalMutation({
 	args: {
