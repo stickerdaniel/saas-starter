@@ -91,7 +91,7 @@
 							{#snippet child({ props })}
 								<Button
 									variant="ghost"
-									class="w-full justify-start gap-2 px-1.5 !transition-transform data-[state=open]:bg-muted"
+									class="w-full justify-start gap-2 px-1.5 data-[state=open]:bg-muted"
 									{...props}
 								>
 									<config.header.icon class="!size-5" />
@@ -120,7 +120,7 @@
 					<Button
 						variant="ghost"
 						href={resolve(config.header.href)}
-						class="w-full justify-start gap-2 px-1.5 !transition-transform"
+						class="w-full justify-start gap-2 px-1.5"
 					>
 						<config.header.icon class="!size-5" />
 						<span class="text-base font-semibold">
@@ -152,7 +152,7 @@
 									<Sidebar.MenuItem {...props}>
 										<Sidebar.MenuButton
 											isActive={item.isActive}
-											class="relative !transition-transform"
+											class="relative"
 											onclick={() => haptic.trigger('light')}
 										>
 											{#snippet child({ props })}
@@ -170,9 +170,11 @@
 											{#snippet child({ props })}
 												<Sidebar.MenuAction
 													{...props}
-													class="transition-transform duration-200 active:translate-y-px data-[state=open]:rotate-90"
+													class="group/threads-toggle active:translate-y-px"
 												>
-													<ChevronRightIcon />
+													<ChevronRightIcon
+														class="transition-transform duration-200 group-data-[state=open]/threads-toggle:rotate-90"
+													/>
 													<span class="sr-only"><T keyName="aria.toggle_threads" /></span>
 												</Sidebar.MenuAction>
 											{/snippet}
@@ -185,7 +187,7 @@
 							<Sidebar.MenuItem>
 								<Sidebar.MenuButton
 									isActive={item.isActive}
-									class="relative !transition-transform"
+									class="relative"
 									onclick={() => {
 										haptic.trigger('light');
 										item.onSelect?.();
@@ -227,10 +229,7 @@
 				{#each config.footerLinks as link (link.translationKey)}
 					{#if link.condition !== false}
 						<Sidebar.MenuItem>
-							<Sidebar.MenuButton
-								class="relative !transition-transform"
-								onclick={() => haptic.trigger('light')}
-							>
+							<Sidebar.MenuButton class="relative" onclick={() => haptic.trigger('light')}>
 								{#snippet child({ props })}
 									<a href={resolve(link.url)} {...props}>
 										<link.icon />
