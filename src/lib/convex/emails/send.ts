@@ -14,7 +14,7 @@ import type { NotificationMessage } from '../../emails/templates/types';
 import { t, getValidLocale, type SupportedLocale } from '../i18n/translations';
 import type { GenericMutationCtx } from 'convex/server';
 import type { DataModel } from '../_generated/dataModel';
-import { shouldSkipTestEmail } from './helpers';
+import { buildSupportDeepLink, shouldSkipTestEmail } from './helpers';
 
 /** Type for user result from Better Auth adapter with optional locale field */
 type UserWithLocale = { locale?: string | null } | null;
@@ -135,14 +135,7 @@ export const sendAdminReplyNotification = internalMutation({
 		const locale = await getLocaleForEmail(ctx, email);
 		const siteUrl = requireEnv('SITE_URL', { feature: 'email deep links' });
 
-		// Build deep link that opens the support widget to this thread
-		// Strip any existing support/thread params to avoid duplicates
-		const url = new URL(pageUrl || siteUrl);
-		url.searchParams.delete('support');
-		url.searchParams.delete('thread');
-		url.searchParams.set('support', 'open');
-		url.searchParams.set('thread', threadId);
-		const deepLink = url.toString();
+		const deepLink = buildSupportDeepLink(pageUrl, siteUrl, threadId);
 
 		const { html, text } = renderAdminReplyNotificationEmail(
 			adminName,
