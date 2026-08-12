@@ -54,7 +54,7 @@
 				: unread.hasUnread
 					? $t('aria.feedback_open_unread')
 					: $t('aria.feedback_open')}
-			class="relative size-12 rounded-xl transition-transform duration-150 ease-out active:scale-[0.97]"
+			class="relative size-12 rounded-xl transition-transform duration-150 ease-out active:not-aria-[haspopup]:translate-y-0 active:scale-[0.97]"
 		>
 			<div class="relative size-6">
 				<ChevronDownIcon

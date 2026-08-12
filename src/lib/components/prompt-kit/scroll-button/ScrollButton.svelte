@@ -53,7 +53,7 @@
 	{size}
 	aria-label={$t('aria.scroll_to_bottom')}
 	class={cn(
-		'h-10 w-10 rounded-full transition-all duration-150 ease-out',
+		'h-10 w-10 rounded-full transition-all duration-150 ease-out active:not-aria-[haspopup]:translate-y-0',
 		!resolvedIsAtBottom
 			? 'translate-y-0 scale-100 opacity-100'
 			: 'pointer-events-none translate-y-4 scale-95 opacity-0',
