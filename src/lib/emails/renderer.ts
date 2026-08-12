@@ -1,10 +1,7 @@
 import { Renderer } from '@better-svelte-email/server';
 import layoutStyles from '../../routes/layout.css?raw';
 import preflightCss from 'tailwindcss/preflight.css?raw';
-
-export function sanitizeEmailCss(css: string): string {
-	return css.replace(/cursor\s*:\s*url\([^;]+;/g, '');
-}
+import { sanitizeEmailCss } from './email-css';
 
 const emailLayoutStyles = sanitizeEmailCss(layoutStyles);
 

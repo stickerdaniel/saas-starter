@@ -13,7 +13,7 @@ vi.mock('$lib/convex/env', () => ({
 	}
 }));
 
-import { sanitizeEmailCss } from '../renderer';
+import { sanitizeEmailCss } from '../email-css';
 import {
 	renderVerificationEmail,
 	renderVerificationCodeEmail,
