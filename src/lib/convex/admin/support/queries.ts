@@ -28,7 +28,7 @@ const vSupportMetadata = v.object({
  * - status (open, done)
  * - search (title, summary, or message content)
  *
- * Returns threads sorted by lastMessageAt (most recent first)
+ * Non-search results are ordered by updatedAt; search results use relevance order.
  */
 export const listThreadsForAdmin = adminQuery({
 	args: {
