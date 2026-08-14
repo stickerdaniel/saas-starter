@@ -22,6 +22,7 @@ import requireFieldErrorAssociationRule from './eslint/rules/require-field-error
 import requireGuardedServerConvexClientRule from './eslint/rules/require-guarded-server-convex-client.js';
 import noFrozenAuthPageDataRule from './eslint/rules/no-frozen-auth-page-data.js';
 import requireSvelteModuleExtensionRule from './eslint/rules/require-svelte-module-extension.js';
+import noAnimatedPixelPressRule from './eslint/rules/no-animated-pixel-press.js';
 
 const gitignorePath = path.resolve(import.meta.dirname, '.gitignore');
 const localPlugin = {
@@ -39,7 +40,8 @@ const localPlugin = {
 		'require-field-error-association': requireFieldErrorAssociationRule,
 		'require-guarded-server-convex-client': requireGuardedServerConvexClientRule,
 		'no-frozen-auth-page-data': noFrozenAuthPageDataRule,
-		'require-svelte-module-extension': requireSvelteModuleExtensionRule
+		'require-svelte-module-extension': requireSvelteModuleExtensionRule,
+		'no-animated-pixel-press': noAnimatedPixelPressRule
 	}
 };
 
@@ -297,6 +299,15 @@ export default defineConfig(
 		},
 		rules: {
 			'local/require-guarded-server-convex-client': 'error'
+		}
+	},
+	{
+		files: ['src/**/*.svelte'],
+		plugins: {
+			local: localPlugin
+		},
+		rules: {
+			'local/no-animated-pixel-press': 'error'
 		}
 	},
 	// Convex best-practice rules — v2 ships ESLint 9 flat config natively
