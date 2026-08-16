@@ -125,7 +125,7 @@
 	const rotatingPlaceholders = $derived(compact ? placeholders : []);
 	// Content-based key so the index only resets when the copy actually changes
 	// (locale or thread switch), not on every re-derivation of the same list.
-	const placeholderKey = $derived(rotatingPlaceholders.join(''));
+	const placeholderKey = $derived(rotatingPlaceholders.join('\u0001'));
 	const visiblePlaceholder = $derived(
 		rotatingPlaceholders.length > 0
 			? rotatingPlaceholders[placeholderIndex % rotatingPlaceholders.length]
