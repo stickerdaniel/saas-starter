@@ -215,6 +215,32 @@ function readFilesFrom(source: string): string[] {
  * derived, so a check can no longer disagree with the ledger about its own scope, and
  * a new check has to declare a route to be accounted for.
  */
+/**
+ * The column of the first control character written as the byte itself, or null.
+ *
+ * The character is often the right one: NUL is the correct separator for a composite
+ * key, because it cannot occur in the parts being joined. Writing it as the raw byte
+ * is what breaks, since it renders as nothing. A reader sees an empty string where
+ * the code means a separator, a text search or scripted edit matches nothing while
+ * appearing to succeed, and git calls the whole file binary so its diffs stop being
+ * reviewable in a pull request.
+ *
+ * A codepoint scan rather than a regular expression, for two reasons: eslint's
+ * no-control-regex rejects a pattern containing these characters whatever the intent,
+ * and the column is needed for the message, since printing the offending line shows
+ * the reader nothing at all.
+ *
+ * Tab, newline and carriage return are structural in source and stay legal.
+ */
+export function findLiteralControlChar(line: string): number | null {
+	for (let i = 0; i < line.length; i++) {
+		const code = line.charCodeAt(i);
+		const structural = code === 0x09 || code === 0x0a || code === 0x0d;
+		if ((code < 0x20 && !structural) || code === 0x7f) return i;
+	}
+	return null;
+}
+
 export const ROUTES = {
 	misspell: (f: string) => !CONFIG.misspell.ignore.some((i) => f.includes(i)),
 	'banned-patterns': (f: string) => /\.(svelte|ts)$/.test(f) && f.startsWith('src/'),
@@ -594,6 +620,15 @@ async function main(): Promise<void> {
 					if (CONFIG.bannedPatterns.ungatedTolgeeApiKey.test(line)) {
 						violations.push(
 							`${file}:${i + 1}: ungated Tolgee apiKey (gate behind import.meta.env.DEV so it is stripped from production/preview bundles): ${line.trim()}`
+						);
+					}
+					const controlAt = findLiteralControlChar(line);
+					if (controlAt !== null) {
+						// Name the byte by codepoint and column. Printing the line alone would
+						// show the reader nothing, which is the whole problem with it.
+						const hex = line.charCodeAt(controlAt).toString(16).padStart(4, '0').toUpperCase();
+						violations.push(
+							`${file}:${i + 1}:${controlAt + 1}: literal control character U+${hex} (write it as an escape so it stays visible in editors, diffs and text search): ${line.trim()}`
 						);
 					}
 				}
