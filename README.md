@@ -1,22 +1,27 @@
-# SaaS Starter
+# Ship SaaS faster with agents, without the regressions
 
 [![Static Checks](https://github.com/stickerdaniel/saas-starter/actions/workflows/static-checks.yml/badge.svg)](https://github.com/stickerdaniel/saas-starter/actions/workflows/static-checks.yml)
 [![E2E Tests (CF)](https://github.com/stickerdaniel/saas-starter/actions/workflows/e2e-preview-cf.yml/badge.svg)](https://github.com/stickerdaniel/saas-starter/actions/workflows/e2e-preview-cf.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-%233fb950)](https://opensource.org/licenses/MIT)
 
-A free, open-source SaaS template built with SvelteKit, Convex, Better Auth, Tolgee, and Tailwind, made for AI coding agents to work in. Auth, billing, admin, AI chat, email, and i18n are implemented end-to-end, so you and your agents reuse real patterns instead of inventing them. Deploy on Cloudflare Workers or Vercel for $0.
+An open-source SvelteKit + Convex starter/reference application with auth, billing, admin, AI chat, email, and i18n wired end to end.<br>
+Recurring bug classes become ESLint rules, validators, and tests that keep your agents in check.
 
-> See a live demo of the user-facing side at **[saas.daniel.sticker.name](https://saas.daniel.sticker.name)**. Admin features like the admin panel, support dashboard, and user management are not accessible there. To explore everything, follow the steps below.
+**Start on free tiers. Deploy to Cloudflare/Vercel, or your own Node server.**
+
+> [Live demo!](https://saas.daniel.sticker.name) The public demo covers the user-facing features. Run the quick start below to access admin panel, support dashboard, and user management.
 
 ## Why This Exists
 
-I kept rebuilding the same stack and pointing my agent at old repos to copy patterns I had settled on, so I collected them here: a streaming AI chat with tool calling and file uploads, a support chat that triages with AI then hands off to a human, plus auth, billing, admin, and i18n. Real features your agent can read and reuse.
+I kept rebuilding the same stack and pointing my agent at old repos to copy patterns I had already built, so I collected the best versions here: streaming AI chat with tool calling and file uploads, support chat with human handoff, auth, billing, admin features, emails, and i18n.
 
-Agents report a task as done when it isn't, and reintroduce defects you already fixed. So the codebase enforces its own rules. Every recurring class of bug becomes an ESLint rule, a banned-pattern scan, a test, a Convex validator, or a sharper line in AGENTS.md, and CI checks every fix PR for a `Regression guard:` verdict. The more agents touch it, the harder it gets to ship the same defect twice. This works because the stack is deliberately opinionated, the case [Rich Harris makes](https://www.youtube.com/watch?v=SmHgtyym6OA&t=2388s): smart defaults for auth, persistence, i18n, and UI that fit together. Open source, free to run.
+The same mistakes also kept showing up across repos. In addition to giving agents good patterns to copy, the codebase enforces its own rules. Every recurring class of bug becomes an ESLint rule, banned-pattern check, test, or Convex validator. CI requires every fix PR to include a `Regression guard:` verdict. This makes the same defect harder to introduce twice.
+
+The stack is deliberately opinionated, following [Rich Harris's case](https://www.youtube.com/watch?v=SmHgtyym6OA&t=2388s) for smart defaults that fit well together.
 
 ## Quick Start
 
-Four commands to a running app with a local Convex backend and seeded admin:
+Start the app with a local Convex backend and a seeded admin account:
 
 ```bash
 gh repo create my-saas-product --template stickerdaniel/saas-starter --clone
@@ -24,7 +29,6 @@ cd my-saas-product
 bun install
 bun run dev
 ```
-
 Visit the URL printed by `bun run dev` (a stable per-project port) and sign in:
 
 ```text
