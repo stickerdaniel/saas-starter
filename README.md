@@ -29,6 +29,7 @@ cd my-saas-product
 bun install
 bun run dev
 ```
+
 Visit the URL printed by `bun run dev` (a stable per-project port) and sign in:
 
 ```text
