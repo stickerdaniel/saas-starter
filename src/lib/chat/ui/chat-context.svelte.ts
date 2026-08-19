@@ -9,7 +9,7 @@ import { getContext, setContext, untrack } from 'svelte';
 import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 import { toast } from 'svelte-sonner';
 import type { ConvexClient } from 'convex/browser';
-import type { ChatCore } from '../core/chat-core.svelte.ts';
+import type { ChatSessionPort } from '../core/chat-session-port.js';
 import type { DisplayMessage, Attachment, MessageRole, UploadState } from '../core/types.js';
 import { uploadFileWithProgress, UploadError } from '../core/file-uploader.js';
 import type {
@@ -107,7 +107,7 @@ export interface ActiveUploadsRegistry {
  */
 export class ChatUIContext {
 	/** The core chat state manager */
-	readonly core: ChatCore;
+	readonly core: ChatSessionPort;
 
 	/** Convex client for queries/mutations */
 	readonly client: ConvexClient;
@@ -209,7 +209,7 @@ export class ChatUIContext {
 	private disposed = false;
 
 	constructor(
-		core: ChatCore,
+		core: ChatSessionPort,
 		client: ConvexClient,
 		uploadConfig?: UploadConfig,
 		userAlignment: ChatAlignment = 'right',

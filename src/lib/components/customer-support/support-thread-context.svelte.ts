@@ -8,6 +8,7 @@ import { createOptimisticUpdate, type ListMessagesArgs } from '$lib/chat/core/op
 import { CHAT_PAGE_SIZE } from '$lib/chat/core/types.js';
 import { isAnonymousUser } from '$lib/convex/utils/anonymousUser';
 import { isSupportAiEnabled } from '$lib/config/support';
+import type { ChatSessionPort } from '$lib/chat/core/chat-session-port.js';
 
 /**
  * View types for the support widget navigation
@@ -33,7 +34,7 @@ export interface ThreadSummary {
 /**
  * Thread context state
  */
-export class SupportThreadContext {
+export class SupportThreadContext implements ChatSessionPort {
 	// User identification
 	userId = $state<string | null>(null);
 

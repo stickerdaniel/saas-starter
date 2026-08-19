@@ -61,7 +61,9 @@ export type {
 	ProgressCallback,
 	UploadErrorCode,
 	ChatCoreAPI,
-	ChatCoreOptions
+	ChatCoreOptions,
+	ChatSessionPort,
+	StreamCachePort
 } from './core/index.js';
 
 export {

@@ -3,6 +3,7 @@
 	import { onDestroy, type Snippet } from 'svelte';
 	import type { UIMessage } from '@convex-dev/agent';
 	import { ChatCore, type ChatCoreAPI } from '../core/chat-core.svelte.ts';
+	import type { ChatSessionPort } from '../core/chat-session-port.js';
 	import { CHAT_PAGE_SIZE, type DisplayMessage } from '../core/types.js';
 	import {
 		ChatUIContext,
@@ -24,22 +25,6 @@
 	import { syncReasoningAccordionState } from './reasoning-accordion-sync.js';
 	import { activeUploadsContext } from '$lib/hooks/active-uploads.svelte.ts';
 
-	/**
-	 * External core adapter interface
-	 *
-	 * When using an external state manager (like SupportThreadContext),
-	 * provide an adapter that maps to the ChatCore interface.
-	 */
-	export interface ExternalCoreAdapter {
-		threadId: string | null;
-		isLoading: boolean;
-		isSending: boolean;
-		error: string | null;
-		isAwaitingStream: boolean;
-		setAwaitingStream: (awaiting: boolean) => void;
-		streamCache: ChatCore['streamCache'];
-	}
-
 	let {
 		threadId,
 		api,
@@ -57,8 +42,8 @@
 		api: ChatCoreAPI & {
 			listMessages: Parameters<typeof useQuery>[0];
 		};
-		/** External core adapter (optional - if provided, uses external state) */
-		externalCore?: ExternalCoreAdapter | ChatCore;
+		/** External chat session state (optional - if provided, uses external state) */
+		externalCore?: ChatSessionPort;
 		/** External UI context (optional - if provided, uses existing context) */
 		externalUIContext?: ChatUIContext;
 		/** Upload configuration for file attachments */
@@ -89,7 +74,7 @@
 	// Use either external or internal core
 	// Core selection is fixed for component lifetime; swapping requires remount.
 	// svelte-ignore state_referenced_locally
-	const core = (externalCore as unknown as ChatCore) ?? internalCore!;
+	const core: ChatSessionPort = externalCore ?? internalCore!;
 
 	// Create and set UI context (use external if provided)
 	// Context object is created once and placed in Svelte context.

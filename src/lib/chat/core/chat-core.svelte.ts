@@ -16,6 +16,7 @@ import type {
 import { DEFAULT_CHAT_CONFIG } from './types.js';
 import { StreamCacheManager } from './stream-cache.js';
 import { createOptimisticUpdate, type ListMessagesArgs } from './optimistic.js';
+import type { ChatSessionPort } from './chat-session-port.js';
 
 /**
  * Result from creating a thread
@@ -56,7 +57,7 @@ export interface ChatCoreOptions {
  * Manages thread state, messages, optimistic updates, and pagination.
  * Stream processing is handled separately via StreamCacheManager.
  */
-export class ChatCore {
+export class ChatCore implements ChatSessionPort {
 	// Thread state
 	threadId = $state<string | null>(null);
 	/** True when user starts a new conversation - enables immediate suggestion display */

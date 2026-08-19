@@ -24,6 +24,8 @@ export type {
 	CreateThreadOptions
 } from './types.js';
 
+export type { ChatSessionPort, StreamCachePort } from './chat-session-port.js';
+
 export {
 	CHAT_PAGE_SIZE,
 	DEFAULT_CHAT_CONFIG,
