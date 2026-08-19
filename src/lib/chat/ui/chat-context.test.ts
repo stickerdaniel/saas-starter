@@ -301,6 +301,48 @@ describe('ChatUIContext upload failures', () => {
 		expect(client.mutation).not.toHaveBeenCalled();
 	});
 
+	it('publishes source identity before preprocessing and keeps it after renaming', async () => {
+		stubTransport();
+		const client = succeedingClient();
+		const ctx = new ChatUIContext(mockCore, client, uploadConfig);
+		const source = new File(['original'], 'notes.txt', { type: 'text/plain' });
+		const transformed = new Blob(['normalized'], { type: 'text/plain' });
+
+		let finishPreprocessing!: () => void;
+		const preprocessing = new Promise<void>((resolve) => {
+			finishPreprocessing = resolve;
+		});
+		const upload = ctx.uploadFile(source, source.name, {
+			preprocess: async () => {
+				await preprocessing;
+				return {
+					blob: transformed,
+					mimeType: transformed.type,
+					filename: 'notes-normalized.txt'
+				};
+			}
+		});
+
+		// Before the first await settles, duplicate checks and attachment caps can
+		// already observe the picked file.
+		expect(ctx.attachments).toHaveLength(1);
+		expect(ctx.hasFile(source.name, source.size)).toBe(true);
+		expect(soleUploadState(ctx)).toEqual({ status: 'uploading', progress: 0 });
+		expect(client.mutation).not.toHaveBeenCalled();
+
+		finishPreprocessing();
+		await upload;
+
+		expect(ctx.attachments[0]).toMatchObject({
+			name: 'notes-normalized.txt',
+			size: transformed.size,
+			sourceName: source.name,
+			sourceSize: source.size,
+			uploadState: { status: 'success', progress: 100 }
+		});
+		expect(ctx.hasFile(source.name, source.size)).toBe(true);
+	});
+
 	it('takes attachments out of the composer when navigating between threads', () => {
 		// Every surface reuses one context across threads and swaps only the text
 		// draft, so an attachment left in place would be sent in the wrong thread —

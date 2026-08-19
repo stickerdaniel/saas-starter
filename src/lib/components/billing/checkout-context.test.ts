@@ -63,13 +63,14 @@ function deferredOperation<T>(result: T | null, error: Error | null = null) {
 	const state = {
 		isLoading: false,
 		error,
+		result,
 		calls: 0,
 		execute: vi.fn(async () => {
 			state.calls += 1;
 			state.isLoading = true;
 			await new Promise<void>((resolve) => releases.push(resolve));
 			state.isLoading = false;
-			return result;
+			return state.result;
 		}),
 		releaseAll: () => releases.splice(0).forEach((release) => release())
 	};
@@ -241,6 +242,23 @@ describe('BillingCheckoutManager.updateOptions', () => {
 		expect(manager.options).toEqual([{ featureId: 'seats', quantity: 6 }]);
 		expect(manager.open).toBe(true);
 	});
+
+	it('keeps the last usable preview when re-pricing fails', async () => {
+		const first = preview({ total: 10, options: [{ feature_id: 'seats', quantity: 3 }] });
+		const boom = new Error('pricing unavailable');
+		const checkout = operation<CheckoutResult>(first);
+		const { deps, manager } = setup({ checkout: checkout as never });
+
+		await manager.start({ productId: 'pro' });
+		checkout.error = boom;
+		checkout.execute.mockResolvedValueOnce(null);
+		await manager.updateOptions([{ featureId: 'seats', quantity: 6 }]);
+
+		expect(deps.onError).toHaveBeenCalledWith('checkout', boom);
+		expect(manager.open).toBe(true);
+		expect(manager.preview?.total).toBe(10);
+		expect(manager.options).toEqual([{ featureId: 'seats', quantity: 3 }]);
+	});
 });
 
 describe('BillingCheckoutManager concurrency', () => {
@@ -306,6 +324,30 @@ describe('BillingCheckoutManager concurrency', () => {
 
 		checkout.releaseAll();
 		await updating;
+		expect(manager.isUpdating).toBe(false);
+	});
+
+	it('discards a re-price answer after the session is cancelled', async () => {
+		const first = preview({ total: 10, options: [{ feature_id: 'seats', quantity: 3 }] });
+		const stale = preview({ total: 20, options: [{ feature_id: 'seats', quantity: 6 }] });
+		const checkout = deferredOperation<CheckoutResult>(first);
+		const { manager } = setup({ checkout: checkout as never });
+
+		const started = manager.start({ productId: 'pro' });
+		checkout.releaseAll();
+		await started;
+
+		checkout.result = stale;
+		const updating = manager.updateOptions([{ featureId: 'seats', quantity: 6 }]);
+		expect(manager.isUpdating).toBe(true);
+
+		manager.cancel();
+		checkout.releaseAll();
+		await updating;
+
+		expect(manager.open).toBe(false);
+		expect(manager.preview).toBeNull();
+		expect(manager.options).toEqual([]);
 		expect(manager.isUpdating).toBe(false);
 	});
 });
