@@ -13,7 +13,7 @@
 	import { toast } from 'svelte-sonner';
 	import { T, getTranslate } from '@tolgee/svelte';
 	import InfoIcon from '@lucide/svelte/icons/info';
-	import { useConvexClient } from 'convex-svelte';
+	import { useConvexClient, useQuery } from 'convex-svelte';
 	import { ConvexError } from 'convex/values';
 	import { api } from '$lib/convex/_generated/api.js';
 	import {
@@ -30,14 +30,21 @@
 	let isLoading = $state(false);
 	let formError = $state('');
 
-	// Resolved server-side so the right form renders on first paint. An account
-	// created through an OAuth provider has no credential account and therefore
-	// no password, so it gets the set form: changePassword verifies a current
-	// password that does not exist and can never succeed for it. null means the
-	// lookup did not answer, and the change form is the safe fallback because it
-	// asks for a current password rather than skipping that proof.
-	let { hasPassword }: { hasPassword: boolean | null } = $props();
+	// An account created through an OAuth provider has no credential account and
+	// therefore no password, so it gets the set form: changePassword verifies a
+	// current password that does not exist and can never succeed for it.
+	//
+	// The subscription is the source of truth; the server-loaded value only
+	// primes it so the right form renders on first paint instead of dropping a
+	// field after hydration. That matters because a failed server lookup passes
+	// null, and without the live query the account would sit in the change form
+	// with no way out but a reload.
+	let { initialHasPassword }: { initialHasPassword: boolean | null } = $props();
+	const hasPasswordQuery = useQuery(api.users.hasPassword, {}, () => ({
+		initialData: initialHasPassword ?? undefined
+	}));
 	let passwordSet = $state(false);
+	const hasPassword = $derived(hasPasswordQuery.data ?? initialHasPassword);
 	const mode = $derived(hasPassword === false && !passwordSet ? 'set' : 'change');
 
 	// Form data
@@ -121,11 +128,17 @@
 		isLoading = true;
 		formError = '';
 
+		// Pinned for the whole submit. The mutation makes the account's password
+		// state change, and the live query pushes that back before the awaits
+		// here resolve, so reading `mode` afterwards reports 'change' and would
+		// label a successful first setup as a password change.
+		const submittedMode = mode;
+
 		try {
 			// setPassword is serverOnly in Better Auth, so it is unreachable from
 			// authClient and goes through the Convex mutation instead.
 			const authError =
-				mode === 'set'
+				submittedMode === 'set'
 					? await setPasswordViaConvex()
 					: (
 							await authClient.changePassword({
@@ -138,7 +151,7 @@
 			if (authError) {
 				formError = getAuthErrorKey(
 					authError,
-					mode === 'set'
+					submittedMode === 'set'
 						? 'auth.messages.password_set_failed'
 						: 'auth.messages.password_change_failed'
 				);
@@ -147,11 +160,14 @@
 			} else {
 				haptic.trigger('success');
 				toast.success(
-					$t(mode === 'set' ? 'auth.messages.password_set' : 'auth.messages.password_changed')
+					$t(
+						submittedMode === 'set'
+							? 'auth.messages.password_set'
+							: 'auth.messages.password_changed'
+					)
 				);
-				// The account now has a credential account, so the card becomes the
-				// change form without a reload. Tracked separately because props are
-				// not writable.
+				// Keeps the card in change mode even if the live query is slow to
+				// report the new credential account.
 				passwordSet = true;
 				// Clear form
 				formData.currentPassword = '';

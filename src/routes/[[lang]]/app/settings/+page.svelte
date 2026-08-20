@@ -102,7 +102,7 @@
 			</Tabs.Content>
 
 			<Tabs.Content value="password" class="space-y-6">
-				<PasswordSettings hasPassword={data.hasPassword} />
+				<PasswordSettings initialHasPassword={data.hasPassword} />
 			</Tabs.Content>
 
 			<Tabs.Content value="email" class="space-y-6">

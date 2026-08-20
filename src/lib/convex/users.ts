@@ -3,6 +3,8 @@ import { query } from './_generated/server';
 import { components } from './_generated/api';
 import { authComponent, createAuth } from './auth';
 import { authedQuery, authedMutation } from './functions';
+import { appRateLimiter } from './rateLimit';
+import { createRateLimitError } from './support/types';
 import { tables } from './betterAuth/schema';
 
 /**
@@ -61,7 +63,26 @@ export const setPassword = authedMutation({
 	args: { newPassword: v.string() },
 	returns: v.null(),
 	handler: async (ctx, args) => {
+		// Better Auth hashes the candidate with scrypt before it can decide the
+		// account already has a password, so an unthrottled caller can burn CPU
+		// indefinitely on a request that changes nothing.
+		const status = await appRateLimiter.limit(ctx, 'setPassword', { key: ctx.user._id });
+		if (!status.ok) {
+			throw createRateLimitError(status.retryAfter, 'Too many password attempts');
+		}
+
 		const { auth, headers } = await authComponent.getAuth(createAuth, ctx);
+
+		// An impersonation session belongs to the target user, and
+		// sensitiveSessionMiddleware accepts it. Minting a credential through one
+		// would hand the acting admin a password that outlives the impersonation
+		// and would route around the audited admin path, which is why
+		// /admin/set-user-password is in DISABLED_ADMIN_PATHS in the first place.
+		const session = await auth.api.getSession({ headers });
+		if ((session?.session as { impersonatedBy?: string | null } | undefined)?.impersonatedBy) {
+			throw new ConvexError({ code: 'IMPERSONATION_NOT_ALLOWED' });
+		}
+
 		try {
 			await auth.api.setPassword({ body: { newPassword: args.newPassword }, headers });
 		} catch (error) {
@@ -72,24 +93,28 @@ export const setPassword = authedMutation({
 });
 
 /**
- * Whether the signed-in user has a password.
+ * Whether the signed-in user has a usable password.
  *
- * The settings card needs this before first paint so it can render the change
- * form or the set form directly, without briefly showing a current-password
- * field to an account that has no password to state. Reads the caller's own
- * accounts only.
+ * Mirrors Better Auth's own test rather than merely looking for a credential
+ * account: both changePassword and setPassword require `providerId` to be
+ * 'credential' AND the row to carry a password hash, and the component schema
+ * allows that hash to be absent. Reporting a credential row without a hash as
+ * "has a password" would render the change form to an account that can only
+ * ever get CREDENTIAL_ACCOUNT_NOT_FOUND back.
+ *
+ * Reads the caller's own account only.
  */
 export const hasPassword = authedQuery({
 	args: {},
 	returns: v.boolean(),
 	handler: async (ctx) => {
-		const accounts = await ctx.runQuery(components.betterAuth.adapter.findMany, {
+		const account = await ctx.runQuery(components.betterAuth.adapter.findOne, {
 			model: 'account',
-			where: [{ field: 'userId', operator: 'eq', value: ctx.user._id }],
-			paginationOpts: { cursor: null, numItems: 200 }
+			where: [
+				{ field: 'userId', operator: 'eq', value: ctx.user._id },
+				{ field: 'providerId', operator: 'eq', value: 'credential' }
+			]
 		});
-		return (accounts.page as Array<{ providerId?: string }>).some(
-			(account) => account.providerId === 'credential'
-		);
+		return Boolean((account as { password?: string | null } | null)?.password);
 	}
 });
