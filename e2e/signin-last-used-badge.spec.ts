@@ -109,6 +109,19 @@ test('last-used badge tracks the button through a press', async ({ page }) => {
 	// A disabled button does not move, so neither may the badge. The badge also
 	// uses opaque mixed colors instead of opacity: it overlaps the button edge,
 	// where transparency would let the edge show through.
+	const waitForBadgeTransitions = () =>
+		badge.evaluate(async (element) => {
+			await Promise.all(
+				element.getAnimations().map(async (animation) => {
+					try {
+						await animation.finished;
+					} catch {
+						// A superseded transition is expected to reject its finished promise.
+					}
+				})
+			);
+		});
+	await waitForBadgeTransitions();
 	const enabledBadgeStyle = await badge.evaluate((element) => {
 		const style = getComputedStyle(element);
 		return { backgroundColor: style.backgroundColor, color: style.color };
@@ -116,13 +129,22 @@ test('last-used badge tracks the button through a press', async ({ page }) => {
 	await button.evaluate((el: HTMLButtonElement) => {
 		el.disabled = true;
 	});
-	await expect
-		.poll(() => badge.evaluate((element) => getComputedStyle(element).backgroundColor))
-		.not.toBe(enabledBadgeStyle.backgroundColor);
-	await expect
-		.poll(() => badge.evaluate((element) => getComputedStyle(element).color))
-		.not.toBe(enabledBadgeStyle.color);
-	await expect.poll(() => badge.evaluate((element) => getComputedStyle(element).opacity)).toBe('1');
+	await waitForBadgeTransitions();
+	const disabledBadgeStyle = await badge.evaluate((element) => {
+		const style = getComputedStyle(element);
+		const alphaMatch = style.backgroundColor.match(/\/\s*([\d.]+)(%)?\s*\)$/);
+		const backgroundAlpha = alphaMatch ? Number(alphaMatch[1]) / (alphaMatch[2] ? 100 : 1) : 1;
+		return {
+			backgroundColor: style.backgroundColor,
+			color: style.color,
+			opacity: style.opacity,
+			backgroundAlpha
+		};
+	});
+	expect(disabledBadgeStyle.backgroundColor).not.toBe(enabledBadgeStyle.backgroundColor);
+	expect(disabledBadgeStyle.color).not.toBe(enabledBadgeStyle.color);
+	expect(disabledBadgeStyle.opacity).toBe('1');
+	expect(disabledBadgeStyle.backgroundAlpha).toBe(1);
 	const disabledResting = await tops();
 	await page.mouse.move(centre.x, centre.y);
 	await page.mouse.down();
