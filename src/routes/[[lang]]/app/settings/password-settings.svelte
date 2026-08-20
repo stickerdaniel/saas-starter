@@ -13,14 +13,44 @@
 	import { toast } from 'svelte-sonner';
 	import { T, getTranslate } from '@tolgee/svelte';
 	import InfoIcon from '@lucide/svelte/icons/info';
-	import { changePasswordSchema, PASSWORD_MIN_LENGTH } from './password-schema.js';
+	import { useConvexClient, useQuery } from 'convex-svelte';
+	import { ConvexError } from 'convex/values';
+	import { api } from '$lib/convex/_generated/api.js';
+	import {
+		changePasswordSchema,
+		setPasswordSchema,
+		PASSWORD_MIN_LENGTH
+	} from './password-schema.js';
 	import { getAuthErrorKey } from '$lib/utils/auth-messages';
 	import { translateValidationErrors } from '$lib/utils/validation-i18n.js';
 
 	const { t } = getTranslate();
+	const convexClient = useConvexClient();
 
 	let isLoading = $state(false);
 	let formError = $state('');
+
+	// An account created through an OAuth provider has no credential account and
+	// therefore no password, so it gets the set form: changePassword verifies a
+	// current password that does not exist and can never succeed for it.
+	//
+	// The subscription is the source of truth; the server-loaded value only
+	// primes it so the right form renders on first paint instead of dropping a
+	// field after hydration. That matters because a failed server lookup passes
+	// null, and without the live query the account would sit in the change form
+	// with no way out but a reload.
+	let { initialHasPassword }: { initialHasPassword: boolean | null } = $props();
+	const hasPasswordQuery = useQuery(api.users.hasPassword, {}, () => ({
+		initialData: initialHasPassword ?? undefined
+	}));
+	let passwordSet = $state(false);
+	const hasPassword = $derived(hasPasswordQuery.data ?? initialHasPassword);
+	// Neither source has answered: the server lookup failed and the subscription is
+	// still in flight or failed with it. Defaulting to a form would pick the change
+	// form, which an OAuth-only account cannot complete, so the card waits instead
+	// of offering something that only ever returns CREDENTIAL_ACCOUNT_NOT_FOUND.
+	const passwordStateKnown = $derived(passwordSet || hasPassword !== null);
+	const mode = $derived(hasPassword === false && !passwordSet ? 'set' : 'change');
 
 	// Form data
 	let formData = $state({
@@ -43,13 +73,19 @@
 
 	function validate(): boolean {
 		// Map form data to schema field names (with _ prefix for sensitive fields)
-		const dataForValidation = {
-			_currentPassword: formData.currentPassword,
-			_newPassword: formData.newPassword,
-			_confirmPassword: formData.confirmPassword,
-			revokeOtherSessions: formData.revokeOtherSessions
-		};
-		const result = v.safeParse(changePasswordSchema, dataForValidation);
+		const dataForValidation =
+			mode === 'set'
+				? { _newPassword: formData.newPassword, _confirmPassword: formData.confirmPassword }
+				: {
+						_currentPassword: formData.currentPassword,
+						_newPassword: formData.newPassword,
+						_confirmPassword: formData.confirmPassword,
+						revokeOtherSessions: formData.revokeOtherSessions
+					};
+		const result = v.safeParse(
+			mode === 'set' ? setPasswordSchema : changePasswordSchema,
+			dataForValidation
+		);
 		if (!result.success) {
 			const fieldErrors: Record<string, string[]> = {};
 			for (const issue of result.issues) {
@@ -73,6 +109,27 @@
 		return true;
 	}
 
+	/**
+	 * Returns null on success, or a code carrier shaped like a Better Auth client
+	 * error so both branches share one error-to-translation path. The mutation
+	 * forwards Better Auth's own code (PASSWORD_TOO_SHORT, PASSWORD_ALREADY_SET).
+	 */
+	async function setPasswordViaConvex(): Promise<{ code?: string } | null> {
+		try {
+			const result = await convexClient.mutation(api.users.setPassword, {
+				newPassword: formData.newPassword
+			});
+			// Expected rejections come back as a verdict rather than a throw, so the
+			// mutation commits and its rate-limit token stays spent.
+			return result.ok ? null : { code: result.code };
+		} catch (error) {
+			if (error instanceof ConvexError) {
+				return { code: (error.data as { code?: string })?.code };
+			}
+			return {};
+		}
+	}
+
 	async function handleSubmit(e: Event) {
 		e.preventDefault();
 		if (!validate()) return;
@@ -80,20 +137,47 @@
 		isLoading = true;
 		formError = '';
 
+		// Pinned for the whole submit. The mutation makes the account's password
+		// state change, and the live query pushes that back before the awaits
+		// here resolve, so reading `mode` afterwards reports 'change' and would
+		// label a successful first setup as a password change.
+		const submittedMode = mode;
+
 		try {
-			const { error: authError } = await authClient.changePassword({
-				currentPassword: formData.currentPassword,
-				newPassword: formData.newPassword,
-				revokeOtherSessions: formData.revokeOtherSessions
-			});
+			// setPassword is serverOnly in Better Auth, so it is unreachable from
+			// authClient and goes through the Convex mutation instead.
+			const authError =
+				submittedMode === 'set'
+					? await setPasswordViaConvex()
+					: (
+							await authClient.changePassword({
+								currentPassword: formData.currentPassword,
+								newPassword: formData.newPassword,
+								revokeOtherSessions: formData.revokeOtherSessions
+							})
+						).error;
 
 			if (authError) {
-				formError = getAuthErrorKey(authError, 'auth.messages.password_change_failed');
+				formError = getAuthErrorKey(
+					authError,
+					submittedMode === 'set'
+						? 'auth.messages.password_set_failed'
+						: 'auth.messages.password_change_failed'
+				);
 				haptic.trigger('error');
 				toast.error($t(formError));
 			} else {
 				haptic.trigger('success');
-				toast.success($t('auth.messages.password_changed'));
+				toast.success(
+					$t(
+						submittedMode === 'set'
+							? 'auth.messages.password_set'
+							: 'auth.messages.password_changed'
+					)
+				);
+				// Keeps the card in change mode even if the live query is slow to
+				// report the new credential account.
+				passwordSet = true;
 				// Clear form
 				formData.currentPassword = '';
 				formData.newPassword = '';
@@ -111,120 +195,156 @@
 
 <Card.Root>
 	<Card.Header>
-		<Card.Title><T keyName="settings.password.title" /></Card.Title>
-		<Card.Description><T keyName="settings.password.description" /></Card.Description>
+		<!-- `mode` falls back to change while the state is unknown, so the header
+		     follows passwordStateKnown rather than mode: announcing "Change
+		     Password" to an account that may have none is the same wrong claim the
+		     body avoids by waiting. -->
+		<Card.Title>
+			{#if !passwordStateKnown}
+				<T keyName="settings.password.unknown_title" />
+			{:else}
+				<T keyName={mode === 'set' ? 'settings.password.set_title' : 'settings.password.title'} />
+			{/if}
+		</Card.Title>
+		{#if passwordStateKnown}
+			<Card.Description>
+				<T
+					keyName={mode === 'set'
+						? 'settings.password.set_description'
+						: 'settings.password.description'}
+				/>
+			</Card.Description>
+		{/if}
 	</Card.Header>
 	<Card.Content>
-		<form onsubmit={handleSubmit} novalidate class="space-y-4">
-			{#if formError}
-				<Alert.Root variant="destructive">
-					<InfoIcon class="h-4 w-4" />
-					<Alert.Title><T keyName="settings.password.error_title" /></Alert.Title>
-					<Alert.Description>
-						<T keyName={formError} />
-					</Alert.Description>
-				</Alert.Root>
-			{/if}
+		{#if !passwordStateKnown}
+			<p class="text-sm text-muted-foreground" data-testid="password-state-unknown">
+				<T keyName="settings.password.state_unknown" />
+			</p>
+		{:else}
+			<form onsubmit={handleSubmit} novalidate class="space-y-4">
+				{#if formError}
+					<Alert.Root variant="destructive">
+						<InfoIcon class="h-4 w-4" />
+						<Alert.Title><T keyName="settings.password.error_title" /></Alert.Title>
+						<Alert.Description>
+							<T keyName={formError} />
+						</Alert.Description>
+					</Alert.Root>
+				{/if}
 
-			<Field.Group>
-				<Field.Field>
-					<Field.Label for="currentPassword">
-						<T keyName="settings.password.current_password_label" />
-					</Field.Label>
-					<Input
-						type="password"
-						id="currentPassword"
-						name="currentPassword"
-						placeholder={$t('settings.password.placeholder.current')}
-						autocomplete="current-password"
-						aria-invalid={hasCurrentPasswordError ? 'true' : undefined}
-						aria-describedby={hasCurrentPasswordError ? 'currentPassword-error' : undefined}
-						bind:value={formData.currentPassword}
-					/>
-					<Field.Error
-						id="currentPassword-error"
-						errors={translateValidationErrors(errors.currentPassword, $t)}
-					/>
-				</Field.Field>
-
-				<Field.Field>
-					<Field.Label for="newPassword">
-						<T keyName="settings.password.new_password_label" />
-					</Field.Label>
-					<Password.Root>
-						<Password.Input
-							id="newPassword"
-							name="newPassword"
-							placeholder={$t('settings.password.placeholder.new')}
-							autocomplete="new-password"
-							invalid={hasNewPasswordError}
-							aria-describedby={hasNewPasswordError ? 'newPassword-error' : undefined}
-							bind:value={formData.newPassword}
-						>
-							<Password.ToggleVisibility />
-						</Password.Input>
-						<Password.Strength />
-					</Password.Root>
-					<Field.Error
-						id="newPassword-error"
-						errors={translateValidationErrors(errors.newPassword, $t, passwordParams)}
-					/>
-				</Field.Field>
-
-				<Field.Field>
-					<Field.Label for="confirmPassword">
-						<T keyName="settings.password.confirm_password_label" />
-					</Field.Label>
-					<Input
-						type="password"
-						id="confirmPassword"
-						name="confirmPassword"
-						placeholder={$t('settings.password.placeholder.confirm')}
-						autocomplete="new-password"
-						aria-invalid={hasConfirmPasswordError ? 'true' : undefined}
-						aria-describedby={hasConfirmPasswordError ? 'confirmPassword-error' : undefined}
-						bind:value={formData.confirmPassword}
-					/>
-					<Field.Error
-						id="confirmPassword-error"
-						errors={translateValidationErrors(errors.confirmPassword, $t)}
-					/>
-				</Field.Field>
-			</Field.Group>
-
-			<Item.Root variant="muted">
-				<Item.Media variant="icon">
-					<InfoIcon />
-				</Item.Media>
-				<Item.Content class="gap-3">
-					<Item.Title><T keyName="settings.password.security_notice_title" /></Item.Title>
-					<Item.Description>
-						<T keyName="settings.password.security_notice_description" />
-					</Item.Description>
-					<Field.Field orientation="horizontal" class="gap-2">
-						<Checkbox
-							id="revokeOtherSessions"
-							name="revokeOtherSessions"
-							bind:checked={formData.revokeOtherSessions}
-						/>
-						<Field.Content class="gap-0">
-							<Field.Label for="revokeOtherSessions">
-								<T keyName="settings.password.revoke_sessions_label" />
+				<Field.Group>
+					{#if mode === 'change'}
+						<Field.Field>
+							<Field.Label for="currentPassword">
+								<T keyName="settings.password.current_password_label" />
 							</Field.Label>
-						</Field.Content>
-					</Field.Field>
-				</Item.Content>
-			</Item.Root>
-
-			<div class="flex justify-end">
-				<Button type="submit" size="sm" disabled={isLoading}>
-					{#if isLoading}
-						<T keyName="settings.password.updating" />
-					{:else}
-						<T keyName="settings.password.update_button" />
+							<Input
+								type="password"
+								id="currentPassword"
+								name="currentPassword"
+								placeholder={$t('settings.password.placeholder.current')}
+								autocomplete="current-password"
+								aria-invalid={hasCurrentPasswordError ? 'true' : undefined}
+								aria-describedby={hasCurrentPasswordError ? 'currentPassword-error' : undefined}
+								bind:value={formData.currentPassword}
+							/>
+							<Field.Error
+								id="currentPassword-error"
+								errors={translateValidationErrors(errors.currentPassword, $t)}
+							/>
+						</Field.Field>
 					{/if}
-				</Button>
-			</div>
-		</form>
+
+					<Field.Field>
+						<Field.Label for="newPassword">
+							<T keyName="settings.password.new_password_label" />
+						</Field.Label>
+						<Password.Root>
+							<Password.Input
+								id="newPassword"
+								name="newPassword"
+								placeholder={$t('settings.password.placeholder.new')}
+								autocomplete="new-password"
+								invalid={hasNewPasswordError}
+								aria-describedby={hasNewPasswordError ? 'newPassword-error' : undefined}
+								bind:value={formData.newPassword}
+							>
+								<Password.ToggleVisibility />
+							</Password.Input>
+							<Password.Strength />
+						</Password.Root>
+						<Field.Error
+							id="newPassword-error"
+							errors={translateValidationErrors(errors.newPassword, $t, passwordParams)}
+						/>
+					</Field.Field>
+
+					<Field.Field>
+						<Field.Label for="confirmPassword">
+							<T keyName="settings.password.confirm_password_label" />
+						</Field.Label>
+						<Input
+							type="password"
+							id="confirmPassword"
+							name="confirmPassword"
+							placeholder={$t('settings.password.placeholder.confirm')}
+							autocomplete="new-password"
+							aria-invalid={hasConfirmPasswordError ? 'true' : undefined}
+							aria-describedby={hasConfirmPasswordError ? 'confirmPassword-error' : undefined}
+							bind:value={formData.confirmPassword}
+						/>
+						<Field.Error
+							id="confirmPassword-error"
+							errors={translateValidationErrors(errors.confirmPassword, $t)}
+						/>
+					</Field.Field>
+				</Field.Group>
+
+				{#if mode === 'change'}
+					<Item.Root variant="muted">
+						<Item.Media variant="icon">
+							<InfoIcon />
+						</Item.Media>
+						<Item.Content class="gap-3">
+							<Item.Title><T keyName="settings.password.security_notice_title" /></Item.Title>
+							<Item.Description>
+								<T keyName="settings.password.security_notice_description" />
+							</Item.Description>
+							<Field.Field orientation="horizontal" class="gap-2">
+								<Checkbox
+									id="revokeOtherSessions"
+									name="revokeOtherSessions"
+									bind:checked={formData.revokeOtherSessions}
+								/>
+								<Field.Content class="gap-0">
+									<Field.Label for="revokeOtherSessions">
+										<T keyName="settings.password.revoke_sessions_label" />
+									</Field.Label>
+								</Field.Content>
+							</Field.Field>
+						</Item.Content>
+					</Item.Root>
+				{/if}
+
+				<div class="flex justify-end">
+					<Button type="submit" size="sm" disabled={isLoading}>
+						{#if isLoading}
+							<T
+								keyName={mode === 'set'
+									? 'settings.password.setting'
+									: 'settings.password.updating'}
+							/>
+						{:else}
+							<T
+								keyName={mode === 'set'
+									? 'settings.password.set_button'
+									: 'settings.password.update_button'}
+							/>
+						{/if}
+					</Button>
+				</div>
+			</form>
+		{/if}
 	</Card.Content>
 </Card.Root>

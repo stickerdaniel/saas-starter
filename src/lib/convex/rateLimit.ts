@@ -32,5 +32,16 @@ export const appRateLimiter = new RateLimiter(components.rateLimiter, {
 		rate: 10,
 		period: HOUR,
 		capacity: 10
+	},
+
+	// Per-user first-password setup.
+	// Deliberately tight: setting a first password is a once-per-account action,
+	// and the call hashes the candidate with scrypt before it can reject it, so an
+	// unthrottled caller turns a public mutation into a CPU sink.
+	setPassword: {
+		kind: 'token bucket',
+		rate: 5,
+		period: HOUR,
+		capacity: 5
 	}
 });

@@ -19,6 +19,9 @@ const ERROR_CODE_MAP: Record<string, string> = {
 
 	// Password validation
 	PASSWORD_TOO_SHORT: 'auth.messages.password_too_short',
+	// Raised by setPassword when the account already has a credential account,
+	// e.g. a password set in another tab since this card was rendered.
+	PASSWORD_ALREADY_SET: 'auth.messages.password_already_set',
 	PASSWORD_TOO_LONG: 'auth.messages.password_too_long',
 
 	// OAuth/social
@@ -36,6 +39,20 @@ const ERROR_CODE_MAP: Record<string, string> = {
 	AUTHENTICATION_FAILED: 'auth.messages.passkey_failed',
 	FAILED_TO_VERIFY_REGISTRATION: 'auth.messages.passkey_add_failed',
 	YOU_ARE_NOT_ALLOWED_TO_REGISTER_THIS_PASSKEY: 'auth.messages.passkey_add_failed',
+
+	// Throttling. Raised by the app's own rate limiter, not by Better Auth, but it
+	// reaches the same error path and every locale already carries the message.
+	RATE_LIMITED: 'auth.messages.rate_limited',
+
+	// Verdicts returned by api.users.setPassword rather than by Better Auth. They
+	// reach the same error path, and each one needs to say what to do next: a
+	// generic failure would leave the user retrying something that cannot work.
+	// SESSION_NOT_FRESH is shared with passkey registration, which Better Auth
+	// guards the same way, so its message names no particular credential.
+	SESSION_NOT_FRESH: 'auth.messages.session_not_fresh',
+	PASSWORD_TOO_WEAK: 'auth.messages.password_too_weak',
+	CREDENTIAL_ACCOUNT_UNUSABLE: 'auth.messages.credential_account_unusable',
+	IMPERSONATION_NOT_ALLOWED: 'auth.messages.impersonation_not_allowed',
 
 	// Server errors
 	FAILED_TO_CREATE_USER: 'auth.messages.signup_failed',
