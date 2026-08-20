@@ -1,4 +1,6 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
+import fs from 'fs';
+import path from 'path';
 import 'varlock/auto-load';
 import { ConvexHttpClient } from 'convex/browser';
 import { api } from '../src/lib/convex/_generated/api';
@@ -14,7 +16,29 @@ test.use({ storageState: { cookies: [], origins: [] } });
 // e2e/upgrade-checkout-failure.spec.ts), which would serve translated copy
 // on non-English runners.
 
+import type { TestCredentials } from './utils/types';
+
 const testSecret = process.env.AUTH_E2E_TEST_SECRET!;
+
+function getSeededUserEmail(): string {
+	const credentialsPath = path.join(process.cwd(), 'e2e', '.auth', 'test-credentials.json');
+	if (!fs.existsSync(credentialsPath)) {
+		throw new Error('test-credentials.json not found. globalSetup may have failed.');
+	}
+	const credentials: TestCredentials = JSON.parse(fs.readFileSync(credentialsPath, 'utf-8'));
+	return credentials.user.email;
+}
+
+async function submitForgotPassword(page: Page, email: string) {
+	await page.goto('/en/forgot-password');
+	await page.waitForLoadState('domcontentloaded');
+	await expect(page.getByTestId('forgot-password-email-input')).toBeEnabled({ timeout: 30000 });
+	await page.getByTestId('forgot-password-email-input').fill(email);
+	await page.getByTestId('forgot-password-submit-button').click();
+	const message = page.getByTestId('forgot-password-success-message');
+	await expect(message).toBeVisible({ timeout: 10000 });
+	return (await message.innerText()).trim();
+}
 
 const getConvexClient = () => {
 	const convexUrl = resolveConvexUrl();
@@ -60,6 +84,27 @@ test.describe('Forgot Password', () => {
 		await expect(page.getByTestId('forgot-password-success-message')).toBeVisible({
 			timeout: 10000
 		});
+	});
+
+	/**
+	 * Account enumeration guard. Better Auth answers /request-password-reset
+	 * identically whether or not the address has an account, and the screen must
+	 * not undo that by rendering something the API never told it. Submitting a
+	 * seeded address and an address that cannot exist has to leave the user
+	 * looking at the same words.
+	 */
+	test('says the same thing for a known and an unknown address', async ({ page }) => {
+		const known = await submitForgotPassword(page, getSeededUserEmail());
+		const unknown = await submitForgotPassword(
+			page,
+			`definitely-not-registered-${Date.now()}@e2e.example.com`
+		);
+
+		expect(known).toBe(unknown);
+		// The wording stays conditional: the endpoint reports success even when the
+		// address has no account, and Better Auth swallows a failing send, so the
+		// screen can claim neither that an account exists nor that mail went out.
+		expect(known.toLowerCase()).toContain('if an account exists');
 	});
 
 	test('navigates back to signin', async ({ page }) => {

@@ -356,7 +356,7 @@
 		},
 		"messages": {
 			"auth_cancelled": "Authentifizierung abgebrochen",
-			"credential_account_not_found": "Kein Passwortkonto gefunden. Versuchen Sie die Anmeldung mit Ihrem sozialen Anbieter.",
+			"credential_account_not_found": "Für dieses Konto ist kein Passwort festgelegt.",
 			"email_change_failed": "E-Mail konnte nicht geändert werden",
 			"email_not_verified": "Bitte bestätigen Sie Ihre E-Mail-Adresse",
 			"email_same_as_current": "Neue E-Mail muss sich von der aktuellen E-Mail unterscheiden",
@@ -383,7 +383,7 @@
 			"rate_limited": "Zu viele Anfragen. Bitte versuchen Sie es später erneut.",
 			"request_reset_failed": "Passwort-Reset konnte nicht angefordert werden",
 			"reset_failed": "Passwort konnte nicht zurückgesetzt werden",
-			"reset_link_sent": "Bitte prüfen Sie Ihre E-Mail für den Reset-Link.",
+			"reset_link_sent": "Wenn ein Konto mit dieser Adresse existiert, prüfen Sie Ihre E-Mails auf einen Link zum Zurücksetzen.",
 			"signup_disabled": "Registrierung ist deaktiviert",
 			"signup_failed": "Konto konnte nicht erstellt werden",
 			"too_many_attempts": "Zu viele Versuche. Bitte versuchen Sie es später erneut.",

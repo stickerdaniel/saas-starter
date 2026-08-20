@@ -356,7 +356,7 @@
 		},
 		"messages": {
 			"auth_cancelled": "Authentication was cancelled",
-			"credential_account_not_found": "No password account found. Try signing in with your social provider.",
+			"credential_account_not_found": "This account has no password set.",
 			"email_change_failed": "Failed to change email",
 			"email_not_verified": "Please verify your email address",
 			"email_same_as_current": "New email must be different from current email",
@@ -383,7 +383,7 @@
 			"rate_limited": "Too many requests. Please try again later.",
 			"request_reset_failed": "Failed to request password reset",
 			"reset_failed": "Failed to reset password",
-			"reset_link_sent": "Check your email for a reset link.",
+			"reset_link_sent": "If an account exists for that address, check your email for a reset link.",
 			"signup_disabled": "Sign up is disabled",
 			"signup_failed": "Failed to create account",
 			"too_many_attempts": "Too many attempts. Please try again later.",
