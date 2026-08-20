@@ -1,10 +1,9 @@
 import { ConvexError, v } from 'convex/values';
-import { query } from './_generated/server';
+import { query, type QueryCtx } from './_generated/server';
 import { components } from './_generated/api';
 import { authComponent, createAuth } from './auth';
 import { authedQuery, authedMutation } from './functions';
 import { appRateLimiter } from './rateLimit';
-import { createRateLimitError } from './support/types';
 import { tables } from './betterAuth/schema';
 
 /**
@@ -45,6 +44,29 @@ function betterAuthErrorCode(error: unknown): string {
 	return typeof code === 'string' ? code : 'SET_PASSWORD_FAILED';
 }
 
+/** Codes Better Auth raises deterministically for a bad request rather than a fault. */
+const EXPECTED_SET_PASSWORD_CODES = new Set([
+	'PASSWORD_ALREADY_SET',
+	'PASSWORD_TOO_SHORT',
+	'PASSWORD_TOO_LONG'
+]);
+
+/** Credential accounts belonging to a user, as Better Auth itself counts them. */
+async function credentialAccounts(
+	ctx: Pick<QueryCtx, 'runQuery'>,
+	userId: string
+): Promise<Array<{ password?: string | null }>> {
+	const result = await ctx.runQuery(components.betterAuth.adapter.findMany, {
+		model: 'account',
+		where: [
+			{ field: 'userId', operator: 'eq', value: userId },
+			{ field: 'providerId', operator: 'eq', value: 'credential' }
+		],
+		paginationOpts: { cursor: null, numItems: 200 }
+	});
+	return result.page as Array<{ password?: string | null }>;
+}
+
 /**
  * Set a first password for the signed-in user.
  *
@@ -52,25 +74,21 @@ function betterAuthErrorCode(error: unknown): string {
  * therefore no password at all, so `changePassword` can never succeed for it:
  * that endpoint verifies a current password that does not exist. Better Auth
  * exposes `setPassword` for exactly this case, which links the missing
- * credential account, and marks it `serverOnly` so the browser cannot reach it.
+ * credential account, and marks it server-only so the browser cannot reach it.
  * This mutation is that server side.
  *
- * Better Auth rejects the call with PASSWORD_ALREADY_SET once a credential
- * account exists, so this cannot overwrite a password that is already set;
- * replacing one keeps going through `authClient.changePassword`.
+ * Expected rejections are returned rather than thrown. A throw would roll the
+ * whole mutation back, and the rate limiter is transactional, so every rejected
+ * attempt would hand its token back and the limit below would count nothing.
  */
 export const setPassword = authedMutation({
 	args: { newPassword: v.string() },
-	returns: v.null(),
+	returns: v.object({
+		ok: v.boolean(),
+		code: v.optional(v.string()),
+		retryAfter: v.optional(v.number())
+	}),
 	handler: async (ctx, args) => {
-		// Better Auth hashes the candidate with scrypt before it can decide the
-		// account already has a password, so an unthrottled caller can burn CPU
-		// indefinitely on a request that changes nothing.
-		const status = await appRateLimiter.limit(ctx, 'setPassword', { key: ctx.user._id });
-		if (!status.ok) {
-			throw createRateLimitError(status.retryAfter, 'Too many password attempts');
-		}
-
 		const { auth, headers } = await authComponent.getAuth(createAuth, ctx);
 
 		// An impersonation session belongs to the target user, and
@@ -78,17 +96,35 @@ export const setPassword = authedMutation({
 		// would hand the acting admin a password that outlives the impersonation
 		// and would route around the audited admin path, which is why
 		// /admin/set-user-password is in DISABLED_ADMIN_PATHS in the first place.
+		// Checked before the limiter so a rejected admin cannot spend the target's
+		// allowance.
 		const session = await auth.api.getSession({ headers });
 		if ((session?.session as { impersonatedBy?: string | null } | undefined)?.impersonatedBy) {
-			throw new ConvexError({ code: 'IMPERSONATION_NOT_ALLOWED' });
+			return { ok: false, code: 'IMPERSONATION_NOT_ALLOWED' };
+		}
+
+		// Answered here rather than by Better Auth, which hashes the candidate with
+		// scrypt before it looks, so a caller whose account already has a password
+		// could otherwise burn a hash per request.
+		if ((await credentialAccounts(ctx, ctx.user._id)).some((account) => account.password)) {
+			return { ok: false, code: 'PASSWORD_ALREADY_SET' };
+		}
+
+		const status = await appRateLimiter.limit(ctx, 'setPassword', { key: ctx.user._id });
+		if (!status.ok) {
+			return { ok: false, code: 'RATE_LIMITED', retryAfter: status.retryAfter };
 		}
 
 		try {
 			await auth.api.setPassword({ body: { newPassword: args.newPassword }, headers });
 		} catch (error) {
-			throw new ConvexError({ code: betterAuthErrorCode(error) });
+			const code = betterAuthErrorCode(error);
+			// Anything unexpected is a fault, not a verdict: let it roll the
+			// mutation back so no half-applied state or spent token survives.
+			if (!EXPECTED_SET_PASSWORD_CODES.has(code)) throw new ConvexError({ code });
+			return { ok: false, code };
 		}
-		return null;
+		return { ok: true };
 	}
 });
 
@@ -108,13 +144,6 @@ export const hasPassword = authedQuery({
 	args: {},
 	returns: v.boolean(),
 	handler: async (ctx) => {
-		const account = await ctx.runQuery(components.betterAuth.adapter.findOne, {
-			model: 'account',
-			where: [
-				{ field: 'userId', operator: 'eq', value: ctx.user._id },
-				{ field: 'providerId', operator: 'eq', value: 'credential' }
-			]
-		});
-		return Boolean((account as { password?: string | null } | null)?.password);
+		return (await credentialAccounts(ctx, ctx.user._id)).some((account) => account.password);
 	}
 });

@@ -111,8 +111,12 @@
 	 */
 	async function setPasswordViaConvex(): Promise<{ code?: string } | null> {
 		try {
-			await convexClient.mutation(api.users.setPassword, { newPassword: formData.newPassword });
-			return null;
+			const result = await convexClient.mutation(api.users.setPassword, {
+				newPassword: formData.newPassword
+			});
+			// Expected rejections come back as a verdict rather than a throw, so the
+			// mutation commits and its rate-limit token stays spent.
+			return result.ok ? null : { code: result.code };
 		} catch (error) {
 			if (error instanceof ConvexError) {
 				return { code: (error.data as { code?: string })?.code };

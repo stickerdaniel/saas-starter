@@ -25,6 +25,19 @@ describe('getAuthErrorKey', () => {
 				'auth.messages.credential_account_not_found'
 			);
 		});
+
+		// Raised by the app's own limiter rather than Better Auth. Without the
+		// mapping it falls through to a generic failure and the user is never told
+		// that waiting is what resolves it.
+		it('maps RATE_LIMITED to rate_limited', () => {
+			expect(getAuthErrorKey({ code: 'RATE_LIMITED' })).toBe('auth.messages.rate_limited');
+		});
+
+		it('maps PASSWORD_ALREADY_SET to password_already_set', () => {
+			expect(getAuthErrorKey({ code: 'PASSWORD_ALREADY_SET' })).toBe(
+				'auth.messages.password_already_set'
+			);
+		});
 	});
 
 	// Account codes

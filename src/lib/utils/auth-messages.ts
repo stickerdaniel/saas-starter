@@ -40,6 +40,10 @@ const ERROR_CODE_MAP: Record<string, string> = {
 	FAILED_TO_VERIFY_REGISTRATION: 'auth.messages.passkey_add_failed',
 	YOU_ARE_NOT_ALLOWED_TO_REGISTER_THIS_PASSKEY: 'auth.messages.passkey_add_failed',
 
+	// Throttling. Raised by the app's own rate limiter, not by Better Auth, but it
+	// reaches the same error path and every locale already carries the message.
+	RATE_LIMITED: 'auth.messages.rate_limited',
+
 	// Server errors
 	FAILED_TO_CREATE_USER: 'auth.messages.signup_failed',
 	FAILED_TO_CREATE_SESSION: 'auth.messages.generic_error',
