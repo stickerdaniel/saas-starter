@@ -74,10 +74,12 @@ test('last-used badge tracks the button through a press', async ({ page }) => {
 	await page.goto('/signin');
 	await page.evaluate(() => {
 		localStorage.setItem('auth:last-auth-method', JSON.stringify('passkey'));
+		localStorage.setItem('mode-watcher-mode', 'dark');
 		sessionStorage.removeItem('auth:pending-oauth-provider');
 	});
 	await page.reload();
 	await expect(page.locator('[data-testid="email-input"]')).toBeEnabled({ timeout: 30000 });
+	await expect(page.locator('html')).toHaveClass(/\bdark\b/);
 
 	const button = page.locator('[data-testid="signin-oauth-passkey-button"]');
 	const badge = page.locator('[data-testid="oauth-passkey-last-used-badge"]');
@@ -132,17 +134,34 @@ test('last-used badge tracks the button through a press', async ({ page }) => {
 	await waitForBadgeTransitions();
 	const disabledBadgeStyle = await badge.evaluate((element) => {
 		const style = getComputedStyle(element);
-		const alphaMatch = style.backgroundColor.match(/\/\s*([\d.]+)(%)?\s*\)$/);
-		const backgroundAlpha = alphaMatch ? Number(alphaMatch[1]) / (alphaMatch[2] ? 100 : 1) : 1;
+		const probe = document.createElement('span');
+		probe.style.backgroundColor = 'color-mix(in srgb, var(--secondary) 50%, var(--card))';
+		probe.style.color = 'color-mix(in srgb, var(--secondary-foreground) 50%, var(--card))';
+		if (!element.parentElement) throw new Error('badge is detached');
+		element.parentElement.append(probe);
+		const probeStyle = getComputedStyle(probe);
+		const expectedBackgroundColor = probeStyle.backgroundColor;
+		const expectedColor = probeStyle.color;
+		probe.remove();
+
+		const slashAlpha = style.backgroundColor.match(/\/\s*([\d.]+)(%)?\s*\)$/);
+		const rgbaAlpha = style.backgroundColor.match(/rgba\([^,]+,[^,]+,[^,]+,\s*([\d.]+)(%)?\s*\)$/);
+		const alphaValue = slashAlpha?.[1] ?? rgbaAlpha?.[1];
+		const alphaIsPercent = slashAlpha?.[2] ?? rgbaAlpha?.[2];
+		const backgroundAlpha = alphaValue ? Number(alphaValue) / (alphaIsPercent ? 100 : 1) : 1;
 		return {
 			backgroundColor: style.backgroundColor,
 			color: style.color,
 			opacity: style.opacity,
-			backgroundAlpha
+			backgroundAlpha,
+			expectedBackgroundColor,
+			expectedColor
 		};
 	});
 	expect(disabledBadgeStyle.backgroundColor).not.toBe(enabledBadgeStyle.backgroundColor);
 	expect(disabledBadgeStyle.color).not.toBe(enabledBadgeStyle.color);
+	expect(disabledBadgeStyle.backgroundColor).toBe(disabledBadgeStyle.expectedBackgroundColor);
+	expect(disabledBadgeStyle.color).toBe(disabledBadgeStyle.expectedColor);
 	expect(disabledBadgeStyle.opacity).toBe('1');
 	expect(disabledBadgeStyle.backgroundAlpha).toBe(1);
 	const disabledResting = await tops();

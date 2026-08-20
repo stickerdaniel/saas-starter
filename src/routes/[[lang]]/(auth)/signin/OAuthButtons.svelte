@@ -58,7 +58,7 @@
 			{#if isLastUsedAuthMethod('google')}
 				<Badge
 					variant="secondary"
-					class="pointer-events-none absolute -top-2 -right-2 px-1.5 py-0 text-[10px] whitespace-nowrap transition-colors group-has-[[data-slot=button]:active:not([aria-haspopup])]:translate-y-px group-has-[[data-slot=button]:disabled]:bg-[color-mix(in_srgb,var(--secondary)_50%,var(--background))] group-has-[[data-slot=button]:disabled]:text-[color-mix(in_srgb,var(--secondary-foreground)_50%,var(--background))]"
+					class="pointer-events-none absolute -top-2 -right-2 px-1.5 py-0 text-[10px] whitespace-nowrap transition-colors group-has-[[data-slot=button]:active:not([aria-haspopup])]:translate-y-px group-has-[[data-slot=button]:disabled]:bg-[color-mix(in_srgb,var(--secondary)_50%,var(--card))] group-has-[[data-slot=button]:disabled]:text-[color-mix(in_srgb,var(--secondary-foreground)_50%,var(--card))]"
 					data-testid="oauth-google-last-used-badge"
 				>
 					<T keyName="auth.signin.oauth_last_used" defaultValue="Last used" />
@@ -87,7 +87,7 @@
 			{#if isLastUsedAuthMethod('github')}
 				<Badge
 					variant="secondary"
-					class="pointer-events-none absolute -top-2 -right-2 px-1.5 py-0 text-[10px] whitespace-nowrap transition-colors group-has-[[data-slot=button]:active:not([aria-haspopup])]:translate-y-px group-has-[[data-slot=button]:disabled]:bg-[color-mix(in_srgb,var(--secondary)_50%,var(--background))] group-has-[[data-slot=button]:disabled]:text-[color-mix(in_srgb,var(--secondary-foreground)_50%,var(--background))]"
+					class="pointer-events-none absolute -top-2 -right-2 px-1.5 py-0 text-[10px] whitespace-nowrap transition-colors group-has-[[data-slot=button]:active:not([aria-haspopup])]:translate-y-px group-has-[[data-slot=button]:disabled]:bg-[color-mix(in_srgb,var(--secondary)_50%,var(--card))] group-has-[[data-slot=button]:disabled]:text-[color-mix(in_srgb,var(--secondary-foreground)_50%,var(--card))]"
 					data-testid="oauth-github-last-used-badge"
 				>
 					<T keyName="auth.signin.oauth_last_used" defaultValue="Last used" />
@@ -113,7 +113,7 @@
 			{#if isLastUsedAuthMethod('passkey')}
 				<Badge
 					variant="secondary"
-					class="pointer-events-none absolute -top-2 -right-2 px-1.5 py-0 text-[10px] whitespace-nowrap transition-colors group-has-[[data-slot=button]:active:not([aria-haspopup])]:translate-y-px group-has-[[data-slot=button]:disabled]:bg-[color-mix(in_srgb,var(--secondary)_50%,var(--background))] group-has-[[data-slot=button]:disabled]:text-[color-mix(in_srgb,var(--secondary-foreground)_50%,var(--background))]"
+					class="pointer-events-none absolute -top-2 -right-2 px-1.5 py-0 text-[10px] whitespace-nowrap transition-colors group-has-[[data-slot=button]:active:not([aria-haspopup])]:translate-y-px group-has-[[data-slot=button]:disabled]:bg-[color-mix(in_srgb,var(--secondary)_50%,var(--card))] group-has-[[data-slot=button]:disabled]:text-[color-mix(in_srgb,var(--secondary-foreground)_50%,var(--card))]"
 					data-testid="oauth-passkey-last-used-badge"
 				>
 					<T keyName="auth.signin.oauth_last_used" defaultValue="Last used" />
