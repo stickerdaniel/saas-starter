@@ -390,7 +390,7 @@
 			"request_reset_failed": "Passwort-Reset konnte nicht angefordert werden",
 			"reset_failed": "Passwort konnte nicht zurückgesetzt werden",
 			"reset_link_sent": "Wenn ein Konto mit dieser Adresse existiert, prüfen Sie Ihre E-Mails auf einen Link zum Zurücksetzen.",
-			"session_not_fresh": "Melden Sie sich aus Sicherheitsgründen erneut an, bevor Sie eine neue Anmeldemethode hinzufügen.",
+			"session_not_fresh": "Melden Sie sich aus Sicherheitsgründen ab und erneut an, bevor Sie eine neue Anmeldemethode hinzufügen.",
 			"signup_disabled": "Registrierung ist deaktiviert",
 			"signup_failed": "Konto konnte nicht erstellt werden",
 			"too_many_attempts": "Zu viele Versuche. Bitte versuchen Sie es später erneut.",

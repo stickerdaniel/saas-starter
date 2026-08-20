@@ -390,7 +390,7 @@
 			"request_reset_failed": "No se pudo solicitar el restablecimiento de contraseña",
 			"reset_failed": "No se pudo restablecer la contraseña",
 			"reset_link_sent": "Si existe una cuenta con esa dirección, revisa tu correo para encontrar el enlace de restablecimiento.",
-			"session_not_fresh": "Por seguridad, inicia sesión de nuevo antes de añadir un nuevo método de acceso.",
+			"session_not_fresh": "Por seguridad, cierra sesión y vuelve a iniciarla antes de añadir un nuevo método de acceso.",
 			"signup_disabled": "El registro está deshabilitado",
 			"signup_failed": "No se pudo crear la cuenta",
 			"too_many_attempts": "Demasiados intentos. Inténtalo más tarde.",

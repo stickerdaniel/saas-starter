@@ -390,7 +390,7 @@
 			"request_reset_failed": "Failed to request password reset",
 			"reset_failed": "Failed to reset password",
 			"reset_link_sent": "If an account exists for that address, check your email for a reset link.",
-			"session_not_fresh": "For your security, sign in again before adding a new sign-in method.",
+			"session_not_fresh": "For your security, sign out and sign in again before adding a new sign-in method.",
 			"signup_disabled": "Sign up is disabled",
 			"signup_failed": "Failed to create account",
 			"too_many_attempts": "Too many attempts. Please try again later.",

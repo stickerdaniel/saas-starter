@@ -112,7 +112,8 @@ export const setPassword = authedMutation({
 		// create it. Without this, a stolen week-old OAuth session becomes permanent
 		// account access. freshAge is read from the running config so it cannot drift
 		// from what the passkey path enforces.
-		const freshAge = (await auth.$context).sessionConfig.freshAge;
+		const authCtx = await auth.$context;
+		const freshAge = authCtx.sessionConfig.freshAge;
 		const sessionCreatedAt = session?.session?.createdAt;
 		if (!sessionCreatedAt) return { ok: false, code: 'SESSION_NOT_FRESH' };
 		if (freshAge !== 0 && Date.now() - new Date(sessionCreatedAt).getTime() >= freshAge * 1000) {
@@ -126,6 +127,13 @@ export const setPassword = authedMutation({
 		// which is the work the limit exists to bound.
 		if (!val.safeParse(passwordValidation, args.newPassword).success) {
 			return { ok: false, code: 'PASSWORD_TOO_WEAK' };
+		}
+		// The shared schema has no upper bound, so without this the length rejection
+		// would come back from Better Auth after the limiter had already taken a
+		// token, and five pastes of an overlong password would lock the form out of
+		// a correct one. Read from the running config rather than restated.
+		if (args.newPassword.length > authCtx.password.config.maxPasswordLength) {
+			return { ok: false, code: 'PASSWORD_TOO_LONG' };
 		}
 
 		// Answered here rather than by Better Auth, which hashes the candidate with

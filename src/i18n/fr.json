@@ -390,7 +390,7 @@
 			"request_reset_failed": "Impossible de demander la réinitialisation du mot de passe",
 			"reset_failed": "Impossible de réinitialiser le mot de passe",
 			"reset_link_sent": "Si un compte est associé à cette adresse, vérifiez votre messagerie pour trouver le lien de réinitialisation.",
-			"session_not_fresh": "Pour votre sécurité, reconnectez-vous avant d'ajouter une nouvelle méthode de connexion.",
+			"session_not_fresh": "Pour votre sécurité, déconnectez-vous puis reconnectez-vous avant d'ajouter une nouvelle méthode de connexion.",
 			"signup_disabled": "L'inscription est désactivée",
 			"signup_failed": "Impossible de créer le compte",
 			"too_many_attempts": "Trop de tentatives. Réessayez plus tard.",
