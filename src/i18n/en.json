@@ -634,9 +634,20 @@
 			"preview": "Reset your password",
 			"title": "Reset your password"
 		},
+		"set_password": {
+			"body": "You asked to sign in with a password. Your account signs in with a connected provider today, so this link sets a password you can use as well:",
+			"button": "Set Password",
+			"disclaimer": "If you didn't request this, you can safely ignore this email. Nothing about your account changes and you can keep signing in the way you do now.",
+			"expiry": "This link will expire in 1 hour for security reasons.",
+			"greeting": "Hey {userName},",
+			"greeting_fallback": "Hey there,",
+			"preview": "Set a password for your account",
+			"title": "Set a password"
+		},
 		"subject": {
 			"new_signup": "New user signup: {userEmail}",
 			"reset_password": "Reset your password",
+			"set_password": "Set a password",
 			"support_reply": "New reply to your support request",
 			"ticket_new": "New support ticket from {userName}",
 			"ticket_reopened": "Support ticket reopened by {userName}",

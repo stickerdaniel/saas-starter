@@ -1,10 +1,10 @@
 import { ConvexError, v } from 'convex/values';
-import { query, type QueryCtx } from './_generated/server';
-import { components } from './_generated/api';
+import { query } from './_generated/server';
 import { authComponent, createAuth } from './auth';
 import { authedQuery, authedMutation } from './functions';
 import { appRateLimiter } from './rateLimit';
 import { tables } from './betterAuth/schema';
+import { credentialAccounts, hasUsablePassword } from './credentialAccounts';
 import * as val from 'valibot';
 import { passwordValidation } from '../schemas/password';
 
@@ -52,22 +52,6 @@ const EXPECTED_SET_PASSWORD_CODES = new Set([
 	'PASSWORD_TOO_SHORT',
 	'PASSWORD_TOO_LONG'
 ]);
-
-/** Credential accounts belonging to a user, as Better Auth itself counts them. */
-async function credentialAccounts(
-	ctx: Pick<QueryCtx, 'runQuery'>,
-	userId: string
-): Promise<Array<{ password?: string | null }>> {
-	const result = await ctx.runQuery(components.betterAuth.adapter.findMany, {
-		model: 'account',
-		where: [
-			{ field: 'userId', operator: 'eq', value: userId },
-			{ field: 'providerId', operator: 'eq', value: 'credential' }
-		],
-		paginationOpts: { cursor: null, numItems: 200 }
-	});
-	return result.page as Array<{ password?: string | null }>;
-}
 
 /**
  * Set a first password for the signed-in user.
@@ -194,6 +178,6 @@ export const hasPassword = authedQuery({
 	args: {},
 	returns: v.boolean(),
 	handler: async (ctx) => {
-		return (await credentialAccounts(ctx, ctx.user._id)).some((account) => account.password);
+		return hasUsablePassword(ctx, ctx.user._id);
 	}
 });

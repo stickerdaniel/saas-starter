@@ -154,24 +154,57 @@ export function renderVerificationCodeEmail(
  * @param locale - Locale for translated strings (optional, defaults to DEFAULT_LOCALE)
  * @returns Rendered HTML and plain text email
  */
+/**
+ * Renders the reset mail, or the first-password variant of it.
+ *
+ * Better Auth sends this mail for an account that signed up through an OAuth
+ * provider too, and its link works: `resetPassword` creates the missing
+ * credential account. The reset wording does not, because there is no password
+ * to reset and none that "will remain unchanged" if the mail was not expected.
+ * The template takes every string as a prop, so only the key prefix changes.
+ */
 export function renderPasswordResetEmail(
 	resetUrl: PasswordResetEmailData['resetUrl'],
 	userName?: PasswordResetEmailData['userName'],
-	locale: string = DEFAULT_LOCALE
+	locale: string = DEFAULT_LOCALE,
+	hasPassword: boolean = true
 ): RenderedEmail {
 	const baseUrl = getBaseUrl();
+	// Spelled out rather than composed from a prefix, so the orphan-key check can
+	// see that both sets are used.
+	const keys = hasPassword
+		? {
+				title: 'email.reset_password.title',
+				greeting: 'email.reset_password.greeting',
+				greetingFallback: 'email.reset_password.greeting_fallback',
+				preview: 'email.reset_password.preview',
+				body: 'email.reset_password.body',
+				button: 'email.reset_password.button',
+				expiry: 'email.reset_password.expiry',
+				disclaimer: 'email.reset_password.disclaimer'
+			}
+		: {
+				title: 'email.set_password.title',
+				greeting: 'email.set_password.greeting',
+				greetingFallback: 'email.set_password.greeting_fallback',
+				preview: 'email.set_password.preview',
+				body: 'email.set_password.body',
+				button: 'email.set_password.button',
+				expiry: 'email.set_password.expiry',
+				disclaimer: 'email.set_password.disclaimer'
+			};
 
 	const texts = {
 		badgeText: t(locale, 'email.badge.auth'),
-		titleText: t(locale, 'email.reset_password.title'),
+		titleText: t(locale, keys.title),
 		greetingText: userName
-			? t(locale, 'email.reset_password.greeting', { userName })
-			: t(locale, 'email.reset_password.greeting_fallback'),
-		previewText: t(locale, 'email.reset_password.preview'),
-		bodyText: t(locale, 'email.reset_password.body'),
-		buttonText: t(locale, 'email.reset_password.button'),
-		expiryText: t(locale, 'email.reset_password.expiry'),
-		disclaimerText: t(locale, 'email.reset_password.disclaimer')
+			? t(locale, keys.greeting, { userName })
+			: t(locale, keys.greetingFallback),
+		previewText: t(locale, keys.preview),
+		bodyText: t(locale, keys.body),
+		buttonText: t(locale, keys.button),
+		expiryText: t(locale, keys.expiry),
+		disclaimerText: t(locale, keys.disclaimer)
 	};
 
 	const data = {

@@ -82,28 +82,34 @@ export const sendResetPasswordEmail = internalMutation({
 	args: {
 		email: v.string(),
 		resetUrl: v.string(),
-		userName: v.optional(v.string())
+		userName: v.optional(v.string()),
+		// Absent means "has one", so an older queued call keeps the reset wording.
+		hasPassword: v.optional(v.boolean())
 	},
 	returns: v.null(),
 	handler: async (ctx, args) => {
 		const { email, resetUrl, userName } = args;
+		const hasPassword = args.hasPassword ?? true;
 
 		if (shouldSkipTestEmail('sendResetPasswordEmail', email)) return null;
 		assertResendApiKey();
 
 		const locale = await getLocaleForEmail(ctx, email);
-		const { html, text } = renderPasswordResetEmail(resetUrl, userName, locale);
+		const { html, text } = renderPasswordResetEmail(resetUrl, userName, locale, hasPassword);
 
 		await resend.sendEmail(ctx, {
 			from: requireEnv('AUTH_EMAIL', { feature: 'email delivery' }),
 			to: email,
-			subject: t(locale, 'email.subject.reset_password'),
+			subject: t(
+				locale,
+				hasPassword ? 'email.subject.reset_password' : 'email.subject.set_password'
+			),
 			html,
 			text,
 			// Analytics tracking via custom headers
 			headers: [
 				{ name: 'X-Email-Category', value: 'authentication' },
-				{ name: 'X-Email-Template', value: 'password-reset' }
+				{ name: 'X-Email-Template', value: hasPassword ? 'password-reset' : 'password-set' }
 			]
 		});
 		return null;
