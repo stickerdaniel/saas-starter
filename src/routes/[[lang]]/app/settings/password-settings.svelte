@@ -195,16 +195,26 @@
 
 <Card.Root>
 	<Card.Header>
+		<!-- `mode` falls back to change while the state is unknown, so the header
+		     follows passwordStateKnown rather than mode: announcing "Change
+		     Password" to an account that may have none is the same wrong claim the
+		     body avoids by waiting. -->
 		<Card.Title>
-			<T keyName={mode === 'set' ? 'settings.password.set_title' : 'settings.password.title'} />
+			{#if !passwordStateKnown}
+				<T keyName="settings.password.unknown_title" />
+			{:else}
+				<T keyName={mode === 'set' ? 'settings.password.set_title' : 'settings.password.title'} />
+			{/if}
 		</Card.Title>
-		<Card.Description>
-			<T
-				keyName={mode === 'set'
-					? 'settings.password.set_description'
-					: 'settings.password.description'}
-			/>
-		</Card.Description>
+		{#if passwordStateKnown}
+			<Card.Description>
+				<T
+					keyName={mode === 'set'
+						? 'settings.password.set_description'
+						: 'settings.password.description'}
+				/>
+			</Card.Description>
+		{/if}
 	</Card.Header>
 	<Card.Content>
 		{#if !passwordStateKnown}

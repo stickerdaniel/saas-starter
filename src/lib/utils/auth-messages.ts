@@ -47,6 +47,8 @@ const ERROR_CODE_MAP: Record<string, string> = {
 	// Verdicts returned by api.users.setPassword rather than by Better Auth. They
 	// reach the same error path, and each one needs to say what to do next: a
 	// generic failure would leave the user retrying something that cannot work.
+	// SESSION_NOT_FRESH is shared with passkey registration, which Better Auth
+	// guards the same way, so its message names no particular credential.
 	SESSION_NOT_FRESH: 'auth.messages.session_not_fresh',
 	PASSWORD_TOO_WEAK: 'auth.messages.password_too_weak',
 	CREDENTIAL_ACCOUNT_UNUSABLE: 'auth.messages.credential_account_unusable',

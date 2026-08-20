@@ -357,7 +357,7 @@
 		"messages": {
 			"auth_cancelled": "Authentication was cancelled",
 			"credential_account_not_found": "This account has no password set.",
-			"credential_account_unusable": "This account cannot set a password here. Use the password reset link instead.",
+			"credential_account_unusable": "This account cannot set a password here. Sign out, then use the reset link on the sign-in page.",
 			"email_change_failed": "Failed to change email",
 			"email_not_verified": "Please verify your email address",
 			"email_same_as_current": "New email must be different from current email",
@@ -390,7 +390,7 @@
 			"request_reset_failed": "Failed to request password reset",
 			"reset_failed": "Failed to reset password",
 			"reset_link_sent": "If an account exists for that address, check your email for a reset link.",
-			"session_not_fresh": "For your security, sign in again before setting a password.",
+			"session_not_fresh": "For your security, sign in again before adding a new sign-in method.",
 			"signup_disabled": "Sign up is disabled",
 			"signup_failed": "Failed to create account",
 			"too_many_attempts": "Too many attempts. Please try again later.",
@@ -981,6 +981,7 @@
 			"setting": "Setting...",
 			"state_unknown": "Checking your sign-in methods. Reload the page if this does not resolve.",
 			"title": "Change Password",
+			"unknown_title": "Password",
 			"update_button": "Update Password",
 			"updating": "Updating..."
 		},

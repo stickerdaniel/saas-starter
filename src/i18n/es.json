@@ -357,7 +357,7 @@
 		"messages": {
 			"auth_cancelled": "La autenticación fue cancelada",
 			"credential_account_not_found": "Esta cuenta no tiene ninguna contraseña establecida.",
-			"credential_account_unusable": "Esta cuenta no puede establecer una contraseña aquí. Usa el enlace para restablecer la contraseña.",
+			"credential_account_unusable": "Esta cuenta no puede establecer una contraseña aquí. Cierra sesión y usa el enlace de restablecimiento en la página de inicio de sesión.",
 			"email_change_failed": "No se pudo cambiar el correo",
 			"email_not_verified": "Por favor verifica tu correo electrónico",
 			"email_same_as_current": "El nuevo correo debe ser diferente al actual",
@@ -390,7 +390,7 @@
 			"request_reset_failed": "No se pudo solicitar el restablecimiento de contraseña",
 			"reset_failed": "No se pudo restablecer la contraseña",
 			"reset_link_sent": "Si existe una cuenta con esa dirección, revisa tu correo para encontrar el enlace de restablecimiento.",
-			"session_not_fresh": "Por seguridad, inicia sesión de nuevo antes de establecer una contraseña.",
+			"session_not_fresh": "Por seguridad, inicia sesión de nuevo antes de añadir un nuevo método de acceso.",
 			"signup_disabled": "El registro está deshabilitado",
 			"signup_failed": "No se pudo crear la cuenta",
 			"too_many_attempts": "Demasiados intentos. Inténtalo más tarde.",
@@ -981,6 +981,7 @@
 			"setting": "Estableciendo...",
 			"state_unknown": "Comprobando tus métodos de inicio de sesión. Recarga la página si esto no se resuelve.",
 			"title": "Cambiar contraseña",
+			"unknown_title": "Contraseña",
 			"update_button": "Actualizar contraseña",
 			"updating": "Actualizando..."
 		},

@@ -357,7 +357,7 @@
 		"messages": {
 			"auth_cancelled": "Authentifizierung abgebrochen",
 			"credential_account_not_found": "Für dieses Konto ist kein Passwort festgelegt.",
-			"credential_account_unusable": "Für dieses Konto kann hier kein Passwort eingerichtet werden. Verwenden Sie stattdessen den Link zum Zurücksetzen des Passworts.",
+			"credential_account_unusable": "Für dieses Konto kann hier kein Passwort eingerichtet werden. Melden Sie sich ab und verwenden Sie dann den Link zum Zurücksetzen auf der Anmeldeseite.",
 			"email_change_failed": "E-Mail konnte nicht geändert werden",
 			"email_not_verified": "Bitte bestätigen Sie Ihre E-Mail-Adresse",
 			"email_same_as_current": "Neue E-Mail muss sich von der aktuellen E-Mail unterscheiden",
@@ -390,7 +390,7 @@
 			"request_reset_failed": "Passwort-Reset konnte nicht angefordert werden",
 			"reset_failed": "Passwort konnte nicht zurückgesetzt werden",
 			"reset_link_sent": "Wenn ein Konto mit dieser Adresse existiert, prüfen Sie Ihre E-Mails auf einen Link zum Zurücksetzen.",
-			"session_not_fresh": "Melden Sie sich aus Sicherheitsgründen erneut an, bevor Sie ein Passwort einrichten.",
+			"session_not_fresh": "Melden Sie sich aus Sicherheitsgründen erneut an, bevor Sie eine neue Anmeldemethode hinzufügen.",
 			"signup_disabled": "Registrierung ist deaktiviert",
 			"signup_failed": "Konto konnte nicht erstellt werden",
 			"too_many_attempts": "Zu viele Versuche. Bitte versuchen Sie es später erneut.",
@@ -981,6 +981,7 @@
 			"setting": "Wird eingerichtet...",
 			"state_unknown": "Ihre Anmeldemethoden werden geprüft. Laden Sie die Seite neu, falls das bestehen bleibt.",
 			"title": "Passwort ändern",
+			"unknown_title": "Passwort",
 			"update_button": "Passwort aktualisieren",
 			"updating": "Aktualisieren..."
 		},
