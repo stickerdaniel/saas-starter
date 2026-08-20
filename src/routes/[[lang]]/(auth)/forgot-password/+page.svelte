@@ -180,7 +180,7 @@
 									>
 										<T
 											keyName="auth.forgot_password.description"
-											defaultValue="We will email you a reset link"
+											defaultValue="Enter the email address for your account"
 										/>
 									</p>
 								{/if}
