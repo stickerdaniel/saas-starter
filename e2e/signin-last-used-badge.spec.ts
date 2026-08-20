@@ -74,10 +74,12 @@ test('last-used badge tracks the button through a press', async ({ page }) => {
 	await page.goto('/signin');
 	await page.evaluate(() => {
 		localStorage.setItem('auth:last-auth-method', JSON.stringify('passkey'));
+		localStorage.setItem('mode-watcher-mode', 'dark');
 		sessionStorage.removeItem('auth:pending-oauth-provider');
 	});
 	await page.reload();
 	await expect(page.locator('[data-testid="email-input"]')).toBeEnabled({ timeout: 30000 });
+	await expect(page.locator('html')).toHaveClass(/\bdark\b/);
 
 	const button = page.locator('[data-testid="signin-oauth-passkey-button"]');
 	const badge = page.locator('[data-testid="oauth-passkey-last-used-badge"]');
@@ -106,10 +108,62 @@ test('last-used badge tracks the button through a press', async ({ page }) => {
 	expect(pressed.badge - resting.badge).toBeCloseTo(1, 1);
 	expect(pressed.badge - pressed.button).toBeCloseTo(resting.badge - resting.button, 1);
 
-	// A disabled button does not move, so neither may the badge.
+	// A disabled button does not move, so neither may the badge. The badge also
+	// uses opaque mixed colors instead of opacity: it overlaps the button edge,
+	// where transparency would let the edge show through.
+	const waitForBadgeTransitions = () =>
+		badge.evaluate(async (element) => {
+			await Promise.all(
+				element.getAnimations().map(async (animation) => {
+					try {
+						await animation.finished;
+					} catch {
+						// A superseded transition is expected to reject its finished promise.
+					}
+				})
+			);
+		});
+	await waitForBadgeTransitions();
+	const enabledBadgeStyle = await badge.evaluate((element) => {
+		const style = getComputedStyle(element);
+		return { backgroundColor: style.backgroundColor, color: style.color };
+	});
 	await button.evaluate((el: HTMLButtonElement) => {
 		el.disabled = true;
 	});
+	await waitForBadgeTransitions();
+	const disabledBadgeStyle = await badge.evaluate((element) => {
+		const style = getComputedStyle(element);
+		const probe = document.createElement('span');
+		probe.style.backgroundColor = 'color-mix(in srgb, var(--secondary) 50%, var(--card))';
+		probe.style.color = 'color-mix(in srgb, var(--secondary-foreground) 50%, var(--card))';
+		if (!element.parentElement) throw new Error('badge is detached');
+		element.parentElement.append(probe);
+		const probeStyle = getComputedStyle(probe);
+		const expectedBackgroundColor = probeStyle.backgroundColor;
+		const expectedColor = probeStyle.color;
+		probe.remove();
+
+		const slashAlpha = style.backgroundColor.match(/\/\s*([\d.]+)(%)?\s*\)$/);
+		const rgbaAlpha = style.backgroundColor.match(/rgba\([^,]+,[^,]+,[^,]+,\s*([\d.]+)(%)?\s*\)$/);
+		const alphaValue = slashAlpha?.[1] ?? rgbaAlpha?.[1];
+		const alphaIsPercent = slashAlpha?.[2] ?? rgbaAlpha?.[2];
+		const backgroundAlpha = alphaValue ? Number(alphaValue) / (alphaIsPercent ? 100 : 1) : 1;
+		return {
+			backgroundColor: style.backgroundColor,
+			color: style.color,
+			opacity: style.opacity,
+			backgroundAlpha,
+			expectedBackgroundColor,
+			expectedColor
+		};
+	});
+	expect(disabledBadgeStyle.backgroundColor).not.toBe(enabledBadgeStyle.backgroundColor);
+	expect(disabledBadgeStyle.color).not.toBe(enabledBadgeStyle.color);
+	expect(disabledBadgeStyle.backgroundColor).toBe(disabledBadgeStyle.expectedBackgroundColor);
+	expect(disabledBadgeStyle.color).toBe(disabledBadgeStyle.expectedColor);
+	expect(disabledBadgeStyle.opacity).toBe('1');
+	expect(disabledBadgeStyle.backgroundAlpha).toBe(1);
 	const disabledResting = await tops();
 	await page.mouse.move(centre.x, centre.y);
 	await page.mouse.down();
