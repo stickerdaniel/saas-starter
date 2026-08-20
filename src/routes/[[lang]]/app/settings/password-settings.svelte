@@ -13,14 +13,32 @@
 	import { toast } from 'svelte-sonner';
 	import { T, getTranslate } from '@tolgee/svelte';
 	import InfoIcon from '@lucide/svelte/icons/info';
-	import { changePasswordSchema, PASSWORD_MIN_LENGTH } from './password-schema.js';
+	import { useConvexClient } from 'convex-svelte';
+	import { ConvexError } from 'convex/values';
+	import { api } from '$lib/convex/_generated/api.js';
+	import {
+		changePasswordSchema,
+		setPasswordSchema,
+		PASSWORD_MIN_LENGTH
+	} from './password-schema.js';
 	import { getAuthErrorKey } from '$lib/utils/auth-messages';
 	import { translateValidationErrors } from '$lib/utils/validation-i18n.js';
 
 	const { t } = getTranslate();
+	const convexClient = useConvexClient();
 
 	let isLoading = $state(false);
 	let formError = $state('');
+
+	// Resolved server-side so the right form renders on first paint. An account
+	// created through an OAuth provider has no credential account and therefore
+	// no password, so it gets the set form: changePassword verifies a current
+	// password that does not exist and can never succeed for it. null means the
+	// lookup did not answer, and the change form is the safe fallback because it
+	// asks for a current password rather than skipping that proof.
+	let { hasPassword }: { hasPassword: boolean | null } = $props();
+	let passwordSet = $state(false);
+	const mode = $derived(hasPassword === false && !passwordSet ? 'set' : 'change');
 
 	// Form data
 	let formData = $state({
@@ -43,13 +61,19 @@
 
 	function validate(): boolean {
 		// Map form data to schema field names (with _ prefix for sensitive fields)
-		const dataForValidation = {
-			_currentPassword: formData.currentPassword,
-			_newPassword: formData.newPassword,
-			_confirmPassword: formData.confirmPassword,
-			revokeOtherSessions: formData.revokeOtherSessions
-		};
-		const result = v.safeParse(changePasswordSchema, dataForValidation);
+		const dataForValidation =
+			mode === 'set'
+				? { _newPassword: formData.newPassword, _confirmPassword: formData.confirmPassword }
+				: {
+						_currentPassword: formData.currentPassword,
+						_newPassword: formData.newPassword,
+						_confirmPassword: formData.confirmPassword,
+						revokeOtherSessions: formData.revokeOtherSessions
+					};
+		const result = v.safeParse(
+			mode === 'set' ? setPasswordSchema : changePasswordSchema,
+			dataForValidation
+		);
 		if (!result.success) {
 			const fieldErrors: Record<string, string[]> = {};
 			for (const issue of result.issues) {
@@ -73,6 +97,23 @@
 		return true;
 	}
 
+	/**
+	 * Returns null on success, or a code carrier shaped like a Better Auth client
+	 * error so both branches share one error-to-translation path. The mutation
+	 * forwards Better Auth's own code (PASSWORD_TOO_SHORT, PASSWORD_ALREADY_SET).
+	 */
+	async function setPasswordViaConvex(): Promise<{ code?: string } | null> {
+		try {
+			await convexClient.mutation(api.users.setPassword, { newPassword: formData.newPassword });
+			return null;
+		} catch (error) {
+			if (error instanceof ConvexError) {
+				return { code: (error.data as { code?: string })?.code };
+			}
+			return {};
+		}
+	}
+
 	async function handleSubmit(e: Event) {
 		e.preventDefault();
 		if (!validate()) return;
@@ -81,19 +122,37 @@
 		formError = '';
 
 		try {
-			const { error: authError } = await authClient.changePassword({
-				currentPassword: formData.currentPassword,
-				newPassword: formData.newPassword,
-				revokeOtherSessions: formData.revokeOtherSessions
-			});
+			// setPassword is serverOnly in Better Auth, so it is unreachable from
+			// authClient and goes through the Convex mutation instead.
+			const authError =
+				mode === 'set'
+					? await setPasswordViaConvex()
+					: (
+							await authClient.changePassword({
+								currentPassword: formData.currentPassword,
+								newPassword: formData.newPassword,
+								revokeOtherSessions: formData.revokeOtherSessions
+							})
+						).error;
 
 			if (authError) {
-				formError = getAuthErrorKey(authError, 'auth.messages.password_change_failed');
+				formError = getAuthErrorKey(
+					authError,
+					mode === 'set'
+						? 'auth.messages.password_set_failed'
+						: 'auth.messages.password_change_failed'
+				);
 				haptic.trigger('error');
 				toast.error($t(formError));
 			} else {
 				haptic.trigger('success');
-				toast.success($t('auth.messages.password_changed'));
+				toast.success(
+					$t(mode === 'set' ? 'auth.messages.password_set' : 'auth.messages.password_changed')
+				);
+				// The account now has a credential account, so the card becomes the
+				// change form without a reload. Tracked separately because props are
+				// not writable.
+				passwordSet = true;
 				// Clear form
 				formData.currentPassword = '';
 				formData.newPassword = '';
@@ -111,8 +170,16 @@
 
 <Card.Root>
 	<Card.Header>
-		<Card.Title><T keyName="settings.password.title" /></Card.Title>
-		<Card.Description><T keyName="settings.password.description" /></Card.Description>
+		<Card.Title>
+			<T keyName={mode === 'set' ? 'settings.password.set_title' : 'settings.password.title'} />
+		</Card.Title>
+		<Card.Description>
+			<T
+				keyName={mode === 'set'
+					? 'settings.password.set_description'
+					: 'settings.password.description'}
+			/>
+		</Card.Description>
 	</Card.Header>
 	<Card.Content>
 		<form onsubmit={handleSubmit} novalidate class="space-y-4">
@@ -127,25 +194,27 @@
 			{/if}
 
 			<Field.Group>
-				<Field.Field>
-					<Field.Label for="currentPassword">
-						<T keyName="settings.password.current_password_label" />
-					</Field.Label>
-					<Input
-						type="password"
-						id="currentPassword"
-						name="currentPassword"
-						placeholder={$t('settings.password.placeholder.current')}
-						autocomplete="current-password"
-						aria-invalid={hasCurrentPasswordError ? 'true' : undefined}
-						aria-describedby={hasCurrentPasswordError ? 'currentPassword-error' : undefined}
-						bind:value={formData.currentPassword}
-					/>
-					<Field.Error
-						id="currentPassword-error"
-						errors={translateValidationErrors(errors.currentPassword, $t)}
-					/>
-				</Field.Field>
+				{#if mode === 'change'}
+					<Field.Field>
+						<Field.Label for="currentPassword">
+							<T keyName="settings.password.current_password_label" />
+						</Field.Label>
+						<Input
+							type="password"
+							id="currentPassword"
+							name="currentPassword"
+							placeholder={$t('settings.password.placeholder.current')}
+							autocomplete="current-password"
+							aria-invalid={hasCurrentPasswordError ? 'true' : undefined}
+							aria-describedby={hasCurrentPasswordError ? 'currentPassword-error' : undefined}
+							bind:value={formData.currentPassword}
+						/>
+						<Field.Error
+							id="currentPassword-error"
+							errors={translateValidationErrors(errors.currentPassword, $t)}
+						/>
+					</Field.Field>
+				{/if}
 
 				<Field.Field>
 					<Field.Label for="newPassword">
@@ -192,36 +261,44 @@
 				</Field.Field>
 			</Field.Group>
 
-			<Item.Root variant="muted">
-				<Item.Media variant="icon">
-					<InfoIcon />
-				</Item.Media>
-				<Item.Content class="gap-3">
-					<Item.Title><T keyName="settings.password.security_notice_title" /></Item.Title>
-					<Item.Description>
-						<T keyName="settings.password.security_notice_description" />
-					</Item.Description>
-					<Field.Field orientation="horizontal" class="gap-2">
-						<Checkbox
-							id="revokeOtherSessions"
-							name="revokeOtherSessions"
-							bind:checked={formData.revokeOtherSessions}
-						/>
-						<Field.Content class="gap-0">
-							<Field.Label for="revokeOtherSessions">
-								<T keyName="settings.password.revoke_sessions_label" />
-							</Field.Label>
-						</Field.Content>
-					</Field.Field>
-				</Item.Content>
-			</Item.Root>
+			{#if mode === 'change'}
+				<Item.Root variant="muted">
+					<Item.Media variant="icon">
+						<InfoIcon />
+					</Item.Media>
+					<Item.Content class="gap-3">
+						<Item.Title><T keyName="settings.password.security_notice_title" /></Item.Title>
+						<Item.Description>
+							<T keyName="settings.password.security_notice_description" />
+						</Item.Description>
+						<Field.Field orientation="horizontal" class="gap-2">
+							<Checkbox
+								id="revokeOtherSessions"
+								name="revokeOtherSessions"
+								bind:checked={formData.revokeOtherSessions}
+							/>
+							<Field.Content class="gap-0">
+								<Field.Label for="revokeOtherSessions">
+									<T keyName="settings.password.revoke_sessions_label" />
+								</Field.Label>
+							</Field.Content>
+						</Field.Field>
+					</Item.Content>
+				</Item.Root>
+			{/if}
 
 			<div class="flex justify-end">
 				<Button type="submit" size="sm" disabled={isLoading}>
 					{#if isLoading}
-						<T keyName="settings.password.updating" />
+						<T
+							keyName={mode === 'set' ? 'settings.password.setting' : 'settings.password.updating'}
+						/>
 					{:else}
-						<T keyName="settings.password.update_button" />
+						<T
+							keyName={mode === 'set'
+								? 'settings.password.set_button'
+								: 'settings.password.update_button'}
+						/>
 					{/if}
 				</Button>
 			</div>

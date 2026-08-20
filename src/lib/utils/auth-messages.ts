@@ -19,6 +19,9 @@ const ERROR_CODE_MAP: Record<string, string> = {
 
 	// Password validation
 	PASSWORD_TOO_SHORT: 'auth.messages.password_too_short',
+	// Raised by setPassword when the account already has a credential account,
+	// e.g. a password set in another tab since this card was rendered.
+	PASSWORD_ALREADY_SET: 'auth.messages.password_already_set',
 	PASSWORD_TOO_LONG: 'auth.messages.password_too_long',
 
 	// OAuth/social

@@ -4,7 +4,10 @@ import { signInSchema, signUpSchema } from '../../../routes/[[lang]]/(auth)/sign
 import { forgotPasswordSchema } from '../../../routes/[[lang]]/(auth)/forgot-password/schema';
 import { resetPasswordSchema } from '../../../routes/[[lang]]/(auth)/reset-password/schema';
 import { changeEmailSchema } from '../../../routes/[[lang]]/app/settings/email-schema';
-import { changePasswordSchema } from '../../../routes/[[lang]]/app/settings/password-schema';
+import {
+	changePasswordSchema,
+	setPasswordSchema
+} from '../../../routes/[[lang]]/app/settings/password-schema';
 
 describe('signInSchema', () => {
 	it('accepts valid email and password', () => {
@@ -173,5 +176,44 @@ describe('changePasswordSchema', () => {
 			revokeOtherSessions: false
 		});
 		expect(result.success).toBe(false);
+	});
+});
+
+describe('setPasswordSchema', () => {
+	it('accepts a first password without a current one', () => {
+		const result = v.safeParse(setPasswordSchema, {
+			_newPassword: 'NewPassword123',
+			_confirmPassword: 'NewPassword123'
+		});
+		expect(result.success).toBe(true);
+	});
+
+	it('rejects mismatched passwords', () => {
+		const result = v.safeParse(setPasswordSchema, {
+			_newPassword: 'NewPassword123',
+			_confirmPassword: 'DifferentPassword123'
+		});
+		expect(result.success).toBe(false);
+		if (!result.success) {
+			expect(result.issues.some((i) => i.message === 'validation.confirm_password.mismatch')).toBe(
+				true
+			);
+		}
+	});
+
+	it('applies the same strength rules as a password change', () => {
+		const result = v.safeParse(setPasswordSchema, {
+			_newPassword: 'weakpass',
+			_confirmPassword: 'weakpass'
+		});
+		expect(result.success).toBe(false);
+	});
+
+	// The account this form serves has no password, so requiring a current one
+	// would make it unsubmittable. changePasswordSchema must keep requiring it.
+	it('does not require a current password, unlike changePasswordSchema', () => {
+		const body = { _newPassword: 'NewPassword123', _confirmPassword: 'NewPassword123' };
+		expect(v.safeParse(setPasswordSchema, body).success).toBe(true);
+		expect(v.safeParse(changePasswordSchema, body).success).toBe(false);
 	});
 });
