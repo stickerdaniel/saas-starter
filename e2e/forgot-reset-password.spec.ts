@@ -33,10 +33,17 @@ async function submitForgotPassword(page: Page, email: string) {
 	await page.goto('/en/forgot-password');
 	await page.waitForLoadState('domcontentloaded');
 	await expect(page.getByTestId('forgot-password-email-input')).toBeEnabled({ timeout: 30000 });
+	// Asserted before the submit as well, so that the after-check below cannot pass
+	// by the element having never rendered.
+	await expect(page.getByTestId('forgot-password-description')).toBeVisible();
 	await page.getByTestId('forgot-password-email-input').fill(email);
 	await page.getByTestId('forgot-password-submit-button').click();
 	const message = page.getByTestId('forgot-password-success-message');
 	await expect(message).toBeVisible({ timeout: 10000 });
+	// The subtitle promises a mail outright. Leaving it up next to the conditional
+	// message would put both claims on screen at once, which is the overstatement
+	// the conditional wording exists to remove.
+	await expect(page.getByTestId('forgot-password-description')).toHaveCount(0);
 	return (await message.innerText()).trim();
 }
 

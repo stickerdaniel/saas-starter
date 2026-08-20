@@ -484,7 +484,8 @@ export const deleteTestUser = mutation({
 		error: v.optional(v.string()),
 		deletedEmail: v.optional(v.string()),
 		accountsDeleted: v.optional(v.number()),
-		sessionsDeleted: v.optional(v.number())
+		sessionsDeleted: v.optional(v.number()),
+		verificationsDeleted: v.optional(v.number())
 	}),
 	handler: async (ctx, { email, secret }) => {
 		requireTestSecret(secret);
@@ -529,6 +530,30 @@ export const deleteTestUser = mutation({
 			hasMoreSessions = (result?.deletedCount ?? 0) >= 100;
 		}
 
+		// Delete ALL verification records. A password-reset request stores the token
+		// under `reset-password:<token>` with the user id as its value, and email
+		// verification stores it under the address, so neither is reachable by userId.
+		// Better Auth only clears them when the token is consumed or looked up after
+		// expiry, so a suite that requests a reset without completing it would leave
+		// them behind for the lifetime of the backend.
+		// The component indexes `identifier` but not `value`, so the first pass is a
+		// table scan. That is affordable here and nowhere else: this mutation is
+		// test-only, gated on the test secret, and runs against a test backend.
+		let verificationsDeleted = 0;
+		const deleteVerifications = async (field: 'value' | 'identifier', value: string) => {
+			let hasMore = true;
+			while (hasMore) {
+				const result = await ctx.runMutation(components.betterAuth.adapter.deleteMany, {
+					input: { model: 'verification', where: [{ field, value }] },
+					paginationOpts: { numItems: 100, cursor: null }
+				});
+				verificationsDeleted += result?.deletedCount ?? 0;
+				hasMore = (result?.deletedCount ?? 0) >= 100;
+			}
+		};
+		await deleteVerifications('value', user._id);
+		await deleteVerifications('identifier', email);
+
 		// Delete the user
 		await ctx.runMutation(components.betterAuth.adapter.deleteOne, {
 			input: {
@@ -537,7 +562,13 @@ export const deleteTestUser = mutation({
 			}
 		});
 
-		return { success: true, deletedEmail: email, accountsDeleted, sessionsDeleted };
+		return {
+			success: true,
+			deletedEmail: email,
+			accountsDeleted,
+			sessionsDeleted,
+			verificationsDeleted
+		};
 	}
 });
 

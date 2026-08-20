@@ -158,12 +158,21 @@
 								<h1 class="text-2xl font-bold">
 									<T keyName="auth.forgot_password.title" defaultValue="Forgot password" />
 								</h1>
-								<p class="text-balance text-muted-foreground">
-									<T
-										keyName="auth.forgot_password.description"
-										defaultValue="We will email you a reset link"
-									/>
-								</p>
+								<!-- The subtitle promises a mail outright, which is only true while the
+								     address is still unknown to the reader. Once the request has been
+								     answered, the conditional success message below is the accurate
+								     statement, so the promise gives way rather than contradicting it. -->
+								{#if !message}
+									<p
+										data-testid="forgot-password-description"
+										class="text-balance text-muted-foreground"
+									>
+										<T
+											keyName="auth.forgot_password.description"
+											defaultValue="We will email you a reset link"
+										/>
+									</p>
+								{/if}
 							</div>
 							{#if formError}
 								<div
