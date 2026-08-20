@@ -164,6 +164,27 @@ test('last-used badge tracks the button through a press', async ({ page }) => {
 	expect(disabledBadgeStyle.color).toBe(disabledBadgeStyle.expectedColor);
 	expect(disabledBadgeStyle.opacity).toBe('1');
 	expect(disabledBadgeStyle.backgroundAlpha).toBe(1);
+
+	// The mix has to resolve on the badge, not once at :root. Custom properties
+	// declared there compute their color-mix() at the root and inherit only the
+	// result, which passes every assertion above while silently ignoring a card or
+	// shell that scopes the theme. Overriding the inputs nearby is what tells the
+	// two implementations apart.
+	await badge.evaluate((element) => {
+		const wrapper = element.closest('.group');
+		if (!(wrapper instanceof HTMLElement)) throw new Error('badge has no group wrapper');
+		wrapper.style.setProperty('--secondary', 'rgb(0 128 0)');
+		wrapper.style.setProperty('--card', 'rgb(0 0 0)');
+	});
+	// The badge carries transition-colors, so a computed read before the transition
+	// settles would return an interpolated value rather than the new one.
+	await waitForBadgeTransitions();
+	const scopedBadgeStyle = await badge.evaluate((element) => {
+		const style = getComputedStyle(element);
+		return { backgroundColor: style.backgroundColor, color: style.color };
+	});
+	expect(scopedBadgeStyle.backgroundColor).not.toBe(disabledBadgeStyle.backgroundColor);
+	expect(scopedBadgeStyle.color).not.toBe(disabledBadgeStyle.color);
 	const disabledResting = await tops();
 	await page.mouse.move(centre.x, centre.y);
 	await page.mouse.down();

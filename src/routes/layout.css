@@ -76,12 +76,13 @@
 	--sidebar-accent-foreground: oklch(0.21 0.006 285.885);
 	/* Opaque match for the row hover background, used by the shortcut/timestamp
 	   reveal overlay. Flatten the /65 hover to an opaque colour so the overlay matches the row.
-	   Flattening mixes interpolate in srgb: measured in Chrome, it is the only space that
-	   reproduces the composited pixel for a colour inside the output gamut, exactly for
-	   these greys and within 1/255 for a saturated one, where oklab and oklch land up to
-	   34/255 away. Outside the output gamut no space reproduces it, because the translucent
-	   path is gamut-mapped before compositing and color-mix() is not, so a wide-gamut theme
-	   needs the flattened value checked by eye whichever space it names. */
+	   Flattening mixes interpolate in srgb. Measured in Chrome, it was the only space that
+	   ever reproduced the composited pixel: exact for these greys, and within 1/255 for
+	   every in-gamut colour tried, where oklab and oklch were far off even for plain red
+	   (41 and 45 of 255 at /65 over --sidebar). Wide-gamut sources were not uniform:
+	   srgb matched display-p3 green over black exactly and missed display-p3 red over
+	   white by about 30, so a theme that reaches outside the output gamut wants its
+	   flattened value checked by eye whichever space it names. */
 	--sidebar-accent-hover: color-mix(in srgb, var(--sidebar-accent) 65%, var(--sidebar));
 	--sidebar-border: oklch(0.92 0.004 286.32);
 	--sidebar-ring: oklch(0.705 0.015 286.067);
