@@ -77,6 +77,15 @@
 		}
 	});
 
+	// An answer names the address it was given ("if an account exists for that
+	// address"). Once the field holds a different one, the answer is about
+	// something the user is no longer looking at, so it goes with the edit rather
+	// than waiting for the next submit, which a validation failure never reaches.
+	function clearAnswer() {
+		message = null;
+		formError = null;
+	}
+
 	function validate(): boolean {
 		const result = v.safeParse(forgotPasswordSchema, formData);
 		if (!result.success) {
@@ -158,12 +167,23 @@
 								<h1 class="text-2xl font-bold">
 									<T keyName="auth.forgot_password.title" defaultValue="Forgot password" />
 								</h1>
-								<p class="text-balance text-muted-foreground">
-									<T
-										keyName="auth.forgot_password.description"
-										defaultValue="We will email you a reset link"
-									/>
-								</p>
+								<!-- An instruction rather than a promise: this screen cannot know
+								     whether a mail will be sent, and the answer below says so. Once
+								     an answer exists, whether success or error, the instruction has
+								     been carried out and gives way to it. Field validation sets
+								     `errors.email` rather than `formError`, so an unsent form keeps
+								     its subtitle. -->
+								{#if !message && !formError}
+									<p
+										data-testid="forgot-password-description"
+										class="text-balance text-muted-foreground"
+									>
+										<T
+											keyName="auth.forgot_password.description"
+											defaultValue="Enter the email address for your account"
+										/>
+									</p>
+								{/if}
 							</div>
 							{#if formError}
 								<div
@@ -198,6 +218,7 @@
 									aria-invalid={hasEmailError ? 'true' : undefined}
 									aria-describedby={hasEmailError ? `email-${id}-error` : undefined}
 									bind:value={formData.email}
+									oninput={clearAnswer}
 								/>
 								<Field.Error
 									id="email-{id}-error"

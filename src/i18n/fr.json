@@ -351,12 +351,12 @@
 			"back_to_signin": "Retour à la connexion",
 			"button_loading": "Envoi en cours...",
 			"button_submit": "Envoyer le lien",
-			"description": "Nous vous enverrons un lien de réinitialisation",
+			"description": "Saisissez l'adresse e-mail de votre compte",
 			"title": "Mot de passe oublié"
 		},
 		"messages": {
 			"auth_cancelled": "L'authentification a été annulée",
-			"credential_account_not_found": "Aucun compte avec mot de passe trouvé. Essayez de vous connecter avec votre fournisseur social.",
+			"credential_account_not_found": "Aucun mot de passe n'est défini pour ce compte.",
 			"email_change_failed": "Impossible de modifier l'e-mail",
 			"email_not_verified": "Veuillez vérifier votre adresse e-mail",
 			"email_same_as_current": "Le nouvel e-mail doit être différent de l'actuel",
@@ -383,7 +383,7 @@
 			"rate_limited": "Trop de requêtes. Réessayez plus tard.",
 			"request_reset_failed": "Impossible de demander la réinitialisation du mot de passe",
 			"reset_failed": "Impossible de réinitialiser le mot de passe",
-			"reset_link_sent": "Vérifiez votre e-mail pour le lien de réinitialisation.",
+			"reset_link_sent": "Si un compte est associé à cette adresse, vérifiez votre messagerie pour trouver le lien de réinitialisation.",
 			"signup_disabled": "L'inscription est désactivée",
 			"signup_failed": "Impossible de créer le compte",
 			"too_many_attempts": "Trop de tentatives. Réessayez plus tard.",

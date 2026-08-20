@@ -13,6 +13,11 @@
  * Customizations preserved across regeneration:
  * - Admin-list indexes on the `user` table — generator drops them.
  * - `.index('updatedAt', ['updatedAt'])` on `session` for activity metrics.
+ * - `.index('value', ['value'])` on `verification` so E2E teardown can delete a
+ *   user's password-reset tokens, which are keyed by `reset-password:<token>`
+ *   and carry the user id in `value`. Without it that deletion is a table scan,
+ *   which shares the caller's transaction budget and fails the whole cleanup on
+ *   a long-lived backend.
  *
  * Custom-index pattern: https://labs.convex.dev/better-auth/features/local-install#adding-custom-indexes.
  */
@@ -84,7 +89,8 @@ export const tables = {
 		updatedAt: v.number()
 	})
 		.index('expiresAt', ['expiresAt'])
-		.index('identifier', ['identifier']),
+		.index('identifier', ['identifier'])
+		.index('value', ['value']),
 	jwks: defineTable({
 		publicKey: v.string(),
 		privateKey: v.string(),

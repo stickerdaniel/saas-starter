@@ -1,4 +1,6 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page, type Route } from '@playwright/test';
+import fs from 'fs';
+import path from 'path';
 import 'varlock/auto-load';
 import { ConvexHttpClient } from 'convex/browser';
 import { api } from '../src/lib/convex/_generated/api';
@@ -14,7 +16,36 @@ test.use({ storageState: { cookies: [], origins: [] } });
 // e2e/upgrade-checkout-failure.spec.ts), which would serve translated copy
 // on non-English runners.
 
+import type { TestCredentials } from './utils/types';
+
 const testSecret = process.env.AUTH_E2E_TEST_SECRET!;
+
+function getSeededUserEmail(): string {
+	const credentialsPath = path.join(process.cwd(), 'e2e', '.auth', 'test-credentials.json');
+	if (!fs.existsSync(credentialsPath)) {
+		throw new Error('test-credentials.json not found. globalSetup may have failed.');
+	}
+	const credentials: TestCredentials = JSON.parse(fs.readFileSync(credentialsPath, 'utf-8'));
+	return credentials.user.email;
+}
+
+async function submitForgotPassword(page: Page, email: string) {
+	await page.goto('/en/forgot-password');
+	await page.waitForLoadState('domcontentloaded');
+	await expect(page.getByTestId('forgot-password-email-input')).toBeEnabled({ timeout: 30000 });
+	// Asserted before the submit as well, so that the after-check below cannot pass
+	// by the element having never rendered.
+	await expect(page.getByTestId('forgot-password-description')).toBeVisible();
+	await page.getByTestId('forgot-password-email-input').fill(email);
+	await page.getByTestId('forgot-password-submit-button').click();
+	const message = page.getByTestId('forgot-password-success-message');
+	await expect(message).toBeVisible({ timeout: 10000 });
+	// The subtitle promises a mail outright. Leaving it up next to the conditional
+	// message would put both claims on screen at once, which is the overstatement
+	// the conditional wording exists to remove.
+	await expect(page.getByTestId('forgot-password-description')).toHaveCount(0);
+	return (await message.innerText()).trim();
+}
 
 const getConvexClient = () => {
 	const convexUrl = resolveConvexUrl();
@@ -60,6 +91,65 @@ test.describe('Forgot Password', () => {
 		await expect(page.getByTestId('forgot-password-success-message')).toBeVisible({
 			timeout: 10000
 		});
+	});
+
+	/**
+	 * Account enumeration guard. Better Auth answers /request-password-reset
+	 * identically whether or not the address has an account, and the screen must
+	 * not undo that by rendering something the API never told it. Submitting a
+	 * seeded address and an address that cannot exist has to leave the user
+	 * looking at the same words.
+	 */
+	test('says the same thing for a known and an unknown address', async ({ page }) => {
+		const known = await submitForgotPassword(page, getSeededUserEmail());
+		const unknown = await submitForgotPassword(
+			page,
+			`definitely-not-registered-${Date.now()}@e2e.example.com`
+		);
+
+		expect(known).toBe(unknown);
+		// The wording stays conditional: the endpoint reports success even when the
+		// address has no account, and Better Auth swallows a failing send, so the
+		// screen can claim neither that an account exists nor that mail went out.
+		expect(known.toLowerCase()).toContain('if an account exists');
+	});
+
+	// The answer names the address it was given, so it must not outlive that
+	// address in the field. Nothing clears it on the next submit either, because a
+	// validation failure returns before the reset.
+	test('drops the answer when the address changes', async ({ page }) => {
+		await submitForgotPassword(page, `stale-${Date.now()}@e2e.example.com`);
+
+		await page.getByTestId('forgot-password-email-input').fill('not-an-email');
+
+		await expect(page.getByTestId('forgot-password-success-message')).toHaveCount(0);
+		await expect(page.getByTestId('forgot-password-description')).toBeVisible();
+	});
+
+	/**
+	 * The subtitle promises a mail outright, so it has to give way to any answer,
+	 * not only to a successful one. The failing request is faked because a real
+	 * backend failure is not reachable from a test.
+	 */
+	test('drops the delivery promise when the request fails', async ({ page }) => {
+		await page.route('**/request-password-reset', (route: Route) =>
+			route.fulfill({
+				status: 500,
+				contentType: 'application/json',
+				body: JSON.stringify({ message: 'Internal Server Error' })
+			})
+		);
+		await page.goto('/en/forgot-password');
+		await page.waitForLoadState('domcontentloaded');
+		await expect(page.getByTestId('forgot-password-email-input')).toBeEnabled({ timeout: 30000 });
+		await expect(page.getByTestId('forgot-password-description')).toBeVisible();
+
+		await page.getByTestId('forgot-password-email-input').fill('someone@e2e.example.com');
+		await page.getByTestId('forgot-password-submit-button').click();
+
+		await expect(page.getByTestId('forgot-password-form-error')).toBeVisible({ timeout: 10000 });
+		await expect(page.getByTestId('forgot-password-description')).toHaveCount(0);
+		await expect(page.getByTestId('forgot-password-success-message')).toHaveCount(0);
 	});
 
 	test('navigates back to signin', async ({ page }) => {

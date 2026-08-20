@@ -351,12 +351,12 @@
 			"back_to_signin": "Volver a iniciar sesión",
 			"button_loading": "Enviando...",
 			"button_submit": "Enviar enlace",
-			"description": "Te enviaremos un enlace para restablecer",
+			"description": "Introduce la dirección de correo de tu cuenta",
 			"title": "¿Olvidaste tu contraseña?"
 		},
 		"messages": {
 			"auth_cancelled": "La autenticación fue cancelada",
-			"credential_account_not_found": "No se encontró cuenta con contraseña. Intenta iniciar sesión con tu proveedor social.",
+			"credential_account_not_found": "Esta cuenta no tiene ninguna contraseña establecida.",
 			"email_change_failed": "No se pudo cambiar el correo",
 			"email_not_verified": "Por favor verifica tu correo electrónico",
 			"email_same_as_current": "El nuevo correo debe ser diferente al actual",
@@ -383,7 +383,7 @@
 			"rate_limited": "Demasiadas solicitudes. Inténtalo más tarde.",
 			"request_reset_failed": "No se pudo solicitar el restablecimiento de contraseña",
 			"reset_failed": "No se pudo restablecer la contraseña",
-			"reset_link_sent": "Revisa tu correo para el enlace de restablecimiento.",
+			"reset_link_sent": "Si existe una cuenta con esa dirección, revisa tu correo para encontrar el enlace de restablecimiento.",
 			"signup_disabled": "El registro está deshabilitado",
 			"signup_failed": "No se pudo crear la cuenta",
 			"too_many_attempts": "Demasiados intentos. Inténtalo más tarde.",
