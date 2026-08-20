@@ -159,10 +159,12 @@
 									<T keyName="auth.forgot_password.title" defaultValue="Forgot password" />
 								</h1>
 								<!-- The subtitle promises a mail outright, which is only true while the
-								     address is still unknown to the reader. Once the request has been
-								     answered, the conditional success message below is the accurate
-								     statement, so the promise gives way rather than contradicting it. -->
-								{#if !message}
+								     request is still unanswered. Once an answer exists, whether it is
+								     the conditional success message or an error, that answer is the
+								     accurate statement and the promise gives way instead of
+								     contradicting it. Field validation sets `errors.email` rather than
+								     `formError`, so an unsent form keeps its subtitle. -->
+								{#if !message && !formError}
 									<p
 										data-testid="forgot-password-description"
 										class="text-balance text-muted-foreground"

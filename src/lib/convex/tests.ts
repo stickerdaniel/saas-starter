@@ -500,59 +500,64 @@ export const deleteTestUser = mutation({
 			return { success: false, error: 'User not found' };
 		}
 
-		// Delete ALL associated account records (loop until none remain)
-		let accountsDeleted = 0;
-		let hasMoreAccounts = true;
-		while (hasMoreAccounts) {
-			const result = await ctx.runMutation(components.betterAuth.adapter.deleteMany, {
-				input: {
-					model: 'account',
-					where: [{ field: 'userId', value: user._id }]
-				},
-				paginationOpts: { numItems: 100, cursor: null }
-			});
-			accountsDeleted += result?.deletedCount ?? 0;
-			hasMoreAccounts = (result?.deletedCount ?? 0) >= 100;
-		}
+		// Page through deletions with the component's own cursor. `deleteMany` reports
+		// `count` and `isDone`, and an unindexed `where` makes them diverge: the scan
+		// stops after a fixed number of source rows, so a page can match nothing and
+		// still not be the last one. Continuing on a zero count is what makes the
+		// unindexed pass below terminate at the right place instead of the first page.
+		// The page callback keeps its literal model at the call site, which is what lets
+		// the component's per-model `where` validator narrow.
+		const deleteAll = async (
+			deletePage: (
+				cursor: string | null
+			) => Promise<{ count: number; isDone: boolean; continueCursor: string }>
+		) => {
+			let deleted = 0;
+			let cursor: string | null = null;
+			let isDone = false;
+			while (!isDone) {
+				const result = await deletePage(cursor);
+				deleted += result.count;
+				isDone = result.isDone;
+				cursor = result.continueCursor;
+			}
+			return deleted;
+		};
 
-		// Delete ALL associated sessions (loop until none remain)
-		let sessionsDeleted = 0;
-		let hasMoreSessions = true;
-		while (hasMoreSessions) {
-			const result = await ctx.runMutation(components.betterAuth.adapter.deleteMany, {
-				input: {
-					model: 'session',
-					where: [{ field: 'userId', value: user._id }]
-				},
-				paginationOpts: { numItems: 100, cursor: null }
-			});
-			sessionsDeleted += result?.deletedCount ?? 0;
-			hasMoreSessions = (result?.deletedCount ?? 0) >= 100;
-		}
+		const accountsDeleted = await deleteAll((cursor) =>
+			ctx.runMutation(components.betterAuth.adapter.deleteMany, {
+				input: { model: 'account', where: [{ field: 'userId', value: user._id }] },
+				paginationOpts: { numItems: 100, cursor }
+			})
+		);
+		const sessionsDeleted = await deleteAll((cursor) =>
+			ctx.runMutation(components.betterAuth.adapter.deleteMany, {
+				input: { model: 'session', where: [{ field: 'userId', value: user._id }] },
+				paginationOpts: { numItems: 100, cursor }
+			})
+		);
 
-		// Delete ALL verification records. A password-reset request stores the token
-		// under `reset-password:<token>` with the user id as its value, and email
-		// verification stores it under the address, so neither is reachable by userId.
-		// Better Auth only clears them when the token is consumed or looked up after
-		// expiry, so a suite that requests a reset without completing it would leave
-		// them behind for the lifetime of the backend.
+		// A password-reset request stores its token under `reset-password:<token>` with
+		// the user id as the value, and email verification stores it under the address,
+		// so neither is reachable by userId. Better Auth only clears them when the token
+		// is consumed or looked up after expiry, so a suite that requests a reset without
+		// completing it would leave them behind for the lifetime of the backend.
 		// The component indexes `identifier` but not `value`, so the first pass is a
 		// table scan. That is affordable here and nowhere else: this mutation is
 		// test-only, gated on the test secret, and runs against a test backend.
-		let verificationsDeleted = 0;
-		const deleteVerifications = async (field: 'value' | 'identifier', value: string) => {
-			let hasMore = true;
-			while (hasMore) {
-				const result = await ctx.runMutation(components.betterAuth.adapter.deleteMany, {
-					input: { model: 'verification', where: [{ field, value }] },
-					paginationOpts: { numItems: 100, cursor: null }
-				});
-				verificationsDeleted += result?.deletedCount ?? 0;
-				hasMore = (result?.deletedCount ?? 0) >= 100;
-			}
-		};
-		await deleteVerifications('value', user._id);
-		await deleteVerifications('identifier', email);
+		const verificationsDeleted =
+			(await deleteAll((cursor) =>
+				ctx.runMutation(components.betterAuth.adapter.deleteMany, {
+					input: { model: 'verification', where: [{ field: 'value', value: user._id }] },
+					paginationOpts: { numItems: 100, cursor }
+				})
+			)) +
+			(await deleteAll((cursor) =>
+				ctx.runMutation(components.betterAuth.adapter.deleteMany, {
+					input: { model: 'verification', where: [{ field: 'identifier', value: email }] },
+					paginationOpts: { numItems: 100, cursor }
+				})
+			));
 
 		// Delete the user
 		await ctx.runMutation(components.betterAuth.adapter.deleteOne, {

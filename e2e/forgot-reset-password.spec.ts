@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page, type Route } from '@playwright/test';
 import fs from 'fs';
 import path from 'path';
 import 'varlock/auto-load';
@@ -112,6 +112,32 @@ test.describe('Forgot Password', () => {
 		// address has no account, and Better Auth swallows a failing send, so the
 		// screen can claim neither that an account exists nor that mail went out.
 		expect(known.toLowerCase()).toContain('if an account exists');
+	});
+
+	/**
+	 * The subtitle promises a mail outright, so it has to give way to any answer,
+	 * not only to a successful one. The failing request is faked because a real
+	 * backend failure is not reachable from a test.
+	 */
+	test('drops the delivery promise when the request fails', async ({ page }) => {
+		await page.route('**/request-password-reset', (route: Route) =>
+			route.fulfill({
+				status: 500,
+				contentType: 'application/json',
+				body: JSON.stringify({ message: 'Internal Server Error' })
+			})
+		);
+		await page.goto('/en/forgot-password');
+		await page.waitForLoadState('domcontentloaded');
+		await expect(page.getByTestId('forgot-password-email-input')).toBeEnabled({ timeout: 30000 });
+		await expect(page.getByTestId('forgot-password-description')).toBeVisible();
+
+		await page.getByTestId('forgot-password-email-input').fill('someone@e2e.example.com');
+		await page.getByTestId('forgot-password-submit-button').click();
+
+		await expect(page.getByTestId('forgot-password-form-error')).toBeVisible({ timeout: 10000 });
+		await expect(page.getByTestId('forgot-password-description')).toHaveCount(0);
+		await expect(page.getByTestId('forgot-password-success-message')).toHaveCount(0);
 	});
 
 	test('navigates back to signin', async ({ page }) => {
