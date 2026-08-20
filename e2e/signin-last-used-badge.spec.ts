@@ -106,10 +106,23 @@ test('last-used badge tracks the button through a press', async ({ page }) => {
 	expect(pressed.badge - resting.badge).toBeCloseTo(1, 1);
 	expect(pressed.badge - pressed.button).toBeCloseTo(resting.badge - resting.button, 1);
 
-	// A disabled button does not move, so neither may the badge.
+	// A disabled button does not move, so neither may the badge. The badge also
+	// uses opaque mixed colors instead of opacity: it overlaps the button edge,
+	// where transparency would let the edge show through.
+	const enabledBadgeStyle = await badge.evaluate((element) => {
+		const style = getComputedStyle(element);
+		return { backgroundColor: style.backgroundColor, color: style.color };
+	});
 	await button.evaluate((el: HTMLButtonElement) => {
 		el.disabled = true;
 	});
+	await expect
+		.poll(() => badge.evaluate((element) => getComputedStyle(element).backgroundColor))
+		.not.toBe(enabledBadgeStyle.backgroundColor);
+	await expect
+		.poll(() => badge.evaluate((element) => getComputedStyle(element).color))
+		.not.toBe(enabledBadgeStyle.color);
+	await expect.poll(() => badge.evaluate((element) => getComputedStyle(element).opacity)).toBe('1');
 	const disabledResting = await tops();
 	await page.mouse.move(centre.x, centre.y);
 	await page.mouse.down();
