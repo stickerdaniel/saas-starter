@@ -75,10 +75,23 @@
 	--sidebar-accent: oklch(0.967 0.001 286.375);
 	--sidebar-accent-foreground: oklch(0.21 0.006 285.885);
 	/* Opaque match for the row hover background, used by the shortcut/timestamp
-	   reveal overlay. Flatten the /65 hover to an opaque colour so the overlay matches the row. */
+	   reveal overlay. Flatten the /65 hover to an opaque colour so the overlay matches the row.
+	   Every flattening mix in this file interpolates in srgb, because that is the space the
+	   browser composites a translucent layer in. oklab and oklch reach a different colour, and
+	   the gap grows with saturation, so a themed build would drift where this one looks fine. */
 	--sidebar-accent-hover: color-mix(in srgb, var(--sidebar-accent) 65%, var(--sidebar));
 	--sidebar-border: oklch(0.92 0.004 286.32);
 	--sidebar-ring: oklch(0.705 0.015 286.067);
+	/* Opaque half-strength secondary for a badge whose button is disabled. The button
+	   fades itself with disabled:opacity-50, and the badge overlaps its edge, so a
+	   second opacity layer would let that edge show through. Flattened against
+	   --card because these badges sit on the auth card. */
+	--badge-secondary-disabled: color-mix(in srgb, var(--secondary) 50%, var(--card));
+	--badge-secondary-disabled-foreground: color-mix(
+		in srgb,
+		var(--secondary-foreground) 50%,
+		var(--card)
+	);
 	/* Status tokens are mode-aware like --destructive: dark 600/700 shades here keep
 	   text-success/warning/info readable on light backgrounds; .dark uses the
 	   brighter 500 shades. */
@@ -121,11 +134,21 @@
 	--sidebar-accent: oklch(0.274 0.006 286.033);
 	--sidebar-accent-foreground: oklch(0.985 0 0);
 	/* Dark hover is bg-sidebar-accent/65 over the sidebar; flatten it to an opaque
-	   colour in srgb (the space the browser composites the /50 layer in) so the
+	   colour in srgb (the space the browser composites the /65 layer in) so the
 	   reveal overlay matches the row exactly. */
 	--sidebar-accent-hover: color-mix(in srgb, var(--sidebar-accent) 65%, var(--sidebar));
 	--sidebar-border: oklch(1 0 0 / 10%);
 	--sidebar-ring: oklch(0.552 0.016 285.938);
+	/* Opaque half-strength secondary for a badge whose button is disabled. The button
+	   fades itself with disabled:opacity-50, and the badge overlaps its edge, so a
+	   second opacity layer would let that edge show through. Flattened against
+	   --card because these badges sit on the auth card. */
+	--badge-secondary-disabled: color-mix(in srgb, var(--secondary) 50%, var(--card));
+	--badge-secondary-disabled-foreground: color-mix(
+		in srgb,
+		var(--secondary-foreground) 50%,
+		var(--card)
+	);
 	--success: oklch(0.723 0.191 149.579);
 	--success-foreground: oklch(1 0 0);
 	--warning: oklch(0.795 0.184 86.047);
@@ -174,6 +197,8 @@
 	--color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
 	--color-sidebar-border: var(--sidebar-border);
 	--color-sidebar-ring: var(--sidebar-ring);
+	--color-badge-secondary-disabled: var(--badge-secondary-disabled);
+	--color-badge-secondary-disabled-foreground: var(--badge-secondary-disabled-foreground);
 	--color-success: var(--success);
 	--color-success-foreground: var(--success-foreground);
 	--color-warning: var(--warning);
@@ -557,7 +582,7 @@
 		}
 
 		&::-webkit-scrollbar-thumb {
-			background: color-mix(in oklch, var(--primary) 15%, transparent);
+			background: color-mix(in srgb, var(--primary) 15%, transparent);
 		}
 
 		&::-webkit-scrollbar-track {
