@@ -114,6 +114,18 @@ test.describe('Forgot Password', () => {
 		expect(known.toLowerCase()).toContain('if an account exists');
 	});
 
+	// The answer names the address it was given, so it must not outlive that
+	// address in the field. Nothing clears it on the next submit either, because a
+	// validation failure returns before the reset.
+	test('drops the answer when the address changes', async ({ page }) => {
+		await submitForgotPassword(page, `stale-${Date.now()}@e2e.example.com`);
+
+		await page.getByTestId('forgot-password-email-input').fill('not-an-email');
+
+		await expect(page.getByTestId('forgot-password-success-message')).toHaveCount(0);
+		await expect(page.getByTestId('forgot-password-description')).toBeVisible();
+	});
+
 	/**
 	 * The subtitle promises a mail outright, so it has to give way to any answer,
 	 * not only to a successful one. The failing request is faked because a real

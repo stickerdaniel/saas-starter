@@ -542,9 +542,10 @@ export const deleteTestUser = mutation({
 		// so neither is reachable by userId. Better Auth only clears them when the token
 		// is consumed or looked up after expiry, so a suite that requests a reset without
 		// completing it would leave them behind for the lifetime of the backend.
-		// The component indexes `identifier` but not `value`, so the first pass is a
-		// table scan. That is affordable here and nowhere else: this mutation is
-		// test-only, gated on the test secret, and runs against a test backend.
+		// Both passes are indexed: `value` carries a custom index in the local schema
+		// for this one, because an unindexed scan here shares the caller's
+		// transaction budget and would fail the whole cleanup on a backend that has
+		// collected enough rows.
 		const verificationsDeleted =
 			(await deleteAll((cursor) =>
 				ctx.runMutation(components.betterAuth.adapter.deleteMany, {

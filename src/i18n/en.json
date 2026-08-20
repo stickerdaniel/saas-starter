@@ -351,7 +351,7 @@
 			"back_to_signin": "Back to sign in",
 			"button_loading": "Sending...",
 			"button_submit": "Send reset link",
-			"description": "We will email you a reset link",
+			"description": "Enter the email address for your account",
 			"title": "Forgot password"
 		},
 		"messages": {

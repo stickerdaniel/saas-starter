@@ -351,7 +351,7 @@
 			"back_to_signin": "Volver a iniciar sesión",
 			"button_loading": "Enviando...",
 			"button_submit": "Enviar enlace",
-			"description": "Te enviaremos un enlace para restablecer",
+			"description": "Introduce la dirección de correo de tu cuenta",
 			"title": "¿Olvidaste tu contraseña?"
 		},
 		"messages": {
