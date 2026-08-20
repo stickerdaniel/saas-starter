@@ -75,7 +75,14 @@
 	--sidebar-accent: oklch(0.967 0.001 286.375);
 	--sidebar-accent-foreground: oklch(0.21 0.006 285.885);
 	/* Opaque match for the row hover background, used by the shortcut/timestamp
-	   reveal overlay. Flatten the /65 hover to an opaque colour so the overlay matches the row. */
+	   reveal overlay. Flatten the /65 hover to an opaque colour so the overlay matches the row.
+	   Flattening mixes interpolate in srgb. Measured in Chrome, it was the only space that
+	   ever reproduced the composited pixel: exact for these greys, and within 1/255 for
+	   every in-gamut colour tried, where oklab and oklch were far off even for plain red
+	   (41 and 45 of 255 at /65 over --sidebar). Wide-gamut sources were not uniform:
+	   srgb matched display-p3 green over black exactly and missed display-p3 red over
+	   white by about 30, so a theme that reaches outside the output gamut wants its
+	   flattened value checked by eye whichever space it names. */
 	--sidebar-accent-hover: color-mix(in srgb, var(--sidebar-accent) 65%, var(--sidebar));
 	--sidebar-border: oklch(0.92 0.004 286.32);
 	--sidebar-ring: oklch(0.705 0.015 286.067);
@@ -121,7 +128,7 @@
 	--sidebar-accent: oklch(0.274 0.006 286.033);
 	--sidebar-accent-foreground: oklch(0.985 0 0);
 	/* Dark hover is bg-sidebar-accent/65 over the sidebar; flatten it to an opaque
-	   colour in srgb (the space the browser composites the /50 layer in) so the
+	   colour in srgb (the space the browser composites the /65 layer in) so the
 	   reveal overlay matches the row exactly. */
 	--sidebar-accent-hover: color-mix(in srgb, var(--sidebar-accent) 65%, var(--sidebar));
 	--sidebar-border: oklch(1 0 0 / 10%);
@@ -459,6 +466,21 @@
 	box-shadow: none;
 }
 
+/* Opaque half-strength secondary for a badge whose button is disabled. The button
+   fades itself with disabled:opacity-50, and the badge overlaps its edge, so a second
+   opacity layer would let that edge show through. Flattened against --card because
+   these badges sit on the auth card.
+
+   A utility rather than a pair of tokens: a custom property declared on :root computes
+   its color-mix() there and inherits the result, so it would keep the root theme even
+   where a card or shell scopes --secondary and --card. Measured in Chrome, a scoped
+   override moves the inline mix and leaves the root-declared token behind. Here the
+   var() lookups resolve on the badge itself. */
+@utility badge-secondary-disabled {
+	background-color: color-mix(in srgb, var(--secondary) 50%, var(--card));
+	color: color-mix(in srgb, var(--secondary-foreground) 50%, var(--card));
+}
+
 @utility marketing-shell-panel {
 	border-color: rgb(0 0 0 / 0.06);
 	background: linear-gradient(137deg, rgb(252 252 255 / 0.9) 4.87%, rgb(240 240 248 / 0.95) 75.88%);
@@ -557,7 +579,7 @@
 		}
 
 		&::-webkit-scrollbar-thumb {
-			background: color-mix(in oklch, var(--primary) 15%, transparent);
+			background: color-mix(in srgb, var(--primary) 15%, transparent);
 		}
 
 		&::-webkit-scrollbar-track {
