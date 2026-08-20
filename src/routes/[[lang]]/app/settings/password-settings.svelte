@@ -45,6 +45,11 @@
 	}));
 	let passwordSet = $state(false);
 	const hasPassword = $derived(hasPasswordQuery.data ?? initialHasPassword);
+	// Neither source has answered: the server lookup failed and the subscription is
+	// still in flight or failed with it. Defaulting to a form would pick the change
+	// form, which an OAuth-only account cannot complete, so the card waits instead
+	// of offering something that only ever returns CREDENTIAL_ACCOUNT_NOT_FOUND.
+	const passwordStateKnown = $derived(passwordSet || hasPassword !== null);
 	const mode = $derived(hasPassword === false && !passwordSet ? 'set' : 'change');
 
 	// Form data
@@ -202,126 +207,134 @@
 		</Card.Description>
 	</Card.Header>
 	<Card.Content>
-		<form onsubmit={handleSubmit} novalidate class="space-y-4">
-			{#if formError}
-				<Alert.Root variant="destructive">
-					<InfoIcon class="h-4 w-4" />
-					<Alert.Title><T keyName="settings.password.error_title" /></Alert.Title>
-					<Alert.Description>
-						<T keyName={formError} />
-					</Alert.Description>
-				</Alert.Root>
-			{/if}
+		{#if !passwordStateKnown}
+			<p class="text-sm text-muted-foreground" data-testid="password-state-unknown">
+				<T keyName="settings.password.state_unknown" />
+			</p>
+		{:else}
+			<form onsubmit={handleSubmit} novalidate class="space-y-4">
+				{#if formError}
+					<Alert.Root variant="destructive">
+						<InfoIcon class="h-4 w-4" />
+						<Alert.Title><T keyName="settings.password.error_title" /></Alert.Title>
+						<Alert.Description>
+							<T keyName={formError} />
+						</Alert.Description>
+					</Alert.Root>
+				{/if}
 
-			<Field.Group>
-				{#if mode === 'change'}
+				<Field.Group>
+					{#if mode === 'change'}
+						<Field.Field>
+							<Field.Label for="currentPassword">
+								<T keyName="settings.password.current_password_label" />
+							</Field.Label>
+							<Input
+								type="password"
+								id="currentPassword"
+								name="currentPassword"
+								placeholder={$t('settings.password.placeholder.current')}
+								autocomplete="current-password"
+								aria-invalid={hasCurrentPasswordError ? 'true' : undefined}
+								aria-describedby={hasCurrentPasswordError ? 'currentPassword-error' : undefined}
+								bind:value={formData.currentPassword}
+							/>
+							<Field.Error
+								id="currentPassword-error"
+								errors={translateValidationErrors(errors.currentPassword, $t)}
+							/>
+						</Field.Field>
+					{/if}
+
 					<Field.Field>
-						<Field.Label for="currentPassword">
-							<T keyName="settings.password.current_password_label" />
+						<Field.Label for="newPassword">
+							<T keyName="settings.password.new_password_label" />
+						</Field.Label>
+						<Password.Root>
+							<Password.Input
+								id="newPassword"
+								name="newPassword"
+								placeholder={$t('settings.password.placeholder.new')}
+								autocomplete="new-password"
+								invalid={hasNewPasswordError}
+								aria-describedby={hasNewPasswordError ? 'newPassword-error' : undefined}
+								bind:value={formData.newPassword}
+							>
+								<Password.ToggleVisibility />
+							</Password.Input>
+							<Password.Strength />
+						</Password.Root>
+						<Field.Error
+							id="newPassword-error"
+							errors={translateValidationErrors(errors.newPassword, $t, passwordParams)}
+						/>
+					</Field.Field>
+
+					<Field.Field>
+						<Field.Label for="confirmPassword">
+							<T keyName="settings.password.confirm_password_label" />
 						</Field.Label>
 						<Input
 							type="password"
-							id="currentPassword"
-							name="currentPassword"
-							placeholder={$t('settings.password.placeholder.current')}
-							autocomplete="current-password"
-							aria-invalid={hasCurrentPasswordError ? 'true' : undefined}
-							aria-describedby={hasCurrentPasswordError ? 'currentPassword-error' : undefined}
-							bind:value={formData.currentPassword}
+							id="confirmPassword"
+							name="confirmPassword"
+							placeholder={$t('settings.password.placeholder.confirm')}
+							autocomplete="new-password"
+							aria-invalid={hasConfirmPasswordError ? 'true' : undefined}
+							aria-describedby={hasConfirmPasswordError ? 'confirmPassword-error' : undefined}
+							bind:value={formData.confirmPassword}
 						/>
 						<Field.Error
-							id="currentPassword-error"
-							errors={translateValidationErrors(errors.currentPassword, $t)}
+							id="confirmPassword-error"
+							errors={translateValidationErrors(errors.confirmPassword, $t)}
 						/>
 					</Field.Field>
+				</Field.Group>
+
+				{#if mode === 'change'}
+					<Item.Root variant="muted">
+						<Item.Media variant="icon">
+							<InfoIcon />
+						</Item.Media>
+						<Item.Content class="gap-3">
+							<Item.Title><T keyName="settings.password.security_notice_title" /></Item.Title>
+							<Item.Description>
+								<T keyName="settings.password.security_notice_description" />
+							</Item.Description>
+							<Field.Field orientation="horizontal" class="gap-2">
+								<Checkbox
+									id="revokeOtherSessions"
+									name="revokeOtherSessions"
+									bind:checked={formData.revokeOtherSessions}
+								/>
+								<Field.Content class="gap-0">
+									<Field.Label for="revokeOtherSessions">
+										<T keyName="settings.password.revoke_sessions_label" />
+									</Field.Label>
+								</Field.Content>
+							</Field.Field>
+						</Item.Content>
+					</Item.Root>
 				{/if}
 
-				<Field.Field>
-					<Field.Label for="newPassword">
-						<T keyName="settings.password.new_password_label" />
-					</Field.Label>
-					<Password.Root>
-						<Password.Input
-							id="newPassword"
-							name="newPassword"
-							placeholder={$t('settings.password.placeholder.new')}
-							autocomplete="new-password"
-							invalid={hasNewPasswordError}
-							aria-describedby={hasNewPasswordError ? 'newPassword-error' : undefined}
-							bind:value={formData.newPassword}
-						>
-							<Password.ToggleVisibility />
-						</Password.Input>
-						<Password.Strength />
-					</Password.Root>
-					<Field.Error
-						id="newPassword-error"
-						errors={translateValidationErrors(errors.newPassword, $t, passwordParams)}
-					/>
-				</Field.Field>
-
-				<Field.Field>
-					<Field.Label for="confirmPassword">
-						<T keyName="settings.password.confirm_password_label" />
-					</Field.Label>
-					<Input
-						type="password"
-						id="confirmPassword"
-						name="confirmPassword"
-						placeholder={$t('settings.password.placeholder.confirm')}
-						autocomplete="new-password"
-						aria-invalid={hasConfirmPasswordError ? 'true' : undefined}
-						aria-describedby={hasConfirmPasswordError ? 'confirmPassword-error' : undefined}
-						bind:value={formData.confirmPassword}
-					/>
-					<Field.Error
-						id="confirmPassword-error"
-						errors={translateValidationErrors(errors.confirmPassword, $t)}
-					/>
-				</Field.Field>
-			</Field.Group>
-
-			{#if mode === 'change'}
-				<Item.Root variant="muted">
-					<Item.Media variant="icon">
-						<InfoIcon />
-					</Item.Media>
-					<Item.Content class="gap-3">
-						<Item.Title><T keyName="settings.password.security_notice_title" /></Item.Title>
-						<Item.Description>
-							<T keyName="settings.password.security_notice_description" />
-						</Item.Description>
-						<Field.Field orientation="horizontal" class="gap-2">
-							<Checkbox
-								id="revokeOtherSessions"
-								name="revokeOtherSessions"
-								bind:checked={formData.revokeOtherSessions}
+				<div class="flex justify-end">
+					<Button type="submit" size="sm" disabled={isLoading}>
+						{#if isLoading}
+							<T
+								keyName={mode === 'set'
+									? 'settings.password.setting'
+									: 'settings.password.updating'}
 							/>
-							<Field.Content class="gap-0">
-								<Field.Label for="revokeOtherSessions">
-									<T keyName="settings.password.revoke_sessions_label" />
-								</Field.Label>
-							</Field.Content>
-						</Field.Field>
-					</Item.Content>
-				</Item.Root>
-			{/if}
-
-			<div class="flex justify-end">
-				<Button type="submit" size="sm" disabled={isLoading}>
-					{#if isLoading}
-						<T
-							keyName={mode === 'set' ? 'settings.password.setting' : 'settings.password.updating'}
-						/>
-					{:else}
-						<T
-							keyName={mode === 'set'
-								? 'settings.password.set_button'
-								: 'settings.password.update_button'}
-						/>
-					{/if}
-				</Button>
-			</div>
-		</form>
+						{:else}
+							<T
+								keyName={mode === 'set'
+									? 'settings.password.set_button'
+									: 'settings.password.update_button'}
+							/>
+						{/if}
+					</Button>
+				</div>
+			</form>
+		{/if}
 	</Card.Content>
 </Card.Root>

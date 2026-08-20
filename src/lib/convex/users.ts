@@ -5,6 +5,8 @@ import { authComponent, createAuth } from './auth';
 import { authedQuery, authedMutation } from './functions';
 import { appRateLimiter } from './rateLimit';
 import { tables } from './betterAuth/schema';
+import * as val from 'valibot';
+import { passwordValidation } from '../schemas/password';
 
 /**
  * Get the currently authenticated user
@@ -103,13 +105,53 @@ export const setPassword = authedMutation({
 			return { ok: false, code: 'IMPERSONATION_NOT_ALLOWED' };
 		}
 
+		// Better Auth guards setPassword with sensitiveSessionMiddleware, which only
+		// bypasses the cookie cache and never checks freshness. Registering a passkey
+		// in this same installation does require a fresh session, and a password is
+		// the same thing: a durable second way in that outlives the session used to
+		// create it. Without this, a stolen week-old OAuth session becomes permanent
+		// account access. freshAge is read from the running config so it cannot drift
+		// from what the passkey path enforces.
+		const freshAge = (await auth.$context).sessionConfig.freshAge;
+		const sessionCreatedAt = session?.session?.createdAt;
+		if (!sessionCreatedAt) return { ok: false, code: 'SESSION_NOT_FRESH' };
+		if (freshAge !== 0 && Date.now() - new Date(sessionCreatedAt).getTime() >= freshAge * 1000) {
+			return { ok: false, code: 'SESSION_NOT_FRESH' };
+		}
+
+		// The form enforces this too, but the mutation is a public endpoint and the
+		// argument validator only says "string". Better Auth checks length alone, so
+		// without this the complexity rules would hold for the browser and nowhere
+		// else. Cheap rejections stay ahead of the limiter: they never reach scrypt,
+		// which is the work the limit exists to bound.
+		if (!val.safeParse(passwordValidation, args.newPassword).success) {
+			return { ok: false, code: 'PASSWORD_TOO_WEAK' };
+		}
+
 		// Answered here rather than by Better Auth, which hashes the candidate with
 		// scrypt before it looks, so a caller whose account already has a password
 		// could otherwise burn a hash per request.
-		if ((await credentialAccounts(ctx, ctx.user._id)).some((account) => account.password)) {
+		const credentials = await credentialAccounts(ctx, ctx.user._id);
+		if (credentials.some((account) => account.password)) {
 			return { ok: false, code: 'PASSWORD_ALREADY_SET' };
 		}
+		// A credential row without a hash is a state nothing in this installation
+		// writes, and it is worth refusing rather than trusting that. Better Auth's
+		// setPassword looks for a row that has a password, so it would not find this
+		// one and would link a second credential row beside it; sign-in then takes
+		// whichever row comes first and can land on the one that still has no hash,
+		// leaving an account that reports a password it can never use. The reset
+		// flow matches on providerId alone and repairs the row in place, so that is
+		// where this state gets sent.
+		if (credentials.length > 0) {
+			return { ok: false, code: 'CREDENTIAL_ACCOUNT_UNUSABLE' };
+		}
 
+		// Bounds committed attempts. A simultaneous burst can still run one scrypt
+		// hash per request before the first commit, because each transaction reads
+		// the same pre-consumption limiter state; the losers then hit an OCC
+		// conflict and their retries see the password and stop. The committed
+		// limiter and credential state stay correct either way.
 		const status = await appRateLimiter.limit(ctx, 'setPassword', { key: ctx.user._id });
 		if (!status.ok) {
 			return { ok: false, code: 'RATE_LIMITED', retryAfter: status.retryAfter };

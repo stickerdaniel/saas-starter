@@ -201,12 +201,22 @@ describe('setPasswordSchema', () => {
 		}
 	});
 
-	it('applies the same strength rules as a password change', () => {
+	// Each candidate is long enough to clear the length rule, so the rule under
+	// test is the one named. A single short password would fail all three and the
+	// test would stay green after the complexity rules were removed.
+	it.each([
+		['validation.password.uppercase', 'lowercase1'],
+		['validation.password.lowercase', 'UPPERCASE1'],
+		['validation.password.number', 'NoDigitsHere']
+	])('applies %s, the same strength rule as a password change', (message, password) => {
 		const result = v.safeParse(setPasswordSchema, {
-			_newPassword: 'weakpass',
-			_confirmPassword: 'weakpass'
+			_newPassword: password,
+			_confirmPassword: password
 		});
 		expect(result.success).toBe(false);
+		if (!result.success) {
+			expect(result.issues.some((i) => i.message === message)).toBe(true);
+		}
 	});
 
 	// The account this form serves has no password, so requiring a current one

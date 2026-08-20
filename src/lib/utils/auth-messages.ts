@@ -44,6 +44,14 @@ const ERROR_CODE_MAP: Record<string, string> = {
 	// reaches the same error path and every locale already carries the message.
 	RATE_LIMITED: 'auth.messages.rate_limited',
 
+	// Verdicts returned by api.users.setPassword rather than by Better Auth. They
+	// reach the same error path, and each one needs to say what to do next: a
+	// generic failure would leave the user retrying something that cannot work.
+	SESSION_NOT_FRESH: 'auth.messages.session_not_fresh',
+	PASSWORD_TOO_WEAK: 'auth.messages.password_too_weak',
+	CREDENTIAL_ACCOUNT_UNUSABLE: 'auth.messages.credential_account_unusable',
+	IMPERSONATION_NOT_ALLOWED: 'auth.messages.impersonation_not_allowed',
+
 	// Server errors
 	FAILED_TO_CREATE_USER: 'auth.messages.signup_failed',
 	FAILED_TO_CREATE_SESSION: 'auth.messages.generic_error',
