@@ -38,7 +38,7 @@
 	style="grid-template-columns: repeat({enabledProviderCount}, minmax(0, 1fr));"
 >
 	{#if providers?.google}
-		<div class="relative">
+		<div class="group relative">
 			<Button
 				class="w-full"
 				data-testid="{mode}-oauth-google-button"
@@ -58,7 +58,7 @@
 			{#if isLastUsedAuthMethod('google')}
 				<Badge
 					variant="secondary"
-					class="pointer-events-none absolute -top-2 -right-2 px-1.5 py-0 text-[10px] whitespace-nowrap"
+					class="pointer-events-none absolute -top-2 -right-2 px-1.5 py-0 text-[10px] whitespace-nowrap transition-colors group-has-[[data-slot=button]:active:not([aria-haspopup])]:translate-y-px"
 					data-testid="oauth-google-last-used-badge"
 				>
 					<T keyName="auth.signin.oauth_last_used" defaultValue="Last used" />
@@ -67,7 +67,7 @@
 		</div>
 	{/if}
 	{#if providers?.github}
-		<div class="relative">
+		<div class="group relative">
 			<Button
 				class="w-full"
 				data-testid="{mode}-oauth-github-button"
@@ -87,7 +87,7 @@
 			{#if isLastUsedAuthMethod('github')}
 				<Badge
 					variant="secondary"
-					class="pointer-events-none absolute -top-2 -right-2 px-1.5 py-0 text-[10px] whitespace-nowrap"
+					class="pointer-events-none absolute -top-2 -right-2 px-1.5 py-0 text-[10px] whitespace-nowrap transition-colors group-has-[[data-slot=button]:active:not([aria-haspopup])]:translate-y-px"
 					data-testid="oauth-github-last-used-badge"
 				>
 					<T keyName="auth.signin.oauth_last_used" defaultValue="Last used" />
@@ -96,7 +96,7 @@
 		</div>
 	{/if}
 	{#if showPasskey}
-		<div class="relative">
+		<div class="group relative">
 			<Button
 				class="w-full"
 				data-testid="{mode}-oauth-passkey-button"
@@ -113,7 +113,7 @@
 			{#if isLastUsedAuthMethod('passkey')}
 				<Badge
 					variant="secondary"
-					class="pointer-events-none absolute -top-2 -right-2 px-1.5 py-0 text-[10px] whitespace-nowrap"
+					class="pointer-events-none absolute -top-2 -right-2 px-1.5 py-0 text-[10px] whitespace-nowrap transition-colors group-has-[[data-slot=button]:active:not([aria-haspopup])]:translate-y-px"
 					data-testid="oauth-passkey-last-used-badge"
 				>
 					<T keyName="auth.signin.oauth_last_used" defaultValue="Last used" />

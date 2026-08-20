@@ -60,3 +60,63 @@ test('email/password signin clears stored last-used method', async ({ page }) =>
 	});
 	expect(lastMethodAfterSignIn).toBeNull();
 });
+
+/**
+ * The badge is positioned beside the button, not inside it, so nothing in the
+ * markup makes it follow the button's one-pixel press offset. That coupling is
+ * a CSS selector keyed to the button's own :active state, and it depends on
+ * browser hit testing: an earlier version keyed off the wrapper instead and
+ * moved the badge alone whenever the button underneath was disabled, because
+ * pointer-events-none sent the press to the wrapper. Neither failure is
+ * reachable from a static class assertion, so it is asserted here.
+ */
+test('last-used badge tracks the button through a press', async ({ page }) => {
+	await page.goto('/signin');
+	await page.evaluate(() => {
+		localStorage.setItem('auth:last-auth-method', JSON.stringify('passkey'));
+		sessionStorage.removeItem('auth:pending-oauth-provider');
+	});
+	await page.reload();
+	await expect(page.locator('[data-testid="email-input"]')).toBeEnabled({ timeout: 30000 });
+
+	const button = page.locator('[data-testid="signin-oauth-passkey-button"]');
+	const badge = page.locator('[data-testid="oauth-passkey-last-used-badge"]');
+	await expect(badge).toBeVisible();
+
+	const tops = async () => {
+		const b = await button.boundingBox();
+		const g = await badge.boundingBox();
+		if (!b || !g) throw new Error('button or badge is not laid out');
+		return { button: b.y, badge: g.y };
+	};
+
+	const box = await button.boundingBox();
+	if (!box) throw new Error('button is not laid out');
+	const centre = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+
+	const resting = await tops();
+	await page.mouse.move(centre.x, centre.y);
+	await page.mouse.down();
+	const pressed = await tops();
+	// Release away from the button so the press does not trigger the passkey flow.
+	await page.mouse.move(5, 5);
+	await page.mouse.up();
+
+	expect(pressed.button - resting.button).toBeCloseTo(1, 1);
+	expect(pressed.badge - resting.badge).toBeCloseTo(1, 1);
+	expect(pressed.badge - pressed.button).toBeCloseTo(resting.badge - resting.button, 1);
+
+	// A disabled button does not move, so neither may the badge.
+	await button.evaluate((el: HTMLButtonElement) => {
+		el.disabled = true;
+	});
+	const disabledResting = await tops();
+	await page.mouse.move(centre.x, centre.y);
+	await page.mouse.down();
+	const disabledPressed = await tops();
+	await page.mouse.move(5, 5);
+	await page.mouse.up();
+
+	expect(disabledPressed.button - disabledResting.button).toBeCloseTo(0, 1);
+	expect(disabledPressed.badge - disabledResting.badge).toBeCloseTo(0, 1);
+});
