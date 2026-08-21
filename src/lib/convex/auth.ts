@@ -10,7 +10,6 @@ import { passkey } from '@better-auth/passkey';
 import { admin } from 'better-auth/plugins/admin';
 import { betterAuth, type BetterAuthOptions } from 'better-auth';
 import authSchema from './betterAuth/schema';
-import { hasUsablePassword } from './credentialAccounts';
 import authConfig from './auth.config';
 import { requireEnv, googleOAuth, githubOAuth } from './env';
 import { getFounderWelcomeDelay } from './emails/helpers';
@@ -398,7 +397,7 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
 					email,
 					resetUrl: url,
 					userName: user.name ?? undefined,
-					hasPassword: await hasUsablePassword(mutationCtx, user.id)
+					userId: user.id
 				});
 			}
 		},

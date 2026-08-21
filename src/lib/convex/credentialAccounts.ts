@@ -1,11 +1,12 @@
 import { components } from './_generated/api';
-import type { ActionCtx, QueryCtx } from './_generated/server';
+import type { ActionCtx, MutationCtx, QueryCtx } from './_generated/server';
 
 /**
- * Any context that can run a query. The auth hook hands over a context that can
- * be either, so neither concrete ctx type covers both callers on its own.
+ * Any context that can run a query. The callers sit in a query, a mutation and
+ * an action, so no concrete ctx type covers them on its own.
  */
-type RunQueryCtx = Pick<QueryCtx, 'runQuery'> | Pick<ActionCtx, 'runQuery'>;
+type RunQueryCtx =
+	Pick<QueryCtx, 'runQuery'> | Pick<MutationCtx, 'runQuery'> | Pick<ActionCtx, 'runQuery'>;
 
 /**
  * Credential accounts belonging to a user, as Better Auth itself counts them.

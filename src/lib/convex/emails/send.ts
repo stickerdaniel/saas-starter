@@ -15,6 +15,7 @@ import { t, getValidLocale, type SupportedLocale } from '../i18n/translations';
 import type { GenericMutationCtx } from 'convex/server';
 import type { DataModel } from '../_generated/dataModel';
 import { buildSupportDeepLink, shouldSkipTestEmail } from './helpers';
+import { hasUsablePassword } from '../credentialAccounts';
 
 /** Type for user result from Better Auth adapter with optional locale field */
 type UserWithLocale = { locale?: string | null } | null;
@@ -83,17 +84,19 @@ export const sendResetPasswordEmail = internalMutation({
 		email: v.string(),
 		resetUrl: v.string(),
 		userName: v.optional(v.string()),
-		// Absent means "has one", so an older queued call keeps the reset wording.
-		hasPassword: v.optional(v.boolean())
+		userId: v.string()
 	},
 	returns: v.null(),
 	handler: async (ctx, args) => {
 		const { email, resetUrl, userName } = args;
-		const hasPassword = args.hasPassword ?? true;
 
 		if (shouldSkipTestEmail('sendResetPasswordEmail', email)) return null;
 		assertResendApiKey();
 
+		// Resolved here rather than in the caller: the reset hook awaits that
+		// caller, so the lookup would sit on the response path as its own round
+		// trip. Inside the mutation it shares this transaction.
+		const hasPassword = await hasUsablePassword(ctx, args.userId);
 		const locale = await getLocaleForEmail(ctx, email);
 		const { html, text } = renderPasswordResetEmail(resetUrl, userName, locale, hasPassword);
 

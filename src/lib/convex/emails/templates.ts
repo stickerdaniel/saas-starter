@@ -148,13 +148,6 @@ export function renderVerificationCodeEmail(
 }
 
 /**
- * Render password reset email with reset link
- * @param resetUrl - URL to reset password page with token
- * @param userName - User's name for personalization (optional, falls back to a generic greeting)
- * @param locale - Locale for translated strings (optional, defaults to DEFAULT_LOCALE)
- * @returns Rendered HTML and plain text email
- */
-/**
  * Renders the reset mail, or the first-password variant of it.
  *
  * Better Auth sends this mail for an account that signed up through an OAuth
@@ -162,6 +155,12 @@ export function renderVerificationCodeEmail(
  * credential account. The reset wording does not, because there is no password
  * to reset and none that "will remain unchanged" if the mail was not expected.
  * The template takes every string as a prop, so only the key prefix changes.
+ *
+ * @param resetUrl - URL to reset password page with token
+ * @param userName - User's name for personalization (optional, falls back to a generic greeting)
+ * @param locale - Locale for translated strings (optional, defaults to DEFAULT_LOCALE)
+ * @param hasPassword - Whether the account has a password to reset today
+ * @returns Rendered HTML and plain text email
  */
 export function renderPasswordResetEmail(
 	resetUrl: PasswordResetEmailData['resetUrl'],
