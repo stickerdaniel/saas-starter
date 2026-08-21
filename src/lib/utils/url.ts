@@ -1,4 +1,5 @@
 import { VERIFICATION_FAILURE_CODES } from './auth-messages';
+import { isSupportedLanguage } from '$lib/i18n/languages';
 
 /**
  * Whitelist-validates a redirect URL: only same-origin root-relative paths
@@ -41,15 +42,20 @@ export function safeRedirectPath(url: string, fallback: string): string {
  * application's Worker is reached at all, so the failure would arrive as an
  * icon and say nothing.
  *
- * Requiring the language prefix costs nothing, because `handleLanguage`
- * redirects a prefixless path before any auth rule reads it, so every
- * destination the application itself writes already carries one. What it leaves
- * out is exactly the static files, which are not pages and were never a
- * destination anyone asked for.
+ * Requiring the language prefix costs nothing for the application's own links,
+ * because `handleLanguage` redirects a prefixless path before any auth rule
+ * reads it, so every destination it writes already carries one. The prefix has
+ * to be a supported language and not merely two letters: `/zz/app` would
+ * otherwise pass here and then be localized into `/en/zz/app`, which is a 404.
+ *
+ * What this does refuse is a hand-written prefixless deep link such as
+ * `/pricing`, which `handleLanguage` would have localized. Accepting one would
+ * mean accepting `/favicon.ico` with it, since nothing here can tell the two
+ * apart, and that is the case this exists to stop.
  */
 export function safeAuthDestination(url: string, fallback: string): string {
 	const path = safeRedirectPath(url, fallback);
-	return /^\/[a-z]{2}(?:[/?#]|$)/.test(path) ? path : fallback;
+	return isSupportedLanguage(path.match(/^\/([a-z]{2})(?:[/?#]|$)/)?.[1]) ? path : fallback;
 }
 
 function hasUnsafeUrlCharacters(value: string): boolean {
@@ -90,6 +96,17 @@ export function oauthErrorCallbackURL(pagePath: string, redirectTo: string): str
 }
 
 /**
+ * The verification code Better Auth appended, out of every `error` value present.
+ *
+ * Not the first value and not the last: a destination is free to carry an
+ * `error` of its own, and Better Auth appends after it, so position identifies
+ * nothing. The code is the value that belongs to this namespace.
+ */
+export function verificationErrorIn(params: URLSearchParams): string | null {
+	return params.getAll('error').find((code) => VERIFICATION_FAILURE_CODES.has(code)) ?? null;
+}
+
+/**
  * Splits a Better Auth link failure off a destination path.
  *
  * A verification link carries the caller's destination as its `callbackURL`,
@@ -122,20 +139,19 @@ export function splitDestinationError(destination: string): {
 		// `error` of its own pushes the appended code into second place, which is
 		// precisely the case where the user learns nothing about a link that
 		// failed.
-		const errorCode =
-			parsed.searchParams.getAll('error').find((code) => VERIFICATION_FAILURE_CODES.has(code)) ??
-			null;
+		const errorCode = verificationErrorIn(parsed.searchParams);
 		if (errorCode === null) {
 			return { destination, errorCode: null };
 		}
 
-		// One occurrence removed rather than the parameter, so an `error` the
-		// caller put in the destination itself arrives intact.
+		// Every occurrence of that code, not the parameter and not one
+		// occurrence. An `error` the caller put in the destination itself
+		// survives, because it belongs to a different namespace; a second copy of
+		// the appended code does not, and leaving one behind is what let a later
+		// successful link land carrying the failure of the previous attempt.
 		const kept = new URLSearchParams();
-		let dropped = false;
 		for (const [key, value] of parsed.searchParams) {
-			if (!dropped && key === 'error' && value === errorCode) {
-				dropped = true;
+			if (key === 'error' && value === errorCode) {
 				continue;
 			}
 			kept.append(key, value);

@@ -13,8 +13,7 @@ import { applyCacheControl } from '$lib/server/cache-control';
 import { decodeJwtPayload } from '$lib/server/jwt';
 import { resolveConvexToken } from '$lib/server/convex-jwt';
 import { loadSentry } from '$lib/monitoring/sentry';
-import { safeAuthDestination, splitDestinationError } from '$lib/utils/url';
-import { VERIFICATION_FAILURE_CODES } from '$lib/utils/auth-messages';
+import { safeAuthDestination, splitDestinationError, verificationErrorIn } from '$lib/utils/url';
 import { SIDEBAR_COOKIE_NAME } from '$lib/components/ui/sidebar/constants.js';
 
 if (!PUBLIC_SENTRY_DSN) {
@@ -285,8 +284,10 @@ function unwrapInterstitial(destination: string, lang: string): string {
 export function authPageRedirect(search: string, lang: string): string | null {
 	const params = new URLSearchParams(search);
 
-	const errorCode = params.get('error');
-	if (errorCode !== null && VERIFICATION_FAILURE_CODES.has(errorCode)) {
+	// Every value, because a destination that carried an `error` of its own
+	// pushes the appended code into second place, and that is exactly the case
+	// where the visitor would otherwise be bounced past the only report of it.
+	if (verificationErrorIn(params) !== null) {
 		return null;
 	}
 

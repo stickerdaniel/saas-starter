@@ -29,7 +29,12 @@
 		getOAuthCallbackErrorKey,
 		getVerificationErrorKey
 	} from '$lib/utils/auth-messages';
-	import { callbackURLFor, oauthErrorCallbackURL, safeAuthDestination } from '$lib/utils/url';
+	import {
+		callbackURLFor,
+		oauthErrorCallbackURL,
+		safeAuthDestination,
+		verificationErrorIn
+	} from '$lib/utils/url';
 	import SignInForm from './SignInForm.svelte';
 	import { useSearchParams } from 'runed/kit';
 
@@ -37,6 +42,9 @@
 
 	const { t } = getTranslate();
 	const auth = useAuth();
+	// Read from the page URL rather than from `params` below, which is empty
+	// during SSR, and before the effect that clears it.
+	const initialVerificationCode = verificationErrorIn(page.url.searchParams);
 	// No debounce. The only writes this page makes are the callback-error
 	// parameters below, and they have to leave the address bar before anything
 	// reads `location.href`. Analytics captures its first pageview on the
@@ -65,7 +73,24 @@
 	 * lands. The rewrite that clears the parameter stays in the effect below,
 	 * which is a browser concern and nothing renders from.
 	 */
-	let formError = $state(callbackErrorKey(page.url.searchParams.get('error')) ?? '');
+	let formError = $state(
+		getVerificationErrorKey(initialVerificationCode) ??
+			getOAuthCallbackErrorKey(page.url.searchParams.get('error')) ??
+			''
+	);
+
+	/**
+	 * Whether this page is holding a visitor who was already signed in when it
+	 * loaded, in order to report a link that failed.
+	 *
+	 * `authPageRedirect` in hooks.server.ts makes that decision on the server and
+	 * renders the message. Read once at init rather than derived, because the
+	 * effect below clears the parameter it was read from, and a signed-in visitor
+	 * would otherwise be sent away the moment the message appeared. It also has
+	 * to be the state at load: someone who signs in *on* this page is authorized
+	 * afterwards and has to be let through.
+	 */
+	const heldForVerificationFailure = initialVerificationCode !== null && auth.isAuthenticated;
 	let lastValidSignInSubmission = $state<string | null>(null);
 	let termsLink = $state<HTMLAnchorElement | null>(null);
 	let authRedirectStarted = false;
@@ -120,9 +145,13 @@
 		window.location.href = safeAuthDestination(params.redirectTo, localizedHref('/app'));
 	}
 
-	// Redirect when authenticated
+	// Redirect when authenticated, unless the server kept this visitor here to
+	// tell them a link failed. Hydration reaches this within milliseconds of the
+	// first paint, so without the guard the message is rendered and navigated
+	// away from before it can be read, and the server-side hold buys nothing for
+	// any browser that runs JavaScript.
 	$effect(() => {
-		if (auth.isAuthenticated) {
+		if (auth.isAuthenticated && !heldForVerificationFailure) {
 			redirectAfterAuthentication();
 		}
 	});

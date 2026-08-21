@@ -177,10 +177,21 @@ describe('splitDestinationError', () => {
 		});
 	});
 
-	it('drops one occurrence, not the parameter', () => {
+	it('takes every copy of the appended code with it', () => {
+		// A repeat of the same code is not a caller's parameter that happens to
+		// collide: leaving one behind puts it into `redirectTo`, and the next
+		// link built from that destination reports the previous attempt's failure
+		// even after it succeeds.
 		expect(splitDestinationError('/app?error=INVALID_TOKEN&error=INVALID_TOKEN')).toEqual({
-			destination: '/app?error=INVALID_TOKEN',
+			destination: '/app',
 			errorCode: 'INVALID_TOKEN'
+		});
+	});
+
+	it('leaves an error that belongs to the destination alone', () => {
+		expect(splitDestinationError('/app?error=checkout_failed&error=checkout_failed')).toEqual({
+			destination: '/app?error=checkout_failed&error=checkout_failed',
+			errorCode: null
 		});
 	});
 
@@ -224,6 +235,19 @@ describe('safeAuthDestination', () => {
 	 * localized form before any auth rule reads it, so the fallback lands the
 	 * visitor where the prefixless value would have taken them anyway.
 	 */
+	/**
+	 * Two letters is not a locale. `/zz/app` would pass a shape check, and
+	 * handleLanguage then localizes it into `/en/zz/app`, which is a 404 rather
+	 * than the page anyone meant.
+	 */
+	it('refuses a prefix that is not a language this app serves', () => {
+		expect(safeAuthDestination('/zz/app', '/en/app')).toBe('/en/app');
+		expect(safeAuthDestination('/EN/app', '/en/app')).toBe('/en/app');
+		for (const lang of ['en', 'de', 'es', 'fr']) {
+			expect(safeAuthDestination(`/${lang}/app/settings`, '/en/app')).toBe(`/${lang}/app/settings`);
+		}
+	});
+
 	it('refuses a path without the language prefix', () => {
 		expect(safeAuthDestination('/app', '/en/app')).toBe('/en/app');
 		expect(safeAuthDestination('/pricing', '/en/app')).toBe('/en/app');

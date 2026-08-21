@@ -89,4 +89,19 @@ describe('password sign-in callback URL', () => {
 	it('agrees with the redirect the page performs itself', () => {
 		expect(source).toContain(normalized(`window.location.href = ${DESTINATION};`));
 	});
+
+	/**
+	 * The server keeps a signed-in visitor on this page when a verification link
+	 * failed, because this is the only page that reports one. Hydration reaches
+	 * the authenticated-redirect effect within milliseconds of the first paint,
+	 * so an ungated effect renders the message and navigates away from it, and
+	 * the hold buys nothing for any browser that runs JavaScript. Structural for
+	 * the same reason as the guard above: the failure is a plausible edit to one
+	 * condition rather than a state the flow can be driven into from a test.
+	 */
+	it('does not navigate away from a failure it was held to report', () => {
+		expect(source).toContain(
+			normalized('if (auth.isAuthenticated && !heldForVerificationFailure) {')
+		);
+	});
 });

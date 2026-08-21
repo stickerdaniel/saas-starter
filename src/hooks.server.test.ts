@@ -153,6 +153,18 @@ describe('authPageRedirect', () => {
 		}
 	});
 
+	/**
+	 * Better Auth appends its code after whatever the callback URL already
+	 * carried, so a destination with an `error` of its own pushes the one that
+	 * matters into second place. Reading only the first value bounced the visitor
+	 * past the report.
+	 */
+	it('finds the code behind an error the destination brought itself', () => {
+		expect(
+			authPageRedirect('?redirectTo=%2Fen%2Fapp&error=checkout_failed&error=TOKEN_EXPIRED', 'en')
+		).toBeNull();
+	});
+
 	it('still sends them on for an error the page reports without a link behind it', () => {
 		expect(authPageRedirect('?redirectTo=%2Fen%2Fapp&error=account_not_linked', 'en')).toBe(
 			'/en/app'
