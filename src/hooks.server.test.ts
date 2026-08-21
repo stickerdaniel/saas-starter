@@ -85,6 +85,34 @@ describe('verificationFailureRedirect', () => {
 		).toBe('/en/signin?redirectTo=%2Fen%2Fapp&error=INVALID_TOKEN');
 	});
 
+	it('unwraps an interstitial wrapping another one', () => {
+		// Sign-up accepts any same-origin continuation, another interstitial
+		// included, so one layer is not the limit and stopping there lands the
+		// bounce on a page announcing the verification that just failed.
+		expect(
+			verificationFailureRedirect(
+				'/en/email-verified',
+				'?redirectTo=%2Fen%2Femail-verified%3FredirectTo%3D%252Fen%252Fapp%2Fsettings&error=INVALID_TOKEN',
+				'en'
+			)
+		).toBe('/en/signin?redirectTo=%2Fen%2Fapp%2Fsettings&error=INVALID_TOKEN');
+	});
+
+	it('gives up on a chain deeper than any real link', () => {
+		const nested = (depth: number): string =>
+			depth === 0
+				? '/en/app/settings'
+				: `/en/email-verified?redirectTo=${encodeURIComponent(nested(depth - 1))}`;
+
+		expect(
+			verificationFailureRedirect(
+				'/en/email-verified',
+				`?redirectTo=${encodeURIComponent(nested(6))}&error=TOKEN_EXPIRED`,
+				'en'
+			)
+		).toBe('/en/signin?redirectTo=%2Fen%2Fapp&error=TOKEN_EXPIRED');
+	});
+
 	it('leaves sign-in alone, which reads the code itself', () => {
 		expect(verificationFailureRedirect('/en/signin', '?error=TOKEN_EXPIRED', 'en')).toBeNull();
 	});

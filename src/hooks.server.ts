@@ -228,16 +228,40 @@ export function verificationFailureRedirect(
 	const { destination, errorCode } = splitDestinationError(pathname + search);
 	if (errorCode === null) return null;
 
-	// The sign-up interstitial is a waiting room rather than a destination, and
-	// carrying it forward is what let a signed-in visitor be told an address had
-	// been verified: sign-in sends an authenticated caller straight back to
-	// `redirectTo`, and the code is not part of that value. Unwrap to what the
-	// interstitial was itself carrying, so the bounce lands on a real page.
-	const target = /^\/[a-z]{2}\/email-verified$/.test(pathname)
-		? safeRedirectPath(new URLSearchParams(search).get('redirectTo') ?? '', `/${lang}/app`)
-		: destination;
+	return `/${lang}/signin?redirectTo=${encodeURIComponent(unwrapInterstitial(destination, lang))}&error=${errorCode}`;
+}
 
-	return `/${lang}/signin?redirectTo=${encodeURIComponent(target)}&error=${errorCode}`;
+/**
+ * The real page behind a chain of verification interstitials.
+ *
+ * `/email-verified` is a waiting room rather than a destination, and carrying
+ * one forward is what let a signed-in visitor be told an address had been
+ * verified: sign-in sends an authenticated caller straight back to
+ * `redirectTo`, and the failure code is not part of that value.
+ *
+ * It repeats because one layer is not the limit. Sign-up accepts any
+ * same-origin continuation, including another interstitial, so
+ * `/en/signup?redirectTo=/en/email-verified?redirectTo=/en/app` mints a link
+ * whose destination is a waiting room wrapping a waiting room. The bound is
+ * what guarantees termination rather than a guess about how deep that goes;
+ * anything deeper is not a link this app produces and lands on the default.
+ */
+function unwrapInterstitial(destination: string, lang: string): string {
+	let current = destination;
+
+	for (let depth = 0; depth < 4; depth += 1) {
+		let parsed: URL;
+		try {
+			parsed = new URL(current, 'https://redirect.invalid');
+		} catch {
+			return `/${lang}/app`;
+		}
+
+		if (!/^\/[a-z]{2}\/email-verified$/.test(parsed.pathname)) return current;
+		current = safeRedirectPath(parsed.searchParams.get('redirectTo') ?? '', `/${lang}/app`);
+	}
+
+	return `/${lang}/app`;
 }
 
 /**
