@@ -635,7 +635,7 @@
 			"title": "Passwort zurücksetzen"
 		},
 		"set_password": {
-			"body": "Sie möchten sich mit einem Passwort anmelden. Ihr Konto nutzt bisher einen verbundenen Anbieter, daher richtet dieser Link zusätzlich ein Passwort ein:",
+			"body": "Sie möchten sich mit einem Passwort anmelden. Für Ihr Konto ist bisher kein Passwort hinterlegt, daher richtet dieser Link eines ein:",
 			"button": "Passwort einrichten",
 			"disclaimer": "Falls Sie das nicht angefordert haben, können Sie diese E-Mail ignorieren. An Ihrem Konto ändert sich nichts, und Sie melden sich weiterhin wie bisher an.",
 			"expiry": "Dieser Link läuft aus Sicherheitsgründen in 1 Stunde ab.",

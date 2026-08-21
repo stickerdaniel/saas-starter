@@ -635,7 +635,7 @@
 			"title": "Reset your password"
 		},
 		"set_password": {
-			"body": "You asked to sign in with a password. Your account signs in with a connected provider today, so this link sets a password you can use as well:",
+			"body": "You asked to sign in with a password. There is no password on your account yet, so this link sets one:",
 			"button": "Set Password",
 			"disclaimer": "If you didn't request this, you can safely ignore this email. Nothing about your account changes and you can keep signing in the way you do now.",
 			"expiry": "This link will expire in 1 hour for security reasons.",

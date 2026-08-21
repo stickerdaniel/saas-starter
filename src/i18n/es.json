@@ -635,12 +635,12 @@
 			"title": "Restablece tu contraseña"
 		},
 		"set_password": {
-			"body": "Has pedido iniciar sesión con una contraseña. Tu cuenta usa hoy un proveedor conectado, así que este enlace establece además una contraseña:",
+			"body": "Has pedido iniciar sesión con una contraseña. Tu cuenta todavía no tiene ninguna, así que este enlace establece una:",
 			"button": "Establecer contraseña",
 			"disclaimer": "Si no lo has solicitado, puedes ignorar este correo. Tu cuenta no cambia y puedes seguir iniciando sesión como hasta ahora.",
 			"expiry": "Este enlace caducará en 1 hora por seguridad.",
 			"greeting": "Hola {userName},",
-			"greeting_fallback": "Hola:",
+			"greeting_fallback": "Hola,",
 			"preview": "Establece una contraseña para tu cuenta",
 			"title": "Establece una contraseña"
 		},

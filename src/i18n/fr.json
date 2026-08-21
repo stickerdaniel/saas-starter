@@ -635,7 +635,7 @@
 			"title": "Réinitialisez votre mot de passe"
 		},
 		"set_password": {
-			"body": "Vous souhaitez vous connecter avec un mot de passe. Votre compte utilise aujourd'hui un fournisseur connecté, ce lien définit donc un mot de passe en complément :",
+			"body": "Vous souhaitez vous connecter avec un mot de passe. Votre compte n'en a pas encore, ce lien vous permet donc d'en définir un :",
 			"button": "Définir le mot de passe",
 			"disclaimer": "Si vous n'êtes pas à l'origine de cette demande, vous pouvez ignorer cet e-mail. Rien ne change pour votre compte et vous continuez à vous connecter comme aujourd'hui.",
 			"expiry": "Ce lien expirera dans 1 heure pour des raisons de sécurité.",
