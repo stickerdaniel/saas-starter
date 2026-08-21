@@ -60,7 +60,36 @@ const ERROR_CODE_MAP: Record<string, string> = {
 	USER_NOT_FOUND: 'auth.messages.generic_error'
 };
 
+// Better Auth cannot hand an OAuth callback failure to the page that started it,
+// because the browser is on the provider's site when the flow breaks. It
+// redirects to the error URL and names the reason in an `error` query parameter
+// instead, lowercased from its internal message. That is a separate namespace
+// from the SDK `code` values above, so it needs its own map.
+const OAUTH_CALLBACK_ERROR_MAP: Record<string, string> = {
+	// The local account holding this address never verified it, so Better Auth
+	// refuses to link the provider into it (GHSA-g38m-r43w-p2q7). This one earns
+	// a message of its own: the user has to verify that address before the
+	// provider will work, and a generic failure would send them round the same
+	// loop forever.
+	account_not_linked: 'auth.messages.account_not_linked'
+};
+
 export const DEFAULT_AUTH_ERROR_KEY = 'auth.messages.generic_error';
+
+/**
+ * Translate an OAuth callback `error` parameter into a message key.
+ *
+ * Returns `null` when there is no error to report. Any code without a specific
+ * message falls back to the generic social-sign-in failure, so a rejected
+ * callback can never land silently.
+ */
+export function getOAuthCallbackErrorKey(code: string | null | undefined): string | null {
+	if (!code) {
+		return null;
+	}
+
+	return OAUTH_CALLBACK_ERROR_MAP[code.toLowerCase()] ?? 'auth.messages.oauth_failed';
+}
 
 export function getAuthErrorKey(
 	error: unknown,

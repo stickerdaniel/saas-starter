@@ -355,6 +355,7 @@
 			"title": "¿Olvidaste tu contraseña?"
 		},
 		"messages": {
+			"account_not_linked": "Este correo ya tiene una cuenta que nunca se verificó. Inicia sesión con tu contraseña para verificarla y vuelve a intentar el inicio de sesión social.",
 			"auth_cancelled": "La autenticación fue cancelada",
 			"credential_account_not_found": "Esta cuenta no tiene ninguna contraseña establecida.",
 			"credential_account_unusable": "Esta cuenta no puede establecer una contraseña aquí. Cierra sesión y usa el enlace de restablecimiento en la página de inicio de sesión.",

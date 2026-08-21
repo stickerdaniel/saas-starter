@@ -36,3 +36,21 @@ function hasControlCharacters(value: string): boolean {
 		return code <= 31 || code === 127;
 	});
 }
+
+/**
+ * Build the URL Better Auth returns to when an OAuth callback fails.
+ *
+ * The failure happens after the browser has left the page that started the
+ * flow, so the reason can only travel back through a redirect. Without this the
+ * default error URL applies, which sends production users to the marketing
+ * homepage with the code in a parameter nothing reads.
+ *
+ * `redirectTo` is carried through so a failed attempt does not lose the
+ * destination the user was heading for. It is untrusted input from the current
+ * URL, so it passes the same whitelist as an actual navigation before being
+ * embedded.
+ */
+export function oauthErrorCallbackURL(pagePath: string, redirectTo: string): string {
+	const safeRedirectTo = safeRedirectPath(redirectTo, '');
+	return safeRedirectTo ? `${pagePath}?redirectTo=${encodeURIComponent(safeRedirectTo)}` : pagePath;
+}

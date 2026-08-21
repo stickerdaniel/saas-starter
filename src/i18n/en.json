@@ -355,6 +355,7 @@
 			"title": "Forgot password"
 		},
 		"messages": {
+			"account_not_linked": "This email already has an account that was never verified. Sign in with your password to verify it, then try social sign-in again.",
 			"auth_cancelled": "Authentication was cancelled",
 			"credential_account_not_found": "This account has no password set.",
 			"credential_account_unusable": "This account cannot set a password here. Sign out, then use the reset link on the sign-in page.",

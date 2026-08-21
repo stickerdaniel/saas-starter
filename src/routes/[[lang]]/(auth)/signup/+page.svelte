@@ -22,8 +22,8 @@
 		clearLastSuccessfulAuthMethod,
 		type LastAuthMethod
 	} from '$lib/hooks/last-auth-method.svelte.ts';
-	import { getAuthErrorKey } from '$lib/utils/auth-messages';
-	import { safeRedirectPath } from '$lib/utils/url';
+	import { getAuthErrorKey, getOAuthCallbackErrorKey } from '$lib/utils/auth-messages';
+	import { oauthErrorCallbackURL, safeRedirectPath } from '$lib/utils/url';
 	import SignUpForm from '../signin/SignUpForm.svelte';
 	import VerificationStep from '../signin/VerificationStep.svelte';
 	import { useSearchParams } from 'runed/kit';
@@ -191,7 +191,10 @@
 		try {
 			await authClient.signIn.social({
 				provider,
-				callbackURL: safeRedirectPath(params.redirectTo, localizedHref('/app'))
+				callbackURL: safeRedirectPath(params.redirectTo, localizedHref('/app')),
+				// Without this the callback reports a failure to Better Auth's default
+				// error URL, which is the marketing homepage in production.
+				errorCallbackURL: oauthErrorCallbackURL(localizedHref('/signup'), params.redirectTo)
 			});
 		} catch (error) {
 			clearPendingOAuthProvider();
@@ -201,6 +204,16 @@
 			isLoading = false;
 		}
 	}
+
+	// A callback failure comes back as a URL parameter, since the page that
+	// started the flow is gone by the time the provider answers.
+	$effect(() => {
+		const errorKey = getOAuthCallbackErrorKey(params.error);
+		if (!errorKey) return;
+		formError = errorKey;
+		clearPendingOAuthProvider();
+		params.error = '';
+	});
 </script>
 
 <SEOHead

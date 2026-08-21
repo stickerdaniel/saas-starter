@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { safeRedirectPath } from '../url';
+import { oauthErrorCallbackURL, safeRedirectPath } from '../url';
 
 describe('safeRedirectPath', () => {
 	it('returns a valid relative path unchanged', () => {
@@ -94,4 +94,31 @@ describe('safeRedirectPath', () => {
 	it('returns a custom fallback when the path is invalid', () => {
 		expect(safeRedirectPath('http://evil.com', '/home')).toBe('/home');
 	});
+});
+
+describe('oauthErrorCallbackURL', () => {
+	it('returns the bare page path when there is nothing to carry', () => {
+		expect(oauthErrorCallbackURL('/signin', '')).toBe('/signin');
+	});
+
+	it('carries a valid destination through the failed attempt', () => {
+		expect(oauthErrorCallbackURL('/signin', '/app/settings')).toBe(
+			'/signin?redirectTo=%2Fapp%2Fsettings'
+		);
+	});
+
+	it('keeps the localized page path', () => {
+		expect(oauthErrorCallbackURL('/de/signup', '/de/app')).toBe(
+			'/de/signup?redirectTo=%2Fde%2Fapp'
+		);
+	});
+
+	// The value comes from the current URL, so an attacker controls it. Better
+	// Auth appends `&error=` and redirects the browser to whatever this returns.
+	it.each(['//evil.com', 'http://evil.com', '/\\evil.com'])(
+		'drops the destination rather than emit an open redirect (%s)',
+		(hostile) => {
+			expect(oauthErrorCallbackURL('/signin', hostile)).toBe('/signin');
+		}
+	);
 });
