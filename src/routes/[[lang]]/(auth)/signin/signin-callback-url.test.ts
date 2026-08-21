@@ -19,13 +19,37 @@
  * a full page load in the browser, and the link it produces is asserted
  * against a real Better Auth instance in
  * src/lib/convex/__tests__/verificationRecovery.test.ts.
+ *
+ * Comments are dropped first, because the cheapest way to make a text search
+ * lie is to leave the old line behind as prose while the real call moves on.
  */
 
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const source = readFileSync(path.resolve('src/routes/[[lang]]/(auth)/signin/+page.svelte'), 'utf8');
+/**
+ * The file with its comment lines removed. Line-based rather than a regex over
+ * the whole text, so a `//` inside a URL or a `/*` inside a string survives.
+ */
+function withoutComments(text: string): string {
+	return text
+		.split('\n')
+		.filter((line) => {
+			const trimmed = line.trim();
+			return !(
+				trimmed.startsWith('//') ||
+				trimmed.startsWith('/*') ||
+				trimmed.startsWith('*') ||
+				trimmed.startsWith('<!--')
+			);
+		})
+		.join('\n');
+}
+
+const source = withoutComments(
+	readFileSync(path.resolve('src/routes/[[lang]]/(auth)/signin/+page.svelte'), 'utf8')
+);
 
 const DESTINATION = "safeRedirectPath(params.redirectTo, localizedHref('/app'))";
 
