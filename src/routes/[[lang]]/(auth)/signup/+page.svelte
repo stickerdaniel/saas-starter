@@ -23,7 +23,12 @@
 		type LastAuthMethod
 	} from '$lib/hooks/last-auth-method.svelte.ts';
 	import { getAuthErrorKey, getOAuthCallbackErrorKey } from '$lib/utils/auth-messages';
-	import { oauthErrorCallbackURL, safeRedirectPath, splitDestinationError } from '$lib/utils/url';
+	import {
+		callbackURLFor,
+		oauthErrorCallbackURL,
+		safeRedirectPath,
+		splitDestinationError
+	} from '$lib/utils/url';
 	import SignUpForm from '../signin/SignUpForm.svelte';
 	import VerificationStep from '../signin/VerificationStep.svelte';
 	import { useSearchParams } from 'runed/kit';
@@ -194,7 +199,10 @@
 		try {
 			await authClient.signIn.social({
 				provider,
-				callbackURL: safeRedirectPath(params.redirectTo, localizedHref('/app')),
+				callbackURL: callbackURLFor(
+					safeRedirectPath(params.redirectTo, localizedHref('/app')),
+					localizedHref('/app')
+				),
 				// Without this the callback reports a failure to Better Auth's default
 				// error URL, which is the marketing homepage in production.
 				errorCallbackURL: oauthErrorCallbackURL(localizedHref('/signup'), params.redirectTo)

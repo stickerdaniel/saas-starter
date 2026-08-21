@@ -24,7 +24,12 @@
 		clearLastSuccessfulAuthMethod
 	} from '$lib/hooks/last-auth-method.svelte.ts';
 	import { getAuthErrorKey, getOAuthCallbackErrorKey } from '$lib/utils/auth-messages';
-	import { oauthErrorCallbackURL, safeRedirectPath, splitDestinationError } from '$lib/utils/url';
+	import {
+		callbackURLFor,
+		oauthErrorCallbackURL,
+		safeRedirectPath,
+		splitDestinationError
+	} from '$lib/utils/url';
 	import SignInForm from './SignInForm.svelte';
 	import { useSearchParams } from 'runed/kit';
 
@@ -153,7 +158,10 @@
 					// rejected right here, and Better Auth mints the recovery
 					// verification link from this same field, defaulting it to `/` and
 					// dropping both the locale and the continuation with it.
-					callbackURL: safeRedirectPath(params.redirectTo, localizedHref('/app'))
+					callbackURL: callbackURLFor(
+						safeRedirectPath(params.redirectTo, localizedHref('/app')),
+						localizedHref('/app')
+					)
 				},
 				{
 					onError: (ctx) => {
@@ -190,7 +198,10 @@
 		try {
 			await authClient.signIn.social({
 				provider,
-				callbackURL: safeRedirectPath(params.redirectTo, localizedHref('/app')),
+				callbackURL: callbackURLFor(
+					safeRedirectPath(params.redirectTo, localizedHref('/app')),
+					localizedHref('/app')
+				),
 				// Without this the callback reports a failure to Better Auth's default
 				// error URL, which is the marketing homepage in production.
 				errorCallbackURL: oauthErrorCallbackURL(localizedHref('/signin'), params.redirectTo)

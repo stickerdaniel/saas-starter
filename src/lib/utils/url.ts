@@ -69,7 +69,19 @@ export function oauthErrorCallbackURL(pagePath: string, redirectTo: string): str
  * Left in place it also rides into the next verification link, and a later
  * successful verification lands on the destination still carrying the failure
  * of the previous attempt.
+ *
+ * Only the codes that route reports are consumed. An `error` parameter is an
+ * ordinary thing for a destination to carry, and swallowing the application's
+ * own would both report it as an auth failure and drop the state the caller
+ * asked to arrive with.
  */
+const VERIFICATION_FAILURES = new Set([
+	'TOKEN_EXPIRED',
+	'INVALID_TOKEN',
+	'USER_NOT_FOUND',
+	'INVALID_USER'
+]);
+
 export function splitDestinationError(destination: string): {
 	destination: string;
 	errorCode: string | null;
@@ -80,7 +92,9 @@ export function splitDestinationError(destination: string): {
 		const base = new URL('https://redirect.invalid');
 		const parsed = new URL(destination, base);
 		const errorCode = parsed.searchParams.get('error');
-		if (errorCode === null) return { destination, errorCode: null };
+		if (errorCode === null || !VERIFICATION_FAILURES.has(errorCode)) {
+			return { destination, errorCode: null };
+		}
 
 		parsed.searchParams.delete('error');
 		return {
@@ -90,4 +104,24 @@ export function splitDestinationError(destination: string): {
 	} catch {
 		return { destination, errorCode: null };
 	}
+}
+
+/**
+ * Narrow a destination to what Better Auth will accept as a `callbackURL`.
+ *
+ * Its origin check applies its own relative-path rule to that field, and that
+ * rule is stricter than this module's: it takes no fragment and no percent
+ * escape in the path (`matchesOriginPattern` in
+ * better-auth/dist/auth/trusted-origins.mjs). A value it refuses comes back as
+ * `403 INVALID_CALLBACK_URL`, which the sign-in form can only report as a
+ * failed sign-in, so correct credentials look wrong and an unverified account
+ * never gets its recovery mail. Losing a deep link is the smaller failure, so a
+ * destination outside the rule falls back rather than being sent.
+ *
+ * The shape is pinned against the real dependency in
+ * src/lib/utils/__tests__/callback-url.contract.test.ts.
+ */
+export function callbackURLFor(destination: string, fallback: string): string {
+	const accepted = /^\/(?!\/|\\|%2f|%5c)[\w\-.+/@]*(?:\?[\w\-.+/=&%@]*)?$/i;
+	return accepted.test(destination) ? destination : fallback;
 }

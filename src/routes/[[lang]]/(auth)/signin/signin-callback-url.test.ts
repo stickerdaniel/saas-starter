@@ -54,6 +54,13 @@ const source = withoutComments(
 
 const DESTINATION = "safeRedirectPath(params.redirectTo, localizedHref('/app'))";
 
+/**
+ * Better Auth applies its own, stricter relative-path rule to `callbackURL`,
+ * so the destination is narrowed again before it is sent. The navigation below
+ * is ours and keeps the full value.
+ */
+const CALLBACK = `callbackURLFor(${DESTINATION}, localizedHref('/app'))`;
+
 describe('password sign-in callback URL', () => {
 	it('sends the destination Better Auth needs for the recovery link', () => {
 		const callStart = source.indexOf('authClient.signIn.email(');
@@ -62,7 +69,7 @@ describe('password sign-in callback URL', () => {
 		const callEnd = source.indexOf('if (!failed)', callStart);
 		expect(callEnd, 'the success branch moved; the slice below is unbounded').toBeGreaterThan(-1);
 
-		expect(source.slice(callStart, callEnd)).toContain(`callbackURL: ${DESTINATION}`);
+		expect(source.slice(callStart, callEnd)).toContain(`callbackURL: ${CALLBACK}`);
 	});
 
 	it('agrees with the redirect the page performs itself', () => {

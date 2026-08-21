@@ -152,13 +152,22 @@ describe('splitDestinationError', () => {
 		});
 	});
 
+	it("leaves the application's own error parameter alone", () => {
+		// Consuming this would report a checkout failure as an auth failure and
+		// drop the state the caller asked to arrive with.
+		expect(splitDestinationError('/app?error=checkout_failed&tab=billing')).toEqual({
+			destination: '/app?error=checkout_failed&tab=billing',
+			errorCode: null
+		});
+	});
+
 	it('normalizes what it returns, and the whitelist still gates it', () => {
 		// URL parsing accepts far more than the redirect whitelist does, so the
 		// destination coming out of here is not trusted on its way out either.
 		// Every caller re-validates it, and this is the pair that shows why.
-		expect(splitDestinationError('%?error=X')).toEqual({
+		expect(splitDestinationError('%?error=TOKEN_EXPIRED')).toEqual({
 			destination: '/%',
-			errorCode: 'X'
+			errorCode: 'TOKEN_EXPIRED'
 		});
 		expect(safeRedirectPath('/%', '/app')).toBe('/app');
 	});
