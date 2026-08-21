@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { oauthErrorCallbackURL, safeRedirectPath } from '../url';
+import { oauthErrorCallbackURL, safeRedirectPath, splitDestinationError } from '../url';
 
 describe('safeRedirectPath', () => {
 	it('returns a valid relative path unchanged', () => {
@@ -121,4 +121,45 @@ describe('oauthErrorCallbackURL', () => {
 			expect(oauthErrorCallbackURL('/signin', hostile)).toBe('/signin');
 		}
 	);
+});
+
+describe('splitDestinationError', () => {
+	it('lifts a verification failure out of the destination', () => {
+		expect(splitDestinationError('/de/app/settings?error=TOKEN_EXPIRED')).toEqual({
+			destination: '/de/app/settings',
+			errorCode: 'TOKEN_EXPIRED'
+		});
+	});
+
+	it('keeps the rest of the destination intact', () => {
+		expect(splitDestinationError('/app?tab=billing&error=INVALID_TOKEN#plans')).toEqual({
+			destination: '/app?tab=billing#plans',
+			errorCode: 'INVALID_TOKEN'
+		});
+	});
+
+	it('leaves a destination without a failure alone', () => {
+		expect(splitDestinationError('/de/app/settings')).toEqual({
+			destination: '/de/app/settings',
+			errorCode: null
+		});
+	});
+
+	it('does not mistake a parameter that merely ends in error for the code', () => {
+		expect(splitDestinationError('/app?last_error=none')).toEqual({
+			destination: '/app?last_error=none',
+			errorCode: null
+		});
+	});
+
+	it('normalizes what it returns, and the whitelist still gates it', () => {
+		// URL parsing accepts far more than the redirect whitelist does, so the
+		// destination coming out of here is not trusted on its way out either.
+		// Every caller re-validates it, and this is the pair that shows why.
+		expect(splitDestinationError('%?error=X')).toEqual({
+			destination: '/%',
+			errorCode: 'X'
+		});
+		expect(safeRedirectPath('/%', '/app')).toBe('/app');
+	});
 });

@@ -367,7 +367,7 @@
 			"generic_error": "Ocurrió un error. Inténtalo de nuevo.",
 			"impersonation_not_allowed": "No se puede establecer una contraseña mientras se suplanta a un usuario.",
 			"invalid_credentials": "Correo electrónico o contraseña inválidos",
-			"invalid_token": "Token inválido o caducado",
+			"invalid_token": "Este enlace ya no es válido. Solicita uno nuevo e inténtalo de nuevo.",
 			"missing_reset_token": "Falta el token de restablecimiento o es inválido",
 			"oauth_failed": "El inicio de sesión social falló. Inténtalo de nuevo.",
 			"passkey_add_failed": "No se pudo agregar la passkey",

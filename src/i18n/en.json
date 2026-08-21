@@ -367,7 +367,7 @@
 			"generic_error": "An error occurred. Please try again.",
 			"impersonation_not_allowed": "A password cannot be set while impersonating a user.",
 			"invalid_credentials": "Invalid email or password",
-			"invalid_token": "Invalid or expired token",
+			"invalid_token": "This link is no longer valid. Request a new one and try again.",
 			"missing_reset_token": "Missing or invalid reset token",
 			"oauth_failed": "Social sign-in failed. Please try again.",
 			"passkey_add_failed": "Failed to add passkey",

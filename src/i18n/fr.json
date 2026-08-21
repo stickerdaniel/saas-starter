@@ -367,7 +367,7 @@
 			"generic_error": "Une erreur est survenue. Veuillez réessayer.",
 			"impersonation_not_allowed": "Impossible de définir un mot de passe pendant l'usurpation d'identité d'un utilisateur.",
 			"invalid_credentials": "E-mail ou mot de passe invalide",
-			"invalid_token": "Jeton invalide ou expiré",
+			"invalid_token": "Ce lien n'est plus valide. Demandez-en un nouveau et réessayez.",
 			"missing_reset_token": "Jeton de réinitialisation manquant ou invalide",
 			"oauth_failed": "La connexion sociale a échoué. Veuillez réessayer.",
 			"passkey_add_failed": "Impossible d'ajouter la passkey",

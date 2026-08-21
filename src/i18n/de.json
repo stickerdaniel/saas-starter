@@ -367,7 +367,7 @@
 			"generic_error": "Ein Fehler ist aufgetreten. Bitte versuchen Sie es erneut.",
 			"impersonation_not_allowed": "Während der Identitätsübernahme kann kein Passwort eingerichtet werden.",
 			"invalid_credentials": "Ungültige E-Mail oder Passwort",
-			"invalid_token": "Ungültiger oder abgelaufener Token",
+			"invalid_token": "Dieser Link ist nicht mehr gültig. Fordern Sie einen neuen an und versuchen Sie es erneut.",
 			"missing_reset_token": "Fehlender oder ungültiger Reset-Token",
 			"oauth_failed": "Soziale Anmeldung fehlgeschlagen. Bitte versuchen Sie es erneut.",
 			"passkey_add_failed": "Passkey konnte nicht hinzugefügt werden",

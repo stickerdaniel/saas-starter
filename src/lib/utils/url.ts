@@ -54,3 +54,40 @@ export function oauthErrorCallbackURL(pagePath: string, redirectTo: string): str
 	const safeRedirectTo = safeRedirectPath(redirectTo, '');
 	return safeRedirectTo ? `${pagePath}?redirectTo=${encodeURIComponent(safeRedirectTo)}` : pagePath;
 }
+
+/**
+ * Splits a Better Auth link failure off a destination path.
+ *
+ * A verification link carries the caller's destination as its `callbackURL`,
+ * and Better Auth reports a failure by appending `?error=<CODE>` to exactly
+ * that URL (`redirectOnError` in
+ * better-auth/dist/api/routes/email-verification.mjs). When the destination is
+ * a protected route, the browser is then bounced to sign-in with the whole
+ * thing wrapped into `redirectTo`, so the code arrives buried one level down
+ * where nothing looks for it and the user is told nothing at all.
+ *
+ * Left in place it also rides into the next verification link, and a later
+ * successful verification lands on the destination still carrying the failure
+ * of the previous attempt.
+ */
+export function splitDestinationError(destination: string): {
+	destination: string;
+	errorCode: string | null;
+} {
+	if (!destination.includes('error=')) return { destination, errorCode: null };
+
+	try {
+		const base = new URL('https://redirect.invalid');
+		const parsed = new URL(destination, base);
+		const errorCode = parsed.searchParams.get('error');
+		if (errorCode === null) return { destination, errorCode: null };
+
+		parsed.searchParams.delete('error');
+		return {
+			destination: `${parsed.pathname}${parsed.search}${parsed.hash}`,
+			errorCode
+		};
+	} catch {
+		return { destination, errorCode: null };
+	}
+}

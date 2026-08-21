@@ -14,8 +14,11 @@ const ERROR_CODE_MAP: Record<string, string> = {
 	USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL: 'auth.messages.user_already_exists',
 	EMAIL_NOT_VERIFIED: 'auth.messages.email_not_verified',
 
-	// Token
+	// Token. Both reach the user as a link they clicked: a verification link
+	// through the destination it was minted with, a reset link through the reset
+	// page. The message names the link rather than the token behind it.
 	INVALID_TOKEN: 'auth.messages.invalid_token',
+	TOKEN_EXPIRED: 'auth.messages.invalid_token',
 
 	// Password validation
 	PASSWORD_TOO_SHORT: 'auth.messages.password_too_short',

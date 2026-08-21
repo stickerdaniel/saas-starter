@@ -24,7 +24,7 @@
 		clearLastSuccessfulAuthMethod
 	} from '$lib/hooks/last-auth-method.svelte.ts';
 	import { getAuthErrorKey, getOAuthCallbackErrorKey } from '$lib/utils/auth-messages';
-	import { oauthErrorCallbackURL, safeRedirectPath } from '$lib/utils/url';
+	import { oauthErrorCallbackURL, safeRedirectPath, splitDestinationError } from '$lib/utils/url';
 	import SignInForm from './SignInForm.svelte';
 	import { useSearchParams } from 'runed/kit';
 
@@ -213,6 +213,17 @@
 		clearPendingOAuthProvider();
 		// One write, so the URL is rewritten once rather than twice.
 		params.update({ error: '', error_description: '' });
+	});
+
+	// A verification link reports its own failure by appending the code to the
+	// destination it was minted with. That destination is protected, so the
+	// browser arrives here with the code buried inside `redirectTo`, where
+	// nothing would read it and it would ride into the next link.
+	$effect(() => {
+		const { destination, errorCode } = splitDestinationError(params.redirectTo);
+		if (errorCode === null) return;
+		formError = getAuthErrorKey({ code: errorCode });
+		params.update({ redirectTo: destination });
 	});
 
 	async function handlePasskeyLogin() {
