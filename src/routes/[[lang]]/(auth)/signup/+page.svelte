@@ -10,6 +10,7 @@
 	import { redirectParamsSchema } from '$lib/schemas/auth.js';
 	import { signUpSchema } from '../signin/schema.js';
 	import { localizedHref } from '$lib/utils/i18n';
+	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
 	import { T, getTranslate } from '@tolgee/svelte';
 	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
@@ -22,8 +23,8 @@
 		clearLastSuccessfulAuthMethod,
 		type LastAuthMethod
 	} from '$lib/hooks/last-auth-method.svelte.ts';
-	import { getAuthErrorKey } from '$lib/utils/auth-messages';
-	import { safeRedirectPath } from '$lib/utils/url';
+	import { getAuthErrorKey, getOAuthCallbackErrorKey } from '$lib/utils/auth-messages';
+	import { callbackURLFor, oauthErrorCallbackURL, safeAuthDestination } from '$lib/utils/url';
 	import SignUpForm from '../signin/SignUpForm.svelte';
 	import VerificationStep from '../signin/VerificationStep.svelte';
 	import { useSearchParams } from 'runed/kit';
@@ -32,8 +33,11 @@
 
 	const { t } = getTranslate();
 	const auth = useAuth();
+	// No debounce. The only writes this page makes are the callback-error
+	// parameters below, and they have to leave the address bar before anything
+	// reads `location.href`. Analytics captures its first pageview on the
+	// earliest user interaction, which easily beats a delayed navigation.
 	const params = useSearchParams(redirectParamsSchema, {
-		debounce: 300,
 		pushHistory: false
 	});
 	const oauthProviders = useQuery(api.auth.getAvailableOAuthProviders, {}, () => ({
@@ -49,7 +53,9 @@
 	const signinHref = $derived(resolve(localizedHref('/signin') + signinLinkSearch));
 
 	let isLoading = $state(false);
-	let formError = $state('');
+	// Seeded from the page URL for the same reason sign-in is: `useSearchParams`
+	// is empty during SSR, so the first render would carry no message.
+	let formError = $state(getOAuthCallbackErrorKey(page.url.searchParams.get('error')) ?? '');
 	let verificationStep = $state<{ email: string } | null>(null);
 	let lastValidSignUpSubmission = $state<string | null>(null);
 
@@ -105,7 +111,7 @@
 	// Redirect when authenticated (but not during verification step)
 	$effect(() => {
 		if (auth.isAuthenticated && !verificationStep) {
-			const destination = safeRedirectPath(params.redirectTo, localizedHref('/app'));
+			const destination = safeAuthDestination(params.redirectTo, localizedHref('/app'));
 			window.location.href = destination;
 		}
 	});
@@ -144,9 +150,14 @@
 
 		try {
 			let failed = false;
-			const finalDestination = safeRedirectPath(params.redirectTo, localizedHref('/app'));
-			const callbackURL =
-				localizedHref('/email-verified') + `?redirectTo=${encodeURIComponent(finalDestination)}`;
+			const finalDestination = safeAuthDestination(params.redirectTo, localizedHref('/app'));
+			// Narrowed for the same reason the sign-in callback is, and it matters
+			// more here: a rejected callback URL fails the sign-up call outright,
+			// so an unlucky destination would stop an account being created at all.
+			const callbackURL = callbackURLFor(
+				localizedHref('/email-verified') + `?redirectTo=${encodeURIComponent(finalDestination)}`,
+				localizedHref('/email-verified')
+			);
 			await authClient.signUp.email(
 				{
 					email: signUpData.email,
@@ -191,7 +202,13 @@
 		try {
 			await authClient.signIn.social({
 				provider,
-				callbackURL: safeRedirectPath(params.redirectTo, localizedHref('/app'))
+				callbackURL: callbackURLFor(
+					safeAuthDestination(params.redirectTo, localizedHref('/app')),
+					localizedHref('/app')
+				),
+				// Without this the callback reports a failure to Better Auth's default
+				// error URL, which is the marketing homepage in production.
+				errorCallbackURL: oauthErrorCallbackURL(localizedHref('/signup'), params.redirectTo)
 			});
 		} catch (error) {
 			clearPendingOAuthProvider();
@@ -201,6 +218,17 @@
 			isLoading = false;
 		}
 	}
+
+	// A callback failure comes back as a URL parameter, since the page that
+	// started the flow is gone by the time the provider answers.
+	$effect(() => {
+		const errorKey = getOAuthCallbackErrorKey(params.error);
+		if (!errorKey) return;
+		formError = errorKey;
+		clearPendingOAuthProvider();
+		// One write, so the URL is rewritten once rather than twice.
+		params.update({ error: '', error_description: '' });
+	});
 </script>
 
 <SEOHead

@@ -13,7 +13,7 @@ import { applyCacheControl } from '$lib/server/cache-control';
 import { decodeJwtPayload } from '$lib/server/jwt';
 import { resolveConvexToken } from '$lib/server/convex-jwt';
 import { loadSentry } from '$lib/monitoring/sentry';
-import { safeRedirectPath } from '$lib/utils/url';
+import { safeAuthDestination, splitDestinationError, verificationErrorIn } from '$lib/utils/url';
 import { SIDEBAR_COOKIE_NAME } from '$lib/components/ui/sidebar/constants.js';
 
 if (!PUBLIC_SENTRY_DSN) {
@@ -186,6 +186,115 @@ const handleHtmlLang: Handle = async function handleHtmlLang({ event, resolve })
 };
 
 /**
+ * Where to send a browser arriving on a verification link that did not work.
+ *
+ * Better Auth reports such a failure by appending its code to the destination
+ * the link was minted with (`redirectOnError` in
+ * better-auth/dist/api/routes/email-verification.mjs). That destination is an
+ * ordinary page of ours and has no reason to know about it: a protected one
+ * bounces to sign-in with the code buried inside `redirectTo`, where nothing
+ * reads it and it rides into the next link, and a public one renders as if
+ * nothing had happened. `/en/pricing?checkout=pro` is the reachable case, since
+ * that is the `redirectTo` the pricing table writes for a signed-out visitor.
+ *
+ * Doing it here rather than on the pages is what makes it hold for every
+ * destination, including the ones that do not exist yet, and it happens before
+ * anything renders, so no page announces a success that did not occur.
+ *
+ * Returns null for sign-in itself, which is where this sends people and which
+ * reads the code from the query on its own.
+ *
+ * A prerendered destination reaches this only because the build arranges it.
+ * The generated Worker answers such a path from the asset store before any hook
+ * runs, so `/en/privacy?error=TOKEN_EXPIRED` would render the privacy page and
+ * say nothing. `scripts/patch-cf-worker.ts` sends a request carrying one of
+ * these codes to `server.respond` instead, generating its predicate from the
+ * same set read here; it is the mechanism the markdown negotiation already
+ * depends on, not a new one.
+ *
+ * One widening rather than a hole: Better Auth appends the same
+ * `INVALID_TOKEN` to a failed password-reset callback, so an expired reset link
+ * now lands on sign-in with the same message instead of on a reset form that
+ * ignored the parameter. Sign-in carries the forgot-password link, and the
+ * token that came with it was rejected anyway.
+ */
+export function verificationFailureRedirect(
+	pathname: string,
+	search: string,
+	lang: string
+): string | null {
+	if (/^\/[a-z]{2}\/signin$/.test(pathname)) return null;
+
+	const { destination, errorCode } = splitDestinationError(pathname + search);
+	if (errorCode === null) return null;
+
+	return `/${lang}/signin?redirectTo=${encodeURIComponent(unwrapInterstitial(destination, lang))}&error=${errorCode}`;
+}
+
+/**
+ * The real page behind a chain of verification interstitials.
+ *
+ * `/email-verified` is a waiting room rather than a destination, and carrying
+ * one forward is what let a signed-in visitor be told an address had been
+ * verified: sign-in sends an authenticated caller straight back to
+ * `redirectTo`, and the failure code is not part of that value.
+ *
+ * It repeats because one layer is not the limit. Sign-up accepts any
+ * same-origin continuation, including another interstitial, so
+ * `/en/signup?redirectTo=/en/email-verified?redirectTo=/en/app` mints a link
+ * whose destination is a waiting room wrapping a waiting room. The bound is
+ * what guarantees termination rather than a guess about how deep that goes;
+ * anything deeper is not a link this app produces and lands on the default.
+ */
+function unwrapInterstitial(destination: string, lang: string): string {
+	let current = destination;
+
+	for (let depth = 0; depth < 4; depth += 1) {
+		let parsed: URL;
+		try {
+			parsed = new URL(current, 'https://redirect.invalid');
+		} catch {
+			return `/${lang}/app`;
+		}
+
+		if (!/^\/[a-z]{2}\/email-verified$/.test(parsed.pathname)) return current;
+		current = safeAuthDestination(parsed.searchParams.get('redirectTo') ?? '', `/${lang}/app`);
+	}
+
+	return `/${lang}/app`;
+}
+
+/**
+ * Where a signed-in visitor on an auth page is sent, or null to leave them on it.
+ *
+ * Sending them on is right almost always: the page they are looking at is a
+ * sign-in form they no longer need. The exception is a page carrying the report
+ * of a link that failed, because sign-in is the only page that shows one and
+ * the bounce would drop the parameter on the way past. Better Auth rejects an
+ * expired token before it looks at the session (`redirectOnError` runs ahead of
+ * any session work in better-auth/dist/api/routes/email-verification.mjs), so an
+ * old verification mail opened in a signed-in browser arrives exactly here, and
+ * nothing about clicking it again produces a different outcome.
+ *
+ * Only the four verification codes hold the visitor. An OAuth callback code
+ * reaches the same parameter and the same page, but it arrives on a browser
+ * that has just failed to authenticate rather than one already carrying a
+ * session, so the combination does not occur.
+ */
+export function authPageRedirect(search: string, lang: string): string | null {
+	const params = new URLSearchParams(search);
+
+	// Every value, because a destination that carried an `error` of its own
+	// pushes the appended code into second place, and that is exactly the case
+	// where the visitor would otherwise be bounced past the only report of it.
+	if (verificationErrorIn(params) !== null) {
+		return null;
+	}
+
+	return safeAuthDestination(params.get('redirectTo') ?? '', `/${lang}/app`);
+}
+
+/**
  * Handle auth redirects with language-aware paths
  */
 const authFirstPattern: Handle = async function authFirstPattern({ event, resolve }) {
@@ -194,13 +303,22 @@ const authFirstPattern: Handle = async function authFirstPattern({ event, resolv
 
 	// Extract language from path (e.g., /en/signin -> en)
 	const langMatch = pathname.match(/^\/([a-z]{2})\//);
-	const lang = langMatch ? langMatch[1] : DEFAULT_LANGUAGE;
+	const lang = langMatch?.[1] ?? DEFAULT_LANGUAGE;
+
+	// Before every other rule, so a failed link is reported rather than wrapped
+	// into `redirectTo` by the protected-route branch below. `safeUrlSearch`
+	// because reading the query throws while prerendering, where no such URL
+	// exists anyway.
+	const verificationFailure = verificationFailureRedirect(pathname, safeUrlSearch(event.url), lang);
+	if (verificationFailure !== null) {
+		redirect(307, verificationFailure);
+	}
 
 	if (isAuthPage(pathname) && authenticated) {
-		// Defer searchParams access to avoid errors during prerendering
-		const redirectToParam = event.url.searchParams.get('redirectTo');
-		const destination = safeRedirectPath(redirectToParam ?? '', `/${lang}/app`);
-		redirect(307, destination);
+		const destination = authPageRedirect(safeUrlSearch(event.url), lang);
+		if (destination !== null) {
+			redirect(307, destination);
+		}
 	}
 	if (isProtectedRoute(pathname) && !authenticated) {
 		const destination = `/${lang}/signin?redirectTo=${encodeURIComponent(event.url.pathname + safeUrlSearch(event.url))}`;

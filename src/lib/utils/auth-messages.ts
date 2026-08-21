@@ -14,8 +14,11 @@ const ERROR_CODE_MAP: Record<string, string> = {
 	USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL: 'auth.messages.user_already_exists',
 	EMAIL_NOT_VERIFIED: 'auth.messages.email_not_verified',
 
-	// Token
+	// Token. Both reach the user as a link they clicked: a verification link
+	// through the destination it was minted with, a reset link through the reset
+	// page. The message names the link rather than the token behind it.
 	INVALID_TOKEN: 'auth.messages.invalid_token',
+	TOKEN_EXPIRED: 'auth.messages.invalid_token',
 
 	// Password validation
 	PASSWORD_TOO_SHORT: 'auth.messages.password_too_short',
@@ -60,7 +63,56 @@ const ERROR_CODE_MAP: Record<string, string> = {
 	USER_NOT_FOUND: 'auth.messages.generic_error'
 };
 
+// Better Auth cannot hand an OAuth callback failure to the page that started it,
+// because the browser is on the provider's site when the flow breaks. It
+// redirects to the error URL and names the reason in an `error` query parameter
+// instead, lowercased from its internal message. That is a separate namespace
+// from the SDK `code` values above, so it needs its own map.
+const OAUTH_CALLBACK_ERROR_MAP: Record<string, string> = {
+	// Better Auth refuses to link a provider into an existing local account.
+	// Four separate conditions collapse into this one string
+	// (better-auth/dist/oauth2/link-account.mjs): an unverified local account,
+	// which is the case GHSA-g38m-r43w-p2q7 is about; an untrusted provider
+	// reporting an unverified address, where the local account may well be
+	// verified; and either linking switch turned off. The copy therefore names
+	// no cause and confirms no account, because the same string reaches someone
+	// holding an unverified provider identity for an address they do not own.
+	// It still earns a key of its own: the generic failure offers no way out and
+	// sends the user round the same loop forever.
+	account_not_linked: 'auth.messages.account_not_linked'
+};
+
+/**
+ * The codes Better Auth appends when a verification link itself fails, rather
+ * than the account behind it (`redirectOnError` in
+ * better-auth/dist/api/routes/email-verification.mjs). Exported because the
+ * destination splitter in $lib/utils/url needs the same list to tell a code
+ * Better Auth wrote from an `error` parameter the app put in a continuation URL
+ * itself.
+ */
+export const VERIFICATION_FAILURE_CODES = new Set([
+	'TOKEN_EXPIRED',
+	'INVALID_TOKEN',
+	'USER_NOT_FOUND',
+	'INVALID_USER'
+]);
+
 export const DEFAULT_AUTH_ERROR_KEY = 'auth.messages.generic_error';
+
+/**
+ * Translate an OAuth callback `error` parameter into a message key.
+ *
+ * Returns `null` when there is no error to report. Any code without a specific
+ * message falls back to the generic social-sign-in failure, so a rejected
+ * callback can never land silently.
+ */
+export function getOAuthCallbackErrorKey(code: string | null | undefined): string | null {
+	if (!code) {
+		return null;
+	}
+
+	return OAUTH_CALLBACK_ERROR_MAP[code.toLowerCase()] ?? 'auth.messages.oauth_failed';
+}
 
 export function getAuthErrorKey(
 	error: unknown,
@@ -77,4 +129,24 @@ export function getAuthErrorKey(
 	}
 
 	return fallbackKey;
+}
+
+/**
+ * Translate a verification-link failure into a message key.
+ *
+ * Returns `null` for anything else, including the lowercased OAuth callback
+ * codes, so a caller reading a shared `error` parameter can fall through to
+ * `getOAuthCallbackErrorKey`.
+ *
+ * All four codes reach the user the same way, as a link they clicked that did
+ * not work, and the only move available for any of them is to request a new
+ * one. Distinguishing them in the copy would tell an unauthenticated visitor
+ * whether an account exists.
+ */
+export function getVerificationErrorKey(code: string | null | undefined): string | null {
+	if (!code || !VERIFICATION_FAILURE_CODES.has(code)) {
+		return null;
+	}
+
+	return 'auth.messages.invalid_token';
 }

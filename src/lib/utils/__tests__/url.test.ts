@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { safeRedirectPath } from '../url';
+import {
+	oauthErrorCallbackURL,
+	safeAuthDestination,
+	safeRedirectPath,
+	splitDestinationError
+} from '../url';
 
 describe('safeRedirectPath', () => {
 	it('returns a valid relative path unchanged', () => {
@@ -93,5 +98,164 @@ describe('safeRedirectPath', () => {
 
 	it('returns a custom fallback when the path is invalid', () => {
 		expect(safeRedirectPath('http://evil.com', '/home')).toBe('/home');
+	});
+});
+
+describe('oauthErrorCallbackURL', () => {
+	it('returns the bare page path when there is nothing to carry', () => {
+		expect(oauthErrorCallbackURL('/signin', '')).toBe('/signin');
+	});
+
+	it('carries a valid destination through the failed attempt', () => {
+		expect(oauthErrorCallbackURL('/signin', '/app/settings')).toBe(
+			'/signin?redirectTo=%2Fapp%2Fsettings'
+		);
+	});
+
+	it('keeps the localized page path', () => {
+		expect(oauthErrorCallbackURL('/de/signup', '/de/app')).toBe(
+			'/de/signup?redirectTo=%2Fde%2Fapp'
+		);
+	});
+
+	// The value comes from the current URL, so an attacker controls it. Better
+	// Auth appends `&error=` and redirects the browser to whatever this returns.
+	it.each(['//evil.com', 'http://evil.com', '/\\evil.com'])(
+		'drops the destination rather than emit an open redirect (%s)',
+		(hostile) => {
+			expect(oauthErrorCallbackURL('/signin', hostile)).toBe('/signin');
+		}
+	);
+});
+
+describe('splitDestinationError', () => {
+	it('lifts a verification failure out of the destination', () => {
+		expect(splitDestinationError('/de/app/settings?error=TOKEN_EXPIRED')).toEqual({
+			destination: '/de/app/settings',
+			errorCode: 'TOKEN_EXPIRED'
+		});
+	});
+
+	it('keeps the rest of the destination intact', () => {
+		expect(splitDestinationError('/app?tab=billing&error=INVALID_TOKEN#plans')).toEqual({
+			destination: '/app?tab=billing#plans',
+			errorCode: 'INVALID_TOKEN'
+		});
+	});
+
+	it('leaves a destination without a failure alone', () => {
+		expect(splitDestinationError('/de/app/settings')).toEqual({
+			destination: '/de/app/settings',
+			errorCode: null
+		});
+	});
+
+	it('does not mistake a parameter that merely ends in error for the code', () => {
+		expect(splitDestinationError('/app?last_error=none')).toEqual({
+			destination: '/app?last_error=none',
+			errorCode: null
+		});
+	});
+
+	it("leaves the application's own error parameter alone", () => {
+		// Consuming this would report a checkout failure as an auth failure and
+		// drop the state the caller asked to arrive with.
+		expect(splitDestinationError('/app?error=checkout_failed&tab=billing')).toEqual({
+			destination: '/app?error=checkout_failed&tab=billing',
+			errorCode: null
+		});
+	});
+
+	it("finds the appended code behind the caller's own error parameter", () => {
+		// Better Auth appends its code to whatever the callback URL already was,
+		// so a destination carrying an `error` of its own pushes the one that
+		// matters into second place. Reading only the first value reports nothing
+		// and leaves the code to ride into the next verification link.
+		expect(splitDestinationError('/app?error=checkout_failed&error=TOKEN_EXPIRED')).toEqual({
+			destination: '/app?error=checkout_failed',
+			errorCode: 'TOKEN_EXPIRED'
+		});
+	});
+
+	it('takes every copy of the appended code with it', () => {
+		// A repeat of the same code is not a caller's parameter that happens to
+		// collide: leaving one behind puts it into `redirectTo`, and the next
+		// link built from that destination reports the previous attempt's failure
+		// even after it succeeds.
+		expect(splitDestinationError('/app?error=INVALID_TOKEN&error=INVALID_TOKEN')).toEqual({
+			destination: '/app',
+			errorCode: 'INVALID_TOKEN'
+		});
+	});
+
+	it('leaves an error that belongs to the destination alone', () => {
+		expect(splitDestinationError('/app?error=checkout_failed&error=checkout_failed')).toEqual({
+			destination: '/app?error=checkout_failed&error=checkout_failed',
+			errorCode: null
+		});
+	});
+
+	it('normalizes what it returns, and the whitelist still gates it', () => {
+		// URL parsing accepts far more than the redirect whitelist does, so the
+		// destination coming out of here is not trusted on its way out either.
+		// Every caller re-validates it, and this is the pair that shows why.
+		expect(splitDestinationError('%?error=TOKEN_EXPIRED')).toEqual({
+			destination: '/%',
+			errorCode: 'TOKEN_EXPIRED'
+		});
+		expect(safeRedirectPath('/%', '/app')).toBe('/app');
+	});
+});
+
+describe('safeAuthDestination', () => {
+	it('keeps a localized page destination whole', () => {
+		expect(safeAuthDestination('/en/app/settings?tab=billing', '/en/app')).toBe(
+			'/en/app/settings?tab=billing'
+		);
+		expect(safeAuthDestination('/de', '/de/app')).toBe('/de');
+		expect(safeAuthDestination('/fr?checkout=pro', '/fr/app')).toBe('/fr?checkout=pro');
+	});
+
+	/**
+	 * The reason this exists. Both of these are same-origin and both pass the
+	 * Better Auth callback grammar, so `safeRedirectPath` alone hands them to
+	 * the recovery verification link. Cloudflare serves a root asset before this
+	 * application's Worker is reached, so appending `?error=TOKEN_EXPIRED` to one
+	 * produces the file and no message at all.
+	 */
+	it('refuses a destination that is not a page', () => {
+		expect(safeAuthDestination('/favicon.ico', '/en/app')).toBe('/en/app');
+		expect(safeAuthDestination('/robots.txt', '/en/app')).toBe('/en/app');
+		expect(safeAuthDestination('/sitemap.xml', '/en/app')).toBe('/en/app');
+		expect(safeAuthDestination('/_app/immutable/chunk.js', '/en/app')).toBe('/en/app');
+	});
+
+	/**
+	 * A prefixless path is not a loss: handleLanguage redirects one to its
+	 * localized form before any auth rule reads it, so the fallback lands the
+	 * visitor where the prefixless value would have taken them anyway.
+	 */
+	/**
+	 * Two letters is not a locale. `/zz/app` would pass a shape check, and
+	 * handleLanguage then localizes it into `/en/zz/app`, which is a 404 rather
+	 * than the page anyone meant.
+	 */
+	it('refuses a prefix that is not a language this app serves', () => {
+		expect(safeAuthDestination('/zz/app', '/en/app')).toBe('/en/app');
+		expect(safeAuthDestination('/EN/app', '/en/app')).toBe('/en/app');
+		for (const lang of ['en', 'de', 'es', 'fr']) {
+			expect(safeAuthDestination(`/${lang}/app/settings`, '/en/app')).toBe(`/${lang}/app/settings`);
+		}
+	});
+
+	it('refuses a path without the language prefix', () => {
+		expect(safeAuthDestination('/app', '/en/app')).toBe('/en/app');
+		expect(safeAuthDestination('/pricing', '/en/app')).toBe('/en/app');
+	});
+
+	it('still rejects everything safeRedirectPath rejects', () => {
+		expect(safeAuthDestination('//evil.example/en/app', '/en/app')).toBe('/en/app');
+		expect(safeAuthDestination('https://evil.example/en/app', '/en/app')).toBe('/en/app');
+		expect(safeAuthDestination('', '/en/app')).toBe('/en/app');
 	});
 });

@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { getAuthErrorKey, DEFAULT_AUTH_ERROR_KEY } from '../auth-messages';
+import {
+	getAuthErrorKey,
+	getOAuthCallbackErrorKey,
+	getVerificationErrorKey,
+	DEFAULT_AUTH_ERROR_KEY
+} from '../auth-messages';
 
 describe('getAuthErrorKey', () => {
 	// Credential/auth codes
@@ -224,4 +229,59 @@ describe('getAuthErrorKey', () => {
 			});
 		}
 	});
+});
+
+describe('getOAuthCallbackErrorKey', () => {
+	// Better Auth refuses to link a provider into a local account that never
+	// verified its address (GHSA-g38m-r43w-p2q7). The user has to verify that
+	// address first, so this code cannot share the generic failure message.
+	it('gives account_not_linked a message that names the way out', () => {
+		expect(getOAuthCallbackErrorKey('account_not_linked')).toBe('auth.messages.account_not_linked');
+	});
+
+	it('matches the code case-insensitively', () => {
+		expect(getOAuthCallbackErrorKey('ACCOUNT_NOT_LINKED')).toBe('auth.messages.account_not_linked');
+	});
+
+	// The invariant: a rejected callback is never silent. Better Auth emits a
+	// dozen of these codes and adds more between releases, so anything unmapped
+	// still has to produce a visible message.
+	it.each([
+		'email_not_found',
+		'unable_to_link_account',
+		'account_already_linked_to_different_user',
+		'invalid_code',
+		'no_callback_url',
+		'oauth_provider_not_found',
+		'unable_to_get_user_info',
+		'some_code_a_later_release_invents'
+	])('falls back to a visible failure for %s', (code) => {
+		expect(getOAuthCallbackErrorKey(code)).toBe('auth.messages.oauth_failed');
+	});
+
+	it.each([null, undefined, ''])('reports nothing when no code is present (%s)', (code) => {
+		expect(getOAuthCallbackErrorKey(code)).toBeNull();
+	});
+});
+
+describe('getVerificationErrorKey', () => {
+	// The four codes `redirectOnError` emits
+	// (better-auth/dist/api/routes/email-verification.mjs). They arrive in the
+	// same `error` parameter an OAuth callback failure uses, so the caller reads
+	// this first: the OAuth map lowercases and falls back, which would report an
+	// expired link as a failed social sign-in and send the user back to a
+	// provider that worked.
+	it.each(['TOKEN_EXPIRED', 'INVALID_TOKEN', 'USER_NOT_FOUND', 'INVALID_USER'])(
+		'names the link for %s',
+		(code) => {
+			expect(getVerificationErrorKey(code)).toBe('auth.messages.invalid_token');
+		}
+	);
+
+	it.each([null, undefined, '', 'account_not_linked', 'token_expired', 'INVALID_EMAIL'])(
+		'declines %s so the caller can fall through',
+		(code) => {
+			expect(getVerificationErrorKey(code)).toBeNull();
+		}
+	);
 });

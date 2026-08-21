@@ -8,6 +8,7 @@ import {
 	applyVersionedCacheKeyPatch,
 	findVersionFile
 } from './patch-cf-worker';
+import { VERIFICATION_FAILURE_CODES } from '../src/lib/utils/auth-messages';
 
 // Realistic worker snippet matching adapter-cloudflare@7.2.8 output
 // Includes the worktop cache lookup, the static-serving condition, AND the
@@ -78,9 +79,9 @@ describe('patch-cf-worker', () => {
 	it('wraps ALL static-serving disjuncts without extra parens', () => {
 		const result = applyMarkdownPatch(WORKER_FIXTURE)!;
 
-		// The patched condition must be: !__wantsMarkdown && (A || B || C || D)
+		// The patched condition must be: !md && !verificationError && (A || B || C || D)
 		expect(result).toContain(
-			'!__wantsMarkdown && (is_static_asset || prerendered.has(pathname) || pathname === version_file || pathname.startsWith(immutable))'
+			'!__wantsMarkdown && !__hasVerificationError && (is_static_asset || prerendered.has(pathname) || pathname === version_file || pathname.startsWith(immutable))'
 		);
 
 		// Verify correct paren nesting: if(!md && (...startsWith(immutable))) {
@@ -104,14 +105,49 @@ describe('patch-cf-worker', () => {
 		const result = applyMarkdownPatch(WORKER_FIXTURE)!;
 
 		// When __wantsMarkdown is true, both cache and static-serving are skipped
-		expect(result).toMatch(/if\s*\(!__wantsMarkdown\s*&&\s*\(/);
+		expect(result).toMatch(/if\s*\(!__wantsMarkdown\s*&&\s*!__hasVerificationError\s*&&\s*\(/);
+	});
+
+	/**
+	 * A failed verification link appends its code to the callback URL it carried,
+	 * and the gate that reports it is a server hook. A prerendered destination is
+	 * answered from the asset store before any hook runs, so without this the
+	 * page renders and the user is told nothing about the link that failed.
+	 *
+	 * The predicate is generated from VERIFICATION_FAILURE_CODES rather than
+	 * written out here, so this asserts the generation rather than a copy of it:
+	 * a fifth code added to that set has to appear in the worker.
+	 */
+	it('lets a verification failure through to server.respond on a prerendered path', () => {
+		const result = applyMarkdownPatch(WORKER_FIXTURE)!;
+
+		const declaration = result.indexOf('__hasVerificationError =');
+		expect(declaration, 'the predicate was not injected').toBeGreaterThan(-1);
+		expect(declaration).toBeLessThan(result.indexOf('!__hasVerificationError &&'));
+
+		for (const code of VERIFICATION_FAILURE_CODES) {
+			expect(result.slice(declaration), `code ${code} missing from the worker`).toContain(code);
+		}
+
+		// The generated source has to be a working predicate, not merely present.
+		const source = result.slice(declaration).match(/\/(\[\?&\]error=.*?)\/\.test/)?.[1];
+		expect(source, 'the injected literal is no longer a regular expression').toBeTruthy();
+		const predicate = new RegExp(source!);
+		expect(predicate.test('?error=TOKEN_EXPIRED')).toBe(true);
+		expect(predicate.test('?redirectTo=%2Fen%2Fapp&error=INVALID_TOKEN')).toBe(true);
+		expect(predicate.test('?error=INVALID_USER&checkout=pro')).toBe(true);
+		// An application parameter that merely ends in `error` is not one of ours.
+		expect(predicate.test('?myerror=TOKEN_EXPIRED')).toBe(false);
+		expect(predicate.test('?error=TOKEN_EXPIRED_LATER')).toBe(false);
+		expect(predicate.test('?error=account_not_linked')).toBe(false);
+		expect(predicate.test('')).toBe(false);
 	});
 
 	it('falls back when cache pattern not found', () => {
 		const result = applyMarkdownPatch(WORKER_FIXTURE_NO_CACHE);
 		expect(result).not.toBeNull();
 		expect(result).toContain('__wantsMarkdown');
-		expect(result).toContain('!__wantsMarkdown && (is_static_asset');
+		expect(result).toContain('!__wantsMarkdown && !__hasVerificationError && (is_static_asset');
 	});
 
 	it('throws when a cache lookup exists but the pattern drifted', () => {
