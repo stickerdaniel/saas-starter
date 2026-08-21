@@ -32,8 +32,11 @@
 
 	const { t } = getTranslate();
 	const auth = useAuth();
+	// No debounce. The only writes this page makes are the callback-error
+	// parameters below, and they have to leave the address bar before anything
+	// reads `location.href` — analytics captures its first pageview on the
+	// earliest user interaction, which easily beats a delayed navigation.
 	const params = useSearchParams(redirectParamsSchema, {
-		debounce: 300,
 		pushHistory: false
 	});
 	const oauthProviders = useQuery(api.auth.getAvailableOAuthProviders, {}, () => ({
@@ -208,8 +211,8 @@
 		if (!errorKey) return;
 		formError = errorKey;
 		clearPendingOAuthProvider();
-		params.error = '';
-		params.error_description = '';
+		// One write, so the URL is rewritten once rather than twice.
+		params.update({ error: '', error_description: '' });
 	});
 
 	async function handlePasskeyLogin() {
