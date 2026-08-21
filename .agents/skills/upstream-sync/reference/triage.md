@@ -2,14 +2,15 @@
 
 The review unit is the **squashed first-parent commit** on upstream's default branch.
 Upstream squash-merges PRs, so each commit is the canonical, net, reviewed diff of one
-PR. Do not pull pre-squash branch commits — they carry intra-PR churn (WIP, fix-the-fix,
+PR. Do not pull pre-squash branch commits; they carry intra-PR churn (WIP, fix-the-fix,
 reverts that net out) and give worse signal. For an oversized commit, triage _within_ it
 by file/hunk instead.
 
 ## Order
 
 Process oldest-first; that is the dependency/integration order. Apply security and bug
-fixes first, then features/refactors/chores — but review all of them, not just security.
+fixes first, then features/refactors/chores. Review all of them, not only the security
+ones.
 
 ## Verdict per commit
 
@@ -18,11 +19,11 @@ category labels. Those are hints (ordering + how much adaptation), never a gate:
 untagged or unlabeled commit still gets read and given a verdict, and is never
 blind-applied.
 
-- **integrate** — applies to this fork. May need adaptation (see divergence-categories.md).
-- **already-present** — the fork already has equivalent behavior. Verify before skipping:
+- **integrate.** Applies to this fork. May need adaptation (see divergence-categories.md).
+- **already-present.** The fork already has equivalent behavior. Verify before skipping:
   grep the fork for the symbol/string/file the commit adds; check `git log` for an
   independent equivalent. A substring match in a _different_ key/path is not a hit.
-- **exclude** — conflicts with a deliberate fork divergence, or re-introduces something
+- **exclude.** Conflicts with a deliberate fork divergence, or re-introduces something
   the fork intentionally removed/changed (rebrand, font, dropped feature). Record
   `{ "sha": "<sha>", "reason": "<one line>" }` in `.upstream-sync.json.excluded` so the
   next sync does not re-triage it.
@@ -43,7 +44,7 @@ and port prerequisites first or together. Never batch-apply the whole range blin
 ## Adversarial recheck of dismissals
 
 For every "already-present" and "exclude" verdict, re-verify against the real file at the
-cited path before trusting it — dismissals are where real fixes get silently dropped.
+cited path before trusting it. Dismissals are where real fixes get silently dropped.
 
 ## Oversized commits
 

@@ -23,21 +23,21 @@ Fetch all review comments on the current PR, verify each finding against real co
    gh api --paginate repos/{owner}/{repo}/issues/{pr}/comments
    ```
 
-3. Extract unique findings — deduplicate across Copilot, Greptile, and human reviewers. Group by file and line.
+3. Extract unique findings, deduplicating across Copilot, Greptile, and human reviewers. Group by file and line.
 
 ## Phase 2: Verify Each Finding
 
 For EVERY finding, verify against real code before accepting or rejecting:
 
 1. **Read the actual code** at the referenced file:line
-2. **Check if the issue still exists** — it may already be fixed in a later commit
+2. **Check if the issue still exists.** It may already be fixed in a later commit
 3. **Verify correctness** using:
    - Code analysis (read surrounding context, trace call paths)
    - Invoke the `btca-local` skill for library/framework questions, then inspect the relevant repository clones registered in `btca.config.jsonc`
    - Web search for API behavior, language semantics, or CVEs
 4. **Classify** each finding:
-   - **Valid** — real bug, real gap, or real improvement needed
-   - **False positive** — reviewer misread the code, outdated reference, or style preference
+   - **Valid.** Real bug, real gap, or real improvement needed
+   - **False positive.** Reviewer misread the code, outdated reference, or style preference
 
 ## Phase 3: Fix & Ship
 
@@ -65,5 +65,5 @@ Present a final summary table of ALL findings with verdicts:
 ## Notes
 
 - Never dismiss a finding without reading the actual code first
-- If unsure, err toward "Valid" — it's cheaper to fix than to miss a bug
-- For library/API questions, always use btca or web search — don't guess
+- If unsure, err toward "Valid". Fixing costs less than missing a bug
+- For library/API questions, use btca or web search rather than guessing

@@ -1,10 +1,10 @@
 #!/usr/bin/env bun
 /**
- * find-fork-point.ts — locate the upstream commit this fork was copied from.
+ * find-fork-point.ts: locate the upstream commit this fork was copied from.
  *
  * Forks of this template are created by content-copy (GitHub "Use this template"),
  * so they share NO git ancestor with upstream: `git merge-base`, `rebase`, and
- * `gh repo sync` do not apply. The only reliable link is TREE-SHA identity — the
+ * `gh repo sync` do not apply. The only reliable link is TREE-SHA identity. The
  * fork's bootstrap commit copied an upstream tree verbatim, so its tree SHA equals
  * some upstream commit's tree SHA. This script finds that commit.
  *
@@ -21,7 +21,7 @@ import { join } from 'node:path';
 import { parseArgs } from 'node:util';
 
 // Default upstream = the template this skill ships from (the template's own
-// identity, inherited by every fork — not a fork specific). Override via the
+// identity, inherited by every fork, not a fork specific). Override via the
 // marker's `upstreamUrl` or `--upstream`.
 const DEFAULT_UPSTREAM = 'https://github.com/stickerdaniel/saas-starter.git';
 const MARKER = '.upstream-sync.json';
@@ -114,7 +114,7 @@ function main() {
 		// Fallback: bootstrap was edited after copy, so no tree is identical. Pick the
 		// upstream commit with the SMALLEST diff to the fork root tree. This is a GUESS.
 		console.error(
-			'No exact tree-SHA match — bootstrap commit was likely edited. Computing closest tree (GUESS)...'
+			'No exact tree-SHA match; the bootstrap commit was likely edited. Computing closest tree (GUESS)...'
 		);
 		let best = '';
 		let bestChanges = Number.POSITIVE_INFINITY;
@@ -130,7 +130,7 @@ function main() {
 			}
 		}
 		forkPoint = best;
-		method = `closest-tree GUESS (~${bestChanges} line diff) — CONFIRM before syncing`;
+		method = `closest-tree GUESS (~${bestChanges} line diff); CONFIRM before syncing`;
 	}
 
 	const forkPointSubject = git(['log', '-1', '--format=%s', forkPoint], true);
@@ -153,7 +153,7 @@ function main() {
 	const mark = values['mark-synced'] as string | boolean | undefined;
 	if (mark !== undefined) {
 		const newLastSynced = typeof mark === 'string' && mark ? mark : upstreamHead;
-		// Reject anything that is not a real upstream commit — a bogus lastSynced would
+		// Reject anything that is not a real upstream commit; a bogus lastSynced would
 		// silently break the next sync's `<lastSynced>..upstream/main` range.
 		const resolved = git(['rev-parse', '--verify', '--quiet', `${newLastSynced}^{commit}`], true);
 		if (!resolved) {
@@ -205,7 +205,7 @@ function main() {
 	console.log(`Fork point:   ${forkPoint}  (${method})`);
 	console.log(`              ${forkPointSubject}`);
 	console.log(
-		`Last synced:  ${lastSynced}${marker?.lastSynced ? '' : '  (no marker yet — defaults to fork point)'}`
+		`Last synced:  ${lastSynced}${marker?.lastSynced ? '' : '  (no marker yet, defaults to fork point)'}`
 	);
 	console.log(`Upstream HEAD: ${upstreamHead}`);
 	console.log(

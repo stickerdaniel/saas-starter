@@ -27,7 +27,7 @@ Generate a form JSON structure for the Svelte form builder using this exact sche
 - Each field must have:
   - `"id"`: unique string (e.g., `"field-1"`)
   - `"name"`: display name (e.g., `"Input"`, `"Email"`)
-  - `"type"`: field type — `text`, `email`, `password`, `number`, `textarea`, `boolean`, `select`, `radio`, `date-picker`, `slider`, `input-otp`, `phone`, `combobox`, `tags-input`, `file`, `location-input`
+  - `"type"`: one of `text`, `email`, `password`, `number`, `textarea`, `boolean`, `select`, `radio`, `date-picker`, `slider`, `input-otp`, `phone`, `combobox`, `tags-input`, `file`, `location-input`
   - `"category"`: same as type for most fields, or `"checkbox"`/`"switch"` for boolean
   - `"label"`: field label shown to user
   - `"description"`: helper text (optional)
