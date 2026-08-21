@@ -29,21 +29,22 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 /**
- * The file with its comment lines removed. Line-based rather than a regex over
- * the whole text, so a `//` inside a URL or a `/*` inside a string survives.
+ * The file with its comments removed, wherever they sit. Dropping whole comment
+ * lines is not enough: a trailing `/* ... *\/` on the same line as the rewritten
+ * call would carry the old expression forward and the search would find it
+ * there.
+ *
+ * `//` is only treated as a comment at the start of a line or after whitespace,
+ * which is what keeps the `//` of a URL. A `//` inside a string literal is
+ * stripped along with the rest of that line, and that direction is the safe one:
+ * it can fail a correct file, never pass a broken one.
  */
 function withoutComments(text: string): string {
 	return text
+		.replace(/\/\*[\s\S]*?\*\//g, '')
+		.replace(/<!--[\s\S]*?-->/g, '')
 		.split('\n')
-		.filter((line) => {
-			const trimmed = line.trim();
-			return !(
-				trimmed.startsWith('//') ||
-				trimmed.startsWith('/*') ||
-				trimmed.startsWith('*') ||
-				trimmed.startsWith('<!--')
-			);
-		})
+		.map((line) => line.replace(/(^|\s)\/\/.*$/, ''))
 		.join('\n');
 }
 
