@@ -161,6 +161,24 @@ describe('splitDestinationError', () => {
 		});
 	});
 
+	it("finds the appended code behind the caller's own error parameter", () => {
+		// Better Auth appends its code to whatever the callback URL already was,
+		// so a destination carrying an `error` of its own pushes the one that
+		// matters into second place. Reading only the first value reports nothing
+		// and leaves the code to ride into the next verification link.
+		expect(splitDestinationError('/app?error=checkout_failed&error=TOKEN_EXPIRED')).toEqual({
+			destination: '/app?error=checkout_failed',
+			errorCode: 'TOKEN_EXPIRED'
+		});
+	});
+
+	it('drops one occurrence, not the parameter', () => {
+		expect(splitDestinationError('/app?error=INVALID_TOKEN&error=INVALID_TOKEN')).toEqual({
+			destination: '/app?error=INVALID_TOKEN',
+			errorCode: 'INVALID_TOKEN'
+		});
+	});
+
 	it('normalizes what it returns, and the whitelist still gates it', () => {
 		// URL parsing accepts far more than the redirect whitelist does, so the
 		// destination coming out of here is not trusted on its way out either.

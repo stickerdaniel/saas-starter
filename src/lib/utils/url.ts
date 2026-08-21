@@ -86,14 +86,32 @@ export function splitDestinationError(destination: string): {
 	try {
 		const base = new URL('https://redirect.invalid');
 		const parsed = new URL(destination, base);
-		const errorCode = parsed.searchParams.get('error');
-		if (errorCode === null || !VERIFICATION_FAILURE_CODES.has(errorCode)) {
+		// Every occurrence, not the first: a destination that already carried an
+		// `error` of its own pushes the appended code into second place, which is
+		// precisely the case where the user learns nothing about a link that
+		// failed.
+		const errorCode =
+			parsed.searchParams.getAll('error').find((code) => VERIFICATION_FAILURE_CODES.has(code)) ??
+			null;
+		if (errorCode === null) {
 			return { destination, errorCode: null };
 		}
 
-		parsed.searchParams.delete('error');
+		// One occurrence removed rather than the parameter, so an `error` the
+		// caller put in the destination itself arrives intact.
+		const kept = new URLSearchParams();
+		let dropped = false;
+		for (const [key, value] of parsed.searchParams) {
+			if (!dropped && key === 'error' && value === errorCode) {
+				dropped = true;
+				continue;
+			}
+			kept.append(key, value);
+		}
+
+		const search = kept.toString();
 		return {
-			destination: `${parsed.pathname}${parsed.search}${parsed.hash}`,
+			destination: `${parsed.pathname}${search ? `?${search}` : ''}${parsed.hash}`,
 			errorCode
 		};
 	} catch {
