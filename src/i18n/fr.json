@@ -355,7 +355,7 @@
 			"title": "Mot de passe oublié"
 		},
 		"messages": {
-			"account_not_linked": "Cette adresse e-mail possède déjà un compte qui n'a jamais été vérifié. Connectez-vous avec votre mot de passe pour le vérifier, puis réessayez la connexion sociale. Si vous n'avez pas défini ce mot de passe, réinitialisez-le d'abord.",
+			"account_not_linked": "La connexion sociale n'a pas pu aboutir avec cette adresse e-mail. Connectez-vous plutôt avec votre adresse e-mail et votre mot de passe. Si vous n'avez pas de mot de passe pour cette adresse, réinitialisez-le d'abord.",
 			"auth_cancelled": "L'authentification a été annulée",
 			"credential_account_not_found": "Aucun mot de passe n'est défini pour ce compte.",
 			"credential_account_unusable": "Ce compte ne peut pas définir de mot de passe ici. Déconnectez-vous, puis utilisez le lien de réinitialisation sur la page de connexion.",

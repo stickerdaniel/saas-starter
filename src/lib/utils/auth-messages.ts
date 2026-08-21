@@ -66,11 +66,16 @@ const ERROR_CODE_MAP: Record<string, string> = {
 // instead, lowercased from its internal message. That is a separate namespace
 // from the SDK `code` values above, so it needs its own map.
 const OAUTH_CALLBACK_ERROR_MAP: Record<string, string> = {
-	// The local account holding this address never verified it, so Better Auth
-	// refuses to link the provider into it (GHSA-g38m-r43w-p2q7). This one earns
-	// a message of its own: the user has to verify that address before the
-	// provider will work, and a generic failure would send them round the same
-	// loop forever.
+	// Better Auth refuses to link a provider into an existing local account.
+	// Four separate conditions collapse into this one string
+	// (better-auth/dist/oauth2/link-account.mjs): an unverified local account,
+	// which is the case GHSA-g38m-r43w-p2q7 is about; an untrusted provider
+	// reporting an unverified address, where the local account may well be
+	// verified; and either linking switch turned off. The copy therefore names
+	// no cause and confirms no account, because the same string reaches someone
+	// holding an unverified provider identity for an address they do not own.
+	// It still earns a key of its own: the generic failure offers no way out and
+	// sends the user round the same loop forever.
 	account_not_linked: 'auth.messages.account_not_linked'
 };
 
