@@ -143,7 +143,15 @@
 		try {
 			let failed = false;
 			await authClient.signIn.email(
-				{ email: signInData.email, password: signInData.password },
+				{
+					email: signInData.email,
+					password: signInData.password,
+					// More than the post-sign-in destination. An unverified account is
+					// rejected right here, and Better Auth mints the recovery
+					// verification link from this same field, defaulting it to `/` and
+					// dropping both the locale and the continuation with it.
+					callbackURL: safeRedirectPath(params.redirectTo, localizedHref('/app'))
+				},
 				{
 					onError: (ctx) => {
 						failed = true;
