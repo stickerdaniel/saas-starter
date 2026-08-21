@@ -6,6 +6,7 @@
 		"enabled": false
 	},
 	"osvVulnerabilityAlerts": true,
+	"dependencyDashboardOSVVulnerabilitySummary": "unresolved",
 	"vulnerabilityAlerts": {
 		"enabled": true,
 		"labels": ["security"],
@@ -134,8 +135,18 @@
 			"abandonmentThreshold": "10 years"
 		},
 		{
-			"description": "Keep the pin conversion out of the upgrade groups. Every grouping rule above lists pin next to minor and patch, so the one-off conversion would join a branch that stays open for weeks, and until that branch merges the ranges it converts are still on main and still invisible to the advisory scan.",
+			"description": "Keep the pin conversion out of the generic upgrade groups. They list pin next to minor and patch, so the one-off conversion would join a branch that stays open for weeks, and until that branch merges the ranges it converts are still on main and still invisible to the advisory scan. The two ecosystem groups are deliberately left in place: pinning resolves each package to the newest version its own range allows, and a family declared with a mix of ~ and ^ splits across a minor boundary that way, so those pins belong behind the same manual review as any other change to that family.",
 			"matchUpdateTypes": ["pin"],
+			"matchPackageNames": [
+				"!/^better-auth$/",
+				"!/^@better-auth//",
+				"!/^@convex-dev/better-auth$/",
+				"!/^@mmailaender/convex-better-auth-svelte$/",
+				"!/^ai$/",
+				"!/^@ai-sdk//",
+				"!/^@convex-dev/agent$/",
+				"!/^@openrouter/ai-sdk-provider$/"
+			],
 			"groupName": "dependency version pinning",
 			"groupSlug": "pin-dependencies"
 		}
