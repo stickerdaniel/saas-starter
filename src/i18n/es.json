@@ -634,9 +634,20 @@
 			"preview": "Restablecer tu contraseña",
 			"title": "Restablece tu contraseña"
 		},
+		"set_password": {
+			"body": "Hemos recibido una solicitud para añadir una contraseña a tu cuenta. Todavía no tiene ninguna, así que este enlace la establece:",
+			"button": "Establecer contraseña",
+			"disclaimer": "Si no lo has solicitado, puedes ignorar este correo. Tu cuenta no cambia y puedes seguir iniciando sesión como hasta ahora.",
+			"expiry": "Este enlace caducará en 1 hora por seguridad.",
+			"greeting": "Hola {userName},",
+			"greeting_fallback": "Hola,",
+			"preview": "Establece una contraseña para tu cuenta",
+			"title": "Establece una contraseña"
+		},
 		"subject": {
 			"new_signup": "Nuevo registro de usuario: {userEmail}",
 			"reset_password": "Restablecer tu contraseña",
+			"set_password": "Establece una contraseña",
 			"support_reply": "Nueva respuesta a tu solicitud de soporte",
 			"ticket_new": "Nuevo ticket de soporte de {userName}",
 			"ticket_reopened": "Ticket de soporte reabierto por {userName}",

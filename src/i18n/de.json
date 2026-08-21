@@ -634,9 +634,20 @@
 			"preview": "Passwort zurücksetzen",
 			"title": "Passwort zurücksetzen"
 		},
+		"set_password": {
+			"body": "Wir haben eine Anfrage erhalten, ein Passwort für Ihr Konto einzurichten. Bisher ist keines hinterlegt, dieser Link legt es fest:",
+			"button": "Passwort einrichten",
+			"disclaimer": "Falls Sie das nicht angefordert haben, können Sie diese E-Mail ignorieren. An Ihrem Konto ändert sich nichts, und Sie melden sich weiterhin wie bisher an.",
+			"expiry": "Dieser Link läuft aus Sicherheitsgründen in 1 Stunde ab.",
+			"greeting": "Hallo {userName},",
+			"greeting_fallback": "Hallo,",
+			"preview": "Passwort für Ihr Konto einrichten",
+			"title": "Passwort einrichten"
+		},
 		"subject": {
 			"new_signup": "Neue Benutzerregistrierung: {userEmail}",
 			"reset_password": "Passwort zurücksetzen",
+			"set_password": "Passwort einrichten",
 			"support_reply": "Neue Antwort auf Ihre Support-Anfrage",
 			"ticket_new": "Neues Support-Ticket von {userName}",
 			"ticket_reopened": "Support-Ticket wiedereröffnet von {userName}",

@@ -634,9 +634,20 @@
 			"preview": "Réinitialisez votre mot de passe",
 			"title": "Réinitialisez votre mot de passe"
 		},
+		"set_password": {
+			"body": "Nous avons reçu une demande d'ajout d'un mot de passe à votre compte. Il n'en a pas encore, ce lien vous permet donc d'en définir un :",
+			"button": "Définir le mot de passe",
+			"disclaimer": "Si vous n'êtes pas à l'origine de cette demande, vous pouvez ignorer cet e-mail. Rien ne change pour votre compte et vous continuez à vous connecter comme aujourd'hui.",
+			"expiry": "Ce lien expirera dans 1 heure pour des raisons de sécurité.",
+			"greeting": "Bonjour {userName},",
+			"greeting_fallback": "Bonjour,",
+			"preview": "Définir un mot de passe pour votre compte",
+			"title": "Définir un mot de passe"
+		},
 		"subject": {
 			"new_signup": "Nouvelle inscription : {userEmail}",
 			"reset_password": "Réinitialisez votre mot de passe",
+			"set_password": "Définir un mot de passe",
 			"support_reply": "Nouvelle réponse à votre demande de support",
 			"ticket_new": "Nouveau ticket de support de {userName}",
 			"ticket_reopened": "Ticket de support rouvert par {userName}",
