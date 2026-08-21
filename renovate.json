@@ -13,8 +13,8 @@
 	},
 	"packageRules": [
 		{
-			"description": "Pin runtime dependency versions. A range wide enough to span a security fix hides a lockfile sitting below it: GitHub's dependency graph does not read bun.lock, and Renovate's bun manager attaches the lockfile without parsing it, so it never learns a locked version either. osvVulnerabilityAlerts then evaluates the newest version the range allows and correctly reports nothing. Pinning removes the gap rather than reporting it, and config:best-practices already pins devDependencies for the same reason.",
-			"matchDepTypes": ["dependencies"],
+			"description": "Pin the versions this manifest resolves itself, both its runtime dependencies and its overrides. A range wide enough to span a security fix hides a lockfile sitting below it: GitHub's dependency graph does not read bun.lock, and Renovate's bun manager attaches the lockfile without parsing it, so it never learns a locked version either. osvVulnerabilityAlerts then evaluates the newest version the range allows and correctly reports nothing. Pinning removes the gap rather than reporting it, and config:best-practices already pins devDependencies for the same reason.",
+			"matchDepTypes": ["dependencies", "overrides"],
 			"rangeStrategy": "pin"
 		},
 		{
@@ -132,6 +132,12 @@
 			"description": "Suppress abandonment warnings for packages we keep intentionally. clsx and husky are stable/feature-complete, date-fns still ships fixes (last commits 2025-09), vaul-svelte is stuck on 1.0.0-next.7 but has no viable Svelte 5 alternative, mode-watcher is dormant (last release 2025-06) but shallowly integrated with no active replacement; on the next Svelte major bump watch for the render_fn error (svecosystem/mode-watcher#161) and fall back to a ~50-line self-roll if it bites.",
 			"matchPackageNames": ["clsx", "date-fns", "husky", "mode-watcher", "vaul-svelte"],
 			"abandonmentThreshold": "10 years"
+		},
+		{
+			"description": "Keep the pin conversion out of the upgrade groups. Every grouping rule above lists pin next to minor and patch, so the one-off conversion would join a branch that stays open for weeks, and until that branch merges the ranges it converts are still on main and still invisible to the advisory scan.",
+			"matchUpdateTypes": ["pin"],
+			"groupName": "dependency version pinning",
+			"groupSlug": "pin-dependencies"
 		}
 	]
 }
