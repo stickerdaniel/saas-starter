@@ -103,5 +103,28 @@ describe('password sign-in callback URL', () => {
 		expect(source).toContain(
 			normalized('if (auth.isAuthenticated && !heldForVerificationFailure) {')
 		);
+
+		// The condition is only worth as much as what it reads. `false`, or a read
+		// of the query after the effect below has cleared it, both leave the guard
+		// looking exactly like this and put the redirect back.
+		expect(source).toContain(
+			normalized(
+				'const heldForVerificationFailure = initialVerificationCode !== null && auth.isAuthenticated;'
+			)
+		);
+		expect(source).toContain(
+			normalized('const initialVerificationCode = verificationErrorIn(page.url.searchParams);')
+		);
+	});
+
+	/**
+	 * Nothing else redirects for a held visitor, so every path that authenticates
+	 * on this page has to say so itself. Password sign-in and passkey both do;
+	 * social sign-in leaves through the provider and never returns here.
+	 */
+	it('lets a held visitor through once they authenticate here', () => {
+		const passkey = source.indexOf(normalized('async function handlePasskeyLogin('));
+		expect(passkey, 'the passkey handler moved or was renamed').toBeGreaterThan(-1);
+		expect(source.slice(passkey)).toContain(normalized('redirectAfterAuthentication();'));
 	});
 });

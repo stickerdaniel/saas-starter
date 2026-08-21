@@ -292,6 +292,12 @@
 			} else {
 				setLastSuccessfulAuthMethod('passkey');
 				clearPendingOAuthProvider();
+				// Explicitly, the way password sign-in does. The effect above will
+				// not do it for a visitor the server held here to report a failed
+				// link, and Better Auth's passkey client navigates nowhere itself,
+				// so without this a successful passkey leaves them on the form
+				// they just satisfied.
+				redirectAfterAuthentication();
 			}
 		} catch (error) {
 			console.error('[SignIn] Passkey login error:', error);
