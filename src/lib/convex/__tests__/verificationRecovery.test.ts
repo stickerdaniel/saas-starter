@@ -86,6 +86,18 @@ function callbackOf(verificationUrl: string): string | null {
 	return new URL(verificationUrl).searchParams.get('callbackURL');
 }
 
+/** How long the token in a verification link is actually good for, in seconds. */
+function tokenLifetime(verificationUrl: string): number {
+	const token = new URL(verificationUrl).searchParams.get('token');
+	if (token === null) throw new Error('the verification link carries no token');
+
+	const claims = JSON.parse(
+		Buffer.from(token.split('.')[1], 'base64url').toString('utf8')
+	) as Record<string, number>;
+
+	return claims.exp - claims.iat;
+}
+
 describe('email verification recovery', () => {
 	it('keeps the options that make a password sign-in reissue the link', async () => {
 		const { createAuthOptions } = await import('../auth');
@@ -121,14 +133,15 @@ describe('email verification recovery', () => {
 	});
 
 	it('mails the expiry the token is actually minted with', async () => {
-		const { auth, sent, options } = await withCapturedVerificationMail();
+		const { auth, sent } = await withCapturedVerificationMail();
 
 		await expect(auth.api.signInEmail({ body: CREDENTIALS })).rejects.toThrow();
 
-		// The mail renders a figure the recipient plans around, and nothing
-		// connects it to the token lifetime except this equality: the two are
-		// separate arguments, in different units, read by different code.
+		// Measured off the token in the link rather than off the option that was
+		// meant to produce it. Comparing our expiry argument with our own
+		// `expiresIn` compares configuration with itself and would stay green
+		// through a Better Auth release that stopped honouring the option.
 		expect(sent).toHaveLength(1);
-		expect(sent[0].expiryMinutes * 60).toBe(options.emailVerification.expiresIn);
+		expect(sent[0].expiryMinutes * 60).toBe(tokenLifetime(sent[0].verificationUrl));
 	});
 });
