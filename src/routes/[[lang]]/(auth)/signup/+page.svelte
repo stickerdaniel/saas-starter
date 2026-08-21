@@ -213,6 +213,7 @@
 		formError = errorKey;
 		clearPendingOAuthProvider();
 		params.error = '';
+		params.error_description = '';
 	});
 </script>
 

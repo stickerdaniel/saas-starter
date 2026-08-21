@@ -413,6 +413,10 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
 				});
 			},
 			sendOnSignUp: true,
+			// Password sign-in on an unverified account is the documented way out
+			// of a rejected OAuth link. Without this the attempt is rejected with
+			// no new link, and the old one has usually expired by then.
+			sendOnSignIn: true,
 			autoSignInAfterVerification: true
 		},
 		socialProviders: {

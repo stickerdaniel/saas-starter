@@ -360,7 +360,7 @@
 			"credential_account_not_found": "Für dieses Konto ist kein Passwort festgelegt.",
 			"credential_account_unusable": "Für dieses Konto kann hier kein Passwort eingerichtet werden. Melden Sie sich ab und verwenden Sie dann den Link zum Zurücksetzen auf der Anmeldeseite.",
 			"email_change_failed": "E-Mail konnte nicht geändert werden",
-			"email_not_verified": "Bitte bestätigen Sie Ihre E-Mail-Adresse",
+			"email_not_verified": "Bitte bestätigen Sie Ihre E-Mail-Adresse. Wir haben Ihnen gerade einen neuen Link geschickt.",
 			"email_same_as_current": "Neue E-Mail muss sich von der aktuellen E-Mail unterscheiden",
 			"email_updated": "E-Mail erfolgreich aktualisiert",
 			"email_verification_sent": "Bestätigungs-E-Mail wurde an Ihre aktuelle Adresse gesendet. Bitte prüfen Sie Ihren Posteingang, um die Änderung zu bestätigen.",

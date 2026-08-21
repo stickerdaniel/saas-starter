@@ -201,6 +201,7 @@
 		formError = errorKey;
 		clearPendingOAuthProvider();
 		params.error = '';
+		params.error_description = '';
 	});
 
 	async function handlePasskeyLogin() {
