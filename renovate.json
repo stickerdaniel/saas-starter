@@ -135,7 +135,7 @@
 			"abandonmentThreshold": "10 years"
 		},
 		{
-			"description": "Keep the pin conversion out of the generic upgrade groups. They list pin next to minor and patch, so the one-off conversion would join a branch that stays open for weeks, and until that branch merges the ranges it converts are still on main and still invisible to the advisory scan. The two ecosystem groups are deliberately left in place: pinning resolves each package to the newest version its own range allows, and a family declared with a mix of ~ and ^ splits across a minor boundary that way, so those pins belong behind the same manual review as any other change to that family.",
+			"description": "Keep the pin conversion out of the upgrade groups. They list pin next to minor and patch, so the one-off conversion would join a branch that stays open for weeks, and until that branch merges the ranges it converts are still on main and still invisible to the advisory scan. The two ecosystem families get their own pin branches below rather than this one, for a different reason.",
 			"matchUpdateTypes": ["pin"],
 			"matchPackageNames": [
 				"!/^better-auth$/",
@@ -149,6 +149,30 @@
 			],
 			"groupName": "dependency version pinning",
 			"groupSlug": "pin-dependencies"
+		},
+		{
+			"description": "Pin the Better Auth family on a branch of its own. Pinning resolves each package to the newest version its own range allows, independently of its siblings, so a family declared with a mix of ~ and ^ splits across a minor boundary and lands on a peer range it no longer satisfies. That needs reviewing as a set. It does not belong in the ecosystem group either: that branch carries ordinary upgrades and can sit open for weeks, which is the same trap as the generic groups.",
+			"matchUpdateTypes": ["pin"],
+			"matchPackageNames": [
+				"/^better-auth$/",
+				"/^@better-auth//",
+				"/^@convex-dev/better-auth$/",
+				"/^@mmailaender/convex-better-auth-svelte$/"
+			],
+			"groupName": "better-auth version pinning",
+			"groupSlug": "pin-better-auth"
+		},
+		{
+			"description": "Pin the AI family on a branch of its own, for the reason above.",
+			"matchUpdateTypes": ["pin"],
+			"matchPackageNames": [
+				"/^ai$/",
+				"/^@ai-sdk//",
+				"/^@convex-dev/agent$/",
+				"/^@openrouter/ai-sdk-provider$/"
+			],
+			"groupName": "ai version pinning",
+			"groupSlug": "pin-ai"
 		}
 	]
 }
