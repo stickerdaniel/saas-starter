@@ -1,16 +1,16 @@
 # i18n conflict resolution: JSON-aware 3-way deep merge
 
 When an upstream commit changes translation JSON the fork has also edited, **never use a
-line-based merge resolver** — it corrupts nested objects (orphan commas, duplicated or
+line-based merge resolver**. It corrupts nested objects (orphan commas, duplicated or
 broken keys, `"a": {,`). Resolve at the JSON object level.
 
 ## The merge
 
 Use git's three stages of the conflicted file:
 
-- `git show :1:src/i18n/<locale>.json` — base (the common version before either side)
-- `git show :2:src/i18n/<locale>.json` — ours (the fork's current values)
-- `git show :3:src/i18n/<locale>.json` — theirs (upstream's new version)
+- `git show :1:src/i18n/<locale>.json`: base, the common version before either side
+- `git show :2:src/i18n/<locale>.json`: ours, the fork's current values
+- `git show :3:src/i18n/<locale>.json`: theirs, upstream's new version
 
 Deep-merge recursively:
 

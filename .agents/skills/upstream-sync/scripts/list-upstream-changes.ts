@@ -1,12 +1,12 @@
 #!/usr/bin/env bun
 /**
- * list-upstream-changes.ts — list upstream commits to review for this fork.
+ * list-upstream-changes.ts: list upstream commits to review for this fork.
  *
  * Lists every upstream commit since the last sync (or the fork point) so EACH can
  * be reviewed, understood, and consciously integrated or excluded. This is not a
  * security-only tool: all enhancements are candidates. Each commit gets a priority
- * tag (security highest) and the divergence categories it touches, but nothing is
- * filtered out by default — comprehensive review is the goal.
+ * tag (security highest) and the divergence categories it touches, and nothing is
+ * filtered out by default, so every commit stays in view.
  *
  * Unit of review = the squashed first-parent commit on upstream's default branch.
  * Upstream squash-merges PRs, so each commit is the canonical, net, reviewed unit
@@ -45,7 +45,7 @@ function git(args: string[], allowFail = false): string {
 }
 
 // Divergence categories: which fork-divergence area a changed path belongs to.
-// Generic shapes, not fork specifics — used to flag commits that need adaptation.
+// Generic shapes, not fork specifics. Used to flag commits that need adaptation.
 const CATEGORY_RULES: Array<[string, RegExp]> = [
 	['i18n', /^src\/i18n\/|\bmessages?\/|\.ftl$/],
 	['theme', /layout\.css$|app\.css$|tailwind|theme|design-?tokens|design-?system/i],
@@ -110,7 +110,7 @@ function main() {
 	let base = (marker?.lastSynced as string) || (marker?.forkPoint as string);
 	if (!base) {
 		// First run, no marker yet: derive the fork point from the sibling script.
-		console.error('No marker yet — deriving fork point via find-fork-point.ts ...');
+		console.error('No marker yet, deriving fork point via find-fork-point.ts ...');
 		const out = execFileSync('bun', [join(import.meta.dir, 'find-fork-point.ts'), '--json'], {
 			encoding: 'utf-8',
 			env: gitEnv(),
@@ -172,7 +172,7 @@ function main() {
 				.join('  ')
 	);
 	console.log(
-		'Review EVERY commit by reading its diff — integrate, mark already-present, or exclude with a reason.'
+		'Review EVERY commit by reading its diff: integrate, mark already-present, or exclude with a reason.'
 	);
 	console.log(
 		'Tags/categories are hints only (ordering + how much adaptation), never a gate: do not skip, integrate, or exclude a commit from its label.'
@@ -188,11 +188,9 @@ function main() {
 	}
 	console.log('');
 	console.log(
-		'A category flags a fork-divergence area to adapt carefully. NO category is not a free pass —'
+		'A category flags a fork-divergence area to adapt carefully. A commit with NO category'
 	);
-	console.log(
-		'still read the diff and give that commit a verdict; never blind-apply an untagged one.'
-	);
+	console.log('still gets its diff read and a verdict; never blind-apply an untagged one.');
 	console.log('Oversized commit? Triage within it by file/hunk, not by pre-squash branch commits.');
 }
 

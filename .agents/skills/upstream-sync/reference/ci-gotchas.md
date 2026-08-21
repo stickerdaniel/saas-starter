@@ -7,7 +7,7 @@ the gates that fail an upstream-sync PR in CI. Check these explicitly before the
 
 CI runs the project-wide `lint` script (`eslint .` + `oxlint`). When a ported commit adds
 a new ESLint rule, that rule fires on **all pre-existing fork files**, not just the files
-the commit changed — so a file-scoped check passes while CI fails. Always run the full
+the commit changed, so a file-scoped check passes while CI fails. Always run the full
 project lint before the PR:
 
 ```bash
@@ -21,7 +21,7 @@ rule), or the rule's PR cannot merge.
 
 If a ported commit adopts typed environment variables (declaring required vars that the
 backend deploy validates), the CI deploy step runs the backend deploy and **fails on a
-missing required var** — even though the local build never deploys. For each newly
+missing required var**, even though the local build never deploys. For each newly
 required var, ensure it exists as a preview deployment default (and in production) before
 merging. A required var that is set dynamically per-deploy must still have a default so
 the presence check passes.
@@ -30,7 +30,7 @@ the presence check passes.
 
 Deploy runs in CI, not locally. A green local build proves compilation, not deployability.
 Backend-deploy permission/secret problems (e.g. a deploy key lacking a permission a new
-command needs) only surface in the CI build log — read it there rather than trusting the
+command needs) only surface in the CI build log. Read it there rather than trusting the
 local build.
 
 ## 4. Merge state

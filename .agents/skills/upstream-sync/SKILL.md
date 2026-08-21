@@ -7,10 +7,10 @@ allowed-tools: Bash, Read, Edit, Grep, Glob
 
 # Upstream Template Sync
 
-Pull later template changes into this fork. The goal is to review **every** upstream
-enhancement, understand it, and integrate what fits — bug fixes, features, refactors,
-chores, and security fixes alike. Security fixes are never optional and apply first,
-but this is a comprehensive review, not a security-only pass.
+Pull later template changes into this fork. Review **every** upstream commit and
+integrate what fits: bug fixes, features, refactors, chores, and security fixes alike.
+Security fixes apply first and are never optional, and every other commit still gets
+the same review.
 
 This fork was created by **content-copy** (GitHub "Use this template"), so it shares
 **NO git ancestor** with upstream: `git merge`, `git rebase`, and `gh repo sync` do
@@ -23,12 +23,12 @@ manually-adapted port.
 
 ## When to STOP and ask the human
 
-- A candidate commit touches a file this fork has heavily rewritten (auth, schema, deploy config) — show the diff, do not auto-apply.
-- Fork-point detection returns a `closest-tree GUESS` (the bootstrap commit was edited) — confirm before proceeding.
+- A candidate commit touches a file this fork has heavily rewritten (auth, schema, deploy config). Show the diff, do not auto-apply.
+- Fork-point detection returns a `closest-tree GUESS` (the bootstrap commit was edited). Confirm before proceeding.
 - A ported commit needs an env var that does not exist as a preview deployment default.
 - Before opening the PR, and before any merge. Never auto-merge.
 
-## Step 1 — Discover (read-only, never writes)
+## Step 1: Discover (read-only)
 
 ```bash
 bun .agents/skills/upstream-sync/scripts/find-fork-point.ts        # fork point via tree-SHA match
@@ -43,7 +43,7 @@ the default). The upstream defaults to the template this skill shipped from; if 
 fork was forked from another fork, pass `--upstream <url>` (or set `upstreamUrl` in the
 marker) to point at the right template.
 
-## Step 2 — Isolated worktree off main
+## Step 2: Isolated worktree off main
 
 Never work in the shared checkout (a parallel process can sweep up staged files).
 
@@ -51,31 +51,31 @@ Never work in the shared checkout (a parallel process can sweep up staged files)
 bun run worktree chore/upstream-sync --base main
 ```
 
-## Step 3 — Detect THIS fork's divergences
+## Step 3: Detect THIS fork's divergences
 
 Do not assume; detect from the diff against the fork point. Categories: branding/legal
 config, theme/design tokens, env/deploy config, i18n content, fork-owned features. See
 [reference/divergence-categories.md](reference/divergence-categories.md). A commit
 touching a diverged file needs extra care: re-apply the upstream _intent_ onto the
-fork's values. A commit that touches no diverged area is **not** a free pass — it still
-gets the full Step 4 verdict. Divergence categories change how much adaptation a commit
-needs, never whether you review it.
+fork's values. A commit that touches no diverged area still gets the full Step 4
+verdict. Divergence categories change how much adaptation a commit needs, never whether
+you review it.
 
-## Step 4 — Review and classify every commit
+## Step 4: Review and classify every commit
 
-The priority tag and divergence categories from Step 1 are **hints only** — for
-ordering and for how much adaptation a commit needs. They are never a gate or a
-substitute for review. Read **every** commit's actual diff and give it an explicit
-verdict; never integrate, skip, or exclude a commit from its label alone, and never
-blind-apply an untagged or unlabeled commit. "Security first" is about apply order, not
-about which commits to look at — you look at all of them.
+The priority tag and divergence categories from Step 1 are **hints only**: they set
+ordering and how much adaptation a commit needs. They are never a gate or a substitute
+for review. Read **every** commit's actual diff and give it an explicit verdict; never
+integrate, skip, or exclude a commit from its label alone, and never blind-apply an
+untagged or unlabeled commit. "Security first" is about apply order; you still read
+every commit.
 
 Process oldest-first (dependency order). Apply security and bug fixes first, then
 features/refactors/chores. For each commit, from its diff, decide:
 
-- **Integrate** — applies to this fork (possibly adapted).
-- **Already present** — the fork already has equivalent code (grep / `git log` the fork). Skip.
-- **Exclude** — conflicts with a deliberate fork divergence, or re-introduces something
+- **Integrate.** Applies to this fork, possibly adapted.
+- **Already present.** The fork already has equivalent code (grep / `git log` the fork). Skip.
+- **Exclude.** Conflicts with a deliberate fork divergence, or re-introduces something
   the fork removed. Record `{sha, reason}` in `.upstream-sync.json` so it is not
   re-triaged next sync.
 
@@ -85,15 +85,15 @@ rename). Port prerequisites first or together; never batch-apply the whole range
 The review unit is the squashed first-parent commit; for an oversized commit, triage
 within it by file/hunk. See [reference/triage.md](reference/triage.md).
 
-## Step 5 — Apply, dependency-aware
+## Step 5: Apply, dependency-aware
 
 Cherry-pick or hand-port in order.
 
-- **Branding/theme/config**: re-apply the upstream _intent_ on the fork's values; never clobber fork branding or tokens.
-- **i18n JSON conflicts**: use a JSON-aware 3-way deep merge, NEVER a line-based resolver (it corrupts nested objects). See [reference/i18n-merge.md](reference/i18n-merge.md), then run the locale-parity test.
+- **Branding/theme/config.** Re-apply the upstream _intent_ on the fork's values; never clobber fork branding or tokens.
+- **i18n JSON conflicts.** Use a JSON-aware 3-way deep merge, NEVER a line-based resolver (it corrupts nested objects). See [reference/i18n-merge.md](reference/i18n-merge.md), then run the locale-parity test.
 - Skip any commit that purely reverts a fork choice (rebrand, font, removed feature).
 
-## Step 6 — Validate against WHOLE-PROJECT CI (not file-scoped)
+## Step 6: Validate against WHOLE-PROJECT CI
 
 `scripts/static-checks.ts` is file-scoped and misses project-wide gates. Run the
 project-wide lint, type check, unit tests, and a build before the PR. A newly ported
@@ -102,7 +102,7 @@ var, ensure it exists as a preview deployment default (CI's `convex deploy` fail
 missing required var; a green local build does not cover the deploy step). See
 [reference/ci-gotchas.md](reference/ci-gotchas.md).
 
-## Step 7 — Ship ONE consolidated PR (never a stack)
+## Step 7: Ship ONE consolidated PR
 
 One branch off current `main` with all integrated commits, grouped thematically for
 readable history but applied in dependency order. Do NOT stack PRs (deleting a stack
@@ -116,12 +116,11 @@ commit `.upstream-sync.json`.
 
 ## Large syncs (many commits): fan out per-commit, not per-category
 
-Run the two discovery scripts once, then parallelize the _triage_ one agent per commit
-(plus an adversarial recheck of every dismissal) — the commit is the atomic unit of
-intent and the only granularity where cross-commit dependencies are visible. A single
-**lead** owns the one worktree branch and is the only writer (serialized commits);
-subagents return patches + verdicts + dependency notes as text, the lead applies them
-in dependency order. Keep the invariant: one branch, one writer, one consolidated PR.
+Run the two discovery scripts once, then parallelize the _triage_ one agent per commit,
+plus an adversarial recheck of every dismissal. The commit is the unit of intent and the
+only level where cross-commit dependencies are visible. A single **lead** owns the one
+worktree branch and is the only writer (serialized commits); subagents return patches +
+verdicts + dependency notes as text, the lead applies them in dependency order. Keep the invariant: one branch, one writer, one consolidated PR.
 
 ## Template-bug linkage (do not strip on rebrand)
 

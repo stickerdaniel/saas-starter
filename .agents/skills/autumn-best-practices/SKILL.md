@@ -1,13 +1,13 @@
 ---
 name: autumn-best-practices
-description: Skill for integrating Autumn - the billing and entitlements layer over Stripe.
+description: Integrate Autumn, the billing and entitlements layer over Stripe.
 ---
 
 # Autumn Integration Guide
 
 **Always consult [docs.useautumn.com](https://docs.useautumn.com) for code examples and latest API.**
 
-Autumn is a TypeScript-first billing SDK supporting subscriptions, usage-based pricing, credits, trials, and more via Stripe.
+Autumn is a TypeScript-first billing SDK for subscriptions, usage-based pricing, credits, and trials on top of Stripe.
 
 ---
 
@@ -15,7 +15,7 @@ Autumn is a TypeScript-first billing SDK supporting subscriptions, usage-based p
 
 ### Environment Variables
 
-- `AUTUMN_SECRET_KEY` - API key (required). Get one at [app.useautumn.com](https://app.useautumn.com/dev?tab=api_keys)
+- `AUTUMN_SECRET_KEY`: API key (required). Get one at [app.useautumn.com](https://app.useautumn.com/dev?tab=api_keys)
 
 ### Installation
 
@@ -131,12 +131,12 @@ import { AutumnProvider } from 'autumn-js/react';
 
 ## Common Gotchas
 
-1. **URL field** - Checkout URL is `data.url`, not `data.checkout_url`
-2. **Frontend checks** - For UX only. Always enforce on backend
-3. **Track after success** - Only track usage after work completes
-4. **Credit systems** - Track metered features, not the credit system itself
-5. **Cancel via free plan** - Prefer `attach({ product_id: "free" })` over `cancel()`
-6. **Idempotent creation** - `customers.create` returns existing customer if ID exists
+1. **URL field.** The checkout URL is `data.url`, not `data.checkout_url`
+2. **Frontend checks.** For UX only. Always enforce on the backend
+3. **Track after success.** Only track usage after the work completes
+4. **Credit systems.** Track metered features, not the credit system itself
+5. **Cancel via free plan.** Prefer `attach({ product_id: "free" })` over `cancel()`
+6. **Idempotent creation.** `customers.create` returns the existing customer if the ID exists
 
 ---
 
