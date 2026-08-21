@@ -24,6 +24,13 @@ import { devNotice } from '../dev/notice';
 // Required for triggers to work - references internal auth functions
 const authFunctions: AuthFunctions = internal.auth;
 
+// Better Auth mints verification tokens with a one-hour lifetime unless
+// `emailVerification.expiresIn` says otherwise
+// (better-auth/dist/api/routes/email-verification.mjs, `expiresIn = 3600`).
+// Both the token and the sentence in the email read this, so the copy cannot
+// promise a window the token does not have.
+const VERIFICATION_EXPIRY_MINUTES = 60;
+
 type SignupMethod = 'Email' | 'Google' | 'GitHub';
 
 type SignupNotificationUser = {
@@ -409,9 +416,10 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
 				await mutationCtx.runMutation(internal.emails.send.sendVerificationEmail, {
 					email,
 					verificationUrl: url,
-					expiryMinutes: 20
+					expiryMinutes: VERIFICATION_EXPIRY_MINUTES
 				});
 			},
+			expiresIn: VERIFICATION_EXPIRY_MINUTES * 60,
 			sendOnSignUp: true,
 			// Password sign-in on an unverified account is the documented way out
 			// of a rejected OAuth link. Without this the attempt is rejected with
