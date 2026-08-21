@@ -6,7 +6,7 @@
 		"enabled": false
 	},
 	"osvVulnerabilityAlerts": true,
-	"dependencyDashboardOSVVulnerabilitySummary": "unresolved",
+	"dependencyDashboardOSVVulnerabilitySummary": "all",
 	"vulnerabilityAlerts": {
 		"enabled": true,
 		"labels": ["security"],
@@ -14,7 +14,7 @@
 	},
 	"packageRules": [
 		{
-			"description": "Pin the versions this manifest resolves itself, both its runtime dependencies and its overrides. A range wide enough to span a security fix hides a lockfile sitting below it: GitHub's dependency graph does not read bun.lock, and Renovate's bun manager attaches the lockfile without parsing it, so it never learns a locked version either. osvVulnerabilityAlerts then evaluates the newest version the range allows and correctly reports nothing. Pinning removes the gap rather than reporting it, and config:best-practices already pins devDependencies for the same reason.",
+			"description": "Pin the versions this manifest resolves itself, both its runtime dependencies and its overrides. A range wide enough to span a security fix hides a lockfile sitting below it: GitHub's dependency graph does not read bun.lock, and Renovate's bun manager attaches the lockfile without parsing it, so it never learns a locked version either. osvVulnerabilityAlerts then evaluates the newest version the range allows and correctly reports nothing. Pinning removes the gap rather than reporting it, and config:best-practices already pins devDependencies for the same reason. It closes the declared half only: a package that exists nowhere but bun.lock is never extracted, so OSV cannot see it and no pin can reach it. `bun audit` does read the lockfile and currently reports advisories on transitive packages this cannot cover.",
 			"matchDepTypes": ["dependencies", "overrides"],
 			"rangeStrategy": "pin"
 		},
