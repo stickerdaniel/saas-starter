@@ -635,7 +635,7 @@
 			"title": "Restablece tu contraseña"
 		},
 		"set_password": {
-			"body": "Has pedido iniciar sesión con una contraseña. Tu cuenta todavía no tiene ninguna, así que este enlace establece una:",
+			"body": "Hemos recibido una solicitud para añadir una contraseña a tu cuenta. Todavía no tiene ninguna, así que este enlace la establece:",
 			"button": "Establecer contraseña",
 			"disclaimer": "Si no lo has solicitado, puedes ignorar este correo. Tu cuenta no cambia y puedes seguir iniciando sesión como hasta ahora.",
 			"expiry": "Este enlace caducará en 1 hora por seguridad.",
