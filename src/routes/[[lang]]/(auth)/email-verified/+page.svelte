@@ -4,7 +4,7 @@
 	import { useSearchParams } from 'runed/kit';
 	import { redirectParamsSchema } from '$lib/schemas/auth.js';
 	import { localizedHref } from '$lib/utils/i18n';
-	import { safeRedirectPath } from '$lib/utils/url';
+	import { safeAuthDestination } from '$lib/utils/url';
 	import * as Card from '$lib/components/ui/card/index.js';
 	import { LoadingBar } from '$lib/components/ui/loading-bar/index.js';
 	import { T, getTranslate } from '@tolgee/svelte';
@@ -31,7 +31,7 @@
 
 		const timeoutId = setTimeout(() => {
 			hasRedirected = true;
-			const destination = safeRedirectPath(params.redirectTo, localizedHref('/app'));
+			const destination = safeAuthDestination(params.redirectTo, localizedHref('/app'));
 			window.location.href = destination;
 		}, remaining);
 
@@ -44,7 +44,7 @@
 
 		const timeoutId = setTimeout(() => {
 			if (!auth.isLoading && !auth.isAuthenticated) {
-				const destination = safeRedirectPath(params.redirectTo, localizedHref('/app'));
+				const destination = safeAuthDestination(params.redirectTo, localizedHref('/app'));
 				const signinUrl = `${localizedHref('/signin')}?redirectTo=${encodeURIComponent(destination)}`;
 				window.location.href = signinUrl;
 			}

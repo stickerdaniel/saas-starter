@@ -28,6 +28,30 @@ export function safeRedirectPath(url: string, fallback: string): string {
 	}
 }
 
+/**
+ * Narrow a caller-supplied destination to a page of this application.
+ *
+ * `safeRedirectPath` answers the open-redirect question, which is whether a
+ * path stays on this origin, and every path does. That is not enough for a
+ * destination sign-in hands to Better Auth: the same value becomes the
+ * `callbackURL` of the recovery verification link, and a failure is reported by
+ * appending `?error=<CODE>` to it, so the destination also has to be something
+ * a server hook will see. `/favicon.ico` is same-origin and passes the callback
+ * grammar, and Cloudflare answers it from the asset store before this
+ * application's Worker is reached at all, so the failure would arrive as an
+ * icon and say nothing.
+ *
+ * Requiring the language prefix costs nothing, because `handleLanguage`
+ * redirects a prefixless path before any auth rule reads it, so every
+ * destination the application itself writes already carries one. What it leaves
+ * out is exactly the static files, which are not pages and were never a
+ * destination anyone asked for.
+ */
+export function safeAuthDestination(url: string, fallback: string): string {
+	const path = safeRedirectPath(url, fallback);
+	return /^\/[a-z]{2}(?:[/?#]|$)/.test(path) ? path : fallback;
+}
+
 function hasUnsafeUrlCharacters(value: string): boolean {
 	return value.includes('\\') || hasControlCharacters(value);
 }
@@ -48,7 +72,10 @@ function hasControlCharacters(value: string): boolean {
  * homepage with the code in a parameter nothing reads.
  *
  * `redirectTo` is carried through so a failed attempt does not lose the
- * destination the user was heading for. It is untrusted input from the current
+ * destination the user was heading for. It stays on the wide check rather than
+ * `safeAuthDestination`: here it is a passenger inside the query of a page this
+ * module already chose, not the destination a failure gets appended to, and the
+ * page narrows it again when it actually navigates. It is untrusted input from the current
  * URL, so it passes the same whitelist as an actual navigation before being
  * embedded, and the result is narrowed again: this field is origin-checked like
  * any other callback, and `encodeURIComponent` leaves `!~'()*` unescaped, so a

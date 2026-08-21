@@ -10,6 +10,7 @@
 	import { redirectParamsSchema } from '$lib/schemas/auth.js';
 	import { signInSchema } from './schema.js';
 	import { localizedHref } from '$lib/utils/i18n';
+	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
 	import { T, getTranslate } from '@tolgee/svelte';
 	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
@@ -28,7 +29,7 @@
 		getOAuthCallbackErrorKey,
 		getVerificationErrorKey
 	} from '$lib/utils/auth-messages';
-	import { callbackURLFor, oauthErrorCallbackURL, safeRedirectPath } from '$lib/utils/url';
+	import { callbackURLFor, oauthErrorCallbackURL, safeAuthDestination } from '$lib/utils/url';
 	import SignInForm from './SignInForm.svelte';
 	import { useSearchParams } from 'runed/kit';
 
@@ -54,7 +55,17 @@
 	);
 
 	let isLoading = $state(false);
-	let formError = $state('');
+	/**
+	 * Seeded from the page URL rather than from `params`, so the first render
+	 * carries the message. `useSearchParams` fills its cache only in the browser
+	 * (`if (!this.#options.updateURL || !BROWSER || building) return;` in
+	 * runed/dist/utilities/use-search-params), and an `$effect` does not run
+	 * during SSR at all, so reading either one here would ship a blank form to a
+	 * user whose link just failed and leave it blank for good if hydration never
+	 * lands. The rewrite that clears the parameter stays in the effect below,
+	 * which is a browser concern and nothing renders from.
+	 */
+	let formError = $state(callbackErrorKey(page.url.searchParams.get('error')) ?? '');
 	let lastValidSignInSubmission = $state<string | null>(null);
 	let termsLink = $state<HTMLAnchorElement | null>(null);
 	let authRedirectStarted = false;
@@ -106,7 +117,7 @@
 	function redirectAfterAuthentication() {
 		if (authRedirectStarted) return;
 		authRedirectStarted = true;
-		window.location.href = safeRedirectPath(params.redirectTo, localizedHref('/app'));
+		window.location.href = safeAuthDestination(params.redirectTo, localizedHref('/app'));
 	}
 
 	// Redirect when authenticated
@@ -158,7 +169,7 @@
 					// verification link from this same field, defaulting it to `/` and
 					// dropping both the locale and the continuation with it.
 					callbackURL: callbackURLFor(
-						safeRedirectPath(params.redirectTo, localizedHref('/app')),
+						safeAuthDestination(params.redirectTo, localizedHref('/app')),
 						localizedHref('/app')
 					)
 				},
@@ -198,7 +209,7 @@
 			await authClient.signIn.social({
 				provider,
 				callbackURL: callbackURLFor(
-					safeRedirectPath(params.redirectTo, localizedHref('/app')),
+					safeAuthDestination(params.redirectTo, localizedHref('/app')),
 					localizedHref('/app')
 				),
 				// Without this the callback reports a failure to Better Auth's default
@@ -214,6 +225,17 @@
 		}
 	}
 
+	/**
+	 * The two namespaces that reach this page's `error` parameter, read in the
+	 * order that matters: a verification code is not an OAuth code, and the
+	 * OAuth reader answers for anything, so asking it first would report an
+	 * expired link as a social sign-in failure and send the user back to the
+	 * provider that worked.
+	 */
+	function callbackErrorKey(code: string | null | undefined): string | null {
+		return getVerificationErrorKey(code) ?? getOAuthCallbackErrorKey(code);
+	}
+
 	// A callback failure comes back as a URL parameter, since the page that
 	// started the flow is gone by the time the provider answers. The
 	// verification interstitial forwards a failed signup link the same way, and
@@ -221,8 +243,7 @@
 	// fallback below would report a link that expired as a social sign-in
 	// failure and send the user back to the provider that worked.
 	$effect(() => {
-		const errorKey =
-			getVerificationErrorKey(params.error) ?? getOAuthCallbackErrorKey(params.error);
+		const errorKey = callbackErrorKey(params.error);
 		if (!errorKey) return;
 		formError = errorKey;
 		clearPendingOAuthProvider();

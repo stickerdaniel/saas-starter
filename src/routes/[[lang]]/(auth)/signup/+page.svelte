@@ -10,6 +10,7 @@
 	import { redirectParamsSchema } from '$lib/schemas/auth.js';
 	import { signUpSchema } from '../signin/schema.js';
 	import { localizedHref } from '$lib/utils/i18n';
+	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
 	import { T, getTranslate } from '@tolgee/svelte';
 	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
@@ -23,7 +24,7 @@
 		type LastAuthMethod
 	} from '$lib/hooks/last-auth-method.svelte.ts';
 	import { getAuthErrorKey, getOAuthCallbackErrorKey } from '$lib/utils/auth-messages';
-	import { callbackURLFor, oauthErrorCallbackURL, safeRedirectPath } from '$lib/utils/url';
+	import { callbackURLFor, oauthErrorCallbackURL, safeAuthDestination } from '$lib/utils/url';
 	import SignUpForm from '../signin/SignUpForm.svelte';
 	import VerificationStep from '../signin/VerificationStep.svelte';
 	import { useSearchParams } from 'runed/kit';
@@ -52,7 +53,9 @@
 	const signinHref = $derived(resolve(localizedHref('/signin') + signinLinkSearch));
 
 	let isLoading = $state(false);
-	let formError = $state('');
+	// Seeded from the page URL for the same reason sign-in is: `useSearchParams`
+	// is empty during SSR, so the first render would carry no message.
+	let formError = $state(getOAuthCallbackErrorKey(page.url.searchParams.get('error')) ?? '');
 	let verificationStep = $state<{ email: string } | null>(null);
 	let lastValidSignUpSubmission = $state<string | null>(null);
 
@@ -108,7 +111,7 @@
 	// Redirect when authenticated (but not during verification step)
 	$effect(() => {
 		if (auth.isAuthenticated && !verificationStep) {
-			const destination = safeRedirectPath(params.redirectTo, localizedHref('/app'));
+			const destination = safeAuthDestination(params.redirectTo, localizedHref('/app'));
 			window.location.href = destination;
 		}
 	});
@@ -147,7 +150,7 @@
 
 		try {
 			let failed = false;
-			const finalDestination = safeRedirectPath(params.redirectTo, localizedHref('/app'));
+			const finalDestination = safeAuthDestination(params.redirectTo, localizedHref('/app'));
 			// Narrowed for the same reason the sign-in callback is, and it matters
 			// more here: a rejected callback URL fails the sign-up call outright,
 			// so an unlucky destination would stop an account being created at all.
@@ -200,7 +203,7 @@
 			await authClient.signIn.social({
 				provider,
 				callbackURL: callbackURLFor(
-					safeRedirectPath(params.redirectTo, localizedHref('/app')),
+					safeAuthDestination(params.redirectTo, localizedHref('/app')),
 					localizedHref('/app')
 				),
 				// Without this the callback reports a failure to Better Auth's default

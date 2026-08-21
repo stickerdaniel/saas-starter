@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { oauthErrorCallbackURL, safeRedirectPath, splitDestinationError } from '../url';
+import {
+	oauthErrorCallbackURL,
+	safeAuthDestination,
+	safeRedirectPath,
+	splitDestinationError
+} from '../url';
 
 describe('safeRedirectPath', () => {
 	it('returns a valid relative path unchanged', () => {
@@ -188,5 +193,45 @@ describe('splitDestinationError', () => {
 			errorCode: 'TOKEN_EXPIRED'
 		});
 		expect(safeRedirectPath('/%', '/app')).toBe('/app');
+	});
+});
+
+describe('safeAuthDestination', () => {
+	it('keeps a localized page destination whole', () => {
+		expect(safeAuthDestination('/en/app/settings?tab=billing', '/en/app')).toBe(
+			'/en/app/settings?tab=billing'
+		);
+		expect(safeAuthDestination('/de', '/de/app')).toBe('/de');
+		expect(safeAuthDestination('/fr?checkout=pro', '/fr/app')).toBe('/fr?checkout=pro');
+	});
+
+	/**
+	 * The reason this exists. Both of these are same-origin and both pass the
+	 * Better Auth callback grammar, so `safeRedirectPath` alone hands them to
+	 * the recovery verification link. Cloudflare serves a root asset before this
+	 * application's Worker is reached, so appending `?error=TOKEN_EXPIRED` to one
+	 * produces the file and no message at all.
+	 */
+	it('refuses a destination that is not a page', () => {
+		expect(safeAuthDestination('/favicon.ico', '/en/app')).toBe('/en/app');
+		expect(safeAuthDestination('/robots.txt', '/en/app')).toBe('/en/app');
+		expect(safeAuthDestination('/sitemap.xml', '/en/app')).toBe('/en/app');
+		expect(safeAuthDestination('/_app/immutable/chunk.js', '/en/app')).toBe('/en/app');
+	});
+
+	/**
+	 * A prefixless path is not a loss: handleLanguage redirects one to its
+	 * localized form before any auth rule reads it, so the fallback lands the
+	 * visitor where the prefixless value would have taken them anyway.
+	 */
+	it('refuses a path without the language prefix', () => {
+		expect(safeAuthDestination('/app', '/en/app')).toBe('/en/app');
+		expect(safeAuthDestination('/pricing', '/en/app')).toBe('/en/app');
+	});
+
+	it('still rejects everything safeRedirectPath rejects', () => {
+		expect(safeAuthDestination('//evil.example/en/app', '/en/app')).toBe('/en/app');
+		expect(safeAuthDestination('https://evil.example/en/app', '/en/app')).toBe('/en/app');
+		expect(safeAuthDestination('', '/en/app')).toBe('/en/app');
 	});
 });

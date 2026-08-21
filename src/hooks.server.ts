@@ -13,7 +13,8 @@ import { applyCacheControl } from '$lib/server/cache-control';
 import { decodeJwtPayload } from '$lib/server/jwt';
 import { resolveConvexToken } from '$lib/server/convex-jwt';
 import { loadSentry } from '$lib/monitoring/sentry';
-import { safeRedirectPath, splitDestinationError } from '$lib/utils/url';
+import { safeAuthDestination, splitDestinationError } from '$lib/utils/url';
+import { VERIFICATION_FAILURE_CODES } from '$lib/utils/auth-messages';
 import { SIDEBAR_COOKIE_NAME } from '$lib/components/ui/sidebar/constants.js';
 
 if (!PUBLIC_SENTRY_DSN) {
@@ -258,10 +259,38 @@ function unwrapInterstitial(destination: string, lang: string): string {
 		}
 
 		if (!/^\/[a-z]{2}\/email-verified$/.test(parsed.pathname)) return current;
-		current = safeRedirectPath(parsed.searchParams.get('redirectTo') ?? '', `/${lang}/app`);
+		current = safeAuthDestination(parsed.searchParams.get('redirectTo') ?? '', `/${lang}/app`);
 	}
 
 	return `/${lang}/app`;
+}
+
+/**
+ * Where a signed-in visitor on an auth page is sent, or null to leave them on it.
+ *
+ * Sending them on is right almost always: the page they are looking at is a
+ * sign-in form they no longer need. The exception is a page carrying the report
+ * of a link that failed, because sign-in is the only page that shows one and
+ * the bounce would drop the parameter on the way past. Better Auth rejects an
+ * expired token before it looks at the session (`redirectOnError` runs ahead of
+ * any session work in better-auth/dist/api/routes/email-verification.mjs), so an
+ * old verification mail opened in a signed-in browser arrives exactly here, and
+ * nothing about clicking it again produces a different outcome.
+ *
+ * Only the four verification codes hold the visitor. An OAuth callback code
+ * reaches the same parameter and the same page, but it arrives on a browser
+ * that has just failed to authenticate rather than one already carrying a
+ * session, so the combination does not occur.
+ */
+export function authPageRedirect(search: string, lang: string): string | null {
+	const params = new URLSearchParams(search);
+
+	const errorCode = params.get('error');
+	if (errorCode !== null && VERIFICATION_FAILURE_CODES.has(errorCode)) {
+		return null;
+	}
+
+	return safeAuthDestination(params.get('redirectTo') ?? '', `/${lang}/app`);
 }
 
 /**
@@ -285,10 +314,10 @@ const authFirstPattern: Handle = async function authFirstPattern({ event, resolv
 	}
 
 	if (isAuthPage(pathname) && authenticated) {
-		// Defer searchParams access to avoid errors during prerendering
-		const redirectToParam = event.url.searchParams.get('redirectTo');
-		const destination = safeRedirectPath(redirectToParam ?? '', `/${lang}/app`);
-		redirect(307, destination);
+		const destination = authPageRedirect(safeUrlSearch(event.url), lang);
+		if (destination !== null) {
+			redirect(307, destination);
+		}
 	}
 	if (isProtectedRoute(pathname) && !authenticated) {
 		const destination = `/${lang}/signin?redirectTo=${encodeURIComponent(event.url.pathname + safeUrlSearch(event.url))}`;

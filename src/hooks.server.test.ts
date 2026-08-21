@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+	authPageRedirect,
 	resolveBarePathLanguage,
 	shouldBypassLanguageRedirect,
 	verificationFailureRedirect
@@ -126,5 +127,45 @@ describe('verificationFailureRedirect', () => {
 		expect(verificationFailureRedirect('/de/app', '?error=INVALID_TOKEN', 'de')).toBe(
 			'/de/signin?redirectTo=%2Fde%2Fapp&error=INVALID_TOKEN'
 		);
+	});
+});
+
+describe('authPageRedirect', () => {
+	it('sends a signed-in visitor to the destination they arrived with', () => {
+		expect(authPageRedirect('?redirectTo=%2Fen%2Fapp%2Fsettings', 'en')).toBe('/en/app/settings');
+	});
+
+	it('falls back to the localized app when nothing usable came with them', () => {
+		expect(authPageRedirect('', 'de')).toBe('/de/app');
+		expect(authPageRedirect('?redirectTo=https%3A%2F%2Fevil.example', 'de')).toBe('/de/app');
+	});
+
+	/**
+	 * The case round 13 found. An expired verification mail opened in a browser
+	 * that already holds a session lands on sign-in through
+	 * verificationFailureRedirect, and bouncing it onward would drop the only
+	 * report of the failure that exists. The link cannot be retried into a
+	 * better outcome, so the message is all the user can be given.
+	 */
+	it('leaves a signed-in visitor on the page that reports a failed link', () => {
+		for (const code of ['TOKEN_EXPIRED', 'INVALID_TOKEN', 'USER_NOT_FOUND', 'INVALID_USER']) {
+			expect(authPageRedirect(`?redirectTo=%2Fen%2Fapp&error=${code}`, 'en')).toBeNull();
+		}
+	});
+
+	it('still sends them on for an error the page reports without a link behind it', () => {
+		expect(authPageRedirect('?redirectTo=%2Fen%2Fapp&error=account_not_linked', 'en')).toBe(
+			'/en/app'
+		);
+	});
+
+	/**
+	 * A destination that is not a page of this application. Cloudflare answers a
+	 * root asset from the asset store before the Worker runs, so a failure
+	 * appended to one arrives as the file itself.
+	 */
+	it('refuses a destination outside the localized routes', () => {
+		expect(authPageRedirect('?redirectTo=%2Ffavicon.ico', 'en')).toBe('/en/app');
+		expect(authPageRedirect('?redirectTo=%2Frobots.txt', 'en')).toBe('/en/app');
 	});
 });

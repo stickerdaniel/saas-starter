@@ -66,7 +66,7 @@ const source = normalized(
 	)
 );
 
-const DESTINATION = "safeRedirectPath(params.redirectTo, localizedHref('/app'))";
+const DESTINATION = "safeAuthDestination(params.redirectTo, localizedHref('/app'))";
 
 /**
  * Better Auth applies its own, stricter relative-path rule to `callbackURL`,
