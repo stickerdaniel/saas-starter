@@ -59,6 +59,32 @@ describe('verificationFailureRedirect', () => {
 		).toBe('/en/signin?redirectTo=%2Fen%2Fpricing%3Fcheckout%3Dpro&error=TOKEN_EXPIRED');
 	});
 
+	it('unwraps the interstitial rather than carrying it forward', () => {
+		// A signed-in visitor opening someone else's expired link bounces off
+		// sign-in straight back to `redirectTo`. Carrying the interstitial there
+		// put them on a page announcing a verification that had just failed.
+		expect(
+			verificationFailureRedirect(
+				'/en/email-verified',
+				'?redirectTo=%2Fen%2Fapp&error=TOKEN_EXPIRED',
+				'en'
+			)
+		).toBe('/en/signin?redirectTo=%2Fen%2Fapp&error=TOKEN_EXPIRED');
+	});
+
+	it('falls back when the interstitial carries nothing usable', () => {
+		expect(verificationFailureRedirect('/de/email-verified', '?error=INVALID_TOKEN', 'de')).toBe(
+			'/de/signin?redirectTo=%2Fde%2Fapp&error=INVALID_TOKEN'
+		);
+		expect(
+			verificationFailureRedirect(
+				'/en/email-verified',
+				'?redirectTo=%2F%2Fevil.com&error=INVALID_TOKEN',
+				'en'
+			)
+		).toBe('/en/signin?redirectTo=%2Fen%2Fapp&error=INVALID_TOKEN');
+	});
+
 	it('leaves sign-in alone, which reads the code itself', () => {
 		expect(verificationFailureRedirect('/en/signin', '?error=TOKEN_EXPIRED', 'en')).toBeNull();
 	});

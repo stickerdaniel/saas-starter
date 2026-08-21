@@ -203,6 +203,20 @@ const handleHtmlLang: Handle = async function handleHtmlLang({ event, resolve })
  *
  * Returns null for sign-in itself, which is where this sends people and which
  * reads the code from the query on its own.
+ *
+ * Two limits, both measured. A prerendered destination is served as a static
+ * file and no hook runs, so `/en/privacy?error=TOKEN_EXPIRED` renders and says
+ * nothing; the app writes only protected routes and `/pricing` into
+ * `redirectTo`, and `/pricing` sets `prerender = false`, so reaching that state
+ * takes a hand-built URL. Excluding the prerendered routes here would mean a
+ * second list of them that drifts from the real one in silence, which is worse
+ * than a documented gap whose cost is a missing sentence.
+ *
+ * The second is a widening rather than a hole: Better Auth appends the same
+ * `INVALID_TOKEN` to a failed password-reset callback, so an expired reset link
+ * now lands on sign-in with the same message instead of on a reset form that
+ * ignored the parameter. Sign-in carries the forgot-password link, and the
+ * token that came with it was rejected anyway.
  */
 export function verificationFailureRedirect(
 	pathname: string,
@@ -214,7 +228,16 @@ export function verificationFailureRedirect(
 	const { destination, errorCode } = splitDestinationError(pathname + search);
 	if (errorCode === null) return null;
 
-	return `/${lang}/signin?redirectTo=${encodeURIComponent(destination)}&error=${errorCode}`;
+	// The sign-up interstitial is a waiting room rather than a destination, and
+	// carrying it forward is what let a signed-in visitor be told an address had
+	// been verified: sign-in sends an authenticated caller straight back to
+	// `redirectTo`, and the code is not part of that value. Unwrap to what the
+	// interstitial was itself carrying, so the bounce lands on a real page.
+	const target = /^\/[a-z]{2}\/email-verified$/.test(pathname)
+		? safeRedirectPath(new URLSearchParams(search).get('redirectTo') ?? '', `/${lang}/app`)
+		: destination;
+
+	return `/${lang}/signin?redirectTo=${encodeURIComponent(target)}&error=${errorCode}`;
 }
 
 /**
