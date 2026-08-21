@@ -142,6 +142,17 @@ describe('email verification recovery', () => {
 		// `expiresIn` compares configuration with itself and would stay green
 		// through a Better Auth release that stopped honouring the option.
 		expect(sent).toHaveLength(1);
-		expect(sent[0].expiryMinutes * 60).toBe(tokenLifetime(sent[0].verificationUrl));
+		// Within a second, because `signJWT` reads the clock twice: once to
+		// compute `exp` while building the token and once inside `setIssuedAt()`
+		// at signing time (better-auth/dist/crypto/jwt.mjs). A second boundary
+		// between the two makes `iat` the later of the pair, so the lifetime the
+		// token carries is the configured one or one second short of it. Wider
+		// than that is a real disagreement.
+		expect(sent[0].expiryMinutes * 60 - tokenLifetime(sent[0].verificationUrl)).toBeLessThanOrEqual(
+			1
+		);
+		expect(
+			sent[0].expiryMinutes * 60 - tokenLifetime(sent[0].verificationUrl)
+		).toBeGreaterThanOrEqual(0);
 	});
 });
