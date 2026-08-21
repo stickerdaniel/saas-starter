@@ -355,12 +355,12 @@
 			"title": "Forgot password"
 		},
 		"messages": {
-			"account_not_linked": "This email already has an account that was never verified. Sign in with your password to verify it, then try social sign-in again.",
+			"account_not_linked": "This email already has an account that was never verified. Sign in with your password to verify it, then try social sign-in again. If you did not set that password, reset it first.",
 			"auth_cancelled": "Authentication was cancelled",
 			"credential_account_not_found": "This account has no password set.",
 			"credential_account_unusable": "This account cannot set a password here. Sign out, then use the reset link on the sign-in page.",
 			"email_change_failed": "Failed to change email",
-			"email_not_verified": "Please verify your email address. We just sent you a new link.",
+			"email_not_verified": "Please verify your email address. Check your inbox for the link, and sign in again to request a new one.",
 			"email_same_as_current": "New email must be different from current email",
 			"email_updated": "Email updated successfully",
 			"email_verification_sent": "Verification email sent to your current address. Please check your inbox to approve the change.",

@@ -355,12 +355,12 @@
 			"title": "Mot de passe oublié"
 		},
 		"messages": {
-			"account_not_linked": "Cette adresse e-mail possède déjà un compte qui n'a jamais été vérifié. Connectez-vous avec votre mot de passe pour le vérifier, puis réessayez la connexion sociale.",
+			"account_not_linked": "Cette adresse e-mail possède déjà un compte qui n'a jamais été vérifié. Connectez-vous avec votre mot de passe pour le vérifier, puis réessayez la connexion sociale. Si vous n'avez pas défini ce mot de passe, réinitialisez-le d'abord.",
 			"auth_cancelled": "L'authentification a été annulée",
 			"credential_account_not_found": "Aucun mot de passe n'est défini pour ce compte.",
 			"credential_account_unusable": "Ce compte ne peut pas définir de mot de passe ici. Déconnectez-vous, puis utilisez le lien de réinitialisation sur la page de connexion.",
 			"email_change_failed": "Impossible de modifier l'e-mail",
-			"email_not_verified": "Veuillez vérifier votre adresse e-mail. Nous venons de vous envoyer un nouveau lien.",
+			"email_not_verified": "Veuillez vérifier votre adresse e-mail. Consultez votre boîte de réception pour trouver le lien et reconnectez-vous pour en demander un nouveau.",
 			"email_same_as_current": "Le nouvel e-mail doit être différent de l'actuel",
 			"email_updated": "E-mail mis à jour avec succès",
 			"email_verification_sent": "Un e-mail de vérification a été envoyé à votre adresse actuelle. Vérifiez votre boîte de réception pour approuver le changement.",

@@ -355,12 +355,12 @@
 			"title": "Passwort vergessen"
 		},
 		"messages": {
-			"account_not_linked": "Für diese E-Mail-Adresse gibt es bereits ein Konto, das nie bestätigt wurde. Melden Sie sich mit Ihrem Passwort an, um es zu bestätigen, und versuchen Sie die soziale Anmeldung dann erneut.",
+			"account_not_linked": "Für diese E-Mail-Adresse gibt es bereits ein Konto, das nie bestätigt wurde. Melden Sie sich mit Ihrem Passwort an, um es zu bestätigen, und versuchen Sie die soziale Anmeldung dann erneut. Wenn Sie dieses Passwort nicht selbst festgelegt haben, setzen Sie es zuerst zurück.",
 			"auth_cancelled": "Authentifizierung abgebrochen",
 			"credential_account_not_found": "Für dieses Konto ist kein Passwort festgelegt.",
 			"credential_account_unusable": "Für dieses Konto kann hier kein Passwort eingerichtet werden. Melden Sie sich ab und verwenden Sie dann den Link zum Zurücksetzen auf der Anmeldeseite.",
 			"email_change_failed": "E-Mail konnte nicht geändert werden",
-			"email_not_verified": "Bitte bestätigen Sie Ihre E-Mail-Adresse. Wir haben Ihnen gerade einen neuen Link geschickt.",
+			"email_not_verified": "Bitte bestätigen Sie Ihre E-Mail-Adresse. Prüfen Sie Ihren Posteingang auf den Link und melden Sie sich erneut an, um einen neuen anzufordern.",
 			"email_same_as_current": "Neue E-Mail muss sich von der aktuellen E-Mail unterscheiden",
 			"email_updated": "E-Mail erfolgreich aktualisiert",
 			"email_verification_sent": "Bestätigungs-E-Mail wurde an Ihre aktuelle Adresse gesendet. Bitte prüfen Sie Ihren Posteingang, um die Änderung zu bestätigen.",
