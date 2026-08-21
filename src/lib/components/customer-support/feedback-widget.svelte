@@ -198,8 +198,8 @@
 
 	// Handle handoff request
 	async function handleRequestHandoff() {
-		const success = await threadContext.requestHandoff(client);
-		if (!success) {
+		const outcome = await threadContext.requestHandoff(client);
+		if (outcome.kind !== 'applied') {
 			haptic.trigger('error');
 			toast.error($t('support.widget.error.handoff_failed'));
 		}
@@ -207,9 +207,9 @@
 
 	// Handle email notification submission
 	async function handleSubmitEmail(email: string) {
-		const success = await threadContext.setNotificationEmail(client, email);
-		if (!success) {
-			throw new Error('Failed to save email');
+		const outcome = await threadContext.setNotificationEmail(client, email);
+		if (outcome.kind !== 'saved') {
+			throw new Error(outcome.kind === 'missing_thread' ? outcome.kind : outcome.code);
 		}
 	}
 

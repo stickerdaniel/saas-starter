@@ -37,6 +37,8 @@
 	import DataTableFilters from './data-table-filters.svelte';
 	import type { ActionEvent } from './data-table-actions.svelte';
 	import { browser } from '$app/environment';
+	import { getAuthErrorKey } from '$lib/utils/auth-messages';
+	import { getConvexErrorData } from '$lib/utils/convex-errors';
 
 	let { data }: { data: PageData } = $props();
 
@@ -329,13 +331,17 @@
 		}
 	}
 
-	// ConvexError.message is the hybrid stacktrace; the server's actual
-	// message (e.g. "You cannot ban yourself") travels in error.data.
+	// The role mutation still has a legacy string-data boundary. Keep that
+	// compatibility path isolated from the normalized Better Auth operations.
 	function actionErrorMessage(error: unknown): string {
 		if (error instanceof ConvexError && typeof error.data === 'string') {
 			return error.data;
 		}
 		return error instanceof Error ? error.message : 'Unknown error';
+	}
+
+	function adminAuthErrorMessage(error: unknown): string {
+		return $t(getAuthErrorKey(getConvexErrorData(error)));
 	}
 
 	async function impersonateUser(userId: string) {
@@ -382,7 +388,7 @@
 			toast.success($t('admin.users.toast.banned'));
 			closeDialog();
 		} catch (error) {
-			const message = actionErrorMessage(error);
+			const message = adminAuthErrorMessage(error);
 			toast.error($t('admin.users.toast.ban_failed', { message }));
 			console.error('Ban error:', error);
 		} finally {
@@ -402,7 +408,7 @@
 			toast.success($t('admin.users.toast.unbanned'));
 			closeDialog();
 		} catch (error) {
-			const message = actionErrorMessage(error);
+			const message = adminAuthErrorMessage(error);
 			toast.error($t('admin.users.toast.unban_failed', { message }));
 			console.error('Unban error:', error);
 		} finally {
@@ -422,7 +428,7 @@
 			toast.success($t('admin.users.toast.revoked'));
 			closeDialog();
 		} catch (error) {
-			const message = actionErrorMessage(error);
+			const message = adminAuthErrorMessage(error);
 			toast.error($t('admin.users.toast.revoke_failed', { message }));
 			console.error('Revoke sessions error:', error);
 		} finally {

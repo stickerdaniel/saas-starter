@@ -9,6 +9,7 @@ import { CHAT_PAGE_SIZE } from '$lib/chat/core/types.js';
 import { isAnonymousUser } from '$lib/convex/utils/anonymousUser';
 import { isSupportAiEnabled } from '$lib/config/support';
 import type { ChatSessionPort } from '$lib/chat/core/chat-session-port.js';
+import { ChatCommandError } from '$lib/chat/core/chat-command-error.js';
 
 /**
  * View types for the support widget navigation
@@ -30,6 +31,14 @@ export interface ThreadSummary {
 	lastMessage?: string;
 	lastMessageAt?: number;
 }
+
+export type SupportHandoffOutcome =
+	{ kind: 'applied' } | { kind: 'missing_thread' } | { kind: 'failed'; code: 'handoff_failed' };
+
+export type NotificationEmailOutcome =
+	| { kind: 'saved'; email: string | null }
+	| { kind: 'missing_thread' }
+	| { kind: 'failed'; code: 'notification_update_failed' };
 
 /**
  * Thread context state
@@ -232,14 +241,14 @@ export class SupportThreadContext implements ChatSessionPort {
 	 * Request handoff to human support
 	 * This is a permanent action - AI will never respond in this thread again
 	 */
-	async requestHandoff(client: ConvexClient): Promise<boolean> {
+	async requestHandoff(client: ConvexClient): Promise<SupportHandoffOutcome> {
 		// Capture values in local variables to avoid $state proxy issues with optimistic updates
 		const threadId = this.threadId;
 		const userId = this.userId;
 
 		if (!threadId) {
 			console.error('[requestHandoff] No thread ID');
-			return false;
+			return { kind: 'missing_thread' };
 		}
 
 		// Optimistically hide the button immediately
@@ -273,13 +282,13 @@ export class SupportThreadContext implements ChatSessionPort {
 				}
 			);
 			this.clearError();
-			return true;
+			return { kind: 'applied' };
 		} catch (error) {
-			// Rollback on error
+			// Rollback the local mirror; Convex rolls back the optimistic query update.
 			this.isHandedOff = false;
 			console.error('[requestHandoff] Failed:', error);
-			this.setError('Failed to request human support. Please try again.');
-			return false;
+			this.setError('handoff_failed');
+			return { kind: 'failed', code: 'handoff_failed' };
 		}
 	}
 
@@ -291,14 +300,17 @@ export class SupportThreadContext implements ChatSessionPort {
 	 * while isEmailPending tracks whether mutation is still in flight.
 	 * Green check only shows when !isEmailPending (server confirmed).
 	 */
-	async setNotificationEmail(client: ConvexClient, email: string): Promise<boolean> {
+	async setNotificationEmail(
+		client: ConvexClient,
+		email: string
+	): Promise<NotificationEmailOutcome> {
 		// Capture values to avoid $state proxy issues
 		const threadId = this.threadId;
 		const userId = this.userId;
 
 		if (!threadId) {
 			console.error('[setNotificationEmail] No thread ID');
-			return false;
+			return { kind: 'missing_thread' };
 		}
 
 		const normalizedEmail = email.trim().toLowerCase();
@@ -339,11 +351,11 @@ export class SupportThreadContext implements ChatSessionPort {
 			// Mutation succeeded - update local state (query subscription will also update)
 			this.notificationEmail = normalizedEmail || null;
 			this.clearError();
-			return true;
+			return { kind: 'saved', email: this.notificationEmail };
 		} catch (error) {
 			console.error('[setNotificationEmail] Failed:', error);
-			this.setError('Failed to save email. Please try again.');
-			return false;
+			this.setError('notification_update_failed');
+			return { kind: 'failed', code: 'notification_update_failed' };
 		} finally {
 			// Clear pending state - green check can now appear
 			this.isEmailPending = false;
@@ -379,15 +391,15 @@ export class SupportThreadContext implements ChatSessionPort {
 	): Promise<{ threadId: string; threadCreated: boolean }> {
 		const trimmedPrompt = prompt.trim();
 
-		// Validate input
+		// Expected local refusals are machine-readable; callers own localized copy.
 		if (!trimmedPrompt) {
-			throw new Error('Cannot send message: empty prompt');
+			throw new ChatCommandError('empty_input');
 		}
 
 		// While a model is going to answer, block further sends until it does.
 		// Once the team owns the thread, allow fire-and-forget like admin view.
 		if (this.awaitsAgentReply && (this.isSending || this.isAwaitingStream)) {
-			throw new Error('Cannot send message: waiting for AI response');
+			throw new ChatCommandError('send_in_progress');
 		}
 
 		// Set sending state (used for blocking in AI mode)
@@ -468,7 +480,7 @@ export class SupportThreadContext implements ChatSessionPort {
 			return { threadId, threadCreated };
 		} catch (error) {
 			console.error('[sendMessage] Failed:', error);
-			this.setError(error instanceof Error ? error.message : 'Failed to send message');
+			this.setError('send_failed');
 			throw error;
 		} finally {
 			// Clear sending state

@@ -9,6 +9,7 @@ import {
 	syncAdminPreferences,
 	deactivateAdminPreferencesHelper
 } from './notificationPreferences/helpers';
+import { runAdminAuthApi } from './admin-auth-errors';
 
 /**
  * Helper to fetch all users from the BetterAuth component
@@ -44,19 +45,6 @@ async function findUserById(ctx: MutationCtx, userId: string): Promise<BetterAut
 }
 
 /**
- * Run a Better Auth admin API call, mapping its APIError to a ConvexError
- * so the client sees the actual failure message (e.g. "You cannot ban
- * yourself") instead of a generic server error.
- */
-async function runAdminAuthApi(call: () => Promise<unknown>, fallback: string): Promise<void> {
-	try {
-		await call();
-	} catch (error) {
-		throw new ConvexError(error instanceof Error && error.message ? error.message : fallback);
-	}
-}
-
-/**
  * Ban a user
  *
  * Calls the Better Auth admin API in-process (which also revokes the
@@ -76,9 +64,8 @@ export const banUser = adminMutation({
 	returns: v.object({ success: v.boolean() }),
 	handler: async (ctx, args) => {
 		const { auth, headers } = await authComponent.getAuth(createAuth, ctx);
-		await runAdminAuthApi(
-			() => auth.api.banUser({ body: { userId: args.userId, banReason: args.reason }, headers }),
-			'Failed to ban user'
+		await runAdminAuthApi('ban_user', () =>
+			auth.api.banUser({ body: { userId: args.userId, banReason: args.reason }, headers })
 		);
 
 		await ctx.db.insert('adminAuditLogs', {
@@ -109,9 +96,8 @@ export const unbanUser = adminMutation({
 	returns: v.object({ success: v.boolean() }),
 	handler: async (ctx, args) => {
 		const { auth, headers } = await authComponent.getAuth(createAuth, ctx);
-		await runAdminAuthApi(
-			() => auth.api.unbanUser({ body: { userId: args.userId }, headers }),
-			'Failed to unban user'
+		await runAdminAuthApi('unban_user', () =>
+			auth.api.unbanUser({ body: { userId: args.userId }, headers })
 		);
 
 		await ctx.db.insert('adminAuditLogs', {
@@ -142,9 +128,8 @@ export const revokeUserSessions = adminMutation({
 	returns: v.object({ success: v.boolean() }),
 	handler: async (ctx, args) => {
 		const { auth, headers } = await authComponent.getAuth(createAuth, ctx);
-		await runAdminAuthApi(
-			() => auth.api.revokeUserSessions({ body: { userId: args.userId }, headers }),
-			'Failed to revoke sessions'
+		await runAdminAuthApi('revoke_user_sessions', () =>
+			auth.api.revokeUserSessions({ body: { userId: args.userId }, headers })
 		);
 
 		await ctx.db.insert('adminAuditLogs', {

@@ -387,7 +387,11 @@
 			"signup_disabled": "L'inscription est désactivée",
 			"signup_failed": "Impossible de créer le compte",
 			"too_many_attempts": "Trop de tentatives. Réessayez plus tard.",
-			"user_already_exists": "Un compte avec cet e-mail existe déjà"
+			"user_already_exists": "Un compte avec cet e-mail existe déjà",
+			"admin_cannot_ban_self": "Vous ne pouvez pas bannir votre propre compte.",
+			"admin_user_not_found": "L’utilisateur sélectionné n’existe plus.",
+			"admin_action_not_allowed": "Vous n’êtes pas autorisé à effectuer cette action.",
+			"admin_action_failed": "L’action sur le compte n’a pas pu aboutir. Veuillez réessayer."
 		},
 		"reset_password": {
 			"back_to_signin": "Retour à la connexion",

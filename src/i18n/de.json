@@ -387,7 +387,11 @@
 			"signup_disabled": "Registrierung ist deaktiviert",
 			"signup_failed": "Konto konnte nicht erstellt werden",
 			"too_many_attempts": "Zu viele Versuche. Bitte versuchen Sie es später erneut.",
-			"user_already_exists": "Ein Konto mit dieser E-Mail existiert bereits"
+			"user_already_exists": "Ein Konto mit dieser E-Mail existiert bereits",
+			"admin_cannot_ban_self": "Sie können Ihr eigenes Konto nicht sperren.",
+			"admin_user_not_found": "Der ausgewählte Benutzer existiert nicht mehr.",
+			"admin_action_not_allowed": "Sie sind nicht berechtigt, diese Aktion auszuführen.",
+			"admin_action_failed": "Die Kontoaktion konnte nicht abgeschlossen werden. Bitte versuchen Sie es erneut."
 		},
 		"reset_password": {
 			"back_to_signin": "Zurück zur Anmeldung",

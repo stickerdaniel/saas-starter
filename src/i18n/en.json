@@ -387,7 +387,11 @@
 			"signup_disabled": "Sign up is disabled",
 			"signup_failed": "Failed to create account",
 			"too_many_attempts": "Too many attempts. Please try again later.",
-			"user_already_exists": "An account with this email already exists"
+			"user_already_exists": "An account with this email already exists",
+			"admin_cannot_ban_self": "You cannot ban your own account.",
+			"admin_user_not_found": "The selected user no longer exists.",
+			"admin_action_not_allowed": "You are not allowed to perform this action.",
+			"admin_action_failed": "The account action could not be completed. Please try again."
 		},
 		"reset_password": {
 			"back_to_signin": "Back to sign in",

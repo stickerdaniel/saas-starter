@@ -155,6 +155,24 @@ describe('getAuthErrorKey', () => {
 		});
 	});
 
+	// Stable application codes from the Convex Better Auth admin boundary
+	describe('admin action errors', () => {
+		it('maps known admin codes to localized keys', () => {
+			expect(getAuthErrorKey({ code: 'ADMIN_CANNOT_BAN_SELF' })).toBe(
+				'auth.messages.admin_cannot_ban_self'
+			);
+			expect(getAuthErrorKey({ code: 'ADMIN_USER_NOT_FOUND' })).toBe(
+				'auth.messages.admin_user_not_found'
+			);
+			expect(getAuthErrorKey({ code: 'ADMIN_ACTION_NOT_ALLOWED' })).toBe(
+				'auth.messages.admin_action_not_allowed'
+			);
+			expect(getAuthErrorKey({ code: 'ADMIN_AUTH_ACTION_FAILED' })).toBe(
+				'auth.messages.admin_action_failed'
+			);
+		});
+	});
+
 	// Fallback behavior
 	describe('fallback behavior', () => {
 		it('returns the fallback key for an unknown error code', () => {

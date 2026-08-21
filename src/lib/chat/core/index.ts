@@ -25,6 +25,7 @@ export type {
 } from './types.js';
 
 export type { ChatSessionPort, StreamCachePort } from './chat-session-port.js';
+export type { ChatCommandErrorCode } from './chat-command-error.js';
 
 export {
 	CHAT_PAGE_SIZE,
@@ -64,6 +65,7 @@ export { uploadFileWithProgress, uploadToStorage, UploadError } from './file-upl
 export type { ChatCoreAPI, ChatCoreOptions, CreateThreadResult } from './chat-core.svelte.ts';
 
 export { ChatCore, createChatCore } from './chat-core.svelte.ts';
+export { ChatCommandError } from './chat-command-error.js';
 
 // Composer persistence
 export { ChatDraftManager } from './chat-draft-manager.svelte.ts';

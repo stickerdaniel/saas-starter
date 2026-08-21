@@ -63,7 +63,8 @@ export type {
 	ChatCoreAPI,
 	ChatCoreOptions,
 	ChatSessionPort,
-	StreamCachePort
+	StreamCachePort,
+	ChatCommandErrorCode
 } from './core/index.js';
 
 export {
@@ -87,6 +88,7 @@ export {
 	UploadError,
 	ChatCore,
 	createChatCore,
+	ChatCommandError,
 	ChatDraftManager,
 	ChatAttachmentStore,
 	clearPersistedChatState

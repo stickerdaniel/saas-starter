@@ -387,7 +387,11 @@
 			"signup_disabled": "El registro está deshabilitado",
 			"signup_failed": "No se pudo crear la cuenta",
 			"too_many_attempts": "Demasiados intentos. Inténtalo más tarde.",
-			"user_already_exists": "Ya existe una cuenta con este correo electrónico"
+			"user_already_exists": "Ya existe una cuenta con este correo electrónico",
+			"admin_cannot_ban_self": "No puedes bloquear tu propia cuenta.",
+			"admin_user_not_found": "El usuario seleccionado ya no existe.",
+			"admin_action_not_allowed": "No tienes permiso para realizar esta acción.",
+			"admin_action_failed": "No se pudo completar la acción de la cuenta. Inténtalo de nuevo."
 		},
 		"reset_password": {
 			"back_to_signin": "Volver a iniciar sesión",

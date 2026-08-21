@@ -17,6 +17,7 @@ import { DEFAULT_CHAT_CONFIG } from './types.js';
 import { StreamCacheManager } from './stream-cache.js';
 import { createOptimisticUpdate, type ListMessagesArgs } from './optimistic.js';
 import type { ChatSessionPort } from './chat-session-port.js';
+import { ChatCommandError } from './chat-command-error.js';
 
 /**
  * Result from creating a thread
@@ -186,10 +187,14 @@ export class ChatCore implements ChatSessionPort {
 	): Promise<SendMessageResult & { threadCreated?: CreateThreadResult }> {
 		const trimmedPrompt = prompt.trim();
 
-		// Validate input
-		if (!trimmedPrompt || this.isSending) {
-			this.setError('Cannot send message yet. Please try again.');
-			throw new Error('Cannot send message: validation failed');
+		// Expected local refusals are machine-readable; callers own localized copy.
+		if (!trimmedPrompt) {
+			this.setError('empty_input');
+			throw new ChatCommandError('empty_input');
+		}
+		if (this.isSending) {
+			this.setError('send_in_progress');
+			throw new ChatCommandError('send_in_progress');
 		}
 
 		this.setSending(true);
@@ -257,7 +262,7 @@ export class ChatCore implements ChatSessionPort {
 			return { ...result, threadCreated };
 		} catch (error) {
 			console.error('[ChatCore.sendMessage] Failed to send message:', error);
-			this.setError('Failed to send message. Please try again.');
+			this.setError('send_failed');
 			this.setAwaitingStream(false);
 			// Optimistic update automatically rolled back on failure
 			throw error;

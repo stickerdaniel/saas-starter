@@ -11,6 +11,7 @@ import { adminMutation } from '../../functions';
 import { internalMutation } from '../../_generated/server';
 import { components } from '../../_generated/api';
 import { syncAdminPreferences } from './helpers';
+import { NOTIFICATION_EMAIL_ALREADY_EXISTS } from './errors';
 
 /**
  * Update a notification preference toggle
@@ -81,7 +82,7 @@ export const addCustomEmail = adminMutation({
 			.first();
 
 		if (existing) {
-			throw new ConvexError('This email already exists');
+			throw new ConvexError({ code: NOTIFICATION_EMAIL_ALREADY_EXISTS });
 		}
 
 		// Create new preference with all notifications enabled
