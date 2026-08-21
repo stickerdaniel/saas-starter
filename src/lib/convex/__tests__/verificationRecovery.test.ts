@@ -53,13 +53,15 @@ const CREDENTIALS = {
  * `emailVerification` blocks, backed by memory instead of Convex and with the
  * mail send captured rather than dispatched.
  */
+type VerificationMail = { verificationUrl: string; expiryMinutes: number };
+
 async function withCapturedVerificationMail() {
 	const { createAuthOptions } = await import('../auth');
-	const sentUrls: string[] = [];
+	const sent: VerificationMail[] = [];
 	const options = createAuthOptions({
-		runMutation: async (_mutation: unknown, args: { verificationUrl?: string }) => {
+		runMutation: async (_mutation: unknown, args: Partial<VerificationMail>) => {
 			if (args.verificationUrl !== undefined) {
-				sentUrls.push(args.verificationUrl);
+				sent.push(args as VerificationMail);
 			}
 		}
 	} as never);
@@ -74,9 +76,9 @@ async function withCapturedVerificationMail() {
 
 	await auth.api.signUpEmail({ body: CREDENTIALS });
 	// Drop the sign-up mail; the recovery path is what is under test.
-	sentUrls.length = 0;
+	sent.length = 0;
 
-	return { auth, sentUrls };
+	return { auth, sent, options };
 }
 
 /** The `callbackURL` Better Auth encodes into the verification link. */
@@ -94,7 +96,7 @@ describe('email verification recovery', () => {
 	});
 
 	it('carries the caller destination into the recovery link', async () => {
-		const { auth, sentUrls } = await withCapturedVerificationMail();
+		const { auth, sent } = await withCapturedVerificationMail();
 
 		await expect(
 			auth.api.signInEmail({
@@ -102,19 +104,31 @@ describe('email verification recovery', () => {
 			})
 		).rejects.toThrow();
 
-		expect(sentUrls).toHaveLength(1);
-		expect(callbackOf(sentUrls[0])).toBe('/de/app/settings');
+		expect(sent).toHaveLength(1);
+		expect(callbackOf(sent[0].verificationUrl)).toBe('/de/app/settings');
 	});
 
 	it('falls back to the site root when the caller sends no destination', async () => {
-		const { auth, sentUrls } = await withCapturedVerificationMail();
+		const { auth, sent } = await withCapturedVerificationMail();
 
 		await expect(auth.api.signInEmail({ body: CREDENTIALS })).rejects.toThrow();
 
 		// Not an assertion about what we want, but about what Better Auth does
 		// when the sign-in call omits `callbackURL`. It is why the sign-in page
 		// has to pass one: this is the link the user would otherwise receive.
-		expect(sentUrls).toHaveLength(1);
-		expect(callbackOf(sentUrls[0])).toBe('/');
+		expect(sent).toHaveLength(1);
+		expect(callbackOf(sent[0].verificationUrl)).toBe('/');
+	});
+
+	it('mails the expiry the token is actually minted with', async () => {
+		const { auth, sent, options } = await withCapturedVerificationMail();
+
+		await expect(auth.api.signInEmail({ body: CREDENTIALS })).rejects.toThrow();
+
+		// The mail renders a figure the recipient plans around, and nothing
+		// connects it to the token lifetime except this equality: the two are
+		// separate arguments, in different units, read by different code.
+		expect(sent).toHaveLength(1);
+		expect(sent[0].expiryMinutes * 60).toBe(options.emailVerification.expiresIn);
 	});
 });
