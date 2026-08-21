@@ -13,6 +13,11 @@
 	},
 	"packageRules": [
 		{
+			"description": "Pin runtime dependency versions. A range wide enough to span a security fix hides a lockfile sitting below it: GitHub's dependency graph does not read bun.lock, and Renovate's bun manager attaches the lockfile without parsing it, so it never learns a locked version either. osvVulnerabilityAlerts then evaluates the newest version the range allows and correctly reports nothing. Pinning removes the gap rather than reporting it, and config:best-practices already pins devDependencies for the same reason.",
+			"matchDepTypes": ["dependencies"],
+			"rangeStrategy": "pin"
+		},
+		{
 			"description": "Group all safe non-major updates together",
 			"matchUpdateTypes": ["minor", "patch", "pin", "digest"],
 			"groupName": "all non-major dependencies",
