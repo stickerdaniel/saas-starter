@@ -13,7 +13,7 @@ import { applyCacheControl } from '$lib/server/cache-control';
 import { decodeJwtPayload } from '$lib/server/jwt';
 import { resolveConvexToken } from '$lib/server/convex-jwt';
 import { loadSentry } from '$lib/monitoring/sentry';
-import { safeRedirectPath } from '$lib/utils/url';
+import { safeRedirectPath, splitDestinationError } from '$lib/utils/url';
 import { SIDEBAR_COOKIE_NAME } from '$lib/components/ui/sidebar/constants.js';
 
 if (!PUBLIC_SENTRY_DSN) {
@@ -186,6 +186,38 @@ const handleHtmlLang: Handle = async function handleHtmlLang({ event, resolve })
 };
 
 /**
+ * Where to send a browser arriving on a verification link that did not work.
+ *
+ * Better Auth reports such a failure by appending its code to the destination
+ * the link was minted with (`redirectOnError` in
+ * better-auth/dist/api/routes/email-verification.mjs). That destination is an
+ * ordinary page of ours and has no reason to know about it: a protected one
+ * bounces to sign-in with the code buried inside `redirectTo`, where nothing
+ * reads it and it rides into the next link, and a public one renders as if
+ * nothing had happened. `/en/pricing?checkout=pro` is the reachable case, since
+ * that is the `redirectTo` the pricing table writes for a signed-out visitor.
+ *
+ * Doing it here rather than on the pages is what makes it hold for every
+ * destination, including the ones that do not exist yet, and it happens before
+ * anything renders, so no page announces a success that did not occur.
+ *
+ * Returns null for sign-in itself, which is where this sends people and which
+ * reads the code from the query on its own.
+ */
+export function verificationFailureRedirect(
+	pathname: string,
+	search: string,
+	lang: string
+): string | null {
+	if (/^\/[a-z]{2}\/signin$/.test(pathname)) return null;
+
+	const { destination, errorCode } = splitDestinationError(pathname + search);
+	if (errorCode === null) return null;
+
+	return `/${lang}/signin?redirectTo=${encodeURIComponent(destination)}&error=${errorCode}`;
+}
+
+/**
  * Handle auth redirects with language-aware paths
  */
 const authFirstPattern: Handle = async function authFirstPattern({ event, resolve }) {
@@ -194,7 +226,16 @@ const authFirstPattern: Handle = async function authFirstPattern({ event, resolv
 
 	// Extract language from path (e.g., /en/signin -> en)
 	const langMatch = pathname.match(/^\/([a-z]{2})\//);
-	const lang = langMatch ? langMatch[1] : DEFAULT_LANGUAGE;
+	const lang = langMatch?.[1] ?? DEFAULT_LANGUAGE;
+
+	// Before every other rule, so a failed link is reported rather than wrapped
+	// into `redirectTo` by the protected-route branch below. `safeUrlSearch`
+	// because reading the query throws while prerendering, where no such URL
+	// exists anyway.
+	const verificationFailure = verificationFailureRedirect(pathname, safeUrlSearch(event.url), lang);
+	if (verificationFailure !== null) {
+		redirect(307, verificationFailure);
+	}
 
 	if (isAuthPage(pathname) && authenticated) {
 		// Defer searchParams access to avoid errors during prerendering

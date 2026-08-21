@@ -23,12 +23,7 @@
 		type LastAuthMethod
 	} from '$lib/hooks/last-auth-method.svelte.ts';
 	import { getAuthErrorKey, getOAuthCallbackErrorKey } from '$lib/utils/auth-messages';
-	import {
-		callbackURLFor,
-		oauthErrorCallbackURL,
-		safeRedirectPath,
-		splitDestinationError
-	} from '$lib/utils/url';
+	import { callbackURLFor, oauthErrorCallbackURL, safeRedirectPath } from '$lib/utils/url';
 	import SignUpForm from '../signin/SignUpForm.svelte';
 	import VerificationStep from '../signin/VerificationStep.svelte';
 	import { useSearchParams } from 'runed/kit';
@@ -39,7 +34,7 @@
 	const auth = useAuth();
 	// No debounce. The only writes this page makes are the callback-error
 	// parameters below, and they have to leave the address bar before anything
-	// reads `location.href` — analytics captures its first pageview on the
+	// reads `location.href`. Analytics captures its first pageview on the
 	// earliest user interaction, which easily beats a delayed navigation.
 	const params = useSearchParams(redirectParamsSchema, {
 		pushHistory: false
@@ -230,17 +225,6 @@
 		clearPendingOAuthProvider();
 		// One write, so the URL is rewritten once rather than twice.
 		params.update({ error: '', error_description: '' });
-	});
-
-	// A verification link reports its own failure by appending the code to the
-	// destination it was minted with. That destination is protected, so the
-	// browser arrives here with the code buried inside `redirectTo`, where
-	// nothing would read it and it would ride into the next link.
-	$effect(() => {
-		const { destination, errorCode } = splitDestinationError(params.redirectTo);
-		if (errorCode === null) return;
-		formError = getAuthErrorKey({ code: errorCode });
-		params.update({ redirectTo: destination });
 	});
 </script>
 
