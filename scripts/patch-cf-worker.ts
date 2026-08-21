@@ -28,6 +28,7 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { VERIFICATION_FAILURE_CODES } from '../src/lib/utils/auth-messages';
 
 // Match the entire if-condition body that gates static asset / prerendered serving.
 // The condition includes nested parens (e.g., prerendered.has(pathname), pathname.startsWith(immutable)),
@@ -54,6 +55,17 @@ export const ASSET_SERVE_PATTERN = /res = await (\w+)\.ASSETS\.fetch\(req\);?/;
 // homepage (/en) matches via the absent optional group; pricing is
 // intentionally absent, it is SSR via handleCacheControl, not prerendered.
 const MARKETING_ROUTE_PREDICATE = `const __isPublicMarketingHtml = /^\\/[a-z]{2}(\\/(privacy|terms|impressum))?\\/?$/.test(new URL(req.url).pathname);`;
+
+// A failed verification link reports itself by appending `?error=<CODE>` to
+// whatever callback URL it carried, and the gate that turns that into a message
+// lives in hooks.server.ts. A prerendered destination never reaches it: the
+// worker answers from the asset store first, so `/en/privacy?error=TOKEN_EXPIRED`
+// renders the privacy page and says nothing. Let those requests fall through to
+// server.respond() the same way a markdown request does. Built from the set the
+// gate itself reads, so a code added there cannot be forgotten here.
+const VERIFICATION_ERROR_PREDICATE = `const __hasVerificationError = /[?&]error=(${[
+	...VERIFICATION_FAILURE_CODES
+].join('|')})(?:&|$)/.test(new URL(req.url).search);`;
 
 // Replacement for the ASSETS.fetch call. `$1` is replaced with the captured env
 // binding. Prerendered marketing HTML bypasses SvelteKit hooks, so force a
@@ -95,10 +107,15 @@ export function applyMarkdownPatch(source: string): string | null {
 	if (CACHE_LOOKUP_PATTERN.test(patched)) {
 		patched = patched.replace(
 			CACHE_LOOKUP_PATTERN,
-			`const __wantsMarkdown = /\\btext\\/markdown\\b/i.test(req.headers.get("accept") || "");\n    ${MARKETING_ROUTE_PREDICATE}\n$1!__wantsMarkdown && !__isPublicMarketingHtml && $2`
+			`const __wantsMarkdown = /\\btext\\/markdown\\b/i.test(req.headers.get("accept") || "");\n    ${MARKETING_ROUTE_PREDICATE}\n    ${VERIFICATION_ERROR_PREDICATE}\n$1!__wantsMarkdown && !__isPublicMarketingHtml && $2`
 		);
-		// Step 2: Also skip static asset serving for markdown requests
-		patched = patched.replace(STATIC_SERVING_PATTERN, `$1!__wantsMarkdown && ($2))`);
+		// Step 2: Also skip static asset serving for markdown requests and for a
+		// verification failure that would otherwise be answered from the asset
+		// store before any hook runs.
+		patched = patched.replace(
+			STATIC_SERVING_PATTERN,
+			`$1!__wantsMarkdown && !__hasVerificationError && ($2))`
+		);
 	} else {
 		// Fail loud if cache-like code exists but didn't match (pattern drift).
 		// \w+ excludes dotted calls like server.respond(req, ...), so this only
@@ -114,7 +131,7 @@ export function applyMarkdownPatch(source: string): string | null {
 		// Fallback: inject before static serving (prerendered pages still fixed, no cache layer to bypass)
 		patched = patched.replace(
 			STATIC_SERVING_PATTERN,
-			`const __wantsMarkdown = /\\btext\\/markdown\\b/i.test(req.headers.get("accept") || "");\n${MARKETING_ROUTE_PREDICATE}\n$1!__wantsMarkdown && ($2))`
+			`const __wantsMarkdown = /\\btext\\/markdown\\b/i.test(req.headers.get("accept") || "");\n${MARKETING_ROUTE_PREDICATE}\n${VERIFICATION_ERROR_PREDICATE}\n$1!__wantsMarkdown && !__hasVerificationError && ($2))`
 		);
 	}
 

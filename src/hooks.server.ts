@@ -204,15 +204,15 @@ const handleHtmlLang: Handle = async function handleHtmlLang({ event, resolve })
  * Returns null for sign-in itself, which is where this sends people and which
  * reads the code from the query on its own.
  *
- * Two limits, both measured. A prerendered destination is served as a static
- * file and no hook runs, so `/en/privacy?error=TOKEN_EXPIRED` renders and says
- * nothing; the app writes only protected routes and `/pricing` into
- * `redirectTo`, and `/pricing` sets `prerender = false`, so reaching that state
- * takes a hand-built URL. Excluding the prerendered routes here would mean a
- * second list of them that drifts from the real one in silence, which is worse
- * than a documented gap whose cost is a missing sentence.
+ * A prerendered destination reaches this only because the build arranges it.
+ * The generated Worker answers such a path from the asset store before any hook
+ * runs, so `/en/privacy?error=TOKEN_EXPIRED` would render the privacy page and
+ * say nothing. `scripts/patch-cf-worker.ts` sends a request carrying one of
+ * these codes to `server.respond` instead, generating its predicate from the
+ * same set read here; it is the mechanism the markdown negotiation already
+ * depends on, not a new one.
  *
- * The second is a widening rather than a hole: Better Auth appends the same
+ * One widening rather than a hole: Better Auth appends the same
  * `INVALID_TOKEN` to a failed password-reset callback, so an expired reset link
  * now lands on sign-in with the same message instead of on a reset form that
  * ignored the parameter. Sign-in carries the forgot-password link, and the
