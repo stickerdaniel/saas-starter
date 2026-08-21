@@ -22,7 +22,13 @@ import { describe, expect, it, vi } from 'vitest';
  * flow promises, and no assertion on our own options can see that: the
  * defaulting happens inside the dependency. So the link is measured against a
  * real Better Auth instance carrying our real option blocks, with only the
- * database and the mail sink replaced.
+ * database replaced.
+ *
+ * The mail callbacks are the real ones too. Swapping `sendVerificationEmail`
+ * for a capturing stub would restore delivery that production had lost: delete
+ * the dispatch in auth.ts and such a test stays green while no mail is sent.
+ * The seam is one layer down, at the Convex context the callback reaches the
+ * mailer through.
  */
 
 vi.mock('../_generated/api', () => ({
@@ -49,23 +55,21 @@ const CREDENTIALS = {
  */
 async function withCapturedVerificationMail() {
 	const { createAuthOptions } = await import('../auth');
-	const options = createAuthOptions({} as never);
 	const sentUrls: string[] = [];
+	const options = createAuthOptions({
+		runMutation: async (_mutation: unknown, args: { verificationUrl?: string }) => {
+			if (args.verificationUrl !== undefined) {
+				sentUrls.push(args.verificationUrl);
+			}
+		}
+	} as never);
 
 	const auth = betterAuth({
 		baseURL: 'https://example.test',
 		secret: 'test-secret-that-is-long-enough-for-signing',
 		database: memoryAdapter({ user: [], session: [], account: [], verification: [] }),
-		emailAndPassword: {
-			...options.emailAndPassword,
-			sendResetPassword: async () => {}
-		},
-		emailVerification: {
-			...options.emailVerification,
-			sendVerificationEmail: async ({ url }: { url: string }) => {
-				sentUrls.push(url);
-			}
-		}
+		emailAndPassword: options.emailAndPassword,
+		emailVerification: options.emailVerification
 	});
 
 	await auth.api.signUpEmail({ body: CREDENTIALS });
@@ -81,7 +85,7 @@ function callbackOf(verificationUrl: string): string | null {
 }
 
 describe('email verification recovery', () => {
-	it('sends a fresh link when an unverified account signs in with a password', async () => {
+	it('keeps the options that make a password sign-in reissue the link', async () => {
 		const { createAuthOptions } = await import('../auth');
 		const options = createAuthOptions({} as never);
 
