@@ -5,12 +5,21 @@
 	"lockFileMaintenance": {
 		"enabled": false
 	},
+	"osvVulnerabilityAlerts": true,
+	"dependencyDashboardOSVVulnerabilitySummary": "all",
+	"dependencyDashboardHeader": "This issue lists Renovate updates and detected dependencies. Read the [Dependency Dashboard](https://docs.renovatebot.com/key-concepts/dashboard/) docs to learn more.\n\nAn advisory listed without a pull request has no fixed release Renovate can reach, and this list carries no severity for it. Open its OSV record before ranking it against the others.",
 	"vulnerabilityAlerts": {
+		"description": "Keep GitHub's advisory feed as a second source beside osvVulnerabilityAlerts, on its own schedule so a fix never waits for Monday. It is the source that still sees a scoped package whose OSV record encodes the scope separator as %2F, which Renovate's offline database looks up under a different spelling and never finds; GitHub matches on the package name and never compares a purl at all. This depends on a setting that is not in this file: Dependabot alerts have to be enabled on the repository, or the block is inert and OSV is the only source again.",
 		"enabled": true,
 		"labels": ["security"],
 		"schedule": ["at any time"]
 	},
 	"packageRules": [
+		{
+			"description": "Pin the versions this manifest resolves itself, both its runtime dependencies and its overrides. A range wide enough to span a security fix hides a lockfile sitting below it: GitHub's dependency graph does not read bun.lock, and Renovate's bun manager attaches the lockfile without parsing it, so it never learns a locked version either. osvVulnerabilityAlerts then evaluates the newest version the range allows and correctly reports nothing. Pinning removes the gap rather than reporting it, and config:best-practices already pins devDependencies for the same reason. Pinning reaches the declared half and only the declared half: a package that exists nowhere but bun.lock is never extracted, so OSV cannot see it and no pin can reach it. Even inside that half OSV is not the whole answer. Renovate's offline database keeps an advisory only when its purl matches the string Renovate builds itself, `pkg:npm/%40scope/name`, and 1042 of the 17582 scoped npm packages in today's snapshot have a record spelled `pkg:npm/%40scope%2Fname`, which is dropped without a word. `@better-auth/oauth-provider` is one of them, and 95 packages carry records in both spellings, so a package is not safe merely because one of its advisories matched. GitHub finds a package by name and never performs that comparison, which is why vulnerabilityAlerts stays enabled above as a second source. `bun audit` does read the lockfile and currently reports advisories on transitive packages neither source can cover.",
+			"matchDepTypes": ["dependencies", "overrides"],
+			"rangeStrategy": "pin"
+		},
 		{
 			"description": "Group all safe non-major updates together",
 			"matchUpdateTypes": ["minor", "patch", "pin", "digest"],
@@ -87,7 +96,7 @@
 			]
 		},
 		{
-			"description": "Disable AI ecosystem major updates until Convex Agent supports AI SDK v6",
+			"description": "Disable AI ecosystem major updates while Convex Agent pins the AI SDK major. It peers on ai ^6 today, so the next major has nowhere to land until the agent follows",
 			"matchUpdateTypes": ["major"],
 			"enabled": false,
 			"matchPackageNames": [
@@ -123,9 +132,49 @@
 			"enabled": false
 		},
 		{
-			"description": "Suppress abandonment warnings for packages we keep intentionally. clsx and husky are stable/feature-complete, date-fns still ships fixes (last commits 2025-09), vaul-svelte is stuck on 1.0.0-next.7 but has no viable Svelte 5 alternative, mode-watcher is dormant (last release 2025-06) but shallowly integrated with no active replacement; on the next Svelte major bump watch for the render_fn error (svecosystem/mode-watcher#161) and fall back to a ~50-line self-roll if it bites.",
+			"description": "Suppress abandonment warnings for packages we keep intentionally. clsx and husky are stable/feature-complete, date-fns still ships fixes, vaul-svelte is stuck on 1.0.0-next.7 but has no viable Svelte 5 alternative, mode-watcher is dormant (last release 2025-06) but shallowly integrated with no active replacement; on the next Svelte major bump watch for the render_fn error (svecosystem/mode-watcher#161) and fall back to a ~50-line self-roll if it bites.",
 			"matchPackageNames": ["clsx", "date-fns", "husky", "mode-watcher", "vaul-svelte"],
 			"abandonmentThreshold": "10 years"
+		},
+		{
+			"description": "Keep the pin conversion out of the upgrade groups. They list pin next to minor and patch, so the one-off conversion would join a branch that stays open for weeks, and until that branch merges the ranges it converts are still on main and still invisible to the advisory scan. The two ecosystem families get their own pin branches below rather than this one, for a different reason.",
+			"matchUpdateTypes": ["pin"],
+			"matchPackageNames": [
+				"!/^better-auth$/",
+				"!/^@better-auth//",
+				"!/^@convex-dev/better-auth$/",
+				"!/^@mmailaender/convex-better-auth-svelte$/",
+				"!/^ai$/",
+				"!/^@ai-sdk//",
+				"!/^@convex-dev/agent$/",
+				"!/^@openrouter/ai-sdk-provider$/"
+			],
+			"groupName": "dependency version pinning",
+			"groupSlug": "pin-dependencies"
+		},
+		{
+			"description": "Pin the Better Auth family on a branch of its own. Pinning resolves each package to the newest version its own range allows, independently of its siblings, so a family declared with a mix of ~ and ^ splits across a minor boundary and lands on a peer range it no longer satisfies. That needs reviewing as a set. It does not belong in the ecosystem group either: that branch carries ordinary upgrades and can sit open for weeks, which is the same trap as the generic groups.",
+			"matchUpdateTypes": ["pin"],
+			"matchPackageNames": [
+				"/^better-auth$/",
+				"/^@better-auth//",
+				"/^@convex-dev/better-auth$/",
+				"/^@mmailaender/convex-better-auth-svelte$/"
+			],
+			"groupName": "better-auth version pinning",
+			"groupSlug": "pin-better-auth"
+		},
+		{
+			"description": "Pin the AI family on a branch of its own, for the reason above.",
+			"matchUpdateTypes": ["pin"],
+			"matchPackageNames": [
+				"/^ai$/",
+				"/^@ai-sdk//",
+				"/^@convex-dev/agent$/",
+				"/^@openrouter/ai-sdk-provider$/"
+			],
+			"groupName": "ai version pinning",
+			"groupSlug": "pin-ai"
 		}
 	]
 }
