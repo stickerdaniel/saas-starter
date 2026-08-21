@@ -120,7 +120,8 @@ Run the two discovery scripts once, then parallelize the _triage_ one agent per 
 plus an adversarial recheck of every dismissal. The commit is the unit of intent and the
 only level where cross-commit dependencies are visible. A single **lead** owns the one
 worktree branch and is the only writer (serialized commits); subagents return patches +
-verdicts + dependency notes as text, the lead applies them in dependency order. Keep the invariant: one branch, one writer, one consolidated PR.
+verdicts + dependency notes as text, the lead applies them in dependency order. Keep the
+invariant: one branch, one writer, one consolidated PR.
 
 ## Template-bug linkage (do not strip on rebrand)
 

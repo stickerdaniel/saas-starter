@@ -114,7 +114,7 @@ function main() {
 		// Fallback: bootstrap was edited after copy, so no tree is identical. Pick the
 		// upstream commit with the SMALLEST diff to the fork root tree. This is a GUESS.
 		console.error(
-			'No exact tree-SHA match, bootstrap commit was likely edited. Computing closest tree (GUESS)...'
+			'No exact tree-SHA match; the bootstrap commit was likely edited. Computing closest tree (GUESS)...'
 		);
 		let best = '';
 		let bestChanges = Number.POSITIVE_INFINITY;
@@ -130,7 +130,7 @@ function main() {
 			}
 		}
 		forkPoint = best;
-		method = `closest-tree GUESS (~${bestChanges} line diff), CONFIRM before syncing`;
+		method = `closest-tree GUESS (~${bestChanges} line diff); CONFIRM before syncing`;
 	}
 
 	const forkPointSubject = git(['log', '-1', '--format=%s', forkPoint], true);
