@@ -61,6 +61,14 @@ const DESTINATIONS = [
 	'/caf%C3%A9',
 	'/app/a b',
 	'/app,list',
+	// The six characters `encodeURIComponent` leaves alone, which is how they
+	// reach a callback URL built by embedding a destination in a parameter.
+	'/de/signin?redirectTo=%2Fapp!x',
+	'/de/signin?redirectTo=%2Fapp~x',
+	"/de/signin?redirectTo=%2Fapp'x",
+	'/de/signin?redirectTo=%2Fapp(x',
+	'/de/signin?redirectTo=%2Fapp)x',
+	'/de/signin?redirectTo=%2Fapp*x',
 	'//evil.com',
 	'/\\evil.com'
 ];

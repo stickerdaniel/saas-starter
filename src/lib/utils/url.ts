@@ -50,11 +50,16 @@ function hasControlCharacters(value: string): boolean {
  * `redirectTo` is carried through so a failed attempt does not lose the
  * destination the user was heading for. It is untrusted input from the current
  * URL, so it passes the same whitelist as an actual navigation before being
- * embedded.
+ * embedded, and the result is narrowed again: this field is origin-checked like
+ * any other callback, and `encodeURIComponent` leaves `!~'()*` unescaped, so a
+ * destination carrying one of them would take the whole social sign-in down
+ * with a 403 rather than merely losing the deep link.
  */
 export function oauthErrorCallbackURL(pagePath: string, redirectTo: string): string {
 	const safeRedirectTo = safeRedirectPath(redirectTo, '');
-	return safeRedirectTo ? `${pagePath}?redirectTo=${encodeURIComponent(safeRedirectTo)}` : pagePath;
+	if (!safeRedirectTo) return pagePath;
+
+	return callbackURLFor(`${pagePath}?redirectTo=${encodeURIComponent(safeRedirectTo)}`, pagePath);
 }
 
 /**

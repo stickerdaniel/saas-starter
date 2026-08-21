@@ -153,8 +153,13 @@
 		try {
 			let failed = false;
 			const finalDestination = safeRedirectPath(params.redirectTo, localizedHref('/app'));
-			const callbackURL =
-				localizedHref('/email-verified') + `?redirectTo=${encodeURIComponent(finalDestination)}`;
+			// Narrowed for the same reason the sign-in callback is, and it matters
+			// more here: a rejected callback URL fails the sign-up call outright,
+			// so an unlucky destination would stop an account being created at all.
+			const callbackURL = callbackURLFor(
+				localizedHref('/email-verified') + `?redirectTo=${encodeURIComponent(finalDestination)}`,
+				localizedHref('/email-verified')
+			);
 			await authClient.signUp.email(
 				{
 					email: signUpData.email,
