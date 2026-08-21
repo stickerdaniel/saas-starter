@@ -48,8 +48,22 @@ function withoutComments(text: string): string {
 		.join('\n');
 }
 
-const source = withoutComments(
-	readFileSync(path.resolve('src/routes/[[lang]]/(auth)/signin/+page.svelte'), 'utf8')
+/**
+ * All whitespace removed, so the expectations below can be written on one line
+ * whatever the formatter does to the call. Prettier split this very call across
+ * four lines the moment it grew an argument, and padded the brackets while it
+ * was there; the guard went red over the layout alone. Nothing asserted here
+ * contains a meaningful space, so dropping every one of them is safe and needs
+ * no rule about where the formatter is allowed to break.
+ */
+function normalized(text: string): string {
+	return text.replace(/\s+/g, '');
+}
+
+const source = normalized(
+	withoutComments(
+		readFileSync(path.resolve('src/routes/[[lang]]/(auth)/signin/+page.svelte'), 'utf8')
+	)
 );
 
 const DESTINATION = "safeRedirectPath(params.redirectTo, localizedHref('/app'))";
@@ -63,16 +77,16 @@ const CALLBACK = `callbackURLFor(${DESTINATION}, localizedHref('/app'))`;
 
 describe('password sign-in callback URL', () => {
 	it('sends the destination Better Auth needs for the recovery link', () => {
-		const callStart = source.indexOf('authClient.signIn.email(');
+		const callStart = source.indexOf(normalized('authClient.signIn.email('));
 		expect(callStart, 'the sign-in call moved or was renamed').toBeGreaterThan(-1);
 
-		const callEnd = source.indexOf('if (!failed)', callStart);
+		const callEnd = source.indexOf(normalized('if (!failed)'), callStart);
 		expect(callEnd, 'the success branch moved; the slice below is unbounded').toBeGreaterThan(-1);
 
-		expect(source.slice(callStart, callEnd)).toContain(`callbackURL: ${CALLBACK}`);
+		expect(source.slice(callStart, callEnd)).toContain(normalized(`callbackURL: ${CALLBACK}`));
 	});
 
 	it('agrees with the redirect the page performs itself', () => {
-		expect(source).toContain(`window.location.href = ${DESTINATION};`);
+		expect(source).toContain(normalized(`window.location.href = ${DESTINATION};`));
 	});
 });
