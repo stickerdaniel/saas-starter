@@ -82,6 +82,21 @@ const OAUTH_CALLBACK_ERROR_MAP: Record<string, string> = {
 	account_not_linked: 'auth.messages.account_not_linked'
 };
 
+/**
+ * The codes Better Auth appends when a verification link itself fails, rather
+ * than the account behind it (`redirectOnError` in
+ * better-auth/dist/api/routes/email-verification.mjs). Exported because the
+ * destination splitter in $lib/utils/url needs the same list to tell a code
+ * Better Auth wrote from an `error` parameter the app put in a continuation URL
+ * itself.
+ */
+export const VERIFICATION_FAILURE_CODES = new Set([
+	'TOKEN_EXPIRED',
+	'INVALID_TOKEN',
+	'USER_NOT_FOUND',
+	'INVALID_USER'
+]);
+
 export const DEFAULT_AUTH_ERROR_KEY = 'auth.messages.generic_error';
 
 /**
@@ -114,4 +129,24 @@ export function getAuthErrorKey(
 	}
 
 	return fallbackKey;
+}
+
+/**
+ * Translate a verification-link failure into a message key.
+ *
+ * Returns `null` for anything else, including the lowercased OAuth callback
+ * codes, so a caller reading a shared `error` parameter can fall through to
+ * `getOAuthCallbackErrorKey`.
+ *
+ * All four codes reach the user the same way, as a link they clicked that did
+ * not work, and the only move available for any of them is to request a new
+ * one. Distinguishing them in the copy would tell an unauthenticated visitor
+ * whether an account exists.
+ */
+export function getVerificationErrorKey(code: string | null | undefined): string | null {
+	if (!code || !VERIFICATION_FAILURE_CODES.has(code)) {
+		return null;
+	}
+
+	return 'auth.messages.invalid_token';
 }

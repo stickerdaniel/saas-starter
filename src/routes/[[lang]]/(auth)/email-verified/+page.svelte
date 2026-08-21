@@ -5,6 +5,7 @@
 	import { redirectParamsSchema } from '$lib/schemas/auth.js';
 	import { localizedHref } from '$lib/utils/i18n';
 	import { safeRedirectPath } from '$lib/utils/url';
+	import { getVerificationErrorKey } from '$lib/utils/auth-messages';
 	import * as Card from '$lib/components/ui/card/index.js';
 	import { LoadingBar } from '$lib/components/ui/loading-bar/index.js';
 	import { T, getTranslate } from '@tolgee/svelte';
@@ -21,9 +22,29 @@
 	const verifiedDescription = $derived(
 		$t('auth.verification.verified_description').replace(/\. /u, '.\n')
 	);
+	// This page is the destination a signup verification link is minted with, so
+	// Better Auth reports a link that did not work by sending the browser here
+	// with the reason appended. Nothing else on the page can tell that apart
+	// from a successful verification: the session simply never appears, and
+	// without this the page announces a verification that did not happen and
+	// then bounces to sign-in ten seconds later saying nothing.
+	const verificationError = $derived(getVerificationErrorKey(params.error));
+
+	// Hand the failure to sign-in, which owns the recovery: signing in there is
+	// what mints a fresh link. The code travels as a parameter of its own so the
+	// page can name the reason rather than showing a bare form.
+	$effect(() => {
+		if (hasRedirected || verificationError === null) return;
+		hasRedirected = true;
+		const destination = safeRedirectPath(params.redirectTo, localizedHref('/app'));
+		window.location.href =
+			`${localizedHref('/signin')}?redirectTo=${encodeURIComponent(destination)}` +
+			`&error=${encodeURIComponent(params.error)}`;
+	});
 
 	// Redirect to destination once authenticated (with 1.5s min display time)
 	$effect(() => {
+		if (verificationError !== null) return;
 		if (auth.isLoading || !auth.isAuthenticated || hasRedirected) return;
 
 		const elapsed = Date.now() - pageLoadTime;
@@ -40,7 +61,7 @@
 
 	// Fallback: redirect to signin if auth has settled but user is not authenticated after 10s
 	$effect(() => {
-		if (hasRedirected) return;
+		if (hasRedirected || verificationError !== null) return;
 
 		const timeoutId = setTimeout(() => {
 			if (!auth.isLoading && !auth.isAuthenticated) {
@@ -68,12 +89,21 @@
 					<LoadingBar mode="loading" showBackground={false} class="h-1 rounded-none" />
 					<div class="flex h-full flex-col justify-center p-6 md:p-8">
 						<div class="flex flex-col items-center gap-2 text-center">
-							<h1 class="text-2xl font-bold">
-								<T keyName="auth.verification.verified_title" />
-							</h1>
-							<p class="text-balance whitespace-pre-line text-muted-foreground">
-								{verifiedDescription}
-							</p>
+							{#if verificationError !== null}
+								<h1 class="text-2xl font-bold">
+									<T keyName="auth.verification.failed_title" />
+								</h1>
+								<p class="text-balance text-muted-foreground">
+									{$t(verificationError)}
+								</p>
+							{:else}
+								<h1 class="text-2xl font-bold">
+									<T keyName="auth.verification.verified_title" />
+								</h1>
+								<p class="text-balance whitespace-pre-line text-muted-foreground">
+									{verifiedDescription}
+								</p>
+							{/if}
 						</div>
 					</div>
 				</div>

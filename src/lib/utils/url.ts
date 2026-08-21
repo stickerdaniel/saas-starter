@@ -1,3 +1,5 @@
+import { VERIFICATION_FAILURE_CODES } from './auth-messages';
+
 /**
  * Whitelist-validates a redirect URL: only same-origin root-relative paths
  * (starting with a single /) are allowed. Everything else returns the fallback,
@@ -75,13 +77,6 @@ export function oauthErrorCallbackURL(pagePath: string, redirectTo: string): str
  * own would both report it as an auth failure and drop the state the caller
  * asked to arrive with.
  */
-const VERIFICATION_FAILURES = new Set([
-	'TOKEN_EXPIRED',
-	'INVALID_TOKEN',
-	'USER_NOT_FOUND',
-	'INVALID_USER'
-]);
-
 export function splitDestinationError(destination: string): {
 	destination: string;
 	errorCode: string | null;
@@ -92,7 +87,7 @@ export function splitDestinationError(destination: string): {
 		const base = new URL('https://redirect.invalid');
 		const parsed = new URL(destination, base);
 		const errorCode = parsed.searchParams.get('error');
-		if (errorCode === null || !VERIFICATION_FAILURES.has(errorCode)) {
+		if (errorCode === null || !VERIFICATION_FAILURE_CODES.has(errorCode)) {
 			return { destination, errorCode: null };
 		}
 

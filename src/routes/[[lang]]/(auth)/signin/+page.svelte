@@ -23,7 +23,11 @@
 		setLastSuccessfulAuthMethod,
 		clearLastSuccessfulAuthMethod
 	} from '$lib/hooks/last-auth-method.svelte.ts';
-	import { getAuthErrorKey, getOAuthCallbackErrorKey } from '$lib/utils/auth-messages';
+	import {
+		getAuthErrorKey,
+		getOAuthCallbackErrorKey,
+		getVerificationErrorKey
+	} from '$lib/utils/auth-messages';
 	import {
 		callbackURLFor,
 		oauthErrorCallbackURL,
@@ -216,9 +220,14 @@
 	}
 
 	// A callback failure comes back as a URL parameter, since the page that
-	// started the flow is gone by the time the provider answers.
+	// started the flow is gone by the time the provider answers. The
+	// verification interstitial forwards a failed signup link the same way, and
+	// those codes have to be recognised first: they are not OAuth codes, so the
+	// fallback below would report a link that expired as a social sign-in
+	// failure and send the user back to the provider that worked.
 	$effect(() => {
-		const errorKey = getOAuthCallbackErrorKey(params.error);
+		const errorKey =
+			getVerificationErrorKey(params.error) ?? getOAuthCallbackErrorKey(params.error);
 		if (!errorKey) return;
 		formError = errorKey;
 		clearPendingOAuthProvider();

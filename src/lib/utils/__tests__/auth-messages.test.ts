@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
 	getAuthErrorKey,
 	getOAuthCallbackErrorKey,
+	getVerificationErrorKey,
 	DEFAULT_AUTH_ERROR_KEY
 } from '../auth-messages';
 
@@ -261,4 +262,26 @@ describe('getOAuthCallbackErrorKey', () => {
 	it.each([null, undefined, ''])('reports nothing when no code is present (%s)', (code) => {
 		expect(getOAuthCallbackErrorKey(code)).toBeNull();
 	});
+});
+
+describe('getVerificationErrorKey', () => {
+	// The four codes `redirectOnError` emits
+	// (better-auth/dist/api/routes/email-verification.mjs). They arrive in the
+	// same `error` parameter an OAuth callback failure uses, so the caller reads
+	// this first: the OAuth map lowercases and falls back, which would report an
+	// expired link as a failed social sign-in and send the user back to a
+	// provider that worked.
+	it.each(['TOKEN_EXPIRED', 'INVALID_TOKEN', 'USER_NOT_FOUND', 'INVALID_USER'])(
+		'names the link for %s',
+		(code) => {
+			expect(getVerificationErrorKey(code)).toBe('auth.messages.invalid_token');
+		}
+	);
+
+	it.each([null, undefined, '', 'account_not_linked', 'token_expired', 'INVALID_EMAIL'])(
+		'declines %s so the caller can fall through',
+		(code) => {
+			expect(getVerificationErrorKey(code)).toBeNull();
+		}
+	);
 });
