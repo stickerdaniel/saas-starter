@@ -19,7 +19,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { describe, expect, it } from 'vitest';
 
-import { findLiteralControlChar, ROUTES, resolveInputs } from './static-checks';
+import { ROUTES, resolveInputs } from './static-checks';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SCRIPT = path.join(ROOT, 'scripts', 'static-checks.ts');
@@ -85,55 +85,19 @@ describe('bad input dies at the boundary', () => {
 		expect(run(...args)).toBe(1);
 	});
 
-	it('still accepts a run with nothing staged', () => {
+	// `--staged` is the one case here that is not bad input, so it has to be asserted
+	// or nothing pins that the guards above leave it alone.
+	//
+	// It reads the real git index, which is the developer's, so with anything staged
+	// it lints those files for real and blows the 5s timeout. The index cannot be
+	// substituted from outside either: `sanitizedGitEnv` scrubs `GIT_INDEX_FILE`
+	// deliberately, because a pre-commit framework setting it points the run at the
+	// wrong worktree (#332). CI stages nothing, so the assertion always runs where it
+	// gates a merge, and a developer mid-commit gets a skip with the reason instead of
+	// a timeout that looks like a broken script.
+	const nothingStaged =
+		spawnSync('git', ['diff', '--cached', '--quiet'], { cwd: ROOT }).status === 0;
+	it.skipIf(!nothingStaged)('still accepts a run with nothing staged', () => {
 		expect(run('--staged', '--scope', 'lint')).toBe(0);
-	});
-});
-
-/**
- * A control character has to be written as an escape.
- *
- * The character itself is often right: NUL is the correct separator for a composite
- * key, because it cannot occur in the parts being joined. Writing it as the raw byte
- * is what breaks, since it renders as nothing. A reader sees an empty string where
- * the code means a separator, a text search matches nothing while appearing to
- * succeed, and git calls the file binary so its diffs stop being reviewable.
- *
- * The characters below are built with fromCharCode deliberately. Spelling them
- * literally here would put the very bytes this rule bans into its own guard, and
- * eslint's no-control-regex would reject a pattern containing them either way.
- */
-describe('findLiteralControlChar', () => {
-	const char = (code: number) => String.fromCharCode(code);
-
-	it.each([
-		['NUL', 0x00],
-		['SOH', 0x01],
-		['VT', 0x0b],
-		['FF', 0x0c],
-		['ESC', 0x1b],
-		['DEL', 0x7f]
-	])('finds a literal %s and reports its column', (_label, code) => {
-		expect(findLiteralControlChar(`const key = a + '${char(code)}' + b;`)).toBe(17);
-	});
-
-	// The fix is to make the byte visible, never to change what the code does, so the
-	// same separator spelled as an escape has to stay legal.
-	it.each(['\\u0000', '\\u0001', '\\0', '\\x00'])('allows the escape %s', (escape) => {
-		expect(findLiteralControlChar(`const key = a + '${escape}' + b;`)).toBeNull();
-	});
-
-	// Source is made of these. Flagging them would flag every file and the check
-	// would be switched off the same day.
-	it.each([
-		['tab', 0x09],
-		['newline', 0x0a],
-		['carriage return', 0x0d]
-	])('leaves %s alone', (_label, code) => {
-		expect(findLiteralControlChar(`const a = 1;${char(code)}const b = 2;`)).toBeNull();
-	});
-
-	it('reports the FIRST offender when a line carries several', () => {
-		expect(findLiteralControlChar(`a${char(0x01)}b${char(0x00)}c`)).toBe(1);
 	});
 });

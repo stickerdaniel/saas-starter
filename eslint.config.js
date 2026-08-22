@@ -23,6 +23,7 @@ import requireGuardedServerConvexClientRule from './eslint/rules/require-guarded
 import noFrozenAuthPageDataRule from './eslint/rules/no-frozen-auth-page-data.js';
 import requireSvelteModuleExtensionRule from './eslint/rules/require-svelte-module-extension.js';
 import noAnimatedPixelPressRule from './eslint/rules/no-animated-pixel-press.js';
+import noLiteralControlCharRule from './eslint/rules/no-literal-control-char.js';
 
 const gitignorePath = path.resolve(import.meta.dirname, '.gitignore');
 const localPlugin = {
@@ -41,7 +42,8 @@ const localPlugin = {
 		'require-guarded-server-convex-client': requireGuardedServerConvexClientRule,
 		'no-frozen-auth-page-data': noFrozenAuthPageDataRule,
 		'require-svelte-module-extension': requireSvelteModuleExtensionRule,
-		'no-animated-pixel-press': noAnimatedPixelPressRule
+		'no-animated-pixel-press': noAnimatedPixelPressRule,
+		'no-literal-control-char': noLiteralControlCharRule
 	}
 };
 
@@ -308,6 +310,19 @@ export default defineConfig(
 		},
 		rules: {
 			'local/no-animated-pixel-press': 'error'
+		}
+	},
+	// A control or bidirectional character written as itself is invisible in review
+	// and turns the file binary for git, so this has to reach every file ESLint
+	// parses. Scoping it to src/ would leave scripts/, config and the guard itself
+	// unchecked, which is where an unreviewable byte does the most damage.
+	{
+		files: ['**/*.{js,ts,svelte}'],
+		plugins: {
+			local: localPlugin
+		},
+		rules: {
+			'local/no-literal-control-char': 'error'
 		}
 	},
 	// Convex best-practice rules — v2 ships ESLint 9 flat config natively
