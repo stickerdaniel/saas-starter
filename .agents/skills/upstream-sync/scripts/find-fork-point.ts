@@ -12,7 +12,7 @@
  * else in the working tree. Persist the fork point yourself in
  * `.upstream-sync.json` (this script prints a ready-to-commit block).
  *
- * `--mark-synced <sha>` is the one exception and the one write: it sets
+ * `--mark-synced <sha>` is the one write it performs: it sets
  * `lastSynced` + `syncedAt` in the marker, which is how a finished sync records
  * where the next one starts. Commit that file as the sync branch's final commit.
  *
