@@ -85,7 +85,20 @@ describe('bad input dies at the boundary', () => {
 		expect(run(...args)).toBe(1);
 	});
 
-	it('still accepts a run with nothing staged', () => {
+	// `--staged` is the one case here that is not bad input, so it has to be asserted
+	// or nothing pins that the guards above leave it alone.
+	//
+	// It reads the real git index, which is the developer's, so with anything staged
+	// it lints those files for real and outruns vitest's default per-test timeout,
+	// which nothing here raises. The index cannot be
+	// substituted from outside either: `sanitizedGitEnv` scrubs `GIT_INDEX_FILE`
+	// deliberately, because a pre-commit framework setting it points the run at the
+	// wrong worktree (#332). CI stages nothing, so the assertion always runs where it
+	// gates a merge, and a developer mid-commit gets a skip with the reason instead of
+	// a timeout that looks like a broken script.
+	const nothingStaged =
+		spawnSync('git', ['diff', '--cached', '--quiet'], { cwd: ROOT }).status === 0;
+	it.skipIf(!nothingStaged)('still accepts a run with nothing staged', () => {
 		expect(run('--staged', '--scope', 'lint')).toBe(0);
 	});
 });

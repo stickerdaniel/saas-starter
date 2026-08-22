@@ -23,6 +23,7 @@ import requireGuardedServerConvexClientRule from './eslint/rules/require-guarded
 import noFrozenAuthPageDataRule from './eslint/rules/no-frozen-auth-page-data.js';
 import requireSvelteModuleExtensionRule from './eslint/rules/require-svelte-module-extension.js';
 import noAnimatedPixelPressRule from './eslint/rules/no-animated-pixel-press.js';
+import noLiteralControlCharRule from './eslint/rules/no-literal-control-char.js';
 
 const gitignorePath = path.resolve(import.meta.dirname, '.gitignore');
 const localPlugin = {
@@ -41,15 +42,23 @@ const localPlugin = {
 		'require-guarded-server-convex-client': requireGuardedServerConvexClientRule,
 		'no-frozen-auth-page-data': noFrozenAuthPageDataRule,
 		'require-svelte-module-extension': requireSvelteModuleExtensionRule,
-		'no-animated-pixel-press': noAnimatedPixelPressRule
+		'no-animated-pixel-press': noAnimatedPixelPressRule,
+		'no-literal-control-char': noLiteralControlCharRule
 	}
 };
 
 export default defineConfig(
 	includeIgnoreFile(gitignorePath),
-	// Ignore auto-generated files
+	// Convex codegen and varlock both emit a file-level `/* eslint-disable */`, which
+	// switches off every rule from inside the file. Ignoring those paths here changes
+	// nothing they would otherwise be checked for, so the entry stays.
+	//
+	// `src/env.d.ts` carries no such directive, so ignoring it was the only thing
+	// keeping it out of ESLint's reach. It is written from environment values, which
+	// come from outside this repository, which makes it the generated file most
+	// exposed to a character nobody typed. It is linted below instead.
 	{
-		ignores: ['**/_generated/**', 'src/env.d.ts', 'src/lib/convex/convex-env.d.ts']
+		ignores: ['**/_generated/**', 'src/lib/convex/convex-env.d.ts']
 	},
 	js.configs.recommended,
 	...ts.configs.recommended,
@@ -308,6 +317,28 @@ export default defineConfig(
 		},
 		rules: {
 			'local/no-animated-pixel-press': 'error'
+		}
+	},
+	// A control or bidirectional character written as itself is invisible in review
+	// and turns the file binary for git, so this has to reach every file ESLint
+	// parses. Scoping it to src/ would leave scripts/, config and the guard itself
+	// unchecked, which is where an unreviewable byte does the most damage.
+	{
+		files: ['**/*.{js,ts,svelte}'],
+		plugins: {
+			local: localPlugin
+		},
+		rules: {
+			'local/no-literal-control-char': 'error'
+		}
+	},
+	// The only rule `src/env.d.ts` trips, and it trips it by construction: varlock
+	// writes the directive into every generated header. Everything else, including the
+	// control-character rule above, applies to it.
+	{
+		files: ['src/env.d.ts'],
+		rules: {
+			'@typescript-eslint/ban-ts-comment': 'off'
 		}
 	},
 	// Convex best-practice rules — v2 ships ESLint 9 flat config natively
