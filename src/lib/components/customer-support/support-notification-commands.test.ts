@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ConvexClient } from 'convex/browser';
 import { SupportConversation } from './support-conversation.svelte.ts';
 import { SupportNavigationState } from './support-navigation-state.svelte.ts';
@@ -11,10 +11,16 @@ function clientWith(mutation: ReturnType<typeof vi.fn>): ConvexClient {
 describe('SupportNotificationCommands', () => {
 	let conversation: SupportConversation;
 	let commands: SupportNotificationCommands;
+	let errorSpy: ReturnType<typeof vi.spyOn>;
 
 	beforeEach(() => {
 		conversation = new SupportConversation(new SupportNavigationState());
 		commands = new SupportNotificationCommands(conversation);
+		errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+	});
+
+	afterEach(() => {
+		errorSpy.mockRestore();
 	});
 
 	it('normalizes and saves the email after applying an optimistic query update', async () => {
@@ -43,17 +49,16 @@ describe('SupportNotificationCommands', () => {
 	});
 
 	it('retains the confirmed email and returns a stable code on failure', async () => {
+		const defect = new Error('raw provider message');
 		conversation.setThread('thread-1', undefined, false, undefined, 'old@example.com');
 
 		await expect(
-			commands.setEmail(
-				clientWith(vi.fn().mockRejectedValue(new Error('raw provider message'))),
-				'new@example.com'
-			)
+			commands.setEmail(clientWith(vi.fn().mockRejectedValue(defect)), 'new@example.com')
 		).resolves.toEqual({ kind: 'failed', code: 'notification_update_failed' });
 		expect(conversation.notificationEmail).toBe('old@example.com');
 		expect(conversation.error).toBe('notification_update_failed');
 		expect(commands.isPending).toBe(false);
+		expect(errorSpy).toHaveBeenCalledWith('[setNotificationEmail] Failed:', defect);
 	});
 
 	it('reports a missing thread without entering pending state', async () => {

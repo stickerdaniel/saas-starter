@@ -3,7 +3,7 @@
 	import { authClient } from '$lib/auth-client';
 	import { watch } from 'runed';
 	import { api } from '$lib/convex/_generated/api';
-	import { supportThreadContext } from './support-thread-context.svelte.ts';
+	import { supportContext } from './support-context.svelte.ts';
 	import { lockscroll } from '@svelte-put/lockscroll';
 	import { IsMobile } from '$lib/hooks/is-mobile.svelte.ts';
 	import { toast } from 'svelte-sonner';
@@ -48,33 +48,33 @@
 		});
 	});
 
-	// Get thread context
-	const threadContext = supportThreadContext.get();
+	const support = supportContext.get();
+	const { navigation, conversation, handoff, notifications } = support;
 	const anonymousUserId = $derived.by(() => {
-		const userId = threadContext.userId;
+		const userId = conversation.userId;
 		return isAnonymousUser(userId) ? (userId ?? undefined) : undefined;
 	});
 
 	// Derive agent name from context with fallback
-	const agentName = $derived(threadContext.currentAgentName || 'Kai');
+	const agentName = $derived(conversation.currentAgentName || 'Kai');
 
 	// Whether the team is the counterpart, which is exactly the inverse of the
-	// context's send lock. Taken from there rather than recomputed, because two
+	// conversation's send lock. Taken from there rather than recomputed, because two
 	// spellings of the same condition are free to drift apart, and the composer
 	// then blocks a send the widget has already offered.
-	const isHumanOnly = $derived(!threadContext.awaitsAgentReply);
+	const isHumanOnly = $derived(!conversation.awaitsAgentReply);
 
 	// Derive chat panel open state
-	const isChatOpen = $derived(threadContext.currentView !== 'overview');
+	const isChatOpen = $derived(navigation.currentView !== 'overview');
 
 	// Skip animation when loading thread from URL (show instantly)
-	const panelDuration = $derived(threadContext.skipAnimation ? 0 : 300);
+	const panelDuration = $derived(navigation.skipAnimation ? 0 : 300);
 
 	$effect(() => {
-		if (threadContext.skipAnimation && isChatOpen) {
+		if (navigation.skipAnimation && isChatOpen) {
 			requestAnimationFrame(() => {
 				setTimeout(() => {
-					threadContext.skipAnimation = false;
+					navigation.skipAnimation = false;
 				});
 			});
 		}
@@ -85,31 +85,31 @@
 
 	// Query thread status (for handoff state)
 	const threadQuery = useQuery(api.support.threads.getThread, () =>
-		threadContext.threadId
+		conversation.threadId
 			? {
-					threadId: threadContext.threadId,
+					threadId: conversation.threadId,
 					anonymousUserId
 				}
 			: 'skip'
 	);
 
 	// Derive assigned admin - use context value as primary, query as fallback/sync
-	const assignedAdmin = $derived(threadContext.assignedAdmin ?? threadQuery.data?.assignedAdmin);
+	const assignedAdmin = $derived(conversation.assignedAdmin ?? threadQuery.data?.assignedAdmin);
 
 	// Sync handoff status, assigned admin, and notification email to context when thread data loads
 	// Only sync from query if not already set locally (prevents race conditions)
 	$effect(() => {
 		if (threadQuery.data) {
 			// Sync handoff status if not already handed off locally
-			if (!threadContext.isHandedOff && threadQuery.data.isHandedOff) {
-				threadContext.setHandedOff(threadQuery.data.isHandedOff);
+			if (!conversation.isHandedOff && threadQuery.data.isHandedOff) {
+				conversation.setHandedOff(threadQuery.data.isHandedOff);
 			}
 			// Sync assignedAdmin if query has newer data (e.g., admin assigned mid-chat)
-			if (threadQuery.data.assignedAdmin && !threadContext.assignedAdmin) {
-				threadContext.assignedAdmin = threadQuery.data.assignedAdmin;
+			if (threadQuery.data.assignedAdmin && !conversation.assignedAdmin) {
+				conversation.setAssignedAdmin(threadQuery.data.assignedAdmin);
 			}
 			// Always sync notificationEmail from query (source of truth, includes optimistic updates)
-			threadContext.notificationEmail = threadQuery.data.notificationEmail ?? null;
+			conversation.setNotificationEmail(threadQuery.data.notificationEmail ?? null);
 		}
 	});
 
@@ -128,7 +128,7 @@
 	let markingReplyMessageId: string | null = null;
 
 	async function markVisibleReplyRead() {
-		const threadId = threadContext.threadId;
+		const threadId = conversation.threadId;
 		const lastAdminReplyMessageId = threadQuery.data?.lastAdminReplyMessageId;
 
 		if (
@@ -162,7 +162,7 @@
 			[
 				isChatOpen,
 				hasLoadedLatestHumanReply,
-				threadContext.threadId,
+				conversation.threadId,
 				threadQuery.data?.lastAdminReplyMessageId,
 				threadQuery.data?.hasUnreadAdminReply,
 				anonymousUserId
@@ -172,15 +172,15 @@
 
 	// Sync drafts when thread changes
 	watch(
-		() => threadContext.threadId,
+		() => conversation.threadId,
 		(currentThreadId, previousThreadId) => {
 			// Save draft from old thread (if we had one and input has content)
 			if (previousThreadId && chatUIContext.inputValue.trim()) {
-				threadContext.setDraft(previousThreadId, chatUIContext.inputValue);
+				conversation.setDraft(previousThreadId, chatUIContext.inputValue);
 			}
 
 			// Load draft for new thread (or empty for new conversation)
-			const draft = threadContext.getDraft(currentThreadId);
+			const draft = conversation.getDraft(currentThreadId);
 			chatUIContext.setInputValue(draft);
 
 			// ChatUIContext drops attachments when the thread id changes, but it
@@ -190,7 +190,7 @@
 			// carry its attachment into whichever thread is opened next.
 			// isNewConversation is the missing signal — selectThread clears it,
 			// warm-id assignment does not.
-			if (previousThreadId === null && !threadContext.isNewConversation) {
+			if (previousThreadId === null && !conversation.isNewConversation) {
 				chatUIContext.clearAttachments();
 			}
 		}
@@ -198,7 +198,7 @@
 
 	// Handle handoff request
 	async function handleRequestHandoff() {
-		const outcome = await threadContext.requestHandoff(client);
+		const outcome = await handoff.request(client);
 		if (outcome.kind !== 'applied') {
 			haptic.trigger('error');
 			toast.error($t('support.widget.error.handoff_failed'));
@@ -207,7 +207,7 @@
 
 	// Handle email notification submission
 	async function handleSubmitEmail(email: string) {
-		const outcome = await threadContext.setNotificationEmail(client, email);
+		const outcome = await notifications.setEmail(client, email);
 		if (outcome.kind !== 'saved') {
 			throw new Error(outcome.kind === 'missing_thread' ? outcome.kind : outcome.code);
 		}
@@ -274,16 +274,16 @@
 	// reactive state and re-run in an `effect_update_depth_exceeded` loop. See #402
 	// regression (same fix applied to the avatar preload fallback in threads-overview).
 	$effect(() => {
-		const until = threadContext.rateLimitedUntil;
+		const until = conversation.rateLimitedUntil;
 		if (!until) return;
 
 		const delay = until - Date.now();
 		if (delay <= 0) {
-			threadContext.clearRateLimit();
+			conversation.clearRateLimit();
 			return;
 		}
 
-		const timer = setTimeout(() => threadContext.clearRateLimit(), delay);
+		const timer = setTimeout(() => conversation.clearRateLimit(), delay);
 		return () => clearTimeout(timer);
 	});
 
@@ -310,8 +310,8 @@
 >
 	<!-- Animated header with sliding icon and title -->
 	<SlidingHeader
-		skipTransition={threadContext.skipAnimation}
-		isBackView={threadContext.currentView !== 'overview'}
+		skipTransition={navigation.skipAnimation}
+		isBackView={navigation.currentView !== 'overview'}
 		defaultIcon={MessagesSquareIcon}
 		defaultTitle={$t('support.widget.header.messages')}
 		backTitle={isHumanOnly ? assignedAdmin?.name || $t('support.header.support_team') : agentName}
@@ -320,7 +320,7 @@
 			: $t('support.widget.header.bot_response')}
 		{titleIcon}
 		titleImage={isHumanOnly ? assignedAdmin?.image : undefined}
-		onBackClick={() => threadContext.goBack()}
+		onBackClick={() => support.goBack()}
 		onCloseClick={onClose}
 	/>
 
@@ -332,9 +332,9 @@
 		<!-- Chat sheet - slides in from right like iOS/Android navigation -->
 		<SlidingPanel open={isChatOpen} duration={panelDuration} class="bg-secondary">
 			<ChatRoot
-				threadId={threadContext.threadId}
+				threadId={conversation.threadId}
 				api={chatApi}
-				externalCore={threadContext.conversation}
+				externalCore={conversation}
 				externalUIContext={chatUIContext}
 				listMessagesArgs={anonymousUserId ? { anonymousUserId } : undefined}
 			>
@@ -343,8 +343,8 @@
 					<ChatMessages
 						{fileMetadata}
 						showEmailPrompt={isHumanOnly}
-						currentEmail={threadContext.notificationEmail ?? ''}
-						isEmailPending={threadContext.isEmailPending}
+						currentEmail={conversation.notificationEmail ?? ''}
+						isEmailPending={notifications.isPending}
 						defaultEmail={sessionEmail}
 						onSubmitEmail={handleSubmitEmail}
 					/>
@@ -360,7 +360,7 @@
 					showFileButton={true}
 					showHandoffButton={true}
 					{isHumanOnly}
-					isRateLimited={threadContext.isRateLimited}
+					isRateLimited={conversation.isRateLimited}
 					onScreenshot={handleScreenshot}
 					onRequestHandoff={handleRequestHandoff}
 					onSend={async (prompt) => {
@@ -370,7 +370,7 @@
 						if (!isHumanOnly && chatUIContext.isProcessing) return;
 
 						try {
-							await threadContext.sendMessage(client, prompt, {
+							await conversation.sendMessage(client, prompt, {
 								fileIds: chatUIContext.uploadedFileIds,
 								attachments: chatUIContext.attachments
 							});
@@ -380,7 +380,7 @@
 							// nothing blocks the composer while a send is in flight, so a
 							// second screenshot picked meanwhile would vanish.
 							// Clear draft after successful send
-							threadContext.clearDraft(threadContext.threadId);
+							conversation.clearDraft(conversation.threadId);
 						} catch (error) {
 							console.error('[handleSend] Error:', error);
 
@@ -394,7 +394,7 @@
 								if (data?.code === 'RATE_LIMITED') {
 									const retryAfter = data.retryAfter || 60000;
 									const seconds = Math.ceil(retryAfter / 1000);
-									threadContext.setRateLimited(retryAfter);
+									conversation.setRateLimited(retryAfter);
 									haptic.trigger('error');
 									toast.error($t('support.widget.error.rate_limit', { seconds }));
 								} else {

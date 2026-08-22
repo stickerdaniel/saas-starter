@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ConvexClient } from 'convex/browser';
 import type { ChatSessionPort } from '$lib/chat/core/chat-session-port.js';
 import type { ChatCommandError } from '$lib/chat/core/chat-command-error.js';
@@ -22,10 +22,16 @@ function clientWith(mutation: ReturnType<typeof vi.fn>): ConvexClient {
 describe('SupportConversation', () => {
 	let navigation: SupportNavigationState;
 	let conversation: SupportConversation;
+	let errorSpy: ReturnType<typeof vi.spyOn>;
 
 	beforeEach(() => {
 		navigation = new SupportNavigationState();
 		conversation = new SupportConversation(navigation);
+		errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+	});
+
+	afterEach(() => {
+		errorSpy.mockRestore();
 	});
 
 	it('implements the shared chat session port at compile time', () => {
@@ -204,6 +210,16 @@ describe('SupportConversation', () => {
 		} satisfies Partial<ChatCommandError>);
 	});
 
+	it('rejects empty input before calling the mutation', async () => {
+		const mutation = vi.fn();
+		conversation.setThread('thread-1');
+
+		await expect(conversation.sendMessage(clientWith(mutation), '   ')).rejects.toMatchObject({
+			code: 'empty_input'
+		} satisfies Partial<ChatCommandError>);
+		expect(mutation).not.toHaveBeenCalled();
+	});
+
 	it('allows human-only fire-and-forget sends after each mutation', async () => {
 		const mutation = vi.fn().mockResolvedValue(undefined);
 		conversation.setThread('thread-1');
@@ -227,5 +243,15 @@ describe('SupportConversation', () => {
 
 		expect(conversation.isSending).toBe(false);
 		expect(conversation.isAwaitingStream).toBe(true);
+	});
+
+	it('keeps unexpected send failures throwable while storing only a stable code', async () => {
+		const defect = new Error('provider transport detail');
+		const mutation = vi.fn().mockRejectedValue(defect);
+		conversation.setThread('thread-1');
+
+		await expect(conversation.sendMessage(clientWith(mutation), 'hello')).rejects.toBe(defect);
+		expect(conversation.error).toBe('send_failed');
+		expect(errorSpy).toHaveBeenCalledWith('[sendMessage] Failed:', defect);
 	});
 });

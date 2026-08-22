@@ -9,7 +9,7 @@
 	import { Button } from '$lib/components/ui/button/index.js';
 	import ArrowUpIcon from '@lucide/svelte/icons/arrow-up';
 	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
-	import { supportThreadContext } from './support-thread-context.svelte.ts';
+	import { supportContext } from './support-context.svelte.ts';
 	import { CHAT_PAGE_SIZE, MAX_MESSAGE_LENGTH } from '$lib/chat/core/types';
 	import { getTranslate } from '@tolgee/svelte';
 	import { isAnonymousUser } from '$lib/convex/utils/anonymousUser';
@@ -19,10 +19,10 @@
 	let input = $state('');
 	const { isFeedbackOpen = false } = $props<{ isFeedbackOpen?: boolean }>();
 
-	// Get thread context
-	const threadContext = supportThreadContext.get();
+	const support = supportContext.get();
+	const { conversation } = support;
 	const anonymousUserId = $derived.by(() => {
-		const userId = threadContext.userId;
+		const userId = conversation.userId;
 		return isAnonymousUser(userId) ? (userId ?? undefined) : undefined;
 	});
 
@@ -67,14 +67,14 @@
 	});
 
 	async function handleSubmit() {
-		if (!input.trim() || threadContext.isSending) return;
+		if (!input.trim() || conversation.isSending) return;
 
 		const trimmedPrompt = input.trim();
 
 		// Clear input and request widget open before sending
 		// (isSending flag is set by sendMessage)
 		input = '';
-		threadContext.requestWidgetOpen();
+		support.requestWidgetOpen();
 
 		try {
 			// Wait for pending thread if still creating; if the first-keystroke
@@ -82,14 +82,14 @@
 			// a cached rejection
 			const threadId = pendingThreadId ?? (await (threadCreationPromise ?? createWarmThread()));
 
-			// Update shared context (selectThread sets view='chat' + URL sync)
-			threadContext.selectThread(threadId);
+			// Coordinate conversation selection, chat view, and URL sync.
+			support.selectThread(threadId);
 
 			// Force Svelte to re-render so ChatRoot subscribes before mutation
 			await tick();
 
 			// Send message using centralized method (handles flags + optimistic update)
-			await threadContext.sendMessage(client, trimmedPrompt, { threadId });
+			await conversation.sendMessage(client, trimmedPrompt, { threadId });
 
 			// Reset local state so the next interaction can acquire a fresh warm thread
 			pendingThreadId = null;
@@ -115,7 +115,7 @@
 				if (data?.code === 'RATE_LIMITED') {
 					const retryAfter = data.retryAfter || 60000;
 					const seconds = Math.ceil(retryAfter / 1000);
-					threadContext.setRateLimited(retryAfter);
+					conversation.setRateLimited(retryAfter);
 					toast.error($t('support.widget.error.rate_limit', { seconds }));
 				} else {
 					toast.error($t('support.widget.error.send_failed'));
@@ -215,7 +215,7 @@
 			<PromptInput
 				value={input}
 				onValueChange={handleValueChange}
-				isLoading={threadContext.isSending}
+				isLoading={conversation.isSending}
 				onSubmit={handleSubmit}
 				class="relative z-[1] mb-1 flex w-full flex-row items-center border-0 bg-transparent !p-1 shadow-none"
 			>
@@ -230,10 +230,10 @@
 					size="icon"
 					class="h-8 w-8 rounded-full text-muted-foreground"
 					onclick={handleSubmit}
-					disabled={!input.trim() || threadContext.isSending}
+					disabled={!input.trim() || conversation.isSending}
 					aria-label={$t('chat.aria.send')}
 				>
-					{#if threadContext.isSending}
+					{#if conversation.isSending}
 						<LoaderCircleIcon class="size-5 motion-safe:animate-spin" />
 					{:else}
 						<ArrowUpIcon class="size-5" />

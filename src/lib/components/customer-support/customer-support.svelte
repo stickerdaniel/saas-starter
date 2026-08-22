@@ -7,7 +7,7 @@
 	import { page } from '$app/state';
 	import AIChatbar from '$lib/components/customer-support/ai-chatbar.svelte';
 	import FeedbackButton from '$lib/components/customer-support/feedback-button.svelte';
-	import { SupportThreadContext, supportThreadContext } from './support-thread-context.svelte.ts';
+	import { SupportContext, supportContext } from './support-context.svelte.ts';
 	import { ChatAttachmentStore, ChatUIContext, type UploadConfig } from '$lib/chat';
 	import { browser } from '$app/environment';
 	import { generateAnonymousUserId, isAnonymousUser } from '$lib/convex/utils/anonymousUser';
@@ -37,13 +37,14 @@
 	// Hide AI chatbar when screenshot mode is active or feedback is open
 	let shouldShowAIChatbar = $derived(!isScreenshotMode && !isFeedbackOpen);
 
-	// Initialize thread context
-	const threadContext = new SupportThreadContext();
-	supportThreadContext.set(threadContext);
+	// Initialize the customer-support composition root
+	const support = new SupportContext();
+	supportContext.set(support);
+	const { navigation, conversation } = support;
 
 	// Pre-set skipAnimation if URL already has a thread (before FeedbackWidget mounts)
 	if (urlState.thread) {
-		threadContext.skipAnimation = true;
+		navigation.skipAnimation = true;
 	}
 
 	// URL state sync handlers
@@ -53,8 +54,8 @@
 		// conversation but kept its id, so restoring the param on reopen would
 		// claim a selected thread under a view showing the overview, and a
 		// reload of that URL would open the conversation the visitor closed.
-		if (open && threadContext.threadId && threadContext.currentView !== 'overview') {
-			urlState.thread = threadContext.threadId;
+		if (open && conversation.threadId && navigation.currentView !== 'overview') {
+			urlState.thread = conversation.threadId;
 		}
 	}
 
@@ -66,7 +67,7 @@
 	watch(
 		() => isFeedbackOpen,
 		(open, wasOpen) => {
-			if (wasOpen && !open && !threadContext.threadId) threadContext.goBack();
+			if (wasOpen && !open && !conversation.threadId) support.goBack();
 		}
 	);
 
@@ -74,14 +75,14 @@
 		urlState.thread = threadId ?? '';
 	}
 
-	// Connect thread context to URL state
-	threadContext.setOnThreadChange(setThreadInUrl);
+	// Connect support navigation to URL state
+	navigation.setOnThreadChange(setThreadInUrl);
 
 	// Get Convex client for mutations
 	const client = useConvexClient();
 
-	// Provide client to thread context for eager thread creation
-	threadContext.setClient(client);
+	// Provide the client to the conversation for eager thread creation
+	conversation.setClient(client);
 
 	// Get auth state for user identification
 	const auth = useAuth();
@@ -105,10 +106,10 @@
 		getAttachmentText: api.support.files.getAttachmentText,
 		locale: page.data.lang,
 		translate: (key, params) => $t(key, params),
-		getAccessKey: () => threadContext.threadId ?? threadContext.userId ?? 'support',
+		getAccessKey: () => conversation.threadId ?? conversation.userId ?? 'support',
 		attachmentStore: new ChatAttachmentStore('support'),
 		getGenerateUploadUrlArgs: () => {
-			const userId = threadContext.userId;
+			const userId = conversation.userId;
 			const anonymousUserId = isAnonymousUser(userId) ? (userId ?? undefined) : undefined;
 			return anonymousUserId ? { anonymousUserId } : {};
 		}
@@ -119,7 +120,7 @@
 	// Absent outside the app shell (isolated tests, the standalone example), where
 	// there is no layout to ask.
 	const chatUIContext = new ChatUIContext(
-		threadContext.conversation,
+		conversation,
 		client,
 		uploadConfig,
 		'right',
@@ -157,15 +158,15 @@
 		// back, so we never mint a fresh anonymous id for them
 		if (auth.isAuthenticated && sessionPending) return;
 		const userId = getUserId();
-		threadContext.setUserId(userId);
+		conversation.setUserId(userId);
 	});
 
 	// Sync thread from URL only after validating that it is actually a support thread
 	$effect(() => {
 		const threadFromUrl = urlState.thread;
-		const userId = threadContext.userId;
+		const userId = conversation.userId;
 
-		if (!browser || !threadFromUrl || !userId || threadFromUrl === threadContext.threadId) {
+		if (!browser || !threadFromUrl || !userId || threadFromUrl === conversation.threadId) {
 			return;
 		}
 
@@ -179,15 +180,15 @@
 			})
 			.then(() => {
 				if (cancelled || urlState.thread !== threadFromUrl) return;
-				threadContext.selectThreadFromUrl(threadFromUrl);
+				support.selectThreadFromUrl(threadFromUrl);
 			})
 			.catch((error) => {
 				if (cancelled || urlState.thread !== threadFromUrl) return;
 
 				console.warn('[customer-support] Ignoring invalid support thread URL:', error);
-				threadContext.setThread(null);
-				threadContext.currentView = 'overview';
-				threadContext.skipAnimation = false;
+				conversation.setThread(null);
+				navigation.setView('overview');
+				navigation.skipAnimation = false;
 				urlState.thread = '';
 			});
 
@@ -198,9 +199,9 @@
 
 	// Watch for widget open requests from chatbar
 	$effect(() => {
-		if (threadContext.shouldOpenWidget) {
+		if (navigation.shouldOpenWidget) {
 			setWidgetOpen(true);
-			threadContext.clearWidgetOpenRequest();
+			navigation.clearWidgetOpenRequest();
 		}
 	});
 
@@ -213,7 +214,7 @@
 		filename: string,
 		dimensions: { width: number; height: number }
 	) {
-		// Upload screenshot via ChatUIContext (adds to ctx.attachments)
+		// Upload screenshot via ChatUIContext (adds to the chat attachment list)
 		await chatUIContext.uploadScreenshot(blob, filename, dimensions);
 	}
 
