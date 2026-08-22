@@ -69,9 +69,10 @@
 			haptic.trigger('success');
 			toast.success($t('admin.users.toast.assignment_updated'));
 		} catch (error) {
+			console.error('[admin-support] Action failed:', error);
 			toast.error(
 				$t('admin.users.toast.assignment_failed', {
-					message: error instanceof Error ? error.message : 'Unknown error'
+					message: $t('common.error')
 				})
 			);
 		}
@@ -86,9 +87,10 @@
 			haptic.trigger('success');
 			toast.success($t('admin.users.toast.status_updated'));
 		} catch (error) {
+			console.error('[admin-support] Action failed:', error);
 			toast.error(
 				$t('admin.users.toast.status_failed', {
-					message: error instanceof Error ? error.message : 'Unknown error'
+					message: $t('common.error')
 				})
 			);
 		}
@@ -102,9 +104,10 @@
 			});
 			toast.success($t('admin.users.toast.priority_updated'));
 		} catch (error) {
+			console.error('[admin-support] Action failed:', error);
 			toast.error(
 				$t('admin.users.toast.priority_failed', {
-					message: error instanceof Error ? error.message : 'Unknown error'
+					message: $t('common.error')
 				})
 			);
 		}
@@ -122,9 +125,10 @@
 			newNoteContent = '';
 			toast.success($t('admin.users.toast.note_added'));
 		} catch (error) {
+			console.error('[admin-support] Action failed:', error);
 			toast.error(
 				$t('admin.users.toast.note_failed', {
-					message: error instanceof Error ? error.message : 'Unknown error'
+					message: $t('common.error')
 				})
 			);
 		} finally {

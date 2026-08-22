@@ -1,10 +1,10 @@
-import { v, ConvexError } from 'convex/values';
+import { v } from 'convex/values';
 import { internal, components } from '../../_generated/api';
 import { saveMessage, getFile } from '@convex-dev/agent';
 import { adminMutation } from '../../functions';
+import { ADMIN_SUPPORT_ERROR_CODES, createAdminSupportError } from './errors';
 import { shouldSendNotification, syncSupportLastMessage } from '../../support/threads';
 import { MAX_MESSAGE_LENGTH } from '../../constants';
-import { t } from '../../i18n/translations';
 import type { AssistantContent, TextPart, FilePart } from 'ai';
 
 /**
@@ -31,7 +31,7 @@ export const updateThreadAssignment = adminMutation({
 			.first();
 
 		if (!supportThread) {
-			throw new ConvexError('Support thread not found');
+			throw createAdminSupportError(ADMIN_SUPPORT_ERROR_CODES.threadNotFound);
 		}
 
 		// Update assignedTo
@@ -75,7 +75,7 @@ export const updateThreadStatus = adminMutation({
 			.first();
 
 		if (!supportThread) {
-			throw new ConvexError('Support thread not found');
+			throw createAdminSupportError(ADMIN_SUPPORT_ERROR_CODES.threadNotFound);
 		}
 
 		await ctx.db.patch(supportThread._id, {
@@ -118,7 +118,7 @@ export const updateThreadPriority = adminMutation({
 			.first();
 
 		if (!supportThread) {
-			throw new ConvexError('Support thread not found');
+			throw createAdminSupportError(ADMIN_SUPPORT_ERROR_CODES.threadNotFound);
 		}
 
 		await ctx.db.patch(supportThread._id, {
@@ -154,13 +154,13 @@ export const sendAdminReply = adminMutation({
 	handler: async (ctx, args) => {
 		// Validate content
 		if (!args.prompt.trim() && (!args.fileIds || args.fileIds.length === 0)) {
-			throw new ConvexError('Message content cannot be empty');
+			throw createAdminSupportError(ADMIN_SUPPORT_ERROR_CODES.emptyMessage);
 		}
 
 		if (args.prompt.length > MAX_MESSAGE_LENGTH) {
-			throw new ConvexError(
-				t(undefined, 'backend.support.message_too_long', { max: MAX_MESSAGE_LENGTH })
-			);
+			throw createAdminSupportError(ADMIN_SUPPORT_ERROR_CODES.messageTooLong, {
+				maxLength: MAX_MESSAGE_LENGTH
+			});
 		}
 
 		// Get support thread for auto-assign and read status
@@ -170,7 +170,7 @@ export const sendAdminReply = adminMutation({
 			.first();
 
 		if (!supportThread) {
-			throw new ConvexError('Support thread not found');
+			throw createAdminSupportError(ADMIN_SUPPORT_ERROR_CODES.threadNotFound);
 		}
 
 		const replyTimestamp = Date.now();
@@ -290,7 +290,7 @@ export const addInternalUserNote = adminMutation({
 	handler: async (ctx, args) => {
 		// Validate content
 		if (!args.content.trim()) {
-			throw new ConvexError('Note content cannot be empty');
+			throw createAdminSupportError(ADMIN_SUPPORT_ERROR_CODES.emptyNote);
 		}
 
 		await ctx.db.insert('internalUserNotes', {

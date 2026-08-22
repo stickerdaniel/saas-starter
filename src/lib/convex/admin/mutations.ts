@@ -1,6 +1,6 @@
 import { internalMutation, type MutationCtx } from '../_generated/server';
 import { components } from '../_generated/api';
-import { v, ConvexError } from 'convex/values';
+import { v } from 'convex/values';
 import type { BetterAuthUser } from './types';
 import { roleValidator } from './types';
 import { adminMutation } from '../functions';
@@ -10,6 +10,7 @@ import {
 	deactivateAdminPreferencesHelper
 } from './notificationPreferences/helpers';
 import { runAdminAuthApi } from './admin-auth-errors';
+import { ADMIN_ERROR_CODES, createAdminError } from './errors';
 
 /**
  * Helper to fetch all users from the BetterAuth component
@@ -166,13 +167,13 @@ export const setUserRole = adminMutation({
 	handler: async (ctx, args) => {
 		// Prevent admin from changing their own role
 		if (ctx.user._id === args.userId) {
-			throw new ConvexError('Cannot change your own role');
+			throw createAdminError(ADMIN_ERROR_CODES.cannotChangeOwnRole);
 		}
 
 		const user = await findUserById(ctx, args.userId);
 
 		if (!user) {
-			throw new ConvexError('User not found');
+			throw createAdminError(ADMIN_ERROR_CODES.userNotFound);
 		}
 
 		const wasAdmin = user.role === 'admin';
@@ -191,7 +192,7 @@ export const setUserRole = adminMutation({
 				paginationOpts: { cursor: null, numItems: 2 }
 			});
 			if (admins.page.length < 2) {
-				throw new ConvexError('Cannot demote the last admin');
+				throw createAdminError(ADMIN_ERROR_CODES.lastAdmin);
 			}
 		}
 
@@ -242,7 +243,7 @@ export const seedFirstAdmin = internalMutation({
 		const user = await findUserByEmail(ctx, args.email);
 
 		if (!user) {
-			throw new ConvexError(`User with email ${args.email} not found`);
+			throw createAdminError(ADMIN_ERROR_CODES.userNotFound);
 		}
 
 		// Check if there are already admins

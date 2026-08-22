@@ -1,6 +1,7 @@
-import { v, ConvexError } from 'convex/values';
+import { v } from 'convex/values';
 import type { MutationCtx } from '../../_generated/server';
 import { adminMutation } from '../../functions';
+import { FOUNDER_WELCOME_ERROR_CODES, createFounderWelcomeError } from './errors';
 
 /** Helper to upsert an admin setting */
 async function upsertSetting(ctx: MutationCtx, key: string, value: string, adminUserId: string) {
@@ -60,12 +61,12 @@ export const updateConfig = adminMutation({
 		const body = args.body.trim();
 		const replyTo = args.replyTo?.trim() || undefined;
 
-		if (!name) throw new ConvexError('Name cannot be empty');
-		if (!title) throw new ConvexError('Title cannot be empty');
-		if (!subject) throw new ConvexError('Subject cannot be empty');
-		if (!body) throw new ConvexError('Body cannot be empty');
+		if (!name) throw createFounderWelcomeError(FOUNDER_WELCOME_ERROR_CODES.nameRequired);
+		if (!title) throw createFounderWelcomeError(FOUNDER_WELCOME_ERROR_CODES.titleRequired);
+		if (!subject) throw createFounderWelcomeError(FOUNDER_WELCOME_ERROR_CODES.subjectRequired);
+		if (!body) throw createFounderWelcomeError(FOUNDER_WELCOME_ERROR_CODES.bodyRequired);
 		if (replyTo && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(replyTo)) {
-			throw new ConvexError('Invalid reply-to email address');
+			throw createFounderWelcomeError(FOUNDER_WELCOME_ERROR_CODES.replyToInvalid);
 		}
 
 		// Set this admin as contact person
@@ -115,7 +116,7 @@ export const stepDown = adminMutation({
 			.unique();
 
 		if (!contactSetting || contactSetting.value !== ctx.user._id) {
-			throw new ConvexError('Only the current contact person can step down');
+			throw createFounderWelcomeError(FOUNDER_WELCOME_ERROR_CODES.notCurrentContact);
 		}
 
 		await deleteSetting(ctx, 'founderWelcome.contactUserId');

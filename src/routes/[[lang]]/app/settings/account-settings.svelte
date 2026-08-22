@@ -15,6 +15,8 @@
 	import { useConvexClient } from 'convex-svelte';
 	import { api } from '$lib/convex/_generated/api.js';
 	import { ConvexError } from 'convex/values';
+	import { getAuthErrorKey } from '$lib/utils/auth-messages.js';
+	import { getConvexErrorCode } from '$lib/utils/convex-errors.js';
 	import { PROFILE_IMAGE_MAX_SIZE, PROFILE_IMAGE_MAX_SIZE_LABEL } from '$lib/convex/constants.js';
 	import {
 		acceptAttribute,
@@ -145,9 +147,18 @@
 				// language.
 				toast.error($t('settings.account.avatar.upload_failed'));
 			} else {
-				const message =
-					error instanceof Error ? error.message : $t('settings.account.avatar.upload_failed');
-				toast.error(message);
+				switch (getConvexErrorCode(error)) {
+					case 'FILE_TOO_LARGE':
+						toast.error(
+							$t('settings.account.avatar.size_error', { size: PROFILE_IMAGE_MAX_SIZE_LABEL })
+						);
+						break;
+					case 'FILE_TYPE_NOT_ALLOWED':
+						toast.error($t('settings.account.avatar.select_error'));
+						break;
+					default:
+						toast.error($t('settings.account.avatar.upload_failed'));
+				}
 			}
 			target.value = '';
 		} finally {
@@ -184,17 +195,22 @@
 		isSaving = true;
 
 		try {
-			await authClient.updateUser({
+			const result = await authClient.updateUser({
 				name: name.trim(),
 				image: image || null
 			});
+			if (result.error) {
+				console.error('[account-settings] Profile update rejected:', result.error);
+				toast.error($t(getAuthErrorKey(result.error)));
+				return;
+			}
 
 			haptic.trigger('success');
 			toast.success($t('settings.account.success'));
 		} catch (error) {
-			const message = error instanceof Error ? error.message : $t('settings.account.error');
+			console.error('[account-settings] Profile update failed:', error);
 			haptic.trigger('error');
-			toast.error(message);
+			toast.error($t('settings.account.error'));
 		} finally {
 			isSaving = false;
 		}

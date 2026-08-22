@@ -33,9 +33,7 @@
 					await onRemove(email);
 				} catch (error) {
 					console.error('[recipients-actions] Failed to remove email:', error);
-					toast.error(
-						error instanceof Error ? error.message : $t('admin.settings.preference_update_failed')
-					);
+					toast.error($t('admin.settings.preference_update_failed'));
 					throw error; // Re-throw so confirmDelete knows it failed
 				}
 			}

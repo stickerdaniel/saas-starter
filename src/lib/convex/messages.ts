@@ -5,7 +5,6 @@ import { authedQuery, authedMutation } from './functions';
 import { checkAndCountUsage } from './autumn';
 import { appRateLimiter } from './rateLimit';
 import { createRateLimitError } from './support/types';
-import { t } from './i18n/translations';
 import { MAX_MESSAGE_LENGTH } from './constants';
 
 export const list = authedQuery({
@@ -75,14 +74,15 @@ export const send = authedMutation({
 	returns: v.object({ messageId: v.id('messages') }),
 	handler: async (ctx, { body }) => {
 		if (body.length > MAX_MESSAGE_LENGTH) {
-			throw new ConvexError(
-				t(undefined, 'backend.community.message_too_long', { max: MAX_MESSAGE_LENGTH })
-			);
+			throw new ConvexError({
+				code: 'COMMUNITY_MESSAGE_TOO_LONG',
+				maxLength: MAX_MESSAGE_LENGTH
+			});
 		}
 
 		const status = await appRateLimiter.limit(ctx, 'communityMessage', { key: ctx.user._id });
 		if (!status.ok) {
-			throw createRateLimitError(status.retryAfter, 'Too many messages. Please wait a moment.');
+			throw createRateLimitError(status.retryAfter);
 		}
 
 		const messageId = await ctx.db.insert('messages', {

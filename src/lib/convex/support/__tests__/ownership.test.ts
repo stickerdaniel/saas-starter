@@ -31,6 +31,7 @@ import {
 } from '../ownership';
 import { authComponent } from '../../auth';
 import { supportAgent } from '../agent';
+import { SUPPORT_ERROR_CODES } from '../errors';
 
 const safeGetAuthUserMock = authComponent.safeGetAuthUser as unknown as ReturnType<typeof vi.fn>;
 const getThreadMetadataMock = supportAgent.getThreadMetadata as unknown as ReturnType<typeof vi.fn>;
@@ -90,9 +91,9 @@ describe('support ownership helpers', () => {
 		const ctx = createCtx();
 		safeGetAuthUserMock.mockResolvedValue(undefined);
 
-		await expect(requireSupportOwnerIdentity(ctx, undefined)).rejects.toThrow(
-			'Authentication required'
-		);
+		await expect(requireSupportOwnerIdentity(ctx, undefined)).rejects.toMatchObject({
+			data: { code: SUPPORT_ERROR_CODES.authenticationRequired }
+		});
 	});
 
 	it('allows an authenticated owner to access their own thread', async () => {
@@ -178,9 +179,9 @@ describe('support ownership helpers', () => {
 			userId: 'auth_user_1'
 		} as never);
 
-		await expect(requireSupportThreadAccess(ctx, { threadId: 'thread_1' })).rejects.toThrow(
-			"Unauthorized: Cannot access another user's thread"
-		);
+		await expect(requireSupportThreadAccess(ctx, { threadId: 'thread_1' })).rejects.toMatchObject({
+			data: { code: SUPPORT_ERROR_CODES.threadForbidden }
+		});
 	});
 
 	it('rejects owned non-support threads before agent lookup', async () => {
@@ -196,9 +197,9 @@ describe('support ownership helpers', () => {
 			}))
 		});
 
-		await expect(requireSupportThreadAccess(ctx, { threadId: 'thread_1' })).rejects.toThrow(
-			'Support thread not found'
-		);
+		await expect(requireSupportThreadAccess(ctx, { threadId: 'thread_1' })).rejects.toMatchObject({
+			data: { code: SUPPORT_ERROR_CODES.threadNotFound }
+		});
 		expect(getThreadMetadataMock).not.toHaveBeenCalled();
 	});
 
@@ -266,7 +267,7 @@ describe('support ownership helpers', () => {
 			assertMessageOwnership(ctx, {
 				messageId: 'missing_message'
 			})
-		).rejects.toThrow('Message not found');
+		).rejects.toMatchObject({ data: { code: SUPPORT_ERROR_CODES.messageNotFound } });
 	});
 
 	it('rejects messages that belong to non-support threads', async () => {
@@ -288,6 +289,6 @@ describe('support ownership helpers', () => {
 			assertMessageOwnership(ctx, {
 				messageId: 'message_1'
 			})
-		).rejects.toThrow('Support thread not found');
+		).rejects.toMatchObject({ data: { code: SUPPORT_ERROR_CODES.threadNotFound } });
 	});
 });

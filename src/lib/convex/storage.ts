@@ -1,10 +1,11 @@
-import { v, ConvexError } from 'convex/values';
+import { v } from 'convex/values';
 import { PROFILE_IMAGE_ALLOWED_TYPES, PROFILE_IMAGE_MAX_SIZE } from './constants';
 import { authedMutation } from './functions';
 import { components } from './_generated/api';
 import { appRateLimiter } from './rateLimit';
 import { createRateLimitError } from './support/types';
 import { vGenerateUploadUrlResult } from './files/validators';
+import { FILE_ERROR_CODES, createFileError } from './files/errors';
 
 /**
  * Generate an upload URL for file uploads
@@ -21,10 +22,7 @@ export const generateUploadUrl = authedMutation({
 	handler: async (ctx) => {
 		const status = await appRateLimiter.limit(ctx, 'profileImageUpload', { key: ctx.user._id });
 		if (!status.ok) {
-			throw createRateLimitError(
-				status.retryAfter,
-				'Too many upload requests. Please try again later.'
-			);
+			throw createRateLimitError(status.retryAfter);
 		}
 		return await ctx.runMutation(components.convexFilesControl.upload.generateUploadUrl, {
 			provider: 'convex'
@@ -68,10 +66,7 @@ export const updateProfileImage = authedMutation({
 		// upload, which the files-control cleanup cron reclaims.
 		const status = await appRateLimiter.limit(ctx, 'profileImageUpdate', { key: ctx.user._id });
 		if (!status.ok) {
-			throw createRateLimitError(
-				status.retryAfter,
-				'Too many upload requests. Please try again later.'
-			);
+			throw createRateLimitError(status.retryAfter);
 		}
 
 		// Register first: finalizeUpload reads the file's system metadata inside
@@ -92,9 +87,9 @@ export const updateProfileImage = authedMutation({
 			await ctx.runMutation(components.convexFilesControl.cleanUp.deleteFile, {
 				storageId: args.storageId
 			});
-			throw new ConvexError(
-				`Invalid file type. Allowed types: ${PROFILE_IMAGE_ALLOWED_TYPES.join(', ')}`
-			);
+			throw createFileError(FILE_ERROR_CODES.typeNotAllowed, {
+				allowedTypes: PROFILE_IMAGE_ALLOWED_TYPES
+			});
 		}
 
 		// Validate file size
@@ -102,9 +97,10 @@ export const updateProfileImage = authedMutation({
 			await ctx.runMutation(components.convexFilesControl.cleanUp.deleteFile, {
 				storageId: args.storageId
 			});
-			throw new ConvexError(
-				`File too large. Maximum size: ${PROFILE_IMAGE_MAX_SIZE / 1024 / 1024}MB`
-			);
+			throw createFileError(FILE_ERROR_CODES.tooLarge, {
+				maxBytes: PROFILE_IMAGE_MAX_SIZE,
+				actualBytes: metadata.size
+			});
 		}
 
 		// Avatars are public (<img src>), so issue an unlimited shareable grant:
@@ -122,7 +118,7 @@ export const updateProfileImage = authedMutation({
 		// CONVEX_SITE_URL is a Convex built-in (the deployment's .convex.site URL).
 		const siteUrl = process.env.CONVEX_SITE_URL;
 		if (!siteUrl) {
-			throw new ConvexError('File storage is not configured.');
+			throw createFileError(FILE_ERROR_CODES.storageUnavailable);
 		}
 
 		return `${siteUrl}/files/inline?token=${grant.downloadToken}`;

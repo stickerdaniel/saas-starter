@@ -279,7 +279,14 @@
 				"unbanned": "Usuario desbloqueado"
 			},
 			"unverified": "No verificado",
-			"verified": "Verificado"
+			"verified": "Verificado",
+			"errors": {
+				"access_required": "Se requiere acceso de administrador.",
+				"cannot_change_own_role": "No puedes cambiar tu propio rol.",
+				"user_not_found": "El usuario ya no existe.",
+				"last_admin": "No se puede degradar al último administrador.",
+				"unknown": "No se pudo completar la acción de administrador."
+			}
 		}
 	},
 	"ai_chat": {
@@ -446,25 +453,12 @@
 		}
 	},
 	"backend": {
-		"aiChat": {
-			"message_too_long": "El mensaje es demasiado largo (máx. {max} caracteres)"
-		},
-		"community": {
-			"message_too_long": "El mensaje es demasiado largo (máx. {max} caracteres)"
-		},
-		"files": {
-			"fetch_failed": "No se pudo recuperar el archivo subido. Por favor intenta subirlo de nuevo.",
-			"file_too_large": "Archivo demasiado grande: {size} supera el máximo de {max}",
-			"type_not_allowed": "Tipo de archivo no permitido. Soportados: PNG, JPEG, WebP, GIF, PDF"
-		},
 		"support": {
 			"handoff": {
 				"response": "He avisado al equipo. Te responderá aquí mismo en este chat. Deja tu email abajo y te avisaremos en cuanto responda. Añade cualquier detalle que ayude mientras tanto."
 			},
-			"message_too_long": "El mensaje es demasiado largo (máx. {max} caracteres)",
 			"rate_limit": {
-				"global": "Estoy experimentando alta demanda. Por favor intenta enviar tu mensaje de nuevo en un momento.",
-				"user": "Demasiados mensajes. Por favor espera antes de enviar otro."
+				"global": "Estoy experimentando alta demanda. Por favor intenta enviar tu mensaje de nuevo en un momento."
 			}
 		}
 	},

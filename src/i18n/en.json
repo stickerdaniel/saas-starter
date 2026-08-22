@@ -279,7 +279,14 @@
 				"unbanned": "User has been unbanned"
 			},
 			"unverified": "Unverified",
-			"verified": "Verified"
+			"verified": "Verified",
+			"errors": {
+				"access_required": "Administrator access is required.",
+				"cannot_change_own_role": "You cannot change your own role.",
+				"user_not_found": "The user no longer exists.",
+				"last_admin": "The last administrator cannot be demoted.",
+				"unknown": "The administrator action could not be completed."
+			}
 		}
 	},
 	"ai_chat": {
@@ -446,25 +453,12 @@
 		}
 	},
 	"backend": {
-		"aiChat": {
-			"message_too_long": "Message is too long (max {max} characters)"
-		},
-		"community": {
-			"message_too_long": "Message is too long (max {max} characters)"
-		},
-		"files": {
-			"fetch_failed": "Failed to retrieve uploaded file. Please try uploading again.",
-			"file_too_large": "File too large: {size} exceeds maximum of {max}",
-			"type_not_allowed": "File type not allowed. Supported: PNG, JPEG, WebP, GIF, PDF"
-		},
 		"support": {
 			"handoff": {
 				"response": "I've brought in the team. They'll reply right here in this chat. Leave your email below and we'll let you know when they respond. Add any details that help in the meantime."
 			},
-			"message_too_long": "Message is too long (max {max} characters)",
 			"rate_limit": {
-				"global": "I'm currently experiencing high demand. Please try sending your message again in a moment.",
-				"user": "Too many messages. Please wait before sending another."
+				"global": "I'm currently experiencing high demand. Please try sending your message again in a moment."
 			}
 		}
 	},

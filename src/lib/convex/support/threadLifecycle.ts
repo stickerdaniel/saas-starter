@@ -1,6 +1,5 @@
 import type { MutationCtx, QueryCtx } from '../_generated/server';
 import { components } from '../_generated/api';
-import { t, extractLocaleFromUrl } from '../i18n/translations';
 import { buildSupportMessageDenormalization, buildSupportSearchText } from './denormalization';
 import type { SupportLatestThreadMessage } from './denormalization';
 import { supportAgent } from './agent';
@@ -9,8 +8,7 @@ import { createRateLimitError } from './types';
 
 export async function limitSupportThreadCreate(
 	ctx: MutationCtx,
-	owner: { ownerId: string; isAnonymous: boolean },
-	pageUrl?: string
+	owner: { ownerId: string; isAnonymous: boolean }
 ): Promise<void> {
 	const limitName = owner.isAnonymous ? 'supportThreadCreateAnon' : 'supportThreadCreate';
 	const key = owner.isAnonymous ? 'anonymous-global' : owner.ownerId;
@@ -18,10 +16,7 @@ export async function limitSupportThreadCreate(
 	if (!status.ok) {
 		// Anonymous callers share a global bucket, so exhaustion is high demand,
 		// not the visitor's own message rate.
-		const messageKey = owner.isAnonymous
-			? 'backend.support.rate_limit.global'
-			: 'backend.support.rate_limit.user';
-		throw createRateLimitError(status.retryAfter, t(extractLocaleFromUrl(pageUrl), messageKey));
+		throw createRateLimitError(status.retryAfter);
 	}
 }
 

@@ -5,13 +5,17 @@
  * Includes both admin-facing mutations and internal mutations for auth triggers.
  */
 
-import { v, ConvexError } from 'convex/values';
+import { v } from 'convex/values';
 import * as val from 'valibot';
 import { adminMutation } from '../../functions';
 import { internalMutation } from '../../_generated/server';
 import { components } from '../../_generated/api';
 import { syncAdminPreferences } from './helpers';
-import { NOTIFICATION_EMAIL_ALREADY_EXISTS } from './errors';
+import {
+	NOTIFICATION_EMAIL_ALREADY_EXISTS,
+	NOTIFICATION_PREFERENCE_ERROR_CODES,
+	createNotificationPreferenceError
+} from './errors';
 
 /**
  * Update a notification preference toggle
@@ -37,12 +41,12 @@ export const updatePreference = adminMutation({
 			.first();
 
 		if (!pref) {
-			throw new ConvexError('Notification preference not found');
+			throw createNotificationPreferenceError(NOTIFICATION_PREFERENCE_ERROR_CODES.notFound);
 		}
 
 		// Verify it's an active recipient (admin or custom email)
 		if (!pref.isAdminUser && pref.userId !== undefined) {
-			throw new ConvexError('Cannot update dormant preference');
+			throw createNotificationPreferenceError(NOTIFICATION_PREFERENCE_ERROR_CODES.dormant);
 		}
 
 		// Update the specific field
@@ -72,7 +76,7 @@ export const addCustomEmail = adminMutation({
 
 		// Validate email format
 		if (!val.safeParse(val.pipe(val.string(), val.email()), email).success) {
-			throw new ConvexError('Invalid email address');
+			throw createNotificationPreferenceError(NOTIFICATION_PREFERENCE_ERROR_CODES.invalidEmail);
 		}
 
 		// Check for duplicates
@@ -82,7 +86,7 @@ export const addCustomEmail = adminMutation({
 			.first();
 
 		if (existing) {
-			throw new ConvexError({ code: NOTIFICATION_EMAIL_ALREADY_EXISTS });
+			throw createNotificationPreferenceError(NOTIFICATION_EMAIL_ALREADY_EXISTS);
 		}
 
 		// Create new preference with all notifications enabled
@@ -124,12 +128,14 @@ export const removeCustomEmail = adminMutation({
 			.first();
 
 		if (!pref) {
-			throw new ConvexError('Email not found');
+			throw createNotificationPreferenceError(NOTIFICATION_PREFERENCE_ERROR_CODES.emailNotFound);
 		}
 
 		// Only allow removing custom emails (no userId)
 		if (pref.userId !== undefined) {
-			throw new ConvexError('Cannot remove admin user. Disable their notifications instead.');
+			throw createNotificationPreferenceError(
+				NOTIFICATION_PREFERENCE_ERROR_CODES.adminRecipientRequired
+			);
 		}
 
 		await ctx.db.delete(pref._id);

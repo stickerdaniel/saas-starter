@@ -1,4 +1,4 @@
-import { ConvexError } from 'convex/values';
+import { SUPPORT_ERROR_CODES, createSupportError } from './errors';
 import { components } from '../_generated/api';
 import type { MutationCtx, QueryCtx } from '../_generated/server';
 import { authComponent } from '../auth';
@@ -42,7 +42,7 @@ export async function requireSupportOwnerIdentity(
 ): Promise<SupportOwnerIdentity> {
 	const identity = await getSupportOwnerIdentity(ctx, anonymousUserId);
 	if (!identity) {
-		throw new ConvexError('Authentication required');
+		throw createSupportError(SUPPORT_ERROR_CODES.authenticationRequired);
 	}
 	return identity;
 }
@@ -59,13 +59,13 @@ export async function requireSupportThreadRecord(
 		.withIndex('by_thread', (q) => q.eq('threadId', args.threadId))
 		.first();
 	if (!supportThread) {
-		throw new ConvexError('Support thread not found');
+		throw createSupportError(SUPPORT_ERROR_CODES.threadNotFound);
 	}
 
 	const owner = await requireSupportOwnerIdentity(ctx, args.anonymousUserId);
 
 	if (supportThread.userId !== owner.ownerId) {
-		throw new ConvexError("Unauthorized: Cannot access another user's thread");
+		throw createSupportError(SUPPORT_ERROR_CODES.threadForbidden);
 	}
 
 	return { supportThread, owner };
@@ -86,7 +86,7 @@ export async function requireSupportThreadAccess(
 			threadId: args.threadId
 		});
 	} catch {
-		throw new ConvexError('Support thread not found');
+		throw createSupportError(SUPPORT_ERROR_CODES.threadNotFound);
 	}
 
 	return { supportThread, thread, owner };
@@ -108,7 +108,7 @@ export async function assertMessageOwnership(
 	})) as Array<AgentMessageLookupResult | null>;
 
 	if (!message) {
-		throw new ConvexError('Message not found');
+		throw createSupportError(SUPPORT_ERROR_CODES.messageNotFound);
 	}
 
 	const { supportThread, thread, owner } = await requireSupportThreadAccess(ctx, {

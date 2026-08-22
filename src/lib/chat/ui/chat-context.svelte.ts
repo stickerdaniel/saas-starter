@@ -907,8 +907,7 @@ export class ChatUIContext {
 			const translate = this.uploadConfig?.translate;
 			toast.error(
 				translate?.('chat.error.upload_failed', { filename: initialName }) ??
-					`Failed to upload "${initialName}"`,
-				{ description: error instanceof Error ? error.message : undefined }
+					`Failed to upload "${initialName}"`
 			);
 		} finally {
 			// Every exit above already settles this key one way or another; saying

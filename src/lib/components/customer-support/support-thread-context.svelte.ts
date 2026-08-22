@@ -599,7 +599,7 @@ export class SupportThreadContext implements ChatSessionPort {
 		if (this.client) {
 			void this.ensureThread(this.client).catch((error) => {
 				console.error('[startNewThread] Thread creation failed:', error);
-				this.setError('Failed to start conversation. Please try again.');
+				this.setError('thread_start_failed');
 			});
 		}
 	}
