@@ -59,21 +59,36 @@ function operation<T>(result: T | null, error: Error | null = null) {
 
 /** An operation whose call can be released by the test, one await at a time. */
 function deferredOperation<T>(result: T | null, error: Error | null = null) {
-	const releases: Array<() => void> = [];
+	const releases: Array<(result: T | null) => void> = [];
 	const state = {
 		isLoading: false,
 		error,
 		result,
 		calls: 0,
-		execute: vi.fn(async () => {
-			state.calls += 1;
-			state.isLoading = true;
-			await new Promise<void>((resolve) => releases.push(resolve));
-			state.isLoading = false;
-			return state.result;
-		}),
-		releaseAll: () => releases.splice(0).forEach((release) => release())
+		pending: 0,
+		execute: vi.fn<() => Promise<T | null>>(),
+		releaseNext: (_nextResult?: T | null) => {},
+		releaseAll: () => {}
 	};
+
+	state.execute.mockImplementation(async () => {
+		state.calls += 1;
+		state.pending += 1;
+		state.isLoading = true;
+		try {
+			return await new Promise<T | null>((resolve) => releases.push(resolve));
+		} finally {
+			state.pending -= 1;
+			state.isLoading = state.pending > 0;
+		}
+	});
+	state.releaseNext = (nextResult: T | null = state.result) => {
+		const release = releases.shift();
+		if (!release) throw new Error('No pending operation to release');
+		release(nextResult);
+	};
+	state.releaseAll = () => releases.splice(0).forEach((release) => release(state.result));
+
 	return state;
 }
 
@@ -190,7 +205,8 @@ describe('BillingCheckoutManager.confirm', () => {
 
 	it('keeps the dialog open so a failed purchase can be retried', async () => {
 		const boom = new Error('declined');
-		const { deps, manager } = setup({ attach: operation<AttachResult>(null, boom) as never });
+		const attach = operation<AttachResult>(null, boom);
+		const { deps, manager } = setup({ attach: attach as never });
 
 		await manager.start({ productId: 'pro' });
 		await manager.confirm();
@@ -198,18 +214,43 @@ describe('BillingCheckoutManager.confirm', () => {
 		expect(deps.onError).toHaveBeenCalledWith('confirm', boom);
 		expect(manager.open).toBe(true);
 		expect(manager.preview).not.toBeNull();
+		expect(manager.isAttaching).toBe(false);
+
+		attach.error = null;
+		attach.execute.mockResolvedValueOnce({
+			customer_id: 'customer_1',
+			product_ids: ['pro'],
+			code: 'attached',
+			message: 'ok'
+		} as AttachResult);
+		await manager.confirm();
+
+		expect(attach.execute).toHaveBeenCalledTimes(2);
+		expect(manager.open).toBe(false);
 	});
 });
 
 describe('BillingCheckoutManager closing', () => {
 	it('refuses to close while the purchase is being charged', async () => {
-		const { deps, manager } = setup();
+		const attach = deferredOperation<AttachResult>({
+			customer_id: 'customer_1',
+			product_ids: ['pro'],
+			code: 'attached',
+			message: 'ok'
+		} as AttachResult);
+		const { manager } = setup({ attach: attach as never });
 		await manager.start({ productId: 'pro' });
 
-		deps.attach.isLoading = true;
+		const confirming = manager.confirm();
+		expect(manager.isAttaching).toBe(true);
+		expect(manager.isLoading).toBe(true);
 		manager.setOpen(false);
 
 		expect(manager.open).toBe(true);
+
+		attach.releaseAll();
+		await confirming;
+		expect(manager.isAttaching).toBe(false);
 	});
 
 	it('closes and forgets the preview once nothing is in flight', async () => {
@@ -294,6 +335,38 @@ describe('BillingCheckoutManager concurrency', () => {
 		expect(checkout.calls).toBe(1);
 	});
 
+	it('keeps a cancelled start single-flight and ignores its stale redirect', async () => {
+		const staleUrl = 'https://checkout.test/stale';
+		const freshPreview = preview({ total: 30 });
+		const checkout = deferredOperation<CheckoutResult>(preview({ url: staleUrl }));
+		const { deps, manager } = setup({ checkout: checkout as never });
+
+		const staleStart = manager.start({ productId: 'stale' });
+		expect(manager.isLoading).toBe(true);
+		manager.cancel();
+		expect(manager.isLoading).toBe(true);
+
+		await manager.start({ productId: 'fresh' });
+		expect(checkout.calls).toBe(1);
+
+		checkout.releaseNext(preview({ url: staleUrl }));
+		await staleStart;
+
+		expect(deps.redirect).not.toHaveBeenCalled();
+		expect(manager.isLoading).toBe(false);
+		expect(manager.open).toBe(false);
+
+		const freshStart = manager.start({ productId: 'fresh' });
+		expect(checkout.calls).toBe(2);
+		expect(manager.isLoading).toBe(true);
+		checkout.releaseNext(freshPreview);
+		await freshStart;
+
+		expect(manager.isLoading).toBe(false);
+		expect(manager.open).toBe(true);
+		expect(manager.preview?.total).toBe(30);
+	});
+
 	// Closing the dialog abandons the purchase; an answer that lands afterwards
 	// must not resurrect it.
 	it('discards a checkout answer the user already walked away from', async () => {
@@ -319,6 +392,9 @@ describe('BillingCheckoutManager concurrency', () => {
 
 		const updating = manager.updateOptions([{ featureId: 'seats', quantity: 6 }]);
 		expect(manager.isUpdating).toBe(true);
+		expect(manager.isLoading).toBe(true);
+		expect(manager.open).toBe(true);
+		expect(manager.preview?.total).toBe(10);
 		await manager.confirm();
 		expect(deps.attach.execute).not.toHaveBeenCalled();
 
@@ -349,5 +425,43 @@ describe('BillingCheckoutManager concurrency', () => {
 		expect(manager.preview).toBeNull();
 		expect(manager.options).toEqual([]);
 		expect(manager.isUpdating).toBe(false);
+	});
+
+	it('keeps cancelled re-pricing single-flight until its stale result settles', async () => {
+		const first = preview({ total: 10, options: [{ feature_id: 'seats', quantity: 3 }] });
+		const stale = preview({ total: 20, options: [{ feature_id: 'seats', quantity: 6 }] });
+		const fresh = preview({ total: 40 });
+		const checkout = deferredOperation<CheckoutResult>(first);
+		const { manager } = setup({ checkout: checkout as never });
+
+		const started = manager.start({ productId: 'pro' });
+		checkout.releaseNext(first);
+		await started;
+
+		const updating = manager.updateOptions([{ featureId: 'seats', quantity: 6 }]);
+		expect(manager.isUpdating).toBe(true);
+		manager.cancel();
+		expect(manager.isUpdating).toBe(true);
+		expect(manager.open).toBe(false);
+
+		await manager.start({ productId: 'team' });
+		expect(checkout.calls).toBe(2);
+		expect(manager.isLoading).toBe(true);
+
+		checkout.releaseNext(stale);
+		await updating;
+
+		expect(manager.isLoading).toBe(false);
+		expect(manager.open).toBe(false);
+
+		const replacement = manager.start({ productId: 'team' });
+		expect(checkout.calls).toBe(3);
+		expect(manager.isLoading).toBe(true);
+		checkout.releaseNext(fresh);
+		await replacement;
+
+		expect(manager.isLoading).toBe(false);
+		expect(manager.open).toBe(true);
+		expect(manager.preview?.total).toBe(40);
 	});
 });
