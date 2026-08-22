@@ -8,12 +8,17 @@
  * fork's bootstrap commit copied an upstream tree verbatim, so its tree SHA equals
  * some upstream commit's tree SHA. This script finds that commit.
  *
- * Read-only: it adds + fetches the `upstream` remote and prints results. It never
- * modifies the working tree or writes any file. Persist the result yourself in
+ * It adds + fetches the `upstream` remote and prints results, and touches nothing
+ * else in the working tree. Persist the fork point yourself in
  * `.upstream-sync.json` (this script prints a ready-to-commit block).
+ *
+ * `--mark-synced <sha>` is the one exception and the one write: it sets
+ * `lastSynced` + `syncedAt` in the marker, which is how a finished sync records
+ * where the next one starts. Commit that file as the sync branch's final commit.
  *
  * Usage:
  *   bun .agents/skills/upstream-sync/scripts/find-fork-point.ts [--upstream <git-url>] [--json]
+ *   bun .agents/skills/upstream-sync/scripts/find-fork-point.ts --mark-synced <upstream-sha>
  */
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
