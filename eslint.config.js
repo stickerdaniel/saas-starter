@@ -49,9 +49,16 @@ const localPlugin = {
 
 export default defineConfig(
 	includeIgnoreFile(gitignorePath),
-	// Ignore auto-generated files
+	// Convex codegen and varlock both emit a file-level `/* eslint-disable */`, which
+	// switches off every rule from inside the file. Ignoring those paths here changes
+	// nothing they would otherwise be checked for, so the entry stays.
+	//
+	// `src/env.d.ts` carries no such directive, so ignoring it was the only thing
+	// keeping it out of ESLint's reach. It is written from environment values, which
+	// come from outside this repository, which makes it the generated file most
+	// exposed to a character nobody typed. It is linted below instead.
 	{
-		ignores: ['**/_generated/**', 'src/env.d.ts', 'src/lib/convex/convex-env.d.ts']
+		ignores: ['**/_generated/**', 'src/lib/convex/convex-env.d.ts']
 	},
 	js.configs.recommended,
 	...ts.configs.recommended,
@@ -323,6 +330,15 @@ export default defineConfig(
 		},
 		rules: {
 			'local/no-literal-control-char': 'error'
+		}
+	},
+	// The only rule `src/env.d.ts` trips, and it trips it by construction: varlock
+	// writes the directive into every generated header. Everything else, including the
+	// control-character rule above, applies to it.
+	{
+		files: ['src/env.d.ts'],
+		rules: {
+			'@typescript-eslint/ban-ts-comment': 'off'
 		}
 	},
 	// Convex best-practice rules — v2 ships ESLint 9 flat config natively
