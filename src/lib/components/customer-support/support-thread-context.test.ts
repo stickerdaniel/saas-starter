@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ConvexClient } from 'convex/browser';
+import type { ChatSessionPort } from '$lib/chat/core/chat-session-port.js';
 import { SupportThreadContext } from './support-thread-context.svelte.ts';
 
 function makeClient(mutation: ReturnType<typeof vi.fn>): ConvexClient {
@@ -127,5 +128,66 @@ describe('SupportThreadContext command outcomes', () => {
 		expect(thrown).toBe(defect);
 		expect(context.error).toBe('send_failed');
 		expect(errorSpy).toHaveBeenCalledWith('[sendMessage] Failed:', defect);
+	});
+});
+
+describe('SupportThreadContext compatibility facade', () => {
+	it('forwards current call sites to the owned collaborators', () => {
+		const context = new SupportThreadContext();
+
+		context.setUserId('anonymous:test');
+		context.setThread('thread-1', 'Kai', true, { name: 'Admin', image: null }, 'mail@example.com');
+		context.currentView = 'chat';
+		context.skipAnimation = true;
+
+		expect(context.userId).toBe(context.conversation.userId);
+		expect(context.threadId).toBe(context.conversation.threadId);
+		expect(context.isHandedOff).toBe(context.conversation.isHandedOff);
+		expect(context.notificationEmail).toBe(context.conversation.notificationEmail);
+		expect(context.currentView).toBe(context.navigation.currentView);
+		expect(context.skipAnimation).toBe(context.navigation.skipAnimation);
+	});
+
+	it('keeps one root while exposing the narrow shared-chat implementation', () => {
+		const context = new SupportThreadContext();
+		const session: ChatSessionPort = context.conversation;
+
+		expect(session).toBe(context.conversation);
+		expect(context.navigation).toBeDefined();
+		expect(context.handoff).toBeDefined();
+		expect(context.notifications).toBeDefined();
+	});
+
+	it('does not adopt a warm thread after the widget leaves and re-enters chat', async () => {
+		let resolveWarmThread!: (value: { threadId: string }) => void;
+		const warmThread = new Promise<{ threadId: string }>((resolve) => {
+			resolveWarmThread = resolve;
+		});
+		const mutation = vi.fn(() => warmThread);
+		const client = { mutation } as unknown as ConvexClient;
+		const context = new SupportThreadContext();
+		context.setClient(client);
+		context.startNewThread();
+		const acquisition = context.ensureThread(client);
+
+		context.currentView = 'overview';
+		context.currentView = 'chat';
+		resolveWarmThread({ threadId: 'thread-stale-navigation' });
+
+		await expect(acquisition).resolves.toBe('thread-stale-navigation');
+		expect(context.threadId).toBeNull();
+	});
+
+	it('increments generation for distinct null compose sessions', () => {
+		const context = new SupportThreadContext();
+
+		context.startNewThread();
+		const firstGeneration = context.threadGeneration;
+		context.goBack();
+		context.startNewThread();
+
+		expect(context.threadId).toBeNull();
+		expect(context.threadGeneration).toBe(firstGeneration + 1);
+		expect(context.isNewConversation).toBe(true);
 	});
 });

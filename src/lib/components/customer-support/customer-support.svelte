@@ -119,7 +119,7 @@
 	// Absent outside the app shell (isolated tests, the standalone example), where
 	// there is no layout to ask.
 	const chatUIContext = new ChatUIContext(
-		threadContext,
+		threadContext.conversation,
 		client,
 		uploadConfig,
 		'right',

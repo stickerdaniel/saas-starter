@@ -1,660 +1,334 @@
 import { Context } from 'runed';
-import { ChatDraftManager } from '$lib/chat/core/chat-draft-manager.svelte.ts';
 import type { ConvexClient } from 'convex/browser';
-import { api } from '$lib/convex/_generated/api';
 import type { Attachment } from '$lib/chat';
-import { StreamCacheManager } from '$lib/chat/core/stream-cache.js';
-import { createOptimisticUpdate, type ListMessagesArgs } from '$lib/chat/core/optimistic.js';
-import { CHAT_PAGE_SIZE } from '$lib/chat/core/types.js';
-import { isAnonymousUser } from '$lib/convex/utils/anonymousUser';
-import { isSupportAiEnabled } from '$lib/config/support';
-import type { ChatSessionPort } from '$lib/chat/core/chat-session-port.js';
-import { ChatCommandError } from '$lib/chat/core/chat-command-error.js';
+import type { StreamCachePort } from '$lib/chat/core/chat-session-port.js';
+import { SupportConversation, type SupportAssignedAdmin } from './support-conversation.svelte.ts';
+import { SupportHandoffCommands } from './support-handoff-commands.svelte.ts';
+import { SupportNavigationState } from './support-navigation-state.svelte.ts';
+import { SupportNotificationCommands } from './support-notification-commands.svelte.ts';
+import type {
+	NotificationEmailOutcome,
+	SupportHandoffOutcome,
+	SupportView
+} from './support-types.js';
+
+export type {
+	NotificationEmailOutcome,
+	SupportHandoffOutcome,
+	SupportView
+} from './support-types.js';
 
 /**
- * View types for the support widget navigation
+ * Customer-support composition root.
+ *
+ * The existing surface remains as a bounded compatibility facade while
+ * ownership moves to focused collaborators. Consumer migration will remove
+ * the redundant forwards once each call site uses its intentional surface.
  */
-export type SupportView = 'overview' | 'chat' | 'compose';
+export class SupportThreadContext {
+	readonly navigation: SupportNavigationState;
+	readonly conversation: SupportConversation;
+	readonly handoff: SupportHandoffCommands;
+	readonly notifications: SupportNotificationCommands;
 
-/**
- * Thread summary for the overview list
- */
-export interface ThreadSummary {
-	_id: string;
-	_creationTime: number;
-	userId?: string;
-	title?: string;
-	summary?: string;
-	status: 'active' | 'archived';
-	lastAgentName?: string;
-	lastMessageRole?: 'user' | 'assistant' | 'tool' | 'system';
-	lastMessage?: string;
-	lastMessageAt?: number;
-}
-
-export type SupportHandoffOutcome =
-	{ kind: 'applied' } | { kind: 'missing_thread' } | { kind: 'failed'; code: 'handoff_failed' };
-
-export type NotificationEmailOutcome =
-	| { kind: 'saved'; email: string | null }
-	| { kind: 'missing_thread' }
-	| { kind: 'failed'; code: 'notification_update_failed' };
-
-/**
- * Thread context state
- */
-export class SupportThreadContext implements ChatSessionPort {
-	// User identification
-	userId = $state<string | null>(null);
-
-	// Navigation state
-	currentView = $state<SupportView>('overview');
-
-	// URL sync callback (called when thread changes for URL state updates)
-	private onThreadChange?: (threadId: string | null) => void;
-
-	// Convex client for mutations (set via setClient)
-	private client: ConvexClient | null = null;
-
-	// Track in-flight thread creation to avoid duplicates
-	private threadCreationPromise: Promise<string> | null = null;
-
-	private getAnonymousUserId(): string | undefined {
-		const userId = this.userId;
-		return isAnonymousUser(userId) ? (userId ?? undefined) : undefined;
+	constructor() {
+		this.navigation = new SupportNavigationState();
+		this.conversation = new SupportConversation(this.navigation);
+		this.handoff = new SupportHandoffCommands(this.conversation);
+		this.notifications = new SupportNotificationCommands(this.conversation);
 	}
 
-	// Current thread state
-	threadId = $state<string | null>(null);
-	threadAgentName = $state<string | undefined>(undefined);
-	isHandedOff = $state(false); // Whether thread is handed off to human support
-	assignedAdmin = $state<{ name?: string; image: string | null } | undefined>(undefined);
-	notificationEmail = $state<string | null>(null); // Email for admin reply notifications
-	isEmailPending = $state(false); // True while email mutation is in flight (green check hidden)
-	isLoading = $state(false);
-	isSending = $state(false);
-	// Diagnostic only (not rendered); failures surface as localized toasts at the call sites
-	error = $state<string | null>(null);
-	shouldOpenWidget = $state(false);
-	skipAnimation = $state(false);
-
-	/** Monotonic counter — bumps each time a new thread session starts.
-	 *  Used as a {#key} to replay chip-in animations without double-firing. */
-	threadGeneration = $state(0);
-
-	/** True when user starts a new conversation - enables immediate suggestion display */
-	isNewConversation = $state(false);
-
-	// Pagination state
-	hasMore = $state(false);
-	continueCursor = $state<string | null>(null);
-
-	// Stream state (for ChatRoot compatibility)
-	isAwaitingStream = $state(false);
-	readonly streamCache = new StreamCacheManager();
-
-	// Rate limit state
-	rateLimitedUntil = $state<number | null>(null);
-
-	// Draft storage — delegates to ChatDraftManager (single source of delete-safe logic)
-	private readonly draftManager = new ChatDraftManager('support');
-
-	getDraft(threadId: string | null): string {
-		return this.draftManager.getDraft(threadId);
+	// Temporary compatibility facade; remove these forwards after consumer migration.
+	get userId(): string | null {
+		return this.conversation.userId;
+	}
+	set userId(value: string | null) {
+		this.conversation.setUserId(value);
 	}
 
-	setDraft(threadId: string | null, text: string): void {
-		this.draftManager.setDraft(threadId, text);
+	get currentView(): SupportView {
+		return this.navigation.currentView;
+	}
+	set currentView(value: SupportView) {
+		if (value !== 'chat' && !this.conversation.hasThread) {
+			this.conversation.invalidateWarmThreadAcquisition();
+		}
+		this.navigation.setView(value);
 	}
 
-	clearDraft(threadId: string | null): void {
-		this.draftManager.clearDraft(threadId);
+	get threadId(): string | null {
+		return this.conversation.threadId;
+	}
+	set threadId(value: string | null) {
+		this.conversation.setThread(value);
 	}
 
-	/**
-	 * Check if currently rate limited
-	 */
-	get isRateLimited(): boolean {
-		return this.rateLimitedUntil !== null && Date.now() < this.rateLimitedUntil;
+	get threadAgentName(): string | undefined {
+		return this.conversation.threadAgentName;
+	}
+	set threadAgentName(value: string | undefined) {
+		this.conversation.setThreadAgentName(value);
 	}
 
-	/**
-	 * Set rate limit expiration time
-	 */
-	setRateLimited(retryAfterMs: number) {
-		this.rateLimitedUntil = Date.now() + retryAfterMs;
+	get isHandedOff(): boolean {
+		return this.conversation.isHandedOff;
+	}
+	set isHandedOff(value: boolean) {
+		this.conversation.setHandedOff(value);
 	}
 
-	/**
-	 * Clear rate limit state
-	 */
-	clearRateLimit() {
-		this.rateLimitedUntil = null;
+	get assignedAdmin(): SupportAssignedAdmin | undefined {
+		return this.conversation.assignedAdmin;
+	}
+	set assignedAdmin(value: SupportAssignedAdmin | undefined) {
+		this.conversation.setAssignedAdmin(value);
 	}
 
-	/**
-	 * Set the Convex client for thread creation
-	 * Must be called from customer-support.svelte after client is available
-	 */
-	setClient(client: ConvexClient) {
-		this.client = client;
+	get notificationEmail(): string | null {
+		return this.conversation.notificationEmail;
+	}
+	set notificationEmail(value: string | null) {
+		this.conversation.setNotificationEmail(value);
 	}
 
-	/**
-	 * Ensure a thread exists, creating one if needed
-	 * Returns existing threadId or acquires a warm one
-	 * Safe to call multiple times - deduplicates in-flight requests
-	 */
-	async ensureThread(client: ConvexClient): Promise<string> {
-		// Already have a thread
-		if (this.threadId) return this.threadId;
-
-		// Creation already in flight - return existing promise
-		if (this.threadCreationPromise) return this.threadCreationPromise;
-
-		// Acquire a warm support thread
-		this.threadCreationPromise = client
-			.mutation(api.support.threads.getOrCreateWarmThread, {
-				anonymousUserId: this.getAnonymousUserId(),
-				pageUrl: typeof window !== 'undefined' ? window.location.href : undefined
-			})
-			.then((result) => {
-				// Only update state if user is still in chat view (didn't navigate away)
-				if (!this.threadId && this.currentView === 'chat') {
-					this.threadId = result.threadId;
-					this.notificationEmail = result.notificationEmail ?? null;
-					this.onThreadChange?.(result.threadId);
-				}
-				return result.threadId;
-			})
-			.finally(() => {
-				this.threadCreationPromise = null;
-			});
-
-		return this.threadCreationPromise;
+	get isEmailPending(): boolean {
+		return this.notifications.isPending;
+	}
+	set isEmailPending(value: boolean) {
+		this.notifications.isPending = value;
 	}
 
-	// Derived state
+	get isLoading(): boolean {
+		return this.conversation.isLoading;
+	}
+	set isLoading(value: boolean) {
+		this.conversation.setLoading(value);
+	}
 
-	/**
-	 * Whether a model is going to answer this thread, which is what the send
-	 * lock and the awaiting-stream flag exist for.
-	 *
-	 * A thread is only flagged handed off once the team has been told about
-	 * it, which cannot happen before its first message, so the flag alone
-	 * would lock the composer on a build that has no agent at all.
-	 */
+	get isSending(): boolean {
+		return this.conversation.isSending;
+	}
+	set isSending(value: boolean) {
+		this.conversation.setSending(value);
+	}
+
+	get error(): string | null {
+		return this.conversation.error;
+	}
+	set error(value: string | null) {
+		this.conversation.setError(value);
+	}
+
+	get shouldOpenWidget(): boolean {
+		return this.navigation.shouldOpenWidget;
+	}
+	set shouldOpenWidget(value: boolean) {
+		this.navigation.shouldOpenWidget = value;
+	}
+
+	get skipAnimation(): boolean {
+		return this.navigation.skipAnimation;
+	}
+	set skipAnimation(value: boolean) {
+		this.navigation.skipAnimation = value;
+	}
+
+	get threadGeneration(): number {
+		return this.conversation.threadGeneration;
+	}
+	set threadGeneration(value: number) {
+		this.conversation.threadGeneration = value;
+	}
+
+	get isNewConversation(): boolean {
+		return this.conversation.isNewConversation;
+	}
+	set isNewConversation(value: boolean) {
+		this.conversation.setNewConversation(value);
+	}
+
+	get hasMore(): boolean {
+		return this.conversation.hasMore;
+	}
+	set hasMore(value: boolean) {
+		this.conversation.hasMore = value;
+	}
+
+	get continueCursor(): string | null {
+		return this.conversation.continueCursor;
+	}
+	set continueCursor(value: string | null) {
+		this.conversation.continueCursor = value;
+	}
+
+	get isAwaitingStream(): boolean {
+		return this.conversation.isAwaitingStream;
+	}
+	set isAwaitingStream(value: boolean) {
+		this.conversation.setAwaitingStream(value);
+	}
+
+	get streamCache(): StreamCachePort {
+		return this.conversation.streamCache;
+	}
+
+	get rateLimitedUntil(): number | null {
+		return this.conversation.rateLimitedUntil;
+	}
+	set rateLimitedUntil(value: number | null) {
+		this.conversation.rateLimitedUntil = value;
+	}
+
 	get awaitsAgentReply(): boolean {
-		return !this.isHandedOff && isSupportAiEnabled();
+		return this.conversation.awaitsAgentReply;
 	}
 
-	get hasThread() {
-		return this.threadId !== null;
+	get hasThread(): boolean {
+		return this.conversation.hasThread;
 	}
 
 	get currentAgentName(): string | undefined {
-		return this.threadAgentName;
+		return this.conversation.currentAgentName;
 	}
 
-	/**
-	 * Set awaiting stream state
-	 */
-	setAwaitingStream(awaiting: boolean) {
-		this.isAwaitingStream = awaiting;
+	get isRateLimited(): boolean {
+		return this.conversation.isRateLimited;
 	}
 
-	/**
-	 * Initialize or load a thread
-	 */
+	getDraft(threadId: string | null): string {
+		return this.conversation.getDraft(threadId);
+	}
+
+	setDraft(threadId: string | null, text: string): void {
+		this.conversation.setDraft(threadId, text);
+	}
+
+	clearDraft(threadId: string | null): void {
+		this.conversation.clearDraft(threadId);
+	}
+
+	setRateLimited(retryAfterMs: number): void {
+		this.conversation.setRateLimited(retryAfterMs);
+	}
+
+	clearRateLimit(): void {
+		this.conversation.clearRateLimit();
+	}
+
+	setClient(client: ConvexClient): void {
+		this.conversation.setClient(client);
+	}
+
+	ensureThread(client: ConvexClient): Promise<string> {
+		return this.conversation.ensureThread(client);
+	}
+
+	setAwaitingStream(awaiting: boolean): void {
+		this.conversation.setAwaitingStream(awaiting);
+	}
+
 	setThread(
 		threadId: string | null,
 		agentName?: string,
 		isHandedOff?: boolean,
-		assignedAdmin?: { name?: string; image: string | null },
+		assignedAdmin?: SupportAssignedAdmin,
 		notificationEmail?: string | null
-	) {
-		// The send lock belongs to the conversation being left, so it goes with
-		// it. Carried over, a reply that never arrives for that thread cannot
-		// clear it and the next conversation's composer stays blocked. Kept when
-		// re-entering the same thread, whose reply may still be streaming.
-		if (threadId !== this.threadId) {
-			this.isSending = false;
-			this.isAwaitingStream = false;
-		}
-		this.threadId = threadId;
-		this.threadAgentName = agentName;
-		this.isHandedOff = isHandedOff ?? false;
-		this.assignedAdmin = assignedAdmin;
-		this.notificationEmail = notificationEmail ?? null;
-		this.hasMore = false;
-		this.continueCursor = null;
+	): void {
+		this.conversation.setThread(threadId, agentName, isHandedOff, assignedAdmin, notificationEmail);
 	}
 
-	/**
-	 * Set the handoff status (called when thread data is loaded)
-	 */
-	setHandedOff(isHandedOff: boolean) {
-		this.isHandedOff = isHandedOff;
+	setHandedOff(isHandedOff: boolean): void {
+		this.conversation.setHandedOff(isHandedOff);
 	}
 
-	/**
-	 * Request handoff to human support
-	 * This is a permanent action - AI will never respond in this thread again
-	 */
-	async requestHandoff(client: ConvexClient): Promise<SupportHandoffOutcome> {
-		// Capture values in local variables to avoid $state proxy issues with optimistic updates
-		const threadId = this.threadId;
-		const userId = this.userId;
-
-		if (!threadId) {
-			console.error('[requestHandoff] No thread ID');
-			return { kind: 'missing_thread' };
-		}
-
-		// Optimistically hide the button immediately
-		this.isHandedOff = true;
-
-		try {
-			const anonymousUserId = isAnonymousUser(userId) ? (userId ?? undefined) : undefined;
-
-			// Build query args for optimistic update (must match ChatRoot's query)
-			const queryArgs: ListMessagesArgs = {
-				threadId,
-				...(anonymousUserId ? { anonymousUserId } : {}),
-				paginationOpts: { numItems: CHAT_PAGE_SIZE, cursor: null },
-				streamArgs: { kind: 'list' as const, startOrder: 0 }
-			};
-
-			// Send mutation with optimistic update for user message
-			await client.mutation(
-				api.support.threads.updateThreadHandoff,
-				{
-					threadId,
-					anonymousUserId
-				},
-				{
-					optimisticUpdate: createOptimisticUpdate(
-						api.support.messages.listMessages,
-						queryArgs,
-						'user',
-						'Talk to support' // Match backend hardcoded message
-					)
-				}
-			);
-			this.clearError();
-			return { kind: 'applied' };
-		} catch (error) {
-			// Rollback the local mirror; Convex rolls back the optimistic query update.
-			this.isHandedOff = false;
-			console.error('[requestHandoff] Failed:', error);
-			this.setError('handoff_failed');
-			return { kind: 'failed', code: 'handoff_failed' };
-		}
+	requestHandoff(client: ConvexClient): Promise<SupportHandoffOutcome> {
+		return this.handoff.request(client);
 	}
 
-	/**
-	 * Set notification email for this thread
-	 * User will be notified when an admin responds (with 30-min cooldown)
-	 *
-	 * Uses Convex optimistic update to immediately show subscribed state,
-	 * while isEmailPending tracks whether mutation is still in flight.
-	 * Green check only shows when !isEmailPending (server confirmed).
-	 */
-	async setNotificationEmail(
-		client: ConvexClient,
-		email: string
-	): Promise<NotificationEmailOutcome> {
-		// Capture values to avoid $state proxy issues
-		const threadId = this.threadId;
-		const userId = this.userId;
-
-		if (!threadId) {
-			console.error('[setNotificationEmail] No thread ID');
-			return { kind: 'missing_thread' };
-		}
-
-		const normalizedEmail = email.trim().toLowerCase();
-
-		// Mark as pending - green check only shows when mutation completes AND query has
-		// propagated the new email AND there's no local optimistic override
-		this.isEmailPending = true;
-
-		try {
-			const anonymousUserId = isAnonymousUser(userId) ? (userId ?? undefined) : undefined;
-
-			// Build query args (must match threadQuery in feedback-widget.svelte)
-			const queryArgs = {
-				threadId,
-				anonymousUserId
-			};
-
-			await client.mutation(
-				api.support.threads.updateNotificationEmail,
-				{
-					threadId,
-					email: normalizedEmail,
-					anonymousUserId
-				},
-				{
-					optimisticUpdate: (store) => {
-						const current = store.getQuery(api.support.threads.getThread, queryArgs);
-						if (current !== undefined) {
-							store.setQuery(api.support.threads.getThread, queryArgs, {
-								...current,
-								notificationEmail: normalizedEmail || undefined
-							});
-						}
-					}
-				}
-			);
-
-			// Mutation succeeded - update local state (query subscription will also update)
-			this.notificationEmail = normalizedEmail || null;
-			this.clearError();
-			return { kind: 'saved', email: this.notificationEmail };
-		} catch (error) {
-			console.error('[setNotificationEmail] Failed:', error);
-			this.setError('notification_update_failed');
-			return { kind: 'failed', code: 'notification_update_failed' };
-		} finally {
-			// Clear pending state - green check can now appear
-			this.isEmailPending = false;
-		}
+	setNotificationEmail(client: ConvexClient, email: string): Promise<NotificationEmailOutcome> {
+		return this.notifications.setEmail(client, email);
 	}
 
-	/**
-	 * Send a message with optional file attachments
-	 *
-	 * This method handles the complete message sending flow:
-	 * - Thread creation (if no thread exists and no threadId provided)
-	 * - Building optimistic update
-	 * - Sending mutation
-	 *
-	 * Blocking behavior:
-	 * - AI mode (not handed off): Blocks until AI responds
-	 * - Handed-off mode: Fire-and-forget, allows multiple messages
-	 *
-	 * @param client - Convex client instance
-	 * @param prompt - Message text content
-	 * @param options - Optional file IDs, attachments, and pre-created threadId
-	 * @returns Promise with result (throws on error for caller to handle)
-	 */
-	async sendMessage(
+	sendMessage(
 		client: ConvexClient,
 		prompt: string,
-		options?: {
-			fileIds?: string[];
-			attachments?: Attachment[];
-			/** Pre-created threadId (e.g., from chatbar's eager thread creation) */
-			threadId?: string;
-		}
+		options?: { fileIds?: string[]; attachments?: Attachment[]; threadId?: string }
 	): Promise<{ threadId: string; threadCreated: boolean }> {
-		const trimmedPrompt = prompt.trim();
-
-		// Expected local refusals are machine-readable; callers own localized copy.
-		if (!trimmedPrompt) {
-			throw new ChatCommandError('empty_input');
-		}
-
-		// While a model is going to answer, block further sends until it does.
-		// Once the team owns the thread, allow fire-and-forget like admin view.
-		if (this.awaitsAgentReply && (this.isSending || this.isAwaitingStream)) {
-			throw new ChatCommandError('send_in_progress');
-		}
-
-		// Set sending state (used for blocking in AI mode)
-		this.setSending(true);
-
-		let threadCreated = false;
-
-		try {
-			// Use provided threadId, context threadId, or await in-flight creation
-			let threadId = options?.threadId ?? this.threadId;
-
-			// Wait for any in-flight thread creation to complete (prevents duplicate threads)
-			if (!threadId && this.threadCreationPromise) {
-				try {
-					threadId = await this.threadCreationPromise;
-				} catch {
-					// If warm-thread acquisition failed, we'll retry below
-				}
-			}
-
-			// Acquire a warm thread if none exists yet
-			if (!threadId) {
-				const result = await client.mutation(api.support.threads.getOrCreateWarmThread, {
-					anonymousUserId: this.getAnonymousUserId(),
-					pageUrl: typeof window !== 'undefined' ? window.location.href : undefined
-				});
-				threadId = result.threadId;
-				threadCreated = true;
-
-				// Update context state directly (setThread would reset isHandedOff,
-				// assignedAdmin, and the pagination cursors)
-				this.threadId = threadId;
-				this.notificationEmail = result.notificationEmail ?? null;
-				this.currentView = 'chat';
-			} else if (!this.threadId) {
-				// Thread was pre-created (e.g., by chatbar), update context
-				this.threadId = threadId;
-				this.currentView = 'chat';
-			}
-
-			// Build query args for optimistic update (must match ChatRoot's query exactly)
-			const anonymousUserId = this.getAnonymousUserId();
-			const queryArgs: ListMessagesArgs = {
-				threadId,
-				...(anonymousUserId ? { anonymousUserId } : {}),
-				paginationOpts: { numItems: CHAT_PAGE_SIZE, cursor: null },
-				streamArgs: { kind: 'list' as const, startOrder: 0 }
-			};
-
-			// Send message with optimistic update
-			// Note: File dimensions are now stored in fileMetadata table at upload time,
-			// so we no longer need to pass fileDimensions here
-			await client.mutation(
-				api.support.messages.sendMessage,
-				{
-					threadId,
-					prompt: trimmedPrompt,
-					anonymousUserId,
-					fileIds: options?.fileIds?.length ? options.fileIds : undefined
-				},
-				{
-					optimisticUpdate: createOptimisticUpdate(
-						api.support.messages.listMessages,
-						queryArgs,
-						'user',
-						trimmedPrompt,
-						{ attachments: options?.attachments?.length ? options.attachments : undefined }
-					)
-				}
-			);
-
-			// Mark as awaiting stream until the model starts responding, which
-			// blocks further sends until its answer finishes.
-			if (this.awaitsAgentReply) {
-				this.isAwaitingStream = true;
-			}
-
-			return { threadId, threadCreated };
-		} catch (error) {
-			console.error('[sendMessage] Failed:', error);
-			this.setError('send_failed');
-			throw error;
-		} finally {
-			// Clear sending state
-			this.setSending(false);
-		}
+		return this.conversation.sendMessage(client, prompt, options);
 	}
 
-	/**
-	 * Set loading state
-	 */
-	setLoading(loading: boolean) {
-		this.isLoading = loading;
+	setLoading(loading: boolean): void {
+		this.conversation.setLoading(loading);
 	}
 
-	/**
-	 * Set sending state
-	 */
-	setSending(sending: boolean) {
-		this.isSending = sending;
+	setSending(sending: boolean): void {
+		this.conversation.setSending(sending);
 	}
 
-	/**
-	 * Set error state
-	 */
-	setError(error: string | null) {
-		this.error = error;
+	setError(error: string | null): void {
+		this.conversation.setError(error);
 	}
 
-	/**
-	 * Clear error
-	 */
-	clearError() {
-		this.error = null;
+	clearError(): void {
+		this.conversation.clearError();
 	}
 
-	/**
-	 * Request widget to open (used when message sent from chatbar)
-	 * Also switches to chat view if there's an active thread
-	 */
-	requestWidgetOpen() {
-		this.shouldOpenWidget = true;
-		// If we have an active thread, switch to chat view
-		if (this.threadId) {
-			this.currentView = 'chat';
-		}
+	requestWidgetOpen(): void {
+		this.navigation.requestWidgetOpen(this.conversation.hasThread);
 	}
 
-	/**
-	 * Clear widget open request
-	 */
-	clearWidgetOpenRequest() {
-		this.shouldOpenWidget = false;
+	clearWidgetOpenRequest(): void {
+		this.navigation.clearWidgetOpenRequest();
 	}
 
-	// ========================================
-	// Navigation Methods
-	// ========================================
-
-	/**
-	 * Set the user ID for thread management
-	 */
-	setUserId(userId: string | null) {
-		this.userId = userId;
+	setUserId(userId: string | null): void {
+		this.conversation.setUserId(userId);
 	}
 
-	/**
-	 * Set callback for thread changes (used for URL state sync)
-	 */
-	setOnThreadChange(callback: ((threadId: string | null) => void) | undefined) {
-		this.onThreadChange = callback;
+	setOnThreadChange(callback: ((threadId: string | null) => void) | undefined): void {
+		this.navigation.setOnThreadChange(callback);
 	}
 
-	/**
-	 * Select a thread and navigate to chat view
-	 */
 	selectThread(
 		threadId: string,
 		agentName?: string,
 		isHandedOff?: boolean,
-		assignedAdmin?: { name?: string; image: string | null },
+		assignedAdmin?: SupportAssignedAdmin,
 		notificationEmail?: string | null
-	) {
-		this.setThread(threadId, agentName, isHandedOff, assignedAdmin, notificationEmail);
-		this.currentView = 'chat';
-		this.isNewConversation = false;
-		this.onThreadChange?.(threadId);
+	): void {
+		this.conversation.setThread(threadId, agentName, isHandedOff, assignedAdmin, notificationEmail);
+		this.conversation.setNewConversation(false);
+		this.navigation.selectThread(threadId);
 	}
 
-	/**
-	 * Select a thread from URL (loads thread details from backend)
-	 * Used when opening widget from a shared link with ?thread=xxx
-	 */
-	selectThreadFromUrl(threadId: string) {
-		// Set thread ID and switch to chat view
-		// Full thread details (agentName, isHandedOff, etc.) will be loaded
-		// reactively by the chat component's query
-		this.threadId = threadId;
-		this.currentView = 'chat';
-		this.isNewConversation = false;
-		this.skipAnimation = true;
-		// Don't call onThreadChange here - this is triggered BY the URL
+	selectThreadFromUrl(threadId: string): void {
+		this.conversation.selectThreadFromUrl(threadId);
+		this.navigation.selectThreadFromUrl();
 	}
 
-	/**
-	 * Start a new thread (navigate to chat view)
-	 * A warm thread is acquired eagerly for immediate optimistic updates
-	 */
-	startNewThread() {
-		this.setThread(null);
-		this.currentView = 'chat';
-		this.isNewConversation = true;
-		this.threadGeneration++;
-		this.onThreadChange?.(null);
+	startNewThread(): void {
+		this.conversation.beginNewConversation();
+		this.navigation.startNewThread();
 
-		// Trigger eager thread creation if client is available
-		if (this.client) {
-			void this.ensureThread(this.client).catch((error) => {
-				console.error('[startNewThread] Thread creation failed:', error);
-				this.setError('thread_start_failed');
-			});
+		void this.conversation.ensureConfiguredThread()?.catch((error) => {
+			console.error('[startNewThread] Thread creation failed:', error);
+			this.conversation.setError('thread_start_failed');
+		});
+	}
+
+	goBack(): void {
+		if (!this.conversation.hasThread) {
+			this.conversation.invalidateWarmThreadAcquisition();
 		}
+		this.navigation.goBack();
 	}
 
-	/**
-	 * Go back to the overview
-	 * Note: We only change the view, not the thread state.
-	 * This keeps messages visible during the slide-out animation.
-	 * State is cleared when entering a new thread/compose via setThread().
-	 */
-	goBack() {
-		this.currentView = 'overview';
-		this.onThreadChange?.(null);
-	}
-
-	/**
-	 * Reset the context
-	 */
-	reset() {
-		// Navigation state
-		this.currentView = 'overview';
-		this.userId = null;
-
-		// Current thread state
-		this.threadId = null;
-		this.threadAgentName = undefined;
-		this.isHandedOff = false;
-		this.assignedAdmin = undefined;
-		this.notificationEmail = null;
-		this.isEmailPending = false;
-		this.isLoading = false;
-		this.isSending = false;
-		this.error = null;
-		this.shouldOpenWidget = false;
-		this.isNewConversation = false;
-		this.hasMore = false;
-		this.continueCursor = null;
+	reset(): void {
+		this.navigation.reset();
+		this.conversation.reset();
+		this.notifications.reset();
 	}
 }
 
-/**
- * Support thread context
- *
- * Use this context to share thread state across customer support components.
- *
- * @example
- * ```svelte
- * <script lang="ts">
- *   import { supportThreadContext } from './support-thread-context.svelte.ts';
- *
- *   const thread = supportThreadContext.get();
- *
- *   // Access thread state
- *   const { threadId, isSending } = $derived(thread);
- * </script>
- * ```
- */
+/** One feature-level provider; collaborators are reached through this root. */
 export const supportThreadContext = new Context<SupportThreadContext>('support-thread');

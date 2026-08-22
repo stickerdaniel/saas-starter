@@ -334,7 +334,7 @@
 			<ChatRoot
 				threadId={threadContext.threadId}
 				api={chatApi}
-				externalCore={threadContext}
+				externalCore={threadContext.conversation}
 				externalUIContext={chatUIContext}
 				listMessagesArgs={anonymousUserId ? { anonymousUserId } : undefined}
 			>
