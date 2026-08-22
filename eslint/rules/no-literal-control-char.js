@@ -7,9 +7,11 @@
  * Why: the character is often the right one. NUL is a good separator for a
  * composite key, because it cannot occur in the parts being joined. Writing it as
  * the raw byte is what breaks. It renders as nothing, so a reader sees an empty
- * string where the code means a separator, a text search or scripted edit matches
- * nothing while appearing to succeed, and git calls the whole file binary, which
- * takes its diffs out of code review.
+ * string where the code means a separator, and a text search or scripted edit
+ * matches nothing while appearing to succeed. A NUL goes further and takes the
+ * file out of code review altogether, because git classifies a file holding one as
+ * binary and stops diffing it. The other characters here keep their text diffs and
+ * simply show nothing in them.
  *
  * The bidirectional characters are worse than invisible: they reorder how the
  * source displays without changing what it does, so a reviewer can read one
@@ -36,11 +38,13 @@
 // would flag every file, and a check that noisy gets switched off the same day.
 const STRUCTURAL = new Set([0x09, 0x0a, 0x0d]);
 
-// Bidirectional formatting characters. The embedding and override pair
-// (U+202A-U+202E) and the isolates (U+2066-U+2069) reorder a run of text; the
-// marks (U+200E, U+200F) set its direction.
+// Every character Unicode gives the Bidi_Control property: the marks (U+061C,
+// U+200E, U+200F) set a run's direction, the embeddings and overrides
+// (U+202A-U+202E) and the isolates (U+2066-U+2069) reorder it. Spelled out rather
+// than matched with `\p{Bidi_Control}`, so that adding a member is a visible edit
+// and a Unicode revision cannot silently widen what this rule rejects.
 const BIDI = new Set([
-	0x200e, 0x200f, 0x202a, 0x202b, 0x202c, 0x202d, 0x202e, 0x2066, 0x2067, 0x2068, 0x2069
+	0x061c, 0x200e, 0x200f, 0x202a, 0x202b, 0x202c, 0x202d, 0x202e, 0x2066, 0x2067, 0x2068, 0x2069
 ]);
 
 /** The category a banned codepoint belongs to, or null when it is legal. */
@@ -62,7 +66,7 @@ export default {
 		schema: [],
 		messages: {
 			literalControlChar:
-				'{{codepoint}} ({{category}}) is written as the character itself, so it is invisible in editors, diffs and text search, and it makes git treat this file as binary. Write it as an escape ({{escape}}).'
+				'{{codepoint}} ({{category}}) is written as the character itself, so it is invisible in editors, diffs and text search. Write it as an escape ({{escape}}).'
 		}
 	},
 	create(context) {
@@ -73,7 +77,17 @@ export default {
 				let column = 0;
 				for (let i = 0; i < text.length; i++) {
 					const code = text.charCodeAt(i);
-					if (code === 0x0a) {
+					// ESLint counts four line terminators, and a report that disagrees sends
+					// `eslint-disable-next-line` to the wrong line. CR is one of them, so a
+					// CRLF pair has to advance once rather than twice.
+					if (code === 0x0d) {
+						if (text.charCodeAt(i + 1) !== 0x0a) {
+							line++;
+							column = 0;
+						}
+						continue;
+					}
+					if (code === 0x0a || code === 0x2028 || code === 0x2029) {
 						line++;
 						column = 0;
 						continue;

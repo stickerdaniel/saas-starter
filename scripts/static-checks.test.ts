@@ -89,7 +89,8 @@ describe('bad input dies at the boundary', () => {
 	// or nothing pins that the guards above leave it alone.
 	//
 	// It reads the real git index, which is the developer's, so with anything staged
-	// it lints those files for real and blows the 5s timeout. The index cannot be
+	// it lints those files for real and outruns vitest's default per-test timeout,
+	// which nothing here raises. The index cannot be
 	// substituted from outside either: `sanitizedGitEnv` scrubs `GIT_INDEX_FILE`
 	// deliberately, because a pre-commit framework setting it points the run at the
 	// wrong worktree (#332). CI stages nothing, so the assertion always runs where it

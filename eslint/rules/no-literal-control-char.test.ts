@@ -69,6 +69,7 @@ describe('no-literal-control-char', () => {
 	// These reorder how the source displays without changing what it runs, which is
 	// the Trojan Source attack (CVE-2021-42574). Invisibility is the lesser problem.
 	it.each([
+		['ALM', 0x061c],
 		['LRM', 0x200e],
 		['RLM', 0x200f],
 		['LRE', 0x202a],
@@ -81,7 +82,24 @@ describe('no-literal-control-char', () => {
 		expect(reports[0].data.category).toBe('bidirectional formatting');
 	});
 
+	it('flags exactly the characters Unicode gives the Bidi_Control property', () => {
+		const flagged: number[] = [];
+		for (let code = 0; code <= 0xffff; code++) {
+			if (lint(String.fromCharCode(code)).length > 0) flagged.push(code);
+		}
+		const bidi = flagged.filter((code) => /\p{Bidi_Control}/u.test(String.fromCharCode(code)));
+		const missing = [];
+		for (let code = 0; code <= 0xffff; code++) {
+			const char = String.fromCharCode(code);
+			if (/\p{Bidi_Control}/u.test(char) && !flagged.includes(code)) missing.push(code);
+		}
+		expect(missing).toEqual([]);
+		expect(bidi).toHaveLength(12);
+	});
+
 	it('leaves the printable characters either side of the bidi ranges alone', () => {
+		expect(lint(`a${char(0x061b)}b`)).toHaveLength(0);
+		expect(lint(`a${char(0x061d)}b`)).toHaveLength(0);
 		expect(lint(`a${char(0x200d)}b`)).toHaveLength(0);
 		expect(lint(`a${char(0x2010)}b`)).toHaveLength(0);
 		expect(lint(`a${char(0x2065)}b`)).toHaveLength(0);
@@ -118,9 +136,23 @@ describe('no-literal-control-char', () => {
 		expect(reports[0].loc).toEqual({ line: 2, column: 11 });
 	});
 
-	// A CRLF file must not shift every column on the following line by one.
+	// A CRLF file must not shift every column on the following line by one, and it
+	// must not count the pair as two lines either.
 	it('does not let a carriage return consume the newline', () => {
 		const reports = lint(`const a = 1;\r\n${char(0x1b)}`);
+		expect(reports).toHaveLength(1);
+		expect(reports[0].loc).toEqual({ line: 2, column: 0 });
+	});
+
+	// ESLint treats all four of these as line terminators. Counting only the line
+	// feed reported the character a line early, and an `eslint-disable-next-line`
+	// written against the reported line then landed on the wrong one.
+	it.each([
+		['a lone carriage return', 0x0d],
+		['a line separator', 0x2028],
+		['a paragraph separator', 0x2029]
+	])('starts a new line after %s', (_label, terminator) => {
+		const reports = lint(`const a = 1;${char(terminator)}${char(0x1b)}`);
 		expect(reports).toHaveLength(1);
 		expect(reports[0].loc).toEqual({ line: 2, column: 0 });
 	});
