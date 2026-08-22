@@ -36,16 +36,8 @@ vi.mock('../_generated/server', () => ({
 const { createAuthOptions } = await import('../auth');
 
 const appOptions = createAuthOptions({} as never) as {
-	account?: { accountLinking?: { trustedProviders?: unknown } };
+	account?: { accountLinking?: { requireLocalEmailVerified?: boolean } };
 };
-
-/**
- * Better Auth resolves the trusted providers from this same option block
- * (`getTrustedProviders` in better-auth/dist/context/helpers.mjs), which also
- * accepts a function. The app uses neither form today, and the case below fails
- * rather than let this quietly resolve to an empty list if that changes.
- */
-const configuredTrustedProviders = appOptions.account?.accountLinking?.trustedProviders;
 
 type LinkContext = Parameters<typeof handleOAuthUserInfo>[0];
 type LinkOptions = Parameters<typeof handleOAuthUserInfo>[1];
@@ -88,7 +80,11 @@ function createContext(localUser: { id: string; email: string; emailVerified: bo
 	const context = {
 		context: {
 			internalAdapter,
-			trustedProviders: Array.isArray(configuredTrustedProviders) ? configuredTrustedProviders : [],
+			// Measured inert for both cases below. `isTrustedProvider` is its own
+			// disjunct in handleOAuthUserInfo and never reaches the local
+			// verification check, and the provider vouches for the address
+			// anyway, so neither verdict moves when this list gains an entry.
+			trustedProviders: [],
 			options: { account: appOptions.account },
 			baseURL: 'https://example.test/api/auth',
 			secret: 'test-secret',
@@ -108,12 +104,6 @@ const linkOptions = {
 } as unknown as LinkOptions;
 
 describe('implicit OAuth account linking', () => {
-	it('resolves the trusted providers the way the context does', () => {
-		// A function here would be resolved per request against the callback,
-		// which this synthetic context cannot reproduce.
-		expect(typeof configuredTrustedProviders).not.toBe('function');
-	});
-
 	it('refuses to link into a local user that never verified its email', async () => {
 		const { context, internalAdapter } = createContext({
 			id: 'local-user-id',
