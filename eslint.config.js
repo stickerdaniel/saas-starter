@@ -23,9 +23,25 @@ import requireGuardedServerConvexClientRule from './eslint/rules/require-guarded
 import noFrozenAuthPageDataRule from './eslint/rules/no-frozen-auth-page-data.js';
 import requireSvelteModuleExtensionRule from './eslint/rules/require-svelte-module-extension.js';
 import noAnimatedPixelPressRule from './eslint/rules/no-animated-pixel-press.js';
+import safeSvelteParser from './eslint/parsers/safe-svelte-parser.js';
+import noLiteralControlCharRule from './eslint/rules/no-literal-control-char.js';
 
 const gitignorePath = path.resolve(import.meta.dirname, '.gitignore');
 const localPlugin = {
+	processors: {
+		// Varlock writes a file-wide disable into generated environment types. Blank
+		// that exact directive without changing its length, so ESLint still reports
+		// the right locations and the generated file cannot switch this plugin off.
+		'strip-generated-eslint-disable': {
+			preprocess(text) {
+				return [text.replace('/* eslint-disable */', (directive) => ' '.repeat(directive.length))];
+			},
+			postprocess(messageLists) {
+				return messageLists.flat();
+			},
+			supportsAutofix: true
+		}
+	},
 	rules: {
 		'require-marketing-markdown': requireMarketingMarkdownRule,
 		'require-marketing-route-registration': requireMarketingRouteRegistrationRule,
@@ -41,15 +57,24 @@ const localPlugin = {
 		'require-guarded-server-convex-client': requireGuardedServerConvexClientRule,
 		'no-frozen-auth-page-data': noFrozenAuthPageDataRule,
 		'require-svelte-module-extension': requireSvelteModuleExtensionRule,
-		'no-animated-pixel-press': noAnimatedPixelPressRule
+		'no-animated-pixel-press': noAnimatedPixelPressRule,
+		'no-literal-control-char': noLiteralControlCharRule
 	}
 };
 
 export default defineConfig(
 	includeIgnoreFile(gitignorePath),
-	// Ignore auto-generated files
+	// Convex codegen and varlock emit a file-level `/* eslint-disable */`, which
+	// switches off every rule from inside the generated file. The Convex and varlock
+	// Convex outputs stay ignored because reaching them would require overriding the
+	// generator's own directive and then exempting all of its generated style.
+	//
+	// `src/env.d.ts` carries the same directive, but it is written from environment
+	// values, which come from outside this repository. It is the generated file most
+	// exposed to a character nobody typed, so the later file block disables its inline
+	// directive and exempts only the generated style rules it then trips.
 	{
-		ignores: ['**/_generated/**', 'src/env.d.ts', 'src/lib/convex/convex-env.d.ts']
+		ignores: ['**/_generated/**', 'src/lib/convex/convex-env.d.ts']
 	},
 	js.configs.recommended,
 	...ts.configs.recommended,
@@ -308,6 +333,43 @@ export default defineConfig(
 		},
 		rules: {
 			'local/no-animated-pixel-press': 'error'
+		}
+	},
+	// A control or bidirectional character written as itself can disappear in review,
+	// so this has to reach every file ESLint parses. Scoping it to src/ would leave
+	// scripts/, config and the guard itself unchecked, which is where an invisible
+	// character does the most damage.
+	{
+		files: ['**/*.{js,ts,svelte}'],
+		plugins: {
+			local: localPlugin
+		},
+		rules: {
+			'local/no-literal-control-char': 'error'
+		}
+	},
+	// Valid Svelte files keep the ordinary parser and rule lifecycle. The wrapper
+	// changes only a thrown parser message, which is the path that happens before a
+	// Program visitor can sanitize the invalid token itself.
+	{
+		files: ['**/*.svelte'],
+		languageOptions: {
+			parser: safeSvelteParser
+		}
+	},
+	// Varlock puts a file-wide ESLint disable and empty marker interfaces in this
+	// generated header. The processor blanks the directive without shifting source
+	// locations; the rules below exempt the generated TypeScript style and nothing
+	// else. The control-character rule therefore still runs on the real file text.
+	{
+		files: ['src/env.d.ts'],
+		plugins: {
+			local: localPlugin
+		},
+		processor: 'local/strip-generated-eslint-disable',
+		rules: {
+			'@typescript-eslint/ban-ts-comment': 'off',
+			'@typescript-eslint/no-empty-object-type': 'off'
 		}
 	},
 	// Convex best-practice rules — v2 ships ESLint 9 flat config natively
