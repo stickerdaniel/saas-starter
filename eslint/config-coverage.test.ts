@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { existsSync, readFileSync } from 'node:fs';
 import { ESLint } from 'eslint';
+import stripAnsi from 'strip-ansi';
 import { describe, expect, it } from 'vitest';
 
 /**
@@ -79,7 +80,7 @@ describe('no-literal-control-char coverage', () => {
 			expect(fatal[0].message).toContain(codepoint);
 			expect(fatal[0].message).not.toContain(value);
 			const formatter = await eslint.loadFormatter('stylish');
-			expect(await formatter.format([result])).not.toContain(value);
+			expect(stripAnsi(await formatter.format([result]))).not.toContain(value);
 		},
 		60_000
 	);
