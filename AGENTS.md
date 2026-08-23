@@ -81,6 +81,36 @@ Never preserve current symbols, signatures, enums, file lists, or implementation
 
 `knowledge-policy.config.ts` is the executable repository policy. The template default checks relative links and validates decision/runbook metadata when those directories are used, while allowing product forks to keep their own API guides, contribution documents, domain manuals, local READMEs, or stricter document classes. Change the configuration deliberately rather than bypassing the guard.
 
+## Regression guards
+
+A guard stops the next agent from repeating a mistake with fresh context. Fixing something does not earn one.
+
+Build a guard when all three hold:
+
+1. The correct path was not obvious: a wrong first instinct, required research, or a plausible-looking alternative that is subtly wrong.
+2. The wrong path is still writable. When a type or API already makes it impossible, that is the guard.
+3. The correct pattern fits in one sentence. An unnameable rule cannot be enforced or explained.
+
+Every fix PR states its verdict in the body, one line above the verification line:
+
+```text
+Regression guard: added <name>
+Regression guard: covered by <name>
+Regression guard: not warranted, <one-line reason>
+```
+
+Pick the earliest mechanism that fires, not the most thorough one. A guard that fires while the agent writes the line teaches the pattern; one that fires in CI reports a failure after the reasoning is already committed.
+
+1. Make it unexpressible: narrow the type, signature, schema, or API.
+2. Catch it while writing: an ESLint rule or PreToolUse hook, for any mistake with a recognizable source pattern. State the correct pattern and its reason in the message.
+3. Catch it before the push: a static check or build artifact guard.
+4. Prove the behavior: a test, when only the outcome separates right from wrong. Take the cheapest layer that fails for the same causal reason, from pure Vitest, `convex-test`, component, SvelteKit HTTP, artifact, and local Playwright through deployed HTTP and deployed Playwright.
+5. Write it down: an `AGENTS.md` line or a skill, for judgement calls with no mechanical signature. Weakest option, because it works only when read first.
+
+Guard a rendered detail (DOM ancestry, wrapper placement, CSS class, copy, cosmetic pixels, transition-timed styles) only when that exact property is a published user or platform contract.
+
+A finished guard fails on the buggy revision for the same causal reason, and its message names the correct pattern. When it does not, move one boundary outward or rewrite the message.
+
 ## Core commands
 
 - `bun run build` — production build

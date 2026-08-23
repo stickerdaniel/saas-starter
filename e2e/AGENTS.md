@@ -12,6 +12,7 @@ Every step here is charged to the whole repository. The suite runs `workers: 1` 
 
 ## How to write them
 
+- Justify the browser before writing the spec, in the PR body or a comment on the spec: `Cheaper layers rejected because: <the browser or deployed behavior they cannot reach>`.
 - Run `bun run test:e2e` after every E2E change.
 - Tests run against isolated deterministic ports and an isolated local Convex backend. Do not point them at a developer's cloud deployment.
 - Use the seeded test/admin flows and helpers rather than introducing production bypasses.

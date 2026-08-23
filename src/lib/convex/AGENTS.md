@@ -19,6 +19,14 @@ Use the local Better Auth component. Derive identity server-side; never authoriz
 
 The public E2E helper mutations in `tests.ts` are safe only while `AUTH_E2E_TEST_SECRET` is absent from production. Never configure that variable in the production Convex environment.
 
+## Where a backend guard belongs
+
+Validators and generated types carry the mechanical API boundary, so a test that re-proves them adds nothing. `convex-test` carries the authorization, tenant-boundary, transaction, index-semantics, and scheduler matrix; browser tests never repeat those combinations.
+
+Escalate past `convex-test` when the defect depends on behavior it simulates rather than reproduces: production limits, real cron activation, search ranking, live subscriptions, or hosted index readiness. Those need the local backend or a preview deployment.
+
+A hand-written provider payload or auth session is a claim about that dependency. Derive it from a measured sample or an official fixture.
+
 ## Platform and durability rules
 
 - Scheduling from mutations is atomic; scheduled mutations execute exactly once with platform retries for internal failures.

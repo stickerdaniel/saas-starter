@@ -1,4 +1,4 @@
-# Enforces the regression-guard contract from scripts/AGENTS.md:
+# Enforces the regression-guard contract from AGENTS.md:
 # every fix PR must state its regression-guard verdict in the body
 # (added <name> / covered by <name> / not warranted, <reason>).
 name: Require Regression Guard
@@ -30,6 +30,6 @@ jobs:
             echo "  Regression guard: added <name>"
             echo "  Regression guard: covered by <name>"
             echo "  Regression guard: not warranted, <one-line reason>"
-            echo "See scripts/AGENTS.md, section Validation."
+            echo "See AGENTS.md, section Regression guards."
             exit 1
           fi
