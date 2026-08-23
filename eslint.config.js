@@ -23,6 +23,7 @@ import requireGuardedServerConvexClientRule from './eslint/rules/require-guarded
 import noFrozenAuthPageDataRule from './eslint/rules/no-frozen-auth-page-data.js';
 import requireSvelteModuleExtensionRule from './eslint/rules/require-svelte-module-extension.js';
 import noAnimatedPixelPressRule from './eslint/rules/no-animated-pixel-press.js';
+import safeSvelteParser from './eslint/parsers/safe-svelte-parser.js';
 import noLiteralControlCharRule from './eslint/rules/no-literal-control-char.js';
 
 const gitignorePath = path.resolve(import.meta.dirname, '.gitignore');
@@ -345,6 +346,15 @@ export default defineConfig(
 		},
 		rules: {
 			'local/no-literal-control-char': 'error'
+		}
+	},
+	// Valid Svelte files keep the ordinary parser and rule lifecycle. The wrapper
+	// changes only a thrown parser message, which is the path that happens before a
+	// Program visitor can sanitize the invalid token itself.
+	{
+		files: ['**/*.svelte'],
+		languageOptions: {
+			parser: safeSvelteParser
 		}
 	},
 	// Varlock puts a file-wide ESLint disable and empty marker interfaces in this

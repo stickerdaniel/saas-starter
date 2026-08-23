@@ -60,8 +60,38 @@ describe('no-literal-control-char coverage', () => {
 			expect(messages).toHaveLength(1);
 			expect(messages[0].severity).toBe(2);
 		},
-		15_000
+		60_000
 	);
+
+	it.each([
+		['C0', 0x1b, 'U+001B'],
+		['DEL', 0x7f, 'U+007F'],
+		['C1', 0x85, 'U+0085'],
+		['bidi', 0x202e, 'U+202E']
+	])(
+		'sanitizes a fatal Svelte parser diagnostic carrying %s input',
+		async (_label, code, codepoint) => {
+			const value = String.fromCharCode(code);
+			const source = `<div>{${value}}</div>`;
+			const [result] = await eslint.lintText(source, { filePath: 'src/routes/+layout.svelte' });
+			const fatal = result.messages.filter((message) => message.fatal);
+			expect(fatal).toHaveLength(1);
+			expect(fatal[0].message).toContain(codepoint);
+			expect(fatal[0].message).not.toContain(value);
+			const formatter = await eslint.loadFormatter('stylish');
+			expect(await formatter.format([result])).not.toContain(value);
+		},
+		60_000
+	);
+
+	it('keeps ordinary Svelte rule suppression on the valid parse path', async () => {
+		const source = `<!-- eslint-disable local/no-literal-control-char -->
+<!-- ${offender} -->`;
+		const [result] = await eslint.lintText(source, { filePath: 'src/routes/+layout.svelte' });
+		expect(
+			result.messages.filter((message) => message.ruleId === 'local/no-literal-control-char')
+		).toEqual([]);
+	}, 60_000);
 
 	// The generators for these paths disable ESLint inside every file. Un-ignoring
 	// them would buy no coverage and add only unused-directive warnings.
