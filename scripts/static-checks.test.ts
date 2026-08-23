@@ -19,6 +19,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { describe, expect, it } from 'vitest';
 
+import { sanitizedGitEnv } from './git-context';
 import { ROUTES, resolveInputs } from './static-checks';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -97,7 +98,10 @@ describe('bad input dies at the boundary', () => {
 	// gates a merge, and a developer mid-commit gets a skip with the reason instead of
 	// a timeout that looks like a broken script.
 	const nothingStaged =
-		spawnSync('git', ['diff', '--cached', '--quiet'], { cwd: ROOT }).status === 0;
+		spawnSync('git', ['diff', '--cached', '--quiet'], {
+			cwd: ROOT,
+			env: sanitizedGitEnv()
+		}).status === 0;
 	it.skipIf(!nothingStaged)('still accepts a run with nothing staged', () => {
 		expect(run('--staged', '--scope', 'lint')).toBe(0);
 	});

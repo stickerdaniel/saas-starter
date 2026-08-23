@@ -27,6 +27,20 @@ import noLiteralControlCharRule from './eslint/rules/no-literal-control-char.js'
 
 const gitignorePath = path.resolve(import.meta.dirname, '.gitignore');
 const localPlugin = {
+	processors: {
+		// Varlock writes a file-wide disable into generated environment types. Blank
+		// that exact directive without changing its length, so ESLint still reports
+		// the right locations and the generated file cannot switch this plugin off.
+		'strip-generated-eslint-disable': {
+			preprocess(text) {
+				return [text.replace('/* eslint-disable */', (directive) => ' '.repeat(directive.length))];
+			},
+			postprocess(messageLists) {
+				return messageLists.flat();
+			},
+			supportsAutofix: true
+		}
+	},
 	rules: {
 		'require-marketing-markdown': requireMarketingMarkdownRule,
 		'require-marketing-route-registration': requireMarketingRouteRegistrationRule,
@@ -49,14 +63,15 @@ const localPlugin = {
 
 export default defineConfig(
 	includeIgnoreFile(gitignorePath),
-	// Convex codegen and varlock both emit a file-level `/* eslint-disable */`, which
-	// switches off every rule from inside the file. Ignoring those paths here changes
-	// nothing they would otherwise be checked for, so the entry stays.
+	// Convex codegen and varlock emit a file-level `/* eslint-disable */`, which
+	// switches off every rule from inside the generated file. The Convex and varlock
+	// Convex outputs stay ignored because reaching them would require overriding the
+	// generator's own directive and then exempting all of its generated style.
 	//
-	// `src/env.d.ts` carries no such directive, so ignoring it was the only thing
-	// keeping it out of ESLint's reach. It is written from environment values, which
-	// come from outside this repository, which makes it the generated file most
-	// exposed to a character nobody typed. It is linted below instead.
+	// `src/env.d.ts` carries the same directive, but it is written from environment
+	// values, which come from outside this repository. It is the generated file most
+	// exposed to a character nobody typed, so the later file block disables its inline
+	// directive and exempts only the generated style rules it then trips.
 	{
 		ignores: ['**/_generated/**', 'src/lib/convex/convex-env.d.ts']
 	},
@@ -319,10 +334,10 @@ export default defineConfig(
 			'local/no-animated-pixel-press': 'error'
 		}
 	},
-	// A control or bidirectional character written as itself is invisible in review
-	// and turns the file binary for git, so this has to reach every file ESLint
-	// parses. Scoping it to src/ would leave scripts/, config and the guard itself
-	// unchecked, which is where an unreviewable byte does the most damage.
+	// A control or bidirectional character written as itself can disappear in review,
+	// so this has to reach every file ESLint parses. Scoping it to src/ would leave
+	// scripts/, config and the guard itself unchecked, which is where an invisible
+	// character does the most damage.
 	{
 		files: ['**/*.{js,ts,svelte}'],
 		plugins: {
@@ -332,13 +347,19 @@ export default defineConfig(
 			'local/no-literal-control-char': 'error'
 		}
 	},
-	// The only rule `src/env.d.ts` trips, and it trips it by construction: varlock
-	// writes the directive into every generated header. Everything else, including the
-	// control-character rule above, applies to it.
+	// Varlock puts a file-wide ESLint disable and empty marker interfaces in this
+	// generated header. The processor blanks the directive without shifting source
+	// locations; the rules below exempt the generated TypeScript style and nothing
+	// else. The control-character rule therefore still runs on the real file text.
 	{
 		files: ['src/env.d.ts'],
+		plugins: {
+			local: localPlugin
+		},
+		processor: 'local/strip-generated-eslint-disable',
 		rules: {
-			'@typescript-eslint/ban-ts-comment': 'off'
+			'@typescript-eslint/ban-ts-comment': 'off',
+			'@typescript-eslint/no-empty-object-type': 'off'
 		}
 	},
 	// Convex best-practice rules — v2 ships ESLint 9 flat config natively

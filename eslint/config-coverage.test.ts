@@ -1,4 +1,5 @@
 // @vitest-environment node
+import { existsSync, readFileSync } from 'node:fs';
 import { ESLint } from 'eslint';
 import { describe, expect, it } from 'vitest';
 
@@ -7,37 +8,63 @@ import { describe, expect, it } from 'vitest';
  *
  * The rule replaced a scan in `scripts/static-checks.ts` whose route required a
  * `src/` prefix, so it reached neither `scripts/` nor the config files nor itself.
- * That claim is the whole reason the rule lives in ESLint, and nothing enforced it:
- * a `files` glob, an `ignores` entry, or a later config block can take a file back
- * out of reach without a single test failing.
+ * That claim is the whole reason the rule lives in ESLint, and a config calculation
+ * alone cannot prove it: a file-wide `/* eslint-disable *\/` still suppresses a rule
+ * whose calculated severity is `error`.
  *
- * A file can also be out of reach for a reason no config expresses. Convex codegen
- * and varlock write `/* eslint-disable *\/` into their output, which switches every
- * rule off from inside the file, so those paths stay in the global ignores and are
- * asserted here as unreachable rather than quietly assumed to be covered.
+ * Each positive case therefore reads an existing tracked file, adds a control
+ * character in a valid comment, and sends the result through the real ESLint API
+ * with that file's path. This covers config selection, parsers, processors, inline
+ * directives, and the final rule verdict in one assertion.
+ *
+ * Convex codegen and varlock's Convex generator write a file-wide disable into their
+ * output, so those paths stay globally ignored. `src/env.d.ts` gets different
+ * treatment: its processor blanks that directive without shifting source locations,
+ * because environment values come from outside the repository and are exactly where
+ * a character nobody typed can enter generated source.
  */
 const eslint = new ESLint();
+const offender = String.fromCharCode(0x1b);
 
-/** `calculateConfigForFile` normalizes severity to a number, where 2 is `error`. */
-async function ruleSeverity(file: string): Promise<unknown> {
-	const config = await eslint.calculateConfigForFile(file);
-	return config.rules?.['local/no-literal-control-char']?.[0];
+async function controlCharacterMessages(file: string) {
+	// Keep the real path, which selects the config, parser and processor. A minimal
+	// source makes this a coverage test rather than a second lint of six whole files.
+	// The generated env case deliberately keeps its real header, because its file-wide
+	// disable is the condition the processor exists to remove.
+	const source =
+		file === 'src/env.d.ts'
+			? readFileSync(file, 'utf-8')
+			: file.endsWith('.svelte')
+				? '<script>const value = true;</script>'
+				: 'export {};';
+	const withOffender = file.endsWith('.svelte')
+		? `${source}\n<!-- ${offender} -->\n`
+		: `${source}\n// ${offender}\n`;
+	const [result] = await eslint.lintText(withOffender, { filePath: file });
+	return result.messages.filter((message) => message.ruleId === 'local/no-literal-control-char');
 }
 
 describe('no-literal-control-char coverage', () => {
 	it.each([
-		['a source module', 'src/lib/utils/index.ts'],
+		['a source module', 'src/lib/utils.ts'],
 		['a Svelte component', 'src/routes/+layout.svelte'],
 		['a build script outside src/', 'scripts/static-checks.ts'],
 		['the ESLint config itself', 'eslint.config.js'],
 		['the rule implementation', 'eslint/rules/no-literal-control-char.js'],
-		['the generated env types', 'src/env.d.ts']
-	])('reaches %s', async (_label, file) => {
-		expect(await ruleSeverity(file)).toBe(2);
-	});
+		['the generated env types despite their file-wide disable', 'src/env.d.ts']
+	])(
+		'reaches %s',
+		async (_label, file) => {
+			expect(existsSync(file)).toBe(true);
+			const messages = await controlCharacterMessages(file);
+			expect(messages).toHaveLength(1);
+			expect(messages[0].severity).toBe(2);
+		},
+		15_000
+	);
 
-	// Not a gap this config can close. Both generators emit a file-level disable, so
-	// un-ignoring these paths would buy nothing and add unused-directive warnings.
+	// The generators for these paths disable ESLint inside every file. Un-ignoring
+	// them would buy no coverage and add only unused-directive warnings.
 	it.each([
 		['Convex codegen output', 'src/lib/convex/_generated/api.js'],
 		['the varlock Convex env types', 'src/lib/convex/convex-env.d.ts']

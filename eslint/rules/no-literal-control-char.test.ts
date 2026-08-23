@@ -83,18 +83,17 @@ describe('no-literal-control-char', () => {
 	});
 
 	it('flags exactly the characters Unicode gives the Bidi_Control property', () => {
-		const flagged: number[] = [];
+		const reported: number[] = [];
+		const unicode: number[] = [];
 		for (let code = 0; code <= 0xffff; code++) {
-			if (lint(String.fromCharCode(code)).length > 0) flagged.push(code);
+			const value = String.fromCharCode(code);
+			if (lint(value).some((report) => report.data.category === 'bidirectional formatting')) {
+				reported.push(code);
+			}
+			if (/\p{Bidi_Control}/u.test(value)) unicode.push(code);
 		}
-		const bidi = flagged.filter((code) => /\p{Bidi_Control}/u.test(String.fromCharCode(code)));
-		const missing = [];
-		for (let code = 0; code <= 0xffff; code++) {
-			const char = String.fromCharCode(code);
-			if (/\p{Bidi_Control}/u.test(char) && !flagged.includes(code)) missing.push(code);
-		}
-		expect(missing).toEqual([]);
-		expect(bidi).toHaveLength(12);
+		expect(reported).toEqual(unicode);
+		expect(unicode).toHaveLength(12);
 	});
 
 	it('leaves the printable characters either side of the bidi ranges alone', () => {
@@ -106,8 +105,9 @@ describe('no-literal-control-char', () => {
 		expect(lint(`a${char(0x206a)}b`)).toHaveLength(0);
 	});
 
-	// The fix is to make the byte visible, never to change what the code does, so the
-	// same separator spelled as an escape has to stay legal.
+	// Inside a string or template literal an escape keeps the runtime value while making
+	// the source visible. Between tokens the right repair is ordinary whitespace, which
+	// is why the rule deliberately has no fixer.
 	it.each(['\\u0000', '\\u0001', '\\0', '\\x00', '\\u202E'])('allows the escape %s', (escape) => {
 		expect(lint(`const key = a + '${escape}' + b;`)).toHaveLength(0);
 	});
@@ -165,5 +165,7 @@ describe('no-literal-control-char', () => {
 		expect(reports[0].data.codepoint).toBe('U+001B');
 		expect(reports[0].data.escape).toBe('\\u001B');
 		expect(rule.meta.messages.literalControlChar).not.toContain('{{source}}');
+		expect(rule.meta.messages.literalControlChar).toContain('visible whitespace');
+		expect(rule.meta.messages.literalControlChar).toContain('inside a string or template literal');
 	});
 });

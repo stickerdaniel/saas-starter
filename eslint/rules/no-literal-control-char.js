@@ -66,7 +66,7 @@ export default {
 		schema: [],
 		messages: {
 			literalControlChar:
-				'{{codepoint}} ({{category}}) is written as the character itself, so it is invisible in editors, diffs and text search. Write it as an escape ({{escape}}).'
+				'{{codepoint}} ({{category}}) is written as the character itself, so it is invisible in editors, diffs and text search. Remove it or replace it with visible whitespace. If it belongs inside a string or template literal, write {{escape}}.'
 		}
 	},
 	create(context) {
