@@ -43,6 +43,7 @@ import type * as autumn from "../autumn.js";
 import type * as constants from "../constants.js";
 import type * as crons from "../crons.js";
 import type * as emails_events from "../emails/events.js";
+import type * as emails_founderIncidentTypes from "../emails/founderIncidentTypes.js";
 import type * as emails_helpers from "../emails/helpers.js";
 import type * as emails_resend from "../emails/resend.js";
 import type * as emails_send from "../emails/send.js";
@@ -128,6 +129,7 @@ declare const fullApi: ApiFromModules<{
   constants: typeof constants;
   crons: typeof crons;
   "emails/events": typeof emails_events;
+  "emails/founderIncidentTypes": typeof emails_founderIncidentTypes;
   "emails/helpers": typeof emails_helpers;
   "emails/resend": typeof emails_resend;
   "emails/send": typeof emails_send;

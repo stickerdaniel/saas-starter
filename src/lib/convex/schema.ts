@@ -2,6 +2,7 @@ import { defineSchema, defineTable } from 'convex/server';
 import { v } from 'convex/values';
 import { vEmailEvent } from '@convex-dev/resend';
 import { supportThreadFields } from './support/supportThreadFields';
+import { founderIncidentEmailFields } from './emails/founderIncidentTypes';
 
 export default defineSchema({
 	// Note: Better Auth component manages its own tables (users, sessions, accounts, verifications)
@@ -191,6 +192,12 @@ export default defineSchema({
 		skippedReason: v.optional(v.string()),
 		createdAt: v.number()
 	}).index('by_user', ['userId']),
+
+	// One durable outcome per app-owned incident key and Better Auth user.
+	// The exact index read and component enqueue share the caller's mutation.
+	founderIncidentEmails: defineTable(founderIncidentEmailFields)
+		.index('by_incident_and_user', ['incident', 'userId'])
+		.index('by_email_id', ['emailId']),
 
 	// AI chat feature registry.
 	// Source of truth for AI chat membership and sidebar state.
