@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
 	githubSlugProperty,
 	isValidGithubRepository,
-	replaceGithubSlugSource
+	replaceGithubSlugSource,
+	replaceLegalContentDatesSource
 } from './template-setup';
 
 describe('template setup repository configuration', () => {
@@ -36,5 +37,24 @@ describe('template setup repository configuration', () => {
 		expect(() => replaceGithubSlugSource('export const SITE_CONFIG = {};', 'owner/repo')).toThrow(
 			/Could not find githubSlug/
 		);
+	});
+});
+
+describe('template setup legal dates', () => {
+	const source = `export const LEGAL_CONTENT_DATES = {
+	privacy: '2026-03-18',
+	terms: '2026-03-18',
+	impressum: '2026-03-21'
+} as const;`;
+
+	it('dates every rewritten legal document with the setup date', () => {
+		const updated = replaceLegalContentDatesSource(source, '2026-08-24');
+		expect(updated.match(/2026-08-24/g)).toHaveLength(3);
+	});
+
+	it('fails before writes when the metadata shape has drifted', () => {
+		expect(() =>
+			replaceLegalContentDatesSource(source.replace("impressum: '2026-03-21'", ''), '2026-08-24')
+		).toThrow(/Could not update every date/);
 	});
 });

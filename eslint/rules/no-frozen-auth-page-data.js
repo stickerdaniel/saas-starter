@@ -2,12 +2,11 @@
  * ESLint rule: no-frozen-auth-page-data
  *
  * Forbids reading auth/billing state from `page.data` (or the `data` prop) in
- * code that renders on marketing pages. Marketing pages are prerendered, which
- * freezes the root layout's server data at build time: `page.data.viewer` is
- * null, `page.data.authState.isAuthenticated` is false, and
- * `page.data.autumnState` never updates. Components on those pages must read
- * from the client-recovering primitives instead (prerendering constraints in
- * AGENTS.md; regression class from saas-starter #452).
+ * code that renders on marketing pages. Root layout data is a request snapshot,
+ * not a reactive auth or billing source, and SvelteKit can retain it across
+ * client-side navigation. Components on those pages must read from the
+ * client-recovering primitives instead (regression class from saas-starter
+ * #452).
  *
  * ❌ const viewer = page.data.viewer;
  * ❌ if (data.authState.isAuthenticated) { ... }
@@ -29,9 +28,9 @@
 
 import path from 'node:path';
 
-// Frozen auth/billing fields on the prerendered root layout's server data, and
+// Snapshot auth/billing fields on the root layout's server data, and
 // the client-recovering primitive that replaces each one.
-const FROZEN_FIELDS = {
+const STALE_FIELDS = {
 	viewer: 'authClient.useSession() (from $lib/auth-client) for profile data',
 	authState: 'useAuth() (from @mmailaender/convex-better-auth-svelte/svelte) for auth state',
 	autumnState:
@@ -43,7 +42,7 @@ const PAGE_OBJECT_NAMES = new Set(['page', '$page']);
 
 // Marketing-surface path fragments (forward-slash normalized). The customer-support
 // widget renders on marketing pages, so it is included, as is src/blocks: the
-// hero/pricing/cta/faq marketing blocks render on the prerendered home page
+// hero/pricing/cta/faq marketing blocks render on the public home page
 // (pricing-three is the canonical frozen-billing case this rule exists for).
 const MARKETING_SURFACE_FRAGMENTS = [
 	'src/routes/[[lang]]/(marketing)/',
@@ -82,13 +81,12 @@ export default {
 	meta: {
 		type: 'problem',
 		docs: {
-			description:
-				'Disallow reading frozen auth/billing fields (viewer, authState, autumnState) from page.data on prerendered marketing pages'
+			description: 'Disallow stale auth/billing page.data reads on the marketing surface'
 		},
 		schema: [],
 		messages: {
 			frozenAuthRead:
-				"'{{field}}' from page.data is frozen at build time on prerendered marketing pages. Use {{replacement}}, which recovers client-side after hydration."
+				"'{{field}}' from page.data is a non-reactive request snapshot on marketing pages. Use {{replacement}}, which follows the live client session."
 		}
 	},
 	create(context) {
@@ -101,12 +99,12 @@ export default {
 		return {
 			MemberExpression(node) {
 				const field = propertyName(node);
-				if (!field || !(field in FROZEN_FIELDS)) return;
+				if (!field || !(field in STALE_FIELDS)) return;
 				if (isPageDataChain(node.object) || isDataProp(node.object)) {
 					context.report({
 						node,
 						messageId: 'frozenAuthRead',
-						data: { field, replacement: FROZEN_FIELDS[field] }
+						data: { field, replacement: STALE_FIELDS[field] }
 					});
 				}
 			}

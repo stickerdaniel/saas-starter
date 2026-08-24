@@ -1,3 +1,5 @@
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
 	authPageRedirect,
@@ -8,6 +10,15 @@ import {
 } from './hooks.server';
 
 describe('hooks.server', () => {
+	it('wraps early Markdown responses with the security-header handle', () => {
+		const source = fs.readFileSync(path.resolve('src/hooks.server.ts'), 'utf8');
+		const sequence = source.slice(source.indexOf('export const handle = sequence('));
+		expect(sequence.indexOf('handleSecurityHeaders')).toBeGreaterThanOrEqual(0);
+		expect(sequence.indexOf('handleSecurityHeaders')).toBeLessThan(
+			sequence.indexOf('handleMarketingMarkdown')
+		);
+	});
+
 	it('bypasses localization redirects for root discovery files and api routes', () => {
 		expect(shouldBypassLanguageRedirect('/llms.txt')).toBe(true);
 		expect(shouldBypassLanguageRedirect('/llms.txt/')).toBe(true);

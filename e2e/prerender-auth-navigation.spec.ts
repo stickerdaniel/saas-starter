@@ -4,23 +4,14 @@ import path from 'path';
 import { waitForAuthenticated } from './utils/auth';
 import type { TestCredentials } from './utils/types';
 
-// Regression guard for the prerendered-marketing -> /app navigation dead end
-// (third regression in the app:auth invalidation series, #289 -> #575 -> this
-// fix):
-//
-// Marketing pages prerender the root layout with an unauthenticated build-time
-// snapshot (viewer: null). SvelteKit never reruns a parent server load on
-// client-side navigation (sveltejs/kit#4426) and invalidate() on a prerendered
-// route fetches the frozen static __data.json. Before the /app layout got its
-// own server load, entering /app via SPA navigation from a marketing page kept
-// the frozen viewer and rendered AuthConnectionFallback ("Connecting..." then
-// "Can't reach the server") until a manual reload.
-//
-// Local test runs serve marketing pages via the dev server (no prerendering),
-// so the frozen-data precondition only exists on CF preview/production
-// deployments, where this spec runs against a real build. Locally it still
-// pins the flow itself (session recovery on home, SPA navigation, app shell
-// render without the fallback).
+// Regression guard for the stale-marketing-snapshot -> /app navigation dead
+// end (third regression in the app:auth invalidation series, #289 -> #575 ->
+// this fix). SvelteKit can retain parent layout data across client-side
+// navigation (sveltejs/kit#4426). Before the /app layout got its own server
+// load, entering through SPA navigation after sign-in could retain a null
+// viewer and render AuthConnectionFallback until a manual reload. The deployed
+// run pins the built-app flow; the local run covers the same session recovery
+// and navigation path.
 
 /**
  * Full-page navigation that tolerates the dev server's on-demand dependency

@@ -39,7 +39,11 @@ describe('resolveBuildSiteOrigin', () => {
 		{ NODE_ADAPTER: '1' },
 		{ VERCEL: '1', VERCEL_ENV: 'production' },
 		{ WORKERS_CI: '1', WORKERS_CI_BRANCH: 'main' },
-		{ CF_PAGES: '1', CF_PAGES_BRANCH: 'main' }
+		{ CF_PAGES: '1', CF_PAGES_BRANCH: 'main' },
+		{ NETLIFY: 'true' },
+		{ GITHUB_ACTION_REPOSITORY: 'Azure/static-web-apps-deploy' },
+		{ SST: '1' },
+		{ GCP_BUILDPACKS: '1' }
 	])(
 		'requires an explicit origin for the hosted environment $NODE_ADAPTER$VERCEL$WORKERS_CI$CF_PAGES',
 		(env) => {
@@ -50,6 +54,7 @@ describe('resolveBuildSiteOrigin', () => {
 	it.each([
 		{ args: [], expected: 'production' },
 		{ args: ['--mode', 'staging'], expected: 'staging' },
+		{ args: ['-m', 'staging'], expected: 'staging' },
 		{ args: ['--mode=preview'], expected: 'preview' }
 	])('reads the Vite mode from $args', ({ args, expected }) => {
 		expect(viteBuildMode(args)).toBe(expected);

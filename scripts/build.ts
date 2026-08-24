@@ -4,7 +4,7 @@ import { normalizeSiteOrigin } from '../src/lib/config/origin';
 const LOCAL_PREVIEW_ORIGIN = 'http://localhost:4173';
 
 export function viteBuildMode(args: string[]): string {
-	const separate = args.indexOf('--mode');
+	const separate = args.findIndex((argument) => argument === '--mode' || argument === '-m');
 	if (separate !== -1 && args[separate + 1]) return args[separate + 1]!;
 	const inline = args.find((argument) => argument.startsWith('--mode='));
 	return inline?.slice('--mode='.length) || 'production';
@@ -29,7 +29,14 @@ export function resolveBuildSiteOrigin(env: NodeJS.ProcessEnv): string {
 	}
 	if (publicOrigin || compatibleOrigin) return publicOrigin ?? compatibleOrigin!;
 
-	if (env.NODE_ADAPTER === '1' || env.VERCEL || env.WORKERS_CI || env.CF_PAGES) {
+	const adapterAutoHost =
+		env.VERCEL ||
+		env.CF_PAGES ||
+		env.NETLIFY ||
+		env.GITHUB_ACTION_REPOSITORY === 'Azure/static-web-apps-deploy' ||
+		env.SST ||
+		env.GCP_BUILDPACKS;
+	if (env.NODE_ADAPTER === '1' || env.WORKERS_CI || adapterAutoHost) {
 		throw new Error(
 			'PUBLIC_SITE_URL is required for hosted production builds. Use scripts/deploy.ts so the platform origin is derived before Vite runs.'
 		);

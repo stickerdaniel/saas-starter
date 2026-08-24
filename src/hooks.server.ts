@@ -459,6 +459,10 @@ const handleSecurityHeaders: Handle = async function handleSecurityHeaders({ eve
 
 export const handle = sequence(
 	handleSentry,
+	// Outer to every response-producing hook: negotiated Markdown and dev-only
+	// 404s can return without calling resolve(), so a trailing security hook
+	// would never see them.
+	handleSecurityHeaders,
 	handleDevOnlyRoutes,
 	handleAuth,
 	handleSidebarState,
@@ -467,8 +471,7 @@ export const handle = sequence(
 	handlePublicMarkdownNotFound,
 	handleHtmlLang,
 	authFirstPattern,
-	handleCacheControl,
-	handleSecurityHeaders
+	handleCacheControl
 );
 
 // Memoized Sentry error handler, created on first error so the SDK import

@@ -17,6 +17,7 @@ import { readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { createInterface, type Interface } from 'readline';
 import { parseArgs } from 'util';
+import { isIsoCalendarDate } from '../src/lib/content/legal-metadata';
 
 const ROOT = join(import.meta.dirname, '..');
 
@@ -183,6 +184,19 @@ export function replaceGithubSlugSource(source: string, value: string): string {
 	return source.replace(pattern, githubSlugProperty(value));
 }
 
+export function replaceLegalContentDatesSource(source: string, value: string): string {
+	if (!isIsoCalendarDate(value)) throw new Error(`Invalid legal content date: ${value}`);
+	let replacements = 0;
+	const updated = source.replace(/(privacy|terms|impressum): '[^']+'/g, (_match, key: string) => {
+		replacements += 1;
+		return `${key}: '${value}'`;
+	});
+	if (replacements !== 3) {
+		throw new Error('Could not update every date in src/lib/content/legal-metadata.ts');
+	}
+	return updated;
+}
+
 function readLegalField(field: 'brandName' | 'companyName' | 'operatorName' | 'address'): string {
 	const src = read('src/lib/config/legal.ts');
 	const m = src.match(new RegExp(`${field}:\\s*'([^']*)'`));
@@ -305,6 +319,11 @@ async function main() {
 	const oldGithubUrl = `https://github.com/${oldRepo}`;
 	// Validate the central repository-slug shape before changing unrelated files.
 	const nextSiteConfig = replaceGithubSlugSource(read('src/lib/config/site.ts'), repo);
+	const setupDate = new Date().toISOString().slice(0, 10);
+	const nextLegalMetadata = replaceLegalContentDatesSource(
+		read('src/lib/content/legal-metadata.ts'),
+		setupDate
+	);
 
 	console.log(`\nApplying: slug=${slug}, repo=${repo}, brand="${brand}"\n`);
 
@@ -332,6 +351,9 @@ async function main() {
 	// Site config — single source for runtime repository links
 	write('src/lib/config/site.ts', nextSiteConfig);
 	console.log('  ✓ site.ts');
+
+	write('src/lib/content/legal-metadata.ts', nextLegalMetadata);
+	console.log(`  ✓ legal-metadata.ts (Last Updated: ${setupDate})`);
 
 	// Legal config — single source of truth for brand identity
 	const oldUser = readLegalEmailParts().user;

@@ -44,6 +44,21 @@ describe('locale-derived configuration', () => {
 		expect(layout).toContain('export const prerender = false;');
 		expect(config).not.toContain('PRERENDER_MARKETING_PAGES');
 		expect(config).not.toContain('prerenderEntries');
+
+		const routeRoot = path.resolve('src/routes/[[lang]]/(marketing)');
+		const stack = [routeRoot];
+		while (stack.length > 0) {
+			const directory = stack.pop()!;
+			for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+				const file = path.join(directory, entry.name);
+				if (entry.isDirectory()) stack.push(file);
+				else if (/^\+(?:page|layout)(?:\.server)?\.(?:ts|js)$/.test(entry.name)) {
+					expect(fs.readFileSync(file, 'utf8'), file).not.toMatch(
+						/export const prerender\s*=\s*true/
+					);
+				}
+			}
+		}
 	});
 
 	it('loads the Svelte config in Node without a TypeScript loader', () => {

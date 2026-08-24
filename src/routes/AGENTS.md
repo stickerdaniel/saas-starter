@@ -2,8 +2,8 @@
 
 ## Rendering choices
 
-- Prerender public marketing/legal pages that have no request-time dependency.
-- Use SSR for authenticated and dynamic routes.
+- Keep routes that negotiate representations through `Accept` server-rendered; every supported adapter serves prerendered files before SvelteKit hooks.
+- Prerender public pages only when they have one representation and no request-time dependency. Use SSR for authenticated and dynamic routes.
 - Keep user-specific Convex data client-side and reactive; do not add server waterfalls merely to avoid loading states.
 - Pass SSR-known auth/session data through layout data where it materially improves first paint.
 - Use SvelteKit remote functions for one-shot server operations; use Convex clients for realtime, optimistic, high-frequency, or streaming interactions.
