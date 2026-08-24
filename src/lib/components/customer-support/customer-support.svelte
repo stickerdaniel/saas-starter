@@ -86,9 +86,8 @@
 	// Get auth state for user identification
 	const auth = useAuth();
 
-	// Session user id recovers via cookies on prerendered pages, unlike
-	// page.data.viewer which is frozen at build time (prerendering
-	// constraints in AGENTS.md)
+	// Session user id recovers directly from cookies even when page.data.viewer is
+	// stale or a fork has frozen it through prerendering
 	let sessionUserId = $state<string | null>(null);
 	let sessionPending = $state(true);
 	$effect(() => {

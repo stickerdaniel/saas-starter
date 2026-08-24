@@ -7,7 +7,11 @@
 	const { t } = getTranslate();
 </script>
 
-<SEOHead title={$t('meta.home.title')} description={$t('meta.home.description')} />
+<SEOHead
+	title={$t('meta.home.title')}
+	description={$t('meta.home.description')}
+	siteStructuredData
+/>
 <LazyCustomerSupport />
 
 <HeroFive />

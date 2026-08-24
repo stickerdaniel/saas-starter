@@ -3,6 +3,7 @@ import {
 	createLlmsTxtResponse,
 	createMarketingMarkdownResponse,
 	createMarkdownNotAcceptableResponse,
+	createPublicMarkdownNotFoundResponse,
 	createRobotsTxtResponse,
 	createSitemapXmlResponse,
 	isMarkdownRequest,
@@ -103,6 +104,11 @@ describe('marketing markdown helpers', () => {
 		expect(llms).toContain('https://example.com/en/terms');
 		expect(llms).toContain('https://example.com/en/impressum');
 		expect(llms).toContain('Accept: text/markdown');
+		expect(llms).toContain('## When to use this site');
+		expect(llms).toContain('## Developer resources');
+		expect(llms).toContain('## Access limits');
+		expect(llms).toContain('They do not provide delegated access for agents');
+		expect(llms).toContain('no supported public integration API');
 	});
 
 	it('returns llms responses as plain text', () => {
@@ -178,14 +184,58 @@ describe('marketing markdown helpers', () => {
 		);
 	});
 
-	it('stamps every url with an ISO lastmod date', () => {
+	it('uses authored dates only for legal content', () => {
 		const sitemap = renderSitemapXml('https://example.com');
+		const entries = sitemap.match(/<url>[\s\S]*?<\/url>/g) ?? [];
 
-		const lastmodMatches = sitemap.match(/<lastmod>\d{4}-\d{2}-\d{2}<\/lastmod>/g) ?? [];
-		const urlCount = (sitemap.match(/<url>/g) ?? []).length;
+		expect(entries).toHaveLength(20);
+		expect(entries.filter((entry) => entry.includes('<lastmod>'))).toHaveLength(12);
+		expect(
+			entries.find((entry) => entry.includes('<loc>https://example.com/en</loc>'))
+		).not.toContain('<lastmod>');
+		expect(
+			entries.find((entry) => entry.includes('<loc>https://example.com/en/pricing</loc>'))
+		).not.toContain('<lastmod>');
+		expect(
+			entries.find((entry) => entry.includes('<loc>https://example.com/en/privacy</loc>'))
+		).toContain('<lastmod>2026-03-18</lastmod>');
+		expect(sitemap).not.toContain('1970-01-01');
+	});
 
-		expect(urlCount).toBeGreaterThan(0);
-		expect(lastmodMatches).toHaveLength(urlCount);
+	it('turns a public 404 into markdown without losing response headers', async () => {
+		const originalHeaders = new Headers({
+			Vary: 'Origin',
+			'Content-Type': 'text/html; charset=utf-8',
+			'Content-Length': '100',
+			ETag: 'old-body',
+			'Content-Security-Policy': "frame-ancestors 'none'"
+		});
+		originalHeaders.append('Set-Cookie', 'first=1; Path=/; HttpOnly');
+		originalHeaders.append('Set-Cookie', 'second=2; Path=/; Secure');
+		const response = createPublicMarkdownNotFoundResponse(
+			new Response('<html>missing</html>', { status: 404, headers: originalHeaders }),
+			{ origin: 'https://example.com', lang: 'de' }
+		);
+
+		expect(response.status).toBe(404);
+		expect(response.headers.get('content-type')).toBe('text/markdown; charset=utf-8');
+		expect(response.headers.get('cache-control')).toBe('no-store');
+		expect(response.headers.get('vary')).toBe('Origin, Accept');
+		expect(response.headers.get('content-security-policy')).toBe("frame-ancestors 'none'");
+		expect(response.headers.getSetCookie()).toEqual([
+			'first=1; Path=/; HttpOnly',
+			'second=2; Path=/; Secure'
+		]);
+		expect(response.headers.has('content-length')).toBe(false);
+		expect(response.headers.has('etag')).toBe(false);
+		expect(await response.text()).toContain('https://example.com/de');
+		expect(
+			await createPublicMarkdownNotFoundResponse(response, {
+				origin: 'https://example.com',
+				lang: 'de',
+				head: true
+			}).text()
+		).toBe('');
 	});
 
 	it('returns sitemap responses as xml', () => {

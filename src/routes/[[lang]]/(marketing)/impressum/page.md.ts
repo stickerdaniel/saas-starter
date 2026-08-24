@@ -1,4 +1,5 @@
 import { LEGAL_CONFIG, getObfuscatedLegalEmailAddress } from '$lib/config/legal';
+import { LEGAL_CONTENT_DATES, formatLegalContentDate } from '$lib/content/legal-metadata';
 import type { MarketingMarkdownDocument } from '$lib/markdown/types';
 
 export const marketingMarkdown: MarketingMarkdownDocument = {
@@ -8,7 +9,7 @@ export const marketingMarkdown: MarketingMarkdownDocument = {
 		{
 			heading: 'Impressum',
 			paragraphs: [
-				'Last Updated: March 21, 2026',
+				`Last Updated: ${formatLegalContentDate(LEGAL_CONTENT_DATES.impressum)}`,
 				'Information pursuant to Section 5 DDG.',
 				`Provider: ${LEGAL_CONFIG.operatorName}`,
 				`Address: ${LEGAL_CONFIG.address}`,

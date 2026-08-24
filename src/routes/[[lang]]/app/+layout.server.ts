@@ -1,6 +1,6 @@
 /**
  * /app re-resolves the auth-coupled root data on client-side navigation
- * because marketing pages prerender the root layout with a frozen
+ * because client-side navigation can retain a stale root layout with an
  * unauthenticated snapshot. Full rationale on authedSubtreeLayoutLoad in
  * $lib/server/auth-layout-data; shared with /admin so the guards cannot
  * diverge.

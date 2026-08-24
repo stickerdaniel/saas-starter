@@ -6,6 +6,7 @@ declare global {
 		interface Locals {
 			token: string | undefined;
 			sidebarOpen: boolean;
+			publicAuthSnapshot: boolean;
 		}
 		// interface PageData {}
 		// interface PageState {}

@@ -3,13 +3,12 @@ import type {
 	MarketingMarkdownRenderContext,
 	MarketingMarkdownSection
 } from './types';
-import { getLocalizedMarketingUrls, PUBLIC_MARKETING_ROUTES } from '$lib/marketing/public-routes';
+import { getLocalizedMarketingUrl, PUBLIC_MARKETING_ROUTES } from '$lib/marketing/public-routes';
 import { DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES } from '$lib/i18n/languages';
 import { LEGAL_CONFIG } from '$lib/config/legal';
-
-// Captured once at module load so the prerendered sitemap stamps a single
-// build date across all URLs, instead of a per-request timestamp.
-const BUILD_DATE = new Date().toISOString().slice(0, 10);
+import { isIsoCalendarDate } from '$lib/content/legal-metadata';
+import { getRepositoryDocumentUrl, getRepositoryUrl } from '$lib/config/site';
+import { prefersMarkdownHeader } from '$lib/http/accept';
 
 const MARKDOWN_CONTENT_TYPE = 'text/markdown; charset=utf-8';
 const TEXT_CONTENT_TYPE = 'text/plain; charset=utf-8';
@@ -20,6 +19,12 @@ const MARKETING_CACHE_CONTROL = 'public, max-age=0, s-maxage=300, stale-while-re
 // HTML responses with Markdown (and vice versa). Keep Markdown out of shared
 // caches; browsers may still cache it privately.
 const MARKDOWN_CACHE_CONTROL = 'private, max-age=300, stale-while-revalidate=300';
+
+interface PublicMarkdownNotFoundContext {
+	origin: string;
+	lang: string;
+	head?: boolean;
+}
 
 function quoteFrontmatterValue(value: string): string {
 	return JSON.stringify(value);
@@ -52,8 +57,7 @@ function renderSection(section: MarketingMarkdownSection): string {
 }
 
 export function isMarkdownRequest(request: Request): boolean {
-	const accept = request.headers.get('accept') ?? '';
-	return /\btext\/markdown\b/i.test(accept);
+	return prefersMarkdownHeader(request.headers.get('accept'));
 }
 
 export function renderMarketingMarkdown(
@@ -116,6 +120,55 @@ export function createMarkdownNotAcceptableResponse(): Response {
 	});
 }
 
+function appendVary(headers: Headers, value: string): void {
+	const entries = (headers.get('Vary') ?? '')
+		.split(',')
+		.map((entry) => entry.trim())
+		.filter(Boolean);
+	if (!entries.some((entry) => entry.toLowerCase() === value.toLowerCase())) {
+		entries.push(value);
+	}
+	headers.set('Vary', entries.join(', '));
+}
+
+export function renderPublicMarkdownNotFound(origin: string, lang: string): string {
+	const homeUrl = getLocalizedMarketingUrl(origin, lang, '');
+	const baseOrigin = origin.replace(/\/$/, '');
+	return [
+		'# 404 Not Found',
+		'',
+		'No public page exists at this URL.',
+		'',
+		`- [Read the public page index](${baseOrigin}/llms.txt)`,
+		`- [Open the localized homepage](${homeUrl})`,
+		`- [Inspect the sitemap](${baseOrigin}/sitemap.xml)`,
+		''
+	].join('\n');
+}
+
+export function createPublicMarkdownNotFoundResponse(
+	originalResponse: Response,
+	context: PublicMarkdownNotFoundContext
+): Response {
+	const headers = new Headers(originalResponse.headers);
+	for (const name of ['Content-Length', 'Content-Encoding', 'ETag', 'Last-Modified', 'Link']) {
+		headers.delete(name);
+	}
+	headers.set('Content-Type', MARKDOWN_CONTENT_TYPE);
+	headers.set('Content-Language', 'en');
+	headers.set('Cache-Control', 'no-store');
+	appendVary(headers, 'Accept');
+
+	return new Response(
+		context.head ? null : renderPublicMarkdownNotFound(context.origin, context.lang),
+		{
+			status: 404,
+			statusText: 'Not Found',
+			headers
+		}
+	);
+}
+
 function xmlEscape(value: string): string {
 	return value
 		.replaceAll('&', '&amp;')
@@ -127,9 +180,10 @@ function xmlEscape(value: string): string {
 
 export function renderLlmsTxt(origin: string): string {
 	const baseOrigin = origin.replace(/\/$/, '');
-	const [homeUrl, pricingUrl, privacyUrl, termsUrl, impressumUrl] = getLocalizedMarketingUrls(
-		baseOrigin
-	).filter((url) => url.startsWith(`${baseOrigin}/en`));
+	const canonicalPages = PUBLIC_MARKETING_ROUTES.map(
+		(route) =>
+			`- [${route.agentLabel}](${getLocalizedMarketingUrl(baseOrigin, DEFAULT_LANGUAGE, route.pathSuffix)}): ${route.agentDescription}`
+	);
 
 	return [
 		`# ${LEGAL_CONFIG.brandName}`,
@@ -140,22 +194,32 @@ export function renderLlmsTxt(origin: string): string {
 		'',
 		`${LEGAL_CONFIG.brandName} is a full-stack starter built with SvelteKit, Convex, Better Auth, Tolgee, and modern SaaS infrastructure. This file only describes the public marketing pages.`,
 		'',
-		'## Canonical Pages',
+		'## When to use this site',
 		'',
-		`- [Home](${homeUrl}): product overview, positioning, and core integrations`,
-		`- [Pricing](${pricingUrl}): pricing tiers, included features, and billing notes`,
-		`- [Privacy Policy](${privacyUrl}): how personal data is collected, used, and protected`,
-		`- [Terms of Service](${termsUrl}): terms and conditions for using the service`,
-		`- [Impressum](${impressumUrl}): provider identification and contact details`,
+		`Use this site to understand what ${LEGAL_CONFIG.brandName} includes, decide whether it fits a SvelteKit SaaS project, review the displayed plans, and read the public legal information for this deployment.`,
 		'',
-		'## Markdown Access',
+		'For setup, architecture, deployment, customization, contribution, or code-level questions, use the source repository and developer resources below.',
+		'',
+		'## Canonical pages',
+		'',
+		...canonicalPages,
+		'',
+		'## Developer resources',
+		'',
+		`- [Source repository](${getRepositoryUrl()}): source code, issues, and releases`,
+		`- [Developer guide](${getRepositoryDocumentUrl('README.md')}): setup, deployment, architecture, and feature documentation`,
+		`- [Repository agent instructions](${getRepositoryDocumentUrl('AGENTS.md')}): conventions for coding agents working with the source`,
+		'',
+		'## Markdown access',
 		'',
 		'Send `Accept: text/markdown` to the page URLs above to receive the agent-facing markdown representation.',
 		'',
-		'## Notes',
+		'## Access limits',
 		'',
-		'- Markdown content is English-only in v1, even when requested on localized route variants.',
-		'- Authenticated application routes, admin routes, and API endpoints are intentionally excluded.',
+		'- Google and GitHub OAuth sign end users into the web application. They do not provide delegated access for agents, SDKs, or third-party API clients.',
+		'- This template has no supported public integration API, OpenAPI contract, MCP server, or agent action endpoint by default.',
+		'- Treat application, Better Auth, Convex, and admin endpoints as internal unless a fork publishes separate API documentation.',
+		'- Markdown content is English-only, even when requested on localized route variants.',
 		''
 	].join('\n');
 }
@@ -193,30 +257,29 @@ export function createRobotsTxtResponse(origin: string): Response {
 	});
 }
 
-function localizedMarketingUrl(baseOrigin: string, langCode: string, pathSuffix: string): string {
-	return pathSuffix ? `${baseOrigin}/${langCode}${pathSuffix}` : `${baseOrigin}/${langCode}`;
-}
-
 export function renderSitemapXml(origin: string): string {
 	const baseOrigin = origin.replace(/\/$/, '');
 
-	const urlEntries = PUBLIC_MARKETING_ROUTES.flatMap(({ pathSuffix }) => {
-		// hreflang alternates for this route, shared by every localized <url> below.
+	const urlEntries = PUBLIC_MARKETING_ROUTES.flatMap(({ pathSuffix, lastModified }) => {
+		if (lastModified && !isIsoCalendarDate(lastModified)) {
+			throw new Error(`Invalid sitemap lastModified date: ${lastModified}`);
+		}
 		const alternates = [
 			...SUPPORTED_LANGUAGES.map(
 				(language) =>
 					`    <xhtml:link rel="alternate" hreflang="${language.code}" href="${xmlEscape(
-						localizedMarketingUrl(baseOrigin, language.code, pathSuffix)
+						getLocalizedMarketingUrl(baseOrigin, language.code, pathSuffix)
 					)}"/>`
 			),
 			`    <xhtml:link rel="alternate" hreflang="x-default" href="${xmlEscape(
-				localizedMarketingUrl(baseOrigin, DEFAULT_LANGUAGE, pathSuffix)
+				getLocalizedMarketingUrl(baseOrigin, DEFAULT_LANGUAGE, pathSuffix)
 			)}"/>`
 		].join('\n');
 
 		return SUPPORTED_LANGUAGES.map((language) => {
-			const loc = xmlEscape(localizedMarketingUrl(baseOrigin, language.code, pathSuffix));
-			return `  <url>\n    <loc>${loc}</loc>\n    <lastmod>${BUILD_DATE}</lastmod>\n${alternates}\n  </url>`;
+			const loc = xmlEscape(getLocalizedMarketingUrl(baseOrigin, language.code, pathSuffix));
+			const lastModifiedElement = lastModified ? `\n    <lastmod>${lastModified}</lastmod>` : '';
+			return `  <url>\n    <loc>${loc}</loc>${lastModifiedElement}\n${alternates}\n  </url>`;
 		});
 	}).join('\n');
 

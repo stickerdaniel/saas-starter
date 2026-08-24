@@ -6,9 +6,12 @@ import { createRequire } from 'node:module';
 import {
 	applyMarkdownPatch,
 	applyVersionedCacheKeyPatch,
+	findPrerenderOriginPlaceholders,
+	findPrerenderedNegotiatedMarketingPages,
 	findVersionFile
 } from './patch-cf-worker';
 import { VERIFICATION_FAILURE_CODES } from '../src/lib/utils/auth-messages';
+import { PREFERS_MARKDOWN_FUNCTION_SOURCE } from '../src/lib/http/accept';
 
 // Realistic worker snippet matching adapter-cloudflare@7.2.8 output
 // Includes the worktop cache lookup, the static-serving condition, AND the
@@ -59,6 +62,7 @@ describe('patch-cf-worker', () => {
 		const result = applyMarkdownPatch(WORKER_FIXTURE);
 		expect(result).not.toBeNull();
 		expect(result).toContain('__wantsMarkdown');
+		expect(result).toContain(PREFERS_MARKDOWN_FUNCTION_SOURCE);
 	});
 
 	it('skips worktop cache for markdown requests and marketing shells', () => {
@@ -321,6 +325,49 @@ describe('findVersionFile', () => {
 		const outDir = fs.mkdtempSync(path.join(os.tmpdir(), 'patch-cf-worker-'));
 		try {
 			expect(findVersionFile(outDir)).toBeNull();
+		} finally {
+			fs.rmSync(outDir, { recursive: true, force: true });
+		}
+	});
+});
+
+describe('findPrerenderOriginPlaceholders', () => {
+	it('reports placeholder origins only in public text artifacts', () => {
+		const outDir = fs.mkdtempSync(path.join(os.tmpdir(), 'prerender-origin-'));
+		try {
+			fs.mkdirSync(path.join(outDir, 'en'), { recursive: true });
+			fs.writeFileSync(
+				path.join(outDir, 'en', 'index.html'),
+				'<link href="http://sveltekit-prerender/en">'
+			);
+			fs.writeFileSync(
+				path.join(outDir, 'server.js'),
+				'const placeholder = "http://sveltekit-prerender";'
+			);
+
+			expect(findPrerenderOriginPlaceholders(outDir)).toEqual([
+				path.join(outDir, 'en', 'index.html')
+			]);
+		} finally {
+			fs.rmSync(outDir, { recursive: true, force: true });
+		}
+	});
+});
+
+describe('findPrerenderedNegotiatedMarketingPages', () => {
+	it('reports only registered localized marketing documents', () => {
+		const outDir = fs.mkdtempSync(path.join(os.tmpdir(), 'negotiated-prerender-'));
+		try {
+			fs.mkdirSync(path.join(outDir, 'de/privacy'), { recursive: true });
+			fs.mkdirSync(path.join(outDir, 'en/docs'), { recursive: true });
+			fs.writeFileSync(path.join(outDir, 'en.html'), 'home');
+			fs.writeFileSync(path.join(outDir, 'de/privacy/index.html'), 'privacy');
+			fs.writeFileSync(path.join(outDir, 'en/docs/index.html'), 'unrelated');
+
+			expect(findPrerenderedNegotiatedMarketingPages(outDir)).toEqual([
+				path.join(outDir, 'en.html'),
+				path.join(outDir, 'de/privacy/index.html')
+			]);
 		} finally {
 			fs.rmSync(outDir, { recursive: true, force: true });
 		}

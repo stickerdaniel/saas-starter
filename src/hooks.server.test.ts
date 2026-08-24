@@ -1,12 +1,24 @@
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
 	authPageRedirect,
 	resolveBarePathLanguage,
 	shouldBypassLanguageRedirect,
+	shouldRenderPublicMarkdownNotFound,
 	verificationFailureRedirect
 } from './hooks.server';
 
 describe('hooks.server', () => {
+	it('wraps early Markdown responses with the security-header handle', () => {
+		const source = fs.readFileSync(path.resolve('src/hooks.server.ts'), 'utf8');
+		const sequence = source.slice(source.indexOf('export const handle = sequence('));
+		expect(sequence.indexOf('handleSecurityHeaders')).toBeGreaterThanOrEqual(0);
+		expect(sequence.indexOf('handleSecurityHeaders')).toBeLessThan(
+			sequence.indexOf('handleMarketingMarkdown')
+		);
+	});
+
 	it('bypasses localization redirects for root discovery files and api routes', () => {
 		expect(shouldBypassLanguageRedirect('/llms.txt')).toBe(true);
 		expect(shouldBypassLanguageRedirect('/llms.txt/')).toBe(true);
@@ -16,6 +28,43 @@ describe('hooks.server', () => {
 		expect(shouldBypassLanguageRedirect('/sitemap.xml/')).toBe(true);
 		expect(shouldBypassLanguageRedirect('/api/auth/session')).toBe(true);
 		expect(shouldBypassLanguageRedirect('/en/pricing')).toBe(false);
+	});
+});
+
+describe('shouldRenderPublicMarkdownNotFound', () => {
+	const input = {
+		method: 'GET',
+		request: new Request('https://example.com/en/missing', {
+			headers: { Accept: 'text/markdown' }
+		}),
+		status: 404,
+		routeId: '/[[lang]]/[...path]',
+		pathname: '/en/missing',
+		lang: 'en'
+	};
+
+	it('matches only a localized public catch-all markdown 404', () => {
+		expect(shouldRenderPublicMarkdownNotFound(input)).toBe(true);
+		expect(shouldRenderPublicMarkdownNotFound({ ...input, method: 'HEAD' })).toBe(true);
+	});
+
+	it.each([
+		{
+			request: new Request('https://example.com/en/missing', { headers: { Accept: 'text/html' } })
+		},
+		{
+			request: new Request('https://example.com/en/missing', {
+				headers: { Accept: 'text/markdown;q=0' }
+			})
+		},
+		{ method: 'POST' },
+		{ status: 500 },
+		{ routeId: '/[[lang]]/(marketing)/privacy' },
+		{ pathname: '/en/app/missing' },
+		{ pathname: '/en/admin/missing' },
+		{ lang: 'it' }
+	])('rejects a non-public or non-markdown case', (override) => {
+		expect(shouldRenderPublicMarkdownNotFound({ ...input, ...override })).toBe(false);
 	});
 });
 

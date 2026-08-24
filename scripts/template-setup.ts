@@ -17,27 +17,49 @@ import { readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { createInterface, type Interface } from 'readline';
 import { parseArgs } from 'util';
+import { isIsoCalendarDate } from '../src/lib/content/legal-metadata';
 
 const ROOT = join(import.meta.dirname, '..');
 
-const { values } = parseArgs({
-	args: Bun.argv.slice(2),
-	options: {
-		slug: { type: 'string' },
-		repo: { type: 'string' },
-		brand: { type: 'string' },
-		company: { type: 'string' },
-		operator: { type: 'string' },
-		address: { type: 'string' },
-		email: { type: 'string' },
-		help: { type: 'boolean', short: 'h', default: false }
-	},
-	strict: false,
-	allowPositionals: false
-});
+function normalizeFlag(v: unknown): string | undefined {
+	if (typeof v !== 'string') return undefined;
+	const t = v.trim();
+	return t === '' ? undefined : t;
+}
 
-if (values.help) {
-	console.log(`Template Setup
+interface SetupFlags {
+	slug?: string;
+	repo?: string;
+	brand?: string;
+	company?: string;
+	operator?: string;
+	address?: string;
+	email?: string;
+}
+
+/**
+ * Parsed on demand rather than at module load, so importing the pure helpers
+ * below (see template-setup.test.ts) neither reads argv nor exits the process.
+ */
+function readFlags(): SetupFlags {
+	const { values } = parseArgs({
+		args: process.argv.slice(2),
+		options: {
+			slug: { type: 'string' },
+			repo: { type: 'string' },
+			brand: { type: 'string' },
+			company: { type: 'string' },
+			operator: { type: 'string' },
+			address: { type: 'string' },
+			email: { type: 'string' },
+			help: { type: 'boolean', short: 'h', default: false }
+		},
+		strict: false,
+		allowPositionals: false
+	});
+
+	if (values.help) {
+		console.log(`Template Setup
 
 Usage:
   bun run setup                                          (interactive)
@@ -56,21 +78,19 @@ Flags:
 In non-interactive mode (piped stdin, CI), --slug, --repo, --brand are required.
 Identity fields without flags preserve current legal.ts values.
 In interactive mode, missing flags are prompted with current values as defaults.`);
-	process.exit(0);
-}
+		process.exit(0);
+	}
 
-function normalizeFlag(v: unknown): string | undefined {
-	if (typeof v !== 'string') return undefined;
-	const t = v.trim();
-	return t === '' ? undefined : t;
+	return {
+		slug: normalizeFlag(values.slug),
+		repo: normalizeFlag(values.repo),
+		brand: normalizeFlag(values.brand),
+		company: normalizeFlag(values.company),
+		operator: normalizeFlag(values.operator),
+		address: normalizeFlag(values.address),
+		email: normalizeFlag(values.email)
+	};
 }
-const slugFlag = normalizeFlag(values.slug);
-const repoFlag = normalizeFlag(values.repo);
-const brandFlag = normalizeFlag(values.brand);
-const companyFlag = normalizeFlag(values.company);
-const operatorFlag = normalizeFlag(values.operator);
-const addressFlag = normalizeFlag(values.address);
-const emailFlag = normalizeFlag(values.email);
 
 const interactive = !!process.stdin.isTTY;
 let rl: Interface | undefined;
@@ -139,9 +159,60 @@ function currentSlug(): string {
 }
 
 function currentRepo(): string {
-	const readme = read('README.md');
-	const match = readme.match(/github\.com\/([^/]+\/[^/\s)]+)/);
-	return match?.[1]?.replace(/\.git$/, '') ?? 'user/my-saas';
+	const siteConfig = read('src/lib/config/site.ts');
+	const match = siteConfig.match(/githubSlug:\s*['"]([^'"]+)['"]/);
+	return match?.[1] ?? 'user/my-saas';
+}
+
+export function isValidGithubRepository(value: string): boolean {
+	const match = /^([A-Za-z0-9-]+)\/([A-Za-z0-9._-]+)$/.exec(value);
+	if (!match) return false;
+	const owner = match[1]!;
+	const repository = match[2]!;
+	return (
+		owner.length <= 39 &&
+		!owner.startsWith('-') &&
+		!owner.endsWith('-') &&
+		!owner.includes('--') &&
+		!['.', '..'].includes(repository) &&
+		!repository.toLowerCase().endsWith('.git')
+	);
+}
+
+export function githubSlugProperty(value: string): string {
+	if (!isValidGithubRepository(value)) {
+		throw new Error(`Invalid GitHub repository: ${value}`);
+	}
+	return `githubSlug: '${value}'`;
+}
+
+export function replaceGithubSlugSource(source: string, value: string): string {
+	const pattern = /githubSlug:\s*['"][^'"]+['"]/;
+	if (!pattern.test(source)) {
+		throw new Error('Could not find githubSlug in src/lib/config/site.ts');
+	}
+	return source.replace(pattern, githubSlugProperty(value));
+}
+
+export function replaceLegalContentDatesSource(source: string, value: string): string {
+	if (!isIsoCalendarDate(value)) throw new Error(`Invalid legal content date: ${value}`);
+	let replacements = 0;
+	const updated = source.replace(/(privacy|terms|impressum): '[^']+'/g, (_match, key: string) => {
+		replacements += 1;
+		return `${key}: '${value}'`;
+	});
+	if (replacements !== 3) {
+		throw new Error('Could not update every date in src/lib/content/legal-metadata.ts');
+	}
+	return updated;
+}
+
+export function updateLegalContentDatesSource(
+	source: string,
+	value: string,
+	legalIdentityChanged: boolean
+): string {
+	return legalIdentityChanged ? replaceLegalContentDatesSource(source, value) : source;
 }
 
 function readLegalField(field: 'brandName' | 'companyName' | 'operatorName' | 'address'): string {
@@ -187,6 +258,16 @@ function currentEmail(): string {
 async function main() {
 	console.log('\n📦 Template Setup\n');
 
+	const {
+		slug: slugFlag,
+		repo: repoFlag,
+		brand: brandFlag,
+		company: companyFlag,
+		operator: operatorFlag,
+		address: addressFlag,
+		email: emailFlag
+	} = readFlags();
+
 	if (!interactive) {
 		const missing: string[] = [];
 		if (!slugFlag) missing.push('--slug');
@@ -207,8 +288,8 @@ async function main() {
 	}
 
 	const repo = await resolveValue(repoFlag, 'GitHub repo (owner/name)', currentRepo());
-	if (!/^[^/]+\/[^/]+$/.test(repo)) {
-		console.error('Error: repo must be in owner/name format');
+	if (!isValidGithubRepository(repo)) {
+		console.error('Error: repo must use a safe GitHub owner/name format');
 		process.exit(1);
 	}
 	const repoBasename = repo.split('/')[1];
@@ -254,6 +335,21 @@ async function main() {
 	const oldRepo = currentRepo();
 	const githubUrl = `https://github.com/${repo}`;
 	const oldGithubUrl = `https://github.com/${oldRepo}`;
+	// Validate the central repository-slug shape before changing unrelated files.
+	const nextSiteConfig = replaceGithubSlugSource(read('src/lib/config/site.ts'), repo);
+	const setupDate = new Date().toISOString().slice(0, 10);
+	const legalIdentityChanged =
+		brand !== oldBrand ||
+		company !== oldCompany ||
+		operator !== oldOperator ||
+		address !== oldAddress ||
+		email !== oldEmail;
+	const currentLegalMetadata = read('src/lib/content/legal-metadata.ts');
+	const nextLegalMetadata = updateLegalContentDatesSource(
+		currentLegalMetadata,
+		setupDate,
+		legalIdentityChanged
+	);
 
 	console.log(`\nApplying: slug=${slug}, repo=${repo}, brand="${brand}"\n`);
 
@@ -278,15 +374,16 @@ async function main() {
 	]);
 	console.log('  ✓ README.md');
 
-	// Marketing header — keep the GitHub URL rewrite; the brand text reads from LEGAL_CONFIG now
-	replace('src/lib/components/marketing/marketing-header.svelte', [[oldGithubUrl, githubUrl]]);
-	console.log('  ✓ marketing-header.svelte');
+	// Site config — single source for runtime repository links
+	write('src/lib/config/site.ts', nextSiteConfig);
+	console.log('  ✓ site.ts');
 
-	// Authenticated header
-	replace('src/lib/components/authenticated/authenticated-header.svelte', [
-		[oldGithubUrl, githubUrl]
-	]);
-	console.log('  ✓ authenticated-header.svelte');
+	write('src/lib/content/legal-metadata.ts', nextLegalMetadata);
+	console.log(
+		legalIdentityChanged
+			? `  ✓ legal-metadata.ts (Last Updated: ${setupDate})`
+			: '  ✓ legal-metadata.ts (unchanged)'
+	);
 
 	// Legal config — single source of truth for brand identity
 	const oldUser = readLegalEmailParts().user;
@@ -312,11 +409,14 @@ async function main() {
 	console.log(
 		'  4. Update src/lib/content/privacy.ts and terms.ts if you want different legal copy'
 	);
+	console.log('  5. Review site.ts structured data and /llms.txt access limits for your product');
 	console.log('');
 	rl?.close();
 }
 
-main().catch((err) => {
-	console.error(err);
-	process.exit(1);
-});
+if (import.meta.main) {
+	main().catch((err) => {
+		console.error(err);
+		process.exit(1);
+	});
+}

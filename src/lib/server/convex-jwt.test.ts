@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 
-import { resolveConvexToken } from './convex-jwt';
+import { hasBetterAuthSessionCookie, resolveConvexToken } from './convex-jwt';
 
 import type { RequestEvent } from '@sveltejs/kit';
 
@@ -50,6 +50,20 @@ function fakeEvent(options: {
 	return { event, fetch, setCookie };
 }
 
+describe('hasBetterAuthSessionCookie', () => {
+	it('reads the HttpOnly session cookie through the server event', () => {
+		const { event } = fakeEvent({
+			url: 'https://example.com/en',
+			cookies: { '__Secure-better-auth.session_token': 'session-alive' }
+		});
+		expect(hasBetterAuthSessionCookie(event)).toBe(true);
+	});
+
+	it('returns false when no session cookie exists', () => {
+		expect(hasBetterAuthSessionCookie(fakeEvent({ cookies: {} }).event)).toBe(false);
+	});
+});
+
 describe('resolveConvexToken', () => {
 	it('returns the JWT cookie when it is still alive, without fetching', async () => {
 		const { event, fetch } = fakeEvent({
@@ -71,6 +85,14 @@ describe('resolveConvexToken', () => {
 	it('returns undefined for signed-out requests, without fetching', async () => {
 		const { event, fetch } = fakeEvent({ cookies: {} });
 		await expect(resolveConvexToken(event)).resolves.toBeUndefined();
+		expect(fetch).not.toHaveBeenCalled();
+	});
+
+	it('does not mint from a session on public routes', async () => {
+		const { event, fetch } = fakeEvent({
+			cookies: { 'better-auth.session_token': 'session-alive' }
+		});
+		await expect(resolveConvexToken(event, { mintFromSession: false })).resolves.toBeUndefined();
 		expect(fetch).not.toHaveBeenCalled();
 	});
 

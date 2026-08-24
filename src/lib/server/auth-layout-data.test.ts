@@ -1,6 +1,7 @@
 import type { ServerLoadEvent } from '@sveltejs/kit';
 import { describe, expect, it, vi } from 'vitest';
-import { resolveAuthLayoutData } from './auth-layout-data';
+import { resolveAuthLayoutData, resolvePublicAuthLayoutData } from './auth-layout-data';
+import { shouldUsePublicAuthSnapshot } from './auth-route';
 
 // Guards the per-request memo: on a data request into an authed subtree the
 // subtree layout AND any parent()-forced root layout load both resolve the
@@ -9,8 +10,13 @@ import { resolveAuthLayoutData } from './auth-layout-data';
 // Unauthenticated events (no locals.token) never touch Convex/Autumn, so
 // these tests exercise the memo without any network.
 
-function fakeEvent(locals: App.Locals): ServerLoadEvent {
-	return { locals, depends: vi.fn() } as unknown as ServerLoadEvent;
+function fakeEvent(locals: App.Locals, cookies: Record<string, string> = {}): ServerLoadEvent {
+	return {
+		locals,
+		depends: vi.fn(),
+		request: new Request('https://example.com/en'),
+		cookies: { get: (name: string) => cookies[name] }
+	} as unknown as ServerLoadEvent;
 }
 
 describe('resolveAuthLayoutData per-request memo', () => {
@@ -37,5 +43,89 @@ describe('resolveAuthLayoutData per-request memo', () => {
 			expect(event.depends).toHaveBeenCalledWith('app:auth');
 			expect(event.depends).toHaveBeenCalledWith('autumn:customer');
 		}
+	});
+});
+
+describe('public auth snapshot', () => {
+	it.each([
+		'/[[lang]]/(marketing)',
+		'/[[lang]]/(marketing)/privacy',
+		'/[[lang]]/[...path]',
+		'/llms.txt',
+		'/robots.txt',
+		'/sitemap.xml'
+	])('keeps %s independent from backend auth data', (routeId) => {
+		expect(
+			shouldUsePublicAuthSnapshot({ routeId, pathname: '/en/privacy', marketingMarkdown: false })
+		).toBe(true);
+	});
+
+	it.each([
+		'/[[lang]]/(marketing)/pricing',
+		'/[[lang]]/(auth)/signin',
+		'/[[lang]]/app',
+		'/[[lang]]/admin',
+		null
+	])('keeps backend auth resolution for %s', (routeId) => {
+		expect(
+			shouldUsePublicAuthSnapshot({ routeId, pathname: '/en/pricing', marketingMarkdown: false })
+		).toBe(false);
+	});
+
+	it('keeps pricing Markdown backend-free while pricing HTML loads billing state', () => {
+		const input = {
+			routeId: '/[[lang]]/(marketing)/pricing',
+			pathname: '/en/pricing'
+		};
+		expect(shouldUsePublicAuthSnapshot({ ...input, marketingMarkdown: true })).toBe(true);
+		expect(shouldUsePublicAuthSnapshot({ ...input, marketingMarkdown: false })).toBe(false);
+	});
+
+	it.each(['/en/app/missing', '/en/admin/missing'])(
+		'does not treat a protected catch-all as public: %s',
+		(pathname) => {
+			expect(
+				shouldUsePublicAuthSnapshot({
+					routeId: '/[[lang]]/[...path]',
+					pathname,
+					marketingMarkdown: false
+				})
+			).toBe(false);
+		}
+	);
+
+	it('returns a local unauthenticated snapshot and registers auth invalidation', () => {
+		const event = fakeEvent({} as App.Locals);
+		expect(resolvePublicAuthLayoutData(event)).toMatchObject({
+			authState: { isAuthenticated: false, hasSession: false },
+			autumnState: { customer: null },
+			viewer: null
+		});
+		expect(event.depends).toHaveBeenCalledWith('app:auth');
+		expect(event.depends).not.toHaveBeenCalledWith('autumn:customer');
+	});
+
+	it('reports a surviving Better Auth session without minting a Convex JWT', () => {
+		const event = fakeEvent({} as App.Locals, {
+			'__Secure-better-auth.session_token': 'session-alive'
+		});
+		expect(resolvePublicAuthLayoutData(event).authState).toEqual({
+			isAuthenticated: false,
+			hasSession: true
+		});
+	});
+
+	it('derives an authenticated public snapshot from the verified JWT only', () => {
+		const payload = Buffer.from(
+			JSON.stringify({ sub: 'user_123', email: 'user@example.com', role: 'user' })
+		).toString('base64url');
+		const event = fakeEvent({ token: `header.${payload}.signature` } as App.Locals);
+
+		expect(resolvePublicAuthLayoutData(event)).toMatchObject({
+			authState: { isAuthenticated: true },
+			autumnState: { customer: null },
+			viewer: { _id: 'user_123', email: 'user@example.com', role: 'user' }
+		});
+		expect(event.depends).not.toHaveBeenCalledWith('autumn:customer');
 	});
 });

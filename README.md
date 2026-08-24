@@ -86,12 +86,13 @@ Once the app runs, rebrand it:
 bun run setup
 ```
 
-The setup script replaces the project name, GitHub links, and prompts for brand, company, operator, address, and contact email, all written to `src/lib/config/legal.ts`. After running it:
+The setup script replaces the project name and central GitHub repository slug, then prompts for brand, company, operator, address, and contact email. Repository links used by the headers, `/llms.txt`, and JSON-LD come from `src/lib/config/site.ts`; legal identity remains in `src/lib/config/legal.ts`. After running it:
 
 1. Replace `static/logo.svg` with your logo, then run `bun run build:emails`
 2. Refresh email snapshots: `bun run test:unit -- email-snapshots.test.ts -u`
 3. Update editorial brand mentions in `src/i18n/{en,de,es,fr}.json` (FAQ, hero copy, pricing tier names)
 4. Update legal copy in `src/lib/content/privacy.ts` and `src/lib/content/terms.ts` if needed
+5. Review optional publisher metadata in `src/lib/config/site.ts` and update the `/llms.txt` access limits if your fork adds a public API, MCP server, or agent actions
 
 ## Preview Deployments
 
@@ -136,11 +137,11 @@ Deploy via [Cloudflare Workers](https://developers.cloudflare.com/workers/) with
 
 **4. Add build variables** (plain text, visible in logs)
 
-| Variable            | Value                                  | Notes                                                                                                                                                       |
-| ------------------- | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `WORKERS_NAME`      | Name from `wrangler.toml`              | Required for preview URL construction                                                                                                                       |
-| `WORKERS_SUBDOMAIN` | Account subdomain (e.g., `daniel-ce4`) | Visible at Workers & Pages overview as `*.workers.dev`                                                                                                      |
-| `SITE_URL`          | `https://your-domain.com`              | Production custom domain. Ignored for previews (URL is auto-constructed from `WORKERS_NAME`/`WORKERS_SUBDOMAIN`). Falls back to `workers.dev` URL if unset. |
+| Variable            | Value                                  | Notes                                                                                                                                                                |
+| ------------------- | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `WORKERS_NAME`      | Name from `wrangler.toml`              | Required for preview URL construction                                                                                                                                |
+| `WORKERS_SUBDOMAIN` | Account subdomain (e.g., `daniel-ce4`) | Visible at Workers & Pages overview as `*.workers.dev`                                                                                                               |
+| `SITE_URL`          | `https://your-domain.com`              | Production frontend origin. The build maps it to `PUBLIC_SITE_URL`; previews always replace both values with their branch URL. Falls back to `workers.dev` if unset. |
 
 **5. Add build secrets** (encrypted, hidden from logs)
 
@@ -239,6 +240,7 @@ node build
 
 4. Set app-level environment variables in Coolify:
    - `NODE_ADAPTER=1`
+   - `PUBLIC_SITE_URL` (the public frontend origin, for canonical URLs in the server build)
    - `CONVEX_DEPLOY_KEY`
    - `TOLGEE_API_KEY` (optional)
    - `CONVEX_INTERNAL_URL` (optional, only if the app container can reach Convex through a private Docker network URL)
@@ -362,6 +364,8 @@ Set `PREVIEW_ADMIN_PASSWORD` once as a preview default (`bunx convex env default
 | `CONVEX_PREVIEW_DEPLOY_KEY` | Convex preview deploy key                                                                                                                |    ✓    |      |
 | `CONVEX_MANAGEMENT_TOKEN`   | Convex team token for quota self-heal (mint at Team Settings > Access Tokens, Team ID shown on the same page)                            |    ○    |      |
 | `CONVEX_PROJECT_ID`         | Numeric project id for quota self-heal (`curl -H "Authorization: Bearer $TOKEN" https://api.convex.dev/v1/teams/{teamId}/list_projects`) |    ○    |      |
+| `PUBLIC_SITE_URL`           | Canonical frontend origin. Takes precedence over the platform URL in production; previews always use their own deployment URL            |    ·    |  ○   |
+| `SITE_URL`                  | Cloudflare-compatible production frontend origin, mapped to `PUBLIC_SITE_URL`; separate from Convex `SITE_URL`                           |    ·    |  ○   |
 | `WORKERS_NAME`              | CF Workers only: worker name (matches `wrangler.toml`)                                                                                   |    ✓    |  ○   |
 | `WORKERS_SUBDOMAIN`         | CF Workers only: account's `workers.dev` subdomain                                                                                       |    ✓    |  ○   |
 | `CF_ZONE_ID`                | CF Workers only: zone id of the custom domain, for post-deploy edge cache purge (skipped when unset)                                     |         |  ○   |
@@ -422,7 +426,7 @@ Transactional email delivered through [Resend](https://www.convex.dev/components
 
 ### AI Readiness
 
-Marketing pages return structured markdown when an AI agent sends `Accept: text/markdown`, complete with YAML frontmatter. The markdown variant still sets `Vary: Accept`, but since CF Edge and most shared caches ignore `Vary`, it is served `Cache-Control: private` so a shared cache cannot key one variant under the URL and poison the HTML response with markdown (or vice versa). A `/llms.txt` endpoint lists available pages and explains how to request them. Sitemap and robots.txt are generated dynamically across all 4 languages.
+Marketing pages return structured markdown when an AI agent sends `Accept: text/markdown`, complete with YAML frontmatter. Unknown public markdown URLs return a short markdown 404 with recovery links. The markdown variant sets `Vary: Accept` and stays private because CF Edge and most shared caches do not key on `Vary`. `/llms.txt` lists the public pages, developer resources, and the integrations the template does not expose by default. Sitemap dates come only from authored content metadata, and the localized homepages publish configurable `WebSite` JSON-LD.
 
 ### SEO
 

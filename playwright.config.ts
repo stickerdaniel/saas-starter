@@ -57,8 +57,7 @@ export default defineConfig({
 		 * per colo on the stable branch alias URL. After a re-deploy a colo could
 		 * keep serving a PREVIOUS build's cached response whose immutable chunk
 		 * hashes now 404 — the page never hydrates and auth-dependent UI (e.g.
-		 * marketing-nav-dashboard in prerender-auth-navigation.spec.ts) never
-		 * appears, failing all retries identically. A `cache-control: no-cache`
+		 * auth-dependent UI never appears, failing all retries identically. A `cache-control: no-cache`
 		 * REQUEST header takes worktop's built-in lookup bypass, so E2E always
 		 * tests the freshly deployed build. Response headers are untouched
 		 * (public-agent-surface.spec.ts asserts them). */
@@ -73,12 +72,12 @@ export default defineConfig({
 		// Setup project - authenticates regular user and saves state
 		{
 			name: 'setup',
-			testMatch: /signin\.setup\.ts/
+			testMatch: '**/signin.setup.ts'
 		},
 		// Admin setup - authenticates admin user and saves admin auth state
 		{
 			name: 'admin-setup',
-			testMatch: /admin\.setup\.ts/
+			testMatch: '**/admin.setup.ts'
 		},
 		// Tests that need regular user authentication
 		{
@@ -91,16 +90,16 @@ export default defineConfig({
 			dependencies: ['setup'],
 			// Don't run unauthenticated-redirect, admin, or signout tests (signout runs last in its own project)
 			testIgnore: [
-				/unauthenticated-redirect\.spec\.ts/,
-				/admin-.*\.spec\.ts/,
-				/signout\.spec\.ts/,
-				/public-.*\.spec\.ts/
+				'**/unauthenticated-redirect.spec.ts',
+				'**/admin-*.spec.ts',
+				'**/signout.spec.ts',
+				'**/public-*.spec.ts'
 			]
 		},
 		{
 			name: 'chromium-public',
 			use: { ...devices['Desktop Chrome'] },
-			testMatch: /public-.*\.spec\.ts/
+			testMatch: '**/public-*.spec.ts'
 		},
 		// Signout test - runs LAST to avoid invalidating session for other tests
 		// The signout test logs out on the server, which would break subsequent tests
@@ -112,7 +111,7 @@ export default defineConfig({
 				storageState: 'e2e/.auth/user.json'
 			},
 			dependencies: ['chromium'], // Runs after all chromium tests
-			testMatch: /signout\.spec\.ts/
+			testMatch: '**/signout.spec.ts'
 		},
 		// Admin tests - require admin role
 		{
@@ -123,13 +122,13 @@ export default defineConfig({
 				storageState: 'e2e/.auth/admin.json'
 			},
 			dependencies: ['admin-setup'],
-			testMatch: /admin-.*\.spec\.ts/
+			testMatch: '**/admin-*.spec.ts'
 		},
 		// Tests that specifically test unauthenticated behavior
 		{
 			name: 'chromium-no-auth',
 			use: { ...devices['Desktop Chrome'] },
-			testMatch: /unauthenticated-redirect\.spec\.ts/
+			testMatch: '**/unauthenticated-redirect.spec.ts'
 		}
 	],
 

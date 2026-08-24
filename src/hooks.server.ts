@@ -7,11 +7,21 @@ import {
 	getMarketingMarkdownDocument,
 	matchPublicMarketingRoute
 } from '$lib/marketing/public-routes';
-import { createMarketingMarkdownResponse, isMarkdownRequest } from '$lib/markdown/marketing';
+import {
+	createMarketingMarkdownResponse,
+	createPublicMarkdownNotFoundResponse,
+	isMarkdownRequest
+} from '$lib/markdown/marketing';
 import { devNotice } from '$lib/dev/notice';
+import { resolveSiteOrigin } from '$lib/config/site-origin';
 import { applyCacheControl } from '$lib/server/cache-control';
 import { decodeJwtPayload } from '$lib/server/jwt';
 import { resolveConvexToken } from '$lib/server/convex-jwt';
+import {
+	isAdminRoute,
+	isProtectedRoute,
+	shouldUsePublicAuthSnapshot
+} from '$lib/server/auth-route';
 import { loadSentry } from '$lib/monitoring/sentry';
 import { safeAuthDestination, splitDestinationError, verificationErrorIn } from '$lib/utils/url';
 import { SIDEBAR_COOKIE_NAME } from '$lib/components/ui/sidebar/constants.js';
@@ -27,14 +37,6 @@ if (!PUBLIC_SENTRY_DSN) {
 // Route matchers
 function isAuthPage(pathname: string): boolean {
 	return /^\/[a-z]{2}\/(signin|signup)$/.test(pathname);
-}
-
-function isProtectedRoute(pathname: string): boolean {
-	return /^\/[a-z]{2}\/app(\/|$)/.test(pathname);
-}
-
-function isAdminRoute(pathname: string): boolean {
-	return /^\/[a-z]{2}\/admin(\/|$)/.test(pathname);
 }
 
 function isShadcnDemoRoute(pathname: string): boolean {
@@ -101,7 +103,15 @@ const handleDevOnlyRoutes: Handle = async function handleDevOnlyRoutes({ event, 
  * still valid.
  */
 const handleAuth: Handle = async function handleAuth({ event, resolve }) {
-	event.locals.token = await resolveConvexToken(event);
+	event.locals.publicAuthSnapshot = shouldUsePublicAuthSnapshot({
+		routeId: event.route.id,
+		pathname: event.url.pathname,
+		marketingMarkdown:
+			isMarkdownRequest(event.request) && matchPublicMarketingRoute(event.url.pathname) !== null
+	});
+	event.locals.token = await resolveConvexToken(event, {
+		mintFromSession: !event.locals.publicAuthSnapshot
+	});
 	return resolve(event);
 };
 
@@ -132,9 +142,55 @@ const handleMarketingMarkdown: Handle = async function handleMarketingMarkdown({
 	}
 
 	return createMarketingMarkdownResponse(getMarketingMarkdownDocument(matchedRoute.routeKey), {
-		origin: event.url.origin,
+		origin: resolveSiteOrigin(event.url.origin),
 		pathname: event.url.pathname,
 		lang: matchedRoute.lang ?? DEFAULT_LANGUAGE
+	});
+};
+
+interface PublicMarkdownNotFoundInput {
+	method: string;
+	request: Request;
+	status: number;
+	routeId: string | null;
+	pathname: string;
+	lang: string | undefined;
+}
+
+export function shouldRenderPublicMarkdownNotFound(input: PublicMarkdownNotFoundInput): boolean {
+	return (
+		['GET', 'HEAD'].includes(input.method) &&
+		isMarkdownRequest(input.request) &&
+		input.status === 404 &&
+		input.routeId === '/[[lang]]/[...path]' &&
+		isSupportedLanguage(input.lang) &&
+		!isProtectedRoute(input.pathname) &&
+		!isAdminRoute(input.pathname)
+	);
+}
+
+export const handlePublicMarkdownNotFound: Handle = async function handlePublicMarkdownNotFound({
+	event,
+	resolve
+}) {
+	const response = await resolve(event);
+	if (
+		!shouldRenderPublicMarkdownNotFound({
+			method: event.request.method,
+			request: event.request,
+			status: response.status,
+			routeId: event.route.id,
+			pathname: event.url.pathname,
+			lang: event.params.lang
+		})
+	) {
+		return response;
+	}
+
+	return createPublicMarkdownNotFoundResponse(response, {
+		origin: resolveSiteOrigin(event.url.origin),
+		lang: event.params.lang!,
+		head: event.request.method === 'HEAD'
 	});
 };
 
@@ -377,7 +433,8 @@ const handleSentry: Handle = async function handleSentry({ event, resolve }) {
 };
 
 /**
- * Add security headers to all responses
+ * Add security headers to responses produced by the application hook chain.
+ * Adapter-owned normalization redirects are created outside this chain.
  */
 const handleSecurityHeaders: Handle = async function handleSecurityHeaders({ event, resolve }) {
 	const response = await resolve(event);
@@ -408,15 +465,19 @@ const handleSecurityHeaders: Handle = async function handleSecurityHeaders({ eve
 
 export const handle = sequence(
 	handleSentry,
+	// Outer to every response-producing hook: negotiated Markdown and dev-only
+	// 404s can return without calling resolve(), so a trailing security hook
+	// would never see them.
+	handleSecurityHeaders,
 	handleDevOnlyRoutes,
 	handleAuth,
 	handleSidebarState,
 	handleMarketingMarkdown,
 	handleLanguage,
+	handlePublicMarkdownNotFound,
 	handleHtmlLang,
 	authFirstPattern,
-	handleCacheControl,
-	handleSecurityHeaders
+	handleCacheControl
 );
 
 // Memoized Sentry error handler, created on first error so the SDK import

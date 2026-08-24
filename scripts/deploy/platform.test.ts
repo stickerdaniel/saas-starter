@@ -109,3 +109,78 @@ describe('detectPlatform (Vercel)', () => {
 		expect(platform.siteUrl).toBeNull();
 	});
 });
+
+describe('detectPlatform (Cloudflare)', () => {
+	const vars = [
+		'VERCEL',
+		'WORKERS_CI',
+		'WORKERS_CI_BRANCH',
+		'WORKERS_NAME',
+		'WORKERS_SUBDOMAIN',
+		'CF_PAGES',
+		'CF_PAGES_BRANCH',
+		'CF_PAGES_URL',
+		'PRODUCTION_BRANCH',
+		'PUBLIC_SITE_URL',
+		'SITE_URL'
+	] as const;
+	const saved: Record<string, string | undefined> = {};
+
+	beforeEach(() => {
+		for (const key of vars) {
+			saved[key] = process.env[key];
+			delete process.env[key];
+		}
+		process.env.PRODUCTION_BRANCH = 'main';
+	});
+
+	afterEach(() => {
+		for (const key of vars) {
+			if (saved[key] === undefined) delete process.env[key];
+			else process.env[key] = saved[key];
+		}
+	});
+
+	it('uses a custom domain for a Pages production build', () => {
+		process.env.CF_PAGES = '1';
+		process.env.CF_PAGES_BRANCH = 'main';
+		process.env.CF_PAGES_URL = 'https://generated.pages.dev';
+		process.env.SITE_URL = 'https://app.example.com';
+
+		const platform = detectPlatform();
+		expect(platform.siteUrl).toBe('https://app.example.com');
+		expect(platform.deployUrl).toBe('https://generated.pages.dev');
+	});
+
+	it('uses the Pages deployment URL for a preview despite inherited production values', () => {
+		process.env.CF_PAGES = '1';
+		process.env.CF_PAGES_BRANCH = 'feature/test';
+		process.env.CF_PAGES_URL = 'https://feature-test.pages.dev';
+		process.env.PUBLIC_SITE_URL = 'https://app.example.com';
+		process.env.SITE_URL = 'https://app.example.com';
+
+		const platform = detectPlatform();
+		expect(platform.isPreview).toBe(true);
+		expect(platform.siteUrl).toBe('https://feature-test.pages.dev');
+	});
+
+	it('constructs a Workers preview alias without using the production origin', () => {
+		process.env.WORKERS_CI = '1';
+		process.env.WORKERS_CI_BRANCH = 'feature/Agent Surface';
+		process.env.WORKERS_NAME = 'myapp';
+		process.env.WORKERS_SUBDOMAIN = 'account';
+		process.env.SITE_URL = 'https://app.example.com';
+
+		const platform = detectPlatform();
+		expect(platform.siteUrl).toBe('https://feature-agent-surface-myapp.account.workers.dev');
+	});
+
+	it('falls back to the generated Workers production host', () => {
+		process.env.WORKERS_CI = '1';
+		process.env.WORKERS_CI_BRANCH = 'main';
+		process.env.WORKERS_NAME = 'myapp';
+		process.env.WORKERS_SUBDOMAIN = 'account';
+
+		expect(detectPlatform().siteUrl).toBe('https://myapp.account.workers.dev');
+	});
+});

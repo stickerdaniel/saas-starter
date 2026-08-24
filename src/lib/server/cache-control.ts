@@ -24,8 +24,8 @@ export function applyCacheControl(
 		// TTL (default 4h) cannot rewrite the browser-facing max-age back up to
 		// 14400, which it does to any edge-cacheable response and which let stale
 		// shells sit in browsers for hours after a deploy. Immutable assets remain
-		// long-cacheable. This string must stay in sync with the prerendered
-		// marketing HTML header in scripts/patch-cf-worker.ts.
+		// long-cacheable. This string must stay in sync with the fallback prerendered-marketing
+		// header in scripts/patch-cf-worker.ts.
 		//
 		// Revalidation is load-bearing, not an optimization detail: the deploy
 		// recovery (version poll, beforeNavigate guard, vite:preloadError reload)

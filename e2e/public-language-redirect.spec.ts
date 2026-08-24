@@ -51,11 +51,11 @@ test.describe('bare-path language redirect', () => {
 // without the placeholder the replace is a no-op and every locale ships the
 // hard-coded fallback, without the hook the raw token reaches the browser. So
 // this asserts the rendered response rather than unit-testing the hook. The
-// marketing root is prerendered and /pricing is not, which covers both the
-// build-time and the runtime substitution.
+// Home and pricing take separate route branches, so both remain covered after
+// negotiated marketing pages moved to SSR.
 test.describe('SSR html lang', () => {
 	for (const lang of ['en', 'de', 'es', 'fr'] as const) {
-		test(`serves lang="${lang}" on prerendered and runtime routes`, async ({ request }) => {
+		test(`serves lang="${lang}" on localized marketing routes`, async ({ request }) => {
 			for (const path of [`/${lang}`, `/${lang}/pricing`]) {
 				const response = await request.get(path);
 				expect(response.ok(), `${path} should be reachable`).toBe(true);

@@ -3,8 +3,9 @@
  *
  * Two issues with adapter-cloudflare's generated worker:
  *
- * 1. Prerendered pages are served as static files BEFORE calling server.respond(),
- *    bypassing SvelteKit hooks. This breaks Accept: text/markdown negotiation.
+ * 1. Cloudflare serves prerendered files before calling server.respond(). The
+ *    template keeps negotiated marketing routes SSR for adapter portability,
+ *    while this remains a defense for forks that add prerendered routes.
  *
  * 2. The worktop cache layer ignores the Vary header (CF Cache API limitation),
  *    so a cached HTML response is served for markdown requests on non-prerendered
@@ -29,6 +30,9 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { VERIFICATION_FAILURE_CODES } from '../src/lib/utils/auth-messages';
+import { SUPPORTED_LANGUAGE_CODES } from '../src/lib/i18n/language-codes.generated.js';
+import { PUBLIC_MARKETING_ROUTES } from '../src/lib/marketing/public-routes';
+import { PREFERS_MARKDOWN_FUNCTION_SOURCE } from '../src/lib/http/accept';
 
 // Match the entire if-condition body that gates static asset / prerendered serving.
 // The condition includes nested parens (e.g., prerendered.has(pathname), pathname.startsWith(immutable)),
@@ -52,9 +56,9 @@ export const ASSET_SERVE_PATTERN = /res = await (\w+)\.ASSETS\.fetch\(req\);?/;
 
 // Marketing pathname predicate injected into the worker, shared by the cache
 // bypass and the ASSETS.fetch replacement so the two can never drift. The
-// homepage (/en) matches via the absent optional group; pricing is
-// intentionally absent, it is SSR via handleCacheControl, not prerendered.
-const MARKETING_ROUTE_PREDICATE = `const __isPublicMarketingHtml = /^\\/[a-z]{2}(\\/(privacy|terms|impressum))?\\/?$/.test(new URL(req.url).pathname);`;
+// Homepage matches via the absent optional group; every configured marketing
+// route bypasses lookup so a legacy cache entry cannot preempt server headers.
+const MARKETING_ROUTE_PREDICATE = `const __isPublicMarketingHtml = /^\\/[a-z]{2}(\\/(pricing|privacy|terms|impressum))?\\/?$/.test(new URL(req.url).pathname);`;
 
 // A failed verification link reports itself by appending `?error=<CODE>` to
 // whatever callback URL it carried, and the gate that turns that into a message
@@ -107,7 +111,7 @@ export function applyMarkdownPatch(source: string): string | null {
 	if (CACHE_LOOKUP_PATTERN.test(patched)) {
 		patched = patched.replace(
 			CACHE_LOOKUP_PATTERN,
-			`const __wantsMarkdown = /\\btext\\/markdown\\b/i.test(req.headers.get("accept") || "");\n    ${MARKETING_ROUTE_PREDICATE}\n    ${VERIFICATION_ERROR_PREDICATE}\n$1!__wantsMarkdown && !__isPublicMarketingHtml && $2`
+			`const __prefersMarkdown = ${PREFERS_MARKDOWN_FUNCTION_SOURCE};\n    const __wantsMarkdown = __prefersMarkdown(req.headers.get("accept"));\n    ${MARKETING_ROUTE_PREDICATE}\n    ${VERIFICATION_ERROR_PREDICATE}\n$1!__wantsMarkdown && !__isPublicMarketingHtml && $2`
 		);
 		// Step 2: Also skip static asset serving for markdown requests and for a
 		// verification failure that would otherwise be answered from the asset
@@ -131,7 +135,7 @@ export function applyMarkdownPatch(source: string): string | null {
 		// Fallback: inject before static serving (prerendered pages still fixed, no cache layer to bypass)
 		patched = patched.replace(
 			STATIC_SERVING_PATTERN,
-			`const __wantsMarkdown = /\\btext\\/markdown\\b/i.test(req.headers.get("accept") || "");\n${MARKETING_ROUTE_PREDICATE}\n${VERIFICATION_ERROR_PREDICATE}\n$1!__wantsMarkdown && !__hasVerificationError && ($2))`
+			`const __prefersMarkdown = ${PREFERS_MARKDOWN_FUNCTION_SOURCE};\nconst __wantsMarkdown = __prefersMarkdown(req.headers.get("accept"));\n${MARKETING_ROUTE_PREDICATE}\n${VERIFICATION_ERROR_PREDICATE}\n$1!__wantsMarkdown && !__hasVerificationError && ($2))`
 		);
 	}
 
@@ -246,6 +250,25 @@ export function applyVersionedCacheKeyPatch(source: string, version: string): st
  * version.json and immutable/, which disambiguates it from a user-provided
  * static/version.json (copied to the output root, no immutable/ sibling).
  */
+export function findPrerenderOriginPlaceholders(outDir: string): string[] {
+	if (!fs.existsSync(outDir)) return [];
+	const matches: string[] = [];
+	const stack = [outDir];
+	while (stack.length > 0) {
+		const current = stack.pop()!;
+		for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
+			const entryPath = path.join(current, entry.name);
+			if (entry.isDirectory()) {
+				stack.push(entryPath);
+			} else if (/\.(?:html|txt|xml)$/.test(entry.name)) {
+				const source = fs.readFileSync(entryPath, 'utf-8');
+				if (source.includes('http://sveltekit-prerender')) matches.push(entryPath);
+			}
+		}
+	}
+	return matches;
+}
+
 export function findVersionFile(outDir: string): string | null {
 	const stack = [outDir];
 	while (stack.length > 0) {
@@ -269,8 +292,41 @@ export function findVersionFile(outDir: string): string | null {
 	return null;
 }
 
+export function findPrerenderedNegotiatedMarketingPages(outDir: string): string[] {
+	const matches: string[] = [];
+	for (const language of SUPPORTED_LANGUAGE_CODES) {
+		for (const route of PUBLIC_MARKETING_ROUTES) {
+			const relative = `${language}${route.pathSuffix}`;
+			for (const candidate of [`${relative}.html`, path.join(relative, 'index.html')]) {
+				const file = path.join(outDir, candidate);
+				if (fs.existsSync(file)) matches.push(file);
+			}
+		}
+	}
+	return matches;
+}
+
 // --- CLI entry point (skipped when imported for testing) ---
 if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(import.meta.filename)) {
+	const placeholderFiles = findPrerenderOriginPlaceholders(
+		path.resolve('.svelte-kit/output/prerendered')
+	);
+	const negotiatedPrerenderFiles = findPrerenderedNegotiatedMarketingPages(
+		path.resolve('.svelte-kit/output/prerendered/pages')
+	);
+	if (negotiatedPrerenderFiles.length > 0) {
+		console.error(
+			`[patch-cf-worker] Negotiated marketing routes were prerendered and would bypass SvelteKit hooks on supported adapters:\n${negotiatedPrerenderFiles.join('\n')}`
+		);
+		process.exit(1);
+	}
+	if (placeholderFiles.length > 0) {
+		console.error(
+			`[patch-cf-worker] Prerendered output contains the SvelteKit placeholder origin:\n${placeholderFiles.join('\n')}`
+		);
+		process.exit(1);
+	}
+
 	const WORKER_PATH = path.resolve('.svelte-kit/cloudflare/_worker.js');
 
 	if (!fs.existsSync(WORKER_PATH)) {

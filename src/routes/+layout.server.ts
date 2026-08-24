@@ -1,14 +1,18 @@
 import type { LayoutServerLoad } from './$types';
-import { resolveAuthLayoutData } from '$lib/server/auth-layout-data';
+import { resolveAuthLayoutData, resolvePublicAuthLayoutData } from '$lib/server/auth-layout-data';
 
 export const load: LayoutServerLoad = async (event) => {
-	// On prerendered marketing pages this resolves at build time without a
-	// cookie and freezes as unauthenticated. The /app and /admin layout loads
-	// re-resolve the same keys fresh (see $lib/server/auth-layout-data).
-	const authData = await resolveAuthLayoutData(event);
+	// The hook classifies public routes without making this load depend on
+	// the request route. Pricing and authenticated subtrees refresh backend state in
+	// their own loads when client navigation retains a public root snapshot.
+	const authData = event.locals.publicAuthSnapshot
+		? resolvePublicAuthLayoutData(event)
+		: await resolveAuthLayoutData(event);
 
 	return {
 		...authData,
+		// Non-reactive first-paint hint only. Live authentication still comes from useAuth().
+		hasAuthSession: authData.authState.hasSession,
 		// Persisted sidebar state (set by handleSidebarState in hooks.server.ts).
 		// Forwarded to Sidebar.Provider so the authenticated shell renders the
 		// correct open/collapsed state on first paint.

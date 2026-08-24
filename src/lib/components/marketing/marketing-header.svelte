@@ -7,6 +7,7 @@
 	import { localizedHref } from '$lib/utils/i18n';
 	import { resolve } from '$app/paths';
 	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
 	import Menu from '@lucide/svelte/icons/menu';
 	import X from '@lucide/svelte/icons/x';
 	import LogOut from '@lucide/svelte/icons/log-out';
@@ -17,8 +18,10 @@
 	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
 	import { T, getTranslate } from '@tolgee/svelte';
 	import { LEGAL_CONFIG } from '$lib/config/legal';
+	import { getRepositoryUrl } from '$lib/config/site';
 	import { activeUploadsContext } from '$lib/hooks/active-uploads.svelte.ts';
 	import { clearPersistedChatState } from '$lib/chat/core/chat-persisted-state.ts';
+	import { shouldShowMarketingAuthControls } from './marketing-auth-controls';
 
 	const { t } = getTranslate();
 
@@ -34,13 +37,10 @@
 	// and strand the admin, so the control becomes Stop Impersonating instead.
 	const impersonation = new ImpersonationState();
 
-	// Capture once at mount: did the server have a valid JWT?
+	// Capture once at mount. The server can see the HttpOnly Better Auth session
+	// cookie even when the short-lived Convex JWT needs client-side recovery.
 	const ssrAuthenticated = auth.isAuthenticated;
-
-	// Check if a session cookie exists (may need refresh → wait for result).
-	// No session cookie = definitely unauthenticated → show buttons instantly.
-	const hasSessionCookie =
-		typeof document !== 'undefined' && document.cookie.includes('better-auth.session_token');
+	const ssrHasSession = page.data.hasAuthSession ?? false;
 
 	let sessionChecked = $state(false);
 	$effect(() => {
@@ -50,11 +50,16 @@
 		return unsub;
 	});
 
-	// SSR authenticated: show immediately (server knew auth state).
-	// No session cookie: show immediately (definitely unauthenticated).
-	// Session cookie but no JWT: wait for refresh to avoid Login→Dashboard flash.
+	// A surviving session without a JWT waits for the client check, avoiding a
+	// Login → Dashboard flash. Signed-out and SSR-authenticated visitors render
+	// their controls immediately.
 	const showAuthButtons = $derived(
-		ssrAuthenticated || !hasSessionCookie || (sessionChecked && !auth.isLoading)
+		shouldShowMarketingAuthControls({
+			ssrAuthenticated,
+			ssrHasSession,
+			sessionChecked,
+			authLoading: auth.isLoading
+		})
 	);
 
 	async function signOut() {
@@ -144,7 +149,7 @@
 					<Button
 						variant="ghost"
 						size="icon"
-						href="https://github.com/stickerdaniel/saas-starter"
+						href={getRepositoryUrl()}
 						target="_blank"
 						rel="noopener noreferrer"
 						aria-label={$t('aria.github_repository')}
@@ -168,7 +173,7 @@
 							<div
 								class={cn(
 									'absolute inset-y-0 right-0 flex items-center gap-3',
-									!ssrAuthenticated && hasSessionCookie && 'motion-safe:animate-fade-in'
+									!ssrAuthenticated && ssrHasSession && 'motion-safe:animate-fade-in'
 								)}
 							>
 								{#if isAuthenticated}
@@ -224,7 +229,7 @@
 					<Button
 						variant="ghost"
 						size="icon"
-						href="https://github.com/stickerdaniel/saas-starter"
+						href={getRepositoryUrl()}
 						target="_blank"
 						rel="noopener noreferrer"
 						aria-label={$t('aria.github_repository')}
@@ -281,7 +286,7 @@
 					<div
 						class={cn(
 							'flex flex-col gap-3',
-							!ssrAuthenticated && hasSessionCookie && 'motion-safe:animate-fade-in'
+							!ssrAuthenticated && ssrHasSession && 'motion-safe:animate-fade-in'
 						)}
 					>
 						{#if isAuthenticated}

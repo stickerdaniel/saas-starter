@@ -1,15 +1,11 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { PUBLIC_SITE_URL } from '$env/static/public';
 	import { SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE, getLanguage } from '$lib/i18n/languages';
 	import { LEGAL_CONFIG } from '$lib/config/legal';
+	import { resolveSiteOrigin } from '$lib/config/site-origin';
+	import { SITE_CONFIG, getRepositoryUrl } from '$lib/config/site';
+	import { buildSiteStructuredData, serializeStructuredData } from '$lib/seo/structured-data';
 	import { OG_IMAGE_URL } from './og-image-url.generated';
-
-	// During prerendering page.url.origin is SvelteKit's placeholder
-	// http://sveltekit-prerender, so absolute SEO URLs must come from the
-	// configured site origin when available. Trailing slash is stripped to
-	// avoid double slashes in `${origin}${image}` and `${origin}/${lang}`.
-	const configuredOrigin = PUBLIC_SITE_URL.replace(/\/$/, '');
 
 	interface Props {
 		/** Page title (without site name suffix) */
@@ -34,6 +30,8 @@
 		/** Mark the page as noindex/nofollow and drop canonical/hreflang/og:url
 		 * (private routes: auth, app, admin) */
 		noindex?: boolean;
+		/** Emit the WebSite JSON-LD graph on the localized homepage. */
+		siteStructuredData?: boolean;
 	}
 
 	let {
@@ -45,13 +43,14 @@
 		imageWidth,
 		imageHeight,
 		imageAlt,
-		noindex = false
+		noindex = false,
+		siteStructuredData = false
 	}: Props = $props();
 
 	// Get current language and path
 	let currentLang = $derived(page.params.lang || DEFAULT_LANGUAGE);
 	let currentPath = $derived(page.url.pathname);
-	let origin = $derived(configuredOrigin || page.url.origin);
+	let origin = $derived(resolveSiteOrigin(page.url.origin));
 
 	// Generate path without language prefix for alternate links
 	let pathWithoutLang = $derived.by(() => {
@@ -74,6 +73,19 @@
 	const isDefaultImage = $derived(image === OG_IMAGE_URL);
 	const ogImageWidth = $derived(imageWidth ?? (isDefaultImage ? 1200 : undefined));
 	const ogImageHeight = $derived(imageHeight ?? (isDefaultImage ? 630 : undefined));
+	const siteJsonLd = $derived.by(() => {
+		if (!siteStructuredData || !description) return null;
+		return serializeStructuredData(
+			buildSiteStructuredData({
+				origin,
+				name: LEGAL_CONFIG.brandName,
+				description,
+				languages: SUPPORTED_LANGUAGES.map((language) => language.code),
+				repositoryUrl: getRepositoryUrl(),
+				...SITE_CONFIG.structuredData
+			})
+		);
+	});
 </script>
 
 <svelte:head>
@@ -145,5 +157,14 @@
 		{#each SUPPORTED_LANGUAGES.filter((l) => l.code !== currentLang) as language (language.code)}
 			<meta property="og:locale:alternate" content={language.ogLocale} />
 		{/each}
+	{/if}
+
+	{#if siteJsonLd}
+		<!-- serializeStructuredData escapes < > & and the line separators, so the payload
+		     cannot close this tag. The closing tag itself keeps its backslash: Svelte's
+		     parser ends the markup region at a literal </script> even inside a template
+		     literal, and dropping it is a parse error, not a useless escape. -->
+		<!-- eslint-disable-next-line svelte/no-at-html-tags, no-useless-escape -- see above -->
+		{@html `<script type="application/ld+json">${siteJsonLd}<\/script>`}
 	{/if}
 </svelte:head>

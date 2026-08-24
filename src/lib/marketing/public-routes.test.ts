@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
 	PUBLIC_MARKETING_ROUTES,
+	getDefaultLanguageMarketingUrl,
 	getLocalizedMarketingUrls,
 	getMarketingMarkdownDocument,
 	matchPublicMarketingRoute
@@ -12,14 +13,28 @@ import { marketingMarkdown as privacyMarketingMarkdown } from '../../routes/[[la
 import { marketingMarkdown as termsMarketingMarkdown } from '../../routes/[[lang]]/(marketing)/terms/page.md';
 
 describe('public marketing route registry', () => {
-	it('defines the canonical public marketing routes', () => {
-		expect(PUBLIC_MARKETING_ROUTES).toEqual([
+	it('defines the canonical public marketing routes and authored dates', () => {
+		expect(PUBLIC_MARKETING_ROUTES.map(({ key, pathSuffix }) => ({ key, pathSuffix }))).toEqual([
 			{ key: 'home', pathSuffix: '' },
 			{ key: 'pricing', pathSuffix: '/pricing' },
 			{ key: 'privacy', pathSuffix: '/privacy' },
 			{ key: 'terms', pathSuffix: '/terms' },
 			{ key: 'impressum', pathSuffix: '/impressum' }
 		]);
+		expect(
+			Object.fromEntries(
+				PUBLIC_MARKETING_ROUTES.map(({ key, lastModified }) => [key, lastModified])
+			)
+		).toEqual({
+			home: undefined,
+			pricing: undefined,
+			privacy: '2026-03-18',
+			terms: '2026-03-18',
+			impressum: '2026-03-21'
+		});
+		expect(
+			PUBLIC_MARKETING_ROUTES.every((route) => route.agentLabel && route.agentDescription)
+		).toBe(true);
 	});
 
 	it('matches localized marketing paths to route keys', () => {
@@ -56,6 +71,12 @@ describe('public marketing route registry', () => {
 		expect(getMarketingMarkdownDocument('privacy')).toBe(privacyMarketingMarkdown);
 		expect(getMarketingMarkdownDocument('terms')).toBe(termsMarketingMarkdown);
 		expect(getMarketingMarkdownDocument('impressum')).toBe(impressumMarketingMarkdown);
+	});
+
+	it('generates a direct default-language URL', () => {
+		expect(getDefaultLanguageMarketingUrl('https://example.com/', '/privacy')).toBe(
+			'https://example.com/en/privacy'
+		);
 	});
 
 	it('generates the expected localized public marketing URLs', () => {
