@@ -1,8 +1,9 @@
 import { LEGAL_CONFIG } from '$lib/config/legal';
+import { LEGAL_CONTENT_DATES, formatLegalContentDate } from './legal-metadata';
 
 export const termsMarkdown = `# Terms of Service
 
-Last Updated: March 18, 2026
+Last Updated: ${formatLegalContentDate(LEGAL_CONTENT_DATES.terms)}
 
 ---
 

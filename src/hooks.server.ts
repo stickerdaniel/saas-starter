@@ -7,8 +7,13 @@ import {
 	getMarketingMarkdownDocument,
 	matchPublicMarketingRoute
 } from '$lib/marketing/public-routes';
-import { createMarketingMarkdownResponse, isMarkdownRequest } from '$lib/markdown/marketing';
+import {
+	createMarketingMarkdownResponse,
+	createPublicMarkdownNotFoundResponse,
+	isMarkdownRequest
+} from '$lib/markdown/marketing';
 import { devNotice } from '$lib/dev/notice';
+import { resolveSiteOrigin } from '$lib/config/site-origin';
 import { applyCacheControl } from '$lib/server/cache-control';
 import { decodeJwtPayload } from '$lib/server/jwt';
 import { resolveConvexToken } from '$lib/server/convex-jwt';
@@ -132,9 +137,55 @@ const handleMarketingMarkdown: Handle = async function handleMarketingMarkdown({
 	}
 
 	return createMarketingMarkdownResponse(getMarketingMarkdownDocument(matchedRoute.routeKey), {
-		origin: event.url.origin,
+		origin: resolveSiteOrigin(event.url.origin),
 		pathname: event.url.pathname,
 		lang: matchedRoute.lang ?? DEFAULT_LANGUAGE
+	});
+};
+
+interface PublicMarkdownNotFoundInput {
+	method: string;
+	request: Request;
+	status: number;
+	routeId: string | null;
+	pathname: string;
+	lang: string | undefined;
+}
+
+export function shouldRenderPublicMarkdownNotFound(input: PublicMarkdownNotFoundInput): boolean {
+	return (
+		['GET', 'HEAD'].includes(input.method) &&
+		isMarkdownRequest(input.request) &&
+		input.status === 404 &&
+		input.routeId === '/[[lang]]/[...path]' &&
+		isSupportedLanguage(input.lang) &&
+		!isProtectedRoute(input.pathname) &&
+		!isAdminRoute(input.pathname)
+	);
+}
+
+export const handlePublicMarkdownNotFound: Handle = async function handlePublicMarkdownNotFound({
+	event,
+	resolve
+}) {
+	const response = await resolve(event);
+	if (
+		!shouldRenderPublicMarkdownNotFound({
+			method: event.request.method,
+			request: event.request,
+			status: response.status,
+			routeId: event.route.id,
+			pathname: event.url.pathname,
+			lang: event.params.lang
+		})
+	) {
+		return response;
+	}
+
+	return createPublicMarkdownNotFoundResponse(response, {
+		origin: resolveSiteOrigin(event.url.origin),
+		lang: event.params.lang!,
+		head: event.request.method === 'HEAD'
 	});
 };
 
@@ -413,6 +464,7 @@ export const handle = sequence(
 	handleSidebarState,
 	handleMarketingMarkdown,
 	handleLanguage,
+	handlePublicMarkdownNotFound,
 	handleHtmlLang,
 	authFirstPattern,
 	handleCacheControl,

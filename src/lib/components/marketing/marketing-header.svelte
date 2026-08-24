@@ -17,6 +17,7 @@
 	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
 	import { T, getTranslate } from '@tolgee/svelte';
 	import { LEGAL_CONFIG } from '$lib/config/legal';
+	import { getRepositoryUrl } from '$lib/config/site';
 	import { activeUploadsContext } from '$lib/hooks/active-uploads.svelte.ts';
 	import { clearPersistedChatState } from '$lib/chat/core/chat-persisted-state.ts';
 
@@ -144,7 +145,7 @@
 					<Button
 						variant="ghost"
 						size="icon"
-						href="https://github.com/stickerdaniel/saas-starter"
+						href={getRepositoryUrl()}
 						target="_blank"
 						rel="noopener noreferrer"
 						aria-label={$t('aria.github_repository')}
@@ -224,7 +225,7 @@
 					<Button
 						variant="ghost"
 						size="icon"
-						href="https://github.com/stickerdaniel/saas-starter"
+						href={getRepositoryUrl()}
 						target="_blank"
 						rel="noopener noreferrer"
 						aria-label={$t('aria.github_repository')}

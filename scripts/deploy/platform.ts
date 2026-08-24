@@ -69,32 +69,23 @@ export function detectPlatform(): PlatformContext {
 
 		// CF_PAGES_URL is a full URL with https:// (Pages only)
 		const deployUrl = process.env.CF_PAGES_URL ?? null;
+		const productionSiteUrl = process.env.PUBLIC_SITE_URL ?? process.env.SITE_URL ?? null;
 
-		// Compute siteUrl based on platform variant
 		let siteUrl: string | null = null;
-
-		if (deployUrl) {
-			// Pages: URL provided directly
-			siteUrl = deployUrl;
-		} else if (process.env.WORKERS_CI) {
-			// Workers: construct from worker name + subdomain
-			// For previews, always use constructed URL (SITE_URL is the production domain
-			// and Workers Builds doesn't scope build variables by environment)
-			const workerName = process.env.WORKERS_NAME;
-			const subdomain = process.env.WORKERS_SUBDOMAIN;
-			if (isPreview && branch && workerName && subdomain) {
-				const alias = sanitizeBranchAlias(branch, workerName);
-				siteUrl = `https://${alias}-${workerName}.${subdomain}.workers.dev`;
-			} else if (process.env.SITE_URL) {
-				// Production: prefer explicit SITE_URL (custom domain)
-				siteUrl = process.env.SITE_URL;
-			} else if (workerName && subdomain) {
-				// Production fallback: construct from worker name
-				siteUrl = `https://${workerName}.${subdomain}.workers.dev`;
+		if (isPreview) {
+			if (deployUrl) {
+				siteUrl = deployUrl;
+			} else if (branch && process.env.WORKERS_NAME && process.env.WORKERS_SUBDOMAIN) {
+				const alias = sanitizeBranchAlias(branch, process.env.WORKERS_NAME);
+				siteUrl = `https://${alias}-${process.env.WORKERS_NAME}.${process.env.WORKERS_SUBDOMAIN}.workers.dev`;
 			}
-		} else if (process.env.SITE_URL) {
-			// Pages fallback
-			siteUrl = process.env.SITE_URL;
+		} else if (productionSiteUrl) {
+			// Explicit custom domains beat Pages and Workers generated hosts.
+			siteUrl = productionSiteUrl;
+		} else if (deployUrl) {
+			siteUrl = deployUrl;
+		} else if (process.env.WORKERS_NAME && process.env.WORKERS_SUBDOMAIN) {
+			siteUrl = `https://${process.env.WORKERS_NAME}.${process.env.WORKERS_SUBDOMAIN}.workers.dev`;
 		}
 
 		return {
@@ -114,6 +105,6 @@ export function detectPlatform(): PlatformContext {
 		deployUrl: null,
 		gitRef: null,
 		isPreview: false,
-		siteUrl: process.env.SITE_URL ?? null
+		siteUrl: process.env.PUBLIC_SITE_URL ?? process.env.SITE_URL ?? null
 	};
 }

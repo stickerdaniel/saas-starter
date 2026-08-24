@@ -29,6 +29,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { VERIFICATION_FAILURE_CODES } from '../src/lib/utils/auth-messages';
+import { ACCEPTS_MARKDOWN_FUNCTION_SOURCE } from '../src/lib/http/accept';
 
 // Match the entire if-condition body that gates static asset / prerendered serving.
 // The condition includes nested parens (e.g., prerendered.has(pathname), pathname.startsWith(immutable)),
@@ -107,7 +108,7 @@ export function applyMarkdownPatch(source: string): string | null {
 	if (CACHE_LOOKUP_PATTERN.test(patched)) {
 		patched = patched.replace(
 			CACHE_LOOKUP_PATTERN,
-			`const __wantsMarkdown = /\\btext\\/markdown\\b/i.test(req.headers.get("accept") || "");\n    ${MARKETING_ROUTE_PREDICATE}\n    ${VERIFICATION_ERROR_PREDICATE}\n$1!__wantsMarkdown && !__isPublicMarketingHtml && $2`
+			`const __acceptsMarkdown = ${ACCEPTS_MARKDOWN_FUNCTION_SOURCE};\n    const __wantsMarkdown = __acceptsMarkdown(req.headers.get("accept"));\n    ${MARKETING_ROUTE_PREDICATE}\n    ${VERIFICATION_ERROR_PREDICATE}\n$1!__wantsMarkdown && !__isPublicMarketingHtml && $2`
 		);
 		// Step 2: Also skip static asset serving for markdown requests and for a
 		// verification failure that would otherwise be answered from the asset
@@ -131,7 +132,7 @@ export function applyMarkdownPatch(source: string): string | null {
 		// Fallback: inject before static serving (prerendered pages still fixed, no cache layer to bypass)
 		patched = patched.replace(
 			STATIC_SERVING_PATTERN,
-			`const __wantsMarkdown = /\\btext\\/markdown\\b/i.test(req.headers.get("accept") || "");\n${MARKETING_ROUTE_PREDICATE}\n${VERIFICATION_ERROR_PREDICATE}\n$1!__wantsMarkdown && !__hasVerificationError && ($2))`
+			`const __acceptsMarkdown = ${ACCEPTS_MARKDOWN_FUNCTION_SOURCE};\nconst __wantsMarkdown = __acceptsMarkdown(req.headers.get("accept"));\n${MARKETING_ROUTE_PREDICATE}\n${VERIFICATION_ERROR_PREDICATE}\n$1!__wantsMarkdown && !__hasVerificationError && ($2))`
 		);
 	}
 
@@ -246,6 +247,25 @@ export function applyVersionedCacheKeyPatch(source: string, version: string): st
  * version.json and immutable/, which disambiguates it from a user-provided
  * static/version.json (copied to the output root, no immutable/ sibling).
  */
+export function findPrerenderOriginPlaceholders(outDir: string): string[] {
+	if (!fs.existsSync(outDir)) return [];
+	const matches: string[] = [];
+	const stack = [outDir];
+	while (stack.length > 0) {
+		const current = stack.pop()!;
+		for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
+			const entryPath = path.join(current, entry.name);
+			if (entry.isDirectory()) {
+				stack.push(entryPath);
+			} else if (/\.(?:html|txt|xml)$/.test(entry.name)) {
+				const source = fs.readFileSync(entryPath, 'utf-8');
+				if (source.includes('http://sveltekit-prerender')) matches.push(entryPath);
+			}
+		}
+	}
+	return matches;
+}
+
 export function findVersionFile(outDir: string): string | null {
 	const stack = [outDir];
 	while (stack.length > 0) {
@@ -271,6 +291,16 @@ export function findVersionFile(outDir: string): string | null {
 
 // --- CLI entry point (skipped when imported for testing) ---
 if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(import.meta.filename)) {
+	const placeholderFiles = findPrerenderOriginPlaceholders(
+		path.resolve('.svelte-kit/output/prerendered')
+	);
+	if (placeholderFiles.length > 0) {
+		console.error(
+			`[patch-cf-worker] Prerendered output contains the SvelteKit placeholder origin:\n${placeholderFiles.join('\n')}`
+		);
+		process.exit(1);
+	}
+
 	const WORKER_PATH = path.resolve('.svelte-kit/cloudflare/_worker.js');
 
 	if (!fs.existsSync(WORKER_PATH)) {

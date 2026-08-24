@@ -1,4 +1,5 @@
 import fs from 'fs';
+import { normalizeSiteOrigin } from '../../src/lib/config/origin';
 import type { PlatformContext } from './platform';
 import { normalizeIdentifier, pruneOldestPreview } from './prune-previews';
 import {
@@ -484,19 +485,43 @@ export function computeBuildEnv(
 		);
 	}
 
-	// For preview deployments, set SITE_URL for SvelteKit build
-	if (platform.isPreview && platform.siteUrl) {
-		buildEnv.SITE_URL = platform.siteUrl;
-		console.log(`SITE_URL (for SvelteKit build): ${buildEnv.SITE_URL}`);
+	const explicitPublicSiteUrl = process.env.PUBLIC_SITE_URL
+		? normalizeSiteOrigin(process.env.PUBLIC_SITE_URL)
+		: undefined;
+	const compatibleSiteUrl = process.env.SITE_URL
+		? normalizeSiteOrigin(process.env.SITE_URL)
+		: undefined;
+
+	if (
+		!platform.isPreview &&
+		explicitPublicSiteUrl &&
+		compatibleSiteUrl &&
+		explicitPublicSiteUrl !== compatibleSiteUrl
+	) {
+		throw new Error(
+			`PUBLIC_SITE_URL (${explicitPublicSiteUrl}) conflicts with SITE_URL (${compatibleSiteUrl}).`
+		);
 	}
 
-	// Bake the real site origin into prerendered SEO tags (canonical, hreflang,
-	// og:url, og:image). Without it, SvelteKit prerenders absolute URLs with the
-	// http://sveltekit-prerender placeholder. An explicitly set PUBLIC_SITE_URL
-	// (e.g. a custom domain) always wins over the platform-derived URL.
-	if (!buildEnv.PUBLIC_SITE_URL && platform.siteUrl) {
-		buildEnv.PUBLIC_SITE_URL = platform.siteUrl;
-		console.log(`PUBLIC_SITE_URL (for SvelteKit build): ${buildEnv.PUBLIC_SITE_URL}`);
+	if (platform.isPreview) {
+		if (!platform.siteUrl) {
+			throw new Error('Preview builds require a platform preview URL for canonical metadata.');
+		}
+		const previewOrigin = normalizeSiteOrigin(platform.siteUrl);
+		buildEnv.SITE_URL = previewOrigin;
+		buildEnv.PUBLIC_SITE_URL = previewOrigin;
+		console.log(`SITE_URL (for SvelteKit build): ${previewOrigin}`);
+		console.log(`PUBLIC_SITE_URL (for SvelteKit build): ${previewOrigin}`);
+	} else {
+		const productionOrigin =
+			explicitPublicSiteUrl ??
+			compatibleSiteUrl ??
+			(platform.siteUrl ? normalizeSiteOrigin(platform.siteUrl) : undefined);
+		if (!productionOrigin) {
+			throw new Error('Production builds require PUBLIC_SITE_URL, SITE_URL, or a platform URL.');
+		}
+		buildEnv.PUBLIC_SITE_URL = productionOrigin;
+		console.log(`PUBLIC_SITE_URL (for SvelteKit build): ${productionOrigin}`);
 	}
 
 	return buildEnv;

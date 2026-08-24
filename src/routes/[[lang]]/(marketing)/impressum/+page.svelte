@@ -3,13 +3,14 @@
 	import ObfuscatedEmail from '$lib/components/obfuscated-email.svelte';
 	import SEOHead from '$lib/components/SEOHead.svelte';
 	import { LEGAL_CONFIG } from '$lib/config/legal';
+	import { LEGAL_CONTENT_DATES, formatLegalContentDate } from '$lib/content/legal-metadata';
 	import { getTranslate } from '@tolgee/svelte';
 
 	const { t } = getTranslate();
 
 	const source = `# Impressum
 
-Last Updated: March 21, 2026
+Last Updated: ${formatLegalContentDate(LEGAL_CONTENT_DATES.impressum)}
 
 ---
 

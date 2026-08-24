@@ -9,6 +9,7 @@
 	import CommandTrigger from '$lib/components/global-search/command-trigger.svelte';
 	import { buildBreadcrumbs } from './breadcrumbs';
 	import { getTranslate } from '@tolgee/svelte';
+	import { getRepositoryUrl } from '$lib/config/site';
 
 	const { t } = getTranslate();
 
@@ -51,7 +52,7 @@
 			<Button
 				variant="ghost"
 				size="icon"
-				href="https://github.com/stickerdaniel/saas-starter"
+				href={getRepositoryUrl()}
 				target="_blank"
 				rel="noopener noreferrer"
 				aria-label={$t('aria.github_repository')}
