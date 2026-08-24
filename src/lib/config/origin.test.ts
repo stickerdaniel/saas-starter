@@ -18,6 +18,13 @@ describe('site origin', () => {
 		expect(() => normalizeSiteOrigin(value)).toThrow();
 	});
 
+	it('does not echo credential-bearing values in validation errors', () => {
+		const value = 'https://deploy-user:secret-token@example.com';
+		expect(() => normalizeSiteOrigin(value)).toThrow(
+			/^Site origin must not contain credentials\.$/
+		);
+	});
+
 	it('prefers the configured canonical origin over the request host', () => {
 		expect(
 			resolveConfiguredSiteOrigin('https://app.example.com/', 'https://preview.example.workers.dev')

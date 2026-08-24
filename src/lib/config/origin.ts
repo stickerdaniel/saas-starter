@@ -5,17 +5,17 @@ export function normalizeSiteOrigin(value: string): string {
 	try {
 		url = new URL(value);
 	} catch {
-		throw new Error(`Invalid site origin: ${value}`);
+		throw new Error('Invalid site origin.');
 	}
 
 	if (!['http:', 'https:'].includes(url.protocol)) {
-		throw new Error(`Site origin must use HTTP or HTTPS: ${value}`);
+		throw new Error('Site origin must use HTTP or HTTPS.');
 	}
 	if (url.username || url.password) {
-		throw new Error(`Site origin must not contain credentials: ${value}`);
+		throw new Error('Site origin must not contain credentials.');
 	}
 	if (url.pathname !== '/' || url.search || url.hash) {
-		throw new Error(`Site origin must not contain a path, query, or fragment: ${value}`);
+		throw new Error('Site origin must not contain a path, query, or fragment.');
 	}
 
 	return url.origin;
