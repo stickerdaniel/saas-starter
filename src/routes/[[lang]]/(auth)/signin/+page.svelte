@@ -351,7 +351,7 @@
 				</div>
 			</Card.Content>
 		</Card.Root>
-		<Field.Description class="px-6 text-center">
+		<Field.Description class="px-6 text-center text-balance">
 			<T keyName="auth.terms.agreement" defaultValue="By clicking continue, you agree to our" />
 			<a
 				bind:this={termsLink}

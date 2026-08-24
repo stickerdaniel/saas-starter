@@ -275,7 +275,7 @@
 				</div>
 			</Card.Content>
 		</Card.Root>
-		<Field.Description class="px-6 text-center">
+		<Field.Description class="px-6 text-center text-balance">
 			<T keyName="auth.terms.agreement" defaultValue="By clicking continue, you agree to our" />
 			<a href={resolve(localizedHref('/terms'))} class="underline underline-offset-4"
 				><T keyName="auth.terms.terms_of_service" defaultValue="Terms of Service" /></a
