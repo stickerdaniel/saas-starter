@@ -15,9 +15,14 @@ interface SiteStructuredDataInput {
 type JsonLdNode = Record<string, unknown>;
 
 function normalizePublicUrl(value: string): string {
-	const url = new URL(value);
+	let url: URL;
+	try {
+		url = new URL(value);
+	} catch {
+		throw new Error('Structured data URL must be a public HTTP(S) URL.');
+	}
 	if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) {
-		throw new Error(`Structured data URL must be a public HTTP(S) URL: ${value}`);
+		throw new Error('Structured data URL must be a public HTTP(S) URL.');
 	}
 	return url.toString();
 }

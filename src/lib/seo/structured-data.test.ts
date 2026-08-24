@@ -52,13 +52,12 @@ describe('site structured data', () => {
 		});
 	});
 
-	it('rejects non-public identity URLs', () => {
-		expect(() =>
-			buildSiteStructuredData({ ...baseInput, sameAs: ['javascript:alert(1)'] })
-		).toThrow(/public HTTP\(S\) URL/);
-		expect(() =>
-			buildSiteStructuredData({ ...baseInput, repositoryUrl: 'https://user:pass@example.com' })
-		).toThrow(/public HTTP\(S\) URL/);
+	it('rejects non-public identity URLs without echoing their values', () => {
+		for (const value of ['javascript:alert(1)', 'https://user:secret@example.com', 'not a url']) {
+			expect(() => buildSiteStructuredData({ ...baseInput, repositoryUrl: value })).toThrow(
+				/^Structured data URL must be a public HTTP\(S\) URL\.$/
+			);
+		}
 	});
 
 	it('escapes script raw-text delimiters and round-trips as JSON', () => {
