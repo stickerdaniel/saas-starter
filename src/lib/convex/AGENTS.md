@@ -21,11 +21,13 @@ The public E2E helper mutations in `tests.ts` are safe only while `AUTH_E2E_TEST
 
 ## Where a backend guard belongs
 
-Validators and generated types carry the mechanical API boundary, so a test that re-proves them adds nothing. `convex-test` carries the authorization, tenant-boundary, transaction, index-semantics, and scheduler matrix; browser tests never repeat those combinations.
+Validators and generated types carry the mechanical API boundary, so a test that re-proves them adds nothing.
 
-Escalate past `convex-test` when the defect depends on behavior it simulates rather than reproduces: production limits, real cron activation, search ranking, live subscriptions, or hosted index readiness. Those need the local backend or a preview deployment.
+Authorization, tenant-boundary, transaction, and scheduler behavior belongs to the backend layer, never to a browser test. This repository currently reaches that layer through pure tests over extracted rules plus hand-written context doubles; `convex-test` is the intended home once a release matching the pinned `convex` version is adopted, which is its own change with a representative test and the local Better Auth component registered.
 
-A hand-written provider payload or auth session is a claim about that dependency. Derive it from a measured sample or an official fixture.
+Whichever layer holds it, a defect that depends on production limits, real cron activation, search ranking, live subscriptions, or hosted index readiness needs the local backend or a preview deployment, because those are simulated rather than reproduced.
+
+A hand-written provider payload, context double, or auth session is a claim about that dependency. Derive it from a measured sample or an official fixture.
 
 ## Platform and durability rules
 

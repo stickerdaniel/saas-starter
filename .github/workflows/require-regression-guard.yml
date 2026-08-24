@@ -22,7 +22,7 @@ jobs:
         env:
           PR_BODY: ${{ github.event.pull_request.body }}
         run: |
-          if printf '%s\n' "$PR_BODY" | grep -qiE '^Regression guard: (added|covered by|not warranted)'; then
+          if printf '%s\n' "$PR_BODY" | tr -d '\r' | grep -qE '^Regression guard: (added .+|covered by .+|not warranted, .+)$'; then
             echo "Regression guard verdict found."
           else
             echo "::error::Fix PRs must state their regression-guard verdict in the body."

@@ -8,14 +8,14 @@ This repository is a SaaS template built with SvelteKit, Svelte 5, Convex, Bette
 
 The nearest `AGENTS.md` owns task-specific guidance. Read the relevant file before editing that area:
 
-| Scope                                  | Guidance                                                 |
-| -------------------------------------- | -------------------------------------------------------- |
-| Application code                       | [`src/AGENTS.md`](./src/AGENTS.md)                       |
-| Routes, rendering, forms               | [`src/routes/AGENTS.md`](./src/routes/AGENTS.md)         |
-| Convex backend                         | [`src/lib/convex/AGENTS.md`](./src/lib/convex/AGENTS.md) |
-| E2E tests                              | [`e2e/AGENTS.md`](./e2e/AGENTS.md)                       |
-| Scripts, deployment, regression guards | [`scripts/AGENTS.md`](./scripts/AGENTS.md)               |
-| Repository documentation               | [`docs/AGENTS.md`](./docs/AGENTS.md)                     |
+| Scope                             | Guidance                                                 |
+| --------------------------------- | -------------------------------------------------------- |
+| Application code                  | [`src/AGENTS.md`](./src/AGENTS.md)                       |
+| Routes, rendering, forms          | [`src/routes/AGENTS.md`](./src/routes/AGENTS.md)         |
+| Convex backend                    | [`src/lib/convex/AGENTS.md`](./src/lib/convex/AGENTS.md) |
+| E2E tests                         | [`e2e/AGENTS.md`](./e2e/AGENTS.md)                       |
+| Scripts, deployment, build guards | [`scripts/AGENTS.md`](./scripts/AGENTS.md)               |
+| Repository documentation          | [`docs/AGENTS.md`](./docs/AGENTS.md)                     |
 
 Skills hold dependency and workflow tutorials. Use the applicable skill instead of copying its contents into an instruction file.
 
@@ -75,7 +75,7 @@ Scope is required when meaningful. Use imperative mood, capitalize the subject, 
 
 ## Where knowledge belongs
 
-A plan is a PR body. An audit finding is an issue. A convention is a lint rule. A fact or invariant about code is a test. Repository documents are for knowledge code cannot express: rejected alternatives and rationale, external constraints, external-system runbooks, stable domain/editorial vocabulary, and thin navigation maps.
+A plan is a PR body. An audit finding is an issue. A convention is a lint rule. A fact or invariant about code is a test, once Regression guards below establishes that it needs a guard and that behavior is what proves it. Repository documents are for knowledge code cannot express: rejected alternatives and rationale, external constraints, external-system runbooks, stable domain/editorial vocabulary, and thin navigation maps.
 
 Never preserve current symbols, signatures, enums, file lists, or implementation steps “for reference.” Split mixed documents: keep the non-derivable rationale and move load-bearing implementation facts into tests. Historical decisions remain immutable; supersede them with a new dated record and an explicit link.
 
