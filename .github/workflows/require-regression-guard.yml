@@ -1,35 +1,27 @@
-# Enforces the regression-guard contract from scripts/AGENTS.md:
-# every fix PR must state its regression-guard verdict in the body
-# (added <name> / covered by <name> / not warranted, <reason>).
+# Enforces the regression-guard contract from AGENTS.md:
+# every human-authored fix PR must state its regression-guard verdict at the
+# start of the body (added <name> / covered by <name> / not warranted, <reason>).
 name: Require Regression Guard
 
 on:
   pull_request:
     types: [opened, edited, reopened, synchronize]
 
-permissions: {}
+permissions:
+  contents: read
 
 jobs:
   check:
     name: Regression Guard Verdict
     runs-on: ubicloud-standard-2
-    # Only fix PRs by humans; bots (Renovate "fix(deps)") are exempt
-    if: |
-      !endsWith(github.actor, '[bot]') &&
-      startsWith(github.event.pull_request.title, 'fix')
     steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
       - name: Check PR body for verdict line
         env:
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
           PR_BODY: ${{ github.event.pull_request.body }}
-        run: |
-          if printf '%s\n' "$PR_BODY" | grep -qiE '^Regression guard: (added|covered by|not warranted)'; then
-            echo "Regression guard verdict found."
-          else
-            echo "::error::Fix PRs must state their regression-guard verdict in the body."
-            echo "Add one line directly above the verification line:"
-            echo "  Regression guard: added <name>"
-            echo "  Regression guard: covered by <name>"
-            echo "  Regression guard: not warranted, <one-line reason>"
-            echo "See scripts/AGENTS.md, section Validation."
-            exit 1
-          fi
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: bun scripts/check-regression-guard.ts

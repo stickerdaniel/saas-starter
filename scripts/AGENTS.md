@@ -6,14 +6,14 @@ All scripts must work on macOS, Linux, and Windows. Use TypeScript executed by B
 
 ## Validation
 
-`bun scripts/static-checks.ts <changed files...>` is the primary targeted validation command. Add regression guards at the closest executable layer:
+`bun scripts/static-checks.ts <changed files...>` is the primary targeted validation command.
 
-- source pattern or convention → ESLint/static check
-- pure behavior or configuration relationship → Vitest
-- public route or user flow → Playwright
-- generated/build artifact → build script plus artifact test
+Root `AGENTS.md` decides whether a fix earns a regression guard and which mechanism carries it. Two mappings are specific to this scope:
+
 - environment requirement → Varlock schema
-- security header → server hook/config plus response test
+- security header → server hook/config plus a response test
+
+Route content, configuration, and generated assets belong in Vitest or an artifact test. Playwright covers deployed response behavior and load-bearing user flows.
 
 Tests and checks should name the invariant, not mirror a current file list unless that file relationship is itself the contract.
 

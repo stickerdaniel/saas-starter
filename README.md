@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-%233fb950)](https://opensource.org/licenses/MIT)
 
 An open-source SvelteKit + Convex starter/reference application with auth, billing, admin, AI chat, email, and i18n wired end to end.<br>
-Recurring bug classes become ESLint rules, validators, and tests that keep your agents in check.
+Non-obvious recurring bug classes become the earliest guard that can catch them, including types, lint rules, static checks, focused tests, and targeted agent instructions.
 
 **Start on free tiers. Deploy to Cloudflare/Vercel, or your own Node server.**
 
@@ -15,7 +15,7 @@ Recurring bug classes become ESLint rules, validators, and tests that keep your 
 
 I kept rebuilding the same stack and pointing my agent at old repos to copy patterns I had already built, so I collected the best versions here: streaming AI chat with tool calling and file uploads, support chat with human handoff, auth, billing, admin features, emails, and i18n.
 
-The same mistakes also kept showing up across repos. In addition to giving agents good patterns to copy, the codebase enforces its own rules. Every recurring class of bug becomes an ESLint rule, banned-pattern check, test, or Convex validator. CI requires every fix PR to include a `Regression guard:` verdict. This makes the same defect harder to introduce twice.
+The same mistakes also kept showing up across repos. In addition to giving agents good patterns to copy, the codebase enforces its own rules. A recurring bug earns a guard only when the correct path was non-obvious and the mistake remains writable. CI requires every human-authored PR with a conventional `fix` title to include a `Regression guard:` verdict; bot PRs are exempt. The accepted guard fires at the earliest useful point, which can be a type, lint rule, static check, focused test, or targeted instruction.
 
 The stack is deliberately opinionated, following [Rich Harris's case](https://www.youtube.com/watch?v=SmHgtyym6OA&t=2388s) for smart defaults that fit well together.
 

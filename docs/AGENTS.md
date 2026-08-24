@@ -8,7 +8,7 @@ Repository docs contain only knowledge code cannot express:
 4. stable domain or editorial vocabulary;
 5. thin maps that route readers to authoritative code, tests, decisions, and runbooks.
 
-Plans belong in PR bodies. Audit findings belong in issues. Conventions belong in lint/static checks. Code facts and invariants belong in tests.
+Plans belong in PR bodies. Audit findings belong in issues. Apply the root Regression guards decision before adding enforcement. A convention with a recognizable source pattern belongs in lint or a static check after it earns a guard; a judgement call without one belongs in the nearest `AGENTS.md` or skill. A code fact belongs in the cheapest faithful test only when behavior is what proves the admitted guard.
 
 Do not preserve obsolete generated output, implementation snapshots, symbol catalogues, or current file lists “for reference.” If a document mixes durable rationale with current implementation, keep the rationale and replace the implementation narrative with links to authoritative entry points.
 
