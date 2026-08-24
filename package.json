@@ -12,7 +12,7 @@
 		"generate": "bun scripts/generate-convex.ts",
 		"postinstall": "bun svelte-kit sync && varlock codegen && varlock codegen --path .env-convex.schema && bun run build:emails",
 		"prebuild": "bun run build:emails",
-		"build": "vite build",
+		"build": "bun scripts/build.ts",
 		"postbuild": "bun scripts/patch-cf-worker.ts",
 		"start": "node build",
 		"generate:logos": "bun scripts/generate-logos.ts",

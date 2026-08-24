@@ -10,7 +10,7 @@ import {
 	findVersionFile
 } from './patch-cf-worker';
 import { VERIFICATION_FAILURE_CODES } from '../src/lib/utils/auth-messages';
-import { ACCEPTS_MARKDOWN_FUNCTION_SOURCE } from '../src/lib/http/accept';
+import { PREFERS_MARKDOWN_FUNCTION_SOURCE } from '../src/lib/http/accept';
 
 // Realistic worker snippet matching adapter-cloudflare@7.2.8 output
 // Includes the worktop cache lookup, the static-serving condition, AND the
@@ -61,7 +61,7 @@ describe('patch-cf-worker', () => {
 		const result = applyMarkdownPatch(WORKER_FIXTURE);
 		expect(result).not.toBeNull();
 		expect(result).toContain('__wantsMarkdown');
-		expect(result).toContain(ACCEPTS_MARKDOWN_FUNCTION_SOURCE);
+		expect(result).toContain(PREFERS_MARKDOWN_FUNCTION_SOURCE);
 	});
 
 	it('skips worktop cache for markdown requests and marketing shells', () => {

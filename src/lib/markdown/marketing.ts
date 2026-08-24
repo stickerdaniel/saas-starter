@@ -7,7 +7,7 @@ import { getLocalizedMarketingUrl, PUBLIC_MARKETING_ROUTES } from '$lib/marketin
 import { DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES } from '$lib/i18n/languages';
 import { LEGAL_CONFIG } from '$lib/config/legal';
 import { getRepositoryDocumentUrl, getRepositoryUrl } from '$lib/config/site';
-import { acceptsMarkdownHeader } from '$lib/http/accept';
+import { prefersMarkdownHeader } from '$lib/http/accept';
 
 const MARKDOWN_CONTENT_TYPE = 'text/markdown; charset=utf-8';
 const TEXT_CONTENT_TYPE = 'text/plain; charset=utf-8';
@@ -56,7 +56,7 @@ function renderSection(section: MarketingMarkdownSection): string {
 }
 
 export function isMarkdownRequest(request: Request): boolean {
-	return acceptsMarkdownHeader(request.headers.get('accept'));
+	return prefersMarkdownHeader(request.headers.get('accept'));
 }
 
 export function renderMarketingMarkdown(

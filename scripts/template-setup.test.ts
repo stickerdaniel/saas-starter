@@ -23,7 +23,7 @@ describe('template setup repository configuration', () => {
 		const first = replaceGithubSlugSource(source, 'new-owner/new-repo');
 		const second = replaceGithubSlugSource(first, 'new-owner/new-repo');
 
-		expect(first).toContain('githubSlug: "new-owner/new-repo"');
+		expect(first).toContain("githubSlug: 'new-owner/new-repo'");
 		expect(second).toBe(first);
 	});
 

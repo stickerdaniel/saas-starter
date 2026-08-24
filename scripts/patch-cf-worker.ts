@@ -29,7 +29,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { VERIFICATION_FAILURE_CODES } from '../src/lib/utils/auth-messages';
-import { ACCEPTS_MARKDOWN_FUNCTION_SOURCE } from '../src/lib/http/accept';
+import { PREFERS_MARKDOWN_FUNCTION_SOURCE } from '../src/lib/http/accept';
 
 // Match the entire if-condition body that gates static asset / prerendered serving.
 // The condition includes nested parens (e.g., prerendered.has(pathname), pathname.startsWith(immutable)),
@@ -108,7 +108,7 @@ export function applyMarkdownPatch(source: string): string | null {
 	if (CACHE_LOOKUP_PATTERN.test(patched)) {
 		patched = patched.replace(
 			CACHE_LOOKUP_PATTERN,
-			`const __acceptsMarkdown = ${ACCEPTS_MARKDOWN_FUNCTION_SOURCE};\n    const __wantsMarkdown = __acceptsMarkdown(req.headers.get("accept"));\n    ${MARKETING_ROUTE_PREDICATE}\n    ${VERIFICATION_ERROR_PREDICATE}\n$1!__wantsMarkdown && !__isPublicMarketingHtml && $2`
+			`const __prefersMarkdown = ${PREFERS_MARKDOWN_FUNCTION_SOURCE};\n    const __wantsMarkdown = __prefersMarkdown(req.headers.get("accept"));\n    ${MARKETING_ROUTE_PREDICATE}\n    ${VERIFICATION_ERROR_PREDICATE}\n$1!__wantsMarkdown && !__isPublicMarketingHtml && $2`
 		);
 		// Step 2: Also skip static asset serving for markdown requests and for a
 		// verification failure that would otherwise be answered from the asset
@@ -132,7 +132,7 @@ export function applyMarkdownPatch(source: string): string | null {
 		// Fallback: inject before static serving (prerendered pages still fixed, no cache layer to bypass)
 		patched = patched.replace(
 			STATIC_SERVING_PATTERN,
-			`const __acceptsMarkdown = ${ACCEPTS_MARKDOWN_FUNCTION_SOURCE};\nconst __wantsMarkdown = __acceptsMarkdown(req.headers.get("accept"));\n${MARKETING_ROUTE_PREDICATE}\n${VERIFICATION_ERROR_PREDICATE}\n$1!__wantsMarkdown && !__hasVerificationError && ($2))`
+			`const __prefersMarkdown = ${PREFERS_MARKDOWN_FUNCTION_SOURCE};\nconst __wantsMarkdown = __prefersMarkdown(req.headers.get("accept"));\n${MARKETING_ROUTE_PREDICATE}\n${VERIFICATION_ERROR_PREDICATE}\n$1!__wantsMarkdown && !__hasVerificationError && ($2))`
 		);
 	}
 

@@ -240,6 +240,7 @@ node build
 
 4. Set app-level environment variables in Coolify:
    - `NODE_ADAPTER=1`
+   - `PUBLIC_SITE_URL` (the public frontend origin, for canonical URLs in the server build)
    - `CONVEX_DEPLOY_KEY`
    - `TOLGEE_API_KEY` (optional)
    - `CONVEX_INTERNAL_URL` (optional, only if the app container can reach Convex through a private Docker network URL)

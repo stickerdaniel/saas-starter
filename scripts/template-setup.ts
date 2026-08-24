@@ -171,7 +171,7 @@ export function githubSlugProperty(value: string): string {
 	if (!isValidGithubRepository(value)) {
 		throw new Error(`Invalid GitHub repository: ${value}`);
 	}
-	return `githubSlug: ${JSON.stringify(value)}`;
+	return `githubSlug: '${value}'`;
 }
 
 export function replaceGithubSlugSource(source: string, value: string): string {
