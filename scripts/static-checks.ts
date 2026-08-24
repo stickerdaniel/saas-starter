@@ -6,14 +6,15 @@
  *   bun scripts/static-checks.ts --ci                  - Check all files, assert-only (CI)
  *   bun scripts/static-checks.ts --ci --scope lint     - Linting checks only (CI job group)
  *   bun scripts/static-checks.ts --ci --scope types    - Type checking only (CI job group)
- *   bun scripts/static-checks.ts --staged              - Check only staged files (pre-commit)
+ *   bun scripts/static-checks.ts --staged              - Scan the tree, then check staged files
  *   bun scripts/static-checks.ts file1.ts file2.svelte - Check specific files
  *   ... | bun scripts/static-checks.ts --files-from -  - Check a computed list of files
  *
  * Flags:
  *   --ci         Assert mode: uses --check for formatting, omits --fix for ESLint.
  *                Requires misspell to be installed (fails if missing).
- *   --staged     Scope to git-staged files only. Auto-fixes and re-stages.
+ *   --staged     After source safety scans the tree, scope the remaining checks to
+ *                git-staged files. Auto-fixes and re-stages.
  *   --scope      Run a subset of checks: "lint" (misspell, banned patterns, prettier,
  *                eslint, oxlint) or "types" (build-emails, svelte-check).
  *                Both groups run svelte-kit sync first. Omit to run all checks.
@@ -32,10 +33,28 @@ import { existsSync, readFileSync, realpathSync, statSync } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { parseArgs } from 'util';
-import knowledgePolicy from '../knowledge-policy.config';
-import { getStagedChanges, getStagedFiles, isUnderPreCommit, sanitizedGitEnv } from './git-context';
-import { formatPolicyFinding, matchesKnowledgeCandidate } from './knowledge-policy/policy';
-import { runKnowledgePolicy } from './knowledge-policy/repository';
+import { sanitizeDiagnosticField } from '../eslint/control-character-policy.js';
+import { runSourceSafetyPreflight } from './source-safety';
+
+const REPO_ROOT = realpathSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'));
+
+// The security boundary runs before importing configuration and check implementations
+// that parse project source during module initialization. The scanner and its closed
+// character policy are the deliberately small trust root an in-repository guard cannot
+// validate before Bun parses the guard itself.
+const PRECHECKED_FILES = import.meta.main ? await runSourceSafetyPreflight(REPO_ROOT) : undefined;
+
+const [
+	{ default: knowledgePolicy },
+	{ getStagedChanges, getStagedFiles, isUnderPreCommit, sanitizedGitEnv },
+	{ formatPolicyFinding, matchesKnowledgeCandidate },
+	{ runKnowledgePolicy }
+] = await Promise.all([
+	import('../knowledge-policy.config'),
+	import('./git-context'),
+	import('./knowledge-policy/policy'),
+	import('./knowledge-policy/repository')
+]);
 
 // Configuration (matches CI static-checks.yml exclusions)
 const CONFIG = {
@@ -99,7 +118,6 @@ const colors = {
 /** Repo root, from this script's own location. Correct under worktrees and nesting. */
 // fileURLToPath, not Bun's import.meta.dir: the latter is undefined under vitest,
 // which imports this module for scripts/static-checks.test.ts.
-const REPO_ROOT = realpathSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'));
 
 const USAGE = '  Flags: --ci, --staged, --scope <lint|types>, --files-from <path|->';
 
@@ -144,6 +162,7 @@ export function resolveInputs(raw: string[], origin: string): string[] {
 	const out = new Set<string>();
 
 	for (const arg of raw) {
+		const safeArg = sanitizeDiagnosticField(arg);
 		if (arg.trim() === '') {
 			fail(
 				`Empty path in ${origin}.`,
@@ -166,12 +185,15 @@ export function resolveInputs(raw: string[], origin: string): string[] {
 		// realpath both sides so a checkout reached through a symlink (/tmp ->
 		// /private/tmp, a symlinked worktree) does not read as "outside the repo".
 		const absolute = path.resolve(arg);
-		if (!existsSync(absolute)) fail(`No such file (${origin}): ${arg}`);
+		if (!existsSync(absolute)) fail(`No such file (${origin}): ${safeArg}`);
 
 		const real = realpathSync(absolute);
 		const relative = toPosix(path.relative(REPO_ROOT, real));
 		if (relative === '' || relative.startsWith('..')) {
-			fail(`Path is outside the repository (${origin}): ${arg}`, `  Repo root: ${REPO_ROOT}`);
+			fail(
+				`Path is outside the repository (${origin}): ${safeArg}`,
+				`  Repo root: ${sanitizeDiagnosticField(REPO_ROOT)}`
+			);
 		}
 
 		if (statSync(real).isDirectory()) {
@@ -181,7 +203,7 @@ export function resolveInputs(raw: string[], origin: string): string[] {
 				if (NEVER_WALK.some((skip) => file.includes(skip))) continue;
 				out.add(file);
 			}
-			if (out.size === before) fail(`Directory contains no files to check (${origin}): ${arg}`);
+			if (out.size === before) fail(`Directory contains no files to check (${origin}): ${safeArg}`);
 			continue;
 		}
 
@@ -371,7 +393,10 @@ function parseCli() {
 				allowPositionals: true
 			});
 		} catch (error) {
-			return fail(`Bad arguments: ${(error as Error).message.split('. To specify')[0]}`, USAGE);
+			return fail(
+				`Bad arguments: ${sanitizeDiagnosticField((error as Error).message.split('. To specify')[0]!)}`,
+				USAGE
+			);
 		}
 	})();
 
@@ -382,7 +407,7 @@ function parseCli() {
 	const filesFrom = values['files-from'];
 
 	if (scope && !['lint', 'types'].includes(scope)) {
-		fail(`Invalid --scope value: "${scope}". Use "lint" or "types".`);
+		fail(`Invalid --scope value: "${sanitizeDiagnosticField(scope)}". Use "lint" or "types".`);
 	}
 
 	// Skip first two positionals (bun runtime + script path)
@@ -417,7 +442,9 @@ function runCommand(command: string, args: string[], options?: SpawnSyncOptions)
 	});
 
 	if (result.status !== 0) {
-		console.error(`${colors.red}Command failed: ${command} ${args.join(' ')}${colors.reset}`);
+		console.error(
+			`${colors.red}Command failed: ${sanitizeDiagnosticField(command)} ${sanitizeDiagnosticField(args.join(' '))}${colors.reset}`
+		);
 		process.exit(result.status ?? 1);
 	}
 }
@@ -515,6 +542,17 @@ async function main(): Promise<void> {
 	}
 
 	let step = 1;
+
+	// Source safety runs ahead of every child process, including a scoped run, because
+	// `svelte-kit sync` and oxlint read the whole project whatever this run was given.
+	// A checker that quotes a line puts a raw control character straight into the
+	// terminal, and no filter on its output can tell that byte from the ones the
+	// checker emits itself (see scripts/source-safety.ts).
+	printHeader(step++, 'Source safety');
+	const scannedFiles = PRECHECKED_FILES ?? (await runSourceSafetyPreflight(REPO_ROOT, inputs));
+	console.log(`${scannedFiles} file(s) hold no raw control or bidi characters`);
+	ledger.ran('source safety', scannedFiles);
+	console.log('\n');
 
 	// SvelteKit sync (always runs — needed by both lint and types)
 	printHeader(step++, 'SvelteKit sync');
@@ -769,7 +807,9 @@ if (import.meta.main) {
 	// Default-deny: finish() is the only path that writes a zero exit code.
 	process.exitCode = 2;
 	main().catch((error: Error) => {
-		console.error(`${colors.red}Fatal error: ${error.message}${colors.reset}`);
+		console.error(
+			`${colors.red}Fatal error: ${sanitizeDiagnosticField(error.message)}${colors.reset}`
+		);
 		process.exit(1);
 	});
 }

@@ -6,7 +6,7 @@ All scripts must work on macOS, Linux, and Windows. Use TypeScript executed by B
 
 ## Validation
 
-`bun scripts/static-checks.ts <changed files...>` is the primary targeted validation command.
+`bun scripts/static-checks.ts <changed files...>` is the primary validation command. Source safety scans the working tree first; the remaining checks target the named files. An unrelated or Git-ignored text file can therefore fail the command before targeted validation begins.
 
 Root `AGENTS.md` decides whether a fix earns a regression guard and which mechanism carries it. Two mappings are specific to this scope:
 

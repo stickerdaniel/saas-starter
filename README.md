@@ -486,7 +486,7 @@ Each worktree gets its own isolated Convex backend, port, and auth secret via [c
 
 ### Pre-Commit Hooks
 
-Every commit is checked automatically. `varlock scan` looks for leaked secrets, then `static-checks:staged` runs spell checking, banned pattern detection (catches deprecated Tailwind tokens, bare `animate-spin`, and similar issues), Prettier, ESLint, and oxlint on staged files only.
+Every commit is checked automatically. `static-checks:staged` first scans the working tree for unsafe source characters, then runs spell checking, banned pattern detection (catches deprecated Tailwind tokens, bare `animate-spin`, and similar issues), Prettier, ESLint, and oxlint on staged files. `varlock scan` checks the staged changes for leaked secrets afterwards.
 
 ### Dead Code Detection
 

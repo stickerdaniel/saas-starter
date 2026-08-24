@@ -57,7 +57,7 @@ The command fetches and branches from remote trunk by default. Worktrees live be
 
 Never use `EnterWorktree`. Prefix every later action with the absolute worktree path because command working directories do not persist. Before committing, run `git branch` and confirm the worktree branch. After a merge, run `bun run worktree:prune`; it safely removes confirmed-merged worktrees and branches and fast-forwards a clean local trunk.
 
-The pre-commit hook intentionally runs fast staged lint only, so commit freely while iterating. Immediately before every push, including after a rebase or CI fix, run `bun scripts/static-checks.ts <all changed files...>` and do not push unless the full lint-and-types check passes.
+The pre-commit hook first runs source safety over the working tree, then fast staged lint, so commit freely while iterating. An unrelated or Git-ignored text file can fail that first scan. Immediately before every push, including after a rebase or CI fix, run `bun scripts/static-checks.ts <all changed files...>` and do not push unless the full lint-and-types check passes.
 
 For reviews and audits, fetch and inspect `origin/main` rather than the shared main checkout, which may intentionally lag behind. Revalidate every finding against that baseline before reporting or changing code.
 
@@ -116,8 +116,8 @@ A finished mechanical guard fails on the buggy revision for the same causal reas
 - `bun run build` — production build
 - `bun run dev` — local Vite + embedded Convex backend
 - `bun run dev:cloud` — Vite + cloud Convex backend
-- `bun scripts/static-checks.ts <changed files...>` — required after implementation
-- `bun scripts/static-checks.ts --scope types` — required once before final handoff or PR for changes to JS, TS, Svelte, Convex, email templates, or Autumn config; pre-commit intentionally runs staged lint only
+- `bun scripts/static-checks.ts <changed files...>` — required after implementation; source safety scans the working tree first, then the remaining checks use the named files
+- `bun scripts/static-checks.ts --scope types` — required once before final handoff or PR for changes to JS, TS, Svelte, Convex, email templates, or Autumn config; pre-commit runs working-tree source safety plus staged lint
 - `bun run test:unit` — Vitest suite
 - `bun run test:e2e` — Playwright suite; required after E2E changes
 - `bun run test` — complete test suite

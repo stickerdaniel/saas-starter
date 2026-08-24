@@ -39,7 +39,7 @@
 			"args": ["run", "static-checks:staged"],
 			"group": "test",
 			"problemMatcher": ["$eslint-compact", "$tsc"],
-			"detail": "Run pre-commit checks on staged files only",
+			"detail": "Scan source safety across the tree, then run staged pre-commit checks",
 			"presentation": {
 				"clear": true
 			}
