@@ -45,6 +45,8 @@ When an intentional bounded `.collect()`, sequential mutation, or other normally
 
 Production email uses `@convex-dev/resend`. Keep send helpers, templates, generated email output, and webhook event handling in their existing `emails/` boundaries. Use the `convexResend` btca resource for component behavior and `betterSvelteEmail` for template tooling.
 
+Applications own incident audiences, stable keys, renderers, and contact resolution. Register incident senders as internal single-recipient mutations. The ledger permits at most one committed component enqueue per incident/user; verify delivery through the component and provider state.
+
 ## Analytics
 
 Server analytics is best-effort and scheduled off the request path. Identify by Convex user ID, never email. Properties contain only non-PII enums, booleans, buckets, statuses, and tool names; never bodies, names, email addresses, provider IDs, URLs, search terms, or raw errors.
