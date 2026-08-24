@@ -1,6 +1,7 @@
 import { internalMutation } from '../_generated/server';
 import { v } from 'convex/values';
 import { vEmailId, vEmailEvent } from '@convex-dev/resend';
+import { applyFounderIncidentEmailEvent } from './founderIncidentDelivery';
 
 /**
  * Email event handler - called by Resend webhooks
@@ -23,6 +24,8 @@ export const handleEmailEvent = internalMutation({
 	},
 	returns: v.null(),
 	handler: async (ctx, args) => {
+		await applyFounderIncidentEmailEvent(ctx, args);
+
 		// Log the event for monitoring and debugging
 		console.log('Email event received:', {
 			emailId: args.id,
@@ -39,6 +42,14 @@ export const handleEmailEvent = internalMutation({
 
 		// Handle specific event types
 		switch (args.event.type) {
+			case 'email.sent':
+				console.log(`Email ${args.id} sent`);
+				break;
+
+			case 'email.delivery_delayed':
+				console.warn(`Email ${args.id} delivery delayed`);
+				break;
+
 			case 'email.delivered':
 				console.log(`Email ${args.id} delivered successfully`);
 				break;
@@ -63,8 +74,9 @@ export const handleEmailEvent = internalMutation({
 				console.log(`Email ${args.id} link clicked by recipient`);
 				break;
 
-			default:
-				console.log(`Unknown email event type: ${args.event.type}`);
+			case 'email.failed':
+				console.warn(`Email ${args.id} failed:`, args.event.data);
+				break;
 		}
 		return null;
 	}
