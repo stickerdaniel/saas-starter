@@ -1,5 +1,5 @@
 import { sequence } from '@sveltejs/kit/hooks';
-import { type Handle, type HandleServerError } from '@sveltejs/kit';
+import { type Handle, type HandleServerError, type RequestEvent } from '@sveltejs/kit';
 import { dev } from '$app/environment';
 import { PUBLIC_SENTRY_DSN } from '$env/static/public';
 import { isSupportedLanguage, DEFAULT_LANGUAGE, LANGUAGE_COOKIE_NAME } from '$lib/i18n/languages';
@@ -106,6 +106,7 @@ const handleDevOnlyRoutes: Handle = async function handleDevOnlyRoutes({ event, 
  * still valid.
  */
 const handleAuth: Handle = async function handleAuth({ event, resolve }) {
+	event.locals.pendingSetCookies = [];
 	event.locals.token = await resolveConvexToken(event);
 	return resolve(event);
 };
@@ -189,8 +190,10 @@ export const handlePublicMarkdownNotFound: Handle = async function handlePublicM
 	});
 };
 
-export function temporaryRedirect(location: string): Response {
-	return new Response(null, { status: 307, headers: { Location: location } });
+export function temporaryRedirect(event: Pick<RequestEvent, 'locals'>, location: string): Response {
+	const headers = new Headers({ Location: location });
+	for (const cookie of event.locals.pendingSetCookies ?? []) headers.append('Set-Cookie', cookie);
+	return new Response(null, { status: 307, headers });
 }
 
 /**
@@ -216,7 +219,7 @@ const handleLanguage: Handle = async function handleLanguage({ event, resolve })
 			event.request.headers.get('accept-language')
 		);
 		const basePath = pathname === '/' ? `/${preferredLang}` : `/${preferredLang}${pathname}`;
-		return temporaryRedirect(`${basePath}${safeUrlSearch(event.url)}`);
+		return temporaryRedirect(event, `${basePath}${safeUrlSearch(event.url)}`);
 	}
 
 	return resolve(event);
@@ -366,30 +369,30 @@ const authFirstPattern: Handle = async function authFirstPattern({ event, resolv
 	// exists anyway.
 	const verificationFailure = verificationFailureRedirect(pathname, safeUrlSearch(event.url), lang);
 	if (verificationFailure !== null) {
-		return temporaryRedirect(verificationFailure);
+		return temporaryRedirect(event, verificationFailure);
 	}
 
 	if (isAuthPage(pathname) && authenticated) {
 		const destination = authPageRedirect(safeUrlSearch(event.url), lang);
 		if (destination !== null) {
-			return temporaryRedirect(destination);
+			return temporaryRedirect(event, destination);
 		}
 	}
 	if (isProtectedRoute(pathname) && !authenticated) {
 		const destination = `/${lang}/signin?redirectTo=${encodeURIComponent(event.url.pathname + safeUrlSearch(event.url))}`;
-		return temporaryRedirect(destination);
+		return temporaryRedirect(event, destination);
 	}
 
 	// Admin routes require authentication AND admin role
 	if (isAdminRoute(pathname)) {
 		if (!authenticated) {
 			const destination = `/${lang}/signin?redirectTo=${encodeURIComponent(event.url.pathname + safeUrlSearch(event.url))}`;
-			return temporaryRedirect(destination);
+			return temporaryRedirect(event, destination);
 		}
 		// Check admin role from JWT payload (fast, no Convex query needed)
 		const payload = decodeJwtPayload(event.locals.token);
 		if (payload?.role !== 'admin') {
-			return temporaryRedirect(`/${lang}/app`);
+			return temporaryRedirect(event, `/${lang}/app`);
 		}
 	}
 

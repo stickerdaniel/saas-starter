@@ -65,13 +65,17 @@ async function mintConvexToken(
 		// path prefers an existing cookie and never re-mints while it is set).
 		const exp = decodeJwtPayload(token)?.exp;
 		if (typeof exp === 'number') {
-			event.cookies.set(cookieName(JWT_COOKIE_BASE, isSecure), token, {
+			const name = cookieName(JWT_COOKIE_BASE, isSecure);
+			const options = {
 				path: '/',
 				httpOnly: true,
-				sameSite: 'lax',
+				sameSite: 'lax' as const,
 				secure: isSecure,
 				maxAge: Math.max(0, exp - Math.floor(Date.now() / 1000))
-			});
+			};
+			event.cookies.set(name, token, options);
+			event.locals.pendingSetCookies ??= [];
+			event.locals.pendingSetCookies.push(event.cookies.serialize(name, token, options));
 		}
 
 		return token;
