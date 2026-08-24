@@ -6,9 +6,9 @@ import {
 } from '$lib/server/auth-layout-data';
 
 export const load: LayoutServerLoad = async (event) => {
-	// Negotiated marketing pages remain independent from Convex and Autumn. They
-	// use the verified JWT for first paint; /app and /admin resolve live backend
-	// data through their own layout loads.
+	// Informational marketing pages remain independent from Convex and Autumn.
+	// Pricing keeps live billing data; /app and /admin resolve backend data through
+	// their own layout loads.
 	const authData = usesPublicAuthSnapshot(event.route.id)
 		? resolvePublicAuthLayoutData(event)
 		: await resolveAuthLayoutData(event);

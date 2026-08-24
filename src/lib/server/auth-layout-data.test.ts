@@ -45,19 +45,22 @@ describe('resolveAuthLayoutData per-request memo', () => {
 });
 
 describe('public auth snapshot', () => {
-	it.each(['/[[lang]]/(marketing)', '/[[lang]]/(marketing)/pricing', '/[[lang]]/[...path]'])(
+	it.each(['/[[lang]]/(marketing)', '/[[lang]]/(marketing)/privacy', '/[[lang]]/[...path]'])(
 		'keeps %s independent from backend auth data',
 		(routeId) => {
 			expect(usesPublicAuthSnapshot(routeId)).toBe(true);
 		}
 	);
 
-	it.each(['/[[lang]]/(auth)/signin', '/[[lang]]/app', '/[[lang]]/admin', null])(
-		'keeps backend auth resolution for %s',
-		(routeId) => {
-			expect(usesPublicAuthSnapshot(routeId)).toBe(false);
-		}
-	);
+	it.each([
+		'/[[lang]]/(marketing)/pricing',
+		'/[[lang]]/(auth)/signin',
+		'/[[lang]]/app',
+		'/[[lang]]/admin',
+		null
+	])('keeps backend auth resolution for %s', (routeId) => {
+		expect(usesPublicAuthSnapshot(routeId)).toBe(false);
+	});
 
 	it('returns a local unauthenticated snapshot and registers auth invalidation', () => {
 		const event = fakeEvent({} as App.Locals);
