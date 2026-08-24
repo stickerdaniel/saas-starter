@@ -24,6 +24,13 @@ function cookieName(base: string, isSecure: boolean): string {
 	return isSecure ? `__Secure-${base}` : base;
 }
 
+export function hasBetterAuthSessionCookie(
+	event: Pick<RequestEvent, 'request' | 'cookies'>
+): boolean {
+	const isSecure = new URL(event.request.url).protocol === 'https:';
+	return !!event.cookies.get(cookieName(SESSION_COOKIE_BASE, isSecure));
+}
+
 /**
  * Resolve the Convex JWT for the current request: from the JWT cookie when it
  * is still alive, otherwise re-minted from the Better Auth session. Returns
@@ -38,7 +45,7 @@ export async function resolveConvexToken(
 	const jwtCookie = event.cookies.get(cookieName(JWT_COOKIE_BASE, isSecure));
 	if (jwtCookie) return jwtCookie;
 
-	if (!event.cookies.get(cookieName(SESSION_COOKIE_BASE, isSecure))) return undefined;
+	if (!hasBetterAuthSessionCookie(event)) return undefined;
 	if (options.mintFromSession === false) return undefined;
 
 	// The Better Auth routes run through this hook themselves; minting there

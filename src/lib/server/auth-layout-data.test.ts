@@ -10,8 +10,13 @@ import { shouldUsePublicAuthSnapshot } from './auth-route';
 // Unauthenticated events (no locals.token) never touch Convex/Autumn, so
 // these tests exercise the memo without any network.
 
-function fakeEvent(locals: App.Locals): ServerLoadEvent {
-	return { locals, depends: vi.fn() } as unknown as ServerLoadEvent;
+function fakeEvent(locals: App.Locals, cookies: Record<string, string> = {}): ServerLoadEvent {
+	return {
+		locals,
+		depends: vi.fn(),
+		request: new Request('https://example.com/en'),
+		cookies: { get: (name: string) => cookies[name] }
+	} as unknown as ServerLoadEvent;
 }
 
 describe('resolveAuthLayoutData per-request memo', () => {
@@ -92,12 +97,22 @@ describe('public auth snapshot', () => {
 	it('returns a local unauthenticated snapshot and registers auth invalidation', () => {
 		const event = fakeEvent({} as App.Locals);
 		expect(resolvePublicAuthLayoutData(event)).toMatchObject({
-			authState: { isAuthenticated: false },
+			authState: { isAuthenticated: false, hasSession: false },
 			autumnState: { customer: null },
 			viewer: null
 		});
 		expect(event.depends).toHaveBeenCalledWith('app:auth');
 		expect(event.depends).not.toHaveBeenCalledWith('autumn:customer');
+	});
+
+	it('reports a surviving Better Auth session without minting a Convex JWT', () => {
+		const event = fakeEvent({} as App.Locals, {
+			'__Secure-better-auth.session_token': 'session-alive'
+		});
+		expect(resolvePublicAuthLayoutData(event).authState).toEqual({
+			isAuthenticated: false,
+			hasSession: true
+		});
 	});
 
 	it('derives an authenticated public snapshot from the verified JWT only', () => {

@@ -3,6 +3,7 @@ import { api } from '$lib/convex/_generated/api';
 import { createAutumnHandlers } from '@stickerdaniel/convex-autumn-svelte/sveltekit/server';
 import { createServerConvexHttpClient } from '$lib/server/convex-http';
 import { decodeJwtPayload } from '$lib/server/jwt';
+import { hasBetterAuthSessionCookie } from '$lib/server/convex-jwt';
 
 type JwtViewer = {
 	_id: string;
@@ -44,7 +45,7 @@ export function resolvePublicAuthLayoutData(event: ServerLoadEvent) {
 	event.depends('app:auth');
 	const isAuthenticated = !!event.locals.token;
 	return {
-		authState: { isAuthenticated },
+		authState: { isAuthenticated, hasSession: hasBetterAuthSessionCookie(event) },
 		autumnState: {
 			customer: null,
 			_timeFetched: Date.now()
@@ -108,7 +109,7 @@ export async function resolveAuthLayoutData(event: ServerLoadEvent) {
 async function resolveAuthLayoutDataUncached(event: ServerLoadEvent) {
 	// Check if JWT token exists (set by handleAuth in hooks.server.ts)
 	const isAuthenticated = !!event.locals.token;
-	const authState = { isAuthenticated };
+	const authState = { isAuthenticated, hasSession: hasBetterAuthSessionCookie(event) };
 	const fallbackViewer = getViewerFromJwt(event.locals.token);
 
 	// Only create Convex/Autumn clients when authenticated (avoids invalid URL during prerendering)

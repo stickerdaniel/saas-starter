@@ -11,6 +11,8 @@ export const load: LayoutServerLoad = async (event) => {
 
 	return {
 		...authData,
+		// Non-reactive first-paint hint only. Live authentication still comes from useAuth().
+		hasAuthSession: authData.authState.hasSession,
 		// Persisted sidebar state (set by handleSidebarState in hooks.server.ts).
 		// Forwarded to Sidebar.Provider so the authenticated shell renders the
 		// correct open/collapsed state on first paint.
