@@ -13,8 +13,7 @@ export interface RegressionGuardResult {
 const FIX_TITLE = /^fix(?:\([^)]+\))?!?: /;
 const ISSUE_CLOSURE = /^Closes #\d+$/;
 const VERDICT = /^Regression guard: (?:(added|covered by) (.+)|not warranted, (.+))$/;
-const UNSAFE_MARKDOWN = /[<>&[\]*_~`\\]/;
-const PLACEHOLDER = /(?:^|[^A-Za-z0-9])(?:TODO|TBD|FIXME)(?:$|[^A-Za-z0-9])/i;
+const PLACEHOLDERS = new Set(['name', 'one-line reason', 'reason', 'todo', 'tbd', 'fixme']);
 const INVISIBLE = /[\p{Cc}\p{Cf}\p{Default_Ignorable_Code_Point}]/u;
 
 function firstVerdictLine(body: string): string | undefined {
@@ -44,12 +43,17 @@ export function checkRegressionGuard(input: RegressionGuardInput): RegressionGua
 	const line = firstVerdictLine(input.body);
 	const match = line ? VERDICT.exec(line) : null;
 	const payload = match ? (match[2] ?? match[3] ?? '') : '';
+	const normalizedPayload = payload
+		.normalize('NFKC')
+		.normalize('NFD')
+		.replace(/\p{M}/gu, '')
+		.toLowerCase();
+	const placeholderCandidate = normalizedPayload.replace(/^[^a-z0-9]+|[^a-z0-9]+$/g, '');
 	if (
 		!match ||
 		payload !== payload.trim() ||
 		!/[A-Za-z0-9]/.test(payload) ||
-		UNSAFE_MARKDOWN.test(payload) ||
-		PLACEHOLDER.test(payload) ||
+		PLACEHOLDERS.has(placeholderCandidate) ||
 		INVISIBLE.test(payload)
 	) {
 		return {

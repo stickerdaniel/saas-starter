@@ -36,12 +36,12 @@ describe('checkRegressionGuard', () => {
 
 	it.each([
 		'Regression guard: added `<name>`',
-		'Regression guard: added [](https://example.com/guard.test.ts)',
-		'Regression guard: added <!-- hidden -->',
+		'Regression guard: added name',
+		'Regression guard: not warranted, one-line reason',
 		'Regression guard: added TODO',
 		'Regression guard: not warranted, TBD',
-		'Regression guard: added __TODO__',
-		'Regression guard: covered by _TBD_',
+		'Regression guard: added ＴＯＤＯ',
+		'Regression guard: added TÓDO',
 		`Regression guard: added TO${String.fromCodePoint(0x034f)}DO`,
 		`Regression guard: added TO${String.fromCodePoint(7)}DO`,
 		'Regression guard: covered by ㅤ',
@@ -49,6 +49,17 @@ describe('checkRegressionGuard', () => {
 		' Regression guard: added guard.test.ts'
 	])('rejects markup, placeholders, invisible text, and whitespace: %s', (body) => {
 		expect(verdict(body)).toMatchObject({ required: true, valid: false });
+	});
+
+	it.each([
+		'Regression guard: added src/lib/convex/_generated/api.test.ts',
+		'Regression guard: added src/routes/[[lang]]/guard.test.ts',
+		'Regression guard: not warranted, auth and billing share A & B',
+		'Regression guard: not warranted, the type guarantees count < limit',
+		'Regression guard: covered by eslint/no-todo-comments',
+		'Regression guard: added TODO_test'
+	])('accepts practical names and reasons: %s', (body) => {
+		expect(verdict(body)).toMatchObject({ required: true, valid: true });
 	});
 
 	it.each(['fix: Correct callback', 'fix!: Correct callback', 'fix(auth)!: Correct callback'])(

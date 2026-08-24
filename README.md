@@ -15,7 +15,7 @@ Non-obvious recurring bug classes become the earliest guard that can catch them,
 
 I kept rebuilding the same stack and pointing my agent at old repos to copy patterns I had already built, so I collected the best versions here: streaming AI chat with tool calling and file uploads, support chat with human handoff, auth, billing, admin features, emails, and i18n.
 
-The same mistakes also kept showing up across repos. In addition to giving agents good patterns to copy, the codebase enforces its own rules. A recurring bug earns a guard only when the correct path was non-obvious and the mistake remains writable. CI requires every human-authored fix PR to include a `Regression guard:` verdict; bot PRs are exempt. The accepted guard fires at the earliest useful point, which can be a type, lint rule, static check, focused test, or targeted instruction.
+The same mistakes also kept showing up across repos. In addition to giving agents good patterns to copy, the codebase enforces its own rules. A recurring bug earns a guard only when the correct path was non-obvious and the mistake remains writable. CI requires every human-authored PR with a conventional `fix` title to include a `Regression guard:` verdict; bot PRs are exempt. The accepted guard fires at the earliest useful point, which can be a type, lint rule, static check, focused test, or targeted instruction.
 
 The stack is deliberately opinionated, following [Rich Harris's case](https://www.youtube.com/watch?v=SmHgtyym6OA&t=2388s) for smart defaults that fit well together.
 
