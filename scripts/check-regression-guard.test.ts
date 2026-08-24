@@ -40,6 +40,10 @@ describe('checkRegressionGuard', () => {
 		'Regression guard: added <!-- hidden -->',
 		'Regression guard: added TODO',
 		'Regression guard: not warranted, TBD',
+		'Regression guard: added __TODO__',
+		'Regression guard: covered by _TBD_',
+		`Regression guard: added TO${String.fromCodePoint(0x034f)}DO`,
+		`Regression guard: added TO${String.fromCodePoint(7)}DO`,
 		'Regression guard: covered by ㅤ',
 		'Regression guard: added guard.test.ts ',
 		' Regression guard: added guard.test.ts'

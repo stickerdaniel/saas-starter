@@ -27,7 +27,7 @@ Authorization and tenant-boundary policy belongs to the backend layer, never to 
 
 `convex-test` is a mock. Once a release matching the pinned `convex` version is adopted, with the local Better Auth component registered, it can test function behavior such as application-driven rollback and atomic scheduling. It cannot prove platform retry, execution, or hosted-state guarantees. A hand-written store or scheduler spy has the same limit.
 
-The local backend runs the real backend code and covers transaction limits, cron activation, and client subscriptions when kept current. Hosted retry behavior, plan quotas, search ranking, and index readiness require a preview or production deployment with the relevant state and constraints.
+The local backend runs the real backend code and covers transaction limits, cron activation, client subscriptions, search ranking, and index backfill/readiness against local state when kept current. Hosted retry behavior, plan quotas, cloud durability, and behavior that depends on production data require a preview or production deployment with the relevant state and constraints.
 
 A hand-written provider payload, context double, or auth session is a claim about that dependency. Derive it from a measured sample or an official fixture.
 
@@ -36,7 +36,7 @@ A hand-written provider payload, context double, or auth session is a claim abou
 - Scheduling from mutations is atomic; scheduled mutations execute exactly once with platform retries for internal failures.
 - Scheduling from actions is not atomic, and actions execute at most once.
 - `@convex-dev/resend` handles durable retry and idempotency; permanent send errors may be caught and reported.
-- `@useautumn/convex` returns an error/non-data result on non-2xx and throws on network failure. State-changing entitlement gates fail closed when the answer is indeterminate.
+- `@useautumn/convex` returns `{ data: null, error }` for non-2xx and transport failures. State-changing entitlement gates fail closed whenever `error` is present or `data` is missing or indeterminate.
 - Convex components own isolated storage namespaces. Access component files through component APIs, not application `ctx.storage`.
 
 When an intentional bounded `.collect()`, sequential mutation, or other normally flagged pattern is correct, add a short inline reason at the call site.

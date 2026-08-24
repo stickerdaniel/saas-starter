@@ -13,9 +13,9 @@ export interface RegressionGuardResult {
 const FIX_TITLE = /^fix(?:\([^)]+\))?!?: /;
 const ISSUE_CLOSURE = /^Closes #\d+$/;
 const VERDICT = /^Regression guard: (?:(added|covered by) (.+)|not warranted, (.+))$/;
-const UNSAFE_MARKDOWN = /[<>&[\]*~`\\]/;
-const PLACEHOLDER = /\b(?:TODO|TBD|FIXME)\b/i;
-const INVISIBLE_FORMAT = /\p{Cf}/u;
+const UNSAFE_MARKDOWN = /[<>&[\]*_~`\\]/;
+const PLACEHOLDER = /(?:^|[^A-Za-z0-9])(?:TODO|TBD|FIXME)(?:$|[^A-Za-z0-9])/i;
+const INVISIBLE = /[\p{Cc}\p{Cf}\p{Default_Ignorable_Code_Point}]/u;
 
 function firstVerdictLine(body: string): string | undefined {
 	const lines = body.replaceAll('\r\n', '\n').replaceAll('\r', '\n').split('\n');
@@ -50,7 +50,7 @@ export function checkRegressionGuard(input: RegressionGuardInput): RegressionGua
 		!/[A-Za-z0-9]/.test(payload) ||
 		UNSAFE_MARKDOWN.test(payload) ||
 		PLACEHOLDER.test(payload) ||
-		INVISIBLE_FORMAT.test(payload)
+		INVISIBLE.test(payload)
 	) {
 		return {
 			required: true,
