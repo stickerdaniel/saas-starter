@@ -22,9 +22,9 @@ jobs:
           PR_TITLE: ${{ github.event.pull_request.title }}
         run: |
           python - <<'PY'
+          import html
           import os
           import re
-          import sys
 
           title = os.environ.get('PR_TITLE', '')
           if not re.match(r'^fix(?:\([^)]+\))?!?: ', title):
@@ -35,22 +35,54 @@ jobs:
           verdict = re.compile(
               r'^Regression guard: (?:(added|covered by) (.+)|not warranted, (.+))$'
           )
-          fence = None
+          fence_character = None
+          fence_length = 0
+          in_comment = False
 
           for line in body.splitlines():
-              marker = re.match(r'^\s*(`{3,}|~{3,})', line)
-              if marker:
-                  character = marker.group(1)[0]
-                  fence = None if fence == character else character if fence is None else fence
+              if in_comment:
+                  if '-->' in line:
+                      in_comment = False
                   continue
-              if fence is not None:
+
+              comment_start = line.find('<!--')
+              if comment_start != -1:
+                  if '-->' not in line[comment_start + 4:]:
+                      in_comment = True
+                  # A verdict sharing a line with a comment is not a plain line.
                   continue
+
+              if fence_character is not None:
+                  closing = re.match(r'^ {0,3}(`{3,}|~{3,})[ \t]*$', line)
+                  if (
+                      closing
+                      and closing.group(1)[0] == fence_character
+                      and len(closing.group(1)) >= fence_length
+                  ):
+                      fence_character = None
+                      fence_length = 0
+                  continue
+
+              opening = re.match(r'^ {0,3}(`{3,}|~{3,})(.*)$', line)
+              if opening:
+                  marker, info = opening.groups()
+                  if marker[0] == '`' and '`' in info:
+                      pass
+                  else:
+                      fence_character = marker[0]
+                      fence_length = len(marker)
+                      continue
 
               match = verdict.fullmatch(line)
               if not match:
                   continue
               payload = match.group(2) or match.group(3) or ''
-              if payload != payload.strip() or payload in {'<name>', '<one-line reason>'}:
+              decoded = html.unescape(payload)
+              visible = re.sub(r'<[^>]*>', '', decoded)
+              visible = re.sub(r'[`*_~\[\]()#>]', '', visible).strip()
+              if payload != payload.strip() or not any(character.isalnum() for character in visible):
+                  continue
+              if '<name>' in decoded.lower() or '<one-line reason>' in decoded.lower():
                   continue
               print('Regression guard verdict found.')
               raise SystemExit(0)

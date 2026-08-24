@@ -75,9 +75,9 @@ Scope is required when meaningful. Use imperative mood, capitalize the subject, 
 
 ## Where knowledge belongs
 
-A plan is a PR body. An audit finding is an issue. A convention is a lint rule. A fact or invariant about code is a test, once Regression guards below establishes that it needs a guard and that behavior is what proves it. Repository documents are for knowledge code cannot express: rejected alternatives and rationale, external constraints, external-system runbooks, stable domain/editorial vocabulary, and thin navigation maps.
+A plan is a PR body. An audit finding is an issue. Apply Regression guards below before adding enforcement. A convention with a recognizable source pattern belongs in lint or a static check after it earns a guard; a judgement call without one belongs in the nearest `AGENTS.md` or skill. A code fact belongs in the cheapest faithful test only when behavior is what proves the admitted guard. Repository documents are for knowledge code cannot express: rejected alternatives and rationale, external constraints, external-system runbooks, stable domain/editorial vocabulary, and thin navigation maps.
 
-Never preserve current symbols, signatures, enums, file lists, or implementation steps “for reference.” Split mixed documents: keep the non-derivable rationale and move load-bearing implementation facts into tests. Historical decisions remain immutable; supersede them with a new dated record and an explicit link.
+Never preserve current symbols, signatures, enums, file lists, or implementation steps “for reference.” Split mixed documents: keep the non-derivable rationale and move any admitted guard into the mechanism selected below rather than narrating the current implementation. Historical decisions remain immutable; supersede them with a new dated record and an explicit link.
 
 `knowledge-policy.config.ts` is the executable repository policy. The template default checks relative links and validates decision/runbook metadata when those directories are used, while allowing product forks to keep their own API guides, contribution documents, domain manuals, local READMEs, or stricter document classes. Change the configuration deliberately rather than bypassing the guard.
 

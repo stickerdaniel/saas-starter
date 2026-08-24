@@ -25,9 +25,9 @@ Validators and generated types carry the mechanical API boundary, so a test that
 
 Authorization and tenant-boundary policy belongs to the backend layer, never to a browser test. A pure test over an extracted rule or a hand-written context double is sufficient only when that rule is the behavior under test.
 
-Transaction rollback, atomic scheduling, retry, and execution guarantees require a real Convex runtime. Use `convex-test` once a release matching the pinned `convex` version is adopted, with the local Better Auth component registered; until then, use the local backend or a preview deployment. A hand-written store or scheduler spy cannot claim coverage for those guarantees.
+`convex-test` is a mock. Once a release matching the pinned `convex` version is adopted, with the local Better Auth component registered, it can test function behavior but cannot prove platform retry, execution, or hosted-state guarantees. A hand-written store or scheduler spy has the same limit.
 
-Production limits, real cron activation, search ranking, live subscriptions, and hosted index readiness likewise need the local backend or a preview deployment, because lighter layers simulate them.
+Transaction rollback and atomic scheduling require the local backend or a preview deployment. Hosted retry behavior, production limits, real cron activation, search ranking, live subscriptions, and index readiness require a preview or production deployment with the relevant state and plan constraints; a local backend cannot reproduce those hosted conditions.
 
 A hand-written provider payload, context double, or auth session is a claim about that dependency. Derive it from a measured sample or an official fixture.
 
