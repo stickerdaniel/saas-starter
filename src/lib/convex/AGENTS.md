@@ -23,9 +23,11 @@ The public E2E helper mutations in `tests.ts` are safe only while `AUTH_E2E_TEST
 
 Validators and generated types carry the mechanical API boundary, so a test that re-proves them adds nothing.
 
-Authorization, tenant-boundary, transaction, and scheduler behavior belongs to the backend layer, never to a browser test. This repository currently reaches that layer through pure tests over extracted rules plus hand-written context doubles; `convex-test` is the intended home once a release matching the pinned `convex` version is adopted, which is its own change with a representative test and the local Better Auth component registered.
+Authorization and tenant-boundary policy belongs to the backend layer, never to a browser test. A pure test over an extracted rule or a hand-written context double is sufficient only when that rule is the behavior under test.
 
-Whichever layer holds it, a defect that depends on production limits, real cron activation, search ranking, live subscriptions, or hosted index readiness needs the local backend or a preview deployment, because those are simulated rather than reproduced.
+Transaction rollback, atomic scheduling, retry, and execution guarantees require a real Convex runtime. Use `convex-test` once a release matching the pinned `convex` version is adopted, with the local Better Auth component registered; until then, use the local backend or a preview deployment. A hand-written store or scheduler spy cannot claim coverage for those guarantees.
+
+Production limits, real cron activation, search ranking, live subscriptions, and hosted index readiness likewise need the local backend or a preview deployment, because lighter layers simulate them.
 
 A hand-written provider payload, context double, or auth session is a claim about that dependency. Derive it from a measured sample or an official fixture.
 

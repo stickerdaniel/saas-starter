@@ -91,7 +91,7 @@ Build a guard when all three hold:
 2. The wrong path is still writable. When a type or API already makes it impossible, that is the guard.
 3. The correct pattern fits in one sentence. An unnameable rule cannot be enforced or explained.
 
-Every fix PR states its verdict in the body, one line above the verification line:
+Every human-authored fix PR states its verdict as a plain, unindented line in the body. Bot-authored PRs such as Renovate updates are exempt:
 
 ```text
 Regression guard: added <name>
@@ -109,7 +109,7 @@ Pick the earliest mechanism that fires, not the most thorough one. A guard that 
 
 Guard a rendered detail (DOM ancestry, wrapper placement, CSS class, copy, cosmetic pixels, transition-timed styles) only when that exact property is a published user or platform contract.
 
-A finished guard fails on the buggy revision for the same causal reason, and its message names the correct pattern. When it does not, move one boundary outward or rewrite the message.
+A finished mechanical guard fails on the buggy revision for the same causal reason, and its message names the correct pattern. When it does not, move one boundary outward or rewrite the message. A written guard is finished when one sentence names both the triggering situation and the required pattern in the nearest `AGENTS.md` or applicable skill.
 
 ## Core commands
 

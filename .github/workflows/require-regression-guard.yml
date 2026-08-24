@@ -1,5 +1,5 @@
 # Enforces the regression-guard contract from AGENTS.md:
-# every fix PR must state its regression-guard verdict in the body
+# every human-authored fix PR must state its regression-guard verdict in the body
 # (added <name> / covered by <name> / not warranted, <reason>).
 name: Require Regression Guard
 
@@ -13,23 +13,54 @@ jobs:
   check:
     name: Regression Guard Verdict
     runs-on: ubicloud-standard-2
-    # Only fix PRs by humans; bots (Renovate "fix(deps)") are exempt
-    if: |
-      !endsWith(github.actor, '[bot]') &&
-      startsWith(github.event.pull_request.title, 'fix')
+    # Renovate and other bot-authored PRs are exempt for their whole lifecycle.
+    if: ${{ !endsWith(github.event.pull_request.user.login, '[bot]') }}
     steps:
       - name: Check PR body for verdict line
         env:
           PR_BODY: ${{ github.event.pull_request.body }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
         run: |
-          if printf '%s\n' "$PR_BODY" | tr -d '\r' | grep -qE '^Regression guard: (added .+|covered by .+|not warranted, .+)$'; then
-            echo "Regression guard verdict found."
-          else
-            echo "::error::Fix PRs must state their regression-guard verdict in the body."
-            echo "Add one line directly above the verification line:"
-            echo "  Regression guard: added <name>"
-            echo "  Regression guard: covered by <name>"
-            echo "  Regression guard: not warranted, <one-line reason>"
-            echo "See AGENTS.md, section Regression guards."
-            exit 1
-          fi
+          python - <<'PY'
+          import os
+          import re
+          import sys
+
+          title = os.environ.get('PR_TITLE', '')
+          if not re.match(r'^fix(?:\([^)]+\))?!?: ', title):
+              print('Not a conventional fix PR; no regression-guard verdict required.')
+              raise SystemExit(0)
+
+          body = os.environ.get('PR_BODY', '').replace('\r\n', '\n').replace('\r', '\n')
+          verdict = re.compile(
+              r'^Regression guard: (?:(added|covered by) (.+)|not warranted, (.+))$'
+          )
+          fence = None
+
+          for line in body.splitlines():
+              marker = re.match(r'^\s*(`{3,}|~{3,})', line)
+              if marker:
+                  character = marker.group(1)[0]
+                  fence = None if fence == character else character if fence is None else fence
+                  continue
+              if fence is not None:
+                  continue
+
+              match = verdict.fullmatch(line)
+              if not match:
+                  continue
+              payload = match.group(2) or match.group(3) or ''
+              if payload != payload.strip() or payload in {'<name>', '<one-line reason>'}:
+                  continue
+              print('Regression guard verdict found.')
+              raise SystemExit(0)
+
+          print('::error::Human-authored fix PRs must state a substantive regression-guard verdict in the body.')
+          print('Add one plain, unindented line:')
+          print('  Regression guard: added <name>')
+          print('  Regression guard: covered by <name>')
+          print('  Regression guard: not warranted, <one-line reason>')
+          print('Replace the placeholder with the actual guard or reason.')
+          print('See AGENTS.md, section Regression guards.')
+          raise SystemExit(1)
+          PY
