@@ -1,32 +1,15 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import type { RequestEvent } from '@sveltejs/kit';
 import { describe, expect, it } from 'vitest';
 import {
 	authPageRedirect,
 	resolveBarePathLanguage,
 	shouldBypassLanguageRedirect,
 	shouldRenderPublicMarkdownNotFound,
-	temporaryRedirect,
 	verificationFailureRedirect
 } from './hooks.server';
 
 describe('hooks.server', () => {
-	it('creates decoratable redirects without dropping queued cookies', () => {
-		const event = {
-			locals: {
-				pendingSetCookies: ['first=1; Path=/; HttpOnly', 'second=2; Path=/; Secure']
-			}
-		} as Pick<RequestEvent, 'locals'>;
-		const response = temporaryRedirect(event, '/en');
-		expect(response.status).toBe(307);
-		expect(response.headers.get('location')).toBe('/en');
-		expect(response.headers.getSetCookie()).toEqual([
-			'first=1; Path=/; HttpOnly',
-			'second=2; Path=/; Secure'
-		]);
-	});
-
 	it('wraps early Markdown responses with the security-header handle', () => {
 		const source = fs.readFileSync(path.resolve('src/hooks.server.ts'), 'utf8');
 		const sequence = source.slice(source.indexOf('export const handle = sequence('));

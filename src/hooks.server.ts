@@ -1,5 +1,5 @@
 import { sequence } from '@sveltejs/kit/hooks';
-import { type Handle, type HandleServerError, type RequestEvent } from '@sveltejs/kit';
+import { redirect, type Handle, type HandleServerError } from '@sveltejs/kit';
 import { dev } from '$app/environment';
 import { PUBLIC_SENTRY_DSN } from '$env/static/public';
 import { isSupportedLanguage, DEFAULT_LANGUAGE, LANGUAGE_COOKIE_NAME } from '$lib/i18n/languages';
@@ -17,6 +17,11 @@ import { resolveSiteOrigin } from '$lib/config/site-origin';
 import { applyCacheControl } from '$lib/server/cache-control';
 import { decodeJwtPayload } from '$lib/server/jwt';
 import { resolveConvexToken } from '$lib/server/convex-jwt';
+import {
+	isAdminRoute,
+	isProtectedRoute,
+	shouldUsePublicAuthSnapshot
+} from '$lib/server/auth-route';
 import { loadSentry } from '$lib/monitoring/sentry';
 import { safeAuthDestination, splitDestinationError, verificationErrorIn } from '$lib/utils/url';
 import { SIDEBAR_COOKIE_NAME } from '$lib/components/ui/sidebar/constants.js';
@@ -32,14 +37,6 @@ if (!PUBLIC_SENTRY_DSN) {
 // Route matchers
 function isAuthPage(pathname: string): boolean {
 	return /^\/[a-z]{2}\/(signin|signup)$/.test(pathname);
-}
-
-function isProtectedRoute(pathname: string): boolean {
-	return /^\/[a-z]{2}\/app(\/|$)/.test(pathname);
-}
-
-function isAdminRoute(pathname: string): boolean {
-	return /^\/[a-z]{2}\/admin(\/|$)/.test(pathname);
 }
 
 function isShadcnDemoRoute(pathname: string): boolean {
@@ -106,8 +103,15 @@ const handleDevOnlyRoutes: Handle = async function handleDevOnlyRoutes({ event, 
  * still valid.
  */
 const handleAuth: Handle = async function handleAuth({ event, resolve }) {
-	event.locals.pendingSetCookies = [];
-	event.locals.token = await resolveConvexToken(event);
+	event.locals.publicAuthSnapshot = shouldUsePublicAuthSnapshot({
+		routeId: event.route.id,
+		pathname: event.url.pathname,
+		marketingMarkdown:
+			isMarkdownRequest(event.request) && matchPublicMarketingRoute(event.url.pathname) !== null
+	});
+	event.locals.token = await resolveConvexToken(event, {
+		mintFromSession: !event.locals.publicAuthSnapshot
+	});
 	return resolve(event);
 };
 
@@ -190,12 +194,6 @@ export const handlePublicMarkdownNotFound: Handle = async function handlePublicM
 	});
 };
 
-export function temporaryRedirect(event: Pick<RequestEvent, 'locals'>, location: string): Response {
-	const headers = new Headers({ Location: location });
-	for (const cookie of event.locals.pendingSetCookies ?? []) headers.append('Set-Cookie', cookie);
-	return new Response(null, { status: 307, headers });
-}
-
 /**
  * Handle language detection and redirect to localized URLs
  */
@@ -219,7 +217,7 @@ const handleLanguage: Handle = async function handleLanguage({ event, resolve })
 			event.request.headers.get('accept-language')
 		);
 		const basePath = pathname === '/' ? `/${preferredLang}` : `/${preferredLang}${pathname}`;
-		return temporaryRedirect(event, `${basePath}${safeUrlSearch(event.url)}`);
+		redirect(307, `${basePath}${safeUrlSearch(event.url)}`);
 	}
 
 	return resolve(event);
@@ -369,30 +367,30 @@ const authFirstPattern: Handle = async function authFirstPattern({ event, resolv
 	// exists anyway.
 	const verificationFailure = verificationFailureRedirect(pathname, safeUrlSearch(event.url), lang);
 	if (verificationFailure !== null) {
-		return temporaryRedirect(event, verificationFailure);
+		redirect(307, verificationFailure);
 	}
 
 	if (isAuthPage(pathname) && authenticated) {
 		const destination = authPageRedirect(safeUrlSearch(event.url), lang);
 		if (destination !== null) {
-			return temporaryRedirect(event, destination);
+			redirect(307, destination);
 		}
 	}
 	if (isProtectedRoute(pathname) && !authenticated) {
 		const destination = `/${lang}/signin?redirectTo=${encodeURIComponent(event.url.pathname + safeUrlSearch(event.url))}`;
-		return temporaryRedirect(event, destination);
+		redirect(307, destination);
 	}
 
 	// Admin routes require authentication AND admin role
 	if (isAdminRoute(pathname)) {
 		if (!authenticated) {
 			const destination = `/${lang}/signin?redirectTo=${encodeURIComponent(event.url.pathname + safeUrlSearch(event.url))}`;
-			return temporaryRedirect(event, destination);
+			redirect(307, destination);
 		}
 		// Check admin role from JWT payload (fast, no Convex query needed)
 		const payload = decodeJwtPayload(event.locals.token);
 		if (payload?.role !== 'admin') {
-			return temporaryRedirect(event, `/${lang}/app`);
+			redirect(307, `/${lang}/app`);
 		}
 	}
 

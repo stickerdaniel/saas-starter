@@ -35,15 +35,10 @@ function getViewerFromJwt(token: string | undefined): JwtViewer | null {
 	};
 }
 
-export function usesPublicAuthSnapshot(routeId: string | null): boolean {
-	if (routeId === '/[[lang]]/(marketing)/pricing') return false;
-	return routeId === '/[[lang]]/[...path]' || routeId?.startsWith('/[[lang]]/(marketing)') === true;
-}
-
 /**
  * Informational marketing routes need the local session shape for first paint,
- * but no customer or database data. Pricing is excluded because its plan and
- * billing controls consume the live Autumn customer.
+ * but no customer or database data. The hook decides this before the load runs,
+ * so SvelteKit does not make the root load route-dependent.
  */
 export function resolvePublicAuthLayoutData(event: ServerLoadEvent) {
 	event.depends('app:auth');
@@ -161,6 +156,13 @@ async function resolveAuthLayoutDataUncached(event: ServerLoadEvent) {
 		viewer
 	};
 }
+
+/**
+ * Pricing consumes the live Autumn customer. Its page load runs when client
+ * navigation retains a public root snapshot; on full loads the per-request
+ * memo deduplicates it with the root load.
+ */
+export const billingPageAuthLoad = async (event: ServerLoadEvent) => resolveAuthLayoutData(event);
 
 /**
  * Layout load for the authenticated top-level subtrees. /app and /admin

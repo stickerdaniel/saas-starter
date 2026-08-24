@@ -30,12 +30,16 @@ function cookieName(base: string, isSecure: boolean): string {
  * undefined for signed-out requests and when minting fails, which is the same
  * signed-out path the caller took before.
  */
-export async function resolveConvexToken(event: RequestEvent): Promise<string | undefined> {
+export async function resolveConvexToken(
+	event: RequestEvent,
+	options: { mintFromSession?: boolean } = {}
+): Promise<string | undefined> {
 	const isSecure = new URL(event.request.url).protocol === 'https:';
 	const jwtCookie = event.cookies.get(cookieName(JWT_COOKIE_BASE, isSecure));
 	if (jwtCookie) return jwtCookie;
 
 	if (!event.cookies.get(cookieName(SESSION_COOKIE_BASE, isSecure))) return undefined;
+	if (options.mintFromSession === false) return undefined;
 
 	// The Better Auth routes run through this hook themselves; minting there
 	// would recurse into the token endpoint.
@@ -65,17 +69,13 @@ async function mintConvexToken(
 		// path prefers an existing cookie and never re-mints while it is set).
 		const exp = decodeJwtPayload(token)?.exp;
 		if (typeof exp === 'number') {
-			const name = cookieName(JWT_COOKIE_BASE, isSecure);
-			const options = {
+			event.cookies.set(cookieName(JWT_COOKIE_BASE, isSecure), token, {
 				path: '/',
 				httpOnly: true,
-				sameSite: 'lax' as const,
+				sameSite: 'lax',
 				secure: isSecure,
 				maxAge: Math.max(0, exp - Math.floor(Date.now() / 1000))
-			};
-			event.cookies.set(name, token, options);
-			event.locals.pendingSetCookies ??= [];
-			event.locals.pendingSetCookies.push(event.cookies.serialize(name, token, options));
+			});
 		}
 
 		return token;

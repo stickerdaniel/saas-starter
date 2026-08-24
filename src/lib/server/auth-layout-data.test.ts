@@ -1,10 +1,7 @@
 import type { ServerLoadEvent } from '@sveltejs/kit';
 import { describe, expect, it, vi } from 'vitest';
-import {
-	resolveAuthLayoutData,
-	resolvePublicAuthLayoutData,
-	usesPublicAuthSnapshot
-} from './auth-layout-data';
+import { resolveAuthLayoutData, resolvePublicAuthLayoutData } from './auth-layout-data';
+import { shouldUsePublicAuthSnapshot } from './auth-route';
 
 // Guards the per-request memo: on a data request into an authed subtree the
 // subtree layout AND any parent()-forced root layout load both resolve the
@@ -45,12 +42,18 @@ describe('resolveAuthLayoutData per-request memo', () => {
 });
 
 describe('public auth snapshot', () => {
-	it.each(['/[[lang]]/(marketing)', '/[[lang]]/(marketing)/privacy', '/[[lang]]/[...path]'])(
-		'keeps %s independent from backend auth data',
-		(routeId) => {
-			expect(usesPublicAuthSnapshot(routeId)).toBe(true);
-		}
-	);
+	it.each([
+		'/[[lang]]/(marketing)',
+		'/[[lang]]/(marketing)/privacy',
+		'/[[lang]]/[...path]',
+		'/llms.txt',
+		'/robots.txt',
+		'/sitemap.xml'
+	])('keeps %s independent from backend auth data', (routeId) => {
+		expect(
+			shouldUsePublicAuthSnapshot({ routeId, pathname: '/en/privacy', marketingMarkdown: false })
+		).toBe(true);
+	});
 
 	it.each([
 		'/[[lang]]/(marketing)/pricing',
@@ -59,8 +62,32 @@ describe('public auth snapshot', () => {
 		'/[[lang]]/admin',
 		null
 	])('keeps backend auth resolution for %s', (routeId) => {
-		expect(usesPublicAuthSnapshot(routeId)).toBe(false);
+		expect(
+			shouldUsePublicAuthSnapshot({ routeId, pathname: '/en/pricing', marketingMarkdown: false })
+		).toBe(false);
 	});
+
+	it('keeps pricing Markdown backend-free while pricing HTML loads billing state', () => {
+		const input = {
+			routeId: '/[[lang]]/(marketing)/pricing',
+			pathname: '/en/pricing'
+		};
+		expect(shouldUsePublicAuthSnapshot({ ...input, marketingMarkdown: true })).toBe(true);
+		expect(shouldUsePublicAuthSnapshot({ ...input, marketingMarkdown: false })).toBe(false);
+	});
+
+	it.each(['/en/app/missing', '/en/admin/missing'])(
+		'does not treat a protected catch-all as public: %s',
+		(pathname) => {
+			expect(
+				shouldUsePublicAuthSnapshot({
+					routeId: '/[[lang]]/[...path]',
+					pathname,
+					marketingMarkdown: false
+				})
+			).toBe(false);
+		}
+	);
 
 	it('returns a local unauthenticated snapshot and registers auth invalidation', () => {
 		const event = fakeEvent({} as App.Locals);

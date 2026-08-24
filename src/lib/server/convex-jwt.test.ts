@@ -26,12 +26,10 @@ function fakeEvent(options: {
 	event: RequestEvent;
 	fetch: ReturnType<typeof vi.fn>;
 	setCookie: ReturnType<typeof vi.fn>;
-	serializeCookie: ReturnType<typeof vi.fn>;
 } {
 	const url = new URL(options.url ?? 'http://localhost:5173/en/app');
 	const jar = options.cookies ?? {};
 	const setCookie = vi.fn();
-	const serializeCookie = vi.fn(() => 'serialized-convex-jwt');
 	const fetch = vi.fn(async () => {
 		if (options.tokenResponse instanceof Error) throw options.tokenResponse;
 		const { ok, token } = options.tokenResponse ?? { ok: false };
@@ -45,13 +43,11 @@ function fakeEvent(options: {
 		request: new Request(url),
 		cookies: {
 			get: (name: string) => jar[name],
-			set: setCookie,
-			serialize: serializeCookie
+			set: setCookie
 		},
-		locals: { pendingSetCookies: [] },
 		fetch
 	} as unknown as RequestEvent;
-	return { event, fetch, setCookie, serializeCookie };
+	return { event, fetch, setCookie };
 }
 
 describe('resolveConvexToken', () => {
@@ -78,6 +74,14 @@ describe('resolveConvexToken', () => {
 		expect(fetch).not.toHaveBeenCalled();
 	});
 
+	it('does not mint from a session on public routes', async () => {
+		const { event, fetch } = fakeEvent({
+			cookies: { 'better-auth.session_token': 'session-alive' }
+		});
+		await expect(resolveConvexToken(event, { mintFromSession: false })).resolves.toBeUndefined();
+		expect(fetch).not.toHaveBeenCalled();
+	});
+
 	it('re-mints the JWT from the session cookie when the JWT cookie is gone', async () => {
 		const token = fakeJwt({ sub: 'user_1', exp: Math.floor(Date.now() / 1000) + 900 });
 		const { event, fetch } = fakeEvent({
@@ -91,7 +95,7 @@ describe('resolveConvexToken', () => {
 	it('mirrors the re-minted JWT as a cookie with maxAge from the exp claim', async () => {
 		const exp = Math.floor(Date.now() / 1000) + 900;
 		const token = fakeJwt({ sub: 'user_1', exp });
-		const { event, setCookie, serializeCookie } = fakeEvent({
+		const { event, setCookie } = fakeEvent({
 			cookies: { 'better-auth.session_token': 'session-alive' },
 			tokenResponse: { ok: true, token }
 		});
@@ -103,8 +107,6 @@ describe('resolveConvexToken', () => {
 		expect(attributes).toMatchObject({ path: '/', httpOnly: true, sameSite: 'lax' });
 		expect(attributes.maxAge).toBeGreaterThan(890);
 		expect(attributes.maxAge).toBeLessThanOrEqual(900);
-		expect(serializeCookie).toHaveBeenCalledWith(name, value, attributes);
-		expect(event.locals.pendingSetCookies).toEqual(['serialized-convex-jwt']);
 	});
 
 	it('uses the __Secure- prefixed cookie names when minting on HTTPS', async () => {

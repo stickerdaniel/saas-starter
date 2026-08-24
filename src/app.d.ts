@@ -6,7 +6,7 @@ declare global {
 		interface Locals {
 			token: string | undefined;
 			sidebarOpen: boolean;
-			pendingSetCookies?: string[];
+			publicAuthSnapshot: boolean;
 		}
 		// interface PageData {}
 		// interface PageState {}
