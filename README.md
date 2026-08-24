@@ -408,7 +408,7 @@ An AI agent built on [Convex Agent](https://www.convex.dev/components/agent) and
 
 ### Email System
 
-Transactional email delivered through [Resend](https://www.convex.dev/components/resend) with automatic retries, idempotency, and delivery tracking. Templates are written as Svelte components using a shadcn-style email component library (same `tv()` variants, same design tokens) and compiled to inline HTML at build time. Your logo is converted to an email-safe PNG automatically. `bun run build:emails` renders every template, and a snapshot test (`src/lib/emails/__tests__/email-snapshots.test.ts`) flags any unintended markup change.
+Transactional email delivered through [Resend](https://www.convex.dev/components/resend) with automatic retries, idempotency, and delivery tracking. HTML templates are written as Svelte components using a shadcn-style email component library (same `tv()` variants, same design tokens) and compiled to inline HTML at build time; operational plain-text email remains in Convex source. Your logo is converted to an email-safe PNG automatically. `bun run build:emails` renders every HTML template, and a snapshot test (`src/lib/emails/__tests__/email-snapshots.test.ts`) flags any unintended markup change.
 
 ### Internationalization
 
@@ -479,7 +479,7 @@ Renovate groups non-major updates into a single PR and creates separate PRs for 
 
 ### Email Development
 
-Email templates are Svelte components compiled to inline HTML on `postinstall` and during builds. `bun run build:emails` renders each template with mock data, and the snapshot test `src/lib/emails/__tests__/email-snapshots.test.ts` catches any unexpected markup change.
+HTML email templates are Svelte components compiled to inline HTML on `postinstall` and during builds. `bun run build:emails` renders each HTML template with mock data, and the snapshot test `src/lib/emails/__tests__/email-snapshots.test.ts` catches any unexpected markup change.
 
 </details>
 
