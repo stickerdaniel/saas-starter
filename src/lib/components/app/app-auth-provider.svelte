@@ -22,11 +22,9 @@
 	let lastInvalidatedAuth: boolean | undefined;
 
 	// Sync server layout data when client auth state diverges.
-	// Prerendered pages bake authState.isAuthenticated: false at build time.
-	// When the client recovers a session from cookies, the server's root layout
-	// data (viewer, autumnState) remains stale. This invalidation triggers a
-	// re-run of the root +layout.server.ts with fresh cookies, so navigating
-	// to /app has the correct viewer data instead of null.
+	// Public pages can carry a local JWT snapshot while authenticated routes
+	// resolve full backend data. When client auth diverges, invalidate the root
+	// snapshot so later navigation receives current session state.
 	//
 	// On a truly prerendered page the re-run returns the frozen build-time data,
 	// so the divergence never clears. Without the per-value guard the effect

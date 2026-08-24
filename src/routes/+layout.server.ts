@@ -1,11 +1,17 @@
 import type { LayoutServerLoad } from './$types';
-import { resolveAuthLayoutData } from '$lib/server/auth-layout-data';
+import {
+	resolveAuthLayoutData,
+	resolvePublicAuthLayoutData,
+	usesPublicAuthSnapshot
+} from '$lib/server/auth-layout-data';
 
 export const load: LayoutServerLoad = async (event) => {
-	// On public pages this can be retained across client-side navigation without a
-	// cookie and freezes as unauthenticated. The /app and /admin layout loads
-	// re-resolve the same keys fresh (see $lib/server/auth-layout-data).
-	const authData = await resolveAuthLayoutData(event);
+	// Negotiated marketing pages remain independent from Convex and Autumn. They
+	// use the verified JWT for first paint; /app and /admin resolve live backend
+	// data through their own layout loads.
+	const authData = usesPublicAuthSnapshot(event.route.id)
+		? resolvePublicAuthLayoutData(event)
+		: await resolveAuthLayoutData(event);
 
 	return {
 		...authData,

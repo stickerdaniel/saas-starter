@@ -3,7 +3,8 @@ import {
 	githubSlugProperty,
 	isValidGithubRepository,
 	replaceGithubSlugSource,
-	replaceLegalContentDatesSource
+	replaceLegalContentDatesSource,
+	updateLegalContentDatesSource
 } from './template-setup';
 
 describe('template setup repository configuration', () => {
@@ -16,6 +17,9 @@ describe('template setup repository configuration', () => {
 		'owner/repo/extra',
 		'owner/repo"; console.log(1)',
 		'owner name/repo',
+		'owner-/repo',
+		'owner--name/repo',
+		`${'a'.repeat(40)}/repo`,
 		'/repo',
 		'owner/.',
 		'owner/..'
@@ -50,6 +54,10 @@ describe('template setup legal dates', () => {
 	it('dates every rewritten legal document with the setup date', () => {
 		const updated = replaceLegalContentDatesSource(source, '2026-08-24');
 		expect(updated.match(/2026-08-24/g)).toHaveLength(3);
+	});
+
+	it('preserves legal dates when the legal identity is unchanged', () => {
+		expect(updateLegalContentDatesSource(source, '2026-08-24', false)).toBe(source);
 	});
 
 	it('fails before writes when the metadata shape has drifted', () => {

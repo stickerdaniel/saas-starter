@@ -35,6 +35,28 @@ function getViewerFromJwt(token: string | undefined): JwtViewer | null {
 	};
 }
 
+export function usesPublicAuthSnapshot(routeId: string | null): boolean {
+	return routeId === '/[[lang]]/[...path]' || routeId?.startsWith('/[[lang]]/(marketing)') === true;
+}
+
+/**
+ * Public marketing routes need the local session shape for first paint, but no
+ * customer or database data. Deriving it from the verified JWT keeps those
+ * pages independent from Convex and Autumn availability.
+ */
+export function resolvePublicAuthLayoutData(event: ServerLoadEvent) {
+	event.depends('app:auth');
+	const isAuthenticated = !!event.locals.token;
+	return {
+		authState: { isAuthenticated },
+		autumnState: {
+			customer: null,
+			_timeFetched: Date.now()
+		},
+		viewer: getViewerFromJwt(event.locals.token)
+	};
+}
+
 /**
  * Per-request memo for the resolved auth block, keyed on `event.locals` (one
  * object per HTTP request, shared by every server load in it).

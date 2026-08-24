@@ -165,8 +165,17 @@ function currentRepo(): string {
 }
 
 export function isValidGithubRepository(value: string): boolean {
-	const match = /^([A-Za-z0-9](?:[A-Za-z0-9-]{0,38}))\/([A-Za-z0-9._-]+)$/.exec(value);
-	return !!match && !['.', '..'].includes(match[2]!);
+	const match = /^([A-Za-z0-9-]+)\/([A-Za-z0-9._-]+)$/.exec(value);
+	if (!match) return false;
+	const owner = match[1]!;
+	const repository = match[2]!;
+	return (
+		owner.length <= 39 &&
+		!owner.startsWith('-') &&
+		!owner.endsWith('-') &&
+		!owner.includes('--') &&
+		!['.', '..'].includes(repository)
+	);
 }
 
 export function githubSlugProperty(value: string): string {
@@ -195,6 +204,14 @@ export function replaceLegalContentDatesSource(source: string, value: string): s
 		throw new Error('Could not update every date in src/lib/content/legal-metadata.ts');
 	}
 	return updated;
+}
+
+export function updateLegalContentDatesSource(
+	source: string,
+	value: string,
+	legalIdentityChanged: boolean
+): string {
+	return legalIdentityChanged ? replaceLegalContentDatesSource(source, value) : source;
 }
 
 function readLegalField(field: 'brandName' | 'companyName' | 'operatorName' | 'address'): string {
@@ -320,9 +337,17 @@ async function main() {
 	// Validate the central repository-slug shape before changing unrelated files.
 	const nextSiteConfig = replaceGithubSlugSource(read('src/lib/config/site.ts'), repo);
 	const setupDate = new Date().toISOString().slice(0, 10);
-	const nextLegalMetadata = replaceLegalContentDatesSource(
-		read('src/lib/content/legal-metadata.ts'),
-		setupDate
+	const legalIdentityChanged =
+		brand !== oldBrand ||
+		company !== oldCompany ||
+		operator !== oldOperator ||
+		address !== oldAddress ||
+		email !== oldEmail;
+	const currentLegalMetadata = read('src/lib/content/legal-metadata.ts');
+	const nextLegalMetadata = updateLegalContentDatesSource(
+		currentLegalMetadata,
+		setupDate,
+		legalIdentityChanged
 	);
 
 	console.log(`\nApplying: slug=${slug}, repo=${repo}, brand="${brand}"\n`);
@@ -353,7 +378,11 @@ async function main() {
 	console.log('  ✓ site.ts');
 
 	write('src/lib/content/legal-metadata.ts', nextLegalMetadata);
-	console.log(`  ✓ legal-metadata.ts (Last Updated: ${setupDate})`);
+	console.log(
+		legalIdentityChanged
+			? `  ✓ legal-metadata.ts (Last Updated: ${setupDate})`
+			: '  ✓ legal-metadata.ts (unchanged)'
+	);
 
 	// Legal config — single source of truth for brand identity
 	const oldUser = readLegalEmailParts().user;

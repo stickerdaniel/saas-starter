@@ -68,16 +68,18 @@ export function prefersMarkdownHeader(value: string | null): boolean {
 
 		const parameters: Record<string, string> = Object.create(null);
 		let quality = 1;
+		let reachedAcceptExtensions = false;
 		for (const rawParameter of rawParameters) {
 			const [rawName, ...rawValueParts] = rawParameter.split('=');
 			const name = rawName?.trim().toLowerCase();
 			if (!name || rawValueParts.length === 0) continue;
 			const rawValue = rawValueParts.join('=');
 			if (name === 'q') {
-				quality = parseQuality(rawValue);
+				if (!reachedAcceptExtensions) quality = parseQuality(rawValue);
+				reachedAcceptExtensions = true;
 				continue;
 			}
-			parameters[name] = normalizeParameterValue(rawValue);
+			if (!reachedAcceptExtensions) parameters[name] = normalizeParameterValue(rawValue);
 		}
 
 		return [

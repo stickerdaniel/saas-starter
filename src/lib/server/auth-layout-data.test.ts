@@ -1,6 +1,10 @@
 import type { ServerLoadEvent } from '@sveltejs/kit';
 import { describe, expect, it, vi } from 'vitest';
-import { resolveAuthLayoutData } from './auth-layout-data';
+import {
+	resolveAuthLayoutData,
+	resolvePublicAuthLayoutData,
+	usesPublicAuthSnapshot
+} from './auth-layout-data';
 
 // Guards the per-request memo: on a data request into an authed subtree the
 // subtree layout AND any parent()-forced root layout load both resolve the
@@ -37,5 +41,46 @@ describe('resolveAuthLayoutData per-request memo', () => {
 			expect(event.depends).toHaveBeenCalledWith('app:auth');
 			expect(event.depends).toHaveBeenCalledWith('autumn:customer');
 		}
+	});
+});
+
+describe('public auth snapshot', () => {
+	it.each(['/[[lang]]/(marketing)', '/[[lang]]/(marketing)/pricing', '/[[lang]]/[...path]'])(
+		'keeps %s independent from backend auth data',
+		(routeId) => {
+			expect(usesPublicAuthSnapshot(routeId)).toBe(true);
+		}
+	);
+
+	it.each(['/[[lang]]/(auth)/signin', '/[[lang]]/app', '/[[lang]]/admin', null])(
+		'keeps backend auth resolution for %s',
+		(routeId) => {
+			expect(usesPublicAuthSnapshot(routeId)).toBe(false);
+		}
+	);
+
+	it('returns a local unauthenticated snapshot and registers auth invalidation', () => {
+		const event = fakeEvent({} as App.Locals);
+		expect(resolvePublicAuthLayoutData(event)).toMatchObject({
+			authState: { isAuthenticated: false },
+			autumnState: { customer: null },
+			viewer: null
+		});
+		expect(event.depends).toHaveBeenCalledWith('app:auth');
+		expect(event.depends).not.toHaveBeenCalledWith('autumn:customer');
+	});
+
+	it('derives an authenticated public snapshot from the verified JWT only', () => {
+		const payload = Buffer.from(
+			JSON.stringify({ sub: 'user_123', email: 'user@example.com', role: 'user' })
+		).toString('base64url');
+		const event = fakeEvent({ token: `header.${payload}.signature` } as App.Locals);
+
+		expect(resolvePublicAuthLayoutData(event)).toMatchObject({
+			authState: { isAuthenticated: true },
+			autumnState: { customer: null },
+			viewer: { _id: 'user_123', email: 'user@example.com', role: 'user' }
+		});
+		expect(event.depends).not.toHaveBeenCalledWith('autumn:customer');
 	});
 });
