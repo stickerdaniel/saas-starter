@@ -137,16 +137,19 @@ describe('createFounderIncidentEmailMutation', () => {
 		expect(rows).toEqual([expect.objectContaining({ status: 'skipped', skippedReason: reason })]);
 	});
 
-	it('rejects unknown keys before reading or writing', async () => {
-		const { ctx, handler, rows } = setup();
-		const runQuery = vi.spyOn(ctx, 'runQuery');
+	it.each(['unknown', 'toString', '__proto__'])(
+		'rejects the unregistered %s key before reading or writing',
+		async (incident) => {
+			const { ctx, handler, rows } = setup();
+			const runQuery = vi.spyOn(ctx, 'runQuery');
 
-		await expect(handler(ctx, { userId: 'user_1', incident: 'unknown' })).rejects.toThrow(
-			'Unknown founder incident key'
-		);
-		expect(runQuery).not.toHaveBeenCalled();
-		expect(rows).toHaveLength(0);
-	});
+			await expect(handler(ctx, { userId: 'user_1', incident })).rejects.toThrow(
+				'Unknown founder incident key'
+			);
+			expect(runQuery).not.toHaveBeenCalled();
+			expect(rows).toHaveLength(0);
+		}
+	);
 
 	it.each([
 		{ subject: '', text: 'Body' },

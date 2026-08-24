@@ -41,7 +41,9 @@ export function createFounderIncidentEmailMutation<Registry extends FounderIncid
 		},
 		returns: founderIncidentQueueResultValidator,
 		handler: async (ctx, { userId, incident }) => {
-			const render = registry[incident];
+			const render = Object.prototype.hasOwnProperty.call(registry, incident)
+				? registry[incident]
+				: undefined;
 			if (!render) throw new ConvexError('Unknown founder incident key');
 
 			const existing = await ctx.db
