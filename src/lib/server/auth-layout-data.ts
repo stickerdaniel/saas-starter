@@ -57,17 +57,14 @@ const authDataPerRequest = new WeakMap<
  * (marketing/auth SSR) and the /app and /admin layouts.
  *
  * Why the /app and /admin layouts resolve this again instead of relying on the
- * root layout: marketing pages prerender, which freezes the root layout's data
- * at build time (unauthenticated: viewer null, isAuthenticated false).
- * SvelteKit never reruns a parent server load on client-side navigation
- * (sveltejs/kit#4426), and invalidate() against a prerendered route fetches the
- * static __data.json, so the frozen values survive into /app after a
- * client-side navigation from a marketing page. A layout server load inside the
- * authenticated group can never be prerendered, so on a client-side navigation
- * (isDataRequest) it resolves fresh against the live cookie and its returned
- * keys override the frozen root values in the merged page.data. On a full
- * document load the group layouts defer to the root, which already ran with the
- * cookie (see authedSubtreeLayoutLoad below).
+ * root layout: SvelteKit does not rerun a parent server load on client-side
+ * navigation (sveltejs/kit#4426). A visitor can therefore enter the authenticated
+ * subtree with root data captured before sign-in; a fork that prerenders public
+ * pages freezes that unauthenticated snapshot at build time. The authenticated
+ * group load resolves fresh against the live cookie on data requests and its
+ * returned keys override stale root values. On a full document load the group
+ * layouts defer to the root, which already ran with the cookie (see
+ * authedSubtreeLayoutLoad below).
  */
 export async function resolveAuthLayoutData(event: ServerLoadEvent) {
 	// Deps are registered outside the memo so every calling load attaches them
@@ -75,8 +72,8 @@ export async function resolveAuthLayoutData(event: ServerLoadEvent) {
 	// Enables targeted invalidation via invalidate('autumn:customer') to refetch only customer data
 	event.depends('autumn:customer');
 	// Enables targeted invalidation when client-side auth state diverges from server state.
-	// Prerendered pages bake authState.isAuthenticated: false at build time — when the client
-	// recovers a session from cookies, AppAuthProvider detects the mismatch and calls
+	// A reused root load can carry authState.isAuthenticated: false after the client
+	// recovers a session from cookies. AppAuthProvider detects the mismatch and calls
 	// invalidate('app:auth') to re-run this load with fresh cookies.
 	event.depends('app:auth');
 
@@ -147,19 +144,17 @@ async function resolveAuthLayoutDataUncached(event: ServerLoadEvent) {
  * re-export this single function so their guard logic cannot silently diverge
  * (scripts/authenticated-subtree-layouts.test.ts pins the re-export).
  *
- * Overrides the root layout's auth-coupled data (authState, viewer,
- * autumnState, sidebarOpen) for the subtree when the root data is the frozen
- * prerendered snapshot: entering /app via a client-side navigation from a
- * marketing page kept the frozen viewer and dead-ended in
- * AuthConnectionFallback ("Connecting...") until a manual reload.
+ * Overrides stale auth-coupled root data (authState, viewer, autumnState,
+ * sidebarOpen) when entering a protected subtree through client-side navigation.
+ * Before this load existed, a pre-sign-in or prerendered root snapshot kept a
+ * null viewer and dead-ended in AuthConnectionFallback ("Connecting...") until
+ * a manual reload.
  *
- * Only client-side navigation hits the frozen data. A full document load
- * (isDataRequest false) runs the whole layout chain server-side, so the root
- * layout already resolves a live session against the request cookie and is
- * authoritative; this load defers to it. On a data request (isDataRequest
- * true) the client keeps its frozen root snapshot and only the newly entered
- * subtree loads run, so this load resolves fresh (deduplicated per request by
- * the memo in resolveAuthLayoutData).
+ * A full document load (isDataRequest false) runs the whole layout chain
+ * server-side, so the root layout already resolves the request cookie and is
+ * authoritative. On a data request the client can retain stale root data while
+ * only the newly entered subtree loads run, so this load resolves fresh
+ * (deduplicated per request by resolveAuthLayoutData).
  */
 export const authedSubtreeLayoutLoad = async (event: ServerLoadEvent) => {
 	// Register the invalidation deps unconditionally so invalidate('app:auth')
@@ -174,8 +169,8 @@ export const authedSubtreeLayoutLoad = async (event: ServerLoadEvent) => {
 		return {};
 	}
 
-	// Client-side navigation: the root data is the frozen prerendered snapshot
-	// (or a stale reused one), so resolve fresh against the live cookie here.
+	// Client-side navigation can retain stale root data, so resolve fresh against
+	// the live cookie here.
 	return {
 		...(await resolveAuthLayoutData(event)),
 		sidebarOpen: event.locals.sidebarOpen

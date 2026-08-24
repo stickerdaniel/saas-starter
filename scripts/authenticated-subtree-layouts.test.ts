@@ -2,15 +2,14 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-// Regression guard for the prerendered-marketing -> authed-subtree navigation
-// dead end (#289 -> #575 -> the app/admin layout fix).
+// Regression guard for the stale-root -> authed-subtree navigation dead end
+// (#289 -> #575 -> the app/admin layout fix).
 //
-// The root +layout.server.ts resolves auth data, but marketing pages freeze it
-// at build time (viewer null). SvelteKit never reruns a parent server load on
-// client-side navigation (sveltejs/kit#4426), so every authenticated top-level
-// subtree needs its own +layout.server.ts that re-resolves the auth block, or
-// a client-side navigation into it from a prerendered page renders the frozen
-// unauthenticated data and dead-ends in AuthConnectionFallback.
+// SvelteKit never reruns a parent server load on client-side navigation
+// (sveltejs/kit#4426). Every authenticated top-level subtree therefore needs its
+// own +layout.server.ts that re-resolves auth, or navigation after sign-in can
+// retain the root's unauthenticated data and dead-end in AuthConnectionFallback.
+// A fork that prerenders public pages makes that snapshot permanent.
 //
 // The subtrees share one load (authedSubtreeLayoutLoad in
 // $lib/server/auth-layout-data) so the isDataRequest guard and returned keys

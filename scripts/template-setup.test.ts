@@ -10,13 +10,18 @@ describe('template setup repository configuration', () => {
 		expect(isValidGithubRepository(value)).toBe(true);
 	});
 
-	it.each(['owner', 'owner/repo/extra', 'owner/repo"; console.log(1)', 'owner name/repo', '/repo'])(
-		'rejects unsafe repository value %s',
-		(value) => {
-			expect(isValidGithubRepository(value)).toBe(false);
-			expect(() => githubSlugProperty(value)).toThrow(/Invalid GitHub repository/);
-		}
-	);
+	it.each([
+		'owner',
+		'owner/repo/extra',
+		'owner/repo"; console.log(1)',
+		'owner name/repo',
+		'/repo',
+		'owner/.',
+		'owner/..'
+	])('rejects unsafe repository value %s', (value) => {
+		expect(isValidGithubRepository(value)).toBe(false);
+		expect(() => githubSlugProperty(value)).toThrow(/Invalid GitHub repository/);
+	});
 
 	it('updates the central slug and is idempotent', () => {
 		const source = "export const SITE_CONFIG = {\n\tgithubSlug: 'old-owner/old-repo'\n};\n";

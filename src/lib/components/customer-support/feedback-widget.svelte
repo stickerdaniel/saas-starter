@@ -38,9 +38,8 @@
 		onClose?: () => void;
 	} = $props();
 
-	// Session email recovers via cookies on prerendered pages, unlike
-	// page.data.viewer which is frozen at build time (prerendering
-	// constraints in AGENTS.md)
+	// Session email recovers directly from cookies even when page.data.viewer is
+	// stale or a fork has frozen it through prerendering
 	let sessionEmail = $state('');
 	$effect(() => {
 		return authClient.useSession().subscribe((s) => {

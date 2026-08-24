@@ -4,8 +4,6 @@ import cloudflare from '@sveltejs/adapter-cloudflare';
 import node from '@sveltejs/adapter-node';
 import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 import { buildContentSecurityPolicy } from './src/lib/security/csp.js';
-// Postinstall loads this config through plain Node before TypeScript loaders are active.
-import { SUPPORTED_LANGUAGE_CODES } from './src/lib/i18n/language-codes.generated.js';
 
 // Workers Builds sets WORKERS_CI but adapter-auto only checks CF_PAGES.
 // Use adapter-cloudflare explicitly when WORKERS_CI is detected.
@@ -15,12 +13,6 @@ const adapter = process.env.WORKERS_CI
 	: process.env.NODE_ADAPTER === '1'
 		? node()
 		: auto();
-
-// Prerenderable marketing pages (pricing excluded — uses useCustomer() for billing UI)
-const PRERENDER_MARKETING_PAGES = ['', '/privacy', '/terms', '/impressum'];
-const prerenderEntries = SUPPORTED_LANGUAGE_CODES.flatMap((lang) =>
-	PRERENDER_MARKETING_PAGES.map((page) => `/${lang}${page}`)
-);
 
 // A deterministic, per-commit app version so the client can detect a new
 // deploy and recover from dead chunk hashes. The default build timestamp is
@@ -58,10 +50,6 @@ const config = {
 		csp: buildContentSecurityPolicy({ sentryDsn: process.env.PUBLIC_SENTRY_DSN }),
 		experimental: {
 			remoteFunctions: true
-		},
-		prerender: {
-			entries: prerenderEntries,
-			handleMissingId: 'warn'
 		},
 		version: {
 			name: appVersion(),

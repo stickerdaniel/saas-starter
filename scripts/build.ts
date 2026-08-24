@@ -1,6 +1,22 @@
+import { loadEnv } from 'vite';
 import { normalizeSiteOrigin } from '../src/lib/config/origin';
 
 const LOCAL_PREVIEW_ORIGIN = 'http://localhost:4173';
+
+export function viteBuildMode(args: string[]): string {
+	const separate = args.indexOf('--mode');
+	if (separate !== -1 && args[separate + 1]) return args[separate + 1]!;
+	const inline = args.find((argument) => argument.startsWith('--mode='));
+	return inline?.slice('--mode='.length) || 'production';
+}
+
+export function loadBuildEnvironment(
+	args: string[],
+	processEnvironment: NodeJS.ProcessEnv,
+	cwd = process.cwd()
+): NodeJS.ProcessEnv {
+	return { ...loadEnv(viteBuildMode(args), cwd, ''), ...processEnvironment };
+}
 
 export function resolveBuildSiteOrigin(env: NodeJS.ProcessEnv): string {
 	const publicOrigin = env.PUBLIC_SITE_URL ? normalizeSiteOrigin(env.PUBLIC_SITE_URL) : null;
@@ -29,17 +45,19 @@ export function viteBuildCommand(args: string[]): string[] {
 }
 
 if (import.meta.main) {
+	const args = process.argv.slice(2);
+	const buildEnvironment = loadBuildEnvironment(args, process.env);
 	let siteOrigin: string;
 	try {
-		siteOrigin = resolveBuildSiteOrigin(process.env);
+		siteOrigin = resolveBuildSiteOrigin(buildEnvironment);
 	} catch (error) {
 		console.error(error instanceof Error ? error.message : String(error));
 		process.exit(1);
 	}
 
-	const child = Bun.spawn(viteBuildCommand(process.argv.slice(2)), {
+	const child = Bun.spawn(viteBuildCommand(args), {
 		stdio: ['inherit', 'inherit', 'inherit'],
-		env: { ...process.env, PUBLIC_SITE_URL: siteOrigin }
+		env: { ...buildEnvironment, PUBLIC_SITE_URL: siteOrigin }
 	});
 	process.exit((await child.exited) ?? 0);
 }

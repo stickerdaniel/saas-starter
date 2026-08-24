@@ -1,5 +1,13 @@
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { resolveBuildSiteOrigin, viteBuildCommand } from './build';
+import {
+	loadBuildEnvironment,
+	resolveBuildSiteOrigin,
+	viteBuildCommand,
+	viteBuildMode
+} from './build';
 
 describe('resolveBuildSiteOrigin', () => {
 	it('uses the local preview origin for a direct build', () => {
@@ -38,6 +46,44 @@ describe('resolveBuildSiteOrigin', () => {
 			expect(() => resolveBuildSiteOrigin(env)).toThrow(/PUBLIC_SITE_URL is required/);
 		}
 	);
+
+	it.each([
+		{ args: [], expected: 'production' },
+		{ args: ['--mode', 'staging'], expected: 'staging' },
+		{ args: ['--mode=preview'], expected: 'preview' }
+	])('reads the Vite mode from $args', ({ args, expected }) => {
+		expect(viteBuildMode(args)).toBe(expected);
+	});
+
+	it('loads the selected mode environment before resolving the origin', () => {
+		const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'site-build-env-'));
+		const savedPublicOrigin = process.env.PUBLIC_SITE_URL;
+		const savedCompatibleOrigin = process.env.SITE_URL;
+		delete process.env.PUBLIC_SITE_URL;
+		delete process.env.SITE_URL;
+		try {
+			fs.writeFileSync(
+				path.join(directory, '.env.staging'),
+				'PUBLIC_SITE_URL=https://staging.example.com\n'
+			);
+			expect(loadBuildEnvironment(['--mode', 'staging'], {}, directory).PUBLIC_SITE_URL).toBe(
+				'https://staging.example.com'
+			);
+			expect(
+				loadBuildEnvironment(
+					['--mode', 'staging'],
+					{ PUBLIC_SITE_URL: 'https://process.example.com' },
+					directory
+				).PUBLIC_SITE_URL
+			).toBe('https://process.example.com');
+		} finally {
+			if (savedPublicOrigin === undefined) delete process.env.PUBLIC_SITE_URL;
+			else process.env.PUBLIC_SITE_URL = savedPublicOrigin;
+			if (savedCompatibleOrigin === undefined) delete process.env.SITE_URL;
+			else process.env.SITE_URL = savedCompatibleOrigin;
+			fs.rmSync(directory, { recursive: true, force: true });
+		}
+	});
 
 	it('forwards Vite build arguments unchanged', () => {
 		expect(viteBuildCommand(['--mode', 'staging', '--sourcemap'])).toEqual([

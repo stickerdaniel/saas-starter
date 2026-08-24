@@ -3,8 +3,9 @@
  *
  * Two issues with adapter-cloudflare's generated worker:
  *
- * 1. Prerendered pages are served as static files BEFORE calling server.respond(),
- *    bypassing SvelteKit hooks. This breaks Accept: text/markdown negotiation.
+ * 1. Cloudflare serves prerendered files before calling server.respond(). The
+ *    template keeps negotiated marketing routes SSR for adapter portability,
+ *    while this remains a defense for forks that add prerendered routes.
  *
  * 2. The worktop cache layer ignores the Vary header (CF Cache API limitation),
  *    so a cached HTML response is served for markdown requests on non-prerendered
@@ -53,9 +54,9 @@ export const ASSET_SERVE_PATTERN = /res = await (\w+)\.ASSETS\.fetch\(req\);?/;
 
 // Marketing pathname predicate injected into the worker, shared by the cache
 // bypass and the ASSETS.fetch replacement so the two can never drift. The
-// homepage (/en) matches via the absent optional group; pricing is
-// intentionally absent, it is SSR via handleCacheControl, not prerendered.
-const MARKETING_ROUTE_PREDICATE = `const __isPublicMarketingHtml = /^\\/[a-z]{2}(\\/(privacy|terms|impressum))?\\/?$/.test(new URL(req.url).pathname);`;
+// Homepage matches via the absent optional group; every configured marketing
+// route bypasses lookup so a legacy cache entry cannot preempt server headers.
+const MARKETING_ROUTE_PREDICATE = `const __isPublicMarketingHtml = /^\\/[a-z]{2}(\\/(pricing|privacy|terms|impressum))?\\/?$/.test(new URL(req.url).pathname);`;
 
 // A failed verification link reports itself by appending `?error=<CODE>` to
 // whatever callback URL it carried, and the gate that turns that into a message

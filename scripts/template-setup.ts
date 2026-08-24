@@ -164,7 +164,8 @@ function currentRepo(): string {
 }
 
 export function isValidGithubRepository(value: string): boolean {
-	return /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})\/[A-Za-z0-9._-]+$/.test(value);
+	const match = /^([A-Za-z0-9](?:[A-Za-z0-9-]{0,38}))\/([A-Za-z0-9._-]+)$/.exec(value);
+	return !!match && !['.', '..'].includes(match[2]!);
 }
 
 export function githubSlugProperty(value: string): string {
@@ -302,6 +303,8 @@ async function main() {
 	const oldRepo = currentRepo();
 	const githubUrl = `https://github.com/${repo}`;
 	const oldGithubUrl = `https://github.com/${oldRepo}`;
+	// Validate the central repository-slug shape before changing unrelated files.
+	const nextSiteConfig = replaceGithubSlugSource(read('src/lib/config/site.ts'), repo);
 
 	console.log(`\nApplying: slug=${slug}, repo=${repo}, brand="${brand}"\n`);
 
@@ -327,7 +330,7 @@ async function main() {
 	console.log('  ✓ README.md');
 
 	// Site config — single source for runtime repository links
-	write('src/lib/config/site.ts', replaceGithubSlugSource(read('src/lib/config/site.ts'), repo));
+	write('src/lib/config/site.ts', nextSiteConfig);
 	console.log('  ✓ site.ts');
 
 	// Legal config — single source of truth for brand identity
