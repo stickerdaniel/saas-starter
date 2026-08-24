@@ -91,7 +91,7 @@ Build a guard when all three hold:
 2. The wrong path is still writable. When a type or API already makes it impossible, that is the guard.
 3. The correct pattern fits in one sentence. An unnameable rule cannot be enforced or explained.
 
-Every human-authored fix PR states its verdict as a plain, unindented line in the body. Bot-authored PRs such as Renovate updates are exempt:
+Every human-authored fix PR puts its verdict in plain text at the start of the body, immediately after an optional `Closes #N` line. Bot-authored PRs such as Renovate updates are exempt:
 
 ```text
 Regression guard: added <name>
