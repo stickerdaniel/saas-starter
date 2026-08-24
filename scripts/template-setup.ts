@@ -174,7 +174,8 @@ export function isValidGithubRepository(value: string): boolean {
 		!owner.startsWith('-') &&
 		!owner.endsWith('-') &&
 		!owner.includes('--') &&
-		!['.', '..'].includes(repository)
+		!['.', '..'].includes(repository) &&
+		!repository.toLowerCase().endsWith('.git')
 	);
 }
 

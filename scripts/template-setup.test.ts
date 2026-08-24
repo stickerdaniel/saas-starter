@@ -19,6 +19,7 @@ describe('template setup repository configuration', () => {
 		'owner name/repo',
 		'owner-/repo',
 		'owner--name/repo',
+		'owner/repository.git',
 		`${'a'.repeat(40)}/repo`,
 		'/repo',
 		'owner/.',
