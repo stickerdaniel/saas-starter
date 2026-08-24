@@ -6,6 +6,7 @@ import type {
 import { getLocalizedMarketingUrl, PUBLIC_MARKETING_ROUTES } from '$lib/marketing/public-routes';
 import { DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES } from '$lib/i18n/languages';
 import { LEGAL_CONFIG } from '$lib/config/legal';
+import { isIsoCalendarDate } from '$lib/content/legal-metadata';
 import { getRepositoryDocumentUrl, getRepositoryUrl } from '$lib/config/site';
 import { prefersMarkdownHeader } from '$lib/http/accept';
 
@@ -256,19 +257,11 @@ export function createRobotsTxtResponse(origin: string): Response {
 	});
 }
 
-function isCalendarDate(value: string): boolean {
-	const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
-	if (!match) return false;
-	const [, year, month, day] = match;
-	const date = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)));
-	return date.toISOString().slice(0, 10) === value;
-}
-
 export function renderSitemapXml(origin: string): string {
 	const baseOrigin = origin.replace(/\/$/, '');
 
 	const urlEntries = PUBLIC_MARKETING_ROUTES.flatMap(({ pathSuffix, lastModified }) => {
-		if (lastModified && !isCalendarDate(lastModified)) {
+		if (lastModified && !isIsoCalendarDate(lastModified)) {
 			throw new Error(`Invalid sitemap lastModified date: ${lastModified}`);
 		}
 		const alternates = [

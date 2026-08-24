@@ -6,6 +6,7 @@ export const MARKDOWN_ACCEPT_FIXTURES = [
 	{ value: 'TEXT/MARKDOWN; charset=utf-8', expected: true },
 	{ value: 'text/markdown; charset="UTF-8"', expected: true },
 	{ value: 'text/markdown; charset=iso-8859-1', expected: false },
+	{ value: 'text/markdown;q=0.8;charset=iso-8859-1, text/html;q=0.5', expected: false },
 	{ value: 'text/html, text/markdown;q=0.5', expected: false },
 	{ value: 'text/html;q=0.5, text/markdown', expected: true },
 	{ value: 'text/*', expected: false },

@@ -13,9 +13,9 @@ export function resolveBuildSiteOrigin(env: NodeJS.ProcessEnv): string {
 	}
 	if (publicOrigin || compatibleOrigin) return publicOrigin ?? compatibleOrigin!;
 
-	if (env.NODE_ADAPTER === '1') {
+	if (env.NODE_ADAPTER === '1' || env.VERCEL || env.WORKERS_CI || env.CF_PAGES) {
 		throw new Error(
-			'PUBLIC_SITE_URL is required for adapter-node production builds. Set it to the public frontend origin.'
+			'PUBLIC_SITE_URL is required for hosted production builds. Use scripts/deploy.ts so the platform origin is derived before Vite runs.'
 		);
 	}
 
@@ -24,7 +24,11 @@ export function resolveBuildSiteOrigin(env: NodeJS.ProcessEnv): string {
 	return LOCAL_PREVIEW_ORIGIN;
 }
 
-if (process.argv[1] && import.meta.path === process.argv[1]) {
+export function viteBuildCommand(args: string[]): string[] {
+	return ['vite', 'build', ...args];
+}
+
+if (import.meta.main) {
 	let siteOrigin: string;
 	try {
 		siteOrigin = resolveBuildSiteOrigin(process.env);
@@ -33,7 +37,7 @@ if (process.argv[1] && import.meta.path === process.argv[1]) {
 		process.exit(1);
 	}
 
-	const child = Bun.spawn(['vite', 'build'], {
+	const child = Bun.spawn(viteBuildCommand(process.argv.slice(2)), {
 		stdio: ['inherit', 'inherit', 'inherit'],
 		env: { ...process.env, PUBLIC_SITE_URL: siteOrigin }
 	});

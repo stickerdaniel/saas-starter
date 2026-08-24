@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { resolveBuildSiteOrigin } from './build';
+import { resolveBuildSiteOrigin, viteBuildCommand } from './build';
 
 describe('resolveBuildSiteOrigin', () => {
 	it('uses the local preview origin for a direct build', () => {
@@ -27,9 +27,25 @@ describe('resolveBuildSiteOrigin', () => {
 		).toThrow(/conflicts with SITE_URL/);
 	});
 
-	it('requires an explicit origin for adapter-node production', () => {
-		expect(() => resolveBuildSiteOrigin({ NODE_ADAPTER: '1' })).toThrow(
-			/PUBLIC_SITE_URL is required/
-		);
+	it.each([
+		{ NODE_ADAPTER: '1' },
+		{ VERCEL: '1', VERCEL_ENV: 'production' },
+		{ WORKERS_CI: '1', WORKERS_CI_BRANCH: 'main' },
+		{ CF_PAGES: '1', CF_PAGES_BRANCH: 'main' }
+	])(
+		'requires an explicit origin for the hosted environment $NODE_ADAPTER$VERCEL$WORKERS_CI$CF_PAGES',
+		(env) => {
+			expect(() => resolveBuildSiteOrigin(env)).toThrow(/PUBLIC_SITE_URL is required/);
+		}
+	);
+
+	it('forwards Vite build arguments unchanged', () => {
+		expect(viteBuildCommand(['--mode', 'staging', '--sourcemap'])).toEqual([
+			'vite',
+			'build',
+			'--mode',
+			'staging',
+			'--sourcemap'
+		]);
 	});
 });

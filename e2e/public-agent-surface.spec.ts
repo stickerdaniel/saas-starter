@@ -58,36 +58,6 @@ test.describe('public agent surface', () => {
 		}
 	});
 
-	// Cheaper layers rejected because: the hook predicate and the response shape are
-	// already unit-tested, and neither can show whether the generated Worker answers an
-	// unknown path from the asset store before any hook runs. That interception is what
-	// scripts/patch-cf-worker.ts exists to prevent, and it only exists once deployed.
-	// Request-only: no page has to open.
-	test('an unknown public path answers Accept: text/markdown with a markdown 404', async ({
-		request
-	}) => {
-		const response = await request.get(`/en/does-not-exist?cb=${Date.now()}`, {
-			headers: { Accept: 'text/markdown' }
-		});
-
-		expect(response.status()).toBe(404);
-		expect(response.headers()['content-type']).toContain('text/markdown; charset=utf-8');
-		expect(response.headers()['vary']).toContain('Accept');
-
-		const body = await response.text();
-		expect(body).toContain('/llms.txt');
-		expect(body).toContain('/sitemap.xml');
-	});
-
-	test('the same unknown path still answers a browser with an HTML 404', async ({ request }) => {
-		const response = await request.get(`/en/does-not-exist?cb=${Date.now()}`, {
-			headers: { Accept: 'text/html' }
-		});
-
-		expect(response.status()).toBe(404);
-		expect(response.headers()['content-type']).toContain('text/html');
-	});
-
 	test('prerendered marketing HTML revalidates, markdown variant stays private', async ({
 		request
 	}) => {

@@ -68,7 +68,6 @@ export function prefersMarkdownHeader(value: string | null): boolean {
 
 		const parameters: Record<string, string> = {};
 		let quality = 1;
-		let reachedQuality = false;
 		for (const rawParameter of rawParameters) {
 			const [rawName, ...rawValueParts] = rawParameter.split('=');
 			const name = rawName?.trim().toLowerCase();
@@ -76,11 +75,9 @@ export function prefersMarkdownHeader(value: string | null): boolean {
 			const rawValue = rawValueParts.join('=');
 			if (name === 'q') {
 				quality = parseQuality(rawValue);
-				reachedQuality = true;
 				continue;
 			}
-			// Parameters after q are accept extensions, not media-range constraints.
-			if (!reachedQuality) parameters[name] = normalizeParameterValue(rawValue);
+			parameters[name] = normalizeParameterValue(rawValue);
 		}
 
 		return [
