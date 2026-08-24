@@ -1,6 +1,8 @@
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { PlatformContext } from './platform';
-import { computeBuildEnv, type ConvexDeployment } from './steps';
+import { computeBuildEnv, resolveDeploymentSiteOrigin, type ConvexDeployment } from './steps';
 
 const deployment: ConvexDeployment = {
 	urlSlug: 'curious-lark-703.eu-west-1',
@@ -33,6 +35,14 @@ describe('computeBuildEnv', () => {
 		else process.env.PUBLIC_SITE_URL = savedPublicSiteUrl;
 		if (savedSiteUrl === undefined) delete process.env.SITE_URL;
 		else process.env.SITE_URL = savedSiteUrl;
+	});
+
+	it('runs canonical-origin validation before remote deployment steps', () => {
+		const source = fs.readFileSync(path.resolve('scripts/deploy.ts'), 'utf8');
+		const preflight = source.indexOf('resolveDeploymentSiteOrigin(platform)');
+		expect(preflight).toBeGreaterThanOrEqual(0);
+		expect(preflight).toBeLessThan(source.indexOf('syncTranslations(platform)'));
+		expect(preflight).toBeLessThan(source.indexOf('deployConvex(platform)'));
 	});
 
 	it('uses the stable platform origin for production', () => {
@@ -86,5 +96,29 @@ describe('computeBuildEnv', () => {
 				deployment
 			)
 		).toThrow(/Preview builds require/);
+	});
+});
+
+describe('resolveDeploymentSiteOrigin', () => {
+	it('rejects conflicting origins before a deployment starts', () => {
+		expect(() =>
+			resolveDeploymentSiteOrigin(makePlatform(), {
+				PUBLIC_SITE_URL: 'https://one.example.com',
+				SITE_URL: 'https://two.example.com'
+			})
+		).toThrow(/conflicts with SITE_URL/);
+	});
+
+	it('ignores inherited production origins for a preview', () => {
+		expect(
+			resolveDeploymentSiteOrigin(
+				makePlatform({
+					isPreview: true,
+					environment: 'preview',
+					siteUrl: 'https://preview.example.com'
+				}),
+				{ PUBLIC_SITE_URL: 'not a url', SITE_URL: 'https://production.example.com' }
+			)
+		).toBe('https://preview.example.com');
 	});
 });

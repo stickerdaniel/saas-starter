@@ -1,5 +1,5 @@
 import { sequence } from '@sveltejs/kit/hooks';
-import { redirect, type Handle, type HandleServerError } from '@sveltejs/kit';
+import { type Handle, type HandleServerError } from '@sveltejs/kit';
 import { dev } from '$app/environment';
 import { PUBLIC_SENTRY_DSN } from '$env/static/public';
 import { isSupportedLanguage, DEFAULT_LANGUAGE, LANGUAGE_COOKIE_NAME } from '$lib/i18n/languages';
@@ -189,6 +189,10 @@ export const handlePublicMarkdownNotFound: Handle = async function handlePublicM
 	});
 };
 
+export function temporaryRedirect(location: string): Response {
+	return new Response(null, { status: 307, headers: { Location: location } });
+}
+
 /**
  * Handle language detection and redirect to localized URLs
  */
@@ -212,7 +216,7 @@ const handleLanguage: Handle = async function handleLanguage({ event, resolve })
 			event.request.headers.get('accept-language')
 		);
 		const basePath = pathname === '/' ? `/${preferredLang}` : `/${preferredLang}${pathname}`;
-		redirect(307, `${basePath}${safeUrlSearch(event.url)}`);
+		return temporaryRedirect(`${basePath}${safeUrlSearch(event.url)}`);
 	}
 
 	return resolve(event);
@@ -362,30 +366,30 @@ const authFirstPattern: Handle = async function authFirstPattern({ event, resolv
 	// exists anyway.
 	const verificationFailure = verificationFailureRedirect(pathname, safeUrlSearch(event.url), lang);
 	if (verificationFailure !== null) {
-		redirect(307, verificationFailure);
+		return temporaryRedirect(verificationFailure);
 	}
 
 	if (isAuthPage(pathname) && authenticated) {
 		const destination = authPageRedirect(safeUrlSearch(event.url), lang);
 		if (destination !== null) {
-			redirect(307, destination);
+			return temporaryRedirect(destination);
 		}
 	}
 	if (isProtectedRoute(pathname) && !authenticated) {
 		const destination = `/${lang}/signin?redirectTo=${encodeURIComponent(event.url.pathname + safeUrlSearch(event.url))}`;
-		redirect(307, destination);
+		return temporaryRedirect(destination);
 	}
 
 	// Admin routes require authentication AND admin role
 	if (isAdminRoute(pathname)) {
 		if (!authenticated) {
 			const destination = `/${lang}/signin?redirectTo=${encodeURIComponent(event.url.pathname + safeUrlSearch(event.url))}`;
-			redirect(307, destination);
+			return temporaryRedirect(destination);
 		}
 		// Check admin role from JWT payload (fast, no Convex query needed)
 		const payload = decodeJwtPayload(event.locals.token);
 		if (payload?.role !== 'admin') {
-			redirect(307, `/${lang}/app`);
+			return temporaryRedirect(`/${lang}/app`);
 		}
 	}
 
@@ -428,7 +432,8 @@ const handleSentry: Handle = async function handleSentry({ event, resolve }) {
 };
 
 /**
- * Add security headers to all responses
+ * Add security headers to responses produced by the application hook chain.
+ * Adapter-owned normalization redirects are created outside this chain.
  */
 const handleSecurityHeaders: Handle = async function handleSecurityHeaders({ event, resolve }) {
 	const response = await resolve(event);

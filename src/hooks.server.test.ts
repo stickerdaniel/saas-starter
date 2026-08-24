@@ -6,10 +6,17 @@ import {
 	resolveBarePathLanguage,
 	shouldBypassLanguageRedirect,
 	shouldRenderPublicMarkdownNotFound,
+	temporaryRedirect,
 	verificationFailureRedirect
 } from './hooks.server';
 
 describe('hooks.server', () => {
+	it('creates application redirects as responses that outer hooks can decorate', () => {
+		const response = temporaryRedirect('/en');
+		expect(response.status).toBe(307);
+		expect(response.headers.get('location')).toBe('/en');
+	});
+
 	it('wraps early Markdown responses with the security-header handle', () => {
 		const source = fs.readFileSync(path.resolve('src/hooks.server.ts'), 'utf8');
 		const sequence = source.slice(source.indexOf('export const handle = sequence('));

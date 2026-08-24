@@ -4,10 +4,17 @@ import { normalizeSiteOrigin } from '../src/lib/config/origin';
 const LOCAL_PREVIEW_ORIGIN = 'http://localhost:4173';
 
 export function viteBuildMode(args: string[]): string {
-	const separate = args.findIndex((argument) => argument === '--mode' || argument === '-m');
-	if (separate !== -1 && args[separate + 1]) return args[separate + 1]!;
-	const inline = args.find((argument) => argument.startsWith('--mode='));
-	return inline?.slice('--mode='.length) || 'production';
+	let mode = 'production';
+	for (let index = 0; index < args.length; index += 1) {
+		const argument = args[index]!;
+		if ((argument === '--mode' || argument === '-m') && args[index + 1]) {
+			mode = args[index + 1]!;
+			index += 1;
+		} else if (argument.startsWith('--mode=') || argument.startsWith('-m=')) {
+			mode = argument.slice(argument.indexOf('=') + 1) || mode;
+		}
+	}
+	return mode;
 }
 
 export function loadBuildEnvironment(

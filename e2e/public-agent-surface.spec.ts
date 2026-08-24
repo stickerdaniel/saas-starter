@@ -58,9 +58,7 @@ test.describe('public agent surface', () => {
 		}
 	});
 
-	test('prerendered marketing HTML revalidates, markdown variant stays private', async ({
-		request
-	}) => {
+	test('marketing HTML revalidates, markdown variant stays private', async ({ request }) => {
 		test.skip(!isCloudflarePreview, 'worker patch is CF-only; not present in local test stack');
 		const html = await request.get(`/en/privacy?cb=${Date.now()}`, {
 			headers: { Accept: 'text/html' }

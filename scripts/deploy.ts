@@ -19,6 +19,7 @@ import {
 	buildSvelteKit,
 	computeBuildEnv,
 	deployConvex,
+	resolveDeploymentSiteOrigin,
 	setupPreviewEnv,
 	syncTranslations,
 	validateConvexEnv,
@@ -31,6 +32,9 @@ async function main(): Promise<void> {
 
 	console.log(`Platform: ${platform.platform}`);
 	console.log(`Environment: ${platform.environment}`);
+
+	// Validate local build inputs before Tolgee or Convex is mutated.
+	const siteOrigin = resolveDeploymentSiteOrigin(platform);
 
 	// 1. Sync translations
 	syncTranslations(platform);
@@ -49,7 +53,7 @@ async function main(): Promise<void> {
 	}
 
 	// 5. Compute build env and write E2E config
-	const buildEnv = computeBuildEnv(platform, deployment);
+	const buildEnv = computeBuildEnv(platform, deployment, siteOrigin);
 	writeE2eConfig(platform, buildEnv);
 
 	// 6. Build SvelteKit

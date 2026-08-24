@@ -66,7 +66,7 @@ export function prefersMarkdownHeader(value: string | null): boolean {
 		const [rawType, rawSubtype, extra] = (rawMediaType ?? '').trim().toLowerCase().split('/');
 		if (!rawType || !rawSubtype || extra || (rawType === '*' && rawSubtype !== '*')) return [];
 
-		const parameters: Record<string, string> = {};
+		const parameters: Record<string, string> = Object.create(null);
 		let quality = 1;
 		for (const rawParameter of rawParameters) {
 			const [rawName, ...rawValueParts] = rawParameter.split('=');
@@ -102,9 +102,10 @@ export function prefersMarkdownHeader(value: string | null): boolean {
 
 			const entries = Object.entries(range.parameters);
 			if (
-				entries.some(
-					([name, expected]) => representation.parameters[name]?.toLowerCase() !== expected
-				)
+				entries.some(([name, expected]) => {
+					const actual = representation.parameters[name];
+					return typeof actual !== 'string' || actual.toLowerCase() !== expected;
+				})
 			) {
 				continue;
 			}
@@ -131,7 +132,9 @@ export function prefersMarkdownHeader(value: string | null): boolean {
 		return best?.quality ?? 0;
 	}
 
-	const parameters = { charset: 'utf-8' };
+	const parameters: Record<string, string> = Object.assign(Object.create(null), {
+		charset: 'utf-8'
+	});
 	const markdownQuality = qualityFor({ type: 'text', subtype: 'markdown', parameters });
 	const htmlQuality = qualityFor({ type: 'text', subtype: 'html', parameters });
 	return markdownQuality > 0 && markdownQuality > htmlQuality;

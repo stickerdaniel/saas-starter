@@ -55,6 +55,9 @@ describe('resolveBuildSiteOrigin', () => {
 		{ args: [], expected: 'production' },
 		{ args: ['--mode', 'staging'], expected: 'staging' },
 		{ args: ['-m', 'staging'], expected: 'staging' },
+		{ args: ['-m=staging'], expected: 'staging' },
+		{ args: ['--mode', 'staging', '--mode=production'], expected: 'production' },
+		{ args: ['-m', 'staging', '--mode', 'production'], expected: 'production' },
 		{ args: ['--mode=preview'], expected: 'preview' }
 	])('reads the Vite mode from $args', ({ args, expected }) => {
 		expect(viteBuildMode(args)).toBe(expected);

@@ -30,6 +30,8 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { VERIFICATION_FAILURE_CODES } from '../src/lib/utils/auth-messages';
+import { SUPPORTED_LANGUAGE_CODES } from '../src/lib/i18n/language-codes.generated.js';
+import { PUBLIC_MARKETING_ROUTES } from '../src/lib/marketing/public-routes';
 import { PREFERS_MARKDOWN_FUNCTION_SOURCE } from '../src/lib/http/accept';
 
 // Match the entire if-condition body that gates static asset / prerendered serving.
@@ -290,11 +292,34 @@ export function findVersionFile(outDir: string): string | null {
 	return null;
 }
 
+export function findPrerenderedNegotiatedMarketingPages(outDir: string): string[] {
+	const matches: string[] = [];
+	for (const language of SUPPORTED_LANGUAGE_CODES) {
+		for (const route of PUBLIC_MARKETING_ROUTES) {
+			const relative = `${language}${route.pathSuffix}`;
+			for (const candidate of [`${relative}.html`, path.join(relative, 'index.html')]) {
+				const file = path.join(outDir, candidate);
+				if (fs.existsSync(file)) matches.push(file);
+			}
+		}
+	}
+	return matches;
+}
+
 // --- CLI entry point (skipped when imported for testing) ---
 if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(import.meta.filename)) {
 	const placeholderFiles = findPrerenderOriginPlaceholders(
 		path.resolve('.svelte-kit/output/prerendered')
 	);
+	const negotiatedPrerenderFiles = findPrerenderedNegotiatedMarketingPages(
+		path.resolve('.svelte-kit/output/prerendered/pages')
+	);
+	if (negotiatedPrerenderFiles.length > 0) {
+		console.error(
+			`[patch-cf-worker] Negotiated marketing routes were prerendered and would bypass SvelteKit hooks on supported adapters:\n${negotiatedPrerenderFiles.join('\n')}`
+		);
+		process.exit(1);
+	}
 	if (placeholderFiles.length > 0) {
 		console.error(
 			`[patch-cf-worker] Prerendered output contains the SvelteKit placeholder origin:\n${placeholderFiles.join('\n')}`
