@@ -3,6 +3,7 @@
 	import { page } from '$app/state';
 	import type { Snippet } from 'svelte';
 	import LegalMarkdownLink from './legal-markdown-link.svelte';
+	import { LEGAL_LINK_PREFIXES } from './legal-markdown-link';
 	import { localizedHref } from '$lib/utils/i18n';
 
 	interface LinkToken {
@@ -29,4 +30,11 @@
 	/>
 {/snippet}
 
-<Streamdown {content} {link} defaultOrigin={page.url.origin} baseTheme="shadcn" static />
+<Streamdown
+	{content}
+	{link}
+	defaultOrigin={page.url.origin}
+	allowedLinkPrefixes={LEGAL_LINK_PREFIXES}
+	baseTheme="shadcn"
+	static
+/>

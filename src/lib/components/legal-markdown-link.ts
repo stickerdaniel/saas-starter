@@ -1,5 +1,7 @@
 import { isSupportedLanguage } from '$lib/i18n/languages';
 
+export const LEGAL_LINK_PREFIXES = ['*'];
+
 export interface ResolvedLegalMarkdownLink {
 	href: string;
 	external: boolean;
@@ -26,8 +28,9 @@ export function resolveLegalMarkdownLink(
 	localize: (path: string) => string
 ): ResolvedLegalMarkdownLink | null {
 	if (!href || href.startsWith('//')) return null;
-	if (href.startsWith('/') || href.startsWith('#')) {
-		return { href, external: false };
+	if (href.startsWith('#')) return { href, external: false };
+	if (href.startsWith('/')) {
+		return transformedHref === null ? null : { href: transformedHref, external: false };
 	}
 
 	if (parseAbsoluteUrl(href) !== null) {

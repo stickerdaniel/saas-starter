@@ -3,7 +3,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { lex } from 'svelte-streamdown';
 import { describe, expect, it } from 'vitest';
-import { resolveLegalMarkdownLink } from './legal-markdown-link';
+import { LEGAL_LINK_PREFIXES, resolveLegalMarkdownLink } from './legal-markdown-link';
 
 interface LinkToken {
 	type: 'link';
@@ -63,7 +63,7 @@ describe('resolveLegalMarkdownLink', () => {
 			links.map((token) =>
 				resolveLegalMarkdownLink(
 					token.href,
-					transformUrl(token.href, ['*'], currentUrl.origin),
+					transformUrl(token.href, LEGAL_LINK_PREFIXES, currentUrl.origin),
 					currentUrl,
 					localize
 				)
@@ -107,10 +107,13 @@ describe('resolveLegalMarkdownLink', () => {
 		expect(
 			resolveLegalMarkdownLink('//evil.example/privacy', '/privacy', currentUrl, localize)
 		).toBeNull();
-		expect(resolveLegalMarkdownLink('/privacy', null, currentUrl, localize)).toEqual({
+		expect(resolveLegalMarkdownLink('/privacy', '/privacy', currentUrl, localize)).toEqual({
 			href: '/privacy',
 			external: false
 		});
+		expect(
+			resolveLegalMarkdownLink(String.raw`/\evil.example/privacy`, '/privacy', currentUrl, localize)
+		).toEqual({ href: '/privacy', external: false });
 		expect(resolveLegalMarkdownLink('#rights', null, currentUrl, localize)).toEqual({
 			href: '#rights',
 			external: false
@@ -131,7 +134,7 @@ describe('resolveLegalMarkdownLink', () => {
 
 	it('pins Streamdown routing of relative and anchor tokens into the custom snippet', async () => {
 		const transformUrl = await installedTransformUrl();
-		expect(transformUrl('privacy', ['*'], currentUrl.origin)).not.toBeNull();
-		expect(transformUrl('#rights', ['*'], currentUrl.origin)).not.toBeNull();
+		expect(transformUrl('privacy', LEGAL_LINK_PREFIXES, currentUrl.origin)).not.toBeNull();
+		expect(transformUrl('#rights', LEGAL_LINK_PREFIXES, currentUrl.origin)).not.toBeNull();
 	});
 });
