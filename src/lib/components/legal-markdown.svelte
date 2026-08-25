@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Streamdown } from 'svelte-streamdown';
+	import { page } from '$app/state';
 	import type { Snippet } from 'svelte';
 	import LegalMarkdownLink from './legal-markdown-link.svelte';
 	import { localizedHref } from '$lib/utils/i18n';
@@ -16,4 +17,4 @@
 	<LegalMarkdownLink {children} {token} localize={localizedHref} />
 {/snippet}
 
-<Streamdown {content} {link} baseTheme="shadcn" static />
+<Streamdown {content} {link} defaultOrigin={page.url.origin} baseTheme="shadcn" static />

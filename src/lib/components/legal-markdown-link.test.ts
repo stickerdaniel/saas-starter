@@ -75,6 +75,8 @@ describe('resolveLegalMarkdownLink', () => {
 
 	it('matches the installed Streamdown allowlist contract for external URLs', async () => {
 		const transformUrl = await installedTransformUrl();
+		expect(transformUrl('privacy', ['*'], 'https://example.com')).not.toBeNull();
+		expect(transformUrl('#rights', ['*'], 'https://example.com')).not.toBeNull();
 		const cases: Array<[string, string[], string?]> = [
 			['https://example.com/path', ['*']],
 			['http://example.com/path', ['*']],
