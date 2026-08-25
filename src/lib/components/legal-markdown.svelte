@@ -1,16 +1,40 @@
 <script lang="ts">
 	import { Streamdown } from 'svelte-streamdown';
-	import { localizeRelativeMarkdownLinks } from './legal-markdown';
+	import { page } from '$app/state';
+	import type { Snippet } from 'svelte';
+	import LegalMarkdownLink from './legal-markdown-link.svelte';
+	import { LEGAL_LINK_PREFIXES } from './legal-markdown-link';
 	import { localizedHref } from '$lib/utils/i18n';
 
-	let { content }: { content: string } = $props();
+	interface LinkToken {
+		href: string;
+		title?: string | null;
+	}
 
-	// Streamdown's URL hardening only lets absolute http(s) URLs and
-	// "/"-prefixed paths through, so bare relative targets like "privacy"
-	// would render as blocked. Rewrite inline and reference destinations to
-	// lang-prefixed root-relative paths, matching how marketing-footer builds its legal links. The
-	// content is build-time-constant trusted markdown from $lib/content.
-	const localizedContent = $derived(localizeRelativeMarkdownLinks(content, localizedHref));
+	interface LinkSnippetProps {
+		children: Snippet;
+		token: LinkToken;
+		href?: string | null;
+	}
+
+	let { content }: { content: string } = $props();
 </script>
 
-<Streamdown content={localizedContent} baseTheme="shadcn" static />
+{#snippet link({ children, token, href }: LinkSnippetProps)}
+	<LegalMarkdownLink
+		{children}
+		{token}
+		transformedHref={href ?? null}
+		currentUrl={page.url}
+		localize={localizedHref}
+	/>
+{/snippet}
+
+<Streamdown
+	{content}
+	{link}
+	defaultOrigin={page.url.origin}
+	allowedLinkPrefixes={LEGAL_LINK_PREFIXES}
+	baseTheme="shadcn"
+	static
+/>
