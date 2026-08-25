@@ -5,7 +5,7 @@ import type { QueryCtx } from '../../_generated/server';
 import { adminQuery } from '../../functions';
 import { FOUNDER_WELCOME_DEFAULTS } from '../../emails/helpers';
 
-type FounderWelcomeConfig =
+export type FounderWelcomeConfig =
 	| {
 			enabled: true;
 			contactUser: { id: string; name: string; email: string };

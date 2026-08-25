@@ -45,6 +45,8 @@ import type * as crons from "../crons.js";
 import type * as emails_events from "../emails/events.js";
 import type * as emails_founderIncidentCore from "../emails/founderIncidentCore.js";
 import type * as emails_founderIncidentDelivery from "../emails/founderIncidentDelivery.js";
+import type * as emails_founderIncidentRegistry from "../emails/founderIncidentRegistry.js";
+import type * as emails_founderIncidentSend from "../emails/founderIncidentSend.js";
 import type * as emails_founderIncidentTypes from "../emails/founderIncidentTypes.js";
 import type * as emails_helpers from "../emails/helpers.js";
 import type * as emails_resend from "../emails/resend.js";
@@ -133,6 +135,8 @@ declare const fullApi: ApiFromModules<{
   "emails/events": typeof emails_events;
   "emails/founderIncidentCore": typeof emails_founderIncidentCore;
   "emails/founderIncidentDelivery": typeof emails_founderIncidentDelivery;
+  "emails/founderIncidentRegistry": typeof emails_founderIncidentRegistry;
+  "emails/founderIncidentSend": typeof emails_founderIncidentSend;
   "emails/founderIncidentTypes": typeof emails_founderIncidentTypes;
   "emails/helpers": typeof emails_helpers;
   "emails/resend": typeof emails_resend;

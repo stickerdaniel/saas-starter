@@ -47,6 +47,8 @@ Production email uses `@convex-dev/resend`. Keep send helpers, templates, genera
 
 Applications own incident audiences, stable keys, renderers, and contact resolution. Register incident senders as internal single-recipient mutations. The ledger permits at most one committed component enqueue per incident/user; verify delivery through the component and provider state.
 
+Keep the template's `founderIncidentRegistry.ts` empty and its application binding exported unconditionally. Forks add reviewed entries to the registry. Incident keys and copy are append-only after use; `__*` keys belong only to binding tests.
+
 ## Analytics
 
 Server analytics is best-effort and scheduled off the request path. Identify by Convex user ID, never email. Properties contain only non-PII enums, booleans, buckets, statuses, and tool names; never bodies, names, email addresses, provider IDs, URLs, search terms, or raw errors.
