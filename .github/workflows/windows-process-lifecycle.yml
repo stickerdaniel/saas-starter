@@ -4,6 +4,8 @@ on:
   push:
     branches: [main]
     paths:
+      - 'package.json'
+      - 'bun.lock'
       - 'scripts/dev-cloud.ts'
       - 'scripts/dev-cloud.test.ts'
       - 'scripts/windows-job.ts'
@@ -11,6 +13,8 @@ on:
       - '.github/workflows/windows-process-lifecycle.yml'
   pull_request:
     paths:
+      - 'package.json'
+      - 'bun.lock'
       - 'scripts/dev-cloud.ts'
       - 'scripts/dev-cloud.test.ts'
       - 'scripts/windows-job.ts'

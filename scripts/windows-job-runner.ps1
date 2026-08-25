@@ -14,10 +14,12 @@ using System.Text;
 public static class WindowsJobRunner
 {
     private const uint CREATE_SUSPENDED = 0x00000004;
+    private const uint SYNCHRONIZE = 0x00100000;
     private const uint STARTF_USESTDHANDLES = 0x00000100;
     private const uint JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE = 0x00002000;
     private const uint INFINITE = 0xFFFFFFFF;
     private const uint WAIT_FAILED = 0xFFFFFFFF;
+    private const uint WAIT_OBJECT_0 = 0x00000000;
     private const int JobObjectExtendedLimitInformation = 9;
     private const int STD_INPUT_HANDLE = -10;
     private const int STD_OUTPUT_HANDLE = -11;
@@ -123,7 +125,15 @@ public static class WindowsJobRunner
     private static extern uint ResumeThread(IntPtr thread);
 
     [DllImport("kernel32.dll", SetLastError = true)]
-    private static extern uint WaitForSingleObject(IntPtr handle, uint milliseconds);
+    private static extern IntPtr OpenProcess(uint desiredAccess, bool inheritHandle, uint processId);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern uint WaitForMultipleObjects(
+        uint count,
+        [In] IntPtr[] handles,
+        bool waitAll,
+        uint milliseconds
+    );
 
     [DllImport("kernel32.dll", SetLastError = true)]
     private static extern bool GetExitCodeProcess(IntPtr process, out uint exitCode);
@@ -189,8 +199,14 @@ public static class WindowsJobRunner
         return commandLine;
     }
 
-    public static int Run(string executable, string[] arguments, string currentDirectory)
+    public static int Run(
+        string executable,
+        string[] arguments,
+        string currentDirectory,
+        int parentProcessId
+    )
     {
+        var parentProcess = IntPtr.Zero;
         var job = IntPtr.Zero;
         var processInformation = new PROCESS_INFORMATION();
         var processCreated = false;
@@ -198,6 +214,9 @@ public static class WindowsJobRunner
 
         try
         {
+            parentProcess = OpenProcess(SYNCHRONIZE, false, unchecked((uint)parentProcessId));
+            if (parentProcess == IntPtr.Zero) throw Failure("OpenProcess parent");
+
             job = CreateJobObject(IntPtr.Zero, null);
             if (job == IntPtr.Zero) throw Failure("CreateJobObjectW");
 
@@ -238,8 +257,20 @@ public static class WindowsJobRunner
             if (ResumeThread(processInformation.hThread) == UInt32.MaxValue)
                 throw Failure("ResumeThread");
 
-            if (WaitForSingleObject(processInformation.hProcess, INFINITE) == WAIT_FAILED)
-                throw Failure("WaitForSingleObject");
+            var waitResult = WaitForMultipleObjects(
+                2,
+                new[] { processInformation.hProcess, parentProcess },
+                false,
+                INFINITE
+            );
+            if (waitResult == WAIT_FAILED) throw Failure("WaitForMultipleObjects");
+            if (waitResult == WAIT_OBJECT_0 + 1)
+            {
+                if (!TerminateJobObject(job, 1)) throw Failure("TerminateJobObject");
+                return 1;
+            }
+            if (waitResult != WAIT_OBJECT_0)
+                throw new InvalidOperationException("WaitForMultipleObjects returned an unexpected result");
 
             uint exitCode;
             if (!GetExitCodeProcess(processInformation.hProcess, out exitCode))
@@ -257,6 +288,7 @@ public static class WindowsJobRunner
             if (processInformation.hThread != IntPtr.Zero) CloseHandle(processInformation.hThread);
             if (processInformation.hProcess != IntPtr.Zero) CloseHandle(processInformation.hProcess);
             if (job != IntPtr.Zero) CloseHandle(job);
+            if (parentProcess != IntPtr.Zero) CloseHandle(parentProcess);
         }
     }
 }
@@ -265,4 +297,9 @@ public static class WindowsJobRunner
 $decoded = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($Payload))
 $command = $decoded | ConvertFrom-Json
 $arguments = @($command.args | ForEach-Object { [string] $_ })
-exit [WindowsJobRunner]::Run([string] $command.command, $arguments, (Get-Location).Path)
+exit [WindowsJobRunner]::Run(
+    [string] $command.command,
+    $arguments,
+    (Get-Location).Path,
+    [int] $command.parentPid
+)

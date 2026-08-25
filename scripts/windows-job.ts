@@ -7,6 +7,11 @@ export interface ChildCommand {
 	env?: NodeJS.ProcessEnv;
 }
 
+export interface WindowsJobCommandOptions {
+	platform?: NodeJS.Platform;
+	parentPid?: number;
+}
+
 const RUNNER = path.join(
 	path.resolve(path.dirname(fileURLToPath(import.meta.url))),
 	'windows-job-runner.ps1'
@@ -14,11 +19,15 @@ const RUNNER = path.join(
 
 export function windowsJobCommand(
 	command: ChildCommand,
-	platform: NodeJS.Platform = process.platform
+	options: WindowsJobCommandOptions = {}
 ): ChildCommand {
-	if (platform !== 'win32') return command;
+	if ((options.platform ?? process.platform) !== 'win32') return command;
 	const payload = Buffer.from(
-		JSON.stringify({ command: command.command, args: command.args }),
+		JSON.stringify({
+			command: command.command,
+			args: command.args,
+			parentPid: options.parentPid ?? process.pid
+		}),
 		'utf8'
 	).toString('base64');
 	return {

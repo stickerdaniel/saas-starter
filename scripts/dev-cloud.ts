@@ -119,7 +119,7 @@ export async function runUntilOneExits(
 		detached: process.platform !== 'win32'
 	};
 	const children = commands
-		.map(windowsJobCommand)
+		.map((command) => windowsJobCommand(command))
 		.map(({ command, args, env }) =>
 			spawn(command, args, { ...spawnOptions, env: { ...process.env, ...env } })
 		);
