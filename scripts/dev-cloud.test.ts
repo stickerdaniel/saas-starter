@@ -2,7 +2,12 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { devCloudCommands, runUntilOneExits, windowsTreeKillArgs } from './dev-cloud';
+import {
+	devCloudCommands,
+	listenForTermination,
+	runUntilOneExits,
+	windowsTreeKillArgs
+} from './dev-cloud';
 
 function processExists(pid: number): boolean {
 	try {
@@ -31,6 +36,20 @@ describe('devCloudCommands', () => {
 	it('constructs a recursive Windows tree termination command', () => {
 		expect(windowsTreeKillArgs(42, false)).toEqual(['/PID', '42', '/T']);
 		expect(windowsTreeKillArgs(42, true)).toEqual(['/PID', '42', '/T', '/F']);
+	});
+});
+
+describe('listenForTermination', () => {
+	it('keeps intercepting repeated signals until cleanup finishes', () => {
+		const signals: NodeJS.Signals[] = [];
+		const removeListeners = listenForTermination((signal) => signals.push(signal));
+		try {
+			process.emit('SIGINT');
+			process.emit('SIGINT');
+			expect(signals).toEqual(['SIGINT', 'SIGINT']);
+		} finally {
+			removeListeners();
+		}
 	});
 });
 

@@ -30,6 +30,17 @@ interface ChildExit {
 	signal: NodeJS.Signals | null;
 }
 
+export function listenForTermination(onSignal: (signal: NodeJS.Signals) => void): () => void {
+	const onInterrupt = () => onSignal('SIGINT');
+	const onTerminate = () => onSignal('SIGTERM');
+	process.on('SIGINT', onInterrupt);
+	process.on('SIGTERM', onTerminate);
+	return () => {
+		process.off('SIGINT', onInterrupt);
+		process.off('SIGTERM', onTerminate);
+	};
+}
+
 function waitForExit(child: ChildProcess, index: number): Promise<ChildExit> {
 	return new Promise((resolve, reject) => {
 		child.once('error', reject);
@@ -113,10 +124,9 @@ export async function runUntilOneExits(
 	const signalExit = new Promise<ChildExit>((resolve) => {
 		resolveSignal = resolve;
 	});
-	const onInterrupt = () => resolveSignal({ index: -1, code: null, signal: 'SIGINT' });
-	const onTerminate = () => resolveSignal({ index: -1, code: null, signal: 'SIGTERM' });
-	process.once('SIGINT', onInterrupt);
-	process.once('SIGTERM', onTerminate);
+	const removeTerminationListeners = listenForTermination((signal) =>
+		resolveSignal({ index: -1, code: null, signal })
+	);
 
 	try {
 		const first = await Promise.race([...exits, signalExit]);
@@ -132,8 +142,7 @@ export async function runUntilOneExits(
 		await waitForAll(exits, options.forceMs ?? DEFAULT_FORCE_MS);
 		throw error;
 	} finally {
-		process.off('SIGINT', onInterrupt);
-		process.off('SIGTERM', onTerminate);
+		removeTerminationListeners();
 	}
 }
 
