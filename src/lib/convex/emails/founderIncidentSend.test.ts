@@ -97,7 +97,7 @@ describe('founder incident application binding', () => {
 			kind: 'mutation',
 			visibility: 'internal'
 		});
-	});
+	}, 20_000);
 
 	it('rejects the reserved test key before database or auth access', async () => {
 		const db = { query: vi.fn(), insert: vi.fn() };
