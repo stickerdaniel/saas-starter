@@ -27,7 +27,6 @@
  * hard error, never a run that checks nothing and reports success.
  */
 
-import { spawnSync, type SpawnSyncOptions } from 'child_process';
 import { existsSync, readFileSync, realpathSync, statSync } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -36,6 +35,12 @@ import knowledgePolicy from '../knowledge-policy.config';
 import { getStagedChanges, getStagedFiles, isUnderPreCommit, sanitizedGitEnv } from './git-context';
 import { formatPolicyFinding, matchesKnowledgeCandidate } from './knowledge-policy/policy';
 import { runKnowledgePolicy } from './knowledge-policy/repository';
+import {
+	runSanitizedCommand,
+	sanitizeTerminalField,
+	sanitizeTerminalText,
+	type SanitizedCommandOptions
+} from './terminal-output';
 
 // Configuration (matches CI static-checks.yml exclusions)
 const CONFIG = {
@@ -110,8 +115,8 @@ const NEVER_WALK = ['node_modules/', '.git/', '.svelte-kit/', '.convex/', 'build
  * Reject the run. A gate that cannot see its input must never report success.
  */
 function fail(message: string, hint?: string): never {
-	console.error(`${colors.red}${message}${colors.reset}`);
-	if (hint) console.error(hint);
+	console.error(`${colors.red}${sanitizeTerminalField(message)}${colors.reset}`);
+	if (hint) console.error(sanitizeTerminalText(hint));
 	process.exit(1);
 }
 
@@ -409,15 +414,24 @@ function parseCli() {
 /**
  * Run a command and exit if it fails
  */
-function runCommand(command: string, args: string[], options?: SpawnSyncOptions): void {
-	const result = spawnSync(command, args, {
-		stdio: 'inherit',
-		encoding: 'utf-8',
-		...options
-	});
+async function runCommand(
+	command: string,
+	args: string[],
+	options?: SanitizedCommandOptions
+): Promise<void> {
+	let result;
+	try {
+		result = await runSanitizedCommand(command, args, options);
+	} catch {
+		console.error(
+			`${colors.red}Command could not start: ${sanitizeTerminalField(command)}${colors.reset}`
+		);
+		process.exit(1);
+	}
 
 	if (result.status !== 0) {
-		console.error(`${colors.red}Command failed: ${command} ${args.join(' ')}${colors.reset}`);
+		const invocation = sanitizeTerminalField(`${command} ${args.join(' ')}`);
+		console.error(`${colors.red}Command failed: ${invocation}${colors.reset}`);
 		process.exit(result.status ?? 1);
 	}
 }
@@ -518,7 +532,7 @@ async function main(): Promise<void> {
 
 	// SvelteKit sync (always runs — needed by both lint and types)
 	printHeader(step++, 'SvelteKit sync');
-	runCommand('bun', ['svelte-kit', 'sync']);
+	await runCommand('bun', ['svelte-kit', 'sync']);
 	ledger.ran('svelte-kit sync');
 	console.log('\n');
 
@@ -540,7 +554,7 @@ async function main(): Promise<void> {
 				// Batch files to avoid command line length limits
 				const chunkSize = 100;
 				for (let i = 0; i < files.length; i += chunkSize) {
-					runCommand('misspell', ['-error', ...files.slice(i, i + chunkSize)]);
+					await runCommand('misspell', ['-error', ...files.slice(i, i + chunkSize)]);
 				}
 			}
 			ledger.ran('misspell', files.length);
@@ -601,7 +615,9 @@ async function main(): Promise<void> {
 
 			if (violations.length > 0) {
 				console.error(`${colors.red}Found ${violations.length} banned pattern(s):${colors.reset}`);
-				for (const v of violations) console.error(`  ${v}`);
+				for (const violation of violations) {
+					console.error(`  ${sanitizeTerminalField(violation)}`);
+				}
 				process.exit(1);
 			}
 			console.log(`Scanned ${filesToScan.length} files — no banned patterns found`);
@@ -615,10 +631,10 @@ async function main(): Promise<void> {
 			const formatFlag = ciMode ? '--check' : '--write';
 			const files = ledger.filesFor('prettier');
 			if (!scopedMode) {
-				runCommand('bun', ['prettier', formatFlag, '.']);
+				await runCommand('bun', ['prettier', formatFlag, '.']);
 				ledger.ran('prettier');
 			} else if (files.length > 0) {
-				runCommand('bun', [
+				await runCommand('bun', [
 					'prettier',
 					formatFlag,
 					'--plugin',
@@ -641,10 +657,10 @@ async function main(): Promise<void> {
 			const fixArgs = ciMode ? [] : ['--fix'];
 			const files = ledger.filesFor('eslint');
 			if (!scopedMode) {
-				runCommand('bun', ['eslint', '.', ...fixArgs]);
+				await runCommand('bun', ['eslint', '.', ...fixArgs]);
 				ledger.ran('eslint');
 			} else if (files.length > 0) {
-				runCommand('bun', ['eslint', ...fixArgs, ...files]);
+				await runCommand('bun', ['eslint', ...fixArgs, ...files]);
 				ledger.ran('eslint', files.length);
 			} else {
 				console.log('No JS/TS/Svelte files to lint');
@@ -655,7 +671,7 @@ async function main(): Promise<void> {
 
 		// oxlint
 		printHeader(step++, 'oxlint');
-		runCommand('bun', ['oxlint']);
+		await runCommand('bun', ['oxlint']);
 		ledger.ran('oxlint');
 		console.log('\n');
 	}
@@ -665,7 +681,7 @@ async function main(): Promise<void> {
 	if (shouldRunTypes) {
 		// Build emails (required before type checking)
 		printHeader(step++, 'Build emails');
-		runCommand('bun', ['scripts/build-emails.ts']);
+		await runCommand('bun', ['scripts/build-emails.ts']);
 		ledger.ran('build-emails');
 		console.log('\n');
 
@@ -677,7 +693,7 @@ async function main(): Promise<void> {
 				console.log('No TypeScript/Svelte files to check');
 				ledger.ran('svelte-check', 0);
 			} else {
-				runCommand('bun', ['svelte-check', '--tsconfig', './tsconfig.json'], {
+				await runCommand('bun', ['svelte-check', '--tsconfig', './tsconfig.json'], {
 					env: { ...process.env, NODE_OPTIONS: '--max-old-space-size=8192' }
 				});
 				// svelte-check is tsconfig-driven: the routed files decide WHETHER it runs,
@@ -692,7 +708,7 @@ async function main(): Promise<void> {
 		{
 			const files = ledger.filesFor('convex');
 			if (!scopedMode || files.length > 0) {
-				runCommand('bun', ['run', 'check:convex']);
+				await runCommand('bun', ['run', 'check:convex']);
 				ledger.ran('convex', 'project');
 			} else {
 				console.log('No Convex files to check');
@@ -710,7 +726,7 @@ async function main(): Promise<void> {
 		// human-readable output, so there is no stable primitive to build a drift
 		// guard from; auto-pushing from CI would be worse).
 		printHeader(step, 'Autumn config');
-		runCommand('bun', ['atmn', 'preview']);
+		await runCommand('bun', ['atmn', 'preview']);
 		ledger.ran('atmn preview');
 		console.log('\n');
 	}
@@ -727,7 +743,7 @@ async function main(): Promise<void> {
 					'changes to land the auto-fixes.)'
 			);
 		}
-		runCommand('git', ['add', ...stagedIndexPaths], { env: sanitizedGitEnv() });
+		await runCommand('git', ['add', ...stagedIndexPaths], { env: sanitizedGitEnv() });
 		console.log('');
 	}
 
@@ -745,7 +761,7 @@ async function main(): Promise<void> {
 			scope: policyScope
 		});
 		for (const policyFinding of result.findings) {
-			const line = formatPolicyFinding(policyFinding);
+			const line = sanitizeTerminalField(formatPolicyFinding(policyFinding));
 			console[policyFinding.severity === 'error' ? 'error' : 'warn'](`  ${line}`);
 		}
 		const errors = result.findings.filter((item) => item.severity === 'error').length;
@@ -769,7 +785,9 @@ if (import.meta.main) {
 	// Default-deny: finish() is the only path that writes a zero exit code.
 	process.exitCode = 2;
 	main().catch((error: Error) => {
-		console.error(`${colors.red}Fatal error: ${error.message}${colors.reset}`);
+		console.error(
+			`${colors.red}Fatal error: ${sanitizeTerminalField(error.message)}${colors.reset}`
+		);
 		process.exit(1);
 	});
 }
