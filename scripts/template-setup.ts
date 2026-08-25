@@ -407,10 +407,9 @@ async function main() {
 		'  3. Update editorial brand mentions in src/i18n/*.json (FAQ, hero, marketing prose, pricing tier names)'
 	);
 	console.log('  4. Review the legal copy in src/lib/content/legal/*.md');
-	console.log('  5. Review site.ts structured data and src/lib/content/llms.txt access limits');
-	console.log(
-		'  6. Review src/lib/convex/support/instructions.txt, then run bun run generate:content'
-	);
+	console.log('  5. Keep each legal route page.md.ts summary aligned with that copy');
+	console.log('  6. Review site.ts structured data and src/lib/content/llms.txt access limits');
+	console.log('  7. Review src/lib/convex/support/instructions.txt');
 	console.log('');
 	rl?.close();
 }

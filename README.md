@@ -92,8 +92,9 @@ The setup script replaces the project name and central GitHub repository slug, t
 2. Refresh email snapshots: `bun run test:unit -- email-snapshots.test.ts -u`
 3. Update editorial brand mentions in `src/i18n/{en,de,es,fr}.json` (FAQ, hero copy, pricing tier names)
 4. Review the legal copy in `src/lib/content/legal/*.md`
-5. Review optional publisher metadata in `src/lib/config/site.ts` and the access limits in `src/lib/content/llms.txt` if your fork adds a public API, MCP server, or agent actions
-6. Review the support seed prompt in `src/lib/convex/support/instructions.txt`, then run `bun run generate:content`
+5. Keep the agent summaries in `src/routes/[[lang]]/(marketing)/{privacy,terms,impressum}/page.md.ts` aligned with the legal copy
+6. Review optional publisher metadata in `src/lib/config/site.ts` and the access limits in `src/lib/content/llms.txt` if your fork adds a public API, MCP server, or agent actions
+7. Review the support seed prompt in `src/lib/convex/support/instructions.txt`; development and build commands regenerate its adapter automatically
 
 ## Preview Deployments
 

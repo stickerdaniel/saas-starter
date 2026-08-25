@@ -8,6 +8,9 @@ export function renderAuthoredTemplate(
 	values: Readonly<Record<string, string>>
 ): string {
 	const normalizedTemplate = template.replace(/\r\n?/g, '\n');
+	if (normalizedTemplate.includes('{{{') || normalizedTemplate.includes('}}}')) {
+		throw new Error(`Invalid placeholder syntax in ${documentName}.`);
+	}
 	const placeholders = new Set<string>();
 
 	for (const match of normalizedTemplate.matchAll(PLACEHOLDER)) {

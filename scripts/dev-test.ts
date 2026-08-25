@@ -1,4 +1,5 @@
 import 'varlock/auto-load';
+import { watchAuthoredContent } from './generate-authored-content';
 import { portlessOwnsPort, preflightOrExit, resolveTestPort } from './dev-ports';
 
 const testPort = resolveTestPort();
@@ -38,6 +39,8 @@ if (!portlessOwnsPort()) {
 	portArgs = ['--port', String(testPort), '--strictPort'];
 }
 
+const authoredContentWatcher = watchAuthoredContent();
+
 const child = Bun.spawn(['vite', 'dev', ...portArgs], {
 	stdio: ['inherit', 'inherit', 'inherit'],
 	// Pin npm_lifecycle_event in the explicit env: Bun.spawn does NOT forward
@@ -47,6 +50,7 @@ const child = Bun.spawn(['vite', 'dev', ...portArgs], {
 });
 
 const onSignal = (signal: NodeJS.Signals) => {
+	authoredContentWatcher.close();
 	try {
 		child.kill(signal);
 	} catch {
@@ -57,4 +61,5 @@ process.on('SIGINT', () => onSignal('SIGINT'));
 process.on('SIGTERM', () => onSignal('SIGTERM'));
 
 const code = await child.exited;
+authoredContentWatcher.close();
 process.exit(code ?? 0);

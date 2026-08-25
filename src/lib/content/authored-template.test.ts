@@ -35,6 +35,12 @@ describe('renderAuthoredTemplate', () => {
 		);
 	});
 
+	it.each(['{{{NAME}}}', '{{NAME}}}', '{{{NAME}}'])('rejects extra braces in %s', (template) => {
+		expect(() => renderAuthoredTemplate('sample', template, { NAME: 'Ada' })).toThrow(
+			'Invalid placeholder syntax in sample.'
+		);
+	});
+
 	it('rejects placeholders introduced by replacement values', () => {
 		expect(() => renderAuthoredTemplate('sample', '{{NAME}}', { NAME: '{{UNRESOLVED}}' })).toThrow(
 			'Unresolved placeholder {{UNRESOLVED}} in sample.'
