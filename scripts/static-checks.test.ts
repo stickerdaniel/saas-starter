@@ -15,12 +15,24 @@
  *      so these stay fast.
  */
 import { spawnSync } from 'child_process';
+import { mkdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { describe, expect, it } from 'vitest';
 
 import { sanitizedGitEnv } from './git-context';
-import { ROUTES, resolveInputs } from './static-checks';
+import {
+	authoredTextFiles,
+	existingRepositoryPaths,
+	formatPathForDiagnostic,
+	isIgnoredPath,
+	literalControlCharacterViolations,
+	repositoryPaths,
+	ROUTES,
+	resolveInputs,
+	spellcheckFiles,
+	unsafePathCodepoints
+} from './static-checks';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SCRIPT = path.join(ROOT, 'scripts', 'static-checks.ts');
@@ -38,6 +50,32 @@ describe('route predicates', () => {
 		expect(ROUTES['knowledge-placement']('static/logo.svg')).toBe(false);
 	});
 
+	it('routes authored Markdown and text through the literal control-character guard', () => {
+		expect(ROUTES['literal-control-char']('src/lib/content/legal/privacy.md')).toBe(true);
+		expect(ROUTES['literal-control-char']('src/lib/content/llms.txt')).toBe(true);
+		expect(ROUTES['literal-control-char']('src/lib/content/privacy.ts')).toBe(false);
+		expect(ROUTES['literal-control-char']('scratch/session/log.txt')).toBe(false);
+	});
+
+	it('keeps artifact ignores rooted and includes tracked dot-directory documents', () => {
+		expect(isIgnoredPath('scratch/session/log.md')).toBe(true);
+		expect(isIgnoredPath('src/lib/scratch/editor.ts')).toBe(false);
+		const files = [
+			'.agents/skills/example.md',
+			'references/example.md',
+			'scratch/session/log.md',
+			'src/lib/scratch/editor.md'
+		];
+		expect(authoredTextFiles(files)).toEqual([
+			'.agents/skills/example.md',
+			'src/lib/scratch/editor.md'
+		]);
+		expect(spellcheckFiles(files)).toEqual([
+			'.agents/skills/example.md',
+			'src/lib/scratch/editor.md'
+		]);
+	});
+
 	it('are blind to an absolute path, which is why normalization is load-bearing', () => {
 		const absolute = path.join(ROOT, 'src/lib/utils/auth-messages.ts');
 		const absoluteConvex = path.join(ROOT, 'src/lib/convex/schema.ts');
@@ -53,6 +91,102 @@ describe('route predicates', () => {
 	});
 });
 
+describe('literal control-character scan', () => {
+	it.each([
+		['C0', 0x1b, 'U+001B'],
+		['DEL', 0x7f, 'U+007F'],
+		['C1', 0x85, 'U+0085'],
+		['bidi', 0x202e, 'U+202E']
+	])('flags %s characters in authored text', (_label, code, codepoint) => {
+		const violations = literalControlCharacterViolations(
+			'src/lib/content/llms.txt',
+			`safe${String.fromCharCode(code)}text`
+		);
+		expect(violations).toHaveLength(1);
+		expect(violations[0]).toContain(codepoint);
+		expect(violations[0]).toContain('Remove it or replace it with visible whitespace');
+		expect(violations[0]).toContain(`\\u${code.toString(16).padStart(4, '0').toUpperCase()}`);
+	});
+});
+
+describe('repository path safety', () => {
+	it('keeps missing tracked files out of full-mode content readers', () => {
+		expect(existingRepositoryPaths(['README.md', 'docs/does-not-exist.md'])).toEqual(['README.md']);
+	});
+
+	it('includes untracked nonignored files in the full-mode preflight', () => {
+		const relative = `src/lib/content/.static-checks-untracked-${process.pid}.md`;
+		const file = path.join(ROOT, relative);
+		writeFileSync(file, 'safe');
+		try {
+			expect(repositoryPaths()).toContain(relative);
+		} finally {
+			rmSync(file, { force: true });
+		}
+	});
+
+	it('encodes unsafe path characters in diagnostics', () => {
+		expect(formatPathForDiagnostic(`bad${String.fromCharCode(0x1b)}.txt`)).toBe(
+			'"bad\\\\u001B.txt"'
+		);
+	});
+
+	it('rejects a malicious filename before subprocesses run without printing its payload', () => {
+		const directory = path.join(ROOT, 'scratch', 'static-checks-path-test');
+		mkdirSync(directory, { recursive: true });
+		const offender = `${String.fromCharCode(0x1b)}]0;OWNED${String.fromCharCode(0x07)}`;
+		const file = path.join(directory, `bad${offender}.txt`);
+		writeFileSync(file, 'safe');
+		try {
+			const result = spawnSync('bun', [SCRIPT, file], {
+				cwd: ROOT,
+				encoding: 'utf8',
+				env: sanitizedGitEnv()
+			});
+			const output = `${result.stdout}${result.stderr}`;
+			expect(result.status).toBe(1);
+			expect(output).toContain('U+001B');
+			expect(output).not.toContain(offender);
+			expect(output).not.toContain(String.fromCharCode(0x07));
+			expect(output).not.toContain('SvelteKit sync');
+		} finally {
+			rmSync(directory, { recursive: true, force: true });
+		}
+	});
+
+	it.skipIf(process.platform === 'win32')(
+		'rejects an unsafe symlink name before resolving its target',
+		() => {
+			const directory = path.join(ROOT, 'scratch', 'static-checks-symlink-test');
+			mkdirSync(directory, { recursive: true });
+			const offender = String.fromCharCode(0x202e);
+			const file = path.join(directory, `unsafe${offender}.md`);
+			symlinkSync(path.join(ROOT, 'README.md'), file);
+			try {
+				const result = spawnSync('bun', [SCRIPT, file], {
+					cwd: ROOT,
+					encoding: 'utf8',
+					env: sanitizedGitEnv()
+				});
+				const output = `${result.stdout}${result.stderr}`;
+				expect(result.status).toBe(1);
+				expect(output).toContain('U+202E');
+				expect(output).not.toContain(offender);
+				expect(output).not.toContain('SvelteKit sync');
+			} finally {
+				rmSync(directory, { recursive: true, force: true });
+			}
+		},
+		10_000
+	);
+
+	it('identifies structural, line-separator, and bidirectional controls in paths', () => {
+		for (const code of [0x09, 0x0a, 0x0d, 0x7f, 0x85, 0x2028, 0x2029, 0x202e]) {
+			expect(unsafePathCodepoints(`bad${String.fromCharCode(code)}.txt`)).toHaveLength(1);
+		}
+	});
+});
+
 describe('resolveInputs', () => {
 	it('normalizes every spelling of the same file to one repo-relative path', () => {
 		const forms = [
@@ -64,13 +198,19 @@ describe('resolveInputs', () => {
 		expect(resolveInputs(forms, 'test')).toEqual(['src/lib/utils/auth-messages.ts']);
 	});
 
-	// Directory expansion is deliberately NOT pinned here. It runs through Bun.Glob,
-	// which does not exist in the vitest (node) runtime, so it cannot be called
-	// directly; and asserting it through a real run costs ~10s, a quarter of the
-	// whole unit suite. A guard that slows the suite that much gets switched off,
-	// and a switched-off guard protects nothing. The hole it would cover (a
-	// directory argument checking nothing) is closed by the ledger, which fails any
-	// run where no check touched a file, and that is asserted above.
+	it('includes dot-directory descendants of a directory argument', () => {
+		const directory = path.join(ROOT, 'src', '.static-checks-directory-test');
+		const file = path.join(directory, 'instructions.md');
+		mkdirSync(directory, { recursive: true });
+		writeFileSync(file, 'safe');
+		try {
+			expect(resolveInputs([path.join(ROOT, 'src')], 'test')).toContain(
+				'src/.static-checks-directory-test/instructions.md'
+			);
+		} finally {
+			rmSync(directory, { recursive: true, force: true });
+		}
+	});
 });
 
 describe('bad input dies at the boundary', () => {

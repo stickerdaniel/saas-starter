@@ -14,7 +14,7 @@
  *   --ci         Assert mode: uses --check for formatting, omits --fix for ESLint.
  *                Requires misspell to be installed (fails if missing).
  *   --staged     Scope to git-staged files only. Auto-fixes and re-stages.
- *   --scope      Run a subset of checks: "lint" (misspell, banned patterns, prettier,
+ *   --scope      Run a subset of checks: "lint" (misspell, literal controls, banned patterns, prettier,
  *                eslint, oxlint) or "types" (build-emails, svelte-check).
  *                Both groups run svelte-kit sync first. Omit to run all checks.
  *   --files-from Read newline-separated paths from a file, or from stdin with "-".
@@ -27,11 +27,13 @@
  * hard error, never a run that checks nothing and reports success.
  */
 
+import { spawnSync } from 'child_process';
 import { existsSync, readFileSync, realpathSync, statSync } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { parseArgs } from 'util';
 import knowledgePolicy from '../knowledge-policy.config';
+import { findLiteralControlCharacters } from '../eslint/control-character-policy.js';
 import { getStagedChanges, getStagedFiles, isUnderPreCommit, sanitizedGitEnv } from './git-context';
 import { formatPolicyFinding, matchesKnowledgeCandidate } from './knowledge-policy/policy';
 import { runKnowledgePolicy } from './knowledge-policy/repository';
@@ -44,7 +46,7 @@ import {
 
 // Configuration (matches CI static-checks.yml exclusions)
 const CONFIG = {
-	ignorePaths: ['references/'],
+	ignorePaths: ['references/', 'scratch/'],
 	misspell: {
 		ignore: [
 			'src/i18n/',
@@ -120,6 +122,66 @@ function fail(message: string, hint?: string): never {
 	process.exit(1);
 }
 
+const PATH_BIDI = new Set([
+	0x061c, 0x200e, 0x200f, 0x202a, 0x202b, 0x202c, 0x202d, 0x202e, 0x2066, 0x2067, 0x2068, 0x2069
+]);
+
+function unsafePathCodepoint(code: number): boolean {
+	return (
+		code <= 0x1f ||
+		code === 0x7f ||
+		(code >= 0x80 && code <= 0x9f) ||
+		code === 0x2028 ||
+		code === 0x2029 ||
+		PATH_BIDI.has(code)
+	);
+}
+
+export function formatPathForDiagnostic(file: string): string {
+	let escaped = '';
+	for (let index = 0; index < file.length; index++) {
+		const code = file.charCodeAt(index);
+		escaped += unsafePathCodepoint(code)
+			? `\\u${code.toString(16).padStart(4, '0').toUpperCase()}`
+			: file[index];
+	}
+	return JSON.stringify(escaped);
+}
+
+export function unsafePathCodepoints(file: string): string[] {
+	const found: string[] = [];
+	for (let index = 0; index < file.length; index++) {
+		const code = file.charCodeAt(index);
+		if (unsafePathCodepoint(code)) {
+			found.push(`U+${code.toString(16).padStart(4, '0').toUpperCase()}`);
+		}
+	}
+	return found;
+}
+
+export function assertSafePaths(files: string[]): void {
+	for (const file of files) {
+		const [codepoint] = unsafePathCodepoints(file);
+		if (codepoint) {
+			fail(`Unsafe ${codepoint} in repository path ${formatPathForDiagnostic(file)}.`);
+		}
+	}
+}
+
+export function repositoryPaths(): string[] {
+	const result = spawnSync('git', ['ls-files', '-co', '--exclude-standard', '-z'], {
+		cwd: REPO_ROOT,
+		env: sanitizedGitEnv(),
+		encoding: 'utf8'
+	});
+	if (result.status !== 0) fail('Failed to list repository paths.');
+	return result.stdout.split('\0').filter(Boolean);
+}
+
+export function existingRepositoryPaths(files: string[]): string[] {
+	return files.filter((file) => existsSync(path.join(REPO_ROOT, file)));
+}
+
 function toPosix(p: string): string {
 	return p.split(path.sep).join('/');
 }
@@ -171,22 +233,27 @@ export function resolveInputs(raw: string[], origin: string): string[] {
 		// realpath both sides so a checkout reached through a symlink (/tmp ->
 		// /private/tmp, a symlinked worktree) does not read as "outside the repo".
 		const absolute = path.resolve(arg);
-		if (!existsSync(absolute)) fail(`No such file (${origin}): ${arg}`);
+		if (!existsSync(absolute)) fail(`No such file (${origin}): ${formatPathForDiagnostic(arg)}`);
 
 		const real = realpathSync(absolute);
 		const relative = toPosix(path.relative(REPO_ROOT, real));
 		if (relative === '' || relative.startsWith('..')) {
-			fail(`Path is outside the repository (${origin}): ${arg}`, `  Repo root: ${REPO_ROOT}`);
+			fail(
+				`Path is outside the repository (${origin}): ${formatPathForDiagnostic(arg)}`,
+				`  Repo root: ${formatPathForDiagnostic(REPO_ROOT)}`
+			);
 		}
 
 		if (statSync(real).isDirectory()) {
 			const before = out.size;
-			for (const entry of new Bun.Glob(`${relative}/**/*`).scanSync({ cwd: REPO_ROOT })) {
-				const file = toPosix(entry);
+			const prefix = `${relative}/`;
+			for (const file of repositoryPaths()) {
+				if (!file.startsWith(prefix) || !existsSync(path.join(REPO_ROOT, file))) continue;
 				if (NEVER_WALK.some((skip) => file.includes(skip))) continue;
 				out.add(file);
 			}
-			if (out.size === before) fail(`Directory contains no files to check (${origin}): ${arg}`);
+			if (out.size === before)
+				fail(`Directory contains no files to check (${origin}): ${formatPathForDiagnostic(arg)}`);
 			continue;
 		}
 
@@ -203,7 +270,7 @@ function readFilesFrom(source: string): string[] {
 			? readFileSync(0, 'utf-8')
 			: existsSync(path.resolve(source))
 				? readFileSync(path.resolve(source), 'utf-8')
-				: fail(`--files-from: no such file: ${source}`);
+				: fail(`--files-from: no such file: ${formatPathForDiagnostic(source)}`);
 
 	return raw
 		.split('\n')
@@ -215,6 +282,10 @@ function readFilesFrom(source: string): string[] {
 // Ledger — one routing table, one accounting of what actually ran
 // ===========================================================================
 
+export function isIgnoredPath(file: string): boolean {
+	return CONFIG.ignorePaths.some((prefix) => file.startsWith(prefix));
+}
+
 /**
  * Which checks are responsible for a repo-relative path. The ONLY place a file set is
  * derived, so a check can no longer disagree with the ledger about its own scope, and
@@ -223,6 +294,7 @@ function readFilesFrom(source: string): string[] {
 export const ROUTES = {
 	misspell: (f: string) => !CONFIG.misspell.ignore.some((i) => f.includes(i)),
 	'banned-patterns': (f: string) => /\.(svelte|ts)$/.test(f) && f.startsWith('src/'),
+	'literal-control-char': (f: string) => /\.(md|txt)$/.test(f) && !f.startsWith('scratch/'),
 	'knowledge-placement': (f: string) => matchesKnowledgeCandidate(knowledgePolicy, f),
 	prettier: (f: string) => /\.(js|ts|svelte|html|css|md|json)$/.test(f),
 	eslint: (f: string) => /\.(js|ts|svelte)$/.test(f),
@@ -232,11 +304,20 @@ export const ROUTES = {
 	convex: (f: string) => f.startsWith('src/lib/convex/')
 } as const;
 
+export function authoredTextFiles(files: string[]): string[] {
+	return files.filter((file) => ROUTES['literal-control-char'](file) && !isIgnoredPath(file));
+}
+
+export function spellcheckFiles(files: string[]): string[] {
+	return files.filter((file) => ROUTES.misspell(file) && !isIgnoredPath(file));
+}
+
 type CheckId = keyof typeof ROUTES;
 const CHECK_IDS = Object.keys(ROUTES) as CheckId[];
 const LINT_CHECKS: CheckId[] = [
 	'misspell',
 	'banned-patterns',
+	'literal-control-char',
 	'knowledge-placement',
 	'prettier',
 	'eslint'
@@ -268,7 +349,7 @@ class Ledger {
 		inputs: string[]
 	) {
 		this.named = inputs.length;
-		this.ignored = inputs.filter((f) => CONFIG.ignorePaths.some((i) => f.includes(i)));
+		this.ignored = inputs.filter(isIgnoredPath);
 		this.files = inputs.filter((f) => !this.ignored.includes(f));
 	}
 
@@ -461,6 +542,13 @@ function finish(ledger: Ledger, scopeLabel: string): void {
 	process.exitCode = 0;
 }
 
+export function literalControlCharacterViolations(file: string, text: string): string[] {
+	return findLiteralControlCharacters(text).map(
+		(finding) =>
+			`${file}:${finding.line}:${finding.column + 1}: ${finding.data.codepoint} (${finding.data.category}) is written as a literal character. Remove it or replace it with visible whitespace; inside a string or template, write ${finding.data.escape}.`
+	);
+}
+
 // Main execution
 async function main(): Promise<void> {
 	const { ciMode, scope, mode, rawPositionals, filesFrom } = parseCli();
@@ -483,6 +571,7 @@ async function main(): Promise<void> {
 			console.log('No files to check (empty --files-from list)');
 			process.exit(0);
 		}
+		assertSafePaths(raw);
 		inputs = resolveInputs(
 			raw,
 			filesFrom !== undefined ? `--files-from ${filesFrom}` : 'arguments'
@@ -504,8 +593,13 @@ async function main(): Promise<void> {
 		// Keep the original index paths for re-staging. resolveInputs realpaths
 		// symlinks, and adding those resolved targets would commit the wrong files.
 		stagedIndexPaths = getStagedFiles();
+		assertSafePaths(stagedIndexPaths);
 		inputs = stagedIndexPaths.length > 0 ? resolveInputs(stagedIndexPaths, 'the git index') : [];
 	}
+
+	const fullRepositoryPaths = mode === 'full' ? repositoryPaths() : [];
+	const fullExistingPaths = existingRepositoryPaths(fullRepositoryPaths);
+	assertSafePaths(mode === 'full' ? fullRepositoryPaths : inputs);
 
 	const ledger = new Ledger(mode, inputs);
 
@@ -542,11 +636,7 @@ async function main(): Promise<void> {
 		// Spell checking
 		printHeader(step++, 'Spell checking');
 		if (hasMisspell()) {
-			const files = scopedMode
-				? ledger.filesFor('misspell')
-				: [...new Bun.Glob('**/*').scanSync({ absolute: false })]
-						.map(toPosix)
-						.filter((f) => ROUTES.misspell(f));
+			const files = scopedMode ? ledger.filesFor('misspell') : spellcheckFiles(fullExistingPaths);
 
 			if (files.length === 0) {
 				console.log('No files to spell check');
@@ -622,6 +712,29 @@ async function main(): Promise<void> {
 			}
 			console.log(`Scanned ${filesToScan.length} files — no banned patterns found`);
 			ledger.ran('banned-patterns', filesToScan.length);
+		}
+		console.log('\n');
+
+		// Literal control and bidirectional-formatting characters in authored text.
+		// ESLint covers code; this reaches source formats it does not parse.
+		printHeader(step++, 'Literal control characters');
+		{
+			const files = scopedMode
+				? ledger.filesFor('literal-control-char')
+				: authoredTextFiles(fullExistingPaths);
+			const violations: string[] = [];
+			for (const file of files) {
+				violations.push(...literalControlCharacterViolations(file, await Bun.file(file).text()));
+			}
+			if (violations.length > 0) {
+				for (const violation of violations)
+					console.error(`${colors.red}${violation}${colors.reset}`);
+				fail(`Found ${violations.length} literal control character violation(s).`);
+			}
+			console.log(
+				`Scanned ${files.length} Markdown/text files — no literal control characters found`
+			);
+			ledger.ran('literal-control-char', files.length);
 		}
 		console.log('\n');
 

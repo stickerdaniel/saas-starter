@@ -1,3 +1,4 @@
+import { watchAuthoredContent } from './generate-authored-content';
 import { portlessOwnsPort, preflightOrExit, resolveDevPort } from './dev-ports';
 
 // Wrapper for `bun run dev` and `bun run dev:frontend`. Spawns vite on a
@@ -13,6 +14,8 @@ if (!portlessOwnsPort()) {
 	portArgs = ['--port', String(port), '--strictPort'];
 }
 
+const authoredContentWatcher = watchAuthoredContent();
+
 // We deliberately do NOT pass --host (see scripts/dev-test.ts for the reasoning):
 // vite's default host `localhost` keeps resolvedUrls.local[0] aligned with the
 // BetterAuth trustedOrigin derived from it.
@@ -26,6 +29,7 @@ const child = Bun.spawn(['vite', 'dev', ...portArgs], {
 });
 
 const onSignal = (signal: NodeJS.Signals) => {
+	authoredContentWatcher.close();
 	try {
 		child.kill(signal);
 	} catch {
@@ -36,4 +40,5 @@ process.on('SIGINT', () => onSignal('SIGINT'));
 process.on('SIGTERM', () => onSignal('SIGTERM'));
 
 const code = await child.exited;
+authoredContentWatcher.close();
 process.exit(code ?? 0);

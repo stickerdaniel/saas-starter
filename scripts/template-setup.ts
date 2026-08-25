@@ -406,10 +406,10 @@ async function main() {
 	console.log(
 		'  3. Update editorial brand mentions in src/i18n/*.json (FAQ, hero, marketing prose, pricing tier names)'
 	);
-	console.log(
-		'  4. Update src/lib/content/privacy.ts and terms.ts if you want different legal copy'
-	);
-	console.log('  5. Review site.ts structured data and /llms.txt access limits for your product');
+	console.log('  4. Review the legal copy in src/lib/content/legal/*.md');
+	console.log('  5. Keep each legal route page.md.ts summary aligned with that copy');
+	console.log('  6. Review site.ts structured data and src/lib/content/llms.txt access limits');
+	console.log('  7. Review src/lib/convex/support/instructions.txt');
 	console.log('');
 	rl?.close();
 }

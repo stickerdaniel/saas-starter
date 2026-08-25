@@ -6,6 +6,8 @@ import type {
 import { getLocalizedMarketingUrl, PUBLIC_MARKETING_ROUTES } from '$lib/marketing/public-routes';
 import { DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES } from '$lib/i18n/languages';
 import { LEGAL_CONFIG } from '$lib/config/legal';
+import llmsTemplate from '$lib/content/llms.txt?raw';
+import { renderAuthoredTemplate } from '$lib/content/authored-template';
 import { isIsoCalendarDate } from '$lib/content/legal-metadata';
 import { getRepositoryDocumentUrl, getRepositoryUrl } from '$lib/config/site';
 import { prefersMarkdownHeader } from '$lib/http/accept';
@@ -183,45 +185,15 @@ export function renderLlmsTxt(origin: string): string {
 	const canonicalPages = PUBLIC_MARKETING_ROUTES.map(
 		(route) =>
 			`- [${route.agentLabel}](${getLocalizedMarketingUrl(baseOrigin, DEFAULT_LANGUAGE, route.pathSuffix)}): ${route.agentDescription}`
-	);
+	).join('\n');
 
-	return [
-		`# ${LEGAL_CONFIG.brandName}`,
-		'',
-		`> Public marketing content for the ${LEGAL_CONFIG.brandName} SvelteKit template.`,
-		'',
-		'## Overview',
-		'',
-		`${LEGAL_CONFIG.brandName} is a full-stack starter built with SvelteKit, Convex, Better Auth, Tolgee, and modern SaaS infrastructure. This file only describes the public marketing pages.`,
-		'',
-		'## When to use this site',
-		'',
-		`Use this site to understand what ${LEGAL_CONFIG.brandName} includes, decide whether it fits a SvelteKit SaaS project, review the displayed plans, and read the public legal information for this deployment.`,
-		'',
-		'For setup, architecture, deployment, customization, contribution, or code-level questions, use the source repository and developer resources below.',
-		'',
-		'## Canonical pages',
-		'',
-		...canonicalPages,
-		'',
-		'## Developer resources',
-		'',
-		`- [Source repository](${getRepositoryUrl()}): source code, issues, and releases`,
-		`- [Developer guide](${getRepositoryDocumentUrl('README.md')}): setup, deployment, architecture, and feature documentation`,
-		`- [Repository agent instructions](${getRepositoryDocumentUrl('AGENTS.md')}): conventions for coding agents working with the source`,
-		'',
-		'## Markdown access',
-		'',
-		'Send `Accept: text/markdown` to the page URLs above to receive the agent-facing markdown representation.',
-		'',
-		'## Access limits',
-		'',
-		'- Google and GitHub OAuth sign end users into the web application. They do not provide delegated access for agents, SDKs, or third-party API clients.',
-		'- This template has no supported public integration API, OpenAPI contract, MCP server, or agent action endpoint by default.',
-		'- Treat application, Better Auth, Convex, and admin endpoints as internal unless a fork publishes separate API documentation.',
-		'- Markdown content is English-only, even when requested on localized route variants.',
-		''
-	].join('\n');
+	return renderAuthoredTemplate('llms.txt', llmsTemplate, {
+		AGENT_INSTRUCTIONS_URL: getRepositoryDocumentUrl('AGENTS.md'),
+		BRAND_NAME: LEGAL_CONFIG.brandName,
+		CANONICAL_PAGES: canonicalPages,
+		DEVELOPER_GUIDE_URL: getRepositoryDocumentUrl('README.md'),
+		REPOSITORY_URL: getRepositoryUrl()
+	});
 }
 
 export function createLlmsTxtResponse(origin: string): Response {

@@ -1,0 +1,34 @@
+# {{BRAND_NAME}}
+
+> Public marketing content for the {{BRAND_NAME}} SvelteKit template.
+
+## Overview
+
+{{BRAND_NAME}} is a full-stack starter built with SvelteKit, Convex, Better Auth, Tolgee, and modern SaaS infrastructure. This file only describes the public marketing pages.
+
+## When to use this site
+
+Use this site to understand what {{BRAND_NAME}} includes, decide whether it fits a SvelteKit SaaS project, review the displayed plans, and read the public legal information for this deployment.
+
+For setup, architecture, deployment, customization, contribution, or code-level questions, use the source repository and developer resources below.
+
+## Canonical pages
+
+{{CANONICAL_PAGES}}
+
+## Developer resources
+
+- [Source repository]({{REPOSITORY_URL}}): source code, issues, and releases
+- [Developer guide]({{DEVELOPER_GUIDE_URL}}): setup, deployment, architecture, and feature documentation
+- [Repository agent instructions]({{AGENT_INSTRUCTIONS_URL}}): conventions for coding agents working with the source
+
+## Markdown access
+
+Send `Accept: text/markdown` to the page URLs above to receive the agent-facing markdown representation.
+
+## Access limits
+
+- Google and GitHub OAuth sign end users into the web application. They do not provide delegated access for agents, SDKs, or third-party API clients.
+- This template has no supported public integration API, OpenAPI contract, MCP server, or agent action endpoint by default.
+- Treat application, Better Auth, Convex, and admin endpoints as internal unless a fork publishes separate API documentation.
+- Markdown content is English-only, even when requested on localized route variants.
