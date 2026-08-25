@@ -23,22 +23,39 @@ export function generateAuthoredContent(): boolean {
 	return true;
 }
 
+export function initializeAuthoredContentWatcher<T extends Pick<FSWatcher, 'close'>>(
+	startWatcher: () => T,
+	generate: () => void
+): T {
+	const watcher = startWatcher();
+	try {
+		generate();
+		return watcher;
+	} catch (error) {
+		watcher.close();
+		throw error;
+	}
+}
+
 export function watchAuthoredContent(): FSWatcher {
-	generateAuthoredContent();
 	let debounce: ReturnType<typeof setTimeout> | undefined;
-	const watcher = watch(path.dirname(SUPPORT_SOURCE), (_event, filename) => {
-		if (filename && filename.toString() !== path.basename(SUPPORT_SOURCE)) return;
-		clearTimeout(debounce);
-		debounce = setTimeout(() => {
-			try {
-				if (generateAuthoredContent()) {
-					console.log('[content] Regenerated support agent instructions.');
-				}
-			} catch (error) {
-				console.error('[content] Failed to regenerate support agent instructions.', error);
-			}
-		}, 50);
-	});
+	const watcher = initializeAuthoredContentWatcher(
+		() =>
+			watch(path.dirname(SUPPORT_SOURCE), (_event, filename) => {
+				if (filename && filename.toString() !== path.basename(SUPPORT_SOURCE)) return;
+				clearTimeout(debounce);
+				debounce = setTimeout(() => {
+					try {
+						if (generateAuthoredContent()) {
+							console.log('[content] Regenerated support agent instructions.');
+						}
+					} catch (error) {
+						console.error('[content] Failed to regenerate support agent instructions.', error);
+					}
+				}, 50);
+			}),
+		generateAuthoredContent
+	);
 	watcher.on('close', () => clearTimeout(debounce));
 	return watcher;
 }
