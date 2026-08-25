@@ -520,7 +520,7 @@ function finish(ledger: Ledger, scopeLabel: string): void {
 export function literalControlCharacterViolations(file: string, text: string): string[] {
 	return findLiteralControlCharacters(text).map(
 		(finding) =>
-			`${file}:${finding.line}:${finding.column + 1}: ${finding.data.codepoint} (${finding.data.category}) is written as a literal character`
+			`${file}:${finding.line}:${finding.column + 1}: ${finding.data.codepoint} (${finding.data.category}) is written as a literal character. Remove it or replace it with visible whitespace; inside a string or template, write ${finding.data.escape}.`
 	);
 }
 
@@ -546,6 +546,7 @@ async function main(): Promise<void> {
 			console.log('No files to check (empty --files-from list)');
 			process.exit(0);
 		}
+		assertSafePaths(raw);
 		inputs = resolveInputs(
 			raw,
 			filesFrom !== undefined ? `--files-from ${filesFrom}` : 'arguments'
@@ -567,6 +568,7 @@ async function main(): Promise<void> {
 		// Keep the original index paths for re-staging. resolveInputs realpaths
 		// symlinks, and adding those resolved targets would commit the wrong files.
 		stagedIndexPaths = getStagedFiles();
+		assertSafePaths(stagedIndexPaths);
 		inputs = stagedIndexPaths.length > 0 ? resolveInputs(stagedIndexPaths, 'the git index') : [];
 	}
 

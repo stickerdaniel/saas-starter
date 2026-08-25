@@ -15,7 +15,7 @@
  *      so these stay fast.
  */
 import { spawnSync } from 'child_process';
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { describe, expect, it } from 'vitest';
@@ -80,6 +80,8 @@ describe('literal control-character scan', () => {
 		);
 		expect(violations).toHaveLength(1);
 		expect(violations[0]).toContain(codepoint);
+		expect(violations[0]).toContain('Remove it or replace it with visible whitespace');
+		expect(violations[0]).toContain(`\\u${code.toString(16).padStart(4, '0').toUpperCase()}`);
 	});
 });
 
@@ -112,6 +114,32 @@ describe('repository path safety', () => {
 			rmSync(directory, { recursive: true, force: true });
 		}
 	});
+
+	it.skipIf(process.platform === 'win32')(
+		'rejects an unsafe symlink name before resolving its target',
+		() => {
+			const directory = path.join(ROOT, 'scratch', 'static-checks-symlink-test');
+			mkdirSync(directory, { recursive: true });
+			const offender = String.fromCharCode(0x202e);
+			const file = path.join(directory, `unsafe${offender}.md`);
+			symlinkSync(path.join(ROOT, 'README.md'), file);
+			try {
+				const result = spawnSync('bun', [SCRIPT, file], {
+					cwd: ROOT,
+					encoding: 'utf8',
+					env: sanitizedGitEnv()
+				});
+				const output = `${result.stdout}${result.stderr}`;
+				expect(result.status).toBe(1);
+				expect(output).toContain('U+202E');
+				expect(output).not.toContain(offender);
+				expect(output).not.toContain('SvelteKit sync');
+			} finally {
+				rmSync(directory, { recursive: true, force: true });
+			}
+		},
+		10_000
+	);
 
 	it('identifies structural and bidirectional controls in paths', () => {
 		for (const code of [0x09, 0x0a, 0x0d, 0x7f, 0x85, 0x202e]) {

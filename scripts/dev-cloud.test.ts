@@ -72,4 +72,30 @@ describe('runUntilOneExits', () => {
 		},
 		10_000
 	);
+
+	it.skipIf(process.platform === 'win32')(
+		'force-stops a grandchild after its wrapper exits on SIGTERM',
+		async () => {
+			const directory = mkdtempSync(path.join(tmpdir(), 'dev-cloud-wrapper-exit-'));
+			const pidFile = path.join(directory, 'grandchild.pid');
+			const escapedPidFile = JSON.stringify(pidFile);
+			const leader = `const fs=require('node:fs');const timer=setInterval(()=>{if(fs.existsSync(${escapedPidFile})){clearInterval(timer);process.exit(7)}},10)`;
+			const worker = `const{spawn}=require('node:child_process');const fs=require('node:fs');process.on('SIGTERM',()=>process.exit(0));const child=spawn(process.execPath,['-e','process.on(\\'SIGTERM\\',()=>{});setInterval(()=>{},1000)'],{stdio:'ignore'});fs.writeFileSync(${escapedPidFile},String(child.pid));setInterval(()=>{},1000)`;
+			try {
+				const code = await runUntilOneExits(
+					[
+						{ command: process.execPath, args: ['-e', leader] },
+						{ command: process.execPath, args: ['-e', worker] }
+					],
+					{ stdio: 'ignore', graceMs: 100, forceMs: 500 }
+				);
+				expect(code).toBe(7);
+				const grandchildPid = Number(readFileSync(pidFile, 'utf8'));
+				expect(await waitUntilStopped(grandchildPid)).toBe(true);
+			} finally {
+				rmSync(directory, { recursive: true, force: true });
+			}
+		},
+		10_000
+	);
 });

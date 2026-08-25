@@ -67,6 +67,20 @@ function terminateTree(child: ChildProcess, force: boolean): void {
 	}
 }
 
+function processTreeExists(child: ChildProcess): boolean {
+	if (!child.pid) return false;
+	if (process.platform === 'win32') {
+		return child.exitCode === null && child.signalCode === null;
+	}
+	try {
+		process.kill(-child.pid, 0);
+		return true;
+	} catch (error) {
+		if ((error as NodeJS.ErrnoException).code === 'ESRCH') return false;
+		throw error;
+	}
+}
+
 export function devCloudCommands(args: string[] = process.argv.slice(2)): ChildCommand[] {
 	return [
 		{
@@ -107,7 +121,8 @@ export async function runUntilOneExits(
 	try {
 		const first = await Promise.race([...exits, signalExit]);
 		for (const child of children) terminateTree(child, false);
-		if (!(await waitForAll(exits, options.graceMs ?? DEFAULT_GRACE_MS))) {
+		const directChildrenExited = await waitForAll(exits, options.graceMs ?? DEFAULT_GRACE_MS);
+		if (!directChildrenExited || children.some(processTreeExists)) {
 			for (const child of children) terminateTree(child, true);
 			await waitForAll(exits, options.forceMs ?? DEFAULT_FORCE_MS);
 		}
