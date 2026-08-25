@@ -1,7 +1,8 @@
 const EXTERNAL_OR_ROOT_TARGET = /^(?:[a-z][a-z0-9+.-]*:|\/|#)/i;
 const INLINE_LINK_TARGET =
 	/(\]\(\s*)(<[^>\r\n]+>|[^)\s]+)(?=(?:\s+(?:"[^"\r\n]*"|'[^'\r\n]*'|\([^\r\n)]*\)))?\s*\))/g;
-const REFERENCE_LINK_TARGET = /^(\s{0,3}\[[^\]\r\n]+\]:[ \t]*)(<[^>\r\n]+>|[^\s\r\n]+)(.*)$/gm;
+const REFERENCE_LINK_TARGET =
+	/^(\s{0,3}\[(?!\^)[^\]\r\n]+\]:[ \t]*)(<[^>\r\n]+>|[^\s\r\n]+)(.*)$/gm;
 
 function localizeTarget(target: string, localize: (path: string) => string): string {
 	const wrapped = target.startsWith('<') && target.endsWith('>');

@@ -13,7 +13,7 @@ function markdownDestinations(document: string): string[] {
 		...document.matchAll(/\[[^\]]*\]\(\s*(?:<([^>\s]+)>|([^\s)]+))(?:\s+[^)]*)?\)/g)
 	].map((match) => match[1] ?? match[2]!);
 	const references = [
-		...document.matchAll(/^\s{0,3}\[[^\]\r\n]+\]:\s*(?:<([^>\s]+)>|([^\s]+))/gm)
+		...document.matchAll(/^\s{0,3}\[(?!\^)[^\]\r\n]+\]:\s*(?:<([^>\s]+)>|([^\s]+))/gm)
 	].map((match) => match[1] ?? match[2]!);
 	return [...inline, ...references];
 }
@@ -38,7 +38,9 @@ describe('authored legal content', () => {
 
 	it('recognizes inline and reference-style destinations for route validation', () => {
 		expect(
-			markdownDestinations('[Inline](privacy)\n[Reference][policy]\n\n[policy]: <terms>')
+			markdownDestinations(
+				'[Inline](privacy)\n[Reference][policy]\nA statement.[^1]\n\n[policy]: <terms>\n[^1]: Supporting text.'
+			)
 		).toEqual(['privacy', 'terms']);
 	});
 

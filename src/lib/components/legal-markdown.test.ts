@@ -39,8 +39,10 @@ describe('localizeRelativeMarkdownLinks', () => {
 			'[Root](/privacy)',
 			'[Anchor](#privacy)',
 			'[Email][email]',
+			'A statement.[^1]',
 			'',
-			'[email]: mailto:privacy@example.com'
+			'[email]: mailto:privacy@example.com',
+			'[^1]: Supporting text.'
 		].join('\n');
 
 		expect(localizeRelativeMarkdownLinks(markdown, localize)).toBe(markdown);
