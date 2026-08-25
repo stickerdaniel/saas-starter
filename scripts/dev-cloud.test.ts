@@ -10,7 +10,7 @@ import {
 	runUntilOneExits,
 	windowsTreeKillArgs
 } from './dev-cloud';
-import { windowsJobCommand } from './windows-job';
+import { openWindowsJobLifetime, windowsJobCommand } from './windows-job';
 
 function processExists(pid: number): boolean {
 	try {
@@ -27,6 +27,11 @@ async function waitUntilStopped(pid: number): Promise<boolean> {
 		await new Promise((resolve) => setTimeout(resolve, 25));
 	}
 	return !processExists(pid);
+}
+
+function forceStopWindowsTree(pid: number | undefined): void {
+	if (!pid || process.platform !== 'win32') return;
+	spawnSync('taskkill', ['/PID', String(pid), '/T', '/F'], { stdio: 'ignore' });
 }
 
 describe('devCloudCommands', () => {
@@ -54,6 +59,19 @@ describe('windowsJobCommand', () => {
 		expect(windowsJobCommand(command, { platform: 'darwin' })).toBe(command);
 	});
 
+	it('requires a lifetime pipe for Windows commands', () => {
+		expect(() =>
+			windowsJobCommand({ command: 'bun', args: ['run', 'dev'] }, { platform: 'win32' })
+		).toThrow('Windows Job Object lifetime pipe is required.');
+	});
+
+	it('assigns the Job Object during process creation', () => {
+		const source = readFileSync(path.join(process.cwd(), 'scripts/windows-job-runner.ps1'), 'utf8');
+		expect(source).toContain('PROC_THREAD_ATTRIBUTE_JOB_LIST');
+		expect(source).toContain('EXTENDED_STARTUPINFO_PRESENT');
+		expect(source).not.toContain('AssignProcessToJobObject');
+	});
+
 	it('encodes the executable and arguments as one PowerShell payload', () => {
 		const wrapped = windowsJobCommand(
 			{
@@ -61,7 +79,7 @@ describe('windowsJobCommand', () => {
 				args: ['run', 'space value', 'quote"value', '', '--once'],
 				env: { EXAMPLE: 'value' }
 			},
-			{ platform: 'win32', parentPid: 42 }
+			{ platform: 'win32', lifetimePipe: 'test-lifetime-pipe' }
 		);
 		const payload = JSON.parse(Buffer.from(wrapped.args.at(-1)!, 'base64').toString('utf8'));
 
@@ -72,17 +90,51 @@ describe('windowsJobCommand', () => {
 		expect(payload).toEqual({
 			command: String.raw`C:\Program Files\Bun\bun.exe`,
 			args: ['run', 'space value', 'quote"value', '', '--once'],
-			parentPid: 42
+			lifetimePipe: 'test-lifetime-pipe'
 		});
 		expect(wrapped.env).toEqual({ EXAMPLE: 'value' });
 	});
 
 	it.runIf(process.platform === 'win32')(
+		'does not start a command after the orchestrator lifetime is gone',
+		async () => {
+			const directory = mkdtempSync(path.join(tmpdir(), 'windows-job-lifetime-gone-'));
+			const markerFile = path.join(directory, 'started');
+			const lifetime = await openWindowsJobLifetime({ platform: 'win32' });
+			if (!lifetime) throw new Error('Windows lifetime pipe did not start.');
+			const wrapped = windowsJobCommand(
+				{
+					command: process.execPath,
+					args: ['-e', `require('node:fs').writeFileSync(${JSON.stringify(markerFile)}, '')`]
+				},
+				{ platform: 'win32', lifetimePipe: lifetime.pipeName }
+			);
+			await lifetime.close();
+			try {
+				const result = spawnSync(wrapped.command, wrapped.args, {
+					cwd: directory,
+					stdio: 'ignore',
+					timeout: 10_000
+				});
+				expect(result.error).toBeUndefined();
+				expect(result.signal).toBeNull();
+				expect(result.status).not.toBe(0);
+				expect(existsSync(markerFile)).toBe(false);
+			} finally {
+				rmSync(directory, { recursive: true, force: true });
+			}
+		},
+		20_000
+	);
+
+	it.runIf(process.platform === 'win32')(
 		'preserves spaces, quotes, backslashes, flags, and empty arguments',
-		() => {
+		async () => {
 			const directory = mkdtempSync(path.join(tmpdir(), 'windows-job-argv-'));
 			const script = path.join(directory, 'capture.cjs');
 			const output = path.join(directory, 'argv.json');
+			const lifetime = await openWindowsJobLifetime({ platform: 'win32' });
+			if (!lifetime) throw new Error('Windows lifetime pipe did not start.');
 			writeFileSync(
 				script,
 				"require('node:fs').writeFileSync(process.env.ARGV_OUTPUT, JSON.stringify(process.argv.slice(2)))"
@@ -94,7 +146,7 @@ describe('windowsJobCommand', () => {
 						args: [script, 'space value', 'quote"value', 'backslash\\', '', '--once'],
 						env: { ARGV_OUTPUT: output }
 					},
-					{ platform: 'win32' }
+					{ platform: 'win32', lifetimePipe: lifetime.pipeName }
 				);
 				const result = spawnSync(wrapped.command, wrapped.args, {
 					cwd: directory,
@@ -111,6 +163,7 @@ describe('windowsJobCommand', () => {
 					'--once'
 				]);
 			} finally {
+				await lifetime.close();
 				rmSync(directory, { recursive: true, force: true });
 			}
 		},
@@ -204,6 +257,7 @@ describe('runUntilOneExits', () => {
 			const pidFile = path.join(directory, 'grandchild.pid');
 			const escapedPidFile = JSON.stringify(pidFile);
 			const root = `const{spawn}=require('node:child_process');const fs=require('node:fs');const child=spawn(process.execPath,['-e','setInterval(()=>{},1000)'],{stdio:'ignore'});fs.writeFileSync(${escapedPidFile},String(child.pid));process.exit(7)`;
+			let grandchildPid: number | undefined;
 			try {
 				const code = await runUntilOneExits(
 					[
@@ -213,9 +267,10 @@ describe('runUntilOneExits', () => {
 					{ stdio: 'ignore', graceMs: 500, forceMs: 1_000 }
 				);
 				expect(code).toBe(7);
-				const grandchildPid = Number(readFileSync(pidFile, 'utf8'));
+				grandchildPid = Number(readFileSync(pidFile, 'utf8'));
 				expect(await waitUntilStopped(grandchildPid)).toBe(true);
 			} finally {
+				forceStopWindowsTree(grandchildPid);
 				rmSync(directory, { recursive: true, force: true });
 			}
 		},
@@ -223,37 +278,41 @@ describe('runUntilOneExits', () => {
 	);
 
 	it.runIf(process.platform === 'win32')(
-		'kills the job when the monitored orchestrator is terminated',
+		'kills the job when the orchestrator lifetime closes',
 		async () => {
 			const directory = mkdtempSync(path.join(tmpdir(), 'windows-job-orchestrator-exit-'));
-			const pidFile = path.join(directory, 'grandchild.pid');
+			const pidFile = path.join(directory, 'processes.json');
 			const escapedPidFile = JSON.stringify(pidFile);
-			const root = `const{spawn}=require('node:child_process');const fs=require('node:fs');const child=spawn(process.execPath,['-e','setInterval(()=>{},1000)'],{stdio:'ignore'});fs.writeFileSync(${escapedPidFile},String(child.pid));setInterval(()=>{},1000)`;
-			const orchestrator = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], {
-				stdio: 'ignore'
-			});
-			const orchestratorPid = orchestrator.pid;
-			if (!orchestratorPid) throw new Error('Orchestrator process did not start.');
+			const root = `const{spawn}=require('node:child_process');const fs=require('node:fs');const child=spawn(process.execPath,['-e','setInterval(()=>{},1000)'],{stdio:'ignore'});fs.writeFileSync(${escapedPidFile},JSON.stringify({root:process.pid,grandchild:child.pid}));setInterval(()=>{},1000)`;
+			const lifetime = await openWindowsJobLifetime({ platform: 'win32' });
+			if (!lifetime) throw new Error('Windows lifetime pipe did not start.');
 			const wrapped = windowsJobCommand(
 				{ command: process.execPath, args: ['-e', root] },
-				{ platform: 'win32', parentPid: orchestratorPid }
+				{ platform: 'win32', lifetimePipe: lifetime.pipeName }
 			);
 			const owner = spawn(wrapped.command, wrapped.args, {
 				cwd: directory,
 				stdio: 'ignore',
 				env: { ...process.env, ...wrapped.env }
 			});
+			let rootPid: number | undefined;
+			let grandchildPid: number | undefined;
 			try {
 				for (let attempt = 0; attempt < 400 && !existsSync(pidFile); attempt++) {
 					await new Promise((resolve) => setTimeout(resolve, 25));
 				}
 				expect(existsSync(pidFile)).toBe(true);
-				const grandchildPid = Number(readFileSync(pidFile, 'utf8'));
-				spawnSync('taskkill', ['/PID', String(orchestratorPid), '/F'], { stdio: 'ignore' });
-				expect(await waitUntilStopped(grandchildPid)).toBe(true);
+				const pids = JSON.parse(readFileSync(pidFile, 'utf8'));
+				rootPid = pids.root;
+				grandchildPid = pids.grandchild;
+				await lifetime.close();
+				expect(await waitUntilStopped(rootPid!)).toBe(true);
+				expect(await waitUntilStopped(grandchildPid!)).toBe(true);
 			} finally {
-				if (owner.exitCode === null) owner.kill();
-				if (orchestrator.exitCode === null) orchestrator.kill();
+				await lifetime.close();
+				forceStopWindowsTree(owner.pid);
+				forceStopWindowsTree(rootPid);
+				forceStopWindowsTree(grandchildPid);
 				rmSync(directory, { recursive: true, force: true });
 			}
 		},
@@ -264,28 +323,38 @@ describe('runUntilOneExits', () => {
 		'kills the job when its PowerShell owner is terminated',
 		async () => {
 			const directory = mkdtempSync(path.join(tmpdir(), 'windows-job-owner-exit-'));
-			const pidFile = path.join(directory, 'grandchild.pid');
+			const pidFile = path.join(directory, 'processes.json');
 			const escapedPidFile = JSON.stringify(pidFile);
-			const root = `const{spawn}=require('node:child_process');const fs=require('node:fs');const child=spawn(process.execPath,['-e','setInterval(()=>{},1000)'],{stdio:'ignore'});fs.writeFileSync(${escapedPidFile},String(child.pid));setInterval(()=>{},1000)`;
+			const root = `const{spawn}=require('node:child_process');const fs=require('node:fs');const child=spawn(process.execPath,['-e','setInterval(()=>{},1000)'],{stdio:'ignore'});fs.writeFileSync(${escapedPidFile},JSON.stringify({root:process.pid,grandchild:child.pid}));setInterval(()=>{},1000)`;
+			const lifetime = await openWindowsJobLifetime({ platform: 'win32' });
+			if (!lifetime) throw new Error('Windows lifetime pipe did not start.');
 			const wrapped = windowsJobCommand(
 				{ command: process.execPath, args: ['-e', root] },
-				{ platform: 'win32' }
+				{ platform: 'win32', lifetimePipe: lifetime.pipeName }
 			);
 			const owner = spawn(wrapped.command, wrapped.args, {
 				cwd: directory,
 				stdio: 'ignore',
 				env: { ...process.env, ...wrapped.env }
 			});
+			let rootPid: number | undefined;
+			let grandchildPid: number | undefined;
 			try {
 				for (let attempt = 0; attempt < 400 && !existsSync(pidFile); attempt++) {
 					await new Promise((resolve) => setTimeout(resolve, 25));
 				}
 				expect(existsSync(pidFile)).toBe(true);
-				const grandchildPid = Number(readFileSync(pidFile, 'utf8'));
+				const pids = JSON.parse(readFileSync(pidFile, 'utf8'));
+				rootPid = pids.root;
+				grandchildPid = pids.grandchild;
 				spawnSync('taskkill', ['/PID', String(owner.pid), '/F'], { stdio: 'ignore' });
-				expect(await waitUntilStopped(grandchildPid)).toBe(true);
+				expect(await waitUntilStopped(rootPid!)).toBe(true);
+				expect(await waitUntilStopped(grandchildPid!)).toBe(true);
 			} finally {
-				if (owner.exitCode === null) owner.kill();
+				await lifetime.close();
+				forceStopWindowsTree(owner.pid);
+				forceStopWindowsTree(rootPid);
+				forceStopWindowsTree(grandchildPid);
 				rmSync(directory, { recursive: true, force: true });
 			}
 		},

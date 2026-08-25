@@ -8,19 +8,23 @@ $ErrorActionPreference = 'Stop'
 Add-Type -TypeDefinition @'
 using System;
 using System.ComponentModel;
+using System.IO;
+using System.IO.Pipes;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Threading;
 
 public static class WindowsJobRunner
 {
     private const uint CREATE_SUSPENDED = 0x00000004;
-    private const uint SYNCHRONIZE = 0x00100000;
+    private const uint EXTENDED_STARTUPINFO_PRESENT = 0x00080000;
     private const uint STARTF_USESTDHANDLES = 0x00000100;
     private const uint JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE = 0x00002000;
     private const uint INFINITE = 0xFFFFFFFF;
     private const uint WAIT_FAILED = 0xFFFFFFFF;
     private const uint WAIT_OBJECT_0 = 0x00000000;
     private const int JobObjectExtendedLimitInformation = 9;
+    private static readonly IntPtr PROC_THREAD_ATTRIBUTE_JOB_LIST = new IntPtr(0x0002000D);
     private const int STD_INPUT_HANDLE = -10;
     private const int STD_OUTPUT_HANDLE = -11;
     private const int STD_ERROR_HANDLE = -12;
@@ -85,6 +89,13 @@ public static class WindowsJobRunner
     }
 
     [StructLayout(LayoutKind.Sequential)]
+    private struct STARTUPINFOEX
+    {
+        public STARTUPINFO StartupInfo;
+        public IntPtr lpAttributeList;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
     private struct PROCESS_INFORMATION
     {
         public IntPtr hProcess;
@@ -114,18 +125,34 @@ public static class WindowsJobRunner
         uint creationFlags,
         IntPtr environment,
         string currentDirectory,
-        ref STARTUPINFO startupInfo,
+        ref STARTUPINFOEX startupInfo,
         out PROCESS_INFORMATION processInformation
     );
-
-    [DllImport("kernel32.dll", SetLastError = true)]
-    private static extern bool AssignProcessToJobObject(IntPtr job, IntPtr process);
 
     [DllImport("kernel32.dll", SetLastError = true)]
     private static extern uint ResumeThread(IntPtr thread);
 
     [DllImport("kernel32.dll", SetLastError = true)]
-    private static extern IntPtr OpenProcess(uint desiredAccess, bool inheritHandle, uint processId);
+    private static extern bool InitializeProcThreadAttributeList(
+        IntPtr attributeList,
+        int attributeCount,
+        int flags,
+        ref IntPtr size
+    );
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool UpdateProcThreadAttribute(
+        IntPtr attributeList,
+        uint flags,
+        IntPtr attribute,
+        IntPtr value,
+        IntPtr size,
+        IntPtr previousValue,
+        IntPtr returnSize
+    );
+
+    [DllImport("kernel32.dll")]
+    private static extern void DeleteProcThreadAttributeList(IntPtr attributeList);
 
     [DllImport("kernel32.dll", SetLastError = true)]
     private static extern uint WaitForMultipleObjects(
@@ -137,9 +164,6 @@ public static class WindowsJobRunner
 
     [DllImport("kernel32.dll", SetLastError = true)]
     private static extern bool GetExitCodeProcess(IntPtr process, out uint exitCode);
-
-    [DllImport("kernel32.dll", SetLastError = true)]
-    private static extern bool TerminateProcess(IntPtr process, uint exitCode);
 
     [DllImport("kernel32.dll", SetLastError = true)]
     private static extern bool TerminateJobObject(IntPtr job, uint exitCode);
@@ -203,19 +227,31 @@ public static class WindowsJobRunner
         string executable,
         string[] arguments,
         string currentDirectory,
-        int parentProcessId
+        string lifetimePipe
     )
     {
-        var parentProcess = IntPtr.Zero;
+        NamedPipeClientStream lifetime = null;
+        IAsyncResult lifetimeRead = null;
+        WaitHandle lifetimeWait = null;
+        var attributeList = IntPtr.Zero;
+        var attributeListSize = IntPtr.Zero;
+        var jobList = IntPtr.Zero;
         var job = IntPtr.Zero;
         var processInformation = new PROCESS_INFORMATION();
         var processCreated = false;
-        var processAssigned = false;
 
         try
         {
-            parentProcess = OpenProcess(SYNCHRONIZE, false, unchecked((uint)parentProcessId));
-            if (parentProcess == IntPtr.Zero) throw Failure("OpenProcess parent");
+            lifetime = new NamedPipeClientStream(
+                ".",
+                lifetimePipe,
+                PipeDirection.In,
+                PipeOptions.Asynchronous
+            );
+            lifetime.Connect(3000);
+            var lifetimeBuffer = new byte[1];
+            lifetimeRead = lifetime.BeginRead(lifetimeBuffer, 0, 1, null, null);
+            lifetimeWait = lifetimeRead.AsyncWaitHandle;
 
             job = CreateJobObject(IntPtr.Zero, null);
             if (job == IntPtr.Zero) throw Failure("CreateJobObjectW");
@@ -229,12 +265,31 @@ public static class WindowsJobRunner
                 (uint)Marshal.SizeOf(limits)
             )) throw Failure("SetInformationJobObject");
 
-            var startupInfo = new STARTUPINFO();
-            startupInfo.cb = (uint)Marshal.SizeOf(startupInfo);
-            startupInfo.dwFlags = STARTF_USESTDHANDLES;
-            startupInfo.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
-            startupInfo.hStdOutput = GetStdHandle(STD_OUTPUT_HANDLE);
-            startupInfo.hStdError = GetStdHandle(STD_ERROR_HANDLE);
+            InitializeProcThreadAttributeList(IntPtr.Zero, 1, 0, ref attributeListSize);
+            if (attributeListSize == IntPtr.Zero)
+                throw Failure("InitializeProcThreadAttributeList size");
+            attributeList = Marshal.AllocHGlobal(attributeListSize);
+            if (!InitializeProcThreadAttributeList(attributeList, 1, 0, ref attributeListSize))
+                throw Failure("InitializeProcThreadAttributeList");
+            jobList = Marshal.AllocHGlobal(IntPtr.Size);
+            Marshal.WriteIntPtr(jobList, job);
+            if (!UpdateProcThreadAttribute(
+                attributeList,
+                0,
+                PROC_THREAD_ATTRIBUTE_JOB_LIST,
+                jobList,
+                new IntPtr(IntPtr.Size),
+                IntPtr.Zero,
+                IntPtr.Zero
+            )) throw Failure("UpdateProcThreadAttribute job list");
+
+            var startupInfo = new STARTUPINFOEX();
+            startupInfo.StartupInfo.cb = (uint)Marshal.SizeOf(startupInfo);
+            startupInfo.StartupInfo.dwFlags = STARTF_USESTDHANDLES;
+            startupInfo.StartupInfo.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
+            startupInfo.StartupInfo.hStdOutput = GetStdHandle(STD_OUTPUT_HANDLE);
+            startupInfo.StartupInfo.hStdError = GetStdHandle(STD_ERROR_HANDLE);
+            startupInfo.lpAttributeList = attributeList;
 
             if (!CreateProcess(
                 executable,
@@ -242,7 +297,7 @@ public static class WindowsJobRunner
                 IntPtr.Zero,
                 IntPtr.Zero,
                 true,
-                CREATE_SUSPENDED,
+                CREATE_SUSPENDED | EXTENDED_STARTUPINFO_PRESENT,
                 IntPtr.Zero,
                 currentDirectory,
                 ref startupInfo,
@@ -250,22 +305,31 @@ public static class WindowsJobRunner
             )) throw Failure("CreateProcessW");
             processCreated = true;
 
-            if (!AssignProcessToJobObject(job, processInformation.hProcess))
-                throw Failure("AssignProcessToJobObject");
-            processAssigned = true;
-
             if (ResumeThread(processInformation.hThread) == UInt32.MaxValue)
                 throw Failure("ResumeThread");
 
             var waitResult = WaitForMultipleObjects(
                 2,
-                new[] { processInformation.hProcess, parentProcess },
+                new[] {
+                    processInformation.hProcess,
+                    lifetimeWait.SafeWaitHandle.DangerousGetHandle()
+                },
                 false,
                 INFINITE
             );
             if (waitResult == WAIT_FAILED) throw Failure("WaitForMultipleObjects");
             if (waitResult == WAIT_OBJECT_0 + 1)
             {
+                try
+                {
+                    lifetime.EndRead(lifetimeRead);
+                }
+                catch (IOException)
+                {
+                }
+                catch (ObjectDisposedException)
+                {
+                }
                 if (!TerminateJobObject(job, 1)) throw Failure("TerminateJobObject");
                 return 1;
             }
@@ -279,16 +343,19 @@ public static class WindowsJobRunner
         }
         catch
         {
-            if (processAssigned) TerminateJobObject(job, 1);
-            else if (processCreated) TerminateProcess(processInformation.hProcess, 1);
+            if (processCreated) TerminateJobObject(job, 1);
             throw;
         }
         finally
         {
+            if (lifetime != null) lifetime.Dispose();
+            if (lifetimeWait != null) lifetimeWait.Close();
             if (processInformation.hThread != IntPtr.Zero) CloseHandle(processInformation.hThread);
             if (processInformation.hProcess != IntPtr.Zero) CloseHandle(processInformation.hProcess);
+            if (attributeList != IntPtr.Zero) DeleteProcThreadAttributeList(attributeList);
+            if (jobList != IntPtr.Zero) Marshal.FreeHGlobal(jobList);
+            if (attributeList != IntPtr.Zero) Marshal.FreeHGlobal(attributeList);
             if (job != IntPtr.Zero) CloseHandle(job);
-            if (parentProcess != IntPtr.Zero) CloseHandle(parentProcess);
         }
     }
 }
@@ -301,5 +368,5 @@ exit [WindowsJobRunner]::Run(
     [string] $command.command,
     $arguments,
     (Get-Location).Path,
-    [int] $command.parentPid
+    [string] $command.lifetimePipe
 )

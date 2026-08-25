@@ -8,7 +8,7 @@ import {
 import { constants as osConstants } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { windowsJobCommand, type ChildCommand } from './windows-job';
+import { openWindowsJobLifetime, windowsJobCommand, type ChildCommand } from './windows-job';
 
 const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DEFAULT_GRACE_MS = 2_000;
@@ -114,39 +114,46 @@ export async function runUntilOneExits(
 	options: ProcessGroupOptions = {}
 ): Promise<number> {
 	if (commands.length < 2) throw new Error('At least two child commands are required.');
-	const spawnOptions: SpawnOptions = {
-		stdio: options.stdio ?? 'inherit',
-		detached: process.platform !== 'win32'
-	};
-	const children = commands
-		.map((command) => windowsJobCommand(command))
-		.map(({ command, args, env }) =>
-			spawn(command, args, { ...spawnOptions, env: { ...process.env, ...env } })
-		);
-	const exits = children.map(waitForExit);
-	let resolveSignal!: (exit: ChildExit) => void;
-	const signalExit = new Promise<ChildExit>((resolve) => {
-		resolveSignal = resolve;
-	});
-	const removeTerminationListeners = listenForTermination((signal) =>
-		resolveSignal({ index: -1, code: null, signal })
-	);
-
+	const lifetime = await openWindowsJobLifetime();
 	try {
-		const first = await Promise.race([...exits, signalExit]);
-		for (const child of children) terminateTree(child, false);
-		const directChildrenExited = await waitForAll(exits, options.graceMs ?? DEFAULT_GRACE_MS);
-		if (!directChildrenExited || children.some(processTreeExists)) {
+		const spawnOptions: SpawnOptions = {
+			stdio: options.stdio ?? 'inherit',
+			detached: process.platform !== 'win32'
+		};
+		const children = commands
+			.map((command) =>
+				windowsJobCommand(command, lifetime ? { lifetimePipe: lifetime.pipeName } : {})
+			)
+			.map(({ command, args, env }) =>
+				spawn(command, args, { ...spawnOptions, env: { ...process.env, ...env } })
+			);
+		const exits = children.map(waitForExit);
+		let resolveSignal!: (exit: ChildExit) => void;
+		const signalExit = new Promise<ChildExit>((resolve) => {
+			resolveSignal = resolve;
+		});
+		const removeTerminationListeners = listenForTermination((signal) =>
+			resolveSignal({ index: -1, code: null, signal })
+		);
+
+		try {
+			const first = await Promise.race([...exits, signalExit]);
+			for (const child of children) terminateTree(child, false);
+			const directChildrenExited = await waitForAll(exits, options.graceMs ?? DEFAULT_GRACE_MS);
+			if (!directChildrenExited || children.some(processTreeExists)) {
+				for (const child of children) terminateTree(child, true);
+				await waitForAll(exits, options.forceMs ?? DEFAULT_FORCE_MS);
+			}
+			return exitCodeFor(first.code, first.signal);
+		} catch (error) {
 			for (const child of children) terminateTree(child, true);
 			await waitForAll(exits, options.forceMs ?? DEFAULT_FORCE_MS);
+			throw error;
+		} finally {
+			removeTerminationListeners();
 		}
-		return exitCodeFor(first.code, first.signal);
-	} catch (error) {
-		for (const child of children) terminateTree(child, true);
-		await waitForAll(exits, options.forceMs ?? DEFAULT_FORCE_MS);
-		throw error;
 	} finally {
-		removeTerminationListeners();
+		await lifetime?.close();
 	}
 }
 
