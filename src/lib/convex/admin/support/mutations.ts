@@ -7,6 +7,18 @@ import { MAX_MESSAGE_LENGTH } from '../../constants';
 import { t } from '../../i18n/translations';
 import type { AssistantContent, TextPart, FilePart } from 'ai';
 
+const EMAIL_REPLY_PREVIEW_CHARACTERS = 200;
+
+function emailReplyPreview(message: string): string {
+	const characters = Array.from(message.trim());
+	if (characters.length <= EMAIL_REPLY_PREVIEW_CHARACTERS) return characters.join('');
+
+	return `${characters
+		.slice(0, EMAIL_REPLY_PREVIEW_CHARACTERS - 1)
+		.join('')
+		.trimEnd()}…`;
+}
+
 /**
  * Assign thread to admin
  *
@@ -251,7 +263,7 @@ export const sendAdminReply = adminMutation({
 			await ctx.scheduler.runAfter(0, internal.emails.send.sendAdminReplyNotification, {
 				email: supportThread.notificationEmail,
 				adminName,
-				messagePreview: args.prompt.trim().slice(0, 200),
+				messagePreview: emailReplyPreview(args.prompt),
 				threadId: supportThread.threadId,
 				pageUrl: supportThread.pageUrl
 			});

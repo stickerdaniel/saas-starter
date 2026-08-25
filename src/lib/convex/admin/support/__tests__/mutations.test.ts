@@ -45,11 +45,13 @@ vi.mock('../../../_generated/api', () => ({
 
 import { saveMessage, getFile } from '@convex-dev/agent';
 import { authComponent } from '../../../auth';
+import { shouldSendNotification } from '../../../support/threads';
 import { sendAdminReply } from '../mutations';
 
 const saveMessageMock = saveMessage as unknown as ReturnType<typeof vi.fn>;
 const getFileMock = getFile as unknown as ReturnType<typeof vi.fn>;
 const getAuthUserMock = authComponent.getAuthUser as unknown as ReturnType<typeof vi.fn>;
+const shouldSendNotificationMock = shouldSendNotification as unknown as ReturnType<typeof vi.fn>;
 
 type RegisteredFunction<TArgs, TResult> = {
 	_handler: (ctx: unknown, args: TArgs) => Promise<TResult>;
@@ -60,7 +62,7 @@ const replyHandler = sendAdminReply as unknown as RegisteredFunction<
 	null
 >;
 
-function makeCtx() {
+function makeCtx({ notificationEmail }: { notificationEmail?: string } = {}) {
 	return {
 		db: {
 			query: vi.fn(() => ({
@@ -69,7 +71,7 @@ function makeCtx() {
 						_id: 'st_1',
 						threadId: 't1',
 						assignedTo: undefined,
-						notificationEmail: undefined,
+						notificationEmail,
 						notificationSentAt: undefined
 					})
 				}))
@@ -84,7 +86,7 @@ function makeCtx() {
 // the UI relies on to distinguish it from an AI answer. Forwarding attachment
 // fileIds must add to that metadata, never replace the provider fields, and a
 // text-only reply must not gain a fileIds key.
-describe('sendAdminReply attachment refcount metadata', () => {
+describe('sendAdminReply', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		getAuthUserMock.mockResolvedValue({
@@ -93,6 +95,7 @@ describe('sendAdminReply attachment refcount metadata', () => {
 			name: 'Admin User',
 			email: 'admin@example.com'
 		});
+		shouldSendNotificationMock.mockReturnValue(false);
 		saveMessageMock.mockResolvedValue({ messageId: 'm1' });
 		getFileMock.mockResolvedValue({
 			filePart: {
@@ -146,5 +149,21 @@ describe('sendAdminReply attachment refcount metadata', () => {
 		);
 		const patch = ctx.db.patch.mock.calls[0][1];
 		expect(patch.updatedAt).toBe(patch.lastAdminReplyAt);
+	});
+
+	it('marks a truncated email preview with an ellipsis', async () => {
+		shouldSendNotificationMock.mockReturnValue(true);
+		const ctx = makeCtx({ notificationEmail: 'user@example.com' });
+
+		await replyHandler._handler(ctx, {
+			threadId: 't1',
+			prompt: 'a'.repeat(201)
+		});
+
+		expect(ctx.scheduler.runAfter).toHaveBeenCalledWith(
+			0,
+			'internal.emails.send.sendAdminReplyNotification',
+			expect.objectContaining({ messagePreview: `${'a'.repeat(199)}…` })
+		);
 	});
 });
