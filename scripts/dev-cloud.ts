@@ -8,16 +8,11 @@ import {
 import { constants as osConstants } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { windowsJobCommand, type ChildCommand } from './windows-job';
 
 const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DEFAULT_GRACE_MS = 2_000;
 const DEFAULT_FORCE_MS = 2_000;
-
-export interface ChildCommand {
-	command: string;
-	args: string[];
-	env?: NodeJS.ProcessEnv;
-}
 
 export interface ProcessGroupOptions {
 	stdio?: StdioOptions;
@@ -123,9 +118,11 @@ export async function runUntilOneExits(
 		stdio: options.stdio ?? 'inherit',
 		detached: process.platform !== 'win32'
 	};
-	const children = commands.map(({ command, args, env }) =>
-		spawn(command, args, { ...spawnOptions, env: { ...process.env, ...env } })
-	);
+	const children = commands
+		.map(windowsJobCommand)
+		.map(({ command, args, env }) =>
+			spawn(command, args, { ...spawnOptions, env: { ...process.env, ...env } })
+		);
 	const exits = children.map(waitForExit);
 	let resolveSignal!: (exit: ChildExit) => void;
 	const signalExit = new Promise<ChildExit>((resolve) => {
