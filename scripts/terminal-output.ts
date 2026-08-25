@@ -9,7 +9,6 @@
 
 import { spawn } from 'child_process';
 import { randomUUID } from 'crypto';
-import { once } from 'events';
 import type { Writable } from 'stream';
 import { dataFor, terminalCategory } from '../eslint/control-character-policy.js';
 export { sanitizeTerminalField } from '../eslint/control-character-policy.js';
@@ -86,16 +85,51 @@ export function sanitizeTerminalText(text: string): string {
 }
 
 async function write(output: Writable, text: string): Promise<void> {
-	if (text === '' || output.write(text)) return;
-	await once(output, 'drain');
+	if (text === '') return;
+	await new Promise<void>((resolve, reject) => {
+		const cleanup = (): void => {
+			output.off('error', onError);
+			output.off('close', onClose);
+		};
+		const onError = (error: Error): void => {
+			cleanup();
+			reject(error);
+		};
+		const onClose = (): void => {
+			cleanup();
+			reject(new Error('Output closed before the write completed'));
+		};
+		output.once('error', onError);
+		output.once('close', onClose);
+		output.write(text, (error) => {
+			if (error) {
+				reject(error);
+				setImmediate(cleanup);
+				return;
+			}
+			cleanup();
+			resolve();
+		});
+	});
 }
 
 async function forward(input: NodeJS.ReadableStream, output: Writable): Promise<void> {
 	const decoder = new TerminalOutputDecoder();
+	let failed = false;
+	let failure: unknown;
 	for await (const chunk of input) {
-		await write(output, decoder.write(typeof chunk === 'string' ? Buffer.from(chunk) : chunk));
+		const text = decoder.write(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
+		if (failed) continue;
+		try {
+			await write(output, text);
+		} catch (error) {
+			failed = true;
+			failure = error;
+		}
 	}
-	await write(output, decoder.end());
+	const final = decoder.end();
+	if (!failed) await write(output, final);
+	if (failed) throw failure;
 }
 
 /** Run one child with separate, live, sanitized stdout and stderr streams. */
@@ -126,12 +160,17 @@ export async function runSanitizedCommand(
 			child.once('close', (status, signal) => resolve({ status, signal }));
 		});
 
-		const [completed] = await Promise.all([
+		const outcomes = await Promise.allSettled([
 			result,
 			forward(child.stdout, stdout),
 			forward(child.stderr, childStderr)
 		]);
-		return completed;
+		const completed = outcomes[0]!;
+		if (completed.status === 'rejected') throw completed.reason;
+		for (const outcome of outcomes.slice(1)) {
+			if (outcome.status === 'rejected') throw outcome.reason;
+		}
+		return completed.value;
 	} finally {
 		if (commandToken) await write(stdout, `\n::${commandToken}::\n`);
 	}

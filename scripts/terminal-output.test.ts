@@ -1,5 +1,5 @@
 import { spawnSync } from 'child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'fs';
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
 import path from 'path';
 import { PassThrough, Writable } from 'stream';
 import { fileURLToPath } from 'url';
@@ -45,6 +45,55 @@ class SlowCapture extends Writable {
 
 	text(): string {
 		return Buffer.concat(this.chunks).toString('utf8');
+	}
+}
+
+class FailingCapture extends Writable {
+	override _write(
+		_chunk: Buffer,
+		_encoding: BufferEncoding,
+		callback: (error?: Error | null) => void
+	): void {
+		callback(new Error('output closed'));
+	}
+}
+
+class DelayedFailingCapture extends Writable {
+	constructor() {
+		super();
+		this.on('error', () => {});
+	}
+
+	override _write(
+		_chunk: Buffer,
+		_encoding: BufferEncoding,
+		callback: (error?: Error | null) => void
+	): void {
+		setTimeout(() => callback(new Error('delayed output failure')), 50);
+	}
+}
+
+class ClosingCapture extends Writable {
+	constructor() {
+		super({ highWaterMark: 1 });
+	}
+
+	override _write(): void {
+		this.destroy();
+	}
+}
+
+class CloseAfterFirstCapture extends Writable {
+	#writes = 0;
+
+	override _write(
+		_chunk: Buffer,
+		_encoding: BufferEncoding,
+		callback: (error?: Error | null) => void
+	): void {
+		this.#writes++;
+		if (this.#writes === 1) callback();
+		else this.destroy();
 	}
 }
 
@@ -231,6 +280,93 @@ describe('sanitized commands', () => {
 		expect(stdout.text()).toHaveLength(262144);
 		expect(stderr.text()).toHaveLength(262144);
 	}, 5_000);
+
+	it('joins the child before reporting an output forwarding failure', async () => {
+		const directory = mkdtempSync(path.join(ROOT, 'terminal-output-child-'));
+		const marker = path.join(directory, 'finished');
+		const script = `
+			const { writeFileSync } = require('fs');
+			process.stdout.end('start');
+			setTimeout(() => {
+				writeFileSync(process.argv[1], 'finished');
+				process.exit(0);
+			}, 100);
+		`;
+
+		try {
+			await expect(
+				runSanitizedCommand(process.execPath, ['-e', script, marker], {
+					stdout: new FailingCapture(),
+					stderr: new PassThrough(),
+					githubActions: false
+				})
+			).rejects.toThrow('output closed');
+			expect(existsSync(marker)).toBe(true);
+		} finally {
+			rmSync(directory, { recursive: true, force: true });
+		}
+	});
+
+	it('waits for an accepted write callback before returning success', async () => {
+		await expect(
+			runSanitizedCommand(process.execPath, ['-e', "process.stdout.write('output')"], {
+				stdout: new DelayedFailingCapture(),
+				stderr: new PassThrough(),
+				githubActions: false
+			})
+		).rejects.toThrow('delayed output failure');
+	});
+
+	it('rejects when a backpressured destination closes without draining', async () => {
+		const outcome = await Promise.race([
+			runSanitizedCommand(process.execPath, ['-e', "process.stdout.write('output')"], {
+				stdout: new ClosingCapture(),
+				stderr: new PassThrough(),
+				githubActions: false
+			}).then(
+				() => 'resolved',
+				() => 'rejected'
+			),
+			new Promise<string>((resolve) => setTimeout(() => resolve('timeout'), 500))
+		]);
+
+		expect(outcome).toBe('rejected');
+	});
+
+	it('rejects when the output destination was already closed', async () => {
+		const stdout = new PassThrough();
+		stdout.destroy();
+		await new Promise((resolve) => stdout.once('close', resolve));
+		const outcome = await Promise.race([
+			runSanitizedCommand(process.execPath, ['-e', "process.stdout.write('output')"], {
+				stdout,
+				stderr: new PassThrough(),
+				githubActions: false
+			}).then(
+				() => 'resolved',
+				() => 'rejected'
+			),
+			new Promise<string>((resolve) => setTimeout(() => resolve('timeout'), 500))
+		]);
+
+		expect(outcome).toBe('rejected');
+	});
+
+	it('settles when GitHub stdout closes before the resume marker', async () => {
+		const outcome = await Promise.race([
+			runSanitizedCommand(process.execPath, ['-e', "process.stdout.write('output')"], {
+				stdout: new CloseAfterFirstCapture(),
+				stderr: new PassThrough(),
+				githubActions: true
+			}).then(
+				() => 'resolved',
+				() => 'rejected'
+			),
+			new Promise<string>((resolve) => setTimeout(() => resolve('timeout'), 500))
+		]);
+
+		expect(outcome).toBe('rejected');
+	});
 });
 
 describe('static-check boundary', () => {
