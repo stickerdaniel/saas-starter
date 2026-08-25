@@ -16,8 +16,7 @@ function parseAbsoluteUrl(url: string): URL | null {
 function withoutLanguagePrefix(pathname: string): string {
 	const segments = pathname.split('/');
 	if (!isSupportedLanguage(segments[1])) return pathname;
-	const unprefixed = `/${segments.slice(2).join('/')}`;
-	return unprefixed === '/' ? '/' : unprefixed.replace(/\/$/, '');
+	return `/${segments.slice(2).join('/')}`;
 }
 
 export function resolveLegalMarkdownLink(
@@ -26,7 +25,7 @@ export function resolveLegalMarkdownLink(
 	currentUrl: URL,
 	localize: (path: string) => string
 ): ResolvedLegalMarkdownLink | null {
-	if (!href) return null;
+	if (!href || href.startsWith('//')) return null;
 	if (href.startsWith('/') || href.startsWith('#')) {
 		return { href, external: false };
 	}

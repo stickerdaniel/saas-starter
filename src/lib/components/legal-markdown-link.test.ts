@@ -84,6 +84,10 @@ describe('resolveLegalMarkdownLink', () => {
 			href: '/de/privacy',
 			external: false
 		});
+		expect(resolveLegalMarkdownLink('privacy/', null, currentUrl, localize)).toEqual({
+			href: '/de/privacy/',
+			external: false
+		});
 	});
 
 	it('uses Streamdown-sanitized external targets', () => {
@@ -100,6 +104,9 @@ describe('resolveLegalMarkdownLink', () => {
 
 	it('preserves empty, root-relative, and anchor targets', () => {
 		expect(resolveLegalMarkdownLink('', null, currentUrl, localize)).toBeNull();
+		expect(
+			resolveLegalMarkdownLink('//evil.example/privacy', '/privacy', currentUrl, localize)
+		).toBeNull();
 		expect(resolveLegalMarkdownLink('/privacy', null, currentUrl, localize)).toEqual({
 			href: '/privacy',
 			external: false
@@ -115,8 +122,11 @@ describe('resolveLegalMarkdownLink', () => {
 			resolve(installedPackageDirectory(), 'Elements/Link.svelte'),
 			'utf8'
 		);
-		expect(source).toContain('href: transformedUrl');
+		expect(source).toMatch(/props=\{\{[\s\S]*?href:\s*transformedUrl,[\s\S]*?token[\s\S]*?\}\}/);
 		expect(source).toContain('render={streamdown.snippets.link}');
+		expect(source).toContain(
+			"{#if transformedUrl || token.href === 'streamdown:incomplete-link' || isRelativeUrl}"
+		);
 	});
 
 	it('pins Streamdown routing of relative and anchor tokens into the custom snippet', async () => {
