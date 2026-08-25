@@ -62,7 +62,7 @@ describe('windowsJobCommand', () => {
 	it('requires a lifetime pipe for Windows commands', () => {
 		expect(() =>
 			windowsJobCommand({ command: 'bun', args: ['run', 'dev'] }, { platform: 'win32' })
-		).toThrow('Windows Job Object lifetime pipe is required.');
+		).toThrow('Windows Job Object lifetime is required.');
 	});
 
 	it('assigns the Job Object during process creation', () => {
@@ -73,26 +73,32 @@ describe('windowsJobCommand', () => {
 	});
 
 	it('encodes the executable and arguments as one PowerShell payload', () => {
+		let encodedPayload = '';
+		const lifetime = {
+			pipeName: 'test-lifetime-pipe',
+			setPayload: (value: string) => (encodedPayload = value),
+			close: async () => {}
+		};
 		const wrapped = windowsJobCommand(
 			{
 				command: String.raw`C:\Program Files\Bun\bun.exe`,
 				args: ['run', 'space value', 'quote"value', '', '--once'],
 				env: { EXAMPLE: 'value' }
 			},
-			{ platform: 'win32', lifetimePipe: 'test-lifetime-pipe' }
+			{ platform: 'win32', lifetime }
 		);
-		const payload = JSON.parse(Buffer.from(wrapped.args.at(-1)!, 'base64').toString('utf8'));
+		expect(encodedPayload).not.toBe('');
+		const payload = JSON.parse(Buffer.from(encodedPayload, 'base64').toString('utf8'));
 
 		expect(wrapped.command).toBe('powershell.exe');
 		expect(wrapped.args).toContain('-NonInteractive');
 		expect(wrapped.args).toContain('-File');
 		expect(wrapped.args.at(-2)).toMatch(/windows-job-runner\.ps1$/);
-		expect(payload).toEqual({
-			command: String.raw`C:\Program Files\Bun\bun.exe`,
-			args: ['run', 'space value', 'quote"value', '', '--once'],
-			lifetimePipe: 'test-lifetime-pipe'
-		});
-		expect(wrapped.env).toEqual({ EXAMPLE: 'value' });
+		expect(wrapped.args.at(-1)).toBe('test-lifetime-pipe');
+		expect(payload.command).toBe(String.raw`C:\Program Files\Bun\bun.exe`);
+		expect(payload.args).toEqual(['run', 'space value', 'quote"value', '', '--once']);
+		expect(payload.environment.includes('EXAMPLE=value')).toBe(true);
+		expect(wrapped.env?.EXAMPLE).toBe('value');
 	});
 
 	it.runIf(process.platform === 'win32')(
@@ -103,7 +109,7 @@ describe('windowsJobCommand', () => {
 			try {
 				const wrapped = windowsJobCommand(
 					{ command: process.execPath, args: ['-e', 'process.exit(7)'] },
-					{ platform: 'win32', lifetimePipe: lifetime.pipeName }
+					{ platform: 'win32', lifetime }
 				);
 				const result = spawnSync(wrapped.command, wrapped.args, { encoding: 'utf8' });
 				expect(result.stderr).toBe('');
@@ -127,7 +133,7 @@ describe('windowsJobCommand', () => {
 					command: process.execPath,
 					args: ['-e', `require('node:fs').writeFileSync(${JSON.stringify(markerFile)}, '')`]
 				},
-				{ platform: 'win32', lifetimePipe: lifetime.pipeName }
+				{ platform: 'win32', lifetime }
 			);
 			await lifetime.close();
 			try {
@@ -157,16 +163,16 @@ describe('windowsJobCommand', () => {
 			if (!lifetime) throw new Error('Windows lifetime pipe did not start.');
 			writeFileSync(
 				script,
-				"require('node:fs').writeFileSync(process.env.ARGV_OUTPUT, JSON.stringify(process.argv.slice(2)))"
+				"require('node:fs').writeFileSync(process.env.ARGV_OUTPUT, JSON.stringify({args:process.argv.slice(2),psModulePath:process.env.PSModulePath,payload:process.env.SAAS_STARTER_WINDOWS_JOB_PAYLOAD??null}))"
 			);
 			try {
 				const wrapped = windowsJobCommand(
 					{
 						command: process.execPath,
 						args: [script, 'space value', 'quote"value', 'backslash\\', '', '--once'],
-						env: { ARGV_OUTPUT: output }
+						env: { ARGV_OUTPUT: output, PSModulePath: 'exact-module-path' }
 					},
-					{ platform: 'win32', lifetimePipe: lifetime.pipeName }
+					{ platform: 'win32', lifetime }
 				);
 				const result = spawnSync(wrapped.command, wrapped.args, {
 					cwd: directory,
@@ -175,13 +181,11 @@ describe('windowsJobCommand', () => {
 				});
 				expect(result.stderr).toBe('');
 				expect(result.status).toBe(0);
-				expect(JSON.parse(readFileSync(output, 'utf8'))).toEqual([
-					'space value',
-					'quote"value',
-					'backslash\\',
-					'',
-					'--once'
-				]);
+				expect(JSON.parse(readFileSync(output, 'utf8'))).toEqual({
+					args: ['space value', 'quote"value', 'backslash\\', '', '--once'],
+					psModulePath: 'exact-module-path',
+					payload: null
+				});
 			} finally {
 				await lifetime.close();
 				rmSync(directory, { recursive: true, force: true });
@@ -294,8 +298,8 @@ describe('runUntilOneExits', () => {
 						forceMs: 1_000
 					}
 				);
-				expect(code).toBe(7);
 				grandchildPid = Number(readFileSync(pidFile, 'utf8'));
+				expect(code).toBe(7);
 				expect(await waitUntilStopped(grandchildPid)).toBe(true);
 			} finally {
 				forceStopWindowsTree(grandchildPid);
@@ -316,7 +320,7 @@ describe('runUntilOneExits', () => {
 			if (!lifetime) throw new Error('Windows lifetime pipe did not start.');
 			const wrapped = windowsJobCommand(
 				{ command: process.execPath, args: ['-e', root] },
-				{ platform: 'win32', lifetimePipe: lifetime.pipeName }
+				{ platform: 'win32', lifetime }
 			);
 			const owner = spawn(wrapped.command, wrapped.args, {
 				cwd: directory,
@@ -333,6 +337,8 @@ describe('runUntilOneExits', () => {
 				const pids = JSON.parse(readFileSync(pidFile, 'utf8'));
 				rootPid = pids.root;
 				grandchildPid = pids.grandchild;
+				expect(processExists(rootPid!)).toBe(true);
+				expect(processExists(grandchildPid!)).toBe(true);
 				await lifetime.close();
 				expect(await waitUntilStopped(rootPid!)).toBe(true);
 				expect(await waitUntilStopped(grandchildPid!)).toBe(true);
@@ -358,7 +364,7 @@ describe('runUntilOneExits', () => {
 			if (!lifetime) throw new Error('Windows lifetime pipe did not start.');
 			const wrapped = windowsJobCommand(
 				{ command: process.execPath, args: ['-e', root] },
-				{ platform: 'win32', lifetimePipe: lifetime.pipeName }
+				{ platform: 'win32', lifetime }
 			);
 			const owner = spawn(wrapped.command, wrapped.args, {
 				cwd: directory,
@@ -375,6 +381,8 @@ describe('runUntilOneExits', () => {
 				const pids = JSON.parse(readFileSync(pidFile, 'utf8'));
 				rootPid = pids.root;
 				grandchildPid = pids.grandchild;
+				expect(processExists(rootPid!)).toBe(true);
+				expect(processExists(grandchildPid!)).toBe(true);
 				spawnSync('taskkill', ['/PID', String(owner.pid), '/F'], { stdio: 'ignore' });
 				expect(await waitUntilStopped(rootPid!)).toBe(true);
 				expect(await waitUntilStopped(grandchildPid!)).toBe(true);

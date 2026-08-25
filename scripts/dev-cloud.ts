@@ -124,7 +124,7 @@ export async function runUntilOneExits(
 		const children = commands
 			.map((command, index) => {
 				const lifetime = lifetimes[index];
-				return windowsJobCommand(command, lifetime ? { lifetimePipe: lifetime.pipeName } : {});
+				return windowsJobCommand(command, lifetime ? { lifetime } : {});
 			})
 			.map(({ command, args, env }) =>
 				spawn(command, args, { ...spawnOptions, env: { ...process.env, ...env } })

@@ -11,7 +11,7 @@ export interface ChildCommand {
 
 export interface WindowsJobCommandOptions {
 	platform?: NodeJS.Platform;
-	lifetimePipe?: string;
+	lifetime?: WindowsJobLifetime;
 }
 
 export interface WindowsJobLifetimeOptions {
@@ -20,6 +20,7 @@ export interface WindowsJobLifetimeOptions {
 
 export interface WindowsJobLifetime {
 	pipeName: string;
+	setPayload: (payload: string) => void;
 	close: () => Promise<void>;
 }
 
@@ -37,14 +38,16 @@ export async function openWindowsJobLifetime(
 	const pipePath = '\\\\.\\pipe\\' + pipeName;
 	const sockets = new Set<Socket>();
 	let closed = false;
+	let payload: string | null = null;
 	const server = createServer((socket) => {
-		if (closed) {
+		if (closed || payload === null) {
 			socket.destroy();
 			return;
 		}
 		sockets.add(socket);
 		socket.on('error', () => {});
 		socket.on('close', () => sockets.delete(socket));
+		socket.write(`${payload}\n`);
 	});
 
 	await new Promise<void>((resolve, reject) => {
@@ -58,6 +61,10 @@ export async function openWindowsJobLifetime(
 
 	return {
 		pipeName,
+		setPayload: (value) => {
+			if (payload !== null) throw new Error('Windows Job Object payload is already set.');
+			payload = value;
+		},
 		close: async () => {
 			if (closed) return;
 			closed = true;
@@ -69,20 +76,33 @@ export async function openWindowsJobLifetime(
 	};
 }
 
+function environmentEntries(overrides: NodeJS.ProcessEnv | undefined): string[] {
+	const entries = new Map<string, { name: string; value: string }>();
+	for (const environment of [process.env, overrides]) {
+		for (const [name, value] of Object.entries(environment ?? {})) {
+			const key = name.toUpperCase();
+			if (value === undefined) entries.delete(key);
+			else entries.set(key, { name, value });
+		}
+	}
+	return [...entries.values()].map(({ name, value }) => `${name}=${value}`);
+}
+
 export function windowsJobCommand(
 	command: ChildCommand,
 	options: WindowsJobCommandOptions = {}
 ): ChildCommand {
 	if ((options.platform ?? process.platform) !== 'win32') return command;
-	if (!options.lifetimePipe) throw new Error('Windows Job Object lifetime pipe is required.');
+	if (!options.lifetime) throw new Error('Windows Job Object lifetime is required.');
 	const payload = Buffer.from(
 		JSON.stringify({
 			command: command.command,
 			args: command.args,
-			lifetimePipe: options.lifetimePipe
+			environment: environmentEntries(command.env)
 		}),
 		'utf8'
 	).toString('base64');
+	options.lifetime.setPayload(payload);
 	return {
 		command: 'powershell.exe',
 		args: [
@@ -93,7 +113,7 @@ export function windowsJobCommand(
 			'Bypass',
 			'-File',
 			RUNNER,
-			payload
+			options.lifetime.pipeName
 		],
 		env: command.env
 	};

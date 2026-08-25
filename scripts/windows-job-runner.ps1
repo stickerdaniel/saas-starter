@@ -1,9 +1,37 @@
 param(
     [Parameter(Mandatory = $true, Position = 0)]
-    [string] $Payload
+    [string] $LifetimePipe
 )
 
 $ErrorActionPreference = 'Stop'
+
+$lifetime = [System.IO.Pipes.NamedPipeClientStream]::new(
+    '.',
+    $LifetimePipe,
+    [System.IO.Pipes.PipeDirection]::In,
+    [System.IO.Pipes.PipeOptions]::Asynchronous
+)
+$lifetime.Connect(3000)
+$reader = [System.IO.StreamReader]::new(
+    $lifetime,
+    [Text.Encoding]::UTF8,
+    $false,
+    1024,
+    $true
+)
+try {
+    $Payload = $reader.ReadLine()
+}
+finally {
+    $reader.Dispose()
+}
+if ([string]::IsNullOrWhiteSpace($Payload)) {
+    throw 'Windows Job Object payload is missing.'
+}
+$decoded = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($Payload))
+$command = $decoded | ConvertFrom-Json
+$arguments = @($command.args | ForEach-Object { [string] $_ })
+$environment = @($command.environment | ForEach-Object { [string] $_ })
 
 Add-Type -TypeDefinition @'
 using System;
@@ -17,6 +45,7 @@ using System.Threading;
 public static class WindowsJobRunner
 {
     private const uint CREATE_SUSPENDED = 0x00000004;
+    private const uint CREATE_UNICODE_ENVIRONMENT = 0x00000400;
     private const uint EXTENDED_STARTUPINFO_PRESENT = 0x00080000;
     private const uint STARTF_USESTDHANDLES = 0x00000100;
     private const uint JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE = 0x00002000;
@@ -226,13 +255,14 @@ public static class WindowsJobRunner
     public static int Run(
         string executable,
         string[] arguments,
+        string[] environment,
         string currentDirectory,
-        string lifetimePipe
+        NamedPipeClientStream lifetime
     )
     {
-        NamedPipeClientStream lifetime = null;
         IAsyncResult lifetimeRead = null;
         WaitHandle lifetimeWait = null;
+        var environmentBlock = IntPtr.Zero;
         var attributeList = IntPtr.Zero;
         var attributeListSize = IntPtr.Zero;
         var jobList = IntPtr.Zero;
@@ -242,16 +272,10 @@ public static class WindowsJobRunner
 
         try
         {
-            lifetime = new NamedPipeClientStream(
-                ".",
-                lifetimePipe,
-                PipeDirection.In,
-                PipeOptions.Asynchronous
-            );
-            lifetime.Connect(3000);
             var lifetimeBuffer = new byte[1];
             lifetimeRead = lifetime.BeginRead(lifetimeBuffer, 0, 1, null, null);
             lifetimeWait = lifetimeRead.AsyncWaitHandle;
+            if (lifetimeWait.WaitOne(0)) return 1;
 
             job = CreateJobObject(IntPtr.Zero, null);
             if (job == IntPtr.Zero) throw Failure("CreateJobObjectW");
@@ -291,20 +315,28 @@ public static class WindowsJobRunner
             startupInfo.StartupInfo.hStdError = GetStdHandle(STD_ERROR_HANDLE);
             startupInfo.lpAttributeList = attributeList;
 
+            Array.Sort(environment, StringComparer.OrdinalIgnoreCase);
+            environmentBlock = Marshal.StringToHGlobalUni(String.Join("\0", environment) + "\0");
+
             if (!CreateProcess(
                 executable,
                 CommandLine(executable, arguments),
                 IntPtr.Zero,
                 IntPtr.Zero,
                 true,
-                CREATE_SUSPENDED | EXTENDED_STARTUPINFO_PRESENT,
-                IntPtr.Zero,
+                CREATE_SUSPENDED | CREATE_UNICODE_ENVIRONMENT | EXTENDED_STARTUPINFO_PRESENT,
+                environmentBlock,
                 currentDirectory,
                 ref startupInfo,
                 out processInformation
             )) throw Failure("CreateProcessW");
             processCreated = true;
 
+            if (lifetimeWait.WaitOne(0))
+            {
+                if (!TerminateJobObject(job, 1)) throw Failure("TerminateJobObject");
+                return 1;
+            }
             if (ResumeThread(processInformation.hThread) == UInt32.MaxValue)
                 throw Failure("ResumeThread");
 
@@ -348,10 +380,26 @@ public static class WindowsJobRunner
         }
         finally
         {
-            if (lifetime != null) lifetime.Dispose();
-            if (lifetimeWait != null) lifetimeWait.Close();
+            try
+            {
+                if (lifetime != null) lifetime.Dispose();
+            }
+            catch (IOException)
+            {
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+            try
+            {
+                if (lifetimeWait != null) lifetimeWait.Close();
+            }
+            catch (ObjectDisposedException)
+            {
+            }
             if (processInformation.hThread != IntPtr.Zero) CloseHandle(processInformation.hThread);
             if (processInformation.hProcess != IntPtr.Zero) CloseHandle(processInformation.hProcess);
+            if (environmentBlock != IntPtr.Zero) Marshal.FreeHGlobal(environmentBlock);
             if (attributeList != IntPtr.Zero) DeleteProcThreadAttributeList(attributeList);
             if (jobList != IntPtr.Zero) Marshal.FreeHGlobal(jobList);
             if (attributeList != IntPtr.Zero) Marshal.FreeHGlobal(attributeList);
@@ -361,12 +409,17 @@ public static class WindowsJobRunner
 }
 '@
 
-$decoded = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($Payload))
-$command = $decoded | ConvertFrom-Json
-$arguments = @($command.args | ForEach-Object { [string] $_ })
-exit [WindowsJobRunner]::Run(
-    [string] $command.command,
-    $arguments,
-    (Get-Location).Path,
-    [string] $command.lifetimePipe
-)
+try {
+    $exitCode = [WindowsJobRunner]::Run(
+        [string] $command.command,
+        $arguments,
+        $environment,
+        (Get-Location).Path,
+        $lifetime
+    )
+    exit $exitCode
+}
+catch {
+    [Console]::Error.WriteLine($_.Exception.ToString())
+    exit 1
+}
