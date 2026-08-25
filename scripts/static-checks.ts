@@ -178,6 +178,10 @@ export function repositoryPaths(): string[] {
 	return result.stdout.split('\0').filter(Boolean);
 }
 
+export function existingRepositoryPaths(files: string[]): string[] {
+	return files.filter((file) => existsSync(path.join(REPO_ROOT, file)));
+}
+
 function toPosix(p: string): string {
 	return p.split(path.sep).join('/');
 }
@@ -242,8 +246,9 @@ export function resolveInputs(raw: string[], origin: string): string[] {
 
 		if (statSync(real).isDirectory()) {
 			const before = out.size;
-			for (const entry of new Bun.Glob(`${relative}/**/*`).scanSync({ cwd: REPO_ROOT })) {
-				const file = toPosix(entry);
+			const prefix = `${relative}/`;
+			for (const file of repositoryPaths()) {
+				if (!file.startsWith(prefix) || !existsSync(path.join(REPO_ROOT, file))) continue;
 				if (NEVER_WALK.some((skip) => file.includes(skip))) continue;
 				out.add(file);
 			}
@@ -301,6 +306,10 @@ export const ROUTES = {
 
 export function authoredTextFiles(files: string[]): string[] {
 	return files.filter((file) => ROUTES['literal-control-char'](file) && !isIgnoredPath(file));
+}
+
+export function spellcheckFiles(files: string[]): string[] {
+	return files.filter((file) => ROUTES.misspell(file) && !isIgnoredPath(file));
 }
 
 type CheckId = keyof typeof ROUTES;
@@ -589,6 +598,7 @@ async function main(): Promise<void> {
 	}
 
 	const fullRepositoryPaths = mode === 'full' ? repositoryPaths() : [];
+	const fullExistingPaths = existingRepositoryPaths(fullRepositoryPaths);
 	assertSafePaths(mode === 'full' ? fullRepositoryPaths : inputs);
 
 	const ledger = new Ledger(mode, inputs);
@@ -626,11 +636,7 @@ async function main(): Promise<void> {
 		// Spell checking
 		printHeader(step++, 'Spell checking');
 		if (hasMisspell()) {
-			const files = scopedMode
-				? ledger.filesFor('misspell')
-				: [...new Bun.Glob('**/*').scanSync({ absolute: false })]
-						.map(toPosix)
-						.filter((f) => ROUTES.misspell(f));
+			const files = scopedMode ? ledger.filesFor('misspell') : spellcheckFiles(fullExistingPaths);
 
 			if (files.length === 0) {
 				console.log('No files to spell check');
@@ -715,7 +721,7 @@ async function main(): Promise<void> {
 		{
 			const files = scopedMode
 				? ledger.filesFor('literal-control-char')
-				: authoredTextFiles(fullRepositoryPaths);
+				: authoredTextFiles(fullExistingPaths);
 			const violations: string[] = [];
 			for (const file of files) {
 				violations.push(...literalControlCharacterViolations(file, await Bun.file(file).text()));

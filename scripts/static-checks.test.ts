@@ -23,12 +23,14 @@ import { describe, expect, it } from 'vitest';
 import { sanitizedGitEnv } from './git-context';
 import {
 	authoredTextFiles,
+	existingRepositoryPaths,
 	formatPathForDiagnostic,
 	isIgnoredPath,
 	literalControlCharacterViolations,
 	repositoryPaths,
 	ROUTES,
 	resolveInputs,
+	spellcheckFiles,
 	unsafePathCodepoints
 } from './static-checks';
 
@@ -58,14 +60,20 @@ describe('route predicates', () => {
 	it('keeps artifact ignores rooted and includes tracked dot-directory documents', () => {
 		expect(isIgnoredPath('scratch/session/log.md')).toBe(true);
 		expect(isIgnoredPath('src/lib/scratch/editor.ts')).toBe(false);
-		expect(
-			authoredTextFiles([
-				'.agents/skills/example.md',
-				'references/example.md',
-				'scratch/session/log.md',
-				'src/lib/scratch/editor.md'
-			])
-		).toEqual(['.agents/skills/example.md', 'src/lib/scratch/editor.md']);
+		const files = [
+			'.agents/skills/example.md',
+			'references/example.md',
+			'scratch/session/log.md',
+			'src/lib/scratch/editor.md'
+		];
+		expect(authoredTextFiles(files)).toEqual([
+			'.agents/skills/example.md',
+			'src/lib/scratch/editor.md'
+		]);
+		expect(spellcheckFiles(files)).toEqual([
+			'.agents/skills/example.md',
+			'src/lib/scratch/editor.md'
+		]);
 	});
 
 	it('are blind to an absolute path, which is why normalization is load-bearing', () => {
@@ -102,6 +110,10 @@ describe('literal control-character scan', () => {
 });
 
 describe('repository path safety', () => {
+	it('keeps missing tracked files out of full-mode content readers', () => {
+		expect(existingRepositoryPaths(['README.md', 'docs/does-not-exist.md'])).toEqual(['README.md']);
+	});
+
 	it('includes untracked nonignored files in the full-mode preflight', () => {
 		const relative = `src/lib/content/.static-checks-untracked-${process.pid}.md`;
 		const file = path.join(ROOT, relative);
@@ -186,13 +198,19 @@ describe('resolveInputs', () => {
 		expect(resolveInputs(forms, 'test')).toEqual(['src/lib/utils/auth-messages.ts']);
 	});
 
-	// Directory expansion is deliberately NOT pinned here. It runs through Bun.Glob,
-	// which does not exist in the vitest (node) runtime, so it cannot be called
-	// directly; and asserting it through a real run costs ~10s, a quarter of the
-	// whole unit suite. A guard that slows the suite that much gets switched off,
-	// and a switched-off guard protects nothing. The hole it would cover (a
-	// directory argument checking nothing) is closed by the ledger, which fails any
-	// run where no check touched a file, and that is asserted above.
+	it('includes dot-directory descendants of a directory argument', () => {
+		const directory = path.join(ROOT, 'src', '.static-checks-directory-test');
+		const file = path.join(directory, 'instructions.md');
+		mkdirSync(directory, { recursive: true });
+		writeFileSync(file, 'safe');
+		try {
+			expect(resolveInputs([path.join(ROOT, 'src')], 'test')).toContain(
+				'src/.static-checks-directory-test/instructions.md'
+			);
+		} finally {
+			rmSync(directory, { recursive: true, force: true });
+		}
+	});
 });
 
 describe('bad input dies at the boundary', () => {
