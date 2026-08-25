@@ -1,8 +1,27 @@
-import { spawn, type ChildProcess, type StdioOptions } from 'node:child_process';
+import {
+	spawn,
+	spawnSync,
+	type ChildProcess,
+	type SpawnOptions,
+	type StdioOptions
+} from 'node:child_process';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const DEFAULT_GRACE_MS = 2_000;
+const DEFAULT_FORCE_MS = 2_000;
 
 export interface ChildCommand {
 	command: string;
 	args: string[];
+	env?: NodeJS.ProcessEnv;
+}
+
+export interface ProcessGroupOptions {
+	stdio?: StdioOptions;
+	graceMs?: number;
+	forceMs?: number;
 }
 
 interface ChildExit {
@@ -18,35 +37,84 @@ function waitForExit(child: ChildProcess, index: number): Promise<ChildExit> {
 	});
 }
 
+function waitForAll(exits: Array<Promise<ChildExit>>, timeoutMs: number): Promise<boolean> {
+	return new Promise((resolve) => {
+		const timeout = setTimeout(() => resolve(false), timeoutMs);
+		void Promise.allSettled(exits).then(() => {
+			clearTimeout(timeout);
+			resolve(true);
+		});
+	});
+}
+
+export function windowsTreeKillArgs(pid: number, force: boolean): string[] {
+	return ['/PID', String(pid), '/T', ...(force ? ['/F'] : [])];
+}
+
+function terminateTree(child: ChildProcess, force: boolean): void {
+	if (!child.pid) return;
+	if (process.platform === 'win32') {
+		spawnSync('taskkill', windowsTreeKillArgs(child.pid, force), {
+			stdio: 'ignore',
+			windowsHide: true
+		});
+		return;
+	}
+	try {
+		process.kill(-child.pid, force ? 'SIGKILL' : 'SIGTERM');
+	} catch (error) {
+		if ((error as NodeJS.ErrnoException).code !== 'ESRCH') throw error;
+	}
+}
+
+export function devCloudCommands(args: string[] = process.argv.slice(2)): ChildCommand[] {
+	return [
+		{
+			command: process.execPath,
+			args: [path.join(PROJECT_ROOT, 'scripts/dev.ts')],
+			env: { npm_lifecycle_event: 'dev:frontend' }
+		},
+		{
+			command: process.execPath,
+			args: [path.join(PROJECT_ROOT, 'scripts/dev-convex-cloud.ts'), ...args],
+			env: { AUTHORED_CONTENT_WATCH: '0' }
+		}
+	];
+}
+
 export async function runUntilOneExits(
 	commands: ChildCommand[],
-	stdio: StdioOptions = 'inherit'
+	options: ProcessGroupOptions = {}
 ): Promise<number> {
 	if (commands.length < 2) throw new Error('At least two child commands are required.');
-	const children = commands.map(({ command, args }) =>
-		spawn(command, args, { stdio, env: { ...process.env } })
+	const spawnOptions: SpawnOptions = {
+		stdio: options.stdio ?? 'inherit',
+		detached: process.platform !== 'win32'
+	};
+	const children = commands.map(({ command, args, env }) =>
+		spawn(command, args, { ...spawnOptions, env: { ...process.env, ...env } })
 	);
 	const exits = children.map(waitForExit);
-	const stop = (signal: NodeJS.Signals = 'SIGTERM', except?: number) => {
-		for (const [index, child] of children.entries()) {
-			if (index !== except && child.exitCode === null && child.signalCode === null) {
-				child.kill(signal);
-			}
-		}
-	};
-	const onInterrupt = () => stop('SIGINT');
-	const onTerminate = () => stop('SIGTERM');
+	let resolveSignal!: (exit: ChildExit) => void;
+	const signalExit = new Promise<ChildExit>((resolve) => {
+		resolveSignal = resolve;
+	});
+	const onInterrupt = () => resolveSignal({ index: -1, code: null, signal: 'SIGINT' });
+	const onTerminate = () => resolveSignal({ index: -1, code: null, signal: 'SIGTERM' });
 	process.once('SIGINT', onInterrupt);
 	process.once('SIGTERM', onTerminate);
 
 	try {
-		const first = await Promise.race(exits);
-		stop('SIGTERM', first.index);
-		await Promise.allSettled(exits);
-		return first.code ?? (first.signal ? 1 : 0);
+		const first = await Promise.race([...exits, signalExit]);
+		for (const child of children) terminateTree(child, false);
+		if (!(await waitForAll(exits, options.graceMs ?? DEFAULT_GRACE_MS))) {
+			for (const child of children) terminateTree(child, true);
+			await waitForAll(exits, options.forceMs ?? DEFAULT_FORCE_MS);
+		}
+		return first.code ?? 1;
 	} catch (error) {
-		stop();
-		await Promise.allSettled(exits);
+		for (const child of children) terminateTree(child, true);
+		await waitForAll(exits, options.forceMs ?? DEFAULT_FORCE_MS);
 		throw error;
 	} finally {
 		process.off('SIGINT', onInterrupt);
@@ -55,9 +123,5 @@ export async function runUntilOneExits(
 }
 
 if (import.meta.main) {
-	const code = await runUntilOneExits([
-		{ command: process.execPath, args: ['run', 'dev:frontend'] },
-		{ command: process.execPath, args: ['run', '_dev:backend:cloud'] }
-	]);
-	process.exit(code);
+	process.exit(await runUntilOneExits(devCloudCommands()));
 }

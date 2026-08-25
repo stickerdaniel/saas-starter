@@ -8,7 +8,6 @@
 		"dev:frontend": "bun scripts/dev.ts",
 		"dev:backend:cloud": "bun scripts/dev-convex-cloud.ts",
 		"dev:cloud": "bun scripts/dev-cloud.ts",
-		"_dev:backend:cloud": "convex dev",
 		"dev:test": "VARLOCK_ENV=test bun scripts/dev-test.ts",
 		"generate": "bun run generate:content && bun scripts/generate-convex.ts",
 		"generate:content": "bun scripts/generate-authored-content.ts",

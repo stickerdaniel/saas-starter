@@ -5,14 +5,15 @@ export function convexDevCommand(args: string[] = process.argv.slice(2)): string
 }
 
 async function main(): Promise<void> {
-	const authoredContentWatcher = watchAuthoredContent();
+	const authoredContentWatcher =
+		process.env.AUTHORED_CONTENT_WATCH === '0' ? null : watchAuthoredContent();
 	const child = Bun.spawn(convexDevCommand(), {
 		stdio: ['inherit', 'inherit', 'inherit'],
 		env: { ...process.env }
 	});
 
 	const onSignal = (signal: NodeJS.Signals) => {
-		authoredContentWatcher.close();
+		authoredContentWatcher?.close();
 		try {
 			child.kill(signal);
 		} catch {
@@ -23,7 +24,7 @@ async function main(): Promise<void> {
 	process.on('SIGTERM', () => onSignal('SIGTERM'));
 
 	const code = await child.exited;
-	authoredContentWatcher.close();
+	authoredContentWatcher?.close();
 	process.exit(code ?? 0);
 }
 

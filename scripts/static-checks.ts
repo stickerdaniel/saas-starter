@@ -32,7 +32,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { parseArgs } from 'util';
 import knowledgePolicy from '../knowledge-policy.config';
-import { findLiteralControlCharacters } from '../eslint/rules/no-literal-control-char.js';
+import { findLiteralControlCharacters } from '../eslint/control-character-policy.js';
 import { getStagedChanges, getStagedFiles, isUnderPreCommit, sanitizedGitEnv } from './git-context';
 import { formatPolicyFinding, matchesKnowledgeCandidate } from './knowledge-policy/policy';
 import { runKnowledgePolicy } from './knowledge-policy/repository';
@@ -45,7 +45,7 @@ import {
 
 // Configuration (matches CI static-checks.yml exclusions)
 const CONFIG = {
-	ignorePaths: ['references/'],
+	ignorePaths: ['references/', 'scratch/'],
 	misspell: {
 		ignore: [
 			'src/i18n/',
@@ -121,6 +121,55 @@ function fail(message: string, hint?: string): never {
 	process.exit(1);
 }
 
+const PATH_BIDI = new Set([
+	0x061c, 0x200e, 0x200f, 0x202a, 0x202b, 0x202c, 0x202d, 0x202e, 0x2066, 0x2067, 0x2068, 0x2069
+]);
+
+function unsafePathCodepoint(code: number): boolean {
+	return code <= 0x1f || code === 0x7f || (code >= 0x80 && code <= 0x9f) || PATH_BIDI.has(code);
+}
+
+export function formatPathForDiagnostic(file: string): string {
+	let escaped = '';
+	for (let index = 0; index < file.length; index++) {
+		const code = file.charCodeAt(index);
+		escaped += unsafePathCodepoint(code)
+			? `\\u${code.toString(16).padStart(4, '0').toUpperCase()}`
+			: file[index];
+	}
+	return JSON.stringify(escaped);
+}
+
+export function unsafePathCodepoints(file: string): string[] {
+	const found: string[] = [];
+	for (let index = 0; index < file.length; index++) {
+		const code = file.charCodeAt(index);
+		if (unsafePathCodepoint(code)) {
+			found.push(`U+${code.toString(16).padStart(4, '0').toUpperCase()}`);
+		}
+	}
+	return found;
+}
+
+export function assertSafePaths(files: string[]): void {
+	for (const file of files) {
+		const [codepoint] = unsafePathCodepoints(file);
+		if (codepoint) {
+			fail(`Unsafe ${codepoint} in repository path ${formatPathForDiagnostic(file)}.`);
+		}
+	}
+}
+
+function trackedRepositoryPaths(): string[] {
+	const result = spawnSync('git', ['ls-files', '-z'], {
+		cwd: REPO_ROOT,
+		env: sanitizedGitEnv(),
+		encoding: 'utf8'
+	});
+	if (result.status !== 0) fail('Failed to list tracked repository paths.');
+	return result.stdout.split('\0').filter(Boolean);
+}
+
 function toPosix(p: string): string {
 	return p.split(path.sep).join('/');
 }
@@ -172,12 +221,15 @@ export function resolveInputs(raw: string[], origin: string): string[] {
 		// realpath both sides so a checkout reached through a symlink (/tmp ->
 		// /private/tmp, a symlinked worktree) does not read as "outside the repo".
 		const absolute = path.resolve(arg);
-		if (!existsSync(absolute)) fail(`No such file (${origin}): ${arg}`);
+		if (!existsSync(absolute)) fail(`No such file (${origin}): ${formatPathForDiagnostic(arg)}`);
 
 		const real = realpathSync(absolute);
 		const relative = toPosix(path.relative(REPO_ROOT, real));
 		if (relative === '' || relative.startsWith('..')) {
-			fail(`Path is outside the repository (${origin}): ${arg}`, `  Repo root: ${REPO_ROOT}`);
+			fail(
+				`Path is outside the repository (${origin}): ${formatPathForDiagnostic(arg)}`,
+				`  Repo root: ${formatPathForDiagnostic(REPO_ROOT)}`
+			);
 		}
 
 		if (statSync(real).isDirectory()) {
@@ -187,7 +239,8 @@ export function resolveInputs(raw: string[], origin: string): string[] {
 				if (NEVER_WALK.some((skip) => file.includes(skip))) continue;
 				out.add(file);
 			}
-			if (out.size === before) fail(`Directory contains no files to check (${origin}): ${arg}`);
+			if (out.size === before)
+				fail(`Directory contains no files to check (${origin}): ${formatPathForDiagnostic(arg)}`);
 			continue;
 		}
 
@@ -204,7 +257,7 @@ function readFilesFrom(source: string): string[] {
 			? readFileSync(0, 'utf-8')
 			: existsSync(path.resolve(source))
 				? readFileSync(path.resolve(source), 'utf-8')
-				: fail(`--files-from: no such file: ${source}`);
+				: fail(`--files-from: no such file: ${formatPathForDiagnostic(source)}`);
 
 	return raw
 		.split('\n')
@@ -224,7 +277,7 @@ function readFilesFrom(source: string): string[] {
 export const ROUTES = {
 	misspell: (f: string) => !CONFIG.misspell.ignore.some((i) => f.includes(i)),
 	'banned-patterns': (f: string) => /\.(svelte|ts)$/.test(f) && f.startsWith('src/'),
-	'literal-control-char': (f: string) => /\.(md|txt)$/.test(f),
+	'literal-control-char': (f: string) => /\.(md|txt)$/.test(f) && !f.startsWith('scratch/'),
 	'knowledge-placement': (f: string) => matchesKnowledgeCandidate(knowledgePolicy, f),
 	prettier: (f: string) => /\.(js|ts|svelte|html|css|md|json)$/.test(f),
 	eslint: (f: string) => /\.(js|ts|svelte)$/.test(f),
@@ -516,6 +569,8 @@ async function main(): Promise<void> {
 		stagedIndexPaths = getStagedFiles();
 		inputs = stagedIndexPaths.length > 0 ? resolveInputs(stagedIndexPaths, 'the git index') : [];
 	}
+
+	assertSafePaths(mode === 'full' ? trackedRepositoryPaths() : inputs);
 
 	const ledger = new Ledger(mode, inputs);
 

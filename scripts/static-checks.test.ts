@@ -15,12 +15,19 @@
  *      so these stay fast.
  */
 import { spawnSync } from 'child_process';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { describe, expect, it } from 'vitest';
 
 import { sanitizedGitEnv } from './git-context';
-import { literalControlCharacterViolations, ROUTES, resolveInputs } from './static-checks';
+import {
+	formatPathForDiagnostic,
+	literalControlCharacterViolations,
+	ROUTES,
+	resolveInputs,
+	unsafePathCodepoints
+} from './static-checks';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SCRIPT = path.join(ROOT, 'scripts', 'static-checks.ts');
@@ -42,6 +49,7 @@ describe('route predicates', () => {
 		expect(ROUTES['literal-control-char']('src/lib/content/legal/privacy.md')).toBe(true);
 		expect(ROUTES['literal-control-char']('src/lib/content/llms.txt')).toBe(true);
 		expect(ROUTES['literal-control-char']('src/lib/content/privacy.ts')).toBe(false);
+		expect(ROUTES['literal-control-char']('scratch/session/log.txt')).toBe(false);
 	});
 
 	it('are blind to an absolute path, which is why normalization is load-bearing', () => {
@@ -72,6 +80,43 @@ describe('literal control-character scan', () => {
 		);
 		expect(violations).toHaveLength(1);
 		expect(violations[0]).toContain(codepoint);
+	});
+});
+
+describe('repository path safety', () => {
+	it('encodes unsafe path characters in diagnostics', () => {
+		expect(formatPathForDiagnostic(`bad${String.fromCharCode(0x1b)}.txt`)).toBe(
+			'"bad\\\\u001B.txt"'
+		);
+	});
+
+	it('rejects a malicious filename before subprocesses run without printing its payload', () => {
+		const directory = path.join(ROOT, 'scratch', 'static-checks-path-test');
+		mkdirSync(directory, { recursive: true });
+		const offender = `${String.fromCharCode(0x1b)}]0;OWNED${String.fromCharCode(0x07)}`;
+		const file = path.join(directory, `bad${offender}.txt`);
+		writeFileSync(file, 'safe');
+		try {
+			const result = spawnSync('bun', [SCRIPT, file], {
+				cwd: ROOT,
+				encoding: 'utf8',
+				env: sanitizedGitEnv()
+			});
+			const output = `${result.stdout}${result.stderr}`;
+			expect(result.status).toBe(1);
+			expect(output).toContain('U+001B');
+			expect(output).not.toContain(offender);
+			expect(output).not.toContain(String.fromCharCode(0x07));
+			expect(output).not.toContain('SvelteKit sync');
+		} finally {
+			rmSync(directory, { recursive: true, force: true });
+		}
+	});
+
+	it('identifies structural and bidirectional controls in paths', () => {
+		for (const code of [0x09, 0x0a, 0x0d, 0x7f, 0x85, 0x202e]) {
+			expect(unsafePathCodepoints(`bad${String.fromCharCode(code)}.txt`)).toHaveLength(1);
+		}
 	});
 });
 
