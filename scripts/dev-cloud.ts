@@ -114,16 +114,18 @@ export async function runUntilOneExits(
 	options: ProcessGroupOptions = {}
 ): Promise<number> {
 	if (commands.length < 2) throw new Error('At least two child commands are required.');
-	const lifetime = await openWindowsJobLifetime();
+	const lifetimes = [];
 	try {
+		for (const _command of commands) lifetimes.push(await openWindowsJobLifetime());
 		const spawnOptions: SpawnOptions = {
 			stdio: options.stdio ?? 'inherit',
 			detached: process.platform !== 'win32'
 		};
 		const children = commands
-			.map((command) =>
-				windowsJobCommand(command, lifetime ? { lifetimePipe: lifetime.pipeName } : {})
-			)
+			.map((command, index) => {
+				const lifetime = lifetimes[index];
+				return windowsJobCommand(command, lifetime ? { lifetimePipe: lifetime.pipeName } : {});
+			})
 			.map(({ command, args, env }) =>
 				spawn(command, args, { ...spawnOptions, env: { ...process.env, ...env } })
 			);
@@ -153,7 +155,7 @@ export async function runUntilOneExits(
 			removeTerminationListeners();
 		}
 	} finally {
-		await lifetime?.close();
+		await Promise.all(lifetimes.map((lifetime) => lifetime?.close()));
 	}
 }
 
