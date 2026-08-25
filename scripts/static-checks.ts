@@ -168,13 +168,13 @@ export function assertSafePaths(files: string[]): void {
 	}
 }
 
-function trackedRepositoryPaths(): string[] {
-	const result = spawnSync('git', ['ls-files', '-z'], {
+export function repositoryPaths(): string[] {
+	const result = spawnSync('git', ['ls-files', '-co', '--exclude-standard', '-z'], {
 		cwd: REPO_ROOT,
 		env: sanitizedGitEnv(),
 		encoding: 'utf8'
 	});
-	if (result.status !== 0) fail('Failed to list tracked repository paths.');
+	if (result.status !== 0) fail('Failed to list repository paths.');
 	return result.stdout.split('\0').filter(Boolean);
 }
 
@@ -277,6 +277,10 @@ function readFilesFrom(source: string): string[] {
 // Ledger — one routing table, one accounting of what actually ran
 // ===========================================================================
 
+export function isIgnoredPath(file: string): boolean {
+	return CONFIG.ignorePaths.some((prefix) => file.startsWith(prefix));
+}
+
 /**
  * Which checks are responsible for a repo-relative path. The ONLY place a file set is
  * derived, so a check can no longer disagree with the ledger about its own scope, and
@@ -294,6 +298,10 @@ export const ROUTES = {
 	'svelte-check': (f: string) => /\.(js|ts|svelte)$/.test(f),
 	convex: (f: string) => f.startsWith('src/lib/convex/')
 } as const;
+
+export function authoredTextFiles(files: string[]): string[] {
+	return files.filter((file) => ROUTES['literal-control-char'](file) && !isIgnoredPath(file));
+}
 
 type CheckId = keyof typeof ROUTES;
 const CHECK_IDS = Object.keys(ROUTES) as CheckId[];
@@ -332,7 +340,7 @@ class Ledger {
 		inputs: string[]
 	) {
 		this.named = inputs.length;
-		this.ignored = inputs.filter((f) => CONFIG.ignorePaths.some((i) => f.includes(i)));
+		this.ignored = inputs.filter(isIgnoredPath);
 		this.files = inputs.filter((f) => !this.ignored.includes(f));
 	}
 
@@ -580,7 +588,8 @@ async function main(): Promise<void> {
 		inputs = stagedIndexPaths.length > 0 ? resolveInputs(stagedIndexPaths, 'the git index') : [];
 	}
 
-	assertSafePaths(mode === 'full' ? trackedRepositoryPaths() : inputs);
+	const fullRepositoryPaths = mode === 'full' ? repositoryPaths() : [];
+	assertSafePaths(mode === 'full' ? fullRepositoryPaths : inputs);
 
 	const ledger = new Ledger(mode, inputs);
 
@@ -706,13 +715,7 @@ async function main(): Promise<void> {
 		{
 			const files = scopedMode
 				? ledger.filesFor('literal-control-char')
-				: [...new Bun.Glob('**/*.{md,txt}').scanSync({ absolute: false })]
-						.map(toPosix)
-						.filter(
-							(file) =>
-								!NEVER_WALK.some((skip) => file.includes(skip)) &&
-								!CONFIG.ignorePaths.some((ignore) => file.includes(ignore))
-						);
+				: authoredTextFiles(fullRepositoryPaths);
 			const violations: string[] = [];
 			for (const file of files) {
 				violations.push(...literalControlCharacterViolations(file, await Bun.file(file).text()));

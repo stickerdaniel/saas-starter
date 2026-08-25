@@ -22,8 +22,11 @@ import { describe, expect, it } from 'vitest';
 
 import { sanitizedGitEnv } from './git-context';
 import {
+	authoredTextFiles,
 	formatPathForDiagnostic,
+	isIgnoredPath,
 	literalControlCharacterViolations,
+	repositoryPaths,
 	ROUTES,
 	resolveInputs,
 	unsafePathCodepoints
@@ -50,6 +53,19 @@ describe('route predicates', () => {
 		expect(ROUTES['literal-control-char']('src/lib/content/llms.txt')).toBe(true);
 		expect(ROUTES['literal-control-char']('src/lib/content/privacy.ts')).toBe(false);
 		expect(ROUTES['literal-control-char']('scratch/session/log.txt')).toBe(false);
+	});
+
+	it('keeps artifact ignores rooted and includes tracked dot-directory documents', () => {
+		expect(isIgnoredPath('scratch/session/log.md')).toBe(true);
+		expect(isIgnoredPath('src/lib/scratch/editor.ts')).toBe(false);
+		expect(
+			authoredTextFiles([
+				'.agents/skills/example.md',
+				'references/example.md',
+				'scratch/session/log.md',
+				'src/lib/scratch/editor.md'
+			])
+		).toEqual(['.agents/skills/example.md', 'src/lib/scratch/editor.md']);
 	});
 
 	it('are blind to an absolute path, which is why normalization is load-bearing', () => {
@@ -86,6 +102,17 @@ describe('literal control-character scan', () => {
 });
 
 describe('repository path safety', () => {
+	it('includes untracked nonignored files in the full-mode preflight', () => {
+		const relative = `src/lib/content/.static-checks-untracked-${process.pid}.md`;
+		const file = path.join(ROOT, relative);
+		writeFileSync(file, 'safe');
+		try {
+			expect(repositoryPaths()).toContain(relative);
+		} finally {
+			rmSync(file, { force: true });
+		}
+	});
+
 	it('encodes unsafe path characters in diagnostics', () => {
 		expect(formatPathForDiagnostic(`bad${String.fromCharCode(0x1b)}.txt`)).toBe(
 			'"bad\\\\u001B.txt"'
