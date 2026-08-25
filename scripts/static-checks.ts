@@ -127,7 +127,14 @@ const PATH_BIDI = new Set([
 ]);
 
 function unsafePathCodepoint(code: number): boolean {
-	return code <= 0x1f || code === 0x7f || (code >= 0x80 && code <= 0x9f) || PATH_BIDI.has(code);
+	return (
+		code <= 0x1f ||
+		code === 0x7f ||
+		(code >= 0x80 && code <= 0x9f) ||
+		code === 0x2028 ||
+		code === 0x2029 ||
+		PATH_BIDI.has(code)
+	);
 }
 
 export function formatPathForDiagnostic(file: string): string {

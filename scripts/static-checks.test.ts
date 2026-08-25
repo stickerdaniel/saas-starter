@@ -141,8 +141,8 @@ describe('repository path safety', () => {
 		10_000
 	);
 
-	it('identifies structural and bidirectional controls in paths', () => {
-		for (const code of [0x09, 0x0a, 0x0d, 0x7f, 0x85, 0x202e]) {
+	it('identifies structural, line-separator, and bidirectional controls in paths', () => {
+		for (const code of [0x09, 0x0a, 0x0d, 0x7f, 0x85, 0x2028, 0x2029, 0x202e]) {
 			expect(unsafePathCodepoints(`bad${String.fromCharCode(code)}.txt`)).toHaveLength(1);
 		}
 	});
