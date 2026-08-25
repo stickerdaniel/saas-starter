@@ -27,6 +27,7 @@
  * hard error, never a run that checks nothing and reports success.
  */
 
+import { spawnSync } from 'child_process';
 import { existsSync, readFileSync, realpathSync, statSync } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
