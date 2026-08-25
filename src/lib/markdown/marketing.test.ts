@@ -109,6 +109,7 @@ describe('marketing markdown helpers', () => {
 		expect(llms).toContain('## Access limits');
 		expect(llms).toContain('They do not provide delegated access for agents');
 		expect(llms).toContain('no supported public integration API');
+		expect(llms).not.toMatch(/\{\{[A-Z][A-Z0-9_]*\}\}/);
 	});
 
 	it('returns llms responses as plain text', () => {

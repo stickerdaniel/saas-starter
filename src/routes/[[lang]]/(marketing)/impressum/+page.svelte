@@ -3,24 +3,10 @@
 	import ObfuscatedEmail from '$lib/components/obfuscated-email.svelte';
 	import SEOHead from '$lib/components/SEOHead.svelte';
 	import { LEGAL_CONFIG } from '$lib/config/legal';
-	import { LEGAL_CONTENT_DATES, formatLegalContentDate } from '$lib/content/legal-metadata';
+	import { impressumMarkdown as source } from '$lib/content/impressum';
 	import { getTranslate } from '@tolgee/svelte';
 
 	const { t } = getTranslate();
-
-	const source = `# Impressum
-
-Last Updated: ${formatLegalContentDate(LEGAL_CONTENT_DATES.impressum)}
-
----
-
-Information pursuant to Section 5 DDG.
-
-## Provider
-
-${LEGAL_CONFIG.operatorName}
-
-${LEGAL_CONFIG.address}`;
 </script>
 
 <SEOHead title={$t('meta.impressum.title')} description={$t('meta.impressum.description')} />

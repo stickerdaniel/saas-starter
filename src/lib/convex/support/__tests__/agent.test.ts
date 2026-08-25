@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { LEGAL_CONFIG } from '../../../config/legal';
 import { SUPPORT_AGENT_INSTRUCTIONS } from '../agent';
 
 /**
@@ -8,6 +9,11 @@ import { SUPPORT_AGENT_INSTRUCTIONS } from '../agent';
  * fail loudly if the handoff guidance is removed.
  */
 describe('SUPPORT_AGENT_INSTRUCTIONS', () => {
+	it('renders the configured brand without template placeholders', () => {
+		expect(SUPPORT_AGENT_INSTRUCTIONS).toContain(LEGAL_CONFIG.brandName);
+		expect(SUPPORT_AGENT_INSTRUCTIONS).not.toMatch(/\{\{[A-Z][A-Z0-9_]*\}\}/);
+	});
+
 	// A bug report must reach a human, not stop at an explanation.
 	it('escalates bug reports to a human via request_handoff', () => {
 		expect(SUPPORT_AGENT_INSTRUCTIONS).toContain('request_handoff');

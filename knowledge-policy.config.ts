@@ -37,6 +37,7 @@ const skillDocumentation = anyOf(
 	underPath('.agents/skills'),
 	underPath('.claude/skills')
 );
+const authoredLegalTemplates = underPath('src/lib/content/legal');
 const decisionPath = pathMatches(/^docs\/decisions\/\d{4}-\d{2}-\d{2}-[a-z0-9-]+\.md$/);
 const runbookPath = pathMatches(/^docs\/runbooks\/[a-z0-9-]+\.md$/);
 
@@ -124,7 +125,7 @@ export default defineKnowledgePolicy({
 	},
 	links: {
 		include: markdown,
-		exclude: skillDocumentation,
+		exclude: anyOf(skillDocumentation, authoredLegalTemplates),
 		severity: blocking
 	},
 	textRules: []
