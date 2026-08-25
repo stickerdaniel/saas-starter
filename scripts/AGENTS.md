@@ -2,7 +2,7 @@
 
 ## Script portability
 
-All scripts must work on macOS, Linux, and Windows. Use TypeScript executed by Bun for non-trivial logic. Avoid Bash-specific syntax and `sh -c`; use `bun-tasks` for parallel commands.
+All scripts must work on macOS, Linux, and Windows. Use TypeScript executed by Bun for non-trivial logic. Avoid Bash-specific syntax and `sh -c`. Use `bun-tasks` when independent commands may run to completion; use a TypeScript orchestrator when one child exiting must terminate its peers.
 
 ## Validation
 

@@ -41,9 +41,9 @@ describe('renderAuthoredTemplate', () => {
 		);
 	});
 
-	it('rejects placeholders introduced by replacement values', () => {
-		expect(() => renderAuthoredTemplate('sample', '{{NAME}}', { NAME: '{{UNRESOLVED}}' })).toThrow(
-			'Unresolved placeholder {{UNRESOLVED}} in sample.'
+	it('renders braces from replacement values literally', () => {
+		expect(renderAuthoredTemplate('sample', '{{NAME}}', { NAME: 'Acme {{EU}} and }}' })).toBe(
+			'Acme {{EU}} and }}'
 		);
 	});
 });

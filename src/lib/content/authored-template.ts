@@ -1,6 +1,5 @@
 const PLACEHOLDER_NAME = /^[A-Z][A-Z0-9_]*$/;
 const PLACEHOLDER = /\{\{([^{}\r\n]*)\}\}/g;
-const SINGLE_PLACEHOLDER = /\{\{([^{}\r\n]*)\}\}/;
 
 export function renderAuthoredTemplate(
 	documentName: string,
@@ -41,14 +40,5 @@ export function renderAuthoredTemplate(
 		}
 	}
 
-	const rendered = normalizedTemplate.replace(PLACEHOLDER, (_token, name: string) => values[name]!);
-	const unresolved = SINGLE_PLACEHOLDER.exec(rendered);
-	if (unresolved) {
-		throw new Error(`Unresolved placeholder {{${unresolved[1]}}} in ${documentName}.`);
-	}
-	if (rendered.includes('{{') || rendered.includes('}}')) {
-		throw new Error(`Unresolved placeholder syntax in ${documentName}.`);
-	}
-
-	return rendered;
+	return normalizedTemplate.replace(PLACEHOLDER, (_token, name: string) => values[name]!);
 }

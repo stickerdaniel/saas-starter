@@ -28,7 +28,6 @@ describe('authored legal content', () => {
 	it('leaves contact addresses to the obfuscated page controls', () => {
 		for (const document of legalDocuments) {
 			expect(document).not.toContain(getLegalEmailAddress());
-			expect(document).not.toMatch(/\{\{[A-Z][A-Z0-9_]*\}\}/);
 		}
 	});
 });

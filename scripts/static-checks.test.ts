@@ -20,7 +20,7 @@ import { fileURLToPath } from 'url';
 import { describe, expect, it } from 'vitest';
 
 import { sanitizedGitEnv } from './git-context';
-import { ROUTES, resolveInputs } from './static-checks';
+import { literalControlCharacterViolations, ROUTES, resolveInputs } from './static-checks';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SCRIPT = path.join(ROOT, 'scripts', 'static-checks.ts');
@@ -38,6 +38,12 @@ describe('route predicates', () => {
 		expect(ROUTES['knowledge-placement']('static/logo.svg')).toBe(false);
 	});
 
+	it('routes authored Markdown and text through the literal control-character guard', () => {
+		expect(ROUTES['literal-control-char']('src/lib/content/legal/privacy.md')).toBe(true);
+		expect(ROUTES['literal-control-char']('src/lib/content/llms.txt')).toBe(true);
+		expect(ROUTES['literal-control-char']('src/lib/content/privacy.ts')).toBe(false);
+	});
+
 	it('are blind to an absolute path, which is why normalization is load-bearing', () => {
 		const absolute = path.join(ROOT, 'src/lib/utils/auth-messages.ts');
 		const absoluteConvex = path.join(ROOT, 'src/lib/convex/schema.ts');
@@ -50,6 +56,22 @@ describe('route predicates', () => {
 		// The defence: normalize first, and the same files route.
 		expect(ROUTES['banned-patterns'](resolveInputs([absolute], 'test')[0])).toBe(true);
 		expect(ROUTES.convex(resolveInputs([absoluteConvex], 'test')[0])).toBe(true);
+	});
+});
+
+describe('literal control-character scan', () => {
+	it.each([
+		['C0', 0x1b, 'U+001B'],
+		['DEL', 0x7f, 'U+007F'],
+		['C1', 0x85, 'U+0085'],
+		['bidi', 0x202e, 'U+202E']
+	])('flags %s characters in authored text', (_label, code, codepoint) => {
+		const violations = literalControlCharacterViolations(
+			'src/lib/content/llms.txt',
+			`safe${String.fromCharCode(code)}text`
+		);
+		expect(violations).toHaveLength(1);
+		expect(violations[0]).toContain(codepoint);
 	});
 });
 

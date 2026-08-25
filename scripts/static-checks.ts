@@ -14,7 +14,7 @@
  *   --ci         Assert mode: uses --check for formatting, omits --fix for ESLint.
  *                Requires misspell to be installed (fails if missing).
  *   --staged     Scope to git-staged files only. Auto-fixes and re-stages.
- *   --scope      Run a subset of checks: "lint" (misspell, banned patterns, prettier,
+ *   --scope      Run a subset of checks: "lint" (misspell, literal controls, banned patterns, prettier,
  *                eslint, oxlint) or "types" (build-emails, svelte-check).
  *                Both groups run svelte-kit sync first. Omit to run all checks.
  *   --files-from Read newline-separated paths from a file, or from stdin with "-".
@@ -32,6 +32,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { parseArgs } from 'util';
 import knowledgePolicy from '../knowledge-policy.config';
+import { findLiteralControlCharacters } from '../eslint/rules/no-literal-control-char.js';
 import { getStagedChanges, getStagedFiles, isUnderPreCommit, sanitizedGitEnv } from './git-context';
 import { formatPolicyFinding, matchesKnowledgeCandidate } from './knowledge-policy/policy';
 import { runKnowledgePolicy } from './knowledge-policy/repository';
@@ -223,6 +224,7 @@ function readFilesFrom(source: string): string[] {
 export const ROUTES = {
 	misspell: (f: string) => !CONFIG.misspell.ignore.some((i) => f.includes(i)),
 	'banned-patterns': (f: string) => /\.(svelte|ts)$/.test(f) && f.startsWith('src/'),
+	'literal-control-char': (f: string) => /\.(md|txt)$/.test(f),
 	'knowledge-placement': (f: string) => matchesKnowledgeCandidate(knowledgePolicy, f),
 	prettier: (f: string) => /\.(js|ts|svelte|html|css|md|json)$/.test(f),
 	eslint: (f: string) => /\.(js|ts|svelte)$/.test(f),
@@ -237,6 +239,7 @@ const CHECK_IDS = Object.keys(ROUTES) as CheckId[];
 const LINT_CHECKS: CheckId[] = [
 	'misspell',
 	'banned-patterns',
+	'literal-control-char',
 	'knowledge-placement',
 	'prettier',
 	'eslint'
@@ -461,6 +464,13 @@ function finish(ledger: Ledger, scopeLabel: string): void {
 	process.exitCode = 0;
 }
 
+export function literalControlCharacterViolations(file: string, text: string): string[] {
+	return findLiteralControlCharacters(text).map(
+		(finding) =>
+			`${file}:${finding.line}:${finding.column + 1}: ${finding.data.codepoint} (${finding.data.category}) is written as a literal character`
+	);
+}
+
 // Main execution
 async function main(): Promise<void> {
 	const { ciMode, scope, mode, rawPositionals, filesFrom } = parseCli();
@@ -622,6 +632,35 @@ async function main(): Promise<void> {
 			}
 			console.log(`Scanned ${filesToScan.length} files — no banned patterns found`);
 			ledger.ran('banned-patterns', filesToScan.length);
+		}
+		console.log('\n');
+
+		// Literal control and bidirectional-formatting characters in authored text.
+		// ESLint covers code; this reaches source formats it does not parse.
+		printHeader(step++, 'Literal control characters');
+		{
+			const files = scopedMode
+				? ledger.filesFor('literal-control-char')
+				: [...new Bun.Glob('**/*.{md,txt}').scanSync({ absolute: false })]
+						.map(toPosix)
+						.filter(
+							(file) =>
+								!NEVER_WALK.some((skip) => file.includes(skip)) &&
+								!CONFIG.ignorePaths.some((ignore) => file.includes(ignore))
+						);
+			const violations: string[] = [];
+			for (const file of files) {
+				violations.push(...literalControlCharacterViolations(file, await Bun.file(file).text()));
+			}
+			if (violations.length > 0) {
+				for (const violation of violations)
+					console.error(`${colors.red}${violation}${colors.reset}`);
+				fail(`Found ${violations.length} literal control character violation(s).`);
+			}
+			console.log(
+				`Scanned ${files.length} Markdown/text files — no literal control characters found`
+			);
+			ledger.ran('literal-control-char', files.length);
 		}
 		console.log('\n');
 
