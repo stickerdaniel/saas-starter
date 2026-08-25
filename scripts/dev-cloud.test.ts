@@ -96,6 +96,26 @@ describe('windowsJobCommand', () => {
 	});
 
 	it.runIf(process.platform === 'win32')(
+		'propagates the managed root exit code',
+		async () => {
+			const lifetime = await openWindowsJobLifetime({ platform: 'win32' });
+			if (!lifetime) throw new Error('Windows lifetime pipe did not start.');
+			try {
+				const wrapped = windowsJobCommand(
+					{ command: process.execPath, args: ['-e', 'process.exit(7)'] },
+					{ platform: 'win32', lifetimePipe: lifetime.pipeName }
+				);
+				const result = spawnSync(wrapped.command, wrapped.args, { encoding: 'utf8' });
+				expect(result.stderr).toBe('');
+				expect(result.status).toBe(7);
+			} finally {
+				await lifetime.close();
+			}
+		},
+		20_000
+	);
+
+	it.runIf(process.platform === 'win32')(
 		'does not start a command after the orchestrator lifetime is gone',
 		async () => {
 			const directory = mkdtempSync(path.join(tmpdir(), 'windows-job-lifetime-gone-'));
@@ -192,7 +212,11 @@ describe('runUntilOneExits', () => {
 				{ command: process.execPath, args: ['-e', 'setTimeout(() => process.exit(7), 25)'] },
 				{ command: process.execPath, args: ['-e', 'setInterval(() => {}, 1000)'] }
 			],
-			{ stdio: 'ignore', graceMs: 100, forceMs: 100 }
+			{
+				stdio: process.platform === 'win32' ? 'inherit' : 'ignore',
+				graceMs: 100,
+				forceMs: 100
+			}
 		);
 		expect(code).toBe(7);
 	});
@@ -264,7 +288,11 @@ describe('runUntilOneExits', () => {
 						{ command: process.execPath, args: ['-e', root] },
 						{ command: process.execPath, args: ['-e', 'setInterval(() => {}, 1000)'] }
 					],
-					{ stdio: 'ignore', graceMs: 500, forceMs: 1_000 }
+					{
+						stdio: 'inherit',
+						graceMs: 500,
+						forceMs: 1_000
+					}
 				);
 				expect(code).toBe(7);
 				grandchildPid = Number(readFileSync(pidFile, 'utf8'));
