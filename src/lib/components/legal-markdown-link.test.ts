@@ -1,8 +1,9 @@
+import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { lex } from 'svelte-streamdown';
 import { describe, expect, it } from 'vitest';
-import { resolveLegalMarkdownLink, transformAllowedExternalUrl } from './legal-markdown-link';
+import { resolveLegalMarkdownLink } from './legal-markdown-link';
 
 interface LinkToken {
 	type: 'link';
@@ -18,19 +19,23 @@ function linksIn(value: unknown): LinkToken[] {
 	return [...current, ...Object.values(record).flatMap(linksIn)];
 }
 
+function installedPackageDirectory(): string {
+	return dirname(fileURLToPath(import.meta.resolve('svelte-streamdown')));
+}
+
 async function installedTransformUrl(): Promise<
 	(url: unknown, allowedPrefixes: string[], defaultOrigin?: string) => string | null
 > {
-	const entry = import.meta.resolve('svelte-streamdown');
-	const moduleUrl = pathToFileURL(resolve(dirname(fileURLToPath(entry)), 'utils/url.js')).href;
+	const moduleUrl = pathToFileURL(resolve(installedPackageDirectory(), 'utils/url.js')).href;
 	const module = await import(/* @vite-ignore */ moduleUrl);
 	return module.transformUrl;
 }
 
 const localize = (path: string) => `/de${path}`;
+const currentUrl = new URL('https://example.com/de/terms');
 
 describe('resolveLegalMarkdownLink', () => {
-	it('localizes only parsed relative link tokens', () => {
+	it('localizes only parsed relative link tokens', async () => {
 		const markdown = [
 			'[Inline](privacy "Read \\"the policy\\"")',
 			'[Reference][policy]',
@@ -47,6 +52,7 @@ describe('resolveLegalMarkdownLink', () => {
 			'[^1]: Supporting text.'
 		].join('\n');
 
+		const transformUrl = await installedTransformUrl();
 		const links = linksIn(lex(markdown));
 		expect(links.map(({ href, title }) => ({ href, title }))).toEqual([
 			{ href: 'privacy', title: 'Read "the policy"' },
@@ -55,7 +61,12 @@ describe('resolveLegalMarkdownLink', () => {
 		]);
 		expect(
 			links.map((token) =>
-				resolveLegalMarkdownLink(token.href, localize, ['*'], 'https://example.com')
+				resolveLegalMarkdownLink(
+					token.href,
+					transformUrl(token.href, ['*'], currentUrl.origin),
+					currentUrl,
+					localize
+				)
 			)
 		).toEqual([
 			{ href: '/de/privacy', external: false },
@@ -64,33 +75,53 @@ describe('resolveLegalMarkdownLink', () => {
 		]);
 	});
 
-	it('preserves root-relative links and blocks disallowed protocols', () => {
-		expect(resolveLegalMarkdownLink('', localize, ['*'])).toBeNull();
-		expect(resolveLegalMarkdownLink('/privacy', localize, ['*'])).toEqual({
+	it('resolves query and parent-relative links within the current language', () => {
+		expect(resolveLegalMarkdownLink('?print=1', null, currentUrl, localize)).toEqual({
+			href: '/de/terms?print=1',
+			external: false
+		});
+		expect(resolveLegalMarkdownLink('../privacy', null, currentUrl, localize)).toEqual({
+			href: '/de/privacy',
+			external: false
+		});
+	});
+
+	it('uses Streamdown-sanitized external targets', () => {
+		expect(
+			resolveLegalMarkdownLink(
+				'https://example.com/docs',
+				'https://example.com/docs',
+				currentUrl,
+				localize
+			)
+		).toEqual({ href: 'https://example.com/docs', external: true });
+		expect(resolveLegalMarkdownLink('javascript:alert(1)', null, currentUrl, localize)).toBeNull();
+	});
+
+	it('preserves empty, root-relative, and anchor targets', () => {
+		expect(resolveLegalMarkdownLink('', null, currentUrl, localize)).toBeNull();
+		expect(resolveLegalMarkdownLink('/privacy', null, currentUrl, localize)).toEqual({
 			href: '/privacy',
 			external: false
 		});
-		expect(resolveLegalMarkdownLink('javascript:alert(1)', localize, ['*'])).toBeNull();
+		expect(resolveLegalMarkdownLink('#rights', null, currentUrl, localize)).toEqual({
+			href: '#rights',
+			external: false
+		});
 	});
 
-	it('matches the installed Streamdown allowlist contract for external URLs', async () => {
-		const transformUrl = await installedTransformUrl();
-		expect(transformUrl('privacy', ['*'], 'https://example.com')).not.toBeNull();
-		expect(transformUrl('#rights', ['*'], 'https://example.com')).not.toBeNull();
-		const cases: Array<[string, string[], string?]> = [
-			['https://example.com/path', ['*']],
-			['http://example.com/path', ['*']],
-			['javascript:alert(1)', ['*']],
-			['https://example.com/docs/page', ['https://example.com/docs']],
-			['https://example.com/private', ['https://example.com/docs']],
-			['mailto:privacy@example.com', ['mailto:']],
-			['relative', ['*'], 'https://example.com']
-		];
+	it('pins the sanitized href supplied to the custom link snippet', () => {
+		const source = readFileSync(
+			resolve(installedPackageDirectory(), 'Elements/Link.svelte'),
+			'utf8'
+		);
+		expect(source).toContain('href: transformedUrl');
+		expect(source).toContain('render={streamdown.snippets.link}');
+	});
 
-		for (const [href, prefixes, origin] of cases) {
-			expect(transformAllowedExternalUrl(href, prefixes, origin)).toBe(
-				transformUrl(href, prefixes, origin)
-			);
-		}
+	it('pins Streamdown routing of relative and anchor tokens into the custom snippet', async () => {
+		const transformUrl = await installedTransformUrl();
+		expect(transformUrl('privacy', ['*'], currentUrl.origin)).not.toBeNull();
+		expect(transformUrl('#rights', ['*'], currentUrl.origin)).not.toBeNull();
 	});
 });

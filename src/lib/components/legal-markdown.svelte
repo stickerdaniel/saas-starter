@@ -10,11 +10,23 @@
 		title?: string | null;
 	}
 
+	interface LinkSnippetProps {
+		children: Snippet;
+		token: LinkToken;
+		href?: string | null;
+	}
+
 	let { content }: { content: string } = $props();
 </script>
 
-{#snippet link({ children, token }: { children: Snippet; token: LinkToken })}
-	<LegalMarkdownLink {children} {token} localize={localizedHref} />
+{#snippet link({ children, token, href }: LinkSnippetProps)}
+	<LegalMarkdownLink
+		{children}
+		{token}
+		transformedHref={href ?? null}
+		currentUrl={page.url}
+		localize={localizedHref}
+	/>
 {/snippet}
 
 <Streamdown {content} {link} defaultOrigin={page.url.origin} baseTheme="shadcn" static />

@@ -11,21 +11,20 @@
 	let {
 		children,
 		token,
+		transformedHref,
+		currentUrl,
 		localize
 	}: {
 		children: Snippet;
 		token: LinkToken;
+		transformedHref: string | null;
+		currentUrl: URL;
 		localize: (path: string) => string;
 	} = $props();
 
 	const streamdown = useStreamdown();
 	const resolved = $derived(
-		resolveLegalMarkdownLink(
-			token.href,
-			localize,
-			streamdown.allowedLinkPrefixes ?? [],
-			streamdown.defaultOrigin
-		)
+		resolveLegalMarkdownLink(token.href, transformedHref, currentUrl, localize)
 	);
 </script>
 
@@ -41,11 +40,7 @@
 		{@render children()}
 	</a>
 {:else}
-	<span
-		data-streamdown-link-blocked
-		class={streamdown.theme.link.blocked}
-		title={token.title ? `Blocked URL: ${token.href}` : undefined}
-	>
-		{@render children()} [blocked]
+	<span data-streamdown-link-blocked class={streamdown.theme.link.blocked}>
+		{@render children()}
 	</span>
 {/if}

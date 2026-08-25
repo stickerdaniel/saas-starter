@@ -1,70 +1,41 @@
+import { isSupportedLanguage } from '$lib/i18n/languages';
+
 export interface ResolvedLegalMarkdownLink {
 	href: string;
 	external: boolean;
 }
 
-function parseUrl(url: string, defaultOrigin?: string): URL | null {
+function parseAbsoluteUrl(url: string): URL | null {
 	try {
 		return new URL(url);
 	} catch {
-		if (!defaultOrigin) return null;
-		try {
-			return new URL(url, defaultOrigin);
-		} catch {
-			return null;
-		}
+		return null;
 	}
 }
 
-export function transformAllowedExternalUrl(
-	href: string,
-	allowedPrefixes: string[],
-	defaultOrigin?: string
-): string | null {
-	const parsedUrl = parseUrl(href, defaultOrigin);
-	if (!parsedUrl) return null;
-
-	const absoluteUrl = parseUrl(href);
-	if (
-		absoluteUrl &&
-		allowedPrefixes.some((prefix) => {
-			const parsedPrefix = parseUrl(prefix);
-			return (
-				parsedPrefix !== null &&
-				parsedPrefix.origin === absoluteUrl.origin &&
-				absoluteUrl.href.startsWith(parsedPrefix.href)
-			);
-		})
-	) {
-		return absoluteUrl.href;
-	}
-
-	if (
-		allowedPrefixes.includes('*') &&
-		(parsedUrl.protocol === 'https:' || parsedUrl.protocol === 'http:')
-	) {
-		return parsedUrl.href;
-	}
-
-	return null;
+function withoutLanguagePrefix(pathname: string): string {
+	const segments = pathname.split('/');
+	if (!isSupportedLanguage(segments[1])) return pathname;
+	const unprefixed = `/${segments.slice(2).join('/')}`;
+	return unprefixed === '/' ? '/' : unprefixed.replace(/\/$/, '');
 }
 
 export function resolveLegalMarkdownLink(
 	href: string,
-	localize: (path: string) => string,
-	allowedPrefixes: string[],
-	defaultOrigin?: string
+	transformedHref: string | null,
+	currentUrl: URL,
+	localize: (path: string) => string
 ): ResolvedLegalMarkdownLink | null {
 	if (!href) return null;
-
 	if (href.startsWith('/') || href.startsWith('#')) {
 		return { href, external: false };
 	}
 
-	if (parseUrl(href) === null) {
-		return { href: localize(`/${href}`), external: false };
+	if (parseAbsoluteUrl(href) !== null) {
+		return transformedHref === null ? null : { href: transformedHref, external: true };
 	}
 
-	const externalHref = transformAllowedExternalUrl(href, allowedPrefixes, defaultOrigin);
-	return externalHref === null ? null : { href: externalHref, external: true };
+	const resolved = new URL(href, currentUrl);
+	const path = `${withoutLanguagePrefix(resolved.pathname)}${resolved.search}${resolved.hash}`;
+	return { href: localize(path), external: false };
 }
