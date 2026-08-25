@@ -4,6 +4,7 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
 	devCloudCommands,
+	exitCodeFor,
 	listenForTermination,
 	runUntilOneExits,
 	windowsTreeKillArgs
@@ -36,6 +37,12 @@ describe('devCloudCommands', () => {
 	it('constructs a recursive Windows tree termination command', () => {
 		expect(windowsTreeKillArgs(42, false)).toEqual(['/PID', '42', '/T']);
 		expect(windowsTreeKillArgs(42, true)).toEqual(['/PID', '42', '/T', '/F']);
+	});
+
+	it('preserves conventional signal exit codes', () => {
+		expect(exitCodeFor(null, 'SIGINT')).toBe(130);
+		expect(exitCodeFor(null, 'SIGTERM')).toBe(143);
+		expect(exitCodeFor(7, null)).toBe(7);
 	});
 });
 

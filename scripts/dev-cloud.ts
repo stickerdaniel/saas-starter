@@ -5,6 +5,7 @@ import {
 	type SpawnOptions,
 	type StdioOptions
 } from 'node:child_process';
+import { constants as osConstants } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -39,6 +40,12 @@ export function listenForTermination(onSignal: (signal: NodeJS.Signals) => void)
 		process.off('SIGINT', onInterrupt);
 		process.off('SIGTERM', onTerminate);
 	};
+}
+
+export function exitCodeFor(code: number | null, signal: NodeJS.Signals | null): number {
+	if (code !== null) return code;
+	const signalNumber = signal ? osConstants.signals[signal] : undefined;
+	return signalNumber === undefined ? 1 : 128 + signalNumber;
 }
 
 function waitForExit(child: ChildProcess, index: number): Promise<ChildExit> {
@@ -136,7 +143,7 @@ export async function runUntilOneExits(
 			for (const child of children) terminateTree(child, true);
 			await waitForAll(exits, options.forceMs ?? DEFAULT_FORCE_MS);
 		}
-		return first.code ?? 1;
+		return exitCodeFor(first.code, first.signal);
 	} catch (error) {
 		for (const child of children) terminateTree(child, true);
 		await waitForAll(exits, options.forceMs ?? DEFAULT_FORCE_MS);
