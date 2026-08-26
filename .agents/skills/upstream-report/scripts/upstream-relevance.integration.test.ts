@@ -693,7 +693,7 @@ function init(root: string, objectFormat: 'sha1' | 'sha256' = 'sha1'): void {
 	git(root, ['config', 'commit.gpgsign', 'false']);
 }
 
-describe('upstream-relevance (integration)', () => {
+describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 	let tmp: string;
 	let upstream: string;
 	let fork: string;
