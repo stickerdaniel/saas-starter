@@ -1,14 +1,8 @@
 import fs from 'fs';
+import { runCommand, runCommandWithRetry } from '../process/command-runner';
 import type { PlatformContext } from './platform';
 import { normalizeIdentifier, pruneOldestPreview } from './prune-previews';
-import {
-	colors,
-	runCommand,
-	runCommandCapture,
-	runCommandWithRetry,
-	sleep,
-	stripAnsi
-} from './utils';
+import { colors, runCommandCapture, sleep, stripAnsi } from './utils';
 
 export interface ConvexDeployment {
 	/** Full URL subdomain including region (e.g., "curious-lark-703.eu-west-1") */
@@ -20,7 +14,7 @@ export interface ConvexDeployment {
 /**
  * Sync translations with Tolgee (optional, skipped without TOLGEE_API_KEY)
  */
-export function syncTranslations(platform: PlatformContext): void {
+export async function syncTranslations(platform: PlatformContext): Promise<void> {
 	const tolgeeApiKey = process.env.TOLGEE_API_KEY;
 
 	if (!tolgeeApiKey) {
@@ -32,23 +26,26 @@ export function syncTranslations(platform: PlatformContext): void {
 
 	if (platform.environment === 'production') {
 		console.log('Tagging production keys...');
-		if (
-			!runCommand('tolgee', [
-				'tag',
-				'--filter-extracted',
-				'--tag',
-				'production',
-				'--untag',
-				'preview'
-			])
-		) {
+		const tagResult = await runCommand({
+			command: 'tolgee',
+			args: ['tag', '--filter-extracted', '--tag', 'production', '--untag', 'preview'],
+			output: 'inherit'
+		});
+		if (!tagResult.ok) {
 			console.error(`${colors.red}Tolgee tagging failed${colors.reset}`);
+			console.error(tagResult.diagnostic);
 			process.exit(1);
 		}
 	} else if (platform.isPreview) {
 		console.log('Tagging preview keys...');
-		if (!runCommand('tolgee', ['tag', '--filter-extracted', '--tag', 'preview'])) {
+		const tagResult = await runCommand({
+			command: 'tolgee',
+			args: ['tag', '--filter-extracted', '--tag', 'preview'],
+			output: 'inherit'
+		});
+		if (!tagResult.ok) {
 			console.error(`${colors.red}Tolgee tagging failed${colors.reset}`);
+			console.error(tagResult.diagnostic);
 			process.exit(1);
 		}
 	} else {
@@ -56,8 +53,14 @@ export function syncTranslations(platform: PlatformContext): void {
 	}
 
 	console.log('Pulling latest translations...');
-	if (!runCommand('tolgee', ['pull'])) {
+	const pullResult = await runCommand({
+		command: 'tolgee',
+		args: ['pull'],
+		output: 'inherit'
+	});
+	if (!pullResult.ok) {
 		console.error(`${colors.red}Tolgee pull failed${colors.reset}`);
+		console.error(pullResult.diagnostic);
 		process.exit(1);
 	}
 }
@@ -65,19 +68,32 @@ export function syncTranslations(platform: PlatformContext): void {
 /**
  * Validate required Convex environment variables
  */
-export function validateConvexEnv(platform: PlatformContext, deployment?: ConvexDeployment): void {
+export async function validateConvexEnv(
+	platform: PlatformContext,
+	deployment?: ConvexDeployment
+): Promise<void> {
 	if (platform.environment === 'production') {
 		console.log('Checking required Convex environment variables (production)...');
-		if (!runCommand('bun', ['scripts/validate-convex-env.ts', '--prod'])) {
+		const result = await runCommand({
+			command: 'bun',
+			args: ['scripts/validate-convex-env.ts', '--prod'],
+			output: 'inherit'
+		});
+		if (!result.ok) {
 			console.error(`${colors.red}Environment variable validation failed${colors.reset}`);
+			console.error(result.diagnostic);
 			process.exit(1);
 		}
 	} else if (platform.isPreview && deployment?.name) {
 		console.log('Checking required Convex environment variables (preview)...');
-		if (
-			!runCommand('bun', ['scripts/validate-convex-env.ts', '--deployment-name', deployment.name])
-		) {
+		const result = await runCommand({
+			command: 'bun',
+			args: ['scripts/validate-convex-env.ts', '--deployment-name', deployment.name],
+			output: 'inherit'
+		});
+		if (!result.ok) {
 			console.error(`${colors.red}Environment variable validation failed${colors.reset}`);
+			console.error(result.diagnostic);
 			process.exit(1);
 		}
 	} else if (!platform.isPreview && platform.environment !== 'production') {
@@ -336,19 +352,40 @@ export async function setupPreviewEnv(
 	console.log(`Setting SITE_URL for preview: ${previewSiteUrl}`);
 	console.log(`  Using --deployment-name ${deployment.name}`);
 
-	// Set SITE_URL with retries
-	const setResult = await runCommandWithRetry(
-		'bunx',
-		['convex', 'env', 'set', '--deployment-name', deployment.name, 'SITE_URL', previewSiteUrl],
-		{ maxRetries: 5, delayMs: 5000, description: 'convex env set SITE_URL' }
+	// Set SITE_URL with exactly five total attempts.
+	const { result: setResult } = await runCommandWithRetry(
+		{
+			command: 'bunx',
+			args: [
+				'convex',
+				'env',
+				'set',
+				'--deployment-name',
+				deployment.name,
+				'SITE_URL',
+				previewSiteUrl
+			]
+		},
+		{
+			maxAttempts: 5,
+			delay: { kind: 'fixed', delayMs: 5000 },
+			shouldRetry: () => true,
+			onFailedAttempt: ({ result, attempt, maxAttempts, willRetry, nextDelayMs }) => {
+				if (!willRetry || nextDelayMs === null) return;
+				console.log(
+					`${colors.yellow}[Attempt ${attempt}/${maxAttempts}] convex env set SITE_URL failed${colors.reset}`
+				);
+				console.log(result.diagnostic);
+				console.log(`  Retrying in ${nextDelayMs / 1000}s...`);
+			}
+		}
 	);
 
-	if (!setResult.success) {
+	if (!setResult.ok) {
 		console.error(
-			`${colors.red}Failed to set SITE_URL for preview after all retries${colors.reset}`
+			`${colors.red}Failed to set SITE_URL for preview after all attempts${colors.reset}`
 		);
-		console.error(`  stdout: ${setResult.stdout}`);
-		console.error(`  stderr: ${setResult.stderr}`);
+		console.error(setResult.diagnostic);
 		process.exit(1);
 	}
 
@@ -356,15 +393,13 @@ export async function setupPreviewEnv(
 
 	// Verify SITE_URL
 	console.log('Verifying SITE_URL was set correctly...');
-	const listResult = runCommandCapture('bunx', [
-		'convex',
-		'env',
-		'list',
-		'--deployment-name',
-		deployment.name
-	]);
+	const listResult = await runCommand({
+		command: 'bunx',
+		args: ['convex', 'env', 'list', '--deployment-name', deployment.name],
+		output: 'capture'
+	});
 
-	if (listResult.success) {
+	if (listResult.ok) {
 		const siteUrlMatch = listResult.stdout.match(/^SITE_URL=(.+)$/m);
 		if (siteUrlMatch) {
 			const actualSiteUrl = siteUrlMatch[1];
@@ -386,11 +421,11 @@ export async function setupPreviewEnv(
 		console.warn(
 			`${colors.yellow}Warning: Could not verify SITE_URL (env list failed)${colors.reset}`
 		);
-		console.log(`  stderr: ${listResult.stderr}`);
+		console.log(listResult.diagnostic);
 	}
 
 	// Validate preview env vars
-	validateConvexEnv(platform, deployment);
+	await validateConvexEnv(platform, deployment);
 
 	// Seed preview admin. The mutation reads PREVIEW_ADMIN_PASSWORD from the
 	// Convex deployment env, which new preview deployments inherit from the
@@ -505,10 +540,17 @@ export function computeBuildEnv(
 /**
  * Build SvelteKit with computed environment
  */
-export function buildSvelteKit(buildEnv: Record<string, string | undefined>): void {
+export async function buildSvelteKit(buildEnv: Record<string, string | undefined>): Promise<void> {
 	console.log('Building SvelteKit...');
-	if (!runCommand('bun', ['run', 'build'], buildEnv)) {
+	const result = await runCommand({
+		command: 'bun',
+		args: ['run', 'build'],
+		env: { ...buildEnv, __VARLOCK_ENV: undefined },
+		output: 'inherit'
+	});
+	if (!result.ok) {
 		console.error(`${colors.red}SvelteKit build failed${colors.reset}`);
+		console.error(result.diagnostic);
 		process.exit(1);
 	}
 }
