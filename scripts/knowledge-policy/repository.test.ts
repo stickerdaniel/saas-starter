@@ -6,10 +6,14 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { blocking, defineKnowledgePolicy, exactPaths, fileExtension, underPath } from './policy';
 import { runKnowledgePolicy } from './repository';
 
-function git(root: string, ...args: string[]): string {
-	const result = spawnSync('git', args, { cwd: root, encoding: 'utf8' });
+function gitWithEnv(root: string, args: string[], env = process.env, input?: string): string {
+	const result = spawnSync('git', args, { cwd: root, env, input, encoding: 'utf8' });
 	if (result.status !== 0) throw new Error(`git ${args.join(' ')} failed: ${result.stderr}`);
 	return result.stdout.trim();
+}
+
+function git(root: string, ...args: string[]): string {
+	return gitWithEnv(root, args);
 }
 
 function write(root: string, file: string, contents: string): void {
@@ -80,6 +84,80 @@ describe('repository policy scopes', () => {
 		expect(result.findings).toMatchObject([
 			{ ruleId: 'knowledge.relative-link-missing', file: 'README.md' }
 		]);
+	});
+
+	it('ignores replacement refs when reading staged policy blobs', () => {
+		const hash = (contents: string): string => {
+			const result = spawnSync('git', ['hash-object', '-w', '--stdin'], {
+				cwd: root,
+				input: contents,
+				encoding: 'utf8'
+			});
+			if (result.status !== 0) throw new Error(result.stderr);
+			return result.stdout.trim();
+		};
+		const original = hash('[missing](missing.md)\n');
+		const replacement = hash('# Clean replacement\n');
+		git(root, 'update-index', '--cacheinfo', `100644,${original},README.md`);
+		git(root, 'replace', original, replacement);
+
+		const result = runKnowledgePolicy({ root, policy: testPolicy, scope: { kind: 'staged' } });
+		expect(result.findings).toMatchObject([
+			{ ruleId: 'knowledge.relative-link-missing', file: 'README.md' }
+		]);
+	});
+
+	it('reads an allowed external index through its explicit object stores', () => {
+		const index = path.join(root, 'external-index');
+		const objects = path.join(root, 'external-objects');
+		const defaultObjects = path.join(root, '.git', 'objects');
+		mkdirSync(objects);
+		const externalEnv = {
+			...process.env,
+			GIT_INDEX_FILE: index,
+			GIT_OBJECT_DIRECTORY: objects,
+			GIT_ALTERNATE_OBJECT_DIRECTORIES: defaultObjects
+		};
+		gitWithEnv(root, ['read-tree', 'HEAD'], externalEnv);
+		const objectId = gitWithEnv(
+			root,
+			['hash-object', '-w', '--stdin'],
+			externalEnv,
+			'[missing](missing.md)\n'
+		);
+		gitWithEnv(root, ['update-index', '--cacheinfo', `100644,${objectId},README.md`], externalEnv);
+
+		const keys = [
+			'GIT_DIR',
+			'GIT_WORK_TREE',
+			'GIT_INDEX_FILE',
+			'GIT_OBJECT_DIRECTORY',
+			'GIT_ALTERNATE_OBJECT_DIRECTORIES',
+			'STATIC_CHECKS_ALLOW_EXTERNAL_GIT_INDEX'
+		] as const;
+		const saved = new Map(keys.map((key) => [key, process.env[key]]));
+		try {
+			process.env.GIT_DIR = path.join(root, 'foreign.git');
+			process.env.GIT_WORK_TREE = path.join(root, 'foreign-worktree');
+			process.env.GIT_INDEX_FILE = index;
+			process.env.GIT_OBJECT_DIRECTORY = objects;
+			process.env.GIT_ALTERNATE_OBJECT_DIRECTORIES = defaultObjects;
+			process.env.STATIC_CHECKS_ALLOW_EXTERNAL_GIT_INDEX = '1';
+
+			const result = runKnowledgePolicy({
+				root,
+				policy: testPolicy,
+				scope: { kind: 'staged' }
+			});
+			expect(result.findings).toMatchObject([
+				{ ruleId: 'knowledge.relative-link-missing', file: 'README.md' }
+			]);
+		} finally {
+			for (const [key, value] of saved) {
+				if (value === undefined) delete process.env[key];
+				else process.env[key] = value;
+			}
+		}
 	});
 
 	it('staged deletion and rename remove old link targets from the index', () => {

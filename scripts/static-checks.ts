@@ -13,7 +13,7 @@
  * Flags:
  *   --ci         Assert mode: uses --check for formatting, omits --fix for ESLint.
  *                Requires misspell to be installed (fails if missing).
- *   --staged     Scope to git-staged files only. Auto-fixes and re-stages.
+ *   --staged     Assert-only staged-file gate. Run fix mode before staging and retrying.
  *   --scope      Run a subset of checks: "lint" (misspell, literal controls, banned patterns, prettier,
  *                eslint, oxlint) or "types" (build-emails, svelte-check).
  *                Both groups run svelte-kit sync first. Omit to run all checks.
@@ -34,7 +34,15 @@ import { fileURLToPath } from 'url';
 import { parseArgs } from 'util';
 import knowledgePolicy from '../knowledge-policy.config';
 import { findLiteralControlCharacters } from '../eslint/control-character-policy.js';
-import { getStagedChanges, getStagedFiles, isUnderPreCommit, sanitizedGitEnv } from './git-context';
+import {
+	activeGitIndexFingerprint,
+	getStagedChanges,
+	getStagedFiles,
+	sanitizedGitEnv,
+	stagedFilesMatchWorktree,
+	stagedFilesWithCleanFilters,
+	stagedGitEnv
+} from './git-context';
 import { formatPolicyFinding, matchesKnowledgeCandidate } from './knowledge-policy/policy';
 import { runKnowledgePolicy } from './knowledge-policy/repository';
 import {
@@ -90,14 +98,17 @@ const CONFIG = {
 	}
 };
 
-// ANSI colors for terminal output
-const colors = {
-	reset: '\x1b[0m',
-	bold: '\x1b[1m',
-	green: '\x1b[32m',
-	yellow: '\x1b[33m',
-	red: '\x1b[31m'
-};
+// ANSI colors for direct terminal runs; wrappers set NO_COLOR before sanitizing output.
+const colors =
+	process.env.NO_COLOR === undefined
+		? {
+				reset: '\x1b[0m',
+				bold: '\x1b[1m',
+				green: '\x1b[32m',
+				yellow: '\x1b[33m',
+				red: '\x1b[31m'
+			}
+		: { reset: '', bold: '', green: '', yellow: '', red: '' };
 
 // ===========================================================================
 // Intake — argv and file arguments become validated, repo-relative POSIX paths
@@ -325,6 +336,10 @@ const LINT_CHECKS: CheckId[] = [
 const TYPE_CHECKS: CheckId[] = ['svelte-check', 'convex'];
 
 type Mode = 'files' | 'staged' | 'full';
+
+export function usesAssertOnlyChecks(ciMode: boolean, mode: Mode): boolean {
+	return ciMode || mode === 'staged';
+}
 type Outcome =
 	| { kind: 'ran'; files: number | 'project' }
 	| { kind: 'skipped'; reason: string; suppressed: boolean };
@@ -556,12 +571,15 @@ async function main(): Promise<void> {
 	const shouldRunLint = !scope || scope === 'lint';
 	const shouldRunTypes = !scope || scope === 'types';
 	const scopedMode = mode === 'files' || mode === 'staged';
+	const assertMode = usesAssertOnlyChecks(ciMode, mode);
 	const scopeLabel = scope ?? 'lint + types';
 
 	// Resolve caller-typed paths against the invocation cwd, BEFORE the chdir below.
 	let inputs: string[] = [];
-	// Staged mode only: the paths exactly as git reported them, for the re-stage.
+	// Staged mode keeps the exact Git paths and the complete starting index state.
 	let stagedIndexPaths: string[] = [];
+	let stagedIndexFingerprint: string | undefined;
+	let stagedEnv: NodeJS.ProcessEnv | undefined;
 	if (mode === 'files') {
 		const raw = filesFrom !== undefined ? readFilesFrom(filesFrom) : rawPositionals;
 		if (filesFrom !== undefined && raw.length === 0) {
@@ -585,16 +603,32 @@ async function main(): Promise<void> {
 	process.chdir(REPO_ROOT);
 
 	if (mode === 'staged') {
-		const stagedChanges = getStagedChanges();
+		stagedEnv = stagedGitEnv(REPO_ROOT);
+		stagedIndexFingerprint = activeGitIndexFingerprint(REPO_ROOT, stagedEnv);
+		const stagedChanges = getStagedChanges(REPO_ROOT, stagedEnv);
 		if (stagedChanges.length === 0) {
 			console.log('No staged files to check');
 			process.exit(0);
 		}
-		// Keep the original index paths for re-staging. resolveInputs realpaths
-		// symlinks, and adding those resolved targets would commit the wrong files.
-		stagedIndexPaths = getStagedFiles();
+		// Keep the original index paths. resolveInputs realpaths symlinks, while
+		// later comparisons must address the paths recorded by Git.
+		stagedIndexPaths = getStagedFiles(REPO_ROOT, stagedEnv);
 		assertSafePaths(stagedIndexPaths);
+		const cleanFiltered = stagedFilesWithCleanFilters(stagedIndexPaths, REPO_ROOT, stagedEnv);
+		if (cleanFiltered.length > 0) {
+			fail(
+				'Custom Git clean filters are unsupported in staged checks.',
+				'  Remove the filter from checked paths, then stage the intended bytes and retry.'
+			);
+		}
 		inputs = stagedIndexPaths.length > 0 ? resolveInputs(stagedIndexPaths, 'the git index') : [];
+		if (!stagedFilesMatchWorktree(stagedIndexPaths, REPO_ROOT, stagedEnv)) {
+			fail(
+				'Staged file contents differ from the worktree.',
+				'  Run the checks in fix mode, review the result, stage the intended bytes,\n' +
+					'  and retry the commit.'
+			);
+		}
 	}
 
 	const fullRepositoryPaths = mode === 'full' ? repositoryPaths() : [];
@@ -741,7 +775,7 @@ async function main(): Promise<void> {
 		// Code formatting
 		printHeader(step++, 'Code formatting');
 		{
-			const formatFlag = ciMode ? '--check' : '--write';
+			const formatFlag = assertMode ? '--check' : '--write';
 			const files = ledger.filesFor('prettier');
 			if (!scopedMode) {
 				await runCommand('bun', ['prettier', formatFlag, '.']);
@@ -767,7 +801,7 @@ async function main(): Promise<void> {
 		// ESLint
 		printHeader(step++, 'ESLint');
 		{
-			const fixArgs = ciMode ? [] : ['--fix'];
+			const fixArgs = assertMode ? [] : ['--fix'];
 			const files = ledger.filesFor('eslint');
 			if (!scopedMode) {
 				await runCommand('bun', ['eslint', '.', ...fixArgs]);
@@ -844,22 +878,6 @@ async function main(): Promise<void> {
 		console.log('\n');
 	}
 
-	// Re-stage files if they were modified during --staged checks.
-	// Sanitized env ensures `git add` writes into the correct index even when
-	// a parent process (e.g. the pre-commit framework) set GIT_DIR/GIT_WORK_TREE.
-	if (mode === 'staged' && !ciMode && stagedIndexPaths.length > 0) {
-		console.log('Re-staging modified files...');
-		if (isUnderPreCommit()) {
-			console.log(
-				'  (note: pre-commit framework detected. It will report "files were modified ' +
-					'by this hook" and abort the commit. Run `git commit` again with no further ' +
-					'changes to land the auto-fixes.)'
-			);
-		}
-		await runCommand('git', ['add', ...stagedIndexPaths], { env: sanitizedGitEnv() });
-		console.log('');
-	}
-
 	if (shouldRunLint) {
 		printHeader(step, 'Knowledge placement');
 		const policyScope =
@@ -887,6 +905,15 @@ async function main(): Promise<void> {
 		ledger.ran('knowledge-placement', result.filesEvaluated);
 		if (errors > 0) process.exit(1);
 		console.log('');
+	}
+
+	if (stagedIndexFingerprint) {
+		if (!stagedFilesMatchWorktree(stagedIndexPaths, REPO_ROOT, stagedEnv)) {
+			fail('Checked worktree bytes changed while staged checks were running.');
+		}
+		if (activeGitIndexFingerprint(REPO_ROOT, stagedEnv) !== stagedIndexFingerprint) {
+			fail('The active Git index changed while staged checks were running.');
+		}
 	}
 
 	finish(ledger, scopeLabel);

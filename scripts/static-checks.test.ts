@@ -31,7 +31,8 @@ import {
 	ROUTES,
 	resolveInputs,
 	spellcheckFiles,
-	unsafePathCodepoints
+	unsafePathCodepoints,
+	usesAssertOnlyChecks
 } from './static-checks';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -41,6 +42,14 @@ const SCRIPT = path.join(ROOT, 'scripts', 'static-checks.ts');
 function run(...args: string[]): number {
 	return spawnSync('bun', [SCRIPT, ...args], { cwd: ROOT, encoding: 'utf8' }).status ?? -1;
 }
+
+describe('checker mutation mode', () => {
+	it('keeps staged and CI runs assert-only', () => {
+		expect(usesAssertOnlyChecks(false, 'staged')).toBe(true);
+		expect(usesAssertOnlyChecks(true, 'full')).toBe(true);
+		expect(usesAssertOnlyChecks(false, 'files')).toBe(false);
+	});
+});
 
 describe('route predicates', () => {
 	it('routes knowledge files through repository policy candidates and ignores', () => {
@@ -214,6 +223,16 @@ describe('resolveInputs', () => {
 });
 
 describe('bad input dies at the boundary', () => {
+	it('omits parent-owned ANSI when NO_COLOR is set', () => {
+		const result = spawnSync('bun', [SCRIPT, '--unknown'], {
+			cwd: ROOT,
+			encoding: 'utf8',
+			env: { ...sanitizedGitEnv(), NO_COLOR: '1' }
+		});
+		expect(result.status).toBe(1);
+		expect(`${result.stdout}${result.stderr}`).not.toContain('\x1b');
+	});
+
 	it.each([
 		['an empty argument', ['']],
 		['a whitespace argument', ['   ']],
@@ -226,17 +245,8 @@ describe('bad input dies at the boundary', () => {
 		expect(run(...args)).toBe(1);
 	});
 
-	// `--staged` is the one case here that is not bad input, so it has to be asserted
-	// or nothing pins that the guards above leave it alone.
-	//
-	// It reads the real git index, which is the developer's, so with anything staged
-	// it lints those files for real and outruns vitest's default per-test timeout,
-	// which nothing here raises. The index cannot be
-	// substituted from outside either: `sanitizedGitEnv` scrubs `GIT_INDEX_FILE`
-	// deliberately, because a pre-commit framework setting it points the run at the
-	// wrong worktree (#332). CI stages nothing, so the assertion always runs where it
-	// gates a merge, and a developer mid-commit gets a skip with the reason instead of
-	// a timeout that looks like a broken script.
+	// A staged run with a clean index is an honest no-op. Skip this local assertion
+	// while a developer has real staged files, since it would run the complete gate.
 	const nothingStaged =
 		spawnSync('git', ['diff', '--cached', '--quiet'], {
 			cwd: ROOT,
