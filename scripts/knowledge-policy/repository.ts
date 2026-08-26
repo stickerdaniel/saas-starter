@@ -1,7 +1,7 @@
 import { lstatSync, readFileSync, readlinkSync } from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { sanitizedGitEnv } from '../git-context';
+import { sanitizedGitEnv, stagedGitEnv } from '../git-context';
 import {
 	evaluateKnowledgePolicy,
 	matchesKnowledgeCandidate,
@@ -27,12 +27,17 @@ interface IndexEntry {
 	file: string;
 }
 
-function git(root: string, args: string[], input?: Buffer | string) {
+function git(
+	root: string,
+	args: string[],
+	input?: Buffer | string,
+	env: NodeJS.ProcessEnv = sanitizedGitEnv()
+) {
 	const result = spawnSync('git', args, {
 		cwd: root,
 		encoding: input === undefined ? 'utf8' : undefined,
 		input,
-		env: sanitizedGitEnv(),
+		env,
 		maxBuffer: 128 * 1024 * 1024
 	});
 	if (result.status !== 0) {
@@ -65,12 +70,16 @@ function pathEntryExists(file: string): boolean {
 	}
 }
 
-function commitExists(root: string, sha: string): boolean {
+function commitExists(
+	root: string,
+	sha: string,
+	env: NodeJS.ProcessEnv = sanitizedGitEnv()
+): boolean {
 	return (
-		spawnSync('git', ['cat-file', '-e', `${sha}^{commit}`], {
+		spawnSync('git', ['--no-replace-objects', 'cat-file', '-e', `${sha}^{commit}`], {
 			cwd: root,
 			stdio: 'ignore',
-			env: sanitizedGitEnv()
+			env
 		}).status === 0
 	);
 }
@@ -102,8 +111,8 @@ function workingTreeRepository(root: string, files: readonly string[]): PolicyRe
 	};
 }
 
-function listIndexEntries(root: string): IndexEntry[] {
-	const result = git(root, ['ls-files', '--stage', '-z']);
+function listIndexEntries(root: string, env: NodeJS.ProcessEnv): IndexEntry[] {
+	const result = git(root, ['ls-files', '--stage', '-z'], undefined, env);
 	return String(result.stdout)
 		.split('\0')
 		.filter(Boolean)
@@ -119,10 +128,19 @@ function listIndexEntries(root: string): IndexEntry[] {
 		});
 }
 
-function readIndexBlobs(root: string, oids: readonly string[]): Map<string, string> {
+function readIndexBlobs(
+	root: string,
+	oids: readonly string[],
+	env: NodeJS.ProcessEnv
+): Map<string, string> {
 	const unique = [...new Set(oids)];
 	if (unique.length === 0) return new Map();
-	const result = git(root, ['cat-file', '--batch'], `${unique.join('\n')}\n`);
+	const result = git(
+		root,
+		['--no-replace-objects', 'cat-file', '--batch'],
+		`${unique.join('\n')}\n`,
+		env
+	);
 	const output = Buffer.from(result.stdout as Buffer);
 	const values = new Map<string, string>();
 	let cursor = 0;
@@ -137,7 +155,9 @@ function readIndexBlobs(root: string, oids: readonly string[]): Map<string, stri
 		const start = newline + 1;
 		const end = start + size;
 		if (end >= output.length) throw new Error(`Incomplete cat-file body for ${requested}.`);
-		if (match[2] !== 'blob') throw new Error(`Index object ${requested} is not a blob.`);
+		if (match[1] !== requested || match[2] !== 'blob') {
+			throw new Error(`Index object ${requested} is not the requested blob.`);
+		}
 		values.set(requested, output.subarray(start, end).toString('utf8'));
 		cursor = end + 1;
 	}
@@ -147,25 +167,25 @@ function readIndexBlobs(root: string, oids: readonly string[]): Map<string, stri
 function assertPolicyRuntimeMatchesIndex(
 	root: string,
 	policy: KnowledgePolicyConfig,
-	entries: readonly IndexEntry[]
+	entries: readonly IndexEntry[],
+	env: NodeJS.ProcessEnv
 ): void {
 	const trackedRuntime = entries.filter((entry) => policy.repository.runtimeFiles(entry.file));
 	const differences =
 		trackedRuntime.length === 0
 			? []
 			: String(
-					git(root, [
-						'diff',
-						'--name-only',
-						'-z',
-						'--',
-						...trackedRuntime.map((entry) => entry.file)
-					]).stdout
+					git(
+						root,
+						['diff', '--name-only', '-z', '--', ...trackedRuntime.map((entry) => entry.file)],
+						undefined,
+						env
+					).stdout
 				)
 					.split('\0')
 					.filter(Boolean);
 	const untrackedRuntime = String(
-		git(root, ['ls-files', '--others', '--exclude-standard', '-z']).stdout
+		git(root, ['ls-files', '--others', '--exclude-standard', '-z'], undefined, env).stdout
 	)
 		.split('\0')
 		.filter((file) => file && policy.repository.runtimeFiles(toPosix(file)));
@@ -179,7 +199,8 @@ function assertPolicyRuntimeMatchesIndex(
 function indexRepository(
 	root: string,
 	policy: KnowledgePolicyConfig,
-	entries: readonly IndexEntry[]
+	entries: readonly IndexEntry[],
+	env: NodeJS.ProcessEnv
 ): PolicyRepository {
 	const conflicts = entries.filter((entry) => entry.stage !== 0);
 	if (conflicts.length > 0) {
@@ -191,7 +212,7 @@ function indexRepository(
 	const candidateOids = entries
 		.filter((entry) => entry.mode !== '160000' && matchesKnowledgeCandidate(policy, entry.file))
 		.map((entry) => entry.oid);
-	const blobs = readIndexBlobs(root, candidateOids);
+	const blobs = readIndexBlobs(root, candidateOids, env);
 	return {
 		files: entries.map((entry) => entry.file),
 		readText(file) {
@@ -206,7 +227,7 @@ function indexRepository(
 			const prefix = file.endsWith('/') ? file : `${file}/`;
 			return entries.some((entry) => entry.file.startsWith(prefix));
 		},
-		commitExists: (sha) => commitExists(root, sha)
+		commitExists: (sha) => commitExists(root, sha, env)
 	};
 }
 
@@ -235,9 +256,10 @@ export function runKnowledgePolicy(input: {
 	}
 
 	if (effectiveScope.kind === 'staged') {
-		const entries = listIndexEntries(root);
-		assertPolicyRuntimeMatchesIndex(root, input.policy, entries);
-		repository = indexRepository(root, input.policy, entries);
+		const env = stagedGitEnv(root);
+		const entries = listIndexEntries(root, env);
+		assertPolicyRuntimeMatchesIndex(root, input.policy, entries, env);
+		repository = indexRepository(root, input.policy, entries, env);
 	} else if (effectiveScope.kind === 'full') {
 		repository = workingTreeRepository(root, listWorkingTreeFiles(root));
 	} else {
