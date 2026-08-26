@@ -1003,7 +1003,7 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 
 	it('preserves the overriding semantics of an inherited protocol allowlist', () => {
 		git(fork, ['config', '--local', 'protocol.file.allow', 'never']);
-		const r = run(fork, ['--base', 'HEAD', '--json'], {
+		const r = run(fork, ['--fetch', '--base', 'HEAD', '--json'], {
 			GIT_ALLOW_PROTOCOL: 'file',
 			GIT_PROTOCOL_FROM_USER: 'false'
 		});
