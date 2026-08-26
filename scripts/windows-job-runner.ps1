@@ -371,16 +371,6 @@ public static class WindowsJobRunner
             if (waitResult == WAIT_FAILED) throw Failure("WaitForMultipleObjects");
             if (waitResult == WAIT_OBJECT_0 + 1)
             {
-                try
-                {
-                    lifetime.EndRead(lifetimeRead);
-                }
-                catch (IOException)
-                {
-                }
-                catch (ObjectDisposedException)
-                {
-                }
                 if (!TerminateJobObject(job, 1)) throw Failure("TerminateJobObject");
                 return 1;
             }
@@ -408,6 +398,19 @@ public static class WindowsJobRunner
             }
             catch (ObjectDisposedException)
             {
+            }
+            if (lifetimeRead != null)
+            {
+                try
+                {
+                    lifetime.EndRead(lifetimeRead);
+                }
+                catch (IOException)
+                {
+                }
+                catch (ObjectDisposedException)
+                {
+                }
             }
             try
             {
