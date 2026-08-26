@@ -150,22 +150,13 @@ function gitBooleanIsFalse(value: string | undefined): boolean {
 	return value !== undefined && /^(?:|0|false|no|off)$/i.test(value);
 }
 
-function protocolAllowsAlways(protocol: string): boolean {
-	return transportProtocolPolicies.get(protocol) === 'always';
-}
-
 function transportProtocolEnv(): NodeJS.ProcessEnv {
 	const inherited = inheritedEnvironment('GIT_ALLOW_PROTOCOL');
 	const fromUser = inheritedEnvironment('GIT_PROTOCOL_FROM_USER');
 	const userProtocolsDisabled = gitBooleanIsFalse(fromUser);
 	const permitted = inherited
 		?.split(':')
-		.filter(
-			(protocol) =>
-				PRIVATE_TRANSPORT_PROTOCOLS.has(protocol) &&
-				!(userProtocolsDisabled && protocol === 'file') &&
-				protocolAllowsAlways(protocol)
-		)
+		.filter((protocol) => PRIVATE_TRANSPORT_PROTOCOLS.has(protocol))
 		.join(':');
 	return {
 		...(permitted === undefined ? {} : { GIT_ALLOW_PROTOCOL: permitted }),
@@ -336,7 +327,7 @@ function copyTransportConfiguration(configPath: string): void {
 			'config',
 			'--null',
 			'--get-regexp',
-			'^(credential\\.|http\\.(pinnedpubkey|proxy|proxyauthmethod|proxysslcainfo|proxysslverify|sslbackend|sslcainfo|sslcapath|sslverify)$|http\\..*\\.(extraheader|pinnedpubkey|proxy|proxyauthmethod|proxysslcainfo|proxysslcert|proxysslcertpasswordprotected|proxysslkey|proxysslverify|sslcainfo|sslcapath|sslcert|sslcertpasswordprotected|sslkey|sslverify)$|protocol\\..*\\.allow$|remote\\..*\\.(proxy|proxyauthmethod)$)'
+			'^(credential\\.|http\\.(pinnedpubkey|proxy|proxyauthmethod|proxysslcainfo|proxysslverify|sslbackend|sslcainfo|sslcapath|sslverify)$|http\\..*\\.(extraheader|pinnedpubkey|proxy|proxyauthmethod|proxysslcainfo|proxysslcert|proxysslcertpasswordprotected|proxysslkey|proxysslverify|sslcainfo|sslcapath|sslcert|sslcertpasswordprotected|sslkey|sslverify)$|protocol(\\.[^.]*)?\\.allow$|remote\\..*\\.(proxy|proxyauthmethod)$)'
 		],
 		true
 	);
@@ -345,6 +336,10 @@ function copyTransportConfiguration(configPath: string): void {
 		if (newline === -1) continue;
 		const key = record.slice(0, newline);
 		const value = record.slice(newline + 1);
+		if (key.toLowerCase() === 'protocol.allow') {
+			transportProtocolPolicies.set('*', value.toLowerCase());
+			continue;
+		}
 		const protocol = /^protocol\.([^.]+)\.allow$/i.exec(key)?.[1];
 		if (protocol) {
 			transportProtocolPolicies.set(protocol, value.toLowerCase());
@@ -364,6 +359,10 @@ function copyTransportConfiguration(configPath: string): void {
 		}
 		appendTransportConfig(configPath, key, value);
 	}
+	const globalProtocolPolicy = transportProtocolPolicies.get('*') ?? '';
+	if (globalProtocolPolicy !== '' && !/^(?:always|never|user)$/.test(globalProtocolPolicy)) {
+		fail('Git protocol.allow has an invalid policy.');
+	}
 	appendTransportConfig(configPath, 'protocol.allow', 'never');
 	for (const [protocol, fallback] of [
 		['file', 'user'],
@@ -374,7 +373,9 @@ function copyTransportConfiguration(configPath: string): void {
 		if (configured !== '' && !/^(?:always|never|user)$/.test(configured)) {
 			fail(`Git protocol.${protocol}.allow has an invalid policy.`);
 		}
-		const policy = configured || fallback;
+		const policy =
+			configured ||
+			(/^(?:never|user)$/.test(globalProtocolPolicy) ? globalProtocolPolicy : fallback);
 		transportProtocolPolicies.set(protocol, policy);
 		appendTransportConfig(configPath, `protocol.${protocol}.allow`, policy);
 	}
@@ -1108,17 +1109,14 @@ function hunkOverlap(region: Region, upstreamLines: Map<string, number>): number
 	const lines = removed.length > 0 ? removed : context;
 	if (lines.length === 0) return null;
 
-	// A private tally per hunk. Sharing one would let an earlier hunk consume the
-	// upstream lines a later hunk needs, so a file's score would depend on hunk
-	// order.
-	const available = new Map(upstreamLines);
+	// Count only lines this hunk uses. Cloning the complete upstream tally for
+	// every hunk turns a sparse diff into a hunk-by-file cross-product.
+	const used = new Map<string, number>();
 	let hits = 0;
 	for (const line of lines) {
-		const left = available.get(line) ?? 0;
-		if (left > 0) {
-			hits++;
-			available.set(line, left - 1);
-		}
+		const count = (used.get(line) ?? 0) + 1;
+		used.set(line, count);
+		if (count <= (upstreamLines.get(line) ?? 0)) hits++;
 	}
 	return hits / lines.length;
 }
@@ -1375,7 +1373,9 @@ function localRemotePath(url: string, root: string): string | null {
 		try {
 			candidate = fileURLToPath(url);
 		} catch {
-			return null;
+			fail(
+				`Cannot trust ${terminalUrl(url)} because its file URL cannot be resolved to one canonical local path.`
+			);
 		}
 	} else if (isAbsolute(url)) {
 		candidate = url;
@@ -1387,7 +1387,9 @@ function localRemotePath(url: string, root: string): string | null {
 	try {
 		return realpathSync(candidate);
 	} catch {
-		return null;
+		fail(
+			`Cannot trust ${terminalUrl(url)} because its local path cannot be resolved to one canonical location.`
+		);
 	}
 }
 
@@ -1662,6 +1664,8 @@ function ensureUpstream(root: string, upstreamUrl: string, allowFetch: boolean):
 				"`git remote set-url` on its own leaves the previous remote's tracking ref behind."
 		);
 	}
+	const transportUrl = remoteUrl || upstreamUrl;
+	if (remoteUrl) rejectOwnedRepositoryRemote(remoteUrl, root, 'configured upstream');
 
 	// A tracking ref with no remote behind it proves nothing about which
 	// repository it came from. An orphan left by a former parent fork makes paths
@@ -1688,9 +1692,9 @@ function ensureUpstream(root: string, upstreamUrl: string, allowFetch: boolean):
 		const zeroOid = '0'.repeat(objectFormat === 'sha256' ? 64 : 40);
 		const refBeforeFetch = haveRef() ? git(['rev-parse', UPSTREAM_REF]) : zeroOid;
 		let addedRemote = false;
-		const transport = transportRemote(upstreamUrl);
+		const transport = transportRemote(transportUrl);
 		console.error(`Fetching upstream (${terminalUrl(upstreamUrl)}) ...`);
-		const expected = advertisedMainAt(upstreamUrl);
+		const expected = advertisedMainAt(transportUrl);
 		try {
 			rejectTransportCommandOverrides();
 			gitBytes(
@@ -1716,7 +1720,7 @@ function ensureUpstream(root: string, upstreamUrl: string, allowFetch: boolean):
 		}
 		if (
 			!expected ||
-			advertisedMainAt(upstreamUrl) !== expected ||
+			advertisedMainAt(transportUrl) !== expected ||
 			git(['cat-file', '-t', expected], true) !== 'commit'
 		) {
 			fail('Upstream main changed or its fetched commit is unavailable. Run the report again.');
@@ -1872,7 +1876,7 @@ function ensureUpstream(root: string, upstreamUrl: string, allowFetch: boolean):
 	}
 	const liveAdvertisementMatches = Number.isFinite(recordedFetch)
 		? false
-		: advertisedMainAt(upstreamUrl) === sha;
+		: advertisedMainAt(finalUrl) === sha;
 	const committed = Number(git(['log', '-1', '--format=%ct', sha], true));
 	const measured = Number.isFinite(fetched) && fetched > 0 ? fetched : committed;
 	const ageDays = Number.isFinite(measured)
@@ -1903,7 +1907,7 @@ function verifyUpstreamSnapshot(upstreamUrl: string, snapshot: UpstreamSnapshot)
 				'Run it again after the sync or fetch finishes.'
 		);
 	}
-	if (snapshot.verifyAdvertisedMain && advertisedMainAt(upstreamUrl) !== snapshot.sha) {
+	if (snapshot.verifyAdvertisedMain && advertisedMainAt(snapshot.remoteUrl) !== snapshot.sha) {
 		fail('Upstream main changed during this report. Run it again on the settled remote.');
 	}
 }

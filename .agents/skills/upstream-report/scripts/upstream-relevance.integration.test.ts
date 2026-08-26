@@ -156,6 +156,11 @@ if [ "$FAKE_FETCH_SUCCESS" = "1" ]; then
   done
 fi
 command_line=" $* "
+if [ -n "$TRANSPORT_ALIAS_CONFIG_LOG" ]; then
+  case "$command_line" in
+    *" ls-remote "*) "$REAL_GIT" config --get-regexp '^(http\\..*\\.pinnedpubkey|remote\\..*\\.proxy)$' > "$TRANSPORT_ALIAS_CONFIG_LOG" || : ;;
+  esac
+fi
 if [ -n "$FAKE_REMOTE_MAIN_SHA" ]; then
   case "$command_line" in
     *" ls-remote "*" refs/heads/main "*) printf '%s\trefs/heads/main\n' "$FAKE_REMOTE_MAIN_SHA"; exit 0 ;;
@@ -220,7 +225,7 @@ if [ -n "$TRANSPORT_UNSCOPED_HTTP_LOG" ]; then
 fi
 if [ -n "$TRANSPORT_NETWORK_LOG" ]; then
   case "$command_line" in
-    *" ls-remote "*) "$REAL_GIT" config --file "$GIT_DIR/config" --get-regexp '^(http\\..*(sslcainfo|sslcapath|proxy|proxysslcainfo)|remote\\..*\\.(proxy|proxyauthmethod))$' > "$TRANSPORT_NETWORK_LOG" || : ;;
+    *" ls-remote "*) "$REAL_GIT" config --file "$GIT_DIR/config" --get-regexp '^(http\\..*(pinnedpubkey|sslcainfo|sslcapath|proxy|proxysslcainfo)|remote\\..*\\.(proxy|proxyauthmethod))$' > "$TRANSPORT_NETWORK_LOG" || : ;;
   esac
 fi
 if [ -n "$TLS_CONFIG_RACE_REPO" ] && [ ! -e "$TLS_CONFIG_RACE_MARKER" ]; then
@@ -979,6 +984,21 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 		git(fork, ['config', '--local', 'protocol.file.allow', 'never']);
 		const r = run(fork, ['--json', 'shared/pristine.ts']);
 		expect(r.status).not.toBe(0);
+	});
+
+	it('preserves a global protocol.allow restriction', () => {
+		git(fork, ['config', '--local', 'protocol.allow', 'never']);
+		const r = run(fork, ['--json', 'shared/pristine.ts']);
+		expect(r.status).not.toBe(0);
+	});
+
+	it('preserves the overriding semantics of an inherited protocol allowlist', () => {
+		git(fork, ['config', '--local', 'protocol.file.allow', 'never']);
+		const r = run(fork, ['--base', 'HEAD', '--json'], {
+			GIT_ALLOW_PROTOCOL: 'file',
+			GIT_PROTOCOL_FROM_USER: 'false'
+		});
+		expect(r.status, r.stderr).toBe(0);
 	});
 
 	it('refuses a relative temporary directory before writing or sweeping', () => {
@@ -2336,6 +2356,22 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 
 		expect(r.status).not.toBe(0);
 		expect(r.stderr).toMatch(/marker upstream URL resolves inside a checkout/);
+	});
+
+	itWithPosixPaths('rejects Git-compatible file URLs that lack one canonical local path', () => {
+		const url = `file://example.invalid${fork}`;
+		const marker = JSON.parse(readFileSync(join(fork, '.upstream-sync.json'), 'utf8')) as Record<
+			string,
+			unknown
+		>;
+		write(fork, '.upstream-sync.json', JSON.stringify({ ...marker, upstreamUrl: url }));
+		git(fork, ['commit', '-qam', 'set ambiguous file URL parent']);
+		git(fork, ['remote', 'set-url', 'upstream', url]);
+
+		const r = run(fork, ['--fetch', '--base', 'HEAD', '--json']);
+
+		expect(r.status).not.toBe(0);
+		expect(r.stderr).toMatch(/file URL cannot be resolved to one canonical local path/);
 	});
 
 	it('refuses a repository-contained Git bundle as marker upstream', () => {
@@ -5992,6 +6028,34 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 		expect(r.status).not.toBe(0);
 		expect(r.stderr).toMatch(/split index/);
 		expect(statSync(backing).mtimeMs).toBe(before);
+	});
+
+	itWithGitWrapper('keeps scoped transport config on the configured GitHub spelling', () => {
+		const configured = 'https://github.com/StickerDaniel/SaaS-Starter.git';
+		const markerUrl = 'https://github.com/stickerdaniel/saas-starter';
+		const marker = JSON.parse(readFileSync(join(fork, '.upstream-sync.json'), 'utf8')) as Record<
+			string,
+			unknown
+		>;
+		write(fork, '.upstream-sync.json', JSON.stringify({ ...marker, upstreamUrl: markerUrl }));
+		git(fork, ['commit', '-qam', 'record GitHub alias parent']);
+		git(fork, ['remote', 'set-url', 'upstream', configured]);
+		git(fork, ['config', '--local', `http.${configured}.pinnedPubkey`, 'sha256//DUMMY_PIN']);
+		git(fork, ['config', '--local', 'remote.upstream.proxy', 'http://proxy.example']);
+		const upstreamSha = git(fork, ['rev-parse', 'refs/remotes/upstream/main']);
+		const networkLog = join(tmp, 'github-alias-transport.log');
+
+		const r = run(fork, ['--base', 'origin/main', '--json'], {
+			PATH: `${installGitWrapper(tmp)}:${process.env.PATH ?? ''}`,
+			REAL_GIT: realGitPath(),
+			FAKE_REMOTE_MAIN_SHA: upstreamSha,
+			TRANSPORT_ALIAS_CONFIG_LOG: networkLog
+		});
+
+		expect(r.status, r.stderr).toBe(0);
+		const config = readFileSync(networkLog, 'utf8');
+		expect(config).toContain('sha256//DUMMY_PIN');
+		expect(config).toContain('http://proxy.example');
 	});
 
 	itWithGitWrapper(

@@ -34,12 +34,13 @@ path instead, the script keeps them relative to your directory.
 
 With no arguments it takes every file changed against the merge-base with `origin/main`,
 plus staged, unstaged, and untracked work, and both sides of a rename. Pass explicit paths
-to narrow it: an explicit path is classified whether or not it changed, and a directory
-expands to everything under it. Automatic discovery and aggregate explicit expansion stop at
-500,000 files. Equivalent path arguments are enumerated once. Every argument must match something, including when its
-neighbours matched, because git drops an unmatched one without a word. An explicit run stops
-if `.upstream-sync.json` changed in the selected commit range. Run without paths so that parent
-change stays in the report.
+to narrow the classification list: an explicit path is classified whether or not it changed,
+and a directory expands to everything under it. Automatic discovery and aggregate explicit
+expansion stop at 500,000 files. Equivalent path arguments are enumerated once. Every argument
+must match something, including when its neighbours matched, because git drops an unmatched one
+without a word. An explicit run stops if `.upstream-sync.json` changed in the selected commit
+range. Run without paths so that parent change stays in the report. Provenance still scans the
+bounded current trees and upstream history, because moved template code may live at any path.
 
 Three active flags follow `--`: `--base <ref>` starts from the merge base with that ref
 instead of with `origin/main`, `--json` prints machine output, and `--fetch` lets the run
@@ -243,12 +244,15 @@ per-process Git config instead of writing them to temporary files. The private c
 global and URL-scoped CA and proxy settings, URL-scoped client certificate settings, and a matching
 remote's proxy. Unscoped HTTP authorization stays out because the marker chooses the host. Transport
 accepts local files, HTTPS, and SSH. Plain HTTP, Git, FTP, `git+ssh`, and arbitrary remote helpers are
-refused. The private config denies unknown protocols, preserves restrictive `protocol.*.allow`
-settings, and intersects an inherited protocol allowlist with the accepted transports. HTTPS also
-requires certificate and proxy-certificate verification. Matching `url.*.insteadOf`,
+refused. The private config denies unknown protocols and preserves restrictive
+`protocol.allow` and `protocol.*.allow` settings. An inherited `GIT_ALLOW_PROTOCOL` is intersected
+with the accepted transports and keeps Git's normal override semantics. HTTPS also requires
+certificate and proxy-certificate verification. Matching `url.*.insteadOf`,
 `core.sshCommand`, and `core.gitProxy` overrides remain refused. A `remote.upstream.uploadpack`
-helper cannot serve a different repository. A local remote is written under the canonical path that
-passed checkout-ownership validation, so retargeting its symlink cannot redirect the later fetch.
+helper cannot serve a different repository. When the marker uses an accepted GitHub alias, transport
+keeps the configured remote's exact spelling so its URL-scoped pins, certificates, and proxy settings
+still match. A local remote is written under the canonical path that passed checkout-ownership
+validation, so retargeting its symlink cannot redirect the later fetch.
 
 Fetch disables automatic maintenance because the private ref namespace does not describe which
 objects the real repository still needs. Fetched objects still land in the real object store. The
