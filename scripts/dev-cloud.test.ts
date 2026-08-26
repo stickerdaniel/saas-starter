@@ -1,5 +1,6 @@
 import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { createConnection } from 'node:net';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -10,7 +11,7 @@ import {
 	runUntilOneExits,
 	windowsTreeKillArgs
 } from './dev-cloud';
-import { openWindowsJobLifetime, windowsJobCommand } from './windows-job';
+import { openWindowsJobLifetime, windowsJobCommand, WINDOWS_JOB_TOKEN_ENV } from './windows-job';
 
 function processExists(pid: number): boolean {
 	try {
@@ -32,6 +33,30 @@ async function waitUntilStopped(pid: number): Promise<boolean> {
 function forceStopWindowsTree(pid: number | undefined): void {
 	if (!pid || process.platform !== 'win32') return;
 	spawnSync('taskkill', ['/PID', String(pid), '/T', '/F'], { stdio: 'ignore' });
+}
+
+async function waitForChild(
+	child: ReturnType<typeof spawn>,
+	timeoutMs = 10_000
+): Promise<{ code: number | null; signal: NodeJS.Signals | null; stdout: string; stderr: string }> {
+	let stdout = '';
+	let stderr = '';
+	child.stdout?.on('data', (chunk) => (stdout += chunk));
+	child.stderr?.on('data', (chunk) => (stderr += chunk));
+	return await new Promise((resolve, reject) => {
+		const timeout = setTimeout(() => {
+			child.kill();
+			reject(new Error(`Child process did not exit within ${timeoutMs} ms.`));
+		}, timeoutMs);
+		child.once('error', (error) => {
+			clearTimeout(timeout);
+			reject(error);
+		});
+		child.once('exit', (code, signal) => {
+			clearTimeout(timeout);
+			resolve({ code, signal, stdout, stderr });
+		});
+	});
 }
 
 describe('devCloudCommands', () => {
@@ -59,7 +84,7 @@ describe('windowsJobCommand', () => {
 		expect(windowsJobCommand(command, { platform: 'darwin' })).toBe(command);
 	});
 
-	it('requires a lifetime pipe for Windows commands', () => {
+	it('requires a lifetime for Windows commands', () => {
 		expect(() =>
 			windowsJobCommand({ command: 'bun', args: ['run', 'dev'] }, { platform: 'win32' })
 		).toThrow('Windows Job Object lifetime is required.');
@@ -76,6 +101,7 @@ describe('windowsJobCommand', () => {
 		let encodedPayload = '';
 		const lifetime = {
 			pipeName: 'test-lifetime-pipe',
+			token: 'test-lifetime-token',
 			setPayload: (value: string) => (encodedPayload = value),
 			close: async () => {}
 		};
@@ -98,8 +124,46 @@ describe('windowsJobCommand', () => {
 		expect(payload.command).toBe(String.raw`C:\Program Files\Bun\bun.exe`);
 		expect(payload.args).toEqual(['run', 'space value', 'quote"value', '', '--once']);
 		expect(payload.environment.includes('EXAMPLE=value')).toBe(true);
+		expect(
+			payload.environment.some((entry: string) => entry.startsWith(`${WINDOWS_JOB_TOKEN_ENV}=`))
+		).toBe(false);
 		expect(wrapped.env?.EXAMPLE).toBe('value');
+		expect(wrapped.env?.[WINDOWS_JOB_TOKEN_ENV]).toBe('test-lifetime-token');
 	});
+
+	it.runIf(process.platform === 'win32')(
+		'does not expose the payload to an unauthenticated pipe client',
+		async () => {
+			const lifetime = await openWindowsJobLifetime({ platform: 'win32' });
+			if (!lifetime) throw new Error('Windows lifetime pipe did not start.');
+			lifetime.setPayload(Buffer.from('secret payload').toString('base64'));
+			let received = '';
+			try {
+				await new Promise<void>((resolve, reject) => {
+					const socket = createConnection('\\\\.\\pipe\\' + lifetime.pipeName);
+					const timeout = setTimeout(() => {
+						socket.destroy();
+						reject(new Error('Unauthenticated pipe client was not rejected.'));
+					}, 5_000);
+					socket.setEncoding('utf8');
+					socket.on('data', (chunk) => (received += chunk));
+					socket.once('connect', () => socket.write('wrong-token\n'));
+					socket.once('error', (error) => {
+						clearTimeout(timeout);
+						reject(error);
+					});
+					socket.once('close', () => {
+						clearTimeout(timeout);
+						resolve();
+					});
+				});
+				expect(received).toBe('');
+			} finally {
+				await lifetime.close();
+			}
+		},
+		10_000
+	);
 
 	it.runIf(process.platform === 'win32')(
 		'propagates the managed root exit code',
@@ -111,9 +175,13 @@ describe('windowsJobCommand', () => {
 					{ command: process.execPath, args: ['-e', 'process.exit(7)'] },
 					{ platform: 'win32', lifetime }
 				);
-				const result = spawnSync(wrapped.command, wrapped.args, { encoding: 'utf8' });
+				const child = spawn(wrapped.command, wrapped.args, {
+					stdio: ['ignore', 'pipe', 'pipe'],
+					env: { ...process.env, ...wrapped.env }
+				});
+				const result = await waitForChild(child);
 				expect(result.stderr).toBe('');
-				expect(result.status).toBe(7);
+				expect(result.code).toBe(7);
 			} finally {
 				await lifetime.close();
 			}
@@ -137,14 +205,14 @@ describe('windowsJobCommand', () => {
 			);
 			await lifetime.close();
 			try {
-				const result = spawnSync(wrapped.command, wrapped.args, {
+				const child = spawn(wrapped.command, wrapped.args, {
 					cwd: directory,
-					stdio: 'ignore',
-					timeout: 10_000
+					stdio: ['ignore', 'pipe', 'pipe'],
+					env: { ...process.env, ...wrapped.env }
 				});
-				expect(result.error).toBeUndefined();
+				const result = await waitForChild(child);
 				expect(result.signal).toBeNull();
-				expect(result.status).not.toBe(0);
+				expect(result.code).not.toBe(0);
 				expect(existsSync(markerFile)).toBe(false);
 			} finally {
 				rmSync(directory, { recursive: true, force: true });
@@ -163,7 +231,7 @@ describe('windowsJobCommand', () => {
 			if (!lifetime) throw new Error('Windows lifetime pipe did not start.');
 			writeFileSync(
 				script,
-				"require('node:fs').writeFileSync(process.env.ARGV_OUTPUT, JSON.stringify({args:process.argv.slice(2),psModulePath:process.env.PSModulePath,payload:process.env.SAAS_STARTER_WINDOWS_JOB_PAYLOAD??null}))"
+				"require('node:fs').writeFileSync(process.env.ARGV_OUTPUT, JSON.stringify({args:process.argv.slice(2),psModulePath:process.env.PSModulePath,token:process.env.SAAS_STARTER_WINDOWS_JOB_TOKEN??null}))"
 			);
 			try {
 				const wrapped = windowsJobCommand(
@@ -174,17 +242,18 @@ describe('windowsJobCommand', () => {
 					},
 					{ platform: 'win32', lifetime }
 				);
-				const result = spawnSync(wrapped.command, wrapped.args, {
+				const child = spawn(wrapped.command, wrapped.args, {
 					cwd: directory,
 					env: { ...process.env, ...wrapped.env },
-					encoding: 'utf8'
+					stdio: ['ignore', 'pipe', 'pipe']
 				});
+				const result = await waitForChild(child);
 				expect(result.stderr).toBe('');
-				expect(result.status).toBe(0);
+				expect(result.code).toBe(0);
 				expect(JSON.parse(readFileSync(output, 'utf8'))).toEqual({
 					args: ['space value', 'quote"value', 'backslash\\', '', '--once'],
 					psModulePath: 'exact-module-path',
-					payload: null
+					token: null
 				});
 			} finally {
 				await lifetime.close();

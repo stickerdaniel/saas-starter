@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { createServer, type Socket } from 'node:net';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -18,8 +18,11 @@ export interface WindowsJobLifetimeOptions {
 	platform?: NodeJS.Platform;
 }
 
+export const WINDOWS_JOB_TOKEN_ENV = 'SAAS_STARTER_WINDOWS_JOB_TOKEN';
+
 export interface WindowsJobLifetime {
 	pipeName: string;
+	token: string;
 	setPayload: (payload: string) => void;
 	close: () => Promise<void>;
 }
@@ -35,19 +38,47 @@ export async function openWindowsJobLifetime(
 	if ((options.platform ?? process.platform) !== 'win32') return null;
 
 	const pipeName = `saas-starter-dev-cloud-${process.pid}-${randomUUID()}`;
+	const token = randomBytes(32).toString('base64url');
 	const pipePath = '\\\\.\\pipe\\' + pipeName;
 	const sockets = new Set<Socket>();
 	let closed = false;
+	let consumed = false;
 	let payload: string | null = null;
+	const expectedToken = Buffer.from(token);
 	const server = createServer((socket) => {
 		if (closed || payload === null) {
 			socket.destroy();
 			return;
 		}
 		sockets.add(socket);
+		socket.setEncoding('utf8');
+		socket.setTimeout(3_000, () => socket.destroy());
 		socket.on('error', () => {});
 		socket.on('close', () => sockets.delete(socket));
-		socket.write(`${payload}\n`);
+		let received = '';
+		const onData = (chunk: string) => {
+			received += chunk;
+			if (received.length > 256) {
+				socket.destroy();
+				return;
+			}
+			const newline = received.indexOf('\n');
+			if (newline === -1) return;
+			const presentedToken = Buffer.from(received.slice(0, newline).replace(/\r$/, ''));
+			const authenticated =
+				!consumed &&
+				presentedToken.length === expectedToken.length &&
+				timingSafeEqual(presentedToken, expectedToken);
+			if (!authenticated) {
+				socket.destroy();
+				return;
+			}
+			consumed = true;
+			socket.setTimeout(0);
+			socket.off('data', onData);
+			socket.write(`${payload}\n`);
+		};
+		socket.on('data', onData);
 	});
 
 	await new Promise<void>((resolve, reject) => {
@@ -61,6 +92,7 @@ export async function openWindowsJobLifetime(
 
 	return {
 		pipeName,
+		token,
 		setPayload: (value) => {
 			if (payload !== null) throw new Error('Windows Job Object payload is already set.');
 			payload = value;
@@ -115,6 +147,6 @@ export function windowsJobCommand(
 			RUNNER,
 			options.lifetime.pipeName
 		],
-		env: command.env
+		env: { ...command.env, [WINDOWS_JOB_TOKEN_ENV]: options.lifetime.token }
 	};
 }

@@ -5,13 +5,32 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+$LifetimeToken = [Environment]::GetEnvironmentVariable('SAAS_STARTER_WINDOWS_JOB_TOKEN')
+if ([string]::IsNullOrWhiteSpace($LifetimeToken)) {
+    throw 'Windows Job Object lifetime token is missing.'
+}
+[Environment]::SetEnvironmentVariable('SAAS_STARTER_WINDOWS_JOB_TOKEN', $null)
+
 $lifetime = [System.IO.Pipes.NamedPipeClientStream]::new(
     '.',
     $LifetimePipe,
-    [System.IO.Pipes.PipeDirection]::In,
+    [System.IO.Pipes.PipeDirection]::InOut,
     [System.IO.Pipes.PipeOptions]::Asynchronous
 )
 $lifetime.Connect(3000)
+$writer = [System.IO.StreamWriter]::new(
+    $lifetime,
+    [System.Text.UTF8Encoding]::new($false),
+    1024,
+    $true
+)
+try {
+    $writer.WriteLine($LifetimeToken)
+    $writer.Flush()
+}
+finally {
+    $writer.Dispose()
+}
 $reader = [System.IO.StreamReader]::new(
     $lifetime,
     [Text.Encoding]::UTF8,
