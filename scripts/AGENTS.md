@@ -4,6 +4,8 @@
 
 All scripts must work on macOS, Linux, and Windows. Use TypeScript executed by Bun for non-trivial logic. Avoid Bash-specific syntax and `sh -c`. Use `bun-tasks` when independent commands may run to completion; use a TypeScript orchestrator when one child exiting must terminate its peers.
 
+Windows Job Object ownership is the platform exception: keep orchestration in TypeScript and isolate required PowerShell 5.1/C# interop in the Windows launcher.
+
 ## Validation
 
 `bun scripts/static-checks.ts <changed files...>` is the primary targeted validation command.

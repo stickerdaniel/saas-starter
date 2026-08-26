@@ -1,0 +1,49 @@
+name: Windows Process Lifecycle
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'package.json'
+      - 'bun.lock'
+      - 'scripts/dev-cloud.ts'
+      - 'scripts/dev-cloud.test.ts'
+      - 'scripts/windows-job.ts'
+      - 'scripts/windows-job-runner.ps1'
+      - '.github/workflows/windows-process-lifecycle.yml'
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  lifecycle:
+    name: Windows Process Lifecycle
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - name: Detect relevant changes
+        id: changes
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          if ($env:EVENT_NAME -eq 'push') {
+            'run_tests=true' >> $env:GITHUB_OUTPUT
+            exit 0
+          }
+
+          $pattern = '^(package\.json|bun\.lock|scripts/(dev-cloud(\.test)?\.ts|windows-job(\.ts|-runner\.ps1))|\.github/workflows/windows-process-lifecycle\.yml)$'
+          $files = gh api --paginate "repos/$env:GITHUB_REPOSITORY/pulls/$env:PR_NUMBER/files" --jq '.[].filename'
+          $runTests = @($files | Where-Object { $_ -match $pattern }).Count -gt 0
+          "run_tests=$($runTests.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
+      - if: steps.changes.outputs.run_tests == 'true'
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+      - if: steps.changes.outputs.run_tests == 'true'
+        run: bun install --frozen-lockfile --ignore-scripts
+      - if: steps.changes.outputs.run_tests == 'true'
+        run: bun vitest --run scripts/dev-cloud.test.ts
