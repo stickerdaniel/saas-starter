@@ -9,10 +9,8 @@
  * privately and every other fork keeps them, or fork-only work gets offered
  * upstream where it makes no sense.
  *
- * Four outcomes, every one of them measured:
+ * Three outcomes, every one of them measured:
  *
- *   fork-only  every available path, blob, name and text comparison ruled out
- *              a tie to upstream. Nothing to report.
  *   pristine   the path exists upstream and, BEFORE this change, was identical
  *              to it. Editing untouched template code is the strongest signal
  *              there is: whatever was wrong there is wrong upstream too.
@@ -37,7 +35,7 @@
  *     --base <ref>   compare from the merge base with this ref instead of origin/main
  *     --fetch        allow creating the upstream remote and fetching it (writes git state)
  *     --json         machine-readable output
- *     --all          list fork-only files too (default: only what could matter)
+ *     --all          accepted for compatibility; every classified path is already listed
  */
 import { execFileSync } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
@@ -73,6 +71,9 @@ const UPSTREAM_FETCH_CONFIG = 'upstreamReport.lastFetch';
 const MAX_MARKER_BYTES = 1024 * 1024;
 const TEMP_ROOT = tmpdir();
 const NO_GRAFTS = process.platform === 'win32' ? 'NUL' : '/dev/null';
+const WINDOWS_SAFETY_MODE =
+	process.platform === 'win32' ||
+	(process.env.NODE_ENV === 'test' && process.env.UPSTREAM_REPORT_TEST_WINDOWS_SAFETY === '1');
 
 // Two days of upstream commits added seven paths that an old copy could not
 // compare. One full day is the first age the summary calls stale; the warning,
@@ -136,6 +137,28 @@ function gitEnv(): NodeJS.ProcessEnv {
 		}
 	}
 	return env;
+}
+
+function inheritedEnvironment(name: string): string | undefined {
+	const key = Object.keys(process.env).find((candidate) => candidate.toUpperCase() === name);
+	return key === undefined ? undefined : process.env[key];
+}
+
+const PRIVATE_TRANSPORT_PROTOCOLS = new Set(['file', 'git', 'http', 'https', 'ssh']);
+function transportProtocolEnv(): NodeJS.ProcessEnv {
+	const inherited = inheritedEnvironment('GIT_ALLOW_PROTOCOL');
+	const fromUser = inheritedEnvironment('GIT_PROTOCOL_FROM_USER');
+	return {
+		...(inherited === undefined
+			? {}
+			: {
+					GIT_ALLOW_PROTOCOL: inherited
+						.split(':')
+						.filter((protocol) => PRIVATE_TRANSPORT_PROTOCOLS.has(protocol))
+						.join(':')
+				}),
+		...(fromUser === '0' ? { GIT_PROTOCOL_FROM_USER: '0' } : {})
+	};
 }
 
 // Config pinned on every invocation, because each of these changes the answer
@@ -224,6 +247,7 @@ function trustedTransportEnv(): NodeJS.ProcessEnv {
 		fail('The private transport repository is unavailable. Run the report again.');
 	}
 	return {
+		...transportProtocolEnv(),
 		GIT_DIR: transportGitDir,
 		GIT_OBJECT_DIRECTORY: transportObjectDir,
 		GIT_SHALLOW_FILE: transportShallow,
@@ -252,16 +276,35 @@ function appendTransportConfig(configPath: string, key: string, value: string): 
 	const first = key.indexOf('.');
 	const last = key.lastIndexOf('.');
 	if (first <= 0 || last === key.length - 1) {
-		fail('Git returned an transport config key that cannot be copied safely.');
+		fail('Git returned a transport config key that cannot be copied safely.');
 	}
 	const section = key.slice(0, first);
 	const name = key.slice(last + 1);
 	if (!/^[a-z][a-z0-9-]*$/i.test(section) || !/^[a-z][a-z0-9-]*$/i.test(name)) {
-		fail('Git returned an transport config key that cannot be copied safely.');
+		fail('Git returned a transport config key that cannot be copied safely.');
 	}
 	const header =
 		first === last ? `[${section}]` : `[${section} ${quotedGitConfig(key.slice(first + 1, last))}]`;
 	writeFileSync(configPath, `${header}\n\t${name} = ${quotedGitConfig(value)}\n`, { flag: 'a' });
+}
+
+function proxyCarriesUserinfo(value: string): boolean {
+	try {
+		const parsed = new URL(value);
+		return parsed.username !== '' || parsed.password !== '';
+	} catch {
+		return true;
+	}
+}
+
+function safeWindowsTransportValue(key: string, value: string): boolean {
+	if (!WINDOWS_SAFETY_MODE) return true;
+	const lower = key.toLowerCase();
+	if (lower.startsWith('credential.') || lower.endsWith('.extraheader')) return false;
+	if ((lower === 'http.proxy' || lower.endsWith('.proxy')) && proxyCarriesUserinfo(value)) {
+		return false;
+	}
+	return true;
 }
 
 function copyTransportConfiguration(configPath: string): void {
@@ -270,14 +313,25 @@ function copyTransportConfiguration(configPath: string): void {
 			'config',
 			'--null',
 			'--get-regexp',
-			'^(credential\\.|http\\..*\\.(extraheader|pinnedpubkey|proxy|proxyauthmethod|proxysslcainfo|proxysslcert|proxysslcertpasswordprotected|proxysslkey|proxysslverify|sslcainfo|sslcert|sslcertpasswordprotected|sslkey|sslverify)$)'
+			'^(credential\\.|http\\.(pinnedpubkey|proxy|proxyauthmethod|sslcainfo|sslbackend|sslverify)$|http\\..*\\.(extraheader|pinnedpubkey|proxy|proxyauthmethod|proxysslcainfo|proxysslcert|proxysslcertpasswordprotected|proxysslkey|proxysslverify|sslcainfo|sslcert|sslcertpasswordprotected|sslkey|sslverify)$|protocol\\..*\\.allow$)'
 		],
 		true
 	);
 	for (const record of decodeZRecords(output)) {
 		const newline = record.indexOf('\n');
 		if (newline === -1) continue;
-		appendTransportConfig(configPath, record.slice(0, newline), record.slice(newline + 1));
+		const key = record.slice(0, newline);
+		const value = record.slice(newline + 1);
+		if (key.startsWith('protocol.') && value.toLowerCase() === 'always') continue;
+		if (!safeWindowsTransportValue(key, value)) continue;
+		appendTransportConfig(configPath, key, value);
+	}
+	for (const remote of git(['remote'], true).split('\n').filter(Boolean)) {
+		const url = configuredRemoteUrl(remote);
+		const proxy = git(['config', '--get', `remote.${remote}.proxy`], true);
+		if (url && proxy && safeWindowsTransportValue(`remote.${remote}.proxy`, proxy)) {
+			transportProxyByUrl.set(url, proxy);
+		}
 	}
 }
 
@@ -287,13 +341,16 @@ function transportRemote(url: string): string {
 	if (!transportConfigPath) {
 		fail('The private transport configuration is unavailable. Run the report again.');
 	}
+	if (WINDOWS_SAFETY_MODE) rejectSecretBearingRemoteUrl(url);
 	const name = `upstream-report-${createHash('sha256').update(url).digest('hex').slice(0, 16)}`;
 	appendTransportConfig(transportConfigPath, `remote.${name}.url`, url);
+	const proxy = transportProxyByUrl.get(url);
+	if (proxy) appendTransportConfig(transportConfigPath, `remote.${name}.proxy`, proxy);
 	transportRemotes.set(url, name);
 	return name;
 }
 
-function rejectSecretBearingRemoteCreation(url: string): void {
+function rejectSecretBearingRemoteUrl(url: string): void {
 	let unsafe: boolean;
 	if (/^[a-z][a-z0-9+.-]*:\/\//i.test(url)) {
 		try {
@@ -316,9 +373,8 @@ function rejectSecretBearingRemoteCreation(url: string): void {
 	}
 	if (!unsafe) return;
 	fail(
-		`Cannot create the shared \`upstream\` remote from ${terminalUrl(url)} because its URL carries ` +
-			'userinfo, a query, or a fragment. Add a credential-free remote yourself and keep authentication ' +
-			'in a credential helper or URL-scoped HTTP config.'
+		`Cannot use ${terminalUrl(url)} because its URL carries userinfo, a query, or a fragment. ` +
+			'Use a credential-free remote and keep authentication in a credential helper or URL-scoped HTTP config.'
 	);
 }
 
@@ -456,14 +512,13 @@ function git(args: string[], allowFail = false, timeout?: number): string {
  * with U+FFFD and can collapse two distinct paths into one map key.
  */
 const PATH_UTF8 = new TextDecoder('utf-8', { fatal: true });
-function decodeZRecords(output: Buffer): string[] {
-	const records: string[] = [];
+function visitZRecords(output: Buffer, visit: (record: string) => void): void {
 	let start = 0;
 	for (let end = 0; end <= output.length; end++) {
 		if (end < output.length && output[end] !== 0) continue;
 		if (end > start) {
 			try {
-				records.push(PATH_UTF8.decode(output.subarray(start, end)));
+				visit(PATH_UTF8.decode(output.subarray(start, end)));
 			} catch {
 				fail(
 					'Git returned a pathname that is not valid UTF-8. Rename it before running this report.'
@@ -472,11 +527,20 @@ function decodeZRecords(output: Buffer): string[] {
 		}
 		start = end + 1;
 	}
+}
+
+function decodeZRecords(output: Buffer): string[] {
+	const records: string[] = [];
+	visitZRecords(output, (record) => records.push(record));
 	return records;
 }
 
 function gitZ(args: string[], allowFail = false, timeout?: number): string[] {
 	return decodeZRecords(gitBytes(args, allowFail, {}, timeout));
+}
+
+function gitZEach(args: string[], visit: (record: string) => void): void {
+	visitZRecords(gitBytes(args), visit);
 }
 
 function historyGitBytes(args: string[]): Buffer {
@@ -540,6 +604,7 @@ let transportObjectDir: string | undefined;
 let transportShallow: string | undefined;
 let ownedRepositoryPaths: Set<string> | undefined;
 const transportRemotes = new Map<string, string>();
+const transportProxyByUrl = new Map<string, string>();
 let callerIndexPath: string | undefined;
 let callerShallowPath: string | undefined;
 let callerIndexAtCopy: Buffer | null = null;
@@ -776,6 +841,7 @@ function dropScratchIndex(): void {
 	transportShallow = undefined;
 	ownedRepositoryPaths = undefined;
 	transportRemotes.clear();
+	transportProxyByUrl.clear();
 	callerIndexPath = undefined;
 	callerShallowPath = undefined;
 	callerIndexAtCopy = null;
@@ -789,7 +855,7 @@ function fail(message: string): never {
 	process.exit(3);
 }
 
-export type Relevance = 'fork-only' | 'pristine' | 'diverged' | 'unmeasured';
+export type Relevance = 'pristine' | 'diverged' | 'unmeasured';
 
 export interface FileVerdict {
 	path: string;
@@ -960,7 +1026,14 @@ export function classifyVerdict(args: {
 	overlap?: number | null;
 	unmeasuredNote?: string;
 }): FileVerdict {
-	if (!args.existsUpstream) return { path: args.path, relevance: 'fork-only', report: false };
+	if (!args.existsUpstream) {
+		return {
+			path: args.path,
+			relevance: 'unmeasured',
+			note: args.unmeasuredNote ?? 'no upstream path, but fork ownership is not proven',
+			report: true
+		};
+	}
 	if (args.baseMatchesUpstream) return { path: args.path, relevance: 'pristine', report: true };
 	if (args.overlap === null || args.overlap === undefined) {
 		return {
@@ -979,7 +1052,74 @@ interface MarkerSnapshot {
 	provenance: string[];
 }
 
+function markerSnapshotFromBytes(bytes: Buffer): MarkerSnapshot {
+	let raw: string;
+	try {
+		raw = PATH_UTF8.decode(bytes);
+	} catch {
+		fail(`${MARKER} is not valid UTF-8.`);
+	}
+	try {
+		const marker: unknown = JSON.parse(raw);
+		if (!marker || Array.isArray(marker) || typeof marker !== 'object') {
+			fail(`${MARKER} must contain a JSON object.`);
+		}
+		const fields = marker as {
+			upstreamUrl?: unknown;
+			forkPoint?: unknown;
+			lastSynced?: unknown;
+		};
+		const upstreamUrl = fields.upstreamUrl;
+		if (upstreamUrl !== undefined && (typeof upstreamUrl !== 'string' || !upstreamUrl.trim())) {
+			fail(`${MARKER}.upstreamUrl must be a non-empty string when present.`);
+		}
+		const provenanceFields = [fields.forkPoint, fields.lastSynced];
+		if (
+			provenanceFields.some(
+				(value) =>
+					value !== undefined &&
+					(typeof value !== 'string' || !/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(value))
+			)
+		) {
+			fail(`${MARKER}.forkPoint and .lastSynced must be full commit SHAs when present.`);
+		}
+		const provenance = provenanceFields.filter(
+			(value): value is string => typeof value === 'string'
+		);
+		return { url: upstreamUrl ?? DEFAULT_UPSTREAM, bytes, provenance };
+	} catch (err) {
+		if (err instanceof SyntaxError) {
+			fail(
+				`${MARKER} is not valid JSON: ${terminalSafe(err.message)}\n` +
+					'Refusing to fall back to the default template. That would classify this fork ' +
+					'against the wrong repository and every verdict would look normal.'
+			);
+		}
+		throw err;
+	}
+}
+
+function indexMarkerBytes(): Buffer | null {
+	const staged = git(['ls-files', '--stage', '--', `:(literal)${MARKER}`], true);
+	if (!staged) return null;
+	const mode = /^(\d{6}) [0-9a-f]+ 0\t/.exec(staged)?.[1];
+	if (mode !== '100644' && mode !== '100755') {
+		fail(`${MARKER} must be a regular file. Symlinks cannot bind a repository to its parent.`);
+	}
+	const size = Number(git(['cat-file', '-s', `:${MARKER}`], false, HISTORY_COMMAND_TIMEOUT_MS));
+	if (!Number.isFinite(size) || size > MAX_MARKER_BYTES) {
+		fail(`${MARKER} exceeds the ${MAX_MARKER_BYTES}-byte input limit.`);
+	}
+	return gitBytes(['show', `:${MARKER}`], false, {}, HISTORY_COMMAND_TIMEOUT_MS);
+}
+
 function readUpstreamMarker(root: string): MarkerSnapshot {
+	if (WINDOWS_SAFETY_MODE) {
+		const bytes = indexMarkerBytes();
+		return bytes === null
+			? { url: DEFAULT_UPSTREAM, bytes: null, provenance: [] }
+			: markerSnapshotFromBytes(bytes);
+	}
 	const p = join(root, MARKER);
 	// Open first and bind inspection plus reading to one descriptor. An atomic
 	// replacement between lstat and read used to select a different parent, then
@@ -988,7 +1128,9 @@ function readUpstreamMarker(root: string): MarkerSnapshot {
 	try {
 		fd = openSync(
 			p,
-			fsConstants.O_RDONLY | (fsConstants.O_NOFOLLOW ?? 0) | (fsConstants.O_NONBLOCK ?? 0)
+			fsConstants.O_RDONLY |
+				(WINDOWS_SAFETY_MODE ? 0 : (fsConstants.O_NOFOLLOW ?? 0)) |
+				(fsConstants.O_NONBLOCK ?? 0)
 		);
 	} catch (err) {
 		const code = (err as NodeJS.ErrnoException).code;
@@ -1044,50 +1186,7 @@ function readUpstreamMarker(root: string): MarkerSnapshot {
 	} finally {
 		closeSync(fd);
 	}
-	let raw: string;
-	try {
-		raw = PATH_UTF8.decode(bytes);
-	} catch {
-		fail(`${MARKER} is not valid UTF-8.`);
-	}
-	try {
-		const marker: unknown = JSON.parse(raw);
-		if (!marker || Array.isArray(marker) || typeof marker !== 'object') {
-			fail(`${MARKER} must contain a JSON object.`);
-		}
-		const fields = marker as {
-			upstreamUrl?: unknown;
-			forkPoint?: unknown;
-			lastSynced?: unknown;
-		};
-		const upstreamUrl = fields.upstreamUrl;
-		if (upstreamUrl !== undefined && (typeof upstreamUrl !== 'string' || !upstreamUrl.trim())) {
-			fail(`${MARKER}.upstreamUrl must be a non-empty string when present.`);
-		}
-		const provenanceFields = [fields.forkPoint, fields.lastSynced];
-		if (
-			provenanceFields.some(
-				(value) =>
-					value !== undefined &&
-					(typeof value !== 'string' || !/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(value))
-			)
-		) {
-			fail(`${MARKER}.forkPoint and .lastSynced must be full commit SHAs when present.`);
-		}
-		const provenance = provenanceFields.filter(
-			(value): value is string => typeof value === 'string'
-		);
-		return { url: upstreamUrl ?? DEFAULT_UPSTREAM, bytes, provenance };
-	} catch (err) {
-		if (err instanceof SyntaxError) {
-			fail(
-				`${MARKER} is not valid JSON: ${terminalSafe(err.message)}\n` +
-					'Refusing to fall back to the default template. That would classify this fork ' +
-					'against the wrong repository and every verdict would look normal.'
-			);
-		}
-		throw err;
-	}
+	return markerSnapshotFromBytes(bytes);
 }
 
 function requireCleanUpstreamMarker(marker: MarkerSnapshot): void {
@@ -1482,7 +1581,7 @@ function ensureUpstream(root: string, upstreamUrl: string, allowFetch: boolean):
 			fail('Upstream main changed or its fetched commit is unavailable. Run the report again.');
 		}
 		if (!remoteUrl) {
-			rejectSecretBearingRemoteCreation(upstreamUrl);
+			rejectSecretBearingRemoteUrl(upstreamUrl);
 			try {
 				git(['remote', 'add', 'upstream', upstreamUrl]);
 			} catch {
@@ -1751,7 +1850,7 @@ function sameOptionalBuffer(left: Buffer | null, right: Buffer | null): boolean 
 }
 
 function verifyLocalSnapshot(root: string, snapshot: LocalSnapshot): void {
-	const current = localSnapshot(git(['rev-parse', 'HEAD']), optionalFile(join(root, MARKER)));
+	const current = localSnapshot(git(['rev-parse', 'HEAD']), readUpstreamMarker(root).bytes);
 	current.index = optionalFile(callerIndexPath);
 	current.worktree = fingerprintPaths([...snapshot.worktree.keys()]);
 	const worktreeMatches = [...snapshot.worktree].every(
@@ -1877,7 +1976,7 @@ function resolveBase(head: string, explicit?: string): BaseResolution {
  *
  * `-z` matters as much as it does for the collectors: without it git quotes a
  * path holding a tab, a newline or a backslash, and a quoted spelling misses
- * the exact lookup that decides `fork-only`.
+ * the exact lookup that decides whether the path exists upstream.
  */
 type TreeEntry = { mode: string; type: string; sha: string };
 interface HistoricalEntries {
@@ -3011,7 +3110,7 @@ function verdictFor(
 		// macOS and Windows compare filenames case-insensitively while git does
 		// not, so a fork file differing from a template file only in case is one
 		// file to the filesystem and two to the exact lookup. Calling that
-		// fork-only is a silent negative on what may be the same file; say it is
+		// Hiding it would be a silent negative on what may be the same file; say it is
 		// ambiguous instead.
 		const folded = upstream.byFold.get(path.toLowerCase());
 		if (folded !== undefined) {
@@ -3153,7 +3252,14 @@ function verdictFor(
 					'path entered local history after repository creation; negative resemblance cannot prove fork ownership'
 			});
 		}
-		return classifyVerdict({ path, existsUpstream: false, baseMatchesUpstream: false });
+		return classifyVerdict({
+			path,
+			existsUpstream: true,
+			baseMatchesUpstream: false,
+			overlap: null,
+			unmeasuredNote:
+				'path existed in the bootstrap root, but bootstrap-time relocation or customization cannot be ruled out'
+		});
 	}
 
 	if (upstreamEntry.type !== 'blob') {
@@ -3402,69 +3508,55 @@ function main() {
 			else requested.set(pathspec, [spec]);
 		}
 		const resolved = new Set<string>();
-		const addMatches = (matches: string[]): void => {
-			for (const match of matches) {
-				if (resolved.has(match)) continue;
-				if (resolved.size >= PATH_LIMIT) {
-					fail(`Explicit paths matched more than ${PATH_LIMIT} files. Narrow the request.`);
-				}
-				resolved.add(match);
+		const addMatch = (match: string): void => {
+			if (resolved.has(match)) return;
+			if (resolved.size >= PATH_LIMIT) {
+				fail(`Explicit paths matched more than ${PATH_LIMIT} files. Narrow the request.`);
 			}
+			resolved.add(match);
 		};
 		for (const [pathspec, specs] of requested) {
 			const literalPathspec = `:(literal)${pathspec}`;
-			let listed: string[];
-			let atBase: string[];
-			let atHead: string[];
+			let matched = false;
+			const collect = (record: string) => {
+				matched = true;
+				addMatch(record);
+			};
 			try {
-				listed = gitZ([
-					'ls-files',
-					'-z',
-					'--full-name',
-					'--cached',
-					'--others',
-					'--exclude-standard',
-					'--',
-					literalPathspec
-				]);
+				gitZEach(
+					[
+						'ls-files',
+						'-z',
+						'--full-name',
+						'--cached',
+						'--others',
+						'--exclude-standard',
+						'--',
+						literalPathspec
+					],
+					collect
+				);
 				// A path deleted in this change matches nothing in the working tree but
 				// still exists at the base, and deleting template code is exactly the
 				// sort of change worth reporting.
-				atBase = gitZ([
-					'ls-tree',
-					'-z',
-					'--full-name',
-					'--name-only',
-					'-r',
-					base,
-					'--',
-					literalPathspec
-				]);
-				atHead = gitZ([
-					'ls-tree',
-					'-z',
-					'--full-name',
-					'--name-only',
-					'-r',
-					head,
-					'--',
-					literalPathspec
-				]);
+				gitZEach(
+					['ls-tree', '-z', '--full-name', '--name-only', '-r', base, '--', literalPathspec],
+					collect
+				);
+				gitZEach(
+					['ls-tree', '-z', '--full-name', '--name-only', '-r', head, '--', literalPathspec],
+					collect
+				);
 			} catch {
 				fail(`Could not enumerate the requested path "${terminalSafe(specs[0]!)}".`);
 			}
-			if (listed.length === 0 && atBase.length === 0 && atHead.length === 0) {
-				for (const spec of specs) unmatched.push(spec);
-			} else {
-				addMatches(listed);
-				addMatches(atBase);
-				addMatches(atHead);
-			}
+			if (!matched) for (const spec of specs) unmatched.push(spec);
 		}
+
 		if (unmatched.length > 0) {
 			fail(
 				`These paths matched nothing: ${unmatched.map(terminalSafe).join(', ')}\n` +
-					'Refusing to report on the run. An unmatched path classifies as fork-only and ' +
+					'Refusing to report on the run. An unmatched path was never inspected and ' +
 					'reads as "nothing to send upstream".'
 			);
 		}
@@ -3581,7 +3673,7 @@ function main() {
 				upstreamRef: upstreamTree.sha,
 				upstreamUrl: redactUrl(upstreamUrl),
 				// A machine caller gets the staleness the text renderer prints, or
-				// it consumes fork-only verdicts from an old path set unwarned.
+				// it consumes comparisons from an old upstream tree unwarned.
 				upstreamAgeDays: upstream.ageDays,
 				upstreamAgeFrom: upstream.ageFrom,
 				upstreamStale: upstream.ageDays !== null && upstream.ageDays >= STALE_AFTER_DAYS,
@@ -3601,10 +3693,9 @@ function main() {
 	const RANK: Record<Relevance, number> = {
 		pristine: 0,
 		unmeasured: 1,
-		diverged: 2,
-		'fork-only': 3
+		diverged: 2
 	};
-	const shown = (values.all ? verdicts : verdicts.filter((v) => v.relevance !== 'fork-only'))
+	const shown = verdicts
 		.slice()
 		.sort(
 			(a, b) =>
@@ -3627,7 +3718,7 @@ function main() {
 	}
 	console.log('');
 	if (shown.length === 0) {
-		console.log(`No template-derived file changed (${verdicts.length} checked, all fork-only).`);
+		console.log('No changed file was found.');
 	} else {
 		for (const v of shown) {
 			const mark = v.report ? '>>' : '  ';

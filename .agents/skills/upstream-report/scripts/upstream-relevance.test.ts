@@ -112,18 +112,19 @@ describe('regionOverlap', () => {
 });
 
 describe('classifyVerdict', () => {
-	it('stays quiet when the caller says the path is not upstream', () => {
-		// Only about this helper. `verdictFor` reaches it with existsUpstream true
-		// for several paths that are absent by exact spelling: a case-only
-		// difference, content that is upstream under another name, and a name the
-		// template carries exactly once.
+	it('keeps an absent path visible when ownership is not proven', () => {
 		expect(
 			classifyVerdict({
 				path: 'src/lib/daphne/voice.ts',
 				existsUpstream: false,
 				baseMatchesUpstream: false
 			})
-		).toEqual({ path: 'src/lib/daphne/voice.ts', relevance: 'fork-only', report: false });
+		).toEqual({
+			path: 'src/lib/daphne/voice.ts',
+			relevance: 'unmeasured',
+			note: 'no upstream path, but fork ownership is not proven',
+			report: true
+		});
 	});
 
 	it('always reports an edit to a file the fork had never touched', () => {

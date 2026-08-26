@@ -212,6 +212,8 @@ describe('route predicates', () => {
 		expect(
 			ROUTES['skill-types']('.agents/skills/upstream-report/scripts/upstream-relevance.ts')
 		).toBe(true);
+		expect(ROUTES['skill-types']('.agents/skills/upstream-report/tsconfig.json')).toBe(true);
+		expect(ROUTES['skill-types']('.agents/skills/upstream-report/helper.ts')).toBe(false);
 		expect(ROUTES['skill-types']('.agents/skills/upstream-report/SKILL.md')).toBe(false);
 	});
 

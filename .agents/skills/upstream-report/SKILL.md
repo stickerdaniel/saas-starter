@@ -41,23 +41,21 @@ neighbours matched, because git drops an unmatched one without a word. An explic
 if `.upstream-sync.json` changed in the selected commit range. Run without paths so that parent
 change stays in the report.
 
-Four flags, after `--`: `--base <ref>` starts from the merge base with that ref instead
-of with `origin/main`, `--all` lists fork-only files too, `--json` prints machine output,
-and `--fetch` lets the run create the remote and fetch its checked URL. That bound,
-current-run fetch is the only evidence strong enough for `fork-only`, and the only mode
-that touches git state.
+Three active flags follow `--`: `--base <ref>` starts from the merge base with that ref
+instead of with `origin/main`, `--json` prints machine output, and `--fetch` lets the run
+create the remote and fetch its checked URL. Fetch is the only mode that touches Git state.
+The old `--all` flag remains accepted for compatibility and has no effect because every
+classified path is listed.
 
-Each changed file comes back in one of four classes:
+Each changed file comes back in one of three classes:
 
-| Class        | Meaning                                                                                                                                                                                                                                                                                                                                                      | What to do                        |
-| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------- |
-| `fork-only`  | This run fetched upstream, the marker's provenance remains reachable and never contained the path, the path existed at repository creation, it is absent upstream, and every blob, filename, and text comparison ruled out a tie.                                                                                                                            | Nothing. It is not listed.        |
-| `pristine`   | The path exists upstream and was **identical to it** before this change.                                                                                                                                                                                                                                                                                     | Read it.                          |
-| `diverged`   | The path exists upstream but had already been rewritten here.                                                                                                                                                                                                                                                                                                | Read it, highest score first.     |
-| `unmeasured` | A comparison was unavailable or found a possible tie. Covers binary content, missing or shallow history, a missing partial-clone blob, unstaged filtered content, a mode-only change, a submodule, a path upstream also has, a case-only difference, upstream bytes under another mode or path, a unique filename, and text that resembles an upstream file. | Read it, and check the tie first. |
+| Class        | Meaning                                                                                                                                                                                                                                                                                                                                          | What to do                        |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------- |
+| `pristine`   | The path exists upstream and was **identical to it** before this change.                                                                                                                                                                                                                                                                         | Read it.                          |
+| `diverged`   | The path exists upstream but had already been rewritten here.                                                                                                                                                                                                                                                                                    | Read it, highest score first.     |
+| `unmeasured` | A comparison was unavailable or found a possible tie. Covers absent paths, binary content, missing or shallow history, a missing partial-clone blob, unstaged filtered content, a mode-only change, a submodule, a case-only difference, upstream bytes under another mode or path, a unique filename, and text that resembles an upstream file. | Read it, and check the tie first. |
 
-Lines marked `>>` are the ones to read. An unmarked line was ruled out by a measurement. A
-file the detector could not measure is marked, never dropped.
+Every classified path is marked `>>` and stays in the report.
 
 `pristine` is the strongest signal in the tool. Editing template code that this fork had
 never touched means the defect is, almost by construction, present upstream too. The local
@@ -65,28 +63,29 @@ tree must match `main` currently advertised by the configured `upstream` remote 
 URL-bound detector fetch record; another remote may not populate any measured verdict. It takes the mode as well as the bytes, so a symlink standing where
 upstream has a regular file is reported and not waved through.
 
-A `fork-only` verdict ends the conversation, so an absent path has to earn it. The marker needs a
-`forkPoint` or `lastSynced` commit, and every recorded commit must remain reachable from the fetched
-upstream tip. A path found in either marker commit, including a case-only spelling, stays
-`unmeasured` even after upstream deletes or rewrites it. A force-pushed, disconnected history keeps absent paths `unmeasured`. Local history
-must have one root commit, and the path must exist in that root tree. An unrelated-history import
-or a path introduced later stays `unmeasured` because creation-time ownership is ambiguous. The detector then checks case-folded paths and exact blobs across
-the histories reachable from local HEAD and the upstream tip, plus the index and captured working
-tree. Local history follows renames and
-copies down to 1% similarity with Git's candidate limit disabled, including paths created while
-merging either parent. It then checks filenames that
-are unique in the current template and compares text against every historical upstream blob.
-It searches the same extension first and widens to every blob, since ports between JavaScript
-and TypeScript are ordinary. Current upstream blobs are read in one batch; historical blobs are
-retained within fixed bounds. The upstream history walk, object typing, root scan, and local
-ancestry commands have time limits. Local ancestry, shared-path diffs, source-text preprocessing,
-and in-process similarity comparisons also have time or operation-count limits. Reused blobs share
-their prepared text representation. Reaching a limit keeps the path `unmeasured`.
+An absent path always stays `unmeasured`. Presence in the bootstrap root proves when the
+path appeared, not whether it was moved or rewritten from template code before that first
+commit. Negative text resemblance cannot settle ownership either. The detector still checks
+case-folded paths and exact blobs across the histories reachable from local HEAD and the
+upstream tip, plus the index and captured working tree. Local history follows renames and
+copies down to 1% similarity with Git's candidate limit disabled, including paths created
+while merging either parent. It then checks filenames that are unique in the current template
+and compares text against every historical upstream blob. Those ties explain what to inspect;
+a miss leaves the path visible.
+
+The marker needs a `forkPoint` or `lastSynced` commit for provenance checks, and every recorded
+commit must remain reachable from the fetched upstream tip. A force-pushed, disconnected
+history remains `unmeasured`. The detector searches the same extension first and widens to every
+blob, since ports between JavaScript and TypeScript are ordinary. Current upstream blobs are
+read in one batch; historical blobs are retained within fixed bounds. The upstream history walk,
+object typing, root scan, blob reads, and local ancestry commands have time limits. Local
+ancestry, shared-path diffs, source-text preprocessing, and in-process similarity comparisons
+also have time or operation-count limits. Reused blobs share their prepared text representation.
+Reaching a limit keeps the path `unmeasured`.
 
 A missing blob, shallow history, unsafe symlink path, unreadable or oversized source, binary
-input, or an untracked file that disappears during the run produces `unmeasured`. So does an
-absent path when the current run did not fetch upstream or the marker has no reachable provenance.
-Re-run with `--fetch` after checking the configured parent URL when you need a negative verdict.
+input, or an untracked file that disappears during the run also produces `unmeasured`. Re-run
+with `--fetch` after checking the configured parent URL when you need the freshest comparison.
 
 The filename and text checks show resemblance, not proof. The report says that on the line.
 The text threshold is git's 50% rename similarity. Sixty percent lost the real case this
@@ -184,8 +183,8 @@ It exits with the reason when any of these hold:
 
 - there is no local copy of upstream;
 - `refs/remotes/upstream/main` exists but no `upstream` remote does, so nothing ties that
-  ref to the template. An orphan left by a former parent fork classifies half the tree as
-  `fork-only` and looks entirely normal doing it;
+  ref to the template. An orphan left by a former parent fork produces plausible comparisons
+  against the wrong tree;
 - `.upstream-sync.json` is staged, modified, deleted, ignored or untracked, hidden from Git
   status, differs from the committed HEAD file, is a symlink, is oversized, changes identity or
   bytes while read, is unreadable, contains invalid UTF-8 or JSON, is not an object, has an `upstreamUrl`
@@ -236,14 +235,20 @@ base resolution reads origin's unexpanded configured URL, rejects a matching `ur
 rule and any URL owned by this repository's worktrees, and uses `ls-remote` to bind the local
 `origin/main` SHA to `main` there. Use an explicitly verified `--base` when origin is offline.
 Trusted network commands use hashed remote names in a private bare Git directory with the caller's
-object format. The URL lives only in its owner-only config, never in a detector Git argument. Object
-writes still land in the real object store, while shared repository, global, and system Git config
-cannot change the transport mid-run. The private config copies credential helpers and URL-scoped
-HTTPS authorization, client certificate, CA, and proxy settings. Unscoped HTTP authorization stays out because the marker chooses the
-host. Fetch disables automatic maintenance, since the private ref namespace does not describe which
-objects the real repository still needs. A `remote.upstream.uploadpack` helper therefore cannot
-serve a different repository. Matching `url.*.insteadOf`, `core.sshCommand`, and `core.gitProxy`
-overrides are refused. Inherited transport commands and protocol permission variables are scrubbed.
+object format. The URL lives only in its private config, never in a detector Git argument. POSIX
+permissions restrict that file to its owner. Windows reads the marker from the index before touching
+its path and omits credential helpers, authorization headers, credential-bearing proxy URLs, and
+credential-bearing remote URLs from temporary storage. The private config retains safe global and
+URL-scoped CA and proxy settings, URL-scoped client certificate settings, and a matching remote's
+proxy. Unscoped HTTP authorization stays out because the marker chooses the host. Restrictive
+`protocol.*.allow` settings survive; an inherited protocol allowlist is intersected with file, Git,
+HTTP(S), and SSH transports. Matching `url.*.insteadOf`, `core.sshCommand`, and `core.gitProxy`
+overrides remain refused. A `remote.upstream.uploadpack` helper cannot serve a different repository.
+
+Fetch disables automatic maintenance because the private ref namespace does not describe which
+objects the real repository still needs. Fetched objects still land in the real object store. The
+30-second deadline bounds time, not received pack bytes; check free disk space before `--fetch` when
+the configured parent may be unusually large.
 It reads the advertised `main` SHA before and after an object-only fetch that writes neither
 `FETCH_HEAD` nor a tracking ref. It verifies that exact commit before creating a missing shared
 remote. The URL it just wrote remains the expected value, so a concurrent replacement cannot be
@@ -300,11 +305,10 @@ device. Human output, JSON, and fatal diagnostics escape control bytes, C1 contr
 separators, and bidirectional formatting characters before they reach a terminal or log viewer.
 
 A shallow repository has an unknown history before its boundary. Exact evidence found inside
-the available history still proves a tie, but an absent path cannot become `fork-only` until
-the repository is unshallowed.
+the available history still proves a tie; missing history keeps the result `unmeasured`.
 
-An old local copy can miss a tie. The detector therefore keeps an absent path as
-`unmeasured` until this run fetches upstream. It still prints the copy's age. Only the newest
+An old local copy can miss a tie. Absent paths remain `unmeasured`, and the copy's age explains
+how much confidence to place in the available comparisons. Only the newest
 tracking-ref movement counts, it must point at the pinned SHA, and its subject must name the
 configured `upstream` remote with `main` as the source. A successful detector fetch also records
 its SHA, timestamp, and URL fingerprint in local Git config, because a no-op `update-ref` creates no

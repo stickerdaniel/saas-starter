@@ -332,7 +332,8 @@ export const ROUTES = {
 	// svelteFiles is a subset of jsTsSvelteFiles, so the second clause was dead.
 	'svelte-check': (f: string) => /\.(js|ts|svelte)$/.test(f),
 	'skill-types': (f: string) =>
-		f.startsWith('.agents/skills/upstream-report/') && /\.(ts|json)$/.test(f),
+		f === '.agents/skills/upstream-report/tsconfig.json' ||
+		(f.startsWith('.agents/skills/upstream-report/scripts/') && f.endsWith('.ts')),
 	convex: (f: string) => f.startsWith('src/lib/convex/')
 } as const;
 

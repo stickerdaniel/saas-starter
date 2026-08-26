@@ -190,7 +190,7 @@ if [ -n "$TRANSPORT_UNSCOPED_HTTP_LOG" ]; then
 fi
 if [ -n "$TRANSPORT_NETWORK_LOG" ]; then
   case "$command_line" in
-    *" ls-remote "*) "$REAL_GIT" config --file "$GIT_DIR/config" --get-regexp '^http\\..*\\.(sslcainfo|proxy)$' > "$TRANSPORT_NETWORK_LOG" || : ;;
+    *" ls-remote "*) "$REAL_GIT" config --file "$GIT_DIR/config" --get-regexp '^(http\\..*(sslcainfo|proxy)|remote\\..*\\.proxy)$' > "$TRANSPORT_NETWORK_LOG" || : ;;
   esac
 fi
 if [ -n "$CAT_FILE_CHECK_LOG" ]; then
@@ -873,7 +873,7 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 		expect(existsSync(marker)).toBe(false);
 	});
 
-	itWithPosixPaths('scrubs inherited protocol permission before reading the marker URL', () => {
+	itWithPosixPaths('intersects inherited protocol permission with safe transports', () => {
 		const executed = join(tmp, 'ext-protocol-executed');
 		const helper = join(tmp, 'ext-protocol-helper');
 		writeFileSync(helper, `#!/bin/sh\n: > "${executed}"\nexit 1\n`);
@@ -894,6 +894,17 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 
 		expect(r.status).not.toBe(0);
 		expect(existsSync(executed)).toBe(false);
+	});
+
+	it('preserves an inherited protocol allowlist that excludes local remotes', () => {
+		const r = run(fork, ['--json', 'shared/pristine.ts'], { GIT_ALLOW_PROTOCOL: 'https' });
+		expect(r.status).not.toBe(0);
+	});
+
+	it('preserves restrictive protocol configuration', () => {
+		git(fork, ['config', '--local', 'protocol.file.allow', 'never']);
+		const r = run(fork, ['--json', 'shared/pristine.ts']);
+		expect(r.status).not.toBe(0);
 	});
 
 	it('refuses a relative temporary directory before writing or sweeping', () => {
@@ -1877,10 +1888,48 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 		expect(r.stderr).toMatch(/Git 2\.45 or newer.*partial-clone/);
 	});
 
-	it('classifies a fork-only path as fork-only', () => {
-		write(fork, 'product/only-here.ts', 'export const product = false;\n');
-		git(fork, ['commit', '-qam', 'edit']);
-		expect(verdicts(fork)['product/only-here.ts']).toBe('fork-only');
+	it('keeps a low-similarity bootstrap port unmeasured', () => {
+		const inherited = Array.from(
+			{ length: 10 },
+			(_, index) => `BOOTSTRAP_TEMPLATE_TOKEN_${index}_${'q'.repeat(40 + index)}`
+		);
+		write(upstream, 'shared/bootstrap-source.rare', `${inherited.join('\n')}\n`);
+		git(upstream, ['add', '-A']);
+		git(upstream, ['commit', '--amend', '-qm', 'template with bootstrap source']);
+		const upstreamRoot = git(upstream, ['rev-parse', 'HEAD']);
+		git(fork, ['fetch', '-q', 'upstream', '+main:refs/remotes/upstream/main']);
+
+		const marker = JSON.parse(readFileSync(join(fork, '.upstream-sync.json'), 'utf8')) as Record<
+			string,
+			unknown
+		>;
+		write(
+			fork,
+			'.upstream-sync.json',
+			JSON.stringify({ ...marker, forkPoint: upstreamRoot, lastSynced: upstreamRoot })
+		);
+		const port = [
+			...inherited.slice(0, 4),
+			...Array.from(
+				{ length: 6 },
+				(_, index) => `BOOTSTRAP_FORK_TOKEN_${index}_${'z'.repeat(80 + index)}`
+			)
+		];
+		write(fork, 'product/bootstrap-port.rare', `${port.join('\n')}\n`);
+		git(fork, ['add', '-A']);
+		git(fork, ['commit', '--amend', '-qm', 'fork base with bootstrap port']);
+		markBase(fork);
+		write(fork, 'product/bootstrap-port.rare', `${port.join('\n')}\nBOOTSTRAP_FIX_TOKEN\n`);
+		git(fork, ['commit', '-qam', 'fix bootstrap port']);
+
+		const r = run(fork, ['--fetch', '--json', 'product/bootstrap-port.rare']);
+		expect(r.status, r.stderr).toBe(0);
+		const parsed = JSON.parse(r.stdout) as {
+			verdicts: Array<{ path: string; relevance: string; note?: string }>;
+		};
+		const verdict = parsed.verdicts.find((entry) => entry.path === 'product/bootstrap-port.rare');
+		expect(verdict?.relevance).toBe('unmeasured');
+		expect(verdict?.note).toMatch(/bootstrap-time relocation or customization/);
 	});
 
 	it('keeps a low-similarity port added after repository creation unmeasured', () => {
@@ -3456,13 +3505,18 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 		expect(readFileSync(enumerationLog, 'utf8').trim().split('\n')).toHaveLength(3);
 	});
 
-	it('bounds aggregate explicit path expansion', () => {
+	itWithGitWrapper('bounds aggregate explicit path expansion before reading later trees', () => {
+		const enumerationLog = join(tmp, 'bounded-path-enumeration.log');
 		const r = run(fork, ['--fetch', '--json', '--all', '.'], {
+			PATH: `${installGitWrapper(tmp)}:${process.env.PATH ?? ''}`,
+			REAL_GIT: realGitPath(),
+			PATH_ENUMERATION_LOG: enumerationLog,
 			NODE_ENV: 'test',
 			UPSTREAM_REPORT_TEST_PATH_LIMIT: '1'
 		});
 		expect(r.status).not.toBe(0);
 		expect(r.stderr).toMatch(/matched more than 1 files/);
+		expect(readFileSync(enumerationLog, 'utf8').trim().split('\n')).toHaveLength(1);
 	});
 
 	it('bounds aggregate automatic path discovery', () => {
@@ -3562,6 +3616,24 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 		expect(r.stderr).toMatch(/must be a regular file/);
 	});
 
+	itWithPosixPaths('rejects a Windows marker symlink from the index before target access', () => {
+		const target = join(tmp, 'unreadable-upstream-marker.json');
+		writeFileSync(target, JSON.stringify({ upstreamUrl: upstream }));
+		chmodSync(target, 0o000);
+		rmSync(join(fork, '.upstream-sync.json'));
+		symlinkSync(target, join(fork, '.upstream-sync.json'));
+		git(fork, ['add', '.upstream-sync.json']);
+		git(fork, ['commit', '-qm', 'track Windows marker symlink']);
+
+		const r = run(fork, ['--json', 'shared/pristine.ts'], {
+			NODE_ENV: 'test',
+			UPSTREAM_REPORT_TEST_WINDOWS_SAFETY: '1'
+		});
+		expect(r.status).not.toBe(0);
+		expect(r.stderr).toMatch(/must be a regular file/);
+		expect(r.stderr).not.toMatch(/could not be opened/);
+	});
+
 	it.each([
 		['null URL', { upstreamUrl: null }],
 		['false URL', { upstreamUrl: false }],
@@ -3653,6 +3725,57 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 		const config = readFileSync(networkLog, 'utf8');
 		expect(config).toContain('/private/company-ca.pem');
 		expect(config).toContain('http://proxy.example');
+	});
+
+	itWithGitWrapper('copies global CA and proxy settings plus the matching remote proxy', () => {
+		git(fork, ['config', '--local', 'http.sslCAInfo', '/private/global-ca.pem']);
+		git(fork, ['config', '--local', 'http.proxy', 'http://global-proxy.example']);
+		git(fork, ['config', '--local', 'remote.upstream.proxy', 'http://upstream-proxy.example']);
+		const wrapper = installGitWrapper(tmp);
+		const networkLog = join(tmp, 'transport-global-network.log');
+		const r = run(fork, ['--json', 'shared/pristine.ts'], {
+			PATH: `${wrapper}:${process.env.PATH ?? ''}`,
+			REAL_GIT: realGitPath(),
+			TRANSPORT_NETWORK_LOG: networkLog
+		});
+		expect(r.status, r.stderr).toBe(0);
+		const config = readFileSync(networkLog, 'utf8');
+		expect(config).toContain('/private/global-ca.pem');
+		expect(config).toContain('http://global-proxy.example');
+		expect(config).toContain('http://upstream-proxy.example');
+	});
+
+	itWithGitWrapper('keeps secret-bearing HTTP config out of Windows temporary files', () => {
+		git(fork, ['config', '--local', 'credential.helper', '!echo DUMMY_HELPER_SECRET']);
+		git(fork, [
+			'config',
+			'--local',
+			`http.${upstream}.extraHeader`,
+			'Authorization: Bearer DUMMY_HEADER_SECRET'
+		]);
+		git(fork, [
+			'config',
+			'--local',
+			`http.${upstream}.proxy`,
+			'http://DUMMY_PROXY_SECRET@proxy.example'
+		]);
+		const wrapper = installGitWrapper(tmp);
+		const credentialLog = join(tmp, 'transport-windows-credential.log');
+		const httpLog = join(tmp, 'transport-windows-http.log');
+		const networkLog = join(tmp, 'transport-windows-network.log');
+		const r = run(fork, ['--json', 'shared/pristine.ts'], {
+			PATH: `${wrapper}:${process.env.PATH ?? ''}`,
+			REAL_GIT: realGitPath(),
+			NODE_ENV: 'test',
+			UPSTREAM_REPORT_TEST_WINDOWS_SAFETY: '1',
+			TRANSPORT_CREDENTIAL_LOG: credentialLog,
+			TRANSPORT_HTTP_LOG: httpLog,
+			TRANSPORT_NETWORK_LOG: networkLog
+		});
+		expect(r.status, r.stderr).toBe(0);
+		expect(readFileSync(credentialLog, 'utf8')).not.toContain('DUMMY_HELPER_SECRET');
+		expect(readFileSync(httpLog, 'utf8')).not.toContain('DUMMY_HEADER_SECRET');
+		expect(readFileSync(networkLog, 'utf8')).not.toContain('DUMMY_PROXY_SECRET');
 	});
 
 	itWithGitWrapper('does not copy unscoped HTTP authentication to a marker-selected host', () => {
@@ -3751,8 +3874,8 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 		git(fork, ['add', '-A']);
 		git(fork, ['commit', '-qm', 'same file here']);
 
-		// A no-fetch run can use the old tree to find ties, but it cannot use an
-		// absent path to rule one out. Only this run's fetch earns fork-only.
+		// A no-fetch run sees the old tree. Fetching must replace that absence
+		// explanation with the newly observed shared path.
 		const stale = git(fork, ['rev-parse', 'refs/remotes/upstream/main']);
 		const before = run(fork, ['--json']);
 		expect(before.status).toBe(0);
@@ -3762,9 +3885,16 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 		expect(
 			beforeVerdicts.verdicts.find((v) => v.path === 'shared/newly-added-upstream.ts')?.relevance
 		).toBe('unmeasured');
-		expect(verdicts(fork, ['--fetch'])['shared/newly-added-upstream.ts']).not.toBe('fork-only');
-		// The verdict has to change because the copy advanced. Special-casing an
-		// absent path whenever --fetch is present would satisfy the line above.
+		const after = run(fork, ['--fetch', '--json']);
+		expect(after.status, after.stderr).toBe(0);
+		const afterVerdicts = JSON.parse(after.stdout) as {
+			verdicts: Array<{ path: string; relevance: string; note?: string }>;
+		};
+		expect(
+			afterVerdicts.verdicts.find((v) => v.path === 'shared/newly-added-upstream.ts')?.note
+		).toMatch(/added here at a path upstream also has/);
+		// The explanation has to change because the copy advanced. Special-casing
+		// an absent path whenever --fetch is present would satisfy only the status.
 		expect(git(fork, ['rev-parse', 'refs/remotes/upstream/main'])).not.toBe(stale);
 	});
 
@@ -4283,7 +4413,7 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 	});
 
 	it('reports the age of the local upstream copy on every run', () => {
-		// A fork-only verdict from a copy that predates an upstream file is wrong
+		// Hiding a copy that predates an upstream file is wrong
 		// and invisible. The age is the only thing that lets a reader doubt it, so
 		// it is not held back for a staleness threshold.
 		const r = run(fork, []);
