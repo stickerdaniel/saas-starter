@@ -194,9 +194,10 @@ It exits with the reason when any of these hold:
   URL through `url.*.insteadOf`, `core.sshCommand` or `core.gitProxy` replaces the checked transport,
   or a remote URL or tracking ref changes before the detector finishes;
 - origin, working-tree status, a changed-path diff, or a requested upstream fetch exceeds 30
-  seconds, the fetch cannot read `refs/heads/main` from the marker's checked URL,
-  or creating a missing shared remote would put URL userinfo, a query, or a fragment into a Git
-  process argument. The standard `git@` user in SSH and SCP GitHub URLs is allowed;
+  seconds, the fetch cannot read `refs/heads/main` from the marker's checked URL, a remote uses
+  plain HTTP or another transport outside local files, HTTPS, and SSH, HTTPS disables certificate
+  or proxy-certificate verification, or a remote URL carries userinfo, a query, or a fragment.
+  The standard `git@` user in SSH and SCP GitHub URLs is allowed;
 - `origin/main` is missing and no `--base` was given, its SHA differs from `main` at the
   currently configured origin URL, a `--base` does not resolve, or HEAD and the requested
   base have multiple equally valid merge bases;
@@ -237,18 +238,23 @@ rule and any URL owned by this repository's worktrees, and uses `ls-remote` to b
 Trusted network commands use hashed remote names in a private bare Git directory with the caller's
 object format. The URL lives only in its private config, never in a detector Git argument. POSIX
 permissions restrict that file to its owner. Windows reads the marker from the index before touching
-its path and omits credential helpers, authorization headers, credential-bearing proxy URLs, and
-credential-bearing remote URLs from temporary storage. The private config retains safe global and
-URL-scoped CA and proxy settings, URL-scoped client certificate settings, and a matching remote's
-proxy. Unscoped HTTP authorization stays out because the marker chooses the host. Restrictive
-`protocol.*.allow` settings survive; an inherited protocol allowlist is intersected with file, Git,
-HTTP(S), and SSH transports. Matching `url.*.insteadOf`, `core.sshCommand`, and `core.gitProxy`
-overrides remain refused. A `remote.upstream.uploadpack` helper cannot serve a different repository.
+its path. It forwards credential helpers, authorization headers, and credential-bearing proxies as
+per-process Git config instead of writing them to temporary files. The private config retains safe
+global and URL-scoped CA and proxy settings, URL-scoped client certificate settings, and a matching
+remote's proxy. Unscoped HTTP authorization stays out because the marker chooses the host. Transport
+accepts local files, HTTPS, and SSH. Plain HTTP, Git, FTP, `git+ssh`, and arbitrary remote helpers are
+refused. The private config denies unknown protocols, preserves restrictive `protocol.*.allow`
+settings, and intersects an inherited protocol allowlist with the accepted transports. HTTPS also
+requires certificate and proxy-certificate verification. Matching `url.*.insteadOf`,
+`core.sshCommand`, and `core.gitProxy` overrides remain refused. A `remote.upstream.uploadpack`
+helper cannot serve a different repository. A local remote is written under the canonical path that
+passed checkout-ownership validation, so retargeting its symlink cannot redirect the later fetch.
 
 Fetch disables automatic maintenance because the private ref namespace does not describe which
 objects the real repository still needs. Fetched objects still land in the real object store. The
-30-second deadline bounds time, not received pack bytes; check free disk space before `--fetch` when
-the configured parent may be unusually large.
+30-second deadline stops the direct Git process. It does not limit received pack bytes or guarantee
+that every remote-helper descendant has exited. Check free disk space before `--fetch` when the
+configured parent may be unusually large.
 It reads the advertised `main` SHA before and after an object-only fetch that writes neither
 `FETCH_HEAD` nor a tracking ref. It verifies that exact commit before creating a missing shared
 remote. The URL it just wrote remains the expected value, so a concurrent replacement cannot be

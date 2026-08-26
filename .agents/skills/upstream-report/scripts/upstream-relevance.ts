@@ -144,21 +144,42 @@ function inheritedEnvironment(name: string): string | undefined {
 	return key === undefined ? undefined : process.env[key];
 }
 
-const PRIVATE_TRANSPORT_PROTOCOLS = new Set(['file', 'git', 'http', 'https', 'ssh']);
+const PRIVATE_TRANSPORT_PROTOCOLS = new Set(['file', 'https', 'ssh']);
+function gitBooleanIsFalse(value: string | undefined): boolean {
+	return value !== undefined && /^(?:|0|false|no|off)$/i.test(value);
+}
+
+function protocolAllowsAlways(protocol: string): boolean {
+	const policy = git(['config', '--get', `protocol.${protocol}.allow`], true);
+	return policy === '' || policy.toLowerCase() === 'always';
+}
+
 function transportProtocolEnv(): NodeJS.ProcessEnv {
 	const inherited = inheritedEnvironment('GIT_ALLOW_PROTOCOL');
 	const fromUser = inheritedEnvironment('GIT_PROTOCOL_FROM_USER');
+	const userProtocolsDisabled = gitBooleanIsFalse(fromUser);
+	const permitted = inherited
+		?.split(':')
+		.filter(
+			(protocol) =>
+				PRIVATE_TRANSPORT_PROTOCOLS.has(protocol) &&
+				!(userProtocolsDisabled && protocol === 'file') &&
+				protocolAllowsAlways(protocol)
+		)
+		.join(':');
 	return {
-		...(inherited === undefined
-			? {}
-			: {
-					GIT_ALLOW_PROTOCOL: inherited
-						.split(':')
-						.filter((protocol) => PRIVATE_TRANSPORT_PROTOCOLS.has(protocol))
-						.join(':')
-				}),
-		...(fromUser === '0' ? { GIT_PROTOCOL_FROM_USER: '0' } : {})
+		...(permitted === undefined ? {} : { GIT_ALLOW_PROTOCOL: permitted }),
+		...(userProtocolsDisabled ? { GIT_PROTOCOL_FROM_USER: '0' } : {})
 	};
+}
+
+function transportConfigEnv(): NodeJS.ProcessEnv {
+	const env: NodeJS.ProcessEnv = { GIT_CONFIG_COUNT: String(transportEnvironmentConfig.length) };
+	for (const [index, [key, value]] of transportEnvironmentConfig.entries()) {
+		env[`GIT_CONFIG_KEY_${index}`] = key;
+		env[`GIT_CONFIG_VALUE_${index}`] = value;
+	}
+	return env;
 }
 
 // Config pinned on every invocation, because each of these changes the answer
@@ -248,6 +269,7 @@ function trustedTransportEnv(): NodeJS.ProcessEnv {
 	}
 	return {
 		...transportProtocolEnv(),
+		...transportConfigEnv(),
 		GIT_DIR: transportGitDir,
 		GIT_OBJECT_DIRECTORY: transportObjectDir,
 		GIT_SHALLOW_FILE: transportShallow,
@@ -322,16 +344,29 @@ function copyTransportConfiguration(configPath: string): void {
 		if (newline === -1) continue;
 		const key = record.slice(0, newline);
 		const value = record.slice(newline + 1);
-		if (key.startsWith('protocol.') && value.toLowerCase() === 'always') continue;
-		if (!safeWindowsTransportValue(key, value)) continue;
+		if (key.startsWith('protocol.')) continue;
+		if (!safeWindowsTransportValue(key, value)) {
+			transportEnvironmentConfig.push([key, value]);
+			continue;
+		}
 		appendTransportConfig(configPath, key, value);
+	}
+	appendTransportConfig(configPath, 'protocol.allow', 'never');
+	for (const [protocol, fallback] of [
+		['file', 'user'],
+		['https', 'always'],
+		['ssh', 'always']
+	] as const) {
+		const configured = git(['config', '--get', `protocol.${protocol}.allow`], true).toLowerCase();
+		if (configured !== '' && !/^(?:always|never|user)$/.test(configured)) {
+			fail(`Git protocol.${protocol}.allow has an invalid policy.`);
+		}
+		appendTransportConfig(configPath, `protocol.${protocol}.allow`, configured || fallback);
 	}
 	for (const remote of git(['remote'], true).split('\n').filter(Boolean)) {
 		const url = configuredRemoteUrl(remote);
 		const proxy = git(['config', '--get', `remote.${remote}.proxy`], true);
-		if (url && proxy && safeWindowsTransportValue(`remote.${remote}.proxy`, proxy)) {
-			transportProxyByUrl.set(url, proxy);
-		}
+		if (url && proxy) transportProxyByUrl.set(url, proxy);
 	}
 }
 
@@ -341,13 +376,43 @@ function transportRemote(url: string): string {
 	if (!transportConfigPath) {
 		fail('The private transport configuration is unavailable. Run the report again.');
 	}
-	if (WINDOWS_SAFETY_MODE) rejectSecretBearingRemoteUrl(url);
+	rejectUnauthenticatedTransport(url);
+	rejectSecretBearingRemoteUrl(url);
+	rejectDisabledTlsVerification(url);
+	const transportUrl = validatedTransportUrls.get(url);
+	if (!transportUrl) fail('The remote URL reached transport before location validation.');
 	const name = `upstream-report-${createHash('sha256').update(url).digest('hex').slice(0, 16)}`;
-	appendTransportConfig(transportConfigPath, `remote.${name}.url`, url);
+	appendTransportConfig(transportConfigPath, `remote.${name}.url`, transportUrl);
 	const proxy = transportProxyByUrl.get(url);
-	if (proxy) appendTransportConfig(transportConfigPath, `remote.${name}.proxy`, proxy);
+	if (proxy) {
+		const key = `remote.${name}.proxy`;
+		if (safeWindowsTransportValue(key, proxy))
+			appendTransportConfig(transportConfigPath, key, proxy);
+		else transportEnvironmentConfig.push([key, proxy]);
+	}
 	transportRemotes.set(url, name);
 	return name;
+}
+
+function rejectUnauthenticatedTransport(url: string): void {
+	if (/^(?:https|ssh|file):/i.test(url)) return;
+	if (isAbsolute(url)) return;
+	if (/^[a-z][a-z0-9+.-]*:\/\//i.test(url)) {
+		fail(
+			`Cannot trust ${terminalUrl(url)} because upstream evidence requires HTTPS, SSH, or a local file transport.`
+		);
+	}
+	if (/^(?:[^/\\]+@)?[^/\\:]+:.+/.test(url)) return;
+}
+
+function rejectDisabledTlsVerification(url: string): void {
+	if (!/^https:/i.test(url)) return;
+	for (const key of ['http.sslVerify', 'http.proxySSLVerify']) {
+		const value = git(['config', '--type=bool', '--get-urlmatch', key, url], true);
+		if (value === 'false') {
+			fail('Upstream evidence requires TLS and proxy TLS verification.');
+		}
+	}
 }
 
 function rejectSecretBearingRemoteUrl(url: string): void {
@@ -605,6 +670,8 @@ let transportShallow: string | undefined;
 let ownedRepositoryPaths: Set<string> | undefined;
 const transportRemotes = new Map<string, string>();
 const transportProxyByUrl = new Map<string, string>();
+const transportEnvironmentConfig: Array<[string, string]> = [];
+const validatedTransportUrls = new Map<string, string>();
 let callerIndexPath: string | undefined;
 let callerShallowPath: string | undefined;
 let callerIndexAtCopy: Buffer | null = null;
@@ -842,6 +909,8 @@ function dropScratchIndex(): void {
 	ownedRepositoryPaths = undefined;
 	transportRemotes.clear();
 	transportProxyByUrl.clear();
+	transportEnvironmentConfig.length = 0;
+	validatedTransportUrls.clear();
 	callerIndexPath = undefined;
 	callerShallowPath = undefined;
 	callerIndexAtCopy = null;
@@ -1279,7 +1348,10 @@ function localRemotePath(url: string, root: string): string | null {
 
 function rejectOwnedRepositoryRemote(url: string, root: string, remote: string): void {
 	const remotePath = localRemotePath(url, root);
-	if (!remotePath) return;
+	if (!remotePath) {
+		validatedTransportUrls.set(url, url);
+		return;
+	}
 	if (!ownedRepositoryPaths) {
 		fail('The repository checkout inventory is unavailable. Run the report again.');
 	}
@@ -1296,6 +1368,7 @@ function rejectOwnedRepositoryRemote(url: string, root: string, remote: string):
 				'A repository-owned remote can follow branch-controlled refs and hide every committed change.'
 		);
 	}
+	validatedTransportUrls.set(url, remotePath);
 }
 
 function rejectUnverifiableFileModes(): void {

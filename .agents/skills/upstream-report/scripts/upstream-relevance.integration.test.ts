@@ -173,9 +173,39 @@ if [ -n "$FETCH_COMMAND_LOG" ]; then
     *" fetch "*) printf '%s\n' "$command_line" >> "$FETCH_COMMAND_LOG" ;;
   esac
 fi
+if [ -n "$NETWORK_COMMAND_MARKER" ]; then
+  case "$command_line" in
+    *" fetch "*|*" ls-remote "*) : > "$NETWORK_COMMAND_MARKER" ;;
+  esac
+fi
+if [ -n "$RETARGET_REMOTE_LINK" ] && [ ! -e "$RETARGET_REMOTE_MARKER" ]; then
+  case "$command_line" in
+    *" ls-remote "*)
+      for arg in "$@"; do
+        case "$arg" in
+          upstream-report-*)
+            remote_url=$("$REAL_GIT" config --get "remote.$arg.url") || continue
+            if [ "$remote_url" = "$RETARGET_REMOTE_EXPECTED" ]; then
+              rm "$RETARGET_REMOTE_LINK" || exit $?
+              ln -s "$RETARGET_REMOTE_TARGET" "$RETARGET_REMOTE_LINK" || exit $?
+              : > "$RETARGET_REMOTE_MARKER"
+            fi
+            ;;
+        esac
+      done
+      ;;
+  esac
+fi
 if [ -n "$TRANSPORT_CREDENTIAL_LOG" ]; then
   case "$command_line" in
     *" ls-remote "*) "$REAL_GIT" config --file "$GIT_DIR/config" --get-all credential.helper > "$TRANSPORT_CREDENTIAL_LOG" ;;
+  esac
+fi
+if [ -n "$TRANSPORT_EFFECTIVE_AUTH_LOG" ]; then
+  case "$command_line" in
+    *" ls-remote "*)
+      { "$REAL_GIT" config --get-all credential.helper || :; "$REAL_GIT" config --get-regexp '^(http\\..*\\.(extraheader|proxy)|remote\\..*\\.proxy)$' || :; } > "$TRANSPORT_EFFECTIVE_AUTH_LOG"
+      ;;
   esac
 fi
 if [ -n "$TRANSPORT_HTTP_LOG" ]; then
@@ -896,10 +926,40 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 		expect(existsSync(executed)).toBe(false);
 	});
 
+	itWithPosixPaths('uses a safe protocol allowlist when none is inherited', () => {
+		const executed = join(tmp, 'default-ext-protocol-executed');
+		const helper = join(tmp, 'default-ext-protocol-helper');
+		writeFileSync(helper, `#!/bin/sh\n: > "${executed}"\nexit 1\n`);
+		chmodSync(helper, 0o755);
+		const marker = JSON.parse(readFileSync(join(fork, '.upstream-sync.json'), 'utf8')) as {
+			forkPoint: string;
+			lastSynced: string;
+		};
+		const url = `ext::${helper}`;
+		write(fork, '.upstream-sync.json', JSON.stringify({ ...marker, upstreamUrl: url }));
+		git(fork, ['commit', '-qam', 'set default ext parent']);
+		git(fork, ['remote', 'set-url', 'upstream', url]);
+
+		const r = run(fork, ['--fetch', '--json']);
+
+		expect(r.status).not.toBe(0);
+		expect(existsSync(executed)).toBe(false);
+	});
+
 	it('preserves an inherited protocol allowlist that excludes local remotes', () => {
 		const r = run(fork, ['--json', 'shared/pristine.ts'], { GIT_ALLOW_PROTOCOL: 'https' });
 		expect(r.status).not.toBe(0);
 	});
+
+	it.each(['', '0', 'false', 'no', 'off'])(
+		'preserves GIT_PROTOCOL_FROM_USER=%j for local remotes',
+		(value) => {
+			const r = run(fork, ['--json', 'shared/pristine.ts'], {
+				GIT_PROTOCOL_FROM_USER: value
+			});
+			expect(r.status).not.toBe(0);
+		}
+	);
 
 	it('preserves restrictive protocol configuration', () => {
 		git(fork, ['config', '--local', 'protocol.file.allow', 'never']);
@@ -3651,6 +3711,88 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 		);
 	});
 
+	itWithGitWrapper('rejects credential-bearing HTTPS before starting its helper', () => {
+		const secret = 'DUMMY_REMOTE_CREDENTIAL';
+		const url = `https://user:${secret}@example.invalid/repo.git`;
+		const marker = JSON.parse(readFileSync(join(fork, '.upstream-sync.json'), 'utf8')) as Record<
+			string,
+			unknown
+		>;
+		write(fork, '.upstream-sync.json', JSON.stringify({ ...marker, upstreamUrl: url }));
+		git(fork, ['commit', '-qam', 'set credential-bearing parent']);
+		git(fork, ['remote', 'set-url', 'upstream', url]);
+		const wrapper = installGitWrapper(tmp);
+		const helperMarker = join(tmp, 'https-helper-executed');
+		const helper = join(wrapper, 'git-remote-https');
+		writeFileSync(helper, `#!/bin/sh\n: > "${helperMarker}"\nexit 1\n`);
+		chmodSync(helper, 0o755);
+
+		const r = run(fork, ['--fetch', '--base', 'HEAD', '--json'], {
+			PATH: `${wrapper}:${process.env.PATH ?? ''}`,
+			REAL_GIT: realGitPath()
+		});
+
+		expect(r.status).not.toBe(0);
+		expect(r.stderr).not.toContain(secret);
+		expect(r.stderr).toMatch(/credential-free remote/);
+		expect(existsSync(helperMarker)).toBe(false);
+	});
+
+	itWithGitWrapper('rejects untrusted network protocols before Git reaches transport', () => {
+		const wrapper = installGitWrapper(tmp);
+		const networkMarker = join(tmp, 'untrusted-network-command');
+		const marker = JSON.parse(readFileSync(join(fork, '.upstream-sync.json'), 'utf8')) as Record<
+			string,
+			unknown
+		>;
+		for (const [name, url] of [
+			['HTTP', 'http://example.invalid/repo.git'],
+			['Git', 'git://example.invalid/repo.git'],
+			['FTP', 'ftp://example.invalid/repo.git'],
+			['git+ssh', 'git+ssh://example.invalid/repo.git']
+		] as const) {
+			write(fork, '.upstream-sync.json', JSON.stringify({ ...marker, upstreamUrl: url }));
+			git(fork, ['commit', '-qam', `set ${name} parent`]);
+			git(fork, ['remote', 'set-url', 'upstream', url]);
+			rmSync(networkMarker, { force: true });
+
+			const r = run(fork, ['--fetch', '--base', 'HEAD', '--json'], {
+				PATH: `${wrapper}:${process.env.PATH ?? ''}`,
+				REAL_GIT: realGitPath(),
+				NETWORK_COMMAND_MARKER: networkMarker
+			});
+
+			expect(r.status, name).not.toBe(0);
+			expect(r.stderr, name).toMatch(/requires HTTPS, SSH, or a local file transport/);
+			expect(existsSync(networkMarker), name).toBe(false);
+		}
+	});
+
+	itWithGitWrapper.each(['http.sslVerify', 'http.proxySSLVerify'])(
+		'rejects %s=false before HTTPS transport',
+		(key) => {
+			const url = 'https://example.invalid/repo.git';
+			const marker = JSON.parse(readFileSync(join(fork, '.upstream-sync.json'), 'utf8')) as Record<
+				string,
+				unknown
+			>;
+			write(fork, '.upstream-sync.json', JSON.stringify({ ...marker, upstreamUrl: url }));
+			git(fork, ['commit', '-qam', 'set HTTPS parent']);
+			git(fork, ['remote', 'set-url', 'upstream', url]);
+			git(fork, ['config', '--local', key, 'false']);
+			const networkMarker = join(tmp, 'disabled-tls-network-command');
+			const r = run(fork, ['--fetch', '--base', 'HEAD', '--json'], {
+				PATH: `${installGitWrapper(tmp)}:${process.env.PATH ?? ''}`,
+				REAL_GIT: realGitPath(),
+				NETWORK_COMMAND_MARKER: networkMarker
+			});
+
+			expect(r.status).not.toBe(0);
+			expect(r.stderr).toMatch(/requires TLS and proxy TLS verification/);
+			expect(existsSync(networkMarker)).toBe(false);
+		}
+	);
+
 	it('redacts a failed fetch before Git stderr reaches the caller', () => {
 		const secret = 'DUMMY_FETCH_QUERY_SECRET';
 		const url = `http://127.0.0.1:1/repo.git?token=${secret}`;
@@ -3760,23 +3902,38 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 			`http.${upstream}.proxy`,
 			'http://DUMMY_PROXY_SECRET@proxy.example'
 		]);
+		git(fork, [
+			'config',
+			'--local',
+			'remote.upstream.proxy',
+			'http://DUMMY_REMOTE_PROXY_SECRET@remote-proxy.example'
+		]);
 		const wrapper = installGitWrapper(tmp);
 		const credentialLog = join(tmp, 'transport-windows-credential.log');
 		const httpLog = join(tmp, 'transport-windows-http.log');
 		const networkLog = join(tmp, 'transport-windows-network.log');
+		const effectiveAuthLog = join(tmp, 'transport-windows-effective-auth.log');
 		const r = run(fork, ['--json', 'shared/pristine.ts'], {
 			PATH: `${wrapper}:${process.env.PATH ?? ''}`,
 			REAL_GIT: realGitPath(),
 			NODE_ENV: 'test',
 			UPSTREAM_REPORT_TEST_WINDOWS_SAFETY: '1',
 			TRANSPORT_CREDENTIAL_LOG: credentialLog,
+			TRANSPORT_EFFECTIVE_AUTH_LOG: effectiveAuthLog,
 			TRANSPORT_HTTP_LOG: httpLog,
 			TRANSPORT_NETWORK_LOG: networkLog
 		});
 		expect(r.status, r.stderr).toBe(0);
+		const effectiveAuth = readFileSync(effectiveAuthLog, 'utf8');
+		expect(effectiveAuth).toContain('DUMMY_HELPER_SECRET');
+		expect(effectiveAuth).toContain('DUMMY_HEADER_SECRET');
+		expect(effectiveAuth).toContain('DUMMY_PROXY_SECRET');
+		expect(effectiveAuth).toContain('DUMMY_REMOTE_PROXY_SECRET');
 		expect(readFileSync(credentialLog, 'utf8')).not.toContain('DUMMY_HELPER_SECRET');
 		expect(readFileSync(httpLog, 'utf8')).not.toContain('DUMMY_HEADER_SECRET');
-		expect(readFileSync(networkLog, 'utf8')).not.toContain('DUMMY_PROXY_SECRET');
+		const temporaryNetwork = readFileSync(networkLog, 'utf8');
+		expect(temporaryNetwork).not.toContain('DUMMY_PROXY_SECRET');
+		expect(temporaryNetwork).not.toContain('DUMMY_REMOTE_PROXY_SECRET');
 	});
 
 	itWithGitWrapper('does not copy unscoped HTTP authentication to a marker-selected host', () => {
@@ -4073,6 +4230,40 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 		expect(readFileSync(processLog, 'utf8').trim().split('\n')).toHaveLength(2);
 	});
 
+	itWithGitWrapper('keeps a local remote bound after its symlink is retargeted', () => {
+		const upstreamLink = join(tmp, 'upstream-link');
+		symlinkSync(upstream, upstreamLink);
+		const decoy = join(tmp, 'retargeted-upstream');
+		mkdirSync(decoy);
+		init(decoy);
+		write(decoy, 'decoy.ts', 'export const decoy = true;\n');
+		git(decoy, ['add', '-A']);
+		git(decoy, ['commit', '-qm', 'add decoy parent']);
+		const marker = JSON.parse(readFileSync(join(fork, '.upstream-sync.json'), 'utf8')) as Record<
+			string,
+			unknown
+		>;
+		write(fork, '.upstream-sync.json', JSON.stringify({ ...marker, upstreamUrl: upstreamLink }));
+		git(fork, ['commit', '-qam', 'set symlinked parent']);
+		git(fork, ['remote', 'set-url', 'upstream', upstreamLink]);
+		const retargeted = join(tmp, 'remote-link-retargeted');
+
+		const r = run(fork, ['--fetch', '--json'], {
+			PATH: `${installGitWrapper(tmp)}:${process.env.PATH ?? ''}`,
+			REAL_GIT: realGitPath(),
+			RETARGET_REMOTE_LINK: upstreamLink,
+			RETARGET_REMOTE_TARGET: decoy,
+			RETARGET_REMOTE_EXPECTED: realpathSync(upstream),
+			RETARGET_REMOTE_MARKER: retargeted
+		});
+
+		expect(r.status, r.stderr).toBe(0);
+		expect(existsSync(retargeted)).toBe(true);
+		const parsed = JSON.parse(r.stdout) as { upstreamRef: string };
+		expect(parsed.upstreamRef).toBe(git(upstream, ['rev-parse', 'HEAD']));
+		expect(parsed.upstreamRef).not.toBe(git(decoy, ['rev-parse', 'HEAD']));
+	});
+
 	it('keeps trailing whitespace significant in local repository paths', () => {
 		const spacedUpstream = `${upstream} `;
 		git(tmp, ['clone', '-q', upstream, spacedUpstream]);
@@ -4180,9 +4371,10 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 		git(fork, ['remote', 'set-url', 'upstream', remote]);
 
 		const r = run(fork, ['--json']);
-		expect(r.status).toBe(0);
-		expect(r.stdout).not.toContain('DUMMY_QUERY_SECRET');
-		expect(r.stdout).toContain('repo.git?***');
+		expect(r.status).not.toBe(0);
+		expect(r.stderr).not.toContain('DUMMY_QUERY_SECRET');
+		expect(r.stderr).toContain('repo.git?***');
+		expect(r.stderr).toMatch(/credential-free remote/);
 	});
 
 	it('redacts credentials carried in a remote fragment', () => {
@@ -4192,9 +4384,10 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 		git(fork, ['remote', 'set-url', 'upstream', remote]);
 
 		const r = run(fork, ['--json']);
-		expect(r.status).toBe(0);
-		expect(r.stdout).not.toContain('DUMMY_FRAGMENT_SECRET');
-		expect(r.stdout).toContain('repo.git#***');
+		expect(r.status).not.toBe(0);
+		expect(r.stderr).not.toContain('DUMMY_FRAGMENT_SECRET');
+		expect(r.stderr).toContain('repo.git#***');
+		expect(r.stderr).toMatch(/credential-free remote/);
 	});
 
 	it('redacts a multiline remote query string', () => {
