@@ -1,6 +1,6 @@
 ---
 name: upstream-report
-description: Decide whether a change belongs in the upstream saas-starter template, and report it there when it does. Use before opening a PR, after fixing a bug, and whenever an edit touched framework, auth, email, UI-primitive, config, or build code. A script measures which files are template-derived, so one command answers it and no file is judged by eye. Sends fixes up only; pulling template changes down is upstream-sync, which a human starts.
+description: Decide whether a change in a content-copy fork belongs in the upstream saas-starter template, and report it there when it does. Use in a fork before opening a PR, after fixing a bug, and whenever an edit touched framework, auth, email, UI-primitive, config, or build code. The saas-starter template itself does not use this skill. A script measures which files are template-derived, so one command answers it and no file is judged by eye. Sends fixes up only; pulling template changes down is upstream-sync, which a human starts.
 allowed-tools: Bash, Read, Grep, Glob
 ---
 
@@ -239,7 +239,7 @@ Trusted network commands use hashed remote names in a private bare Git directory
 object format. The URL lives only in its owner-only config, never in a detector Git argument. Object
 writes still land in the real object store, while shared repository, global, and system Git config
 cannot change the transport mid-run. The private config copies credential helpers and URL-scoped
-HTTPS client-auth settings. Unscoped HTTP authorization stays out because the marker chooses the
+HTTPS authorization, client certificate, CA, and proxy settings. Unscoped HTTP authorization stays out because the marker chooses the
 host. Fetch disables automatic maintenance, since the private ref namespace does not describe which
 objects the real repository still needs. A `remote.upstream.uploadpack` helper therefore cannot
 serve a different repository. Matching `url.*.insteadOf`, `core.sshCommand`, and `core.gitProxy`

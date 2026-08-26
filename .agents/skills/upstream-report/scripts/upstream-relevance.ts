@@ -237,7 +237,7 @@ function quotedGitConfig(value: string): string {
 	for (const character of value) {
 		const code = character.charCodeAt(0);
 		if (code <= 7 || (code >= 11 && code <= 31) || code === 127) {
-			fail('Git authentication config contains a control character that cannot be copied safely.');
+			fail('Git transport config contains a control character that cannot be copied safely.');
 		}
 	}
 	return `"${value
@@ -252,25 +252,25 @@ function appendTransportConfig(configPath: string, key: string, value: string): 
 	const first = key.indexOf('.');
 	const last = key.lastIndexOf('.');
 	if (first <= 0 || last === key.length - 1) {
-		fail('Git returned an authentication config key that cannot be copied safely.');
+		fail('Git returned an transport config key that cannot be copied safely.');
 	}
 	const section = key.slice(0, first);
 	const name = key.slice(last + 1);
 	if (!/^[a-z][a-z0-9-]*$/i.test(section) || !/^[a-z][a-z0-9-]*$/i.test(name)) {
-		fail('Git returned an authentication config key that cannot be copied safely.');
+		fail('Git returned an transport config key that cannot be copied safely.');
 	}
 	const header =
 		first === last ? `[${section}]` : `[${section} ${quotedGitConfig(key.slice(first + 1, last))}]`;
 	writeFileSync(configPath, `${header}\n\t${name} = ${quotedGitConfig(value)}\n`, { flag: 'a' });
 }
 
-function copyTransportAuthentication(configPath: string): void {
+function copyTransportConfiguration(configPath: string): void {
 	const output = gitBytes(
 		[
 			'config',
 			'--null',
 			'--get-regexp',
-			'^(credential\\.|http\\..*\\.(extraheader|sslcert|sslkey|sslcertpasswordprotected)$)'
+			'^(credential\\.|http\\..*\\.(extraheader|pinnedpubkey|proxy|proxyauthmethod|proxysslcainfo|proxysslcert|proxysslcertpasswordprotected|proxysslkey|proxysslverify|sslcainfo|sslcert|sslcertpasswordprotected|sslkey|sslverify)$)'
 		],
 		true
 	);
@@ -754,7 +754,7 @@ function useScratchIndex(root: string): void {
 			: '[core]\nrepositoryformatversion = 0\nbare = true\n'
 	);
 	chmodSync(transportConfigPath, 0o600);
-	copyTransportAuthentication(transportConfigPath);
+	copyTransportConfiguration(transportConfigPath);
 	writeFileSync(transportShallow, Buffer.alloc(0));
 	const copy = join(scratchDir, 'index');
 	writeFileSync(copy, indexAtCopy);
@@ -2337,7 +2337,8 @@ function readBlobs(shas: string[], maxSourceBytes = Number.POSITIVE_INFINITY): M
 	if (unique.length === 0) return out;
 	const sizeResult = gitPartialBytes(
 		['cat-file', '--batch-check=%(objectname) %(objecttype) %(objectsize)'],
-		unique.join('\n') + '\n'
+		unique.join('\n') + '\n',
+		HISTORY_COMMAND_TIMEOUT_MS
 	);
 	if (!sizeResult.complete) return out;
 	const sizes = new Map<string, number>();
@@ -2355,7 +2356,8 @@ function readBlobs(shas: string[], maxSourceBytes = Number.POSITIVE_INFINITY): M
 				input: batch.join('\n') + '\n',
 				maxBuffer: BLOB_OUTPUT_LIMIT,
 				env: gitRunEnv(),
-				stdio: ['pipe', 'pipe', 'pipe']
+				stdio: ['pipe', 'pipe', 'pipe'],
+				timeout: HISTORY_COMMAND_TIMEOUT_MS
 			});
 		} catch {
 			return;

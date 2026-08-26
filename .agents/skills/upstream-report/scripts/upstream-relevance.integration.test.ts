@@ -188,6 +188,11 @@ if [ -n "$TRANSPORT_UNSCOPED_HTTP_LOG" ]; then
     *" ls-remote "*) "$REAL_GIT" config --file "$GIT_DIR/config" --get-all http.extraheader > "$TRANSPORT_UNSCOPED_HTTP_LOG" || : ;;
   esac
 fi
+if [ -n "$TRANSPORT_NETWORK_LOG" ]; then
+  case "$command_line" in
+    *" ls-remote "*) "$REAL_GIT" config --file "$GIT_DIR/config" --get-regexp '^http\\..*\\.(sslcainfo|proxy)$' > "$TRANSPORT_NETWORK_LOG" || : ;;
+  esac
+fi
 if [ -n "$CAT_FILE_CHECK_LOG" ]; then
   case "$command_line" in
     *" cat-file --batch-check=%(objectname) %(objecttype) %(objectsize) "*) printf '%s\n' "$command_line" >> "$CAT_FILE_CHECK_LOG" ;;
@@ -312,6 +317,16 @@ fi
 if [ "$SLOW_UPSTREAM_OBJECT_CHECK" = "1" ]; then
   case "$command_line" in
     *" cat-file --batch-check=%(objectname) %(objecttype) ") exec sleep 3600 ;;
+  esac
+fi
+if [ "$SLOW_BLOB_SIZE_CHECK" = "1" ]; then
+  case "$command_line" in
+    *" cat-file --batch-check=%(objectname) %(objecttype) %(objectsize) "*) exec sleep 3600 ;;
+  esac
+fi
+if [ "$SLOW_BLOB_READ" = "1" ]; then
+  case "$command_line" in
+    *" cat-file --batch "*) exec sleep 3600 ;;
   esac
 fi
 if [ "$SLOW_ROOT_HISTORY" = "1" ]; then
@@ -1573,6 +1588,29 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 		const verdict = parsed.verdicts.find((entry) => entry.path === 'product/only-here.ts');
 		expect(verdict?.relevance).toBe('unmeasured');
 		expect(verdict?.note).toMatch(/upstream history did not complete/);
+	});
+
+	itWithGitWrapper.each([
+		['blob size inspection', 'SLOW_BLOB_SIZE_CHECK'],
+		['blob content inspection', 'SLOW_BLOB_READ']
+	])('times out stalled %s', (_label, slowVariable) => {
+		write(fork, 'shared/rewritten.ts', 'export const changed = true;\n');
+		git(fork, ['commit', '-qam', 'edit diverged path before blob stall']);
+
+		const r = run(fork, ['--json', 'shared/rewritten.ts'], {
+			PATH: `${installGitWrapper(tmp)}:${process.env.PATH ?? ''}`,
+			REAL_GIT: realGitPath(),
+			NODE_ENV: 'test',
+			[slowVariable]: '1',
+			UPSTREAM_REPORT_TEST_HISTORY_TIMEOUT_MS: '50'
+		});
+		expect(r.status, r.stderr).toBe(0);
+		const parsed = JSON.parse(r.stdout) as {
+			verdicts: Array<{ path: string; relevance: string; note?: string }>;
+		};
+		const verdict = parsed.verdicts.find((entry) => entry.path === 'shared/rewritten.ts');
+		expect(verdict?.relevance).toBe('unmeasured');
+		expect(verdict?.note).toMatch(/blob is absent/);
 	});
 
 	itWithGitWrapper('times out a stalled repository root walk', () => {
@@ -3601,6 +3639,22 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 		}
 	);
 
+	itWithGitWrapper('copies URL-scoped CA and proxy settings into the private transport', () => {
+		git(fork, ['config', '--local', `http.${upstream}.sslCAInfo`, '/private/company-ca.pem']);
+		git(fork, ['config', '--local', `http.${upstream}.proxy`, 'http://proxy.example']);
+		const wrapper = installGitWrapper(tmp);
+		const networkLog = join(tmp, 'transport-network.log');
+		const r = run(fork, ['--json', 'shared/pristine.ts'], {
+			PATH: `${wrapper}:${process.env.PATH ?? ''}`,
+			REAL_GIT: realGitPath(),
+			TRANSPORT_NETWORK_LOG: networkLog
+		});
+		expect(r.status, r.stderr).toBe(0);
+		const config = readFileSync(networkLog, 'utf8');
+		expect(config).toContain('/private/company-ca.pem');
+		expect(config).toContain('http://proxy.example');
+	});
+
 	itWithGitWrapper('does not copy unscoped HTTP authentication to a marker-selected host', () => {
 		git(fork, ['config', '--local', 'http.extraHeader', 'Authorization: Bearer DUMMY_HEADER']);
 		const wrapper = installGitWrapper(tmp);
@@ -3616,7 +3670,7 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 
 	it('keeps copied authentication values out of child-process arguments', () => {
 		const source = readFileSync(SCRIPT, 'utf8');
-		const start = source.indexOf('function copyTransportAuthentication(');
+		const start = source.indexOf('function copyTransportConfiguration(');
 		const end = source.indexOf('// Enough for a whole repository', start);
 		const copy = source.slice(start, end);
 		expect(copy).toContain('appendTransportConfig(');
