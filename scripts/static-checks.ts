@@ -270,14 +270,15 @@ export function resolveInputs(raw: string[], origin: string): string[] {
 		}
 
 		if (statSync(real).isDirectory()) {
-			const before = out.size;
+			let matched = false;
 			const prefix = `${relative}/`;
 			for (const file of repositoryPaths()) {
 				if (!file.startsWith(prefix) || !existsSync(path.join(REPO_ROOT, file))) continue;
 				if (NEVER_WALK.some((skip) => file.includes(skip))) continue;
+				matched = true;
 				out.add(file);
 			}
-			if (out.size === before)
+			if (!matched)
 				fail(`Directory contains no files to check (${origin}): ${formatPathForDiagnostic(arg)}`);
 			continue;
 		}
