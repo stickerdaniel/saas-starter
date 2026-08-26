@@ -282,6 +282,7 @@ public static class WindowsJobRunner
         ManualResetEvent lifetimeClosed = null;
         var environmentBlock = IntPtr.Zero;
         var attributeList = IntPtr.Zero;
+        var attributeListInitialized = false;
         var attributeListSize = IntPtr.Zero;
         var jobList = IntPtr.Zero;
         var job = IntPtr.Zero;
@@ -336,6 +337,7 @@ public static class WindowsJobRunner
             attributeList = Marshal.AllocHGlobal(attributeListSize);
             if (!InitializeProcThreadAttributeList(attributeList, 1, 0, ref attributeListSize))
                 throw Failure("InitializeProcThreadAttributeList");
+            attributeListInitialized = true;
             jobList = Marshal.AllocHGlobal(IntPtr.Size);
             Marshal.WriteIntPtr(jobList, job);
             if (!UpdateProcThreadAttribute(
@@ -431,7 +433,7 @@ public static class WindowsJobRunner
             if (processInformation.hThread != IntPtr.Zero) CloseHandle(processInformation.hThread);
             if (processInformation.hProcess != IntPtr.Zero) CloseHandle(processInformation.hProcess);
             if (environmentBlock != IntPtr.Zero) Marshal.FreeHGlobal(environmentBlock);
-            if (attributeList != IntPtr.Zero) DeleteProcThreadAttributeList(attributeList);
+            if (attributeListInitialized) DeleteProcThreadAttributeList(attributeList);
             if (jobList != IntPtr.Zero) Marshal.FreeHGlobal(jobList);
             if (attributeList != IntPtr.Zero) Marshal.FreeHGlobal(attributeList);
             if (job != IntPtr.Zero) CloseHandle(job);
