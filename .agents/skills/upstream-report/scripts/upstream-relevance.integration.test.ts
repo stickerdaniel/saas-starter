@@ -150,16 +150,25 @@ function installGitWrapper(root: string): string {
 	writeFileSync(
 		wrapper,
 		`#!/bin/sh
+command_line=" $* "
+if [ -n "$TRANSPORT_ALIAS_CONFIG_LOG" ]; then
+  case "$command_line" in
+    *" fetch "*)
+      for arg in "$@"; do
+        case "$arg" in
+          upstream-report-*)
+            remote_url=$("$REAL_GIT" config --get "remote.$arg.url") || continue
+            { printf '%s\n' "$remote_url"; "$REAL_GIT" config --get-urlmatch http.pinnedPubkey "$remote_url" || :; "$REAL_GIT" config --get "remote.$arg.proxy" || :; } > "$TRANSPORT_ALIAS_CONFIG_LOG"
+            ;;
+        esac
+      done
+      ;;
+  esac
+fi
 if [ "$FAKE_FETCH_SUCCESS" = "1" ]; then
   for arg in "$@"; do
     [ "$arg" = "fetch" ] && exit 0
   done
-fi
-command_line=" $* "
-if [ -n "$TRANSPORT_ALIAS_CONFIG_LOG" ]; then
-  case "$command_line" in
-    *" ls-remote "*) "$REAL_GIT" config --get-regexp '^(http\\..*\\.pinnedpubkey|remote\\..*\\.proxy)$' > "$TRANSPORT_ALIAS_CONFIG_LOG" || : ;;
-  esac
 fi
 if [ -n "$FAKE_REMOTE_MAIN_SHA" ]; then
   case "$command_line" in
@@ -6045,15 +6054,17 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 		const upstreamSha = git(fork, ['rev-parse', 'refs/remotes/upstream/main']);
 		const networkLog = join(tmp, 'github-alias-transport.log');
 
-		const r = run(fork, ['--base', 'origin/main', '--json'], {
+		const r = run(fork, ['--fetch', '--base', 'origin/main', '--json'], {
 			PATH: `${installGitWrapper(tmp)}:${process.env.PATH ?? ''}`,
 			REAL_GIT: realGitPath(),
+			FAKE_FETCH_SUCCESS: '1',
 			FAKE_REMOTE_MAIN_SHA: upstreamSha,
 			TRANSPORT_ALIAS_CONFIG_LOG: networkLog
 		});
 
 		expect(r.status, r.stderr).toBe(0);
 		const config = readFileSync(networkLog, 'utf8');
+		expect(config).toContain(configured);
 		expect(config).toContain('sha256//DUMMY_PIN');
 		expect(config).toContain('http://proxy.example');
 	});
