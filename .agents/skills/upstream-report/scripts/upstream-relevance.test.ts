@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { changedRegionLines, classifyVerdict, regionOverlap } from './upstream-relevance';
 
@@ -99,6 +101,15 @@ describe('regionOverlap', () => {
 		expect(
 			regionOverlap([{ removed: ['value = 1;', 'value = 1;', 'value = 1;'], context: [] }], twice)
 		).toBeCloseTo(2 / 3);
+	});
+
+	it('does not clone the complete upstream tally for each hunk', () => {
+		const source = readFileSync(resolve(import.meta.dirname, 'upstream-relevance.ts'), 'utf8');
+		const start = source.indexOf('function hunkOverlap(');
+		const end = source.indexOf('export function classifyVerdict(', start);
+		const implementation = source.slice(start, end);
+		expect(implementation).toContain('const used = new Map<string, number>();');
+		expect(implementation).not.toContain('new Map(upstreamLines)');
 	});
 
 	it('reports "not measured" for an empty region, never zero', () => {
