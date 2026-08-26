@@ -151,11 +151,11 @@ gh search issues --repo stickerdaniel/saas-starter "<keywords>"
 Search without a state filter so closed issues come back too. A fix that was already
 rejected, or already shipped, is the answer as often as an open ticket is.
 
-If nothing matches, read the issue template before writing, so the report arrives in the
-shape the repository expects:
+If nothing matches, inspect recent reports before writing, so the new issue matches the
+repository's current level of detail:
 
 ```bash
-gh api repos/stickerdaniel/saas-starter/contents/.github/ISSUE_TEMPLATE
+gh issue list --repo stickerdaniel/saas-starter --state all --limit 5 --json number,title,body
 ```
 
 **Ask the human before filing.** Drafting is yours; posting to another repository is

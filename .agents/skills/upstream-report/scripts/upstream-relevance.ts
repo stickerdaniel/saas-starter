@@ -118,6 +118,7 @@ const SCRUBBED = [
 	'GIT_SSH_COMMAND',
 	'GIT_SSH_VARIANT',
 	'GIT_PROXY_COMMAND',
+	'GIT_SSL_NO_VERIFY',
 	'GIT_LITERAL_PATHSPECS',
 	'GIT_NOGLOB_PATHSPECS',
 	'GIT_GLOB_PATHSPECS',
@@ -150,8 +151,7 @@ function gitBooleanIsFalse(value: string | undefined): boolean {
 }
 
 function protocolAllowsAlways(protocol: string): boolean {
-	const policy = git(['config', '--get', `protocol.${protocol}.allow`], true);
-	return policy === '' || policy.toLowerCase() === 'always';
+	return transportProtocolPolicies.get(protocol) === 'always';
 }
 
 function transportProtocolEnv(): NodeJS.ProcessEnv {
@@ -330,12 +330,13 @@ function safeWindowsTransportValue(key: string, value: string): boolean {
 }
 
 function copyTransportConfiguration(configPath: string): void {
+	const remoteProxyByName = new Map<string, RemoteProxySettings>();
 	const output = gitBytes(
 		[
 			'config',
 			'--null',
 			'--get-regexp',
-			'^(credential\\.|http\\.(pinnedpubkey|proxy|proxyauthmethod|sslcainfo|sslbackend|sslverify)$|http\\..*\\.(extraheader|pinnedpubkey|proxy|proxyauthmethod|proxysslcainfo|proxysslcert|proxysslcertpasswordprotected|proxysslkey|proxysslverify|sslcainfo|sslcert|sslcertpasswordprotected|sslkey|sslverify)$|protocol\\..*\\.allow$)'
+			'^(credential\\.|http\\.(pinnedpubkey|proxy|proxyauthmethod|proxysslcainfo|proxysslverify|sslbackend|sslcainfo|sslcapath|sslverify)$|http\\..*\\.(extraheader|pinnedpubkey|proxy|proxyauthmethod|proxysslcainfo|proxysslcert|proxysslcertpasswordprotected|proxysslkey|proxysslverify|sslcainfo|sslcapath|sslcert|sslcertpasswordprotected|sslkey|sslverify)$|protocol\\..*\\.allow$|remote\\..*\\.(proxy|proxyauthmethod)$)'
 		],
 		true
 	);
@@ -344,7 +345,19 @@ function copyTransportConfiguration(configPath: string): void {
 		if (newline === -1) continue;
 		const key = record.slice(0, newline);
 		const value = record.slice(newline + 1);
-		if (key.startsWith('protocol.')) continue;
+		const protocol = /^protocol\.([^.]+)\.allow$/i.exec(key)?.[1];
+		if (protocol) {
+			transportProtocolPolicies.set(protocol, value.toLowerCase());
+			continue;
+		}
+		const remoteSetting = /^remote\.(.*)\.(proxy|proxyauthmethod)$/i.exec(key);
+		if (remoteSetting) {
+			const settings = remoteProxyByName.get(remoteSetting[1]!) ?? {};
+			if (remoteSetting[2]!.toLowerCase() === 'proxy') settings.proxy = value;
+			else settings.proxyAuthMethod = value;
+			remoteProxyByName.set(remoteSetting[1]!, settings);
+			continue;
+		}
 		if (!safeWindowsTransportValue(key, value)) {
 			transportEnvironmentConfig.push([key, value]);
 			continue;
@@ -357,16 +370,18 @@ function copyTransportConfiguration(configPath: string): void {
 		['https', 'always'],
 		['ssh', 'always']
 	] as const) {
-		const configured = git(['config', '--get', `protocol.${protocol}.allow`], true).toLowerCase();
+		const configured = transportProtocolPolicies.get(protocol) ?? '';
 		if (configured !== '' && !/^(?:always|never|user)$/.test(configured)) {
 			fail(`Git protocol.${protocol}.allow has an invalid policy.`);
 		}
-		appendTransportConfig(configPath, `protocol.${protocol}.allow`, configured || fallback);
+		const policy = configured || fallback;
+		transportProtocolPolicies.set(protocol, policy);
+		appendTransportConfig(configPath, `protocol.${protocol}.allow`, policy);
 	}
-	for (const remote of git(['remote'], true).split('\n').filter(Boolean)) {
+	for (const remote of ['origin', 'upstream']) {
 		const url = configuredRemoteUrl(remote);
-		const proxy = git(['config', '--get', `remote.${remote}.proxy`], true);
-		if (url && proxy) transportProxyByUrl.set(url, proxy);
+		const settings = remoteProxyByName.get(remote);
+		if (url && settings) transportProxyByUrl.set(url, settings);
 	}
 }
 
@@ -384,11 +399,18 @@ function transportRemote(url: string): string {
 	const name = `upstream-report-${createHash('sha256').update(url).digest('hex').slice(0, 16)}`;
 	appendTransportConfig(transportConfigPath, `remote.${name}.url`, transportUrl);
 	const proxy = transportProxyByUrl.get(url);
-	if (proxy) {
+	if (proxy?.proxy !== undefined) {
 		const key = `remote.${name}.proxy`;
-		if (safeWindowsTransportValue(key, proxy))
-			appendTransportConfig(transportConfigPath, key, proxy);
-		else transportEnvironmentConfig.push([key, proxy]);
+		if (safeWindowsTransportValue(key, proxy.proxy))
+			appendTransportConfig(transportConfigPath, key, proxy.proxy);
+		else transportEnvironmentConfig.push([key, proxy.proxy]);
+	}
+	if (proxy?.proxyAuthMethod !== undefined) {
+		appendTransportConfig(
+			transportConfigPath,
+			`remote.${name}.proxyAuthMethod`,
+			proxy.proxyAuthMethod
+		);
 	}
 	transportRemotes.set(url, name);
 	return name;
@@ -408,7 +430,13 @@ function rejectUnauthenticatedTransport(url: string): void {
 function rejectDisabledTlsVerification(url: string): void {
 	if (!/^https:/i.test(url)) return;
 	for (const key of ['http.sslVerify', 'http.proxySSLVerify']) {
-		const value = git(['config', '--type=bool', '--get-urlmatch', key, url], true);
+		const value = gitBytes(
+			['config', '--type=bool', '--get-urlmatch', key, url],
+			true,
+			trustedTransportEnv()
+		)
+			.toString('utf8')
+			.trim();
 		if (value === 'false') {
 			fail('Upstream evidence requires TLS and proxy TLS verification.');
 		}
@@ -604,8 +632,8 @@ function gitZ(args: string[], allowFail = false, timeout?: number): string[] {
 	return decodeZRecords(gitBytes(args, allowFail, {}, timeout));
 }
 
-function gitZEach(args: string[], visit: (record: string) => void): void {
-	visitZRecords(gitBytes(args), visit);
+function gitZEach(args: string[], visit: (record: string) => void, timeout?: number): void {
+	visitZRecords(gitBytes(args, false, {}, timeout), visit);
 }
 
 function historyGitBytes(args: string[]): Buffer {
@@ -668,8 +696,14 @@ let transportConfigPath: string | undefined;
 let transportObjectDir: string | undefined;
 let transportShallow: string | undefined;
 let ownedRepositoryPaths: Set<string> | undefined;
+interface RemoteProxySettings {
+	proxy?: string;
+	proxyAuthMethod?: string;
+}
+
 const transportRemotes = new Map<string, string>();
-const transportProxyByUrl = new Map<string, string>();
+const transportProxyByUrl = new Map<string, RemoteProxySettings>();
+const transportProtocolPolicies = new Map<string, string>();
 const transportEnvironmentConfig: Array<[string, string]> = [];
 const validatedTransportUrls = new Map<string, string>();
 let callerIndexPath: string | undefined;
@@ -909,6 +943,7 @@ function dropScratchIndex(): void {
 	ownedRepositoryPaths = undefined;
 	transportRemotes.clear();
 	transportProxyByUrl.clear();
+	transportProtocolPolicies.clear();
 	transportEnvironmentConfig.length = 0;
 	validatedTransportUrls.clear();
 	callerIndexPath = undefined;
@@ -1260,8 +1295,18 @@ function readUpstreamMarker(root: string): MarkerSnapshot {
 
 function requireCleanUpstreamMarker(marker: MarkerSnapshot): void {
 	rejectHiddenIndexEntries([MARKER]);
-	const tracked = gitZ(['ls-files', '-z', '--', `:(literal)${MARKER}`]).includes(MARKER);
-	if (marker.bytes !== null && !tracked) {
+	const literalMarker = `:(literal)${MARKER}`;
+	const tracked = gitZ(['ls-files', '-z', '--', literalMarker]).includes(MARKER);
+	const ignored = gitZ([
+		'ls-files',
+		'--others',
+		'--ignored',
+		'--exclude-standard',
+		'-z',
+		'--',
+		literalMarker
+	]).includes(MARKER);
+	if (ignored || (marker.bytes !== null && !tracked)) {
 		fail(
 			`${MARKER} exists but is not tracked. Commit it before upstream relevance selects a parent.`
 		);
@@ -1548,6 +1593,28 @@ function remoteMainRefspecIsCanonical(remote: string): boolean {
 	return sources.length > 0 && sources.every((source) => source === 'refs/heads/main');
 }
 
+function removeDetectorAddedUpstreamRemote(url: string): boolean {
+	const actual = decodeZRecords(
+		gitBytes(['config', '--null', '--get-regexp', '^remote\\.upstream\\.'], true)
+	).sort();
+	const expected = [
+		`remote.upstream.fetch\n+refs/heads/*:refs/remotes/upstream/*`,
+		`remote.upstream.url\n${url}`
+	].sort();
+	if (
+		actual.length !== expected.length ||
+		actual.some((record, index) => record !== expected[index])
+	) {
+		return false;
+	}
+	try {
+		git(['config', '--remove-section', 'remote.upstream']);
+		return configuredRemoteUrl('upstream') === '';
+	} catch {
+		return false;
+	}
+}
+
 function cameFromUpstreamMain(entry: RefLogEntry | null, sha: string): boolean {
 	if (!entry || entry.sha !== sha) return false;
 	const separator = entry.subject.lastIndexOf(': ');
@@ -1620,6 +1687,7 @@ function ensureUpstream(root: string, upstreamUrl: string, allowFetch: boolean):
 		const objectFormat = git(['rev-parse', '--show-object-format'], true);
 		const zeroOid = '0'.repeat(objectFormat === 'sha256' ? 64 : 40);
 		const refBeforeFetch = haveRef() ? git(['rev-parse', UPSTREAM_REF]) : zeroOid;
+		let addedRemote = false;
 		const transport = transportRemote(upstreamUrl);
 		console.error(`Fetching upstream (${terminalUrl(upstreamUrl)}) ...`);
 		const expected = advertisedMainAt(upstreamUrl);
@@ -1657,6 +1725,7 @@ function ensureUpstream(root: string, upstreamUrl: string, allowFetch: boolean):
 			rejectSecretBearingRemoteUrl(upstreamUrl);
 			try {
 				git(['remote', 'add', 'upstream', upstreamUrl]);
+				addedRemote = true;
 			} catch {
 				fail(`Could not add the \`upstream\` remote for ${terminalUrl(upstreamUrl)}.`);
 			}
@@ -1679,9 +1748,16 @@ function ensureUpstream(root: string, upstreamUrl: string, allowFetch: boolean):
 				refBeforeFetch
 			]);
 		} catch {
+			if (addedRemote && !removeDetectorAddedUpstreamRemote(upstreamUrl)) {
+				fail(
+					'The shared upstream tracking ref changed while this report fetched objects, and the newly added remote changed before it could be rolled back.'
+				);
+			}
 			fail(
 				'The shared upstream tracking ref changed while this report fetched objects. ' +
-					'Run it again after the other fetch finishes.'
+					(addedRemote
+						? 'The newly added remote was rolled back; run it again after the other fetch finishes.'
+						: 'Run it again after the other fetch finishes.')
 			);
 		}
 		if (normalizeRemote(configuredRemoteUrl('upstream')) !== normalizeRemote(remoteUrl)) {
@@ -1714,8 +1790,30 @@ function ensureUpstream(root: string, upstreamUrl: string, allowFetch: boolean):
 				`${expected} ${Math.floor(Date.now() / 1000)} ${remoteFingerprint(upstreamUrl)}`
 			]);
 		} catch {
+			let refRolledBack = false;
+			try {
+				git([
+					'update-ref',
+					'--no-deref',
+					'-m',
+					'roll back upstream relevance fetch after config failure',
+					UPSTREAM_REF,
+					refBeforeFetch,
+					expected
+				]);
+				refRolledBack = true;
+			} catch {
+				// The diagnostic below names the state that could not be restored.
+			}
+			const remoteRolledBack = !addedRemote || removeDetectorAddedUpstreamRemote(upstreamUrl);
+			if (!refRolledBack || !remoteRolledBack) {
+				fail(
+					'The upstream fetch time could not be recorded, and shared Git state changed before the ref or new remote could be rolled back.'
+				);
+			}
 			fail(
-				'The upstream fetch succeeded, but its fetch time could not be recorded in local Git config.'
+				'The upstream fetch time could not be recorded. The tracking ref was rolled back' +
+					(addedRemote ? ', along with the newly added remote.' : '.')
 			);
 		}
 		fetchedSha = expected;
@@ -2267,26 +2365,12 @@ function rejectHiddenIndexEntries(paths?: string[]): void {
  */
 function changedPaths(base: string, head: string): string[] {
 	rejectHiddenIndexEntries();
-	const fromStatus = (fields: string[]): string[] => {
-		const paths: string[] = [];
-		for (let i = 0; i < fields.length; i++) {
-			const status = fields[i];
-			if (status === undefined) break;
-			// Rename and copy statuses carry a similarity score and two paths;
-			// every other status carries one.
-			if (/^[RC]\d*$/.test(status)) {
-				const source = fields[i + 1];
-				const destination = fields[i + 2];
-				if (source !== undefined) paths.push(source);
-				if (destination !== undefined) paths.push(destination);
-				i += 2;
-			} else if (/^[A-Z]\d*$/.test(status)) {
-				const path = fields[i + 1];
-				if (path !== undefined) paths.push(path);
-				i += 1;
-			}
+	const paths = new Set<string>();
+	const add = (path: string): void => {
+		paths.add(path);
+		if (paths.size > PATH_LIMIT) {
+			fail(`Automatic discovery found more than ${PATH_LIMIT} changed paths. Narrow the request.`);
 		}
-		return paths;
 	};
 
 	// Every collector reads the same HEAD. The index is snapshotted once, so a
@@ -2299,9 +2383,9 @@ function changedPaths(base: string, head: string): string[] {
 	// indistinguishable from an empty result from a clean tree, and the second
 	// one exits zero saying there is nothing to report. A broken diff.renames
 	// value in inherited config was enough to produce exactly that.
-	const collect = (fn: () => string[], what: string): string[] => {
+	const collect = (fn: () => void, what: string): void => {
 		try {
-			return fn();
+			fn();
 		} catch (err) {
 			fail(
 				`Could not enumerate ${what}: ${terminalSafe(err instanceof Error ? err.message : String(err))}\n` +
@@ -2309,44 +2393,45 @@ function changedPaths(base: string, head: string): string[] {
 			);
 		}
 	};
+	const collectStatus = (args: string[], what: string): void => {
+		collect(() => {
+			let pathsRemaining = 0;
+			gitZEach(
+				args,
+				(record) => {
+					if (pathsRemaining > 0) {
+						add(record);
+						pathsRemaining--;
+						return;
+					}
+					// Rename and copy statuses carry two paths; every other
+					// changed status carries one.
+					if (/^[RC]\d*$/.test(record)) pathsRemaining = 2;
+					else if (/^[A-Z]\d*$/.test(record)) pathsRemaining = 1;
+				},
+				DIFF_COMMAND_TIMEOUT_MS
+			);
+			if (pathsRemaining !== 0) throw new Error('Git returned an incomplete name-status record.');
+		}, what);
+	};
 
-	const all = [
-		...collect(
-			() =>
-				fromStatus(
-					gitZ(
-						['diff', '--ignore-submodules=none', '--name-status', '-M', '-z', `${base}...${head}`],
-						false,
-						DIFF_COMMAND_TIMEOUT_MS
-					)
-				),
-			'committed changes'
-		),
-		...collect(
-			() =>
-				fromStatus(
-					gitZ(
-						['diff', '--ignore-submodules=none', '--name-status', '-M', '-z', head],
-						false,
-						DIFF_COMMAND_TIMEOUT_MS
-					)
-				),
-			'unstaged changes'
-		),
-		...collect(
-			() =>
-				fromStatus(
-					gitZ(
-						['diff', '--ignore-submodules=none', '--name-status', '-M', '-z', '--cached', head],
-						false,
-						DIFF_COMMAND_TIMEOUT_MS
-					)
-				),
-			'staged changes'
-		),
-		...collect(() => gitZ(['ls-files', '--others', '--exclude-standard', '-z']), 'untracked files')
-	];
-	return [...new Set(all)].sort();
+	collectStatus(
+		['diff', '--ignore-submodules=none', '--name-status', '-M', '-z', `${base}...${head}`],
+		'committed changes'
+	);
+	collectStatus(
+		['diff', '--ignore-submodules=none', '--name-status', '-M', '-z', head],
+		'unstaged changes'
+	);
+	collectStatus(
+		['diff', '--ignore-submodules=none', '--name-status', '-M', '-z', '--cached', head],
+		'staged changes'
+	);
+	collect(
+		() => gitZEach(['ls-files', '--others', '--exclude-standard', '-z'], add),
+		'untracked files'
+	);
+	return [...paths].sort();
 }
 
 type CachedBag =
@@ -3635,10 +3720,16 @@ function main() {
 		}
 		paths = [...resolved].sort();
 	} else {
-		paths = [...new Set([...changedPaths(base, head), ...statusPaths.map((entry) => entry.path)])];
-		if (paths.length > PATH_LIMIT) {
-			fail(`Automatic discovery found more than ${PATH_LIMIT} changed paths. Narrow the request.`);
+		const discovered = new Set(changedPaths(base, head));
+		for (const { path } of statusPaths) {
+			discovered.add(path);
+			if (discovered.size > PATH_LIMIT) {
+				fail(
+					`Automatic discovery found more than ${PATH_LIMIT} changed paths. Narrow the request.`
+				);
+			}
 		}
+		paths = [...discovered];
 	}
 	if (positionals.length > 0) rejectHiddenIndexEntries(paths);
 	const captured = capturePaths(paths);

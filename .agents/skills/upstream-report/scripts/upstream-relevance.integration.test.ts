@@ -220,7 +220,15 @@ if [ -n "$TRANSPORT_UNSCOPED_HTTP_LOG" ]; then
 fi
 if [ -n "$TRANSPORT_NETWORK_LOG" ]; then
   case "$command_line" in
-    *" ls-remote "*) "$REAL_GIT" config --file "$GIT_DIR/config" --get-regexp '^(http\\..*(sslcainfo|proxy)|remote\\..*\\.proxy)$' > "$TRANSPORT_NETWORK_LOG" || : ;;
+    *" ls-remote "*) "$REAL_GIT" config --file "$GIT_DIR/config" --get-regexp '^(http\\..*(sslcainfo|sslcapath|proxy|proxysslcainfo)|remote\\..*\\.(proxy|proxyauthmethod))$' > "$TRANSPORT_NETWORK_LOG" || : ;;
+  esac
+fi
+if [ -n "$TLS_CONFIG_RACE_REPO" ] && [ ! -e "$TLS_CONFIG_RACE_MARKER" ]; then
+  case "$command_line" in
+    *" config --type=bool --get-urlmatch http.sslVerify "*)
+      env -u GIT_INDEX_FILE -u GIT_DIR -u GIT_OBJECT_DIRECTORY -u GIT_SHALLOW_FILE -u GIT_CONFIG_COUNT -u GIT_CONFIG_KEY_0 -u GIT_CONFIG_VALUE_0 "$REAL_GIT" -C "$TLS_CONFIG_RACE_REPO" config http.sslVerify true || exit $?
+      : > "$TLS_CONFIG_RACE_MARKER"
+      ;;
   esac
 fi
 if [ -n "$CAT_FILE_CHECK_LOG" ]; then
@@ -234,7 +242,7 @@ if [ -n "$FAKE_GIT_VERSION" ]; then
   esac
 fi
 if [ -n "$CASE_SCRUB_MARKER" ]; then
-  if [ -n "\${git_dir+x}" ] || [ -n "\${git_work_tree+x}" ] || [ -n "\${git_ssh_command+x}" ] || [ -n "\${git_config_count+x}" ]; then
+  if [ -n "\${git_dir+x}" ] || [ -n "\${git_work_tree+x}" ] || [ -n "\${git_ssh_command+x}" ] || [ -n "\${git_ssl_no_verify+x}" ] || [ -n "\${git_config_count+x}" ]; then
     : > "$CASE_SCRUB_MARKER"
     exit 97
   fi
@@ -271,7 +279,7 @@ if [ -n "$TRANSPORT_REWRITE_REPO" ]; then
 fi
 if [ -n "$PATH_ENUMERATION_LOG" ]; then
   case "$command_line" in
-    *" ls-files -z --full-name --cached --others --exclude-standard -- "*|*" ls-tree -z --full-name --name-only -r "*)
+    *" diff --ignore-submodules=none --name-status -M -z "*|*" ls-files --others --exclude-standard -z "*|*" ls-files -z --full-name --cached --others --exclude-standard -- "*|*" ls-tree -z --full-name --name-only -r "*)
       printf '%s\n' "$command_line" >> "$PATH_ENUMERATION_LOG"
       ;;
   esac
@@ -470,6 +478,11 @@ if [ -n "$ADD_REMOTE_SWAP_REMOTE" ] && [ ! -e "$ADD_REMOTE_SWAP_MARKER" ]; then
       ;;
   esac
 fi
+if [ "$FAIL_FETCH_RECORD" = "1" ]; then
+  case "$command_line" in
+    *" config --local upstreamReport.lastFetch "*) exit 91 ;;
+  esac
+fi
 if [ -n "$OVERLAP_ABA_PATH" ] && [ ! -e "$OVERLAP_ABA_MARKER" ]; then
   case "$command_line" in
     *" diff --ignore-submodules=none --unified=3 "*|*" diff --no-index --unified=3 "*)
@@ -556,7 +569,7 @@ if [ -n "$FETCH_AFTER_TREE_SHA" ] && [ ! -e "$FETCH_MARKER" ]; then
 fi
 if [ -n "$REMOVE_AFTER_UNTRACKED" ] && [ ! -e "$REMOVE_MARKER" ]; then
   case "$command_line" in
-    *" ls-files --others "*)
+    *" ls-files --others --exclude-standard -z "*)
       output_file="$REMOVE_MARKER.output"
       "$REAL_GIT" "$@" > "$output_file" || exit $?
       rm -f "$REMOVE_AFTER_UNTRACKED" || exit $?
@@ -569,7 +582,7 @@ if [ -n "$REMOVE_AFTER_UNTRACKED" ] && [ ! -e "$REMOVE_MARKER" ]; then
 fi
 if [ -n "$ADD_AFTER_UNTRACKED" ] && [ ! -e "$LOCAL_CHANGE_MARKER" ]; then
   case "$command_line" in
-    *" ls-files --others "*)
+    *" ls-files --others --exclude-standard -z "*)
       output_file="$LOCAL_CHANGE_MARKER.output"
       "$REAL_GIT" "$@" > "$output_file" || exit $?
       printf 'lateFile();\n' > "$ADD_AFTER_UNTRACKED" || exit $?
@@ -895,6 +908,7 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 			git_dir: join(tmp, 'wrong-git-dir'),
 			git_work_tree: join(tmp, 'wrong-worktree'),
 			git_ssh_command: join(tmp, 'wrong-ssh'),
+			git_ssl_no_verify: '1',
 			git_config_count: '1',
 			git_config_key_0: 'core.fileMode',
 			git_config_value_0: 'false'
@@ -2945,6 +2959,50 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 	});
 
 	itWithGitWrapper(
+		'rolls back a new remote after the fetched ref loses its compare-and-swap',
+		() => {
+			git(fork, ['remote', 'remove', 'upstream']);
+			git(fork, ['update-ref', '-d', 'refs/remotes/upstream/main']);
+			const decoy = git(fork, ['rev-parse', 'HEAD']);
+			const raceMarker = join(tmp, 'initial-ref-race');
+
+			const r = run(fork, ['--fetch', '--json'], {
+				PATH: `${installGitWrapper(tmp)}:${process.env.PATH ?? ''}`,
+				REAL_GIT: realGitPath(),
+				FETCH_REF_SWAP_REPO: fork,
+				FETCH_REF_SWAP_SHA: decoy,
+				FETCH_REF_SWAP_MARKER: raceMarker
+			});
+
+			expect(existsSync(raceMarker)).toBe(true);
+			expect(r.status).not.toBe(0);
+			expect(r.stderr).toMatch(/newly added remote was rolled back/);
+			expect(gitOptional(fork, ['config', '--get', 'remote.upstream.url'])).toBe('');
+			expect(git(fork, ['rev-parse', 'refs/remotes/upstream/main'])).toBe(decoy);
+			expect(gitOptional(fork, ['config', '--get', 'upstreamReport.lastFetch'])).toBe('');
+		}
+	);
+
+	itWithGitWrapper('rolls back a new remote and ref when fetch recording fails', () => {
+		git(fork, ['remote', 'remove', 'upstream']);
+		git(fork, ['update-ref', '-d', 'refs/remotes/upstream/main']);
+
+		const r = run(fork, ['--fetch', '--json'], {
+			PATH: `${installGitWrapper(tmp)}:${process.env.PATH ?? ''}`,
+			REAL_GIT: realGitPath(),
+			FAIL_FETCH_RECORD: '1'
+		});
+
+		expect(r.status).not.toBe(0);
+		expect(r.stderr).toMatch(/tracking ref was rolled back/);
+		expect(gitOptional(fork, ['config', '--get', 'remote.upstream.url'])).toBe('');
+		expect(
+			gitOptional(fork, ['rev-parse', '--verify', '--quiet', 'refs/remotes/upstream/main'])
+		).toBe('');
+		expect(gitOptional(fork, ['config', '--get', 'upstreamReport.lastFetch'])).toBe('');
+	});
+
+	itWithGitWrapper(
 		'does not bind fetched objects to a remote changed during initial creation',
 		() => {
 			const decoy = join(tmp, 'remote-add-race-decoy');
@@ -3580,19 +3638,24 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 		expect(readFileSync(enumerationLog, 'utf8').trim().split('\n')).toHaveLength(1);
 	});
 
-	it('bounds aggregate automatic path discovery', () => {
+	itWithGitWrapper('bounds aggregate automatic path discovery as paths are decoded', () => {
 		write(fork, 'product/automatic-one.ts', 'automaticOne();\n');
 		write(fork, 'product/automatic-two.ts', 'automaticTwo();\n');
 		git(fork, ['add', '-A']);
 		git(fork, ['commit', '-qm', 'add automatic paths']);
+		const enumerationLog = join(tmp, 'automatic-path-enumeration.log');
 
 		const r = run(fork, ['--json'], {
+			PATH: `${installGitWrapper(tmp)}:${process.env.PATH ?? ''}`,
+			REAL_GIT: realGitPath(),
+			PATH_ENUMERATION_LOG: enumerationLog,
 			NODE_ENV: 'test',
 			UPSTREAM_REPORT_TEST_PATH_LIMIT: '1'
 		});
 
 		expect(r.status).not.toBe(0);
 		expect(r.stderr).toMatch(/Automatic discovery found more than 1 changed paths/);
+		expect(readFileSync(enumerationLog, 'utf8').trim().split('\n')).toHaveLength(1);
 	});
 
 	it('refuses staged marker bytes that differ from the working tree', () => {
@@ -3620,6 +3683,20 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 		write(fork, '.upstream-sync.json', JSON.stringify({ upstreamUrl: upstream }));
 
 		const r = run(fork, ['--fetch', '--json', 'shared/pristine.ts']);
+		expect(r.status).not.toBe(0);
+		expect(r.stderr).toMatch(/exists but is not tracked/);
+	});
+
+	it('refuses an ignored untracked upstream marker in Windows safety mode', () => {
+		git(fork, ['rm', '-q', '.upstream-sync.json']);
+		git(fork, ['commit', '-qm', 'remove Windows upstream marker']);
+		writeFileSync(join(fork, '.git', 'info', 'exclude'), '.upstream-sync.json\n');
+		write(fork, '.upstream-sync.json', JSON.stringify({ upstreamUrl: upstream }));
+
+		const r = run(fork, ['--json', 'shared/pristine.ts'], {
+			NODE_ENV: 'test',
+			UPSTREAM_REPORT_TEST_WINDOWS_SAFETY: '1'
+		});
 		expect(r.status).not.toBe(0);
 		expect(r.stderr).toMatch(/exists but is not tracked/);
 	});
@@ -3793,6 +3870,34 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 		}
 	);
 
+	itWithGitWrapper('checks TLS policy from the private transport snapshot', () => {
+		const url = 'https://example.invalid/repo.git';
+		const marker = JSON.parse(readFileSync(join(fork, '.upstream-sync.json'), 'utf8')) as Record<
+			string,
+			unknown
+		>;
+		write(fork, '.upstream-sync.json', JSON.stringify({ ...marker, upstreamUrl: url }));
+		git(fork, ['commit', '-qam', 'set raced HTTPS parent']);
+		git(fork, ['remote', 'set-url', 'upstream', url]);
+		git(fork, ['config', '--local', 'http.sslVerify', 'false']);
+		const raceMarker = join(tmp, 'tls-config-raced');
+		const networkMarker = join(tmp, 'tls-race-network-command');
+
+		const r = run(fork, ['--fetch', '--base', 'HEAD', '--json'], {
+			PATH: `${installGitWrapper(tmp)}:${process.env.PATH ?? ''}`,
+			REAL_GIT: realGitPath(),
+			TLS_CONFIG_RACE_REPO: fork,
+			TLS_CONFIG_RACE_MARKER: raceMarker,
+			NETWORK_COMMAND_MARKER: networkMarker
+		});
+
+		expect(existsSync(raceMarker)).toBe(true);
+		expect(git(fork, ['config', '--get', 'http.sslVerify'])).toBe('true');
+		expect(r.status).not.toBe(0);
+		expect(r.stderr).toMatch(/requires TLS and proxy TLS verification/);
+		expect(existsSync(networkMarker)).toBe(false);
+	});
+
 	it('redacts a failed fetch before Git stderr reaches the caller', () => {
 		const secret = 'DUMMY_FETCH_QUERY_SECRET';
 		const url = `http://127.0.0.1:1/repo.git?token=${secret}`;
@@ -3872,8 +3977,11 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 
 	itWithGitWrapper('copies global CA and proxy settings plus the matching remote proxy', () => {
 		git(fork, ['config', '--local', 'http.sslCAInfo', '/private/global-ca.pem']);
+		git(fork, ['config', '--local', 'http.sslCAPath', '/private/global-ca-directory']);
+		git(fork, ['config', '--local', 'http.proxySSLCAInfo', '/private/proxy-ca.pem']);
 		git(fork, ['config', '--local', 'http.proxy', 'http://global-proxy.example']);
 		git(fork, ['config', '--local', 'remote.upstream.proxy', 'http://upstream-proxy.example']);
+		git(fork, ['config', '--local', 'remote.upstream.proxyAuthMethod', 'basic']);
 		const wrapper = installGitWrapper(tmp);
 		const networkLog = join(tmp, 'transport-global-network.log');
 		const r = run(fork, ['--json', 'shared/pristine.ts'], {
@@ -3884,8 +3992,26 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 		expect(r.status, r.stderr).toBe(0);
 		const config = readFileSync(networkLog, 'utf8');
 		expect(config).toContain('/private/global-ca.pem');
+		expect(config).toContain('/private/global-ca-directory');
+		expect(config).toContain('/private/proxy-ca.pem');
 		expect(config).toContain('http://global-proxy.example');
 		expect(config).toContain('http://upstream-proxy.example');
+		expect(config).toMatch(/remote\..*\.proxyauthmethod basic/i);
+	});
+
+	itWithGitWrapper('preserves an empty remote proxy override', () => {
+		git(fork, ['config', '--local', 'http.proxy', 'http://global-proxy.example']);
+		git(fork, ['config', '--local', 'remote.upstream.proxy', '']);
+		const networkLog = join(tmp, 'transport-empty-remote-proxy.log');
+		const r = run(fork, ['--json', 'shared/pristine.ts'], {
+			PATH: `${installGitWrapper(tmp)}:${process.env.PATH ?? ''}`,
+			REAL_GIT: realGitPath(),
+			TRANSPORT_NETWORK_LOG: networkLog
+		});
+		expect(r.status, r.stderr).toBe(0);
+		const config = readFileSync(networkLog, 'utf8');
+		expect(config).toContain('http.proxy http://global-proxy.example');
+		expect(config).toMatch(/^remote\..*\.proxy\s*$/m);
 	});
 
 	itWithGitWrapper('keeps secret-bearing HTTP config out of Windows temporary files', () => {

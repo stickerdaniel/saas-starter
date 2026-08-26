@@ -31,7 +31,7 @@ Template code and fork-owned code share one tree. Measure whether a change came 
 bun run upstream:report
 ```
 
-The report keeps every uncertain file visible as `unmeasured`; bootstrap presence and negative text resemblance do not prove fork ownership. An incomplete run exits non-zero. Load `.agents/skills/upstream-report/SKILL.md` to interpret each file, search existing saas-starter issues, and use the repository's issue template. Ask the human before filing.
+The report keeps every uncertain file visible as `unmeasured`; bootstrap presence and negative text resemblance do not prove fork ownership. An incomplete run exits non-zero. Load `.agents/skills/upstream-report/SKILL.md` to interpret each file, search existing saas-starter issues, and match recent issue style. Ask the human before filing.
 
 ### Pulling upstream changes into a fork
 
