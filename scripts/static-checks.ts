@@ -331,6 +331,8 @@ export const ROUTES = {
 	// The old gate was `jsTsSvelteFiles.length === 0 && svelteFiles.length === 0`;
 	// svelteFiles is a subset of jsTsSvelteFiles, so the second clause was dead.
 	'svelte-check': (f: string) => /\.(js|ts|svelte)$/.test(f),
+	'skill-types': (f: string) =>
+		f.startsWith('.agents/skills/upstream-report/') && /\.(ts|json)$/.test(f),
 	convex: (f: string) => f.startsWith('src/lib/convex/')
 } as const;
 
@@ -393,7 +395,7 @@ const LINT_CHECKS: CheckId[] = [
 	'prettier',
 	'eslint'
 ];
-const TYPE_CHECKS: CheckId[] = ['svelte-check', 'convex'];
+const TYPE_CHECKS: CheckId[] = ['svelte-check', 'skill-types', 'convex'];
 
 type Mode = 'files' | 'staged' | 'full';
 
@@ -1042,6 +1044,20 @@ async function main(): Promise<void> {
 				// svelte-check is tsconfig-driven: the routed files decide WHETHER it runs,
 				// then it type-checks the whole project regardless.
 				ledger.ran('svelte-check', 'project');
+			}
+		}
+		console.log('\n');
+
+		// Agent skill type checking
+		printHeader(step++, 'Agent skill type checking');
+		{
+			const files = ledger.filesFor('skill-types');
+			if (!scopedMode || files.length > 0) {
+				await runCommand('bun', ['run', 'check:upstream-report']);
+				ledger.ran('skill-types', 'project');
+			} else {
+				console.log('No upstream-report TypeScript files to check');
+				ledger.ran('skill-types', 0);
 			}
 		}
 		console.log('\n');

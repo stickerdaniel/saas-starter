@@ -60,6 +60,7 @@ import {
 	statSync,
 	writeFileSync
 } from 'node:fs';
+import type { Stats } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -883,7 +884,9 @@ function lineRepresentationCost(content: string): number {
 		const newline = content.indexOf('\n', start);
 		const end = newline === -1 ? content.length : newline;
 		const line = content.slice(start, end).trim();
-		if (meaningful(line)) cost += 32 + line.length;
+		// countLines materializes one split entry per line, including entries that
+		// are too short to compare. Charge each slot before allocating the array.
+		cost += 32 + line.length;
 		if (newline === -1) break;
 		start = newline + 1;
 	}
@@ -2096,14 +2099,18 @@ function changedPaths(base: string, head: string): string[] {
 		const paths: string[] = [];
 		for (let i = 0; i < fields.length; i++) {
 			const status = fields[i];
+			if (status === undefined) break;
 			// Rename and copy statuses carry a similarity score and two paths;
 			// every other status carries one.
 			if (/^[RC]\d*$/.test(status)) {
-				if (fields[i + 1]) paths.push(fields[i + 1]);
-				if (fields[i + 2]) paths.push(fields[i + 2]);
+				const source = fields[i + 1];
+				const destination = fields[i + 2];
+				if (source !== undefined) paths.push(source);
+				if (destination !== undefined) paths.push(destination);
 				i += 2;
 			} else if (/^[A-Z]\d*$/.test(status)) {
-				if (fields[i + 1]) paths.push(fields[i + 1]);
+				const path = fields[i + 1];
+				if (path !== undefined) paths.push(path);
 				i += 1;
 			}
 		}
@@ -2771,10 +2778,7 @@ function symlinkParent(path: string): string | null {
 	return null;
 }
 
-function sameFileIdentity(
-	left: ReturnType<typeof lstatSync>,
-	right: ReturnType<typeof lstatSync>
-): boolean {
+function sameFileIdentity(left: Stats, right: Stats): boolean {
 	return left.dev === right.dev && left.ino === right.ino;
 }
 
@@ -3303,7 +3307,7 @@ function callerPathspec(root: string, calledFrom: string, spec: string): string 
 function commandLineArguments() {
 	try {
 		return parseArgs({
-			args: Bun.argv.slice(2),
+			args: process.argv.slice(2),
 			options: {
 				base: { type: 'string' },
 				fetch: { type: 'boolean', default: false },
@@ -3326,6 +3330,7 @@ function commandLineArguments() {
 
 function main() {
 	const { values, positionals } = commandLineArguments();
+	if (positionals.some((spec) => spec === '')) fail('Path arguments must not be empty.');
 
 	const root = git(['rev-parse', '--show-toplevel']);
 	// Where the caller typed the command, kept because every path argument was

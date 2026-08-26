@@ -208,6 +208,13 @@ describe('route predicates', () => {
 		]);
 	});
 
+	it('routes upstream-report TypeScript through its dedicated project', () => {
+		expect(
+			ROUTES['skill-types']('.agents/skills/upstream-report/scripts/upstream-relevance.ts')
+		).toBe(true);
+		expect(ROUTES['skill-types']('.agents/skills/upstream-report/SKILL.md')).toBe(false);
+	});
+
 	it('are blind to an absolute path, which is why normalization is load-bearing', () => {
 		const absolute = path.join(ROOT, 'src/lib/utils/auth-messages.ts');
 		const absoluteConvex = path.join(ROOT, 'src/lib/convex/schema.ts');

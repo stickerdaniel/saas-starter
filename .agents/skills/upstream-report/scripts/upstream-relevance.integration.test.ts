@@ -695,8 +695,8 @@ function init(root: string, objectFormat: 'sha1' | 'sha256' = 'sha1'): void {
 
 describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 	let tmp: string;
-	let upstream: string;
-	let fork: string;
+	let upstream!: string;
+	let fork!: string;
 
 	beforeEach(() => {
 		tmp = mkdtempSync(join(tmpdir(), 'upstream-relevance-'));
@@ -3144,7 +3144,7 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 		git(fork, ['commit', '-qam', 'fork block']);
 		const r = run(fork, ['--json']);
 		const parsed = JSON.parse(r.stdout) as {
-			verdicts: Array<{ path: string; relevance: string; report: boolean }>;
+			verdicts: Array<{ path: string; relevance: string; report: boolean; overlap?: number }>;
 		};
 		const v = parsed.verdicts.find((x) => x.path === 'shared/rewritten.ts');
 		expect(v?.relevance).toBe('diverged');
@@ -3237,6 +3237,13 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 
 		const r = run(fork, ['--bsae', 'shared/pristine.ts']);
 		expect(r.status).not.toBe(0);
+	});
+
+	it('refuses an empty explicit path', () => {
+		const r = run(fork, ['']);
+		expect(r.status).not.toBe(0);
+		expect(r.stderr).toContain('Path arguments must not be empty');
+		expect(r.stdout).not.toContain('Nothing to report upstream');
 	});
 
 	it('refuses an explicit path that does not exist', () => {
@@ -4623,6 +4630,33 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 		markBase(fork);
 		write(fork, path, 'export const changed = true;\n');
 		git(fork, ['commit', '-qam', 'edit large shared path']);
+
+		const r = run(fork, ['--fetch', '--json', path], {
+			NODE_ENV: 'test',
+			UPSTREAM_REPORT_TEST_SIMILARITY_REPRESENTATION_LIMIT: '100'
+		});
+
+		expect(r.status, r.stderr).toBe(0);
+		const parsed = JSON.parse(r.stdout) as {
+			verdicts: Array<{ path: string; relevance: string; note?: string }>;
+		};
+		const verdict = parsed.verdicts.find((entry) => entry.path === path);
+		expect(verdict?.relevance).toBe('unmeasured');
+		expect(verdict?.note).toMatch(/bounded similarity representation/);
+	});
+
+	it('charges every split line against the overlap representation budget', () => {
+		const path = 'shared/split-heavy-overlap.ts';
+		write(upstream, path, `${'}\n'.repeat(30)}`);
+		write(fork, path, `${'{\n'.repeat(30)}`);
+		git(upstream, ['add', '-A']);
+		git(upstream, ['commit', '-qm', 'add split-heavy shared path']);
+		git(fork, ['add', '-A']);
+		git(fork, ['commit', '-qm', 'add divergent split-heavy path']);
+		git(fork, ['fetch', '-q', 'upstream']);
+		markBase(fork);
+		write(fork, path, 'changed();\n');
+		git(fork, ['commit', '-qam', 'edit split-heavy path']);
 
 		const r = run(fork, ['--fetch', '--json', path], {
 			NODE_ENV: 'test',

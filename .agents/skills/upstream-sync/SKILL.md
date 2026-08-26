@@ -136,6 +136,6 @@ in dependency order. Keep the invariant: one branch, one writer, one consolidate
 
 ## Template-bug linkage (do not strip on rebrand)
 
-Keep the AGENTS.md "SaaS Starter Template Bugs" section intact through rebrands; file
+Keep the AGENTS.md "Reporting template bugs from a fork" section intact through rebrands; file
 template-originated bugs upstream using its issue template. Fixes flow down (this skill);
 bug reports flow up.
