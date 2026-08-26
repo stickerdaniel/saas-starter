@@ -2328,7 +2328,7 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 			});
 			expect(r.status).not.toBe(0);
 			expect(r.stdout).not.toContain('Nothing to report upstream');
-			expect(r.stderr).toContain('changed while this report started');
+			expect(r.stderr).toMatch(/changed while this report started|points at .*but .*names/);
 		}
 	);
 
@@ -3454,23 +3454,24 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 		const r = run(fork, ['--fetch']);
 		expect(r.status).toBe(0);
 		expect(r.stdout).toMatch(/>> pristine\s+shared\/pristine\.ts/);
-		expect(r.stdout).not.toContain('product/only-here.ts');
-		expect(r.stdout).toContain('1 of 2 changed files need a look');
+		expect(r.stdout).toMatch(/>> unmeasured\s+product\/only-here\.ts/);
+		expect(r.stdout).toContain('2 of 2 changed files need a look');
 		expect(r.stdout).not.toContain('Nothing to report upstream');
 	});
 
-	it('says plainly when nothing template-derived changed', () => {
+	it('keeps a root-only change visible in the human report', () => {
 		write(fork, 'product/only-here.ts', 'export const product = false;\n');
-		git(fork, ['commit', '-qam', 'fork only']);
+		git(fork, ['commit', '-qam', 'fork-owned change']);
 
 		const r = run(fork, ['--fetch']);
 		expect(r.status).toBe(0);
-		expect(r.stdout).toContain('Nothing to report upstream');
+		expect(r.stdout).toMatch(/>> unmeasured\s+product\/only-here\.ts/);
+		expect(r.stdout).not.toContain('Nothing to report upstream');
 	});
 
 	it('accepts an explicit path in any form git understands', () => {
-		// `./x`, a directory and a redundant separator all miss an exact lookup
-		// against the upstream file set, and a miss reads as fork-only.
+		// `./x`, a directory and a redundant separator must all reach the same
+		// exact upstream lookup.
 		write(fork, 'shared/pristine.ts', 'export const a = 1;\nexport const b = 43;\n');
 		git(fork, ['commit', '-qam', 'fix']);
 
