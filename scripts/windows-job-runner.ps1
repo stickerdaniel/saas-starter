@@ -390,7 +390,6 @@ public static class WindowsJobRunner
             uint exitCode;
             if (!GetExitCodeProcess(processInformation.hProcess, out exitCode))
                 throw Failure("GetExitCodeProcess");
-            Console.Error.WriteLine("WindowsJobRunner root exit code: " + exitCode);
             return unchecked((int)exitCode);
         }
         catch
