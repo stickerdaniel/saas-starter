@@ -279,8 +279,7 @@ public static class WindowsJobRunner
         NamedPipeClientStream lifetime
     )
     {
-        IAsyncResult lifetimeRead = null;
-        WaitHandle lifetimeWait = null;
+        ManualResetEvent lifetimeClosed = null;
         var environmentBlock = IntPtr.Zero;
         var attributeList = IntPtr.Zero;
         var attributeListSize = IntPtr.Zero;
@@ -291,10 +290,33 @@ public static class WindowsJobRunner
 
         try
         {
-            var lifetimeBuffer = new byte[1];
-            lifetimeRead = lifetime.BeginRead(lifetimeBuffer, 0, 1, null, null);
-            lifetimeWait = lifetimeRead.AsyncWaitHandle;
-            if (lifetimeWait.WaitOne(0)) return 1;
+            lifetimeClosed = new ManualResetEvent(false);
+            var lifetimeMonitor = new Thread(() =>
+            {
+                try
+                {
+                    lifetime.ReadByte();
+                }
+                catch (IOException)
+                {
+                }
+                catch (ObjectDisposedException)
+                {
+                }
+                finally
+                {
+                    try
+                    {
+                        lifetimeClosed.Set();
+                    }
+                    catch (ObjectDisposedException)
+                    {
+                    }
+                }
+            });
+            lifetimeMonitor.IsBackground = true;
+            lifetimeMonitor.Start();
+            if (lifetimeClosed.WaitOne(0)) return 1;
 
             job = CreateJobObject(IntPtr.Zero, null);
             if (job == IntPtr.Zero) throw Failure("CreateJobObjectW");
@@ -351,7 +373,7 @@ public static class WindowsJobRunner
             )) throw Failure("CreateProcessW");
             processCreated = true;
 
-            if (lifetimeWait.WaitOne(0))
+            if (lifetimeClosed.WaitOne(0))
             {
                 if (!TerminateJobObject(job, 1)) throw Failure("TerminateJobObject");
                 return 1;
@@ -363,7 +385,7 @@ public static class WindowsJobRunner
                 2,
                 new[] {
                     processInformation.hProcess,
-                    lifetimeWait.SafeWaitHandle.DangerousGetHandle()
+                    lifetimeClosed.SafeWaitHandle.DangerousGetHandle()
                 },
                 false,
                 INFINITE
@@ -399,22 +421,9 @@ public static class WindowsJobRunner
             catch (ObjectDisposedException)
             {
             }
-            if (lifetimeRead != null)
-            {
-                try
-                {
-                    lifetime.EndRead(lifetimeRead);
-                }
-                catch (IOException)
-                {
-                }
-                catch (ObjectDisposedException)
-                {
-                }
-            }
             try
             {
-                if (lifetimeWait != null) lifetimeWait.Close();
+                if (lifetimeClosed != null) lifetimeClosed.Close();
             }
             catch (ObjectDisposedException)
             {
