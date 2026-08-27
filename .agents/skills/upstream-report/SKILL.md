@@ -259,8 +259,9 @@ helper cannot serve a different repository. When the marker uses an accepted Git
 keeps the configured remote's exact spelling so its URL-scoped pins, certificates, and proxy settings
 still match. Remote URLs and their proxy settings are captured together and fenced before output. A
 local remote is bound to its canonical Git common directory, after checking its endpoint, worktree,
-Git directory, common directory, object directory, and local alternates against every checkout owned
-by this repository. The check compares ancestor filesystem identity as well as spelling. It repeats
+Git directory, common directory, object directory, and Git's recursively loaded local alternates
+against every checkout owned by this repository. The check compares ancestor filesystem identity as
+well as spelling. It repeats
 that identity fence around remote reads, while a retargeted alias stays bound to the location first
 validated.
 

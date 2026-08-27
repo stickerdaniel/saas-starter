@@ -4686,6 +4686,32 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 		expect(r.stderr).toMatch(/inside a checkout or Git directory owned by this repository/);
 	});
 
+	it('rejects repository-owned object storage behind nested alternates', () => {
+		const remote = join(tmp, 'nested-alternate-remote.git');
+		mkdirSync(remote);
+		git(remote, ['init', '--bare', '-q']);
+		const bridge = join(tmp, 'nested-alternate-objects');
+		mkdirSync(join(bridge, 'info'), { recursive: true });
+		writeFileSync(join(remote, 'objects', 'info', 'alternates'), `${bridge}\n`);
+		writeFileSync(
+			join(bridge, 'info', 'alternates'),
+			`${realpathSync(git(fork, ['rev-parse', '--path-format=absolute', '--git-path', 'objects']))}\n`
+		);
+		const marker = JSON.parse(readFileSync(join(fork, '.upstream-sync.json'), 'utf8')) as Record<
+			string,
+			unknown
+		>;
+		write(fork, '.upstream-sync.json', JSON.stringify({ ...marker, upstreamUrl: remote }));
+		git(fork, ['commit', '-qam', 'set nested-alternate parent']);
+		git(remote, ['update-ref', 'refs/heads/main', git(fork, ['rev-parse', 'HEAD'])]);
+		git(fork, ['remote', 'set-url', 'upstream', remote]);
+
+		const r = run(fork, ['--json']);
+
+		expect(r.status).not.toBe(0);
+		expect(r.stderr).toMatch(/inside a checkout or Git directory owned by this repository/);
+	});
+
 	itWithGitWrapper('rejects local Git storage replaced after validation', () => {
 		const decoy = join(tmp, 'replacement-source');
 		mkdirSync(decoy);

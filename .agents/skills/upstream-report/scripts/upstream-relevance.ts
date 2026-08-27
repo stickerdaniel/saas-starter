@@ -1557,6 +1557,35 @@ function localGitPath(remotePath: string, args: string[], allowFail = false): st
 	}
 }
 
+const MAX_ALTERNATE_DEPTH = 5;
+
+function addAlternateObjectStores(
+	objectDir: string,
+	effectivePaths: Set<string>,
+	seen: Set<string>,
+	depth: number
+): void {
+	const canonical = realpathSync(objectDir);
+	if (seen.has(canonical)) return;
+	seen.add(canonical);
+	effectivePaths.add(canonical);
+	const alternatesPath = join(canonical, 'info', 'alternates');
+	if (!existsSync(alternatesPath)) return;
+	const alternates = readFileSync(alternatesPath, 'utf8')
+		.split('\n')
+		.map((alternate) => alternate.replace(/\r$/, ''))
+		.filter(Boolean);
+	if (alternates.length === 0 || depth + 1 > MAX_ALTERNATE_DEPTH) return;
+	for (const alternate of alternates) {
+		addAlternateObjectStores(
+			isAbsolute(alternate) ? alternate : resolve(canonical, alternate),
+			effectivePaths,
+			seen,
+			depth + 1
+		);
+	}
+}
+
 function inspectLocalRemote(
 	url: string,
 	root: string,
@@ -1603,12 +1632,17 @@ function inspectLocalRemote(
 			true
 		);
 		if (worktreeValue) effectivePaths.add(realpathSync(worktreeValue));
+		const alternateStores = new Set([objectDir]);
 		const alternatesPath = join(objectDir, 'info', 'alternates');
 		if (existsSync(alternatesPath)) {
 			for (const alternate of readFileSync(alternatesPath, 'utf8').split('\n')) {
-				if (!alternate) continue;
-				effectivePaths.add(
-					realpathSync(isAbsolute(alternate) ? alternate : resolve(objectDir, alternate))
+				const path = alternate.replace(/\r$/, '');
+				if (!path) continue;
+				addAlternateObjectStores(
+					isAbsolute(path) ? path : resolve(objectDir, path),
+					effectivePaths,
+					alternateStores,
+					0
 				);
 			}
 		}
