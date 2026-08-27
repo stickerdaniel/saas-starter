@@ -254,11 +254,13 @@ describe('integration test routing', () => {
 			scripts: Record<string, string>;
 		};
 		const viteConfig = readFileSync(resolve(root, 'vite.config.ts'), 'utf8');
+		const detectorConfig = readFileSync(resolve(import.meta.dirname, 'vitest.config.ts'), 'utf8');
 		const workflow = readFileSync(resolve(root, '.github/workflows/static-checks.yml'), 'utf8');
 		const integrationPath =
 			'.agents/skills/upstream-report/scripts/upstream-relevance.integration.test.ts';
 
 		expect(viteConfig).toContain(`'${integrationPath}'`);
+		expect(detectorConfig).toContain('upstream-relevance.test.ts');
 		expect(packageJson.scripts['test:upstream-report']).toContain(
 			'.agents/skills/upstream-report/scripts/vitest.config.ts'
 		);
