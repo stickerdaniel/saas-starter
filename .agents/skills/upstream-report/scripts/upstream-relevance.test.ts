@@ -246,3 +246,22 @@ describe('regionOverlap weighting', () => {
 		expect(regionOverlap([weak, strong], upstream)).toBe(1);
 	});
 });
+
+describe('integration test routing', () => {
+	it('keeps repository-spawning tests out of the unit job', () => {
+		const root = resolve(import.meta.dirname, '../../../..');
+		const packageJson = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8')) as {
+			scripts: Record<string, string>;
+		};
+		const viteConfig = readFileSync(resolve(root, 'vite.config.ts'), 'utf8');
+		const workflow = readFileSync(resolve(root, '.github/workflows/static-checks.yml'), 'utf8');
+		const integrationPath =
+			'.agents/skills/upstream-report/scripts/upstream-relevance.integration.test.ts';
+
+		expect(viteConfig).toContain(`'${integrationPath}'`);
+		expect(packageJson.scripts['test:upstream-report']).toContain(
+			'.agents/skills/upstream-report/scripts/vitest.config.ts'
+		);
+		expect(workflow).toContain('run: bun run test:upstream-report');
+	});
+});

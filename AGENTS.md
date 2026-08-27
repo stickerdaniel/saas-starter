@@ -120,7 +120,8 @@ A finished mechanical guard fails on the buggy revision for the same causal reas
 - `bun run dev:cloud` — Vite + cloud Convex backend
 - `bun scripts/static-checks.ts <changed files...>` — required after implementation
 - `bun scripts/static-checks.ts --scope types` — required once before final handoff or PR for changes to JS, TS, Svelte, Convex, email templates, or Autumn config; pre-commit intentionally runs staged lint only
-- `bun run test:unit` — Vitest suite
+- `bun run test:unit` — Vitest unit suite
+- `bun run test:upstream-report` — repository-backed detector suite; required after upstream-report code or test changes
 - `bun run test:e2e` — Playwright suite; required after E2E changes
 - `bun run test` — complete test suite
 - `bun run check:convex` — required after Convex or Convex-imported shared-code changes
