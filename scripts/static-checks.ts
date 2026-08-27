@@ -7,6 +7,7 @@
  *   bun scripts/static-checks.ts --ci --scope lint     - Linting checks only (CI job group)
  *   bun scripts/static-checks.ts --ci --scope types    - Type checking only (CI job group)
  *   bun scripts/static-checks.ts --scope compat        - Convex consumer compatibility only
+ *   bun scripts/static-checks.ts --scope format files  - Assert formatting only
  *   bun scripts/static-checks.ts --staged              - Check only staged files (pre-commit)
  *   bun scripts/static-checks.ts file1.ts file2.svelte - Check specific files
  *   ... | bun scripts/static-checks.ts --files-from -  - Check a computed list of files
@@ -16,8 +17,9 @@
  *                Requires misspell to be installed (fails if missing).
  *   --staged     Assert-only staged-file gate. Run fix mode before staging and retrying.
  *   --scope      Run a subset of checks: "lint" (misspell, literal controls, banned patterns, prettier,
- *                eslint, oxlint), "types" (build-emails, svelte-check), or full-project-only
- *                "compat" (Convex consumer compatibility). Lint and types run svelte-kit sync first.
+ *                eslint, oxlint), "types" (build-emails, svelte-check), assert-only "format"
+ *                (prettier), or full-project-only "compat" (Convex consumer compatibility).
+ *                Lint and types run svelte-kit sync first.
  *                Omit to run lint and types.
  *   --files-from Read newline-separated paths from a file, or from stdin with "-".
  *                Use this for a COMPUTED list: unlike positionals, this channel can
@@ -32,6 +34,7 @@
 import { spawnSync } from 'child_process';
 import { existsSync, readFileSync, realpathSync, statSync } from 'fs';
 import path from 'path';
+import { getFileInfo } from 'prettier';
 import { fileURLToPath } from 'url';
 import { parseArgs } from 'util';
 import knowledgePolicy from '../knowledge-policy.config';
@@ -121,7 +124,7 @@ const colors =
 // which imports this module for scripts/static-checks.test.ts.
 const REPO_ROOT = realpathSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'));
 
-const USAGE = '  Flags: --ci, --staged, --scope <lint|types|compat>, --files-from <path|->';
+const USAGE = '  Flags: --ci, --staged, --scope <lint|types|format|compat>, --files-from <path|->';
 
 /** Directories never descended into when a directory argument is expanded. */
 const NEVER_WALK = ['node_modules/', '.git/', '.svelte-kit/', '.convex/', 'build/', 'dist/'];
@@ -249,8 +252,17 @@ export function resolveInputs(raw: string[], origin: string): string[] {
 		if (!existsSync(absolute)) fail(`No such file (${origin}): ${formatPathForDiagnostic(arg)}`);
 
 		const real = realpathSync(absolute);
-		const relative = toPosix(path.relative(REPO_ROOT, real));
-		if (relative === '' || relative.startsWith('..')) {
+		const native = path.relative(REPO_ROOT, real);
+		const relative = toPosix(native);
+		// Only an empty result, a bare "..", a real ".." segment, or an absolute result
+		// (a different Windows drive) leaves the repository. A "startsWith('..')" prefix
+		// test also rejects "..valid.ts", which is an ordinary file at the root.
+		if (
+			relative === '' ||
+			relative === '..' ||
+			relative.startsWith('../') ||
+			path.isAbsolute(native)
+		) {
 			fail(
 				`Path is outside the repository (${origin}): ${formatPathForDiagnostic(arg)}`,
 				`  Repo root: ${formatPathForDiagnostic(REPO_ROOT)}`
@@ -301,21 +313,66 @@ export function isIgnoredPath(file: string): boolean {
 
 /**
  * Which checks are responsible for a repo-relative path. The ONLY place a file set is
- * derived, so a check can no longer disagree with the ledger about its own scope, and
- * a new check has to declare a route to be accounted for.
+ * derived from the path itself, so a check can no longer disagree with the ledger about
+ * its own scope, and a new check has to declare a route to be accounted for.
+ *
+ * Prettier is the one route that is not a path predicate, because the mapping from
+ * filename to parser belongs to Prettier and moves when Prettier moves. It is resolved
+ * by prettierFormattableFiles() below and reaches the ledger the same way every other
+ * route does, through filesFor().
  */
 export const ROUTES = {
 	misspell: (f: string) => !CONFIG.misspell.ignore.some((i) => f.includes(i)),
 	'banned-patterns': (f: string) => /\.(svelte|ts)$/.test(f) && f.startsWith('src/'),
 	'literal-control-char': (f: string) => /\.(md|txt)$/.test(f) && !f.startsWith('scratch/'),
 	'knowledge-placement': (f: string) => matchesKnowledgeCandidate(knowledgePolicy, f),
-	prettier: (f: string) => /\.(js|ts|svelte|html|css|md|json)$/.test(f),
 	eslint: (f: string) => /\.(js|ts|svelte)$/.test(f),
 	// The old gate was `jsTsSvelteFiles.length === 0 && svelteFiles.length === 0`;
 	// svelteFiles is a subset of jsTsSvelteFiles, so the second clause was dead.
 	'svelte-check': (f: string) => /\.(js|ts|svelte)$/.test(f),
 	convex: (f: string) => f.startsWith('src/lib/convex/')
 } as const;
+
+/** The ignore files Prettier's CLI consults unless --ignore-path overrides them. */
+const PRETTIER_IGNORE_FILES = ['.gitignore', '.prettierignore'];
+
+/**
+ * Components, which Prettier has no built-in language for. The parser comes from
+ * prettier-plugin-svelte, and .prettierrc declares both the plugin and the `*.svelte`
+ * parser override; loading either to answer a routing question would run a configuration
+ * file and a plugin inside the checker. The checker asserts the convention instead, and
+ * static-checks.test.ts pins the declaration it stands on.
+ */
+const SVELTE_COMPONENT = /\.svelte$/;
+
+/**
+ * The files Prettier would actually format, answered by Prettier.
+ *
+ * This used to be an extension grammar maintained here by hand, which is a copy of a
+ * table Prettier owns and was wrong wherever the two had drifted apart: README.markdown,
+ * .babelrc, .geojson and .mjml are all formatted by Prettier and none of them matched, so
+ * a file-scoped run skipped them and reported success.
+ *
+ * `resolveConfig: false` keeps repository configuration and its plugins out of this
+ * process: a routing question should not be able to take the run down before the checks
+ * it classifies for ever start. The ignore files are still consulted, because they are
+ * read as data and because a file the command will skip is not work this run may claim.
+ */
+export async function prettierFormattableFiles(
+	files: string[],
+	cwd = REPO_ROOT
+): Promise<string[]> {
+	if (files.length === 0) return [];
+	const ignorePath = PRETTIER_IGNORE_FILES.map((file) => path.join(cwd, file));
+	const infos = await Promise.all(
+		files.map((file) => getFileInfo(path.resolve(cwd, file), { ignorePath, resolveConfig: false }))
+	);
+	return files.filter((file, index) => {
+		const info = infos[index]!;
+		if (info.ignored) return false;
+		return info.inferredParser !== null || SVELTE_COMPONENT.test(file);
+	});
+}
 
 export function authoredTextFiles(files: string[]): string[] {
 	return files.filter((file) => ROUTES['literal-control-char'](file) && !isIgnoredPath(file));
@@ -325,8 +382,8 @@ export function spellcheckFiles(files: string[]): string[] {
 	return files.filter((file) => ROUTES.misspell(file) && !isIgnoredPath(file));
 }
 
-type CheckId = keyof typeof ROUTES;
-const CHECK_IDS = Object.keys(ROUTES) as CheckId[];
+type CheckId = keyof typeof ROUTES | 'prettier';
+const CHECK_IDS: CheckId[] = [...(Object.keys(ROUTES) as Array<keyof typeof ROUTES>), 'prettier'];
 const LINT_CHECKS: CheckId[] = [
 	'misspell',
 	'banned-patterns',
@@ -338,6 +395,31 @@ const LINT_CHECKS: CheckId[] = [
 const TYPE_CHECKS: CheckId[] = ['svelte-check', 'convex'];
 
 type Mode = 'files' | 'staged' | 'full';
+
+/** Keep structured command lines below Windows' process argument limit. */
+export function argumentBatches(
+	files: string[],
+	baseArguments: string[] = [],
+	maxCharacters = 24_000,
+	maxFiles = 100
+): string[][] {
+	const batches: string[][] = [];
+	let batch: string[] = [];
+	let characters = baseArguments.reduce((total, argument) => total + argument.length + 1, 0);
+
+	for (const file of files) {
+		const added = file.length + 1;
+		if (batch.length > 0 && (batch.length >= maxFiles || characters + added > maxCharacters)) {
+			batches.push(batch);
+			batch = [];
+			characters = baseArguments.reduce((total, argument) => total + argument.length + 1, 0);
+		}
+		batch.push(file);
+		characters += added;
+	}
+	if (batch.length > 0) batches.push(batch);
+	return batches;
+}
 
 export function usesAssertOnlyChecks(ciMode: boolean, mode: Mode): boolean {
 	return ciMode || mode === 'staged';
@@ -359,19 +441,26 @@ class Ledger {
 	readonly named: number;
 	readonly files: string[];
 	readonly ignored: string[];
+	private readonly formattable: Set<string>;
 	private readonly outcomes = new Map<string, Outcome>();
+	private readonly honestNoWork: string[] = [];
 
 	constructor(
 		readonly mode: Mode,
-		inputs: string[]
+		inputs: string[],
+		/** The inputs Prettier reported a parser for. See prettierFormattableFiles(). */
+		formattable: string[] = []
 	) {
 		this.named = inputs.length;
 		this.ignored = inputs.filter(isIgnoredPath);
 		this.files = inputs.filter((f) => !this.ignored.includes(f));
+		this.formattable = new Set(formattable);
 	}
 
 	filesFor(id: CheckId): string[] {
-		return this.files.filter(ROUTES[id]);
+		return id === 'prettier'
+			? this.files.filter((file) => this.formattable.has(file))
+			: this.files.filter(ROUTES[id]);
 	}
 
 	ran(id: string, files: number | 'project' = 'project'): void {
@@ -380,6 +469,19 @@ class Ledger {
 
 	skipped(id: string, reason: string, suppressed = false): void {
 		this.outcomes.set(id, { kind: 'skipped', reason, suppressed });
+	}
+
+	/**
+	 * Record a reason this run legitimately had nothing to do.
+	 *
+	 * The zero-work invariant asks whether a check COULD have run over the named files,
+	 * and only a single-check scope can answer that from one check. A `--scope format` run
+	 * over files Prettier does not format is such an answer, and it is the caller's answer
+	 * rather than a hole in the gate. Nothing else may call this: for a lint or types run,
+	 * "no check ran" is still the bug it always was.
+	 */
+	noWork(reason: string): void {
+		this.honestNoWork.push(reason);
 	}
 
 	/**
@@ -414,8 +516,8 @@ class Ledger {
 
 		if (this.consumedAnything()) return;
 
-		// Zero work on the named files. Two reasons are honest; anything else is the bug.
-		const honest: string[] = [];
+		// Zero work on the named files. A few reasons are honest; anything else is the bug.
+		const honest: string[] = [...this.honestNoWork];
 		if (this.named > 0 && this.ignored.length === this.named) {
 			honest.push(`all ${this.named} input(s) are excluded by CONFIG.ignorePaths`);
 		}
@@ -426,7 +528,8 @@ class Ledger {
 		if (honest.length === 0) {
 			fail(
 				`${this.named} file(s) named, and no check ran over any of them.`,
-				'  No check in ROUTES is responsible for them, so nothing was verified.\n' +
+				`  No check in the active scope (${scopeLabel}) is responsible for them, so nothing\n` +
+					'  was verified.\n' +
 					'  A run that checks nothing must not report success.'
 			);
 		}
@@ -481,11 +584,11 @@ function parseCli() {
 	const { values, positionals } = parsed;
 	const stagedOnly = values.staged ?? false;
 	const ciMode = values.ci ?? false;
-	const scope = values.scope as 'lint' | 'types' | 'compat' | undefined;
+	const scope = values.scope as 'lint' | 'types' | 'format' | 'compat' | undefined;
 	const filesFrom = values['files-from'];
 
-	if (scope && !['lint', 'types', 'compat'].includes(scope)) {
-		fail(`Invalid --scope value: "${scope}". Use "lint", "types", or "compat".`);
+	if (scope && !['lint', 'types', 'format', 'compat'].includes(scope)) {
+		fail(`Invalid --scope value: "${scope}". Use "lint", "types", "format", or "compat".`);
 	}
 
 	// Skip first two positionals (bun runtime + script path)
@@ -509,6 +612,17 @@ function parseCli() {
 	if (scope === 'compat' && mode !== 'full') {
 		fail(
 			'--scope compat only supports a full-project run; omit --staged, file arguments, and --files-from.'
+		);
+	}
+
+	// A staged run must end by proving the checked bytes are still the staged bytes, and
+	// that closing argument belongs to the lint-and-types path that owns it. Rather than
+	// spread it over a second exit, the combination is refused: --staged stays a lint
+	// consumer, and formatting a staged set is `--files-from -` over the staged names.
+	if (scope === 'format' && mode === 'staged') {
+		fail(
+			'--scope format does not support --staged.',
+			'  It formats a full project or a named file list. Pass explicit paths or use --files-from.'
 		);
 	}
 
@@ -537,6 +651,35 @@ async function runCommand(
 		const invocation = sanitizeTerminalField(`${command} ${args.join(' ')}`);
 		console.error(`${colors.red}Command failed: ${invocation}${colors.reset}`);
 		process.exit(result.status ?? 1);
+	}
+}
+
+/**
+ * One formatter contract, whether the run names files or the whole project.
+ *
+ * Both invocations are built here so they cannot drift: the project run used to take
+ * neither --ignore-unknown nor the plugins while the file-scoped run passed plugins on
+ * the command line, so the two could disagree about what a given file even is. Neither
+ * names a plugin now, because .prettierrc declares them once and the formatter reads it.
+ * --ignore-unknown makes a path Prettier has no parser for a skip in both runs instead
+ * of a hard error in one.
+ */
+export function prettierArguments(formatFlag: '--check' | '--write', files?: string[]): string[] {
+	const invocation = ['prettier', formatFlag, '--ignore-unknown'];
+	// Everything after the separator is a path. Without it Prettier reads a leading-dash
+	// filename as an option, discards it with a warning, finds nothing left to check and
+	// exits 0, so a repository file named "--anything.ts" is never looked at.
+	return files === undefined ? [...invocation, '.'] : [...invocation, '--', ...files];
+}
+
+async function runPrettier(formatFlag: '--check' | '--write', files?: string[]): Promise<void> {
+	if (files === undefined) {
+		await runCommand('bun', prettierArguments(formatFlag));
+		return;
+	}
+	const baseArguments = prettierArguments(formatFlag, []);
+	for (const batch of argumentBatches(files, baseArguments)) {
+		await runCommand('bun', [...baseArguments, ...batch]);
 	}
 }
 
@@ -653,7 +796,11 @@ async function main(): Promise<void> {
 	const fullExistingPaths = existingRepositoryPaths(fullRepositoryPaths);
 	assertSafePaths(mode === 'full' ? fullRepositoryPaths : inputs);
 
-	const ledger = new Ledger(mode, inputs);
+	// Every file-scoped run needs the formatter route for the zero-work invariant. A full
+	// format run also needs the repository preflight set so it can prove Prettier had at
+	// least one supported, nonignored file to check.
+	const ledgerInputs = scope === 'format' && mode === 'full' ? fullExistingPaths : inputs;
+	const ledger = new Ledger(mode, ledgerInputs, await prettierFormattableFiles(ledgerInputs));
 
 	console.log('======================================================');
 	console.log(
@@ -669,6 +816,35 @@ async function main(): Promise<void> {
 		const invocation = compatibilityInvocation(ciMode);
 		await runCommand(invocation.command, invocation.args, invocation.options);
 		ledger.ran('convex compat');
+		console.log('\n');
+		finish(ledger, scopeLabel);
+		return;
+	}
+
+	if (scope === 'format') {
+		printHeader(step, 'Code formatting');
+		const files = ledger.filesFor('prettier');
+		if (!scopedMode) {
+			if (files.length === 0) {
+				fail('Full-project format scope found no supported, nonignored files.');
+			}
+			await runPrettier('--check');
+			ledger.ran('prettier', files.length);
+		} else if (files.length > 0) {
+			await runPrettier('--check', files);
+			ledger.ran('prettier', files.length);
+		} else {
+			// Prettier is the only check in this scope, so it can answer for the whole run:
+			// it would skip every named file, either because it has no parser for it or
+			// because .prettierignore or .gitignore excludes it. Reporting that plainly is
+			// honest; failing would make a caller that passes a mixed file list unusable.
+			console.log(
+				`No formatter work: Prettier formats none of the ${ledger.named} named file(s) ` +
+					'(unknown file type, or excluded by .prettierignore or .gitignore).'
+			);
+			ledger.ran('prettier', 0);
+			ledger.noWork(`Prettier formats none of the ${ledger.named} named file(s)`);
+		}
 		console.log('\n');
 		finish(ledger, scopeLabel);
 		return;
@@ -805,18 +981,10 @@ async function main(): Promise<void> {
 			const formatFlag = assertMode ? '--check' : '--write';
 			const files = ledger.filesFor('prettier');
 			if (!scopedMode) {
-				await runCommand('bun', ['prettier', formatFlag, '.']);
+				await runPrettier(formatFlag);
 				ledger.ran('prettier');
 			} else if (files.length > 0) {
-				await runCommand('bun', [
-					'prettier',
-					formatFlag,
-					'--plugin',
-					'prettier-plugin-svelte',
-					'--plugin',
-					'prettier-plugin-tailwindcss',
-					...files
-				]);
+				await runPrettier(formatFlag, files);
 				ledger.ran('prettier', files.length);
 			} else {
 				console.log('No files to format');
