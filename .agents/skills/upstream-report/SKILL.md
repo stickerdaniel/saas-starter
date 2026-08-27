@@ -260,7 +260,8 @@ keeps the configured remote's exact spelling so its URL-scoped pins, certificate
 still match. Remote URLs and their proxy settings are captured together and fenced before output. A
 local remote is bound to its canonical Git common directory, after checking its endpoint, worktree,
 Git directory, common directory, object directory, and Git's recursively loaded local alternates
-against every checkout owned by this repository. The check compares ancestor filesystem identity as
+against every checkout owned by this repository. Alternate entries follow Git's comment and C-quote
+grammar; ambiguous quoted entries stop the run. The check compares ancestor filesystem identity as
 well as spelling. It repeats
 that identity fence around remote reads, while a retargeted alias stays bound to the location first
 validated.

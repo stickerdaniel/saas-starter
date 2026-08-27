@@ -1559,6 +1559,94 @@ function localGitPath(remotePath: string, args: string[], allowFail = false): st
 
 const MAX_ALTERNATE_DEPTH = 5;
 
+function decodeAlternatePath(bytes: Buffer): string {
+	if (bytes.includes(0)) fail('A local upstream alternates entry contains a NUL byte.');
+	try {
+		return PATH_UTF8.decode(bytes);
+	} catch {
+		fail('A local upstream alternates entry is not valid UTF-8.');
+	}
+}
+
+const C_ESCAPE_BYTES = new Map([
+	[0x61, 0x07],
+	[0x62, 0x08],
+	[0x66, 0x0c],
+	[0x6e, 0x0a],
+	[0x72, 0x0d],
+	[0x74, 0x09],
+	[0x76, 0x0b],
+	[0x5c, 0x5c],
+	[0x22, 0x22]
+]);
+
+function unquoteAlternatePath(line: Buffer): { path: string; consumed: number } | null {
+	if (line[0] !== 0x22) return null;
+	const output: number[] = [];
+	for (let index = 1; index < line.length; index++) {
+		const byte = line[index]!;
+		if (byte === 0x22) {
+			return { path: decodeAlternatePath(Buffer.from(output)), consumed: index + 1 };
+		}
+		if (byte !== 0x5c) {
+			output.push(byte);
+			continue;
+		}
+		const escaped = line[++index];
+		if (escaped === undefined) return null;
+		const decoded = C_ESCAPE_BYTES.get(escaped);
+		if (decoded !== undefined) {
+			output.push(decoded);
+			continue;
+		}
+		const second = line[index + 1];
+		const third = line[index + 2];
+		if (
+			escaped < 0x30 ||
+			escaped > 0x33 ||
+			second === undefined ||
+			second < 0x30 ||
+			second > 0x37 ||
+			third === undefined ||
+			third < 0x30 ||
+			third > 0x37
+		) {
+			return null;
+		}
+		output.push((escaped - 0x30) * 64 + (second - 0x30) * 8 + (third - 0x30));
+		index += 2;
+	}
+	return null;
+}
+
+function alternatePaths(objectDir: string): string[] {
+	const alternatesPath = join(objectDir, 'info', 'alternates');
+	if (!existsSync(alternatesPath)) return [];
+	const paths: string[] = [];
+	const file = readFileSync(alternatesPath);
+	let start = 0;
+	for (let end = 0; end <= file.length; end++) {
+		if (end < file.length && file[end] !== 0x0a) continue;
+		const line = file.subarray(start, end);
+		start = end + 1;
+		if (line.length === 0 || line[0] === 0x23) continue;
+		if (line[0] !== 0x22) {
+			paths.push(decodeAlternatePath(line));
+			continue;
+		}
+		const quoted = unquoteAlternatePath(line);
+		if (!quoted) {
+			fail('A local upstream alternates entry has malformed C-style quoting.');
+		}
+		const trailing = line.subarray(quoted.consumed);
+		if (trailing.length > 1 || (trailing.length === 1 && trailing[0] !== 0x0d)) {
+			fail('A local upstream alternates entry has bytes after its closing quote.');
+		}
+		paths.push(quoted.path);
+	}
+	return paths;
+}
+
 function addAlternateObjectStores(
 	objectDir: string,
 	effectivePaths: Set<string>,
@@ -1569,12 +1657,7 @@ function addAlternateObjectStores(
 	if (seen.has(canonical)) return;
 	seen.add(canonical);
 	effectivePaths.add(canonical);
-	const alternatesPath = join(canonical, 'info', 'alternates');
-	if (!existsSync(alternatesPath)) return;
-	const alternates = readFileSync(alternatesPath, 'utf8')
-		.split('\n')
-		.map((alternate) => alternate.replace(/\r$/, ''))
-		.filter(Boolean);
+	const alternates = alternatePaths(canonical);
 	if (alternates.length === 0 || depth + 1 > MAX_ALTERNATE_DEPTH) return;
 	for (const alternate of alternates) {
 		addAlternateObjectStores(
@@ -1633,18 +1716,13 @@ function inspectLocalRemote(
 		);
 		if (worktreeValue) effectivePaths.add(realpathSync(worktreeValue));
 		const alternateStores = new Set([objectDir]);
-		const alternatesPath = join(objectDir, 'info', 'alternates');
-		if (existsSync(alternatesPath)) {
-			for (const alternate of readFileSync(alternatesPath, 'utf8').split('\n')) {
-				const path = alternate.replace(/\r$/, '');
-				if (!path) continue;
-				addAlternateObjectStores(
-					isAbsolute(path) ? path : resolve(objectDir, path),
-					effectivePaths,
-					alternateStores,
-					0
-				);
-			}
+		for (const path of alternatePaths(objectDir)) {
+			addAlternateObjectStores(
+				isAbsolute(path) ? path : resolve(objectDir, path),
+				effectivePaths,
+				alternateStores,
+				0
+			);
 		}
 		// The common directory names refs directly. Keeping the wrapper worktree out
 		// of the transport removes its mutable .git indirection from later Git calls.

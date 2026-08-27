@@ -4686,6 +4686,52 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 		expect(r.stderr).toMatch(/inside a checkout or Git directory owned by this repository/);
 	});
 
+	it('rejects a C-quoted alternate that resolves into this repository', () => {
+		const remote = join(tmp, 'quoted-alternate-remote.git');
+		mkdirSync(remote);
+		git(remote, ['init', '--bare', '-q']);
+		const objectDir = join(remote, 'objects');
+		const ownedObjects = realpathSync(
+			git(fork, ['rev-parse', '--path-format=absolute', '--git-path', 'objects'])
+		);
+		const entry = JSON.stringify(ownedObjects);
+		mkdirSync(resolve(objectDir, entry), { recursive: true });
+		writeFileSync(join(objectDir, 'info', 'alternates'), `${entry}\n`);
+		const marker = JSON.parse(readFileSync(join(fork, '.upstream-sync.json'), 'utf8')) as Record<
+			string,
+			unknown
+		>;
+		write(fork, '.upstream-sync.json', JSON.stringify({ ...marker, upstreamUrl: remote }));
+		git(fork, ['commit', '-qam', 'set quoted-alternate parent']);
+		git(remote, ['update-ref', 'refs/heads/main', git(fork, ['rev-parse', 'HEAD'])]);
+		git(fork, ['remote', 'set-url', 'upstream', remote]);
+
+		const r = run(fork, ['--fetch', '--json']);
+
+		expect(r.status).not.toBe(0);
+		expect(r.stderr).toMatch(/inside a checkout or Git directory owned by this repository/);
+	});
+
+	it('ignores comment lines in local alternates files', () => {
+		const remote = join(tmp, 'commented-alternate-remote.git');
+		git(tmp, ['clone', '-q', '--bare', upstream, remote]);
+		const ownedObjects = realpathSync(
+			git(fork, ['rev-parse', '--path-format=absolute', '--git-path', 'objects'])
+		);
+		writeFileSync(join(remote, 'objects', 'info', 'alternates'), `#${ownedObjects}\n`);
+		const marker = JSON.parse(readFileSync(join(fork, '.upstream-sync.json'), 'utf8')) as Record<
+			string,
+			unknown
+		>;
+		write(fork, '.upstream-sync.json', JSON.stringify({ ...marker, upstreamUrl: remote }));
+		git(fork, ['commit', '-qam', 'set commented-alternate parent']);
+		git(fork, ['remote', 'set-url', 'upstream', remote]);
+
+		const r = run(fork, ['--json']);
+
+		expect(r.status, r.stderr).toBe(0);
+	});
+
 	it('rejects repository-owned object storage behind nested alternates', () => {
 		const remote = join(tmp, 'nested-alternate-remote.git');
 		mkdirSync(remote);
