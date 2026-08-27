@@ -191,8 +191,9 @@ It exits with the reason when any of these hold:
   status, differs from the committed HEAD file, is a symlink, is oversized, changes identity or
   bytes while read, is unreadable, contains invalid UTF-8 or JSON, is not an object, has an `upstreamUrl`
   without a non-empty string value, or names `forkPoint` or `lastSynced` without a full commit SHA;
-- the `upstream` remote points somewhere other than the URL in `.upstream-sync.json`, origin or the
-  marker URL resolves inside any checkout or Git directory owned by this repository, Git rewrites either
+- the `upstream` remote points somewhere other than the URL in `.upstream-sync.json`, the current
+  marker names this fork's origin while the selected base does not, origin or the marker URL resolves
+  inside any checkout or Git directory owned by this repository, Git rewrites either
   URL through `url.*.insteadOf`, `core.sshCommand` or `core.gitProxy` replaces the checked transport,
   or a remote URL or tracking ref changes before the detector finishes;
 - origin, working-tree status, a changed-path diff, or a requested upstream fetch exceeds 30
@@ -349,4 +350,5 @@ committed the previous day. Changing a remote URL leaves its old tracking ref in
 repoint and fetch together.
 
 Run inside the template itself the script exits 2 and reports nothing, because there the
-repository is upstream.
+repository is upstream. That decision uses the canonical template identity or the marker at the
+selected base. A marker changed on the reviewed branch cannot redefine the fork as its own template.

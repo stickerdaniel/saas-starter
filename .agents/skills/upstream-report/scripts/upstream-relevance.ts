@@ -1496,6 +1496,27 @@ function requireMarkerAtHead(head: string, marker: MarkerSnapshot): void {
 	}
 }
 
+function markerAtCommit(commit: string): MarkerSnapshot {
+	const record = gitZ(
+		['ls-tree', '-z', commit, '--', `:(literal)${MARKER}`],
+		false,
+		HISTORY_COMMAND_TIMEOUT_MS
+	)[0];
+	if (!record) return { url: DEFAULT_UPSTREAM, bytes: null, provenance: [] };
+	const tab = record.indexOf('\t');
+	const [mode, type, sha] = tab === -1 ? [] : record.slice(0, tab).split(' ');
+	if ((mode !== '100644' && mode !== '100755') || type !== 'blob' || !sha) {
+		fail(`${MARKER} at the selected base must be a regular file.`);
+	}
+	const size = Number(git(['cat-file', '-s', sha], false, HISTORY_COMMAND_TIMEOUT_MS));
+	if (!Number.isFinite(size) || size > MAX_MARKER_BYTES) {
+		fail(`${MARKER} at the selected base exceeds the ${MAX_MARKER_BYTES}-byte input limit.`);
+	}
+	return markerSnapshotFromBytes(
+		gitBytes(['cat-file', 'blob', sha], false, {}, HISTORY_COMMAND_TIMEOUT_MS)
+	);
+}
+
 // Compare the server address Git will actually use. Credentials do not identify
 // an HTTPS repository; transport syntax, path roots, trailing suffixes and SSH
 // users do. Servers are free to map each of those to different repositories.
@@ -2034,11 +2055,6 @@ function ensureUpstream(root: string, upstreamUrl: string, allowFetch: boolean):
 		rejectUrlRewrite(originUrl);
 		rejectOwnedRepositoryRemote(originUrl, root, 'origin');
 	}
-	if (originUrl && sameRepository(originUrl, upstreamUrl)) {
-		console.error('This repository IS the upstream template. Nothing to report upstream.');
-		process.exit(2);
-	}
-
 	let remoteUrl = configuredRemoteUrl('upstream');
 	const haveRef = () => git(['rev-parse', '--verify', '--quiet', UPSTREAM_REF], true) !== '';
 	const remoteMatches = (url: string) => url !== '' && sameRepository(url, upstreamUrl);
@@ -2509,7 +2525,11 @@ function verifyOriginSnapshot(snapshot: OriginSnapshot): void {
  * classifies against another; a sibling branch passed here reported an empty
  * list and exited zero.
  */
-function resolveBase(head: string, explicit?: string): BaseResolution {
+function resolveBase(
+	head: string,
+	explicit?: string,
+	beforeOriginValidation?: (base: string) => void
+): BaseResolution {
 	const ref = explicit ?? 'origin/main';
 	const resolved = git(['rev-parse', '--verify', '--quiet', `${ref}^{commit}`], true);
 	if (!resolved) {
@@ -2520,7 +2540,6 @@ function resolveBase(head: string, explicit?: string): BaseResolution {
 				'would report an empty diff for a branch full of changes.'
 		);
 	}
-	const origin = explicit ? null : trustedOriginSnapshot(resolved);
 	const mergeBases = git(['merge-base', '--all', head, resolved], true).split('\n').filter(Boolean);
 	if (mergeBases.length === 0) {
 		fail(
@@ -2535,7 +2554,10 @@ function resolveBase(head: string, explicit?: string): BaseResolution {
 				'Refusing to choose one arbitrarily and omit changes from the report.'
 		);
 	}
-	return { base: mergeBases[0]!, origin };
+	const base = mergeBases[0]!;
+	beforeOriginValidation?.(base);
+	const origin = explicit ? null : trustedOriginSnapshot(resolved);
+	return { base, origin };
 }
 
 /**
@@ -4140,11 +4162,23 @@ function main() {
 	const upstreamUrl = marker.url;
 	const originUrlAtStart = configuredRemoteUrl('origin');
 	if (originUrlAtStart) rejectUrlRewrite(originUrlAtStart);
-	if (originUrlAtStart && sameRepository(originUrlAtStart, upstreamUrl)) {
-		console.error('This repository IS the upstream template. Nothing to report upstream.');
-		process.exit(2);
-	}
-	const baseResolution = resolveBase(head, values.base as string | undefined);
+	const baseResolution = resolveBase(head, values.base as string | undefined, (base) => {
+		if (!originUrlAtStart) return;
+		const baseMarker = markerAtCommit(base);
+		if (
+			sameRepository(originUrlAtStart, DEFAULT_UPSTREAM) ||
+			sameRepository(originUrlAtStart, baseMarker.url)
+		) {
+			console.error('This repository IS the upstream template. Nothing to report upstream.');
+			process.exit(2);
+		}
+		if (sameRepository(originUrlAtStart, upstreamUrl)) {
+			fail(
+				`${MARKER}.upstreamUrl names this fork's origin, but the selected base did not. ` +
+					'Refusing branch-controlled template self-detection.'
+			);
+		}
+	});
 	const base = baseResolution.base;
 	if (
 		positionals.length > 0 &&

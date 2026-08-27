@@ -6794,6 +6794,25 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 		expect(r.stderr).not.toContain('IS the upstream template');
 	});
 
+	it('does not let a branch marker redefine the fork as its own template', () => {
+		const marker = JSON.parse(readFileSync(join(fork, '.upstream-sync.json'), 'utf8')) as Record<
+			string,
+			unknown
+		>;
+		const origin = git(fork, ['remote', 'get-url', 'origin']);
+		write(fork, '.upstream-sync.json', JSON.stringify({ ...marker, upstreamUrl: origin }));
+		write(fork, 'shared/pristine.ts', 'export const a = 1;\nexport const b = 99;\n');
+		git(fork, ['commit', '-qam', 'redirect parent to fork origin']);
+
+		const r = run(fork, ['--json']);
+
+		expect(r.status).not.toBe(2);
+		expect(r.status).not.toBe(0);
+		expect(r.stderr).toContain('Refusing branch-controlled template self-detection');
+		expect(r.stderr).not.toContain('IS the upstream template');
+		expect(r.stdout).not.toContain('Nothing to report upstream');
+	});
+
 	it('detects the template across standard GitHub HTTPS and SSH spellings', () => {
 		const marker = JSON.parse(readFileSync(join(fork, '.upstream-sync.json'), 'utf8')) as Record<
 			string,
