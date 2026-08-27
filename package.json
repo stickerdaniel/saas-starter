@@ -35,7 +35,7 @@
 		"check:precommit": "bun run static-checks:staged && bunx varlock scan --staged",
 		"test:e2e": "VARLOCK_ENV=test playwright test",
 		"test:e2e:headed": "VARLOCK_ENV=test playwright test --headed",
-		"test": "bun run test:e2e && bun run test:unit",
+		"test": "bun run test:e2e && bun run test:unit && bun run test:upstream-report",
 		"test:unit": "bun run generate:content && vitest --run --reporter=verbose --passWithNoTests",
 		"test:upstream-report": "vitest --config .agents/skills/upstream-report/scripts/vitest.config.ts --run --reporter=verbose",
 		"model:eval": "bun scripts/model-eval.ts",

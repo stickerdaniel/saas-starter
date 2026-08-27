@@ -262,6 +262,7 @@ describe('integration test routing', () => {
 		expect(packageJson.scripts['test:upstream-report']).toContain(
 			'.agents/skills/upstream-report/scripts/vitest.config.ts'
 		);
+		expect(packageJson.scripts.test).toContain('bun run test:upstream-report');
 		expect(workflow).toContain('run: bun run test:upstream-report');
 	});
 });
