@@ -36,7 +36,8 @@ With no arguments it takes every file changed against the merge-base with `origi
 plus staged, unstaged, and untracked work, and both sides of a rename. Pass explicit paths
 to narrow the classification list: an explicit path is classified whether or not it changed,
 and a directory expands to everything under it. Automatic discovery and aggregate explicit
-expansion stop at 500,000 files. Equivalent path arguments are enumerated once. Every argument
+expansion stop at 500,000 files. Equivalent arguments collapse to one literal pathspec. The script
+reads each explicit expansion twice and requires the same path set both times. Every argument
 must match something, including when its neighbours matched, because git drops an unmatched one
 without a word. An explicit run stops if `.upstream-sync.json` changed in the selected commit
 range. Run without paths so that parent change stays in the report. Provenance still scans the
@@ -223,8 +224,8 @@ It exits with the reason when any of these hold:
   Git directory;
 - a classified path has `assume-unchanged` or `skip-worktree`, which hides tracked edits from
   Git's status and diff;
-- enumerating automatic or explicit paths failed for any reason, since an empty list from a
-  broken git call is indistinguishable from an empty list from a clean tree;
+- enumerating automatic or explicit paths failed, or two explicit expansion reads returned
+  different path sets, since a missing path would otherwise look like a clean tree;
 - origin's URL, `main` ref, fetch mapping, or reflog provenance changes after base validation;
 - HEAD, `.upstream-sync.json`, the caller's index, the shallow boundary, the working-tree status,
   or the bytes of any classified working-tree path change before the report finishes.
@@ -257,9 +258,11 @@ certificate and proxy-certificate verification. Matching `url.*.insteadOf`,
 helper cannot serve a different repository. When the marker uses an accepted GitHub alias, transport
 keeps the configured remote's exact spelling so its URL-scoped pins, certificates, and proxy settings
 still match. Remote URLs and their proxy settings are captured together and fenced before output. A
-local remote is written under the canonical path that passed checkout-ownership validation. The
-ownership check compares ancestor filesystem identity as well as spelling, so a bind-mounted alias or
-retargeted symlink cannot redirect the later fetch back into this repository.
+local remote is bound to its canonical Git common directory, after checking its endpoint, worktree,
+Git directory, common directory, object directory, and local alternates against every checkout owned
+by this repository. The check compares ancestor filesystem identity as well as spelling. It repeats
+that identity fence around remote reads, while a retargeted alias stays bound to the location first
+validated.
 
 Fetch disables automatic maintenance because the private ref namespace does not describe which
 objects the real repository still needs. Fetched objects still land in the real object store. The
@@ -307,9 +310,10 @@ bounded read. Capture, retained resemblance data, and shared-path overlap maps h
 aggregate and representation bounds; content beyond them stays `unmeasured`. When capture space is
 exhausted, the endpoint fence retains file identity, mode, size, mtime, and ctime instead of a generic
 placeholder. A temporary restore or replacement cannot disappear between matching endpoint
-snapshots. Each temp directory carries its owner's process
-id. Cleanup ignores unowned directories, skips a slow
-active report, and removes only abandoned copies older than an hour.
+snapshots. Each temp directory has owner-only permissions and a versioned ownership manifest tied
+to its process id. Cleanup skips every known checkout and Git-storage alias under the temporary root.
+It ignores unauthenticated directories, leaves active reports alone, and removes only abandoned
+copies older than an hour.
 Cleaning up on a signal instead would be worse: the script spends its time inside
 synchronous git calls, where a handler cannot run, and installing one only replaces the
 default disposition, so the run stops answering `SIGTERM` at all.

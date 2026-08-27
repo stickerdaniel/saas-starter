@@ -20,6 +20,7 @@ import {
 	readFileSync,
 	readdirSync,
 	realpathSync,
+	renameSync,
 	rmSync,
 	statSync,
 	symlinkSync,
@@ -151,6 +152,23 @@ function installGitWrapper(root: string): string {
 		wrapper,
 		`#!/bin/sh
 command_line=" $* "
+if [ -n "$EXPLICIT_ABA_PATH" ] && [ ! -e "$EXPLICIT_ABA_MARKER" ]; then
+  case "$command_line" in
+    *" ls-files -z --full-name --cached --others --exclude-standard -- "*)
+      saved="$EXPLICIT_ABA_MARKER.saved"
+      output_file="$EXPLICIT_ABA_MARKER.output"
+      error_file="$EXPLICIT_ABA_MARKER.error"
+      mv "$EXPLICIT_ABA_PATH" "$saved" || exit $?
+      "$REAL_GIT" "$@" > "$output_file" 2> "$error_file"
+      rc=$?
+      mv "$saved" "$EXPLICIT_ABA_PATH" || exit $?
+      : > "$EXPLICIT_ABA_MARKER"
+      cat "$output_file"
+      cat "$error_file" >&2
+      exit "$rc"
+      ;;
+  esac
+fi
 if [ -n "$TRANSPORT_ALIAS_CONFIG_LOG" ]; then
   case "$command_line" in
     *" fetch "*)
@@ -211,6 +229,24 @@ if [ -n "$RETARGET_REMOTE_LINK" ] && [ ! -e "$RETARGET_REMOTE_MARKER" ]; then
               rm "$RETARGET_REMOTE_LINK" || exit $?
               ln -s "$RETARGET_REMOTE_TARGET" "$RETARGET_REMOTE_LINK" || exit $?
               : > "$RETARGET_REMOTE_MARKER"
+            fi
+            ;;
+        esac
+      done
+      ;;
+  esac
+fi
+if [ -n "$REPLACE_REMOTE_STORAGE_PATH" ] && [ ! -e "$REPLACE_REMOTE_STORAGE_MARKER" ]; then
+  case "$command_line" in
+    *" ls-remote "*)
+      for arg in "$@"; do
+        case "$arg" in
+          upstream-report-*)
+            remote_url=$("$REAL_GIT" config --get "remote.$arg.url") || continue
+            if [ "$remote_url" = "$REPLACE_REMOTE_STORAGE_PATH" ]; then
+              mv "$REPLACE_REMOTE_STORAGE_PATH" "$REPLACE_REMOTE_STORAGE_MARKER.saved" || exit $?
+              mv "$REPLACE_REMOTE_STORAGE_WITH" "$REPLACE_REMOTE_STORAGE_PATH" || exit $?
+              : > "$REPLACE_REMOTE_STORAGE_MARKER"
             fi
             ;;
         esac
@@ -772,6 +808,14 @@ function write(root: string, rel: string, content: string): void {
 	const full = join(root, rel);
 	mkdirSync(join(full, '..'), { recursive: true });
 	writeFileSync(full, content);
+}
+
+function writeScratchOwner(dir: string, owner: number): void {
+	writeFileSync(join(dir, 'owner'), String(owner));
+	writeFileSync(
+		join(dir, '.upstream-relevance-scratch.json'),
+		JSON.stringify({ magic: 'upstream-relevance-scratch', version: 1, owner })
+	);
 }
 
 function init(root: string, objectFormat: 'sha1' | 'sha256' = 'sha1'): void {
@@ -3240,6 +3284,30 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 		expect(git(fork, ['remote', 'get-url', 'upstream'])).toBe(sshUrl);
 	});
 
+	itWithGitWrapper('rejects query secrets in username-less SCP remotes before transport', () => {
+		const secret = 'DUMMY_SCP_QUERY_SECRET';
+		const marker = JSON.parse(readFileSync(join(fork, '.upstream-sync.json'), 'utf8')) as Record<
+			string,
+			unknown
+		>;
+		const unsafeUrl = `example.invalid:owner/template.git?access_token=${secret}`;
+		write(fork, '.upstream-sync.json', JSON.stringify({ ...marker, upstreamUrl: unsafeUrl }));
+		git(fork, ['commit', '-qam', 'set SCP query parent']);
+		git(fork, ['remote', 'set-url', 'upstream', unsafeUrl]);
+		const seen = join(tmp, 'scp-query-secret-in-argv');
+
+		const r = run(fork, ['--fetch', '--json'], {
+			PATH: `${installGitWrapper(tmp)}:${process.env.PATH ?? ''}`,
+			REAL_GIT: realGitPath(),
+			CHILD_ARG_SECRET: secret,
+			CHILD_ARG_MARKER: seen
+		});
+
+		expect(r.status).not.toBe(0);
+		expect(r.stderr).not.toContain(secret);
+		expect(existsSync(seen)).toBe(false);
+	});
+
 	itWithGitWrapper('keeps SCP-style usernames out of shared remote creation', () => {
 		const secret = 'DUMMY_SCP_CREATION_SECRET';
 		const marker = JSON.parse(readFileSync(join(fork, '.upstream-sync.json'), 'utf8')) as Record<
@@ -3304,6 +3372,27 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 		expect(r.stdout).not.toContain('Nothing to report upstream');
 		expect(r.stderr).toContain('skip-worktree');
 		expect(r.stderr).toContain('shared/pristine.ts');
+	});
+
+	itWithGitWrapper('refuses an explicit directory that changes during expansion', () => {
+		write(fork, 'explicit-scope/tracked.ts', 'export const tracked = true;\n');
+		git(fork, ['add', '-A']);
+		git(fork, ['commit', '-qm', 'add explicit scope']);
+		markBase(fork);
+		const target = join(fork, 'explicit-scope/untracked.ts');
+		writeFileSync(target, 'export const untracked = true;\n');
+		const marker = join(tmp, 'explicit-expansion-aba');
+
+		const r = run(fork, ['--fetch', '--json', 'explicit-scope'], {
+			PATH: `${installGitWrapper(tmp)}:${process.env.PATH ?? ''}`,
+			REAL_GIT: realGitPath(),
+			EXPLICIT_ABA_PATH: target,
+			EXPLICIT_ABA_MARKER: marker
+		});
+
+		expect(existsSync(marker)).toBe(true);
+		expect(r.status).not.toBe(0);
+		expect(r.stderr).toContain('Explicit path expansion changed during this report');
 	});
 
 	it('refuses an explicit path hidden by an index flag', () => {
@@ -3748,7 +3837,7 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 		expect(r.stderr).toMatch(/\.upstream-sync\.json changed in the selected commit range/);
 	});
 
-	itWithGitWrapper('deduplicates explicit pathspecs before enumeration', () => {
+	itWithGitWrapper('deduplicates explicit pathspecs across both enumeration reads', () => {
 		const enumerationLog = join(tmp, 'path-enumeration.log');
 		const r = run(fork, ['--fetch', '--json', 'shared', 'shared', './shared'], {
 			PATH: `${installGitWrapper(tmp)}:${process.env.PATH ?? ''}`,
@@ -3756,7 +3845,7 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 			PATH_ENUMERATION_LOG: enumerationLog
 		});
 		expect(r.status, r.stderr).toBe(0);
-		expect(readFileSync(enumerationLog, 'utf8').trim().split('\n')).toHaveLength(3);
+		expect(readFileSync(enumerationLog, 'utf8').trim().split('\n')).toHaveLength(6);
 	});
 
 	itWithGitWrapper('bounds aggregate explicit path expansion before reading later trees', () => {
@@ -4555,6 +4644,54 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 		expect(readFileSync(processLog, 'utf8').trim().split('\n')).toHaveLength(2);
 	});
 
+	it('rejects a local wrapper whose .git file points into this repository', () => {
+		const wrapper = join(tmp, 'external-upstream-wrapper');
+		mkdirSync(wrapper);
+		writeFileSync(
+			join(wrapper, '.git'),
+			`gitdir: ${git(fork, ['rev-parse', '--path-format=absolute', '--git-dir'])}\n`
+		);
+		const marker = JSON.parse(readFileSync(join(fork, '.upstream-sync.json'), 'utf8')) as Record<
+			string,
+			unknown
+		>;
+		write(fork, '.upstream-sync.json', JSON.stringify({ ...marker, upstreamUrl: wrapper }));
+		git(fork, ['commit', '-qam', 'set wrapped local parent']);
+		git(fork, ['remote', 'set-url', 'upstream', wrapper]);
+
+		const r = run(fork, ['--json']);
+
+		expect(r.status).not.toBe(0);
+		expect(r.stderr).toMatch(/inside a checkout or Git directory owned by this repository/);
+	});
+
+	itWithGitWrapper('rejects local Git storage replaced after validation', () => {
+		const decoy = join(tmp, 'replacement-source');
+		mkdirSync(decoy);
+		init(decoy);
+		write(decoy, 'decoy.ts', 'export const decoy = true;\n');
+		git(decoy, ['add', '-A']);
+		git(decoy, ['commit', '-qm', 'add replacement commit']);
+		const replacement = join(tmp, 'replacement.git');
+		git(tmp, ['clone', '-q', '--bare', decoy, replacement]);
+		const storage = realpathSync(
+			git(upstream, ['rev-parse', '--path-format=absolute', '--git-common-dir'])
+		);
+		const marker = join(tmp, 'remote-storage-replaced');
+
+		const r = run(fork, ['--json'], {
+			PATH: `${installGitWrapper(tmp)}:${process.env.PATH ?? ''}`,
+			REAL_GIT: realGitPath(),
+			REPLACE_REMOTE_STORAGE_PATH: storage,
+			REPLACE_REMOTE_STORAGE_WITH: replacement,
+			REPLACE_REMOTE_STORAGE_MARKER: marker
+		});
+
+		expect(existsSync(marker)).toBe(true);
+		expect(r.status).not.toBe(0);
+		expect(r.stderr).toMatch(/local upstream path|local remote/i);
+	});
+
 	itWithGitWrapper('keeps a local remote bound after its symlink is retargeted', () => {
 		const upstreamLink = join(tmp, 'upstream-link');
 		symlinkSync(upstream, upstreamLink);
@@ -4578,7 +4715,9 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 			REAL_GIT: realGitPath(),
 			RETARGET_REMOTE_LINK: upstreamLink,
 			RETARGET_REMOTE_TARGET: decoy,
-			RETARGET_REMOTE_EXPECTED: realpathSync(upstream),
+			RETARGET_REMOTE_EXPECTED: realpathSync(
+				git(upstream, ['rev-parse', '--path-format=absolute', '--git-common-dir'])
+			),
 			RETARGET_REMOTE_MARKER: retargeted
 		});
 
@@ -5325,7 +5464,10 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 		expect(check).toContain('statSync(current)');
 		expect(check).toContain('sameFileIdentity(rootStatsEntry, currentStats)');
 		expect(source).toContain('pathResolvesInsideOwnedRoot(tempPath, ownedRoots)');
-		expect(source).toContain('pathResolvesInsideOwnedRoot(remotePath, ownedRepositoryPaths)');
+		expect(source).toContain('pathResolvesInsideOwnedRoot(path, ownedRepositoryPaths)');
+		expect(source).toContain(
+			'pathResolvesInsideOwnedRoot(realpathSync(dir), ownedRepositoryPaths)'
+		);
 	});
 
 	it('pins executable-bit detection after the POSIX capability check', () => {
@@ -6454,6 +6596,25 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 		expect(r.stderr).toMatch(/different repository/i);
 	});
 
+	it('never sweeps a checkout beneath the temporary root', () => {
+		const protectedCheckout = join(tmp, 'upstream-relevance-index-project');
+		renameSync(fork, protectedCheckout);
+		fork = protectedCheckout;
+		writeScratchOwner(fork, 999999999);
+		const old = new Date(Date.now() - 3 * 60 * 60 * 1000);
+		utimesSync(fork, old, old);
+
+		const r = run(fork, ['--json', 'shared/pristine.ts'], {
+			TMPDIR: tmp,
+			TMP: tmp,
+			TEMP: tmp
+		});
+
+		expect(r.status, r.stderr).toBe(0);
+		expect(existsSync(fork)).toBe(true);
+		expect(existsSync(join(fork, '.git'))).toBe(true);
+	});
+
 	it('sweeps up an index copy an earlier run left behind', () => {
 		// SIGTERM and SIGHUP do not reach the exit listener, and a handler for them
 		// is worse than the leak: this script sits inside execFileSync almost the
@@ -6463,7 +6624,7 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 		// previous run can have died.
 		const leftover = mkdtempSync(join(tmpdir(), 'upstream-relevance-index-'));
 		writeFileSync(join(leftover, 'index'), 'stale');
-		writeFileSync(join(leftover, 'owner'), '999999999');
+		writeScratchOwner(leftover, 999999999);
 		const old = new Date(Date.now() - 3 * 60 * 60 * 1000);
 		utimesSync(leftover, old, old);
 
@@ -6489,7 +6650,7 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 	it('does not sweep an old index copy owned by a live report', () => {
 		const active = mkdtempSync(join(tmpdir(), 'upstream-relevance-index-'));
 		writeFileSync(join(active, 'index'), 'in use');
-		writeFileSync(join(active, 'owner'), String(process.pid));
+		writeScratchOwner(active, process.pid);
 		const old = new Date(Date.now() - 3 * 60 * 60 * 1000);
 		utimesSync(active, old, old);
 

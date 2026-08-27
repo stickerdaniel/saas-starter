@@ -405,6 +405,7 @@ function verifyTransportConfiguration(): void {
 }
 
 function transportRemote(url: string): string {
+	verifyLocalRemoteSnapshot(url);
 	const existing = transportRemotes.get(url);
 	if (existing) return existing;
 	if (!transportConfigPath) {
@@ -486,8 +487,12 @@ function rejectSecretBearingRemoteUrl(url: string): void {
 			unsafe = true;
 		}
 	} else {
-		const scp = /^([^/@:\s]+)@[^/:\s]+:(.*)$/.exec(url);
-		unsafe = scp !== null && (scp[1] !== 'git' || scp[2]!.includes('?') || scp[2]!.includes('#'));
+		const scp = /^(?:([^/@:\s]+)@)?[^/:\s]+:(.*)$/.exec(url);
+		unsafe =
+			scp !== null &&
+			((scp[1] !== undefined && scp[1] !== 'git') ||
+				scp[2]!.includes('?') ||
+				scp[2]!.includes('#'));
 	}
 	if (!unsafe) return;
 	fail(
@@ -743,11 +748,28 @@ const terminalUrl = (value: string) => terminalSafe(redactUrl(value));
 // A prefix of its own, so a leftover copy is distinguishable from the temp
 // repositories the integration tests build under the same directory.
 const SCRATCH_PREFIX = 'upstream-relevance-index-';
+const SCRATCH_MANIFEST = '.upstream-relevance-scratch.json';
+const SCRATCH_MAGIC = 'upstream-relevance-scratch';
+const SCRATCH_VERSION = 1;
+
+interface PathIdentity {
+	path: string;
+	dev: number;
+	ino: number;
+}
+
+interface LocalRemoteSnapshot {
+	root: string;
+	endpointPath: string;
+	transportPath: string;
+	identities: PathIdentity[];
+}
 
 // Set once the real index has been copied aside; see the GIT_INDEX_FILE note.
 let scratchIndex: string | undefined;
 let scratchShallow: string | undefined;
 let scratchDir: string | undefined;
+let scratchIdentity: PathIdentity | undefined;
 let transportGitDir: string | undefined;
 let transportConfigPath: string | undefined;
 let transportObjectDir: string | undefined;
@@ -760,6 +782,7 @@ interface RemoteProxySettings {
 }
 
 const transportRemotes = new Map<string, string>();
+const localRemoteSnapshots = new Map<string, LocalRemoteSnapshot>();
 const transportProxyByUrl = new Map<string, RemoteProxySettings>();
 const transportProtocolPolicies = new Map<string, string>();
 const transportEnvironmentConfig: Array<[string, string]> = [];
@@ -775,6 +798,32 @@ let scratchIndexEntriesAtCopy: Buffer | null = null;
 /** An hour is far longer than a run and far shorter than a working day. */
 const LEFTOVER_AFTER_MS = 60 * 60 * 1000;
 
+function scratchOwner(dir: string): number | null {
+	try {
+		const directory = lstatSync(dir);
+		if (!directory.isDirectory()) return null;
+		if (process.platform !== 'win32' && (directory.mode & 0o077) !== 0) return null;
+		const manifest = JSON.parse(readFileSync(join(dir, SCRATCH_MANIFEST), 'utf8')) as {
+			magic?: unknown;
+			version?: unknown;
+			owner?: unknown;
+		};
+		const legacyOwner = Number(readFileSync(join(dir, 'owner'), 'utf8'));
+		if (
+			manifest.magic !== SCRATCH_MAGIC ||
+			manifest.version !== SCRATCH_VERSION ||
+			!Number.isInteger(manifest.owner) ||
+			manifest.owner !== legacyOwner ||
+			legacyOwner <= 0
+		) {
+			return null;
+		}
+		return legacyOwner;
+	} catch {
+		return null;
+	}
+}
+
 function sweepLeftovers(tempRoot: string): void {
 	// Whatever ended the last run, its copy is still here. Anything younger than
 	// an hour may belong to a run happening right now.
@@ -788,9 +837,15 @@ function sweepLeftovers(tempRoot: string): void {
 		if (!name.startsWith(SCRATCH_PREFIX)) continue;
 		try {
 			const dir = join(tempRoot, name);
+			if (
+				ownedRepositoryPaths &&
+				pathResolvesInsideOwnedRoot(realpathSync(dir), ownedRepositoryPaths)
+			) {
+				continue;
+			}
 			if (Date.now() - statSync(dir).mtimeMs < LEFTOVER_AFTER_MS) continue;
-			const owner = Number(readFileSync(join(dir, 'owner'), 'utf8'));
-			if (!Number.isInteger(owner) || owner <= 0) continue;
+			const owner = scratchOwner(dir);
+			if (owner === null) continue;
 			try {
 				process.kill(owner, 0);
 				continue;
@@ -958,7 +1013,14 @@ function useScratchIndex(root: string): void {
 		);
 	}
 	scratchDir = mkdtempSync(join(tempPath, SCRATCH_PREFIX));
-	writeFileSync(join(scratchDir, 'owner'), String(process.pid));
+	chmodSync(scratchDir, 0o700);
+	scratchIdentity = pathIdentity(scratchDir);
+	writeFileSync(join(scratchDir, 'owner'), String(process.pid), { mode: 0o600 });
+	writeFileSync(
+		join(scratchDir, SCRATCH_MANIFEST),
+		JSON.stringify({ magic: SCRATCH_MAGIC, version: SCRATCH_VERSION, owner: process.pid }),
+		{ mode: 0o600 }
+	);
 	transportGitDir = join(scratchDir, 'transport.git');
 	transportObjectDir = objectPath;
 	transportShallow = join(scratchDir, 'transport-shallow');
@@ -985,8 +1047,20 @@ function useScratchIndex(root: string): void {
 }
 
 function dropScratchIndex(): void {
-	if (scratchDir) rmSync(scratchDir, { recursive: true, force: true });
+	try {
+		if (
+			scratchDir &&
+			scratchIdentity &&
+			samePathIdentity(scratchIdentity, pathIdentity(scratchDir)) &&
+			scratchOwner(scratchDir) === process.pid
+		) {
+			rmSync(scratchDir, { recursive: true, force: true });
+		}
+	} catch {
+		// A path that no longer names our directory is left untouched.
+	}
 	scratchDir = undefined;
+	scratchIdentity = undefined;
 	scratchIndex = undefined;
 	scratchShallow = undefined;
 	transportGitDir = undefined;
@@ -995,6 +1069,7 @@ function dropScratchIndex(): void {
 	transportShallow = undefined;
 	ownedRepositoryPaths = undefined;
 	transportRemotes.clear();
+	localRemoteSnapshots.clear();
 	transportProxyByUrl.clear();
 	transportProtocolPolicies.clear();
 	transportEnvironmentConfig.length = 0;
@@ -1460,23 +1535,136 @@ function localRemotePath(url: string, root: string): string | null {
 	}
 }
 
-function rejectOwnedRepositoryRemote(url: string, root: string, remote: string): void {
-	const remotePath = localRemotePath(url, root);
-	if (!remotePath) {
-		validatedTransportUrls.set(url, url);
-		return;
+function localGitPath(remotePath: string, args: string[], allowFail = false): string | null {
+	try {
+		const env = gitEnv();
+		env.GIT_CONFIG_NOSYSTEM = '1';
+		env.GIT_CONFIG_GLOBAL = NO_GRAFTS;
+		env.GIT_CONFIG_SYSTEM = NO_GRAFTS;
+		env.GIT_GRAFT_FILE = NO_GRAFTS;
+		env.GIT_NO_REPLACE_OBJECTS = '1';
+		const value = execFileSync('git', [...PINNED_CONFIG, ...args], {
+			cwd: remotePath,
+			env,
+			maxBuffer: MAX_GIT_OUTPUT,
+			stdio: ['pipe', 'pipe', 'pipe'],
+			timeout: WORKTREE_TIMEOUT_MS
+		}).toString('utf8');
+		return value.endsWith('\n') ? value.slice(0, -1) : value;
+	} catch {
+		if (allowFail) return null;
+		fail('A local upstream path does not resolve to stable Git storage.');
 	}
+}
+
+function inspectLocalRemote(
+	url: string,
+	root: string,
+	remote: string,
+	validatedEndpoint?: string
+): LocalRemoteSnapshot | null {
+	const remotePath = validatedEndpoint ?? localRemotePath(url, root);
+	if (!remotePath) return null;
 	if (!ownedRepositoryPaths) {
 		fail('The repository checkout inventory is unavailable. Run the report again.');
 	}
-	const owned = pathResolvesInsideOwnedRoot(remotePath, ownedRepositoryPaths);
-	if (owned) {
+	const endpoint = statSync(remotePath);
+	let transportPath = remotePath;
+	const effectivePaths = new Set([remotePath]);
+	if (endpoint.isDirectory()) {
+		const gitDirValue = localGitPath(remotePath, [
+			'rev-parse',
+			'--path-format=absolute',
+			'--git-dir'
+		]);
+		const commonDirValue = localGitPath(remotePath, [
+			'rev-parse',
+			'--path-format=absolute',
+			'--git-common-dir'
+		]);
+		const objectDirValue = localGitPath(remotePath, [
+			'rev-parse',
+			'--path-format=absolute',
+			'--git-path',
+			'objects'
+		]);
+		if (!gitDirValue || !commonDirValue || !objectDirValue) {
+			fail('A local upstream path does not identify complete Git storage.');
+		}
+		const gitDir = realpathSync(gitDirValue);
+		const commonDir = realpathSync(commonDirValue);
+		const objectDir = realpathSync(objectDirValue);
+		effectivePaths.add(gitDir);
+		effectivePaths.add(commonDir);
+		effectivePaths.add(objectDir);
+		const worktreeValue = localGitPath(
+			remotePath,
+			['rev-parse', '--path-format=absolute', '--show-toplevel'],
+			true
+		);
+		if (worktreeValue) effectivePaths.add(realpathSync(worktreeValue));
+		const alternatesPath = join(objectDir, 'info', 'alternates');
+		if (existsSync(alternatesPath)) {
+			for (const alternate of readFileSync(alternatesPath, 'utf8').split('\n')) {
+				if (!alternate) continue;
+				effectivePaths.add(
+					realpathSync(isAbsolute(alternate) ? alternate : resolve(objectDir, alternate))
+				);
+			}
+		}
+		// The common directory names refs directly. Keeping the wrapper worktree out
+		// of the transport removes its mutable .git indirection from later Git calls.
+		transportPath = commonDir;
+	} else if (!endpoint.isFile()) {
+		fail('A local upstream path must name a Git directory or bundle file.');
+	}
+	for (const path of effectivePaths) {
+		if (!pathResolvesInsideOwnedRoot(path, ownedRepositoryPaths)) continue;
 		fail(
 			`The ${remote} URL resolves inside a checkout or Git directory owned by this repository. ` +
 				'A repository-owned remote can follow branch-controlled refs and hide every committed change.'
 		);
 	}
-	validatedTransportUrls.set(url, remotePath);
+	return {
+		root,
+		endpointPath: remotePath,
+		transportPath,
+		identities: identityChains(effectivePaths)
+	};
+}
+
+function verifyLocalRemoteSnapshot(url: string): void {
+	const expected = localRemoteSnapshots.get(url);
+	if (!expected) return;
+	let current: LocalRemoteSnapshot | null;
+	try {
+		current = inspectLocalRemote(url, expected.root, 'local remote', expected.endpointPath);
+	} catch {
+		fail('A local upstream path or one of its ancestors changed during this report. Run it again.');
+	}
+	if (
+		!current ||
+		current.transportPath !== expected.transportPath ||
+		!sameIdentityChains(current.identities, expected.identities)
+	) {
+		fail('A local upstream path or one of its ancestors changed during this report. Run it again.');
+	}
+}
+
+function rejectOwnedRepositoryRemote(url: string, root: string, remote: string): void {
+	let snapshot: LocalRemoteSnapshot | null;
+	try {
+		snapshot = inspectLocalRemote(url, root, remote);
+	} catch {
+		fail(`Cannot trust the ${remote} URL because its local Git storage cannot be resolved.`);
+	}
+	if (!snapshot) {
+		localRemoteSnapshots.delete(url);
+		validatedTransportUrls.set(url, url);
+		return;
+	}
+	localRemoteSnapshots.set(url, snapshot);
+	validatedTransportUrls.set(url, snapshot.transportPath);
 }
 
 function rejectUnverifiableFileModes(): void {
@@ -1760,6 +1948,7 @@ function ensureUpstream(root: string, upstreamUrl: string, allowFetch: boolean):
 		const expected = advertisedMainAt(transportUrl);
 		try {
 			rejectTransportCommandOverrides();
+			verifyLocalRemoteSnapshot(transportUrl);
 			gitBytes(
 				[
 					'fetch',
@@ -1775,6 +1964,7 @@ function ensureUpstream(root: string, upstreamUrl: string, allowFetch: boolean):
 				trustedTransportEnv(),
 				NETWORK_TIMEOUT_MS
 			);
+			verifyLocalRemoteSnapshot(transportUrl);
 		} catch {
 			fail(
 				`Could not fetch refs/heads/main from ${terminalUrl(upstreamUrl)}. ` +
@@ -2124,7 +2314,7 @@ function advertisedMainAt(url: string): string {
 	// This name exists only in the private config. It keeps the URL out of process
 	// arguments without inheriting remote.<name>.uploadpack from the repository.
 	const remote = transportRemote(url);
-	return gitBytes(
+	const advertised = gitBytes(
 		['ls-remote', '--exit-code', '--refs', remote, 'refs/heads/main'],
 		true,
 		trustedTransportEnv(),
@@ -2133,6 +2323,8 @@ function advertisedMainAt(url: string): string {
 		.toString('utf8')
 		.trim()
 		.split('\t')[0]!;
+	verifyLocalRemoteSnapshot(url);
+	return advertised;
 }
 
 function trustedOriginSnapshot(expectedSha: string): OriginSnapshot {
@@ -3157,6 +3349,36 @@ function sameFileIdentity(left: Stats, right: Stats): boolean {
 	return left.dev === right.dev && left.ino === right.ino;
 }
 
+function pathIdentity(path: string): PathIdentity {
+	const stats = statSync(path);
+	return { path, dev: stats.dev, ino: stats.ino };
+}
+
+function samePathIdentity(left: PathIdentity, right: PathIdentity): boolean {
+	return left.path === right.path && left.dev === right.dev && left.ino === right.ino;
+}
+
+function identityChains(paths: Iterable<string>): PathIdentity[] {
+	const identities = new Map<string, PathIdentity>();
+	for (const path of paths) {
+		let current = path;
+		while (true) {
+			if (!identities.has(current)) identities.set(current, pathIdentity(current));
+			const parent = resolve(current, '..');
+			if (parent === current) break;
+			current = parent;
+		}
+	}
+	return [...identities.values()].sort((left, right) => left.path.localeCompare(right.path));
+}
+
+function sameIdentityChains(left: PathIdentity[], right: PathIdentity[]): boolean {
+	return (
+		left.length === right.length &&
+		left.every((identity, index) => samePathIdentity(identity, right[index]!))
+	);
+}
+
 function pathResolvesInsideOwnedRoot(candidate: string, ownedRoots: Iterable<string>): boolean {
 	const roots = [...ownedRoots];
 	const rootStats = roots.map((root) => statSync(root));
@@ -3819,52 +4041,58 @@ function main() {
 			if (specs) specs.push(spec);
 			else requested.set(pathspec, [spec]);
 		}
-		const resolved = new Set<string>();
-		const addMatch = (match: string): void => {
-			if (resolved.has(match)) return;
-			if (resolved.size >= PATH_LIMIT) {
-				fail(`Explicit paths matched more than ${PATH_LIMIT} files. Narrow the request.`);
-			}
-			resolved.add(match);
-		};
-		for (const [pathspec, specs] of requested) {
-			const literalPathspec = `:(literal)${pathspec}`;
-			let matched = false;
-			const collect = (record: string) => {
-				matched = true;
-				addMatch(record);
+		const enumerate = (): { resolved: Set<string>; unmatched: string[] } => {
+			const resolved = new Set<string>();
+			const missing: string[] = [];
+			const addMatch = (match: string): void => {
+				if (resolved.has(match)) return;
+				if (resolved.size >= PATH_LIMIT) {
+					fail(`Explicit paths matched more than ${PATH_LIMIT} files. Narrow the request.`);
+				}
+				resolved.add(match);
 			};
-			try {
-				gitZEach(
-					[
-						'ls-files',
-						'-z',
-						'--full-name',
-						'--cached',
-						'--others',
-						'--exclude-standard',
-						'--',
-						literalPathspec
-					],
-					collect
-				);
-				// A path deleted in this change matches nothing in the working tree but
-				// still exists at the base, and deleting template code is exactly the
-				// sort of change worth reporting.
-				gitZEach(
-					['ls-tree', '-z', '--full-name', '--name-only', '-r', base, '--', literalPathspec],
-					collect
-				);
-				gitZEach(
-					['ls-tree', '-z', '--full-name', '--name-only', '-r', head, '--', literalPathspec],
-					collect
-				);
-			} catch {
-				fail(`Could not enumerate the requested path "${terminalSafe(specs[0]!)}".`);
+			for (const [pathspec, specs] of requested) {
+				const literalPathspec = `:(literal)${pathspec}`;
+				let matched = false;
+				const collect = (record: string) => {
+					matched = true;
+					addMatch(record);
+				};
+				try {
+					gitZEach(
+						[
+							'ls-files',
+							'-z',
+							'--full-name',
+							'--cached',
+							'--others',
+							'--exclude-standard',
+							'--',
+							literalPathspec
+						],
+						collect
+					);
+					// A path deleted in this change matches nothing in the working tree but
+					// still exists at the base, and deleting template code is exactly the
+					// sort of change worth reporting.
+					gitZEach(
+						['ls-tree', '-z', '--full-name', '--name-only', '-r', base, '--', literalPathspec],
+						collect
+					);
+					gitZEach(
+						['ls-tree', '-z', '--full-name', '--name-only', '-r', head, '--', literalPathspec],
+						collect
+					);
+				} catch {
+					fail(`Could not enumerate the requested path "${terminalSafe(specs[0]!)}".`);
+				}
+				if (!matched) missing.push(...specs);
 			}
-			if (!matched) for (const spec of specs) unmatched.push(spec);
-		}
+			return { resolved, unmatched: missing };
+		};
 
+		const first = enumerate();
+		unmatched.push(...first.unmatched);
 		if (unmatched.length > 0) {
 			fail(
 				`These paths matched nothing: ${unmatched.map(terminalSafe).join(', ')}\n` +
@@ -3872,7 +4100,17 @@ function main() {
 					'reads as "nothing to send upstream".'
 			);
 		}
-		paths = [...resolved].sort();
+		const resolved = [...first.resolved].sort();
+		const confirmed = enumerate();
+		const confirmedPaths = [...confirmed.resolved].sort();
+		if (
+			confirmed.unmatched.length > 0 ||
+			resolved.length !== confirmedPaths.length ||
+			resolved.some((path, index) => path !== confirmedPaths[index])
+		) {
+			fail('Explicit path expansion changed during this report. Run it again on the settled tree.');
+		}
+		paths = resolved;
 	} else {
 		const discovered = new Set(changedPaths(base, head));
 		for (const { path } of statusPaths) {
