@@ -267,7 +267,10 @@ function trustedTransportEnv(): NodeJS.ProcessEnv {
 		GIT_SHALLOW_FILE: transportShallow,
 		GIT_CONFIG_NOSYSTEM: '1',
 		GIT_CONFIG_GLOBAL: NO_GRAFTS,
-		GIT_CONFIG_SYSTEM: NO_GRAFTS
+		GIT_CONFIG_SYSTEM: NO_GRAFTS,
+		// OpenSSH otherwise reads user and system host aliases, proxy commands, and
+		// host-key policy after Git's own configuration has been isolated.
+		GIT_SSH_COMMAND: 'ssh -F none'
 	};
 }
 
@@ -769,6 +772,7 @@ interface LocalRemoteSnapshot {
 	endpointPath: string;
 	transportPath: string;
 	identities: PathIdentity[];
+	fileFingerprints: Map<string, string>;
 }
 
 // Set once the real index has been copied aside; see the GIT_INDEX_FILE note.
@@ -1715,6 +1719,41 @@ function addAlternateObjectStores(
 	}
 }
 
+function addLocalRefBacking(
+	commonDir: string,
+	effectivePaths: Set<string>,
+	backingFiles: Set<string>
+): void {
+	for (const [kind, path] of [
+		['loose main ref', join(commonDir, 'refs', 'heads', 'main')],
+		['packed refs', join(commonDir, 'packed-refs')]
+	] as const) {
+		let stats: Stats;
+		try {
+			stats = lstatSync(path);
+		} catch (err) {
+			if ((err as NodeJS.ErrnoException).code === 'ENOENT') continue;
+			throw err;
+		}
+		if (stats.isSymbolicLink()) {
+			fail(`A local upstream ${kind} is a filesystem symlink. Refusing indirect ref storage.`);
+		}
+		if (!stats.isFile()) {
+			fail(`A local upstream ${kind} is not a regular file.`);
+		}
+		const canonical = realpathSync(path);
+		effectivePaths.add(canonical);
+		backingFiles.add(canonical);
+		if (kind === 'loose main ref') {
+			if (stats.size > 1024) fail('A local upstream loose main ref is unexpectedly large.');
+			const value = readFileSync(canonical, 'utf8');
+			if (value.startsWith('ref:')) {
+				fail('A local upstream loose main ref is symbolic. Refusing indirect ref storage.');
+			}
+		}
+	}
+}
+
 function inspectLocalRemote(
 	url: string,
 	root: string,
@@ -1729,6 +1768,7 @@ function inspectLocalRemote(
 	const endpoint = statSync(remotePath);
 	let transportPath = remotePath;
 	const effectivePaths = new Set([remotePath]);
+	const backingFiles = new Set<string>();
 	if (endpoint.isDirectory()) {
 		const gitDirValue = localGitPath(remotePath, [
 			'rev-parse',
@@ -1755,6 +1795,7 @@ function inspectLocalRemote(
 		effectivePaths.add(gitDir);
 		effectivePaths.add(commonDir);
 		effectivePaths.add(objectDir);
+		addLocalRefBacking(commonDir, effectivePaths, backingFiles);
 		const worktreeValue = localGitPath(
 			remotePath,
 			['rev-parse', '--path-format=absolute', '--show-toplevel'],
@@ -1787,7 +1828,8 @@ function inspectLocalRemote(
 		root,
 		endpointPath: remotePath,
 		transportPath,
-		identities: identityChains(effectivePaths)
+		identities: identityChains(effectivePaths),
+		fileFingerprints: fileFingerprints(backingFiles)
 	};
 }
 
@@ -1803,7 +1845,8 @@ function verifyLocalRemoteSnapshot(url: string): void {
 	if (
 		!current ||
 		current.transportPath !== expected.transportPath ||
-		!sameIdentityChains(current.identities, expected.identities)
+		!sameIdentityChains(current.identities, expected.identities) ||
+		!sameStringMaps(current.fileFingerprints, expected.fileFingerprints)
 	) {
 		fail('A local upstream path or one of its ancestors changed during this report. Run it again.');
 	}
@@ -3538,6 +3581,14 @@ function sameIdentityChains(left: PathIdentity[], right: PathIdentity[]): boolea
 	);
 }
 
+function fileFingerprints(paths: Iterable<string>): Map<string, string> {
+	return new Map([...paths].map((path) => [path, statFingerprint(statSync(path))]));
+}
+
+function sameStringMaps(left: Map<string, string>, right: Map<string, string>): boolean {
+	return left.size === right.size && [...left].every(([key, value]) => right.get(key) === value);
+}
+
 function pathResolvesInsideOwnedRoot(candidate: string, ownedRoots: Iterable<string>): boolean {
 	const roots = [...ownedRoots];
 	const rootStats = roots.map((root) => statSync(root));
@@ -4162,6 +4213,7 @@ function main() {
 	const upstreamUrl = marker.url;
 	const originUrlAtStart = configuredRemoteUrl('origin');
 	if (originUrlAtStart) rejectUrlRewrite(originUrlAtStart);
+	rejectTransportCommandOverrides();
 	const baseResolution = resolveBase(head, values.base as string | undefined, (base) => {
 		if (!originUrlAtStart) return;
 		const baseMarker = markerAtCommit(base);

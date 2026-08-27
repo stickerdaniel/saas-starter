@@ -254,18 +254,20 @@ the same repository. SCP-style query and fragment suffixes are treated as secret
 private config denies unknown protocols and preserves restrictive
 `protocol.allow` and `protocol.*.allow` settings. An inherited `GIT_ALLOW_PROTOCOL` is intersected
 with the accepted transports and keeps Git's normal override semantics. HTTPS also requires
-certificate and proxy-certificate verification. Matching `url.*.insteadOf`,
-`core.sshCommand`, and `core.gitProxy` overrides remain refused. A `remote.upstream.uploadpack`
+certificate and proxy-certificate verification. SSH runs with `ssh -F none`, so user and system
+OpenSSH aliases, proxy commands, and host-key policy cannot change the endpoint. Matching
+`url.*.insteadOf`, `core.sshCommand`, and `core.gitProxy` overrides remain refused before template
+self-detection. A `remote.upstream.uploadpack`
 helper cannot serve a different repository. When the marker uses an accepted GitHub alias, transport
 keeps the configured remote's exact spelling so its URL-scoped pins, certificates, and proxy settings
 still match. Remote URLs and their proxy settings are captured together and fenced before output. A
 local remote is bound to its canonical Git common directory, after checking its endpoint, worktree,
-Git directory, common directory, object directory, and Git's recursively loaded local alternates
-against every checkout owned by this repository. Alternate entries follow Git's comment and C-quote
+Git directory, common directory, object directory, loose `main` ref, `packed-refs`, and Git's
+recursively loaded local alternates against every checkout owned by this repository. Filesystem and
+Git-symbolic ref indirection is refused. Alternate entries follow Git's comment and C-quote
 grammar; ambiguous quoted entries stop the run. The check compares ancestor filesystem identity as
-well as spelling. It repeats
-that identity fence around remote reads, while a retargeted alias stays bound to the location first
-validated.
+well as spelling. Ref backing files also pin mode, size, mtime, and ctime. It repeats that fence around
+remote reads, while a retargeted alias stays bound to the location first validated.
 
 Fetch disables automatic maintenance because the private ref namespace does not describe which
 objects the real repository still needs. Fetched objects still land in the real object store. The

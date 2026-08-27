@@ -152,6 +152,28 @@ function installGitWrapper(root: string): string {
 		wrapper,
 		`#!/bin/sh
 command_line=" $* "
+if [ -n "$REF_BACKING_RACE_PATH" ] && [ ! -e "$REF_BACKING_RACE_MARKER" ]; then
+  case "$command_line" in
+    *" ls-remote "*)
+      for arg in "$@"; do
+        case "$arg" in
+          upstream-report-*)
+            remote_url=$("$REAL_GIT" config --get "remote.$arg.url") || continue
+            if [ "$remote_url" = "$REF_BACKING_RACE_REMOTE" ]; then
+              touch -t 203001010101 "$REF_BACKING_RACE_PATH" || exit $?
+              : > "$REF_BACKING_RACE_MARKER"
+            fi
+            ;;
+        esac
+      done
+      ;;
+  esac
+fi
+if [ -n "$TRANSPORT_SSH_COMMAND_LOG" ]; then
+  case "$command_line" in
+    *" ls-remote "*|*" fetch "*) printf '%s\n' "$GIT_SSH_COMMAND" >> "$TRANSPORT_SSH_COMMAND_LOG" ;;
+  esac
+fi
 if [ -n "$EXPLICIT_ABA_PATH" ] && [ ! -e "$EXPLICIT_ABA_MARKER" ]; then
   case "$command_line" in
     *" ls-files -z --full-name --cached --others --exclude-standard -- "*)
@@ -3288,15 +3310,18 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 		git(fork, ['commit', '-qam', 'fix shared path']);
 		git(fork, ['remote', 'remove', 'upstream']);
 		git(fork, ['update-ref', '-d', 'refs/remotes/upstream/main']);
+		const sshCommandLog = join(tmp, 'transport-ssh-command.log');
 
 		const r = run(fork, ['--base', 'origin/main', '--fetch', '--json', 'shared/pristine.ts'], {
 			PATH: `${installGitWrapper(tmp)}:${process.env.PATH ?? ''}`,
 			REAL_GIT: realGitPath(),
 			FAKE_FETCH_SUCCESS: '1',
-			FAKE_REMOTE_MAIN_SHA: git(upstream, ['rev-parse', 'HEAD'])
+			FAKE_REMOTE_MAIN_SHA: git(upstream, ['rev-parse', 'HEAD']),
+			TRANSPORT_SSH_COMMAND_LOG: sshCommandLog
 		});
 
 		expect(r.status, r.stderr).toBe(0);
+		expect(readFileSync(sshCommandLog, 'utf8')).toContain('ssh -F none');
 		expect(git(fork, ['remote', 'get-url', 'upstream'])).toBe(sshUrl);
 	});
 
@@ -4663,6 +4688,83 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 		});
 		expect(r.status, r.stderr).toBe(0);
 		expect(readFileSync(processLog, 'utf8').trim().split('\n')).toHaveLength(2);
+	});
+
+	itWithPosixPaths('rejects a filesystem-symlinked local main ref', () => {
+		const remote = join(tmp, 'symlinked-main-ref.git');
+		mkdirSync(remote);
+		git(remote, ['init', '--bare', '-q']);
+		const branchRef = realpathSync(
+			git(fork, ['rev-parse', '--path-format=absolute', '--git-path', 'refs/heads/main'])
+		);
+		symlinkSync(branchRef, join(remote, 'refs', 'heads', 'main'));
+		const marker = JSON.parse(readFileSync(join(fork, '.upstream-sync.json'), 'utf8')) as Record<
+			string,
+			unknown
+		>;
+		write(fork, '.upstream-sync.json', JSON.stringify({ ...marker, upstreamUrl: remote }));
+		git(fork, ['commit', '-qam', 'set symlinked-ref parent']);
+		git(fork, ['remote', 'set-url', 'upstream', remote]);
+
+		const r = run(fork, ['--json']);
+
+		expect(r.status).not.toBe(0);
+		expect(r.stderr).toContain('loose main ref is a filesystem symlink');
+	});
+
+	itWithPosixPaths('rejects a filesystem-symlinked packed-refs file', () => {
+		const remote = join(tmp, 'symlinked-packed-refs.git');
+		mkdirSync(remote);
+		git(remote, ['init', '--bare', '-q']);
+		const commonDir = realpathSync(
+			git(fork, ['rev-parse', '--path-format=absolute', '--git-common-dir'])
+		);
+		const ownedPackedRefs = join(commonDir, 'owned-packed-refs');
+		writeFileSync(
+			ownedPackedRefs,
+			`# pack-refs with: peeled fully-peeled sorted\n${git(fork, ['rev-parse', 'HEAD'])} refs/heads/main\n`
+		);
+		symlinkSync(ownedPackedRefs, join(remote, 'packed-refs'));
+		const marker = JSON.parse(readFileSync(join(fork, '.upstream-sync.json'), 'utf8')) as Record<
+			string,
+			unknown
+		>;
+		write(fork, '.upstream-sync.json', JSON.stringify({ ...marker, upstreamUrl: remote }));
+		git(fork, ['commit', '-qam', 'set symlinked-packed parent']);
+		git(fork, ['remote', 'set-url', 'upstream', remote]);
+
+		const r = run(fork, ['--json']);
+
+		expect(r.status).not.toBe(0);
+		expect(r.stderr).toContain('packed refs is a filesystem symlink');
+	});
+
+	itWithGitWrapper('fences in-place changes to local ref backing files', () => {
+		const remote = join(tmp, 'ref-backing-race.git');
+		git(tmp, ['clone', '-q', '--bare', upstream, remote]);
+		const mainRef = join(remote, 'refs', 'heads', 'main');
+		mkdirSync(join(mainRef, '..'), { recursive: true });
+		writeFileSync(mainRef, `${git(upstream, ['rev-parse', 'HEAD'])}\n`);
+		const marker = JSON.parse(readFileSync(join(fork, '.upstream-sync.json'), 'utf8')) as Record<
+			string,
+			unknown
+		>;
+		write(fork, '.upstream-sync.json', JSON.stringify({ ...marker, upstreamUrl: remote }));
+		git(fork, ['commit', '-qam', 'set ref-race parent']);
+		git(fork, ['remote', 'set-url', 'upstream', remote]);
+		const raceMarker = join(tmp, 'ref-backing-raced');
+
+		const r = run(fork, ['--json'], {
+			PATH: `${installGitWrapper(tmp)}:${process.env.PATH ?? ''}`,
+			REAL_GIT: realGitPath(),
+			REF_BACKING_RACE_PATH: mainRef,
+			REF_BACKING_RACE_REMOTE: realpathSync(remote),
+			REF_BACKING_RACE_MARKER: raceMarker
+		});
+
+		expect(existsSync(raceMarker)).toBe(true);
+		expect(r.status).not.toBe(0);
+		expect(r.stderr).toMatch(/local upstream path|local remote/i);
 	});
 
 	it('rejects a local wrapper whose .git file points into this repository', () => {
@@ -6791,6 +6893,30 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 		const r = run(fork, []);
 		expect(r.status).not.toBe(2);
 		expect(r.stderr).toMatch(/url\.\*\.insteadOf/);
+		expect(r.stderr).not.toContain('IS the upstream template');
+	});
+
+	it('rejects an SSH command override before template self-detection', () => {
+		const marker = JSON.parse(readFileSync(join(fork, '.upstream-sync.json'), 'utf8')) as Record<
+			string,
+			unknown
+		>;
+		write(
+			fork,
+			'.upstream-sync.json',
+			JSON.stringify({
+				...marker,
+				upstreamUrl: 'https://github.com/stickerdaniel/saas-starter.git'
+			})
+		);
+		git(fork, ['commit', '-qam', 'record GitHub parent']);
+		git(fork, ['remote', 'set-url', 'origin', 'git@github.com:stickerdaniel/saas-starter.git']);
+		git(fork, ['config', 'core.sshCommand', 'ssh -o HostName=mirror.example']);
+
+		const r = run(fork, []);
+
+		expect(r.status).not.toBe(2);
+		expect(r.stderr).toContain('core.sshCommand');
 		expect(r.stderr).not.toContain('IS the upstream template');
 	});
 
