@@ -6,6 +6,7 @@
  *   bun scripts/static-checks.ts --ci                  - Check all files, assert-only (CI)
  *   bun scripts/static-checks.ts --ci --scope lint     - Linting checks only (CI job group)
  *   bun scripts/static-checks.ts --ci --scope types    - Type checking only (CI job group)
+ *   bun scripts/static-checks.ts --scope compat        - Convex consumer compatibility only
  *   bun scripts/static-checks.ts --staged              - Check only staged files (pre-commit)
  *   bun scripts/static-checks.ts file1.ts file2.svelte - Check specific files
  *   ... | bun scripts/static-checks.ts --files-from -  - Check a computed list of files
@@ -15,8 +16,9 @@
  *                Requires misspell to be installed (fails if missing).
  *   --staged     Assert-only staged-file gate. Run fix mode before staging and retrying.
  *   --scope      Run a subset of checks: "lint" (misspell, literal controls, banned patterns, prettier,
- *                eslint, oxlint) or "types" (build-emails, svelte-check).
- *                Both groups run svelte-kit sync first. Omit to run all checks.
+ *                eslint, oxlint), "types" (build-emails, svelte-check), or full-project-only
+ *                "compat" (Convex consumer compatibility). Lint and types run svelte-kit sync first.
+ *                Omit to run lint and types.
  *   --files-from Read newline-separated paths from a file, or from stdin with "-".
  *                Use this for a COMPUTED list: unlike positionals, this channel can
  *                carry an empty list, which is an honest no-op instead of a silent
@@ -119,7 +121,7 @@ const colors =
 // which imports this module for scripts/static-checks.test.ts.
 const REPO_ROOT = realpathSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'));
 
-const USAGE = '  Flags: --ci, --staged, --scope <lint|types>, --files-from <path|->';
+const USAGE = '  Flags: --ci, --staged, --scope <lint|types|compat>, --files-from <path|->';
 
 /** Directories never descended into when a directory argument is expanded. */
 const NEVER_WALK = ['node_modules/', '.git/', '.svelte-kit/', '.convex/', 'build/', 'dist/'];
@@ -479,11 +481,11 @@ function parseCli() {
 	const { values, positionals } = parsed;
 	const stagedOnly = values.staged ?? false;
 	const ciMode = values.ci ?? false;
-	const scope = values.scope as 'lint' | 'types' | undefined;
+	const scope = values.scope as 'lint' | 'types' | 'compat' | undefined;
 	const filesFrom = values['files-from'];
 
-	if (scope && !['lint', 'types'].includes(scope)) {
-		fail(`Invalid --scope value: "${scope}". Use "lint" or "types".`);
+	if (scope && !['lint', 'types', 'compat'].includes(scope)) {
+		fail(`Invalid --scope value: "${scope}". Use "lint", "types", or "compat".`);
 	}
 
 	// Skip first two positionals (bun runtime + script path)
@@ -503,6 +505,12 @@ function parseCli() {
 	// Mode follows what was ASKED FOR, not what survived filtering.
 	const mode: Mode =
 		filesFrom !== undefined || rawPositionals.length > 0 ? 'files' : stagedOnly ? 'staged' : 'full';
+
+	if (scope === 'compat' && mode !== 'full') {
+		fail(
+			'--scope compat only supports a full-project run; omit --staged, file arguments, and --files-from.'
+		);
+	}
 
 	return { ciMode, scope, mode, rawPositionals, filesFrom };
 }
@@ -530,6 +538,16 @@ async function runCommand(
 		console.error(`${colors.red}Command failed: ${invocation}${colors.reset}`);
 		process.exit(result.status ?? 1);
 	}
+}
+
+export function compatibilityInvocation(ciMode = false) {
+	const env = sanitizedGitEnv();
+	if (ciMode) env.CI = 'true';
+	return {
+		command: 'bun',
+		args: ['scripts/convex-consumer-compat.ts'],
+		options: { env } satisfies SanitizedCommandOptions
+	};
 }
 
 /**
@@ -645,6 +663,17 @@ async function main(): Promise<void> {
 	);
 	console.log('======================================================\n');
 
+	let step = 1;
+	if (scope === 'compat') {
+		printHeader(step, 'Convex consumer compatibility');
+		const invocation = compatibilityInvocation(ciMode);
+		await runCommand(invocation.command, invocation.args, invocation.options);
+		ledger.ran('convex compat');
+		console.log('\n');
+		finish(ledger, scopeLabel);
+		return;
+	}
+
 	if (!shouldRunLint) {
 		for (const id of LINT_CHECKS) {
 			ledger.skipped(id, `--scope ${scope}`, scopedMode && ledger.filesFor(id).length > 0);
@@ -655,8 +684,6 @@ async function main(): Promise<void> {
 			ledger.skipped(id, `--scope ${scope}`, scopedMode && ledger.filesFor(id).length > 0);
 		}
 	}
-
-	let step = 1;
 
 	// SvelteKit sync (always runs — needed by both lint and types)
 	printHeader(step++, 'SvelteKit sync');

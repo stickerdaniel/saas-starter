@@ -68,7 +68,7 @@ function git(args: string[]): string {
 	});
 }
 
-type Baseline = { commit: string } | { root: true } | null;
+type Baseline = { commit: string } | { root: true } | { unavailable: string } | null;
 
 function resolveBaseline(): Baseline {
 	// Set by CI on trunk pushes to the push event's pre-push SHA: a push can
@@ -115,7 +115,10 @@ function resolveBaseline(): Baseline {
 			// never promised to keep.
 			base = git(['merge-base', 'HEAD', candidate]).trim();
 		} catch {
-			return { commit: candidate };
+			return {
+				unavailable:
+					'convex-consumer-compat: the branch merge base is unavailable. Fetch the full branch and trunk history before running this check; compatibility cannot be certified against the trunk tip.'
+			};
 		}
 		// On the trunk itself the merge base is HEAD, and a commit would be asked
 		// only about the consumer it just rewrote: it would bless its own removal.
@@ -125,8 +128,19 @@ function resolveBaseline(): Baseline {
 			try {
 				return { commit: git(['rev-parse', 'HEAD~1']).trim() };
 			} catch {
-				// A root commit has nothing to have promised.
-				return { root: true };
+				const commitHeaders = git(['cat-file', '-p', 'HEAD']).split(/\r?\n\r?\n/, 1)[0]!;
+				const hasParent = /^parent [0-9a-f]+$/m.test(commitHeaders);
+				if (!hasParent) return { root: true };
+				if (git(['rev-parse', '--is-shallow-repository']).trim() === 'true') {
+					return {
+						unavailable:
+							'convex-consumer-compat: trunk history is shallow. Fetch the full trunk history before running this check; compatibility cannot be certified without the previous deployed commit.'
+					};
+				}
+				return {
+					unavailable:
+						'convex-consumer-compat: the previous trunk commit is unavailable. Fetch the trunk history before running this check; compatibility cannot be certified without a baseline.'
+				};
 			}
 		}
 		return { commit: base };
@@ -459,14 +473,14 @@ function surfaceAt(commit: string, protectedIdentifiers: ReadonlySet<string>): S
 export async function main(): Promise<void> {
 	const baseline = resolveBaseline();
 	if (!baseline) {
-		const message =
-			'convex-consumer-compat: no trunk to compare against (looked for origin/main and main).';
-		if (process.env.CI) {
-			console.error(`${message} CI needs the full history for this check.`);
-			process.exit(1);
-		}
-		console.warn(`${message} Skipping; CI will run it against the trunk.`);
-		process.exit(0);
+		console.error(
+			'convex-consumer-compat: no trunk to compare against (looked for origin/main and main). Fetch the trunk history before running this check; compatibility cannot be certified without a baseline.'
+		);
+		process.exit(1);
+	}
+	if ('unavailable' in baseline) {
+		console.error(baseline.unavailable);
+		process.exit(1);
 	}
 	if ('root' in baseline) {
 		console.log('convex-consumer-compat: root commit, nothing promised yet.');
