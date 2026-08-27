@@ -254,6 +254,22 @@ if [ -n "$REPLACE_REMOTE_STORAGE_PATH" ] && [ ! -e "$REPLACE_REMOTE_STORAGE_MARK
       ;;
   esac
 fi
+if [ -n "$UPSTREAM_TRANSPORT_SECRET" ]; then
+  case "$command_line" in
+    *" ls-remote "*|*" fetch "*)
+      for arg in "$@"; do
+        case "$arg" in
+          upstream-report-*)
+            remote_url=$("$REAL_GIT" config --get "remote.$arg.url") || continue
+            case "$remote_url" in
+              *"$UPSTREAM_TRANSPORT_SECRET"*) : > "$UPSTREAM_TRANSPORT_SECRET_MARKER" ;;
+            esac
+            ;;
+        esac
+      done
+      ;;
+  esac
+fi
 if [ -n "$TRANSPORT_CREDENTIAL_LOG" ]; then
   case "$command_line" in
     *" ls-remote "*) "$REAL_GIT" config --file "$GIT_DIR/config" --get-all credential.helper > "$TRANSPORT_CREDENTIAL_LOG" ;;
@@ -3295,17 +3311,22 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 		git(fork, ['commit', '-qam', 'set SCP query parent']);
 		git(fork, ['remote', 'set-url', 'upstream', unsafeUrl]);
 		const seen = join(tmp, 'scp-query-secret-in-argv');
+		const transport = join(tmp, 'scp-query-transport');
 
 		const r = run(fork, ['--fetch', '--json'], {
 			PATH: `${installGitWrapper(tmp)}:${process.env.PATH ?? ''}`,
 			REAL_GIT: realGitPath(),
 			CHILD_ARG_SECRET: secret,
-			CHILD_ARG_MARKER: seen
+			CHILD_ARG_MARKER: seen,
+			UPSTREAM_TRANSPORT_SECRET: secret,
+			UPSTREAM_TRANSPORT_SECRET_MARKER: transport
 		});
 
 		expect(r.status).not.toBe(0);
+		expect(r.stderr).toContain('userinfo, a query, or a fragment');
 		expect(r.stderr).not.toContain(secret);
 		expect(existsSync(seen)).toBe(false);
+		expect(existsSync(transport)).toBe(false);
 	});
 
 	itWithGitWrapper('keeps SCP-style usernames out of shared remote creation', () => {
