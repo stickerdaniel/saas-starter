@@ -6621,6 +6621,7 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 		const protectedCheckout = join(tmp, 'upstream-relevance-index-project');
 		renameSync(fork, protectedCheckout);
 		fork = protectedCheckout;
+		chmodSync(fork, 0o700);
 		writeScratchOwner(fork, 999999999);
 		const old = new Date(Date.now() - 3 * 60 * 60 * 1000);
 		utimesSync(fork, old, old);
