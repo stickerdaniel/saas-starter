@@ -80,9 +80,9 @@ history remains `unmeasured`. The detector searches the same extension first and
 blob, since ports between JavaScript and TypeScript are ordinary. Current upstream blobs are
 read in one batch; historical blobs are retained within fixed bounds. The upstream history walk,
 object typing, root scan, blob reads, and local ancestry commands have time limits. Local
-ancestry, shared-path diffs, source-text preprocessing, and in-process similarity comparisons
-also have time or operation-count limits. Reused blobs share their prepared text representation.
-Reaching a limit keeps the path `unmeasured`.
+ancestry, shared-path diffs, source-text preprocessing, candidate visits, and in-process
+similarity comparisons also have command or operation-count limits. Reused blobs share their
+prepared text representation. Reaching a limit keeps the path `unmeasured`.
 
 A missing blob, shallow history, unsafe symlink path, unreadable or oversized source, binary
 input, or an untracked file that disappears during the run also produces `unmeasured`. Re-run
@@ -243,8 +243,10 @@ its path. It forwards credential helpers, authorization headers, and credential-
 per-process Git config instead of writing them to temporary files. The private config retains safe
 global and URL-scoped CA and proxy settings, URL-scoped client certificate settings, and a matching
 remote's proxy. Unscoped HTTP authorization stays out because the marker chooses the host. Transport
-accepts local files, HTTPS, and SSH. Plain HTTP, Git, FTP, `git+ssh`, and arbitrary remote helpers are
-refused. The private config denies unknown protocols and preserves restrictive
+accepts local files, HTTPS, and SSH. Plain HTTP, Git, FTP, `git+ssh`, forced helper syntax, and
+arbitrary remote helpers are refused. Hosted `file:` URLs and UNC paths are network transports,
+not local files. Windows drive-relative paths are refused because their target depends on process
+state. The private config denies unknown protocols and preserves restrictive
 `protocol.allow` and `protocol.*.allow` settings. An inherited `GIT_ALLOW_PROTOCOL` is intersected
 with the accepted transports and keeps Git's normal override semantics. HTTPS also requires
 certificate and proxy-certificate verification. Matching `url.*.insteadOf`,
@@ -295,8 +297,10 @@ it, then verifies that the private file and its staged entries survive unchanged
 status seeds automatic path discovery. Classification opens each regular file without following
 the final symlink, verifies the descriptor against the path and its parents, then performs a
 bounded read. Capture, retained resemblance data, and shared-path overlap maps have separate
-aggregate and representation bounds; content beyond them stays `unmeasured`. A temporary restore or replacement cannot disappear
-between matching endpoint snapshots. Each temp directory carries its owner's process
+aggregate and representation bounds; content beyond them stays `unmeasured`. When capture space is
+exhausted, the endpoint fence retains file identity, mode, size, mtime, and ctime instead of a generic
+placeholder. A temporary restore or replacement cannot disappear between matching endpoint
+snapshots. Each temp directory carries its owner's process
 id. Cleanup ignores unowned directories, skips a slow
 active report, and removes only abandoned copies older than an hour.
 Cleaning up on a signal instead would be worse: the script spends its time inside

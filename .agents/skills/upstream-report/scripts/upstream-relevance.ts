@@ -418,6 +418,9 @@ function transportRemote(url: string): string {
 }
 
 function rejectUnauthenticatedTransport(url: string): void {
+	if (/^[a-z][a-z0-9+.-]*::/i.test(url)) {
+		fail('Forced Git remote-helper syntax is not accepted for upstream evidence.');
+	}
 	if (/^(?:https|ssh|file):/i.test(url)) return;
 	if (isAbsolute(url)) return;
 	if (/^[a-z][a-z0-9+.-]*:\/\//i.test(url)) {
@@ -536,6 +539,12 @@ const DIFF_COMMAND_TIMEOUT_MS =
 	/^\d+$/.test(process.env.UPSTREAM_REPORT_TEST_DIFF_TIMEOUT_MS ?? '')
 		? Number(process.env.UPSTREAM_REPORT_TEST_DIFF_TIMEOUT_MS)
 		: DEFAULT_DIFF_COMMAND_TIMEOUT_MS;
+const DEFAULT_DIFF_OPERATION_LIMIT = 2_000;
+let diffOperationsRemaining =
+	process.env.NODE_ENV === 'test' &&
+	/^\d+$/.test(process.env.UPSTREAM_REPORT_TEST_DIFF_OPERATION_LIMIT ?? '')
+		? Number(process.env.UPSTREAM_REPORT_TEST_DIFF_OPERATION_LIMIT)
+		: DEFAULT_DIFF_OPERATION_LIMIT;
 const DEFAULT_HISTORY_OPERATION_LIMIT = 500;
 let historyOperationsRemaining =
 	process.env.NODE_ENV === 'test' &&
@@ -1369,9 +1378,23 @@ function sameRepository(left: string, right: string): boolean {
 
 function localRemotePath(url: string, root: string): string | null {
 	let candidate: string;
+	if (/^[\\/]{2}[^\\/]/.test(url)) {
+		fail('UNC paths are network transports and are not accepted as local upstream evidence.');
+	}
+	if (WINDOWS_SAFETY_MODE && /^[a-z]:(?![\\/])/i.test(url)) {
+		fail(
+			'Windows drive-relative paths are not accepted as upstream evidence. Use an absolute path.'
+		);
+	}
 	if (/^file:/i.test(url)) {
 		try {
-			candidate = fileURLToPath(url);
+			const parsed = new URL(url);
+			if (parsed.hostname !== '') {
+				fail(
+					'Hosted file URLs are network transports and are not accepted as local upstream evidence.'
+				);
+			}
+			candidate = fileURLToPath(parsed);
 		} catch {
 			fail(
 				`Cannot trust ${terminalUrl(url)} because its file URL cannot be resolved to one canonical local path.`
@@ -2776,9 +2799,22 @@ function textOf(bytes: Buffer): string | null {
 	}
 }
 
-function cacheBags(keys: string[], upstream: Upstream): void {
-	const unread = keys.filter((key) => !upstream.bags.has(key));
-	if (unread.length === 0) return;
+function takeSimilarityOperations(upstream: Upstream, count: number): boolean {
+	if (count > upstream.similarityOperationsRemaining) {
+		upstream.similarityOperationsRemaining = 0;
+		return false;
+	}
+	upstream.similarityOperationsRemaining -= count;
+	return true;
+}
+
+function cacheBags(keys: string[], upstream: Upstream): boolean {
+	const unread: string[] = [];
+	for (const key of keys) {
+		if (!takeSimilarityOperations(upstream, 1)) return false;
+		if (!upstream.bags.has(key)) unread.push(key);
+	}
+	if (unread.length === 0) return true;
 	const blobs = readBlobs(
 		[...new Set(unread.map((key) => upstream.candidates.get(key)!.sha))],
 		Math.max(0, BLOB_BATCH_BYTES - upstream.bagSourceBytes)
@@ -2821,6 +2857,7 @@ function cacheBags(keys: string[], upstream: Upstream): void {
 		}
 		upstream.bags.set(key, cached);
 	}
+	return true;
 }
 
 const POTENTIAL_TEXT_EXTENSIONS = new Set([
@@ -2882,7 +2919,13 @@ function searchSimilar(
 	upstream: Upstream,
 	unreadableIsUnknown = false
 ): SimilarityResult {
-	cacheBags(candidates, upstream);
+	if (!cacheBags(candidates, upstream)) {
+		return {
+			path: null,
+			measured: false,
+			note: 'similarity comparison exceeded the bounded operation count'
+		};
+	}
 	let best = SIMILAR_ENOUGH;
 	let bestPath: string | null = null;
 	let missing = false;
@@ -2891,6 +2934,10 @@ function searchSimilar(
 	let unreadable = false;
 	let operationsExhausted = false;
 	for (const key of candidates) {
+		if (!takeSimilarityOperations(upstream, 1)) {
+			operationsExhausted = true;
+			break;
+		}
 		const cached = upstream.bags.get(key)!;
 		if (cached.kind === 'missing') {
 			missing = true;
@@ -2917,11 +2964,10 @@ function searchSimilar(
 		const operations =
 			mine.lines.size +
 			(mine.grams && cached.bag.grams ? mine.grams.length + cached.bag.grams.length : 0);
-		if (operations > upstream.similarityOperationsRemaining) {
+		if (!takeSimilarityOperations(upstream, operations)) {
 			operationsExhausted = true;
 			break;
 		}
-		upstream.similarityOperationsRemaining -= operations;
 		const score = blobSimilarity(mine, cached.bag);
 		if (score >= best) {
 			best = score;
@@ -3015,7 +3061,17 @@ function similarTo(content: Buffer, path: string, upstream: Upstream): Similarit
 	if (first.path !== null) return first;
 
 	const same = new Set(sameExtension);
-	const rest = upstream.blobKeys.filter((candidate) => !same.has(candidate));
+	const rest: string[] = [];
+	for (const candidate of upstream.blobKeys) {
+		if (!takeSimilarityOperations(upstream, 1)) {
+			return {
+				path: null,
+				measured: false,
+				note: 'similarity comparison exceeded the bounded operation count'
+			};
+		}
+		if (!same.has(candidate)) rest.push(candidate);
+	}
 	const widened = searchSimilar(source.bag, rest, upstream);
 	if (widened.path !== null) return widened;
 	return {
@@ -3029,6 +3085,7 @@ interface ContentSet {
 	values: Buffer[];
 	incompleteNote?: string;
 	missing?: boolean;
+	fingerprintHint?: string;
 }
 
 function symlinkParent(path: string): string | null {
@@ -3043,6 +3100,10 @@ function symlinkParent(path: string): string | null {
 
 function sameFileIdentity(left: Stats, right: Stats): boolean {
 	return left.dev === right.dev && left.ino === right.ino;
+}
+
+function statFingerprint(stats: Stats): string {
+	return [stats.dev, stats.ino, stats.mode, stats.size, stats.mtimeMs, stats.ctimeMs].join(':');
 }
 
 function workingTreeContent(path: string, maxBytes = CAPTURE_LIMIT): ContentSet {
@@ -3060,7 +3121,8 @@ function workingTreeContent(path: string, maxBytes = CAPTURE_LIMIT): ContentSet 
 			if (target.length > maxBytes) {
 				return {
 					values: [],
-					incompleteNote: 'working-tree content exceeds the bounded capture size'
+					incompleteNote: 'working-tree content exceeds the bounded capture size',
+					fingerprintHint: statFingerprint(initial)
 				};
 			}
 			const changedParent = symlinkParent(path);
@@ -3095,7 +3157,8 @@ function workingTreeContent(path: string, maxBytes = CAPTURE_LIMIT): ContentSet 
 			if (opened.size > maxBytes) {
 				return {
 					values: [],
-					incompleteNote: 'working-tree content exceeds the bounded capture size'
+					incompleteNote: 'working-tree content exceeds the bounded capture size',
+					fingerprintHint: statFingerprint(opened)
 				};
 			}
 
@@ -3132,6 +3195,8 @@ function fingerprintContent(content: ContentSet): string {
 	const hash = createHash('sha256');
 	hash.update(content.missing ? 'missing\0' : 'present\0');
 	hash.update(content.incompleteNote ?? '');
+	hash.update('\0');
+	hash.update(content.fingerprintHint ?? '');
 	for (const value of content.values) {
 		hash.update(String(value.length));
 		hash.update('\0');
@@ -3164,6 +3229,13 @@ function capturedDiff(
 	before: Buffer,
 	after: Buffer
 ): { output: Buffer | null; incompleteNote?: string } {
+	if (diffOperationsRemaining <= 0) {
+		return {
+			output: null,
+			incompleteNote: 'shared-path comparison exceeded the bounded diff command count'
+		};
+	}
+	diffOperationsRemaining--;
 	if (!scratchDir) fail('The scratch directory disappeared before captured content was compared.');
 	const id = randomUUID();
 	const beforePath = join(scratchDir, `${id}-before`);

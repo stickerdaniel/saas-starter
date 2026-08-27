@@ -291,6 +291,14 @@ if [ -n "$TRANSPORT_REWRITE_REPO" ]; then
       ;;
   esac
 fi
+if [ -n "$MUTATE_AFTER_CAPTURE_PATH" ] && [ ! -e "$MUTATE_AFTER_CAPTURE_MARKER" ]; then
+  case "$command_line" in
+    *" ls-tree -r -z "*)
+      printf '%s' "$MUTATE_AFTER_CAPTURE_CONTENT" > "$MUTATE_AFTER_CAPTURE_PATH" || exit $?
+      : > "$MUTATE_AFTER_CAPTURE_MARKER"
+      ;;
+  esac
+fi
 if [ -n "$PATH_ENUMERATION_LOG" ]; then
   case "$command_line" in
     *" diff --ignore-submodules=none --name-status -M -z "*|*" ls-files --others --exclude-standard -z "*|*" ls-files -z --full-name --cached --others --exclude-standard -- "*|*" ls-tree -z --full-name --name-only -r "*)
@@ -2367,8 +2375,66 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 		expect(r.stderr).toMatch(/marker upstream URL resolves inside a checkout/);
 	});
 
+	it('rejects hosted file URLs before Windows can resolve a UNC path', () => {
+		const url = 'file://attacker.example/share/repo.git';
+		const marker = JSON.parse(readFileSync(join(fork, '.upstream-sync.json'), 'utf8')) as Record<
+			string,
+			unknown
+		>;
+		write(fork, '.upstream-sync.json', JSON.stringify({ ...marker, upstreamUrl: url }));
+		git(fork, ['commit', '-qam', 'set hosted file parent']);
+		git(fork, ['remote', 'set-url', 'upstream', url]);
+
+		const r = run(fork, ['--json'], {
+			NODE_ENV: 'test',
+			UPSTREAM_REPORT_TEST_WINDOWS_SAFETY: '1'
+		});
+
+		expect(r.status).not.toBe(0);
+		expect(r.stderr).toMatch(/Hosted file URLs are network transports/);
+	});
+
+	it('rejects raw UNC remotes before local path resolution', () => {
+		const url = String.raw`\\attacker.example\share\repo.git`;
+		const marker = JSON.parse(readFileSync(join(fork, '.upstream-sync.json'), 'utf8')) as Record<
+			string,
+			unknown
+		>;
+		write(fork, '.upstream-sync.json', JSON.stringify({ ...marker, upstreamUrl: url }));
+		git(fork, ['commit', '-qam', 'set UNC parent']);
+		git(fork, ['remote', 'set-url', 'upstream', url]);
+
+		const r = run(fork, ['--json'], {
+			NODE_ENV: 'test',
+			UPSTREAM_REPORT_TEST_WINDOWS_SAFETY: '1'
+		});
+
+		expect(r.status).not.toBe(0);
+		expect(r.stderr).toMatch(/UNC paths are network transports/);
+	});
+
+	it('rejects Windows drive-relative remotes before SCP parsing', () => {
+		const url = 'C:.';
+		const marker = JSON.parse(readFileSync(join(fork, '.upstream-sync.json'), 'utf8')) as Record<
+			string,
+			unknown
+		>;
+		write(fork, '.upstream-sync.json', JSON.stringify({ ...marker, upstreamUrl: url }));
+		git(fork, ['commit', '-qam', 'set drive-relative parent']);
+		git(fork, ['remote', 'set-url', 'upstream', url]);
+
+		const r = run(fork, ['--json'], {
+			NODE_ENV: 'test',
+			UPSTREAM_REPORT_TEST_WINDOWS_SAFETY: '1'
+		});
+
+		expect(r.status).not.toBe(0);
+		expect(r.stderr).toMatch(/Windows drive-relative paths/);
+	});
+
 	itWithPosixPaths('rejects Git-compatible file URLs that lack one canonical local path', () => {
-		const url = `file://example.invalid${fork}`;
+		const encodedPath = fork.replace(/^\/([^/]+)\//, '/$1%2F');
+		const url = `file://${encodedPath}`;
 		const marker = JSON.parse(readFileSync(join(fork, '.upstream-sync.json'), 'utf8')) as Record<
 			string,
 			unknown
@@ -3833,6 +3899,30 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 		);
 	});
 
+	itWithGitWrapper('rejects forced HTTPS helper syntax before transport', () => {
+		const secret = 'DUMMY_NESTED_HELPER_SECRET';
+		const url = `https::https://user:${secret}@example.invalid/repo.git`;
+		const marker = JSON.parse(readFileSync(join(fork, '.upstream-sync.json'), 'utf8')) as Record<
+			string,
+			unknown
+		>;
+		write(fork, '.upstream-sync.json', JSON.stringify({ ...marker, upstreamUrl: url }));
+		git(fork, ['commit', '-qam', 'set forced HTTPS helper parent']);
+		git(fork, ['remote', 'set-url', 'upstream', url]);
+		const networkMarker = join(tmp, 'forced-helper-network-command');
+
+		const r = run(fork, ['--fetch', '--base', 'HEAD', '--json'], {
+			PATH: `${installGitWrapper(tmp)}:${process.env.PATH ?? ''}`,
+			REAL_GIT: realGitPath(),
+			NETWORK_COMMAND_MARKER: networkMarker
+		});
+
+		expect(r.status).not.toBe(0);
+		expect(r.stderr).not.toContain(secret);
+		expect(r.stderr).toMatch(/Forced Git remote-helper syntax/);
+		expect(existsSync(networkMarker)).toBe(false);
+	});
+
 	itWithGitWrapper('rejects credential-bearing HTTPS before starting its helper', () => {
 		const secret = 'DUMMY_REMOTE_CREDENTIAL';
 		const url = `https://user:${secret}@example.invalid/repo.git`;
@@ -4622,6 +4712,37 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 		expect(verdict?.note).toMatch(/diff command failed before completing/);
 	});
 
+	it('bounds aggregate shared-path diff commands', () => {
+		const paths = ['shared/diff-budget-a.ts', 'shared/diff-budget-b.ts'];
+		for (const [index, path] of paths.entries()) {
+			write(upstream, path, `upstream${index}One();\nupstream${index}Two();\n`);
+			write(fork, path, `fork${index}One();\nfork${index}Two();\n`);
+		}
+		git(upstream, ['add', '-A']);
+		git(upstream, ['commit', '-qm', 'add diff budget fixtures']);
+		git(fork, ['add', '-A']);
+		git(fork, ['commit', '-qm', 'add diverged diff budget paths']);
+		git(fork, ['fetch', '-q', 'upstream']);
+		markBase(fork);
+		for (const [index, path] of paths.entries()) {
+			write(fork, path, `fork${index}AfterOne();\nfork${index}AfterTwo();\n`);
+		}
+		git(fork, ['commit', '-qam', 'edit diff budget paths']);
+
+		const r = run(fork, ['--fetch', '--json', ...paths], {
+			NODE_ENV: 'test',
+			UPSTREAM_REPORT_TEST_DIFF_OPERATION_LIMIT: '1'
+		});
+
+		expect(r.status, r.stderr).toBe(0);
+		const parsed = JSON.parse(r.stdout) as {
+			verdicts: Array<{ path: string; relevance: string; note?: string }>;
+		};
+		expect(
+			parsed.verdicts.some((verdict) => verdict.note?.includes('bounded diff command count'))
+		).toBe(true);
+	});
+
 	itWithGitWrapper('times out a stalled captured diff', () => {
 		write(upstream, 'shared/captured-timeout.ts', 'upstreamOne();\nupstreamTwo();\n');
 		git(upstream, ['add', '-A']);
@@ -5320,6 +5441,28 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 		expect(verdict?.note).toMatch(/bounded operation count/);
 	});
 
+	it('charges candidate traversal even when upstream text is unavailable', () => {
+		const source = readFileSync(SCRIPT, 'utf8');
+		const cacheStart = source.indexOf('function cacheBags(');
+		const cacheEnd = source.indexOf('const POTENTIAL_TEXT_EXTENSIONS', cacheStart);
+		const cache = source.slice(cacheStart, cacheEnd);
+		const searchStart = source.indexOf('function searchSimilar(');
+		const searchEnd = source.indexOf('type SourceBag', searchStart);
+		const search = source.slice(searchStart, searchEnd);
+		const similarStart = source.indexOf('function similarTo(');
+		const similarEnd = source.indexOf('interface ContentSet', similarStart);
+		const similar = source.slice(similarStart, similarEnd);
+		const candidateLoop = search.indexOf('for (const key of candidates)');
+		const candidateCharge = search.indexOf('takeSimilarityOperations(upstream, 1)', candidateLoop);
+		const cachedRead = search.indexOf('upstream.bags.get(key)', candidateLoop);
+
+		expect(cache).toContain('takeSimilarityOperations(upstream, 1)');
+		expect(candidateCharge).toBeGreaterThan(candidateLoop);
+		expect(cachedRead).toBeGreaterThan(candidateCharge);
+		expect(similar).toContain('for (const candidate of upstream.blobKeys)');
+		expect(similar).toContain('takeSimilarityOperations(upstream, 1)');
+	});
+
 	it('keeps aggregate working-tree capture bounded', () => {
 		write(fork, 'product/capture-a.ts', 'captureAlphaToken();\ncaptureAlphaToken();\n');
 		write(fork, 'product/capture-b.ts', 'captureBetaToken();\ncaptureBetaToken();\n');
@@ -5335,6 +5478,33 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 		const verdict = parsed.verdicts.find((entry) => entry.path === 'product/capture-b.ts');
 		expect(verdict?.relevance).toBe('unmeasured');
 		expect(verdict?.note).toMatch(/bounded capture size/);
+	});
+
+	itWithGitWrapper('fences bytes after aggregate capture is exhausted', () => {
+		const first = 'product/capture-fence-a.ts';
+		const second = 'product/capture-fence-b.ts';
+		write(fork, first, 'export const first = 1;\n');
+		write(fork, second, 'export const value = 1;\n');
+		git(fork, ['add', first, second]);
+		git(fork, ['commit', '-qm', 'add capture fence paths']);
+		markBase(fork);
+		write(fork, first, 'export const first = 123456789012345678901234567890;\n');
+		write(fork, second, 'export const value = 2;\n');
+		const marker = join(tmp, 'capture-fence-mutated');
+
+		const r = run(fork, ['--json'], {
+			PATH: `${installGitWrapper(tmp)}:${process.env.PATH ?? ''}`,
+			REAL_GIT: realGitPath(),
+			NODE_ENV: 'test',
+			UPSTREAM_REPORT_TEST_CAPTURE_LIMIT: '64',
+			MUTATE_AFTER_CAPTURE_PATH: join(fork, second),
+			MUTATE_AFTER_CAPTURE_CONTENT: 'export const value = 3;\n',
+			MUTATE_AFTER_CAPTURE_MARKER: marker
+		});
+
+		expect(existsSync(marker)).toBe(true);
+		expect(r.status).not.toBe(0);
+		expect(r.stderr).toMatch(/working tree changed during this report/);
 	});
 
 	itWithPosixPaths('counts symlink targets against aggregate working-tree capture', () => {
