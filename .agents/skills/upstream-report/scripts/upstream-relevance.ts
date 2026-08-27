@@ -559,6 +559,12 @@ const PATH_LIMIT =
 	process.env.NODE_ENV === 'test' && /^\d+$/.test(process.env.UPSTREAM_REPORT_TEST_PATH_LIMIT ?? '')
 		? Number(process.env.UPSTREAM_REPORT_TEST_PATH_LIMIT)
 		: DEFAULT_PATH_LIMIT;
+const DEFAULT_CHANGED_REGION_LIMIT = 8 * 1024 * 1024;
+const CHANGED_REGION_LIMIT =
+	process.env.NODE_ENV === 'test' &&
+	/^\d+$/.test(process.env.UPSTREAM_REPORT_TEST_CHANGED_REGION_LIMIT ?? '')
+		? Number(process.env.UPSTREAM_REPORT_TEST_CHANGED_REGION_LIMIT)
+		: DEFAULT_CHANGED_REGION_LIMIT;
 const DEFAULT_DIFF_COMMAND_TIMEOUT_MS = 30_000;
 const DIFF_COMMAND_TIMEOUT_MS =
 	process.env.NODE_ENV === 'test' &&
@@ -1126,20 +1132,39 @@ interface Region {
  * `---content`, and skipping it discards the only evidence a one-line change
  * has.
  */
-export function changedRegionLines(unifiedDiff: string): Region[] {
+function changedRegionLinesWithin(unifiedDiff: string, maxRepresentation: number): Region[] | null {
 	const regions: Region[] = [];
 	let current: Region | null = null;
-	for (const line of unifiedDiff.split('\n')) {
-		if (line.startsWith('@@')) {
+	let representation = 0;
+	let start = 0;
+	while (start <= unifiedDiff.length) {
+		const newline = unifiedDiff.indexOf('\n', start);
+		const end = newline === -1 ? unifiedDiff.length : newline;
+		const lineLength = end - start;
+		representation += 32 + lineLength * 2;
+		if (representation > maxRepresentation) return null;
+		if (
+			lineLength >= 2 &&
+			unifiedDiff.charCodeAt(start) === 0x40 &&
+			unifiedDiff.charCodeAt(start + 1) === 0x40
+		) {
+			representation += 64;
+			if (representation > maxRepresentation) return null;
 			current = { removed: [], context: [] };
 			regions.push(current);
-			continue;
+		} else if (current && lineLength > 0) {
+			const prefix = unifiedDiff.charCodeAt(start);
+			if (prefix === 0x2d) current.removed.push(unifiedDiff.slice(start + 1, end));
+			else if (prefix === 0x20) current.context.push(unifiedDiff.slice(start + 1, end));
 		}
-		if (!current) continue;
-		if (line.startsWith('-')) current.removed.push(line.slice(1));
-		else if (line.startsWith(' ')) current.context.push(line.slice(1));
+		if (newline === -1) break;
+		start = end + 1;
 	}
 	return regions;
+}
+
+export function changedRegionLines(unifiedDiff: string): Region[] {
+	return changedRegionLinesWithin(unifiedDiff, Number.MAX_SAFE_INTEGER) ?? [];
 }
 
 /**
@@ -4029,12 +4054,21 @@ function verdictFor(
 	for (const after of afterValues) {
 		const captured = capturedDiff(baseBlob, after);
 		if (captured.incompleteNote) incompleteNote ??= captured.incompleteNote;
+		if (captured.output && captured.output.length > CHANGED_REGION_LIMIT) {
+			incompleteNote ??= 'one shared-path diff exceeds the bounded changed-region representation';
+			continue;
+		}
 		const diff = captured.output ? textOf(captured.output) : null;
 		if (diff === null) {
 			incompleteNote ??= 'one shared-path diff is not valid UTF-8 text';
 			continue;
 		}
-		const score = regionOverlapWithLines(changedRegionLines(diff), upstreamLines);
+		const regions = changedRegionLinesWithin(diff, CHANGED_REGION_LIMIT);
+		if (regions === null) {
+			incompleteNote ??= 'one shared-path diff exceeds the bounded changed-region representation';
+			continue;
+		}
+		const score = regionOverlapWithLines(regions, upstreamLines);
 		if (score !== null) overlap = overlap === null ? score : Math.max(overlap, score);
 		sawBinary ||= /^Binary files/m.test(diff);
 	}

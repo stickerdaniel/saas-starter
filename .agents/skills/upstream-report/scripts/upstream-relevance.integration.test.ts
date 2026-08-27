@@ -5644,6 +5644,28 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 		expect(verdict?.note).toMatch(/bounded similarity size/);
 	});
 
+	it('bounds the completed diff before building changed-region arrays', () => {
+		const path = 'shared/rewritten.ts';
+		write(
+			fork,
+			path,
+			`${Array.from({ length: 20 }, (_, index) => `export const changed${index} = ${index};`).join('\n')}\n`
+		);
+
+		const r = run(fork, ['--fetch', '--json', path], {
+			NODE_ENV: 'test',
+			UPSTREAM_REPORT_TEST_CHANGED_REGION_LIMIT: '2000'
+		});
+
+		expect(r.status, r.stderr).toBe(0);
+		const parsed = JSON.parse(r.stdout) as {
+			verdicts: Array<{ path: string; relevance: string; note?: string }>;
+		};
+		const verdict = parsed.verdicts.find((entry) => entry.path === path);
+		expect(verdict?.relevance).toBe('unmeasured');
+		expect(verdict?.note).toMatch(/bounded changed-region representation/);
+	});
+
 	it('bounds the overlap map for a shared upstream path', () => {
 		const path = 'shared/large-overlap.ts';
 		write(

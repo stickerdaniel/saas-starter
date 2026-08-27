@@ -308,8 +308,8 @@ records the caller index at the same instant it copies
 it, then verifies that the private file and its staged entries survive unchanged. Its initial
 status seeds automatic path discovery. Classification opens each regular file without following
 the final symlink, verifies the descriptor against the path and its parents, then performs a
-bounded read. Capture, retained resemblance data, and shared-path overlap maps have separate
-aggregate and representation bounds; content beyond them stays `unmeasured`. When capture space is
+bounded read. Capture, retained resemblance data, completed shared-path diffs, and overlap maps
+have separate aggregate and representation bounds; content beyond them stays `unmeasured`. When capture space is
 exhausted, the endpoint fence retains file identity, mode, size, mtime, and ctime instead of a generic
 placeholder. A temporary restore or replacement cannot disappear between matching endpoint
 snapshots. Each temp directory has owner-only permissions and a versioned ownership manifest tied
