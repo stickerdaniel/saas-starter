@@ -15,18 +15,22 @@
  *      so these stay fast.
  */
 import { spawnSync } from 'child_process';
-import { mkdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { describe, expect, it } from 'vitest';
 
 import { sanitizedGitEnv } from './git-context';
 import {
+	argumentBatches,
 	authoredTextFiles,
 	existingRepositoryPaths,
 	formatPathForDiagnostic,
 	isIgnoredPath,
 	literalControlCharacterViolations,
+	prettierArguments,
+	prettierFormattableFiles,
 	repositoryPaths,
 	ROUTES,
 	resolveInputs,
@@ -49,6 +53,38 @@ describe('checker mutation mode', () => {
 		expect(usesAssertOnlyChecks(true, 'full')).toBe(true);
 		expect(usesAssertOnlyChecks(false, 'files')).toBe(false);
 	});
+
+	it('batches structured arguments by both file count and command length', () => {
+		expect(argumentBatches(['a.ts', 'b.ts', 'c.ts'], ['prettier'], 1_000, 2)).toEqual([
+			['a.ts', 'b.ts'],
+			['c.ts']
+		]);
+		expect(argumentBatches(['aaaa.ts', 'bbbb.ts'], ['command'], 20, 100)).toEqual([
+			['aaaa.ts'],
+			['bbbb.ts']
+		]);
+	});
+});
+
+describe('Prettier invocation', () => {
+	// The project run used to take neither --ignore-unknown nor the plugins while the
+	// file-scoped run passed plugins on the command line, so the two could disagree about
+	// what a given file even is. Both are built here now, and neither names a plugin:
+	// .prettierrc declares them once and every run reads that.
+	it('gives the project run and the file-scoped run the same contract', () => {
+		const project = prettierArguments('--check');
+		const scoped = prettierArguments('--check', ['src/app.ts']);
+
+		expect(project.at(-1)).toBe('.');
+		expect(scoped.slice(-2)).toEqual(['--', 'src/app.ts']);
+
+		const projectOptions = project.slice(0, -1);
+		const scopedOptions = scoped.slice(0, scoped.indexOf('--'));
+		expect(projectOptions).toEqual(scopedOptions);
+		expect(projectOptions).toContain('--ignore-unknown');
+		expect(projectOptions).not.toContain('--plugin');
+		expect(prettierArguments('--write', ['a.ts'])).toContain('--write');
+	});
 });
 
 describe('route predicates', () => {
@@ -64,6 +100,93 @@ describe('route predicates', () => {
 		expect(ROUTES['literal-control-char']('src/lib/content/llms.txt')).toBe(true);
 		expect(ROUTES['literal-control-char']('src/lib/content/privacy.ts')).toBe(false);
 		expect(ROUTES['literal-control-char']('scratch/session/log.txt')).toBe(false);
+	});
+
+	// The Prettier route is the one route that is not a path predicate. It used to be a
+	// hand-written extension grammar, which is a copy of a table Prettier owns and which
+	// had drifted: every filename in the second group is formatted by Prettier and none
+	// of them matched, so a file-scoped run skipped them and called itself green.
+	it('asks Prettier which files it can parse', async () => {
+		const formattable = [
+			'.prettierrc',
+			'config.jsonc',
+			'workflow.yaml',
+			'query.graphql',
+			'page.mdx',
+			'static/site.webmanifest',
+			'README.markdown',
+			'.babelrc',
+			'boundaries.geojson',
+			'campaign.mjml'
+		];
+		expect(await prettierFormattableFiles(formattable)).toEqual(formattable);
+		expect(await prettierFormattableFiles(['static/image.png', 'notes.txt', 'Dockerfile'])).toEqual(
+			[]
+		);
+	});
+
+	// .prettierrc is where this repository declares its formatter contract, and the
+	// formatter subprocess is what reads it. The checker cannot: resolving configuration
+	// to answer a routing question would run a config file and a plugin in the checker's
+	// own process. So the route carries one narrow convention instead, and its licence is
+	// the declaration pinned here.
+	it('takes the Svelte contract from the repository configuration', async () => {
+		const config = JSON.parse(readFileSync(path.join(ROOT, '.prettierrc'), 'utf8')) as {
+			plugins?: string[];
+			overrides?: Array<{ files?: string; options?: { parser?: string } }>;
+		};
+		expect(config.plugins).toContain('prettier-plugin-svelte');
+		expect(
+			config.overrides?.some(
+				(override) => override.files === '*.svelte' && override.options?.parser === 'svelte'
+			)
+		).toBe(true);
+
+		// Prettier has no built-in Svelte language, and loading the plugin to find that out
+		// would run it inside the checker. The route asserts the convention instead, which
+		// is only honest while the two declarations above are the ones the formatter reads.
+		expect(await prettierFormattableFiles(['src/routes/+layout.svelte'])).toEqual([
+			'src/routes/+layout.svelte'
+		]);
+	});
+
+	it('classifies without executing repository configuration', async () => {
+		// Measured: with configuration resolution left on, one malformed .prettierrc makes
+		// getFileInfo throw, so a routing question would take the whole run down before any
+		// check it was classifying for could start. Classification answers from Prettier's
+		// built-in table and the repository convention alone, and never runs a config file
+		// or a plugin inside the checker.
+		const fixture = mkdtempSync(path.join(tmpdir(), 'static-checks-config-'));
+		try {
+			writeFileSync(path.join(fixture, '.prettierrc'), '{ this is not json\n');
+			writeFileSync(path.join(fixture, 'probe.ts'), 'export const probe = 1;\n');
+			writeFileSync(path.join(fixture, 'probe.svelte'), '<p>probe</p>\n');
+			expect(await prettierFormattableFiles(['probe.ts', 'probe.svelte'], fixture)).toEqual([
+				'probe.ts',
+				'probe.svelte'
+			]);
+		} finally {
+			rmSync(fixture, { recursive: true, force: true });
+		}
+	});
+
+	it('applies the ignore rules the formatter CLI applies', async () => {
+		// The CLI's default --ignore-path is exactly [.gitignore, .prettierignore], and
+		// .prettierignore excludes the generated src/env.d.ts. A file the command would
+		// skip is not work this run may claim, so it must not reach the ledger as one.
+		expect(await prettierFormattableFiles(['src/env.d.ts'])).toEqual([]);
+		expect(await prettierFormattableFiles(['src/routes/+layout.svelte', 'src/env.d.ts'])).toEqual([
+			'src/routes/+layout.svelte'
+		]);
+	});
+
+	it('keeps a run honest about which named files it formatted', async () => {
+		// The count the ledger reports has to be the count Prettier can act on. A named
+		// file it cannot parse is not formatter work, and calling it work would let a run
+		// of nothing but unparseable inputs report success.
+		expect(await prettierFormattableFiles(['README.markdown', 'static/image.png'])).toEqual([
+			'README.markdown'
+		]);
 	});
 
 	it('keeps artifact ignores rooted and includes tracked dot-directory documents', () => {
@@ -205,6 +328,19 @@ describe('resolveInputs', () => {
 			'src/lib/utils/auth-messages.ts'
 		];
 		expect(resolveInputs(forms, 'test')).toEqual(['src/lib/utils/auth-messages.ts']);
+	});
+
+	// Containment is a segment question, not a prefix question: "..valid.ts" is an
+	// ordinary file at the repository root, and only "..", a real ".." segment, or an
+	// absolute result (a different Windows drive) is outside.
+	it('keeps a root file whose name begins with dots', () => {
+		const file = path.join(ROOT, `..resolve-dots-${process.pid}.ts`);
+		writeFileSync(file, 'export const valid = true;\n');
+		try {
+			expect(resolveInputs([file], 'test')).toEqual([path.basename(file)]);
+		} finally {
+			rmSync(file, { force: true });
+		}
 	});
 
 	it('includes dot-directory descendants of a directory argument', () => {
