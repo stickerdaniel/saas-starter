@@ -79,10 +79,10 @@ commit must remain reachable from the fetched upstream tip. A force-pushed, disc
 history remains `unmeasured`. The detector searches the same extension first and widens to every
 blob, since ports between JavaScript and TypeScript are ordinary. Current upstream blobs are
 read in one batch; historical blobs are retained within fixed bounds. The upstream history walk,
-object typing, root scan, blob reads, and local ancestry commands have time limits. Local
-ancestry, shared-path diffs, source-text preprocessing, candidate visits, and in-process
-similarity comparisons also have command or operation-count limits. Reused blobs share their
-prepared text representation. Reaching a limit keeps the path `unmeasured`.
+object typing, root scan, blob reads, retained history records, and local ancestry commands
+have limits. Local ancestry, shared-path diffs, source-text preprocessing, candidate visits, and
+in-process similarity comparisons also have command or operation-count limits. Reused blobs share
+their prepared text representation. Reaching a limit keeps the path `unmeasured`.
 
 A missing blob, shallow history, unsafe symlink path, unreadable or oversized source, binary
 input, or an untracked file that disappears during the run also produces `unmeasured`. Re-run
@@ -239,22 +239,27 @@ rule and any URL owned by this repository's worktrees, and uses `ls-remote` to b
 Trusted network commands use hashed remote names in a private bare Git directory with the caller's
 object format. The URL lives only in its private config, never in a detector Git argument. POSIX
 permissions restrict that file to its owner. Windows reads the marker from the index before touching
-its path. It forwards credential helpers, authorization headers, and credential-bearing proxies as
-per-process Git config instead of writing them to temporary files. The private config retains safe
-global and URL-scoped CA and proxy settings, URL-scoped client certificate settings, and a matching
-remote's proxy. Unscoped HTTP authorization stays out because the marker chooses the host. Transport
-accepts local files, HTTPS, and SSH. Plain HTTP, Git, FTP, `git+ssh`, forced helper syntax, and
-arbitrary remote helpers are refused. Hosted `file:` URLs and UNC paths are network transports,
-not local files. Windows drive-relative paths are refused because their target depends on process
-state. The private config denies unknown protocols and preserves restrictive
+its path. It forwards credential helpers, authorization headers, and every credential-bearing proxy,
+including scheme-less Git proxy syntax, as per-process config instead of writing them to temporary
+files. The private config retains safe global and URL-scoped CA and proxy settings, Schannel CA
+activation, URL-scoped client certificate settings, and a matching remote's proxy. Unscoped HTTP
+authorization stays out because the marker chooses the host. Transport accepts canonical hostless
+`file:///` URLs, absolute local paths, HTTPS, and SSH. Plain HTTP, Git, FTP, `git+ssh`, forced helper
+syntax, and arbitrary remote helpers are refused. Hosted `file:` URLs and UNC paths are network
+transports, not local files. Windows drive-relative paths are refused because their target depends on
+process state. The marker itself must be credential-free even when a clean configured remote names
+the same repository. SCP-style query and fragment suffixes are treated as secret-bearing. The
+private config denies unknown protocols and preserves restrictive
 `protocol.allow` and `protocol.*.allow` settings. An inherited `GIT_ALLOW_PROTOCOL` is intersected
 with the accepted transports and keeps Git's normal override semantics. HTTPS also requires
 certificate and proxy-certificate verification. Matching `url.*.insteadOf`,
 `core.sshCommand`, and `core.gitProxy` overrides remain refused. A `remote.upstream.uploadpack`
 helper cannot serve a different repository. When the marker uses an accepted GitHub alias, transport
 keeps the configured remote's exact spelling so its URL-scoped pins, certificates, and proxy settings
-still match. A local remote is written under the canonical path that passed checkout-ownership
-validation, so retargeting its symlink cannot redirect the later fetch.
+still match. Remote URLs and their proxy settings are captured together and fenced before output. A
+local remote is written under the canonical path that passed checkout-ownership validation. The
+ownership check compares ancestor filesystem identity as well as spelling, so a bind-mounted alias or
+retargeted symlink cannot redirect the later fetch back into this repository.
 
 Fetch disables automatic maintenance because the private ref namespace does not describe which
 objects the real repository still needs. Fetched objects still land in the real object store. The
@@ -291,8 +296,10 @@ temp-directory symlink cannot move either operation into the repository. Git fol
 existing split index back to `.git/sharedindex.<sha>` and
 touches that file, so the detector checks the copied bytes, refuses a split index, and pins
 split-index activation off. It also pins Git's full ctime and stat checks. On POSIX it requires
-Git's filesystem probe to report executable-bit support, so repository config cannot hide same-size
-or mode-only edits without inventing changes on incapable filesystems. The snapshot records the caller index at the same instant it copies
+Git's filesystem probe to report executable-bit support, then pins file-mode detection on every
+later POSIX read so a concurrent config edit cannot hide a mode-only change. Repository-root path
+reads remove only Git's record delimiter, preserving meaningful trailing whitespace. The snapshot
+records the caller index at the same instant it copies
 it, then verifies that the private file and its staged entries survive unchanged. Its initial
 status seeds automatic path discovery. Classification opens each regular file without following
 the final symlink, verifies the descriptor against the path and its parents, then performs a

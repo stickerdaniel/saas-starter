@@ -197,6 +197,7 @@ function transportConfigEnv(): NodeJS.ProcessEnv {
 //   advice.graftFileDeprecated=false  the empty null-device override otherwise warns
 //                         once per Git process and drowns out the report.
 const PINNED_CONFIG = [
+	...(process.platform === 'win32' ? [] : ['-c', 'core.fileMode=true']),
 	'-c',
 	'core.quotePath=false',
 	'-c',
@@ -302,6 +303,9 @@ function appendTransportConfig(configPath: string, key: string, value: string): 
 }
 
 function proxyCarriesUserinfo(value: string): boolean {
+	if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(value)) {
+		return /^[^/\\\s]*@/.test(value);
+	}
 	try {
 		const parsed = new URL(value);
 		return parsed.username !== '' || parsed.password !== '';
@@ -320,17 +324,17 @@ function safeWindowsTransportValue(key: string, value: string): boolean {
 	return true;
 }
 
+const TRANSPORT_CONFIG_PATTERN =
+	'^(credential\\.|http\\.(pinnedpubkey|proxy|proxyauthmethod|proxysslcainfo|proxysslverify|schannelusesslcainfo|sslbackend|sslcainfo|sslcapath|sslverify)$|http\\..*\\.(extraheader|pinnedpubkey|proxy|proxyauthmethod|proxysslcainfo|proxysslcert|proxysslcertpasswordprotected|proxysslkey|proxysslverify|schannelusesslcainfo|sslcainfo|sslcapath|sslcert|sslcertpasswordprotected|sslkey|sslverify)$|protocol(\\.[^.]*)?\\.allow$|remote\\..*\\.(url|proxy|proxyauthmethod)$)';
+
+function readTransportConfiguration(): Buffer {
+	return gitBytes(['config', '--null', '--get-regexp', TRANSPORT_CONFIG_PATTERN], true);
+}
+
 function copyTransportConfiguration(configPath: string): void {
 	const remoteProxyByName = new Map<string, RemoteProxySettings>();
-	const output = gitBytes(
-		[
-			'config',
-			'--null',
-			'--get-regexp',
-			'^(credential\\.|http\\.(pinnedpubkey|proxy|proxyauthmethod|proxysslcainfo|proxysslverify|sslbackend|sslcainfo|sslcapath|sslverify)$|http\\..*\\.(extraheader|pinnedpubkey|proxy|proxyauthmethod|proxysslcainfo|proxysslcert|proxysslcertpasswordprotected|proxysslkey|proxysslverify|sslcainfo|sslcapath|sslcert|sslcertpasswordprotected|sslkey|sslverify)$|protocol(\\.[^.]*)?\\.allow$|remote\\..*\\.(proxy|proxyauthmethod)$)'
-		],
-		true
-	);
+	const output = readTransportConfiguration();
+	transportConfigurationAtCopy = output;
 	for (const record of decodeZRecords(output)) {
 		const newline = record.indexOf('\n');
 		if (newline === -1) continue;
@@ -345,10 +349,16 @@ function copyTransportConfiguration(configPath: string): void {
 			transportProtocolPolicies.set(protocol, value.toLowerCase());
 			continue;
 		}
-		const remoteSetting = /^remote\.(.*)\.(proxy|proxyauthmethod)$/i.exec(key);
+		const remoteSetting = /^remote\.(.*)\.(url|proxy|proxyauthmethod)$/i.exec(key);
 		if (remoteSetting) {
 			const settings = remoteProxyByName.get(remoteSetting[1]!) ?? {};
-			if (remoteSetting[2]!.toLowerCase() === 'proxy') settings.proxy = value;
+			const setting = remoteSetting[2]!.toLowerCase();
+			if (setting === 'url') {
+				if (settings.url !== undefined) {
+					fail(`The \`${terminalSafe(remoteSetting[1]!)}\` remote has multiple fetch URLs.`);
+				}
+				settings.url = value;
+			} else if (setting === 'proxy') settings.proxy = value;
 			else settings.proxyAuthMethod = value;
 			remoteProxyByName.set(remoteSetting[1]!, settings);
 			continue;
@@ -380,9 +390,17 @@ function copyTransportConfiguration(configPath: string): void {
 		appendTransportConfig(configPath, `protocol.${protocol}.allow`, policy);
 	}
 	for (const remote of ['origin', 'upstream']) {
-		const url = configuredRemoteUrl(remote);
 		const settings = remoteProxyByName.get(remote);
-		if (url && settings) transportProxyByUrl.set(url, settings);
+		if (settings?.url) transportProxyByUrl.set(settings.url, settings);
+	}
+}
+
+function verifyTransportConfiguration(): void {
+	if (
+		transportConfigurationAtCopy === null ||
+		!readTransportConfiguration().equals(transportConfigurationAtCopy)
+	) {
+		fail('Git transport configuration changed during this report. Run it again on settled config.');
 	}
 }
 
@@ -420,6 +438,9 @@ function transportRemote(url: string): string {
 function rejectUnauthenticatedTransport(url: string): void {
 	if (/^[a-z][a-z0-9+.-]*::/i.test(url)) {
 		fail('Forced Git remote-helper syntax is not accepted for upstream evidence.');
+	}
+	if (/^file:(?!\/\/)/i.test(url)) {
+		fail('Local upstream file URLs must use the canonical file:///absolute/path form.');
 	}
 	if (/^(?:https|ssh|file):/i.test(url)) return;
 	if (isAbsolute(url)) return;
@@ -465,8 +486,8 @@ function rejectSecretBearingRemoteUrl(url: string): void {
 			unsafe = true;
 		}
 	} else {
-		const scpUser = /^([^/@:\s]+)@[^/:\s]+:/.exec(url)?.[1];
-		unsafe = scpUser !== undefined && scpUser !== 'git';
+		const scp = /^([^/@:\s]+)@[^/:\s]+:(.*)$/.exec(url);
+		unsafe = scp !== null && (scp[1] !== 'git' || scp[2]!.includes('?') || scp[2]!.includes('#'));
 	}
 	if (!unsafe) return;
 	fail(
@@ -545,6 +566,12 @@ let diffOperationsRemaining =
 	/^\d+$/.test(process.env.UPSTREAM_REPORT_TEST_DIFF_OPERATION_LIMIT ?? '')
 		? Number(process.env.UPSTREAM_REPORT_TEST_DIFF_OPERATION_LIMIT)
 		: DEFAULT_DIFF_OPERATION_LIMIT;
+const DEFAULT_HISTORY_RECORD_LIMIT = 500_000;
+const HISTORY_RECORD_LIMIT =
+	process.env.NODE_ENV === 'test' &&
+	/^\d+$/.test(process.env.UPSTREAM_REPORT_TEST_HISTORY_RECORD_LIMIT ?? '')
+		? Number(process.env.UPSTREAM_REPORT_TEST_HISTORY_RECORD_LIMIT)
+		: DEFAULT_HISTORY_RECORD_LIMIT;
 const DEFAULT_HISTORY_OPERATION_LIMIT = 500;
 let historyOperationsRemaining =
 	process.env.NODE_ENV === 'test' &&
@@ -607,6 +634,26 @@ function gitPartialBytes(
 
 function git(args: string[], allowFail = false, timeout?: number): string {
 	return gitBytes(args, allowFail, {}, timeout).toString('utf8').trim();
+}
+
+function gitPath(args: string[]): string {
+	const value = gitBytes(args).toString('utf8');
+	return value.endsWith('\n') ? value.slice(0, -1) : value;
+}
+
+function gitUnpinned(args: string[], allowFail = false): string {
+	try {
+		return execFileSync('git', args, {
+			env: gitRunEnv(),
+			maxBuffer: MAX_GIT_OUTPUT,
+			stdio: ['pipe', 'pipe', 'pipe']
+		})
+			.toString('utf8')
+			.trim();
+	} catch {
+		if (allowFail) return '';
+		throw new Error('Git could not read unpinned repository configuration.');
+	}
 }
 
 /**
@@ -707,6 +754,7 @@ let transportObjectDir: string | undefined;
 let transportShallow: string | undefined;
 let ownedRepositoryPaths: Set<string> | undefined;
 interface RemoteProxySettings {
+	url?: string;
 	proxy?: string;
 	proxyAuthMethod?: string;
 }
@@ -715,6 +763,7 @@ const transportRemotes = new Map<string, string>();
 const transportProxyByUrl = new Map<string, RemoteProxySettings>();
 const transportProtocolPolicies = new Map<string, string>();
 const transportEnvironmentConfig: Array<[string, string]> = [];
+let transportConfigurationAtCopy: Buffer | null = null;
 const validatedTransportUrls = new Map<string, string>();
 let callerIndexPath: string | undefined;
 let callerShallowPath: string | undefined;
@@ -881,13 +930,7 @@ function useScratchIndex(root: string): void {
 		}
 	}
 	ownedRepositoryPaths = new Set(ownedRoots);
-	const insideOwnedRoot = [...ownedRoots].some((ownedRoot) => {
-		const fromRoot = relative(ownedRoot, tempPath);
-		return (
-			fromRoot === '' ||
-			(!isAbsolute(fromRoot) && fromRoot !== '..' && !fromRoot.startsWith(`..${sep}`))
-		);
-	});
+	const insideOwnedRoot = pathResolvesInsideOwnedRoot(tempPath, ownedRoots);
 	if (insideOwnedRoot) {
 		fail(
 			'The system temporary directory resolves inside this repository or its shared Git storage. Refusing to write or sweep it.'
@@ -955,6 +998,7 @@ function dropScratchIndex(): void {
 	transportProxyByUrl.clear();
 	transportProtocolPolicies.clear();
 	transportEnvironmentConfig.length = 0;
+	transportConfigurationAtCopy = null;
 	validatedTransportUrls.clear();
 	callerIndexPath = undefined;
 	callerShallowPath = undefined;
@@ -1425,13 +1469,7 @@ function rejectOwnedRepositoryRemote(url: string, root: string, remote: string):
 	if (!ownedRepositoryPaths) {
 		fail('The repository checkout inventory is unavailable. Run the report again.');
 	}
-	const owned = [...ownedRepositoryPaths].some((ownedPath) => {
-		const fromOwned = relative(ownedPath, remotePath);
-		return (
-			fromOwned === '' ||
-			(!isAbsolute(fromOwned) && fromOwned !== '..' && !fromOwned.startsWith(`..${sep}`))
-		);
-	});
+	const owned = pathResolvesInsideOwnedRoot(remotePath, ownedRepositoryPaths);
 	if (owned) {
 		fail(
 			`The ${remote} URL resolves inside a checkout or Git directory owned by this repository. ` +
@@ -1443,7 +1481,7 @@ function rejectOwnedRepositoryRemote(url: string, root: string, remote: string):
 
 function rejectUnverifiableFileModes(): void {
 	if (process.platform === 'win32') return;
-	if (git(['config', '--bool', '--get', 'core.fileMode'], true) === 'true') return;
+	if (gitUnpinned(['config', '--bool', '--get', 'core.fileMode'], true) === 'true') return;
 	fail(
 		'Git reports that this filesystem does not preserve executable bits. ' +
 			'The report cannot verify mode-only changes here.'
@@ -1663,6 +1701,8 @@ function cameFromUpstreamMain(entry: RefLogEntry | null, sha: string): boolean {
 }
 
 function ensureUpstream(root: string, upstreamUrl: string, allowFetch: boolean): UpstreamSnapshot {
+	rejectUnauthenticatedTransport(upstreamUrl);
+	rejectSecretBearingRemoteUrl(upstreamUrl);
 	rejectOwnedRepositoryRemote(upstreamUrl, root, 'marker upstream');
 	const originUrl = configuredRemoteUrl('origin');
 	if (originUrl) {
@@ -1752,6 +1792,7 @@ function ensureUpstream(root: string, upstreamUrl: string, allowFetch: boolean):
 			rejectSecretBearingRemoteUrl(upstreamUrl);
 			try {
 				git(['remote', 'add', 'upstream', upstreamUrl]);
+				transportConfigurationAtCopy = readTransportConfiguration();
 				addedRemote = true;
 			} catch {
 				fail(`Could not add the \`upstream\` remote for ${terminalUrl(upstreamUrl)}.`);
@@ -2105,7 +2146,7 @@ function trustedOriginSnapshot(expectedSha: string): OriginSnapshot {
 		);
 	}
 	rejectUrlRewrite(url);
-	rejectOwnedRepositoryRemote(url, git(['rev-parse', '--show-toplevel']), 'origin');
+	rejectOwnedRepositoryRemote(url, gitPath(['rev-parse', '--show-toplevel']), 'origin');
 	if (!remoteMainRefspecIsCanonical('origin')) {
 		fail(
 			'`origin/main` is not mapped exclusively from `refs/heads/main` by the origin fetch refspec. ' +
@@ -2520,20 +2561,33 @@ function readUpstream(sha: string): Upstream {
 		undefined,
 		HISTORY_COMMAND_TIMEOUT_MS
 	);
-	const rawRecords = history.complete ? decodeZRecords(history.output) : [];
 	const records: Array<{ sha: string; path: string }> = [];
 	let historyParsed = history.complete;
-	for (let i = 0; i < rawRecords.length; i += 2) {
-		const header = rawRecords[i];
-		const path = rawRecords[i + 1];
-		const match = header?.match(/^:\d{6} \d{6} ([0-9a-f]+) ([0-9a-f]+) [AMDTUXB]$/);
-		if (!match || path === undefined) {
-			historyParsed = false;
-			break;
-		}
-		for (const objectSha of [match[1], match[2]]) {
-			if (objectSha && !/^0+$/.test(objectSha)) records.push({ sha: objectSha, path });
-		}
+	let historyRecordsExceeded = false;
+	let pendingHeader: string | undefined;
+	if (history.complete) {
+		visitZRecords(history.output, (record) => {
+			if (!historyParsed || historyRecordsExceeded) return;
+			if (pendingHeader === undefined) {
+				pendingHeader = record;
+				return;
+			}
+			const match = pendingHeader.match(/^:\d{6} \d{6} ([0-9a-f]+) ([0-9a-f]+) [AMDTUXB]$/);
+			pendingHeader = undefined;
+			if (!match) {
+				historyParsed = false;
+				return;
+			}
+			for (const objectSha of [match[1], match[2]]) {
+				if (!objectSha || /^0+$/.test(objectSha)) continue;
+				if (records.length >= HISTORY_RECORD_LIMIT) {
+					historyRecordsExceeded = true;
+					return;
+				}
+				records.push({ sha: objectSha, path: record });
+			}
+		});
+		if (pendingHeader !== undefined) historyParsed = false;
 	}
 	const objectShas = [...new Set(records.map((record) => record.sha))];
 	const objectInfo = gitPartialBytes(
@@ -2589,6 +2643,7 @@ function readUpstream(sha: string): Upstream {
 		historyComplete:
 			history.complete &&
 			historyParsed &&
+			!historyRecordsExceeded &&
 			objectInfo.complete &&
 			objectTypes.size === objectShas.length,
 		uniqueName,
@@ -3100,6 +3155,29 @@ function symlinkParent(path: string): string | null {
 
 function sameFileIdentity(left: Stats, right: Stats): boolean {
 	return left.dev === right.dev && left.ino === right.ino;
+}
+
+function pathResolvesInsideOwnedRoot(candidate: string, ownedRoots: Iterable<string>): boolean {
+	const roots = [...ownedRoots];
+	const rootStats = roots.map((root) => statSync(root));
+	let current = candidate;
+	while (true) {
+		const fromRoot = roots.some((root) => {
+			const relativePath = relative(root, current);
+			return (
+				relativePath === '' ||
+				(!isAbsolute(relativePath) && relativePath !== '..' && !relativePath.startsWith(`..${sep}`))
+			);
+		});
+		if (fromRoot) return true;
+		const currentStats = statSync(current);
+		if (rootStats.some((rootStatsEntry) => sameFileIdentity(rootStatsEntry, currentStats))) {
+			return true;
+		}
+		const parent = resolve(current, '..');
+		if (parent === current) return false;
+		current = parent;
+	}
 }
 
 function statFingerprint(stats: Stats): string {
@@ -3674,7 +3752,7 @@ function main() {
 	const { values, positionals } = commandLineArguments();
 	if (positionals.some((spec) => spec === '')) fail('Path arguments must not be empty.');
 
-	const root = git(['rev-parse', '--show-toplevel']);
+	const root = gitPath(['rev-parse', '--show-toplevel']);
 	// Where the caller typed the command, kept because every path argument was
 	// written relative to it. Resolving them after the chdir silently
 	// reinterprets `../AGENTS.md` against the repository root, where it names
@@ -3900,6 +3978,7 @@ function main() {
 	// The tree stays pinned while it is read, but a sync that moves the shared
 	// ref before output would make an absent-path verdict obsolete. Abort instead.
 	if (baseResolution.origin) verifyOriginSnapshot(baseResolution.origin);
+	verifyTransportConfiguration();
 	verifyScratchIndexEntries();
 	verifyLocalSnapshot(root, local);
 	// Keep the shared upstream ref as the last fence before output. Origin

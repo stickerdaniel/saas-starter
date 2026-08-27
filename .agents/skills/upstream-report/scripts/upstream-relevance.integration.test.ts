@@ -170,6 +170,14 @@ if [ "$FAKE_FETCH_SUCCESS" = "1" ]; then
     [ "$arg" = "fetch" ] && exit 0
   done
 fi
+if [ -n "$TRANSPORT_CONFIG_RACE_REPO" ] && [ ! -e "$TRANSPORT_CONFIG_RACE_MARKER" ]; then
+  case "$command_line" in
+    *" ls-remote "*)
+      env -u GIT_INDEX_FILE -u GIT_DIR -u GIT_OBJECT_DIRECTORY -u GIT_SHALLOW_FILE -u GIT_CONFIG_COUNT "$REAL_GIT" -C "$TRANSPORT_CONFIG_RACE_REPO" config remote.upstream.proxy "$TRANSPORT_CONFIG_RACE_PROXY" || exit $?
+      : > "$TRANSPORT_CONFIG_RACE_MARKER"
+      ;;
+  esac
+fi
 if [ -n "$FAKE_REMOTE_MAIN_SHA" ]; then
   case "$command_line" in
     *" ls-remote "*" refs/heads/main "*) printf '%s\trefs/heads/main\n' "$FAKE_REMOTE_MAIN_SHA"; exit 0 ;;
@@ -218,7 +226,7 @@ fi
 if [ -n "$TRANSPORT_EFFECTIVE_AUTH_LOG" ]; then
   case "$command_line" in
     *" ls-remote "*)
-      { "$REAL_GIT" config --get-all credential.helper || :; "$REAL_GIT" config --get-regexp '^(http\\..*\\.(extraheader|proxy)|remote\\..*\\.proxy)$' || :; } > "$TRANSPORT_EFFECTIVE_AUTH_LOG"
+      { "$REAL_GIT" config --get-all credential.helper || :; "$REAL_GIT" config --get-regexp '^(http\\.(proxy|.*\\.(extraheader|proxy))|remote\\..*\\.proxy)$' || :; } > "$TRANSPORT_EFFECTIVE_AUTH_LOG"
       ;;
   esac
 fi
@@ -234,7 +242,7 @@ if [ -n "$TRANSPORT_UNSCOPED_HTTP_LOG" ]; then
 fi
 if [ -n "$TRANSPORT_NETWORK_LOG" ]; then
   case "$command_line" in
-    *" ls-remote "*) "$REAL_GIT" config --file "$GIT_DIR/config" --get-regexp '^(http\\..*(pinnedpubkey|sslcainfo|sslcapath|proxy|proxysslcainfo)|remote\\..*\\.(proxy|proxyauthmethod))$' > "$TRANSPORT_NETWORK_LOG" || : ;;
+    *" ls-remote "*) "$REAL_GIT" config --file "$GIT_DIR/config" --get-regexp '^(http\\..*(pinnedpubkey|schannelusesslcainfo|sslcainfo|sslcapath|proxy|proxysslcainfo)|remote\\..*\\.(proxy|proxyauthmethod))$' > "$TRANSPORT_NETWORK_LOG" || : ;;
   esac
 fi
 if [ -n "$TLS_CONFIG_RACE_REPO" ] && [ ! -e "$TLS_CONFIG_RACE_MARKER" ]; then
@@ -2375,6 +2383,22 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 		expect(r.stderr).toMatch(/marker upstream URL resolves inside a checkout/);
 	});
 
+	it('rejects file colon paths that Git parses as SCP syntax', () => {
+		const url = `file:${upstream}`;
+		const marker = JSON.parse(readFileSync(join(fork, '.upstream-sync.json'), 'utf8')) as Record<
+			string,
+			unknown
+		>;
+		write(fork, '.upstream-sync.json', JSON.stringify({ ...marker, upstreamUrl: url }));
+		git(fork, ['commit', '-qam', 'set ambiguous file colon parent']);
+		git(fork, ['remote', 'set-url', 'upstream', url]);
+
+		const r = run(fork, ['--fetch', '--base', 'HEAD', '--json']);
+
+		expect(r.status).not.toBe(0);
+		expect(r.stderr).toMatch(/canonical file:\/\/\/absolute\/path form/);
+	});
+
 	it('rejects hosted file URLs before Windows can resolve a UNC path', () => {
 		const url = 'file://attacker.example/share/repo.git';
 		const marker = JSON.parse(readFileSync(join(fork, '.upstream-sync.json'), 'utf8')) as Record<
@@ -4033,6 +4057,21 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 		expect(existsSync(networkMarker)).toBe(false);
 	});
 
+	itWithGitWrapper('rejects remote proxy configuration races', () => {
+		git(fork, ['config', '--local', 'remote.upstream.proxy', 'http://proxy-a.example']);
+		const marker = join(tmp, 'transport-config-raced');
+		const r = run(fork, ['--json', 'shared/pristine.ts'], {
+			PATH: `${installGitWrapper(tmp)}:${process.env.PATH ?? ''}`,
+			REAL_GIT: realGitPath(),
+			TRANSPORT_CONFIG_RACE_REPO: fork,
+			TRANSPORT_CONFIG_RACE_PROXY: 'http://proxy-b.example',
+			TRANSPORT_CONFIG_RACE_MARKER: marker
+		});
+		expect(existsSync(marker)).toBe(true);
+		expect(r.status).not.toBe(0);
+		expect(r.stderr).toMatch(/Git transport configuration changed during this report/);
+	});
+
 	it('redacts a failed fetch before Git stderr reaches the caller', () => {
 		const secret = 'DUMMY_FETCH_QUERY_SECRET';
 		const url = `http://127.0.0.1:1/repo.git?token=${secret}`;
@@ -4111,7 +4150,9 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 	});
 
 	itWithGitWrapper('copies global CA and proxy settings plus the matching remote proxy', () => {
+		git(fork, ['config', '--local', 'http.sslBackend', 'schannel']);
 		git(fork, ['config', '--local', 'http.sslCAInfo', '/private/global-ca.pem']);
+		git(fork, ['config', '--local', 'http.schannelUseSSLCAInfo', 'true']);
 		git(fork, ['config', '--local', 'http.sslCAPath', '/private/global-ca-directory']);
 		git(fork, ['config', '--local', 'http.proxySSLCAInfo', '/private/proxy-ca.pem']);
 		git(fork, ['config', '--local', 'http.proxy', 'http://global-proxy.example']);
@@ -4127,6 +4168,7 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 		expect(r.status, r.stderr).toBe(0);
 		const config = readFileSync(networkLog, 'utf8');
 		expect(config).toContain('/private/global-ca.pem');
+		expect(config).toMatch(/http.schannelusesslcainfo true/i);
 		expect(config).toContain('/private/global-ca-directory');
 		expect(config).toContain('/private/proxy-ca.pem');
 		expect(config).toContain('http://global-proxy.example');
@@ -4195,6 +4237,28 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 		const temporaryNetwork = readFileSync(networkLog, 'utf8');
 		expect(temporaryNetwork).not.toContain('DUMMY_PROXY_SECRET');
 		expect(temporaryNetwork).not.toContain('DUMMY_REMOTE_PROXY_SECRET');
+	});
+
+	itWithGitWrapper('keeps scheme-less proxy credentials out of Windows temporary files', () => {
+		git(fork, [
+			'config',
+			'--local',
+			'http.proxy',
+			'DUMMY_PROXY_USER:DUMMY_PROXY_PASSWORD@proxy.example:8080'
+		]);
+		const effectiveLog = join(tmp, 'transport-windows-schemeless-effective.log');
+		const networkLog = join(tmp, 'transport-windows-schemeless-file.log');
+		const r = run(fork, ['--json', 'shared/pristine.ts'], {
+			PATH: `${installGitWrapper(tmp)}:${process.env.PATH ?? ''}`,
+			REAL_GIT: realGitPath(),
+			NODE_ENV: 'test',
+			UPSTREAM_REPORT_TEST_WINDOWS_SAFETY: '1',
+			TRANSPORT_EFFECTIVE_AUTH_LOG: effectiveLog,
+			TRANSPORT_NETWORK_LOG: networkLog
+		});
+		expect(r.status, r.stderr).toBe(0);
+		expect(readFileSync(effectiveLog, 'utf8')).toContain('DUMMY_PROXY_PASSWORD');
+		expect(readFileSync(networkLog, 'utf8')).not.toContain('DUMMY_PROXY_PASSWORD');
 	});
 
 	itWithGitWrapper('does not copy unscoped HTTP authentication to a marker-selected host', () => {
@@ -4546,6 +4610,23 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 		expect(r.stderr).toMatch(/different repository/);
 	});
 
+	itWithPosixPaths('preserves trailing whitespace in the checkout root', () => {
+		const spaced = join(tmp, 'checkout ');
+		git(tmp, ['clone', '-q', fork, spaced]);
+		git(spaced, ['config', 'user.email', 'test@example.com']);
+		git(spaced, ['config', 'user.name', 'Test']);
+		git(spaced, ['remote', 'add', 'upstream', upstream]);
+		git(spaced, ['fetch', '-q', 'upstream']);
+		const trimmed = join(tmp, 'checkout');
+		mkdirSync(trimmed);
+		init(trimmed);
+
+		const r = run(spaced, ['--base', 'HEAD', '--json']);
+
+		expect(r.status, r.stderr).toBe(0);
+		expect(JSON.parse(r.stdout)).toMatchObject({ upstreamUrl: upstream });
+	});
+
 	it('keeps .git significant in local repository paths', () => {
 		const decoy = `${upstream}.git`;
 		mkdirSync(decoy);
@@ -4564,7 +4645,7 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 		write(
 			fork,
 			'.upstream-sync.json',
-			JSON.stringify({ upstreamUrl: 'ssh://alice@example.invalid/~/template.git' })
+			JSON.stringify({ upstreamUrl: 'ssh://git@example.invalid/~/template.git' })
 		);
 		git(fork, ['commit', '-qam', 'set SSH parent']);
 		git(fork, ['remote', 'set-url', 'upstream', 'ssh://bob@example.invalid/~/template.git']);
@@ -4623,6 +4704,34 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 		expect(r.status).not.toBe(0);
 		expect(r.stderr).not.toContain('DUMMY_SCP_SECRET');
 		expect(r.stderr).toContain('***@example.invalid');
+	});
+
+	it('rejects secret-bearing suffixes in SCP-style remotes', () => {
+		const secret = 'DUMMY_SCP_SUFFIX_SECRET';
+		const remote = `git@example.invalid:owner/repo.git?access_token=${secret}`;
+		write(fork, '.upstream-sync.json', JSON.stringify({ upstreamUrl: remote }));
+		git(fork, ['commit', '-qam', 'set secret-bearing SCP parent']);
+		git(fork, ['remote', 'set-url', 'upstream', remote]);
+
+		const r = run(fork, ['--json']);
+		expect(r.status).not.toBe(0);
+		expect(r.stderr).not.toContain(secret);
+		expect(r.stderr).toContain('?***');
+		expect(r.stderr).toMatch(/credential-free remote/);
+	});
+
+	it('rejects marker credentials even when the configured remote is clean', () => {
+		const secret = 'DUMMY_MARKER_ALIAS_SECRET';
+		const clean = 'https://example.invalid/owner/repo.git';
+		const marked = `https://user:${secret}@example.invalid/owner/repo.git`;
+		write(fork, '.upstream-sync.json', JSON.stringify({ upstreamUrl: marked }));
+		git(fork, ['commit', '-qam', 'set credential-bearing marker alias']);
+		git(fork, ['remote', 'set-url', 'upstream', clean]);
+
+		const r = run(fork, ['--json']);
+		expect(r.status).not.toBe(0);
+		expect(r.stderr).not.toContain(secret);
+		expect(r.stderr).toMatch(/credential-free remote/);
 	});
 
 	it('redacts credentials carried in a remote query string', () => {
@@ -5208,6 +5317,26 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 		expect(capture).toContain('opened.size > maxBytes');
 	});
 
+	it('checks owned roots by filesystem identity as well as spelling', () => {
+		const source = readFileSync(SCRIPT, 'utf8');
+		const start = source.indexOf('function pathResolvesInsideOwnedRoot(');
+		const end = source.indexOf('function statFingerprint(', start);
+		const check = source.slice(start, end);
+		expect(check).toContain('statSync(current)');
+		expect(check).toContain('sameFileIdentity(rootStatsEntry, currentStats)');
+		expect(source).toContain('pathResolvesInsideOwnedRoot(tempPath, ownedRoots)');
+		expect(source).toContain('pathResolvesInsideOwnedRoot(remotePath, ownedRepositoryPaths)');
+	});
+
+	it('pins executable-bit detection after the POSIX capability check', () => {
+		const source = readFileSync(SCRIPT, 'utf8');
+		const start = source.indexOf('const PINNED_CONFIG = [');
+		const end = source.indexOf('];', start);
+		const config = source.slice(start, end);
+		expect(config).toContain("process.platform === 'win32'");
+		expect(config).toContain("'core.fileMode=true'");
+	});
+
 	it('binds marker inspection and bytes to one file descriptor', () => {
 		const source = readFileSync(SCRIPT, 'utf8');
 		const start = source.indexOf('function readUpstreamMarker(');
@@ -5461,6 +5590,30 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 		expect(cachedRead).toBeGreaterThan(candidateCharge);
 		expect(similar).toContain('for (const candidate of upstream.blobKeys)');
 		expect(similar).toContain('takeSimilarityOperations(upstream, 1)');
+	});
+
+	it('bounds retained upstream history metadata', () => {
+		write(upstream, 'shared/history-record-a.ts', 'historyRecordA();\n');
+		git(upstream, ['add', '-A']);
+		git(upstream, ['commit', '-qm', 'add first history record']);
+		write(upstream, 'shared/history-record-b.ts', 'historyRecordB();\n');
+		git(upstream, ['add', '-A']);
+		git(upstream, ['commit', '-qm', 'add second history record']);
+		git(fork, ['fetch', '-q', 'upstream']);
+		write(fork, 'product/only-here.ts', 'export const product = false;\n');
+		git(fork, ['commit', '-qam', 'edit fork-only path for history bound']);
+
+		const r = run(fork, ['--fetch', '--json', 'product/only-here.ts'], {
+			NODE_ENV: 'test',
+			UPSTREAM_REPORT_TEST_HISTORY_RECORD_LIMIT: '1'
+		});
+
+		expect(r.status, r.stderr).toBe(0);
+		const parsed = JSON.parse(r.stdout) as {
+			verdicts: Array<{ path: string; relevance: string; note?: string }>;
+		};
+		expect(parsed.verdicts[0]?.relevance).toBe('unmeasured');
+		expect(parsed.verdicts[0]?.note).toMatch(/upstream history did not complete/);
 	});
 
 	it('keeps aggregate working-tree capture bounded', () => {
