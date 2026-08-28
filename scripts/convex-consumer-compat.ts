@@ -35,7 +35,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { copyFileSync, mkdtempSync, rmSync } from 'node:fs';
+import { copyFileSync, mkdirSync, mkdtempSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import ts from 'typescript';
@@ -47,6 +47,7 @@ import {
 	type Surface,
 	type Visibility
 } from './convex-surface';
+import { isolatedGitEnv } from './git-context';
 
 const CONVEX_ROOT = 'src/lib/convex';
 // App sources contribute direct and namespace-adapter references. Convex source
@@ -58,11 +59,16 @@ export type Reference = { identifier: string; visibility: Visibility; file: stri
 export type NamespaceReference = { prefix: string; visibility: Visibility; file: string };
 type ConsumerReferences = { references: Reference[]; namespaces: NamespaceReference[] };
 
-function git(args: string[]): string {
+function git(args: string[], cwd = process.cwd(), hooksPath?: string): string {
 	// stderr captured, not inherited: a probing rev-parse is allowed to fail
-	// without printing git's `fatal:` above this script's own explanation.
-	return execFileSync('git', args, {
+	// without printing git's `fatal:` above this script's own explanation. The exact
+	// checkout remains usable when its owner differs from the process uid.
+	const configuration = ['-c', `safe.directory=${realpathSync(cwd)}`];
+	if (hooksPath) configuration.unshift('-c', `core.hooksPath=${hooksPath}`);
+	return execFileSync('git', [...configuration, ...args], {
+		cwd,
 		encoding: 'utf8',
+		env: isolatedGitEnv(),
 		maxBuffer: 32 * 1024 * 1024,
 		stdio: ['ignore', 'pipe', 'pipe']
 	});
@@ -427,14 +433,24 @@ function consumerReferencesAt(commit: string): ConsumerReferences {
 function surfaceAt(commit: string, protectedIdentifiers: ReadonlySet<string>): Surface {
 	const tempRoot = mkdtempSync(path.join(tmpdir(), 'convex-compat-'));
 	const dir = path.join(tempRoot, 'baseline');
-	let worktreeAdded = false;
+	const hooks = path.join(tempRoot, 'hooks');
 	try {
-		git(['worktree', 'add', '--detach', '--quiet', dir, commit]);
-		worktreeAdded = true;
+		mkdirSync(hooks);
+		// A template-free shared clone borrows objects without inheriting the source
+		// repository's local configuration. The isolated attribute sources and empty hook
+		// directory keep the detached checkout independent of machine-local Git behavior.
+		git(
+			['clone', '--template=', '--quiet', '--shared', '--no-checkout', '.', dir],
+			process.cwd(),
+			hooks
+		);
+		git(['checkout', '--quiet', '--detach', commit], dir, hooks);
+		const childEnv = { ...isolatedGitEnv(), HUSKY: '0' };
 		try {
-			execFileSync('bun', ['install', '--frozen-lockfile'], {
+			execFileSync(process.execPath, ['install', '--frozen-lockfile'], {
 				cwd: dir,
 				encoding: 'utf8',
+				env: childEnv,
 				maxBuffer: 32 * 1024 * 1024,
 				stdio: ['ignore', 'pipe', 'pipe']
 			});
@@ -446,27 +462,19 @@ function surfaceAt(commit: string, protectedIdentifiers: ReadonlySet<string>): S
 
 		const reader = path.join(dir, '.convex-surface-reader.ts');
 		copyFileSync(path.join(process.cwd(), 'scripts/convex-surface.ts'), reader);
-		const serialized = execFileSync('bun', [reader, path.join(dir, CONVEX_ROOT)], {
+		const serialized = execFileSync(process.execPath, [reader, path.join(dir, CONVEX_ROOT)], {
 			cwd: dir,
 			encoding: 'utf8',
 			maxBuffer: 32 * 1024 * 1024,
 			stdio: ['ignore', 'pipe', 'pipe'],
 			env: {
-				...process.env,
+				...childEnv,
 				CONVEX_SURFACE_PROTECTED_IDENTIFIERS: JSON.stringify([...protectedIdentifiers])
 			}
 		});
 		return new Map(JSON.parse(serialized) as Array<[string, Registration]>);
 	} finally {
-		if (worktreeAdded) {
-			try {
-				git(['worktree', 'remove', '--force', dir]);
-			} catch {
-				rmSync(dir, { recursive: true, force: true });
-				git(['worktree', 'prune']);
-			}
-		}
-		rmSync(tempRoot, { recursive: true, force: true });
+		rmSync(tempRoot, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
 	}
 }
 

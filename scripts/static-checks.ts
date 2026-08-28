@@ -55,6 +55,7 @@ import {
 	activeGitIndexFingerprint,
 	getStagedChanges,
 	getStagedFiles,
+	isolatedGitEnv,
 	sanitizedGitEnv,
 	stagedFilesMatchWorktree,
 	stagedFilesWithCleanFilters,
@@ -1025,10 +1026,10 @@ async function runPrettier(formatFlag: '--check' | '--write', files?: string[]):
 }
 
 export function compatibilityInvocation(ciMode = false) {
-	const env = sanitizedGitEnv();
+	const env = isolatedGitEnv();
 	if (ciMode) env.CI = 'true';
 	return {
-		command: 'bun',
+		command: process.execPath,
 		args: ['scripts/convex-consumer-compat.ts'],
 		options: { env } satisfies SanitizedCommandOptions
 	};

@@ -13,6 +13,8 @@ import path from 'path';
 
 const SCRUBBED = [
 	'GIT_ALTERNATE_OBJECT_DIRECTORIES',
+	'GIT_ATTR_NOSYSTEM',
+	'GIT_ATTR_SOURCE',
 	'GIT_COMMON_DIR',
 	'GIT_CONFIG',
 	'GIT_DIR',
@@ -24,8 +26,17 @@ const SCRUBBED = [
 	'GIT_PREFIX',
 	'GIT_REPLACE_REF_BASE',
 	'GIT_SHALLOW_FILE',
+	'GIT_TEMPLATE_DIR',
 	'GIT_WORK_TREE'
 ] as const;
+const SCRUBBED_CONFIG = [
+	'GIT_CONFIG_PARAMETERS',
+	'GIT_CONFIG_COUNT',
+	'GIT_CONFIG_GLOBAL',
+	'GIT_CONFIG_SYSTEM',
+	'GIT_CONFIG_NOSYSTEM'
+] as const;
+const SCRUBBED_CONFIG_PREFIXES = ['GIT_CONFIG_KEY_', 'GIT_CONFIG_VALUE_'] as const;
 
 /** process.env with externally set Git context variables removed. */
 export function sanitizedGitEnv(): NodeJS.ProcessEnv {
@@ -34,6 +45,35 @@ export function sanitizedGitEnv(): NodeJS.ProcessEnv {
 	for (const key of Object.keys(env)) {
 		if (scrubbed.has(key.toUpperCase())) delete env[key];
 	}
+	return env;
+}
+
+/** A Git environment that reads only the discovered repository's real history. */
+export function isolatedGitEnv(): NodeJS.ProcessEnv {
+	const env = sanitizedGitEnv();
+	const scrubbed = new Set<string>(SCRUBBED_CONFIG);
+	for (const key of Object.keys(env)) {
+		const upper = key.toUpperCase();
+		if (
+			scrubbed.has(upper) ||
+			SCRUBBED_CONFIG_PREFIXES.some((prefix) => upper.startsWith(prefix))
+		) {
+			delete env[key];
+		}
+	}
+	// Replacement refs and legacy grafts rewrite ancestry without redirecting discovery.
+	env.GIT_NO_REPLACE_OBJECTS = '1';
+	env.GIT_GRAFT_FILE = '';
+	env.GIT_ATTR_NOSYSTEM = '1';
+	env.GIT_CONFIG_GLOBAL = '';
+	env.GIT_CONFIG_SYSTEM = '';
+	env.GIT_CONFIG_NOSYSTEM = '1';
+	// Git attributes have global and system sources independent of config-file loading.
+	// Install one trusted command-scoped value so every descendant also ignores the
+	// caller's global attributes file while retaining the repository's own attributes.
+	env.GIT_CONFIG_COUNT = '1';
+	env.GIT_CONFIG_KEY_0 = 'core.attributesFile';
+	env.GIT_CONFIG_VALUE_0 = '';
 	return env;
 }
 

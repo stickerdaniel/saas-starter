@@ -14,6 +14,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
 	activeGitIndexFingerprint,
 	getStagedFiles,
+	isolatedGitEnv,
 	sanitizedGitEnv,
 	stagedFilesMatchWorktree,
 	stagedFilesWithCleanFilters,
@@ -22,6 +23,8 @@ import {
 
 const SCRUBBED = [
 	'GIT_ALTERNATE_OBJECT_DIRECTORIES',
+	'GIT_ATTR_NOSYSTEM',
+	'GIT_ATTR_SOURCE',
 	'GIT_COMMON_DIR',
 	'GIT_CONFIG',
 	'GIT_DIR',
@@ -33,9 +36,39 @@ const SCRUBBED = [
 	'GIT_PREFIX',
 	'GIT_REPLACE_REF_BASE',
 	'GIT_SHALLOW_FILE',
+	'GIT_TEMPLATE_DIR',
 	'GIT_WORK_TREE'
 ] as const;
+const SCRUBBED_CONFIG = [
+	'GIT_CONFIG_PARAMETERS',
+	'GIT_CONFIG_COUNT',
+	'GIT_CONFIG_GLOBAL',
+	'GIT_CONFIG_SYSTEM',
+	'GIT_CONFIG_NOSYSTEM',
+	'GIT_CONFIG_KEY_0',
+	'GIT_CONFIG_VALUE_0'
+] as const;
 const EXTERNAL_INDEX_OPT_IN = 'STATIC_CHECKS_ALLOW_EXTERNAL_GIT_INDEX';
+
+function isolatedValue(key: string): string | undefined {
+	if (
+		[
+			'GIT_ATTR_NOSYSTEM',
+			'GIT_NO_REPLACE_OBJECTS',
+			'GIT_CONFIG_NOSYSTEM',
+			'GIT_CONFIG_COUNT'
+		].includes(key)
+	) {
+		return '1';
+	}
+	if (key === 'GIT_CONFIG_KEY_0') return 'core.attributesFile';
+	if (
+		['GIT_GRAFT_FILE', 'GIT_CONFIG_GLOBAL', 'GIT_CONFIG_SYSTEM', 'GIT_CONFIG_VALUE_0'].includes(key)
+	) {
+		return '';
+	}
+	return undefined;
+}
 
 function git(cwd: string, args: string[], env: NodeJS.ProcessEnv = sanitizedGitEnv()): string {
 	const result = spawnSync('git', args, { cwd, env, encoding: 'utf-8' });
@@ -47,7 +80,7 @@ describe('sanitizedGitEnv', () => {
 	const saved = new Map<string, string | undefined>();
 
 	beforeEach(() => {
-		for (const key of SCRUBBED) saved.set(key, process.env[key]);
+		for (const key of [...SCRUBBED, ...SCRUBBED_CONFIG]) saved.set(key, process.env[key]);
 	});
 
 	afterEach(() => {
@@ -78,6 +111,32 @@ describe('sanitizedGitEnv', () => {
 		delete process.env.GIT_CONFIG_COUNT;
 		delete process.env.GIT_CONFIG_KEY_0;
 		delete process.env.GIT_CONFIG_VALUE_0;
+	});
+
+	it('isolates command configuration and pins real ancestry', () => {
+		for (const key of [...SCRUBBED, ...SCRUBBED_CONFIG]) process.env[key] = 'parent-value';
+		const env = isolatedGitEnv();
+		for (const key of [...SCRUBBED, ...SCRUBBED_CONFIG]) {
+			expect(env[key], key).toBe(isolatedValue(key));
+		}
+	});
+
+	it('disables external Git attribute sources for isolated children', () => {
+		process.env.GIT_ATTR_SOURCE = 'HEAD';
+		const env = isolatedGitEnv();
+		const globalAttributes = spawnSync('git', ['var', 'GIT_ATTR_GLOBAL'], {
+			env,
+			encoding: 'utf8'
+		});
+		const systemAttributes = spawnSync('git', ['var', 'GIT_ATTR_SYSTEM'], {
+			env,
+			encoding: 'utf8'
+		});
+
+		expect(env.GIT_ATTR_SOURCE).toBeUndefined();
+		expect(globalAttributes.status).toBe(0);
+		expect(globalAttributes.stdout.trim()).toBe('');
+		expect(systemAttributes.status).not.toBe(0);
 	});
 
 	it('removes Git context regardless of environment-name casing', () => {
