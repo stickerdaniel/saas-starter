@@ -809,6 +809,10 @@ async function runCommand(
  * Prettier 3.9.5, `scripts/[ab].ts` checks `scripts/a.ts` and exits 0 after the named file
  * is deleted, while the escaped form exits 2 with "No files matching the pattern".
  *
+ * `+` is in the list because it quantifies whatever precedes it, and after an escape that
+ * is the class rather than a literal: measured, `[+.ts` escaped to `[[]+.ts` matched the
+ * neighbouring `[.ts` and exited 0 while the requested file stayed unformatted.
+ *
  * The escape cannot be a backslash. Prettier hands an unresolvable argument to
  * `normalizeToPosix`, which on Windows replaces every backslash with a slash
  * (prettier/internal/legacy-cli.mjs), so a backslash-escaped SvelteKit route such as
@@ -818,6 +822,7 @@ async function runCommand(
  */
 const GLOB_CLASS_ESCAPES = new Map<string, string>([
 	['*', '[*]'],
+	['+', '[+]'],
 	['?', '[?]'],
 	['[', '[[]'],
 	[']', '[]]'],
@@ -846,6 +851,17 @@ export function prettierLiteralPattern(file: string): string {
 		else if (character === '"') pattern += '@(\\")';
 		else if (character === '!') pattern += '@(!)';
 		else pattern += GLOB_CLASS_ESCAPES.get(character) ?? character;
+	}
+	// The pattern is only unambiguous while no file is named exactly like it. Prettier
+	// resolves an argument as a path before expanding it, so a repository holding both
+	// `[ab].ts` and `[[]ab[]].ts` would check the second and report on the first. Nothing
+	// downstream could tell, since the ledger counts the path that was asked for.
+	if (pattern !== file && existsSync(path.join(REPO_ROOT, pattern))) {
+		fail(
+			`Two repository paths collide under formatter escaping: ${formatPathForDiagnostic(file)}`,
+			`  Its escaped pattern names a second real file (${formatPathForDiagnostic(pattern)}),\n` +
+				'  and Prettier would check that one instead. Rename either path.'
+		);
 	}
 	return pattern;
 }

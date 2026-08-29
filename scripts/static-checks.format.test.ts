@@ -1,6 +1,7 @@
 import { spawnSync } from 'child_process';
 import {
 	copyFileSync,
+	lstatSync,
 	mkdirSync,
 	mkdtempSync,
 	readFileSync,
@@ -212,7 +213,7 @@ describe('format-only static checks', () => {
 		// replaces every backslash with a slash. A backslash-escaped route would arrive there
 		// with its escapes stripped and match nothing, so the escape has to be a character
 		// class, and the pattern has to survive that same rewrite unchanged.
-		expect(pattern).toBe('src/routes/[[][[]lang[]][]]/[(]marketing[)]/+page.svelte');
+		expect(pattern).toBe('src/routes/[[][[]lang[]][]]/[(]marketing[)]/[+]page.svelte');
 		expect(pattern.replaceAll('\\', '/')).toBe(pattern);
 
 		const result = formatCheck(route);
@@ -264,23 +265,65 @@ describe('format-only static checks', () => {
 		expect(`${vanished.stdout}${vanished.stderr}`).toContain('No files matching the pattern');
 	});
 
-	it('expands a symlinked directory for every scope except format', () => {
-		const link = '.claude/skills/upstream-sync';
-		const expanded = resolveInputs([link], 'arguments', ROOT);
-		expect(expanded.length).toBeGreaterThan(1);
-		expect(expanded.some((file) => file.endsWith('.ts'))).toBe(true);
+	// A Windows checkout with core.symlinks=false materializes the tracked link as an
+	// ordinary file holding its target's path, and there is nothing to expand there.
+	it.skipIf(!lstatSync(path.join(ROOT, '.claude/skills/upstream-sync')).isSymbolicLink())(
+		'expands a symlinked directory for every scope except format',
+		() => {
+			const link = '.claude/skills/upstream-sync';
+			const expanded = resolveInputs([link], 'arguments', ROOT);
+			expect(expanded.length).toBeGreaterThan(1);
+			expect(expanded.some((file) => file.endsWith('.ts'))).toBe(true);
 
-		// Prettier refuses an explicitly named symlink, so the formatter passes the link
-		// itself and lets that refusal happen instead of silently checking the target.
-		expect(
-			resolveInputs(
-				[link],
-				'arguments',
-				ROOT,
-				(directory) => prettierTraversalPaths(directory, false, ROOT),
-				false
-			)
-		).toEqual([link]);
+			// Prettier refuses an explicitly named symlink, so the formatter passes the link
+			// itself and lets that refusal happen instead of silently checking the target.
+			expect(
+				resolveInputs(
+					[link],
+					'arguments',
+					ROOT,
+					(directory) => prettierTraversalPaths(directory, false, ROOT),
+					false
+				)
+			).toEqual([link]);
+		}
+	);
+
+	it('refuses two paths that collide under formatter escaping', () => {
+		const directory = path.join(ROOT, 'scripts', `.format-collide-${process.pid}`);
+		const relative = `scripts/.format-collide-${process.pid}`;
+		mkdirSync(directory, { recursive: true });
+		try {
+			writeFileSync(path.join(directory, '[ab].ts'), 'export const a   =1\n');
+			writeFileSync(path.join(directory, '[[]ab[]].ts'), 'export const b = 1;\n');
+
+			const result = formatCheck(`${relative}/[ab].ts`);
+			expect(result.status, result.output).toBe(1);
+			expect(result.output).toContain('collide under formatter escaping');
+		} finally {
+			rmSync(directory, { recursive: true, force: true });
+		}
+	});
+
+	it('escapes a plus so it cannot quantify the escape before it', () => {
+		expect(prettierLiteralPattern('[+.ts')).toBe('[[][+].ts');
+		expect(prettierLiteralPattern('src/routes/+page.svelte')).toBe('src/routes/[+]page.svelte');
+
+		const directory = path.join(ROOT, 'scripts', `.format-plus-${process.pid}`);
+		const relative = `scripts/.format-plus-${process.pid}`;
+		mkdirSync(directory, { recursive: true });
+		try {
+			// Unescaped, `[[]+.ts` quantifies the class and matches the formatted neighbour
+			// instead, which is a green run over a file that was never looked at.
+			writeFileSync(path.join(directory, '[+.ts'), 'export const a   =1\n');
+			writeFileSync(path.join(directory, '[.ts'), 'export const b = 1;\n');
+
+			const result = formatCheck(`${relative}/[+.ts`);
+			expect(result.status, result.output).toBe(1);
+			expect(result.output).toContain('[+.ts');
+		} finally {
+			rmSync(directory, { recursive: true, force: true });
+		}
 	});
 
 	it('anchors the generated trees .gitignore anchors and no others', () => {
