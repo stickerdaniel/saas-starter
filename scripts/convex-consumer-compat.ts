@@ -47,7 +47,7 @@ import {
 	type Surface,
 	type Visibility
 } from './convex-surface';
-import { isolatedGitEnv } from './git-context';
+import { isolatedGitEnv, sanitizedGitEnv } from './git-context';
 
 const CONVEX_ROOT = 'src/lib/convex';
 // App sources contribute direct and namespace-adapter references. Convex source
@@ -59,7 +59,12 @@ export type Reference = { identifier: string; visibility: Visibility; file: stri
 export type NamespaceReference = { prefix: string; visibility: Visibility; file: string };
 type ConsumerReferences = { references: Reference[]; namespaces: NamespaceReference[] };
 
-function git(args: string[], cwd = process.cwd(), hooksPath?: string): string {
+function git(
+	args: string[],
+	cwd = process.cwd(),
+	hooksPath?: string,
+	env = isolatedGitEnv()
+): string {
 	// stderr captured, not inherited: a probing rev-parse is allowed to fail
 	// without printing git's `fatal:` above this script's own explanation. The exact
 	// checkout remains usable when its owner differs from the process uid.
@@ -68,10 +73,22 @@ function git(args: string[], cwd = process.cwd(), hooksPath?: string): string {
 	return execFileSync('git', [...configuration, ...args], {
 		cwd,
 		encoding: 'utf8',
-		env: isolatedGitEnv(),
+		env,
 		maxBuffer: 32 * 1024 * 1024,
 		stdio: ['ignore', 'pipe', 'pipe']
 	});
+}
+
+/**
+ * The one call that has to reach the network, and so the one that cannot run under the
+ * isolated environment. Emptying the global and system config also empties `url.*.insteadOf`,
+ * the credential helpers and the proxy and CA settings, and a fetch that fails for want of
+ * them falls back to the trunk: measured, a baseline reachable only through an insteadOf
+ * rule went unfetched and the check certified the trunk instead. Every reader that decides
+ * the verdict stays isolated; this one only has to bring objects in.
+ */
+function gitFetch(args: string[]): string {
+	return git(args, process.cwd(), undefined, sanitizedGitEnv());
 }
 
 type Baseline = { commit: string } | { root: true } | { unavailable: string } | null;
@@ -92,7 +109,7 @@ function resolveBaseline(): Baseline {
 			return { commit: git(['rev-parse', '--verify', `${override}^{commit}`]).trim() };
 		} catch {
 			try {
-				git(['fetch', '--quiet', 'origin', override]);
+				gitFetch(['fetch', '--quiet', 'origin', override]);
 				return { commit: git(['rev-parse', '--verify', `${override}^{commit}`]).trim() };
 			} catch {
 				if (process.env.CI) {
@@ -435,6 +452,8 @@ function surfaceAt(commit: string, protectedIdentifiers: ReadonlySet<string>): S
 	const dir = path.join(tempRoot, 'baseline');
 	const hooks = path.join(tempRoot, 'hooks');
 	let worktreeAdded = false;
+	let cleanupFailure: string | undefined;
+	let surface: Surface;
 	try {
 		mkdirSync(hooks);
 		// A linked worktree of this repository, not a clone of it. A clone has to reach the
@@ -475,7 +494,7 @@ function surfaceAt(commit: string, protectedIdentifiers: ReadonlySet<string>): S
 				CONVEX_SURFACE_PROTECTED_IDENTIFIERS: JSON.stringify([...protectedIdentifiers])
 			}
 		});
-		return new Map(JSON.parse(serialized) as Array<[string, Registration]>);
+		surface = new Map(JSON.parse(serialized) as Array<[string, Registration]>);
 	} finally {
 		if (worktreeAdded) {
 			try {
@@ -484,15 +503,21 @@ function surfaceAt(commit: string, protectedIdentifiers: ReadonlySet<string>): S
 				rmSync(dir, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
 				try {
 					git(['worktree', 'prune'], process.cwd(), hooks);
-				} catch {
-					// A stale administrative entry is the repository's to clean up later. It
-					// cannot change this run's verdict, which is already decided above.
+				} catch (error) {
+					// Everything else this function leaves behind lives in the system temporary
+					// directory, but an unpruned entry is state inside the repository being
+					// checked, and a later `git worktree` there reads it. Reported here so it
+					// survives a primary failure, and raised below when there is none.
+					cleanupFailure = `convex-consumer-compat: left an administrative worktree entry for ${dir}: ${
+						error instanceof Error ? error.message : String(error)
+					}`;
+					console.error(cleanupFailure);
 				}
 			}
 		}
-		// Cleanup reports, it does not decide. Throwing from here would discard an answer the
-		// checker already computed and replace the install or checkout diagnostic that
-		// preceded it, turning a compatible surface into a red check over a locked file.
+		// The temporary root is outside the repository, so failing to remove it changes
+		// nothing a later command can read. Throwing here would discard an answer the checker
+		// already computed and replace the install or checkout diagnostic that preceded it.
 		try {
 			rmSync(tempRoot, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
 		} catch (error) {
@@ -503,6 +528,8 @@ function surfaceAt(commit: string, protectedIdentifiers: ReadonlySet<string>): S
 			);
 		}
 	}
+	if (cleanupFailure) throw new Error(cleanupFailure);
+	return surface;
 }
 
 export async function main(): Promise<void> {
