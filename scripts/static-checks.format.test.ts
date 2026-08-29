@@ -15,6 +15,7 @@ import { describe, expect, it } from 'vitest';
 import { sanitizedGitEnv } from './git-context';
 import {
 	prettierArguments,
+	prettierLiteralPattern,
 	prettierProjectPaths,
 	prettierTraversalPaths,
 	resolveInputs
@@ -202,9 +203,50 @@ describe('format-only static checks', () => {
 		expect(result.output).not.toContain('No such file');
 	});
 
-	it('documents a Git producer that excludes deleted paths', () => {
+	it('escapes a route without a backslash and still checks the named file', () => {
+		const route = 'src/routes/[[lang]]/(marketing)/+page.svelte';
+		const pattern = prettierLiteralPattern(route);
+
+		// Prettier hands an argument it cannot resolve to normalizeToPosix, which on Windows
+		// replaces every backslash with a slash. A backslash-escaped route would arrive there
+		// with its escapes stripped and match nothing, so the escape has to be a character
+		// class, and the pattern has to survive that same rewrite unchanged.
+		expect(pattern).toBe('src/routes/[[][[]lang[]][]]/[(]marketing[)]/+page.svelte');
+		expect(pattern.replaceAll('\\', '/')).toBe(pattern);
+
+		const result = formatCheck(route);
+		expect(result.status, result.output).toBe(0);
+		expect(result.output).toContain('prettier         1 file(s)');
+	});
+
+	it('keeps a literal backslash from matching the neighbour without one', () => {
+		const directory = path.join(ROOT, 'scripts', `.format-backslash-${process.pid}`);
+		const relative = `scripts/.format-backslash-${process.pid}`;
+		mkdirSync(directory, { recursive: true });
+		try {
+			// Only one of the two is malformed. A pattern that drops the backslash checks the
+			// other file and reports a formatted repository while the named one stays broken.
+			writeFileSync(path.join(directory, 'a\\[b].ts'), 'export const a   =1\n');
+			writeFileSync(path.join(directory, 'a[b].ts'), 'export const b = 1;\n');
+
+			const result = formatCheck(`${relative}/a\\[b].ts`);
+			expect(result.status, result.output).toBe(1);
+			expect(result.output).toContain('a\\[b].ts');
+		} finally {
+			rmSync(directory, { recursive: true, force: true });
+		}
+	});
+
+	it('documents a Git producer that excludes deleted paths and stays root-relative', () => {
 		const source = readFileSync(SCRIPT, 'utf8');
-		expect(source).toContain('git diff --name-only --diff-filter=d -z');
+		// --no-relative decides which records the producer emits at all: measured with git
+		// 2.55.0 and diff.relative=true, running it from scripts/ reports a change to
+		// scripts/AGENTS.md as the record "AGENTS.md" and omits every path above that
+		// directory, so the consumer would check the root file of the same name.
+		for (const documented of source.matchAll(/git diff [^`]*--name-only[^`]*/g)) {
+			expect(documented[0]).toContain('--no-relative');
+		}
+		expect(source).toContain('git diff --no-relative --name-only --diff-filter=d -z');
 	});
 
 	it('rejects the replacement character produced by lossy argv decoding', () => {

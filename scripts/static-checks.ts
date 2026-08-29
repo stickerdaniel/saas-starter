@@ -22,9 +22,12 @@
  *                Lint and types run svelte-kit sync first.
  *                Omit to run lint and types.
  *   --files-from Read NUL-separated UTF-8 paths from a file, or from stdin with "-".
- *                This matches `git diff --name-only --diff-filter=d -z` without
- *                quoting, deleted paths, or delimiter ambiguity. Records are
- *                repository-relative. An empty stream is an honest no-op.
+ *                This matches `git diff --no-relative --name-only --diff-filter=d -z`
+ *                without quoting, deleted paths, or delimiter ambiguity. Records are
+ *                repository-relative, and --no-relative is what keeps them so: with
+ *                diff.relative set, git strips the prefix of the current subdirectory
+ *                and drops everything above it, so a record would name a same-named
+ *                file at the root. An empty stream is an honest no-op.
  *
  * Paths are validated and normalized at intake (see resolveInputs). An empty
  * argument, a newline-joined blob, a missing path, or a path outside the repo is a
@@ -127,7 +130,12 @@ const REPO_ROOT = realpathSync(path.resolve(path.dirname(fileURLToPath(import.me
 const USAGE = '  Flags: --ci, --staged, --scope <lint|types|format|compat>, --files-from <path|->';
 
 /** Directories never descended into when a directory argument is expanded. */
-const NEVER_WALK = ['node_modules/', '.git/', '.svelte-kit/', '.convex/', 'build/', 'dist/'];
+/**
+ * Directory names a directory expansion never descends into. Compared segment by segment:
+ * a substring test would read `src/redist/` as `dist/` and drop a real source file from a
+ * run that stays green because the other inputs pass.
+ */
+const NEVER_WALK = new Set(['node_modules', '.git', '.svelte-kit', '.convex', 'build', 'dist']);
 
 /**
  * Reject the run. A gate that cannot see its input must never report success.
@@ -242,7 +250,16 @@ export function prettierTraversalPaths(
 				'Repository contains a path whose bytes are not valid UTF-8.'
 			);
 			const absolute = path.join(directory, name);
-			const entry = lstatSync(absolute);
+			// Prettier reads this phase through its own `lstatSafe`, and a generated tree such
+			// as .svelte-kit can lose an entry to a concurrent sync between the readdir above
+			// and the stat below. Skipping matches what the formatter would have decided; an
+			// uncaught ENOENT would instead abort the whole check over an ignored file.
+			let entry;
+			try {
+				entry = lstatSync(absolute);
+			} catch {
+				continue;
+			}
 			if (entry.isSymbolicLink()) continue;
 			const relative = prefix ? `${prefix}/${name}` : name;
 			if (entry.isDirectory()) {
@@ -306,7 +323,7 @@ export function resolveInputs(
 			fail(
 				`Newline inside a single path argument (${origin}): ${JSON.stringify(arg.slice(0, 40))}`,
 				"  A computed list arrived as one positional argument. Pipe Git's native\n" +
-					'  path records instead: `git diff --name-only --diff-filter=d -z | ... --files-from -`.'
+					'  path records instead: `git diff --no-relative --name-only --diff-filter=d -z | ... --files-from -`.'
 			);
 		}
 
@@ -350,7 +367,7 @@ export function resolveInputs(
 			for (const file of directoryPaths(real)) {
 				if ((prefix && !file.startsWith(prefix)) || !existsSync(path.join(REPO_ROOT, file)))
 					continue;
-				if (NEVER_WALK.some((skip) => file.includes(skip))) continue;
+				if (file.split('/').some((segment) => NEVER_WALK.has(segment))) continue;
 				matched = true;
 				out.add(file);
 			}
@@ -746,19 +763,50 @@ async function runCommand(
 	}
 }
 
-const POSIX_GLOB_SYMBOLS = /(\\?)([()*?[\]{|}]|^!|[!+@](?=\()|\\(?![!()*+?@[\]{|}]))/g;
-const WINDOWS_GLOB_SYMBOLS = /(\\?)([()[\]{}]|^!|[!+@](?=\())/g;
+/**
+ * Every glob metacharacter, spelled as a one-character class rather than backslash-escaped.
+ *
+ * Prettier resolves an argument as a path first and expands it as a glob only once that
+ * path is gone, which is what lets a vanished file quietly match a neighbour: measured with
+ * Prettier 3.9.5, `scripts/[ab].ts` checks `scripts/a.ts` and exits 0 after the named file
+ * is deleted, while the escaped form exits 2 with "No files matching the pattern".
+ *
+ * The escape cannot be a backslash. Prettier hands an unresolvable argument to
+ * `normalizeToPosix`, which on Windows replaces every backslash with a slash
+ * (prettier/internal/legacy-cli.mjs), so a backslash-escaped SvelteKit route such as
+ * `src/routes/[[lang]]/(auth)/+page.svelte` would arrive with its escapes stripped and
+ * match nothing. A character class survives that rewrite, and it is also inert to the
+ * `path.resolve` Prettier runs before its own `lstat`, where a backslash is a separator.
+ */
+const GLOB_CLASS_ESCAPES = new Map<string, string>([
+	['*', '[*]'],
+	['?', '[?]'],
+	['[', '[[]'],
+	[']', '[]]'],
+	['(', '[(]'],
+	[')', '[)]'],
+	['{', '[{]'],
+	['}', '[}]'],
+	['|', '[|]']
+]);
 
 /**
- * Escape a repository path with the same pattern grammar Prettier delegates to fast-glob.
- * Prettier checks an existing path literally, then falls back to glob expansion if that
- * path disappears. An escaped pattern can only rediscover the originally named path.
+ * Turn a repository path into the glob pattern that can only match that same path.
+ *
+ * A literal backslash and a double quote take Prettier's own spelling for them, because a
+ * class cannot hold either: both are unrepresentable in a Windows filename, so the two
+ * branches are reachable on POSIX alone, where `normalizeToPosix` is the identity.
+ * A leading `!` is read as a negation before any of this applies, so such a path is
+ * prefixed instead; fast-glob drops the `./` again when it reports the match.
  */
 export function prettierLiteralPattern(file: string): string {
-	return file.replace(
-		process.platform === 'win32' ? WINDOWS_GLOB_SYMBOLS : POSIX_GLOB_SYMBOLS,
-		'\\$2'
-	);
+	let pattern = '';
+	for (const character of file) {
+		if (character === '\\') pattern += '@(\\\\)';
+		else if (character === '"') pattern += '@(\\")';
+		else pattern += GLOB_CLASS_ESCAPES.get(character) ?? character;
+	}
+	return pattern.startsWith('!') ? `./${pattern}` : pattern;
 }
 
 /**
