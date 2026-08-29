@@ -131,11 +131,23 @@ const USAGE = '  Flags: --ci, --staged, --scope <lint|types|format|compat>, --fi
 
 /** Directories never descended into when a directory argument is expanded. */
 /**
- * Directory names a directory expansion never descends into. Compared segment by segment:
- * a substring test would read `src/redist/` as `dist/` and drop a real source file from a
- * run that stays green because the other inputs pass.
+ * Directories a directory expansion never descends into, split the way .gitignore splits
+ * them: `/build`, `/dist` and `/.svelte-kit` are anchored there and a tracked
+ * `src/build/generator.ts` is an ordinary source file, while `node_modules`, `.git` and
+ * `.convex` are ignored at any depth. Comparing segments against one flat list dropped the
+ * former from a run that stayed green on its other inputs; comparing substrings, as this
+ * did before, also read `src/redist/` as `dist/`.
  */
-const NEVER_WALK = new Set(['node_modules', '.git', '.svelte-kit', '.convex', 'build', 'dist']);
+const NEVER_WALK_ANYWHERE = new Set(['node_modules', '.git', '.convex']);
+const NEVER_WALK_AT_ROOT = new Set(['.svelte-kit', 'build', 'dist']);
+
+export function isNeverWalked(file: string): boolean {
+	const segments = file.split('/');
+	return (
+		segments.some((segment) => NEVER_WALK_ANYWHERE.has(segment)) ||
+		NEVER_WALK_AT_ROOT.has(segments[0]!)
+	);
+}
 
 /**
  * Reject the run. A gate that cannot see its input must never report success.
@@ -235,6 +247,11 @@ export function prettierProjectPaths(
 	});
 }
 
+/** A path that vanished between two syscalls, which is the only traversal race to absorb. */
+function isMissingPathError(error: unknown): boolean {
+	return (error as NodeJS.ErrnoException | null)?.code === 'ENOENT';
+}
+
 /** Files reachable by Prettier's directory traversal before file-level classification. */
 export function prettierTraversalPaths(
 	cwd = REPO_ROOT,
@@ -244,21 +261,32 @@ export function prettierTraversalPaths(
 	const files: string[] = [];
 	const skippedDirectories = new Set(['.git', '.hg', '.jj', '.sl', '.svn', 'node_modules']);
 	const walk = (directory: string, prefix: string): void => {
-		for (const rawName of readdirSync(directory, { encoding: 'buffer' })) {
+		// The same race in the other direction: the directory itself can be gone by the time
+		// the recursion reaches it, and only that case is a skip.
+		let names;
+		try {
+			names = readdirSync(directory, { encoding: 'buffer' });
+		} catch (error) {
+			if (isMissingPathError(error)) return;
+			throw error;
+		}
+		for (const rawName of names) {
 			const name = decodeUtf8(
 				rawName,
 				'Repository contains a path whose bytes are not valid UTF-8.'
 			);
 			const absolute = path.join(directory, name);
-			// Prettier reads this phase through its own `lstatSafe`, and a generated tree such
-			// as .svelte-kit can lose an entry to a concurrent sync between the readdir above
-			// and the stat below. Skipping matches what the formatter would have decided; an
-			// uncaught ENOENT would instead abort the whole check over an ignored file.
+			// Prettier reads this phase through its own `lstatSafe`, which swallows ENOENT and
+			// nothing else, and a generated tree such as .svelte-kit can lose an entry to a
+			// concurrent sync between the readdir above and the stat below. Skipping a vanished
+			// entry matches what the formatter would have decided; swallowing EACCES or EIO
+			// would instead hide a directory this ledger is supposed to account for.
 			let entry;
 			try {
 				entry = lstatSync(absolute);
-			} catch {
-				continue;
+			} catch (error) {
+				if (isMissingPathError(error)) continue;
+				throw error;
 			}
 			if (entry.isSymbolicLink()) continue;
 			const relative = prefix ? `${prefix}/${name}` : name;
@@ -305,7 +333,13 @@ export function resolveInputs(
 	raw: string[],
 	origin: string,
 	baseDirectory = process.cwd(),
-	directoryPaths: (directory: string) => string[] = repositoryPaths
+	directoryPaths: (directory: string) => string[] = repositoryPaths,
+	// Only the formatter refuses to descend through a symlinked directory, because Prettier
+	// itself does (`followSymbolicLinks: false`, and an explicitly named link is an error).
+	// Lint and types have always expanded one, and .claude/skills is a tracked directory
+	// symlink whose target holds TypeScript, so refusing it here would drop those files from
+	// a types run that still reports success.
+	expandSymlinkedDirectories = true
 ): string[] {
 	const out = new Set<string>();
 
@@ -361,13 +395,17 @@ export function resolveInputs(
 			);
 		}
 
-		if (target.isDirectory() && !isSymlink) {
+		if (target.isDirectory() && (expandSymlinkedDirectories || !isSymlink)) {
 			let matched = false;
-			const prefix = relative === '' ? '' : `${relative}/`;
+			// The resolved target, not the name that was typed. Git lists a directory symlink
+			// as one entry and knows nothing below it, so a prefix built from the link matches
+			// nothing and the expansion silently yields the link alone.
+			const walked = toPosix(path.relative(REPO_ROOT, real));
+			const prefix = walked === '' ? '' : `${walked}/`;
 			for (const file of directoryPaths(real)) {
 				if ((prefix && !file.startsWith(prefix)) || !existsSync(path.join(REPO_ROOT, file)))
 					continue;
-				if (file.split('/').some((segment) => NEVER_WALK.has(segment))) continue;
+				if (isNeverWalked(file)) continue;
 				matched = true;
 				out.add(file);
 			}
@@ -793,20 +831,23 @@ const GLOB_CLASS_ESCAPES = new Map<string, string>([
 /**
  * Turn a repository path into the glob pattern that can only match that same path.
  *
- * A literal backslash and a double quote take Prettier's own spelling for them, because a
- * class cannot hold either: both are unrepresentable in a Windows filename, so the two
- * branches are reachable on POSIX alone, where `normalizeToPosix` is the identity.
- * A leading `!` is read as a negation before any of this applies, so such a path is
- * prefixed instead; fast-glob drops the `./` again when it reports the match.
+ * `!`, a literal backslash and a double quote take an extglob rather than a class, because
+ * `[!]` opens a negated class and the other two cannot appear inside one. `./` is not an
+ * option for the `!`: measured with Prettier 3.9.5, `./!a[[]b[]].ts` still reads as a
+ * negation, so a run whose named file had vanished matched every other root file and exited
+ * 0, while `@(!)a[[]b[]].ts` exits 2 with "No files matching the pattern". A backslash and
+ * a quote are unrepresentable in a Windows filename, so those two branches are reachable on
+ * POSIX alone, where Prettier's `normalizeToPosix` is the identity.
  */
 export function prettierLiteralPattern(file: string): string {
 	let pattern = '';
 	for (const character of file) {
 		if (character === '\\') pattern += '@(\\\\)';
 		else if (character === '"') pattern += '@(\\")';
+		else if (character === '!') pattern += '@(!)';
 		else pattern += GLOB_CLASS_ESCAPES.get(character) ?? character;
 	}
-	return pattern.startsWith('!') ? `./${pattern}` : pattern;
+	return pattern;
 }
 
 /**
@@ -915,7 +956,8 @@ async function main(): Promise<void> {
 			baseDirectory,
 			scope === 'format'
 				? (directory) => prettierTraversalPaths(directory, false, REPO_ROOT)
-				: repositoryPaths
+				: repositoryPaths,
+			scope !== 'format'
 		);
 	}
 

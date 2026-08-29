@@ -14,6 +14,7 @@ import { fileURLToPath } from 'url';
 import { describe, expect, it } from 'vitest';
 import { sanitizedGitEnv } from './git-context';
 import {
+	isNeverWalked,
 	prettierArguments,
 	prettierLiteralPattern,
 	prettierProjectPaths,
@@ -219,22 +220,98 @@ describe('format-only static checks', () => {
 		expect(result.output).toContain('prettier         1 file(s)');
 	});
 
-	it('keeps a literal backslash from matching the neighbour without one', () => {
-		const directory = path.join(ROOT, 'scripts', `.format-backslash-${process.pid}`);
-		const relative = `scripts/.format-backslash-${process.pid}`;
-		mkdirSync(directory, { recursive: true });
-		try {
-			// Only one of the two is malformed. A pattern that drops the backslash checks the
-			// other file and reports a formatted repository while the named one stays broken.
-			writeFileSync(path.join(directory, 'a\\[b].ts'), 'export const a   =1\n');
-			writeFileSync(path.join(directory, 'a[b].ts'), 'export const b = 1;\n');
+	// A backslash is a path separator on Windows and cannot appear in a filename there, so
+	// the fixture itself is unbuildable rather than the assertion being wrong.
+	it.skipIf(process.platform === 'win32')(
+		'keeps a literal backslash from matching the neighbour without one',
+		() => {
+			const directory = path.join(ROOT, 'scripts', `.format-backslash-${process.pid}`);
+			const relative = `scripts/.format-backslash-${process.pid}`;
+			mkdirSync(directory, { recursive: true });
+			try {
+				// Only one of the two is malformed. A pattern that drops the backslash checks the
+				// other file and reports a formatted repository while the named one stays broken.
+				writeFileSync(path.join(directory, 'a\\[b].ts'), 'export const a   =1\n');
+				writeFileSync(path.join(directory, 'a[b].ts'), 'export const b = 1;\n');
 
-			const result = formatCheck(`${relative}/a\\[b].ts`);
-			expect(result.status, result.output).toBe(1);
-			expect(result.output).toContain('a\\[b].ts');
-		} finally {
-			rmSync(directory, { recursive: true, force: true });
+				const result = formatCheck(`${relative}/a\\[b].ts`);
+				expect(result.status, result.output).toBe(1);
+				expect(result.output).toContain('a\\[b].ts');
+			} finally {
+				rmSync(directory, { recursive: true, force: true });
+			}
 		}
+	);
+
+	it('escapes a leading exclamation mark into a pattern Prettier cannot negate', () => {
+		expect(prettierLiteralPattern('!a[b].ts')).toBe('@(!)a[[]b[]].ts');
+
+		withRepositoryFile('!a[b].ts', 'export const a   =1\n', () => {
+			const named = formatCheck('!a[b].ts');
+			expect(named.status, named.output).toBe(1);
+			expect(named.output).toContain('!a[b].ts');
+		});
+
+		// The file is gone again here, which is the case a negation turns into a silent pass:
+		// measured with Prettier 3.9.5, `./!a[[]b[]].ts` matched every other root file and
+		// exited 0 instead of reporting the path it was given.
+		const vanished = spawnSync(
+			testExecutable('bun'),
+			['prettier', '--check', '--ignore-unknown', '--', prettierLiteralPattern('!a[b].ts')],
+			{ cwd: ROOT, env: { ...sanitizedGitEnv(), NO_COLOR: '1' }, encoding: 'utf8' }
+		);
+		expect(vanished.status).toBe(2);
+		expect(`${vanished.stdout}${vanished.stderr}`).toContain('No files matching the pattern');
+	});
+
+	it('expands a symlinked directory for every scope except format', () => {
+		const link = '.claude/skills/upstream-sync';
+		const expanded = resolveInputs([link], 'arguments', ROOT);
+		expect(expanded.length).toBeGreaterThan(1);
+		expect(expanded.some((file) => file.endsWith('.ts'))).toBe(true);
+
+		// Prettier refuses an explicitly named symlink, so the formatter passes the link
+		// itself and lets that refusal happen instead of silently checking the target.
+		expect(
+			resolveInputs(
+				[link],
+				'arguments',
+				ROOT,
+				(directory) => prettierTraversalPaths(directory, false, ROOT),
+				false
+			)
+		).toEqual([link]);
+	});
+
+	it('anchors the generated trees .gitignore anchors and no others', () => {
+		// /build, /dist and /.svelte-kit are root-anchored in .gitignore, so a tracked
+		// src/build/generator.ts is an ordinary source file rather than generated output.
+		expect(isNeverWalked('build/output.js')).toBe(true);
+		expect(isNeverWalked('dist/output.js')).toBe(true);
+		expect(isNeverWalked('.svelte-kit/ambient.d.ts')).toBe(true);
+		expect(isNeverWalked('src/build/generator.ts')).toBe(false);
+		expect(isNeverWalked('src/lib/dist/value.ts')).toBe(false);
+		expect(isNeverWalked('src/redist/value.ts')).toBe(false);
+
+		// node_modules, .git and .convex are ignored at every depth.
+		expect(isNeverWalked('packages/app/node_modules/x.js')).toBe(true);
+		expect(isNeverWalked('src/.convex/generated.ts')).toBe(true);
+	});
+
+	it('accepts the same directory named twice', () => {
+		const once = resolveInputs(['scripts'], 'arguments', ROOT);
+		expect(resolveInputs(['scripts', 'scripts'], 'arguments', ROOT)).toEqual(once);
+	});
+
+	it('ignores only the repository root CLAUDE.md pointer', () => {
+		const ignore = readFileSync(path.join(ROOT, '.prettierignore'), 'utf8');
+		expect(ignore).toContain('/CLAUDE.md');
+
+		withRepositoryFile('scripts/CLAUDE.md', '# Nested\n', () => {
+			const result = formatCheck('scripts/CLAUDE.md');
+			expect(result.status, result.output).toBe(0);
+			expect(result.output).toContain('prettier         1 file(s)');
+		});
 	});
 
 	it('documents a Git producer that excludes deleted paths and stays root-relative', () => {
