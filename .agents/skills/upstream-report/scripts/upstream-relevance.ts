@@ -1792,6 +1792,15 @@ function inspectLocalRemote(
 		const gitDir = realpathSync(gitDirValue);
 		const commonDir = realpathSync(commonDirValue);
 		const objectDir = realpathSync(objectDirValue);
+		const refStorage =
+			localGitPath(remotePath, ['config', '--local', '--get', 'extensions.refStorage'], true) ||
+			'files';
+		if (refStorage !== 'files') {
+			fail(
+				`Local upstream repositories using ${terminalSafe(refStorage)} ref storage are not supported. ` +
+					'Use a files-format mirror for this report.'
+			);
+		}
 		effectivePaths.add(gitDir);
 		effectivePaths.add(commonDir);
 		effectivePaths.add(objectDir);

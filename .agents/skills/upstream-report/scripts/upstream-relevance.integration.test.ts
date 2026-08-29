@@ -36,6 +36,27 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 const itWithGitWrapper = it.runIf(process.platform !== 'win32');
 const itWithPosixPaths = it.runIf(process.platform !== 'win32');
 
+// Reftable ref storage only exists from Git 2.45 onwards, so the fixture that
+// needs it cannot be built on older toolchains.
+const itWithReftable = it.runIf(reftableSupported());
+
+function reftableSupported(): boolean {
+	const probe = mkdtempSync(join(tmpdir(), 'upstream-relevance-reftable-probe-'));
+	try {
+		return (
+			spawnSync(
+				'git',
+				['init', '--bare', '-q', '--ref-format=reftable', join(probe, 'probe.git')],
+				{
+					encoding: 'utf8'
+				}
+			).status === 0
+		);
+	} finally {
+		rmSync(probe, { recursive: true, force: true });
+	}
+}
+
 const SCRIPT = resolve(
 	process.cwd(),
 	'.agents/skills/upstream-report/scripts/upstream-relevance.ts'
@@ -4737,6 +4758,23 @@ describe('upstream-relevance (integration)', { timeout: 30_000 }, () => {
 
 		expect(r.status).not.toBe(0);
 		expect(r.stderr).toContain('packed refs is a filesystem symlink');
+	});
+
+	itWithReftable('rejects a local remote using reftable ref storage', () => {
+		const remote = join(tmp, 'reftable-upstream.git');
+		git(tmp, ['clone', '-q', '--bare', '--ref-format=reftable', upstream, remote]);
+		const marker = JSON.parse(readFileSync(join(fork, '.upstream-sync.json'), 'utf8')) as Record<
+			string,
+			unknown
+		>;
+		write(fork, '.upstream-sync.json', JSON.stringify({ ...marker, upstreamUrl: remote }));
+		git(fork, ['commit', '-qam', 'set reftable parent']);
+		git(fork, ['remote', 'set-url', 'upstream', remote]);
+
+		const r = run(fork, ['--json']);
+
+		expect(r.status).not.toBe(0);
+		expect(r.stderr).toContain('reftable ref storage are not supported');
 	});
 
 	itWithGitWrapper('fences in-place changes to local ref backing files', () => {
