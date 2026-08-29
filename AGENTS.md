@@ -21,21 +21,23 @@ Skills hold dependency and workflow tutorials. Use the applicable skill instead 
 
 ## Template and fork workflow
 
-### SaaS Starter template bugs
+### Reporting template bugs from a fork
 
 <!-- DO NOT rename or remove this section when rebranding a fork. These links point to the upstream template repo. -->
 
-If a fork discovers a bug or unexpected behavior that originates in the template:
+Template code and fork-owned code share one tree. Measure whether a change came from the template instead of judging it by eye:
 
-1. Search [saas-starter issues](https://github.com/stickerdaniel/saas-starter/issues).
-2. If none exists, fetch the relevant upstream issue template with `gh api repos/stickerdaniel/saas-starter/contents/.github/ISSUE_TEMPLATE`.
-3. File the issue using that template.
+```bash
+bun run upstream:report
+```
+
+The report keeps every uncertain file visible as `unmeasured`; bootstrap presence and negative text resemblance do not prove fork ownership. An incomplete run exits non-zero. Load `.agents/skills/upstream-report/SKILL.md` to interpret each file, search existing saas-starter issues, and match recent issue style. Ask the human before filing.
 
 ### Pulling upstream changes into a fork
 
 <!-- DO NOT rename or remove this section when rebranding a fork. -->
 
-Use the `upstream-sync` skill (`.agents/skills/upstream-sync/SKILL.md`) and start with `bun run upstream:fork-point` and `bun run upstream:changes`. Forks are content copies without a shared Git ancestor, so ordinary merge/rebase/sync workflows do not apply.
+A human starts the `upstream-sync` skill (`.agents/skills/upstream-sync/SKILL.md`) with `bun run upstream:sync`, then reviews `bun run upstream:changes`. Forks are content copies without a shared Git ancestor, so ordinary merge, rebase, and repository-sync workflows do not apply.
 
 ## Global rules
 
@@ -118,7 +120,8 @@ A finished mechanical guard fails on the buggy revision for the same causal reas
 - `bun run dev:cloud` — Vite + cloud Convex backend
 - `bun scripts/static-checks.ts <changed files...>` — required after implementation
 - `bun scripts/static-checks.ts --scope types` — required once before final handoff or PR for changes to JS, TS, Svelte, Convex, email templates, or Autumn config; pre-commit intentionally runs staged lint only
-- `bun run test:unit` — Vitest suite
+- `bun run test:unit` — Vitest unit suite
+- `bun run test:upstream-report` — repository-backed detector suite; required after upstream-report code or test changes
 - `bun run test:e2e` — Playwright suite; required after E2E changes
 - `bun run test` — complete test suite
 - `bun run check:convex` — required after Convex or Convex-imported shared-code changes

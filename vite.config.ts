@@ -380,7 +380,9 @@ export default defineConfig(async ({ mode }) => {
 				'references/**',
 				// Skills live in .agents/skills/ and are symlinked into .claude/skills/;
 				// exclude the symlinked path so tests are not discovered and run twice.
-				'.claude/skills/**'
+				'.claude/skills/**',
+				// Repository-spawning detector tests run in their own CI job.
+				'.agents/skills/upstream-report/scripts/upstream-relevance.integration.test.ts'
 			],
 			passWithNoTests: true,
 			environment: 'jsdom'

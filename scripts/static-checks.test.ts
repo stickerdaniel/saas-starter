@@ -208,6 +208,15 @@ describe('route predicates', () => {
 		]);
 	});
 
+	it('routes upstream-report TypeScript through its dedicated project', () => {
+		expect(
+			ROUTES['skill-types']('.agents/skills/upstream-report/scripts/upstream-relevance.ts')
+		).toBe(true);
+		expect(ROUTES['skill-types']('.agents/skills/upstream-report/tsconfig.json')).toBe(true);
+		expect(ROUTES['skill-types']('.agents/skills/upstream-report/helper.ts')).toBe(false);
+		expect(ROUTES['skill-types']('.agents/skills/upstream-report/SKILL.md')).toBe(false);
+	});
+
 	it('are blind to an absolute path, which is why normalization is load-bearing', () => {
 		const absolute = path.join(ROOT, 'src/lib/utils/auth-messages.ts');
 		const absoluteConvex = path.join(ROOT, 'src/lib/convex/schema.ts');
@@ -356,6 +365,26 @@ describe('resolveInputs', () => {
 			rmSync(directory, { recursive: true, force: true });
 		}
 	});
+
+	it.skipIf(process.platform === 'win32')(
+		'accepts a directory whose files were already named',
+		() => {
+			const directory = path.join(ROOT, `.static-checks-overlap-target-${process.pid}`);
+			const link = path.join(ROOT, `.static-checks-overlap-link-${process.pid}`);
+			const file = path.join(directory, 'only.ts');
+			mkdirSync(directory);
+			writeFileSync(file, 'export {};\n');
+			symlinkSync(directory, link);
+			try {
+				expect(resolveInputs([file, link], 'test')).toEqual([
+					path.relative(ROOT, file).split(path.sep).join('/')
+				]);
+			} finally {
+				rmSync(link, { force: true });
+				rmSync(directory, { recursive: true, force: true });
+			}
+		}
+	);
 });
 
 describe('bad input dies at the boundary', () => {
