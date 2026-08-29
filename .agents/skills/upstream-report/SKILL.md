@@ -264,7 +264,9 @@ still match. Remote URLs and their proxy settings are captured together and fenc
 local remote is bound to its canonical Git common directory, after checking its endpoint, worktree,
 Git directory, common directory, object directory, loose `main` ref, `packed-refs`, and Git's
 recursively loaded local alternates against every checkout owned by this repository. Filesystem and
-Git-symbolic ref indirection is refused. Alternate entries follow Git's comment and C-quote
+Git-symbolic ref indirection is refused. That fence reads ref files directly, so a local
+remote must use the `files` ref format; reftable storage stops the run and names itself.
+Alternate entries follow Git's comment and C-quote
 grammar; ambiguous quoted entries stop the run. The check compares ancestor filesystem identity as
 well as spelling. Ref backing files also pin mode, size, mtime, and ctime. It repeats that fence around
 remote reads, while a retargeted alias stays bound to the location first validated.
