@@ -13,7 +13,6 @@ import path from 'path';
 
 const SCRUBBED = [
 	'GIT_ALTERNATE_OBJECT_DIRECTORIES',
-	'GIT_ATTR_NOSYSTEM',
 	'GIT_ATTR_SOURCE',
 	'GIT_COMMON_DIR',
 	'GIT_CONFIG',
@@ -36,6 +35,14 @@ const SCRUBBED_CONFIG = [
 	'GIT_CONFIG_SYSTEM',
 	'GIT_CONFIG_NOSYSTEM'
 ] as const;
+/**
+ * `GIT_ATTR_NOSYSTEM` is deliberately absent above. It redirects nothing: it only turns the
+ * system attributes file off, so a caller that exports it has hardened its own run. Removing
+ * it would switch that file back on for our children and let a system-wide `filter=` rewrite
+ * a blob between the checks and the `git add` that commits it. `GIT_ATTR_SOURCE` is a
+ * redirection and stays scrubbed; `isolatedGitEnv()` sets `GIT_ATTR_NOSYSTEM` itself for a
+ * child that must read nothing external at all.
+ */
 const SCRUBBED_CONFIG_PREFIXES = ['GIT_CONFIG_KEY_', 'GIT_CONFIG_VALUE_'] as const;
 
 /** process.env with externally set Git context variables removed. */

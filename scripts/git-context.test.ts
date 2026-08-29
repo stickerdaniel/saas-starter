@@ -23,7 +23,6 @@ import {
 
 const SCRUBBED = [
 	'GIT_ALTERNATE_OBJECT_DIRECTORIES',
-	'GIT_ATTR_NOSYSTEM',
 	'GIT_ATTR_SOURCE',
 	'GIT_COMMON_DIR',
 	'GIT_CONFIG',
@@ -48,17 +47,15 @@ const SCRUBBED_CONFIG = [
 	'GIT_CONFIG_KEY_0',
 	'GIT_CONFIG_VALUE_0'
 ] as const;
+/**
+ * A caller that exports this has turned the system attributes file off for its own run. It
+ * names no repository, so scrubbing it would only re-enable that file for our children.
+ */
+const PRESERVED_HARDENING = ['GIT_ATTR_NOSYSTEM'] as const;
 const EXTERNAL_INDEX_OPT_IN = 'STATIC_CHECKS_ALLOW_EXTERNAL_GIT_INDEX';
 
 function isolatedValue(key: string): string | undefined {
-	if (
-		[
-			'GIT_ATTR_NOSYSTEM',
-			'GIT_NO_REPLACE_OBJECTS',
-			'GIT_CONFIG_NOSYSTEM',
-			'GIT_CONFIG_COUNT'
-		].includes(key)
-	) {
+	if (['GIT_NO_REPLACE_OBJECTS', 'GIT_CONFIG_NOSYSTEM', 'GIT_CONFIG_COUNT'].includes(key)) {
 		return '1';
 	}
 	if (key === 'GIT_CONFIG_KEY_0') return 'core.attributesFile';
@@ -80,7 +77,9 @@ describe('sanitizedGitEnv', () => {
 	const saved = new Map<string, string | undefined>();
 
 	beforeEach(() => {
-		for (const key of [...SCRUBBED, ...SCRUBBED_CONFIG]) saved.set(key, process.env[key]);
+		for (const key of [...SCRUBBED, ...SCRUBBED_CONFIG, ...PRESERVED_HARDENING]) {
+			saved.set(key, process.env[key]);
+		}
 	});
 
 	afterEach(() => {
@@ -119,6 +118,16 @@ describe('sanitizedGitEnv', () => {
 		for (const key of [...SCRUBBED, ...SCRUBBED_CONFIG]) {
 			expect(env[key], key).toBe(isolatedValue(key));
 		}
+	});
+
+	it('keeps an inherited attribute hardening and enforces it when isolating', () => {
+		process.env.GIT_ATTR_NOSYSTEM = '1';
+
+		expect(sanitizedGitEnv().GIT_ATTR_NOSYSTEM).toBe('1');
+
+		delete process.env.GIT_ATTR_NOSYSTEM;
+		expect(sanitizedGitEnv().GIT_ATTR_NOSYSTEM).toBeUndefined();
+		expect(isolatedGitEnv().GIT_ATTR_NOSYSTEM).toBe('1');
 	});
 
 	it('disables external Git attribute sources for isolated children', () => {

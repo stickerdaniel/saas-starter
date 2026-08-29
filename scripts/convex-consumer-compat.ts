@@ -434,17 +434,20 @@ function surfaceAt(commit: string, protectedIdentifiers: ReadonlySet<string>): S
 	const tempRoot = mkdtempSync(path.join(tmpdir(), 'convex-compat-'));
 	const dir = path.join(tempRoot, 'baseline');
 	const hooks = path.join(tempRoot, 'hooks');
+	let worktreeAdded = false;
 	try {
 		mkdirSync(hooks);
-		// A template-free shared clone borrows objects without inheriting the source
-		// repository's local configuration. The isolated attribute sources and empty hook
-		// directory keep the detached checkout independent of machine-local Git behavior.
-		git(
-			['clone', '--template=', '--quiet', '--shared', '--no-checkout', '.', dir],
-			process.cwd(),
-			hooks
-		);
-		git(['checkout', '--quiet', '--detach', commit], dir, hooks);
+		// A linked worktree of this repository, not a clone of it. A clone has to reach the
+		// baseline commit through a transport, and measured with git 2.55.0 that loses two
+		// things this check depends on: a shared clone of a shallow repository writes no
+		// `objects/info/alternates`, so a commit only `FETCH_HEAD` reaches disappears, and a
+		// shared clone of a partial one borrows the incomplete object store without inheriting
+		// `remote.origin.promisor`, so a missing blob can never be fetched. Both fail a
+		// baseline the surrounding repository resolved perfectly well. The empty hook
+		// directory and the isolated attribute sources are what keep the checkout itself
+		// independent of machine-local Git behavior.
+		git(['worktree', 'add', '--detach', '--quiet', dir, commit], process.cwd(), hooks);
+		worktreeAdded = true;
 		const childEnv = { ...isolatedGitEnv(), HUSKY: '0' };
 		try {
 			execFileSync(process.execPath, ['install', '--frozen-lockfile'], {
@@ -474,7 +477,31 @@ function surfaceAt(commit: string, protectedIdentifiers: ReadonlySet<string>): S
 		});
 		return new Map(JSON.parse(serialized) as Array<[string, Registration]>);
 	} finally {
-		rmSync(tempRoot, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
+		if (worktreeAdded) {
+			try {
+				git(['worktree', 'remove', '--force', dir], process.cwd(), hooks);
+			} catch {
+				rmSync(dir, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
+				try {
+					git(['worktree', 'prune'], process.cwd(), hooks);
+				} catch {
+					// A stale administrative entry is the repository's to clean up later. It
+					// cannot change this run's verdict, which is already decided above.
+				}
+			}
+		}
+		// Cleanup reports, it does not decide. Throwing from here would discard an answer the
+		// checker already computed and replace the install or checkout diagnostic that
+		// preceded it, turning a compatible surface into a red check over a locked file.
+		try {
+			rmSync(tempRoot, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
+		} catch (error) {
+			console.error(
+				`convex-consumer-compat: could not remove the baseline directory ${tempRoot}: ${
+					error instanceof Error ? error.message : String(error)
+				}`
+			);
+		}
 	}
 }
 

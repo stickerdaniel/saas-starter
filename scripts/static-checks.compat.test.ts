@@ -201,6 +201,10 @@ describe('Convex compatibility static-check entrypoint', () => {
 		() => {
 			const checkout = createCheckerClone();
 			const env = sanitizedGitEnv();
+			// The fixture below is the checker's entire history. `CI` and `CONVEX_COMPAT_BASE`
+			// survive the scrub by design and would each steer it at a different baseline.
+			delete env.CI;
+			delete env.CONVEX_COMPAT_BASE;
 			const foreignRepository = path.join(checkout.directory, 'foreign-repository');
 			const git = (args: string[], childEnv = env) =>
 				spawnSync('git', ['-c', 'core.useReplaceRefs=true', ...args], {
