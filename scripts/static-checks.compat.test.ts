@@ -336,7 +336,17 @@ describe('Convex compatibility static-check entrypoint', () => {
 			const checkout = createCheckerClone();
 			const env = sanitizedGitEnv();
 			delete env.CI;
-			delete env.CONVEX_COMPAT_BASE;
+			// The baseline is named rather than discovered. A CI checkout is detached with no
+			// local trunk, and `git clone` does not carry the source's remote-tracking refs, so
+			// the clone has nothing for `resolveBaseline` to find: the checker would exit on
+			// "no trunk to compare against" long before reaching the attribute rule under test.
+			const head = spawnSync('git', ['rev-parse', 'HEAD'], {
+				cwd: checkout.repository,
+				env,
+				encoding: 'utf8'
+			});
+			expect(head.status, head.stderr).toBe(0);
+			env.CONVEX_COMPAT_BASE = head.stdout.trim();
 			try {
 				const filter = path.join(checkout.directory, 'baseline-smudge');
 				writeFileSync(filter, '#!/bin/sh\ncat\n');
