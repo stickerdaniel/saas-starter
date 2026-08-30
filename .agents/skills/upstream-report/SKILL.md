@@ -272,11 +272,21 @@ well as spelling. Ref backing files also pin mode, size, mtime, and ctime. It re
 remote reads, while a retargeted alias stays bound to the location first validated.
 
 Fetch disables automatic maintenance because the private ref namespace does not describe which
-objects the real repository still needs. Fetched objects still land in the real object store, and a
-fork that shares no commit with its template receives the whole upstream history on the first run.
-The 30-second deadline bounds time, not bytes, so check free disk space before `--fetch` when the
-configured parent may be unusually large. A check that fails after a completed fetch leaves those
-objects unreachable in the shared store, where only `git gc --prune=now` reclaims them.
+objects the real repository still needs. Fetched objects land in the real object store, so a fork
+that shares no commit with its template takes the full object closure of upstream `main` (not its
+tags, and not branches it never asks for) on the run that first needs it. Measured against a
+384 MiB parent: 152 KiB before, 385 MiB after. Later runs transfer nothing while the advertised
+commit is already present, because Git decides that from the objects it can reach rather than from
+the private ref namespace. The 30-second deadline bounds time and not received bytes, so check free
+disk space before `--fetch` when the configured parent may be unusually large.
+
+Two kinds of leftovers survive a failure. An abort during the transfer leaves `index-pack`'s
+partial `tmp_pack_*` in the object store; measured at 11 MiB and 81 MiB for 3.5 and 5 second
+deadlines against a 287 MiB parent. A check that fails after a completed fetch leaves whatever the
+fork's own refs do not reach. Ordinary `git gc` clears both once its grace period expires, which is
+two weeks for unreachable objects by default. Pruning earlier needs a quiet repository: Git can
+corrupt an object store when `--prune=now` races a process that is writing objects before it
+creates the ref that reaches them.
 It reads the advertised `main` SHA before and after an object-only fetch that writes neither
 `FETCH_HEAD` nor a tracking ref. It verifies that exact commit before creating a missing shared
 remote. The URL it just wrote remains the expected value, so a concurrent replacement cannot be
