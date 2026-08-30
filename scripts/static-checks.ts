@@ -11,6 +11,8 @@
  *   bun scripts/static-checks.ts --staged              - Check only staged files (pre-commit)
  *   bun scripts/static-checks.ts file1.ts file2.svelte - Check specific files
  *   ... | bun scripts/static-checks.ts --files-from -  - Check a NUL-separated computed list
+ *                                                        (see --files-from on the producer's
+ *                                                        exit status, which a pipe discards)
  *
  * Flags:
  *   --ci         Assert mode: uses --check for formatting, omits --fix for ESLint.
@@ -27,7 +29,13 @@
  *                repository-relative, and --no-relative is what keeps them so: with
  *                diff.relative set, git strips the prefix of the current subdirectory
  *                and drops everything above it, so a record would name a same-named
- *                file at the root. An empty stream is an honest no-op.
+ *                file at the root. An empty stream is an honest no-op, and that is
+ *                what makes the producer's exit status the caller's job: a shell
+ *                without `pipefail` reports only the last command, so `git diff`
+ *                exiting 128 on a bad revision emits nothing, this checker exits 0
+ *                over an empty list, and the pipeline reads as a pass. Write the list
+ *                to a file and check git's status before invoking, or set `pipefail`.
+ *                Measured: pipeline_status=0 git_status=128 checker_status=0.
  *
  * Paths are validated and normalized at intake (see resolveInputs). An empty
  * argument, a newline-joined blob, a missing path, or a path outside the repo is a
@@ -230,6 +238,14 @@ export function existingRepositoryPaths(files: string[]): string[] {
 }
 
 /** Paths Prettier's `.` traversal can visit; it does not follow symbolic links. */
+/**
+ * The formatter's own view of a path list: symlinks removed, missing paths either fatal or
+ * dropped. Prettier exits 2 on an explicitly named symlink ("Explicitly specified pattern
+ * ... is a symbolic link"), and this deliberately differs: a link carries a target path
+ * rather than formattable source, so refusing one would fail a whole computed list over an
+ * entry that has nothing to format. A list that holds only links is therefore an honest
+ * zero, the same as a list of images.
+ */
 export function prettierProjectPaths(
 	files: string[],
 	cwd = REPO_ROOT,
@@ -248,6 +264,16 @@ export function prettierProjectPaths(
 }
 
 /** A path that vanished between two syscalls, which is the only traversal race to absorb. */
+/** Whether the path is a symlink, treating a vanished path as "not one". */
+function isSymbolicLinkAt(absolute: string): boolean {
+	try {
+		return lstatSync(absolute).isSymbolicLink();
+	} catch (error) {
+		if (isMissingPathError(error)) return false;
+		throw error;
+	}
+}
+
 function isMissingPathError(error: unknown): boolean {
 	return (error as NodeJS.ErrnoException | null)?.code === 'ENOENT';
 }
@@ -345,8 +371,15 @@ export function resolveInputs(
 	followSymbolicLinks = true
 ): string[] {
 	const out = new Set<string>();
+	// Expanding a directory can produce another link, so the expansion feeds back into this
+	// same loop instead of trusting its own output. `expanded` stops a link that points at an
+	// ancestor from looping forever; it holds resolved directories, so two different links to
+	// the same target expand once.
+	const expanded = new Set<string>();
+	const queue = raw.map((value) => ({ value, base: baseDirectory, named: true }));
 
-	for (const arg of raw) {
+	while (queue.length > 0) {
+		const { value: arg, base, named } = queue.shift()!;
 		if (arg === '') {
 			fail(
 				`Empty path in ${origin}.`,
@@ -368,8 +401,13 @@ export function resolveInputs(
 		// then re-express against the repo root (what every gate below assumes).
 		// realpath both sides so a checkout reached through a symlink (/tmp ->
 		// /private/tmp, a symlinked worktree) does not read as "outside the repo".
-		const absolute = path.resolve(baseDirectory, arg);
-		if (!existsSync(absolute)) fail(`No such file (${origin}): ${formatPathForDiagnostic(arg)}`);
+		const absolute = path.resolve(base, arg);
+		// A named path that is not there is the caller's error. An expanded one can vanish
+		// between the listing and this line, and that race is not worth failing a whole run.
+		if (!existsSync(absolute)) {
+			if (!named) continue;
+			fail(`No such file (${origin}): ${formatPathForDiagnostic(arg)}`);
+		}
 
 		const real = realpathSync(absolute);
 		const target = statSync(real);
@@ -380,6 +418,10 @@ export function resolveInputs(
 		// The resolved target and the named path must both live in the repository. Checking
 		// only the latter would let an in-repository symlink expose an external file.
 		if (isOutside(path.relative(REPO_ROOT, real))) {
+			// A link that was typed is a mistake worth stopping for. One that an expansion
+			// produced is not the caller's doing, and it is the only reason a directory walk
+			// could hand an external file to a checker, so it is dropped instead.
+			if (!named) continue;
 			fail(
 				`Path is outside the repository (${origin}): ${formatPathForDiagnostic(arg)}`,
 				`  Repo root: ${formatPathForDiagnostic(REPO_ROOT)}`
@@ -393,6 +435,7 @@ export function resolveInputs(
 		const native = path.relative(REPO_ROOT, located);
 		const relative = toPosix(native);
 		if (isOutside(native)) {
+			if (!named) continue;
 			fail(
 				`Path is outside the repository (${origin}): ${formatPathForDiagnostic(arg)}`,
 				`  Repo root: ${formatPathForDiagnostic(REPO_ROOT)}`
@@ -400,6 +443,8 @@ export function resolveInputs(
 		}
 
 		if (target.isDirectory() && (followSymbolicLinks || !isSymlink)) {
+			if (expanded.has(real)) continue;
+			expanded.add(real);
 			let matched = false;
 			// The resolved target, not the name that was typed. Git lists a directory symlink
 			// as one entry and knows nothing below it, so a prefix built from the link matches
@@ -411,6 +456,15 @@ export function resolveInputs(
 					continue;
 				if (isNeverWalked(file)) continue;
 				matched = true;
+				// A child of the expansion can be a link of its own, and Git lists one as a single
+				// entry with nothing below it. Adding that name routes by the link's extension:
+				// `.claude/skills` holds eleven directory links, and expanding the parent used to
+				// yield eleven names and no TypeScript at all, so `--scope types` over it reported
+				// success having checked nothing. Feed it back through this loop instead.
+				if (followSymbolicLinks && isSymbolicLinkAt(path.join(REPO_ROOT, file))) {
+					queue.push({ value: file, base: REPO_ROOT, named: false });
+					continue;
+				}
 				out.add(file);
 			}
 			if (!matched)
@@ -768,12 +822,19 @@ function parseCli() {
 
 	// A staged run must end by proving the checked bytes are still the staged bytes, and
 	// that closing argument belongs to the lint-and-types path that owns it. Rather than
-	// spread it over a second exit, the combination is refused: --staged stays a lint
-	// consumer, and formatting a staged set is `--files-from -` over the staged names.
+	// spread it over a second exit, the combination is refused, and --staged stays a lint
+	// consumer.
+	//
+	// `--files-from` over the staged names is not a substitute, and the diagnostic must not
+	// read as one. It names paths, and every checker then reads the working tree: stage an
+	// unformatted file, format only the working copy, and a gate built that way passes while
+	// the unformatted blob is what gets committed. This scope is a push gate over paths that
+	// exist on disk, and there is no index-exact formatting mode.
 	if (scope === 'format' && mode === 'staged') {
 		fail(
 			'--scope format does not support --staged.',
-			'  It formats a full project or a named file list. Pass explicit paths or use --files-from.'
+			'  It formats a full project or a named file list, always as the files are on disk.\n' +
+				'  A gate over index bytes belongs to --staged, which the lint scope owns.'
 		);
 	}
 

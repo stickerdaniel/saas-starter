@@ -289,6 +289,28 @@ describe('format-only static checks', () => {
 		}
 	);
 
+	// Git lists a directory symlink as one entry and knows nothing below it, so an expansion
+	// that keeps the link's name routes eleven directories by their own extension, which is
+	// none. Measured before this: `.claude/skills` expanded to eleven names and zero
+	// TypeScript files, and `--scope types` over the parent reported success having checked
+	// nothing. The child links resolve now, so the same expansion reaches their targets.
+	it.skipIf(!lstatSync(path.join(ROOT, '.claude/skills/upstream-sync')).isSymbolicLink())(
+		'resolves a symlinked child of an expanded directory',
+		() => {
+			const expanded = resolveInputs(['.claude/skills'], 'arguments', ROOT);
+			expect(expanded.filter((file) => file.endsWith('.ts')).length).toBeGreaterThan(0);
+			// Every entry names a real file under the link's target, never the link itself.
+			expect(expanded.some((file) => file.startsWith('.claude/skills/'))).toBe(false);
+
+			// The formatter neither follows nor accepts a link, so the same directory holds
+			// nothing it can format. It says so and exits non-zero rather than reporting a
+			// green run over an empty set.
+			const formatted = formatCheck('.claude/skills');
+			expect(formatted.status, formatted.output).toBe(1);
+			expect(formatted.output).toContain('Directory contains no files to check');
+		}
+	);
+
 	it('refuses two paths that collide under formatter escaping', () => {
 		const directory = path.join(ROOT, 'scripts', `.format-collide-${process.pid}`);
 		const relative = `scripts/.format-collide-${process.pid}`;
@@ -726,7 +748,11 @@ describe('scope routing', () => {
 		const output = `${result.stdout}${result.stderr}`;
 		expect(result.status).toBe(1);
 		expect(output).toContain('--scope format does not support --staged');
-		expect(output).toContain('--files-from');
+		// The diagnostic must not send a staged gate to `--files-from`: that names paths, and
+		// every checker then reads the working tree, so a file staged unformatted and then
+		// formatted only on disk would pass the gate and be committed unformatted.
+		expect(output).toContain('always as the files are on disk');
+		expect(output).not.toContain('use --files-from');
 		expect(output).not.toContain('Code formatting');
 	});
 
