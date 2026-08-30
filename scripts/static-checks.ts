@@ -334,12 +334,15 @@ export function resolveInputs(
 	origin: string,
 	baseDirectory = process.cwd(),
 	directoryPaths: (directory: string) => string[] = repositoryPaths,
-	// Only the formatter refuses to descend through a symlinked directory, because Prettier
-	// itself does (`followSymbolicLinks: false`, and an explicitly named link is an error).
-	// Lint and types have always expanded one, and .claude/skills is a tracked directory
-	// symlink whose target holds TypeScript, so refusing it here would drop those files from
-	// a types run that still reports success.
-	expandSymlinkedDirectories = true
+	// Only the formatter refuses to resolve a symlink, because Prettier itself does
+	// (`followSymbolicLinks: false`, and an explicitly named link is an error): it has to see
+	// the link's own path so its ignore rules and its diagnostics name what was typed. Every
+	// other scope routes by extension and needs the target. Lint and types have always
+	// expanded a directory link, and .claude/skills is a tracked one whose target holds
+	// TypeScript, so refusing it here would drop those files from a types run that still
+	// reports success. A leaf link is the same question: `probe.md -> probe.ts` under the
+	// link's own name reaches no checker at all and the run exits 0 having checked nothing.
+	followSymbolicLinks = true
 ): string[] {
 	const out = new Set<string>();
 
@@ -383,9 +386,10 @@ export function resolveInputs(
 			);
 		}
 		const isSymlink = lstatSync(absolute).isSymbolicLink();
-		const located = isSymlink
-			? path.join(realpathSync(path.dirname(absolute)), path.basename(absolute))
-			: real;
+		const located =
+			isSymlink && !followSymbolicLinks
+				? path.join(realpathSync(path.dirname(absolute)), path.basename(absolute))
+				: real;
 		const native = path.relative(REPO_ROOT, located);
 		const relative = toPosix(native);
 		if (isOutside(native)) {
@@ -395,7 +399,7 @@ export function resolveInputs(
 			);
 		}
 
-		if (target.isDirectory() && (expandSymlinkedDirectories || !isSymlink)) {
+		if (target.isDirectory() && (followSymbolicLinks || !isSymlink)) {
 			let matched = false;
 			// The resolved target, not the name that was typed. Git lists a directory symlink
 			// as one entry and knows nothing below it, so a prefix built from the link matches
@@ -825,7 +829,6 @@ const GLOB_CLASS_ESCAPES = new Map<string, string>([
 	['+', '[+]'],
 	['?', '[?]'],
 	['[', '[[]'],
-	[']', '[]]'],
 	['(', '[(]'],
 	[')', '[)]'],
 	['{', '[{]'],
@@ -836,13 +839,22 @@ const GLOB_CLASS_ESCAPES = new Map<string, string>([
 /**
  * Turn a repository path into the glob pattern that can only match that same path.
  *
- * `!`, a literal backslash and a double quote take an extglob rather than a class, because
- * `[!]` opens a negated class and the other two cannot appear inside one. `./` is not an
+ * `!`, `]`, a literal backslash and a double quote take an extglob rather than a class.
+ * `[!]` opens a negated class and the last two cannot appear inside one. `./` is not an
  * option for the `!`: measured with Prettier 3.9.5, `./!a[[]b[]].ts` still reads as a
  * negation, so a run whose named file had vanished matched every other root file and exited
  * 0, while `@(!)a[[]b[]].ts` exits 2 with "No files matching the pattern". A backslash and
  * a quote are unrepresentable in a Windows filename, so those two branches are reachable on
  * POSIX alone, where Prettier's `normalizeToPosix` is the identity.
+ *
+ * `]` is the one that has to be an extglob for a reason outside its own escape. The POSIX
+ * form `[]]` is correct on its own, and it composes wrongly with the `{` and `}` classes
+ * because fast-glob runs `micromatch.braces()` over the whole pattern before picomatch sees
+ * it, and that pass reads the braces inside `[{]` and `[}]` as a brace expression. Measured
+ * with Prettier 3.9.5: `[]][{][}].ts` selected the neighbouring `{}.ts` and reported it
+ * clean, and `[{][]][}].ts` and `[{][}][]].ts` matched nothing at all. Over every ordered
+ * triple of the ten metacharacters plus `!`, `\\` and `"`, the class form fails those three
+ * and the extglob form fails none.
  */
 export function prettierLiteralPattern(file: string): string {
 	let pattern = '';
@@ -850,6 +862,7 @@ export function prettierLiteralPattern(file: string): string {
 		if (character === '\\') pattern += '@(\\\\)';
 		else if (character === '"') pattern += '@(\\")';
 		else if (character === '!') pattern += '@(!)';
+		else if (character === ']') pattern += '@(])';
 		else pattern += GLOB_CLASS_ESCAPES.get(character) ?? character;
 	}
 	// The pattern is only unambiguous while no file is named exactly like it. Prettier

@@ -343,8 +343,16 @@ describe('repository path safety', () => {
 			symlinkSync(path.join(ROOT, 'README.md'), file);
 			try {
 				expect(repositoryPaths()).toContain(relative);
-				expect(resolveInputs([file], 'test')).toEqual([relative]);
+				// The formatter scope keeps the link's own name, because Prettier neither follows
+				// nor accepts one, and the project ledger is what drops it.
+				expect(resolveInputs([file], 'test', process.cwd(), repositoryPaths, false)).toEqual([
+					relative
+				]);
 				expect(prettierProjectPaths([relative])).toEqual([]);
+				// Every other scope routes by extension, so it needs the target instead: under the
+				// link's own `.md` name a TypeScript target reaches no checker and the run passes
+				// having checked nothing.
+				expect(resolveInputs([file], 'test')).toEqual(['README.md']);
 			} finally {
 				rmSync(file, { force: true });
 			}

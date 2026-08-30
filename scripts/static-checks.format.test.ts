@@ -213,7 +213,7 @@ describe('format-only static checks', () => {
 		// replaces every backslash with a slash. A backslash-escaped route would arrive there
 		// with its escapes stripped and match nothing, so the escape has to be a character
 		// class, and the pattern has to survive that same rewrite unchanged.
-		expect(pattern).toBe('src/routes/[[][[]lang[]][]]/[(]marketing[)]/[+]page.svelte');
+		expect(pattern).toBe('src/routes/[[][[]lang@(])@(])/[(]marketing[)]/[+]page.svelte');
 		expect(pattern.replaceAll('\\', '/')).toBe(pattern);
 
 		const result = formatCheck(route);
@@ -245,7 +245,7 @@ describe('format-only static checks', () => {
 	);
 
 	it('escapes a leading exclamation mark into a pattern Prettier cannot negate', () => {
-		expect(prettierLiteralPattern('!a[b].ts')).toBe('@(!)a[[]b[]].ts');
+		expect(prettierLiteralPattern('!a[b].ts')).toBe('@(!)a[[]b@(]).ts');
 
 		withRepositoryFile('!a[b].ts', 'export const a   =1\n', () => {
 			const named = formatCheck('!a[b].ts');
@@ -254,7 +254,7 @@ describe('format-only static checks', () => {
 		});
 
 		// The file is gone again here, which is the case a negation turns into a silent pass:
-		// measured with Prettier 3.9.5, `./!a[[]b[]].ts` matched every other root file and
+		// measured with Prettier 3.9.5, `./!a[[]b@(]).ts` matched every other root file and
 		// exited 0 instead of reporting the path it was given.
 		const vanished = spawnSync(
 			testExecutable('bun'),
@@ -295,7 +295,7 @@ describe('format-only static checks', () => {
 		mkdirSync(directory, { recursive: true });
 		try {
 			writeFileSync(path.join(directory, '[ab].ts'), 'export const a   =1\n');
-			writeFileSync(path.join(directory, '[[]ab[]].ts'), 'export const b = 1;\n');
+			writeFileSync(path.join(directory, '[[]ab@(]).ts'), 'export const b = 1;\n');
 
 			const result = formatCheck(`${relative}/[ab].ts`);
 			expect(result.status, result.output).toBe(1);
@@ -304,6 +304,32 @@ describe('format-only static checks', () => {
 			rmSync(directory, { recursive: true, force: true });
 		}
 	});
+
+	// fast-glob runs micromatch.braces() over the whole pattern before picomatch parses it,
+	// and that pass has no notion of character classes: the POSIX form `[]]` next to `[{]` or
+	// `[}]` is read as a brace expression, so the pattern stops naming the file it was built
+	// from. Measured with Prettier 3.9.5, `[]][{][}].ts` reported the neighbouring `{}.ts`
+	// clean while the named file stayed malformed, and the other two matched nothing at all.
+	it.each([']{}.ts', '{]}.ts', '{}].ts'])(
+		'keeps brace escapes from swallowing a literal bracket in %s',
+		(name) => {
+			const directory = path.join(ROOT, 'scripts', `.format-brace-${process.pid}`);
+			const relative = `scripts/.format-brace-${process.pid}`;
+			mkdirSync(directory, { recursive: true });
+			try {
+				// Only the named file is malformed. A pattern that expands into a brace expression
+				// either checks the neighbour and passes, or matches nothing and passes.
+				writeFileSync(path.join(directory, name), 'export const a   =1\n');
+				writeFileSync(path.join(directory, '{}.ts'), 'export const b = 1;\n');
+
+				const result = formatCheck(`${relative}/${name}`);
+				expect(result.status, result.output).toBe(1);
+				expect(result.output).toContain(name);
+			} finally {
+				rmSync(directory, { recursive: true, force: true });
+			}
+		}
+	);
 
 	it('escapes a plus so it cannot quantify the escape before it', () => {
 		expect(prettierLiteralPattern('[+.ts')).toBe('[[][+].ts');
