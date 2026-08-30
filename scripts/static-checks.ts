@@ -264,16 +264,6 @@ export function prettierProjectPaths(
 }
 
 /** A path that vanished between two syscalls, which is the only traversal race to absorb. */
-/** Whether the path is a symlink, treating a vanished path as "not one". */
-function isSymbolicLinkAt(absolute: string): boolean {
-	try {
-		return lstatSync(absolute).isSymbolicLink();
-	} catch (error) {
-		if (isMissingPathError(error)) return false;
-		throw error;
-	}
-}
-
 function isMissingPathError(error: unknown): boolean {
 	return (error as NodeJS.ErrnoException | null)?.code === 'ENOENT';
 }
@@ -371,15 +361,8 @@ export function resolveInputs(
 	followSymbolicLinks = true
 ): string[] {
 	const out = new Set<string>();
-	// Expanding a directory can produce another link, so the expansion feeds back into this
-	// same loop instead of trusting its own output. `expanded` stops a link that points at an
-	// ancestor from looping forever; it holds resolved directories, so two different links to
-	// the same target expand once.
-	const expanded = new Set<string>();
-	const queue = raw.map((value) => ({ value, base: baseDirectory, named: true }));
 
-	while (queue.length > 0) {
-		const { value: arg, base, named } = queue.shift()!;
+	for (const arg of raw) {
 		if (arg === '') {
 			fail(
 				`Empty path in ${origin}.`,
@@ -401,13 +384,8 @@ export function resolveInputs(
 		// then re-express against the repo root (what every gate below assumes).
 		// realpath both sides so a checkout reached through a symlink (/tmp ->
 		// /private/tmp, a symlinked worktree) does not read as "outside the repo".
-		const absolute = path.resolve(base, arg);
-		// A named path that is not there is the caller's error. An expanded one can vanish
-		// between the listing and this line, and that race is not worth failing a whole run.
-		if (!existsSync(absolute)) {
-			if (!named) continue;
-			fail(`No such file (${origin}): ${formatPathForDiagnostic(arg)}`);
-		}
+		const absolute = path.resolve(baseDirectory, arg);
+		if (!existsSync(absolute)) fail(`No such file (${origin}): ${formatPathForDiagnostic(arg)}`);
 
 		const real = realpathSync(absolute);
 		const target = statSync(real);
@@ -418,10 +396,6 @@ export function resolveInputs(
 		// The resolved target and the named path must both live in the repository. Checking
 		// only the latter would let an in-repository symlink expose an external file.
 		if (isOutside(path.relative(REPO_ROOT, real))) {
-			// A link that was typed is a mistake worth stopping for. One that an expansion
-			// produced is not the caller's doing, and it is the only reason a directory walk
-			// could hand an external file to a checker, so it is dropped instead.
-			if (!named) continue;
 			fail(
 				`Path is outside the repository (${origin}): ${formatPathForDiagnostic(arg)}`,
 				`  Repo root: ${formatPathForDiagnostic(REPO_ROOT)}`
@@ -435,7 +409,6 @@ export function resolveInputs(
 		const native = path.relative(REPO_ROOT, located);
 		const relative = toPosix(native);
 		if (isOutside(native)) {
-			if (!named) continue;
 			fail(
 				`Path is outside the repository (${origin}): ${formatPathForDiagnostic(arg)}`,
 				`  Repo root: ${formatPathForDiagnostic(REPO_ROOT)}`
@@ -443,12 +416,16 @@ export function resolveInputs(
 		}
 
 		if (target.isDirectory() && (followSymbolicLinks || !isSymlink)) {
-			if (expanded.has(real)) continue;
-			expanded.add(real);
 			let matched = false;
 			// The resolved target, not the name that was typed. Git lists a directory symlink
 			// as one entry and knows nothing below it, so a prefix built from the link matches
 			// nothing and the expansion silently yields the link alone.
+			//
+			// A child of the expansion that is itself a link keeps the name Git listed, which is
+			// this repository's own view of it and the path every route is written against. It
+			// also means a directory link among those children is not descended into, so a
+			// `--scope types` run over a directory of directory links reports success having
+			// checked nothing; see #865, which is where that whole semantics belongs.
 			const walked = toPosix(path.relative(REPO_ROOT, real));
 			const prefix = walked === '' ? '' : `${walked}/`;
 			for (const file of directoryPaths(real)) {
@@ -456,15 +433,6 @@ export function resolveInputs(
 					continue;
 				if (isNeverWalked(file)) continue;
 				matched = true;
-				// A child of the expansion can be a link of its own, and Git lists one as a single
-				// entry with nothing below it. Adding that name routes by the link's extension:
-				// `.claude/skills` holds eleven directory links, and expanding the parent used to
-				// yield eleven names and no TypeScript at all, so `--scope types` over it reported
-				// success having checked nothing. Feed it back through this loop instead.
-				if (followSymbolicLinks && isSymbolicLinkAt(path.join(REPO_ROOT, file))) {
-					queue.push({ value: file, base: REPO_ROOT, named: false });
-					continue;
-				}
 				out.add(file);
 			}
 			if (!matched)

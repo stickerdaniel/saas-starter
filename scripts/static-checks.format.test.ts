@@ -289,28 +289,6 @@ describe('format-only static checks', () => {
 		}
 	);
 
-	// Git lists a directory symlink as one entry and knows nothing below it, so an expansion
-	// that keeps the link's name routes eleven directories by their own extension, which is
-	// none. Measured before this: `.claude/skills` expanded to eleven names and zero
-	// TypeScript files, and `--scope types` over the parent reported success having checked
-	// nothing. The child links resolve now, so the same expansion reaches their targets.
-	it.skipIf(!lstatSync(path.join(ROOT, '.claude/skills/upstream-sync')).isSymbolicLink())(
-		'resolves a symlinked child of an expanded directory',
-		() => {
-			const expanded = resolveInputs(['.claude/skills'], 'arguments', ROOT);
-			expect(expanded.filter((file) => file.endsWith('.ts')).length).toBeGreaterThan(0);
-			// Every entry names a real file under the link's target, never the link itself.
-			expect(expanded.some((file) => file.startsWith('.claude/skills/'))).toBe(false);
-
-			// The formatter neither follows nor accepts a link, so the same directory holds
-			// nothing it can format. It says so and exits non-zero rather than reporting a
-			// green run over an empty set.
-			const formatted = formatCheck('.claude/skills');
-			expect(formatted.status, formatted.output).toBe(1);
-			expect(formatted.output).toContain('Directory contains no files to check');
-		}
-	);
-
 	it('refuses two paths that collide under formatter escaping', () => {
 		const directory = path.join(ROOT, 'scripts', `.format-collide-${process.pid}`);
 		const relative = `scripts/.format-collide-${process.pid}`;
@@ -701,14 +679,44 @@ describe('format-only static checks', () => {
 });
 
 describe('scope routing', () => {
-	it('keeps abandoned checker clones out of project-wide checks', () => {
-		const vite = readFileSync(path.join(ROOT, 'vite.config.ts'), 'utf8');
-		const eslint = readFileSync(path.join(ROOT, 'eslint.config.js'), 'utf8');
-		const oxlint = readFileSync(path.join(ROOT, '.oxlintrc.json'), 'utf8');
-		expect(vite).toContain("'scratch/**'");
-		expect(eslint).toContain("'scratch/**'");
-		expect(oxlint).toContain('"scratch/**"');
-	});
+	// Session artifacts and an interrupted fixture both leave whole trees under `scratch/`,
+	// and every project-wide tool walks the repository itself. Asserting the configuration
+	// files contain the string proves nothing: it stays green when the pattern moves into a
+	// comment or a block that never applies. Each tool is asked instead.
+	it('keeps scratch out of project-wide checks', () => {
+		const directory = path.join(ROOT, 'scratch', `exclusion-${process.pid}`);
+		const relative = `scratch/exclusion-${process.pid}/abandoned.test.ts`;
+		mkdirSync(directory, { recursive: true });
+		const run = (args: string[]) =>
+			spawnSync(testExecutable('bun'), args, {
+				cwd: ROOT,
+				env: { ...sanitizedGitEnv(), NO_COLOR: '1' },
+				encoding: 'utf8'
+			});
+		try {
+			// Invalid TypeScript, an unused binding and a test file name in one: whichever tool
+			// reads it has something to say about it.
+			writeFileSync(
+				path.join(directory, 'abandoned.test.ts'),
+				'const unused = ;\nexport function broken(: never {}\n'
+			);
+
+			const oxlint = run(['oxlint']);
+			expect(`${oxlint.stdout}${oxlint.stderr}`).not.toContain('abandoned.test.ts');
+
+			const vitest = run(['vitest', 'list', '--filesOnly']);
+			expect(`${vitest.stdout}${vitest.stderr}`).not.toContain('abandoned.test.ts');
+
+			// ESLint is asked about the file directly rather than over the project, which takes
+			// minutes: naming an ignored path is how it reports the ignore rule as applied.
+			const eslint = run(['eslint', relative]);
+			const output = `${eslint.stdout}${eslint.stderr}`;
+			expect(output).toContain('File ignored because of a matching ignore pattern');
+			expect(output).not.toContain('Parsing error');
+		} finally {
+			rmSync(directory, { recursive: true, force: true });
+		}
+	}, 240_000);
 
 	it('records a numeric formatter count in an isolated full-project run', () => {
 		const checkout = createCheckerClone();
