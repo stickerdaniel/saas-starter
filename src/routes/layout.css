@@ -669,3 +669,429 @@
 		@slot;
 	}
 }
+
+/* transitions.dev recipes — shared motion vocabulary.
+   Each `t-*` block below is the upstream snippet from the transitions-dev
+   skill (btca resource `transitionsDev`, skills/transitions-dev/*.md), kept
+   selector-for-selector so it stays diffable against the source. Two
+   deliberate departures: the recipes' literal greys are replaced with palette
+   tokens so both themes follow the design system, and the recipes' generic
+   `--duration-*`/`--ease-*` scale is not imported because this file already
+   owns one (`--motion-*` above). The rules stay outside `@layer` on purpose —
+   a Tailwind utility must not win against an opacity or transform that a
+   transition is part-way through animating. */
+:root {
+	/* Notification badge */
+	--badge-slide-dur: 260ms;
+	--badge-pop-dur: 500ms;
+	--badge-pop-close-dur: 180ms;
+	--badge-fade-dur: 400ms;
+	--badge-fade-close-dur: 180ms;
+	--badge-blur: 2px;
+	--badge-offset-x: -8.2px;
+	--badge-offset-y: 12.4px;
+	--badge-slide-ease: cubic-bezier(0.22, 1, 0.36, 1);
+	--badge-pop-ease: cubic-bezier(0.34, 1.36, 0.64, 1);
+	--badge-close-ease: cubic-bezier(0.4, 0, 0.2, 1);
+	/* Icon swap */
+	--icon-swap-dur: 250ms;
+	--icon-swap-blur: 2px;
+	--icon-swap-start-scale: 0.25;
+	--icon-swap-ease: ease-in-out;
+	/* Avatar group hover */
+	--avatar-lift: -4px;
+	--avatar-dur: 320ms;
+	--avatar-scale: 1.05;
+	--avatar-falloff: 0.45;
+	--avatar-ease-in: cubic-bezier(0.22, 1, 0.36, 1);
+	--avatar-ease-out: cubic-bezier(0.34, 3.85, 0.64, 1);
+	/* Shimmer text */
+	--shimmer-dur: 2000ms;
+	--shimmer-base: var(--muted-foreground);
+	--shimmer-highlight: var(--foreground);
+	--shimmer-band: 400%;
+	--shimmer-ease: linear;
+	/* Thinking states */
+	--think-hold: 2000ms;
+	--think-swap: 150ms;
+	--think-gap: 50ms;
+	--think-distance: 8px;
+	--think-blur: 2px;
+	--think-shimmer: 2000ms;
+	--think-base: var(--muted-foreground);
+	--think-highlight: var(--foreground);
+	--think-ease: ease-in-out;
+	/* Streaming text */
+	--stream-gap: 60ms;
+	--stream-fade: 350ms;
+	--stream-blur: 1px;
+	--stream-ease: cubic-bezier(0.22, 1, 0.36, 1);
+	/* Learn more hover */
+	--learn-shift: 2px;
+	--learn-spread: 8deg;
+	--learn-in: 350ms;
+	--learn-out: 350ms;
+	--learn-ease: cubic-bezier(0.22, 1, 0.36, 1);
+	/* Toggle (switch thumb travel) */
+	--toggle-dur: 350ms;
+	--toggle-ease: cubic-bezier(0.34, 1.35, 0.64, 1);
+	/* Checkbox check */
+	--check-box: 150ms;
+	--check-draw: 350ms;
+	--check-delay: 0ms;
+	--check-uncheck: 150ms;
+	--check-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Notification badge — slide the badge onto its trigger and pop the dot,
+   without the trigger itself moving. */
+@keyframes t-badge-slide-in {
+	from {
+		transform: translate(var(--badge-offset-x), var(--badge-offset-y));
+	}
+	to {
+		transform: translate(0, 0);
+	}
+}
+
+.t-badge {
+	position: absolute;
+	pointer-events: none;
+	will-change: transform;
+}
+.t-badge[data-open='true'] {
+	animation: t-badge-slide-in var(--badge-slide-dur) var(--badge-slide-ease);
+}
+.t-badge-dot {
+	display: block;
+	transform-origin: center;
+	transform: scale(1);
+	opacity: 1;
+	filter: blur(0);
+	transition:
+		transform var(--badge-pop-dur) var(--badge-pop-ease),
+		opacity var(--badge-fade-dur) var(--badge-pop-ease),
+		filter var(--badge-pop-dur) var(--badge-pop-ease);
+	will-change: transform, opacity, filter;
+}
+.t-badge[data-open='false'] .t-badge-dot {
+	transform: scale(0);
+	opacity: 0;
+	filter: blur(var(--badge-blur));
+	transition:
+		transform var(--badge-pop-close-dur) var(--badge-close-ease),
+		opacity var(--badge-fade-close-dur) var(--badge-close-ease),
+		filter var(--badge-pop-close-dur) var(--badge-close-ease);
+}
+
+/* Icon swap — both icons stay mounted in one grid cell and cross-fade. */
+.t-icon-swap {
+	position: relative;
+	display: inline-grid;
+}
+.t-icon-swap .t-icon {
+	grid-area: 1 / 1;
+	transition:
+		opacity var(--icon-swap-dur) var(--icon-swap-ease),
+		filter var(--icon-swap-dur) var(--icon-swap-ease),
+		transform var(--icon-swap-dur) var(--icon-swap-ease);
+	will-change: opacity, filter, transform;
+}
+.t-icon-swap[data-state='a'] .t-icon[data-icon='a'],
+.t-icon-swap[data-state='b'] .t-icon[data-icon='b'] {
+	opacity: 1;
+	filter: blur(0);
+	transform: scale(1);
+}
+.t-icon-swap[data-state='a'] .t-icon[data-icon='b'],
+.t-icon-swap[data-state='b'] .t-icon[data-icon='a'] {
+	opacity: 0;
+	filter: blur(var(--icon-swap-blur));
+	transform: scale(var(--icon-swap-start-scale));
+}
+
+/* Avatar group hover — distance-falloff lift. The timing function is written
+   inline by the driving code before the variable writes, which is what gives
+   the return leg its bouncy ease without a second transition declaration. */
+.t-avatar {
+	transform-origin: center;
+	/* translateY before scale so scale does not amplify the lift offset. */
+	transform: translateY(var(--shift, 0px)) scale(var(--scale-active, 1));
+	transition: transform var(--avatar-dur) var(--avatar-ease-in);
+	will-change: transform;
+}
+
+/* Shimmer text — the ::before layer duplicates the string through
+   `content: attr(data-text)` and clips a moving gradient to the glyphs. */
+.t-shimmer {
+	position: relative;
+	display: inline-block;
+	color: var(--shimmer-base);
+}
+.t-shimmer::before {
+	content: attr(data-text);
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+	background-image: linear-gradient(
+		90deg,
+		transparent 0%,
+		transparent 40%,
+		var(--shimmer-highlight) 50%,
+		transparent 60%,
+		transparent 100%
+	);
+	background-size: var(--shimmer-band) 100%;
+	background-repeat: no-repeat;
+	-webkit-background-clip: text;
+	background-clip: text;
+	color: transparent;
+	-webkit-text-fill-color: transparent;
+	animation: t-shimmer var(--shimmer-dur) var(--shimmer-ease) infinite;
+}
+@keyframes t-shimmer {
+	0% {
+		background-position: 100% 0;
+	}
+	100% {
+		background-position: 0% 0;
+	}
+}
+
+/* Thinking states — shimmer a status line while it holds, then swap it for
+   the next: the outgoing copy exits upward through a blur while the incoming
+   copy rises from below, both over a box the hidden sizer keeps steady. */
+.t-think {
+	position: relative;
+	display: inline-block;
+	text-align: start;
+}
+.t-think-sizer {
+	display: block;
+	visibility: hidden;
+	white-space: nowrap;
+}
+.t-think-text {
+	position: absolute;
+	top: 0;
+	inset-inline: 0;
+	display: block;
+	color: var(--think-base);
+	white-space: nowrap;
+	transform: translateY(0);
+	filter: blur(0);
+	opacity: 1;
+	transition:
+		transform var(--think-swap) var(--think-ease),
+		filter var(--think-swap) var(--think-ease),
+		opacity var(--think-swap) var(--think-ease);
+	will-change: transform, filter, opacity;
+}
+.t-think-text::before {
+	content: attr(data-text);
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+	background-image: linear-gradient(
+		90deg,
+		transparent 0%,
+		transparent 40%,
+		var(--think-highlight) 50%,
+		transparent 60%,
+		transparent 100%
+	);
+	background-size: 400% 100%;
+	background-repeat: no-repeat;
+	-webkit-background-clip: text;
+	background-clip: text;
+	color: transparent;
+	-webkit-text-fill-color: transparent;
+	animation: t-think-shimmer var(--think-shimmer) linear infinite;
+}
+@keyframes t-think-shimmer {
+	0% {
+		background-position: 100% 0;
+	}
+	100% {
+		background-position: 0% 0;
+	}
+}
+.t-think-text.is-exit {
+	transform: translateY(calc(var(--think-distance) * -1));
+	filter: blur(var(--think-blur));
+	opacity: 0;
+}
+.t-think-text.is-enter-start {
+	transition: none;
+	transform: translateY(var(--think-distance));
+	filter: blur(var(--think-blur));
+	opacity: 0;
+}
+
+/* Streaming text — each streamed word resolves through a soft cross-blur
+   instead of being typed. */
+.t-stream-w {
+	opacity: 0;
+	filter: blur(var(--stream-blur));
+	transition:
+		opacity var(--stream-fade) var(--stream-ease),
+		filter var(--stream-fade) var(--stream-ease);
+}
+.t-stream-w.is-in {
+	opacity: 1;
+	filter: blur(0);
+}
+
+/* Learn more hover — the chevron slides along the reading direction while its
+   two arms spread apart into an arrow. */
+.t-learn-chevron {
+	display: inline-flex;
+	transform: translateX(0);
+	transition: transform var(--learn-out) var(--learn-ease);
+}
+.t-learn-arm {
+	transform-box: view-box;
+	transform-origin: 10px 8px;
+	vector-effect: non-scaling-stroke;
+	transition: transform var(--learn-out) var(--learn-ease);
+}
+.t-learn:hover .t-learn-chevron {
+	transform: translateX(var(--learn-shift));
+	transition-duration: var(--learn-in);
+}
+.t-learn:hover .t-learn-arm {
+	transition-duration: var(--learn-in);
+}
+.t-learn:hover .t-learn-arm-top {
+	transform: rotate(var(--learn-spread));
+}
+.t-learn:hover .t-learn-arm-bot {
+	transform: rotate(calc(var(--learn-spread) * -1));
+}
+/* The chevron points against the reading direction in RTL, so the slide and
+   the arm rotations mirror with it. */
+:where([dir='rtl']) .t-learn:hover .t-learn-chevron {
+	transform: translateX(calc(var(--learn-shift) * -1));
+}
+:where([dir='rtl']) .t-learn:hover .t-learn-arm-top {
+	transform: rotate(calc(var(--learn-spread) * -1));
+}
+:where([dir='rtl']) .t-learn:hover .t-learn-arm-bot {
+	transform: rotate(var(--learn-spread));
+}
+
+/* Checkbox check — the box fills, then the tick draws itself. `--check-len`
+   is the path's own getTotalLength() rounded up, so the stroke neither
+   pre-reveals nor over-draws. */
+.t-check {
+	transition:
+		background-color var(--check-box) var(--check-ease),
+		border-color var(--check-box) var(--check-ease),
+		box-shadow var(--check-box) var(--check-ease);
+}
+.t-check svg path {
+	stroke-dasharray: var(--check-len, 15);
+	stroke-dashoffset: var(--check-len, 15);
+	transition: stroke-dashoffset var(--check-uncheck) var(--check-ease);
+}
+.t-check[data-state='checked'] svg path {
+	stroke-dashoffset: 0;
+	transition: stroke-dashoffset var(--check-draw) var(--check-ease) var(--check-delay);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.t-badge,
+	.t-badge-dot {
+		animation: none !important;
+		transition: none !important;
+	}
+	.t-icon-swap .t-icon {
+		transition: none !important;
+	}
+	.t-avatar {
+		transition: none !important;
+		transform: none !important;
+	}
+	.t-shimmer::before {
+		animation: none !important;
+	}
+	.t-think-text {
+		transition: none !important;
+		transform: none !important;
+		filter: none !important;
+	}
+	.t-think-text::before {
+		display: none !important;
+	}
+	.t-stream-w {
+		transition: none !important;
+		filter: none !important;
+		opacity: 1 !important;
+	}
+	.t-learn-chevron,
+	.t-learn-arm {
+		transition: none !important;
+	}
+	.t-check,
+	.t-check svg path {
+		transition: none !important;
+	}
+}
+
+/* Toggle — the switch thumb travels with an overshoot-and-settle instead of a
+   flat tween. The resting positions stay with the Tailwind utilities on the
+   thumb itself; these keyframes only overlay the trip between them, so
+   `--switch-travel` has to restate whatever those utilities resolve to (per
+   writing direction) or the thumb would land where the static rule disagrees.
+   `.is-init` is added on the first real state change: a switch that mounts
+   unchecked already matches the "off" keyframes, so without the gate every
+   switch on the page would play its return bounce once on first paint. */
+.t-switch-thumb {
+	--switch-travel: calc(100% - 2px);
+	--switch-ov1: 1px;
+	--switch-ov2: 0px;
+}
+:where([dir='rtl']) .t-switch-thumb {
+	--switch-travel: calc(-100%);
+	--switch-ov1: -1px;
+}
+.t-switch.is-init .t-switch-thumb[data-state='checked'] {
+	animation: t-switch-thumb-on var(--toggle-dur) var(--toggle-ease) both;
+}
+.t-switch.is-init .t-switch-thumb[data-state='unchecked'] {
+	animation: t-switch-thumb-off var(--toggle-dur) var(--toggle-ease) both;
+}
+@keyframes t-switch-thumb-on {
+	0% {
+		translate: 0 0;
+	}
+	55% {
+		translate: calc(var(--switch-travel) + var(--switch-ov1)) 0;
+	}
+	80% {
+		translate: calc(var(--switch-travel) - var(--switch-ov2)) 0;
+	}
+	100% {
+		translate: var(--switch-travel) 0;
+	}
+}
+@keyframes t-switch-thumb-off {
+	0% {
+		translate: var(--switch-travel) 0;
+	}
+	55% {
+		translate: calc(0px - var(--switch-ov1)) 0;
+	}
+	80% {
+		translate: var(--switch-ov2) 0;
+	}
+	100% {
+		translate: 0 0;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.t-switch-thumb {
+		animation: none !important;
+	}
+}

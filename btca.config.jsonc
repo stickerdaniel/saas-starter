@@ -478,6 +478,13 @@
 			"url": "https://github.com/PostHog/posthog-js",
 			"branch": "main",
 			"specialNotes": "posthog-js package. PostHog browser SDK. init options, person_profiles, proxy/api_host config. Used by the lazy analytics bootstrap."
+		},
+		{
+			"type": "git",
+			"name": "transitionsDev",
+			"url": "https://github.com/Jakubantalik/transitions.dev",
+			"branch": "main",
+			"specialNotes": "Portable CSS transition recipes behind the app's motion vocabulary (the `t-*` block in src/routes/layout.css). skills/transitions-dev/NN-<name>.md holds each recipe's snippet, HTML hooks and JS orchestration, _root.css the shared motion-token scale, and transitions/<name>/ the live demo page."
 		}
 	]
 }
