@@ -11,7 +11,12 @@
 	import * as Avatar from '$lib/components/ui/avatar';
 	import { Progress } from '$lib/components/ui/progress';
 	import { LoadingBar } from '$lib/components/ui/loading-bar';
+	import { Switch } from '$lib/components/ui/switch';
+	import { Toggle } from '$lib/components/ui/toggle';
+	import { Checkbox } from '$lib/components/ui/checkbox';
+	import { Label } from '$lib/components/ui/label';
 	import CircleCheckIcon from '@lucide/svelte/icons/circle-check';
+	import BoldIcon from '@lucide/svelte/icons/bold';
 
 	// Demo data
 	const completionPercentage = 75;
@@ -40,6 +45,12 @@
 	function showLoading() {
 		loadingBarDebugState = { mode: 'loading', label: 'Loading sweep' };
 	}
+
+	let switchOn = $state(false);
+	let switchSmallOn = $state(true);
+	let bold = $state(false);
+	let checkedBox = $state(false);
+	let mixedBox = $state(false);
 </script>
 
 <SEOHead title={$t('meta.shadcn_demo.title')} description={$t('meta.shadcn_demo.description')} />
@@ -67,6 +78,44 @@
 			</div>
 
 			<p class="text-sm text-muted-foreground">Current state: {loadingBarDebugState.label}</p>
+		</Card.Content>
+	</Card.Root>
+
+	<Card.Root class="mb-8">
+		<Card.Header>
+			<Card.Title>Controls</Card.Title>
+			<Card.Description>
+				Switch, Toggle and Checkbox, so their motion can be exercised by hand.
+			</Card.Description>
+		</Card.Header>
+
+		<Card.Content class="flex flex-col gap-4">
+			<div class="flex items-center gap-3">
+				<Switch id="demo-switch" bind:checked={switchOn} />
+				<Label for="demo-switch">Switch ({switchOn ? 'on' : 'off'})</Label>
+			</div>
+
+			<div class="flex items-center gap-3">
+				<Switch id="demo-switch-sm" size="sm" bind:checked={switchSmallOn} />
+				<Label for="demo-switch-sm">Switch, small ({switchSmallOn ? 'on' : 'off'})</Label>
+			</div>
+
+			<div class="flex items-center gap-3">
+				<!-- Visible labels rather than aria-label: this harness has no i18n keys
+				     and the lint rule rightly refuses hardcoded accessible names. -->
+				<Toggle bind:pressed={bold}><BoldIcon />Bold</Toggle>
+				<Toggle variant="outline" bind:pressed={bold}>Bold, outline</Toggle>
+			</div>
+
+			<div class="flex items-center gap-3">
+				<Checkbox id="demo-checkbox" bind:checked={checkedBox} />
+				<Label for="demo-checkbox">Checkbox</Label>
+			</div>
+
+			<div class="flex items-center gap-3">
+				<Checkbox id="demo-checkbox-mixed" indeterminate bind:checked={mixedBox} />
+				<Label for="demo-checkbox-mixed">Checkbox, starting indeterminate</Label>
+			</div>
 		</Card.Content>
 	</Card.Root>
 
