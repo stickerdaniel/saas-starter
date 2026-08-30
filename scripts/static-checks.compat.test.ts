@@ -12,7 +12,7 @@ import {
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { sanitizedGitEnv } from './git-context';
+import { isolatedGitEnv, sanitizedGitEnv } from './git-context';
 import { compatibilityInvocation } from './static-checks';
 import { testExecutable } from './test-executable';
 
@@ -82,33 +82,35 @@ describe('Convex compatibility static-check entrypoint', () => {
 		}
 	);
 
-	it('builds the sanitized child invocation', () => {
-		const savedDir = process.env.GIT_DIR;
-		const savedWorktree = process.env.GIT_WORK_TREE;
-		process.env.GIT_DIR = path.join(ROOT, 'scratch', 'foreign.git');
-		process.env.GIT_WORK_TREE = path.join(ROOT, 'scratch', 'foreign-worktree');
+	it('scrubs the child environment without blanking its transport configuration', () => {
+		const saved = new Map<string, string | undefined>();
+		const overrides = {
+			GIT_DIR: path.join(ROOT, 'scratch', 'foreign.git'),
+			GIT_WORK_TREE: path.join(ROOT, 'scratch', 'foreign-worktree'),
+			GIT_CONFIG_GLOBAL: path.join(ROOT, 'scratch', 'caller.gitconfig')
+		};
+		for (const [key, value] of Object.entries(overrides)) {
+			saved.set(key, process.env[key]);
+			process.env[key] = value;
+		}
 		try {
 			const invocation = compatibilityInvocation(true);
 			expect(invocation.command).toBe(process.execPath);
 			expect(invocation.args).toEqual(['scripts/convex-consumer-compat.ts']);
+			// Repository redirections are removed here, because nothing downstream wants them.
 			expect(invocation.options.env?.GIT_DIR).toBeUndefined();
 			expect(invocation.options.env?.GIT_WORK_TREE).toBeUndefined();
-			expect(invocation.options.env?.GIT_ATTR_NOSYSTEM).toBe('1');
 			expect(invocation.options.env?.GIT_ATTR_SOURCE).toBeUndefined();
-			expect(invocation.options.env?.GIT_NO_REPLACE_OBJECTS).toBe('1');
-			expect(invocation.options.env?.GIT_GRAFT_FILE).toBe('');
-			expect(invocation.options.env?.GIT_CONFIG_GLOBAL).toBe('');
-			expect(invocation.options.env?.GIT_CONFIG_SYSTEM).toBe('');
-			expect(invocation.options.env?.GIT_CONFIG_NOSYSTEM).toBe('1');
-			expect(invocation.options.env?.GIT_CONFIG_COUNT).toBe('1');
-			expect(invocation.options.env?.GIT_CONFIG_KEY_0).toBe('core.attributesFile');
-			expect(invocation.options.env?.GIT_CONFIG_VALUE_0).toBe('');
+			// Configuration is not blanked here. The child needs it for the baseline fetch and
+			// isolates every verdict-deciding read for itself; a blank path cannot be undone.
+			expect(invocation.options.env?.GIT_CONFIG_GLOBAL).toBe(overrides.GIT_CONFIG_GLOBAL);
+			expect(invocation.options.env?.GIT_CONFIG_NOSYSTEM).toBeUndefined();
 			expect(invocation.options.env?.CI).toBe('true');
 		} finally {
-			if (savedDir === undefined) delete process.env.GIT_DIR;
-			else process.env.GIT_DIR = savedDir;
-			if (savedWorktree === undefined) delete process.env.GIT_WORK_TREE;
-			else process.env.GIT_WORK_TREE = savedWorktree;
+			for (const [key, value] of saved) {
+				if (value === undefined) delete process.env[key];
+				else process.env[key] = value;
+			}
 		}
 	});
 
@@ -180,7 +182,7 @@ describe('Convex compatibility static-check entrypoint', () => {
 			expect(git(['replace', 'HEAD', replacement]).status).toBe(0);
 			expect(git(['rev-parse', 'HEAD~1']).status).not.toBe(0);
 
-			const isolated = compatibilityInvocation().options.env!;
+			const isolated = isolatedGitEnv();
 			const replacementParent = git(['rev-parse', 'HEAD~1'], isolated);
 			expect(replacementParent.status, replacementParent.stderr).toBe(0);
 			expect(replacementParent.stdout.trim()).toBe(realParent);

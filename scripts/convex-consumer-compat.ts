@@ -63,12 +63,13 @@ function git(
 	args: string[],
 	cwd = process.cwd(),
 	hooksPath?: string,
-	env = isolatedGitEnv()
+	env = isolatedGitEnv(),
+	extraConfiguration: string[] = []
 ): string {
 	// stderr captured, not inherited: a probing rev-parse is allowed to fail
 	// without printing git's `fatal:` above this script's own explanation. The exact
 	// checkout remains usable when its owner differs from the process uid.
-	const configuration = ['-c', `safe.directory=${realpathSync(cwd)}`];
+	const configuration = ['-c', `safe.directory=${realpathSync(cwd)}`, ...extraConfiguration];
 	if (hooksPath) configuration.unshift('-c', `core.hooksPath=${hooksPath}`);
 	return execFileSync('git', [...configuration, ...args], {
 		cwd,
@@ -465,9 +466,21 @@ function surfaceAt(commit: string, protectedIdentifiers: ReadonlySet<string>): S
 		// baseline the surrounding repository resolved perfectly well. The empty hook
 		// directory and the isolated attribute sources are what keep the checkout itself
 		// independent of machine-local Git behavior.
-		git(['worktree', 'add', '--detach', '--quiet', dir, commit], process.cwd(), hooks);
+		//
+		// `core.sparseCheckout` is turned off for this one command because a linked worktree
+		// inherits it from the shared repository. Measured with git 2.55.0: a checkout whose
+		// sparse patterns exclude a directory produces a baseline missing every file under it,
+		// and a function deleted from there reads as one that was never published.
+		git(['worktree', 'add', '--detach', '--quiet', dir, commit], process.cwd(), hooks, undefined, [
+			'-c',
+			'core.sparseCheckout=false'
+		]);
 		worktreeAdded = true;
-		const childEnv = { ...isolatedGitEnv(), HUSKY: '0' };
+		// The install resolves the baseline lockfile, which may name a Git dependency, so it
+		// gets the transport-capable environment for the same reason the baseline fetch does.
+		// Nothing it reads decides the verdict: the surface reader below does, and that only
+		// reads files the checkout already materialized.
+		const childEnv = { ...sanitizedGitEnv(), HUSKY: '0' };
 		try {
 			execFileSync(process.execPath, ['install', '--frozen-lockfile'], {
 				cwd: dir,
@@ -500,7 +513,19 @@ function surfaceAt(commit: string, protectedIdentifiers: ReadonlySet<string>): S
 			try {
 				git(['worktree', 'remove', '--force', dir], process.cwd(), hooks);
 			} catch {
-				rmSync(dir, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
+				// Guarded, because an unguarded throw here escapes the `finally`, replaces the
+				// install or surface diagnostic that brought us in, and skips both the prune
+				// below and the temporary-root removal. Windows returns EPERM for a locked
+				// dependency file, which is exactly when the Git removal has already failed.
+				try {
+					rmSync(dir, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
+				} catch (error) {
+					console.error(
+						`convex-consumer-compat: could not remove the baseline checkout ${dir}: ${
+							error instanceof Error ? error.message : String(error)
+						}`
+					);
+				}
 				try {
 					git(['worktree', 'prune'], process.cwd(), hooks);
 				} catch (error) {
