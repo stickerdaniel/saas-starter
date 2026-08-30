@@ -19,18 +19,25 @@
 	import PanelRightIcon from '@lucide/svelte/icons/panel-right';
 	import PanelBottomOpen from '@lucide/svelte/icons/panel-bottom-open';
 	import ChevronLeft from '@lucide/svelte/icons/chevron-left';
+	import UserRoundCheck from '@lucide/svelte/icons/user-round-check';
+	import LoaderCircle from '@lucide/svelte/icons/loader-circle';
 	import { useMedia } from '$lib/hooks/use-media.svelte.ts';
 	import { SlidingHeader } from '$lib/components/ui/sliding-header';
 	import { adminSupportUIContext } from '$lib/hooks/admin-support-ui.svelte.ts';
-	import { getTranslate } from '@tolgee/svelte';
+	import { T, getTranslate } from '@tolgee/svelte';
 	import { page } from '$app/state';
 	import { activeUploadsContext } from '$lib/hooks/active-uploads.svelte.ts';
+	import { authClient } from '$lib/auth-client';
+	import { localizedHref } from '$lib/utils/i18n';
+	import { isAnonymousUser } from '$lib/convex/utils/anonymousUser';
+	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
 
 	const { t } = getTranslate();
 
 	let {
 		threadId,
 		initialThread,
+		canImpersonate = false,
 		onBackClick,
 		draftManager
 	}: {
@@ -39,8 +46,10 @@
 			userName?: string;
 			userEmail?: string;
 			userImage?: string;
+			userId?: string;
 			lastMessageAt?: number;
 		};
+		canImpersonate?: boolean;
 		onBackClick?: () => void;
 		draftManager?: ChatDraftManager;
 	} = $props();
@@ -48,6 +57,7 @@
 	const media = useMedia();
 	const client = useConvexClient();
 	const adminSupportUI = adminSupportUIContext.get();
+	const activeUploads = activeUploadsContext.getOr(null);
 
 	// Upload configuration for file attachments with locale for translated error messages
 	const uploadConfig: UploadConfig = {
@@ -80,13 +90,7 @@
 	// Report transfers to the app so a navigation that would kill one asks first.
 	// Absent outside the app shell (isolated tests, the standalone example), where
 	// there is no layout to ask.
-	const chatUIContext = new ChatUIContext(
-		chatCore,
-		client,
-		uploadConfig,
-		'left',
-		activeUploadsContext.getOr(null)
-	);
+	const chatUIContext = new ChatUIContext(chatCore, client, uploadConfig, 'left', activeUploads);
 
 	// Revoke blob preview URLs of unsent attachments when this thread view unmounts
 	onDestroy(() => chatUIContext.dispose());
@@ -133,11 +137,40 @@
 	);
 	const userEmail = $derived(initialThread?.userEmail || thread?.user?.email);
 	const userImage = $derived(initialThread?.userImage || thread?.user?.image);
+	const targetUserId = $derived(initialThread?.userId || thread?.user?.id);
+	const canImpersonateTarget = $derived(
+		canImpersonate && !!targetUserId && !isAnonymousUser(targetUserId)
+	);
+	let impersonating = $state(false);
 
 	// Display email: user email, or notification email for anonymous users, or "No email"
 	const displayEmail = $derived(
 		userEmail || thread?.supportMetadata?.notificationEmail || $t('admin.support.no_email')
 	);
+
+	async function impersonateThreadStarter() {
+		if (!targetUserId || impersonating) return;
+
+		haptic.trigger('light');
+		impersonating = true;
+		try {
+			const result = await authClient.admin.impersonateUser({ userId: targetUserId });
+			if (result.error) {
+				const message = result.error.message || 'Unknown error';
+				toast.error($t('admin.users.toast.impersonate_failed', { message }));
+				return;
+			}
+
+			await authClient.getSession({ query: { disableCookieCache: true } });
+			activeUploads?.suspendOnce();
+			window.location.assign(localizedHref('/app'));
+		} catch (error) {
+			const message = error instanceof Error ? error.message : 'Unknown error';
+			toast.error($t('admin.users.toast.impersonate_failed', { message }));
+		} finally {
+			impersonating = false;
+		}
+	}
 </script>
 
 <div class="flex h-full flex-col">
@@ -214,6 +247,22 @@
 				showClose={false}
 			>
 				{#snippet actions()}
+					{#if canImpersonateTarget}
+						<Button
+							variant="ghost"
+							size="icon"
+							onclick={impersonateThreadStarter}
+							disabled={impersonating}
+							data-testid="admin-support-impersonate"
+						>
+							{#if impersonating}
+								<LoaderCircle class="size-4 motion-safe:animate-spin" />
+							{:else}
+								<UserRoundCheck class="size-4" />
+							{/if}
+							<span class="sr-only"><T keyName="admin.actions.impersonate" /></span>
+						</Button>
+					{/if}
 					<Button
 						variant="ghost"
 						size="icon"
@@ -262,6 +311,24 @@
 						<AvatarHeading image={userImage} title={displayName} subtitle={displayEmail} />
 					{/if}
 				</div>
+
+				{#if canImpersonateTarget}
+					<Button
+						variant="outline"
+						size="sm"
+						class="shrink-0"
+						onclick={impersonateThreadStarter}
+						disabled={impersonating}
+						data-testid="admin-support-impersonate"
+					>
+						{#if impersonating}
+							<LoaderCircle data-icon="inline-start" class="size-4 motion-safe:animate-spin" />
+						{:else}
+							<UserRoundCheck data-icon="inline-start" class="size-4" />
+						{/if}
+						<T keyName="admin.actions.impersonate" />
+					</Button>
+				{/if}
 
 				<!-- Toggle button for Sheet overlay (lg && !xl) -->
 				{#if !media.xl}
