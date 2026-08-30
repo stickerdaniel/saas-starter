@@ -24,6 +24,7 @@
 	import { adminCache } from '$lib/hooks/admin-cache.svelte.ts';
 	import { ChatDraftManager } from '$lib/chat';
 	import { browser } from '$app/environment';
+	import { authClient } from '$lib/auth-client';
 
 	const { t } = getTranslate();
 
@@ -58,6 +59,12 @@
 	// Get current admin user ID
 	const viewer = useQuery(api.users.viewer);
 	const adminUserId = $derived(viewer.data?._id);
+	const canImpersonate = $derived(
+		authClient.admin.checkRolePermission({
+			role: viewer.data?.role === 'admin' ? 'admin' : 'user',
+			permissions: { user: ['impersonate'] }
+		})
+	);
 
 	// Build filter for query
 	const filter = $derived.by((): 'all' | 'unassigned' | { assignedTo: string } => {
@@ -181,7 +188,7 @@
 			<Pane defaultSize={50} minSize={30}>
 				{#if threadId}
 					{#key threadId}
-						<ThreadChat {threadId} initialThread={selectedThread} {draftManager} />
+						<ThreadChat {threadId} initialThread={selectedThread} {canImpersonate} {draftManager} />
 					{/key}
 				{:else}
 					<div
@@ -238,7 +245,7 @@
 			<Pane defaultSize={70} minSize={50}>
 				{#if threadId}
 					{#key threadId}
-						<ThreadChat {threadId} initialThread={selectedThread} {draftManager} />
+						<ThreadChat {threadId} initialThread={selectedThread} {canImpersonate} {draftManager} />
 					{/key}
 				{:else}
 					<div
@@ -278,6 +285,7 @@
 						<ThreadChat
 							{threadId}
 							initialThread={selectedThread}
+							{canImpersonate}
 							onBackClick={clearThread}
 							{draftManager}
 						/>
