@@ -272,10 +272,11 @@ well as spelling. Ref backing files also pin mode, size, mtime, and ctime. It re
 remote reads, while a retargeted alias stays bound to the location first validated.
 
 Fetch disables automatic maintenance because the private ref namespace does not describe which
-objects the real repository still needs. Fetched objects still land in the real object store. The
-30-second deadline stops the direct Git process. It does not limit received pack bytes or guarantee
-that every remote-helper descendant has exited. Check free disk space before `--fetch` when the
-configured parent may be unusually large.
+objects the real repository still needs. Fetched objects still land in the real object store, and a
+fork that shares no commit with its template receives the whole upstream history on the first run.
+The 30-second deadline bounds time, not bytes, so check free disk space before `--fetch` when the
+configured parent may be unusually large. A check that fails after a completed fetch leaves those
+objects unreachable in the shared store, where only `git gc --prune=now` reclaims them.
 It reads the advertised `main` SHA before and after an object-only fetch that writes neither
 `FETCH_HEAD` nor a tracking ref. It verifies that exact commit before creating a missing shared
 remote. The URL it just wrote remains the expected value, so a concurrent replacement cannot be

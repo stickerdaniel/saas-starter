@@ -2151,6 +2151,15 @@ function ensureUpstream(root: string, upstreamUrl: string, allowFetch: boolean):
 		const transport = transportRemote(transportUrl);
 		console.error(`Fetching upstream (${terminalUrl(upstreamUrl)}) ...`);
 		const expected = advertisedMainAt(transportUrl);
+		// A content-copy fork shares no commit with its template, so negotiation
+		// finds nothing to exclude and the first fetch transfers the whole upstream
+		// history into this repository's object store. Measured against a 384 MiB
+		// parent: 152 KiB before, 385 MiB after. The deadline below bounds time, not
+		// bytes. An abort during the transfer is clean, because Git removes its
+		// temporary pack on SIGTERM, but a check that fails after the fetch leaves
+		// those objects unreachable in the shared store, where a plain `git gc` does
+		// not reclaim them and grows the store while trying. Only
+		// `git gc --prune=now` frees them.
 		try {
 			rejectTransportCommandOverrides();
 			verifyLocalRemoteSnapshot(transportUrl);
