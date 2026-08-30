@@ -1,7 +1,8 @@
 import { spawnSync } from 'node:child_process';
 import {
 	chmodSync,
-	copyFileSync,
+	cpSync,
+	mkdtempSync,
 	existsSync,
 	mkdirSync,
 	readFileSync,
@@ -9,6 +10,7 @@ import {
 	symlinkSync,
 	writeFileSync
 } from 'node:fs';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
@@ -30,10 +32,17 @@ function run(args: string[], env = sanitizedGitEnv()) {
 	});
 }
 
+/**
+ * A second checkout of this repository to run the checker against, outside the repository
+ * rather than under its `scratch/`. Inside it, the clone is a whole extra copy of the tree
+ * that every project-wide tool walks: measured, a full-project format run racing this
+ * fixture read the clone's own files and failed a suite whose tracked tree was clean.
+ * Killing the test run leaves the copy behind either way, and in the temporary directory
+ * that is the operating system's problem instead of the next `eslint .`.
+ */
 function createCheckerClone(): { directory: string; repository: string } {
-	const directory = path.join(ROOT, 'scratch', `static-compat-${process.pid}-${Date.now()}`);
+	const directory = mkdtempSync(path.join(tmpdir(), 'static-compat-'));
 	const repository = path.join(directory, 'repository');
-	mkdirSync(directory, { recursive: true });
 	try {
 		const result = spawnSync(
 			'git',
@@ -46,9 +55,14 @@ function createCheckerClone(): { directory: string; repository: string } {
 			path.join(repository, 'node_modules'),
 			process.platform === 'win32' ? 'junction' : 'dir'
 		);
-		for (const file of ['static-checks.ts', 'convex-consumer-compat.ts', 'git-context.ts']) {
-			copyFileSync(path.join(ROOT, 'scripts', file), path.join(repository, 'scripts', file));
-		}
+		// Every script, not the three the checker is spelled in. It imports `convex-surface.ts`
+		// and `terminal-output.ts` among others, and copying only the entrypoints left those at
+		// the committed revision: measured, a working-tree change that made the surface reader
+		// throw was invisible to this fixture while the direct checker exited 1 on it.
+		cpSync(path.join(ROOT, 'scripts'), path.join(repository, 'scripts'), {
+			recursive: true,
+			dereference: true
+		});
 		return { directory, repository };
 	} catch (error) {
 		rmSync(directory, { recursive: true, force: true });
@@ -89,9 +103,17 @@ describe('Convex compatibility static-check entrypoint', () => {
 			GIT_WORK_TREE: path.join(ROOT, 'scratch', 'foreign-worktree'),
 			GIT_CONFIG_GLOBAL: path.join(ROOT, 'scratch', 'caller.gitconfig')
 		};
+		// `GIT_CONFIG_NOSYSTEM` is asserted absent below and is legitimate hardening for a
+		// developer or a runner to export, so the test controls it rather than reading whatever
+		// the ambient environment happens to hold.
+		const cleared = ['GIT_CONFIG_NOSYSTEM', 'GIT_CONFIG_SYSTEM', 'GIT_CONFIG_COUNT'];
 		for (const [key, value] of Object.entries(overrides)) {
 			saved.set(key, process.env[key]);
 			process.env[key] = value;
+		}
+		for (const key of cleared) {
+			saved.set(key, process.env[key]);
+			delete process.env[key];
 		}
 		try {
 			const invocation = compatibilityInvocation(true);
@@ -303,6 +325,49 @@ describe('Convex compatibility static-check entrypoint', () => {
 		120_000
 	);
 
+	// `$GIT_DIR/info/attributes` is shared with every linked worktree and has no environment
+	// switch, so the baseline checkout reads it however isolated the rest of the run is. A
+	// smudge filter selected there rewrites the baseline source before the surface is built:
+	// measured with git 2.55.0, a filter that deleted an export made the checker report the
+	// same deletion in the current commit as one that was never published, and it exited 0.
+	it.skipIf(process.platform === 'win32')(
+		'refuses a baseline a local attribute rule would rewrite',
+		() => {
+			const checkout = createCheckerClone();
+			const env = sanitizedGitEnv();
+			delete env.CI;
+			delete env.CONVEX_COMPAT_BASE;
+			try {
+				const filter = path.join(checkout.directory, 'baseline-smudge');
+				writeFileSync(filter, '#!/bin/sh\ncat\n');
+				chmodSync(filter, 0o755);
+				writeFileSync(
+					path.join(checkout.repository, '.git', 'info', 'attributes'),
+					'src/lib/convex/*.ts filter=baseline-probe\n'
+				);
+				const configure = spawnSync('git', ['config', 'filter.baseline-probe.smudge', filter], {
+					cwd: checkout.repository,
+					env,
+					encoding: 'utf8'
+				});
+				expect(configure.status, configure.stderr).toBe(0);
+
+				const result = spawnSync(
+					BUN,
+					[path.join(checkout.repository, 'scripts', 'convex-consumer-compat.ts')],
+					{ cwd: checkout.repository, env, encoding: 'utf8', timeout: 110_000 }
+				);
+				const output = `${result.stdout}${result.stderr}`;
+				expect(result.status, output).not.toBe(0);
+				expect(output).toContain('a local attribute rule rewrites the baseline');
+				expect(output).not.toContain('referenced functions still published unchanged');
+			} finally {
+				rmSync(checkout.directory, { recursive: true, force: true });
+			}
+		},
+		120_000
+	);
+
 	it.skipIf(process.platform === 'win32')(
 		'rejects an unsafe repository path before the compatibility child runs',
 		() => {
@@ -343,7 +408,9 @@ describe('Convex compatibility static-check entrypoint', () => {
 		expect(output).not.toContain('Convex consumer compatibility');
 	});
 
-	it('keeps abandoned checker clones out of Vitest discovery', () => {
+	// The fixture above lives in the temporary directory, and session artifacts still land in
+	// `scratch/`. Vitest walking those would collect a stale copy of this very file.
+	it('keeps session scratch out of Vitest discovery', () => {
 		const config = readFileSync(path.join(ROOT, 'vite.config.ts'), 'utf8');
 		expect(config).toContain("'scratch/**'");
 	});

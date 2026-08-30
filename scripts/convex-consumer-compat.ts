@@ -440,6 +440,35 @@ function consumerReferencesAt(commit: string): ConsumerReferences {
 }
 
 /**
+ * Baseline paths a local attribute rule would rewrite as the checkout materializes them.
+ *
+ * The system and global attribute files are already off, and neither covers
+ * `$GIT_DIR/info/attributes`, which a linked worktree shares with the repository being
+ * checked, nor a `.gitattributes` committed into the baseline itself. A `filter` from
+ * either runs its smudge command over the baseline source, and no environment variable
+ * turns that off. Measured with git 2.55.0: a filter that deleted an export made the
+ * checker read the same deletion in the current commit as one that was never published,
+ * and it exited 0 reporting the surface unchanged. `ident` is checked with it because it
+ * rewrites content the same way. Detection is the fix here: refusing loudly is correct,
+ * and a filter over the Convex sources has no legitimate use this check could honour.
+ */
+function attributeRewrittenPaths(checkout: string, paths: string[]): string[] {
+	const affected = new Set<string>();
+	for (let index = 0; index < paths.length; index += 200) {
+		const batch = paths.slice(index, index + 200);
+		const records = git(['check-attr', '-z', 'filter', 'ident', '--', ...batch], checkout).split(
+			'\0'
+		);
+		// Records come in path, attribute, value triples, and the stream ends with a NUL.
+		for (let cursor = 0; cursor + 2 < records.length; cursor += 3) {
+			const value = records[cursor + 2]!;
+			if (value !== 'unspecified' && value !== 'unset') affected.add(records[cursor]!);
+		}
+	}
+	return [...affected].sort();
+}
+
+/**
  * The surface at the baseline commit, from an isolated checkout.
  *
  * The checkout lives outside the current repository so module resolution cannot
@@ -476,6 +505,21 @@ function surfaceAt(commit: string, protectedIdentifiers: ReadonlySet<string>): S
 			'core.sparseCheckout=false'
 		]);
 		worktreeAdded = true;
+		const rewritten = attributeRewrittenPaths(
+			dir,
+			git(['ls-tree', '-r', '--name-only', '-z', commit, '--', CONVEX_ROOT])
+				.split('\0')
+				.filter(Boolean)
+		);
+		if (rewritten.length > 0) {
+			throw new Error(
+				`convex-consumer-compat: a local attribute rule rewrites the baseline before it can be read (${rewritten
+					.slice(0, 3)
+					.join(', ')}${rewritten.length > 3 ? `, +${rewritten.length - 3} more` : ''}). ` +
+					'Remove the filter or ident attribute covering these paths; a rewritten baseline can ' +
+					'report a deleted function as one that was never published.'
+			);
+		}
 		// The install resolves the baseline lockfile, which may name a Git dependency, so it
 		// gets the transport-capable environment for the same reason the baseline fetch does.
 		// Nothing it reads decides the verdict: the surface reader below does, and that only
@@ -520,11 +564,14 @@ function surfaceAt(commit: string, protectedIdentifiers: ReadonlySet<string>): S
 				try {
 					rmSync(dir, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
 				} catch (error) {
-					console.error(
-						`convex-consumer-compat: could not remove the baseline checkout ${dir}: ${
-							error instanceof Error ? error.message : String(error)
-						}`
-					);
+					// Recorded, not merely logged. `git worktree prune` returns 0 while the checkout
+					// directory still exists, because the registration is still valid, so leaving
+					// this to the prune below would end the run successfully with the checkout and
+					// its administrative entry both retained.
+					cleanupFailure = `convex-consumer-compat: could not remove the baseline checkout ${dir}: ${
+						error instanceof Error ? error.message : String(error)
+					}`;
+					console.error(cleanupFailure);
 				}
 				try {
 					git(['worktree', 'prune'], process.cwd(), hooks);
