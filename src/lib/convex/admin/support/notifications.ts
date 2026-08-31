@@ -6,13 +6,13 @@
  * - Closed tickets are reopened (user sends message to closed ticket)
  * - Users send messages to handed-off tickets awaiting admin response
  *
- * Uses a 2-minute debounce to accumulate multiple messages before sending.
+ * Uses a 4-minute debounce to accumulate multiple messages before sending.
  *
  * Flow:
  * 1. User triggers notification (handoff, new message to handed-off ticket, or reopen)
- * 2. scheduleAdminNotification creates/updates pending notification with 2-min delay
+ * 2. scheduleAdminNotification creates/updates the pending notification with a 4-minute delay
  * 3. If user sends more messages, timer resets and messages accumulate
- * 4. After 2 minutes of no new messages, sendPendingAdminNotification fires
+ * 4. After 4 minutes of no new messages, sendPendingAdminNotification fires
  * 5. Email sent to recipients based on adminNotificationPreferences table
  */
 
@@ -22,8 +22,8 @@ import { internalMutation, internalAction, internalQuery } from '../../_generate
 import { internal, components } from '../../_generated/api';
 import { supportThreadFields } from '../../support/supportThreadFields';
 
-/** Delay before sending notification (2 minutes) */
-const NOTIFICATION_DELAY_MS = 2 * 60 * 1000;
+/** Delay before sending a notification after the latest message. */
+const NOTIFICATION_DELAY_MS = 4 * 60 * 1000;
 
 /** Maximum number of retry attempts before giving up */
 const MAX_RETRY_COUNT = 5;
@@ -37,7 +37,7 @@ const MAX_RETRY_COUNT = 5;
  * - User reopens a closed ticket → notificationType: 'newTickets'
  *
  * If a pending notification exists, it cancels the old scheduled job,
- * adds the new messages, and reschedules with a fresh 2-minute delay.
+ * adds the new messages, and reschedules with a fresh 4-minute delay.
  *
  * @param args.threadId - The support thread ID
  * @param args.messageIds - Array of message IDs to include in the notification
