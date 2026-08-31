@@ -32,10 +32,14 @@ vi.mock('../../support/messageListing', () => ({
 	listMessagesForThread: vi.fn()
 }));
 
-vi.mock('@convex-dev/agent', () => ({
-	getFile: vi.fn(),
-	saveMessage: vi.fn().mockResolvedValue({ messageId: 'notice_1' })
-}));
+vi.mock('@convex-dev/agent', async (importOriginal) => {
+	const actual = await importOriginal<Record<string, unknown>>();
+	return {
+		...actual,
+		getFile: vi.fn(),
+		saveMessage: vi.fn().mockResolvedValue({ messageId: 'notice_1' })
+	};
+});
 
 vi.mock('@convex-dev/agent/validators', async () => {
 	const { v } = await import('convex/values');

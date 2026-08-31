@@ -53,7 +53,10 @@ vi.mock('../../constants', () => ({ MAX_MESSAGE_LENGTH: 4000 }));
 
 vi.mock('../../../config/support', () => ({ isSupportAiEnabled: vi.fn(() => true) }));
 
-vi.mock('@convex-dev/agent', () => ({ getFile: vi.fn() }));
+vi.mock('@convex-dev/agent', async (importOriginal) => {
+	const actual = await importOriginal<Record<string, unknown>>();
+	return { ...actual, getFile: vi.fn() };
+});
 
 vi.mock('@convex-dev/agent/validators', async () => {
 	const { v } = await import('convex/values');
