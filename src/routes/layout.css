@@ -736,7 +736,31 @@
 	--learn-ease: cubic-bezier(0.22, 1, 0.36, 1);
 	/* Toggle (switch thumb travel) */
 	--toggle-dur: 350ms;
+	--toggle-track: 150ms;
 	--toggle-ease: cubic-bezier(0.34, 1.35, 0.64, 1);
+	/* The source keyframes sampled at 5% intervals and expressed as one easing
+	   path. A transition follows this full overshoot, return and tiny undershoot
+	   while remaining interruptible from its current computed position. */
+	--toggle-path: linear(
+		0,
+		0.34686 5%,
+		0.61896 10%,
+		0.82181 15%,
+		0.96286 20%,
+		1.05118 25%,
+		1.09711 30%,
+		1.11164 35%,
+		1.10587 40%,
+		1.09042 45%,
+		1.07502 50%,
+		1.06821 55%,
+		1.02576 60%,
+		1.00411 65%,
+		0.9974 70%,
+		0.99837 75%,
+		1 80%,
+		1
+	);
 	/* Checkbox check */
 	--check-box: 150ms;
 	--check-draw: 350ms;
@@ -1059,15 +1083,18 @@
 	}
 }
 
-/* Toggle: the thumb overshoots its rest position and settles back. Written as
-   a transition and not as keyframes: keyframes restart from their own first
-   frame, so reversing a switch mid-travel snapped the thumb to the far end
-   before animating back. The overshoot lives in the easing curve instead, which
-   interpolates from wherever the thumb currently is. `--toggle-ease` overshoots
-   by construction, so no keyframe is needed to produce the bounce. */
+/* Toggle: preserve the source's full overshoot and return as a sampled easing
+   path on an interruptible transition. Source keyframes restart from their own
+   first frame, so reversing mid-travel snapped the thumb to the far end before
+   animating back. A transition starts wherever the thumb currently is. The
+   shadcn track keeps its subtler 150ms color fade on the source easing. */
+.t-switch {
+	transition-duration: var(--toggle-track);
+	transition-timing-function: var(--toggle-ease);
+}
 .t-switch-thumb {
 	translate: 0 0;
-	transition: translate var(--toggle-dur) var(--toggle-ease);
+	transition: translate var(--toggle-dur) var(--toggle-path);
 }
 .t-switch-thumb[data-state='checked'] {
 	translate: calc(100% - 2px) 0;
@@ -1080,6 +1107,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+	.t-switch,
 	.t-switch-thumb {
 		/* The thumb also carries Tailwind's `transition-transform`, which covers
 		   the individual `translate` property the checked utilities set, so the
