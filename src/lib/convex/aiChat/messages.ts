@@ -18,6 +18,7 @@ import { requireAiChatThreadRecord } from './ownership';
 import { createRateLimitError } from '../support/types';
 import { AI_CHAT_ERROR_CODES, createAiChatError } from './errors';
 import { AI_CHAT_LIMIT_NOTICE, MAX_MESSAGE_LENGTH } from '../constants';
+import { STREAM_DELTA_OPTIONS } from '../streamDeltas';
 import { makeAgentUsageSink } from '../aiUsage/agentUsage';
 import { ensureCaptureStart } from '../admin/journey/capture';
 import { recordAiUsage } from '../aiUsage/record';
@@ -253,10 +254,7 @@ export const createAIResponse = internalAction({
 					experimental_transform: toolErrorRedactionTransform
 				},
 				{
-					saveStreamDeltas: {
-						chunking: 'line',
-						throttleMs: 100
-					},
+					saveStreamDeltas: STREAM_DELTA_OPTIONS,
 					usageHandler: sink.usageHandler
 				}
 			);

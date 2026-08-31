@@ -23,6 +23,7 @@ import { SUPPORT_ERROR_CODES, createSupportError } from './errors';
 import { t, extractLocaleFromUrl } from '../i18n/translations';
 import { MAX_MESSAGE_LENGTH } from '../constants';
 import { normalizeSupportPageRoute } from '../../shared/support-page-route';
+import { STREAM_DELTA_OPTIONS } from '../streamDeltas';
 import { requireSupportThreadAccess } from './ownership';
 import { listMessagesForThread } from './messageListing';
 import { syncSupportLastMessage } from './threads';
@@ -170,10 +171,7 @@ async function runTurnAttempt(
 			{
 				usageHandler: sink.usageHandler,
 				// Save streaming deltas to database for real-time updates
-				saveStreamDeltas: {
-					chunking: 'line',
-					throttleMs: 100
-				}
+				saveStreamDeltas: STREAM_DELTA_OPTIONS
 			}
 		);
 
