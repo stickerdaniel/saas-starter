@@ -27,10 +27,15 @@ function sourceFiles(dir: string, out: string[] = []): string[] {
 
 const css = readFileSync(join(root, 'src/routes/layout.css'), 'utf8');
 const hooks = [...new Set([...css.matchAll(/\.(t-[a-z0-9-]+)/g)].map((m) => m[1]))].sort();
-const sources = sourceFiles(join(root, 'src'))
-	.filter((path) => !path.endsWith('layout.motion-hooks.test.ts'))
-	.map((path) => readFileSync(path, 'utf8'))
-	.join('\n');
+
+// Whole class tokens, never substrings. A plain `includes` passed for `t-stream`
+// on the string `application/octet-stream`, and for `t-switch` on the unrelated
+// `t-switch-thumb`, which is exactly the miss this file exists to catch.
+const applied = new Set(
+	sourceFiles(join(root, 'src'))
+		.filter((path) => !path.endsWith('layout.motion-hooks.test.ts'))
+		.flatMap((path) => readFileSync(path, 'utf8').split(/[^A-Za-z0-9-]+/))
+);
 
 describe('motion class hooks', () => {
 	it('finds hooks to check', () => {
@@ -38,6 +43,6 @@ describe('motion class hooks', () => {
 	});
 
 	it.each(hooks)('%s is applied by a component', (hook) => {
-		expect(sources).toContain(hook);
+		expect(applied).toContain(hook);
 	});
 });

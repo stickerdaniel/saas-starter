@@ -1098,5 +1098,9 @@
 @media (prefers-reduced-motion: reduce) {
 	.t-switch-thumb {
 		animation: none !important;
+		/* The thumb also carries `transition-transform`, which covers the
+		   individual `translate` property the checked utilities set, so killing
+		   the keyframes alone still left it sliding the length of the track. */
+		transition: none !important;
 	}
 }

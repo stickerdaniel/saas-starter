@@ -62,12 +62,19 @@
 	});
 
 	/**
-	 * Drop `is-enter-start` one frame after the line mounts. That class parks the
-	 * incoming copy below the box with its transition switched off; releasing it
-	 * in the same frame would let the browser resolve both states at once and the
-	 * rise would never render.
+	 * Park an incoming line below the box with its transition switched off, then
+	 * release it one frame later. Releasing in the same frame lets the browser
+	 * resolve both states at once and the rise never renders.
+	 *
+	 * The start class is written from here rather than in the markup because the
+	 * same line has to be able to exit later. Selecting the markup on `entering`
+	 * put an already-entered line in the entrance branch forever, so from the
+	 * second swap on the outgoing label never got `is-exit`: it stayed put under
+	 * the incoming one and then vanished when the settle timer removed it.
 	 */
-	function release(node: HTMLElement) {
+	function enter(node: HTMLElement, active: boolean) {
+		if (!active) return;
+		node.classList.add('is-enter-start');
 		const frame = requestAnimationFrame(() => node.classList.remove('is-enter-start'));
 		return { destroy: () => cancelAnimationFrame(frame) };
 	}
@@ -81,12 +88,11 @@
 >
 	<span class="t-think-sizer" aria-hidden="true">{sizer ?? text}</span>
 	{#each lines as line (line.id)}
-		{#if line.entering}
-			<span class="t-think-text is-enter-start" data-text={line.text} use:release>{line.text}</span>
-		{:else}
-			<span class="t-think-text" class:is-exit={line.exiting} data-text={line.text}
-				>{line.text}</span
-			>
-		{/if}
+		<span
+			class="t-think-text"
+			class:is-exit={line.exiting}
+			data-text={line.text}
+			use:enter={line.entering}>{line.text}</span
+		>
 	{/each}
 </span>
