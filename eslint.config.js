@@ -23,6 +23,7 @@ import requireGuardedServerConvexClientRule from './eslint/rules/require-guarded
 import noFrozenAuthPageDataRule from './eslint/rules/no-frozen-auth-page-data.js';
 import requireSvelteModuleExtensionRule from './eslint/rules/require-svelte-module-extension.js';
 import noAnimatedPixelPressRule from './eslint/rules/no-animated-pixel-press.js';
+import noUnbackedFormActionRule from './eslint/rules/no-unbacked-form-action.js';
 import safeSvelteParser from './eslint/parsers/safe-svelte-parser.js';
 import noLiteralControlCharRule from './eslint/rules/no-literal-control-char.js';
 
@@ -58,6 +59,7 @@ const localPlugin = {
 		'no-frozen-auth-page-data': noFrozenAuthPageDataRule,
 		'require-svelte-module-extension': requireSvelteModuleExtensionRule,
 		'no-animated-pixel-press': noAnimatedPixelPressRule,
+		'no-unbacked-form-action': noUnbackedFormActionRule,
 		'no-literal-control-char': noLiteralControlCharRule
 	}
 };
@@ -223,7 +225,8 @@ export default defineConfig(
 		rules: {
 			'local/no-hardcoded-aria-label': 'error',
 			'local/no-hardcoded-sr-only': 'error',
-			'local/require-field-error-association': 'error'
+			'local/require-field-error-association': 'error',
+			'local/no-unbacked-form-action': 'error'
 		}
 	},
 	{
