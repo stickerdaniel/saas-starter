@@ -53,23 +53,48 @@ export function avatarGroupHover(node: HTMLElement) {
 
 	// A tap emits `mouseenter` and never the matching `mouseleave`, so on a touch
 	// screen an accidental brush left the row lifted for good. The lift is
-	// decoration with no state behind it, so a device that cannot hover simply
-	// does not get it.
+	// decoration with no state behind it, so it is bound only while the current
+	// pointer can actually hover. Listening for changes matters on convertibles:
+	// a page can mount with a trackpad and continue after the device folds into
+	// touch mode.
 	const hoverCapable = window.matchMedia('(hover: hover) and (pointer: fine)');
-	if (!hoverCapable.matches) return {};
+	let observer: MutationObserver | undefined;
+	let enabled = false;
 
-	bind();
-	node.addEventListener('mouseleave', leave);
-	// The row is built from a query result, so items arriving later (an async
-	// avatar list, a conditional slot) would otherwise never be wired up.
-	const observer = new MutationObserver(bind);
-	observer.observe(node, { childList: true, subtree: true });
+	function enable() {
+		if (enabled) return;
+		enabled = true;
+		bind();
+		node.addEventListener('mouseleave', leave);
+		// The row is built from a query result, so items arriving later (an async
+		// avatar list, a conditional slot) would otherwise never be wired up.
+		observer = new MutationObserver(bind);
+		observer.observe(node, { childList: true, subtree: true });
+	}
+
+	function disable() {
+		if (!enabled) return;
+		enabled = false;
+		setShifts(null, 'out');
+		observer?.disconnect();
+		observer = undefined;
+		for (const item of items) item.removeEventListener('mouseenter', enter);
+		items = [];
+		node.removeEventListener('mouseleave', leave);
+	}
+
+	function syncCapability() {
+		if (hoverCapable.matches) enable();
+		else disable();
+	}
+
+	hoverCapable.addEventListener('change', syncCapability);
+	syncCapability();
 
 	return {
 		destroy() {
-			observer.disconnect();
-			for (const item of items) item.removeEventListener('mouseenter', enter);
-			node.removeEventListener('mouseleave', leave);
+			hoverCapable.removeEventListener('change', syncCapability);
+			disable();
 		}
 	};
 }

@@ -1056,7 +1056,17 @@
    interpolates from wherever the thumb currently is. `--toggle-ease` overshoots
    by construction, so no keyframe is needed to produce the bounce. */
 .t-switch-thumb {
+	translate: 0 0;
 	transition: translate var(--toggle-dur) var(--toggle-ease);
+}
+.t-switch-thumb[data-state='checked'] {
+	translate: calc(100% - 2px) 0;
+}
+:where([dir='rtl']) .t-switch-thumb[data-state='checked'] {
+	/* The track's one-pixel borders leave two pixels less travel than the
+	   thumb's width in either direction. Keeping both endpoints here avoids the
+	   positive Tailwind variant winning over a separate RTL variant. */
+	translate: calc(-100% + 2px) 0;
 }
 
 @media (prefers-reduced-motion: reduce) {

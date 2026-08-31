@@ -12,6 +12,11 @@
 
 	const { t } = getTranslate();
 	const unread = useSupportUnreadState();
+	const unreadLabel = $derived.by(() => {
+		if (!unread.hasUnread) return $t('aria.feedback_open');
+		if (unread.count > 9) return $t('aria.feedback_open_unread_many');
+		return $t('aria.feedback_open_unread', { count: unread.count });
+	});
 
 	let {
 		isFeedbackOpen = false,
@@ -50,11 +55,7 @@
 			variant="default"
 			size="icon"
 			onclick={toggleOpen}
-			aria-label={isFeedbackOpen
-				? $t('aria.feedback_close')
-				: unread.hasUnread
-					? $t('aria.feedback_open_unread')
-					: $t('aria.feedback_open')}
+			aria-label={isFeedbackOpen ? $t('aria.feedback_close') : unreadLabel}
 			class="relative size-12 rounded-xl transition-transform duration-150 ease-out active:not-aria-[haspopup]:translate-y-0 active:scale-[0.97]"
 		>
 			<IconSwap showSecond={isFeedbackOpen} class="size-6">

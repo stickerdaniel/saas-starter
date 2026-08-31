@@ -11,6 +11,11 @@
 
 	const { t } = getTranslate();
 	const unread = useSupportUnreadState();
+	const unreadLabel = $derived.by(() => {
+		if (!unread.hasUnread) return $t('aria.feedback_open');
+		if (unread.count > 9) return $t('aria.feedback_open_unread_many');
+		return $t('aria.feedback_open_unread', { count: unread.count });
+	});
 
 	let isLoading = $state(false);
 	let CustomerSupport: Component | null = $state(null);
@@ -100,7 +105,7 @@
 			size="icon"
 			disabled={isLoading}
 			onclick={openSupport}
-			aria-label={unread.hasUnread ? $t('aria.feedback_open_unread') : $t('aria.feedback_open')}
+			aria-label={unreadLabel}
 			class="relative h-12 w-12 rounded-xl transition-[color,background-color,border-color,transform] duration-200 ease-out hover:scale-105 hover:bg-primary active:not-aria-[haspopup]:translate-y-0 active:scale-[0.97]"
 		>
 			<LauncherIcon />
