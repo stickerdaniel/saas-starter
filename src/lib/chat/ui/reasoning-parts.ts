@@ -45,6 +45,10 @@ function isTransparentStreamMetadata(part: MessagePart): boolean {
 	return part.type === 'file' || part.type.startsWith('source-') || part.type.startsWith('data-');
 }
 
+function isCompletedContentPart(part: MessagePart): boolean {
+	return (part.type === 'text' || part.type === 'reasoning') && part.state === 'done';
+}
+
 /**
  * Find the content or lifecycle boundary currently at the stream tail. Unknown
  * parts stay boundaries by default; only AI SDK metadata with measured
@@ -57,7 +61,9 @@ export function getActiveStreamingPartIndex(
 	if (!isMessageStreaming || !parts?.length) return -1;
 
 	for (let index = parts.length - 1; index >= 0; index -= 1) {
-		if (!isTransparentStreamMetadata(parts[index]!)) return index;
+		const part = parts[index]!;
+		if (isTransparentStreamMetadata(part)) continue;
+		return isCompletedContentPart(part) ? -1 : index;
 	}
 	return -1;
 }

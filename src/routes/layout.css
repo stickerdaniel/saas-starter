@@ -968,9 +968,9 @@
    `--stream-fade`. The library writes the animation as an inline style and
    types `timingFunction` as a keyword union, so the recipe's cubic-bezier
    cannot be passed as a prop, and `!important` is what outranks a non-important
-   inline declaration. The recipe's `--stream-gap` has no counterpart here on
-   purpose: the cadence is the stream's own, set by the server's line chunking
-   and 100ms throttle, not by a fixed per-word delay. */
+   inline declaration. The presentation scheduler reads `--stream-gap` and
+   applies that source cadence to each incoming Convex batch, compressing it
+   only when the queued reveals would otherwise fall too far behind. */
 @keyframes t-stream-in {
 	from {
 		opacity: 0;

@@ -23,6 +23,15 @@ describe('active streaming content', () => {
 		expect(getActiveStreamingReasoningIndex(parts, true)).toBe(0);
 	});
 
+	it.each(['text', 'reasoning'] as const)(
+		'does not keep completed $type active through metadata',
+		(type) => {
+			const parts = [{ type, text: 'done', state: 'done' }, metadata[0]!] as MessagePart[];
+			expect(getActiveStreamingPartIndex(parts, true)).toBe(-1);
+			expect(getActiveStreamingReasoningIndex(parts, true)).toBe(-1);
+		}
+	);
+
 	it.each([{ type: 'step-start' }, { type: 'tool-test', state: 'input-streaming' }])(
 		'keeps $type as a lifecycle boundary',
 		(tail) => {

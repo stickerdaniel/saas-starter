@@ -80,6 +80,18 @@ describe('deriveOrderedParts', () => {
 		});
 	});
 
+	it('does not replay completed text through trailing metadata', () => {
+		const result = deriveOrderedParts(
+			[
+				{ type: 'text', text: 'finished answer', state: 'done' },
+				{ type: 'source-url', url: 'https://example.com' }
+			] as MessagePart[],
+			'streaming'
+		);
+
+		expect(result[0]).toMatchObject({ kind: 'text', isStreaming: false });
+	});
+
 	it('does not replay settled text after a new step starts', () => {
 		const result = deriveOrderedParts(
 			[{ type: 'text', text: 'finished first step' }, { type: 'step-start' }] as MessagePart[],
