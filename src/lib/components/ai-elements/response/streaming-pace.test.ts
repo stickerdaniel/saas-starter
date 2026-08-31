@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { planStreamingBatch, type StreamingPaceState } from './streaming-pace.svelte.ts';
 
 function state(overrides: Partial<StreamingPaceState> = {}): StreamingPaceState {
@@ -70,5 +72,44 @@ describe('planStreamingBatch', () => {
 			delays: [],
 			horizon: 1_000
 		});
+	});
+});
+
+/**
+ * The scheduler finds the words it paces through the inline style svelte-
+ * streamdown writes on every animated span. That is an implementation detail of
+ * a locked dependency, and nothing about it is part of a public API, so a bump
+ * can drop it while every other test stays green: the spans would simply never
+ * be found, the pacing would silently stop, and the stream would go back to
+ * revealing whole Convex batches at once.
+ *
+ * Read the installed package rather than a copy of its output. A hand-written
+ * fixture would keep agreeing with itself through exactly the release this
+ * exists to catch.
+ */
+describe('svelte-streamdown animation contract', () => {
+	const root = join(import.meta.dirname, '../../../../..');
+	const read = (path: string) => readFileSync(join(root, path), 'utf8');
+
+	const SELECTOR_SUBSTRING = 'animation-name: sd-';
+
+	it('writes the animation name as an inline style', () => {
+		const context = read('node_modules/svelte-streamdown/dist/context.svelte.js');
+
+		expect(context).toContain(`\`${SELECTOR_SUBSTRING}\${this.animation.type};`);
+	});
+
+	it('puts that style on the per-word span', () => {
+		const animatedText = read('node_modules/svelte-streamdown/dist/AnimatedText.svelte');
+
+		expect(animatedText).toContain('<span style={streamdown.animationTextStyle}>');
+	});
+
+	// Both consumers match the same substring, and both stop working together.
+	it('is the substring both consumers select on', () => {
+		expect(read('src/lib/components/ai-elements/response/streaming-pace.svelte.ts')).toContain(
+			`span[style*="${SELECTOR_SUBSTRING}"]`
+		);
+		expect(read('src/routes/layout.css')).toContain(`span[style*='${SELECTOR_SUBSTRING}']`);
 	});
 });
