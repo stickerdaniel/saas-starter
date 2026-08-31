@@ -7,7 +7,7 @@
 	import { Marquee } from '$lib/components/spell/marquee';
 	import ProgressiveBlur from '../magic/ProgressiveBlur.svelte';
 	import Button from '$lib/components/ui/button/button.svelte';
-	import ChevronRight from '@lucide/svelte/icons/chevron-right';
+	import LearnMoreChevron from '$lib/components/motion/learn-more-chevron.svelte';
 	import RiveBackground from '$lib/components/RiveBackground.svelte';
 	import nvidiaLogo from './logos/nvidia.svg';
 	import columnLogo from './logos/column.svg';
@@ -44,10 +44,10 @@
 						<Button
 							size="lg"
 							href={localizedHref('/signup')}
-							class=" pointer-events-auto h-12 rounded-full pr-3 pl-5 text-sm"
+							class="t-learn pointer-events-auto h-12 rounded-full pr-3 pl-5 text-sm"
 						>
 							<span class="text-nowrap"><T keyName="hero.cta" /></span>
-							<ChevronRight class="ml-1" />
+							<LearnMoreChevron class="ml-1" />
 						</Button>
 						<Button
 							size="lg"

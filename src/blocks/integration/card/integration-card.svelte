@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Button from '$lib/components/ui/button/button.svelte';
 	import Card from '$lib/components/ui/card/card.svelte';
-	import ChevronRight from '@lucide/svelte/icons/chevron-right';
+	import LearnMoreChevron from '$lib/components/motion/learn-more-chevron.svelte';
 	import type { Snippet } from 'svelte';
 
 	type IntegrationCardProps = {
@@ -37,23 +37,23 @@
 			<Button
 				variant="secondary"
 				size="sm"
-				class="gap-1 pr-2 shadow-none"
+				class="t-learn gap-1 pr-2 shadow-none"
 				href={link}
 				target="_blank"
 			>
 				{buttonText}
-				<ChevronRight class="ml-0 !size-3.5 opacity-50" />
+				<LearnMoreChevron class="ml-0 !size-3.5 opacity-50" />
 			</Button>
 			{#if secondaryLink && secondaryButtonText}
 				<Button
 					variant="secondary"
 					size="sm"
-					class="gap-1 pr-2 shadow-none"
+					class="t-learn gap-1 pr-2 shadow-none"
 					href={secondaryLink}
 					target="_blank"
 				>
 					{secondaryButtonText}
-					<ChevronRight class="ml-0 !size-3.5 opacity-50" />
+					<LearnMoreChevron class="ml-0 !size-3.5 opacity-50" />
 				</Button>
 			{/if}
 		</div>

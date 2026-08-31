@@ -6,7 +6,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Avatar, AvatarImage, AvatarFallback } from '$lib/components/ui/avatar';
 	import BotIcon from '@lucide/svelte/icons/bot';
-	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
+	import LearnMoreChevron from '$lib/components/motion/learn-more-chevron.svelte';
 	import Loader2Icon from '@lucide/svelte/icons/loader-2';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import UsersRoundIcon from '@lucide/svelte/icons/users-round';
@@ -17,6 +17,7 @@
 	import memberTwo from '$blocks/team/avatars/member-two.webp';
 	import memberFive from '$blocks/team/avatars/member-five.webp';
 	import { motion } from 'motion-sv';
+	import { avatarGroupHover } from '$lib/components/motion/avatar-group-hover.svelte.ts';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { isAnonymousUser } from '$lib/convex/utils/anonymousUser';
 	import { isSupportAiEnabled } from '$lib/config/support';
@@ -229,7 +230,10 @@
 			<div class="flex h-full flex-col justify-start">
 				<div class="m-10 flex flex-col items-start">
 					<!-- Avatar stack: Conditional bot icon + admin avatars -->
-					<div class="mb-6 flex -space-x-3">
+					<!-- Presentation only: the faces say who will answer, they are not a choice
+					     the user can make, so the row lifts on hover and carries no cursor,
+					     focus ring or click target. -->
+					<div class="mb-6 flex -space-x-3" use:avatarGroupHover>
 						{#if showBotIcon}
 							<!-- Avatar 1: Bot icon (only shown when <3 admins) -->
 							<motion.div
@@ -240,7 +244,7 @@
 									y: { type: 'spring', stiffness: 260, damping: 12, mass: 0.8, delay: 0.1 }
 								}}
 							>
-								<Avatar class="size-12 bg-primary outline outline-4 outline-secondary">
+								<Avatar class="t-avatar size-12 bg-primary outline outline-4 outline-secondary">
 									<AvatarFallback class="bg-primary text-primary-foreground">
 										<BotIcon class="size-8" />
 									</AvatarFallback>
@@ -260,7 +264,7 @@
 								}}
 							>
 								<Avatar
-									class="size-12 outline outline-4 outline-secondary"
+									class="t-avatar size-12 outline outline-4 outline-secondary"
 									onLoadingStatusChange={(status) => markAvatarSettled(avatar.src, status)}
 								>
 									<AvatarImage
@@ -320,7 +324,7 @@
 					{@const isSelected = thread._id === ctx.threadId}
 					{@const showAdminAvatar = thread.isHandedOff && thread.assignedAdmin}
 					<button
-						class="flex w-full items-center gap-3 border-b border-border/30 p-4 px-5 text-left transition-colors duration-150 {isSelected
+						class="t-learn flex w-full items-center gap-3 border-b border-border/30 p-4 px-5 text-left transition-colors duration-150 {isSelected
 							? 'bg-muted-foreground/[0.04]'
 							: 'hover:bg-muted-foreground/[0.06]'}"
 						onclick={() =>
@@ -347,13 +351,15 @@
 								: undefined}
 						/>
 
+						<!-- A conversation carries one unread flag rather than a reply
+						     count, so the row indicator stays a bare dot. -->
+						<SupportUnreadIndicator inline count={thread.hasUnreadAdminReply ? 1 : 0} />
 						{#if thread.hasUnreadAdminReply}
-							<SupportUnreadIndicator />
 							<span class="sr-only">{$t('support.thread.unread_reply')}</span>
 						{/if}
 
 						<!-- Chevron -->
-						<ChevronRightIcon class="size-5 shrink-0 text-muted-foreground" />
+						<LearnMoreChevron class="size-5 shrink-0 text-muted-foreground" />
 					</button>
 				{/each}
 
