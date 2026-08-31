@@ -1083,6 +1083,53 @@ describe('scope routing', () => {
 		180_000
 	);
 
+	it.skipIf(process.platform === 'win32')(
+		'rejects an index-only deletion whose worktree configuration remains active',
+		() => {
+			const checkout = createCheckerClone();
+			const tools = path.join(checkout.directory, 'cached-delete-tools');
+			mkdirSync(tools);
+			for (const command of ['bun', 'misspell']) {
+				const executable = path.join(tools, command);
+				writeFileSync(executable, '#!/bin/sh\nexit 0\n');
+				chmodSync(executable, 0o755);
+			}
+			const git = (args: string[]) =>
+				spawnSync('git', args, {
+					cwd: checkout.repository,
+					env: sanitizedGitEnv(),
+					encoding: 'utf8'
+				});
+			expect(git(['rm', '--cached', '--quiet', '.prettierignore']).status).toBe(0);
+			writeFileSync(path.join(checkout.repository, '.prettierignore'), 'static/repro.json\n');
+			const repro = path.join(checkout.repository, 'static', 'repro.json');
+			writeFileSync(repro, '{"value":1}\n');
+			expect(git(['add', '--', 'static/repro.json']).status).toBe(0);
+			try {
+				const env = sanitizedGitEnv();
+				env.NO_COLOR = '1';
+				env.PATH = `${tools}${path.delimiter}${env.PATH ?? ''}`;
+				const result = spawnSync(
+					testExecutable('bun'),
+					[
+						path.join(checkout.repository, 'scripts', 'static-checks.ts'),
+						'--staged',
+						'--scope',
+						'lint'
+					],
+					{ cwd: checkout.repository, env, encoding: 'utf8', timeout: 120_000 }
+				);
+				const output = `${result.stdout}${result.stderr}`;
+				expect(result.status, output).toBe(1);
+				expect(output).toContain('Staged file contents differ from the worktree');
+				expect(output).not.toContain('All checks passed');
+			} finally {
+				rmSync(checkout.directory, { recursive: true, force: true });
+			}
+		},
+		180_000
+	);
+
 	// The staged gate ends by proving the checked bytes are still the staged bytes, and
 	// that argument belongs to the lint-and-types path. A format scope leaves through its
 	// own early exit, so the combination is refused rather than given a second closing.

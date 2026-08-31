@@ -1120,10 +1120,13 @@ async function main(): Promise<void> {
 			process.exit(0);
 		}
 		stagedDeletionOnly = stagedChanges.every((change) => change.status === 'D');
+		const stagedDeletedPaths = stagedChanges
+			.filter((change) => change.status === 'D')
+			.map((change) => change.path);
 		// Keep the original index paths. resolveInputs realpaths symlinks, while
 		// later comparisons must address the paths recorded by Git.
 		stagedIndexPaths = getStagedFiles(REPO_ROOT, stagedEnv);
-		assertSafePaths(stagedIndexPaths);
+		assertSafePaths([...stagedIndexPaths, ...stagedDeletedPaths]);
 		const cleanFiltered = stagedFilesWithCleanFilters(stagedIndexPaths, REPO_ROOT, stagedEnv);
 		if (cleanFiltered.length > 0) {
 			fail(
@@ -1132,7 +1135,19 @@ async function main(): Promise<void> {
 			);
 		}
 		inputs = stagedIndexPaths.length > 0 ? resolveInputs(stagedIndexPaths, 'the git index') : [];
-		if (!stagedFilesMatchWorktree(stagedIndexPaths, REPO_ROOT, stagedEnv)) {
+		const deletedPathStillExists = stagedDeletedPaths.some((file) => {
+			try {
+				lstatSync(path.join(REPO_ROOT, file));
+				return true;
+			} catch (error) {
+				if (isMissingPathError(error)) return false;
+				throw error;
+			}
+		});
+		if (
+			deletedPathStillExists ||
+			!stagedFilesMatchWorktree(stagedIndexPaths, REPO_ROOT, stagedEnv)
+		) {
 			fail(
 				'Staged file contents differ from the worktree.',
 				'  Run the checks in fix mode, review the result, stage the intended bytes,\n' +
