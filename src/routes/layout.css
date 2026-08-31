@@ -670,18 +670,13 @@
 	}
 }
 
-/* transitions.dev recipes: the shared motion vocabulary.
-   The `t-*` blocks preserve each recipe's motion intent and numeric values from
-   the recipes Jakub Antalik publishes at https://transitions.dev, which exist to
-   be copied into real products. Their DOM hooks and state orchestration are
-   adapted for Svelte, shadcn and the dependency that owns each surface.
-   Intentional system changes include palette tokens instead of literal greys,
-   the existing `--motion-*` scale instead of a second generic scale, real chunk
-   cadence for streaming text, an interruptible Switch overshoot with shadcn's
-   track fade, logical positioning where callers own layout, component-specific
-   geometry and separate accessible text where a visual copy would be announced
-   twice. The rules stay outside `@layer` on purpose: a Tailwind utility must not
-   win against opacity or a transform while that property is animating. */
+/* The shared motion vocabulary. Every `t-*` block keeps its tuned numbers here
+   rather than in a component, so a surface is restyled by one token and not by
+   editing markup. Colour comes from the palette tokens and duration from the
+   existing `--motion-*` scale, so motion inherits a theme change instead of
+   pinning greys and a second timing scale beside it. The rules stay outside
+   `@layer` on purpose: a Tailwind utility must not win against opacity or a
+   transform while that property is animating. */
 :root {
 	/* Notification badge */
 	--badge-slide-dur: 260ms;
