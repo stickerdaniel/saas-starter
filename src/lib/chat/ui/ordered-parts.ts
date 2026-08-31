@@ -20,7 +20,7 @@ export { LEADING_REASONING_KEY };
 export type OrderedPart =
 	| { kind: 'reasoning'; text: string; isStreaming: boolean; hasContent: boolean; key: string }
 	| { kind: 'tool'; toolPart: ToolPart; key: string }
-	| { kind: 'text'; text: string; key: string };
+	| { kind: 'text'; text: string; isStreaming: boolean; key: string };
 
 /**
  * Derive renderable parts for chronological rendering.
@@ -36,6 +36,19 @@ export function deriveOrderedParts(
 	const messageParts = parts ?? [];
 	const isMessageInProgress = status === 'pending' || status === 'streaming';
 	const activeReasoningIndex = getActiveStreamingReasoningIndex(messageParts, isMessageInProgress);
+	// A message may stream text, then a tool, then another text block. Only the
+	// trailing renderable text is live. Marking an earlier block while a tool is
+	// active would remount settled prose as animated content.
+	const lastRenderableIndex = messageParts.findLastIndex(
+		(part) =>
+			part.type === 'reasoning' ||
+			part.type === 'text' ||
+			(typeof part.type === 'string' && part.type.startsWith('tool-') && 'state' in part)
+	);
+	const activeTextIndex =
+		isMessageInProgress && messageParts[lastRenderableIndex]?.type === 'text'
+			? lastRenderableIndex
+			: -1;
 
 	return messageParts
 		.map((p, idx): OrderedPart | null => {
@@ -53,6 +66,7 @@ export function deriveOrderedParts(
 				return {
 					kind: 'text',
 					text: (p as { text?: string }).text ?? '',
+					isStreaming: idx === activeTextIndex,
 					key: `text-${idx}`
 				};
 			}

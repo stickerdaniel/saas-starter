@@ -6,7 +6,7 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import * as Alert from '$lib/components/ui/alert';
 	import * as Item from '$lib/components/ui/item';
-	import { Button } from '$lib/components/ui/button';
+	import { Button, buttonVariants } from '$lib/components/ui/button';
 	import { Separator } from '$lib/components/ui/separator';
 	import * as Avatar from '$lib/components/ui/avatar';
 	import { Progress } from '$lib/components/ui/progress';
@@ -15,6 +15,7 @@
 	import { Toggle } from '$lib/components/ui/toggle';
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { Label } from '$lib/components/ui/label';
+	import { Response, streamingTextAnimation } from '$lib/components/ai-elements/response';
 	import CircleCheckIcon from '@lucide/svelte/icons/circle-check';
 	import BoldIcon from '@lucide/svelte/icons/bold';
 
@@ -51,6 +52,29 @@
 	let bold = $state(false);
 	let checkedBox = $state(false);
 	let mixedBox = $state(false);
+
+	const streamTokens = [' text', ' arrives', ' one', ' chunk', ' at', ' a', ' time.'];
+	let streamDemoRun = $state(0);
+	let streamDemoIndex = $state(0);
+	let streamDemoText = $state('Settled text stays still.');
+	let streamDemoActive = $state(false);
+
+	function startStreamingDemo() {
+		streamDemoRun += 1;
+		streamDemoIndex = 0;
+		streamDemoText = 'Streaming';
+		streamDemoActive = true;
+	}
+
+	function appendStreamingToken() {
+		if (!streamDemoActive) return;
+		streamDemoText += streamTokens[streamDemoIndex % streamTokens.length];
+		streamDemoIndex += 1;
+	}
+
+	function settleStreamingDemo() {
+		streamDemoActive = false;
+	}
 </script>
 
 <SEOHead title={$t('meta.shadcn_demo.title')} description={$t('meta.shadcn_demo.description')} />
@@ -126,6 +150,46 @@
 				<Checkbox id="demo-checkbox-both" indeterminate checked />
 				<Label for="demo-checkbox-both">Checkbox, checked and indeterminate</Label>
 			</div>
+		</Card.Content>
+	</Card.Root>
+
+	<Card.Root class="mb-8" lang="en" data-testid="streaming-text-demo">
+		<Card.Header>
+			<Card.Title>Streaming text</Card.Title>
+			<Card.Description>
+				Start a live response, append chunks, then settle it without replaying the history.
+			</Card.Description>
+		</Card.Header>
+		<Card.Content class="flex flex-col gap-4">
+			<div class="min-h-10 rounded-md bg-muted/40 p-3">
+				{#key streamDemoRun}
+					<Response content={streamDemoText} animation={streamingTextAnimation(streamDemoActive)} />
+				{/key}
+			</div>
+			<div class="flex flex-wrap gap-2">
+				<button type="button" class={buttonVariants()} onclick={startStreamingDemo}>
+					Start live response
+				</button>
+				<button
+					type="button"
+					class={buttonVariants({ variant: 'outline' })}
+					onclick={appendStreamingToken}
+					disabled={!streamDemoActive}
+				>
+					Append chunk
+				</button>
+				<button
+					type="button"
+					class={buttonVariants({ variant: 'outline' })}
+					onclick={settleStreamingDemo}
+					disabled={!streamDemoActive}
+				>
+					Settle response
+				</button>
+			</div>
+			<p class="text-sm text-muted-foreground">
+				Current state: {streamDemoActive ? 'streaming' : 'settled'}
+			</p>
 		</Card.Content>
 	</Card.Root>
 

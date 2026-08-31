@@ -64,6 +64,34 @@ describe('deriveOrderedParts', () => {
 		expect(done[1]).toMatchObject({ isStreaming: false });
 	});
 
+	it('marks only a trailing text block as streaming', () => {
+		const parts = [
+			{ type: 'reasoning', text: 'thinking', streamPartId: 'r1' },
+			{ type: 'text', text: 'live answer' }
+		] as MessagePart[];
+
+		expect(deriveOrderedParts(parts, 'streaming')[1]).toMatchObject({
+			kind: 'text',
+			isStreaming: true
+		});
+		expect(deriveOrderedParts(parts, 'success')[1]).toMatchObject({
+			kind: 'text',
+			isStreaming: false
+		});
+	});
+
+	it('does not replay settled text while a trailing tool streams', () => {
+		const result = deriveOrderedParts(
+			[
+				{ type: 'text', text: 'before the tool' },
+				{ type: 'tool-getWeather', toolCallId: 't1', state: 'input-streaming' }
+			] as MessagePart[],
+			'streaming'
+		);
+
+		expect(result[0]).toMatchObject({ kind: 'text', isStreaming: false });
+	});
+
 	it('orders interleaved reasoning/tool/text and drops step-start', () => {
 		const result = deriveOrderedParts(
 			[

@@ -671,15 +671,16 @@
 }
 
 /* transitions.dev recipes: the shared motion vocabulary.
-   Each `t-*` block below is the upstream snippet from the transitions-dev
-   skill (btca resource `transitionsDev`, skills/transitions-dev/*.md), kept
-   selector-for-selector so it stays diffable against the source. Two
-   deliberate departures: the recipes' literal greys are replaced with palette
-   tokens so both themes follow the design system, and the recipes' generic
-   `--duration-*`/`--ease-*` scale is not imported because this file already
-   owns one (`--motion-*` above). The rules stay outside `@layer` on purpose:
-   a Tailwind utility must not win against an opacity or transform that a
-   transition is part-way through animating. */
+   The `t-*` blocks preserve each recipe's motion intent and numeric values from
+   the transitions-dev btca resource. Their DOM hooks and state orchestration
+   are adapted for Svelte, shadcn and the dependency that owns each surface.
+   Intentional system changes include palette tokens instead of literal greys,
+   the existing `--motion-*` scale instead of a second generic scale, real chunk
+   cadence for streaming text, an interruptible Switch overshoot with shadcn's
+   track fade, logical positioning where callers own layout, component-specific
+   geometry and separate accessible text where a visual copy would be announced
+   twice. The rules stay outside `@layer` on purpose: a Tailwind utility must not
+   win against opacity or a transform while that property is animating. */
 :root {
 	/* Notification badge */
 	--badge-slide-dur: 260ms;
