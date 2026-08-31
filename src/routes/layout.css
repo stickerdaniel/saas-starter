@@ -1017,7 +1017,14 @@
 }
 /* Checkbox check: the box fills, then the tick draws itself. `--check-len`
    is the path's own getTotalLength() rounded up, so the stroke neither
-   pre-reveals nor over-draws. */
+   pre-reveals nor over-draws.
+
+   The hidden offset is negative, which reveals the stroke from the path's end
+   rather than its start. Lucide's `check` runs from the long arm's top tip to
+   the short arm, the reverse of how the mark is written, so a positive offset
+   drew the long stroke downwards first and set the short arm last. Flip this
+   sign together with the icon: a path already written in stroke order wants
+   the positive offset back. */
 .t-check {
 	transition:
 		background-color var(--check-box) var(--check-ease),
@@ -1026,7 +1033,7 @@
 }
 .t-check .t-check-tick path {
 	stroke-dasharray: var(--check-len, 15);
-	stroke-dashoffset: var(--check-len, 15);
+	stroke-dashoffset: calc(var(--check-len, 15) * -1);
 	transition: stroke-dashoffset var(--check-uncheck) var(--check-ease);
 }
 .t-check[data-state='checked'] .t-check-tick path {

@@ -66,3 +66,22 @@ describe('motion class hooks', () => {
 		expect(applied).toContain(hook);
 	});
 });
+
+/**
+ * The tick draws from whichever end of the path the dash offset hides last, so
+ * the sign of that offset has to agree with the icon's own point order. Lucide's
+ * `check` is authored from the long arm's tip inwards, the reverse of how the
+ * mark is written, and a positive offset therefore drew it backwards while every
+ * timing value still matched the recipe. Nothing rendered is wrong in that
+ * state, which is why it survived a full review round.
+ */
+describe('checkbox tick draw order', () => {
+	const tick = readFileSync(join(root, 'src/lib/components/ui/checkbox/checkbox.svelte'), 'utf8');
+
+	it('hides the stroke from the end lucide authors last', () => {
+		expect(tick).toMatch(/CheckIcon/);
+		expect(css).toMatch(
+			/\.t-check \.t-check-tick path \{[^}]*stroke-dashoffset:\s*calc\(var\(--check-len[^)]*\)\s*\*\s*-1\)/
+		);
+	});
+});
