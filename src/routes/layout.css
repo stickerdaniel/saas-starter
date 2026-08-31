@@ -722,7 +722,6 @@
 	--think-highlight: var(--foreground);
 	--think-ease: ease-in-out;
 	/* Streaming text */
-	--stream-gap: 60ms;
 	--stream-fade: 350ms;
 	--stream-blur: 1px;
 	--stream-ease: cubic-bezier(0.22, 1, 0.36, 1);
@@ -916,6 +915,11 @@
 		background-position: 0% 0;
 	}
 }
+/* Once the work is done the line reports a result, so the highlight stops
+   sweeping but the swap still carries the last state in. */
+.t-think[data-shimmer='false'] .t-think-text::before {
+	display: none;
+}
 .t-think-text.is-exit {
 	transform: translateY(calc(var(--think-distance) * -1));
 	filter: blur(var(--think-blur));
@@ -929,23 +933,36 @@
 }
 
 /* Streaming text — each streamed word resolves through a soft cross-blur
-   instead of being typed. */
-.t-stream-w {
-	opacity: 0;
-	filter: blur(var(--stream-blur));
-	transition:
-		opacity var(--stream-fade) var(--stream-ease),
-		filter var(--stream-fade) var(--stream-ease);
+   rather than being typed.
+
+   svelte-streamdown already wraps every word in its own span and animates it,
+   so the recipe is applied by retuning that animation instead of adding a
+   second one: its 5px/500ms/ease-in entrance becomes the recipe's 1px over
+   `--stream-fade`. The library writes the animation as an inline style and
+   types `timingFunction` as a keyword union, so the recipe's cubic-bezier
+   cannot be passed as a prop — `!important` is what outranks a non-important
+   inline declaration. The recipe's `--stream-gap` has no counterpart here on
+   purpose: the cadence is the stream's own, set by the server's line chunking
+   and 100ms throttle, not by a fixed per-word delay. */
+@keyframes t-stream-in {
+	from {
+		opacity: 0;
+		filter: blur(var(--stream-blur));
+	}
+	to {
+		opacity: 1;
+		filter: blur(0);
+	}
 }
-.t-stream-w.is-in {
-	opacity: 1;
-	filter: blur(0);
+.t-stream span[style*='animation-name: sd-'] {
+	animation-name: t-stream-in !important;
+	animation-duration: var(--stream-fade) !important;
+	animation-timing-function: var(--stream-ease) !important;
 }
 
 /* Learn more hover — the chevron slides along the reading direction while its
    two arms spread apart into an arrow. */
 .t-learn-chevron {
-	display: inline-flex;
 	transform: translateX(0);
 	transition: transform var(--learn-out) var(--learn-ease);
 }
@@ -968,18 +985,6 @@
 .t-learn:hover .t-learn-arm-bot {
 	transform: rotate(calc(var(--learn-spread) * -1));
 }
-/* The chevron points against the reading direction in RTL, so the slide and
-   the arm rotations mirror with it. */
-:where([dir='rtl']) .t-learn:hover .t-learn-chevron {
-	transform: translateX(calc(var(--learn-shift) * -1));
-}
-:where([dir='rtl']) .t-learn:hover .t-learn-arm-top {
-	transform: rotate(calc(var(--learn-spread) * -1));
-}
-:where([dir='rtl']) .t-learn:hover .t-learn-arm-bot {
-	transform: rotate(var(--learn-spread));
-}
-
 /* Checkbox check — the box fills, then the tick draws itself. `--check-len`
    is the path's own getTotalLength() rounded up, so the stroke neither
    pre-reveals nor over-draws. */
@@ -989,12 +994,12 @@
 		border-color var(--check-box) var(--check-ease),
 		box-shadow var(--check-box) var(--check-ease);
 }
-.t-check svg path {
+.t-check .t-check-tick path {
 	stroke-dasharray: var(--check-len, 15);
 	stroke-dashoffset: var(--check-len, 15);
 	transition: stroke-dashoffset var(--check-uncheck) var(--check-ease);
 }
-.t-check[data-state='checked'] svg path {
+.t-check[data-state='checked'] .t-check-tick path {
 	stroke-dashoffset: 0;
 	transition: stroke-dashoffset var(--check-draw) var(--check-ease) var(--check-delay);
 }
@@ -1023,8 +1028,8 @@
 	.t-think-text::before {
 		display: none !important;
 	}
-	.t-stream-w {
-		transition: none !important;
+	.t-stream span[style*='animation-name: sd-'] {
+		animation: none !important;
 		filter: none !important;
 		opacity: 1 !important;
 	}
@@ -1033,7 +1038,7 @@
 		transition: none !important;
 	}
 	.t-check,
-	.t-check svg path {
+	.t-check .t-check-tick path {
 		transition: none !important;
 	}
 }

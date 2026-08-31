@@ -36,8 +36,10 @@
 			     `--check-len` is lucide's own `check` path length (M20 6 9 17l-5-5,
 			     so √242 + √50 = 22.63 user units) rounded up by one, as the recipe
 			     requires: shorter pre-reveals the tick, longer leaves it unfinished.
-			     Re-measure if the icon is ever swapped. -->
-			<CheckIcon class="col-start-1 row-start-1" />
+			     Re-measure if the icon is ever swapped. The rule is scoped to
+		     `t-check-tick` rather than every path in the box: unscoped, it also
+		     dashed the indeterminate minus out of existence. -->
+			<CheckIcon class="t-check-tick col-start-1 row-start-1" />
 			{#if indeterminate && !checked}
 				<MinusIcon class="col-start-1 row-start-1" />
 			{/if}

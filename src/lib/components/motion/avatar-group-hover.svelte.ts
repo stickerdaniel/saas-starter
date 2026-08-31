@@ -1,4 +1,4 @@
-import { motionEase, motionMs } from './motion-tokens.js';
+import { motionEase, motionValue } from './motion-tokens.js';
 
 /**
  * Distance-falloff hover lift for a horizontal row of items.
@@ -14,9 +14,9 @@ export function avatarGroupHover(node: HTMLElement) {
 	let items: HTMLElement[] = [];
 
 	function setShifts(activeIndex: number | null, phase: 'in' | 'out') {
-		const lift = motionMs('--avatar-lift', -4);
-		const falloff = motionMs('--avatar-falloff', 0.45);
-		const scale = motionMs('--avatar-scale', 1.05);
+		const lift = motionValue('--avatar-lift', -4);
+		const falloff = motionValue('--avatar-falloff', 0.45);
+		const scale = motionValue('--avatar-scale', 1.05);
 		const timing =
 			phase === 'out'
 				? motionEase('--avatar-ease-out', 'cubic-bezier(0.34, 3.85, 0.64, 1)')
