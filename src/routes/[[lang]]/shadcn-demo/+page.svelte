@@ -6,12 +6,18 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import * as Alert from '$lib/components/ui/alert';
 	import * as Item from '$lib/components/ui/item';
-	import { Button } from '$lib/components/ui/button';
+	import { Button, buttonVariants } from '$lib/components/ui/button';
 	import { Separator } from '$lib/components/ui/separator';
 	import * as Avatar from '$lib/components/ui/avatar';
 	import { Progress } from '$lib/components/ui/progress';
 	import { LoadingBar } from '$lib/components/ui/loading-bar';
+	import { Switch } from '$lib/components/ui/switch';
+	import { Toggle } from '$lib/components/ui/toggle';
+	import { Checkbox } from '$lib/components/ui/checkbox';
+	import { Label } from '$lib/components/ui/label';
+	import { Response, streamingTextAnimation } from '$lib/components/ai-elements/response';
 	import CircleCheckIcon from '@lucide/svelte/icons/circle-check';
+	import BoldIcon from '@lucide/svelte/icons/bold';
 
 	// Demo data
 	const completionPercentage = 75;
@@ -40,6 +46,35 @@
 	function showLoading() {
 		loadingBarDebugState = { mode: 'loading', label: 'Loading sweep' };
 	}
+
+	let switchOn = $state(false);
+	let switchSmallOn = $state(true);
+	let bold = $state(false);
+	let checkedBox = $state(false);
+	let mixedBox = $state(false);
+
+	const streamTokens = [' text', ' arrives', ' one', ' chunk', ' at', ' a', ' time.'];
+	let streamDemoRun = $state(0);
+	let streamDemoIndex = $state(0);
+	let streamDemoText = $state('Settled text stays still.');
+	let streamDemoActive = $state(false);
+
+	function startStreamingDemo() {
+		streamDemoRun += 1;
+		streamDemoIndex = 0;
+		streamDemoText = 'Streaming';
+		streamDemoActive = true;
+	}
+
+	function appendStreamingToken() {
+		if (!streamDemoActive) return;
+		streamDemoText += streamTokens[streamDemoIndex % streamTokens.length];
+		streamDemoIndex += 1;
+	}
+
+	function settleStreamingDemo() {
+		streamDemoActive = false;
+	}
 </script>
 
 <SEOHead title={$t('meta.shadcn_demo.title')} description={$t('meta.shadcn_demo.description')} />
@@ -67,6 +102,94 @@
 			</div>
 
 			<p class="text-sm text-muted-foreground">Current state: {loadingBarDebugState.label}</p>
+		</Card.Content>
+	</Card.Root>
+
+	<!-- lang="en" like the harness card above it: the labels here are the
+	     component names, there are no translation keys behind them, and the
+	     route inherits the requested locale. -->
+	<Card.Root class="mb-8" lang="en">
+		<Card.Header>
+			<Card.Title>Controls</Card.Title>
+			<Card.Description>
+				Switch, Toggle and Checkbox, so their motion can be exercised by hand.
+			</Card.Description>
+		</Card.Header>
+
+		<Card.Content class="flex flex-col gap-4">
+			<div class="flex items-center gap-3">
+				<Switch id="demo-switch" bind:checked={switchOn} />
+				<Label for="demo-switch">Switch ({switchOn ? 'on' : 'off'})</Label>
+			</div>
+
+			<div class="flex items-center gap-3">
+				<Switch id="demo-switch-sm" size="sm" bind:checked={switchSmallOn} />
+				<Label for="demo-switch-sm">Switch, small ({switchSmallOn ? 'on' : 'off'})</Label>
+			</div>
+
+			<div class="flex items-center gap-3">
+				<!-- Visible labels rather than aria-label: this harness has no i18n keys
+				     and the lint rule rightly refuses hardcoded accessible names. -->
+				<Toggle bind:pressed={bold}><BoldIcon />Bold</Toggle>
+				<Toggle variant="outline" bind:pressed={bold}>Bold, outline</Toggle>
+			</div>
+
+			<div class="flex items-center gap-3">
+				<Checkbox id="demo-checkbox" bind:checked={checkedBox} />
+				<Label for="demo-checkbox">Checkbox</Label>
+			</div>
+
+			<div class="flex items-center gap-3">
+				<Checkbox id="demo-checkbox-mixed" indeterminate bind:checked={mixedBox} />
+				<Label for="demo-checkbox-mixed">Checkbox, starting indeterminate</Label>
+			</div>
+
+			<div class="flex items-center gap-3">
+				<!-- bits-ui accepts both flags and reports the box as mixed, so the
+				     mark has to be visible in that state too. It was not. -->
+				<Checkbox id="demo-checkbox-both" indeterminate checked />
+				<Label for="demo-checkbox-both">Checkbox, checked and indeterminate</Label>
+			</div>
+		</Card.Content>
+	</Card.Root>
+
+	<Card.Root class="mb-8" lang="en" data-testid="streaming-text-demo">
+		<Card.Header>
+			<Card.Title>Streaming text</Card.Title>
+			<Card.Description>
+				Start a live response, append chunks, then settle it without replaying the history.
+			</Card.Description>
+		</Card.Header>
+		<Card.Content class="flex flex-col gap-4">
+			<div class="min-h-10 rounded-md bg-muted/40 p-3">
+				{#key streamDemoRun}
+					<Response content={streamDemoText} animation={streamingTextAnimation(streamDemoActive)} />
+				{/key}
+			</div>
+			<div class="flex flex-wrap gap-2">
+				<button type="button" class={buttonVariants()} onclick={startStreamingDemo}>
+					Start live response
+				</button>
+				<button
+					type="button"
+					class={buttonVariants({ variant: 'outline' })}
+					onclick={appendStreamingToken}
+					disabled={!streamDemoActive}
+				>
+					Append chunk
+				</button>
+				<button
+					type="button"
+					class={buttonVariants({ variant: 'outline' })}
+					onclick={settleStreamingDemo}
+					disabled={!streamDemoActive}
+				>
+					Settle response
+				</button>
+			</div>
+			<p class="text-sm text-muted-foreground">
+				Current state: {streamDemoActive ? 'streaming' : 'settled'}
+			</p>
 		</Card.Content>
 	</Card.Root>
 

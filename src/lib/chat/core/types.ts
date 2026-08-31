@@ -152,6 +152,7 @@ export interface ToolCallPart {
 export type TextUIPart = {
 	type: 'text';
 	text: string;
+	state?: 'streaming' | 'done';
 	providerMetadata?: ProviderMetadata;
 };
 

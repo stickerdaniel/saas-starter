@@ -669,3 +669,452 @@
 		@slot;
 	}
 }
+
+/* The shared motion vocabulary. Every `t-*` block keeps its tuned numbers here
+   rather than in a component, so a surface is restyled by one token and not by
+   editing markup. Colour comes from the palette tokens and duration from the
+   existing `--motion-*` scale, so motion inherits a theme change instead of
+   pinning greys and a second timing scale beside it. The rules stay outside
+   `@layer` on purpose: a Tailwind utility must not win against opacity or a
+   transform while that property is animating. */
+:root {
+	/* Notification badge */
+	--badge-slide-dur: 260ms;
+	--badge-pop-dur: 500ms;
+	--badge-pop-close-dur: 180ms;
+	--badge-fade-dur: 400ms;
+	--badge-fade-close-dur: 180ms;
+	--badge-blur: 2px;
+	--badge-offset-x: -8.2px;
+	--badge-offset-y: 12.4px;
+	--badge-slide-ease: cubic-bezier(0.22, 1, 0.36, 1);
+	--badge-pop-ease: cubic-bezier(0.34, 1.36, 0.64, 1);
+	--badge-close-ease: cubic-bezier(0.4, 0, 0.2, 1);
+	/* Icon swap */
+	--icon-swap-dur: 250ms;
+	--icon-swap-blur: 2px;
+	--icon-swap-start-scale: 0.25;
+	--icon-swap-ease: ease-in-out;
+	/* Avatar group hover */
+	--avatar-lift: -4px;
+	--avatar-dur: 320ms;
+	--avatar-scale: 1.05;
+	--avatar-falloff: 0.45;
+	--avatar-ease-in: cubic-bezier(0.22, 1, 0.36, 1);
+	--avatar-ease-out: cubic-bezier(0.34, 3.85, 0.64, 1);
+	/* Shimmer text */
+	--shimmer-dur: 2000ms;
+	--shimmer-base: var(--muted-foreground);
+	--shimmer-highlight: var(--foreground);
+	--shimmer-band: 400%;
+	--shimmer-ease: linear;
+	/* Thinking states */
+	--think-swap: 150ms;
+	--think-gap: 50ms;
+	--think-distance: 8px;
+	--think-blur: 2px;
+	--think-shimmer: 2000ms;
+	--think-base: var(--muted-foreground);
+	--think-highlight: var(--foreground);
+	--think-ease: ease-in-out;
+	/* Streaming text */
+	--stream-fade: 350ms;
+	--stream-blur: 1px;
+	/* The presentation scheduler applies the source demo's word cadence to each
+	   Convex batch, then compresses it when a backlog would fall too far behind. */
+	--stream-gap: 60ms;
+	--stream-ease: cubic-bezier(0.22, 1, 0.36, 1);
+	/* Learn more hover */
+	--learn-shift: 2px;
+	--learn-spread: 8deg;
+	--learn-in: 350ms;
+	--learn-out: 350ms;
+	--learn-ease: cubic-bezier(0.22, 1, 0.36, 1);
+	/* Toggle (switch thumb travel) */
+	--toggle-dur: 350ms;
+	--toggle-track: 150ms;
+	--toggle-ease: cubic-bezier(0.34, 1.35, 0.64, 1);
+	/* The source keyframes sampled at 5% intervals and expressed as one easing
+	   path. A transition follows this full overshoot, return and tiny undershoot
+	   while remaining interruptible from its current computed position. */
+	--toggle-path: linear(
+		0,
+		0.34686 5%,
+		0.61896 10%,
+		0.82181 15%,
+		0.96286 20%,
+		1.05118 25%,
+		1.09711 30%,
+		1.11164 35%,
+		1.10587 40%,
+		1.09042 45%,
+		1.07502 50%,
+		1.06821 55%,
+		1.02576 60%,
+		1.00411 65%,
+		0.9974 70%,
+		0.99837 75%,
+		1 80%,
+		1
+	);
+	/* Checkbox check */
+	--check-box: 150ms;
+	--check-draw: 350ms;
+	--check-delay: 0ms;
+	--check-uncheck: 150ms;
+	--check-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Notification badge: slide the badge onto its trigger and pop the dot,
+   without the trigger itself moving. */
+@keyframes t-badge-slide-in {
+	from {
+		transform: translate(var(--badge-offset-x), var(--badge-offset-y));
+	}
+	to {
+		transform: translate(0, 0);
+	}
+}
+
+.t-badge {
+	position: absolute;
+	pointer-events: none;
+}
+.t-badge[data-open='true'] {
+	animation: t-badge-slide-in var(--badge-slide-dur) var(--badge-slide-ease) backwards;
+	animation-delay: var(--badge-open-delay, 0ms);
+}
+.t-badge-dot {
+	/* No `display` here: the rule is unlayered and would beat the caller's
+	   layered Tailwind utility, which is what pushed the counted badge's number
+	   off centre by silently replacing its `grid` with `block`. */
+	transform-origin: center;
+	transform: scale(1);
+	opacity: 1;
+	filter: blur(0);
+	transition:
+		transform var(--badge-pop-dur) var(--badge-pop-ease),
+		opacity var(--badge-fade-dur) var(--badge-pop-ease),
+		filter var(--badge-pop-dur) var(--badge-pop-ease);
+	transition-delay: var(--badge-open-delay, 0ms);
+}
+.t-badge[data-open='false'] .t-badge-dot {
+	transform: scale(0);
+	opacity: 0;
+	filter: blur(var(--badge-blur));
+	transition:
+		transform var(--badge-pop-close-dur) var(--badge-close-ease),
+		opacity var(--badge-fade-close-dur) var(--badge-close-ease),
+		filter var(--badge-pop-close-dur) var(--badge-close-ease);
+	transition-delay: 0ms;
+}
+
+/* Icon swap: both icons stay mounted in one grid cell and cross-fade. */
+.t-icon-swap {
+	position: relative;
+	display: inline-grid;
+}
+.t-icon-swap .t-icon {
+	grid-area: 1 / 1;
+	transition:
+		opacity var(--icon-swap-dur) var(--icon-swap-ease),
+		filter var(--icon-swap-dur) var(--icon-swap-ease),
+		transform var(--icon-swap-dur) var(--icon-swap-ease);
+}
+.t-icon-swap[data-state='a'] .t-icon[data-icon='a'],
+.t-icon-swap[data-state='b'] .t-icon[data-icon='b'] {
+	opacity: 1;
+	filter: blur(0);
+	transform: scale(1);
+}
+.t-icon-swap[data-state='a'] .t-icon[data-icon='b'],
+.t-icon-swap[data-state='b'] .t-icon[data-icon='a'] {
+	opacity: 0;
+	filter: blur(var(--icon-swap-blur));
+	transform: scale(var(--icon-swap-start-scale));
+}
+
+/* Avatar group hover, a distance-falloff lift. The timing function is written
+   inline by the driving code before the variable writes, which is what gives
+   the return leg its bouncy ease without a second transition declaration. */
+.t-avatar {
+	transform-origin: center;
+	/* translateY before scale so scale does not amplify the lift offset. */
+	transform: translateY(var(--shift, 0px)) scale(var(--scale-active, 1));
+	transition: transform var(--avatar-dur) var(--avatar-ease-in);
+}
+
+/* Shimmer text: the ::before layer duplicates the string through
+   `content: attr(data-text)` and clips a moving gradient to the glyphs. */
+.t-shimmer {
+	position: relative;
+	display: inline-block;
+	color: var(--shimmer-base);
+}
+.t-shimmer::before {
+	content: attr(data-text);
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+	background-image: linear-gradient(
+		90deg,
+		transparent 0%,
+		transparent 40%,
+		var(--shimmer-highlight) 50%,
+		transparent 60%,
+		transparent 100%
+	);
+	background-size: var(--shimmer-band) 100%;
+	background-repeat: no-repeat;
+	-webkit-background-clip: text;
+	background-clip: text;
+	color: transparent;
+	-webkit-text-fill-color: transparent;
+	animation: t-shimmer var(--shimmer-dur) var(--shimmer-ease) infinite;
+}
+@keyframes t-shimmer {
+	0% {
+		background-position: 100% 0;
+	}
+	100% {
+		background-position: 0% 0;
+	}
+}
+
+/* Thinking states: shimmer a status line while it holds, then swap it for
+   the next: the outgoing copy exits upward through a blur while the incoming
+   copy rises from below, both over a box the hidden sizer keeps steady. */
+.t-think {
+	position: relative;
+	display: inline-block;
+	text-align: start;
+}
+.t-think-sizer {
+	display: block;
+	visibility: hidden;
+	white-space: nowrap;
+}
+.t-think-text {
+	position: absolute;
+	top: 0;
+	inset-inline: 0;
+	display: block;
+	color: var(--think-base);
+	white-space: nowrap;
+	transform: translateY(0);
+	filter: blur(0);
+	opacity: 1;
+	transition:
+		transform var(--think-swap) var(--think-ease),
+		filter var(--think-swap) var(--think-ease),
+		opacity var(--think-swap) var(--think-ease);
+}
+.t-think-text::before {
+	content: attr(data-text);
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+	background-image: linear-gradient(
+		90deg,
+		transparent 0%,
+		transparent 40%,
+		var(--think-highlight) 50%,
+		transparent 60%,
+		transparent 100%
+	);
+	background-size: 400% 100%;
+	background-repeat: no-repeat;
+	-webkit-background-clip: text;
+	background-clip: text;
+	color: transparent;
+	-webkit-text-fill-color: transparent;
+	animation: t-think-shimmer var(--think-shimmer) linear infinite;
+}
+@keyframes t-think-shimmer {
+	0% {
+		background-position: 100% 0;
+	}
+	100% {
+		background-position: 0% 0;
+	}
+}
+/* Once the work is done the line reports a result, so the highlight stops
+   sweeping but the swap still carries the last state in. */
+.t-think[data-shimmer='false'] .t-think-text::before {
+	display: none;
+}
+.t-think-text.is-exit {
+	transform: translateY(calc(var(--think-distance) * -1));
+	filter: blur(var(--think-blur));
+	opacity: 0;
+}
+.t-think-text.is-enter-start {
+	transition: none;
+	transform: translateY(var(--think-distance));
+	filter: blur(var(--think-blur));
+	opacity: 0;
+}
+
+/* Streaming text: each streamed word resolves through a soft cross-blur
+   rather than being typed.
+
+   svelte-streamdown already wraps every word in its own span and animates it,
+   so the recipe is applied by retuning that animation instead of adding a
+   second one: its 5px/500ms/ease-in entrance becomes the recipe's 1px over
+   `--stream-fade`. The library writes the animation as an inline style and
+   types `timingFunction` as a keyword union, so the recipe's cubic-bezier
+   cannot be passed as a prop, and `!important` is what outranks a non-important
+   inline declaration. The presentation scheduler reads `--stream-gap` and
+   applies that source cadence to each incoming Convex batch, compressing it
+   only when the queued reveals would otherwise fall too far behind. */
+@keyframes t-stream-in {
+	from {
+		opacity: 0;
+		filter: blur(var(--stream-blur));
+	}
+	to {
+		opacity: 1;
+		filter: blur(0);
+	}
+}
+.t-stream span[style*='animation-name: sd-'] {
+	animation-name: t-stream-in !important;
+	animation-duration: var(--stream-fade) !important;
+	animation-timing-function: var(--stream-ease) !important;
+	/* Streamdown specifies `forwards`; `both` also applies the hidden first frame
+	   during the scheduler's delay, so a token never flashes sharp before its turn. */
+	animation-fill-mode: both !important;
+}
+
+/* Learn more hover: the chevron slides along the reading direction while its
+   two arms spread apart into an arrow. */
+.t-learn-chevron {
+	transform: translateX(0);
+	transition: transform var(--learn-out) var(--learn-ease);
+}
+.t-learn-arm {
+	transform-box: view-box;
+	transform-origin: 10px 8px;
+	vector-effect: non-scaling-stroke;
+	transition: transform var(--learn-out) var(--learn-ease);
+}
+.t-learn:hover .t-learn-chevron {
+	transform: translateX(var(--learn-shift));
+	transition-duration: var(--learn-in);
+}
+.t-learn:hover .t-learn-arm {
+	transition-duration: var(--learn-in);
+}
+.t-learn:hover .t-learn-arm-top {
+	transform: rotate(var(--learn-spread));
+}
+.t-learn:hover .t-learn-arm-bot {
+	transform: rotate(calc(var(--learn-spread) * -1));
+}
+/* Checkbox check: the box fills, then the tick draws itself. `--check-len`
+   is the path's own getTotalLength() rounded up, so the stroke neither
+   pre-reveals nor over-draws.
+
+   The hidden offset is negative, which reveals the stroke from the path's end
+   rather than its start. Lucide's `check` runs from the long arm's top tip to
+   the short arm, the reverse of how the mark is written, so a positive offset
+   drew the long stroke downwards first and set the short arm last. Flip this
+   sign together with the icon: a path already written in stroke order wants
+   the positive offset back. */
+.t-check {
+	transition:
+		background-color var(--check-box) var(--check-ease),
+		border-color var(--check-box) var(--check-ease),
+		box-shadow var(--check-box) var(--check-ease);
+}
+.t-check .t-check-tick path {
+	stroke-dasharray: var(--check-len, 15);
+	stroke-dashoffset: calc(var(--check-len, 15) * -1);
+	transition: stroke-dashoffset var(--check-uncheck) var(--check-ease);
+}
+.t-check[data-state='checked'] .t-check-tick path {
+	stroke-dashoffset: 0;
+	transition: stroke-dashoffset var(--check-draw) var(--check-ease) var(--check-delay);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.t-badge,
+	.t-badge-dot {
+		animation: none !important;
+		transition: none !important;
+	}
+	.t-icon-swap .t-icon {
+		transition: none !important;
+	}
+	.t-avatar {
+		transition: none !important;
+		transform: none !important;
+	}
+	.t-shimmer::before {
+		animation: none !important;
+	}
+	.t-think-text {
+		transition: none !important;
+		transform: none !important;
+		filter: none !important;
+	}
+	/* The entrance parks the incoming label at zero opacity and the exit ends
+	   there, so killing only the transitions left the line blank for the length
+	   of the gap and then blinked the new label in. With no motion to run, the
+	   incoming label is simply there and the outgoing one is simply gone. */
+	.t-think-text.is-enter-start {
+		opacity: 1 !important;
+	}
+	.t-think-text.is-exit {
+		display: none !important;
+	}
+	.t-think-text::before {
+		display: none !important;
+	}
+	.t-stream span[style*='animation-name: sd-'] {
+		animation: none !important;
+		filter: none !important;
+		opacity: 1 !important;
+	}
+	.t-learn-chevron,
+	.t-learn-arm {
+		transition: none !important;
+	}
+	.t-check,
+	.t-check .t-check-tick path {
+		transition: none !important;
+	}
+}
+
+/* Toggle: preserve the source's full overshoot and return as a sampled easing
+   path on an interruptible transition. Source keyframes restart from their own
+   first frame, so reversing mid-travel snapped the thumb to the far end before
+   animating back. A transition starts wherever the thumb currently is. The
+   shadcn track keeps its subtler 150ms color fade on the source easing. */
+.t-switch {
+	transition-duration: var(--toggle-track);
+	transition-timing-function: var(--toggle-ease);
+}
+.t-switch-thumb {
+	translate: 0 0;
+	transition: translate var(--toggle-dur) var(--toggle-path);
+}
+.t-switch-thumb[data-state='checked'] {
+	translate: calc(100% - 2px) 0;
+}
+:where([dir='rtl']) .t-switch-thumb[data-state='checked'] {
+	/* The track's one-pixel borders leave two pixels less travel than the
+	   thumb's width in either direction. Keeping both endpoints here avoids the
+	   positive Tailwind variant winning over a separate RTL variant. */
+	translate: calc(-100% + 2px) 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.t-switch,
+	.t-switch-thumb {
+		/* The thumb also carries Tailwind's `transition-transform`, which covers
+		   the individual `translate` property the checked utilities set, so the
+		   rule above is not the only one that has to go. */
+		transition: none !important;
+	}
+}

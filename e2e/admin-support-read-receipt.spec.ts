@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Locator, type Page } from '@playwright/test';
 import 'varlock/auto-load';
 import { ConvexHttpClient } from 'convex/browser';
 import { api } from '../src/lib/convex/_generated/api';
@@ -31,6 +31,11 @@ test('shows an unread support reply and reports when the customer opens it', asy
 	});
 	const userPage = await userContext.newPage();
 
+	// The badge stays mounted at zero so its closing transition can play, so
+	// "no unread reply" is now a question about what is shown, not what exists.
+	const shownIndicators = (scope: Page | Locator) =>
+		scope.getByTestId('support-unread-indicator').filter({ visible: true });
+
 	try {
 		await adminPage.goto(`/admin/support?thread=${threadId}`);
 		await expect(adminPage.getByTestId('support-user-read-status')).toHaveText('Not read yet');
@@ -41,7 +46,7 @@ test('shows an unread support reply and reports when the customer opens it', asy
 		await userPage.goto('/');
 
 		const launcher = userPage.getByRole('button', {
-			name: 'Open feedback, unread support reply'
+			name: 'Open feedback, 1 unread support message'
 		});
 		await expect(launcher).toBeVisible();
 		await expect(launcher.getByTestId('support-unread-indicator')).toBeVisible();
@@ -55,7 +60,7 @@ test('shows an unread support reply and reports when the customer opens it', asy
 			await expect(unreadThread.getByTestId('support-unread-indicator')).toBeVisible();
 		}
 
-		await expect(closeLauncher.getByTestId('support-unread-indicator')).toHaveCount(0);
+		await expect(shownIndicators(closeLauncher)).toHaveCount(0);
 		await expect(unreadThread).toHaveCount(0);
 		await revealUnreadThread();
 
@@ -66,7 +71,7 @@ test('shows an unread support reply and reports when the customer opens it', asy
 		await launcher.click();
 		await revealUnreadThread();
 		await unreadThread.click();
-		await expect(userPage.getByTestId('support-unread-indicator')).toHaveCount(0);
+		await expect(shownIndicators(userPage)).toHaveCount(0);
 
 		await expect(adminPage.getByTestId('support-user-read-status')).toContainText('Read ');
 	} finally {

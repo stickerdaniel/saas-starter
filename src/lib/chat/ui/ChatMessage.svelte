@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Message } from '$lib/components/prompt-kit/message';
-	import { Response } from '$lib/components/ai-elements/response';
+	import { Response, streamingTextAnimation } from '$lib/components/ai-elements/response';
 	import { ToolComposed } from '$lib/components/prompt-kit/tool';
 	import ChatAttachments from './ChatAttachments.svelte';
 	import ChatReasoning from './ChatReasoning.svelte';
@@ -117,7 +117,12 @@
 			});
 		}
 		if (message.displayText) {
-			items.push({ kind: 'text', text: message.displayText, key: 'text-0' });
+			items.push({
+				kind: 'text',
+				text: message.displayText,
+				isStreaming: message.status === 'pending' || message.status === 'streaming',
+				key: 'text-0'
+			});
 		}
 		return items;
 	});
@@ -160,7 +165,7 @@
 					{:else if item.kind === 'tool'}
 						<ToolComposed toolPart={item.toolPart} />
 					{:else if item.kind === 'text'}
-						<Response content={item.text} animation={{ enabled: true }} />
+						<Response content={item.text} animation={streamingTextAnimation(item.isStreaming)} />
 					{/if}
 				{/each}
 				{#if isHandoffMessage && showEmailPrompt && onSubmitEmail}

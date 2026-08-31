@@ -4,6 +4,7 @@
 	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
 	import EyeIcon from '@lucide/svelte/icons/eye';
 	import EyeOffIcon from '@lucide/svelte/icons/eye-off';
+	import IconSwap from '$lib/components/motion/icon-swap.svelte';
 	import { usePasswordToggleVisibility } from './password.svelte.ts';
 	import type { PasswordToggleVisibilityProps } from './types.js';
 	import { cn } from '$lib/utils.js';
@@ -31,10 +32,13 @@
 			className
 		)}
 	>
-		{#if state.root.opts.hidden.current}
-			<EyeIcon class="size-4" />
-		{:else}
-			<EyeOffIcon class="size-4" />
-		{/if}
+		<IconSwap showSecond={!state.root.opts.hidden.current} class="size-4">
+			{#snippet first()}
+				<EyeIcon class="size-4" />
+			{/snippet}
+			{#snippet second()}
+				<EyeOffIcon class="size-4" />
+			{/snippet}
+		</IconSwap>
 	</Toggle>
 {/if}

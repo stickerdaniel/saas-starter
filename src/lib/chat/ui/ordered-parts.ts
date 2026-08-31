@@ -1,6 +1,7 @@
 import type { ToolPart } from '$lib/components/prompt-kit/tool/types.js';
 import type { MessagePart, MessageStatus } from '../core/types.js';
 import {
+	getActiveStreamingPartIndex,
 	getActiveStreamingReasoningIndex,
 	getReasoningKey,
 	LEADING_REASONING_KEY
@@ -20,7 +21,7 @@ export { LEADING_REASONING_KEY };
 export type OrderedPart =
 	| { kind: 'reasoning'; text: string; isStreaming: boolean; hasContent: boolean; key: string }
 	| { kind: 'tool'; toolPart: ToolPart; key: string }
-	| { kind: 'text'; text: string; key: string };
+	| { kind: 'text'; text: string; isStreaming: boolean; key: string };
 
 /**
  * Derive renderable parts for chronological rendering.
@@ -36,6 +37,11 @@ export function deriveOrderedParts(
 	const messageParts = parts ?? [];
 	const isMessageInProgress = status === 'pending' || status === 'streaming';
 	const activeReasoningIndex = getActiveStreamingReasoningIndex(messageParts, isMessageInProgress);
+	// Source, file and data parts annotate an open text stream; step-start, tools
+	// and unknown parts remain boundaries. The shared selector follows that AI
+	// SDK lifecycle for text and reasoning alike.
+	const activePartIndex = getActiveStreamingPartIndex(messageParts, isMessageInProgress);
+	const activeTextIndex = messageParts[activePartIndex]?.type === 'text' ? activePartIndex : -1;
 
 	return messageParts
 		.map((p, idx): OrderedPart | null => {
@@ -53,6 +59,7 @@ export function deriveOrderedParts(
 				return {
 					kind: 'text',
 					text: (p as { text?: string }).text ?? '',
+					isStreaming: idx === activeTextIndex,
 					key: `text-${idx}`
 				};
 			}

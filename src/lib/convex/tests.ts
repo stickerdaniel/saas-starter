@@ -290,7 +290,8 @@ export const createUnreadAnonymousSupportReply = mutation({
 			lastAgentName: 'Support Team',
 			lastAdminReplyAt: replyTimestamp,
 			lastAdminReplyMessageId: adminReply.messageId,
-			hasUnreadAdminReply: true
+			hasUnreadAdminReply: true,
+			unreadAdminReplyCount: 1
 		});
 
 		const threadIds = [threadId];

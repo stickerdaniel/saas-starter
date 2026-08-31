@@ -62,7 +62,15 @@ const replyHandler = sendAdminReply as unknown as RegisteredFunction<
 	null
 >;
 
-function makeCtx({ notificationEmail }: { notificationEmail?: string } = {}) {
+function makeCtx({
+	notificationEmail,
+	hasUnreadAdminReply = false,
+	unreadAdminReplyCount
+}: {
+	notificationEmail?: string;
+	hasUnreadAdminReply?: boolean;
+	unreadAdminReplyCount?: number;
+} = {}) {
 	return {
 		db: {
 			query: vi.fn(() => ({
@@ -72,7 +80,9 @@ function makeCtx({ notificationEmail }: { notificationEmail?: string } = {}) {
 						threadId: 't1',
 						assignedTo: undefined,
 						notificationEmail,
-						notificationSentAt: undefined
+						notificationSentAt: undefined,
+						hasUnreadAdminReply,
+						unreadAdminReplyCount
 					})
 				}))
 			})),
@@ -143,12 +153,35 @@ describe('sendAdminReply', () => {
 			expect.objectContaining({
 				awaitingAdminResponse: false,
 				hasUnreadAdminReply: true,
+				unreadAdminReplyCount: 1,
 				lastAdminReplyAt: expect.any(Number),
 				lastAdminReplyMessageId: 'm1'
 			})
 		);
 		const patch = ctx.db.patch.mock.calls[0][1];
 		expect(patch.updatedAt).toBe(patch.lastAdminReplyAt);
+	});
+
+	it('increments a legacy unread thread from one known reply', async () => {
+		const ctx = makeCtx({ hasUnreadAdminReply: true });
+
+		await replyHandler._handler(ctx, { threadId: 't1', prompt: 'another reply' });
+
+		expect(ctx.db.patch).toHaveBeenCalledWith(
+			'st_1',
+			expect.objectContaining({ unreadAdminReplyCount: 2 })
+		);
+	});
+
+	it('increments the stored unread message count', async () => {
+		const ctx = makeCtx({ hasUnreadAdminReply: true, unreadAdminReplyCount: 3 });
+
+		await replyHandler._handler(ctx, { threadId: 't1', prompt: 'another reply' });
+
+		expect(ctx.db.patch).toHaveBeenCalledWith(
+			'st_1',
+			expect.objectContaining({ unreadAdminReplyCount: 4 })
+		);
 	});
 
 	it('marks a truncated email preview with an ellipsis', async () => {
