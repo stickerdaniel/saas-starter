@@ -376,6 +376,7 @@ export default defineConfig(async ({ mode }) => {
 				'dist/**',
 				'.{idea,git,cache,output,temp}/**',
 				'docs/**',
+				'scratch/**',
 				'.opencode/**',
 				'references/**',
 				// Skills live in .agents/skills/ and are symlinked into .claude/skills/;

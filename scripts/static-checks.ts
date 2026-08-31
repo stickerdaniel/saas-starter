@@ -10,7 +10,9 @@
  *   bun scripts/static-checks.ts --scope format files  - Assert formatting only
  *   bun scripts/static-checks.ts --staged              - Check only staged files (pre-commit)
  *   bun scripts/static-checks.ts file1.ts file2.svelte - Check specific files
- *   ... | bun scripts/static-checks.ts --files-from -  - Check a computed list of files
+ *   ... | bun scripts/static-checks.ts --files-from -  - Check a NUL-separated computed list
+ *                                                        (see --files-from on the producer's
+ *                                                        exit status, which a pipe discards)
  *
  * Flags:
  *   --ci         Assert mode: uses --check for formatting, omits --fix for ESLint.
@@ -21,10 +23,19 @@
  *                (prettier), or full-project-only "compat" (Convex consumer compatibility).
  *                Lint and types run svelte-kit sync first.
  *                Omit to run lint and types.
- *   --files-from Read newline-separated paths from a file, or from stdin with "-".
- *                Use this for a COMPUTED list: unlike positionals, this channel can
- *                carry an empty list, which is an honest no-op instead of a silent
- *                zero-file run.
+ *   --files-from Read NUL-separated UTF-8 paths from a file, or from stdin with "-".
+ *                This matches `git diff --no-relative --name-only --diff-filter=d -z`
+ *                without quoting, deleted paths, or delimiter ambiguity. Records are
+ *                repository-relative, and --no-relative is what keeps them so: with
+ *                diff.relative set, git strips the prefix of the current subdirectory
+ *                and drops everything above it, so a record would name a same-named
+ *                file at the root. An empty stream is an honest no-op, and that is
+ *                what makes the producer's exit status the caller's job: a shell
+ *                without `pipefail` reports only the last command, so `git diff`
+ *                exiting 128 on a bad revision emits nothing, this checker exits 0
+ *                over an empty list, and the pipeline reads as a pass. Write the list
+ *                to a file and check git's status before invoking, or set `pipefail`.
+ *                Measured: pipeline_status=0 git_status=128 checker_status=0.
  *
  * Paths are validated and normalized at intake (see resolveInputs). An empty
  * argument, a newline-joined blob, a missing path, or a path outside the repo is a
@@ -32,7 +43,8 @@
  */
 
 import { spawnSync } from 'child_process';
-import { existsSync, readFileSync, realpathSync, statSync } from 'fs';
+import { existsSync, lstatSync, readFileSync, readdirSync, realpathSync, statSync } from 'fs';
+import { availableParallelism } from 'os';
 import path from 'path';
 import { getFileInfo } from 'prettier';
 import { fileURLToPath } from 'url';
@@ -127,7 +139,24 @@ const REPO_ROOT = realpathSync(path.resolve(path.dirname(fileURLToPath(import.me
 const USAGE = '  Flags: --ci, --staged, --scope <lint|types|format|compat>, --files-from <path|->';
 
 /** Directories never descended into when a directory argument is expanded. */
-const NEVER_WALK = ['node_modules/', '.git/', '.svelte-kit/', '.convex/', 'build/', 'dist/'];
+/**
+ * Directories a directory expansion never descends into, split the way .gitignore splits
+ * them: `/build`, `/dist` and `/.svelte-kit` are anchored there and a tracked
+ * `src/build/generator.ts` is an ordinary source file, while `node_modules`, `.git` and
+ * `.convex` are ignored at any depth. Comparing segments against one flat list dropped the
+ * former from a run that stayed green on its other inputs; comparing substrings, as this
+ * did before, also read `src/redist/` as `dist/`.
+ */
+const NEVER_WALK_ANYWHERE = new Set(['node_modules', '.git', '.convex']);
+const NEVER_WALK_AT_ROOT = new Set(['.svelte-kit', 'build', 'dist']);
+
+export function isNeverWalked(file: string): boolean {
+	const segments = file.split('/');
+	return (
+		segments.some((segment) => NEVER_WALK_ANYWHERE.has(segment)) ||
+		NEVER_WALK_AT_ROOT.has(segments[0]!)
+	);
+}
 
 /**
  * Reject the run. A gate that cannot see its input must never report success.
@@ -149,6 +178,8 @@ function unsafePathCodepoint(code: number): boolean {
 		(code >= 0x80 && code <= 0x9f) ||
 		code === 0x2028 ||
 		code === 0x2029 ||
+		code === 0xfeff ||
+		code === 0xfffd ||
 		PATH_BIDI.has(code)
 	);
 }
@@ -184,18 +215,128 @@ export function assertSafePaths(files: string[]): void {
 	}
 }
 
+function decodeUtf8(bytes: Uint8Array, error: string): string {
+	try {
+		return new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes);
+	} catch {
+		fail(error);
+	}
+}
+
 export function repositoryPaths(): string[] {
 	const result = spawnSync('git', ['ls-files', '-co', '--exclude-standard', '-z'], {
 		cwd: REPO_ROOT,
-		env: sanitizedGitEnv(),
-		encoding: 'utf8'
+		env: sanitizedGitEnv()
 	});
 	if (result.status !== 0) fail('Failed to list repository paths.');
-	return result.stdout.split('\0').filter(Boolean);
+	return decodeUtf8(result.stdout, 'Repository contains a path whose bytes are not valid UTF-8.')
+		.split('\0')
+		.filter(Boolean);
 }
 
 export function existingRepositoryPaths(files: string[]): string[] {
 	return files.filter((file) => existsSync(path.join(REPO_ROOT, file)));
+}
+
+/** Paths Prettier's `.` traversal can visit; it does not follow symbolic links. */
+/**
+ * The formatter's own view of a path list: symlinks removed, missing paths either fatal or
+ * dropped. Prettier exits 2 on an explicitly named symlink ("Explicitly specified pattern
+ * ... is a symbolic link"), and this deliberately differs: a link carries a target path
+ * rather than formattable source, so refusing one would fail a whole computed list over an
+ * entry that has nothing to format. A list that holds only links is therefore an honest
+ * zero, the same as a list of images.
+ */
+export function prettierProjectPaths(
+	files: string[],
+	cwd = REPO_ROOT,
+	failOnMissing = false
+): string[] {
+	return files.filter((file) => {
+		try {
+			const entry = lstatSync(path.join(cwd, file));
+			if (entry.isSymbolicLink()) return false;
+			if (!entry.isFile()) {
+				fail(`Named formatter path is not a regular file: ${formatPathForDiagnostic(file)}.`);
+			}
+			return true;
+		} catch (error) {
+			if (!isMissingPathError(error)) throw error;
+			if (failOnMissing) {
+				fail(`Named path disappeared before formatter routing: ${formatPathForDiagnostic(file)}.`);
+			}
+			return false;
+		}
+	});
+}
+
+/** A path that vanished between two syscalls, which is the only traversal race to absorb. */
+function isMissingPathError(error: unknown): boolean {
+	return (error as NodeJS.ErrnoException | null)?.code === 'ENOENT';
+}
+
+/**
+ * Directory segments Prettier's CLI skips before glob expansion, whether or not an ignore
+ * file names them. `getFileInfo()` applies node_modules and ignore files but not this VCS
+ * list, so explicit paths need the same closed set here or the ledger counts work the CLI
+ * silently discards. Pinned against Prettier 3.9.5's DirectoryIgnorer in the contract tests.
+ */
+const PRETTIER_ALWAYS_IGNORED_DIRECTORIES = new Set(['.git', '.sl', '.svn', '.hg', '.jj']);
+
+function isPrettierAlwaysIgnoredPath(file: string): boolean {
+	return file.split('/').some((segment) => PRETTIER_ALWAYS_IGNORED_DIRECTORIES.has(segment));
+}
+
+/** Files reachable by Prettier's directory traversal before file-level classification. */
+export function prettierTraversalPaths(
+	cwd = REPO_ROOT,
+	skipSessionArtifacts = false,
+	relativeTo = cwd
+): string[] {
+	const files: string[] = [];
+	const skippedDirectories = new Set([...PRETTIER_ALWAYS_IGNORED_DIRECTORIES, 'node_modules']);
+	const walk = (directory: string, prefix: string): void => {
+		// The same race in the other direction: the directory itself can be gone by the time
+		// the recursion reaches it, and only that case is a skip.
+		let names;
+		try {
+			names = readdirSync(directory, { encoding: 'buffer' });
+		} catch (error) {
+			if (isMissingPathError(error)) return;
+			throw error;
+		}
+		for (const rawName of names) {
+			const name = decodeUtf8(
+				rawName,
+				'Repository contains a path whose bytes are not valid UTF-8.'
+			);
+			const absolute = path.join(directory, name);
+			// Prettier reads this phase through its own `lstatSafe`, which swallows ENOENT and
+			// nothing else, and a generated tree such as .svelte-kit can lose an entry to a
+			// concurrent sync between the readdir above and the stat below. Skipping a vanished
+			// entry matches what the formatter would have decided; swallowing EACCES or EIO
+			// would instead hide a directory this ledger is supposed to account for.
+			let entry;
+			try {
+				entry = lstatSync(absolute);
+			} catch (error) {
+				if (isMissingPathError(error)) continue;
+				throw error;
+			}
+			if (entry.isSymbolicLink()) continue;
+			const relative = prefix ? `${prefix}/${name}` : name;
+			if (entry.isDirectory()) {
+				if (skippedDirectories.has(name) || (skipSessionArtifacts && relative === 'scratch')) {
+					continue;
+				}
+				walk(absolute, relative);
+				continue;
+			}
+			if (entry.isFile()) files.push(relative);
+		}
+	};
+	walk(cwd, toPosix(path.relative(relativeTo, cwd)));
+	return files.sort();
 }
 
 function toPosix(p: string): string {
@@ -223,11 +364,25 @@ function toPosix(p: string): string {
  * Normalizing here fixes (2) for every prefix gate at once, including the ones a fork
  * adds later, without touching a single gate.
  */
-export function resolveInputs(raw: string[], origin: string): string[] {
+export function resolveInputs(
+	raw: string[],
+	origin: string,
+	baseDirectory = process.cwd(),
+	directoryPaths: (directory: string) => string[] = repositoryPaths,
+	// Only the formatter refuses to resolve a symlink, because Prettier itself does
+	// (`followSymbolicLinks: false`, and an explicitly named link is an error): it has to see
+	// the link's own path so its ignore rules and its diagnostics name what was typed. Every
+	// other scope routes by extension and needs the target. Lint and types have always
+	// expanded a directory link, and .claude/skills is a tracked one whose target holds
+	// TypeScript, so refusing it here would drop those files from a types run that still
+	// reports success. A leaf link is the same question: `probe.md -> probe.ts` under the
+	// link's own name reaches no checker at all and the run exits 0 having checked nothing.
+	followSymbolicLinks = true
+): string[] {
 	const out = new Set<string>();
 
 	for (const arg of raw) {
-		if (arg.trim() === '') {
+		if (arg === '') {
 			fail(
 				`Empty path in ${origin}.`,
 				'  An empty string is not a file. This is usually a caller expanding an empty\n' +
@@ -239,8 +394,8 @@ export function resolveInputs(raw: string[], origin: string): string[] {
 		if (/[\r\n]/.test(arg)) {
 			fail(
 				`Newline inside a single path argument (${origin}): ${JSON.stringify(arg.slice(0, 40))}`,
-				'  A newline-separated list arrived as ONE argument. Leave the expansion\n' +
-					'  unquoted, or pipe it: `git diff --name-only | ... --files-from -`.'
+				"  A computed list arrived as one positional argument. Pipe Git's native\n" +
+					'  path records instead: `git diff --no-relative --name-only --diff-filter=d -z | ... --files-from -`.'
 			);
 		}
 
@@ -248,35 +403,86 @@ export function resolveInputs(raw: string[], origin: string): string[] {
 		// then re-express against the repo root (what every gate below assumes).
 		// realpath both sides so a checkout reached through a symlink (/tmp ->
 		// /private/tmp, a symlinked worktree) does not read as "outside the repo".
-		const absolute = path.resolve(arg);
+		const invocationBase = path.resolve(baseDirectory);
+		const absolute = path.resolve(invocationBase, arg);
 		if (!existsSync(absolute)) fail(`No such file (${origin}): ${formatPathForDiagnostic(arg)}`);
 
 		const real = realpathSync(absolute);
-		const native = path.relative(REPO_ROOT, real);
+		const target = statSync(real);
+		const isOutside = (native: string): boolean => {
+			const relative = toPosix(native);
+			return relative === '..' || relative.startsWith('../') || path.isAbsolute(native);
+		};
+		// The resolved target and the named path must both live in the repository. Checking
+		// only the latter would let an in-repository symlink expose an external file.
+		if (isOutside(path.relative(REPO_ROOT, real))) {
+			fail(
+				`Path is outside the repository (${origin}): ${formatPathForDiagnostic(arg)}`,
+				`  Repo root: ${formatPathForDiagnostic(REPO_ROOT)}`
+			);
+		}
+		const isSymlink = lstatSync(absolute).isSymbolicLink();
+		// The formatter must classify the path the caller named, including every symlinked
+		// ancestor, because ignore rules are path rules. Canonicalizing `alias/probe.ts` to an
+		// ignored target under `scratch/` made a direct Prettier failure into a zero-file pass.
+		// A relative argument can be re-rooted through a symlinked invocation cwd without
+		// resolving any component it names. Absolute arguments keep their own spelling.
+		const fromInvocation = path.relative(invocationBase, absolute);
+		const insideInvocation =
+			fromInvocation === '' ||
+			(fromInvocation !== '..' &&
+				!fromInvocation.startsWith(`..${path.sep}`) &&
+				!path.isAbsolute(fromInvocation));
+		const named =
+			!path.isAbsolute(arg) || insideInvocation
+				? path.resolve(realpathSync(invocationBase), fromInvocation)
+				: absolute;
+		// An absolute alias outside the physical repository is rejected even when its target
+		// resolves inside. Preserving its spelling would require carrying absolute paths through
+		// a repository-relative ledger, while canonicalizing it changes anchored ignore rules:
+		// direct Prettier checked `alias/scratch/probe.ts`, the wrapper reclassified it as root
+		// `scratch/probe.ts`, and the ignored-path no-op exited 0. Failing closed is the only
+		// honest contract until the ledger can represent external aliases explicitly.
+		const located = followSymbolicLinks ? real : named;
+		const native = path.relative(REPO_ROOT, located);
 		const relative = toPosix(native);
-		// Only an empty result, a bare "..", a real ".." segment, or an absolute result
-		// (a different Windows drive) leaves the repository. A "startsWith('..')" prefix
-		// test also rejects "..valid.ts", which is an ordinary file at the root.
-		if (
-			relative === '' ||
-			relative === '..' ||
-			relative.startsWith('../') ||
-			path.isAbsolute(native)
-		) {
+		if (isOutside(native)) {
 			fail(
 				`Path is outside the repository (${origin}): ${formatPathForDiagnostic(arg)}`,
 				`  Repo root: ${formatPathForDiagnostic(REPO_ROOT)}`
 			);
 		}
 
-		if (statSync(real).isDirectory()) {
+		if (target.isDirectory() && (followSymbolicLinks || !isSymlink)) {
 			let matched = false;
-			const prefix = `${relative}/`;
-			for (const file of repositoryPaths()) {
-				if (!file.startsWith(prefix) || !existsSync(path.join(REPO_ROOT, file))) continue;
-				if (NEVER_WALK.some((skip) => file.includes(skip))) continue;
+			// The resolved target, not the name that was typed. Git lists a directory symlink
+			// as one entry and knows nothing below it, so a prefix built from the link matches
+			// nothing and the expansion silently yields the link alone.
+			//
+			// A child of the expansion that is itself a link keeps the name Git listed, which is
+			// this repository's own view of it and the path every route is written against. It
+			// also means a directory link among those children is not descended into, so a
+			// `--scope types` run over a directory of directory links reports success having
+			// checked nothing; see #865, which is where that whole semantics belongs.
+			const walked = toPosix(path.relative(REPO_ROOT, real));
+			const prefix = walked === '' ? '' : `${walked}/`;
+			const namedDirectory = toPosix(path.relative(REPO_ROOT, located));
+			for (const file of directoryPaths(real)) {
+				if ((prefix && !file.startsWith(prefix)) || !existsSync(path.join(REPO_ROOT, file)))
+					continue;
+				if (isNeverWalked(file)) continue;
 				matched = true;
-				out.add(file);
+				// Prettier traverses the caller-visible directory. The traversal function walks the
+				// resolved target so it can read the filesystem, then this maps each child back under
+				// the alias the caller named. Without that mapping, `alias/subdir` targeting root
+				// `scratch/` was classified under the target ignore rule and exited 0 on an
+				// unformatted file direct Prettier found through the alias.
+				if (!followSymbolicLinks) {
+					const suffix = prefix === '' ? file : file.slice(prefix.length);
+					out.add(namedDirectory === '' ? suffix : `${namedDirectory}/${suffix}`);
+				} else {
+					out.add(file);
+				}
 			}
 			if (!matched)
 				fail(`Directory contains no files to check (${origin}): ${formatPathForDiagnostic(arg)}`);
@@ -289,19 +495,31 @@ export function resolveInputs(raw: string[], origin: string): string[] {
 	return [...out].sort();
 }
 
-/** Newline-separated paths from a file, or from stdin with "-". An empty list is legal. */
+/** NUL-separated paths from a file, or from stdin with "-". An empty list is legal. */
 function readFilesFrom(source: string): string[] {
-	const raw =
+	const bytes =
 		source === '-'
-			? readFileSync(0, 'utf-8')
+			? readFileSync(0)
 			: existsSync(path.resolve(source))
-				? readFileSync(path.resolve(source), 'utf-8')
+				? readFileSync(path.resolve(source))
 				: fail(`--files-from: no such file: ${formatPathForDiagnostic(source)}`);
+	// `ignoreBOM: true` keeps U+FEFF visible so the explicit ambiguity check below runs.
+	const raw = decodeUtf8(bytes, '--files-from contains bytes that are not valid UTF-8.');
 
-	return raw
-		.split('\n')
-		.map((line) => line.trim())
-		.filter((line) => line !== '');
+	if (raw.charCodeAt(0) === 0xfeff) {
+		fail(
+			'--files-from must be UTF-8 without a byte-order mark.',
+			'  A leading U+FEFF is ambiguous with a repository filename. Write BOM-less UTF-8.'
+		);
+	}
+
+	if (raw === '') return [];
+	const records = raw.split('\0');
+	if (records.at(-1) === '') records.pop();
+	if (records.some((record) => record === '')) {
+		fail('--files-from contains an empty path record.');
+	}
+	return records;
 }
 
 // ===========================================================================
@@ -341,15 +559,6 @@ export const ROUTES = {
 const PRETTIER_IGNORE_FILES = ['.gitignore', '.prettierignore'];
 
 /**
- * Components, which Prettier has no built-in language for. The parser comes from
- * prettier-plugin-svelte, and .prettierrc declares both the plugin and the `*.svelte`
- * parser override; loading either to answer a routing question would run a configuration
- * file and a plugin inside the checker. The checker asserts the convention instead, and
- * static-checks.test.ts pins the declaration it stands on.
- */
-const SVELTE_COMPONENT = /\.svelte$/;
-
-/**
  * The files Prettier would actually format, answered by Prettier.
  *
  * This used to be an extension grammar maintained here by hand, which is a copy of a
@@ -357,24 +566,43 @@ const SVELTE_COMPONENT = /\.svelte$/;
  * .babelrc, .geojson and .mjml are all formatted by Prettier and none of them matched, so
  * a file-scoped run skipped them and reported success.
  *
- * `resolveConfig: false` keeps repository configuration and its plugins out of this
- * process: a routing question should not be able to take the run down before the checks
- * it classifies for ever start. The ignore files are still consulted, because they are
- * read as data and because a file the command will skip is not work this run may claim.
+ * Configuration resolution is part of the routing answer. A parser override can make a
+ * filename with no built-in language format-capable, and classifying with `resolveConfig:
+ * false` silently removed it from a computed list that the real CLI rejected as unformatted.
+ * The config and plugins are project-owned executable inputs that the formatter itself runs;
+ * classification must use the same ones. Ignore files are consulted for the same reason: a
+ * file the command skips is not work this run may claim.
  */
 export async function prettierFormattableFiles(
 	files: string[],
 	cwd = REPO_ROOT
 ): Promise<string[]> {
-	if (files.length === 0) return [];
+	const candidates = files.filter((file) => !isPrettierAlwaysIgnoredPath(file));
+	if (candidates.length === 0) return [];
 	const ignorePath = PRETTIER_IGNORE_FILES.map((file) => path.join(cwd, file));
-	const infos = await Promise.all(
-		files.map((file) => getFileInfo(path.resolve(cwd, file), { ignorePath, resolveConfig: false }))
+	// `getFileInfo` reads ignore files and may load parser metadata. Starting one promise per
+	// path made a full-format preflight retain an ignored generated tree at once and roughly
+	// doubled the peak memory of direct Prettier in the reproducer. Keep only as many
+	// classifications active as the host can run in parallel; result slots preserve order.
+	const infos: Array<Awaited<ReturnType<typeof getFileInfo>> | undefined> = Array.from({
+		length: candidates.length
+	});
+	let cursor = 0;
+	await Promise.all(
+		Array.from({ length: Math.min(candidates.length, availableParallelism()) }, async () => {
+			while (cursor < candidates.length) {
+				const index = cursor++;
+				infos[index] = await getFileInfo(path.resolve(cwd, candidates[index]!), {
+					ignorePath,
+					resolveConfig: true
+				});
+			}
+		})
 	);
-	return files.filter((file, index) => {
+	return candidates.filter((file, index) => {
 		const info = infos[index]!;
 		if (info.ignored) return false;
-		return info.inferredParser !== null || SVELTE_COMPONENT.test(file);
+		return info.inferredParser !== null;
 	});
 }
 
@@ -478,11 +706,11 @@ class Ledger {
 	/**
 	 * Record a reason this run legitimately had nothing to do.
 	 *
-	 * The zero-work invariant asks whether a check COULD have run over the named files,
-	 * and only a single-check scope can answer that from one check. A `--scope format` run
-	 * over files Prettier does not format is such an answer, and it is the caller's answer
-	 * rather than a hole in the gate. Nothing else may call this: for a lint or types run,
-	 * "no check ran" is still the bug it always was.
+	 * The zero-work invariant asks whether a check COULD have run over the named files. A
+	 * `--scope format` run over files Prettier does not format is the caller's answer rather
+	 * than a hole in the gate. A deletion-only staged change is the other honest zero: no
+	 * deleted bytes exist in the final index to check, while the final-index knowledge scan
+	 * still verifies that removing their paths broke no links. Nothing else may call this.
 	 */
 	noWork(reason: string): void {
 		this.honestNoWork.push(reason);
@@ -621,12 +849,19 @@ function parseCli() {
 
 	// A staged run must end by proving the checked bytes are still the staged bytes, and
 	// that closing argument belongs to the lint-and-types path that owns it. Rather than
-	// spread it over a second exit, the combination is refused: --staged stays a lint
-	// consumer, and formatting a staged set is `--files-from -` over the staged names.
+	// spread it over a second exit, the combination is refused, and --staged stays a lint
+	// consumer.
+	//
+	// `--files-from` over the staged names is not a substitute, and the diagnostic must not
+	// read as one. It names paths, and every checker then reads the working tree: stage an
+	// unformatted file, format only the working copy, and a gate built that way passes while
+	// the unformatted blob is what gets committed. This scope is a push gate over paths that
+	// exist on disk, and there is no index-exact formatting mode.
 	if (scope === 'format' && mode === 'staged') {
 		fail(
 			'--scope format does not support --staged.',
-			'  It formats a full project or a named file list. Pass explicit paths or use --files-from.'
+			'  It formats a full project or a named file list, always as the files are on disk.\n' +
+				'  A gate over index bytes belongs to --staged, which the lint scope owns.'
 		);
 	}
 
@@ -659,6 +894,82 @@ async function runCommand(
 }
 
 /**
+ * Every glob metacharacter, spelled as a one-character class rather than backslash-escaped.
+ *
+ * Prettier resolves an argument as a path first and expands it as a glob only once that
+ * path is gone, which is what lets a vanished file quietly match a neighbour: measured with
+ * Prettier 3.9.5, `scripts/[ab].ts` checks `scripts/a.ts` and exits 0 after the named file
+ * is deleted, while the escaped form exits 2 with "No files matching the pattern".
+ *
+ * `+` is in the list because it quantifies whatever precedes it, and after an escape that
+ * is the class rather than a literal: measured, `[+.ts` escaped to `[[]+.ts` matched the
+ * neighbouring `[.ts` and exited 0 while the requested file stayed unformatted.
+ *
+ * The escape cannot be a backslash. Prettier hands an unresolvable argument to
+ * `normalizeToPosix`, which on Windows replaces every backslash with a slash
+ * (prettier/internal/legacy-cli.mjs), so a backslash-escaped SvelteKit route such as
+ * `src/routes/[[lang]]/(auth)/+page.svelte` would arrive with its escapes stripped and
+ * match nothing. A character class survives that rewrite, and it is also inert to the
+ * `path.resolve` Prettier runs before its own `lstat`, where a backslash is a separator.
+ */
+const GLOB_CLASS_ESCAPES = new Map<string, string>([
+	['*', '[*]'],
+	['+', '[+]'],
+	['?', '[?]'],
+	['[', '[[]'],
+	['(', '[(]'],
+	[')', '[)]'],
+	['{', '[{]'],
+	['}', '[}]'],
+	['|', '[|]']
+]);
+
+/**
+ * For a stable filesystem snapshot, turn a repository path into a glob pattern that can
+ * only match that same path. Synchronized mutations between this check and child launch are
+ * tracked in #875 and require a file-descriptor/stdin formatter path rather than more escaping.
+ *
+ * `!`, `]`, a literal backslash and a double quote take an extglob rather than a class.
+ * `[!]` opens a negated class and the last two cannot appear inside one. `./` is not an
+ * option for the `!`: measured with Prettier 3.9.5, `./!a[[]b[]].ts` still reads as a
+ * negation, so a run whose named file had vanished matched every other root file and exited
+ * 0, while `@(!)a[[]b[]].ts` exits 2 with "No files matching the pattern". A backslash and
+ * a quote are unrepresentable in a Windows filename, so those two branches are reachable on
+ * POSIX alone, where Prettier's `normalizeToPosix` is the identity.
+ *
+ * `]` is the one that has to be an extglob for a reason outside its own escape. The POSIX
+ * form `[]]` is correct on its own, and it composes wrongly with the `{` and `}` classes
+ * because fast-glob runs `micromatch.braces()` over the whole pattern before picomatch sees
+ * it, and that pass reads the braces inside `[{]` and `[}]` as a brace expression. Measured
+ * with Prettier 3.9.5: `[]][{][}].ts` selected the neighbouring `{}.ts` and reported it
+ * clean, and `[{][]][}].ts` and `[{][}][]].ts` matched nothing at all. Over every ordered
+ * triple of the ten metacharacters plus `!`, `\\` and `"`, the class form fails those three
+ * and the extglob form fails none.
+ */
+export function prettierLiteralPattern(file: string): string {
+	let pattern = '';
+	for (const character of file) {
+		if (character === '\\') pattern += '@(\\\\)';
+		else if (character === '"') pattern += '@(\\")';
+		else if (character === '!') pattern += '@(!)';
+		else if (character === ']') pattern += '@(])';
+		else pattern += GLOB_CLASS_ESCAPES.get(character) ?? character;
+	}
+	// The pattern is only unambiguous while no file is named exactly like it. Prettier
+	// resolves an argument as a path before expanding it, so a repository holding both
+	// `[ab].ts` and `[[]ab[]].ts` would check the second and report on the first. Nothing
+	// downstream could tell, since the ledger counts the path that was asked for.
+	if (pattern !== file && existsSync(path.join(REPO_ROOT, pattern))) {
+		fail(
+			`Two repository paths collide under formatter escaping: ${formatPathForDiagnostic(file)}`,
+			`  Its escaped pattern names a second real file (${formatPathForDiagnostic(pattern)}),\n` +
+				'  and Prettier would check that one instead. Rename either path.'
+		);
+	}
+	return pattern;
+}
+
+/**
  * One formatter contract, whether the run names files or the whole project.
  *
  * Both invocations are built here so they cannot drift: the project run used to take
@@ -673,7 +984,26 @@ export function prettierArguments(formatFlag: '--check' | '--write', files?: str
 	// Everything after the separator is a path. Without it Prettier reads a leading-dash
 	// filename as an option, discards it with a warning, finds nothing left to check and
 	// exits 0, so a repository file named "--anything.ts" is never looked at.
-	return files === undefined ? [...invocation, '.'] : [...invocation, '--', ...files];
+	return files === undefined
+		? [...invocation, '.']
+		: [...invocation, '--', ...files.map(prettierLiteralPattern)];
+}
+
+function assertRegularFormatterPaths(files: string[]): void {
+	for (const file of files) {
+		let entry;
+		try {
+			entry = lstatSync(path.join(REPO_ROOT, file));
+		} catch (error) {
+			if (isMissingPathError(error)) {
+				fail(`Named path disappeared before formatter launch: ${formatPathForDiagnostic(file)}.`);
+			}
+			throw error;
+		}
+		if (!entry.isFile()) {
+			fail(`Named formatter path is not a regular file: ${formatPathForDiagnostic(file)}.`);
+		}
+	}
 }
 
 async function runPrettier(formatFlag: '--check' | '--write', files?: string[]): Promise<void> {
@@ -682,7 +1012,14 @@ async function runPrettier(formatFlag: '--check' | '--write', files?: string[]):
 		return;
 	}
 	const baseArguments = prettierArguments(formatFlag, []);
-	for (const batch of argumentBatches(files, baseArguments)) {
+	const patterns = files.map(prettierLiteralPattern);
+	let offset = 0;
+	for (const batch of argumentBatches(patterns, baseArguments)) {
+		// Prettier silently drops FIFOs, sockets and other special files when another argument
+		// matches, so the batch can exit 0 while the ledger counts a file it never checked.
+		// Revalidate immediately before each launch, after parser and ignore classification.
+		assertRegularFormatterPaths(files.slice(offset, offset + batch.length));
+		offset += batch.length;
 		await runCommand('bun', [...baseArguments, ...batch]);
 	}
 }
@@ -743,6 +1080,7 @@ async function main(): Promise<void> {
 	let inputs: string[] = [];
 	// Staged mode keeps the exact Git paths and the complete starting index state.
 	let stagedIndexPaths: string[] = [];
+	let stagedDeletionOnly = false;
 	let stagedIndexFingerprint: string | undefined;
 	let stagedEnv: NodeJS.ProcessEnv | undefined;
 	if (mode === 'files') {
@@ -755,9 +1093,15 @@ async function main(): Promise<void> {
 			process.exit(0);
 		}
 		assertSafePaths(raw);
+		const baseDirectory = filesFrom !== undefined ? REPO_ROOT : process.cwd();
 		inputs = resolveInputs(
 			raw,
-			filesFrom !== undefined ? `--files-from ${filesFrom}` : 'arguments'
+			filesFrom !== undefined ? `--files-from ${filesFrom}` : 'arguments',
+			baseDirectory,
+			scope === 'format'
+				? (directory) => prettierTraversalPaths(directory, false, REPO_ROOT)
+				: repositoryPaths,
+			scope !== 'format'
 		);
 	}
 
@@ -775,10 +1119,14 @@ async function main(): Promise<void> {
 			console.log('No staged files to check');
 			process.exit(0);
 		}
+		stagedDeletionOnly = stagedChanges.every((change) => change.status === 'D');
+		const stagedDeletedPaths = stagedChanges
+			.filter((change) => change.status === 'D')
+			.map((change) => change.path);
 		// Keep the original index paths. resolveInputs realpaths symlinks, while
 		// later comparisons must address the paths recorded by Git.
 		stagedIndexPaths = getStagedFiles(REPO_ROOT, stagedEnv);
-		assertSafePaths(stagedIndexPaths);
+		assertSafePaths([...stagedIndexPaths, ...stagedDeletedPaths]);
 		const cleanFiltered = stagedFilesWithCleanFilters(stagedIndexPaths, REPO_ROOT, stagedEnv);
 		if (cleanFiltered.length > 0) {
 			fail(
@@ -787,7 +1135,19 @@ async function main(): Promise<void> {
 			);
 		}
 		inputs = stagedIndexPaths.length > 0 ? resolveInputs(stagedIndexPaths, 'the git index') : [];
-		if (!stagedFilesMatchWorktree(stagedIndexPaths, REPO_ROOT, stagedEnv)) {
+		const deletedPathStillExists = stagedDeletedPaths.some((file) => {
+			try {
+				lstatSync(path.join(REPO_ROOT, file));
+				return true;
+			} catch (error) {
+				if (isMissingPathError(error)) return false;
+				throw error;
+			}
+		});
+		if (
+			deletedPathStillExists ||
+			!stagedFilesMatchWorktree(stagedIndexPaths, REPO_ROOT, stagedEnv)
+		) {
 			fail(
 				'Staged file contents differ from the worktree.',
 				'  Run the checks in fix mode, review the result, stage the intended bytes,\n' +
@@ -798,13 +1158,22 @@ async function main(): Promise<void> {
 
 	const fullRepositoryPaths = mode === 'full' ? repositoryPaths() : [];
 	const fullExistingPaths = existingRepositoryPaths(fullRepositoryPaths);
-	assertSafePaths(mode === 'full' ? fullRepositoryPaths : inputs);
+	const countFullFormatter = mode === 'full' && (scope === 'format' || shouldRunLint);
+	const fullFormatPaths = countFullFormatter ? prettierTraversalPaths(REPO_ROOT, true) : [];
+	if (scope !== 'format') assertSafePaths(mode === 'full' ? fullRepositoryPaths : inputs);
 
-	// Every file-scoped run needs the formatter route for the zero-work invariant. A full
-	// format run also needs the repository preflight set so it can prove Prettier had at
-	// least one supported, nonignored file to check.
-	const ledgerInputs = scope === 'format' && mode === 'full' ? fullExistingPaths : inputs;
-	const ledger = new Ledger(mode, ledgerInputs, await prettierFormattableFiles(ledgerInputs));
+	// Every file-scoped run needs the formatter route for the zero-work invariant. Every full
+	// run that includes lint counts the same filesystem traversal Prettier performs. Keeping
+	// this on `--scope format` alone left the required `--scope lint` workflow reporting
+	// "whole project" and exiting 0 when `.prettierignore` matched every file.
+	const ledgerInputs = countFullFormatter ? fullFormatPaths : inputs;
+	const prettierInputs = prettierProjectPaths(ledgerInputs, REPO_ROOT, scopedMode);
+	const formattable = await prettierFormattableFiles(prettierInputs);
+	assertSafePaths(formattable);
+	const ledger = new Ledger(mode, ledgerInputs, formattable);
+	if (stagedDeletionOnly) {
+		ledger.noWork('staged changes only delete paths absent from the final index');
+	}
 
 	console.log('======================================================');
 	console.log(
@@ -844,7 +1213,7 @@ async function main(): Promise<void> {
 			// honest; failing would make a caller that passes a mixed file list unusable.
 			console.log(
 				`No formatter work: Prettier formats none of the ${ledger.named} named file(s) ` +
-					'(unknown file type, or excluded by .prettierignore or .gitignore).'
+					'(unknown file type, symbolic link, or excluded by .prettierignore or .gitignore).'
 			);
 			ledger.ran('prettier', 0);
 			ledger.noWork(`Prettier formats none of the ${ledger.named} named file(s)`);
@@ -986,7 +1355,7 @@ async function main(): Promise<void> {
 			const files = ledger.filesFor('prettier');
 			if (!scopedMode) {
 				await runPrettier(formatFlag);
-				ledger.ran('prettier');
+				ledger.ran('prettier', formattable.length);
 			} else if (files.length > 0) {
 				await runPrettier(formatFlag, files);
 				ledger.ran('prettier', files.length);
@@ -1115,7 +1484,15 @@ async function main(): Promise<void> {
 			`Scanned ${result.filesEvaluated} knowledge-bearing files${scopeNote}: ` +
 				`${errors} error(s), ${warnings} warning(s)`
 		);
-		ledger.ran('knowledge-placement', result.filesEvaluated);
+		// Staged policy evaluation reads every knowledge candidate in the index so links resolve
+		// against the final committed tree. That project-wide count cannot earn green for an
+		// unrelated named input: a staged binary matched no lint route, while 1,164 Markdown
+		// files made `consumedAnything()` return true. In scoped modes only the named knowledge
+		// candidates count as consumed work; the broader scan remains visible in the log.
+		ledger.ran(
+			'knowledge-placement',
+			scopedMode ? ledger.filesFor('knowledge-placement').length : result.filesEvaluated
+		);
 		if (errors > 0) process.exit(1);
 		console.log('');
 	}

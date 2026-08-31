@@ -24,6 +24,7 @@ const policyRuntime = anyOf(
 );
 const ignored = anyOf(
 	underPath('references'),
+	underPath('scratch'),
 	underPath('node_modules'),
 	underPath('.git'),
 	underPath('.svelte-kit'),
