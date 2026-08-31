@@ -95,9 +95,50 @@
 	let tapPointerType: string | null = null;
 	let isPointerDown = false;
 
+	// A tooltip that repeats a fully visible label is noise, so every segment
+	// reports whether it actually clips its text and its tooltip stays disabled
+	// until it does.
+	let clippedLabels = $state<Record<FilterMode, boolean>>({
+		'my-inbox': false,
+		all: false,
+		unassigned: false
+	});
+
+	function trackLabelClip(mode: FilterMode) {
+		return (node: HTMLElement) => {
+			let disposed = false;
+
+			const measure = () => {
+				if (disposed) return;
+				// Both widths are rounded, so ignore a single pixel of difference
+				// instead of promising an ellipsis nobody can see.
+				const clipped = node.scrollWidth - node.clientWidth > 1;
+				clippedLabels[mode] = clipped;
+				if (!clipped && openLabel === mode) openLabel = null;
+			};
+
+			measure();
+			// A fallback font measures differently than the loaded one.
+			node.ownerDocument.fonts?.ready.then(measure);
+
+			// The segment resizes with the pane, while the label itself changes with
+			// the locale without resizing its clamped span.
+			const resizeObserver = new ResizeObserver(measure);
+			resizeObserver.observe(node);
+			const textObserver = new MutationObserver(measure);
+			textObserver.observe(node, { characterData: true, childList: true, subtree: true });
+
+			return () => {
+				disposed = true;
+				resizeObserver.disconnect();
+				textObserver.disconnect();
+			};
+		};
+	}
+
 	function setLabelOpen(mode: FilterMode, open: boolean) {
 		if (open) {
-			openLabel = mode;
+			if (clippedLabels[mode]) openLabel = mode;
 		} else if (openLabel === mode) {
 			openLabel = null;
 		}
@@ -122,13 +163,13 @@
 			// Guarded by the pointer state so a press still reveals the tooltip on its
 			// own click instead of flashing it on the focus that precedes the click.
 			onfocus: () => {
-				if (!isPointerDown) openLabel = mode;
+				if (!isPointerDown && clippedLabels[mode]) openLabel = mode;
 			},
 			onclick: () => {
 				const wasTap = tapPointerType === 'touch';
 				tapPointerType = null;
 				isPointerDown = false;
-				if (wasTap) openLabel = mode;
+				if (wasTap && clippedLabels[mode]) openLabel = mode;
 			}
 		};
 	}
@@ -209,6 +250,7 @@
 			<Tabs.List class="w-full">
 				<Tooltip.Root
 					delayDuration={400}
+					disabled={!clippedLabels['my-inbox']}
 					bind:open={() => openLabel === 'my-inbox', (open) => setLabelOpen('my-inbox', open)}
 				>
 					<Tooltip.Trigger>
@@ -225,7 +267,9 @@
 								value="my-inbox"
 								class="min-w-0 overflow-hidden px-1 text-xs"
 							>
-								<span class="min-w-0 truncate"><T keyName="admin.support.filter.my_inbox" /></span>
+								<span class="min-w-0 truncate" {@attach trackLabelClip('my-inbox')}
+									><T keyName="admin.support.filter.my_inbox" /></span
+								>
 							</Tabs.Trigger>
 						{/snippet}
 					</Tooltip.Trigger>
@@ -235,6 +279,7 @@
 				</Tooltip.Root>
 				<Tooltip.Root
 					delayDuration={400}
+					disabled={!clippedLabels['all']}
 					bind:open={() => openLabel === 'all', (open) => setLabelOpen('all', open)}
 				>
 					<Tooltip.Trigger>
@@ -246,7 +291,9 @@
 								value="all"
 								class="min-w-0 overflow-hidden px-1 text-xs"
 							>
-								<span class="min-w-0 truncate"><T keyName="admin.support.filter.all" /></span>
+								<span class="min-w-0 truncate" {@attach trackLabelClip('all')}
+									><T keyName="admin.support.filter.all" /></span
+								>
 							</Tabs.Trigger>
 						{/snippet}
 					</Tooltip.Trigger>
@@ -256,6 +303,7 @@
 				</Tooltip.Root>
 				<Tooltip.Root
 					delayDuration={400}
+					disabled={!clippedLabels['unassigned']}
 					bind:open={() => openLabel === 'unassigned', (open) => setLabelOpen('unassigned', open)}
 				>
 					<Tooltip.Trigger>
@@ -267,7 +315,8 @@
 								value="unassigned"
 								class="min-w-0 overflow-hidden px-1 text-xs"
 							>
-								<span class="min-w-0 truncate"><T keyName="admin.support.filter.unassigned" /></span
+								<span class="min-w-0 truncate" {@attach trackLabelClip('unassigned')}
+									><T keyName="admin.support.filter.unassigned" /></span
 								>
 							</Tabs.Trigger>
 						{/snippet}
