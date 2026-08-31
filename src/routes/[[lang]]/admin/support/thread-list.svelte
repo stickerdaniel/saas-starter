@@ -1,6 +1,8 @@
 <script lang="ts">
+	import { mergeProps } from 'bits-ui';
 	import { Input } from '$lib/components/ui/input';
 	import * as Tabs from '$lib/components/ui/tabs';
+	import * as Tooltip from '$lib/components/ui/tooltip';
 	import { Button } from '$lib/components/ui/button';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Skeleton } from '$lib/components/ui/skeleton';
@@ -20,6 +22,8 @@
 	const dateFnsLocale = $derived(getDateFnsLocale(page.data.lang));
 
 	const { t } = getTranslate();
+
+	type FilterMode = 'all' | 'unassigned' | 'my-inbox';
 
 	interface Thread {
 		_id: string;
@@ -65,7 +69,7 @@
 		onThreadSelect,
 		onLoadMore
 	}: {
-		filterMode: 'all' | 'unassigned' | 'my-inbox';
+		filterMode: FilterMode;
 		statusFilter: 'open' | 'done';
 		searchQuery: string;
 		threads?: Thread[];
@@ -74,12 +78,59 @@
 		error?: Error | undefined;
 		isDone?: boolean;
 		cachedCount?: number;
-		onFilterChange: (mode: 'all' | 'unassigned' | 'my-inbox') => void;
+		onFilterChange: (mode: FilterMode) => void;
 		onStatusChange: (status: 'open' | 'done') => void;
 		onSearchChange: (query: string) => void;
 		onThreadSelect: (id: string) => void;
 		onLoadMore: (numItems: number) => boolean;
 	} = $props();
+
+	// Bits UI drops touch pointers in its hover handlers, so the truncated filter
+	// labels are unreachable on a phone. Drive the tooltips from one open mode
+	// instead: hover, focus and outside dismissal keep writing through the
+	// binding, and a tap re-opens the tooltip that the trigger's own click
+	// handler closes.
+	let openLabel = $state<FilterMode | null>(null);
+	let tapPointerType: string | null = null;
+	let isPointerDown = false;
+
+	function setLabelOpen(mode: FilterMode, open: boolean) {
+		if (open) {
+			openLabel = mode;
+		} else if (openLabel === mode) {
+			openLabel = null;
+		}
+	}
+
+	function labelTapProps(mode: FilterMode) {
+		return {
+			onpointerdown: (event: PointerEvent) => {
+				tapPointerType = event.pointerType;
+				isPointerDown = true;
+			},
+			onpointerup: () => {
+				isPointerDown = false;
+			},
+			// A canceled touch never reaches pointerup, so Bits UI keeps its own
+			// pointer-down flag raised and drops every focus that follows. Clear the
+			// local tap state here and let the focus handler below open the tooltip.
+			onpointercancel: () => {
+				tapPointerType = null;
+				isPointerDown = false;
+			},
+			// Guarded by the pointer state so a press still reveals the tooltip on its
+			// own click instead of flashing it on the focus that precedes the click.
+			onfocus: () => {
+				if (!isPointerDown) openLabel = mode;
+			},
+			onclick: () => {
+				const wasTap = tapPointerType === 'touch';
+				tapPointerType = null;
+				isPointerDown = false;
+				if (wasTap) openLabel = mode;
+			}
+		};
+	}
 
 	// Skeleton count: use cached count or default to 6
 	const skeletonCount = $derived(cachedCount ?? 6);
@@ -155,23 +206,77 @@
 		</div>
 
 		<!-- Filter Tabs -->
-		<Tabs.Root
-			value={filterMode}
-			onValueChange={(v) => onFilterChange(v as 'all' | 'unassigned' | 'my-inbox')}
-		>
-			<!-- Full-width bar, but each trigger hugs its label (flex-none) and the
-			     three are spread evenly, so the active pill wraps only the label
-			     instead of filling a rigid third. -->
-			<Tabs.List class="w-full justify-evenly">
-				<Tabs.Trigger value="my-inbox" class="flex-none"
-					><T keyName="admin.support.filter.my_inbox" /></Tabs.Trigger
+		<Tabs.Root value={filterMode} onValueChange={(v) => onFilterChange(v as FilterMode)}>
+			<Tabs.List class="w-full">
+				<Tooltip.Root
+					delayDuration={400}
+					bind:open={() => openLabel === 'my-inbox', (open) => setLabelOpen('my-inbox', open)}
 				>
-				<Tabs.Trigger value="all" class="flex-none"
-					><T keyName="admin.support.filter.all" /></Tabs.Trigger
+					<Tooltip.Trigger>
+						{#snippet child({ props })}
+							<!-- The tooltip trigger props carry data-slot="tooltip-trigger"; restate the
+								 tabs slot after them so tabs-list.svelte still finds the active trigger.
+								 They also carry an empty aria-describedby, because Bits UI strips the id
+								 from the rendered tooltip content. Drop the dangling reference and hide
+								 the content: each tab already exposes its full label. -->
+							<Tabs.Trigger
+								{...mergeProps(props, labelTapProps('my-inbox'))}
+								data-slot="tabs-trigger"
+								aria-describedby={undefined}
+								value="my-inbox"
+								class="min-w-0 overflow-hidden px-1 text-xs"
+							>
+								<span class="min-w-0 truncate"><T keyName="admin.support.filter.my_inbox" /></span>
+							</Tabs.Trigger>
+						{/snippet}
+					</Tooltip.Trigger>
+					<Tooltip.Content side="bottom" aria-hidden="true"
+						>{$t('admin.support.filter.my_inbox')}</Tooltip.Content
+					>
+				</Tooltip.Root>
+				<Tooltip.Root
+					delayDuration={400}
+					bind:open={() => openLabel === 'all', (open) => setLabelOpen('all', open)}
 				>
-				<Tabs.Trigger value="unassigned" class="flex-none"
-					><T keyName="admin.support.filter.unassigned" /></Tabs.Trigger
+					<Tooltip.Trigger>
+						{#snippet child({ props })}
+							<Tabs.Trigger
+								{...mergeProps(props, labelTapProps('all'))}
+								data-slot="tabs-trigger"
+								aria-describedby={undefined}
+								value="all"
+								class="min-w-0 overflow-hidden px-1 text-xs"
+							>
+								<span class="min-w-0 truncate"><T keyName="admin.support.filter.all" /></span>
+							</Tabs.Trigger>
+						{/snippet}
+					</Tooltip.Trigger>
+					<Tooltip.Content side="bottom" aria-hidden="true"
+						>{$t('admin.support.filter.all')}</Tooltip.Content
+					>
+				</Tooltip.Root>
+				<Tooltip.Root
+					delayDuration={400}
+					bind:open={() => openLabel === 'unassigned', (open) => setLabelOpen('unassigned', open)}
 				>
+					<Tooltip.Trigger>
+						{#snippet child({ props })}
+							<Tabs.Trigger
+								{...mergeProps(props, labelTapProps('unassigned'))}
+								data-slot="tabs-trigger"
+								aria-describedby={undefined}
+								value="unassigned"
+								class="min-w-0 overflow-hidden px-1 text-xs"
+							>
+								<span class="min-w-0 truncate"><T keyName="admin.support.filter.unassigned" /></span
+								>
+							</Tabs.Trigger>
+						{/snippet}
+					</Tooltip.Trigger>
+					<Tooltip.Content side="bottom" aria-hidden="true"
+						>{$t('admin.support.filter.unassigned')}</Tooltip.Content
+					>
+				</Tooltip.Root>
 			</Tabs.List>
 		</Tabs.Root>
 	</div>
