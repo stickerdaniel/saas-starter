@@ -4,7 +4,7 @@
 	import { getTranslate } from '@tolgee/svelte';
 	import * as Accordion from '$lib/components/ui/accordion/index.js';
 	import BotIcon from '@lucide/svelte/icons/bot';
-	import ReasoningShimmerLoader from '$lib/components/prompt-kit/loader/reasoning-shimmer-loader.svelte';
+	import ReasoningStatus from '$lib/components/prompt-kit/loader/reasoning-status.svelte';
 
 	const { t } = getTranslate();
 
@@ -25,7 +25,8 @@
 		...props
 	}: Props = $props();
 
-	// State 3: Finished - show duration
+	const isPending = $derived(!hasContent || isStreaming);
+
 	let durationMessage = $derived.by(() => {
 		if (duration && duration > 0) {
 			return duration === 1
@@ -48,15 +49,16 @@
 		{@render children()}
 	{:else}
 		<BotIcon class="size-4" />
-		{#if !hasContent || isStreaming}
-			<!-- States 1 & 2: Connecting (no content yet) then Thinking (receiving data).
-			     One shimmer instance keeps the animation from restarting across the transition. -->
-			<ReasoningShimmerLoader
-				text={!hasContent ? $t('chat.reasoning.connecting') : $t('chat.reasoning.thinking')}
-			/>
-		{:else}
-			<!-- State 3: Finished - show duration -->
-			<p>{durationMessage}</p>
-		{/if}
+		<!-- Connecting (nothing back yet), Thinking (receiving), then the duration.
+		     One instance across all three: it is what carries a state change as a
+		     swap, and it also stops the shimmer restarting on every transition. -->
+		<ReasoningStatus
+			text={isPending
+				? hasContent
+					? $t('chat.reasoning.thinking')
+					: $t('chat.reasoning.connecting')
+				: durationMessage}
+			shimmer={isPending}
+		/>
 	{/if}
 </Accordion.Trigger>

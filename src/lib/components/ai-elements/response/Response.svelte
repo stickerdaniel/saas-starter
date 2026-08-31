@@ -11,7 +11,7 @@
 </script>
 
 <Streamdown
-	class={cn('size-full [&_>_*:first-child]:mt-0 [&_>_*:last-child]:mb-0', className)}
+	class={cn('t-stream size-full [&_>_*:first-child]:mt-0 [&_>_*:last-child]:mb-0', className)}
 	shikiTheme={mode.current === 'dark' ? 'github-dark-default' : 'github-light-default'}
 	baseTheme="shadcn"
 	{...restProps}
