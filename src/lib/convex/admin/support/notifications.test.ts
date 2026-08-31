@@ -85,6 +85,7 @@ describe('scheduleAdminNotification', () => {
 
 		// The send is scheduled and its id is stored back on the pending row.
 		expect(runAfter).toHaveBeenCalledTimes(1);
+		expect(runAfter.mock.calls[0][0]).toBe(4 * 60 * 1000);
 		expect(rows[0].scheduledFnId).toBeDefined();
 		// The scheduled send targets the row we just created.
 		expect(runAfter.mock.calls[0][2]).toEqual({ notificationId: rows[0]._id });
