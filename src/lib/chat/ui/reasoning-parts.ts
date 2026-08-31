@@ -36,14 +36,36 @@ export function getReasoningKey(parts: MessagePart[] | undefined, index: number)
 	return getReasoningPartKey(list[index]!, index);
 }
 
+/**
+ * Metadata emitted between deltas does not close the content stream it annotates.
+ * AI SDK materialization keeps applying later text or reasoning deltas to the
+ * earlier content object while source, file and data parts remain after it.
+ */
+function isTransparentStreamMetadata(part: MessagePart): boolean {
+	return part.type === 'file' || part.type.startsWith('source-') || part.type.startsWith('data-');
+}
+
+/**
+ * Find the content or lifecycle boundary currently at the stream tail. Unknown
+ * parts stay boundaries by default; only AI SDK metadata with measured
+ * transparent behavior is skipped.
+ */
+export function getActiveStreamingPartIndex(
+	parts: MessagePart[] | undefined,
+	isMessageStreaming: boolean
+): number {
+	if (!isMessageStreaming || !parts?.length) return -1;
+
+	for (let index = parts.length - 1; index >= 0; index -= 1) {
+		if (!isTransparentStreamMetadata(parts[index]!)) return index;
+	}
+	return -1;
+}
+
 export function getActiveStreamingReasoningIndex(
 	parts: MessagePart[] | undefined,
 	isMessageStreaming: boolean
 ): number {
-	if (!isMessageStreaming || !parts?.length) {
-		return -1;
-	}
-
-	const lastIndex = parts.length - 1;
-	return parts[lastIndex]?.type === 'reasoning' ? lastIndex : -1;
+	const activeIndex = getActiveStreamingPartIndex(parts, isMessageStreaming);
+	return parts?.[activeIndex]?.type === 'reasoning' ? activeIndex : -1;
 }

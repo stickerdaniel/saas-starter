@@ -724,6 +724,9 @@
 	/* Streaming text */
 	--stream-fade: 350ms;
 	--stream-blur: 1px;
+	/* The presentation scheduler applies the source demo's word cadence to each
+	   Convex batch, then compresses it when a backlog would fall too far behind. */
+	--stream-gap: 60ms;
 	--stream-ease: cubic-bezier(0.22, 1, 0.36, 1);
 	/* Learn more hover */
 	--learn-shift: 2px;
@@ -958,6 +961,9 @@
 	animation-name: t-stream-in !important;
 	animation-duration: var(--stream-fade) !important;
 	animation-timing-function: var(--stream-ease) !important;
+	/* Streamdown specifies `forwards`; `both` also applies the hidden first frame
+	   during the scheduler's delay, so a token never flashes sharp before its turn. */
+	animation-fill-mode: both !important;
 }
 
 /* Learn more hover: the chevron slides along the reading direction while its

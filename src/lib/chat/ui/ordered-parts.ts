@@ -1,6 +1,7 @@
 import type { ToolPart } from '$lib/components/prompt-kit/tool/types.js';
 import type { MessagePart, MessageStatus } from '../core/types.js';
 import {
+	getActiveStreamingPartIndex,
 	getActiveStreamingReasoningIndex,
 	getReasoningKey,
 	LEADING_REASONING_KEY
@@ -36,13 +37,11 @@ export function deriveOrderedParts(
 	const messageParts = parts ?? [];
 	const isMessageInProgress = status === 'pending' || status === 'streaming';
 	const activeReasoningIndex = getActiveStreamingReasoningIndex(messageParts, isMessageInProgress);
-	// A message may stream text, then begin another step or tool before the next
-	// text block. Only a text part at the actual tail is live. Looking for the
-	// last renderable part is too broad: `step-start` is intentionally not
-	// rendered, but it still means the preceding prose has settled.
-	const tailIndex = messageParts.length - 1;
-	const activeTextIndex =
-		isMessageInProgress && messageParts[tailIndex]?.type === 'text' ? tailIndex : -1;
+	// Source, file and data parts annotate an open text stream; step-start, tools
+	// and unknown parts remain boundaries. The shared selector follows that AI
+	// SDK lifecycle for text and reasoning alike.
+	const activePartIndex = getActiveStreamingPartIndex(messageParts, isMessageInProgress);
+	const activeTextIndex = messageParts[activePartIndex]?.type === 'text' ? activePartIndex : -1;
 
 	return messageParts
 		.map((p, idx): OrderedPart | null => {
