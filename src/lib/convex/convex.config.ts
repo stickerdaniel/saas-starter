@@ -33,6 +33,7 @@ const app = defineApp({
 		AUTUMN_SECRET_KEY: v.string(),
 		OPENROUTER_API_KEY: v.string(),
 		// Optional
+		BETTER_AUTH_SECRETS: v.optional(v.string()),
 		RESEND_WEBHOOK_SECRET: v.optional(v.string()),
 		AUTH_GOOGLE_ID: v.optional(v.string()),
 		AUTH_GOOGLE_SECRET: v.optional(v.string()),
