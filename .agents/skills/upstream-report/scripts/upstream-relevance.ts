@@ -2156,8 +2156,7 @@ function ensureUpstream(root: string, upstreamUrl: string, allowFetch: boolean):
 		// copied transport config carries neither unpack limit, so Git's built-in
 		// threshold of 100 objects selects the receiver and therefore the residue
 		// form if that receiver starts writing. The fetched tip is persisted without
-		// checking every reachable object for readability. The skill carries that
-		// limitation alongside the measurements, cleanup, and process lifetime.
+		// checking every reachable object for readability.
 		try {
 			rejectTransportCommandOverrides();
 			verifyLocalRemoteSnapshot(transportUrl);
