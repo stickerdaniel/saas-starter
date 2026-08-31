@@ -453,6 +453,22 @@ describe('format-only static checks', () => {
 		60_000
 	);
 
+	it('rejects an unsafe child expanded from a safe formatter directory', () => {
+		const relative = `scripts/.format-unsafe-child-${process.pid}`;
+		const directory = path.join(ROOT, relative);
+		const child = `bad${String.fromCharCode(0x202e)}.ts`;
+		mkdirSync(directory, { recursive: true });
+		writeFileSync(path.join(directory, child), 'export const value = 1;\n');
+		try {
+			const result = formatCheck(relative);
+			expect(result.status, result.output).toBe(1);
+			expect(result.output).toContain('Unsafe U+202E');
+			expect(result.output).not.toContain('All checks passed');
+		} finally {
+			rmSync(directory, { recursive: true, force: true });
+		}
+	});
+
 	it('treats an explicitly named repository symlink like the project traversal', () => {
 		const { status, output } = formatCheck(path.join(ROOT, 'CLAUDE.md'));
 		expect(status).toBe(0);
@@ -998,6 +1014,68 @@ describe('scope routing', () => {
 				const output = `${result.stdout}${result.stderr}`;
 				expect(result.status, output).toBe(1);
 				expect(output).toContain('No check in the active scope (lint) is responsible');
+			} finally {
+				rmSync(checkout.directory, { recursive: true, force: true });
+			}
+		},
+		180_000
+	);
+
+	it.skipIf(process.platform === 'win32')(
+		'accepts a deletion-only staged change after validating the final index',
+		() => {
+			const checkout = createCheckerClone();
+			const tools = path.join(checkout.directory, 'deletion-tools');
+			mkdirSync(tools);
+			for (const command of ['bun', 'misspell']) {
+				const executable = path.join(tools, command);
+				writeFileSync(executable, '#!/bin/sh\nexit 0\n');
+				chmodSync(executable, 0o755);
+			}
+			const relative = 'scripts/deletion-probe.md';
+			writeFileSync(path.join(checkout.repository, relative), '# delete me\n');
+			const git = (args: string[]) =>
+				spawnSync('git', args, {
+					cwd: checkout.repository,
+					env: sanitizedGitEnv(),
+					encoding: 'utf8'
+				});
+			expect(git(['add', '--', relative]).status).toBe(0);
+			expect(
+				git([
+					'-c',
+					'user.name=Probe',
+					'-c',
+					'user.email=probe@example.com',
+					'commit',
+					'--quiet',
+					'--no-gpg-sign',
+					'--no-verify',
+					'-m',
+					'Deletion fixture'
+				]).status
+			).toBe(0);
+			expect(git(['rm', '--quiet', '--', relative]).status).toBe(0);
+			try {
+				const env = sanitizedGitEnv();
+				env.NO_COLOR = '1';
+				env.PATH = `${tools}${path.delimiter}${env.PATH ?? ''}`;
+				const result = spawnSync(
+					testExecutable('bun'),
+					[
+						path.join(checkout.repository, 'scripts', 'static-checks.ts'),
+						'--staged',
+						'--scope',
+						'lint'
+					],
+					{ cwd: checkout.repository, env, encoding: 'utf8', timeout: 120_000 }
+				);
+				const output = `${result.stdout}${result.stderr}`;
+				expect(result.status, output).toBe(0);
+				expect(output).toContain(
+					'NO WORK: staged changes only delete paths absent from the final index.'
+				);
+				expect(output).toContain('All checks passed');
 			} finally {
 				rmSync(checkout.directory, { recursive: true, force: true });
 			}

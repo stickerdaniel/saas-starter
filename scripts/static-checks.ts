@@ -584,9 +584,9 @@ export async function prettierFormattableFiles(
 	// path made a full-format preflight retain an ignored generated tree at once and roughly
 	// doubled the peak memory of direct Prettier in the reproducer. Keep only as many
 	// classifications active as the host can run in parallel; result slots preserve order.
-	const infos: Array<Awaited<ReturnType<typeof getFileInfo>> | undefined> = new Array(
-		candidates.length
-	);
+	const infos: Array<Awaited<ReturnType<typeof getFileInfo>> | undefined> = Array.from({
+		length: candidates.length
+	});
 	let cursor = 0;
 	await Promise.all(
 		Array.from({ length: Math.min(candidates.length, availableParallelism()) }, async () => {
@@ -706,11 +706,11 @@ class Ledger {
 	/**
 	 * Record a reason this run legitimately had nothing to do.
 	 *
-	 * The zero-work invariant asks whether a check COULD have run over the named files,
-	 * and only a single-check scope can answer that from one check. A `--scope format` run
-	 * over files Prettier does not format is such an answer, and it is the caller's answer
-	 * rather than a hole in the gate. Nothing else may call this: for a lint or types run,
-	 * "no check ran" is still the bug it always was.
+	 * The zero-work invariant asks whether a check COULD have run over the named files. A
+	 * `--scope format` run over files Prettier does not format is the caller's answer rather
+	 * than a hole in the gate. A deletion-only staged change is the other honest zero: no
+	 * deleted bytes exist in the final index to check, while the final-index knowledge scan
+	 * still verifies that removing their paths broke no links. Nothing else may call this.
 	 */
 	noWork(reason: string): void {
 		this.honestNoWork.push(reason);
@@ -1080,6 +1080,7 @@ async function main(): Promise<void> {
 	let inputs: string[] = [];
 	// Staged mode keeps the exact Git paths and the complete starting index state.
 	let stagedIndexPaths: string[] = [];
+	let stagedDeletionOnly = false;
 	let stagedIndexFingerprint: string | undefined;
 	let stagedEnv: NodeJS.ProcessEnv | undefined;
 	if (mode === 'files') {
@@ -1118,6 +1119,7 @@ async function main(): Promise<void> {
 			console.log('No staged files to check');
 			process.exit(0);
 		}
+		stagedDeletionOnly = stagedChanges.every((change) => change.status === 'D');
 		// Keep the original index paths. resolveInputs realpaths symlinks, while
 		// later comparisons must address the paths recorded by Git.
 		stagedIndexPaths = getStagedFiles(REPO_ROOT, stagedEnv);
@@ -1152,8 +1154,11 @@ async function main(): Promise<void> {
 	const ledgerInputs = countFullFormatter ? fullFormatPaths : inputs;
 	const prettierInputs = prettierProjectPaths(ledgerInputs, REPO_ROOT, scopedMode);
 	const formattable = await prettierFormattableFiles(prettierInputs);
-	if (shouldRunLint) assertSafePaths(formattable);
+	assertSafePaths(formattable);
 	const ledger = new Ledger(mode, ledgerInputs, formattable);
+	if (stagedDeletionOnly) {
+		ledger.noWork('staged changes only delete paths absent from the final index');
+	}
 
 	console.log('======================================================');
 	console.log(
