@@ -159,17 +159,14 @@
 			value={filterMode}
 			onValueChange={(v) => onFilterChange(v as 'all' | 'unassigned' | 'my-inbox')}
 		>
-			<!-- Full-width bar, but each trigger hugs its label (flex-none) and the
-			     three are spread evenly, so the active pill wraps only the label
-			     instead of filling a rigid third. -->
-			<Tabs.List class="w-full justify-evenly">
-				<Tabs.Trigger value="my-inbox" class="flex-none"
+			<Tabs.List class="w-full">
+				<Tabs.Trigger value="my-inbox" class="min-w-0 px-1 text-xs"
 					><T keyName="admin.support.filter.my_inbox" /></Tabs.Trigger
 				>
-				<Tabs.Trigger value="all" class="flex-none"
+				<Tabs.Trigger value="all" class="min-w-0 px-1 text-xs"
 					><T keyName="admin.support.filter.all" /></Tabs.Trigger
 				>
-				<Tabs.Trigger value="unassigned" class="flex-none"
+				<Tabs.Trigger value="unassigned" class="min-w-0 px-1 text-xs"
 					><T keyName="admin.support.filter.unassigned" /></Tabs.Trigger
 				>
 			</Tabs.List>
