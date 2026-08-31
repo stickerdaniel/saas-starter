@@ -563,30 +563,38 @@ describe('format-only static checks', () => {
 	);
 
 	it.skipIf(process.platform === 'win32')(
-		'accepts an absolute path through a symlinked checkout alias',
+		'rejects an absolute path through an external checkout alias',
 		() => {
 			const directory = mkdtempSync(path.join(tmpdir(), 'format-checkout-alias-'));
 			const alias = path.join(directory, 'repository');
+			const target = path.join(ROOT, 'scratch', `format-alias-${process.pid}`);
+			mkdirSync(target, { recursive: true });
+			writeFileSync(path.join(target, 'probe.ts'), 'export const value   =1\n');
 			symlinkSync(ROOT, alias, 'dir');
-			const named = path.join(alias, 'README.md');
+			const named = path.join(alias, 'scratch', `format-alias-${process.pid}`, 'probe.ts');
 			try {
+				// Direct Prettier classifies the caller-visible alias outside the repository, so the
+				// root-anchored scratch ignore does not match and the unformatted file is checked.
 				const direct = spawnSync(testExecutable('bun'), ['prettier', '--check', '--', named], {
 					cwd: alias,
 					env: { ...sanitizedGitEnv(), NO_COLOR: '1' },
 					encoding: 'utf8'
 				});
-				expect(direct.status, `${direct.stdout}${direct.stderr}`).toBe(0);
+				expect(direct.status, `${direct.stdout}${direct.stderr}`).toBe(1);
 
+				// A repository-relative ledger cannot preserve that external spelling. Canonicalizing
+				// it to root scratch produced a zero-file success, so the boundary fails closed.
 				const result = spawnSync(testExecutable('bun'), [SCRIPT, '--scope', 'format', named], {
 					cwd: alias,
 					env: { ...sanitizedGitEnv(), NO_COLOR: '1' },
 					encoding: 'utf8'
 				});
 				const output = `${result.stdout}${result.stderr}`;
-				expect(result.status, output).toBe(0);
-				expect(output).toContain('prettier         1 file(s)');
-				expect(output).not.toContain('outside the repository');
+				expect(result.status, output).toBe(1);
+				expect(output).toContain('outside the repository');
+				expect(output).not.toContain('All checks passed');
 			} finally {
+				rmSync(target, { recursive: true, force: true });
 				rmSync(directory, { recursive: true, force: true });
 			}
 		}
@@ -952,6 +960,49 @@ describe('scope routing', () => {
 			}
 		},
 		300_000
+	);
+
+	it.skipIf(process.platform === 'win32')(
+		'rejects a staged file that no active lint check consumes',
+		() => {
+			const checkout = createCheckerClone();
+			const tools = path.join(checkout.directory, 'staged-tools');
+			mkdirSync(tools);
+			for (const command of ['bun', 'misspell']) {
+				const executable = path.join(tools, command);
+				writeFileSync(executable, '#!/bin/sh\nexit 0\n');
+				chmodSync(executable, 0o755);
+			}
+			const file = path.join(checkout.repository, 'src', 'i18n', 'repro.bin');
+			writeFileSync(file, String.fromCharCode(1, 2, 3));
+			const staged = spawnSync('git', ['add', '--', 'src/i18n/repro.bin'], {
+				cwd: checkout.repository,
+				env: sanitizedGitEnv(),
+				encoding: 'utf8'
+			});
+			expect(staged.status, staged.stderr).toBe(0);
+			try {
+				const env = sanitizedGitEnv();
+				env.NO_COLOR = '1';
+				env.PATH = `${tools}${path.delimiter}${env.PATH ?? ''}`;
+				const result = spawnSync(
+					testExecutable('bun'),
+					[
+						path.join(checkout.repository, 'scripts', 'static-checks.ts'),
+						'--staged',
+						'--scope',
+						'lint'
+					],
+					{ cwd: checkout.repository, env, encoding: 'utf8', timeout: 120_000 }
+				);
+				const output = `${result.stdout}${result.stderr}`;
+				expect(result.status, output).toBe(1);
+				expect(output).toContain('No check in the active scope (lint) is responsible');
+			} finally {
+				rmSync(checkout.directory, { recursive: true, force: true });
+			}
+		},
+		180_000
 	);
 
 	// The staged gate ends by proving the checked bytes are still the staged bytes, and

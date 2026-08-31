@@ -433,13 +433,16 @@ export function resolveInputs(
 			(fromInvocation !== '..' &&
 				!fromInvocation.startsWith(`..${path.sep}`) &&
 				!path.isAbsolute(fromInvocation));
-		const absoluteInsideRepository = !isOutside(path.relative(REPO_ROOT, absolute));
 		const named =
 			!path.isAbsolute(arg) || insideInvocation
 				? path.resolve(realpathSync(invocationBase), fromInvocation)
-				: absoluteInsideRepository
-					? absolute
-					: real;
+				: absolute;
+		// An absolute alias outside the physical repository is rejected even when its target
+		// resolves inside. Preserving its spelling would require carrying absolute paths through
+		// a repository-relative ledger, while canonicalizing it changes anchored ignore rules:
+		// direct Prettier checked `alias/scratch/probe.ts`, the wrapper reclassified it as root
+		// `scratch/probe.ts`, and the ignored-path no-op exited 0. Failing closed is the only
+		// honest contract until the ledger can represent external aliases explicitly.
 		const located = followSymbolicLinks ? real : named;
 		const native = path.relative(REPO_ROOT, located);
 		const relative = toPosix(native);
@@ -1461,7 +1464,15 @@ async function main(): Promise<void> {
 			`Scanned ${result.filesEvaluated} knowledge-bearing files${scopeNote}: ` +
 				`${errors} error(s), ${warnings} warning(s)`
 		);
-		ledger.ran('knowledge-placement', result.filesEvaluated);
+		// Staged policy evaluation reads every knowledge candidate in the index so links resolve
+		// against the final committed tree. That project-wide count cannot earn green for an
+		// unrelated named input: a staged binary matched no lint route, while 1,164 Markdown
+		// files made `consumedAnything()` return true. In scoped modes only the named knowledge
+		// candidates count as consumed work; the broader scan remains visible in the log.
+		ledger.ran(
+			'knowledge-placement',
+			scopedMode ? ledger.filesFor('knowledge-placement').length : result.filesEvaluated
+		);
 		if (errors > 0) process.exit(1);
 		console.log('');
 	}
