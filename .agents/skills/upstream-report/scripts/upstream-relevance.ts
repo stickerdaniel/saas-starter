@@ -2155,8 +2155,9 @@ function ensureUpstream(root: string, upstreamUrl: string, allowFetch: boolean):
 		// bounds time rather than received bytes. Global config is off here and the
 		// copied transport config carries neither unpack limit, so Git's built-in
 		// threshold of 100 objects selects the receiver and therefore the residue
-		// form if that receiver starts writing. The skill carries the measurements,
-		// cleanup, and descendant-process lifetime.
+		// form if that receiver starts writing. The fetched tip is persisted without
+		// checking every reachable object for readability. The skill carries that
+		// limitation alongside the measurements, cleanup, and process lifetime.
 		try {
 			rejectTransportCommandOverrides();
 			verifyLocalRemoteSnapshot(transportUrl);

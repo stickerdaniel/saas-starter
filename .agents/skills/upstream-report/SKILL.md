@@ -272,20 +272,25 @@ well as spelling. Ref backing files also pin mode, size, mtime, and ctime. It re
 remote reads, while a retargeted alias stays bound to the location first validated.
 
 Fetch disables automatic maintenance because the private ref namespace does not describe which
-objects the real repository still needs. Fetched objects land in the real object store, so a fork
-that shares no commit with its template takes the full object closure of upstream `main` (not its
-tags, and not branches it never asks for) on the run that first needs it. Measured against a
-384 MiB parent: 152 KiB before, 385 MiB after. Later runs transfer nothing while the advertised
-commit and everything it reaches are already present, because Git decides that from the objects it
-can reach rather than from the private ref namespace. The 30-second deadline bounds time and not
-received bytes, so check free disk space before `--fetch` when the configured parent may be
+objects the real repository still needs. Fetched objects land in the real object store. For a
+complete, readable upstream, a fork that shares no commit with its template takes the full object
+closure of upstream `main` (not its tags, and not branches it never asks for) on the run that first
+needs it. Measured against a 384 MiB parent: 152 KiB before, 385 MiB after. Later runs normally
+transfer nothing while the advertised commit and everything it reaches are present, because Git
+decides that from object presence rather than the private ref namespace. Presence does not prove
+that an object is readable, and a repeated fetch need not repair corruption.
+
+The report checks the fetched tip's object type before persisting its tracking ref; it does not
+validate every reachable object. A shallow or corrupt upstream can therefore leave that ref with
+unreadable history. Use a complete, healthy mirror. The 30-second deadline bounds fetch time and
+not received bytes, so check free disk space before `--fetch` when the configured parent may be
 unusually large.
 
 An interrupted transfer may leave no object-store residue when the receiver has not started
 writing. Once it has, Git's built-in 100-object threshold selects the form: below 100 objects Git
 writes loose files, while at 100 or above `index-pack` writes a partial `tmp_pack_*`. The report
-copies neither `fetch.unpackLimit` nor `transfer.unpackLimit` into its transport config and reads no
-global config, so that threshold holds whatever the caller configured. A 400 MiB transfer below it
+copies neither `fetch.unpackLimit` nor `transfer.unpackLimit` into its transport config. The fetch
+subprocess reads no global config, so that threshold holds whatever the caller configured. A 400 MiB transfer below it
 left 60 MiB of unreachable loose objects after a 30-second interruption. Transfers at or above it
 left 11 MiB and 81 MiB partial packs after 3.5 and 5 seconds against a 287 MiB parent. A check that
 fails after a completed fetch leaves whatever the fork's own refs do not reach. Ordinary `git gc`
