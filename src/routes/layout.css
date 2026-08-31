@@ -672,8 +672,9 @@
 
 /* transitions.dev recipes: the shared motion vocabulary.
    The `t-*` blocks preserve each recipe's motion intent and numeric values from
-   the transitions-dev btca resource. Their DOM hooks and state orchestration
-   are adapted for Svelte, shadcn and the dependency that owns each surface.
+   the recipes Jakub Antalik publishes at https://transitions.dev, which exist to
+   be copied into real products. Their DOM hooks and state orchestration are
+   adapted for Svelte, shadcn and the dependency that owns each surface.
    Intentional system changes include palette tokens instead of literal greys,
    the existing `--motion-*` scale instead of a second generic scale, real chunk
    cadence for streaming text, an interruptible Switch overshoot with shadcn's
