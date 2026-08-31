@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { mergeProps } from 'bits-ui';
 	import { Input } from '$lib/components/ui/input';
 	import * as Tabs from '$lib/components/ui/tabs';
 	import * as Tooltip from '$lib/components/ui/tooltip';
@@ -21,6 +22,8 @@
 	const dateFnsLocale = $derived(getDateFnsLocale(page.data.lang));
 
 	const { t } = getTranslate();
+
+	type FilterMode = 'all' | 'unassigned' | 'my-inbox';
 
 	interface Thread {
 		_id: string;
@@ -66,7 +69,7 @@
 		onThreadSelect,
 		onLoadMore
 	}: {
-		filterMode: 'all' | 'unassigned' | 'my-inbox';
+		filterMode: FilterMode;
 		statusFilter: 'open' | 'done';
 		searchQuery: string;
 		threads?: Thread[];
@@ -75,12 +78,41 @@
 		error?: Error | undefined;
 		isDone?: boolean;
 		cachedCount?: number;
-		onFilterChange: (mode: 'all' | 'unassigned' | 'my-inbox') => void;
+		onFilterChange: (mode: FilterMode) => void;
 		onStatusChange: (status: 'open' | 'done') => void;
 		onSearchChange: (query: string) => void;
 		onThreadSelect: (id: string) => void;
 		onLoadMore: (numItems: number) => boolean;
 	} = $props();
+
+	// Bits UI drops touch pointers in its hover handlers, so the truncated filter
+	// labels are unreachable on a phone. Drive the tooltips from one open mode
+	// instead: hover, focus and outside dismissal keep writing through the
+	// binding, and a tap re-opens the tooltip that the trigger's own click
+	// handler closes.
+	let openLabel = $state<FilterMode | null>(null);
+	let tapPointerType: string | null = null;
+
+	function setLabelOpen(mode: FilterMode, open: boolean) {
+		if (open) {
+			openLabel = mode;
+		} else if (openLabel === mode) {
+			openLabel = null;
+		}
+	}
+
+	function labelTapProps(mode: FilterMode) {
+		return {
+			onpointerdown: (event: PointerEvent) => {
+				tapPointerType = event.pointerType;
+			},
+			onclick: () => {
+				const wasTap = tapPointerType === 'touch';
+				tapPointerType = null;
+				if (wasTap) openLabel = mode;
+			}
+		};
+	}
 
 	// Skeleton count: use cached count or default to 6
 	const skeletonCount = $derived(cachedCount ?? 6);
@@ -156,16 +188,19 @@
 		</div>
 
 		<!-- Filter Tabs -->
-		<Tabs.Root
-			value={filterMode}
-			onValueChange={(v) => onFilterChange(v as 'all' | 'unassigned' | 'my-inbox')}
-		>
+		<Tabs.Root value={filterMode} onValueChange={(v) => onFilterChange(v as FilterMode)}>
 			<Tabs.List class="w-full">
-				<Tooltip.Root delayDuration={400}>
+				<Tooltip.Root
+					delayDuration={400}
+					bind:open={() => openLabel === 'my-inbox', (open) => setLabelOpen('my-inbox', open)}
+				>
 					<Tooltip.Trigger>
 						{#snippet child({ props })}
+							<!-- The tooltip trigger props carry data-slot="tooltip-trigger"; restate the
+								 tabs slot after them so tabs-list.svelte still finds the active trigger. -->
 							<Tabs.Trigger
-								{...props}
+								{...mergeProps(props, labelTapProps('my-inbox'))}
+								data-slot="tabs-trigger"
 								value="my-inbox"
 								class="min-w-0 overflow-hidden px-1 text-xs"
 							>
@@ -175,21 +210,33 @@
 					</Tooltip.Trigger>
 					<Tooltip.Content side="bottom">{$t('admin.support.filter.my_inbox')}</Tooltip.Content>
 				</Tooltip.Root>
-				<Tooltip.Root delayDuration={400}>
+				<Tooltip.Root
+					delayDuration={400}
+					bind:open={() => openLabel === 'all', (open) => setLabelOpen('all', open)}
+				>
 					<Tooltip.Trigger>
 						{#snippet child({ props })}
-							<Tabs.Trigger {...props} value="all" class="min-w-0 overflow-hidden px-1 text-xs">
+							<Tabs.Trigger
+								{...mergeProps(props, labelTapProps('all'))}
+								data-slot="tabs-trigger"
+								value="all"
+								class="min-w-0 overflow-hidden px-1 text-xs"
+							>
 								<span class="min-w-0 truncate"><T keyName="admin.support.filter.all" /></span>
 							</Tabs.Trigger>
 						{/snippet}
 					</Tooltip.Trigger>
 					<Tooltip.Content side="bottom">{$t('admin.support.filter.all')}</Tooltip.Content>
 				</Tooltip.Root>
-				<Tooltip.Root delayDuration={400}>
+				<Tooltip.Root
+					delayDuration={400}
+					bind:open={() => openLabel === 'unassigned', (open) => setLabelOpen('unassigned', open)}
+				>
 					<Tooltip.Trigger>
 						{#snippet child({ props })}
 							<Tabs.Trigger
-								{...props}
+								{...mergeProps(props, labelTapProps('unassigned'))}
+								data-slot="tabs-trigger"
 								value="unassigned"
 								class="min-w-0 overflow-hidden px-1 text-xs"
 							>
