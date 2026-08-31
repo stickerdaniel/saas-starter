@@ -76,12 +76,37 @@ describe('motion class hooks', () => {
  * state, which is why it survived a full review round.
  */
 describe('checkbox tick draw order', () => {
-	const tick = readFileSync(join(root, 'src/lib/components/ui/checkbox/checkbox.svelte'), 'utf8');
+	const checkbox = readFileSync(
+		join(root, 'src/lib/components/ui/checkbox/checkbox.svelte'),
+		'utf8'
+	);
 
 	it('hides the stroke from the end lucide authors last', () => {
-		expect(tick).toMatch(/CheckIcon/);
 		expect(css).toMatch(
 			/\.t-check \.t-check-tick path \{[^}]*stroke-dashoffset:\s*calc\(var\(--check-len[^)]*\)\s*\*\s*-1\)/
 		);
+	});
+
+	// Matching the identifier alone would accept `CircleCheckIcon`, whose extra
+	// circle the dash rule would hold at the hidden offset forever.
+	it('renders the exact icon the offset sign was measured against', () => {
+		expect(checkbox).toMatch(/from '@lucide\/svelte\/icons\/check'/);
+		expect(checkbox).toMatch(/--check-len:23\b/);
+	});
+
+	/**
+	 * The length and the direction are both properties of one path definition, so
+	 * a lucide release that redraws `check` invalidates them together. Read the
+	 * installed icon rather than a copy of it: a hand-written fixture would keep
+	 * agreeing with itself through exactly the bump this needs to catch.
+	 */
+	it('pins the lucide path both values were derived from', () => {
+		const icon = readFileSync(
+			join(root, 'node_modules/@lucide/svelte/dist/icons/check.svelte'),
+			'utf8'
+		);
+		// M20 6 9 17l-5-5: authored from the long arm's tip, length √242 + √50 =
+		// 22.63, so --check-len is 23 and the reveal has to run end to start.
+		expect(icon).toContain('"d": "M20 6 9 17l-5-5"');
 	});
 });
