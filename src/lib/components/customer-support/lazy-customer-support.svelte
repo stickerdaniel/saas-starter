@@ -104,9 +104,7 @@
 			class="relative h-12 w-12 rounded-xl transition-[color,background-color,border-color,transform] duration-200 ease-out hover:scale-105 hover:bg-primary active:not-aria-[haspopup]:translate-y-0 active:scale-[0.97]"
 		>
 			<LauncherIcon />
-			{#if unread.hasUnread}
-				<SupportUnreadIndicator class="absolute -top-1 -right-1" />
-			{/if}
+			<SupportUnreadIndicator count={unread.count} class="absolute -top-1 -right-1" />
 		</Button>
 	</div>
 {/if}

@@ -7,13 +7,16 @@ export function useSupportUnreadState() {
 	const anonymousUserId = $derived(
 		isAnonymousUser(supportUserId.current) ? (supportUserId.current ?? undefined) : undefined
 	);
-	const query = useQuery(api.support.readState.hasUnreadAdminReply, () => ({
+	const query = useQuery(api.support.readState.unreadAdminReplyCount, () => ({
 		anonymousUserId
 	}));
 
 	return {
+		get count(): number {
+			return query.data ?? 0;
+		},
 		get hasUnread(): boolean {
-			return query.data === true;
+			return (query.data ?? 0) > 0;
 		}
 	};
 }
