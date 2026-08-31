@@ -36,19 +36,13 @@ export function deriveOrderedParts(
 	const messageParts = parts ?? [];
 	const isMessageInProgress = status === 'pending' || status === 'streaming';
 	const activeReasoningIndex = getActiveStreamingReasoningIndex(messageParts, isMessageInProgress);
-	// A message may stream text, then a tool, then another text block. Only the
-	// trailing renderable text is live. Marking an earlier block while a tool is
-	// active would remount settled prose as animated content.
-	const lastRenderableIndex = messageParts.findLastIndex(
-		(part) =>
-			part.type === 'reasoning' ||
-			part.type === 'text' ||
-			(typeof part.type === 'string' && part.type.startsWith('tool-') && 'state' in part)
-	);
+	// A message may stream text, then begin another step or tool before the next
+	// text block. Only a text part at the actual tail is live. Looking for the
+	// last renderable part is too broad: `step-start` is intentionally not
+	// rendered, but it still means the preceding prose has settled.
+	const tailIndex = messageParts.length - 1;
 	const activeTextIndex =
-		isMessageInProgress && messageParts[lastRenderableIndex]?.type === 'text'
-			? lastRenderableIndex
-			: -1;
+		isMessageInProgress && messageParts[tailIndex]?.type === 'text' ? tailIndex : -1;
 
 	return messageParts
 		.map((p, idx): OrderedPart | null => {

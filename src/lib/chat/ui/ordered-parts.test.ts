@@ -80,6 +80,15 @@ describe('deriveOrderedParts', () => {
 		});
 	});
 
+	it('does not replay settled text after a new step starts', () => {
+		const result = deriveOrderedParts(
+			[{ type: 'text', text: 'finished first step' }, { type: 'step-start' }] as MessagePart[],
+			'streaming'
+		);
+
+		expect(result[0]).toMatchObject({ kind: 'text', isStreaming: false });
+	});
+
 	it('does not replay settled text while a trailing tool streams', () => {
 		const result = deriveOrderedParts(
 			[
