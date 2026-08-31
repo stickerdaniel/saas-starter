@@ -907,7 +907,9 @@ const GLOB_CLASS_ESCAPES = new Map<string, string>([
 ]);
 
 /**
- * Turn a repository path into the glob pattern that can only match that same path.
+ * For a stable filesystem snapshot, turn a repository path into a glob pattern that can
+ * only match that same path. Synchronized mutations between this check and child launch are
+ * tracked in #875 and require a file-descriptor/stdin formatter path rather than more escaping.
  *
  * `!`, `]`, a literal backslash and a double quote take an extglob rather than a class.
  * `[!]` opens a negated class and the last two cannot appear inside one. `./` is not an
@@ -1121,17 +1123,18 @@ async function main(): Promise<void> {
 
 	const fullRepositoryPaths = mode === 'full' ? repositoryPaths() : [];
 	const fullExistingPaths = existingRepositoryPaths(fullRepositoryPaths);
-	const fullFormatPaths =
-		scope === 'format' && mode === 'full' ? prettierTraversalPaths(REPO_ROOT, true) : [];
+	const countFullFormatter = mode === 'full' && (scope === 'format' || shouldRunLint);
+	const fullFormatPaths = countFullFormatter ? prettierTraversalPaths(REPO_ROOT, true) : [];
 	if (scope !== 'format') assertSafePaths(mode === 'full' ? fullRepositoryPaths : inputs);
 
-	// Every file-scoped run needs the formatter route for the zero-work invariant. A full
-	// format run counts the same filesystem traversal Prettier performs, independent of
-	// local or global Git exclude files that Prettier never reads.
-	const ledgerInputs = scope === 'format' && mode === 'full' ? fullFormatPaths : inputs;
+	// Every file-scoped run needs the formatter route for the zero-work invariant. Every full
+	// run that includes lint counts the same filesystem traversal Prettier performs. Keeping
+	// this on `--scope format` alone left the required `--scope lint` workflow reporting
+	// "whole project" and exiting 0 when `.prettierignore` matched every file.
+	const ledgerInputs = countFullFormatter ? fullFormatPaths : inputs;
 	const prettierInputs = prettierProjectPaths(ledgerInputs, REPO_ROOT, scopedMode);
 	const formattable = await prettierFormattableFiles(prettierInputs);
-	if (scope === 'format') assertSafePaths(formattable);
+	if (shouldRunLint) assertSafePaths(formattable);
 	const ledger = new Ledger(mode, ledgerInputs, formattable);
 
 	console.log('======================================================');
@@ -1314,7 +1317,7 @@ async function main(): Promise<void> {
 			const files = ledger.filesFor('prettier');
 			if (!scopedMode) {
 				await runPrettier(formatFlag);
-				ledger.ran('prettier');
+				ledger.ran('prettier', formattable.length);
 			} else if (files.length > 0) {
 				await runPrettier(formatFlag, files);
 				ledger.ran('prettier', files.length);

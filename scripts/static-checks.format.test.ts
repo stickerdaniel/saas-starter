@@ -1,5 +1,6 @@
 import { spawnSync } from 'child_process';
 import {
+	chmodSync,
 	copyFileSync,
 	lstatSync,
 	mkdirSync,
@@ -881,6 +882,47 @@ describe('scope routing', () => {
 			rmSync(checkout.directory, { recursive: true, force: true });
 		}
 	}, 120_000);
+
+	it.skipIf(process.platform === 'win32')(
+		'rejects a full lint run whose formatter matched zero files',
+		() => {
+			const checkout = createCheckerClone();
+			const tools = path.join(checkout.directory, 'tools');
+			mkdirSync(tools);
+			const misspell = path.join(tools, 'misspell');
+			writeFileSync(misspell, '#!/bin/sh\nexit 0\n');
+			chmodSync(misspell, 0o755);
+			// The invariant under test is the ledger's real in-process Prettier classification.
+			// Child commands are irrelevant after that and would turn one assertion into a full
+			// lint suite, so the PATH-local Bun acknowledges them without doing duplicate work.
+			const childBun = path.join(tools, 'bun');
+			writeFileSync(childBun, '#!/bin/sh\nexit 0\n');
+			chmodSync(childBun, 0o755);
+			writeFileSync(path.join(checkout.repository, '.prettierignore'), '**/*\n');
+			try {
+				const env = sanitizedGitEnv();
+				env.NO_COLOR = '1';
+				env.PATH = `${tools}${path.delimiter}${env.PATH ?? ''}`;
+				const result = spawnSync(
+					testExecutable('bun'),
+					[
+						path.join(checkout.repository, 'scripts', 'static-checks.ts'),
+						'--ci',
+						'--scope',
+						'lint'
+					],
+					{ cwd: checkout.repository, env, encoding: 'utf8', timeout: 240_000 }
+				);
+				const output = `${result.stdout}${result.stderr}`;
+				expect(result.status, output).toBe(1);
+				expect(output).toContain('Full-project run: "prettier" matched 0 files');
+				expect(output).not.toContain('prettier         whole project');
+			} finally {
+				rmSync(checkout.directory, { recursive: true, force: true });
+			}
+		},
+		300_000
+	);
 
 	// The staged gate ends by proving the checked bytes are still the staged bytes, and
 	// that argument belongs to the lint-and-types path. A format scope leaves through its
