@@ -92,6 +92,7 @@
 	// handler closes.
 	let openLabel = $state<FilterMode | null>(null);
 	let tapPointerType: string | null = null;
+	let isPointerDown = false;
 
 	function setLabelOpen(mode: FilterMode, open: boolean) {
 		if (open) {
@@ -105,10 +106,27 @@
 		return {
 			onpointerdown: (event: PointerEvent) => {
 				tapPointerType = event.pointerType;
+				isPointerDown = true;
+			},
+			onpointerup: () => {
+				isPointerDown = false;
+			},
+			// A canceled touch never reaches pointerup, so Bits UI keeps its own
+			// pointer-down flag raised and drops every focus that follows. Clear the
+			// local tap state here and let the focus handler below open the tooltip.
+			onpointercancel: () => {
+				tapPointerType = null;
+				isPointerDown = false;
+			},
+			// Guarded by the pointer state so a press still reveals the tooltip on its
+			// own click instead of flashing it on the focus that precedes the click.
+			onfocus: () => {
+				if (!isPointerDown) openLabel = mode;
 			},
 			onclick: () => {
 				const wasTap = tapPointerType === 'touch';
 				tapPointerType = null;
+				isPointerDown = false;
 				if (wasTap) openLabel = mode;
 			}
 		};
@@ -197,10 +215,14 @@
 					<Tooltip.Trigger>
 						{#snippet child({ props })}
 							<!-- The tooltip trigger props carry data-slot="tooltip-trigger"; restate the
-								 tabs slot after them so tabs-list.svelte still finds the active trigger. -->
+								 tabs slot after them so tabs-list.svelte still finds the active trigger.
+								 They also carry an empty aria-describedby, because Bits UI strips the id
+								 from the rendered tooltip content. Drop the dangling reference and hide
+								 the content: each tab already exposes its full label. -->
 							<Tabs.Trigger
 								{...mergeProps(props, labelTapProps('my-inbox'))}
 								data-slot="tabs-trigger"
+								aria-describedby={undefined}
 								value="my-inbox"
 								class="min-w-0 overflow-hidden px-1 text-xs"
 							>
@@ -208,7 +230,9 @@
 							</Tabs.Trigger>
 						{/snippet}
 					</Tooltip.Trigger>
-					<Tooltip.Content side="bottom">{$t('admin.support.filter.my_inbox')}</Tooltip.Content>
+					<Tooltip.Content side="bottom" aria-hidden="true"
+						>{$t('admin.support.filter.my_inbox')}</Tooltip.Content
+					>
 				</Tooltip.Root>
 				<Tooltip.Root
 					delayDuration={400}
@@ -219,6 +243,7 @@
 							<Tabs.Trigger
 								{...mergeProps(props, labelTapProps('all'))}
 								data-slot="tabs-trigger"
+								aria-describedby={undefined}
 								value="all"
 								class="min-w-0 overflow-hidden px-1 text-xs"
 							>
@@ -226,7 +251,9 @@
 							</Tabs.Trigger>
 						{/snippet}
 					</Tooltip.Trigger>
-					<Tooltip.Content side="bottom">{$t('admin.support.filter.all')}</Tooltip.Content>
+					<Tooltip.Content side="bottom" aria-hidden="true"
+						>{$t('admin.support.filter.all')}</Tooltip.Content
+					>
 				</Tooltip.Root>
 				<Tooltip.Root
 					delayDuration={400}
@@ -237,6 +264,7 @@
 							<Tabs.Trigger
 								{...mergeProps(props, labelTapProps('unassigned'))}
 								data-slot="tabs-trigger"
+								aria-describedby={undefined}
 								value="unassigned"
 								class="min-w-0 overflow-hidden px-1 text-xs"
 							>
@@ -245,7 +273,9 @@
 							</Tabs.Trigger>
 						{/snippet}
 					</Tooltip.Trigger>
-					<Tooltip.Content side="bottom">{$t('admin.support.filter.unassigned')}</Tooltip.Content>
+					<Tooltip.Content side="bottom" aria-hidden="true"
+						>{$t('admin.support.filter.unassigned')}</Tooltip.Content
+					>
 				</Tooltip.Root>
 			</Tabs.List>
 		</Tabs.Root>
