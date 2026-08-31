@@ -327,6 +327,79 @@ describe('Convex compatibility static-check entrypoint', () => {
 	);
 
 	it.skipIf(process.platform === 'win32')(
+		'keeps a Unicode consumer path in the deployed contract',
+		() => {
+			const checkout = createCheckerClone();
+			const env = sanitizedGitEnv();
+			delete env.CI;
+			delete env.CONVEX_COMPAT_BASE;
+			const git = (args: string[]) =>
+				spawnSync('git', args, {
+					cwd: checkout.repository,
+					env,
+					encoding: 'utf8'
+				});
+			const commit = (message: string) =>
+				git([
+					'-c',
+					'user.name=Probe',
+					'-c',
+					'user.email=probe@example.com',
+					'commit',
+					'--quiet',
+					'--no-gpg-sign',
+					'--no-verify',
+					'-m',
+					message
+				]);
+			try {
+				const convexRoot = path.join(checkout.repository, 'src', 'lib', 'convex');
+				const target = path.join(convexRoot, 'compatUnicodeTarget.ts');
+				const route = path.join(checkout.repository, 'src', 'routes', 'überblick');
+				mkdirSync(route, { recursive: true });
+				writeFileSync(
+					target,
+					`import { query } from './_generated/server';
+
+export const viewer = query({ args: {}, handler: async () => null });
+`
+				);
+				writeFileSync(
+					path.join(route, '+page.server.ts'),
+					`import { api } from '$lib/convex/_generated/api';
+
+void api.compatUnicodeTarget.viewer;
+`
+				);
+				expect(git(['add', '--all']).status).toBe(0);
+				expect(commit('Add Unicode consumer').status).toBe(0);
+				const baseline = git(['rev-parse', 'HEAD']).stdout.trim();
+				rmSync(target);
+				expect(git(['add', '--all']).status).toBe(0);
+				expect(commit('Remove referenced function').status).toBe(0);
+
+				const result = spawnSync(
+					BUN,
+					[path.join(checkout.repository, 'scripts', 'convex-consumer-compat.ts')],
+					{
+						cwd: checkout.repository,
+						env: { ...env, CONVEX_COMPAT_BASE: baseline },
+						encoding: 'utf8',
+						timeout: 180_000
+					}
+				);
+				const output = `${result.stdout}${result.stderr}`;
+				expect(result.status, output).toBe(1);
+				expect(output).toContain('compatUnicodeTarget:viewer');
+				expect(output).toContain('src/routes/überblick/+page.server.ts');
+			} finally {
+				rmSync(checkout.directory, { recursive: true, force: true });
+			}
+		},
+		240_000
+	);
+
+	it.skipIf(process.platform === 'win32')(
 		'rejects an unsafe repository path before the compatibility child runs',
 		() => {
 			const checkout = createCheckerClone();

@@ -423,8 +423,8 @@ function isConsumerSource(line: string): boolean {
 }
 
 function consumerReferencesAt(commit: string): ConsumerReferences {
-	const files = git(['ls-tree', '-r', '--name-only', commit, '--', CONSUMER_ROOT])
-		.split('\n')
+	const files = git(['ls-tree', '-r', '-z', '--name-only', commit, '--', CONSUMER_ROOT])
+		.split('\0')
 		.filter(isConsumerSource);
 	const references: Reference[] = [];
 	const namespaces: NamespaceReference[] = [];
