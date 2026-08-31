@@ -89,7 +89,8 @@ export function resolveBarePathLanguage(
  * Block access to dev-only routes in production
  */
 const handleDevOnlyRoutes: Handle = async function handleDevOnlyRoutes({ event, resolve }) {
-	if (!dev && isShadcnDemoRoute(event.url.pathname)) {
+	const isMotionPreview = event.url.searchParams.get('preview') === 'transitions';
+	if (!dev && isShadcnDemoRoute(event.url.pathname) && !isMotionPreview) {
 		return new Response('Not found', { status: 404 });
 	}
 	return resolve(event);
