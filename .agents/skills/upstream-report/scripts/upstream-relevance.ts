@@ -2152,12 +2152,11 @@ function ensureUpstream(root: string, upstreamUrl: string, allowFetch: boolean):
 		console.error(`Fetching upstream (${terminalUrl(upstreamUrl)}) ...`);
 		const expected = advertisedMainAt(transportUrl);
 		// This writes into the caller's own object store, and the deadline below
-		// bounds time rather than received bytes. A fork sharing no commit with its
-		// template therefore takes the full closure of upstream `main` on the run
-		// that first needs it. Aborting mid-transfer leaves `index-pack`'s partial
-		// `tmp_pack_*` behind, measured at 11 MiB and 81 MiB for 3.5 and 5 second
-		// deadlines against a 287 MiB parent. The skill carries the size and cleanup
-		// guidance a caller needs.
+		// bounds time rather than received bytes. Global config is off here and the
+		// copied transport config carries neither unpack limit, so Git's built-in
+		// threshold of 100 objects decides what an interrupted transfer leaves
+		// behind whatever the caller configured. The skill carries the sizes, the
+		// cleanup, and the transport processes that outlive the deadline.
 		try {
 			rejectTransportCommandOverrides();
 			verifyLocalRemoteSnapshot(transportUrl);
