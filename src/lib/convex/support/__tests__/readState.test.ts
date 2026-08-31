@@ -6,7 +6,7 @@ vi.mock('../ownership', () => ({
 }));
 
 import { getSupportOwnerIdentity, requireSupportThreadRecord } from '../ownership';
-import { hasUnreadAdminReply, markThreadRead } from '../readState';
+import { hasUnreadAdminReply, markThreadRead, unreadAdminReplyCount } from '../readState';
 
 const getOwnerMock = getSupportOwnerIdentity as unknown as ReturnType<typeof vi.fn>;
 const requireThreadMock = requireSupportThreadRecord as unknown as ReturnType<typeof vi.fn>;
@@ -14,6 +14,7 @@ const requireThreadMock = requireSupportThreadRecord as unknown as ReturnType<ty
 type Fn<A, R> = { _handler: (ctx: unknown, args: A) => Promise<R> };
 
 const unreadHandler = hasUnreadAdminReply as unknown as Fn<{ anonymousUserId?: string }, boolean>;
+const countHandler = unreadAdminReplyCount as unknown as Fn<{ anonymousUserId?: string }, number>;
 const markReadHandler = markThreadRead as unknown as Fn<
 	{ threadId: string; anonymousUserId?: string; readThroughMessageId: string },
 	null
@@ -54,6 +55,27 @@ describe('support human-reply read state', () => {
 		expect(withIndex).toHaveBeenCalledWith('by_user_and_unread_admin_reply', expect.any(Function));
 	});
 
+	it('sums unread messages and treats a legacy unread thread as one', async () => {
+		getOwnerMock.mockResolvedValue({ ownerId: 'anon_owner', isAnonymous: true });
+		const take = vi
+			.fn()
+			.mockResolvedValue([{ _id: 'support_1', unreadAdminReplyCount: 3 }, { _id: 'support_2' }]);
+		const withIndex = vi.fn().mockReturnValue({ take });
+		const ctx = { db: { query: vi.fn(() => ({ withIndex })) } };
+
+		await expect(countHandler._handler(ctx, { anonymousUserId: 'anon_owner' })).resolves.toBe(4);
+		expect(take).toHaveBeenCalledWith(10);
+	});
+
+	it('caps one busy thread at the largest distinct badge value', async () => {
+		getOwnerMock.mockResolvedValue({ ownerId: 'anon_owner', isAnonymous: true });
+		const take = vi.fn().mockResolvedValue([{ _id: 'support_1', unreadAdminReplyCount: 14 }]);
+		const withIndex = vi.fn().mockReturnValue({ take });
+		const ctx = { db: { query: vi.fn(() => ({ withIndex })) } };
+
+		await expect(countHandler._handler(ctx, { anonymousUserId: 'anon_owner' })).resolves.toBe(10);
+	});
+
 	it('records the read timestamp without reordering the thread', async () => {
 		vi.useFakeTimers();
 		vi.setSystemTime(new Date('2026-08-09T12:00:00Z'));
@@ -79,7 +101,8 @@ describe('support human-reply read state', () => {
 		});
 		expect(ctx.db.patch).toHaveBeenCalledWith('support_1', {
 			userReadAt: Date.now(),
-			hasUnreadAdminReply: false
+			hasUnreadAdminReply: false,
+			unreadAdminReplyCount: 0
 		});
 		expect(ctx.db.patch.mock.calls[0][1]).not.toHaveProperty('updatedAt');
 	});

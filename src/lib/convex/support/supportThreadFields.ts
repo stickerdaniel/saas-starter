@@ -38,6 +38,10 @@ export const supportThreadFields = {
 	lastAdminReplyMessageId: v.optional(v.string()),
 	userReadAt: v.optional(v.number()),
 	hasUnreadAdminReply: v.optional(v.boolean()),
+	/** Number of admin messages after the user's last read receipt. Optional
+	 * during the Boolean-to-count compatibility window; an unread legacy thread
+	 * without the field represents one unread message. */
+	unreadAdminReplyCount: v.optional(v.number()),
 
 	// Email notification settings
 	notificationEmail: v.optional(v.string()), // Email to notify on admin response

@@ -13,11 +13,12 @@
 	let {
 		count = 0,
 		inline = false,
+		openDelayMs = 0,
 		class: className,
 		...restProps
 	}: HTMLAttributes<HTMLSpanElement> & {
 		/**
-		 * Unread conversations. Zero closes the badge. Omit on a per-conversation
+		 * Unread admin messages. Zero closes the badge. Omit on a per-conversation
 		 * indicator, where a count would be meaningless and the dot stays blank.
 		 */
 		count?: number;
@@ -26,6 +27,8 @@
 		 * lays the indicator out in normal flow.
 		 */
 		inline?: boolean;
+		/** Hold the opening leg so another surface can finish closing first. */
+		openDelayMs?: number;
 	} = $props();
 
 	const open = $derived(count > 0);
@@ -42,7 +45,13 @@
 </script>
 
 {#snippet badge(badgeClass: ClassValue)}
-	<span class={cn('t-badge', badgeClass)} data-open={open} aria-hidden="true" {...restProps}>
+	<span
+		class={cn('t-badge', badgeClass)}
+		data-open={open}
+		aria-hidden="true"
+		style:--badge-open-delay={`${openDelayMs}ms`}
+		{...restProps}
+	>
 		<span
 			class={cn(
 				't-badge-dot grid place-items-center rounded-full bg-destructive text-white',

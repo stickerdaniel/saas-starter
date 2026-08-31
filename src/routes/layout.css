@@ -758,7 +758,8 @@
 	pointer-events: none;
 }
 .t-badge[data-open='true'] {
-	animation: t-badge-slide-in var(--badge-slide-dur) var(--badge-slide-ease);
+	animation: t-badge-slide-in var(--badge-slide-dur) var(--badge-slide-ease) backwards;
+	animation-delay: var(--badge-open-delay, 0ms);
 }
 .t-badge-dot {
 	/* No `display` here: the rule is unlayered and would beat the caller's
@@ -772,6 +773,7 @@
 		transform var(--badge-pop-dur) var(--badge-pop-ease),
 		opacity var(--badge-fade-dur) var(--badge-pop-ease),
 		filter var(--badge-pop-dur) var(--badge-pop-ease);
+	transition-delay: var(--badge-open-delay, 0ms);
 }
 .t-badge[data-open='false'] .t-badge-dot {
 	transform: scale(0);
@@ -781,6 +783,7 @@
 		transform var(--badge-pop-close-dur) var(--badge-close-ease),
 		opacity var(--badge-fade-close-dur) var(--badge-close-ease),
 		filter var(--badge-pop-close-dur) var(--badge-close-ease);
+	transition-delay: 0ms;
 }
 
 /* Icon swap: both icons stay mounted in one grid cell and cross-fade. */

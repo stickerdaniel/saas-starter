@@ -34,16 +34,13 @@ export const hasUnreadAdminReply = query({
 });
 
 /**
- * How many of the owner's conversations hold an unread human reply.
+ * How many unread human messages the current support owner has.
  *
- * Counts conversations, not replies: only the latest admin reply is retained
- * per thread (`lastAdminReplyMessageId`), so several replies before the owner
- * looks collapse into one flag and a message-level count cannot be recovered
- * from what is stored.
- *
- * Capped at `UNREAD_COUNT_CAP` so the scan stays bounded; the badge renders
- * anything at the cap as "9+", which is why the cap is one above what it can
- * show.
+ * The existing Boolean index finds only unread threads. Each thread contributes
+ * its numeric count; a legacy unread thread without the field contributes one.
+ * Reading at most ten threads stays sufficient: ten unread threads already put
+ * the badge at its cap, while fewer threads are all needed to produce an exact
+ * total below the cap.
  */
 export const unreadAdminReplyCount = query({
 	args: { anonymousUserId: v.optional(v.string()) },
@@ -59,7 +56,10 @@ export const unreadAdminReplyCount = query({
 			)
 			.take(UNREAD_COUNT_CAP);
 
-		return unreadThreads.length;
+		return unreadThreads.reduce((total, thread) => {
+			const threadCount = Math.max(1, thread.unreadAdminReplyCount ?? 1);
+			return Math.min(UNREAD_COUNT_CAP, total + threadCount);
+		}, 0);
 	}
 });
 
@@ -88,7 +88,8 @@ export const markThreadRead = mutation({
 		// Reading is not thread activity, so it must not reorder either inbox.
 		await ctx.db.patch(supportThread._id, {
 			userReadAt: Date.now(),
-			hasUnreadAdminReply: false
+			hasUnreadAdminReply: false,
+			unreadAdminReplyCount: 0
 		});
 		return null;
 	}

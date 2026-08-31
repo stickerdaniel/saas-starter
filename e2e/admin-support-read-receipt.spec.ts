@@ -46,7 +46,7 @@ test('shows an unread support reply and reports when the customer opens it', asy
 		await userPage.goto('/');
 
 		const launcher = userPage.getByRole('button', {
-			name: 'Open feedback, 1 unread support conversation'
+			name: 'Open feedback, 1 unread support message'
 		});
 		await expect(launcher).toBeVisible();
 		await expect(launcher.getByTestId('support-unread-indicator')).toBeVisible();

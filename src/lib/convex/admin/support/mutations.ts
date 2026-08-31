@@ -246,13 +246,20 @@ export const sendAdminReply = adminMutation({
 			supportThread.notificationSentAt
 		);
 
+		// A legacy unread thread has one known unread reply even though it predates
+		// the numeric field. Convex OCC retries concurrent admin replies against
+		// fresh state, so each committed reply increments exactly once.
+		const unreadAdminReplyCount = supportThread.hasUnreadAdminReply
+			? (supportThread.unreadAdminReplyCount ?? 1) + 1
+			: 1;
+
 		// Update thread: response status, assignment, and notification timestamp
-		// Convex OCC ensures concurrent mutations retry with fresh data, preventing duplicate emails
 		await ctx.db.patch(supportThread._id, {
 			awaitingAdminResponse: false, // Admin has responded, user is no longer waiting
 			lastAdminReplyAt: replyTimestamp,
 			lastAdminReplyMessageId: result.messageId,
 			hasUnreadAdminReply: true,
+			unreadAdminReplyCount,
 			updatedAt: replyTimestamp,
 			...(shouldAutoAssign && { assignedTo: ctx.user._id }),
 			...(shouldNotify && { notificationSentAt: replyTimestamp })

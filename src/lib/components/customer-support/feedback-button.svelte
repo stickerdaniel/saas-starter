@@ -70,6 +70,7 @@
 			     `{#if}` would skip by removing the element first. -->
 			<SupportUnreadIndicator
 				count={isFeedbackOpen ? 0 : unread.count}
+				openDelayMs={260}
 				class="absolute -top-1 -right-1"
 			/>
 		</Button>
