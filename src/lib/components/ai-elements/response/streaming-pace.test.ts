@@ -108,27 +108,39 @@ describe('planStreamingBatch', () => {
  */
 describe('svelte-streamdown animation contract', () => {
 	const root = join(import.meta.dirname, '../../../../..');
-	const read = (path: string) => readFileSync(join(root, path), 'utf8');
-
-	const SELECTOR_SUBSTRING = 'animation-name: sd-';
+	const read = (path: string) =>
+		readFileSync(join(root, `node_modules/svelte-streamdown/dist/${path}`), 'utf8');
 
 	it('writes the animation name as an inline style', () => {
-		const context = read('node_modules/svelte-streamdown/dist/context.svelte.js');
-
-		expect(context).toContain(`\`${SELECTOR_SUBSTRING}\${this.animation.type};`);
+		expect(read('context.svelte.js')).toMatch(/animation-name:\s*sd-\$\{this\.animation\.type\}/);
 	});
 
 	it('puts that style on the per-word span', () => {
-		const animatedText = read('node_modules/svelte-streamdown/dist/AnimatedText.svelte');
+		expect(read('AnimatedText.svelte')).toMatch(
+			/<span\s+style=\{streamdown\.animationTextStyle\}\s*>/
+		);
+	});
 
-		expect(animatedText).toContain('<span style={streamdown.animationTextStyle}>');
+	/**
+	 * Without this, a release that stops rendering AnimatedText while leaving the
+	 * component and its style getter in the package passes both checks above, and
+	 * no paced span ever reaches the scheduler.
+	 */
+	it('renders that span for live text', () => {
+		const block = read('Block.svelte');
+
+		expect(block).toMatch(/streamdown\.animation\.enabled/);
+		expect(block).toMatch(/<AnimatedText\s/);
 	});
 
 	// Both consumers match the same substring, and both stop working together.
 	it('is the substring both consumers select on', () => {
-		expect(read('src/lib/components/ai-elements/response/streaming-pace.svelte.ts')).toContain(
-			`span[style*="${SELECTOR_SUBSTRING}"]`
+		const substring = 'animation-name: sd-';
+		const appRoot = (path: string) => readFileSync(join(root, path), 'utf8');
+
+		expect(appRoot('src/lib/components/ai-elements/response/streaming-pace.svelte.ts')).toContain(
+			`span[style*="${substring}"]`
 		);
-		expect(read('src/routes/layout.css')).toContain(`span[style*='${SELECTOR_SUBSTRING}']`);
+		expect(appRoot('src/routes/layout.css')).toContain(`span[style*='${substring}']`);
 	});
 });
