@@ -33,6 +33,12 @@ function componentFiles(dir: string, out: string[] = []): string[] {
  * `application/octet-stream`, `t-switch` inside `t-switch-thumb`). So: comments
  * are stripped, dotted selector forms are dropped, `.ts` files are left out
  * entirely, and the rest is compared as whole class tokens.
+ *
+ * What this still cannot see: whether a hook sits where its rule expects it.
+ * Moving `t-badge-dot` onto the same element as `t-badge` keeps every assertion
+ * green while `.t-badge[data-open='false'] .t-badge-dot` stops matching. Proving
+ * that needs a rendered tree, and this suite's jsdom project resolves Svelte's
+ * server build and cannot mount a component.
  */
 function renderedClassTokens(source: string): string[] {
 	const withoutComments = source

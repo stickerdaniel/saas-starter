@@ -81,7 +81,10 @@
 		</Card.Content>
 	</Card.Root>
 
-	<Card.Root class="mb-8">
+	<!-- lang="en" like the harness card above it: the labels here are the
+	     component names, there are no translation keys behind them, and the
+	     route inherits the requested locale. -->
+	<Card.Root class="mb-8" lang="en">
 		<Card.Header>
 			<Card.Title>Controls</Card.Title>
 			<Card.Description>

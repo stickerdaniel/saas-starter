@@ -670,14 +670,14 @@
 	}
 }
 
-/* transitions.dev recipes — shared motion vocabulary.
+/* transitions.dev recipes: the shared motion vocabulary.
    Each `t-*` block below is the upstream snippet from the transitions-dev
    skill (btca resource `transitionsDev`, skills/transitions-dev/*.md), kept
    selector-for-selector so it stays diffable against the source. Two
    deliberate departures: the recipes' literal greys are replaced with palette
    tokens so both themes follow the design system, and the recipes' generic
    `--duration-*`/`--ease-*` scale is not imported because this file already
-   owns one (`--motion-*` above). The rules stay outside `@layer` on purpose —
+   owns one (`--motion-*` above). The rules stay outside `@layer` on purpose:
    a Tailwind utility must not win against an opacity or transform that a
    transition is part-way through animating. */
 :root {
@@ -712,7 +712,6 @@
 	--shimmer-band: 400%;
 	--shimmer-ease: linear;
 	/* Thinking states */
-	--think-hold: 2000ms;
 	--think-swap: 150ms;
 	--think-gap: 50ms;
 	--think-distance: 8px;
@@ -742,7 +741,7 @@
 	--check-ease: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-/* Notification badge — slide the badge onto its trigger and pop the dot,
+/* Notification badge: slide the badge onto its trigger and pop the dot,
    without the trigger itself moving. */
 @keyframes t-badge-slide-in {
 	from {
@@ -756,7 +755,6 @@
 .t-badge {
 	position: absolute;
 	pointer-events: none;
-	will-change: transform;
 }
 .t-badge[data-open='true'] {
 	animation: t-badge-slide-in var(--badge-slide-dur) var(--badge-slide-ease);
@@ -773,7 +771,6 @@
 		transform var(--badge-pop-dur) var(--badge-pop-ease),
 		opacity var(--badge-fade-dur) var(--badge-pop-ease),
 		filter var(--badge-pop-dur) var(--badge-pop-ease);
-	will-change: transform, opacity, filter;
 }
 .t-badge[data-open='false'] .t-badge-dot {
 	transform: scale(0);
@@ -785,7 +782,7 @@
 		filter var(--badge-pop-close-dur) var(--badge-close-ease);
 }
 
-/* Icon swap — both icons stay mounted in one grid cell and cross-fade. */
+/* Icon swap: both icons stay mounted in one grid cell and cross-fade. */
 .t-icon-swap {
 	position: relative;
 	display: inline-grid;
@@ -796,7 +793,6 @@
 		opacity var(--icon-swap-dur) var(--icon-swap-ease),
 		filter var(--icon-swap-dur) var(--icon-swap-ease),
 		transform var(--icon-swap-dur) var(--icon-swap-ease);
-	will-change: opacity, filter, transform;
 }
 .t-icon-swap[data-state='a'] .t-icon[data-icon='a'],
 .t-icon-swap[data-state='b'] .t-icon[data-icon='b'] {
@@ -811,7 +807,7 @@
 	transform: scale(var(--icon-swap-start-scale));
 }
 
-/* Avatar group hover — distance-falloff lift. The timing function is written
+/* Avatar group hover, a distance-falloff lift. The timing function is written
    inline by the driving code before the variable writes, which is what gives
    the return leg its bouncy ease without a second transition declaration. */
 .t-avatar {
@@ -819,10 +815,9 @@
 	/* translateY before scale so scale does not amplify the lift offset. */
 	transform: translateY(var(--shift, 0px)) scale(var(--scale-active, 1));
 	transition: transform var(--avatar-dur) var(--avatar-ease-in);
-	will-change: transform;
 }
 
-/* Shimmer text — the ::before layer duplicates the string through
+/* Shimmer text: the ::before layer duplicates the string through
    `content: attr(data-text)` and clips a moving gradient to the glyphs. */
 .t-shimmer {
 	position: relative;
@@ -859,7 +854,7 @@
 	}
 }
 
-/* Thinking states — shimmer a status line while it holds, then swap it for
+/* Thinking states: shimmer a status line while it holds, then swap it for
    the next: the outgoing copy exits upward through a blur while the incoming
    copy rises from below, both over a box the hidden sizer keeps steady. */
 .t-think {
@@ -886,7 +881,6 @@
 		transform var(--think-swap) var(--think-ease),
 		filter var(--think-swap) var(--think-ease),
 		opacity var(--think-swap) var(--think-ease);
-	will-change: transform, filter, opacity;
 }
 .t-think-text::before {
 	content: attr(data-text);
@@ -934,7 +928,7 @@
 	opacity: 0;
 }
 
-/* Streaming text — each streamed word resolves through a soft cross-blur
+/* Streaming text: each streamed word resolves through a soft cross-blur
    rather than being typed.
 
    svelte-streamdown already wraps every word in its own span and animates it,
@@ -942,7 +936,7 @@
    second one: its 5px/500ms/ease-in entrance becomes the recipe's 1px over
    `--stream-fade`. The library writes the animation as an inline style and
    types `timingFunction` as a keyword union, so the recipe's cubic-bezier
-   cannot be passed as a prop — `!important` is what outranks a non-important
+   cannot be passed as a prop, and `!important` is what outranks a non-important
    inline declaration. The recipe's `--stream-gap` has no counterpart here on
    purpose: the cadence is the stream's own, set by the server's line chunking
    and 100ms throttle, not by a fixed per-word delay. */
@@ -962,7 +956,7 @@
 	animation-timing-function: var(--stream-ease) !important;
 }
 
-/* Learn more hover — the chevron slides along the reading direction while its
+/* Learn more hover: the chevron slides along the reading direction while its
    two arms spread apart into an arrow. */
 .t-learn-chevron {
 	transform: translateX(0);
@@ -987,7 +981,7 @@
 .t-learn:hover .t-learn-arm-bot {
 	transform: rotate(calc(var(--learn-spread) * -1));
 }
-/* Checkbox check — the box fills, then the tick draws itself. `--check-len`
+/* Checkbox check: the box fills, then the tick draws itself. `--check-len`
    is the path's own getTotalLength() rounded up, so the stroke neither
    pre-reveals nor over-draws. */
 .t-check {
@@ -1027,6 +1021,16 @@
 		transform: none !important;
 		filter: none !important;
 	}
+	/* The entrance parks the incoming label at zero opacity and the exit ends
+	   there, so killing only the transitions left the line blank for the length
+	   of the gap and then blinked the new label in. With no motion to run, the
+	   incoming label is simply there and the outgoing one is simply gone. */
+	.t-think-text.is-enter-start {
+		opacity: 1 !important;
+	}
+	.t-think-text.is-exit {
+		display: none !important;
+	}
 	.t-think-text::before {
 		display: none !important;
 	}
@@ -1045,64 +1049,21 @@
 	}
 }
 
-/* Toggle — the switch thumb travels with an overshoot-and-settle instead of a
-   flat tween. The resting positions stay with the Tailwind utilities on the
-   thumb itself; these keyframes only overlay the trip between them, so
-   `--switch-travel` has to restate whatever those utilities resolve to (per
-   writing direction) or the thumb would land where the static rule disagrees.
-   `.is-init` is added on the first real state change: a switch that mounts
-   unchecked already matches the "off" keyframes, so without the gate every
-   switch on the page would play its return bounce once on first paint. */
+/* Toggle: the thumb overshoots its rest position and settles back. Written as
+   a transition and not as keyframes: keyframes restart from their own first
+   frame, so reversing a switch mid-travel snapped the thumb to the far end
+   before animating back. The overshoot lives in the easing curve instead, which
+   interpolates from wherever the thumb currently is. `--toggle-ease` overshoots
+   by construction, so no keyframe is needed to produce the bounce. */
 .t-switch-thumb {
-	--switch-travel: calc(100% - 2px);
-	--switch-ov1: 1px;
-	--switch-ov2: 0px;
-}
-:where([dir='rtl']) .t-switch-thumb {
-	--switch-travel: calc(-100%);
-	--switch-ov1: -1px;
-}
-.t-switch.is-init .t-switch-thumb[data-state='checked'] {
-	animation: t-switch-thumb-on var(--toggle-dur) var(--toggle-ease) both;
-}
-.t-switch.is-init .t-switch-thumb[data-state='unchecked'] {
-	animation: t-switch-thumb-off var(--toggle-dur) var(--toggle-ease) both;
-}
-@keyframes t-switch-thumb-on {
-	0% {
-		translate: 0 0;
-	}
-	55% {
-		translate: calc(var(--switch-travel) + var(--switch-ov1)) 0;
-	}
-	80% {
-		translate: calc(var(--switch-travel) - var(--switch-ov2)) 0;
-	}
-	100% {
-		translate: var(--switch-travel) 0;
-	}
-}
-@keyframes t-switch-thumb-off {
-	0% {
-		translate: var(--switch-travel) 0;
-	}
-	55% {
-		translate: calc(0px - var(--switch-ov1)) 0;
-	}
-	80% {
-		translate: var(--switch-ov2) 0;
-	}
-	100% {
-		translate: 0 0;
-	}
+	transition: translate var(--toggle-dur) var(--toggle-ease);
 }
 
 @media (prefers-reduced-motion: reduce) {
 	.t-switch-thumb {
-		animation: none !important;
-		/* The thumb also carries `transition-transform`, which covers the
-		   individual `translate` property the checked utilities set, so killing
-		   the keyframes alone still left it sliding the length of the track. */
+		/* The thumb also carries Tailwind's `transition-transform`, which covers
+		   the individual `translate` property the checked utilities set, so the
+		   rule above is not the only one that has to go. */
 		transition: none !important;
 	}
 }

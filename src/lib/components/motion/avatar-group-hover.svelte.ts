@@ -51,6 +51,13 @@ export function avatarGroupHover(node: HTMLElement) {
 		for (const item of items) item.addEventListener('mouseenter', enter);
 	}
 
+	// A tap emits `mouseenter` and never the matching `mouseleave`, so on a touch
+	// screen an accidental brush left the row lifted for good. The lift is
+	// decoration with no state behind it, so a device that cannot hover simply
+	// does not get it.
+	const hoverCapable = window.matchMedia('(hover: hover) and (pointer: fine)');
+	if (!hoverCapable.matches) return {};
+
 	bind();
 	node.addEventListener('mouseleave', leave);
 	// The row is built from a query result, so items arriving later (an async

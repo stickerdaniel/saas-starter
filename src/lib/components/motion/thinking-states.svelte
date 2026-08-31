@@ -95,13 +95,19 @@
 	}
 </script>
 
-<!-- The visual stack is hidden from assistive technology and the status is
-     announced from a separate node holding only the current label. Two reasons,
-     both measured: during a swap the outgoing and incoming copies are both in
-     the DOM, so a live region spanning them announced "Connecting Thinking"; and
-     the shimmer paints through a `::before` that repeats `data-text` as
-     generated content, which Chromium exposes, so each label read twice. -->
-<span class="sr-only" role="status" aria-live="polite">{text}</span>
+<!-- The visual stack is hidden from assistive technology and the label is
+     carried by a separate node holding only the current text. Two reasons, both
+     measured: during a swap the outgoing and incoming copies are both in the
+     DOM, so a region spanning them read "Connecting Thinking"; and the shimmer
+     paints through a `::before` that repeats `data-text` as generated content,
+     which Chromium exposes, so each label read twice.
+
+     `aria-live` and deliberately no `role="status"`. The status line is the
+     whole content of its consumer's accordion trigger, and a `status` child
+     does not contribute to name-from-content: measured in Chromium, the same
+     button reads "Thought for 4 seconds" with the plain live node and is
+     unnamed with the status role. -->
+<span class="sr-only" aria-live="polite">{text}</span>
 <span class={cn('t-think', className)} data-shimmer={shimmer ? 'true' : 'false'} aria-hidden="true">
 	<span class="t-think-sizer">{sizer ?? text}</span>
 	{#each lines as line (line.id)}

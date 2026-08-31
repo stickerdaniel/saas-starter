@@ -11,16 +11,6 @@
 	}: WithoutChildrenOrChild<SwitchPrimitive.RootProps> & {
 		size?: 'sm' | 'default';
 	} = $props();
-
-	// The thumb's overshoot keyframes are gated behind `is-init` (see the
-	// `.t-switch-thumb` rules in layout.css). A switch that mounts unchecked
-	// already matches the "off" keyframes, so without the gate every switch on
-	// the page would play its return bounce once on first paint.
-	const mountedChecked = checked;
-	let hasToggled = $state(false);
-	$effect(() => {
-		if (checked !== mountedChecked) hasToggled = true;
-	});
 </script>
 
 <SwitchPrimitive.Root
@@ -30,7 +20,6 @@
 	data-size={size}
 	class={cn(
 		't-switch shrink-0 rounded-full border border-transparent shadow-xs focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 data-[size=default]:h-[18.4px] data-[size=default]:w-[32px] data-[size=sm]:h-[14px] data-[size=sm]:w-[24px] dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 data-checked:bg-primary data-unchecked:bg-input dark:data-unchecked:bg-input/80 peer group/switch relative inline-flex items-center transition-all outline-none after:absolute after:-inset-x-3 after:-inset-y-2 data-disabled:cursor-not-allowed data-disabled:opacity-50',
-		hasToggled && 'is-init',
 		className
 	)}
 	{...restProps}
