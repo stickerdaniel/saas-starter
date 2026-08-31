@@ -123,8 +123,9 @@ describe('Convex compatibility static-check entrypoint', () => {
 			expect(invocation.options.env?.GIT_DIR).toBeUndefined();
 			expect(invocation.options.env?.GIT_WORK_TREE).toBeUndefined();
 			expect(invocation.options.env?.GIT_ATTR_SOURCE).toBeUndefined();
-			// Configuration is not blanked here. The child needs it for the baseline fetch and
-			// isolates every verdict-deciding read for itself; a blank path cannot be undone.
+			// Configuration is not blanked here. The child needs it for the explicit baseline
+			// fetch and isolates verdict reads from external configuration for itself; a blank
+			// path cannot be undone. Repository-local materialization remains tracked in #863.
 			expect(invocation.options.env?.GIT_CONFIG_GLOBAL).toBe(overrides.GIT_CONFIG_GLOBAL);
 			expect(invocation.options.env?.GIT_CONFIG_NOSYSTEM).toBeUndefined();
 			expect(invocation.options.env?.CI).toBe('true');
@@ -221,7 +222,7 @@ describe('Convex compatibility static-check entrypoint', () => {
 	}, 30_000);
 
 	it.skipIf(process.platform === 'win32')(
-		'protects the direct checker from local ancestry and checkout configuration',
+		'protects the direct checker from rewritten ancestry and external checkout configuration',
 		() => {
 			const checkout = createCheckerClone();
 			const env = sanitizedGitEnv();
@@ -366,10 +367,24 @@ describe('Convex compatibility static-check entrypoint', () => {
 	});
 
 	// The fixture above lives in the temporary directory, and session artifacts still land in
-	// `scratch/`. Vitest walking those would collect a stale copy of this very file.
+	// `scratch/`. Ask Vitest rather than searching configuration text: the string can survive
+	// in a comment after the effective exclusion is removed.
 	it('keeps session scratch out of Vitest discovery', () => {
-		const config = readFileSync(path.join(ROOT, 'vite.config.ts'), 'utf8');
-		expect(config).toContain("'scratch/**'");
+		const directory = path.join(ROOT, 'scratch', `compat-discovery-${process.pid}`);
+		const relative = `scratch/compat-discovery-${process.pid}/sentinel.test.ts`;
+		mkdirSync(directory, { recursive: true });
+		try {
+			writeFileSync(path.join(ROOT, relative), "throw new Error('collected scratch sentinel');\n");
+			const result = spawnSync(BUN, ['vitest', 'list', '--filesOnly'], {
+				cwd: ROOT,
+				env: sanitizedGitEnv(),
+				encoding: 'utf8'
+			});
+			expect(result.status, `${result.stdout}${result.stderr}`).toBe(0);
+			expect(`${result.stdout}${result.stderr}`).not.toContain('sentinel.test.ts');
+		} finally {
+			rmSync(directory, { recursive: true, force: true });
+		}
 	});
 
 	it('owns the package alias', () => {

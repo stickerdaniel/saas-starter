@@ -81,12 +81,13 @@ function git(
 }
 
 /**
- * The one call that has to reach the network, and so the one that cannot run under the
- * isolated environment. Emptying the global and system config also empties `url.*.insteadOf`,
- * the credential helpers and the proxy and CA settings, and a fetch that fails for want of
- * them falls back to the trunk: measured, a baseline reachable only through an insteadOf
- * rule went unfetched and the check certified the trunk instead. Every reader that decides
- * the verdict stays isolated; this one only has to bring objects in.
+ * The explicit baseline fetch is the transport-requiring call that can safely run outside
+ * the isolated environment: it brings objects in and decides no verdict itself. Emptying
+ * global and system config also empties `url.*.insteadOf`, credential helpers, proxies and
+ * CA settings; measured, a baseline reachable only through an insteadOf rule went unfetched
+ * and the check certified the trunk instead. A partial clone can also lazy-fetch during
+ * isolated verdict reads; that path fails closed when it needs external transport config and
+ * remains part of the materialization boundary tracked in #863.
  */
 function gitFetch(args: string[]): string {
 	return git(args, process.cwd(), undefined, sanitizedGitEnv());
