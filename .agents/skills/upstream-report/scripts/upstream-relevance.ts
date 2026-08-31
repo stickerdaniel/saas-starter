@@ -2154,9 +2154,9 @@ function ensureUpstream(root: string, upstreamUrl: string, allowFetch: boolean):
 		// This writes into the caller's own object store, and the deadline below
 		// bounds time rather than received bytes. Global config is off here and the
 		// copied transport config carries neither unpack limit, so Git's built-in
-		// threshold of 100 objects decides what an interrupted transfer leaves
-		// behind whatever the caller configured. The skill carries the sizes, the
-		// cleanup, and the transport processes that outlive the deadline.
+		// threshold of 100 objects selects the receiver and therefore the residue
+		// form if that receiver starts writing. The skill carries the measurements,
+		// cleanup, and descendant-process lifetime.
 		try {
 			rejectTransportCommandOverrides();
 			verifyLocalRemoteSnapshot(transportUrl);

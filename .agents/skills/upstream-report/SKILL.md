@@ -281,23 +281,23 @@ can reach rather than from the private ref namespace. The 30-second deadline bou
 received bytes, so check free disk space before `--fetch` when the configured parent may be
 unusually large.
 
-Three kinds of leftovers survive a failure, and object count decides between the first two. Git
-unpacks a transfer below 100 objects into loose files and runs `index-pack` at 100 or above; the
-report copies neither `fetch.unpackLimit` nor `transfer.unpackLimit` into its transport config and
-reads no global config, so that built-in threshold holds whatever the caller configured. Below it
-an abort leaves unreachable loose objects, measured at 60 MiB after interrupting a 400 MiB transfer
-at 30 seconds. At or above it an abort leaves `index-pack`'s partial `tmp_pack_*`, measured at
-11 MiB and 81 MiB for 3.5 and 5 second deadlines against a 287 MiB parent. A check that fails after
-a completed fetch leaves whatever the fork's own refs do not reach. Ordinary `git gc` clears all
-three once its grace period expires, which is two weeks for unreachable objects by default. Pruning
-earlier needs a quiet repository: Git can corrupt an object store when `--prune=now` races a process
-that is writing objects before it creates the ref that reaches them.
+An interrupted transfer may leave no object-store residue when the receiver has not started
+writing. Once it has, Git's built-in 100-object threshold selects the form: below 100 objects Git
+writes loose files, while at 100 or above `index-pack` writes a partial `tmp_pack_*`. The report
+copies neither `fetch.unpackLimit` nor `transfer.unpackLimit` into its transport config and reads no
+global config, so that threshold holds whatever the caller configured. A 400 MiB transfer below it
+left 60 MiB of unreachable loose objects after a 30-second interruption. Transfers at or above it
+left 11 MiB and 81 MiB partial packs after 3.5 and 5 seconds against a 287 MiB parent. A check that
+fails after a completed fetch leaves whatever the fork's own refs do not reach. Ordinary `git gc`
+clears these residues once its grace period expires, which is two weeks for unreachable objects by
+default. Pruning earlier needs a quiet repository: Git can corrupt an object store when
+`--prune=now` races a process that is writing objects before it creates the ref that reaches them.
 
-The deadline ends the report's wait and not the transfer. `git-upload-pack` and its `git
-pack-objects` child keep running after the report kills the fetch and exits, measured at 4.9 seconds
-across three runs against a 400 MiB local parent, because they only stop once their side of the pipe
-closes. A caller that retries `--fetch` in a loop can therefore stack transports it can no longer
-see.
+The deadline terminates the `git fetch` process, but its `git-upload-pack` and `git pack-objects`
+descendants stop independently as their pipe closes. Their lifetime relative to the report varies:
+three runs against a 382 MiB local parent ended before the report returned, while another against a
+287 MiB parent outlived it by 0.208 seconds. Avoid a tight retry loop that assumes the previous
+transport has already exited.
 It reads the advertised `main` SHA before and after an object-only fetch that writes neither
 `FETCH_HEAD` nor a tracking ref. It verifies that exact commit before creating a missing shared
 remote. The URL it just wrote remains the expected value, so a concurrent replacement cannot be
