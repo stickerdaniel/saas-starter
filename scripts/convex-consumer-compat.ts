@@ -35,7 +35,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { copyFileSync, mkdtempSync, rmSync } from 'node:fs';
+import { copyFileSync, mkdirSync, mkdtempSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import ts from 'typescript';
@@ -47,6 +47,7 @@ import {
 	type Surface,
 	type Visibility
 } from './convex-surface';
+import { isolatedGitEnv, sanitizedGitEnv } from './git-context';
 
 const CONVEX_ROOT = 'src/lib/convex';
 // App sources contribute direct and namespace-adapter references. Convex source
@@ -58,14 +59,38 @@ export type Reference = { identifier: string; visibility: Visibility; file: stri
 export type NamespaceReference = { prefix: string; visibility: Visibility; file: string };
 type ConsumerReferences = { references: Reference[]; namespaces: NamespaceReference[] };
 
-function git(args: string[]): string {
+function git(
+	args: string[],
+	cwd = process.cwd(),
+	hooksPath?: string,
+	env = isolatedGitEnv(),
+	extraConfiguration: string[] = []
+): string {
 	// stderr captured, not inherited: a probing rev-parse is allowed to fail
-	// without printing git's `fatal:` above this script's own explanation.
-	return execFileSync('git', args, {
+	// without printing git's `fatal:` above this script's own explanation. The exact
+	// checkout remains usable when its owner differs from the process uid.
+	const configuration = ['-c', `safe.directory=${realpathSync(cwd)}`, ...extraConfiguration];
+	if (hooksPath) configuration.unshift('-c', `core.hooksPath=${hooksPath}`);
+	return execFileSync('git', [...configuration, ...args], {
+		cwd,
 		encoding: 'utf8',
+		env,
 		maxBuffer: 32 * 1024 * 1024,
 		stdio: ['ignore', 'pipe', 'pipe']
 	});
+}
+
+/**
+ * The explicit baseline fetch is the transport-requiring call that can safely run outside
+ * the isolated environment: it brings objects in and decides no verdict itself. Emptying
+ * global and system config also empties `url.*.insteadOf`, credential helpers, proxies and
+ * CA settings; measured, a baseline reachable only through an insteadOf rule went unfetched
+ * and the check certified the trunk instead. A partial clone can also lazy-fetch during
+ * isolated verdict reads; that path fails closed when it needs external transport config and
+ * remains part of the materialization boundary tracked in #863.
+ */
+function gitFetch(args: string[]): string {
+	return git(args, process.cwd(), undefined, sanitizedGitEnv());
 }
 
 type Baseline = { commit: string } | { root: true } | { unavailable: string } | null;
@@ -86,7 +111,7 @@ function resolveBaseline(): Baseline {
 			return { commit: git(['rev-parse', '--verify', `${override}^{commit}`]).trim() };
 		} catch {
 			try {
-				git(['fetch', '--quiet', 'origin', override]);
+				gitFetch(['fetch', '--quiet', 'origin', override]);
 				return { commit: git(['rev-parse', '--verify', `${override}^{commit}`]).trim() };
 			} catch {
 				if (process.env.CI) {
@@ -415,6 +440,20 @@ function consumerReferencesAt(commit: string): ConsumerReferences {
 	return { references, namespaces };
 }
 
+/** Paths registered by `git worktree list --porcelain -z`. */
+export function registeredWorktreePaths(porcelain: string): string[] {
+	return porcelain
+		.split('\0')
+		.filter((record) => record.startsWith('worktree '))
+		.map((record) => path.normalize(record.slice('worktree '.length)));
+}
+
+function worktreeRegistrationExists(directory: string): boolean {
+	return registeredWorktreePaths(git(['worktree', 'list', '--porcelain', '-z'])).includes(
+		directory
+	);
+}
+
 /**
  * The surface at the baseline commit, from an isolated checkout.
  *
@@ -427,14 +466,51 @@ function consumerReferencesAt(commit: string): ConsumerReferences {
 function surfaceAt(commit: string, protectedIdentifiers: ReadonlySet<string>): Surface {
 	const tempRoot = mkdtempSync(path.join(tmpdir(), 'convex-compat-'));
 	const dir = path.join(tempRoot, 'baseline');
+	const hooks = path.join(tempRoot, 'hooks');
 	let worktreeAdded = false;
+	let registeredDir: string | undefined;
+	let cleanupFailure: string | undefined;
+	const rememberCleanupFailure = (message: string): void => {
+		console.error(message);
+		cleanupFailure ??= message;
+	};
+	let surface: Surface;
 	try {
-		git(['worktree', 'add', '--detach', '--quiet', dir, commit]);
+		mkdirSync(hooks);
+		// A linked worktree of this repository, not a clone of it. A clone has to reach the
+		// baseline commit through a transport, and measured with git 2.55.0 that loses two
+		// things this check depends on: a shared clone of a shallow repository writes no
+		// `objects/info/alternates`, so a commit only `FETCH_HEAD` reaches disappears, and a
+		// shared clone of a partial one borrows the incomplete object store without inheriting
+		// `remote.origin.promisor`, so a missing blob can never be fetched. Both fail a
+		// baseline the surrounding repository resolved perfectly well. The empty hook
+		// directory suppresses checkout hooks, and the child commands below ignore global and
+		// system configuration. A linked worktree still shares repository-local mechanisms:
+		// attributes, filters, fsmonitor and install scripts can rewrite its files or shared Git
+		// state. Fixing that requires separating materialization from execution and is tracked in
+		// #863; a partial guard here was rolled back after three consecutive review rounds each
+		// found another way around it.
+		//
+		// `core.sparseCheckout` is turned off for this one command because a linked worktree
+		// inherits it from the shared repository. Measured with git 2.55.0: a checkout whose
+		// sparse patterns exclude a directory produces a baseline missing every file under it,
+		// and a function deleted from there reads as one that was never published.
+		git(['worktree', 'add', '--detach', '--quiet', dir, commit], process.cwd(), hooks, undefined, [
+			'-c',
+			'core.sparseCheckout=false'
+		]);
 		worktreeAdded = true;
+		registeredDir = realpathSync(dir);
+		// The install resolves the baseline lockfile, which may name a Git dependency, so it
+		// gets the transport-capable environment for the same reason the baseline fetch does.
+		// Baseline package scripts execute here and can change the checkout or its shared Git
+		// directory; #863 owns the isolated materialization this function still needs.
+		const childEnv = { ...sanitizedGitEnv(), HUSKY: '0' };
 		try {
-			execFileSync('bun', ['install', '--frozen-lockfile'], {
+			execFileSync(process.execPath, ['install', '--frozen-lockfile'], {
 				cwd: dir,
 				encoding: 'utf8',
+				env: childEnv,
 				maxBuffer: 32 * 1024 * 1024,
 				stdio: ['ignore', 'pipe', 'pipe']
 			});
@@ -446,28 +522,87 @@ function surfaceAt(commit: string, protectedIdentifiers: ReadonlySet<string>): S
 
 		const reader = path.join(dir, '.convex-surface-reader.ts');
 		copyFileSync(path.join(process.cwd(), 'scripts/convex-surface.ts'), reader);
-		const serialized = execFileSync('bun', [reader, path.join(dir, CONVEX_ROOT)], {
+		const serialized = execFileSync(process.execPath, [reader, path.join(dir, CONVEX_ROOT)], {
 			cwd: dir,
 			encoding: 'utf8',
 			maxBuffer: 32 * 1024 * 1024,
 			stdio: ['ignore', 'pipe', 'pipe'],
 			env: {
-				...process.env,
+				...childEnv,
 				CONVEX_SURFACE_PROTECTED_IDENTIFIERS: JSON.stringify([...protectedIdentifiers])
 			}
 		});
-		return new Map(JSON.parse(serialized) as Array<[string, Registration]>);
+		surface = new Map(JSON.parse(serialized) as Array<[string, Registration]>);
 	} finally {
 		if (worktreeAdded) {
 			try {
-				git(['worktree', 'remove', '--force', dir]);
+				git(['worktree', 'remove', '--force', dir], process.cwd(), hooks);
 			} catch {
-				rmSync(dir, { recursive: true, force: true });
-				git(['worktree', 'prune']);
+				// Guarded, because an unguarded throw here escapes the `finally`, replaces the
+				// install or surface diagnostic that brought us in, and skips both the prune
+				// below and the temporary-root removal. Windows returns EPERM for a locked
+				// dependency file, which is exactly when the Git removal has already failed.
+				try {
+					rmSync(dir, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
+				} catch (error) {
+					// Recorded, not merely logged. `git worktree prune` returns 0 while the checkout
+					// directory still exists, because the registration is still valid, so leaving
+					// this to the prune below would end the run successfully with the checkout and
+					// its administrative entry both retained.
+					rememberCleanupFailure(
+						`convex-consumer-compat: could not remove the baseline checkout ${dir}: ${
+							error instanceof Error ? error.message : String(error)
+						}`
+					);
+				}
+				try {
+					git(['worktree', 'prune'], process.cwd(), hooks);
+				} catch (error) {
+					// Everything else this function leaves behind lives in the system temporary
+					// directory, but an unpruned entry is state inside the repository being
+					// checked, and a later `git worktree` there reads it. Reported here so it
+					// survives a primary failure, and raised below when there is none.
+					rememberCleanupFailure(
+						`convex-consumer-compat: could not prune the administrative worktree entry for ${dir}: ${
+							error instanceof Error ? error.message : String(error)
+						}`
+					);
+				}
+			}
+			// `git worktree prune` returning 0 only means it evaluated every entry. A locked
+			// registration is intentionally retained and still returns 0, so the command status
+			// cannot prove cleanup. Ask the registry itself before a successful verdict leaves.
+			if (registeredDir) {
+				try {
+					if (worktreeRegistrationExists(registeredDir)) {
+						rememberCleanupFailure(
+							`convex-consumer-compat: left an administrative worktree entry for ${registeredDir}`
+						);
+					}
+				} catch (error) {
+					rememberCleanupFailure(
+						`convex-consumer-compat: could not verify worktree cleanup for ${registeredDir}: ${
+							error instanceof Error ? error.message : String(error)
+						}`
+					);
+				}
 			}
 		}
-		rmSync(tempRoot, { recursive: true, force: true });
+		// The temporary root is outside the repository, so failing to remove it changes
+		// nothing a later command can read. Throwing here would discard an answer the checker
+		// already computed and replace the install or checkout diagnostic that preceded it.
+		try {
+			rmSync(tempRoot, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
+		} catch (error) {
+			console.error(
+				`convex-consumer-compat: could not remove the baseline directory ${tempRoot}: ${
+					error instanceof Error ? error.message : String(error)
+				}`
+			);
+		}
 	}
+	if (cleanupFailure) throw new Error(cleanupFailure);
+	return surface;
 }
 
 export async function main(): Promise<void> {

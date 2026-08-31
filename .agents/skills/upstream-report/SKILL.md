@@ -272,10 +272,37 @@ well as spelling. Ref backing files also pin mode, size, mtime, and ctime. It re
 remote reads, while a retargeted alias stays bound to the location first validated.
 
 Fetch disables automatic maintenance because the private ref namespace does not describe which
-objects the real repository still needs. Fetched objects still land in the real object store. The
-30-second deadline stops the direct Git process. It does not limit received pack bytes or guarantee
-that every remote-helper descendant has exited. Check free disk space before `--fetch` when the
-configured parent may be unusually large.
+objects the real repository still needs. Fetched objects land in the real object store. For a
+complete, readable upstream, a fork that shares no commit with its template takes the full object
+closure of upstream `main` (not its tags, and not branches it never asks for) on the run that first
+needs it. Measured against a 384 MiB parent: 152 KiB before, 385 MiB after. Later runs normally
+transfer nothing while the advertised commit and everything it reaches are present, because Git
+decides that from object presence rather than the private ref namespace. Presence does not prove
+that an object is readable, and a repeated fetch need not repair corruption.
+
+The report checks the fetched tip's object type before persisting its tracking ref; it does not
+validate every reachable object. A shallow or corrupt upstream can therefore leave that ref with
+unreadable history. Use a complete, healthy mirror. The 30-second deadline bounds fetch time and
+not received bytes, so check free disk space before `--fetch` when the configured parent may be
+unusually large.
+
+An interrupted transfer may leave no object-store residue when the receiver has not started
+writing. Once it has, Git's built-in 100-object threshold selects the form: below 100 objects Git
+writes loose files, while at 100 or above `index-pack` writes a partial `tmp_pack_*`. The report
+copies neither `fetch.unpackLimit` nor `transfer.unpackLimit` into its transport config. The fetch
+subprocess reads no global config, so that threshold holds whatever the caller configured. A 400 MiB transfer below it
+left 60 MiB of unreachable loose objects after a 30-second interruption. Transfers at or above it
+left 11 MiB and 81 MiB partial packs after 3.5 and 5 seconds against a 287 MiB parent. A check that
+fails after a completed fetch leaves whatever the fork's own refs do not reach. Ordinary `git gc`
+clears these residues once its grace period expires, which is two weeks for unreachable objects by
+default. Pruning earlier needs a quiet repository: Git can corrupt an object store when
+`--prune=now` races a process that is writing objects before it creates the ref that reaches them.
+
+The deadline terminates the `git fetch` process, but its `git-upload-pack` and `git pack-objects`
+descendants stop independently as their pipe closes. Their lifetime relative to the report varies:
+three runs against a 382 MiB local parent ended before the report returned, while another against a
+287 MiB parent outlived it by 0.208 seconds. Avoid a tight retry loop that assumes the previous
+transport has already exited.
 It reads the advertised `main` SHA before and after an object-only fetch that writes neither
 `FETCH_HEAD` nor a tracking ref. It verifies that exact commit before creating a missing shared
 remote. The URL it just wrote remains the expected value, so a concurrent replacement cannot be

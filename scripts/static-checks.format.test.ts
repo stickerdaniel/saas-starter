@@ -1,9 +1,30 @@
 import { spawnSync } from 'child_process';
-import { mkdirSync, rmSync, writeFileSync } from 'fs';
+import {
+	chmodSync,
+	copyFileSync,
+	lstatSync,
+	mkdirSync,
+	mkdtempSync,
+	readFileSync,
+	rmSync,
+	symlinkSync,
+	writeFileSync
+} from 'fs';
+import { tmpdir } from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { describe, expect, it } from 'vitest';
+import knowledgePolicy from '../knowledge-policy.config';
 import { sanitizedGitEnv } from './git-context';
+import { runKnowledgePolicy } from './knowledge-policy/repository';
+import {
+	isNeverWalked,
+	prettierArguments,
+	prettierLiteralPattern,
+	prettierProjectPaths,
+	prettierTraversalPaths,
+	resolveInputs
+} from './static-checks';
 import { testExecutable } from './test-executable';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -17,6 +38,48 @@ function formatCheck(...args: string[]): { status: number; output: string } {
 		encoding: 'utf8'
 	});
 	return { status: result.status ?? -1, output: `${result.stdout}${result.stderr}` };
+}
+
+/** The computed-list channel used by format-only hook consumers. */
+function formatCheckFilesFrom(
+	input: string | Uint8Array,
+	cwd = ROOT
+): { status: number; output: string } {
+	const result = spawnSync(
+		testExecutable('bun'),
+		[SCRIPT, '--ci', '--scope', 'format', '--files-from', '-'],
+		{
+			cwd,
+			env: { ...sanitizedGitEnv(), NO_COLOR: '1' },
+			input,
+			encoding: 'utf8'
+		}
+	);
+	return { status: result.status ?? -1, output: `${result.stdout}${result.stderr}` };
+}
+
+function createCheckerClone(): { directory: string; repository: string } {
+	const directory = path.join(ROOT, 'scratch', `format-ledger-${process.pid}-${Date.now()}`);
+	const repository = path.join(directory, 'repository');
+	mkdirSync(directory, { recursive: true });
+	try {
+		const result = spawnSync(
+			'git',
+			['clone', '--quiet', '--local', '--no-hardlinks', ROOT, repository],
+			{ env: sanitizedGitEnv(), encoding: 'utf8' }
+		);
+		if (result.status !== 0) throw new Error(`Local checker clone failed: ${result.stderr}`);
+		symlinkSync(
+			path.join(ROOT, 'node_modules'),
+			path.join(repository, 'node_modules'),
+			process.platform === 'win32' ? 'junction' : 'dir'
+		);
+		copyFileSync(SCRIPT, path.join(repository, 'scripts', 'static-checks.ts'));
+		return { directory, repository };
+	} catch (error) {
+		rmSync(directory, { recursive: true, force: true });
+		throw error;
+	}
 }
 
 /** Write an unformatted file into the repository for one assertion. */
@@ -66,6 +129,582 @@ describe('format-only static checks', () => {
 			expect(relayed.output).toContain(`[warn] ${relative}`);
 			expect(relayed.output).not.toContain('Bad arguments');
 		});
+	});
+
+	it('keeps a filename whose name begins with a space distinct from its neighbour', () => {
+		const plain = `.format-space-${process.pid}.ts`;
+		const spaced = ` ${plain}`;
+		writeFileSync(path.join(ROOT, spaced), 'export const value    =    1;\n');
+		writeFileSync(path.join(ROOT, plain), 'export const value = 1;\n');
+		try {
+			// Trimming rewrote the spaced path into the formatted neighbour and let the
+			// unformatted file pass unseen.
+			const alone = formatCheckFilesFrom(`${spaced}\0`);
+			expect(alone.status).not.toBe(0);
+			expect(alone.output).toContain(`[warn] ${spaced}`);
+			expect(alone.output).not.toContain(`[warn] ${plain}`);
+
+			const plainRecord = formatCheckFilesFrom(`${plain}\0`);
+			expect(plainRecord.status).toBe(0);
+			expect(plainRecord.output).toContain('prettier         1 file(s)');
+
+			const finalCr = formatCheckFilesFrom(`${plain}\r\0`);
+			expect(finalCr.status).toBe(1);
+			expect(finalCr.output).toContain('Unsafe U+000D');
+		} finally {
+			rmSync(path.join(ROOT, spaced), { force: true });
+			rmSync(path.join(ROOT, plain), { force: true });
+		}
+	}, 60_000);
+
+	it.skipIf(process.platform === 'win32')('accepts a path made entirely of spaces', () => {
+		withRepositoryFile(' ', 'plain text\n', (file) => {
+			const result = formatCheckFilesFrom(' \0');
+			expect(result.status).toBe(0);
+			expect(result.output).toContain('No formatter work');
+			expect(result.output).not.toContain('Empty path');
+			expect(file).toBe(path.join(ROOT, ' '));
+		});
+	});
+
+	it('rejects an ambiguous BOM whether it starts the stream or a later path', () => {
+		const plain = `.format-bom-${process.pid}.ts`;
+		const marked = `${String.fromCharCode(0xfeff)}${plain}`;
+		writeFileSync(path.join(ROOT, plain), 'export const value = 1;\n');
+		try {
+			const first = formatCheckFilesFrom(`${marked}\0${plain}\0`);
+			expect(first.status).toBe(1);
+			expect(first.output).toContain('without a byte-order mark');
+
+			writeFileSync(path.join(ROOT, marked), 'export const value = 1;\n');
+			const later = formatCheckFilesFrom(`${plain}\0${marked}\0`);
+			expect(later.status).toBe(1);
+			expect(later.output).toContain('Unsafe U+FEFF');
+		} finally {
+			rmSync(path.join(ROOT, marked), { force: true });
+			rmSync(path.join(ROOT, plain), { force: true });
+		}
+	});
+
+	it('rejects file lists that are not valid UTF-8', () => {
+		const result = formatCheckFilesFrom(Uint8Array.from([0xc3, 0x28]));
+		expect(result.status).toBe(1);
+		expect(result.output).toContain('bytes that are not valid UTF-8');
+		expect(result.output).not.toContain('SvelteKit sync');
+	});
+
+	it('rejects nonempty computed lists containing an empty path record', () => {
+		for (const input of ['\0', 'README.md\0\0']) {
+			const result = formatCheckFilesFrom(input);
+			expect(result.status).toBe(1);
+			expect(result.output).toContain('empty path record');
+		}
+	});
+
+	it('resolves computed Git records from the repository root', () => {
+		const result = formatCheckFilesFrom('README.md\0', path.join(ROOT, 'scripts'));
+		expect(result.status).toBe(0);
+		expect(result.output).toContain('prettier         1 file(s)');
+		expect(result.output).not.toContain('No such file');
+	});
+
+	// Prettier lowercases a basename before comparing plugin extensions. The fallback here
+	// exists because classification deliberately does not load the Svelte plugin, so it has
+	// to make the same comparison: a case-sensitive `.svelte` test classified this file as
+	// unformattable and a mixed computed list exited 0 after checking only its Markdown peer.
+	it('checks a mixed-case Svelte extension the configured plugin formats', () => {
+		const relative = `scripts/.format-component-${process.pid}.SVELTE`;
+		withRepositoryFile(relative, '<script>const value=1</script>\n', () => {
+			const direct = spawnSync(testExecutable('bun'), ['prettier', '--check', '--', relative], {
+				cwd: ROOT,
+				env: { ...sanitizedGitEnv(), NO_COLOR: '1' },
+				encoding: 'utf8'
+			});
+			expect(direct.status, `${direct.stdout}${direct.stderr}`).toBe(1);
+
+			const named = formatCheck(relative);
+			expect(named.status, named.output).toBe(1);
+			expect(named.output).toContain(relative);
+
+			const computed = formatCheckFilesFrom(`${relative}\0README.md\0`);
+			expect(computed.status, computed.output).toBe(1);
+			expect(computed.output).toContain(relative);
+			expect(computed.output).toContain(`README.md ${relative}`);
+		});
+	});
+
+	it('escapes a route without a backslash and still checks the named file', () => {
+		const route = 'src/routes/[[lang]]/(marketing)/+page.svelte';
+		const pattern = prettierLiteralPattern(route);
+
+		// Prettier hands an argument it cannot resolve to normalizeToPosix, which on Windows
+		// replaces every backslash with a slash. A backslash-escaped route would arrive there
+		// with its escapes stripped and match nothing, so the escape has to be a character
+		// class, and the pattern has to survive that same rewrite unchanged.
+		expect(pattern).toBe('src/routes/[[][[]lang@(])@(])/[(]marketing[)]/[+]page.svelte');
+		expect(pattern.replaceAll('\\', '/')).toBe(pattern);
+
+		const result = formatCheck(route);
+		expect(result.status, result.output).toBe(0);
+		expect(result.output).toContain('prettier         1 file(s)');
+	});
+
+	// A backslash is a path separator on Windows and cannot appear in a filename there, so
+	// the fixture itself is unbuildable rather than the assertion being wrong.
+	it.skipIf(process.platform === 'win32')(
+		'keeps a literal backslash from matching the neighbour without one',
+		() => {
+			const directory = path.join(ROOT, 'scripts', `.format-backslash-${process.pid}`);
+			const relative = `scripts/.format-backslash-${process.pid}`;
+			mkdirSync(directory, { recursive: true });
+			try {
+				// Only one of the two is malformed. A pattern that drops the backslash checks the
+				// other file and reports a formatted repository while the named one stays broken.
+				writeFileSync(path.join(directory, 'a\\[b].ts'), 'export const a   =1\n');
+				writeFileSync(path.join(directory, 'a[b].ts'), 'export const b = 1;\n');
+
+				const result = formatCheck(`${relative}/a\\[b].ts`);
+				expect(result.status, result.output).toBe(1);
+				expect(result.output).toContain('a\\[b].ts');
+			} finally {
+				rmSync(directory, { recursive: true, force: true });
+			}
+		}
+	);
+
+	it('escapes a leading exclamation mark into a pattern Prettier cannot negate', () => {
+		expect(prettierLiteralPattern('!a[b].ts')).toBe('@(!)a[[]b@(]).ts');
+
+		withRepositoryFile('!a[b].ts', 'export const a   =1\n', () => {
+			const named = formatCheck('!a[b].ts');
+			expect(named.status, named.output).toBe(1);
+			expect(named.output).toContain('!a[b].ts');
+		});
+
+		// The file is gone again here, which is the case a negation turns into a silent pass:
+		// measured with Prettier 3.9.5, `./!a[[]b@(]).ts` matched every other root file and
+		// exited 0 instead of reporting the path it was given.
+		const vanished = spawnSync(
+			testExecutable('bun'),
+			['prettier', '--check', '--ignore-unknown', '--', prettierLiteralPattern('!a[b].ts')],
+			{ cwd: ROOT, env: { ...sanitizedGitEnv(), NO_COLOR: '1' }, encoding: 'utf8' }
+		);
+		expect(vanished.status).toBe(2);
+		expect(`${vanished.stdout}${vanished.stderr}`).toContain('No files matching the pattern');
+	});
+
+	// A Windows checkout with core.symlinks=false materializes the tracked link as an
+	// ordinary file holding its target's path, and there is nothing to expand there.
+	it.skipIf(!lstatSync(path.join(ROOT, '.claude/skills/upstream-sync')).isSymbolicLink())(
+		'expands a symlinked directory for every scope except format',
+		() => {
+			const link = '.claude/skills/upstream-sync';
+			const expanded = resolveInputs([link], 'arguments', ROOT);
+			expect(expanded.length).toBeGreaterThan(1);
+			expect(expanded.some((file) => file.endsWith('.ts'))).toBe(true);
+
+			// Prettier refuses an explicitly named symlink, so the formatter passes the link
+			// itself and lets that refusal happen instead of silently checking the target.
+			expect(
+				resolveInputs(
+					[link],
+					'arguments',
+					ROOT,
+					(directory) => prettierTraversalPaths(directory, false, ROOT),
+					false
+				)
+			).toEqual([link]);
+		}
+	);
+
+	it('refuses two paths that collide under formatter escaping', () => {
+		const directory = path.join(ROOT, 'scripts', `.format-collide-${process.pid}`);
+		const relative = `scripts/.format-collide-${process.pid}`;
+		mkdirSync(directory, { recursive: true });
+		try {
+			writeFileSync(path.join(directory, '[ab].ts'), 'export const a   =1\n');
+			writeFileSync(path.join(directory, '[[]ab@(]).ts'), 'export const b = 1;\n');
+
+			const result = formatCheck(`${relative}/[ab].ts`);
+			expect(result.status, result.output).toBe(1);
+			expect(result.output).toContain('collide under formatter escaping');
+		} finally {
+			rmSync(directory, { recursive: true, force: true });
+		}
+	});
+
+	// fast-glob runs micromatch.braces() over the whole pattern before picomatch parses it,
+	// and that pass has no notion of character classes: the POSIX form `[]]` next to `[{]` or
+	// `[}]` is read as a brace expression, so the pattern stops naming the file it was built
+	// from. Measured with Prettier 3.9.5, `[]][{][}].ts` reported the neighbouring `{}.ts`
+	// clean while the named file stayed malformed, and the other two matched nothing at all.
+	it.each([']{}.ts', '{]}.ts', '{}].ts'])(
+		'keeps brace escapes from swallowing a literal bracket in %s',
+		(name) => {
+			const directory = path.join(ROOT, 'scripts', `.format-brace-${process.pid}`);
+			const relative = `scripts/.format-brace-${process.pid}`;
+			mkdirSync(directory, { recursive: true });
+			try {
+				// Only the named file is malformed. A pattern that expands into a brace expression
+				// either checks the neighbour and passes, or matches nothing and passes.
+				writeFileSync(path.join(directory, name), 'export const a   =1\n');
+				writeFileSync(path.join(directory, '{}.ts'), 'export const b = 1;\n');
+
+				const result = formatCheck(`${relative}/${name}`);
+				expect(result.status, result.output).toBe(1);
+				expect(result.output).toContain(name);
+			} finally {
+				rmSync(directory, { recursive: true, force: true });
+			}
+		}
+	);
+
+	it('escapes a plus so it cannot quantify the escape before it', () => {
+		expect(prettierLiteralPattern('[+.ts')).toBe('[[][+].ts');
+		expect(prettierLiteralPattern('src/routes/+page.svelte')).toBe('src/routes/[+]page.svelte');
+
+		const directory = path.join(ROOT, 'scripts', `.format-plus-${process.pid}`);
+		const relative = `scripts/.format-plus-${process.pid}`;
+		mkdirSync(directory, { recursive: true });
+		try {
+			// Unescaped, `[[]+.ts` quantifies the class and matches the formatted neighbour
+			// instead, which is a green run over a file that was never looked at.
+			writeFileSync(path.join(directory, '[+.ts'), 'export const a   =1\n');
+			writeFileSync(path.join(directory, '[.ts'), 'export const b = 1;\n');
+
+			const result = formatCheck(`${relative}/[+.ts`);
+			expect(result.status, result.output).toBe(1);
+			expect(result.output).toContain('[+.ts');
+		} finally {
+			rmSync(directory, { recursive: true, force: true });
+		}
+	});
+
+	it('anchors the generated trees .gitignore anchors and no others', () => {
+		// /build, /dist and /.svelte-kit are root-anchored in .gitignore, so a tracked
+		// src/build/generator.ts is an ordinary source file rather than generated output.
+		expect(isNeverWalked('build/output.js')).toBe(true);
+		expect(isNeverWalked('dist/output.js')).toBe(true);
+		expect(isNeverWalked('.svelte-kit/ambient.d.ts')).toBe(true);
+		expect(isNeverWalked('src/build/generator.ts')).toBe(false);
+		expect(isNeverWalked('src/lib/dist/value.ts')).toBe(false);
+		expect(isNeverWalked('src/redist/value.ts')).toBe(false);
+
+		// node_modules, .git and .convex are ignored at every depth.
+		expect(isNeverWalked('packages/app/node_modules/x.js')).toBe(true);
+		expect(isNeverWalked('src/.convex/generated.ts')).toBe(true);
+	});
+
+	it('accepts the same directory named twice', () => {
+		const once = resolveInputs(['scripts'], 'arguments', ROOT);
+		expect(resolveInputs(['scripts', 'scripts'], 'arguments', ROOT)).toEqual(once);
+	});
+
+	it('ignores only the repository root CLAUDE.md pointer', () => {
+		const ignore = readFileSync(path.join(ROOT, '.prettierignore'), 'utf8');
+		expect(ignore).toContain('/CLAUDE.md');
+
+		withRepositoryFile('scripts/CLAUDE.md', '# Nested\n', () => {
+			const result = formatCheck('scripts/CLAUDE.md');
+			expect(result.status, result.output).toBe(0);
+			expect(result.output).toContain('prettier         1 file(s)');
+		});
+	});
+
+	it('documents a Git producer that excludes deleted paths and stays root-relative', () => {
+		const source = readFileSync(SCRIPT, 'utf8');
+		// --no-relative decides which records the producer emits at all: measured with git
+		// 2.55.0 and diff.relative=true, running it from scripts/ reports a change to
+		// scripts/AGENTS.md as the record "AGENTS.md" and omits every path above that
+		// directory, so the consumer would check the root file of the same name.
+		for (const documented of source.matchAll(/git diff [^`]*--name-only[^`]*/g)) {
+			expect(documented[0]).toContain('--no-relative');
+		}
+		expect(source).toContain('git diff --no-relative --name-only --diff-filter=d -z');
+	});
+
+	it('rejects the replacement character produced by lossy argv decoding', () => {
+		const relative = `.format-replacement-${String.fromCharCode(0xfffd)}-${process.pid}.ts`;
+		withRepositoryFile(relative, 'export const value = 1;\n', (file) => {
+			const result = formatCheck(file);
+			expect(result.status).toBe(1);
+			expect(result.output).toContain('Unsafe U+FFFD');
+			expect(result.output).not.toContain('SvelteKit sync');
+		});
+	});
+
+	it.skipIf(process.platform === 'win32')(
+		'rejects unsafe controls even when the computed-list protocol preserves them',
+		() => {
+			const safe = `.format-newline-${process.pid}.ts`;
+			const unsafe = `.format-newline-${process.pid}\n.ts`;
+			writeFileSync(path.join(ROOT, safe), 'export const value = 1;\n');
+			writeFileSync(path.join(ROOT, unsafe), 'export const value = 1;\n');
+			try {
+				const result = formatCheckFilesFrom(`${unsafe}\0`);
+				expect(result.status).toBe(1);
+				expect(result.output).toContain('Unsafe U+000A');
+				expect(result.output).not.toContain('SvelteKit sync');
+			} finally {
+				rmSync(path.join(ROOT, unsafe), { force: true });
+				rmSync(path.join(ROOT, safe), { force: true });
+			}
+		},
+		60_000
+	);
+
+	it('rejects an unsafe child expanded from a safe formatter directory', () => {
+		const relative = `scripts/.format-unsafe-child-${process.pid}`;
+		const directory = path.join(ROOT, relative);
+		const child = `bad${String.fromCharCode(0x202e)}.ts`;
+		mkdirSync(directory, { recursive: true });
+		writeFileSync(path.join(directory, child), 'export const value = 1;\n');
+		try {
+			const result = formatCheck(relative);
+			expect(result.status, result.output).toBe(1);
+			expect(result.output).toContain('Unsafe U+202E');
+			expect(result.output).not.toContain('All checks passed');
+		} finally {
+			rmSync(directory, { recursive: true, force: true });
+		}
+	});
+
+	it('treats an explicitly named repository symlink like the project traversal', () => {
+		const { status, output } = formatCheck(path.join(ROOT, 'CLAUDE.md'));
+		expect(status).toBe(0);
+		expect(output).toContain('No formatter work');
+		expect(output).toContain('symbolic link');
+		expect(output).toContain('prettier         0 file(s)');
+		expect(output).not.toContain('[warn] AGENTS.md');
+	});
+
+	it.skipIf(process.platform === 'win32')(
+		'treats an explicitly named directory symlink like the project traversal',
+		() => {
+			const relative = `.format-directory-link-${process.pid}`;
+			const file = path.join(ROOT, relative);
+			symlinkSync(path.join(ROOT, 'scripts'), file, 'dir');
+			try {
+				const { status, output } = formatCheck(file);
+				expect(status).toBe(0);
+				expect(output).toContain('No formatter work');
+				expect(output).toContain('prettier         0 file(s)');
+				expect(output).not.toContain('scripts/static-checks.ts');
+			} finally {
+				rmSync(file, { force: true });
+			}
+		}
+	);
+
+	it.skipIf(process.platform === 'win32')(
+		'preserves a named path through a symlinked ancestor',
+		() => {
+			const targetRelative = `scratch/format-symlink-target-${process.pid}`;
+			const target = path.join(ROOT, targetRelative);
+			const aliasRelative = `.format-symlink-alias-${process.pid}`;
+			const alias = path.join(ROOT, aliasRelative);
+			const named = `${aliasRelative}/probe.ts`;
+			const namedDirectory = `${aliasRelative}/subdir`;
+			mkdirSync(path.join(target, 'subdir'), { recursive: true });
+			writeFileSync(path.join(target, 'probe.ts'), 'export const value   =1\n');
+			writeFileSync(path.join(target, 'subdir', 'nested.ts'), 'export const nested   =1\n');
+			symlinkSync(target, alias, 'dir');
+			try {
+				// The target is ignored as root scratch, while the caller-visible alias is not.
+				// Canonicalizing the ancestor classified the alias under the target's ignore rule and
+				// turned this direct Prettier failure into a zero-file pass.
+				const direct = spawnSync(testExecutable('bun'), ['prettier', '--check', '--', named], {
+					cwd: ROOT,
+					env: { ...sanitizedGitEnv(), NO_COLOR: '1' },
+					encoding: 'utf8'
+				});
+				expect(direct.status, `${direct.stdout}${direct.stderr}`).toBe(1);
+
+				expect(resolveInputs([named], 'arguments', ROOT, undefined, false)).toEqual([named]);
+				const result = formatCheck(named);
+				expect(result.status, result.output).toBe(1);
+				expect(result.output).toContain(named);
+				expect(result.output).not.toContain('No formatter work');
+
+				// Directory traversal reads the resolved target, then maps every child back below
+				// the alias before ignore classification and launch.
+				expect(
+					resolveInputs(
+						[namedDirectory],
+						'arguments',
+						ROOT,
+						(directory) => prettierTraversalPaths(directory, false, ROOT),
+						false
+					)
+				).toEqual([`${namedDirectory}/nested.ts`]);
+				const directory = formatCheck(namedDirectory);
+				expect(directory.status, directory.output).toBe(1);
+				expect(directory.output).toContain(`${namedDirectory}/nested.ts`);
+				expect(directory.output).not.toContain('No formatter work');
+			} finally {
+				rmSync(alias, { force: true });
+				rmSync(target, { recursive: true, force: true });
+			}
+		}
+	);
+
+	it.each(['.git', '.sl', '.svn', '.hg', '.jj'])(
+		"counts Prettier's hard-coded %s exclusion as zero formatter work",
+		(vcsDirectory) => {
+			const parent = path.join(ROOT, 'scripts', `.format-vcs-${process.pid}`);
+			const directory = path.join(parent, vcsDirectory);
+			const relative = `scripts/.format-vcs-${process.pid}/${vcsDirectory}/probe.ts`;
+			mkdirSync(directory, { recursive: true });
+			writeFileSync(path.join(ROOT, relative), 'export const skipped   =1\n');
+			try {
+				// Prettier's CLI drops these path segments before expansion. `getFileInfo` does not,
+				// so the classifier carries the same closed list instead of claiming this file was
+				// checked when a formatted peer gives the CLI a successful match.
+				const direct = spawnSync(
+					testExecutable('bun'),
+					['prettier', '--check', '--', relative, 'README.md'],
+					{ cwd: ROOT, env: { ...sanitizedGitEnv(), NO_COLOR: '1' }, encoding: 'utf8' }
+				);
+				expect(direct.status, `${direct.stdout}${direct.stderr}`).toBe(0);
+				expect(`${direct.stdout}${direct.stderr}`).not.toContain(relative);
+
+				const result = formatCheckFilesFrom(`${relative}\0README.md\0`);
+				expect(result.status, result.output).toBe(0);
+				expect(result.output).toContain('prettier         1 file(s)');
+				expect(result.output).not.toContain(relative);
+			} finally {
+				rmSync(parent, { recursive: true, force: true });
+			}
+		}
+	);
+
+	it.skipIf(process.platform === 'win32')(
+		'rejects an absolute path through an external checkout alias',
+		() => {
+			const directory = mkdtempSync(path.join(tmpdir(), 'format-checkout-alias-'));
+			const alias = path.join(directory, 'repository');
+			const target = path.join(ROOT, 'scratch', `format-alias-${process.pid}`);
+			mkdirSync(target, { recursive: true });
+			writeFileSync(path.join(target, 'probe.ts'), 'export const value   =1\n');
+			symlinkSync(ROOT, alias, 'dir');
+			const named = path.join(alias, 'scratch', `format-alias-${process.pid}`, 'probe.ts');
+			try {
+				// Direct Prettier classifies the caller-visible alias outside the repository, so the
+				// root-anchored scratch ignore does not match and the unformatted file is checked.
+				const direct = spawnSync(testExecutable('bun'), ['prettier', '--check', '--', named], {
+					cwd: alias,
+					env: { ...sanitizedGitEnv(), NO_COLOR: '1' },
+					encoding: 'utf8'
+				});
+				expect(direct.status, `${direct.stdout}${direct.stderr}`).toBe(1);
+
+				// A repository-relative ledger cannot preserve that external spelling. Canonicalizing
+				// it to root scratch produced a zero-file success, so the boundary fails closed.
+				const result = spawnSync(testExecutable('bun'), [SCRIPT, '--scope', 'format', named], {
+					cwd: alias,
+					env: { ...sanitizedGitEnv(), NO_COLOR: '1' },
+					encoding: 'utf8'
+				});
+				const output = `${result.stdout}${result.stderr}`;
+				expect(result.status, output).toBe(1);
+				expect(output).toContain('outside the repository');
+				expect(output).not.toContain('All checks passed');
+			} finally {
+				rmSync(target, { recursive: true, force: true });
+				rmSync(directory, { recursive: true, force: true });
+			}
+		}
+	);
+
+	it.skipIf(process.platform === 'win32')(
+		'rejects a special file Prettier would drop from a mixed batch',
+		() => {
+			const relative = `scripts/.format-fifo-${process.pid}.ts`;
+			const file = path.join(ROOT, relative);
+			const created = spawnSync('mkfifo', [file], { encoding: 'utf8' });
+			expect(created.status, created.stderr).toBe(0);
+			try {
+				const result = formatCheckFilesFrom(`${relative}\0package.json\0`);
+				expect(result.status, result.output).toBe(1);
+				expect(result.output).toContain('not a regular file');
+				expect(result.output).toContain(relative);
+				expect(result.output).not.toContain('All checks passed');
+			} finally {
+				rmSync(file, { force: true });
+			}
+		}
+	);
+
+	it.skipIf(process.platform === 'win32')(
+		'rejects a repository symlink to an external file',
+		() => {
+			const external = mkdtempSync(path.join(tmpdir(), 'format-external-link-'));
+			const target = path.join(external, 'target.ts');
+			const file = path.join(ROOT, `.format-external-link-${process.pid}.ts`);
+			writeFileSync(target, 'export const external = true;\n');
+			symlinkSync(target, file);
+			try {
+				const { status, output } = formatCheck(file);
+				expect(status).toBe(1);
+				expect(output).toContain('outside the repository');
+				expect(output).not.toContain('Code formatting');
+			} finally {
+				rmSync(file, { force: true });
+				rmSync(external, { recursive: true, force: true });
+			}
+		}
+	);
+
+	it.skipIf(process.platform !== 'linux')(
+		'rejects repository paths whose bytes are not valid UTF-8',
+		() => {
+			const relative = Buffer.concat([
+				Buffer.from(`.format-invalid-utf8-${process.pid}-`),
+				Buffer.from([0xff]),
+				Buffer.from('.ts')
+			]);
+			const invalid = Buffer.concat([Buffer.from(`${ROOT}/`), relative]);
+			writeFileSync(invalid, 'export const value = 1;\n');
+			try {
+				const result = formatCheckFilesFrom(Buffer.concat([relative, Buffer.from([0])]));
+				expect(result.status).toBe(1);
+				expect(result.output).toContain('bytes that are not valid UTF-8');
+				expect(result.output).not.toContain('SvelteKit sync');
+			} finally {
+				rmSync(invalid, { force: true });
+			}
+		},
+		60_000
+	);
+
+	it('keeps locally Git-ignored files in an explicit Prettier directory', () => {
+		const directory = `.format-local-ignore-${process.pid}`;
+		const ignored = `${directory}/ignored.ts`;
+		const excludesDirectory = mkdtempSync(path.join(tmpdir(), 'format-local-ignore-'));
+		const excludes = path.join(excludesDirectory, 'excludes');
+		const saved = new Map<string, string | undefined>();
+		for (const key of ['GIT_CONFIG_COUNT', 'GIT_CONFIG_KEY_0', 'GIT_CONFIG_VALUE_0']) {
+			saved.set(key, process.env[key]);
+		}
+		mkdirSync(path.join(ROOT, directory));
+		writeFileSync(path.join(ROOT, directory, 'kept.ts'), 'export const kept = true;\n');
+		writeFileSync(path.join(ROOT, ignored), 'export const ignored    =    true;\n');
+		writeFileSync(excludes, `${ignored}\n`);
+		process.env.GIT_CONFIG_COUNT = '1';
+		process.env.GIT_CONFIG_KEY_0 = 'core.excludesFile';
+		process.env.GIT_CONFIG_VALUE_0 = excludes;
+		try {
+			const result = formatCheck(path.join(ROOT, directory));
+			expect(result.status).not.toBe(0);
+			expect(result.output).toContain(`[warn] ${ignored}`);
+		} finally {
+			for (const [key, value] of saved) {
+				if (value === undefined) delete process.env[key];
+				else process.env[key] = value;
+			}
+			rmSync(path.join(ROOT, directory), { recursive: true, force: true });
+			rmSync(excludesDirectory, { recursive: true, force: true });
+		}
 	});
 
 	it('checks a web app manifest with the real formatter', () => {
@@ -148,6 +787,69 @@ describe('format-only static checks', () => {
 		});
 	}, 60_000);
 
+	it('does not reinterpret a disappeared formatter path as a glob', () => {
+		const directory = `scripts/.format-glob-${process.pid}`;
+		const named = `${directory}/[ab].ts`;
+		const neighbour = `${directory}/a.ts`;
+		mkdirSync(path.join(ROOT, directory), { recursive: true });
+		writeFileSync(path.join(ROOT, named), 'export const named = true;\n');
+		writeFileSync(path.join(ROOT, neighbour), 'export const neighbour = true;\n');
+		try {
+			const selected = prettierProjectPaths([named], ROOT, true);
+			rmSync(path.join(ROOT, named));
+
+			const raw = spawnSync(
+				testExecutable('bun'),
+				['prettier', '--check', '--ignore-unknown', '--', named],
+				{ cwd: ROOT, env: { ...sanitizedGitEnv(), NO_COLOR: '1' }, encoding: 'utf8' }
+			);
+			const escaped = spawnSync(testExecutable('bun'), prettierArguments('--check', selected), {
+				cwd: ROOT,
+				env: { ...sanitizedGitEnv(), NO_COLOR: '1' },
+				encoding: 'utf8'
+			});
+
+			expect(raw.status, `${raw.stdout}${raw.stderr}`).toBe(0);
+			expect(escaped.status).not.toBe(0);
+			expect(`${escaped.stdout}${escaped.stderr}`).toContain('No files matching the pattern');
+		} finally {
+			rmSync(path.join(ROOT, directory), { recursive: true, force: true });
+		}
+	});
+
+	it('accepts the repository root as an explicit format directory', () => {
+		const seen: string[] = [];
+		const inputs = resolveInputs(['.'], 'arguments', ROOT, (directory) => {
+			seen.push(directory);
+			return ['README.md', 'scripts/static-checks.ts'];
+		});
+
+		expect(seen).toEqual([ROOT]);
+		expect(inputs).toEqual(['README.md', 'scripts/static-checks.ts']);
+	});
+
+	it('traverses only the explicitly named format directory', () => {
+		const scripts = path.join(ROOT, 'scripts');
+		const files = prettierTraversalPaths(scripts, false, ROOT);
+
+		expect(files.length).toBeGreaterThan(0);
+		expect(files.every((file) => file.startsWith('scripts/'))).toBe(true);
+		expect(files).not.toContain('.svelte-kit/ambient.d.ts');
+	});
+
+	it('fails if a named formatter input disappears before routing', () => {
+		const result = spawnSync(
+			testExecutable('bun'),
+			[
+				'-e',
+				'import { prettierProjectPaths } from "./scripts/static-checks.ts"; prettierProjectPaths([".missing-format-input"], process.cwd(), true);'
+			],
+			{ cwd: ROOT, env: { ...sanitizedGitEnv(), NO_COLOR: '1' }, encoding: 'utf8' }
+		);
+		expect(result.status).toBe(1);
+		expect(`${result.stdout}${result.stderr}`).toContain('disappeared before formatter routing');
+	});
+
 	it('keeps a root file whose name begins with dots inside the repository', () => {
 		const relative = `..format-dots-${process.pid}.ts`;
 		withRepositoryFile(relative, 'export const value    =    1;\n', (file) => {
@@ -160,12 +862,273 @@ describe('format-only static checks', () => {
 });
 
 describe('scope routing', () => {
-	it('records a positive formatter match count for a full-project run', () => {
-		const { status, output } = formatCheck();
-		expect(status).toBe(0);
-		expect(output).toMatch(/prettier\s+[1-9]\d* file\(s\)/);
-		expect(output).not.toContain('prettier         whole project');
+	// Session artifacts and an interrupted fixture both leave whole trees under `scratch/`,
+	// and every project-wide tool walks the repository itself. Asserting the configuration
+	// files contain the string proves nothing: it stays green when the pattern moves into a
+	// comment or a block that never applies. Each tool is asked instead.
+	it('keeps scratch out of project-wide checks', () => {
+		const directory = path.join(ROOT, 'scratch', `exclusion-${process.pid}`);
+		const relative = `scratch/exclusion-${process.pid}/abandoned.test.ts`;
+		const markdown = `scratch/exclusion-${process.pid}/review.md`;
+		mkdirSync(directory, { recursive: true });
+		const run = (args: string[]) =>
+			spawnSync(testExecutable('bun'), args, {
+				cwd: ROOT,
+				env: { ...sanitizedGitEnv(), NO_COLOR: '1' },
+				encoding: 'utf8'
+			});
+		try {
+			// Invalid TypeScript, an unused binding and a test file name in one: whichever tool
+			// reads it has something to say about it.
+			writeFileSync(
+				path.join(directory, 'abandoned.test.ts'),
+				'const unused = ;\nexport function broken(: never {}\n'
+			);
+			writeFileSync(path.join(ROOT, markdown), '[missing](missing.md)\n');
+
+			const policy = runKnowledgePolicy({
+				root: ROOT,
+				policy: knowledgePolicy,
+				scope: { kind: 'files', files: [markdown] }
+			});
+			expect(policy.filesEvaluated).toBe(0);
+			expect(policy.findings).toEqual([]);
+
+			const oxlint = run(['oxlint']);
+			expect(`${oxlint.stdout}${oxlint.stderr}`).not.toContain('abandoned.test.ts');
+
+			const vitest = run(['vitest', 'list', '--filesOnly']);
+			expect(`${vitest.stdout}${vitest.stderr}`).not.toContain('abandoned.test.ts');
+
+			// ESLint is asked about the file directly rather than over the project, which takes
+			// minutes: naming an ignored path is how it reports the ignore rule as applied.
+			const eslint = run(['eslint', relative]);
+			const output = `${eslint.stdout}${eslint.stderr}`;
+			expect(output).toContain('File ignored because of a matching ignore pattern');
+			expect(output).not.toContain('Parsing error');
+		} finally {
+			rmSync(directory, { recursive: true, force: true });
+		}
+	}, 240_000);
+
+	it('records a numeric formatter count in an isolated full-project run', () => {
+		const checkout = createCheckerClone();
+		try {
+			const result = spawnSync(
+				testExecutable('bun'),
+				[
+					path.join(checkout.repository, 'scripts', 'static-checks.ts'),
+					'--ci',
+					'--scope',
+					'format'
+				],
+				{
+					cwd: checkout.repository,
+					env: { ...sanitizedGitEnv(), NO_COLOR: '1' },
+					encoding: 'utf8'
+				}
+			);
+			const output = `${result.stdout}${result.stderr}`;
+			expect(result.status, output).toBe(0);
+			expect(output).toMatch(/prettier\s+[1-9]\d* file\(s\)/);
+			expect(output).not.toContain('prettier         whole project');
+		} finally {
+			rmSync(checkout.directory, { recursive: true, force: true });
+		}
 	}, 120_000);
+
+	it.skipIf(process.platform === 'win32')(
+		'rejects a full lint run whose formatter matched zero files',
+		() => {
+			const checkout = createCheckerClone();
+			const tools = path.join(checkout.directory, 'tools');
+			mkdirSync(tools);
+			const misspell = path.join(tools, 'misspell');
+			writeFileSync(misspell, '#!/bin/sh\nexit 0\n');
+			chmodSync(misspell, 0o755);
+			// The invariant under test is the ledger's real in-process Prettier classification.
+			// Child commands are irrelevant after that and would turn one assertion into a full
+			// lint suite, so the PATH-local Bun acknowledges them without doing duplicate work.
+			const childBun = path.join(tools, 'bun');
+			writeFileSync(childBun, '#!/bin/sh\nexit 0\n');
+			chmodSync(childBun, 0o755);
+			writeFileSync(path.join(checkout.repository, '.prettierignore'), '**/*\n');
+			try {
+				const env = sanitizedGitEnv();
+				env.NO_COLOR = '1';
+				env.PATH = `${tools}${path.delimiter}${env.PATH ?? ''}`;
+				const result = spawnSync(
+					testExecutable('bun'),
+					[
+						path.join(checkout.repository, 'scripts', 'static-checks.ts'),
+						'--ci',
+						'--scope',
+						'lint'
+					],
+					{ cwd: checkout.repository, env, encoding: 'utf8', timeout: 240_000 }
+				);
+				const output = `${result.stdout}${result.stderr}`;
+				expect(result.status, output).toBe(1);
+				expect(output).toContain('Full-project run: "prettier" matched 0 files');
+				expect(output).not.toContain('prettier         whole project');
+			} finally {
+				rmSync(checkout.directory, { recursive: true, force: true });
+			}
+		},
+		300_000
+	);
+
+	it.skipIf(process.platform === 'win32')(
+		'rejects a staged file that no active lint check consumes',
+		() => {
+			const checkout = createCheckerClone();
+			const tools = path.join(checkout.directory, 'staged-tools');
+			mkdirSync(tools);
+			for (const command of ['bun', 'misspell']) {
+				const executable = path.join(tools, command);
+				writeFileSync(executable, '#!/bin/sh\nexit 0\n');
+				chmodSync(executable, 0o755);
+			}
+			const file = path.join(checkout.repository, 'src', 'i18n', 'repro.bin');
+			writeFileSync(file, String.fromCharCode(1, 2, 3));
+			const staged = spawnSync('git', ['add', '--', 'src/i18n/repro.bin'], {
+				cwd: checkout.repository,
+				env: sanitizedGitEnv(),
+				encoding: 'utf8'
+			});
+			expect(staged.status, staged.stderr).toBe(0);
+			try {
+				const env = sanitizedGitEnv();
+				env.NO_COLOR = '1';
+				env.PATH = `${tools}${path.delimiter}${env.PATH ?? ''}`;
+				const result = spawnSync(
+					testExecutable('bun'),
+					[
+						path.join(checkout.repository, 'scripts', 'static-checks.ts'),
+						'--staged',
+						'--scope',
+						'lint'
+					],
+					{ cwd: checkout.repository, env, encoding: 'utf8', timeout: 120_000 }
+				);
+				const output = `${result.stdout}${result.stderr}`;
+				expect(result.status, output).toBe(1);
+				expect(output).toContain('No check in the active scope (lint) is responsible');
+			} finally {
+				rmSync(checkout.directory, { recursive: true, force: true });
+			}
+		},
+		180_000
+	);
+
+	it.skipIf(process.platform === 'win32')(
+		'accepts a deletion-only staged change after validating the final index',
+		() => {
+			const checkout = createCheckerClone();
+			const tools = path.join(checkout.directory, 'deletion-tools');
+			mkdirSync(tools);
+			for (const command of ['bun', 'misspell']) {
+				const executable = path.join(tools, command);
+				writeFileSync(executable, '#!/bin/sh\nexit 0\n');
+				chmodSync(executable, 0o755);
+			}
+			const relative = 'scripts/deletion-probe.md';
+			writeFileSync(path.join(checkout.repository, relative), '# delete me\n');
+			const git = (args: string[]) =>
+				spawnSync('git', args, {
+					cwd: checkout.repository,
+					env: sanitizedGitEnv(),
+					encoding: 'utf8'
+				});
+			expect(git(['add', '--', relative]).status).toBe(0);
+			expect(
+				git([
+					'-c',
+					'user.name=Probe',
+					'-c',
+					'user.email=probe@example.com',
+					'commit',
+					'--quiet',
+					'--no-gpg-sign',
+					'--no-verify',
+					'-m',
+					'Deletion fixture'
+				]).status
+			).toBe(0);
+			expect(git(['rm', '--quiet', '--', relative]).status).toBe(0);
+			try {
+				const env = sanitizedGitEnv();
+				env.NO_COLOR = '1';
+				env.PATH = `${tools}${path.delimiter}${env.PATH ?? ''}`;
+				const result = spawnSync(
+					testExecutable('bun'),
+					[
+						path.join(checkout.repository, 'scripts', 'static-checks.ts'),
+						'--staged',
+						'--scope',
+						'lint'
+					],
+					{ cwd: checkout.repository, env, encoding: 'utf8', timeout: 120_000 }
+				);
+				const output = `${result.stdout}${result.stderr}`;
+				expect(result.status, output).toBe(0);
+				expect(output).toContain(
+					'NO WORK: staged changes only delete paths absent from the final index.'
+				);
+				expect(output).toContain('All checks passed');
+			} finally {
+				rmSync(checkout.directory, { recursive: true, force: true });
+			}
+		},
+		180_000
+	);
+
+	it.skipIf(process.platform === 'win32')(
+		'rejects an index-only deletion whose worktree configuration remains active',
+		() => {
+			const checkout = createCheckerClone();
+			const tools = path.join(checkout.directory, 'cached-delete-tools');
+			mkdirSync(tools);
+			for (const command of ['bun', 'misspell']) {
+				const executable = path.join(tools, command);
+				writeFileSync(executable, '#!/bin/sh\nexit 0\n');
+				chmodSync(executable, 0o755);
+			}
+			const git = (args: string[]) =>
+				spawnSync('git', args, {
+					cwd: checkout.repository,
+					env: sanitizedGitEnv(),
+					encoding: 'utf8'
+				});
+			expect(git(['rm', '--cached', '--quiet', '.prettierignore']).status).toBe(0);
+			writeFileSync(path.join(checkout.repository, '.prettierignore'), 'static/repro.json\n');
+			const repro = path.join(checkout.repository, 'static', 'repro.json');
+			writeFileSync(repro, '{"value":1}\n');
+			expect(git(['add', '--', 'static/repro.json']).status).toBe(0);
+			try {
+				const env = sanitizedGitEnv();
+				env.NO_COLOR = '1';
+				env.PATH = `${tools}${path.delimiter}${env.PATH ?? ''}`;
+				const result = spawnSync(
+					testExecutable('bun'),
+					[
+						path.join(checkout.repository, 'scripts', 'static-checks.ts'),
+						'--staged',
+						'--scope',
+						'lint'
+					],
+					{ cwd: checkout.repository, env, encoding: 'utf8', timeout: 120_000 }
+				);
+				const output = `${result.stdout}${result.stderr}`;
+				expect(result.status, output).toBe(1);
+				expect(output).toContain('Staged file contents differ from the worktree');
+				expect(output).not.toContain('All checks passed');
+			} finally {
+				rmSync(checkout.directory, { recursive: true, force: true });
+			}
+		},
+		180_000
+	);
 
 	// The staged gate ends by proving the checked bytes are still the staged bytes, and
 	// that argument belongs to the lint-and-types path. A format scope leaves through its
@@ -179,7 +1142,11 @@ describe('scope routing', () => {
 		const output = `${result.stdout}${result.stderr}`;
 		expect(result.status).toBe(1);
 		expect(output).toContain('--scope format does not support --staged');
-		expect(output).toContain('--files-from');
+		// The diagnostic must not send a staged gate to `--files-from`: that names paths, and
+		// every checker then reads the working tree, so a file staged unformatted and then
+		// formatted only on disk would pass the gate and be committed unformatted.
+		expect(output).toContain('always as the files are on disk');
+		expect(output).not.toContain('use --files-from');
 		expect(output).not.toContain('Code formatting');
 	});
 

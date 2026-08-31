@@ -74,13 +74,7 @@
 	}
 </script>
 
-<form
-	onsubmit={handleSubmit}
-	action="/api/auth/sign-up/email"
-	method="POST"
-	novalidate
-	class="min-h-96"
->
+<form onsubmit={handleSubmit} novalidate class="min-h-96">
 	<LoadingBar
 		value={signUpProgress}
 		mode={isLoading ? 'loading' : 'progress'}

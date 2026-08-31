@@ -19,6 +19,8 @@ Use this decision order:
 3. One-shot server mutations with schema validation use SvelteKit remote `form()` with Valibot.
 4. Existing presigned/pre-upload flows keep file transfer client-side and submit final metadata separately.
 
+Keep `action` and `method` off a form whose submit runs through a handwritten client handler. They advertise a native no-JS submit that nothing here serves: the Better Auth endpoints answer with JSON rather than a redirect. Attributes that a remote `form()` spreads onto the element are the opposite case and must stay, because they are what its own no-JS path submits to.
+
 Use `Field.Group` and `Field.Field` from the shared field components. Keep field errors next to their inputs, avoid redundant error messages, and do not override `Field.Group` spacing with local gap/margin/padding utilities. For remote-form implementation details, load `.agents/skills/svelte-form-builder/SKILL.md`.
 
 ## Navigation and loading

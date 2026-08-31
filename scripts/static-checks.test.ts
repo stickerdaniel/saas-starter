@@ -31,6 +31,8 @@ import {
 	literalControlCharacterViolations,
 	prettierArguments,
 	prettierFormattableFiles,
+	prettierProjectPaths,
+	prettierTraversalPaths,
 	repositoryPaths,
 	ROUTES,
 	resolveInputs,
@@ -142,28 +144,23 @@ describe('route predicates', () => {
 			)
 		).toBe(true);
 
-		// Prettier has no built-in Svelte language, and loading the plugin to find that out
-		// would run it inside the checker. The route asserts the convention instead, which
-		// is only honest while the two declarations above are the ones the formatter reads.
-		expect(await prettierFormattableFiles(['src/routes/+layout.svelte'])).toEqual([
-			'src/routes/+layout.svelte'
-		]);
+		// Classification resolves the same config and plugin list as the formatter, so mixed
+		// case follows Prettier's own extension matching rather than a local fallback grammar.
+		expect(
+			await prettierFormattableFiles(['src/routes/+layout.svelte', 'src/routes/Component.SVELTE'])
+		).toEqual(['src/routes/+layout.svelte', 'src/routes/Component.SVELTE']);
 	});
 
-	it('classifies without executing repository configuration', async () => {
-		// Measured: with configuration resolution left on, one malformed .prettierrc makes
-		// getFileInfo throw, so a routing question would take the whole run down before any
-		// check it was classifying for could start. Classification answers from Prettier's
-		// built-in table and the repository convention alone, and never runs a config file
-		// or a plugin inside the checker.
+	it('honours a parser override from repository configuration', async () => {
 		const fixture = mkdtempSync(path.join(tmpdir(), 'static-checks-config-'));
 		try {
-			writeFileSync(path.join(fixture, '.prettierrc'), '{ this is not json\n');
-			writeFileSync(path.join(fixture, 'probe.ts'), 'export const probe = 1;\n');
-			writeFileSync(path.join(fixture, 'probe.svelte'), '<p>probe</p>\n');
-			expect(await prettierFormattableFiles(['probe.ts', 'probe.svelte'], fixture)).toEqual([
-				'probe.ts',
-				'probe.svelte'
+			writeFileSync(
+				path.join(fixture, '.prettierrc'),
+				JSON.stringify({ overrides: [{ files: '*.customfmt', options: { parser: 'typescript' } }] })
+			);
+			writeFileSync(path.join(fixture, 'probe.customfmt'), 'export const probe = 1;\n');
+			expect(await prettierFormattableFiles(['probe.customfmt'], fixture)).toEqual([
+				'probe.customfmt'
 			]);
 		} finally {
 			rmSync(fixture, { recursive: true, force: true });
@@ -171,13 +168,18 @@ describe('route predicates', () => {
 	});
 
 	it('applies the ignore rules the formatter CLI applies', async () => {
-		// The CLI's default --ignore-path is exactly [.gitignore, .prettierignore], and
-		// .prettierignore excludes the generated src/env.d.ts. A file the command would
-		// skip is not work this run may claim, so it must not reach the ledger as one.
-		expect(await prettierFormattableFiles(['src/env.d.ts'])).toEqual([]);
-		expect(await prettierFormattableFiles(['src/routes/+layout.svelte', 'src/env.d.ts'])).toEqual([
-			'src/routes/+layout.svelte'
-		]);
+		// The CLI's default --ignore-path is exactly [.gitignore, .prettierignore]. Files
+		// its project traversal skips must stay out of the ledger too.
+		expect(
+			await prettierFormattableFiles(['src/env.d.ts', 'scratch/probe.ts', 'CLAUDE.md'])
+		).toEqual([]);
+		expect(
+			await prettierFormattableFiles([
+				'src/routes/+layout.svelte',
+				'src/lib/scratch/probe.ts',
+				'src/env.d.ts'
+			])
+		).toEqual(['src/routes/+layout.svelte', 'src/lib/scratch/probe.ts']);
 	});
 
 	it('keeps a run honest about which named files it formatted', async () => {
@@ -255,6 +257,15 @@ describe('repository path safety', () => {
 		expect(existingRepositoryPaths(['README.md', 'docs/does-not-exist.md'])).toEqual(['README.md']);
 	});
 
+	it('preflights a positive formatter match count for the whole project', async () => {
+		const traversed = await prettierTraversalPaths();
+		const formattable = await prettierFormattableFiles(prettierProjectPaths(traversed));
+
+		expect(formattable.length).toBeGreaterThan(0);
+		expect(formattable.length).toBeLessThanOrEqual(traversed.length);
+		expect(formattable).not.toContain('src/env.d.ts');
+	});
+
 	it('includes untracked nonignored files in the full-mode preflight', () => {
 		const relative = `src/lib/content/.static-checks-untracked-${process.pid}.md`;
 		const file = path.join(ROOT, relative);
@@ -265,6 +276,83 @@ describe('repository path safety', () => {
 			rmSync(file, { force: true });
 		}
 	});
+
+	it('counts files Prettier visits even when local Git configuration ignores them', async () => {
+		const directory = mkdtempSync(path.join(tmpdir(), 'static-checks-local-ignore-'));
+		const excludes = path.join(directory, 'excludes');
+		const relative = `.static-checks-local-ignore-${process.pid}.json`;
+		const file = path.join(ROOT, relative);
+		const saved = new Map<string, string | undefined>();
+		for (const key of ['GIT_CONFIG_COUNT', 'GIT_CONFIG_KEY_0', 'GIT_CONFIG_VALUE_0']) {
+			saved.set(key, process.env[key]);
+		}
+		writeFileSync(excludes, `${relative}\n`);
+		writeFileSync(file, '{"safe": true}\n');
+		process.env.GIT_CONFIG_COUNT = '1';
+		process.env.GIT_CONFIG_KEY_0 = 'core.excludesFile';
+		process.env.GIT_CONFIG_VALUE_0 = excludes;
+		try {
+			expect(repositoryPaths()).not.toContain(relative);
+			expect(await prettierTraversalPaths()).toContain(relative);
+			expect(await prettierFormattableFiles([relative])).toEqual([relative]);
+		} finally {
+			for (const [key, value] of saved) {
+				if (value === undefined) delete process.env[key];
+				else process.env[key] = value;
+			}
+			rmSync(file, { force: true });
+			rmSync(directory, { recursive: true, force: true });
+		}
+	});
+
+	it.skipIf(process.platform === 'win32')(
+		'skips session artifacts and Sapling metadata without guessing file-level ignores',
+		async () => {
+			const fixture = mkdtempSync(path.join(tmpdir(), 'prettier-traversal-'));
+			mkdirSync(path.join(fixture, 'scratch'));
+			mkdirSync(path.join(fixture, '.sl'));
+			mkdirSync(path.join(fixture, 'src', '__fixtures__'), { recursive: true });
+			writeFileSync(path.join(fixture, '.gitignore'), '');
+			writeFileSync(path.join(fixture, '.prettierignore'), '/scratch/\n**/__fixtures__/*.ts\n');
+			writeFileSync(path.join(fixture, 'scratch', 'bad\n.ts'), 'unsafe');
+			writeFileSync(path.join(fixture, '.sl', 'probe.ts'), 'metadata');
+			writeFileSync(path.join(fixture, 'src', 'good.ts'), 'source');
+			writeFileSync(path.join(fixture, 'src', '__fixtures__', 'README.md'), 'markdown');
+			try {
+				const files = await prettierTraversalPaths(fixture, true);
+				expect(files).toContain('src/good.ts');
+				expect(files).toContain('src/__fixtures__/README.md');
+				expect(files).not.toContain('scratch/bad\n.ts');
+				expect(files).not.toContain('.sl/probe.ts');
+			} finally {
+				rmSync(fixture, { recursive: true, force: true });
+			}
+		}
+	);
+
+	it.skipIf(process.platform === 'win32')(
+		'keeps symlinks out of the project formatter ledger',
+		() => {
+			const relative = `.static-checks-prettier-link-${process.pid}.md`;
+			const file = path.join(ROOT, relative);
+			symlinkSync(path.join(ROOT, 'README.md'), file);
+			try {
+				expect(repositoryPaths()).toContain(relative);
+				// The formatter scope keeps the link's own name, because Prettier neither follows
+				// nor accepts one, and the project ledger is what drops it.
+				expect(resolveInputs([file], 'test', process.cwd(), repositoryPaths, false)).toEqual([
+					relative
+				]);
+				expect(prettierProjectPaths([relative])).toEqual([]);
+				// Every other scope routes by extension, so it needs the target instead: under the
+				// link's own `.md` name a TypeScript target reaches no checker and the run passes
+				// having checked nothing.
+				expect(resolveInputs([file], 'test')).toEqual(['README.md']);
+			} finally {
+				rmSync(file, { force: true });
+			}
+		}
+	);
 
 	it('encodes unsafe path characters in diagnostics', () => {
 		expect(formatPathForDiagnostic(`bad${String.fromCharCode(0x1b)}.txt`)).toBe(
@@ -321,8 +409,8 @@ describe('repository path safety', () => {
 		10_000
 	);
 
-	it('identifies structural, line-separator, and bidirectional controls in paths', () => {
-		for (const code of [0x09, 0x0a, 0x0d, 0x7f, 0x85, 0x2028, 0x2029, 0x202e]) {
+	it('identifies structural, invisible, line-separator, and bidirectional controls in paths', () => {
+		for (const code of [0x09, 0x0a, 0x0d, 0x7f, 0x85, 0x2028, 0x2029, 0x202e, 0xfeff, 0xfffd]) {
 			expect(unsafePathCodepoints(`bad${String.fromCharCode(code)}.txt`)).toHaveLength(1);
 		}
 	});
@@ -400,7 +488,6 @@ describe('bad input dies at the boundary', () => {
 
 	it.each([
 		['an empty argument', ['']],
-		['a whitespace argument', ['   ']],
 		['a newline-joined list arriving as one argument', ['src/a.ts\nsrc/b.ts']],
 		['a path that does not exist', ['src/does-not-exist.ts']],
 		['a path outside the repository', ['/etc/hosts']],

@@ -74,7 +74,7 @@ export default defineConfig(
 	// exposed to a character nobody typed, so the later file block disables its inline
 	// directive and exempts only the generated style rules it then trips.
 	{
-		ignores: ['**/_generated/**', 'src/lib/convex/convex-env.d.ts']
+		ignores: ['scratch/**', '**/_generated/**', 'src/lib/convex/convex-env.d.ts']
 	},
 	js.configs.recommended,
 	...ts.configs.recommended,

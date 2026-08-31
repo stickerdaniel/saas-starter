@@ -2151,6 +2151,12 @@ function ensureUpstream(root: string, upstreamUrl: string, allowFetch: boolean):
 		const transport = transportRemote(transportUrl);
 		console.error(`Fetching upstream (${terminalUrl(upstreamUrl)}) ...`);
 		const expected = advertisedMainAt(transportUrl);
+		// This writes into the caller's own object store, and the deadline below
+		// bounds time rather than received bytes. Global config is off here and the
+		// copied transport config carries neither unpack limit, so Git's built-in
+		// threshold of 100 objects selects the receiver and therefore the residue
+		// form if that receiver starts writing. The fetched tip is persisted without
+		// checking every reachable object for readability.
 		try {
 			rejectTransportCommandOverrides();
 			verifyLocalRemoteSnapshot(transportUrl);

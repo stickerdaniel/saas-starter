@@ -1,23 +1,28 @@
 import { spawnSync } from 'node:child_process';
 import {
 	chmodSync,
-	copyFileSync,
+	cpSync,
+	mkdtempSync,
+	existsSync,
 	mkdirSync,
 	readFileSync,
 	rmSync,
 	symlinkSync,
 	writeFileSync
 } from 'node:fs';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { sanitizedGitEnv } from './git-context';
+import { isolatedGitEnv, sanitizedGitEnv } from './git-context';
 import { compatibilityInvocation } from './static-checks';
 import { testExecutable } from './test-executable';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SCRIPT = path.join(ROOT, 'scripts', 'static-checks.ts');
 const BUN = testExecutable('bun');
+const ESCAPE = String.fromCharCode(0x1b);
+const BELL = String.fromCharCode(0x07);
 
 function run(args: string[], env = sanitizedGitEnv()) {
 	return spawnSync(BUN, [SCRIPT, ...args], {
@@ -27,10 +32,17 @@ function run(args: string[], env = sanitizedGitEnv()) {
 	});
 }
 
+/**
+ * A second checkout of this repository to run the checker against, outside the repository
+ * rather than under its `scratch/`. Inside it, the clone is a whole extra copy of the tree
+ * that every project-wide tool walks: measured, a full-project format run racing this
+ * fixture read the clone's own files and failed a suite whose tracked tree was clean.
+ * Killing the test run leaves the copy behind either way, and in the temporary directory
+ * that is the operating system's problem instead of the next `eslint .`.
+ */
 function createCheckerClone(): { directory: string; repository: string } {
-	const directory = path.join(ROOT, 'scratch', `static-compat-${process.pid}-${Date.now()}`);
+	const directory = mkdtempSync(path.join(tmpdir(), 'static-compat-'));
 	const repository = path.join(directory, 'repository');
-	mkdirSync(directory, { recursive: true });
 	try {
 		const result = spawnSync(
 			'git',
@@ -43,7 +55,14 @@ function createCheckerClone(): { directory: string; repository: string } {
 			path.join(repository, 'node_modules'),
 			process.platform === 'win32' ? 'junction' : 'dir'
 		);
-		copyFileSync(SCRIPT, path.join(repository, 'scripts', 'static-checks.ts'));
+		// Every script, not the three the checker is spelled in. It imports `convex-surface.ts`
+		// and `terminal-output.ts` among others, and copying only the entrypoints left those at
+		// the committed revision: measured, a working-tree change that made the surface reader
+		// throw was invisible to this fixture while the direct checker exited 1 on it.
+		cpSync(path.join(ROOT, 'scripts'), path.join(repository, 'scripts'), {
+			recursive: true,
+			dereference: true
+		});
 		return { directory, repository };
 	} catch (error) {
 		rmSync(directory, { recursive: true, force: true });
@@ -51,82 +70,261 @@ function createCheckerClone(): { directory: string; repository: string } {
 	}
 }
 
-function writeFakeBun(directory: string): void {
-	if (process.platform === 'win32') {
-		const source = path.join(directory, 'fake-bun.ts');
-		writeFileSync(
-			source,
-			String.raw`import { writeFileSync } from 'node:fs';
-const log = process.env.STATIC_CHECK_LOG;
-if (!log) process.exit(42);
-writeFileSync(log, [process.argv[1] ?? '', process.env.GIT_DIR ?? '', process.env.GIT_WORK_TREE ?? '', process.env.CI ?? ''].join('\n') + '\n');
-`
-		);
-		const result = spawnSync(
-			BUN,
-			['build', '--compile', source, '--outfile', path.join(directory, 'bun.exe')],
-			{
-				encoding: 'utf8'
-			}
-		);
-		if (result.status !== 0) throw new Error(`Failed to compile fake Bun: ${result.stderr}`);
-		return;
-	}
-	const command = path.join(directory, 'bun');
-	writeFileSync(
-		command,
-		'#!/bin/sh\nprintf \'%s\\n%s\\n%s\\n%s\\n\' "$1" "${GIT_DIR-}" "${GIT_WORK_TREE-}" "${CI-}" > "$STATIC_CHECK_LOG"\n'
-	);
-	chmodSync(command, 0o755);
-}
-
 describe('Convex compatibility static-check entrypoint', () => {
-	it('builds the sanitized child invocation', () => {
-		const savedDir = process.env.GIT_DIR;
-		const savedWorktree = process.env.GIT_WORK_TREE;
-		process.env.GIT_DIR = path.join(ROOT, 'scratch', 'foreign.git');
-		process.env.GIT_WORK_TREE = path.join(ROOT, 'scratch', 'foreign-worktree');
+	it.skipIf(process.platform === 'win32')(
+		'resolves relative and empty PATH entries absolutely',
+		() => {
+			const directory = path.join(ROOT, 'scratch', `test-executable-${process.pid}-${Date.now()}`);
+			const tools = path.join(directory, 'tools');
+			const decoy = path.join(directory, 'decoy', 'probe');
+			const relativeCommand = path.join(tools, 'probe');
+			const currentCommand = path.join(directory, 'current-probe');
+			mkdirSync(decoy, { recursive: true });
+			mkdirSync(tools, { recursive: true });
+			writeFileSync(relativeCommand, '#!/bin/sh\n');
+			writeFileSync(currentCommand, '#!/bin/sh\n');
+			chmodSync(relativeCommand, 0o755);
+			chmodSync(currentCommand, 0o755);
+			try {
+				expect(testExecutable('probe', directory, { PATH: `decoy${path.delimiter}tools` })).toBe(
+					relativeCommand
+				);
+				expect(testExecutable('current-probe', directory, { PATH: '' })).toBe(currentCommand);
+			} finally {
+				rmSync(directory, { recursive: true, force: true });
+			}
+		}
+	);
+
+	it('scrubs the child environment without blanking its transport configuration', () => {
+		const saved = new Map<string, string | undefined>();
+		const overrides = {
+			GIT_DIR: path.join(ROOT, 'scratch', 'foreign.git'),
+			GIT_WORK_TREE: path.join(ROOT, 'scratch', 'foreign-worktree'),
+			GIT_CONFIG_GLOBAL: path.join(ROOT, 'scratch', 'caller.gitconfig')
+		};
+		// `GIT_CONFIG_NOSYSTEM` is asserted absent below and is legitimate hardening for a
+		// developer or a runner to export, so the test controls it rather than reading whatever
+		// the ambient environment happens to hold.
+		const cleared = ['GIT_CONFIG_NOSYSTEM', 'GIT_CONFIG_SYSTEM', 'GIT_CONFIG_COUNT'];
+		for (const [key, value] of Object.entries(overrides)) {
+			saved.set(key, process.env[key]);
+			process.env[key] = value;
+		}
+		for (const key of cleared) {
+			saved.set(key, process.env[key]);
+			delete process.env[key];
+		}
 		try {
 			const invocation = compatibilityInvocation(true);
-			expect(invocation.command).toBe('bun');
+			expect(invocation.command).toBe(process.execPath);
 			expect(invocation.args).toEqual(['scripts/convex-consumer-compat.ts']);
+			// Repository redirections are removed here, because nothing downstream wants them.
 			expect(invocation.options.env?.GIT_DIR).toBeUndefined();
 			expect(invocation.options.env?.GIT_WORK_TREE).toBeUndefined();
+			expect(invocation.options.env?.GIT_ATTR_SOURCE).toBeUndefined();
+			// Configuration is not blanked here. The child needs it for the explicit baseline
+			// fetch and isolates verdict reads from external configuration for itself; a blank
+			// path cannot be undone. Repository-local materialization remains tracked in #863.
+			expect(invocation.options.env?.GIT_CONFIG_GLOBAL).toBe(overrides.GIT_CONFIG_GLOBAL);
+			expect(invocation.options.env?.GIT_CONFIG_NOSYSTEM).toBeUndefined();
 			expect(invocation.options.env?.CI).toBe('true');
 		} finally {
-			if (savedDir === undefined) delete process.env.GIT_DIR;
-			else process.env.GIT_DIR = savedDir;
-			if (savedWorktree === undefined) delete process.env.GIT_WORK_TREE;
-			else process.env.GIT_WORK_TREE = savedWorktree;
+			for (const [key, value] of saved) {
+				if (value === undefined) delete process.env[key];
+				else process.env[key] = value;
+			}
 		}
 	});
 
-	it('runs the compatibility child with the sanitized CI environment', () => {
-		const directory = path.join(ROOT, 'scratch', `compat-child-${process.pid}-${Date.now()}`);
-		const log = path.join(directory, 'child.log');
-		mkdirSync(directory, { recursive: true });
-		try {
-			writeFakeBun(directory);
-			const env = sanitizedGitEnv();
-			env.PATH = `${directory}${path.delimiter}${env.PATH ?? ''}`;
-			env.STATIC_CHECK_LOG = log;
-			env.GIT_DIR = path.join(directory, 'foreign.git');
-			env.GIT_WORK_TREE = path.join(directory, 'foreign-worktree');
-			const result = run(['--ci', '--scope', 'compat'], env);
-			const output = `${result.stdout}${result.stderr}`;
-			const [argument, gitDir, gitWorktree, ci] = readFileSync(log, 'utf8').trimEnd().split('\n');
+	it('uses the running Bun executable and sanitizes child diagnostics without PATH lookup', () => {
+		const env = sanitizedGitEnv();
+		env.PATH = '';
+		env.CI = 'true';
+		env.CONVEX_COMPAT_BASE = `missing ref${ESCAPE}]0;OWNED${BELL}`;
+		const result = run(['--scope', 'compat'], env);
+		const output = `${result.stdout}${result.stderr}`;
 
-			expect(result.status, output).toBe(0);
-			expect(argument).toBe('scripts/convex-consumer-compat.ts');
-			expect(gitDir).toBe('');
-			expect(gitWorktree).toBe('');
-			expect(ci).toBe('true');
-			expect(output).toContain('Convex consumer compatibility');
-			expect(output).not.toContain('SvelteKit sync');
+		expect(result.status, output).toBe(1);
+		expect(output).toContain('Convex consumer compatibility');
+		expect(output).toContain('CONVEX_COMPAT_BASE=missing refU+001B]0;OWNEDU+0007');
+		expect(output).not.toContain('Executable not found');
+		expect(output).not.toContain(`${ESCAPE}]0;OWNED`);
+		expect(output).not.toContain(BELL);
+	}, 30_000);
+
+	it('reads real ancestry through local replacements and grafts', () => {
+		const directory = path.join(ROOT, 'scratch', `compat-history-${process.pid}-${Date.now()}`);
+		mkdirSync(directory, { recursive: true });
+		const env = sanitizedGitEnv();
+		const git = (args: string[], childEnv = env) =>
+			spawnSync('git', ['-c', 'core.useReplaceRefs=true', ...args], {
+				cwd: directory,
+				env: childEnv,
+				encoding: 'utf8'
+			});
+		try {
+			expect(git(['init', '--quiet', '--initial-branch=main']).status).toBe(0);
+			for (const [message, contents] of [
+				['Initial', 'one\n'],
+				['Middle', 'two\n'],
+				['Current', 'three\n']
+			] as const) {
+				writeFileSync(path.join(directory, 'README.md'), contents);
+				expect(git(['add', '--', 'README.md']).status).toBe(0);
+				expect(
+					git([
+						'-c',
+						'user.name=Probe',
+						'-c',
+						'user.email=probe@example.com',
+						'commit',
+						'--quiet',
+						'--no-gpg-sign',
+						'--no-verify',
+						'-m',
+						message
+					]).status
+				).toBe(0);
+			}
+
+			const head = git(['rev-parse', 'HEAD']).stdout.trim();
+			const realParent = git(['rev-parse', 'HEAD~1']).stdout.trim();
+			const oldest = git(['rev-parse', 'HEAD~2']).stdout.trim();
+			const tree = git(['write-tree']).stdout.trim();
+			const replacement = git([
+				'-c',
+				'user.name=Probe',
+				'-c',
+				'user.email=probe@example.com',
+				'commit-tree',
+				tree,
+				'-m',
+				'Replacement root'
+			]).stdout.trim();
+			expect(git(['replace', 'HEAD', replacement]).status).toBe(0);
+			expect(git(['rev-parse', 'HEAD~1']).status).not.toBe(0);
+
+			const isolated = isolatedGitEnv();
+			const replacementParent = git(['rev-parse', 'HEAD~1'], isolated);
+			expect(replacementParent.status, replacementParent.stderr).toBe(0);
+			expect(replacementParent.stdout.trim()).toBe(realParent);
+
+			expect(git(['replace', '-d', 'HEAD']).status).toBe(0);
+			writeFileSync(path.join(directory, '.git', 'info', 'grafts'), `${head} ${oldest}\n`);
+			expect(git(['rev-parse', 'HEAD~1']).stdout.trim()).toBe(oldest);
+			const graftParent = git(['rev-parse', 'HEAD~1'], isolated);
+			expect(graftParent.status, graftParent.stderr).toBe(0);
+			expect(graftParent.stdout.trim()).toBe(realParent);
 		} finally {
 			rmSync(directory, { recursive: true, force: true });
 		}
-	});
+	}, 30_000);
+
+	it.skipIf(process.platform === 'win32')(
+		'protects the direct checker from rewritten ancestry and external checkout configuration',
+		() => {
+			const checkout = createCheckerClone();
+			const env = sanitizedGitEnv();
+			// The fixture below is the checker's entire history. `CI` and `CONVEX_COMPAT_BASE`
+			// survive the scrub by design and would each steer it at a different baseline.
+			delete env.CI;
+			delete env.CONVEX_COMPAT_BASE;
+			const foreignRepository = path.join(checkout.directory, 'foreign-repository');
+			const git = (args: string[], childEnv = env) =>
+				spawnSync('git', ['-c', 'core.useReplaceRefs=true', ...args], {
+					cwd: checkout.repository,
+					env: childEnv,
+					encoding: 'utf8'
+				});
+			const foreignGit = (args: string[]) =>
+				spawnSync('git', args, { cwd: foreignRepository, env, encoding: 'utf8' });
+			try {
+				mkdirSync(foreignRepository, { recursive: true });
+				expect(foreignGit(['init', '--quiet', '--initial-branch=main']).status).toBe(0);
+				expect(foreignGit(['config', 'core.hooksPath', 'original-hooks']).status).toBe(0);
+				const tree = git(['write-tree']).stdout.trim();
+				const commit = (message: string, parent?: string) =>
+					git([
+						'-c',
+						'user.name=Probe',
+						'-c',
+						'user.email=probe@example.com',
+						'commit-tree',
+						tree,
+						...(parent ? ['-p', parent] : []),
+						'-m',
+						message
+					]).stdout.trim();
+				const root = commit('Root');
+				const parent = commit('Parent', root);
+				const head = commit('Head', parent);
+				expect(git(['update-ref', 'refs/heads/main', head]).status).toBe(0);
+				expect(git(['update-ref', 'refs/remotes/origin/main', head]).status).toBe(0);
+				expect(git(['checkout', '--quiet', '--detach', head]).status).toBe(0);
+
+				const replacement = commit('Replacement root');
+				expect(git(['replace', head, replacement]).status).toBe(0);
+				expect(git(['rev-parse', 'HEAD~1']).status).not.toBe(0);
+
+				const hookDirectory = path.join(checkout.directory, 'hooks');
+				const marker = path.join(checkout.directory, 'post-checkout-ran');
+				const filterMarker = path.join(checkout.directory, 'smudge-filter-ran');
+				const filter = path.join(checkout.directory, 'smudge-filter');
+				const attributes = path.join(checkout.directory, 'global-attributes');
+				const template = path.join(checkout.directory, 'template');
+				const config = path.join(checkout.directory, 'global.gitconfig');
+				mkdirSync(hookDirectory, { recursive: true });
+				writeFileSync(
+					path.join(hookDirectory, 'post-checkout'),
+					`#!/bin/sh\nprintf hook > ${JSON.stringify(marker)}\n`
+				);
+				chmodSync(path.join(hookDirectory, 'post-checkout'), 0o755);
+				writeFileSync(filter, `#!/bin/sh\ncat\nprintf filter > ${JSON.stringify(filterMarker)}\n`);
+				chmodSync(filter, 0o755);
+				writeFileSync(attributes, '*.ts filter=compat-probe\n');
+				mkdirSync(path.join(template, 'info'), { recursive: true });
+				writeFileSync(
+					path.join(template, 'config'),
+					`[filter "compat-probe"]\n\tsmudge = ${JSON.stringify(filter)}\n\trequired = true\n`
+				);
+				writeFileSync(path.join(template, 'info', 'attributes'), '*.ts filter=compat-probe\n');
+				expect(git(['config', '--file', config, 'core.hooksPath', hookDirectory]).status).toBe(0);
+				expect(git(['config', 'core.attributesFile', attributes]).status).toBe(0);
+				expect(git(['config', 'filter.compat-probe.smudge', filter]).status).toBe(0);
+
+				const childEnv = {
+					...env,
+					GIT_CONFIG_GLOBAL: config,
+					GIT_DIR: path.join(foreignRepository, '.git'),
+					GIT_TEMPLATE_DIR: template,
+					GIT_TEST_ASSUME_DIFFERENT_OWNER: '1'
+				};
+				const result = spawnSync(
+					BUN,
+					[path.join(checkout.repository, 'scripts', 'convex-consumer-compat.ts')],
+					{
+						cwd: checkout.repository,
+						env: childEnv,
+						encoding: 'utf8',
+						timeout: 110_000
+					}
+				);
+				const output = `${result.stdout}${result.stderr}`;
+				expect(result.status, output).toBe(0);
+				expect(output).toContain('referenced functions still published unchanged');
+				expect(output).not.toContain('root commit, nothing promised yet');
+				expect(existsSync(marker)).toBe(false);
+				expect(existsSync(filterMarker)).toBe(false);
+				expect(foreignGit(['config', '--get', 'core.hooksPath']).stdout.trim()).toBe(
+					'original-hooks'
+				);
+			} finally {
+				rmSync(checkout.directory, { recursive: true, force: true });
+			}
+		},
+		120_000
+	);
 
 	it.skipIf(process.platform === 'win32')(
 		'rejects an unsafe repository path before the compatibility child runs',
@@ -166,6 +364,27 @@ describe('Convex compatibility static-check entrypoint', () => {
 		expect(result.status).toBe(1);
 		expect(output).toContain('--scope compat only supports a full-project run');
 		expect(output).not.toContain('Convex consumer compatibility');
+	});
+
+	// The fixture above lives in the temporary directory, and session artifacts still land in
+	// `scratch/`. Ask Vitest rather than searching configuration text: the string can survive
+	// in a comment after the effective exclusion is removed.
+	it('keeps session scratch out of Vitest discovery', () => {
+		const directory = path.join(ROOT, 'scratch', `compat-discovery-${process.pid}`);
+		const relative = `scratch/compat-discovery-${process.pid}/sentinel.test.ts`;
+		mkdirSync(directory, { recursive: true });
+		try {
+			writeFileSync(path.join(ROOT, relative), "throw new Error('collected scratch sentinel');\n");
+			const result = spawnSync(BUN, ['vitest', 'list', '--filesOnly'], {
+				cwd: ROOT,
+				env: sanitizedGitEnv(),
+				encoding: 'utf8'
+			});
+			expect(result.status, `${result.stdout}${result.stderr}`).toBe(0);
+			expect(`${result.stdout}${result.stderr}`).not.toContain('sentinel.test.ts');
+		} finally {
+			rmSync(directory, { recursive: true, force: true });
+		}
 	});
 
 	it('owns the package alias', () => {
