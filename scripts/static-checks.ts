@@ -415,7 +415,19 @@ export function resolveInputs(
 		// ignored target under `scratch/` made a direct Prettier failure into a zero-file pass.
 		// A relative argument can be re-rooted through a symlinked invocation cwd without
 		// resolving any component it names. Absolute arguments keep their own spelling.
-		const named = path.isAbsolute(arg) ? absolute : path.resolve(realpathSync(invocationBase), arg);
+		const fromInvocation = path.relative(invocationBase, absolute);
+		const insideInvocation =
+			fromInvocation === '' ||
+			(fromInvocation !== '..' &&
+				!fromInvocation.startsWith(`..${path.sep}`) &&
+				!path.isAbsolute(fromInvocation));
+		const absoluteInsideRepository = !isOutside(path.relative(REPO_ROOT, absolute));
+		const named =
+			!path.isAbsolute(arg) || insideInvocation
+				? path.resolve(realpathSync(invocationBase), fromInvocation)
+				: absoluteInsideRepository
+					? absolute
+					: real;
 		const located = followSymbolicLinks ? real : named;
 		const native = path.relative(REPO_ROOT, located);
 		const relative = toPosix(native);
@@ -439,12 +451,23 @@ export function resolveInputs(
 			// checked nothing; see #865, which is where that whole semantics belongs.
 			const walked = toPosix(path.relative(REPO_ROOT, real));
 			const prefix = walked === '' ? '' : `${walked}/`;
+			const namedDirectory = toPosix(path.relative(REPO_ROOT, located));
 			for (const file of directoryPaths(real)) {
 				if ((prefix && !file.startsWith(prefix)) || !existsSync(path.join(REPO_ROOT, file)))
 					continue;
 				if (isNeverWalked(file)) continue;
 				matched = true;
-				out.add(file);
+				// Prettier traverses the caller-visible directory. The traversal function walks the
+				// resolved target so it can read the filesystem, then this maps each child back under
+				// the alias the caller named. Without that mapping, `alias/subdir` targeting root
+				// `scratch/` was classified under the target ignore rule and exited 0 on an
+				// unformatted file direct Prettier found through the alias.
+				if (!followSymbolicLinks) {
+					const suffix = prefix === '' ? file : file.slice(prefix.length);
+					out.add(namedDirectory === '' ? suffix : `${namedDirectory}/${suffix}`);
+				} else {
+					out.add(file);
+				}
 			}
 			if (!matched)
 				fail(`Directory contains no files to check (${origin}): ${formatPathForDiagnostic(arg)}`);
@@ -521,15 +544,6 @@ export const ROUTES = {
 const PRETTIER_IGNORE_FILES = ['.gitignore', '.prettierignore'];
 
 /**
- * Components, which Prettier has no built-in language for. The parser comes from
- * prettier-plugin-svelte, and .prettierrc declares both the plugin and the `*.svelte`
- * parser override; loading either to answer a routing question would run a configuration
- * file and a plugin inside the checker. The checker asserts the convention instead, and
- * static-checks.test.ts pins the declaration it stands on.
- */
-const SVELTE_COMPONENT = /\.svelte$/i;
-
-/**
  * The files Prettier would actually format, answered by Prettier.
  *
  * This used to be an extension grammar maintained here by hand, which is a copy of a
@@ -537,10 +551,12 @@ const SVELTE_COMPONENT = /\.svelte$/i;
  * .babelrc, .geojson and .mjml are all formatted by Prettier and none of them matched, so
  * a file-scoped run skipped them and reported success.
  *
- * `resolveConfig: false` keeps repository configuration and its plugins out of this
- * process: a routing question should not be able to take the run down before the checks
- * it classifies for ever start. The ignore files are still consulted, because they are
- * read as data and because a file the command will skip is not work this run may claim.
+ * Configuration resolution is part of the routing answer. A parser override can make a
+ * filename with no built-in language format-capable, and classifying with `resolveConfig:
+ * false` silently removed it from a computed list that the real CLI rejected as unformatted.
+ * The config and plugins are project-owned executable inputs that the formatter itself runs;
+ * classification must use the same ones. Ignore files are consulted for the same reason: a
+ * file the command skips is not work this run may claim.
  */
 export async function prettierFormattableFiles(
 	files: string[],
@@ -560,7 +576,7 @@ export async function prettierFormattableFiles(
 				const index = cursor++;
 				infos[index] = await getFileInfo(path.resolve(cwd, files[index]!), {
 					ignorePath,
-					resolveConfig: false
+					resolveConfig: true
 				});
 			}
 		})
@@ -568,7 +584,7 @@ export async function prettierFormattableFiles(
 	return files.filter((file, index) => {
 		const info = infos[index]!;
 		if (info.ignored) return false;
-		return info.inferredParser !== null || SVELTE_COMPONENT.test(file);
+		return info.inferredParser !== null;
 	});
 }
 

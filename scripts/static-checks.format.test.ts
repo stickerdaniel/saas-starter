@@ -13,7 +13,9 @@ import { tmpdir } from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { describe, expect, it } from 'vitest';
+import knowledgePolicy from '../knowledge-policy.config';
 import { sanitizedGitEnv } from './git-context';
+import { runKnowledgePolicy } from './knowledge-policy/repository';
 import {
 	isNeverWalked,
 	prettierArguments,
@@ -485,8 +487,10 @@ describe('format-only static checks', () => {
 			const aliasRelative = `.format-symlink-alias-${process.pid}`;
 			const alias = path.join(ROOT, aliasRelative);
 			const named = `${aliasRelative}/probe.ts`;
-			mkdirSync(target, { recursive: true });
+			const namedDirectory = `${aliasRelative}/subdir`;
+			mkdirSync(path.join(target, 'subdir'), { recursive: true });
 			writeFileSync(path.join(target, 'probe.ts'), 'export const value   =1\n');
+			writeFileSync(path.join(target, 'subdir', 'nested.ts'), 'export const nested   =1\n');
 			symlinkSync(target, alias, 'dir');
 			try {
 				// The target is ignored as root scratch, while the caller-visible alias is not.
@@ -504,9 +508,55 @@ describe('format-only static checks', () => {
 				expect(result.status, result.output).toBe(1);
 				expect(result.output).toContain(named);
 				expect(result.output).not.toContain('No formatter work');
+
+				// Directory traversal reads the resolved target, then maps every child back below
+				// the alias before ignore classification and launch.
+				expect(
+					resolveInputs(
+						[namedDirectory],
+						'arguments',
+						ROOT,
+						(directory) => prettierTraversalPaths(directory, false, ROOT),
+						false
+					)
+				).toEqual([`${namedDirectory}/nested.ts`]);
+				const directory = formatCheck(namedDirectory);
+				expect(directory.status, directory.output).toBe(1);
+				expect(directory.output).toContain(`${namedDirectory}/nested.ts`);
+				expect(directory.output).not.toContain('No formatter work');
 			} finally {
 				rmSync(alias, { force: true });
 				rmSync(target, { recursive: true, force: true });
+			}
+		}
+	);
+
+	it.skipIf(process.platform === 'win32')(
+		'accepts an absolute path through a symlinked checkout alias',
+		() => {
+			const directory = mkdtempSync(path.join(tmpdir(), 'format-checkout-alias-'));
+			const alias = path.join(directory, 'repository');
+			symlinkSync(ROOT, alias, 'dir');
+			const named = path.join(alias, 'README.md');
+			try {
+				const direct = spawnSync(testExecutable('bun'), ['prettier', '--check', '--', named], {
+					cwd: alias,
+					env: { ...sanitizedGitEnv(), NO_COLOR: '1' },
+					encoding: 'utf8'
+				});
+				expect(direct.status, `${direct.stdout}${direct.stderr}`).toBe(0);
+
+				const result = spawnSync(testExecutable('bun'), [SCRIPT, '--scope', 'format', named], {
+					cwd: alias,
+					env: { ...sanitizedGitEnv(), NO_COLOR: '1' },
+					encoding: 'utf8'
+				});
+				const output = `${result.stdout}${result.stderr}`;
+				expect(result.status, output).toBe(0);
+				expect(output).toContain('prettier         1 file(s)');
+				expect(output).not.toContain('outside the repository');
+			} finally {
+				rmSync(directory, { recursive: true, force: true });
 			}
 		}
 	);
@@ -764,6 +814,7 @@ describe('scope routing', () => {
 	it('keeps scratch out of project-wide checks', () => {
 		const directory = path.join(ROOT, 'scratch', `exclusion-${process.pid}`);
 		const relative = `scratch/exclusion-${process.pid}/abandoned.test.ts`;
+		const markdown = `scratch/exclusion-${process.pid}/review.md`;
 		mkdirSync(directory, { recursive: true });
 		const run = (args: string[]) =>
 			spawnSync(testExecutable('bun'), args, {
@@ -778,6 +829,15 @@ describe('scope routing', () => {
 				path.join(directory, 'abandoned.test.ts'),
 				'const unused = ;\nexport function broken(: never {}\n'
 			);
+			writeFileSync(path.join(ROOT, markdown), '[missing](missing.md)\n');
+
+			const policy = runKnowledgePolicy({
+				root: ROOT,
+				policy: knowledgePolicy,
+				scope: { kind: 'files', files: [markdown] }
+			});
+			expect(policy.filesEvaluated).toBe(0);
+			expect(policy.findings).toEqual([]);
 
 			const oxlint = run(['oxlint']);
 			expect(`${oxlint.stdout}${oxlint.stderr}`).not.toContain('abandoned.test.ts');

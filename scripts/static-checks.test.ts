@@ -144,28 +144,23 @@ describe('route predicates', () => {
 			)
 		).toBe(true);
 
-		// Prettier has no built-in Svelte language, and loading the plugin to find that out
-		// would run it inside the checker. The route asserts the convention instead, which
-		// is only honest while the two declarations above are the ones the formatter reads.
+		// Classification resolves the same config and plugin list as the formatter, so mixed
+		// case follows Prettier's own extension matching rather than a local fallback grammar.
 		expect(
 			await prettierFormattableFiles(['src/routes/+layout.svelte', 'src/routes/Component.SVELTE'])
 		).toEqual(['src/routes/+layout.svelte', 'src/routes/Component.SVELTE']);
 	});
 
-	it('classifies without executing repository configuration', async () => {
-		// Measured: with configuration resolution left on, one malformed .prettierrc makes
-		// getFileInfo throw, so a routing question would take the whole run down before any
-		// check it was classifying for could start. Classification answers from Prettier's
-		// built-in table and the repository convention alone, and never runs a config file
-		// or a plugin inside the checker.
+	it('honours a parser override from repository configuration', async () => {
 		const fixture = mkdtempSync(path.join(tmpdir(), 'static-checks-config-'));
 		try {
-			writeFileSync(path.join(fixture, '.prettierrc'), '{ this is not json\n');
-			writeFileSync(path.join(fixture, 'probe.ts'), 'export const probe = 1;\n');
-			writeFileSync(path.join(fixture, 'probe.svelte'), '<p>probe</p>\n');
-			expect(await prettierFormattableFiles(['probe.ts', 'probe.svelte'], fixture)).toEqual([
-				'probe.ts',
-				'probe.svelte'
+			writeFileSync(
+				path.join(fixture, '.prettierrc'),
+				JSON.stringify({ overrides: [{ files: '*.customfmt', options: { parser: 'typescript' } }] })
+			);
+			writeFileSync(path.join(fixture, 'probe.customfmt'), 'export const probe = 1;\n');
+			expect(await prettierFormattableFiles(['probe.customfmt'], fixture)).toEqual([
+				'probe.customfmt'
 			]);
 		} finally {
 			rmSync(fixture, { recursive: true, force: true });
