@@ -160,15 +160,15 @@
 			onValueChange={(v) => onFilterChange(v as 'all' | 'unassigned' | 'my-inbox')}
 		>
 			<Tabs.List class="w-full">
-				<Tabs.Trigger value="my-inbox" class="min-w-0 px-1 text-xs"
-					><T keyName="admin.support.filter.my_inbox" /></Tabs.Trigger
-				>
-				<Tabs.Trigger value="all" class="min-w-0 px-1 text-xs"
-					><T keyName="admin.support.filter.all" /></Tabs.Trigger
-				>
-				<Tabs.Trigger value="unassigned" class="min-w-0 px-1 text-xs"
-					><T keyName="admin.support.filter.unassigned" /></Tabs.Trigger
-				>
+				<Tabs.Trigger value="my-inbox" class="min-w-0 overflow-hidden px-1 text-xs">
+					<span class="min-w-0 truncate"><T keyName="admin.support.filter.my_inbox" /></span>
+				</Tabs.Trigger>
+				<Tabs.Trigger value="all" class="min-w-0 overflow-hidden px-1 text-xs">
+					<span class="min-w-0 truncate"><T keyName="admin.support.filter.all" /></span>
+				</Tabs.Trigger>
+				<Tabs.Trigger value="unassigned" class="min-w-0 overflow-hidden px-1 text-xs">
+					<span class="min-w-0 truncate"><T keyName="admin.support.filter.unassigned" /></span>
+				</Tabs.Trigger>
 			</Tabs.List>
 		</Tabs.Root>
 	</div>
