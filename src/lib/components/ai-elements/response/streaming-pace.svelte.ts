@@ -1,7 +1,6 @@
 import type { Attachment } from 'svelte/attachments';
 
 const DEFAULT_GAP_MS = 60;
-const MIN_GAP_MS = 12;
 const MAX_AHEAD_MS = 900;
 const INITIAL_SPREAD_MS = 400;
 const ANIMATION_DURATION_MS = 350;
@@ -20,6 +19,16 @@ export interface StreamingPacePlan {
 /**
  * Spread a newly inserted word batch without letting presentation drift far
  * behind the Convex snapshot that supplied it.
+ *
+ * The gap has no lower bound on purpose. A floor cannot coexist with the
+ * lookahead cap: once a batch needs more than the remaining budget, one of the
+ * two has to give, and clamping the individual delays instead lands the tail of
+ * the batch on a single timestamp, so those words appear together. Dividing the
+ * remaining budget by the batch keeps every gap equal and keeps `wordCount *
+ * gap` within it, so the cap holds by construction rather than by truncation.
+ * Dropping the cap instead is what the gap floor forces, and it is unbounded:
+ * at 12ms per word a 20-word batch every 100ms adds 140ms of lag per batch,
+ * measured at 28s of drift after 200 batches.
  */
 export function planStreamingBatch(
 	state: StreamingPaceState,
@@ -40,14 +49,9 @@ export function planStreamingBatch(
 
 	const ahead = Math.min(MAX_AHEAD_MS, Math.max(0, state.horizon - now));
 	const available = Math.max(0, MAX_AHEAD_MS - ahead);
-	const gap = Math.min(maxGapMs, Math.max(MIN_GAP_MS, available / wordCount));
-	const delays = Array.from({ length: wordCount }, (_, index) =>
-		Math.min(MAX_AHEAD_MS, ahead + index * gap)
-	);
-	return {
-		delays,
-		horizon: now + Math.min(MAX_AHEAD_MS, ahead + wordCount * gap)
-	};
+	const gap = Math.min(maxGapMs, available / wordCount);
+	const delays = Array.from({ length: wordCount }, (_, index) => ahead + index * gap);
+	return { delays, horizon: now + ahead + wordCount * gap };
 }
 
 interface PacedToken {

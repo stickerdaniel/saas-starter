@@ -32,8 +32,37 @@ describe('planStreamingBatch', () => {
 		const plan = planStreamingBatch(state({ initialized: true }), 100, 1_000);
 
 		expect(plan.delays[0]).toBe(0);
-		expect(plan.delays.at(-1)).toBe(900);
+		expect(plan.delays.at(-1)).toBe(891);
 		expect(plan.horizon).toBe(1_900);
+	});
+
+	/**
+	 * Capping each delay at the lookahead instead of dividing by it lands the tail
+	 * of a large batch on one timestamp, and those words then appear together:
+	 * the burst the scheduler exists to break up.
+	 */
+	it('keeps every reveal distinct once the lookahead is nearly spent', () => {
+		const plan = planStreamingBatch(state({ initialized: true, horizon: 1_800 }), 40, 1_000);
+
+		expect(new Set(plan.delays).size).toBe(40);
+		const gaps = plan.delays.slice(1).map((delay, index) => delay - plan.delays[index]!);
+		expect(new Set(gaps.map((gap) => gap.toFixed(6))).size).toBe(1);
+	});
+
+	/**
+	 * A gap floor and the lookahead cap cannot both hold. Keeping the floor makes
+	 * a fast model drift without bound (measured: 28s behind after 200 batches),
+	 * so the floor is what gives and this is the guard that says so.
+	 */
+	it('holds the lookahead under sustained saturation', () => {
+		const current = state({ initialized: true });
+		for (let batch = 0; batch < 200; batch += 1) {
+			const now = batch * 100;
+			const plan = planStreamingBatch(current, 20, now);
+			expect(plan.horizon - now).toBeLessThanOrEqual(900);
+			expect(plan.delays.at(-1)!).toBeLessThan(900);
+			current.horizon = plan.horizon;
+		}
 	});
 
 	it('returns no delays for an empty batch', () => {
