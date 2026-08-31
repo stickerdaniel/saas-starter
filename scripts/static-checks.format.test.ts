@@ -478,6 +478,59 @@ describe('format-only static checks', () => {
 	);
 
 	it.skipIf(process.platform === 'win32')(
+		'preserves a named path through a symlinked ancestor',
+		() => {
+			const targetRelative = `scratch/format-symlink-target-${process.pid}`;
+			const target = path.join(ROOT, targetRelative);
+			const aliasRelative = `.format-symlink-alias-${process.pid}`;
+			const alias = path.join(ROOT, aliasRelative);
+			const named = `${aliasRelative}/probe.ts`;
+			mkdirSync(target, { recursive: true });
+			writeFileSync(path.join(target, 'probe.ts'), 'export const value   =1\n');
+			symlinkSync(target, alias, 'dir');
+			try {
+				// The target is ignored as root scratch, while the caller-visible alias is not.
+				// Canonicalizing the ancestor classified the alias under the target's ignore rule and
+				// turned this direct Prettier failure into a zero-file pass.
+				const direct = spawnSync(testExecutable('bun'), ['prettier', '--check', '--', named], {
+					cwd: ROOT,
+					env: { ...sanitizedGitEnv(), NO_COLOR: '1' },
+					encoding: 'utf8'
+				});
+				expect(direct.status, `${direct.stdout}${direct.stderr}`).toBe(1);
+
+				expect(resolveInputs([named], 'arguments', ROOT, undefined, false)).toEqual([named]);
+				const result = formatCheck(named);
+				expect(result.status, result.output).toBe(1);
+				expect(result.output).toContain(named);
+				expect(result.output).not.toContain('No formatter work');
+			} finally {
+				rmSync(alias, { force: true });
+				rmSync(target, { recursive: true, force: true });
+			}
+		}
+	);
+
+	it.skipIf(process.platform === 'win32')(
+		'rejects a special file Prettier would drop from a mixed batch',
+		() => {
+			const relative = `scripts/.format-fifo-${process.pid}.ts`;
+			const file = path.join(ROOT, relative);
+			const created = spawnSync('mkfifo', [file], { encoding: 'utf8' });
+			expect(created.status, created.stderr).toBe(0);
+			try {
+				const result = formatCheckFilesFrom(`${relative}\0package.json\0`);
+				expect(result.status, result.output).toBe(1);
+				expect(result.output).toContain('not a regular file');
+				expect(result.output).toContain(relative);
+				expect(result.output).not.toContain('All checks passed');
+			} finally {
+				rmSync(file, { force: true });
+			}
+		}
+	);
+
+	it.skipIf(process.platform === 'win32')(
 		'rejects a repository symlink to an external file',
 		() => {
 			const external = mkdtempSync(path.join(tmpdir(), 'format-external-link-'));

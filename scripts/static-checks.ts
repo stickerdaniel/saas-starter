@@ -254,8 +254,14 @@ export function prettierProjectPaths(
 ): string[] {
 	return files.filter((file) => {
 		try {
-			return !lstatSync(path.join(cwd, file)).isSymbolicLink();
-		} catch {
+			const entry = lstatSync(path.join(cwd, file));
+			if (entry.isSymbolicLink()) return false;
+			if (!entry.isFile()) {
+				fail(`Named formatter path is not a regular file: ${formatPathForDiagnostic(file)}.`);
+			}
+			return true;
+		} catch (error) {
+			if (!isMissingPathError(error)) throw error;
 			if (failOnMissing) {
 				fail(`Named path disappeared before formatter routing: ${formatPathForDiagnostic(file)}.`);
 			}
@@ -385,7 +391,8 @@ export function resolveInputs(
 		// then re-express against the repo root (what every gate below assumes).
 		// realpath both sides so a checkout reached through a symlink (/tmp ->
 		// /private/tmp, a symlinked worktree) does not read as "outside the repo".
-		const absolute = path.resolve(baseDirectory, arg);
+		const invocationBase = path.resolve(baseDirectory);
+		const absolute = path.resolve(invocationBase, arg);
 		if (!existsSync(absolute)) fail(`No such file (${origin}): ${formatPathForDiagnostic(arg)}`);
 
 		const real = realpathSync(absolute);
@@ -403,10 +410,13 @@ export function resolveInputs(
 			);
 		}
 		const isSymlink = lstatSync(absolute).isSymbolicLink();
-		const located =
-			isSymlink && !followSymbolicLinks
-				? path.join(realpathSync(path.dirname(absolute)), path.basename(absolute))
-				: real;
+		// The formatter must classify the path the caller named, including every symlinked
+		// ancestor, because ignore rules are path rules. Canonicalizing `alias/probe.ts` to an
+		// ignored target under `scratch/` made a direct Prettier failure into a zero-file pass.
+		// A relative argument can be re-rooted through a symlinked invocation cwd without
+		// resolving any component it names. Absolute arguments keep their own spelling.
+		const named = path.isAbsolute(arg) ? absolute : path.resolve(realpathSync(invocationBase), arg);
+		const located = followSymbolicLinks ? real : named;
 		const native = path.relative(REPO_ROOT, located);
 		const relative = toPosix(native);
 		if (isOutside(native)) {
@@ -943,13 +953,37 @@ export function prettierArguments(formatFlag: '--check' | '--write', files?: str
 		: [...invocation, '--', ...files.map(prettierLiteralPattern)];
 }
 
+function assertRegularFormatterPaths(files: string[]): void {
+	for (const file of files) {
+		let entry;
+		try {
+			entry = lstatSync(path.join(REPO_ROOT, file));
+		} catch (error) {
+			if (isMissingPathError(error)) {
+				fail(`Named path disappeared before formatter launch: ${formatPathForDiagnostic(file)}.`);
+			}
+			throw error;
+		}
+		if (!entry.isFile()) {
+			fail(`Named formatter path is not a regular file: ${formatPathForDiagnostic(file)}.`);
+		}
+	}
+}
+
 async function runPrettier(formatFlag: '--check' | '--write', files?: string[]): Promise<void> {
 	if (files === undefined) {
 		await runCommand('bun', prettierArguments(formatFlag));
 		return;
 	}
 	const baseArguments = prettierArguments(formatFlag, []);
-	for (const batch of argumentBatches(files.map(prettierLiteralPattern), baseArguments)) {
+	const patterns = files.map(prettierLiteralPattern);
+	let offset = 0;
+	for (const batch of argumentBatches(patterns, baseArguments)) {
+		// Prettier silently drops FIFOs, sockets and other special files when another argument
+		// matches, so the batch can exit 0 while the ledger counts a file it never checked.
+		// Revalidate immediately before each launch, after parser and ignore classification.
+		assertRegularFormatterPaths(files.slice(offset, offset + batch.length));
+		offset += batch.length;
 		await runCommand('bun', [...baseArguments, ...batch]);
 	}
 }
