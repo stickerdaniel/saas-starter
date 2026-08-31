@@ -8,6 +8,7 @@
 	import SearchIcon from '@lucide/svelte/icons/search';
 	import InboxIcon from '@lucide/svelte/icons/inbox';
 	import ArchiveIcon from '@lucide/svelte/icons/archive';
+	import IconSwap from '$lib/components/motion/icon-swap.svelte';
 	import Loader2Icon from '@lucide/svelte/icons/loader-2';
 	import { formatDistanceToNow } from 'date-fns';
 	import { watch } from 'runed';
@@ -141,16 +142,14 @@
 					? $t('admin.support.filter_showing_open')
 					: $t('admin.support.filter_showing_completed')}
 			>
-				<InboxIcon
-					class="size-4 transition-[transform,opacity,filter] duration-200 ease-out {showingOpen
-						? 'blur-0 scale-100 opacity-100'
-						: 'scale-75 opacity-0 blur-sm'}"
-				/>
-				<ArchiveIcon
-					class="absolute size-4 transition-[transform,opacity,filter] duration-200 ease-out {showingOpen
-						? 'scale-75 opacity-0 blur-sm'
-						: 'blur-0 scale-100 opacity-100'}"
-				/>
+				<IconSwap showSecond={!showingOpen} class="size-4">
+					{#snippet first()}
+						<InboxIcon class="size-4" />
+					{/snippet}
+					{#snippet second()}
+						<ArchiveIcon class="size-4" />
+					{/snippet}
+				</IconSwap>
 			</Button>
 		</div>
 

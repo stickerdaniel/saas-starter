@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button/index.js';
 	import LauncherIcon from './launcher-icon.svelte';
+	import IconSwap from '$lib/components/motion/icon-swap.svelte';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import FeedbackWidget from './feedback-widget.svelte';
 	import type { ChatUIContext } from '$lib/chat';
@@ -56,21 +57,20 @@
 					: $t('aria.feedback_open')}
 			class="relative size-12 rounded-xl transition-transform duration-150 ease-out active:not-aria-[haspopup]:translate-y-0 active:scale-[0.97]"
 		>
-			<div class="relative size-6">
-				<ChevronDownIcon
-					class="absolute inset-0 size-6 transition-[transform,opacity,filter] duration-200 ease-out {isFeedbackOpen
-						? 'blur-0 scale-100 opacity-100'
-						: 'scale-75 opacity-0 blur-sm'}"
-				/>
-				<LauncherIcon
-					class="absolute inset-0 transition-[transform,opacity,filter] duration-200 ease-out {isFeedbackOpen
-						? 'scale-75 opacity-0 blur-sm'
-						: 'blur-0 scale-100 opacity-100'}"
-				/>
-			</div>
-			{#if unread.hasUnread && !isFeedbackOpen}
-				<SupportUnreadIndicator class="absolute -top-1 -right-1" />
-			{/if}
+			<IconSwap showSecond={isFeedbackOpen} class="size-6">
+				{#snippet first()}
+					<LauncherIcon />
+				{/snippet}
+				{#snippet second()}
+					<ChevronDownIcon class="size-6" />
+				{/snippet}
+			</IconSwap>
+			<!-- Always mounted: the badge closes by scaling the dot away, which an
+			     `{#if}` would skip by removing the element first. -->
+			<SupportUnreadIndicator
+				count={isFeedbackOpen ? 0 : unread.count}
+				class="absolute -top-1 -right-1"
+			/>
 		</Button>
 	</div>
 {/if}
