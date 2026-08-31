@@ -205,6 +205,31 @@ describe('format-only static checks', () => {
 		expect(result.output).not.toContain('No such file');
 	});
 
+	// Prettier lowercases a basename before comparing plugin extensions. The fallback here
+	// exists because classification deliberately does not load the Svelte plugin, so it has
+	// to make the same comparison: a case-sensitive `.svelte` test classified this file as
+	// unformattable and a mixed computed list exited 0 after checking only its Markdown peer.
+	it('checks a mixed-case Svelte extension the configured plugin formats', () => {
+		const relative = `scripts/.format-component-${process.pid}.SVELTE`;
+		withRepositoryFile(relative, '<script>const value=1</script>\n', () => {
+			const direct = spawnSync(testExecutable('bun'), ['prettier', '--check', '--', relative], {
+				cwd: ROOT,
+				env: { ...sanitizedGitEnv(), NO_COLOR: '1' },
+				encoding: 'utf8'
+			});
+			expect(direct.status, `${direct.stdout}${direct.stderr}`).toBe(1);
+
+			const named = formatCheck(relative);
+			expect(named.status, named.output).toBe(1);
+			expect(named.output).toContain(relative);
+
+			const computed = formatCheckFilesFrom(`${relative}\0README.md\0`);
+			expect(computed.status, computed.output).toBe(1);
+			expect(computed.output).toContain(relative);
+			expect(computed.output).toContain(`README.md ${relative}`);
+		});
+	});
+
 	it('escapes a route without a backslash and still checks the named file', () => {
 		const route = 'src/routes/[[lang]]/(marketing)/+page.svelte';
 		const pattern = prettierLiteralPattern(route);

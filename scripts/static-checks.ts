@@ -44,6 +44,7 @@
 
 import { spawnSync } from 'child_process';
 import { existsSync, lstatSync, readFileSync, readdirSync, realpathSync, statSync } from 'fs';
+import { availableParallelism } from 'os';
 import path from 'path';
 import { getFileInfo } from 'prettier';
 import { fileURLToPath } from 'url';
@@ -516,7 +517,7 @@ const PRETTIER_IGNORE_FILES = ['.gitignore', '.prettierignore'];
  * file and a plugin inside the checker. The checker asserts the convention instead, and
  * static-checks.test.ts pins the declaration it stands on.
  */
-const SVELTE_COMPONENT = /\.svelte$/;
+const SVELTE_COMPONENT = /\.svelte$/i;
 
 /**
  * The files Prettier would actually format, answered by Prettier.
@@ -537,8 +538,22 @@ export async function prettierFormattableFiles(
 ): Promise<string[]> {
 	if (files.length === 0) return [];
 	const ignorePath = PRETTIER_IGNORE_FILES.map((file) => path.join(cwd, file));
-	const infos = await Promise.all(
-		files.map((file) => getFileInfo(path.resolve(cwd, file), { ignorePath, resolveConfig: false }))
+	// `getFileInfo` reads ignore files and may load parser metadata. Starting one promise per
+	// path made a full-format preflight retain an ignored generated tree at once and roughly
+	// doubled the peak memory of direct Prettier in the reproducer. Keep only as many
+	// classifications active as the host can run in parallel; result slots preserve order.
+	const infos: Array<Awaited<ReturnType<typeof getFileInfo>> | undefined> = new Array(files.length);
+	let cursor = 0;
+	await Promise.all(
+		Array.from({ length: Math.min(files.length, availableParallelism()) }, async () => {
+			while (cursor < files.length) {
+				const index = cursor++;
+				infos[index] = await getFileInfo(path.resolve(cwd, files[index]!), {
+					ignorePath,
+					resolveConfig: false
+				});
+			}
+		})
 	);
 	return files.filter((file, index) => {
 		const info = infos[index]!;

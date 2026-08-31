@@ -147,9 +147,9 @@ describe('route predicates', () => {
 		// Prettier has no built-in Svelte language, and loading the plugin to find that out
 		// would run it inside the checker. The route asserts the convention instead, which
 		// is only honest while the two declarations above are the ones the formatter reads.
-		expect(await prettierFormattableFiles(['src/routes/+layout.svelte'])).toEqual([
-			'src/routes/+layout.svelte'
-		]);
+		expect(
+			await prettierFormattableFiles(['src/routes/+layout.svelte', 'src/routes/Component.SVELTE'])
+		).toEqual(['src/routes/+layout.svelte', 'src/routes/Component.SVELTE']);
 	});
 
 	it('classifies without executing repository configuration', async () => {
