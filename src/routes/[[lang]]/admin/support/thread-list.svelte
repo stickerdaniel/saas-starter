@@ -96,8 +96,10 @@
 	let isPointerDown = false;
 
 	// A tooltip that repeats a fully visible label is noise, so every segment
-	// reports whether it actually clips its text and its tooltip stays disabled
-	// until it does.
+	// reports whether it actually clips its text and only a clipped one may open.
+	// The gate lives in the open state rather than in the tooltip's `disabled`
+	// prop, because that prop puts `data-disabled` on the shared button and Bits
+	// UI's roving focus skips every tab carrying it.
 	let clippedLabels = $state<Record<FilterMode, boolean>>({
 		'my-inbox': false,
 		all: false,
@@ -250,7 +252,6 @@
 			<Tabs.List class="w-full">
 				<Tooltip.Root
 					delayDuration={400}
-					disabled={!clippedLabels['my-inbox']}
 					bind:open={() => openLabel === 'my-inbox', (open) => setLabelOpen('my-inbox', open)}
 				>
 					<Tooltip.Trigger>
@@ -279,7 +280,6 @@
 				</Tooltip.Root>
 				<Tooltip.Root
 					delayDuration={400}
-					disabled={!clippedLabels['all']}
 					bind:open={() => openLabel === 'all', (open) => setLabelOpen('all', open)}
 				>
 					<Tooltip.Trigger>
@@ -303,7 +303,6 @@
 				</Tooltip.Root>
 				<Tooltip.Root
 					delayDuration={400}
-					disabled={!clippedLabels['unassigned']}
 					bind:open={() => openLabel === 'unassigned', (open) => setLabelOpen('unassigned', open)}
 				>
 					<Tooltip.Trigger>
