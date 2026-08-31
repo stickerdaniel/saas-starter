@@ -41,10 +41,10 @@ export function planStreamingBatch(
 	if (!state.initialized) {
 		const gap = wordCount === 1 ? 0 : Math.min(maxGapMs, INITIAL_SPREAD_MS / (wordCount - 1));
 		const delays = Array.from({ length: wordCount }, (_, index) => index * gap);
-		return {
-			delays,
-			horizon: now + Math.min(INITIAL_SPREAD_MS, wordCount * gap)
-		};
+		// One gap past the last reveal, like the steady state below. Ending the
+		// horizon *on* that reveal instead makes the next batch start there too,
+		// so the backlog's last word and the next batch's first appear together.
+		return { delays, horizon: now + wordCount * gap };
 	}
 
 	const ahead = Math.min(MAX_AHEAD_MS, Math.max(0, state.horizon - now));

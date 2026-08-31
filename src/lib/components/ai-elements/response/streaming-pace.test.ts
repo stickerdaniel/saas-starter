@@ -20,7 +20,26 @@ describe('planStreamingBatch', () => {
 
 		expect(plan.delays[0]).toBe(0);
 		expect(plan.delays.at(-1)).toBe(400);
-		expect(plan.horizon).toBe(1_400);
+		expect(plan.horizon).toBe(1_404);
+	});
+
+	/**
+	 * The horizon a batch leaves behind is when the next one may start, so ending
+	 * it on the last reveal rather than one gap past hands that same instant to
+	 * two words. Reachable on every thread opened while a reply is streaming: the
+	 * backlog is the initial batch and the next Convex delta follows within
+	 * throttle range.
+	 */
+	it('does not hand the next batch the last reveal of the backlog', () => {
+		const backlog = planStreamingBatch(state(), 101, 1_000);
+		const next = planStreamingBatch(
+			state({ initialized: true, horizon: backlog.horizon }),
+			5,
+			1_100
+		);
+
+		const lastOfBacklog = 1_000 + backlog.delays.at(-1)!;
+		expect(1_100 + next.delays[0]!).toBeGreaterThan(lastOfBacklog);
 	});
 
 	it('continues after the existing presentation horizon', () => {
