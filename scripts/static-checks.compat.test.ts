@@ -325,59 +325,6 @@ describe('Convex compatibility static-check entrypoint', () => {
 		120_000
 	);
 
-	// `$GIT_DIR/info/attributes` is shared with every linked worktree and has no environment
-	// switch, so the baseline checkout reads it however isolated the rest of the run is. A
-	// smudge filter selected there rewrites the baseline source before the surface is built:
-	// measured with git 2.55.0, a filter that deleted an export made the checker report the
-	// same deletion in the current commit as one that was never published, and it exited 0.
-	it.skipIf(process.platform === 'win32')(
-		'refuses a baseline a local attribute rule would rewrite',
-		() => {
-			const checkout = createCheckerClone();
-			const env = sanitizedGitEnv();
-			delete env.CI;
-			// The baseline is named rather than discovered. A CI checkout is detached with no
-			// local trunk, and `git clone` does not carry the source's remote-tracking refs, so
-			// the clone has nothing for `resolveBaseline` to find: the checker would exit on
-			// "no trunk to compare against" long before reaching the attribute rule under test.
-			const head = spawnSync('git', ['rev-parse', 'HEAD'], {
-				cwd: checkout.repository,
-				env,
-				encoding: 'utf8'
-			});
-			expect(head.status, head.stderr).toBe(0);
-			env.CONVEX_COMPAT_BASE = head.stdout.trim();
-			try {
-				const filter = path.join(checkout.directory, 'baseline-smudge');
-				writeFileSync(filter, '#!/bin/sh\ncat\n');
-				chmodSync(filter, 0o755);
-				writeFileSync(
-					path.join(checkout.repository, '.git', 'info', 'attributes'),
-					'src/lib/convex/*.ts filter=baseline-probe\n'
-				);
-				const configure = spawnSync('git', ['config', 'filter.baseline-probe.smudge', filter], {
-					cwd: checkout.repository,
-					env,
-					encoding: 'utf8'
-				});
-				expect(configure.status, configure.stderr).toBe(0);
-
-				const result = spawnSync(
-					BUN,
-					[path.join(checkout.repository, 'scripts', 'convex-consumer-compat.ts')],
-					{ cwd: checkout.repository, env, encoding: 'utf8', timeout: 110_000 }
-				);
-				const output = `${result.stdout}${result.stderr}`;
-				expect(result.status, output).not.toBe(0);
-				expect(output).toContain('a local attribute rule rewrites the baseline');
-				expect(output).not.toContain('referenced functions still published unchanged');
-			} finally {
-				rmSync(checkout.directory, { recursive: true, force: true });
-			}
-		},
-		120_000
-	);
-
 	it.skipIf(process.platform === 'win32')(
 		'rejects an unsafe repository path before the compatibility child runs',
 		() => {

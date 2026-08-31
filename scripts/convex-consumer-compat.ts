@@ -439,33 +439,18 @@ function consumerReferencesAt(commit: string): ConsumerReferences {
 	return { references, namespaces };
 }
 
-/**
- * Baseline paths a local attribute rule would rewrite as the checkout materializes them.
- *
- * The system and global attribute files are already off, and neither covers
- * `$GIT_DIR/info/attributes`, which a linked worktree shares with the repository being
- * checked, nor a `.gitattributes` committed into the baseline itself. A `filter` from
- * either runs its smudge command over the baseline source, and no environment variable
- * turns that off. Measured with git 2.55.0: a filter that deleted an export made the
- * checker read the same deletion in the current commit as one that was never published,
- * and it exited 0 reporting the surface unchanged. `ident` is checked with it because it
- * rewrites content the same way. Detection is the fix here: refusing loudly is correct,
- * and a filter over the Convex sources has no legitimate use this check could honour.
- */
-function attributeRewrittenPaths(checkout: string, paths: string[]): string[] {
-	const affected = new Set<string>();
-	for (let index = 0; index < paths.length; index += 200) {
-		const batch = paths.slice(index, index + 200);
-		const records = git(['check-attr', '-z', 'filter', 'ident', '--', ...batch], checkout).split(
-			'\0'
-		);
-		// Records come in path, attribute, value triples, and the stream ends with a NUL.
-		for (let cursor = 0; cursor + 2 < records.length; cursor += 3) {
-			const value = records[cursor + 2]!;
-			if (value !== 'unspecified' && value !== 'unset') affected.add(records[cursor]!);
-		}
-	}
-	return [...affected].sort();
+/** Paths registered by `git worktree list --porcelain -z`. */
+export function registeredWorktreePaths(porcelain: string): string[] {
+	return porcelain
+		.split('\0')
+		.filter((record) => record.startsWith('worktree '))
+		.map((record) => path.normalize(record.slice('worktree '.length)));
+}
+
+function worktreeRegistrationExists(directory: string): boolean {
+	return registeredWorktreePaths(git(['worktree', 'list', '--porcelain', '-z'])).includes(
+		directory
+	);
 }
 
 /**
@@ -482,7 +467,12 @@ function surfaceAt(commit: string, protectedIdentifiers: ReadonlySet<string>): S
 	const dir = path.join(tempRoot, 'baseline');
 	const hooks = path.join(tempRoot, 'hooks');
 	let worktreeAdded = false;
+	let registeredDir: string | undefined;
 	let cleanupFailure: string | undefined;
+	const rememberCleanupFailure = (message: string): void => {
+		console.error(message);
+		cleanupFailure ??= message;
+	};
 	let surface: Surface;
 	try {
 		mkdirSync(hooks);
@@ -493,8 +483,12 @@ function surfaceAt(commit: string, protectedIdentifiers: ReadonlySet<string>): S
 		// shared clone of a partial one borrows the incomplete object store without inheriting
 		// `remote.origin.promisor`, so a missing blob can never be fetched. Both fail a
 		// baseline the surrounding repository resolved perfectly well. The empty hook
-		// directory and the isolated attribute sources are what keep the checkout itself
-		// independent of machine-local Git behavior.
+		// directory suppresses checkout hooks, and the child commands below ignore global and
+		// system configuration. A linked worktree still shares repository-local mechanisms:
+		// attributes, filters, fsmonitor and install scripts can rewrite its files or shared Git
+		// state. Fixing that requires separating materialization from execution and is tracked in
+		// #863; a partial guard here was rolled back after three consecutive review rounds each
+		// found another way around it.
 		//
 		// `core.sparseCheckout` is turned off for this one command because a linked worktree
 		// inherits it from the shared repository. Measured with git 2.55.0: a checkout whose
@@ -505,25 +499,11 @@ function surfaceAt(commit: string, protectedIdentifiers: ReadonlySet<string>): S
 			'core.sparseCheckout=false'
 		]);
 		worktreeAdded = true;
-		const rewritten = attributeRewrittenPaths(
-			dir,
-			git(['ls-tree', '-r', '--name-only', '-z', commit, '--', CONVEX_ROOT])
-				.split('\0')
-				.filter(Boolean)
-		);
-		if (rewritten.length > 0) {
-			throw new Error(
-				`convex-consumer-compat: a local attribute rule rewrites the baseline before it can be read (${rewritten
-					.slice(0, 3)
-					.join(', ')}${rewritten.length > 3 ? `, +${rewritten.length - 3} more` : ''}). ` +
-					'Remove the filter or ident attribute covering these paths; a rewritten baseline can ' +
-					'report a deleted function as one that was never published.'
-			);
-		}
+		registeredDir = realpathSync(dir);
 		// The install resolves the baseline lockfile, which may name a Git dependency, so it
 		// gets the transport-capable environment for the same reason the baseline fetch does.
-		// Nothing it reads decides the verdict: the surface reader below does, and that only
-		// reads files the checkout already materialized.
+		// Baseline package scripts execute here and can change the checkout or its shared Git
+		// directory; #863 owns the isolated materialization this function still needs.
 		const childEnv = { ...sanitizedGitEnv(), HUSKY: '0' };
 		try {
 			execFileSync(process.execPath, ['install', '--frozen-lockfile'], {
@@ -568,10 +548,11 @@ function surfaceAt(commit: string, protectedIdentifiers: ReadonlySet<string>): S
 					// directory still exists, because the registration is still valid, so leaving
 					// this to the prune below would end the run successfully with the checkout and
 					// its administrative entry both retained.
-					cleanupFailure = `convex-consumer-compat: could not remove the baseline checkout ${dir}: ${
-						error instanceof Error ? error.message : String(error)
-					}`;
-					console.error(cleanupFailure);
+					rememberCleanupFailure(
+						`convex-consumer-compat: could not remove the baseline checkout ${dir}: ${
+							error instanceof Error ? error.message : String(error)
+						}`
+					);
 				}
 				try {
 					git(['worktree', 'prune'], process.cwd(), hooks);
@@ -580,10 +561,29 @@ function surfaceAt(commit: string, protectedIdentifiers: ReadonlySet<string>): S
 					// directory, but an unpruned entry is state inside the repository being
 					// checked, and a later `git worktree` there reads it. Reported here so it
 					// survives a primary failure, and raised below when there is none.
-					cleanupFailure = `convex-consumer-compat: left an administrative worktree entry for ${dir}: ${
-						error instanceof Error ? error.message : String(error)
-					}`;
-					console.error(cleanupFailure);
+					rememberCleanupFailure(
+						`convex-consumer-compat: could not prune the administrative worktree entry for ${dir}: ${
+							error instanceof Error ? error.message : String(error)
+						}`
+					);
+				}
+			}
+			// `git worktree prune` returning 0 only means it evaluated every entry. A locked
+			// registration is intentionally retained and still returns 0, so the command status
+			// cannot prove cleanup. Ask the registry itself before a successful verdict leaves.
+			if (registeredDir) {
+				try {
+					if (worktreeRegistrationExists(registeredDir)) {
+						rememberCleanupFailure(
+							`convex-consumer-compat: left an administrative worktree entry for ${registeredDir}`
+						);
+					}
+				} catch (error) {
+					rememberCleanupFailure(
+						`convex-consumer-compat: could not verify worktree cleanup for ${registeredDir}: ${
+							error instanceof Error ? error.message : String(error)
+						}`
+					);
 				}
 			}
 		}

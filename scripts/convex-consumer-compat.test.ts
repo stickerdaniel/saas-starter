@@ -8,6 +8,7 @@ import {
 	expandNamespaceReferences,
 	identifiersIn,
 	namespaceReferencesIn,
+	registeredWorktreePaths,
 	scheduledIdentifiersIn
 } from './convex-consumer-compat';
 import type { Surface } from './convex-surface';
@@ -25,6 +26,53 @@ function compatibilityFixtureEnv(): NodeJS.ProcessEnv {
 	delete env.CONVEX_COMPAT_BASE;
 	return env;
 }
+
+describe('worktree cleanup', () => {
+	it('recognizes a locked administrative entry that prune retains', () => {
+		const scratch = path.join(ROOT, 'scratch');
+		mkdirSync(scratch, { recursive: true });
+		const directory = mkdtempSync(path.join(scratch, 'convex-compat-locked-'));
+		const repository = path.join(directory, 'repository');
+		const checkout = path.join(directory, 'checkout');
+		const env = compatibilityFixtureEnv();
+		const git = (args: string[]) =>
+			spawnSync('git', args, { cwd: repository, env, encoding: 'utf8' });
+		try {
+			mkdirSync(repository);
+			expect(git(['init', '--quiet', '--initial-branch=main']).status).toBe(0);
+			writeFileSync(path.join(repository, 'README.md'), 'fixture\n');
+			expect(git(['add', '--', 'README.md']).status).toBe(0);
+			expect(
+				git([
+					'-c',
+					'user.name=Probe',
+					'-c',
+					'user.email=probe@example.com',
+					'commit',
+					'--quiet',
+					'--no-gpg-sign',
+					'--no-verify',
+					'-m',
+					'Initial'
+				]).status
+			).toBe(0);
+			expect(git(['worktree', 'add', '--detach', '--quiet', checkout, 'HEAD']).status).toBe(0);
+			expect(git(['worktree', 'lock', checkout]).status).toBe(0);
+			rmSync(checkout, { recursive: true, force: true });
+
+			// A locked entry is valid administrative state to Git. Prune evaluates it, returns 0,
+			// and deliberately keeps it, so command status alone cannot prove cleanup.
+			expect(git(['worktree', 'prune']).status).toBe(0);
+			const listed = git(['worktree', 'list', '--porcelain', '-z']);
+			expect(listed.status, listed.stderr).toBe(0);
+			expect(registeredWorktreePaths(listed.stdout)).toContain(path.normalize(checkout));
+		} finally {
+			git(['worktree', 'unlock', checkout]);
+			git(['worktree', 'prune']);
+			rmSync(directory, { recursive: true, force: true });
+		}
+	});
+});
 
 describe('Convex consumer references', () => {
 	it('reads a direct public or internal function path', () => {
