@@ -1024,11 +1024,23 @@ async function runPrettier(formatFlag: '--check' | '--write', files?: string[]):
 	}
 }
 
+/**
+ * The compatibility child gets a scrubbed environment, not an isolated one. Isolating here
+ * would be irreversible: `isolatedGitEnv()` blanks the global and system config paths, and a
+ * child cannot recover what its own environment no longer names. The checker needs that
+ * configuration for its explicit baseline fetch, which relies on `url.*.insteadOf`, the
+ * credential helper, the proxy and the CA bundle. Measured through this wrapper, a baseline
+ * reachable only through a rewrite rule went unfetched: CI failed closed with "is
+ * unreachable" and a local run fell back to the trunk and certified a different baseline.
+ * Isolation belongs to the child, which applies it per call. Partial-clone lazy reads remain
+ * isolated and can fail closed when they need external transport configuration; see #863 and
+ * `isolatedGitEnv()` in `convex-consumer-compat.ts`.
+ */
 export function compatibilityInvocation(ciMode = false) {
 	const env = sanitizedGitEnv();
 	if (ciMode) env.CI = 'true';
 	return {
-		command: 'bun',
+		command: process.execPath,
 		args: ['scripts/convex-consumer-compat.ts'],
 		options: { env } satisfies SanitizedCommandOptions
 	};
