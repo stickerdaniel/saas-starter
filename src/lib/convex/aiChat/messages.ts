@@ -15,6 +15,7 @@ import { checkAndCountUsage, refundUsage } from '../autumn';
 import { requireAiChatThreadRecord } from './ownership';
 import { t } from '../i18n/translations';
 import { AI_CHAT_LIMIT_NOTICE, MAX_MESSAGE_LENGTH } from '../constants';
+import { STREAM_DELTA_OPTIONS } from '../streamDeltas';
 import { makeAgentUsageSink } from '../aiUsage/agentUsage';
 import { recordAiUsage } from '../aiUsage/record';
 
@@ -187,10 +188,7 @@ export const createAIResponse = internalAction({
 				{ threadId: args.threadId, userId: args.userId },
 				{ promptMessageId: args.promptMessageId },
 				{
-					saveStreamDeltas: {
-						chunking: 'line',
-						throttleMs: 100
-					},
+					saveStreamDeltas: STREAM_DELTA_OPTIONS,
 					usageHandler: sink.usageHandler
 				}
 			);

@@ -12,6 +12,7 @@ import { isSupportAiEnabled } from '../../config/support';
 import { createRateLimitError } from './types';
 import { t, extractLocaleFromUrl } from '../i18n/translations';
 import { MAX_MESSAGE_LENGTH } from '../constants';
+import { STREAM_DELTA_OPTIONS } from '../streamDeltas';
 import { requireSupportThreadAccess } from './ownership';
 import { listMessagesForThread } from './messageListing';
 import { syncSupportLastMessage } from './threads';
@@ -293,10 +294,7 @@ export const createAIResponse = internalAction({
 				{
 					usageHandler: sink.usageHandler,
 					// Save streaming deltas to database for real-time updates
-					saveStreamDeltas: {
-						chunking: 'line',
-						throttleMs: 100
-					}
+					saveStreamDeltas: STREAM_DELTA_OPTIONS
 				}
 			);
 
