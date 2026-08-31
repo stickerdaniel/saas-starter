@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Input } from '$lib/components/ui/input';
 	import * as Tabs from '$lib/components/ui/tabs';
+	import * as Tooltip from '$lib/components/ui/tooltip';
 	import { Button } from '$lib/components/ui/button';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Skeleton } from '$lib/components/ui/skeleton';
@@ -160,15 +161,45 @@
 			onValueChange={(v) => onFilterChange(v as 'all' | 'unassigned' | 'my-inbox')}
 		>
 			<Tabs.List class="w-full">
-				<Tabs.Trigger value="my-inbox" class="min-w-0 overflow-hidden px-1 text-xs">
-					<span class="min-w-0 truncate"><T keyName="admin.support.filter.my_inbox" /></span>
-				</Tabs.Trigger>
-				<Tabs.Trigger value="all" class="min-w-0 overflow-hidden px-1 text-xs">
-					<span class="min-w-0 truncate"><T keyName="admin.support.filter.all" /></span>
-				</Tabs.Trigger>
-				<Tabs.Trigger value="unassigned" class="min-w-0 overflow-hidden px-1 text-xs">
-					<span class="min-w-0 truncate"><T keyName="admin.support.filter.unassigned" /></span>
-				</Tabs.Trigger>
+				<Tooltip.Root delayDuration={400}>
+					<Tooltip.Trigger>
+						{#snippet child({ props })}
+							<Tabs.Trigger
+								{...props}
+								value="my-inbox"
+								class="min-w-0 overflow-hidden px-1 text-xs"
+							>
+								<span class="min-w-0 truncate"><T keyName="admin.support.filter.my_inbox" /></span>
+							</Tabs.Trigger>
+						{/snippet}
+					</Tooltip.Trigger>
+					<Tooltip.Content side="bottom">{$t('admin.support.filter.my_inbox')}</Tooltip.Content>
+				</Tooltip.Root>
+				<Tooltip.Root delayDuration={400}>
+					<Tooltip.Trigger>
+						{#snippet child({ props })}
+							<Tabs.Trigger {...props} value="all" class="min-w-0 overflow-hidden px-1 text-xs">
+								<span class="min-w-0 truncate"><T keyName="admin.support.filter.all" /></span>
+							</Tabs.Trigger>
+						{/snippet}
+					</Tooltip.Trigger>
+					<Tooltip.Content side="bottom">{$t('admin.support.filter.all')}</Tooltip.Content>
+				</Tooltip.Root>
+				<Tooltip.Root delayDuration={400}>
+					<Tooltip.Trigger>
+						{#snippet child({ props })}
+							<Tabs.Trigger
+								{...props}
+								value="unassigned"
+								class="min-w-0 overflow-hidden px-1 text-xs"
+							>
+								<span class="min-w-0 truncate"><T keyName="admin.support.filter.unassigned" /></span
+								>
+							</Tabs.Trigger>
+						{/snippet}
+					</Tooltip.Trigger>
+					<Tooltip.Content side="bottom">{$t('admin.support.filter.unassigned')}</Tooltip.Content>
+				</Tooltip.Root>
 			</Tabs.List>
 		</Tabs.Root>
 	</div>
