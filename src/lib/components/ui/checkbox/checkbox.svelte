@@ -40,7 +40,11 @@
 		     `t-check-tick` rather than every path in the box: unscoped, it also
 		     dashed the indeterminate minus out of existence. -->
 			<CheckIcon class="t-check-tick col-start-1 row-start-1" />
-			{#if indeterminate && !checked}
+			<!-- Both props true is a state bits-ui accepts and reports as
+			     `aria-checked="mixed"`, and the tick is dashed out in that state, so
+			     gating the minus on `!checked` left the box visibly empty while it
+			     told assistive technology it was mixed. -->
+			{#if indeterminate}
 				<MinusIcon class="col-start-1 row-start-1" />
 			{/if}
 		</div>

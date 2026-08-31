@@ -116,6 +116,13 @@
 				<Checkbox id="demo-checkbox-mixed" indeterminate bind:checked={mixedBox} />
 				<Label for="demo-checkbox-mixed">Checkbox, starting indeterminate</Label>
 			</div>
+
+			<div class="flex items-center gap-3">
+				<!-- bits-ui accepts both flags and reports the box as mixed, so the
+				     mark has to be visible in that state too. It was not. -->
+				<Checkbox id="demo-checkbox-both" indeterminate checked />
+				<Label for="demo-checkbox-both">Checkbox, checked and indeterminate</Label>
+			</div>
 		</Card.Content>
 	</Card.Root>
 

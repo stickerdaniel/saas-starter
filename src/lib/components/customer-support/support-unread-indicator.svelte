@@ -30,7 +30,15 @@
 
 	const open = $derived(count > 0);
 	// The query caps its scan one above this, so anything at the cap is "many".
-	const label = $derived(count > 9 ? '9+' : String(count));
+	// The label holds its last real value through the close, because the badge
+	// outlives the count that opened it: recomputing it on the way out flashed a
+	// red "0" for the length of the collapse.
+	let label = $state('');
+	// `$effect.pre` and not `$effect`: it runs before the DOM update, so the badge
+	// never paints an empty pill on the frame it opens.
+	$effect.pre(() => {
+		if (count > 0) label = count > 9 ? '9+' : String(count);
+	});
 </script>
 
 {#snippet badge(badgeClass: ClassValue)}

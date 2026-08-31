@@ -50,8 +50,9 @@
 			{ id: nextId++, text: next, entering: true, exiting: false }
 		];
 
-		// Outgoing and incoming animate together, so one swap costs one
-		// `--think-swap` plus the gap that holds the entrance back, not two.
+		// The exit runs for `--think-swap`, the entrance starts `--think-gap` later
+		// and runs for the same, so the exiting copy is stale from the point both
+		// have finished: one swap plus one gap, not two swaps.
 		const settle = setTimeout(
 			() => {
 				lines = untrack(() => lines).filter((line) => !line.exiting);
@@ -63,8 +64,11 @@
 
 	/**
 	 * Park an incoming line below the box with its transition switched off, then
-	 * release it one frame later. Releasing in the same frame lets the browser
-	 * resolve both states at once and the rise never renders.
+	 * release it after `--think-gap`, and never before the next frame. Releasing
+	 * in the same frame lets the browser resolve both states at once and the rise
+	 * never renders; releasing only on the frame ignored the gap, which is the
+	 * whole point of the token: the outgoing label gets a head start so the two
+	 * do not cross in the middle of the box.
 	 *
 	 * The start class is written from here rather than in the markup because the
 	 * same line has to be able to exit later. Selecting the markup on `entering`
@@ -75,18 +79,31 @@
 	function enter(node: HTMLElement, active: boolean) {
 		if (!active) return;
 		node.classList.add('is-enter-start');
-		const frame = requestAnimationFrame(() => node.classList.remove('is-enter-start'));
-		return { destroy: () => cancelAnimationFrame(frame) };
+		let frame = 0;
+		const held = setTimeout(
+			() => {
+				frame = requestAnimationFrame(() => node.classList.remove('is-enter-start'));
+			},
+			motionValue('--think-gap', 50)
+		);
+		return {
+			destroy: () => {
+				clearTimeout(held);
+				cancelAnimationFrame(frame);
+			}
+		};
 	}
 </script>
 
-<span
-	class={cn('t-think', className)}
-	data-shimmer={shimmer ? 'true' : 'false'}
-	role="status"
-	aria-live="polite"
->
-	<span class="t-think-sizer" aria-hidden="true">{sizer ?? text}</span>
+<!-- The visual stack is hidden from assistive technology and the status is
+     announced from a separate node holding only the current label. Two reasons,
+     both measured: during a swap the outgoing and incoming copies are both in
+     the DOM, so a live region spanning them announced "Connecting Thinking"; and
+     the shimmer paints through a `::before` that repeats `data-text` as
+     generated content, which Chromium exposes, so each label read twice. -->
+<span class="sr-only" role="status" aria-live="polite">{text}</span>
+<span class={cn('t-think', className)} data-shimmer={shimmer ? 'true' : 'false'} aria-hidden="true">
+	<span class="t-think-sizer">{sizer ?? text}</span>
 	{#each lines as line (line.id)}
 		<span
 			class="t-think-text"

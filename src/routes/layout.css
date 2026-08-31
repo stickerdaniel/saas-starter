@@ -762,7 +762,9 @@
 	animation: t-badge-slide-in var(--badge-slide-dur) var(--badge-slide-ease);
 }
 .t-badge-dot {
-	display: block;
+	/* No `display` here: the rule is unlayered and would beat the caller's
+	   layered Tailwind utility, which is what pushed the counted badge's number
+	   off centre by silently replacing its `grid` with `block`. */
 	transform-origin: center;
 	transform: scale(1);
 	opacity: 1;
