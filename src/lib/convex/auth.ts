@@ -385,6 +385,9 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
 				}
 			}
 		},
+		account: {
+			encryptOAuthTokens: true
+		},
 		emailAndPassword: {
 			enabled: true,
 			minPasswordLength: 10,

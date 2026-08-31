@@ -1,7 +1,7 @@
 // @vitest-environment node
 
 import { describe, expect, it, vi } from 'vitest';
-import { handleOAuthUserInfo } from 'better-auth/oauth2';
+import { decryptOAuthToken, handleOAuthUserInfo } from 'better-auth/oauth2';
 
 /**
  * Contract test against the installed Better Auth.
@@ -36,7 +36,10 @@ vi.mock('../_generated/server', () => ({
 const { createAuthOptions } = await import('../auth');
 
 const appOptions = createAuthOptions({} as never) as {
-	account?: { accountLinking?: { requireLocalEmailVerified?: boolean } };
+	account?: {
+		encryptOAuthTokens?: boolean;
+		accountLinking?: { requireLocalEmailVerified?: boolean };
+	};
 };
 
 type LinkContext = Parameters<typeof handleOAuthUserInfo>[0];
@@ -55,6 +58,8 @@ const providerAccount = {
 	scope: 'openid email profile'
 };
 
+type LinkedAccountWrite = typeof providerAccount & { userId: string };
+
 const providerUserInfo = {
 	id: 'google-account-id',
 	email: 'squatted@example.com',
@@ -71,7 +76,10 @@ function createContext(localUser: { id: string; email: string; emailVerified: bo
 			accounts: [{ providerId: 'credential', accountId: localUser.id }],
 			linkedAccount: undefined
 		})),
-		linkAccount: vi.fn(async () => ({ id: 'linked-account-id' })),
+		linkAccount: vi.fn(async (account: LinkedAccountWrite) => ({
+			id: 'linked-account-id',
+			...account
+		})),
 		updateUser: vi.fn(async () => localUser),
 		updateAccount: vi.fn(async () => undefined),
 		createSession: vi.fn(async () => ({ id: 'session-id', userId: localUser.id }))
@@ -88,6 +96,7 @@ function createContext(localUser: { id: string; email: string; emailVerified: bo
 			options: { account: appOptions.account },
 			baseURL: 'https://example.test/api/auth',
 			secret: 'test-secret',
+			secretConfig: 'test-secret',
 			logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn(), debug: vi.fn() }
 		}
 	};
@@ -121,7 +130,7 @@ describe('implicit OAuth account linking', () => {
 		expect(internalAdapter.createSession).not.toHaveBeenCalled();
 	});
 
-	it('still links into a local user that did verify its email', async () => {
+	it('links a verified local user with encrypted OAuth tokens', async () => {
 		const { context, internalAdapter } = createContext({
 			id: 'local-user-id',
 			email: 'squatted@example.com',
@@ -132,6 +141,18 @@ describe('implicit OAuth account linking', () => {
 
 		expect(result.error).toBeNull();
 		expect(internalAdapter.linkAccount).toHaveBeenCalledTimes(1);
+		const linkedAccount = internalAdapter.linkAccount.mock.calls[0]?.[0];
+		if (!linkedAccount) throw new Error('Better Auth did not write the linked account');
+		expect(typeof linkedAccount.accessToken).toBe('string');
+		expect(typeof linkedAccount.refreshToken).toBe('string');
+		expect(linkedAccount.accessToken).not.toBe(providerAccount.accessToken);
+		expect(linkedAccount.refreshToken).not.toBe(providerAccount.refreshToken);
+		expect(await decryptOAuthToken(linkedAccount.accessToken, context.context)).toBe(
+			providerAccount.accessToken
+		);
+		expect(await decryptOAuthToken(linkedAccount.refreshToken, context.context)).toBe(
+			providerAccount.refreshToken
+		);
 		expect(internalAdapter.createSession).toHaveBeenCalledTimes(1);
 	});
 });
