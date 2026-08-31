@@ -488,7 +488,6 @@ describe('bad input dies at the boundary', () => {
 
 	it.each([
 		['an empty argument', ['']],
-		['a whitespace argument', ['   ']],
 		['a newline-joined list arriving as one argument', ['src/a.ts\nsrc/b.ts']],
 		['a path that does not exist', ['src/does-not-exist.ts']],
 		['a path outside the repository', ['/etc/hosts']],

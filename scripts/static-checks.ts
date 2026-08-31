@@ -275,6 +275,18 @@ function isMissingPathError(error: unknown): boolean {
 	return (error as NodeJS.ErrnoException | null)?.code === 'ENOENT';
 }
 
+/**
+ * Directory segments Prettier's CLI skips before glob expansion, whether or not an ignore
+ * file names them. `getFileInfo()` applies node_modules and ignore files but not this VCS
+ * list, so explicit paths need the same closed set here or the ledger counts work the CLI
+ * silently discards. Pinned against Prettier 3.9.5's DirectoryIgnorer in the contract tests.
+ */
+const PRETTIER_ALWAYS_IGNORED_DIRECTORIES = new Set(['.git', '.sl', '.svn', '.hg', '.jj']);
+
+function isPrettierAlwaysIgnoredPath(file: string): boolean {
+	return file.split('/').some((segment) => PRETTIER_ALWAYS_IGNORED_DIRECTORIES.has(segment));
+}
+
 /** Files reachable by Prettier's directory traversal before file-level classification. */
 export function prettierTraversalPaths(
 	cwd = REPO_ROOT,
@@ -282,7 +294,7 @@ export function prettierTraversalPaths(
 	relativeTo = cwd
 ): string[] {
 	const files: string[] = [];
-	const skippedDirectories = new Set(['.git', '.hg', '.jj', '.sl', '.svn', 'node_modules']);
+	const skippedDirectories = new Set([...PRETTIER_ALWAYS_IGNORED_DIRECTORIES, 'node_modules']);
 	const walk = (directory: string, prefix: string): void => {
 		// The same race in the other direction: the directory itself can be gone by the time
 		// the recursion reaches it, and only that case is a skip.
@@ -562,26 +574,29 @@ export async function prettierFormattableFiles(
 	files: string[],
 	cwd = REPO_ROOT
 ): Promise<string[]> {
-	if (files.length === 0) return [];
+	const candidates = files.filter((file) => !isPrettierAlwaysIgnoredPath(file));
+	if (candidates.length === 0) return [];
 	const ignorePath = PRETTIER_IGNORE_FILES.map((file) => path.join(cwd, file));
 	// `getFileInfo` reads ignore files and may load parser metadata. Starting one promise per
 	// path made a full-format preflight retain an ignored generated tree at once and roughly
 	// doubled the peak memory of direct Prettier in the reproducer. Keep only as many
 	// classifications active as the host can run in parallel; result slots preserve order.
-	const infos: Array<Awaited<ReturnType<typeof getFileInfo>> | undefined> = new Array(files.length);
+	const infos: Array<Awaited<ReturnType<typeof getFileInfo>> | undefined> = new Array(
+		candidates.length
+	);
 	let cursor = 0;
 	await Promise.all(
-		Array.from({ length: Math.min(files.length, availableParallelism()) }, async () => {
-			while (cursor < files.length) {
+		Array.from({ length: Math.min(candidates.length, availableParallelism()) }, async () => {
+			while (cursor < candidates.length) {
 				const index = cursor++;
-				infos[index] = await getFileInfo(path.resolve(cwd, files[index]!), {
+				infos[index] = await getFileInfo(path.resolve(cwd, candidates[index]!), {
 					ignorePath,
 					resolveConfig: true
 				});
 			}
 		})
 	);
-	return files.filter((file, index) => {
+	return candidates.filter((file, index) => {
 		const info = infos[index]!;
 		if (info.ignored) return false;
 		return info.inferredParser !== null;

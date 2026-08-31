@@ -532,6 +532,36 @@ describe('format-only static checks', () => {
 		}
 	);
 
+	it.each(['.git', '.sl', '.svn', '.hg', '.jj'])(
+		"counts Prettier's hard-coded %s exclusion as zero formatter work",
+		(vcsDirectory) => {
+			const parent = path.join(ROOT, 'scripts', `.format-vcs-${process.pid}`);
+			const directory = path.join(parent, vcsDirectory);
+			const relative = `scripts/.format-vcs-${process.pid}/${vcsDirectory}/probe.ts`;
+			mkdirSync(directory, { recursive: true });
+			writeFileSync(path.join(ROOT, relative), 'export const skipped   =1\n');
+			try {
+				// Prettier's CLI drops these path segments before expansion. `getFileInfo` does not,
+				// so the classifier carries the same closed list instead of claiming this file was
+				// checked when a formatted peer gives the CLI a successful match.
+				const direct = spawnSync(
+					testExecutable('bun'),
+					['prettier', '--check', '--', relative, 'README.md'],
+					{ cwd: ROOT, env: { ...sanitizedGitEnv(), NO_COLOR: '1' }, encoding: 'utf8' }
+				);
+				expect(direct.status, `${direct.stdout}${direct.stderr}`).toBe(0);
+				expect(`${direct.stdout}${direct.stderr}`).not.toContain(relative);
+
+				const result = formatCheckFilesFrom(`${relative}\0README.md\0`);
+				expect(result.status, result.output).toBe(0);
+				expect(result.output).toContain('prettier         1 file(s)');
+				expect(result.output).not.toContain(relative);
+			} finally {
+				rmSync(parent, { recursive: true, force: true });
+			}
+		}
+	);
+
 	it.skipIf(process.platform === 'win32')(
 		'accepts an absolute path through a symlinked checkout alias',
 		() => {
