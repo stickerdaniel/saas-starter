@@ -110,3 +110,23 @@ describe('checkbox tick draw order', () => {
 		expect(icon).toContain('"d": "M20 6 9 17l-5-5"');
 	});
 });
+
+describe('learn-more interaction parity', () => {
+	it('moves on keyboard focus without requiring hover capability', () => {
+		expect(css).toMatch(/\.t-learn:focus-visible \.t-learn-chevron \{/);
+		expect(css).toMatch(/\.t-learn:focus-visible \.t-learn-arm-top \{/);
+	});
+
+	it('limits hover motion to a fine hover-capable pointer', () => {
+		expect(css).toMatch(
+			/@media \(hover: hover\) and \(pointer: fine\) \{[\s\S]*?\.t-learn:hover \.t-learn-chevron/
+		);
+	});
+
+	it('points and moves along the RTL reading direction', () => {
+		expect(css).toMatch(/:where\(\[dir='rtl'\]\) \.t-learn-chevron \{[^}]*scaleX\(-1\)/s);
+		expect(css).toMatch(
+			/:where\(\[dir='rtl'\]\) \.t-learn:focus-visible \.t-learn-chevron \{[^}]*translateX\(calc\(var\(--learn-shift\) \* -1\)\)[^}]*scaleX\(-1\)/s
+		);
+	});
+});
