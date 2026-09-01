@@ -66,3 +66,21 @@ describe('thinking states', () => {
 		expect(labelBefore(template, 't-think')).toBe(true);
 	});
 });
+
+describe('motion attachments', () => {
+	const thinking = readFileSync(join(dir, 'thinking-states.svelte'), 'utf8');
+	const avatar = readFileSync(join(dir, 'avatar-group-hover.svelte.ts'), 'utf8');
+	const overview = readFileSync(join(dir, '../customer-support/threads-overview.svelte'), 'utf8');
+
+	it('owns the thinking entrance through an attachment cleanup', () => {
+		expect(thinking).toContain('Attachment<HTMLElement>');
+		expect(thinking).toContain('{@attach enter(line.entering)}');
+		expect(thinking).not.toContain('use:enter');
+	});
+
+	it('attaches the avatar lifecycle instead of using a legacy action', () => {
+		expect(avatar).toContain('Attachment<HTMLElement>');
+		expect(overview).toContain('{@attach avatarGroupHover}');
+		expect(overview).not.toContain('use:avatarGroupHover');
+	});
+});

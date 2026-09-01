@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
+	import type { Attachment } from 'svelte/attachments';
 	import { cn } from '$lib/utils.js';
 	import { motionValue } from './motion-tokens.js';
 
@@ -76,21 +77,21 @@
 	 * second swap on the outgoing label never got `is-exit`: it stayed put under
 	 * the incoming one and then vanished when the settle timer removed it.
 	 */
-	function enter(node: HTMLElement, active: boolean) {
-		if (!active) return;
-		node.classList.add('is-enter-start');
-		let frame = 0;
-		const held = setTimeout(
-			() => {
-				frame = requestAnimationFrame(() => node.classList.remove('is-enter-start'));
-			},
-			motionValue('--think-gap', 50)
-		);
-		return {
-			destroy: () => {
+	function enter(active: boolean): Attachment<HTMLElement> {
+		return (node) => {
+			if (!active) return;
+			node.classList.add('is-enter-start');
+			let frame = 0;
+			const held = setTimeout(
+				() => {
+					frame = requestAnimationFrame(() => node.classList.remove('is-enter-start'));
+				},
+				motionValue('--think-gap', 50)
+			);
+			return () => {
 				clearTimeout(held);
 				cancelAnimationFrame(frame);
-			}
+			};
 		};
 	}
 </script>
@@ -115,7 +116,7 @@
 			class="t-think-text"
 			class:is-exit={line.exiting}
 			data-text={line.text}
-			use:enter={line.entering}>{line.text}</span
+			{@attach enter(line.entering)}>{line.text}</span
 		>
 	{/each}
 </span>
