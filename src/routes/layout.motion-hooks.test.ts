@@ -25,6 +25,21 @@ function componentFiles(dir: string, out: string[] = []): string[] {
 	return out;
 }
 
+function blockBody(source: string, marker: string, from = 0): string {
+	const markerIndex = source.indexOf(marker, from);
+	if (markerIndex === -1) throw new Error(`Missing CSS block ${marker}`);
+	const open = source.indexOf('{', markerIndex);
+	if (open === -1) throw new Error(`Missing opening brace for ${marker}`);
+	let depth = 0;
+	for (let index = open; index < source.length; index += 1) {
+		if (source[index] === '{') depth += 1;
+		if (source[index] !== '}') continue;
+		depth -= 1;
+		if (depth === 0) return source.slice(open + 1, index);
+	}
+	throw new Error(`Missing closing brace for ${marker}`);
+}
+
 /**
  * Only what a component actually renders counts. Three kinds of text mention a
  * hook without applying it, and each of them let a real miss through when it was
@@ -113,31 +128,72 @@ describe('checkbox tick draw order', () => {
 
 describe('learn-more interaction parity', () => {
 	const learnMoreStart = css.indexOf('/* Learn more hover:');
-	const hoverCapabilityStart = css.indexOf(
-		'@media (hover: hover) and (pointer: fine)',
-		learnMoreStart
-	);
+	const hoverMarker = '@media (hover: hover) and (pointer: fine)';
+	const hoverCapabilityStart = css.indexOf(hoverMarker, learnMoreStart);
+	const hoverCss = blockBody(css, hoverMarker, learnMoreStart);
 
-	it('moves on keyboard focus without requiring hover capability', () => {
+	it('moves and spreads both arms on keyboard focus outside hover capability', () => {
 		const focusRule = css.indexOf('.t-learn:focus-visible .t-learn-chevron {', learnMoreStart);
 		expect(focusRule).toBeGreaterThan(learnMoreStart);
 		expect(focusRule).toBeLessThan(hoverCapabilityStart);
-		expect(css).toMatch(/\.t-learn:focus-visible \.t-learn-arm-top \{/);
+		expect(blockBody(css, '.t-learn:focus-visible .t-learn-chevron', learnMoreStart)).toMatch(
+			/translateX\(var\(--learn-shift\)\)/
+		);
+		expect(blockBody(css, '.t-learn:focus-visible .t-learn-arm', learnMoreStart)).toMatch(
+			/transition-duration:\s*var\(--learn-in\)/
+		);
+		expect(blockBody(css, '.t-learn:focus-visible .t-learn-arm-top', learnMoreStart)).toMatch(
+			/rotate\(var\(--learn-spread\)\)/
+		);
+		expect(blockBody(css, '.t-learn:focus-visible .t-learn-arm-bot', learnMoreStart)).toMatch(
+			/rotate\(calc\(var\(--learn-spread\) \* -1\)\)/
+		);
 	});
 
-	it('limits hover motion to a fine hover-capable pointer', () => {
-		expect(css).toMatch(
-			/@media \(hover: hover\) and \(pointer: fine\) \{[\s\S]*?\.t-learn:hover \.t-learn-chevron/
+	it('keeps the complete hover motion inside fine-pointer capability', () => {
+		expect(blockBody(hoverCss, '.t-learn:hover .t-learn-chevron')).toMatch(
+			/translateX\(var\(--learn-shift\)\)/
+		);
+		expect(blockBody(hoverCss, '.t-learn:hover .t-learn-arm')).toMatch(
+			/transition-duration:\s*var\(--learn-in\)/
+		);
+		expect(blockBody(hoverCss, '.t-learn:hover .t-learn-arm-top')).toMatch(
+			/rotate\(var\(--learn-spread\)\)/
+		);
+		expect(blockBody(hoverCss, '.t-learn:hover .t-learn-arm-bot')).toMatch(
+			/rotate\(calc\(var\(--learn-spread\) \* -1\)\)/
 		);
 	});
 
 	it('points and moves along the RTL reading direction', () => {
-		expect(css).toMatch(/:where\(\[dir='rtl'\]\) \.t-learn-chevron \{[^}]*scaleX\(-1\)/s);
-		expect(css).toMatch(
-			/:where\(\[dir='rtl'\]\) \.t-learn:focus-visible \.t-learn-chevron \{[^}]*translateX\(calc\(var\(--learn-shift\) \* -1\)\)[^}]*scaleX\(-1\)/s
+		expect(blockBody(css, ":where([dir='rtl']) .t-learn-chevron", learnMoreStart)).toMatch(
+			/scaleX\(-1\)/
 		);
-		expect(css.slice(hoverCapabilityStart)).toMatch(
-			/:where\(\[dir='rtl'\]\) \.t-learn:hover \.t-learn-chevron \{[^}]*translateX\(calc\(var\(--learn-shift\) \* -1\)\)[^}]*scaleX\(-1\)/s
+		expect(
+			blockBody(css, ":where([dir='rtl']) .t-learn:focus-visible .t-learn-chevron", learnMoreStart)
+		).toMatch(/translateX\(calc\(var\(--learn-shift\) \* -1\)\).*scaleX\(-1\)/s);
+		expect(blockBody(hoverCss, ":where([dir='rtl']) .t-learn:hover .t-learn-chevron")).toMatch(
+			/translateX\(calc\(var\(--learn-shift\) \* -1\)\).*scaleX\(-1\)/s
 		);
+	});
+});
+
+describe('learn-more consumers', () => {
+	const hero = readFileSync(join(root, 'src/blocks/hero/hero-five.svelte'), 'utf8');
+	const integration = readFileSync(
+		join(root, 'src/blocks/integration/card/integration-card.svelte'),
+		'utf8'
+	);
+	const support = readFileSync(
+		join(root, 'src/lib/components/customer-support/threads-overview.svelte'),
+		'utf8'
+	);
+	const wiredControl =
+		/<(?:Button|button)\b[^>]*class="[^"]*\bt-learn\b[^"]*"[^>]*>[\s\S]*?<LearnMoreChevron\b[\s\S]*?<\/(?:Button|button)>/g;
+
+	it('keeps every real chevron below a focusable motion owner', () => {
+		expect(hero.match(wiredControl)).toHaveLength(1);
+		expect(integration.match(wiredControl)).toHaveLength(2);
+		expect(support.match(wiredControl)).toHaveLength(1);
 	});
 });

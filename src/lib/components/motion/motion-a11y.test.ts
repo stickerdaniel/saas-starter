@@ -75,20 +75,26 @@ describe('motion attachments', () => {
 	it('owns the thinking entrance through an attachment cleanup', () => {
 		expect(thinking).toContain('Attachment<HTMLElement>');
 		expect(thinking).toContain('{@attach line.entrance}');
+		expect(thinking).toContain('clearTimeout(held);');
+		expect(thinking).toContain('cancelAnimationFrame(frame);');
 		expect(thinking).not.toContain('use:enter');
 	});
 
-	it('keeps the thinking entrance attachment stable across line replacement', () => {
+	it('keeps the thinking entrance attachment stable across keyed line replacement', () => {
 		expect(thinking).toContain('entrance: Attachment<HTMLElement>');
 		expect(thinking).toContain('entrance: enter(true)');
+		expect(thinking).toContain('{#each lines as line (line.id)}');
 		expect(thinking).toContain(
 			'...untrack(() => lines).map((line) => ({ ...line, exiting: true }))'
 		);
 		expect(thinking).not.toMatch(/\{@attach\s+enter\(/);
 	});
 
-	it('attaches the avatar lifecycle instead of using a legacy action', () => {
+	it('attaches and tears down the avatar lifecycle', () => {
 		expect(avatar).toContain('Attachment<HTMLElement>');
+		expect(avatar).toContain("hoverCapable.removeEventListener('change', syncCapability);");
+		expect(avatar).toContain('observer?.disconnect();');
+		expect(avatar).toContain('disable();');
 		expect(overview).toContain('{@attach avatarGroupHover}');
 		expect(overview).not.toContain('use:avatarGroupHover');
 	});
