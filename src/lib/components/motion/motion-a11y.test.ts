@@ -81,6 +81,9 @@ describe('motion attachments', () => {
 	it('keeps the thinking entrance attachment stable across line replacement', () => {
 		expect(thinking).toContain('entrance: Attachment<HTMLElement>');
 		expect(thinking).toContain('entrance: enter(true)');
+		expect(thinking).toContain(
+			'...untrack(() => lines).map((line) => ({ ...line, exiting: true }))'
+		);
 		expect(thinking).not.toMatch(/\{@attach\s+enter\(/);
 	});
 

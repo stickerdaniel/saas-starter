@@ -112,8 +112,16 @@ describe('checkbox tick draw order', () => {
 });
 
 describe('learn-more interaction parity', () => {
+	const learnMoreStart = css.indexOf('/* Learn more hover:');
+	const hoverCapabilityStart = css.indexOf(
+		'@media (hover: hover) and (pointer: fine)',
+		learnMoreStart
+	);
+
 	it('moves on keyboard focus without requiring hover capability', () => {
-		expect(css).toMatch(/\.t-learn:focus-visible \.t-learn-chevron \{/);
+		const focusRule = css.indexOf('.t-learn:focus-visible .t-learn-chevron {', learnMoreStart);
+		expect(focusRule).toBeGreaterThan(learnMoreStart);
+		expect(focusRule).toBeLessThan(hoverCapabilityStart);
 		expect(css).toMatch(/\.t-learn:focus-visible \.t-learn-arm-top \{/);
 	});
 
@@ -127,6 +135,9 @@ describe('learn-more interaction parity', () => {
 		expect(css).toMatch(/:where\(\[dir='rtl'\]\) \.t-learn-chevron \{[^}]*scaleX\(-1\)/s);
 		expect(css).toMatch(
 			/:where\(\[dir='rtl'\]\) \.t-learn:focus-visible \.t-learn-chevron \{[^}]*translateX\(calc\(var\(--learn-shift\) \* -1\)\)[^}]*scaleX\(-1\)/s
+		);
+		expect(css.slice(hoverCapabilityStart)).toMatch(
+			/:where\(\[dir='rtl'\]\) \.t-learn:hover \.t-learn-chevron \{[^}]*translateX\(calc\(var\(--learn-shift\) \* -1\)\)[^}]*scaleX\(-1\)/s
 		);
 	});
 });
