@@ -1,3 +1,4 @@
+import type { Attachment } from 'svelte/attachments';
 import { motionEase, motionValue } from './motion-tokens.js';
 
 /**
@@ -10,7 +11,7 @@ import { motionEase, motionValue } from './motion-tokens.js';
  * Presentation only. It binds no click handler and sets no cursor, so a row
  * the user cannot act on does not start advertising that they can.
  */
-export function avatarGroupHover(node: HTMLElement) {
+export const avatarGroupHover: Attachment<HTMLElement> = (node) => {
 	let items: HTMLElement[] = [];
 
 	function setShifts(activeIndex: number | null, phase: 'in' | 'out') {
@@ -91,10 +92,8 @@ export function avatarGroupHover(node: HTMLElement) {
 	hoverCapable.addEventListener('change', syncCapability);
 	syncCapability();
 
-	return {
-		destroy() {
-			hoverCapable.removeEventListener('change', syncCapability);
-			disable();
-		}
+	return () => {
+		hoverCapable.removeEventListener('change', syncCapability);
+		disable();
 	};
-}
+};

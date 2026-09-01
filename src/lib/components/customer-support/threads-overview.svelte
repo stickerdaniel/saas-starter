@@ -233,7 +233,7 @@
 					<!-- Presentation only: the faces say who will answer, they are not a choice
 					     the user can make, so the row lifts on hover and carries no cursor,
 					     focus ring or click target. -->
-					<div class="mb-6 flex -space-x-3" use:avatarGroupHover>
+					<div class="mb-6 flex -space-x-3" {@attach avatarGroupHover}>
 						{#if showBotIcon}
 							<!-- Avatar 1: Bot icon (only shown when <3 admins) -->
 							<motion.div

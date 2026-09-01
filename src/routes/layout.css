@@ -998,18 +998,42 @@
 	vector-effect: non-scaling-stroke;
 	transition: transform var(--learn-out) var(--learn-ease);
 }
-.t-learn:hover .t-learn-chevron {
+.t-learn:focus-visible .t-learn-chevron {
 	transform: translateX(var(--learn-shift));
 	transition-duration: var(--learn-in);
 }
-.t-learn:hover .t-learn-arm {
+.t-learn:focus-visible .t-learn-arm {
 	transition-duration: var(--learn-in);
 }
-.t-learn:hover .t-learn-arm-top {
+.t-learn:focus-visible .t-learn-arm-top {
 	transform: rotate(var(--learn-spread));
 }
-.t-learn:hover .t-learn-arm-bot {
+.t-learn:focus-visible .t-learn-arm-bot {
 	transform: rotate(calc(var(--learn-spread) * -1));
+}
+:where([dir='rtl']) .t-learn-chevron {
+	transform: scaleX(-1);
+}
+:where([dir='rtl']) .t-learn:focus-visible .t-learn-chevron {
+	transform: translateX(calc(var(--learn-shift) * -1)) scaleX(-1);
+}
+@media (hover: hover) and (pointer: fine) {
+	.t-learn:hover .t-learn-chevron {
+		transform: translateX(var(--learn-shift));
+		transition-duration: var(--learn-in);
+	}
+	.t-learn:hover .t-learn-arm {
+		transition-duration: var(--learn-in);
+	}
+	.t-learn:hover .t-learn-arm-top {
+		transform: rotate(var(--learn-spread));
+	}
+	.t-learn:hover .t-learn-arm-bot {
+		transform: rotate(calc(var(--learn-spread) * -1));
+	}
+	:where([dir='rtl']) .t-learn:hover .t-learn-chevron {
+		transform: translateX(calc(var(--learn-shift) * -1)) scaleX(-1);
+	}
 }
 /* Checkbox check: the box fills, then the tick draws itself. `--check-len`
    is the path's own getTotalLength() rounded up, so the stroke neither

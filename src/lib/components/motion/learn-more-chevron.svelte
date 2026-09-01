@@ -4,11 +4,12 @@
 	/**
 	 * The trailing chevron of a "Learn more" style control. On hover it slides
 	 * along the reading direction and its two arms spread apart into an arrow.
+	 * Fine-pointer hover and keyboard focus drive the same decorative state.
 	 *
 	 * Drawn as two separate strokes rather than one polyline because the arms
 	 * have to rotate independently about the apex at (10, 8). Purely decorative:
-	 * the motion is hover-only, so nothing it conveys is lost on keyboard or
-	 * touch. Requires `t-learn` on the hovered ancestor.
+	 * the motion conveys no state, so coarse pointers keep the resting shape.
+	 * Requires `t-learn` on the interactive ancestor.
 	 */
 	let { class: className }: { class?: string } = $props();
 </script>

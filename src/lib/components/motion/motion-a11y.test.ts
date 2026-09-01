@@ -66,3 +66,36 @@ describe('thinking states', () => {
 		expect(labelBefore(template, 't-think')).toBe(true);
 	});
 });
+
+describe('motion attachments', () => {
+	const thinking = readFileSync(join(dir, 'thinking-states.svelte'), 'utf8');
+	const avatar = readFileSync(join(dir, 'avatar-group-hover.svelte.ts'), 'utf8');
+	const overview = readFileSync(join(dir, '../customer-support/threads-overview.svelte'), 'utf8');
+
+	it('owns the thinking entrance through an attachment cleanup', () => {
+		expect(thinking).toContain('Attachment<HTMLElement>');
+		expect(thinking).toContain('{@attach line.entrance}');
+		expect(thinking).toContain('clearTimeout(held);');
+		expect(thinking).toContain('cancelAnimationFrame(frame);');
+		expect(thinking).not.toContain('use:enter');
+	});
+
+	it('keeps the thinking entrance attachment stable across keyed line replacement', () => {
+		expect(thinking).toContain('entrance: Attachment<HTMLElement>');
+		expect(thinking).toContain('entrance: enter(true)');
+		expect(thinking).toContain('{#each lines as line (line.id)}');
+		expect(thinking).toContain(
+			'...untrack(() => lines).map((line) => ({ ...line, exiting: true }))'
+		);
+		expect(thinking).not.toMatch(/\{@attach\s+enter\(/);
+	});
+
+	it('attaches and tears down the avatar lifecycle', () => {
+		expect(avatar).toContain('Attachment<HTMLElement>');
+		expect(avatar).toContain("hoverCapable.removeEventListener('change', syncCapability);");
+		expect(avatar).toContain('observer?.disconnect();');
+		expect(avatar).toContain('disable();');
+		expect(overview).toContain('{@attach avatarGroupHover}');
+		expect(overview).not.toContain('use:avatarGroupHover');
+	});
+});
