@@ -1,6 +1,6 @@
 ---
 name: upstream-report
-description: Decide whether a change in a content-copy fork belongs in the upstream saas-starter template, and report it there when it does. Use in a fork before opening a PR, after fixing a bug, and whenever an edit touched framework, auth, email, UI-primitive, config, or build code. The saas-starter template itself does not use this skill. A script measures which files are template-derived, so one command answers it and no file is judged by eye. Sends fixes up only; pulling template changes down is upstream-sync, which a human starts.
+description: Always load in a content-copy fork before acting on any work that might also matter to the base project, or as soon as that possibility appears. Treat uncertain ownership as possible relevance. Do not load in the base project itself.
 allowed-tools: Bash, Read, Grep, Glob
 ---
 
