@@ -32,14 +32,19 @@
 		class?: string;
 	} = $props();
 
-	type Line = { id: number; text: string; entering: boolean; exiting: boolean };
+	type Line = {
+		id: number;
+		text: string;
+		entrance: Attachment<HTMLElement>;
+		exiting: boolean;
+	};
 
 	let nextId = 1;
 	// The first line is the mount value, not a reactive read: later values arrive
 	// through the effect below, which has to know the previous one to animate it out.
 	const initial = untrack(() => text);
 	let shown = initial;
-	let lines = $state<Line[]>([{ id: 0, text: initial, entering: false, exiting: false }]);
+	let lines = $state<Line[]>([{ id: 0, text: initial, entrance: enter(false), exiting: false }]);
 
 	$effect(() => {
 		const next = text;
@@ -48,7 +53,7 @@
 
 		lines = [
 			...untrack(() => lines).map((line) => ({ ...line, exiting: true })),
-			{ id: nextId++, text: next, entering: true, exiting: false }
+			{ id: nextId++, text: next, entrance: enter(true), exiting: false }
 		];
 
 		// The exit runs for `--think-swap`, the entrance starts `--think-gap` later
@@ -76,6 +81,11 @@
 	 * put an already-entered line in the entrance branch forever, so from the
 	 * second swap on the outgoing label never got `is-exit`: it stayed put under
 	 * the incoming one and then vanished when the settle timer removed it.
+	 *
+	 * The attachment factory result lives on the keyed line so copying that line
+	 * into its exiting state preserves the function identity. Calling the factory
+	 * from the markup would reattach the surviving line and restore the entrance
+	 * class while its exit is running.
 	 */
 	function enter(active: boolean): Attachment<HTMLElement> {
 		return (node) => {
@@ -116,7 +126,7 @@
 			class="t-think-text"
 			class:is-exit={line.exiting}
 			data-text={line.text}
-			{@attach enter(line.entering)}>{line.text}</span
+			{@attach line.entrance}>{line.text}</span
 		>
 	{/each}
 </span>

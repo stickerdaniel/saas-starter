@@ -74,8 +74,14 @@ describe('motion attachments', () => {
 
 	it('owns the thinking entrance through an attachment cleanup', () => {
 		expect(thinking).toContain('Attachment<HTMLElement>');
-		expect(thinking).toContain('{@attach enter(line.entering)}');
+		expect(thinking).toContain('{@attach line.entrance}');
 		expect(thinking).not.toContain('use:enter');
+	});
+
+	it('keeps the thinking entrance attachment stable across line replacement', () => {
+		expect(thinking).toContain('entrance: Attachment<HTMLElement>');
+		expect(thinking).toContain('entrance: enter(true)');
+		expect(thinking).not.toMatch(/\{@attach\s+enter\(/);
 	});
 
 	it('attaches the avatar lifecycle instead of using a legacy action', () => {
