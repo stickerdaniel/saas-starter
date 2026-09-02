@@ -10,50 +10,30 @@ import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 import { toast } from 'svelte-sonner';
 import type { ConvexClient } from 'convex/browser';
 import type { ChatSessionPort } from '../core/chat-session-port.js';
-import type { DisplayMessage, Attachment, MessageRole, UploadState } from '../core/types.js';
-import { uploadFileWithProgress, UploadError } from '../core/file-uploader.js';
+import type { DisplayMessage, Attachment, MessageRole } from '../core/types.js';
+import { uploadFileWithProgress } from '../core/file-uploader.js';
 import type {
 	AttachmentsByThread,
 	ChatAttachmentStore
 } from '../core/chat-attachment-store.svelte.ts';
 import { registerPersistedChatHolder } from '../core/chat-persisted-state.ts';
 import { FadeOnLoad } from '$lib/utils/fade-on-load.svelte.ts';
+import {
+	AttachmentTransfer,
+	attachmentFileIdentity,
+	attachmentProgressRank,
+	isAttachmentTransferAbort,
+	isSameAttachmentFile,
+	isStoredAttachment,
+	revokeAttachmentPreview,
+	type AttachmentPreprocess,
+	type AttachmentTransferSnapshot
+} from './attachment-transfer.js';
 
 /**
  * Message alignment - controls which side messages appear on
  */
 export type ChatAlignment = 'left' | 'right';
-
-/**
- * A ready-to-send upload: what the transport receives after any client-side
- * preprocessing. Retained per attachment so a retry repeats the same transfer
- * instead of redoing the preprocessing, which is neither free nor idempotent
- * (image re-encoding renames the file and changes its bytes).
- */
-type UploadJob = {
-	blob: File | Blob;
-	filename: string;
-	dimensions?: { width: number; height: number };
-	/**
-	 * Who the stored file belongs to, read when the file was picked.
-	 *
-	 * Every surface derives this from the thread it is showing, and the transfer
-	 * can start long after the pick: an image spends its encoding time first, and
-	 * a retry happens whenever the user gets to it. Reading it at that point would
-	 * file the attachment under whatever thread is on screen by then.
-	 */
-	accessKey?: string;
-};
-
-/** Ranks for a transfer that is over, and one that has to start again, against
- * the 0-100 progress of any still running. */
-const SETTLED_RANK = 101;
-const FAILED_RANK = -1;
-
-/** A canceled upload, which the user caused and does not need to be told about. */
-function isAbortError(error: unknown): boolean {
-	return error instanceof DOMException && error.name === 'AbortError';
-}
 
 /**
  * Configuration for file uploads
@@ -157,8 +137,8 @@ export class ChatUIContext {
 	/** Takes this context back out of the register of mounted composers. */
 	private readonly unregister: () => void;
 
-	/** Cancels the in-flight upload of an attachment, keyed by its stable `key`. */
-	private readonly uploadAborters = new SvelteMap<string, AbortController>();
+	/** One native lifecycle owner for each attachment that can still transfer. */
+	private readonly transfers = new SvelteMap<string, AttachmentTransfer>();
 
 	/**
 	 * Where to report work in progress, so navigating away asks first.
@@ -174,21 +154,13 @@ export class ChatUIContext {
 	/**
 	 * Attachments the user is still waiting on, by key.
 	 *
-	 * Wider than `uploadAborters`, which only covers the transfer. An image
+	 * Wider than active transport, because an image
 	 * spends a visible stretch in the WebP encoder first, with the tile already
 	 * showing progress, and losing the page there loses the pick just the same.
 	 * Also narrower where it matters: a discarded attachment leaves this set at
 	 * once, even though the request it started may take a while to unwind.
 	 */
 	private readonly pendingUploads = new SvelteSet<string>();
-
-	/**
-	 * The exact payload each failed attachment would need to try again. Held
-	 * because retrying from the picked file is not equivalent: images are
-	 * re-encoded before upload, and screenshots never had a File to begin with.
-	 * Only kept while the attachment is present, so a discarded blob is freed.
-	 */
-	private readonly retryJobs = new SvelteMap<string, UploadJob>();
 
 	/** The one composer mounted inside this ChatRoot. */
 	private composerFocus?: () => void;
@@ -502,9 +474,7 @@ export class ChatUIContext {
 	 * optimistic message render, which falls back to the uploaded `url`.
 	 */
 	private revokePreview(attachment: Attachment): void {
-		if ('preview' in attachment && attachment.preview?.startsWith('blob:')) {
-			URL.revokeObjectURL(attachment.preview);
-		}
+		revokeAttachmentPreview(attachment);
 	}
 
 	/**
@@ -515,9 +485,8 @@ export class ChatUIContext {
 	private releaseUpload(attachment: Attachment): void {
 		const key = 'key' in attachment ? attachment.key : undefined;
 		if (!key) return;
-		this.uploadAborters.get(key)?.abort();
-		this.uploadAborters.delete(key);
-		this.retryJobs.delete(key);
+		this.transfers.get(key)?.dispose();
+		this.transfers.delete(key);
 		// Straight away, not when the aborted attempt unwinds: an abort cannot
 		// stop a Convex mutation already in flight, so waiting for it would keep
 		// asking about a file the user has already thrown away.
@@ -587,7 +556,7 @@ export class ChatUIContext {
 		// this page is the only one that knows, and keeps all of it.
 		const carried: Attachment[] = [];
 		for (const attachment of held) {
-			if (store && ChatUIContext.isStored(attachment)) {
+			if (store && isStoredAttachment(attachment)) {
 				// Its copy off disk is the same file without the local preview, so
 				// the tile falls back to the uploaded url. The preview this one is
 				// holding has to go now: nothing else will ever see this object
@@ -609,21 +578,6 @@ export class ChatUIContext {
 			this.adoptParked(entering);
 		}
 		this.persist(leaving);
-	}
-
-	/**
-	 * Whether storage is the authority on this attachment.
-	 *
-	 * The same three things the store writes down, and no fewer: an attachment
-	 * that looks settled but is missing either of the others is not in storage,
-	 * and handing it over to something that does not have it would lose it.
-	 * Everything else, a transfer still running or one that failed, exists only
-	 * in the page holding it and has to be carried by hand.
-	 */
-	private static isStored(attachment: Attachment): boolean {
-		if (!('uploadState' in attachment)) return false;
-		const state = attachment.uploadState;
-		return state?.status === 'success' && !!state.fileId && !!attachment.url;
 	}
 
 	/**
@@ -651,7 +605,7 @@ export class ChatUIContext {
 		const adopted: Attachment[] = [];
 		for (const candidate of parked) {
 			const rivalIndex = this.attachments.findIndex(
-				(live, index) => !supersededLive[index] && ChatUIContext.isSameFile(candidate, live)
+				(live, index) => !supersededLive[index] && isSameAttachmentFile(candidate, live)
 			);
 			const rival = rivalIndex === -1 ? undefined : this.attachments[rivalIndex];
 			if (!rival) {
@@ -659,7 +613,7 @@ export class ChatUIContext {
 				continue;
 			}
 			// Ties go to the parked copy, which has the head start on its transfer.
-			if (ChatUIContext.uploadProgressRank(candidate) >= ChatUIContext.uploadProgressRank(rival)) {
+			if (attachmentProgressRank(candidate) >= attachmentProgressRank(rival)) {
 				supersededLive[rivalIndex] = true;
 				this.releaseUpload(rival);
 				this.revokePreview(rival);
@@ -710,299 +664,151 @@ export class ChatUIContext {
 	}
 
 	/**
-	 * How an attachment answers "is this the same file", as name and size.
-	 *
-	 * Two answers, because preprocessing renames an image to .webp and changes
-	 * its bytes: without the pre-preprocessing pair, re-pasting the same source
-	 * image would slip past dedup and upload twice.
-	 */
-	private static fileIdentity(attachment: Attachment): string[] {
-		if (attachment.type !== 'file' && attachment.type !== 'screenshot') return [];
-		const identities = [`${attachment.name}:${attachment.size}`];
-		if (attachment.sourceName !== undefined && attachment.sourceSize !== undefined) {
-			identities.push(`${attachment.sourceName}:${attachment.sourceSize}`);
-		}
-		return identities;
-	}
-
-	/** Whether two attachments are the same picked file. */
-	private static isSameFile(a: Attachment, b: Attachment): boolean {
-		const other = ChatUIContext.fileIdentity(b);
-		return ChatUIContext.fileIdentity(a).some((identity) => other.includes(identity));
-	}
-
-	/**
-	 * How far an attachment got, so the better of two copies of one file wins.
-	 *
-	 * A stored file beats one still moving, which beats a failure the user would
-	 * have to retry. Between two that are still moving the percentage decides:
-	 * ranking them equal would let a stalled transfer cancel one at 99%. An
-	 * attachment handed in from outside has no upload state and nothing pending,
-	 * so it counts as settled.
-	 */
-	private static uploadProgressRank(attachment: Attachment): number {
-		const state = 'uploadState' in attachment ? attachment.uploadState : undefined;
-		if (!state || state.status === 'success') return SETTLED_RANK;
-		if (state.status === 'error') return FAILED_RANK;
-		return state.progress;
-	}
-
-	/**
 	 * Check if a file with the same name and size already exists
 	 */
 	hasFile(name: string, size: number): boolean {
 		const picked = `${name}:${size}`;
-		return this.attachments.some((a) => ChatUIContext.fileIdentity(a).includes(picked));
+		return this.attachments.some((a) => attachmentFileIdentity(a).includes(picked));
 	}
 
-	/**
-	 * Get image dimensions from a file
-	 */
-	private getImageDimensions(file: File | Blob): Promise<{ width: number; height: number }> {
-		return new Promise((resolve) => {
-			const img = new Image();
-			img.onload = () => {
-				resolve({ width: img.naturalWidth, height: img.naturalHeight });
-				URL.revokeObjectURL(img.src);
-			};
-			img.onerror = () => {
-				resolve({ width: 0, height: 0 });
-				URL.revokeObjectURL(img.src);
-			};
-			img.src = URL.createObjectURL(file);
+	/** Build one lifecycle owner while this context remains the list coordinator. */
+	private createTransfer(
+		key: string,
+		blob: File | Blob,
+		filename: string,
+		mimeType: string,
+		accessKey?: string,
+		dimensions?: { width: number; height: number },
+		measureImageDimensions = true
+	): AttachmentTransfer {
+		const config = this.uploadConfig;
+		if (!config) throw new Error('Upload config not provided to ChatUIContext');
+
+		const transfer = new AttachmentTransfer({
+			key,
+			blob,
+			filename,
+			mimeType,
+			dimensions,
+			accessKey,
+			measureImageDimensions,
+			upload: (payload, onProgress, signal) =>
+				uploadFileWithProgress(
+					this.client,
+					payload.blob,
+					payload.filename,
+					onProgress,
+					config,
+					payload.dimensions,
+					payload.accessKey,
+					signal
+				),
+			onSnapshot: (snapshot) => {
+				// The transfer also rejects stale attempts internally. This owner
+				// check keeps a disposed/replaced transfer from reaching the lists.
+				if (this.transfers.get(key) !== transfer) return;
+				// The synchronous placeholder already represents preprocessing. The
+				// internal phase stays observable without introducing an extra list
+				// rewrite or persistence pass before preprocessing completes.
+				if (snapshot.phase === 'preprocessing') return;
+				this.applyTransferSnapshot(snapshot);
+				if (snapshot.phase === 'success') this.transfers.delete(key);
+			},
+			onActivityChange: (active) => {
+				if (active) this.markPending(key);
+				else this.settlePending(key);
+			},
+			onAttemptError: (error) => console.error('[ChatUIContext] Upload failed:', error)
 		});
+		this.transfers.set(key, transfer);
+		return transfer;
+	}
+
+	/** Adapt an internal transfer snapshot to the existing rendered shape. */
+	private applyTransferSnapshot(snapshot: AttachmentTransferSnapshot): void {
+		const uploadState =
+			snapshot.phase === 'success'
+				? { status: 'success' as const, progress: 100, fileId: snapshot.fileId }
+				: snapshot.phase === 'error'
+					? { status: 'error' as const, progress: 0, error: snapshot.error }
+					: { status: 'uploading' as const, progress: snapshot.progress };
+		const patch: Partial<Attachment> = {
+			name: snapshot.name,
+			mimeType: snapshot.mimeType,
+			size: snapshot.size,
+			uploadState
+		};
+		if (snapshot.dimensions) {
+			patch.width = snapshot.dimensions.width;
+			patch.height = snapshot.dimensions.height;
+		}
+		if (snapshot.phase === 'success') patch.url = snapshot.url;
+		this.patchAttachment(snapshot.key, patch);
 	}
 
 	/**
-	 * Upload a file and add it as an attachment
-	 * Progress is tracked automatically
-	 * Images are re-encoded before upload when the caller passes `preprocess`
-	 * (ChatInput does: it resizes and converts to WebP). Non-images upload as-is.
+	 * Upload a file and add it as an attachment.
+	 * The placeholder remains synchronous; AttachmentTransfer owns everything
+	 * from preprocessing through retryable transport completion.
 	 */
 	async uploadFile(
 		file: File | Blob,
 		filename?: string,
-		options?: {
-			/**
-			 * Optional async transform applied between placeholder insertion and the
-			 * actual upload. Used by ChatInput to route image attachments through
-			 * the WebP encoder. The placeholder is inserted synchronously so
-			 * `hasFile`, `MAX_ATTACHMENTS`, and `canSend` see the in-progress
-			 * attachment for the entire preprocess + upload window.
-			 */
-			preprocess?: (input: File | Blob) => Promise<{
-				blob: Blob;
-				mimeType: string;
-				filename?: string;
-				width?: number;
-				height?: number;
-			}>;
-		}
+		options?: { preprocess?: AttachmentPreprocess }
 	): Promise<void> {
 		if (!this.uploadConfig) {
 			throw new Error('Upload config not provided to ChatUIContext');
 		}
 
 		const initialName = filename ?? (file instanceof File ? file.name : 'file');
-		// Stable identity used to update/remove this attachment by value rather
-		// than by array index. User removals or other concurrent uploads shift
-		// the index, so a captured `currentIndex` would target the wrong row.
 		const key = crypto.randomUUID();
 
-		// Synchronously insert the placeholder BEFORE any await so concurrent
-		// callers (e.g. handleFilesAdded looping over a batch) see the limit
-		// and dedup state immediately.
+		// Synchronously insert the placeholder before preprocessing so batching,
+		// deduplication, attachment caps, and sending see the pending file at once.
 		const isImageType = file.type.startsWith('image/');
-		const initialPreview = isImageType ? URL.createObjectURL(file) : undefined;
 		const placeholder: Attachment = {
 			type: 'file',
 			key,
 			name: initialName,
 			size: file.size,
 			mimeType: file.type,
-			preview: initialPreview,
-			// Retain the original blob for non-image files (bounded by the 5MB
-			// upload cap) so the attachment preview can read their text locally,
-			// with no round-trip. Images are omitted: they are re-encoded on
-			// upload and never use the text preview.
+			preview: isImageType ? URL.createObjectURL(file) : undefined,
+			// The rendered text preview, not the transfer, owns this source File.
 			file: !isImageType && file instanceof File ? file : undefined,
 			uploadState: { status: 'uploading', progress: 0 },
-			// Source metadata persists across the rename in preprocess so dedup
-			// still matches when the user re-pastes the same image.
 			sourceName: initialName,
 			sourceSize: file.size
 		};
 		this.attachments = [...this.attachments, placeholder];
-		// Before the first await: the tile already shows progress, so leaving now
-		// costs the user the same file whether or not the transfer has started.
-		this.markPending(key);
-		// Read here too, for the same reason: this is the thread the file was
-		// picked in, and encoding can outlast the user's stay in it.
-		const accessKey = this.uploadConfig.getAccessKey?.();
 
-		try {
-			let uploadBlob: File | Blob = file;
-			let uploadName = initialName;
-			let uploadMime = file.type;
-			let width: number | undefined;
-			let height: number | undefined;
+		// Capture ownership before any async preprocessing can outlive this thread.
+		const transfer = this.createTransfer(
+			key,
+			file,
+			initialName,
+			file.type,
+			this.uploadConfig.getAccessKey?.()
+		);
+		const result = await transfer.start(options?.preprocess);
 
-			if (options?.preprocess) {
-				const processed = await options.preprocess(file);
-				uploadBlob = processed.blob;
-				uploadMime = processed.mimeType;
-				if (processed.filename) uploadName = processed.filename;
-				width = processed.width;
-				height = processed.height;
-				// Reflect post-process metadata on the placeholder so the UI shows
-				// the final size and name during the actual upload.
-				this.patchAttachment(key, {
-					name: uploadName,
-					mimeType: uploadMime,
-					size: uploadBlob.size
-				});
-			}
-
-			// Read dimensions only when preprocess didn't supply them. Image-typed
-			// files paths from preprocess always do; SVG/animated-GIF passthrough
-			// reports valid dims too. This is the legacy fallback.
-			if (uploadMime.startsWith('image/') && (width === undefined || height === undefined)) {
-				const dims = await this.getImageDimensions(uploadBlob);
-				if (dims.width > 0 && dims.height > 0) {
-					width = dims.width;
-					height = dims.height;
-				}
-			}
-			if (width && height) {
-				this.patchAttachment(key, { width, height });
-			}
-
-			// Preprocessing and dimension reading are awaited above and cannot be
-			// canceled, so the user may have discarded the attachment by now.
-			// Starting the transfer would upload a file nothing references and
-			// leave map entries behind for a key that is gone.
-			if (!this.findAttachment(key)) {
-				this.retryJobs.delete(key);
-				return;
-			}
-
-			await this.runUpload(key, {
-				blob: uploadBlob,
-				filename: uploadName,
-				dimensions: width && height ? { width, height } : undefined,
-				accessKey
-			});
-		} catch (error) {
-			// A failure before the transfer (image preprocessing, dimension
-			// reading) leaves nothing to retry, and preprocessing already throws
-			// its own translated message. Those keep the old behavior: drop the
-			// attachment, say why once.
-			//
-			// Unless the user got there first: preprocessing cannot be canceled,
-			// so it may still reject long after the chip was discarded, and
-			// reporting a failure for a file nobody is waiting on is noise.
-			const stillPresent = this.findAttachment(key) !== undefined;
-			this.discardAttachment(key);
-			if (isAbortError(error) || !stillPresent) return;
-			const translate = this.uploadConfig?.translate;
-			toast.error(
-				translate?.('chat.error.upload_failed', { filename: initialName }) ??
-					`Failed to upload "${initialName}"`
-			);
-		} finally {
-			// Every exit above already settles this key one way or another; saying
-			// so here too keeps the claim from outliving the attempt if a path is
-			// ever added that forgets.
-			this.settlePending(key);
-		}
+		if (result.status !== 'preprocess-failed') return;
+		// Preprocessing cannot necessarily stop when the user removes the chip.
+		// Its late rejection is therefore ignored when no attachment remains.
+		const stillPresent = this.findAttachment(key) !== undefined;
+		this.discardAttachment(key);
+		if (isAttachmentTransferAbort(result.error) || !stillPresent) return;
+		const translate = this.uploadConfig.translate;
+		toast.error(
+			translate?.('chat.error.upload_failed', { filename: initialName }) ??
+				`Failed to upload "${initialName}"`
+		);
 	}
 
-	/**
-	 * Run one upload attempt for an existing attachment and record the outcome
-	 * on it. Shared by the file path, the screenshot path, and retry, so all
-	 * three produce the same states.
-	 *
-	 * Never throws: a failure becomes a visible, retryable attachment state
-	 * rather than an exception the caller has to translate again.
-	 */
-	private async runUpload(key: string, job: UploadJob): Promise<void> {
-		if (!this.uploadConfig) return;
-
-		// Starting an attempt cancels any earlier one for the same attachment, so
-		// a double-click on retry cannot leave a request running unattended.
-		this.uploadAborters.get(key)?.abort();
-		const aborter = new AbortController();
-		this.uploadAborters.set(key, aborter);
-		this.retryJobs.set(key, job);
-		// Also for a retry, which starts here rather than in uploadFile.
-		this.markPending(key);
-		this.patchAttachment(key, { uploadState: { status: 'uploading', progress: 0 } });
-
-		/**
-		 * Whether this attempt is still the current one. A superseded attempt
-		 * must not write state or clear the live attempt's aborter; without this
-		 * a slow first try could stamp its failure over a newer success.
-		 */
-		const isCurrent = () => this.uploadAborters.get(key) === aborter;
-
-		try {
-			const result = await uploadFileWithProgress(
-				this.client,
-				job.blob,
-				job.filename,
-				(progress) => {
-					if (isCurrent()) this.patchUploadState(key, (state) => ({ ...state, progress }));
-				},
-				this.uploadConfig,
-				job.dimensions,
-				job.accessKey,
-				aborter.signal
-			);
-
-			if (!isCurrent()) return;
-			this.patchAttachment(key, {
-				url: result.url,
-				uploadState: { status: 'success', progress: 100, fileId: result.fileId }
-			});
-			// The bytes are on the server now; holding them would pin memory for
-			// an attachment that can no longer fail.
-			this.retryJobs.delete(key);
-		} catch (error) {
-			// Cancelation is not a failure: removeAttachment/clearAttachments
-			// already took the attachment away, so there is no state to write.
-			if (isAbortError(error) || !isCurrent()) return;
-			// The tile shows a translated cause; the specifics that identify the
-			// failure — HTTP status, and the Convex message kept in `cause` — have
-			// no place in the UI but are what makes a report actionable.
-			console.error('[ChatUIContext] Upload failed:', error);
-			this.patchAttachment(key, {
-				uploadState: {
-					status: 'error',
-					progress: 0,
-					error: error instanceof UploadError ? error.code : 'server'
-				}
-			});
-		} finally {
-			// Only the live attempt settles the attachment: a superseded one is
-			// finishing behind a newer transfer that is still running.
-			if (isCurrent()) {
-				this.uploadAborters.delete(key);
-				this.settlePending(key);
-			}
-		}
-	}
-
-	/**
-	 * Try a failed upload again with the exact payload of the first attempt.
-	 * No-op when the attachment has no retained job, which is the case for
-	 * failures that happened before the transfer.
-	 */
+	/** Retry with the transfer's exact retained post-preprocessing payload. */
 	retryUpload(index: number): void {
 		const attachment = this.attachments[index];
 		if (!attachment || !('key' in attachment) || !attachment.key) return;
-		const job = this.retryJobs.get(attachment.key);
-		if (!job) return;
-		void this.runUpload(attachment.key, job);
+		void this.transfers.get(attachment.key)?.retry();
 	}
 
 	/**
@@ -1047,20 +853,6 @@ export class ChatUIContext {
 		);
 	}
 
-	/** Update the upload state of the attachment with this key, if it has one. */
-	private patchUploadState(key: string, next: (state: UploadState) => UploadState): void {
-		this.rewriteLists(key, (list) =>
-			list.map((a) =>
-				'key' in a &&
-				a.key === key &&
-				(a.type === 'file' || a.type === 'screenshot') &&
-				a.uploadState
-					? { ...a, uploadState: next(a.uploadState) }
-					: a
-			)
-		);
-	}
-
 	/** Remove an attachment by key and release everything held for it. */
 	private discardAttachment(key: string): void {
 		const attachment = this.findAttachment(key);
@@ -1100,14 +892,18 @@ export class ChatUIContext {
 
 		this.attachments = [...this.attachments, newAttachment];
 
-		// No preprocessing here: the blob and its dimensions are already what
-		// gets uploaded, so they double as the retry payload unchanged.
-		await this.runUpload(key, {
+		// Screenshots already carry their final blob and any known dimensions, so
+		// their transfer starts directly and retains that exact payload for retry.
+		const transfer = this.createTransfer(
+			key,
 			blob,
 			filename,
+			blob.type,
+			this.uploadConfig.getAccessKey?.(),
 			dimensions,
-			accessKey: this.uploadConfig.getAccessKey?.()
-		});
+			false
+		);
+		await transfer.start();
 	}
 
 	/**
