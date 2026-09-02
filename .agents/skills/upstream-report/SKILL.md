@@ -1,7 +1,7 @@
 ---
 name: upstream-report
 description: Always load in a content-copy fork before acting on any work that might also matter to the base project, or as soon as that possibility appears. Treat uncertain ownership as possible relevance. Do not load in the base project itself.
-allowed-tools: Bash, Read, Grep, Glob
+allowed-tools: Bash(bun run upstream:report:*), Bash(gh search issues:*), Bash(gh issue list:*), Read, Grep, Glob
 ---
 
 # Report a fix upstream
@@ -21,11 +21,14 @@ bun run upstream:report
 ```
 
 Run the package script from the repository root. Bun resolves scripts from the current
-package, so a nested package such as `voice-gateway/` cannot see this one. Move to the root
-first when needed:
+package, so a nested package such as `voice-gateway/` cannot see this one. From a nested
+package, print the root and change to that literal path first. A command substitution such
+as `cd "$(git rev-parse --show-toplevel)"` cannot be matched against this skill's command
+grant and prompts for permission instead:
 
 ```bash
-cd "$(git rev-parse --show-toplevel)"
+git rev-parse --show-toplevel
+cd <printed root>
 bun run upstream:report
 ```
 
