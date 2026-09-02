@@ -210,6 +210,11 @@
 					}
 				}}
 			/>
+			<p
+				class="pointer-events-none mt-1.5 px-4 pb-2 text-center text-[11px] text-balance text-muted-foreground"
+			>
+				{$t('support.chatbar.disclosure')}
+			</p>
 		</div>
 	</ChatRoot>
 </div>
