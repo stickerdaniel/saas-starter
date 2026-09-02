@@ -32,8 +32,7 @@ cd <printed root>
 bun run upstream:report
 ```
 
-Arguments go after `--` and are repository-relative in this form. Invoked by its own absolute
-path instead, the script keeps them relative to your directory.
+Arguments go after `--` and are repository-relative.
 
 With no arguments it takes every file changed against the merge-base with `origin/main`,
 plus staged, unstaged, and untracked work, and both sides of a rename. Pass explicit paths
