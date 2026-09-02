@@ -61,7 +61,7 @@
 		"@better-auth/passkey": "~1.6.30",
 		"@better-svelte-email/components": "2.1.1",
 		"@better-svelte-email/server": "2.1.1",
-		"@convex-dev/agent": "^0.6.1",
+		"@convex-dev/agent": "^0.7.0",
 		"@convex-dev/better-auth": "^0.12.5",
 		"@convex-dev/rate-limiter": "^0.3.2",
 		"@convex-dev/resend": "^0.2.5",
