@@ -492,7 +492,7 @@ Every commit is checked automatically. `varlock scan` looks for leaked secrets, 
 
 ### Dead Code Detection
 
-[Knip](https://knip.dev/) is configured for SvelteKit file-system routing and Convex backend entry points. It catches unused exports, stale dependencies, and orphaned files so the codebase stays clean. [oxlint](https://oxc.rs/docs/guide/usage/linter) adds a custom Convex rule that flags unused Convex functions at lint time.
+[Knip](https://knip.dev/) is configured for SvelteKit file-system routing and Convex backend entry points. It catches unused exports, stale dependencies, and orphaned files so the codebase stays clean. [oxlint](https://oxc.rs/docs/guide/usage/linter) adds a custom Convex rule that flags unused Convex functions at lint time. Knip runs as the last lint-group step of `bun scripts/static-checks.ts`, so the pre-push file run and CI's lint job fail on new dead code; the pre-commit hook skips it because it reads the whole working tree.
 
 ### Bundle Analysis
 

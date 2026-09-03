@@ -485,6 +485,20 @@
 			"url": "https://github.com/Jakubantalik/transitions.dev",
 			"branch": "main",
 			"specialNotes": "Portable CSS transition recipes behind the app's motion vocabulary (the `t-*` block in src/routes/layout.css). skills/transitions-dev/NN-<name>.md holds each recipe's snippet, HTML hooks and JS orchestration, _root.css the shared motion-token scale, and transitions/<name>/ the live demo page."
+		},
+		{
+			"type": "git",
+			"name": "stripAnsi",
+			"url": "https://github.com/chalk/strip-ansi",
+			"branch": "main",
+			"specialNotes": "strip-ansi package. Removes ANSI escape sequences; eslint/config-coverage.test.ts uses it to assert against ESLint's stylish formatter output."
+		},
+		{
+			"type": "git",
+			"name": "svelteEslintParser",
+			"url": "https://github.com/sveltejs/svelte-eslint-parser",
+			"branch": "main",
+			"specialNotes": "Svelte ESLint parser. AST node shapes and parserOptions used by the wrapper in eslint/parsers/safe-svelte-parser.js and by the rule tests under eslint/rules."
 		}
 	]
 }

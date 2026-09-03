@@ -517,22 +517,47 @@ describe('knip integration', () => {
 		).not.toContain('knip');
 	});
 
-	// Positions are line-based and comment lines are skipped. A commented-out step still
-	// contains its own call text, so a plain source search keeps passing over exactly the
-	// edit this pins: measured, commenting the block out left all assertions green.
-	it('runs knip inside the lint scope only', () => {
+	// Positions are line-based with `//` and `/* */` comment lines blanked out. A commented-out
+	// step still contains its own call text, so a plain source search keeps passing over
+	// exactly the edit this pins: measured, commenting the block out left all assertions green.
+	// Block membership relies on Prettier's tab indentation, which CI enforces: the lint group
+	// opens at one tab and closes at the first bare `\t}` after it, the staged guard at two.
+	it('runs knip as the last lint-group step and skips the staged gate', () => {
 		const lines = readFileSync(SCRIPT, 'utf8').split('\n');
-		const calls = lines.map((line) => (line.trimStart().startsWith('//') ? '' : line));
+		let inBlockComment = false;
+		const code = lines.map((line) => {
+			const trimmed = line.trim();
+			if (inBlockComment) {
+				if (trimmed.includes('*/')) inBlockComment = false;
+				return '';
+			}
+			if (trimmed.startsWith('/*')) {
+				if (!trimmed.includes('*/')) inBlockComment = true;
+				return '';
+			}
+			return trimmed.startsWith('//') ? '' : line;
+		});
 		const reason = 'knip must run as the last lint-group step so a lint-only CI job covers it';
+		const stagedReason = 'knip reads the working tree, so the staged pre-commit gate must skip it';
 
-		const oxlint = calls.findIndex((line) => line.includes("runCommand('bun', ['oxlint'])"));
-		const knip = calls.findIndex((line) =>
+		const lintGroup = code.findIndex((line) => line === '\tif (shouldRunLint) {');
+		const lintGroupEnd = code.findIndex((line, i) => i > lintGroup && line === '\t}');
+		const oxlint = code.findIndex((line) => line.includes("runCommand('bun', ['oxlint'])"));
+		const stagedGuard = code.findIndex(
+			(line, i) => i > oxlint && line === "\t\tif (mode !== 'staged') {"
+		);
+		const stagedGuardEnd = code.findIndex((line, i) => i > stagedGuard && line === '\t\t}');
+		const knip = code.findIndex((line) =>
 			line.includes("runCommand('bun', ['knip', '--no-progress'])")
 		);
 		const typesGroup = lines.findIndex((line) => line.includes('// -- Types group'));
 
-		expect(knip, reason).toBeGreaterThan(-1);
+		expect(lintGroup, reason).toBeGreaterThan(-1);
 		expect(knip, reason).toBeGreaterThan(oxlint);
-		expect(knip, reason).toBeLessThan(typesGroup);
+		expect(knip, reason).toBeLessThan(lintGroupEnd);
+		expect(lintGroupEnd, reason).toBeLessThan(typesGroup);
+		expect(stagedGuard, stagedReason).toBeGreaterThan(-1);
+		expect(knip, stagedReason).toBeGreaterThan(stagedGuard);
+		expect(knip, stagedReason).toBeLessThan(stagedGuardEnd);
 	});
 });

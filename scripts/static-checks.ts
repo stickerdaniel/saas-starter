@@ -17,7 +17,7 @@
  * Flags:
  *   --ci         Assert mode: uses --check for formatting, omits --fix for ESLint.
  *                Requires misspell to be installed (fails if missing).
- *   --staged     Assert-only staged-file gate. Run fix mode before staging and retrying.
+ *   --staged     Assert-only staged-file gate; skips knip. Run fix mode before staging and retrying.
  *   --scope      Run a subset of checks: "lint" (misspell, literal controls, banned patterns, prettier,
  *                eslint, oxlint, knip), "types" (build-emails, svelte-check), assert-only "format"
  *                (prettier), or full-project-only "compat" (Convex consumer compatibility).
@@ -1405,10 +1405,15 @@ async function main(): Promise<void> {
 		// knip: unused files, exports and dependencies. Whole-project like oxlint and, like
 		// oxlint, never counted by the ledger toward work on the caller's files. It needs the
 		// generated email module from `bun install`'s postinstall, which CI runs first.
-		printHeader(step++, 'knip');
-		await runCommand('bun', ['knip', '--no-progress']);
-		ledger.ran('knip');
-		console.log('\n');
+		// The staged pre-commit gate skips it: knip reads the working tree, so an untracked
+		// scratch file would block an unrelated commit, and the hook stays a fast staged
+		// lint. The pre-push file run and CI's lint scope still fail on new dead code.
+		if (mode !== 'staged') {
+			printHeader(step++, 'knip');
+			await runCommand('bun', ['knip', '--no-progress']);
+			ledger.ran('knip');
+			console.log('\n');
+		}
 	}
 
 	// -- Types group: build-emails, svelte-check --
