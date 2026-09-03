@@ -508,3 +508,31 @@ describe('bad input dies at the boundary', () => {
 		expect(run('--staged', '--scope', 'lint')).toBe(0);
 	});
 });
+
+describe('knip integration', () => {
+	it('keeps knip out of the file-scoped ledger', () => {
+		expect(
+			Object.keys(ROUTES),
+			'knip is a whole-project check and must not count as file-scoped work'
+		).not.toContain('knip');
+	});
+
+	// Positions are line-based and comment lines are skipped. A commented-out step still
+	// contains its own call text, so a plain source search keeps passing over exactly the
+	// edit this pins: measured, commenting the block out left all assertions green.
+	it('runs knip inside the lint scope only', () => {
+		const lines = readFileSync(SCRIPT, 'utf8').split('\n');
+		const calls = lines.map((line) => (line.trimStart().startsWith('//') ? '' : line));
+		const reason = 'knip must run as the last lint-group step so a lint-only CI job covers it';
+
+		const oxlint = calls.findIndex((line) => line.includes("runCommand('bun', ['oxlint'])"));
+		const knip = calls.findIndex((line) =>
+			line.includes("runCommand('bun', ['knip', '--no-progress'])")
+		);
+		const typesGroup = lines.findIndex((line) => line.includes('// -- Types group'));
+
+		expect(knip, reason).toBeGreaterThan(-1);
+		expect(knip, reason).toBeGreaterThan(oxlint);
+		expect(knip, reason).toBeLessThan(typesGroup);
+	});
+});

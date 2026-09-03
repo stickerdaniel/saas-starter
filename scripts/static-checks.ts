@@ -19,7 +19,7 @@
  *                Requires misspell to be installed (fails if missing).
  *   --staged     Assert-only staged-file gate. Run fix mode before staging and retrying.
  *   --scope      Run a subset of checks: "lint" (misspell, literal controls, banned patterns, prettier,
- *                eslint, oxlint), "types" (build-emails, svelte-check), assert-only "format"
+ *                eslint, oxlint, knip), "types" (build-emails, svelte-check), assert-only "format"
  *                (prettier), or full-project-only "compat" (Convex consumer compatibility).
  *                Lint and types run svelte-kit sync first.
  *                Omit to run lint and types.
@@ -1252,7 +1252,7 @@ async function main(): Promise<void> {
 	ledger.ran('svelte-kit sync');
 	console.log('\n');
 
-	// -- Lint group: misspell, banned patterns, prettier, eslint, oxlint --
+	// -- Lint group: misspell, banned patterns, prettier, eslint, oxlint, knip --
 
 	if (shouldRunLint) {
 		// Spell checking
@@ -1400,6 +1400,14 @@ async function main(): Promise<void> {
 		printHeader(step++, 'oxlint');
 		await runCommand('bun', ['oxlint']);
 		ledger.ran('oxlint');
+		console.log('\n');
+
+		// knip: unused files, exports and dependencies. Whole-project like oxlint and, like
+		// oxlint, never counted by the ledger toward work on the caller's files. It needs the
+		// generated email module from `bun install`'s postinstall, which CI runs first.
+		printHeader(step++, 'knip');
+		await runCommand('bun', ['knip', '--no-progress']);
+		ledger.ran('knip');
 		console.log('\n');
 	}
 
