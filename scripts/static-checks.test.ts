@@ -520,6 +520,8 @@ describe('knip integration', () => {
 	// Positions are line-based with `//` and `/* */` comment lines blanked out. A commented-out
 	// step still contains its own call text, so a plain source search keeps passing over
 	// exactly the edit this pins: measured, commenting the block out left all assertions green.
+	// Call anchors match the whole trimmed line, so a call parked behind a trailing comment or a
+	// statement on the same line does not count as running.
 	// Block membership relies on Prettier's tab indentation, which CI enforces: the lint group
 	// opens at one tab and closes at the first bare `\t}` after it, the staged guard at two.
 	it('runs knip as the last lint-group step and skips the staged gate', () => {
@@ -542,13 +544,13 @@ describe('knip integration', () => {
 
 		const lintGroup = code.findIndex((line) => line === '\tif (shouldRunLint) {');
 		const lintGroupEnd = code.findIndex((line, i) => i > lintGroup && line === '\t}');
-		const oxlint = code.findIndex((line) => line.includes("runCommand('bun', ['oxlint'])"));
+		const oxlint = code.findIndex((line) => line.trim() === "await runCommand('bun', ['oxlint']);");
 		const stagedGuard = code.findIndex(
 			(line, i) => i > oxlint && line === "\t\tif (mode !== 'staged') {"
 		);
 		const stagedGuardEnd = code.findIndex((line, i) => i > stagedGuard && line === '\t\t}');
-		const knip = code.findIndex((line) =>
-			line.includes("runCommand('bun', ['knip', '--no-progress'])")
+		const knip = code.findIndex(
+			(line) => line.trim() === "await runCommand('bun', ['knip', '--no-progress']);"
 		);
 		const typesGroup = lines.findIndex((line) => line.includes('// -- Types group'));
 

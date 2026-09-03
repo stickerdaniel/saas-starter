@@ -499,6 +499,13 @@
 			"url": "https://github.com/sveltejs/svelte-eslint-parser",
 			"branch": "main",
 			"specialNotes": "Svelte ESLint parser. AST node shapes and parserOptions used by the wrapper in eslint/parsers/safe-svelte-parser.js and by the rule tests under eslint/rules."
+		},
+		{
+			"type": "git",
+			"name": "autumnTypescript",
+			"url": "https://github.com/useautumn/typescript",
+			"branch": "main",
+			"specialNotes": "Autumn TypeScript monorepo. convex/ is the @useautumn/convex package behind src/lib/convex/autumn.ts, atmn/ the atmn CLI; autumn-js itself lives in the autumnJs resource."
 		}
 	]
 }

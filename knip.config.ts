@@ -16,7 +16,14 @@ export default {
 
 		// Policy DSL consumed by knowledge-policy.config.ts. Helpers a fork has not used
 		// yet are its public surface, so unused exports here are not dead code.
-		'scripts/knowledge-policy/policy.ts'
+		'scripts/knowledge-policy/policy.ts',
+
+		// Targets of Svelte dynamic imports ({#await import(...)} in customer-support.svelte and
+		// global-search-shell.svelte, await import() in lazy-customer-support.svelte), which
+		// knip cannot trace. Naming the roots lets it check everything below them.
+		'src/lib/components/customer-support/customer-support.svelte',
+		'src/lib/components/customer-support/screenshot-editor/ScreenshotEditor.svelte',
+		'src/lib/components/global-search/command-menu.svelte'
 	],
 	project: ['src/**/*.{ts,svelte}', 'scripts/**/*.ts', 'e2e/**/*.ts'],
 	ignore: [
@@ -30,24 +37,17 @@ export default {
 		'src/lib/components/ai-elements/**',
 		'src/lib/components/prompt-kit/**',
 		// shadcn UI components installed via CLI and kept available for use.
-		'src/lib/components/ui/command/**',
 		'src/lib/components/ui/FollowingPointer/**',
 		'src/lib/components/ui/light-switch/**',
 		'src/lib/components/ui/popover/**',
-		// Used by the customer-support screenshot editor (ignored below), so knip cannot see
-		// its importers.
-		'src/lib/components/ui/color-selector/**',
-		// Wrapped only by prompt-kit's TextShimmerLoader (ignored below), so knip cannot see
+		// Wrapped only by prompt-kit's TextShimmerLoader (ignored above), so knip cannot see
 		// its importer. Guarded live by motion-a11y.test.ts.
 		'src/lib/components/motion/shimmer-text.svelte',
 		// Template block kept as a starting point; not mounted by any route.
 		'src/blocks/team/team-two.svelte',
-		// knip cannot trace Svelte dynamic imports ({#await import(...)}).
-		'src/lib/components/customer-support/**',
-		'src/lib/chat/**',
-		'src/lib/components/global-search/**',
-		// Used by the customer-support screenshot editor (ignored above).
-		'src/lib/utils/snapdom-config.ts'
+		// Scaffolded chat module. Its example component and unused core exports are a
+		// pruning decision of their own, so knip skips the tree until that lands.
+		'src/lib/chat/**'
 	],
 	ignoreDependencies: [
 		// Tailwind v4 plugins referenced via CSS @plugin, not JS imports.
@@ -58,8 +58,6 @@ export default {
 		// ESLint legacy compat, referenced in eslint.config.js as strings.
 		'@typescript-eslint/eslint-plugin',
 		'@typescript-eslint/parser',
-		// Used by the customer-support screenshot editor (dynamic import, ignored above).
-		'@zumer/snapdom',
 		// Autumn CLI invoked by the Autumn config workflow, never imported.
 		'atmn',
 		// Re-exported by @tolgee/svelte.
