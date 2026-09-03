@@ -286,9 +286,9 @@ export const createAIResponse = internalAction({
 				{ threadId: args.threadId, userId: args.userId },
 				{
 					promptMessageId: args.promptMessageId,
-					// AgentPrompt.system overrides the agent's instructions for this turn;
+					// AgentPrompt.instructions overrides the agent's instructions for this turn;
 					// undefined leaves SUPPORT_AGENT_INSTRUCTIONS in place.
-					system: systemOverride ?? undefined
+					instructions: systemOverride ?? undefined
 				},
 				{
 					usageHandler: sink.usageHandler,

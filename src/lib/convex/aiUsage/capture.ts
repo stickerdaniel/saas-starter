@@ -1,6 +1,6 @@
 import { openrouter } from '@openrouter/ai-sdk-provider';
 import type { LanguageModelUsage } from 'ai';
-import type { LanguageModelV3 } from '@ai-sdk/provider';
+import type { LanguageModelV4 } from '@ai-sdk/provider';
 
 export type CapturedModelUsage = {
 	model: string;
@@ -30,7 +30,7 @@ export function readOpenRouterCost(pm: unknown): number | undefined {
 // is the documented free engine; it is outside the provider's PdfEngine union
 // (which still lists the deprecated pdf-text) but the union ends in
 // `string & {}`, so the documented value is what we pass.
-export function orModel(modelId: string, opts?: Record<string, unknown>): LanguageModelV3 {
+export function orModel(modelId: string, opts?: Record<string, unknown>): LanguageModelV4 {
 	return openrouter(modelId, {
 		usage: { include: true },
 		plugins: [{ id: 'file-parser', pdf: { engine: 'cloudflare-ai' } }],
@@ -61,8 +61,8 @@ export function captureDirect(
 		// Providers may omit totalTokens; approximate it once here so every
 		// downstream consumer (merge, recorder) can rely on it being present.
 		totalTokens: usage.totalTokens ?? inputTokens + outputTokens,
-		reasoningTokens: usage.reasoningTokens,
-		cachedInputTokens: usage.cachedInputTokens,
+		reasoningTokens: usage.outputTokenDetails.reasoningTokens,
+		cachedInputTokens: usage.inputTokenDetails.cacheReadTokens,
 		nativeCostUsd: readOpenRouterCost(pm)
 	};
 }

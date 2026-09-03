@@ -152,7 +152,7 @@ describe('createAIResponse prompt override wiring', () => {
 		expect(streamTextMock).toHaveBeenCalledTimes(1);
 		expect(streamTextMock.mock.calls[0][2]).toEqual({
 			promptMessageId: 'prompt_1',
-			system: 'stored override prompt'
+			instructions: 'stored override prompt'
 		});
 	});
 
@@ -163,7 +163,7 @@ describe('createAIResponse prompt override wiring', () => {
 
 		expect(streamTextMock.mock.calls[0][2]).toEqual({
 			promptMessageId: 'prompt_1',
-			system: undefined
+			instructions: undefined
 		});
 	});
 });

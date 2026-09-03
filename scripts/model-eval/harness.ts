@@ -1,4 +1,4 @@
-import { stepCountIs, streamText, type ModelMessage, type TextStreamPart, type ToolSet } from 'ai';
+import { isStepCount, streamText, type ModelMessage, type TextStreamPart, type ToolSet } from 'ai';
 import { openrouter } from '@openrouter/ai-sdk-provider';
 import { getGeocoding, getWeather } from '../../src/lib/convex/aiChat/tools/weather.ts';
 import { materializeFromStreamParts } from './materialize.ts';
@@ -33,7 +33,7 @@ async function runInner(model: string, probe: Probe, signal: AbortSignal): Promi
 	const result = streamText({
 		// Same provider + reasoning config as aiChat/agent.ts (reasoning via extraBody).
 		model: openrouter(model, { extraBody: { reasoning: { enabled: true } } }),
-		system: SYSTEM,
+		instructions: SYSTEM,
 		messages: probe.messages,
 		// Greedy decoding: a capability check asks "can the model do this", so we
 		// want its best-shot, reproducible behaviour, not the app's creative 0.7
@@ -41,13 +41,13 @@ async function runInner(model: string, probe: Probe, signal: AbortSignal): Promi
 		temperature: 0,
 		maxOutputTokens: MAX_OUTPUT_TOKENS,
 		tools: probe.withTools ? { getGeocoding, getWeather } : undefined,
-		// AI SDK v6: multi-step is driven by stopWhen, not maxSteps.
-		stopWhen: stepCountIs(probe.withTools ? MAX_STEPS : 1),
+		// AI SDK v7: multi-step is driven by stopWhen, not maxSteps.
+		stopWhen: isStepCount(probe.withTools ? MAX_STEPS : 1),
 		// Lets the timeout actually cancel the request instead of leaking a stream.
 		abortSignal: signal
 	});
 
-	for await (const part of result.fullStream) {
+	for await (const part of result.stream) {
 		parts.push(part);
 	}
 	// Settle terminal promises so the stream is fully closed before materializing.
