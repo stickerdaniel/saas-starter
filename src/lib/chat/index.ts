@@ -84,8 +84,6 @@ export {
 	combineStreamingUIMessages,
 	StreamCacheManager,
 	uploadFileWithProgress,
-	uploadToStorage,
-	UploadError,
 	ChatCore,
 	createChatCore,
 	ChatCommandError,

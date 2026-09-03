@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { UploadError, type UploadResult } from '../core/file-uploader.js';
+import { UploadError } from '../../uploads/transfer.js';
+import type { UploadResult } from '../core/file-uploader.js';
 import type { Attachment } from '../core/types.js';
 import {
 	AttachmentTransfer,

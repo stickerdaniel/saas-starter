@@ -11,7 +11,7 @@
 	import AttachmentTextPreview from './AttachmentTextPreview.svelte';
 	import { isTextPreviewable } from '../core/attachmentPreview.js';
 	import type { Attachment, UploadState } from '../core/types.js';
-	import type { UploadErrorCode } from '../core/file-uploader.js';
+	import type { UploadErrorCode } from '../../uploads/transfer.js';
 	import type { ChatAlignment } from './chat-context.svelte.ts';
 
 	const { t } = getTranslate();

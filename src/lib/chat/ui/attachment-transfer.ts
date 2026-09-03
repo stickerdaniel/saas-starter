@@ -1,18 +1,14 @@
+import type { UploadPreprocessor } from '../../uploads/transfer.js';
+import { UploadError, type UploadErrorCode } from '../../uploads/transfer.js';
 import type { Attachment } from '../core/types.js';
-import { UploadError, type UploadErrorCode, type UploadResult } from '../core/file-uploader.js';
+import type { UploadResult } from '../core/file-uploader.js';
 
 const SETTLED_PROGRESS_RANK = 101;
 const FAILED_PROGRESS_RANK = -1;
 
 export type AttachmentDimensions = { width: number; height: number };
 
-export type AttachmentPreprocess = (input: File | Blob) => Promise<{
-	blob: Blob;
-	mimeType: string;
-	filename?: string;
-	width?: number;
-	height?: number;
-}>;
+export type AttachmentPreprocess = UploadPreprocessor<File | Blob>;
 
 /** The exact post-preprocessing input reused by every transport attempt. */
 export type AttachmentTransferPayload = {

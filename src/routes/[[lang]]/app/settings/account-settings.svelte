@@ -1,5 +1,6 @@
 <script lang="ts">
 	import * as v from 'valibot';
+	import { onDestroy } from 'svelte';
 	import { authClient } from '$lib/auth-client.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
@@ -7,24 +8,22 @@
 	import * as Card from '$lib/components/ui/card/index.js';
 	import { Progress } from '$lib/components/ui/progress/index.js';
 	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
-	import { uploadToStorage, UploadError } from '$lib/chat';
 	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
 	import { activeUploadsContext } from '$lib/hooks/active-uploads.svelte.ts';
 	import { toast } from 'svelte-sonner';
 	import { T, getTranslate } from '@tolgee/svelte';
 	import { useConvexClient } from 'convex-svelte';
 	import { api } from '$lib/convex/_generated/api.js';
-	import { ConvexError } from 'convex/values';
 	import { getAuthErrorKey } from '$lib/utils/auth-messages.js';
-	import { getConvexErrorCode } from '$lib/utils/convex-errors.js';
-	import { PROFILE_IMAGE_MAX_SIZE, PROFILE_IMAGE_MAX_SIZE_LABEL } from '$lib/convex/constants.js';
+	import { acceptAttribute, UPLOAD_PROFILES } from '$lib/uploads/profiles.js';
+	import { getProfileImageInputError, prepareProfileImage } from '$lib/uploads/profile-image.js';
 	import {
-		acceptAttribute,
-		acceptsMimeType,
-		acceptsSource,
-		UPLOAD_PROFILES
-	} from '$lib/uploads/profiles.js';
-	import { downscaleImage } from '$lib/utils/downscale-image.js';
+		isUploadAbort,
+		requestUploadGrant,
+		uploadGrantedWithAdapter,
+		UploadError,
+		type UploadAdapter
+	} from '$lib/uploads/transfer.js';
 	import { translateValidationErrors } from '$lib/utils/validation-i18n.js';
 
 	const { t } = getTranslate();
@@ -44,6 +43,15 @@
 	let { user }: Props = $props();
 
 	const convexClient = useConvexClient();
+	const profileImageUploadAdapter: UploadAdapter<string> = {
+		grant: () => convexClient.mutation(api.storage.generateUploadUrl, {}),
+		commit: ({ storageId, uploadToken }) =>
+			convexClient.mutation(api.storage.updateProfileImage, { storageId, uploadToken })
+	};
+	const profileImageMaxSizeLabel = UPLOAD_PROFILES.profileImage.maxBytesLabel;
+	let profileImageUploadController: AbortController | undefined;
+
+	onDestroy(() => profileImageUploadController?.abort());
 
 	// Writable deriveds: editable via bind:value/assignments, re-synced when user changes
 	let name = $derived(user?.name ?? '');
@@ -73,57 +81,44 @@
 
 		haptic.trigger('medium');
 
-		// Picked, not stored: the transcoder below turns most images into WebP, so
-		// an iPhone's HEIC is a fine input even though HEIC is never stored.
-		// Checking the picked file against the stored list would reject the iOS
-		// default before the transcoder ever ran. The result is checked instead,
-		// after downscaleImage.
-		if (!acceptsSource(UPLOAD_PROFILES.profileImage, file.type)) {
+		const inputError = getProfileImageInputError(file);
+		if (inputError === 'type') {
 			toast.error($t('settings.account.avatar.select_error'));
 			target.value = '';
 			return;
 		}
-
-		// Validate file size
-		if (file.size > PROFILE_IMAGE_MAX_SIZE) {
-			toast.error($t('settings.account.avatar.size_error', { size: PROFILE_IMAGE_MAX_SIZE_LABEL }));
+		if (inputError === 'size') {
+			toast.error($t('settings.account.avatar.size_error', { size: profileImageMaxSizeLabel }));
 			target.value = '';
 			return;
 		}
 
-		// Auto-upload to Convex storage
+		// Avatar policy stays local; the neutral adapter owns only the matching
+		// grant, browser transport, commit, and provider-error mechanics.
 		isUploading = true;
 		uploadProgress = 0;
+		const controller = new AbortController();
+		profileImageUploadController = controller;
+
 		try {
-			const { uploadUrl, uploadToken } = await convexClient.mutation(
-				api.storage.generateUploadUrl,
-				{}
-			);
-
-			// Avatars render at ≤48px; shrink oversized photos before upload so
-			// every later avatar load stays small (falls back to the original
-			// file on any decode/encode failure).
-			const upload = await downscaleImage(file);
-
-			// downscaleImage is not total: it passes GIFs through, keeps the
-			// original when the re-encode is larger, and falls back to it on a
-			// decode failure. So the only reliable moment to check the type is
-			// here, on the bytes that are about to be sent.
-			if (!acceptsMimeType(UPLOAD_PROFILES.profileImage, upload.type)) {
+			// Preserve the existing provider sequence: reserve the upload before
+			// preparing the image, then validate the exact bytes being sent.
+			const grant = await requestUploadGrant(profileImageUploadAdapter, controller.signal);
+			const prepared = await prepareProfileImage(file);
+			if (!prepared.ok) {
 				toast.error($t('settings.account.avatar.select_error'));
 				target.value = '';
 				return;
 			}
 
-			// XHR transport for progress events, so the avatar shows live
-			// upload feedback instead of a silently disabled input.
-			const storageId = await uploadToStorage(uploadUrl, upload, (progress) => {
-				uploadProgress = progress;
-			});
-
-			const imageUrl = await convexClient.mutation(api.storage.updateProfileImage, {
-				storageId,
-				uploadToken
+			const { value: imageUrl } = await uploadGrantedWithAdapter({
+				adapter: profileImageUploadAdapter,
+				grant,
+				blob: prepared.blob,
+				onProgress: (progress) => {
+					uploadProgress = progress;
+				},
+				signal: controller.signal
 			});
 
 			// Update preview (don't save to DB yet)
@@ -132,25 +127,23 @@
 			haptic.trigger('success');
 			toast.success($t('settings.account.avatar.ready'));
 		} catch (error) {
+			if (isUploadAbort(error)) return;
+
 			haptic.trigger('error');
-			if (
-				error instanceof ConvexError &&
-				(error.data as { code?: string })?.code === 'RATE_LIMITED'
-			) {
-				const retryAfter = (error.data as { retryAfter?: number }).retryAfter ?? 60000;
-				toast.error(
-					$t('settings.account.avatar.rate_limited', { seconds: Math.ceil(retryAfter / 1000) })
-				);
-			} else if (error instanceof UploadError) {
-				// Its message is developer-facing English; the transport reports a
-				// code precisely so the UI can phrase the failure in the user's
-				// language.
-				toast.error($t('settings.account.avatar.upload_failed'));
-			} else {
-				switch (getConvexErrorCode(error)) {
+			if (error instanceof UploadError) {
+				switch (error.providerCode) {
+					case 'RATE_LIMITED': {
+						const retryAfter = error.retryAfterMs ?? 60000;
+						toast.error(
+							$t('settings.account.avatar.rate_limited', {
+								seconds: Math.ceil(retryAfter / 1000)
+							})
+						);
+						break;
+					}
 					case 'FILE_TOO_LARGE':
 						toast.error(
-							$t('settings.account.avatar.size_error', { size: PROFILE_IMAGE_MAX_SIZE_LABEL })
+							$t('settings.account.avatar.size_error', { size: profileImageMaxSizeLabel })
 						);
 						break;
 					case 'FILE_TYPE_NOT_ALLOWED':
@@ -159,10 +152,15 @@
 					default:
 						toast.error($t('settings.account.avatar.upload_failed'));
 				}
+			} else {
+				toast.error($t('settings.account.avatar.upload_failed'));
 			}
 			target.value = '';
 		} finally {
-			isUploading = false;
+			if (profileImageUploadController === controller) {
+				profileImageUploadController = undefined;
+				isUploading = false;
+			}
 		}
 	}
 

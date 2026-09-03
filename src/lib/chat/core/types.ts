@@ -7,7 +7,7 @@
 
 import type { ProviderMetadata } from 'ai';
 import { acceptAttribute, allowedMimeTypes, UPLOAD_PROFILES } from '../../uploads/profiles';
-import type { UploadErrorCode } from './file-uploader.js';
+import type { UploadErrorCode } from '../../uploads/transfer.js';
 
 /**
  * Upload state for tracking file upload progress
