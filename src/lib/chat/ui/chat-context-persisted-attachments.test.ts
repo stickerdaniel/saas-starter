@@ -227,9 +227,11 @@ describe('ChatUIContext persisted attachments', () => {
 		// after a sign-out, since it belongs to the shell rather than the route.
 		const chat = chatAt('thread-a');
 		await uploadInto(chat.ctx, 'shot.png', 'file-kept');
+		chat.ctx.setInputValue('private draft');
 
 		clearPersistedChatState();
 		expect(chat.ctx.attachments).toHaveLength(0);
+		expect(chat.ctx.inputValue).toBe('');
 
 		// And its next save cannot bring it back for whoever signs in next.
 		chat.ctx.addAttachments([]);

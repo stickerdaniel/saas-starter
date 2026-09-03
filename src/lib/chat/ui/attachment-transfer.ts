@@ -129,7 +129,7 @@ function readImageDimensions(blob: File | Blob): Promise<AttachmentDimensions> {
  * Owns one attachment's preprocessing and transport attempts.
  *
  * Composer collection, parking, persistence, and rendered attachment state stay
- * with ChatUIContext; it receives only snapshots from this lifecycle owner.
+ * with ComposerAttachmentCoordinator; it receives only snapshots from this lifecycle owner.
  */
 export class AttachmentTransfer {
 	readonly key: string;

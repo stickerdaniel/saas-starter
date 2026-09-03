@@ -30,7 +30,7 @@ export type UploadState = {
 export type Attachment =
 	| {
 			type: 'file';
-			/** Stable identity used by ChatUIContext to update/remove this entry while
+			/** Stable identity used by ComposerAttachmentCoordinator to update/remove this entry while
 			 * concurrent uploads or user removals shift array indices. */
 			key?: string;
 			name: string;
