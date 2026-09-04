@@ -466,6 +466,125 @@ describe('combineStreamingUIMessages', () => {
 		]);
 		expect(combined[0]!.text).toBe('It is 10.1C.');
 	});
+
+	it('keeps both steps when two streams open with the same separator', () => {
+		const messages: UIMessage[] = [
+			{
+				id: 'stream:1',
+				key: 'thread-1-1-0',
+				order: 1,
+				stepOrder: 0,
+				status: 'streaming',
+				agentName: 'assistant',
+				text: '',
+				_creationTime: 1,
+				role: 'assistant',
+				parts: [
+					{ type: 'step-start' },
+					{ type: 'reasoning', text: 'Look up the record', id: 'reason-1', state: 'done' },
+					{
+						type: 'tool-lookup',
+						toolCallId: 'call-1',
+						state: 'output-available',
+						input: { id: 'record-1' },
+						output: { found: true }
+					}
+				]
+			},
+			{
+				id: 'stream:2',
+				key: 'thread-1-1-1',
+				order: 1,
+				stepOrder: 1,
+				status: 'success',
+				agentName: 'assistant',
+				text: 'answer',
+				_creationTime: 2,
+				role: 'assistant',
+				parts: [
+					{ type: 'step-start' },
+					{ type: 'reasoning', text: 'Write the answer', id: 'reason-2', state: 'done' },
+					{ type: 'text', text: 'answer' }
+				]
+			}
+		] as unknown as UIMessage[];
+
+		const combined = combineStreamingUIMessages(messages);
+
+		expect(combined).toHaveLength(1);
+		expect(
+			combined[0]!.parts.map((part) => {
+				const record = part as unknown as Record<string, unknown>;
+				return [part.type, record.text ?? record.toolCallId ?? null];
+			})
+		).toEqual([
+			['step-start', null],
+			['reasoning', 'Look up the record'],
+			['tool-lookup', 'call-1'],
+			['step-start', null],
+			['reasoning', 'Write the answer'],
+			['text', 'answer']
+		]);
+	});
+
+	// Text parts carry no id, so the words a later step opens with line up with
+	// the text of the step a tool call already closed. Taking the shortcut across
+	// that tool call overwrote the first step's text and moved the answer in
+	// front of the call that produced it.
+	it('keeps the answer behind the tool call when its words repeat the step before', () => {
+		const messages: UIMessage[] = [
+			{
+				id: 'stream:1',
+				key: 'thread-1-1-0',
+				order: 1,
+				stepOrder: 0,
+				status: 'streaming',
+				agentName: 'assistant',
+				text: 'I will check',
+				_creationTime: 1,
+				role: 'assistant',
+				parts: [
+					{ type: 'step-start' },
+					{ type: 'text', text: 'I will check' },
+					{
+						type: 'tool-lookup',
+						toolCallId: 'call-1',
+						state: 'output-available',
+						input: {},
+						output: {}
+					}
+				]
+			},
+			{
+				id: 'stream:2',
+				key: 'thread-1-1-1',
+				order: 1,
+				stepOrder: 1,
+				status: 'success',
+				agentName: 'assistant',
+				text: 'I will check the result is ready',
+				_creationTime: 2,
+				role: 'assistant',
+				parts: [{ type: 'step-start' }, { type: 'text', text: 'I will check the result is ready' }]
+			}
+		] as unknown as UIMessage[];
+
+		const combined = combineStreamingUIMessages(messages);
+
+		expect(combined).toHaveLength(1);
+		expect(
+			combined[0]!.parts.map((part) => {
+				const record = part as unknown as Record<string, unknown>;
+				return [part.type, record.text ?? record.toolCallId ?? null];
+			})
+		).toEqual([
+			['step-start', null],
+			['text', 'I will check'],
+			['tool-lookup', 'call-1'],
+			['step-start', null],
+			['text', 'I will check the result is ready']
+		]);
+	});
 });
 
 describe('mergeAssistantMessageParts', () => {
@@ -535,6 +654,406 @@ describe('mergeAssistantMessageParts', () => {
 				output: { temperature: 62.6 }
 			},
 			{ type: 'reasoning', text: 'Draft final answer' }
+		]);
+	});
+
+	// The shapes the two sides really have, and the whole reason one block used to
+	// render twice. `display-message-processor` passes the persisted message
+	// first, whose reasoning `@convex-dev/agent` rebuilds with no id and no
+	// leading `step-start`, and the live stream second, which the AI SDK opens
+	// with that `step-start` and stamps an `id` on. Nothing lines the two up, and
+	// the step separator lands between them.
+	it('grows a persisted reasoning block across the step separator the live stream adds', () => {
+		const merged = mergeAssistantMessageParts(
+			[{ type: 'reasoning', text: 'Find coordinates', state: 'done' }] as UIMessage['parts'],
+			[
+				{ type: 'step-start' },
+				{ type: 'reasoning', text: 'Find coordinates', id: 'reason-1', state: 'streaming' }
+			] as unknown as UIMessage['parts']
+		);
+
+		expect(merged.filter((part) => part.type === 'reasoning')).toEqual([
+			{ type: 'reasoning', text: 'Find coordinates', state: 'streaming' }
+		]);
+	});
+
+	it('keeps a second live block apart across the step separator', () => {
+		const merged = mergeAssistantMessageParts(
+			[{ type: 'reasoning', text: 'Analyze', state: 'done' }] as UIMessage['parts'],
+			[
+				{ type: 'step-start' },
+				{ type: 'reasoning', text: 'Analyze', id: 'reason-1', state: 'done' },
+				{ type: 'reasoning', text: 'Analyze alternatives', id: 'reason-2', state: 'streaming' }
+			] as unknown as UIMessage['parts']
+		);
+
+		expect(merged.filter((part) => part.type === 'reasoning')).toEqual([
+			{ type: 'reasoning', text: 'Analyze', state: 'done' },
+			{ type: 'reasoning', text: 'Analyze alternatives', id: 'reason-2', state: 'streaming' }
+		]);
+	});
+
+	// The row and the deltas arrive through two independent reactive queries, so
+	// the live side is sometimes the older one. Taking its text would cut the
+	// block back and restore it on the next frame, which reads as flicker, and a
+	// finished block would start showing as still running.
+	it('keeps the longer text when the live snapshot lags behind the persisted one', () => {
+		const merged = mergeAssistantMessageParts(
+			[{ type: 'reasoning', text: 'Find coordinates', state: 'done' }] as UIMessage['parts'],
+			[
+				{ type: 'reasoning', text: 'Find coord', id: 'reason-1', state: 'streaming' }
+			] as unknown as UIMessage['parts']
+		);
+
+		expect(merged).toEqual([{ type: 'reasoning', text: 'Find coordinates', state: 'done' }]);
+	});
+
+	it('grows a persisted reasoning block that the live stream carries an id for', () => {
+		const merged = mergeAssistantMessageParts(
+			[{ type: 'reasoning', text: 'Find coord' }] as UIMessage['parts'],
+			[
+				{ type: 'reasoning', text: 'Find coordinates', streamPartId: 'reason-1' }
+			] as unknown as UIMessage['parts']
+		);
+
+		expect(merged).toEqual([{ type: 'reasoning', text: 'Find coordinates' }]);
+	});
+
+	it('grows a reasoning block whose snapshot dropped the streaming id', () => {
+		const merged = mergeAssistantMessageParts(
+			[
+				{ type: 'reasoning', text: 'Find coord', streamPartId: 'reason-1' }
+			] as unknown as UIMessage['parts'],
+			[{ type: 'reasoning', text: 'Find coordinates' }] as UIMessage['parts']
+		);
+
+		expect(merged).toEqual([
+			{ type: 'reasoning', text: 'Find coordinates', streamPartId: 'reason-1' }
+		]);
+	});
+
+	it('keeps two reasoning blocks apart when only one carries a streaming id', () => {
+		const merged = mergeAssistantMessageParts(
+			[
+				{ type: 'reasoning', text: 'Find coordinates', streamPartId: 'reason-1' }
+			] as unknown as UIMessage['parts'],
+			[{ type: 'reasoning', text: 'Check forecast' }] as UIMessage['parts']
+		);
+
+		expect(merged).toEqual([
+			{ type: 'reasoning', text: 'Find coordinates', streamPartId: 'reason-1' },
+			{ type: 'reasoning', text: 'Check forecast' }
+		]);
+	});
+
+	// Text growth is the only evidence available once the ids fail to line up, and
+	// two adjacent blocks can both grow out of the same opening words. The block a
+	// snapshot already claimed is off limits to the next one, so an overlap costs
+	// a missed merge and never a lost block.
+	it('does not fold two overlapping blocks into the one they both extend', () => {
+		const merged = mergeAssistantMessageParts(
+			[
+				{ type: 'reasoning', text: 'Analyze', streamPartId: 'reason-1' }
+			] as unknown as UIMessage['parts'],
+			[
+				{ type: 'reasoning', text: 'Analyze' },
+				{ type: 'reasoning', text: 'Analyze alternatives' }
+			] as UIMessage['parts']
+		);
+
+		expect(merged).toEqual([
+			{ type: 'reasoning', text: 'Analyze', streamPartId: 'reason-1' },
+			{ type: 'reasoning', text: 'Analyze alternatives' }
+		]);
+	});
+
+	it('keeps a finished reasoning block when a later step opens an empty one', () => {
+		const merged = mergeAssistantMessageParts(
+			[
+				{ type: 'reasoning', text: 'Check weather forecast' },
+				{
+					type: 'tool-getWeather',
+					toolCallId: 'tool-2',
+					state: 'output-available',
+					output: { temperature: 62.6 }
+				}
+			] as unknown as UIMessage['parts'],
+			[{ type: 'reasoning', text: '', streamPartId: 'reason-2' }] as unknown as UIMessage['parts']
+		);
+
+		expect(merged).toEqual([
+			{ type: 'reasoning', text: 'Check weather forecast' },
+			{
+				type: 'tool-getWeather',
+				toolCallId: 'tool-2',
+				state: 'output-available',
+				output: { temperature: 62.6 }
+			},
+			{ type: 'reasoning', text: '', streamPartId: 'reason-2' }
+		]);
+	});
+
+	it('does not let an empty reasoning snapshot erase the block it follows', () => {
+		const merged = mergeAssistantMessageParts(
+			[
+				{ type: 'tool-getWeather', toolCallId: 'tool-2', state: 'output-available' },
+				{ type: 'reasoning', text: 'Draft final answer' }
+			] as unknown as UIMessage['parts'],
+			[{ type: 'reasoning', text: '' }] as UIMessage['parts']
+		);
+
+		expect(merged).toEqual([
+			{ type: 'tool-getWeather', toolCallId: 'tool-2', state: 'output-available' },
+			{ type: 'reasoning', text: 'Draft final answer' },
+			{ type: 'reasoning', text: '' }
+		]);
+	});
+
+	// A signature-only reasoning detail reaches the provider as a block with an
+	// empty delta, and the persisted row keeps that empty block. Rejecting every
+	// empty incoming block left the live copy with nothing to merge into, so the
+	// one block rendered as two rows for as long as the stream was open.
+	it('matches an empty reasoning block to its empty copy', () => {
+		const merged = mergeAssistantMessageParts(
+			[
+				{ type: 'reasoning', text: '', state: 'done' },
+				{ type: 'step-start' },
+				{
+					type: 'tool-lookup',
+					toolCallId: 'call-1',
+					state: 'output-available',
+					input: {},
+					output: {}
+				}
+			] as unknown as UIMessage['parts'],
+			[
+				{ type: 'step-start' },
+				{ type: 'reasoning', text: '', id: 'r1', state: 'done' },
+				{
+					type: 'tool-lookup',
+					toolCallId: 'call-1',
+					state: 'output-available',
+					input: {},
+					output: {}
+				},
+				{ type: 'step-start' },
+				{ type: 'reasoning', text: 'Next thought', id: 'r2', state: 'streaming' }
+			] as unknown as UIMessage['parts']
+		);
+
+		expect(merged.filter((part) => part.type === 'reasoning')).toEqual([
+			{ type: 'reasoning', text: '', state: 'done' },
+			{ type: 'reasoning', text: 'Next thought', id: 'r2', state: 'streaming' }
+		]);
+		expect(merged.filter((part) => part.type === 'tool-lookup')).toHaveLength(1);
+	});
+
+	it('merges a grown reasoning block that follows a completed tool call', () => {
+		const merged = mergeAssistantMessageParts(
+			[
+				{ type: 'tool-getWeather', toolCallId: 'tool-2', state: 'output-available' },
+				{ type: 'reasoning', text: 'Draft final' }
+			] as unknown as UIMessage['parts'],
+			[{ type: 'reasoning', text: 'Draft final answer' }] as UIMessage['parts']
+		);
+
+		expect(merged).toEqual([
+			{ type: 'tool-getWeather', toolCallId: 'tool-2', state: 'output-available' },
+			{ type: 'reasoning', text: 'Draft final answer' }
+		]);
+	});
+
+	// A tool call closes the step its reasoning belongs to, so a fresh tail block
+	// whose opening words repeat that reasoning is a later step and not a
+	// continuation. Merging it backward would delete the earlier block and move
+	// the new one in front of the tool call that ran between them.
+	it('opens a new block when the words repeat one a tool call already closed', () => {
+		const merged = mergeAssistantMessageParts(
+			[
+				{ type: 'reasoning', text: 'Analyze' },
+				{ type: 'tool-getGeocoding', toolCallId: 'tool-1', state: 'output-available' }
+			] as unknown as UIMessage['parts'],
+			[
+				{ type: 'step-start' },
+				{ type: 'reasoning', text: 'Analyze alternatives', id: 'reason-2' }
+			] as unknown as UIMessage['parts']
+		);
+
+		expect(merged).toEqual([
+			{ type: 'reasoning', text: 'Analyze' },
+			{ type: 'tool-getGeocoding', toolCallId: 'tool-1', state: 'output-available' },
+			{ type: 'step-start' },
+			{ type: 'reasoning', text: 'Analyze alternatives', id: 'reason-2' }
+		]);
+	});
+
+	// The same closed block is still the right target when the live snapshot
+	// carries the whole message, because there the tool call sits behind the
+	// incoming part too.
+	it('still grows a closed block when the snapshot repeats the tool call', () => {
+		const merged = mergeAssistantMessageParts(
+			[
+				{ type: 'reasoning', text: 'Analyze' },
+				{ type: 'tool-getGeocoding', toolCallId: 'tool-1', state: 'output-available' }
+			] as unknown as UIMessage['parts'],
+			[
+				{ type: 'step-start' },
+				{ type: 'reasoning', text: 'Analyze the options', id: 'reason-1' },
+				{ type: 'tool-getGeocoding', toolCallId: 'tool-1', state: 'output-available' }
+			] as unknown as UIMessage['parts']
+		);
+
+		expect(merged.filter((part) => part.type === 'reasoning')).toEqual([
+			{ type: 'reasoning', text: 'Analyze the options' }
+		]);
+	});
+
+	// The page and the delta snapshot arrive through two queries, so the page can
+	// be one tool chunk ahead of the snapshot. The lagging copy is a prefix of the
+	// closed block and has to grow it; the sentence used to render a second time on
+	// the other side of the tool card until the next delta arrived.
+	it('grows a closed block from the snapshot that lags behind its tool call', () => {
+		const merged = mergeAssistantMessageParts(
+			[
+				{ type: 'step-start' },
+				{ type: 'text', text: 'I will check' },
+				{
+					type: 'tool-lookup',
+					toolCallId: 'call-1',
+					state: 'output-available',
+					input: {},
+					output: {}
+				}
+			] as unknown as UIMessage['parts'],
+			[{ type: 'step-start' }, { type: 'text', text: 'I will' }] as unknown as UIMessage['parts']
+		);
+
+		expect(merged.filter((part) => part.type === 'text')).toEqual([
+			{ type: 'text', text: 'I will check' }
+		]);
+		expect(merged.filter((part) => part.type === 'tool-lookup')).toHaveLength(1);
+	});
+
+	// The same lag on a reasoning block, where the shorter copy also carries the
+	// live id and the streaming state. The longer text and its finished state win,
+	// and the persisted block keeps its own key.
+	it('keeps a lagging reasoning snapshot inside its closed block', () => {
+		const merged = mergeAssistantMessageParts(
+			[
+				{ type: 'reasoning', text: 'Find coordinates', state: 'done' },
+				{ type: 'step-start' },
+				{
+					type: 'tool-lookup',
+					toolCallId: 'call-1',
+					state: 'output-available',
+					input: {},
+					output: {}
+				}
+			] as unknown as UIMessage['parts'],
+			[
+				{ type: 'step-start' },
+				{ type: 'reasoning', text: 'Find coord', id: 'r1', state: 'streaming' }
+			] as unknown as UIMessage['parts']
+		);
+
+		expect(merged.filter((part) => part.type === 'reasoning')).toEqual([
+			{ type: 'reasoning', text: 'Find coordinates', state: 'done' }
+		]);
+		expect(merged.filter((part) => part.type === 'tool-lookup')).toHaveLength(1);
+	});
+
+	// The id belongs to the live snapshot alone, and the persisted reconstruction
+	// carries no counterpart for it. A persisted block holding a borrowed id would
+	// read as a live part to any consumer that matches on `id` or `streamPartId`.
+	it('leaves a persisted block without the id of the snapshot it merged', () => {
+		const merged = mergeAssistantMessageParts(
+			[{ type: 'reasoning', text: 'Second block' }] as UIMessage['parts'],
+			[
+				{ type: 'step-start' },
+				{ type: 'reasoning', text: 'Second block continues', id: 'reason-live' }
+			] as unknown as UIMessage['parts']
+		);
+
+		expect(merged.filter((part) => part.type === 'reasoning')).toEqual([
+			{ type: 'reasoning', text: 'Second block continues' }
+		]);
+	});
+
+	// Both sides list their blocks in the order the model wrote them, so the
+	// second block belongs to the second incoming part. Weighing the candidates
+	// by length handed it to the first one, which left the second with nothing to
+	// merge into and appended a copy of the block and of the answer with it.
+	it('matches two blocks that share their opening words in order', () => {
+		const merged = mergeAssistantMessageParts(
+			[
+				{ type: 'reasoning', text: 'Analyze' },
+				{ type: 'step-start' },
+				{ type: 'tool-lookup', toolCallId: 'call-1', state: 'output-available' },
+				{ type: 'reasoning', text: 'Analyze alternatives' },
+				{ type: 'text', text: 'the answer' }
+			] as unknown as UIMessage['parts'],
+			[
+				{ type: 'step-start' },
+				{ type: 'reasoning', text: 'Analyze', id: 'r-first' },
+				{ type: 'tool-lookup', toolCallId: 'call-1', state: 'output-available' },
+				{ type: 'step-start' },
+				{ type: 'reasoning', text: 'Analyze alternatives', id: 'r-second' },
+				{ type: 'text', text: 'the answer' }
+			] as unknown as UIMessage['parts']
+		);
+
+		expect(merged.filter((part) => part.type === 'reasoning')).toEqual([
+			{ type: 'reasoning', text: 'Analyze' },
+			{ type: 'reasoning', text: 'Analyze alternatives' }
+		]);
+		expect(merged.filter((part) => part.type === 'text')).toHaveLength(1);
+	});
+
+	// Two blocks of one step, where the first one's words open the second. The
+	// cursor keeps each incoming block behind the one its predecessor matched, so
+	// neither block can be overwritten by the words of the other.
+	it('keeps two blocks of one step apart when the words overlap', () => {
+		const merged = mergeAssistantMessageParts(
+			[
+				{ type: 'reasoning', text: 'Analyze' },
+				{ type: 'reasoning', text: 'Analyze more' },
+				{ type: 'text', text: 'answer' }
+			] as UIMessage['parts'],
+			[
+				{ type: 'step-start' },
+				{ type: 'reasoning', text: 'Analyze', id: 'r1' },
+				{ type: 'reasoning', text: 'Analyze more', id: 'r2' },
+				{ type: 'text', text: 'answer' }
+			] as unknown as UIMessage['parts']
+		);
+
+		expect(merged.filter((part) => part.type === 'reasoning')).toEqual([
+			{ type: 'reasoning', text: 'Analyze' },
+			{ type: 'reasoning', text: 'Analyze more' }
+		]);
+		expect(merged.filter((part) => part.type === 'text')).toEqual([
+			{ type: 'text', text: 'answer' }
+		]);
+	});
+
+	// The separator the live stream opens its step with lands on the tail, which
+	// leaves the persisted answer one position further up. Merging text into the
+	// last part alone missed it there and rendered the answer a second time.
+	it('merges the answer across the separator pushed behind it', () => {
+		const merged = mergeAssistantMessageParts(
+			[
+				{ type: 'reasoning', text: 'think' },
+				{ type: 'text', text: 'answer' }
+			] as UIMessage['parts'],
+			[
+				{ type: 'step-start' },
+				{ type: 'reasoning', text: 'think', id: 'r1' },
+				{ type: 'text', text: 'answer' }
+			] as unknown as UIMessage['parts']
+		);
+
+		expect(merged.filter((part) => part.type === 'text')).toEqual([
+			{ type: 'text', text: 'answer' }
 		]);
 	});
 });
