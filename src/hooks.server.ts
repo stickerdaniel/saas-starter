@@ -288,12 +288,12 @@ export function verificationFailureRedirect(
 }
 
 /**
- * The real page behind a chain of verification interstitials.
+ * The real page behind a chain of auth interstitials.
  *
- * `/email-verified` is a waiting room rather than a destination, and carrying
- * one forward is what let a signed-in visitor be told an address had been
- * verified: sign-in sends an authenticated caller straight back to
- * `redirectTo`, and the failure code is not part of that value.
+ * `/email-verified` and `/reset-password` are waiting rooms rather than
+ * destinations, and carrying one forward is what let a signed-in visitor be told
+ * an address had been verified: sign-in sends an authenticated caller straight
+ * back to `redirectTo`, and the failure code is not part of that value.
  *
  * It repeats because one layer is not the limit. Sign-up accepts any
  * same-origin continuation, including another interstitial, so
@@ -313,7 +313,13 @@ function unwrapInterstitial(destination: string, lang: string): string {
 			return `/${lang}/app`;
 		}
 
-		if (!/^\/[a-z]{2}\/email-verified$/.test(parsed.pathname)) return current;
+		// Reset-Seite eingeschlossen: Better Auth hängt `INVALID_TOKEN` an den
+		// Reset-Callback (`requestPasswordResetCallback` in
+		// better-auth/dist/api/routes/password.mjs), womit ein Formular ohne Token
+		// sonst das Ende der Reise wäre.
+		if (!/^\/[a-z]{2}\/(email-verified|reset-password)$/.test(parsed.pathname)) return current;
+		// Nur `redirectTo`, damit ein danebenstehendes `token` liegen bleibt statt
+		// ins Ziel befördert zu werden.
 		current = safeAuthDestination(parsed.searchParams.get('redirectTo') ?? '', `/${lang}/app`);
 	}
 

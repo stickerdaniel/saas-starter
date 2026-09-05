@@ -1,6 +1,9 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { betterAuth } from 'better-auth';
+import { memoryAdapter } from 'better-auth/adapters/memory';
+import { beforeAll, describe, expect, it } from 'vitest';
+import { authPageURL } from '$lib/utils/url';
 import {
 	authPageRedirect,
 	resolveBarePathLanguage,
@@ -176,6 +179,172 @@ describe('verificationFailureRedirect', () => {
 		expect(verificationFailureRedirect('/de/app', '?error=INVALID_TOKEN', 'de')).toBe(
 			'/de/signin?redirectTo=%2Fde%2Fapp&error=INVALID_TOKEN'
 		);
+	});
+
+	/**
+	 * Eine Reset-Seite mit abgelehntem Token ist ebenfalls ein Wartezimmer: Better
+	 * Auth hängt `INVALID_TOKEN` an den Callback, statt ein Token mitzugeben. In
+	 * der Kette belassen endete die Reise auf einem Formular ohne Token.
+	 */
+	it('unwraps a rejected reset page rather than ending on it', () => {
+		expect(
+			verificationFailureRedirect(
+				'/de/reset-password',
+				'?redirectTo=%2Fde%2Fapp%2Fsettings%3Ftab%3Dprofile%23section&error=INVALID_TOKEN',
+				'de'
+			)
+		).toBe(
+			'/de/signin?redirectTo=%2Fde%2Fapp%2Fsettings%3Ftab%3Dprofile%23section&error=INVALID_TOKEN'
+		);
+	});
+
+	it('falls back when the rejected reset page carries nothing usable', () => {
+		expect(verificationFailureRedirect('/en/reset-password', '?error=INVALID_TOKEN', 'en')).toBe(
+			'/en/signin?redirectTo=%2Fen%2Fapp&error=INVALID_TOKEN'
+		);
+		expect(
+			verificationFailureRedirect(
+				'/en/reset-password',
+				'?redirectTo=%2F%2Fevil.com&error=INVALID_TOKEN',
+				'en'
+			)
+		).toBe('/en/signin?redirectTo=%2Fen%2Fapp&error=INVALID_TOKEN');
+		expect(
+			verificationFailureRedirect(
+				'/en/reset-password',
+				'?redirectTo=%2Fpricing&error=INVALID_TOKEN',
+				'en'
+			)
+		).toBe('/en/signin?redirectTo=%2Fen%2Fapp&error=INVALID_TOKEN');
+	});
+
+	/**
+	 * Nur `redirectTo` wird aus einer Schicht gelesen. Ein danebenstehendes Token
+	 * bliebe sonst in Link, Adresszeile und Referrer jeder Folgeseite stehen.
+	 */
+	it('leaves the token behind instead of carrying it into the destination', () => {
+		const redirect = verificationFailureRedirect(
+			'/de/reset-password',
+			'?redirectTo=%2Fde%2Fapp%2Fsettings&token=a-live-reset-token&error=INVALID_TOKEN',
+			'de'
+		);
+
+		expect(redirect).toBe('/de/signin?redirectTo=%2Fde%2Fapp%2Fsettings&error=INVALID_TOKEN');
+		expect(redirect).not.toContain('a-live-reset-token');
+	});
+
+	it('terminates on a chain that mixes both waiting rooms', () => {
+		const nested = (depth: number): string =>
+			depth === 0
+				? '/en/app/settings'
+				: `/en/${depth % 2 === 0 ? 'email-verified' : 'reset-password'}?redirectTo=${encodeURIComponent(nested(depth - 1))}`;
+
+		expect(
+			verificationFailureRedirect(
+				'/en/reset-password',
+				`?redirectTo=${encodeURIComponent(nested(2))}&error=INVALID_TOKEN`,
+				'en'
+			)
+		).toBe('/en/signin?redirectTo=%2Fen%2Fapp%2Fsettings&error=INVALID_TOKEN');
+
+		expect(
+			verificationFailureRedirect(
+				'/en/reset-password',
+				`?redirectTo=${encodeURIComponent(nested(6))}&error=INVALID_TOKEN`,
+				'en'
+			)
+		).toBe('/en/signin?redirectTo=%2Fen%2Fapp&error=INVALID_TOKEN');
+	});
+
+	// Eine Reset-Seite mit Token ist kein Fehlerfall: das Formular rendert und
+	// verbraucht das Token.
+	it('leaves a reset page that actually got a token alone', () => {
+		expect(
+			verificationFailureRedirect(
+				'/de/reset-password',
+				'?redirectTo=%2Fde%2Fapp%2Fsettings&token=a-live-reset-token',
+				'de'
+			)
+		).toBeNull();
+	});
+});
+
+/**
+ * Dieselben zwei URLs, wie das installierte Better Auth sie wirklich ausgibt.
+ *
+ * Der Handler liefert echten Reset-Link und echte Ablehnung, beide gehen
+ * unbearbeitet in den Hook. Ein handgebautes Paar würde nur die Annahme
+ * wiederholen, aus der der Fehler entstand.
+ */
+describe('verificationFailureRedirect against a real Better Auth redirect', () => {
+	const BASE = 'https://example.test';
+	const EMAIL = 'hook-recovery@example.test';
+	const DESTINATION = '/de/app/settings?tab=profile#section';
+
+	let sentURL = '';
+
+	const auth = betterAuth({
+		baseURL: BASE,
+		secret: 'test-secret-that-is-long-enough-for-signing',
+		database: memoryAdapter({ user: [], session: [], account: [], verification: [] }),
+		emailAndPassword: {
+			enabled: true,
+			sendResetPassword: async ({ url }) => {
+				sentURL = url;
+			}
+		},
+		advanced: { disableOriginCheck: false }
+	});
+
+	beforeAll(async () => {
+		const signUp = await auth.handler(
+			new Request(`${BASE}/api/auth/sign-up/email`, {
+				method: 'POST',
+				headers: { 'content-type': 'application/json', origin: BASE },
+				body: JSON.stringify({
+					email: EMAIL,
+					password: 'correct-horse-battery-staple',
+					name: 'Hook Recovery'
+				})
+			})
+		);
+		expect(signUp.status, await signUp.text()).toBe(200);
+
+		const requested = await auth.handler(
+			new Request(`${BASE}/api/auth/request-password-reset`, {
+				method: 'POST',
+				headers: { 'content-type': 'application/json', origin: BASE },
+				body: JSON.stringify({
+					email: EMAIL,
+					redirectTo: authPageURL('/de/reset-password', DESTINATION)
+				})
+			})
+		);
+		expect(requested.status, await requested.text()).toBe(200);
+	});
+
+	/** Wohin der Handler den Browser für diesen Link schickt. */
+	async function landing(url: string | URL): Promise<URL> {
+		const response = await auth.handler(new Request(url));
+		expect(response.status).toBe(302);
+		return new URL(response.headers.get('location')!);
+	}
+
+	it('rescues the destination out of a rejection it really produced', async () => {
+		const rejected = new URL(sentURL);
+		rejected.pathname = rejected.pathname.replace(/[^/]+$/, 'not-a-real-token');
+		const landed = await landing(rejected);
+
+		expect(verificationFailureRedirect(landed.pathname, landed.search, 'de')).toBe(
+			`/de/signin?redirectTo=${encodeURIComponent(DESTINATION)}&error=INVALID_TOKEN`
+		);
+	});
+
+	it('stays out of the way of the link that worked', async () => {
+		const landed = await landing(sentURL);
+
+		expect(landed.searchParams.get('token')).toBeTruthy();
+		expect(verificationFailureRedirect(landed.pathname, landed.search, 'de')).toBeNull();
 	});
 });
 

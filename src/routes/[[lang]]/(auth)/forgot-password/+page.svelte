@@ -10,6 +10,8 @@
 	import { authClient } from '$lib/auth-client.js';
 	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
 	import { localizedHref } from '$lib/utils/i18n';
+	import { authPageURL } from '$lib/utils/url';
+	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
 	import { T, getTranslate } from '@tolgee/svelte';
 	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
@@ -30,6 +32,17 @@
 	let lastValidSubmission = $state<string | null>(null);
 
 	const id = $props.id();
+
+	/**
+	 * Ziel aus der Page-URL, damit der Zurück-Link es schon im ersten Render
+	 * trägt. Ungeprüft; `authPageURL` verengt es.
+	 *
+	 * Der Reset-Callback ist die Reset-SEITE, nicht das Ziel: Better Auth hängt
+	 * `?token=` daran, und das gehört ins Formular, nicht an den Deep Link.
+	 */
+	const rawDestination = $derived(page.url.searchParams.get('redirectTo') ?? '');
+	const resetCallbackURL = $derived(authPageURL(localizedHref('/reset-password'), rawDestination));
+	const signInHref = $derived(authPageURL(localizedHref('/signin'), rawDestination));
 
 	const authFlow = authFlowContext.get();
 	// Form data, initialized once from the shared auth-flow email
@@ -117,7 +130,7 @@
 		try {
 			const { error: err } = await authClient.requestPasswordReset({
 				email: formData.email,
-				redirectTo: localizedHref('/reset-password')
+				redirectTo: resetCallbackURL
 			});
 
 			if (err) {
@@ -245,7 +258,7 @@
 							</Field.Field>
 							<Field.Description class="text-center">
 								<a
-									href={resolve(localizedHref('/signin'))}
+									href={resolve(signInHref)}
 									data-testid="forgot-password-back-link"
 									class="underline underline-offset-4"
 								>

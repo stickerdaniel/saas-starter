@@ -3,6 +3,7 @@
 	import { T, getTranslate } from '@tolgee/svelte';
 	import { resolve } from '$app/paths';
 	import { localizedHref } from '$lib/utils/i18n';
+	import { authPageURL } from '$lib/utils/url';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import * as Field from '$lib/components/ui/field/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
@@ -30,7 +31,8 @@
 					github?: boolean;
 			  }
 			| undefined;
-		redirectTo: string | undefined;
+		/** Von der Seite bereits verengt; leer, wenn nichts Brauchbares ankam. */
+		redirectTo: string;
 		termsLink: HTMLAnchorElement | null;
 		isLastUsedAuthMethod: (method: LastAuthMethod) => boolean;
 		onSubmit: (event: SubmitEvent) => void | Promise<void>;
@@ -60,6 +62,10 @@
 
 	const hasEmailError = $derived((signInErrors.email?.length ?? 0) > 0);
 	const hasPasswordError = $derived((signInErrors.password?.length ?? 0) > 0);
+
+	// Beide Links reichen das Ziel weiter. Am Forgot-Link ging es bisher verloren.
+	const forgotPasswordHref = $derived(authPageURL(localizedHref('/forgot-password'), redirectTo));
+	const signUpHref = $derived(authPageURL(localizedHref('/signup'), redirectTo));
 
 	let hydrated = $state(false);
 	let forgotPasswordLink = $state<HTMLAnchorElement | null>(null);
@@ -138,7 +144,8 @@
 					</Field.Label>
 					<a
 						bind:this={forgotPasswordLink}
-						href={resolve(localizedHref('/forgot-password'))}
+						href={resolve(forgotPasswordHref)}
+						data-testid="signin-forgot-password-link"
 						tabindex="-1"
 						onkeydown={handleForgotPasswordKeydown}
 						class="ms-auto text-sm text-muted-foreground underline-offset-2 hover:underline active:translate-y-px"
@@ -196,10 +203,7 @@
 				<T keyName="auth.signin.no_account" defaultValue="Don't have an account?" />
 				<a
 					bind:this={signUpLink}
-					href={resolve(
-						localizedHref('/signup') +
-							(redirectTo ? `?redirectTo=${encodeURIComponent(redirectTo)}` : '')
-					)}
+					href={resolve(signUpHref)}
 					onkeydown={handleSignUpLinkKeydown}
 					class="underline underline-offset-4"
 				>

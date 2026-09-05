@@ -58,6 +58,42 @@ export function safeAuthDestination(url: string, fallback: string): string {
 	return isSupportedLanguage(path.match(/^\/([a-z]{2})(?:[/?#]|$)/)?.[1]) ? path : fallback;
 }
 
+/**
+ * Eine eigene Auth-Seite, die ein noch offenes Ziel im Query mitführt.
+ *
+ * Better Auths relative Callback-Regel erlaubt kein `#` (`matchesOriginPattern`
+ * in better-auth/dist/auth/trusted-origins.mjs), ein Ziel mit Fragment fällt als
+ * Callback also ganz weg. Im Query ist es `%23` und kommt durch.
+ *
+ * `pagePath` ist selbst gebaut und vertraut, `destination` nicht: ohne gültiges
+ * Ziel bleibt die nackte Seite.
+ */
+export function authPageURL(pagePath: string, destination: string): string {
+	const safeDestination = safeAuthDestination(destination, '');
+	if (!safeDestination) return pagePath;
+
+	// Der Guard gilt `pagePath`: die Kodierung liefert nur unreservierte Zeichen
+	// und Prozent-Escapes, die die Grammatik im Query zulässt.
+	return callbackURLFor(
+		`${pagePath}?redirectTo=${encodeCallbackComponent(safeDestination)}`,
+		pagePath
+	);
+}
+
+/**
+ * `encodeURIComponent` plus die sechs Zeichen, die es roh lässt.
+ *
+ * `!'()*~` stehen nicht in der Callback-Grammatik. Ein ungeschütztes davon
+ * beantwortet Better Auth mit `403 INVALID_CALLBACK_URL` und reißt die Anfrage
+ * selbst mit, statt nur den Deep Link zu verlieren.
+ */
+function encodeCallbackComponent(value: string): string {
+	return encodeURIComponent(value).replace(
+		/[!'()*~]/g,
+		(character) => `%${character.charCodeAt(0).toString(16).toUpperCase()}`
+	);
+}
+
 function hasUnsafeUrlCharacters(value: string): boolean {
 	return value.includes('\\') || hasControlCharacters(value);
 }

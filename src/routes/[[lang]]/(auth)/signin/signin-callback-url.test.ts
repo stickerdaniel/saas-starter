@@ -12,13 +12,14 @@
  * route every successful password sign-in through a page announcing an email
  * verification that did not happen.
  *
- * The one value that satisfies both is the final destination the page already
- * navigates to itself, so the guard is that the two expressions stay the same
- * expression. Structural because the failure is a plausible edit to one line,
- * not a state the sign-in flow can be driven into: the redirect it produces is
- * a full page load in the browser, and the link it produces is asserted
- * against a real Better Auth instance in
- * src/lib/convex/__tests__/verificationRecovery.test.ts.
+ * The value that satisfies both is this page carrying the destination, so the
+ * guard is that both readings and the page's own navigation stay pinned to one
+ * destination expression. Structural because the failure is a plausible edit to
+ * one line, not a state the sign-in flow can be driven into: the redirect it
+ * produces is a full page load in the browser, and the link it produces is
+ * asserted against a real Better Auth instance in
+ * src/lib/convex/__tests__/verificationRecovery.test.ts and
+ * src/lib/utils/__tests__/callback-url.contract.test.ts.
  *
  * Comments are dropped first, because the cheapest way to make a text search
  * lie is to leave the old line behind as prose while the real call moves on.
@@ -66,14 +67,15 @@ const source = normalized(
 	)
 );
 
-const DESTINATION = "safeAuthDestination(params.redirectTo, localizedHref('/app'))";
+const DESTINATION = 'finalDestination';
 
 /**
  * Better Auth applies its own, stricter relative-path rule to `callbackURL`,
- * so the destination is narrowed again before it is sent. The navigation below
- * is ours and keeps the full value.
+ * and it takes no fragment, so the destination travels inside the query of a
+ * page path that does satisfy the rule. The navigation below is ours and keeps
+ * the full value.
  */
-const CALLBACK = `callbackURLFor(${DESTINATION}, localizedHref('/app'))`;
+const CALLBACK = `authPageURL(localizedHref('/signin'), ${DESTINATION})`;
 
 describe('password sign-in callback URL', () => {
 	it('sends the destination Better Auth needs for the recovery link', () => {
@@ -86,8 +88,63 @@ describe('password sign-in callback URL', () => {
 		expect(source.slice(callStart, callEnd)).toContain(normalized(`callbackURL: ${CALLBACK}`));
 	});
 
+	/**
+	 * Social-Sign-in kehrt zum Callback zurück, nicht zu dieser Seite, hat also
+	 * keine zweite Chance zu navigieren. Der E2E-Lauf meldet ein verifiziertes
+	 * Konto per Passwort an und erreicht diesen Pfad nie.
+	 */
+	it('brings a social sign-in back through the same wrapper', () => {
+		const callStart = source.indexOf(normalized('authClient.signIn.social('));
+		expect(callStart, 'the social sign-in call moved or was renamed').toBeGreaterThan(-1);
+
+		const callEnd = source.indexOf(normalized('} catch (error) {'), callStart);
+		expect(callEnd, 'the catch moved; the slice below is unbounded').toBeGreaterThan(-1);
+
+		expect(source.slice(callStart, callEnd)).toContain(normalized(`callbackURL: ${CALLBACK}`));
+	});
+
+	/**
+	 * Für die Fehler-URL gilt absichtlich die weitere Prüfung: der Wert ist
+	 * Beifahrer in einer selbst gewählten Seite, und die Seite verengt ihn beim
+	 * Navigieren erneut. Doppelt verengt verlöre man nur funktionierende Links.
+	 */
+	it('keeps the OAuth failure URL on the unnarrowed value', () => {
+		expect(source).toContain(
+			normalized(
+				"errorCallbackURL: oauthErrorCallbackURL(localizedHref('/signin'), rawDestination)"
+			)
+		);
+	});
+
 	it('agrees with the redirect the page performs itself', () => {
 		expect(source).toContain(normalized(`window.location.href = ${DESTINATION};`));
+	});
+
+	/**
+	 * Woran der Name hängt. Aus `params` gelesen sähe die Zeile gleich aus, aber
+	 * dessen Cache füllt sich nur im Browser: die Links dieser Seite gingen dann
+	 * ohne Ziel raus und blieben so, wo Hydration nie ankommt.
+	 */
+	it('reads the destination from the page URL, not from the params cache', () => {
+		expect(source).toContain(
+			normalized("const rawDestination = $derived(page.url.searchParams.get('redirectTo') ?? '');")
+		);
+		expect(source).toContain(
+			normalized("const requestedDestination = $derived(safeAuthDestination(rawDestination, ''));")
+		);
+		expect(source).toContain(
+			normalized(
+				"const finalDestination = $derived(requestedDestination || localizedHref('/app'));"
+			)
+		);
+	});
+
+	/**
+	 * Das Formular rendert die Links und bekommt den verengten Wert: ein Ziel, das
+	 * diese Seite nicht anfahren würde, gehört auch in keinen Link.
+	 */
+	it('gives the form the destination it validated', () => {
+		expect(source).toContain(normalized('redirectTo={requestedDestination}'));
 	});
 
 	/**
