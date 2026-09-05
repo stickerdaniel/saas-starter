@@ -5,6 +5,7 @@
 	import { toggleMode } from 'mode-watcher';
 	import { haptic } from '$lib/hooks/use-haptic.svelte.ts';
 	import { Button } from '$lib/components/ui/button/index.js';
+	import { startThemeReveal } from './theme-reveal';
 	import type { LightSwitchProps } from './types';
 
 	const { t } = getTranslate();
@@ -13,27 +14,7 @@
 
 	function handleToggle(event: MouseEvent) {
 		haptic.trigger('medium');
-		const target = event.currentTarget as HTMLElement;
-		const rect = target.getBoundingClientRect();
-		const x = rect.left + rect.width / 2;
-		const y = rect.top + rect.height / 2;
-		document.documentElement.style.setProperty('--view-transition-x', `${x}px`);
-		document.documentElement.style.setProperty('--view-transition-y', `${y}px`);
-
-		if (!document.startViewTransition) {
-			toggleMode();
-			return;
-		}
-
-		// Mark the root so layout.css scopes the circular reveal to the theme
-		// toggle instead of the page-navigation fade.
-		document.documentElement.setAttribute('data-theme-transition', '');
-		const transition = document.startViewTransition(() => {
-			toggleMode();
-		});
-		transition.finished.finally(() => {
-			document.documentElement.removeAttribute('data-theme-transition');
-		});
+		startThemeReveal(event.currentTarget as HTMLElement, toggleMode);
 	}
 </script>
 

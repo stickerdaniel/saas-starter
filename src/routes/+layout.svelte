@@ -158,7 +158,10 @@
 	}
 </script>
 
-<ModeWatcher />
+<!-- synchronousModeChanges keeps the root class write out of a requestAnimationFrame,
+	so the theme toggle's view transition captures the new theme rather than the one it
+	replaced. See src/lib/components/ui/light-switch/theme-reveal.ts. -->
+<ModeWatcher synchronousModeChanges />
 <AppPostHogBootstrap />
 
 <AppAuthProvider>
