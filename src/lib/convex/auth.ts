@@ -451,7 +451,7 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
 		},
 		hooks: {
 			// Das Schlüsselset ist für jeden Aufrufer identisch, deshalb darf der
-			// Consumer seinen eigenen HTTP-Cache nutzen statt vor jeder Verifikation
+			// Consumer seinen eigenen HTTP-Cache nutzen statt vor jeder Prüfung
 			// neu zu laden. Die 60 Sekunden begrenzen die normale Frische einer
 			// Kopie und sind keine Widerrufsfrist: ein frisch rotierter `kid` bleibt
 			// bis zum nächsten erfolgreichen Refetch abgewiesen, und ein Consumer

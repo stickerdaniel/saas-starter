@@ -1,6 +1,6 @@
 // @vitest-environment node
 
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, describe, expect, it, vi } from 'vitest';
 import { betterAuth } from 'better-auth';
 import { memoryAdapter } from 'better-auth/adapters/memory';
 
@@ -39,12 +39,12 @@ type StoredJwk = {
 };
 
 /**
- * Erzeugt ein echtes RS256-Schlüsselpaar (die Algorithmus-Wahl, die das
- * Convex-Plugin für customJwt erzwingt) und legt es in der Form ab, die das
- * jwt-Plugin schreibt und liest: `publicKey` und `privateKey` als JSON-Strings
- * plus `createdAt`. Die private Hälfte liegt absichtlich unverschlüsselt im
- * Fixture, damit eine Antwort mit Schlüsselmaterial an den Leak-Assertions
- * scheitert statt sich hinter Ciphertext zu verstecken.
+ * Erzeugt ein echtes RS256-Schlüsselpaar nach der Vorgabe des Convex-Plugins
+ * für customJwt und legt es in der Form ab, die das jwt-Plugin schreibt und
+ * liest: `publicKey` und `privateKey` als JSON-Strings plus `createdAt`. Die
+ * private Hälfte liegt absichtlich unverschlüsselt im Fixture, damit eine
+ * Antwort mit Schlüsselmaterial an den Leak-Assertions scheitert statt sich
+ * hinter Ciphertext zu verstecken.
  */
 async function createStoredJwk(): Promise<{ stored: StoredJwk; privateJwk: JsonWebKey }> {
 	const { publicKey, privateKey } = await crypto.subtle.generateKey(
@@ -80,6 +80,14 @@ async function createSeededAuth() {
 
 afterEach(() => {
 	vi.restoreAllMocks();
+});
+
+// Alle Tests dieser Datei brauchen die oben gesetzten Env-Stubs, deshalb wird
+// erst am Dateiende aufgeräumt. Unter dem Standard-Pool (forks, isoliert)
+// bekommt ohnehin jede Datei ihren eigenen Prozess; mit `--no-isolate` teilen
+// sich die Dateien einen Prozess und sähen die Stubs sonst weiter.
+afterAll(() => {
+	vi.unstubAllEnvs();
 });
 
 describe('public JWKS cache policy', () => {
