@@ -68,19 +68,60 @@ describe('deriveOrderedParts', () => {
 	});
 
 	// Reasoning, text and tool items are siblings in one keyed block, so a tool call
-	// id that looks like a reasoning ordinal would key two of them the same and put
-	// Svelte into its duplicate-key path.
-	it('keeps a tool call id out of the reasoning key namespace', () => {
-		const result = deriveOrderedParts(
+	// id that looks like a reasoning key would key two of them the same and put
+	// Svelte into its duplicate-key path. Both spellings a reasoning key ever had
+	// are covered, because the provider only promises the id is unique among tool
+	// calls, not that it avoids another kind's key space.
+	it.each(['reasoning-1', 'reasoning-r-second'])(
+		'keeps the tool call id %s out of the reasoning key namespace',
+		(toolCallId) => {
+			const result = deriveOrderedParts(
+				[
+					{ type: 'step-start' },
+					{ type: 'reasoning', text: 'First', id: 'r-first', state: 'done' },
+					{
+						type: 'tool-lookup',
+						toolCallId,
+						state: 'output-available',
+						input: {},
+						output: {}
+					},
+					{ type: 'step-start' },
+					{ type: 'reasoning', text: 'Second', id: 'r-second', state: 'streaming' }
+				] as MessagePart[],
+				'streaming'
+			);
+
+			expect(new Set(result.map((p) => p.key)).size).toBe(result.length);
+		}
+	);
+
+	// The answer is the part a reader is most likely to have selected or scrolled,
+	// and it moves index between the two views for the same reason the thoughts do.
+	it('keys text blocks by their ordinal so the answer survives the handover', () => {
+		const live = deriveOrderedParts(
 			[
-				{ type: 'reasoning', text: 'First' },
-				{ type: 'tool-lookup', toolCallId: 'reasoning-1', state: 'output-available' },
-				{ type: 'reasoning', text: 'Second' }
+				{ type: 'step-start' },
+				{ type: 'reasoning', text: 'First', id: 'r-first', state: 'done' },
+				{ type: 'tool-lookup', toolCallId: 't1', state: 'output-available', input: {}, output: {} },
+				{ type: 'step-start' },
+				{ type: 'reasoning', text: 'Second', id: 'r-second', state: 'done' },
+				{ type: 'text', text: 'the answer', state: 'done' }
+			] as MessagePart[],
+			'success'
+		);
+		const persisted = deriveOrderedParts(
+			[
+				{ type: 'reasoning', text: 'First', state: 'done' },
+				{ type: 'step-start' },
+				{ type: 'tool-lookup', toolCallId: 't1', state: 'output-available', input: {}, output: {} },
+				{ type: 'reasoning', text: 'Second', state: 'done' },
+				{ type: 'text', text: 'the answer', state: 'done' }
 			] as MessagePart[],
 			'success'
 		);
 
-		expect(new Set(result.map((p) => p.key)).size).toBe(result.length);
+		expect(live.map((p) => p.key)).toEqual(persisted.map((p) => p.key));
 	});
 
 	it('marks the trailing reasoning part as streaming only while in progress', () => {

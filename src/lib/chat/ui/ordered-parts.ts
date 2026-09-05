@@ -30,6 +30,21 @@ export type OrderedPart =
  * `step-start` returns `[]` and the caller keeps the connecting fallback mounted instead
  * of rendering an empty list.
  */
+/**
+ * How many parts of `type` come before `index`. The array position itself cannot
+ * key a part, because the views of one message place their `step-start` parts
+ * differently: the live stream opens a step before each thought, the persisted
+ * row before each tool call (measured), so the same answer sits at a different
+ * index in each and a keyed block would remount it mid-handover.
+ */
+function ordinalAmongType(parts: MessagePart[], index: number, type: string): number {
+	let ordinal = 0;
+	for (let before = 0; before < index; before += 1) {
+		if (parts[before]?.type === type) ordinal += 1;
+	}
+	return ordinal;
+}
+
 function toolPartKey(
 	toolCallId: string | undefined,
 	streamId: string | undefined,
@@ -70,7 +85,7 @@ export function deriveOrderedParts(
 					kind: 'text',
 					text: (p as { text?: string }).text ?? '',
 					isStreaming: idx === activeTextIndex,
-					key: `text-${idx}`
+					key: `text-${ordinalAmongType(messageParts, idx, 'text')}`
 				};
 			}
 			if (typeof p.type === 'string' && p.type.startsWith('tool-') && 'state' in p) {
