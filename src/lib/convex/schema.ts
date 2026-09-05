@@ -3,6 +3,7 @@ import { v } from 'convex/values';
 import { vEmailEvent } from '@convex-dev/resend';
 import { supportThreadFields } from './support/supportThreadFields';
 import { founderIncidentEmailFields } from './emails/founderIncidentTypes';
+import { aiUsageFeatureValidator } from './aiUsage/feature';
 
 export default defineSchema({
 	// Note: Better Auth component manages its own tables (users, sessions, accounts, verifications)
@@ -221,7 +222,7 @@ export default defineSchema({
 	// billing/admin query is added on by_user_at.
 	aiUsage: defineTable({
 		userId: v.optional(v.string()), // Better Auth _id, anon_* id, or absent
-		feature: v.union(v.literal('ai_chat'), v.literal('ai_chat_title'), v.literal('support_chat')),
+		feature: aiUsageFeatureValidator,
 		threadId: v.optional(v.string()),
 		status: v.union(v.literal('ok'), v.literal('partial'), v.literal('error')),
 		models: v.array(

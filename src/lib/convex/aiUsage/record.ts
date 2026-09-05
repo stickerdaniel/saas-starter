@@ -1,20 +1,15 @@
-import { v } from 'convex/values';
+import { v, type Infer } from 'convex/values';
 import { internalMutation } from '../_generated/server';
 import type { ActionCtx } from '../_generated/server';
 import { internal } from '../_generated/api';
 import { costOf } from '../pricing/prices';
 import { sumOptional, type CapturedModelUsage } from './capture';
+import { aiUsageFeatureValidator } from './feature';
 
 export type { CapturedModelUsage } from './capture';
 
-/** The LLM operations we meter. Keep in sync with the schema `aiUsage.feature` union. */
-export type Feature = 'ai_chat' | 'ai_chat_title' | 'support_chat';
-
-const vFeature = v.union(
-	v.literal('ai_chat'),
-	v.literal('ai_chat_title'),
-	v.literal('support_chat')
-);
+/** The LLM operations we meter. */
+export type Feature = Infer<typeof aiUsageFeatureValidator>;
 
 // Raw per-model usage as captured at the call site (cost not yet resolved).
 // totalTokens is required: captureDirect normalizes a provider-omitted value
@@ -40,7 +35,7 @@ const vCapturedModel = v.object({
 export const insert = internalMutation({
 	args: {
 		userId: v.optional(v.string()),
-		feature: vFeature,
+		feature: aiUsageFeatureValidator,
 		threadId: v.optional(v.string()),
 		status: v.optional(v.union(v.literal('ok'), v.literal('partial'), v.literal('error'))),
 		models: v.array(vCapturedModel)
