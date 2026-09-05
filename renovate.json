@@ -137,7 +137,7 @@
 			"abandonmentThreshold": "10 years"
 		},
 		{
-			"description": "Keep the pin conversion out of the upgrade groups. They list pin next to minor and patch, so the one-off conversion would join a branch that stays open for weeks, and until that branch merges the ranges it converts are still on main and still invisible to the advisory scan. The two ecosystem families get their own pin branches below rather than this one, for a different reason.",
+			"description": "Pin-Updates bleiben außerhalb der regulären Upgrade-Gruppen, damit eine verzögerte Gruppenaktualisierung nicht auch das Pinning aufhält. Solange Versionsbereiche im Manifest stehen, kann der OSV-Abgleich die installierte verwundbare Version weiterhin übersehen. Die beiden Ökosystem-Gruppen erhalten eigene Pin-Branches.",
 			"matchUpdateTypes": ["pin"],
 			"matchPackageNames": [
 				"!/^better-auth$/",
