@@ -1056,6 +1056,69 @@ describe('mergeAssistantMessageParts', () => {
 			{ type: 'text', text: 'answer' }
 		]);
 	});
+
+	// The message list materializes an active stream into its own page, so the
+	// existing side is a second live view that can be the newer one. `reasoning-end`
+	// closes a block without adding to its text (measured), so both sides read
+	// identically and only the state says the block finished.
+	it('keeps a closed live block closed when the other live view lags', () => {
+		const merged = mergeAssistantMessageParts(
+			[
+				{ type: 'step-start' },
+				{ type: 'reasoning', id: 'r1', text: 'complete thought', state: 'done' }
+			] as unknown as UIMessage['parts'],
+			[
+				{ type: 'step-start' },
+				{ type: 'reasoning', id: 'r1', text: 'complete thought', state: 'streaming' }
+			] as unknown as UIMessage['parts']
+		);
+
+		expect(merged.filter((part) => part.type === 'reasoning')).toMatchObject([
+			{ text: 'complete thought', state: 'done' }
+		]);
+	});
+
+	// The persisted reconstruction stamps `done` on every block it rebuilds, even
+	// one whose step is still running, and carries no id. Its state says nothing,
+	// so the live side still decides.
+	it('lets the live side reopen a block the persisted copy only calls done', () => {
+		const merged = mergeAssistantMessageParts(
+			[{ type: 'reasoning', text: 'Find coordinates', state: 'done' }] as UIMessage['parts'],
+			[
+				{ type: 'step-start' },
+				{ type: 'reasoning', id: 'r1', text: 'Find coordinates', state: 'streaming' }
+			] as unknown as UIMessage['parts']
+		);
+
+		expect(merged.filter((part) => part.type === 'reasoning')).toMatchObject([
+			{ text: 'Find coordinates', state: 'streaming' }
+		]);
+	});
+
+	// A tool call runs once, so the side holding its result is the newer one. Taking
+	// the incoming state left a spinner sitting above a finished result.
+	it('keeps a settled tool call settled when the other side lags', () => {
+		const merged = mergeAssistantMessageParts(
+			[
+				{ type: 'step-start' },
+				{
+					type: 'tool-lookup',
+					toolCallId: 'call-1',
+					state: 'output-available',
+					input: { id: 'record-1' },
+					output: { found: true }
+				}
+			] as unknown as UIMessage['parts'],
+			[
+				{ type: 'step-start' },
+				{ type: 'tool-lookup', toolCallId: 'call-1', state: 'input-streaming' }
+			] as unknown as UIMessage['parts']
+		);
+
+		expect(merged.filter((part) => part.type.startsWith('tool-'))).toMatchObject([
+			{ state: 'output-available', output: { found: true } }
+		]);
+	});
 });
 
 // ─── extractUserMessageText ───────────────────────────────────────────────────

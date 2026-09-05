@@ -125,6 +125,16 @@ function getStreamPartId(part: UIMessage['parts'][number]): string | undefined {
 	return typeof streamPartId === 'string' ? streamPartId : undefined;
 }
 
+/**
+ * Whether the part comes from a live materialization rather than a persisted
+ * reconstruction. Only a live snapshot carries the AI SDK's part id, so only
+ * there does its lifecycle `state` report what the model actually did.
+ */
+function carriesStreamIdentity(part: UIMessage['parts'][number]): boolean {
+	const record = asRecord(part);
+	return typeof record.streamPartId === 'string' || typeof record.id === 'string';
+}
+
 function getReasoningPartId(part: UIMessage['parts'][number]): string | undefined {
 	if (part.type !== 'reasoning') return undefined;
 
@@ -693,12 +703,26 @@ function mergeMatchedParts(
 	// the older one and grows it back on the next frame. Text and state come from
 	// the same side, because text that is already complete must not fall back to
 	// a spinner.
-	if (existingText.length > getPartText(incomingPart).length) {
+	const incomingText = getPartText(incomingPart);
+	if (existingText.length > incomingText.length) {
 		merged.text = existingText;
 		const existingState = asRecord(existingPart).state;
 		if (existingState !== undefined) {
 			merged.state = existingState;
 		}
+	} else if (
+		existingText.length === incomingText.length &&
+		asRecord(existingPart).state === 'done' &&
+		carriesStreamIdentity(existingPart)
+	) {
+		// `reasoning-end` and `text-end` close a block without adding to its text, so
+		// the two snapshots read identically and length cannot say which is newer.
+		// A `done` means the block really closed only on a live snapshot: the message
+		// list materializes an active stream into its own page, so this side is a
+		// second live view that can be the newer one. The persisted reconstruction
+		// stamps `done` on everything it rebuilds, including a step still running
+		// (measured), and carries no id, which is what tells the two apart.
+		merged.state = 'done';
 	}
 
 	return merged as UIMessage['parts'][number];
@@ -761,10 +785,28 @@ function getToolCallId(part: UIMessage['parts'][number]) {
 	return isToolUIPart(part) ? (asRecord(part).toolCallId as string) : undefined;
 }
 
+/** The tool states that carry a result, after which the call cannot run again. */
+const TERMINAL_TOOL_STATES = new Set(['output-available', 'output-error']);
+
+function isSettledToolPart(part: UIMessage['parts'][number]): boolean {
+	if (!part.type.startsWith('tool-')) return false;
+	const state = asRecord(part).state;
+	return typeof state === 'string' && TERMINAL_TOOL_STATES.has(state);
+}
+
 function mergeStreamParts(
 	previousPart: UIMessage['parts'][number],
 	part: UIMessage['parts'][number]
 ): UIMessage['parts'][number] {
+	// A tool call runs once, so its result is the end of the sequence and the
+	// snapshot holding one is the newer of the two whichever way they arrived.
+	// Field-wise merging would take the incoming `input-streaming` and leave it
+	// next to the output the other side already had, which renders as a spinner
+	// above a finished result.
+	if (isSettledToolPart(previousPart) && !isSettledToolPart(part)) {
+		return previousPart;
+	}
+
 	const merged: Record<string, unknown> = { ...previousPart };
 	for (const [key, value] of Object.entries(part)) {
 		if (value !== undefined) {
