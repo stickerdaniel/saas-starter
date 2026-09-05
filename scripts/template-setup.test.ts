@@ -4,6 +4,8 @@ import {
 	escapeMarkdownInline,
 	githubSlugProperty,
 	isValidGithubRepository,
+	parseContactEmail,
+	readmeShowsConvertedQuickStart,
 	replaceGithubSlugSource,
 	replaceLegalConfigSource,
 	replaceLegalContentDatesSource,
@@ -222,6 +224,16 @@ Unrelated prose stays.
 		expect(replaceReadmeSource(source, { ...options, brand }).split('\n')[0]).toBe(heading);
 	});
 
+	it('keeps CRLF line endings in the rewritten clone block', () => {
+		const crlf = source.replace(/\n/g, '\r\n');
+		const updated = replaceReadmeSource(crlf, options);
+
+		expect(updated).toContain(
+			'git clone https://github.com/northwind/northwind-labs.git\r\ncd northwind-labs\r\n'
+		);
+		expect(updated).not.toMatch(/[^\r]\n/);
+	});
+
 	it('fails before writes when an anchor is missing or ambiguous', () => {
 		expect(() => replaceReadmeSource('no heading here\n', options)).toThrow(
 			/Could not find the top-level heading/
@@ -232,6 +244,69 @@ Unrelated prose stays.
 		expect(() => replaceReadmeSource(source + source, options)).toThrow(
 			/quick start clone block in README.md, found 2/
 		);
+	});
+});
+
+describe('template setup detects the converted quick start', () => {
+	const bootstrap =
+		'# Title\n\n```bash\ngh repo create my-saas-product --template stickerdaniel/saas-starter --clone\ncd my-saas-product\nbun install\n```\n';
+	const converted =
+		'# Title\n\n```bash\ngit clone https://github.com/northwind/northwind-labs.git\ncd northwind-labs\nbun install\n```\n';
+
+	it('treats the template bootstrap form as not set up', () => {
+		expect(readmeShowsConvertedQuickStart(bootstrap, 'stickerdaniel/saas-starter')).toBe(false);
+		expect(readmeShowsConvertedQuickStart(bootstrap, 'northwind/northwind-labs')).toBe(false);
+	});
+
+	it('accepts the converted block only for the repository it names', () => {
+		expect(readmeShowsConvertedQuickStart(converted, 'northwind/northwind-labs')).toBe(true);
+		expect(readmeShowsConvertedQuickStart(converted, 'someone/other-repo')).toBe(false);
+	});
+
+	it('reads the converted block with CRLF line endings', () => {
+		expect(
+			readmeShowsConvertedQuickStart(converted.replace(/\n/g, '\r\n'), 'northwind/northwind-labs')
+		).toBe(true);
+	});
+
+	it('reports not set up when the block is missing or ambiguous', () => {
+		expect(readmeShowsConvertedQuickStart('# Title\n\nprose\n', 'northwind/northwind-labs')).toBe(
+			false
+		);
+		expect(readmeShowsConvertedQuickStart(converted + converted, 'northwind/northwind-labs')).toBe(
+			false
+		);
+	});
+});
+
+describe('template setup contact email', () => {
+	it.each([
+		{
+			value: 'kontakt@northwind-labs.de',
+			parts: { user: 'kontakt', domain: 'northwind-labs', tld: 'de' }
+		},
+		{ value: 'a@mail.example.com', parts: { user: 'a', domain: 'mail', tld: 'example.com' } },
+		{
+			value: 'first.last@example.co.uk',
+			parts: { user: 'first.last', domain: 'example', tld: 'co.uk' }
+		}
+	])('splits $value into three parts', ({ value, parts }) => {
+		expect(parseContactEmail(value)).toEqual(parts);
+	});
+
+	// Zusätzliche @, Leerzeichen in den Segmenten und leere Domainlabels müssen durchfallen.
+	it.each([
+		'a@b@c.de',
+		'erste person@example.de',
+		'a@ex ample.de',
+		'a@example .de',
+		'a@.de',
+		'a@example..de',
+		'a@example.',
+		'@example.de',
+		'plain-text'
+	])('rejects %s', (value) => {
+		expect(parseContactEmail(value)).toBeUndefined();
 	});
 });
 
