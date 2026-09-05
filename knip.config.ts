@@ -53,15 +53,8 @@ export default {
 		// Tailwind v4 plugins referenced via CSS @plugin, not JS imports.
 		'@tailwindcss/typography',
 		'tw-animate-css',
-		// Used internally by the @convex-dev/resend component.
-		'resend',
-		// ESLint legacy compat, referenced in eslint.config.js as strings.
-		'@typescript-eslint/eslint-plugin',
-		'@typescript-eslint/parser',
 		// Autumn CLI invoked by the Autumn config workflow, never imported.
 		'atmn',
-		// Re-exported by @tolgee/svelte.
-		'@tolgee/web',
 		// Imported only inside src/lib/emails (ignored above) and loaded through
 		// vite.ssrLoadModule in scripts/build-emails.ts.
 		'@better-svelte-email/server',
