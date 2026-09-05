@@ -1,5 +1,5 @@
 import fs from 'fs';
-import { runCommand, runCommandWithRetry } from '../process/command-runner';
+import { runCommand, runCommandWithRetry, type CommandSpec } from '../process/command-runner';
 import type { PlatformContext } from './platform';
 import { normalizeIdentifier, pruneOldestPreview } from './prune-previews';
 import { colors, runCommandCapture, sleep, stripAnsi } from './utils';
@@ -540,9 +540,13 @@ export function computeBuildEnv(
 /**
  * Build SvelteKit with computed environment
  */
-export async function buildSvelteKit(buildEnv: Record<string, string | undefined>): Promise<void> {
+export async function buildSvelteKit(
+	buildEnv: Record<string, string | undefined>,
+	execution: Pick<CommandSpec, 'signal' | 'timeoutMs'> = {}
+): Promise<void> {
 	console.log('Building SvelteKit...');
 	const result = await runCommand({
+		...execution,
 		command: 'bun',
 		args: ['run', 'build'],
 		env: { ...buildEnv, __VARLOCK_ENV: undefined },

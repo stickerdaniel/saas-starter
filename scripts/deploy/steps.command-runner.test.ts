@@ -1,5 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { CommandFailure, CommandSuccess } from '../process/command-runner';
+import type {
+	runCommand as runCommandType,
+	CommandExit,
+	CommandFailure,
+	CommandSpec,
+	CommandSuccess,
+	SpawnedCommand
+} from '../process/command-runner';
 import type { PlatformContext } from './platform';
 
 const runnerMocks = vi.hoisted(() => ({
@@ -136,6 +143,77 @@ describe('deployment command-runner migration', () => {
 			output: 'inherit'
 		});
 	});
+
+	it('forwards parent abort and timeout controls through the representative build caller', async () => {
+		const controller = new AbortController();
+
+		await buildSvelteKit({}, { signal: controller.signal, timeoutMs: 25 });
+
+		expect(runnerMocks.runCommand).toHaveBeenCalledWith({
+			command: 'bun',
+			args: ['run', 'build'],
+			env: { __VARLOCK_ENV: undefined },
+			output: 'inherit',
+			signal: controller.signal,
+			timeoutMs: 25
+		});
+	});
+
+	it.each(['abort', 'timeout'] as const)(
+		'settles the representative build child before the existing %s failure boundary',
+		async (stop) => {
+			const { runCommand } = await vi.importActual<{ runCommand: typeof runCommandType }>(
+				'../process/command-runner'
+			);
+			const controller = new AbortController();
+			let settle!: (exit: CommandExit) => void;
+			const child: SpawnedCommand = {
+				stdout: null,
+				stderr: null,
+				exited: new Promise((resolve) => {
+					settle = resolve;
+				}),
+				kill: vi.fn(() => true)
+			};
+			const spawn = vi.fn(() => child);
+			const killProcessTree = vi.fn((_child: SpawnedCommand, signal: NodeJS.Signals) => {
+				settle({ exitCode: null, signal });
+			});
+			const timers: Array<() => void> = [];
+			runnerMocks.runCommand.mockImplementation((spec: CommandSpec) =>
+				runCommand(spec, {
+					spawn,
+					killProcessTree,
+					baseEnv: {},
+					createTimer: (callback) => {
+						timers.push(callback);
+						return { cancel: vi.fn() };
+					}
+				})
+			);
+			// Deep CLI exits intentionally remain until PR 6B. Never exit the test worker.
+			const exitError = new Error('intercepted deployment exit');
+			const exit = vi.spyOn(process, 'exit').mockImplementation(() => {
+				throw exitError;
+			});
+
+			const pending = buildSvelteKit({}, { signal: controller.signal, timeoutMs: 25 });
+			const rejected = expect(pending).rejects.toBe(exitError);
+			if (stop === 'abort') controller.abort();
+			else timers[0]?.();
+			await rejected;
+
+			expect(spawn).toHaveBeenCalledTimes(1);
+			expect(killProcessTree.mock.calls).toEqual([
+				[child, 'SIGTERM'],
+				[child, 'SIGKILL']
+			]);
+			expect(exit).toHaveBeenCalledWith(1);
+			expect(console.error).toHaveBeenCalledWith(
+				expect.stringContaining(stop === 'abort' ? 'aborted' : 'timed out')
+			);
+		}
+	);
 
 	it('declares exactly five SITE_URL attempts through the retry primitive', async () => {
 		runnerMocks.runCommand
